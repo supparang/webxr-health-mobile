@@ -1,11 +1,12 @@
 /* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
-   FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-WORK-SURE-V2
-   - fixed duet room path: hha-battle/goodjunk/duetRooms/{ROOM}
-   - requires firebase-auth.js for anonymous auth
+   FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-WORK-SURE-V4
+   - duet room path: hha-battle/goodjunk/duetRooms/{ROOM}
+   - anonymous auth required
    - 2 players only
-   - host can start only when ready 2/2
-   - lobby countdown -> redirect to duet run
-   - invite link + QR + presence + host repair
+   - host start only when ready 2/2
+   - countdown + redirect to duet run
+   - invite link + QR
+   - path aligned with ../goodjunk-launcher.html and ./goodjunk-duet-run.html
 */
 (function(){
   'use strict';
@@ -14,33 +15,33 @@
   const D = document;
 
   const $ = (id) => D.getElementById(id);
+
   const els = {
-    roomCode   : $('roomCode'),
-    playerCount: $('playerCount'),
-    roomStatus : $('roomStatus'),
-    hostName   : $('hostName'),
-    playersBox : $('playersBox'),
-    copyState  : $('copyState'),
-    joinGuard  : $('joinGuard'),
-    inviteLink : $('inviteLink'),
-    qrBox      : $('qrBox'),
-    countdown  : $('countdown'),
-    btnCopyRoom: $('btnCopyRoom'),
+    roomCode     : $('roomCode'),
+    playerCount  : $('playerCount'),
+    roomStatus   : $('roomStatus'),
+    hostName     : $('hostName'),
+    playersBox   : $('playersBox'),
+    copyState    : $('copyState'),
+    joinGuard    : $('joinGuard'),
+    inviteLink   : $('inviteLink'),
+    qrBox        : $('qrBox'),
+    countdown    : $('countdown'),
+    btnCopyRoom  : $('btnCopyRoom'),
     btnCopyInvite: $('btnCopyInvite'),
-    btnReady   : $('btnReady'),
-    btnUnready : $('btnUnready'),
-    btnStart   : $('btnStart'),
-    btnBack    : $('btnBack'),
-    hint       : $('hint')
+    btnReady     : $('btnReady'),
+    btnUnready   : $('btnUnready'),
+    btnStart     : $('btnStart'),
+    btnBack      : $('btnBack'),
+    hint         : $('hint')
   };
 
   const GAME_KEY = 'goodjunk';
   const MODE_KEY = 'duet';
-  const RUN_PAGE = './goodjunk-duet-run.html'; // ถ้าของจริงใช้ชื่ออื่น เปลี่ยนตรงนี้
   const ROOM_SIZE = 2;
+  const COUNTDOWN_MS = 4000;
   const STALE_MS = 20000;
   const HEARTBEAT_MS = 8000;
-  const COUNTDOWN_MS = 4000;
 
   const qs = (...keys) => {
     try{
@@ -63,11 +64,11 @@
 
   function esc(s){
     return String(s == null ? '' : s)
-      .replace(/&/g,'&amp;')
-      .replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;')
-      .replace(/"/g,'&quot;')
-      .replace(/'/g,'&#39;');
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   function normalizeRoomId(raw){
@@ -95,12 +96,12 @@
       const KEY = 'GJ_DEVICE_PID';
       let pid = localStorage.getItem(KEY);
       if (!pid){
-        pid = 'p-' + Math.random().toString(36).slice(2,10);
+        pid = 'p-' + Math.random().toString(36).slice(2, 10);
         localStorage.setItem(KEY, pid);
       }
       return pid;
     }catch{
-      return 'p-' + Math.random().toString(36).slice(2,10);
+      return 'p-' + Math.random().toString(36).slice(2, 10);
     }
   }
 
@@ -108,19 +109,6 @@
     const v = String(raw || '').trim().replace(/[.#$[\]/]/g, '-');
     if (!v || v.toLowerCase() === 'anon') return makeDevicePid();
     return v.slice(0, 80);
-  }
-
-  function resolveName(){
-    const fromQs = qs('name', 'nick', 'playerName');
-    if (fromQs) {
-      try{ localStorage.setItem('HHA_PLAYER_NICK', fromQs); }catch{}
-      return fromQs.slice(0, 64);
-    }
-    try{
-      const saved = localStorage.getItem('HHA_PLAYER_NICK');
-      if (saved) return saved.slice(0, 64);
-    }catch{}
-    return 'Player';
   }
 
   function cleanDiff(raw){
@@ -139,24 +127,11 @@
     return (now() - seen) <= STALE_MS;
   }
 
-  function prunePlayers(players, status){
-    const out = {};
-    const src = players || {};
-    Object.keys(src).forEach((id) => {
-      const p = src[id] || {};
-      const staleLeft =
-        (p.phase === 'left') ||
-        (status === 'waiting' && p.connected === false && (now() - Number(p.lastSeenAt || 0) > STALE_MS));
-      if (!staleLeft) out[id] = p;
-    });
-    return out;
-  }
-
   function activePlayers(room){
-    const src = (room && room.players) ? room.players : {};
+    const src = room && room.players ? room.players : {};
     return Object.keys(src)
       .map((id) => Object.assign({ id }, src[id] || {}))
-      .filter((p) => p.phase !== 'left' || isProbablyAlive(p));
+      .filter((p) => !(p.phase === 'left' && !isProbablyAlive(p)));
   }
 
   function readyPlayers(room){
@@ -168,34 +143,54 @@
     return Array.isArray(ids) ? ids.filter(Boolean) : [];
   }
 
-  function serverTs(){
-    return firebase.database.ServerValue.TIMESTAMP;
+  function prunePlayers(players, status){
+    const out = {};
+    const src = players || {};
+    Object.keys(src).forEach((id) => {
+      const p = src[id] || {};
+      const shouldDrop =
+        p.phase === 'left' ||
+        (String(status || 'waiting') === 'waiting' &&
+         p.connected === false &&
+         (now() - Number(p.lastSeenAt || 0) > STALE_MS));
+      if (!shouldDrop) out[id] = p;
+    });
+    return out;
   }
 
   const STATE = {
     roomId: normalizeRoomId(qs('room', 'roomCode', 'roomId', 'code')) || randomRoomId(),
     pid: normalizePid(qs('pid') || ''),
-    name: resolveName(),
+    name: (() => {
+      const fromQs = qs('name', 'nick', 'playerName');
+      if (fromQs) return fromQs.slice(0, 64);
+      try{
+        return String(localStorage.getItem('HHA_PLAYER_NICK') || 'Player').slice(0, 64);
+      }catch{
+        return 'Player';
+      }
+    })(),
     hub: qs('hub') || '../hub.html',
     view: (qs('view') || 'mobile').toLowerCase(),
     run: (qs('run') || 'play').toLowerCase(),
     diff: cleanDiff(qs('diff') || 'normal'),
-    time: clamp(qs('time') || 90, 30, 300),
+    time: clamp(qs('time') || 150, 30, 300),
     seed: String(qs('seed') || now()),
     zone: qs('zone') || 'nutrition',
     theme: qs('theme') || 'goodjunk',
+
     uid: '',
     db: null,
     auth: null,
     roomRef: null,
     meRef: null,
+
     room: null,
     joined: false,
     joinDenied: false,
     joinDeniedReason: '',
     heartbeatTimer: 0,
     countdownTimer: 0,
-    redirectScheduled: false,
     redirected: false,
     repairingHost: false
   };
@@ -236,6 +231,7 @@
     u.searchParams.set('mode', MODE_KEY);
     u.searchParams.set('game', GAME_KEY);
     u.searchParams.set('room', STATE.roomId);
+    u.searchParams.set('roomId', STATE.roomId);
     u.searchParams.set('diff', STATE.diff);
     u.searchParams.set('time', String(STATE.time));
     u.searchParams.set('seed', STATE.seed);
@@ -247,7 +243,27 @@
     u.searchParams.delete('pid');
     u.searchParams.delete('name');
     u.searchParams.delete('nick');
-    u.searchParams.delete('uid');
+    return u.toString();
+  }
+
+  function buildRunUrl(room){
+    const u = new URL('./goodjunk-duet-run.html', W.location.href);
+    u.searchParams.set('mode', MODE_KEY);
+    u.searchParams.set('game', GAME_KEY);
+    u.searchParams.set('room', STATE.roomId);
+    u.searchParams.set('roomId', STATE.roomId);
+    u.searchParams.set('pid', STATE.pid);
+    u.searchParams.set('name', STATE.name);
+    u.searchParams.set('nick', STATE.name);
+    u.searchParams.set('diff', String(room.diff || STATE.diff));
+    u.searchParams.set('time', String(room.time || STATE.time));
+    u.searchParams.set('seed', String(room.seed || STATE.seed));
+    u.searchParams.set('hub', String(room.hub || STATE.hub));
+    u.searchParams.set('view', String(room.view || STATE.view));
+    u.searchParams.set('run', String(room.run || STATE.run));
+    u.searchParams.set('zone', String(room.zone || STATE.zone));
+    u.searchParams.set('theme', String(room.theme || STATE.theme));
+    u.searchParams.set('startAt', String(room.startAt || 0));
     return u.toString();
   }
 
@@ -289,8 +305,8 @@
 
     const list = activePlayers(room);
     list.sort((a, b) => {
-      const ah = a.id === room.hostId ? 1 : 0;
-      const bh = b.id === room.hostId ? 1 : 0;
+      const ah = a.id === (room && room.hostId) ? 1 : 0;
+      const bh = b.id === (room && room.hostId) ? 1 : 0;
       if (ah !== bh) return bh - ah;
       const am = a.id === STATE.uid ? 1 : 0;
       const bm = b.id === STATE.uid ? 1 : 0;
@@ -300,13 +316,15 @@
 
     const cards = list.map((p) => {
       const isMe = p.id === STATE.uid;
-      const isHost = p.id === room.hostId;
+      const isHost = room && p.id === room.hostId;
       const online = isProbablyAlive(p);
       const ready = !!p.ready;
+
       const badge = ready
         ? '<span class="ready">พร้อมแล้ว</span>'
         : (online ? '<span class="waiting">รอพร้อม</span>' : '<span class="offline">offline</span>');
-      const sub = [
+
+      const meta = [
         isHost ? 'Host' : '',
         isMe ? 'You' : '',
         p.pid ? ('PID: ' + esc(p.pid)) : ''
@@ -318,7 +336,7 @@
             <div style="font-weight:900;font-size:16px;color:#f8fafc;">${esc(p.name || 'Player')}</div>
             <div>${badge}</div>
           </div>
-          <div style="margin-top:6px;color:#cbd5e1;font-size:13px;line-height:1.55;">${esc(sub || 'ผู้เล่น')}</div>
+          <div style="margin-top:6px;color:#cbd5e1;font-size:13px;line-height:1.55;">${esc(meta || 'ผู้เล่น')}</div>
           <div style="margin-top:8px;color:#94a3b8;font-size:12px;line-height:1.55;">
             phase: ${esc(p.phase || 'lobby')}
           </div>
@@ -345,7 +363,7 @@
     const players = activePlayers(room);
     const readyCount = readyPlayers(room).length;
     const amHost = !!room && room.hostId === STATE.uid;
-    const waitingOnly = !!room && room.status === 'waiting';
+    const waitingOnly = !!room && String(room.status || 'waiting') === 'waiting';
     const fullEnough = players.length === ROOM_SIZE;
 
     if (els.btnReady)   els.btnReady.disabled   = !waitingOnly || !me || !!me.ready || STATE.joinDenied;
@@ -362,7 +380,20 @@
       return;
     }
 
-    if (!amHost && room.status === 'waiting'){
+    if (String(room.status || 'waiting') === 'countdown'){
+      setHint('กำลังนับถอยหลังเพื่อเข้าเกมพร้อมกัน', false);
+      return;
+    }
+    if (String(room.status || 'waiting') === 'running'){
+      setHint('กำลังพาเข้าสู่ GoodJunk Duet Run...', false);
+      return;
+    }
+    if (String(room.status || 'waiting') === 'finished'){
+      setHint('รอบก่อนหน้าจบแล้ว สร้างห้องใหม่เพื่อเริ่ม Duet รอบถัดไป', false);
+      return;
+    }
+
+    if (!amHost){
       if (readyCount < ROOM_SIZE){
         setHint('รอให้พร้อมครบ 2 คนก่อน จากนั้น Host จะกดเริ่มได้', false);
       } else {
@@ -371,33 +402,121 @@
       return;
     }
 
-    if (room.status === 'waiting'){
-      if (players.length < ROOM_SIZE){
-        setHint('ยังไม่ครบ 2 คน แชร์ลิงก์หรือ QR ให้เพื่อนเข้ามาอีก 1 คน', false);
-      } else if (readyCount < ROOM_SIZE){
-        setHint('ต้องมีผู้เล่นพร้อมครบ 2 คนก่อนเริ่ม Duet', false);
-      } else {
-        setHint('พร้อมครบ 2/2 แล้ว Host กด “เริ่ม Duet” ได้เลย', false);
+    if (players.length < ROOM_SIZE){
+      setHint('ยังไม่ครบ 2 คน แชร์ลิงก์หรือ QR ให้เพื่อนเข้ามาอีก 1 คน', false);
+      return;
+    }
+    if (readyCount < ROOM_SIZE){
+      setHint('ต้องมีผู้เล่นพร้อมครบ 2 คนก่อนเริ่ม Duet', false);
+      return;
+    }
+    setHint('พร้อมครบ 2/2 แล้ว Host กด “เริ่ม Duet” ได้เลย', false);
+  }
+
+  function stopCountdownLoop(){
+    if (STATE.countdownTimer){
+      clearInterval(STATE.countdownTimer);
+      STATE.countdownTimer = 0;
+    }
+  }
+
+  async function markRunningIfHost(room){
+    if (!room || room.hostId !== STATE.uid) return;
+    if (String(room.status || 'waiting') !== 'countdown') return;
+    if (Number(room.startAt || 0) > now()) return;
+
+    try{
+      await STATE.roomRef.update({
+        status: 'running',
+        updatedAt: firebase.database.ServerValue.TIMESTAMP
+      });
+      await STATE.roomRef.child('match/status').set('running');
+    }catch{}
+  }
+
+  function startCountdownLoop(room){
+    stopCountdownLoop();
+
+    const ids = participantIds(room);
+    const amParticipant = ids.includes(STATE.uid);
+    const startAt = Number(room.startAt || 0);
+
+    if (!amParticipant || !startAt){
+      if (els.countdown) els.countdown.textContent = '';
+      return;
+    }
+
+    STATE.countdownTimer = setInterval(async () => {
+      const ms = startAt - now();
+
+      if (ms <= 0){
+        if (els.countdown) els.countdown.textContent = 'GO!';
+        stopCountdownLoop();
+        await markRunningIfHost(room);
+        if (!STATE.redirected){
+          STATE.redirected = true;
+          W.location.replace(buildRunUrl(room));
+        }
+        return;
       }
+
+      if (els.countdown) els.countdown.textContent = String(Math.ceil(ms / 1000));
+    }, 80);
+  }
+
+  function maybeHandleCountdown(room){
+    if (!room){
+      stopCountdownLoop();
+      if (els.countdown) els.countdown.textContent = '';
       return;
     }
 
-    if (room.status === 'countdown'){
-      setHint('กำลังนับถอยหลังเพื่อเข้าเกมพร้อมกัน', false);
+    const status = String(room.status || 'waiting');
+    const ids = participantIds(room);
+    const amParticipant = ids.includes(STATE.uid);
+
+    if ((status === 'countdown' || status === 'running') && amParticipant){
+      if (status === 'running'){
+        if (els.countdown) els.countdown.textContent = 'GO!';
+        if (!STATE.redirected){
+          STATE.redirected = true;
+          setTimeout(() => W.location.replace(buildRunUrl(room)), 150);
+        }
+        return;
+      }
+      startCountdownLoop(room);
       return;
     }
 
-    if (room.status === 'running'){
-      setHint('กำลังพาเข้าสู่ GoodJunk Duet Run...', false);
-      return;
-    }
+    stopCountdownLoop();
+    if (els.countdown) els.countdown.textContent = '';
+  }
 
-    if (room.status === 'finished'){
-      setHint('รอบก่อนหน้าจบแล้ว สร้างห้องใหม่เพื่อเริ่ม Duet รอบถัดไป', false);
-      return;
-    }
+  async function maybeRepairHost(room){
+    if (STATE.repairingHost || !room) return;
+    if (String(room.status || 'waiting') !== 'waiting') return;
 
-    setHint('ต้องมีผู้เล่นพร้อมครบ 2 คนก่อนเริ่ม Duet', false);
+    const host = room.players && room.players[room.hostId] ? room.players[room.hostId] : null;
+    if (host && isProbablyAlive(host) && host.phase !== 'left') return;
+
+    const players = activePlayers(room).filter((p) => isProbablyAlive(p));
+    if (!players.length) return;
+
+    players.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const nextHost = players[0];
+    if (!nextHost || nextHost.id !== STATE.uid) return;
+
+    STATE.repairingHost = true;
+    try{
+      await STATE.roomRef.update({
+        hostId: nextHost.id,
+        hostName: nextHost.name || 'Host',
+        updatedAt: firebase.database.ServerValue.TIMESTAMP
+      });
+    }catch{}
+    finally{
+      STATE.repairingHost = false;
+    }
   }
 
   function renderRoom(room){
@@ -478,13 +597,13 @@
 
   function freshRoom(uid){
     const t = now();
-    const player = freshPlayer(uid);
+    const me = freshPlayer(uid);
     const room = {
       roomId: STATE.roomId,
       game: GAME_KEY,
       mode: MODE_KEY,
       hostId: uid,
-      hostName: player.name || 'Host',
+      hostName: me.name || 'Host',
       diff: STATE.diff,
       time: Number(STATE.time),
       seed: String(STATE.seed),
@@ -506,7 +625,7 @@
       },
       players: {}
     };
-    room.players[uid] = player;
+    room.players[uid] = me;
     return room;
   }
 
@@ -591,12 +710,8 @@
           if (room){
             const players = prunePlayers(room.players, room.status || 'waiting');
             const ids = Object.keys(players || {});
-            if (ids.length >= ROOM_SIZE && !players[STATE.uid]){
-              return reject(new Error('room-full'));
-            }
-            if (String(room.status || 'waiting') !== 'waiting' && !players[STATE.uid]){
-              return reject(new Error('room-not-joinable'));
-            }
+            if (ids.length >= ROOM_SIZE && !players[STATE.uid]) return reject(new Error('room-full'));
+            if (String(room.status || 'waiting') !== 'waiting' && !players[STATE.uid]) return reject(new Error('room-not-joinable'));
           }
           return reject(new Error('join-aborted'));
         }
@@ -610,7 +725,7 @@
     await STATE.meRef.onDisconnect().update({
       connected: false,
       phase: 'left',
-      lastSeenAt: serverTs()
+      lastSeenAt: firebase.database.ServerValue.TIMESTAMP
     });
 
     await STATE.meRef.update({
@@ -620,7 +735,7 @@
       name: STATE.name,
       connected: true,
       phase: 'lobby',
-      lastSeenAt: serverTs()
+      lastSeenAt: firebase.database.ServerValue.TIMESTAMP
     });
   }
 
@@ -630,7 +745,7 @@
       ready: !!flag,
       connected: true,
       phase: 'lobby',
-      lastSeenAt: serverTs()
+      lastSeenAt: firebase.database.ServerValue.TIMESTAMP
     });
   }
 
@@ -640,6 +755,7 @@
     await new Promise((resolve, reject) => {
       STATE.roomRef.transaction((current) => {
         if (!current) return current;
+
         current.players = prunePlayers(current.players, current.status || 'waiting');
 
         if (String(current.status || 'waiting') !== 'waiting') return current;
@@ -654,7 +770,8 @@
         const ready = players.filter((p) => !!p.ready);
         if (ready.length !== ROOM_SIZE) return current;
 
-        const startAt = now() + COUNTDOWN_MS;
+        const t = now();
+        const startAt = t + COUNTDOWN_MS;
         const ids = ready.slice(0, ROOM_SIZE).map((p) => p.id);
 
         ids.forEach((id) => {
@@ -665,21 +782,22 @@
           current.players[id].miss = 0;
           current.players[id].streak = 0;
           current.players[id].finishedAt = 0;
-          current.players[id].lastSeenAt = now();
+          current.players[id].lastSeenAt = t;
         });
 
         current.status = 'countdown';
         current.startAt = startAt;
-        current.updatedAt = now();
+        current.updatedAt = t;
         current.match = {
           participantIds: ids,
-          lockedAt: now(),
+          lockedAt: t,
           status: 'locked'
         };
 
         return current;
       }, (err, committed, snap) => {
         if (err) return reject(err);
+
         const room = snap && snap.val ? snap.val() : null;
         if (!committed){
           if (!room) return reject(new Error('start-failed'));
@@ -691,137 +809,10 @@
           if (String(room.status || 'waiting') !== 'waiting') return reject(new Error('room-not-waiting'));
           return reject(new Error('start-aborted'));
         }
-        resolve(room);
+
+        return resolve(room);
       }, false);
     });
-  }
-
-  async function markRunningIfHost(room){
-    if (!room || room.hostId !== STATE.uid) return;
-    if (String(room.status || 'waiting') !== 'countdown') return;
-    if (Number(room.startAt || 0) > now()) return;
-
-    try{
-      await STATE.roomRef.child('status').set('running');
-      await STATE.roomRef.child('match/status').set('running');
-      await STATE.roomRef.child('updatedAt').set(serverTs());
-    }catch{}
-  }
-
-  function buildRunUrl(room){
-    const u = new URL(RUN_PAGE, W.location.href);
-    u.searchParams.set('mode', MODE_KEY);
-    u.searchParams.set('game', GAME_KEY);
-    u.searchParams.set('room', STATE.roomId);
-    u.searchParams.set('roomId', STATE.roomId);
-    u.searchParams.set('pid', STATE.pid);
-    u.searchParams.set('name', STATE.name);
-    u.searchParams.set('nick', STATE.name);
-    u.searchParams.set('diff', String(room.diff || STATE.diff));
-    u.searchParams.set('time', String(room.time || STATE.time));
-    u.searchParams.set('seed', String(room.seed || STATE.seed));
-    u.searchParams.set('hub', String(room.hub || STATE.hub));
-    u.searchParams.set('view', String(room.view || STATE.view));
-    u.searchParams.set('run', String(room.run || STATE.run));
-    u.searchParams.set('zone', String(room.zone || STATE.zone));
-    u.searchParams.set('theme', String(room.theme || STATE.theme));
-    u.searchParams.set('startAt', String(room.startAt || 0));
-    return u.toString();
-  }
-
-  function stopCountdownLoop(){
-    if (STATE.countdownTimer){
-      clearInterval(STATE.countdownTimer);
-      STATE.countdownTimer = 0;
-    }
-  }
-
-  function startCountdownLoop(room){
-    stopCountdownLoop();
-
-    const ids = participantIds(room);
-    const amParticipant = ids.includes(STATE.uid);
-    const startAt = Number(room.startAt || 0);
-
-    if (!amParticipant || !startAt){
-      if (els.countdown) els.countdown.textContent = '';
-      return;
-    }
-
-    STATE.countdownTimer = setInterval(async () => {
-      const ms = startAt - now();
-
-      if (ms <= 0){
-        if (els.countdown) els.countdown.textContent = 'GO!';
-        stopCountdownLoop();
-        await markRunningIfHost(room);
-        if (!STATE.redirected){
-          STATE.redirected = true;
-          W.location.replace(buildRunUrl(room));
-        }
-        return;
-      }
-
-      const sec = Math.ceil(ms / 1000);
-      if (els.countdown) els.countdown.textContent = String(sec);
-    }, 80);
-  }
-
-  function maybeHandleCountdown(room){
-    if (!room){
-      stopCountdownLoop();
-      if (els.countdown) els.countdown.textContent = '';
-      return;
-    }
-
-    const status = String(room.status || 'waiting');
-    const ids = participantIds(room);
-    const amParticipant = ids.includes(STATE.uid);
-
-    if ((status === 'countdown' || status === 'running') && amParticipant){
-      if (status === 'running'){
-        if (els.countdown) els.countdown.textContent = 'GO!';
-        if (!STATE.redirected){
-          STATE.redirected = true;
-          setTimeout(() => {
-            W.location.replace(buildRunUrl(room));
-          }, 150);
-        }
-        return;
-      }
-      startCountdownLoop(room);
-      return;
-    }
-
-    stopCountdownLoop();
-    if (els.countdown) els.countdown.textContent = '';
-  }
-
-  async function maybeRepairHost(room){
-    if (STATE.repairingHost || !room) return;
-    if (String(room.status || 'waiting') !== 'waiting') return;
-
-    const host = room.players && room.players[room.hostId] ? room.players[room.hostId] : null;
-    if (host && isProbablyAlive(host) && host.phase !== 'left') return;
-
-    const players = activePlayers(room).filter((p) => isProbablyAlive(p));
-    if (!players.length) return;
-
-    players.sort((a, b) => String(a.id).localeCompare(String(b.id)));
-    const nextHost = players[0];
-    if (!nextHost || nextHost.id !== STATE.uid) return;
-
-    STATE.repairingHost = true;
-    try{
-      await STATE.roomRef.update({
-        hostId: nextHost.id,
-        hostName: nextHost.name || 'Host',
-        updatedAt: serverTs()
-      });
-    }catch{}
-    finally{
-      STATE.repairingHost = false;
-    }
   }
 
   function attachRoomListener(){
@@ -845,7 +836,7 @@
         name: STATE.name,
         connected: true,
         phase: 'lobby',
-        lastSeenAt: serverTs()
+        lastSeenAt: firebase.database.ServerValue.TIMESTAMP
       }).catch(() => {});
     }, HEARTBEAT_MS);
   }
@@ -901,7 +892,7 @@
         try{
           await startDuet();
         }catch(err){
-          const msg = (err && err.message) ? err.message : 'start-failed';
+          const msg = err && err.message ? err.message : 'start-failed';
           if (msg === 'not-host') setHint('เฉพาะ Host เท่านั้นที่กดเริ่ม Duet ได้', true);
           else if (msg === 'need-2-players') setHint('Duet ต้องมีผู้เล่นครบ 2 คนก่อน', true);
           else if (msg === 'need-2-ready') setHint('ต้องมีผู้เล่นพร้อมครบ 2/2 ก่อนเริ่ม', true);
@@ -916,10 +907,6 @@
       });
     }
 
-    W.addEventListener('pagehide', () => {
-      stopHeartbeat();
-    });
-
     W.addEventListener('beforeunload', () => {
       stopHeartbeat();
       try{
@@ -927,11 +914,13 @@
           STATE.meRef.update({
             connected: false,
             phase: 'left',
-            lastSeenAt: serverTs()
+            lastSeenAt: firebase.database.ServerValue.TIMESTAMP
           }).catch(() => {});
         }
       }catch{}
     });
+
+    W.addEventListener('pagehide', stopHeartbeat);
   }
 
   async function init(){
@@ -956,7 +945,7 @@
       startHeartbeat();
       setCopyState('ส่ง room code หรือลิงก์นี้ให้เพื่อนอีกคนเข้าร่วมได้', false);
     }catch(err){
-      const msg = (err && err.message) ? err.message : 'join-failed';
+      const msg = err && err.message ? err.message : 'join-failed';
       if (msg === 'room-full'){
         showJoinGuard('ห้องนี้เต็มแล้ว (Duet รับได้แค่ 2 คน)');
       } else if (msg === 'room-not-joinable'){
