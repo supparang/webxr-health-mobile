@@ -22,7 +22,7 @@ const GJ_HUB = RUN_CTX.hub || '../hub.html';
 const GJ_GAME_ID = RUN_CTX.gameId || 'goodjunk';
 
 const GAME_MOUNT = document.getElementById('gameMount') || document.body;
-const STYLE_ID = 'goodjunk-phaseboss-style-v20260319e';
+const STYLE_ID = 'goodjunk-phaseboss-style-v20260326';
 const ROOT_ID = 'gjpbRoot';
 
 const GJ_SOLO_LAST_SUMMARY_KEY = `GJ_SOLO_LAST_SUMMARY_${GJ_PID}`;
@@ -35,7 +35,7 @@ const HHA_EVENTS_SCHEMA_QUEUE_KEY = 'HHA_EVENTS_SCHEMA_QUEUE';
 const HHA_SESSIONS_SCHEMA_QUEUE_KEY = 'HHA_SESSIONS_SCHEMA_QUEUE';
 
 const SESSION_ID = `gjsolo-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-const PATCH_VERSION = '20260325-goodjunk-solo-cloudlive-v3';
+const PATCH_VERSION = '20260326-goodjunk-solo-theme-pack4';
 const HHA_ENDPOINT = String(__qs.get('api') || window.HHA_CLOUD_ENDPOINT || '').trim();
 
 let __cloudLogger = null;
@@ -152,7 +152,23 @@ const ui = {
   btnAgain: null,
   btnCooldown: null,
   btnHub: null,
-  btnExport: null
+  btnExport: null,
+  rewardCoins: null,
+  rewardStars: null,
+  rewardBadge: null,
+  summaryRibbon: null,
+  summaryScoreValue: null,
+  stageBadge: null,
+  playerAvatar: null,
+  playerName: null,
+  playerSub: null,
+  levelBadge: null,
+  miniMission: null,
+  summaryHeroAvatar: null,
+  summaryHeroName: null,
+  summaryHeroDesc: null,
+  hubTitle: null,
+  hubDesc: null
 };
 
 const state = {
@@ -242,6 +258,7 @@ boot();
 
 function boot() {
   injectStyle();
+  injectThemePack4Extras();
   buildShell();
   bindShell();
   refreshStageRect();
@@ -263,51 +280,80 @@ function injectStyle() {
       user-select:none;
       -webkit-user-select:none;
       touch-action:manipulation;
-      color:#e5e7eb;
+
+      --hh-sky:#dff4ff;
+      --hh-sky-2:#bfe8ff;
+      --hh-cream:#fff9e8;
+      --hh-card:#fffdf6;
+      --hh-card-2:#f7fff3;
+      --hh-line:#bfe3f2;
+      --hh-text:#4d4a42;
+      --hh-muted:#7c7a73;
+      --hh-green:#7ed957;
+      --hh-green-2:#58c33f;
+      --hh-blue:#7fcfff;
+      --hh-blue-2:#58b7f5;
+      --hh-yellow:#ffd45c;
+      --hh-orange:#ffb547;
+      --hh-pink:#ffa9c9;
+      --hh-danger:#ff9494;
+      --hh-shadow:0 18px 40px rgba(86,155,194,.18);
+
+      color:var(--hh-text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
+        radial-gradient(circle at 84% 14%, rgba(255,255,255,.78), transparent 16%),
+        linear-gradient(180deg,var(--hh-sky),var(--hh-sky-2) 54%, var(--hh-cream));
     }
+
     .gjpb-shell{
       position:absolute;
       inset:0;
       display:grid;
-      grid-template-rows:auto auto 1fr auto;
-      gap:10px;
+      grid-template-rows:auto auto auto 1fr auto;
+      gap:12px;
       padding:
         calc(12px + env(safe-area-inset-top,0px))
         calc(12px + env(safe-area-inset-right,0px))
         calc(12px + env(safe-area-inset-bottom,0px))
         calc(12px + env(safe-area-inset-left,0px));
     }
+
     .gjpb-topbar{
       display:flex;
       justify-content:space-between;
-      gap:10px;
+      gap:12px;
       flex-wrap:wrap;
       align-items:flex-start;
       z-index:3;
     }
+
     .gjpb-chip-row{
       display:flex;
       gap:8px;
       flex-wrap:wrap;
+      width:100%;
     }
+
     .gjpb-chip{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:9px 12px;
+      padding:10px 14px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.72);
-      box-shadow:0 12px 28px rgba(0,0,0,.2);
-      backdrop-filter:blur(8px);
+      border:2px solid var(--hh-line);
+      background:#fff;
+      box-shadow:0 10px 22px rgba(86,155,194,.12);
       font-size:13px;
-      font-weight:900;
-      color:#e5e7eb;
+      font-weight:1000;
+      color:var(--hh-text);
     }
+
     .gjpb-chip span{
-      color:#94a3b8;
-      font-weight:800;
+      color:#6fa6c4;
+      font-weight:1000;
     }
+
     .gjpb-phasebar{
       display:flex;
       align-items:center;
@@ -316,256 +362,365 @@ function injectStyle() {
       flex-wrap:wrap;
       z-index:2;
     }
+
     .gjpb-phase-pill,
     .gjpb-goal-pill{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:10px 14px;
+      padding:11px 16px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.72);
-      backdrop-filter:blur(8px);
-      box-shadow:0 12px 28px rgba(0,0,0,.2);
+      border:2px solid var(--hh-line);
+      background:linear-gradient(180deg,#fffef8,#f7fff5);
+      box-shadow:0 10px 22px rgba(86,155,194,.12);
       font-size:13px;
       font-weight:1000;
+      color:var(--hh-text);
     }
+
     .gjpb-stage{
       position:relative;
       min-height:340px;
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:26px;
+      border:3px solid var(--hh-line);
+      border-radius:30px;
       overflow:hidden;
       background:
-        radial-gradient(circle at 50% 0%, rgba(56,189,248,.08), transparent 30%),
-        radial-gradient(circle at 20% 20%, rgba(167,139,250,.08), transparent 26%),
-        linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.9));
-      box-shadow:0 24px 64px rgba(0,0,0,.24);
+        linear-gradient(180deg, #dff4ff 0%, #d8f1ff 48%, #fdf4ce 100%);
+      box-shadow:var(--hh-shadow);
       isolation:isolate;
     }
+
     .gjpb-stage::before{
       content:"";
       position:absolute;
       inset:0;
       pointer-events:none;
       background:
-        linear-gradient(180deg, rgba(255,255,255,.04), transparent 24%),
-        linear-gradient(0deg, rgba(255,255,255,.02), transparent 22%);
+        radial-gradient(circle at 16% 12%, rgba(255,255,255,.95), transparent 12%),
+        radial-gradient(circle at 78% 16%, rgba(255,255,255,.82), transparent 10%),
+        linear-gradient(180deg, rgba(255,255,255,.25), transparent 30%);
       z-index:0;
     }
+
     .gjpb-stars{
       position:absolute;
       inset:0;
       background-image:
-        radial-gradient(circle at 10% 15%, rgba(255,255,255,.55) 0 1px, transparent 1.5px),
-        radial-gradient(circle at 28% 68%, rgba(255,255,255,.35) 0 1px, transparent 1.5px),
-        radial-gradient(circle at 44% 24%, rgba(255,255,255,.42) 0 1px, transparent 1.5px),
-        radial-gradient(circle at 72% 38%, rgba(255,255,255,.32) 0 1px, transparent 1.5px),
-        radial-gradient(circle at 82% 72%, rgba(255,255,255,.4) 0 1px, transparent 1.5px),
-        radial-gradient(circle at 90% 20%, rgba(255,255,255,.28) 0 1px, transparent 1.5px);
-      opacity:.85;
+        radial-gradient(circle at 10% 15%, rgba(255,255,255,.95) 0 2px, transparent 2.5px),
+        radial-gradient(circle at 28% 68%, rgba(255,255,255,.72) 0 2px, transparent 2.5px),
+        radial-gradient(circle at 44% 24%, rgba(255,255,255,.86) 0 2px, transparent 2.5px),
+        radial-gradient(circle at 72% 38%, rgba(255,255,255,.72) 0 2px, transparent 2.5px),
+        radial-gradient(circle at 82% 72%, rgba(255,255,255,.78) 0 2px, transparent 2.5px),
+        radial-gradient(circle at 90% 20%, rgba(255,255,255,.66) 0 2px, transparent 2.5px);
+      opacity:.88;
       z-index:0;
       pointer-events:none;
     }
+
+    .gjpb-scene{
+      position:absolute;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+      overflow:hidden;
+    }
+
+    .gjpb-cloud{
+      position:absolute;
+      border-radius:999px;
+      background:rgba(255,255,255,.82);
+      filter:blur(.2px);
+      box-shadow:0 6px 18px rgba(255,255,255,.28);
+    }
+
+    .gjpb-cloud.c1{ width:120px; height:34px; left:7%; top:11%; }
+    .gjpb-cloud.c2{ width:86px; height:28px; left:23%; top:18%; }
+    .gjpb-cloud.c3{ width:132px; height:36px; right:12%; top:13%; }
+    .gjpb-cloud.c4{ width:94px; height:30px; right:28%; top:22%; }
+
+    .gjpb-cloud::before,
+    .gjpb-cloud::after{
+      content:"";
+      position:absolute;
+      border-radius:999px;
+      background:inherit;
+    }
+
+    .gjpb-cloud::before{
+      width:42%;
+      height:130%;
+      left:12%;
+      bottom:30%;
+    }
+
+    .gjpb-cloud::after{
+      width:38%;
+      height:115%;
+      right:12%;
+      bottom:20%;
+    }
+
+    .gjpb-hill{
+      position:absolute;
+      left:-5%;
+      right:-5%;
+      border-radius:999px;
+      background:linear-gradient(180deg,#b9ed8b,#8fdb61);
+    }
+
+    .gjpb-hill.h1{
+      bottom:10%;
+      height:28%;
+      z-index:0;
+    }
+
+    .gjpb-hill.h2{
+      bottom:3%;
+      height:24%;
+      background:linear-gradient(180deg,#8cde66,#66c746);
+      z-index:0;
+    }
+
+    .gjpb-path{
+      position:absolute;
+      left:50%;
+      bottom:-8%;
+      width:36%;
+      height:34%;
+      transform:translateX(-50%);
+      background:linear-gradient(180deg,#fff6d7,#efd69b);
+      border-radius:50% 50% 0 0/65% 65% 0 0;
+      opacity:.85;
+      z-index:0;
+    }
+
+    .gjpb-stage-badge{
+      position:absolute;
+      right:14px;
+      bottom:14px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid var(--hh-line);
+      background:rgba(255,255,255,.92);
+      color:#6a7b52;
+      font-size:12px;
+      font-weight:1000;
+      z-index:2;
+      box-shadow:0 10px 18px rgba(86,155,194,.1);
+    }
+
     .gjpb-layer{
       position:absolute;
       inset:0;
       overflow:hidden;
       z-index:1;
     }
+
     .gjpb-banner{
       position:absolute;
       left:50%;
       top:50%;
       transform:translate(-50%,-50%);
-      min-width:min(80vw,520px);
-      padding:16px 18px;
-      border-radius:20px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.72);
-      color:#e5e7eb;
+      width:min(88vw,560px);
+      padding:18px 18px;
+      border-radius:24px;
+      border:3px solid var(--hh-line);
+      background:linear-gradient(180deg,#fffdf6,#f6fff5);
+      color:var(--hh-text);
       text-align:center;
-      backdrop-filter:blur(8px);
-      box-shadow:0 24px 50px rgba(0,0,0,.26);
+      box-shadow:var(--hh-shadow);
       font-weight:1000;
       z-index:5;
       transition:opacity .2s ease, transform .2s ease;
     }
+
     .gjpb-banner.hide{
       opacity:0;
       transform:translate(-50%,-56%) scale(.98);
       pointer-events:none;
     }
+
     .gjpb-banner small{
       display:block;
-      margin-top:6px;
-      color:#cbd5e1;
-      font-size:13px;
-      font-weight:700;
+      margin-top:8px;
+      color:var(--hh-muted);
+      font-size:14px;
+      font-weight:900;
       line-height:1.55;
     }
+
     .gjpb-target{
       position:absolute;
       display:grid;
       place-items:center;
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(15,23,42,.86);
-      box-shadow:0 14px 28px rgba(0,0,0,.22);
+      border-radius:24px;
+      border:2px solid rgba(255,255,255,.92);
+      box-shadow:0 12px 24px rgba(93,155,196,.18);
       overflow:hidden;
       cursor:pointer;
       padding:0;
       transform:translate3d(0,0,0);
       z-index:2;
     }
+
     .gjpb-target.good{
       background:
-        radial-gradient(circle at 30% 22%, rgba(255,255,255,.22), transparent 24%),
-        linear-gradient(180deg, rgba(34,197,94,.34), rgba(34,197,94,.18)),
-        rgba(15,23,42,.9);
-      border-color:rgba(34,197,94,.34);
+        radial-gradient(circle at 30% 22%, rgba(255,255,255,.45), transparent 24%),
+        linear-gradient(180deg, rgba(126,217,87,.88), rgba(95,198,63,.92));
+      border-color:#efffe4;
     }
+
     .gjpb-target.junk,
     .gjpb-target.storm{
       background:
-        radial-gradient(circle at 30% 22%, rgba(255,255,255,.18), transparent 24%),
-        linear-gradient(180deg, rgba(244,63,94,.28), rgba(244,63,94,.12)),
-        rgba(15,23,42,.9);
-      border-color:rgba(244,63,94,.32);
+        radial-gradient(circle at 30% 22%, rgba(255,255,255,.35), transparent 24%),
+        linear-gradient(180deg, rgba(255,177,71,.95), rgba(255,143,143,.92));
+      border-color:#fff1eb;
     }
+
     .gjpb-target.weakspot{
       background:
-        radial-gradient(circle at 30% 22%, rgba(255,255,255,.32), transparent 24%),
-        linear-gradient(180deg, rgba(250,204,21,.32), rgba(249,115,22,.18)),
-        rgba(15,23,42,.94);
-      border-color:rgba(250,204,21,.42);
-      box-shadow:0 0 0 4px rgba(250,204,21,.08), 0 18px 42px rgba(0,0,0,.28);
+        radial-gradient(circle at 30% 22%, rgba(255,255,255,.55), transparent 24%),
+        linear-gradient(180deg, rgba(255,212,92,.98), rgba(255,181,71,.95));
+      border-color:#fff8d6;
+      box-shadow:0 0 0 6px rgba(255,212,92,.22), 0 16px 28px rgba(93,155,196,.2);
       animation: gjpb-weakspot-pulse .9s ease-in-out infinite;
     }
+
     @keyframes gjpb-weakspot-pulse{
-      0%,100%{
-        box-shadow:0 0 0 0 rgba(250,204,21,.10), 0 18px 42px rgba(0,0,0,.28);
-      }
-      50%{
-        box-shadow:0 0 0 8px rgba(250,204,21,.08), 0 18px 42px rgba(0,0,0,.28);
-      }
+      0%,100%{ box-shadow:0 0 0 0 rgba(255,212,92,.18), 0 16px 28px rgba(93,155,196,.2); }
+      50%{ box-shadow:0 0 0 8px rgba(255,212,92,.18), 0 16px 28px rgba(93,155,196,.2); }
     }
+
     .gjpb-emoji{
-      font-size:34px;
+      font-size:36px;
       line-height:1;
-      filter:drop-shadow(0 6px 12px rgba(0,0,0,.2));
+      filter:drop-shadow(0 5px 8px rgba(255,255,255,.28));
       transform:translateY(-2px);
       pointer-events:none;
     }
+
     .gjpb-tag{
       position:absolute;
       left:8px;
       right:8px;
-      bottom:6px;
+      bottom:7px;
       text-align:center;
       font-size:10px;
       font-weight:1000;
       letter-spacing:.08em;
       text-transform:uppercase;
-      color:#e2e8f0;
-      opacity:.94;
+      color:#fffef8;
+      text-shadow:0 1px 0 rgba(0,0,0,.12);
       pointer-events:none;
       white-space:nowrap;
     }
+
     .gjpb-fx{
       position:absolute;
-      font-size:16px;
+      font-size:18px;
       font-weight:1000;
       pointer-events:none;
       transform:translate(-50%,-50%);
-      text-shadow:0 8px 18px rgba(0,0,0,.24);
+      text-shadow:0 3px 0 #fff;
       animation:gjpb-fx-up .72s ease forwards;
       z-index:6;
     }
+
     @keyframes gjpb-fx-up{
       from{ opacity:1; transform:translate(-50%,-20%); }
       to{ opacity:0; transform:translate(-50%,-145%); }
     }
+
     .gjpb-bosswrap{
       position:absolute;
       left:12px;
       top:12px;
-      width:min(280px, calc(100% - 24px));
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:20px;
-      background:rgba(2,6,23,.7);
-      backdrop-filter:blur(8px);
-      box-shadow:0 20px 40px rgba(0,0,0,.18);
+      width:min(300px, calc(100% - 24px));
+      border:3px solid var(--hh-line);
+      border-radius:24px;
+      background:linear-gradient(180deg,#fffdf8,#f8fff3);
+      box-shadow:var(--hh-shadow);
       padding:12px;
       z-index:4;
       display:none;
       transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
     }
-    .gjpb-bosswrap.show{
-      display:block;
-    }
+
+    .gjpb-bosswrap.show{ display:block; }
+
     .gjpb-boss-head{
       display:flex;
       align-items:center;
       gap:10px;
       margin-bottom:10px;
     }
+
     .gjpb-boss-icon{
-      width:54px;
-      height:54px;
-      border-radius:16px;
+      width:56px;
+      height:56px;
+      border-radius:18px;
       display:grid;
       place-items:center;
       font-size:28px;
-      background:linear-gradient(180deg, rgba(239,68,68,.26), rgba(120,53,15,.2));
-      border:1px solid rgba(239,68,68,.28);
-      box-shadow:0 10px 20px rgba(0,0,0,.2);
+      background:linear-gradient(180deg,#ffe4ae,#ffd077);
+      border:2px solid #ffecc6;
+      box-shadow:0 8px 18px rgba(255,181,71,.22);
       flex:0 0 auto;
     }
+
     .gjpb-boss-name{
       font-size:18px;
       font-weight:1000;
       margin:0;
+      color:#67a91c;
     }
+
     .gjpb-boss-state{
-      color:#cbd5e1;
+      color:var(--hh-muted);
       font-size:12px;
-      font-weight:800;
+      font-weight:1000;
       margin-top:2px;
     }
+
     .gjpb-boss-bar{
-      height:14px;
+      height:16px;
       border-radius:999px;
       overflow:hidden;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(255,255,255,.06);
+      border:2px solid var(--hh-line);
+      background:#eef9ff;
       margin-top:6px;
     }
+
     .gjpb-boss-barfill{
       height:100%;
       width:100%;
       transform-origin:left center;
-      background:linear-gradient(90deg, rgba(250,204,21,.95), rgba(249,115,22,.95));
+      background:linear-gradient(90deg, var(--hh-yellow), var(--hh-orange));
       transition:transform .16s linear;
     }
+
     .gjpb-boss-hptext{
       margin-top:6px;
-      color:#e5e7eb;
+      color:var(--hh-text);
       font-size:12px;
       font-weight:1000;
       text-align:right;
     }
-    .gjpb-bottom{
-      z-index:3;
-    }
+
+    .gjpb-bottom{ z-index:3; }
+
     .gjpb-bottom-card{
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:18px;
-      padding:12px;
-      background:rgba(2,6,23,.7);
-      box-shadow:0 12px 28px rgba(0,0,0,.2);
-      backdrop-filter:blur(8px);
+      border:3px solid var(--hh-line);
+      border-radius:24px;
+      padding:14px;
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      box-shadow:var(--hh-shadow);
     }
+
     .gjpb-bottom-top{
       display:flex;
       justify-content:space-between;
@@ -574,38 +729,94 @@ function injectStyle() {
       align-items:center;
       margin-bottom:10px;
     }
+
     .gjpb-hint{
-      color:#cbd5e1;
-      font-size:13px;
+      color:var(--hh-text);
+      font-size:14px;
       line-height:1.55;
+      font-weight:1000;
     }
+
     .gjpb-stats{
       display:flex;
       gap:12px;
       flex-wrap:wrap;
-      color:#cbd5e1;
+      color:var(--hh-muted);
       font-size:13px;
       line-height:1.55;
+      font-weight:900;
     }
-    .gjpb-stats strong{
-      color:#e5e7eb;
-    }
+
+    .gjpb-stats strong{ color:#67a91c; }
+
     .gjpb-progress{
       position:relative;
       width:100%;
-      height:12px;
+      height:16px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
+      border:2px solid var(--hh-line);
       overflow:hidden;
-      background:rgba(255,255,255,.06);
+      background:#eef9ff;
     }
+
     .gjpb-progress-bar{
       height:100%;
       width:100%;
       transform-origin:left center;
-      background:linear-gradient(90deg, rgba(56,189,248,.92), rgba(34,197,94,.88));
+      background:linear-gradient(90deg,var(--hh-green),var(--hh-blue));
       transition:transform .1s linear;
     }
+
+    .gjpb-reward-strip{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    .gjpb-reward-card{
+      flex:1 1 160px;
+      min-height:60px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:20px;
+      border:2px solid var(--hh-line);
+      background:#fff;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+    }
+
+    .gjpb-reward-icon{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      font-size:22px;
+      background:linear-gradient(180deg,#fff7d7,#eefaff);
+      border:2px solid var(--hh-line);
+      flex:0 0 auto;
+    }
+
+    .gjpb-reward-copy{
+      display:grid;
+      gap:2px;
+    }
+
+    .gjpb-reward-copy .label{
+      font-size:11px;
+      color:#79a9c4;
+      font-weight:1000;
+    }
+
+    .gjpb-reward-copy .value{
+      font-size:20px;
+      color:var(--hh-text);
+      font-weight:1000;
+      line-height:1.1;
+    }
+
     .gjpb-summary{
       position:fixed;
       inset:0;
@@ -616,102 +827,229 @@ function injectStyle() {
         calc(16px + env(safe-area-inset-right,0px))
         calc(16px + env(safe-area-inset-bottom,0px))
         calc(16px + env(safe-area-inset-left,0px));
-      background:rgba(2,6,23,.82);
-      backdrop-filter:blur(10px);
+      background:rgba(183,233,255,.52);
+      backdrop-filter:blur(8px);
       z-index:20;
     }
+
     .gjpb-summary[hidden]{
       display:none !important;
     }
+
     .gjpb-summary-card{
-      width:min(94vw,760px);
+      width:min(94vw,780px);
       max-height:88vh;
       overflow:auto;
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:24px;
-      background:rgba(15,23,42,.96);
-      box-shadow:0 28px 64px rgba(0,0,0,.38);
-      padding:20px 18px 18px;
+      border:3px solid var(--hh-line);
+      border-radius:30px;
+      background:linear-gradient(180deg,#fffef9,#f8fff4);
+      box-shadow:0 24px 56px rgba(86,155,194,.18);
+      padding:22px 18px 18px;
     }
+
     .gjpb-summary-kicker{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:6px 12px;
+      padding:8px 14px;
       border-radius:999px;
-      background:rgba(56,189,248,.12);
-      border:1px solid rgba(56,189,248,.24);
-      color:#7dd3fc;
+      background:#eaf8ff;
+      border:2px solid var(--hh-line);
+      color:#5fa7cf;
       font-size:13px;
       font-weight:1000;
       margin-bottom:12px;
     }
-    .gjpb-summary-title{
-      margin:0 0 8px;
-      font-size:clamp(26px, 5vw, 38px);
-      line-height:1.08;
+
+    .gjpb-summary-ribbon{
+      margin:8px auto 10px;
+      width:min(100%, 520px);
+      padding:14px 18px;
+      border-radius:22px;
+      background:linear-gradient(180deg,#7fcfff,#58b7f5);
+      color:#fffef9;
+      text-align:center;
+      font-size:18px;
       font-weight:1000;
+      box-shadow:0 14px 24px rgba(88,183,245,.22);
+      position:relative;
     }
+
+    .gjpb-summary-ribbon::before,
+    .gjpb-summary-ribbon::after{
+      content:"⭐";
+      position:absolute;
+      top:50%;
+      transform:translateY(-50%);
+      font-size:26px;
+    }
+
+    .gjpb-summary-ribbon::before{ left:14px; }
+    .gjpb-summary-ribbon::after{ right:14px; }
+
+    .gjpb-summary-title{
+      margin:0 0 6px;
+      font-size:clamp(28px,5vw,44px);
+      line-height:1.06;
+      font-weight:1000;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
+      text-align:center;
+    }
+
     .gjpb-summary-sub{
       margin:0;
-      color:#94a3b8;
+      color:var(--hh-muted);
       font-size:14px;
       line-height:1.65;
+      font-weight:900;
+      text-align:center;
     }
+
+    .gjpb-stars-row{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      margin:16px 0 10px;
+      font-size:42px;
+      line-height:1;
+    }
+
+    .gjpb-star.on{ filter:drop-shadow(0 3px 0 rgba(255,255,255,.75)); }
+    .gjpb-star.off{ opacity:.26; }
+
+    .gjpb-summary-score{
+      margin:0 auto 14px;
+      width:min(100%, 420px);
+      border-radius:24px;
+      border:2px solid var(--hh-line);
+      background:#fff;
+      padding:14px 18px;
+      text-align:center;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+    }
+
+    .gjpb-summary-score .label{
+      color:#6ea8c7;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .gjpb-summary-score .value{
+      color:var(--hh-text);
+      font-size:52px;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .gjpb-coach{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      margin:14px 0 0;
+      padding:14px;
+      border-radius:22px;
+      border:2px solid var(--hh-line);
+      background:#fff;
+    }
+
+    .gjpb-coach-avatar{
+      width:68px;
+      height:68px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      background:linear-gradient(180deg,#e8f8ff,#fff7d8);
+      border:2px solid var(--hh-line);
+      flex:0 0 auto;
+    }
+
+    .gjpb-coach-text{
+      color:var(--hh-text);
+      font-size:15px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
     .gjpb-summary-grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
       margin-top:16px;
     }
+
     .gjpb-summary-item{
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:18px;
+      border:2px solid var(--hh-line);
+      border-radius:20px;
       padding:12px;
-      background:rgba(2,6,23,.45);
+      background:#fff;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
     }
+
     .gjpb-summary-item .label{
-      color:#94a3b8;
+      color:#72a7c6;
       font-size:12px;
-      font-weight:900;
+      font-weight:1000;
       margin-bottom:6px;
     }
+
     .gjpb-summary-item .value{
-      color:#e5e7eb;
+      color:var(--hh-text);
       font-size:22px;
       font-weight:1000;
       line-height:1.2;
     }
+
     .gjpb-summary-actions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
       margin-top:18px;
     }
+
     .gjpb-btn{
       appearance:none;
       border:0;
       cursor:pointer;
-      border-radius:16px;
-      padding:12px 16px;
-      font-size:14px;
+      border-radius:18px;
+      padding:13px 16px;
+      font-size:15px;
       font-weight:1000;
       transition:.12s ease;
+      box-shadow:0 10px 18px rgba(86,155,194,.12);
     }
-    .gjpb-btn:hover{ transform:translateY(-1px); filter:brightness(1.05); }
+
+    .gjpb-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
     .gjpb-btn:active{ transform:translateY(0); }
-    .gjpb-btn.good{ background:#22c55e; color:#052e16; }
-    .gjpb-btn.blue{ background:#38bdf8; color:#082f49; }
-    .gjpb-btn.warn{ background:#f59e0b; color:#3b1d00; }
+
+    .gjpb-btn.good{
+      background:linear-gradient(180deg,var(--hh-green),var(--hh-green-2));
+      color:#fffef8;
+    }
+
+    .gjpb-btn.blue{
+      background:linear-gradient(180deg,var(--hh-blue),var(--hh-blue-2));
+      color:#fffef8;
+    }
+
+    .gjpb-btn.warn{
+      background:linear-gradient(180deg,var(--hh-yellow),var(--hh-orange));
+      color:#6d4e00;
+    }
+
     .gjpb-btn.ghost{
-      background:rgba(255,255,255,.06);
-      color:#e5e7eb;
-      border:1px solid rgba(148,163,184,.18);
+      background:linear-gradient(180deg,#edf8ff,#dbefff);
+      color:#5d8eab;
+      border:2px solid var(--hh-line);
     }
 
     #${ROOT_ID}.gjpb-shake .gjpb-stage{
       animation: gjpb-stage-shake .22s linear 1;
     }
+
     @keyframes gjpb-stage-shake{
       0%{ transform:translate3d(0,0,0); }
       20%{ transform:translate3d(-6px, 2px, 0); }
@@ -720,11 +1058,10 @@ function injectStyle() {
       80%{ transform:translate3d(4px, -1px, 0); }
       100%{ transform:translate3d(0,0,0); }
     }
+
     .gjpb-bosswrap.flash{
-      border-color:rgba(250,204,21,.48);
-      box-shadow:
-        0 0 0 3px rgba(250,204,21,.10),
-        0 20px 40px rgba(0,0,0,.18);
+      border-color:#ffe0a2;
+      box-shadow:0 0 0 4px rgba(255,212,92,.18), var(--hh-shadow);
       transform:scale(1.02);
     }
 
@@ -732,7 +1069,7 @@ function injectStyle() {
       content:"";
       position:absolute;
       inset:0;
-      background:linear-gradient(180deg, rgba(250,204,21,.10), rgba(255,255,255,.02));
+      background:linear-gradient(180deg, rgba(255,212,92,.16), rgba(255,255,255,.06));
       pointer-events:none;
       z-index:4;
     }
@@ -745,77 +1082,67 @@ function injectStyle() {
       transform:translate(-50%,-50%);
       animation:gjpb-victory-burst 900ms ease-out forwards;
       z-index:8;
-      text-shadow:0 10px 24px rgba(0,0,0,.28);
+      text-shadow:0 2px 0 #fff;
     }
+
     @keyframes gjpb-victory-burst{
-      from{
-        opacity:1;
-        transform:translate(-50%,-50%) scale(.7);
-      }
-      to{
-        opacity:0;
-        transform:translate(var(--tx), var(--ty)) scale(1.25);
-      }
+      from{ opacity:1; transform:translate(-50%,-50%) scale(.7); }
+      to{ opacity:0; transform:translate(var(--tx), var(--ty)) scale(1.25); }
     }
 
     .gjpb-stage.telegraph-storm{
-      box-shadow:
-        0 0 0 2px rgba(244,63,94,.18),
-        0 24px 64px rgba(0,0,0,.24);
+      box-shadow:0 0 0 4px rgba(255,169,201,.22), var(--hh-shadow);
     }
+
     .gjpb-stage.telegraph-storm::after{
       content:"";
       position:absolute;
       inset:0;
-      background:linear-gradient(180deg, rgba(244,63,94,.10), transparent 40%);
+      background:linear-gradient(180deg, rgba(255,169,201,.16), transparent 40%);
       pointer-events:none;
       z-index:3;
     }
 
     .gjpb-stage.telegraph-break{
-      box-shadow:
-        0 0 0 2px rgba(250,204,21,.18),
-        0 24px 64px rgba(0,0,0,.24);
+      box-shadow:0 0 0 4px rgba(255,212,92,.24), var(--hh-shadow);
     }
+
     .gjpb-stage.telegraph-break::after{
       content:"";
       position:absolute;
       inset:0;
-      background:linear-gradient(180deg, rgba(250,204,21,.10), transparent 40%);
+      background:linear-gradient(180deg, rgba(255,212,92,.16), transparent 40%);
       pointer-events:none;
       z-index:3;
     }
 
     .gjpb-stage.telegraph-hunt{
-      box-shadow:
-        0 0 0 2px rgba(56,189,248,.18),
-        0 24px 64px rgba(0,0,0,.24);
+      box-shadow:0 0 0 4px rgba(127,207,255,.24), var(--hh-shadow);
     }
+
     .gjpb-stage.telegraph-hunt::after{
       content:"";
       position:absolute;
       inset:0;
-      background:linear-gradient(180deg, rgba(56,189,248,.10), transparent 40%);
+      background:linear-gradient(180deg, rgba(127,207,255,.16), transparent 40%);
       pointer-events:none;
       z-index:3;
     }
 
     .gjpb-bosswrap.defeated{
-      border-color:rgba(34,197,94,.34);
-      background:
-        linear-gradient(180deg, rgba(34,197,94,.12), rgba(2,6,23,.7));
+      border-color:#bde895;
+      background:linear-gradient(180deg,#faffef,#f6fff1);
       transform:scale(1.03);
     }
 
     .gjpb-bosswrap.defeated .gjpb-boss-icon{
-      background:linear-gradient(180deg, rgba(34,197,94,.30), rgba(20,83,45,.18));
-      border-color:rgba(34,197,94,.30);
+      background:linear-gradient(180deg,#dff7bf,#fff3c4);
+      border-color:#d3efae;
     }
 
     @media (max-width:760px){
       .gjpb-shell{
-        grid-template-rows:auto auto 1fr auto;
-        gap:8px;
+        gap:10px;
         padding:10px;
       }
       .gjpb-bosswrap{
@@ -827,13 +1154,248 @@ function injectStyle() {
       .gjpb-summary-actions .gjpb-btn{
         flex:1 1 calc(50% - 10px);
       }
+      .gjpb-reward-card{
+        flex:1 1 calc(50% - 10px);
+      }
     }
+
     @media (max-width:540px){
       .gjpb-summary-grid{
         grid-template-columns:1fr;
       }
       .gjpb-summary-actions .gjpb-btn{
         flex:1 1 100%;
+      }
+      .gjpb-coach{
+        align-items:flex-start;
+      }
+      .gjpb-reward-card{
+        flex:1 1 100%;
+      }
+      .gjpb-summary-score .value{
+        font-size:42px;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function injectThemePack4Extras() {
+  const extraId = STYLE_ID + '-pack4';
+  if (document.getElementById(extraId)) return;
+
+  const style = document.createElement('style');
+  style.id = extraId;
+  style.textContent = `
+    .gjpb-topdeck{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:12px;
+      align-items:start;
+      z-index:4;
+    }
+
+    .gjpb-player-card{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+      padding:12px 14px;
+      border-radius:24px;
+      border:3px solid var(--hh-line);
+      background:linear-gradient(180deg,#fffef8,#f7fff4);
+      box-shadow:var(--hh-shadow);
+    }
+
+    .gjpb-player-avatar{
+      width:64px;
+      height:64px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      font-size:34px;
+      background:linear-gradient(180deg,#e8f8ff,#fff7d8);
+      border:2px solid var(--hh-line);
+      box-shadow:0 8px 16px rgba(86,155,194,.12);
+    }
+
+    .gjpb-player-meta{
+      min-width:0;
+      display:grid;
+      gap:2px;
+    }
+
+    .gjpb-player-kicker{
+      color:#74a8c5;
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.2;
+    }
+
+    .gjpb-player-name{
+      color:var(--hh-text);
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.15;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .gjpb-player-sub{
+      color:var(--hh-muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.25;
+    }
+
+    .gjpb-level-card{
+      display:grid;
+      gap:8px;
+      justify-items:end;
+    }
+
+    .gjpb-level-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:999px;
+      border:3px solid var(--hh-line);
+      background:linear-gradient(180deg,#fffef7,#f7fff4);
+      box-shadow:var(--hh-shadow);
+      color:#6a6a61;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .gjpb-level-badge strong{
+      color:#67a91c;
+      font-size:15px;
+    }
+
+    .gjpb-mini-mission{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid var(--hh-line);
+      background:#fff;
+      color:#6f6d65;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+    }
+
+    .gjpb-summary-hero{
+      display:grid;
+      grid-template-columns:110px 1fr;
+      gap:14px;
+      align-items:center;
+      margin:0 0 14px;
+      padding:14px;
+      border-radius:24px;
+      border:2px solid var(--hh-line);
+      background:linear-gradient(180deg,#fffef8,#f7fff4);
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+    }
+
+    .gjpb-summary-hero-avatar{
+      width:110px;
+      height:110px;
+      border-radius:28px;
+      display:grid;
+      place-items:center;
+      font-size:58px;
+      background:linear-gradient(180deg,#e8f8ff,#fff7d8);
+      border:3px solid var(--hh-line);
+      box-shadow:0 10px 18px rgba(86,155,194,.1);
+    }
+
+    .gjpb-summary-hero-copy{
+      display:grid;
+      gap:6px;
+      min-width:0;
+    }
+
+    .gjpb-summary-hero-copy .name{
+      color:#67a91c;
+      font-size:24px;
+      font-weight:1000;
+      line-height:1.08;
+    }
+
+    .gjpb-summary-hero-copy .desc{
+      color:var(--hh-muted);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.55;
+    }
+
+    .gjpb-hub-card{
+      margin-top:14px;
+      padding:14px;
+      border-radius:22px;
+      border:2px solid var(--hh-line);
+      background:#fff;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .gjpb-hub-icon{
+      width:54px;
+      height:54px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      font-size:28px;
+      background:linear-gradient(180deg,#e8f8ff,#fff7d8);
+      border:2px solid var(--hh-line);
+    }
+
+    .gjpb-hub-copy{
+      min-width:0;
+      display:grid;
+      gap:2px;
+    }
+
+    .gjpb-hub-copy .title{
+      color:var(--hh-text);
+      font-size:16px;
+      font-weight:1000;
+      line-height:1.15;
+    }
+
+    .gjpb-hub-copy .desc{
+      color:var(--hh-muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .gjpb-summary-actions{
+      margin-top:16px;
+    }
+
+    @media (max-width:760px){
+      .gjpb-topdeck{
+        grid-template-columns:1fr;
+      }
+      .gjpb-level-card{
+        justify-items:start;
+      }
+      .gjpb-summary-hero{
+        grid-template-columns:1fr;
+        justify-items:center;
+        text-align:center;
+      }
+      .gjpb-summary-hero-copy .name{
+        font-size:22px;
       }
     }
   `;
@@ -844,27 +1406,53 @@ function buildShell() {
   GAME_MOUNT.innerHTML = `
     <div id="${ROOT_ID}">
       <div class="gjpb-shell">
+        <div class="gjpb-topdeck">
+          <div class="gjpb-player-card">
+            <div class="gjpb-player-avatar" id="gjpbPlayerAvatar">🙂</div>
+            <div class="gjpb-player-meta">
+              <div class="gjpb-player-kicker">PLAYER</div>
+              <div class="gjpb-player-name" id="gjpbPlayerName">${escapeHtml(GJ_NAME || GJ_PID || 'Food Hero')}</div>
+              <div class="gjpb-player-sub" id="gjpbPlayerSub">พร้อมเริ่มภารกิจอาหารดี</div>
+            </div>
+          </div>
+
+          <div class="gjpb-level-card">
+            <div class="gjpb-level-badge">🏅 <span>Level</span> <strong id="gjpbLevelBadge">1</strong></div>
+            <div class="gjpb-mini-mission" id="gjpbMiniMission">🌱 Beginner Food Hero</div>
+          </div>
+        </div>
+
         <div class="gjpb-topbar">
           <div class="gjpb-chip-row">
-            <div class="gjpb-chip"><span>Score</span><strong id="gjpbScore">0</strong></div>
-            <div class="gjpb-chip"><span>Time</span><strong id="gjpbTimer">0:00</strong></div>
-            <div class="gjpb-chip"><span>Miss</span><strong id="gjpbMiss">0</strong></div>
-            <div class="gjpb-chip"><span>Streak</span><strong id="gjpbStreak">0</strong></div>
+            <div class="gjpb-chip">🪙 <span>Score</span><strong id="gjpbScore">0</strong></div>
+            <div class="gjpb-chip">⏰ <span>Time</span><strong id="gjpbTimer">0:00</strong></div>
+            <div class="gjpb-chip">❤️ <span>Miss</span><strong id="gjpbMiss">0</strong></div>
+            <div class="gjpb-chip">⭐ <span>Streak</span><strong id="gjpbStreak">0</strong></div>
           </div>
         </div>
 
         <div class="gjpb-phasebar">
-          <div class="gjpb-phase-pill" id="gjpbPhasePill">PHASE 1</div>
-          <div class="gjpb-goal-pill" id="gjpbGoalText">GOAL สะสมคะแนน</div>
+          <div class="gjpb-phase-pill" id="gjpbPhasePill">Mission 1</div>
+          <div class="gjpb-goal-pill" id="gjpbGoalText">เก็บอาหารดีให้ถึงเป้า</div>
         </div>
 
         <div class="gjpb-stage" id="gjpbStage">
+          <div class="gjpb-scene">
+            <div class="gjpb-cloud c1"></div>
+            <div class="gjpb-cloud c2"></div>
+            <div class="gjpb-cloud c3"></div>
+            <div class="gjpb-cloud c4"></div>
+            <div class="gjpb-hill h1"></div>
+            <div class="gjpb-hill h2"></div>
+            <div class="gjpb-path"></div>
+          </div>
+
           <div class="gjpb-stars"></div>
           <div class="gjpb-layer" id="gjpbLayer"></div>
 
           <div class="gjpb-banner" id="gjpbBanner">
-            <div id="gjpbBannerTitle">GoodJunk Phase Boss</div>
-            <small id="gjpbBannerSub">เก็บอาหารดี • หลีกเลี่ยง junk • ผ่าน Phase 1 และ Phase 2 เพื่อไปสู้กับ Junk King</small>
+            <div id="gjpbBannerTitle">HeroHealth Food Mission</div>
+            <small id="gjpbBannerSub">เก็บอาหารดี หลีกเลี่ยง junk food แล้วไปช่วยปราบ Junk King</small>
           </div>
 
           <div class="gjpb-bosswrap" id="gjpbBossWrap">
@@ -880,21 +1468,50 @@ function buildShell() {
             </div>
             <div class="gjpb-boss-hptext" id="gjpbBossHpText">0 / 0</div>
           </div>
+
+          <div class="gjpb-stage-badge" id="gjpbStageBadge">🌱 Healthy Town</div>
         </div>
 
         <div class="gjpb-bottom">
           <div class="gjpb-bottom-card">
             <div class="gjpb-bottom-top">
-              <div class="gjpb-hint" id="gjpbHint">เก็บอาหารดีให้ได้คะแนนสูงขึ้น • อย่ากด junk</div>
+              <div class="gjpb-hint" id="gjpbHint">แตะอาหารดีให้เร็ว และอย่าแตะ junk food</div>
               <div class="gjpb-stats" id="gjpbStats">
-                <div><strong>Good hit:</strong> 0</div>
-                <div><strong>Junk hit:</strong> 0</div>
-                <div><strong>Good missed:</strong> 0</div>
-                <div><strong>Power hit:</strong> 0</div>
+                <div><strong>Good:</strong> 0</div>
+                <div><strong>Junk:</strong> 0</div>
+                <div><strong>Missed:</strong> 0</div>
+                <div><strong>Power:</strong> 0</div>
               </div>
             </div>
+
             <div class="gjpb-progress">
               <div class="gjpb-progress-bar" id="gjpbProgressBar"></div>
+            </div>
+
+            <div class="gjpb-reward-strip">
+              <div class="gjpb-reward-card">
+                <div class="gjpb-reward-icon">🪙</div>
+                <div class="gjpb-reward-copy">
+                  <div class="label">Reward Coins</div>
+                  <div class="value" id="gjpbRewardCoins">0</div>
+                </div>
+              </div>
+
+              <div class="gjpb-reward-card">
+                <div class="gjpb-reward-icon">⭐</div>
+                <div class="gjpb-reward-copy">
+                  <div class="label">Star Rank</div>
+                  <div class="value" id="gjpbRewardStars">1</div>
+                </div>
+              </div>
+
+              <div class="gjpb-reward-card">
+                <div class="gjpb-reward-icon">🏅</div>
+                <div class="gjpb-reward-copy">
+                  <div class="label">Mission Badge</div>
+                  <div class="value" id="gjpbRewardBadge">Start</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -902,15 +1519,47 @@ function buildShell() {
 
       <div class="gjpb-summary" id="gjpbSummary" hidden>
         <div class="gjpb-summary-card">
-          <div class="gjpb-summary-kicker">GOODJUNK SOLO SUMMARY</div>
-          <h2 class="gjpb-summary-title" id="gjpbSummaryTitle">สรุปผลการเล่น</h2>
-          <p class="gjpb-summary-sub" id="gjpbSummarySub">จบรอบแล้ว มาดูผลของรอบนี้กัน</p>
+          <div class="gjpb-summary-kicker">🌟 GOODJUNK SOLO SUMMARY</div>
+          <div class="gjpb-summary-ribbon" id="gjpbSummaryRibbon">Great Job!</div>
+
+          <div class="gjpb-summary-hero">
+            <div class="gjpb-summary-hero-avatar" id="gjpbSummaryHeroAvatar">😄</div>
+            <div class="gjpb-summary-hero-copy">
+              <div class="name" id="gjpbSummaryHeroName">Food Hero Complete!</div>
+              <div class="desc" id="gjpbSummaryHeroDesc">เธอช่วยปกป้องเมืองอาหารดีได้สำเร็จ</div>
+            </div>
+          </div>
+
+          <h2 class="gjpb-summary-title" id="gjpbSummaryTitle">Great Job!</h2>
+          <p class="gjpb-summary-sub" id="gjpbSummarySub">มาดูผลของรอบนี้กัน</p>
+
+          <div class="gjpb-stars-row" id="gjpbStarsRow"></div>
+
+          <div class="gjpb-summary-score">
+            <div class="label">Score</div>
+            <div class="value" id="gjpbSummaryScoreValue">0</div>
+          </div>
+
           <div class="gjpb-summary-grid" id="gjpbSummaryGrid"></div>
+
+          <div class="gjpb-coach" id="gjpbCoachCard">
+            <div class="gjpb-coach-avatar">🦸</div>
+            <div class="gjpb-coach-text" id="gjpbCoachText">ยอดเยี่ยมมาก! วันนี้เธอช่วยปกป้องอาหารดีได้ดีเลย</div>
+          </div>
+
+          <div class="gjpb-hub-card" id="gjpbHubCard">
+            <div class="gjpb-hub-icon">🏠</div>
+            <div class="gjpb-hub-copy">
+              <div class="title" id="gjpbHubTitle">กลับไปที่ HeroHealth Hub</div>
+              <div class="desc" id="gjpbHubDesc">เลือกภารกิจถัดไปหรือเล่น GoodJunk อีกรอบได้เลย</div>
+            </div>
+          </div>
+
           <div class="gjpb-summary-actions">
-            <button class="gjpb-btn blue" id="gjpbBtnAgain" type="button">เล่นใหม่</button>
+            <button class="gjpb-btn blue" id="gjpbBtnAgain" type="button">เล่นอีกครั้ง</button>
             <button class="gjpb-btn good" id="gjpbBtnCooldown" type="button">ไป Cooldown</button>
-            <button class="gjpb-btn warn" id="gjpbBtnExport" type="button">Export JSON</button>
             <button class="gjpb-btn ghost" id="gjpbBtnHub" type="button">กลับ HUB</button>
+            <button class="gjpb-btn warn" id="gjpbBtnExport" type="button">Export JSON</button>
           </div>
         </div>
       </div>
@@ -944,6 +1593,25 @@ function buildShell() {
   ui.btnCooldown = document.getElementById('gjpbBtnCooldown');
   ui.btnHub = document.getElementById('gjpbBtnHub');
   ui.btnExport = document.getElementById('gjpbBtnExport');
+
+  ui.rewardCoins = document.getElementById('gjpbRewardCoins');
+  ui.rewardStars = document.getElementById('gjpbRewardStars');
+  ui.rewardBadge = document.getElementById('gjpbRewardBadge');
+  ui.summaryRibbon = document.getElementById('gjpbSummaryRibbon');
+  ui.summaryScoreValue = document.getElementById('gjpbSummaryScoreValue');
+  ui.stageBadge = document.getElementById('gjpbStageBadge');
+
+  ui.playerAvatar = document.getElementById('gjpbPlayerAvatar');
+  ui.playerName = document.getElementById('gjpbPlayerName');
+  ui.playerSub = document.getElementById('gjpbPlayerSub');
+  ui.levelBadge = document.getElementById('gjpbLevelBadge');
+  ui.miniMission = document.getElementById('gjpbMiniMission');
+
+  ui.summaryHeroAvatar = document.getElementById('gjpbSummaryHeroAvatar');
+  ui.summaryHeroName = document.getElementById('gjpbSummaryHeroName');
+  ui.summaryHeroDesc = document.getElementById('gjpbSummaryHeroDesc');
+  ui.hubTitle = document.getElementById('gjpbHubTitle');
+  ui.hubDesc = document.getElementById('gjpbHubDesc');
 }
 
 function bindShell() {
@@ -1489,6 +2157,42 @@ function endCloudSession(summary) {
   );
 }
 
+function getCloudStatusSnapshot() {
+  const logger = getCloudLogger();
+  if (!logger || typeof logger.getStatusSummary !== 'function') {
+    return {
+      queueTotal: 0,
+      queueSessions: 0,
+      queueEvents: 0,
+      queueProfiles: 0,
+      lastFlushAt: 0,
+      lastOkAt: 0,
+      lastError: ''
+    };
+  }
+
+  const s = logger.getStatusSummary();
+  return {
+    queueTotal: Number(s.queue?.total || 0),
+    queueSessions: Number(s.queue?.sessions || 0),
+    queueEvents: Number(s.queue?.events || 0),
+    queueProfiles: Number(s.queue?.students_profile || 0),
+    lastFlushAt: Number(s.lastFlushAt || 0),
+    lastOkAt: Number(s.lastOkAt || 0),
+    lastError: String(s.lastError || '')
+  };
+}
+
+function formatCloudTs(ms) {
+  const n = Number(ms || 0);
+  if (!n) return '-';
+  try {
+    return new Date(n).toLocaleString('th-TH');
+  } catch {
+    return '-';
+  }
+}
+
 function logGameEvent(eventType, extra = {}) {
   const payload = {
     ...makeBaseLogFields(),
@@ -1601,8 +2305,8 @@ function startGame() {
   if (ui.bossState) ui.bossState.textContent = 'รอเข้าสู่บอส';
 
   showBanner(
-    'GoodJunk Phase Boss',
-    'เก็บอาหารดี • หลีกเลี่ยง junk • ผ่าน Phase 1 และ Phase 2 เพื่อไปสู้กับ Junk King',
+    'Food Hero Mission',
+    'เก็บอาหารดี • หลีกเลี่ยง junk • ผ่าน Mission 1 และ Mission 2 เพื่อไปสู้กับ Junk King',
     1800
   );
 
@@ -2090,6 +2794,49 @@ function updateTargets(dt) {
   removeIds.forEach(removeTarget);
 }
 
+function getTargetTheme(kind) {
+  if (kind === 'good') {
+    return {
+      face: '😊',
+      sticker: 'GOOD',
+      tilt: randRange(-8, 8),
+      scale: 1
+    };
+  }
+
+  if (kind === 'weakspot') {
+    return {
+      face: '⭐',
+      sticker: 'HIT!',
+      tilt: randRange(-6, 6),
+      scale: 1.02
+    };
+  }
+
+  if (kind === 'storm') {
+    return {
+      face: '😵',
+      sticker: 'OH NO',
+      tilt: randRange(-10, 10),
+      scale: 1
+    };
+  }
+
+  return {
+    face: '😬',
+    sticker: 'JUNK',
+    tilt: randRange(-10, 10),
+    scale: 1
+  };
+}
+
+function getPhaseLabelText() {
+  if (state.boss.active) return 'Boss Mission';
+  if (state.phase === 1) return 'Mission 1';
+  if (state.phase === 2) return 'Mission 2';
+  return 'Mission';
+}
+
 function createTarget({
   kind,
   emoji,
@@ -2102,15 +2849,38 @@ function createTarget({
   vy = 0
 }) {
   const id = `t-${++state.targetSeq}`;
+  const theme = getTargetTheme(kind);
 
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = `gjpb-target ${kind}`;
   btn.style.width = `${w}px`;
   btn.style.height = `${h}px`;
+  btn.dataset.tilt = String(theme.tilt || 0);
+  btn.dataset.scale = String(theme.scale || 1);
   btn.innerHTML = `
+    <div style="
+      position:absolute; inset:0;
+      background:
+        radial-gradient(circle at 28% 22%, rgba(255,255,255,.35), transparent 24%),
+        linear-gradient(180deg, rgba(255,255,255,.12), transparent 45%);
+      pointer-events:none;"></div>
+
+    <div style="
+      position:absolute; top:6px; right:7px;
+      min-width:24px; height:24px; padding:0 6px;
+      border-radius:999px;
+      display:grid; place-items:center;
+      background:rgba(255,255,255,.88);
+      border:2px solid rgba(255,255,255,.95);
+      color:#7b6b53;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 4px 10px rgba(0,0,0,.08);
+      pointer-events:none;">${theme.face}</div>
+
     <div class="gjpb-emoji">${emoji}</div>
-    <div class="gjpb-tag">${label}</div>
+    <div class="gjpb-tag">${theme.sticker}</div>
   `;
 
   btn.addEventListener('pointerdown', (ev) => {
@@ -2130,7 +2900,9 @@ function createTarget({
     vx,
     vy,
     el: btn,
-    dead: false
+    dead: false,
+    tilt: theme.tilt || 0,
+    scale: theme.scale || 1
   };
 
   ui.layer?.appendChild(btn);
@@ -2140,7 +2912,10 @@ function createTarget({
 }
 
 function drawTarget(target) {
-  target.el.style.transform = `translate3d(${target.x}px, ${target.y}px, 0)`;
+  const tilt = Number(target.tilt || 0);
+  const scale = Number(target.scale || 1);
+  target.el.style.transform =
+    `translate3d(${target.x}px, ${target.y}px, 0) rotate(${tilt}deg) scale(${scale})`;
 }
 
 function removeTarget(id) {
@@ -2318,8 +3093,8 @@ function enterPhase2() {
   state.phase = 2;
   clearTargets();
   state.spawnAccum = 0;
-  showBanner('PHASE 2', `เร็วขึ้น • junk มากขึ้น • เก็บให้ถึงเป้าหมาย ${getPhaseGoal(2)}`, 1400);
-  updateHint('Phase 2 เริ่มแล้ว! อ่านเป้าให้แม่นและอย่ารีบกดผิด');
+  showBanner('Mission 2', `เก่งมาก! ต่อไปเก็บให้ถึง ${getPhaseGoal(2)} คะแนน`, 1400);
+  updateHint('ด่าน 2 เริ่มแล้ว เก็บของดีต่อไป และระวัง junk ให้มากขึ้น');
   renderHud();
 
   logGameEvent('phase_transition', {
@@ -2346,11 +3121,11 @@ function enterBossPhase() {
   state.boss.patternTimeLeft = 3200;
 
   showBanner(
-    'BOSS PHASE',
-    `โหมดเวลา ${getRunTimeSeconds()} วินาที • อ่านสัญญาณเตือน แล้วแตะเป้าทองเพื่อโจมตี Junk King`,
+    'Boss Mission!',
+    `ถึงเวลาไปช่วยกันปราบ Junk King แล้ว แตะจุดอ่อนให้แม่นนะ`,
     1700
   );
-  updateHint('รอเป้าทอง แล้วแตะให้แม่น');
+  updateHint('มองหาดาวเป้าหมาย แล้วแตะให้แม่นเพื่อโจมตีบอส');
   renderHud();
 
   logGameEvent('boss_enter', {
@@ -2383,6 +3158,112 @@ function formatTime(ms) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+function getSummaryStars(summary) {
+  if (summary.bossDefeated && Number(summary.miss || 0) <= 1) return 3;
+  if (summary.bossDefeated) return 3;
+  if (summary.phaseReached === 'boss') return 2;
+  if (summary.phaseReached === 'phase-2') return 2;
+  return 1;
+}
+
+function getCoachMessage(summary) {
+  if (summary.bossDefeated && Number(summary.miss || 0) === 0) {
+    return 'สุดยอดมาก! เธอเลือกอาหารดีได้แม่นมาก และปกป้องเมืองจาก Junk King ได้สำเร็จ';
+  }
+  if (summary.bossDefeated) {
+    return 'เก่งมาก! เธอผ่านภารกิจและช่วยให้เมืองอาหารดีปลอดภัยแล้ว';
+  }
+  if (summary.phaseReached === 'boss') {
+    return 'เกือบชนะแล้ว! รอบหน้าลองอ่านจังหวะเป้าทองอีกนิด แล้วจะผ่านบอสได้แน่';
+  }
+  if (summary.phaseReached === 'phase-2') {
+    return 'ดีมาก! เธอผ่านด่านแรกได้แล้ว ลองลด miss ลงอีกนิดเพื่อไปถึงบอส';
+  }
+  return 'เริ่มต้นได้ดีมาก! ลองเก็บอาหารดีให้ต่อเนื่อง แล้วจะทำคะแนนได้สูงขึ้น';
+}
+
+function getRewardCoinsNow() {
+  return Math.max(0, Math.round(
+    Number(state.score || 0) +
+    Number(state.powerHits || 0) * 5 +
+    Math.max(0, 10 - Number(state.miss || 0)) * 2
+  ));
+}
+
+function getMissionBadgeNow() {
+  if (state.boss.active) return state.boss.enrage ? 'Boss Hero' : 'Boss Ready';
+  if (state.phase === 2) return 'Food Guard';
+  return 'Starter';
+}
+
+function getSummaryRibbonText(summary) {
+  if (summary.bossDefeated) return 'Great Job!';
+  if (summary.phaseReached === 'boss') return 'Almost There!';
+  if (summary.phaseReached === 'phase-2') return 'Nice Work!';
+  return 'Keep Going!';
+}
+
+function getPlayerDisplayName() {
+  return String(GJ_NAME || GJ_PID || 'Food Hero').trim() || 'Food Hero';
+}
+
+function getAvatarMoodNow() {
+  if (state.boss.active && state.boss.hp <= 0) return '🥳';
+  if (state.boss.active && state.boss.enrage) return '😤';
+  if (state.streak >= 8) return '😎';
+  if (state.miss >= 6) return '😅';
+  if (state.phase >= 2) return '😄';
+  return '🙂';
+}
+
+function getLevelNow() {
+  const score = Number(state.score || 0);
+  if (score >= 220) return 5;
+  if (score >= 160) return 4;
+  if (score >= 100) return 3;
+  if (score >= 50) return 2;
+  return 1;
+}
+
+function getMiniMissionText() {
+  if (state.boss.active) return '🏰 Boss Mission Active';
+  if (state.phase === 2) return '🍎 Collect More Good Food';
+  return '🌱 Beginner Food Hero';
+}
+
+function getSummaryHeroAvatar(summary) {
+  if (summary.bossDefeated) return '🥳';
+  if (summary.phaseReached === 'boss') return '😄';
+  if (summary.phaseReached === 'phase-2') return '🙂';
+  return '😊';
+}
+
+function getSummaryHeroName(summary) {
+  if (summary.bossDefeated) return 'Food Hero Complete!';
+  if (summary.phaseReached === 'boss') return 'Boss Mission Reached!';
+  if (summary.phaseReached === 'phase-2') return 'Mission 2 Complete!';
+  return 'Good Start!';
+}
+
+function getSummaryHeroDesc(summary) {
+  if (summary.bossDefeated) return 'เธอช่วยปกป้องเมืองอาหารดีและเอาชนะ Junk King ได้แล้ว';
+  if (summary.phaseReached === 'boss') return 'เธอไปถึงด่านบอสแล้ว รอบหน้าอีกนิดเดียวจะชนะได้แน่';
+  if (summary.phaseReached === 'phase-2') return 'เธอผ่านภารกิจช่วงแรกได้ดีมาก เหลืออีกนิดเดียวจะถึงบอส';
+  return 'เริ่มต้นได้ดีมาก ลองเก็บอาหารดีต่อเนื่องอีกนิดนะ';
+}
+
+function getHubReturnTitle(summary) {
+  if (summary.bossDefeated) return 'กลับไปเลือกภารกิจใหม่ได้เลย';
+  return 'พร้อมลองอีกครั้งหรือไปภารกิจถัดไป';
+}
+
+function getHubReturnDesc(summary) {
+  if (summary.bossDefeated) {
+    return 'ไปที่ HeroHealth Hub เพื่อเลือกเกมโซนอื่น หรือกลับมาเก็บคะแนนเพิ่มก็ได้';
+  }
+  return 'กลับไปที่ HeroHealth Hub เพื่อเลือกโหมดอื่น หรือเล่น GoodJunk ต่อเพื่อทำดาวเพิ่ม';
+}
+
 function renderHud() {
   if (ui.score) ui.score.textContent = String(state.score);
   if (ui.timer) ui.timer.textContent = formatTime(state.timeLeftMs);
@@ -2390,16 +3271,16 @@ function renderHud() {
   if (ui.streak) ui.streak.textContent = String(state.streak);
 
   if (ui.phasePill) {
-    ui.phasePill.textContent = state.boss.active ? 'BOSS PHASE' : `PHASE ${state.phase}`;
+    ui.phasePill.textContent = getPhaseLabelText();
   }
 
   if (ui.goalText) {
-    if (state.phase === 1) {
-      ui.goalText.textContent = `GOAL สะสมคะแนน • เป้าหมาย ${getPhaseGoal(1)}`;
-    } else if (state.phase === 2) {
-      ui.goalText.textContent = `GOAL เร่งคะแนนต่อ • เป้าหมาย ${getPhaseGoal(2)}`;
+    if (state.phase === 1 && !state.boss.active) {
+      ui.goalText.textContent = `เก็บอาหารดีให้ถึง ${getPhaseGoal(1)} คะแนน`;
+    } else if (state.phase === 2 && !state.boss.active) {
+      ui.goalText.textContent = `เร่งคะแนนต่อให้ถึง ${getPhaseGoal(2)} คะแนน`;
     } else {
-      ui.goalText.textContent = `GOAL โจมตี weak spot • HP เหลือ ${state.boss.hp}`;
+      ui.goalText.textContent = `แตะจุดอ่อนของ Junk King • HP ${state.boss.hp}`;
     }
   }
 
@@ -2410,26 +3291,77 @@ function renderHud() {
 
   if (ui.stats) {
     ui.stats.innerHTML = `
-      <div><strong>Good hit:</strong> ${state.hitsGood}</div>
-      <div><strong>Junk hit:</strong> ${state.hitsBad}</div>
-      <div><strong>Good missed:</strong> ${state.missedGood}</div>
-      <div><strong>Power hit:</strong> ${state.powerHits}</div>
+      <div><strong>Good:</strong> ${state.hitsGood}</div>
+      <div><strong>Junk:</strong> ${state.hitsBad}</div>
+      <div><strong>Missed:</strong> ${state.missedGood}</div>
+      <div><strong>Power:</strong> ${state.powerHits}</div>
     `;
   }
 
-  if (ui.bossName) ui.bossName.textContent = ui.bossWrap?.classList.contains('defeated') ? 'Junk King Down!' : 'Junk King';
-  if (ui.bossHpText) ui.bossHpText.textContent = `${state.boss.hp} / ${state.boss.maxHp}`;
+  if (ui.rewardCoins) {
+    ui.rewardCoins.textContent = String(getRewardCoinsNow());
+  }
+
+  if (ui.rewardStars) {
+    ui.rewardStars.textContent = String(getSummaryStars({
+      bossDefeated: state.boss.active && state.boss.hp <= 0,
+      phaseReached: state.boss.active ? 'boss' : (state.phase === 2 ? 'phase-2' : 'phase-1'),
+      miss: state.miss
+    }));
+  }
+
+  if (ui.rewardBadge) {
+    ui.rewardBadge.textContent = getMissionBadgeNow();
+  }
+
+  if (ui.stageBadge) {
+    ui.stageBadge.textContent = state.boss.active ? '🏰 Boss Garden' : '🌱 Healthy Town';
+  }
+
+  if (ui.playerAvatar) {
+    ui.playerAvatar.textContent = getAvatarMoodNow();
+  }
+
+  if (ui.playerName) {
+    ui.playerName.textContent = getPlayerDisplayName();
+  }
+
+  if (ui.playerSub) {
+    ui.playerSub.textContent = state.boss.active
+      ? 'กำลังสู้กับ Junk King'
+      : (state.phase === 2 ? 'ภารกิจระดับกลางแล้ว' : 'พร้อมเริ่มภารกิจอาหารดี');
+  }
+
+  if (ui.levelBadge) {
+    ui.levelBadge.textContent = String(getLevelNow());
+  }
+
+  if (ui.miniMission) {
+    ui.miniMission.textContent = getMiniMissionText();
+  }
+
+  if (ui.bossName) {
+    ui.bossName.textContent = ui.bossWrap?.classList.contains('defeated')
+      ? 'Junk King Down!'
+      : 'Junk King';
+  }
+
+  if (ui.bossHpText) {
+    ui.bossHpText.textContent = `${state.boss.hp} / ${state.boss.maxHp}`;
+  }
+
   if (ui.bossHpBar) {
     const hpRatio = state.boss.maxHp > 0 ? state.boss.hp / state.boss.maxHp : 0;
     ui.bossHpBar.style.transform = `scaleX(${clamp(hpRatio, 0, 1)})`;
   }
+
   if (ui.bossState) {
     if (!state.boss.active) {
-      ui.bossState.textContent = 'รอเข้าสู่บอส';
+      ui.bossState.textContent = 'เตรียมตัวก่อนเข้าด่านบอส';
     } else if (state.boss.telegraphMs > 0) {
       ui.bossState.textContent = `เตรียมท่า: ${getBossPatternName(state.boss.nextPatternIndex)}`;
     } else if (state.boss.enrage) {
-      ui.bossState.textContent = `${state.boss.patternLabel} • ENRAGE`;
+      ui.bossState.textContent = `${state.boss.patternLabel} • โหมดโกรธ`;
     } else {
       ui.bossState.textContent = state.boss.patternLabel;
     }
@@ -2455,6 +3387,7 @@ function endGame(reason = 'finished') {
 
   const cloudLoggerReady = !!getCloudLogger();
   const cloudEndpointReady = !!HHA_ENDPOINT;
+  const cloudStatus = getCloudStatusSnapshot();
 
   const summary = {
     version: PATCH_VERSION,
@@ -2502,6 +3435,13 @@ function endGame(reason = 'finished') {
     patternWeakHits: { ...state.research.patternWeakHits },
     cloudLoggerReady,
     cloudEndpointReady,
+    cloudQueueTotal: cloudStatus.queueTotal,
+    cloudQueueSessions: cloudStatus.queueSessions,
+    cloudQueueEvents: cloudStatus.queueEvents,
+    cloudQueueProfiles: cloudStatus.queueProfiles,
+    cloudLastFlushAt: cloudStatus.lastFlushAt,
+    cloudLastOkAt: cloudStatus.lastOkAt,
+    cloudLastError: cloudStatus.lastError,
     updatedAt: Date.now()
   };
 
@@ -2530,28 +3470,42 @@ function getBossOutcomeLabel(summary) {
 function showSummary(summary) {
   if (!ui.summary || !ui.summaryGrid) return;
 
+  const stars = getSummaryStars(summary);
   const title = summary.bossDefeated
-    ? 'ยอดเยี่ยม! ปราบ Junk King ได้แล้ว'
+    ? 'Great Job!'
     : summary.phaseReached === 'boss'
-      ? 'เกือบชนะแล้ว! ถึงบอสแล้ว'
+      ? 'Almost There!'
       : summary.phaseReached === 'phase-2'
-        ? 'ผ่าน Phase 1 แล้ว'
-        : 'เริ่มต้นได้ดีมาก';
+        ? 'Nice Work!'
+        : 'Good Start!';
 
   const sub = summary.bossDefeated
-    ? `ผ่านบอสสำเร็จ • ถึงบอสใน ${summary.reachedBossAtMs ? Math.round(summary.reachedBossAtMs / 1000) : '-'}s • weakspot ${summary.weakspotHitRatePct}%`
+    ? `เธอปราบ Junk King ได้แล้ว • weakspot ${summary.weakspotHitRatePct}%`
     : summary.phaseReached === 'boss'
-      ? `ถึงบอสแล้ว • อยู่ในบอส ${summary.bossDurationMs ? Math.round(summary.bossDurationMs / 1000) : 0}s • หลบ storm ได้ ${summary.stormAvoidRatePct}%`
-      : `ยังไม่ถึงบอส • ลองเพิ่มความแม่นยำและลด miss เพื่อไปต่อได้ไกลขึ้น`;
+      ? `ถึงบอสแล้ว • หลบ storm ได้ ${summary.stormAvoidRatePct}%`
+      : `เล่นต่ออีกนิด แล้วจะไปได้ไกลกว่าเดิม`;
 
   ui.summaryTitle.textContent = title;
   ui.summarySub.textContent = sub;
+  if (ui.summaryRibbon) ui.summaryRibbon.textContent = getSummaryRibbonText(summary);
+  if (ui.summaryScoreValue) ui.summaryScoreValue.textContent = String(summary.score || 0);
+
+  if (ui.summaryHeroAvatar) ui.summaryHeroAvatar.textContent = getSummaryHeroAvatar(summary);
+  if (ui.summaryHeroName) ui.summaryHeroName.textContent = getSummaryHeroName(summary);
+  if (ui.summaryHeroDesc) ui.summaryHeroDesc.textContent = getSummaryHeroDesc(summary);
+  if (ui.hubTitle) ui.hubTitle.textContent = getHubReturnTitle(summary);
+  if (ui.hubDesc) ui.hubDesc.textContent = getHubReturnDesc(summary);
+
+  const starsRow = document.getElementById('gjpbStarsRow');
+  if (starsRow) {
+    starsRow.innerHTML = `
+      <span class="gjpb-star ${stars >= 1 ? 'on' : 'off'}">⭐</span>
+      <span class="gjpb-star ${stars >= 2 ? 'on' : 'off'}">⭐</span>
+      <span class="gjpb-star ${stars >= 3 ? 'on' : 'off'}">⭐</span>
+    `;
+  }
 
   ui.summaryGrid.innerHTML = `
-    <div class="gjpb-summary-item">
-      <div class="label">คะแนน</div>
-      <div class="value">${summary.score}</div>
-    </div>
     <div class="gjpb-summary-item">
       <div class="label">Miss</div>
       <div class="value">${summary.miss}</div>
@@ -2561,43 +3515,31 @@ function showSummary(summary) {
       <div class="value">${summary.bestStreak}</div>
     </div>
     <div class="gjpb-summary-item">
-      <div class="label">ถึงด่าน</div>
-      <div class="value">${escapeHtml(summary.phaseReached)}</div>
-    </div>
-    <div class="gjpb-summary-item">
-      <div class="label">Good hit</div>
-      <div class="value">${summary.hitsGood}</div>
-    </div>
-    <div class="gjpb-summary-item">
-      <div class="label">Junk hit</div>
-      <div class="value">${summary.hitsBad}</div>
-    </div>
-    <div class="gjpb-summary-item">
-      <div class="label">Good missed</div>
-      <div class="value">${summary.missedGood}</div>
-    </div>
-    <div class="gjpb-summary-item">
-      <div class="label">Power hit</div>
-      <div class="value">${summary.powerHits}</div>
-    </div>
-    <div class="gjpb-summary-item">
-      <div class="label">ผลลัพธ์</div>
+      <div class="label">Reached</div>
       <div class="value">${escapeHtml(getBossOutcomeLabel(summary))}</div>
     </div>
     <div class="gjpb-summary-item">
-      <div class="label">Reached Boss At</div>
-      <div class="value">${summary.reachedBossAtMs ? Math.round(summary.reachedBossAtMs / 1000) + 's' : '-'}</div>
+      <div class="label">Reward Coins</div>
+      <div class="value">${Math.max(0, Math.round(
+        Number(summary.score || 0) +
+        Number(summary.powerHits || 0) * 5 +
+        Math.max(0, 10 - Number(summary.miss || 0)) * 2
+      ))}</div>
     </div>
     <div class="gjpb-summary-item">
-      <div class="label">Boss Duration</div>
-      <div class="value">${summary.bossDurationMs ? Math.round(summary.bossDurationMs / 1000) + 's' : '-'}</div>
+      <div class="label">Good Hit</div>
+      <div class="value">${summary.hitsGood}</div>
     </div>
     <div class="gjpb-summary-item">
-      <div class="label">Weakspot Hit Rate</div>
+      <div class="label">Power Hit</div>
+      <div class="value">${summary.powerHits}</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Weakspot Rate</div>
       <div class="value">${summary.weakspotHitRatePct}%</div>
     </div>
     <div class="gjpb-summary-item">
-      <div class="label">Storm Avoid Rate</div>
+      <div class="label">Storm Avoid</div>
       <div class="value">${summary.stormAvoidRatePct}%</div>
     </div>
     <div class="gjpb-summary-item">
@@ -2612,7 +3554,22 @@ function showSummary(summary) {
       <div class="label">Cloud Endpoint</div>
       <div class="value">${summary.cloudEndpointReady ? 'ready' : 'missing'}</div>
     </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Last Flush</div>
+      <div class="value">${escapeHtml(typeof formatCloudTs === 'function' ? formatCloudTs(summary.cloudLastOkAt || summary.cloudLastFlushAt) : '-')}</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Queue Left</div>
+      <div class="value">${summary.cloudQueueTotal ?? 0}</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Queue Events</div>
+      <div class="value">${summary.cloudQueueEvents ?? 0}</div>
+    </div>
   `;
+
+  const coachText = document.getElementById('gjpbCoachText');
+  if (coachText) coachText.textContent = getCoachMessage(summary);
 
   ui.summary.hidden = false;
 }
@@ -2837,12 +3794,12 @@ function beginBossDefeatSequence() {
   ui.stage?.classList.remove('stunned');
   clearTelegraphTheme();
 
-  if (ui.bossIcon) ui.bossIcon.textContent = '💫';
-  if (ui.bossName) ui.bossName.textContent = 'Junk King Down!';
-  if (ui.bossState) ui.bossState.textContent = 'แพ้แล้ว • ทางสะอาดขึ้นแล้ว';
+  if (ui.bossIcon) ui.bossIcon.textContent = '🏆';
+  if (ui.bossName) ui.bossName.textContent = 'Mission Clear!';
+  if (ui.bossState) ui.bossState.textContent = 'เธอช่วยเมืองอาหารดีได้แล้ว';
 
-  showBanner('Junk King แพ้แล้ว!', 'ยอดเยี่ยม! คุณผ่านบอสสำเร็จ', 900);
-  updateHint('ชนะบอสแล้ว กำลังเข้าสู่หน้าสรุปผล');
+  showBanner('Great Job!', 'เธอชนะแล้วและช่วยปราบ Junk King สำเร็จ', 900);
+  updateHint('ภารกิจสำเร็จ กำลังเข้าสู่หน้าสรุปผล');
 
   logGameEvent('boss_defeat_sequence_start', {
     bossHpRemaining: state.boss.hp,
