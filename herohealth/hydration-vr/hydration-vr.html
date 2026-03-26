@@ -6,11 +6,10 @@
   <title>HeroHealth • Hydration Hero</title>
   <meta name="color-scheme" content="light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./hydration-vr.css?v=20260326-final-sanity-r1" />
+  <link rel="stylesheet" href="./hydration-vr.css?v=20260327-final-sanity-r2" />
 </head>
 <body>
   <main class="game-shell">
-    <!-- HERO / TOP -->
     <section class="hero-v2-shell">
       <div class="hero-v2-topbar">
         <button class="corner-icon" type="button" aria-label="settings">⚙️</button>
@@ -115,7 +114,6 @@
       </div>
     </section>
 
-    <!-- TOP ACTIONS -->
     <section class="top-card">
       <div class="top-actions top-actions-v2">
         <button id="btnSfx" class="ui-btn ui-btn-soft icon-btn-v2" type="button">
@@ -141,7 +139,6 @@
       </div>
     </section>
 
-    <!-- PLAY CARD -->
     <section class="zone-card">
       <div class="zone-card-header">
         <div class="zone-title-wrap">
@@ -179,7 +176,6 @@
         </div>
       </div>
 
-      <!-- MISSIONS -->
       <div class="mission-strip mission-strip-v2" id="missionBar">
         <div class="mission-strip-title mission-strip-title-v2">
           <div class="title-chip-illust">
@@ -229,7 +225,6 @@
         </div>
       </div>
 
-      <!-- STAGE -->
       <section id="stage" class="play-stage play-stage-v2" aria-label="Hydration playfield">
         <div class="stage-back-illustration" aria-hidden="true">
           <div class="stage-cloud cloud-a"></div>
@@ -298,7 +293,6 @@
       </section>
     </section>
 
-    <!-- BOTTOM HUD -->
     <section class="bottom-hud bottom-hud-v2">
       <div class="bottom-chip bottom-chip-v2">
         <span class="bottom-chip-icon chip-warm">
@@ -410,7 +404,6 @@
     </section>
   </main>
 
-  <!-- HELP -->
   <div id="helpOverlay" class="overlay" aria-hidden="true">
     <div class="dialog help-dialog">
       <div class="overlay-hero">
@@ -460,7 +453,6 @@
     </div>
   </div>
 
-  <!-- PAUSE -->
   <div id="pauseOverlay" class="overlay" aria-hidden="true">
     <div class="dialog pause-dialog">
       <div class="overlay-hero">
@@ -478,7 +470,6 @@
     </div>
   </div>
 
-  <!-- END -->
   <div id="end" class="overlay endOverlay" aria-hidden="true">
     <div class="dialog endDialog">
       <div class="end-hero end-hero-v2">
@@ -683,7 +674,7 @@
   </div>
 
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260326-HYD-HUBV2-BOSS-BALANCE-R1';
+    import { boot } from './hydration.safe.js?v=20260327-HYD-HUBV2-BOSS-BALANCE-R2';
     boot({}).catch((err) => {
       console.error('[hydration] boot failed', err);
     });
