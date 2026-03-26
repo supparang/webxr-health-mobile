@@ -24,6 +24,7 @@
       --yellow:#ffd45c;
       --orange:#ffb547;
       --pink:#ffa9c9;
+      --pink2:#ff7fb3;
       --violet:#cdb9ff;
 
       --shadow:0 18px 40px rgba(86,155,194,.16);
@@ -57,7 +58,7 @@
     }
 
     .wrap{
-      max-width:1120px;
+      max-width:1180px;
       margin:0 auto;
     }
 
@@ -131,7 +132,7 @@
       line-height:1.7;
       font-size:15px;
       font-weight:900;
-      max-width:760px;
+      max-width:820px;
     }
 
     .pill-row{
@@ -220,7 +221,11 @@
     .mode-grid{
       display:grid;
       gap:14px;
-      grid-template-columns:repeat(2,minmax(0,1fr));
+      grid-template-columns:repeat(3,minmax(0,1fr));
+    }
+
+    @media (max-width:1180px){
+      .mode-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     }
 
     @media (max-width:720px){
@@ -269,6 +274,7 @@
 
     .solo .mode-badge{ color:#5f9d1d; }
     .race .mode-badge{ color:#4a9fcb; }
+    .duet .mode-badge{ color:#c04f85; }
     .battle .mode-badge{ color:#c98928; }
     .coop .mode-badge{ color:#8a73d6; }
 
@@ -337,6 +343,11 @@
       color:#fffef9;
     }
 
+    .btn-duet{
+      background:linear-gradient(180deg,var(--pink),var(--pink2));
+      color:#6b214e;
+    }
+
     .btn-battle{
       background:linear-gradient(180deg,var(--yellow),var(--orange));
       color:#6d4e00;
@@ -364,9 +375,11 @@
       <p class="sub">
         ออกผจญภัยเก็บอาหารดี หลีกเลี่ยง junk food และช่วยกันปกป้องเมืองสุขภาพ
         โดยโหมด <strong>Solo</strong> จะผ่าน <strong>Warmup</strong> ก่อน แล้วค่อยไปเล่นจริงเสมอ
+        ส่วน <strong>Duet</strong> เป็นโหมดเล่นคู่ 2 คน ผ่าน <strong>Duet Lobby</strong> ก่อนเริ่ม
       </p>
       <div class="pill-row">
         <div class="pill">SOLO = Warmup → Run → Cooldown</div>
+        <div class="pill">DUET = 2 Players → Lobby → Run</div>
         <div class="pill">RACE = Multiplayer Lobby</div>
         <div class="pill">BATTLE / COOP = Lobby</div>
         <div class="pill">TEST = forcegate=1</div>
@@ -443,6 +456,22 @@
           </div>
         </article>
 
+        <article class="mode-card duet">
+          <div class="mode-badge">👯 DUET MODE</div>
+          <h3 class="mode-title">Duet</h3>
+          <div class="mode-desc">
+            เล่นคู่ 2 คน ช่วยกันเก็บของดี ทำคะแนนของฉัน + คะแนนเพื่อน + คะแนนคู่
+          </div>
+          <div class="mode-list">
+            <div>• เข้า Duet Lobby ก่อน</div>
+            <div>• ready ครบ 2/2 แล้ว host กด start</div>
+            <div>• ใช้ run แยกเฉพาะของ duet</div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-duet" id="btnDuet" type="button">เข้า Duet</button>
+          </div>
+        </article>
+
         <article class="mode-card battle">
           <div class="mode-badge">⚔️ BATTLE</div>
           <h3 class="mode-title">Battle</h3>
@@ -483,18 +512,19 @@
       const MODE_DEFAULT_TIME = {
         solo: '150',
         race: '120',
+        duet: '150',
         battle: '150',
         coop: '180'
       };
 
-      const PASS_THROUGH_TO_RUN = ['debug', 'bossdebug'];
+      const PASS_THROUGH_TO_RUN = ['debug', 'bossdebug', 'api', 'log', 'ai'];
       const PASS_THROUGH_TO_GATE = ['forcegate', 'resetGate'];
 
       const elName = document.getElementById('playerName');
       const elDiff = document.getElementById('diff');
       const elTime = document.getElementById('time');
 
-      elName.value = q.get('name') || '';
+      elName.value = q.get('name') || q.get('nick') || '';
       elDiff.value = q.get('diff') || 'normal';
       elTime.value = q.get('time') || MODE_DEFAULT_TIME.solo;
 
@@ -526,7 +556,15 @@
         const p = new URLSearchParams();
         p.set('pid', q.get('pid') || 'anon');
         p.set('name', elName.value.trim());
+        p.set('nick', elName.value.trim());
         p.set('studyId', q.get('studyId') || '');
+        p.set('phase', q.get('phase') || '');
+        p.set('conditionGroup', q.get('conditionGroup') || '');
+        p.set('sessionOrder', q.get('sessionOrder') || '');
+        p.set('blockLabel', q.get('blockLabel') || '');
+        p.set('siteCode', q.get('siteCode') || '');
+        p.set('schoolYear', q.get('schoolYear') || '');
+        p.set('semester', q.get('semester') || '');
         p.set('diff', elDiff.value || 'normal');
         p.set('time', elTime.value || MODE_DEFAULT_TIME[mode] || '120');
         p.set('seed', String(Date.now()));
@@ -534,7 +572,10 @@
         p.set('view', q.get('view') || 'mobile');
         p.set('run', q.get('run') || 'play');
         p.set('gameId', 'goodjunk');
+        p.set('game', 'goodjunk');
         p.set('mode', mode);
+        p.set('zone', q.get('zone') || 'nutrition');
+        p.set('theme', q.get('theme') || 'goodjunk');
 
         const api = getApiUrl();
         if (api) p.set('api', api);
@@ -572,9 +613,20 @@
         return `${getUnifiedGateUrl()}?${p.toString()}`;
       }
 
+      function buildGoodjunkDuetLobbyUrl(){
+        const p = buildBaseQuery('duet');
+        return `./vr-goodjunk/goodjunk-duet-lobby.html?${p.toString()}`;
+      }
+
       function goSolo(){
         const url = buildGoodjunkWarmupUrl();
         console.log('[GJ-LAUNCHER] solo ->', url);
+        location.href = url;
+      }
+
+      function goDuet(){
+        const url = buildGoodjunkDuetLobbyUrl();
+        console.log('[GJ-LAUNCHER] duet ->', url);
         location.href = url;
       }
 
@@ -585,6 +637,7 @@
 
       document.getElementById('btnSolo')?.addEventListener('click', goSolo);
       document.getElementById('btnRace')?.addEventListener('click', () => goMultiplayer('race'));
+      document.getElementById('btnDuet')?.addEventListener('click', goDuet);
       document.getElementById('btnBattle')?.addEventListener('click', () => goMultiplayer('battle'));
       document.getElementById('btnCoop')?.addEventListener('click', () => goMultiplayer('coop'));
     })();
