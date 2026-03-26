@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Rhythm Boxer V2 Launcher</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
+  <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --sky1:#dff4ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d8;
+      --card:#fffdf6;
+      --card2:#f8fff3;
+      --line:#bfe3f2;
+      --text:#4d4a42;
+      --muted:#7b7a72;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --green:#7ed957;
+      --green2:#58c33f;
+      --yellow:#ffd84d;
+      --orange:#ffb454;
+      --pink:#ff9ecf;
+      --shadow:0 18px 40px rgba(73,119,152,.18);
+      --radius:24px;
+      --radius-lg:32px;
+      --focus:0 0 0 4px rgba(88,183,245,.18);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; font-family:ui-rounded, "Nunito", "Trebuchet MS", system-ui, sans-serif; color:var(--text); }
+    body{
+      min-height:100svh;
+      background:
+        radial-gradient(circle at 15% 18%, rgba(255,255,255,.9) 0 10%, transparent 11%),
+        radial-gradient(circle at 82% 15%, rgba(255,255,255,.75) 0 8%, transparent 9%),
+        linear-gradient(180deg, var(--sky1), var(--sky2) 52%, var(--sky3));
+      overflow-x:hidden;
+    }
+    .cloud{
+      position:fixed;
+      border-radius:999px;
+      background:rgba(255,255,255,.72);
+      filter:blur(1px);
+      pointer-events:none;
+      z-index:0;
+      box-shadow:0 14px 32px rgba(255,255,255,.28);
+    }
+    .c1{ width:180px; height:56px; left:5%; top:8%; }
+    .c2{ width:220px; height:62px; right:8%; top:10%; }
+    .c3{ width:150px; height:48px; left:18%; bottom:12%; }
+
+    .shell{
+      position:relative;
+      z-index:1;
+      max-width:1120px;
+      margin:0 auto;
+      padding:24px 16px 40px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:16px;
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+    .brand-badge{
+      width:58px; height:58px; border-radius:18px;
+      display:grid; place-items:center;
+      background:linear-gradient(180deg, #fffdf8, #e8fff6);
+      border:2px solid rgba(127,207,255,.7);
+      box-shadow:var(--shadow);
+      font-size:28px;
+    }
+    .brand-title{
+      margin:0;
+      font-size:clamp(24px, 4vw, 36px);
+      line-height:1;
+      font-weight:900;
+      letter-spacing:.02em;
+    }
+    .brand-sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-weight:800;
+      font-size:14px;
+    }
+
+    .back-btn{
+      appearance:none; border:0; cursor:pointer;
+      text-decoration:none;
+      padding:12px 16px;
+      border-radius:16px;
+      color:#21506d;
+      background:#ffffffcc;
+      border:2px solid rgba(127,207,255,.78);
+      box-shadow:var(--shadow);
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.15fr .95fr;
+      gap:18px;
+      align-items:stretch;
+    }
+    @media (max-width: 920px){
+      .hero{ grid-template-columns:1fr; }
+    }
+
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,252,244,.95));
+      border:2px solid rgba(191,227,242,.9);
+      border-radius:var(--radius-lg);
+      box-shadow:var(--shadow);
+      padding:18px;
+    }
+
+    .lead{
+      font-size:clamp(15px, 2vw, 18px);
+      line-height:1.7;
+      margin:0 0 14px;
+    }
+
+    .mini-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:12px;
+    }
+    @media (max-width: 560px){
+      .mini-grid{ grid-template-columns:1fr; }
+    }
+
+    .mini-card{
+      background:linear-gradient(180deg, #fff, #f8fff8);
+      border:2px solid rgba(191,227,242,.86);
+      border-radius:22px;
+      padding:14px;
+    }
+    .mini-card h3{
+      margin:0 0 8px;
+      font-size:17px;
+      font-weight:900;
+    }
+    .mini-card p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.55;
+      font-size:14px;
+      font-weight:700;
+    }
+
+    .form{
+      display:grid;
+      gap:14px;
+    }
+    .field{
+      display:grid;
+      gap:8px;
+    }
+    .field label{
+      font-weight:900;
+      font-size:14px;
+      color:#4d6270;
+    }
+    .field input,
+    .field select{
+      width:100%;
+      appearance:none;
+      border:2px solid rgba(191,227,242,.95);
+      border-radius:18px;
+      padding:14px 14px;
+      font:inherit;
+      font-weight:800;
+      color:var(--text);
+      background:#fffdf8;
+      outline:none;
+    }
+    .field input:focus,
+    .field select:focus{
+      border-color:#7fcfff;
+      box-shadow:var(--focus);
+    }
+
+    .row2{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:12px;
+    }
+    @media (max-width: 560px){
+      .row2{ grid-template-columns:1fr; }
+    }
+
+    .help-box{
+      margin-top:12px;
+      background:linear-gradient(180deg, #fffdf7, #f4fff8);
+      border:2px dashed rgba(127,207,255,.9);
+      border-radius:22px;
+      padding:14px;
+    }
+    .help-box summary{
+      cursor:pointer;
+      font-weight:900;
+      list-style:none;
+    }
+    .help-box summary::-webkit-details-marker{ display:none; }
+    .how{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
+    }
+    @media (max-width: 560px){
+      .how{ grid-template-columns:1fr; }
+    }
+    .how-item{
+      border-radius:18px;
+      border:2px solid rgba(191,227,242,.86);
+      background:#fff;
+      padding:12px;
+      font-weight:800;
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+    }
+    .how-emoji{ font-size:22px; line-height:1; }
+
+    .footer-actions{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      text-decoration:none;
+      padding:14px 18px;
+      border-radius:18px;
+      font:inherit;
+      font-weight:900;
+      box-shadow:var(--shadow);
+      transition:transform .12s ease, filter .12s ease;
+    }
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.02); }
+    .btn:active{ transform:translateY(0); }
+    .btn-main{
+      color:#174059;
+      background:linear-gradient(180deg, #ffe66f, #ffcf45);
+      border:2px solid rgba(255,186,44,.6);
+      min-width:220px;
+    }
+    .btn-soft{
+      color:#1d5a44;
+      background:linear-gradient(180deg, #cffff0, #b1f0d1);
+      border:2px solid rgba(88,195,63,.35);
+    }
+
+    .tiny{
+      margin-top:12px;
+      color:#7d8077;
+      font-size:13px;
+      font-weight:800;
+      line-height:1.5;
+    }
+
+    .tagline{
+      margin:0 0 10px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 12px;
+      border-radius:999px;
+      background:#ffffffb8;
+      border:2px solid rgba(191,227,242,.86);
+      font-size:13px;
+      font-weight:900;
+      color:#49606d;
+    }
+  </style>
+</head>
+<body>
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+  <div class="cloud c3"></div>
+
+  <main class="shell">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-badge">🥊</div>
+        <div>
+          <h1 class="brand-title">Rhythm Boxer V2</h1>
+          <p class="brand-sub">ตีให้ตรงจังหวะ • เล่นสนุก • อ่านง่าย • เหมาะกับเด็ก</p>
+        </div>
+      </div>
+      <a id="btnBackHub" class="back-btn" href="../hub.html">← กลับ HUB</a>
+    </div>
+
+    <section class="hero">
+      <div class="panel">
+        <div class="tagline">
+          <span class="pill">🎵 ตีตามจังหวะจริง</span>
+          <span class="pill">⭐ เก็บคะแนนจากความแม่น</span>
+          <span class="pill">🛡 มี Block และ Duck</span>
+        </div>
+
+        <p class="lead">
+          เวอร์ชันนี้เป็น <strong>Patch A: Core Rhythm</strong> ในโฟลเดอร์ใหม่ทั้งชุด
+          เน้นให้เกม “ติดเพลง” มากขึ้น มี <strong>beat grid</strong>,
+          <strong>timing windows</strong>, <strong>combo จาก accuracy</strong>
+          และสรุปผลแบบอ่านง่ายหลังจบเกม
+        </p>
+
+        <div class="mini-grid">
+          <div class="mini-card">
+            <h3>🎯 เป้าหมาย</h3>
+            <p>ตีให้ตรงจังหวะ เมื่อโน้ตลงถึงเส้นล่าง ยิ่งแม่น คะแนนยิ่งเยอะ</p>
+          </div>
+          <div class="mini-card">
+            <h3>🧒 แนวเด็กเล่นง่าย</h3>
+            <p>ใช้คำสั้น สีชัด ปุ่มใหญ่ และมีการ์ดสอนก่อนเริ่ม</p>
+          </div>
+          <div class="mini-card">
+            <h3>📱 เล่นได้ทั้งมือถือและคอม</h3>
+            <p>มือถือใช้ปุ่มกดด้านล่าง คอมใช้คีย์บอร์ด A / L / W / S</p>
+          </div>
+          <div class="mini-card">
+            <h3>📊 มีสรุปผล</h3>
+            <p>เห็นคะแนน ความแม่น จำนวน Perfect และคำแนะนำแบบง่าย ๆ</p>
+          </div>
+        </div>
+
+        <details class="help-box">
+          <summary>วิธีเล่นแบบสั้น ๆ</summary>
+          <div class="how">
+            <div class="how-item"><span class="how-emoji">👊</span><span><strong>Jab</strong><br/>กดปุ่มซ้ายเมื่อโน้ตฟ้าแตะเส้น</span></div>
+            <div class="how-item"><span class="how-emoji">💥</span><span><strong>Cross</strong><br/>กดปุ่มขวาเมื่อโน้ตส้มแตะเส้น</span></div>
+            <div class="how-item"><span class="how-emoji">🛡</span><span><strong>Block</strong><br/>ยกการ์ดเมื่อเห็นโล่สีเขียว</span></div>
+            <div class="how-item"><span class="how-emoji">⬇️</span><span><strong>Duck</strong><br/>ก้มหลบเมื่อเห็นการ์ดม่วง</span></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="panel">
+        <form id="launcherForm" class="form">
+          <div class="row2">
+            <div class="field">
+              <label for="pid">PID</label>
+              <input id="pid" name="pid" type="text" maxlength="40" placeholder="เช่น anon01" />
+            </div>
+            <div class="field">
+              <label for="nick">ชื่อเล่น</label>
+              <input id="nick" name="nick" type="text" maxlength="40" placeholder="เช่น Beam" />
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="field">
+              <label for="mode">โหมด</label>
+              <select id="mode" name="mode">
+                <option value="learn">Learn</option>
+                <option value="active" selected>Active</option>
+                <option value="cardio">Cardio</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="diff">ความยาก</label>
+              <select id="diff" name="diff">
+                <option value="easy">Easy</option>
+                <option value="normal" selected>Normal</option>
+                <option value="challenge">Challenge</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="field">
+              <label for="dur">เวลาเล่น</label>
+              <select id="dur" name="dur">
+                <option value="90">90 วินาที</option>
+                <option value="120" selected>120 วินาที</option>
+                <option value="180">180 วินาที</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="view">มุมมอง</label>
+              <select id="view" name="view">
+                <option value="mobile" selected>Mobile</option>
+                <option value="pc">PC</option>
+                <option value="cvr">cVR</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="field">
+              <label for="bpm">BPM</label>
+              <select id="bpm" name="bpm">
+                <option value="96">96</option>
+                <option value="104">104</option>
+                <option value="112" selected>112</option>
+                <option value="120">120</option>
+                <option value="128">128</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="audio">เสียงนำจังหวะ</label>
+              <select id="audio" name="audio">
+                <option value="1" selected>เปิด</option>
+                <option value="0">ปิด</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="footer-actions">
+            <button id="btnStart" type="submit" class="btn btn-main">🚀 เข้าเล่น Rhythm Boxer</button>
+            <button id="btnSeed" type="button" class="btn btn-soft">🎲 สุ่ม Seed ใหม่</button>
+          </div>
+
+          <div class="tiny">
+            โฟลเดอร์ใหม่นี้ใช้ไฟล์ run แยกจากของเดิมทั้งหมด:
+            <strong>/herohealth/vr-rhythm-boxer-v2/</strong>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
+      const STORAGE_KEY = 'HHA_RB2_SETTINGS';
+      let seedValue = String(Date.now());
+
+      const defaults = {
+        pid: qs.get('pid') || 'anon',
+        nick: qs.get('nick') || '',
+        mode: qs.get('mode') || 'active',
+        diff: qs.get('diff') || 'normal',
+        dur: qs.get('dur') || '120',
+        view: qs.get('view') || 'mobile',
+        bpm: qs.get('bpm') || '112',
+        audio: qs.get('audio') || '1'
+      };
+
+      try{
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        if(saved && typeof saved === 'object'){
+          Object.assign(defaults, saved);
+        }
+      }catch(_){}
+
+      $('pid').value = defaults.pid;
+      $('nick').value = defaults.nick;
+      $('mode').value = defaults.mode;
+      $('diff').value = defaults.diff;
+      $('dur').value = defaults.dur;
+      $('view').value = defaults.view;
+      $('bpm').value = defaults.bpm;
+      $('audio').value = defaults.audio;
+
+      const hub = qs.get('hub') || '../hub.html';
+      $('btnBackHub').href = hub;
+
+      function autoTuneBpm(){
+        const mode = $('mode').value;
+        const diff = $('diff').value;
+        let bpm = '112';
+        if(mode === 'learn') bpm = '96';
+        if(mode === 'active') bpm = '112';
+        if(mode === 'cardio') bpm = '120';
+
+        if(diff === 'easy') bpm = String(Math.max(96, Number(bpm) - 8));
+        if(diff === 'challenge') bpm = String(Math.min(128, Number(bpm) + 8));
+        $('bpm').value = bpm;
+      }
+
+      $('mode').addEventListener('change', autoTuneBpm);
+      $('diff').addEventListener('change', autoTuneBpm);
+
+      $('btnSeed').addEventListener('click', () => {
+        seedValue = String(Date.now() + Math.floor(Math.random() * 9999));
+        $('btnSeed').textContent = '✅ Seed ใหม่แล้ว';
+        setTimeout(() => { $('btnSeed').textContent = '🎲 สุ่ม Seed ใหม่'; }, 900);
+      });
+
+      $('launcherForm').addEventListener('submit', (ev) => {
+        ev.preventDefault();
+
+        const payload = {
+          pid: $('pid').value.trim() || 'anon',
+          nick: $('nick').value.trim(),
+          mode: $('mode').value,
+          diff: $('diff').value,
+          dur: $('dur').value,
+          view: $('view').value,
+          bpm: $('bpm').value,
+          audio: $('audio').value
+        };
+
+        try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); }catch(_){}
+
+        const url = new URL('./boxer.html', location.href);
+        url.searchParams.set('pid', payload.pid);
+        url.searchParams.set('nick', payload.nick);
+        url.searchParams.set('mode', payload.mode);
+        url.searchParams.set('diff', payload.diff);
+        url.searchParams.set('dur', payload.dur);
+        url.searchParams.set('view', payload.view);
+        url.searchParams.set('bpm', payload.bpm);
+        url.searchParams.set('audio', payload.audio);
+        url.searchParams.set('seed', seedValue);
+        url.searchParams.set('hub', hub);
+        url.searchParams.set('game', 'rhythm-boxer-v2');
+        url.searchParams.set('zone', 'fitness');
+        url.searchParams.set('run', qs.get('run') || 'play');
+
+        const passthroughKeys = [
+          'studyId','phase','conditionGroup','sessionOrder','blockLabel',
+          'siteCode','schoolYear','semester','planDay','slot','grade'
+        ];
+        for(const k of passthroughKeys){
+          const v = qs.get(k);
+          if(v != null && v !== '') url.searchParams.set(k, v);
+        }
+
+        location.href = url.toString();
+      });
+    })();
+  </script>
+</body>
+</html>
