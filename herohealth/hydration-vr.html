@@ -8,24 +8,31 @@
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --sky1:#bfe9ff;
-      --sky2:#8fd6ff;
-      --sky3:#5fc3ff;
-      --cloud:#ffffffcc;
-      --card:#fffdf7;
-      --card2:#f8fff5;
-      --stroke:#d8eef8;
-      --text:#26435d;
-      --muted:#5f7c92;
-      --green1:#7ed957;
-      --green2:#4fb93d;
-      --blue1:#7ccfff;
+      --sky1:#dff6ff;
+      --sky2:#bfeaff;
+      --sky3:#8fd9ff;
+
+      --card:#fffef9;
+      --card2:#f6fff5;
+      --card3:#eefaff;
+
+      --stroke:#d8eef7;
+      --text:#2b4f69;
+      --muted:#6f8ea3;
+
+      --green1:#82da62;
+      --green2:#56b943;
+      --blue1:#7ecfff;
       --blue2:#4ea8ef;
-      --yellow1:#ffd85e;
-      --yellow2:#ffb938;
-      --shadow:0 16px 40px rgba(73,135,176,.18);
-      --shadow-soft:0 10px 26px rgba(73,135,176,.12);
-      --radius-xl:32px;
+      --yellow1:#ffe178;
+      --yellow2:#f6bd42;
+      --orange1:#ffbe73;
+      --orange2:#ff9857;
+
+      --shadow:0 14px 34px rgba(90,145,180,.16);
+      --shadow-lg:0 22px 56px rgba(90,145,180,.22);
+
+      --radius-xl:30px;
       --radius-lg:24px;
       --radius-md:18px;
     }
@@ -38,233 +45,488 @@
       font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 15% 18%, rgba(255,255,255,.65), transparent 18%),
-        radial-gradient(circle at 84% 14%, rgba(255,255,255,.55), transparent 16%),
-        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 45%, var(--sky3) 100%);
+        radial-gradient(circle at 14% 10%, rgba(255,255,255,.72), transparent 15%),
+        radial-gradient(circle at 86% 12%, rgba(255,255,255,.58), transparent 14%),
+        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 44%, var(--sky3) 100%);
     }
 
     body{
+      padding:16px;
       display:grid;
       place-items:center;
-      padding:18px;
     }
 
-    .shell{
-      width:min(1020px,100%);
+    .page{
+      width:min(1080px,100%);
       display:grid;
-      gap:18px;
+      gap:14px;
     }
 
-    .hero{
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
+      border:1px solid rgba(255,255,255,.96);
+      border-radius:var(--radius-xl);
+      box-shadow:var(--shadow-lg);
+    }
+
+    .hero-card{
       position:relative;
       overflow:hidden;
-      background:
-        radial-gradient(circle at 10% 12%, rgba(255,255,255,.65), transparent 18%),
-        radial-gradient(circle at 88% 8%, rgba(255,255,255,.55), transparent 16%),
-        linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,255,250,.96));
-      border:1px solid rgba(255,255,255,.72);
-      border-radius:var(--radius-xl);
-      box-shadow:var(--shadow);
-      padding:22px;
+      padding:16px;
       display:grid;
-      gap:18px;
+      gap:14px;
     }
 
-    .hero::before{
+    .hero-card::after{
       content:"";
       position:absolute;
-      inset:auto 0 0 0;
-      height:120px;
+      left:0;
+      right:0;
+      bottom:0;
+      height:96px;
       background:
-        radial-gradient(circle at 14% 50%, #d8f5a2 0 14%, transparent 15%),
-        radial-gradient(circle at 24% 78%, #9fe27e 0 10%, transparent 11%),
-        radial-gradient(circle at 84% 68%, #d8f5a2 0 15%, transparent 16%),
-        linear-gradient(180deg, rgba(255,255,255,0), rgba(126,217,87,.14));
+        radial-gradient(circle at 10% 76%, #d4f3ad 0 18%, transparent 19%),
+        radial-gradient(circle at 34% 100%, #a8e37f 0 12%, transparent 13%),
+        radial-gradient(circle at 84% 74%, #d4f3ad 0 18%, transparent 19%),
+        linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.12) 40%, rgba(104,191,70,.24) 100%);
       pointer-events:none;
-      z-index:0;
     }
 
-    .hero > *{
+    .hero-card > *{
       position:relative;
       z-index:1;
     }
 
-    .topline{
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .corner-btn{
+      width:46px;
+      height:46px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.95);
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      box-shadow:var(--shadow);
+      font-size:22px;
+      cursor:pointer;
+    }
+
+    .topchips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .topchip{
+      min-height:34px;
+      padding:7px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.82);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      color:#6588a0;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .logo-wrap{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:14px;
+      align-items:center;
+    }
+
+    .mascot{
+      width:80px;
+      height:80px;
+      border-radius:26px;
+      display:grid;
+      place-items:center;
+      font-size:40px;
+      color:#fff;
+      background:linear-gradient(180deg,var(--orange1),var(--orange2));
+      box-shadow:
+        inset 0 4px 10px rgba(255,255,255,.24),
+        0 12px 30px rgba(246,185,59,.18);
+    }
+
+    .logo-stack{
+      min-width:0;
+    }
+
+    .logo{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:2px;
+      font-size:clamp(36px, 6vw, 60px);
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:-.03em;
+      text-shadow:0 3px 0 rgba(255,255,255,.72);
+    }
+
+    .logo-hero{
+      color:#8fbe1e;
+    }
+
+    .logo-health{
+      color:#ffffff;
+      text-shadow:
+        0 3px 0 rgba(89,145,180,.22),
+        0 0 1px rgba(89,145,180,.18);
+    }
+
+    .logo-sub{
+      color:#6e8fa3;
+      font-size:15px;
+      font-weight:900;
+      margin-top:4px;
+    }
+
+    .home-btn{
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:24px;
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      color:#5f89a1;
+      cursor:pointer;
+    }
+
+    .profile-strip{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:12px;
+      align-items:center;
+      padding:12px;
+      border-radius:24px;
+      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(247,255,250,.94));
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+    }
+
+    .profile-left{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      min-width:0;
+    }
+
+    .avatar{
+      width:68px;
+      height:68px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      color:#fff;
+      background:linear-gradient(180deg,#7ecfff,#4ea8ef);
+      box-shadow:inset 0 4px 10px rgba(255,255,255,.24);
+      flex:0 0 68px;
+    }
+
+    .profile-name{
+      color:#2b4f69;
+      font-size:28px;
+      line-height:1.05;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .speech{
+      position:relative;
+      display:inline-block;
+      max-width:100%;
+      padding:10px 14px;
+      border-radius:18px;
+      background:linear-gradient(180deg,#fff7db,#ffefbd);
+      border:1px solid #ffe39a;
+      color:#6a5a21;
+      font-size:14px;
+      line-height:1.45;
+      font-weight:900;
+      box-shadow:var(--shadow);
+    }
+
+    .speech::before{
+      content:"";
+      position:absolute;
+      left:-10px;
+      top:18px;
+      width:16px;
+      height:16px;
+      background:linear-gradient(180deg,#fff7db,#ffefbd);
+      border-left:1px solid #ffe39a;
+      border-bottom:1px solid #ffe39a;
+      transform:rotate(45deg);
+    }
+
+    .profile-stats{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      align-items:center;
+      justify-content:flex-end;
     }
 
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:38px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:rgba(255,255,255,.82);
-      border:1px solid var(--stroke);
-      box-shadow:var(--shadow-soft);
-      font-weight:900;
-      font-size:14px;
-      color:#39607b;
-    }
-
-    .brand-row{
-      display:grid;
-      gap:10px;
-      justify-items:start;
-    }
-
-    .game-mark{
-      display:inline-flex;
-      align-items:center;
-      gap:12px;
+    .profile-stat{
+      min-width:118px;
+      min-height:68px;
       padding:10px 14px;
-      border-radius:999px;
-      background:#ffffffd9;
-      border:1px solid var(--stroke);
-      box-shadow:var(--shadow-soft);
-      font-weight:1000;
-      color:#37617e;
-    }
-
-    .game-mark .icon{
-      width:52px;
-      height:52px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      font-size:28px;
-      background:linear-gradient(180deg, #7ccfff, #4ea8ef);
-      color:#fff;
-      box-shadow:inset 0 4px 10px rgba(255,255,255,.35);
-    }
-
-    .title{
-      margin:0;
-      font-size:clamp(34px, 6vw, 58px);
-      line-height:1.02;
-      font-weight:1000;
-      color:#28506a;
-      letter-spacing:-.02em;
-      text-shadow:0 2px 0 rgba(255,255,255,.65);
-    }
-
-    .sub{
-      margin:0;
-      max-width:760px;
-      color:var(--muted);
-      font-size:clamp(17px, 2.5vw, 22px);
-      line-height:1.5;
-      font-weight:700;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:16px;
-    }
-
-    .panel{
-      background:var(--card);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius-lg);
-      box-shadow:var(--shadow-soft);
-      padding:18px;
-      display:grid;
-      gap:12px;
-    }
-
-    .panel.alt{
-      background:var(--card2);
-    }
-
-    .panel h2{
-      margin:0;
-      font-size:24px;
-      color:#315b77;
-    }
-
-    .bullets{
-      margin:0;
-      padding:0;
-      list-style:none;
-      display:grid;
-      gap:10px;
-    }
-
-    .bullets li{
+      border-radius:22px;
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
       display:flex;
-      align-items:flex-start;
       gap:10px;
-      color:#476a82;
-      font-size:18px;
-      line-height:1.5;
-      font-weight:700;
+      align-items:center;
     }
 
-    .dot{
+    .profile-stat-icon{
       width:38px;
       height:38px;
       flex:0 0 38px;
+      border-radius:12px;
       display:grid;
       place-items:center;
-      border-radius:14px;
-      background:linear-gradient(180deg, #ffffff, #e7f8ff);
-      border:1px solid var(--stroke);
-      box-shadow:var(--shadow-soft);
       font-size:20px;
+      background:linear-gradient(180deg,#fff6d6,#ffe7a7);
     }
 
-    .mini-grid{
+    .profile-stat-label{
+      display:block;
+      color:#7698ae;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:2px;
+    }
+
+    .profile-stat strong{
+      color:#2a4f68;
+      font-size:24px;
+      line-height:1.05;
+      font-weight:1000;
+    }
+
+    .zone-strip{
       display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
       gap:10px;
     }
 
-    .mini-card{
-      border-radius:20px;
-      padding:14px 16px;
-      background:linear-gradient(180deg, #ffffff, #eefcff);
-      border:1px solid var(--stroke);
-      box-shadow:var(--shadow-soft);
-      color:#4a6980;
-      font-size:17px;
-      line-height:1.45;
-      font-weight:700;
-    }
-
-    .mini-card strong{
-      display:block;
-      margin-bottom:4px;
-      color:#2b566f;
-      font-size:19px;
-    }
-
-    .controls{
+    .zone-card-mini{
+      min-height:62px;
+      border-radius:22px;
+      padding:12px 14px;
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
       display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
+      place-items:center;
+      text-align:center;
+      color:#6d8ea3;
+      font-size:17px;
+      font-weight:1000;
     }
 
-    .control{
+    .zone-card-mini.active{
+      background:linear-gradient(180deg,#fffef8,#f3fff0);
+      border-color:#b8e6a2;
+      color:#427d34;
+    }
+
+    .launcher-grid{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:14px;
+    }
+
+    .panel{
+      padding:16px;
+      border-radius:28px;
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow-lg);
+      display:grid;
+      gap:14px;
+    }
+
+    .panel-title{
+      color:#2b4f69;
+      font-size:28px;
+      line-height:1.08;
+      font-weight:1000;
+      margin:0;
+    }
+
+    .panel-sub{
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.5;
+      font-weight:700;
+      margin:0;
+    }
+
+    .hydration-hero-card{
+      position:relative;
+      overflow:hidden;
+      min-height:360px;
+      border-radius:28px;
+      background:
+        radial-gradient(circle at 14% 14%, rgba(255,255,255,.86), transparent 11%),
+        radial-gradient(circle at 84% 16%, rgba(255,255,255,.62), transparent 12%),
+        linear-gradient(180deg,#dff6ff 0%,#bfeaff 42%,#9fdcff 100%);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      padding:16px;
+      display:grid;
+      align-content:space-between;
+    }
+
+    .hydration-hero-card::after{
+      content:"";
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:0;
+      height:96px;
+      background:
+        radial-gradient(circle at 10% 76%, #d4f3ad 0 18%, transparent 19%),
+        radial-gradient(circle at 34% 100%, #a8e37f 0 12%, transparent 13%),
+        radial-gradient(circle at 84% 74%, #d4f3ad 0 18%, transparent 19%),
+        linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.12) 40%, rgba(104,191,70,.24) 100%);
+      pointer-events:none;
+    }
+
+    .hydration-hero-card > *{
+      position:relative;
+      z-index:1;
+    }
+
+    .card-top-row{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:8px;
+    }
+
+    .tiny-badge{
+      min-height:34px;
+      padding:7px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.82);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      color:#6788a0;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .play-scene{
+      display:grid;
+      place-items:center;
+      gap:12px;
+      text-align:center;
+      padding:6px 0;
+    }
+
+    .kid-avatar{
+      width:122px;
+      height:122px;
+      border-radius:32px;
+      display:grid;
+      place-items:center;
+      font-size:68px;
+      color:#fff;
+      background:linear-gradient(180deg,#7ecfff,#4ea8ef);
+      box-shadow:
+        inset 0 6px 14px rgba(255,255,255,.26),
+        0 16px 34px rgba(90,145,180,.18);
+    }
+
+    .play-bubble{
+      max-width:340px;
+      justify-self:center;
+      padding:12px 16px;
+      border-radius:18px;
+      background:linear-gradient(180deg,#fff7db,#ffefbd);
+      border:1px solid #ffe39a;
+      color:#6a5a21;
+      font-size:16px;
+      line-height:1.45;
+      font-weight:1000;
+      box-shadow:var(--shadow);
+    }
+
+    .launcher-footer{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .level-pill{
+      min-height:44px;
+      padding:10px 16px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#8add68,#59be43);
+      color:#fff;
+      font-weight:1000;
+      box-shadow:var(--shadow);
+    }
+
+    .go-btn{
+      min-width:180px;
+      min-height:56px;
+      border:0;
+      border-radius:18px;
+      background:linear-gradient(180deg,#82da62,#56b943);
+      color:#fff;
+      font-size:24px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow);
+      transition:transform .12s ease, filter .12s ease;
+    }
+
+    .go-btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.02);
+    }
+
+    .controls-card{
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+
+    .control-box{
+      padding:14px;
+      border-radius:22px;
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
       display:grid;
       gap:8px;
-      background:#ffffffd9;
-      border:1px solid var(--stroke);
-      border-radius:20px;
-      box-shadow:var(--shadow-soft);
-      padding:14px;
     }
 
-    .control label{
-      font-size:15px;
+    .control-box label{
+      color:#7094ab;
+      font-size:14px;
       font-weight:1000;
-      color:#44708a;
     }
 
-    .control select{
+    .control-box select{
       border:1px solid #cfe8f3;
       background:#fff;
       color:var(--text);
@@ -275,109 +537,265 @@
       font-weight:800;
     }
 
-    .actions{
+    .tip-card{
+      padding:16px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fffef8,#f3fff0);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      color:#5d8096;
+      font-size:15px;
+      line-height:1.55;
+      font-weight:800;
+    }
+
+    .tip-card strong{
+      color:#315873;
+    }
+
+    .alt-actions{
       display:flex;
-      gap:12px;
+      gap:10px;
       flex-wrap:wrap;
     }
 
-    button{
+    .btn-blue{
+      min-height:52px;
+      padding:12px 18px;
       border:0;
-      cursor:pointer;
-      border-radius:20px;
-      padding:16px 22px;
+      border-radius:18px;
+      background:linear-gradient(180deg,var(--blue1),var(--blue2));
+      color:#fff;
+      font-size:18px;
       font-weight:1000;
-      font-size:19px;
-      transition:transform .12s ease, filter .12s ease, opacity .12s ease;
-      box-shadow:var(--shadow-soft);
+      cursor:pointer;
+      box-shadow:var(--shadow);
+      transition:transform .12s ease, filter .12s ease;
     }
 
-    button:hover{
+    .btn-soft{
+      min-height:52px;
+      padding:12px 18px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.96);
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      color:var(--text);
+      font-size:18px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow);
+      transition:transform .12s ease, filter .12s ease;
+    }
+
+    .btn-blue:hover,
+    .btn-soft:hover{
       transform:translateY(-1px);
       filter:brightness(1.02);
     }
 
-    .primary{
-      background:linear-gradient(180deg, var(--green1), var(--green2));
-      color:#fff;
-      min-width:230px;
-    }
-
-    .secondary{
-      background:linear-gradient(180deg, var(--blue1), var(--blue2));
-      color:#fff;
-      min-width:180px;
-    }
-
     .footer-note{
-      color:#52788f;
+      color:#6e8fa3;
       font-size:14px;
       line-height:1.5;
-      font-weight:700;
+      font-weight:800;
     }
 
-    @media (max-width:760px){
-      .grid,
-      .controls{
+    @media (max-width: 900px){
+      .logo-wrap,
+      .profile-strip,
+      .launcher-grid{
         grid-template-columns:1fr;
       }
-      .hero{
-        padding:18px;
+
+      .profile-stats{
+        justify-content:flex-start;
       }
-      .actions{
-        flex-direction:column;
+    }
+
+    @media (max-width: 640px){
+      body{
+        padding:12px;
       }
-      .primary,.secondary{
+
+      .page{
+        gap:12px;
+      }
+
+      .hero-v2-shell,
+      .panel{
+        border-radius:24px;
+      }
+
+      .logo{
+        font-size:clamp(28px, 10vw, 40px);
+      }
+
+      .mascot{
+        width:64px;
+        height:64px;
+        border-radius:20px;
+        font-size:30px;
+      }
+
+      .home-btn{
+        width:44px;
+        height:44px;
+        border-radius:14px;
+        font-size:20px;
+      }
+
+      .profile-strip{
+        grid-template-columns:1fr;
+      }
+
+      .profile-left{
+        align-items:flex-start;
+      }
+
+      .avatar{
+        width:58px;
+        height:58px;
+        flex-basis:58px;
+        border-radius:18px;
+        font-size:28px;
+      }
+
+      .profile-name{
+        font-size:24px;
+      }
+
+      .speech{
+        font-size:13px;
+      }
+
+      .zone-strip{
+        grid-template-columns:1fr;
+      }
+
+      .topbar{
+        align-items:flex-start;
+      }
+
+      .topchips{
+        justify-content:flex-start;
+      }
+
+      .kid-avatar{
+        width:96px;
+        height:96px;
+        border-radius:26px;
+        font-size:52px;
+      }
+
+      .play-bubble{
+        font-size:14px;
+      }
+
+      .launcher-footer{
+        align-items:stretch;
+      }
+
+      .go-btn,
+      .btn-blue,
+      .btn-soft{
         width:100%;
       }
-      .title{
-        font-size:clamp(30px, 10vw, 46px);
+
+      .alt-actions{
+        flex-direction:column;
       }
     }
   </style>
 </head>
 <body>
-  <main class="shell">
-    <section class="hero">
-      <div class="topline">
-        <span class="badge">💧 Nutrition Zone</span>
-        <span class="badge">🎮 Solo Mode</span>
-        <span class="badge">🧒 Hub v2 Style</span>
+  <main class="page">
+    <section class="card hero-card">
+      <div class="topbar">
+        <button class="corner-btn" type="button" aria-label="settings">⚙️</button>
+
+        <div class="topchips">
+          <span class="topchip">💧 Play</span>
+          <span class="topchip">⭐ Hero</span>
+          <span class="topchip">🫧 Fun</span>
+        </div>
       </div>
 
-      <div class="brand-row">
-        <div class="game-mark">
-          <span class="icon">💧</span>
-          <span>HeroHealth • Learn Health Through Play!</span>
-        </div>
-        <h1 class="title">Hydration Hero</h1>
-        <p class="sub">เก็บน้ำดี เลี่ยงของไม่ดี ผ่านพายุและบอส แล้วไปคูลดาวน์ก่อนกลับ HUB</p>
-      </div>
+      <div class="logo-wrap">
+        <div class="mascot">🦸</div>
 
-      <div class="grid">
-        <div class="panel">
-          <h2>วิธีเล่นแบบสั้น</h2>
-          <ul class="bullets">
-            <li><span class="dot">💧</span><span>แตะน้ำดีเพื่อเพิ่มคะแนนและเพิ่มพลังน้ำ</span></li>
-            <li><span class="dot">🛡️</span><span>เก็บโล่ไว้กันสายฟ้าช่วงพายุและบอส</span></li>
-            <li><span class="dot">⚠️</span><span>หลบของไม่ดี เพราะจะเสียคะแนนและเสียน้ำ</span></li>
-          </ul>
-        </div>
-
-        <div class="panel alt mini-grid">
-          <div class="mini-card">
-            <strong>Flow</strong>
-            warmup → run → summary → cooldown → hub
+        <div class="logo-stack">
+          <div class="logo">
+            <span class="logo-hero">Hero</span><span class="logo-health">Health</span>
           </div>
-          <div class="mini-card">
-            <strong>เป้าหมาย</strong>
-            เก็บคอมโบ อยู่รอดให้ได้นาน และผ่านด่านสุดท้าย
+          <div class="logo-sub">Learn Health Through Play!</div>
+        </div>
+
+        <button id="hubBtnTop" class="home-btn" type="button" aria-label="home">🏠</button>
+      </div>
+
+      <div class="profile-strip">
+        <div class="profile-left">
+          <div class="avatar">🧒</div>
+
+          <div>
+            <div class="profile-name">Rocky</div>
+            <div class="speech">พร้อมแล้ว! ไปเก็บน้ำดีให้เต็มพลังกันเลย</div>
           </div>
         </div>
+
+        <div class="profile-stats">
+          <div class="profile-stat">
+            <span class="profile-stat-icon">🏅</span>
+            <div>
+              <span class="profile-stat-label">Score</span>
+              <strong>0</strong>
+            </div>
+          </div>
+
+          <div class="profile-stat">
+            <span class="profile-stat-icon">⭐</span>
+            <div>
+              <span class="profile-stat-label">Stars</span>
+              <strong>3</strong>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="controls">
-        <div class="control">
+      <div class="zone-strip">
+        <div class="zone-card-mini">🧼 Hygiene Zone</div>
+        <div class="zone-card-mini active">🥗 Nutrition Zone</div>
+        <div class="zone-card-mini">🏃 Fitness Zone</div>
+      </div>
+    </section>
+
+    <section class="launcher-grid">
+      <section class="panel">
+        <div>
+          <h1 class="panel-title">Hydration Hero</h1>
+          <p class="panel-sub">เก็บน้ำดี เลี่ยงของไม่ดี ผ่านพายุและบอส แล้วไปคูลดาวน์ก่อนกลับ HUB</p>
+        </div>
+
+        <div class="hydration-hero-card">
+          <div class="card-top-row">
+            <span class="tiny-badge">💧 Nutrition Hero</span>
+            <span class="tiny-badge">⭐ Lv. 5</span>
+          </div>
+
+          <div class="play-scene">
+            <div class="kid-avatar">🫧</div>
+            <div class="play-bubble">Great! ไปเก็บน้ำดีให้ได้เยอะที่สุดกันเลย!</div>
+          </div>
+
+          <div class="launcher-footer">
+            <div class="level-pill">Level 5</div>
+            <button id="startBtn" class="go-btn" type="button">Go</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel controls-card">
+        <div class="control-box">
           <label for="diffSel">ระดับความยาก</label>
           <select id="diffSel">
             <option value="normal">Normal</option>
@@ -385,24 +803,29 @@
           </select>
         </div>
 
-        <div class="control">
+        <div class="control-box">
           <label for="viewSel">มุมมอง</label>
           <select id="viewSel">
             <option value="mobile">Mobile</option>
             <option value="cvr">Cardboard / cVR</option>
           </select>
         </div>
-      </div>
 
-      <div class="actions">
-        <button id="startBtn" class="primary">🚀 เริ่มเล่น</button>
-        <button id="hubBtn" class="secondary">🏠 กลับ HUB</button>
-      </div>
+        <div class="tip-card">
+          <strong>วิธีเล่นแบบสั้น</strong><br />
+          แตะน้ำดีเพื่อเพิ่มคะแนน เก็บโล่ไว้กันสายฟ้า และหลบของไม่ดีให้ได้มากที่สุด
+        </div>
 
-      <div class="footer-note">
-        launcher นี้จะพาไป <strong>/herohealth/warmup-gate.html</strong> ก่อน
-        แล้วค่อยเข้า <strong>/herohealth/hydration-vr/hydration.html</strong>
-      </div>
+        <div class="alt-actions">
+          <button id="hubBtn" class="btn-blue" type="button">🏠 กลับ HUB</button>
+          <button id="helpBtn" class="btn-soft" type="button">❓ วิธีเล่น</button>
+        </div>
+
+        <div class="footer-note">
+          launcher นี้จะพาไป <strong>/herohealth/warmup-gate.html</strong> ก่อน แล้วค่อยเข้า
+          <strong>/herohealth/hydration-vr/hydration.html</strong>
+        </div>
+      </section>
     </section>
   </main>
 
@@ -425,7 +848,7 @@
 
       function ensurePid(){
         const raw = String(q('pid', '')).trim();
-        if (raw) return raw.replace(/[.#$[\]/]/g, '-');
+        if(raw) return raw.replace(/[.#$[\]/]/g, '-');
 
         const KEY = 'HHA_DEVICE_PID';
         try{
@@ -457,7 +880,6 @@
         run.searchParams.set('hub', defaultHub());
         run.searchParams.set('pid', ensurePid());
         run.searchParams.set('sessionId', q('sessionId', makeSessionId()));
-
         run.searchParams.set('diff', diff);
         run.searchParams.set('run', q('run', 'play'));
         run.searchParams.set('view', view);
@@ -504,7 +926,6 @@
         gate.searchParams.set('nextKey', nextKey);
         gate.searchParams.set('pid', ensurePid());
         gate.searchParams.set('seed', seed);
-
         gate.searchParams.set('diff', diff);
         gate.searchParams.set('run', q('run', 'play'));
         gate.searchParams.set('view', view);
@@ -514,10 +935,18 @@
         location.href = gate.href;
       }
 
-      document.getElementById('startBtn').addEventListener('click', goStart);
-      document.getElementById('hubBtn').addEventListener('click', () => {
+      function goHub(){
         location.href = defaultHub();
-      });
+      }
+
+      function showHelp(){
+        alert('วิธีเล่น:\\n\\n1) แตะน้ำดีเพื่อเพิ่มคะแนนและเพิ่มน้ำ\\n2) หลบของไม่ดี\\n3) เก็บโล่ไว้กันสายฟ้า\\n4) ผ่านพายุและบอสให้ได้');
+      }
+
+      document.getElementById('startBtn').addEventListener('click', goStart);
+      document.getElementById('hubBtn').addEventListener('click', goHub);
+      document.getElementById('hubBtnTop').addEventListener('click', goHub);
+      document.getElementById('helpBtn').addEventListener('click', showHelp);
     })();
   </script>
 </body>
