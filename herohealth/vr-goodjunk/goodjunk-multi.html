@@ -160,7 +160,7 @@
     .layout{
       display:grid;
       gap:16px;
-      grid-template-columns:360px 1fr;
+      grid-template-columns:380px 1fr;
     }
 
     @media (max-width:980px){
@@ -205,7 +205,7 @@
       color:#6f6c65;
     }
 
-    input,select{
+    input,select,textarea{
       width:100%;
       border-radius:18px;
       border:2px solid var(--line);
@@ -215,6 +215,18 @@
       font:inherit;
       min-height:48px;
       box-shadow:0 8px 18px rgba(86,155,194,.08);
+    }
+
+    textarea{
+      min-height:92px;
+      resize:vertical;
+    }
+
+    .tiny{
+      font-size:12px;
+      color:#8a887f;
+      line-height:1.6;
+      font-weight:900;
     }
 
     .mode-tabs{
@@ -320,6 +332,20 @@
       font-weight:900;
     }
 
+    .status{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6c6a61;
+      font-size:12px;
+      font-weight:1000;
+    }
+
     .actions{
       display:flex;
       gap:10px;
@@ -375,18 +401,16 @@
       font-weight:900;
     }
 
-    .status{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      width:max-content;
-      padding:8px 12px;
-      border-radius:999px;
-      border:2px solid var(--line);
-      background:#fff;
-      color:#6c6a61;
+    .route-box{
+      margin-top:10px;
+      padding-top:10px;
+      border-top:1px dashed rgba(191,227,242,.95);
+      color:#8b887f;
       font-size:12px;
-      font-weight:1000;
+      line-height:1.65;
+      font-weight:900;
+      white-space:pre-wrap;
+      word-break:break-word;
     }
 
     .footer-note{
@@ -405,20 +429,20 @@
       <h1>ห้องเล่นหลายคน</h1>
       <p class="sub">
         ใช้หน้านี้สำหรับ <strong>Race</strong>, <strong>Battle</strong> และ <strong>Coop</strong>
-        โดยจะส่ง query ต่อไปยัง run page เดิมของแต่ละโหมดตาม path เดิมอัตโนมัติ
+        โดยจะส่ง query ต่อไปยัง run page ของแต่ละโหมดอัตโนมัติ รวมทั้งรองรับการ override engine path จากหน้านี้ได้เลย
       </p>
       <div class="pill-row">
         <div class="pill">RACE → goodjunk-race-run.html</div>
         <div class="pill">BATTLE → goodjunk-battle-run.html</div>
         <div class="pill">COOP → goodjunk-coop-run.html</div>
-        <div class="pill">ใช้ room code เดียวกันข้ามเครื่องได้</div>
+        <div class="pill">ส่ง room code ข้ามเครื่องได้</div>
       </div>
     </div>
 
     <div class="layout">
       <section class="card">
-        <h2>ตั้งค่าผู้เล่น</h2>
-        <div class="muted">ค่าด้านซ้ายจะถูกใช้ทั้งตอนสร้างห้องและตอนเข้าห้อง</div>
+        <h2>ตั้งค่าห้อง</h2>
+        <div class="muted">ค่าด้านซ้ายจะถูกใช้ตอนสร้างห้อง เข้าห้อง และสร้าง invite link</div>
 
         <div class="form-grid">
           <div class="field">
@@ -449,6 +473,18 @@
               <option value="180">180s</option>
             </select>
           </div>
+
+          <div class="field">
+            <label for="enginePath">Engine Path Override</label>
+            <input id="enginePath" placeholder="./js/goodjunk-race.safe.js" />
+            <div class="tiny">ถ้าปล่อยว่าง จะใช้ candidate path เริ่มต้นของแต่ละ run page</div>
+          </div>
+
+          <div class="field">
+            <label for="engineCandidates">Engine Candidates Override</label>
+            <textarea id="engineCandidates" placeholder="./js/goodjunk-race.safe.js, ./goodjunk-race.js"></textarea>
+            <div class="tiny">ใส่หลาย path คั่นด้วย comma เพื่อให้ run page ลองโหลดตามลำดับ</div>
+          </div>
         </div>
 
         <div class="footer-note">
@@ -467,9 +503,7 @@
           <div class="mode-head">
             <div class="mode-badge" id="modeBadge">🏁 RACE MODE</div>
             <h2 class="mode-title" id="modeTitle">Race Lobby</h2>
-            <p class="mode-desc" id="modeDesc">
-              แข่งเก็บอาหารดี ใครทำคะแนนได้มากกว่าชนะ
-            </p>
+            <p class="mode-desc" id="modeDesc">แข่งเก็บอาหารดี ใครทำคะแนนได้มากกว่าชนะ</p>
           </div>
 
           <div class="grid2">
@@ -485,9 +519,7 @@
             <div class="mini-card">
               <h3>สถานะ</h3>
               <div class="status" id="routeStatus">พร้อม route ไป run page</div>
-              <div class="footer-note" id="routeInfo">
-                path run ปัจจุบัน: <code>./goodjunk-race-run.html</code>
-              </div>
+              <div class="footer-note" id="routeInfo">path run ปัจจุบัน: <code>./goodjunk-race-run.html</code></div>
             </div>
           </div>
 
@@ -501,6 +533,7 @@
           <div class="share-box">
             <div class="muted">Invite Link</div>
             <div class="share-link" id="shareLink">-</div>
+            <div class="route-box" id="routeDebug">-</div>
           </div>
         </div>
       </section>
@@ -553,23 +586,30 @@
       let currentMode = (q.get('mode') || 'race').toLowerCase();
       if (!MODES[currentMode]) currentMode = 'race';
 
-      const elName = document.getElementById('playerName');
-      const elRoom = document.getElementById('roomCode');
-      const elDiff = document.getElementById('diff');
-      const elTime = document.getElementById('time');
+      const $ = (id) => document.getElementById(id);
 
-      const elModeBadge = document.getElementById('modeBadge');
-      const elModeTitle = document.getElementById('modeTitle');
-      const elModeDesc = document.getElementById('modeDesc');
-      const elModeSteps = document.getElementById('modeSteps');
-      const elRouteStatus = document.getElementById('routeStatus');
-      const elRouteInfo = document.getElementById('routeInfo');
-      const elShareLink = document.getElementById('shareLink');
+      const elName = $('playerName');
+      const elRoom = $('roomCode');
+      const elDiff = $('diff');
+      const elTime = $('time');
+      const elEngine = $('enginePath');
+      const elEngineCandidates = $('engineCandidates');
+
+      const elModeBadge = $('modeBadge');
+      const elModeTitle = $('modeTitle');
+      const elModeDesc = $('modeDesc');
+      const elModeSteps = $('modeSteps');
+      const elRouteStatus = $('routeStatus');
+      const elRouteInfo = $('routeInfo');
+      const elShareLink = $('shareLink');
+      const elRouteDebug = $('routeDebug');
 
       elName.value = q.get('name') || '';
       elRoom.value = q.get('roomId') || q.get('room') || '';
       elDiff.value = q.get('diff') || 'normal';
       elTime.value = q.get('time') || MODES[currentMode].time;
+      elEngine.value = q.get('engine') || '';
+      elEngineCandidates.value = q.get('engineCandidates') || '';
 
       function getApiUrl() {
         return String(
@@ -600,6 +640,11 @@
         return code;
       }
 
+      function setIfHas(params, key, value) {
+        const s = String(value ?? '').trim();
+        if (s) params.set(key, s);
+      }
+
       function buildRunUrl(mode, role) {
         const meta = MODES[mode];
         const url = new URL(meta.runPath, location.href);
@@ -622,11 +667,17 @@
         const api = getApiUrl();
         if (api) p.set('api', api);
 
-        ['debug','bossdebug','log','studentKey','schoolCode','classRoom','studentNo','nickName','conditionGroup','phase']
-          .forEach((key) => {
-            const val = q.get(key);
-            if (val) p.set(key, val);
-          });
+        setIfHas(p, 'engine', elEngine.value);
+        setIfHas(p, 'engineCandidates', elEngineCandidates.value);
+
+        [
+          'debug','bossdebug','log',
+          'studentKey','schoolCode','classRoom','studentNo','nickName',
+          'conditionGroup','phase'
+        ].forEach((key) => {
+          const val = q.get(key);
+          if (val) p.set(key, val);
+        });
 
         return url.toString();
       }
@@ -646,59 +697,66 @@
         elModeBadge.textContent = meta.badge;
         elModeTitle.textContent = meta.title;
         elModeDesc.textContent = meta.desc;
-        elTime.value = elTime.value || meta.time;
         elModeSteps.innerHTML = meta.steps.map(s => `<div>• ${s}</div>`).join('');
         elRouteStatus.textContent = 'พร้อม route ไป run page';
         elRouteInfo.innerHTML = `path run ปัจจุบัน: <code>${meta.runPath}</code>`;
-        elShareLink.textContent = buildRunUrl(currentMode, 'player');
 
-        document.getElementById('tabRace').classList.toggle('is-active', currentMode === 'race');
-        document.getElementById('tabBattle').classList.toggle('is-active', currentMode === 'battle');
-        document.getElementById('tabCoop').classList.toggle('is-active', currentMode === 'coop');
+        const inviteUrl = buildRunUrl(currentMode, 'player');
+        elShareLink.textContent = inviteUrl;
+
+        elRouteDebug.textContent =
+          '[MODE] ' + currentMode + '\n' +
+          '[RUN PATH] ' + meta.runPath + '\n' +
+          '[ROOM] ' + (elRoom.value.trim() || '-') + '\n' +
+          '[ENGINE] ' + (elEngine.value.trim() || '-') + '\n' +
+          '[ENGINE CANDIDATES] ' + (elEngineCandidates.value.trim() || '-') + '\n' +
+          '[API] ' + (getApiUrl() || '-');
+
+        $('tabRace').classList.toggle('is-active', currentMode === 'race');
+        $('tabBattle').classList.toggle('is-active', currentMode === 'battle');
+        $('tabCoop').classList.toggle('is-active', currentMode === 'coop');
       }
 
-      document.getElementById('tabRace').addEventListener('click', () => {
+      $('tabRace').addEventListener('click', () => {
         currentMode = 'race';
         if (!elTime.value) elTime.value = MODES.race.time;
         renderMode();
       });
 
-      document.getElementById('tabBattle').addEventListener('click', () => {
+      $('tabBattle').addEventListener('click', () => {
         currentMode = 'battle';
         if (!elTime.value) elTime.value = MODES.battle.time;
         renderMode();
       });
 
-      document.getElementById('tabCoop').addEventListener('click', () => {
+      $('tabCoop').addEventListener('click', () => {
         currentMode = 'coop';
         if (!elTime.value) elTime.value = MODES.coop.time;
         renderMode();
       });
 
-      document.getElementById('btnCreate').addEventListener('click', () => {
-        const url = buildRunUrl(currentMode, 'host');
-        location.href = url;
+      $('btnCreate').addEventListener('click', () => {
+        location.href = buildRunUrl(currentMode, 'host');
       });
 
-      document.getElementById('btnJoin').addEventListener('click', () => {
-        const url = buildRunUrl(currentMode, 'player');
-        location.href = url;
+      $('btnJoin').addEventListener('click', () => {
+        location.href = buildRunUrl(currentMode, 'player');
       });
 
-      document.getElementById('btnCopyLink').addEventListener('click', () => {
+      $('btnCopyLink').addEventListener('click', () => {
         const url = buildRunUrl(currentMode, 'player');
         elShareLink.textContent = url;
         copyText(url);
       });
 
-      document.getElementById('btnCopyCode').addEventListener('click', () => {
+      $('btnCopyCode').addEventListener('click', () => {
         copyText(getRoomCode());
       });
 
-      elRoom.addEventListener('input', renderMode);
-      elName.addEventListener('input', renderMode);
-      elDiff.addEventListener('change', renderMode);
-      elTime.addEventListener('change', renderMode);
+      [elRoom, elName, elDiff, elTime, elEngine, elEngineCandidates].forEach((el) => {
+        el.addEventListener('input', renderMode);
+        el.addEventListener('change', renderMode);
+      });
 
       renderMode();
     })();
