@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.social.js ===
 // Hydration V2 Social / Team Mission Logic
-// PATCH v20260318b-HYDRATION-V2-SOCIAL-CHECKLIST
+// PATCH v20260320b-HYDRATION-V2-SOCIAL-BREAKDOWN
 
 export function computeSocialProgress(input = {}) {
   const type = normalizeType(input.type);
@@ -87,7 +87,16 @@ export function computeSocialProgress(input = {}) {
     missionNote,
     teamStars,
     checklist,
-
+    breakdown: {
+      actionPart: round1(actionPart),
+      knowledgePart: round1(knowledgePart),
+      planningPart: round1(planningPart),
+      teamworkPart: round1(teamworkPart),
+      comboPart: round1(comboPart),
+      rawContribution: round1(rawContribution),
+      penalty: round1(penalty),
+      contributionPercent
+    },
     metrics: {
       goodCatch,
       badCatch,
@@ -110,7 +119,13 @@ export function buildSocialSummary(social = {}) {
     return `Solo summary • contribution ${contributionPercent}% • social ${socialScore} • ${missionNote}`;
   }
 
-  return `Team summary • contribution ${contributionPercent}% • social ${socialScore} • stars ${teamStars} • ${missionLabel} • ${missionNote}`;
+  const b = social.breakdown || {};
+  return [
+    `Team summary • contribution ${contributionPercent}% • social ${socialScore} • stars ${teamStars}`,
+    `${missionLabel}`,
+    `${missionNote}`,
+    `A ${fmt(b.actionPart)} + K ${fmt(b.knowledgePart)} + P ${fmt(b.planningPart)} + T ${fmt(b.teamworkPart)} + C ${fmt(b.comboPart)} - Penalty ${fmt(b.penalty)}`
+  ].join(' • ');
 }
 
 function buildSoloResult({
@@ -120,12 +135,14 @@ function buildSoloResult({
   rewardCount = 0,
   bestCombo = 0
 } = {}) {
+  const actionPart = clampNumber(goodCatch * 3, 0, 42);
+  const knowledgePart = clampNumber(correctChoices * 10, 0, 20);
+  const planningPart = clampNumber(createdPlanScore * 0.2, 0, 20);
+  const teamworkPart = clampNumber(rewardCount * 4, 0, 10);
+  const comboPart = clampNumber(Math.min(bestCombo, 10), 0, 10);
+
   const contributionPercent = Math.round(clampNumber(
-    (goodCatch * 3) +
-    (correctChoices * 10) +
-    (createdPlanScore * 0.2) +
-    (rewardCount * 4) +
-    Math.min(bestCombo, 10),
+    actionPart + knowledgePart + planningPart + teamworkPart + comboPart,
     0,
     100
   ));
@@ -147,7 +164,16 @@ function buildSoloResult({
     missionNote: 'โหมดนี้ยังไม่คิดภารกิจทีม',
     teamStars: 0,
     checklist: null,
-
+    breakdown: {
+      actionPart: round1(actionPart),
+      knowledgePart: round1(knowledgePart),
+      planningPart: round1(planningPart),
+      teamworkPart: round1(teamworkPart),
+      comboPart: round1(comboPart),
+      rawContribution: round1(actionPart + knowledgePart + planningPart + teamworkPart + comboPart),
+      penalty: 0,
+      contributionPercent
+    },
     metrics: {
       goodCatch,
       correctChoices,
@@ -171,4 +197,14 @@ function clampNumber(value, min, max) {
   const n = Number(value);
   if (!Number.isFinite(n)) return min;
   return Math.max(min, Math.min(max, n));
+}
+
+function round1(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? Math.round(n * 10) / 10 : 0;
+}
+
+function fmt(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? n.toFixed(1) : '0.0';
 }
