@@ -3,189 +3,705 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Multiplayer Bridge</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth • GoodJunk Multiplayer</title>
+  <meta name="color-scheme" content="light" />
+  <link rel="icon" href="../favicon.ico" />
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --panel:rgba(2,6,23,.78);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --shadow:0 24px 64px rgba(0,0,0,.28);
+      --sky1:#dff4ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d8;
+      --card:#fffdf6;
+      --card2:#f8fff3;
+      --line:#bfe3f2;
+      --text:#4d4a42;
+      --muted:#7b7a72;
+
+      --green:#7ed957;
+      --green2:#58c33f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --pink:#ffa9c9;
+      --violet:#cdb9ff;
+
+      --shadow:0 18px 40px rgba(86,155,194,.16);
+
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
     }
+
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
       font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 20% 0%, rgba(56,189,248,.12), transparent 20%),
-        radial-gradient(circle at 80% 0%, rgba(167,139,250,.12), transparent 20%),
-        linear-gradient(180deg,var(--bg2),var(--bg1));
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
     }
+
+    body{
+      min-height:100dvh;
+      padding:
+        calc(18px + var(--sat))
+        calc(16px + var(--sar))
+        calc(20px + var(--sab))
+        calc(16px + var(--sal));
+    }
+
     .wrap{
-      min-height:100vh;
-      display:grid;
-      place-items:center;
-      padding:24px;
+      max-width:1180px;
+      margin:0 auto;
     }
-    .card{
-      width:min(92vw,680px);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:24px;
+
+    .hero{
+      margin-bottom:18px;
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      border:3px solid var(--line);
+      border-radius:30px;
       box-shadow:var(--shadow);
-      padding:22px 20px;
-      text-align:center;
-      backdrop-filter:blur(10px);
+      padding:22px 18px;
+      position:relative;
+      overflow:hidden;
     }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-40px;
+      top:-40px;
+      width:160px;
+      height:160px;
+      border-radius:999px;
+      background:rgba(127,207,255,.20);
+      filter:blur(8px);
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-28px;
+      bottom:-28px;
+      width:140px;
+      height:140px;
+      border-radius:999px;
+      background:rgba(255,212,92,.22);
+      filter:blur(8px);
+    }
+
     .kicker{
+      position:relative;
+      z-index:1;
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:6px 12px;
+      padding:8px 14px;
       border-radius:999px;
-      background:rgba(255,255,255,.04);
-      border:1px solid var(--stroke);
-      color:#dbeafe;
-      font-size:12px;
-      font-weight:900;
+      background:#eaf8ff;
+      border:2px solid var(--line);
+      color:#5ea8d0;
+      font-size:13px;
+      font-weight:1000;
       margin-bottom:12px;
     }
+
     h1{
+      position:relative;
+      z-index:1;
       margin:0 0 8px;
-      font-size:28px;
-      line-height:1.12;
+      font-size:clamp(30px,5vw,46px);
+      line-height:1.05;
+      font-weight:1000;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
     }
-    .muted{
+
+    .sub{
+      position:relative;
+      z-index:1;
+      margin:0;
       color:var(--muted);
-      font-size:14px;
-      line-height:1.65;
-    }
-    .box{
-      margin-top:14px;
-      padding:14px;
-      border-radius:18px;
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.45);
-      text-align:left;
-      font-size:13px;
       line-height:1.7;
-      color:#dbe4f0;
-      word-break:break-word;
-    }
-    .row{
-      display:flex;
-      gap:10px;
-      justify-content:center;
-      flex-wrap:wrap;
-      margin-top:16px;
-    }
-    .btn{
-      appearance:none;
-      border:1px solid var(--stroke);
-      border-radius:14px;
-      min-height:46px;
-      padding:11px 14px;
-      background:rgba(255,255,255,.05);
-      color:var(--text);
-      font:inherit;
+      font-size:15px;
       font-weight:900;
-      cursor:pointer;
-      transition:.12s ease;
-      text-decoration:none;
+      max-width:860px;
+    }
+
+    .pill-row{
+      position:relative;
+      z-index:1;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .pill{
       display:inline-flex;
       align-items:center;
-      justify-content:center;
+      gap:6px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6c6a61;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
     }
-    .btn:hover{ transform:translateY(-1px); }
+
+    .layout{
+      display:grid;
+      gap:16px;
+      grid-template-columns:360px 1fr;
+    }
+
+    @media (max-width:980px){
+      .layout{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      background:linear-gradient(180deg,#fffef8,#f7fff4);
+      border:3px solid var(--line);
+      border-radius:28px;
+      padding:16px;
+      box-shadow:var(--shadow);
+    }
+
+    .card h2{
+      margin:0 0 8px;
+      font-size:22px;
+      color:#67a91c;
+    }
+
+    .muted{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.65;
+      font-weight:900;
+    }
+
+    .form-grid{
+      display:grid;
+      gap:12px;
+      margin-top:12px;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:13px;
+      font-weight:1000;
+      color:#6f6c65;
+    }
+
+    input,select{
+      width:100%;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      padding:12px 14px;
+      font:inherit;
+      min-height:48px;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+    }
+
+    .mode-tabs{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+
+    .tab-btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:12px 16px;
+      font-weight:1000;
+      font-size:15px;
+      transition:.12s ease;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
+      color:#fffef9;
+    }
+
+    .tab-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .tab-btn:active{ transform:translateY(0); }
+
+    .tab-race{ background:linear-gradient(180deg,var(--blue),var(--blue2)); }
+    .tab-battle{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#6d4e00; }
+    .tab-coop{ background:linear-gradient(180deg,#dccfff,var(--violet)); }
+
+    .tab-btn.is-active{
+      outline:4px solid rgba(255,255,255,.55);
+    }
+
+    .panel{
+      display:grid;
+      gap:14px;
+    }
+
+    .mode-head{
+      display:grid;
+      gap:6px;
+    }
+
+    .mode-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      padding:7px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:1000;
+      border:2px solid var(--line);
+      background:#fff;
+    }
+
+    .mode-title{
+      margin:0;
+      font-size:28px;
+      line-height:1.08;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .mode-desc{
+      color:var(--muted);
+      line-height:1.7;
+      font-size:14px;
+      font-weight:900;
+      margin:0;
+    }
+
+    .grid2{
+      display:grid;
+      gap:14px;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    @media (max-width:760px){
+      .grid2{ grid-template-columns:1fr; }
+    }
+
+    .mini-card{
+      border-radius:24px;
+      border:2px solid var(--line);
+      background:#fff;
+      padding:14px;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+    }
+
+    .mini-card h3{
+      margin:0 0 8px;
+      font-size:18px;
+      color:#67a91c;
+    }
+
+    .steps{
+      display:grid;
+      gap:6px;
+      color:#6e6b63;
+      font-size:13px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:2px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:13px 18px;
+      font-weight:1000;
+      font-size:15px;
+      transition:.12s ease;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
+    }
+
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-primary{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#fffef9;
+    }
+
+    .btn-copy{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef9;
+    }
+
+    .btn-ghost{
+      background:#fff;
+      color:#6d6a62;
+      border:2px solid var(--line);
+    }
+
+    .share-box{
+      display:grid;
+      gap:10px;
+      padding:12px;
+      border-radius:20px;
+      border:2px dashed var(--line);
+      background:#fdfefe;
+    }
+
+    .share-link{
+      word-break:break-all;
+      color:#5c95b4;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .status{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6c6a61;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .footer-note{
+      margin-top:12px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.7;
+      font-weight:900;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <section class="card">
-      <div class="kicker">GOODJUNK • BRIDGE</div>
-      <h1>กำลังพาไปยังหน้าที่ถูกต้อง…</h1>
-      <div class="muted">
-        ลิงก์เก่านี้ยังใช้ได้ ระบบจะพาไปยัง launcher หรือ lobby ใหม่ให้อัตโนมัติ
+    <div class="hero">
+      <div class="kicker">🍎 GOODJUNK • MULTIPLAYER</div>
+      <h1>ห้องเล่นหลายคน</h1>
+      <p class="sub">
+        ใช้หน้านี้สำหรับ <strong>Race</strong>, <strong>Battle</strong> และ <strong>Coop</strong>
+        โดยจะส่ง query ต่อไปยัง run page เดิมของแต่ละโหมดตาม path เดิมอัตโนมัติ
+      </p>
+      <div class="pill-row">
+        <div class="pill">RACE → goodjunk-race-run.html</div>
+        <div class="pill">BATTLE → goodjunk-battle-run.html</div>
+        <div class="pill">COOP → goodjunk-coop-run.html</div>
+        <div class="pill">ใช้ room code เดียวกันข้ามเครื่องได้</div>
       </div>
+    </div>
 
-      <div class="box">
-        <div><strong>mode:</strong> <span id="modeText">-</span></div>
-        <div><strong>roomId:</strong> <span id="roomText">-</span></div>
-        <div><strong>ปลายทาง:</strong> <span id="targetText">-</span></div>
-      </div>
+    <div class="layout">
+      <section class="card">
+        <h2>ตั้งค่าผู้เล่น</h2>
+        <div class="muted">ค่าด้านซ้ายจะถูกใช้ทั้งตอนสร้างห้องและตอนเข้าห้อง</div>
 
-      <div class="row">
-        <a id="goNow" class="btn" href="#">ไปต่อทันที</a>
-        <a class="btn" href="./goodjunk-launcher.html">ไปหน้า Launcher</a>
-      </div>
-    </section>
+        <div class="form-grid">
+          <div class="field">
+            <label for="playerName">ชื่อผู้เล่น</label>
+            <input id="playerName" placeholder="เช่น Player A / Teacher / Test01" />
+          </div>
+
+          <div class="field">
+            <label for="roomCode">Room Code</label>
+            <input id="roomCode" placeholder="เช่น GJ1234" />
+          </div>
+
+          <div class="field">
+            <label for="diff">ความยาก</label>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="time">เวลา</label>
+            <select id="time">
+              <option value="90">90s</option>
+              <option value="120" selected>120s</option>
+              <option value="150">150s</option>
+              <option value="180">180s</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="footer-note">
+          แนะนำให้ host สร้างห้องก่อน แล้วให้ผู้เล่นเครื่องอื่นกดลิงก์เชิญหรือใส่ room code เดียวกัน
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="mode-tabs">
+          <button class="tab-btn tab-race" id="tabRace" type="button">🏁 Race</button>
+          <button class="tab-btn tab-battle" id="tabBattle" type="button">⚔️ Battle</button>
+          <button class="tab-btn tab-coop" id="tabCoop" type="button">🤝 Coop</button>
+        </div>
+
+        <div class="panel">
+          <div class="mode-head">
+            <div class="mode-badge" id="modeBadge">🏁 RACE MODE</div>
+            <h2 class="mode-title" id="modeTitle">Race Lobby</h2>
+            <p class="mode-desc" id="modeDesc">
+              แข่งเก็บอาหารดี ใครทำคะแนนได้มากกว่าชนะ
+            </p>
+          </div>
+
+          <div class="grid2">
+            <div class="mini-card">
+              <h3>วิธีเข้าเล่น</h3>
+              <div class="steps" id="modeSteps">
+                <div>• host กดสร้างห้อง</div>
+                <div>• คัดลอกลิงก์เชิญหรือ room code</div>
+                <div>• ผู้เล่นเครื่องอื่นเข้าห้องด้วย code เดียวกัน</div>
+              </div>
+            </div>
+
+            <div class="mini-card">
+              <h3>สถานะ</h3>
+              <div class="status" id="routeStatus">พร้อม route ไป run page</div>
+              <div class="footer-note" id="routeInfo">
+                path run ปัจจุบัน: <code>./goodjunk-race-run.html</code>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn btn-primary" id="btnCreate" type="button">สร้างห้อง</button>
+            <button class="btn btn-ghost" id="btnJoin" type="button">เข้าห้อง</button>
+            <button class="btn btn-copy" id="btnCopyLink" type="button">คัดลอกลิงก์เชิญ</button>
+            <button class="btn btn-ghost" id="btnCopyCode" type="button">คัดลอก Room Code</button>
+          </div>
+
+          <div class="share-box">
+            <div class="muted">Invite Link</div>
+            <div class="share-link" id="shareLink">-</div>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
 
-<script>
-(function(){
-  const q = new URLSearchParams(location.search);
+  <script>
+    (function(){
+      const q = new URLSearchParams(location.search);
 
-  function normMode(v){
-    const m = String(v || '').trim().toLowerCase();
-    return ['solo','race','battle','coop'].includes(m) ? m : '';
-  }
+      const MODES = {
+        race: {
+          badge: '🏁 RACE MODE',
+          title: 'Race Lobby',
+          desc: 'แข่งเก็บอาหารดี ใครทำคะแนนได้มากกว่าชนะ',
+          steps: [
+            'host กดสร้างห้อง',
+            'คัดลอกลิงก์เชิญหรือ room code',
+            'ผู้เล่นเครื่องอื่นเข้าห้องด้วย code เดียวกัน'
+          ],
+          runPath: './goodjunk-race-run.html',
+          time: '120'
+        },
+        battle: {
+          badge: '⚔️ BATTLE MODE',
+          title: 'Battle Lobby',
+          desc: 'ปะทะกันโดยตรง เน้นจังหวะและคะแนน',
+          steps: [
+            'host สร้างห้อง battle',
+            'ส่งลิงก์หรือ room code ให้ผู้เล่นอีกฝั่ง',
+            'เข้าห้องเดียวกันแล้วเริ่มแมตช์'
+          ],
+          runPath: './goodjunk-battle-run.html',
+          time: '150'
+        },
+        coop: {
+          badge: '🤝 COOP MODE',
+          title: 'Coop Lobby',
+          desc: 'ช่วยกันเก็บอาหารดีและปกป้องเมืองสุขภาพ',
+          steps: [
+            'host สร้างห้อง coop',
+            'เพื่อนเข้าห้องเดียวกัน',
+            'ช่วยกันเล่นให้ได้คะแนนรวมสูงสุด'
+          ],
+          runPath: './goodjunk-coop-run.html',
+          time: '180'
+        }
+      };
 
-  function cleanRoom(v){
-    return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,16);
-  }
+      let currentMode = (q.get('mode') || 'race').toLowerCase();
+      if (!MODES[currentMode]) currentMode = 'race';
 
-  function firstNonEmpty(...vals){
-    for(const v of vals){
-      if(String(v || '').trim()) return String(v).trim();
-    }
-    return '';
-  }
+      const elName = document.getElementById('playerName');
+      const elRoom = document.getElementById('roomCode');
+      const elDiff = document.getElementById('diff');
+      const elTime = document.getElementById('time');
 
-  const mode = normMode(q.get('mode'));
-  const roomId = cleanRoom(firstNonEmpty(q.get('roomId'), q.get('room')));
-  const name = firstNonEmpty(q.get('name'), q.get('nick'));
+      const elModeBadge = document.getElementById('modeBadge');
+      const elModeTitle = document.getElementById('modeTitle');
+      const elModeDesc = document.getElementById('modeDesc');
+      const elModeSteps = document.getElementById('modeSteps');
+      const elRouteStatus = document.getElementById('routeStatus');
+      const elRouteInfo = document.getElementById('routeInfo');
+      const elShareLink = document.getElementById('shareLink');
 
-  const targetMap = {
-    race: './goodjunk-race-room.html',
-    battle: './goodjunk-battle-lobby.html',
-    coop: './goodjunk-coop-lobby.html',
-    solo: './goodjunk-vr.html'
-  };
+      elName.value = q.get('name') || '';
+      elRoom.value = q.get('roomId') || q.get('room') || '';
+      elDiff.value = q.get('diff') || 'normal';
+      elTime.value = q.get('time') || MODES[currentMode].time;
 
-  const targetBase = targetMap[mode] || './goodjunk-launcher.html';
-  const u = new URL(targetBase, location.href);
+      function getApiUrl() {
+        return String(
+          q.get('api') ||
+          window.HHA_CLOUD_ENDPOINT ||
+          'https://script.google.com/macros/s/AKfycbwNOpsjFTV_nK0PzNV23KziF5hZxIMI50P8o_vZgwVg_T4anpXZOaKQUy_uf5PPg9kT6Q/exec'
+        ).trim();
+      }
 
-  // passthrough เดิม
-  q.forEach((value, key) => {
-    if (!u.searchParams.has(key)) u.searchParams.set(key, value);
-  });
+      function getHubUrl() {
+        try {
+          return new URL(q.get('hub') || '../hub.html', location.href).toString();
+        } catch {
+          return new URL('../hub.html', location.href).toString();
+        }
+      }
 
-  // normalize aliases
-  if (roomId) u.searchParams.set('roomId', roomId);
-  u.searchParams.delete('room');
+      function makeRoomCode() {
+        const seed = Math.random().toString(36).slice(2, 8).toUpperCase();
+        return `GJ-${seed}`;
+      }
 
-  if (name) u.searchParams.set('name', name);
-  u.searchParams.delete('nick');
+      function getRoomCode() {
+        const v = String(elRoom.value || '').trim().toUpperCase();
+        if (v) return v;
+        const code = makeRoomCode();
+        elRoom.value = code;
+        return code;
+      }
 
-  if (mode) u.searchParams.set('mode', mode);
+      function buildRunUrl(mode, role) {
+        const meta = MODES[mode];
+        const url = new URL(meta.runPath, location.href);
+        const p = url.searchParams;
 
-  const target = u.toString();
+        p.set('pid', q.get('pid') || 'anon');
+        p.set('name', elName.value.trim());
+        p.set('studyId', q.get('studyId') || '');
+        p.set('roomId', getRoomCode());
+        p.set('mode', mode);
+        p.set('diff', elDiff.value || 'normal');
+        p.set('time', elTime.value || meta.time);
+        p.set('seed', q.get('seed') || String(Date.now()));
+        p.set('hub', getHubUrl());
+        p.set('view', q.get('view') || 'mobile');
+        p.set('run', q.get('run') || 'play');
+        p.set('gameId', q.get('gameId') || 'goodjunk');
+        p.set('role', role || 'player');
 
-  document.getElementById('modeText').textContent = mode || '(ไม่มี mode)';
-  document.getElementById('roomText').textContent = roomId || '(ไม่มี room)';
-  document.getElementById('targetText').textContent = targetBase;
-  document.getElementById('goNow').href = target;
+        const api = getApiUrl();
+        if (api) p.set('api', api);
 
-  // ไปอัตโนมัติ
-  setTimeout(() => {
-    location.replace(target);
-  }, 350);
-})();
-</script>
+        ['debug','bossdebug','log','studentKey','schoolCode','classRoom','studentNo','nickName','conditionGroup','phase']
+          .forEach((key) => {
+            const val = q.get(key);
+            if (val) p.set(key, val);
+          });
+
+        return url.toString();
+      }
+
+      function copyText(text) {
+        const t = String(text || '').trim();
+        if (!t) return;
+        navigator.clipboard?.writeText(t).then(() => {
+          elRouteStatus.textContent = 'คัดลอกแล้ว';
+        }).catch(() => {
+          elRouteStatus.textContent = 'คัดลอกไม่สำเร็จ';
+        });
+      }
+
+      function renderMode() {
+        const meta = MODES[currentMode];
+        elModeBadge.textContent = meta.badge;
+        elModeTitle.textContent = meta.title;
+        elModeDesc.textContent = meta.desc;
+        elTime.value = elTime.value || meta.time;
+        elModeSteps.innerHTML = meta.steps.map(s => `<div>• ${s}</div>`).join('');
+        elRouteStatus.textContent = 'พร้อม route ไป run page';
+        elRouteInfo.innerHTML = `path run ปัจจุบัน: <code>${meta.runPath}</code>`;
+        elShareLink.textContent = buildRunUrl(currentMode, 'player');
+
+        document.getElementById('tabRace').classList.toggle('is-active', currentMode === 'race');
+        document.getElementById('tabBattle').classList.toggle('is-active', currentMode === 'battle');
+        document.getElementById('tabCoop').classList.toggle('is-active', currentMode === 'coop');
+      }
+
+      document.getElementById('tabRace').addEventListener('click', () => {
+        currentMode = 'race';
+        if (!elTime.value) elTime.value = MODES.race.time;
+        renderMode();
+      });
+
+      document.getElementById('tabBattle').addEventListener('click', () => {
+        currentMode = 'battle';
+        if (!elTime.value) elTime.value = MODES.battle.time;
+        renderMode();
+      });
+
+      document.getElementById('tabCoop').addEventListener('click', () => {
+        currentMode = 'coop';
+        if (!elTime.value) elTime.value = MODES.coop.time;
+        renderMode();
+      });
+
+      document.getElementById('btnCreate').addEventListener('click', () => {
+        const url = buildRunUrl(currentMode, 'host');
+        location.href = url;
+      });
+
+      document.getElementById('btnJoin').addEventListener('click', () => {
+        const url = buildRunUrl(currentMode, 'player');
+        location.href = url;
+      });
+
+      document.getElementById('btnCopyLink').addEventListener('click', () => {
+        const url = buildRunUrl(currentMode, 'player');
+        elShareLink.textContent = url;
+        copyText(url);
+      });
+
+      document.getElementById('btnCopyCode').addEventListener('click', () => {
+        copyText(getRoomCode());
+      });
+
+      elRoom.addEventListener('input', renderMode);
+      elName.addEventListener('input', renderMode);
+      elDiff.addEventListener('change', renderMode);
+      elTime.addEventListener('change', renderMode);
+
+      renderMode();
+    })();
+  </script>
 </body>
 </html>
