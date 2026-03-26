@@ -30,10 +30,10 @@
 
       --shadow:0 18px 40px rgba(86, 155, 194, .18);
 
-      --sat:env(safe-area-inset-top,0px);
-      --sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);
-      --sal:env(safe-area-inset-left,0px);
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
 
     *{ box-sizing:border-box; }
@@ -44,9 +44,9 @@
       font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 15% 10%, rgba(255,255,255,.9), transparent 18%),
-        radial-gradient(circle at 85% 12%, rgba(255,255,255,.8), transparent 16%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 52%, var(--sky3));
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
+        radial-gradient(circle at 84% 14%, rgba(255,255,255,.78), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
       overflow:hidden;
     }
 
@@ -136,7 +136,7 @@
       position:relative;
       z-index:1;
       margin:0 0 8px;
-      font-size:clamp(28px,5vw,42px);
+      font-size:clamp(28px, 5vw, 42px);
       line-height:1.06;
       font-weight:1000;
       color:#67a91c;
@@ -233,9 +233,13 @@
 
       window.__GJ_RUN_CTX__ = runCtx;
 
-      document.getElementById('bootMode').textContent = runCtx.mode || 'solo';
-      document.getElementById('bootDiff').textContent = runCtx.diff || 'normal';
-      document.getElementById('bootTime').textContent = runCtx.time || '150';
+      const modeEl = document.getElementById('bootMode');
+      const diffEl = document.getElementById('bootDiff');
+      const timeEl = document.getElementById('bootTime');
+
+      if (modeEl) modeEl.textContent = runCtx.mode || 'solo';
+      if (diffEl) diffEl.textContent = runCtx.diff || 'normal';
+      if (timeEl) timeEl.textContent = runCtx.time || '150';
 
       console.log('[GJ-SOLO-ENTRY] goodjunk-vr.html loaded', runCtx);
       console.log('[GJ-SOLO-ENTRY] cloud endpoint =', window.HHA_CLOUD_ENDPOINT);
@@ -243,6 +247,6 @@
   </script>
 
   <script src="../js/hha-cloud-logger.js?v=20260326-client-v3"></script>
-  <script type="module" src="./goodjunk.safe.phaseboss.js?v=20260326-goodjunk-solo-themepack-v1"></script>
+  <script type="module" src="./goodjunk.safe.phaseboss.js?v=20260326-goodjunk-solo-themepack-v4"></script>
 </body>
 </html>
