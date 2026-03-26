@@ -1,6 +1,6 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // HeroHealth Hydration VR — SOLO-FIRST FULL PATCH
-// FULL PATCH v20260326-HYD-HUBV2-BOSS-BALANCE-R1
+// FULL PATCH v20260327-HYD-HUBV2-BOSS-BALANCE-R2
 
 'use strict';
 
@@ -14,7 +14,7 @@ import {
   saveHydrationRewards,
   rewardCardTitle,
   rewardCardMini
-} from './hydration.shared.js?v=20260315';
+} from './hydration.shared.js?v=20260327-HYD-SHARED-SYNTAXFIX-R1';
 
 export async function boot(cfg = {}){
   const WIN = window;
@@ -23,9 +23,6 @@ export async function boot(cfg = {}){
   const layer = DOC.getElementById('layer');
   if(!stageEl || !layer) return;
 
-  // ------------------------------------------------------------
-  // helpers
-  // ------------------------------------------------------------
   const qs = (k, d='') => {
     try{
       const v = new URLSearchParams(location.search).get(k);
@@ -95,9 +92,6 @@ export async function boot(cfg = {}){
     return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   }
 
-  // ------------------------------------------------------------
-  // params / ctx
-  // ------------------------------------------------------------
   const pid = String(qs('pid', 'anon') || 'anon').trim() || 'anon';
   const diff = String(qs('diff', 'normal') || 'normal').toLowerCase();
   const runMode = String(qs('run', 'play') || 'play').toLowerCase();
@@ -114,9 +108,6 @@ export async function boot(cfg = {}){
   const isResearchMode = runMode === 'research';
   const showResearchTools = isResearchMode || debugFlag;
 
-  // ------------------------------------------------------------
-  // ui refs
-  // ------------------------------------------------------------
   const ui = {
     score: DOC.getElementById('uiScore'),
     time: DOC.getElementById('uiTime'),
@@ -198,9 +189,6 @@ export async function boot(cfg = {}){
 
   const zoneSign = DOC.getElementById('zoneSign');
 
-  // ------------------------------------------------------------
-  // rng
-  // ------------------------------------------------------------
   function xmur3(str){
     str = String(str || '');
     let h = 1779033703 ^ str.length;
@@ -234,9 +222,6 @@ export async function boot(cfg = {}){
   const r01 = ()=> rand();
   const pick = arr => arr[Math.floor(r01() * arr.length)] || arr[0];
 
-  // ------------------------------------------------------------
-  // tune
-  // ------------------------------------------------------------
   const BASE_TUNE = {
     spawnBase: diff === 'hard' ? 2.1 : 1.75,
     ttlGood: diff === 'hard' ? 1.55 : 1.8,
@@ -263,9 +248,6 @@ export async function boot(cfg = {}){
 
   const TUNE = { ...BASE_TUNE };
 
-  // ------------------------------------------------------------
-  // game state
-  // ------------------------------------------------------------
   let playing = true;
   let paused = false;
   let helpOpen = true;
@@ -284,7 +266,7 @@ export async function boot(cfg = {}){
   let blockCount = 0;
   let feverOn = false;
 
-  let phase = 'normal'; // normal | storm | boss | final
+  let phase = 'normal';
   let bossLevel = 0;
   let needZone = '';
   let phaseTimer = 0;
@@ -338,9 +320,6 @@ export async function boot(cfg = {}){
     comboDone:false
   };
 
-  // ------------------------------------------------------------
-  // audio
-  // ------------------------------------------------------------
   const SFX = (() => {
     let ctx = null;
     let unlocked = false;
@@ -381,13 +360,10 @@ export async function boot(cfg = {}){
       bad(){ beep(180, 0.08, 'square', 0.03); },
       shield(){ beep(980, 0.08, 'triangle', 0.03); },
       phase(){ beep(520, 0.14, 'sawtooth', 0.02); },
-      setPhaseVolume(){ /* no-op */ }
+      setPhaseVolume(){ }
     };
   })();
 
-  // ------------------------------------------------------------
-  // misc
-  // ------------------------------------------------------------
   function currentPhaseKey(){
     if(phase === 'storm') return 'storm';
     if(phase === 'boss') return `boss${bossLevel}`;
@@ -503,9 +479,6 @@ export async function boot(cfg = {}){
     if(featureRows.length > 500) featureRows.shift();
   }
 
-  // ------------------------------------------------------------
-  // mobile compact helpers
-  // ------------------------------------------------------------
   function resetEndSectionVisibility(){
     DOC.querySelectorAll('.end-mobile-optional').forEach(el=>{
       el.style.display = '';
@@ -573,9 +546,6 @@ export async function boot(cfg = {}){
     });
   }
 
-  // ------------------------------------------------------------
-  // phase / coach text
-  // ------------------------------------------------------------
   function childCoachHint(){
     if(isMobileCompact()){
       if(phase === 'storm') return 'พายุมาแล้ว หาโล่ก่อน';
@@ -680,9 +650,6 @@ export async function boot(cfg = {}){
     return '🌈 นักสู้ฝึกหัด';
   }
 
-  // ------------------------------------------------------------
-  // fx
-  // ------------------------------------------------------------
   function fxRing(x,y){
     const el = DOC.createElement('div');
     el.className = 'fx-ring';
@@ -892,9 +859,6 @@ export async function boot(cfg = {}){
     }
   }
 
-  // ------------------------------------------------------------
-  // gameplay helpers
-  // ------------------------------------------------------------
   const GOOD = ['💧','💦','🫗'];
   const BAD  = ['🧋','🥤','🍟'];
   const SHLD = ['🛡️'];
@@ -1154,7 +1118,6 @@ export async function boot(cfg = {}){
       return;
     }
 
-    // bad
     combo = 0;
     maybeTriggerFever();
     bonusChain = 0;
@@ -1773,9 +1736,6 @@ export async function boot(cfg = {}){
     scheduleLoop();
   }
 
-  // ------------------------------------------------------------
-  // pointer / shoot
-  // ------------------------------------------------------------
   const __bound = {
     pointerLayer:false,
     shoot:false,
@@ -1844,9 +1804,6 @@ export async function boot(cfg = {}){
     });
   }
 
-  // ------------------------------------------------------------
-  // ui actions
-  // ------------------------------------------------------------
   if(ui.btnHelp) ui.btnHelp.onclick = showHelp;
   if(ui.btnHelpStart) ui.btnHelpStart.onclick = hideHelp;
   if(ui.btnPause) ui.btnPause.onclick = ()=> paused ? hidePause() : showPause();
@@ -1869,9 +1826,6 @@ export async function boot(cfg = {}){
   if(ui.btnCopyLabelsCsv) ui.btnCopyLabelsCsv.onclick = async ()=> copyText(labelRows.map(r=> Object.values(r).join(',')).join('\n'), 'Copy Labels CSV');
   if(ui.btnSendCloud) ui.btnSendCloud.onclick = ()=> console.log('[hydration] send cloud placeholder');
 
-  // ------------------------------------------------------------
-  // boot visual state
-  // ------------------------------------------------------------
   endShown = false;
   setBossFace('hide');
   if(ui.end) ui.end.setAttribute('aria-hidden','true');
