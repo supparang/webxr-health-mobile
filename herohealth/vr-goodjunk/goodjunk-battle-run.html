@@ -228,10 +228,201 @@
       word-break:break-word;
     }
 
+    .summary-overlay{
+      position:absolute;
+      inset:0;
+      z-index:30;
+      display:grid;
+      place-items:center;
+      padding:
+        calc(16px + var(--sat))
+        calc(16px + var(--sar))
+        calc(16px + var(--sab))
+        calc(16px + var(--sal));
+      background:rgba(255,244,221,.46);
+      backdrop-filter:blur(10px);
+      pointer-events:auto;
+    }
+
+    .summary-overlay[hidden]{
+      display:none !important;
+    }
+
+    .summary-card{
+      width:min(940px, 100%);
+      max-height:88dvh;
+      overflow:auto;
+      background:linear-gradient(180deg,#fffef8,#f7fff4);
+      border:3px solid var(--line);
+      border-radius:30px;
+      box-shadow:0 28px 70px rgba(86,155,194,.24);
+      padding:18px;
+      position:relative;
+    }
+
+    .summary-card::before{
+      content:"";
+      position:absolute;
+      left:-40px;
+      top:-40px;
+      width:150px;
+      height:150px;
+      border-radius:999px;
+      background:rgba(255,181,71,.16);
+      filter:blur(10px);
+      pointer-events:none;
+    }
+
+    .summary-card::after{
+      content:"";
+      position:absolute;
+      right:-30px;
+      bottom:-30px;
+      width:130px;
+      height:130px;
+      border-radius:999px;
+      background:rgba(255,212,92,.18);
+      filter:blur(10px);
+      pointer-events:none;
+    }
+
+    .summary-kicker{
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#fff4dd;
+      border:2px solid var(--line);
+      color:#b7791f;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    .summary-title{
+      position:relative;
+      z-index:1;
+      margin:0 0 6px;
+      font-size:clamp(28px,5vw,42px);
+      line-height:1.05;
+      font-weight:1000;
+      color:#b7791f;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .summary-sub{
+      position:relative;
+      z-index:1;
+      margin:0;
+      color:var(--muted);
+      line-height:1.7;
+      font-size:14px;
+      font-weight:900;
+    }
+
+    .summary-grid{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:16px;
+    }
+
+    .summary-item{
+      background:#fff;
+      border:2px solid var(--line);
+      border-radius:22px;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+      padding:14px;
+    }
+
+    .summary-label{
+      color:#8a887f;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:6px;
+      line-height:1.4;
+    }
+
+    .summary-value{
+      color:#4d4a42;
+      font-size:clamp(20px,3.4vw,30px);
+      font-weight:1000;
+      line-height:1.15;
+      word-break:break-word;
+    }
+
+    .summary-actions{
+      position:relative;
+      z-index:1;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:13px 18px;
+      font-weight:1000;
+      font-size:15px;
+      transition:.12s ease;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
+    }
+
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-primary{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#fffef9;
+    }
+
+    .btn-copy{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef9;
+    }
+
+    .btn-warn{
+      background:linear-gradient(180deg,var(--yellow),var(--orange));
+      color:#6d4e00;
+    }
+
+    .btn-ghost{
+      background:#fff;
+      color:#6d6a62;
+      border:2px solid var(--line);
+    }
+
+    .summary-debug{
+      position:relative;
+      z-index:1;
+      margin-top:14px;
+      padding-top:10px;
+      border-top:1px dashed rgba(191,227,242,.95);
+      color:#8a887f;
+      font-size:11px;
+      line-height:1.6;
+      font-weight:900;
+      white-space:pre-wrap;
+      word-break:break-word;
+      max-height:180px;
+      overflow:auto;
+    }
+
     @media (max-width:780px){
       .top{ align-items:stretch; }
       .side{ width:100%; }
       .pill{ width:100%; justify-content:center; }
+      .summary-grid{ grid-template-columns:1fr; }
+      .summary-actions .btn{ flex:1 1 100%; }
     }
   </style>
 </head>
@@ -265,6 +456,25 @@
         <div id="engineStatusText">กำลังโหลด battle engine</div>
         <div class="status-sub" id="engineStatusSub">รองรับทั้ง classic / module และ override path ผ่าน query</div>
         <div class="debug" id="engineDebugInfo"></div>
+      </div>
+    </div>
+
+    <div class="summary-overlay" id="summaryOverlay" hidden>
+      <div class="summary-card">
+        <div class="summary-kicker">⚔️ GOODJUNK BATTLE SUMMARY</div>
+        <h2 class="summary-title" id="summaryTitle">สรุปผลการปะทะ</h2>
+        <p class="summary-sub" id="summarySub">รอข้อมูลสรุปจาก battle engine</p>
+
+        <div class="summary-grid" id="summaryGrid"></div>
+
+        <div class="summary-actions">
+          <button class="btn btn-primary" id="btnReplay" type="button">เล่นใหม่</button>
+          <button class="btn btn-copy" id="btnCopyRoom" type="button">คัดลอกห้อง</button>
+          <button class="btn btn-warn" id="btnExport" type="button">Export JSON</button>
+          <button class="btn btn-ghost" id="btnBackHub" type="button">กลับ HUB</button>
+        </div>
+
+        <div class="summary-debug" id="summaryDebug"></div>
       </div>
     </div>
   </div>
@@ -326,6 +536,43 @@
         }
       }
 
+      function escapeHtml(s){
+        return String(s ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;');
+      }
+
+      function safeJson(v){
+        try { return JSON.stringify(v, null, 2); }
+        catch { return '{}'; }
+      }
+
+      function saveText(name, text, type='application/json'){
+        const blob = new Blob([text], { type });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function buildReplayUrl(){
+        const url = new URL(location.href);
+        url.searchParams.set('seed', String(Date.now()));
+        return url.toString();
+      }
+
+      function copyText(text){
+        const t = String(text || '').trim();
+        if (!t) return Promise.reject(new Error('empty'));
+        return navigator.clipboard.writeText(t);
+      }
+
       window.HHA_CLOUD_ENDPOINT =
         clean(
           qs('api') ||
@@ -358,6 +605,11 @@
         ...parseList(qs('engineCandidates')),
         ...DEFAULT_ENGINE_CANDIDATES
       ]);
+
+      const SUMMARY_KEY =
+        'GJ_BATTLE_LAST_SUMMARY_' +
+        (runCtx.roomId || 'noroom') + '_' +
+        (runCtx.pid || 'anon');
 
       const $ = (id) => document.getElementById(id);
 
@@ -472,6 +724,251 @@
           '\n\n[ERRORS]\n' +
           errors.join('\n\n')
         );
+      }
+
+      function normalizeSummary(detail) {
+        const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
+          ? detail.summary
+          : (detail || {});
+
+        const rank =
+          src.rank ??
+          src.place ??
+          src.position ??
+          src.playerRank ??
+          src.finalRank ??
+          '';
+
+        const score =
+          src.score ??
+          src.totalScore ??
+          src.playerScore ??
+          src.myScore ??
+          '';
+
+        const opponentScore =
+          src.opponentScore ??
+          src.enemyScore ??
+          src.otherScore ??
+          '';
+
+        const teamScore =
+          src.teamScore ??
+          src.totalTeamScore ??
+          src.roomScore ??
+          '';
+
+        const miss =
+          src.miss ??
+          src.misses ??
+          src.totalMiss ??
+          '';
+
+        const goodHit =
+          src.goodHit ??
+          src.hitsGood ??
+          src.goodHits ??
+          src.correct ??
+          '';
+
+        const junkHit =
+          src.junkHit ??
+          src.hitsBad ??
+          src.junkHits ??
+          src.wrong ??
+          '';
+
+        const streak =
+          src.bestStreak ??
+          src.streak ??
+          src.comboMax ??
+          '';
+
+        const result =
+          src.result ??
+          src.outcome ??
+          src.status ??
+          (rank !== '' ? `อันดับ ${rank}` : 'จบรอบแล้ว');
+
+        const reason =
+          src.reason ??
+          src.finishReason ??
+          src.endReason ??
+          '';
+
+        const players =
+          src.players ??
+          src.playerCount ??
+          src.totalPlayers ??
+          '';
+
+        const duration =
+          src.duration ??
+          src.durationSec ??
+          src.timeUsed ??
+          '';
+
+        return {
+          mode: MODE,
+          label: MODE_LABEL,
+          roomId: runCtx.roomId,
+          pid: runCtx.pid,
+          name: runCtx.name,
+          role: runCtx.role,
+          diff: runCtx.diff,
+          time: runCtx.time,
+          result,
+          rank,
+          score,
+          opponentScore,
+          teamScore,
+          players,
+          miss,
+          goodHit,
+          junkHit,
+          bestStreak: streak,
+          duration,
+          reason,
+          raw: src,
+          receivedAt: Date.now()
+        };
+      }
+
+      function summaryTitleText(summary) {
+        if (summary.rank === 1 || String(summary.rank) === '1') return 'ชนะการปะทะแล้ว!';
+        if (summary.rank !== '') return `จบการปะทะแล้ว • อันดับ ${summary.rank}`;
+        return 'สรุปผลการปะทะ';
+      }
+
+      function summarySubText(summary) {
+        const parts = [];
+        if (summary.roomId) parts.push('ห้อง ' + summary.roomId);
+        if (summary.result) parts.push(summary.result);
+        if (summary.players !== '') parts.push('ผู้เล่น ' + summary.players);
+        if (summary.reason) parts.push(summary.reason);
+        return parts.join(' • ') || 'จบรอบแล้ว มาดูผลการปะทะกัน';
+      }
+
+      function addSummaryItem(label, value) {
+        if (value === '' || value === null || value === undefined) return '';
+        return `
+          <div class="summary-item">
+            <div class="summary-label">${escapeHtml(label)}</div>
+            <div class="summary-value">${escapeHtml(String(value))}</div>
+          </div>
+        `;
+      }
+
+      function showSummary(detail) {
+        const summary = normalizeSummary(detail);
+
+        try {
+          localStorage.setItem(SUMMARY_KEY, JSON.stringify(summary));
+        } catch {}
+
+        $('summaryTitle').textContent = summaryTitleText(summary);
+        $('summarySub').textContent = summarySubText(summary);
+
+        $('summaryGrid').innerHTML =
+          addSummaryItem('ผลลัพธ์', summary.result) +
+          addSummaryItem('อันดับ', summary.rank) +
+          addSummaryItem('คะแนนเรา', summary.score) +
+          addSummaryItem('คะแนนคู่แข่ง', summary.opponentScore) +
+          addSummaryItem('คะแนนทีม', summary.teamScore) +
+          addSummaryItem('จำนวนผู้เล่น', summary.players) +
+          addSummaryItem('Good hit', summary.goodHit) +
+          addSummaryItem('Junk hit', summary.junkHit) +
+          addSummaryItem('Miss', summary.miss) +
+          addSummaryItem('Best Streak', summary.bestStreak) +
+          addSummaryItem('เวลาใช้', summary.duration) +
+          addSummaryItem('Room', summary.roomId || '-') +
+          addSummaryItem('Player', summary.name || summary.pid || '-');
+
+        $('summaryDebug').textContent =
+          '[SUMMARY BRIDGE]\n' +
+          'mode: ' + summary.mode + '\n' +
+          'room: ' + (summary.roomId || '-') + '\n' +
+          'player: ' + (summary.name || summary.pid || '-') + '\n' +
+          'role: ' + (summary.role || '-') + '\n' +
+          'diff: ' + (summary.diff || '-') + '\n' +
+          'time: ' + (summary.time || '-') + '\n\n' +
+          safeJson(summary.raw);
+
+        $('summaryOverlay').hidden = false;
+        window.__GJ_BATTLE_LAST_SUMMARY__ = summary;
+      }
+
+      function hideSummary() {
+        $('summaryOverlay').hidden = true;
+      }
+
+      function handleSummaryEvent(evtName, detail) {
+        console.log('[GJ-BATTLE-SUMMARY]', evtName, detail);
+        showSummary(detail || {});
+      }
+
+      $('btnReplay').addEventListener('click', () => {
+        location.href = buildReplayUrl();
+      });
+
+      $('btnCopyRoom').addEventListener('click', () => {
+        copyText(runCtx.roomId || '').then(() => {
+          $('summarySub').textContent = 'คัดลอก room code แล้ว';
+        }).catch(() => {
+          $('summarySub').textContent = 'คัดลอก room code ไม่สำเร็จ';
+        });
+      });
+
+      $('btnExport').addEventListener('click', () => {
+        const payload = window.__GJ_BATTLE_LAST_SUMMARY__ || {};
+        saveText(
+          `goodjunk-battle-summary-${clean(runCtx.roomId || 'room')}-${Date.now()}.json`,
+          safeJson(payload)
+        );
+      });
+
+      $('btnBackHub').addEventListener('click', () => {
+        location.href = runCtx.hub;
+      });
+
+      window.__GJ_SHOW_BATTLE_SUMMARY__ = showSummary;
+      window.__GJ_HIDE_BATTLE_SUMMARY__ = hideSummary;
+      window.__GJ_BATTLE_SUMMARY_BRIDGE__ = {
+        show: showSummary,
+        hide: hideSummary
+      };
+
+      [
+        'gj:battle-summary',
+        'gj:summary',
+        'gj:match-summary',
+        'gj:session-end',
+        'hha:summary',
+        'hha:session-summary',
+        'hha:match-summary'
+      ].forEach((eventName) => {
+        window.addEventListener(eventName, (evt) => {
+          handleSummaryEvent(eventName, evt && evt.detail ? evt.detail : {});
+        });
+      });
+
+      window.addEventListener('message', (evt) => {
+        const data = evt && evt.data ? evt.data : null;
+        if (!data || typeof data !== 'object') return;
+        if (
+          data.type === 'gj:battle-summary' ||
+          data.type === 'gj:summary' ||
+          data.type === 'hha:summary'
+        ) {
+          handleSummaryEvent(data.type, data.detail || data.summary || data);
+        }
+      });
+
+      if (qs('showLastSummary') === '1') {
+        try {
+          const raw = localStorage.getItem(SUMMARY_KEY);
+          if (raw) showSummary(JSON.parse(raw));
+        } catch {}
       }
 
       loadEngine();
