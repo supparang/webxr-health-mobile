@@ -1,5 +1,5 @@
 /* === /herohealth/plate/plate.css === */
-/* FULL PATCH v20260325-PLATE-CHILDFRIENDLY-HUBV2 */
+/* FULL PATCH v20260325-PLATE-CHILDFRIENDLY-HUBV2-r2-SUMMARY-HIDDEN-FIX */
 
 :root{
   --bg1:#081426;
@@ -572,11 +572,18 @@ button,input,select,textarea{ font:inherit; }
   position:fixed;
   inset:0;
   z-index:100;
-  display:grid;
   place-items:center;
   padding:20px;
   background:rgba(3,8,20,.66);
   backdrop-filter:blur(10px);
+}
+
+.summary-layer[hidden]{
+  display:none !important;
+}
+
+.summary-layer:not([hidden]){
+  display:grid;
 }
 
 .summary-card{
