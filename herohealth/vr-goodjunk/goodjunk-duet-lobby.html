@@ -17,6 +17,7 @@
       --duet:#f472b6;
       --duet-soft:#fbcfe8;
       --warn:#f59e0b;
+      --bad:#ef4444;
       --shadow:0 24px 64px rgba(0,0,0,.28);
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
@@ -170,8 +171,14 @@
       min-height:96px;
     }
 
+    .player.me{
+      outline:1px solid rgba(244,114,182,.35);
+      background:rgba(30,41,59,.84);
+    }
+
     .ready{ color:var(--good); font-weight:800; }
     .waiting{ color:var(--warn); font-weight:800; }
+    .offline{ color:#fca5a5; font-weight:800; }
 
     .btn{
       appearance:none;
@@ -464,6 +471,7 @@
 
       <div class="row" style="margin-top:14px;">
         <button class="btn btn-good" id="btnReady" type="button">พร้อมแล้ว</button>
+        <button class="btn btn-ghost" id="btnUnready" type="button">ยกเลิกพร้อม</button>
         <button class="btn btn-primary" id="btnStart" type="button">เริ่ม Duet</button>
         <button class="btn btn-ghost" id="btnBack" type="button">กลับ</button>
       </div>
@@ -471,12 +479,4 @@
       <div class="hint" id="hint">ต้องมีผู้เล่นพร้อมครบ 2 คนก่อนเริ่ม Duet</div>
 
       <div class="tips">
-        Duet เป็นโหมดเล่นคู่โดยเฉพาะ จึงล็อกจำนวนผู้เล่นไว้ที่ 2 คน และใช้ flow แยกจาก Group/Coop
-      </div>
-    </section>
-  </div>
-
-  <script src="../firebase-config.js"></script>
-  <script type="module" src="./goodjunk-duet-lobby.js?v=20260320-duet-lobby-v1"></script>
-</body>
-</html>
+       
