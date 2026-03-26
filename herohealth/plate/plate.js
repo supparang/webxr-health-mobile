@@ -1,5 +1,5 @@
 // === /herohealth/plate/plate.js ===
-// FULL PATCH v20260325-PLATE-CHILDFRIENDLY-HUBV2
+// FULL PATCH v20260325-PLATE-CHILDFRIENDLY-HUBV2-r2-SUMMARY-HIDDEN-FIX
 
 (function () {
   'use strict';
@@ -22,39 +22,39 @@
   };
 
   const FOOD_BANK = [
-    { id:'rice',        name:'ข้าว',         emoji:'🍚', group:'carb',    kind:'good' },
-    { id:'bread',       name:'ขนมปัง',      emoji:'🍞', group:'carb',    kind:'good' },
-    { id:'corn',        name:'ข้าวโพด',     emoji:'🌽', group:'carb',    kind:'good' },
-    { id:'potato',      name:'มันฝรั่ง',    emoji:'🥔', group:'carb',    kind:'good' },
-    { id:'noodle',      name:'เส้นก๋วยเตี๋ยว', emoji:'🍜', group:'carb', kind:'good' },
+    { id:'rice',        name:'ข้าว',           emoji:'🍚', group:'carb',    kind:'good' },
+    { id:'bread',       name:'ขนมปัง',        emoji:'🍞', group:'carb',    kind:'good' },
+    { id:'corn',        name:'ข้าวโพด',       emoji:'🌽', group:'carb',    kind:'good' },
+    { id:'potato',      name:'มันฝรั่ง',      emoji:'🥔', group:'carb',    kind:'good' },
+    { id:'noodle',      name:'เส้นก๋วยเตี๋ยว', emoji:'🍜', group:'carb',   kind:'good' },
 
-    { id:'egg',         name:'ไข่',          emoji:'🥚', group:'protein', kind:'good' },
-    { id:'fish',        name:'ปลา',          emoji:'🐟', group:'protein', kind:'good' },
-    { id:'chicken',     name:'ไก่',          emoji:'🍗', group:'protein', kind:'good' },
-    { id:'tofu',        name:'เต้าหู้',      emoji:'🧊', group:'protein', kind:'good' },
-    { id:'milk',        name:'นม',           emoji:'🥛', group:'protein', kind:'good' },
+    { id:'egg',         name:'ไข่',            emoji:'🥚', group:'protein', kind:'good' },
+    { id:'fish',        name:'ปลา',            emoji:'🐟', group:'protein', kind:'good' },
+    { id:'chicken',     name:'ไก่',            emoji:'🍗', group:'protein', kind:'good' },
+    { id:'tofu',        name:'เต้าหู้',        emoji:'🧊', group:'protein', kind:'good' },
+    { id:'milk',        name:'นม',             emoji:'🥛', group:'protein', kind:'good' },
 
-    { id:'broccoli',    name:'บรอกโคลี',    emoji:'🥦', group:'veg',     kind:'good' },
-    { id:'carrot',      name:'แครอท',       emoji:'🥕', group:'veg',     kind:'good' },
-    { id:'cabbage',     name:'กะหล่ำปลี',   emoji:'🥬', group:'veg',     kind:'good' },
-    { id:'tomato',      name:'มะเขือเทศ',   emoji:'🍅', group:'veg',     kind:'good' },
-    { id:'cucumber',    name:'แตงกวา',      emoji:'🥒', group:'veg',     kind:'good' },
+    { id:'broccoli',    name:'บรอกโคลี',      emoji:'🥦', group:'veg',     kind:'good' },
+    { id:'carrot',      name:'แครอท',         emoji:'🥕', group:'veg',     kind:'good' },
+    { id:'cabbage',     name:'กะหล่ำปลี',     emoji:'🥬', group:'veg',     kind:'good' },
+    { id:'tomato',      name:'มะเขือเทศ',     emoji:'🍅', group:'veg',     kind:'good' },
+    { id:'cucumber',    name:'แตงกวา',        emoji:'🥒', group:'veg',     kind:'good' },
 
-    { id:'banana',      name:'กล้วย',        emoji:'🍌', group:'fruit',   kind:'good' },
-    { id:'apple',       name:'แอปเปิล',      emoji:'🍎', group:'fruit',   kind:'good' },
-    { id:'orange',      name:'ส้ม',          emoji:'🍊', group:'fruit',   kind:'good' },
-    { id:'watermelon',  name:'แตงโม',       emoji:'🍉', group:'fruit',   kind:'good' },
-    { id:'grapes',      name:'องุ่น',        emoji:'🍇', group:'fruit',   kind:'good' },
+    { id:'banana',      name:'กล้วย',          emoji:'🍌', group:'fruit',   kind:'good' },
+    { id:'apple',       name:'แอปเปิล',        emoji:'🍎', group:'fruit',   kind:'good' },
+    { id:'orange',      name:'ส้ม',            emoji:'🍊', group:'fruit',   kind:'good' },
+    { id:'watermelon',  name:'แตงโม',         emoji:'🍉', group:'fruit',   kind:'good' },
+    { id:'grapes',      name:'องุ่น',          emoji:'🍇', group:'fruit',   kind:'good' },
 
-    { id:'oil',         name:'น้ำมัน',       emoji:'🫗', group:'fat',     kind:'good' },
-    { id:'butter',      name:'เนย',          emoji:'🧈', group:'fat',     kind:'good' },
-    { id:'coconut',     name:'กะทิ',         emoji:'🥥', group:'fat',     kind:'good' },
+    { id:'oil',         name:'น้ำมัน',         emoji:'🫗', group:'fat',     kind:'good' },
+    { id:'butter',      name:'เนย',            emoji:'🧈', group:'fat',     kind:'good' },
+    { id:'coconut',     name:'กะทิ',           emoji:'🥥', group:'fat',     kind:'good' },
 
-    { id:'fries',       name:'เฟรนช์ฟรายส์', emoji:'🍟', group:'fat',    kind:'treat' },
-    { id:'donut',       name:'โดนัท',        emoji:'🍩', group:'carb',    kind:'treat' },
-    { id:'cake',        name:'เค้ก',         emoji:'🍰', group:'carb',    kind:'treat' },
-    { id:'sausage',     name:'ไส้กรอก',      emoji:'🌭', group:'protein', kind:'treat' },
-    { id:'chips',       name:'ขนมกรอบ',      emoji:'🍘', group:'fat',     kind:'treat' }
+    { id:'fries',       name:'เฟรนช์ฟรายส์',   emoji:'🍟', group:'fat',     kind:'treat' },
+    { id:'donut',       name:'โดนัท',          emoji:'🍩', group:'carb',    kind:'treat' },
+    { id:'cake',        name:'เค้ก',           emoji:'🍰', group:'carb',    kind:'treat' },
+    { id:'sausage',     name:'ไส้กรอก',        emoji:'🌭', group:'protein', kind:'treat' },
+    { id:'chips',       name:'ขนมกรอบ',        emoji:'🍘', group:'fat',     kind:'treat' }
   ];
 
   const SCENARIOS = [
@@ -247,6 +247,12 @@
       game: 'plate',
       hub: state.hub
     });
+  }
+
+  function hideSummary(){
+    if(!els.summaryLayer) return;
+    els.summaryLayer.hidden = true;
+    els.summaryLayer.setAttribute('hidden', '');
   }
 
   function updateTop(){
@@ -647,6 +653,7 @@
     `).join('');
 
     els.summaryLayer.hidden = false;
+    els.summaryLayer.removeAttribute('hidden');
   }
 
   function finishGame(){
@@ -680,6 +687,7 @@
   }
 
   function boot(){
+    hideSummary();
     bindTabs();
     bindActions();
     updateTop();
