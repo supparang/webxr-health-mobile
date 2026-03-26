@@ -1,10 +1,12 @@
 // /herohealth/vr-goodjunk/goodjunk-battle-run.js
-// FULL PATCH v20260327-GJBATTLE-RUN-R1
+// FULL PATCH v20260327-GJBATTLE-RUN-AUTH-R2
 (function () {
   'use strict';
 
   const W = window;
   const D = document;
+
+  const ACTIVE_TTL_MS = 12000;
 
   const qs = (k, d = '') => {
     try {
@@ -20,6 +22,11 @@
     return Math.max(a, Math.min(b, v));
   };
 
+  const num = (v, d = 0) => {
+    v = Number(v);
+    return Number.isFinite(v) ? v : d;
+  };
+
   const esc = (s) => String(s == null ? '' : s)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -29,9 +36,12 @@
   const randInt = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-  const ROOM_ID = String(qs('roomId', qs('room', 'GJ-' + Math.random().toString(36).slice(2, 8)))).toUpperCase().replace(/[^A-Z0-9_-]/g, '') || ('GJ-' + Math.random().toString(36).slice(2, 8).toUpperCase());
-  const PID = String(qs('pid', 'anon')).replace(/[^a-zA-Z0-9_-]/g, '') || ('anon-' + Math.random().toString(36).slice(2, 8));
-  const NICK = String(qs('name', qs('nick', PID))).trim().slice(0, 24) || PID;
+  const ROOM_ID = String(qs('roomId', qs('room', 'GJ-' + Math.random().toString(36).slice(2, 8))))
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]/g, '') || ('GJ-' + Math.random().toString(36).slice(2, 8).toUpperCase());
+
+  let PID = String(qs('pid', 'anon')).replace(/[^a-zA-Z0-9_-]/g, '') || ('anon-' + Math.random().toString(36).slice(2, 8));
+  const NICK = String(qs('name', qs('nick', 'Player'))).trim().slice(0, 24) || 'Player';
   const DIFF = String(qs('diff', 'normal')).toLowerCase();
   const PLANNED_SEC = clamp(qs('time', '90'), 20, 600);
   const HUB = String(qs('hub', '../hub.html'));
@@ -82,9 +92,9 @@
     hostLoop: 0,
     spawnLoop: 0,
     uiLoop: 0,
+    cdLoop: 0,
     started: false,
     ended: false,
-    targetSeq: 0,
     attackSeen: new Set(),
 
     hp: 100,
@@ -105,6 +115,21 @@
     return S.totalTap > 0 ? Math.round((S.hits / S.totalTap) * 100) : 0;
   }
 
+  function isActivePlayer(p, nowTs = Date.now()) {
+    if (!p) return false;
+    if (p.connected === false) return false;
+    const lastSeen = num(p.lastSeen || p.updatedAt || p.joinedAt, 0);
+    if (!lastSeen) return true;
+    return (nowTs - lastSeen) <= ACTIVE_TTL_MS;
+  }
+
+  function getActivePlayers() {
+    const nowTs = Date.now();
+    return Object.values(S.players || {})
+      .filter((p) => isActivePlayer(p, nowTs))
+      .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
+  }
+
   function getRemainingSec() {
     const rs = S.roomState || {};
     const planned = clamp(rs.plannedSec || PLANNED_SEC, 1, 9999);
@@ -114,6 +139,10 @@
       return Math.max(0, planned - elapsed);
     }
 
+    if (rs.status === 'countdown' && rs.countdownEndsAt) {
+      return planned;
+    }
+
     return planned;
   }
 
@@ -121,6 +150,7 @@
     const acc = calcAcc();
     const remain = getRemainingSec();
     const planned = clamp((S.roomState && S.roomState.plannedSec) || PLANNED_SEC, 1, 9999);
+    const activePlayers = getActivePlayers();
 
     UI.hpPct.textContent = `${Math.round(S.hp)}%`;
     UI.hpFill.style.width = `${clamp(S.hp, 0, 100)}%`;
@@ -140,10 +170,8 @@
     UI.btnAttack.disabled = !(S.started && !S.ended && S.charge >= 100 && !!S.opponentPid);
 
     if (UI.statusLine) {
-      let txt = `${S.roomState.status || 'waiting'}`;
-      if (S.client && S.client.isHost) txt += ' • host';
-      if (S.opponentPid) txt += ` • opponent ready`;
-      UI.statusLine.textContent = txt;
+      const st = String(S.roomState.status || 'waiting');
+      UI.statusLine.textContent = `${st} • ${activePlayers.length}/2 players${S.client && S.client.isHost ? ' • host' : ''}${S.opponentPid ? ' • opponent ready' : ''}`;
     }
   }
 
@@ -154,34 +182,39 @@
       return;
     }
 
-    UI.livePlayers.innerHTML = players.map(p => {
-      const mine = p.pid === PID;
-      const hp = clamp(p.hp || 0, 0, 100);
-      const score = Number(p.score || 0);
-      const combo = Number(p.combo || 0);
-      const badge = mine ? 'YOU' : (p.connected === false ? 'OFFLINE' : 'LIVE');
-      const av = mine ? '🧑' : '⚔️';
+    const nowTs = Date.now();
 
-      return `
-        <div class="player">
-          <div class="left">
-            <div class="avatar">${av}</div>
-            <div>
-              <div class="name">${esc(p.nick || p.pid || 'player')}</div>
-              <div class="mini">HP ${hp}% • Score ${score} • Combo ${combo}</div>
+    UI.livePlayers.innerHTML = players
+      .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0))
+      .map((p) => {
+        const mine = p.pid === PID;
+        const active = isActivePlayer(p, nowTs);
+        const hp = clamp(p.hp || 0, 0, 100);
+        const score = Number(p.score || 0);
+        const combo = Number(p.combo || 0);
+        const badge = mine ? 'YOU' : (active ? 'LIVE' : 'OFFLINE');
+        const av = mine ? '🧑' : '⚔️';
+
+        return `
+          <div class="player">
+            <div class="left">
+              <div class="avatar">${av}</div>
+              <div>
+                <div class="name">${esc(p.nick || p.pid || 'player')}</div>
+                <div class="mini">HP ${hp}% • Score ${score} • Combo ${combo}</div>
+              </div>
             </div>
+            <div class="badge">${badge}</div>
           </div>
-          <div class="badge">${badge}</div>
-        </div>
-      `;
-    }).join('');
+        `;
+      })
+      .join('');
   }
 
   function chooseOpponent() {
-    const connected = Object.values(S.players || {})
-      .filter(p => p && p.connected !== false && p.pid !== PID);
-
-    S.opponentPid = connected[0] ? connected[0].pid : '';
+    const activePlayers = getActivePlayers();
+    const others = activePlayers.filter((p) => p.pid !== PID);
+    S.opponentPid = others[0] ? others[0].pid : '';
   }
 
   async function syncSelf(extra = {}) {
@@ -205,12 +238,13 @@
   }
 
   function clearTargets() {
-    UI.arena.querySelectorAll('.target').forEach(el => el.remove());
+    UI.arena.querySelectorAll('.target').forEach((el) => el.remove());
   }
 
   function stopLoops() {
     clearTimeout(S.spawnLoop);
     clearInterval(S.uiLoop);
+    clearInterval(S.cdLoop);
   }
 
   function createCountdownText(v) {
@@ -380,14 +414,13 @@
       if (!S.client || !S.client.isHost) return;
 
       const rs = S.roomState || {};
-      const players = Object.values(S.players || {}).filter(Boolean);
-      const connected = players.filter(p => p.connected !== false);
-      const playingPlayers = connected.length;
+      const activePlayers = getActivePlayers();
+      const activeCount = activePlayers.length;
       const planned = clamp(rs.plannedSec || PLANNED_SEC, 20, 600);
 
       try {
         if (rs.status === 'waiting') {
-          if (playingPlayers >= 2) {
+          if (activeCount >= 2) {
             await S.client.updateState({
               status: 'countdown',
               plannedSec: planned,
@@ -402,6 +435,19 @@
         }
 
         if (rs.status === 'countdown') {
+          if (activeCount < 2) {
+            await S.client.updateState({
+              status: 'waiting',
+              plannedSec: planned,
+              countdownEndsAt: null,
+              startedAt: null,
+              endedAt: null,
+              winnerPid: '',
+              reason: 'not_enough_players'
+            });
+            return;
+          }
+
           const leftMs = Number(rs.countdownEndsAt || 0) - Date.now();
           if (leftMs <= 0) {
             await S.client.updateState({
@@ -417,8 +463,8 @@
         }
 
         if (rs.status === 'playing') {
-          if (playingPlayers <= 1) {
-            const w = connected[0] || null;
+          if (activeCount <= 1) {
+            const w = activePlayers[0] || null;
             await S.client.updateState({
               status: 'ended',
               endedAt: Date.now(),
@@ -428,9 +474,9 @@
             return;
           }
 
-          const dead = connected.find(p => Number(p.hp || 0) <= 0);
+          const dead = activePlayers.find((p) => Number(p.hp || 0) <= 0);
           if (dead) {
-            const w = winnerFromPlayers(connected);
+            const w = winnerFromPlayers(activePlayers);
             await S.client.updateState({
               status: 'ended',
               endedAt: Date.now(),
@@ -442,13 +488,48 @@
 
           const startedAt = Number(rs.startedAt || 0);
           if (startedAt > 0 && Date.now() >= startedAt + planned * 1000) {
-            const w = winnerFromPlayers(connected);
+            const w = winnerFromPlayers(activePlayers);
             await S.client.updateState({
               status: 'ended',
               endedAt: Date.now(),
               winnerPid: w ? w.pid : '',
               reason: 'time_up'
             });
+          }
+          return;
+        }
+
+        if (rs.status === 'ended') {
+          if (activeCount >= 2) {
+            await S.client.updateState({
+              status: 'waiting',
+              plannedSec: planned,
+              countdownEndsAt: null,
+              startedAt: null,
+              endedAt: null,
+              winnerPid: '',
+              reason: 'reset_for_new_round'
+            });
+
+            const jobs = activePlayers.map((p) => {
+              if (!p || !p.pid) return Promise.resolve();
+              return S.client.refs.players.child(p.pid).update({
+                hp: 100,
+                score: 0,
+                combo: 0,
+                miss: 0,
+                acc: 0,
+                charge: 0,
+                hits: 0,
+                badHits: 0,
+                totalTap: 0,
+                status: 'waiting',
+                updatedAt: Date.now(),
+                lastSeen: Date.now()
+              }).catch(() => {});
+            });
+
+            await Promise.all(jobs);
           }
         }
       } catch (err) {
@@ -474,6 +555,7 @@
     if (attack.toPid !== PID) return;
     if (S.attackSeen.has(attack.id)) return;
     if (attack.handledBy && attack.handledBy[PID]) return;
+    if ((S.roomState.status || '') !== 'playing') return;
 
     S.attackSeen.add(attack.id);
 
@@ -507,19 +589,26 @@
         mode: MODE
       });
 
+      PID = S.client.pid;
+
       S.client.onPlayers((players) => {
         S.players = players || {};
         chooseOpponent();
         renderPlayers();
         updateHUD();
 
-        const connected = Object.values(S.players || {}).filter(p => p && p.connected !== false);
-        if ((S.roomState.status || 'waiting') === 'waiting') {
-          if (connected.length >= 2) {
+        const activePlayers = getActivePlayers();
+        const activeCount = activePlayers.length;
+        const st = String(S.roomState.status || 'waiting');
+
+        if (st === 'waiting') {
+          if (activeCount >= 2) {
             setNotice('ครบ 2 คนแล้ว กำลังเตรียมเริ่มเกม', '🎮');
           } else {
-            setNotice('รอผู้เล่นอีก 1 คน…', '⌛');
+            setNotice(`รอผู้เล่นอีก ${Math.max(0, 2 - activeCount)} คน...`, '⏳');
           }
+        } else if (st === 'countdown') {
+          setNotice('กำลังนับถอยหลังก่อนเริ่มเกม', '⏱️');
         }
       });
 
@@ -532,10 +621,19 @@
           S.started = false;
           S.ended = false;
           hideCountdown();
+          clearTargets();
+
+          const activeCount = getActivePlayers().length;
+          if (activeCount < 2) {
+            setNotice(`รอผู้เล่นอีก ${Math.max(0, 2 - activeCount)} คน...`, '⏳');
+          } else {
+            setNotice('ครบผู้เล่นแล้ว เตรียมเริ่มเกม', '🎮');
+          }
         }
 
         if (S.roomState.status === 'countdown') {
           renderCountdown();
+          setNotice('เตรียมตัวให้พร้อม!', '⏱️');
         }
 
         if (S.roomState.status === 'playing') {
@@ -562,11 +660,16 @@
       updateHUD();
       startHostLoop();
 
-      setInterval(() => {
+      S.cdLoop = setInterval(() => {
         if (S.roomState.status === 'countdown') renderCountdown();
       }, 120);
 
-      setNotice('เชื่อมห้องสำเร็จ', '✅');
+      const activeCount = getActivePlayers().length;
+      if (activeCount < 2) {
+        setNotice(`รอผู้เล่นอีก ${Math.max(0, 2 - activeCount)} คน...`, '⏳');
+      } else {
+        setNotice('เชื่อมห้องสำเร็จ', '✅');
+      }
     } catch (err) {
       console.error(err);
       setNotice(`เชื่อมห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`, '⚠️');
