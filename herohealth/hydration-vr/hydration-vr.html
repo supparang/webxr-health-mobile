@@ -5,679 +5,850 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Hydration Hero</title>
   <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#bfeeff" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./hydration-vr.css?v=20260327-final-sanity-r2" />
+  <style>
+    :root{
+      --sky1:#eafcff;
+      --sky2:#cdf2ff;
+      --sky3:#aee3ff;
+
+      --card:#fffefb;
+      --card-2:#f5fffb;
+      --card-3:#eefaff;
+
+      --line:#d6edf6;
+      --text:#2f5268;
+      --muted:#6f91a6;
+
+      --green1:#90e36f;
+      --green2:#58bd46;
+      --green3:#3da43a;
+
+      --blue1:#85d6ff;
+      --blue2:#51acef;
+      --blue3:#398fda;
+
+      --yellow1:#ffe588;
+      --yellow2:#f7c84f;
+
+      --shadow:0 14px 34px rgba(84,142,176,.14);
+      --shadow-lg:0 24px 56px rgba(84,142,176,.18);
+
+      --radius-xl:32px;
+      --radius-lg:26px;
+      --radius-md:20px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.82), transparent 13%),
+        radial-gradient(circle at 86% 12%, rgba(255,255,255,.66), transparent 14%),
+        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 50%, var(--sky3) 100%);
+      padding:14px;
+    }
+
+    button{
+      font:inherit;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .page{
+      width:min(1320px,100%);
+      margin:0 auto;
+      display:grid;
+      gap:14px;
+    }
+
+    .shell,
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.95));
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:
+        0 18px 40px rgba(84,142,176,.12),
+        inset 0 1px 0 rgba(255,255,255,.92);
+    }
+
+    .shell{
+      position:relative;
+      overflow:hidden;
+      border-radius:var(--radius-xl);
+      padding:14px;
+      display:grid;
+      gap:14px;
+    }
+
+    .shell::after{
+      content:"";
+      position:absolute;
+      left:0; right:0; bottom:0;
+      height:96px;
+      background:
+        radial-gradient(circle at 10% 78%, #d7f3ae 0 18%, transparent 19%),
+        radial-gradient(circle at 32% 100%, #b7e788 0 12%, transparent 13%),
+        radial-gradient(circle at 84% 74%, #d8f4b3 0 18%, transparent 19%),
+        linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.10) 38%, rgba(104,191,70,.22) 100%);
+      pointer-events:none;
+    }
+
+    .shell > *{ position:relative; z-index:1; }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+
+    .brand-badge{
+      width:72px;
+      height:72px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fff8e8,#ffe8b9);
+      border:1px solid rgba(255,255,255,.95);
+      box-shadow:var(--shadow);
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+      flex:0 0 72px;
+    }
+
+    .hero-wrap{
+      position:relative;
+      width:56px;
+      height:56px;
+    }
+    .hero-head{
+      position:absolute; left:16px; top:8px;
+      width:22px; height:22px; border-radius:999px; background:#ffd9b8; z-index:4;
+    }
+    .hero-hair{
+      position:absolute; left:12px; top:5px;
+      width:28px; height:16px; border-radius:16px 16px 10px 10px;
+      background:linear-gradient(180deg,#7a3b22,#5f2f18); transform:rotate(-8deg); z-index:5;
+    }
+    .hero-body{
+      position:absolute; left:13px; top:24px;
+      width:28px; height:18px; border-radius:14px 14px 11px 11px;
+      background:linear-gradient(180deg,#8fd7ff,#58acef); z-index:3;
+    }
+    .hero-cape{
+      position:absolute; left:4px; top:20px;
+      width:16px; height:22px; border-radius:14px 0 14px 14px;
+      background:linear-gradient(180deg,#ff8063,#ef5d44); transform:rotate(-24deg); z-index:2;
+    }
+    .hero-drop{
+      position:absolute; right:2px; bottom:7px;
+      width:18px; height:18px; border-radius:999px;
+      display:grid; place-items:center; color:#fff; font-size:10px;
+      background:linear-gradient(180deg,#8de36b,#58bf44); z-index:6;
+    }
+
+    .brand-text{ min-width:0; }
+    .logo{
+      display:flex;
+      align-items:center;
+      gap:2px;
+      line-height:1;
+      font-size:clamp(28px,4vw,44px);
+      font-weight:1000;
+      letter-spacing:-.03em;
+      text-shadow:0 3px 0 rgba(255,255,255,.72);
+    }
+    .logo-hero{ color:#8fbe1e; }
+    .logo-health{
+      color:#ffffff;
+      text-shadow:
+        0 3px 0 rgba(90,145,180,.22),
+        0 0 1px rgba(90,145,180,.16);
+    }
+    .logo-sub{
+      margin-top:4px;
+      color:#6f91a6;
+      font-size:14px;
+      font-weight:900;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-end;
+    }
+
+    .pill{
+      min-height:38px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.82);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      color:#6d8fa3;
+      font-size:13px;
+      font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .btn{
+      min-height:50px;
+      padding:12px 18px;
+      border-radius:18px;
+      font-size:18px;
+      font-weight:1000;
+      cursor:pointer;
+      transition:transform .12s ease, filter .12s ease;
+      box-shadow:
+        0 12px 26px rgba(84,142,176,.14),
+        inset 0 1px 0 rgba(255,255,255,.18);
+    }
+    .btn:hover{
+      transform:translateY(-1px) scale(1.01);
+      filter:brightness(1.02);
+    }
+    .btn-soft{
+      border:1px solid rgba(255,255,255,.95);
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      color:#2f5268;
+    }
+    .btn-green{
+      border:0;
+      background:linear-gradient(180deg,#8de36b,#58bf44);
+      color:#fff;
+    }
+    .btn-blue{
+      border:0;
+      background:linear-gradient(180deg,var(--blue1),var(--blue2));
+      color:#fff;
+    }
+
+    .meta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .panel{
+      border-radius:28px;
+      padding:14px;
+      display:grid;
+      gap:14px;
+    }
+
+    .stage-shell{
+      position:relative;
+      overflow:hidden;
+      min-height:76vh;
+      border-radius:30px;
+      padding:12px;
+      background:
+        radial-gradient(circle at 14% 14%, rgba(255,255,255,.92), transparent 10%),
+        radial-gradient(circle at 84% 16%, rgba(255,255,255,.72), transparent 12%),
+        linear-gradient(180deg,#e9fbff 0%,#c9f0ff 42%,#aee2ff 100%);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow-lg);
+      display:grid;
+    }
+
+    .stage-shell::after{
+      content:"";
+      position:absolute;
+      left:0; right:0; bottom:0;
+      height:104px;
+      background:
+        radial-gradient(circle at 10% 76%, #d4f3ad 0 18%, transparent 19%),
+        radial-gradient(circle at 34% 100%, #a8e37f 0 12%, transparent 13%),
+        radial-gradient(circle at 84% 74%, #d4f3ad 0 18%, transparent 19%),
+        linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.12) 40%, rgba(104,191,70,.24) 100%);
+      pointer-events:none;
+    }
+
+    .frame-wrap{
+      position:relative;
+      z-index:1;
+      min-height:calc(76vh - 24px);
+      border-radius:24px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.96);
+      background:#d8f3ff;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+    }
+
+    iframe{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      border:0;
+      background:#d8f3ff;
+    }
+
+    .loading{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      padding:20px;
+      background:
+        radial-gradient(circle at 14% 18%, rgba(255,255,255,.82), transparent 12%),
+        linear-gradient(180deg, rgba(233,251,255,.96), rgba(201,240,255,.96) 44%, rgba(174,226,255,.98) 100%);
+      z-index:5;
+      transition:opacity .24s ease, visibility .24s ease;
+    }
+
+    .loading.hide{
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+    }
+
+    .loading-card{
+      width:min(520px,100%);
+      padding:18px;
+      border-radius:28px;
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow-lg);
+      display:grid;
+      gap:14px;
+      text-align:center;
+      justify-items:center;
+    }
+
+    .big-avatar{
+      width:116px;
+      height:116px;
+      border-radius:32px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#f3fbff,#def4ff);
+      border:1px solid rgba(255,255,255,.95);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .big-wrap{
+      position:relative;
+      width:88px;
+      height:88px;
+    }
+    .big-head{
+      position:absolute; left:29px; top:11px;
+      width:28px; height:28px; border-radius:999px; background:#ffd9b8; z-index:4;
+    }
+    .big-hair{
+      position:absolute; left:24px; top:7px;
+      width:34px; height:20px; border-radius:18px 18px 12px 12px;
+      background:linear-gradient(180deg,#7a3b22,#5f2f18); transform:rotate(-8deg); z-index:5;
+    }
+    .big-body{
+      position:absolute; left:23px; top:36px;
+      width:36px; height:24px; border-radius:16px 16px 12px 12px;
+      background:linear-gradient(180deg,#8fd7ff,#58acef); z-index:3;
+    }
+    .big-cape{
+      position:absolute; left:10px; top:31px;
+      width:22px; height:32px; border-radius:18px 0 18px 18px;
+      background:linear-gradient(180deg,#ff8063,#ef5d44); transform:rotate(-24deg); z-index:2;
+    }
+    .big-drop{
+      position:absolute; right:5px; bottom:9px;
+      width:22px; height:22px; border-radius:999px; display:grid; place-items:center;
+      color:#fff; font-size:12px; background:linear-gradient(180deg,#8de36b,#58bf44); z-index:6;
+    }
+
+    .loading-title{
+      margin:0;
+      color:#2d5269;
+      font-size:34px;
+      line-height:1.04;
+      font-weight:1000;
+    }
+
+    .loading-sub{
+      margin:0;
+      color:#6f91a6;
+      font-size:16px;
+      line-height:1.5;
+      font-weight:800;
+    }
+
+    .bubble{
+      max-width:420px;
+      padding:12px 16px;
+      border-radius:18px;
+      background:linear-gradient(180deg,#fff7db,#ffefbd);
+      border:1px solid #ffe39a;
+      color:#6d5f29;
+      font-size:15px;
+      line-height:1.45;
+      font-weight:1000;
+      box-shadow:var(--shadow);
+    }
+
+    .mini-track{
+      width:min(320px,100%);
+      height:16px;
+      border-radius:999px;
+      background:#e8f7df;
+      border:1px solid #cceab8;
+      overflow:hidden;
+    }
+
+    .mini-track > span{
+      display:block;
+      width:38%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#8de36b,#58bf44);
+      animation:loadMove 1.2s linear infinite alternate;
+    }
+
+    @keyframes loadMove{
+      from{ width:28%; }
+      to{ width:82%; }
+    }
+
+    .tips{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .tip{
+      padding:14px 16px;
+      border-radius:22px;
+      background:linear-gradient(180deg,#fffef8,#f3fff0);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      color:#5d8298;
+      font-size:15px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
+    .tip strong{ color:#315873; }
+
+    .help-backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(25,52,68,.26);
+      backdrop-filter:blur(6px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:40;
+    }
+    .help-backdrop.open{ display:flex; }
+
+    .help-dialog{
+      width:min(560px,100%);
+      border-radius:30px;
+      padding:18px;
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow-lg);
+      display:grid;
+      gap:14px;
+    }
+
+    .help-dialog h2{
+      margin:0;
+      color:#2d5269;
+      font-size:28px;
+      line-height:1.05;
+      font-weight:1000;
+    }
+
+    .help-item{
+      padding:12px 14px;
+      border-radius:18px;
+      background:linear-gradient(180deg,#fffef8,#f3fff0);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      color:#567b90;
+      font-size:15px;
+      line-height:1.5;
+      font-weight:900;
+    }
+
+    body.cvr-mode{
+      padding:0;
+      background:#000;
+    }
+
+    body.cvr-mode .page{
+      width:100%;
+      gap:0;
+    }
+
+    body.cvr-mode .shell{
+      border-radius:0;
+      padding:10px;
+      min-height:100vh;
+      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
+      border:0;
+      box-shadow:none;
+    }
+
+    body.cvr-mode .shell::after{
+      display:none;
+    }
+
+    body.cvr-mode .tips{
+      display:none;
+    }
+
+    body.cvr-mode .panel{
+      padding:10px;
+      border-radius:20px;
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow:none;
+    }
+
+    body.cvr-mode .topbar{
+      gap:8px;
+    }
+
+    body.cvr-mode .brand-badge{
+      width:54px;
+      height:54px;
+      border-radius:18px;
+    }
+
+    body.cvr-mode .logo{
+      font-size:24px;
+    }
+
+    body.cvr-mode .logo-sub{
+      display:none;
+    }
+
+    body.cvr-mode .pill{
+      background:rgba(255,255,255,.18);
+      color:#fff;
+      border-color:rgba(255,255,255,.14);
+      box-shadow:none;
+    }
+
+    body.cvr-mode .btn-soft,
+    body.cvr-mode .btn-green,
+    body.cvr-mode .btn-blue{
+      box-shadow:none;
+    }
+
+    body.cvr-mode .stage-shell{
+      min-height:calc(100vh - 120px);
+      border-radius:24px;
+      padding:8px;
+    }
+
+    body.cvr-mode .frame-wrap{
+      min-height:calc(100vh - 136px);
+      border-radius:20px;
+    }
+
+    @media (max-width: 900px){
+      .tips{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width: 720px){
+      body{ padding:10px; }
+      .brand-badge{
+        width:58px; height:58px; border-radius:18px; flex-basis:58px;
+      }
+      .hero-wrap{ width:46px; height:46px; }
+      .hero-head{ left:13px; top:7px; width:18px; height:18px; }
+      .hero-hair{ left:10px; top:4px; width:22px; height:14px; }
+      .hero-body{ left:11px; top:20px; width:22px; height:16px; }
+      .hero-cape{ left:3px; top:17px; width:14px; height:18px; }
+      .hero-drop{ width:15px; height:15px; font-size:9px; }
+
+      .logo{ font-size:28px; }
+      .top-actions{ width:100%; justify-content:flex-start; }
+      .loading-title{ font-size:28px; }
+      .btn{ width:100%; }
+      .top-actions .btn{ width:auto; }
+    }
+  </style>
 </head>
 <body>
-  <main class="game-shell">
-    <section class="hero-v2-shell">
-      <div class="hero-v2-topbar">
-        <button class="corner-icon" type="button" aria-label="settings">⚙️</button>
+  <main class="page">
+    <section class="shell">
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-badge">
+            <div class="hero-wrap">
+              <div class="hero-head"></div>
+              <div class="hero-hair"></div>
+              <div class="hero-body"></div>
+              <div class="hero-cape"></div>
+              <div class="hero-drop">💧</div>
+            </div>
+          </div>
 
-        <div class="hero-v2-topchips">
-          <span class="topchip">💧 Play</span>
-          <span class="topchip">⭐ Hero</span>
-          <span class="topchip">🫧 Fun</span>
+          <div class="brand-text">
+            <div class="logo">
+              <span class="logo-hero">Hero</span><span class="logo-health">Health</span>
+            </div>
+            <div class="logo-sub">Hydration Hero</div>
+          </div>
+        </div>
+
+        <div class="top-actions">
+          <span id="metaDiff" class="pill">🎯 Normal</span>
+          <span id="metaView" class="pill">📱 Mobile</span>
+          <span id="metaTime" class="pill">⏱ 80 วินาที</span>
+          <button id="reloadBtn" class="btn btn-green" type="button">🔄 เล่นใหม่</button>
+          <button id="helpBtn" class="btn btn-blue" type="button">❓ วิธีเล่น</button>
+          <button id="hubBtn" class="btn btn-soft" type="button">🏠 HUB</button>
         </div>
       </div>
 
-      <div class="hero-v2-logo-wrap">
-        <div class="hero-v2-mascot">
-          <div class="mascot-illust">
-            <div class="mascot-head"></div>
-            <div class="mascot-hair"></div>
-            <div class="mascot-body"></div>
-            <div class="mascot-cape"></div>
-            <div class="mascot-drop">💧</div>
-          </div>
+      <section class="panel">
+        <div class="meta">
+          <span id="metaPlayer" class="pill">🧒 Rocky</span>
+          <span class="pill">🥗 Nutrition Zone</span>
+          <span class="pill">💧 Hydration Hero</span>
         </div>
 
-        <div class="hero-v2-logo-stack">
-          <div class="hero-v2-logo">
-            <span class="hero-v2-logo-hero">Hero</span><span class="hero-v2-logo-health">Health</span>
-          </div>
-          <div class="hero-v2-logo-sub">Learn Health Through Play!</div>
-        </div>
+        <div class="stage-shell">
+          <div class="frame-wrap">
+            <iframe
+              id="gameFrame"
+              title="Hydration Hero Game"
+              allow="fullscreen; xr-spatial-tracking; accelerometer; gyroscope; autoplay; gamepad; clipboard-read; clipboard-write"
+              referrerpolicy="same-origin"
+            ></iframe>
 
-        <div class="hero-v2-homebtn">🏠</div>
-      </div>
+            <div id="loading" class="loading" aria-live="polite">
+              <div class="loading-card">
+                <div class="big-avatar">
+                  <div class="big-wrap">
+                    <div class="big-head"></div>
+                    <div class="big-hair"></div>
+                    <div class="big-body"></div>
+                    <div class="big-cape"></div>
+                    <div class="big-drop">💧</div>
+                  </div>
+                </div>
 
-      <div class="hero-v2-profile">
-        <div class="profile-left">
-          <div class="profile-avatar-kids">
-            <div class="avatar-illust">
-              <div class="avatar-head"></div>
-              <div class="avatar-hair"></div>
-              <div class="avatar-body"></div>
-              <div class="avatar-cape"></div>
-              <div class="avatar-shield">💧</div>
-            </div>
-          </div>
+                <div>
+                  <h1 class="loading-title">Hydration Hero</h1>
+                  <p class="loading-sub">กำลังเตรียมด่านและโหลดเกมให้พร้อมเล่น</p>
+                </div>
 
-          <div class="profile-texts">
-            <div class="profile-name-kids">Rocky</div>
-            <div id="coachExplain" class="profile-speech">
-              เก็บน้ำดีให้เยอะ ระวังของไม่ดี และอย่าลืมหาโล่ไว้กันสายฟ้านะ
-            </div>
-          </div>
-        </div>
-
-        <div class="profile-right-stats">
-          <div class="resource-strip">
-            <div class="resource-pill hearts-pill">
-              <span class="resource-icon">❤️</span>
-              <div>
-                <span class="resource-label">Hearts</span>
-                <strong>8</strong>
-              </div>
-            </div>
-
-            <div class="resource-pill coins-pill">
-              <span class="resource-icon">🪙</span>
-              <div>
-                <span class="resource-label">Score</span>
-                <strong id="uiScore">0</strong>
-              </div>
-            </div>
-
-            <div class="resource-pill stars-pill">
-              <span class="resource-icon">⭐</span>
-              <div>
-                <span class="resource-label">Grade</span>
-                <strong id="uiGrade">D</strong>
-              </div>
-            </div>
-
-            <div class="resource-pill water-pill">
-              <span class="resource-icon">💧</span>
-              <div>
-                <span class="resource-label">Water</span>
-                <strong id="uiWater">40%</strong>
+                <div id="loadingBubble" class="bubble">แตะน้ำดี เก็บโล่ และหลบของไม่ดีให้เก่งที่สุดนะ!</div>
+                <div class="mini-track"><span></span></div>
               </div>
             </div>
           </div>
-
-          <div class="level-strip">
-            <div class="level-badge">Lv. 5</div>
-            <div class="level-track">
-              <div class="level-track-fill" style="width:32%"></div>
-            </div>
-            <div class="level-progress">10/30</div>
-          </div>
         </div>
-      </div>
-
-      <div class="hero-v2-zonestrip">
-        <div class="zone-mini-card zone-hygiene">🧼 Hygiene</div>
-        <div class="zone-mini-card zone-nutrition active">🥗 Nutrition</div>
-        <div class="zone-mini-card zone-fitness">🏃 Fitness</div>
-      </div>
-    </section>
-
-    <section class="top-card">
-      <div class="top-actions top-actions-v2">
-        <button id="btnSfx" class="ui-btn ui-btn-soft icon-btn-v2" type="button">
-          <span class="icon-btn-tile tile-sound">
-            <span class="tile-glyph">🔊</span>
-          </span>
-          <span class="icon-btn-label">เสียง</span>
-        </button>
-
-        <button id="btnHelp" class="ui-btn ui-btn-soft icon-btn-v2" type="button">
-          <span class="icon-btn-tile tile-help">
-            <span class="tile-glyph">?</span>
-          </span>
-          <span class="icon-btn-label">วิธีเล่น</span>
-        </button>
-
-        <button id="btnPause" class="ui-btn ui-btn-soft icon-btn-v2" type="button">
-          <span class="icon-btn-tile tile-pause">
-            <span class="tile-glyph">⏸</span>
-          </span>
-          <span class="icon-btn-label">พัก</span>
-        </button>
-      </div>
-    </section>
-
-    <section class="zone-card">
-      <div class="zone-card-header">
-        <div class="zone-title-wrap">
-          <div class="zone-title">Nutrition Zone • Hydration Hero</div>
-          <div class="zone-subtitle">เก็บน้ำดี เลี่ยงของไม่ดี</div>
-        </div>
-
-        <div class="zone-status-right">
-          <div class="heart-badge-top">
-            <span class="heart-badge-icon heart-tile">
-              <span class="tile-glyph">❤️</span>
-            </span>
-            <strong>8</strong>
-          </div>
-
-          <div class="status-pill status-pill-v2">
-            <span class="status-pill-icon status-time-tile">
-              <span class="tile-glyph">⏰</span>
-            </span>
-            <div class="status-pill-body">
-              <span class="status-pill-label">เวลา</span>
-              <strong id="uiTime">00:00</strong>
-            </div>
-          </div>
-
-          <div class="status-pill status-pill-v2">
-            <span class="status-pill-icon status-phase-tile">
-              <span class="tile-glyph">🌈</span>
-            </span>
-            <div class="status-pill-body">
-              <span class="status-pill-label">สถานะ</span>
-              <strong id="uiPhase">💧 ช่วงเก็บน้ำ</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="mission-strip mission-strip-v2" id="missionBar">
-        <div class="mission-strip-title mission-strip-title-v2">
-          <div class="title-chip-illust">
-            <span class="title-chip-star s1">⭐</span>
-            <span class="title-chip-star s2">⭐</span>
-          </div>
-          <div>
-            <div class="mission-title-top">Hero Mission</div>
-            <div class="mission-title-main">Mission</div>
-          </div>
-        </div>
-
-        <div id="missionChipHit" class="mission-pill mission-pill-v2">
-          <div class="mission-pill-icon icon-tile tile-water">
-            <span class="tile-drop drop-a"></span>
-            <span class="tile-drop drop-b"></span>
-            <span class="tile-drop drop-c"></span>
-          </div>
-          <div class="mission-pill-body">
-            <div class="mission-pill-label">เก็บน้ำดี</div>
-            <div class="mission-pill-value"><strong id="missionHitNow">0</strong>/<strong id="missionHitGoal">12</strong></div>
-          </div>
-        </div>
-
-        <div id="missionChipBlock" class="mission-pill mission-pill-v2">
-          <div class="mission-pill-icon icon-tile tile-shield">
-            <span class="tile-shield-core">🛡️</span>
-            <span class="tile-spark sp-a">✦</span>
-            <span class="tile-spark sp-b">✦</span>
-          </div>
-          <div class="mission-pill-body">
-            <div class="mission-pill-label">บล็อกสายฟ้า</div>
-            <div class="mission-pill-value"><strong id="missionBlockNow">0</strong>/<strong id="missionBlockGoal">3</strong></div>
-          </div>
-        </div>
-
-        <div id="missionChipCombo" class="mission-pill mission-pill-v2">
-          <div class="mission-pill-icon icon-tile tile-combo">
-            <span class="combo-star cs-1">⭐</span>
-            <span class="combo-star cs-2">⭐</span>
-            <span class="combo-star cs-3">⭐</span>
-          </div>
-          <div class="mission-pill-body">
-            <div class="mission-pill-label">คอมโบ</div>
-            <div class="mission-pill-value"><strong id="missionComboNow">0</strong>/<strong id="missionComboGoal">8</strong></div>
-          </div>
-        </div>
-      </div>
-
-      <section id="stage" class="play-stage play-stage-v2" aria-label="Hydration playfield">
-        <div class="stage-back-illustration" aria-hidden="true">
-          <div class="stage-cloud cloud-a"></div>
-          <div class="stage-cloud cloud-b"></div>
-          <div class="stage-cloud cloud-c"></div>
-
-          <div class="stage-sun-tile">
-            <span class="sun-core"></span>
-            <span class="sun-ray ray-a"></span>
-            <span class="sun-ray ray-b"></span>
-            <span class="sun-ray ray-c"></span>
-            <span class="sun-ray ray-d"></span>
-          </div>
-
-          <div class="stage-hill hill-a"></div>
-          <div class="stage-hill hill-b"></div>
-          <div class="stage-hill hill-c"></div>
-
-          <div class="stage-flower flower-left">
-            <span class="flower-core"></span>
-            <span class="flower-petal petal-1"></span>
-            <span class="flower-petal petal-2"></span>
-            <span class="flower-petal petal-3"></span>
-            <span class="flower-petal petal-4"></span>
-          </div>
-
-          <div class="stage-flower flower-right">
-            <span class="flower-core"></span>
-            <span class="flower-petal petal-1"></span>
-            <span class="flower-petal petal-2"></span>
-            <span class="flower-petal petal-3"></span>
-            <span class="flower-petal petal-4"></span>
-          </div>
-
-          <div class="stage-sparkle sparkle-a"></div>
-          <div class="stage-sparkle sparkle-b"></div>
-          <div class="stage-sparkle sparkle-c"></div>
-        </div>
-
-        <div id="zoneSign" class="zone-sign"></div>
-
-        <div class="stage-play-badges" aria-hidden="true">
-          <span class="play-badge play-badge-v2">
-            <span class="play-badge-icon play-badge-water">
-              <span class="pb-drop d1"></span>
-              <span class="pb-drop d2"></span>
-            </span>
-            <span class="play-badge-text">Keep Going!</span>
-          </span>
-
-          <span class="play-badge play-badge-v2">
-            <span class="play-badge-icon play-badge-star">
-              <span class="pb-star">⭐</span>
-            </span>
-            <span class="play-badge-text">Fun Mission</span>
-          </span>
-        </div>
-
-        <div id="calloutLayer" class="calloutLayer" aria-hidden="true"></div>
-        <div id="stickerBurst" class="stickerBurst" aria-hidden="true"></div>
-        <div id="bossFace" class="boss-face boss-face-v2" aria-hidden="true">⚡</div>
-
-        <div class="centerCrosshair centerCrosshair-v2" aria-hidden="true"></div>
-
-        <div id="layer" class="bubbleLayer bubbleLayer-v2" aria-label="interactive bubbles"></div>
       </section>
-    </section>
 
-    <section class="bottom-hud bottom-hud-v2">
-      <div class="bottom-chip bottom-chip-v2">
-        <span class="bottom-chip-icon chip-warm">
-          <span class="tile-glyph">🔥</span>
-        </span>
-        <div class="bottom-chip-body">
-          <span class="bottom-chip-label">วอร์มอัป</span>
-          <strong id="uiWarmDone">ยังไม่ทำ ✨</strong>
-        </div>
-      </div>
-
-      <div class="bottom-chip bottom-chip-v2">
-        <span class="bottom-chip-icon chip-cool">
-          <span class="tile-glyph">🌈</span>
-        </span>
-        <div class="bottom-chip-body">
-          <span class="bottom-chip-label">คูลดาวน์</span>
-          <strong id="uiCoolDone">ยังไม่ทำ ✨</strong>
-        </div>
-      </div>
-
-      <div class="bottom-chip bottom-chip-v2">
-        <span class="bottom-chip-icon chip-miss">
-          <span class="tile-glyph">⚠️</span>
-        </span>
-        <div class="bottom-chip-body">
-          <span class="bottom-chip-label">พลาดชน</span>
-          <strong id="uiMiss">0</strong>
-        </div>
-      </div>
-
-      <div class="bottom-chip bottom-chip-v2">
-        <span class="bottom-chip-icon chip-combo">
-          <span class="tile-glyph">⭐</span>
-        </span>
-        <div class="bottom-chip-body">
-          <span class="bottom-chip-label">คอมโบ</span>
-          <strong id="uiCombo">0</strong>
-        </div>
-      </div>
-
-      <div class="bottom-chip bottom-chip-v2">
-        <span class="bottom-chip-icon chip-shield">
-          <span class="tile-glyph">🛡️</span>
-        </span>
-        <div class="bottom-chip-body">
-          <span class="bottom-chip-label">โล่</span>
-          <strong id="uiShield">0</strong>
-        </div>
-      </div>
-
-      <div class="bottom-chip bottom-chip-v2 bottom-chip-wide bottom-chip-hint">
-        <span class="bottom-chip-icon chip-hint">
-          <span class="tile-glyph">💬</span>
-        </span>
-        <div class="bottom-chip-body">
-          <span class="bottom-chip-label">คำแนะนำ</span>
-          <strong id="aiHint">แตะน้ำดี และอย่าโดนของไม่ดี 😊</strong>
-        </div>
-      </div>
-
-      <div class="bottom-chip bottom-chip-v2 hud-mobile-hide">
-        <span class="bottom-chip-icon chip-expire">
-          <span class="tile-glyph">⏳</span>
-        </span>
-        <div class="bottom-chip-body">
-          <span class="bottom-chip-label">หมดเวลาเอง</span>
-          <strong id="uiExpire">0</strong>
-        </div>
-      </div>
-
-      <div class="bottom-chip bottom-chip-v2 hud-mobile-hide">
-        <span class="bottom-chip-icon chip-block">
-          <span class="tile-glyph">🧱</span>
-        </span>
-        <div class="bottom-chip-body">
-          <span class="bottom-chip-label">บล็อก</span>
-          <strong id="uiBlock">0</strong>
-        </div>
-      </div>
-
-      <div class="bottom-chip bottom-chip-v2 hud-mobile-hide">
-        <span class="bottom-chip-icon chip-risk">
-          <span class="tile-glyph">📈</span>
-        </span>
-        <div class="bottom-chip-body">
-          <span class="bottom-chip-label">AI Risk</span>
-          <strong id="aiRisk">0.00</strong>
-        </div>
-      </div>
-    </section>
-
-    <section class="risk-row hud-mobile-hide">
-      <div class="risk-card">
-        <div class="risk-label">ความเสี่ยงตอนนี้</div>
-        <div class="risk-bar">
-          <div id="riskFill" class="risk-fill" style="width:0%"></div>
-        </div>
-      </div>
-    </section>
-
-    <section id="debugMini" class="debugMini is-hidden" aria-hidden="true">
-      <div>phase: <strong id="dbgPhase">normal</strong></div>
-      <div>combo: <strong id="dbgCombo">0</strong></div>
-      <div>water: <strong id="dbgWater">40</strong></div>
-      <div>shield: <strong id="dbgShield">0</strong></div>
-      <div>bubbles: <strong id="dbgBubbles">0</strong></div>
-      <div>fps: <strong id="dbgFps">—</strong></div>
+      <section class="tips">
+        <div class="tip"><strong>💧 น้ำดี</strong><br />แตะเพื่อเพิ่มคะแนนและเพิ่มค่าน้ำ</div>
+        <div class="tip"><strong>🛡️ โล่</strong><br />เก็บไว้กันช่วงอันตรายหรือสายฟ้า</div>
+        <div class="tip"><strong>⚠️ ของไม่ดี</strong><br />หลบให้ทัน เพื่อไม่เสียพลังและคะแนน</div>
+      </section>
     </section>
   </main>
 
-  <div id="helpOverlay" class="overlay" aria-hidden="true">
-    <div class="dialog help-dialog">
-      <div class="overlay-hero">
-        <div class="overlay-mascot">🫧</div>
-        <div class="overlay-kicker">Hydration Hero</div>
-        <h2 class="overlay-title">วิธีเล่นแบบง่าย ๆ</h2>
-        <p class="overlay-lead">เก็บน้ำดีให้เยอะ ระวังของไม่ดี และอย่าลืมหาโล่ไว้กันสายฟ้านะ</p>
-      </div>
-
-      <div class="overlay-grid">
-        <div class="overlay-step">
-          <div class="overlay-step-icon">💧</div>
-          <div>
-            <div class="overlay-step-title">แตะน้ำดี</div>
-            <div class="overlay-step-text">แตะฟองน้ำดี เช่น 💧 💦 🫗 เพื่อเพิ่มคะแนนและเพิ่มน้ำ</div>
-          </div>
-        </div>
-
-        <div class="overlay-step">
-          <div class="overlay-step-icon">⚠️</div>
-          <div>
-            <div class="overlay-step-title">หลบของไม่ดี</div>
-            <div class="overlay-step-text">หลบของไม่ดี เช่น 🧋 🥤 🍟 เพราะจะเสียคะแนนและเสียน้ำ</div>
-          </div>
-        </div>
-
-        <div class="overlay-step">
-          <div class="overlay-step-icon">🛡️</div>
-          <div>
-            <div class="overlay-step-title">เก็บโล่</div>
-            <div class="overlay-step-text">เก็บโล่ไว้กันสายฟ้าช่วงพายุหรือบอส</div>
-          </div>
-        </div>
-
-        <div class="overlay-step">
-          <div class="overlay-step-icon">🥽</div>
-          <div>
-            <div class="overlay-step-title">เล่นบน Cardboard</div>
-            <div class="overlay-step-text">เล็งกลางจอแล้วแตะหรือยิง เพื่อเก็บฟองที่อยู่ใกล้เป้ากลางจอ</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="dialog-actions overlay-actions">
-        <button id="btnHelpStart" class="ui-btn ui-btn-green" type="button">🚀 เริ่มเล่น</button>
-      </div>
+  <div id="helpBackdrop" class="help-backdrop" aria-hidden="true">
+    <div class="help-dialog" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <h2 id="helpTitle">วิธีเล่น Hydration Hero</h2>
+      <div class="help-item">1) แตะน้ำดีเพื่อเพิ่มคะแนนและเพิ่มน้ำ</div>
+      <div class="help-item">2) หลบของไม่ดีให้ได้มากที่สุด</div>
+      <div class="help-item">3) เก็บโล่ไว้กันสายฟ้าหรือช่วงเสี่ยง</div>
+      <div class="help-item">4) ผ่านพายุและบอสให้ได้ แล้วค่อยไป summary / cooldown</div>
+      <button id="closeHelpBtn" class="btn btn-blue" type="button">เข้าใจแล้ว</button>
     </div>
   </div>
 
-  <div id="pauseOverlay" class="overlay" aria-hidden="true">
-    <div class="dialog pause-dialog">
-      <div class="overlay-hero">
-        <div class="overlay-mascot">💤</div>
-        <div class="overlay-kicker">Hydration Hero</div>
-        <h2 class="overlay-title">พักก่อนก็ได้</h2>
-        <p class="overlay-lead">พร้อมแล้วค่อยกลับไปเก็บน้ำต่อได้เลย</p>
-      </div>
+  <script>
+    (function(){
+      const INNER_GAME_PATH = './hydration.html';
 
-      <div class="pause-note">เกมหยุดไว้ชั่วคราว คะแนนและความคืบหน้ายังอยู่เหมือนเดิม</div>
+      const qs = new URLSearchParams(location.search);
 
-      <div class="dialog-actions overlay-actions">
-        <button id="btnResume" class="ui-btn ui-btn-green" type="button">▶️ เล่นต่อ</button>
-      </div>
-    </div>
-  </div>
+      const EL = {
+        frame: document.getElementById('gameFrame'),
+        loading: document.getElementById('loading'),
+        loadingBubble: document.getElementById('loadingBubble'),
+        metaDiff: document.getElementById('metaDiff'),
+        metaView: document.getElementById('metaView'),
+        metaTime: document.getElementById('metaTime'),
+        metaPlayer: document.getElementById('metaPlayer'),
+        reloadBtn: document.getElementById('reloadBtn'),
+        helpBtn: document.getElementById('helpBtn'),
+        closeHelpBtn: document.getElementById('closeHelpBtn'),
+        hubBtn: document.getElementById('hubBtn'),
+        helpBackdrop: document.getElementById('helpBackdrop')
+      };
 
-  <div id="end" class="overlay endOverlay" aria-hidden="true">
-    <div class="dialog endDialog">
-      <div class="end-hero end-hero-v2">
-        <div class="end-top-resource-strip" aria-hidden="true">
-          <div class="end-top-resource coin">
-            <span class="end-top-resource-icon">🪙</span>
-            <strong>250</strong>
-          </div>
-          <div class="end-top-resource heart">
-            <span class="end-top-resource-icon">❤️</span>
-            <strong>8</strong>
-          </div>
-          <div class="end-top-resource star">
-            <span class="end-top-resource-icon">⭐</span>
-            <strong>3</strong>
-          </div>
-        </div>
+      function q(name, fallback=''){
+        const v = qs.get(name);
+        return v == null || v === '' ? fallback : v;
+      }
 
-        <div class="end-brand">HeroHealth • Learn Health Through Play!</div>
+      function sanitizePid(v){
+        return String(v || '').trim().replace(/[.#$[\]/]/g, '-').replace(/\s+/g, '-').slice(0,36);
+      }
 
-        <div class="end-avatar-showcase">
-          <div class="end-avatar-card-big">
-            <div class="end-avatar-illust">
-              <div class="end-avatar-head"></div>
-              <div class="end-avatar-hair"></div>
-              <div class="end-avatar-body"></div>
-              <div class="end-avatar-cape"></div>
-              <div class="end-avatar-shield">💧</div>
-            </div>
-          </div>
-        </div>
+      function defaultHub(){
+        return q('hub', new URL('../hub.html', location.href).href);
+      }
 
-        <div class="great-ribbon-wrap">
-          <div class="great-star">⭐</div>
-          <div class="great-ribbon">
-            <div id="endTitle" class="great-ribbon-title">Great Job!</div>
-          </div>
-          <div class="great-star">⭐</div>
-        </div>
+      function diffLabel(v){
+        return v === 'easy' ? 'Easy' : v === 'hard' ? 'Hard' : 'Normal';
+      }
 
-        <div class="end-stars-row">
-          <span>⭐</span>
-          <span>⭐</span>
-          <span>⭐</span>
-        </div>
+      function viewLabel(v){
+        if(v === 'pc') return 'PC';
+        if(v === 'cvr') return 'Cardboard / cVR';
+        return 'Mobile';
+      }
 
-        <p id="endSub" class="end-hero-sub">มุมมอง mobile • ระดับ normal</p>
-      </div>
+      function defaultTimeForDiff(diff){
+        if(diff === 'easy') return '60';
+        if(diff === 'hard') return '90';
+        return '80';
+      }
 
-      <section class="score-board">
-        <div class="score-board-label">Score</div>
+      function showHelp(){
+        EL.helpBackdrop.classList.add('open');
+        EL.helpBackdrop.setAttribute('aria-hidden', 'false');
+      }
 
-        <div class="score-mini-row">
-          <div class="score-mini-card score-mini-card-coin">
-            <div class="score-mini-icon">🪙</div>
-            <div>
-              <div class="score-mini-label">เหรียญ</div>
-              <strong id="endScore" class="score-mini-value">0</strong>
-            </div>
-          </div>
+      function hideHelp(){
+        EL.helpBackdrop.classList.remove('open');
+        EL.helpBackdrop.setAttribute('aria-hidden', 'true');
+      }
 
-          <div class="score-mini-card score-mini-card-star">
-            <div class="score-mini-icon">⭐</div>
-            <div>
-              <div class="score-mini-label">เกรด</div>
-              <strong id="endGrade" class="score-mini-value">D</strong>
-            </div>
-          </div>
+      function buildInnerGameUrl(){
+        const params = new URLSearchParams(location.search);
 
-          <div class="score-mini-card score-mini-card-water">
-            <div class="score-mini-icon">💧</div>
-            <div>
-              <div class="score-mini-label">น้ำคงเหลือ</div>
-              <strong id="endWater" class="score-mini-value">0%</strong>
-            </div>
-          </div>
-        </div>
+        const diff = q('diff', 'normal');
+        const time = q('time', defaultTimeForDiff(diff));
+        const pid = sanitizePid(q('pid', 'p-anon')) || 'p-anon';
+        const nick = String(q('nick', q('nickName', 'Rocky'))).trim().slice(0,24) || 'Rocky';
 
-        <div class="end-mini-miss">
-          <span class="end-mini-miss-label">พลาดชน</span>
-          <strong id="endMiss" class="end-mini-miss-value">0</strong>
-        </div>
-      </section>
+        params.set('game', 'hydration');
+        params.set('theme', q('theme', 'hydration'));
+        params.set('zone', q('zone', 'nutrition'));
+        params.set('cat', q('cat', q('zone', 'nutrition')));
+        params.set('mode', q('mode', 'solo'));
+        params.set('run', q('run', 'play'));
+        params.set('diff', diff);
+        params.set('time', time);
+        params.set('view', q('view', 'mobile'));
+        params.set('cooldown', q('cooldown', '1'));
+        params.set('pid', pid);
+        params.set('nick', nick);
+        params.set('nickName', nick);
+        params.set('hub', defaultHub());
+        params.set('wrapper', 'hydration-vr');
 
-      <section class="end-coach-card">
-        <div class="end-coach-avatar coach-avatar-card">
-          <div class="coach-avatar-illust">
-            <div class="coach-face-circle"></div>
-            <div class="coach-eye eye-l"></div>
-            <div class="coach-eye eye-r"></div>
-            <div class="coach-smile"></div>
-            <div class="coach-bubble-ring ring-a"></div>
-            <div class="coach-bubble-ring ring-b"></div>
-            <div class="coach-bubble-ring ring-c"></div>
-          </div>
-        </div>
+        if(!params.get('seed')){
+          params.set('seed', String(Date.now()));
+        }
+        if(!params.get('sessionId')){
+          params.set('sessionId', `hydr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`);
+        }
 
-        <div class="end-coach-body">
-          <div class="end-coach-name">โค้ชเพื่อนช่วยคิด</div>
-          <div id="endCoach" class="end-coach-text">ลองเล่นอีกครั้งเพื่อเก็บน้ำให้มากขึ้นนะ</div>
-        </div>
-      </section>
+        const url = new URL(INNER_GAME_PATH, location.href);
+        url.search = params.toString();
+        return url;
+      }
 
-      <section class="end-grid">
-        <div class="end-box reward-card reward-card-v2">
-          <div class="reward-card-head">
-            <span class="reward-card-icon reward-icon-gift">
-              <span class="tile-glyph">🎁</span>
-            </span>
-            <div>
-              <div class="end-box-title">รางวัลรอบนี้</div>
-              <div id="endReward" class="end-box-text">💧 เล่นจบแล้ว</div>
-            </div>
-          </div>
-          <div id="endBadge" class="end-badge">🌈 ลองอีกครั้ง</div>
-        </div>
+      function updateUi(){
+        const diff = q('diff', 'normal');
+        const view = q('view', 'mobile');
+        const time = q('time', defaultTimeForDiff(diff));
+        const nick = String(q('nick', q('nickName', 'Rocky'))).trim().slice(0,24) || 'Rocky';
 
-        <div class="end-box reward-card-v2">
-          <div class="reward-card-head">
-            <span class="reward-card-icon reward-icon-phase">
-              <span class="tile-glyph">📘</span>
-            </span>
-            <div>
-              <div class="end-box-title">สรุปช่วงการเล่น</div>
-              <div id="endPhaseSummary" class="end-box-text">จบรอบปกติ</div>
-            </div>
-          </div>
-        </div>
-      </section>
+        EL.metaDiff.textContent = `🎯 ${diffLabel(diff)}`;
+        EL.metaView.textContent = `📱 ${viewLabel(view)}`;
+        EL.metaTime.textContent = `⏱ ${time} วินาที`;
+        EL.metaPlayer.textContent = `🧒 ${nick}`;
 
-      <section class="end-grid end-mobile-optional">
-        <div class="end-box reward-card-v2">
-          <div class="reward-card-head">
-            <span class="reward-card-icon reward-icon-collection">
-              <span class="tile-glyph">🗂️</span>
-            </span>
-            <div>
-              <div class="end-box-title">คอลเลกชัน</div>
-              <div id="endCollection" class="end-box-text">ยังไม่มีของสะสม</div>
-            </div>
-          </div>
-        </div>
+        if(diff === 'easy'){
+          EL.loadingBubble.textContent = 'รอบนี้ง่ายหน่อย ค่อย ๆ เก็บน้ำดีไปด้วยกันนะ!';
+        }else if(diff === 'hard'){
+          EL.loadingBubble.textContent = 'รอบนี้เร็วขึ้นและยากขึ้น เตรียมตัวให้พร้อม!';
+        }else{
+          EL.loadingBubble.textContent = 'แตะน้ำดี เก็บโล่ และหลบของไม่ดีให้เก่งที่สุดนะ!';
+        }
 
-        <div class="end-box reward-card reward-card-v2">
-          <div class="reward-card-head">
-            <span class="reward-card-icon reward-icon-card">
-              <span class="tile-glyph">🏆</span>
-            </span>
-            <div>
-              <div class="end-box-title">การ์ดรางวัล</div>
-              <div id="endRewardCard" class="end-reward-card">Hydration Hero</div>
-              <div id="endRewardMini" class="end-reward-mini">รอบนี้เก็บน้ำได้ดีขึ้นอีกนิด</div>
-            </div>
-          </div>
-        </div>
-      </section>
+        if(view === 'cvr'){
+          document.body.classList.add('cvr-mode');
+        }else{
+          document.body.classList.remove('cvr-mode');
+        }
+      }
 
-      <div class="end-box end-mobile-optional sticker-inventory-box">
-        <div class="inventory-head">
-          <div class="inventory-head-left">
-            <span class="inventory-icon">🎒</span>
-            <div>
-              <div class="end-box-title">สติกเกอร์ที่มี</div>
-              <div class="inventory-sub">Sticker Inventory</div>
-            </div>
-          </div>
+      function hideLoadingSoon(){
+        window.setTimeout(()=>{
+          EL.loading.classList.add('hide');
+        }, 280);
+      }
 
-          <div class="inventory-pill">Collection</div>
-        </div>
+      function loadFrame(){
+        updateUi();
+        EL.loading.classList.remove('hide');
+        EL.frame.src = buildInnerGameUrl().href;
+      }
 
-        <div id="endStickerRow" class="stickerRow stickerRow-v2"></div>
-      </div>
+      function goHub(){
+        location.href = defaultHub();
+      }
 
-      <div class="copyTools end-mobile-optional">
-        <button id="btnCopy" class="ui-btn ui-btn-soft small" type="button">Copy Summary</button>
-        <button id="btnCopyEvents" class="ui-btn ui-btn-soft small" type="button">Copy Events</button>
-        <button id="btnCopyTimeline" class="ui-btn ui-btn-soft small" type="button">Copy Timeline</button>
-        <button id="btnCopyFeatures" class="ui-btn ui-btn-soft small" type="button">Copy Features</button>
-        <button id="btnCopyLabels" class="ui-btn ui-btn-soft small" type="button">Copy Labels</button>
-        <button id="btnCopyFeaturesCsv" class="ui-btn ui-btn-soft small" type="button">Features CSV</button>
-        <button id="btnCopyLabelsCsv" class="ui-btn ui-btn-soft small" type="button">Labels CSV</button>
-        <button id="btnSendCloud" class="ui-btn ui-btn-soft small" type="button">Send Cloud</button>
-      </div>
+      window.addEventListener('message', (event)=>{
+        if(event.origin !== location.origin) return;
+        const data = event.data || {};
+        if(!data || typeof data !== 'object') return;
 
-      <div class="dialog-actions end-actions end-actions-v2">
-        <button id="btnReplay" class="ui-btn ui-btn-green capsule-action capsule-replay" type="button">
-          <span class="capsule-icon">🔁</span>
-          <span class="capsule-label">Replay</span>
-        </button>
+        if(data.type === 'hha:goHub'){
+          goHub();
+        }else if(data.type === 'hha:reload'){
+          loadFrame();
+        }else if(data.type === 'hha:ready'){
+          hideLoadingSoon();
+        }else if(data.type === 'hha:setStatus' && typeof data.text === 'string'){
+          EL.loadingBubble.textContent = data.text.slice(0,140);
+        }
+      });
 
-        <button id="btnBackHub" class="ui-btn ui-btn-blue capsule-action capsule-home" type="button">
-          <span class="capsule-icon">🏠</span>
-          <span class="capsule-label">Back to Hub</span>
-        </button>
+      EL.frame.addEventListener('load', hideLoadingSoon);
+      EL.reloadBtn.addEventListener('click', loadFrame);
+      EL.hubBtn.addEventListener('click', goHub);
+      EL.helpBtn.addEventListener('click', showHelp);
+      EL.closeHelpBtn.addEventListener('click', hideHelp);
+      EL.helpBackdrop.addEventListener('click', (e)=>{
+        if(e.target === EL.helpBackdrop) hideHelp();
+      });
 
-        <button id="btnNextCooldown" class="ui-btn ui-btn-soft capsule-action capsule-cooldown" type="button">
-          <span class="capsule-icon">🌈</span>
-          <span class="capsule-label">ไปคูลดาวน์</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <script type="module">
-    import { boot } from './hydration.safe.js?v=20260327-HYD-HUBV2-BOSS-BALANCE-R2';
-    boot({}).catch((err) => {
-      console.error('[hydration] boot failed', err);
-    });
+      loadFrame();
+    })();
   </script>
 </body>
 </html>
