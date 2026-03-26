@@ -1,516 +1,1427 @@
-<!-- === /herohealth/plate/plate-duet.html ===
-Plate Duet — RUN PAGE
-PATCH v20260321-PLATE-DUET-READY-LOBBY
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Plate Duet</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
-
-  <script type="module" src="../vr/vr-ui.js?v=20260307b"></script>
-
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="icon" href="../favicon.ico" />
   <style>
     :root{
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      --bg1:#0b1220;
+      --bg2:#0f1f3a;
+      --bg3:#17346d;
 
-      --hud-top: calc(var(--sat) + 10px);
-      --hud-bottom: calc(var(--sab) + 12px);
+      --panel:rgba(15,23,42,.86);
+      --panel-2:rgba(2,6,23,.82);
+      --panel-soft:rgba(255,255,255,.06);
 
-      --panel: rgba(2,6,23,.78);
-      --line: rgba(148,163,184,.18);
-      --txt: rgba(229,231,235,.96);
-      --mut: rgba(148,163,184,.95);
-      --radius: 18px;
+      --line:rgba(255,255,255,.12);
+      --line-strong:rgba(255,255,255,.18);
+
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --soft:#dbeafe;
+
+      --good:#22c55e;
+      --good-2:#16a34a;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --blue:#3b82f6;
+      --blue-2:#1d4ed8;
+      --pink:#ec4899;
+      --violet:#8b5cf6;
+      --yellow:#facc15;
+      --orange:#fb923c;
+      --cyan:#22d3ee;
+
+      --shadow:0 18px 50px rgba(0,0,0,.35);
+      --radius:24px;
     }
+
     *{ box-sizing:border-box; }
-    html,body{
-      margin:0; height:100%; overflow:hidden;
-      background:#020617; color:var(--txt);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-    }
+    html,body{ margin:0; padding:0; min-height:100%; }
     body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color:var(--text);
       background:
-        radial-gradient(1200px 700px at 20% 0%, rgba(14,165,233,.18), transparent 60%),
-        radial-gradient(900px 700px at 95% 20%, rgba(167,139,250,.12), transparent 60%),
-        linear-gradient(180deg, #020617, #020b1b);
+        radial-gradient(1200px 700px at 0% -10%, rgba(59,130,246,.22), transparent 60%),
+        radial-gradient(1000px 600px at 110% 0%, rgba(34,197,94,.12), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 48%, #08111f 100%);
+      overflow-x:hidden;
     }
 
-    #app{ position:fixed; inset:0; overflow:hidden; }
-    #world{ position:absolute; inset:0; z-index:0; pointer-events:none; }
-
-    #plate-layer{
-      position:absolute; inset:0;
-      z-index:30;
-      pointer-events:none;
-      overflow:hidden;
-      transform: translateZ(0);
-      will-change: contents;
-      min-width: 1px;
-      min-height: 1px;
-    }
-    #plate-layer .plateTarget{
-      position:absolute;
+    .shell{
+      width:min(1180px,100%);
+      margin:0 auto;
+      padding:
+        max(14px, env(safe-area-inset-top))
+        14px
+        max(18px, env(safe-area-inset-bottom));
       display:grid;
-      place-items:center;
-      width:56px; height:56px;
-      border-radius:999px;
-      background:rgba(15,23,42,.82);
-      border:1px solid rgba(255,255,255,.14);
-      box-shadow: 0 8px 20px rgba(2,6,23,.35);
-      font-size: 28px;
-      line-height:1;
-      user-select:none;
-      pointer-events:auto;
-      touch-action:manipulation;
-      transition: transform .08s ease, opacity .14s ease, filter .12s ease;
-      transform: translate(-50%,-50%);
+      gap:14px;
     }
-    #plate-layer .plateTarget[data-kind="shield"]{
-      background: rgba(30,58,138,.55);
-      border-color: rgba(96,165,250,.35);
-      box-shadow: 0 10px 26px rgba(59,130,246,.18);
-    }
-    #plate-layer .plateTarget.hit{ transform: translate(-50%,-50%) scale(.88); opacity:.25; }
-    #plate-layer .plateTarget.expire{ transform: translate(-50%,-50%) scale(.78); opacity:0; }
 
-    .hud{
-      position:absolute;
-      left:max(10px, calc(var(--sal) + 10px));
-      right:max(10px, calc(var(--sar) + 10px));
-      z-index:80;
+    .topbar{
       display:grid;
-      gap:8px;
-      pointer-events:none;
-    }
-    #hudTop{ top:var(--hud-top); }
-    #hudBottom{ bottom:var(--hud-bottom); grid-template-columns:1fr; gap:10px; }
-
-    .row{ display:grid; gap:8px; }
-    .row.cols-4{ grid-template-columns: 1fr 1fr .9fr .95fr; }
-    @media (max-width: 900px){
-      .row.cols-4{ grid-template-columns: 1fr; }
+      grid-template-columns:1.2fr .8fr;
+      gap:14px;
     }
 
-    .card{
-      background: linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.72));
+    @media (max-width: 920px){
+      .topbar{ grid-template-columns:1fr; }
+    }
+
+    .hero,
+    .hud-card,
+    .question-card,
+    .summary-card,
+    .help-card{
+      background:linear-gradient(180deg, rgba(15,23,42,.88), rgba(2,6,23,.9));
       border:1px solid var(--line);
-      border-radius: var(--radius);
-      padding:10px 12px;
-      box-shadow: 0 8px 24px rgba(2,6,23,.22);
-      pointer-events:none;
-    }
-    .card h4{
-      margin:0 0 8px 0;
-      font-size:12px;
-      color:var(--mut);
-      font-weight:900;
-      letter-spacing:.2px;
+      border-radius:28px;
+      box-shadow:var(--shadow);
     }
 
-    .stats{
+    .hero{
+      padding:18px 18px 16px;
       display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap:8px;
+      gap:10px;
     }
-    .miniStats{
-      display:grid;
-      grid-template-columns: repeat(4, minmax(0,1fr));
-      gap:8px;
+
+    .hero-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
     }
-    @media (max-width: 900px){
-      .miniStats{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+
+    .badge-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
     }
 
     .pill{
-      background: rgba(15,23,42,.7);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius: 999px;
-      min-height: 42px;
-      display:flex; align-items:center; justify-content:center;
-      gap:8px; padding: 8px 10px;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--soft);
       font-weight:900;
-      font-size: 13px;
+      font-size:12px;
+      letter-spacing:.2px;
     }
-    .pill .v{ font-size:15px; font-weight:1000; }
 
-    .bar{
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(148,163,184,.18);
-      border:1px solid rgba(148,163,184,.14);
+    .title{
+      margin:0;
+      font-size:clamp(28px,4vw,42px);
+      line-height:1.02;
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+
+    .sub{
+      margin:0;
+      color:var(--muted);
+      line-height:1.55;
+      font-size:14px;
+    }
+
+    .hero-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:4px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      font:inherit;
+      color:white;
+      font-weight:1000;
+      border-radius:18px;
+      padding:12px 16px;
+      min-height:46px;
+      box-shadow:0 12px 24px rgba(0,0,0,.22);
+      transition:transform .12s ease, opacity .12s ease, filter .12s ease;
+    }
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .btn:active{ transform:translateY(0); }
+    .btn:disabled{ opacity:.52; cursor:not-allowed; transform:none; }
+
+    .btn-blue{ background:linear-gradient(180deg, var(--blue), var(--blue-2)); }
+    .btn-green{ background:linear-gradient(180deg, var(--good), var(--good-2)); }
+    .btn-orange{ background:linear-gradient(180deg, #fb923c, #ea580c); }
+    .btn-violet{ background:linear-gradient(180deg, #8b5cf6, #6d28d9); }
+    .btn-ghost{
+      background:linear-gradient(180deg, #334155, #1e293b);
+      box-shadow:none;
+    }
+
+    .hud-card{
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .hud-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .stat{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      border-radius:18px;
+      padding:12px;
+      display:grid;
+      gap:4px;
+      min-height:78px;
+    }
+
+    .stat-label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+      letter-spacing:.25px;
+      text-transform:uppercase;
+    }
+
+    .stat-value{
+      font-size:26px;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .stat-sub{
+      font-size:12px;
+      color:var(--soft);
+    }
+
+    .progress{
+      height:14px;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+    }
+
+    .progress > i{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg, var(--good), var(--blue));
+      transition:width .22s ease;
+    }
+
+    .game-wrap{
+      display:grid;
+      grid-template-columns:1fr 320px;
+      gap:14px;
+      align-items:start;
+    }
+
+    @media (max-width: 980px){
+      .game-wrap{ grid-template-columns:1fr; }
+    }
+
+    .question-card{
+      padding:18px;
+      display:grid;
+      gap:16px;
+    }
+
+    .question-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .question-tag{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--soft);
+      font-weight:900;
+      font-size:12px;
+    }
+
+    .question-title{
+      margin:0;
+      font-size:clamp(24px,3.4vw,34px);
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .question-sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      line-height:1.55;
+    }
+
+    .plate-stage{
+      display:grid;
+      place-items:center;
+      padding:10px 0 2px;
+    }
+
+    .plate{
+      position:relative;
+      width:min(100%, 620px);
+      aspect-ratio:1.25/1;
+      border-radius:40px;
+      border:2px solid rgba(255,255,255,.16);
+      background:
+        radial-gradient(circle at 50% 45%, rgba(255,255,255,.16), transparent 44%),
+        linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      box-shadow:
+        inset 0 0 0 10px rgba(255,255,255,.07),
+        inset 0 0 0 20px rgba(255,255,255,.03),
+        0 20px 40px rgba(0,0,0,.26);
+      display:grid;
+      grid-template-columns:1.05fr .95fr;
+      grid-template-rows:1fr 1fr;
+      gap:12px;
+      padding:18px;
       overflow:hidden;
     }
-    .bar > i{
-      display:block; height:100%; width:0%;
-      background: linear-gradient(90deg, rgba(56,189,248,.9), rgba(167,139,250,.9));
-      transition: width .12s linear;
+
+    .zone{
+      position:relative;
+      border-radius:28px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.05);
+      padding:12px;
+      display:grid;
+      align-content:start;
+      gap:10px;
+      min-height:0;
     }
 
-    .phaseBanner{
-      position:absolute;
-      top:42%;
-      left:50%;
-      transform:translate(-50%,-50%);
-      font-size:28px;
-      font-weight:1000;
-      background:rgba(0,0,0,.68);
-      padding:14px 24px;
-      border-radius:20px;
-      border:1px solid rgba(148,163,184,.25);
-      z-index:120;
-      pointer-events:none;
-      opacity:0;
-      animation: bannerIn .95s ease forwards;
-      text-align:center;
-      white-space:nowrap;
-    }
-    @keyframes bannerIn{
-      0%{ opacity:0; transform:translate(-50%,-50%) scale(.96); }
-      20%{ opacity:1; transform:translate(-50%,-50%) scale(1.02); }
-      100%{ opacity:0; transform:translate(-50%,-50%) scale(1.03); }
-    }
-    .popScore{
-      position:absolute;
-      z-index:110;
-      pointer-events:none;
-      font-weight:1000;
-      font-size:16px;
-      opacity:0;
-      transform: translate(-50%,-50%) translateY(6px);
-      animation: popUp .55s ease forwards;
-      text-shadow: 0 8px 20px rgba(0,0,0,.35);
-      white-space:nowrap;
-    }
-    @keyframes popUp{
-      0%{ opacity:0; transform: translate(-50%,-50%) translateY(8px) scale(.98); }
-      20%{ opacity:1; }
-      100%{ opacity:0; transform: translate(-50%,-50%) translateY(-16px) scale(1.03); }
+    .zone-main{ grid-row:1 / span 2; }
+    .zone-veg{ background:linear-gradient(180deg, rgba(34,197,94,.20), rgba(34,197,94,.08)); }
+    .zone-carb{ background:linear-gradient(180deg, rgba(59,130,246,.18), rgba(59,130,246,.07)); }
+    .zone-protein{ background:linear-gradient(180deg, rgba(251,146,60,.20), rgba(251,146,60,.08)); }
+
+    .zone-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      flex-wrap:wrap;
     }
 
-    #controls{
+    .zone-title{
+      font-size:15px;
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+
+    .zone-hint{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .foods{
       display:flex;
       flex-wrap:wrap;
       gap:8px;
-      pointer-events:auto;
+      align-content:flex-start;
     }
-    .btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.78);
-      color:var(--txt);
-      border-radius: 999px;
-      padding:10px 14px;
-      min-height:44px;
-      font-weight:1000;
+
+    .food{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.08);
       font-size:14px;
-      cursor:pointer;
-      box-shadow: 0 6px 18px rgba(2,6,23,.22);
-    }
-    .btn.warn{
-      border-color: rgba(245,158,11,.25);
-      background: linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
-    }
-    .btn.primary{
-      border-color: rgba(59,130,246,.30);
-      background: linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
-    }
-    .btn.good{
-      border-color: rgba(34,197,94,.25);
-      background: linear-gradient(180deg, rgba(20,83,45,.92), rgba(21,128,61,.92));
+      font-weight:900;
+      white-space:nowrap;
+      box-shadow:0 8px 16px rgba(0,0,0,.12);
     }
 
-    #endOverlay,
-    #readyOverlay{
-      position:absolute; inset:0;
-      z-index:120;
-      display:flex; align-items:center; justify-content:center;
-      padding:16px;
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-    #endOverlay[aria-hidden="true"],
-    #readyOverlay[aria-hidden="true"]{ display:none; }
-
-    .endCard,
-    .readyCard{
-      width:min(760px, 94vw);
-      border-radius: 18px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.82);
-      color: rgba(229,231,235,.95);
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      padding: 14px;
-    }
-    .endGrid,
-    .readyGrid{
-      margin-top:10px;
+    .choices{
       display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    @media (max-width: 860px){
+      .choices{ grid-template-columns:1fr; }
+    }
+
+    .choice{
+      position:relative;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      color:var(--text);
+      border-radius:24px;
+      padding:14px;
+      text-align:left;
+      display:grid;
+      gap:10px;
+      cursor:pointer;
+      transition:transform .12s ease, border-color .12s ease, background .12s ease;
+      min-height:220px;
+    }
+
+    .choice:hover{
+      transform:translateY(-2px);
+      border-color:rgba(255,255,255,.26);
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+    }
+
+    .choice:disabled{
+      opacity:.72;
+      cursor:not-allowed;
+      transform:none;
+    }
+
+    .choice-badge{
+      position:absolute;
+      top:12px;
+      right:12px;
+      min-width:32px;
+      height:32px;
+      padding:0 8px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .choice-title{
+      margin:0;
+      font-size:18px;
+      font-weight:1000;
+    }
+
+    .choice-desc{
+      margin:0;
+      color:var(--muted);
+      line-height:1.5;
+      font-size:13px;
+    }
+
+    .mini-plate{
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.1);
+      background:rgba(255,255,255,.04);
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      grid-template-rows:1fr 1fr;
+      gap:8px;
+      padding:10px;
+      min-height:118px;
+    }
+
+    .mini-zone{
+      border-radius:16px;
+      padding:8px;
+      border:1px solid rgba(255,255,255,.1);
+      overflow:hidden;
+    }
+
+    .mini-zone-main{ grid-row:1 / span 2; }
+    .mini-zone-veg{ background:rgba(34,197,94,.16); }
+    .mini-zone-carb{ background:rgba(59,130,246,.16); }
+    .mini-zone-protein{ background:rgba(251,146,60,.16); }
+
+    .mini-foods{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      font-size:12px;
+      font-weight:800;
+    }
+
+    .mini-food{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      padding:4px 7px;
+      border-radius:999px;
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.1);
+      white-space:nowrap;
+    }
+
+    .feedback{
+      display:none;
+      border-radius:22px;
+      padding:14px 16px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.05);
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .feedback.show{ display:flex; }
+
+    .feedback.good{
+      border-color:rgba(34,197,94,.35);
+      background:rgba(34,197,94,.10);
+    }
+
+    .feedback.bad{
+      border-color:rgba(239,68,68,.35);
+      background:rgba(239,68,68,.10);
+    }
+
+    .feedback-main{
+      display:grid;
+      gap:4px;
+    }
+
+    .feedback-title{
+      font-size:18px;
+      font-weight:1000;
+    }
+
+    .feedback-text{
+      color:var(--soft);
+      font-size:14px;
+      line-height:1.45;
+    }
+
+    .help-card{
+      padding:16px;
+      display:grid;
+      gap:12px;
+      position:sticky;
+      top:12px;
+    }
+
+    .side-title{
+      margin:0;
+      font-size:18px;
+      font-weight:1000;
+    }
+
+    .rules{
+      display:grid;
       gap:10px;
     }
-    .endItem,
-    .readyItem{
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.55);
-      border-radius: 14px;
-      padding: 12px;
-      font-weight:1000;
-    }
-    .endItem .k,
-    .readyItem .k{ font-size:12px; opacity:.82; font-weight:900; }
-    .endItem .v,
-    .readyItem .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
-    .endActions,
-    .readyActions{
-      margin-top: 12px;
-      display:flex;
-      gap: 10px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
+
+    .rule{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      border-radius:18px;
+      padding:12px;
+      display:grid;
+      gap:5px;
     }
 
-    @media (max-width: 640px){
-      #hudTop{
-        left: max(6px, calc(var(--sal) + 6px));
-        right: max(6px, calc(var(--sar) + 6px));
-        gap: 6px;
-      }
-      .card{ padding: 8px 10px; border-radius: 14px; }
-      .card h4{ font-size: 11px; margin-bottom: 6px; }
-      .pill{ min-height: 36px; padding: 6px 8px; font-size: 11.5px; gap: 6px; }
-      .pill .v{ font-size: 13px; }
-      .bar{ height: 8px; }
-      .btn{ min-height: 38px; padding: 8px 10px; font-size: 12px; }
-      .endGrid,.readyGrid{ grid-template-columns: 1fr; }
-      .endActions .btn,.readyActions .btn{ flex: 1 1 100%; }
+    .rule strong{
+      font-size:14px;
+    }
+
+    .rule span{
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.45;
+    }
+
+    .summary-layer{
+      position:fixed;
+      inset:0;
+      z-index:140;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(2,6,23,.74);
+      backdrop-filter:blur(10px);
+    }
+
+    .summary-layer.show{ display:flex; }
+
+    .summary-card{
+      width:min(780px,100%);
+      padding:22px;
+      display:grid;
+      gap:16px;
+      background:
+        radial-gradient(700px 300px at 0% 0%, rgba(59,130,246,.15), transparent 60%),
+        radial-gradient(700px 300px at 100% 0%, rgba(34,197,94,.10), transparent 60%),
+        linear-gradient(180deg, rgba(15,23,42,.96), rgba(2,6,23,.96));
+    }
+
+    .summary-hero{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .summary-title{
+      margin:0;
+      font-size:clamp(28px,4vw,38px);
+      font-weight:1000;
+      line-height:1.05;
+    }
+
+    .summary-sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      line-height:1.5;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    @media (max-width: 860px){
+      .summary-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    .summary-stat{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      border-radius:20px;
+      padding:14px;
+      display:grid;
+      gap:6px;
+    }
+
+    .summary-stat label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+      text-transform:uppercase;
+    }
+
+    .summary-stat strong{
+      font-size:28px;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .summary-note{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      border-radius:20px;
+      padding:14px;
+      color:var(--soft);
+      line-height:1.55;
+      font-size:14px;
+    }
+
+    .summary-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:max(14px, env(safe-area-inset-bottom));
+      transform:translateX(-50%) translateY(20px);
+      z-index:160;
+      min-width:min(92vw, 420px);
+      max-width:92vw;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+      background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(2,6,23,.96));
+      color:#fff;
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      padding:12px 14px;
+      font-size:14px;
+      font-weight:900;
+      text-align:center;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .mono{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     }
   </style>
 </head>
-
 <body>
-  <div id="app">
-    <div id="world" aria-hidden="true"></div>
-    <div id="plate-layer" aria-label="plate targets layer"></div>
+  <div class="shell">
+    <section class="topbar">
+      <section class="hero">
+        <div class="hero-top">
+          <div>
+            <div class="badge-row">
+              <span class="pill">🥗 Plate Duet</span>
+              <span class="pill">👫 Multiplayer</span>
+              <span class="pill">🎯 Child-friendly</span>
+            </div>
+            <h1 class="title">ช่วยกันเลือก “จานสมดุล” ให้ถูกที่สุด</h1>
+            <p class="sub">
+              ดูตัวเลือก 3 จาน แล้วเลือกจานที่สมดุลที่สุดตามหลักง่าย ๆ:
+              <strong>ผักเยอะ</strong> + <strong>ข้าวแป้งพอดี</strong> + <strong>โปรตีนพอดี</strong>
+            </p>
+          </div>
 
-    <div id="hudTop" class="hud">
-      <div class="row cols-4">
-        <div class="card">
-          <h4>คะแนนทีม / คอมโบ / พลาด</h4>
-          <div class="stats">
-            <div class="pill">🏆 <span id="uiScore" class="v">0</span></div>
-            <div class="pill">🔥 <span id="uiCombo" class="v">0</span> <span style="opacity:.8">(max <span id="uiComboMax">0</span>)</span></div>
-            <div class="pill">💥 <span id="uiMiss" class="v">0</span></div>
+          <div class="badge-row">
+            <span class="pill">role <span id="hudRole">-</span></span>
+            <span class="pill">room <span id="hudRoom" class="mono">-</span></span>
           </div>
         </div>
 
-        <div class="card">
-          <h4>ภารกิจตอนนี้</h4>
-          <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
-            🎯 <span id="uiTargetText">—</span>
-          </div>
-          <div style="height:8px"></div>
-          <div class="bar"><i id="uiGoalFill"></i></div>
-          <div style="margin-top:6px; font-size:12px; color:var(--mut); font-weight:900;">
-            PHASE: <span id="uiPhase">WAIT</span> &nbsp; <span id="uiPhaseProg">0/0</span> &nbsp; ⏱ <span id="uiTime">0</span>s
-          </div>
+        <div class="hero-actions">
+          <button id="btnHow" class="btn btn-blue" type="button">วิธีเล่น</button>
+          <button id="btnCopyRoom" class="btn btn-ghost" type="button">คัดลอกลิงก์หน้าเกม</button>
+          <button id="btnBackHubTop" class="btn btn-orange" type="button">กลับ HUB</button>
         </div>
+      </section>
 
-        <div class="card">
-          <h4>สถานะทีม</h4>
-          <div class="miniStats">
-            <div class="pill">🎯 <span id="uiAcc" class="v">0%</span></div>
-            <div class="pill">🏅 <span id="uiGrade" class="v">D</span></div>
-            <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
-            <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
+      <aside class="hud-card">
+        <div class="hud-grid">
+          <div class="stat">
+            <div class="stat-label">คะแนน</div>
+            <div id="statScore" class="stat-value">0</div>
+            <div class="stat-sub">ตอบถูกได้ +10</div>
           </div>
-          <div style="height:8px"></div>
-          <div style="font-weight:1000; margin-bottom:6px;">FEVER</div>
-          <div class="bar"><i id="uiFeverFill"></i></div>
-        </div>
 
-        <div class="card">
-          <h4>ผู้เล่น</h4>
-          <div class="miniStats">
-            <div class="pill">🅰️ <span id="uiP1" class="v">0</span></div>
-            <div class="pill">🅱️ <span id="uiP2" class="v">0</span></div>
-            <div class="pill">🎮 <span id="uiTurn" class="v">A</span></div>
-            <div class="pill">MODE: <span id="uiModeTag" class="v">DUET</span></div>
+          <div class="stat">
+            <div class="stat-label">ข้อที่</div>
+            <div id="statQuestion" class="stat-value">0/0</div>
+            <div class="stat-sub">ไปให้ครบทุกข้อ</div>
           </div>
-        </div>
-      </div>
 
-      <div class="row">
-        <div class="card">
-          <h4>จำนวนที่เก็บได้ (5 หมู่)</h4>
-          <div class="stats" style="grid-template-columns:repeat(5,minmax(0,1fr));">
-            <div class="pill">🐟 <span id="uiG1" class="v">0</span></div>
-            <div class="pill">🍚 <span id="uiG2" class="v">0</span></div>
-            <div class="pill">🥦 <span id="uiG3" class="v">0</span></div>
-            <div class="pill">🍎 <span id="uiG4" class="v">0</span></div>
-            <div class="pill">🥑 <span id="uiG5" class="v">0</span></div>
+          <div class="stat">
+            <div class="stat-label">ถูก</div>
+            <div id="statCorrect" class="stat-value">0</div>
+            <div class="stat-sub">ยิ่งเยอะยิ่งดี</div>
           </div>
-        </div>
-      </div>
-    </div>
 
-    <div id="hudBottom" class="hud">
-      <div class="card">
-        <div style="font-weight:1000">🧑‍🏫 Coach</div>
-        <div id="coachMsg" style="margin-top:6px;font-weight:1000">รอผู้เล่นทั้ง 2 คนกดพร้อมก่อนเริ่มเกม</div>
-        <div style="font-size:12px;opacity:.85;margin-top:4px;">
-          Duet = ผลัดกันเล่นแบบเบา ๆ • ยิง/แตะ = โดนเป้า
-        </div>
-      </div>
-
-      <div id="controls">
-        <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
-        <button id="btnRestart" class="btn" type="button">🔄 RESTART</button>
-        <button id="btnSwitch" class="btn" type="button">🔁 สลับผู้เล่น</button>
-        <button id="btnBackHub" class="btn" type="button">↩ กลับ HUB</button>
-      </div>
-    </div>
-
-    <div id="readyOverlay" aria-hidden="false">
-      <div class="readyCard">
-        <div style="font-weight:1000;font-size:22px">👫 Duet Ready Lobby</div>
-        <div style="margin-top:8px;color:#cbd5e1;line-height:1.6">
-          โหมดนี้ต้องให้ผู้เล่น <b>A</b> และ <b>B</b> กดพร้อมก่อน แล้วค่อยเริ่มเกมจริง
-        </div>
-
-        <div class="readyGrid">
-          <div class="readyItem">
-            <div class="k">PLAYER A</div>
-            <div class="v" id="readyAState">ยังไม่พร้อม</div>
-          </div>
-          <div class="readyItem">
-            <div class="k">PLAYER B</div>
-            <div class="v" id="readyBState">ยังไม่พร้อม</div>
+          <div class="stat">
+            <div class="stat-label">เวลา</div>
+            <div id="statTime" class="stat-value">90</div>
+            <div class="stat-sub">วินาที</div>
           </div>
         </div>
 
-        <div class="readyActions">
-          <button class="btn" id="btnReadyA" type="button">🅰️ Player A พร้อม</button>
-          <button class="btn" id="btnReadyB" type="button">🅱️ Player B พร้อม</button>
-          <button class="btn primary" id="btnStartDuet" type="button" disabled>▶ เริ่มเกม Duet</button>
+        <div>
+          <div class="stat-label" style="margin-bottom:8px;">ความคืบหน้า</div>
+          <div class="progress"><i id="progressFill"></i></div>
         </div>
-      </div>
-    </div>
+      </aside>
+    </section>
 
-    <div id="endOverlay" aria-hidden="true">
-      <div class="endCard">
-        <div style="font-weight:1000;font-size:18px" id="endTitle">จบเกม</div>
-        <div style="margin-top:6px;font-size:12px;opacity:.9;word-break:break-all" id="endSub">—</div>
+    <section class="game-wrap">
+      <main class="question-card">
+        <div class="question-top">
+          <div>
+            <span class="question-tag">🍽️ ภารกิจของข้อ นี้</span>
+            <h2 id="questionTitle" class="question-title">กำลังเตรียมคำถาม...</h2>
+            <p id="questionSub" class="question-sub">รอสักครู่</p>
+          </div>
 
-        <div class="endGrid">
-          <div class="endItem"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
-          <div class="endItem"><div class="k">TEAM SCORE</div><div class="v" id="endScore">0</div></div>
-          <div class="endItem"><div class="k">PLAYER A</div><div class="v" id="endP1">0</div></div>
-          <div class="endItem"><div class="k">PLAYER B</div><div class="v" id="endP2">0</div></div>
+          <div class="badge-row">
+            <span class="pill">seed <span id="hudSeed" class="mono">-</span></span>
+            <span class="pill">diff <span id="hudDiff">-</span></span>
+          </div>
         </div>
 
-        <div class="endActions">
-          <button class="btn" id="btnCopy">Copy Summary</button>
-          <button class="btn" id="btnReplay">Replay</button>
-          <button class="btn primary" id="btnNextCooldown">ถัดไป: Cooldown</button>
-          <button class="btn primary" id="btnBackHub2">Back HUB</button>
+        <div class="plate-stage">
+          <div class="plate" aria-hidden="true">
+            <section class="zone zone-main zone-veg">
+              <div class="zone-head">
+                <div class="zone-title">🥬 ผัก / ผลไม้</div>
+                <div class="zone-hint">ควรเยอะที่สุด</div>
+              </div>
+              <div class="foods" id="sampleVeg"></div>
+            </section>
+
+            <section class="zone zone-carb">
+              <div class="zone-head">
+                <div class="zone-title">🍚 ข้าว / แป้ง</div>
+                <div class="zone-hint">พอดี</div>
+              </div>
+              <div class="foods" id="sampleCarb"></div>
+            </section>
+
+            <section class="zone zone-protein">
+              <div class="zone-head">
+                <div class="zone-title">🍗 โปรตีน</div>
+                <div class="zone-hint">พอดี</div>
+              </div>
+              <div class="foods" id="sampleProtein"></div>
+            </section>
+          </div>
         </div>
-      </div>
-    </div>
+
+        <div id="choices" class="choices"></div>
+
+        <div id="feedback" class="feedback" aria-live="polite">
+          <div class="feedback-main">
+            <div id="feedbackTitle" class="feedback-title">เยี่ยมมาก</div>
+            <div id="feedbackText" class="feedback-text">เลือกได้ถูกต้องแล้ว</div>
+          </div>
+          <button id="btnNext" class="btn btn-green" type="button">ข้อต่อไป</button>
+        </div>
+      </main>
+
+      <aside class="help-card">
+        <h3 class="side-title">กติกาง่าย ๆ</h3>
+
+        <div class="rules">
+          <div class="rule">
+            <strong>1) ผักควรเยอะสุด</strong>
+            <span>จานที่สมดุลมักมีผักหรือผลไม้เยอะกว่าหมวดอื่น</span>
+          </div>
+
+          <div class="rule">
+            <strong>2) ข้าวแป้งไม่มากเกิน</strong>
+            <span>ถ้าแป้งล้นจาน มักยังไม่สมดุล</span>
+          </div>
+
+          <div class="rule">
+            <strong>3) โปรตีนพอดี</strong>
+            <span>มีเนื้อ ไข่ นม ถั่วได้ แต่ไม่ควรเยอะเกินผัก</span>
+          </div>
+
+          <div class="rule">
+            <strong>4) ช่วยกันทำคะแนน</strong>
+            <span>เครื่องของแต่ละคนคิดคะแนนแยก แต่จะเห็นสถานะกันผ่าน duet HUD</span>
+          </div>
+        </div>
+
+        <div class="hero-actions" style="margin-top:2px;">
+          <button id="btnRestart" class="btn btn-violet" type="button">เริ่มใหม่</button>
+          <button id="btnBackHubSide" class="btn btn-ghost" type="button">กลับ HUB</button>
+        </div>
+      </aside>
+    </section>
   </div>
 
-  <script type="module">
-    import { createAIHooks } from '../vr/ai-hooks.js';
-    import { boot as bootPlateDuet } from './plate-duet.js';
+  <section id="summaryLayer" class="summary-layer" aria-hidden="true">
+    <div class="summary-card">
+      <div class="summary-hero">
+        <div>
+          <h2 id="summaryTitle" class="summary-title">สรุปผลรอบนี้</h2>
+          <p id="summarySub" class="summary-sub">เก่งมาก เล่นจบแล้ว</p>
+        </div>
+        <div class="badge-row">
+          <span class="pill">🌟 Plate Duet</span>
+          <span class="pill">🎉 Finished</span>
+        </div>
+      </div>
 
-    function normalizeHub(raw){
-      raw = String(raw || '').trim();
-      const DEFAULT = '../hub.html';
-      if(!raw) return DEFAULT;
-      try{
-        const u = new URL(raw, location.href);
-        u.pathname = u.pathname
-          .replace('/herohealth/vr-plate/hub.html', '/herohealth/hub.html')
-          .replace('/herohealth/plate/hub.html', '/herohealth/hub.html')
-          .replace('/vr-plate/hub.html', '/hub.html')
-          .replace('/plate/hub.html', '/hub.html');
-        return u.toString();
-      }catch(_){
-        return DEFAULT;
+      <div class="summary-grid">
+        <div class="summary-stat">
+          <label>คะแนน</label>
+          <strong id="sumScore">0</strong>
+        </div>
+        <div class="summary-stat">
+          <label>ตอบถูก</label>
+          <strong id="sumCorrect">0</strong>
+        </div>
+        <div class="summary-stat">
+          <label>ตอบผิด</label>
+          <strong id="sumWrong">0</strong>
+        </div>
+        <div class="summary-stat">
+          <label>ดาว</label>
+          <strong id="sumStars">0</strong>
+        </div>
+      </div>
+
+      <div id="summaryNote" class="summary-note">
+        วันนี้เราได้ฝึกสังเกตว่า “จานสมดุล” ควรมีผักเยอะ ข้าวแป้งพอดี และโปรตีนพอดี 👍
+      </div>
+
+      <div class="summary-actions">
+        <button id="btnPlayAgain" class="btn btn-green" type="button">เล่นอีกครั้ง</button>
+        <button id="btnBackHubBottom" class="btn btn-orange" type="button">กลับ HUB</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // --------------------------------------------------
+      // Query / context
+      // --------------------------------------------------
+      const qs = new URLSearchParams(location.search);
+
+      const RUN_CTX = {
+        pid: qs.get('pid') || 'anon',
+        roomId: qs.get('roomId') || '',
+        role: (qs.get('role') || '').toUpperCase(),
+        run: qs.get('run') || 'play',
+        diff: qs.get('diff') || 'normal',
+        time: Number(qs.get('time') || 90),
+        seed: qs.get('seed') || String(Date.now()),
+        hub: qs.get('hub') || '../hub.html',
+        view: qs.get('view') || 'mobile',
+        mode: (qs.get('mode') || 'duet').toLowerCase(),
+        game: qs.get('game') || 'platev1',
+        theme: qs.get('theme') || 'platev1',
+        zone: qs.get('zone') || 'nutrition',
+        cooldown: qs.get('cooldown') || '1'
+      };
+
+      // --------------------------------------------------
+      // RNG
+      // --------------------------------------------------
+      function xmur3(str){
+        let h = 1779033703 ^ str.length;
+        for(let i=0;i<str.length;i++){
+          h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+          h = (h << 13) | (h >>> 19);
+        }
+        return function(){
+          h = Math.imul(h ^ (h >>> 16), 2246822507);
+          h = Math.imul(h ^ (h >>> 13), 3266489909);
+          return (h ^= h >>> 16) >>> 0;
+        };
       }
-    }
 
-    const U = new URL(location.href);
-    const runMode = String(U.searchParams.get('run') || 'play').toLowerCase();
-    const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
-    const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
-    const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
-    const pro  = (U.searchParams.get('pro') === '1');
-    const mode = 'duet';
-    const hub = normalizeHub(U.searchParams.get('hub'));
+      function mulberry32(a){
+        return function(){
+          let t = a += 0x6D2B79F5;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
 
-    if(view) document.body.setAttribute('data-view', view);
+      const seedFn = xmur3(String(RUN_CTX.seed));
+      const rng = mulberry32(seedFn());
 
-    const ai = createAIHooks({
-      seed: String(seed),
-      runMode,
-      game: 'plate',
-      diff,
-      device: view
-    });
-    window.HHA_AI = ai;
+      function rand(){
+        return rng();
+      }
 
-    const btnPause = document.getElementById('btnPause');
-    const btnRestart = document.getElementById('btnRestart');
-    const btnSwitch = document.getElementById('btnSwitch');
-    const btnBackHub = document.getElementById('btnBackHub');
-    const modeTag = document.getElementById('uiModeTag');
+      function pick(arr){
+        return arr[Math.floor(rand() * arr.length)];
+      }
 
-    let paused = false;
-    function setPauseBtn(){ if(btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE'; }
-    setPauseBtn();
-    if(modeTag) modeTag.textContent = 'DUET';
+      function shuffle(arr){
+        const a = arr.slice();
+        for(let i=a.length-1;i>0;i--){
+          const j = Math.floor(rand() * (i+1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
 
-    btnPause?.addEventListener('click', ()=>{
-      paused = !paused;
-      setPauseBtn();
-      try{ window.__PLATE_SET_PAUSED__?.(paused); }catch(e){}
-    });
+      // --------------------------------------------------
+      // Data
+      // --------------------------------------------------
+      const FOOD = {
+        veg: [
+          ['🥬','ผักใบเขียว'], ['🥦','บรอกโคลี'], ['🥕','แครอท'], ['🍅','มะเขือเทศ'],
+          ['🥒','แตงกวา'], ['🌽','ข้าวโพด'], ['🍎','แอปเปิล'], ['🍉','แตงโม'],
+          ['🍊','ส้ม'], ['🍌','กล้วย'], ['🍍','สับปะรด'], ['🥗','สลัด']
+        ],
+        carb: [
+          ['🍚','ข้าว'], ['🍞','ขนมปัง'], ['🍝','พาสตา'], ['🥔','มันฝรั่ง'],
+          ['🌾','ซีเรียล'], ['🥐','โรลขนมปัง'], ['🍜','เส้น'], ['🫓','แผ่นแป้ง']
+        ],
+        protein: [
+          ['🍗','ไก่'], ['🥚','ไข่'], ['🐟','ปลา'], ['🫘','ถั่ว'],
+          ['🥛','นม'], ['🧀','ชีส'], ['🍤','กุ้ง'], ['🍖','เนื้อ']
+        ]
+      };
 
-    btnRestart?.addEventListener('click', ()=>{
-      try{
-        const u = new URL(location.href);
-        if(runMode !== 'research') u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
-        location.href = u.toString();
-      }catch(e){ location.reload(); }
-    });
+      const QUESTION_BANK = [
+        { title:'จานไหนสมดุลที่สุดสำหรับมื้อกลางวัน?', sub:'มองหาจานที่ผักเยอะ ข้าวพอดี โปรตีนพอดี' },
+        { title:'จานไหนดูเหมาะกับเด็กวัยเรียนมากกว่า?', sub:'เลือกจานที่ไม่หนักแป้งเกินไป' },
+        { title:'จานไหนจัดสัดส่วนอาหารได้ดีที่สุด?', sub:'สังเกตจำนวนอาหารแต่ละหมวด' },
+        { title:'จานไหนช่วยให้กินครบหมู่ได้ดีกว่า?', sub:'ผักเยอะและมีโปรตีนพอดีจะดูสมดุลกว่า' },
+        { title:'จานไหนเป็นตัวอย่าง “Healthy Plate” ที่ดีกว่า?', sub:'ผักต้องเด่นกว่าหมวดอื่น' }
+      ];
 
-    btnSwitch?.addEventListener('click', ()=>{
-      try{ window.__PLATE_DUET_SWITCH__?.(); }catch(e){}
-    });
+      // --------------------------------------------------
+      // State
+      // --------------------------------------------------
+      const state = {
+        totalQuestions: clamp(Math.round(RUN_CTX.time / (RUN_CTX.diff === 'easy' ? 13 : RUN_CTX.diff === 'hard' ? 9 : 11)), 6, 12),
+        currentIndex: 0,
+        currentQuestion: null,
+        answered: false,
+        score: 0,
+        correct: 0,
+        wrong: 0,
+        timeLeft: Math.max(30, RUN_CTX.time || 90),
+        timer: null,
+        started: false,
+        ended: false
+      };
 
-    btnBackHub?.addEventListener('click', ()=> location.href = hub);
-    document.getElementById('btnBackHub2')?.addEventListener('click', ()=> location.href = hub);
+      function clamp(v, min, max){
+        return Math.max(min, Math.min(max, v));
+      }
 
-    bootPlateDuet({
-      mount: document.getElementById('plate-layer'),
-      view, run: runMode, diff,
-      time: Number(U.searchParams.get('time') || 90),
-      seed,
-      pid: String(U.searchParams.get('pid') || 'anon'),
-      hub,
-      cooldown: (U.searchParams.get('cooldown') === '1' || U.searchParams.get('cd') === '1'),
-      mode,
-      pro,
-      ai
-    });
+      function byId(id){
+        return document.getElementById(id);
+      }
+
+      const els = {
+        hudRole: byId('hudRole'),
+        hudRoom: byId('hudRoom'),
+        hudSeed: byId('hudSeed'),
+        hudDiff: byId('hudDiff'),
+        statScore: byId('statScore'),
+        statQuestion: byId('statQuestion'),
+        statCorrect: byId('statCorrect'),
+        statTime: byId('statTime'),
+        progressFill: byId('progressFill'),
+
+        sampleVeg: byId('sampleVeg'),
+        sampleCarb: byId('sampleCarb'),
+        sampleProtein: byId('sampleProtein'),
+
+        questionTitle: byId('questionTitle'),
+        questionSub: byId('questionSub'),
+        choices: byId('choices'),
+
+        feedback: byId('feedback'),
+        feedbackTitle: byId('feedbackTitle'),
+        feedbackText: byId('feedbackText'),
+        btnNext: byId('btnNext'),
+
+        btnHow: byId('btnHow'),
+        btnCopyRoom: byId('btnCopyRoom'),
+        btnRestart: byId('btnRestart'),
+        btnBackHubTop: byId('btnBackHubTop'),
+        btnBackHubSide: byId('btnBackHubSide'),
+        btnBackHubBottom: byId('btnBackHubBottom'),
+        btnPlayAgain: byId('btnPlayAgain'),
+
+        summaryLayer: byId('summaryLayer'),
+        summaryTitle: byId('summaryTitle'),
+        summarySub: byId('summarySub'),
+        sumScore: byId('sumScore'),
+        sumCorrect: byId('sumCorrect'),
+        sumWrong: byId('sumWrong'),
+        sumStars: byId('sumStars'),
+        summaryNote: byId('summaryNote'),
+
+        toast: byId('toast')
+      };
+
+      // --------------------------------------------------
+      // UI helpers
+      // --------------------------------------------------
+      let toastTimer = null;
+      function showToast(msg){
+        if(!els.toast) return;
+        els.toast.textContent = String(msg || '');
+        els.toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          els.toast.classList.remove('show');
+        }, 1700);
+      }
+
+      function goHub(){
+        location.href = RUN_CTX.hub || '../hub.html';
+      }
+
+      function copyCurrentUrl(){
+        navigator.clipboard.writeText(location.href)
+          .then(() => showToast('คัดลอกลิงก์แล้ว'))
+          .catch(() => showToast('คัดลอกไม่สำเร็จ'));
+      }
+
+      function setSamplePlate(){
+        const veg = shuffle(FOOD.veg).slice(0, 5);
+        const carb = shuffle(FOOD.carb).slice(0, 2);
+        const protein = shuffle(FOOD.protein).slice(0, 2);
+
+        els.sampleVeg.innerHTML = veg.map(([e,n]) => `<span class="food">${e}<span>${n}</span></span>`).join('');
+        els.sampleCarb.innerHTML = carb.map(([e,n]) => `<span class="food">${e}<span>${n}</span></span>`).join('');
+        els.sampleProtein.innerHTML = protein.map(([e,n]) => `<span class="food">${e}<span>${n}</span></span>`).join('');
+      }
+
+      function updateHud(){
+        els.hudRole.textContent = RUN_CTX.role || '-';
+        els.hudRoom.textContent = RUN_CTX.roomId || '-';
+        els.hudSeed.textContent = RUN_CTX.seed;
+        els.hudDiff.textContent = RUN_CTX.diff;
+
+        els.statScore.textContent = String(state.score);
+        els.statQuestion.textContent = `${Math.min(state.currentIndex + (state.answered ? 1 : 0), state.totalQuestions)}/${state.totalQuestions}`;
+        els.statCorrect.textContent = String(state.correct);
+        els.statTime.textContent = String(state.timeLeft);
+
+        const answeredCount = clamp(state.currentIndex + (state.answered ? 1 : 0), 0, state.totalQuestions);
+        const pct = (answeredCount / state.totalQuestions) * 100;
+        els.progressFill.style.width = `${pct}%`;
+      }
+
+      function starCount(){
+        const acc = state.totalQuestions ? (state.correct / state.totalQuestions) : 0;
+        if(acc >= .9) return 3;
+        if(acc >= .7) return 2;
+        if(acc >= .5) return 1;
+        return 0;
+      }
+
+      // --------------------------------------------------
+      // Question generation
+      // --------------------------------------------------
+      function buildPlateOption(balanceType){
+        let vegCount = 4;
+        let carbCount = 2;
+        let proteinCount = 2;
+
+        if(balanceType === 'best'){
+          vegCount = 4 + (rand() > 0.5 ? 1 : 0);
+          carbCount = 2;
+          proteinCount = 2;
+        } else if(balanceType === 'tooCarb'){
+          vegCount = 2;
+          carbCount = 4 + Math.floor(rand() * 2);
+          proteinCount = 1;
+        } else if(balanceType === 'tooProtein'){
+          vegCount = 2;
+          carbCount = 2;
+          proteinCount = 4 + Math.floor(rand() * 2);
+        } else if(balanceType === 'tooLittleVeg'){
+          vegCount = 1;
+          carbCount = 3;
+          proteinCount = 3;
+        }
+
+        return {
+          veg: shuffle(FOOD.veg).slice(0, vegCount),
+          carb: shuffle(FOOD.carb).slice(0, carbCount),
+          protein: shuffle(FOOD.protein).slice(0, proteinCount)
+        };
+      }
+
+      function makeQuestion(){
+        const stem = pick(QUESTION_BANK);
+
+        const correctIndex = Math.floor(rand() * 3);
+        const wrongTypes = shuffle(['tooCarb', 'tooProtein', 'tooLittleVeg']).slice(0, 2);
+
+        const options = [];
+        for(let i=0;i<3;i++){
+          if(i === correctIndex){
+            options.push({
+              title:`จาน ${String.fromCharCode(65+i)}`,
+              type:'best',
+              plate: buildPlateOption('best'),
+              reason:'มีผักมากที่สุด และมีข้าวแป้งกับโปรตีนพอดี'
+            });
+          } else {
+            const badType = wrongTypes.shift() || 'tooCarb';
+            const reasonMap = {
+              tooCarb:'มีข้าวแป้งมากเกินไป',
+              tooProtein:'มีโปรตีนมากเกินไป',
+              tooLittleVeg:'มีผักน้อยเกินไป'
+            };
+            options.push({
+              title:`จาน ${String.fromCharCode(65+i)}`,
+              type:badType,
+              plate: buildPlateOption(badType),
+              reason:reasonMap[badType]
+            });
+          }
+        }
+
+        return {
+          title: stem.title,
+          sub: stem.sub,
+          correctIndex,
+          options
+        };
+      }
+
+      function miniFoodsHtml(items){
+        return items.map(([emoji, name]) => `<span class="mini-food">${emoji}<span>${name}</span></span>`).join('');
+      }
+
+      function renderChoices(q){
+        els.choices.innerHTML = '';
+
+        q.options.forEach((opt, idx) => {
+          const btn = document.createElement('button');
+          btn.className = 'choice';
+          btn.type = 'button';
+          btn.dataset.index = String(idx);
+          btn.innerHTML = `
+            <span class="choice-badge">${String.fromCharCode(65 + idx)}</span>
+            <div>
+              <h3 class="choice-title">${opt.title}</h3>
+              <p class="choice-desc">เลือกจานที่ดูสมดุลที่สุด</p>
+            </div>
+
+            <div class="mini-plate">
+              <div class="mini-zone mini-zone-main mini-zone-veg">
+                <div class="mini-foods">${miniFoodsHtml(opt.plate.veg)}</div>
+              </div>
+              <div class="mini-zone mini-zone-carb">
+                <div class="mini-foods">${miniFoodsHtml(opt.plate.carb)}</div>
+              </div>
+              <div class="mini-zone mini-zone-protein">
+                <div class="mini-foods">${miniFoodsHtml(opt.plate.protein)}</div>
+              </div>
+            </div>
+
+            <p class="choice-desc">${opt.type === 'best' ? 'ผักเด่น ข้าวพอดี โปรตีนพอดี' : 'ลองสังเกตดูให้ดีว่าจานนี้สมดุลไหม'}</p>
+          `;
+          btn.addEventListener('click', () => answerChoice(idx));
+          els.choices.appendChild(btn);
+        });
+      }
+
+      function showFeedback(isCorrect, text){
+        els.feedback.className = `feedback show ${isCorrect ? 'good' : 'bad'}`;
+        els.feedbackTitle.textContent = isCorrect ? 'ตอบถูกแล้ว! 🎉' : 'ยังไม่ใช่นะ ✨';
+        els.feedbackText.textContent = text;
+      }
+
+      function hideFeedback(){
+        els.feedback.className = 'feedback';
+      }
+
+      function loadQuestion(){
+        if(state.currentIndex >= state.totalQuestions){
+          endGame();
+          return;
+        }
+
+        state.currentQuestion = makeQuestion();
+        state.answered = false;
+
+        els.questionTitle.textContent = state.currentQuestion.title;
+        els.questionSub.textContent = state.currentQuestion.sub;
+
+        renderChoices(state.currentQuestion);
+        hideFeedback();
+        updateHud();
+      }
+
+      function answerChoice(index){
+        if(state.answered || state.ended) return;
+
+        state.answered = true;
+        const q = state.currentQuestion;
+        const correct = index === q.correctIndex;
+
+        [...els.choices.querySelectorAll('.choice')].forEach((btn, idx) => {
+          btn.disabled = true;
+          if(idx === q.correctIndex){
+            btn.style.borderColor = 'rgba(34,197,94,.45)';
+            btn.style.background = 'linear-gradient(180deg, rgba(34,197,94,.16), rgba(34,197,94,.06))';
+          } else if(idx === index){
+            btn.style.borderColor = 'rgba(239,68,68,.45)';
+            btn.style.background = 'linear-gradient(180deg, rgba(239,68,68,.14), rgba(239,68,68,.06))';
+          }
+        });
+
+        if(correct){
+          state.score += 10;
+          state.correct += 1;
+          showFeedback(true, `ใช่เลย เพราะ${q.options[q.correctIndex].reason}`);
+        } else {
+          state.wrong += 1;
+          showFeedback(false, `คำตอบที่สมดุลกว่าคือ ${q.options[q.correctIndex].title} เพราะ${q.options[q.correctIndex].reason}`);
+        }
+
+        updateHud();
+        try { window.PlateDuetMP?.syncScore(state.score); } catch {}
+      }
+
+      function nextQuestion(){
+        if(!state.answered) return;
+        state.currentIndex += 1;
+        loadQuestion();
+      }
+
+      // --------------------------------------------------
+      // Summary
+      // --------------------------------------------------
+      function summaryText(){
+        const stars = starCount();
+        if(stars === 3) return 'สุดยอดมาก! วันนี้เลือกจานสมดุลได้เก่งมาก ผักเด่น แป้งพอดี โปรตีนพอดี 🏆';
+        if(stars === 2) return 'เก่งมากเลย! เริ่มมองเห็นจานสมดุลได้ดีขึ้นแล้ว 🌟';
+        if(stars === 1) return 'ดีมาก ลองสังเกตเรื่อง “ผักต้องเยอะกว่า” เพิ่มอีกนิดนะ 😊';
+        return 'ไม่เป็นไร ลองเล่นอีกครั้ง แล้วโฟกัสว่าผักควรเป็นส่วนที่เยอะที่สุดของจาน 👍';
+      }
+
+      function showSummary(){
+        const stars = starCount();
+        els.sumScore.textContent = String(state.score);
+        els.sumCorrect.textContent = String(state.correct);
+        els.sumWrong.textContent = String(state.wrong);
+        els.sumStars.textContent = '⭐'.repeat(stars) || '0';
+        els.summaryTitle.textContent = stars >= 2 ? 'เก่งมาก จบรอบแล้ว!' : 'จบรอบแล้ว';
+        els.summarySub.textContent = `role ${RUN_CTX.role || '-'} • room ${RUN_CTX.roomId || '-'} • score ${state.score}`;
+        els.summaryNote.textContent = summaryText();
+        els.summaryLayer.classList.add('show');
+        els.summaryLayer.setAttribute('aria-hidden', 'false');
+      }
+
+      function hideSummary(){
+        els.summaryLayer.classList.remove('show');
+        els.summaryLayer.setAttribute('aria-hidden', 'true');
+      }
+
+      // --------------------------------------------------
+      // Game flow
+      // --------------------------------------------------
+      function startTimer(){
+        clearInterval(state.timer);
+        state.timer = setInterval(() => {
+          if(state.ended) return;
+          if(window.PlateDuetMP && !window.PlateDuetMP.canRunNow()) return;
+
+          state.timeLeft -= 1;
+          if(state.timeLeft <= 0){
+            state.timeLeft = 0;
+            updateHud();
+            endGame();
+            return;
+          }
+          updateHud();
+        }, 1000);
+      }
+
+      async function endGame(){
+        if(state.ended) return;
+        state.ended = true;
+        clearInterval(state.timer);
+
+        const summary = {
+          score: state.score,
+          stars: starCount(),
+          correct: state.correct,
+          wrong: state.wrong
+        };
+
+        try {
+          await window.PlateDuetMP?.finish(summary);
+        } catch (err) {
+          console.error('[PlateDuetMP.finish]', err);
+        }
+
+        showSummary();
+      }
+
+      function resetGame(){
+        hideSummary();
+        state.currentIndex = 0;
+        state.currentQuestion = null;
+        state.answered = false;
+        state.score = 0;
+        state.correct = 0;
+        state.wrong = 0;
+        state.timeLeft = Math.max(30, RUN_CTX.time || 90);
+        state.started = false;
+        state.ended = false;
+
+        try {
+          // simple reload clears MP finish state on bind side too
+          location.reload();
+        } catch {
+          loadQuestion();
+          startTimer();
+        }
+      }
+
+      // --------------------------------------------------
+      // Events
+      // --------------------------------------------------
+      els.btnNext.addEventListener('click', nextQuestion);
+      els.btnHow.addEventListener('click', () => {
+        showToast('ดูผักให้เยอะกว่าหมวดอื่น แล้วเลือกจานที่สมดุลที่สุด');
+      });
+      els.btnCopyRoom.addEventListener('click', copyCurrentUrl);
+      els.btnRestart.addEventListener('click', resetGame);
+      els.btnPlayAgain.addEventListener('click', resetGame);
+      els.btnBackHubTop.addEventListener('click', goHub);
+      els.btnBackHubSide.addEventListener('click', goHub);
+      els.btnBackHubBottom.addEventListener('click', goHub);
+
+      // --------------------------------------------------
+      // Boot
+      // --------------------------------------------------
+      function startGame(){
+        if(state.started) return;
+        state.started = true;
+        setSamplePlate();
+        updateHud();
+        loadQuestion();
+        startTimer();
+      }
+
+      function bootUi(){
+        els.hudRole.textContent = RUN_CTX.role || '-';
+        els.hudRoom.textContent = RUN_CTX.roomId || '-';
+        els.hudSeed.textContent = RUN_CTX.seed;
+        els.hudDiff.textContent = RUN_CTX.diff;
+        setSamplePlate();
+        updateHud();
+      }
+
+      async function boot(){
+        bootUi();
+
+        if(window.PlateDuetMP && typeof window.PlateDuetMP.bootstrap === 'function'){
+          await window.PlateDuetMP.bootstrap(() => {
+            startGame();
+          });
+        } else {
+          startGame();
+        }
+      }
+
+      window.__PLATE_DUET_START_GAME__ = startGame;
+      window.__PLATE_DUET_END_GAME__ = endGame;
+
+      boot().catch(err => {
+        console.error('[plate-duet.boot]', err);
+        startGame();
+      });
+    })();
   </script>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js"></script>
+  <script type="module" src="./plate-mp-run.js"></script>
+  <script src="./plate-duet-mp-bind.js"></script>
 </body>
 </html>
