@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Hydration Hero</title>
   <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#cbf0ff" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
@@ -28,8 +29,6 @@
       --yellow2:#f6bd42;
       --orange1:#ffbf74;
       --orange2:#ff9857;
-      --pink1:#ffd8e7;
-      --pink2:#ffbed7;
 
       --shadow:0 14px 34px rgba(90,145,180,.16);
       --shadow-lg:0 22px 56px rgba(90,145,180,.22);
@@ -58,22 +57,28 @@
       place-items:center;
     }
 
+    button,input,select,textarea{ font:inherit; }
+    button{ -webkit-tap-highlight-color:transparent; }
+
     .page{
       width:min(1100px,100%);
       display:grid;
       gap:14px;
     }
 
+    .hero-shell,
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:
+        0 18px 40px rgba(90,145,180,.14),
+        inset 0 1px 0 rgba(255,255,255,.92);
+    }
+
     .hero-shell{
       position:relative;
       overflow:hidden;
-      background:
-        radial-gradient(circle at 12% 10%, rgba(255,255,255,.78), transparent 14%),
-        radial-gradient(circle at 86% 12%, rgba(255,255,255,.64), transparent 14%),
-        linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
-      border:1px solid rgba(255,255,255,.96);
       border-radius:var(--radius-xl);
-      box-shadow:var(--shadow-lg);
       padding:16px;
       display:grid;
       gap:14px;
@@ -191,7 +196,7 @@
       width:32px;
       height:22px;
       border-radius:16px 16px 12px 12px;
-      background:linear-gradient(180deg, #7ecfff, #4ea8ef);
+      background:linear-gradient(180deg,#7ecfff,#4ea8ef);
       z-index:2;
     }
 
@@ -201,8 +206,8 @@
       top:26px;
       width:20px;
       height:28px;
-      border-radius:16px 0 16px 16px;
-      background:linear-gradient(180deg, #ff7e63, #ef5c45);
+      border-radius:14px 0 14px 14px;
+      background:linear-gradient(180deg,#ff7e63,#ef5c45);
       transform:rotate(-24deg);
       z-index:1;
     }
@@ -218,7 +223,7 @@
       place-items:center;
       font-size:12px;
       color:#fff;
-      background:linear-gradient(180deg, #8add68, #59be43);
+      background:linear-gradient(180deg,#8add68,#59be43);
       box-shadow:0 6px 12px rgba(86,185,67,.22);
       z-index:5;
     }
@@ -425,10 +430,22 @@
       border-radius:20px;
       background:linear-gradient(180deg,#ffffff,#eefcff);
       border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
+      box-shadow:
+        0 10px 22px rgba(90,145,180,.12),
+        inset 0 1px 0 rgba(255,255,255,.95);
       display:flex;
       gap:10px;
       align-items:center;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .resource-pill::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(180deg, rgba(255,255,255,.42), rgba(255,255,255,0) 46%);
+      pointer-events:none;
     }
 
     .resource-icon{
@@ -440,13 +457,9 @@
       place-items:center;
       font-size:18px;
       background:linear-gradient(180deg,#fff7d5,#ffe7a8);
-    }
-
-    .resource-pill strong{
-      color:#2c526c;
-      font-size:22px;
-      font-weight:1000;
-      line-height:1.05;
+      box-shadow:
+        0 6px 14px rgba(90,145,180,.12),
+        inset 0 1px 0 rgba(255,255,255,.55);
     }
 
     .resource-label{
@@ -455,6 +468,13 @@
       font-size:12px;
       font-weight:1000;
       margin-bottom:2px;
+    }
+
+    .resource-pill strong{
+      color:#2c526c;
+      font-size:22px;
+      line-height:1.05;
+      font-weight:1000;
     }
 
     .level-strip{
@@ -538,9 +558,6 @@
     .panel{
       padding:16px;
       border-radius:28px;
-      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow-lg);
       display:grid;
       gap:14px;
     }
@@ -746,12 +763,14 @@
       font-size:24px;
       font-weight:1000;
       cursor:pointer;
-      box-shadow:var(--shadow);
+      box-shadow:
+        0 12px 26px rgba(90,145,180,.14),
+        inset 0 1px 0 rgba(255,255,255,.18);
       transition:transform .12s ease, filter .12s ease;
     }
 
     .go-btn:hover{
-      transform:translateY(-1px);
+      transform:translateY(-1px) scale(1.01);
       filter:brightness(1.02);
     }
 
@@ -818,7 +837,9 @@
       font-size:18px;
       font-weight:1000;
       cursor:pointer;
-      box-shadow:var(--shadow);
+      box-shadow:
+        0 12px 26px rgba(90,145,180,.14),
+        inset 0 1px 0 rgba(255,255,255,.18);
       transition:transform .12s ease, filter .12s ease;
     }
 
@@ -836,7 +857,7 @@
 
     .btn-blue:hover,
     .btn-soft:hover{
-      transform:translateY(-1px);
+      transform:translateY(-1px) scale(1.01);
       filter:brightness(1.02);
     }
 
@@ -888,6 +909,26 @@
         height:52px;
       }
 
+      .mascot-head{
+        left:14px; top:8px; width:22px; height:22px;
+      }
+
+      .mascot-hair{
+        left:12px; top:5px; width:24px; height:16px;
+      }
+
+      .mascot-body{
+        left:12px; top:26px; width:26px; height:18px;
+      }
+
+      .mascot-cape{
+        left:3px; top:22px; width:16px; height:22px;
+      }
+
+      .mascot-drop{
+        width:18px; height:18px; font-size:10px;
+      }
+
       .home-btn{
         width:44px;
         height:44px;
@@ -901,6 +942,42 @@
 
       .profile-stats{
         min-width:0;
+      }
+
+      .avatar-card{
+        width:58px;
+        height:58px;
+        flex-basis:58px;
+        border-radius:18px;
+      }
+
+      .avatar-illust{
+        width:46px;
+        height:46px;
+      }
+
+      .avatar-head{
+        left:14px; top:7px; width:18px; height:18px;
+      }
+
+      .avatar-hair{
+        left:12px; top:4px; width:22px; height:14px;
+      }
+
+      .avatar-body{
+        left:11px; top:22px; width:24px; height:18px;
+      }
+
+      .avatar-cape{
+        left:3px; top:19px; width:16px; height:20px;
+      }
+
+      .avatar-drop{
+        width:16px; height:16px; font-size:9px;
+      }
+
+      .profile-name{
+        font-size:24px;
       }
 
       .zone-strip{
@@ -924,6 +1001,26 @@
       .launch-avatar-illust{
         width:80px;
         height:80px;
+      }
+
+      .launch-head{
+        left:25px; top:10px; width:28px; height:28px;
+      }
+
+      .launch-hair{
+        left:22px; top:7px; width:32px; height:20px;
+      }
+
+      .launch-body{
+        left:21px; top:35px; width:34px; height:24px;
+      }
+
+      .launch-cape{
+        left:9px; top:31px; width:22px; height:30px;
+      }
+
+      .launch-drop{
+        width:22px; height:22px; font-size:12px;
       }
 
       .launch-bubble{
