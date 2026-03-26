@@ -3,57 +3,67 @@
 
   const qs = new URLSearchParams(location.search);
 
-  function makeDevicePid() {
-    try {
-      const KEY = 'GJ_DEVICE_PID';
-      let pid = localStorage.getItem(KEY);
-      if (!pid) {
-        pid = `p-${Math.random().toString(36).slice(2, 10)}`;
-        localStorage.setItem(KEY, pid);
-      }
-      return pid;
-    } catch {
-      return `p-${Math.random().toString(36).slice(2, 10)}`;
-    }
+  function normalizeRoomId(v){
+    return String(v || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 40);
+  }
+  function normalizeName(v){
+    return String(v || '').trim().replace(/\s+/g, ' ').slice(0, 40) || 'Player';
+  }
+  function clamp(n, a, b){
+    n = Number(n);
+    if (!Number.isFinite(n)) n = a;
+    return Math.max(a, Math.min(b, n));
+  }
+  function esc(s){
+    return String(s ?? '')
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;');
   }
 
-  function normalizePid(rawPid) {
-    const v = String(rawPid || '').trim().replace(/[.#$[\]/]/g, '-');
-    if (!v) return makeDevicePid();
-    if (v.toLowerCase() === 'anon') return makeDevicePid();
-    return v.slice(0, 80);
+  async function ensureAnonAuth(){
+    if (!window.firebase || !firebase.auth) throw new Error('firebase auth not loaded');
+    if (firebase.auth().currentUser) return firebase.auth().currentUser;
+    const cred = await firebase.auth().signInAnonymously();
+    return cred.user;
   }
-
-  function normalizeRoomId(rawRoomId) {
-    return String(rawRoomId || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 40);
-  }
-
-  function normalizeName(raw) {
-    return String(raw || '').trim().replace(/\s+/g, ' ').slice(0, 40) || 'Player';
-  }
-
-  const RUN_CTX = window.__GJ_DUET_CTX__ || {
-    pid: normalizePid(qs.get('pid') || ''),
-    name: qs.get('name') || '',
-    studyId: qs.get('studyId') || '',
-    roomId: normalizeRoomId(qs.get('roomId') || ''),
-    mode: 'duet',
-    diff: qs.get('diff') || 'normal',
-    time: qs.get('time') || '120',
-    seed: qs.get('seed') || String(Date.now()),
-    startAt: Number(qs.get('startAt') || 0) || 0,
-    hub: qs.get('hub') || './hub.html',
-    view: qs.get('view') || 'mobile',
-    run: qs.get('run') || 'play',
-    gameId: qs.get('gameId') || 'goodjunk'
-  };
 
   const GAME = 'goodjunk';
   const MODE = 'duet';
-  const GJ_PID = normalizePid(RUN_CTX.pid || '');
-  const GJ_NAME = normalizeName(RUN_CTX.name || GJ_PID);
-  const GJ_ROOM_ID = normalizeRoomId(RUN_CTX.roomId || '');
-  const GJ_HUB = RUN_CTX.hub || './hub.html';
+
+  const ROOM_ID = normalizeRoomId(qs.get('roomId') || '');
+  const VIEW = (qs.get('view') || 'mobile').toLowerCase();
+  const DIFF = (qs.get('diff') || 'normal').toLowerCase();
+  const HUB = qs.get('hub') || './hub.html';
+
+  let AUTH_USER = null;
+  let PID = '';
+  let NAME = normalizeName(qs.get('name') || 'Player');
+
+  const UI = {
+    stage: document.getElementById('duetGameStage'),
+    roomPill: document.getElementById('duetRoomPill'),
+    score: document.getElementById('duetScoreValue'),
+    time: document.getElementById('duetTimeValue'),
+    miss: document.getElementById('duetMissValue'),
+    streak: document.getElementById('duetStreakValue'),
+    itemEmoji: document.getElementById('duetItemEmoji'),
+    itemTitle: document.getElementById('duetItemTitle'),
+    itemSub: document.getElementById('duetItemSub'),
+    goodHit: document.getElementById('duetGoodHitValue'),
+    junkHit: document.getElementById('duetJunkHitValue'),
+    goodMiss: document.getElementById('duetGoodMissValue'),
+    tip: document.getElementById('duetTipText'),
+    pairGoalValue: document.getElementById('duetPairGoalValue'),
+    pairGoalFill: document.getElementById('duetPairGoalFill'),
+    pairGoalSubFill: document.getElementById('duetPairGoalSubFill'),
+    resultMount: document.getElementById('duetResultMount'),
+    countdownOverlay: document.getElementById('duetCountdownOverlay'),
+    countdownNum: document.getElementById('duetCountdownNum'),
+    countdownText: document.getElementById('duetCountdownText'),
+    coachBadge: document.getElementById('duetCoachBadge')
+  };
 
   const GOOD_ITEMS = [
     { emoji:'🍎', label:'apple' },
@@ -75,51 +85,18 @@
     { emoji:'🧁', label:'cupcake' }
   ];
 
-  const DIFF_PRESET = {
-    easy:   { spawnMs: 930, goodRatio: 0.70, speedMin: 90,  speedMax: 150, targetSizeMin: 60, targetSizeMax: 84, scoreGood: 12 },
-    normal: { spawnMs: 760, goodRatio: 0.65, speedMin: 110, speedMax: 190, targetSizeMin: 58, targetSizeMax: 82, scoreGood: 14 },
-    hard:   { spawnMs: 610, goodRatio: 0.60, speedMin: 130, speedMax: 240, targetSizeMin: 56, targetSizeMax: 80, scoreGood: 16 }
+  const PRESET = {
+    easy:   { spawnMs: 900, goodRatio: .72, speedMin: 90,  speedMax: 145, sizeMin: 62, sizeMax: 86, scoreGood: 12 },
+    normal: { spawnMs: 760, goodRatio: .66, speedMin: 110, speedMax: 190, sizeMin: 58, sizeMax: 82, scoreGood: 14 },
+    hard:   { spawnMs: 620, goodRatio: .60, speedMin: 130, speedMax: 235, sizeMin: 54, sizeMax: 78, scoreGood: 16 }
   };
-
-  const cfg = DIFF_PRESET[RUN_CTX.diff] || DIFF_PRESET.normal;
-
-  const UI = {
-    stage: document.getElementById('duetGameStage'),
-    roomPill: document.getElementById('duetRoomPill'),
-    score: document.getElementById('duetScoreValue'),
-    time: document.getElementById('duetTimeValue'),
-    miss: document.getElementById('duetMissValue'),
-    streak: document.getElementById('duetStreakValue'),
-    itemEmoji: document.getElementById('duetItemEmoji'),
-    itemTitle: document.getElementById('duetItemTitle'),
-    itemSub: document.getElementById('duetItemSub'),
-    goodHit: document.getElementById('duetGoodHitValue'),
-    junkHit: document.getElementById('duetJunkHitValue'),
-    goodMiss: document.getElementById('duetGoodMissValue'),
-    tip: document.getElementById('duetTipText'),
-    pairGoalValue: document.getElementById('duetPairGoalValue'),
-    pairGoalFill: document.getElementById('duetPairGoalFill'),
-    pairGoalSubFill: document.getElementById('duetPairGoalSubFill'),
-    resultMount: document.getElementById('duetResultMount')
-  };
-
-  let roomState = null;
-  let stopWatchRoom = null;
-  let heartbeatTimer = 0;
-  let submitTimer = 0;
-  let loopHandle = 0;
-  let spawnClock = 0;
-  let localStarted = false;
-  let localEnded = false;
-  let summaryShown = false;
-  let lastTs = 0;
-  let finishRequested = false;
+  const CFG = PRESET[DIFF] || PRESET.normal;
 
   const state = {
     width: 0,
     height: 0,
-    timeSec: Math.max(15, Number(RUN_CTX.time || 120) || 120),
-    timeLeft: Math.max(15, Number(RUN_CTX.time || 120) || 120),
+    totalSec: Math.max(15, Number(qs.get('time') || 120) || 120),
+    timeLeft: Math.max(15, Number(qs.get('time') || 120) || 120),
     score: 0,
     miss: 0,
     streak: 0,
@@ -128,22 +105,23 @@
     junkHit: 0,
     goodMiss: 0,
     totalGood: 0,
-    items: []
+    running: false,
+    ended: false,
+    lastTs: 0,
+    spawnAccum: 0,
+    targets: [],
+    seededTick: 0
   };
 
-  function esc(s){
-    return String(s ?? '')
-      .replaceAll('&','&amp;')
-      .replaceAll('<','&lt;')
-      .replaceAll('>','&gt;')
-      .replaceAll('"','&quot;');
-  }
-
-  function clamp(n, min, max){
-    n = Number(n);
-    if (!Number.isFinite(n)) n = min;
-    return Math.max(min, Math.min(max, n));
-  }
+  let roomState = null;
+  let stopWatchRoom = null;
+  let heartbeatTimer = 0;
+  let submitTimer = 0;
+  let rafId = 0;
+  let summaryShown = false;
+  let finishRequested = false;
+  let countdownShown = false;
+  let countdownInterval = 0;
 
   function fmtTime(sec){
     sec = Math.max(0, Math.ceil(sec));
@@ -152,9 +130,33 @@
     return `${m}:${String(s).padStart(2, '0')}`;
   }
 
+  function createSeededRng(seed){
+    let h = 2166136261 >>> 0;
+    const str = String(seed || 'seed');
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return function(){
+      h += 0x6D2B79F5;
+      let t = h;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function roomSeed(room){
+    return room?.meta?.seed || qs.get('seed') || `${ROOM_ID}-seed`;
+  }
+
+  function getRng(room){
+    return createSeededRng(`${roomSeed(room)}:${state.seededTick}`);
+  }
+
   function pairGoal(room){
     const players = Object.keys(room?.players || {}).length || 2;
-    return Math.max(240, players * state.timeSec * 3);
+    return Math.max(240, players * state.totalSec * 3);
   }
 
   function pairScore(room){
@@ -162,26 +164,36 @@
     return Object.values(scores).reduce((sum, s) => sum + Number(s?.score || 0), 0);
   }
 
-  function myScore(room){
-    return Number(room?.scores?.[GJ_PID]?.score || 0);
-  }
-
-  function myDone(room){
-    return !!room?.scores?.[GJ_PID]?.done;
-  }
+  function myScore(room){ return Number(room?.scores?.[PID]?.score || 0); }
+  function myDone(room){ return !!room?.scores?.[PID]?.done; }
 
   function allDone(room){
-    const players = Object.keys(room?.players || {});
-    if (!players.length) return false;
-    return players.every(pid => !!room?.scores?.[pid]?.done);
+    const ids = Object.keys(room?.players || {});
+    if (!ids.length) return false;
+    return ids.every(pid => !!room?.scores?.[pid]?.done);
   }
 
-  function setTip(text){
-    if (UI.tip) UI.tip.textContent = text;
+  function setTip(text){ if (UI.tip) UI.tip.textContent = text; }
+
+  function coachMessage(){
+    const acc = state.totalGood > 0 ? Math.round((state.goodHit / state.totalGood) * 100) : 0;
+
+    if (state.miss >= 8) return 'ลองแตะเฉพาะของดีชิ้นใหญ่ก่อน จะช่วยลดการพลาด';
+    if (state.goodMiss >= 5) return 'ชิ้นสีเขียวหรือผลไม้ควรเก็บก่อนนะ';
+    if (state.streak >= 8) return 'ยอดเยี่ยม! เก็บต่อเนื่องแบบนี้ช่วยให้คะแนนคู่ขึ้นเร็วมาก';
+    if (acc >= 80 && state.goodHit >= 6) return 'แม่นมาก! ตอนนี้ช่วยกันเก็บของดีเพื่อถึง Pair Goal';
+    if (state.junkHit >= 4) return 'ระวัง junk สีโทนแดงหรือขนมหวาน แตะผิดจะเสียจังหวะ';
+    return 'ช่วยกันเก็บของดีให้ได้มากที่สุด และอย่ากด junk';
   }
 
-  function updateUiFromLocal(){
-    if (UI.roomPill) UI.roomPill.textContent = `ROOM ${GJ_ROOM_ID || '-'}`;
+  function updateCoach(){
+    const msg = coachMessage();
+    setTip(msg);
+    if (UI.coachBadge) UI.coachBadge.textContent = '🤖 AI Coach';
+  }
+
+  function updateLocalUi(){
+    if (UI.roomPill) UI.roomPill.textContent = `ROOM ${ROOM_ID || '-'}`;
     if (UI.score) UI.score.textContent = String(state.score);
     if (UI.time) UI.time.textContent = fmtTime(state.timeLeft);
     if (UI.miss) UI.miss.textContent = String(state.miss);
@@ -189,6 +201,7 @@
     if (UI.goodHit) UI.goodHit.textContent = String(state.goodHit);
     if (UI.junkHit) UI.junkHit.textContent = String(state.junkHit);
     if (UI.goodMiss) UI.goodMiss.textContent = String(state.goodMiss);
+    updateCoach();
   }
 
   function updatePairUi(room){
@@ -201,15 +214,17 @@
     if (UI.pairGoalSubFill) UI.pairGoalSubFill.style.width = `${clamp((mine / goal) * 100, 0, 100)}%`;
   }
 
-  function setCurrentItemView(kind){
-    const pool = kind === 'good' ? GOOD_ITEMS : JUNK_ITEMS;
-    const item = pool[Math.floor(Math.random() * pool.length)];
-    if (UI.itemEmoji) UI.itemEmoji.textContent = item.emoji;
+  function setCurrentItemView(kind, emoji){
+    if (UI.itemEmoji) UI.itemEmoji.textContent = emoji || (kind === 'good' ? '🍎' : '🍩');
     if (UI.itemTitle) UI.itemTitle.textContent = kind === 'good' ? 'GOOD' : 'JUNK';
-    if (UI.itemSub) UI.itemSub.textContent = kind === 'good' ? 'เก็บของดีให้ได้มากที่สุด' : 'หลบ junk ไม่ให้เสีย streak';
+    if (UI.itemSub) {
+      UI.itemSub.textContent = kind === 'good'
+        ? 'เก็บของดีเพื่อช่วยเพื่อนทำคะแนนคู่'
+        : 'หลบ junk เพื่อไม่ให้เสียจังหวะ';
+    }
   }
 
-  function ensureStage(){
+  function layoutStage(){
     if (!UI.stage) throw new Error('duetGameStage not found');
     UI.stage.style.position = 'relative';
     UI.stage.style.width = '100%';
@@ -222,21 +237,26 @@
     state.height = rect.height || 580;
   }
 
-  function randomItem(){
-    const good = Math.random() < cfg.goodRatio;
-    const data = good
-      ? GOOD_ITEMS[Math.floor(Math.random() * GOOD_ITEMS.length)]
-      : JUNK_ITEMS[Math.floor(Math.random() * JUNK_ITEMS.length)];
+  function buildSpawnPattern(room){
+    state.seededTick += 1;
+    const rng = getRng(room);
 
-    const size = Math.round(cfg.targetSizeMin + Math.random() * (cfg.targetSizeMax - cfg.targetSizeMin));
-    const x = clamp(30 + Math.random() * (state.width - 60), 30, state.width - 30);
-    const speed = cfg.speedMin + Math.random() * (cfg.speedMax - cfg.speedMin);
+    const good = rng() < CFG.goodRatio;
+    const pool = good ? GOOD_ITEMS : JUNK_ITEMS;
+    const item = pool[Math.floor(rng() * pool.length)];
+
+    const size = Math.round(CFG.sizeMin + rng() * (CFG.sizeMax - CFG.sizeMin));
+    const laneCount = 5;
+    const lane = Math.floor(rng() * laneCount);
+    const laneWidth = state.width / laneCount;
+    const x = clamp(laneWidth * lane + laneWidth / 2 + (rng() - 0.5) * 26, 34, state.width - 34);
+    const speed = CFG.speedMin + rng() * (CFG.speedMax - CFG.speedMin);
 
     return {
-      id: `duet_${Math.random().toString(36).slice(2, 9)}_${Date.now().toString(36)}`,
+      id: `duet_${Math.random().toString(36).slice(2,8)}_${Date.now().toString(36)}`,
       kind: good ? 'good' : 'junk',
-      emoji: data.emoji,
-      label: data.label,
+      emoji: item.emoji,
+      label: item.label,
       x,
       y: -size,
       size,
@@ -245,135 +265,120 @@
     };
   }
 
-  function mountItem(item){
+  function mountTarget(t){
     const el = document.createElement('button');
     el.type = 'button';
-    el.className = 'duet-fall';
-    el.innerHTML = item.emoji;
-    el.setAttribute('aria-label', item.label);
+    el.className = `target ${t.kind === 'good' ? 'good' : 'junk'}`;
+    el.innerHTML = `<span class="t-emoji">${t.emoji}</span>`;
+    el.setAttribute('aria-label', t.label);
     Object.assign(el.style, {
-      position: 'absolute',
-      left: `${item.x}px`,
-      top: `${item.y}px`,
-      width: `${item.size}px`,
-      height: `${item.size}px`,
-      marginLeft: `-${item.size/2}px`,
-      borderRadius: '18px',
-      border: '1px solid rgba(148,163,184,.18)',
-      background: item.kind === 'good'
-        ? 'linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.10))'
-        : 'linear-gradient(180deg, rgba(239,68,68,.24), rgba(239,68,68,.10))',
-      color: '#fff',
-      fontSize: `${Math.round(item.size * 0.58)}px`,
-      boxShadow: '0 12px 24px rgba(0,0,0,.22)',
-      cursor: 'pointer',
-      display: 'grid',
-      placeItems: 'center'
+      width: `${t.size}px`,
+      height: `${t.size}px`,
+      left: `${t.x - t.size/2}px`,
+      top: `${t.y}px`
     });
 
-    el.addEventListener('click', () => hitItem(item.id));
-    item.el = el;
+    el.addEventListener('click', () => onTargetTap(t.id));
+    t.el = el;
     UI.stage.appendChild(el);
   }
 
-  function removeItem(id){
-    const idx = state.items.findIndex(it => it.id === id);
+  function removeTarget(id){
+    const idx = state.targets.findIndex(t => t.id === id);
     if (idx < 0) return null;
-    const [it] = state.items.splice(idx, 1);
-    try{ it.el && it.el.remove(); }catch(_){}
-    return it;
+    const [t] = state.targets.splice(idx, 1);
+    try{ t.el && t.el.remove(); }catch(_){}
+    return t;
   }
 
-  function hitItem(id){
-    if (!localStarted || localEnded) return;
-    const item = removeItem(id);
-    if (!item) return;
+  function onTargetTap(id){
+    if (!state.running || state.ended) return;
+    const t = removeTarget(id);
+    if (!t) return;
 
-    setCurrentItemView(item.kind === 'good' ? 'good' : 'junk');
+    setCurrentItemView(t.kind, t.emoji);
 
-    if (item.kind === 'good') {
-      state.score += cfg.scoreGood + Math.min(12, state.streak);
+    if (t.kind === 'good') {
+      state.score += CFG.scoreGood + Math.min(14, state.streak);
       state.goodHit += 1;
       state.streak += 1;
       state.bestStreak = Math.max(state.bestStreak, state.streak);
-      setTip('ดีมาก! เก็บของดีได้แล้ว ช่วยกันทำ pair score ต่อ');
+      setTip('เก็บของดีได้แล้ว! ช่วยกันไปต่อ');
     } else {
       state.junkHit += 1;
       state.miss += 1;
       state.streak = 0;
-      setTip('โดน junk แล้ว ระวังพลาดต่อเนื่อง');
+      setTip('โอ๊ะ แตะ junk แล้ว ลองเลือกชิ้นสีเขียวหรือผลไม้แทน');
     }
 
-    updateUiFromLocal();
+    updateLocalUi();
   }
 
-  function missGood(id){
-    const item = removeItem(id);
-    if (!item) return;
-    if (item.kind !== 'good') return;
-
+  function onGoodMiss(id){
+    const t = removeTarget(id);
+    if (!t || t.kind !== 'good') return;
     state.goodMiss += 1;
     state.miss += 1;
     state.streak = 0;
-    setTip('พลาดของดีไปหนึ่งชิ้น ลองจับจังหวะใหม่');
-    updateUiFromLocal();
+    setTip('พลาดของดีไปหนึ่งชิ้น ลองแตะชิ้นที่ตกช้ากว่าก่อน');
+    updateLocalUi();
   }
 
   async function pushScore(done = false){
-    try{
-      await HHAMulti.submitScore({
-        game: GAME,
-        mode: MODE,
-        roomCode: GJ_ROOM_ID,
-        playerId: GJ_PID,
-        score: state.score,
-        combo: state.bestStreak,
-        miss: state.miss,
-        acc: state.totalGood > 0 ? Math.round((state.goodHit / state.totalGood) * 100) : 0,
-        hp: 100,
-        charge: 0,
-        done,
-        result: done ? 'finished' : ''
-      });
-    }catch(err){
-      console.warn('[goodjunk.safe.duet] submitScore warn:', err);
-    }
+    await HHAMulti.submitScore({
+      game: GAME,
+      mode: MODE,
+      roomCode: ROOM_ID,
+      playerId: PID,
+      score: state.score,
+      combo: state.bestStreak,
+      miss: state.miss,
+      acc: state.totalGood > 0 ? Math.round((state.goodHit / state.totalGood) * 100) : 0,
+      hp: 100,
+      charge: 0,
+      done,
+      result: done ? 'finished' : ''
+    });
   }
 
   async function pushReport(){
-    try{
-      await HHAMulti.submitReport({
-        game: GAME,
-        mode: MODE,
-        roomCode: GJ_ROOM_ID,
-        playerId: GJ_PID,
-        result: 'finished',
-        score: state.score,
-        combo: state.bestStreak,
-        miss: state.miss,
-        acc: state.totalGood > 0 ? Math.round((state.goodHit / state.totalGood) * 100) : 0
-      });
-    }catch(err){
-      console.warn('[goodjunk.safe.duet] submitReport warn:', err);
-    }
+    await HHAMulti.submitReport({
+      game: GAME,
+      mode: MODE,
+      roomCode: ROOM_ID,
+      playerId: PID,
+      result: 'finished',
+      score: state.score,
+      combo: state.bestStreak,
+      miss: state.miss,
+      acc: state.totalGood > 0 ? Math.round((state.goodHit / state.totalGood) * 100) : 0
+    });
   }
 
-  function clearTimers(){
+  function clearRuntime(){
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     if (submitTimer) clearInterval(submitTimer);
+    if (countdownInterval) clearInterval(countdownInterval);
     heartbeatTimer = 0;
     submitTimer = 0;
+    countdownInterval = 0;
+    try{ cancelAnimationFrame(rafId); }catch(_){}
   }
 
   async function endRun(){
-    if (localEnded) return;
-    localEnded = true;
-    localStarted = false;
-    clearTimers();
+    if (state.ended) return;
+    state.ended = true;
+    state.running = false;
 
-    for (const it of [...state.items]) removeItem(it.id);
-    await pushScore(true);
-    await pushReport();
+    clearRuntime();
+    for (const t of [...state.targets]) removeTarget(t.id);
+
+    try{
+      await pushScore(true);
+      await pushReport();
+    }catch(err){
+      console.warn(err);
+    }
 
     if (roomState && allDone(roomState) && !finishRequested) {
       finishRequested = true;
@@ -381,14 +386,38 @@
         await HHAMulti.finishMatch({
           game: GAME,
           mode: MODE,
-          roomCode: GJ_ROOM_ID
+          roomCode: ROOM_ID
         });
       }catch(err){
-        console.warn('[goodjunk.safe.duet] finishMatch warn:', err);
+        console.warn(err);
       }
     }
 
     showSummary();
+  }
+
+  function showCountdownOverlay(){
+    if (!UI.countdownOverlay || countdownShown) return;
+    countdownShown = true;
+    UI.countdownOverlay.classList.add('show');
+
+    let n = 3;
+    UI.countdownNum.textContent = String(n);
+    UI.countdownText.textContent = 'จับคู่ให้พร้อม แล้วเริ่มพร้อมกัน';
+
+    clearInterval(countdownInterval);
+    countdownInterval = setInterval(() => {
+      n -= 1;
+      if (n > 0) {
+        UI.countdownNum.textContent = String(n);
+      } else if (n === 0) {
+        UI.countdownNum.textContent = 'GO!';
+        UI.countdownText.textContent = 'ช่วยกันเก็บของดีให้ถึง Pair Goal';
+      } else {
+        clearInterval(countdownInterval);
+        UI.countdownOverlay.classList.remove('show');
+      }
+    }, 1000);
   }
 
   function showSummary(){
@@ -409,52 +438,52 @@
 
     const pair = pairScore(roomState);
     const goal = pairGoal(roomState);
-    const mine = players.find(p => p.pid === GJ_PID);
-    const mate = players.find(p => p.pid !== GJ_PID);
+    const mine = players.find(p => p.pid === PID);
+    const mate = players.find(p => p.pid !== PID);
 
     UI.resultMount.hidden = false;
     UI.resultMount.innerHTML = `
       <div class="duet-result-card">
         <div class="duet-result-title">สรุปผล GoodJunk Duet</div>
         <div class="duet-result-sub">
-          คะแนนคู่รวม <strong style="color:#fff;">${pair}</strong> / เป้าหมาย <strong style="color:#fff;">${goal}</strong>
+          คะแนนคู่รวม <strong style="color:#7a2558;">${pair}</strong> / เป้าหมาย <strong style="color:#244f6d;">${goal}</strong>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <div style="border:1px solid rgba(148,163,184,.18);border-radius:20px;padding:14px;background:rgba(255,255,255,.03);">
-            <div style="font-size:12px;color:#94a3b8;font-weight:1000;">ฉัน</div>
-            <div style="margin-top:6px;font-size:28px;font-weight:1100;color:#fff;">${mine ? mine.score : state.score}</div>
-            <div style="margin-top:8px;color:#cbd5e1;font-size:13px;line-height:1.6;">Miss ${mine ? mine.miss : state.miss} • Best Streak ${mine ? mine.streak : state.bestStreak}</div>
+          <div style="border:1px solid #bfe3f2;border-radius:20px;padding:14px;background:#fff;">
+            <div style="font-size:12px;color:#6b7280;font-weight:1000;">ฉัน</div>
+            <div style="margin-top:6px;font-size:28px;font-weight:1100;color:#7a2558;">${mine ? mine.score : state.score}</div>
+            <div style="margin-top:8px;color:#6b7280;font-size:13px;line-height:1.6;">Miss ${mine ? mine.miss : state.miss} • Best Streak ${mine ? mine.streak : state.bestStreak}</div>
           </div>
 
-          <div style="border:1px solid rgba(148,163,184,.18);border-radius:20px;padding:14px;background:rgba(255,255,255,.03);">
-            <div style="font-size:12px;color:#94a3b8;font-weight:1000;">เพื่อนคู่</div>
-            <div style="margin-top:6px;font-size:28px;font-weight:1100;color:#fff;">${mate ? mate.score : 0}</div>
-            <div style="margin-top:8px;color:#cbd5e1;font-size:13px;line-height:1.6;">${mate ? esc(mate.name) : 'ยังไม่มีข้อมูลอีกคน'}</div>
+          <div style="border:1px solid #bfe3f2;border-radius:20px;padding:14px;background:#fff;">
+            <div style="font-size:12px;color:#6b7280;font-weight:1000;">เพื่อนคู่</div>
+            <div style="margin-top:6px;font-size:28px;font-weight:1100;color:#244f6d;">${mate ? mate.score : 0}</div>
+            <div style="margin-top:8px;color:#6b7280;font-size:13px;line-height:1.6;">${mate ? esc(mate.name) : 'ยังไม่มีข้อมูลอีกคน'}</div>
           </div>
         </div>
 
-        <div style="border:1px solid rgba(148,163,184,.18);border-radius:20px;padding:14px;background:rgba(255,255,255,.03);">
-          <div style="font-size:14px;font-weight:1100;color:#fff;margin-bottom:8px;">ผลในห้อง</div>
+        <div style="border:1px solid #bfe3f2;border-radius:20px;padding:14px;background:#fff;">
+          <div style="font-size:14px;font-weight:1100;color:#7a2558;margin-bottom:8px;">ผลในห้อง</div>
           <div style="display:grid;gap:8px;">
             ${players.map((p, idx) => `
-              <div style="display:grid;grid-template-columns:32px 1fr auto auto;gap:10px;align-items:center;border-radius:14px;border:1px solid rgba(148,163,184,.12);padding:10px;background:${p.pid===GJ_PID?'rgba(30,41,59,.84)':'rgba(15,23,42,.48)'};">
-                <div style="font-weight:1100;color:#fff;">${idx + 1}</div>
+              <div style="display:grid;grid-template-columns:32px 1fr auto auto;gap:10px;align-items:center;border-radius:14px;border:1px solid #e3f0f6;padding:10px;background:${p.pid===PID?'#fff4fb':'#ffffff'};">
+                <div style="font-weight:1100;color:#7a2558;">${idx + 1}</div>
                 <div>
-                  <div style="font-weight:1100;color:#fff;">${esc(p.name)} ${p.pid===GJ_PID?'<span style="color:#fbcfe8;font-size:12px;">(คุณ)</span>':''}</div>
+                  <div style="font-weight:1100;color:#4d4a42;">${esc(p.name)} ${p.pid===PID?'<span style="color:#c74f8d;font-size:12px;">(คุณ)</span>':''}</div>
                   <div style="margin-top:4px;color:#94a3b8;font-size:12px;">${esc(p.pid)}</div>
                 </div>
-                <div style="font-weight:1100;color:#fff;">${p.score}</div>
-                <div style="color:#cbd5e1;font-size:12px;">Miss ${p.miss}</div>
+                <div style="font-weight:1100;color:#244f6d;">${p.score}</div>
+                <div style="color:#6b7280;font-size:12px;">Miss ${p.miss}</div>
               </div>
             `).join('')}
           </div>
         </div>
 
         <div class="duet-result-actions">
-          <button type="button" id="duetRematchBtn" class="btn violet">🔁 Rematch</button>
+          <button type="button" id="duetRematchBtn" class="btn primary">🔁 Rematch</button>
           <button type="button" id="duetBackLobbyBtn" class="btn ghost">👥 Back Lobby</button>
-          <a href="${esc(GJ_HUB)}" class="btn ghost">🏠 Hub</a>
+          <a href="${esc(HUB)}" class="btn ghost">🏠 Hub</a>
         </div>
       </div>
     `;
@@ -468,25 +497,25 @@
           const readyCount = await HHAMulti.requestRematch({
             game: GAME,
             mode: MODE,
-            roomCode: GJ_ROOM_ID,
-            playerId: GJ_PID
+            roomCode: ROOM_ID,
+            playerId: PID
           });
 
-          const room = await HHAMulti.readRoom(GAME, MODE, GJ_ROOM_ID);
+          const room = await HHAMulti.readRoom(GAME, MODE, ROOM_ID);
           const totalPlayers = Object.keys(room?.players || {}).length;
 
-          if (room?.meta?.hostPlayerId === GJ_PID && readyCount >= Math.max(2, totalPlayers)) {
+          if (room?.meta?.hostPlayerId === PID && readyCount >= Math.max(2, totalPlayers)) {
             await HHAMulti.resetForRematch({
               game: GAME,
               mode: MODE,
-              roomCode: GJ_ROOM_ID,
-              playerId: GJ_PID
+              roomCode: ROOM_ID,
+              playerId: PID
             });
           } else {
             setTip(`ส่งคำขอรีแมตช์แล้ว (${readyCount}/${totalPlayers})`);
           }
         }catch(err){
-          console.warn('[goodjunk.safe.duet] rematch warn:', err);
+          console.warn(err);
         }
       });
     }
@@ -495,100 +524,103 @@
       btnBackLobby.addEventListener('click', () => {
         const u = new URL('./goodjunk-duet-lobby.html', location.href);
         for (const [k,v] of qs.entries()) u.searchParams.set(k, v);
-        u.searchParams.set('roomId', GJ_ROOM_ID);
-        u.searchParams.set('hub', GJ_HUB);
+        u.searchParams.set('roomId', ROOM_ID);
+        u.searchParams.set('hub', HUB);
         location.href = u.toString();
       });
     }
   }
 
   function loop(ts){
-    if (!localStarted || localEnded) return;
+    if (!state.running || state.ended) return;
 
-    if (!lastTs) lastTs = ts;
-    const dt = Math.min(0.04, (ts - lastTs) / 1000);
-    lastTs = ts;
+    if (!state.lastTs) state.lastTs = ts;
+    const dt = Math.min(0.04, (ts - state.lastTs) / 1000);
+    state.lastTs = ts;
 
     state.timeLeft = Math.max(0, state.timeLeft - dt);
-    spawnClock += dt * 1000;
+    state.spawnAccum += dt * 1000;
 
-    if (spawnClock >= cfg.spawnMs) {
-      spawnClock = 0;
-      const item = randomItem();
-      state.items.push(item);
-      mountItem(item);
-      if (item.kind === 'good') state.totalGood += 1;
-      setCurrentItemView(item.kind);
+    if (state.spawnAccum >= CFG.spawnMs) {
+      state.spawnAccum = 0;
+      const t = buildSpawnPattern(roomState);
+      state.targets.push(t);
+      mountTarget(t);
+      if (t.kind === 'good') state.totalGood += 1;
+      setCurrentItemView(t.kind, t.emoji);
     }
 
-    for (let i = state.items.length - 1; i >= 0; i--) {
-      const it = state.items[i];
-      it.y += it.speed * dt;
-      if (it.el) it.el.style.top = `${it.y}px`;
+    for (let i = state.targets.length - 1; i >= 0; i--) {
+      const t = state.targets[i];
+      t.y += t.speed * dt;
+      if (t.el) t.el.style.top = `${t.y}px`;
 
-      if (it.y > state.height + 24) {
-        if (it.kind === 'good') missGood(it.id);
-        else removeItem(it.id);
+      if (t.y > state.height + 24) {
+        if (t.kind === 'good') onGoodMiss(t.id);
+        else removeTarget(t.id);
       }
     }
 
-    updateUiFromLocal();
+    updateLocalUi();
     updatePairUi(roomState);
 
     if (state.timeLeft <= 0) {
-      endRun().catch(console.error);
+      endRun();
       return;
     }
 
-    loopHandle = requestAnimationFrame(loop);
+    rafId = requestAnimationFrame(loop);
   }
 
-  function startRun(){
-    if (localStarted || localEnded) return;
-    localStarted = true;
-    localEnded = false;
-    lastTs = 0;
-    setTip('เริ่มแล้ว! ช่วยกันเก็บของดีให้ถึง pair goal');
-    updateUiFromLocal();
+  async function startRun(){
+    if (state.running || state.ended) return;
+    state.running = true;
+    state.ended = false;
+    state.lastTs = 0;
+    showCountdownOverlay();
+    setTip('เริ่มแล้ว! ช่วยกันเก็บของดีให้ถึง Pair Goal');
 
-    pushScore(false);
+    try{ await pushScore(false); }catch(_){}
+
     heartbeatTimer = setInterval(() => {
       HHAMulti.heartbeat({
         game: GAME,
         mode: MODE,
-        roomCode: GJ_ROOM_ID,
-        playerId: GJ_PID
+        roomCode: ROOM_ID,
+        playerId: PID
       }).catch(() => {});
     }, 2500);
 
     submitTimer = setInterval(() => {
-      pushScore(false);
+      pushScore(false).catch(() => {});
     }, 1200);
 
-    loopHandle = requestAnimationFrame(loop);
+    setTimeout(() => {
+      rafId = requestAnimationFrame(loop);
+    }, 3200);
   }
 
   async function ensurePresence(){
-    const room = await HHAMulti.readRoom(GAME, MODE, GJ_ROOM_ID);
+    const room = await HHAMulti.readRoom(GAME, MODE, ROOM_ID);
     if (!room) throw new Error('room-not-found');
 
-    if (!(room.players || {})[GJ_PID]) {
+    if (!(room.players || {})[PID]) {
       await HHAMulti.joinRoom({
         game: GAME,
         mode: MODE,
-        roomCode: GJ_ROOM_ID,
-        playerId: GJ_PID,
-        name: GJ_NAME,
-        view: RUN_CTX.view || 'mobile',
-        pid: GJ_PID
+        roomCode: ROOM_ID,
+        playerId: PID,
+        name: NAME,
+        view: VIEW || 'mobile',
+        pid: PID
       });
     } else {
-      await HHAMulti.rootRef(GAME, MODE, GJ_ROOM_ID).child(`players/${GJ_PID}`).update({
-        name: GJ_NAME,
+      await HHAMulti.rootRef(GAME, MODE, ROOM_ID).child(`players/${PID}`).update({
+        name: NAME,
         online: true,
         lastSeenAt: Date.now(),
-        view: RUN_CTX.view || 'mobile',
-        pid: GJ_PID
+        view: VIEW || 'mobile',
+        pid: PID
       });
     }
   }
@@ -598,10 +630,13 @@
     updatePairUi(roomState);
 
     const phase = String(room?.match?.phase || room?.meta?.status || 'lobby');
-    const roomPill = UI.roomPill;
-    if (roomPill) roomPill.textContent = `ROOM ${GJ_ROOM_ID || '-'}`;
+    if (UI.roomPill) UI.roomPill.textContent = `ROOM ${ROOM_ID || '-'}`;
 
-    if (phase === 'playing' && !localStarted && !localEnded) {
+    if (phase === 'countdown' && !countdownShown && !state.running) {
+      showCountdownOverlay();
+    }
+
+    if (phase === 'playing' && !state.running && !state.ended) {
       startRun();
     }
 
@@ -616,39 +651,44 @@
     }
 
     stopWatchRoom = HHAMulti.watchRoom(
-      { game: GAME, mode: MODE, roomCode: GJ_ROOM_ID },
+      { game: GAME, mode: MODE, roomCode: ROOM_ID },
       (room) => renderFromRoom(room),
-      (err) => console.error('[goodjunk.safe.duet] watchRoom error:', err)
+      (err) => console.error(err)
     );
   }
 
   async function boot(){
     try{
-      if (!window.firebase || !window.firebase.database) throw new Error('firebase-database not loaded');
+      if (!window.firebase || !window.firebase.database) throw new Error('firebase database not loaded');
       if (!window.HHAMulti) throw new Error('HHAMulti not loaded');
-      if (!GJ_ROOM_ID) throw new Error('missing roomId');
+      if (!ROOM_ID) throw new Error('missing roomId');
 
-      ensureStage();
-      updateUiFromLocal();
-      setCurrentItemView('good');
+      AUTH_USER = await ensureAnonAuth();
+      PID = AUTH_USER.uid;
+      NAME = normalizeName(qs.get('name') || `Player-${PID.slice(0,4)}`);
+
+      layoutStage();
+      updateLocalUi();
+      setCurrentItemView('good', '🍉');
+      setTip('กำลังเชื่อมห้อง Duet...');
       await ensurePresence();
       bindWatch();
-      setTip('กำลังเชื่อมห้อง Duet...');
+
+      window.addEventListener('resize', layoutStage);
     }catch(err){
-      console.error('[goodjunk.safe.duet] boot failed:', err);
+      console.error(err);
       setTip(`เชื่อมห้องไม่สำเร็จ: ${err?.message || err}`);
     }
   }
 
   window.addEventListener('beforeunload', () => {
-    clearTimers();
-    try{ cancelAnimationFrame(loopHandle); }catch(_){}
+    clearRuntime();
     try{
       HHAMulti.setOffline({
         game: GAME,
         mode: MODE,
-        roomCode: GJ_ROOM_ID,
-        playerId: GJ_PID
+        roomCode: ROOM_ID,
+        playerId: PID
       });
     }catch(_){}
     try{ stopWatchRoom && stopWatchRoom(); }catch(_){}
