@@ -1,6 +1,6 @@
 <!-- === /herohealth/plate/plate-coop.html ===
 Plate Coop — 2 Devices Lobby + Game + Summary
-PATCH v20260321-PLATE-COOP-HTML-FINAL
+PATCH v20260323-PLATE-COOP-HTML-COMPAT-FINAL
 -->
 <!doctype html>
 <html lang="th">
@@ -10,6 +10,9 @@ PATCH v20260321-PLATE-COOP-HTML-FINAL
   <title>HeroHealth — Plate Coop</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+
+  <!-- HeroHealth shared Firebase compat bootstrap -->
+  <script src="../firebase-config.js"></script>
   <script type="module" src="../vr/vr-ui.js?v=20260307b"></script>
 
   <style>
@@ -648,6 +651,7 @@ PATCH v20260321-PLATE-COOP-HTML-FINAL
 
     let paused = false;
     const btnPause = document.getElementById('btnPause');
+
     function setPauseBtn(){
       if(btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE';
     }
@@ -674,23 +678,11 @@ PATCH v20260321-PLATE-COOP-HTML-FINAL
     document.getElementById('btnBackHub')?.addEventListener('click', ()=> location.href = hub);
     document.getElementById('btnBackHub2')?.addEventListener('click', ()=> location.href = hub);
 
-    const firebaseConfig = {
-      apiKey: 'YOUR_API_KEY',
-      authDomain: 'YOUR_PROJECT.firebaseapp.com',
-      databaseURL: 'https://YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app',
-      projectId: 'YOUR_PROJECT',
-      storageBucket: 'YOUR_PROJECT.firebasestorage.app',
-      messagingSenderId: 'YOUR_SENDER_ID',
-      appId: 'YOUR_APP_ID'
-    };
-
     const roomAdapter = createFirebaseRoomAdapter({
-      firebaseConfig,
       basePath: 'herohealth/plate-coop'
     });
 
     const netAdapter = createFirebaseNetAdapter({
-      firebaseConfig,
       basePath: 'herohealth/plate-coop'
     });
 
