@@ -1,20 +1,16 @@
 // === /herohealth/vr-groups/groups-race-rtdb.js ===
-// FULL PATCH v20260324-GROUPS-RACE-RTDB-START-ONLINE-REFRESH
 
 const ROOT = 'hha-battle/groups/raceRooms';
 
 async function getDb(){
   if (window.HHA_FIREBASE_DB) return window.HHA_FIREBASE_DB;
-
   if (typeof window.HHA_WAIT_FIREBASE === 'function') {
     try {
       const db = await window.HHA_WAIT_FIREBASE(4000);
       if (db) return db;
     } catch (_) {}
   }
-
   if (window.HHA_FIREBASE_DB) return window.HHA_FIREBASE_DB;
-
   throw new Error('Firebase not initialized');
 }
 
@@ -34,37 +30,30 @@ async function roomRef(roomCode){
   const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}`);
 }
-
 async function playersRef(roomCode){
   const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}/players`);
 }
-
 async function playerRef(roomCode, playerId){
   const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}/players/${playerId}`);
 }
-
 async function matchRef(roomCode){
   const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}/match`);
 }
-
 async function scoresRef(roomCode){
   const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}/scores`);
 }
-
 async function scoreRef(roomCode, playerId){
   const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}/scores/${playerId}`);
 }
-
 async function rematchRef(roomCode){
   const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}/rematch`);
 }
-
 async function connectedRef(){
   const db = await getDb();
   return db.ref('.info/connected');
@@ -73,7 +62,6 @@ async function connectedRef(){
 function getPlayerIds(data){
   return Object.keys(data?.players || {});
 }
-
 function getReadyCount(data){
   return getPlayerIds(data).filter(id => data?.players?.[id]?.ready).length;
 }
@@ -115,12 +103,7 @@ export async function createRaceRoom({ hostName, playerId, diff='normal', timeSe
       endSummary: null
     },
     scores: {
-      [playerId]: {
-        score: 0,
-        combo: 0,
-        acc: 0,
-        updatedAt: now
-      }
+      [playerId]: { score: 0, combo: 0, acc: 0, updatedAt: now }
     },
     rematch: {
       requestedBy: {},
@@ -138,7 +121,6 @@ export async function joinRaceRoom({ roomCode, playerId, playerName }){
   const data = snap.val();
 
   if(!data) throw new Error('ไม่พบห้องนี้');
-
   if(isRaceRoomStale(data)){
     await ref.remove();
     throw new Error('ห้องนี้หมดอายุแล้ว');
@@ -146,15 +128,10 @@ export async function joinRaceRoom({ roomCode, playerId, playerName }){
 
   const players = data.players || {};
   const count = Object.keys(players).length;
-
-  if(data.match?.started && !data.match?.endedAt){
-    throw new Error('เกมนี้เริ่มไปแล้ว');
-  }
-
+  if(data.match?.started && !data.match?.endedAt) throw new Error('เกมนี้เริ่มไปแล้ว');
   if(count >= 2) throw new Error('ห้องเต็มแล้ว');
 
   const now = Date.now();
-
   const pRef = await playersRef(roomCode);
   await pRef.child(playerId).set({
     playerId,
@@ -245,7 +222,6 @@ export async function startRaceMatch(roomCode){
 
   const players = data.players || {};
   const ids = Object.keys(players);
-
   if(ids.length < 2) throw new Error('ผู้เล่นยังไม่ครบ');
 
   const readyCount = ids.filter(id => players[id]?.ready).length;
@@ -269,11 +245,7 @@ export async function startRaceMatch(roomCode){
     const next = players0 || {};
     const now2 = Date.now();
     Object.keys(next).forEach(id=>{
-      next[id] = {
-        ...next[id],
-        online: true,
-        lastSeenAt: now2
-      };
+      next[id] = { ...next[id], online: true, lastSeenAt: now2 };
     });
     return next;
   });
@@ -318,7 +290,6 @@ export async function finishRaceMatch(roomCode, payload = {}){
     endedAt: Date.now(),
     endSummary: payload || {}
   });
-
   const ref = await roomRef(roomCode);
   await ref.child('meta/updatedAt').set(Date.now());
 }
@@ -383,7 +354,6 @@ export async function resetRaceForRematch(roomCode){
   });
 
   const currentRound = Number(room.match?.roundNo || 1);
-
   const mRef = await matchRef(roomCode);
   await mRef.update({
     started: true,
@@ -411,8 +381,7 @@ export async function leaveRaceRoom(roomCode, playerId){
   if(!room) return;
 
   const players = room.players || {};
-  const leaving = players[playerId];
-  if(!leaving) return;
+  if(!players[playerId]) return;
 
   const pRef = await playerRef(roomCode, playerId);
   await pRef.remove();
@@ -491,9 +460,7 @@ export function bindRacePresence(roomCode, playerId){
 
       const onVisible = ()=>{
         if(stop) return;
-        if(document.visibilityState === 'visible'){
-          pingOnline();
-        }
+        if(document.visibilityState === 'visible') pingOnline();
       };
       const onFocus = ()=>{ if(!stop) pingOnline(); };
       const onPageShow = ()=>{ if(!stop) pingOnline(); };
@@ -508,12 +475,8 @@ export function bindRacePresence(roomCode, playerId){
 
   return () => {
     stop = true;
-    try{
-      if(cRef && handle) cRef.off('value', handle);
-    }catch(_){}
-    try{
-      if(heartbeatTimer) clearInterval(heartbeatTimer);
-    }catch(_){}
+    try{ if(cRef && handle) cRef.off('value', handle); }catch(_){}
+    try{ if(heartbeatTimer) clearInterval(heartbeatTimer); }catch(_){}
   };
 }
 
@@ -522,7 +485,6 @@ export function isRaceRoomStale(room){
   const ageMs = Date.now() - updatedAt;
   const players = room?.players || {};
   const onlineCount = Object.values(players).filter(p => p && p.online !== false).length;
-
   return ageMs > (2 * 60 * 60 * 1000) && onlineCount === 0;
 }
 
