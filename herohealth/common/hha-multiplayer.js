@@ -5,7 +5,6 @@
  * modes: duet / race / battle / coop
  * path: hha-battle/{game}/{modeRooms}/{roomCode}
  * ========================================================= */
-
 (function () {
   'use strict';
 
@@ -65,18 +64,18 @@
   function defaultMaxPlayers(mode) {
     switch (mode) {
       case 'duet': return 2;
-      case 'battle': return 2;
+      case 'battle': return 5;
       case 'race': return 2;
-      case 'coop': return 2;
+      case 'coop': return 4;
       default: return 2;
     }
   }
 
   function defaultTeam(mode, role, currentCount) {
     if (mode === 'coop') return 'A';
-    if (mode === 'duet') return currentCount % 2 === 0 ? 'A' : 'B';
     if (mode === 'battle') return currentCount % 2 === 0 ? 'A' : 'B';
     if (mode === 'race') return currentCount % 2 === 0 ? 'A' : 'B';
+    if (mode === 'duet') return currentCount % 2 === 0 ? 'A' : 'B';
     return role === 'host' ? 'A' : 'B';
   }
 
@@ -151,6 +150,7 @@
           miss: 0,
           acc: 0,
           hp: 100,
+          charge: 0,
           done: false,
           updatedAt: now
         }
@@ -173,11 +173,7 @@
     };
 
     await ref.set(payload);
-    return {
-      roomCode,
-      playerId: hostPlayerId,
-      ref
-    };
+    return { roomCode, playerId: hostPlayerId, ref };
   }
 
   async function joinRoom(opts) {
@@ -230,6 +226,7 @@
         miss: 0,
         acc: 0,
         hp: 100,
+        charge: 0,
         done: false,
         updatedAt: now
       };
@@ -242,11 +239,7 @@
       throw new Error('joinRoom failed: room missing, locked, or full');
     }
 
-    return {
-      roomCode,
-      playerId,
-      ref
-    };
+    return { roomCode, playerId, ref };
   }
 
   async function leaveRoom(opts) {
@@ -268,9 +261,7 @@
       delete room.reports[playerId];
 
       const ids = Object.keys(room.players);
-      if (ids.length === 0) {
-        return null;
-      }
+      if (ids.length === 0) return null;
 
       const hostId = room.meta.hostPlayerId;
       if (!room.players[hostId]) {
@@ -337,8 +328,9 @@
       const players = Object.values(room.players);
       if (!players.length) return;
 
-      const allReady = players.every(p => !!p.ready);
-      if (!allReady) return;
+      const readyCount = players.filter(p => !!p.ready).length;
+      const minReady = Number(room.meta.minReady || 2);
+      if (readyCount < minReady) return;
 
       room.meta.status = countdownSec > 0 ? 'countdown' : 'playing';
       room.meta.updatedAt = now;
@@ -354,10 +346,7 @@
       return room;
     }, { applyLocally: false });
 
-    if (!result.committed) {
-      throw new Error('startMatch failed: not host, not ready, or already started');
-    }
-
+    if (!result.committed) throw new Error('startMatch failed: not host, not ready, or already started');
     return true;
   }
 
@@ -397,17 +386,15 @@
       miss: clamp(opts.miss || 0, 0, 999999),
       acc: clamp(opts.acc || 0, 0, 100),
       hp: clamp(opts.hp == null ? 100 : opts.hp, 0, 100),
+      charge: clamp(opts.charge || 0, 0, 100),
       done: !!opts.done,
       updatedAt: now
     };
 
-    if (opts.result) {
-      payload.result = String(opts.result);
-    }
+    if (opts.result) payload.result = String(opts.result);
 
     await rootRef(game, mode, roomCode).child(`scores/${playerId}`).update(payload);
     await rootRef(game, mode, roomCode).child('meta/updatedAt').set(now);
-
     return payload;
   }
 
@@ -479,9 +466,7 @@
       return room;
     }, { applyLocally: false });
 
-    if (!result.committed) {
-      throw new Error('finishMatch failed');
-    }
+    if (!result.committed) throw new Error('finishMatch failed');
     return true;
   }
 
@@ -534,6 +519,7 @@
           miss: 0,
           acc: 0,
           hp: 100,
+          charge: 0,
           done: false,
           updatedAt: now
         };
@@ -563,10 +549,7 @@
       return room;
     }, { applyLocally: false });
 
-    if (!result.committed) {
-      throw new Error('resetForRematch failed: only host can reset');
-    }
-
+    if (!result.committed) throw new Error('resetForRematch failed: only host can reset');
     return true;
   }
 
