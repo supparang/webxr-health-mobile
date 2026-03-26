@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Plate Multiplayer Lobby</title>
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --bg1:#08111f;
+      --bg2:#0f1f3a;
+      --bg3:#17346d;
+
+      --panel:rgba(15,23,42,.88);
+      --panel2:rgba(2,6,23,.9);
+      --line:rgba(255,255,255,.12);
+
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --soft:#dbeafe;
+
+      --blue:#3b82f6;
+      --green:#22c55e;
+      --orange:#fb923c;
+      --red:#ef4444;
+
+      --shadow:0 18px 50px rgba(0,0,0,.35);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; min-height:100%; }
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 0% -10%, rgba(59,130,246,.22), transparent 60%),
+        radial-gradient(1000px 600px at 110% 0%, rgba(34,197,94,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 48%, #08111f 100%);
+      overflow-x:hidden;
+    }
+
+    .wrap{
+      width:min(1120px,100%);
+      margin:0 auto;
+      padding:
+        max(14px, env(safe-area-inset-top))
+        14px
+        max(18px, env(safe-area-inset-bottom));
+      display:grid;
+      gap:14px;
+    }
+
+    .hero,
+    .card{
+      background:linear-gradient(180deg, rgba(15,23,42,.9), rgba(2,6,23,.92));
+      border:1px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+    }
+
+    .hero{
+      padding:18px;
+      display:grid;
+      gap:12px;
+    }
+
+    .hero-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .badge-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--soft);
+      font-weight:900;
+      font-size:12px;
+      letter-spacing:.2px;
+    }
+
+    .title{
+      margin:0;
+      font-size:clamp(28px,4vw,40px);
+      line-height:1.02;
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+
+    .sub{
+      margin:0;
+      color:var(--muted);
+      line-height:1.55;
+      font-size:14px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.08fr .92fr;
+      gap:14px;
+    }
+
+    @media (max-width: 940px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      padding:18px;
+      display:grid;
+      gap:14px;
+    }
+
+    .card-title{
+      margin:0;
+      font-size:22px;
+      font-weight:1000;
+    }
+
+    .form{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .full{ grid-column:1 / -1; }
+
+    @media (max-width: 720px){
+      .form{ grid-template-columns:1fr; }
+    }
+
+    label{
+      display:grid;
+      gap:6px;
+      font-size:13px;
+      color:var(--soft);
+      font-weight:900;
+    }
+
+    input,select{
+      width:100%;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      padding:12px 14px;
+      font:inherit;
+      outline:none;
+    }
+
+    .row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      font:inherit;
+      color:white;
+      font-weight:1000;
+      border-radius:18px;
+      padding:12px 16px;
+      min-height:46px;
+      box-shadow:0 12px 24px rgba(0,0,0,.22);
+      transition:transform .12s ease, opacity .12s ease, filter .12s ease;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-blue{ background:linear-gradient(180deg, var(--blue), #1d4ed8); }
+    .btn-green{ background:linear-gradient(180deg, var(--green), #15803d); }
+    .btn-orange{ background:linear-gradient(180deg, var(--orange), #ea580c); }
+    .btn-red{ background:linear-gradient(180deg, var(--red), #dc2626); }
+    .btn-ghost{
+      background:linear-gradient(180deg, #334155, #1e293b);
+      box-shadow:none;
+    }
+
+    .box{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      border-radius:20px;
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .list{
+      display:grid;
+      gap:10px;
+    }
+
+    .player{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:12px;
+      background:rgba(255,255,255,.03);
+    }
+
+    .tiny{
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .mono{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      word-break:break-all;
+    }
+
+    .ok{ color:#86efac; font-weight:1000; }
+    .wait{ color:#fde68a; font-weight:1000; }
+    .bad{ color:#fca5a5; font-weight:1000; }
+
+    .out{
+      display:grid;
+      gap:12px;
+    }
+
+    .outbox{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      border-radius:18px;
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .sep{
+      height:1px;
+      background:var(--line);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <div class="badge-row">
+            <span class="pill">🏠 Plate Lobby</span>
+            <span class="pill">🌐 Multi-device</span>
+            <span class="pill">🆕 New Run Files</span>
+          </div>
+          <h1 class="title">สร้างห้อง หรือเข้าห้อง</h1>
+          <p class="sub">
+            หน้านี้จะเป็นคน generate ลิงก์สำหรับเข้าเล่นไฟล์ใหม่ของแต่ละโหมด
+            โดยส่งทุกคนไปยัง run file ใหม่ที่ถูกต้อง
+          </p>
+        </div>
+
+        <div class="row">
+          <a id="btnBackModes" class="btn btn-ghost" href="./plate-modes.html">กลับหน้าเลือกโหมด</a>
+          <a id="btnBackHub" class="btn btn-orange" href="../hub.html">กลับ HUB</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2 class="card-title">สร้าง / เข้าห้อง</h2>
+
+        <div class="form">
+          <label>
+            โหมด
+            <select id="mode">
+              <option value="duet">duet</option>
+              <option value="race">race</option>
+              <option value="battle">battle</option>
+              <option value="coop">coop</option>
+            </select>
+          </label>
+
+          <label>
+            Room ID
+            <input id="roomId" placeholder="ปล่อยว่างเพื่อสุ่ม" />
+          </label>
+
+          <label>
+            PID ของเครื่องนี้
+            <input id="pid" placeholder="เช่น plate01" />
+          </label>
+
+          <label>
+            ชื่อเล่น
+            <input id="name" placeholder="เช่น Aom" />
+          </label>
+
+          <label>
+            difficulty
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </label>
+
+          <label>
+            เวลา (วินาที)
+            <input id="time" type="number" min="30" max="600" value="90" />
+          </label>
+
+          <label>
+            seed
+            <input id="seed" />
+          </label>
+
+          <label>
+            view
+            <select id="view">
+              <option value="mobile" selected>mobile</option>
+              <option value="pc">pc</option>
+              <option value="cvr">cvr</option>
+            </select>
+          </label>
+
+          <label class="full">
+            hub url
+            <input id="hub" />
+          </label>
+
+          <label>
+            game
+            <input id="game" value="platev1" />
+          </label>
+
+          <label>
+            theme
+            <input id="theme" value="platev1" />
+          </label>
+
+          <label>
+            cooldown
+            <select id="cooldown">
+              <option value="1" selected>1</option>
+              <option value="0">0</option>
+            </select>
+          </label>
+
+          <div class="full row">
+            <button id="btnCreate" class="btn btn-blue" type="button">สร้างห้อง</button>
+            <button id="btnJoin" class="btn btn-green" type="button">เข้าห้องนี้</button>
+            <button id="btnRandomSeed" class="btn btn-ghost" type="button">สุ่ม seed</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">สถานะห้อง</h2>
+
+        <div class="row">
+          <span class="pill">room: <span id="roomBadge">-</span></span>
+          <span class="pill">state: <span id="stateBadge">-</span></span>
+          <span class="pill">host: <span id="hostBadge">-</span></span>
+        </div>
+
+        <div class="sep"></div>
+
+        <div id="players" class="list"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">ลิงก์ที่เรียกไฟล์ใหม่</h2>
+      <div id="links" class="out"></div>
+    </section>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js"></script>
+  <script type="module" src="./plate-multi.js"></script>
+</body>
+</html>
