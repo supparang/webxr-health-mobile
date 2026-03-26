@@ -15,9 +15,7 @@
   const VIEW_SET = new Set(['pc', 'mobile', 'cvr']);
   const DIFF_SET = new Set(['easy', 'normal', 'hard']);
 
-  function nowMs() {
-    return Date.now();
-  }
+  function nowMs() { return Date.now(); }
 
   function clamp(n, min, max) {
     n = Number(n);
