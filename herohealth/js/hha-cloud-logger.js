@@ -199,6 +199,21 @@
       };
     }
 
+    getStatusSummary() {
+      return {
+        enabled: this.enabled(),
+        endpoint: String(this.cfg.endpoint || ''),
+        endpointType: isGasWebAppUrl(this.cfg.endpoint) ? 'gas' : 'generic',
+        queue: this.lengths(),
+        attempt: Number(this.state.attempt || 0),
+        nextRetryAt: Number(this.state.nextRetryAt || 0),
+        lastFlushAt: Number(this.state.lastFlushAt || 0),
+        lastOkAt: Number(this.state.lastOkAt || 0),
+        lastErrorAt: Number(this.state.lastErrorAt || 0),
+        lastError: String(this.state.lastError || '')
+      };
+    }
+
     setContext(ctx = {}) {
       Object.assign(this.cfg, ctx || {});
       this._persistStateOnly();
