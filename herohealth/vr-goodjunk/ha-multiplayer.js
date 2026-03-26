@@ -1,9 +1,13 @@
 // /herohealth/vr-goodjunk/ha-multiplayer.js
-// FULL PATCH v20260327-GJBATTLE-MP-AUTH-R1
+// FULL PATCH v20260327-GJBATTLE-MP-AUTH-R2
 (function () {
   'use strict';
 
   const W = window;
+
+  const PRESENCE_TTL_MS = 12000;
+  const HEARTBEAT_MS = 2500;
+  const ATTACK_TTL_MS = 30000;
 
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -11,6 +15,11 @@
     v = Number(v);
     if (!Number.isFinite(v)) v = a;
     return Math.max(a, Math.min(b, v));
+  }
+
+  function num(v, d = 0) {
+    v = Number(v);
+    return Number.isFinite(v) ? v : d;
   }
 
   function safeStr(v, d = '') {
@@ -22,6 +31,16 @@
     v = v.replace(/[^a-zA-Z0-9_-]/g, '').toUpperCase();
     if (!v) v = 'GJ-' + Math.random().toString(36).slice(2, 8).toUpperCase();
     return v;
+  }
+
+  function isActivePlayer(p, nowTs = Date.now()) {
+    if (!p) return false;
+    if (p.connected === false) return false;
+
+    const lastSeen = num(p.lastSeen || p.updatedAt || p.joinedAt, 0);
+    if (!lastSeen) return true;
+
+    return (nowTs - lastSeen) <= PRESENCE_TTL_MS;
   }
 
   async function waitForFirebase(timeoutMs = 12000) {
@@ -102,7 +121,7 @@
       players: {},
       isHost: false,
       _offs: [],
-      _attackSeen: new Set(),
+      _heartbeatTimer: 0,
       _selfRef: refs.players.child(pid),
       _connected: false,
       _playersCbs: [],
@@ -112,10 +131,11 @@
     };
 
     api.getConnectedPlayers = function () {
+      const nowTs = Date.now();
       return Object.values(api.players || {})
-        .filter(p => p && p.connected !== false)
+        .filter(p => isActivePlayer(p, nowTs))
         .sort((a, b) => {
-          return String(a.joinedAt || 0).localeCompare(String(b.joinedAt || 0));
+          return num(a.joinedAt, 0) - num(b.joinedAt, 0);
         });
     };
 
@@ -207,17 +227,125 @@
     api.ensureHost = async function () {
       const connected = api.getConnectedPlayers();
       const nextHost = connected[0] ? connected[0].pid : '';
+
       if (nextHost && api.meta.hostPid !== nextHost) {
         await refs.meta.update({
           hostPid: nextHost,
           updatedAt: Date.now()
         });
       }
+
       api.isHost = !!nextHost && api.pid === nextHost;
     };
 
+    api.pruneStaleRoom = async function () {
+      const nowTs = Date.now();
+
+      const [playersSnap, attacksSnap] = await Promise.all([
+        refs.players.once('value'),
+        refs.attacks.once('value')
+      ]);
+
+      const players = playersSnap.val() || {};
+      const attacks = attacksSnap.val() || {};
+
+      const jobs = [];
+
+      Object.keys(players).forEach((playerId) => {
+        const p = players[playerId] || {};
+        const lastSeen = num(p.lastSeen || p.updatedAt || p.joinedAt, 0);
+        const inactiveTooLong =
+          p.connected === false ||
+          (lastSeen > 0 && (nowTs - lastSeen) > PRESENCE_TTL_MS);
+
+        if (inactiveTooLong) {
+          jobs.push(
+            refs.players.child(playerId).remove().catch(() => {})
+          );
+        }
+      });
+
+      Object.keys(attacks).forEach((attackId) => {
+        const atk = attacks[attackId] || {};
+        const createdAt = num(atk.createdAt, 0);
+        const handledBy = atk.handledBy && typeof atk.handledBy === 'object'
+          ? Object.keys(atk.handledBy).length
+          : 0;
+
+        const expired = createdAt > 0 && (nowTs - createdAt) > ATTACK_TTL_MS;
+        const fullyHandled = handledBy > 0;
+
+        if (expired || fullyHandled) {
+          jobs.push(
+            refs.attacks.child(attackId).remove().catch(() => {})
+          );
+        }
+      });
+
+      await Promise.all(jobs);
+    };
+
+    api.resetRoomIfNeeded = async function () {
+      await api.pruneStaleRoom();
+
+      const nowTs = Date.now();
+
+      const [metaSnap, stateSnap, playersSnap] = await Promise.all([
+        refs.meta.once('value'),
+        refs.state.once('value'),
+        refs.players.once('value')
+      ]);
+
+      const meta = metaSnap.val() || {};
+      const state = stateSnap.val() || {};
+      const players = playersSnap.val() || {};
+
+      const activePlayers = Object.values(players).filter(p => isActivePlayer(p, nowTs));
+      const activeCount = activePlayers.length;
+
+      const countdownExpired =
+        state.status === 'countdown' &&
+        num(state.countdownEndsAt, 0) > 0 &&
+        num(state.countdownEndsAt, 0) < (nowTs - 5000);
+
+      const matchExpired =
+        state.status === 'playing' &&
+        num(state.startedAt, 0) > 0 &&
+        nowTs > (num(state.startedAt, 0) + ((num(state.plannedSec, plannedSec) + 5) * 1000)) &&
+        activeCount <= 1;
+
+      const shouldReset =
+        activeCount === 0 ||
+        (state.status === 'ended' && activeCount <= 1) ||
+        countdownExpired ||
+        matchExpired;
+
+      if (!shouldReset) return;
+
+      await refs.attacks.remove().catch(() => {});
+
+      await refs.state.set({
+        status: 'waiting',
+        plannedSec,
+        createdAt: num(state.createdAt, 0) || nowTs,
+        updatedAt: nowTs
+      });
+
+      await refs.meta.update({
+        roomId,
+        game: 'goodjunk',
+        mode,
+        diff,
+        hostPid: pid,
+        createdAt: num(meta.createdAt, 0) || nowTs,
+        updatedAt: nowTs
+      });
+    };
+
     api.connect = async function () {
-      await refs.meta.transaction(current => {
+      await api.resetRoomIfNeeded();
+
+      await refs.meta.transaction((current) => {
         current = current || {};
         if (!current.roomId) current.roomId = roomId;
         if (!current.game) current.game = 'goodjunk';
@@ -229,9 +357,9 @@
         return current;
       });
 
-      await refs.state.transaction(current => {
+      await refs.state.transaction((current) => {
         current = current || {};
-        if (!current.status) current.status = 'waiting';
+        if (!current.status || current.status === 'ended') current.status = 'waiting';
         if (!current.plannedSec) current.plannedSec = plannedSec;
         if (!current.createdAt) current.createdAt = Date.now();
         current.updatedAt = Date.now();
@@ -259,13 +387,19 @@
       });
 
       try {
-        api._selfRef.onDisconnect().update({
-          connected: false,
-          status: 'offline',
-          lastSeen: TS,
-          updatedAt: TS
-        });
+        api._selfRef.onDisconnect().remove();
       } catch (_) {}
+
+      if (api._heartbeatTimer) {
+        clearInterval(api._heartbeatTimer);
+      }
+
+      api._heartbeatTimer = setInterval(() => {
+        api.updateSelf({
+          connected: true,
+          status: (api.state && api.state.status) || 'waiting'
+        }).catch(() => {});
+      }, HEARTBEAT_MS);
 
       const metaHandler = (snap) => {
         api.meta = snap.val() || {};
@@ -284,7 +418,9 @@
 
       const playersHandler = async (snap) => {
         api.players = snap.val() || {};
-        try { await api.ensureHost(); } catch (_) {}
+        try {
+          await api.ensureHost();
+        } catch (_) {}
         api._emitPlayers();
       };
       refs.players.on('value', playersHandler);
@@ -304,12 +440,14 @@
 
     api.disconnect = async function () {
       try {
-        await api._selfRef.update({
-          connected: false,
-          status: 'offline',
-          updatedAt: Date.now(),
-          lastSeen: Date.now()
-        });
+        if (api._heartbeatTimer) {
+          clearInterval(api._heartbeatTimer);
+          api._heartbeatTimer = 0;
+        }
+      } catch (_) {}
+
+      try {
+        await api._selfRef.remove();
       } catch (_) {}
 
       while (api._offs.length) {
