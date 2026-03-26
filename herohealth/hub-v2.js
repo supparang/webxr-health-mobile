@@ -2,12 +2,12 @@
   'use strict';
 
   const PASS_KEYS = [
-    'pid', 'nick', 'name',
-    'run', 'view', 'diff', 'time', 'seed',
-    'studyId', 'phase', 'conditionGroup', 'sessionOrder', 'blockLabel',
-    'siteCode', 'schoolYear', 'semester',
-    'log', 'api', 'debug',
-    'grade', 'zone'
+    'pid','nick','name',
+    'run','view','diff','time','seed',
+    'studyId','phase','conditionGroup','sessionOrder','blockLabel',
+    'siteCode','schoolYear','semester',
+    'log','api','debug',
+    'grade','zone'
   ];
 
   const DEFAULT_PLAYER = {
@@ -23,7 +23,8 @@
   const STORAGE_KEYS = {
     profile: 'HHA_PLAYER_PROFILE',
     lastSummary: 'HHA_LAST_SUMMARY',
-    summaryHistory: 'HHA_SUMMARY_HISTORY'
+    summaryHistory: 'HHA_SUMMARY_HISTORY',
+    lastByZone: 'HHA_LAST_BY_ZONE'
   };
 
   const GAMES = {
@@ -121,6 +122,23 @@
     return set.options.find((item) => item.url === set.defaultUrl) || set.options[0] || null;
   }
 
+  function findOptionByUrl(zone, url) {
+    const set = GAMES[zone];
+    if (!set || !url) return null;
+    return set.options.find((item) => item.url === url) || null;
+  }
+
+  function findOptionByName(zone, name) {
+    const set = GAMES[zone];
+    if (!set || !name) return null;
+    const target = String(name).trim().toLowerCase();
+    return set.options.find((item) => {
+      const label = String(item.label || '').toLowerCase();
+      const sub = String(item.sub || '').toLowerCase();
+      return label.includes(target) || target.includes(label) || sub.includes(target);
+    }) || null;
+  }
+
   function getHubCanonical() {
     const url = new URL(location.href);
     url.searchParams.delete('hub');
@@ -182,6 +200,16 @@
     return Array.isArray(raw) ? raw : [];
   }
 
+  function readLastByZone() {
+    return safeParse(localStorage.getItem(STORAGE_KEYS.lastByZone), {});
+  }
+
+  function writeLastByZone(map) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.lastByZone, JSON.stringify(map));
+    } catch {}
+  }
+
   function zoneStatsFromHistory(history) {
     const base = JSON.parse(JSON.stringify(ZONE_DEFAULTS));
 
@@ -200,24 +228,44 @@
     return base;
   }
 
-  function renderPlayer(profile) {
-    const nameEl = $('#playerName');
-    const metaEl = $('#playerMeta');
-    const levelEl = $('#playerLevel');
-    const coinsEl = $('#playerCoins');
-    const heartsEl = $('#playerHearts');
-    const badgeStarsEl = $('#badgeStars');
-    const badgeWinsEl = $('#badgeWins');
-    const badgeStreakEl = $('#badgeStreak');
+  function buildLastByZone(history, lastSummary) {
+    const map = { ...readLastByZone() };
+    const items = [...history];
+    if (lastSummary) items.push(lastSummary);
 
-    if (nameEl) nameEl.textContent = profile.name || DEFAULT_PLAYER.name;
-    if (metaEl) metaEl.textContent = 'ฮีโร่ประจำวัน • พร้อมผจญภัย';
-    if (levelEl) levelEl.textContent = String(profile.level);
-    if (coinsEl) coinsEl.textContent = String(profile.coins);
-    if (heartsEl) heartsEl.textContent = String(profile.hearts);
-    if (badgeStarsEl) badgeStarsEl.textContent = String(profile.stars);
-    if (badgeWinsEl) badgeWinsEl.textContent = String(profile.wins);
-    if (badgeStreakEl) badgeStreakEl.textContent = String(profile.streak);
+    items.forEach((item) => {
+      const zone = item.zone || zoneFromGameId(item.game || item.gameId || item.title || item.url || '');
+      if (!zone) return;
+
+      const matched =
+        findOptionByUrl(zone, item.replayUrl || item.url || '') ||
+        findOptionByName(zone, item.title || item.game || item.gameId || '');
+
+      if (!matched) return;
+
+      map[zone] = {
+        zone,
+        label: matched.label,
+        url: matched.url,
+        score: fmtInt(item.score, 0),
+        stars: clamp(fmtInt(item.stars, 0), 0, 3),
+        time: item.timestampIso || item.time || item.date || ''
+      };
+    });
+
+    writeLastByZone(map);
+    return map;
+  }
+
+  function renderPlayer(profile) {
+    if ($('#playerName')) $('#playerName').textContent = profile.name || DEFAULT_PLAYER.name;
+    if ($('#playerMeta')) $('#playerMeta').textContent = 'ฮีโร่ประจำวัน • พร้อมผจญภัย';
+    if ($('#playerLevel')) $('#playerLevel').textContent = String(profile.level);
+    if ($('#playerCoins')) $('#playerCoins').textContent = String(profile.coins);
+    if ($('#playerHearts')) $('#playerHearts').textContent = String(profile.hearts);
+    if ($('#badgeStars')) $('#badgeStars').textContent = String(profile.stars);
+    if ($('#badgeWins')) $('#badgeWins').textContent = String(profile.wins);
+    if ($('#badgeStreak')) $('#badgeStreak').textContent = String(profile.streak);
   }
 
   function renderZoneStats(stats) {
@@ -295,6 +343,80 @@
     `).join('');
   }
 
+  function renderHeroQuickline(lastByZone) {
+    const el = $('#heroQuickline');
+    if (!el) return;
+
+    const activeZone = qs.get('zone');
+    if (activeZone && lastByZone[activeZone]) {
+      el.textContent = `กลับมาจาก ${lastByZone[activeZone].label} แล้ว ไปต่อเกมอื่นได้เลย!`;
+      return;
+    }
+
+    const completed = Object.values(lastByZone).filter(Boolean).length;
+    el.textContent = completed >= 3
+      ? 'เก่งมาก! เคยเล่นครบทั้ง 3 โซนแล้ว'
+      : 'วันนี้ลองเล่นให้ครบ 3 โซนกันนะ';
+  }
+
+  function renderZoneMeta(lastByZone) {
+    const maps = [
+      ['hygiene', '#hygFeatured', '#btnZoneHygiene', '#hygRecentPill', '#hygRecentText'],
+      ['nutrition', '#nutriFeatured', '#btnZoneNutrition', '#nutriRecentPill', '#nutriRecentText'],
+      ['fitness', '#fitFeatured', '#btnZoneFitness', '#fitRecentPill', '#fitRecentText']
+    ];
+
+    maps.forEach(([zone, featuredSel, btnSel, recentPillSel, recentTextSel]) => {
+      const featuredEl = $(featuredSel);
+      const btnEl = $(btnSel);
+      const recentPillEl = $(recentPillSel);
+      const recentTextEl = $(recentTextSel);
+      const set = GAMES[zone];
+      const def = getDefaultOption(zone);
+      const recent = lastByZone[zone];
+
+      if (featuredEl && def) featuredEl.textContent = def.label;
+      if (btnEl && set) btnEl.textContent = `ดูเกมในโซน (${set.options.length})`;
+
+      if (recentPillEl && recentTextEl) {
+        if (recent) {
+          recentPillEl.hidden = false;
+          recentTextEl.textContent = recent.label;
+        } else {
+          recentPillEl.hidden = true;
+        }
+      }
+    });
+
+    const activeZone = qs.get('zone');
+    document.querySelectorAll('[data-zone-card]').forEach((el) => el.classList.remove('is-active'));
+    if (activeZone) {
+      const card = document.querySelector(`#zoneCard-${activeZone}`);
+      if (card) card.classList.add('is-active');
+    }
+  }
+
+  function renderZonePreviews() {
+    const maps = [
+      ['hygiene', '#hygPreview'],
+      ['nutrition', '#nutriPreview'],
+      ['fitness', '#fitPreview']
+    ];
+
+    maps.forEach(([zone, hostSel]) => {
+      const host = $(hostSel);
+      const set = GAMES[zone];
+      if (!host || !set) return;
+
+      host.innerHTML = set.options.slice(0, 4).map((item) => `
+        <a class="zone-preview-item" href="${escapeHtml(carryQuery(item.url, { zone }))}">
+          <div class="pill">${escapeHtml(item.label)}</div>
+          <div class="zone-preview-label">${escapeHtml(item.sub)}</div>
+        </a>
+      `).join('');
+    });
+  }
+
   function renderLastSummary(lastSummary) {
     const box = $('#summaryBox');
     if (!box) return;
@@ -349,6 +471,39 @@
         </a>
       </div>
     `;
+  }
+
+  function renderLibraryBox(lastByZone) {
+    const box = $('#libraryBox');
+    if (!box) return;
+
+    const cards = Object.entries(GAMES).map(([zone, set]) => {
+      const names = set.options.map((item) => item.label).join(' • ');
+      const def = getDefaultOption(zone);
+      const recent = lastByZone[zone];
+
+      return `
+        <div class="library-card">
+          <div class="library-top">
+            <div class="library-name">${escapeHtml(set.label)}</div>
+            <div class="library-count">${set.options.length} เกม</div>
+          </div>
+
+          <div class="library-games">${escapeHtml(names)}</div>
+
+          <div class="library-actions">
+            <a class="btn secondary small" href="${escapeHtml(carryQuery(def.url, { zone }))}">🎮 เล่นแนะนำ</a>
+            ${
+              recent
+                ? `<a class="btn secondary small" href="${escapeHtml(carryQuery(recent.url, { zone }))}">🕹️ เล่นล่าสุด</a>`
+                : `<div class="library-empty">ยังไม่มีเกมล่าสุด</div>`
+            }
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    box.innerHTML = cards;
   }
 
   function toast(msg) {
@@ -445,20 +600,9 @@
     if (playNut) playNut.href = carryQuery(GAMES.nutrition.defaultUrl, { zone: 'nutrition' });
     if (playFit) playFit.href = carryQuery(GAMES.fitness.defaultUrl, { zone: 'fitness' });
 
-    if (zoneHyg) {
-      zoneHyg.textContent = `ดูเกมในโซน (${GAMES.hygiene.options.length})`;
-      zoneHyg.addEventListener('click', () => openPicker('hygiene'));
-    }
-
-    if (zoneNut) {
-      zoneNut.textContent = `ดูเกมในโซน (${GAMES.nutrition.options.length})`;
-      zoneNut.addEventListener('click', () => openPicker('nutrition'));
-    }
-
-    if (zoneFit) {
-      zoneFit.textContent = `ดูเกมในโซน (${GAMES.fitness.options.length})`;
-      zoneFit.addEventListener('click', () => openPicker('fitness'));
-    }
+    if (zoneHyg) zoneHyg.addEventListener('click', () => openPicker('hygiene'));
+    if (zoneNut) zoneNut.addEventListener('click', () => openPicker('nutrition'));
+    if (zoneFit) zoneFit.addEventListener('click', () => openPicker('fitness'));
   }
 
   function mergeSummaryIntoProfile(profile, lastSummary) {
@@ -488,13 +632,18 @@
     let profile = readProfile();
     const lastSummary = readLastSummary();
     const history = readSummaryHistory();
+    const lastByZone = buildLastByZone(history, lastSummary);
 
     profile = mergeSummaryIntoProfile(profile, lastSummary);
 
     renderPlayer(profile);
     renderZoneStats(zoneStatsFromHistory(history));
     renderMissions(history);
+    renderHeroQuickline(lastByZone);
+    renderZoneMeta(lastByZone);
+    renderZonePreviews();
     renderLastSummary(lastSummary);
+    renderLibraryBox(lastByZone);
     bindZoneLinks();
     bindTopButtons(profile);
     bindPicker();
