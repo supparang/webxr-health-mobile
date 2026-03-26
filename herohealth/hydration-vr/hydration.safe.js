@@ -1,6 +1,6 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // HeroHealth Hydration VR — SOLO-FIRST FULL PATCH
-// PATCH v20260323-HYD-SOLO-CLOSEOUT-HUD-CLOUD-BOSSFIX
+// FULL PATCH v20260326-HYD-HUBV2-BOSS-BALANCE-R1
 
 'use strict';
 
@@ -9,13 +9,12 @@ import {
   HYD_DEFAULT_CAT,
   HYD_STICKER_META,
   isGateDone,
-  setGateDone,
   loadHydShelf,
   hydrationShelfText,
   saveHydrationRewards,
   rewardCardTitle,
   rewardCardMini
-} from './hydration.shared.js?v=20260323-HYD-SHARED-COMPAT';
+} from './hydration.shared.js?v=20260315';
 
 export async function boot(cfg = {}){
   const WIN = window;
@@ -89,11 +88,11 @@ export async function boot(cfg = {}){
     }
   }
 
-  function timeText(sec){
-    const s = Math.max(0, Math.ceil(Number(sec || 0)));
-    const mm = Math.floor(s / 60);
-    const ss = s % 60;
-    return `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+  function fmtClock(sec){
+    sec = Math.max(0, Number(sec) || 0);
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   }
 
   // ------------------------------------------------------------
@@ -110,6 +109,10 @@ export async function boot(cfg = {}){
   const seedStr = String(qs('seed', String(Date.now())));
   const cooldownRequired = String(qs('cooldown', '1')) !== '0';
   const plannedSec = clamp(Number(qs('time', diff === 'hard' ? 90 : 80)), 30, 300);
+
+  const debugFlag = ['1','true','yes','on'].includes(String(qs('debug','0')).toLowerCase());
+  const isResearchMode = runMode === 'research';
+  const showResearchTools = isResearchMode || debugFlag;
 
   // ------------------------------------------------------------
   // ui refs
@@ -239,17 +242,17 @@ export async function boot(cfg = {}){
     ttlGood: diff === 'hard' ? 1.55 : 1.8,
     ttlBad: diff === 'hard' ? 1.7 : 1.9,
 
-    stormSpawnMul: 1.12,
+    stormSpawnMul: 1.08,
     boss1SpawnMul: 1.10,
-    boss2SpawnMul: 1.14,
-    boss3SpawnMul: 1.18,
-    finalSpawnMul: 1.20,
+    boss2SpawnMul: 1.12,
+    boss3SpawnMul: 1.15,
+    finalSpawnMul: 1.16,
 
-    stormBadP: 0.34,
-    boss1BadP: 0.36,
-    boss2BadP: 0.40,
-    boss3BadP: 0.44,
-    finalBadP: 0.48,
+    stormBadP: 0.30,
+    boss1BadP: 0.32,
+    boss2BadP: 0.35,
+    boss3BadP: 0.38,
+    finalBadP: 0.40,
 
     missLimit: diff === 'hard' ? 16 : 18,
 
@@ -283,12 +286,15 @@ export async function boot(cfg = {}){
 
   let phase = 'normal'; // normal | storm | boss | final
   let bossLevel = 0;
-  let needZone = 'L';
+  let needZone = '';
   let phaseTimer = 0;
   let bossHits = 0;
   let finalHits = 0;
-  const bossGoal = 10;
-  const finalGoal = 12;
+  let bossGoal = 6;
+  let finalGoal = 8;
+
+  let lightningCd = 0;
+  let bossGrace = 0;
 
   let spawnAcc = 0;
   let nextStormAt = 22;
@@ -306,6 +312,8 @@ export async function boot(cfg = {}){
   let lastCalloutAt = 0;
   let bonusChain = 0;
   let bonusChainTimer = 0;
+
+  let sfxEnabled = true;
 
   const bubbles = new Map();
   let bubbleSeq = 0;
@@ -336,7 +344,6 @@ export async function boot(cfg = {}){
   const SFX = (() => {
     let ctx = null;
     let unlocked = false;
-    let enabled = true;
 
     function ensure(){
       if(!ctx){
@@ -346,14 +353,8 @@ export async function boot(cfg = {}){
       return ctx;
     }
 
-    function refreshBtn(){
-      if(ui.btnSfx){
-        ui.btnSfx.textContent = enabled ? '🔊 เสียง' : '🔇 ปิดเสียง';
-      }
-    }
-
     function beep(freq=440, dur=0.07, type='sine', gain=0.03){
-      if(!enabled) return;
+      if(!sfxEnabled) return;
       const c = ensure();
       if(!c || !unlocked) return;
       const o = c.createOscillator();
@@ -368,8 +369,6 @@ export async function boot(cfg = {}){
       o.stop(t + dur);
     }
 
-    refreshBtn();
-
     return {
       unlock(){
         try{
@@ -378,30 +377,17 @@ export async function boot(cfg = {}){
           unlocked = true;
         }catch(e){}
       },
-      toggle(){
-        enabled = !enabled;
-        refreshBtn();
-        return enabled;
-      },
-      isOn(){
-        return enabled;
-      },
       good(){ beep(740, 0.05, 'sine', 0.025); },
       bad(){ beep(180, 0.08, 'square', 0.03); },
       shield(){ beep(980, 0.08, 'triangle', 0.03); },
       phase(){ beep(520, 0.14, 'sawtooth', 0.02); },
-      setPhaseVolume(){ /* no-op solo */ }
+      setPhaseVolume(){ /* no-op */ }
     };
   })();
 
   // ------------------------------------------------------------
   // misc
   // ------------------------------------------------------------
-  function hhDayKey(){
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  }
-
   function currentPhaseKey(){
     if(phase === 'storm') return 'storm';
     if(phase === 'boss') return `boss${bossLevel}`;
@@ -517,52 +503,6 @@ export async function boot(cfg = {}){
     if(featureRows.length > 500) featureRows.shift();
   }
 
-  function bumpPhaseProgress(amount = 1){
-    if(phase === 'boss'){
-      bossHits = Math.min(bossGoal, bossHits + amount);
-    }else if(phase === 'final'){
-      finalHits = Math.min(finalGoal, finalHits + amount);
-    }
-  }
-
-  async function sendCloudNow(){
-    const payload = {
-      sentAt: nowIso(),
-      game: gameKey,
-      pid,
-      diff,
-      runMode,
-      view,
-      zoneKey,
-      catKey,
-      seed: seedStr,
-      summary: buildSummary(endShown ? 'manual-send-after-end' : 'manual-send'),
-      eventLog,
-      riskTimeline,
-      featureRows,
-      labelRows
-    };
-
-    try{
-      if(WIN.HHACloudLogger && typeof WIN.HHACloudLogger.log === 'function'){
-        WIN.HHACloudLogger.log({
-          timestampIso: nowIso(),
-          eventType: 'hydration_manual_export',
-          gameMode: gameKey,
-          pid,
-          payload
-        });
-        showCallout('ส่งข้อมูลไป Cloud แล้ว ☁️', 'good');
-      }else{
-        await copyText(safeJson(payload), 'Copy Cloud payload');
-        showCallout('ยังไม่มี Cloud logger — คัดลอก payload ให้แล้ว 📋', 'warn');
-      }
-    }catch(e){
-      console.warn('[hydration] sendCloud failed', e);
-      showCallout('ส่ง Cloud ไม่สำเร็จ ลองใหม่อีกครั้ง', 'warn');
-    }
-  }
-
   // ------------------------------------------------------------
   // mobile compact helpers
   // ------------------------------------------------------------
@@ -580,7 +520,7 @@ export async function boot(cfg = {}){
     });
 
     if(summary?.reason === 'final-clear' || summary?.grade === 'S' || summary?.grade === 'A'){
-      const rewardCard = DOC.querySelector('.rewardCard.end-mobile-optional');
+      const rewardCard = DOC.querySelector('.rewardCard.end-mobile-optional, .reward-card.end-mobile-optional');
       if(rewardCard) rewardCard.style.display = '';
     }
   }
@@ -592,45 +532,74 @@ export async function boot(cfg = {}){
     });
   }
 
+  function applyEndModeVisibility(summary){
+    const optionalBlocks = DOC.querySelectorAll('.end-mobile-optional');
+    const researchButtons = [
+      ui.btnCopy,
+      ui.btnCopyEvents,
+      ui.btnCopyTimeline,
+      ui.btnCopyFeatures,
+      ui.btnCopyLabels,
+      ui.btnCopyFeaturesCsv,
+      ui.btnCopyLabelsCsv,
+      ui.btnSendCloud
+    ].filter(Boolean);
+
+    const toolsWrap = DOC.querySelector('.copyTools');
+
+    if(showResearchTools){
+      optionalBlocks.forEach(el => {
+        if(el.style.display === 'none') return;
+        el.style.display = '';
+      });
+
+      if(toolsWrap){
+        toolsWrap.style.display = 'flex';
+      }
+
+      researchButtons.forEach(el => {
+        el.style.display = '';
+      });
+
+      return;
+    }
+
+    if(toolsWrap){
+      toolsWrap.style.display = 'none';
+    }
+
+    researchButtons.forEach(el => {
+      el.style.display = 'none';
+    });
+  }
+
   // ------------------------------------------------------------
   // phase / coach text
   // ------------------------------------------------------------
-  function childZoneLabel(){
-    return needZone === 'L' ? 'ฝั่งซ้าย' : 'ฝั่งขวา';
-  }
-
   function childCoachHint(){
     if(isMobileCompact()){
-      if(phase === 'storm') return `ไป${childZoneLabel()} + หาโล่`;
-      if(phase === 'boss') return `บอส ${bossLevel} ไป${childZoneLabel()}`;
-      if(phase === 'final') return `ด่านสุดท้าย ไป${childZoneLabel()}`;
+      if(phase === 'storm') return 'พายุมาแล้ว หาโล่ก่อน';
+      if(phase === 'boss') return `บอส ${bossLevel} เก็บน้ำใกล้มือ`;
+      if(phase === 'final') return `ด่านสุดท้าย ${finalHits}/${finalGoal}`;
       if(feverOn) return 'ไฟลุก รีบเก็บน้ำ';
       if(waterPct < 25) return 'น้ำต่ำ รีบเก็บน้ำ';
-      if(shield <= 0) return 'หาโล่ไว้กันฟ้าผ่า';
+      if(shield <= 0) return 'หาโล่ไว้กันสายฟ้า';
       return 'แตะน้ำดี เลี่ยงของไม่ดี';
     }
 
     if(phase === 'storm'){
-      if(shield <= 0) return `พายุกำลังมา! ไป${childZoneLabel()} แล้วหาโล่ 🛡️`;
-      return `พายุแรงแล้ว อยู่${childZoneLabel()} ให้ถูก 🌧️`;
+      if(shield <= 0) return 'พายุมาแล้ว! หาโล่ก่อน แล้วค่อยเก็บน้ำ 🌧️';
+      return 'มีโล่แล้ว เก็บน้ำดีใกล้มือได้เลย 🌧️';
     }
 
     if(phase === 'boss'){
-      if(bossLevel === 1){
-        if(shield <= 0) return `บอสสายฟ้ามาแล้ว! หาโล่เร็ว 🛡️`;
-        return `บอส 1 มาแล้ว ไป${childZoneLabel()} ⚡`;
-      }
-      if(bossLevel === 2){
-        if(shield <= 0) return `บอสแรงขึ้นแล้ว! อย่าลืมเก็บโล่ ⚡`;
-        return `บอส 2 โจมตีไว ไป${childZoneLabel()} 🌪️`;
-      }
-      if(shield <= 0) return `บอส 3 มาแล้ว! ตั้งสติแล้วหาโล่ 👀`;
-      return `บอส 3 ดุสุดแล้ว ไป${childZoneLabel()} 🔥`;
+      if(shield <= 0) return `บอส ${bossLevel} มาแล้ว! หาโล่ก่อน แล้วแตะน้ำดีใกล้มือ ⚡`;
+      return `บอส ${bossLevel} อยู่ตรงนี้แล้ว เก็บน้ำดีให้ครบเป้าหมาย ⚡`;
     }
 
     if(phase === 'final'){
-      if(shield <= 0) return `ด่านสุดท้ายแล้ว! โล่สำคัญมาก 👑`;
-      return `อีกนิดเดียว! ไป${childZoneLabel()} แล้วเก็บน้ำให้ไว 💧`;
+      if(shield <= 0) return 'ด่านสุดท้ายแล้ว! หาโล่ก่อนแล้วเก็บน้ำต่อ 👑';
+      return `ด่านสุดท้ายแล้ว อีก ${Math.max(0, finalGoal - finalHits)} ครั้งจะชนะ 👑`;
     }
 
     if(feverOn) return 'ไฟลุกแล้ว! กวาดน้ำให้เร็ว 🔥';
@@ -768,13 +737,13 @@ export async function boot(cfg = {}){
     banner.style.padding = '14px 18px';
     banner.style.borderRadius = '22px';
     banner.style.border = '1px solid rgba(255,255,255,.18)';
-    banner.style.background = 'rgba(2,6,23,.86)';
+    banner.style.background = 'rgba(255,255,255,.92)';
     banner.style.backdropFilter = 'blur(10px)';
-    banner.style.boxShadow = '0 20px 60px rgba(0,0,0,.35)';
+    banner.style.boxShadow = '0 20px 60px rgba(0,0,0,.18)';
     banner.style.textAlign = 'center';
     banner.style.fontSize = 'clamp(22px, 5vw, 34px)';
     banner.style.fontWeight = '1100';
-    banner.style.color = '#fff';
+    banner.style.color = '#315873';
     banner.style.opacity = '0';
     banner.style.transition = 'transform .18s ease, opacity .18s ease';
     banner.textContent = text;
@@ -815,37 +784,37 @@ export async function boot(cfg = {}){
     if(!ui.bossFace) return;
 
     if(mode === 'hide'){
-      ui.bossFace.className = 'bossFace';
+      ui.bossFace.className = 'boss-face boss-face-v2';
       ui.bossFace.textContent = '⚡';
       return;
     }
 
     if(mode === 'storm'){
-      ui.bossFace.className = 'bossFace show b1';
-      ui.bossFace.textContent = '🌧️';
+      ui.bossFace.className = 'boss-face boss-face-v2 show b1';
+      ui.bossFace.textContent = '⚡';
       return;
     }
 
     if(mode === 'boss1'){
-      ui.bossFace.className = 'bossFace show b1';
+      ui.bossFace.className = 'boss-face boss-face-v2 show b1';
       ui.bossFace.textContent = '⚡';
       return;
     }
 
     if(mode === 'boss2'){
-      ui.bossFace.className = 'bossFace show b2';
+      ui.bossFace.className = 'boss-face boss-face-v2 show b2';
       ui.bossFace.textContent = '🌪️';
       return;
     }
 
     if(mode === 'boss3'){
-      ui.bossFace.className = 'bossFace show b3';
+      ui.bossFace.className = 'boss-face boss-face-v2 show b3';
       ui.bossFace.textContent = '🔥';
       return;
     }
 
     if(mode === 'final'){
-      ui.bossFace.className = 'bossFace show final';
+      ui.bossFace.className = 'boss-face boss-face-v2 show final';
       ui.bossFace.textContent = '👑';
     }
   }
@@ -970,15 +939,15 @@ export async function boot(cfg = {}){
     if(p < 0.20) return 0.88;
     if(p < 0.55) return 1.00;
     if(p < 0.80) return 1.10;
-    return 1.22;
+    return 1.18;
   }
 
   function pacingBadBoost(){
     const p = runProgress01();
     if(p < 0.20) return -0.03;
     if(p < 0.55) return 0.00;
-    if(p < 0.80) return 0.03;
-    return 0.06;
+    if(p < 0.80) return 0.02;
+    return 0.04;
   }
 
   let adaptiveTier = 0;
@@ -1001,20 +970,20 @@ export async function boot(cfg = {}){
 
   function adaptiveSpawnFactor(){
     if(adaptiveTier < 0) return 0.90;
-    if(adaptiveTier > 0) return 1.08;
+    if(adaptiveTier > 0) return 1.06;
     return 1.00;
   }
 
   function adaptiveBadFactor(){
     if(adaptiveTier < 0) return -0.04;
-    if(adaptiveTier > 0) return 0.03;
+    if(adaptiveTier > 0) return 0.02;
     return 0.00;
   }
 
   function safeSpawnXY(){
     const rect = stageEl.getBoundingClientRect();
     const gap = (view === 'mobile') ? 8 : 12;
-    const topPad = isMobileCompact() ? 210 : 280;
+    const topPad = isMobileCompact() ? 170 : 210;
     const bottomPad = (view === 'mobile') ? 108 : 90;
 
     const x = lerp(gap, rect.width - gap, r01());
@@ -1100,6 +1069,13 @@ export async function boot(cfg = {}){
       waterPct = clamp(waterPct + 10, 0, 100);
       shield = clamp(shield + 1, 0, 9);
 
+      if(phase === 'boss'){
+        bossHits = Math.min(bossGoal, bossHits + 2);
+      }
+      if(phase === 'final'){
+        finalHits = Math.min(finalGoal, finalHits + 2);
+      }
+
       bonusChain += 1;
       bonusChainTimer = 3.2;
 
@@ -1113,8 +1089,6 @@ export async function boot(cfg = {}){
         spawnSticker('🌟 CHAIN');
       }
 
-      bumpPhaseProgress(1);
-
       SFX.shield();
       fxBubblePop(b.el, 'good');
       fxRing(bx, by);
@@ -1122,7 +1096,7 @@ export async function boot(cfg = {}){
       fxMission('โบนัสพิเศษ! +น้ำ +โล่');
       showCallout('เจอโบนัสพิเศษแล้ว 🎁', 'good');
       spawnSticker('🎁 BONUS');
-      logEvent('bonus_hit', { scoreAdd:add, combo, waterPct, shield });
+      logEvent('bonus_hit', { scoreAdd:add, combo, waterPct, shield, bossHits, finalHits });
 
       setTimeout(()=> removeBubble(b.id), 50);
       maybeCompleteMissions();
@@ -1139,7 +1113,12 @@ export async function boot(cfg = {}){
       score += add;
       waterPct = clamp(waterPct + 4.5, 0, 100);
 
-      bumpPhaseProgress(1);
+      if(phase === 'boss'){
+        bossHits = Math.min(bossGoal, bossHits + 1);
+      }
+      if(phase === 'final'){
+        finalHits = Math.min(finalGoal, finalHits + 1);
+      }
 
       SFX.good();
       fxBubblePop(b.el, 'good');
@@ -1149,7 +1128,7 @@ export async function boot(cfg = {}){
 
       const ps = phaseStats[currentPhaseKey()] || phaseStats.normal;
       ps.goodHit += 1;
-      logEvent('good_hit', { scoreAdd:add, combo });
+      logEvent('good_hit', { scoreAdd:add, combo, bossHits, finalHits });
 
       if(combo === 3) showCallout('ดีมาก เก็บน้ำต่อได้เลย', 'good');
       if(combo === 7) showCallout('คอมโบสวยมาก ✨', 'good');
@@ -1263,46 +1242,58 @@ export async function boot(cfg = {}){
   function startStorm(){
     phase = 'storm';
     phaseTimer = 7.5;
-    needZone = r01() < 0.5 ? 'L' : 'R';
+    needZone = '';
+    lightningCd = 2.2;
+    bossGrace = 0.8;
+
     setStagePhase('storm');
     fxPhaseBanner('🌧️ พายุมาแล้ว');
     setBossFace('storm');
-    showCallout('พายุกำลังมา อยู่ฝั่งที่ปลอดภัยนะ', 'warn');
+    showCallout('พายุมาแล้ว หาโล่ก่อน แล้วค่อยเก็บน้ำ', 'warn');
     SFX.phase();
   }
 
   function startBoss(level){
     phase = 'boss';
     bossLevel = level;
-    phaseTimer = 8.5;
-    needZone = r01() < 0.5 ? 'L' : 'R';
     bossHits = 0;
+
+    bossGoal = (level === 1) ? 6 : (level === 2) ? 7 : 8;
+    phaseTimer = (level === 1) ? 11 : (level === 2) ? 12 : 13;
+    needZone = '';
+
+    lightningCd = (level === 1) ? 1.9 : (level === 2) ? 1.6 : 1.35;
+    bossGrace = 1.0;
+
     setStagePhase('boss');
     fxPhaseBanner(`⚡ บอส ${bossLevel} มาแล้ว`);
 
     if(level === 1){
       setBossFace('boss1');
-      showCallout('บอสสายฟ้ามาแล้ว ⚡', 'boss');
     }else if(level === 2){
       setBossFace('boss2');
-      showCallout('บอสพายุมาแล้ว 🌪️', 'boss');
     }else{
       setBossFace('boss3');
-      showCallout('บอสไฟมาแล้ว 🔥', 'boss');
     }
 
+    showCallout(`บอส ${bossLevel} มาแล้ว เก็บโล่ก่อน แล้วแตะน้ำดีใกล้มือ`, 'boss');
     SFX.phase();
   }
 
   function startFinal(){
     phase = 'final';
-    phaseTimer = 12;
-    needZone = r01() < 0.5 ? 'L' : 'R';
     finalHits = 0;
+    finalGoal = 8;
+    phaseTimer = 13.5;
+    needZone = '';
+
+    lightningCd = 1.35;
+    bossGrace = 1.1;
+
     setStagePhase('final');
     fxPhaseBanner('👑 ด่านสุดท้าย');
     setBossFace('final');
-    showCallout('ด่านสุดท้ายแล้ว สู้ต่ออีกนิด', 'boss');
+    showCallout('ด่านสุดท้ายแล้ว เก็บโล่ก่อน แล้วกวาดน้ำดีให้ครบ', 'boss');
     SFX.phase();
   }
 
@@ -1310,13 +1301,13 @@ export async function boot(cfg = {}){
     safeText(ui.aiRisk, risk.toFixed(2));
     if(ui.riskFill) ui.riskFill.style.width = `${Math.round(clamp(risk, 0, 1) * 100)}%`;
     safeText(ui.aiHint, hint);
+    safeText(ui.coachExplain, hint);
   }
 
   function refreshDebug(dt=0){
-    const debugOn = ['1','true','yes','on'].includes(String(qs('debug','0')).toLowerCase());
     if(!ui.debugMini) return;
-    safeToggle(ui.debugMini, 'is-hidden', !debugOn);
-    if(!debugOn) return;
+    safeToggle(ui.debugMini, 'is-hidden', !debugFlag);
+    if(!debugFlag) return;
 
     fpsTimer += dt;
     fpsFrames += 1;
@@ -1336,7 +1327,7 @@ export async function boot(cfg = {}){
 
   function setHUD(){
     safeText(ui.score, score|0);
-    safeText(ui.time, timeText(tLeft));
+    safeText(ui.time, fmtClock(tLeft));
     safeText(ui.miss, missBadHit|0);
     safeText(ui.expire, missGoodExpired|0);
     safeText(ui.block, blockCount|0);
@@ -1349,11 +1340,11 @@ export async function boot(cfg = {}){
 
     if(ui.phase){
       if(phase === 'storm'){
-        ui.phase.textContent = `🌧️ พายุ • ไป${childZoneLabel()}`;
+        ui.phase.textContent = '🌧️ พายุ • หาโล่ก่อน';
       }else if(phase === 'boss'){
-        ui.phase.textContent = `⚡ บอส ${bossLevel} • ไป${childZoneLabel()} • ${bossHits}/${bossGoal}`;
+        ui.phase.textContent = `⚡ บอส ${bossLevel} • ${bossHits}/${bossGoal}`;
       }else if(phase === 'final'){
-        ui.phase.textContent = `👑 ด่านสุดท้าย • ไป${childZoneLabel()} • ${finalHits}/${finalGoal}`;
+        ui.phase.textContent = `👑 ด่านสุดท้าย • ${finalHits}/${finalGoal}`;
       }else if(feverOn){
         ui.phase.textContent = '🔥 ไฟลุก • รีบเก็บน้ำ';
       }else{
@@ -1363,11 +1354,11 @@ export async function boot(cfg = {}){
 
     if(zoneSign){
       if(phase === 'storm'){
-        zoneSign.textContent = `🌧️ ตอนนี้ปลอดภัยที่ ${childZoneLabel()}`;
+        zoneSign.textContent = '🌧️ พายุมาแล้ว หาโล่แล้วค่อยเก็บน้ำ';
       }else if(phase === 'boss'){
-        zoneSign.textContent = `⚡ บอส ${bossLevel} มาแล้ว ไป${childZoneLabel()}`;
+        zoneSign.textContent = `⚡ บอส ${bossLevel} มาแล้ว • แตะน้ำดีใกล้มือ`;
       }else if(phase === 'final'){
-        zoneSign.textContent = `👑 ด่านสุดท้าย ไป${childZoneLabel()}`;
+        zoneSign.textContent = `👑 ด่านสุดท้าย • อีกนิดเดียว ${finalHits}/${finalGoal}`;
       }else if(feverOn){
         zoneSign.textContent = '🔥 ไฟลุกแล้ว รีบเก็บน้ำ';
       }else{
@@ -1378,10 +1369,6 @@ export async function boot(cfg = {}){
     const risk = buildRisk();
     const hint = childCoachHint();
     setAIHud(risk, hint);
-
-    if(ui.coachExplain){
-      ui.coachExplain.textContent = hint;
-    }
 
     refreshMissionBar();
     compactHudForMobileDuringPlay();
@@ -1455,8 +1442,15 @@ export async function boot(cfg = {}){
     }
 
     phaseTimer -= dt;
+    lightningCd -= dt;
+    bossGrace = Math.max(0, bossGrace - dt);
+
     if(phase === 'storm'){
-      if(Math.random() < 0.025) applyLightningStrike(1);
+      if(bossGrace <= 0 && lightningCd <= 0){
+        applyLightningStrike(0.75);
+        lightningCd = 2.1 + r01() * 0.7;
+      }
+
       if(phaseTimer <= 0){
         phase = 'normal';
         setStagePhase('normal');
@@ -1466,7 +1460,12 @@ export async function boot(cfg = {}){
     }
 
     if(phase === 'boss'){
-      if(Math.random() < 0.02) applyLightningStrike(1.1);
+      if(bossGrace <= 0 && lightningCd <= 0){
+        const rate = (bossLevel === 1) ? 0.85 : (bossLevel === 2) ? 0.95 : 1.05;
+        applyLightningStrike(rate);
+        lightningCd = ((bossLevel === 1) ? 1.9 : (bossLevel === 2) ? 1.55 : 1.3) + r01() * 0.35;
+      }
+
       if(phaseTimer <= 0 || bossHits >= bossGoal){
         if(bossLevel < 3){
           startBoss(bossLevel + 1);
@@ -1480,7 +1479,11 @@ export async function boot(cfg = {}){
     }
 
     if(phase === 'final'){
-      if(Math.random() < 0.03) applyLightningStrike(1.2);
+      if(bossGrace <= 0 && lightningCd <= 0){
+        applyLightningStrike(1.0);
+        lightningCd = 1.35 + r01() * 0.35;
+      }
+
       if(finalHits >= finalGoal){
         showEnd('final-clear');
       }else if(phaseTimer <= 0){
@@ -1520,6 +1523,20 @@ export async function boot(cfg = {}){
       const showCooldown = cooldownRequired && !isGateDone('cooldown', catKey, gameKey, pid);
       ui.btnNextCooldown.classList.toggle('is-hidden', !showCooldown);
 
+      if(ui.btnReplay) ui.btnReplay.classList.remove('primary');
+      if(ui.btnReplay) ui.btnReplay.classList.add('warn');
+
+      if(ui.btnNextCooldown && ui.btnNextCooldown.classList.contains('is-hidden')){
+        ui.btnReplay?.classList?.remove('warn');
+        ui.btnReplay?.classList?.add('primary');
+      }
+
+      if(!showResearchTools){
+        if(ui.btnNextCooldown) ui.btnNextCooldown.textContent = '🌈 ไปคูลดาวน์';
+        if(ui.btnReplay) ui.btnReplay.textContent = '🔁 Replay';
+        if(ui.btnBackHub) ui.btnBackHub.textContent = '🏠 Back to Hub';
+      }
+
       ui.btnNextCooldown.onclick = ()=>{
         if(ui.btnNextCooldown.disabled) return;
         ui.btnNextCooldown.disabled = true;
@@ -1531,8 +1548,6 @@ export async function boot(cfg = {}){
         bootDestroyed = true;
 
         try{
-          setGateDone('warmup', catKey, gameKey, pid, hhDayKey());
-
           const u = new URL('../warmup-gate.html', location.href);
           u.searchParams.set('gatePhase', 'cooldown');
           u.searchParams.set('zone', zoneKey);
@@ -1559,14 +1574,6 @@ export async function boot(cfg = {}){
     }
 
     if(ui.btnReplay){
-      ui.btnReplay.classList.remove('primary');
-      ui.btnReplay.classList.add('warn');
-
-      if(ui.btnNextCooldown && ui.btnNextCooldown.classList.contains('is-hidden')){
-        ui.btnReplay.classList.remove('warn');
-        ui.btnReplay.classList.add('primary');
-      }
-
       ui.btnReplay.onclick = ()=>{
         resetEndSectionVisibility();
         clearTransientVisuals();
@@ -1597,8 +1604,6 @@ export async function boot(cfg = {}){
 
     playing = false;
     paused = false;
-
-    setHUD();
 
     const shelfBefore = safeRun(()=> loadHydShelf(pid), {
       bestScore:0, bestGrade:'—', finalClearCount:0, totalRuns:0, stickers:{}, lastReward:null
@@ -1633,7 +1638,7 @@ export async function boot(cfg = {}){
       ui.end.scrollTop = 0;
     }catch(e){}
 
-    safeText(ui.endTitle, (reason === 'final-clear') ? 'ผ่านด่านสุดท้ายแล้ว!' : 'เล่นจบรอบแล้ว');
+    safeText(ui.endTitle, (reason === 'final-clear') ? 'Great Job!' : 'เล่นจบรอบแล้ว');
     safeText(ui.endSub, `มุมมอง ${view} • ระดับ ${diff}`);
     safeText(ui.endGrade, summary.grade || '—');
     safeText(ui.endScore, String(summary.scoreFinal|0));
@@ -1649,9 +1654,10 @@ export async function boot(cfg = {}){
     renderStickerCollection(shelf);
 
     hideMobileOptionalEndSections(summary);
+    applyEndModeVisibility(summary);
 
     if(ui.endCollection){
-      const wrap = ui.endCollection.closest('.endBox');
+      const wrap = ui.endCollection.closest('.endBox, .end-box');
       if(wrap){
         wrap.classList.remove('collectionGlow');
         wrap.classList.add('collectionGlow');
@@ -1841,17 +1847,18 @@ export async function boot(cfg = {}){
   // ------------------------------------------------------------
   // ui actions
   // ------------------------------------------------------------
-  if(ui.btnSfx){
-    ui.btnSfx.onclick = ()=>{
-      const on = SFX.toggle();
-      showCallout(on ? 'เปิดเสียงแล้ว 🔊' : 'ปิดเสียงแล้ว 🔇', on ? 'good' : 'warn');
-    };
-  }
-
   if(ui.btnHelp) ui.btnHelp.onclick = showHelp;
   if(ui.btnHelpStart) ui.btnHelpStart.onclick = hideHelp;
   if(ui.btnPause) ui.btnPause.onclick = ()=> paused ? hidePause() : showPause();
   if(ui.btnResume) ui.btnResume.onclick = hidePause;
+
+  if(ui.btnSfx){
+    ui.btnSfx.onclick = ()=>{
+      sfxEnabled = !sfxEnabled;
+      ui.btnSfx.textContent = sfxEnabled ? '🔊 เสียง' : '🔇 ปิดเสียง';
+    };
+    ui.btnSfx.textContent = '🔊 เสียง';
+  }
 
   if(ui.btnCopy) ui.btnCopy.onclick = async ()=> copyText(safeJson(buildSummary('manual-copy')), 'Copy Summary JSON');
   if(ui.btnCopyEvents) ui.btnCopyEvents.onclick = async ()=> copyText(safeJson(eventLog), 'Copy Events JSON');
@@ -1860,12 +1867,7 @@ export async function boot(cfg = {}){
   if(ui.btnCopyLabels) ui.btnCopyLabels.onclick = async ()=> copyText(safeJson({ labelRows }), 'Copy Labels JSON');
   if(ui.btnCopyFeaturesCsv) ui.btnCopyFeaturesCsv.onclick = async ()=> copyText(featureRows.map(r=> Object.values(r).join(',')).join('\n'), 'Copy Features CSV');
   if(ui.btnCopyLabelsCsv) ui.btnCopyLabelsCsv.onclick = async ()=> copyText(labelRows.map(r=> Object.values(r).join(',')).join('\n'), 'Copy Labels CSV');
-
-  if(ui.btnSendCloud){
-    ui.btnSendCloud.onclick = ()=>{
-      sendCloudNow();
-    };
-  }
+  if(ui.btnSendCloud) ui.btnSendCloud.onclick = ()=> console.log('[hydration] send cloud placeholder');
 
   // ------------------------------------------------------------
   // boot visual state
@@ -1875,8 +1877,9 @@ export async function boot(cfg = {}){
   if(ui.end) ui.end.setAttribute('aria-hidden','true');
   if(ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden','true');
 
+  applyEndModeVisibility(null);
   SFX.setPhaseVolume('normal');
-  showHelp();
   setHUD();
+  showHelp();
   scheduleLoop();
 }
