@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./hub-v2.css" />
+  <link rel="stylesheet" href="./hub-v2.css?v=20260326-3" />
 </head>
 <body>
   <div class="bg-clouds" aria-hidden="true">
@@ -39,6 +39,7 @@
           <p>
             เลือกดินแดนที่อยากไป แล้วเก็บดาว เหรียญ และพลังสุขภาพกันเลย
           </p>
+          <div id="heroQuickline" class="hero-quickline">วันนี้ลองเล่นให้ครบ 3 โซนกันนะ</div>
         </div>
         <div class="hero-kid" aria-hidden="true"></div>
       </div>
@@ -75,7 +76,7 @@
 
     <section class="content">
       <div class="zones">
-        <article class="zone-card hygiene">
+        <article id="zoneCard-hygiene" class="zone-card hygiene" data-zone-card="hygiene">
           <div class="zone-left">
             <div class="zone-top">
               <div class="zone-emoji" aria-hidden="true">🫧</div>
@@ -90,6 +91,8 @@
               <div class="pill">🏅 Level <b id="hygLevel">5</b></div>
               <div class="pill">🎯 เป้าหมายวันนี้: เล่น 1 เกม</div>
               <div class="pill">⭐ ดาวโซน <b id="hygStars">4/5</b></div>
+              <div class="pill featured-pill">🎮 แนะนำ: <b id="hygFeatured">Germ Detective</b></div>
+              <div class="pill recent-pill" id="hygRecentPill" hidden>🕹️ ล่าสุด: <b id="hygRecentText">-</b></div>
             </div>
 
             <div class="zone-progress">
@@ -99,6 +102,8 @@
               </div>
               <div class="bar"><div id="hygFill" class="fill" style="width:80%"></div></div>
             </div>
+
+            <div id="hygPreview" class="zone-preview"></div>
           </div>
 
           <div class="zone-right">
@@ -110,7 +115,7 @@
           </div>
         </article>
 
-        <article class="zone-card nutrition">
+        <article id="zoneCard-nutrition" class="zone-card nutrition" data-zone-card="nutrition">
           <div class="zone-left">
             <div class="zone-top">
               <div class="zone-emoji" aria-hidden="true">🥗</div>
@@ -125,6 +130,8 @@
               <div class="pill">🏅 Level <b id="nutriLevel">4</b></div>
               <div class="pill">🎯 เป้าหมายวันนี้: เก็บ 3 ดาว</div>
               <div class="pill">⭐ ดาวโซน <b id="nutriStars">3/5</b></div>
+              <div class="pill featured-pill">🎮 แนะนำ: <b id="nutriFeatured">Plate</b></div>
+              <div class="pill recent-pill" id="nutriRecentPill" hidden>🕹️ ล่าสุด: <b id="nutriRecentText">-</b></div>
             </div>
 
             <div class="zone-progress">
@@ -134,6 +141,8 @@
               </div>
               <div class="bar"><div id="nutriFill" class="fill" style="width:60%"></div></div>
             </div>
+
+            <div id="nutriPreview" class="zone-preview"></div>
           </div>
 
           <div class="zone-right">
@@ -145,7 +154,7 @@
           </div>
         </article>
 
-        <article class="zone-card fitness">
+        <article id="zoneCard-fitness" class="zone-card fitness" data-zone-card="fitness">
           <div class="zone-left">
             <div class="zone-top">
               <div class="zone-emoji" aria-hidden="true">🏃</div>
@@ -160,6 +169,8 @@
               <div class="pill">🏅 Level <b id="fitLevel">3</b></div>
               <div class="pill">🎯 เป้าหมายวันนี้: เล่นต่อเนื่อง 2 รอบ</div>
               <div class="pill">⭐ ดาวโซน <b id="fitStars">2/5</b></div>
+              <div class="pill featured-pill">🎮 แนะนำ: <b id="fitFeatured">Shadow Breaker</b></div>
+              <div class="pill recent-pill" id="fitRecentPill" hidden>🕹️ ล่าสุด: <b id="fitRecentText">-</b></div>
             </div>
 
             <div class="zone-progress">
@@ -169,6 +180,8 @@
               </div>
               <div class="bar"><div id="fitFill" class="fill" style="width:40%"></div></div>
             </div>
+
+            <div id="fitPreview" class="zone-preview"></div>
           </div>
 
           <div class="zone-right">
@@ -190,6 +203,12 @@
         <section class="panel section">
           <h3 class="section-title">🎁 ผจญภัยล่าสุด</h3>
           <div id="summaryBox" class="summary-box"></div>
+        </section>
+
+        <section class="panel section">
+          <h3 class="section-title">🗺️ คลังเกมฮีโร่</h3>
+          <p class="section-note">กดเล่นเกมแนะนำ หรือเล่นซ้ำเกมล่าสุดของแต่ละโซนได้เลย</p>
+          <div id="libraryBox" class="library-box"></div>
         </section>
       </aside>
     </section>
@@ -213,6 +232,6 @@
     </div>
   </div>
 
-  <script src="./hub-v2.js"></script>
+  <script src="./hub-v2.js?v=20260326-3"></script>
 </body>
 </html>
