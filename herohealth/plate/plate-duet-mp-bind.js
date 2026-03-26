@@ -8,14 +8,6 @@
   let finished = false;
   let started = false;
 
-  function esc(s) {
-    return String(s ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
-  }
-
   function el(id) {
     return document.getElementById(id);
   }
