@@ -1,9 +1,10 @@
 // /herohealth/firebase-config.js
-// FULL PATCH v20260327-GJBATTLE-AUTH-R1
+// FULL PATCH v20260327-GJBATTLE-AUTH-R2
 (function () {
   'use strict';
 
   const W = window;
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   const firebaseConfig = {
     apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
@@ -26,6 +27,7 @@
 
   let authReadyResolve;
   let authReadyReject;
+  let authPromiseSettled = false;
 
   W.HHA_FIREBASE_AUTH_READY_PROMISE = new Promise((resolve, reject) => {
     authReadyResolve = resolve;
@@ -35,7 +37,10 @@
   function resolveAuthReady(uid) {
     W.HHA_FIREBASE_AUTH_READY = true;
     W.HHA_FIREBASE_UID = String(uid || '');
-    try { authReadyResolve(uid); } catch (_) {}
+    if (!authPromiseSettled) {
+      authPromiseSettled = true;
+      try { authReadyResolve(uid); } catch (_) {}
+    }
     try {
       W.dispatchEvent(new CustomEvent('hha:firebase-auth-ready', {
         detail: { uid: W.HHA_FIREBASE_UID }
@@ -45,7 +50,10 @@
 
   function rejectAuthReady(err) {
     W.HHA_FIREBASE_AUTH_READY = false;
-    try { authReadyReject(err); } catch (_) {}
+    if (!authPromiseSettled) {
+      authPromiseSettled = true;
+      try { authReadyReject(err); } catch (_) {}
+    }
   }
 
   function initFirebaseCompat() {
@@ -78,13 +86,25 @@
     }
   }
 
+  async function waitForAuthSdk(timeoutMs = 15000) {
+    const until = Date.now() + timeoutMs;
+
+    while (Date.now() < until) {
+      if (W.firebase && typeof W.firebase.auth === 'function') {
+        return true;
+      }
+      await sleep(120);
+    }
+
+    throw new Error('Firebase Auth SDK ยังไม่ถูกโหลด');
+  }
+
   async function ensureAnonymousAuth() {
     if (!initFirebaseCompat()) {
       throw new Error('Firebase app ยังไม่พร้อม');
     }
-    if (!W.firebase || typeof W.firebase.auth !== 'function') {
-      throw new Error('Firebase Auth SDK ยังไม่ถูกโหลด');
-    }
+
+    await waitForAuthSdk();
 
     const auth = W.firebase.auth();
 
@@ -96,14 +116,14 @@
     return new Promise((resolve, reject) => {
       let settled = false;
 
-      const off = auth.onAuthStateChanged(async (user) => {
+      const unsub = auth.onAuthStateChanged((user) => {
         if (user && user.uid) {
           if (!settled) {
             settled = true;
             resolveAuthReady(user.uid);
             resolve(user);
           }
-          try { off(); } catch (_) {}
+          try { unsub(); } catch (_) {}
         }
       }, (err) => {
         console.error('[HHA] onAuthStateChanged error:', err);
@@ -112,7 +132,7 @@
           rejectAuthReady(err);
           reject(err);
         }
-        try { off(); } catch (_) {}
+        try { unsub(); } catch (_) {}
       });
 
       auth.signInAnonymously().catch((err) => {
@@ -122,7 +142,7 @@
           rejectAuthReady(err);
           reject(err);
         }
-        try { off(); } catch (_) {}
+        try { unsub(); } catch (_) {}
       });
     });
   }
@@ -135,16 +155,30 @@
       : W.HHA_FIREBASE_AUTH_READY_PROMISE.then((uid) => ({ uid }));
   };
 
-  let tries = 0;
-  const timer = setInterval(() => {
-    tries += 1;
-    if (initFirebaseCompat()) {
-      clearInterval(timer);
-      ensureAnonymousAuth().catch((err) => {
-        console.error('[HHA] ensureAnonymousAuth failed:', err);
-      });
-    } else if (tries >= 120) {
-      clearInterval(timer);
+  let started = false;
+
+  async function bootFirebase() {
+    if (started) return;
+    started = true;
+
+    let tries = 0;
+    while (tries < 120) {
+      tries += 1;
+
+      try {
+        if (initFirebaseCompat()) {
+          await ensureAnonymousAuth();
+          return;
+        }
+      } catch (err) {
+        console.error('[HHA] bootFirebase retry:', err);
+      }
+
+      await sleep(100);
     }
-  }, 100);
+
+    console.error('[HHA] Firebase bootstrap timeout');
+  }
+
+  bootFirebase();
 })();
