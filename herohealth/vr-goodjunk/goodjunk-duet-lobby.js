@@ -1,432 +1,971 @@
+/* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
+   FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-WORK-SURE-V2
+   - fixed duet room path: hha-battle/goodjunk/duetRooms/{ROOM}
+   - requires firebase-auth.js for anonymous auth
+   - 2 players only
+   - host can start only when ready 2/2
+   - lobby countdown -> redirect to duet run
+   - invite link + QR + presence + host repair
+*/
 (function(){
   'use strict';
 
-  const qs = new URLSearchParams(location.search);
+  const W = window;
+  const D = document;
 
-  const GAME = 'goodjunk';
-  const MODE = 'duet';
-  const MAX_PLAYERS = 2;
-  const MIN_READY = 2;
-
-  const $ = (id) => document.getElementById(id);
-
-  const ui = {
-    roomCode: $('roomCode'),
+  const $ = (id) => D.getElementById(id);
+  const els = {
+    roomCode   : $('roomCode'),
     playerCount: $('playerCount'),
-    roomStatus: $('roomStatus'),
-    hostName: $('hostName'),
-    copyState: $('copyState'),
-    joinGuard: $('joinGuard'),
-    inviteLink: $('inviteLink'),
-    qrBox: $('qrBox'),
-    countdown: $('countdown'),
-    playersBox: $('playersBox'),
-    hint: $('hint'),
-
+    roomStatus : $('roomStatus'),
+    hostName   : $('hostName'),
+    playersBox : $('playersBox'),
+    copyState  : $('copyState'),
+    joinGuard  : $('joinGuard'),
+    inviteLink : $('inviteLink'),
+    qrBox      : $('qrBox'),
+    countdown  : $('countdown'),
     btnCopyRoom: $('btnCopyRoom'),
     btnCopyInvite: $('btnCopyInvite'),
-    btnReady: $('btnReady'),
-    btnUnready: $('btnUnready'),
-    btnStart: $('btnStart'),
-    btnBack: $('btnBack')
+    btnReady   : $('btnReady'),
+    btnUnready : $('btnUnready'),
+    btnStart   : $('btnStart'),
+    btnBack    : $('btnBack'),
+    hint       : $('hint')
   };
 
-  const hubUrl = qs.get('hub') || '../hub.html';
+  const GAME_KEY = 'goodjunk';
+  const MODE_KEY = 'duet';
+  const RUN_PAGE = './goodjunk-duet-run.html'; // ถ้าของจริงใช้ชื่ออื่น เปลี่ยนตรงนี้
+  const ROOM_SIZE = 2;
+  const STALE_MS = 20000;
+  const HEARTBEAT_MS = 8000;
+  const COUNTDOWN_MS = 4000;
 
-  let AUTH_USER = null;
-  let PID = '';
-  let NAME = '';
+  const qs = (...keys) => {
+    try{
+      const sp = new URL(W.location.href).searchParams;
+      for (const k of keys){
+        const v = sp.get(k);
+        if (v != null && String(v).trim() !== '') return String(v).trim();
+      }
+    }catch{}
+    return '';
+  };
 
-  function txt(v){ return String(v ?? '').trim(); }
-  function clamp(n, min, max){
-    n = Number(n);
-    if (!Number.isFinite(n)) n = min;
-    return Math.max(min, Math.min(max, n));
-  }
-  function escapeHtml(s){
-    return String(s ?? '')
-      .replaceAll('&','&amp;')
-      .replaceAll('<','&lt;')
-      .replaceAll('>','&gt;')
-      .replaceAll('"','&quot;');
-  }
-  function normalizeName(raw){
-    return txt(raw).replace(/\s+/g,' ').slice(0, 40) || 'Player';
-  }
-  async function ensureAnonAuth(){
-    if (firebase.auth().currentUser) return firebase.auth().currentUser;
-    const cred = await firebase.auth().signInAnonymously();
-    return cred.user;
-  }
-  function randRoom(){
-    const pool = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-    let s = 'DUO-';
-    for(let i=0;i<4;i++) s += pool[Math.floor(Math.random()*pool.length)];
-    return s;
-  }
+  const clamp = (v, a, b) => {
+    v = Number(v);
+    if (!Number.isFinite(v)) v = a;
+    return Math.max(a, Math.min(b, v));
+  };
 
-  const ROOM_ID = txt(qs.get('roomId') || qs.get('room') || '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9-]/g,'')
-    .slice(0, 40) || randRoom();
+  const now = () => Date.now();
 
-  const DIFF = txt(qs.get('diff') || 'normal').toLowerCase() || 'normal';
-  const TIME_SEC = clamp(qs.get('time') || 120, 15, 900);
-
-  let roomState = null;
-  let stopWatchRoom = null;
-  let heartbeatTimer = null;
-  let countdownTimer = null;
-  let destroyed = false;
-
-  function backLauncherUrl(){
-    const u = new URL('./goodjunk-launcher.html', location.href);
-    ['hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai']
-      .forEach(k => {
-        const v = qs.get(k);
-        if (v != null && v !== '') u.searchParams.set(k, v);
-      });
-    u.searchParams.set('hub', hubUrl);
-    return u.toString();
+  function esc(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
   }
 
-  function runUrl(){
-    const u = new URL('./goodjunk-duet-run.html', location.href);
-    ['hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai','seed']
-      .forEach(k => {
-        const v = qs.get(k);
-        if (v != null && v !== '') u.searchParams.set(k, v);
-      });
-    u.searchParams.set('roomId', ROOM_ID);
-    u.searchParams.set('mode', MODE);
-    u.searchParams.set('hub', hubUrl);
-    u.searchParams.set('name', NAME);
-    return u.toString();
+  function normalizeRoomId(raw){
+    return String(raw || '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .slice(0, 8);
   }
 
-  function inviteUrl(){
-    const u = new URL(location.href);
-    u.searchParams.set('roomId', ROOM_ID);
-    u.searchParams.set('mode', MODE);
-    u.searchParams.set('hub', hubUrl);
-    u.searchParams.set('diff', DIFF);
-    u.searchParams.set('time', TIME_SEC);
-    u.searchParams.set('name', NAME);
+  function randomRoomId(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let out = '';
+    if (W.crypto && W.crypto.getRandomValues){
+      const arr = new Uint8Array(6);
+      W.crypto.getRandomValues(arr);
+      for (let i = 0; i < arr.length; i++) out += chars[arr[i] % chars.length];
+      return out;
+    }
+    for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    return out;
+  }
+
+  function makeDevicePid(){
+    try{
+      const KEY = 'GJ_DEVICE_PID';
+      let pid = localStorage.getItem(KEY);
+      if (!pid){
+        pid = 'p-' + Math.random().toString(36).slice(2,10);
+        localStorage.setItem(KEY, pid);
+      }
+      return pid;
+    }catch{
+      return 'p-' + Math.random().toString(36).slice(2,10);
+    }
+  }
+
+  function normalizePid(raw){
+    const v = String(raw || '').trim().replace(/[.#$[\]/]/g, '-');
+    if (!v || v.toLowerCase() === 'anon') return makeDevicePid();
+    return v.slice(0, 80);
+  }
+
+  function resolveName(){
+    const fromQs = qs('name', 'nick', 'playerName');
+    if (fromQs) {
+      try{ localStorage.setItem('HHA_PLAYER_NICK', fromQs); }catch{}
+      return fromQs.slice(0, 64);
+    }
+    try{
+      const saved = localStorage.getItem('HHA_PLAYER_NICK');
+      if (saved) return saved.slice(0, 64);
+    }catch{}
+    return 'Player';
+  }
+
+  function cleanDiff(raw){
+    raw = String(raw || 'normal').toLowerCase();
+    return (raw === 'easy' || raw === 'hard') ? raw : 'normal';
+  }
+
+  function roomPath(roomId){
+    return `hha-battle/${GAME_KEY}/duetRooms/${roomId}`;
+  }
+
+  function isProbablyAlive(p){
+    if (!p) return false;
+    const seen = Number(p.lastSeenAt || 0);
+    if (p.connected !== false) return true;
+    return (now() - seen) <= STALE_MS;
+  }
+
+  function prunePlayers(players, status){
+    const out = {};
+    const src = players || {};
+    Object.keys(src).forEach((id) => {
+      const p = src[id] || {};
+      const staleLeft =
+        (p.phase === 'left') ||
+        (status === 'waiting' && p.connected === false && (now() - Number(p.lastSeenAt || 0) > STALE_MS));
+      if (!staleLeft) out[id] = p;
+    });
+    return out;
+  }
+
+  function activePlayers(room){
+    const src = (room && room.players) ? room.players : {};
+    return Object.keys(src)
+      .map((id) => Object.assign({ id }, src[id] || {}))
+      .filter((p) => p.phase !== 'left' || isProbablyAlive(p));
+  }
+
+  function readyPlayers(room){
+    return activePlayers(room).filter((p) => !!p.ready);
+  }
+
+  function participantIds(room){
+    const ids = (((room || {}).match || {}).participantIds || []);
+    return Array.isArray(ids) ? ids.filter(Boolean) : [];
+  }
+
+  function serverTs(){
+    return firebase.database.ServerValue.TIMESTAMP;
+  }
+
+  const STATE = {
+    roomId: normalizeRoomId(qs('room', 'roomCode', 'roomId', 'code')) || randomRoomId(),
+    pid: normalizePid(qs('pid') || ''),
+    name: resolveName(),
+    hub: qs('hub') || '../hub.html',
+    view: (qs('view') || 'mobile').toLowerCase(),
+    run: (qs('run') || 'play').toLowerCase(),
+    diff: cleanDiff(qs('diff') || 'normal'),
+    time: clamp(qs('time') || 90, 30, 300),
+    seed: String(qs('seed') || now()),
+    zone: qs('zone') || 'nutrition',
+    theme: qs('theme') || 'goodjunk',
+    uid: '',
+    db: null,
+    auth: null,
+    roomRef: null,
+    meRef: null,
+    room: null,
+    joined: false,
+    joinDenied: false,
+    joinDeniedReason: '',
+    heartbeatTimer: 0,
+    countdownTimer: 0,
+    redirectScheduled: false,
+    redirected: false,
+    repairingHost: false
+  };
+
+  try{ localStorage.setItem('HHA_PLAYER_PID', STATE.pid); }catch{}
+  try{ localStorage.setItem('HHA_PLAYER_NICK', STATE.name); }catch{}
+
+  function setCopyState(msg, isBad){
+    if (!els.copyState) return;
+    els.copyState.textContent = msg || '';
+    els.copyState.style.color = isBad ? '#fca5a5' : '';
+  }
+
+  function setHint(msg, isBad){
+    if (!els.hint) return;
+    els.hint.textContent = msg || '';
+    els.hint.style.color = isBad ? '#fca5a5' : '';
+  }
+
+  function showJoinGuard(msg){
+    STATE.joinDenied = true;
+    STATE.joinDeniedReason = msg || 'ห้องนี้ยังเข้าไม่ได้';
+    if (els.joinGuard){
+      els.joinGuard.style.display = 'block';
+      els.joinGuard.textContent = STATE.joinDeniedReason;
+    }
+    setHint(STATE.joinDeniedReason, true);
+  }
+
+  function hideJoinGuard(){
+    STATE.joinDenied = false;
+    STATE.joinDeniedReason = '';
+    if (els.joinGuard) els.joinGuard.style.display = 'none';
+  }
+
+  function buildInviteLink(){
+    const u = new URL(W.location.href);
+    u.searchParams.set('mode', MODE_KEY);
+    u.searchParams.set('game', GAME_KEY);
+    u.searchParams.set('room', STATE.roomId);
+    u.searchParams.set('diff', STATE.diff);
+    u.searchParams.set('time', String(STATE.time));
+    u.searchParams.set('seed', STATE.seed);
+    u.searchParams.set('hub', STATE.hub);
+    u.searchParams.set('view', STATE.view);
+    u.searchParams.set('run', STATE.run);
+    u.searchParams.set('zone', STATE.zone);
+    u.searchParams.set('theme', STATE.theme);
+    u.searchParams.delete('pid');
+    u.searchParams.delete('name');
+    u.searchParams.delete('nick');
+    u.searchParams.delete('uid');
     return u.toString();
   }
 
   function renderQr(url){
-    if (!url) {
-      ui.qrBox.innerHTML = '<div class="qr-empty">ยังไม่มีลิงก์</div>';
+    if (!els.qrBox) return;
+    if (!url){
+      els.qrBox.innerHTML = '<div class="qr-empty">ยังไม่มีลิงก์</div>';
       return;
     }
-    const img = new Image();
-    img.alt = 'QR';
-    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(url);
-    ui.qrBox.innerHTML = '';
-    ui.qrBox.appendChild(img);
+    const src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(url);
+    els.qrBox.innerHTML = `<img alt="QR Invite" src="${src}">`;
   }
 
-  async function copyText(value){
+  async function copyText(txt){
     try{
-      await navigator.clipboard.writeText(String(value || ''));
-      return true;
-    }catch(_){
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(txt);
+        return true;
+      }
+    }catch{}
+    try{
+      const ta = D.createElement('textarea');
+      ta.value = txt;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      D.body.appendChild(ta);
+      ta.select();
+      const ok = D.execCommand('copy');
+      ta.remove();
+      return !!ok;
+    }catch{
       return false;
     }
   }
 
-  function getPlayers(room){
-    return Object.values(room?.players || {}).sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
-  }
-
-  function getReadyCount(room){ return getPlayers(room).filter(p => !!p.ready).length; }
-  function getHostPid(room){ return txt(room?.meta?.hostPlayerId || ''); }
-  function getSelf(room){ return (room?.players || {})[PID] || null; }
-  function isHost(room){ return getHostPid(room) === PID; }
-
-  function canStart(room){
-    if (!room) return false;
-    const players = getPlayers(room);
-    const readyCount = getReadyCount(room);
-    const phase = txt(room?.match?.phase || room?.meta?.status || 'lobby');
-    return isHost(room) && players.length === 2 && readyCount === 2 && (phase === 'lobby' || phase === 'waiting');
-  }
-
   function renderPlayers(room){
-    const players = getPlayers(room);
-    if (!players.length) {
-      ui.playersBox.innerHTML = `<div class="player">ยังไม่มีผู้เล่น</div><div class="player">รอผู้เล่นคนที่ 2</div>`;
-      return;
-    }
+    if (!els.playersBox) return;
 
-    ui.playersBox.innerHTML = [0,1].map(i => {
-      const p = players[i];
-      if (!p) {
-        return `
-          <div class="player">
-            <div style="font-size:18px;font-weight:900;">ช่องว่าง</div>
-            <div class="muted" style="margin-top:6px;">รอผู้เล่นคนที่ 2 เข้าห้อง</div>
-            <div class="waiting" style="margin-top:10px;">WAITING</div>
-          </div>
-        `;
-      }
-      const me = p.playerId === PID;
-      const statusCls = p.online === false ? 'offline' : (p.ready ? 'ready' : 'waiting');
-      const statusTxt = p.online === false ? 'OFFLINE' : (p.ready ? 'READY' : 'WAITING');
+    const list = activePlayers(room);
+    list.sort((a, b) => {
+      const ah = a.id === room.hostId ? 1 : 0;
+      const bh = b.id === room.hostId ? 1 : 0;
+      if (ah !== bh) return bh - ah;
+      const am = a.id === STATE.uid ? 1 : 0;
+      const bm = b.id === STATE.uid ? 1 : 0;
+      if (am !== bm) return bm - am;
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+
+    const cards = list.map((p) => {
+      const isMe = p.id === STATE.uid;
+      const isHost = p.id === room.hostId;
+      const online = isProbablyAlive(p);
+      const ready = !!p.ready;
+      const badge = ready
+        ? '<span class="ready">พร้อมแล้ว</span>'
+        : (online ? '<span class="waiting">รอพร้อม</span>' : '<span class="offline">offline</span>');
+      const sub = [
+        isHost ? 'Host' : '',
+        isMe ? 'You' : '',
+        p.pid ? ('PID: ' + esc(p.pid)) : ''
+      ].filter(Boolean).join(' • ');
+
       return `
-        <div class="player ${me ? 'me' : ''}">
-          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
-            <div style="font-size:18px;font-weight:900;">${escapeHtml(p.name || p.playerId)} ${me ? '<span style="color:#fbcfe8;font-size:12px;">(คุณ)</span>' : ''}</div>
-            <div style="font-size:12px;font-weight:900;color:${p.playerId === getHostPid(room) ? '#fbcfe8' : '#94a3b8'};">${p.playerId === getHostPid(room) ? 'HOST' : 'PLAYER'}</div>
+        <div class="player ${isMe ? 'me' : ''}">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <div style="font-weight:900;font-size:16px;color:#f8fafc;">${esc(p.name || 'Player')}</div>
+            <div>${badge}</div>
           </div>
-          <div class="muted" style="margin-top:6px;">UID: ${escapeHtml(p.playerId || '-')}</div>
-          <div class="${statusCls}" style="margin-top:10px;">${statusTxt}</div>
+          <div style="margin-top:6px;color:#cbd5e1;font-size:13px;line-height:1.55;">${esc(sub || 'ผู้เล่น')}</div>
+          <div style="margin-top:8px;color:#94a3b8;font-size:12px;line-height:1.55;">
+            phase: ${esc(p.phase || 'lobby')}
+          </div>
         </div>
       `;
-    }).join('');
+    });
+
+    while (cards.length < ROOM_SIZE){
+      cards.push(`
+        <div class="player">
+          <div style="font-weight:900;font-size:16px;color:#f8fafc;">รอผู้เล่น...</div>
+          <div style="margin-top:6px;color:#94a3b8;font-size:13px;line-height:1.55;">
+            แชร์ room code หรือลิงก์ให้เพื่อนอีกคน
+          </div>
+        </div>
+      `);
+    }
+
+    els.playersBox.innerHTML = cards.join('');
   }
 
-  function render(room){
-    roomState = room || null;
+  function updateButtons(room){
+    const me = room && room.players ? room.players[STATE.uid] : null;
+    const players = activePlayers(room);
+    const readyCount = readyPlayers(room).length;
+    const amHost = !!room && room.hostId === STATE.uid;
+    const waitingOnly = !!room && room.status === 'waiting';
+    const fullEnough = players.length === ROOM_SIZE;
 
-    ui.roomCode.textContent = ROOM_ID;
-    ui.inviteLink.value = inviteUrl();
-    renderQr(inviteUrl());
+    if (els.btnReady)   els.btnReady.disabled   = !waitingOnly || !me || !!me.ready || STATE.joinDenied;
+    if (els.btnUnready) els.btnUnready.disabled = !waitingOnly || !me || !me.ready || STATE.joinDenied;
+    if (els.btnStart)   els.btnStart.disabled   = !waitingOnly || !amHost || !fullEnough || readyCount !== ROOM_SIZE || STATE.joinDenied;
 
-    if (!room) {
-      ui.playerCount.textContent = '0/2';
-      ui.roomStatus.textContent = 'loading';
-      ui.hostName.textContent = '-';
-      ui.hint.textContent = 'กำลังโหลดห้อง...';
-      renderPlayers(null);
+    if (STATE.joinDenied){
+      setHint(STATE.joinDeniedReason || 'ห้องนี้ยังเข้าไม่ได้', true);
       return;
     }
 
-    const players = getPlayers(room);
-    const readyCount = getReadyCount(room);
-    const phase = txt(room?.match?.phase || room?.meta?.status || 'lobby');
-
-    ui.playerCount.textContent = `${players.length}/2`;
-    ui.roomStatus.textContent = phase;
-    ui.hostName.textContent = txt(room?.meta?.hostName || '-');
-
-    ui.btnReady.disabled = !getSelf(room) || !!getSelf(room)?.ready || phase !== 'lobby';
-    ui.btnUnready.disabled = !getSelf(room) || !getSelf(room)?.ready || phase !== 'lobby';
-    ui.btnStart.disabled = !canStart(room);
-
-    if (players.length >= 2 && !getSelf(room)) {
-      ui.joinGuard.style.display = 'block';
-      ui.joinGuard.textContent = 'ห้องนี้เต็มแล้ว';
-    } else {
-      ui.joinGuard.style.display = 'none';
+    if (!room){
+      setHint('กำลังเชื่อมห้อง...', false);
+      return;
     }
 
-    if (phase === 'countdown') ui.hint.textContent = 'เริ่มเกมในอีกไม่กี่วินาที...';
-    else if (canStart(room)) ui.hint.textContent = 'พร้อมครบ 2 คนแล้ว Host กดเริ่มได้เลย';
-    else if (players.length < 2) ui.hint.textContent = 'รอผู้เล่นคนที่ 2 เข้าห้อง';
-    else if (readyCount < 2) ui.hint.textContent = 'ต้อง ready ครบ 2 คนก่อนเริ่ม Duet';
-    else ui.hint.textContent = 'กำลังรอ...';
+    if (!amHost && room.status === 'waiting'){
+      if (readyCount < ROOM_SIZE){
+        setHint('รอให้พร้อมครบ 2 คนก่อน จากนั้น Host จะกดเริ่มได้', false);
+      } else {
+        setHint('พร้อมครบแล้ว รอ Host กดเริ่ม Duet', false);
+      }
+      return;
+    }
+
+    if (room.status === 'waiting'){
+      if (players.length < ROOM_SIZE){
+        setHint('ยังไม่ครบ 2 คน แชร์ลิงก์หรือ QR ให้เพื่อนเข้ามาอีก 1 คน', false);
+      } else if (readyCount < ROOM_SIZE){
+        setHint('ต้องมีผู้เล่นพร้อมครบ 2 คนก่อนเริ่ม Duet', false);
+      } else {
+        setHint('พร้อมครบ 2/2 แล้ว Host กด “เริ่ม Duet” ได้เลย', false);
+      }
+      return;
+    }
+
+    if (room.status === 'countdown'){
+      setHint('กำลังนับถอยหลังเพื่อเข้าเกมพร้อมกัน', false);
+      return;
+    }
+
+    if (room.status === 'running'){
+      setHint('กำลังพาเข้าสู่ GoodJunk Duet Run...', false);
+      return;
+    }
+
+    if (room.status === 'finished'){
+      setHint('รอบก่อนหน้าจบแล้ว สร้างห้องใหม่เพื่อเริ่ม Duet รอบถัดไป', false);
+      return;
+    }
+
+    setHint('ต้องมีผู้เล่นพร้อมครบ 2 คนก่อนเริ่ม Duet', false);
+  }
+
+  function renderRoom(room){
+    STATE.room = room || null;
+
+    if (els.roomCode) els.roomCode.textContent = STATE.roomId;
+    if (els.inviteLink) els.inviteLink.value = buildInviteLink();
+    renderQr(buildInviteLink());
+
+    if (!room){
+      if (els.playerCount) els.playerCount.textContent = '0/2';
+      if (els.roomStatus) els.roomStatus.textContent = 'waiting';
+      if (els.hostName) els.hostName.textContent = '-';
+      renderPlayers(null);
+      updateButtons(null);
+      return;
+    }
+
+    const players = activePlayers(room);
+    const status = String(room.status || 'waiting');
+    const host = room.players && room.players[room.hostId] ? room.players[room.hostId] : null;
+
+    if (els.playerCount) els.playerCount.textContent = `${players.length}/${ROOM_SIZE}`;
+    if (els.roomStatus) els.roomStatus.textContent = status;
+    if (els.hostName) els.hostName.textContent = host ? (host.name || 'Host') : '-';
 
     renderPlayers(room);
-
-    if (phase === 'playing') location.href = runUrl();
+    updateButtons(room);
+    maybeRepairHost(room);
+    maybeHandleCountdown(room);
   }
 
-  async function ensureRoom(){
-    const room = await HHAMulti.readRoom(GAME, MODE, ROOM_ID);
-
-    if (!room) {
-      await HHAMulti.createRoom({
-        game: GAME,
-        mode: MODE,
-        roomCode: ROOM_ID,
-        hostPlayerId: PID,
-        hostName: NAME,
-        diff: DIFF,
-        timeSec: TIME_SEC,
-        view: qs.get('view') || 'mobile',
-        pid: PID,
-        maxPlayers: 2
-      });
-
-      const ref = HHAMulti.rootRef(GAME, MODE, ROOM_ID);
-      await ref.child('meta/minReady').set(MIN_READY);
-      await ref.child('meta/runUrl').set(runUrl());
-      return;
+  async function ensureFirebaseReady(){
+    if (!W.firebase || !firebase.apps || !firebase.apps.length){
+      throw new Error('Firebase ยังไม่ถูก initialize จาก firebase-config.js');
+    }
+    if (typeof firebase.database !== 'function'){
+      throw new Error('firebase-database.js ไม่พร้อม');
+    }
+    if (typeof firebase.auth !== 'function'){
+      throw new Error('ยังไม่ได้โหลด firebase-auth.js');
     }
 
-    const ids = Object.keys(room.players || {});
-    if (!(room.players || {})[PID]) {
-      if (ids.length >= 2) throw new Error('room-full');
+    STATE.db = firebase.database();
+    STATE.auth = firebase.auth();
 
-      await HHAMulti.joinRoom({
-        game: GAME,
-        mode: MODE,
-        roomCode: ROOM_ID,
-        playerId: PID,
-        name: NAME,
-        view: qs.get('view') || 'mobile',
-        pid: PID
-      });
-    } else {
-      await HHAMulti.rootRef(GAME, MODE, ROOM_ID).child(`players/${PID}`).update({
-        name: NAME,
-        online: true,
-        lastSeenAt: Date.now(),
-        view: qs.get('view') || 'mobile',
-        pid: PID
-      });
+    if (STATE.auth.currentUser){
+      STATE.uid = STATE.auth.currentUser.uid;
+      return STATE.auth.currentUser;
     }
+
+    const cred = await STATE.auth.signInAnonymously();
+    const user = cred && cred.user ? cred.user : STATE.auth.currentUser;
+    if (!user) throw new Error('Anonymous auth failed');
+    STATE.uid = user.uid;
+    return user;
   }
 
-  async function setReady(v){
-    await HHAMulti.setReady({
-      game: GAME,
-      mode: MODE,
-      roomCode: ROOM_ID,
-      playerId: PID,
-      ready: !!v
+  function freshPlayer(uid){
+    const t = now();
+    return {
+      id: uid,
+      uid: uid,
+      pid: STATE.pid,
+      name: STATE.name,
+      ready: false,
+      connected: true,
+      phase: 'lobby',
+      finished: false,
+      finalScore: 0,
+      miss: 0,
+      streak: 0,
+      joinedAt: t,
+      lastSeenAt: t,
+      finishedAt: 0
+    };
+  }
+
+  function freshRoom(uid){
+    const t = now();
+    const player = freshPlayer(uid);
+    const room = {
+      roomId: STATE.roomId,
+      game: GAME_KEY,
+      mode: MODE_KEY,
+      hostId: uid,
+      hostName: player.name || 'Host',
+      diff: STATE.diff,
+      time: Number(STATE.time),
+      seed: String(STATE.seed),
+      view: STATE.view,
+      hub: STATE.hub,
+      run: STATE.run,
+      zone: STATE.zone,
+      theme: STATE.theme,
+      status: 'waiting',
+      minPlayers: 2,
+      maxPlayers: 2,
+      startAt: 0,
+      createdAt: t,
+      updatedAt: t,
+      match: {
+        participantIds: [],
+        lockedAt: 0,
+        status: 'idle'
+      },
+      players: {}
+    };
+    room.players[uid] = player;
+    return room;
+  }
+
+  async function joinRoom(){
+    STATE.roomRef = STATE.db.ref(roomPath(STATE.roomId));
+    STATE.meRef = STATE.roomRef.child('players/' + STATE.uid);
+
+    const snap = await STATE.roomRef.once('value');
+    const existing = snap.val();
+
+    if (existing){
+      const players = prunePlayers(existing.players, existing.status || 'waiting');
+      const ids = Object.keys(players || {});
+      const hasMe = !!players[STATE.uid];
+      const alreadyRunning = String(existing.status || 'waiting') !== 'waiting';
+
+      if (!hasMe && ids.length >= ROOM_SIZE){
+        showJoinGuard('ห้องนี้เต็มแล้ว (Duet รับได้แค่ 2 คน)');
+      } else if (!hasMe && alreadyRunning){
+        showJoinGuard('ห้องนี้เริ่มเกมไปแล้ว ให้สร้างห้องใหม่สำหรับรอบถัดไป');
+      } else {
+        hideJoinGuard();
+      }
+    }
+
+    await new Promise((resolve, reject) => {
+      STATE.roomRef.transaction((current) => {
+        const t = now();
+
+        if (!current){
+          return freshRoom(STATE.uid);
+        }
+
+        current.players = prunePlayers(current.players, current.status || 'waiting');
+
+        const ids = Object.keys(current.players || {});
+        const hasMe = !!current.players[STATE.uid];
+        const status = String(current.status || 'waiting');
+
+        if (!hasMe && ids.length >= ROOM_SIZE) return;
+        if (!hasMe && status !== 'waiting') return;
+
+        const prev = current.players[STATE.uid] || {};
+        current.players[STATE.uid] = Object.assign({}, freshPlayer(STATE.uid), prev, {
+          id: STATE.uid,
+          uid: STATE.uid,
+          pid: STATE.pid,
+          name: STATE.name,
+          connected: true,
+          phase: 'lobby',
+          lastSeenAt: t
+        });
+
+        if (!current.hostId || !current.players[current.hostId]){
+          current.hostId = STATE.uid;
+        }
+        if (!current.hostName || current.hostId === STATE.uid){
+          current.hostName = (current.players[current.hostId] && current.players[current.hostId].name) || STATE.name || 'Host';
+        }
+
+        current.game = GAME_KEY;
+        current.mode = MODE_KEY;
+        current.roomId = STATE.roomId;
+        current.minPlayers = 2;
+        current.maxPlayers = 2;
+        current.diff = current.diff || STATE.diff;
+        current.time = Number(current.time || STATE.time);
+        current.seed = String(current.seed || STATE.seed);
+        current.view = current.view || STATE.view;
+        current.hub = current.hub || STATE.hub;
+        current.run = current.run || STATE.run;
+        current.zone = current.zone || STATE.zone;
+        current.theme = current.theme || STATE.theme;
+        current.match = current.match || { participantIds: [], lockedAt: 0, status: 'idle' };
+        current.updatedAt = t;
+
+        return current;
+      }, (err, committed, postSnap) => {
+        if (err) return reject(err);
+        if (!committed){
+          const room = postSnap && postSnap.val ? postSnap.val() : null;
+          if (room){
+            const players = prunePlayers(room.players, room.status || 'waiting');
+            const ids = Object.keys(players || {});
+            if (ids.length >= ROOM_SIZE && !players[STATE.uid]){
+              return reject(new Error('room-full'));
+            }
+            if (String(room.status || 'waiting') !== 'waiting' && !players[STATE.uid]){
+              return reject(new Error('room-not-joinable'));
+            }
+          }
+          return reject(new Error('join-aborted'));
+        }
+        return resolve(postSnap.val());
+      }, false);
+    });
+
+    hideJoinGuard();
+    STATE.joined = true;
+
+    await STATE.meRef.onDisconnect().update({
+      connected: false,
+      phase: 'left',
+      lastSeenAt: serverTs()
+    });
+
+    await STATE.meRef.update({
+      id: STATE.uid,
+      uid: STATE.uid,
+      pid: STATE.pid,
+      name: STATE.name,
+      connected: true,
+      phase: 'lobby',
+      lastSeenAt: serverTs()
+    });
+  }
+
+  async function setReady(flag){
+    if (!STATE.meRef || STATE.joinDenied) return;
+    await STATE.meRef.update({
+      ready: !!flag,
+      connected: true,
+      phase: 'lobby',
+      lastSeenAt: serverTs()
     });
   }
 
   async function startDuet(){
-    if (!canStart(roomState)) return;
+    if (!STATE.roomRef || STATE.joinDenied) return;
 
-    const ref = HHAMulti.rootRef(GAME, MODE, ROOM_ID);
-    await ref.child('meta/runUrl').set(runUrl());
-    await ref.child('meta/minReady').set(MIN_READY);
+    await new Promise((resolve, reject) => {
+      STATE.roomRef.transaction((current) => {
+        if (!current) return current;
+        current.players = prunePlayers(current.players, current.status || 'waiting');
 
-    await HHAMulti.startMatch({
-      game: GAME,
-      mode: MODE,
-      roomCode: ROOM_ID,
-      playerId: PID,
-      countdownSec: 3
+        if (String(current.status || 'waiting') !== 'waiting') return current;
+        if (current.hostId !== STATE.uid) return current;
+
+        const players = Object.keys(current.players || {})
+          .map((id) => Object.assign({ id }, current.players[id] || {}))
+          .filter((p) => isProbablyAlive(p));
+
+        if (players.length !== ROOM_SIZE) return current;
+
+        const ready = players.filter((p) => !!p.ready);
+        if (ready.length !== ROOM_SIZE) return current;
+
+        const startAt = now() + COUNTDOWN_MS;
+        const ids = ready.slice(0, ROOM_SIZE).map((p) => p.id);
+
+        ids.forEach((id) => {
+          if (!current.players[id]) return;
+          current.players[id].phase = 'lobby';
+          current.players[id].finished = false;
+          current.players[id].finalScore = 0;
+          current.players[id].miss = 0;
+          current.players[id].streak = 0;
+          current.players[id].finishedAt = 0;
+          current.players[id].lastSeenAt = now();
+        });
+
+        current.status = 'countdown';
+        current.startAt = startAt;
+        current.updatedAt = now();
+        current.match = {
+          participantIds: ids,
+          lockedAt: now(),
+          status: 'locked'
+        };
+
+        return current;
+      }, (err, committed, snap) => {
+        if (err) return reject(err);
+        const room = snap && snap.val ? snap.val() : null;
+        if (!committed){
+          if (!room) return reject(new Error('start-failed'));
+          const players = activePlayers(room);
+          const ready = readyPlayers(room);
+          if (room.hostId !== STATE.uid) return reject(new Error('not-host'));
+          if (players.length !== ROOM_SIZE) return reject(new Error('need-2-players'));
+          if (ready.length !== ROOM_SIZE) return reject(new Error('need-2-ready'));
+          if (String(room.status || 'waiting') !== 'waiting') return reject(new Error('room-not-waiting'));
+          return reject(new Error('start-aborted'));
+        }
+        resolve(room);
+      }, false);
     });
-
-    let left = 3;
-    ui.countdown.textContent = String(left);
-
-    clearInterval(countdownTimer);
-    countdownTimer = setInterval(async () => {
-      left -= 1;
-      ui.countdown.textContent = left > 0 ? String(left) : 'GO!';
-      if (left <= 0) {
-        clearInterval(countdownTimer);
-        setTimeout(() => { ui.countdown.textContent = ''; }, 500);
-        try{
-          await HHAMulti.promoteCountdownToPlaying({
-            game: GAME,
-            mode: MODE,
-            roomCode: ROOM_ID
-          });
-        }catch(_){}
-      }
-    }, 1000);
   }
 
-  function watchRoom(){
-    if (stopWatchRoom) {
-      try{ stopWatchRoom(); }catch(_){}
+  async function markRunningIfHost(room){
+    if (!room || room.hostId !== STATE.uid) return;
+    if (String(room.status || 'waiting') !== 'countdown') return;
+    if (Number(room.startAt || 0) > now()) return;
+
+    try{
+      await STATE.roomRef.child('status').set('running');
+      await STATE.roomRef.child('match/status').set('running');
+      await STATE.roomRef.child('updatedAt').set(serverTs());
+    }catch{}
+  }
+
+  function buildRunUrl(room){
+    const u = new URL(RUN_PAGE, W.location.href);
+    u.searchParams.set('mode', MODE_KEY);
+    u.searchParams.set('game', GAME_KEY);
+    u.searchParams.set('room', STATE.roomId);
+    u.searchParams.set('roomId', STATE.roomId);
+    u.searchParams.set('pid', STATE.pid);
+    u.searchParams.set('name', STATE.name);
+    u.searchParams.set('nick', STATE.name);
+    u.searchParams.set('diff', String(room.diff || STATE.diff));
+    u.searchParams.set('time', String(room.time || STATE.time));
+    u.searchParams.set('seed', String(room.seed || STATE.seed));
+    u.searchParams.set('hub', String(room.hub || STATE.hub));
+    u.searchParams.set('view', String(room.view || STATE.view));
+    u.searchParams.set('run', String(room.run || STATE.run));
+    u.searchParams.set('zone', String(room.zone || STATE.zone));
+    u.searchParams.set('theme', String(room.theme || STATE.theme));
+    u.searchParams.set('startAt', String(room.startAt || 0));
+    return u.toString();
+  }
+
+  function stopCountdownLoop(){
+    if (STATE.countdownTimer){
+      clearInterval(STATE.countdownTimer);
+      STATE.countdownTimer = 0;
+    }
+  }
+
+  function startCountdownLoop(room){
+    stopCountdownLoop();
+
+    const ids = participantIds(room);
+    const amParticipant = ids.includes(STATE.uid);
+    const startAt = Number(room.startAt || 0);
+
+    if (!amParticipant || !startAt){
+      if (els.countdown) els.countdown.textContent = '';
+      return;
     }
 
-    stopWatchRoom = HHAMulti.watchRoom(
-      { game: GAME, mode: MODE, roomCode: ROOM_ID },
-      (room) => render(room),
-      (err) => {
-        console.error(err);
-        ui.hint.textContent = `เชื่อมห้องไม่สำเร็จ: ${err?.message || err}`;
+    STATE.countdownTimer = setInterval(async () => {
+      const ms = startAt - now();
+
+      if (ms <= 0){
+        if (els.countdown) els.countdown.textContent = 'GO!';
+        stopCountdownLoop();
+        await markRunningIfHost(room);
+        if (!STATE.redirected){
+          STATE.redirected = true;
+          W.location.replace(buildRunUrl(room));
+        }
+        return;
       }
-    );
+
+      const sec = Math.ceil(ms / 1000);
+      if (els.countdown) els.countdown.textContent = String(sec);
+    }, 80);
+  }
+
+  function maybeHandleCountdown(room){
+    if (!room){
+      stopCountdownLoop();
+      if (els.countdown) els.countdown.textContent = '';
+      return;
+    }
+
+    const status = String(room.status || 'waiting');
+    const ids = participantIds(room);
+    const amParticipant = ids.includes(STATE.uid);
+
+    if ((status === 'countdown' || status === 'running') && amParticipant){
+      if (status === 'running'){
+        if (els.countdown) els.countdown.textContent = 'GO!';
+        if (!STATE.redirected){
+          STATE.redirected = true;
+          setTimeout(() => {
+            W.location.replace(buildRunUrl(room));
+          }, 150);
+        }
+        return;
+      }
+      startCountdownLoop(room);
+      return;
+    }
+
+    stopCountdownLoop();
+    if (els.countdown) els.countdown.textContent = '';
+  }
+
+  async function maybeRepairHost(room){
+    if (STATE.repairingHost || !room) return;
+    if (String(room.status || 'waiting') !== 'waiting') return;
+
+    const host = room.players && room.players[room.hostId] ? room.players[room.hostId] : null;
+    if (host && isProbablyAlive(host) && host.phase !== 'left') return;
+
+    const players = activePlayers(room).filter((p) => isProbablyAlive(p));
+    if (!players.length) return;
+
+    players.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const nextHost = players[0];
+    if (!nextHost || nextHost.id !== STATE.uid) return;
+
+    STATE.repairingHost = true;
+    try{
+      await STATE.roomRef.update({
+        hostId: nextHost.id,
+        hostName: nextHost.name || 'Host',
+        updatedAt: serverTs()
+      });
+    }catch{}
+    finally{
+      STATE.repairingHost = false;
+    }
+  }
+
+  function attachRoomListener(){
+    STATE.roomRef.on('value', (snap) => {
+      const room = snap.val();
+      renderRoom(room);
+    }, (err) => {
+      showJoinGuard('ฟังสถานะห้องไม่ได้: ' + (err && err.message ? err.message : 'unknown'));
+    });
   }
 
   function startHeartbeat(){
-    clearInterval(heartbeatTimer);
-    heartbeatTimer = setInterval(() => {
-      if (destroyed) return;
-      HHAMulti.heartbeat({
-        game: GAME,
-        mode: MODE,
-        roomCode: ROOM_ID,
-        playerId: PID
+    stopHeartbeat();
+    if (!STATE.meRef) return;
+
+    STATE.heartbeatTimer = setInterval(() => {
+      STATE.meRef.update({
+        id: STATE.uid,
+        uid: STATE.uid,
+        pid: STATE.pid,
+        name: STATE.name,
+        connected: true,
+        phase: 'lobby',
+        lastSeenAt: serverTs()
       }).catch(() => {});
-    }, 2500);
+    }, HEARTBEAT_MS);
   }
 
-  async function leaveLobby(){
-    try{
-      await HHAMulti.setOffline({
-        game: GAME,
-        mode: MODE,
-        roomCode: ROOM_ID,
-        playerId: PID
-      });
-      await HHAMulti.leaveRoom({
-        game: GAME,
-        mode: MODE,
-        roomCode: ROOM_ID,
-        playerId: PID
-      });
-    }catch(_){}
-    location.href = backLauncherUrl();
+  function stopHeartbeat(){
+    if (STATE.heartbeatTimer){
+      clearInterval(STATE.heartbeatTimer);
+      STATE.heartbeatTimer = 0;
+    }
   }
 
-  function bind(){
-    ui.btnCopyRoom.addEventListener('click', async () => {
-      const ok = await copyText(ROOM_ID);
-      ui.copyState.textContent = ok ? 'คัดลอก Room Code แล้ว' : 'คัดลอกไม่สำเร็จ';
+  function bindUi(){
+    if (els.roomCode) els.roomCode.textContent = STATE.roomId;
+    if (els.inviteLink) els.inviteLink.value = buildInviteLink();
+    renderQr(buildInviteLink());
+
+    if (els.btnCopyRoom){
+      els.btnCopyRoom.addEventListener('click', async () => {
+        const ok = await copyText(STATE.roomId);
+        setCopyState(ok ? 'คัดลอก Room Code แล้ว' : 'คัดลอก Room Code ไม่สำเร็จ', !ok);
+      });
+    }
+
+    if (els.btnCopyInvite){
+      els.btnCopyInvite.addEventListener('click', async () => {
+        const ok = await copyText(buildInviteLink());
+        setCopyState(ok ? 'คัดลอก Invite Link แล้ว' : 'คัดลอก Invite Link ไม่สำเร็จ', !ok);
+      });
+    }
+
+    if (els.btnReady){
+      els.btnReady.addEventListener('click', async () => {
+        try{
+          await setReady(true);
+        }catch(err){
+          setHint('กดพร้อมไม่สำเร็จ: ' + (err && err.message ? err.message : 'unknown'), true);
+        }
+      });
+    }
+
+    if (els.btnUnready){
+      els.btnUnready.addEventListener('click', async () => {
+        try{
+          await setReady(false);
+        }catch(err){
+          setHint('ยกเลิกพร้อมไม่สำเร็จ: ' + (err && err.message ? err.message : 'unknown'), true);
+        }
+      });
+    }
+
+    if (els.btnStart){
+      els.btnStart.addEventListener('click', async () => {
+        try{
+          await startDuet();
+        }catch(err){
+          const msg = (err && err.message) ? err.message : 'start-failed';
+          if (msg === 'not-host') setHint('เฉพาะ Host เท่านั้นที่กดเริ่ม Duet ได้', true);
+          else if (msg === 'need-2-players') setHint('Duet ต้องมีผู้เล่นครบ 2 คนก่อน', true);
+          else if (msg === 'need-2-ready') setHint('ต้องมีผู้เล่นพร้อมครบ 2/2 ก่อนเริ่ม', true);
+          else setHint('เริ่ม Duet ไม่สำเร็จ: ' + msg, true);
+        }
+      });
+    }
+
+    if (els.btnBack){
+      els.btnBack.addEventListener('click', () => {
+        W.location.href = STATE.hub || '../hub.html';
+      });
+    }
+
+    W.addEventListener('pagehide', () => {
+      stopHeartbeat();
     });
 
-    ui.btnCopyInvite.addEventListener('click', async () => {
-      const ok = await copyText(inviteUrl());
-      ui.copyState.textContent = ok ? 'คัดลอก Invite Link แล้ว' : 'คัดลอกไม่สำเร็จ';
+    W.addEventListener('beforeunload', () => {
+      stopHeartbeat();
+      try{
+        if (STATE.meRef){
+          STATE.meRef.update({
+            connected: false,
+            phase: 'left',
+            lastSeenAt: serverTs()
+          }).catch(() => {});
+        }
+      }catch{}
     });
-
-    ui.btnReady.addEventListener('click', () => setReady(true).catch(console.error));
-    ui.btnUnready.addEventListener('click', () => setReady(false).catch(console.error));
-    ui.btnStart.addEventListener('click', () => startDuet().catch(console.error));
-    ui.btnBack.addEventListener('click', leaveLobby);
   }
 
-  async function boot(){
+  async function init(){
+    bindUi();
+    renderRoom(null);
+    setCopyState('กำลังเชื่อมห้อง Duet...', false);
+
     try{
-      if (!window.firebase || !window.firebase.database) throw new Error('firebase-database not loaded');
-      if (!window.HHAMulti) throw new Error('HHAMulti not loaded');
-
-      AUTH_USER = await ensureAnonAuth();
-      PID = AUTH_USER.uid;
-      NAME = normalizeName(qs.get('name') || `Player-${PID.slice(0,4)}`);
-
-      bind();
-      render(null);
-      await ensureRoom();
-      watchRoom();
-      startHeartbeat();
+      await ensureFirebaseReady();
     }catch(err){
-      console.error(err);
-      ui.hint.textContent = `เชื่อมห้องไม่สำเร็จ: ${err?.message || err}`;
-      if (String(err?.message || '').includes('room-full')) {
-        ui.joinGuard.style.display = 'block';
-        ui.joinGuard.textContent = 'ห้องนี้เต็มแล้ว';
+      showJoinGuard(
+        'Firebase ยังไม่พร้อม: ' +
+        (err && err.message ? err.message : 'unknown') +
+        ' — ต้องใส่ firebase-auth.js ก่อน firebase-config.js'
+      );
+      return;
+    }
+
+    try{
+      await joinRoom();
+      attachRoomListener();
+      startHeartbeat();
+      setCopyState('ส่ง room code หรือลิงก์นี้ให้เพื่อนอีกคนเข้าร่วมได้', false);
+    }catch(err){
+      const msg = (err && err.message) ? err.message : 'join-failed';
+      if (msg === 'room-full'){
+        showJoinGuard('ห้องนี้เต็มแล้ว (Duet รับได้แค่ 2 คน)');
+      } else if (msg === 'room-not-joinable'){
+        showJoinGuard('ห้องนี้เริ่มเกมไปแล้ว ให้สร้างห้องใหม่สำหรับรอบถัดไป');
+      } else {
+        showJoinGuard('เข้าห้องไม่สำเร็จ: ' + msg);
       }
     }
   }
 
-  window.addEventListener('beforeunload', () => {
-    destroyed = true;
-    clearInterval(heartbeatTimer);
-    clearInterval(countdownTimer);
-    try{
-      HHAMulti.setOffline({
-        game: GAME,
-        mode: MODE,
-        roomCode: ROOM_ID,
-        playerId: PID
-      });
-    }catch(_){}
-    try{ stopWatchRoom && stopWatchRoom(); }catch(_){}
-  });
-
-  boot();
+  init();
 })();
