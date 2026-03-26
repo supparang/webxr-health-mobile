@@ -1,5 +1,5 @@
 // /herohealth/vr-goodjunk/ha-multiplayer.js
-// FULL PATCH v20260327-GJBATTLE-MP-R1
+// FULL PATCH v20260327-GJBATTLE-MP-AUTH-R1
 (function () {
   'use strict';
 
@@ -24,13 +24,6 @@
     return v;
   }
 
-  function sanitizePid(v) {
-    v = safeStr(v, 'anon-' + Math.random().toString(36).slice(2, 8));
-    v = v.replace(/[^a-zA-Z0-9_-]/g, '');
-    if (!v) v = 'anon-' + Math.random().toString(36).slice(2, 8);
-    return v;
-  }
-
   async function waitForFirebase(timeoutMs = 12000) {
     const until = Date.now() + timeoutMs;
     let lastErr = null;
@@ -41,13 +34,23 @@
           W.HHA_initFirebaseCompat();
         }
 
+        if (typeof W.HHA_ensureAnonymousAuth === 'function') {
+          await W.HHA_ensureAnonymousAuth();
+        }
+
+        const f = W.firebase;
+        const auth = f && typeof f.auth === 'function' ? f.auth() : null;
+        const uid = auth && auth.currentUser && auth.currentUser.uid ? String(auth.currentUser.uid) : '';
+
         if (
-          W.firebase &&
-          W.firebase.apps &&
-          W.firebase.apps.length > 0 &&
-          typeof W.firebase.database === 'function'
+          f &&
+          f.apps &&
+          f.apps.length > 0 &&
+          typeof f.database === 'function' &&
+          typeof f.auth === 'function' &&
+          uid
         ) {
-          return W.firebase;
+          return { firebase: f, uid };
         }
       } catch (err) {
         lastErr = err;
@@ -56,17 +59,19 @@
       await sleep(125);
     }
 
-    throw lastErr || new Error('Firebase ยังไม่พร้อม');
+    throw lastErr || new Error('Firebase/Auth ยังไม่พร้อม');
   }
 
   async function createBattleRoom(opts = {}) {
-    const firebase = await waitForFirebase(opts.timeoutMs || 12000);
+    const ready = await waitForFirebase(opts.timeoutMs || 12000);
+    const firebase = ready.firebase;
+    const authUid = String(ready.uid || '');
     const db = firebase.database();
     const TS = firebase.database.ServerValue.TIMESTAMP;
 
     const roomId = sanitizeRoomId(opts.roomId);
-    const pid = sanitizePid(opts.pid);
-    const nick = safeStr(opts.nick, pid).slice(0, 24) || pid;
+    const pid = authUid;
+    const nick = safeStr(opts.nick, (opts.pid || 'Player')).slice(0, 24) || 'Player';
     const plannedSec = clamp(opts.plannedSec || 90, 20, 600);
     const diff = safeStr(opts.diff, 'normal').toLowerCase();
     const mode = safeStr(opts.mode, 'battle').toLowerCase();
@@ -177,7 +182,7 @@
     };
 
     api.sendAttack = async function ({ toPid, dmg, type = 'charge' }) {
-      toPid = sanitizePid(toPid);
+      toPid = safeStr(toPid);
       dmg = clamp(dmg, 1, 100);
 
       const row = {
