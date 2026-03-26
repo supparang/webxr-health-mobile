@@ -3,79 +3,136 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Hydration Hero</title>
+  <title>HeroHealth — Hydration Hero Launcher</title>
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#cbf0ff" />
+  <meta name="theme-color" content="#bfeeff" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --sky1:#e8fbff;
-      --sky2:#cbf0ff;
-      --sky3:#aee2ff;
+      --sky1:#eafcff;
+      --sky2:#cdf2ff;
+      --sky3:#aee3ff;
 
-      --card:#fffef9;
-      --card2:#f7fff5;
-      --card3:#eefaff;
+      --grass1:#dff6b7;
+      --grass2:#bde88f;
 
-      --stroke:#d9eef7;
-      --text:#2b4f69;
-      --muted:#6f8ea3;
+      --card:#fffefb;
+      --card-2:#f5fffb;
+      --card-3:#eefaff;
 
-      --green1:#87de67;
-      --green2:#57ba44;
-      --blue1:#7fd0ff;
-      --blue2:#4fa9ef;
-      --yellow1:#ffe179;
-      --yellow2:#f6bd42;
-      --orange1:#ffbf74;
-      --orange2:#ff9857;
+      --line:#d6edf6;
+      --line-strong:#c5e4ef;
 
-      --shadow:0 14px 34px rgba(90,145,180,.16);
-      --shadow-lg:0 22px 56px rgba(90,145,180,.22);
+      --text:#2f5268;
+      --muted:#6f91a6;
+      --soft:#87a6b8;
+
+      --green1:#90e36f;
+      --green2:#58bd46;
+      --green3:#3da43a;
+
+      --blue1:#85d6ff;
+      --blue2:#51acef;
+      --blue3:#398fda;
+
+      --yellow1:#ffe588;
+      --yellow2:#f7c84f;
+      --orange1:#ffc47e;
+      --orange2:#ff9d5e;
+      --pink1:#ffd3e8;
+      --pink2:#ff9bc8;
+
+      --shadow:0 14px 34px rgba(84,142,176,.14);
+      --shadow-lg:0 24px 56px rgba(84,142,176,.18);
 
       --radius-xl:32px;
       --radius-lg:26px;
       --radius-md:20px;
+      --radius-sm:16px;
     }
 
     *{ box-sizing:border-box; }
-
-    html,body{
-      margin:0;
-      min-height:100%;
+    html,body{ margin:0; min-height:100%; }
+    body{
       font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 14% 10%, rgba(255,255,255,.72), transparent 15%),
-        radial-gradient(circle at 86% 12%, rgba(255,255,255,.58), transparent 14%),
-        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 44%, var(--sky3) 100%);
-    }
-
-    body{
+        radial-gradient(circle at 10% 8%, rgba(255,255,255,.82), transparent 13%),
+        radial-gradient(circle at 84% 10%, rgba(255,255,255,.66), transparent 14%),
+        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 48%, var(--sky3) 100%);
       padding:16px;
-      display:grid;
-      place-items:center;
     }
 
-    button,input,select,textarea{ font:inherit; }
-    button{ -webkit-tap-highlight-color:transparent; }
+    button,input,select{
+      font:inherit;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .clouds,
+    .clouds::before,
+    .clouds::after{
+      content:"";
+      position:fixed;
+      inset:auto;
+      pointer-events:none;
+      z-index:0;
+    }
+    .clouds{
+      left:3%;
+      top:84px;
+      width:160px;
+      height:52px;
+      border-radius:999px;
+      background:rgba(255,255,255,.45);
+      filter:blur(1px);
+      box-shadow:
+        70px 10px 0 8px rgba(255,255,255,.38),
+        28px -18px 0 0 rgba(255,255,255,.54),
+        112px -10px 0 2px rgba(255,255,255,.48);
+    }
+    .clouds::before{
+      right:7%;
+      top:122px;
+      width:190px;
+      height:58px;
+      border-radius:999px;
+      background:rgba(255,255,255,.34);
+      box-shadow:
+        74px -8px 0 8px rgba(255,255,255,.28),
+        36px -18px 0 4px rgba(255,255,255,.38),
+        128px 6px 0 2px rgba(255,255,255,.26);
+    }
+    .clouds::after{
+      left:14%;
+      bottom:110px;
+      width:110px;
+      height:36px;
+      border-radius:999px;
+      background:rgba(255,255,255,.25);
+      box-shadow:
+        48px -8px 0 5px rgba(255,255,255,.2),
+        18px -14px 0 1px rgba(255,255,255,.28);
+    }
 
     .page{
-      width:min(1100px,100%);
+      position:relative;
+      z-index:1;
+      width:min(1220px,100%);
+      margin:0 auto;
       display:grid;
-      gap:14px;
+      gap:16px;
     }
 
-    .hero-shell,
-    .panel{
-      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
-      border:1px solid rgba(255,255,255,.96);
+    .shell,
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.95));
+      border:1px solid rgba(255,255,255,.95);
       box-shadow:
-        0 18px 40px rgba(90,145,180,.14),
+        0 18px 40px rgba(84,142,176,.12),
         inset 0 1px 0 rgba(255,255,255,.92);
     }
 
-    .hero-shell{
+    .shell{
       position:relative;
       overflow:hidden;
       border-radius:var(--radius-xl);
@@ -84,316 +141,267 @@
       gap:14px;
     }
 
-    .hero-shell::after{
+    .shell::after{
       content:"";
       position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
-      height:96px;
+      left:0; right:0; bottom:0;
+      height:108px;
       background:
-        radial-gradient(circle at 10% 76%, #d4f3ad 0 18%, transparent 19%),
-        radial-gradient(circle at 34% 100%, #a8e37f 0 12%, transparent 13%),
-        radial-gradient(circle at 84% 74%, #d4f3ad 0 18%, transparent 19%),
-        linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.12) 40%, rgba(104,191,70,.24) 100%);
+        radial-gradient(circle at 10% 78%, #d7f3ae 0 18%, transparent 19%),
+        radial-gradient(circle at 32% 100%, #b7e788 0 12%, transparent 13%),
+        radial-gradient(circle at 84% 74%, #d8f4b3 0 18%, transparent 19%),
+        linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.10) 38%, rgba(104,191,70,.22) 100%);
       pointer-events:none;
     }
 
-    .hero-shell > *{
-      position:relative;
-      z-index:1;
-    }
+    .shell > *{ position:relative; z-index:1; }
 
     .topbar{
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:12px;
-    }
-
-    .corner-btn{
-      width:46px;
-      height:46px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.95);
-      background:linear-gradient(180deg,#ffffff,#eefcff);
-      box-shadow:var(--shadow);
-      font-size:22px;
-      cursor:pointer;
-    }
-
-    .topchips{
-      display:flex;
-      gap:8px;
       flex-wrap:wrap;
-      justify-content:flex-end;
     }
 
-    .topchip{
-      min-height:34px;
-      padding:7px 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.82);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      color:#6588a0;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .logo-wrap{
-      display:grid;
-      grid-template-columns:auto 1fr auto;
-      gap:14px;
+    .brand{
+      display:flex;
       align-items:center;
+      gap:14px;
+      min-width:0;
     }
 
-    .mascot-card{
+    .brand-badge{
       width:82px;
       height:82px;
-      border-radius:28px;
+      border-radius:26px;
+      background:linear-gradient(180deg,#fff8e8,#ffe8b9);
+      border:1px solid rgba(255,255,255,.95);
+      box-shadow:var(--shadow);
       display:grid;
       place-items:center;
-      background:linear-gradient(180deg, #fff7e4, #ffe7ba);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
       overflow:hidden;
+      flex:0 0 82px;
     }
 
-    .mascot-illust{
+    .hero-illust{
       position:relative;
       width:64px;
       height:64px;
     }
 
-    .mascot-head{
+    .hero-head{
       position:absolute;
-      left:18px;
-      top:10px;
-      width:26px;
-      height:26px;
+      left:18px; top:10px;
+      width:26px; height:26px;
       border-radius:999px;
-      background:#ffd7b5;
+      background:#ffd9b8;
+      z-index:4;
+    }
+    .hero-hair{
+      position:absolute;
+      left:13px; top:6px;
+      width:34px; height:18px;
+      border-radius:18px 18px 10px 12px;
+      background:linear-gradient(180deg,#7a3b22,#5f2f18);
+      transform:rotate(-8deg);
+      z-index:5;
+    }
+    .hero-body{
+      position:absolute;
+      left:15px; top:30px;
+      width:34px; height:22px;
+      border-radius:16px 16px 12px 12px;
+      background:linear-gradient(180deg,#8fd7ff,#58acef);
       z-index:3;
     }
-
-    .mascot-hair{
+    .hero-cape{
       position:absolute;
-      left:15px;
-      top:6px;
-      width:30px;
-      height:18px;
-      border-radius:16px 16px 10px 10px;
-      background:linear-gradient(180deg, #7c3f24, #5f2f18);
-      z-index:4;
-      transform:rotate(-8deg);
-    }
-
-    .mascot-body{
-      position:absolute;
-      left:14px;
-      top:31px;
-      width:32px;
-      height:22px;
-      border-radius:16px 16px 12px 12px;
-      background:linear-gradient(180deg,#7ecfff,#4ea8ef);
+      left:4px; top:24px;
+      width:20px; height:30px;
+      border-radius:14px 0 14px 14px;
+      background:linear-gradient(180deg,#ff8063,#ef5d44);
+      transform:rotate(-26deg);
       z-index:2;
     }
-
-    .mascot-cape{
+    .hero-drop{
       position:absolute;
-      left:4px;
-      top:26px;
-      width:20px;
-      height:28px;
-      border-radius:14px 0 14px 14px;
-      background:linear-gradient(180deg,#ff7e63,#ef5c45);
-      transform:rotate(-24deg);
-      z-index:1;
-    }
-
-    .mascot-drop{
-      position:absolute;
-      right:2px;
-      bottom:6px;
-      width:22px;
-      height:22px;
+      right:2px; bottom:8px;
+      width:22px; height:22px;
       border-radius:999px;
       display:grid;
       place-items:center;
-      font-size:12px;
       color:#fff;
-      background:linear-gradient(180deg,#8add68,#59be43);
-      box-shadow:0 6px 12px rgba(86,185,67,.22);
-      z-index:5;
+      font-size:12px;
+      background:linear-gradient(180deg,#8de36b,#58bf44);
+      box-shadow:0 6px 12px rgba(76,174,59,.24);
+      z-index:6;
     }
 
-    .logo-stack{
-      min-width:0;
-    }
-
+    .brand-text{ min-width:0; }
     .logo{
       display:flex;
       flex-wrap:wrap;
-      align-items:center;
       gap:2px;
-      font-size:clamp(36px, 6vw, 60px);
+      align-items:center;
       line-height:1;
+      font-size:clamp(34px,5vw,58px);
       font-weight:1000;
       letter-spacing:-.03em;
       text-shadow:0 3px 0 rgba(255,255,255,.72);
     }
-
-    .logo-hero{
-      color:#8fbe1e;
-    }
-
+    .logo-hero{ color:#8fbe1e; }
     .logo-health{
       color:#ffffff;
       text-shadow:
-        0 3px 0 rgba(89,145,180,.22),
-        0 0 1px rgba(89,145,180,.18);
+        0 3px 0 rgba(90,145,180,.22),
+        0 0 1px rgba(90,145,180,.16);
     }
-
-    .logo-sub{
-      color:#6e8fa3;
+    .subtitle{
+      margin-top:4px;
+      color:#6f91a6;
       font-size:15px;
       font-weight:900;
-      margin-top:4px;
     }
 
-    .home-btn{
-      width:54px;
-      height:54px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      font-size:24px;
-      background:linear-gradient(180deg,#ffffff,#eefcff);
+    .top-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-end;
+    }
+
+    .pill{
+      min-height:38px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.82);
       border:1px solid rgba(255,255,255,.96);
       box-shadow:var(--shadow);
+      color:#6d8fa3;
+      font-size:13px;
+      font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .icon-btn{
+      min-width:48px;
+      height:48px;
+      padding:0 14px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.96);
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      box-shadow:var(--shadow);
       color:#5f89a1;
+      font-size:22px;
+      font-weight:1000;
       cursor:pointer;
     }
 
-    .profile-strip{
+    .main-grid{
       display:grid;
+      grid-template-columns:1.12fr .88fr;
+      gap:16px;
+    }
+
+    .left-stack,
+    .right-stack{
+      display:grid;
+      gap:16px;
+      align-content:start;
+    }
+
+    .card{
+      border-radius:28px;
+      padding:16px;
+      display:grid;
+      gap:14px;
+    }
+
+    .profile-card{
       grid-template-columns:1fr auto;
-      gap:12px;
       align-items:center;
-      padding:12px;
-      border-radius:24px;
-      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(247,255,250,.94));
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
     }
 
     .profile-left{
       display:flex;
-      gap:12px;
-      align-items:flex-start;
+      gap:14px;
       min-width:0;
+      align-items:flex-start;
     }
 
     .avatar-card{
-      width:70px;
-      height:70px;
-      border-radius:22px;
-      display:grid;
-      place-items:center;
+      width:84px;
+      height:84px;
+      border-radius:24px;
       background:linear-gradient(180deg,#eefaff,#d8f2ff);
-      border:1px solid rgba(255,255,255,.96);
+      border:1px solid rgba(255,255,255,.95);
       box-shadow:var(--shadow);
-      overflow:hidden;
-      flex:0 0 70px;
-    }
-
-    .avatar-illust{
-      position:relative;
-      width:56px;
-      height:56px;
-    }
-
-    .avatar-head{
-      position:absolute;
-      left:17px;
-      top:8px;
-      width:22px;
-      height:22px;
-      border-radius:999px;
-      background:#ffd7b5;
-      z-index:3;
-    }
-
-    .avatar-hair{
-      position:absolute;
-      left:14px;
-      top:5px;
-      width:26px;
-      height:16px;
-      border-radius:16px 16px 10px 10px;
-      background:linear-gradient(180deg, #7c3f24, #5f2f18);
-      z-index:4;
-      transform:rotate(-8deg);
-    }
-
-    .avatar-body{
-      position:absolute;
-      left:13px;
-      top:27px;
-      width:28px;
-      height:20px;
-      border-radius:16px 16px 12px 12px;
-      background:linear-gradient(180deg,#7ecfff,#4ea8ef);
-      z-index:2;
-    }
-
-    .avatar-cape{
-      position:absolute;
-      left:4px;
-      top:23px;
-      width:18px;
-      height:24px;
-      border-radius:14px 0 14px 14px;
-      background:linear-gradient(180deg,#ff7e63,#ef5c45);
-      transform:rotate(-24deg);
-      z-index:1;
-    }
-
-    .avatar-drop{
-      position:absolute;
-      right:2px;
-      bottom:6px;
-      width:18px;
-      height:18px;
-      border-radius:999px;
       display:grid;
       place-items:center;
-      font-size:10px;
-      color:#fff;
-      background:linear-gradient(180deg,#8add68,#59be43);
-      box-shadow:0 6px 12px rgba(86,185,67,.22);
-      z-index:5;
+      flex:0 0 84px;
+      overflow:hidden;
     }
 
-    .profile-name{
-      color:#2b4f69;
-      font-size:28px;
+    .avatar-wrap{ position:relative; width:64px; height:64px; }
+    .avatar-head{
+      position:absolute; left:18px; top:9px;
+      width:24px; height:24px; border-radius:999px; background:#ffd9b8; z-index:4;
+    }
+    .avatar-hair{
+      position:absolute; left:14px; top:5px;
+      width:30px; height:18px; border-radius:16px 16px 10px 10px;
+      background:linear-gradient(180deg,#7a3b22,#5f2f18); transform:rotate(-8deg); z-index:5;
+    }
+    .avatar-body{
+      position:absolute; left:15px; top:28px;
+      width:30px; height:20px; border-radius:15px 15px 12px 12px;
+      background:linear-gradient(180deg,#8fd7ff,#58acef); z-index:3;
+    }
+    .avatar-cape{
+      position:absolute; left:5px; top:23px;
+      width:18px; height:26px; border-radius:14px 0 14px 14px;
+      background:linear-gradient(180deg,#ff8063,#ef5d44); transform:rotate(-24deg); z-index:2;
+    }
+    .avatar-drop{
+      position:absolute; right:2px; bottom:8px;
+      width:18px; height:18px; border-radius:999px; display:grid; place-items:center;
+      color:#fff; font-size:10px; background:linear-gradient(180deg,#8de36b,#58bf44); z-index:6;
+    }
+
+    .player-block{
+      min-width:0;
+      display:grid;
+      gap:8px;
+    }
+
+    .player-top{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .player-name{
+      font-size:30px;
       line-height:1.05;
       font-weight:1000;
-      margin-bottom:6px;
+      color:#2d5269;
     }
 
     .speech{
       position:relative;
       display:inline-block;
       max-width:100%;
-      padding:10px 14px;
+      padding:12px 16px;
       border-radius:18px;
       background:linear-gradient(180deg,#fff7db,#ffefbd);
       border:1px solid #ffe39a;
-      color:#6a5a21;
-      font-size:14px;
+      color:#6d5f29;
+      font-size:15px;
       line-height:1.45;
       font-weight:900;
       box-shadow:var(--shadow);
@@ -402,77 +410,62 @@
     .speech::before{
       content:"";
       position:absolute;
-      left:-10px;
+      left:-9px;
       top:18px;
-      width:16px;
-      height:16px;
+      width:15px; height:15px;
       background:linear-gradient(180deg,#fff7db,#ffefbd);
       border-left:1px solid #ffe39a;
       border-bottom:1px solid #ffe39a;
       transform:rotate(45deg);
     }
 
-    .profile-stats{
-      display:grid;
-      gap:10px;
+    .profile-right{
       min-width:280px;
-    }
-
-    .resource-strip{
       display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
     }
 
-    .resource-pill{
-      min-height:62px;
+    .resource-row{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .resource{
+      min-height:70px;
       padding:10px 12px;
-      border-radius:20px;
+      border-radius:22px;
       background:linear-gradient(180deg,#ffffff,#eefcff);
       border:1px solid rgba(255,255,255,.96);
-      box-shadow:
-        0 10px 22px rgba(90,145,180,.12),
-        inset 0 1px 0 rgba(255,255,255,.95);
+      box-shadow:var(--shadow);
       display:flex;
       gap:10px;
       align-items:center;
-      position:relative;
-      overflow:hidden;
-    }
-
-    .resource-pill::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      background:linear-gradient(180deg, rgba(255,255,255,.42), rgba(255,255,255,0) 46%);
-      pointer-events:none;
     }
 
     .resource-icon{
-      width:36px;
-      height:36px;
-      flex:0 0 36px;
-      border-radius:12px;
+      width:38px;
+      height:38px;
+      border-radius:14px;
       display:grid;
       place-items:center;
       font-size:18px;
-      background:linear-gradient(180deg,#fff7d5,#ffe7a8);
-      box-shadow:
-        0 6px 14px rgba(90,145,180,.12),
-        inset 0 1px 0 rgba(255,255,255,.55);
+      flex:0 0 38px;
+      background:linear-gradient(180deg,#fff7d8,#ffe8aa);
+      box-shadow:0 8px 16px rgba(84,142,176,.10);
     }
 
-    .resource-label{
+    .resource small{
       display:block;
-      color:#7698ae;
+      color:#7a9bb0;
       font-size:12px;
       font-weight:1000;
       margin-bottom:2px;
     }
 
-    .resource-pill strong{
-      color:#2c526c;
-      font-size:22px;
+    .resource strong{
+      color:#2d5269;
+      font-size:20px;
       line-height:1.05;
       font-weight:1000;
     }
@@ -494,7 +487,7 @@
       min-height:34px;
       padding:7px 12px;
       border-radius:999px;
-      background:linear-gradient(180deg,#8add68,#59be43);
+      background:linear-gradient(180deg,#8de36b,#58bf44);
       color:#fff;
       font-size:13px;
       font-weight:1000;
@@ -502,7 +495,7 @@
       place-items:center;
     }
 
-    .level-track{
+    .track{
       height:14px;
       border-radius:999px;
       background:#e8f7df;
@@ -510,97 +503,149 @@
       overflow:hidden;
     }
 
-    .level-track-fill{
+    .track > span{
+      display:block;
       height:100%;
+      width:36%;
       border-radius:999px;
-      background:linear-gradient(90deg,#8add68,#59be43);
+      background:linear-gradient(90deg,#8de36b,#58bf44);
     }
 
-    .level-progress{
-      color:#5d8096;
+    .level-text{
+      color:#5e8195;
       font-size:14px;
       font-weight:1000;
     }
 
-    .zone-strip{
+    .zone-grid{
       display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .zone-row{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:12px;
+      align-items:center;
+      min-height:118px;
+      padding:14px;
+      border-radius:26px;
+      overflow:hidden;
+      position:relative;
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+    }
+
+    .zone-row::after{
+      content:"";
+      position:absolute;
+      inset:auto 0 0 0;
+      height:58px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0), rgba(118,189,71,.14) 100%);
+      pointer-events:none;
+    }
+
+    .zone-row.active{
+      background:
+        radial-gradient(circle at 84% 18%, rgba(255,255,255,.5), transparent 16%),
+        linear-gradient(180deg,#fffef8,#f3fff0);
+      border-color:#cfe9b7;
+    }
+
+    .zone-row-left{
+      position:relative;
+      z-index:1;
+      display:grid;
       gap:10px;
     }
 
-    .zone-card-mini{
-      min-height:62px;
-      border-radius:22px;
-      padding:12px 14px;
-      background:linear-gradient(180deg,#ffffff,#eefcff);
+    .zone-title{
+      font-size:20px;
+      font-weight:1000;
+      color:#315873;
+    }
+
+    .zone-sub{
+      color:#6f92a6;
+      font-size:14px;
+      line-height:1.45;
+      font-weight:800;
+    }
+
+    .zone-tag{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      width:max-content;
+      padding:7px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.82);
       border:1px solid rgba(255,255,255,.96);
+      color:#5f869e;
+      font-size:12px;
+      font-weight:1000;
       box-shadow:var(--shadow);
-      display:grid;
-      place-items:center;
-      text-align:center;
-      color:#6d8ea3;
-      font-size:17px;
+    }
+
+    .zone-go{
+      position:relative;
+      z-index:1;
+      min-width:118px;
+      min-height:52px;
+      padding:12px 18px;
+      border-radius:18px;
+      border:0;
+      background:linear-gradient(180deg,#8de36b,#58bf44);
+      color:#fff;
+      font-size:24px;
       font-weight:1000;
+      cursor:pointer;
+      box-shadow:
+        0 12px 26px rgba(84,142,176,.14),
+        inset 0 1px 0 rgba(255,255,255,.18);
     }
 
-    .zone-card-mini.active{
-      background:linear-gradient(180deg,#fffef8,#f3fff0);
-      border-color:#b8e6a2;
-      color:#427d34;
+    .zone-row.hygiene{
+      background:
+        radial-gradient(circle at 14% 20%, rgba(255,255,255,.55), transparent 16%),
+        linear-gradient(180deg,#e9fbff,#d5f2ff);
+    }
+    .zone-row.nutrition{
+      background:
+        radial-gradient(circle at 84% 20%, rgba(255,255,255,.55), transparent 16%),
+        linear-gradient(180deg,#fffef8,#f4fff0);
+    }
+    .zone-row.fitness{
+      background:
+        radial-gradient(circle at 18% 20%, rgba(255,255,255,.45), transparent 16%),
+        linear-gradient(180deg,#fff9ec,#fff0d8);
     }
 
-    .main-grid{
-      display:grid;
-      grid-template-columns:1.08fr .92fr;
-      gap:14px;
-    }
-
-    .panel{
-      padding:16px;
-      border-radius:28px;
-      display:grid;
-      gap:14px;
-    }
-
-    .panel-title{
-      color:#2b4f69;
-      font-size:30px;
-      line-height:1.06;
-      font-weight:1000;
-      margin:0;
-    }
-
-    .panel-sub{
-      color:var(--muted);
-      font-size:15px;
-      line-height:1.5;
-      font-weight:700;
-      margin:0;
-    }
-
-    .launch-stage{
+    .play-card{
       position:relative;
       overflow:hidden;
-      min-height:390px;
+      min-height:420px;
+      padding:16px;
       border-radius:30px;
       background:
         radial-gradient(circle at 14% 14%, rgba(255,255,255,.92), transparent 10%),
         radial-gradient(circle at 84% 16%, rgba(255,255,255,.72), transparent 12%),
-        linear-gradient(180deg, #e9fbff 0%, #c9f0ff 42%, #aee2ff 100%);
+        linear-gradient(180deg,#e9fbff 0%,#c9f0ff 42%,#aee2ff 100%);
       border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
+      box-shadow:var(--shadow-lg);
       display:grid;
       align-content:space-between;
-      padding:16px;
+      gap:12px;
     }
 
-    .launch-stage::after{
+    .play-card::after{
       content:"";
       position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
-      height:104px;
+      left:0; right:0; bottom:0;
+      height:112px;
       background:
         radial-gradient(circle at 10% 76%, #d4f3ad 0 18%, transparent 19%),
         radial-gradient(circle at 34% 100%, #a8e37f 0 12%, transparent 13%),
@@ -609,478 +654,418 @@
       pointer-events:none;
     }
 
-    .launch-stage > *{
-      position:relative;
-      z-index:1;
-    }
+    .play-card > *{ position:relative; z-index:1; }
 
-    .launch-top-row{
+    .play-top{
       display:flex;
       justify-content:space-between;
       align-items:flex-start;
       gap:8px;
+      flex-wrap:wrap;
     }
 
     .tiny-badge{
       min-height:34px;
       padding:7px 12px;
       border-radius:999px;
-      background:rgba(255,255,255,.82);
+      background:rgba(255,255,255,.84);
       border:1px solid rgba(255,255,255,.96);
       box-shadow:var(--shadow);
-      color:#6788a0;
+      color:#6a8da3;
       font-size:12px;
       font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
     }
 
-    .launch-scene{
+    .play-center{
       display:grid;
       place-items:center;
-      gap:14px;
       text-align:center;
-      padding:8px 0;
+      gap:14px;
+      padding:6px 0;
     }
 
-    .launch-avatar-big{
-      width:132px;
-      height:132px;
-      border-radius:34px;
+    .big-avatar{
+      width:152px;
+      height:152px;
+      border-radius:36px;
       display:grid;
       place-items:center;
-      background:linear-gradient(180deg,#f2fbff,#dff3ff);
-      border:1px solid rgba(255,255,255,.96);
+      background:linear-gradient(180deg,#f3fbff,#def4ff);
+      border:1px solid rgba(255,255,255,.95);
       box-shadow:var(--shadow-lg);
       overflow:hidden;
     }
 
-    .launch-avatar-illust{
-      position:relative;
-      width:100px;
-      height:100px;
+    .big-wrap{ position:relative; width:112px; height:112px; }
+    .big-head{
+      position:absolute; left:37px; top:14px;
+      width:36px; height:36px; border-radius:999px; background:#ffd9b8; z-index:4;
+    }
+    .big-hair{
+      position:absolute; left:31px; top:9px;
+      width:42px; height:24px; border-radius:18px 18px 12px 12px;
+      background:linear-gradient(180deg,#7a3b22,#5f2f18); transform:rotate(-8deg); z-index:5;
+    }
+    .big-body{
+      position:absolute; left:30px; top:47px;
+      width:44px; height:30px; border-radius:18px 18px 14px 14px;
+      background:linear-gradient(180deg,#8fd7ff,#58acef); z-index:3;
+    }
+    .big-cape{
+      position:absolute; left:13px; top:40px;
+      width:28px; height:40px; border-radius:18px 0 18px 18px;
+      background:linear-gradient(180deg,#ff8063,#ef5d44); transform:rotate(-26deg); z-index:2;
+    }
+    .big-drop{
+      position:absolute; right:6px; bottom:11px;
+      width:28px; height:28px; border-radius:999px; display:grid; place-items:center;
+      color:#fff; font-size:14px; background:linear-gradient(180deg,#8de36b,#58bf44); z-index:6;
+      box-shadow:0 8px 14px rgba(76,174,59,.24);
     }
 
-    .launch-head{
-      position:absolute;
-      left:33px;
-      top:14px;
-      width:34px;
-      height:34px;
-      border-radius:999px;
-      background:#ffd7b5;
-      z-index:3;
+    .play-title{
+      font-size:40px;
+      line-height:1.04;
+      font-weight:1000;
+      color:#2e556f;
+      margin:0;
     }
 
-    .launch-hair{
-      position:absolute;
-      left:28px;
-      top:10px;
-      width:40px;
-      height:24px;
-      border-radius:18px 18px 10px 12px;
-      background:linear-gradient(180deg,#7c3f24,#5f2f18);
-      z-index:4;
-      transform:rotate(-8deg);
+    .play-sub{
+      margin:0;
+      color:#6f91a5;
+      font-size:16px;
+      line-height:1.5;
+      font-weight:800;
+      max-width:420px;
     }
 
-    .launch-body{
-      position:absolute;
-      left:27px;
-      top:44px;
-      width:42px;
-      height:30px;
-      border-radius:18px 18px 14px 14px;
-      background:linear-gradient(180deg,#7ecfff,#4ea8ef);
-      z-index:2;
-    }
-
-    .launch-cape{
-      position:absolute;
-      left:13px;
-      top:38px;
-      width:26px;
-      height:38px;
-      border-radius:18px 0 18px 18px;
-      background:linear-gradient(180deg,#ff7e63,#ef5c45);
-      transform:rotate(-24deg);
-      z-index:1;
-    }
-
-    .launch-drop{
-      position:absolute;
-      right:5px;
-      bottom:10px;
-      width:26px;
-      height:26px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      font-size:14px;
-      color:#fff;
-      background:linear-gradient(180deg,#8add68,#59be43);
-      box-shadow:0 6px 12px rgba(86,185,67,.22);
-      z-index:5;
-    }
-
-    .launch-bubble{
-      max-width:360px;
+    .bubble{
+      max-width:420px;
       justify-self:center;
       padding:12px 16px;
       border-radius:18px;
       background:linear-gradient(180deg,#fff7db,#ffefbd);
       border:1px solid #ffe39a;
-      color:#6a5a21;
+      color:#6d5f29;
       font-size:16px;
       line-height:1.45;
       font-weight:1000;
       box-shadow:var(--shadow);
     }
 
-    .launch-actions{
+    .play-bottom{
+      display:grid;
+      gap:12px;
+    }
+
+    .meta-row{
       display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
       flex-wrap:wrap;
+      gap:10px;
+      justify-content:center;
     }
 
-    .level-pill{
-      min-height:44px;
-      padding:10px 16px;
+    .meta-pill{
+      min-height:42px;
+      padding:10px 14px;
       border-radius:999px;
-      background:linear-gradient(180deg,#8add68,#59be43);
-      color:#fff;
-      font-weight:1000;
-      box-shadow:var(--shadow);
-    }
-
-    .go-btn{
-      min-width:190px;
-      min-height:58px;
-      border:0;
-      border-radius:20px;
-      background:linear-gradient(180deg,#87de67,#57ba44);
-      color:#fff;
-      font-size:24px;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:
-        0 12px 26px rgba(90,145,180,.14),
-        inset 0 1px 0 rgba(255,255,255,.18);
-      transition:transform .12s ease, filter .12s ease;
-    }
-
-    .go-btn:hover{
-      transform:translateY(-1px) scale(1.01);
-      filter:brightness(1.02);
-    }
-
-    .controls-stack{
-      display:grid;
-      gap:12px;
-      align-content:start;
-    }
-
-    .control-box{
-      padding:14px;
-      border-radius:22px;
       background:linear-gradient(180deg,#ffffff,#eefcff);
-      border:1px solid rgba(255,255,255,.96);
+      border:1px solid rgba(255,255,255,.95);
       box-shadow:var(--shadow);
-      display:grid;
+      color:#5f889f;
+      font-size:14px;
+      font-weight:1000;
+      display:inline-flex;
+      align-items:center;
       gap:8px;
     }
 
-    .control-box label{
-      color:#7094ab;
-      font-size:14px;
-      font-weight:1000;
-    }
-
-    .control-box select{
-      border:1px solid #cfe8f3;
-      background:#fff;
-      color:var(--text);
-      border-radius:16px;
-      padding:12px 14px;
-      outline:none;
-      font-size:16px;
-      font-weight:800;
-    }
-
-    .tip-card{
-      padding:16px;
-      border-radius:24px;
-      background:linear-gradient(180deg,#fffef8,#f3fff0);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      color:#5d8096;
-      font-size:15px;
-      line-height:1.55;
-      font-weight:800;
-    }
-
-    .tip-card strong{
-      color:#315873;
-    }
-
-    .action-row{
+    .cta-row{
       display:flex;
-      gap:10px;
+      gap:12px;
+      justify-content:center;
       flex-wrap:wrap;
     }
 
-    .btn-blue,
-    .btn-soft{
-      min-height:52px;
-      padding:12px 18px;
-      border-radius:18px;
-      font-size:18px;
+    .btn{
+      min-height:56px;
+      padding:12px 22px;
+      border-radius:20px;
+      font-size:21px;
       font-weight:1000;
       cursor:pointer;
-      box-shadow:
-        0 12px 26px rgba(90,145,180,.14),
-        inset 0 1px 0 rgba(255,255,255,.18);
       transition:transform .12s ease, filter .12s ease;
+      box-shadow:
+        0 12px 26px rgba(84,142,176,.14),
+        inset 0 1px 0 rgba(255,255,255,.18);
     }
-
+    .btn:hover{
+      transform:translateY(-1px) scale(1.01);
+      filter:brightness(1.02);
+    }
+    .btn-primary{
+      border:0;
+      min-width:220px;
+      background:linear-gradient(180deg,#8de36b,#58bf44);
+      color:#fff;
+      font-size:26px;
+    }
+    .btn-secondary{
+      border:1px solid rgba(255,255,255,.95);
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      color:#2f5268;
+    }
     .btn-blue{
       border:0;
       background:linear-gradient(180deg,var(--blue1),var(--blue2));
       color:#fff;
     }
 
-    .btn-soft{
-      border:1px solid rgba(255,255,255,.96);
-      background:linear-gradient(180deg,#ffffff,#eefcff);
-      color:var(--text);
+    .control-grid{
+      display:grid;
+      gap:14px;
     }
 
-    .btn-blue:hover,
-    .btn-soft:hover{
-      transform:translateY(-1px) scale(1.01);
-      filter:brightness(1.02);
+    .section-title{
+      margin:0;
+      color:#2d5269;
+      font-size:30px;
+      line-height:1.06;
+      font-weight:1000;
+    }
+
+    .section-sub{
+      margin:0;
+      color:#6f91a6;
+      font-size:15px;
+      line-height:1.5;
+      font-weight:800;
+    }
+
+    .field-card{
+      padding:14px;
+      border-radius:22px;
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      display:grid;
+      gap:10px;
+    }
+
+    .field-card label{
+      color:#6f95ab;
+      font-size:14px;
+      font-weight:1000;
+    }
+
+    .field-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .field-card input,
+    .field-card select{
+      width:100%;
+      min-height:50px;
+      border-radius:16px;
+      border:1px solid #cfe8f3;
+      background:#fff;
+      color:var(--text);
+      outline:none;
+      padding:12px 14px;
+      font-size:16px;
+      font-weight:800;
+    }
+
+    .mini-help{
+      padding:15px 16px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fffef8,#f3fff0);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      color:#5f8499;
+      font-size:15px;
+      line-height:1.6;
+      font-weight:800;
+    }
+    .mini-help strong{ color:#315873; }
+
+    .quick-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .quick-btn{
+      flex:1 1 180px;
+      min-height:54px;
+      padding:12px 18px;
+      border-radius:18px;
+      font-size:18px;
+      font-weight:1000;
+      cursor:pointer;
+      border:1px solid rgba(255,255,255,.95);
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      color:#2f5268;
+      box-shadow:
+        0 12px 26px rgba(84,142,176,.14),
+        inset 0 1px 0 rgba(255,255,255,.18);
     }
 
     .footer-note{
-      color:#6e8fa3;
+      color:#6d8fa4;
       font-size:14px;
       line-height:1.5;
       font-weight:800;
     }
 
-    @media (max-width: 900px){
-      .logo-wrap,
-      .profile-strip,
+    .footer-note code{
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-size:.95em;
+      color:#2f5877;
+      background:#eef9ff;
+      padding:2px 6px;
+      border-radius:8px;
+    }
+
+    .help-backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(25,52,68,.26);
+      backdrop-filter:blur(6px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:30;
+    }
+
+    .help-backdrop.open{ display:flex; }
+
+    .help-dialog{
+      width:min(560px,100%);
+      border-radius:30px;
+      padding:18px;
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow-lg);
+      display:grid;
+      gap:14px;
+    }
+
+    .help-dialog h2{
+      margin:0;
+      color:#2d5269;
+      font-size:28px;
+      line-height:1.05;
+      font-weight:1000;
+    }
+
+    .help-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .help-item{
+      padding:12px 14px;
+      border-radius:18px;
+      background:linear-gradient(180deg,#fffef8,#f3fff0);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      color:#567b90;
+      font-size:15px;
+      line-height:1.5;
+      font-weight:900;
+    }
+
+    @media (max-width: 980px){
       .main-grid{
         grid-template-columns:1fr;
       }
-
-      .profile-stats{
+      .profile-card{
+        grid-template-columns:1fr;
+      }
+      .profile-right{
         min-width:0;
       }
     }
 
-    @media (max-width: 640px){
-      body{
-        padding:12px;
+    @media (max-width: 720px){
+      body{ padding:12px; }
+      .brand-badge{
+        width:68px; height:68px; border-radius:22px; flex-basis:68px;
       }
+      .hero-illust{ width:54px; height:54px; }
+      .hero-head{ left:15px; top:8px; width:22px; height:22px; }
+      .hero-hair{ left:11px; top:5px; width:28px; height:16px; }
+      .hero-body{ left:13px; top:25px; width:28px; height:19px; }
+      .hero-cape{ left:4px; top:21px; width:16px; height:24px; }
+      .hero-drop{ width:18px; height:18px; font-size:10px; }
 
-      .page{
-        gap:12px;
-      }
-
-      .hero-shell,
-      .panel{
-        border-radius:24px;
-      }
-
-      .logo{
-        font-size:clamp(28px, 10vw, 40px);
-      }
-
-      .mascot-card{
-        width:66px;
-        height:66px;
-        border-radius:22px;
-      }
-
-      .mascot-illust{
-        width:52px;
-        height:52px;
-      }
-
-      .mascot-head{
-        left:14px; top:8px; width:22px; height:22px;
-      }
-
-      .mascot-hair{
-        left:12px; top:5px; width:24px; height:16px;
-      }
-
-      .mascot-body{
-        left:12px; top:26px; width:26px; height:18px;
-      }
-
-      .mascot-cape{
-        left:3px; top:22px; width:16px; height:22px;
-      }
-
-      .mascot-drop{
-        width:18px; height:18px; font-size:10px;
-      }
-
-      .home-btn{
-        width:44px;
-        height:44px;
-        border-radius:14px;
-        font-size:20px;
-      }
-
-      .profile-strip{
-        grid-template-columns:1fr;
-      }
-
-      .profile-stats{
-        min-width:0;
-      }
-
-      .avatar-card{
-        width:58px;
-        height:58px;
-        flex-basis:58px;
-        border-radius:18px;
-      }
-
-      .avatar-illust{
-        width:46px;
-        height:46px;
-      }
-
-      .avatar-head{
-        left:14px; top:7px; width:18px; height:18px;
-      }
-
-      .avatar-hair{
-        left:12px; top:4px; width:22px; height:14px;
-      }
-
-      .avatar-body{
-        left:11px; top:22px; width:24px; height:18px;
-      }
-
-      .avatar-cape{
-        left:3px; top:19px; width:16px; height:20px;
-      }
-
-      .avatar-drop{
-        width:16px; height:16px; font-size:9px;
-      }
-
-      .profile-name{
-        font-size:24px;
-      }
-
-      .zone-strip{
-        grid-template-columns:1fr;
-      }
-
-      .topbar{
-        align-items:flex-start;
-      }
-
-      .topchips{
-        justify-content:flex-start;
-      }
-
-      .launch-avatar-big{
-        width:104px;
-        height:104px;
-        border-radius:28px;
-      }
-
-      .launch-avatar-illust{
-        width:80px;
-        height:80px;
-      }
-
-      .launch-head{
-        left:25px; top:10px; width:28px; height:28px;
-      }
-
-      .launch-hair{
-        left:22px; top:7px; width:32px; height:20px;
-      }
-
-      .launch-body{
-        left:21px; top:35px; width:34px; height:24px;
-      }
-
-      .launch-cape{
-        left:9px; top:31px; width:22px; height:30px;
-      }
-
-      .launch-drop{
-        width:22px; height:22px; font-size:12px;
-      }
-
-      .launch-bubble{
-        font-size:14px;
-      }
-
-      .launch-actions{
-        align-items:stretch;
-      }
-
-      .go-btn,
-      .btn-blue,
-      .btn-soft{
-        width:100%;
-      }
-
-      .action-row{
+      .logo{ font-size:clamp(28px,10vw,40px); }
+      .resource-row{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .field-grid{ grid-template-columns:1fr; }
+      .player-name{ font-size:24px; }
+      .play-title{ font-size:32px; }
+      .big-avatar{ width:124px; height:124px; border-radius:30px; }
+      .big-wrap{ width:92px; height:92px; }
+      .big-head{ left:30px; top:11px; width:30px; height:30px; }
+      .big-hair{ left:25px; top:7px; width:35px; height:20px; }
+      .big-body{ left:24px; top:38px; width:36px; height:25px; }
+      .big-cape{ left:11px; top:33px; width:22px; height:32px; }
+      .big-drop{ width:23px; height:23px; font-size:12px; }
+      .cta-row,
+      .quick-row{
         flex-direction:column;
+      }
+      .btn,
+      .quick-btn{
+        width:100%;
       }
     }
   </style>
 </head>
 <body>
+  <div class="clouds" aria-hidden="true"></div>
+
   <main class="page">
-    <section class="hero-shell">
+    <section class="shell">
       <div class="topbar">
-        <button class="corner-btn" type="button" aria-label="settings">⚙️</button>
+        <div class="brand">
+          <div class="brand-badge">
+            <div class="hero-illust">
+              <div class="hero-head"></div>
+              <div class="hero-hair"></div>
+              <div class="hero-body"></div>
+              <div class="hero-cape"></div>
+              <div class="hero-drop">💧</div>
+            </div>
+          </div>
 
-        <div class="topchips">
-          <span class="topchip">💧 Play</span>
-          <span class="topchip">⭐ Hero</span>
-          <span class="topchip">🫧 Fun</span>
-        </div>
-      </div>
-
-      <div class="logo-wrap">
-        <div class="mascot-card">
-          <div class="mascot-illust">
-            <div class="mascot-head"></div>
-            <div class="mascot-hair"></div>
-            <div class="mascot-body"></div>
-            <div class="mascot-cape"></div>
-            <div class="mascot-drop">💧</div>
+          <div class="brand-text">
+            <div class="logo">
+              <span class="logo-hero">Hero</span><span class="logo-health">Health</span>
+            </div>
+            <div class="subtitle">Learn Health Through Play!</div>
           </div>
         </div>
 
-        <div class="logo-stack">
-          <div class="logo">
-            <span class="logo-hero">Hero</span><span class="logo-health">Health</span>
-          </div>
-          <div class="logo-sub">Learn Health Through Play!</div>
+        <div class="top-actions">
+          <span class="pill">💧 Hydration Hero</span>
+          <span class="pill">🥗 Nutrition Zone</span>
+          <button id="hubBtnTop" class="icon-btn" type="button" aria-label="กลับ HUB">🏠</button>
         </div>
-
-        <button id="hubBtnTop" class="home-btn" type="button" aria-label="home">🏠</button>
       </div>
 
-      <div class="profile-strip">
+      <section class="card profile-card">
         <div class="profile-left">
           <div class="avatar-card">
-            <div class="avatar-illust">
+            <div class="avatar-wrap">
               <div class="avatar-head"></div>
               <div class="avatar-hair"></div>
               <div class="avatar-body"></div>
@@ -1089,213 +1074,391 @@
             </div>
           </div>
 
-          <div>
-            <div class="profile-name">Rocky</div>
-            <div class="speech">พร้อมแล้ว! ไปเก็บน้ำดีให้เต็มพลังกันเลย</div>
+          <div class="player-block">
+            <div class="player-top">
+              <div id="profileName" class="player-name">Rocky</div>
+              <span class="pill">⭐ Lv. 5</span>
+            </div>
+            <div id="speechText" class="speech">พร้อมไหม! ไปเก็บน้ำดีให้เต็มพลังกันเลย</div>
           </div>
         </div>
 
-        <div class="profile-stats">
-          <div class="resource-strip">
-            <div class="resource-pill">
-              <span class="resource-icon">❤️</span>
-              <div>
-                <span class="resource-label">Hearts</span>
-                <strong>8</strong>
-              </div>
+        <div class="profile-right">
+          <div class="resource-row">
+            <div class="resource">
+              <div class="resource-icon">❤️</div>
+              <div><small>Hearts</small><strong>8</strong></div>
             </div>
-
-            <div class="resource-pill">
-              <span class="resource-icon">🪙</span>
-              <div>
-                <span class="resource-label">Coins</span>
-                <strong>0</strong>
-              </div>
+            <div class="resource">
+              <div class="resource-icon">🪙</div>
+              <div><small>Coins</small><strong>380</strong></div>
             </div>
-
-            <div class="resource-pill">
-              <span class="resource-icon">⭐</span>
-              <div>
-                <span class="resource-label">Stars</span>
-                <strong>3</strong>
-              </div>
+            <div class="resource">
+              <div class="resource-icon">⭐</div>
+              <div><small>Stars</small><strong>3</strong></div>
             </div>
-
-            <div class="resource-pill">
-              <span class="resource-icon">💧</span>
-              <div>
-                <span class="resource-label">Water</span>
-                <strong>40%</strong>
-              </div>
+            <div class="resource">
+              <div class="resource-icon">💧</div>
+              <div><small>Water</small><strong>40%</strong></div>
             </div>
           </div>
 
           <div class="level-strip">
             <div class="level-badge">Lv. 5</div>
-            <div class="level-track">
-              <div class="level-track-fill" style="width:32%"></div>
-            </div>
-            <div class="level-progress">10/30</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="zone-strip">
-        <div class="zone-card-mini">🧼 Hygiene Zone</div>
-        <div class="zone-card-mini active">🥗 Nutrition Zone</div>
-        <div class="zone-card-mini">🏃 Fitness Zone</div>
-      </div>
-    </section>
-
-    <section class="main-grid">
-      <section class="panel">
-        <div>
-          <h1 class="panel-title">Hydration Hero</h1>
-          <p class="panel-sub">เก็บน้ำดี เลี่ยงของไม่ดี ผ่านพายุและบอส แล้วไปคูลดาวน์ก่อนกลับ HUB</p>
-        </div>
-
-        <div class="launch-stage">
-          <div class="launch-top-row">
-            <span class="tiny-badge">💧 Nutrition Hero</span>
-            <span class="tiny-badge">⭐ Lv. 5</span>
-          </div>
-
-          <div class="launch-scene">
-            <div class="launch-avatar-big">
-              <div class="launch-avatar-illust">
-                <div class="launch-head"></div>
-                <div class="launch-hair"></div>
-                <div class="launch-body"></div>
-                <div class="launch-cape"></div>
-                <div class="launch-drop">💧</div>
-              </div>
-            </div>
-
-            <div class="launch-bubble">Great! ไปเก็บน้ำดีให้ได้เยอะที่สุดกันเลย!</div>
-          </div>
-
-          <div class="launch-actions">
-            <div class="level-pill">Level 5</div>
-            <button id="startBtn" class="go-btn" type="button">Go</button>
+            <div class="track"><span></span></div>
+            <div class="level-text">10/30</div>
           </div>
         </div>
       </section>
 
-      <section class="panel controls-stack">
-        <div class="control-box">
-          <label for="diffSel">ระดับความยาก</label>
-          <select id="diffSel">
-            <option value="normal">Normal</option>
-            <option value="hard">Hard</option>
-          </select>
+      <section class="main-grid">
+        <div class="left-stack">
+          <section class="zone-grid">
+            <div class="zone-row hygiene">
+              <div class="zone-row-left">
+                <div class="zone-title">🧼 Hygiene Zone</div>
+                <div class="zone-sub">ฝึกนิสัยสะอาดให้แข็งแรงทุกวัน</div>
+                <span class="zone-tag">Level 5</span>
+              </div>
+              <button class="zone-go" type="button" data-hub-zone="hygiene">Go</button>
+            </div>
+
+            <div class="zone-row nutrition active">
+              <div class="zone-row-left">
+                <div class="zone-title">🥗 Nutrition Zone</div>
+                <div class="zone-sub">วันนี้เราเล่น <strong>Hydration Hero</strong> เพื่อเรียนรู้การดื่มน้ำให้พอดี</div>
+                <span class="zone-tag">Hydration Hero พร้อมเล่น</span>
+              </div>
+              <button id="zonePlayBtn" class="zone-go" type="button">Go</button>
+            </div>
+
+            <div class="zone-row fitness">
+              <div class="zone-row-left">
+                <div class="zone-title">🏃 Fitness Zone</div>
+                <div class="zone-sub">ขยับตัว สนุก และท้าทายไปกับเกมออกกำลังกาย</div>
+                <span class="zone-tag">Level 6</span>
+              </div>
+              <button class="zone-go" type="button" data-hub-zone="fitness">Go</button>
+            </div>
+          </section>
         </div>
 
-        <div class="control-box">
-          <label for="viewSel">มุมมอง</label>
-          <select id="viewSel">
-            <option value="mobile">Mobile</option>
-            <option value="cvr">Cardboard / cVR</option>
-          </select>
-        </div>
+        <div class="right-stack">
+          <section class="play-card">
+            <div class="play-top">
+              <span class="tiny-badge">💧 Nutrition Hero</span>
+              <span id="tinyLevel" class="tiny-badge">⭐ Lv. 5</span>
+            </div>
 
-        <div class="tip-card">
-          <strong>วิธีเล่นแบบสั้น</strong><br />
-          แตะน้ำดีเพื่อเพิ่มคะแนน เก็บโล่ไว้กันสายฟ้า และหลบของไม่ดีให้ได้มากที่สุด
-        </div>
+            <div class="play-center">
+              <div class="big-avatar">
+                <div class="big-wrap">
+                  <div class="big-head"></div>
+                  <div class="big-hair"></div>
+                  <div class="big-body"></div>
+                  <div class="big-cape"></div>
+                  <div class="big-drop">💧</div>
+                </div>
+              </div>
 
-        <div class="action-row">
-          <button id="hubBtn" class="btn-blue" type="button">🏠 กลับ HUB</button>
-          <button id="helpBtn" class="btn-soft" type="button">❓ วิธีเล่น</button>
-        </div>
+              <div>
+                <h1 class="play-title">Hydration Hero</h1>
+                <p class="play-sub">แตะน้ำดี เก็บโล่ หลบของไม่ดี แล้วผ่านพายุและบอสให้ได้</p>
+              </div>
 
-        <div class="footer-note">
-          launcher นี้จะพาไป <strong>/herohealth/warmup-gate.html</strong> ก่อน แล้วค่อยเข้า
-          <strong>/herohealth/hydration-vr/hydration.html</strong>
+              <div id="launchBubble" class="bubble">Great! ไปเก็บน้ำดีให้ได้เยอะที่สุดกันเลย!</div>
+            </div>
+
+            <div class="play-bottom">
+              <div class="meta-row">
+                <div id="metaDiff" class="meta-pill">🎯 Normal</div>
+                <div id="metaView" class="meta-pill">📱 Mobile</div>
+                <div id="metaTime" class="meta-pill">⏱ 80 วินาที</div>
+              </div>
+
+              <div class="cta-row">
+                <button id="startBtn" class="btn btn-primary" type="button">Go!</button>
+                <button id="helpBtn" class="btn btn-secondary" type="button">❓ วิธีเล่น</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card control-grid">
+            <div>
+              <h2 class="section-title">ตั้งค่าก่อนเล่น</h2>
+              <p class="section-sub">เลือกค่าที่ต้องการ แล้วกด Go เพื่อเข้า warmup ก่อนเริ่มเกมจริง</p>
+            </div>
+
+            <div class="field-card">
+              <div class="field-grid">
+                <div>
+                  <label for="nickInput">ชื่อเล่น</label>
+                  <input id="nickInput" type="text" maxlength="24" placeholder="เช่น Rocky" />
+                </div>
+                <div>
+                  <label for="pidInput">PID</label>
+                  <input id="pidInput" type="text" maxlength="36" placeholder="ระบบจะสร้างให้อัตโนมัติ" />
+                </div>
+              </div>
+            </div>
+
+            <div class="field-card">
+              <label for="diffSel">ระดับความยาก</label>
+              <select id="diffSel">
+                <option value="easy">Easy</option>
+                <option value="normal">Normal</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+
+            <div class="field-card">
+              <label for="viewSel">มุมมอง</label>
+              <select id="viewSel">
+                <option value="pc">PC</option>
+                <option value="mobile">Mobile</option>
+                <option value="cvr">Cardboard / cVR</option>
+              </select>
+            </div>
+
+            <div class="field-card">
+              <label for="timeSel">เวลาเล่น</label>
+              <select id="timeSel">
+                <option value="60">60 วินาที</option>
+                <option value="80">80 วินาที</option>
+                <option value="90">90 วินาที</option>
+                <option value="120">120 วินาที</option>
+              </select>
+            </div>
+
+            <div class="mini-help">
+              <strong>วิธีเล่นแบบสั้น</strong><br />
+              1) แตะน้ำดีเพื่อเพิ่มคะแนนและเพิ่มน้ำ<br />
+              2) หลบของไม่ดีให้ได้มากที่สุด<br />
+              3) เก็บโล่ไว้กันสายฟ้า<br />
+              4) ผ่านพายุและบอสให้ได้
+            </div>
+
+            <div class="quick-row">
+              <button id="hubBtn" class="quick-btn" type="button">🏠 กลับ HUB</button>
+              <button id="randomBtn" class="quick-btn" type="button">🎲 สุ่มค่าเล่น</button>
+            </div>
+
+            <div class="footer-note">
+              flow ของหน้านี้คือ <code>launcher → warmup-gate → /herohealth/hydration-vr/hydration-vr.html</code>
+            </div>
+          </section>
         </div>
       </section>
     </section>
   </main>
 
+  <div id="helpBackdrop" class="help-backdrop" aria-hidden="true">
+    <div class="help-dialog" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <h2 id="helpTitle">วิธีเล่น Hydration Hero</h2>
+      <div class="help-list">
+        <div class="help-item">💧 แตะน้ำดีเพื่อเพิ่มคะแนนและเพิ่มพลังน้ำ</div>
+        <div class="help-item">⚠️ หลบของไม่ดี เช่น ของหวานหรือสิ่งรบกวน</div>
+        <div class="help-item">🛡️ เก็บโล่ไว้กันสายฟ้าหรือช่วงอันตราย</div>
+        <div class="help-item">🌪️ เล่นให้ดีในช่วงพายุ แล้วเตรียมสู้บอสตอนท้าย</div>
+      </div>
+      <button id="closeHelpBtn" class="btn btn-blue" type="button">เข้าใจแล้ว</button>
+    </div>
+  </div>
+
   <script>
     (function(){
       const qs = new URLSearchParams(location.search);
+
+      const PASS_KEYS = [
+        'studyId','phase','conditionGroup','sessionOrder','blockLabel',
+        'siteCode','schoolYear','semester','studentKey','schoolCode',
+        'classRoom','studentNo','nickName','nick','grade','planDay',
+        'planSlot','teacher','run','log','api','debug'
+      ];
+
+      const EL = {
+        hubBtnTop: document.getElementById('hubBtnTop'),
+        hubBtn: document.getElementById('hubBtn'),
+        helpBtn: document.getElementById('helpBtn'),
+        closeHelpBtn: document.getElementById('closeHelpBtn'),
+        helpBackdrop: document.getElementById('helpBackdrop'),
+        startBtn: document.getElementById('startBtn'),
+        zonePlayBtn: document.getElementById('zonePlayBtn'),
+        randomBtn: document.getElementById('randomBtn'),
+        diffSel: document.getElementById('diffSel'),
+        viewSel: document.getElementById('viewSel'),
+        timeSel: document.getElementById('timeSel'),
+        nickInput: document.getElementById('nickInput'),
+        pidInput: document.getElementById('pidInput'),
+        profileName: document.getElementById('profileName'),
+        speechText: document.getElementById('speechText'),
+        launchBubble: document.getElementById('launchBubble'),
+        metaDiff: document.getElementById('metaDiff'),
+        metaView: document.getElementById('metaView'),
+        metaTime: document.getElementById('metaTime'),
+        tinyLevel: document.getElementById('tinyLevel')
+      };
+
+      const LS = {
+        pid:'HHA_DEVICE_PID',
+        nick:'HHA_HERO_NICK'
+      };
 
       function q(name, fallback=''){
         const v = qs.get(name);
         return v == null || v === '' ? fallback : v;
       }
 
+      function clamp(v, a, b){
+        v = Number(v);
+        if(!Number.isFinite(v)) v = a;
+        return Math.max(a, Math.min(b, v));
+      }
+
+      function sanitizePid(v){
+        return String(v || '').trim().replace(/[.#$[\]/]/g, '-').replace(/\s+/g, '-').slice(0,36);
+      }
+
       function defaultHub(){
         return q('hub', new URL('./hub.html', location.href).href);
+      }
+
+      function readLS(key, fallback=''){
+        try{
+          return localStorage.getItem(key) || fallback;
+        }catch{
+          return fallback;
+        }
+      }
+
+      function writeLS(key, value){
+        try{
+          localStorage.setItem(key, value);
+        }catch{}
+      }
+
+      function ensurePid(){
+        const typed = sanitizePid(EL.pidInput.value);
+        if(typed){
+          writeLS(LS.pid, typed);
+          return typed;
+        }
+        const fromQs = sanitizePid(q('pid', ''));
+        if(fromQs){
+          writeLS(LS.pid, fromQs);
+          EL.pidInput.value = fromQs;
+          return fromQs;
+        }
+        const fromLs = sanitizePid(readLS(LS.pid, ''));
+        if(fromLs){
+          EL.pidInput.value = fromLs;
+          return fromLs;
+        }
+        const pid = `p-${Math.random().toString(36).slice(2,10)}`;
+        writeLS(LS.pid, pid);
+        EL.pidInput.value = pid;
+        return pid;
+      }
+
+      function ensureNick(){
+        const typed = String(EL.nickInput.value || '').trim().slice(0,24);
+        if(typed){
+          writeLS(LS.nick, typed);
+          return typed;
+        }
+        const fromQs = String(q('nick', q('nickName', ''))).trim().slice(0,24);
+        if(fromQs){
+          writeLS(LS.nick, fromQs);
+          EL.nickInput.value = fromQs;
+          return fromQs;
+        }
+        const fromLs = String(readLS(LS.nick, 'Rocky')).trim().slice(0,24) || 'Rocky';
+        EL.nickInput.value = fromLs;
+        return fromLs;
       }
 
       function makeSessionId(){
         return `hydr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
       }
 
-      function ensurePid(){
-        const raw = String(q('pid', '')).trim();
-        if(raw) return raw.replace(/[.#$[\]/]/g, '-');
-
-        const KEY = 'HHA_DEVICE_PID';
-        try{
-          let pid = localStorage.getItem(KEY);
-          if(!pid){
-            pid = `p-${Math.random().toString(36).slice(2,10)}`;
-            localStorage.setItem(KEY, pid);
-          }
-          return pid;
-        }catch{
-          return `p-${Math.random().toString(36).slice(2,10)}`;
-        }
+      function diffLabel(v){
+        return v === 'easy' ? 'Easy' : v === 'hard' ? 'Hard' : 'Normal';
       }
 
-      const diffSel = document.getElementById('diffSel');
-      const viewSel = document.getElementById('viewSel');
+      function viewLabel(v){
+        if(v === 'pc') return 'PC';
+        if(v === 'cvr') return 'Cardboard / cVR';
+        return 'Mobile';
+      }
 
-      diffSel.value = q('diff', 'normal');
-      viewSel.value = q('view', 'mobile');
+      function defaultTimeForDiff(diff){
+        if(diff === 'easy') return '60';
+        if(diff === 'hard') return '90';
+        return '80';
+      }
+
+      function updateLiveUi(){
+        const nick = ensureNick() || 'Rocky';
+        const diff = EL.diffSel.value || 'normal';
+        const view = EL.viewSel.value || 'mobile';
+        const time = EL.timeSel.value || defaultTimeForDiff(diff);
+
+        EL.profileName.textContent = nick;
+        EL.metaDiff.textContent = `🎯 ${diffLabel(diff)}`;
+        EL.metaView.textContent = `📱 ${viewLabel(view)}`;
+        EL.metaTime.textContent = `⏱ ${time} วินาที`;
+
+        if(diff === 'easy'){
+          EL.speechText.textContent = 'เริ่มแบบง่าย ๆ ก่อนนะ ค่อย ๆ เก็บน้ำดีไปด้วยกัน';
+          EL.launchBubble.textContent = 'พร้อมแล้ว! เริ่มแบบสบาย ๆ เก็บน้ำดีให้เต็มพลังเลย';
+        }else if(diff === 'hard'){
+          EL.speechText.textContent = 'รอบนี้ท้าทายขึ้นนะ! ต้องไวและแม่นกว่าเดิม';
+          EL.launchBubble.textContent = 'สุดยอด! รอบนี้เร็วขึ้นและยากขึ้น เตรียมลุยเลย!';
+        }else{
+          EL.speechText.textContent = 'พร้อมไหม! ไปเก็บน้ำดีให้เต็มพลังกันเลย';
+          EL.launchBubble.textContent = 'Great! ไปเก็บน้ำดีให้ได้เยอะที่สุดกันเลย!';
+        }
+
+        EL.tinyLevel.textContent = `⭐ Lv. ${view === 'cvr' ? 'VR' : '5'}`;
+      }
 
       function buildRunUrl(seed){
-        const diff = diffSel.value || q('diff', 'normal');
-        const view = viewSel.value || q('view', 'mobile');
+        const diff = EL.diffSel.value || q('diff', 'normal');
+        const view = EL.viewSel.value || q('view', 'mobile');
+        const time = EL.timeSel.value || q('time', defaultTimeForDiff(diff));
+        const pid = ensurePid();
+        const nick = ensureNick();
 
-        const run = new URL('./hydration-vr/hydration.html', location.href);
+        const run = new URL('./hydration-vr/hydration-vr.html', location.href);
         run.searchParams.set('game', 'hydration');
+        run.searchParams.set('theme', 'hydration');
         run.searchParams.set('zone', q('zone', 'nutrition'));
         run.searchParams.set('cat', q('cat', q('zone', 'nutrition')));
+        run.searchParams.set('mode', q('mode', 'solo'));
         run.searchParams.set('hub', defaultHub());
-        run.searchParams.set('pid', ensurePid());
+        run.searchParams.set('pid', pid);
+        run.searchParams.set('nick', nick);
+        run.searchParams.set('nickName', nick);
         run.searchParams.set('sessionId', q('sessionId', makeSessionId()));
         run.searchParams.set('diff', diff);
         run.searchParams.set('run', q('run', 'play'));
         run.searchParams.set('view', view);
         run.searchParams.set('cooldown', q('cooldown', '1'));
-        run.searchParams.set('time', q('time', diff === 'hard' ? '90' : '80'));
+        run.searchParams.set('time', time);
         run.searchParams.set('seed', seed);
 
-        const passthrough = [
-          'studyId',
-          'phase',
-          'conditionGroup',
-          'studentKey',
-          'schoolCode',
-          'classRoom',
-          'studentNo',
-          'nickName'
-        ];
-
-        for(const key of passthrough){
+        for(const key of PASS_KEYS){
           const v = qs.get(key);
-          if(v) run.searchParams.set(key, v);
+          if(v && !run.searchParams.has(key)) run.searchParams.set(key, v);
         }
 
         return run;
       }
 
       function goStart(){
-        const diff = diffSel.value || q('diff', 'normal');
-        const view = viewSel.value || q('view', 'mobile');
+        const diff = EL.diffSel.value || q('diff', 'normal');
+        const view = EL.viewSel.value || q('view', 'mobile');
+        const time = EL.timeSel.value || q('time', defaultTimeForDiff(diff));
         const seed = q('seed', String(Date.now()));
         const next = buildRunUrl(seed);
 
@@ -1307,33 +1470,95 @@
         }catch{}
 
         gate.searchParams.set('game', 'hydration');
+        gate.searchParams.set('theme', 'hydration');
         gate.searchParams.set('zone', q('zone', 'nutrition'));
+        gate.searchParams.set('cat', q('cat', q('zone', 'nutrition')));
         gate.searchParams.set('hub', defaultHub());
         gate.searchParams.set('next', next.href);
         gate.searchParams.set('nextKey', nextKey);
         gate.searchParams.set('pid', ensurePid());
+        gate.searchParams.set('nick', ensureNick());
         gate.searchParams.set('seed', seed);
         gate.searchParams.set('diff', diff);
         gate.searchParams.set('run', q('run', 'play'));
         gate.searchParams.set('view', view);
-        gate.searchParams.set('time', q('time', diff === 'hard' ? '90' : '80'));
+        gate.searchParams.set('time', time);
         gate.searchParams.set('cooldown', q('cooldown', '1'));
+
+        for(const key of PASS_KEYS){
+          const v = qs.get(key);
+          if(v && !gate.searchParams.has(key)) gate.searchParams.set(key, v);
+        }
 
         location.href = gate.href;
       }
 
-      function goHub(){
-        location.href = defaultHub();
+      function goHub(zone){
+        const hub = new URL(defaultHub());
+        if(zone) hub.searchParams.set('zone', zone);
+        location.href = hub.href;
       }
 
       function showHelp(){
-        alert('วิธีเล่น:\\n\\n1) แตะน้ำดีเพื่อเพิ่มคะแนนและเพิ่มน้ำ\\n2) หลบของไม่ดี\\n3) เก็บโล่ไว้กันสายฟ้า\\n4) ผ่านพายุและบอสให้ได้');
+        EL.helpBackdrop.classList.add('open');
+        EL.helpBackdrop.setAttribute('aria-hidden', 'false');
       }
 
-      document.getElementById('startBtn').addEventListener('click', goStart);
-      document.getElementById('hubBtn').addEventListener('click', goHub);
-      document.getElementById('hubBtnTop').addEventListener('click', goHub);
-      document.getElementById('helpBtn').addEventListener('click', showHelp);
+      function hideHelp(){
+        EL.helpBackdrop.classList.remove('open');
+        EL.helpBackdrop.setAttribute('aria-hidden', 'true');
+      }
+
+      function randomize(){
+        const diffs = ['easy','normal','hard'];
+        const views = ['pc','mobile','cvr'];
+        const times = ['60','80','90','120'];
+        EL.diffSel.value = diffs[Math.floor(Math.random()*diffs.length)];
+        EL.viewSel.value = views[Math.floor(Math.random()*views.length)];
+        EL.timeSel.value = times[Math.floor(Math.random()*times.length)];
+        updateLiveUi();
+      }
+
+      function init(){
+        const diff = q('diff', 'normal');
+        const view = q('view', 'mobile');
+        const time = q('time', defaultTimeForDiff(diff));
+
+        EL.diffSel.value = ['easy','normal','hard'].includes(diff) ? diff : 'normal';
+        EL.viewSel.value = ['pc','mobile','cvr'].includes(view) ? view : 'mobile';
+        EL.timeSel.value = ['60','80','90','120'].includes(time) ? time : defaultTimeForDiff(diff);
+
+        EL.nickInput.value = ensureNick();
+        ensurePid();
+        updateLiveUi();
+      }
+
+      document.querySelectorAll('[data-hub-zone]').forEach(btn=>{
+        btn.addEventListener('click', ()=> goHub(btn.getAttribute('data-hub-zone')));
+      });
+
+      EL.nickInput.addEventListener('input', updateLiveUi);
+      EL.diffSel.addEventListener('change', ()=>{
+        if(!q('time','')){
+          EL.timeSel.value = defaultTimeForDiff(EL.diffSel.value || 'normal');
+        }
+        updateLiveUi();
+      });
+      EL.viewSel.addEventListener('change', updateLiveUi);
+      EL.timeSel.addEventListener('change', updateLiveUi);
+
+      EL.startBtn.addEventListener('click', goStart);
+      EL.zonePlayBtn.addEventListener('click', goStart);
+      EL.hubBtn.addEventListener('click', ()=> goHub());
+      EL.hubBtnTop.addEventListener('click', ()=> goHub());
+      EL.helpBtn.addEventListener('click', showHelp);
+      EL.closeHelpBtn.addEventListener('click', hideHelp);
+      EL.randomBtn.addEventListener('click', randomize);
+      EL.helpBackdrop.addEventListener('click', (e)=>{
+        if(e.target === EL.helpBackdrop) hideHelp();
+      });
+
+      init();
     })();
   </script>
 </body>
