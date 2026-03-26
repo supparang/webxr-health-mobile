@@ -32,6 +32,7 @@
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -43,6 +44,7 @@
         linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
       overflow:hidden;
     }
+
     body{ min-height:100dvh; }
 
     #app{
@@ -97,20 +99,24 @@
     .hero-card::before{
       content:"";
       position:absolute;
-      left:-36px; top:-36px;
-      width:140px; height:140px;
+      left:-36px;
+      top:-36px;
+      width:140px;
+      height:140px;
       border-radius:999px;
-      background:rgba(255,177,71,.18);
+      background:rgba(255,181,71,.18);
       filter:blur(8px);
     }
 
     .hero-card::after{
       content:"";
       position:absolute;
-      right:-26px; bottom:-26px;
-      width:120px; height:120px;
+      right:-26px;
+      bottom:-26px;
+      width:120px;
+      height:120px;
       border-radius:999px;
-      background:rgba(255,212,92,.22);
+      background:rgba(255,212,92,.24);
       filter:blur(8px);
     }
 
@@ -186,7 +192,7 @@
       font-weight:900;
       line-height:1.6;
       pointer-events:auto;
-      max-width:min(760px,100%);
+      max-width:min(880px,100%);
     }
 
     .status-title{
@@ -194,6 +200,26 @@
       font-size:14px;
       font-weight:1000;
       margin-bottom:4px;
+    }
+
+    .status-sub{
+      margin-top:6px;
+      color:#8b887f;
+      font-size:12px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
+    .debug{
+      margin-top:8px;
+      padding-top:8px;
+      border-top:1px dashed rgba(191,227,242,.95);
+      white-space:pre-wrap;
+      word-break:break-word;
+      font-size:11px;
+      color:#8a8a82;
+      max-height:140px;
+      overflow:auto;
     }
 
     .error{
@@ -226,6 +252,7 @@
         <div class="side">
           <div class="pill" id="pillRoom">ROOM • -</div>
           <div class="pill" id="pillPlayer">PLAYER • -</div>
+          <div class="pill" id="pillRole">ROLE • player</div>
           <div class="pill" id="pillDiff">DIFF • normal</div>
           <div class="pill" id="pillTime">TIME • 150</div>
         </div>
@@ -236,6 +263,8 @@
       <div class="status-card" id="engineStatusCard">
         <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
         <div id="engineStatusText">กำลังโหลด battle engine</div>
+        <div class="status-sub" id="engineStatusSub">รองรับทั้ง classic / module และ override path ผ่าน query</div>
+        <div class="debug" id="engineDebugInfo"></div>
       </div>
     </div>
   </div>
@@ -246,45 +275,104 @@
 
       const MODE = 'battle';
       const MODE_LABEL = 'Battle';
-      const ENGINE_CANDIDATES = [
+
+      const DEFAULT_ENGINE_CANDIDATES = [
         './goodjunk-battle.safe.js',
         './goodjunk-battle.js',
+        './goodjunk-battle-run.safe.js',
+        './goodjunk-battle-run.js',
+        './battle.safe.js',
+        './battle.js',
         './js/goodjunk-battle.safe.js',
-        './js/goodjunk-battle.js'
+        './js/goodjunk-battle.js',
+        './js/goodjunk-battle-run.safe.js',
+        './js/goodjunk-battle-run.js',
+        './js/battle.safe.js',
+        './js/battle.js'
       ];
 
+      function qs(key, fb=''){
+        return q.get(key) ?? fb;
+      }
+
+      function clean(v){
+        return String(v || '').trim();
+      }
+
+      function dedupe(arr){
+        const out = [];
+        const seen = new Set();
+        for (const item of arr || []) {
+          const s = clean(item);
+          if (!s || seen.has(s)) continue;
+          seen.add(s);
+          out.push(s);
+        }
+        return out;
+      }
+
+      function parseList(text){
+        return String(text || '')
+          .split(',')
+          .map(s => clean(s))
+          .filter(Boolean);
+      }
+
+      function resolveHub(){
+        try{
+          return qs('hub') || new URL('../hub.html', location.href).toString();
+        }catch{
+          return '../hub.html';
+        }
+      }
+
       window.HHA_CLOUD_ENDPOINT =
-        String(
-          q.get('api') ||
+        clean(
+          qs('api') ||
           window.HHA_CLOUD_ENDPOINT ||
           'https://script.google.com/macros/s/AKfycbwNOpsjFTV_nK0PzNV23KziF5hZxIMI50P8o_vZgwVg_T4anpXZOaKQUy_uf5PPg9kT6Q/exec'
-        ).trim();
+        );
 
       const runCtx = {
-        pid: q.get('pid') || 'anon',
-        name: q.get('name') || '',
-        studyId: q.get('studyId') || '',
-        roomId: q.get('roomId') || q.get('room') || '',
-        role: q.get('role') || 'player',
+        pid: qs('pid', 'anon'),
+        name: qs('name', ''),
+        studyId: qs('studyId', ''),
+        roomId: qs('roomId') || qs('room') || '',
+        role: qs('role', 'player'),
         mode: MODE,
-        diff: q.get('diff') || 'normal',
-        time: q.get('time') || '150',
-        seed: q.get('seed') || String(Date.now()),
+        diff: qs('diff', 'normal'),
+        time: qs('time', '150'),
+        seed: qs('seed', String(Date.now())),
         startAt: 0,
-        hub: q.get('hub') || new URL('../hub.html', location.href).toString(),
-        view: q.get('view') || 'mobile',
-        run: q.get('run') || 'play',
-        gameId: q.get('gameId') || 'goodjunk'
+        hub: resolveHub(),
+        view: qs('view', 'mobile'),
+        run: qs('run', 'play'),
+        gameId: qs('gameId', 'goodjunk')
       };
 
       window.__GJ_RUN_CTX__ = runCtx;
       window.__GJ_MULTI_RUN_CTX__ = runCtx;
 
+      const ENGINE_CANDIDATES = dedupe([
+        clean(qs('engine')),
+        ...parseList(qs('engineCandidates')),
+        ...DEFAULT_ENGINE_CANDIDATES
+      ]);
+
       const $ = (id) => document.getElementById(id);
+
       $('pillRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
       $('pillPlayer').textContent = `PLAYER • ${runCtx.name || runCtx.pid || '-'}`;
+      $('pillRole').textContent = `ROLE • ${runCtx.role || 'player'}`;
       $('pillDiff').textContent = `DIFF • ${runCtx.diff}`;
       $('pillTime').textContent = `TIME • ${runCtx.time}`;
+
+      $('engineDebugInfo').textContent =
+        '[MODE] ' + MODE + '\n' +
+        '[PID] ' + (runCtx.pid || '-') + '\n' +
+        '[ROOM] ' + (runCtx.roomId || '-') + '\n' +
+        '[API] ' + (window.HHA_CLOUD_ENDPOINT || '-') + '\n\n' +
+        '[CANDIDATES]\n' + ENGINE_CANDIDATES.join('\n');
 
       function setStatus(title, text, isError = false) {
         $('engineStatusTitle').textContent = title;
@@ -292,46 +380,97 @@
         $('engineStatusText').className = isError ? 'error' : '';
       }
 
-      async function fetchText(src) {
-        const res = await fetch(src, { cache: 'no-store' });
-        if (!res.ok) throw new Error(`${src} -> HTTP ${res.status}`);
-        return await res.text();
+      function setDebug(text) {
+        $('engineDebugInfo').textContent = text;
+      }
+
+      function hideStatusCardSoon() {
+        const card = $('engineStatusCard');
+        if (!card) return;
+        setTimeout(() => {
+          card.style.display = 'none';
+        }, 1200);
+      }
+
+      function loadScriptWithType(src, type) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          if (type === 'module') s.type = 'module';
+          s.src = new URL(src, location.href).toString();
+          s.async = true;
+          s.onload = () => resolve({ src, type });
+          s.onerror = () => reject(new Error(`โหลด script ไม่สำเร็จ: ${src} [${type}]`));
+          document.body.appendChild(s);
+        });
+      }
+
+      async function tryLoad(src) {
+        try {
+          setStatus('กำลังโหลดเกม…', `ลองโหลด ${src} (classic)`);
+          return await loadScriptWithType(src, 'classic');
+        } catch (e1) {
+          try {
+            setStatus('กำลังโหลดเกม…', `ลองโหลด ${src} (module)`);
+            return await loadScriptWithType(src, 'module');
+          } catch (e2) {
+            throw new Error(
+              `${src}\n- classic: ${String(e1 && e1.message ? e1.message : e1)}\n- module: ${String(e2 && e2.message ? e2.message : e2)}`
+            );
+          }
+        }
       }
 
       async function loadEngine() {
+        if (!ENGINE_CANDIDATES.length) {
+          setStatus('ไม่พบ candidate', 'ไม่มี candidate engine ให้ลองโหลด', true);
+          return;
+        }
+
+        const errors = [];
+
         for (const src of ENGINE_CANDIDATES) {
           try {
-            setStatus('กำลังโหลดเกม…', `ลองโหลด ${src}`);
-            const code = await fetchText(src);
-            const isModule = /^\s*(import|export)\s/m.test(code);
-            const blob = new Blob([code], { type: 'text/javascript' });
-            const blobUrl = URL.createObjectURL(blob);
+            const result = await tryLoad(src);
 
-            await new Promise((resolve, reject) => {
-              const s = document.createElement('script');
-              if (isModule) s.type = 'module';
-              s.src = blobUrl;
-              s.onload = () => resolve();
-              s.onerror = () => reject(new Error(`โหลด script ไม่สำเร็จ: ${src}`));
-              document.body.appendChild(s);
-            });
+            window.__GJ_MULTI_ENGINE_INFO__ = {
+              mode: MODE,
+              label: MODE_LABEL,
+              src: result.src,
+              type: result.type,
+              loadedAt: Date.now()
+            };
 
-            setStatus('เข้าเกมแล้ว', `${MODE_LABEL} engine loaded: ${src}`);
-            setTimeout(() => {
-              const card = $('engineStatusCard');
-              if (card) card.style.display = 'none';
-            }, 1200);
-            console.log('[GJ-BATTLE-RUN] loaded engine', src, runCtx);
+            setStatus('เข้าเกมแล้ว', `${MODE_LABEL} engine loaded: ${result.src} (${result.type})`);
+            setDebug(
+              '[SUCCESS]\n' +
+              'src: ' + result.src + '\n' +
+              'type: ' + result.type + '\n' +
+              'room: ' + (runCtx.roomId || '-') + '\n' +
+              'player: ' + (runCtx.name || runCtx.pid || '-') + '\n' +
+              'role: ' + (runCtx.role || 'player')
+            );
+
+            console.log('[GJ-BATTLE-RUN] loaded engine', result.src, runCtx);
+            hideStatusCardSoon();
             return;
           } catch (err) {
+            const msg = String(err && err.message ? err.message : err);
+            errors.push(msg);
             console.warn('[GJ-BATTLE-RUN] candidate failed', src, err);
           }
         }
 
         setStatus(
           'ไม่พบไฟล์ engine',
-          `หา battle engine ไม่เจอ\nลองแก้ ENGINE_CANDIDATES ใน goodjunk-battle-run.html ให้ตรงกับไฟล์จริง\n\nCandidates:\n${ENGINE_CANDIDATES.join('\n')}`,
+          `หา battle engine ไม่เจอ\nลองแก้ ?engine=... หรือ ?engineCandidates=... ให้ตรงกับไฟล์จริง`,
           true
+        );
+
+        setDebug(
+          '[FAILED CANDIDATES]\n' +
+          ENGINE_CANDIDATES.join('\n') +
+          '\n\n[ERRORS]\n' +
+          errors.join('\n\n')
         );
       }
 
