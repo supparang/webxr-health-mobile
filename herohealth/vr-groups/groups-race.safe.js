@@ -1,6 +1,4 @@
 // === /herohealth/vr-groups/groups-race.safe.js ===
-// Groups Race SAFE
-// FULL PATCH v20260319-GROUPS-RACE-SAFE-V1
 /* global window, document */
 (function(){
   'use strict';
@@ -8,13 +6,15 @@
   const WIN = window;
   const DOC = document;
 
-  const clamp = (v, a, b) => {
+  function clamp(v,a,b){
     v = Number(v);
-    if (!Number.isFinite(v)) v = a;
+    if(!Number.isFinite(v)) v = a;
     return Math.max(a, Math.min(b, v));
-  };
+  }
 
-  const nowMs = () => (performance && performance.now) ? performance.now() : Date.now();
+  function nowMs(){
+    return (performance && performance.now) ? performance.now() : Date.now();
+  }
 
   function xmur3(str){
     str = String(str || '');
@@ -49,18 +49,12 @@
     return sfc32(s(), s(), s(), s());
   }
 
-  const pick = (rng, arr)=> arr[(rng() * arr.length) | 0];
-
-  function emit(name, detail){
-    try{ WIN.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
-  }
-
   const GROUPS = [
     { id:1, short:'หมู่ 1', name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🥜'] },
     { id:2, short:'หมู่ 2', name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥖'] },
     { id:3, short:'หมู่ 3', name:'หมู่ 3 ผัก', items:['🥦','🥬','🥕','🥒','🌽'] },
-    { id:4, short:'หมู่ 4', name:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
-    { id:5, short:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] }
+    { id:4, short:'หมู่ 4 ผลไม้', name:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
+    { id:5, short:'หมู่ 5 ไขมัน', name:'หมู่ 5 ไขมัน', items:['🥑','🧈','🥥','🧀','🫒'] }
   ];
 
   const STATE = {
@@ -68,39 +62,39 @@
     running: false,
     paused: false,
     raf: 0,
-    listenersBound: false,
-    endedOnce: false,
-
     diff: 'normal',
-    timeSec: 60,
-    seedStr: '',
-    view: 'mobile',
     rng: null,
-
-    startMs: 0,
+    seed: '',
+    plannedSec: 60,
+    timeLeft: 0,
     lastTick: 0,
-    tLeft: 0,
     elapsed: 0,
-
-    myScore: 0,
+    score: 0,
     rivalScore: 0,
     combo: 0,
     comboMax: 0,
-    miss: 0,
-    shots: 0,
     hits: 0,
-
+    shots: 0,
+    miss: 0,
+    targetGroup: null,
     goalNow: 0,
-    goalTotal: 30,
-    spawnAcc: 0,
-    baseSpawnPerSec: 1.0,
-    baseTtl: 2.8,
-    curGroup: null,
-
+    goalTotal: 10,
     map: new Map(),
     idSeq: 1,
-    coachTs: 0
+    spawnAcc: 0,
+    spawnPerSec: 1.0,
+    ttlMs: 2600
   };
+
+  function emit(name, detail){
+    try{
+      WIN.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
+    }catch(_){}
+  }
+
+  function pick(arr){
+    return arr[(STATE.rng() * arr.length) | 0];
+  }
 
   function accPct(){
     return STATE.shots > 0 ? Math.round((STATE.hits / STATE.shots) * 100) : 0;
@@ -109,105 +103,61 @@
   function getSafeRect(layerEl){
     const s = WIN.__HHA_RACE_SPAWN_SAFE__;
     if(s && Number.isFinite(s.xMin)) return s;
-
     const r = layerEl.getBoundingClientRect();
-    const PAD = 18;
-    return {
-      xMin: PAD,
-      xMax: Math.max(PAD + 1, r.width - PAD),
-      yMin: 180,
-      yMax: Math.max(240, r.height - 170)
-    };
-  }
-
-  function intersectsForbidden(x, y){
-    const stage = STATE.layerEl;
-    if(!stage) return false;
-
-    try{
-      const stageRect = stage.getBoundingClientRect();
-      const localX = x;
-      const localY = y;
-
-      const forbidden = [];
-      const hud = DOC.querySelector('.hud');
-      const toast = DOC.querySelector('.coachToast.show');
-
-      [hud, toast].forEach(node=>{
-        if(!node) return;
-        const r = node.getBoundingClientRect();
-        forbidden.push({
-          left: r.left - stageRect.left - 26,
-          top: r.top - stageRect.top - 20,
-          right: r.right - stageRect.left + 26,
-          bottom: r.bottom - stageRect.top + 20
-        });
-      });
-
-      return forbidden.some(box=>{
-        return localX >= box.left && localX <= box.right && localY >= box.top && localY <= box.bottom;
-      });
-    }catch(_){
-      return false;
-    }
+    return { xMin:24, xMax:r.width-24, yMin:140, yMax:r.height-120 };
   }
 
   function posInSafe(){
     const r = getSafeRect(STATE.layerEl);
-    let x = 0;
-    let y = 0;
-    let tries = 0;
-
-    do{
-      x = r.xMin + STATE.rng() * Math.max(1, (r.xMax - r.xMin));
-      y = r.yMin + STATE.rng() * Math.max(1, (r.yMax - r.yMin));
-      tries++;
-    }while(
-      tries < 32 &&
-      (
-        intersectsForbidden(x, y) ||
-        y < (r.yMin + 16) ||
-        y > (r.yMax - 16) ||
-        x < (r.xMin + 10) ||
-        x > (r.xMax - 10)
-      )
-    );
-
-    return { x, y };
+    return {
+      x: r.xMin + STATE.rng() * Math.max(1, (r.xMax - r.xMin)),
+      y: r.yMin + STATE.rng() * Math.max(1, (r.yMax - r.yMin))
+    };
   }
 
-  function createTarget(){
+  function clearTargets(){
+    for(const o of STATE.map.values()){
+      try{ o.el.remove(); }catch(_){}
+    }
+    STATE.map.clear();
+  }
+
+  function chooseGroup(){
+    STATE.targetGroup = pick(GROUPS);
+    STATE.goalNow = 0;
+    emit('race:progress', {
+      goalTitle: `ยิง ${STATE.targetGroup.short}`,
+      goalNow: STATE.goalNow,
+      goalTotal: STATE.goalTotal,
+      tip: `หา ${STATE.targetGroup.short}`,
+      hot: false
+    });
+    emit('race:coach', {
+      text: `เริ่มเลย! ยิง ${STATE.targetGroup.short}`,
+      mood: 'neutral'
+    });
+  }
+
+  function makeTarget(){
     const id = String(STATE.idSeq++);
+    const correctP = STATE.diff === 'hard' ? 0.60 : STATE.diff === 'easy' ? 0.78 : 0.68;
+
+    let group = STATE.targetGroup;
+    let good = true;
+
+    if(STATE.rng() > correctP){
+      const others = GROUPS.filter(g => g.id !== STATE.targetGroup.id);
+      group = pick(others);
+      good = false;
+    }
+
+    const emoji = pick(group.items);
     const el = DOC.createElement('div');
-    el.dataset.id = id;
-
-    if(!STATE.curGroup){
-      STATE.curGroup = pick(STATE.rng, GROUPS);
-    }
-
-    const correctP = STATE.diff === 'easy' ? 0.76 : STATE.diff === 'hard' ? 0.62 : 0.68;
-
-    let emoji = '';
-    let groupId = STATE.curGroup.id;
-    let mission = true;
-
-    if(STATE.rng() < correctP){
-      emoji = pick(STATE.rng, STATE.curGroup.items);
-      mission = true;
-      groupId = STATE.curGroup.id;
-    }else{
-      const others = GROUPS.filter(g => g.id !== STATE.curGroup.id);
-      const og = pick(STATE.rng, others);
-      emoji = pick(STATE.rng, og.items);
-      mission = false;
-      groupId = og.id;
-    }
-
     el.className = 'tgt';
+    el.dataset.id = id;
     el.textContent = emoji;
 
     const p = posInSafe();
-    el.style.position = 'absolute';
     el.style.left = `${p.x}px`;
     el.style.top = `${p.y}px`;
     el.style.transform = 'translate(-50%,-50%) scale(.84)';
@@ -216,158 +166,122 @@
     STATE.layerEl.appendChild(el);
 
     requestAnimationFrame(()=>{
-      try{
-        el.style.transition = 'transform .14s ease, opacity .12s ease';
-        el.style.transform = 'translate(-50%,-50%) scale(1)';
-        el.style.opacity = '1';
-      }catch(_){}
+      el.style.transition = 'transform .12s ease, opacity .12s ease';
+      el.style.transform = 'translate(-50%,-50%) scale(1)';
+      el.style.opacity = '1';
     });
 
-    const ttl = Math.max(1.0, STATE.baseTtl);
-    const obj = {
+    STATE.map.set(id, {
       id,
       el,
-      emoji,
+      good,
+      groupId: group.id,
       born: nowMs(),
-      ttlMs: ttl * 1000,
-      mission,
-      groupId,
-      lastX: 0,
-      lastY: 0
-    };
-    STATE.map.set(id, obj);
+      x: p.x,
+      y: p.y
+    });
   }
 
-  function removeTarget(id){
-    const t = STATE.map.get(String(id));
-    if(!t) return;
+  function removeTarget(id, cls){
+    const o = STATE.map.get(String(id));
+    if(!o) return;
     STATE.map.delete(String(id));
+
     try{
-      t.el.style.transition = 'transform .12s ease, opacity .12s ease';
-      t.el.style.opacity = '0';
-      t.el.style.transform = 'translate(-50%,-50%) scale(.68)';
-      setTimeout(()=>{ try{ t.el.remove(); }catch(_){ } }, 140);
+      if(cls) o.el.classList.add(cls);
+      o.el.style.transition = 'transform .12s ease, opacity .12s ease';
+      o.el.style.opacity = '0';
+      o.el.style.transform = 'translate(-50%,-50%) scale(.72)';
+      setTimeout(()=>{ try{ o.el.remove(); }catch(_){ } }, 140);
     }catch(_){}
   }
 
-  function emitScorePack(){
-    const rankText = STATE.myScore > STATE.rivalScore ? '#1'
-      : STATE.myScore < STATE.rivalScore ? '#2'
-      : '#1 ร่วม';
-
+  function updateScore(){
     emit('race:score', {
-      myScore: STATE.myScore|0,
-      rivalScore: STATE.rivalScore|0,
-      rankText,
+      myScore: STATE.score|0,
       combo: STATE.combo|0,
       acc: accPct()
     });
   }
 
-  function emitProgressPack(){
+  function updateTime(){
+    emit('race:time', { left: Math.ceil(STATE.timeLeft) });
+  }
+
+  function updateQuest(hot){
     emit('race:progress', {
-      goalTitle: `ยิง “${STATE.curGroup?.short || 'หมู่ที่ถูก'}” ให้เร็ว`,
+      goalTitle: `ยิง ${STATE.targetGroup.short}`,
       goalNow: STATE.goalNow,
       goalTotal: STATE.goalTotal,
-      tip: STATE.myScore >= STATE.rivalScore ? 'รักษานำไว้!' : 'เร่งแซงเลย!',
-      hot: STATE.tLeft <= 10
+      tip: hot ? 'คอมโบมาแล้ว!' : `หา ${STATE.targetGroup.short}`,
+      hot: !!hot
     });
-  }
-
-  function emitTimePack(){
-    emit('race:time', { left: Math.ceil(STATE.tLeft) });
-  }
-
-  function maybeCoach(){
-    const t = nowMs();
-    if(t - STATE.coachTs < 3200) return;
-
-    let text = '';
-    let mood = 'neutral';
-
-    if(STATE.tLeft <= 10){
-      text = 'โค้งสุดท้าย! เร่งเลย 🔥';
-      mood = 'fever';
-    }else if(STATE.myScore < STATE.rivalScore){
-      text = 'ตามอยู่! ยิงให้แม่นแล้วแซงให้ได้';
-      mood = 'sad';
-    }else if(STATE.combo >= 5){
-      text = 'คอมโบดีมาก! รักษาจังหวะไว้';
-      mood = 'happy';
-    }else if(accPct() < 50 && STATE.shots >= 5){
-      text = 'ค่อย ๆ เล็งก่อนยิง จะได้ไม่เสียแต้ม';
-      mood = 'neutral';
-    }else{
-      return;
-    }
-
-    STATE.coachTs = t;
-    emit('race:coach', { text, mood });
   }
 
   function onHit(obj){
     if(!STATE.running || STATE.paused) return;
     STATE.shots++;
 
-    const good = obj.mission === true && obj.groupId === STATE.curGroup.id;
+    const correct = obj.groupId === STATE.targetGroup.id && obj.good;
 
-    if(good){
+    if(correct){
       STATE.hits++;
-      STATE.goalNow++;
       STATE.combo++;
       STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
-      const add = STATE.combo >= 5 ? 12 : 10;
-      STATE.myScore += add;
-
-      if(STATE.goalNow > 0 && STATE.goalNow % 6 === 0){
-        STATE.curGroup = pick(STATE.rng, GROUPS);
-      }
+      STATE.goalNow++;
+      const add = 10 + Math.min(10, Math.floor(STATE.combo / 2) * 2);
+      STATE.score += add;
 
       emit('race:hit', {
         good: true,
-        delta: add,
-        x: obj.lastX,
-        y: obj.lastY,
-        hot: STATE.tLeft <= 10
+        x: obj.x,
+        y: obj.y,
+        delta: add
       });
+
+      if(STATE.goalNow >= STATE.goalTotal){
+        chooseGroup();
+      }else{
+        updateQuest(STATE.combo >= 5);
+      }
+
+      if(STATE.combo === 5){
+        emit('race:coach', { text:'คอมโบมาแล้ว! ไปต่อ!', mood:'happy' });
+      }
     }else{
       STATE.combo = 0;
-      STATE.myScore = Math.max(0, STATE.myScore - 2);
+      STATE.score = Math.max(0, STATE.score - 2);
       emit('race:hit', {
         good: false,
-        delta: -2,
-        x: obj.lastX,
-        y: obj.lastY
+        x: obj.x,
+        y: obj.y,
+        delta: -2
       });
+      updateQuest(false);
     }
 
-    removeTarget(obj.id);
-    emitScorePack();
-    emitProgressPack();
+    removeTarget(obj.id, correct ? 'hit' : 'bad');
+    updateScore();
   }
 
   function pointerHandler(ev){
     if(!STATE.running || STATE.paused) return;
     const el = ev.target && ev.target.closest ? ev.target.closest('.tgt') : null;
     if(!el) return;
-
     const obj = STATE.map.get(String(el.dataset.id));
     if(!obj) return;
-
-    obj.lastX = Number(ev.clientX || 0);
-    obj.lastY = Number(ev.clientY || 0);
     onHit(obj);
   }
 
-  function pickClosestToCenter(lockPx){
-    lockPx = clamp(lockPx ?? 22, 16, 140);
-    let best = null;
-    let bestD = 1e9;
-
+  function shootHandler(ev){
+    if(!STATE.running || STATE.paused) return;
+    const lockPx = clamp(ev?.detail?.lockPx ?? 36, 16, 140);
     const r = STATE.layerEl.getBoundingClientRect();
     const cx = r.left + r.width / 2;
     const cy = r.top + r.height / 2;
 
+    let best = null;
+    let bestD = 1e9;
     for(const obj of STATE.map.values()){
       const b = obj.el.getBoundingClientRect();
       const x = b.left + b.width / 2;
@@ -378,111 +292,39 @@
         best = obj;
       }
     }
-
-    if(best && bestD <= lockPx) return best;
-    return null;
-  }
-
-  function shootHandler(ev){
-    if(!STATE.running || STATE.paused) return;
-
-    const lockPx = ev && ev.detail && ev.detail.lockPx != null ? ev.detail.lockPx : 22;
-    const obj = pickClosestToCenter(lockPx);
-    if(!obj) return;
-
-    const r = STATE.layerEl.getBoundingClientRect();
-    obj.lastX = r.left + r.width / 2;
-    obj.lastY = r.top + r.height / 2;
-    onHit(obj);
-  }
-
-  function simulateRival(dt){
-    const pace = STATE.diff === 'easy' ? 7.5 : STATE.diff === 'hard' ? 10.5 : 9.0;
-    const chance = Math.min(0.95, dt * pace);
-    if(STATE.rng() < chance){
-      const delta = STATE.rng() < 0.78 ? 10 : -2;
-      STATE.rivalScore = Math.max(0, STATE.rivalScore + delta);
-    }
-  }
-
-  function spawnTick(dt){
-    const sp = STATE.baseSpawnPerSec;
-    STATE.spawnAcc += sp * dt;
-    while(STATE.spawnAcc >= 1){
-      STATE.spawnAcc -= 1;
-      createTarget();
-    }
+    if(best && bestD <= lockPx) onHit(best);
   }
 
   function expireTick(){
     const t = nowMs();
     for(const obj of Array.from(STATE.map.values())){
-      if(t - obj.born < obj.ttlMs) continue;
-
-      const shouldCountMiss =
-        obj.mission === true &&
-        obj.groupId === STATE.curGroup.id;
-
-      if(shouldCountMiss){
-        STATE.miss++;
+      if(t - obj.born < STATE.ttlMs) continue;
+      if(obj.groupId === STATE.targetGroup.id && obj.good){
         STATE.combo = 0;
-        STATE.myScore = Math.max(0, STATE.myScore - 1);
-        setObjCenterFromEl(obj);
+        STATE.miss++;
+        STATE.score = Math.max(0, STATE.score - 1);
         emit('race:hit', {
           good: false,
-          delta: -1,
-          x: obj.lastX,
-          y: obj.lastY
+          x: obj.x,
+          y: obj.y,
+          delta: -1
         });
       }
-
-      removeTarget(obj.id);
+      removeTarget(obj.id, 'expire');
+      updateScore();
     }
   }
 
-  function setObjCenterFromEl(obj){
-    try{
-      const b = obj.el.getBoundingClientRect();
-      obj.lastX = b.left + b.width / 2;
-      obj.lastY = b.top + b.height / 2;
-    }catch(_){}
-  }
-
-  function buildSummary(){
-    const result = STATE.myScore > STATE.rivalScore ? 'WIN'
-      : STATE.myScore < STATE.rivalScore ? 'LOSE'
-      : 'DRAW';
-
-    return {
-      result,
-      myScore: STATE.myScore|0,
-      rivalScore: STATE.rivalScore|0,
-      acc: accPct(),
-      comboMax: STATE.comboMax|0,
-      durationPlayedSec: Math.round(STATE.timeSec - STATE.tLeft)
-    };
-  }
-
-  function endGame(){
-    if(!STATE.running || STATE.endedOnce) return;
-    STATE.endedOnce = true;
-    STATE.running = false;
-    STATE.paused = false;
-    cancelAnimationFrame(STATE.raf);
-    clearTargets();
-    emit('race:end', buildSummary());
-  }
-
-  function clearTargets(){
-    for(const t of STATE.map.values()){
-      try{ t.el.remove(); }catch(_){}
+  function spawnTick(dt){
+    STATE.spawnAcc += STATE.spawnPerSec * dt;
+    while(STATE.spawnAcc >= 1){
+      STATE.spawnAcc -= 1;
+      makeTarget();
     }
-    STATE.map.clear();
   }
 
   function tick(){
     if(!STATE.running) return;
-
     if(STATE.paused){
       STATE.lastTick = nowMs();
       STATE.raf = requestAnimationFrame(tick);
@@ -492,119 +334,83 @@
     const t = nowMs();
     const dt = Math.min(0.05, Math.max(0.001, (t - STATE.lastTick) / 1000));
     STATE.lastTick = t;
-
     STATE.elapsed += dt;
-    STATE.tLeft = Math.max(0, STATE.tLeft - dt);
+    STATE.timeLeft = Math.max(0, STATE.timeLeft - dt);
 
-    simulateRival(dt);
     spawnTick(dt);
     expireTick();
-    emitTimePack();
-    emitScorePack();
-    emitProgressPack();
-    maybeCoach();
+    updateTime();
 
-    if(STATE.tLeft <= 0){
-      endGame();
+    if(STATE.timeLeft <= 0){
+      STATE.running = false;
+      clearTargets();
+      emit('race:end', {
+        durationPlayedSec: Math.round(STATE.plannedSec),
+        acc: accPct(),
+        comboMax: STATE.comboMax|0
+      });
       return;
     }
 
     STATE.raf = requestAnimationFrame(tick);
   }
 
-  function bindRuntimeListeners(){
-    if(STATE.listenersBound) return;
-
-    try{
-      if(STATE.layerEl){
-        STATE.layerEl.addEventListener('pointerdown', pointerHandler, { passive:true });
-      }
-    }catch(_){}
-
-    try{
-      WIN.addEventListener('hha:shoot', shootHandler);
-    }catch(_){}
-
-    STATE.listenersBound = true;
-  }
-
-  function unbindRuntimeListeners(){
-    try{
-      if(STATE.layerEl){
-        STATE.layerEl.removeEventListener('pointerdown', pointerHandler);
-      }
-    }catch(_){}
-
-    try{
-      WIN.removeEventListener('hha:shoot', shootHandler);
-    }catch(_){}
-
-    STATE.listenersBound = false;
-  }
-
-  function start(diff, ctx){
-    ctx = ctx || {};
-    if(!STATE.layerEl){
-      throw new Error('[GroupsRace] layerEl not set. Call setLayerEl() first');
-    }
-
-    stop();
-
-    STATE.diff = String(diff || 'normal').toLowerCase();
-    STATE.timeSec = clamp(ctx.time ?? 60, 20, 180);
-    STATE.seedStr = String(ctx.seed ?? Date.now());
-    STATE.view = String(ctx.view || 'mobile').toLowerCase();
-    STATE.rng = makeRng(STATE.seedStr);
-
-    if(STATE.diff === 'easy'){
-      STATE.baseSpawnPerSec = 0.86;
-      STATE.baseTtl = 3.2;
-      STATE.goalTotal = 24;
-    }else if(STATE.diff === 'hard'){
-      STATE.baseSpawnPerSec = 1.22;
-      STATE.baseTtl = 2.4;
-      STATE.goalTotal = 36;
-    }else{
-      STATE.baseSpawnPerSec = 1.0;
-      STATE.baseTtl = 2.8;
-      STATE.goalTotal = 30;
-    }
-
-    STATE.running = true;
-    STATE.paused = false;
-    STATE.endedOnce = false;
-    STATE.startMs = nowMs();
-    STATE.lastTick = nowMs();
-    STATE.tLeft = STATE.timeSec;
-    STATE.elapsed = 0;
-
-    STATE.myScore = 0;
-    STATE.rivalScore = 0;
-    STATE.combo = 0;
-    STATE.comboMax = 0;
-    STATE.miss = 0;
-    STATE.shots = 0;
-    STATE.hits = 0;
-    STATE.goalNow = 0;
-    STATE.spawnAcc = 0;
-    STATE.idSeq = 1;
-    STATE.coachTs = 0;
-    STATE.curGroup = pick(STATE.rng, GROUPS);
-
-    clearTargets();
-    bindRuntimeListeners();
-    emitScorePack();
-    emitProgressPack();
-    emitTimePack();
-    STATE.raf = requestAnimationFrame(tick);
+  function setLayerEl(el){
+    STATE.layerEl = el || null;
   }
 
   function stop(){
-    unbindRuntimeListeners();
+    try{
+      if(STATE.layerEl) STATE.layerEl.removeEventListener('pointerdown', pointerHandler);
+    }catch(_){}
+    try{
+      WIN.removeEventListener('hha:shoot', shootHandler);
+    }catch(_){}
     STATE.running = false;
     STATE.paused = false;
     cancelAnimationFrame(STATE.raf);
     clearTargets();
+  }
+
+  function start(diff, ctx){
+    if(!STATE.layerEl) throw new Error('[GroupsRace] layerEl not set');
+
+    stop();
+
+    ctx = ctx || {};
+    STATE.diff = String(diff || 'normal').toLowerCase();
+    STATE.seed = String(ctx.seed || Date.now());
+    STATE.rng = makeRng(STATE.seed);
+    STATE.plannedSec = clamp(ctx.time ?? 60, 20, 300);
+    STATE.timeLeft = STATE.plannedSec;
+    STATE.lastTick = nowMs();
+    STATE.elapsed = 0;
+    STATE.score = 0;
+    STATE.combo = 0;
+    STATE.comboMax = 0;
+    STATE.hits = 0;
+    STATE.shots = 0;
+    STATE.miss = 0;
+    STATE.goalTotal = STATE.diff === 'hard' ? 12 : STATE.diff === 'easy' ? 8 : 10;
+    STATE.spawnPerSec = STATE.diff === 'hard' ? 1.35 : STATE.diff === 'easy' ? 0.88 : 1.08;
+    STATE.ttlMs = STATE.diff === 'hard' ? 2200 : STATE.diff === 'easy' ? 3100 : 2600;
+    STATE.spawnAcc = 0;
+    STATE.idSeq = 1;
+    STATE.running = true;
+    STATE.paused = false;
+
+    chooseGroup();
+    updateScore();
+    updateTime();
+
+    try{
+      STATE.layerEl.addEventListener('pointerdown', pointerHandler, { passive:true });
+    }catch(_){}
+    try{
+      WIN.addEventListener('hha:shoot', shootHandler);
+    }catch(_){}
+
+    STATE.raf = requestAnimationFrame(tick);
   }
 
   function setPaused(on){
@@ -612,8 +418,8 @@
     STATE.lastTick = nowMs();
   }
 
-  function setLayerEl(el){
-    STATE.layerEl = el || null;
+  function isRunning(){
+    return !!STATE.running;
   }
 
   WIN.GroupsRace = WIN.GroupsRace || {};
@@ -621,7 +427,8 @@
     setLayerEl,
     start,
     stop,
-    setPaused
+    setPaused,
+    isRunning
   };
 
   WIN.addEventListener('hha:pause', ()=> setPaused(true), { passive:true });
