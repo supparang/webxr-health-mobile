@@ -9,27 +9,27 @@
 
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --bg3:#111827;
-      --panel:rgba(2,6,23,.76);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
+      --sky1:#dff4ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d8;
+      --panel:#fffdf8ee;
+      --panel-2:#ffffffd9;
+      --stroke:#bfe3f2;
+      --text:#4d4a42;
+      --muted:#6b7280;
+
+      --pink:#ff8fc7;
+      --pink-2:#ffc5e3;
+      --blue:#7fcfff;
+      --blue-2:#58b7f5;
+      --green:#7ed957;
+      --green-2:#58c33f;
       --good:#22c55e;
       --bad:#ef4444;
-      --blue:#38bdf8;
-      --pink:#f472b6;
-      --violet:#a78bfa;
-      --shadow:0 24px 64px rgba(0,0,0,.28);
+      --gold:#f59e0b;
+      --gold-2:#fde68a;
 
-      --duet-panel: rgba(15,23,42,.78);
-      --duet-stroke: rgba(148,163,184,.18);
-      --duet-soft: rgba(2,6,23,.42);
-      --duet-text: #f8fafc;
-      --duet-muted: #94a3b8;
-      --duet-pink: #f472b6;
-      --duet-blue: #38bdf8;
+      --shadow:0 18px 40px rgba(0,0,0,.12);
 
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
@@ -38,19 +38,18 @@
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
       min-height:100%;
-      color:var(--text);
       font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans",Arial,sans-serif;
+      color:var(--text);
       background:
-        radial-gradient(circle at 20% 0%, rgba(244,114,182,.10), transparent 24%),
-        radial-gradient(circle at 80% 0%, rgba(56,189,248,.10), transparent 24%),
-        linear-gradient(180deg,var(--bg2),var(--bg1));
+        radial-gradient(circle at 12% 0%, rgba(127,207,255,.45), transparent 24%),
+        radial-gradient(circle at 88% 0%, rgba(255,143,199,.28), transparent 24%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 58%, var(--sky3));
     }
 
-    body{ overflow-x:hidden; }
+    body{ overflow:hidden; }
 
     .page{
       min-height:100vh;
@@ -58,10 +57,10 @@
       flex-direction:column;
       gap:12px;
       padding:
-        calc(12px + var(--sat))
-        calc(12px + var(--sar))
-        calc(16px + var(--sab))
-        calc(12px + var(--sal));
+        calc(10px + var(--sat))
+        calc(10px + var(--sar))
+        calc(12px + var(--sab))
+        calc(10px + var(--sal));
     }
 
     .topbar{
@@ -71,7 +70,7 @@
       gap:10px;
       flex-wrap:wrap;
       position:relative;
-      z-index:30;
+      z-index:40;
     }
 
     .brand{
@@ -81,8 +80,8 @@
       padding:10px 12px;
       border-radius:18px;
       border:1px solid var(--stroke);
-      background:rgba(2,6,23,.55);
-      backdrop-filter:blur(10px);
+      background:var(--panel-2);
+      box-shadow:var(--shadow);
     }
 
     .brand-title{
@@ -107,8 +106,8 @@
 
     .btn{
       appearance:none;
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(255,255,255,.04);
+      border:1px solid var(--stroke);
+      background:#ffffffd8;
       color:var(--text);
       border-radius:14px;
       min-height:42px;
@@ -121,22 +120,29 @@
       align-items:center;
       justify-content:center;
       gap:8px;
+      box-shadow:var(--shadow);
     }
 
-    .btn.violet{
-      border-color:rgba(167,139,250,.28);
-      background:rgba(167,139,250,.14);
+    .btn.primary{
+      background:linear-gradient(180deg,var(--pink),var(--pink-2));
+      color:#6b214e;
+    }
+
+    .btn.good{
+      background:linear-gradient(180deg,var(--green),#a7eb8f);
+      color:#134e1f;
     }
 
     .btn.ghost{
       color:var(--muted);
+      background:#ffffffcc;
     }
 
     .run-shell{
       display:grid;
-      grid-template-columns:minmax(280px,360px) 1fr;
+      grid-template-columns:minmax(290px,370px) 1fr;
       gap:12px;
-      min-height:calc(100vh - 100px);
+      min-height:calc(100vh - 96px);
       align-items:start;
     }
 
@@ -147,9 +153,8 @@
     .duet-hud{
       position:relative;
       border-radius:24px;
-      border:1px solid var(--duet-stroke);
-      background:var(--duet-panel);
-      backdrop-filter:blur(10px);
+      border:1px solid var(--stroke);
+      background:var(--panel);
       box-shadow:var(--shadow);
       padding:14px;
       display:grid;
@@ -159,19 +164,35 @@
 
     .duet-hud-toolbar{
       display:flex;
-      justify-content:flex-end;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
     }
 
     .duet-hud-toggle{
       min-width:40px;
       min-height:40px;
       border-radius:12px;
-      border:1px solid var(--duet-stroke);
-      background:rgba(255,255,255,.05);
-      color:var(--duet-text);
+      border:1px solid var(--stroke);
+      background:#ffffffd8;
+      color:var(--text);
       font-size:18px;
       font-weight:1000;
       cursor:pointer;
+    }
+
+    .coach-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:36px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid #ffd6ea;
+      background:#fff2f8;
+      color:#a33268;
+      font-size:12px;
+      font-weight:1100;
     }
 
     .duet-top{
@@ -186,17 +207,17 @@
       min-height:34px;
       padding:6px 12px;
       border-radius:999px;
-      border:1px solid var(--duet-stroke);
-      background:rgba(255,255,255,.04);
-      color:#fff;
+      border:1px solid var(--stroke);
+      background:#ffffffcf;
+      color:var(--text);
       font-size:12px;
       font-weight:1000;
     }
 
     .duet-score{
       border-radius:20px;
-      border:1px solid var(--duet-stroke);
-      background:rgba(255,255,255,.04);
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg,#fffafc,#fff);
       padding:14px;
       text-align:center;
     }
@@ -204,7 +225,7 @@
     .duet-score-label{
       font-size:12px;
       font-weight:1000;
-      color:var(--duet-muted);
+      color:var(--muted);
       letter-spacing:.08em;
     }
 
@@ -213,7 +234,7 @@
       font-size:40px;
       line-height:1;
       font-weight:1100;
-      color:#fff;
+      color:#7a2558;
     }
 
     .duet-stats{
@@ -222,18 +243,18 @@
       gap:10px;
     }
 
-    .duet-stat{
+    .duet-stat,.duet-mini{
       border-radius:18px;
-      border:1px solid var(--duet-stroke);
-      background:rgba(255,255,255,.04);
+      border:1px solid var(--stroke);
+      background:#ffffffcc;
       padding:12px;
       text-align:center;
     }
 
-    .duet-stat-k{
+    .duet-stat-k,.duet-mini-k{
       font-size:12px;
       font-weight:1000;
-      color:var(--duet-muted);
+      color:var(--muted);
     }
 
     .duet-stat-v{
@@ -241,13 +262,13 @@
       font-size:22px;
       line-height:1;
       font-weight:1100;
-      color:#fff;
+      color:#244f6d;
     }
 
     .duet-panel{
       border-radius:20px;
-      border:1px solid var(--duet-stroke);
-      background:rgba(255,255,255,.04);
+      border:1px solid var(--stroke);
+      background:#ffffffc9;
       padding:12px;
       display:grid;
       gap:12px;
@@ -263,8 +284,8 @@
       width:64px;
       height:64px;
       border-radius:18px;
-      border:1px solid var(--duet-stroke);
-      background:rgba(255,255,255,.04);
+      border:1px solid var(--stroke);
+      background:#fff;
       display:grid;
       place-items:center;
       overflow:hidden;
@@ -278,14 +299,14 @@
     .duet-item-title{
       font-size:16px;
       font-weight:1100;
-      color:#fff;
+      color:#7a2558;
     }
 
     .duet-item-sub{
       margin-top:4px;
       font-size:13px;
       line-height:1.6;
-      color:var(--duet-muted);
+      color:var(--muted);
       font-weight:900;
     }
 
@@ -295,37 +316,24 @@
       gap:10px;
     }
 
-    .duet-mini{
-      border-radius:16px;
-      border:1px solid var(--duet-stroke);
-      background:rgba(255,255,255,.03);
-      padding:10px;
-      text-align:center;
-    }
-
-    .duet-mini-k{
-      font-size:11px;
-      color:var(--duet-muted);
-      font-weight:1000;
-    }
-
     .duet-mini-v{
       margin-top:4px;
       font-size:20px;
       line-height:1;
       font-weight:1100;
-      color:#fff;
+      color:#1f5d73;
     }
 
     .duet-tip{
-      border-radius:14px;
-      border:1px dashed var(--duet-stroke);
-      background:rgba(255,255,255,.03);
+      border-radius:16px;
+      border:1px dashed var(--stroke);
+      background:#fff9fc;
       padding:10px 12px;
-      color:#e5e7eb;
+      color:#7a2558;
       font-size:13px;
       line-height:1.6;
-      font-weight:900;
+      font-weight:1000;
+      min-height:46px;
     }
 
     .duet-goal{
@@ -343,7 +351,7 @@
     .duet-goal-title{
       font-size:12px;
       font-weight:1100;
-      color:var(--duet-muted);
+      color:var(--muted);
       letter-spacing:.08em;
     }
 
@@ -351,13 +359,13 @@
       font-size:18px;
       line-height:1;
       font-weight:1100;
-      color:#fff;
+      color:#244f6d;
     }
 
     .duet-bar,.duet-bar-sub{
       height:12px;
       border-radius:999px;
-      background:rgba(255,255,255,.08);
+      background:rgba(191,227,242,.5);
       overflow:hidden;
     }
 
@@ -365,7 +373,7 @@
       height:100%;
       width:0%;
       border-radius:999px;
-      background:linear-gradient(90deg,var(--duet-pink),#fbcfe8);
+      background:linear-gradient(90deg,var(--pink),var(--pink-2));
       transition:width .16s linear;
     }
 
@@ -373,7 +381,7 @@
       height:100%;
       width:0%;
       border-radius:999px;
-      background:linear-gradient(90deg,var(--duet-blue),#93c5fd);
+      background:linear-gradient(90deg,var(--blue),#b9ecff);
       transition:width .16s linear;
     }
 
@@ -381,22 +389,23 @@
       min-width:0;
       border-radius:24px;
       border:1px solid var(--stroke);
-      background:rgba(2,6,23,.45);
+      background:#ffffffba;
       box-shadow:var(--shadow);
       display:flex;
       flex-direction:column;
       overflow:hidden;
       min-height:640px;
+      position:relative;
     }
 
     .stage-head{
       padding:14px 16px;
       border-bottom:1px solid var(--stroke);
-      color:#f8fafc;
+      color:#7a2558;
       font-size:14px;
       font-weight:1100;
       letter-spacing:.05em;
-      background:rgba(15,23,42,.68);
+      background:#fff9fd;
     }
 
     .stage-inner{
@@ -404,9 +413,9 @@
       flex:1 1 auto;
       min-height:580px;
       background:
-        radial-gradient(circle at 30% 10%, rgba(244,114,182,.08), transparent 24%),
-        radial-gradient(circle at 80% 10%, rgba(56,189,248,.08), transparent 24%),
-        linear-gradient(180deg,#0f172a,#0b1220 60%,#111827);
+        radial-gradient(circle at 20% 10%, rgba(255,255,255,.8), transparent 18%),
+        radial-gradient(circle at 80% 8%, rgba(255,255,255,.72), transparent 18%),
+        linear-gradient(180deg,#aee6ff 0%, #d9f5ff 54%, #fff5cf 100%);
     }
 
     #duetGameStage{
@@ -417,6 +426,111 @@
       overflow:hidden;
     }
 
+    .stage-cloud{
+      position:absolute;
+      background:#fff;
+      border-radius:999px;
+      box-shadow:0 8px 18px rgba(0,0,0,.06);
+      opacity:.8;
+      pointer-events:none;
+    }
+
+    .stage-cloud.c1{ width:130px;height:42px;left:4%;top:8%; }
+    .stage-cloud.c2{ width:95px;height:34px;left:72%;top:11%; }
+    .stage-cloud.c3{ width:110px;height:36px;left:38%;top:18%; }
+
+    .stage-ground{
+      position:absolute;
+      left:0; right:0; bottom:0;
+      height:120px;
+      background:
+        radial-gradient(circle at 20% 40%, rgba(126,217,87,.34), transparent 18%),
+        radial-gradient(circle at 72% 44%, rgba(126,217,87,.28), transparent 18%),
+        linear-gradient(180deg,#b3f28f,#88d96b);
+      border-top:1px solid rgba(88,195,63,.26);
+      pointer-events:none;
+    }
+
+    .target{
+      position:absolute;
+      display:grid;
+      place-items:center;
+      border-radius:22px;
+      border:2px solid #fff;
+      box-shadow:0 10px 22px rgba(0,0,0,.12);
+      cursor:pointer;
+      user-select:none;
+      transform:translateZ(0);
+    }
+
+    .target.good{
+      background:linear-gradient(180deg,#ffffff,#f1fff1);
+    }
+
+    .target.junk{
+      background:linear-gradient(180deg,#fff3f3,#ffe1e1);
+    }
+
+    .target .t-emoji{
+      font-size:clamp(24px, 4vw, 38px);
+      line-height:1;
+    }
+
+    .countdown-overlay{
+      position:absolute;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background:rgba(255,255,255,.38);
+      backdrop-filter:blur(8px);
+      z-index:35;
+    }
+
+    .countdown-overlay.show{ display:flex; }
+
+    .countdown-card{
+      width:min(460px, calc(100% - 24px));
+      border-radius:28px;
+      border:1px solid var(--stroke);
+      background:#fffdf8f2;
+      box-shadow:0 22px 60px rgba(0,0,0,.18);
+      padding:20px;
+      text-align:center;
+      display:grid;
+      gap:12px;
+    }
+
+    .countdown-badge{
+      display:inline-flex;
+      margin:0 auto;
+      min-height:36px;
+      padding:6px 14px;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      border:1px solid #ffd6ea;
+      background:#fff2f8;
+      color:#a33268;
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .countdown-num{
+      font-size:84px;
+      line-height:1;
+      font-weight:1100;
+      color:#7a2558;
+      text-shadow:0 4px 0 #fff;
+    }
+
+    .countdown-text{
+      color:#6b7280;
+      font-size:15px;
+      line-height:1.6;
+      font-weight:1000;
+    }
+
     .duet-result-mount{
       position:fixed;
       inset:0;
@@ -425,7 +539,7 @@
       align-items:center;
       justify-content:center;
       padding:18px;
-      background:rgba(2,6,23,.74);
+      background:rgba(255,255,255,.52);
       backdrop-filter:blur(10px);
     }
 
@@ -434,9 +548,9 @@
       max-height:min(92vh,1020px);
       overflow:auto;
       border-radius:28px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.94);
-      box-shadow:0 28px 80px rgba(0,0,0,.42);
+      border:1px solid var(--stroke);
+      background:#fffdf8fa;
+      box-shadow:0 28px 80px rgba(0,0,0,.22);
       padding:18px;
       display:grid;
       gap:14px;
@@ -446,7 +560,7 @@
       font-size:28px;
       line-height:1.1;
       font-weight:1100;
-      color:#fff;
+      color:#7a2558;
     }
 
     .duet-result-sub{
@@ -498,13 +612,14 @@
 
       <div class="top-actions">
         <a class="btn ghost" id="btnBackLauncher" href="./goodjunk-launcher.html">← Launcher</a>
-        <a class="btn violet" id="btnGoHub" href="./hub.html">🏠 Hub</a>
+        <a class="btn primary" id="btnGoHub" href="./hub.html">🏠 Hub</a>
       </div>
     </div>
 
     <div class="run-shell">
       <div id="duetHud" class="duet-hud">
         <div class="duet-hud-toolbar">
+          <div class="coach-badge" id="duetCoachBadge">🤖 AI Coach</div>
           <button id="duetHudToggle" class="duet-hud-toggle" type="button">⋯</button>
         </div>
 
@@ -581,7 +696,20 @@
       <section class="stage-wrap">
         <div class="stage-head">DUET GAME STAGE</div>
         <div class="stage-inner">
+          <div class="stage-cloud c1"></div>
+          <div class="stage-cloud c2"></div>
+          <div class="stage-cloud c3"></div>
+          <div class="stage-ground"></div>
+
           <div id="duetGameStage"></div>
+
+          <div id="duetCountdownOverlay" class="countdown-overlay">
+            <div class="countdown-card">
+              <div class="countdown-badge">พร้อมกันทั้งคู่</div>
+              <div id="duetCountdownNum" class="countdown-num">3</div>
+              <div id="duetCountdownText" class="countdown-text">เตรียมตัวเก็บของดีให้ถึงเป้าหมายคู่</div>
+            </div>
+          </div>
         </div>
       </section>
     </div>
@@ -612,8 +740,9 @@
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="../firebase-config.js"></script>
   <script src="../common/hha-multiplayer.js"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260327-duet-hhamulti-v1"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260327-duet-child-ai-auth-v2"></script>
 </body>
 </html>
