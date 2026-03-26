@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Hydration Hero</title>
-  <meta name="color-scheme" content="dark light" />
+  <meta name="color-scheme" content="light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./hydration-vr.css?v=20260323-safe-dom-r2" />
+  <link rel="stylesheet" href="./hydration-vr.css?v=20260323-hubv2-r3" />
 </head>
 <body>
   <main class="hydr-page">
@@ -150,7 +150,7 @@
         <li>แตะฟองน้ำดี เช่น 💧 💦 🫗 เพื่อเพิ่มคะแนนและเพิ่มน้ำ</li>
         <li>หลบของไม่ดี เช่น 🧋 🥤 🍟 เพราะจะเสียคะแนนและเสียน้ำ</li>
         <li>เก็บ 🛡️ เพื่อกันสายฟ้าช่วงพายุหรือบอส</li>
-        <li>ถ้าใช้โหมด cardboard ให้เล็งกลางจอแล้วแตะ/ยิงได้</li>
+        <li>ถ้าใช้โหมด cardboard ให้เล็งกลางจอแล้วแตะหรือยิงได้</li>
       </ul>
       <div class="dialog-actions">
         <button id="btnHelpStart" class="primary" type="button">เริ่มเล่น</button>
@@ -246,7 +246,7 @@
   </div>
 
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260323-HYD-SOLO-CLOSEOUT-HUD-CLOUD-BOSSFIX';
+    import { boot } from './hydration.safe.js?v=20260323-HYD-SOLO-CLOSEOUT-HUD-CLOUD-BOSSFIX-r3';
 
     boot({}).catch((err) => {
       console.error('[hydration] boot failed', err);
