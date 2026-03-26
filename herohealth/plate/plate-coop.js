@@ -1,7 +1,7 @@
 /* === /herohealth/plate/plate-coop.js ===
    HeroHealth Plate Coop Engine
    HOST-AUTHORITATIVE WIRED VERSION + QR UI
-   PATCH v20260321-PLATE-COOP-JS-WIRED-QR
+   PATCH v20260323-PLATE-COOP-JS-COMPAT-FINAL
 */
 'use strict';
 
@@ -1271,6 +1271,17 @@ function wireLobbyButtons(){
   });
 
   DOC.getElementById('btnJoinRoom')?.addEventListener('click', async ()=>{
+    try{
+      const code = DOC.getElementById('joinRoomInput')?.value || '';
+      await joinRoomReal(code);
+    }catch(err){
+      console.error(err);
+      setCoach('sync');
+    }
+  });
+
+  DOC.getElementById('joinRoomInput')?.addEventListener('keydown', async (ev)=>{
+    if(ev.key !== 'Enter') return;
     try{
       const code = DOC.getElementById('joinRoomInput')?.value || '';
       await joinRoomReal(code);
