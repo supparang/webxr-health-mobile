@@ -3,24 +3,37 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Phase Boss</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth • GoodJunk</title>
+  <meta name="color-scheme" content="light" />
   <link rel="icon" href="../favicon.ico" />
 
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --stroke:rgba(148,163,184,.18);
-      --panel:rgba(2,6,23,.62);
-      --shadow:0 24px 64px rgba(0,0,0,.32);
+      --sky1:#dff4ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d9;
+      --cloud:#ffffffcc;
+      --card:#fffdf6;
+      --card-2:#f8fff4;
+      --line:#bfe3f2;
+      --text:#4d4a42;
+      --muted:#7a7a73;
 
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      --green:#7ed957;
+      --green-2:#56c53e;
+      --blue:#7fcfff;
+      --blue-2:#58b7f5;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --pink:#ff9dc4;
+      --danger:#ff8f8f;
+
+      --shadow:0 18px 40px rgba(86, 155, 194, .18);
+
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
     }
 
     *{ box-sizing:border-box; }
@@ -28,17 +41,16 @@
     html,body{
       margin:0;
       min-height:100%;
-      background:
-        radial-gradient(circle at top, #172554 0%, transparent 34%),
-        linear-gradient(180deg,var(--bg2),var(--bg1));
-      color:var(--text);
       font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 15% 10%, rgba(255,255,255,.9), transparent 18%),
+        radial-gradient(circle at 85% 12%, rgba(255,255,255,.8), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 52%, var(--sky3));
       overflow:hidden;
     }
 
-    body{
-      min-height:100dvh;
-    }
+    body{ min-height:100dvh; }
 
     #app{
       position:relative;
@@ -61,54 +73,89 @@
       display:grid;
       place-items:center;
       padding:
-        calc(20px + var(--sat))
+        calc(18px + var(--sat))
         calc(16px + var(--sar))
-        calc(20px + var(--sab))
+        calc(18px + var(--sab))
         calc(16px + var(--sal));
       z-index:0;
       pointer-events:none;
     }
 
     .boot-card{
-      width:min(92vw,520px);
-      border:1px solid var(--stroke);
-      border-radius:24px;
-      background:rgba(15,23,42,.84);
-      backdrop-filter:blur(10px);
+      width:min(94vw,560px);
+      background:linear-gradient(180deg,#fffef9,#f6fff7);
+      border:3px solid var(--line);
+      border-radius:28px;
       box-shadow:var(--shadow);
-      padding:20px 18px;
+      padding:22px 18px;
       text-align:center;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .boot-card::before{
+      content:"";
+      position:absolute;
+      inset:-20% auto auto -10%;
+      width:180px;
+      height:180px;
+      border-radius:999px;
+      background:rgba(127,207,255,.22);
+      filter:blur(6px);
+    }
+
+    .boot-card::after{
+      content:"";
+      position:absolute;
+      right:-20px;
+      bottom:-28px;
+      width:150px;
+      height:150px;
+      border-radius:999px;
+      background:rgba(255,212,92,.24);
+      filter:blur(6px);
     }
 
     .boot-kicker{
+      position:relative;
+      z-index:1;
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:6px 12px;
+      padding:8px 14px;
       border-radius:999px;
-      background:rgba(56,189,248,.12);
-      border:1px solid rgba(56,189,248,.24);
-      color:#7dd3fc;
+      background:#eaf8ff;
+      border:2px solid var(--line);
+      color:#4f9bc6;
       font-size:13px;
-      font-weight:900;
+      font-weight:1000;
       margin-bottom:12px;
     }
 
     .boot-title{
+      position:relative;
+      z-index:1;
       margin:0 0 8px;
-      font-size:clamp(26px, 5vw, 38px);
-      line-height:1.08;
-      font-weight:900;
+      font-size:clamp(28px,5vw,42px);
+      line-height:1.06;
+      font-weight:1000;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
     }
 
     .boot-sub{
+      position:relative;
+      z-index:1;
       margin:0;
       color:var(--muted);
-      font-size:14px;
+      font-size:15px;
       line-height:1.65;
+      font-weight:800;
     }
 
     .boot-meta{
+      position:relative;
+      z-index:1;
       display:flex;
       justify-content:center;
       gap:8px;
@@ -120,29 +167,19 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
-      padding:8px 10px;
+      padding:9px 12px;
       border-radius:999px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      color:#cbd5e1;
+      background:#fff;
+      border:2px solid var(--line);
+      color:#6d6a62;
       font-size:12px;
-      font-weight:800;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.12);
     }
 
     .boot-pill strong{
-      color:#e5e7eb;
-      font-weight:900;
-    }
-
-    @media (max-width:640px){
-      .boot-card{
-        width:min(94vw,520px);
-        padding:18px 14px;
-        border-radius:20px;
-      }
-      .boot-sub{
-        font-size:13px;
-      }
+      color:#4d4a42;
+      font-weight:1000;
     }
   </style>
 </head>
@@ -152,11 +189,11 @@
 
     <div class="boot-shell" aria-hidden="true">
       <div class="boot-card">
-        <div class="boot-kicker">SOLO BOSS MODE</div>
-        <h1 class="boot-title">GoodJunk Phase Boss</h1>
+        <div class="boot-kicker">🍎 GOODJUNK • HEROHEALTH</div>
+        <h1 class="boot-title">Food Hero Mission</h1>
         <p class="boot-sub">
-          เก็บอาหารดี • หลีกเลี่ยง junk • ผ่าน Phase 1 และ Phase 2
-          เพื่อไปสู้กับ <strong>Junk King</strong>
+          เก็บอาหารดีให้มากที่สุด หลีกเลี่ยง junk food
+          แล้วไปช่วยปราบ <strong>Junk King</strong> กันเลย
         </p>
         <div class="boot-meta">
           <div class="boot-pill">MODE <strong id="bootMode">solo</strong></div>
@@ -196,13 +233,9 @@
 
       window.__GJ_RUN_CTX__ = runCtx;
 
-      const modeEl = document.getElementById('bootMode');
-      const diffEl = document.getElementById('bootDiff');
-      const timeEl = document.getElementById('bootTime');
-
-      if (modeEl) modeEl.textContent = runCtx.mode || 'solo';
-      if (diffEl) diffEl.textContent = runCtx.diff || 'normal';
-      if (timeEl) timeEl.textContent = runCtx.time || '150';
+      document.getElementById('bootMode').textContent = runCtx.mode || 'solo';
+      document.getElementById('bootDiff').textContent = runCtx.diff || 'normal';
+      document.getElementById('bootTime').textContent = runCtx.time || '150';
 
       console.log('[GJ-SOLO-ENTRY] goodjunk-vr.html loaded', runCtx);
       console.log('[GJ-SOLO-ENTRY] cloud endpoint =', window.HHA_CLOUD_ENDPOINT);
@@ -210,6 +243,6 @@
   </script>
 
   <script src="../js/hha-cloud-logger.js?v=20260326-client-v3"></script>
-  <script type="module" src="./goodjunk.safe.phaseboss.js?v=20260326-goodjunk-solo-cloudlive-v4"></script>
+  <script type="module" src="./goodjunk.safe.phaseboss.js?v=20260326-goodjunk-solo-themepack-v1"></script>
 </body>
 </html>
