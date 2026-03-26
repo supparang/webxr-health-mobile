@@ -1,0 +1,1467 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Plate Coop</title>
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --bg1:#08111f;
+      --bg2:#0f1f3a;
+      --bg3:#17346d;
+
+      --panel:rgba(15,23,42,.9);
+      --panel-2:rgba(2,6,23,.92);
+
+      --line:rgba(255,255,255,.12);
+      --line-strong:rgba(255,255,255,.2);
+
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --soft:#dbeafe;
+
+      --good:#22c55e;
+      --good-2:#16a34a;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --blue:#3b82f6;
+      --blue-2:#1d4ed8;
+      --violet:#8b5cf6;
+      --pink:#ec4899;
+      --cyan:#22d3ee;
+      --yellow:#facc15;
+      --orange:#fb923c;
+
+      --shadow:0 18px 50px rgba(0,0,0,.35);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; min-height:100%; }
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 0% -10%, rgba(59,130,246,.22), transparent 60%),
+        radial-gradient(1000px 600px at 110% 0%, rgba(34,197,94,.12), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 48%, #08111f 100%);
+      overflow-x:hidden;
+    }
+
+    .shell{
+      width:min(1180px,100%);
+      margin:0 auto;
+      padding:
+        max(14px, env(safe-area-inset-top))
+        14px
+        max(18px, env(safe-area-inset-bottom));
+      display:grid;
+      gap:14px;
+    }
+
+    .hero,
+    .hud-card,
+    .question-card,
+    .side-card,
+    .summary-card{
+      background:linear-gradient(180deg, rgba(15,23,42,.9), rgba(2,6,23,.92));
+      border:1px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+    }
+
+    .top{
+      display:grid;
+      grid-template-columns:1.12fr .88fr;
+      gap:14px;
+    }
+
+    @media (max-width: 960px){
+      .top{ grid-template-columns:1fr; }
+    }
+
+    .hero{
+      padding:18px;
+      display:grid;
+      gap:12px;
+    }
+
+    .hero-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .badge-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--soft);
+      font-weight:900;
+      font-size:12px;
+      letter-spacing:.2px;
+    }
+
+    .title{
+      margin:0;
+      font-size:clamp(28px,4vw,42px);
+      line-height:1.02;
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+
+    .sub{
+      margin:0;
+      color:var(--muted);
+      line-height:1.55;
+      font-size:14px;
+    }
+
+    .hero-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      font:inherit;
+      color:white;
+      font-weight:1000;
+      border-radius:18px;
+      padding:12px 16px;
+      min-height:46px;
+      box-shadow:0 12px 24px rgba(0,0,0,.22);
+      transition:transform .12s ease, opacity .12s ease, filter .12s ease;
+    }
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .btn:active{ transform:translateY(0); }
+    .btn:disabled{ opacity:.52; cursor:not-allowed; transform:none; }
+
+    .btn-blue{ background:linear-gradient(180deg, var(--blue), var(--blue-2)); }
+    .btn-green{ background:linear-gradient(180deg, var(--good), var(--good-2)); }
+    .btn-orange{ background:linear-gradient(180deg, #fb923c, #ea580c); }
+    .btn-violet{ background:linear-gradient(180deg, #8b5cf6, #6d28d9); }
+    .btn-ghost{
+      background:linear-gradient(180deg, #334155, #1e293b);
+      box-shadow:none;
+    }
+
+    .hud-card{
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .team-goal{
+      display:grid;
+      gap:8px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      border-radius:20px;
+      padding:14px;
+    }
+
+    .team-goal-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .team-goal-top strong{
+      font-size:16px;
+      font-weight:1000;
+    }
+
+    .team-goal-top span{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .progress{
+      height:14px;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+    }
+
+    .progress > i{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      transition:width .22s ease;
+      background:linear-gradient(90deg, var(--good), var(--blue));
+    }
+
+    .hud-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .stat{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      border-radius:18px;
+      padding:12px;
+      display:grid;
+      gap:4px;
+      min-height:80px;
+    }
+
+    .stat-label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+      letter-spacing:.25px;
+      text-transform:uppercase;
+    }
+
+    .stat-value{
+      font-size:26px;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .stat-sub{
+      font-size:12px;
+      color:var(--soft);
+    }
+
+    .game-wrap{
+      display:grid;
+      grid-template-columns:1fr 320px;
+      gap:14px;
+      align-items:start;
+    }
+
+    @media (max-width: 980px){
+      .game-wrap{ grid-template-columns:1fr; }
+    }
+
+    .question-card{
+      padding:18px;
+      display:grid;
+      gap:16px;
+    }
+
+    .question-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .question-tag{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--soft);
+      font-weight:900;
+      font-size:12px;
+    }
+
+    .question-title{
+      margin:0;
+      font-size:clamp(24px,3.4vw,34px);
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .question-sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      line-height:1.55;
+    }
+
+    .coop-banner{
+      border:1px solid rgba(34,197,94,.24);
+      background:linear-gradient(180deg, rgba(34,197,94,.10), rgba(59,130,246,.05));
+      border-radius:22px;
+      padding:14px 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .coop-banner strong{
+      font-size:16px;
+    }
+
+    .plate-stage{
+      display:grid;
+      place-items:center;
+      padding:10px 0 2px;
+    }
+
+    .plate{
+      position:relative;
+      width:min(100%, 620px);
+      aspect-ratio:1.25/1;
+      border-radius:40px;
+      border:2px solid rgba(255,255,255,.16);
+      background:
+        radial-gradient(circle at 50% 45%, rgba(255,255,255,.16), transparent 44%),
+        linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      box-shadow:
+        inset 0 0 0 10px rgba(255,255,255,.07),
+        inset 0 0 0 20px rgba(255,255,255,.03),
+        0 20px 40px rgba(0,0,0,.26);
+      display:grid;
+      grid-template-columns:1.05fr .95fr;
+      grid-template-rows:1fr 1fr;
+      gap:12px;
+      padding:18px;
+      overflow:hidden;
+    }
+
+    .zone{
+      position:relative;
+      border-radius:28px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.05);
+      padding:12px;
+      display:grid;
+      align-content:start;
+      gap:10px;
+      min-height:0;
+    }
+
+    .zone-main{ grid-row:1 / span 2; }
+    .zone-veg{ background:linear-gradient(180deg, rgba(34,197,94,.20), rgba(34,197,94,.08)); }
+    .zone-carb{ background:linear-gradient(180deg, rgba(59,130,246,.18), rgba(59,130,246,.07)); }
+    .zone-protein{ background:linear-gradient(180deg, rgba(251,146,60,.20), rgba(251,146,60,.08)); }
+
+    .zone-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .zone-title{
+      font-size:15px;
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+
+    .zone-hint{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .foods{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-content:flex-start;
+    }
+
+    .food{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.08);
+      font-size:14px;
+      font-weight:900;
+      white-space:nowrap;
+      box-shadow:0 8px 16px rgba(0,0,0,.12);
+    }
+
+    .choices{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    @media (max-width: 860px){
+      .choices{ grid-template-columns:1fr; }
+    }
+
+    .choice{
+      position:relative;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      color:var(--text);
+      border-radius:24px;
+      padding:14px;
+      text-align:left;
+      display:grid;
+      gap:10px;
+      cursor:pointer;
+      transition:transform .12s ease, border-color .12s ease, background .12s ease;
+      min-height:220px;
+    }
+
+    .choice:hover{
+      transform:translateY(-2px);
+      border-color:rgba(255,255,255,.26);
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+    }
+
+    .choice:disabled{
+      opacity:.72;
+      cursor:not-allowed;
+      transform:none;
+    }
+
+    .choice-badge{
+      position:absolute;
+      top:12px;
+      right:12px;
+      min-width:32px;
+      height:32px;
+      padding:0 8px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .choice-title{
+      margin:0;
+      font-size:18px;
+      font-weight:1000;
+    }
+
+    .choice-desc{
+      margin:0;
+      color:var(--muted);
+      line-height:1.5;
+      font-size:13px;
+    }
+
+    .mini-plate{
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.1);
+      background:rgba(255,255,255,.04);
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      grid-template-rows:1fr 1fr;
+      gap:8px;
+      padding:10px;
+      min-height:118px;
+    }
+
+    .mini-zone{
+      border-radius:16px;
+      padding:8px;
+      border:1px solid rgba(255,255,255,.1);
+      overflow:hidden;
+    }
+
+    .mini-zone-main{ grid-row:1 / span 2; }
+    .mini-zone-veg{ background:rgba(34,197,94,.16); }
+    .mini-zone-carb{ background:rgba(59,130,246,.16); }
+    .mini-zone-protein{ background:rgba(251,146,60,.16); }
+
+    .mini-foods{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      font-size:12px;
+      font-weight:800;
+    }
+
+    .mini-food{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      padding:4px 7px;
+      border-radius:999px;
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.1);
+      white-space:nowrap;
+    }
+
+    .feedback{
+      display:none;
+      border-radius:22px;
+      padding:14px 16px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.05);
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .feedback.show{ display:flex; }
+
+    .feedback.good{
+      border-color:rgba(34,197,94,.35);
+      background:rgba(34,197,94,.10);
+    }
+
+    .feedback.bad{
+      border-color:rgba(239,68,68,.35);
+      background:rgba(239,68,68,.10);
+    }
+
+    .feedback-main{
+      display:grid;
+      gap:4px;
+    }
+
+    .feedback-title{
+      font-size:18px;
+      font-weight:1000;
+    }
+
+    .feedback-text{
+      color:var(--soft);
+      font-size:14px;
+      line-height:1.45;
+    }
+
+    .side-card{
+      padding:16px;
+      display:grid;
+      gap:12px;
+      position:sticky;
+      top:12px;
+    }
+
+    .side-title{
+      margin:0;
+      font-size:18px;
+      font-weight:1000;
+    }
+
+    .rules{
+      display:grid;
+      gap:10px;
+    }
+
+    .rule{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      border-radius:18px;
+      padding:12px;
+      display:grid;
+      gap:5px;
+    }
+
+    .rule strong{
+      font-size:14px;
+    }
+
+    .rule span{
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.45;
+    }
+
+    .summary-layer{
+      position:fixed;
+      inset:0;
+      z-index:140;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(2,6,23,.74);
+      backdrop-filter:blur(10px);
+    }
+
+    .summary-layer.show{ display:flex; }
+
+    .summary-card{
+      width:min(780px,100%);
+      padding:22px;
+      display:grid;
+      gap:16px;
+      background:
+        radial-gradient(700px 300px at 0% 0%, rgba(59,130,246,.15), transparent 60%),
+        radial-gradient(700px 300px at 100% 0%, rgba(34,197,94,.12), transparent 60%),
+        linear-gradient(180deg, rgba(15,23,42,.96), rgba(2,6,23,.96));
+    }
+
+    .summary-hero{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .summary-title{
+      margin:0;
+      font-size:clamp(28px,4vw,38px);
+      font-weight:1000;
+      line-height:1.05;
+    }
+
+    .summary-sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      line-height:1.5;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    @media (max-width: 860px){
+      .summary-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    .summary-stat{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      border-radius:20px;
+      padding:14px;
+      display:grid;
+      gap:6px;
+    }
+
+    .summary-stat label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+      text-transform:uppercase;
+    }
+
+    .summary-stat strong{
+      font-size:28px;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .summary-note{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      border-radius:20px;
+      padding:14px;
+      color:var(--soft);
+      line-height:1.55;
+      font-size:14px;
+    }
+
+    .summary-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:max(14px, env(safe-area-inset-bottom));
+      transform:translateX(-50%) translateY(20px);
+      z-index:160;
+      min-width:min(92vw, 420px);
+      max-width:92vw;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+      background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(2,6,23,.96));
+      color:#fff;
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:18px;
+      box-shadow:0 18px 50px rgba(0,0,0,.35);
+      padding:12px 14px;
+      font-size:14px;
+      font-weight:900;
+      text-align:center;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .mono{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="top">
+      <section class="hero">
+        <div class="hero-top">
+          <div>
+            <div class="badge-row">
+              <span class="pill">🤝 Plate Coop</span>
+              <span class="pill">👨‍👩‍👧‍👦 Team Play</span>
+              <span class="pill">🥗 Child-friendly</span>
+            </div>
+            <h1 class="title">ช่วยกันเลือกจานสมดุล เพื่อพาทีมไปถึงเป้าหมาย</h1>
+            <p class="sub">
+              ในโหมด Coop ทุกคนช่วยกันทำคะแนนและสะสม contribution ให้ทีม
+              ยิ่งตอบถูกมาก ทีมยิ่งเข้าใกล้เป้าหมายเร็วขึ้น
+            </p>
+          </div>
+
+          <div class="badge-row">
+            <span class="pill">room <span id="hudRoom" class="mono">-</span></span>
+            <span class="pill">goal <span id="hudGoal">100</span></span>
+          </div>
+        </div>
+
+        <div class="hero-actions">
+          <button id="btnHow" class="btn btn-blue" type="button">วิธีเล่น</button>
+          <button id="btnCopyRoom" class="btn btn-ghost" type="button">คัดลอกลิงก์หน้าเกม</button>
+          <button id="btnBackHubTop" class="btn btn-orange" type="button">กลับ HUB</button>
+        </div>
+      </section>
+
+      <aside class="hud-card">
+        <div class="team-goal">
+          <div class="team-goal-top">
+            <strong>🎯 เป้าหมายทีม</strong>
+            <span><span id="teamGoalNow">0</span> / <span id="teamGoalMax">100</span></span>
+          </div>
+          <div class="progress"><i id="teamGoalFill"></i></div>
+        </div>
+
+        <div class="hud-grid">
+          <div class="stat">
+            <div class="stat-label">คะแนนของฉัน</div>
+            <div id="statScore" class="stat-value">0</div>
+            <div class="stat-sub">ตอบถูกได้ +10</div>
+          </div>
+
+          <div class="stat">
+            <div class="stat-label">Contribution</div>
+            <div id="statContribution" class="stat-value">0</div>
+            <div class="stat-sub">ช่วยทีมไปข้างหน้า</div>
+          </div>
+
+          <div class="stat">
+            <div class="stat-label">ตอบถูก</div>
+            <div id="statCorrect" class="stat-value">0</div>
+            <div class="stat-sub">แม่นยำยิ่งขึ้น</div>
+          </div>
+
+          <div class="stat">
+            <div class="stat-label">เวลา</div>
+            <div id="statTime" class="stat-value">90</div>
+            <div class="stat-sub">วินาที</div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="game-wrap">
+      <main class="question-card">
+        <div class="question-top">
+          <div>
+            <span class="question-tag">🌟 ภารกิจรอบนี้</span>
+            <h2 id="questionTitle" class="question-title">กำลังเตรียมคำถาม...</h2>
+            <p id="questionSub" class="question-sub">รอสักครู่</p>
+          </div>
+
+          <div class="badge-row">
+            <span class="pill">seed <span id="hudSeed" class="mono">-</span></span>
+            <span class="pill">diff <span id="hudDiff">-</span></span>
+          </div>
+        </div>
+
+        <div class="coop-banner">
+          <div>
+            <strong>ภารกิจทีม:</strong>
+            เลือกจานสมดุลให้ถูก เพื่อช่วยทีมสะสมแต้มให้ครบเป้า
+          </div>
+          <div class="badge-row">
+            <span class="pill">ตอบถูก = contribution +10</span>
+            <span class="pill">ช่วยกันให้ถึง goal</span>
+          </div>
+        </div>
+
+        <div class="plate-stage">
+          <div class="plate" aria-hidden="true">
+            <section class="zone zone-main zone-veg">
+              <div class="zone-head">
+                <div class="zone-title">🥬 ผัก / ผลไม้</div>
+                <div class="zone-hint">ควรเยอะที่สุด</div>
+              </div>
+              <div class="foods" id="sampleVeg"></div>
+            </section>
+
+            <section class="zone zone-carb">
+              <div class="zone-head">
+                <div class="zone-title">🍚 ข้าว / แป้ง</div>
+                <div class="zone-hint">พอดี</div>
+              </div>
+              <div class="foods" id="sampleCarb"></div>
+            </section>
+
+            <section class="zone zone-protein">
+              <div class="zone-head">
+                <div class="zone-title">🍗 โปรตีน</div>
+                <div class="zone-hint">พอดี</div>
+              </div>
+              <div class="foods" id="sampleProtein"></div>
+            </section>
+          </div>
+        </div>
+
+        <div id="choices" class="choices"></div>
+
+        <div id="feedback" class="feedback" aria-live="polite">
+          <div class="feedback-main">
+            <div id="feedbackTitle" class="feedback-title">เยี่ยมมาก</div>
+            <div id="feedbackText" class="feedback-text">เลือกได้ถูกต้องแล้ว</div>
+          </div>
+          <button id="btnNext" class="btn btn-green" type="button">ข้อต่อไป</button>
+        </div>
+      </main>
+
+      <aside class="side-card">
+        <h3 class="side-title">เคล็ดลับช่วยทีม</h3>
+
+        <div class="rules">
+          <div class="rule">
+            <strong>1) มองผักก่อน</strong>
+            <span>จานสมดุลมักมีผักหรือผลไม้เยอะที่สุด</span>
+          </div>
+
+          <div class="rule">
+            <strong>2) ตอบต่อเนื่อง</strong>
+            <span>ยิ่งตอบถูกต่อเนื่อง ทีมยิ่งไปถึง goal เร็ว</span>
+          </div>
+
+          <div class="rule">
+            <strong>3) อย่ากดมั่ว</strong>
+            <span>ตอบผิดไม่ช่วยทีม และเสียเวลา</span>
+          </div>
+
+          <div class="rule">
+            <strong>4) ช่วยกันให้ครบเป้า</strong>
+            <span>ทุกคนรวม contribution กันเป็นแต้มทีม</span>
+          </div>
+        </div>
+
+        <div class="hero-actions" style="margin-top:2px;">
+          <button id="btnRestart" class="btn btn-violet" type="button">เริ่มใหม่</button>
+          <button id="btnBackHubSide" class="btn btn-ghost" type="button">กลับ HUB</button>
+        </div>
+      </aside>
+    </section>
+  </div>
+
+  <section id="summaryLayer" class="summary-layer" aria-hidden="true">
+    <div class="summary-card">
+      <div class="summary-hero">
+        <div>
+          <h2 id="summaryTitle" class="summary-title">สรุปผลรอบนี้</h2>
+          <p id="summarySub" class="summary-sub">เล่นจบแล้ว</p>
+        </div>
+        <div class="badge-row">
+          <span class="pill">🤝 Plate Coop</span>
+          <span class="pill">🎉 Finished</span>
+        </div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-stat">
+          <label>คะแนน</label>
+          <strong id="sumScore">0</strong>
+        </div>
+        <div class="summary-stat">
+          <label>Contribution</label>
+          <strong id="sumContribution">0</strong>
+        </div>
+        <div class="summary-stat">
+          <label>ตอบถูก</label>
+          <strong id="sumCorrect">0</strong>
+        </div>
+        <div class="summary-stat">
+          <label>ตอบผิด</label>
+          <strong id="sumWrong">0</strong>
+        </div>
+      </div>
+
+      <div id="summaryNote" class="summary-note">
+        วันนี้เราได้ช่วยทีมเลือกจานสมดุล และพาทีมเข้าใกล้เป้าหมายมากขึ้น 👍
+      </div>
+
+      <div class="summary-actions">
+        <button id="btnPlayAgain" class="btn btn-green" type="button">เล่นอีกครั้ง</button>
+        <button id="btnBackHubBottom" class="btn btn-orange" type="button">กลับ HUB</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+
+      const RUN_CTX = {
+        pid: qs.get('pid') || 'anon',
+        roomId: qs.get('roomId') || '',
+        run: qs.get('run') || 'play',
+        diff: qs.get('diff') || 'normal',
+        time: Number(qs.get('time') || 90),
+        seed: qs.get('seed') || String(Date.now()),
+        hub: qs.get('hub') || '../hub.html',
+        view: qs.get('view') || 'mobile',
+        mode: (qs.get('mode') || 'coop').toLowerCase(),
+        game: qs.get('game') || 'platev1',
+        theme: qs.get('theme') || 'platev1',
+        zone: qs.get('zone') || 'nutrition',
+        cooldown: qs.get('cooldown') || '1',
+        teamGoal: Math.max(20, Number(qs.get('teamGoal') || qs.get('goal') || 100))
+      };
+
+      function xmur3(str){
+        let h = 1779033703 ^ str.length;
+        for(let i=0;i<str.length;i++){
+          h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+          h = (h << 13) | (h >>> 19);
+        }
+        return function(){
+          h = Math.imul(h ^ (h >>> 16), 2246822507);
+          h = Math.imul(h ^ (h >>> 13), 3266489909);
+          return (h ^= h >>> 16) >>> 0;
+        };
+      }
+
+      function mulberry32(a){
+        return function(){
+          let t = a += 0x6D2B79F5;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      const seedFn = xmur3(String(RUN_CTX.seed));
+      const rng = mulberry32(seedFn());
+
+      function rand(){ return rng(); }
+      function pick(arr){ return arr[Math.floor(rand() * arr.length)]; }
+
+      function shuffle(arr){
+        const a = arr.slice();
+        for(let i=a.length-1;i>0;i--){
+          const j = Math.floor(rand() * (i+1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
+      function clamp(v, min, max){
+        return Math.max(min, Math.min(max, v));
+      }
+
+      const FOOD = {
+        veg: [
+          ['🥬','ผักใบเขียว'], ['🥦','บรอกโคลี'], ['🥕','แครอท'], ['🍅','มะเขือเทศ'],
+          ['🥒','แตงกวา'], ['🌽','ข้าวโพด'], ['🍎','แอปเปิล'], ['🍉','แตงโม'],
+          ['🍊','ส้ม'], ['🍌','กล้วย'], ['🍍','สับปะรด'], ['🥗','สลัด']
+        ],
+        carb: [
+          ['🍚','ข้าว'], ['🍞','ขนมปัง'], ['🍝','พาสตา'], ['🥔','มันฝรั่ง'],
+          ['🌾','ซีเรียล'], ['🥐','โรลขนมปัง'], ['🍜','เส้น'], ['🫓','แผ่นแป้ง']
+        ],
+        protein: [
+          ['🍗','ไก่'], ['🥚','ไข่'], ['🐟','ปลา'], ['🫘','ถั่ว'],
+          ['🥛','นม'], ['🧀','ชีส'], ['🍤','กุ้ง'], ['🍖','เนื้อ']
+        ]
+      };
+
+      const QUESTION_BANK = [
+        { title:'จานไหนสมดุลที่สุดสำหรับมื้อกลางวัน?', sub:'มองหาจานที่ผักเยอะ ข้าวพอดี โปรตีนพอดี' },
+        { title:'จานไหนดูเหมาะกับเด็กวัยเรียนมากกว่า?', sub:'เลือกจานที่ไม่หนักแป้งเกินไป' },
+        { title:'จานไหนจัดสัดส่วนอาหารได้ดีที่สุด?', sub:'สังเกตจำนวนอาหารแต่ละหมวด' },
+        { title:'จานไหนช่วยให้กินครบหมู่ได้ดีกว่า?', sub:'ผักเยอะและมีโปรตีนพอดีจะดูสมดุลกว่า' },
+        { title:'จานไหนเป็นตัวอย่าง “Healthy Plate” ที่ดีกว่า?', sub:'ผักต้องเด่นกว่าหมวดอื่น' },
+        { title:'จานไหนดูสมดุลและน่ากินที่สุด?', sub:'สังเกตว่าหมวดไหนมากไปหรือน้อยไป' }
+      ];
+
+      const state = {
+        totalQuestions: clamp(Math.round(RUN_CTX.time / (RUN_CTX.diff === 'easy' ? 12 : RUN_CTX.diff === 'hard' ? 8 : 10)), 8, 15),
+        currentIndex: 0,
+        currentQuestion: null,
+        answered: false,
+        score: 0,
+        correct: 0,
+        wrong: 0,
+        contribution: 0,
+        timeLeft: Math.max(30, RUN_CTX.time || 90),
+        started: false,
+        ended: false,
+        timer: null
+      };
+
+      function byId(id){
+        return document.getElementById(id);
+      }
+
+      const els = {
+        hudRoom: byId('hudRoom'),
+        hudGoal: byId('hudGoal'),
+        hudSeed: byId('hudSeed'),
+        hudDiff: byId('hudDiff'),
+
+        teamGoalNow: byId('teamGoalNow'),
+        teamGoalMax: byId('teamGoalMax'),
+        teamGoalFill: byId('teamGoalFill'),
+
+        statScore: byId('statScore'),
+        statContribution: byId('statContribution'),
+        statCorrect: byId('statCorrect'),
+        statTime: byId('statTime'),
+
+        sampleVeg: byId('sampleVeg'),
+        sampleCarb: byId('sampleCarb'),
+        sampleProtein: byId('sampleProtein'),
+
+        questionTitle: byId('questionTitle'),
+        questionSub: byId('questionSub'),
+        choices: byId('choices'),
+
+        feedback: byId('feedback'),
+        feedbackTitle: byId('feedbackTitle'),
+        feedbackText: byId('feedbackText'),
+        btnNext: byId('btnNext'),
+
+        btnHow: byId('btnHow'),
+        btnCopyRoom: byId('btnCopyRoom'),
+        btnRestart: byId('btnRestart'),
+        btnBackHubTop: byId('btnBackHubTop'),
+        btnBackHubSide: byId('btnBackHubSide'),
+        btnBackHubBottom: byId('btnBackHubBottom'),
+        btnPlayAgain: byId('btnPlayAgain'),
+
+        summaryLayer: byId('summaryLayer'),
+        summaryTitle: byId('summaryTitle'),
+        summarySub: byId('summarySub'),
+        sumScore: byId('sumScore'),
+        sumContribution: byId('sumContribution'),
+        sumCorrect: byId('sumCorrect'),
+        sumWrong: byId('sumWrong'),
+        summaryNote: byId('summaryNote'),
+
+        toast: byId('toast')
+      };
+
+      let toastTimer = null;
+      function showToast(msg){
+        if(!els.toast) return;
+        els.toast.textContent = String(msg || '');
+        els.toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          els.toast.classList.remove('show');
+        }, 1700);
+      }
+
+      function goHub(){
+        location.href = RUN_CTX.hub || '../hub.html';
+      }
+
+      function copyCurrentUrl(){
+        navigator.clipboard.writeText(location.href)
+          .then(() => showToast('คัดลอกลิงก์แล้ว'))
+          .catch(() => showToast('คัดลอกไม่สำเร็จ'));
+      }
+
+      function setSamplePlate(){
+        const veg = shuffle(FOOD.veg).slice(0, 5);
+        const carb = shuffle(FOOD.carb).slice(0, 2);
+        const protein = shuffle(FOOD.protein).slice(0, 2);
+
+        els.sampleVeg.innerHTML = veg.map(([e,n]) => `<span class="food">${e}<span>${n}</span></span>`).join('');
+        els.sampleCarb.innerHTML = carb.map(([e,n]) => `<span class="food">${e}<span>${n}</span></span>`).join('');
+        els.sampleProtein.innerHTML = protein.map(([e,n]) => `<span class="food">${e}<span>${n}</span></span>`).join('');
+      }
+
+      function updateHud(){
+        els.hudRoom.textContent = RUN_CTX.roomId || '-';
+        els.hudGoal.textContent = String(RUN_CTX.teamGoal);
+        els.hudSeed.textContent = RUN_CTX.seed;
+        els.hudDiff.textContent = RUN_CTX.diff;
+
+        els.teamGoalMax.textContent = String(RUN_CTX.teamGoal);
+        els.teamGoalNow.textContent = String(state.contribution);
+        els.teamGoalFill.style.width = `${Math.round((clamp(state.contribution, 0, RUN_CTX.teamGoal) / RUN_CTX.teamGoal) * 100)}%`;
+
+        els.statScore.textContent = String(state.score);
+        els.statContribution.textContent = String(state.contribution);
+        els.statCorrect.textContent = String(state.correct);
+        els.statTime.textContent = String(state.timeLeft);
+      }
+
+      function buildPlateOption(balanceType){
+        let vegCount = 4;
+        let carbCount = 2;
+        let proteinCount = 2;
+
+        if(balanceType === 'best'){
+          vegCount = 4 + (rand() > 0.5 ? 1 : 0);
+          carbCount = 2;
+          proteinCount = 2;
+        } else if(balanceType === 'tooCarb'){
+          vegCount = 2;
+          carbCount = 4 + Math.floor(rand() * 2);
+          proteinCount = 1;
+        } else if(balanceType === 'tooProtein'){
+          vegCount = 2;
+          carbCount = 2;
+          proteinCount = 4 + Math.floor(rand() * 2);
+        } else if(balanceType === 'tooLittleVeg'){
+          vegCount = 1;
+          carbCount = 3;
+          proteinCount = 3;
+        }
+
+        return {
+          veg: shuffle(FOOD.veg).slice(0, vegCount),
+          carb: shuffle(FOOD.carb).slice(0, carbCount),
+          protein: shuffle(FOOD.protein).slice(0, proteinCount)
+        };
+      }
+
+      function makeQuestion(){
+        const stem = pick(QUESTION_BANK);
+
+        const correctIndex = Math.floor(rand() * 3);
+        const wrongTypes = shuffle(['tooCarb', 'tooProtein', 'tooLittleVeg']).slice(0, 2);
+
+        const options = [];
+        for(let i=0;i<3;i++){
+          if(i === correctIndex){
+            options.push({
+              title:`จาน ${String.fromCharCode(65+i)}`,
+              type:'best',
+              plate: buildPlateOption('best'),
+              reason:'มีผักมากที่สุด และมีข้าวแป้งกับโปรตีนพอดี'
+            });
+          } else {
+            const badType = wrongTypes.shift() || 'tooCarb';
+            const reasonMap = {
+              tooCarb:'มีข้าวแป้งมากเกินไป',
+              tooProtein:'มีโปรตีนมากเกินไป',
+              tooLittleVeg:'มีผักน้อยเกินไป'
+            };
+            options.push({
+              title:`จาน ${String.fromCharCode(65+i)}`,
+              type:badType,
+              plate: buildPlateOption(badType),
+              reason:reasonMap[badType]
+            });
+          }
+        }
+
+        return {
+          title: stem.title,
+          sub: stem.sub,
+          correctIndex,
+          options
+        };
+      }
+
+      function miniFoodsHtml(items){
+        return items.map(([emoji, name]) => `<span class="mini-food">${emoji}<span>${name}</span></span>`).join('');
+      }
+
+      function renderChoices(q){
+        els.choices.innerHTML = '';
+
+        q.options.forEach((opt, idx) => {
+          const btn = document.createElement('button');
+          btn.className = 'choice';
+          btn.type = 'button';
+          btn.dataset.index = String(idx);
+          btn.innerHTML = `
+            <span class="choice-badge">${String.fromCharCode(65 + idx)}</span>
+            <div>
+              <h3 class="choice-title">${opt.title}</h3>
+              <p class="choice-desc">เลือกจานที่สมดุลที่สุดเพื่อช่วยทีม</p>
+            </div>
+
+            <div class="mini-plate">
+              <div class="mini-zone mini-zone-main mini-zone-veg">
+                <div class="mini-foods">${miniFoodsHtml(opt.plate.veg)}</div>
+              </div>
+              <div class="mini-zone mini-zone-carb">
+                <div class="mini-foods">${miniFoodsHtml(opt.plate.carb)}</div>
+              </div>
+              <div class="mini-zone mini-zone-protein">
+                <div class="mini-foods">${miniFoodsHtml(opt.plate.protein)}</div>
+              </div>
+            </div>
+
+            <p class="choice-desc">${opt.type === 'best' ? 'จานนี้ช่วยทีมได้เต็มแต้ม' : 'ลองสังเกตให้ดีว่าจานนี้สมดุลพอไหม'}</p>
+          `;
+          btn.addEventListener('click', () => answerChoice(idx));
+          els.choices.appendChild(btn);
+        });
+      }
+
+      function showFeedback(isCorrect, text){
+        els.feedback.className = `feedback show ${isCorrect ? 'good' : 'bad'}`;
+        els.feedbackTitle.textContent = isCorrect ? 'ช่วยทีมได้แล้ว! 🤝' : 'ลองใหม่อีกนิด ✨';
+        els.feedbackText.textContent = text;
+      }
+
+      function hideFeedback(){
+        els.feedback.className = 'feedback';
+      }
+
+      function syncCoopState(){
+        try {
+          window.PlateCoopMP?.syncScore(state.score);
+          window.PlateCoopMP?.syncContribution(state.contribution);
+        } catch {}
+      }
+
+      function loadQuestion(){
+        if(state.currentIndex >= state.totalQuestions){
+          endGame();
+          return;
+        }
+
+        state.currentQuestion = makeQuestion();
+        state.answered = false;
+
+        els.questionTitle.textContent = state.currentQuestion.title;
+        els.questionSub.textContent = `${state.currentQuestion.sub} • ข้อ ${state.currentIndex + 1} / ${state.totalQuestions}`;
+
+        renderChoices(state.currentQuestion);
+        hideFeedback();
+        updateHud();
+        syncCoopState();
+      }
+
+      function answerChoice(index){
+        if(state.answered || state.ended) return;
+
+        state.answered = true;
+        const q = state.currentQuestion;
+        const correct = index === q.correctIndex;
+
+        [...els.choices.querySelectorAll('.choice')].forEach((btn, idx) => {
+          btn.disabled = true;
+          if(idx === q.correctIndex){
+            btn.style.borderColor = 'rgba(34,197,94,.45)';
+            btn.style.background = 'linear-gradient(180deg, rgba(34,197,94,.16), rgba(34,197,94,.06))';
+          } else if(idx === index){
+            btn.style.borderColor = 'rgba(239,68,68,.45)';
+            btn.style.background = 'linear-gradient(180deg, rgba(239,68,68,.14), rgba(239,68,68,.06))';
+          }
+        });
+
+        if(correct){
+          state.score += 10;
+          state.correct += 1;
+          state.contribution += 10;
+          showFeedback(true, `เยี่ยมเลย เพราะ${q.options[q.correctIndex].reason} • contribution +10`);
+        } else {
+          state.wrong += 1;
+          showFeedback(false, `คำตอบที่สมดุลกว่าคือ ${q.options[q.correctIndex].title} เพราะ${q.options[q.correctIndex].reason}`);
+        }
+
+        updateHud();
+        syncCoopState();
+
+        if(state.contribution >= RUN_CTX.teamGoal){
+          showToast('ของเราครบเป้าส่วนตัวแล้ว ช่วยต่อให้ทีมแข็งแรงขึ้นได้อีก!');
+        }
+      }
+
+      function nextQuestion(){
+        if(!state.answered || state.ended) return;
+        state.currentIndex += 1;
+        loadQuestion();
+      }
+
+      function summaryText(){
+        if(state.contribution >= RUN_CTX.teamGoal){
+          return 'ยอดเยี่ยมมาก! เราช่วยทีมได้ครบเป้า contribution ของเราแล้ว 🌟';
+        }
+        if(state.correct >= Math.ceil(state.totalQuestions * 0.7)){
+          return 'เก่งมากเลย! วันนี้ช่วยทีมได้ดีมาก และมองจานสมดุลได้แม่นขึ้น 👍';
+        }
+        return 'ดีมาก ลองเล่นอีกครั้งแล้วช่วยทีมให้ได้ contribution มากขึ้นนะ 😊';
+      }
+
+      function showSummary(){
+        els.sumScore.textContent = String(state.score);
+        els.sumContribution.textContent = String(state.contribution);
+        els.sumCorrect.textContent = String(state.correct);
+        els.sumWrong.textContent = String(state.wrong);
+
+        els.summaryTitle.textContent = state.contribution >= RUN_CTX.teamGoal
+          ? 'ช่วยทีมได้สุดยอด!'
+          : 'จบรอบแล้ว';
+
+        els.summarySub.textContent = `room ${RUN_CTX.roomId || '-'} • score ${state.score} • contribution ${state.contribution}`;
+        els.summaryNote.textContent = summaryText();
+
+        els.summaryLayer.classList.add('show');
+        els.summaryLayer.setAttribute('aria-hidden', 'false');
+      }
+
+      function hideSummary(){
+        els.summaryLayer.classList.remove('show');
+        els.summaryLayer.setAttribute('aria-hidden', 'true');
+      }
+
+      function startTimer(){
+        clearInterval(state.timer);
+        state.timer = setInterval(() => {
+          if(state.ended) return;
+          if(window.PlateCoopMP && !window.PlateCoopMP.canRunNow()) return;
+
+          state.timeLeft -= 1;
+          if(state.timeLeft <= 0){
+            state.timeLeft = 0;
+            updateHud();
+            endGame();
+            return;
+          }
+          updateHud();
+        }, 1000);
+      }
+
+      async function endGame(){
+        if(state.ended) return;
+        state.ended = true;
+        clearInterval(state.timer);
+
+        updateHud();
+        syncCoopState();
+
+        const summary = {
+          score: state.score,
+          contribution: state.contribution
+        };
+
+        try {
+          await window.PlateCoopMP?.finish(summary);
+        } catch (err) {
+          console.error('[PlateCoopMP.finish]', err);
+        }
+
+        showSummary();
+      }
+
+      function resetGame(){
+        hideSummary();
+        try {
+          location.reload();
+        } catch {
+          state.currentIndex = 0;
+          state.currentQuestion = null;
+          state.answered = false;
+          state.score = 0;
+          state.correct = 0;
+          state.wrong = 0;
+          state.contribution = 0;
+          state.timeLeft = Math.max(30, RUN_CTX.time || 90);
+          state.started = false;
+          state.ended = false;
+          loadQuestion();
+          startTimer();
+        }
+      }
+
+      els.btnNext.addEventListener('click', nextQuestion);
+      els.btnHow.addEventListener('click', () => {
+        showToast('เลือกจานที่ผักเยอะที่สุด และมีข้าวกับโปรตีนพอดี เพื่อช่วยทีม');
+      });
+      els.btnCopyRoom.addEventListener('click', copyCurrentUrl);
+      els.btnRestart.addEventListener('click', resetGame);
+      els.btnPlayAgain.addEventListener('click', resetGame);
+      els.btnBackHubTop.addEventListener('click', goHub);
+      els.btnBackHubSide.addEventListener('click', goHub);
+      els.btnBackHubBottom.addEventListener('click', goHub);
+
+      function startGame(){
+        if(state.started) return;
+        state.started = true;
+        setSamplePlate();
+        updateHud();
+        syncCoopState();
+        loadQuestion();
+        startTimer();
+      }
+
+      function bootUi(){
+        els.hudRoom.textContent = RUN_CTX.roomId || '-';
+        els.hudGoal.textContent = String(RUN_CTX.teamGoal);
+        els.hudSeed.textContent = RUN_CTX.seed;
+        els.hudDiff.textContent = RUN_CTX.diff;
+        els.teamGoalMax.textContent = String(RUN_CTX.teamGoal);
+        try { window.PlateCoopMP?.setGoal(RUN_CTX.teamGoal); } catch {}
+        setSamplePlate();
+        updateHud();
+      }
+
+      async function boot(){
+        bootUi();
+
+        if(window.PlateCoopMP && typeof window.PlateCoopMP.bootstrap === 'function'){
+          await window.PlateCoopMP.bootstrap(() => {
+            startGame();
+          });
+        } else {
+          startGame();
+        }
+      }
+
+      window.__PLATE_COOP_START_GAME__ = startGame;
+      window.__PLATE_COOP_END_GAME__ = endGame;
+
+      boot().catch(err => {
+        console.error('[plate-coop.boot]', err);
+        startGame();
+      });
+    })();
+  </script>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js"></script>
+  <script type="module" src="./plate-mp-run.js"></script>
+  <script src="./plate-coop-mp-bind.js"></script>
+</body>
+</html>
