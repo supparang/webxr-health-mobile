@@ -35,7 +35,17 @@ const HHA_EVENTS_SCHEMA_QUEUE_KEY = 'HHA_EVENTS_SCHEMA_QUEUE';
 const HHA_SESSIONS_SCHEMA_QUEUE_KEY = 'HHA_SESSIONS_SCHEMA_QUEUE';
 
 const SESSION_ID = `gjsolo-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-const PATCH_VERSION = '20260319e-goodjunk-solo-cloud-logger-pack';
+const PATCH_VERSION = '20260325-goodjunk-solo-cloudlive-v3';
+const HHA_ENDPOINT = String(__qs.get('api') || window.HHA_CLOUD_ENDPOINT || '').trim();
+
+let __cloudLogger = null;
+let __cloudSessionStarted = false;
+
+console.log('[GJ-CLOUD] phaseboss patch loaded', {
+  patch: PATCH_VERSION,
+  endpoint: HHA_ENDPOINT,
+  hasFactory: typeof window.createHHACloudLogger === 'function'
+});
 
 const GOOD_ITEMS = [
   { emoji: '🍎', label: 'apple' },
@@ -1326,6 +1336,159 @@ function emitExternalLog(type, payload) {
   } catch {}
 }
 
+function getCloudLogger() {
+  if (__cloudLogger) return __cloudLogger;
+  if (typeof window.createHHACloudLogger !== 'function') return null;
+
+  __cloudLogger = window.createHHACloudLogger({
+    endpoint: HHA_ENDPOINT,
+    enabled: true,
+    debug: true,
+
+    game: GJ_GAME_ID,
+    zone: 'nutrition',
+    run: RUN_CTX.run || 'play',
+    pid: GJ_PID,
+    seed: RUN_CTX.seed || '',
+    view: RUN_CTX.view || 'mobile',
+    difficulty: state.diff,
+    studyId: RUN_CTX.studyId || '',
+    researchPhase: __qs.get('phase') || '',
+    conditionGroup: __qs.get('conditionGroup') || '',
+    variant: 'goodjunk-solo-phaseboss',
+    appVersion: 'herohealth',
+    gameVersion: PATCH_VERSION
+  });
+
+  console.log('[GJ-CLOUD] logger created', {
+    endpoint: HHA_ENDPOINT,
+    pid: GJ_PID,
+    game: GJ_GAME_ID
+  });
+
+  return __cloudLogger;
+}
+
+function startCloudSessionIfNeeded() {
+  console.log('[GJ-CLOUD] startCloudSessionIfNeeded()', {
+    alreadyStarted: __cloudSessionStarted,
+    endpoint: HHA_ENDPOINT,
+    hasFactory: typeof window.createHHACloudLogger === 'function'
+  });
+
+  if (__cloudSessionStarted) return;
+
+  const logger = getCloudLogger();
+  if (!logger) {
+    console.warn('[GJ-CLOUD] createHHACloudLogger not found');
+    return;
+  }
+
+  logger.hhaSessionStart({
+    session_id: SESSION_ID,
+    pid: GJ_PID,
+    player_name: GJ_NAME,
+    game: GJ_GAME_ID,
+    game_title: 'GoodJunk Solo Phase Boss',
+    zone: 'nutrition',
+    mode: 'solo',
+    run: RUN_CTX.run || 'play',
+    study_id: RUN_CTX.studyId || '',
+    condition_group: __qs.get('conditionGroup') || '',
+    variant: 'goodjunk-solo-phaseboss',
+    difficulty: state.diff,
+    session_time_sec_setting: Number(RUN_CTX.time || 150),
+    view_mode: RUN_CTX.view || 'mobile',
+    seed: RUN_CTX.seed || '',
+    warmup_used: 1,
+    cooldown_used: 1,
+    app_version: 'herohealth',
+    game_version: PATCH_VERSION
+  });
+
+  __cloudSessionStarted = true;
+  console.log('[GJ-CLOUD] session started', SESSION_ID);
+}
+
+function pushCloudEvent(eventType, extra = {}) {
+  console.log('[GJ-CLOUD] pushCloudEvent', eventType, {
+    sessionStarted: __cloudSessionStarted,
+    endpoint: HHA_ENDPOINT
+  });
+
+  const logger = getCloudLogger();
+  if (!logger || !__cloudSessionStarted) return;
+
+  logger.hhaEvent(eventType, {
+    session_id: SESSION_ID,
+    pid: GJ_PID,
+    game: GJ_GAME_ID,
+    zone: 'nutrition',
+    mode: 'solo',
+    run: RUN_CTX.run || 'play',
+    study_id: RUN_CTX.studyId || '',
+    condition_group: __qs.get('conditionGroup') || '',
+    difficulty: state.diff,
+    view_mode: RUN_CTX.view || 'mobile',
+    seed: RUN_CTX.seed || '',
+
+    phase: typeof currentPhaseLabel === 'function' ? currentPhaseLabel() : '',
+    event_type: eventType,
+    event_name: eventType,
+    action: eventType,
+
+    target_id: extra.targetId || '',
+    target_type: extra.itemType || '',
+    target_label: extra.emoji || '',
+
+    lane: extra.lane ?? '',
+    correct: typeof extra.isGood === 'boolean' ? extra.isGood : '',
+    score_delta: extra.gain ?? extra.penalty ?? extra.damage ?? 0,
+    combo: state.streak,
+    rt_ms: extra.rtMs ?? '',
+    x: extra.x ?? '',
+    y: extra.y ?? '',
+    value_num: extra.damage ?? extra.weakspotHitRatePct ?? '',
+    value_num2: extra.stormHits ?? extra.comboBonus ?? '',
+
+    meta_json: {
+      reason: extra.reason || '',
+      patternKey: extra.patternKey || '',
+      patternLabel: extra.patternLabel || '',
+      bossHpAfter: extra.bossHpAfter ?? '',
+      weakspotHit: extra.weakspotHit ?? '',
+      weakspotHitRatePct: extra.weakspotHitRatePct ?? '',
+      bossDurationMs: extra.bossDurationMs ?? '',
+      nextPattern: extra.nextPattern || '',
+      telegraphMs: extra.telegraphMs ?? '',
+      extra
+    }
+  });
+}
+
+function endCloudSession(summary) {
+  const logger = getCloudLogger();
+  if (!logger || !__cloudSessionStarted) return;
+
+  console.log('[GJ-CLOUD] endCloudSession', summary);
+
+  logger.hhaSummaryAndEnd(
+    summary,
+    {
+      completed: summary.bossDefeated ? 1 : 0,
+      quit_reason: summary.reason || '',
+      score: summary.score,
+      hits: Number(summary.hitsGood || 0) + Number(summary.powerHits || 0),
+      miss: summary.miss,
+      combo_max: summary.bestStreak,
+      boss_phase_reached: summary.bossEntered ? 1 : 0,
+      difficulty: summary.diff,
+      summary_json: summary
+    },
+    { flushNow: true }
+  );
+}
+
 function logGameEvent(eventType, extra = {}) {
   const payload = {
     ...makeBaseLogFields(),
@@ -1354,6 +1517,7 @@ function logGameEvent(eventType, extra = {}) {
   emitExternalLog('hha:log-event', payload);
   emitExternalLog('hha:event-row', eventRow);
   tryBridgeCall('event', eventRow);
+  pushCloudEvent(eventType, extra || {});
 
   return payload;
 }
@@ -1373,6 +1537,7 @@ function logSessionSummary(summary) {
   emitExternalLog('hha:log-summary', payload);
   emitExternalLog('hha:session-row', sessionRow);
   tryBridgeCall('session', sessionRow);
+  endCloudSession(summary);
 
   return payload;
 }
@@ -1445,6 +1610,14 @@ function startGame() {
   renderHud();
 
   logGameEvent('session_start', {
+    phaseGoal1: getPhaseGoal(1),
+    phaseGoal2: getPhaseGoal(2),
+    timeBand: getTimeBand()
+  });
+
+  startCloudSessionIfNeeded();
+  pushCloudEvent('session_start', {
+    reason: 'session_start',
     phaseGoal1: getPhaseGoal(1),
     phaseGoal2: getPhaseGoal(2),
     timeBand: getTimeBand()
@@ -2280,8 +2453,11 @@ function endGame(reason = 'finished') {
     state.research.bossDurationMs = 0;
   }
 
+  const cloudLoggerReady = !!getCloudLogger();
+  const cloudEndpointReady = !!HHA_ENDPOINT;
+
   const summary = {
-    version: '20260319e-goodjunk-solo-cloud-logger-pack',
+    version: PATCH_VERSION,
     source: 'goodjunk-solo-phaseboss',
     gameId: GJ_GAME_ID,
     mode: 'solo',
@@ -2324,6 +2500,8 @@ function endGame(reason = 'finished') {
     stormAvoidRatePct: getStormAvoidRatePct(),
     patternStarts: { ...state.research.patternStarts },
     patternWeakHits: { ...state.research.patternWeakHits },
+    cloudLoggerReady,
+    cloudEndpointReady,
     updatedAt: Date.now()
   };
 
@@ -2426,6 +2604,14 @@ function showSummary(summary) {
       <div class="label">Time Profile</div>
       <div class="value">${escapeHtml(summary.timeBand || 'standard')}</div>
     </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Cloud Client</div>
+      <div class="value">${summary.cloudLoggerReady ? 'ready' : 'missing'}</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Cloud Endpoint</div>
+      <div class="value">${summary.cloudEndpointReady ? 'ready' : 'missing'}</div>
+    </div>
   `;
 
   ui.summary.hidden = false;
@@ -2444,6 +2630,7 @@ function buildReplayUrl() {
   url.searchParams.set('run', RUN_CTX.run || 'play');
   url.searchParams.set('gameId', GJ_GAME_ID);
   url.searchParams.set('mode', 'solo');
+  if (HHA_ENDPOINT) url.searchParams.set('api', HHA_ENDPOINT);
   return url.toString();
 }
 
@@ -2465,6 +2652,7 @@ function buildCooldownUrl() {
   gate.searchParams.set('view', RUN_CTX.view || 'mobile');
   gate.searchParams.set('run', RUN_CTX.run || 'play');
   gate.searchParams.set('forcegate', '1');
+  if (HHA_ENDPOINT) gate.searchParams.set('api', HHA_ENDPOINT);
   return gate.toString();
 }
 
