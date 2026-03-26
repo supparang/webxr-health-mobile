@@ -1,13 +1,13 @@
 // === /herohealth/js/hha-cloud-logger.js ===
 // HeroHealth Cloud Logger Client — PRODUCTION (queue + offline + retry + flush-hardened)
-// Works with Google Apps Script doPost endpoint (object_rows mode)
+// GAS-safe variant: uses no-cors/sendBeacon for Google Apps Script Web App endpoints
 'use strict';
 
 (function (global) {
   const WIN = global;
   const DOC = WIN.document;
 
-  const VERSION = 'hha-cloud-logger-client-v1';
+  const VERSION = 'hha-cloud-logger-client-v2-gas-nocors';
   const DEFAULT_SCHEMA = 'hha-cloud-logger-v1';
 
   const DEFAULTS = {
@@ -121,6 +121,12 @@
     return `${String(game || 'game')}_${String(pid || 'anon')}_${nowMs()}_${randId(6)}`;
   }
 
+  function isGasWebAppUrl(url) {
+    const s = String(url || '').trim();
+    return /https:\/\/script\.google\.com\/macros\/s\//i.test(s) ||
+           /https:\/\/script\.googleusercontent\.com\//i.test(s);
+  }
+
   class HHACloudLogger {
     constructor(userCfg = {}) {
       const endpointFromQS = String(qs('api', '')).trim();
@@ -167,7 +173,11 @@
       this._bindLifecycle();
       this._startAutoFlush();
 
-      this._emitStatus('init', { enabled: this.cfg.enabled, endpoint: !!this.cfg.endpoint });
+      this._emitStatus('init', {
+        enabled: this.cfg.enabled,
+        endpoint: !!this.cfg.endpoint,
+        endpointType: isGasWebAppUrl(this.cfg.endpoint) ? 'gas' : 'generic'
+      });
       this.debug('init complete', { cfg: this.cfg, queueLens: this.lengths() });
     }
 
@@ -492,22 +502,57 @@
         return { ok: true, skipped: 'nothing_batched' };
       }
 
+      const endpoint = String(this.cfg.endpoint || '').trim();
+      const isGas = isGasWebAppUrl(endpoint);
+
       let ok = false;
       let respData = null;
       let errMsg = '';
 
       try {
-        if (urgent && this.cfg.sendBeaconFallback && navigator.sendBeacon) {
-          const sent = this._sendViaBeacon(payload);
-          if (sent) {
-            this._commitBatchSuccess(payload, { beacon: true });
-            this._flushInFlight = false;
-            this._emitStatus('flush_ok', { reason, beacon: true, counts: payload._counts });
-            return { ok: true, beacon: true, counts: payload._counts };
+        if (isGas) {
+          const bodyText = JSON.stringify(payload.body);
+
+          if (urgent && this.cfg.sendBeaconFallback && navigator.sendBeacon) {
+            try {
+              const sent = navigator.sendBeacon(
+                endpoint,
+                new Blob([bodyText], { type: 'text/plain;charset=utf-8' })
+              );
+              if (sent) {
+                this._commitBatchSuccess(payload, { beacon: true, transport: 'sendBeacon' });
+                this._flushInFlight = false;
+                this._emitStatus('flush_ok', {
+                  reason,
+                  beacon: true,
+                  counts: payload._counts,
+                  response: { beacon: true, transport: 'sendBeacon' }
+                });
+                return { ok: true, beacon: true, counts: payload._counts };
+              }
+            } catch (_) {}
           }
+
+          await fetch(endpoint, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: bodyText,
+            keepalive: urgent ? true : false,
+            credentials: 'omit',
+            cache: 'no-store'
+          });
+
+          this._commitBatchSuccess(payload, { opaque: true, transport: 'no-cors' });
+          this._flushInFlight = false;
+          this._emitStatus('flush_ok', {
+            reason,
+            counts: payload._counts,
+            response: { opaque: true, transport: 'no-cors' }
+          });
+          return { ok: true, counts: payload._counts, response: { opaque: true, transport: 'no-cors' } };
         }
 
-        const resp = await fetch(this.cfg.endpoint, {
+        const resp = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload.body),
@@ -584,15 +629,6 @@
           students_profile: students_profile.map(r => r.pid)
         }
       };
-    }
-
-    _sendViaBeacon(payload) {
-      try {
-        const blob = new Blob([JSON.stringify(payload.body)], { type: 'application/json' });
-        return navigator.sendBeacon(this.cfg.endpoint, blob);
-      } catch (_) {
-        return false;
-      }
     }
 
     _commitBatchSuccess(payload, respData) {
