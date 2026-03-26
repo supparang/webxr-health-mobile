@@ -6,42 +6,142 @@
   <title>HeroHealth • Hydration Hero</title>
   <meta name="color-scheme" content="light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./hydration-vr.css?v=20260326-theme-kids-r1" />
+  <link rel="stylesheet" href="./hydration-vr.css?v=20260326-final-sanity-r1" />
 </head>
 <body>
   <main class="game-shell">
+    <!-- HERO / TOP -->
+    <section class="hero-v2-shell">
+      <div class="hero-v2-topbar">
+        <button class="corner-icon" type="button" aria-label="settings">⚙️</button>
+
+        <div class="hero-v2-topchips">
+          <span class="topchip">💧 Play</span>
+          <span class="topchip">⭐ Hero</span>
+          <span class="topchip">🫧 Fun</span>
+        </div>
+      </div>
+
+      <div class="hero-v2-logo-wrap">
+        <div class="hero-v2-mascot">
+          <div class="mascot-illust">
+            <div class="mascot-head"></div>
+            <div class="mascot-hair"></div>
+            <div class="mascot-body"></div>
+            <div class="mascot-cape"></div>
+            <div class="mascot-drop">💧</div>
+          </div>
+        </div>
+
+        <div class="hero-v2-logo-stack">
+          <div class="hero-v2-logo">
+            <span class="hero-v2-logo-hero">Hero</span><span class="hero-v2-logo-health">Health</span>
+          </div>
+          <div class="hero-v2-logo-sub">Learn Health Through Play!</div>
+        </div>
+
+        <div class="hero-v2-homebtn">🏠</div>
+      </div>
+
+      <div class="hero-v2-profile">
+        <div class="profile-left">
+          <div class="profile-avatar-kids">
+            <div class="avatar-illust">
+              <div class="avatar-head"></div>
+              <div class="avatar-hair"></div>
+              <div class="avatar-body"></div>
+              <div class="avatar-cape"></div>
+              <div class="avatar-shield">💧</div>
+            </div>
+          </div>
+
+          <div class="profile-texts">
+            <div class="profile-name-kids">Rocky</div>
+            <div id="coachExplain" class="profile-speech">
+              เก็บน้ำดีให้เยอะ ระวังของไม่ดี และอย่าลืมหาโล่ไว้กันสายฟ้านะ
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-right-stats">
+          <div class="resource-strip">
+            <div class="resource-pill hearts-pill">
+              <span class="resource-icon">❤️</span>
+              <div>
+                <span class="resource-label">Hearts</span>
+                <strong>8</strong>
+              </div>
+            </div>
+
+            <div class="resource-pill coins-pill">
+              <span class="resource-icon">🪙</span>
+              <div>
+                <span class="resource-label">Score</span>
+                <strong id="uiScore">0</strong>
+              </div>
+            </div>
+
+            <div class="resource-pill stars-pill">
+              <span class="resource-icon">⭐</span>
+              <div>
+                <span class="resource-label">Grade</span>
+                <strong id="uiGrade">D</strong>
+              </div>
+            </div>
+
+            <div class="resource-pill water-pill">
+              <span class="resource-icon">💧</span>
+              <div>
+                <span class="resource-label">Water</span>
+                <strong id="uiWater">40%</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="level-strip">
+            <div class="level-badge">Lv. 5</div>
+            <div class="level-track">
+              <div class="level-track-fill" style="width:32%"></div>
+            </div>
+            <div class="level-progress">10/30</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-v2-zonestrip">
+        <div class="zone-mini-card zone-hygiene">🧼 Hygiene</div>
+        <div class="zone-mini-card zone-nutrition active">🥗 Nutrition</div>
+        <div class="zone-mini-card zone-fitness">🏃 Fitness</div>
+      </div>
+    </section>
+
+    <!-- TOP ACTIONS -->
     <section class="top-card">
-      <div class="brand-block">
-        <div class="brand-badge">HeroHealth</div>
-        <div class="brand-sub">Learn Health Through Play!</div>
-      </div>
+      <div class="top-actions top-actions-v2">
+        <button id="btnSfx" class="ui-btn ui-btn-soft icon-btn-v2" type="button">
+          <span class="icon-btn-tile tile-sound">
+            <span class="tile-glyph">🔊</span>
+          </span>
+          <span class="icon-btn-label">เสียง</span>
+        </button>
 
-      <div class="top-actions">
-        <button id="btnSfx" class="ui-btn ui-btn-soft" type="button">🔊 เสียง</button>
-        <button id="btnHelp" class="ui-btn ui-btn-soft" type="button">❓ วิธีเล่น</button>
-        <button id="btnPause" class="ui-btn ui-btn-soft" type="button">⏸️ พัก</button>
-      </div>
-    </section>
+        <button id="btnHelp" class="ui-btn ui-btn-soft icon-btn-v2" type="button">
+          <span class="icon-btn-tile tile-help">
+            <span class="tile-glyph">?</span>
+          </span>
+          <span class="icon-btn-label">วิธีเล่น</span>
+        </button>
 
-    <section class="player-card">
-      <div class="player-avatar">🧒</div>
-      <div class="player-body">
-        <div class="player-name">Hydration Hero</div>
-        <div id="coachExplain" class="player-note">เก็บน้ำดีให้เยอะ ระวังของไม่ดี และอย่าลืมหาโล่ไว้กันสายฟ้านะ</div>
-      </div>
-
-      <div class="player-mini-stats">
-        <div class="mini-stat-pill">
-          <span class="mini-label">คะแนน</span>
-          <strong id="uiScore">0</strong>
-        </div>
-        <div class="mini-stat-pill">
-          <span class="mini-label">น้ำ</span>
-          <strong id="uiWater">40%</strong>
-        </div>
+        <button id="btnPause" class="ui-btn ui-btn-soft icon-btn-v2" type="button">
+          <span class="icon-btn-tile tile-pause">
+            <span class="tile-glyph">⏸</span>
+          </span>
+          <span class="icon-btn-label">พัก</span>
+        </button>
       </div>
     </section>
 
+    <!-- PLAY CARD -->
     <section class="zone-card">
       <div class="zone-card-header">
         <div class="zone-title-wrap">
@@ -50,38 +150,78 @@
         </div>
 
         <div class="zone-status-right">
-          <div class="status-pill">
-            <span class="status-pill-label">เวลา</span>
-            <strong id="uiTime">00:00</strong>
+          <div class="heart-badge-top">
+            <span class="heart-badge-icon heart-tile">
+              <span class="tile-glyph">❤️</span>
+            </span>
+            <strong>8</strong>
           </div>
-          <div class="status-pill">
-            <span class="status-pill-label">สถานะ</span>
-            <strong id="uiPhase">💧 ช่วงเก็บน้ำ</strong>
+
+          <div class="status-pill status-pill-v2">
+            <span class="status-pill-icon status-time-tile">
+              <span class="tile-glyph">⏰</span>
+            </span>
+            <div class="status-pill-body">
+              <span class="status-pill-label">เวลา</span>
+              <strong id="uiTime">00:00</strong>
+            </div>
+          </div>
+
+          <div class="status-pill status-pill-v2">
+            <span class="status-pill-icon status-phase-tile">
+              <span class="tile-glyph">🌈</span>
+            </span>
+            <div class="status-pill-body">
+              <span class="status-pill-label">สถานะ</span>
+              <strong id="uiPhase">💧 ช่วงเก็บน้ำ</strong>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="mission-strip" id="missionBar">
-        <div class="mission-strip-title">Mission</div>
+      <!-- MISSIONS -->
+      <div class="mission-strip mission-strip-v2" id="missionBar">
+        <div class="mission-strip-title mission-strip-title-v2">
+          <div class="title-chip-illust">
+            <span class="title-chip-star s1">⭐</span>
+            <span class="title-chip-star s2">⭐</span>
+          </div>
+          <div>
+            <div class="mission-title-top">Hero Mission</div>
+            <div class="mission-title-main">Mission</div>
+          </div>
+        </div>
 
-        <div id="missionChipHit" class="mission-pill">
-          <span class="mission-pill-icon">💧</span>
+        <div id="missionChipHit" class="mission-pill mission-pill-v2">
+          <div class="mission-pill-icon icon-tile tile-water">
+            <span class="tile-drop drop-a"></span>
+            <span class="tile-drop drop-b"></span>
+            <span class="tile-drop drop-c"></span>
+          </div>
           <div class="mission-pill-body">
             <div class="mission-pill-label">เก็บน้ำดี</div>
             <div class="mission-pill-value"><strong id="missionHitNow">0</strong>/<strong id="missionHitGoal">12</strong></div>
           </div>
         </div>
 
-        <div id="missionChipBlock" class="mission-pill">
-          <span class="mission-pill-icon">🛡️</span>
+        <div id="missionChipBlock" class="mission-pill mission-pill-v2">
+          <div class="mission-pill-icon icon-tile tile-shield">
+            <span class="tile-shield-core">🛡️</span>
+            <span class="tile-spark sp-a">✦</span>
+            <span class="tile-spark sp-b">✦</span>
+          </div>
           <div class="mission-pill-body">
             <div class="mission-pill-label">บล็อกสายฟ้า</div>
             <div class="mission-pill-value"><strong id="missionBlockNow">0</strong>/<strong id="missionBlockGoal">3</strong></div>
           </div>
         </div>
 
-        <div id="missionChipCombo" class="mission-pill">
-          <span class="mission-pill-icon">✨</span>
+        <div id="missionChipCombo" class="mission-pill mission-pill-v2">
+          <div class="mission-pill-icon icon-tile tile-combo">
+            <span class="combo-star cs-1">⭐</span>
+            <span class="combo-star cs-2">⭐</span>
+            <span class="combo-star cs-3">⭐</span>
+          </div>
           <div class="mission-pill-body">
             <div class="mission-pill-label">คอมโบ</div>
             <div class="mission-pill-value"><strong id="missionComboNow">0</strong>/<strong id="missionComboGoal">8</strong></div>
@@ -89,84 +229,165 @@
         </div>
       </div>
 
-      <section id="stage" class="play-stage" aria-label="Hydration playfield">
-        <div class="stage-cloud cloud-a"></div>
-        <div class="stage-cloud cloud-b"></div>
-        <div class="stage-cloud cloud-c"></div>
+      <!-- STAGE -->
+      <section id="stage" class="play-stage play-stage-v2" aria-label="Hydration playfield">
+        <div class="stage-back-illustration" aria-hidden="true">
+          <div class="stage-cloud cloud-a"></div>
+          <div class="stage-cloud cloud-b"></div>
+          <div class="stage-cloud cloud-c"></div>
 
-        <div class="stage-hill hill-a"></div>
-        <div class="stage-hill hill-b"></div>
-        <div class="stage-hill hill-c"></div>
+          <div class="stage-sun-tile">
+            <span class="sun-core"></span>
+            <span class="sun-ray ray-a"></span>
+            <span class="sun-ray ray-b"></span>
+            <span class="sun-ray ray-c"></span>
+            <span class="sun-ray ray-d"></span>
+          </div>
 
-        <div class="stage-decor deco-left">🌼</div>
-        <div class="stage-decor deco-right">🌟</div>
+          <div class="stage-hill hill-a"></div>
+          <div class="stage-hill hill-b"></div>
+          <div class="stage-hill hill-c"></div>
+
+          <div class="stage-flower flower-left">
+            <span class="flower-core"></span>
+            <span class="flower-petal petal-1"></span>
+            <span class="flower-petal petal-2"></span>
+            <span class="flower-petal petal-3"></span>
+            <span class="flower-petal petal-4"></span>
+          </div>
+
+          <div class="stage-flower flower-right">
+            <span class="flower-core"></span>
+            <span class="flower-petal petal-1"></span>
+            <span class="flower-petal petal-2"></span>
+            <span class="flower-petal petal-3"></span>
+            <span class="flower-petal petal-4"></span>
+          </div>
+
+          <div class="stage-sparkle sparkle-a"></div>
+          <div class="stage-sparkle sparkle-b"></div>
+          <div class="stage-sparkle sparkle-c"></div>
+        </div>
 
         <div id="zoneSign" class="zone-sign"></div>
 
         <div class="stage-play-badges" aria-hidden="true">
-          <span class="play-badge">💧 Keep Going!</span>
-          <span class="play-badge">⭐ Fun Mission</span>
+          <span class="play-badge play-badge-v2">
+            <span class="play-badge-icon play-badge-water">
+              <span class="pb-drop d1"></span>
+              <span class="pb-drop d2"></span>
+            </span>
+            <span class="play-badge-text">Keep Going!</span>
+          </span>
+
+          <span class="play-badge play-badge-v2">
+            <span class="play-badge-icon play-badge-star">
+              <span class="pb-star">⭐</span>
+            </span>
+            <span class="play-badge-text">Fun Mission</span>
+          </span>
         </div>
 
         <div id="calloutLayer" class="calloutLayer" aria-hidden="true"></div>
         <div id="stickerBurst" class="stickerBurst" aria-hidden="true"></div>
-        <div id="bossFace" class="boss-face" aria-hidden="true">⚡</div>
+        <div id="bossFace" class="boss-face boss-face-v2" aria-hidden="true">⚡</div>
 
-        <div class="centerCrosshair" aria-hidden="true"></div>
+        <div class="centerCrosshair centerCrosshair-v2" aria-hidden="true"></div>
 
-        <div id="layer" class="bubbleLayer" aria-label="interactive bubbles"></div>
+        <div id="layer" class="bubbleLayer bubbleLayer-v2" aria-label="interactive bubbles"></div>
       </section>
     </section>
 
-    <section class="bottom-hud">
-      <div class="bottom-chip">
-        <span class="bottom-chip-label">วอร์มอัป</span>
-        <strong id="uiWarmDone">ยังไม่ทำ ✨</strong>
+    <!-- BOTTOM HUD -->
+    <section class="bottom-hud bottom-hud-v2">
+      <div class="bottom-chip bottom-chip-v2">
+        <span class="bottom-chip-icon chip-warm">
+          <span class="tile-glyph">🔥</span>
+        </span>
+        <div class="bottom-chip-body">
+          <span class="bottom-chip-label">วอร์มอัป</span>
+          <strong id="uiWarmDone">ยังไม่ทำ ✨</strong>
+        </div>
       </div>
 
-      <div class="bottom-chip">
-        <span class="bottom-chip-label">คูลดาวน์</span>
-        <strong id="uiCoolDone">ยังไม่ทำ ✨</strong>
+      <div class="bottom-chip bottom-chip-v2">
+        <span class="bottom-chip-icon chip-cool">
+          <span class="tile-glyph">🌈</span>
+        </span>
+        <div class="bottom-chip-body">
+          <span class="bottom-chip-label">คูลดาวน์</span>
+          <strong id="uiCoolDone">ยังไม่ทำ ✨</strong>
+        </div>
       </div>
 
-      <div class="bottom-chip">
-        <span class="bottom-chip-label">พลาดชน</span>
-        <strong id="uiMiss">0</strong>
+      <div class="bottom-chip bottom-chip-v2">
+        <span class="bottom-chip-icon chip-miss">
+          <span class="tile-glyph">⚠️</span>
+        </span>
+        <div class="bottom-chip-body">
+          <span class="bottom-chip-label">พลาดชน</span>
+          <strong id="uiMiss">0</strong>
+        </div>
       </div>
 
-      <div class="bottom-chip">
-        <span class="bottom-chip-label">คอมโบ</span>
-        <strong id="uiCombo">0</strong>
+      <div class="bottom-chip bottom-chip-v2">
+        <span class="bottom-chip-icon chip-combo">
+          <span class="tile-glyph">⭐</span>
+        </span>
+        <div class="bottom-chip-body">
+          <span class="bottom-chip-label">คอมโบ</span>
+          <strong id="uiCombo">0</strong>
+        </div>
       </div>
 
-      <div class="bottom-chip">
-        <span class="bottom-chip-label">โล่</span>
-        <strong id="uiShield">0</strong>
+      <div class="bottom-chip bottom-chip-v2">
+        <span class="bottom-chip-icon chip-shield">
+          <span class="tile-glyph">🛡️</span>
+        </span>
+        <div class="bottom-chip-body">
+          <span class="bottom-chip-label">โล่</span>
+          <strong id="uiShield">0</strong>
+        </div>
       </div>
 
-      <div class="bottom-chip">
-        <span class="bottom-chip-label">เกรด</span>
-        <strong id="uiGrade">C</strong>
+      <div class="bottom-chip bottom-chip-v2 bottom-chip-wide bottom-chip-hint">
+        <span class="bottom-chip-icon chip-hint">
+          <span class="tile-glyph">💬</span>
+        </span>
+        <div class="bottom-chip-body">
+          <span class="bottom-chip-label">คำแนะนำ</span>
+          <strong id="aiHint">แตะน้ำดี และอย่าโดนของไม่ดี 😊</strong>
+        </div>
       </div>
 
-      <div class="bottom-chip bottom-chip-wide">
-        <span class="bottom-chip-label">คำแนะนำ</span>
-        <strong id="aiHint">แตะน้ำดี และอย่าโดนของไม่ดี 😊</strong>
+      <div class="bottom-chip bottom-chip-v2 hud-mobile-hide">
+        <span class="bottom-chip-icon chip-expire">
+          <span class="tile-glyph">⏳</span>
+        </span>
+        <div class="bottom-chip-body">
+          <span class="bottom-chip-label">หมดเวลาเอง</span>
+          <strong id="uiExpire">0</strong>
+        </div>
       </div>
 
-      <div class="bottom-chip hud-mobile-hide">
-        <span class="bottom-chip-label">หมดเวลาเอง</span>
-        <strong id="uiExpire">0</strong>
+      <div class="bottom-chip bottom-chip-v2 hud-mobile-hide">
+        <span class="bottom-chip-icon chip-block">
+          <span class="tile-glyph">🧱</span>
+        </span>
+        <div class="bottom-chip-body">
+          <span class="bottom-chip-label">บล็อก</span>
+          <strong id="uiBlock">0</strong>
+        </div>
       </div>
 
-      <div class="bottom-chip hud-mobile-hide">
-        <span class="bottom-chip-label">บล็อก</span>
-        <strong id="uiBlock">0</strong>
-      </div>
-
-      <div class="bottom-chip hud-mobile-hide">
-        <span class="bottom-chip-label">AI Risk</span>
-        <strong id="aiRisk">0.00</strong>
+      <div class="bottom-chip bottom-chip-v2 hud-mobile-hide">
+        <span class="bottom-chip-icon chip-risk">
+          <span class="tile-glyph">📈</span>
+        </span>
+        <div class="bottom-chip-body">
+          <span class="bottom-chip-label">AI Risk</span>
+          <strong id="aiRisk">0.00</strong>
+        </div>
       </div>
     </section>
 
@@ -189,6 +410,7 @@
     </section>
   </main>
 
+  <!-- HELP -->
   <div id="helpOverlay" class="overlay" aria-hidden="true">
     <div class="dialog help-dialog">
       <div class="overlay-hero">
@@ -238,6 +460,7 @@
     </div>
   </div>
 
+  <!-- PAUSE -->
   <div id="pauseOverlay" class="overlay" aria-hidden="true">
     <div class="dialog pause-dialog">
       <div class="overlay-hero">
@@ -255,10 +478,38 @@
     </div>
   </div>
 
+  <!-- END -->
   <div id="end" class="overlay endOverlay" aria-hidden="true">
     <div class="dialog endDialog">
-      <div class="end-hero">
+      <div class="end-hero end-hero-v2">
+        <div class="end-top-resource-strip" aria-hidden="true">
+          <div class="end-top-resource coin">
+            <span class="end-top-resource-icon">🪙</span>
+            <strong>250</strong>
+          </div>
+          <div class="end-top-resource heart">
+            <span class="end-top-resource-icon">❤️</span>
+            <strong>8</strong>
+          </div>
+          <div class="end-top-resource star">
+            <span class="end-top-resource-icon">⭐</span>
+            <strong>3</strong>
+          </div>
+        </div>
+
         <div class="end-brand">HeroHealth • Learn Health Through Play!</div>
+
+        <div class="end-avatar-showcase">
+          <div class="end-avatar-card-big">
+            <div class="end-avatar-illust">
+              <div class="end-avatar-head"></div>
+              <div class="end-avatar-hair"></div>
+              <div class="end-avatar-body"></div>
+              <div class="end-avatar-cape"></div>
+              <div class="end-avatar-shield">💧</div>
+            </div>
+          </div>
+        </div>
 
         <div class="great-ribbon-wrap">
           <div class="great-star">⭐</div>
@@ -279,37 +530,52 @@
 
       <section class="score-board">
         <div class="score-board-label">Score</div>
-        <div id="endScore" class="score-board-value">0</div>
 
         <div class="score-mini-row">
-          <div class="score-mini-card">
-            <div class="score-mini-icon">🏅</div>
+          <div class="score-mini-card score-mini-card-coin">
+            <div class="score-mini-icon">🪙</div>
             <div>
-              <div class="score-mini-label">เกรด</div>
-              <strong id="endGrade" class="score-mini-value">C</strong>
+              <div class="score-mini-label">เหรียญ</div>
+              <strong id="endScore" class="score-mini-value">0</strong>
             </div>
           </div>
 
-          <div class="score-mini-card">
+          <div class="score-mini-card score-mini-card-star">
+            <div class="score-mini-icon">⭐</div>
+            <div>
+              <div class="score-mini-label">เกรด</div>
+              <strong id="endGrade" class="score-mini-value">D</strong>
+            </div>
+          </div>
+
+          <div class="score-mini-card score-mini-card-water">
             <div class="score-mini-icon">💧</div>
             <div>
               <div class="score-mini-label">น้ำคงเหลือ</div>
               <strong id="endWater" class="score-mini-value">0%</strong>
             </div>
           </div>
+        </div>
 
-          <div class="score-mini-card">
-            <div class="score-mini-icon">⚠️</div>
-            <div>
-              <div class="score-mini-label">พลาดชน</div>
-              <strong id="endMiss" class="score-mini-value">0</strong>
-            </div>
-          </div>
+        <div class="end-mini-miss">
+          <span class="end-mini-miss-label">พลาดชน</span>
+          <strong id="endMiss" class="end-mini-miss-value">0</strong>
         </div>
       </section>
 
       <section class="end-coach-card">
-        <div class="end-coach-avatar">🫧</div>
+        <div class="end-coach-avatar coach-avatar-card">
+          <div class="coach-avatar-illust">
+            <div class="coach-face-circle"></div>
+            <div class="coach-eye eye-l"></div>
+            <div class="coach-eye eye-r"></div>
+            <div class="coach-smile"></div>
+            <div class="coach-bubble-ring ring-a"></div>
+            <div class="coach-bubble-ring ring-b"></div>
+            <div class="coach-bubble-ring ring-c"></div>
+          </div>
+        </div>
+
         <div class="end-coach-body">
           <div class="end-coach-name">โค้ชเพื่อนช่วยคิด</div>
           <div id="endCoach" class="end-coach-text">ลองเล่นอีกครั้งเพื่อเก็บน้ำให้มากขึ้นนะ</div>
@@ -317,34 +583,73 @@
       </section>
 
       <section class="end-grid">
-        <div class="end-box reward-card">
-          <div class="end-box-title">รางวัลรอบนี้</div>
-          <div id="endReward" class="end-box-text">💧 เล่นจบแล้ว</div>
+        <div class="end-box reward-card reward-card-v2">
+          <div class="reward-card-head">
+            <span class="reward-card-icon reward-icon-gift">
+              <span class="tile-glyph">🎁</span>
+            </span>
+            <div>
+              <div class="end-box-title">รางวัลรอบนี้</div>
+              <div id="endReward" class="end-box-text">💧 เล่นจบแล้ว</div>
+            </div>
+          </div>
           <div id="endBadge" class="end-badge">🌈 ลองอีกครั้ง</div>
         </div>
 
-        <div class="end-box">
-          <div class="end-box-title">สรุปช่วงการเล่น</div>
-          <div id="endPhaseSummary" class="end-box-text">จบรอบปกติ</div>
+        <div class="end-box reward-card-v2">
+          <div class="reward-card-head">
+            <span class="reward-card-icon reward-icon-phase">
+              <span class="tile-glyph">📘</span>
+            </span>
+            <div>
+              <div class="end-box-title">สรุปช่วงการเล่น</div>
+              <div id="endPhaseSummary" class="end-box-text">จบรอบปกติ</div>
+            </div>
+          </div>
         </div>
       </section>
 
       <section class="end-grid end-mobile-optional">
-        <div class="end-box">
-          <div class="end-box-title">คอลเลกชัน</div>
-          <div id="endCollection" class="end-box-text">ยังไม่มีของสะสม</div>
+        <div class="end-box reward-card-v2">
+          <div class="reward-card-head">
+            <span class="reward-card-icon reward-icon-collection">
+              <span class="tile-glyph">🗂️</span>
+            </span>
+            <div>
+              <div class="end-box-title">คอลเลกชัน</div>
+              <div id="endCollection" class="end-box-text">ยังไม่มีของสะสม</div>
+            </div>
+          </div>
         </div>
 
-        <div class="end-box reward-card">
-          <div class="end-box-title">การ์ดรางวัล</div>
-          <div id="endRewardCard" class="end-reward-card">Hydration Hero</div>
-          <div id="endRewardMini" class="end-reward-mini">รอบนี้เก็บน้ำได้ดีขึ้นอีกนิด</div>
+        <div class="end-box reward-card reward-card-v2">
+          <div class="reward-card-head">
+            <span class="reward-card-icon reward-icon-card">
+              <span class="tile-glyph">🏆</span>
+            </span>
+            <div>
+              <div class="end-box-title">การ์ดรางวัล</div>
+              <div id="endRewardCard" class="end-reward-card">Hydration Hero</div>
+              <div id="endRewardMini" class="end-reward-mini">รอบนี้เก็บน้ำได้ดีขึ้นอีกนิด</div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <div class="end-box end-mobile-optional">
-        <div class="end-box-title">สติกเกอร์ที่มี</div>
-        <div id="endStickerRow" class="stickerRow"></div>
+      <div class="end-box end-mobile-optional sticker-inventory-box">
+        <div class="inventory-head">
+          <div class="inventory-head-left">
+            <span class="inventory-icon">🎒</span>
+            <div>
+              <div class="end-box-title">สติกเกอร์ที่มี</div>
+              <div class="inventory-sub">Sticker Inventory</div>
+            </div>
+          </div>
+
+          <div class="inventory-pill">Collection</div>
+        </div>
+
+        <div id="endStickerRow" class="stickerRow stickerRow-v2"></div>
       </div>
 
       <div class="copyTools end-mobile-optional">
@@ -358,16 +663,27 @@
         <button id="btnSendCloud" class="ui-btn ui-btn-soft small" type="button">Send Cloud</button>
       </div>
 
-      <div class="dialog-actions end-actions">
-        <button id="btnReplay" class="ui-btn ui-btn-green" type="button">🔁 Replay</button>
-        <button id="btnBackHub" class="ui-btn ui-btn-blue" type="button">🏠 Back to Hub</button>
-        <button id="btnNextCooldown" class="ui-btn ui-btn-soft" type="button">🌈 ไปคูลดาวน์</button>
+      <div class="dialog-actions end-actions end-actions-v2">
+        <button id="btnReplay" class="ui-btn ui-btn-green capsule-action capsule-replay" type="button">
+          <span class="capsule-icon">🔁</span>
+          <span class="capsule-label">Replay</span>
+        </button>
+
+        <button id="btnBackHub" class="ui-btn ui-btn-blue capsule-action capsule-home" type="button">
+          <span class="capsule-icon">🏠</span>
+          <span class="capsule-label">Back to Hub</span>
+        </button>
+
+        <button id="btnNextCooldown" class="ui-btn ui-btn-soft capsule-action capsule-cooldown" type="button">
+          <span class="capsule-icon">🌈</span>
+          <span class="capsule-label">ไปคูลดาวน์</span>
+        </button>
       </div>
     </div>
   </div>
 
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260323-HYD-SOLO-CLOSEOUT-HUD-CLOUD-BOSSFIX-r3';
+    import { boot } from './hydration.safe.js?v=20260326-HYD-HUBV2-BOSS-BALANCE-R1';
     boot({}).catch((err) => {
       console.error('[hydration] boot failed', err);
     });
