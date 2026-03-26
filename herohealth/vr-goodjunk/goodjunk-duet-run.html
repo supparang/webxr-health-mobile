@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk Duet Run</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
+  <link rel="icon" href="../favicon.ico" />
 
   <style>
     :root{
@@ -611,8 +611,8 @@
       </div>
 
       <div class="top-actions">
-        <a class="btn ghost" id="btnBackLauncher" href="./goodjunk-launcher.html">← Launcher</a>
-        <a class="btn primary" id="btnGoHub" href="./hub.html">🏠 Hub</a>
+        <a class="btn ghost" id="btnBackLauncher" href="../goodjunk-launcher.html">← Launcher</a>
+        <a class="btn primary" id="btnGoHub" href="../hub.html">🏠 Hub</a>
       </div>
     </div>
 
@@ -720,19 +720,23 @@
   <script>
     (function duetRunShellBoot(){
       const qs = new URLSearchParams(location.search);
-      const hub = qs.get('hub') || './hub.html';
+      const hub = qs.get('hub') || '../hub.html';
 
       const btnGoHub = document.getElementById('btnGoHub');
       const btnBackLauncher = document.getElementById('btnBackLauncher');
 
       if (btnGoHub) btnGoHub.href = hub;
+
       if (btnBackLauncher) {
-        const u = new URL('./goodjunk-launcher.html', location.href);
-        ['pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai']
-          .forEach(k=>{
-            const v = qs.get(k);
-            if (v != null && v !== '') u.searchParams.set(k, v);
-          });
+        const u = new URL('../goodjunk-launcher.html', location.href);
+        [
+          'pid','name','nick','hub','run','diff','time','studyId','phase',
+          'conditionGroup','sessionOrder','blockLabel','siteCode',
+          'schoolYear','semester','view','api','log','debug','ai','zone','theme'
+        ].forEach(k=>{
+          const v = qs.get(k);
+          if (v != null && v !== '') u.searchParams.set(k, v);
+        });
         btnBackLauncher.href = u.toString();
       }
     })();
@@ -743,6 +747,6 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="../firebase-config.js"></script>
   <script src="../common/hha-multiplayer.js"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260327-duet-child-ai-auth-v2"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260327-duet-work-sure-v3"></script>
 </body>
 </html>
