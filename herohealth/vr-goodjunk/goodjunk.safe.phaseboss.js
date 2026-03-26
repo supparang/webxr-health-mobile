@@ -35,7 +35,7 @@ const HHA_EVENTS_SCHEMA_QUEUE_KEY = 'HHA_EVENTS_SCHEMA_QUEUE';
 const HHA_SESSIONS_SCHEMA_QUEUE_KEY = 'HHA_SESSIONS_SCHEMA_QUEUE';
 
 const SESSION_ID = `gjsolo-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-const PATCH_VERSION = '20260326-goodjunk-solo-theme-pack4';
+const PATCH_VERSION = '20260326-goodjunk-solo-theme-pack4-bossguard-r1';
 const HHA_ENDPOINT = String(__qs.get('api') || window.HHA_CLOUD_ENDPOINT || '').trim();
 
 let __cloudLogger = null;
@@ -80,15 +80,20 @@ const DIFF_PRESET = {
     p1: { spawnMs: 900, goodRatio: 0.76, speedMin: 86, speedMax: 138, sizeMin: 66, sizeMax: 90 },
     p2: { spawnMs: 740, goodRatio: 0.67, speedMin: 112, speedMax: 178, sizeMin: 62, sizeMax: 86 },
     boss: {
-      hp: 9,
-      stormMs: 1060,
-      weakSpeed: 118,
-      weakMoveMs: 1420,
-      weakSize: 92,
-      stunBonusMs: 120,
-      clearBonus: 50,
+      hp: 14,
+      stormMs: 1120,
+      weakSpeed: 112,
+      weakMoveMs: 1500,
+      weakSize: 94,
+      stunBonusMs: 140,
+      clearBonus: 56,
       stormBurst: 4,
-      enrageStormPenalty: 90
+      enrageStormPenalty: 80,
+
+      minWeakHits: 9,
+      minPatternHitEach: 1,
+      minBossMs: 12000,
+      reviveHp: 3
     }
   },
 
@@ -96,15 +101,20 @@ const DIFF_PRESET = {
     p1: { spawnMs: 760, goodRatio: 0.68, speedMin: 105, speedMax: 165, sizeMin: 60, sizeMax: 84 },
     p2: { spawnMs: 610, goodRatio: 0.57, speedMin: 135, speedMax: 225, sizeMin: 56, sizeMax: 78 },
     boss: {
-      hp: 13,
-      stormMs: 820,
-      weakSpeed: 165,
-      weakMoveMs: 1100,
-      weakSize: 76,
+      hp: 18,
+      stormMs: 860,
+      weakSpeed: 158,
+      weakMoveMs: 1160,
+      weakSize: 78,
       stunBonusMs: 0,
-      clearBonus: 40,
+      clearBonus: 48,
       stormBurst: 5,
-      enrageStormPenalty: 120
+      enrageStormPenalty: 110,
+
+      minWeakHits: 11,
+      minPatternHitEach: 1,
+      minBossMs: 15000,
+      reviveHp: 4
     }
   },
 
@@ -112,15 +122,20 @@ const DIFF_PRESET = {
     p1: { spawnMs: 650, goodRatio: 0.60, speedMin: 126, speedMax: 198, sizeMin: 56, sizeMax: 78 },
     p2: { spawnMs: 500, goodRatio: 0.48, speedMin: 168, speedMax: 276, sizeMin: 52, sizeMax: 72 },
     boss: {
-      hp: 18,
-      stormMs: 620,
-      weakSpeed: 230,
-      weakMoveMs: 860,
-      weakSize: 64,
-      stunBonusMs: -40,
-      clearBonus: 32,
+      hp: 24,
+      stormMs: 660,
+      weakSpeed: 220,
+      weakMoveMs: 920,
+      weakSize: 66,
+      stunBonusMs: -20,
+      clearBonus: 40,
       stormBurst: 6,
-      enrageStormPenalty: 150
+      enrageStormPenalty: 140,
+
+      minWeakHits: 13,
+      minPatternHitEach: 2,
+      minBossMs: 18000,
+      reviveHp: 5
     }
   }
 };
@@ -222,7 +237,10 @@ const state = {
     burstGapMs: 0,
 
     stunMs: 0,
-    victoryShown: false
+    victoryShown: false,
+
+    finishGuardTriggered: false,
+    reviveCount: 0
   },
 
   summaryPayload: null,
@@ -1750,12 +1768,152 @@ function getBossBase() {
   const raw = DIFF_PRESET[state.diff]?.boss || DIFF_PRESET.normal.boss;
   const tb = getTimeBalance();
 
+  const weakHitsDelta =
+    tb.band === 'short' ? -1 :
+    tb.band === 'long' ? 1 : 0;
+
+  const bossMsDelta =
+    tb.band === 'short' ? -2000 :
+    tb.band === 'long' ? 2500 : 0;
+
+  const reviveHpDelta =
+    tb.band === 'long' ? 1 : 0;
+
   return {
     ...raw,
-    hp: Math.max(6, raw.hp + (tb.bossHpDelta || 0)),
+    hp: Math.max(8, raw.hp + (tb.bossHpDelta || 0)),
     weakSpeed: Math.max(90, raw.weakSpeed + (tb.weakSpeedDelta || 0)),
-    clearBonus: Math.max(20, raw.clearBonus + (tb.clearBonusDelta || 0))
+    clearBonus: Math.max(24, raw.clearBonus + (tb.clearBonusDelta || 0)),
+
+    minWeakHits: Math.max(8, raw.minWeakHits + weakHitsDelta),
+    minPatternHitEach: Math.max(1, raw.minPatternHitEach),
+    minBossMs: Math.max(10000, raw.minBossMs + bossMsDelta),
+    reviveHp: Math.max(3, raw.reviveHp + reviveHpDelta)
   };
+}
+
+function getBossClearRequirements() {
+  const b = getBossBase();
+  return {
+    minWeakHits: Number(b.minWeakHits || 10),
+    minPatternHitEach: Number(b.minPatternHitEach || 1),
+    minBossMs: Number(b.minBossMs || 14000),
+    reviveHp: Number(b.reviveHp || 4)
+  };
+}
+
+function getBossPatternHitCount(key) {
+  return Number(state.research?.patternWeakHits?.[key] || 0);
+}
+
+function getBossDurationSoFarMs() {
+  if (!state.research.bossStartTimeLeftMs) return 0;
+  return Math.max(0, state.research.bossStartTimeLeftMs - state.timeLeftMs);
+}
+
+function getBossNeededPatternIndex(req = getBossClearRequirements()) {
+  if (getBossPatternHitCount('targetHunt') < req.minPatternHitEach) return 0;
+  if (getBossPatternHitCount('junkStorm') < req.minPatternHitEach) return 1;
+  if (getBossPatternHitCount('armorBreak') < req.minPatternHitEach) return 2;
+  return 2;
+}
+
+function getBossClearCheck() {
+  const req = getBossClearRequirements();
+  const weakHits = Number(state.research.weakspotHit || 0);
+  const bossDurationMs = getBossDurationSoFarMs();
+
+  const missingPatterns = [];
+  if (getBossPatternHitCount('targetHunt') < req.minPatternHitEach) missingPatterns.push('targetHunt');
+  if (getBossPatternHitCount('junkStorm') < req.minPatternHitEach) missingPatterns.push('junkStorm');
+  if (getBossPatternHitCount('armorBreak') < req.minPatternHitEach) missingPatterns.push('armorBreak');
+
+  const weakHitsOk = weakHits >= req.minWeakHits;
+  const patternOk = missingPatterns.length === 0;
+  const bossMsOk = bossDurationMs >= req.minBossMs;
+
+  return {
+    requirements: req,
+    weakHits,
+    bossDurationMs,
+    missingWeakHits: Math.max(0, req.minWeakHits - weakHits),
+    missingPatterns,
+    weakHitsOk,
+    patternOk,
+    bossMsOk,
+    ok: weakHitsOk && patternOk && bossMsOk
+  };
+}
+
+function buildBossNeedText(check = getBossClearCheck()) {
+  const bits = [];
+  if (check.missingWeakHits > 0) bits.push(`อีก ${check.missingWeakHits} hit`);
+  if (check.missingPatterns.length > 0) bits.push('ตีให้ครบทุกท่า');
+  if (!check.bossMsOk) bits.push('ยืนระยะอีกนิด');
+  return bits.length ? bits.join(' • ') : 'พร้อมปิดฉาก';
+}
+
+function getBossPatternKeyFromIndex(index) {
+  if (index === 1) return 'junkStorm';
+  if (index === 2) return 'armorBreak';
+  return 'targetHunt';
+}
+
+function triggerBossLastStand(check = getBossClearCheck()) {
+  const req = check.requirements || getBossClearRequirements();
+
+  const missingWeak = Math.max(0, check.missingWeakHits || 0);
+  const missingPatternCount = Array.isArray(check.missingPatterns) ? check.missingPatterns.length : 0;
+  const needTime = !check.bossMsOk;
+
+  const extraHp = Math.max(
+    0,
+    missingWeak + missingPatternCount + (needTime ? 1 : 0) - 1
+  );
+
+  state.boss.reviveCount += 1;
+  state.boss.finishGuardTriggered = true;
+  state.boss.enrage = true;
+
+  state.boss.hp = Math.min(
+    state.boss.maxHp,
+    Math.max(req.reviveHp, Math.min(8, req.reviveHp + extraHp))
+  );
+
+  state.boss.stunMs = 0;
+  state.boss.stormAccum = 0;
+  state.boss.weakTick = 0;
+  state.boss.telegraphMs = 0;
+  state.boss.nextPatternIndex = -1;
+
+  const nextPatternIndex = getBossNeededPatternIndex(req);
+  applyBossPattern(nextPatternIndex);
+  state.boss.patternTimeLeft = Math.max(state.boss.patternTimeLeft, 2800);
+
+  const weak = getWeakspot();
+  if (!weak) spawnWeakspot();
+
+  showBanner('Junk King ยังไม่ยอมแพ้!', buildBossNeedText(check), 980);
+  updateHint(`บอสยังไม่ล้ม • ${buildBossNeedText(check)}`);
+
+  createFx(
+    Math.round(state.rect.width * 0.5),
+    112,
+    'LAST STAND!',
+    '#fde68a'
+  );
+
+  logGameEvent('boss_last_stand', {
+    reviveCount: state.boss.reviveCount,
+    missingWeakHits: check.missingWeakHits,
+    missingPatterns: Array.isArray(check.missingPatterns) ? check.missingPatterns.join('|') : '',
+    bossDurationMs: check.bossDurationMs,
+    requiredWeakHits: req.minWeakHits,
+    requiredPatternHitEach: req.minPatternHitEach,
+    requiredBossMs: req.minBossMs,
+    bossHpResetTo: state.boss.hp,
+    patternForced: getBossPatternKeyFromIndex(nextPatternIndex)
+  });
 }
 
 function getBossClearBonus() {
@@ -2354,6 +2512,9 @@ function resetBossState() {
 
   state.boss.stunMs = 0;
   state.boss.victoryShown = false;
+
+  state.boss.finishGuardTriggered = false;
+  state.boss.reviveCount = 0;
 }
 
 function getBossPatternName(index) {
@@ -3016,7 +3177,7 @@ function hitTarget(id) {
 
     updateHint(state.boss.hp > 0
       ? (damage >= 2 ? 'แรงมาก! ตอนนี้บอสชะงักอยู่' : 'โดนแล้ว! รีบตามจังหวะต่อ')
-      : 'Junk King ถูกล้มแล้ว!');
+      : 'Junk King ใกล้ล้มแล้ว!');
 
     logGameEvent('weakspot_hit', {
       targetId: target.id,
@@ -3036,9 +3197,17 @@ function hitTarget(id) {
     removeTarget(id);
 
     if (state.boss.hp <= 0) {
-      state.score += getBossClearBonus();
+      const bossCheck = getBossClearCheck();
+
+      if (bossCheck.ok) {
+        state.score += getBossClearBonus();
+        renderHud();
+        beginBossDefeatSequence();
+        return;
+      }
+
+      triggerBossLastStand(bossCheck);
       renderHud();
-      beginBossDefeatSequence();
       return;
     }
   }
@@ -3115,6 +3284,8 @@ function enterBossPhase() {
   state.boss.enrage = false;
   state.boss.stormAccum = 0;
   state.boss.weakTick = 0;
+  state.boss.finishGuardTriggered = false;
+  state.boss.reviveCount = 0;
   ui.bossWrap?.classList.add('show');
 
   applyBossPattern(0);
@@ -3125,13 +3296,16 @@ function enterBossPhase() {
     `ถึงเวลาไปช่วยกันปราบ Junk King แล้ว แตะจุดอ่อนให้แม่นนะ`,
     1700
   );
-  updateHint('มองหาดาวเป้าหมาย แล้วแตะให้แม่นเพื่อโจมตีบอส');
+  updateHint('มองหาเป้าทอง แล้วแตะให้แม่นเพื่อโจมตีบอส');
   renderHud();
 
   logGameEvent('boss_enter', {
     reachedBossAtMs: state.research.reachedBossAtMs,
     bossHpStart: state.boss.hp,
-    timeBand: getTimeBand()
+    timeBand: getTimeBand(),
+    requiredWeakHits: getBossClearRequirements().minWeakHits,
+    requiredPatternHitEach: getBossClearRequirements().minPatternHitEach,
+    requiredBossMs: getBossClearRequirements().minBossMs
   });
 }
 
@@ -3265,6 +3439,9 @@ function getHubReturnDesc(summary) {
 }
 
 function renderHud() {
+  const bossReq = getBossClearRequirements();
+  const bossCheck = getBossClearCheck();
+
   if (ui.score) ui.score.textContent = String(state.score);
   if (ui.timer) ui.timer.textContent = formatTime(state.timeLeftMs);
   if (ui.miss) ui.miss.textContent = String(state.miss);
@@ -3280,7 +3457,8 @@ function renderHud() {
     } else if (state.phase === 2 && !state.boss.active) {
       ui.goalText.textContent = `เร่งคะแนนต่อให้ถึง ${getPhaseGoal(2)} คะแนน`;
     } else {
-      ui.goalText.textContent = `แตะจุดอ่อนของ Junk King • HP ${state.boss.hp}`;
+      ui.goalText.textContent =
+        `แตะจุดอ่อน ${state.research.weakspotHit}/${bossReq.minWeakHits} • HP ${state.boss.hp}`;
     }
   }
 
@@ -3304,7 +3482,7 @@ function renderHud() {
 
   if (ui.rewardStars) {
     ui.rewardStars.textContent = String(getSummaryStars({
-      bossDefeated: state.boss.active && state.boss.hp <= 0,
+      bossDefeated: state.boss.active && state.boss.hp <= 0 && bossCheck.ok,
       phaseReached: state.boss.active ? 'boss' : (state.phase === 2 ? 'phase-2' : 'phase-1'),
       miss: state.miss
     }));
@@ -3347,7 +3525,8 @@ function renderHud() {
   }
 
   if (ui.bossHpText) {
-    ui.bossHpText.textContent = `${state.boss.hp} / ${state.boss.maxHp}`;
+    ui.bossHpText.textContent =
+      `${state.boss.hp} / ${state.boss.maxHp} • Weak ${state.research.weakspotHit}/${bossReq.minWeakHits}`;
   }
 
   if (ui.bossHpBar) {
@@ -3360,10 +3539,12 @@ function renderHud() {
       ui.bossState.textContent = 'เตรียมตัวก่อนเข้าด่านบอส';
     } else if (state.boss.telegraphMs > 0) {
       ui.bossState.textContent = `เตรียมท่า: ${getBossPatternName(state.boss.nextPatternIndex)}`;
-    } else if (state.boss.enrage) {
-      ui.bossState.textContent = `${state.boss.patternLabel} • โหมดโกรธ`;
+    } else if (ui.bossWrap?.classList.contains('defeated')) {
+      ui.bossState.textContent = 'ภารกิจสำเร็จแล้ว';
     } else {
-      ui.bossState.textContent = state.boss.patternLabel;
+      const needText = buildBossNeedText(bossCheck);
+      ui.bossState.textContent =
+        `${state.boss.patternLabel} • ${state.boss.enrage ? 'โหมดโกรธ • ' : ''}${needText}`;
     }
   }
 }
@@ -3388,6 +3569,7 @@ function endGame(reason = 'finished') {
   const cloudLoggerReady = !!getCloudLogger();
   const cloudEndpointReady = !!HHA_ENDPOINT;
   const cloudStatus = getCloudStatusSnapshot();
+  const bossReq = getBossClearRequirements();
 
   const summary = {
     version: PATCH_VERSION,
@@ -3420,6 +3602,7 @@ function endGame(reason = 'finished') {
     bossEnraged: state.boss.enrage,
     bossVictoryShown: state.finishing,
     bossStuns: state.bossStuns,
+    bossReviveCount: state.boss.reviveCount,
     phaseGoal1: getPhaseGoal(1),
     phaseGoal2: getPhaseGoal(2),
     timeBand: getTimeBand(),
@@ -3433,6 +3616,11 @@ function endGame(reason = 'finished') {
     stormAvoidRatePct: getStormAvoidRatePct(),
     patternStarts: { ...state.research.patternStarts },
     patternWeakHits: { ...state.research.patternWeakHits },
+
+    bossRequiredWeakHits: bossReq.minWeakHits,
+    bossRequiredPatternHitEach: bossReq.minPatternHitEach,
+    bossRequiredMinMs: bossReq.minBossMs,
+
     cloudLoggerReady,
     cloudEndpointReady,
     cloudQueueTotal: cloudStatus.queueTotal,
@@ -3526,6 +3714,7 @@ function showSummary(summary) {
         Math.max(0, 10 - Number(summary.miss || 0)) * 2
       ))}</div>
     </div>
+
     <div class="gjpb-summary-item">
       <div class="label">Good Hit</div>
       <div class="value">${summary.hitsGood}</div>
@@ -3535,6 +3724,15 @@ function showSummary(summary) {
       <div class="value">${summary.powerHits}</div>
     </div>
     <div class="gjpb-summary-item">
+      <div class="label">Boss Weak Hit</div>
+      <div class="value">${summary.weakspotHit}/${summary.bossRequiredWeakHits}</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Boss Time</div>
+      <div class="value">${Math.round((summary.bossDurationMs || 0) / 1000)}s</div>
+    </div>
+
+    <div class="gjpb-summary-item">
       <div class="label">Weakspot Rate</div>
       <div class="value">${summary.weakspotHitRatePct}%</div>
     </div>
@@ -3542,6 +3740,15 @@ function showSummary(summary) {
       <div class="label">Storm Avoid</div>
       <div class="value">${summary.stormAvoidRatePct}%</div>
     </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Last Stand</div>
+      <div class="value">${summary.bossReviveCount || 0}</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Pattern Need</div>
+      <div class="value">each ${summary.bossRequiredPatternHitEach}</div>
+    </div>
+
     <div class="gjpb-summary-item">
       <div class="label">Time Profile</div>
       <div class="value">${escapeHtml(summary.timeBand || 'standard')}</div>
@@ -3873,8 +4080,7 @@ function makeResearchSnapshot(summary) {
       bossHpRemaining: summary.bossHpRemaining,
       bossDurationMs: summary.bossDurationMs,
       reachedBossAtMs: summary.reachedBossAtMs,
-      bossStuns: summary.bossStuns,
-      bossPatternLast: summary.bossPatternLast
+      bossStuns: summary.bossStuns
     },
     precision: {
       weakspotSpawned: summary.weakspotSpawned,
