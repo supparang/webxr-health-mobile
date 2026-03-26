@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk Duet Run</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="../favicon.ico" />
+  <link rel="icon" href="./favicon.ico" />
 
   <style>
     :root{
@@ -50,9 +50,7 @@
         linear-gradient(180deg,var(--bg2),var(--bg1));
     }
 
-    body{
-      overflow-x:hidden;
-    }
+    body{ overflow-x:hidden; }
 
     .page{
       min-height:100vh;
@@ -85,7 +83,6 @@
       border:1px solid var(--stroke);
       background:rgba(2,6,23,.55);
       backdrop-filter:blur(10px);
-      box-shadow:var(--shadow);
     }
 
     .brand-title{
@@ -126,11 +123,6 @@
       gap:8px;
     }
 
-    .btn.primary{
-      border-color:rgba(59,130,246,.28);
-      background:rgba(59,130,246,.14);
-    }
-
     .btn.violet{
       border-color:rgba(167,139,250,.28);
       background:rgba(167,139,250,.14);
@@ -141,106 +133,87 @@
     }
 
     .run-shell{
-      width:min(1200px, 100%);
-      margin:0 auto;
       display:grid;
+      grid-template-columns:minmax(280px,360px) 1fr;
       gap:12px;
+      min-height:calc(100vh - 100px);
+      align-items:start;
     }
 
-    .stage-wrap{
-      border-radius:26px;
-      border:1px solid rgba(148,163,184,.18);
-      background:
-        radial-gradient(circle at 50% 0%, rgba(56,189,248,.08), transparent 28%),
-        linear-gradient(180deg, rgba(15,23,42,.88), rgba(2,6,23,.92));
-      box-shadow:0 24px 80px rgba(0,0,0,.34);
-      overflow:hidden;
-      position:relative;
-      min-height:52vh;
+    @media (max-width:980px){
+      .run-shell{ grid-template-columns:1fr; }
     }
-
-    .stage-head{
-      padding:12px 12px 0;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      position:relative;
-      z-index:10;
-    }
-
-    .stage-inner{
-      position:relative;
-      min-height:52vh;
-      padding:8px 8px 12px;
-    }
-
-    #duetGameStage{
-      position:relative;
-      min-height:48vh;
-      border-radius:22px;
-      overflow:hidden;
-    }
-
-    /* ===== DUET HUD ===== */
 
     .duet-hud{
       position:relative;
-      z-index:20;
-      width:min(980px, 100%);
-      margin:0 auto;
-      padding:12px;
-      display:flex;
-      flex-direction:column;
+      border-radius:24px;
+      border:1px solid var(--duet-stroke);
+      background:var(--duet-panel);
+      backdrop-filter:blur(10px);
+      box-shadow:var(--shadow);
+      padding:14px;
+      display:grid;
       gap:12px;
+      z-index:20;
+    }
+
+    .duet-hud-toolbar{
+      display:flex;
+      justify-content:flex-end;
+    }
+
+    .duet-hud-toggle{
+      min-width:40px;
+      min-height:40px;
+      border-radius:12px;
+      border:1px solid var(--duet-stroke);
+      background:rgba(255,255,255,.05);
+      color:var(--duet-text);
+      font-size:18px;
+      font-weight:1000;
+      cursor:pointer;
     }
 
     .duet-top{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
     }
 
     .duet-pill{
-      display:flex;
+      display:inline-flex;
       align-items:center;
-      justify-content:center;
-      min-height:46px;
-      padding:10px 12px;
-      border-radius:18px;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
       border:1px solid var(--duet-stroke);
-      background:var(--duet-panel);
-      color:var(--duet-text);
-      font-size:15px;
+      background:rgba(255,255,255,.04);
+      color:#fff;
+      font-size:12px;
       font-weight:1000;
-      line-height:1.15;
-      text-align:center;
-      box-shadow:0 12px 30px rgba(0,0,0,.20);
     }
 
     .duet-score{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      min-height:62px;
-      padding:14px 16px;
       border-radius:20px;
       border:1px solid var(--duet-stroke);
-      background:var(--duet-panel);
-      box-shadow:0 12px 30px rgba(0,0,0,.20);
+      background:rgba(255,255,255,.04);
+      padding:14px;
+      text-align:center;
     }
 
     .duet-score-label{
-      font-size:15px;
-      color:#cbd5e1;
+      font-size:12px;
       font-weight:1000;
+      color:var(--duet-muted);
+      letter-spacing:.08em;
     }
 
     .duet-score-value{
-      font-size:34px;
+      margin-top:6px;
+      font-size:40px;
       line-height:1;
       font-weight:1100;
-      color:var(--duet-text);
+      color:#fff;
     }
 
     .duet-stats{
@@ -250,90 +223,69 @@
     }
 
     .duet-stat{
-      min-height:54px;
-      padding:10px 12px;
       border-radius:18px;
       border:1px solid var(--duet-stroke);
-      background:var(--duet-panel);
-      box-shadow:0 12px 30px rgba(0,0,0,.20);
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      gap:4px;
+      background:rgba(255,255,255,.04);
+      padding:12px;
+      text-align:center;
     }
 
     .duet-stat-k{
       font-size:12px;
-      color:var(--duet-muted);
       font-weight:1000;
+      color:var(--duet-muted);
     }
 
     .duet-stat-v{
-      font-size:20px;
+      margin-top:6px;
+      font-size:22px;
       line-height:1;
       font-weight:1100;
-      color:var(--duet-text);
+      color:#fff;
     }
 
     .duet-panel{
-      border-radius:24px;
+      border-radius:20px;
       border:1px solid var(--duet-stroke);
-      background:var(--duet-panel);
-      padding:14px;
-      box-shadow:0 18px 44px rgba(0,0,0,.22);
-      display:flex;
-      flex-direction:column;
-      gap:14px;
+      background:rgba(255,255,255,.04);
+      padding:12px;
+      display:grid;
+      gap:12px;
     }
 
     .duet-item{
       display:flex;
-      align-items:center;
       gap:12px;
+      align-items:center;
     }
 
     .duet-item-icon{
-      width:84px;
-      height:84px;
-      border-radius:22px;
+      width:64px;
+      height:64px;
+      border-radius:18px;
       border:1px solid var(--duet-stroke);
-      background:rgba(34,197,94,.10);
+      background:rgba(255,255,255,.04);
       display:grid;
       place-items:center;
-      flex:0 0 auto;
+      overflow:hidden;
     }
 
-    .duet-item-icon img{
-      width:64px;
-      height:64px;
-      object-fit:contain;
-    }
-
-    .duet-item-icon .emoji{
-      width:64px;
-      height:64px;
-      display:grid;
-      place-items:center;
-      font-size:52px;
-    }
-
-    .duet-item-meta{
-      min-width:0;
-      display:flex;
-      flex-direction:column;
-      gap:6px;
+    .emoji{
+      font-size:34px;
+      line-height:1;
     }
 
     .duet-item-title{
-      font-size:24px;
-      line-height:1.05;
+      font-size:16px;
       font-weight:1100;
-      color:var(--duet-text);
+      color:#fff;
     }
 
     .duet-item-sub{
+      margin-top:4px;
       font-size:13px;
-      color:#cbd5e1;
+      line-height:1.6;
+      color:var(--duet-muted);
       font-weight:900;
     }
 
@@ -344,69 +296,68 @@
     }
 
     .duet-mini{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background:var(--duet-soft);
-      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid var(--duet-stroke);
+      background:rgba(255,255,255,.03);
+      padding:10px;
+      text-align:center;
     }
 
     .duet-mini-k{
-      font-size:12px;
+      font-size:11px;
       color:var(--duet-muted);
       font-weight:1000;
     }
 
     .duet-mini-v{
       margin-top:4px;
-      font-size:26px;
+      font-size:20px;
       line-height:1;
-      color:var(--duet-text);
       font-weight:1100;
+      color:#fff;
     }
 
     .duet-tip{
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background:var(--duet-soft);
-      padding:12px;
-      font-size:16px;
-      line-height:1.45;
-      color:#e2e8f0;
+      border-radius:14px;
+      border:1px dashed var(--duet-stroke);
+      background:rgba(255,255,255,.03);
+      padding:10px 12px;
+      color:#e5e7eb;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:900;
     }
 
     .duet-goal{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background:var(--duet-soft);
-      padding:12px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
+      display:grid;
+      gap:8px;
     }
 
     .duet-goal-head{
       display:flex;
-      align-items:center;
       justify-content:space-between;
+      align-items:center;
       gap:10px;
     }
 
     .duet-goal-title{
-      font-size:18px;
+      font-size:12px;
       font-weight:1100;
-      color:var(--duet-text);
+      color:var(--duet-muted);
+      letter-spacing:.08em;
     }
 
     .duet-goal-value{
-      font-size:20px;
+      font-size:18px;
+      line-height:1;
       font-weight:1100;
-      color:var(--duet-text);
+      color:#fff;
     }
 
-    .duet-bar{
-      height:18px;
+    .duet-bar,.duet-bar-sub{
+      height:12px;
       border-radius:999px;
-      background:rgba(148,163,184,.14);
+      background:rgba(255,255,255,.08);
       overflow:hidden;
     }
 
@@ -414,622 +365,128 @@
       height:100%;
       width:0%;
       border-radius:999px;
-      background:linear-gradient(90deg,var(--duet-pink),#c4b5fd,var(--duet-blue));
-      transition:width .18s linear;
-    }
-
-    .duet-bar-sub{
-      height:12px;
-      border-radius:999px;
-      background:rgba(148,163,184,.12);
-      overflow:hidden;
+      background:linear-gradient(90deg,var(--duet-pink),#fbcfe8);
+      transition:width .16s linear;
     }
 
     .duet-bar-sub-fill{
       height:100%;
       width:0%;
       border-radius:999px;
-      background:linear-gradient(90deg,var(--duet-pink),var(--duet-blue));
-      transition:width .18s linear;
+      background:linear-gradient(90deg,var(--duet-blue),#93c5fd);
+      transition:width .16s linear;
     }
 
-    .duet-hud-toolbar{
+    .stage-wrap{
+      min-width:0;
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.45);
+      box-shadow:var(--shadow);
       display:flex;
-      justify-content:flex-end;
-      margin-top:-4px;
-      margin-bottom:2px;
+      flex-direction:column;
+      overflow:hidden;
+      min-height:640px;
     }
 
-    .duet-hud-toggle{
-      width:auto;
-      min-width:44px;
-      min-height:40px;
-      padding:8px 12px;
-      border-radius:12px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.72);
-      color:#e5e7eb;
-      font-weight:1000;
-      cursor:pointer;
+    .stage-head{
+      padding:14px 16px;
+      border-bottom:1px solid var(--stroke);
+      color:#f8fafc;
+      font-size:14px;
+      font-weight:1100;
+      letter-spacing:.05em;
+      background:rgba(15,23,42,.68);
     }
 
-    .duet-hud.compact .duet-item-sub,
-    .duet-hud.compact .duet-mini-stats,
-    .duet-hud.compact .duet-tip,
-    .duet-hud.compact .duet-bar-sub{
-      display:none !important;
+    .stage-inner{
+      position:relative;
+      flex:1 1 auto;
+      min-height:580px;
+      background:
+        radial-gradient(circle at 30% 10%, rgba(244,114,182,.08), transparent 24%),
+        radial-gradient(circle at 80% 10%, rgba(56,189,248,.08), transparent 24%),
+        linear-gradient(180deg,#0f172a,#0b1220 60%,#111827);
     }
 
-    .duet-hud.compact .duet-panel{
-      gap:10px;
-      padding:12px;
-    }
-
-    .duet-hud.compact .duet-item{
-      align-items:center;
-    }
-
-    .duet-hud.compact .duet-item-icon{
-      width:64px;
-      height:64px;
-      border-radius:18px;
-    }
-
-    .duet-hud.compact .duet-item-icon img{
-      width:46px;
-      height:46px;
-    }
-
-    .duet-hud.compact .duet-item-icon .emoji{
-      width:46px;
-      height:46px;
-      font-size:38px;
-    }
-
-    .duet-hud.compact .duet-item-title{
-      font-size:18px;
-    }
-
-    .duet-hud.compact .duet-score{
-      min-height:54px;
-      padding:12px 14px;
-    }
-
-    .duet-hud.compact .duet-score-value{
-      font-size:28px;
-    }
-
-    .duet-hud.compact .duet-stats{
-      gap:8px;
-    }
-
-    .duet-hud.compact .duet-stat{
-      min-height:48px;
-      padding:8px 10px;
-      border-radius:16px;
-    }
-
-    .duet-hud.compact .duet-stat-v{
-      font-size:18px;
-    }
-
-    .duet-hud.compact .duet-goal{
-      padding:10px 12px;
-      gap:8px;
-    }
-
-    .duet-hud.compact .duet-goal-title{
-      font-size:16px;
-    }
-
-    .duet-hud.compact .duet-goal-value{
-      font-size:18px;
-    }
-
-    @media (min-width:641px){
-      .duet-hud-toolbar{ display:none; }
-    }
-
-    @media (max-width:760px){
-      .duet-score-value{ font-size:30px; }
-      .duet-item-title{ font-size:20px; }
-    }
-
-    @media (max-width:640px){
-      .page{
-        gap:10px;
-        padding:
-          calc(10px + var(--sat))
-          calc(10px + var(--sar))
-          calc(14px + var(--sab))
-          calc(10px + var(--sal));
-      }
-
-      .brand{
-        padding:8px 10px;
-        border-radius:16px;
-      }
-
-      .brand-title{
-        font-size:14px;
-      }
-
-      .top-actions{
-        width:100%;
-      }
-
-      .top-actions .btn{
-        flex:1 1 auto;
-      }
-
-      .duet-hud{
-        padding:10px;
-        gap:10px;
-      }
-
-      .duet-top{
-        grid-template-columns:1fr 1fr;
-        gap:8px;
-      }
-
-      .duet-pill{
-        min-height:42px;
-        font-size:14px;
-        padding:8px 10px;
-      }
-
-      .duet-score{
-        min-height:54px;
-        padding:12px 14px;
-      }
-
-      .duet-score-label{
-        font-size:14px;
-      }
-
-      .duet-score-value{
-        font-size:28px;
-      }
-
-      .duet-stats{
-        grid-template-columns:repeat(3,1fr);
-        gap:8px;
-      }
-
-      .duet-stat{
-        min-height:48px;
-        padding:8px 10px;
-      }
-
-      .duet-stat-k{
-        font-size:11px;
-      }
-
-      .duet-stat-v{
-        font-size:18px;
-      }
-
-      .duet-item{
-        align-items:flex-start;
-      }
-
-      .duet-item-icon{
-        width:72px;
-        height:72px;
-        border-radius:18px;
-      }
-
-      .duet-item-icon img{
-        width:54px;
-        height:54px;
-      }
-
-      .duet-item-icon .emoji{
-        width:54px;
-        height:54px;
-        font-size:44px;
-      }
-
-      .duet-item-title{
-        font-size:18px;
-      }
-
-      .duet-mini-stats{
-        grid-template-columns:1fr;
-      }
-
-      .duet-mini-v{
-        font-size:22px;
-      }
-
-      .duet-tip{
-        font-size:14px;
-      }
-
-      .duet-goal-title{
-        font-size:16px;
-      }
-
-      .duet-goal-value{
-        font-size:18px;
-      }
-    }
-
-    .duet-result-mount[hidden]{
-      display:none !important;
+    #duetGameStage{
+      position:relative;
+      width:100%;
+      height:100%;
+      min-height:580px;
+      overflow:hidden;
     }
 
     .duet-result-mount{
       position:fixed;
       inset:0;
-      z-index:1200;
+      z-index:60;
       display:flex;
-      align-items:flex-end;
+      align-items:center;
       justify-content:center;
-      padding:16px;
-      background:rgba(2,6,23,.66);
-      backdrop-filter:blur(8px);
+      padding:18px;
+      background:rgba(2,6,23,.74);
+      backdrop-filter:blur(10px);
     }
 
     .duet-result-card{
-      width:min(920px, 100%);
-      max-height:min(92vh, 920px);
+      width:min(980px,100%);
+      max-height:min(92vh,1020px);
       overflow:auto;
       border-radius:28px;
       border:1px solid rgba(148,163,184,.18);
-      background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(2,6,23,.96));
-      color:#f8fafc;
-      box-shadow:0 24px 80px rgba(0,0,0,.42);
+      background:rgba(15,23,42,.94);
+      box-shadow:0 28px 80px rgba(0,0,0,.42);
       padding:18px;
-    }
-
-    .duet-result-head{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:14px;
+      display:grid;
+      gap:14px;
     }
 
     .duet-result-title{
-      font-size:24px;
-      line-height:1.15;
+      font-size:28px;
+      line-height:1.1;
       font-weight:1100;
+      color:#fff;
     }
 
     .duet-result-sub{
-      margin-top:6px;
-      color:#94a3b8;
-      font-size:13px;
-      font-weight:900;
-      line-height:1.45;
-    }
-
-    .duet-result-close{
-      width:auto;
-      min-width:44px;
-      min-height:44px;
-      padding:8px 12px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(255,255,255,.04);
-      color:#e5e7eb;
-      font-weight:1100;
-      cursor:pointer;
-    }
-
-    .duet-result-hero{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:12px;
-      margin-bottom:14px;
-    }
-
-    .duet-result-panel{
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.72);
-      padding:14px;
-    }
-
-    .duet-big-label{
-      color:#cbd5e1;
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .duet-big-score{
-      margin-top:8px;
-      font-size:44px;
-      line-height:1;
-      font-weight:1100;
-      color:#f8fafc;
-    }
-
-    .duet-big-row{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .duet-big-chip{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.42);
-      padding:10px 12px;
-    }
-
-    .duet-big-chip-k{
-      color:#94a3b8;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .duet-big-chip-v{
-      margin-top:4px;
-      font-size:24px;
-      line-height:1;
-      font-weight:1100;
-      color:#f8fafc;
-    }
-
-    .duet-pair-box{
-      height:100%;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      justify-content:center;
-    }
-
-    .duet-pair-title{
-      font-size:18px;
-      font-weight:1100;
-    }
-
-    .duet-pair-score{
-      font-size:52px;
-      line-height:1;
-      font-weight:1100;
-      background:linear-gradient(90deg,#f472b6,#c4b5fd,#38bdf8);
-      -webkit-background-clip:text;
-      background-clip:text;
-      color:transparent;
-    }
-
-    .duet-pair-goal-row{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      color:#cbd5e1;
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .duet-pair-bar{
-      height:18px;
-      border-radius:999px;
-      background:rgba(148,163,184,.14);
-      overflow:hidden;
-    }
-
-    .duet-pair-fill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#f472b6,#c4b5fd,#38bdf8);
-    }
-
-    .duet-result-metrics{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-      margin-bottom:14px;
-    }
-
-    .duet-metric{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(15,23,42,.66);
-      padding:12px;
-    }
-
-    .duet-metric-k{
-      color:#94a3b8;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .duet-metric-v{
-      margin-top:6px;
-      font-size:24px;
-      line-height:1;
-      font-weight:1100;
-      color:#f8fafc;
-    }
-
-    .duet-result-table-wrap{
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.66);
-      padding:12px;
-    }
-
-    .duet-result-table-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:10px;
-    }
-
-    .duet-result-table-title{
-      font-size:16px;
-      font-weight:1100;
-    }
-
-    .duet-result-table-sub{
-      color:#94a3b8;
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .duet-result-table{
-      overflow:auto;
-      -webkit-overflow-scrolling:touch;
-    }
-
-    .duet-result-table table{
-      width:100%;
-      min-width:640px;
-      border-collapse:separate;
-      border-spacing:0 8px;
-    }
-
-    .duet-result-table th{
-      text-align:left;
-      color:#94a3b8;
-      font-size:12px;
-      font-weight:1000;
-      padding:0 10px 6px;
-    }
-
-    .duet-result-table td{
-      padding:12px 10px;
-      background:rgba(2,6,23,.42);
+      color:var(--muted);
       font-size:14px;
+      line-height:1.6;
       font-weight:900;
-    }
-
-    .duet-result-table tr td:first-child{
-      border-top-left-radius:14px;
-      border-bottom-left-radius:14px;
-    }
-
-    .duet-result-table tr td:last-child{
-      border-top-right-radius:14px;
-      border-bottom-right-radius:14px;
-    }
-
-    .duet-result-table .me-row td{
-      outline:1px solid rgba(56,189,248,.26);
-      background:rgba(30,41,59,.78);
     }
 
     .duet-result-actions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      margin-top:14px;
-    }
-
-    .duet-result-btn{
-      width:auto;
-      min-width:140px;
-      min-height:46px;
-      padding:10px 14px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(255,255,255,.04);
-      color:#f8fafc;
-      font-weight:1100;
-      cursor:pointer;
-    }
-
-    .duet-result-btn.primary{
-      border-color:rgba(59,130,246,.28);
-      background:rgba(59,130,246,.14);
-    }
-
-    .duet-result-btn.violet{
-      border-color:rgba(167,139,250,.28);
-      background:rgba(167,139,250,.14);
-    }
-
-    .duet-result-btn.good{
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.14);
     }
 
     @media (max-width:760px){
-      .duet-result-hero{
-        grid-template-columns:1fr;
-      }
-      .duet-result-metrics{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-    }
-
-    @media (max-width:640px){
       .duet-result-mount{
         padding:10px;
         align-items:flex-end;
       }
-
       .duet-result-card{
         border-radius:22px;
         padding:12px;
-        max-height:min(94vh, 980px);
       }
-
       .duet-result-title{
         font-size:20px;
       }
-
       .duet-result-sub{
         font-size:12px;
       }
-
-      .duet-result-close{
-        min-width:42px;
-        min-height:42px;
-      }
-
-      .duet-big-score{
-        font-size:34px;
-      }
-
-      .duet-big-row{
-        grid-template-columns:1fr;
-      }
-
-      .duet-big-chip-v{
-        font-size:22px;
-      }
-
-      .duet-pair-score{
-        font-size:38px;
-      }
-
-      .duet-result-metrics{
-        grid-template-columns:1fr;
-      }
-
-      .duet-metric-v{
-        font-size:22px;
-      }
-
       .duet-result-actions{
         display:grid;
         grid-template-columns:1fr 1fr;
         gap:10px;
-      }
-
-      .duet-result-btn{
-        width:100%;
-        min-width:0;
-      }
-
-      .duet-result-table table{
-        min-width:560px;
       }
     }
   </style>
 </head>
 <body>
   <div class="page">
-
     <div class="topbar">
       <div class="brand">
         <div style="font-size:20px;">👯</div>
@@ -1040,13 +497,12 @@
       </div>
 
       <div class="top-actions">
-        <a class="btn ghost" id="btnBackLauncher" href="../goodjunk-launcher.html">← Launcher</a>
-        <a class="btn violet" id="btnGoHub" href="../hub.html">🏠 Hub</a>
+        <a class="btn ghost" id="btnBackLauncher" href="./goodjunk-launcher.html">← Launcher</a>
+        <a class="btn violet" id="btnGoHub" href="./hub.html">🏠 Hub</a>
       </div>
     </div>
 
     <div class="run-shell">
-
       <div id="duetHud" class="duet-hud">
         <div class="duet-hud-toolbar">
           <button id="duetHudToggle" class="duet-hud-toggle" type="button">⋯</button>
@@ -1128,7 +584,6 @@
           <div id="duetGameStage"></div>
         </div>
       </section>
-
     </div>
   </div>
 
@@ -1137,14 +592,14 @@
   <script>
     (function duetRunShellBoot(){
       const qs = new URLSearchParams(location.search);
-      const hub = qs.get('hub') || '../hub.html';
+      const hub = qs.get('hub') || './hub.html';
 
       const btnGoHub = document.getElementById('btnGoHub');
       const btnBackLauncher = document.getElementById('btnBackLauncher');
 
       if (btnGoHub) btnGoHub.href = hub;
       if (btnBackLauncher) {
-        const u = new URL('../goodjunk-launcher.html', location.href);
+        const u = new URL('./goodjunk-launcher.html', location.href);
         ['pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai']
           .forEach(k=>{
             const v = qs.get(k);
@@ -1155,6 +610,10 @@
     })();
   </script>
 
-  <script src="./goodjunk.safe.duet.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="../firebase-config.js"></script>
+  <script src="../common/hha-multiplayer.js"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260327-duet-hhamulti-v1"></script>
 </body>
 </html>
