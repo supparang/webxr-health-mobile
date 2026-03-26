@@ -8,33 +8,35 @@
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --sky1:#dff6ff;
-      --sky2:#bfeaff;
-      --sky3:#8fd9ff;
+      --sky1:#e8fbff;
+      --sky2:#cbf0ff;
+      --sky3:#aee2ff;
 
       --card:#fffef9;
-      --card2:#f6fff5;
+      --card2:#f7fff5;
       --card3:#eefaff;
 
-      --stroke:#d8eef7;
+      --stroke:#d9eef7;
       --text:#2b4f69;
       --muted:#6f8ea3;
 
-      --green1:#82da62;
-      --green2:#56b943;
-      --blue1:#7ecfff;
-      --blue2:#4ea8ef;
-      --yellow1:#ffe178;
+      --green1:#87de67;
+      --green2:#57ba44;
+      --blue1:#7fd0ff;
+      --blue2:#4fa9ef;
+      --yellow1:#ffe179;
       --yellow2:#f6bd42;
-      --orange1:#ffbe73;
+      --orange1:#ffbf74;
       --orange2:#ff9857;
+      --pink1:#ffd8e7;
+      --pink2:#ffbed7;
 
       --shadow:0 14px 34px rgba(90,145,180,.16);
       --shadow-lg:0 22px 56px rgba(90,145,180,.22);
 
-      --radius-xl:30px;
-      --radius-lg:24px;
-      --radius-md:18px;
+      --radius-xl:32px;
+      --radius-lg:26px;
+      --radius-md:20px;
     }
 
     *{ box-sizing:border-box; }
@@ -57,27 +59,27 @@
     }
 
     .page{
-      width:min(1080px,100%);
+      width:min(1100px,100%);
       display:grid;
       gap:14px;
     }
 
-    .card{
-      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
+    .hero-shell{
+      position:relative;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.78), transparent 14%),
+        radial-gradient(circle at 86% 12%, rgba(255,255,255,.64), transparent 14%),
+        linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
       border:1px solid rgba(255,255,255,.96);
       border-radius:var(--radius-xl);
       box-shadow:var(--shadow-lg);
-    }
-
-    .hero-card{
-      position:relative;
-      overflow:hidden;
       padding:16px;
       display:grid;
       gap:14px;
     }
 
-    .hero-card::after{
+    .hero-shell::after{
       content:"";
       position:absolute;
       left:0;
@@ -92,7 +94,7 @@
       pointer-events:none;
     }
 
-    .hero-card > *{
+    .hero-shell > *{
       position:relative;
       z-index:1;
     }
@@ -141,18 +143,84 @@
       align-items:center;
     }
 
-    .mascot{
-      width:80px;
-      height:80px;
-      border-radius:26px;
+    .mascot-card{
+      width:82px;
+      height:82px;
+      border-radius:28px;
       display:grid;
       place-items:center;
-      font-size:40px;
+      background:linear-gradient(180deg, #fff7e4, #ffe7ba);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .mascot-illust{
+      position:relative;
+      width:64px;
+      height:64px;
+    }
+
+    .mascot-head{
+      position:absolute;
+      left:18px;
+      top:10px;
+      width:26px;
+      height:26px;
+      border-radius:999px;
+      background:#ffd7b5;
+      z-index:3;
+    }
+
+    .mascot-hair{
+      position:absolute;
+      left:15px;
+      top:6px;
+      width:30px;
+      height:18px;
+      border-radius:16px 16px 10px 10px;
+      background:linear-gradient(180deg, #7c3f24, #5f2f18);
+      z-index:4;
+      transform:rotate(-8deg);
+    }
+
+    .mascot-body{
+      position:absolute;
+      left:14px;
+      top:31px;
+      width:32px;
+      height:22px;
+      border-radius:16px 16px 12px 12px;
+      background:linear-gradient(180deg, #7ecfff, #4ea8ef);
+      z-index:2;
+    }
+
+    .mascot-cape{
+      position:absolute;
+      left:4px;
+      top:26px;
+      width:20px;
+      height:28px;
+      border-radius:16px 0 16px 16px;
+      background:linear-gradient(180deg, #ff7e63, #ef5c45);
+      transform:rotate(-24deg);
+      z-index:1;
+    }
+
+    .mascot-drop{
+      position:absolute;
+      right:2px;
+      bottom:6px;
+      width:22px;
+      height:22px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      font-size:12px;
       color:#fff;
-      background:linear-gradient(180deg,var(--orange1),var(--orange2));
-      box-shadow:
-        inset 0 4px 10px rgba(255,255,255,.24),
-        0 12px 30px rgba(246,185,59,.18);
+      background:linear-gradient(180deg, #8add68, #59be43);
+      box-shadow:0 6px 12px rgba(86,185,67,.22);
+      z-index:5;
     }
 
     .logo-stack{
@@ -222,17 +290,85 @@
       min-width:0;
     }
 
-    .avatar{
-      width:68px;
-      height:68px;
+    .avatar-card{
+      width:70px;
+      height:70px;
       border-radius:22px;
       display:grid;
       place-items:center;
-      font-size:34px;
-      color:#fff;
+      background:linear-gradient(180deg,#eefaff,#d8f2ff);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      flex:0 0 70px;
+    }
+
+    .avatar-illust{
+      position:relative;
+      width:56px;
+      height:56px;
+    }
+
+    .avatar-head{
+      position:absolute;
+      left:17px;
+      top:8px;
+      width:22px;
+      height:22px;
+      border-radius:999px;
+      background:#ffd7b5;
+      z-index:3;
+    }
+
+    .avatar-hair{
+      position:absolute;
+      left:14px;
+      top:5px;
+      width:26px;
+      height:16px;
+      border-radius:16px 16px 10px 10px;
+      background:linear-gradient(180deg, #7c3f24, #5f2f18);
+      z-index:4;
+      transform:rotate(-8deg);
+    }
+
+    .avatar-body{
+      position:absolute;
+      left:13px;
+      top:27px;
+      width:28px;
+      height:20px;
+      border-radius:16px 16px 12px 12px;
       background:linear-gradient(180deg,#7ecfff,#4ea8ef);
-      box-shadow:inset 0 4px 10px rgba(255,255,255,.24);
-      flex:0 0 68px;
+      z-index:2;
+    }
+
+    .avatar-cape{
+      position:absolute;
+      left:4px;
+      top:23px;
+      width:18px;
+      height:24px;
+      border-radius:14px 0 14px 14px;
+      background:linear-gradient(180deg,#ff7e63,#ef5c45);
+      transform:rotate(-24deg);
+      z-index:1;
+    }
+
+    .avatar-drop{
+      position:absolute;
+      right:2px;
+      bottom:6px;
+      width:18px;
+      height:18px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      font-size:10px;
+      color:#fff;
+      background:linear-gradient(180deg,#8add68,#59be43);
+      box-shadow:0 6px 12px rgba(86,185,67,.22);
+      z-index:5;
     }
 
     .profile-name{
@@ -272,17 +408,21 @@
     }
 
     .profile-stats{
-      display:flex;
+      display:grid;
       gap:10px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
+      min-width:280px;
     }
 
-    .profile-stat{
-      min-width:118px;
-      min-height:68px;
-      padding:10px 14px;
-      border-radius:22px;
+    .resource-strip{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .resource-pill{
+      min-height:62px;
+      padding:10px 12px;
+      border-radius:20px;
       background:linear-gradient(180deg,#ffffff,#eefcff);
       border:1px solid rgba(255,255,255,.96);
       box-shadow:var(--shadow);
@@ -291,18 +431,25 @@
       align-items:center;
     }
 
-    .profile-stat-icon{
-      width:38px;
-      height:38px;
-      flex:0 0 38px;
+    .resource-icon{
+      width:36px;
+      height:36px;
+      flex:0 0 36px;
       border-radius:12px;
       display:grid;
       place-items:center;
-      font-size:20px;
-      background:linear-gradient(180deg,#fff6d6,#ffe7a7);
+      font-size:18px;
+      background:linear-gradient(180deg,#fff7d5,#ffe7a8);
     }
 
-    .profile-stat-label{
+    .resource-pill strong{
+      color:#2c526c;
+      font-size:22px;
+      font-weight:1000;
+      line-height:1.05;
+    }
+
+    .resource-label{
       display:block;
       color:#7698ae;
       font-size:12px;
@@ -310,10 +457,48 @@
       margin-bottom:2px;
     }
 
-    .profile-stat strong{
-      color:#2a4f68;
-      font-size:24px;
-      line-height:1.05;
+    .level-strip{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+      min-height:58px;
+      padding:10px 12px;
+      border-radius:20px;
+      background:linear-gradient(180deg,#fffef8,#f3fff0);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+    }
+
+    .level-badge{
+      min-height:34px;
+      padding:7px 12px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#8add68,#59be43);
+      color:#fff;
+      font-size:13px;
+      font-weight:1000;
+      display:grid;
+      place-items:center;
+    }
+
+    .level-track{
+      height:14px;
+      border-radius:999px;
+      background:#e8f7df;
+      border:1px solid #cceab8;
+      overflow:hidden;
+    }
+
+    .level-track-fill{
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#8add68,#59be43);
+    }
+
+    .level-progress{
+      color:#5d8096;
+      font-size:14px;
       font-weight:1000;
     }
 
@@ -344,9 +529,9 @@
       color:#427d34;
     }
 
-    .launcher-grid{
+    .main-grid{
       display:grid;
-      grid-template-columns:1.1fr .9fr;
+      grid-template-columns:1.08fr .92fr;
       gap:14px;
     }
 
@@ -362,8 +547,8 @@
 
     .panel-title{
       color:#2b4f69;
-      font-size:28px;
-      line-height:1.08;
+      font-size:30px;
+      line-height:1.06;
       font-weight:1000;
       margin:0;
     }
@@ -376,29 +561,29 @@
       margin:0;
     }
 
-    .hydration-hero-card{
+    .launch-stage{
       position:relative;
       overflow:hidden;
-      min-height:360px;
-      border-radius:28px;
+      min-height:390px;
+      border-radius:30px;
       background:
-        radial-gradient(circle at 14% 14%, rgba(255,255,255,.86), transparent 11%),
-        radial-gradient(circle at 84% 16%, rgba(255,255,255,.62), transparent 12%),
-        linear-gradient(180deg,#dff6ff 0%,#bfeaff 42%,#9fdcff 100%);
+        radial-gradient(circle at 14% 14%, rgba(255,255,255,.92), transparent 10%),
+        radial-gradient(circle at 84% 16%, rgba(255,255,255,.72), transparent 12%),
+        linear-gradient(180deg, #e9fbff 0%, #c9f0ff 42%, #aee2ff 100%);
       border:1px solid rgba(255,255,255,.96);
       box-shadow:var(--shadow);
-      padding:16px;
       display:grid;
       align-content:space-between;
+      padding:16px;
     }
 
-    .hydration-hero-card::after{
+    .launch-stage::after{
       content:"";
       position:absolute;
       left:0;
       right:0;
       bottom:0;
-      height:96px;
+      height:104px;
       background:
         radial-gradient(circle at 10% 76%, #d4f3ad 0 18%, transparent 19%),
         radial-gradient(circle at 34% 100%, #a8e37f 0 12%, transparent 13%),
@@ -407,12 +592,12 @@
       pointer-events:none;
     }
 
-    .hydration-hero-card > *{
+    .launch-stage > *{
       position:relative;
       z-index:1;
     }
 
-    .card-top-row{
+    .launch-top-row{
       display:flex;
       justify-content:space-between;
       align-items:flex-start;
@@ -431,30 +616,96 @@
       font-weight:1000;
     }
 
-    .play-scene{
+    .launch-scene{
       display:grid;
       place-items:center;
-      gap:12px;
+      gap:14px;
       text-align:center;
-      padding:6px 0;
+      padding:8px 0;
     }
 
-    .kid-avatar{
-      width:122px;
-      height:122px;
-      border-radius:32px;
+    .launch-avatar-big{
+      width:132px;
+      height:132px;
+      border-radius:34px;
       display:grid;
       place-items:center;
-      font-size:68px;
-      color:#fff;
-      background:linear-gradient(180deg,#7ecfff,#4ea8ef);
-      box-shadow:
-        inset 0 6px 14px rgba(255,255,255,.26),
-        0 16px 34px rgba(90,145,180,.18);
+      background:linear-gradient(180deg,#f2fbff,#dff3ff);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow-lg);
+      overflow:hidden;
     }
 
-    .play-bubble{
-      max-width:340px;
+    .launch-avatar-illust{
+      position:relative;
+      width:100px;
+      height:100px;
+    }
+
+    .launch-head{
+      position:absolute;
+      left:33px;
+      top:14px;
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      background:#ffd7b5;
+      z-index:3;
+    }
+
+    .launch-hair{
+      position:absolute;
+      left:28px;
+      top:10px;
+      width:40px;
+      height:24px;
+      border-radius:18px 18px 10px 12px;
+      background:linear-gradient(180deg,#7c3f24,#5f2f18);
+      z-index:4;
+      transform:rotate(-8deg);
+    }
+
+    .launch-body{
+      position:absolute;
+      left:27px;
+      top:44px;
+      width:42px;
+      height:30px;
+      border-radius:18px 18px 14px 14px;
+      background:linear-gradient(180deg,#7ecfff,#4ea8ef);
+      z-index:2;
+    }
+
+    .launch-cape{
+      position:absolute;
+      left:13px;
+      top:38px;
+      width:26px;
+      height:38px;
+      border-radius:18px 0 18px 18px;
+      background:linear-gradient(180deg,#ff7e63,#ef5c45);
+      transform:rotate(-24deg);
+      z-index:1;
+    }
+
+    .launch-drop{
+      position:absolute;
+      right:5px;
+      bottom:10px;
+      width:26px;
+      height:26px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      font-size:14px;
+      color:#fff;
+      background:linear-gradient(180deg,#8add68,#59be43);
+      box-shadow:0 6px 12px rgba(86,185,67,.22);
+      z-index:5;
+    }
+
+    .launch-bubble{
+      max-width:360px;
       justify-self:center;
       padding:12px 16px;
       border-radius:18px;
@@ -467,7 +718,7 @@
       box-shadow:var(--shadow);
     }
 
-    .launcher-footer{
+    .launch-actions{
       display:flex;
       justify-content:space-between;
       align-items:center;
@@ -486,11 +737,11 @@
     }
 
     .go-btn{
-      min-width:180px;
-      min-height:56px;
+      min-width:190px;
+      min-height:58px;
       border:0;
-      border-radius:18px;
-      background:linear-gradient(180deg,#82da62,#56b943);
+      border-radius:20px;
+      background:linear-gradient(180deg,#87de67,#57ba44);
       color:#fff;
       font-size:24px;
       font-weight:1000;
@@ -504,7 +755,7 @@
       filter:brightness(1.02);
     }
 
-    .controls-card{
+    .controls-stack{
       display:grid;
       gap:12px;
       align-content:start;
@@ -553,19 +804,17 @@
       color:#315873;
     }
 
-    .alt-actions{
+    .action-row{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
     }
 
-    .btn-blue{
+    .btn-blue,
+    .btn-soft{
       min-height:52px;
       padding:12px 18px;
-      border:0;
       border-radius:18px;
-      background:linear-gradient(180deg,var(--blue1),var(--blue2));
-      color:#fff;
       font-size:18px;
       font-weight:1000;
       cursor:pointer;
@@ -573,18 +822,16 @@
       transition:transform .12s ease, filter .12s ease;
     }
 
+    .btn-blue{
+      border:0;
+      background:linear-gradient(180deg,var(--blue1),var(--blue2));
+      color:#fff;
+    }
+
     .btn-soft{
-      min-height:52px;
-      padding:12px 18px;
-      border-radius:18px;
       border:1px solid rgba(255,255,255,.96);
       background:linear-gradient(180deg,#ffffff,#eefcff);
       color:var(--text);
-      font-size:18px;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:var(--shadow);
-      transition:transform .12s ease, filter .12s ease;
     }
 
     .btn-blue:hover,
@@ -603,12 +850,12 @@
     @media (max-width: 900px){
       .logo-wrap,
       .profile-strip,
-      .launcher-grid{
+      .main-grid{
         grid-template-columns:1fr;
       }
 
       .profile-stats{
-        justify-content:flex-start;
+        min-width:0;
       }
     }
 
@@ -621,7 +868,7 @@
         gap:12px;
       }
 
-      .hero-v2-shell,
+      .hero-shell,
       .panel{
         border-radius:24px;
       }
@@ -630,11 +877,15 @@
         font-size:clamp(28px, 10vw, 40px);
       }
 
-      .mascot{
-        width:64px;
-        height:64px;
-        border-radius:20px;
-        font-size:30px;
+      .mascot-card{
+        width:66px;
+        height:66px;
+        border-radius:22px;
+      }
+
+      .mascot-illust{
+        width:52px;
+        height:52px;
       }
 
       .home-btn{
@@ -648,24 +899,8 @@
         grid-template-columns:1fr;
       }
 
-      .profile-left{
-        align-items:flex-start;
-      }
-
-      .avatar{
-        width:58px;
-        height:58px;
-        flex-basis:58px;
-        border-radius:18px;
-        font-size:28px;
-      }
-
-      .profile-name{
-        font-size:24px;
-      }
-
-      .speech{
-        font-size:13px;
+      .profile-stats{
+        min-width:0;
       }
 
       .zone-strip{
@@ -680,18 +915,22 @@
         justify-content:flex-start;
       }
 
-      .kid-avatar{
-        width:96px;
-        height:96px;
-        border-radius:26px;
-        font-size:52px;
+      .launch-avatar-big{
+        width:104px;
+        height:104px;
+        border-radius:28px;
       }
 
-      .play-bubble{
+      .launch-avatar-illust{
+        width:80px;
+        height:80px;
+      }
+
+      .launch-bubble{
         font-size:14px;
       }
 
-      .launcher-footer{
+      .launch-actions{
         align-items:stretch;
       }
 
@@ -701,7 +940,7 @@
         width:100%;
       }
 
-      .alt-actions{
+      .action-row{
         flex-direction:column;
       }
     }
@@ -709,7 +948,7 @@
 </head>
 <body>
   <main class="page">
-    <section class="card hero-card">
+    <section class="hero-shell">
       <div class="topbar">
         <button class="corner-btn" type="button" aria-label="settings">⚙️</button>
 
@@ -721,7 +960,15 @@
       </div>
 
       <div class="logo-wrap">
-        <div class="mascot">🦸</div>
+        <div class="mascot-card">
+          <div class="mascot-illust">
+            <div class="mascot-head"></div>
+            <div class="mascot-hair"></div>
+            <div class="mascot-body"></div>
+            <div class="mascot-cape"></div>
+            <div class="mascot-drop">💧</div>
+          </div>
+        </div>
 
         <div class="logo-stack">
           <div class="logo">
@@ -735,7 +982,15 @@
 
       <div class="profile-strip">
         <div class="profile-left">
-          <div class="avatar">🧒</div>
+          <div class="avatar-card">
+            <div class="avatar-illust">
+              <div class="avatar-head"></div>
+              <div class="avatar-hair"></div>
+              <div class="avatar-body"></div>
+              <div class="avatar-cape"></div>
+              <div class="avatar-drop">💧</div>
+            </div>
+          </div>
 
           <div>
             <div class="profile-name">Rocky</div>
@@ -744,20 +999,46 @@
         </div>
 
         <div class="profile-stats">
-          <div class="profile-stat">
-            <span class="profile-stat-icon">🏅</span>
-            <div>
-              <span class="profile-stat-label">Score</span>
-              <strong>0</strong>
+          <div class="resource-strip">
+            <div class="resource-pill">
+              <span class="resource-icon">❤️</span>
+              <div>
+                <span class="resource-label">Hearts</span>
+                <strong>8</strong>
+              </div>
+            </div>
+
+            <div class="resource-pill">
+              <span class="resource-icon">🪙</span>
+              <div>
+                <span class="resource-label">Coins</span>
+                <strong>0</strong>
+              </div>
+            </div>
+
+            <div class="resource-pill">
+              <span class="resource-icon">⭐</span>
+              <div>
+                <span class="resource-label">Stars</span>
+                <strong>3</strong>
+              </div>
+            </div>
+
+            <div class="resource-pill">
+              <span class="resource-icon">💧</span>
+              <div>
+                <span class="resource-label">Water</span>
+                <strong>40%</strong>
+              </div>
             </div>
           </div>
 
-          <div class="profile-stat">
-            <span class="profile-stat-icon">⭐</span>
-            <div>
-              <span class="profile-stat-label">Stars</span>
-              <strong>3</strong>
+          <div class="level-strip">
+            <div class="level-badge">Lv. 5</div>
+            <div class="level-track">
+              <div class="level-track-fill" style="width:32%"></div>
             </div>
+            <div class="level-progress">10/30</div>
           </div>
         </div>
       </div>
@@ -769,32 +1050,41 @@
       </div>
     </section>
 
-    <section class="launcher-grid">
+    <section class="main-grid">
       <section class="panel">
         <div>
           <h1 class="panel-title">Hydration Hero</h1>
           <p class="panel-sub">เก็บน้ำดี เลี่ยงของไม่ดี ผ่านพายุและบอส แล้วไปคูลดาวน์ก่อนกลับ HUB</p>
         </div>
 
-        <div class="hydration-hero-card">
-          <div class="card-top-row">
+        <div class="launch-stage">
+          <div class="launch-top-row">
             <span class="tiny-badge">💧 Nutrition Hero</span>
             <span class="tiny-badge">⭐ Lv. 5</span>
           </div>
 
-          <div class="play-scene">
-            <div class="kid-avatar">🫧</div>
-            <div class="play-bubble">Great! ไปเก็บน้ำดีให้ได้เยอะที่สุดกันเลย!</div>
+          <div class="launch-scene">
+            <div class="launch-avatar-big">
+              <div class="launch-avatar-illust">
+                <div class="launch-head"></div>
+                <div class="launch-hair"></div>
+                <div class="launch-body"></div>
+                <div class="launch-cape"></div>
+                <div class="launch-drop">💧</div>
+              </div>
+            </div>
+
+            <div class="launch-bubble">Great! ไปเก็บน้ำดีให้ได้เยอะที่สุดกันเลย!</div>
           </div>
 
-          <div class="launcher-footer">
+          <div class="launch-actions">
             <div class="level-pill">Level 5</div>
             <button id="startBtn" class="go-btn" type="button">Go</button>
           </div>
         </div>
       </section>
 
-      <section class="panel controls-card">
+      <section class="panel controls-stack">
         <div class="control-box">
           <label for="diffSel">ระดับความยาก</label>
           <select id="diffSel">
@@ -816,7 +1106,7 @@
           แตะน้ำดีเพื่อเพิ่มคะแนน เก็บโล่ไว้กันสายฟ้า และหลบของไม่ดีให้ได้มากที่สุด
         </div>
 
-        <div class="alt-actions">
+        <div class="action-row">
           <button id="hubBtn" class="btn-blue" type="button">🏠 กลับ HUB</button>
           <button id="helpBtn" class="btn-soft" type="button">❓ วิธีเล่น</button>
         </div>
