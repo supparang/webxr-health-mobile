@@ -23,44 +23,42 @@
   const STORAGE_KEYS = {
     profile: 'HHA_PLAYER_PROFILE',
     lastSummary: 'HHA_LAST_SUMMARY',
-    summaryHistory: 'HHA_SUMMARY_HISTORY'
+    summaryHistory: 'HHA_SUMMARY_HISTORY',
+    lastByZone: 'HHA_LAST_BY_ZONE'
   };
 
   const GAMES = {
     hygiene: {
       label: 'Hygiene Zone',
       defaultUrl: './germ-detective.html',
-      mascot: 'ฟองฟู่บับเบิล',
       options: [
-        { id: 'germ-detective', label: 'Germ Detective', sub: 'จับเชื้อโรคให้หมด', url: './germ-detective.html', icon: '🦠' },
-        { id: 'handwash-vr', label: 'Handwash VR', sub: 'ล้างมือให้ครบขั้นตอน', url: './handwash-vr.html', icon: '🧼' },
-        { id: 'brush-vr', label: 'Brush VR', sub: 'แปรงฟันให้สะอาดสดใส', url: 'https://supparang.github.io/webxr-health-mobile/herohealth/brush-vr.html', icon: '🪥' },
-        { id: 'maskcough-vr', label: 'Mask & Cough', sub: 'ฝึกปิดปากและป้องกันเชื้อโรค', url: './maskcough-vr.html', icon: '😷' },
-        { id: 'bath-vr', label: 'Bath VR', sub: 'อาบน้ำให้สะอาดและสนุก', url: './bath-vr.html', icon: '🛁' },
-        { id: 'clean-objects', label: 'Clean Objects', sub: 'เลือกของสะอาดให้ถูกต้อง', url: './clean-objects.html', icon: '✨' }
+        { label: 'Germ Detective', sub: 'จับเชื้อโรคให้หมด', url: './germ-detective.html' },
+        { label: 'Handwash VR', sub: 'ล้างมือให้ครบขั้นตอน', url: './handwash-vr.html' },
+        { label: 'Brush VR', sub: 'แปรงฟันให้สะอาดสดใส', url: 'https://supparang.github.io/webxr-health-mobile/herohealth/brush-vr.html' },
+        { label: 'Mask & Cough', sub: 'ฝึกปิดปากและป้องกันเชื้อโรค', url: './maskcough-vr.html' },
+        { label: 'Bath VR', sub: 'อาบน้ำให้สะอาดและสนุก', url: './bath-vr.html' },
+        { label: 'Clean Objects', sub: 'เลือกของสะอาดให้ถูกต้อง', url: './clean-objects.html' }
       ]
     },
     nutrition: {
       label: 'Nutrition Zone',
       defaultUrl: './plate-v1.html',
-      mascot: 'เชฟผักผลไม้',
       options: [
-        { id: 'plate-v1', label: 'Plate', sub: 'จัดจานอาหารให้ครบ 5 หมู่', url: './plate-v1.html', icon: '🍽️' },
-        { id: 'group-v1', label: 'Groups', sub: 'แยกอาหารตามหมู่', url: './group-v1.html', icon: '🥕' },
-        { id: 'goodjunk-vr', label: 'GoodJunk VR', sub: 'เลือกอาหารดี หลบอาหารขยะ', url: './goodjunk-vr.html', icon: '🍔' },
-        { id: 'hydration-vr', label: 'Hydration VR', sub: 'ดื่มน้ำให้พอดีและดูแลร่างกาย', url: './hydration-vr.html', icon: '💧' }
+        { label: 'Plate', sub: 'จัดจานอาหารให้ครบ 5 หมู่', url: './plate-v1.html' },
+        { label: 'Groups', sub: 'แยกอาหารตามหมู่', url: './group-v1.html' },
+        { label: 'GoodJunk VR', sub: 'เลือกอาหารดี หลบอาหารขยะ', url: './goodjunk-vr.html' },
+        { label: 'Hydration VR', sub: 'ดื่มน้ำให้พอดีและดูแลร่างกาย', url: './hydration-vr.html' }
       ]
     },
     fitness: {
       label: 'Fitness Zone',
       defaultUrl: './shadow-breaker-vr.html',
-      mascot: 'โค้ชสายฟ้า',
       options: [
-        { id: 'shadow-breaker-vr', label: 'Shadow Breaker', sub: 'ต่อยเป้าให้แม่นและเร็ว', url: './shadow-breaker-vr.html', icon: '🥊' },
-        { id: 'rhythm-boxer-vr', label: 'Rhythm Boxer', sub: 'ชกตามจังหวะเพลง', url: './rhythm-boxer-vr.html', icon: '🎵' },
-        { id: 'balance-hold-vr', label: 'Balance Hold', sub: 'ทรงตัวให้นานที่สุด', url: './balance-hold-vr.html', icon: '🧘' },
-        { id: 'jump-duck-vr', label: 'JumpDuck', sub: 'กระโดดและก้มหลบให้ทัน', url: './jump-duck-vr.html', icon: '🦘' },
-        { id: 'fitness-planner', label: 'Fitness Planner', sub: 'วางแผนออกกำลังกายแบบสนุก ๆ', url: './fitness-planner.html', icon: '📋' }
+        { label: 'Shadow Breaker', sub: 'ต่อยเป้าให้แม่นและเร็ว', url: './shadow-breaker-vr.html' },
+        { label: 'Rhythm Boxer', sub: 'ชกตามจังหวะเพลง', url: './rhythm-boxer-vr.html' },
+        { label: 'Balance Hold', sub: 'ทรงตัวให้นานที่สุด', url: './balance-hold-vr.html' },
+        { label: 'JumpDuck', sub: 'กระโดดและก้มหลบให้ทัน', url: './jump-duck-vr.html' },
+        { label: 'Fitness Planner', sub: 'วางแผนออกกำลังกายแบบสนุก ๆ', url: './fitness-planner.html' }
       ]
     }
   };
@@ -75,9 +73,21 @@
   const $ = (sel) => document.querySelector(sel);
 
   function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
-  function safeParse(json, fallback){ try{ const v = JSON.parse(json); return v ?? fallback; }catch{ return fallback; } }
-  function fmtInt(v, fallback = 0){ const n = Number(v); return Number.isFinite(n) ? Math.round(n) : fallback; }
-  function slugify(text){ return String(text || '').toLowerCase().replace(/https?:\/\//g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+
+  function safeParse(json, fallback){
+    try {
+      const v = JSON.parse(json);
+      return v ?? fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function fmtInt(v, fallback = 0){
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.round(n) : fallback;
+  }
+
   function escapeHtml(s){
     return String(s ?? '')
       .replaceAll('&', '&amp;')
@@ -86,26 +96,31 @@
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#39;');
   }
-  function starText(n){ const v = clamp(fmtInt(n, 0), 0, 3); return '⭐'.repeat(v) + '☆'.repeat(3 - v); }
 
-  function optionClass(option){ return `theme-${option.id}`; }
+  function starText(n){
+    const v = clamp(fmtInt(n, 0), 0, 3);
+    return '⭐'.repeat(v) + '☆'.repeat(3 - v);
+  }
 
   function zoneFromGameId(gameId){
     const id = String(gameId || '').toLowerCase();
     if (/wash|brush|germ|hygiene|bath|mask|cough|clean/.test(id)) return 'hygiene';
     if (/plate|group|food|goodjunk|nutrition|hydration/.test(id)) return 'nutrition';
-    if (/shadow|rhythm|balance|jump|duck|fitness/.test(id)) return 'fitness';
+    if (/shadow|rhythm|balance|jump|duck|fitness|planner/.test(id)) return 'fitness';
     return '';
   }
 
   function zoneLabel(zone){ return GAMES[zone]?.label || 'HeroHealth'; }
-  function getDefaultOption(zone){ const set = GAMES[zone]; return set ? (set.options.find((item) => item.url === set.defaultUrl) || set.options[0] || null) : null; }
-  function findOptionByUrl(zone, url){ const set = GAMES[zone]; return set ? (set.options.find((item) => item.url === url) || null) : null; }
-  function findOptionByName(zone, name){
-    const target = slugify(name);
+
+  function getDefaultOption(zone){
     const set = GAMES[zone];
     if (!set) return null;
-    return set.options.find((item) => slugify(item.label) === target || slugify(item.url).includes(target)) || null;
+    return set.options.find((item) => item.url === set.defaultUrl) || set.options[0] || null;
+  }
+
+  function listGameNames(zone){
+    const set = GAMES[zone];
+    return set ? set.options.map((item) => item.label) : [];
   }
 
   function getHubCanonical(){
@@ -116,9 +131,13 @@
 
   function carryQuery(url, extra = {}){
     const u = new URL(url, location.href);
-    PASS_KEYS.forEach((k) => { if (qs.has(k) && !u.searchParams.has(k)) u.searchParams.set(k, qs.get(k)); });
+    PASS_KEYS.forEach((k) => {
+      if (qs.has(k) && !u.searchParams.has(k)) u.searchParams.set(k, qs.get(k));
+    });
     u.searchParams.set('hub', getHubCanonical());
-    Object.entries(extra).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v)); });
+    Object.entries(extra).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v));
+    });
     return u.toString();
   }
 
@@ -136,9 +155,22 @@
     };
   }
 
-  function writeProfile(profile){ try{ localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(profile)); }catch{} }
+  function writeProfile(profile){
+    try { localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(profile)); } catch {}
+  }
+
   function readLastSummary(){ return safeParse(localStorage.getItem(STORAGE_KEYS.lastSummary), null); }
-  function readSummaryHistory(){ const raw = safeParse(localStorage.getItem(STORAGE_KEYS.summaryHistory), []); return Array.isArray(raw) ? raw : []; }
+
+  function readSummaryHistory(){
+    const raw = safeParse(localStorage.getItem(STORAGE_KEYS.summaryHistory), []);
+    return Array.isArray(raw) ? raw : [];
+  }
+
+  function readLastByZone(){ return safeParse(localStorage.getItem(STORAGE_KEYS.lastByZone), {}); }
+
+  function writeLastByZone(map){
+    try { localStorage.setItem(STORAGE_KEYS.lastByZone, JSON.stringify(map)); } catch {}
+  }
 
   function zoneStatsFromHistory(history){
     const base = JSON.parse(JSON.stringify(ZONE_DEFAULTS));
@@ -154,26 +186,45 @@
     return base;
   }
 
-  function getRecentByZone(history, lastSummary){
-    const map = { hygiene: null, nutrition: null, fitness: null };
-    history.forEach((item, idx) => {
-      const zone = item.zone || zoneFromGameId(item.game || item.gameId || item.title || '');
-      if (!zone) return;
-      map[zone] = { ...item, _idx: idx };
-    });
-    if (lastSummary) {
-      const zone = lastSummary.zone || zoneFromGameId(lastSummary.game || lastSummary.gameId || lastSummary.title || '');
-      if (zone) map[zone] = { ...lastSummary, _idx: 999999 };
-    }
-    return map;
+  function findOptionByMeta(zone, meta){
+    const set = GAMES[zone];
+    if (!set) return null;
+    const ref = String(meta || '').toLowerCase();
+    if (!ref) return null;
+    return set.options.find((item) => {
+      const a = item.label.toLowerCase();
+      const b = item.url.toLowerCase();
+      return ref.includes(a) || a.includes(ref) || ref.includes(b) || b.includes(ref);
+    }) || null;
   }
 
-  function getRecentOption(zone, entry){
-    if (!entry) return null;
-    return (
-      findOptionByUrl(zone, entry.replayUrl || entry.url || '') ||
-      findOptionByName(zone, entry.title || entry.game || entry.gameId || '')
-    );
+  function buildLastByZone(history, lastSummary){
+    const merged = { ...readLastByZone() };
+    const items = [...history];
+    if (lastSummary) items.push(lastSummary);
+
+    items.forEach((item) => {
+      const zone = item.zone || zoneFromGameId(item.game || item.gameId || item.title || item.url || '');
+      if (!zone) return;
+      const matched =
+        findOptionByMeta(zone, item.url) ||
+        findOptionByMeta(zone, item.replayUrl) ||
+        findOptionByMeta(zone, item.title) ||
+        findOptionByMeta(zone, item.game) ||
+        findOptionByMeta(zone, item.gameId);
+      if (!matched) return;
+      merged[zone] = {
+        zone,
+        label: matched.label,
+        url: matched.url,
+        score: fmtInt(item.score, 0),
+        stars: clamp(fmtInt(item.stars, 0), 0, 3),
+        time: item.timestampIso || item.time || item.date || ''
+      };
+    });
+
+    writeLastByZone(merged);
+    return merged;
   }
 
   function renderPlayer(profile){
@@ -206,9 +257,14 @@
 
   function renderMissions(history){
     const missionList = $('#missionList');
-    const todayDone = { hygiene:false, nutrition:false, fitness:false };
+    const todayDone = { hygiene: false, nutrition: false, fitness: false };
+
     const today = new Date();
-    const dayKey = [today.getFullYear(), String(today.getMonth()+1).padStart(2,'0'), String(today.getDate()).padStart(2,'0')].join('-');
+    const dayKey = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0')
+    ].join('-');
 
     history.forEach((item) => {
       const zone = item.zone || zoneFromGameId(item.game || item.gameId || item.title || '');
@@ -217,9 +273,24 @@
     });
 
     const missions = [
-      { icon:'🫧', name:'เล่น Hygiene 1 เกม', sub:'ล้างมือ แปรงฟัน หรือกันเชื้อโรค', done:todayDone.hygiene },
-      { icon:'🥗', name:'เล่น Nutrition 1 เกม', sub:'เรียนรู้การกินอาหารที่ดี', done:todayDone.nutrition },
-      { icon:'🏃', name:'เล่น Fitness 1 เกม', sub:'ขยับร่างกายให้แข็งแรง', done:todayDone.fitness }
+      {
+        icon: '🫧',
+        name: 'เล่น Hygiene 1 เกม',
+        sub: 'ล้างมือ แปรงฟัน หรือกันเชื้อโรค',
+        done: todayDone.hygiene
+      },
+      {
+        icon: '🥗',
+        name: 'เล่น Nutrition 1 เกม',
+        sub: 'เรียนรู้การกินอาหารที่ดี',
+        done: todayDone.nutrition
+      },
+      {
+        icon: '🏃',
+        name: 'เล่น Fitness 1 เกม',
+        sub: 'ขยับร่างกายให้แข็งแรง',
+        done: todayDone.fitness
+      }
     ];
 
     missionList.innerHTML = missions.map((m) => `
@@ -229,15 +300,61 @@
           <p class="mission-name">${escapeHtml(m.name)}</p>
           <p class="mission-sub">${escapeHtml(m.sub)}</p>
         </div>
-        <div class="mission-check" aria-label="${m.done ? 'สำเร็จ' : 'ยังไม่สำเร็จ'}">${m.done ? '✓' : '•'}</div>
+        <div class="mission-check" aria-label="${m.done ? 'สำเร็จ' : 'ยังไม่สำเร็จ'}">
+          ${m.done ? '✓' : '•'}
+        </div>
       </div>
     `).join('');
   }
 
+  function renderLibraryBox(){
+    const box = $('#libraryBox');
+    if (!box) return;
+
+    const cards = Object.entries(GAMES).map(([zone, set]) => {
+      const names = listGameNames(zone);
+      return `
+        <div class="library-card">
+          <div class="library-top">
+            <div class="library-name">${escapeHtml(set.label)}</div>
+            <div class="library-count">${names.length} เกม</div>
+          </div>
+          <div class="library-games">${escapeHtml(names.join(' • '))}</div>
+        </div>
+      `;
+    }).join('');
+
+    box.innerHTML = cards;
+  }
+
+  function initZoneMeta(){
+    const maps = [
+      ['hygiene', '#hygFeatured', '#btnZoneHygiene'],
+      ['nutrition', '#nutriFeatured', '#btnZoneNutrition'],
+      ['fitness', '#fitFeatured', '#btnZoneFitness']
+    ];
+
+    maps.forEach(([zone, featuredSel, btnSel]) => {
+      const featuredEl = $(featuredSel);
+      const btnEl = $(btnSel);
+      const set = GAMES[zone];
+      const def = getDefaultOption(zone);
+
+      if (featuredEl && def) featuredEl.textContent = def.label;
+      if (btnEl && set) btnEl.textContent = `ดูเกมทั้งหมด (${set.options.length})`;
+    });
+  }
+
   function renderLastSummary(lastSummary){
     const box = $('#summaryBox');
+
     if (!lastSummary) {
-      box.innerHTML = `<div class="empty">ยังไม่มีผลการเล่นล่าสุด<br />ลองกด <b>เล่นเลย</b> ที่โซนที่ชอบ แล้วกลับมาดูสรุปตรงนี้ได้เลย</div>`;
+      box.innerHTML = `
+        <div class="empty">
+          ยังไม่มีผลการเล่นล่าสุด<br />
+          ลองกด <b>เล่นเลย</b> ที่โซนที่ชอบ แล้วกลับมาดูสรุปตรงนี้ได้เลย
+        </div>
+      `;
       return;
     }
 
@@ -258,103 +375,29 @@
           </div>
           <div class="last-badge">✨ ล่าสุด</div>
         </div>
+
         <div class="score-strip">
-          <div class="score-pill"><span class="n">${score}</span><span class="t">Score</span></div>
-          <div class="score-pill"><span class="n">${starText(stars)}</span><span class="t">Stars</span></div>
-          <div class="score-pill"><span class="n">${coins}</span><span class="t">Coins</span></div>
+          <div class="score-pill">
+            <span class="n">${score}</span>
+            <span class="t">Score</span>
+          </div>
+          <div class="score-pill">
+            <span class="n">${starText(stars)}</span>
+            <span class="t">Stars</span>
+          </div>
+          <div class="score-pill">
+            <span class="n">${coins}</span>
+            <span class="t">Coins</span>
+          </div>
         </div>
+
         <p class="last-meta">${escapeHtml(note)}</p>
-        <a id="btnContinueLast" class="btn primary" href="${escapeHtml(carryQuery(replayUrl, { zone }))}">▶️ เล่นต่อ</a>
+
+        <a id="btnContinueLast" class="btn primary" href="${escapeHtml(carryQuery(replayUrl, { zone }))}">
+          ▶️ เล่นต่อ
+        </a>
       </div>
     `;
-  }
-
-  function renderZoneMeta(recentMap){
-    const config = [
-      { zone:'hygiene', featured:'#hygFeatured', recentPill:'#hygRecentPill', recentText:'#hygRecentText', zoneCard:'#zoneCard-hygiene', button:'#btnZoneHygiene' },
-      { zone:'nutrition', featured:'#nutriFeatured', recentPill:'#nutriRecentPill', recentText:'#nutriRecentText', zoneCard:'#zoneCard-nutrition', button:'#btnZoneNutrition' },
-      { zone:'fitness', featured:'#fitFeatured', recentPill:'#fitRecentPill', recentText:'#fitRecentText', zoneCard:'#zoneCard-fitness', button:'#btnZoneFitness' }
-    ];
-
-    config.forEach((item) => {
-      const featured = $(item.featured);
-      const recentPill = $(item.recentPill);
-      const recentText = $(item.recentText);
-      const button = $(item.button);
-      const set = GAMES[item.zone];
-      const def = getDefaultOption(item.zone);
-      const recent = getRecentOption(item.zone, recentMap[item.zone]);
-
-      if (featured && def) featured.textContent = def.label;
-      if (button && set) button.textContent = `ดูเกมในโซน (${set.options.length})`;
-      if (recentPill && recentText) {
-        if (recent) {
-          recentPill.hidden = false;
-          recentText.textContent = recent.label;
-        } else {
-          recentPill.hidden = true;
-        }
-      }
-    });
-
-    const activeZone = qs.get('zone');
-    if (activeZone && GAMES[activeZone]) {
-      document.querySelectorAll('[data-zone-card]').forEach((el) => el.classList.remove('is-active'));
-      const card = $(`#zoneCard-${activeZone}`);
-      if (card) card.classList.add('is-active');
-    }
-  }
-
-  function renderHeroQuickline(recentMap){
-    const el = $('#heroQuickline');
-    if (!el) return;
-    const zone = qs.get('zone');
-    const option = zone && recentMap[zone] ? getRecentOption(zone, recentMap[zone]) : null;
-    if (zone && option) {
-      el.textContent = `กลับมาจาก ${option.label} แล้ว ไปต่อเกมอื่นได้เลย!`;
-      return;
-    }
-    const completed = Object.values(recentMap).filter(Boolean).length;
-    el.textContent = completed >= 3 ? 'เก่งมาก! เคยเล่นครบทั้ง 3 โซนแล้ว' : 'วันนี้ลองเล่นให้ครบ 3 โซนกันนะ';
-  }
-
-  function thumbHtml(option){
-    return `<span class="game-thumb ${optionClass(option)}" aria-hidden="true"><span>${escapeHtml(option.icon || '🎮')}</span></span>`;
-  }
-
-  function renderLibraryBox(recentMap){
-    const box = $('#libraryBox');
-    if (!box) return;
-
-    box.innerHTML = Object.entries(GAMES).map(([zone, set]) => {
-      const def = getDefaultOption(zone);
-      const recentEntry = recentMap[zone];
-      const recent = getRecentOption(zone, recentEntry);
-
-      const gamesHtml = set.options.map((option) => `
-        <div class="library-game">
-          ${thumbHtml(option)}
-          <div class="library-game-info">
-            <div class="library-game-name">${escapeHtml(option.label)}</div>
-            <div class="library-game-sub">${escapeHtml(option.sub)}</div>
-          </div>
-        </div>
-      `).join('');
-
-      return `
-        <div class="library-card">
-          <div class="library-top">
-            <div class="library-name">${escapeHtml(set.label)}</div>
-            <div class="library-count">${set.options.length} เกม</div>
-          </div>
-          <div class="library-games">${gamesHtml}</div>
-          <div class="library-actions">
-            <a class="btn secondary small" href="${escapeHtml(carryQuery(def.url, { zone }))}">🎮 เล่นแนะนำ</a>
-            ${recent ? `<a class="btn secondary small" href="${escapeHtml(carryQuery(recent.url, { zone }))}">🕹️ เล่นล่าสุด</a>` : `<div class="library-empty">ยังไม่มีเกมล่าสุด</div>`}
-          </div>
-        </div>
-      `;
-    }).join('');
   }
 
   function toast(msg){
@@ -366,42 +409,37 @@
   }
 
   function bindTopButtons(profile){
-    $('#btnSettings').addEventListener('click', () => toast('หน้าตั้งค่าจะเพิ่มต่อได้ภายหลัง'));
-    $('#btnRewards').addEventListener('click', () => toast(`ตอนนี้มี ${profile.coins} เหรียญ และ ${profile.stars} ดาว`));
+    $('#btnSettings').addEventListener('click', () => {
+      toast('หน้าตั้งค่าจะเพิ่มต่อได้ภายหลัง');
+    });
+
+    $('#btnRewards').addEventListener('click', () => {
+      toast(`ตอนนี้มี ${profile.coins} เหรียญ และ ${profile.stars} ดาว`);
+    });
   }
 
-  function openPicker(zone, recentMap){
+  function openPicker(zone){
     const picker = $('#gamePicker');
     const title = $('#pickerTitle');
     const sub = $('#pickerSub');
     const list = $('#pickerList');
     const data = GAMES[zone];
+
     if (!picker || !data) return;
 
-    const recent = getRecentOption(zone, recentMap[zone]);
     title.textContent = data.label;
     sub.textContent = `เลือกเกมใน ${data.label} ได้เลย`;
     list.innerHTML = data.options.map((item) => {
       const isFeatured = item.url === data.defaultUrl;
-      const isRecent = recent && recent.url === item.url;
       return `
-        <button class="picker-item ${optionClass(item)}" type="button" data-url="${escapeHtml(item.url)}" data-zone="${escapeHtml(zone)}">
-          <span class="picker-item-shell">
-            ${thumbHtml(item)}
-            <span class="picker-main">
-              <span class="picker-item-top">
-                <span class="name">${escapeHtml(item.label)}</span>
-              </span>
-              <span class="sub">${escapeHtml(item.sub)}</span>
-              <span class="picker-badges">
-                ${isFeatured ? '<span class="picker-badge">แนะนำ</span>' : ''}
-                ${isRecent ? '<span class="picker-badge recent">ล่าสุด</span>' : ''}
-              </span>
-            </span>
-          </span>
-        </button>
-      `;
-    }).join('');
+      <button class="picker-item" type="button" data-url="${escapeHtml(item.url)}" data-zone="${escapeHtml(zone)}">
+        <span class="picker-item-top">
+          <span class="name">${escapeHtml(item.label)}</span>
+          ${isFeatured ? '<span class="picker-badge">แนะนำ</span>' : ''}
+        </span>
+        <span class="sub">${escapeHtml(item.sub)}</span>
+      </button>
+    `;}).join('');
 
     list.querySelectorAll('.picker-item').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -424,32 +462,44 @@
   }
 
   function bindPicker(){
-    document.querySelectorAll('[data-close-picker]').forEach((el) => el.addEventListener('click', closePicker));
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePicker(); });
+    document.querySelectorAll('[data-close-picker]').forEach((el) => {
+      el.addEventListener('click', closePicker);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePicker();
+    });
   }
 
-  function bindZoneLinks(recentMap){
+  function bindZoneLinks(){
     $('#btnPlayHygiene').href = carryQuery(GAMES.hygiene.defaultUrl, { zone: 'hygiene' });
     $('#btnPlayNutrition').href = carryQuery(GAMES.nutrition.defaultUrl, { zone: 'nutrition' });
     $('#btnPlayFitness').href = carryQuery(GAMES.fitness.defaultUrl, { zone: 'fitness' });
-    $('#btnZoneHygiene').addEventListener('click', () => openPicker('hygiene', recentMap));
-    $('#btnZoneNutrition').addEventListener('click', () => openPicker('nutrition', recentMap));
-    $('#btnZoneFitness').addEventListener('click', () => openPicker('fitness', recentMap));
+
+    $('#btnZoneHygiene').addEventListener('click', () => openPicker('hygiene'));
+    $('#btnZoneNutrition').addEventListener('click', () => openPicker('nutrition'));
+    $('#btnZoneFitness').addEventListener('click', () => openPicker('fitness'));
   }
 
   function mergeSummaryIntoProfile(profile, lastSummary){
     if (!lastSummary) return profile;
+
     const next = { ...profile };
     const bonusCoins = Math.max(0, fmtInt(lastSummary.coins ?? lastSummary.rewardCoins, 0));
     const stars = clamp(fmtInt(lastSummary.stars, 0), 0, 3);
+
     next.coins = Math.max(next.coins, DEFAULT_PLAYER.coins);
     next.stars = Math.max(next.stars, DEFAULT_PLAYER.stars, stars);
     next.level = Math.max(next.level, DEFAULT_PLAYER.level);
+
     if (bonusCoins > 0 && !lastSummary._hubApplied) {
       next.coins += bonusCoins;
       const patchedSummary = { ...lastSummary, _hubApplied: true };
-      try{ localStorage.setItem(STORAGE_KEYS.lastSummary, JSON.stringify(patchedSummary)); }catch{}
+      try{
+        localStorage.setItem(STORAGE_KEYS.lastSummary, JSON.stringify(patchedSummary));
+      }catch{}
     }
+
     writeProfile(next);
     return next;
   }
@@ -458,7 +508,6 @@
     let profile = readProfile();
     const lastSummary = readLastSummary();
     const history = readSummaryHistory();
-    const recentMap = getRecentByZone(history, lastSummary);
 
     profile = mergeSummaryIntoProfile(profile, lastSummary);
 
@@ -466,10 +515,9 @@
     renderZoneStats(zoneStatsFromHistory(history));
     renderMissions(history);
     renderLastSummary(lastSummary);
-    renderZoneMeta(recentMap);
-    renderHeroQuickline(recentMap);
-    renderLibraryBox(recentMap);
-    bindZoneLinks(recentMap);
+    renderLibraryBox();
+    initZoneMeta();
+    bindZoneLinks();
     bindTopButtons(profile);
     bindPicker();
   }
