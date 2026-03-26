@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Plate Multiplayer Modes</title>
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --bg1:#08111f;
+      --bg2:#0f1f3a;
+      --bg3:#17346d;
+
+      --panel:rgba(15,23,42,.86);
+      --panel-2:rgba(2,6,23,.9);
+      --line:rgba(255,255,255,.12);
+
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --soft:#dbeafe;
+
+      --good:#22c55e;
+      --blue:#3b82f6;
+      --blue-2:#1d4ed8;
+      --orange:#fb923c;
+      --red:#ef4444;
+      --violet:#8b5cf6;
+      --cyan:#22d3ee;
+
+      --shadow:0 18px 50px rgba(0,0,0,.35);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; min-height:100%; }
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 0% -10%, rgba(59,130,246,.22), transparent 60%),
+        radial-gradient(1000px 600px at 110% 0%, rgba(34,197,94,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 48%, #08111f 100%);
+      overflow-x:hidden;
+    }
+
+    .shell{
+      width:min(1180px,100%);
+      margin:0 auto;
+      padding:
+        max(14px, env(safe-area-inset-top))
+        14px
+        max(18px, env(safe-area-inset-bottom));
+      display:grid;
+      gap:14px;
+    }
+
+    .hero,
+    .card{
+      background:linear-gradient(180deg, rgba(15,23,42,.9), rgba(2,6,23,.92));
+      border:1px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+    }
+
+    .hero{
+      padding:18px;
+      display:grid;
+      gap:12px;
+    }
+
+    .hero-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .badge-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--soft);
+      font-weight:900;
+      font-size:12px;
+      letter-spacing:.2px;
+    }
+
+    .title{
+      margin:0;
+      font-size:clamp(28px,4vw,42px);
+      line-height:1.02;
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+
+    .sub{
+      margin:0;
+      color:var(--muted);
+      line-height:1.55;
+      font-size:14px;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      font:inherit;
+      color:white;
+      font-weight:1000;
+      border-radius:18px;
+      padding:12px 16px;
+      min-height:46px;
+      box-shadow:0 12px 24px rgba(0,0,0,.22);
+      transition:transform .12s ease, opacity .12s ease, filter .12s ease;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-blue{ background:linear-gradient(180deg, var(--blue), var(--blue-2)); }
+    .btn-green{ background:linear-gradient(180deg, #22c55e, #15803d); }
+    .btn-orange{ background:linear-gradient(180deg, #fb923c, #ea580c); }
+    .btn-red{ background:linear-gradient(180deg, #ef4444, #dc2626); }
+    .btn-violet{ background:linear-gradient(180deg, #8b5cf6, #6d28d9); }
+    .btn-ghost{
+      background:linear-gradient(180deg, #334155, #1e293b);
+      box-shadow:none;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    @media (max-width:900px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .mode-card{
+      padding:18px;
+      display:grid;
+      gap:12px;
+    }
+
+    .mode-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .mode-title{
+      margin:0;
+      font-size:24px;
+      font-weight:1000;
+      line-height:1.08;
+    }
+
+    .mode-sub{
+      margin:0;
+      color:var(--muted);
+      line-height:1.5;
+      font-size:14px;
+    }
+
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.05);
+      font-size:12px;
+      font-weight:900;
+      color:var(--soft);
+    }
+
+    .checklist{
+      display:grid;
+      gap:8px;
+    }
+
+    .check{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      border-radius:18px;
+      padding:11px 12px;
+      color:var(--soft);
+      font-size:13px;
+      line-height:1.45;
+    }
+
+    .footer-card{
+      padding:16px;
+      display:grid;
+      gap:10px;
+    }
+
+    .mono{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+
+    .params{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <div class="badge-row">
+            <span class="pill">🥗 Plate Multiplayer</span>
+            <span class="pill">🆕 New Files Caller</span>
+            <span class="pill">🌐 Multi-device</span>
+          </div>
+          <h1 class="title">เลือกโหมด multiplayer ของ Plate</h1>
+          <p class="sub">
+            หน้านี้ใช้เรียกไฟล์ใหม่ทั้งหมดของ Plate multiplayer
+            แล้วส่งต่อไปยัง lobby กลางเพื่อสร้างห้องหรือเข้าห้อง ก่อนเข้าเกมจริง
+          </p>
+        </div>
+
+        <div class="actions">
+          <button id="btnCopy" class="btn btn-ghost" type="button">คัดลอกลิงก์หน้านี้</button>
+          <a id="btnHub" class="btn btn-orange" href="../hub.html">กลับ HUB</a>
+        </div>
+      </div>
+
+      <div class="params">
+        <span class="pill">diff <span id="pDiff">normal</span></span>
+        <span class="pill">time <span id="pTime">90</span></span>
+        <span class="pill">seed <span id="pSeed" class="mono">-</span></span>
+        <span class="pill">view <span id="pView">mobile</span></span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card mode-card">
+        <div class="mode-head">
+          <div>
+            <div class="tag">👫 2 คน</div>
+            <h2 class="mode-title">Duet</h2>
+            <p class="mode-sub">เล่น 2 คนแบบช่วยกันเห็นสถานะ A/B ชัดเจน เหมาะกับจับคู่เรียนรู้พร้อมกัน</p>
+          </div>
+          <a id="goDuet" class="btn btn-blue" href="./plate-multi.html">เข้า Lobby</a>
+        </div>
+        <div class="checklist">
+          <div class="check">ใช้คนละเครื่อง • role A/B • ready ก่อนเริ่ม</div>
+          <div class="check">หน้า run ที่เรียก: <span class="mono">plate-duet.html</span></div>
+        </div>
+      </article>
+
+      <article class="card mode-card">
+        <div class="mode-head">
+          <div>
+            <div class="tag">🏁 แข่ง</div>
+            <h2 class="mode-title">Race</h2>
+            <p class="mode-sub">แข่งกันตอบให้เร็วและแม่น มี leaderboard สด และดูอันดับได้ระหว่างเล่น</p>
+          </div>
+          <a id="goRace" class="btn btn-green" href="./plate-multi.html">เข้า Lobby</a>
+        </div>
+        <div class="checklist">
+          <div class="check">ใช้ room เดียวกัน • pid ไม่ซ้ำ • start พร้อมกัน</div>
+          <div class="check">หน้า run ที่เรียก: <span class="mono">plate-race-run.html</span></div>
+        </div>
+      </article>
+
+      <article class="card mode-card">
+        <div class="mode-head">
+          <div>
+            <div class="tag">⚔️ PvP</div>
+            <h2 class="mode-title">Battle</h2>
+            <p class="mode-sub">ตอบถูกเพื่อโจมตีอีกฝั่ง มี HP, hit, heal, shield และ winner/loser flow</p>
+          </div>
+          <a id="goBattle" class="btn btn-red" href="./plate-multi.html">เข้า Lobby</a>
+        </div>
+        <div class="checklist">
+          <div class="check">2 คน • role A/B • sync action ระหว่างเครื่อง</div>
+          <div class="check">หน้า run ที่เรียก: <span class="mono">plate-battle-run.html</span></div>
+        </div>
+      </article>
+
+      <article class="card mode-card">
+        <div class="mode-head">
+          <div>
+            <div class="tag">🤝 ทีม</div>
+            <h2 class="mode-title">Coop</h2>
+            <p class="mode-sub">ช่วยกันสะสม contribution ให้ถึงเป้าหมายทีม เหมาะกับเล่นเป็นกลุ่ม</p>
+          </div>
+          <a id="goCoop" class="btn btn-violet" href="./plate-multi.html">เข้า Lobby</a>
+        </div>
+        <div class="checklist">
+          <div class="check">หลายเครื่อง • shared goal • contribution รวมกัน</div>
+          <div class="check">หน้า run ที่เรียก: <span class="mono">plate-coop-run.html</span></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="card footer-card">
+      <strong>ไฟล์นี้ทำหน้าที่อะไร</strong>
+      <div class="sub">
+        ไฟล์นี้เป็น “ตัวเรียกไฟล์ใหม่” ระดับบนสุดของโหมด multiplayer
+        โดยส่งต่อพารามิเตอร์ไปที่ <span class="mono">plate-multi.html</span>
+        แล้วหน้า lobby จะเป็นคนสร้าง / เข้าห้อง และ generate ลิงก์ run files ใหม่ให้อีกที
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+
+      const ctx = {
+        diff: qs.get('diff') || 'normal',
+        time: qs.get('time') || '90',
+        seed: qs.get('seed') || String(Date.now()),
+        view: qs.get('view') || 'mobile',
+        hub: qs.get('hub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html',
+        run: qs.get('run') || 'play',
+        game: qs.get('game') || 'platev1',
+        theme: qs.get('theme') || 'platev1',
+        zone: qs.get('zone') || 'nutrition',
+        cooldown: qs.get('cooldown') || '1'
+      };
+
+      const pDiff = document.getElementById('pDiff');
+      const pTime = document.getElementById('pTime');
+      const pSeed = document.getElementById('pSeed');
+      const pView = document.getElementById('pView');
+      const btnHub = document.getElementById('btnHub');
+
+      pDiff.textContent = ctx.diff;
+      pTime.textContent = ctx.time;
+      pSeed.textContent = ctx.seed;
+      pView.textContent = ctx.view;
+      btnHub.href = ctx.hub;
+
+      function buildModeHref(mode){
+        const url = new URL('./plate-multi.html', location.href);
+        url.searchParams.set('mode', mode);
+        url.searchParams.set('diff', ctx.diff);
+        url.searchParams.set('time', ctx.time);
+        url.searchParams.set('seed', ctx.seed);
+        url.searchParams.set('view', ctx.view);
+        url.searchParams.set('hub', ctx.hub);
+        url.searchParams.set('run', ctx.run);
+        url.searchParams.set('game', ctx.game);
+        url.searchParams.set('theme', ctx.theme);
+        url.searchParams.set('zone', ctx.zone);
+        url.searchParams.set('cooldown', ctx.cooldown);
+        return url.toString();
+      }
+
+      document.getElementById('goDuet').href = buildModeHref('duet');
+      document.getElementById('goRace').href = buildModeHref('race');
+      document.getElementById('goBattle').href = buildModeHref('battle');
+      document.getElementById('goCoop').href = buildModeHref('coop');
+
+      document.getElementById('btnCopy').addEventListener('click', async () => {
+        try{
+          await navigator.clipboard.writeText(location.href);
+        }catch(e){}
+      });
+    })();
+  </script>
+</body>
+</html>
