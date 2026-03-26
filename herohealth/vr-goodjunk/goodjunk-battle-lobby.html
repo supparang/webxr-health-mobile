@@ -27,9 +27,7 @@
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
-
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
       min-height:100%;
@@ -40,9 +38,7 @@
         radial-gradient(circle at 80% 0%, rgba(239,68,68,.08), transparent 24%),
         linear-gradient(180deg,var(--bg2),var(--bg1));
     }
-
     body{ overflow-x:hidden; }
-
     .page{
       min-height:100vh;
       display:flex;
@@ -54,7 +50,6 @@
         calc(16px + var(--sab))
         calc(12px + var(--sal));
     }
-
     .topbar{
       display:flex;
       align-items:center;
@@ -62,7 +57,6 @@
       gap:10px;
       flex-wrap:wrap;
     }
-
     .brand{
       display:flex;
       align-items:center;
@@ -74,27 +68,23 @@
       backdrop-filter:blur(10px);
       box-shadow:var(--shadow);
     }
-
     .brand-title{
       font-size:16px;
       font-weight:1100;
       line-height:1.1;
     }
-
     .brand-sub{
       margin-top:2px;
       color:var(--muted);
       font-size:12px;
       font-weight:900;
     }
-
     .top-actions{
       display:flex;
       gap:8px;
       flex-wrap:wrap;
       align-items:center;
     }
-
     .btn{
       appearance:none;
       border:1px solid rgba(148,163,184,.20);
@@ -113,51 +103,42 @@
       gap:8px;
       width:auto;
     }
-
     .btn.primary{
       border-color:rgba(59,130,246,.28);
       background:rgba(59,130,246,.14);
     }
-
     .btn.good{
       border-color:rgba(34,197,94,.28);
       background:rgba(34,197,94,.14);
     }
-
     .btn.warn{
       border-color:rgba(245,158,11,.28);
       background:rgba(245,158,11,.14);
       color:#fde68a;
     }
-
     .btn.violet{
       border-color:rgba(167,139,250,.28);
       background:rgba(167,139,250,.14);
     }
-
     .btn.ghost{
       color:var(--muted);
     }
-
     .btn.bad{
       border-color:rgba(239,68,68,.30);
       background:rgba(239,68,68,.14);
       color:#fecaca;
     }
-
     .shell{
       width:min(1240px, 100%);
       margin:0 auto;
       display:grid;
       gap:12px;
     }
-
     .hero{
       display:grid;
       grid-template-columns:1.12fr .88fr;
       gap:12px;
     }
-
     .card{
       border-radius:24px;
       border:1px solid rgba(148,163,184,.18);
@@ -168,7 +149,6 @@
       flex-direction:column;
       gap:14px;
     }
-
     .kicker{
       display:inline-flex;
       align-items:center;
@@ -183,28 +163,24 @@
       font-size:12px;
       font-weight:1000;
     }
-
     .title{
       font-size:28px;
       line-height:1.1;
       font-weight:1100;
       margin:0;
     }
-
     .muted{
       color:var(--muted);
       font-size:13px;
       line-height:1.6;
       font-weight:900;
     }
-
     .pill-row{
       display:flex;
       gap:8px;
       flex-wrap:wrap;
       align-items:center;
     }
-
     .pill{
       display:inline-flex;
       align-items:center;
@@ -218,14 +194,11 @@
       font-size:13px;
       font-weight:1000;
     }
-
     .pill b{ color:#fff; }
-
     .meter-wrap{
       display:grid;
       gap:10px;
     }
-
     .meter-head{
       display:flex;
       align-items:center;
@@ -235,14 +208,12 @@
       font-size:14px;
       font-weight:1000;
     }
-
     .meter-bar{
       height:18px;
       border-radius:999px;
       background:rgba(148,163,184,.14);
       overflow:hidden;
     }
-
     .meter-fill{
       height:100%;
       width:0%;
@@ -250,13 +221,11 @@
       background:linear-gradient(90deg,var(--battle),var(--battle2),#fde68a);
       transition:width .18s linear;
     }
-
     .room-grid{
       display:grid;
       grid-template-columns:1fr 320px;
       gap:12px;
     }
-
     .panel{
       border-radius:20px;
       border:1px solid rgba(148,163,184,.16);
@@ -266,13 +235,11 @@
       flex-direction:column;
       gap:12px;
     }
-
     .panel-title{
       font-size:15px;
       font-weight:1100;
       color:#f8fafc;
     }
-
     .room-code{
       display:flex;
       align-items:center;
@@ -283,13 +250,11 @@
       border:1px solid rgba(245,158,11,.20);
       background:rgba(245,158,11,.10);
     }
-
     .room-code-label{
       font-size:12px;
       color:#fde68a;
       font-weight:1000;
     }
-
     .room-code-value{
       font-size:22px;
       line-height:1;
@@ -297,7 +262,6 @@
       letter-spacing:.04em;
       color:#f8fafc;
     }
-
     .linkbox{
       border-radius:16px;
       border:1px solid rgba(148,163,184,.16);
@@ -309,7 +273,6 @@
       word-break:break-all;
       min-height:80px;
     }
-
     .qr{
       width:220px;
       height:220px;
@@ -322,13 +285,11 @@
       place-items:center;
       overflow:hidden;
     }
-
     .qr img{
       width:220px;
       height:220px;
       display:block;
     }
-
     .players-card{
       border-radius:24px;
       border:1px solid rgba(148,163,184,.18);
@@ -339,7 +300,6 @@
       flex-direction:column;
       gap:14px;
     }
-
     .players-head{
       display:flex;
       align-items:center;
@@ -347,13 +307,11 @@
       gap:10px;
       flex-wrap:wrap;
     }
-
     .players-head-title{
       font-size:18px;
       font-weight:1100;
       color:#f8fafc;
     }
-
     .status-chip{
       display:inline-flex;
       align-items:center;
@@ -367,37 +325,31 @@
       font-size:12px;
       font-weight:1000;
     }
-
     .status-chip.good{
       color:#dcfce7;
       border-color:rgba(34,197,94,.28);
       background:rgba(34,197,94,.14);
     }
-
     .status-chip.warn{
       color:#fde68a;
       border-color:rgba(245,158,11,.28);
       background:rgba(245,158,11,.14);
     }
-
     .status-chip.bad{
       color:#fecaca;
       border-color:rgba(239,68,68,.26);
       background:rgba(239,68,68,.10);
     }
-
     .table-wrap{
       overflow:auto;
       -webkit-overflow-scrolling:touch;
     }
-
     table{
       width:100%;
       min-width:780px;
       border-collapse:separate;
       border-spacing:0 8px;
     }
-
     th{
       text-align:left;
       color:#94a3b8;
@@ -405,7 +357,6 @@
       font-weight:1000;
       padding:0 10px 6px;
     }
-
     td{
       padding:12px 10px;
       background:rgba(2,6,23,.42);
@@ -413,22 +364,18 @@
       font-weight:900;
       color:#f8fafc;
     }
-
     tr td:first-child{
       border-top-left-radius:14px;
       border-bottom-left-radius:14px;
     }
-
     tr td:last-child{
       border-top-right-radius:14px;
       border-bottom-right-radius:14px;
     }
-
     tr.me-row td{
       outline:1px solid rgba(245,158,11,.26);
       background:rgba(30,41,59,.78);
     }
-
     .ready-dot{
       display:inline-block;
       width:10px;
@@ -438,12 +385,10 @@
       vertical-align:middle;
       background:#64748b;
     }
-
     .ready-dot.on{
       background:#22c55e;
       box-shadow:0 0 0 4px rgba(34,197,94,.14);
     }
-
     .host-badge{
       display:inline-flex;
       align-items:center;
@@ -457,7 +402,6 @@
       font-size:11px;
       font-weight:1100;
     }
-
     .note{
       border-radius:18px;
       border:1px solid rgba(148,163,184,.14);
@@ -467,20 +411,17 @@
       font-size:14px;
       line-height:1.55;
     }
-
     .actions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
       align-items:center;
     }
-
     .rule-grid{
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:10px;
     }
-
     .rule-box{
       border-radius:18px;
       border:1px solid rgba(148,163,184,.14);
@@ -490,30 +431,21 @@
       flex-direction:column;
       gap:6px;
     }
-
     .rule-k{
       font-size:12px;
       color:var(--muted);
       font-weight:1000;
     }
-
     .rule-v{
       font-size:18px;
       line-height:1.1;
       font-weight:1100;
       color:#f8fafc;
     }
-
     @media (max-width:1040px){
-      .hero,
-      .room-grid{
-        grid-template-columns:1fr;
-      }
-      .rule-grid{
-        grid-template-columns:1fr;
-      }
+      .hero,.room-grid{ grid-template-columns:1fr; }
+      .rule-grid{ grid-template-columns:1fr; }
     }
-
     @media (max-width:640px){
       .page{
         gap:10px;
@@ -523,41 +455,21 @@
           calc(14px + var(--sab))
           calc(10px + var(--sal));
       }
-
       .brand{
         padding:8px 10px;
         border-radius:16px;
       }
-
-      .brand-title{
-        font-size:14px;
-      }
-
-      .top-actions{
-        width:100%;
-      }
-
-      .top-actions .btn{
-        flex:1 1 auto;
-      }
-
-      .title{
-        font-size:24px;
-      }
-
-      .room-code-value{
-        font-size:18px;
-      }
-
-      .actions .btn{
-        flex:1 1 calc(50% - 10px);
-      }
+      .brand-title{ font-size:14px; }
+      .top-actions{ width:100%; }
+      .top-actions .btn{ flex:1 1 auto; }
+      .title{ font-size:24px; }
+      .room-code-value{ font-size:18px; }
+      .actions .btn{ flex:1 1 calc(50% - 10px); }
     }
   </style>
 </head>
 <body>
   <div class="page">
-
     <div class="topbar">
       <div class="brand">
         <div style="font-size:20px;">⚔</div>
@@ -574,7 +486,6 @@
     </div>
 
     <div class="shell">
-
       <section class="hero">
         <div class="card">
           <div class="kicker">BATTLE LOBBY</div>
@@ -616,7 +527,7 @@
           </div>
 
           <div class="note">
-            ตอนเข้า run จะมีระบบ HP และ Attack Charge จาก safe layer ของ battle และป้าย <strong>ATTACK READY</strong> จะคุมใน run page
+            ใน run page จะมี HP, combo, score และ Attack Charge เมื่อ Charge เต็มจะกด <strong>ATTACK READY</strong> เพื่อรับคะแนนพิเศษทันที
           </div>
 
           <div class="actions">
@@ -676,555 +587,564 @@
               </tr>
             </thead>
             <tbody id="uiPlayersTbody">
-              <tr>
-                <td colspan="4">กำลังโหลดห้อง...</td>
-              </tr>
+              <tr><td colspan="4">กำลังโหลดห้อง...</td></tr>
             </tbody>
           </table>
         </div>
       </section>
-
     </div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="../firebase-config.js"></script>
+  <script src="../common/hha-multiplayer.js"></script>
+
   <script>
-    (function(){
-      const qs = new URLSearchParams(location.search);
+  (function(){
+    const qs = new URLSearchParams(location.search);
 
-      const MODE = 'battle';
-      const MAX_PLAYERS = 5;
-      const MIN_READY = 2;
+    const GAME = 'goodjunk';
+    const MODE = 'battle';
+    const MAX_PLAYERS = 5;
+    const MIN_READY = 2;
 
-      const ROOM_KEY_PREFIX = 'GJ_ROOM_STATE:';
-      const CHANNEL_PREFIX = 'GJ_ROOM_CHANNEL:';
+    const $ = (id) => document.getElementById(id);
 
-      const $ = (id) => document.getElementById(id);
+    const ui = {
+      roomId: $('uiRoomId'),
+      selfName: $('uiSelfName'),
+      selfPid: $('uiSelfPid'),
+      readyCount: $('uiReadyCount'),
+      minReady: $('uiMinReady'),
+      readyFill: $('uiReadyFill'),
+      roomCode: $('uiRoomCode'),
+      shareLink: $('uiShareLink'),
+      qrBox: $('uiQrBox'),
+      hostChip: $('uiHostChip'),
+      roomStateChip: $('uiRoomStateChip'),
+      playerCountChip: $('uiPlayerCountChip'),
+      playersTbody: $('uiPlayersTbody'),
 
-      const ui = {
-        roomId: $('uiRoomId'),
-        selfName: $('uiSelfName'),
-        selfPid: $('uiSelfPid'),
-        readyCount: $('uiReadyCount'),
-        minReady: $('uiMinReady'),
-        readyFill: $('uiReadyFill'),
-        roomCode: $('uiRoomCode'),
-        shareLink: $('uiShareLink'),
-        qrBox: $('uiQrBox'),
-        hostChip: $('uiHostChip'),
-        roomStateChip: $('uiRoomStateChip'),
-        playerCountChip: $('uiPlayerCountChip'),
-        playersTbody: $('uiPlayersTbody'),
+      btnReady: $('btnReady'),
+      btnUnready: $('btnUnready'),
+      btnStart: $('btnStart'),
+      btnLeave: $('btnLeave'),
+      btnCopyCode: $('btnCopyCode'),
+      btnCopyLink: $('btnCopyLink'),
+      btnBackLauncher: $('btnBackLauncher'),
+      btnGoHub: $('btnGoHub')
+    };
 
-        btnReady: $('btnReady'),
-        btnUnready: $('btnUnready'),
-        btnStart: $('btnStart'),
-        btnLeave: $('btnLeave'),
-        btnCopyCode: $('btnCopyCode'),
-        btnCopyLink: $('btnCopyLink'),
-        btnBackLauncher: $('btnBackLauncher'),
-        btnGoHub: $('btnGoHub')
-      };
+    const hubUrl = qs.get('hub') || '../hub.html';
 
-      const hubUrl = qs.get('hub') || '../hub.html';
-
-      function txt(v){ return String(v ?? '').trim(); }
-
-      function nowIso(){ try{ return new Date().toISOString(); }catch(_){ return ''; } }
-
-      function esc(s){
-        return String(s ?? '')
-          .replaceAll('&','&amp;')
-          .replaceAll('<','&lt;')
-          .replaceAll('>','&gt;')
-          .replaceAll('"','&quot;');
+    function txt(v){ return String(v ?? '').trim(); }
+    function esc(s){
+      return String(s ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;');
+    }
+    function clamp(n, min, max){
+      n = Number(n);
+      if (!Number.isFinite(n)) n = min;
+      return Math.max(min, Math.min(max, n));
+    }
+    function shortTime(v){
+      try{
+        const d = new Date(Number(v) || v);
+        if (Number.isNaN(d.getTime())) return '-';
+        return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      }catch(_){ return '-'; }
+    }
+    function randRoom(){
+      const pool = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+      let s = 'GJ-';
+      for(let i=0;i<5;i++) s += pool[Math.floor(Math.random()*pool.length)];
+      return s;
+    }
+    function makeDevicePid(){
+      try{
+        const KEY = 'GJ_DEVICE_PID';
+        let pid = localStorage.getItem(KEY);
+        if (!pid){
+          pid = `p-${Math.random().toString(36).slice(2, 10)}`;
+          localStorage.setItem(KEY, pid);
+        }
+        return pid;
+      }catch(_){
+        return `p-${Math.random().toString(36).slice(2, 10)}`;
       }
+    }
+    function normalizePid(raw){
+      const v = txt(raw).replace(/[.#$[\]/]/g,'-');
+      if (!v) return makeDevicePid();
+      if (v.toLowerCase() === 'anon') return makeDevicePid();
+      return v.slice(0, 80);
+    }
+    function normalizeName(raw){
+      return txt(raw).replace(/\s+/g,' ').slice(0, 40) || 'Player';
+    }
 
-      function shortTime(iso){
+    const SELF = {
+      pid: normalizePid(qs.get('pid') || ''),
+      name: normalizeName(qs.get('name') || 'Player'),
+      view: txt(qs.get('view') || 'mobile').toLowerCase() || 'mobile'
+    };
+
+    const ROOM_ID = txt(qs.get('roomId') || qs.get('room') || '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9-]/g,'')
+      .slice(0, 40) || randRoom();
+
+    const DIFF = txt(qs.get('diff') || 'normal').toLowerCase() || 'normal';
+    const TIME_SEC = clamp(qs.get('time') || 90, 15, 900);
+
+    let roomState = null;
+    let stopWatchRoom = null;
+    let heartbeatTimer = null;
+    let countdownTimer = null;
+    let destroyed = false;
+
+    function baseRunUrl(){
+      const u = new URL('./goodjunk-battle-run.html', location.href);
+      [
+        'pid','name','hub','run','diff','time','studyId','phase','conditionGroup',
+        'view','api','log','debug','ai','seed'
+      ].forEach(k => {
+        const v = qs.get(k);
+        if (v != null && v !== '') u.searchParams.set(k, v);
+      });
+      u.searchParams.set('mode', MODE);
+      u.searchParams.set('roomId', ROOM_ID);
+      u.searchParams.set('hub', hubUrl);
+      return u.toString();
+    }
+
+    function lobbyJoinUrl(){
+      const u = new URL(location.href);
+      u.searchParams.set('roomId', ROOM_ID);
+      u.searchParams.set('mode', MODE);
+      u.searchParams.set('hub', hubUrl);
+      u.searchParams.set('game', GAME);
+      return u.toString();
+    }
+
+    function getPlayersArray(room){
+      const playersObj = room?.players || {};
+      return Object.values(playersObj).map(p => ({
+        pid: txt(p?.playerId || p?.pid || ''),
+        name: normalizeName(p?.name || 'Player'),
+        ready: !!p?.ready,
+        joinedAt: p?.joinedAt || 0,
+        isHost: txt(p?.role || '') === 'host'
+      }));
+    }
+
+    function getReadyCount(room){
+      return getPlayersArray(room).filter(p => p.ready).length;
+    }
+
+    function getSelfPlayer(room){
+      return getPlayersArray(room).find(p => p.pid === SELF.pid) || null;
+    }
+
+    function getHostPid(room){
+      return txt(room?.meta?.hostPlayerId || '');
+    }
+
+    function getHostName(room){
+      return txt(room?.meta?.hostName || '');
+    }
+
+    function isHost(room){
+      return getHostPid(room) === SELF.pid;
+    }
+
+    function canStart(room){
+      if (!room) return false;
+      const status = txt(room?.meta?.status || 'lobby');
+      const started = !!room?.match?.started;
+      return isHost(room) && !started && (status === 'lobby' || status === 'waiting') && getReadyCount(room) >= MIN_READY;
+    }
+
+    function roomStatusText(room){
+      const raw = txt(room?.meta?.status || room?.match?.phase || 'waiting');
+      if (!raw) return 'WAITING';
+      return raw.toUpperCase();
+    }
+
+    function roomStatusClass(room){
+      const raw = txt(room?.meta?.status || room?.match?.phase || 'waiting');
+      if (raw === 'playing' || raw === 'running' || raw === 'countdown') return 'good';
+      if (getReadyCount(room) >= MIN_READY) return 'good';
+      if (raw === 'ended' || raw === 'closed') return 'bad';
+      return 'warn';
+    }
+
+    function sortPlayers(room){
+      const hostPid = getHostPid(room);
+      return getPlayersArray(room).sort((a,b)=>{
+        if (a.pid === hostPid && b.pid !== hostPid) return -1;
+        if (b.pid === hostPid && a.pid !== hostPid) return 1;
+        if (Number(b.ready) !== Number(a.ready)) return Number(b.ready) - Number(a.ready);
+        return Number(a.joinedAt || 0) - Number(b.joinedAt || 0);
+      });
+    }
+
+    function renderQr(url){
+      if (!url) {
+        ui.qrBox.innerHTML = '<span class="muted">ยังไม่มี QR</span>';
+        return;
+      }
+      const img = new Image();
+      img.alt = 'QR';
+      img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(url);
+      ui.qrBox.innerHTML = '';
+      ui.qrBox.appendChild(img);
+    }
+
+    async function copyText(text){
+      const value = txt(text);
+      if (!value) return false;
+      try{
+        await navigator.clipboard.writeText(value);
+        return true;
+      }catch(_){
         try{
-          const d = new Date(iso);
-          if (Number.isNaN(d.getTime())) return '-';
-          return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-        }catch(_){
-          return '-';
+          const ta = document.createElement('textarea');
+          ta.value = value;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.select();
+          const ok = document.execCommand('copy');
+          ta.remove();
+          return !!ok;
+        }catch(_2){
+          return false;
         }
       }
+    }
 
-      function clamp(n, min, max){
-        return Math.max(min, Math.min(max, n));
+    function renderPlayersTable(room){
+      const players = sortPlayers(room);
+      if (!players.length) {
+        ui.playersTbody.innerHTML = `<tr><td colspan="4">ยังไม่มีผู้เล่น</td></tr>`;
+        return;
       }
 
-      function randRoom(){
-        const pool = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-        let s = 'GJ-';
-        for(let i=0;i<5;i++) s += pool[Math.floor(Math.random()*pool.length)];
-        return s;
-      }
+      const hostPid = getHostPid(room);
 
-      function makeDevicePid(){
-        try{
-          const KEY = 'GJ_DEVICE_PID';
-          let pid = localStorage.getItem(KEY);
-          if (!pid){
-            pid = `p-${Math.random().toString(36).slice(2, 10)}`;
-            localStorage.setItem(KEY, pid);
-          }
-          return pid;
-        }catch(_){
-          return `p-${Math.random().toString(36).slice(2, 10)}`;
-        }
-      }
-
-      function normalizePid(raw){
-        const v = txt(raw).replace(/[.#$[\]/]/g,'-');
-        if (!v) return makeDevicePid();
-        if (v.toLowerCase() === 'anon') return makeDevicePid();
-        return v;
-      }
-
-      function normalizeName(raw){
-        return txt(raw).replace(/\s+/g,' ').slice(0, 48) || 'Player';
-      }
-
-      const SELF = {
-        pid: normalizePid(qs.get('pid') || ''),
-        name: normalizeName(qs.get('name') || 'Player'),
-      };
-
-      const ROOM_ID = txt(qs.get('roomId') || qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,24) || randRoom();
-      const ROOM_KEY = ROOM_KEY_PREFIX + ROOM_ID;
-      const CHANNEL_NAME = CHANNEL_PREFIX + ROOM_ID;
-
-      let roomState = null;
-      let bc = null;
-      let destroyed = false;
-
-      function roomStorageRead(){
-        try{
-          const raw = localStorage.getItem(ROOM_KEY);
-          return raw ? JSON.parse(raw) : null;
-        }catch(_){
-          return null;
-        }
-      }
-
-      function roomStorageWrite(state){
-        try{
-          localStorage.setItem(ROOM_KEY, JSON.stringify(state));
-        }catch(_){}
-      }
-
-      function deepClone(v){
-        return JSON.parse(JSON.stringify(v));
-      }
-
-      function baseRunUrl(){
-        const u = new URL('./goodjunk-battle-run.html', location.href);
-        [
-          'pid','name','hub','run','diff','time','studyId','phase','conditionGroup',
-          'view','api','log','debug','ai'
-        ].forEach(k => {
-          const v = qs.get(k);
-          if (v != null && v !== '') u.searchParams.set(k, v);
-        });
-        u.searchParams.set('mode', MODE);
-        u.searchParams.set('roomId', ROOM_ID);
-        u.searchParams.set('hub', hubUrl);
-        return u.toString();
-      }
-
-      function lobbyJoinUrl(){
-        const u = new URL(location.href);
-        u.searchParams.set('roomId', ROOM_ID);
-        u.searchParams.set('mode', MODE);
-        u.searchParams.set('hub', hubUrl);
-        if (!u.searchParams.get('name')) u.searchParams.set('name', SELF.name);
-        return u.toString();
-      }
-
-      function createInitialRoom(){
-        const createdAt = nowIso();
-        return {
-          roomId: ROOM_ID,
-          mode: MODE,
-          status: 'waiting',
-          createdAt,
-          updatedAt: createdAt,
-          hostPid: SELF.pid,
-          hostName: SELF.name,
-          maxPlayers: MAX_PLAYERS,
-          minReady: MIN_READY,
-          runUrl: baseRunUrl(),
-          players: [
-            {
-              pid: SELF.pid,
-              name: SELF.name,
-              ready: false,
-              joinedAt: createdAt,
-              isHost: true
-            }
-          ]
-        };
-      }
-
-      function ensureRoom(){
-        const existing = roomStorageRead();
-        if (existing && typeof existing === 'object' && existing.roomId === ROOM_ID) {
-          roomState = normalizeRoom(existing);
-        } else {
-          roomState = normalizeRoom(createInitialRoom());
-          commitRoom('create');
-        }
-        joinSelfIfMissing();
-        renderAll();
-      }
-
-      function normalizeRoom(raw){
-        const players = Array.isArray(raw?.players) ? raw.players : [];
-        return {
-          roomId: txt(raw?.roomId || ROOM_ID),
-          mode: MODE,
-          status: txt(raw?.status || 'waiting'),
-          createdAt: txt(raw?.createdAt || nowIso()),
-          updatedAt: txt(raw?.updatedAt || nowIso()),
-          hostPid: txt(raw?.hostPid || SELF.pid),
-          hostName: txt(raw?.hostName || SELF.name),
-          maxPlayers: Math.max(2, Number(raw?.maxPlayers || MAX_PLAYERS) || MAX_PLAYERS),
-          minReady: Math.max(2, Number(raw?.minReady || MIN_READY) || MIN_READY),
-          runUrl: txt(raw?.runUrl || baseRunUrl()),
-          players: players.map((p, idx) => ({
-            pid: normalizePid(p?.pid || `p${idx+1}`),
-            name: normalizeName(p?.name || `Player ${idx+1}`),
-            ready: !!p?.ready,
-            joinedAt: txt(p?.joinedAt || nowIso()),
-            isHost: !!p?.isHost
-          })).slice(0, MAX_PLAYERS)
-        };
-      }
-
-      function sortPlayers(players){
-        return [...players].sort((a,b)=>{
-          if (a.pid === roomState.hostPid && b.pid !== roomState.hostPid) return -1;
-          if (b.pid === roomState.hostPid && a.pid !== roomState.hostPid) return 1;
-          if (Number(b.ready) !== Number(a.ready)) return Number(b.ready) - Number(a.ready);
-          return a.joinedAt.localeCompare(b.joinedAt);
-        });
-      }
-
-      function getReadyCount(){
-        return roomState.players.filter(p => p.ready).length;
-      }
-
-      function getSelfPlayer(){
-        return roomState.players.find(p => p.pid === SELF.pid) || null;
-      }
-
-      function isHost(){
-        return roomState.hostPid === SELF.pid;
-      }
-
-      function canStart(){
-        return isHost() && roomState.status === 'waiting' && getReadyCount() >= roomState.minReady;
-      }
-
-      function commitRoom(reason='update'){
-        roomState.updatedAt = nowIso();
-        roomStorageWrite(roomState);
-        broadcast({ type:'room-sync', reason, room: roomState });
-      }
-
-      function broadcast(payload){
-        if (bc) {
-          try{ bc.postMessage(payload); }catch(_){}
-        }
-      }
-
-      function joinSelfIfMissing(){
-        const exists = roomState.players.find(p => p.pid === SELF.pid);
-        if (exists) {
-          exists.name = SELF.name;
-          exists.isHost = (exists.pid === roomState.hostPid);
-          commitRoom('refresh-self');
-          return;
-        }
-
-        if (roomState.players.length >= roomState.maxPlayers) {
-          renderRoomFull();
-          return;
-        }
-
-        roomState.players.push({
-          pid: SELF.pid,
-          name: SELF.name,
-          ready: false,
-          joinedAt: nowIso(),
-          isHost: roomState.hostPid === SELF.pid
-        });
-        commitRoom('join-self');
-      }
-
-      function renderRoomFull(){
-        ui.playersTbody.innerHTML = `
-          <tr>
-            <td colspan="4">ห้องนี้เต็มแล้ว (${roomState.players.length}/${roomState.maxPlayers})</td>
+      ui.playersTbody.innerHTML = players.map((p) => {
+        const isMe = p.pid === SELF.pid;
+        const readyDot = `<span class="ready-dot ${p.ready ? 'on' : ''}"></span>`;
+        const hostBadge = p.pid === hostPid ? `<span class="host-badge">👑 HOST</span>` : '';
+        return `
+          <tr class="${isMe ? 'me-row' : ''}">
+            <td>
+              <div style="font-weight:1100;line-height:1.1">${esc(p.name)} ${isMe ? '<span style="color:#fcd34d;font-size:12px;">(คุณ)</span>' : ''}</div>
+              <div style="margin-top:4px;color:#94a3b8;font-size:12px;font-weight:900">${esc(p.pid)}</div>
+              <div style="margin-top:6px;">${hostBadge}</div>
+            </td>
+            <td>${readyDot}${p.ready ? 'พร้อม' : 'ยังไม่พร้อม'}</td>
+            <td>${p.pid === hostPid ? 'ควบคุมห้อง' : 'ผู้เล่น'}</td>
+            <td>${shortTime(p.joinedAt)}</td>
           </tr>
         `;
+      }).join('');
+    }
+
+    function renderAll(room){
+      const safeRoom = room || roomState || {};
+      const readyCount = getReadyCount(safeRoom);
+      const selfPlayer = getSelfPlayer(safeRoom);
+      const playerCount = getPlayersArray(safeRoom).length;
+      const hostName = getHostName(safeRoom) || '-';
+      const joinUrl = lobbyJoinUrl();
+
+      ui.roomId.textContent = ROOM_ID;
+      ui.roomCode.textContent = ROOM_ID;
+      ui.selfName.textContent = SELF.name;
+      ui.selfPid.textContent = SELF.pid;
+      ui.readyCount.textContent = String(readyCount);
+      ui.minReady.textContent = String(MIN_READY);
+      ui.readyFill.style.width = `${clamp((readyCount / MIN_READY) * 100, 0, 100)}%`;
+
+      ui.shareLink.textContent = joinUrl;
+      renderQr(joinUrl);
+
+      ui.hostChip.textContent = `HOST: ${hostName}`;
+      ui.playerCountChip.textContent = `${playerCount} / ${MAX_PLAYERS}`;
+      ui.roomStateChip.textContent = roomStatusText(safeRoom);
+      ui.roomStateChip.className = `status-chip ${roomStatusClass(safeRoom)}`;
+
+      const status = txt(safeRoom?.meta?.status || 'lobby');
+      const waitingLike = status === 'lobby' || status === 'waiting';
+
+      ui.btnReady.disabled = !selfPlayer || selfPlayer.ready || !waitingLike;
+      ui.btnUnready.disabled = !selfPlayer || !selfPlayer.ready || !waitingLike;
+      ui.btnStart.disabled = !canStart(safeRoom);
+      ui.btnStart.textContent = canStart(safeRoom)
+        ? `🚀 Start Battle (${readyCount} ready)`
+        : isHost(safeRoom)
+          ? `🚀 Start Battle (ต้อง ready ≥ ${MIN_READY})`
+          : '🚀 รอ Host เริ่มเกม';
+
+      renderPlayersTable(safeRoom);
+    }
+
+    function goToRunPage(room){
+      const runUrl = new URL(room?.meta?.runUrl || baseRunUrl(), location.href);
+      runUrl.searchParams.set('pid', SELF.pid);
+      runUrl.searchParams.set('name', SELF.name);
+      runUrl.searchParams.set('roomId', ROOM_ID);
+      runUrl.searchParams.set('mode', MODE);
+      runUrl.searchParams.set('hub', hubUrl);
+      location.href = runUrl.toString();
+    }
+
+    function maybeFollowRoom(room){
+      const phase = txt(room?.match?.phase || '');
+      const status = txt(room?.meta?.status || '');
+      if (phase === 'playing' || status === 'playing' || status === 'running') {
+        goToRunPage(room);
+      }
+    }
+
+    async function ensureRoom(){
+      const room = await HHAMulti.readRoom(GAME, MODE, ROOM_ID);
+      if (!room) {
+        await HHAMulti.createRoom({
+          game: GAME,
+          mode: MODE,
+          roomCode: ROOM_ID,
+          hostPlayerId: SELF.pid,
+          hostName: SELF.name,
+          diff: DIFF,
+          timeSec: TIME_SEC,
+          view: SELF.view,
+          pid: SELF.pid,
+          maxPlayers: MAX_PLAYERS
+        });
+
+        const ref = HHAMulti.rootRef(GAME, MODE, ROOM_ID);
+        await ref.child('meta/runUrl').set(baseRunUrl());
+        await ref.child('meta/minReady').set(MIN_READY);
+        return;
       }
 
-      function setSelfReady(v){
-        const p = getSelfPlayer();
-        if (!p) return;
-        p.ready = !!v;
-        commitRoom(v ? 'ready' : 'unready');
-        renderAll();
-      }
+      const players = room.players || {};
+      const playerIds = Object.keys(players);
 
-      function leaveRoom(){
-        const before = roomState.players.length;
-        roomState.players = roomState.players.filter(p => p.pid !== SELF.pid);
-
-        if (!roomState.players.length) {
-          try{ localStorage.removeItem(ROOM_KEY); }catch(_){}
-          location.href = ui.btnBackLauncher.href;
-          return;
-        }
-
-        if (roomState.hostPid === SELF.pid) {
-          const nextHost = roomState.players[0];
-          roomState.hostPid = nextHost.pid;
-          roomState.hostName = nextHost.name;
-        }
-
-        roomState.players = roomState.players.map(p => ({
-          ...p,
-          isHost: p.pid === roomState.hostPid
-        }));
-
-        if (roomState.players.length !== before) {
-          commitRoom('leave');
-        }
-
-        location.href = ui.btnBackLauncher.href;
-      }
-
-      function startBattle(){
-        if (!canStart()) return;
-
-        roomState.status = 'running';
-        roomState.runUrl = baseRunUrl();
-        commitRoom('start-battle');
-
-        const runUrl = new URL(roomState.runUrl, location.href);
-        runUrl.searchParams.set('pid', SELF.pid);
-        runUrl.searchParams.set('name', SELF.name);
-        runUrl.searchParams.set('roomId', ROOM_ID);
-        runUrl.searchParams.set('hub', hubUrl);
-        location.href = runUrl.toString();
-      }
-
-      function maybeFollowRoomRunning(){
-        if (!roomState || roomState.status !== 'running') return;
-        const runUrl = new URL(roomState.runUrl || baseRunUrl(), location.href);
-        runUrl.searchParams.set('pid', SELF.pid);
-        runUrl.searchParams.set('name', SELF.name);
-        runUrl.searchParams.set('roomId', ROOM_ID);
-        runUrl.searchParams.set('hub', hubUrl);
-
-        const target = runUrl.toString();
-        if (location.href !== target) {
-          location.href = target;
-        }
-      }
-
-      function renderQr(url){
-        if (!url) {
-          ui.qrBox.innerHTML = '<span class="muted">ยังไม่มี QR</span>';
-          return;
-        }
-        const img = new Image();
-        img.alt = 'QR';
-        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(url);
-        ui.qrBox.innerHTML = '';
-        ui.qrBox.appendChild(img);
-      }
-
-      async function copyText(text){
-        const value = txt(text);
-        if (!value) return false;
-        try{
-          await navigator.clipboard.writeText(value);
-          return true;
-        }catch(_){
-          try{
-            const ta = document.createElement('textarea');
-            ta.value = value;
-            ta.setAttribute('readonly', '');
-            ta.style.position = 'fixed';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.focus();
-            ta.select();
-            const ok = document.execCommand('copy');
-            ta.remove();
-            return !!ok;
-          }catch(_2){
-            return false;
-          }
-        }
-      }
-
-      function renderPlayersTable(){
-        const players = sortPlayers(roomState.players);
-        if (!players.length) {
-          ui.playersTbody.innerHTML = `<tr><td colspan="4">ยังไม่มีผู้เล่น</td></tr>`;
-          return;
-        }
-
-        ui.playersTbody.innerHTML = players.map((p) => {
-          const isMe = p.pid === SELF.pid;
-          const readyDot = `<span class="ready-dot ${p.ready ? 'on' : ''}"></span>`;
-          const hostBadge = p.pid === roomState.hostPid ? `<span class="host-badge">👑 HOST</span>` : '';
-          return `
-            <tr class="${isMe ? 'me-row' : ''}">
-              <td>
-                <div style="font-weight:1100;line-height:1.1">${esc(p.name)} ${isMe ? '<span style="color:#fcd34d;font-size:12px;">(คุณ)</span>' : ''}</div>
-                <div style="margin-top:4px;color:#94a3b8;font-size:12px;font-weight:900">${esc(p.pid)}</div>
-                <div style="margin-top:6px;">${hostBadge}</div>
-              </td>
-              <td>${readyDot}${p.ready ? 'พร้อม' : 'ยังไม่พร้อม'}</td>
-              <td>${p.pid === roomState.hostPid ? 'ควบคุมห้อง' : 'ผู้เล่น'}</td>
-              <td>${shortTime(p.joinedAt)}</td>
+      if (!players[SELF.pid]) {
+        if (playerIds.length >= MAX_PLAYERS) {
+          ui.playersTbody.innerHTML = `
+            <tr>
+              <td colspan="4">ห้องนี้เต็มแล้ว (${playerIds.length}/${MAX_PLAYERS})</td>
             </tr>
           `;
-        }).join('');
-      }
-
-      function renderAll(){
-        const readyCount = getReadyCount();
-        const selfPlayer = getSelfPlayer();
-        const joinUrl = lobbyJoinUrl();
-
-        ui.roomId.textContent = ROOM_ID;
-        ui.roomCode.textContent = ROOM_ID;
-        ui.selfName.textContent = SELF.name;
-        ui.selfPid.textContent = SELF.pid;
-
-        ui.readyCount.textContent = String(readyCount);
-        ui.minReady.textContent = String(roomState.minReady);
-        ui.readyFill.style.width = `${clamp((readyCount / roomState.minReady) * 100, 0, 100)}%`;
-
-        ui.shareLink.textContent = joinUrl;
-        renderQr(joinUrl);
-
-        ui.hostChip.textContent = `HOST: ${roomState.hostName || '-'}`;
-        ui.playerCountChip.textContent = `${roomState.players.length} / ${roomState.maxPlayers}`;
-        ui.roomStateChip.textContent = String(roomState.status || 'waiting').toUpperCase();
-
-        ui.roomStateChip.className =
-          `status-chip ${roomState.status === 'running' ? 'good' : readyCount >= roomState.minReady ? 'good' : 'warn'}`;
-
-        ui.btnReady.disabled = !selfPlayer || selfPlayer.ready || roomState.status !== 'waiting';
-        ui.btnUnready.disabled = !selfPlayer || !selfPlayer.ready || roomState.status !== 'waiting';
-        ui.btnStart.disabled = !canStart();
-        ui.btnStart.textContent = canStart()
-          ? `🚀 Start Battle (${readyCount} ready)`
-          : isHost()
-            ? `🚀 Start Battle (ต้อง ready ≥ ${roomState.minReady})`
-            : '🚀 รอ Host เริ่มเกม';
-
-        renderPlayersTable();
-      }
-
-      function installRealtimeSync(){
-        if ('BroadcastChannel' in window) {
-          try{
-            bc = new BroadcastChannel(CHANNEL_NAME);
-            bc.onmessage = (ev) => {
-              const msg = ev.data || {};
-              if (msg?.room?.roomId !== ROOM_ID) return;
-              roomState = normalizeRoom(msg.room);
-              renderAll();
-              maybeFollowRoomRunning();
-            };
-          }catch(_){}
+          throw new Error('room-full');
         }
 
-        window.addEventListener('storage', (ev) => {
-          if (ev.key !== ROOM_KEY) return;
-          const next = roomStorageRead();
-          if (!next) return;
-          roomState = normalizeRoom(next);
-          renderAll();
-          maybeFollowRoomRunning();
+        await HHAMulti.joinRoom({
+          game: GAME,
+          mode: MODE,
+          roomCode: ROOM_ID,
+          playerId: SELF.pid,
+          name: SELF.name,
+          view: SELF.view,
+          pid: SELF.pid
+        });
+      } else {
+        const ref = HHAMulti.rootRef(GAME, MODE, ROOM_ID).child(`players/${SELF.pid}`);
+        await ref.update({
+          name: SELF.name,
+          online: true,
+          lastSeenAt: Date.now(),
+          view: SELF.view,
+          pid: SELF.pid
         });
       }
+    }
 
-      function bindActions(){
-        ui.btnReady.addEventListener('click', () => setSelfReady(true));
-        ui.btnUnready.addEventListener('click', () => setSelfReady(false));
-        ui.btnStart.addEventListener('click', startBattle);
-        ui.btnLeave.addEventListener('click', leaveRoom);
-
-        ui.btnCopyCode.addEventListener('click', async () => {
-          const ok = await copyText(ROOM_ID);
-          ui.btnCopyCode.textContent = ok ? 'Copied' : 'Copy';
-          setTimeout(() => { ui.btnCopyCode.textContent = 'Copy'; }, 1200);
+    async function setSelfReady(v){
+      try{
+        await HHAMulti.setReady({
+          game: GAME,
+          mode: MODE,
+          roomCode: ROOM_ID,
+          playerId: SELF.pid,
+          ready: !!v
         });
-
-        ui.btnCopyLink.addEventListener('click', async () => {
-          const ok = await copyText(lobbyJoinUrl());
-          ui.btnCopyLink.textContent = ok ? 'คัดลอกแล้ว' : 'Copy Link';
-          setTimeout(() => { ui.btnCopyLink.textContent = '🔗 Copy Link'; }, 1200);
-        });
-
-        ui.btnGoHub.href = hubUrl;
-
-        const backUrl = new URL('../goodjunk-launcher.html', location.href);
-        [
-          'pid','hub','run','diff','time','studyId','phase','conditionGroup',
-          'view','api','log','debug','ai'
-        ].forEach(k => {
-          const v = qs.get(k);
-          if (v != null && v !== '') backUrl.searchParams.set(k, v);
-        });
-        backUrl.searchParams.set('hub', hubUrl);
-        ui.btnBackLauncher.href = backUrl.toString();
+      }catch(err){
+        console.error(err);
       }
+    }
 
-      function installLocalAdapterExpose(){
-        window.__BATTLE_ROOM__ = roomState;
-        window.BattleRoomLocalAdapter = {
-          getRoom: () => deepClone(roomState),
-          setReady: (v) => setSelfReady(!!v),
-          start: () => startBattle(),
-          leave: () => leaveRoom()
-        };
+    async function leaveRoom(){
+      try{
+        await HHAMulti.setOffline({
+          game: GAME,
+          mode: MODE,
+          roomCode: ROOM_ID,
+          playerId: SELF.pid
+        });
+        await HHAMulti.leaveRoom({
+          game: GAME,
+          mode: MODE,
+          roomCode: ROOM_ID,
+          playerId: SELF.pid
+        });
+      }catch(err){
+        console.warn('leaveRoom warn:', err);
       }
+      location.href = ui.btnBackLauncher.href;
+    }
 
-      function boot(){
-        bindActions();
-        installRealtimeSync();
-        ensureRoom();
-        installLocalAdapterExpose();
+    async function startBattle(){
+      if (!roomState || !canStart(roomState)) return;
 
-        setInterval(() => {
-          if (destroyed) return;
-          const latest = roomStorageRead();
-          if (latest && latest.updatedAt !== roomState.updatedAt) {
-            roomState = normalizeRoom(latest);
-            window.__BATTLE_ROOM__ = roomState;
-            renderAll();
-            maybeFollowRoomRunning();
+      try{
+        const ref = HHAMulti.rootRef(GAME, MODE, ROOM_ID);
+        await ref.child('meta/runUrl').set(baseRunUrl());
+        await ref.child('meta/minReady').set(MIN_READY);
+
+        await HHAMulti.startMatch({
+          game: GAME,
+          mode: MODE,
+          roomCode: ROOM_ID,
+          playerId: SELF.pid,
+          countdownSec: 3
+        });
+
+        clearTimeout(countdownTimer);
+        countdownTimer = setTimeout(async () => {
+          try{
+            if (!destroyed) {
+              await HHAMulti.promoteCountdownToPlaying({
+                game: GAME,
+                mode: MODE,
+                roomCode: ROOM_ID
+              });
+            }
+          }catch(err){
+            console.warn('promoteCountdownToPlaying warn:', err);
           }
-        }, 600);
-      }
+        }, 3200);
 
-      window.addEventListener('beforeunload', () => {
-        destroyed = true;
-        try{ bc && bc.close(); }catch(_){}
+      }catch(err){
+        console.error(err);
+      }
+    }
+
+    function bindActions(){
+      ui.btnReady.addEventListener('click', () => setSelfReady(true));
+      ui.btnUnready.addEventListener('click', () => setSelfReady(false));
+      ui.btnStart.addEventListener('click', startBattle);
+      ui.btnLeave.addEventListener('click', leaveRoom);
+
+      ui.btnCopyCode.addEventListener('click', async () => {
+        const ok = await copyText(ROOM_ID);
+        ui.btnCopyCode.textContent = ok ? 'Copied' : 'Copy';
+        setTimeout(() => { ui.btnCopyCode.textContent = 'Copy'; }, 1200);
       });
 
-      boot();
-    })();
+      ui.btnCopyLink.addEventListener('click', async () => {
+        const ok = await copyText(lobbyJoinUrl());
+        ui.btnCopyLink.textContent = ok ? 'คัดลอกแล้ว' : 'Copy Link';
+        setTimeout(() => { ui.btnCopyLink.textContent = '🔗 Copy Link'; }, 1200);
+      });
+
+      ui.btnGoHub.href = hubUrl;
+
+      const backUrl = new URL('../goodjunk-launcher.html', location.href);
+      [
+        'pid','hub','run','diff','time','studyId','phase','conditionGroup',
+        'view','api','log','debug','ai'
+      ].forEach(k => {
+        const v = qs.get(k);
+        if (v != null && v !== '') backUrl.searchParams.set(k, v);
+      });
+      backUrl.searchParams.set('hub', hubUrl);
+      ui.btnBackLauncher.href = backUrl.toString();
+    }
+
+    function startHeartbeat(){
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = setInterval(async () => {
+        if (destroyed) return;
+        try{
+          await HHAMulti.heartbeat({
+            game: GAME,
+            mode: MODE,
+            roomCode: ROOM_ID,
+            playerId: SELF.pid
+          });
+        }catch(err){
+          console.warn('heartbeat warn:', err);
+        }
+      }, 2500);
+    }
+
+    function watchRoom(){
+      if (stopWatchRoom) {
+        try{ stopWatchRoom(); }catch(_){}
+        stopWatchRoom = null;
+      }
+
+      stopWatchRoom = HHAMulti.watchRoom(
+        { game: GAME, mode: MODE, roomCode: ROOM_ID },
+        (room) => {
+          roomState = room || null;
+          renderAll(roomState);
+          maybeFollowRoom(roomState);
+        },
+        (err) => {
+          console.error('watchRoom error:', err);
+        }
+      );
+    }
+
+    async function boot(){
+      try{
+        if (!window.firebase || !window.firebase.database) throw new Error('firebase-database not loaded');
+        if (!window.HHAMulti) throw new Error('HHAMulti not loaded');
+
+        bindActions();
+        renderAll(null);
+        await ensureRoom();
+        watchRoom();
+        startHeartbeat();
+
+      }catch(err){
+        console.error(err);
+        ui.playersTbody.innerHTML = `
+          <tr><td colspan="4">เชื่อมห้องไม่สำเร็จ: ${esc(err?.message || err)}</td></tr>
+        `;
+      }
+    }
+
+    window.addEventListener('beforeunload', () => {
+      destroyed = true;
+      clearInterval(heartbeatTimer);
+      clearTimeout(countdownTimer);
+      try{
+        HHAMulti.setOffline({
+          game: GAME,
+          mode: MODE,
+          roomCode: ROOM_ID,
+          playerId: SELF.pid
+        });
+      }catch(_){}
+      try{ stopWatchRoom && stopWatchRoom(); }catch(_){}
+    });
+
+    boot();
+  })();
   </script>
 </body>
 </html>
