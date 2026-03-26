@@ -2,12 +2,12 @@
   'use strict';
 
   const PASS_KEYS = [
-    'pid','nick','name',
-    'run','view','diff','time','seed',
-    'studyId','phase','conditionGroup','sessionOrder','blockLabel',
-    'siteCode','schoolYear','semester',
-    'log','api','debug',
-    'grade','zone'
+    'pid', 'nick', 'name',
+    'run', 'view', 'diff', 'time', 'seed',
+    'studyId', 'phase', 'conditionGroup', 'sessionOrder', 'blockLabel',
+    'siteCode', 'schoolYear', 'semester',
+    'log', 'api', 'debug',
+    'grade', 'zone'
   ];
 
   const DEFAULT_PLAYER = {
@@ -30,7 +30,6 @@
     hygiene: {
       label: 'Hygiene Zone',
       defaultUrl: './germ-detective.html',
-      mascot: 'ฟองฟู่บับเบิล',
       options: [
         { label: 'Germ Detective', sub: 'จับเชื้อโรคให้หมด', url: './germ-detective.html' },
         { label: 'Handwash VR', sub: 'ล้างมือให้ครบขั้นตอน', url: './handwash-vr.html' },
@@ -43,7 +42,6 @@
     nutrition: {
       label: 'Nutrition Zone',
       defaultUrl: './plate-v1.html',
-      mascot: 'เชฟผักผลไม้',
       options: [
         { label: 'Plate', sub: 'จัดจานอาหารให้ครบ 5 หมู่', url: './plate-v1.html' },
         { label: 'Groups', sub: 'แยกอาหารตามหมู่', url: './group-v1.html' },
@@ -54,12 +52,12 @@
     fitness: {
       label: 'Fitness Zone',
       defaultUrl: './shadow-breaker-vr.html',
-      mascot: 'โค้ชสายฟ้า',
       options: [
         { label: 'Shadow Breaker', sub: 'ต่อยเป้าให้แม่นและเร็ว', url: './shadow-breaker-vr.html' },
         { label: 'Rhythm Boxer', sub: 'ชกตามจังหวะเพลง', url: './rhythm-boxer-vr.html' },
         { label: 'Balance Hold', sub: 'ทรงตัวให้นานที่สุด', url: './balance-hold-vr.html' },
-        { label: 'JumpDuck', sub: 'กระโดดและก้มหลบให้ทัน', url: './jump-duck-vr.html' }
+        { label: 'JumpDuck', sub: 'กระโดดและก้มหลบให้ทัน', url: './jump-duck-vr.html' },
+        { label: 'Fitness Planner', sub: 'วางแผนออกกำลังกายแบบสนุก ๆ', url: './fitness-planner.html' }
       ]
     }
   };
@@ -71,28 +69,27 @@
   };
 
   const qs = new URLSearchParams(location.search);
-
   const $ = (sel) => document.querySelector(sel);
 
-  function clamp(n, min, max){
+  function clamp(n, min, max) {
     return Math.max(min, Math.min(max, n));
   }
 
-  function safeParse(json, fallback){
-    try{
+  function safeParse(json, fallback) {
+    try {
       const v = JSON.parse(json);
       return v ?? fallback;
-    }catch{
+    } catch {
       return fallback;
     }
   }
 
-  function fmtInt(v, fallback = 0){
+  function fmtInt(v, fallback = 0) {
     const n = Number(v);
     return Number.isFinite(n) ? Math.round(n) : fallback;
   }
 
-  function escapeHtml(s){
+  function escapeHtml(s) {
     return String(s ?? '')
       .replaceAll('&', '&amp;')
       .replaceAll('<', '&lt;')
@@ -101,59 +98,56 @@
       .replaceAll("'", '&#39;');
   }
 
-  function starText(n){
+  function starText(n) {
     const v = clamp(fmtInt(n, 0), 0, 3);
     return '⭐'.repeat(v) + '☆'.repeat(3 - v);
   }
 
-  function zoneFromGameId(gameId){
+  function zoneFromGameId(gameId) {
     const id = String(gameId || '').toLowerCase();
     if (/wash|brush|germ|hygiene|bath|mask|cough|clean/.test(id)) return 'hygiene';
     if (/plate|group|food|goodjunk|nutrition|hydration/.test(id)) return 'nutrition';
-    if (/shadow|rhythm|balance|jump|duck|fitness/.test(id)) return 'fitness';
+    if (/shadow|rhythm|balance|jump|duck|fitness|planner/.test(id)) return 'fitness';
     return '';
   }
 
-  function zoneLabel(zone){
+  function zoneLabel(zone) {
     return GAMES[zone]?.label || 'HeroHealth';
   }
 
-  function getDefaultOption(zone){
+  function getDefaultOption(zone) {
     const set = GAMES[zone];
     if (!set) return null;
     return set.options.find((item) => item.url === set.defaultUrl) || set.options[0] || null;
   }
 
-  function listGameNames(zone){
-    const set = GAMES[zone];
-    if (!set) return [];
-    return set.options.map((item) => item.label);
-  }
-
-
-  function getHubCanonical(){
+  function getHubCanonical() {
     const url = new URL(location.href);
     url.searchParams.delete('hub');
     return url.toString();
   }
 
-  function carryQuery(url, extra = {}){
+  function carryQuery(url, extra = {}) {
     const u = new URL(url, location.href);
+
     PASS_KEYS.forEach((k) => {
       if (qs.has(k) && !u.searchParams.has(k)) {
         u.searchParams.set(k, qs.get(k));
       }
     });
+
     u.searchParams.set('hub', getHubCanonical());
+
     Object.entries(extra).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== '') {
         u.searchParams.set(k, String(v));
       }
     });
+
     return u.toString();
   }
 
-  function readProfile(){
+  function readProfile() {
     const stored = safeParse(localStorage.getItem(STORAGE_KEYS.profile), {});
     const name = (
       qs.get('nick') ||
@@ -173,22 +167,22 @@
     };
   }
 
-  function writeProfile(profile){
-    try{
+  function writeProfile(profile) {
+    try {
       localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(profile));
-    }catch{}
+    } catch {}
   }
 
-  function readLastSummary(){
+  function readLastSummary() {
     return safeParse(localStorage.getItem(STORAGE_KEYS.lastSummary), null);
   }
 
-  function readSummaryHistory(){
+  function readSummaryHistory() {
     const raw = safeParse(localStorage.getItem(STORAGE_KEYS.summaryHistory), []);
     return Array.isArray(raw) ? raw : [];
   }
 
-  function zoneStatsFromHistory(history){
+  function zoneStatsFromHistory(history) {
     const base = JSON.parse(JSON.stringify(ZONE_DEFAULTS));
 
     history.slice(-30).forEach((item) => {
@@ -206,36 +200,47 @@
     return base;
   }
 
-  function renderPlayer(profile){
-    $('#playerName').textContent = profile.name || DEFAULT_PLAYER.name;
-    $('#playerMeta').textContent = 'ฮีโร่ประจำวัน • พร้อมผจญภัย';
-    $('#playerLevel').textContent = String(profile.level);
-    $('#playerCoins').textContent = String(profile.coins);
-    $('#playerHearts').textContent = String(profile.hearts);
-    $('#badgeStars').textContent = String(profile.stars);
-    $('#badgeWins').textContent = String(profile.wins);
-    $('#badgeStreak').textContent = String(profile.streak);
+  function renderPlayer(profile) {
+    const nameEl = $('#playerName');
+    const metaEl = $('#playerMeta');
+    const levelEl = $('#playerLevel');
+    const coinsEl = $('#playerCoins');
+    const heartsEl = $('#playerHearts');
+    const badgeStarsEl = $('#badgeStars');
+    const badgeWinsEl = $('#badgeWins');
+    const badgeStreakEl = $('#badgeStreak');
+
+    if (nameEl) nameEl.textContent = profile.name || DEFAULT_PLAYER.name;
+    if (metaEl) metaEl.textContent = 'ฮีโร่ประจำวัน • พร้อมผจญภัย';
+    if (levelEl) levelEl.textContent = String(profile.level);
+    if (coinsEl) coinsEl.textContent = String(profile.coins);
+    if (heartsEl) heartsEl.textContent = String(profile.hearts);
+    if (badgeStarsEl) badgeStarsEl.textContent = String(profile.stars);
+    if (badgeWinsEl) badgeWinsEl.textContent = String(profile.wins);
+    if (badgeStreakEl) badgeStreakEl.textContent = String(profile.streak);
   }
 
-  function renderZoneStats(stats){
-    $('#hygLevel').textContent = String(stats.hygiene.level);
-    $('#hygStars').textContent = `${stats.hygiene.stars}/5`;
-    $('#hygProgressText').textContent = `${stats.hygiene.pct}%`;
-    $('#hygFill').style.width = `${stats.hygiene.pct}%`;
+  function renderZoneStats(stats) {
+    if ($('#hygLevel')) $('#hygLevel').textContent = String(stats.hygiene.level);
+    if ($('#hygStars')) $('#hygStars').textContent = `${stats.hygiene.stars}/5`;
+    if ($('#hygProgressText')) $('#hygProgressText').textContent = `${stats.hygiene.pct}%`;
+    if ($('#hygFill')) $('#hygFill').style.width = `${stats.hygiene.pct}%`;
 
-    $('#nutriLevel').textContent = String(stats.nutrition.level);
-    $('#nutriStars').textContent = `${stats.nutrition.stars}/5`;
-    $('#nutriProgressText').textContent = `${stats.nutrition.pct}%`;
-    $('#nutriFill').style.width = `${stats.nutrition.pct}%`;
+    if ($('#nutriLevel')) $('#nutriLevel').textContent = String(stats.nutrition.level);
+    if ($('#nutriStars')) $('#nutriStars').textContent = `${stats.nutrition.stars}/5`;
+    if ($('#nutriProgressText')) $('#nutriProgressText').textContent = `${stats.nutrition.pct}%`;
+    if ($('#nutriFill')) $('#nutriFill').style.width = `${stats.nutrition.pct}%`;
 
-    $('#fitLevel').textContent = String(stats.fitness.level);
-    $('#fitStars').textContent = `${stats.fitness.stars}/5`;
-    $('#fitProgressText').textContent = `${stats.fitness.pct}%`;
-    $('#fitFill').style.width = `${stats.fitness.pct}%`;
+    if ($('#fitLevel')) $('#fitLevel').textContent = String(stats.fitness.level);
+    if ($('#fitStars')) $('#fitStars').textContent = `${stats.fitness.stars}/5`;
+    if ($('#fitProgressText')) $('#fitProgressText').textContent = `${stats.fitness.pct}%`;
+    if ($('#fitFill')) $('#fitFill').style.width = `${stats.fitness.pct}%`;
   }
 
-  function renderMissions(history){
+  function renderMissions(history) {
     const missionList = $('#missionList');
+    if (!missionList) return;
+
     const todayDone = {
       hygiene: false,
       nutrition: false,
@@ -290,47 +295,9 @@
     `).join('');
   }
 
-
-  function renderLibraryBox(){
-    const box = $('#libraryBox');
-    if (!box) return;
-
-    const cards = Object.entries(GAMES).map(([zone, set]) => {
-      const names = listGameNames(zone);
-      return `
-        <div class="library-card">
-          <div class="library-top">
-            <div class="library-name">${escapeHtml(set.label)}</div>
-            <div class="library-count">${names.length} เกม</div>
-          </div>
-          <div class="library-games">${escapeHtml(names.join(' • '))}</div>
-        </div>
-      `;
-    }).join('');
-
-    box.innerHTML = cards;
-  }
-
-  function initZoneMeta(){
-    const maps = [
-      ['hygiene', '#hygFeatured', '#btnZoneHygiene'],
-      ['nutrition', '#nutriFeatured', '#btnZoneNutrition'],
-      ['fitness', '#fitFeatured', '#btnZoneFitness']
-    ];
-
-    maps.forEach(([zone, featuredSel, btnSel]) => {
-      const featuredEl = $(featuredSel);
-      const btnEl = $(btnSel);
-      const set = GAMES[zone];
-      const def = getDefaultOption(zone);
-
-      if (featuredEl && def) featuredEl.textContent = def.label;
-      if (btnEl && set) btnEl.textContent = `ดูเกมทั้งหมด (${set.options.length})`;
-    });
-  }
-
-  function renderLastSummary(lastSummary){
+  function renderLastSummary(lastSummary) {
     const box = $('#summaryBox');
+    if (!box) return;
 
     if (!lastSummary) {
       box.innerHTML = `
@@ -377,53 +344,63 @@
 
         <p class="last-meta">${escapeHtml(note)}</p>
 
-        <a id="btnContinueLast" class="btn primary" href="${escapeHtml(carryQuery(replayUrl, { zone }))}">
+        <a class="btn primary" href="${escapeHtml(carryQuery(replayUrl, { zone }))}">
           ▶️ เล่นต่อ
         </a>
       </div>
     `;
   }
 
-  function toast(msg){
+  function toast(msg) {
     const el = $('#toast');
+    if (!el) return;
     el.textContent = msg;
     el.classList.add('show');
     clearTimeout(toast._t);
     toast._t = setTimeout(() => el.classList.remove('show'), 1800);
   }
 
-  function bindTopButtons(profile){
-    $('#btnSettings').addEventListener('click', () => {
-      toast('หน้าตั้งค่าจะเพิ่มต่อได้ภายหลัง');
-    });
+  function bindTopButtons(profile) {
+    const btnSettings = $('#btnSettings');
+    const btnRewards = $('#btnRewards');
 
-    $('#btnRewards').addEventListener('click', () => {
-      toast(`ตอนนี้มี ${profile.coins} เหรียญ และ ${profile.stars} ดาว`);
-    });
+    if (btnSettings) {
+      btnSettings.addEventListener('click', () => {
+        toast('หน้าตั้งค่าจะเพิ่มต่อได้ภายหลัง');
+      });
+    }
+
+    if (btnRewards) {
+      btnRewards.addEventListener('click', () => {
+        toast(`ตอนนี้มี ${profile.coins} เหรียญ และ ${profile.stars} ดาว`);
+      });
+    }
   }
 
-  function openPicker(zone){
+  function openPicker(zone) {
     const picker = $('#gamePicker');
     const title = $('#pickerTitle');
     const sub = $('#pickerSub');
     const list = $('#pickerList');
     const data = GAMES[zone];
 
-    if (!picker || !data) return;
+    if (!picker || !title || !sub || !list || !data) return;
 
     title.textContent = data.label;
     sub.textContent = `เลือกเกมใน ${data.label} ได้เลย`;
+
     list.innerHTML = data.options.map((item) => {
       const isFeatured = item.url === data.defaultUrl;
       return `
-      <button class="picker-item" type="button" data-url="${escapeHtml(item.url)}" data-zone="${escapeHtml(zone)}">
-        <span class="picker-item-top">
-          <span class="name">${escapeHtml(item.label)}</span>
-          ${isFeatured ? '<span class="picker-badge">แนะนำ</span>' : ''}
-        </span>
-        <span class="sub">${escapeHtml(item.sub)}</span>
-      </button>
-    `;}).join('');
+        <button class="picker-item" type="button" data-url="${escapeHtml(item.url)}" data-zone="${escapeHtml(zone)}">
+          <span class="picker-item-top">
+            <span class="name">${escapeHtml(item.label)}</span>
+            ${isFeatured ? '<span class="picker-badge">แนะนำ</span>' : ''}
+          </span>
+          <span class="sub">${escapeHtml(item.sub)}</span>
+        </button>
+      `;
+    }).join('');
 
     list.querySelectorAll('.picker-item').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -438,14 +415,14 @@
     picker.setAttribute('aria-hidden', 'false');
   }
 
-  function closePicker(){
+  function closePicker() {
     const picker = $('#gamePicker');
     if (!picker) return;
     picker.classList.remove('show');
     picker.setAttribute('aria-hidden', 'true');
   }
 
-  function bindPicker(){
+  function bindPicker() {
     document.querySelectorAll('[data-close-picker]').forEach((el) => {
       el.addEventListener('click', closePicker);
     });
@@ -455,17 +432,36 @@
     });
   }
 
-  function bindZoneLinks(){
-    $('#btnPlayHygiene').href = carryQuery(GAMES.hygiene.defaultUrl, { zone: 'hygiene' });
-    $('#btnPlayNutrition').href = carryQuery(GAMES.nutrition.defaultUrl, { zone: 'nutrition' });
-    $('#btnPlayFitness').href = carryQuery(GAMES.fitness.defaultUrl, { zone: 'fitness' });
+  function bindZoneLinks() {
+    const playHyg = $('#btnPlayHygiene');
+    const playNut = $('#btnPlayNutrition');
+    const playFit = $('#btnPlayFitness');
 
-    $('#btnZoneHygiene').addEventListener('click', () => openPicker('hygiene'));
-    $('#btnZoneNutrition').addEventListener('click', () => openPicker('nutrition'));
-    $('#btnZoneFitness').addEventListener('click', () => openPicker('fitness'));
+    const zoneHyg = $('#btnZoneHygiene');
+    const zoneNut = $('#btnZoneNutrition');
+    const zoneFit = $('#btnZoneFitness');
+
+    if (playHyg) playHyg.href = carryQuery(GAMES.hygiene.defaultUrl, { zone: 'hygiene' });
+    if (playNut) playNut.href = carryQuery(GAMES.nutrition.defaultUrl, { zone: 'nutrition' });
+    if (playFit) playFit.href = carryQuery(GAMES.fitness.defaultUrl, { zone: 'fitness' });
+
+    if (zoneHyg) {
+      zoneHyg.textContent = `ดูเกมในโซน (${GAMES.hygiene.options.length})`;
+      zoneHyg.addEventListener('click', () => openPicker('hygiene'));
+    }
+
+    if (zoneNut) {
+      zoneNut.textContent = `ดูเกมในโซน (${GAMES.nutrition.options.length})`;
+      zoneNut.addEventListener('click', () => openPicker('nutrition'));
+    }
+
+    if (zoneFit) {
+      zoneFit.textContent = `ดูเกมในโซน (${GAMES.fitness.options.length})`;
+      zoneFit.addEventListener('click', () => openPicker('fitness'));
+    }
   }
 
-  function mergeSummaryIntoProfile(profile, lastSummary){
+  function mergeSummaryIntoProfile(profile, lastSummary) {
     if (!lastSummary) return profile;
 
     const next = { ...profile };
@@ -479,16 +475,16 @@
     if (bonusCoins > 0 && !lastSummary._hubApplied) {
       next.coins += bonusCoins;
       const patchedSummary = { ...lastSummary, _hubApplied: true };
-      try{
+      try {
         localStorage.setItem(STORAGE_KEYS.lastSummary, JSON.stringify(patchedSummary));
-      }catch{}
+      } catch {}
     }
 
     writeProfile(next);
     return next;
   }
 
-  function boot(){
+  function boot() {
     let profile = readProfile();
     const lastSummary = readLastSummary();
     const history = readSummaryHistory();
@@ -499,8 +495,6 @@
     renderZoneStats(zoneStatsFromHistory(history));
     renderMissions(history);
     renderLastSummary(lastSummary);
-    renderLibraryBox();
-    initZoneMeta();
     bindZoneLinks();
     bindTopButtons(profile);
     bindPicker();
