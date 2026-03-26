@@ -6,390 +6,995 @@
   <title>HeroHealth • JumpDuck Launcher</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
-  <script defer src="./launch/backhub.js"></script>
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --panel:rgba(2,6,23,.74);
-      --panel2:rgba(15,23,42,.82);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
+      --bg1:#0f172a;
+      --bg2:#172554;
+      --bg3:#1d4ed8;
+
+      --text:#f8fafc;
+      --muted:#dbeafe;
+      --soft:#cbd5e1;
+
+      --panel:rgba(15,23,42,.78);
+      --panel-soft:rgba(255,255,255,.05);
+      --stroke:rgba(255,255,255,.14);
+      --stroke-strong:rgba(255,255,255,.20);
+
       --good:#22c55e;
-      --cyan:#22d3ee;
       --warn:#f59e0b;
-      --shadow:0 24px 70px rgba(0,0,0,.45);
-      --radius:24px;
+      --bad:#ef4444;
+      --blue:#38bdf8;
+      --violet:#a78bfa;
+      --pink:#f472b6;
+      --yellow:#facc15;
+      --cyan:#22d3ee;
+
+      --shadow:0 18px 48px rgba(0,0,0,.28);
+
       --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
     }
+
     *{ box-sizing:border-box; }
-    html,body{ min-height:100%; }
-    body{
+
+    html,body{
       margin:0;
-      color:var(--text);
+      min-height:100%;
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
-      background:
-        radial-gradient(1100px 760px at 10% 10%, rgba(34,197,94,.10), transparent 55%),
-        radial-gradient(900px 680px at 88% 16%, rgba(56,189,248,.10), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
-      padding:
-        calc(12px + var(--sat))
-        calc(12px + var(--sar))
-        calc(18px + var(--sab))
-        calc(12px + var(--sal));
-    }
-    .page{ width:min(1100px,100%); margin:0 auto; display:grid; gap:14px; }
-    .panel{
-      background:linear-gradient(180deg, var(--panel), var(--panel2));
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
-    }
-    .hero{
-      padding:22px;
-      display:grid;
-      gap:12px;
-    }
-    .kicker{
-      display:inline-flex;
-      width:max-content;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.34);
-      color:var(--muted);
-      font-size:12px;
-      font-weight:950;
-    }
-    .title{
-      margin:0;
-      font-size:clamp(30px, 5vw, 46px);
-      line-height:1.04;
-      font-weight:1000;
-    }
-    .sub{
-      color:var(--muted);
-      font-size:15px;
-      line-height:1.65;
-      font-weight:700;
-      max-width:70ch;
-    }
-    .meta{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-    .chip{
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.30);
-      color:#cbd5e1;
-      font-size:12px;
-      font-weight:900;
-    }
-    .section{ padding:18px; display:grid; gap:14px; }
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(12,1fr);
-      gap:12px;
-    }
-    .field{ grid-column:span 4; display:grid; gap:7px; }
-    .field.span6{ grid-column:span 6; }
-    .label{
-      font-size:12px;
-      font-weight:950;
-      color:var(--muted);
-    }
-    .input,.select{
-      width:100%;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.42);
       color:var(--text);
-      border-radius:14px;
-      padding:12px;
-      outline:none;
-      font:inherit;
-      font-size:14px;
-      font-weight:800;
+      background:
+        radial-gradient(1200px 760px at 50% -10%, rgba(56,189,248,.16), transparent 56%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 52%, var(--bg3));
     }
-    .actions{
+
+    body{
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+    }
+
+    a{ color:inherit; }
+
+    .jdv-shell{
+      width:min(1180px, 100%);
+      margin:0 auto;
+      display:grid;
+      gap:16px;
+    }
+
+    .jdv-hero{
+      position:relative;
+      overflow:hidden;
+      border-radius:28px;
+      border:1px solid var(--stroke);
+      background:
+        radial-gradient(120% 140% at 100% 0%, rgba(56,189,248,.18), transparent 45%),
+        radial-gradient(120% 140% at 0% 100%, rgba(168,85,247,.16), transparent 48%),
+        linear-gradient(180deg, rgba(15,23,42,.94), rgba(2,6,23,.96));
+      box-shadow:var(--shadow);
+      padding:18px;
+      display:grid;
+      gap:14px;
+    }
+
+    .jdv-top{
       display:flex;
       justify-content:space-between;
-      gap:10px;
+      gap:12px;
+      align-items:flex-start;
       flex-wrap:wrap;
-      align-items:center;
     }
-    .leftActions,.rightActions{
+
+    .jdv-brand{
       display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
+      gap:14px;
+      align-items:flex-start;
+      min-width:0;
     }
-    .btn{
+
+    .jdv-brand-icon{
+      width:68px;
+      height:68px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(37,99,235,.16));
       border:1px solid var(--stroke);
-      background:rgba(2,6,23,.40);
-      color:var(--text);
-      border-radius:14px;
-      padding:12px 14px;
-      cursor:pointer;
-      font-weight:950;
-      font-size:14px;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);
+      flex:0 0 68px;
     }
-    .btn.primary{ border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.16); }
-    .btn.cyan{ border-color:rgba(34,211,238,.28); background:rgba(34,211,238,.14); }
-    .btn.warn{ border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.14); }
-    .btn.secondary{ color:var(--muted); }
-    .preview{
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.26);
-      border-radius:18px;
-      padding:12px 14px;
+
+    .jdv-kicker{
+      margin:0 0 4px;
+      color:#bae6fd;
+      font-size:12px;
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.4px;
+    }
+
+    .jdv-title{
+      margin:0;
+      color:var(--text);
+      font-size:clamp(24px, 3vw, 34px);
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .jdv-sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.5;
+      font-weight:850;
+      max-width:760px;
+    }
+
+    .jdv-back{
+      appearance:none;
+      border:none;
+      border-radius:16px;
+      min-height:44px;
+      padding:10px 14px;
+      background:rgba(255,255,255,.07);
+      border:1px solid var(--stroke);
+      color:#e2e8f0;
+      font-size:14px;
+      font-weight:1000;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .jdv-chip-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .jdv-chip{
+      min-height:38px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border-radius:999px;
+      padding:8px 12px;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.06);
+      color:#e2e8f0;
+      font-size:12px;
+      font-weight:950;
+    }
+
+    .jdv-chip strong{
+      color:#fff;
+      font-weight:1000;
+    }
+
+    .jdv-grid{
+      display:grid;
+      grid-template-columns:1.08fr .92fr;
+      gap:16px;
+    }
+
+    .jdv-col{
+      display:grid;
+      gap:14px;
+    }
+
+    .jdv-card{
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:var(--panel-soft);
+      box-shadow:0 12px 28px rgba(0,0,0,.16);
+      padding:14px;
+      display:grid;
+      gap:10px;
+      backdrop-filter: blur(8px);
+    }
+
+    .jdv-card-title{
+      margin:0;
+      color:#f8fafc;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.2;
+    }
+
+    .jdv-card-sub{
+      margin:0;
       color:#cbd5e1;
       font-size:12px;
-      line-height:1.6;
-      font-weight:800;
-      word-break:break-word;
+      line-height:1.45;
+      font-weight:850;
     }
-    @media (max-width: 880px){
-      .field{ grid-column:span 6; }
-      .field.span6{ grid-column:span 6; }
+
+    .jdv-mission{
+      display:grid;
+      gap:8px;
+      border-radius:18px;
+      padding:12px;
+      border:1px solid var(--stroke);
+      background:
+        radial-gradient(120% 120% at 0% 0%, rgba(250,204,21,.12), transparent 45%),
+        rgba(255,255,255,.04);
     }
-    @media (max-width: 720px){
-      body{
-        padding:
-          calc(8px + var(--sat))
-          calc(8px + var(--sar))
-          calc(18px + var(--sab))
-          calc(8px + var(--sal));
+
+    .jdv-mission-line{
+      color:#fff;
+      font-size:15px;
+      line-height:1.45;
+      font-weight:1000;
+    }
+
+    .jdv-mission-sub{
+      color:#cbd5e1;
+      font-size:12px;
+      line-height:1.45;
+      font-weight:850;
+    }
+
+    .jdv-stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .jdv-stat{
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.05);
+      padding:12px;
+      min-height:82px;
+      display:grid;
+      align-content:start;
+      gap:4px;
+    }
+
+    .jdv-stat-k{
+      color:#93c5fd;
+      font-size:11px;
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.3px;
+    }
+
+    .jdv-stat-v{
+      color:#fff;
+      font-size:22px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .jdv-stat-sub{
+      color:#cbd5e1;
+      font-size:11px;
+      font-weight:850;
+      line-height:1.35;
+    }
+
+    .jdv-playlist{
+      display:grid;
+      gap:8px;
+    }
+
+    .jdv-playlist-item{
+      border-radius:16px;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04);
+      padding:10px 12px;
+      display:grid;
+      gap:4px;
+    }
+
+    .jdv-playlist-title{
+      color:#fff;
+      font-size:14px;
+      font-weight:1000;
+      line-height:1.3;
+    }
+
+    .jdv-playlist-sub{
+      color:#cbd5e1;
+      font-size:12px;
+      line-height:1.4;
+      font-weight:850;
+    }
+
+    .jdv-run-panel{
+      display:grid;
+      gap:12px;
+    }
+
+    .jdv-field-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .jdv-field{
+      display:grid;
+      gap:6px;
+    }
+
+    .jdv-field label{
+      color:#cbd5e1;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .jdv-field select,
+    .jdv-field input{
+      width:100%;
+      min-height:46px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.58);
+      color:#fff;
+      padding:10px 12px;
+      font-size:14px;
+      font-weight:900;
+    }
+
+    .jdv-cta-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .jdv-btn{
+      appearance:none;
+      border:none;
+      border-radius:18px;
+      min-height:54px;
+      padding:12px 14px;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      gap:8px;
+      font-size:15px;
+      font-weight:1000;
+      line-height:1.15;
+      transition:transform .12s ease, opacity .12s ease;
+    }
+
+    .jdv-btn:hover{
+      transform:translateY(-1px);
+    }
+
+    .jdv-btn.primary{
+      color:#fff;
+      background:linear-gradient(180deg, #0ea5e9, #2563eb);
+      box-shadow:0 12px 28px rgba(37,99,235,.22);
+    }
+
+    .jdv-btn.secondary{
+      color:#fff;
+      background:linear-gradient(180deg, #22c55e, #15803d);
+      box-shadow:0 12px 28px rgba(21,128,61,.20);
+    }
+
+    .jdv-btn.tertiary{
+      color:#fff;
+      background:linear-gradient(180deg, #a855f7, #7c3aed);
+      box-shadow:0 12px 28px rgba(124,58,237,.20);
+    }
+
+    .jdv-next{
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:
+        radial-gradient(120% 120% at 100% 0%, rgba(34,197,94,.12), transparent 45%),
+        rgba(255,255,255,.04);
+      padding:12px;
+      display:grid;
+      gap:8px;
+    }
+
+    .jdv-next-title{
+      color:#fff;
+      font-size:16px;
+      font-weight:1000;
+      line-height:1.3;
+    }
+
+    .jdv-next-sub{
+      color:#cbd5e1;
+      font-size:12px;
+      line-height:1.45;
+      font-weight:850;
+    }
+
+    .jdv-next-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .jdv-next-mini{
+      appearance:none;
+      border:none;
+      min-height:42px;
+      padding:10px 12px;
+      border-radius:14px;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .jdv-next-mini.primary{
+      background:rgba(14,165,233,.16);
+      border:1px solid rgba(14,165,233,.26);
+      color:#e0f2fe;
+    }
+
+    .jdv-next-mini.ghost{
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      color:#e2e8f0;
+    }
+
+    .jdv-note{
+      color:#cbd5e1;
+      font-size:12px;
+      line-height:1.45;
+      font-weight:850;
+    }
+
+    code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:.95em;
+      color:#e0f2fe;
+    }
+
+    @media (max-width: 980px){
+      .jdv-grid{
+        grid-template-columns:1fr;
       }
-      .hero,.section{ padding:14px; }
-      .grid{ grid-template-columns:1fr; }
-      .field,.field.span6{ grid-column:span 1; }
-      .actions{ flex-direction:column; align-items:stretch; }
-      .leftActions,.rightActions{ width:100%; }
-      .leftActions .btn,.rightActions .btn{ flex:1 1 0; }
+    }
+
+    @media (max-width: 760px){
+      .jdv-hero{
+        padding:14px;
+        border-radius:22px;
+      }
+
+      .jdv-brand-icon{
+        width:56px;
+        height:56px;
+        flex-basis:56px;
+        border-radius:18px;
+        font-size:28px;
+      }
+
+      .jdv-title{
+        font-size:24px;
+      }
+
+      .jdv-stats{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .jdv-field-grid{
+        grid-template-columns:1fr;
+      }
+
+      .jdv-cta-grid{
+        grid-template-columns:1fr;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <section class="panel hero">
-      <div class="kicker">🦘 FITNESS ZONE • JUMPDUCK • LAUNCHER</div>
-      <h1 class="title">JumpDuck Launcher</h1>
-      <div class="sub">
-        เริ่มผ่าน warmup gate ก่อนเสมอ แล้วค่อยเข้า run page ที่ถูกต้องของเกมนี้ที่
-        <b>/fitness/jump-duck.html</b>
-      </div>
-      <div class="meta">
-        <div class="chip">gameId: jumpduck</div>
-        <div class="chip">zone: fitness</div>
-        <div class="chip">flow: warmup → run → cooldown</div>
-      </div>
-    </section>
-
-    <section class="panel section">
-      <div class="grid">
-        <div class="field">
-          <label class="label" for="pid">PID</label>
-          <input class="input" id="pid" placeholder="เช่น P001" />
+  <div class="jdv-shell">
+    <section class="jdv-hero">
+      <div class="jdv-top">
+        <div class="jdv-brand">
+          <div class="jdv-brand-icon">⬆️⬇️</div>
+          <div>
+            <p class="jdv-kicker">Fitness Zone • HeroHealth</p>
+            <h1 class="jdv-title">JumpDuck Launcher</h1>
+            <p class="jdv-sub">
+              ฝึกอ่าน obstacle ให้เร็วขึ้น • low = jump • high = duck • เล่นต่อจากรอบล่าสุดได้ทันที
+            </p>
+          </div>
         </div>
 
-        <div class="field">
-          <label class="label" for="diff">Difficulty</label>
-          <select class="select" id="diff">
-            <option value="easy">easy</option>
-            <option value="normal" selected>normal</option>
-            <option value="hard">hard</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label class="label" for="time">Time (sec)</label>
-          <input class="input" id="time" type="number" min="45" max="180" step="5" value="80" />
-        </div>
-
-        <div class="field">
-          <label class="label" for="view">View</label>
-          <select class="select" id="view">
-            <option value="pc" selected>pc</option>
-            <option value="mobile">mobile</option>
-            <option value="cvr">cvr</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label class="label" for="seed">Seed</label>
-          <input class="input" id="seed" placeholder="auto" />
-        </div>
-
-        <div class="field span6">
-          <label class="label" for="hub">Hub URL</label>
-          <input class="input" id="hub" value="./hub.html" />
-        </div>
+        <a id="jdvBackHub" class="jdv-back" href="#">⬅ กลับ Hub</a>
       </div>
 
-      <div class="actions">
-        <div class="leftActions">
-          <button class="btn secondary" id="btnFillDemo" type="button">เติมค่าตัวอย่าง</button>
-          <button class="btn cyan" id="btnPreviewWarmup" type="button">ดู URL warmup</button>
-        </div>
-        <div class="rightActions">
-          <button class="btn secondary" id="btnBackHub" type="button">← กลับ HUB</button>
-          <button class="btn warn" id="btnDirectRun" type="button">เข้า run ตรง</button>
-          <button class="btn primary" id="btnStart" type="button">เริ่มผ่าน Warmup Gate</button>
-        </div>
-      </div>
-
-      <div class="preview" id="previewText">
-        ระบบจะส่งเข้า warmup-gate.html โดยตั้ง phase=warmup และ next=/fitness/jump-duck.html ...
+      <div class="jdv-chip-row">
+        <div class="jdv-chip"><strong>Mission</strong> <span id="jdvMissionChip">—</span></div>
+        <div class="jdv-chip"><strong>Next Tune</strong> <span id="jdvNextTuneChip">—</span></div>
+        <div class="jdv-chip"><strong>Streak</strong> <span id="jdvStreakChip">—</span></div>
+        <div class="jdv-chip"><strong>Shelf</strong> <span id="jdvShelfChip">—</span></div>
       </div>
     </section>
+
+    <div class="jdv-grid">
+      <div class="jdv-col">
+        <section class="jdv-card">
+          <h2 class="jdv-card-title">ภารกิจวันนี้</h2>
+          <p class="jdv-card-sub">ภารกิจนี้จะเปลี่ยนรายวันตาม PID และวันที่เล่น</p>
+
+          <div class="jdv-mission">
+            <div id="jdvMissionLine" class="jdv-mission-line">📌 ยังไม่มีภารกิจ</div>
+            <div id="jdvMissionSub" class="jdv-mission-sub">เมื่อเริ่มเล่น ระบบจะตรวจภารกิจให้อัตโนมัติ</div>
+          </div>
+        </section>
+
+        <section class="jdv-card">
+          <h2 class="jdv-card-title">โปรไฟล์การฝึก</h2>
+          <p class="jdv-card-sub">ดึงจากผลล่าสุดที่เล่นในเครื่องนี้</p>
+
+          <div class="jdv-stats">
+            <div class="jdv-stat">
+              <div class="jdv-stat-k">Level</div>
+              <div id="jdvLevel" class="jdv-stat-v">1</div>
+              <div id="jdvXpSub" class="jdv-stat-sub">XP 0/120</div>
+            </div>
+
+            <div class="jdv-stat">
+              <div class="jdv-stat-k">Stars</div>
+              <div id="jdvStars" class="jdv-stat-v">0</div>
+              <div class="jdv-stat-sub">สะสมจากผลงานแต่ละรอบ</div>
+            </div>
+
+            <div class="jdv-stat">
+              <div class="jdv-stat-k">Streak</div>
+              <div id="jdvStreak" class="jdv-stat-v">0</div>
+              <div class="jdv-stat-sub">ต่อเนื่องรายวัน</div>
+            </div>
+
+            <div class="jdv-stat">
+              <div class="jdv-stat-k">Badges</div>
+              <div id="jdvBadges" class="jdv-stat-v">0</div>
+              <div class="jdv-stat-sub">ของสะสมที่ปลดล็อกแล้ว</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="jdv-card">
+          <h2 class="jdv-card-title">Adaptive Playlist</h2>
+          <p class="jdv-card-sub">ลำดับรอบที่ระบบแนะนำจากผลล่าสุด</p>
+
+          <div id="jdvPlaylist" class="jdv-playlist">
+            <div class="jdv-playlist-item">
+              <div class="jdv-playlist-title">ยังไม่มี playlist</div>
+              <div class="jdv-playlist-sub">เล่นสัก 1 รอบก่อน แล้วระบบจะจัดลำดับให้</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="jdv-col">
+        <section class="jdv-card jdv-run-panel">
+          <h2 class="jdv-card-title">เข้าเล่น JumpDuck</h2>
+          <p class="jdv-card-sub">เลือกค่าพื้นฐานก่อนเข้าเกม หรือใช้ค่าที่ระบบแนะนำก็ได้</p>
+
+          <div class="jdv-field-grid">
+            <div class="jdv-field">
+              <label for="jdvMode">Mode</label>
+              <select id="jdvMode">
+                <option value="training">training</option>
+                <option value="test">test</option>
+                <option value="research">research</option>
+              </select>
+            </div>
+
+            <div class="jdv-field">
+              <label for="jdvDiff">Difficulty</label>
+              <select id="jdvDiff">
+                <option value="easy">easy</option>
+                <option value="normal" selected>normal</option>
+                <option value="hard">hard</option>
+              </select>
+            </div>
+
+            <div class="jdv-field">
+              <label for="jdvDuration">Duration</label>
+              <select id="jdvDuration">
+                <option value="45">45 sec</option>
+                <option value="60" selected>60 sec</option>
+                <option value="75">75 sec</option>
+                <option value="90">90 sec</option>
+              </select>
+            </div>
+
+            <div class="jdv-field">
+              <label for="jdvTune">Phase Tune</label>
+              <select id="jdvTune">
+                <option value="A">A</option>
+                <option value="B" selected>B</option>
+                <option value="C">C</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="jdv-cta-grid">
+            <a id="jdvPlayPc" class="jdv-btn primary" href="#">🖥️ เล่นบน PC</a>
+            <a id="jdvPlayMobile" class="jdv-btn secondary" href="#">📱 เล่นบน Mobile</a>
+            <a id="jdvPlayCvr" class="jdv-btn tertiary" href="#">🥽 Cardboard</a>
+          </div>
+
+          <div class="jdv-note">
+            ปุ่มทั้ง 3 จะพาไปที่ <code>../fitness/jump-duck.html</code> พร้อมส่งค่าที่เลือกไว้
+          </div>
+        </section>
+
+        <section class="jdv-next">
+          <div class="jdv-card-title">รอบที่แนะนำถัดไป</div>
+          <div id="jdvNextTitle" class="jdv-next-title">ยังไม่มีรอบแนะนำ</div>
+          <div id="jdvNextSub" class="jdv-next-sub">เล่นจบอย่างน้อย 1 รอบก่อน แล้วระบบจะชี้ทางต่อให้</div>
+
+          <div class="jdv-next-actions">
+            <a id="jdvNextPlayBtn" class="jdv-next-mini primary" href="#">▶ เล่นตามคำแนะนำ</a>
+            <button id="jdvApplySuggestedBtn" class="jdv-next-mini ghost" type="button">⚙ ใช้ค่าที่แนะนำ</button>
+          </div>
+        </section>
+
+        <section class="jdv-card">
+          <h2 class="jdv-card-title">ของสะสมล่าสุด</h2>
+          <p id="jdvShelfLine" class="jdv-card-sub">—</p>
+        </section>
+      </div>
+    </div>
   </div>
 
   <script>
-    (() => {
+    (function () {
       'use strict';
 
-      const byId = (id) => document.getElementById(id);
-      const q = new URLSearchParams(location.search);
-
-      const pid = byId('pid');
-      const diff = byId('diff');
-      const time = byId('time');
-      const view = byId('view');
-      const seed = byId('seed');
-      const hub = byId('hub');
-      const previewText = byId('previewText');
-
       function qs(k, d=''){
-        try{ return new URL(location.href).searchParams.get(k) ?? d; }
-        catch{ return d; }
-      }
-
-      function safeSeed(){
-        return seed.value.trim() || String(Date.now());
-      }
-
-      function safeTime(){
-        return String(Math.max(45, Math.min(180, Number(time.value || 80))));
-      }
-
-      function normalizedHub(){
-        const raw = (hub.value || './hub.html').trim() || './hub.html';
         try{
-          const u = new URL(raw, location.href);
-          u.pathname = u.pathname.replace(/\/{2,}/g, '/');
+          return (new URL(location.href)).searchParams.get(k) ?? d;
+        }catch(_){
+          return d;
+        }
+      }
+
+      function loadJson(key, fallback=null){
+        try{
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fallback;
+        }catch(_){
+          return fallback;
+        }
+      }
+
+      function saveJson(key, value){
+        try{
+          localStorage.setItem(key, JSON.stringify(value));
+        }catch(_){}
+      }
+
+      function pid(){
+        const fromQs = String(qs('pid', '') || '').trim();
+        if (fromQs) return fromQs;
+
+        const last = loadJson('HHA_LAST_SUMMARY', null);
+        if (last && last.pid) return String(last.pid);
+
+        return 'anon';
+      }
+
+      function hubUrl(){
+        const hub = qs('hub', '');
+        if (hub) return hub;
+        try{
+          const u = new URL('./hub.html', location.href);
           return u.toString();
-        }catch{
+        }catch(_){
           return './hub.html';
         }
       }
 
-      function buildRunUrl(){
-        const u = new URL('../fitness/jump-duck.html', location.href);
-
-        u.searchParams.set('zone', 'fitness');
-        u.searchParams.set('cat', 'fitness');
-        u.searchParams.set('game', 'jumpduck');
-        u.searchParams.set('gameId', 'jumpduck');
-        u.searchParams.set('theme', 'jumpduck');
-
-        u.searchParams.set('pid', pid.value.trim() || 'anon');
-        u.searchParams.set('view', view.value || 'pc');
-        u.searchParams.set('run', qs('run', 'play'));
-        u.searchParams.set('diff', diff.value || 'normal');
-        u.searchParams.set('time', safeTime());
-        u.searchParams.set('seed', safeSeed());
-        u.searchParams.set('hub', normalizedHub());
-
-        u.searchParams.set('gate', '1');
-        u.searchParams.set('cooldown', '1');
-        u.searchParams.set('cdur', q.get('cdur') || '20');
-
-        return u.toString();
+      function todayKey(){
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
       }
 
-      function buildWarmupUrl(){
-        const gate = new URL('./warmup-gate.html', location.href);
-
-        gate.searchParams.set('phase', 'warmup');
-        gate.searchParams.set('gatePhase', 'warmup');
-
-        gate.searchParams.set('zone', 'fitness');
-        gate.searchParams.set('cat', 'fitness');
-        gate.searchParams.set('game', 'jumpduck');
-        gate.searchParams.set('gameId', 'jumpduck');
-        gate.searchParams.set('theme', 'jumpduck');
-
-        gate.searchParams.set('pid', pid.value.trim() || 'anon');
-        gate.searchParams.set('run', qs('run', 'play'));
-        gate.searchParams.set('diff', diff.value || 'normal');
-        gate.searchParams.set('time', safeTime());
-        gate.searchParams.set('view', view.value || 'pc');
-        gate.searchParams.set('seed', safeSeed());
-        gate.searchParams.set('hub', normalizedHub());
-
-        gate.searchParams.set('next', buildRunUrl());
-        return gate.toString();
+      function profileLevelFromXp(xp){
+        const safeXp = Math.max(0, Number(xp || 0));
+        const level = Math.floor(safeXp / 120) + 1;
+        const baseXp = (level - 1) * 120;
+        const nextXp = level * 120;
+        return {
+          level,
+          xp: safeXp,
+          inLevelXp: safeXp - baseXp,
+          needXp: nextXp - baseXp
+        };
       }
 
-      function renderPreview(label, url){
-        previewText.textContent = `${label}: ${url}`;
+      function missionKey(){
+        return `JD_DAILY_MISSION:${pid()}`;
       }
 
-      function setDefaults(){
-        pid.value = qs('pid', 'anon');
-        diff.value = qs('diff', 'normal');
-        time.value = qs('time', '80');
-        view.value = qs('view', 'pc');
-        seed.value = qs('seed', '');
-        hub.value = qs('hub', './hub.html');
-        renderPreview('warmup', buildWarmupUrl());
+      function profileKey(){
+        return `JD_PROFILE:${pid()}`;
       }
 
-      [pid, diff, time, view, seed, hub].forEach((el) => {
-        el?.addEventListener('input', () => renderPreview('warmup', buildWarmupUrl()));
-        el?.addEventListener('change', () => renderPreview('warmup', buildWarmupUrl()));
-      });
+      function planKey(){
+        return `JD_NEXT_PLAN:${pid()}`;
+      }
 
-      byId('btnFillDemo')?.addEventListener('click', () => {
-        pid.value = pid.value.trim() || 'anon';
-        diff.value = 'normal';
-        time.value = '80';
-        view.value = 'pc';
-        if(!seed.value.trim()) seed.value = String(Date.now());
-        renderPreview('warmup', buildWarmupUrl());
-      });
+      function hubCardKey(){
+        return `JD_HUB_CARD:${pid()}`;
+      }
 
-      byId('btnPreviewWarmup')?.addEventListener('click', () => {
-        renderPreview('warmup', buildWarmupUrl());
-      });
+      function shelfKey(){
+        return `JD_SHELF:${pid()}`;
+      }
 
-      byId('btnDirectRun')?.addEventListener('click', () => {
-        location.href = buildRunUrl();
-      });
-
-      byId('btnStart')?.addEventListener('click', () => {
-        location.href = buildWarmupUrl();
-      });
-
-      byId('btnBackHub')?.addEventListener('click', () => {
+      function currentRunUrl(){
         try{
-          window.HHA_BACKHUB?.goHub?.();
-          return;
-        }catch{}
-        location.href = normalizedHub();
-      });
+          return new URL('../fitness/jump-duck.html', location.href).toString();
+        }catch(_){
+          return '../fitness/jump-duck.html';
+        }
+      }
 
-      setDefaults();
+      function buildRunUrl(viewMode){
+        const base = new URL(currentRunUrl(), location.href);
+        const mode = document.getElementById('jdvMode')?.value || 'training';
+        const diff = document.getElementById('jdvDiff')?.value || 'normal';
+        const duration = document.getElementById('jdvDuration')?.value || '60';
+        const tune = document.getElementById('jdvTune')?.value || 'B';
+
+        const pass = ['studyId', 'phase', 'conditionGroup', 'run'];
+
+        base.searchParams.set('pid', pid());
+        base.searchParams.set('hub', hubUrl());
+        base.searchParams.set('mode', mode);
+        base.searchParams.set('diff', diff);
+        base.searchParams.set('duration', duration);
+        base.searchParams.set('time', duration);
+        base.searchParams.set('view', viewMode);
+        base.searchParams.set('phaseTune', `fixed${String(tune).toLowerCase()}`);
+
+        pass.forEach(k => {
+          const v = qs(k, '');
+          if (v) base.searchParams.set(k, v);
+        });
+
+        return base.toString();
+      }
+
+      function setPlayLinks(){
+        const pc = document.getElementById('jdvPlayPc');
+        const mobile = document.getElementById('jdvPlayMobile');
+        const cvr = document.getElementById('jdvPlayCvr');
+
+        if (pc) pc.href = buildRunUrl('pc');
+        if (mobile) mobile.href = buildRunUrl('mobile');
+        if (cvr) cvr.href = buildRunUrl('cvr');
+      }
+
+      function applySuggestedChallenge(ch){
+        if (!ch) return;
+
+        const modeEl = document.getElementById('jdvMode');
+        const diffEl = document.getElementById('jdvDiff');
+        const durEl = document.getElementById('jdvDuration');
+        const tuneEl = document.getElementById('jdvTune');
+
+        if (modeEl && ch.mode) modeEl.value = ch.mode;
+        if (diffEl && ch.diff) diffEl.value = ch.diff;
+        if (durEl && ch.duration) durEl.value = String(ch.duration);
+        if (tuneEl && ch.tune) tuneEl.value = String(ch.tune);
+
+        setPlayLinks();
+      }
+
+      function renderMission(){
+        const mission = loadJson(missionKey(), null);
+        const missionChip = document.getElementById('jdvMissionChip');
+        const missionLine = document.getElementById('jdvMissionLine');
+        const missionSub = document.getElementById('jdvMissionSub');
+
+        if (!mission) {
+          if (missionChip) missionChip.textContent = '—';
+          if (missionLine) missionLine.textContent = '📌 ยังไม่มีภารกิจ';
+          if (missionSub) missionSub.textContent = 'เมื่อเล่นสัก 1 รอบ ระบบจะเริ่มติดตามภารกิจให้';
+          return;
+        }
+
+        const label = mission.label || 'ภารกิจวันนี้';
+        const icon = mission.icon || '📌';
+        const status = mission.completed ? 'ผ่านแล้ว' : 'ยังไม่ผ่าน';
+
+        if (missionChip) missionChip.textContent = `${icon} ${label}`;
+        if (missionLine) missionLine.textContent = `${icon} ${label}`;
+        if (missionSub) {
+          missionSub.textContent =
+            `สถานะ: ${status} • day ${mission.dayKey || todayKey()} • reward XP ${mission.rewardXp || 28} / ⭐ ${mission.rewardStars || 1}`;
+        }
+      }
+
+      function renderProfile(){
+        const profile = loadJson(profileKey(), {});
+        const levelInfo = profileLevelFromXp(Number(profile.totalXp || 0));
+
+        const levelEl = document.getElementById('jdvLevel');
+        const xpSubEl = document.getElementById('jdvXpSub');
+        const starsEl = document.getElementById('jdvStars');
+        const streakEl = document.getElementById('jdvStreak');
+        const badgesEl = document.getElementById('jdvBadges');
+
+        const streakChip = document.getElementById('jdvStreakChip');
+        const shelfChip = document.getElementById('jdvShelfChip');
+
+        const totalBadges = Object.keys(profile.badgeCollection || {}).length;
+        const streakDays = Number(profile?.daily?.streakDays || 0);
+
+        if (levelEl) levelEl.textContent = String(levelInfo.level);
+        if (xpSubEl) xpSubEl.textContent = `XP ${levelInfo.inLevelXp}/${levelInfo.needXp}`;
+        if (starsEl) starsEl.textContent = String(Number(profile.totalStars || 0));
+        if (streakEl) streakEl.textContent = String(streakDays);
+        if (badgesEl) badgesEl.textContent = String(totalBadges);
+
+        if (streakChip) streakChip.textContent = `${streakDays} วัน`;
+        if (shelfChip) {
+          const shelf = loadJson(shelfKey(), { totalItems:0 });
+          shelfChip.textContent = `${Number(shelf.totalItems || 0)} ชิ้น`;
+        }
+      }
+
+      function renderPlaylistAndNext(){
+        const plan = loadJson(planKey(), null);
+        const card = loadJson(hubCardKey(), loadJson('HHA_HUB_LAST_CARD', null));
+        const nextTuneChip = document.getElementById('jdvNextTuneChip');
+
+        const playlistRoot = document.getElementById('jdvPlaylist');
+        const nextTitle = document.getElementById('jdvNextTitle');
+        const nextSub = document.getElementById('jdvNextSub');
+        const nextPlayBtn = document.getElementById('jdvNextPlayBtn');
+        const applyBtn = document.getElementById('jdvApplySuggestedBtn');
+
+        if (nextTuneChip) {
+          const tune = plan?.nextTune?.tune || (
+            String(card?.subtitle || '').match(/Next\s([ABC])/i)?.[1] || 'B'
+          );
+          nextTuneChip.textContent = tune;
+        }
+
+        const challenges = Array.isArray(plan?.nextChallenges) ? plan.nextChallenges : [];
+        const playlist = Array.isArray(plan?.adaptivePlaylist) ? plan.adaptivePlaylist : [];
+
+        if (playlistRoot) {
+          if (!playlist.length) {
+            playlistRoot.innerHTML = `
+              <div class="jdv-playlist-item">
+                <div class="jdv-playlist-title">ยังไม่มี playlist</div>
+                <div class="jdv-playlist-sub">เล่นสัก 1 รอบก่อน แล้วระบบจะจัดลำดับให้</div>
+              </div>
+            `;
+          } else {
+            playlistRoot.innerHTML = playlist.map((it, i) => `
+              <div class="jdv-playlist-item">
+                <div class="jdv-playlist-title">${i + 1}) ${it.title || 'Run'}</div>
+                <div class="jdv-playlist-sub">${it.desc || ''} • ${(it.diff || 'normal')} • ${(it.duration || 60)}s</div>
+              </div>
+            `).join('');
+          }
+        }
+
+        const first = challenges[0] || playlist[0] || null;
+
+        if (first) {
+          if (nextTitle) nextTitle.textContent = first.title || 'รอบที่แนะนำ';
+          if (nextSub) {
+            nextSub.textContent =
+              `${first.desc || 'ระบบแนะนำรอบถัดไปจากผลล่าสุด'} • ${first.diff || 'normal'} • ${first.duration || 60}s`;
+          }
+          if (nextPlayBtn) nextPlayBtn.href = first.url || buildRunUrl('pc');
+          if (applyBtn) {
+            applyBtn.onclick = function(){
+              applySuggestedChallenge(first);
+            };
+          }
+        } else {
+          if (nextTitle) nextTitle.textContent = 'ยังไม่มีรอบแนะนำ';
+          if (nextSub) nextSub.textContent = 'เล่นจบอย่างน้อย 1 รอบก่อน แล้วระบบจะชี้ทางต่อให้';
+          if (nextPlayBtn) nextPlayBtn.href = buildRunUrl('pc');
+          if (applyBtn) {
+            applyBtn.onclick = function(){};
+          }
+        }
+      }
+
+      function renderShelf(){
+        const shelf = loadJson(shelfKey(), { items:{} });
+        const lineEl = document.getElementById('jdvShelfLine');
+        const items = Object.values(shelf.items || {});
+
+        if (!lineEl) return;
+
+        if (!items.length) {
+          lineEl.textContent = 'ยังไม่มีของสะสม • เล่นจบแล้วของจะมาวางบน shelf อัตโนมัติ';
+          return;
+        }
+
+        lineEl.textContent = items
+          .slice(0, 5)
+          .map(it => `${it.icon} ${it.title} x${it.count}${it.rarity ? ` (${it.rarity.icon} ${it.rarity.label})` : ''}`)
+          .join(' • ');
+      }
+
+      function bindUi(){
+        const back = document.getElementById('jdvBackHub');
+        if (back) back.href = hubUrl();
+
+        ['jdvMode', 'jdvDiff', 'jdvDuration', 'jdvTune'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('change', setPlayLinks);
+        });
+
+        setPlayLinks();
+      }
+
+      function init(){
+        const profile = loadJson(profileKey(), {});
+        const plan = loadJson(planKey(), null);
+
+        const modeEl = document.getElementById('jdvMode');
+        const diffEl = document.getElementById('jdvDiff');
+        const durEl = document.getElementById('jdvDuration');
+        const tuneEl = document.getElementById('jdvTune');
+
+        if (plan?.nextChallenges?.[0]) {
+          const ch = plan.nextChallenges[0];
+          if (modeEl && ch.mode) modeEl.value = ch.mode;
+          if (diffEl && ch.diff) diffEl.value = ch.diff;
+          if (durEl && ch.duration) durEl.value = String(ch.duration);
+          if (tuneEl && ch.tune) tuneEl.value = String(ch.tune);
+        } else {
+          if (modeEl && qs('mode')) modeEl.value = qs('mode');
+          if (diffEl && qs('diff')) diffEl.value = qs('diff');
+          if (durEl && qs('duration')) durEl.value = qs('duration');
+          if (tuneEl && qs('phaseTune')) {
+            const v = String(qs('phaseTune')).replace(/^fixed/i, '').toUpperCase();
+            if (v === 'A' || v === 'B' || v === 'C') tuneEl.value = v;
+          }
+        }
+
+        renderMission();
+        renderProfile();
+        renderPlaylistAndNext();
+        renderShelf();
+        bindUi();
+
+        saveJson('JD_LAUNCHER_LAST_OPEN', {
+          pid: pid(),
+          openedAt: new Date().toISOString(),
+          profileStars: Number(profile.totalStars || 0),
+          hasPlan: !!plan
+        });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init, { once:true });
+      } else {
+        init();
+      }
     })();
   </script>
 </body>
