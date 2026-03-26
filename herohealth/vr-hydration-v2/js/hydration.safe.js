@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.safe.js ===
 // Hydration V2 Main Orchestrator
-// PATCH v20260318d-HYDRATION-V2-PATCH-C-FIXED-HUB
+// PATCH v20260320b-HYDRATION-V2-PATCH-C-FIXED-HUB-SOCIAL-BREAKDOWN
 //
 // Flow:
 // Intro -> Main Run -> Summary -> Scenarios -> Evaluate -> Create -> Final Summary
@@ -125,6 +125,7 @@ const state = {
   socialSummary: '',
   socialChecklist: null,
   socialMetrics: null,
+  socialBreakdown: null,
 
   combo: 0,
   bestCombo: 0,
@@ -278,6 +279,7 @@ function startRound() {
   state.socialSummary = '';
   state.socialChecklist = null;
   state.socialMetrics = null;
+  state.socialBreakdown = null;
 
   state.combo = 0;
   state.bestCombo = 0;
@@ -557,8 +559,25 @@ function recomputeSocial() {
   state.socialSummary = buildSocialSummary(social);
   state.socialChecklist = social.checklist || null;
   state.socialMetrics = social.metrics || null;
+  state.socialBreakdown = social.breakdown || null;
 
   return social;
+}
+
+function renderContributionBreakdownHtml() {
+  const b = state.socialBreakdown || {};
+
+  return `
+    <strong>Contribution Breakdown</strong><br/>
+    • Action: ${Number(b.actionPart || 0).toFixed(1)}<br/>
+    • Knowledge: ${Number(b.knowledgePart || 0).toFixed(1)}<br/>
+    • Planning: ${Number(b.planningPart || 0).toFixed(1)}<br/>
+    • Teamwork: ${Number(b.teamworkPart || 0).toFixed(1)}<br/>
+    • Combo: ${Number(b.comboPart || 0).toFixed(1)}<br/>
+    • Raw: ${Number(b.rawContribution || 0).toFixed(1)}<br/>
+    • Penalty: -${Number(b.penalty || 0).toFixed(1)}<br/>
+    • Final Contribution: ${Number(b.contributionPercent || 0)}%
+  `;
 }
 
 function showMainSummaryOverlay() {
@@ -569,7 +588,8 @@ function showMainSummaryOverlay() {
         contribution ${state.classTankContribution}% • stars ${state.teamStars}<br/>
         mission: ${state.teamMissionDone ? 'ผ่านแล้ว' : 'ยังไม่ผ่าน'}<br/>
         ${escapeHtml(state.socialMissionLabel)}<br/>
-        ${escapeHtml(state.socialMissionNote)}
+        ${escapeHtml(state.socialMissionNote)}<br/><br/>
+        ${renderContributionBreakdownHtml()}
       </div>
     `
     : `
@@ -750,6 +770,8 @@ function showFinalOverlay(evalResult, createResult, researchPayload) {
       <strong>Mission:</strong> ${state.teamMissionDone ? 'ผ่านแล้ว ✅' : 'ยังไม่ผ่าน ✨'}<br/>
       <strong>Mission Label:</strong> ${escapeHtml(state.socialMissionLabel)}<br/>
       <strong>Mission Note:</strong> ${escapeHtml(state.socialMissionNote)}<br/><br/>
+
+      ${renderContributionBreakdownHtml()}<br/><br/>
 
       <strong>Checklist</strong><br/>
       • เก็บน้ำ 8+: ${checklist.goodCatchOk ? 'ผ่าน ✅' : 'ยังไม่ผ่าน ✨'} (ตอนนี้ ${metrics.goodCatch ?? 0})<br/>
