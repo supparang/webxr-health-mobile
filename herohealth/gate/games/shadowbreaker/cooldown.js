@@ -1,34 +1,71 @@
 // === /herohealth/gate/games/shadowbreaker/cooldown.js ===
-// FULL PATCH v20260327-SHADOWBREAKER-COOLDOWN
+// FULL PATCH v20260327c-SHADOWBREAKER-COOLDOWN-GATECORE-COMPAT
 
-export default function mountShadowbreakerCooldown(ctx = {}){
-  const mount = document.getElementById('gateGameMount') || ctx?.mountRoot || ctx?.root;
-  if (!mount) return null;
+export default function mountShadowbreakerCooldown(mountRoot, ctx = {}, api = {}) {
+  const mount =
+    mountRoot ||
+    document.getElementById('gateGameMount') ||
+    ctx?.mountRoot ||
+    ctx?.root ||
+    api?.mountRoot ||
+    api?.root;
+
+  if (!mount) {
+    console.warn('[shadowbreaker cooldown] mount root not found');
+    return null;
+  }
 
   let remain = 10;
   let timer = null;
   let finished = false;
 
-  function finish(){
+  function pushStats() {
+    try {
+      api?.setStats?.({
+        time: remain,
+        score: 0,
+        miss: 0,
+        acc: '100%'
+      });
+    } catch (_) {}
+  }
+
+  function complete(detail = {}) {
     if (finished) return;
     finished = true;
-    if (timer) clearInterval(timer);
 
-    const result = {
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
+
+    const payload = {
       ok: true,
       phase: 'cooldown',
       game: 'shadowbreaker',
-      summary: 'Cooldown complete'
+      title: 'Cooldown เสร็จแล้ว',
+      subtitle: 'พักเรียบร้อยแล้ว กำลังไปหน้าสรุป',
+      lines: [
+        'หายใจเข้าออกช้า ๆ ได้ดีมาก',
+        'พร้อมดูผลสรุปของรอบนี้แล้ว'
+      ],
+      ...detail
     };
 
-    window.__GATE_PHASE_RESULT__ = result;
-    mount.dispatchEvent(new CustomEvent('gate:complete', {
-      bubbles: true,
-      detail: result
-    }));
+    window.__GATE_PHASE_RESULT__ = payload;
+
+    try {
+      mount.dispatchEvent(new CustomEvent('gate:complete', {
+        bubbles: true,
+        detail: payload
+      }));
+    } catch (err) {
+      console.warn('[shadowbreaker cooldown] dispatch gate:complete failed', err);
+      try { api?.complete?.(payload); } catch (_) {}
+    }
   }
 
-  function render(){
+  function render() {
     mount.innerHTML = `
       <div class="sb-mini-card" style="padding:16px;">
         <div style="font-size:14px;font-weight:900;color:#94a3b8;">Shadow Breaker • Cooldown</div>
@@ -59,23 +96,48 @@ export default function mountShadowbreakerCooldown(ctx = {}){
     const remainEl = document.getElementById('sbCoolRemain');
     const btnSkip = document.getElementById('sbCoolSkip');
 
-    timer = setInterval(()=>{
-      remain -= 1;
-      if (remainEl) remainEl.textContent = String(remain);
+    try {
+      api?.setTitle?.('Shadow Breaker Cooldown');
+      api?.setSub?.('ผ่อนแรงสั้น ๆ ก่อนดูผลสรุป');
+    } catch (_) {}
 
-      if (remain <= 0){
-        finish();
+    pushStats();
+
+    timer = setInterval(() => {
+      if (finished) return;
+
+      remain -= 1;
+      if (remainEl) remainEl.textContent = String(Math.max(0, remain));
+
+      pushStats();
+
+      if (remain <= 0) {
+        complete();
       }
     }, 1000);
 
-    btnSkip?.addEventListener('click', finish);
+    btnSkip?.addEventListener('click', () => {
+      complete({
+        skipped: true,
+        subtitle: 'ข้าม cooldown แล้ว กำลังไปหน้าสรุป'
+      });
+    });
   }
 
   render();
 
   return {
-    destroy(){
-      if (timer) clearInterval(timer);
+    start() {
+      try {
+        api?.setTitle?.('Shadow Breaker Cooldown');
+        api?.setSub?.('ผ่อนแรงสั้น ๆ ก่อนดูผลสรุป');
+      } catch (_) {}
+    },
+    destroy() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
     }
   };
 }
