@@ -1,7 +1,7 @@
-/* === /fitness/js/engine.js ===
-   Shadow Breaker Engine
-   FULL PATCH v20260327-SHADOWBREAKER-GATE-AUTOSTART-CVR
-*/
+// === /fitness/js/engine.js ===
+// Shadow Breaker Engine
+// FULL PATCH v20260327d-SHADOWBREAKER-KIDSOFT-FULL
+
 (function(){
   'use strict';
 
@@ -154,9 +154,9 @@
       key:'bubble',
       name:'Bubble Glove',
       emoji:'🫧',
-      speech:'จับฟองให้ทัน!',
-      clearTitle:'ผ่าน Bubble Glove แล้ว!',
-      clearSub:'เก่งมาก เตรียมเจอ Meteor Punch',
+      speech:'แตะฟองให้ทันนะ!',
+      clearTitle:'ผ่านบอสแล้ว!',
+      clearSub:'เก่งมาก เตรียมลุยด่านต่อไป',
       desc:'เป้ากลมใหญ่ ตีง่าย เหมาะเริ่มต้น',
       theme:{ theme1:'rgba(56,189,248,.22)', theme2:'rgba(59,130,246,.14)', border:'rgba(56,189,248,.26)' }
     },
@@ -164,9 +164,9 @@
       key:'meteor',
       name:'Meteor Punch',
       emoji:'☄️',
-      speech:'เร็วขึ้นอีกนิดนะ!',
-      clearTitle:'ผ่าน Meteor Punch แล้ว!',
-      clearSub:'อีกนิดเดียว จะไปถึง Neon Hydra',
+      speech:'มาเร็วขึ้นอีกนิด!',
+      clearTitle:'ผ่านอีกบอสแล้ว!',
+      clearSub:'ยอดเยี่ยม ไปต่อกันเลย',
       desc:'เป้าเร็วขึ้น เริ่มมี bomb มากขึ้น',
       theme:{ theme1:'rgba(245,158,11,.22)', theme2:'rgba(239,68,68,.12)', border:'rgba(245,158,11,.26)' }
     },
@@ -174,9 +174,9 @@
       key:'hydra',
       name:'Neon Hydra',
       emoji:'🐉',
-      speech:'จับหัวไฮดราให้ทัน!',
-      clearTitle:'ผ่าน Neon Hydra แล้ว!',
-      clearSub:'สุดยอด เหลือ Final Boss แล้ว',
+      speech:'แตะให้ทันนะ ระวังหลายเป้า!',
+      clearTitle:'ใกล้สำเร็จแล้ว!',
+      clearSub:'เหลืออีกนิดเดียวจะถึงบอสสุดท้าย',
       desc:'หลายเป้าพร้อมกัน ต้องตั้งสมาธิ',
       theme:{ theme1:'rgba(167,139,250,.24)', theme2:'rgba(99,102,241,.16)', border:'rgba(167,139,250,.26)' }
     },
@@ -184,9 +184,9 @@
       key:'final',
       name:'Final Boss',
       emoji:'👑',
-      speech:'นี่แหละ ด่านสุดท้าย!',
-      clearTitle:'Final Boss Clear!',
-      clearSub:'หนูเป็นฮีโร่นักสู้แล้ว 🎉',
+      speech:'ถึงด่านสุดท้ายแล้ว ลุยเลย!',
+      clearTitle:'ชนะแล้ว!',
+      clearSub:'หนูเป็นฮีโร่ของวันนี้ 🎉',
       desc:'ด่านสุดท้าย เป้าบอสเด่นที่สุด',
       theme:{ theme1:'rgba(250,204,21,.24)', theme2:'rgba(244,114,182,.16)', border:'rgba(250,204,21,.30)' }
     }
@@ -214,11 +214,11 @@
     const miss = Number(sum.missTotal || sum.miss || 0);
     const bestBoss = String(sum.bestReachedBoss || '');
 
-    if(bosses >= 4) return { icon:'👑', title:'Final Boss Hero', desc:'ผ่านบอสสุดท้ายได้แล้ว เก่งมากจริง ๆ' };
-    if(bestBoss.toLowerCase().includes('hydra')) return { icon:'🐉', title:'Hydra Hunter', desc:'ไปไกลถึง Neon Hydra แล้ว' };
-    if(bestBoss.toLowerCase().includes('meteor')) return { icon:'☄️', title:'Meteor Chaser', desc:'ผ่าน Meteor Punch ได้ยอดเยี่ยม' };
-    if(acc >= 88 && score >= 1000) return { icon:'🎯', title:'Accuracy Ace', desc:'ตีแม่นมาก น่าภูมิใจสุด ๆ' };
-    if(miss <= 3 && score >= 700) return { icon:'🛡️', title:'Careful Fighter', desc:'พลาดน้อยมาก เล่นอย่างนิ่งเลย' };
+    if(bosses >= 4) return { icon:'👑', title:'Final Hero', desc:'ผ่านบอสสุดท้ายได้แล้ว เก่งที่สุดเลย' };
+    if(bestBoss.toLowerCase().includes('hydra')) return { icon:'🐉', title:'Hydra Hero', desc:'ไปไกลถึง Neon Hydra แล้ว' };
+    if(bestBoss.toLowerCase().includes('meteor')) return { icon:'☄️', title:'Meteor Hero', desc:'ผ่าน Meteor Punch ได้ยอดเยี่ยม' };
+    if(acc >= 88 && score >= 1000) return { icon:'🎯', title:'Aim Star', desc:'ตีแม่นมาก น่าภูมิใจสุด ๆ' };
+    if(miss <= 3 && score >= 700) return { icon:'🛡️', title:'Careful Hero', desc:'พลาดน้อยมาก เล่นได้นิ่งเลย' };
     return { icon:'🥊', title:'Shadow Starter', desc:'เริ่มต้นได้ดี ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม' };
   }
 
@@ -376,8 +376,8 @@
     if(DOM.researchFields) DOM.researchFields.style.display = STATE.mode === 'research' ? '' : 'none';
     if(DOM.modeDesc){
       DOM.modeDesc.textContent = STATE.mode === 'research'
-        ? 'Research: ใช้เก็บข้อมูลการทดลอง'
-        : 'Normal: เล่นสนุก ไม่ต้องกรอกข้อมูลผู้เข้าร่วม';
+        ? 'โหมดวิจัย: ใช้เก็บข้อมูลการทดลอง'
+        : 'เล่นสนุกได้เลย ไม่ต้องกรอกข้อมูลเพิ่ม';
     }
 
     const vm = getViewMode();
@@ -442,9 +442,9 @@
       const c = entityCenter(ent);
       const d2 = dist2(pt.x, pt.y, c.x, c.y);
       const focusRadius =
-        ent.type === 'bossface' ? 190 :
-        ent.type === 'normal' ? 170 :
-        ent.type === 'heal' || ent.type === 'shield' ? 160 : 150;
+        ent.type === 'bossface' ? 210 :
+        ent.type === 'normal' ? 190 :
+        ent.type === 'heal' || ent.type === 'shield' ? 176 : 165;
 
       if (d2 <= focusRadius * focusRadius && d2 < bestD2){
         best = ent;
@@ -486,7 +486,7 @@
   }
 
   function showBossBanner(title, sub, durMs=1800){
-    if(DOM.bossBannerTitle) DOM.bossBannerTitle.textContent = title || 'Boss Clear!';
+    if(DOM.bossBannerTitle) DOM.bossBannerTitle.textContent = title || 'ผ่านบอสแล้ว!';
     if(DOM.bossBannerSub) DOM.bossBannerSub.textContent = sub || '';
     DOM.bossBanner?.classList.add('is-show');
     STATE.bossBannerClock = durMs;
@@ -521,9 +521,9 @@
     if(DOM.feverBar) DOM.feverBar.style.width = `${feverPct}%`;
     if(DOM.labelFever) DOM.labelFever.textContent = `${Math.round(feverPct)}%`;
     if(DOM.feverHint){
-      if(STATE.feverOn) DOM.feverHint.textContent = 'FEVER เปิดอยู่! ตีให้ไวเลย';
-      else if(feverPct >= 100) DOM.feverHint.textContent = 'พร้อมแล้ว! กด FEVER ได้เลย';
-      else DOM.feverHint.textContent = 'ตีแม่น ๆ เพื่อเปิด FEVER';
+      if(STATE.feverOn) DOM.feverHint.textContent = 'พลังพิเศษเปิดอยู่! แตะเร็วเลย';
+      else if(feverPct >= 100) DOM.feverHint.textContent = 'พร้อมแล้ว! กดพลังพิเศษได้เลย';
+      else DOM.feverHint.textContent = 'ตีแม่น ๆ เพื่อเปิดพลังพิเศษ';
     }
 
     if(DOM.bossShieldLabel) DOM.bossShieldLabel.textContent = String(Math.round(STATE.shield || 0));
@@ -548,10 +548,10 @@
 
     const sizeBase =
       viewMode === 'mobile'
-        ? (STATE.diff === 'easy' ? 98 : STATE.diff === 'hard' ? 76 : 86)
+        ? (STATE.diff === 'easy' ? 106 : STATE.diff === 'hard' ? 82 : 92)
         : viewMode === 'cvr'
-          ? (STATE.diff === 'easy' ? 120 : STATE.diff === 'hard' ? 92 : 104)
-          : (STATE.diff === 'easy' ? 92 : STATE.diff === 'hard' ? 70 : 80);
+          ? (STATE.diff === 'easy' ? 128 : STATE.diff === 'hard' ? 100 : 112)
+          : (STATE.diff === 'easy' ? 96 : STATE.diff === 'hard' ? 74 : 84);
 
     const size =
       type === 'bossface' ? sizeBase + 18 :
@@ -579,27 +579,27 @@
     let spawnBottom = h - size - padBottom;
 
     if (viewMode === 'mobile') {
-      spawnTop = Math.max(64, h * 0.14);
-      spawnBottom = h - size - 18;
+      spawnTop = Math.max(72, h * 0.16);
+      spawnBottom = h - size - 26;
     }
 
     if (viewMode === 'pc') {
-      spawnRight = Math.max(spawnLeft + 40, w - size - 180);
-      spawnTop = Math.max(72, h * 0.16);
+      spawnRight = Math.max(spawnLeft + 40, w - size - 170);
+      spawnTop = Math.max(76, h * 0.17);
     }
 
     if (viewMode === 'cvr') {
-      spawnLeft = 24;
-      spawnRight = w - size - 24;
-      spawnTop = Math.max(96, h * 0.18);
-      spawnBottom = h - size - 48;
+      spawnLeft = 28;
+      spawnRight = w - size - 28;
+      spawnTop = Math.max(104, h * 0.20);
+      spawnBottom = h - size - 60;
     }
 
     const x = opts.x != null ? opts.x : spawnLeft + STATE.rng() * Math.max(10, spawnRight - spawnLeft);
     const y = opts.y != null ? opts.y : spawnTop + STATE.rng() * Math.max(10, spawnBottom - spawnTop);
 
     let emoji = '🎯';
-    if(type === 'normal') emoji = choice(STATE.rng, ['🎯','⭐','✨']);
+    if(type === 'normal') emoji = choice(STATE.rng, ['⭐','🎯','✨']);
     if(type === 'decoy') emoji = '👀';
     if(type === 'bomb') emoji = '💣';
     if(type === 'heal') emoji = '🩹';
@@ -678,7 +678,7 @@
       STATE.hitCount += 1;
       STATE.fever = clamp(STATE.fever + 10, 0, 100);
       STATE.hpBoss = clamp(STATE.hpBoss - (STATE.feverOn ? 18 : 10), 0, 100);
-      setCenterMsg(choice(STATE.rng, ['เยี่ยม!','เก่งมาก!','โดนเต็ม ๆ!']), 380);
+      setCenterMsg(choice(STATE.rng, ['เยี่ยม!','เก่งมาก!','โดนแล้ว!','สุดยอด!']), 380);
       logEvent('hit_good', { ent_id: ent.id, ent_type: ent.type, score: STATE.score });
     } else if(ent.type === 'bossface'){
       const gain = STATE.feverOn ? 60 : 35;
@@ -688,12 +688,12 @@
       STATE.hitCount += 1;
       STATE.fever = clamp(STATE.fever + 12, 0, 100);
       STATE.hpBoss = clamp(STATE.hpBoss - (STATE.feverOn ? 28 : 18), 0, 100);
-      setCenterMsg(choice(STATE.rng, ['บอสโดนแล้ว!','อีกนิดเดียว!','สุดยอด!']), 450);
+      setCenterMsg(choice(STATE.rng, ['โดนบอสแล้ว!','อีกนิดเดียว!','เก่งมาก!','ลุยเลย!']), 450);
       logEvent('hit_boss', { ent_id: ent.id, ent_type: ent.type, score: STATE.score });
     } else if(ent.type === 'heal'){
       STATE.hpYou = clamp(STATE.hpYou + 18, 0, 100);
       STATE.score += 6;
-      setCenterMsg('พลังกลับมาแล้ว!', 500);
+      setCenterMsg('พลังมาแล้ว!', 500);
       logEvent('pickup_heal', { ent_id: ent.id });
     } else if(ent.type === 'shield'){
       STATE.shield = clamp(STATE.shield + 18, 0, 100);
@@ -710,7 +710,7 @@
         STATE.hpYou = clamp(STATE.hpYou - (ent.type === 'bomb' ? 18 : 10), 0, 100);
         STATE.combo = 0;
         STATE.missTotal += 1;
-        setCenterMsg(ent.type === 'bomb' ? 'โอ๊ะ ระวังระเบิด!' : 'อ๊ะ เป้าหลอก!', 550);
+        setCenterMsg(ent.type === 'bomb' ? 'โอ๊ะ ระวังบอมบ์!' : 'อ๊ะ เป้าหลอก!', 550);
         logEvent('hit_bad', { ent_id: ent.id, ent_type: ent.type, hp_you: STATE.hpYou });
       }
     }
@@ -741,7 +741,7 @@
       STATE.tapCount += 1;
       STATE.combo = 0;
       logEvent('cvr_shoot_blank', {});
-      setCenterMsg('ยังไม่โดนเป้านะ', 260);
+      setCenterMsg('ลองเล็งใหม่อีกนิด', 260);
       updateHud();
     }
   }
@@ -751,8 +751,8 @@
     if(STATE.spawnClock > 0) return;
 
     const baseGap =
-      STATE.diff === 'easy' ? 780 :
-      STATE.diff === 'hard' ? 520 : 640;
+      STATE.diff === 'easy' ? 860 :
+      STATE.diff === 'hard' ? 560 : 700;
 
     const phaseMul = [1.00, 0.92, 0.84, 0.78][clamp(STATE.phaseIndex,0,3)] || 1;
     STATE.spawnClock = baseGap * phaseMul;
@@ -828,9 +828,9 @@
     if(!STATE.isPlaying || STATE.isPaused) return;
     if(STATE.fever < 100 || STATE.feverOn) return;
     STATE.feverOn = true;
-    STATE.feverRemainMs = 5000;
+    STATE.feverRemainMs = 5500;
     STATE.fever = 100;
-    setCenterMsg('FEVER!', 800);
+    setCenterMsg('สปีดอัป!', 800);
     logEvent('fever_on', {});
     updateHud();
   }
@@ -841,7 +841,7 @@
     if(STATE.feverRemainMs <= 0){
       STATE.feverOn = false;
       STATE.fever = 0;
-      setCenterMsg('FEVER หมดแล้ว', 600);
+      setCenterMsg('พลังพิเศษหมดแล้ว', 600);
       logEvent('fever_off', {});
     }
   }
@@ -872,7 +872,7 @@
     applyBossTheme(currentBoss());
     setTimeout(()=>{
       showBossSpeech(currentBoss().speech, 1800);
-      setCenterMsg(`Phase ${STATE.phaseIndex + 1}`, 800);
+      setCenterMsg(`ด่าน ${STATE.phaseIndex + 1}`, 800);
       updateHud();
     }, 900);
   }
@@ -978,6 +978,13 @@
       localStorage.setItem(`SB_DONE_TODAY:${pid}:${hhDayKey()}`, '1');
       localStorage.setItem(`HHA_GAME_DONE::shadowbreaker::${pid}::${hhDayKey()}`, '1');
     }catch(_){}
+
+    console.log('[SB] persistSummary', {
+      pid: summary?.pid,
+      grade: summary?.grade,
+      score: summary?.scoreFinal,
+      bestBoss: summary?.bestReachedBoss
+    });
   }
 
   function renderResult(summary){
@@ -994,23 +1001,29 @@
 
     if(DOM.resBadgeIcon) DOM.resBadgeIcon.textContent = summary.badge?.icon || '🏅';
     if(DOM.resBadgeTitle) DOM.resBadgeTitle.textContent = summary.badge?.title || 'Shadow Starter';
-    if(DOM.resBadgeDesc) DOM.resBadgeDesc.textContent = summary.badge?.desc || 'ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
+    if(DOM.resBadgeDesc) DOM.resBadgeDesc.textContent = summary.badge?.desc || 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
 
     if(DOM.resMessage){
       if(summary.end_reason === 'final_clear'){
-        DOM.resMessage.textContent = 'หนูผ่าน Final Boss ได้แล้ว สุดยอดมาก 🎉';
+        DOM.resMessage.textContent = 'หนูผ่านบอสสุดท้ายได้แล้ว สุดยอดมาก 🎉';
       } else if((summary.bossesCleared || 0) >= 3){
-        DOM.resMessage.textContent = 'เก่งมาก ไปถึงบอสลึกมากแล้ว ลองอีกครั้งอาจชนะ Final ได้เลย';
+        DOM.resMessage.textContent = 'เก่งมาก ไปได้ไกลมากแล้ว อีกนิดเดียวก็ถึงบอสสุดท้าย';
       } else if((summary.bossesCleared || 0) >= 1){
-        DOM.resMessage.textContent = 'ยอดเยี่ยม หนูผ่านบอสแรก ๆ ได้แล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
+        DOM.resMessage.textContent = 'ยอดเยี่ยม ผ่านบอสได้แล้ว ลองอีกครั้งเพื่อไปต่อ';
       } else {
-        DOM.resMessage.textContent = 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นและคอมโบ';
+        DOM.resMessage.textContent = 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นนะ';
       }
     }
   }
 
   function goToCooldown(summary){
     const target = buildCooldownGateUrl(summary);
+    console.log('[SB] goToCooldown', {
+      pid: summary?.pid,
+      score: summary?.scoreFinal,
+      bossesCleared: summary?.bossesCleared,
+      target
+    });
     try{
       location.href = target;
     }catch(_){
@@ -1119,7 +1132,7 @@
     if (getViewMode() === 'cvr') {
       setCenterMsg('แตะจอเพื่อยิงจากกลางจอ', 1200);
     } else {
-      setCenterMsg('เริ่มเลย!', 900);
+      setCenterMsg('พร้อมแล้ว!', 900);
     }
 
     STATE.isPlaying = true;
@@ -1135,6 +1148,15 @@
       time_sec: Math.round(STATE.totalMs/1000),
       seed: STATE.seed,
       view: getViewMode()
+    });
+
+    console.log('[SB] startGame', {
+      mode: STATE.mode,
+      diff: STATE.diff,
+      totalMs: STATE.totalMs,
+      seed: STATE.seed,
+      view: getViewMode(),
+      pid: STATE.pid
     });
 
     requestAnimationFrame(loop);
