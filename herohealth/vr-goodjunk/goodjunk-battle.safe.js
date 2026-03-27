@@ -1,15 +1,14 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-battle.safe.js
- * GOODJUNK BATTLE ENGINE
+ * FULL PATCH v20260327-GOODJUNK-BATTLE-ENGINE-R1
  * ---------------------------------------------------------
- * - works with rooms/{roomId}/{meta,state,players}
- * - self-loads Firebase compat + firebase-config if missing
- * - joins existing room from Battle Lobby
- * - host flips countdown -> playing -> ended
- * - local gameplay: good/junk targets, score, streak, HP, charge
- * - attack system synced through Firebase
- * - emits battle summary events for run shell
- * - compatible with goodjunk.safe.battle.js if loaded separately
+ * Engine role:
+ * - actual playable battle engine
+ * - works with lobby schema: hha-battle/goodjunk/rooms/{roomId}/{meta,state,players}
+ * - injects stage + HUD into #gameMount
+ * - syncs score / hp / charge / attacks to Firebase
+ * - host ends round when time up or someone is KO
+ * - emits battle:* events for goodjunk.safe.battle.js
  * ========================================================= */
 
 (() => {
@@ -18,173 +17,123 @@
   const W = window;
   const D = document;
 
-  const VERSION = 'v20260327-GJBATTLE-ENGINE-R1';
-  const FIREBASE_APP = 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js';
-  const FIREBASE_AUTH = 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js';
-  const FIREBASE_DB = 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js';
-  const FIREBASE_CONFIG = '../firebase-config.js';
+  if (W.__GJ_BATTLE_ENGINE_LOADED__) return;
+  W.__GJ_BATTLE_ENGINE_LOADED__ = true;
 
-  const qs = (k, d = '') => {
-    try { return new URL(location.href).searchParams.get(k) ?? d; }
-    catch { return d; }
+  const ROOT_PATH = 'hha-battle/goodjunk/rooms';
+  const HEARTBEAT_MS = 2500;
+  const ACTIVE_TTL_MS = 15000;
+  const SYNC_MIN_MS = 120;
+  const FIREBASE_SDKS = [
+    'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js',
+    'https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js',
+    '../firebase-config.js'
+  ];
+
+  const GOOD_ITEMS = [
+    { emoji:'🍎', name:'Apple' },
+    { emoji:'🍌', name:'Banana' },
+    { emoji:'🍉', name:'Watermelon' },
+    { emoji:'🥕', name:'Carrot' },
+    { emoji:'🥦', name:'Broccoli' },
+    { emoji:'🍓', name:'Strawberry' },
+    { emoji:'🍇', name:'Grapes' },
+    { emoji:'🥛', name:'Milk' }
+  ];
+
+  const JUNK_ITEMS = [
+    { emoji:'🍩', name:'Donut' },
+    { emoji:'🍟', name:'Fries' },
+    { emoji:'🍭', name:'Lollipop' },
+    { emoji:'🍬', name:'Candy' },
+    { emoji:'🧃', name:'Sweet Drink' },
+    { emoji:'🧁', name:'Cupcake' },
+    { emoji:'🍪', name:'Cookie' }
+  ];
+
+  const DIFF_CFG = {
+    easy:   { spawnEvery: 860, maxTargets: 5, ttl: 3200, speed: 110, goodRatio: 0.78, atkDamage: 16 },
+    normal: { spawnEvery: 700, maxTargets: 6, ttl: 2700, speed: 140, goodRatio: 0.72, atkDamage: 18 },
+    hard:   { spawnEvery: 560, maxTargets: 7, ttl: 2300, speed: 175, goodRatio: 0.66, atkDamage: 20 }
   };
 
-  const clamp = (v, a, b) => {
-    v = Number(v);
-    if (!Number.isFinite(v)) v = a;
-    return Math.max(a, Math.min(b, v));
+  const qs = (k, d='') => {
+    try {
+      return new URL(location.href).searchParams.get(k) ?? d;
+    } catch {
+      return d;
+    }
   };
 
-  const num = (v, d = 0) => {
+  const num = (v, d=0) => {
     v = Number(v);
     return Number.isFinite(v) ? v : d;
   };
 
-  const int = (v, d = 0) => Math.round(num(v, d));
-
-  const txt = (v) => String(v == null ? '' : v).trim();
-
-  const esc = (s) => String(s == null ? '' : s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, num(v, a)));
   const now = () => Date.now();
 
-  const raf = W.requestAnimationFrame ? W.requestAnimationFrame.bind(W) : (fn => setTimeout(fn, 16));
-  const caf = W.cancelAnimationFrame ? W.cancelAnimationFrame.bind(W) : clearTimeout;
+  function cleanText(v, max=64){
+    return String(v == null ? '' : v).trim().slice(0, max);
+  }
 
-  const ROOM_ID = String(qs('roomId') || qs('room') || '').toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
-  const HUB = qs('hub', '../hub.html');
-  const NAME = String(qs('name') || qs('nick') || 'Player').trim().slice(0, 48);
-  const PID = String(qs('pid') || 'anon').trim().slice(0, 80);
-  const DIFF = String(qs('diff') || 'normal').toLowerCase();
-  const VIEW = String(qs('view') || 'mobile').toLowerCase();
-  const MODE = 'battle';
-  const DEBUG = qs('debug', '0') === '1' || qs('battleDebug', '0') === '1';
+  function cleanPid(v){
+    const s = String(v == null ? '' : v).replace(/[.#$[\]/]/g, '-').trim();
+    if (!s || s.toLowerCase() === 'anon') return '';
+    return s.slice(0, 80);
+  }
 
-  const DIFF_CFG = {
-    easy:   { spawnEvery: 900, maxTargets: 5, ttl: 3200, speedMin: 58, speedMax: 86, goodRatio: 0.76, atkGain: 20, atkDmg: 12 },
-    normal: { spawnEvery: 760, maxTargets: 6, ttl: 2800, speedMin: 72, speedMax: 104, goodRatio: 0.72, atkGain: 18, atkDmg: 14 },
-    hard:   { spawnEvery: 640, maxTargets: 7, ttl: 2450, speedMin: 86, speedMax: 124, goodRatio: 0.68, atkGain: 16, atkDmg: 16 }
-  };
+  function cleanRoom(v){
+    return String(v == null ? '' : v)
+      .toUpperCase()
+      .replace(/[^A-Z0-9_-]/g, '')
+      .slice(0, 24);
+  }
 
-  const GOOD_ITEMS = [
-    { emoji: '🍎', name: 'Apple' },
-    { emoji: '🍌', name: 'Banana' },
-    { emoji: '🍉', name: 'Watermelon' },
-    { emoji: '🥕', name: 'Carrot' },
-    { emoji: '🥦', name: 'Broccoli' },
-    { emoji: '🥛', name: 'Milk' },
-    { emoji: '🍓', name: 'Strawberry' },
-    { emoji: '🍇', name: 'Grapes' }
-  ];
+  function roomIdCandidates(raw){
+    const exact = cleanRoom(raw);
+    const compact = exact.replace(/[^A-Z0-9]/g, '');
+    const out = [];
 
-  const JUNK_ITEMS = [
-    { emoji: '🍟', name: 'Fries' },
-    { emoji: '🍩', name: 'Donut' },
-    { emoji: '🍬', name: 'Candy' },
-    { emoji: '🍭', name: 'Lollipop' },
-    { emoji: '🧃', name: 'Sweet drink' },
-    { emoji: '🍪', name: 'Cookie' },
-    { emoji: '🧁', name: 'Cupcake' }
-  ];
-
-  const TOASTS = {
-    ready: '⚡ พลังโจมตีเต็มแล้ว กด ATTACK ได้เลย',
-    noOpponent: 'ยังไม่มีคู่แข่งให้โจมตี',
-    attack: '💥 โจมตีคู่แข่งแล้ว',
-    junk: 'โอ๊ะ เจอ junk แล้ว',
-    miss: 'อาหารดีหลุดไปแล้ว',
-    good: 'เยี่ยมมาก เก็บอาหารดีได้',
-    ko: '🛡️ HP หมดแล้ว',
-    wait: 'กำลังรออีกคนเข้าเกม',
-    sync: 'กำลังซิงก์ห้อง Battle'
-  };
-
-  const CFG = DIFF_CFG[DIFF] || DIFF_CFG.normal;
-
-  const S = {
-    uid: '',
-    db: null,
-    auth: null,
-    joinedAt: 0,
-
-    refs: {
-      root: null,
-      meta: null,
-      state: null,
-      players: null,
-      self: null
-    },
-
-    roomMeta: null,
-    roomState: null,
-    playersMap: {},
-
-    started: false,
-    ended: false,
-    roundKey: '',
-    endAtMs: 0,
-
-    loopId: 0,
-    heartbeatId: 0,
-    writeQueued: false,
-    lastWriteAt: 0,
-    hostStartInFlight: false,
-    hostEndInFlight: false,
-
-    toastTimer: 0,
-    debugPaintAt: 0,
-
-    seq: 0,
-    lastFrameAt: 0,
-    lastSpawnAt: 0,
-    targets: [],
-
-    self: {
-      pid: PID || 'anon',
-      name: NAME || 'Player',
-      score: 0,
-      miss: 0,
-      bestStreak: 0,
-      streak: 0,
-      hp: 100,
-      maxHp: 100,
-      shield: 0,
-      attackCharge: 0,
-      maxAttackCharge: 100,
-      attackReady: false,
-      attacksUsed: 0,
-      damageDealt: 0,
-      damageTaken: 0,
-      koCount: 0,
-      goodHit: 0,
-      junkHit: 0,
-      goodMiss: 0
+    function push(v){
+      v = cleanRoom(v);
+      if (!v) return;
+      if (!out.includes(v)) out.push(v);
     }
-  };
 
-  const UI = {};
+    push(exact);
+    push(compact);
 
-  function xmur3(str) {
+    if (/^GJB[A-Z0-9]{5,8}$/.test(compact)) push(`GJB-${compact.slice(3)}`);
+    if (/^GJB-[A-Z0-9]{5,8}$/.test(exact)) push(exact.replace('-', ''));
+
+    return out;
+  }
+
+  function formatClock(sec){
+    sec = Math.max(0, Math.ceil(num(sec, 0)));
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function xmur3(str){
     str = String(str || '');
     let h = 1779033703 ^ str.length;
-    for (let i = 0; i < str.length; i++) {
+    for (let i = 0; i < str.length; i++){
       h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
       h = (h << 13) | (h >>> 19);
     }
-    return function() {
+    return function(){
       h = Math.imul(h ^ (h >>> 16), 2246822507);
       h = Math.imul(h ^ (h >>> 13), 3266489909);
       return (h ^= h >>> 16) >>> 0;
     };
   }
 
-  function mulberry32(a) {
-    return function() {
+  function mulberry32(a){
+    return function(){
       let t = a += 0x6D2B79F5;
       t = Math.imul(t ^ (t >>> 15), t | 1);
       t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
@@ -192,1510 +141,1438 @@
     };
   }
 
-  const RNG = mulberry32(xmur3(`${ROOM_ID}|${qs('seed', String(now()))}|${DIFF}|${MODE}`)());
-
-  function devicePid() {
-    try {
-      let pid = localStorage.getItem('GJ_DEVICE_PID');
-      if (!pid) {
-        pid = `p-${Math.random().toString(36).slice(2, 10)}`;
-        localStorage.setItem('GJ_DEVICE_PID', pid);
-      }
-      return pid;
-    } catch (_) {
-      return `p-${Math.random().toString(36).slice(2, 10)}`;
-    }
+  function raf(fn){
+    return (W.requestAnimationFrame || function(cb){ return setTimeout(() => cb(performance.now()), 16); })(fn);
   }
 
-  function ensurePid() {
-    const v = txt(PID).replace(/[.#$[\]/]/g, '-');
-    if (!v || v.toLowerCase() === 'anon') return devicePid();
-    return v.slice(0, 80);
+  function caf(id){
+    return (W.cancelAnimationFrame || clearTimeout)(id);
   }
 
-  function ensureName() {
-    return (txt(NAME) || 'Player').slice(0, 48);
-  }
-
-  function loadScript(src) {
+  function loadScript(src){
     return new Promise((resolve, reject) => {
-      const abs = new URL(src, location.href).toString();
-      const exist = Array.from(D.scripts).find((s) => s.src === abs);
-      if (exist) {
-        if (exist.dataset.loaded === '1') return resolve();
-        exist.addEventListener('load', () => resolve(), { once: true });
-        exist.addEventListener('error', () => reject(new Error(`load failed: ${src}`)), { once: true });
+      const full = new URL(src, location.href).toString();
+      const existing = Array.from(D.scripts).find(s => s.src === full);
+      if (existing){
+        if (existing.dataset.loaded === '1') return resolve(full);
+        existing.addEventListener('load', () => resolve(full), { once:true });
+        existing.addEventListener('error', () => reject(new Error('load failed: ' + src)), { once:true });
         return;
       }
 
       const s = D.createElement('script');
-      s.src = abs;
+      s.src = full;
       s.async = true;
       s.onload = () => {
         s.dataset.loaded = '1';
-        resolve();
+        resolve(full);
       };
-      s.onerror = () => reject(new Error(`load failed: ${src}`));
+      s.onerror = () => reject(new Error('load failed: ' + src));
       D.head.appendChild(s);
     });
   }
 
-  async function ensureFirebase() {
-    if (!W.firebase || !W.firebase.database || !W.firebase.auth) {
-      await loadScript(FIREBASE_APP);
-      await loadScript(FIREBASE_AUTH);
-      await loadScript(FIREBASE_DB);
-    }
+  const STATE = {
+    roomId: cleanRoom(qs('roomId') || qs('room') || ''),
+    queryUid: cleanPid(qs('uid') || qs('playerId') || ''),
+    pid: cleanPid(qs('pid') || '') || cleanPid((W.__GJ_RUN_CTX__ || {}).pid) || 'anon',
+    uid: '',
+    name: cleanText(qs('name') || qs('nick') || (W.__GJ_RUN_CTX__ || {}).name || 'Player', 40),
+    role: cleanText(qs('role') || 'player', 20),
+    diff: (() => {
+      const v = String(qs('diff', 'normal')).toLowerCase();
+      return (v === 'easy' || v === 'hard') ? v : 'normal';
+    })(),
+    timeSec: clamp(qs('time', '150'), 30, 300),
+    seed: cleanText(qs('seed') || String(Date.now()), 60),
+    roundToken: cleanText(qs('roundToken') || '', 120),
+    startAtQuery: num(qs('startAt', '0'), 0),
+    hub: qs('hub', '../hub.html'),
+    view: cleanText(qs('view', 'mobile'), 20),
+    run: cleanText(qs('run', 'play'), 20),
 
-    if (!W.HHA_FIREBASE_CONFIG && !W.__HHA_FIREBASE_CONFIG__ && !W.firebaseConfig) {
-      await loadScript(FIREBASE_CONFIG);
-    }
+    firebaseReady: false,
+    db: null,
+    auth: null,
+    roomRef: null,
+    refs: { meta:null, state:null, players:null, self:null },
 
-    const config = W.HHA_FIREBASE_CONFIG || W.__HHA_FIREBASE_CONFIG__ || W.firebaseConfig;
-    if (!config) throw new Error('firebase config missing');
+    room: { meta:{}, state:{}, players:{} },
 
-    if (!firebase.apps || !firebase.apps.length) {
-      firebase.initializeApp(config);
-    }
+    started: false,
+    finished: false,
+    localKo: false,
+    lastFrameTs: 0,
+    lastSpawnAt: 0,
+    loopId: 0,
+    heartbeatId: 0,
+    syncTimer: 0,
+    lastSyncTs: 0,
 
-    S.auth = firebase.auth();
-    S.db = firebase.database();
+    rng: null,
+    cfg: DIFF_CFG.normal,
 
-    if (!S.auth.currentUser) {
-      await S.auth.signInAnonymously();
-    }
+    targets: [],
+    seq: 0,
+    seenAttackIds: Object.create(null),
 
-    if (!S.auth.currentUser) {
-      throw new Error('anonymous auth failed');
-    }
+    score: 0,
+    miss: 0,
+    streak: 0,
+    bestStreak: 0,
+    hp: 100,
+    maxHp: 100,
+    shield: 0,
+    attackCharge: 0,
+    maxAttackCharge: 100,
+    attackReady: false,
+    attacksUsed: 0,
+    damageDealt: 0,
+    damageTaken: 0,
+    koCount: 0,
+    goodHit: 0,
+    junkHit: 0,
 
-    S.uid = S.auth.currentUser.uid;
+    lastAttackId: '',
+    lastAttackAt: 0,
+    lastAttackDamage: 0,
+    lastAttackTarget: '',
+
+    hostEndingBusy: false,
+    bannerLockUntil: 0
+  };
+
+  const UI = {
+    mount: null,
+    root: null,
+    field: null,
+    statusBanner: null,
+    tips: null,
+    attackBtn: null,
+
+    battleModePill: null,
+    battleRoomPill: null,
+    battleScoreValue: null,
+    battleTimeValue: null,
+    battleMissValue: null,
+    battleStreakValue: null,
+    battleHpValue: null,
+    battleHpFill: null,
+    battleChargeValue: null,
+    battleChargeFill: null,
+    battleAttackReady: null,
+
+    opponentStrip: null
+  };
+
+  function getCfg(){
+    return DIFF_CFG[STATE.diff] || DIFF_CFG.normal;
   }
 
-  function injectStyle() {
-    if (D.getElementById('gj-battle-engine-style')) return;
+  function currentRoomEndsAt(){
+    return num((STATE.room.state || {}).endsAt, 0);
+  }
+
+  function roomStatus(){
+    return String(((STATE.room || {}).state || {}).status || '');
+  }
+
+  function getSelfKey(){
+    return STATE.uid || STATE.queryUid || '';
+  }
+
+  function normalizeRoomPlayersMap(obj){
+    const out = {};
+    const src = (obj && typeof obj === 'object') ? obj : {};
+    Object.keys(src).forEach((key) => {
+      const p = src[key] || {};
+      out[key] = Object.assign({}, p, {
+        uid: cleanPid(p.uid || p.playerId || key),
+        playerId: cleanPid(p.playerId || p.uid || key),
+        pid: cleanPid(p.pid || p.playerId || p.uid || key),
+        name: cleanText(p.name || p.nick || 'Player', 40)
+      });
+    });
+    return out;
+  }
+
+  function roomPlayersArray(){
+    return Object.entries(normalizeRoomPlayersMap(STATE.room.players)).map(([key, p]) => Object.assign({ key }, p));
+  }
+
+  function activePlayers(){
+    const t = now();
+    return roomPlayersArray()
+      .filter((p) => {
+        if (p.connected === false) return false;
+        const lastSeen = num(p.lastSeen || p.updatedAt || p.joinedAt, 0);
+        if (!lastSeen) return true;
+        return (t - lastSeen) <= ACTIVE_TTL_MS;
+      })
+      .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
+  }
+
+  function selfPlayer(){
+    const key = getSelfKey();
+    const players = normalizeRoomPlayersMap(STATE.room.players);
+    return players[key] || null;
+  }
+
+  function opponentPlayers(){
+    const key = getSelfKey();
+    return activePlayers().filter((p) => p.key !== key);
+  }
+
+  function topOpponent(){
+    const arr = opponentPlayers();
+    return arr[0] || null;
+  }
+
+  function isHost(){
+    const host = cleanPid((STATE.room.meta || {}).hostPid || '');
+    return !!host && host === getSelfKey();
+  }
+
+  function updateGlobals(){
+    W.battleRoom = STATE.room;
+    W.__BATTLE_ROOM__ = STATE.room;
+
+    W.state = Object.assign({}, W.state || {}, {
+      room: STATE.room,
+      roomId: STATE.roomId,
+      pid: STATE.pid,
+      uid: STATE.uid,
+      playerId: STATE.uid,
+      score: STATE.score,
+      miss: STATE.miss,
+      bestStreak: STATE.bestStreak,
+      hp: STATE.hp,
+      maxHp: STATE.maxHp,
+      shield: STATE.shield,
+      attackCharge: STATE.attackCharge,
+      maxAttackCharge: STATE.maxAttackCharge,
+      attackReady: STATE.attackReady,
+      attacksUsed: STATE.attacksUsed,
+      damageDealt: STATE.damageDealt,
+      damageTaken: STATE.damageTaken,
+      koCount: STATE.koCount,
+      timeLeftSec: timeLeftSec(),
+      started: STATE.started,
+      finished: STATE.finished,
+      isEnded: STATE.finished,
+      endsAtMs: currentRoomEndsAt()
+    });
+
+    W.gameState = W.state;
+  }
+
+  function emit(name, detail){
+    try {
+      W.dispatchEvent(new CustomEvent(name, { detail }));
+    } catch {}
+  }
+
+  function emitLiveEvents(){
+    updateGlobals();
+
+    emit('battle:update', {
+      roomId: STATE.roomId,
+      pid: STATE.pid,
+      uid: STATE.uid,
+      name: STATE.name,
+      score: STATE.score,
+      miss: STATE.miss,
+      bestStreak: STATE.bestStreak,
+      hp: STATE.hp,
+      maxHp: STATE.maxHp,
+      shield: STATE.shield,
+      attackCharge: STATE.attackCharge,
+      maxAttackCharge: STATE.maxAttackCharge,
+      attackReady: STATE.attackReady,
+      attacksUsed: STATE.attacksUsed,
+      damageDealt: STATE.damageDealt,
+      damageTaken: STATE.damageTaken,
+      koCount: STATE.koCount,
+      timeLeftSec: timeLeftSec(),
+      players: normalizeRoomPlayersMap(STATE.room.players),
+      room: STATE.room
+    });
+
+    emit('battle:room', STATE.room);
+    emit('battle:players', { players: normalizeRoomPlayersMap(STATE.room.players) });
+    emit('battle:judge', {
+      score: STATE.score,
+      miss: STATE.miss,
+      bestStreak: STATE.bestStreak
+    });
+    emit('battle:damage', {
+      hp: STATE.hp,
+      maxHp: STATE.maxHp,
+      shield: STATE.shield,
+      damageDealt: STATE.damageDealt,
+      damageTaken: STATE.damageTaken,
+      koCount: STATE.koCount
+    });
+    emit('battle:charge', {
+      attackCharge: STATE.attackCharge,
+      maxAttackCharge: STATE.maxAttackCharge,
+      attackReady: STATE.attackReady,
+      attacksUsed: STATE.attacksUsed
+    });
+  }
+
+  function injectStyles(){
+    if (D.getElementById('gjBattleEngineStyles')) return;
+
     const style = D.createElement('style');
-    style.id = 'gj-battle-engine-style';
+    style.id = 'gjBattleEngineStyles';
     style.textContent = `
-      #gjBattleEngineRoot{
-        position:absolute; inset:0; z-index:1;
-        pointer-events:auto;
-        user-select:none;
-        -webkit-user-select:none;
+      #battleEngineRoot{
+        position:absolute; inset:0; z-index:1; overflow:hidden;
+        background:
+          radial-gradient(circle at 12% 10%, rgba(255,255,255,.9), transparent 18%),
+          radial-gradient(circle at 86% 14%, rgba(255,255,255,.76), transparent 16%),
+          linear-gradient(180deg,#dff4ff,#bfe8ff 54%, #fff7d8);
       }
-      #gjBattleArena{
-        position:absolute; inset:0;
-        overflow:hidden;
+      #battleEngineStage{
+        position:absolute; inset:0; overflow:hidden;
       }
-      .gjb-cloud{
-        position:absolute;
-        border-radius:999px;
-        background:rgba(255,255,255,.9);
-        box-shadow:0 8px 20px rgba(0,0,0,.06);
+      #battleField{
+        position:absolute; inset:0; overflow:hidden;
+      }
+      #battleField::before{
+        content:"";
+        position:absolute; left:0; right:0; bottom:0; height:140px;
+        background:
+          radial-gradient(circle at 20% 40%, rgba(126,217,87,.34), transparent 18%),
+          radial-gradient(circle at 72% 44%, rgba(126,217,87,.28), transparent 18%),
+          linear-gradient(180deg,#b3f28f,#88d96b);
+        border-top:1px solid rgba(88,195,63,.26);
         pointer-events:none;
       }
-      .gjb-cloud.c1{ width:148px; height:48px; left:4%; top:7%; }
-      .gjb-cloud.c2{ width:104px; height:36px; right:8%; top:10%; }
-      .gjb-cloud.c3{ width:124px; height:40px; left:36%; top:16%; }
-
-      #gjBattleStage{
-        position:absolute;
-        inset:0;
-        overflow:hidden;
+      #battleHud{
+        position:absolute; left:14px; right:14px; top:14px; z-index:6;
+        display:grid; gap:10px; pointer-events:none;
       }
-
-      .gjb-target{
-        position:absolute;
-        display:grid;
-        place-items:center;
-        border-radius:24px;
-        border:2px solid rgba(255,255,255,.95);
-        box-shadow:0 12px 28px rgba(0,0,0,.14);
-        cursor:pointer;
-        transform:translate3d(0,0,0);
-        will-change:transform;
-        touch-action:manipulation;
+      .gjb-hud-row{
+        display:flex; gap:8px; flex-wrap:wrap; align-items:center;
       }
-      .gjb-target.good{
-        background:linear-gradient(180deg,#fffef9,#f1fff2);
-      }
-      .gjb-target.junk{
-        background:linear-gradient(180deg,#fff7f7,#ffe7e7);
-      }
-      .gjb-target .emo{
-        font-size:clamp(28px,5vw,42px);
-        line-height:1;
-      }
-
-      #gjBattleHud{
-        position:absolute;
-        left:12px; right:12px; top:12px;
-        display:grid;
-        grid-template-columns:minmax(220px,300px) 1fr minmax(220px,300px);
-        gap:10px;
-        z-index:4;
-        pointer-events:none;
-      }
-      .gjb-card{
-        background:rgba(255,255,255,.9);
-        border:2px solid rgba(191,227,242,.95);
-        border-radius:22px;
-        box-shadow:0 14px 30px rgba(86,155,194,.16);
-        padding:12px;
-      }
-      .gjb-card *{ pointer-events:auto; }
-      .gjb-head{
-        font-size:12px;
-        font-weight:1000;
-        color:#7b7a72;
-        letter-spacing:.04em;
-        text-transform:uppercase;
-      }
-      .gjb-big{
-        font-size:34px;
-        line-height:1;
-        font-weight:1000;
-        color:#4d4a42;
-        margin-top:6px;
-      }
-      .gjb-row{
-        display:grid;
-        grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:8px;
-        margin-top:10px;
-      }
-      .gjb-mini{
-        border-radius:16px;
-        padding:10px;
-        background:#fff;
-        border:1.5px solid rgba(191,227,242,.95);
-        text-align:center;
-      }
-      .gjb-mini .k{
-        font-size:11px;
-        color:#7b7a72;
-        font-weight:1000;
-      }
-      .gjb-mini .v{
-        margin-top:4px;
-        font-size:20px;
-        line-height:1;
-        font-weight:1000;
-        color:#244260;
-      }
-
-      .gjb-center{
-        display:grid;
-        gap:10px;
-      }
-      .gjb-matchbar{
-        display:grid;
-        grid-template-columns:1fr auto 1fr;
-        gap:10px;
-        align-items:center;
-      }
-      .gjb-name{
-        font-size:14px;
-        font-weight:1000;
-        color:#4d4a42;
-      }
-      .gjb-sub{
-        font-size:12px;
-        color:#7b7a72;
-        font-weight:900;
-        line-height:1.45;
-      }
-      .gjb-vs{
-        min-width:62px;
-        height:62px;
-        border-radius:999px;
-        display:grid;
-        place-items:center;
-        background:linear-gradient(180deg,#fff5d2,#ffd45c);
-        border:2px solid rgba(191,227,242,.95);
-        font-size:22px;
-        font-weight:1000;
-        color:#8c5f00;
-      }
-      .gjb-bar{
-        height:12px;
-        border-radius:999px;
-        overflow:hidden;
-        background:rgba(191,227,242,.65);
-        margin-top:8px;
-      }
-      .gjb-fill{
-        height:100%;
-        width:0%;
-        border-radius:999px;
-        transition:width .12s linear;
-      }
-      .gjb-fill.hp{ background:linear-gradient(90deg,#7ed957,#58c33f); }
-      .gjb-fill.charge{ background:linear-gradient(90deg,#7fcfff,#58b7f5); }
-
-      #attackBtn{
-        appearance:none;
-        border:0;
-        cursor:pointer;
-        min-height:46px;
-        padding:12px 16px;
+      .gjb-pill, .gjb-stat, .gjb-gauge, .gjb-opponent-card{
+        background:rgba(255,255,255,.92);
+        border:2px solid #bfe3f2;
         border-radius:18px;
-        background:linear-gradient(180deg,#ffd45c,#ffb547);
-        color:#6d4e00;
-        font-size:15px;
-        font-weight:1000;
-        box-shadow:0 10px 18px rgba(86,155,194,.14);
+        box-shadow:0 10px 20px rgba(86,155,194,.12);
       }
-      #attackBtn[disabled]{
-        opacity:.58;
-        cursor:not-allowed;
+      .gjb-pill{
+        min-height:42px; padding:10px 14px;
+        font-size:13px; font-weight:1000; color:#4d4a42;
+        display:inline-flex; align-items:center; gap:8px;
+      }
+      .gjb-stat{
+        min-width:108px; padding:10px 12px; text-align:center;
+      }
+      .gjb-stat-k{
+        font-size:11px; color:#7b7a72; font-weight:1000;
+      }
+      .gjb-stat-v{
+        margin-top:5px; font-size:22px; line-height:1; font-weight:1000; color:#244260;
+      }
+      .gjb-gauge{
+        padding:10px 12px; min-width:190px;
+      }
+      .gjb-gauge-head{
+        display:flex; justify-content:space-between; gap:8px; align-items:center;
+        font-size:12px; color:#6d6a62; font-weight:1000;
+      }
+      .gjb-gauge-bar{
+        position:relative; height:12px; margin-top:7px; overflow:hidden;
+        border-radius:999px; background:#e8f6ff;
+      }
+      .gjb-gauge-fill{
+        position:absolute; left:0; top:0; bottom:0; width:0%;
+        border-radius:999px; transition:width .14s linear;
+      }
+      #battleHpFill{ background:linear-gradient(90deg,#7ed957,#58c33f); }
+      #battleChargeFill{ background:linear-gradient(90deg,#7fcfff,#58b7f5); }
+      #battleOpponentStrip{
+        position:absolute; left:14px; right:14px; bottom:14px; z-index:5;
+        display:flex; gap:10px; flex-wrap:wrap;
+      }
+      .gjb-opponent-card{
+        min-width:220px; padding:12px 14px; color:#4d4a42;
+      }
+      .gjb-opponent-top{
+        display:flex; justify-content:space-between; gap:8px; align-items:center;
+      }
+      .gjb-opponent-name{
+        font-size:15px; font-weight:1000;
+      }
+      .gjb-opponent-mini{
+        margin-top:7px; font-size:12px; color:#7b7a72; font-weight:1000;
+      }
+      #battleBanner{
+        position:absolute; left:50%; top:110px; transform:translateX(-50%);
+        z-index:7; min-width:min(92vw,520px); max-width:min(92vw,620px);
+        border-radius:22px; padding:12px 16px;
+        border:2px solid #bfe3f2;
+        background:rgba(255,255,255,.95);
+        box-shadow:0 14px 24px rgba(86,155,194,.16);
+        color:#4d4a42; text-align:center; font-size:14px; line-height:1.6; font-weight:1000;
+      }
+      #battleActionDock{
+        position:absolute; right:14px; bottom:86px; z-index:8; pointer-events:auto;
+        display:grid; gap:8px; justify-items:end;
+      }
+      #battleAttackBtn{
+        appearance:none; border:none; cursor:pointer;
+        min-width:146px; min-height:54px; padding:12px 16px;
+        border-radius:18px; font-size:15px; font-weight:1000;
+        color:#fffef9; background:linear-gradient(180deg,#7fcfff,#58b7f5);
+        box-shadow:0 14px 24px rgba(86,155,194,.18);
+        transition:transform .12s ease, opacity .12s ease, filter .12s ease;
+      }
+      #battleAttackBtn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+      #battleAttackBtn:active{ transform:translateY(0); }
+      #battleAttackBtn:disabled{
+        cursor:not-allowed; opacity:.55; filter:grayscale(.06); transform:none;
       }
       #attackReadyBadge{
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        min-height:34px;
-        padding:6px 12px;
-        border-radius:999px;
-        background:#fff;
-        border:2px solid rgba(191,227,242,.95);
-        font-size:12px;
-        font-weight:1000;
-        color:#7b7a72;
-        width:max-content;
-      }
-
-      #gjBattleBottom{
-        position:absolute;
-        left:12px; right:12px; bottom:12px;
-        z-index:4;
-        display:flex;
-        gap:10px;
-        justify-content:space-between;
-        align-items:flex-end;
-        pointer-events:none;
-      }
-      #gjBattleCoach,
-      #gjBattleToast{
-        pointer-events:auto;
         background:rgba(255,255,255,.92);
-        border:2px solid rgba(191,227,242,.95);
-        box-shadow:0 12px 24px rgba(86,155,194,.12);
+        border:2px solid #bfe3f2;
+        border-radius:999px; min-height:36px; padding:7px 12px;
+        box-shadow:0 10px 20px rgba(86,155,194,.12);
+        font-size:12px; font-weight:1000; color:#7b7a72;
       }
-      #gjBattleCoach{
-        max-width:min(680px, calc(100vw - 24px));
-        border-radius:20px;
-        padding:12px 14px;
-        color:#6d6a62;
-        font-size:13px;
-        font-weight:1000;
-        line-height:1.6;
+      .gjb-cloud{
+        position:absolute; background:#fff; border-radius:999px;
+        box-shadow:0 8px 18px rgba(0,0,0,.06); opacity:.8; pointer-events:none;
       }
-      #gjBattleToast{
-        min-width:180px;
-        max-width:min(320px, calc(100vw - 24px));
-        border-radius:16px;
-        padding:10px 12px;
-        color:#4d4a42;
-        font-size:13px;
-        font-weight:1000;
-        line-height:1.5;
-        text-align:center;
-        opacity:0;
-        transform:translateY(8px);
-        transition:opacity .16s ease, transform .16s ease;
-      }
-      #gjBattleToast.show{
-        opacity:1;
-        transform:translateY(0);
-      }
-
-      #gjBattleGate{
+      .gjb-cloud.c1{ width:130px;height:42px;left:4%;top:8%; }
+      .gjb-cloud.c2{ width:95px;height:34px;left:72%;top:11%; }
+      .gjb-cloud.c3{ width:110px;height:36px;left:38%;top:18%; }
+      .gjb-target{
         position:absolute;
-        inset:0;
-        z-index:6;
-        display:grid;
-        place-items:center;
-        padding:18px;
-        background:rgba(255,255,255,.34);
-        backdrop-filter:blur(8px);
+        display:grid; place-items:center;
+        border-radius:22px; border:2px solid #fff;
+        box-shadow:0 12px 24px rgba(0,0,0,.14);
+        cursor:pointer; user-select:none;
+        transform:translateZ(0);
+        min-width:56px; min-height:56px;
       }
-      #gjBattleGate[hidden]{ display:none !important; }
-      .gjb-gate-card{
-        width:min(560px,100%);
-        background:rgba(255,253,246,.96);
-        border:2px solid rgba(191,227,242,.95);
-        border-radius:28px;
-        box-shadow:0 24px 50px rgba(86,155,194,.18);
-        padding:20px;
-        text-align:center;
+      .gjb-target.good{
+        background:linear-gradient(180deg,#ffffff,#f1fff1);
       }
-      .gjb-gate-kicker{
-        display:inline-flex;
-        align-items:center;
-        gap:8px;
-        min-height:34px;
-        padding:6px 14px;
-        border-radius:999px;
-        background:#fff4dd;
-        border:2px solid rgba(191,227,242,.95);
-        color:#b7791f;
-        font-size:12px;
-        font-weight:1000;
+      .gjb-target.junk{
+        background:linear-gradient(180deg,#fff3f3,#ffe1e1);
       }
-      .gjb-gate-title{
-        margin-top:12px;
-        font-size:34px;
-        line-height:1.05;
-        font-weight:1000;
-        color:#b7791f;
-        text-shadow:0 2px 0 #fff;
+      .gjb-target .emoji{
+        font-size:clamp(24px, 3.8vw, 38px);
+        line-height:1;
       }
-      .gjb-gate-text{
-        margin-top:10px;
-        color:#7b7a72;
-        font-size:14px;
-        line-height:1.7;
-        font-weight:900;
+      .gjb-hitfx{
+        position:absolute; pointer-events:none; z-index:9;
+        font-size:20px; font-weight:1000; color:#244260;
+        text-shadow:0 1px 0 #fff;
+        animation:gjb-float .48s ease-out forwards;
       }
-      .gjb-gate-mini{
-        margin-top:12px;
-        display:flex;
-        justify-content:center;
-        gap:8px;
-        flex-wrap:wrap;
+      .gjb-hitfx.good{ color:#15803d; }
+      .gjb-hitfx.bad{ color:#b91c1c; }
+      .gjb-hitfx.atk{ color:#2563eb; font-size:24px; }
+      @keyframes gjb-float{
+        0%{ opacity:0; transform:translateY(8px) scale(.9); }
+        15%{ opacity:1; }
+        100%{ opacity:0; transform:translateY(-28px) scale(1.04); }
       }
-      .gjb-gpill{
-        padding:8px 12px;
-        border-radius:999px;
-        background:#fff;
-        border:1.5px solid rgba(191,227,242,.95);
-        color:#6d6a62;
-        font-size:12px;
-        font-weight:1000;
-      }
-
-      #gjBattleDebug{
-        position:fixed;
-        left:10px; right:10px; bottom:10px;
-        z-index:9999;
-        padding:10px 12px;
-        border-radius:14px;
-        border:1px solid rgba(191,227,242,.9);
-        background:rgba(15,23,42,.92);
-        color:#f8fafc;
-        font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
-        box-shadow:0 18px 40px rgba(0,0,0,.28);
-        white-space:pre-wrap;
-        word-break:break-word;
-        backdrop-filter:blur(8px);
-        max-height:42vh;
-        overflow:auto;
-        display:none;
-      }
-      #gjBattleDebug.show{ display:block; }
-
-      @media (max-width:980px){
-        #gjBattleHud{
-          grid-template-columns:1fr;
-          top:10px; left:10px; right:10px;
+      @media (max-width: 860px){
+        #battleHud{ gap:8px; left:10px; right:10px; top:10px; }
+        .gjb-stat{ min-width:94px; }
+        .gjb-gauge{ min-width:160px; }
+        #battleBanner{
+          top:116px; min-width:min(94vw,520px); font-size:13px;
         }
-        .gjb-big{ font-size:28px; }
-        .gjb-row{ grid-template-columns:repeat(3,minmax(0,1fr)); }
-        #gjBattleBottom{
-          flex-direction:column;
-          align-items:stretch;
-          left:10px; right:10px; bottom:10px;
-        }
-        #gjBattleCoach, #gjBattleToast{ max-width:none; }
+        #battleActionDock{ right:10px; bottom:74px; }
+        #battleAttackBtn{ min-width:130px; min-height:50px; font-size:14px; }
       }
-
-      @media (prefers-reduced-motion: reduce){
-        .gjb-fill,
-        #gjBattleToast{
-          transition:none !important;
-        }
+      @media (max-width: 640px){
+        .gjb-stat-v{ font-size:20px; }
+        .gjb-opponent-card{ min-width:unset; width:100%; }
+        #battleBanner{ top:136px; }
+        #battleOpponentStrip{ left:10px; right:10px; bottom:10px; }
       }
     `;
     D.head.appendChild(style);
   }
 
-  function buildDom() {
-    const mount = D.getElementById('gameMount') || D.body;
-    mount.innerHTML = `
-      <div id="gjBattleEngineRoot">
-        <div id="gjBattleArena">
-          <div class="gjb-cloud c1" aria-hidden="true"></div>
-          <div class="gjb-cloud c2" aria-hidden="true"></div>
-          <div class="gjb-cloud c3" aria-hidden="true"></div>
+  function buildDom(){
+    injectStyles();
 
-          <div id="gjBattleHud">
-            <div class="gjb-card">
-              <div class="gjb-head">My Score</div>
-              <div class="gjb-big" id="scoreValue">0</div>
+    UI.mount = D.getElementById('gameMount');
+    if (!UI.mount){
+      throw new Error('#gameMount not found');
+    }
 
-              <div class="gjb-row">
-                <div class="gjb-mini">
-                  <div class="k">TIME</div>
-                  <div class="v" id="timeValue">0:00</div>
-                </div>
-                <div class="gjb-mini">
-                  <div class="k">MISS</div>
-                  <div class="v" id="missValue">0</div>
-                </div>
-                <div class="gjb-mini">
-                  <div class="k">BEST</div>
-                  <div class="v" id="bestStreakValue">0</div>
-                </div>
-              </div>
+    UI.mount.innerHTML = `
+      <div id="battleEngineRoot">
+        <div id="battleEngineStage">
+          <div class="gjb-cloud c1"></div>
+          <div class="gjb-cloud c2"></div>
+          <div class="gjb-cloud c3"></div>
+
+          <div id="battleHud">
+            <div class="gjb-hud-row">
+              <div class="gjb-pill" id="battleModePill">MODE battle</div>
+              <div class="gjb-pill" id="battleRoomPill">ROOM -</div>
             </div>
 
-            <div class="gjb-card gjb-center">
-              <div class="gjb-matchbar">
-                <div>
-                  <div class="gjb-name" id="meName">Me</div>
-                  <div class="gjb-sub" id="meMeta">Battle hero</div>
-                  <div class="gjb-bar"><div class="gjb-fill hp" id="hpFill"></div></div>
-                  <div class="gjb-sub" style="margin-top:6px;" id="hpValue">100/100</div>
+            <div class="gjb-hud-row">
+              <div class="gjb-stat">
+                <div class="gjb-stat-k">SCORE</div>
+                <div class="gjb-stat-v" id="battleScoreValue">0</div>
+              </div>
+
+              <div class="gjb-stat">
+                <div class="gjb-stat-k">TIME</div>
+                <div class="gjb-stat-v" id="battleTimeValue">0:00</div>
+              </div>
+
+              <div class="gjb-stat">
+                <div class="gjb-stat-k">MISS</div>
+                <div class="gjb-stat-v" id="battleMissValue">0</div>
+              </div>
+
+              <div class="gjb-stat">
+                <div class="gjb-stat-k">BEST STREAK</div>
+                <div class="gjb-stat-v" id="battleStreakValue">0</div>
+              </div>
+
+              <div class="gjb-gauge">
+                <div class="gjb-gauge-head">
+                  <span>HP</span>
+                  <span id="battleHpValue">100/100</span>
                 </div>
-
-                <div class="gjb-vs">VS</div>
-
-                <div style="text-align:right;">
-                  <div class="gjb-name" id="enemyName">Waiting...</div>
-                  <div class="gjb-sub" id="enemyMeta">ยังไม่มีคู่แข่ง</div>
-                  <div class="gjb-bar"><div class="gjb-fill hp" id="enemyHpFill"></div></div>
-                  <div class="gjb-sub" style="margin-top:6px;" id="enemyHpValue">-</div>
+                <div class="gjb-gauge-bar">
+                  <div class="gjb-gauge-fill" id="battleHpFill"></div>
                 </div>
               </div>
 
-              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
-                <div style="display:grid;gap:8px;">
-                  <div class="gjb-sub" id="attackChargeValue">0/100</div>
-                  <div class="gjb-bar" style="min-width:180px;"><div class="gjb-fill charge" id="attackChargeFill"></div></div>
+              <div class="gjb-gauge">
+                <div class="gjb-gauge-head">
+                  <span>ATTACK CHARGE</span>
+                  <span id="battleChargeValue">0/100</span>
                 </div>
-                <div style="display:grid;gap:8px;justify-items:end;">
-                  <div id="attackReadyBadge">CHARGING</div>
-                  <button id="attackBtn" type="button" disabled>⚡ ATTACK</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="gjb-card">
-              <div class="gjb-head">Opponent</div>
-              <div class="gjb-big" id="enemyScoreValue">0</div>
-
-              <div class="gjb-row">
-                <div class="gjb-mini">
-                  <div class="k">ROOM</div>
-                  <div class="v" id="battleRoomValue">${esc(ROOM_ID || '-')}</div>
-                </div>
-                <div class="gjb-mini">
-                  <div class="k">LEVEL</div>
-                  <div class="v" id="battleLevelValue">${esc(DIFF)}</div>
-                </div>
-                <div class="gjb-mini">
-                  <div class="k">VIEW</div>
-                  <div class="v" id="battleViewValue">${esc(VIEW)}</div>
+                <div class="gjb-gauge-bar">
+                  <div class="gjb-gauge-fill" id="battleChargeFill"></div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div id="gjBattleStage"></div>
+          <div id="battleBanner">กำลังเตรียมห้อง Battle…</div>
+          <div id="battleField"></div>
 
-          <div id="gjBattleBottom">
-            <div id="gjBattleCoach">⚔️ เก็บอาหารดีให้ไว ระวัง junk และใช้ ATTACK ให้ถูกจังหวะ</div>
-            <div id="gjBattleToast"></div>
+          <div id="battleActionDock">
+            <div id="attackReadyBadge">CHARGING</div>
+            <button id="battleAttackBtn" type="button" disabled>⚡ ATTACK</button>
           </div>
 
-          <div id="gjBattleGate">
-            <div class="gjb-gate-card">
-              <div class="gjb-gate-kicker">⚔️ GOODJUNK BATTLE</div>
-              <div class="gjb-gate-title" id="gjBattleGateTitle">กำลังเตรียมห้อง...</div>
-              <div class="gjb-gate-text" id="gjBattleGateText">กำลังโหลดระบบและเชื่อมห้อง Battle</div>
-              <div class="gjb-gate-mini">
-                <div class="gjb-gpill" id="gateRoomPill">ROOM • ${esc(ROOM_ID || '-')}</div>
-                <div class="gjb-gpill" id="gateDiffPill">LEVEL • ${esc(DIFF)}</div>
-                <div class="gjb-gpill" id="gateTimePill">TIME • ${esc(qs('time', '90'))}</div>
-              </div>
-            </div>
-          </div>
+          <div id="battleOpponentStrip"></div>
         </div>
-
-        <div id="gjBattleDebug"></div>
       </div>
     `;
 
-    UI.stage = D.getElementById('gjBattleStage');
-    UI.gate = D.getElementById('gjBattleGate');
-    UI.gateTitle = D.getElementById('gjBattleGateTitle');
-    UI.gateText = D.getElementById('gjBattleGateText');
+    UI.root = D.getElementById('battleEngineRoot');
+    UI.field = D.getElementById('battleField');
+    UI.statusBanner = D.getElementById('battleBanner');
+    UI.attackBtn = D.getElementById('battleAttackBtn');
 
-    UI.score = D.getElementById('scoreValue');
-    UI.time = D.getElementById('timeValue');
-    UI.miss = D.getElementById('missValue');
-    UI.best = D.getElementById('bestStreakValue');
-
-    UI.hpValue = D.getElementById('hpValue');
-    UI.hpFill = D.getElementById('hpFill');
-
-    UI.chargeValue = D.getElementById('attackChargeValue');
-    UI.chargeFill = D.getElementById('attackChargeFill');
-    UI.attackReady = D.getElementById('attackReadyBadge');
-    UI.attackBtn = D.getElementById('attackBtn');
-
-    UI.meName = D.getElementById('meName');
-    UI.meMeta = D.getElementById('meMeta');
-
-    UI.enemyName = D.getElementById('enemyName');
-    UI.enemyMeta = D.getElementById('enemyMeta');
-    UI.enemyScore = D.getElementById('enemyScoreValue');
-    UI.enemyHpValue = D.getElementById('enemyHpValue');
-    UI.enemyHpFill = D.getElementById('enemyHpFill');
-
-    UI.coach = D.getElementById('gjBattleCoach');
-    UI.toast = D.getElementById('gjBattleToast');
-    UI.debug = D.getElementById('gjBattleDebug');
+    UI.battleModePill = D.getElementById('battleModePill');
+    UI.battleRoomPill = D.getElementById('battleRoomPill');
+    UI.battleScoreValue = D.getElementById('battleScoreValue');
+    UI.battleTimeValue = D.getElementById('battleTimeValue');
+    UI.battleMissValue = D.getElementById('battleMissValue');
+    UI.battleStreakValue = D.getElementById('battleStreakValue');
+    UI.battleHpValue = D.getElementById('battleHpValue');
+    UI.battleHpFill = D.getElementById('battleHpFill');
+    UI.battleChargeValue = D.getElementById('battleChargeValue');
+    UI.battleChargeFill = D.getElementById('battleChargeFill');
+    UI.battleAttackReady = D.getElementById('attackReadyBadge');
+    UI.opponentStrip = D.getElementById('battleOpponentStrip');
 
     UI.attackBtn.addEventListener('click', useAttack);
-  }
-
-  function showGate(title, text) {
-    if (!UI.gate) return;
-    UI.gate.hidden = false;
-    if (UI.gateTitle) UI.gateTitle.textContent = title;
-    if (UI.gateText) UI.gateText.textContent = text;
-  }
-
-  function hideGate() {
-    if (UI.gate) UI.gate.hidden = true;
-  }
-
-  function setCoach(text) {
-    if (UI.coach) UI.coach.textContent = text;
-  }
-
-  function toast(text) {
-    if (!UI.toast) return;
-    UI.toast.textContent = text;
-    UI.toast.classList.add('show');
-    clearTimeout(S.toastTimer);
-    S.toastTimer = setTimeout(() => {
-      UI.toast.classList.remove('show');
-    }, 1400);
-  }
-
-  function fmtClock(sec) {
-    const s = Math.max(0, int(sec, 0));
-    const mm = Math.floor(s / 60);
-    const ss = s % 60;
-    return `${mm}:${String(ss).padStart(2, '0')}`;
-  }
-
-  function stageRect() {
-    const r = UI.stage ? UI.stage.getBoundingClientRect() : { width: innerWidth, height: innerHeight };
-    return {
-      w: Math.max(320, int(r.width, innerWidth)),
-      h: Math.max(420, int(r.height, innerHeight))
-    };
-  }
-
-  function isHost() {
-    return !!S.uid && !!S.roomMeta && txt(S.roomMeta.hostPid) === txt(S.uid);
-  }
-
-  function roomPath() {
-    return `hha-battle/goodjunk/rooms/${ROOM_ID}`;
-  }
-
-  function mergedPlayersMap() {
-    const out = Object.assign({}, S.playersMap || {});
-    if (S.uid) {
-      out[S.uid] = Object.assign({}, out[S.uid] || {}, {
-        pid: S.self.pid,
-        uid: S.uid,
-        playerId: S.uid,
-        name: S.self.name,
-        nick: S.self.name,
-        score: S.self.score,
-        miss: S.self.miss,
-        bestStreak: S.self.bestStreak,
-        hp: S.self.hp,
-        maxHp: S.self.maxHp,
-        shield: S.self.shield,
-        attackCharge: S.self.attackCharge,
-        maxAttackCharge: S.self.maxAttackCharge,
-        attackReady: S.self.attackReady,
-        attacksUsed: S.self.attacksUsed,
-        damageDealt: S.self.damageDealt,
-        damageTaken: S.self.damageTaken,
-        koCount: S.self.koCount,
-        connected: true,
-        ready: true,
-        alive: S.self.hp > 0,
-        status: S.ended ? 'finished' : (S.started ? 'playing' : (txt(S.roomState?.status) || 'waiting')),
-        joinedAt: S.joinedAt || now(),
-        updatedAt: now(),
-        lastSeen: now()
-      });
-    }
-    return out;
-  }
-
-  function activePlayersArray() {
-    const ttl = 20000;
-    const t = now();
-    return Object.entries(mergedPlayersMap())
-      .map(([key, p]) => Object.assign({ key }, p || {}))
-      .filter((p) => {
-        if (p.connected === false) return false;
-        const lastSeen = num(p.lastSeen || p.updatedAt || p.joinedAt, 0);
-        if (!lastSeen) return true;
-        return (t - lastSeen) <= ttl;
-      })
-      .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
-  }
-
-  function sortedPlayersForResult() {
-    return activePlayersArray().sort((a, b) => {
-      const aliveA = num((a.hp ?? 0) > 0, 0);
-      const aliveB = num((b.hp ?? 0) > 0, 0);
-      if (aliveB !== aliveA) return aliveB - aliveA;
-      if (num(b.score, 0) !== num(a.score, 0)) return num(b.score, 0) - num(a.score, 0);
-      if (num(b.hp, 0) !== num(a.hp, 0)) return num(b.hp, 0) - num(a.hp, 0);
-      if (num(a.miss, 0) !== num(b.miss, 0)) return num(a.miss, 0) - num(b.miss, 0);
-      return txt(a.name).localeCompare(txt(b.name), 'th');
+    W.addEventListener('keydown', (ev) => {
+      if ((ev.code === 'Space' || ev.key === ' ') && !ev.repeat){
+        ev.preventDefault();
+        useAttack();
+      }
     });
   }
 
-  function enemyPlayer() {
-    const arr = activePlayersArray();
-    return arr.find((p) => txt(p.uid || p.playerId || p.pid || p.key) !== txt(S.uid)) || null;
+  function setBanner(text, lockMs=0){
+    if (!UI.statusBanner) return;
+    const t = now();
+    if (t < STATE.bannerLockUntil && lockMs === 0) return;
+    UI.statusBanner.textContent = text;
+    if (lockMs > 0) STATE.bannerLockUntil = t + lockMs;
   }
 
-  function updateBattleBootBridge() {
-    const room = {
-      roomId: ROOM_ID,
-      meta: S.roomMeta || {},
-      state: S.roomState || {},
-      players: mergedPlayersMap()
+  function flashText(x, y, text, kind){
+    if (!UI.field) return;
+    const el = D.createElement('div');
+    el.className = `gjb-hitfx ${kind || ''}`;
+    el.textContent = text;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    UI.field.appendChild(el);
+    setTimeout(() => el.remove(), 520);
+  }
+
+  function renderHud(){
+    if (UI.battleModePill) UI.battleModePill.textContent = 'MODE battle';
+    if (UI.battleRoomPill) UI.battleRoomPill.textContent = `ROOM ${STATE.roomId || '-'}`;
+    if (UI.battleScoreValue) UI.battleScoreValue.textContent = String(Math.max(0, Math.round(STATE.score)));
+    if (UI.battleTimeValue) UI.battleTimeValue.textContent = formatClock(timeLeftSec());
+    if (UI.battleMissValue) UI.battleMissValue.textContent = String(STATE.miss);
+    if (UI.battleStreakValue) UI.battleStreakValue.textContent = String(STATE.bestStreak);
+
+    if (UI.battleHpValue) UI.battleHpValue.textContent = `${STATE.hp}/${STATE.maxHp}`;
+    if (UI.battleHpFill) UI.battleHpFill.style.width = `${((STATE.hp / Math.max(1, STATE.maxHp)) * 100).toFixed(1)}%`;
+
+    if (UI.battleChargeValue) UI.battleChargeValue.textContent = `${STATE.attackCharge}/${STATE.maxAttackCharge}`;
+    if (UI.battleChargeFill) UI.battleChargeFill.style.width = `${((STATE.attackCharge / Math.max(1, STATE.maxAttackCharge)) * 100).toFixed(1)}%`;
+
+    if (UI.battleAttackReady){
+      UI.battleAttackReady.textContent = STATE.attackReady ? 'ATTACK READY' : 'CHARGING';
+      UI.battleAttackReady.style.color = STATE.attackReady ? '#2563eb' : '#7b7a72';
+      UI.battleAttackReady.style.borderColor = STATE.attackReady ? '#7fcfff' : '#bfe3f2';
+    }
+
+    if (UI.attackBtn){
+      UI.attackBtn.disabled = !(STATE.started && !STATE.finished && !STATE.localKo && STATE.attackReady && !!topOpponent());
+      UI.attackBtn.textContent = STATE.attackReady ? '⚡ ATTACK' : '⚡ CHARGING';
+    }
+
+    renderOpponents();
+    emitLiveEvents();
+  }
+
+  function renderOpponents(){
+    if (!UI.opponentStrip) return;
+    const opponents = opponentPlayers();
+
+    if (!opponents.length){
+      UI.opponentStrip.innerHTML = `
+        <div class="gjb-opponent-card">
+          <div class="gjb-opponent-top">
+            <div class="gjb-opponent-name">รอคู่ต่อสู้</div>
+            <div>⌛</div>
+          </div>
+          <div class="gjb-opponent-mini">เมื่ออีกฝั่งเข้ามา จะเห็นคะแนนและ HP ที่นี่</div>
+        </div>
+      `;
+      return;
+    }
+
+    UI.opponentStrip.innerHTML = opponents.map((p) => {
+      const alive = num(p.hp, 100) > 0;
+      return `
+        <div class="gjb-opponent-card">
+          <div class="gjb-opponent-top">
+            <div class="gjb-opponent-name">${escapeHtml(p.name || p.nick || 'Opponent')}</div>
+            <div>${alive ? '⚔️' : '💥'}</div>
+          </div>
+          <div class="gjb-opponent-mini">
+            Score ${num(p.score,0)} • HP ${num(p.hp,100)}/${num(p.maxHp,100)} • Miss ${num(p.miss,0)}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function fieldRect(){
+    const r = UI.field.getBoundingClientRect();
+    return {
+      w: Math.max(320, Math.round(r.width || 960)),
+      h: Math.max(400, Math.round(r.height || 580))
     };
-
-    const boot = {
-      uid: S.uid,
-      pid: S.self.pid,
-      playerId: S.uid,
-      name: S.self.name,
-      nick: S.self.name,
-      roomId: ROOM_ID,
-      room
-    };
-
-    W.HHA_BATTLE_BOOT = boot;
-    W.__GJ_BATTLE_BOOT__ = boot;
-    W.__BATTLE_ROOM__ = room;
-    W.__BATTLE_STATE__ = {
-      room,
-      roomId: ROOM_ID,
-      pid: S.self.pid,
-      uid: S.uid,
-      name: S.self.name,
-      score: S.self.score,
-      miss: S.self.miss,
-      bestStreak: S.self.bestStreak,
-      hp: S.self.hp,
-      maxHp: S.self.maxHp,
-      attackCharge: S.self.attackCharge,
-      maxAttackCharge: S.self.maxAttackCharge,
-      attackReady: S.self.attackReady,
-      attacksUsed: S.self.attacksUsed,
-      damageDealt: S.self.damageDealt,
-      damageTaken: S.self.damageTaken,
-      koCount: S.self.koCount,
-      timeLeftSec: Math.max(0, Math.ceil((S.endAtMs - now()) / 1000)),
-      endsAtMs: S.endAtMs,
-      started: S.started,
-      ended: S.ended
-    };
-
-    W.state = W.__BATTLE_STATE__;
-    W.gameState = W.__BATTLE_STATE__;
   }
 
-  function renderHud() {
-    if (UI.score) UI.score.textContent = String(int(S.self.score, 0));
-    if (UI.time) UI.time.textContent = fmtClock(Math.max(0, (S.endAtMs - now()) / 1000));
-    if (UI.miss) UI.miss.textContent = String(int(S.self.miss, 0));
-    if (UI.best) UI.best.textContent = String(int(S.self.bestStreak, 0));
-
-    if (UI.hpValue) UI.hpValue.textContent = `${int(S.self.hp, 0)}/${int(S.self.maxHp, 100)}`;
-    if (UI.hpFill) UI.hpFill.style.width = `${clamp((num(S.self.hp, 0) / Math.max(1, num(S.self.maxHp, 100))) * 100, 0, 100)}%`;
-
-    if (UI.chargeValue) UI.chargeValue.textContent = `${int(S.self.attackCharge, 0)}/${int(S.self.maxAttackCharge, 100)}`;
-    if (UI.chargeFill) UI.chargeFill.style.width = `${clamp((num(S.self.attackCharge, 0) / Math.max(1, num(S.self.maxAttackCharge, 100))) * 100, 0, 100)}%`;
-
-    if (UI.attackReady) {
-      UI.attackReady.textContent = S.self.attackReady ? 'ATTACK READY' : 'CHARGING';
-      UI.attackReady.style.color = S.self.attackReady ? '#8c5f00' : '#7b7a72';
-    }
-
-    if (UI.attackBtn) {
-      UI.attackBtn.disabled = !S.started || S.ended || !S.self.attackReady || !enemyPlayer();
-    }
-
-    if (UI.meName) UI.meName.textContent = `${S.self.name}`;
-    if (UI.meMeta) UI.meMeta.textContent = `HP ${int(S.self.hp, 0)} • Score ${int(S.self.score, 0)}`;
-
-    const enemy = enemyPlayer();
-    if (enemy) {
-      if (UI.enemyName) UI.enemyName.textContent = txt(enemy.name || 'Opponent');
-      if (UI.enemyMeta) UI.enemyMeta.textContent = `HP ${int(enemy.hp, 0)} • Score ${int(enemy.score, 0)}`;
-      if (UI.enemyScore) UI.enemyScore.textContent = String(int(enemy.score, 0));
-      if (UI.enemyHpValue) UI.enemyHpValue.textContent = `${int(enemy.hp, 0)}/${int(enemy.maxHp || 100, 100)}`;
-      if (UI.enemyHpFill) UI.enemyHpFill.style.width = `${clamp((num(enemy.hp, 0) / Math.max(1, num(enemy.maxHp || 100, 100))) * 100, 0, 100)}%`;
-    } else {
-      if (UI.enemyName) UI.enemyName.textContent = 'Waiting...';
-      if (UI.enemyMeta) UI.enemyMeta.textContent = 'ยังไม่มีคู่แข่ง';
-      if (UI.enemyScore) UI.enemyScore.textContent = '0';
-      if (UI.enemyHpValue) UI.enemyHpValue.textContent = '-';
-      if (UI.enemyHpFill) UI.enemyHpFill.style.width = '0%';
-    }
-
-    updateBattleBootBridge();
-    renderDebug();
+  function timeLeftSec(){
+    const endsAt = currentRoomEndsAt();
+    if (!endsAt) return STATE.started ? 0 : STATE.timeSec;
+    return Math.max(0, (endsAt - now()) / 1000);
   }
 
-  function renderDebug() {
-    if (!DEBUG || !UI.debug) return;
-    const players = activePlayersArray();
-    UI.debug.classList.add('show');
-    UI.debug.textContent = [
-      `[GOODJUNK BATTLE ENGINE ${VERSION}]`,
-      `room=${ROOM_ID || '-'}`,
-      `uid=${S.uid || '-'}`,
-      `pid=${S.self.pid || '-'}`,
-      `status=${txt(S.roomState?.status || '-')}`,
-      `host=${isHost()}`,
-      `started=${S.started}`,
-      `ended=${S.ended}`,
-      `players=${players.length}`,
-      `score=${S.self.score}`,
-      `hp=${S.self.hp}/${S.self.maxHp}`,
-      `charge=${S.self.attackCharge}/${S.self.maxAttackCharge}`,
-      `attackReady=${S.self.attackReady}`,
-      `best=${S.self.bestStreak}`,
-      `miss=${S.self.miss}`,
-      `endAtMs=${S.endAtMs || 0}`,
-      `enemy=${enemyPlayer() ? txt(enemyPlayer().name) : '-'}`,
-      '',
-      JSON.stringify(mergedPlayersMap(), null, 2)
-    ].join('\n');
-  }
-
-  function queueWrite() {
-    S.writeQueued = true;
-  }
-
-  async function writeSelfNow(force) {
-    if (!S.refs.self || !S.uid) return;
-    if (!force && !S.writeQueued && (now() - S.lastWriteAt < 180)) return;
-
-    S.writeQueued = false;
-    S.lastWriteAt = now();
-
-    try {
-      await S.refs.self.update({
-        pid: S.self.pid,
-        uid: S.uid,
-        playerId: S.uid,
-        id: S.uid,
-        name: S.self.name,
-        nick: S.self.name,
-
-        score: int(S.self.score, 0),
-        miss: int(S.self.miss, 0),
-        bestStreak: int(S.self.bestStreak, 0),
-        streak: int(S.self.streak, 0),
-
-        hp: int(S.self.hp, 0),
-        maxHp: int(S.self.maxHp, 100),
-        shield: int(S.self.shield, 0),
-
-        attackCharge: int(S.self.attackCharge, 0),
-        maxAttackCharge: int(S.self.maxAttackCharge, 100),
-        attackReady: !!S.self.attackReady,
-        attacksUsed: int(S.self.attacksUsed, 0),
-        damageDealt: int(S.self.damageDealt, 0),
-        damageTaken: int(S.self.damageTaken, 0),
-        koCount: int(S.self.koCount, 0),
-
-        goodHit: int(S.self.goodHit, 0),
-        junkHit: int(S.self.junkHit, 0),
-        goodMiss: int(S.self.goodMiss, 0),
-
-        connected: true,
-        ready: true,
-        alive: S.self.hp > 0,
-        status: S.ended ? 'finished' : (S.started ? 'playing' : (txt(S.roomState?.status) || 'waiting')),
-        joinedAt: S.joinedAt || now(),
-        updatedAt: firebase.database.ServerValue.TIMESTAMP,
-        lastSeen: firebase.database.ServerValue.TIMESTAMP
-      });
-    } catch (err) {
-      console.warn('[gj-battle] write self failed:', err);
-    }
-  }
-
-  function startHeartbeat() {
-    stopHeartbeat();
-    S.heartbeatId = setInterval(() => {
-      writeSelfNow(true);
-      maybeHostPromoteToPlaying();
-      maybeHostEndRound('heartbeat');
-    }, 2500);
-  }
-
-  function stopHeartbeat() {
-    if (S.heartbeatId) {
-      clearInterval(S.heartbeatId);
-      S.heartbeatId = 0;
-    }
-  }
-
-  function spawnTarget() {
-    if (!S.started || S.ended) return;
-    if (!UI.stage) return;
-    if (S.targets.length >= CFG.maxTargets) return;
-
-    const rect = stageRect();
-    const size = int(58 + RNG() * 26, 64);
-    const x = int(20 + RNG() * Math.max(20, rect.w - size - 40), 40);
-    const y = int(160 + RNG() * Math.max(40, rect.h - size - 260), 220);
-
-    const dirX = RNG() > 0.5 ? 1 : -1;
-    const dirY = RNG() > 0.5 ? 1 : -1;
-    const speed = CFG.speedMin + RNG() * (CFG.speedMax - CFG.speedMin);
-
-    const good = RNG() < CFG.goodRatio;
-    const meta = good
-      ? GOOD_ITEMS[Math.floor(RNG() * GOOD_ITEMS.length)]
-      : JUNK_ITEMS[Math.floor(RNG() * JUNK_ITEMS.length)];
+  function makeTarget(kind){
+    const rect = fieldRect();
+    const size = Math.round(60 + STATE.rng() * 28);
+    const pad = 10;
+    const x = pad + Math.round((rect.w - size - pad * 2) * STATE.rng());
+    const y = -size - Math.round(STATE.rng() * 30);
+    const speed = STATE.cfg.speed * (0.9 + STATE.rng() * 0.55);
+    const ttl = Math.round(STATE.cfg.ttl * (0.92 + STATE.rng() * 0.18));
+    const sway = (STATE.rng() - 0.5) * 52;
+    const bank = kind === 'good' ? GOOD_ITEMS : JUNK_ITEMS;
+    const pick = bank[Math.floor(STATE.rng() * bank.length)];
 
     const el = D.createElement('button');
     el.type = 'button';
-    el.className = `gjb-target ${good ? 'good' : 'junk'}`;
+    el.className = `gjb-target ${kind}`;
     el.style.width = `${size}px`;
     el.style.height = `${size}px`;
-    el.innerHTML = `<span class="emo">${meta.emoji}</span>`;
-    el.setAttribute('aria-label', meta.name);
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.innerHTML = `<span class="emoji">${pick.emoji}</span>`;
+    el.setAttribute('aria-label', pick.name);
 
     const t = {
-      id: `t${++S.seq}`,
-      kind: good ? 'good' : 'junk',
-      name: meta.name,
-      emoji: meta.emoji,
-      x, y,
-      vx: dirX * speed,
-      vy: dirY * (speed * 0.72),
-      size,
+      id: `t-${++STATE.seq}`,
+      kind,
+      x, y, size, speed, ttl, sway,
       bornAt: now(),
-      ttl: CFG.ttl * (0.88 + RNG() * 0.24),
-      dead: false,
-      el
+      el,
+      dead: false
     };
 
     el.addEventListener('pointerdown', (ev) => {
       ev.preventDefault();
       hitTarget(t);
-    }, { passive: false });
+    }, { passive:false });
 
-    UI.stage.appendChild(el);
-    S.targets.push(t);
+    UI.field.appendChild(el);
+    STATE.targets.push(t);
   }
 
-  function removeTarget(t) {
+  function spawnTarget(){
+    if (!STATE.started || STATE.finished || STATE.localKo) return;
+    if (STATE.targets.length >= STATE.cfg.maxTargets) return;
+    const kind = STATE.rng() < STATE.cfg.goodRatio ? 'good' : 'junk';
+    makeTarget(kind);
+  }
+
+  function removeTarget(t){
     if (!t || t.dead) return;
     t.dead = true;
-    try { t.el.remove(); } catch (_) {}
+    try { t.el.remove(); } catch {}
   }
 
-  function clearTargets() {
-    S.targets.forEach(removeTarget);
-    S.targets = [];
-  }
-
-  function hitTarget(t) {
-    if (!t || t.dead || !S.started || S.ended) return;
-    removeTarget(t);
-
-    if (t.kind === 'good') {
-      S.self.streak += 1;
-      S.self.bestStreak = Math.max(S.self.bestStreak, S.self.streak);
-      S.self.goodHit += 1;
-      S.self.score += 10 + Math.min(10, Math.floor(S.self.streak / 3) * 2);
-      S.self.attackCharge = clamp(S.self.attackCharge + CFG.atkGain, 0, S.self.maxAttackCharge);
-
-      if (S.self.attackCharge >= S.self.maxAttackCharge) {
-        S.self.attackCharge = S.self.maxAttackCharge;
-        if (!S.self.attackReady) toast(TOASTS.ready);
-        S.self.attackReady = true;
-      }
-
-      setCoach('🍉 เก็บอาหารดีต่อเนื่องให้มากที่สุด แล้วใช้ ATTACK ตอนจังหวะดี');
-      if (S.self.streak % 5 === 0) toast('🔥 ต่อเนื่องเก่งมาก');
-      else if (S.self.streak === 1) toast(TOASTS.good);
-    } else {
-      S.self.junkHit += 1;
-      S.self.miss += 1;
-      S.self.streak = 0;
-      S.self.score = Math.max(0, S.self.score - 8);
-      S.self.attackCharge = Math.max(0, S.self.attackCharge - 10);
-      if (S.self.attackCharge < S.self.maxAttackCharge) S.self.attackReady = false;
-      setCoach('🍩 ระวัง junk อย่าแตะของไม่ดีบ่อยเกินไป');
-      toast(TOASTS.junk);
-    }
-
-    queueWrite();
-    renderHud();
-  }
-
-  function expireTarget(t) {
-    removeTarget(t);
-    if (t.kind === 'good') {
-      S.self.goodMiss += 1;
-      S.self.miss += 1;
-      S.self.streak = 0;
-      setCoach('⏱️ อาหารดีหลุดไปแล้ว ลองแตะให้ไวขึ้นอีกนิด');
-      toast(TOASTS.miss);
-      queueWrite();
-      renderHud();
-    }
-  }
-
-  async function useAttack() {
-    if (!S.started || S.ended) return;
-    if (!S.self.attackReady) return;
-
-    const enemy = enemyPlayer();
-    if (!enemy) {
-      toast(TOASTS.noOpponent);
+  function scheduleSync(force=false){
+    if (!STATE.refs.self) return;
+    if (force){
+      syncSelfNow(true);
       return;
     }
-
-    const enemyKey = txt(enemy.uid || enemy.playerId || enemy.pid || enemy.key);
-    if (!enemyKey || !S.refs.players) {
-      toast(TOASTS.noOpponent);
-      return;
-    }
-
-    const dmg = CFG.atkDmg;
-
-    try {
-      const enemyRef = S.refs.players.child(enemyKey);
-      await enemyRef.transaction((cur) => {
-        cur = cur || {};
-        const hp = clamp(int(cur.hp, 100) - dmg, 0, int(cur.maxHp, 100) || 100);
-        cur.hp = hp;
-        cur.maxHp = Math.max(1, int(cur.maxHp, 100));
-        cur.damageTaken = int(cur.damageTaken, 0) + dmg;
-        cur.alive = hp > 0;
-        cur.updatedAt = now();
-        cur.lastSeen = now();
-        if (hp <= 0) {
-          cur.status = 'ko';
-        }
-        return cur;
-      });
-
-      S.self.attacksUsed += 1;
-      S.self.damageDealt += dmg;
-      S.self.attackCharge = 0;
-      S.self.attackReady = false;
-      queueWrite();
-      renderHud();
-      toast(TOASTS.attack);
-      setCoach('💥 โจมตีถูกจังหวะมาก รีบเก็บอาหารดีเพื่อชาร์จใหม่');
-      maybeHostEndRound('after-attack');
-    } catch (err) {
-      console.warn('[gj-battle] attack failed:', err);
-      toast('โจมตีไม่สำเร็จ');
-    }
+    if (STATE.syncTimer) return;
+    STATE.syncTimer = setTimeout(() => {
+      STATE.syncTimer = 0;
+      syncSelfNow(false);
+    }, 60);
   }
 
-  async function maybeHostPromoteToPlaying() {
-    if (!isHost() || !S.refs.state || S.hostStartInFlight) return;
+  async function syncSelfNow(force){
+    if (!STATE.refs.self) return;
+    const t = now();
+    if (!force && (t - STATE.lastSyncTs < SYNC_MIN_MS)) return;
 
-    const status = txt(S.roomState?.status).toLowerCase();
-    const countdownEndsAt = num(S.roomState?.countdownEndsAt, 0);
-    const plannedSec = clamp(S.roomState?.plannedSec || qs('time', '90'), 30, 300);
+    STATE.lastSyncTs = t;
 
-    if (status !== 'countdown') return;
-    if (countdownEndsAt > now() + 120) return;
+    const status = STATE.finished
+      ? 'finished'
+      : STATE.localKo
+        ? 'ko'
+        : STATE.started
+          ? 'playing'
+          : 'waiting';
 
-    S.hostStartInFlight = true;
-
-    try {
-      await S.refs.state.transaction((cur) => {
-        cur = cur || {};
-        const st = txt(cur.status).toLowerCase();
-        const cEnd = num(cur.countdownEndsAt, 0);
-
-        if (st === 'playing' || st === 'ended' || st === 'finished') return cur;
-        if (st === 'countdown' && cEnd > now() + 120) return cur;
-
-        const startedAt = now();
-        cur.status = 'playing';
-        cur.startedAt = startedAt;
-        cur.endsAt = startedAt + plannedSec * 1000;
-        cur.updatedAt = startedAt;
-        return cur;
-      });
-    } catch (err) {
-      console.warn('[gj-battle] promote to playing failed:', err);
-    } finally {
-      S.hostStartInFlight = false;
-    }
-  }
-
-  async function maybeHostEndRound(reason) {
-    if (!isHost() || !S.refs.state || S.hostEndInFlight) return;
-    if (!S.started || S.ended) return;
-
-    const st = txt(S.roomState?.status).toLowerCase();
-    if (st === 'ended' || st === 'finished') return;
-
-    const players = activePlayersArray();
-    const alive = players.filter((p) => int(p.hp, 0) > 0);
-    const timeUp = now() >= S.endAtMs;
-    const koEnd = players.length >= 2 && alive.length <= 1;
-
-    if (!timeUp && !koEnd) return;
-
-    S.hostEndInFlight = true;
-
-    try {
-      await writeSelfNow(true);
-
-      const sorted = sortedPlayersForResult();
-      const winner = sorted[0] || null;
-
-      await S.refs.state.update({
-        status: 'ended',
-        endedAt: now(),
-        updatedAt: now(),
-        reason: reason || (timeUp ? 'time-up' : 'ko'),
-        winnerPid: winner ? txt(winner.pid) : '',
-        winnerUid: winner ? txt(winner.uid || winner.playerId || winner.key) : '',
-        endSummary: {
-          winnerPid: winner ? txt(winner.pid) : '',
-          winnerName: winner ? txt(winner.name) : '',
-          winnerScore: winner ? int(winner.score, 0) : 0
-        }
-      });
-    } catch (err) {
-      console.warn('[gj-battle] end round failed:', err);
-    } finally {
-      S.hostEndInFlight = false;
-    }
-  }
-
-  function syncSelfFromRemote(remote) {
-    if (!remote) return;
-
-    const remoteHp = int(remote.hp, S.self.hp);
-    if (remoteHp !== S.self.hp) {
-      S.self.hp = remoteHp;
-    }
-
-    S.self.maxHp = Math.max(1, int(remote.maxHp, S.self.maxHp));
-    S.self.damageTaken = Math.max(int(remote.damageTaken, 0), int(S.self.damageTaken, 0));
-
-    if (remoteHp <= 0) {
-      S.self.hp = 0;
-      if (!S.ended) {
-        toast(TOASTS.ko);
-        setCoach('🛡️ HP หมดแล้ว รอสรุปผลรอบนี้');
-      }
-    }
-  }
-
-  function startRoundIfNeeded() {
-    const status = txt(S.roomState?.status).toLowerCase();
-    if (status !== 'playing') return;
-
-    const startedAt = num(S.roomState?.startedAt, 0);
-    const endsAt = num(S.roomState?.endsAt, 0);
-    if (!startedAt || !endsAt) return;
-
-    const key = `${startedAt}|${endsAt}`;
-    if (S.roundKey === key) {
-      S.started = true;
-      S.endAtMs = endsAt;
-      return;
-    }
-
-    S.roundKey = key;
-    S.started = true;
-    S.ended = false;
-    S.endAtMs = endsAt;
-    clearTargets();
-
-    const remote = (S.playersMap && S.playersMap[S.uid]) || {};
-    S.self.score = int(remote.score, 0);
-    S.self.miss = int(remote.miss, 0);
-    S.self.bestStreak = int(remote.bestStreak, 0);
-    S.self.streak = int(remote.streak, 0);
-    S.self.hp = int(remote.hp, 100);
-    S.self.maxHp = Math.max(1, int(remote.maxHp, 100));
-    S.self.shield = int(remote.shield, 0);
-    S.self.attackCharge = int(remote.attackCharge ?? remote.charge, 0);
-    S.self.maxAttackCharge = Math.max(1, int(remote.maxAttackCharge, 100));
-    S.self.attackReady = !!remote.attackReady;
-    S.self.attacksUsed = int(remote.attacksUsed, 0);
-    S.self.damageDealt = int(remote.damageDealt, 0);
-    S.self.damageTaken = int(remote.damageTaken, 0);
-    S.self.koCount = int(remote.koCount, 0);
-    S.self.goodHit = int(remote.goodHit, 0);
-    S.self.junkHit = int(remote.junkHit, 0);
-    S.self.goodMiss = int(remote.goodMiss, 0);
-
-    setCoach('⚔️ เกมเริ่มแล้ว เก็บอาหารดี ชาร์จพลัง แล้วใช้ ATTACK ให้ถูกเวลา');
-    hideGate();
-    queueWrite();
-    renderHud();
-  }
-
-  function finishLocal(reason) {
-    if (S.ended) return;
-    S.ended = true;
-    S.started = false;
-    clearTargets();
-    queueWrite();
-    writeSelfNow(true).catch(() => {});
-    emitSummary(reason || txt(S.roomState?.reason || 'finished'));
-  }
-
-  function emitSummary(reason) {
-    if (W.__GJ_BATTLE_ENGINE_SUMMARY_EMITTED__) return;
-    W.__GJ_BATTLE_ENGINE_SUMMARY_EMITTED__ = true;
-
-    const sorted = sortedPlayersForResult();
-    const myIndex = sorted.findIndex((p) => txt(p.uid || p.playerId || p.key) === txt(S.uid));
-    const myRank = myIndex >= 0 ? myIndex + 1 : '';
-    const opponent = sorted.find((p) => txt(p.uid || p.playerId || p.key) !== txt(S.uid)) || null;
-
-    const detail = {
-      summary: {
-        mode: 'battle',
-        game: 'goodjunk-battle',
-        roomId: ROOM_ID,
-        pid: S.self.pid,
-        name: S.self.name,
-        rank: myRank,
-        score: int(S.self.score, 0),
-        opponentScore: opponent ? int(opponent.score, 0) : '',
-        players: sorted.length,
-        miss: int(S.self.miss, 0),
-        bestStreak: int(S.self.bestStreak, 0),
-        result: myRank === 1 ? 'win' : (myRank ? `อันดับ ${myRank}` : 'finished'),
-        reason: reason || 'finished',
-        hp: int(S.self.hp, 0),
-        maxHp: int(S.self.maxHp, 100),
-        attackCharge: int(S.self.attackCharge, 0),
-        maxAttackCharge: int(S.self.maxAttackCharge, 100),
-        attackReady: !!S.self.attackReady,
-        attacksUsed: int(S.self.attacksUsed, 0),
-        damageDealt: int(S.self.damageDealt, 0),
-        damageTaken: int(S.self.damageTaken, 0),
-        koCount: int(S.self.koCount, 0),
-        raw: {
-          version: VERSION,
-          self: Object.assign({}, S.self),
-          players: sorted,
-          roomState: S.roomState || {},
-          roomMeta: S.roomMeta || {}
-        }
-      }
+    const payload = {
+      pid: STATE.pid,
+      uid: STATE.uid,
+      playerId: STATE.uid,
+      name: STATE.name,
+      nick: STATE.name,
+      connected: true,
+      ready: true,
+      status,
+      score: Math.max(0, Math.round(STATE.score)),
+      miss: Math.max(0, STATE.miss),
+      combo: Math.max(0, STATE.streak),
+      bestStreak: Math.max(0, STATE.bestStreak),
+      hp: Math.max(0, STATE.hp),
+      maxHp: Math.max(1, STATE.maxHp),
+      shield: Math.max(0, STATE.shield),
+      attackCharge: Math.max(0, STATE.attackCharge),
+      maxAttackCharge: Math.max(1, STATE.maxAttackCharge),
+      attackReady: !!STATE.attackReady,
+      attacksUsed: Math.max(0, STATE.attacksUsed),
+      damageDealt: Math.max(0, STATE.damageDealt),
+      damageTaken: Math.max(0, STATE.damageTaken),
+      koCount: Math.max(0, STATE.koCount),
+      updatedAt: t,
+      lastSeen: t
     };
 
-    const names = [
-      'gj:battle-summary',
-      'gj:summary',
-      'gj:match-summary',
-      'gj:session-end',
-      'hha:summary',
-      'hha:session-summary',
-      'hha:match-summary'
-    ];
-
-    names.forEach((name) => {
-      try {
-        W.dispatchEvent(new CustomEvent(name, { detail }));
-      } catch (err) {
-        console.warn('[gj-battle] summary event failed:', name, err);
-      }
-    });
+    if (STATE.lastAttackId){
+      payload.lastAttackId = STATE.lastAttackId;
+      payload.lastAttackAt = STATE.lastAttackAt;
+      payload.lastAttackDamage = STATE.lastAttackDamage;
+      payload.lastAttackTarget = STATE.lastAttackTarget;
+    }
 
     try {
-      W.postMessage({ type: 'gj:battle-summary', detail }, '*');
-    } catch (_) {}
-
-    try {
-      if (typeof W.__GJ_SHOW_BATTLE_SUMMARY__ === 'function') {
-        W.__GJ_SHOW_BATTLE_SUMMARY__(detail);
-      }
-    } catch (_) {}
+      await STATE.refs.self.update(payload);
+    } catch (err){
+      console.warn('[gj-battle] syncSelfNow failed:', err);
+    }
   }
 
-  function updateTargets(frameTs) {
-    if (!S.started || S.ended) return;
+  function addCharge(delta){
+    STATE.attackCharge = clamp(STATE.attackCharge + delta, 0, STATE.maxAttackCharge);
+    STATE.attackReady = STATE.attackCharge >= STATE.maxAttackCharge;
+  }
 
-    if (!S.lastFrameAt) S.lastFrameAt = frameTs;
-    const dt = Math.min(40, frameTs - S.lastFrameAt) / 1000;
-    S.lastFrameAt = frameTs;
+  function pulseScore(){
+    const el = UI.battleScoreValue;
+    if (!el || !el.animate) return;
+    el.animate(
+      [{ transform:'scale(1)' }, { transform:'scale(1.08)' }, { transform:'scale(1)' }],
+      { duration:180, easing:'ease-out' }
+    );
+  }
 
-    const rect = stageRect();
-    const topPad = 150;
-    const bottomPad = 150;
+  function hitTarget(t){
+    if (!t || t.dead || !STATE.started || STATE.finished || STATE.localKo) return;
+    removeTarget(t);
 
-    if (!S.lastSpawnAt) S.lastSpawnAt = now();
-    if (now() - S.lastSpawnAt >= CFG.spawnEvery) {
-      S.lastSpawnAt = now();
+    if (t.kind === 'good'){
+      STATE.streak += 1;
+      STATE.bestStreak = Math.max(STATE.bestStreak, STATE.streak);
+      STATE.goodHit += 1;
+
+      const bonus = Math.min(12, Math.floor(STATE.streak / 3) * 2);
+      STATE.score += 10 + bonus;
+      addCharge(20);
+
+      pulseScore();
+      flashText(t.x, t.y, `+${10 + bonus}`, 'good');
+      setBanner('เก่งมาก! แตะอาหารดีต่อเนื่องเพื่อชาร์จพลังโจมตี', 900);
+    } else {
+      STATE.junkHit += 1;
+      STATE.miss += 1;
+      STATE.streak = 0;
+      STATE.score = Math.max(0, STATE.score - 8);
+      STATE.hp = Math.max(0, STATE.hp - 8);
+      addCharge(-10);
+
+      flashText(t.x, t.y, '-8', 'bad');
+      setBanner('โดน junk! คะแนนและ HP ลดลง', 900);
+      applyLocalDamageCheck();
+    }
+
+    renderHud();
+    scheduleSync(false);
+  }
+
+  function expireTarget(t){
+    removeTarget(t);
+
+    if (t.kind === 'good'){
+      STATE.miss += 1;
+      STATE.streak = 0;
+      STATE.hp = Math.max(0, STATE.hp - 2);
+      flashText(t.x, t.y, 'MISS', 'bad');
+      setBanner('อาหารดีหลุดไปแล้ว ระวังให้มากขึ้นอีกนิด', 800);
+      applyLocalDamageCheck();
+      renderHud();
+      scheduleSync(false);
+    }
+  }
+
+  function applyLocalDamageCheck(){
+    if (STATE.hp <= 0){
+      STATE.hp = 0;
+      STATE.localKo = true;
+      STATE.attackCharge = 0;
+      STATE.attackReady = false;
+      setBanner('HP หมดแล้ว! รอระบบสรุปรอบนี้…', 1600);
+      renderHud();
+      scheduleSync(true);
+      maybeHostEndRound();
+    }
+  }
+
+  function useAttack(){
+    if (!STATE.started || STATE.finished || STATE.localKo || !STATE.attackReady) return;
+    const opp = topOpponent();
+    if (!opp) return;
+
+    const dmg = STATE.cfg.atkDamage || 18;
+    const attackId = `atk-${STATE.uid}-${now()}-${Math.random().toString(36).slice(2,6)}`;
+
+    STATE.attacksUsed += 1;
+    STATE.attackCharge = 0;
+    STATE.attackReady = false;
+    STATE.damageDealt += dmg;
+    STATE.lastAttackId = attackId;
+    STATE.lastAttackAt = now();
+    STATE.lastAttackDamage = dmg;
+    STATE.lastAttackTarget = opp.uid || opp.playerId || opp.key || '';
+
+    flashText(fieldRect().w * 0.52, fieldRect().h * 0.42, `⚡-${dmg}`, 'atk');
+    setBanner(`ปล่อย ATTACK ใส่ ${opp.name || 'คู่ต่อสู้'} แล้ว!`, 1000);
+
+    renderHud();
+    scheduleSync(true);
+  }
+
+  function processRemoteAttacks(playersMap){
+    const selfKey = getSelfKey();
+    const players = normalizeRoomPlayersMap(playersMap);
+
+    Object.keys(players).forEach((key) => {
+      if (key === selfKey) return;
+
+      const p = players[key] || {};
+      const attackId = cleanText(p.lastAttackId || '', 120);
+      if (!attackId) return;
+      if (STATE.seenAttackIds[key] === attackId) return;
+
+      const target = cleanPid(p.lastAttackTarget || '');
+      const selfCandidates = new Set([selfKey, STATE.uid, STATE.pid].filter(Boolean));
+      if (target && !selfCandidates.has(target)){
+        STATE.seenAttackIds[key] = attackId;
+        return;
+      }
+
+      const attackAt = num(p.lastAttackAt, 0);
+      const roundStart = num((STATE.room.state || {}).startedAt, 0);
+      if (roundStart && attackAt && attackAt < roundStart - 500){
+        STATE.seenAttackIds[key] = attackId;
+        return;
+      }
+
+      const dmg = clamp(num(p.lastAttackDamage, 0), 0, 100);
+      if (dmg <= 0){
+        STATE.seenAttackIds[key] = attackId;
+        return;
+      }
+
+      STATE.seenAttackIds[key] = attackId;
+      if (!STATE.started || STATE.finished || STATE.localKo) return;
+
+      STATE.damageTaken += dmg;
+      STATE.hp = Math.max(0, STATE.hp - dmg);
+      flashText(fieldRect().w * 0.34, fieldRect().h * 0.28, `-${dmg} HP`, 'bad');
+      setBanner(`${p.name || 'คู่ต่อสู้'} ใช้ ATTACK ใส่คุณ!`, 1000);
+      applyLocalDamageCheck();
+      renderHud();
+      scheduleSync(true);
+    });
+  }
+
+  function maybeAwardKoFromOpponentState(){
+    const opp = topOpponent();
+    if (!opp) return;
+    if (num(opp.hp, 100) <= 0 && STATE.hp > 0){
+      STATE.koCount = Math.max(STATE.koCount, 1);
+    }
+  }
+
+  function updatePlayersFromRoom(playersValue){
+    STATE.room.players = normalizeRoomPlayersMap(playersValue);
+    maybeAwardKoFromOpponentState();
+    processRemoteAttacks(STATE.room.players);
+    renderHud();
+  }
+
+  async function maybeHostEndRound(){
+    if (!isHost() || !STATE.refs.state || STATE.hostEndingBusy) return;
+    const status = roomStatus();
+    if (status !== 'playing') return;
+
+    const endsAt = currentRoomEndsAt();
+    const actives = activePlayers();
+    const anyKo = actives.some((p) => num(p.hp, 100) <= 0);
+    const timeUp = endsAt > 0 && now() >= endsAt;
+
+    if (!timeUp && !anyKo) return;
+
+    STATE.hostEndingBusy = true;
+    try{
+      await STATE.refs.state.transaction((cur) => {
+        cur = cur || {};
+        if (String(cur.status || '') !== 'playing') return cur;
+        cur.status = 'ended';
+        cur.endedAt = now();
+        cur.updatedAt = now();
+        return cur;
+      });
+    } catch (err){
+      console.warn('[gj-battle] host end round failed:', err);
+    } finally {
+      STATE.hostEndingBusy = false;
+    }
+  }
+
+  function clearTargets(){
+    STATE.targets.forEach(removeTarget);
+    STATE.targets = [];
+  }
+
+  function loop(frameTs){
+    if (STATE.finished) return;
+
+    const status = roomStatus();
+    if (status === 'ended' || status === 'finished'){
+      finishGame('room-ended');
+      return;
+    }
+
+    if (!STATE.started){
+      renderHud();
+      STATE.loopId = raf(loop);
+      return;
+    }
+
+    const ts = Number(frameTs || performance.now());
+    if (!STATE.lastFrameTs) STATE.lastFrameTs = ts;
+    const dt = Math.min(40, ts - STATE.lastFrameTs) / 1000;
+    STATE.lastFrameTs = ts;
+
+    const tNow = now();
+    if (!STATE.localKo && tNow - STATE.lastSpawnAt >= STATE.cfg.spawnEvery){
+      STATE.lastSpawnAt = tNow;
       spawnTarget();
     }
 
-    for (let i = S.targets.length - 1; i >= 0; i--) {
-      const t = S.targets[i];
-      if (!t || t.dead) {
-        S.targets.splice(i, 1);
+    const rect = fieldRect();
+
+    for (let i = STATE.targets.length - 1; i >= 0; i--){
+      const t = STATE.targets[i];
+      if (!t || t.dead){
+        STATE.targets.splice(i, 1);
         continue;
       }
 
-      t.x += t.vx * dt;
-      t.y += t.vy * dt;
+      t.y += t.speed * dt;
+      t.x += Math.sin((tNow - t.bornAt) / 240) * t.sway * dt;
+      t.x = Math.max(2, Math.min(rect.w - t.size - 2, t.x));
 
-      if (t.x <= 6 || t.x >= rect.w - t.size - 6) {
-        t.vx *= -1;
-        t.x = clamp(t.x, 6, rect.w - t.size - 6);
-      }
+      t.el.style.left = `${t.x.toFixed(1)}px`;
+      t.el.style.top = `${t.y.toFixed(1)}px`;
 
-      if (t.y <= topPad || t.y >= rect.h - t.size - bottomPad) {
-        t.vy *= -1;
-        t.y = clamp(t.y, topPad, rect.h - t.size - bottomPad);
-      }
-
-      t.el.style.transform = `translate3d(${t.x}px, ${t.y}px, 0)`;
-
-      const expired = (now() - t.bornAt) > t.ttl;
-      if (expired) {
-        S.targets.splice(i, 1);
+      const expired = (tNow - t.bornAt > t.ttl) || (t.y > rect.h + t.size + 8);
+      if (expired){
+        STATE.targets.splice(i, 1);
         expireTarget(t);
       }
     }
-  }
 
-  function gameLoop(ts) {
-    if (S.ended && txt(S.roomState?.status).toLowerCase() !== 'playing') {
-      renderHud();
-      S.loopId = raf(gameLoop);
-      return;
+    if (isHost()) {
+      maybeHostEndRound();
     }
 
-    const st = txt(S.roomState?.status).toLowerCase();
-
-    if (st === 'waiting') {
-      showGate('รอผู้เล่นอีกคน', 'เมื่อครบ 2 คนแล้ว host จะเริ่มนับถอยหลังเข้าสู่เกม');
-    } else if (st === 'countdown') {
-      const left = Math.max(0, Math.ceil((num(S.roomState?.countdownEndsAt, 0) - now()) / 1000));
-      showGate(left > 0 ? String(left) : 'GO!', 'เตรียมตัวให้พร้อม ทั้งสองฝั่งจะเข้าเกมพร้อมกัน');
-    } else if (st === 'playing') {
-      startRoundIfNeeded();
-      hideGate();
-    } else if (st === 'ended' || st === 'finished') {
-      showGate('จบรอบแล้ว', 'กำลังสรุปผลการแข่งรอบนี้');
-      finishLocal(txt(S.roomState?.reason || 'ended'));
-    } else {
-      showGate('กำลังเชื่อมห้อง...', TOASTS.sync);
-    }
-
-    if (S.started && !S.ended) {
-      updateTargets(ts);
-
-      if (now() >= S.endAtMs) {
-        maybeHostEndRound('time-up');
+    if (currentRoomEndsAt() && now() >= currentRoomEndsAt()){
+      if (isHost()) {
+        maybeHostEndRound();
+      } else if (roomStatus() !== 'ended' && roomStatus() !== 'finished') {
+        setBanner('หมดเวลาแล้ว รอหัวหน้าห้องปิดรอบ…', 1200);
       }
-
-      if (S.self.hp <= 0) {
-        maybeHostEndRound('ko');
-      }
-
-      writeSelfNow(false).catch(() => {});
     }
 
     renderHud();
-    S.loopId = raf(gameLoop);
+    STATE.loopId = raf(loop);
   }
 
-  async function bindRoom() {
-    if (!ROOM_ID) throw new Error('roomId missing');
+  function computeResultSummary(reason){
+    const players = roomPlayersArray().map((p) => ({
+      key: p.key,
+      pid: p.pid,
+      uid: p.uid,
+      playerId: p.playerId,
+      name: p.name,
+      score: num(p.score, 0),
+      miss: num(p.miss, 0),
+      bestStreak: num(p.bestStreak, 0),
+      hp: num(p.hp, 100),
+      maxHp: num(p.maxHp, 100),
+      koCount: num(p.koCount, 0),
+      alive: num(p.hp, 100) > 0
+    }));
 
-    S.refs.root = S.db.ref(roomPath());
-    S.refs.meta = S.refs.root.child('meta');
-    S.refs.state = S.refs.root.child('state');
-    S.refs.players = S.refs.root.child('players');
-    S.refs.self = S.refs.players.child(S.uid);
-
-    const snap = await S.refs.root.once('value');
-    if (!snap.exists()) throw new Error('room not found');
-
-    const room = snap.val() || {};
-    S.roomMeta = room.meta || {};
-    S.roomState = room.state || {};
-    S.playersMap = room.players || {};
-    S.joinedAt = now();
-
-    await S.refs.self.update({
-      pid: ensurePid(),
-      uid: S.uid,
-      playerId: S.uid,
-      id: S.uid,
-      name: ensureName(),
-      nick: ensureName(),
-      score: 0,
-      miss: 0,
-      bestStreak: 0,
-      streak: 0,
-      hp: 100,
-      maxHp: 100,
-      shield: 0,
-      attackCharge: 0,
-      maxAttackCharge: 100,
-      attackReady: false,
-      attacksUsed: 0,
-      damageDealt: 0,
-      damageTaken: 0,
-      koCount: 0,
-      connected: true,
-      ready: true,
-      alive: true,
-      status: txt(S.roomState?.status || 'waiting'),
-      joinedAt: now(),
-      updatedAt: firebase.database.ServerValue.TIMESTAMP,
-      lastSeen: firebase.database.ServerValue.TIMESTAMP
+    players.sort((a, b) => {
+      if (Number(b.alive) !== Number(a.alive)) return Number(b.alive) - Number(a.alive);
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.hp !== a.hp) return b.hp - a.hp;
+      if (a.miss !== b.miss) return a.miss - b.miss;
+      if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
+      if (b.koCount !== a.koCount) return b.koCount - a.koCount;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'th');
     });
 
-    try {
-      await S.refs.self.onDisconnect().update({
-        connected: false,
-        status: 'left',
-        updatedAt: firebase.database.ServerValue.TIMESTAMP,
-        lastSeen: firebase.database.ServerValue.TIMESTAMP
-      });
-    } catch (_) {}
+    const me = players.find((p) => p.key === getSelfKey() || (STATE.pid && p.pid === STATE.pid)) || null;
+    const rank = me ? (players.findIndex((p) => p.key === me.key) + 1) : '';
+    const opp = players.find((p) => !me || p.key !== me.key) || null;
+    const result = rank === 1 ? 'win' : rank ? `อันดับ ${rank}` : 'finished';
 
-    S.refs.meta.on('value', (s) => {
-      S.roomMeta = s.val() || {};
-      renderHud();
-    });
-
-    S.refs.state.on('value', (s) => {
-      S.roomState = s.val() || {};
-      renderHud();
-      maybeHostPromoteToPlaying();
-      if (txt(S.roomState?.status).toLowerCase() === 'ended') {
-        finishLocal(txt(S.roomState?.reason || 'ended'));
+    return {
+      mode: 'battle',
+      game: 'goodjunk-battle',
+      roomId: STATE.roomId,
+      pid: STATE.pid,
+      uid: STATE.uid,
+      name: STATE.name,
+      rank,
+      score: STATE.score,
+      opponentScore: opp ? opp.score : '',
+      players: players.length,
+      miss: STATE.miss,
+      bestStreak: STATE.bestStreak,
+      result,
+      reason: reason || 'finished',
+      hp: STATE.hp,
+      maxHp: STATE.maxHp,
+      attackCharge: STATE.attackCharge,
+      maxAttackCharge: STATE.maxAttackCharge,
+      attackReady: STATE.attackReady,
+      attacksUsed: STATE.attacksUsed,
+      damageDealt: STATE.damageDealt,
+      damageTaken: STATE.damageTaken,
+      koCount: STATE.koCount,
+      raw: {
+        players,
+        room: STATE.room,
+        endedAt: now(),
+        goodHit: STATE.goodHit,
+        junkHit: STATE.junkHit
       }
-    });
-
-    S.refs.players.on('value', (s) => {
-      S.playersMap = s.val() || {};
-
-      const mine = S.playersMap[S.uid];
-      if (mine) {
-        syncSelfFromRemote(mine);
-      }
-
-      const hostMissing = txt(S.roomMeta?.hostPid) && !S.playersMap[txt(S.roomMeta.hostPid)];
-      if (hostMissing && activePlayersArray()[0] && txt(activePlayersArray()[0].uid || activePlayersArray()[0].playerId) === txt(S.uid)) {
-        S.refs.meta.update({
-          hostPid: S.uid,
-          updatedAt: now()
-        }).catch(() => {});
-      }
-
-      renderHud();
-    });
-
-    S.self.pid = ensurePid();
-    S.self.name = ensureName();
-    updateBattleBootBridge();
+    };
   }
 
-  function unbindRoom() {
-    try { S.refs.meta && S.refs.meta.off(); } catch (_) {}
-    try { S.refs.state && S.refs.state.off(); } catch (_) {}
-    try { S.refs.players && S.refs.players.off(); } catch (_) {}
-  }
+  async function finishGame(reason){
+    if (STATE.finished) return;
+    STATE.finished = true;
+    STATE.started = false;
 
-  function onVisibility() {
-    if (D.hidden) {
-      writeSelfNow(true).catch(() => {});
+    caf(STATE.loopId);
+    clearTargets();
+
+    setBanner('จบรอบแล้ว กำลังสรุปผล Battle…', 1500);
+
+    scheduleSync(true);
+
+    const detail = { summary: computeResultSummary(reason || 'finished') };
+
+    updateGlobals();
+    W.state.showSummary = true;
+    W.state.finished = true;
+    W.state.reason = reason || 'finished';
+
+    emit('battle:finish', detail);
+    emit('hha:battle:finish', detail);
+
+    if (W.BattleSafe && typeof W.BattleSafe.finishGame === 'function'){
+      try { W.BattleSafe.finishGame(detail.summary); } catch {}
     }
   }
 
-  function onUnload() {
-    stopHeartbeat();
-    caf(S.loopId);
-    clearTargets();
-    writeSelfNow(true).catch(() => {});
-  }
+  function startGameIfReady(){
+    if (STATE.started || STATE.finished) return;
+    if (roomStatus() !== 'playing') return;
 
-  async function boot() {
-    injectStyle();
-    buildDom();
+    const startedAt = num((STATE.room.state || {}).startedAt, 0);
+    const endsAt = currentRoomEndsAt();
 
-    if (!ROOM_ID) {
-      showGate('เข้าเกมไม่ได้', 'ไม่มี roomId ส่งมาจาก lobby');
-      setCoach('กรุณากลับไปสร้างห้องหรือเข้าห้องจาก Battle Lobby ก่อน');
+    if (!endsAt){
       return;
     }
 
-    if (UI.meName) UI.meName.textContent = ensureName();
-    setCoach('กำลังเตรียมห้อง Battle และเชื่อมข้อมูลผู้เล่น');
-    toast(TOASTS.sync);
+    STATE.started = true;
+    STATE.finished = false;
+    STATE.localKo = false;
+    STATE.lastFrameTs = 0;
+    STATE.lastSpawnAt = now();
+    STATE.targets = [];
+    STATE.seq = 0;
 
-    try {
-      await ensureFirebase();
-      await bindRoom();
-      await writeSelfNow(true);
-      startHeartbeat();
+    const seedHash = xmur3(`${STATE.seed}|${STATE.roomId}|${STATE.roundToken}|${STATE.pid}|${startedAt}`)();
+    STATE.rng = mulberry32(seedHash);
+    STATE.cfg = getCfg();
 
-      W.HHA_BATTLE_BOOT = {
-        uid: S.uid,
-        pid: S.self.pid,
-        playerId: S.uid,
-        name: S.self.name,
-        nick: S.self.name,
-        roomId: ROOM_ID
-      };
+    setBanner('เริ่มแล้ว! แตะอาหารดี ชาร์จพลัง แล้วใช้ ATTACK ให้ถูกจังหวะ', 1300);
+    renderHud();
 
-      D.addEventListener('visibilitychange', onVisibility);
-      W.addEventListener('beforeunload', onUnload);
-      W.addEventListener('pagehide', onUnload);
+    scheduleSync(true);
 
-      renderHud();
-      S.loopId = raf(gameLoop);
-    } catch (err) {
-      console.error('[gj-battle] boot failed:', err);
-      showGate('เข้า Battle ไม่สำเร็จ', err && err.message ? err.message : 'unknown error');
-      setCoach('กลับไปที่ Battle Lobby แล้วลองใหม่อีกครั้ง');
-      if (DEBUG && UI.debug) {
-        UI.debug.classList.add('show');
-        UI.debug.textContent = String(err && err.stack ? err.stack : err);
-      }
-    }
+    caf(STATE.loopId);
+    STATE.loopId = raf(loop);
   }
 
-  boot();
+  async function ensureFirebaseReady(){
+    if (!(W.firebase && W.firebase.apps && W.firebase.database && W.firebase.auth)){
+      for (const src of FIREBASE_SDKS){
+        await loadScript(src);
+      }
+    }
+
+    const cfg =
+      W.HHA_FIREBASE_CONFIG ||
+      W.__HHA_FIREBASE_CONFIG__ ||
+      W.firebaseConfig ||
+      null;
+
+    if (W.firebase.apps && !W.firebase.apps.length){
+      if (!cfg) throw new Error('Firebase config not found');
+      W.firebase.initializeApp(cfg);
+    }
+
+    if (!W.firebase.apps || !W.firebase.apps.length){
+      throw new Error('Firebase app init failed');
+    }
+
+    STATE.db = W.firebase.database();
+    STATE.auth = W.firebase.auth();
+
+    if (typeof W.HHA_ensureAnonymousAuth === 'function'){
+      await W.HHA_ensureAnonymousAuth();
+    } else if (!STATE.auth.currentUser){
+      await STATE.auth.signInAnonymously();
+    }
+
+    const user = STATE.auth.currentUser;
+    if (!user) throw new Error('Anonymous auth failed');
+
+    STATE.uid = cleanPid(user.uid);
+    STATE.firebaseReady = true;
+  }
+
+  function bindRoomRefs(){
+    STATE.roomRef = STATE.db.ref(`${ROOT_PATH}/${STATE.roomId}`);
+    STATE.refs.meta = STATE.roomRef.child('meta');
+    STATE.refs.state = STATE.roomRef.child('state');
+    STATE.refs.players = STATE.roomRef.child('players');
+    STATE.refs.self = STATE.refs.players.child(getSelfKey());
+  }
+
+  async function ensureRoomExists(){
+    const snap = await STATE.roomRef.once('value');
+    if (snap.exists()){
+      const room = snap.val() || {};
+      STATE.room.meta = room.meta || {};
+      STATE.room.state = room.state || {};
+      STATE.room.players = normalizeRoomPlayersMap(room.players || {});
+      return;
+    }
+
+    const t = now();
+    const bootstrap = {
+      meta: {
+        roomId: STATE.roomId,
+        game: 'goodjunk',
+        mode: 'battle',
+        diff: STATE.diff,
+        hostPid: getSelfKey(),
+        createdAt: t,
+        updatedAt: t
+      },
+      state: {
+        status: 'waiting',
+        plannedSec: STATE.timeSec,
+        countdownEndsAt: 0,
+        startedAt: 0,
+        endsAt: 0,
+        roundToken: '',
+        updatedAt: t
+      },
+      players: {}
+    };
+
+    await STATE.roomRef.set(bootstrap);
+    STATE.room = bootstrap;
+  }
+
+  async function ensureSelfPlayerInRoom(){
+    const t = now();
+    const existing = (STATE.room.players || {})[getSelfKey()] || null;
+
+    const base = {
+      pid: STATE.pid,
+      uid: STATE.uid,
+      playerId: STATE.uid,
+      name: STATE.name,
+      nick: STATE.name,
+      connected: true,
+      ready: true,
+      status: roomStatus() === 'playing' ? 'playing' : 'waiting',
+      score: existing ? num(existing.score, 0) : 0,
+      miss: existing ? num(existing.miss, 0) : 0,
+      combo: 0,
+      bestStreak: existing ? num(existing.bestStreak, 0) : 0,
+      hp: existing ? clamp(existing.hp, 0, 100) : 100,
+      maxHp: 100,
+      shield: 0,
+      attackCharge: existing ? clamp(existing.attackCharge, 0, 100) : 0,
+      maxAttackCharge: 100,
+      attackReady: !!(existing && existing.attackReady),
+      attacksUsed: existing ? num(existing.attacksUsed, 0) : 0,
+      damageDealt: existing ? num(existing.damageDealt, 0) : 0,
+      damageTaken: existing ? num(existing.damageTaken, 0) : 0,
+      koCount: existing ? num(existing.koCount, 0) : 0,
+      joinedAt: existing ? num(existing.joinedAt, t) : t,
+      updatedAt: t,
+      lastSeen: t
+    };
+
+    await STATE.refs.self.update(base);
+
+    try{
+      STATE.refs.self.onDisconnect().update({
+        connected: false,
+        status: 'left',
+        updatedAt: W.firebase.database.ServerValue.TIMESTAMP,
+        lastSeen: W.firebase.database.ServerValue.TIMESTAMP
+      });
+    } catch {}
+  }
+
+  function attachRoomListeners(){
+    STATE.refs.meta.on('value', (snap) => {
+      STATE.room.meta = snap.val() || {};
+      renderHud();
+      updateGlobals();
+    });
+
+    STATE.refs.state.on('value', (snap) => {
+      STATE.room.state = snap.val() || {};
+      renderHud();
+      updateGlobals();
+
+      const status = roomStatus();
+      if (status === 'playing'){
+        startGameIfReady();
+      } else if ((status === 'ended' || status === 'finished') && !STATE.finished){
+        finishGame('room-state-ended');
+      } else if (status === 'waiting' && !STATE.started && !STATE.finished){
+        setBanner('รอหัวหน้าห้องเริ่มรอบ Battle…');
+      }
+    });
+
+    STATE.refs.players.on('value', (snap) => {
+      updatePlayersFromRoom(snap.val() || {});
+      updateGlobals();
+
+      const me = selfPlayer();
+      if (me && !STATE.started && !STATE.finished){
+        STATE.score = num(me.score, 0);
+        STATE.miss = num(me.miss, 0);
+        STATE.bestStreak = num(me.bestStreak, 0);
+        STATE.hp = clamp(me.hp, 0, 100);
+        STATE.attackCharge = clamp(me.attackCharge, 0, 100);
+        STATE.attackReady = !!me.attackReady;
+        STATE.attacksUsed = num(me.attacksUsed, 0);
+        STATE.damageDealt = num(me.damageDealt, 0);
+        STATE.damageTaken = num(me.damageTaken, 0);
+        STATE.koCount = num(me.koCount, 0);
+      }
+
+      if (isHost()) {
+        maybeHostEndRound();
+      }
+    });
+  }
+
+  function startHeartbeat(){
+    clearInterval(STATE.heartbeatId);
+    STATE.heartbeatId = setInterval(() => {
+      if (!STATE.refs.self) return;
+      STATE.refs.self.update({
+        connected: true,
+        updatedAt: now(),
+        lastSeen: now(),
+        status: STATE.finished ? 'finished' : (STATE.localKo ? 'ko' : (STATE.started ? 'playing' : 'waiting'))
+      }).catch(() => {});
+    }, HEARTBEAT_MS);
+  }
+
+  async function initEngine(){
+    buildDom();
+
+    setBanner('กำลังเชื่อม GoodJunk Battle…');
+    renderHud();
+
+    await ensureFirebaseReady();
+
+    const roomCandidates = roomIdCandidates(STATE.roomId || qs('roomId') || qs('room'));
+    STATE.roomId = roomCandidates[0] || STATE.roomId;
+    if (!STATE.roomId){
+      throw new Error('roomId missing');
+    }
+
+    bindRoomRefs();
+    await ensureRoomExists();
+    await ensureSelfPlayerInRoom();
+    attachRoomListeners();
+    startHeartbeat();
+
+    STATE.cfg = getCfg();
+    if (!STATE.rng){
+      const seedHash = xmur3(`${STATE.seed}|${STATE.roomId}|${STATE.roundToken}|${STATE.pid}`)();
+      STATE.rng = mulberry32(seedHash);
+    }
+
+    if (roomStatus() === 'playing'){
+      startGameIfReady();
+    } else {
+      setBanner('เชื่อมห้องสำเร็จ รอสถานะเล่นจาก Lobby…');
+    }
+
+    renderHud();
+    updateGlobals();
+  }
+
+  function failUi(err){
+    console.error('[gj-battle] init failed:', err);
+    buildDom();
+    setBanner('เข้า GoodJunk Battle ไม่สำเร็จ');
+    if (UI.opponentStrip){
+      UI.opponentStrip.innerHTML = `
+        <div class="gjb-opponent-card" style="min-width:320px;">
+          <div class="gjb-opponent-top">
+            <div class="gjb-opponent-name">เกิดปัญหาระหว่างเชื่อมเกม</div>
+            <div>⚠️</div>
+          </div>
+          <div class="gjb-opponent-mini">${escapeHtml(String(err && err.message ? err.message : err))}</div>
+          <div class="gjb-opponent-mini" style="margin-top:10px;">
+            ลองกลับไปที่ Lobby แล้วเข้ารอบใหม่อีกครั้ง
+          </div>
+        </div>
+      `;
+    }
+    renderHud();
+  }
+
+  W.addEventListener('beforeunload', () => {
+    clearInterval(STATE.heartbeatId);
+    clearTimeout(STATE.syncTimer);
+    caf(STATE.loopId);
+
+    try{
+      if (STATE.refs && STATE.refs.self){
+        STATE.refs.self.update({
+          connected: false,
+          status: STATE.finished ? 'finished' : 'left',
+          updatedAt: now(),
+          lastSeen: now()
+        }).catch(() => {});
+      }
+    } catch {}
+  });
+
+  initEngine().catch(failUi);
 })();
