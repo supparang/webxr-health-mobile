@@ -1,17 +1,4 @@
-// === /herohealth/vr-hydration-v2/js/hydration-v2.scenarios.js ===
-// Hydration V2 Scenario Bank
-// FULL PATCH v20260327-HYDRATION-V2-SCENARIOS-ABC-18
-//
-// เป้าหมาย:
-// - รองรับ parallel form A/B/C
-// - ลดการจำคำตอบ
-// - ใช้กับเกมจริงชุด hydration-v2.js / hydration-v2.core.js
-// - 6 ข้อต่อ form รวม 18 ข้อ
-
 export const HYDRATION_V2_SCENARIOS = [
-  // =========================
-  // FORM A
-  // =========================
   {
     id: 'A-school-morning',
     form: 'A',
@@ -133,9 +120,6 @@ export const HYDRATION_V2_SCENARIOS = [
     ]
   },
 
-  // =========================
-  // FORM B
-  // =========================
   {
     id: 'B-hot-classroom',
     form: 'B',
@@ -257,9 +241,6 @@ export const HYDRATION_V2_SCENARIOS = [
     ]
   },
 
-  // =========================
-  // FORM C
-  // =========================
   {
     id: 'C-exam-day',
     form: 'C',
