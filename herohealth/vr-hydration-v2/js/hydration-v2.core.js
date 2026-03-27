@@ -1,5 +1,8 @@
 import { HYDRATION_V2_CONFIG } from './hydration-v2.config.js';
-import { HYDRATION_V2_CONFIDENCE } from './hydration-v2.scenarios.js';
+import {
+  HYDRATION_V2_CONFIDENCE,
+  pickHydrationScenarioBatch
+} from './hydration-v2.scenarios.js';
 import { buildHydrationV2Summary, saveHydrationV2Summary } from './hydration-v2.summary.js';
 
 function shuffle(arr) {
@@ -26,7 +29,28 @@ export function createHydrationV2Game({ scenarios, ui, logger, ctx, onFinished }
   };
 
   function buildPool() {
-    return shuffle(scenarios).slice(0, HYDRATION_V2_CONFIG.ROUNDS).map((item) => ({
+    const desiredRounds = Number(HYDRATION_V2_CONFIG.ROUNDS || 6);
+
+    const picked = pickHydrationScenarioBatch({
+      stateLike: {
+        researchForm: ctx.researchForm,
+        researchPhase: ctx.researchPhase,
+        postForm: ctx.researchForm,
+        phaseTag: ctx.researchPhase
+      },
+      count: desiredRounds,
+      randomFn: Math.random
+    });
+
+    if (Array.isArray(picked) && picked.length) {
+      return picked.map((item) => ({
+        ...item,
+        choices: shuffle(item.choices),
+        reasons: shuffle(item.reasons)
+      }));
+    }
+
+    return shuffle(scenarios).slice(0, desiredRounds).map((item) => ({
       ...item,
       choices: shuffle(item.choices),
       reasons: shuffle(item.reasons)
@@ -45,7 +69,12 @@ export function createHydrationV2Game({ scenarios, ui, logger, ctx, onFinished }
     state.records = [];
     state.pool = buildPool();
 
-    logger.start({ totalRounds: state.pool.length });
+    logger.start({
+      totalRounds: state.pool.length,
+      researchForm: ctx.researchForm || '',
+      researchPhase: ctx.researchPhase || ''
+    });
+
     renderAnswerStep();
   }
 
@@ -73,7 +102,9 @@ export function createHydrationV2Game({ scenarios, ui, logger, ctx, onFinished }
       answerCorrect: false,
       reasonId: '',
       reasonCorrect: false,
-      confidenceId: ''
+      confidenceId: '',
+      form: item.form || '',
+      family: item.family || ''
     };
   }
 
@@ -109,7 +140,9 @@ export function createHydrationV2Game({ scenarios, ui, logger, ctx, onFinished }
       selectedAnswer: choiceId,
       correctAnswer: correct?.id || '',
       isCorrect,
-      totalScore: state.score
+      totalScore: state.score,
+      researchForm: ctx.researchForm || '',
+      researchPhase: ctx.researchPhase || ''
     });
 
     window.setTimeout(() => {
@@ -129,7 +162,7 @@ export function createHydrationV2Game({ scenarios, ui, logger, ctx, onFinished }
       coachText: HYDRATION_V2_CONFIG.COPY.coachReason,
       title: item.title,
       text: item.text,
-      hint: 'เลือกเหตุผลที่ตรงกับการตัดสินใจที่เหมาะที่สุด',
+      hint: 'เลือกเหตุผลที่ตรงกับคำตอบที่เหมาะที่สุด',
       prompt: 'ทำไมคำตอบนั้นจึงเหมาะที่สุด',
       choices: item.reasons
     }, onReasonChoice);
@@ -155,7 +188,7 @@ export function createHydrationV2Game({ scenarios, ui, logger, ctx, onFinished }
     ui.markCurrentChoices(item.reasons, reasonId);
     ui.setFeedback(
       isCorrect
-        ? `✅ เหตุผลนี้ตรงมาก<br>เก่งมากที่คิดเชื่อมกับสถานการณ์ได้`
+        ? '✅ เหตุผลนี้ตรงมาก<br>เก่งมากที่คิดเชื่อมกับสถานการณ์ได้'
         : `❌ ยังไม่ตรงที่สุด<br>เหตุผลที่เหมาะที่สุดคือ <strong>${correct?.emoji || '💡'} ${correct?.label || ''}</strong>`
     );
 
@@ -167,7 +200,9 @@ export function createHydrationV2Game({ scenarios, ui, logger, ctx, onFinished }
       selectedReason: reasonId,
       correctReason: correct?.id || '',
       isCorrect,
-      totalScore: state.score
+      totalScore: state.score,
+      researchForm: ctx.researchForm || '',
+      researchPhase: ctx.researchPhase || ''
     });
 
     window.setTimeout(() => {
@@ -218,11 +253,15 @@ export function createHydrationV2Game({ scenarios, ui, logger, ctx, onFinished }
       confidence: confidenceId,
       answerCorrect: state.pending.answerCorrect,
       reasonCorrect: state.pending.reasonCorrect,
-      totalScore: state.score
+      totalScore: state.score,
+      researchForm: ctx.researchForm || '',
+      researchPhase: ctx.researchPhase || ''
     });
 
     state.records.push({
       scenarioId: state.pending.scenarioId,
+      form: state.pending.form,
+      family: state.pending.family,
       answerId: state.pending.answerId,
       answerCorrect: state.pending.answerCorrect,
       reasonId: state.pending.reasonId,
@@ -240,13 +279,18 @@ export function createHydrationV2Game({ scenarios, ui, logger, ctx, onFinished }
 
   function finish() {
     const durationMs = Date.now() - state.startedAt;
+
     const summary = buildHydrationV2Summary({
       score: state.score,
       totalRounds: state.pool.length,
       answerCorrect: state.answerCorrect,
       reasonCorrect: state.reasonCorrect,
       highConfidenceCount: state.highConfidenceCount,
-      durationMs
+      durationMs,
+      meta: {
+        records: state.records,
+        scenarioIds: state.pool.map(x => x.id)
+      }
     }, ctx);
 
     saveHydrationV2Summary(summary);
@@ -259,7 +303,9 @@ export function createHydrationV2Game({ scenarios, ui, logger, ctx, onFinished }
       answerAccuracy: summary.answerAccuracy,
       reasonAccuracy: summary.reasonAccuracy,
       highConfidenceCount: summary.highConfidenceCount,
-      durationMs
+      durationMs,
+      researchForm: ctx.researchForm || '',
+      researchPhase: ctx.researchPhase || ''
     });
 
     onFinished?.(summary, {
