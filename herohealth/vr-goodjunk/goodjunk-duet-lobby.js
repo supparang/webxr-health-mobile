@@ -1,5 +1,8 @@
 /* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
    FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-FINAL-V3
+   - quota-safe localStorage
+   - room code join/create
+   - rematch auto-ready / auto-start
 */
 (function(){
   'use strict';
@@ -7,6 +10,31 @@
   const W = window;
   const D = document;
   const $ = (id) => D.getElementById(id);
+
+  function safeSetItem(key, value){
+    try{
+      localStorage.setItem(key, value);
+      return true;
+    }catch(err){
+      console.warn('[safeSetItem] failed:', key, err && err.message ? err.message : err);
+      return false;
+    }
+  }
+
+  function safeGetItem(key, fallback = null){
+    try{
+      const v = localStorage.getItem(key);
+      return v == null ? fallback : v;
+    }catch{
+      return fallback;
+    }
+  }
+
+  function safeRemoveItem(key){
+    try{
+      localStorage.removeItem(key);
+    }catch{}
+  }
 
   const DEBUG = (function(){
     try{
@@ -104,25 +132,21 @@
     if (W.crypto && W.crypto.getRandomValues){
       const arr = new Uint8Array(6);
       W.crypto.getRandomValues(arr);
-      for(let i = 0; i < arr.length; i++) out += chars[arr[i] % chars.length];
+      for (let i = 0; i < arr.length; i++) out += chars[arr[i] % chars.length];
       return out;
     }
-    for(let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
     return out;
   }
 
   function makeDevicePid(){
-    try{
-      const KEY = 'GJ_DEVICE_PID';
-      let pid = localStorage.getItem(KEY);
-      if (!pid){
-        pid = 'p-' + Math.random().toString(36).slice(2, 10);
-        localStorage.setItem(KEY, pid);
-      }
-      return pid;
-    }catch{
-      return 'p-' + Math.random().toString(36).slice(2, 10);
+    const KEY = 'GJ_DEVICE_PID';
+    let pid = safeGetItem(KEY, '');
+    if (!pid){
+      pid = 'p-' + Math.random().toString(36).slice(2, 10);
+      safeSetItem(KEY, pid);
     }
+    return pid;
   }
 
   function normalizePid(raw){
@@ -166,23 +190,15 @@
   function prunePlayers(players, status){
     const out = {};
     const src = players || {};
-    const roomStatus = String(status || 'waiting');
-
     Object.keys(src).forEach((id) => {
       const p = src[id] || {};
-      const lastSeen = Number(p.lastSeenAt || 0);
-      const staleDisconnected = (
-        p.connected === false &&
-        (now() - lastSeen > STALE_MS)
-      );
-
       const shouldDrop =
-        ((p.phase === 'left') && staleDisconnected) ||
-        (roomStatus === 'waiting' && staleDisconnected);
-
+        p.phase === 'left' ||
+        (String(status || 'waiting') === 'waiting' &&
+         p.connected === false &&
+         (now() - Number(p.lastSeenAt || 0) > STALE_MS));
       if (!shouldDrop) out[id] = p;
     });
-
     return out;
   }
 
@@ -192,11 +208,7 @@
     name: (() => {
       const fromQs = qs('name', 'nick', 'playerName');
       if (fromQs) return fromQs.slice(0, 64);
-      try{
-        return String(localStorage.getItem('HHA_PLAYER_NICK') || 'Player').slice(0, 64);
-      }catch{
-        return 'Player';
-      }
+      return String(safeGetItem('HHA_PLAYER_NICK', 'Player') || 'Player').slice(0, 64);
     })(),
     hub: qs('hub') || '../hub.html',
     view: (qs('view') || 'mobile').toLowerCase(),
@@ -228,8 +240,8 @@
     autoStartLocked: false
   };
 
-  try{ localStorage.setItem('HHA_PLAYER_PID', STATE.pid); }catch{}
-  try{ localStorage.setItem('HHA_PLAYER_NICK', STATE.name); }catch{}
+  safeSetItem('HHA_PLAYER_PID', STATE.pid);
+  safeSetItem('HHA_PLAYER_NICK', STATE.name);
 
   function setCopyState(msg, isBad){
     if (!els.copyState) return;
@@ -1079,28 +1091,6 @@
     }
   }
 
-  function getUnloadPhase(){
-    const room = STATE.room || null;
-    const status = String((room && room.status) || 'waiting');
-
-    if (status === 'countdown' || status === 'running'){
-      return 'lobby';
-    }
-    return 'left';
-  }
-
-  async function markDisconnectedForUnload(){
-    try{
-      if (STATE.meRef){
-        await STATE.meRef.update({
-          connected: false,
-          phase: getUnloadPhase(),
-          lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-        });
-      }
-    }catch{}
-  }
-
   function bindUi(){
     if (els.roomCode) els.roomCode.textContent = STATE.roomId;
     if (els.inviteLink) els.inviteLink.value = buildInviteLink();
@@ -1204,13 +1194,20 @@
     W.addEventListener('beforeunload', () => {
       stopHeartbeat();
       stopAutoStartTimer();
-      markDisconnectedForUnload();
+      try{
+        if (STATE.meRef){
+          STATE.meRef.update({
+            connected: false,
+            phase: 'left',
+            lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+          }).catch(() => {});
+        }
+      }catch{}
     });
 
     W.addEventListener('pagehide', () => {
       stopHeartbeat();
       stopAutoStartTimer();
-      markDisconnectedForUnload();
     });
   }
 
