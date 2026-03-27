@@ -10,13 +10,13 @@
   }
 
   const firebaseConfig = {
-    apiKey: 'YOUR_API_KEY',
-    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-    databaseURL: 'https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    appId: 'YOUR_APP_ID'
+    apiKey: 'AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo',
+    authDomain: 'herohealth-d7f8c.firebaseapp.com',
+    databaseURL: 'https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app',
+    projectId: 'herohealth-d7f8c',
+    storageBucket: 'herohealth-d7f8c.firebasestorage.app',
+    messagingSenderId: '680817376848',
+    appId: '1:680817376848:web:eed21b522b0703f6bd9b55'
   };
 
   try {
