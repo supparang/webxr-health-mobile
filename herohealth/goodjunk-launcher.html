@@ -619,15 +619,11 @@
       }
 
       function goSolo(){
-        const url = buildGoodjunkWarmupUrl();
-        console.log('[GJ-LAUNCHER] solo ->', url);
-        location.href = url;
+        location.href = buildGoodjunkWarmupUrl();
       }
 
       function goDuet(){
-        const url = buildGoodjunkDuetLobbyUrl();
-        console.log('[GJ-LAUNCHER] duet ->', url);
-        location.href = url;
+        location.href = buildGoodjunkDuetLobbyUrl();
       }
 
       function goMultiplayer(mode){
