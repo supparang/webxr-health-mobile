@@ -1,12 +1,11 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260327-GOODJUNK-DUET-CELEBRATION-V12
+   FULL PATCH v20260327-GOODJUNK-DUET-FINAL-V1
 */
 (function(){
   'use strict';
 
   const W = window;
   const D = document;
-
   const $ = (id) => D.getElementById(id);
 
   const UI = {
@@ -54,6 +53,8 @@
       return d;
     }
   };
+
+  const DEBUG = qs('debug', '0') === '1';
 
   const clamp = (v, a, b) => {
     v = Number(v);
@@ -136,6 +137,45 @@
       arr.unshift(summary);
       localStorage.setItem(key, JSON.stringify(arr.slice(0, 20)));
     }catch{}
+  }
+
+  function buildSameRoomLobbyUrl(isRematch){
+    const u = new URL('./goodjunk-duet-lobby.html', W.location.href);
+    u.searchParams.set('room', STATE.roomId);
+    u.searchParams.set('roomId', STATE.roomId);
+    u.searchParams.set('pid', STATE.pid);
+    u.searchParams.set('name', STATE.name);
+    u.searchParams.set('nick', STATE.name);
+    u.searchParams.set('hub', STATE.hub);
+    u.searchParams.set('diff', STATE.diff);
+    u.searchParams.set('time', String(STATE.timeSec));
+    u.searchParams.set('seed', String(Date.now()));
+    u.searchParams.set('view', STATE.view);
+    u.searchParams.set('run', STATE.run);
+    u.searchParams.set('zone', STATE.zone);
+    u.searchParams.set('theme', STATE.theme);
+    if (DEBUG) u.searchParams.set('debug', '1');
+    if (isRematch) u.searchParams.set('rematch', '1');
+    return u.toString();
+  }
+
+  function getCurrentParticipantIds(room){
+    const ids = (((room || {}).match || {}).participantIds || []).filter(Boolean);
+    if (ids.length) return ids;
+    const players = (room && room.players) ? Object.keys(room.players) : [];
+    return players.slice(0, 2);
+  }
+
+  function getRematchInfo(room){
+    const ids = getCurrentParticipantIds(room);
+    const votes = (room && room.rematch) ? room.rematch : {};
+    let count = 0;
+
+    ids.forEach((id) => {
+      if (votes[id] && votes[id].ready) count += 1;
+    });
+
+    return { ids, count, votes };
   }
 
   function resetResultMount(){
@@ -245,7 +285,12 @@
 
     hudCompact: false,
     blockReason: '',
-    finishedPublished: false
+    finishedPublished: false,
+
+    rematchRequested: false,
+    rematchRedirected: false,
+    rematchResetting: false,
+    leaving: false
   };
 
   try{ localStorage.setItem('HHA_PLAYER_PID', STATE.pid); }catch{}
@@ -311,13 +356,95 @@
     return Array.isArray(ids) && ids.includes(STATE.uid);
   }
 
-  function getPairScoreFromRoom(room){
-    if (!room || !room.players) return STATE.score;
-    const me = room.players[STATE.uid] || {};
+  function getPeerScore(){
+    const peer = getPeer(STATE.room);
+    return Number(peer && peer.finalScore || 0);
+  }
+
+  let __runDebugLastPaint = 0;
+  function ensureRunDebugBox(){
+    if (!DEBUG) return null;
+    let el = D.getElementById('duetRunDebugBox');
+    if (el) return el;
+
+    el = D.createElement('div');
+    el.id = 'duetRunDebugBox';
+    el.style.cssText = [
+      'position:fixed',
+      'left:10px',
+      'right:10px',
+      'bottom:10px',
+      'z-index:9999',
+      'padding:10px 12px',
+      'border-radius:14px',
+      'border:1px solid rgba(191,227,242,.9)',
+      'background:rgba(15,23,42,.92)',
+      'color:#f8fafc',
+      'font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace',
+      'box-shadow:0 18px 40px rgba(0,0,0,.28)',
+      'white-space:pre-wrap',
+      'word-break:break-word',
+      'backdrop-filter:blur(8px)',
+      'max-height:42vh',
+      'overflow:auto'
+    ].join(';');
+
+    D.body.appendChild(el);
+    return el;
+  }
+
+  function renderRunDebug(){
+    if (!DEBUG) return;
+
+    const t = now();
+    if (t - __runDebugLastPaint < 120) return;
+    __runDebugLastPaint = t;
+
+    const el = ensureRunDebugBox();
+    if (!el) return;
+
+    const room = STATE.room || {};
     const peer = getPeer(room) || {};
-    const my = Number(me.finalScore || STATE.score || 0);
-    const pe = Number(peer.finalScore || 0);
-    return my + pe;
+    const match = room.match || {};
+    const leftSec = STATE.started ? Math.max(0, (STATE.endAt - now()) / 1000).toFixed(1) : '-';
+    const me = room.players && STATE.uid ? (room.players[STATE.uid] || null) : null;
+
+    const lines = [
+      '[DUET RUN DEBUG]',
+      `room=${STATE.roomId || '-'}`,
+      `uid=${STATE.uid || '-'}`,
+      `pid=${STATE.pid || '-'}`,
+      `status=${String(room.status || STATE.roomStatus || '-')}`,
+      `startAt=${Number(room.startAt || STATE.startAt || 0)}`,
+      `started=${STATE.started}`,
+      `ended=${STATE.ended}`,
+      `leftSec=${leftSec}`,
+      `targetCount=${STATE.targets.length}`,
+      `score=${STATE.score}`,
+      `peerScore=${Number(peer.finalScore || 0)}`,
+      `pairScore=${STATE.pairScore}`,
+      `pairGoal=${STATE.pairGoal}`,
+      `goodHit=${STATE.goodHit}`,
+      `junkHit=${STATE.junkHit}`,
+      `goodMiss=${STATE.goodMiss}`,
+      `miss=${STATE.miss}`,
+      `streak=${STATE.streak}`,
+      `bestStreak=${STATE.bestStreak}`,
+      `participantIds=${Array.isArray(match.participantIds) ? match.participantIds.join(', ') : '-'}`,
+      `peerUid=${peer.id || '-'}`,
+      `peerName=${peer.name || '-'}`,
+      `peerConnected=${peer.id ? (peer.connected !== false) : '-'}`,
+      `peerFinished=${peer.id ? (!!peer.finished) : '-'}`,
+      `peerLastSeen=${peer.id ? Number(peer.lastSeenAt || 0) : 0}`,
+      `myPhase=${me ? String(me.phase || '-') : '-'}`,
+      `myFinished=${me ? (!!me.finished) : '-'}`,
+      `blockReason=${STATE.blockReason || '-'}`,
+      `rematchRequested=${STATE.rematchRequested}`,
+      `rematchCount=${getRematchInfo(room).count}`,
+      `rematchResetting=${STATE.rematchResetting}`
+    ];
+
+    el.textContent = lines.join('\n');
   }
 
   function renderHud(){
@@ -343,6 +470,8 @@
       const mine = Math.max(0, Math.min(100, (STATE.score / Math.max(1, STATE.pairGoal)) * 100));
       UI.pairGoalSubFill.style.width = mine.toFixed(1) + '%';
     }
+
+    renderRunDebug();
   }
 
   function applyHudCompact(flag){
@@ -486,11 +615,6 @@
     renderHud();
   }
 
-  function getPeerScore(){
-    const peer = getPeer(STATE.room);
-    return Number(peer && peer.finalScore || 0);
-  }
-
   function pickCoachTip(){
     const left = STATE.started ? Math.max(0, (STATE.endAt - now()) / 1000) : STATE.timeSec;
 
@@ -516,6 +640,13 @@
     setCoach(pickCoachTip());
   }
 
+  function isPeerStale(room){
+    const peer = getPeer(room);
+    if (!peer || !peer.id) return false;
+    if (peer.connected !== false) return false;
+    return (now() - Number(peer.lastSeenAt || 0)) > 45000;
+  }
+
   function loop(frameTs){
     if (STATE.ended) return;
 
@@ -531,6 +662,12 @@
     }
 
     const tNow = now();
+
+    if (STATE.started && !STATE.ended && isPeerStale(STATE.room)){
+      setCoach('เพื่อนหลุดจากห้องนานเกินกำหนด กำลังสรุปผลจากคะแนนล่าสุด');
+      finishGame('peer-stale');
+      return;
+    }
 
     if (STATE.lastSpawnAt === 0) STATE.lastSpawnAt = tNow;
     if (tNow - STATE.lastSpawnAt >= STATE.cfg.spawnEvery){
@@ -706,7 +843,7 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: peerFinished,
       endedAt: new Date().toISOString(),
-      version: 'v20260327-GOODJUNK-DUET-CELEBRATION-V12'
+      version: 'v20260327-GOODJUNK-DUET-FINAL-V1'
     };
   }
 
@@ -838,6 +975,130 @@
     return out;
   }
 
+  async function requestRematch(){
+    if (!STATE.roomRef || !STATE.uid) return;
+    STATE.rematchRequested = true;
+
+    await STATE.roomRef.child('rematch/' + STATE.uid).set({
+      uid: STATE.uid,
+      pid: STATE.pid,
+      name: STATE.name,
+      ready: true,
+      requestedAt: firebase.database.ServerValue.TIMESTAMP
+    });
+  }
+
+  async function maybeResetRoomForRematch(room){
+    if (!STATE.roomRef || !room || STATE.rematchResetting) return;
+
+    const status = String(room.status || 'waiting');
+    if (status !== 'finished') return;
+
+    const info = getRematchInfo(room);
+    if (info.ids.length !== 2) return;
+    if (info.count < 2) return;
+    if (room.hostId !== STATE.uid) return;
+
+    STATE.rematchResetting = true;
+
+    try{
+      await new Promise((resolve, reject) => {
+        STATE.roomRef.transaction((current) => {
+          if (!current) return current;
+
+          const currentStatus = String(current.status || 'waiting');
+          if (currentStatus !== 'finished') return current;
+
+          const ids = getCurrentParticipantIds(current);
+          const infoNow = getRematchInfo(current);
+          if (ids.length !== 2 || infoNow.count < 2) return current;
+
+          const t = now();
+          current.status = 'waiting';
+          current.startAt = 0;
+          current.updatedAt = t;
+          current.seed = String(t);
+          current.match = {
+            participantIds: [],
+            lockedAt: 0,
+            status: 'idle',
+            finishedAt: 0
+          };
+          current.rematch = {};
+          current.players = current.players || {};
+
+          ids.forEach((id) => {
+            const oldP = current.players[id] || {};
+            current.players[id] = Object.assign({}, oldP, {
+              id,
+              uid: id,
+              ready: false,
+              phase: 'lobby',
+              finished: false,
+              finalScore: 0,
+              miss: 0,
+              streak: 0,
+              finishedAt: 0,
+              connected: true,
+              lastSeenAt: t
+            });
+          });
+
+          return current;
+        }, (err, committed) => {
+          if (err) return reject(err);
+          if (!committed) return reject(new Error('rematch-reset-aborted'));
+          resolve();
+        }, false);
+      });
+    }catch(err){
+      console.error('[duet.rematch.reset] failed:', err);
+    }finally{
+      STATE.rematchResetting = false;
+    }
+  }
+
+  async function leaveFinishedRoomAndMaybeCleanup(nextHref){
+    if (STATE.leaving) return;
+    STATE.leaving = true;
+
+    try{
+      if (STATE.meRef){
+        await STATE.meRef.update({
+          connected: false,
+          phase: STATE.ended ? 'done' : 'left',
+          lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+        });
+      }
+    }catch(err){
+      console.warn('[duet.leave] meRef update failed:', err);
+    }
+
+    try{
+      if (STATE.roomRef && STATE.room && String(STATE.room.status || '') === 'finished'){
+        const room = STATE.room;
+        const ids = getCurrentParticipantIds(room);
+        const players = room.players || {};
+
+        const anotherActive = ids.some((id) => {
+          if (id === STATE.uid) return false;
+          const p = players[id];
+          if (!p) return false;
+          if (p.connected !== false) return true;
+          return (now() - Number(p.lastSeenAt || 0)) <= 20000;
+        });
+
+        if (!anotherActive){
+          await STATE.roomRef.remove();
+        }
+      }
+    }catch(err){
+      console.warn('[duet.cleanup] room cleanup skipped:', err);
+    }
+
+    W.location.href = nextHref;
+  }
+
   function renderResultOverlay(reason){
     if (!UI.resultMount) return;
 
@@ -851,9 +1112,13 @@
     const goalReached = pairScore >= STATE.pairGoal;
     const peerDone = !!peer.finished;
 
-    const statusText = peerDone
-      ? 'เพื่อนเล่นจบแล้ว มาดูคะแนนคู่กัน'
-      : 'กำลังรอคะแนนจากเพื่อนอีกนิด';
+    const statusText = reason === 'peer-stale'
+      ? 'เพื่อนหลุดจากห้องนานเกินกำหนด จึงสรุปผลจากคะแนนล่าสุด'
+      : reason === 'rematch-requested'
+        ? 'ส่งคำขอรีแมตช์แล้ว รอเพื่อนกดรีแมตช์'
+        : (peerDone
+            ? 'เพื่อนเล่นจบแล้ว มาดูคะแนนคู่กัน'
+            : 'กำลังรอคะแนนจากเพื่อนอีกนิด');
 
     const peerStatusHtml = peerDone
       ? '<span class="duet-sum-status done">เล่นจบแล้ว</span>'
@@ -863,9 +1128,20 @@
     const recap = getRecapLines();
     const trophies = getTrophyBadges();
     const fx = getCelebrationFlags(goalReached);
+    const rematchInfo = getRematchInfo(STATE.room);
+    const rematchBadges = [
+      `<span class="duet-badge blue">🔁 รีแมตช์ ${rematchInfo.count}/2</span>`
+    ];
+
+    if (STATE.rematchRequested && rematchInfo.count < 2){
+      rematchBadges.push(`<span class="duet-badge gold">⌛ รอเพื่อนกดรีแมตช์</span>`);
+    }
 
     const starsHtml = Array.from({ length: praise.stars }, () => '<span class="duet-star">⭐</span>').join('');
-    const badgesHtml = praise.badges.map(b => `<span class="duet-badge ${esc(b.cls)}">${esc(b.text)}</span>`).join('');
+    const badgesHtml = praise.badges
+      .map(b => `<span class="duet-badge ${esc(b.cls)}">${esc(b.text)}</span>`)
+      .concat(rematchBadges)
+      .join('');
     const trophiesHtml = trophies.map(t => `<span class="duet-trophy ${esc(t.cls)}">${esc(t.text)}</span>`).join('');
 
     const summary = buildSummary();
@@ -957,18 +1233,62 @@
         </div>
 
         <div class="duet-result-actions hubv2" style="position:relative;z-index:1;">
-          <a class="btn good" href="./goodjunk-duet-lobby.html?pid=${encodeURIComponent(STATE.pid)}&name=${encodeURIComponent(STATE.name)}&hub=${encodeURIComponent(STATE.hub)}&diff=${encodeURIComponent(STATE.diff)}&time=${encodeURIComponent(String(STATE.timeSec))}&seed=${encodeURIComponent(String(now()))}&view=${encodeURIComponent(STATE.view)}&run=${encodeURIComponent(STATE.run)}&zone=${encodeURIComponent(STATE.zone)}&theme=${encodeURIComponent(STATE.theme)}">เล่นอีกรอบ</a>
-          <a class="btn ghost" href="${esc((UI.btnBackLauncher && UI.btnBackLauncher.href) || '../goodjunk-launcher.html')}">กลับหน้าเลือกโหมด</a>
-          <a class="btn primary" href="${esc(STATE.hub)}">กลับหน้าหลัก</a>
+          <button class="btn good" id="duetBtnRematch" type="button">${STATE.rematchRequested ? 'กำลังรอรีแมตช์...' : 'ขอรีแมตช์'}</button>
+          <button class="btn ghost" id="duetBtnBackLobby" type="button">กลับไป Lobby ห้องเดิม</button>
+          <button class="btn ghost" id="duetBtnBackLauncher" type="button">กลับหน้าเลือกโหมด</button>
+          <button class="btn primary" id="duetBtnBackHub" type="button">กลับหน้าหลัก</button>
           <button class="btn ghost" id="duetBtnClose" type="button">ปิดหน้าสรุป</button>
         </div>
       </div>
     `;
 
     const btnClose = $('duetBtnClose');
+    const btnRematch = $('duetBtnRematch');
+    const btnBackLobby = $('duetBtnBackLobby');
+    const btnBackLauncher = $('duetBtnBackLauncher');
+    const btnBackHub = $('duetBtnBackHub');
+
     if (btnClose){
       btnClose.addEventListener('click', () => {
         resetResultMount();
+      });
+    }
+
+    if (btnRematch){
+      btnRematch.disabled = !!STATE.rematchRequested;
+      btnRematch.addEventListener('click', async () => {
+        if (STATE.rematchRequested) return;
+        btnRematch.disabled = true;
+        btnRematch.textContent = 'กำลังรอรีแมตช์...';
+
+        try{
+          await requestRematch();
+          renderResultOverlay('rematch-requested');
+        }catch(err){
+          console.error('[duet.rematch.request] failed:', err);
+          btnRematch.disabled = false;
+          btnRematch.textContent = 'ขอรีแมตช์';
+        }
+      });
+    }
+
+    if (btnBackLobby){
+      btnBackLobby.addEventListener('click', () => {
+        leaveFinishedRoomAndMaybeCleanup(buildSameRoomLobbyUrl(false));
+      });
+    }
+
+    if (btnBackLauncher){
+      btnBackLauncher.addEventListener('click', () => {
+        leaveFinishedRoomAndMaybeCleanup(
+          (UI.btnBackLauncher && UI.btnBackLauncher.href) || '../goodjunk-launcher.html'
+        );
+      });
+    }
+
+    if (btnBackHub){
+      btnBackHub.addEventListener('click', () => {
+        leaveFinishedRoomAndMaybeCleanup(STATE.hub);
       });
     }
   }
@@ -1037,7 +1357,7 @@
         <div class="duet-result-title">${esc(title)}</div>
         <div class="duet-result-sub">${esc(sub)}</div>
         <div class="duet-result-actions">
-          <a class="btn ghost" href="./goodjunk-duet-lobby.html?pid=${encodeURIComponent(STATE.pid)}&name=${encodeURIComponent(STATE.name)}&hub=${encodeURIComponent(STATE.hub)}&diff=${encodeURIComponent(STATE.diff)}&time=${encodeURIComponent(String(STATE.timeSec))}&seed=${encodeURIComponent(String(now()))}&view=${encodeURIComponent(STATE.view)}&run=${encodeURIComponent(STATE.run)}&zone=${encodeURIComponent(STATE.zone)}&theme=${encodeURIComponent(STATE.theme)}">กลับ Lobby</a>
+          <a class="btn ghost" href="./goodjunk-duet-lobby.html?pid=${encodeURIComponent(STATE.pid)}&name=${encodeURIComponent(STATE.name)}&hub=${encodeURIComponent(STATE.hub)}&diff=${encodeURIComponent(STATE.diff)}&time=${encodeURIComponent(String(STATE.timeSec))}&seed=${encodeURIComponent(String(now()))}&view=${encodeURIComponent(STATE.view)}&run=${encodeURIComponent(STATE.run)}&zone=${encodeURIComponent(STATE.zone)}&theme=${encodeURIComponent(STATE.theme)}${DEBUG ? '&debug=1' : ''}">กลับ Lobby</a>
           <a class="btn primary" href="${esc(STATE.hub)}">กลับ Hub</a>
         </div>
       </div>
@@ -1156,7 +1476,19 @@
 
       if (STATE.ended){
         renderResultOverlay('sync-finish');
+        maybeResetRoomForRematch(room);
         maybeFinalizeRoom();
+
+        if (
+          STATE.rematchRequested &&
+          String(room.status || 'waiting') === 'waiting' &&
+          !STATE.rematchRedirected
+        ){
+          STATE.rematchRedirected = true;
+          setTimeout(() => {
+            W.location.replace(buildSameRoomLobbyUrl(true));
+          }, 450);
+        }
       }
     });
   }
