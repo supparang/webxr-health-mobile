@@ -4,41 +4,46 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Shadow Breaker Summary</title>
-  <meta name="color-scheme" content="dark light" />
+  <meta name="color-scheme" content="light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      color-scheme: dark;
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --panel:rgba(2,6,23,.74);
-      --panel2:rgba(15,23,42,.58);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --blue:#3b82f6;
-      --violet:#a78bfa;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --pink:#f472b6;
-      --gold:#facc15;
+      --sky1:#dff4ff;
+      --sky2:#eefcff;
+      --sky3:#fff7da;
+      --card:#fffdf6;
+      --card2:#f8fff3;
+      --line:#bfe3f2;
+      --text:#4d4a42;
+      --muted:#7b7a72;
+      --green:#7ed957;
+      --green2:#58c33f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd45c;
+      --yellow2:#ffb83f;
+      --orange:#ff9651;
+      --shadow:0 18px 40px rgba(111,157,183,.16);
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
+
     *{ box-sizing:border-box; }
 
     html,body{
       margin:0;
       min-height:100%;
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
-      background:
-        radial-gradient(circle at 15% 10%, rgba(59,130,246,.18), transparent 45%),
-        radial-gradient(circle at 85% 90%, rgba(167,139,250,.16), transparent 45%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
       color:var(--text);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(127,207,255,.28), transparent 36%),
+        radial-gradient(circle at 84% 10%, rgba(255,220,120,.22), transparent 32%),
+        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 42%, var(--sky3) 100%);
     }
+
     a{ color:inherit; text-decoration:none; }
 
     .wrap{
@@ -53,65 +58,112 @@
     }
 
     .hero{
-      border-radius:26px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      box-shadow:0 24px 80px rgba(0,0,0,.38);
-      padding:20px 18px;
+      border-radius:28px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(255,255,255,.84), rgba(255,253,246,.92));
+      box-shadow:var(--shadow);
+      padding:18px;
       position:relative;
       overflow:hidden;
     }
 
-    .heroGlow{
+    .cloud{
       position:absolute;
-      inset:auto -60px -60px auto;
-      width:220px;
-      height:220px;
-      border-radius:50%;
-      background:radial-gradient(circle, rgba(250,204,21,.18), transparent 68%);
+      width:150px;
+      height:60px;
+      border-radius:999px;
+      background:rgba(255,255,255,.48);
+      filter:blur(2px);
       pointer-events:none;
+    }
+    .c1{ top:24px; right:30px; }
+    .c2{ top:86px; left:24px; width:120px; }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+      position:relative;
+      z-index:1;
+    }
+
+    .brandLogo{
+      width:74px;
+      height:74px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:38px;
+      background:linear-gradient(180deg, #ffffff, #f7fff3);
+      border:1px solid var(--line);
+      box-shadow:0 12px 24px rgba(111,157,183,.12);
     }
 
     .kicker{
       color:var(--muted);
       font-size:.82rem;
-      font-weight:900;
-      letter-spacing:.2px;
+      font-weight:1000;
     }
 
     h1{
-      margin:8px 0 6px;
-      font-size:1.8rem;
-      line-height:1.1;
+      margin:4px 0 4px;
+      font-size:1.75rem;
+      line-height:1.05;
+      color:#5a4a3f;
     }
 
     .sub{
-      color:rgba(226,232,240,.88);
-      line-height:1.5;
-      font-size:.97rem;
+      color:#786c61;
+      line-height:1.45;
+      font-size:.96rem;
+      font-weight:800;
     }
 
-    .row{
+    .greatWrap{
+      margin-top:16px;
+      display:grid;
+      place-items:center;
+      position:relative;
+      z-index:1;
+    }
+
+    .greatRibbon{
+      min-width:min(92%, 460px);
+      padding:14px 20px;
+      border-radius:24px;
+      background:linear-gradient(180deg, var(--blue), var(--blue2));
+      color:#fffdf6;
+      text-align:center;
+      font-size:1.35rem;
+      font-weight:1100;
+      box-shadow:0 12px 24px rgba(88,183,245,.26);
+      position:relative;
+    }
+
+    .greatRibbon:before,
+    .greatRibbon:after{
+      content:"⭐";
+      position:absolute;
+      top:50%;
+      transform:translateY(-50%);
+      font-size:30px;
+    }
+
+    .greatRibbon:before{ left:-16px; }
+    .greatRibbon:after{ right:-16px; }
+
+    .starRow{
       display:flex;
+      justify-content:center;
       gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      margin-top:14px;
+      margin-top:12px;
+      font-size:34px;
     }
 
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.52);
-      color:var(--muted);
-      font-size:.84rem;
-      font-weight:900;
+    .star{
+      filter:drop-shadow(0 4px 8px rgba(0,0,0,.10));
     }
-    .pill b{ color:var(--text); }
 
     .heroBadge{
       margin-top:16px;
@@ -120,37 +172,63 @@
       gap:14px;
       align-items:center;
       padding:14px;
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.46);
-      box-shadow:0 16px 40px rgba(0,0,0,.22);
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, var(--card), var(--card2));
+      box-shadow:0 14px 24px rgba(111,157,183,.10);
+      position:relative;
+      z-index:1;
     }
 
     .heroBadgeIcon{
       width:92px;
       height:92px;
-      border-radius:22px;
+      border-radius:24px;
       display:grid;
       place-items:center;
       font-size:48px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.30);
-      box-shadow:0 14px 28px rgba(0,0,0,.20);
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, #ffffff, #f7fff3);
+      box-shadow:0 10px 20px rgba(111,157,183,.10);
     }
 
     .heroBadgeTitle{
       font-size:1.15rem;
-      font-weight:1000;
+      font-weight:1100;
       line-height:1.2;
+      color:#5a4a3f;
     }
 
     .heroBadgeDesc{
       margin-top:4px;
-      color:var(--muted);
+      color:#7b7a72;
       font-size:.9rem;
       line-height:1.45;
-      font-weight:800;
+      font-weight:900;
     }
+
+    .pillRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:14px;
+      position:relative;
+      z-index:1;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.78);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+    .pill b{ color:var(--text); }
 
     .grid{
       display:grid;
@@ -158,6 +236,7 @@
       gap:12px;
       margin-top:14px;
     }
+
     @media (max-width:920px){
       .grid{ grid-template-columns:1fr; }
       .heroBadge{ grid-template-columns:1fr; }
@@ -165,42 +244,100 @@
     }
 
     .card{
-      border-radius:22px;
-      border:1px solid var(--stroke);
-      background:var(--panel2);
-      box-shadow:0 18px 55px rgba(0,0,0,.28);
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(255,255,255,.84), rgba(255,253,246,.92));
+      box-shadow:var(--shadow);
       padding:14px;
     }
 
     .cardTitle{
       font-size:1rem;
+      font-weight:1100;
+      margin-bottom:10px;
+      color:#5a4a3f;
+    }
+
+    .scoreBig{
+      margin-top:6px;
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, #dff4ff, #eefcff);
+      text-align:center;
+      padding:16px 12px;
+      box-shadow:0 8px 18px rgba(111,157,183,.10);
+    }
+
+    .scoreBig .k{
+      color:#6f8291;
+      font-size:.92rem;
       font-weight:1000;
-      margin-bottom:8px;
+    }
+
+    .scoreBig .v{
+      margin-top:8px;
+      color:#4d4a42;
+      font-size:2.4rem;
+      font-weight:1100;
+      line-height:1;
+    }
+
+    .rewardRow{
+      margin-top:12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .rewardChip{
+      min-width:120px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, #fffdf6, #f8fff3);
+      box-shadow:0 8px 16px rgba(111,157,183,.08);
+      text-align:center;
+    }
+
+    .rewardChip .rk{
+      color:#7b7a72;
+      font-size:.76rem;
+      font-weight:1000;
+    }
+
+    .rewardChip .rv{
+      margin-top:6px;
+      font-size:1.15rem;
+      font-weight:1100;
+      color:#5a4a3f;
     }
 
     .statGrid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
+      margin-top:12px;
     }
+
     @media (max-width:520px){
       .statGrid{ grid-template-columns:1fr; }
     }
 
     .statCard{
       border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.28);
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, #fffdf6, #f8fff3);
       padding:12px;
       min-height:84px;
       display:flex;
       flex-direction:column;
       justify-content:center;
       gap:6px;
+      box-shadow:0 8px 16px rgba(111,157,183,.08);
     }
 
     .statK{
-      color:var(--muted);
+      color:#7b7a72;
       font-size:.78rem;
       font-weight:1000;
       letter-spacing:.2px;
@@ -208,9 +345,9 @@
     }
 
     .statV{
-      color:var(--text);
-      font-size:1.3rem;
-      font-weight:1000;
+      color:#4d4a42;
+      font-size:1.2rem;
+      font-weight:1100;
       line-height:1.1;
     }
 
@@ -220,9 +357,10 @@
       align-items:center;
       margin-top:12px;
       padding:12px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.24);
+      border-radius:20px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, #fffdf6, #f8fff3);
+      box-shadow:0 8px 16px rgba(111,157,183,.08);
     }
 
     .bossIcon{
@@ -232,8 +370,8 @@
       display:grid;
       place-items:center;
       font-size:28px;
-      background:rgba(2,6,23,.30);
-      border:1px solid rgba(148,163,184,.16);
+      background:linear-gradient(180deg, #ffffff, #eefcff);
+      border:1px solid var(--line);
     }
 
     .bossBody{
@@ -243,51 +381,52 @@
     }
 
     .bossTitle{
-      font-weight:1000;
+      font-weight:1100;
       font-size:1rem;
       line-height:1.15;
+      color:#5a4a3f;
     }
 
     .bossDesc{
-      color:var(--muted);
+      color:#7b7a72;
       font-size:.86rem;
       line-height:1.4;
-      font-weight:800;
+      font-weight:900;
     }
 
     .messageBox{
       margin-top:12px;
       padding:12px 14px;
-      border-radius:18px;
-      border:1px solid rgba(59,130,246,.18);
-      background:rgba(59,130,246,.10);
-      color:#dbeafe;
+      border-radius:20px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, #dff4ff, #eefcff);
+      color:#5b6670;
       line-height:1.5;
       font-size:.94rem;
-      font-weight:900;
+      font-weight:1000;
     }
 
     .kidHint{
       margin-top:12px;
       padding:12px 14px;
-      border-radius:18px;
-      border:1px solid rgba(34,197,94,.18);
-      background:rgba(34,197,94,.10);
-      color:#dcfce7;
+      border-radius:20px;
+      border:1px solid #b7ebb2;
+      background:linear-gradient(180deg, #efffe7, #f8fff3);
+      color:#56714d;
       line-height:1.5;
       font-size:.92rem;
-      font-weight:900;
+      font-weight:1000;
     }
 
     .mini{
       margin-top:10px;
       padding:10px 12px;
       border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.20);
-      color:var(--muted);
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.72);
+      color:#7b7a72;
       font-size:.84rem;
-      font-weight:800;
+      font-weight:900;
       line-height:1.45;
     }
 
@@ -296,6 +435,8 @@
       gap:10px;
       flex-wrap:wrap;
       margin-top:16px;
+      position:relative;
+      z-index:1;
     }
 
     .btn{
@@ -303,77 +444,88 @@
       align-items:center;
       justify-content:center;
       min-height:46px;
-      padding:11px 14px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(148,163,184,.10);
-      color:var(--text);
-      font-weight:1000;
+      padding:11px 16px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, #ffffff, #f7fff3);
+      color:#5b513f;
+      font-weight:1100;
       cursor:pointer;
       text-decoration:none;
+      box-shadow:0 8px 16px rgba(111,157,183,.12);
     }
+
     .btn.primary{
-      border-color:rgba(59,130,246,.28);
-      background:rgba(59,130,246,.16);
-      box-shadow:0 12px 24px rgba(59,130,246,.14);
+      background:linear-gradient(180deg, var(--green), var(--green2));
+      border-color:#75cf63;
+      color:#fffdf6;
     }
+
     .btn.violet{
-      border-color:rgba(167,139,250,.28);
-      background:rgba(167,139,250,.14);
+      background:linear-gradient(180deg, #e7f4ff, #dff4ff);
+      color:#55718a;
     }
+
     .btn.good{
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.14);
-    }
-    .btn.ghost{
-      background:transparent;
-      color:var(--muted);
+      background:linear-gradient(180deg, #ffd96a, var(--yellow2));
+      border-color:#f2bf4b;
+      color:#6a4a00;
     }
 
     .empty{
       margin-top:12px;
       padding:14px;
       border-radius:18px;
-      border:1px dashed rgba(148,163,184,.22);
-      color:var(--muted);
+      border:1px dashed var(--line);
+      color:#7b7a72;
       font-size:.92rem;
       line-height:1.5;
-      font-weight:800;
+      font-weight:900;
+      background:rgba(255,255,255,.60);
     }
 
     .debug{
       margin-top:12px;
       padding:10px 12px;
       border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.18);
-      color:var(--muted);
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.66);
+      color:#7b7a72;
       font-size:.82rem;
       line-height:1.5;
       word-break:break-word;
     }
 
-    .grade-S{ color:var(--gold); }
-    .grade-A{ color:#93c5fd; }
-    .grade-B{ color:#86efac; }
-    .grade-C{ color:#e5e7eb; }
+    .grade-S{ color:#d99b00; }
+    .grade-A{ color:#4c97e8; }
+    .grade-B{ color:#4f9f3b; }
+    .grade-C{ color:#6f6a63; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <section class="hero">
-      <div class="heroGlow" aria-hidden="true"></div>
+      <div class="cloud c1"></div>
+      <div class="cloud c2"></div>
 
-      <div class="kicker">HeroHealth • Exercise Zone</div>
-      <h1>สรุปผล Shadow Breaker</h1>
-      <div class="sub" id="summarySub">
-        มาดูว่าเราผ่านได้ไกลแค่ไหน และพร้อมลุยรอบต่อไปหรือยัง
+      <div class="brand">
+        <div class="brandLogo">🦸</div>
+        <div>
+          <div class="kicker">HeroHealth • Fitness Zone</div>
+          <h1>Shadow Breaker</h1>
+          <div class="sub" id="summarySub">
+            มาดูคะแนนและความเก่งของรอบนี้กันเลย
+          </div>
+        </div>
       </div>
 
-      <div class="row">
-        <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
-        <span class="pill"><b>Mode</b>: <span id="uiMode">normal</span></span>
-        <span class="pill"><b>View</b>: <span id="uiView">-</span></span>
+      <div class="greatWrap">
+        <div class="greatRibbon">Great Job!</div>
+        <div class="starRow" id="starRow">
+          <span class="star">⭐</span>
+          <span class="star">⭐</span>
+          <span class="star">⭐</span>
+        </div>
       </div>
 
       <div class="heroBadge">
@@ -384,33 +536,44 @@
         </div>
       </div>
 
+      <div class="pillRow">
+        <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
+        <span class="pill"><b>Mode</b>: <span id="uiMode">normal</span></span>
+        <span class="pill"><b>View</b>: <span id="uiView">-</span></span>
+      </div>
+
       <div class="actions">
-        <a class="btn primary" id="btnPlayAgain" href="#">▶ เล่นอีกครั้ง</a>
+        <a class="btn primary" id="btnPlayAgain" href="#">▶ Play Again</a>
         <a class="btn violet" id="btnTeacherPanel" href="#">🧑‍🏫 Teacher Panel</a>
-        <a class="btn good" id="btnBackHub" href="./hub.html">🏠 กลับหน้าเกมหลัก</a>
+        <a class="btn good" id="btnBackHub" href="./hub.html">🏠 Back to Hub</a>
       </div>
     </section>
 
     <div class="grid">
       <section class="card">
-        <div class="cardTitle">สถิติหลัก</div>
+        <div class="cardTitle">คะแนนของหนู</div>
+
+        <div class="scoreBig">
+          <div class="k">Score</div>
+          <div class="v" id="statScore">0</div>
+        </div>
+
+        <div class="rewardRow">
+          <div class="rewardChip">
+            <div class="rk">GRADE</div>
+            <div class="rv" id="statGrade">C</div>
+          </div>
+          <div class="rewardChip">
+            <div class="rk">ACCURACY</div>
+            <div class="rv" id="statAcc">0%</div>
+          </div>
+          <div class="rewardChip">
+            <div class="rk">MAX COMBO</div>
+            <div class="rv" id="statCombo">0</div>
+          </div>
+        </div>
+
         <div class="statGrid">
-          <div class="statCard">
-            <div class="statK">Score</div>
-            <div class="statV" id="statScore">0</div>
-          </div>
-          <div class="statCard">
-            <div class="statK">Grade</div>
-            <div class="statV" id="statGrade">C</div>
-          </div>
-          <div class="statCard">
-            <div class="statK">Accuracy</div>
-            <div class="statV" id="statAcc">0%</div>
-          </div>
-          <div class="statCard">
-            <div class="statK">Max Combo</div>
-            <div class="statV" id="statCombo">0</div>
-          </div>
           <div class="statCard">
             <div class="statK">Miss</div>
             <div class="statV" id="statMiss">0</div>
@@ -422,30 +585,30 @@
         </div>
 
         <div class="messageBox" id="summaryMessage">
-          เก่งมาก ลองอีกครั้งเพื่อทำคะแนนได้สูงขึ้นและผ่านบอสให้ไกลกว่าเดิม
+          เก่งมาก ลองเล่นอีกครั้งเพื่อทำคะแนนได้สูงขึ้นนะ
         </div>
 
         <div class="kidHint" id="summaryKidHint">
-          ถ้าอยากเก่งขึ้นอีก ลองตีเป้าให้แม่นและเก็บคอมโบให้ได้นานขึ้นนะ
+          ถ้าอยากเก่งขึ้นอีก ลองตีเป้าให้แม่นและเก็บคอมโบให้นานขึ้นนะ
         </div>
 
         <div class="mini" id="summaryHubHint">
-          ถ้าหนูเล่นเสร็จแล้ว กด “กลับหน้าเกมหลัก” เพื่อกลับไปเลือกเกมอื่นได้เลย
+          เล่นเสร็จแล้วกด Back to Hub เพื่อกลับไปเลือกเกมอื่นได้เลย
         </div>
       </section>
 
       <section class="card">
-        <div class="cardTitle">ความก้าวหน้าเรื่องบอส</div>
+        <div class="cardTitle">บอสที่ไปได้ไกลที่สุด</div>
 
         <div class="bossLine">
           <div class="bossIcon" id="bestBossIcon">🥊</div>
           <div class="bossBody">
             <div class="bossTitle" id="bestBossTitle">ยังไม่มีข้อมูลบอส</div>
-            <div class="bossDesc" id="bestBossDesc">เล่นให้จบอย่างน้อยหนึ่งรอบเพื่อดูความก้าวหน้าของบอส</div>
+            <div class="bossDesc" id="bestBossDesc">เล่นให้จบอย่างน้อยหนึ่งรอบเพื่อดูความก้าวหน้า</div>
           </div>
         </div>
 
-        <div class="statGrid" style="margin-top:12px;">
+        <div class="statGrid">
           <div class="statCard">
             <div class="statK">Bosses Cleared</div>
             <div class="statV" id="statBossesCleared">0</div>
@@ -528,6 +691,14 @@
         return `grade-${g}`;
       }
 
+      function starCountFromGrade(grade){
+        const g = String(grade || 'C').toUpperCase();
+        if (g === 'S') return 3;
+        if (g === 'A') return 3;
+        if (g === 'B') return 2;
+        return 1;
+      }
+
       function findSummary(pid){
         const a = loadJson(`SB_LAST_SUMMARY:${pid}`, null);
         if (a) return a;
@@ -541,6 +712,14 @@
         }
 
         return null;
+      }
+
+      function renderStars(grade){
+        const n = starCountFromGrade(grade);
+        const row = $('#starRow');
+        if (!row) return;
+        row.innerHTML = Array.from({length:3}, (_,i)=> i < n ? '⭐' : '☆')
+          .map(s => `<span class="star">${s}</span>`).join('');
       }
 
       function render(sum){
@@ -602,11 +781,14 @@
 
         if (statScore) statScore.textContent = String(sum.scoreFinal ?? sum.score ?? 0);
 
+        const grade = String(sum.grade || 'C').toUpperCase();
+
         if (statGrade){
-          const grade = String(sum.grade || 'C').toUpperCase();
           statGrade.textContent = grade;
-          statGrade.className = `statV ${gradeClass(grade)}`;
+          statGrade.className = `rv ${gradeClass(grade)}`;
         }
+
+        renderStars(grade);
 
         if (statAcc) statAcc.textContent = `${Number(sum.accPct || 0).toFixed(1)}%`;
         if (statCombo) statCombo.textContent = String(sum.comboMax ?? 0);
@@ -633,13 +815,13 @@
 
         if (summaryMessage){
           if (String(sum.end_reason || '') === 'final_clear'){
-            summaryMessage.textContent = 'เยี่ยมที่สุดเลย หนูผ่าน Final Boss ได้แล้ว 🎉';
+            summaryMessage.textContent = 'เก่งที่สุดเลย! หนูผ่านบอสสุดท้ายได้แล้ว 🎉';
           } else if (cleared >= 3){
-            summaryMessage.textContent = 'หนูไปไกลมากแล้ว อีกนิดเดียวก็ถึง Final Boss';
+            summaryMessage.textContent = 'เก่งมาก! อีกนิดเดียวก็จะถึงบอสสุดท้ายแล้ว';
           } else if (cleared >= 1){
-            summaryMessage.textContent = 'หนูผ่านบอสไปได้แล้ว ลองเล่นอีกครั้งเพื่อไปไกลกว่าเดิม';
+            summaryMessage.textContent = 'เยี่ยมเลย! ลองเล่นอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
           } else {
-            summaryMessage.textContent = 'เริ่มต้นได้ดีแล้ว ลองตีให้แม่นขึ้นอีกนิดนะ';
+            summaryMessage.textContent = 'เริ่มต้นดีมาก ลองตีให้แม่นขึ้นอีกนิดนะ';
           }
         }
 
@@ -647,11 +829,11 @@
           if (acc < 60){
             summaryKidHint.textContent = 'เคล็ดลับ: ค่อย ๆ เล็งและแตะเป้าให้แม่นขึ้น จะช่วยให้คะแนนขึ้นเร็ว';
           } else if ((sum.missTotal || 0) > 8){
-            summaryKidHint.textContent = 'เคล็ดลับ: ระวังเป้าหลอกและระเบิด จะช่วยให้ไปได้ไกลขึ้น';
+            summaryKidHint.textContent = 'เคล็ดลับ: ระวังเป้าหลอกและบอมบ์ จะช่วยให้ไปได้ไกลขึ้น';
           } else if (cleared >= 2){
-            summaryKidHint.textContent = 'เก่งมากแล้ว ลองรักษาคอมโบให้นานขึ้นเพื่อเปิด FEVER ให้บ่อยกว่าเดิม';
+            summaryKidHint.textContent = 'เก่งมากแล้ว ลองรักษาคอมโบให้นานขึ้นเพื่อเปิดพลังพิเศษให้บ่อยกว่าเดิม';
           } else {
-            summaryKidHint.textContent = 'ถ้าอยากเก่งขึ้นอีก ลองตีเป้าให้แม่นและเก็บคอมโบให้ได้นานขึ้นนะ';
+            summaryKidHint.textContent = 'ถ้าอยากเก่งขึ้นอีก ลองตีเป้าให้แม่นและเก็บคอมโบให้นานขึ้นนะ';
           }
         }
 
