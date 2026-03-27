@@ -31,6 +31,8 @@
       --orange2:#ff9857;
       --pink1:#ffd1e8;
       --pink2:#ff98c6;
+      --violet1:#d9d4ff;
+      --violet2:#a89cff;
 
       --shadow:0 14px 34px rgba(90,145,180,.16);
       --shadow-lg:0 22px 56px rgba(90,145,180,.22);
@@ -59,11 +61,11 @@
       place-items:center;
     }
 
-    button,input,select,textarea{ font:inherit; }
+    button,input,select{ font:inherit; }
     button{ -webkit-tap-highlight-color:transparent; }
 
     .page{
-      width:min(1160px,100%);
+      width:min(1180px,100%);
       display:grid;
       gap:14px;
     }
@@ -111,6 +113,7 @@
       align-items:center;
       justify-content:space-between;
       gap:12px;
+      flex-wrap:wrap;
     }
 
     .corner-btn{
@@ -246,10 +249,7 @@
       text-shadow:0 3px 0 rgba(255,255,255,.72);
     }
 
-    .logo-hero{
-      color:#8fbe1e;
-    }
-
+    .logo-hero{ color:#8fbe1e; }
     .logo-health{
       color:#ffffff;
       text-shadow:
@@ -583,7 +583,7 @@
     .launch-stage{
       position:relative;
       overflow:hidden;
-      min-height:420px;
+      min-height:430px;
       border-radius:30px;
       background:
         radial-gradient(circle at 14% 14%, rgba(255,255,255,.92), transparent 10%),
@@ -725,7 +725,7 @@
     }
 
     .launch-bubble{
-      max-width:400px;
+      max-width:410px;
       justify-self:center;
       padding:12px 16px;
       border-radius:18px;
@@ -820,12 +820,12 @@
 
     .mode-grid{
       display:grid;
-      grid-template-columns:1fr 1fr;
+      grid-template-columns:1fr 1fr 1fr;
       gap:10px;
     }
 
     .mode-card{
-      min-height:98px;
+      min-height:108px;
       border-radius:22px;
       padding:14px;
       border:1px solid rgba(255,255,255,.96);
@@ -833,7 +833,7 @@
       box-shadow:var(--shadow);
       text-align:left;
       cursor:pointer;
-      transition:transform .12s ease, filter .12s ease, border-color .12s ease;
+      transition:transform .12s ease, filter .12s ease, border-color .12s ease, box-shadow .12s ease;
     }
 
     .mode-card:hover{
@@ -845,6 +845,16 @@
       background:linear-gradient(180deg,#fffef8,#f3fff0);
       border-color:#b8e6a2;
       box-shadow:var(--shadow-lg);
+    }
+
+    .mode-card.duet.active{
+      background:linear-gradient(180deg,#fff8fd,#fff0f7);
+      border-color:#ffc2e0;
+    }
+
+    .mode-card.coop.active{
+      background:linear-gradient(180deg,#f6f4ff,#efecff);
+      border-color:#cfc5ff;
     }
 
     .mode-card-title{
@@ -942,6 +952,10 @@
       .profile-stats{
         min-width:0;
       }
+
+      .mode-grid{
+        grid-template-columns:1fr;
+      }
     }
 
     @media (max-width: 640px){
@@ -962,8 +976,7 @@
         font-size:clamp(28px, 10vw, 40px);
       }
 
-      .field-grid,
-      .mode-grid{
+      .field-grid{
         grid-template-columns:1fr;
       }
 
@@ -978,25 +991,11 @@
         height:52px;
       }
 
-      .mascot-head{
-        left:14px; top:8px; width:22px; height:22px;
-      }
-
-      .mascot-hair{
-        left:12px; top:5px; width:24px; height:16px;
-      }
-
-      .mascot-body{
-        left:12px; top:26px; width:26px; height:18px;
-      }
-
-      .mascot-cape{
-        left:3px; top:22px; width:16px; height:22px;
-      }
-
-      .mascot-drop{
-        width:18px; height:18px; font-size:10px;
-      }
+      .mascot-head{ left:14px; top:8px; width:22px; height:22px; }
+      .mascot-hair{ left:12px; top:5px; width:24px; height:16px; }
+      .mascot-body{ left:12px; top:26px; width:26px; height:18px; }
+      .mascot-cape{ left:3px; top:22px; width:16px; height:22px; }
+      .mascot-drop{ width:18px; height:18px; font-size:10px; }
 
       .home-btn{
         width:44px;
@@ -1021,25 +1020,11 @@
         height:46px;
       }
 
-      .avatar-head{
-        left:14px; top:7px; width:18px; height:18px;
-      }
-
-      .avatar-hair{
-        left:12px; top:4px; width:22px; height:14px;
-      }
-
-      .avatar-body{
-        left:11px; top:22px; width:24px; height:18px;
-      }
-
-      .avatar-cape{
-        left:3px; top:19px; width:16px; height:20px;
-      }
-
-      .avatar-drop{
-        width:16px; height:16px; font-size:9px;
-      }
+      .avatar-head{ left:14px; top:7px; width:18px; height:18px; }
+      .avatar-hair{ left:12px; top:4px; width:22px; height:14px; }
+      .avatar-body{ left:11px; top:22px; width:24px; height:18px; }
+      .avatar-cape{ left:3px; top:19px; width:16px; height:20px; }
+      .avatar-drop{ width:16px; height:16px; font-size:9px; }
 
       .profile-name{
         font-size:24px;
@@ -1068,25 +1053,11 @@
         height:80px;
       }
 
-      .launch-head{
-        left:25px; top:10px; width:28px; height:28px;
-      }
-
-      .launch-hair{
-        left:22px; top:7px; width:32px; height:20px;
-      }
-
-      .launch-body{
-        left:21px; top:35px; width:34px; height:24px;
-      }
-
-      .launch-cape{
-        left:9px; top:31px; width:22px; height:30px;
-      }
-
-      .launch-drop{
-        width:22px; height:22px; font-size:12px;
-      }
+      .launch-head{ left:25px; top:10px; width:28px; height:28px; }
+      .launch-hair{ left:22px; top:7px; width:32px; height:20px; }
+      .launch-body{ left:21px; top:35px; width:34px; height:24px; }
+      .launch-cape{ left:9px; top:31px; width:22px; height:30px; }
+      .launch-drop{ width:22px; height:22px; font-size:12px; }
 
       .launch-bubble{
         font-size:14px;
@@ -1117,7 +1088,7 @@
         <div class="topchips">
           <span class="topchip">💧 Play</span>
           <span class="topchip">⭐ Hero</span>
-          <span class="topchip">🤝 Duet</span>
+          <span class="topchip">🤝 Team</span>
         </div>
       </div>
 
@@ -1216,13 +1187,13 @@
       <section class="panel">
         <div>
           <h1 id="panelTitle" class="panel-title">Hydration Hero</h1>
-          <p id="panelSub" class="panel-sub">เก็บน้ำดี เลี่ยงของไม่ดี ผ่านพายุและบอส แล้วไปคูลดาวน์ก่อนกลับ HUB</p>
+          <p id="panelSub" class="panel-sub">เลือกโหมดเล่นก่อน แล้วระบบจะพาไป flow ที่เหมาะกับโหมดนั้น</p>
         </div>
 
         <div class="launch-stage">
           <div class="launch-top-row">
             <span id="launchModeBadge" class="tiny-badge">💧 Solo Adventure</span>
-            <span id="launchLevelBadge" class="tiny-badge">⭐ Lv. 5</span>
+            <span class="tiny-badge">⭐ Lv. 5</span>
           </div>
 
           <div class="launch-scene">
@@ -1252,12 +1223,17 @@
           <div class="mode-grid">
             <button id="modeSoloBtn" class="mode-card active" type="button" data-mode="solo">
               <div class="mode-card-title">💧 Solo</div>
-              <div class="mode-card-desc">เล่นคนเดียว ผ่าน warmup แล้วเข้าด่านหลัก</div>
+              <div class="mode-card-desc">เล่นคนเดียว ผ่าน warmup ก่อนเข้าด่านหลัก</div>
             </button>
 
-            <button id="modeDuetBtn" class="mode-card" type="button" data-mode="duet">
+            <button id="modeDuetBtn" class="mode-card duet" type="button" data-mode="duet">
               <div class="mode-card-title">🤝 Duet</div>
-              <div class="mode-card-desc">เข้า lobby เล่น 2 คน คนละเครื่อง ด้วย room code เดียวกัน</div>
+              <div class="mode-card-desc">เล่น 2 คน คนละเครื่อง ผ่าน lobby และ room code</div>
+            </button>
+
+            <button id="modeCoopBtn" class="mode-card coop" type="button" data-mode="coop">
+              <div class="mode-card-title">🛟 Coop</div>
+              <div class="mode-card-desc">เข้า lobby แบบทีมไว้ก่อน เพื่อใช้ต่อยอดรอบถัดไป</div>
             </button>
           </div>
         </div>
@@ -1316,7 +1292,7 @@
         <div id="routeNote" class="route-note">
           <strong>เส้นทางเข้าเล่น</strong><br />
           Solo: <strong>/herohealth/warmup-gate.html</strong> → <strong>/herohealth/hydration-vr/hydration-vr.html</strong><br />
-          Duet: <strong>/herohealth/hydration-duet.html</strong>
+          Duet / Coop: <strong>/herohealth/hydration-lobby.html</strong>
         </div>
       </section>
     </section>
@@ -1329,12 +1305,6 @@
       function q(name, fallback=''){
         const v = qs.get(name);
         return v == null || v === '' ? fallback : v;
-      }
-
-      function clamp(v,a,b){
-        v = Number(v);
-        if(!Number.isFinite(v)) v = a;
-        return Math.max(a, Math.min(b, v));
       }
 
       function sanitizePid(v){
@@ -1367,17 +1337,17 @@
       }
 
       function ensurePid(){
-        const typed = sanitizePid(document.getElementById('pidInput').value);
+        const typed = sanitizePid(UI.pidInput.value);
         if(typed){
           try{ localStorage.setItem('HHA_DEVICE_PID', typed); }catch{}
           return typed;
         }
 
-        const raw = sanitizePid(q('pid', ''));
-        if(raw){
-          document.getElementById('pidInput').value = raw;
-          try{ localStorage.setItem('HHA_DEVICE_PID', raw); }catch{}
-          return raw;
+        const fromQs = sanitizePid(q('pid', ''));
+        if(fromQs){
+          UI.pidInput.value = fromQs;
+          try{ localStorage.setItem('HHA_DEVICE_PID', fromQs); }catch{}
+          return fromQs;
         }
 
         try{
@@ -1386,18 +1356,17 @@
             pid = `p-${Math.random().toString(36).slice(2,10)}`;
             localStorage.setItem('HHA_DEVICE_PID', pid);
           }
-          document.getElementById('pidInput').value = pid;
+          UI.pidInput.value = pid;
           return sanitizePid(pid);
         }catch{
           const pid = `p-${Math.random().toString(36).slice(2,10)}`;
-          document.getElementById('pidInput').value = pid;
+          UI.pidInput.value = pid;
           return pid;
         }
       }
 
       function ensureNick(){
-        const input = document.getElementById('nickInput');
-        const typed = sanitizeNick(input.value);
+        const typed = sanitizeNick(UI.nickInput.value);
         if(typed){
           try{ localStorage.setItem('HHA_HERO_NICK', typed); }catch{}
           return typed;
@@ -1405,17 +1374,17 @@
 
         const fromQs = sanitizeNick(q('nick', q('nickName', '')));
         if(fromQs){
-          input.value = fromQs;
+          UI.nickInput.value = fromQs;
           try{ localStorage.setItem('HHA_HERO_NICK', fromQs); }catch{}
           return fromQs;
         }
 
         try{
           const fromLs = sanitizeNick(localStorage.getItem('HHA_HERO_NICK') || 'Rocky') || 'Rocky';
-          input.value = fromLs;
+          UI.nickInput.value = fromLs;
           return fromLs;
         }catch{
-          input.value = 'Rocky';
+          UI.nickInput.value = 'Rocky';
           return 'Rocky';
         }
       }
@@ -1434,6 +1403,7 @@
 
         modeSoloBtn: document.getElementById('modeSoloBtn'),
         modeDuetBtn: document.getElementById('modeDuetBtn'),
+        modeCoopBtn: document.getElementById('modeCoopBtn'),
 
         diffSel: document.getElementById('diffSel'),
         viewSel: document.getElementById('viewSel'),
@@ -1447,19 +1417,24 @@
       };
 
       let mode = String(q('mode', 'solo')).toLowerCase();
-      if(mode !== 'duet') mode = 'solo';
+      if(!['solo','duet','coop'].includes(mode)) mode = 'solo';
 
       function syncProfile(){
         UI.profileName.textContent = ensureNick();
       }
 
-      function syncModeUi(){
+      function setActiveModeCard(){
         UI.modeSoloBtn.classList.toggle('active', mode === 'solo');
         UI.modeDuetBtn.classList.toggle('active', mode === 'duet');
+        UI.modeCoopBtn.classList.toggle('active', mode === 'coop');
+      }
+
+      function syncModeUi(){
+        setActiveModeCard();
 
         if(mode === 'solo'){
           UI.panelTitle.textContent = 'Hydration Hero';
-          UI.panelSub.textContent = 'เก็บน้ำดี เลี่ยงของไม่ดี ผ่านพายุและบอส แล้วไปคูลดาวน์ก่อนกลับ HUB';
+          UI.panelSub.textContent = 'เล่นคนเดียว ผ่าน warmup ก่อนเข้าด่านหลัก แล้วไปคูลดาวน์ก่อนกลับ HUB';
           UI.launchModeBadge.textContent = '💧 Solo Adventure';
           UI.launchBubble.textContent = 'Great! ไปเก็บน้ำดีให้ได้เยอะที่สุดกันเลย!';
           UI.levelPill.textContent = 'Solo Mode';
@@ -1471,8 +1446,9 @@
             '<strong>เส้นทางเข้าเล่น</strong><br />' +
             'Solo: <strong>/herohealth/warmup-gate.html</strong> → ' +
             '<strong>/herohealth/hydration-vr/hydration-vr.html</strong><br />' +
-            'Duet: <strong>/herohealth/hydration-duet.html</strong>';
-        }else{
+            'Duet / Coop: <strong>/herohealth/hydration-lobby.html</strong>';
+        }
+        else if(mode === 'duet'){
           UI.panelTitle.textContent = 'Hydration Duet';
           UI.panelSub.textContent = 'เข้า lobby เล่น 2 คนด้วย room code เดียวกัน แล้วช่วยกันส่งผลคะแนนของทีม';
           UI.launchModeBadge.textContent = '🤝 Duet Lobby';
@@ -1484,9 +1460,24 @@
             '<strong>วิธีเล่นแบบสั้น</strong><br />เข้า lobby → สร้างห้องหรือใส่ room code → กด Ready ทั้งสองคน → Host กด Start';
           UI.routeNote.innerHTML =
             '<strong>เส้นทางเข้าเล่น</strong><br />' +
-            'Duet: <strong>/herohealth/hydration-duet.html</strong><br />' +
+            'Duet: <strong>/herohealth/hydration-lobby.html?mode=duet</strong><br />' +
             'Solo: <strong>/herohealth/warmup-gate.html</strong> → ' +
             '<strong>/herohealth/hydration-vr/hydration-vr.html</strong>';
+        }
+        else{
+          UI.panelTitle.textContent = 'Hydration Coop';
+          UI.panelSub.textContent = 'เข้า lobby แบบทีมไว้ก่อน เพื่อรองรับ Coop flow ต่อในรอบถัดไป';
+          UI.launchModeBadge.textContent = '🛟 Coop Lobby';
+          UI.launchBubble.textContent = 'เข้า lobby แบบทีมก่อน แล้วค่อยต่อยอด Coop logic ในขั้นถัดไป!';
+          UI.levelPill.textContent = 'Coop Lobby';
+          UI.startBtn.textContent = 'Go Coop';
+          UI.speechText.textContent = 'ตอนนี้เข้า lobby ได้แล้ว แล้วค่อยต่อ Coop logic เพิ่มภายหลัง';
+          UI.tipCard.innerHTML =
+            '<strong>สถานะตอนนี้</strong><br />Coop ใช้หน้า lobby กลางได้แล้ว เพื่อเตรียมโครงสร้างห้องและ flow สำหรับต่อยอดภายหลัง';
+          UI.routeNote.innerHTML =
+            '<strong>เส้นทางเข้าเล่น</strong><br />' +
+            'Coop: <strong>/herohealth/hydration-lobby.html?mode=coop</strong><br />' +
+            'ตอนนี้ใช้ lobby ได้ แต่ logic วิ่งจริงค่อยต่อเพิ่มภายหลัง';
         }
       }
 
@@ -1505,6 +1496,32 @@
 
         syncProfile();
         syncModeUi();
+      }
+
+      function passthroughKeys(){
+        return [
+          'studyId',
+          'phase',
+          'conditionGroup',
+          'sessionOrder',
+          'blockLabel',
+          'siteCode',
+          'schoolYear',
+          'semester',
+          'studentKey',
+          'schoolCode',
+          'classRoom',
+          'studentNo',
+          'nickName',
+          'grade',
+          'planDay',
+          'planSlot',
+          'teacher',
+          'log',
+          'api',
+          'debug',
+          'room'
+        ];
       }
 
       function buildSoloRunUrl(seed){
@@ -1530,30 +1547,7 @@
         run.searchParams.set('time', time);
         run.searchParams.set('seed', seed);
 
-        const passthrough = [
-          'studyId',
-          'phase',
-          'conditionGroup',
-          'sessionOrder',
-          'blockLabel',
-          'siteCode',
-          'schoolYear',
-          'semester',
-          'studentKey',
-          'schoolCode',
-          'classRoom',
-          'studentNo',
-          'nickName',
-          'grade',
-          'planDay',
-          'planSlot',
-          'teacher',
-          'log',
-          'api',
-          'debug'
-        ];
-
-        for(const key of passthrough){
+        for(const key of passthroughKeys()){
           const v = qs.get(key);
           if(v) run.searchParams.set(key, v);
         }
@@ -1561,65 +1555,46 @@
         return run;
       }
 
-      function buildDuetLobbyUrl(seed){
+      function buildLobbyUrl(targetMode, seed){
         const diff = UI.diffSel.value || q('diff', 'normal');
         const view = UI.viewSel.value || q('view', 'mobile');
         const time = UI.timeSel.value || q('time', defaultTimeForDiff(diff));
 
-        const duet = new URL('./hydration-duet.html', location.href);
-        duet.searchParams.set('game', 'hydration');
-        duet.searchParams.set('theme', 'hydration');
-        duet.searchParams.set('zone', q('zone', 'nutrition'));
-        duet.searchParams.set('cat', q('cat', q('zone', 'nutrition')));
-        duet.searchParams.set('mode', 'duet');
-        duet.searchParams.set('hub', defaultHub());
-        duet.searchParams.set('pid', ensurePid());
-        duet.searchParams.set('nick', ensureNick());
-        duet.searchParams.set('nickName', ensureNick());
-        duet.searchParams.set('diff', diff);
-        duet.searchParams.set('run', q('run', 'play'));
-        duet.searchParams.set('view', view);
-        duet.searchParams.set('cooldown', q('cooldown', '1'));
-        duet.searchParams.set('time', time);
-        duet.searchParams.set('seed', seed);
+        const lobby = new URL('./hydration-lobby.html', location.href);
+        lobby.searchParams.set('game', 'hydration');
+        lobby.searchParams.set('theme', 'hydration');
+        lobby.searchParams.set('zone', q('zone', 'nutrition'));
+        lobby.searchParams.set('cat', q('cat', q('zone', 'nutrition')));
+        lobby.searchParams.set('mode', targetMode);
+        lobby.searchParams.set('hub', defaultHub());
+        lobby.searchParams.set('pid', ensurePid());
+        lobby.searchParams.set('nick', ensureNick());
+        lobby.searchParams.set('nickName', ensureNick());
+        lobby.searchParams.set('diff', diff);
+        lobby.searchParams.set('run', q('run', 'play'));
+        lobby.searchParams.set('view', view);
+        lobby.searchParams.set('cooldown', q('cooldown', '1'));
+        lobby.searchParams.set('time', time);
+        lobby.searchParams.set('seed', seed);
 
-        const passthrough = [
-          'studyId',
-          'phase',
-          'conditionGroup',
-          'sessionOrder',
-          'blockLabel',
-          'siteCode',
-          'schoolYear',
-          'semester',
-          'studentKey',
-          'schoolCode',
-          'classRoom',
-          'studentNo',
-          'nickName',
-          'grade',
-          'planDay',
-          'planSlot',
-          'teacher',
-          'log',
-          'api',
-          'debug',
-          'room'
-        ];
-
-        for(const key of passthrough){
+        for(const key of passthroughKeys()){
           const v = qs.get(key);
-          if(v) duet.searchParams.set(key, v);
+          if(v) lobby.searchParams.set(key, v);
         }
 
-        return duet;
+        return lobby;
       }
 
       function goStart(){
         const seed = q('seed', String(Date.now()));
 
         if(mode === 'duet'){
-          location.href = buildDuetLobbyUrl(seed).href;
+          location.href = buildLobbyUrl('duet', seed).href;
+          return;
+        }
+
+        if(mode === 'coop'){
+          location.href = buildLobbyUrl('coop', seed).href;
           return;
         }
 
@@ -1670,6 +1645,14 @@
             '4) กด Ready ทั้งคู่\\n' +
             '5) Host กด Start แล้วเข้าเกมพร้อมกัน'
           );
+        }else if(mode === 'coop'){
+          alert(
+            'โหมด Coop ตอนนี้:\\n\\n' +
+            '1) กด Go Coop\\n' +
+            '2) จะเข้า lobby กลางของ hydration\\n' +
+            '3) ใช้เตรียมโครงสร้างห้องและ flow ก่อน\\n' +
+            '4) logic การเล่น coop ค่อยเติมต่อในรอบถัดไป'
+          );
         }else{
           alert(
             'วิธีเล่น Solo:\\n\\n' +
@@ -1692,6 +1675,11 @@
         syncModeUi();
       });
 
+      UI.modeCoopBtn.addEventListener('click', ()=>{
+        mode = 'coop';
+        syncModeUi();
+      });
+
       UI.diffSel.addEventListener('change', ()=>{
         const suggested = defaultTimeForDiff(UI.diffSel.value);
         if(['60','80','90','120'].includes(suggested)){
@@ -1701,10 +1689,10 @@
 
       UI.nickInput.addEventListener('input', syncProfile);
 
-      document.getElementById('startBtn').addEventListener('click', goStart);
-      document.getElementById('hubBtn').addEventListener('click', goHub);
-      document.getElementById('hubBtnTop').addEventListener('click', goHub);
-      document.getElementById('helpBtn').addEventListener('click', showHelp);
+      UI.startBtn.addEventListener('click', goStart);
+      UI.hubBtn.addEventListener('click', goHub);
+      UI.hubBtnTop.addEventListener('click', goHub);
+      UI.helpBtn.addEventListener('click', showHelp);
 
       syncDefaults();
     })();
