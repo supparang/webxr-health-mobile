@@ -353,6 +353,12 @@
       border:0;
     }
 
+    .chip.pink{
+      background:linear-gradient(180deg,#ffbfdc,#ff91bf);
+      color:#fff;
+      border:0;
+    }
+
     .player-name{
       margin:0;
       color:#2e556f;
@@ -743,6 +749,7 @@
           <span id="metaView" class="pill">📱 Mobile</span>
           <span id="metaTime" class="pill">⏱ 80 วินาที</span>
           <button id="helpBtn" class="btn btn-blue" type="button">❓ วิธีเล่น</button>
+          <button id="lobbyBtn" class="btn btn-soft" type="button">👥 Lobby</button>
           <button id="hubBtn" class="btn btn-soft" type="button">🏠 HUB</button>
         </div>
       </div>
@@ -752,7 +759,7 @@
           <section class="panel">
             <div>
               <h2 class="section-title">สถานะทีม</h2>
-              <p class="section-sub">Duet รุ่นแรกจะ sync lobby / countdown / start / finished ก่อน แล้วค่อยต่อ coop logic เต็มรูปแบบ</p>
+              <p class="section-sub">เวอร์ชันนี้รองรับ rematch และ rejoin ห้องเดิม โดย reset state ของรอบเก่าให้อัตโนมัติเมื่อ seed/startAt เปลี่ยน</p>
             </div>
 
             <div class="status-strip">
@@ -860,7 +867,8 @@
       <div class="dialog-item">1) wrapper นี้จะรอ startAt จากห้อง duet ก่อน</div>
       <div class="dialog-item">2) เมื่อถึงเวลาจะเข้าเกมพร้อมกันทั้งสองเครื่อง</div>
       <div class="dialog-item">3) ตอนจบเกม wrapper จะอัปเดตผลลัพธ์ของผู้เล่นกลับเข้าห้อง</div>
-      <div class="dialog-item">4) เวอร์ชันแรกยังไม่โจมตีกันหรือ sync object แบบ real-time ทีละลูก</div>
+      <div class="dialog-item">4) ถ้า host กด Rematch แล้ว seed/startAt เปลี่ยน wrapper จะ reset รอบเก่าให้เอง</div>
+      <div class="dialog-item">5) ถ้า reload กลางรอบ wrapper จะพยายาม rejoin รอบปัจจุบันให้อัตโนมัติ</div>
       <button id="closeHelpBtn" class="btn btn-blue" type="button">เข้าใจแล้ว</button>
     </div>
   </div>
@@ -878,7 +886,7 @@
         'studyId','phase','conditionGroup','sessionOrder','blockLabel',
         'siteCode','schoolYear','semester','studentKey','schoolCode',
         'classRoom','studentNo','nickName','grade','planDay','planSlot',
-        'teacher','run','log','api','debug'
+        'teacher','run','log','api','debug','cooldown'
       ];
 
       const qs = new URLSearchParams(location.search);
@@ -919,6 +927,7 @@
         helpBtn: document.getElementById('helpBtn'),
         closeHelpBtn: document.getElementById('closeHelpBtn'),
         helpBackdrop: document.getElementById('helpBackdrop'),
+        lobbyBtn: document.getElementById('lobbyBtn'),
         hubBtn: document.getElementById('hubBtn')
       };
 
@@ -939,7 +948,10 @@
         hasLoadedFrame:false,
         hasStartedRunning:false,
         lastCountdownShown:null,
-        currentStartAt:0
+        currentStartAt:0,
+        currentRoundSig:'',
+        lastRoomStatus:'',
+        redirectBlocked:false
       };
 
       function q(name, fallback=''){
@@ -961,6 +973,18 @@
 
       function defaultHub(){
         return q('hub', new URL('../hub.html', location.href).href);
+      }
+
+      function defaultLobby(){
+        const url = new URL('../hydration-duet.html', location.href);
+        if(state.roomCode) url.searchParams.set('room', state.roomCode);
+
+        const passthrough = ['hub','zone','cat','diff','time','view', ...PASS_KEYS];
+        for(const key of passthrough){
+          const v = qs.get(key);
+          if(v) url.searchParams.set(key, v);
+        }
+        return url.href;
       }
 
       function diffLabel(v){
@@ -1033,6 +1057,10 @@
 
       function goHub(){
         location.href = defaultHub();
+      }
+
+      function goLobby(){
+        location.href = defaultLobby();
       }
 
       function applyMeta(room){
@@ -1123,7 +1151,7 @@
 
       function statusChipHtml(player){
         if(!player) return { text:'⌛ waiting', cls:'yellow' };
-        if(player.finished) return { text:'🏁 finished', cls:'green' };
+        if(player.finished) return { text:'🏁 finished', cls:'pink' };
         if(!player.connected) return { text:'🔴 offline', cls:'red' };
         if(player.phase === 'run') return { text:'🎮 running', cls:'green' };
         if(player.phase === 'done') return { text:'🏁 done', cls:'green' };
@@ -1249,6 +1277,43 @@
         return url.href;
       }
 
+      function getRoundSignature(room){
+        if(!room) return '';
+        return [
+          room.seed || '',
+          room.startAt || 0,
+          room.time || '',
+          room.diff || '',
+          room.view || '',
+          room.status || ''
+        ].join('|');
+      }
+
+      function clearGameFrame(){
+        try{
+          if(EL.gameFrame.src && EL.gameFrame.src !== 'about:blank'){
+            EL.gameFrame.src = 'about:blank';
+          }
+        }catch{}
+      }
+
+      function resetRoundState(reason){
+        state.hasLoadedFrame = false;
+        state.hasStartedRunning = false;
+        state.lastCountdownShown = null;
+        state.currentStartAt = 0;
+
+        clearGameFrame();
+
+        if(reason === 'rematch'){
+          setOverlay(
+            'Hydration Duet',
+            'รอรอบใหม่จาก host',
+            'host รีเซ็ตรอบแล้ว ให้ทั้งสองคนกด Ready ใหม่ก่อนเริ่มอีกครั้ง'
+          );
+        }
+      }
+
       async function markMePhase(phase, extra){
         if(!state.roomCode || !state.uid || !state.db) return;
         try{
@@ -1286,8 +1351,22 @@
         state.heartbeatTimer = 0;
       }
 
+      async function syncLobbyPresenceIfNeeded(room){
+        const me = findMe(room);
+        if(!me) return;
+        const status = String(room && room.status || 'waiting').toLowerCase();
+        if(status !== 'waiting') return;
+
+        if(me.phase !== 'lobby' && !me.finished){
+          await markMePhase('lobby', { finished:false });
+        }
+      }
+
       async function startGameFrame(room){
-        if(state.hasLoadedFrame) return;
+        const roundSig = getRoundSignature(room);
+        if(state.hasLoadedFrame && state.currentRoundSig === roundSig) return;
+
+        state.currentRoundSig = roundSig;
         state.hasLoadedFrame = true;
         state.hasStartedRunning = true;
 
@@ -1299,7 +1378,7 @@
           'อีกนิดเดียว! ทั้งสองเครื่องจะเริ่มด่านใน seed เดียวกัน'
         );
 
-        await markMePhase('run');
+        await markMePhase('run', { finished:false });
 
         EL.gameFrame.src = buildInnerGameUrl(room);
 
@@ -1392,6 +1471,8 @@
 
         state.roomListener = async (snap)=>{
           const room = snap.val();
+          const prevStatus = state.lastRoomStatus || '';
+          const prevRoundSig = state.currentRoundSig || '';
           state.roomData = room || null;
 
           if(!room){
@@ -1412,10 +1493,40 @@
           await maybeFinishRoom(room);
 
           const status = String(room.status || 'waiting').toLowerCase();
+          const roundSig = getRoundSignature(room);
+          const roundChanged = !!(prevRoundSig && roundSig && prevRoundSig !== roundSig);
+          const roomWentBackToWaiting = prevStatus && prevStatus !== 'waiting' && status === 'waiting';
+
+          const queryUid = String(q('uid', '')).trim();
+          const currentPlayerExists = !!findMe(room);
+          if(queryUid && queryUid !== state.uid && !currentPlayerExists){
+            state.redirectBlocked = true;
+            setPhaseChip('⚠️ UID Changed', 'red');
+            showOverlay(false);
+            setOverlay(
+              'เบราว์เซอร์นี้ไม่ตรงกับห้องเดิม',
+              'anonymous auth ของเครื่องนี้ไม่ตรงกับ uid ที่เข้าจาก lobby',
+              'ให้กลับไปหน้า Lobby ห้องเดิม แล้วเข้าห้องใหม่ในเบราว์เซอร์เดิม'
+            );
+            state.lastRoomStatus = status;
+            return;
+          }else{
+            state.redirectBlocked = false;
+          }
+
+          if(roundChanged && (status === 'waiting' || status === 'countdown' || status === 'running')){
+            resetRoundState('rematch');
+          }
+
+          if(roomWentBackToWaiting){
+            resetRoundState('rematch');
+          }
 
           if(status === 'waiting'){
-            state.hasLoadedFrame = false;
-            state.hasStartedRunning = false;
+            if(!roomWentBackToWaiting && !roundChanged && prevStatus === ''){
+              resetRoundState('first-waiting');
+            }
+            await syncLobbyPresenceIfNeeded(room);
             showOverlay(false);
             setPhaseChip('⌛ Waiting', 'yellow');
             setOverlay(
@@ -1423,21 +1534,32 @@
               'กำลังรอทั้งทีมพร้อม',
               'ถ้ายังไม่เริ่ม ให้กลับไป lobby แล้วกด Ready ทั้งสองคนก่อน'
             );
-          }else if(status === 'countdown' || status === 'running'){
+          }
+          else if(status === 'countdown'){
+            state.currentRoundSig = roundSig;
             renderCountdown(room);
-          }else if(status === 'finished'){
-            setPhaseChip('🏁 Finished', 'green');
+          }
+          else if(status === 'running'){
+            state.currentRoundSig = roundSig;
+            renderCountdown(room);
+          }
+          else if(status === 'finished'){
+            state.currentRoundSig = roundSig;
+            setPhaseChip('🏁 Finished', 'pink');
+
             if(!state.hasLoadedFrame){
               showOverlay(false);
               setOverlay(
                 'Hydration Duet',
                 'รอบนี้จบแล้ว',
-                'ถ้าต้องการเล่นใหม่ ให้กลับไปสร้างห้องใหม่หรือ rematch ในรอบถัดไป'
+                'ถ้าต้องการเล่นใหม่ ให้กลับไป Lobby แล้วกด Rematch'
               );
             }else{
               hideOverlay();
             }
           }
+
+          state.lastRoomStatus = status;
         };
 
         state.roomRef.on('value', state.roomListener);
@@ -1447,7 +1569,7 @@
         setInterval(()=>{
           if(!state.roomData) return;
           const status = String(state.roomData.status || 'waiting').toLowerCase();
-          if((status === 'countdown' || status === 'running') && !state.hasStartedRunning){
+          if((status === 'countdown' || status === 'running') && !state.hasStartedRunning && !state.redirectBlocked){
             renderCountdown(state.roomData);
           }
         }, 120);
@@ -1492,7 +1614,7 @@
             }
 
             showOverlay(false);
-            setPhaseChip('🏁 Finished', 'green');
+            setPhaseChip('🏁 Finished', 'pink');
             setOverlay(
               'รอเพื่อนจบเกม',
               'คุณเล่นจบรอบนี้แล้ว',
@@ -1503,10 +1625,20 @@
             goHub();
           }
           else if(data.type === 'hha:reload'){
+            resetRoundState('reload-message');
             if(state.roomData){
-              state.hasLoadedFrame = false;
-              state.hasStartedRunning = false;
-              renderCountdown(state.roomData);
+              const status = String(state.roomData.status || 'waiting').toLowerCase();
+              if(status === 'countdown' || status === 'running'){
+                renderCountdown(state.roomData);
+              }else{
+                showOverlay(false);
+                setPhaseChip('⌛ Waiting', 'yellow');
+                setOverlay(
+                  'Hydration Duet',
+                  'รอ host เริ่มรอบใหม่',
+                  'ถ้าต้องการเล่นต่อ ให้กลับไป lobby แล้วกด Ready อีกครั้ง'
+                );
+              }
             }
           }
         });
@@ -1540,7 +1672,7 @@
 
       async function init(){
         try{
-          const roomCode = sanitizeRoomCode(q('roomCode', ''));
+          const roomCode = sanitizeRoomCode(q('roomCode', q('room', '')));
           if(!roomCode){
             throw new Error('Missing roomCode');
           }
@@ -1556,16 +1688,6 @@
           window.addEventListener('online', ()=> EL.onlineText.textContent = 'Yes');
           window.addEventListener('offline', ()=> EL.onlineText.textContent = 'No');
 
-          const queryUid = String(q('uid', '')).trim();
-          if(queryUid && queryUid !== state.uid){
-            setPhaseChip('⚠️ UID Changed', 'red');
-            setOverlay(
-              'เบราว์เซอร์นี้ไม่ตรงกับห้องเดิม',
-              'anonymous auth ของเครื่องนี้ไม่ตรงกับ uid ที่เข้าจาก lobby',
-              'ให้กลับไปเข้าผ่าน lobby เดิมในเบราว์เซอร์เดิมอีกครั้ง'
-            );
-          }
-
           await subscribeRoom();
           installCountdownTicker();
           installMessageBridge();
@@ -1577,6 +1699,7 @@
           EL.helpBackdrop.addEventListener('click', (e)=>{
             if(e.target === EL.helpBackdrop) closeHelp();
           });
+          EL.lobbyBtn.addEventListener('click', goLobby);
           EL.hubBtn.addEventListener('click', goHub);
 
         }catch(err){
@@ -1584,6 +1707,7 @@
           EL.authText.textContent = 'ยังไม่พร้อม';
           EL.onlineText.textContent = '—';
           setPhaseChip('🔴 Error', 'red');
+          showOverlay(false);
           setOverlay(
             'เข้า run ไม่สำเร็จ',
             String(err && err.message || 'เกิดข้อผิดพลาด'),
