@@ -31,8 +31,9 @@
       --orange2:#ff9857;
       --pink1:#ffd1e8;
       --pink2:#ff98c6;
-      --violet1:#d9d4ff;
-      --violet2:#a89cff;
+      --violet1:#ece8ff;
+      --violet2:#d5ccff;
+      --violet3:#aa9dff;
 
       --shadow:0 14px 34px rgba(90,145,180,.16);
       --shadow-lg:0 22px 56px rgba(90,145,180,.22);
@@ -250,6 +251,7 @@
     }
 
     .logo-hero{ color:#8fbe1e; }
+
     .logo-health{
       color:#ffffff;
       text-shadow:
@@ -412,6 +414,18 @@
       border-left:1px solid #ffe39a;
       border-bottom:1px solid #ffe39a;
       transform:rotate(45deg);
+    }
+
+    .speech.coop{
+      background:linear-gradient(180deg,#f7f3ff,#ece5ff);
+      border-color:#d7ceff;
+      color:#5a4da1;
+    }
+
+    .speech.coop::before{
+      background:linear-gradient(180deg,#f7f3ff,#ece5ff);
+      border-left:1px solid #d7ceff;
+      border-bottom:1px solid #d7ceff;
     }
 
     .profile-stats{
@@ -596,6 +610,13 @@
       padding:16px;
     }
 
+    .launch-stage.coop{
+      background:
+        radial-gradient(circle at 14% 14%, rgba(255,255,255,.92), transparent 10%),
+        radial-gradient(circle at 84% 16%, rgba(255,255,255,.72), transparent 12%),
+        linear-gradient(180deg, #f4f1ff 0%, #e6e0ff 42%, #d8d0ff 100%);
+    }
+
     .launch-stage::after{
       content:"";
       position:absolute;
@@ -609,6 +630,14 @@
         radial-gradient(circle at 84% 74%, #d4f3ad 0 18%, transparent 19%),
         linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.12) 40%, rgba(104,191,70,.24) 100%);
       pointer-events:none;
+    }
+
+    .launch-stage.coop::after{
+      background:
+        radial-gradient(circle at 10% 76%, #d8d1ff 0 18%, transparent 19%),
+        radial-gradient(circle at 34% 100%, #c6bcff 0 12%, transparent 13%),
+        radial-gradient(circle at 84% 74%, #ddd7ff 0 18%, transparent 19%),
+        linear-gradient(180deg, rgba(255,255,255,0), rgba(184,170,255,.12) 40%, rgba(151,136,255,.22) 100%);
     }
 
     .launch-stage > *{
@@ -636,6 +665,12 @@
       font-weight:1000;
     }
 
+    .tiny-badge.soon{
+      background:linear-gradient(180deg,#f7f4ff,#ece6ff);
+      border-color:#d6cdff;
+      color:#5f52a6;
+    }
+
     .launch-scene{
       display:grid;
       place-items:center;
@@ -654,6 +689,10 @@
       border:1px solid rgba(255,255,255,.96);
       box-shadow:var(--shadow-lg);
       overflow:hidden;
+    }
+
+    .launch-stage.coop .launch-avatar-big{
+      background:linear-gradient(180deg,#f8f6ff,#ebe6ff);
     }
 
     .launch-avatar-illust{
@@ -738,6 +777,12 @@
       box-shadow:var(--shadow);
     }
 
+    .launch-bubble.coop{
+      background:linear-gradient(180deg,#f7f3ff,#ece5ff);
+      border-color:#d8ceff;
+      color:#5d50a2;
+    }
+
     .launch-actions{
       display:flex;
       justify-content:space-between;
@@ -756,6 +801,15 @@
       box-shadow:var(--shadow);
     }
 
+    .level-pill.duet{
+      background:linear-gradient(180deg,#ffbfe0,#ff94c2);
+    }
+
+    .level-pill.coop{
+      background:linear-gradient(180deg,#d8d1ff,#b5a8ff);
+      color:#4f4498;
+    }
+
     .go-btn{
       min-width:210px;
       min-height:58px;
@@ -770,6 +824,15 @@
         0 12px 26px rgba(90,145,180,.14),
         inset 0 1px 0 rgba(255,255,255,.18);
       transition:transform .12s ease, filter .12s ease;
+    }
+
+    .go-btn.duet{
+      background:linear-gradient(180deg,#ffbfe0,#ff94c2);
+    }
+
+    .go-btn.coop{
+      background:linear-gradient(180deg,#d6ceff,#b4a7ff);
+      color:#4e4398;
     }
 
     .go-btn:hover{
@@ -825,7 +888,7 @@
     }
 
     .mode-card{
-      min-height:108px;
+      min-height:118px;
       border-radius:22px;
       padding:14px;
       border:1px solid rgba(255,255,255,.96);
@@ -834,6 +897,8 @@
       text-align:left;
       cursor:pointer;
       transition:transform .12s ease, filter .12s ease, border-color .12s ease, box-shadow .12s ease;
+      position:relative;
+      overflow:hidden;
     }
 
     .mode-card:hover{
@@ -853,8 +918,8 @@
     }
 
     .mode-card.coop.active{
-      background:linear-gradient(180deg,#f6f4ff,#efecff);
-      border-color:#cfc5ff;
+      background:linear-gradient(180deg,#f7f4ff,#efebff);
+      border-color:#d2c8ff;
     }
 
     .mode-card-title{
@@ -863,6 +928,10 @@
       line-height:1.1;
       font-weight:1000;
       margin-bottom:6px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
     }
 
     .mode-card-desc{
@@ -870,6 +939,20 @@
       font-size:13px;
       line-height:1.45;
       font-weight:800;
+    }
+
+    .soon-badge{
+      min-height:24px;
+      padding:3px 8px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#f7f4ff,#ece6ff);
+      border:1px solid #d7cdff;
+      color:#5f52a6;
+      font-size:11px;
+      font-weight:1000;
+      display:inline-grid;
+      place-items:center;
+      white-space:nowrap;
     }
 
     .tip-card{
@@ -884,8 +967,18 @@
       font-weight:800;
     }
 
+    .tip-card.coop{
+      background:linear-gradient(180deg,#f7f4ff,#efebff);
+      border-color:#d8ceff;
+      color:#61569f;
+    }
+
     .tip-card strong{
       color:#315873;
+    }
+
+    .tip-card.coop strong{
+      color:#4c4297;
     }
 
     .action-row{
@@ -938,8 +1031,18 @@
       font-weight:800;
     }
 
+    .route-note.coop{
+      background:linear-gradient(180deg,#f7f4ff,#efebff);
+      border-color:#d8ceff;
+      color:#61569f;
+    }
+
     .route-note strong{
       color:#315873;
+    }
+
+    .route-note.coop strong{
+      color:#4c4297;
     }
 
     @media (max-width: 920px){
@@ -1190,9 +1293,10 @@
           <p id="panelSub" class="panel-sub">เลือกโหมดเล่นก่อน แล้วระบบจะพาไป flow ที่เหมาะกับโหมดนั้น</p>
         </div>
 
-        <div class="launch-stage">
+        <div id="launchStage" class="launch-stage">
           <div class="launch-top-row">
             <span id="launchModeBadge" class="tiny-badge">💧 Solo Adventure</span>
+            <span id="launchSoonBadge" class="tiny-badge hidden" style="display:none;">เร็วๆ นี้</span>
             <span class="tiny-badge">⭐ Lv. 5</span>
           </div>
 
@@ -1232,8 +1336,11 @@
             </button>
 
             <button id="modeCoopBtn" class="mode-card coop" type="button" data-mode="coop">
-              <div class="mode-card-title">🛟 Coop</div>
-              <div class="mode-card-desc">เข้า lobby แบบทีมไว้ก่อน เพื่อใช้ต่อยอดรอบถัดไป</div>
+              <div class="mode-card-title">
+                🛟 Coop
+                <span class="soon-badge">เร็วๆ นี้</span>
+              </div>
+              <div class="mode-card-desc">เข้า lobby แบบ Coming Soon เพื่อเตรียม flow ทีมในรอบถัดไป</div>
             </button>
           </div>
         </div>
@@ -1394,7 +1501,9 @@
         speechText: document.getElementById('speechText'),
         panelTitle: document.getElementById('panelTitle'),
         panelSub: document.getElementById('panelSub'),
+        launchStage: document.getElementById('launchStage'),
         launchModeBadge: document.getElementById('launchModeBadge'),
+        launchSoonBadge: document.getElementById('launchSoonBadge'),
         launchBubble: document.getElementById('launchBubble'),
         levelPill: document.getElementById('levelPill'),
         startBtn: document.getElementById('startBtn'),
@@ -1432,6 +1541,16 @@
       function syncModeUi(){
         setActiveModeCard();
 
+        UI.launchStage.classList.remove('coop');
+        UI.launchBubble.classList.remove('coop');
+        UI.speechText.classList.remove('coop');
+        UI.tipCard.classList.remove('coop');
+        UI.routeNote.classList.remove('coop');
+        UI.levelPill.classList.remove('duet','coop');
+        UI.startBtn.classList.remove('duet','coop');
+        UI.launchModeBadge.classList.remove('soon');
+        UI.launchSoonBadge.style.display = 'none';
+
         if(mode === 'solo'){
           UI.panelTitle.textContent = 'Hydration Hero';
           UI.panelSub.textContent = 'เล่นคนเดียว ผ่าน warmup ก่อนเข้าด่านหลัก แล้วไปคูลดาวน์ก่อนกลับ HUB';
@@ -1454,7 +1573,9 @@
           UI.launchModeBadge.textContent = '🤝 Duet Lobby';
           UI.launchBubble.textContent = 'ชวนเพื่อนมาเล่นด้วยกัน แล้วเข้าห้อง duet เพื่อเริ่มภารกิจทีม!';
           UI.levelPill.textContent = 'Duet Mode';
+          UI.levelPill.classList.add('duet');
           UI.startBtn.textContent = 'Go Duet';
+          UI.startBtn.classList.add('duet');
           UI.speechText.textContent = 'ชวนเพื่อนเข้าห้อง แล้วช่วยกันเก็บน้ำดีให้ถึงเป้าหมายของทีม';
           UI.tipCard.innerHTML =
             '<strong>วิธีเล่นแบบสั้น</strong><br />เข้า lobby → สร้างห้องหรือใส่ room code → กด Ready ทั้งสองคน → Host กด Start';
@@ -1466,18 +1587,29 @@
         }
         else{
           UI.panelTitle.textContent = 'Hydration Coop';
-          UI.panelSub.textContent = 'เข้า lobby แบบทีมไว้ก่อน เพื่อรองรับ Coop flow ต่อในรอบถัดไป';
+          UI.panelSub.textContent = 'โหมดนี้ยังเป็น Coming Soon และจะพาไปหน้า lobby แบบเตรียมระบบไว้ก่อน';
+          UI.launchStage.classList.add('coop');
           UI.launchModeBadge.textContent = '🛟 Coop Lobby';
-          UI.launchBubble.textContent = 'เข้า lobby แบบทีมก่อน แล้วค่อยต่อยอด Coop logic ในขั้นถัดไป!';
-          UI.levelPill.textContent = 'Coop Lobby';
-          UI.startBtn.textContent = 'Go Coop';
-          UI.speechText.textContent = 'ตอนนี้เข้า lobby ได้แล้ว แล้วค่อยต่อ Coop logic เพิ่มภายหลัง';
+          UI.launchModeBadge.classList.add('soon');
+          UI.launchSoonBadge.style.display = 'inline-flex';
+          UI.launchSoonBadge.textContent = 'Coming Soon';
+          UI.launchSoonBadge.className = 'tiny-badge soon';
+          UI.launchBubble.textContent = 'โหมดทีมกำลังมาอีกนิดนะ ✨ ตอนนี้เข้าไปดูหน้า lobby ของ Coop ได้ก่อน';
+          UI.launchBubble.classList.add('coop');
+          UI.levelPill.textContent = 'Coop Soon';
+          UI.levelPill.classList.add('coop');
+          UI.startBtn.textContent = 'ดูโหมด Coop';
+          UI.startBtn.classList.add('coop');
+          UI.speechText.textContent = 'Coop กำลังมาอีกนิดนะ ตอนนี้เราเตรียม flow ของทีมไว้ก่อน';
+          UI.speechText.classList.add('coop');
+          UI.tipCard.classList.add('coop');
           UI.tipCard.innerHTML =
-            '<strong>สถานะตอนนี้</strong><br />Coop ใช้หน้า lobby กลางได้แล้ว เพื่อเตรียมโครงสร้างห้องและ flow สำหรับต่อยอดภายหลัง';
+            '<strong>สถานะตอนนี้</strong><br />Coop ยังเป็น Coming Soon โดยระบบจะพาไปหน้า lobby แบบเตรียมไว้ก่อน เพื่อให้ภาษาและ flow ตรงกับโหมดนี้';
+          UI.routeNote.classList.add('coop');
           UI.routeNote.innerHTML =
             '<strong>เส้นทางเข้าเล่น</strong><br />' +
             'Coop: <strong>/herohealth/hydration-lobby.html?mode=coop</strong><br />' +
-            'ตอนนี้ใช้ lobby ได้ แต่ logic วิ่งจริงค่อยต่อเพิ่มภายหลัง';
+            'หน้า lobby จะขึ้น Coming Soon แบบ child-friendly และยังไม่เปิดห้องจริง';
         }
       }
 
@@ -1648,10 +1780,10 @@
         }else if(mode === 'coop'){
           alert(
             'โหมด Coop ตอนนี้:\\n\\n' +
-            '1) กด Go Coop\\n' +
-            '2) จะเข้า lobby กลางของ hydration\\n' +
-            '3) ใช้เตรียมโครงสร้างห้องและ flow ก่อน\\n' +
-            '4) logic การเล่น coop ค่อยเติมต่อในรอบถัดไป'
+            '1) กด ดูโหมด Coop\\n' +
+            '2) จะเข้า lobby ของ Coop\\n' +
+            '3) หน้านั้นจะขึ้น Coming Soon แบบชัดเจน\\n' +
+            '4) ตอนนี้ยังไม่เปิดสร้างห้องจริง'
           );
         }else{
           alert(
