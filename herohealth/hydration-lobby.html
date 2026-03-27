@@ -38,6 +38,9 @@
       --orange2:#ff9d5e;
       --pink1:#ffd3e8;
       --pink2:#ff9bc8;
+      --violet1:#ebe7ff;
+      --violet2:#cfc5ff;
+      --violet3:#a497ff;
       --red1:#ffb3b3;
       --red2:#ef6767;
 
@@ -150,6 +153,7 @@
       background:#ffd9b8;
       z-index:4;
     }
+
     .hero-hair{
       position:absolute;
       left:13px; top:6px;
@@ -159,6 +163,7 @@
       transform:rotate(-8deg);
       z-index:5;
     }
+
     .hero-body{
       position:absolute;
       left:15px; top:30px;
@@ -167,6 +172,7 @@
       background:linear-gradient(180deg,#8fd7ff,#58acef);
       z-index:3;
     }
+
     .hero-cape{
       position:absolute;
       left:4px; top:24px;
@@ -176,6 +182,7 @@
       transform:rotate(-26deg);
       z-index:2;
     }
+
     .hero-drop{
       position:absolute;
       right:2px; bottom:8px;
@@ -191,6 +198,7 @@
     }
 
     .brand-text{ min-width:0; }
+
     .logo{
       display:flex;
       flex-wrap:wrap;
@@ -202,13 +210,16 @@
       letter-spacing:-.03em;
       text-shadow:0 3px 0 rgba(255,255,255,.72);
     }
+
     .logo-hero{ color:#8fbe1e; }
+
     .logo-health{
       color:#ffffff;
       text-shadow:
         0 3px 0 rgba(90,145,180,.22),
         0 0 1px rgba(90,145,180,.16);
     }
+
     .subtitle{
       margin-top:4px;
       color:#6f91a6;
@@ -305,6 +316,13 @@
       gap:14px;
     }
 
+    .mode-stage.coop{
+      background:
+        radial-gradient(circle at 14% 14%, rgba(255,255,255,.92), transparent 10%),
+        radial-gradient(circle at 84% 16%, rgba(255,255,255,.72), transparent 12%),
+        linear-gradient(180deg,#f2f0ff 0%,#e5e0ff 42%,#d6d0ff 100%);
+    }
+
     .mode-stage::after{
       content:"";
       position:absolute;
@@ -316,6 +334,14 @@
         radial-gradient(circle at 84% 74%, #d4f3ad 0 18%, transparent 19%),
         linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.12) 40%, rgba(104,191,70,.24) 100%);
       pointer-events:none;
+    }
+
+    .mode-stage.coop::after{
+      background:
+        radial-gradient(circle at 10% 76%, #d8d3ff 0 18%, transparent 19%),
+        radial-gradient(circle at 34% 100%, #c5bcff 0 12%, transparent 13%),
+        radial-gradient(circle at 84% 74%, #ddd8ff 0 18%, transparent 19%),
+        linear-gradient(180deg, rgba(255,255,255,0), rgba(179,166,255,.14) 40%, rgba(151,136,255,.22) 100%);
     }
 
     .mode-stage > *{ position:relative; z-index:1; }
@@ -375,6 +401,14 @@
       background:linear-gradient(180deg,#fff8eb,#ffe9c1);
     }
 
+    .mode-stage.coop .player-mini{
+      background:linear-gradient(180deg,#f8f6ff,#ebe6ff);
+    }
+
+    .mode-stage.coop .player-mini.alt{
+      background:linear-gradient(180deg,#f3eeff,#e4dcff);
+    }
+
     .mini-avatar{
       width:76px;
       height:76px;
@@ -412,6 +446,11 @@
       margin-bottom:24px;
     }
 
+    .mode-stage.coop .vs-heart{
+      background:linear-gradient(180deg,#f2eeff,#e3dbff);
+      border-color:#d6ccff;
+    }
+
     .bubble{
       max-width:420px;
       justify-self:center;
@@ -424,6 +463,12 @@
       line-height:1.45;
       font-weight:1000;
       box-shadow:var(--shadow);
+    }
+
+    .mode-stage.coop .bubble{
+      background:linear-gradient(180deg,#f6f2ff,#ece6ff);
+      border-color:#d8ceff;
+      color:#5c4da1;
     }
 
     .cta-row{
@@ -480,7 +525,7 @@
     }
 
     .btn[disabled]{
-      opacity:.5;
+      opacity:.52;
       cursor:not-allowed;
       filter:grayscale(.12);
       transform:none !important;
@@ -532,6 +577,11 @@
       box-shadow:var(--shadow-lg);
     }
 
+    .mode-tab.coop.active{
+      background:linear-gradient(180deg,#f7f4ff,#efebff);
+      border-color:#d2c8ff;
+    }
+
     .mode-tab-title{
       font-size:20px;
       line-height:1.08;
@@ -565,6 +615,43 @@
     }
 
     .helper strong{ color:#315873; }
+
+    .helper.coop{
+      background:linear-gradient(180deg,#f7f4ff,#efebff);
+      border-color:#d5ccff;
+      color:#6458a3;
+    }
+
+    .helper.coop strong{
+      color:#4a4094;
+    }
+
+    .coming-grid{
+      display:grid;
+      gap:12px;
+    }
+
+    .coming-row{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .coming-pill{
+      min-height:68px;
+      padding:12px;
+      border-radius:20px;
+      background:linear-gradient(180deg,#ffffff,#f2efff);
+      border:1px solid #ddd5ff;
+      box-shadow:var(--shadow);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      color:#5a4ea0;
+      font-size:14px;
+      line-height:1.35;
+      font-weight:1000;
+    }
 
     .status-board{
       display:grid;
@@ -610,6 +697,11 @@
     .status-pill.done{
       background:linear-gradient(180deg,#ffbfdc,#ff91bf);
       color:#fff;
+    }
+
+    .status-pill.coop{
+      background:linear-gradient(180deg,#ddd7ff,#b8adff);
+      color:#4e4398;
     }
 
     .room-box{
@@ -726,6 +818,10 @@
       font-weight:800;
     }
 
+    .hidden{
+      display:none !important;
+    }
+
     .backdrop{
       position:fixed;
       inset:0;
@@ -829,7 +925,8 @@
       .actions-grid,
       .field-grid,
       .players-grid,
-      .mode-tabs{
+      .mode-tabs,
+      .coming-row{
         grid-template-columns:1fr;
       }
       .cta-row,
@@ -915,7 +1012,7 @@
 
       <section class="hero-grid">
         <div class="stack">
-          <section class="mode-stage">
+          <section id="modeStage" class="mode-stage">
             <div class="tiny-row">
               <span id="tinyModeBadge" class="tiny-badge">🤝 Duet Lobby</span>
               <span id="statusTiny" class="tiny-badge">⏳ Waiting</span>
@@ -936,7 +1033,7 @@
                   <div class="mini-name" id="heroLeftName">Player 1</div>
                 </div>
 
-                <div class="vs-heart">🤝</div>
+                <div id="teamIcon" class="vs-heart">🤝</div>
 
                 <div class="player-mini alt">
                   <div class="mini-avatar">
@@ -964,7 +1061,7 @@
           <section class="card">
             <div>
               <h2 class="section-title">เลือกโหมดและตั้งค่า</h2>
-              <p class="section-sub">ตอนนี้ใช้ Duet ได้แล้ว ส่วน Coop เตรียมโครงไว้สำหรับรอบถัดไป</p>
+              <p id="configSub" class="section-sub">ตอนนี้ใช้ Duet ได้แล้ว ส่วน Coop เตรียมโครงไว้สำหรับรอบถัดไป</p>
             </div>
 
             <div class="field-card">
@@ -974,9 +1071,9 @@
                   <div class="mode-tab-title">🤝 Duet</div>
                   <div class="mode-tab-desc">เล่น 2 คน คนละเครื่อง ใช้ room code เดียวกัน</div>
                 </button>
-                <button id="modeCoopBtn" class="mode-tab" type="button">
+                <button id="modeCoopBtn" class="mode-tab coop" type="button">
                   <div class="mode-tab-title">🛟 Coop</div>
-                  <div class="mode-tab-desc">เตรียมไว้ก่อน เดี๋ยวค่อยเปิดในรอบถัดไป</div>
+                  <div class="mode-tab-desc">Coming Soon — เตรียมไว้ก่อน เดี๋ยวค่อยเปิดทีหลัง</div>
                 </button>
               </div>
             </div>
@@ -1047,6 +1144,12 @@
               3) กด Ready ทั้งสองคน<br />
               4) Host กด Start แล้วระบบจะพาเข้าเกมพร้อมกัน
             </div>
+
+            <div id="comingSoonBox" class="helper coop hidden">
+              <strong>Coop Coming Soon</strong><br />
+              เด็ก ๆ รออีกนิดนะ ✨<br />
+              ตอนนี้เราเตรียมหน้า lobby ไว้ก่อน เพื่อให้ต่อยอดโหมดทีมในรอบถัดไปได้ง่ายขึ้น
+            </div>
           </section>
         </div>
 
@@ -1101,6 +1204,19 @@
                 <button id="startBtn" class="btn btn-primary" type="button" disabled>Start</button>
                 <button id="rematchBtn" class="btn btn-pink" type="button" disabled>Rematch</button>
                 <button id="leaveBtn" class="btn btn-warn" type="button" disabled>ออกจากห้อง</button>
+              </div>
+            </div>
+
+            <div id="coopModeBoard" class="helper coop hidden">
+              <strong>Hydration Coop ยังไม่เปิดในรอบนี้</strong><br />
+              ตอนนี้เด็ก ๆ ยังไม่ต้องสร้างห้องในโหมดนี้นะ<br />
+              เราเก็บหน้าไว้ก่อนเพื่อเตรียม flow สำหรับทีมในอนาคต
+              <div class="coming-grid" style="margin-top:12px;">
+                <div class="coming-row">
+                  <div class="coming-pill">🛟 Team Missions</div>
+                  <div class="coming-pill">💧 Shared Goals</div>
+                  <div class="coming-pill">🎉 Friendly Rewards</div>
+                </div>
               </div>
             </div>
 
@@ -1167,11 +1283,16 @@
         brandSubtitle: document.getElementById('brandSubtitle'),
         modeChipTop: document.getElementById('modeChipTop'),
         tinyModeBadge: document.getElementById('tinyModeBadge'),
+        configSub: document.getElementById('configSub'),
         helperBox: document.getElementById('helperBox'),
+        comingSoonBox: document.getElementById('comingSoonBox'),
         footerNote: document.getElementById('footerNote'),
         noteSub: document.getElementById('noteSub'),
         noteBox: document.getElementById('noteBox'),
         statusSub: document.getElementById('statusSub'),
+        modeStage: document.getElementById('modeStage'),
+        teamIcon: document.getElementById('teamIcon'),
+        coopModeBoard: document.getElementById('coopModeBoard'),
 
         modeDuetBtn: document.getElementById('modeDuetBtn'),
         modeCoopBtn: document.getElementById('modeCoopBtn'),
@@ -1232,21 +1353,21 @@
       };
 
       const state = {
-        firebaseReady: false,
-        authReady: false,
-        db: null,
-        auth: null,
-        uid: '',
-        roomCode: '',
-        roomData: null,
-        roomRef: null,
-        roomListener: null,
-        infoConnRef: null,
-        infoConnListener: null,
-        isHost: false,
-        isRedirecting: false,
-        rematchBusy: false,
-        mode: 'duet'
+        firebaseReady:false,
+        authReady:false,
+        db:null,
+        auth:null,
+        uid:'',
+        roomCode:'',
+        roomData:null,
+        roomRef:null,
+        roomListener:null,
+        infoConnRef:null,
+        infoConnListener:null,
+        isHost:false,
+        isRedirecting:false,
+        rematchBusy:false,
+        mode:'duet'
       };
 
       function q(name, fallback=''){
@@ -1303,6 +1424,10 @@
         return state.mode === 'coop' ? 'Coop' : 'Duet';
       }
 
+      function isCoop(){
+        return state.mode === 'coop';
+      }
+
       function setLoader(title, text){
         EL.loaderTitle.textContent = title || 'Hydration Lobby';
         EL.loaderText.textContent = text || 'กำลังประมวลผล...';
@@ -1330,6 +1455,66 @@
           .replace(/'/g, '&#39;');
       }
 
+      function resetRoomViewOnly(){
+        EL.roomBox.hidden = true;
+        EL.roomCodeHero.textContent = '------';
+        EL.heroLeftName.textContent = 'Player 1';
+        EL.heroRightName.textContent = 'Player 2';
+        EL.slot1.innerHTML = `
+          <div class="player-card-top">
+            <h3 class="player-title">Player 1</h3>
+            <span class="player-chip">⌛ รอผู้เล่น</span>
+          </div>
+          <div class="player-meta">ยังไม่มีผู้เล่นในช่องนี้</div>
+        `;
+        EL.slot1.className = 'player-card empty';
+        EL.slot2.innerHTML = `
+          <div class="player-card-top">
+            <h3 class="player-title">Player 2</h3>
+            <span class="player-chip">⌛ รอผู้เล่น</span>
+          </div>
+          <div class="player-meta">ยังไม่มีผู้เล่นในช่องนี้</div>
+        `;
+        EL.slot2.className = 'player-card empty';
+      }
+
+      async function detachCurrentRoomLocally(markLeft){
+        try{
+          if(markLeft && state.roomCode && state.uid && state.db){
+            await state.db.ref(playerPath(state.roomCode, state.uid)).update({
+              connected:false,
+              ready:false,
+              phase:'left',
+              lastSeenAt: nowTs()
+            });
+          }
+        }catch{}
+
+        try{
+          if(state.roomRef && state.roomListener){
+            state.roomRef.off('value', state.roomListener);
+          }
+        }catch{}
+
+        try{
+          if(state.infoConnRef && state.infoConnListener){
+            state.infoConnRef.off('value', state.infoConnListener);
+          }
+        }catch{}
+
+        state.roomCode = '';
+        state.roomData = null;
+        state.roomRef = null;
+        state.roomListener = null;
+        state.infoConnRef = null;
+        state.infoConnListener = null;
+        state.isHost = false;
+        state.isRedirecting = false;
+        state.rematchBusy = false;
+
+        resetRoomViewOnly();
+      }
+
       function applyModeUi(){
         const icon = getModeIcon();
         const title = getModeTitle();
@@ -1342,41 +1527,123 @@
         EL.modeChipTop.textContent = `${icon} ${title}`;
         EL.tinyModeBadge.textContent = `${icon} ${title} Lobby`;
 
-        if(state.mode === 'coop'){
-          EL.helperBox.innerHTML =
-            '<strong>Coop จะตามมาภายหลัง</strong><br />ตอนนี้หน้า lobby กลางรองรับโหมดไว้ก่อน แต่ logic การเล่น Coop ยังไม่เปิดในรอบนี้';
-          EL.statusSub.textContent = 'ตอนนี้ใช้หน้าเดียวร่วมกันกับ Duet และเตรียม path สำหรับ Coop ไว้แล้ว';
+        if(isCoop()){
+          EL.modeStage.classList.add('coop');
+          EL.teamIcon.textContent = '✨';
+
+          EL.configSub.textContent = 'โหมดนี้ยังไม่เปิดเล่นจริง แต่เราทำหน้าไว้ก่อนเพื่อเตรียม flow สำหรับรอบถัดไป';
+          EL.helperBox.classList.add('hidden');
+          EL.comingSoonBox.classList.remove('hidden');
+
+          EL.statusSub.textContent = 'Coop ยังอยู่ในช่วงเตรียมระบบ เด็ก ๆ ยังไม่ต้องเข้าห้องในโหมดนี้';
+          EL.coopModeBoard.classList.remove('hidden');
+          EL.roomBox.hidden = true;
+
           EL.footerNote.innerHTML =
             'ตอนนี้ Coop ยังไม่เปิด run page จริง<br />' +
-            'ไฟล์ที่ใช้งานจริงตอนนี้คือ <strong>/herohealth/hydration-vr/hydration-duet-run.html</strong>';
-          EL.noteSub.textContent = 'Coop ยังเป็นโครงเตรียมไว้ก่อน';
+            'ระบบจะพาเด็ก ๆ เข้าโหมดนี้ได้เมื่อ logic พร้อมเท่านั้น';
+
+          EL.noteSub.textContent = 'Hydration Coop ยังอยู่ในช่วง Coming Soon';
+          EL.noteBox.className = 'helper coop';
           EL.noteBox.innerHTML =
-            '<strong>Hydration Coop</strong><br />- Lobby กลางพร้อมแล้ว<br />- ยังไม่เปิด logic วิ่งจริง<br />- ตอนนี้ให้โฟกัส Duet ก่อน';
-          EL.helpLine1.textContent = '1) ตอนนี้ใช้โหมด Duet ได้จริงก่อน';
-          EL.helpLine2.textContent = '2) Coop ยังเตรียม lobby ไว้ก่อน';
-          EL.helpLine3.textContent = '3) เดี๋ยวค่อยเปิด run/logic ของ Coop ภายหลัง';
-          EL.helpLine4.textContent = '4) ตอนนี้กดสร้างห้อง Coop จะขึ้นข้อความเตือนแทน';
+            '<strong>Hydration Coop</strong><br />' +
+            '- ใช้หน้า lobby กลางร่วมกับ Duet<br />' +
+            '- ซ่อน flow ที่ยังไม่พร้อมไว้ก่อน<br />' +
+            '- พอพร้อมแล้วค่อยเปิดภารกิจทีม';
+
+          EL.helpLine1.textContent = '1) ตอนนี้โหมดที่เล่นได้จริงคือ Duet';
+          EL.helpLine2.textContent = '2) Coop ยังเป็น Coming Soon';
+          EL.helpLine3.textContent = '3) หน้า lobby นี้เอาไว้เตรียมโครงสำหรับทีมในอนาคต';
+          EL.helpLine4.textContent = '4) ปุ่มที่ยังไม่พร้อมจะถูกซ่อนไว้เพื่อไม่ให้เด็กงง';
           EL.helpLine5.textContent = '5) ถ้าจะเล่นตอนนี้ ให้สลับกลับไป Duet';
-          setCoach('Coop ยังไม่เปิด logic เล่นจริงในรอบนี้ ให้ใช้ Duet ก่อนนะ');
+
+          EL.createBtn.textContent = 'Coming Soon';
+          EL.joinBtn.textContent = 'Coming Soon';
+          EL.quickCreateBtn.textContent = 'ยังไม่เปิด';
+          EL.quickJoinBtn.textContent = 'ยังไม่เปิด';
+          EL.reconnectBtn.textContent = 'ยังไม่เปิด';
+          EL.openLinkBtn.textContent = 'ยังไม่เปิด';
+
+          EL.createBtn.disabled = true;
+          EL.joinBtn.disabled = true;
+          EL.quickCreateBtn.disabled = true;
+          EL.quickJoinBtn.disabled = true;
+          EL.reconnectBtn.disabled = true;
+          EL.openLinkBtn.disabled = true;
+
+          EL.readyBtn.classList.add('hidden');
+          EL.startBtn.classList.add('hidden');
+          EL.rematchBtn.classList.add('hidden');
+          EL.leaveBtn.classList.add('hidden');
+
+          EL.roomStatusPill.className = 'status-pill coop';
+          EL.roomStatusPill.textContent = 'Coming Soon';
+          EL.statusTiny.textContent = '✨ Coming Soon';
+
+          setCoach('โหมด Coop กำลังมาอีกนิดนะ ตอนนี้ลองเล่น Duet ก่อนได้เลย');
         }else{
-          EL.helperBox.innerHTML =
-            '<strong>วิธีเล่นแบบสั้น</strong><br />1) ผู้เล่นคนแรกสร้างห้อง<br />2) ผู้เล่นคนที่สองใส่ room code เดียวกัน<br />3) กด Ready ทั้งสองคน<br />4) Host กด Start แล้วระบบจะพาเข้าเกมพร้อมกัน';
+          EL.modeStage.classList.remove('coop');
+          EL.teamIcon.textContent = '🤝';
+
+          EL.configSub.textContent = 'ตอนนี้ใช้ Duet ได้แล้ว ส่วน Coop เตรียมโครงไว้สำหรับรอบถัดไป';
+          EL.helperBox.classList.remove('hidden');
+          EL.comingSoonBox.classList.add('hidden');
+
           EL.statusSub.textContent = 'เมื่อครบ 2 คนและพร้อมทั้งคู่ ปุ่ม Start ของ host จะเปิดให้กด';
+          EL.coopModeBoard.classList.add('hidden');
+
           EL.footerNote.innerHTML =
             'run page ตอนนี้ใช้ <strong>/herohealth/hydration-vr/hydration-duet-run.html</strong>';
+
           EL.noteSub.textContent = 'เริ่มจาก Duet ให้เสร็จก่อน แล้วค่อยเปิด Coop ภายหลัง';
+          EL.noteBox.className = 'helper';
           EL.noteBox.innerHTML =
-            '<strong>Hydration Multiplayer v1</strong><br />- Duet พร้อมใช้งาน<br />- Reconnect / Share link / Rematch พร้อมแล้ว<br />- Coop ยังไม่เปิด logic การเล่นจริงในรอบนี้';
+            '<strong>Hydration Multiplayer v1</strong><br />' +
+            '- Duet พร้อมใช้งาน<br />' +
+            '- Reconnect / Share link / Rematch พร้อมแล้ว<br />' +
+            '- Coop ยังไม่เปิด logic การเล่นจริงในรอบนี้';
+
           EL.helpLine1.textContent = '1) เลือกโหมด Duet ก่อน';
           EL.helpLine2.textContent = '2) สร้างห้องหรือเข้าห้องด้วย room code';
           EL.helpLine3.textContent = '3) กด Ready ทั้งสองคน';
           EL.helpLine4.textContent = '4) Host กด Start แล้วเข้าเกมพร้อมกัน';
           EL.helpLine5.textContent = '5) หลังจบรอบ Host กด Rematch ได้';
-          setCoach('ชวนเพื่อนเข้าห้อง แล้วช่วยกันเก็บน้ำดีให้ถึงเป้าหมายของทีม');
+
+          EL.createBtn.textContent = 'สร้างห้อง';
+          EL.joinBtn.textContent = 'เข้าห้อง';
+          EL.quickCreateBtn.textContent = 'สร้างห้องใหม่';
+          EL.quickJoinBtn.textContent = 'เข้าห้องตามโค้ด';
+          EL.reconnectBtn.textContent = 'กลับเข้าห้องล่าสุด';
+          EL.openLinkBtn.textContent = 'เปิดจากลิงก์ห้อง';
+
+          EL.createBtn.disabled = false;
+          EL.joinBtn.disabled = false;
+          EL.quickCreateBtn.disabled = false;
+          EL.quickJoinBtn.disabled = false;
+          EL.reconnectBtn.disabled = false;
+          EL.openLinkBtn.disabled = false;
+
+          EL.readyBtn.classList.remove('hidden');
+          EL.startBtn.classList.remove('hidden');
+          EL.rematchBtn.classList.remove('hidden');
+          EL.leaveBtn.classList.remove('hidden');
+
+          setRoomStatus(state.roomData ? (state.roomData.status || 'waiting') : 'waiting');
+
+          if(!state.roomData){
+            setCoach('สร้างห้องใหม่ หรือใส่ room code เพื่อเข้าห้องของเพื่อนได้เลย');
+          }
         }
       }
 
       function setRoomStatus(status){
+        if(isCoop()){
+          EL.roomStatusPill.className = 'status-pill coop';
+          EL.roomStatusPill.textContent = 'Coming Soon';
+          EL.statusTiny.textContent = '✨ Coming Soon';
+          return;
+        }
+
         const s = String(status || 'waiting').toLowerCase();
         let label = 'Waiting';
         let cls = 'wait';
@@ -1424,8 +1691,7 @@
         url.searchParams.set('room', roomCode);
         url.searchParams.set('mode', state.mode);
 
-        const passSet = new Set(PASS_KEYS);
-        for(const key of passSet){
+        for(const key of PASS_KEYS){
           const v = qs.get(key);
           if(v) url.searchParams.set(key, v);
         }
@@ -1603,7 +1869,7 @@
       }
 
       async function reservePresence(roomCode){
-        if(!state.db || !state.uid) return;
+        if(!state.db || !state.uid || isCoop()) return;
 
         const playerRef = state.db.ref(playerPath(roomCode, state.uid));
 
@@ -1620,17 +1886,17 @@
 
           try{
             await playerRef.onDisconnect().update({
-              connected: false,
-              phase: 'left',
-              ready: false,
+              connected:false,
+              phase:'left',
+              ready:false,
               lastSeenAt: nowTs()
             });
           }catch{}
 
           try{
             await playerRef.update({
-              connected: true,
-              phase: 'lobby',
+              connected:true,
+              phase:'lobby',
               lastSeenAt: nowTs(),
               name: ensureNick(),
               pid: ensurePid()
@@ -1639,16 +1905,6 @@
         };
 
         state.infoConnRef.on('value', state.infoConnListener);
-      }
-
-      function teardownPresence(){
-        try{
-          if(state.infoConnRef && state.infoConnListener){
-            state.infoConnRef.off('value', state.infoConnListener);
-          }
-        }catch{}
-        state.infoConnRef = null;
-        state.infoConnListener = null;
       }
 
       function sortPlayers(players){
@@ -1698,8 +1954,18 @@
       }
 
       function renderRoom(room){
+        if(isCoop()){
+          EL.roomBox.hidden = true;
+          EL.coopModeBoard.classList.remove('hidden');
+          setRoomStatus('coop');
+          EL.heroLeftName.textContent = 'Team Friend 1';
+          EL.heroRightName.textContent = 'Team Friend 2';
+          return;
+        }
+
         if(!room){
           EL.roomBox.hidden = true;
+          EL.coopModeBoard.classList.add('hidden');
           setRoomStatus('offline');
           EL.heroLeftName.textContent = 'Player 1';
           EL.heroRightName.textContent = 'Player 2';
@@ -1710,6 +1976,7 @@
           return;
         }
 
+        EL.coopModeBoard.classList.add('hidden');
         EL.roomBox.hidden = false;
         EL.roomCodeHero.textContent = room.roomId || state.roomCode || '------';
         setRoomStatus(room.status || 'waiting');
@@ -1732,15 +1999,10 @@
 
         EL.readyBtn.disabled = !me || status === 'countdown' || status === 'running';
         EL.leaveBtn.disabled = !me;
-        EL.startBtn.disabled = !canStart || state.mode !== 'duet';
-        EL.rematchBtn.disabled = !canRematch || state.mode !== 'duet';
+        EL.startBtn.disabled = !canStart;
+        EL.rematchBtn.disabled = !canRematch;
 
         EL.readyBtn.textContent = me && me.ready ? 'Unready' : 'Ready';
-
-        if(state.mode === 'coop'){
-          setCoach('Coop ยังไม่เปิดรอบนี้ ให้สลับกลับไป Duet ก่อน');
-          return;
-        }
 
         if(status === 'finished'){
           if(state.isHost){
@@ -1759,11 +2021,7 @@
 
       async function createRoom(){
         if(!state.authReady) return;
-
-        if(state.mode === 'coop'){
-          alert('Coop ยังไม่เปิด logic การเล่นจริงในรอบนี้');
-          return;
-        }
+        if(isCoop()) return;
 
         showLoader(`Hydration ${getModeTitle()}`, 'กำลังสร้างห้อง...');
         const nick = ensureNick();
@@ -1833,11 +2091,7 @@
 
       async function joinRoom(roomCode, isCreateFlow){
         if(!state.authReady) return;
-
-        if(state.mode === 'coop'){
-          alert('Coop ยังไม่เปิด logic การเล่นจริงในรอบนี้');
-          return;
-        }
+        if(isCoop()) return;
 
         roomCode = sanitizeRoomCode(roomCode || EL.roomInput.value);
         if(!roomCode){
@@ -1907,7 +2161,7 @@
           state.roomRef.off('value', state.roomListener);
         }
 
-        teardownPresence();
+        await detachCurrentRoomLocally(false);
 
         state.roomCode = roomCode;
         state.roomRef = state.db.ref(roomPath(roomCode));
@@ -1931,7 +2185,7 @@
           await reservePresence(roomCode);
 
           const status = String(room.status || 'waiting').toLowerCase();
-          if((status === 'countdown' || status === 'running') && !state.isRedirecting && state.mode === 'duet'){
+          if((status === 'countdown' || status === 'running') && !state.isRedirecting && !isCoop()){
             const me = room.players && room.players[state.uid];
             if(me){
               state.isRedirecting = true;
@@ -1947,8 +2201,7 @@
       }
 
       async function toggleReady(){
-        if(!state.roomCode || !state.roomData) return;
-        if(state.mode !== 'duet') return;
+        if(!state.roomCode || !state.roomData || isCoop()) return;
 
         const me = state.roomData.players && state.roomData.players[state.uid];
         if(!me) return;
@@ -1959,9 +2212,9 @@
         const ready = !me.ready;
         await state.db.ref(playerPath(state.roomCode, state.uid)).update({
           ready,
-          finished: false,
-          connected: true,
-          phase: 'lobby',
+          finished:false,
+          connected:true,
+          phase:'lobby',
           lastSeenAt: nowTs(),
           name: ensureNick(),
           pid: ensurePid()
@@ -1973,8 +2226,7 @@
       }
 
       async function startRoom(){
-        if(!state.roomCode || !state.roomData || !state.isHost) return;
-        if(state.mode !== 'duet') return;
+        if(!state.roomCode || !state.roomData || !state.isHost || isCoop()) return;
 
         const room = state.roomData;
         const players = sortPlayers(room.players || {});
@@ -1984,13 +2236,13 @@
         const startAt = Date.now() + 3500;
 
         await state.roomRef.update({
-          status: 'countdown',
+          status:'countdown',
           startAt,
           updatedAt: nowTs()
         });
 
         await state.roomRef.child('match').update({
-          status: 'locked',
+          status:'locked',
           lockedAt: nowTs(),
           finishedAt: 0,
           participantIds: {
@@ -2001,11 +2253,11 @@
 
         for(const p of players){
           await state.db.ref(playerPath(state.roomCode, p.uid)).update({
-            phase: 'lobby',
-            finished: false,
-            finalScore: 0,
-            miss: 0,
-            streak: 0,
+            phase:'lobby',
+            finished:false,
+            finalScore:0,
+            miss:0,
+            streak:0,
             lastSeenAt: nowTs()
           });
         }
@@ -2014,8 +2266,7 @@
       }
 
       async function rematchRoom(){
-        if(!state.roomCode || !state.roomData || !state.isHost || state.rematchBusy) return;
-        if(state.mode !== 'duet') return;
+        if(!state.roomCode || !state.roomData || !state.isHost || state.rematchBusy || isCoop()) return;
 
         const room = state.roomData;
         const playersMap = room.players || {};
@@ -2054,13 +2305,13 @@
 
           for(const uid of players){
             await state.db.ref(playerPath(state.roomCode, uid)).update({
-              ready: false,
-              connected: true,
-              phase: 'lobby',
-              finished: false,
-              finalScore: 0,
-              miss: 0,
-              streak: 0,
+              ready:false,
+              connected:true,
+              phase:'lobby',
+              finished:false,
+              finalScore:0,
+              miss:0,
+              streak:0,
               lastSeenAt: nowTs()
             });
           }
@@ -2076,16 +2327,16 @@
       }
 
       async function leaveRoom(){
-        if(!state.roomCode || !state.roomData) return;
+        if(!state.roomCode || !state.roomData || isCoop()) return;
 
         const roomCode = state.roomCode;
         const room = state.roomData;
         const meRef = state.db.ref(playerPath(roomCode, state.uid));
 
         await meRef.update({
-          connected: false,
-          ready: false,
-          phase: 'left',
+          connected:false,
+          ready:false,
+          phase:'left',
           lastSeenAt: nowTs()
         });
 
@@ -2097,7 +2348,7 @@
           await state.roomRef.update({
             hostId: nextHostId || state.uid,
             hostName: nextHostId && players[nextHostId] ? (players[nextHostId].name || 'Host') : '',
-            status: 'waiting',
+            status:'waiting',
             updatedAt: nowTs()
           });
         }else{
@@ -2106,26 +2357,14 @@
           });
         }
 
-        if(state.roomRef && state.roomListener){
-          state.roomRef.off('value', state.roomListener);
-        }
-        teardownPresence();
-
-        state.roomCode = '';
-        state.roomRef = null;
-        state.roomData = null;
-        state.roomListener = null;
-        state.isHost = false;
-        state.isRedirecting = false;
-        state.rematchBusy = false;
-
+        await detachCurrentRoomLocally(false);
         renderRoom(null);
         updateRoomUrl('');
         setCoach('ออกจากห้องแล้ว');
       }
 
       async function copyCode(){
-        if(!state.roomCode) return;
+        if(!state.roomCode || isCoop()) return;
         try{
           await navigator.clipboard.writeText(state.roomCode);
           setCoach('คัดลอก room code แล้ว');
@@ -2135,7 +2374,7 @@
       }
 
       async function copyLink(){
-        if(!state.roomCode) return;
+        if(!state.roomCode || isCoop()) return;
         const link = buildRoomLink(state.roomCode);
         try{
           await navigator.clipboard.writeText(link);
@@ -2146,6 +2385,7 @@
       }
 
       async function reconnectLastRoom(){
+        if(isCoop()) return;
         const roomCode = sanitizeRoomCode(readLS(roomStoreKey(), ''));
         if(!roomCode){
           alert('ยังไม่มีห้องล่าสุดของโหมดนี้ในเครื่องนี้');
@@ -2156,6 +2396,7 @@
       }
 
       function openRoomLink(){
+        if(isCoop()) return;
         const roomCode = sanitizeRoomCode(EL.roomInput.value || q('room',''));
         if(!roomCode){
           alert('กรุณาใส่ Room Code ก่อน');
@@ -2178,19 +2419,25 @@
         EL.helpBackdrop.setAttribute('aria-hidden', 'true');
       }
 
-      function setMode(newMode){
-        state.mode = newMode === 'coop' ? 'coop' : 'duet';
-        applyModeUi();
+      async function setMode(newMode){
+        const nextMode = newMode === 'coop' ? 'coop' : 'duet';
+        if(state.mode === nextMode) return;
 
-        if(state.roomData){
-          const roomMode = String(state.roomData.mode || 'duet');
-          if(roomMode !== state.mode){
-            EL.roomBox.hidden = true;
-            setRoomStatus('waiting');
-            setCoach(state.mode === 'coop'
-              ? 'Coop ยังไม่เปิด logic เล่นจริง'
-              : 'สลับกลับมา Duet แล้ว สามารถสร้างห้องหรือเข้าห้องได้');
-          }
+        const hadRoom = !!state.roomCode;
+        state.mode = nextMode;
+        updateRoomUrl(hadRoom && !isCoop() ? state.roomCode : '');
+
+        if(hadRoom){
+          await detachCurrentRoomLocally(true);
+        }
+
+        applyModeUi();
+        renderRoom(null);
+
+        if(isCoop()){
+          setCoach('โหมด Coop กำลังมาอีกนิดนะ ตอนนี้ลองเล่น Duet ก่อนได้เลย');
+        }else{
+          setCoach('กลับมาโหมด Duet แล้ว สร้างห้องใหม่ หรือใส่ room code เพื่อเข้าห้องได้เลย');
         }
       }
 
@@ -2210,7 +2457,7 @@
         EL.viewSel.value = ['pc','mobile','cvr'].includes(view) ? view : 'mobile';
 
         const initialRoom = sanitizeRoomCode(q('room', readLS(roomStoreKey(), '')));
-        if(initialRoom){
+        if(initialRoom && !isCoop()){
           EL.roomInput.value = initialRoom;
         }
 
@@ -2271,21 +2518,24 @@
           hideLoader();
 
           const autoRoom = sanitizeRoomCode(q('room', ''));
-          if(autoRoom){
+          if(autoRoom && !isCoop()){
             await joinRoom(autoRoom, false);
           }else{
-            setCoach(state.mode === 'coop'
-              ? 'Coop ยังไม่เปิด logic เล่นจริงในรอบนี้'
-              : 'สร้างห้องใหม่ หรือใส่ room code เพื่อเข้าห้องของเพื่อนได้เลย');
+            renderRoom(null);
+            if(isCoop()){
+              setCoach('Coop ยังเป็น Coming Soon อยู่ ตอนนี้เล่น Duet ก่อนได้เลย');
+            }else{
+              setCoach('สร้างห้องใหม่ หรือใส่ room code เพื่อเข้าห้องของเพื่อนได้เลย');
+            }
           }
 
           window.addEventListener('beforeunload', ()=>{
             try{
-              if(state.roomCode && state.uid && state.db){
+              if(state.roomCode && state.uid && state.db && !isCoop()){
                 state.db.ref(playerPath(state.roomCode, state.uid)).update({
-                  connected: false,
-                  ready: false,
-                  phase: 'left',
+                  connected:false,
+                  ready:false,
+                  phase:'left',
                   lastSeenAt: nowTs()
                 });
               }
