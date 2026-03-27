@@ -3,536 +3,1388 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Duet</title>
-  <meta name="color-scheme" content="light" />
+  <title>HeroHealth • GoodJunk Duet Run</title>
+  <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
+
   <style>
     :root{
       --sky1:#dff4ff;
       --sky2:#bfe8ff;
       --sky3:#fff7d8;
-      --line:#bfe3f2;
+      --panel:#fffdf8ee;
+      --panel-2:#ffffffd9;
+      --stroke:#bfe3f2;
       --text:#4d4a42;
-      --muted:#7b7a72;
-      --green:#7ed957;
-      --green2:#58c33f;
+      --muted:#6b7280;
+
+      --pink:#ff8fc7;
+      --pink-2:#ffc5e3;
       --blue:#7fcfff;
-      --blue2:#58b7f5;
-      --yellow:#ffd45c;
-      --orange:#ffb547;
-      --shadow:0 18px 40px rgba(86,155,194,.16);
-      --sat:env(safe-area-inset-top,0px);
-      --sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);
-      --sal:env(safe-area-inset-left,0px);
+      --blue-2:#58b7f5;
+      --green:#7ed957;
+      --green-2:#58c33f;
+      --good:#22c55e;
+      --bad:#ef4444;
+      --gold:#f59e0b;
+      --gold-2:#fde68a;
+
+      --shadow:0 18px 40px rgba(0,0,0,.12);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
+
     *{ box-sizing:border-box; }
     html,body{
-      margin:0; min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      margin:0;
+      min-height:100%;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans",Arial,sans-serif;
       color:var(--text);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(127,207,255,.45), transparent 24%),
+        radial-gradient(circle at 88% 0%, rgba(255,143,199,.28), transparent 24%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 58%, var(--sky3));
+    }
+
+    body{ overflow:hidden; }
+
+    .page{
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      padding:
+        calc(10px + var(--sat))
+        calc(10px + var(--sar))
+        calc(12px + var(--sab))
+        calc(10px + var(--sal));
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      position:relative;
+      z-index:40;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:var(--panel-2);
+      box-shadow:var(--shadow);
+    }
+
+    .brand-title{
+      font-size:16px;
+      font-weight:1100;
+      line-height:1.1;
+    }
+
+    .brand-sub{
+      margin-top:2px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid var(--stroke);
+      background:#ffffffd8;
+      color:var(--text);
+      border-radius:14px;
+      min-height:42px;
+      padding:10px 12px;
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      box-shadow:var(--shadow);
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg,var(--pink),var(--pink-2));
+      color:#6b214e;
+    }
+
+    .btn.good{
+      background:linear-gradient(180deg,var(--green),#a7eb8f);
+      color:#134e1f;
+    }
+
+    .btn.ghost{
+      color:var(--muted);
+      background:#ffffffcc;
+    }
+
+    .run-shell{
+      display:grid;
+      grid-template-columns:minmax(290px,370px) 1fr;
+      gap:12px;
+      min-height:calc(100vh - 96px);
+      align-items:start;
+    }
+
+    .duet-hud{
+      position:relative;
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:var(--shadow);
+      padding:14px;
+      display:grid;
+      gap:12px;
+      z-index:20;
+    }
+
+    .duet-hud-toolbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+    }
+
+    .duet-hud-toggle{
+      min-width:40px;
+      min-height:40px;
+      border-radius:12px;
+      border:1px solid var(--stroke);
+      background:#ffffffd8;
+      color:var(--text);
+      font-size:18px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .coach-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:36px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid #ffd6ea;
+      background:#fff2f8;
+      color:#a33268;
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .duet-top{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .duet-pill{
+      display:inline-flex;
+      align-items:center;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:#ffffffcf;
+      color:var(--text);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .duet-score{
+      border-radius:20px;
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg,#fffafc,#fff);
+      padding:14px;
+      text-align:center;
+    }
+
+    .duet-score-label{
+      font-size:12px;
+      font-weight:1000;
+      color:var(--muted);
+      letter-spacing:.08em;
+    }
+
+    .duet-score-value{
+      margin-top:6px;
+      font-size:40px;
+      line-height:1;
+      font-weight:1100;
+      color:#7a2558;
+    }
+
+    .duet-stats{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .duet-stat,.duet-mini{
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:#ffffffcc;
+      padding:12px;
+      text-align:center;
+    }
+
+    .duet-stat-k,.duet-mini-k{
+      font-size:12px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+
+    .duet-stat-v{
+      margin-top:6px;
+      font-size:22px;
+      line-height:1;
+      font-weight:1100;
+      color:#244f6d;
+    }
+
+    .duet-panel{
+      border-radius:20px;
+      border:1px solid var(--stroke);
+      background:#ffffffc9;
+      padding:12px;
+      display:grid;
+      gap:12px;
+    }
+
+    .duet-item{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+
+    .duet-item-icon{
+      width:64px;
+      height:64px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:#fff;
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+    }
+
+    .emoji{
+      font-size:34px;
+      line-height:1;
+    }
+
+    .duet-item-title{
+      font-size:16px;
+      font-weight:1100;
+      color:#7a2558;
+    }
+
+    .duet-item-sub{
+      margin-top:4px;
+      font-size:13px;
+      line-height:1.6;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .duet-mini-stats{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .duet-mini-v{
+      margin-top:4px;
+      font-size:20px;
+      line-height:1;
+      font-weight:1100;
+      color:#1f5d73;
+    }
+
+    .duet-tip{
+      border-radius:16px;
+      border:1px dashed var(--stroke);
+      background:#fff9fc;
+      padding:10px 12px;
+      color:#7a2558;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:1000;
+      min-height:46px;
+    }
+
+    .duet-goal{
+      display:grid;
+      gap:8px;
+    }
+
+    .duet-goal-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+
+    .duet-goal-title{
+      font-size:12px;
+      font-weight:1100;
+      color:var(--muted);
+      letter-spacing:.08em;
+    }
+
+    .duet-goal-value{
+      font-size:18px;
+      line-height:1;
+      font-weight:1100;
+      color:#244f6d;
+    }
+
+    .duet-bar,.duet-bar-sub{
+      height:12px;
+      border-radius:999px;
+      background:rgba(191,227,242,.5);
+      overflow:hidden;
+    }
+
+    .duet-bar-fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--pink),var(--pink-2));
+      transition:width .16s linear;
+    }
+
+    .duet-bar-sub-fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--blue),#b9ecff);
+      transition:width .16s linear;
+    }
+
+    .stage-wrap{
+      min-width:0;
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:#ffffffba;
+      box-shadow:var(--shadow);
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      min-height:640px;
+      position:relative;
+    }
+
+    .stage-head{
+      padding:14px 16px;
+      border-bottom:1px solid var(--stroke);
+      color:#7a2558;
+      font-size:14px;
+      font-weight:1100;
+      letter-spacing:.05em;
+      background:#fff9fd;
+    }
+
+    .stage-inner{
+      position:relative;
+      flex:1 1 auto;
+      min-height:580px;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(255,255,255,.8), transparent 18%),
+        radial-gradient(circle at 80% 8%, rgba(255,255,255,.72), transparent 18%),
+        linear-gradient(180deg,#aee6ff 0%, #d9f5ff 54%, #fff5cf 100%);
+    }
+
+    #duetGameStage{
+      position:relative;
+      width:100%;
+      height:100%;
+      min-height:580px;
+      overflow:hidden;
+    }
+
+    .stage-cloud{
+      position:absolute;
+      background:#fff;
+      border-radius:999px;
+      box-shadow:0 8px 18px rgba(0,0,0,.06);
+      opacity:.8;
+      pointer-events:none;
+    }
+
+    .stage-cloud.c1{ width:130px;height:42px;left:4%;top:8%; }
+    .stage-cloud.c2{ width:95px;height:34px;left:72%;top:11%; }
+    .stage-cloud.c3{ width:110px;height:36px;left:38%;top:18%; }
+
+    .stage-ground{
+      position:absolute;
+      left:0; right:0; bottom:0;
+      height:120px;
+      background:
+        radial-gradient(circle at 20% 40%, rgba(126,217,87,.34), transparent 18%),
+        radial-gradient(circle at 72% 44%, rgba(126,217,87,.28), transparent 18%),
+        linear-gradient(180deg,#b3f28f,#88d96b);
+      border-top:1px solid rgba(88,195,63,.26);
+      pointer-events:none;
+    }
+
+    .target{
+      position:absolute;
+      display:grid;
+      place-items:center;
+      border-radius:22px;
+      border:2px solid #fff;
+      box-shadow:0 10px 22px rgba(0,0,0,.12);
+      cursor:pointer;
+      user-select:none;
+      transform:translateZ(0);
+      z-index:5;
+    }
+
+    .target.good{
+      background:linear-gradient(180deg,#ffffff,#f1fff1);
+    }
+
+    .target.junk{
+      background:linear-gradient(180deg,#fff3f3,#ffe1e1);
+    }
+
+    .target .t-emoji{
+      font-size:clamp(24px, 4vw, 38px);
+      line-height:1;
+    }
+
+    .countdown-overlay{
+      position:absolute;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background:rgba(255,255,255,.38);
+      backdrop-filter:blur(8px);
+      z-index:35;
+    }
+
+    .countdown-overlay.show{ display:flex; }
+
+    .countdown-card{
+      width:min(460px, calc(100% - 24px));
+      border-radius:28px;
+      border:1px solid var(--stroke);
+      background:#fffdf8f2;
+      box-shadow:0 22px 60px rgba(0,0,0,.18);
+      padding:20px;
+      text-align:center;
+      display:grid;
+      gap:12px;
+    }
+
+    .countdown-badge{
+      display:inline-flex;
+      margin:0 auto;
+      min-height:36px;
+      padding:6px 14px;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      border:1px solid #ffd6ea;
+      background:#fff2f8;
+      color:#a33268;
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .countdown-num{
+      font-size:84px;
+      line-height:1;
+      font-weight:1100;
+      color:#7a2558;
+      text-shadow:0 4px 0 #fff;
+    }
+
+    .countdown-text{
+      color:#6b7280;
+      font-size:15px;
+      line-height:1.6;
+      font-weight:1000;
+    }
+
+    .duet-result-mount{
+      position:fixed;
+      inset:0;
+      z-index:60;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(255,255,255,.52);
+      backdrop-filter:blur(10px);
+    }
+
+    .duet-result-mount[hidden]{
+      display:none !important;
+      pointer-events:none !important;
+    }
+
+    .duet-result-mount:not([hidden]){
+      display:flex;
+    }
+
+    .duet-result-card{
+      width:min(980px,100%);
+      max-height:min(92vh,1020px);
+      overflow:auto;
+      border-radius:28px;
+      border:1px solid var(--stroke);
+      background:#fffdf8fa;
+      box-shadow:0 28px 80px rgba(0,0,0,.22);
+      padding:18px;
+      display:grid;
+      gap:14px;
+    }
+
+    .duet-result-title{
+      font-size:28px;
+      line-height:1.1;
+      font-weight:1100;
+      color:#7a2558;
+    }
+
+    .duet-result-sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .duet-result-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .duet-sum-top{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .duet-sum-top-card{
+      border:1px solid #bfe3f2;
+      border-radius:20px;
+      background:#fff;
+      padding:14px;
+      text-align:center;
+    }
+
+    .duet-sum-top-label{
+      display:block;
+      max-width:100%;
+      color:#6b7280;
+      font-size:12px;
+      font-weight:1000;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+      line-height:1.35;
+    }
+
+    .duet-sum-top-score{
+      margin-top:6px;
+      font-size:34px;
+      line-height:1;
+      font-weight:1100;
+    }
+
+    .duet-sum-top-score.me{ color:#7a2558; }
+    .duet-sum-top-score.peer{ color:#1f5d73; }
+    .duet-sum-top-score.pair{ color:#c2410c; font-size:38px; }
+
+    .duet-sum-top-sub{
+      margin-top:8px;
+      color:#6b7280;
+      font-size:12px;
+      line-height:1.7;
+      font-weight:900;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+    }
+
+    .duet-sum-status{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:28px;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:1000;
+      border:1px solid #bfe3f2;
+      background:#f8fdff;
+      color:#355d72;
+    }
+
+    .duet-sum-status.done{
+      background:#ecfdf3;
+      border-color:#bbf7d0;
+      color:#166534;
+    }
+
+    .duet-sum-status.wait{
+      background:#fff7ed;
+      border-color:#fed7aa;
+      color:#9a3412;
+    }
+
+    .duet-sum-top-card.goal{
+      background:linear-gradient(180deg,#fff7fb,#fff);
+    }
+
+    .duet-sum-goal-ok{
+      color:#15803d;
+      font-weight:1000;
+    }
+
+    .duet-sum-goal-wait{
+      color:#c2410c;
+      font-weight:1000;
+    }
+
+    .duet-sum-stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .duet-sum-stat{
+      border:1px solid #bfe3f2;
+      border-radius:16px;
+      background:#ffffff;
+      padding:12px;
+      text-align:center;
+    }
+
+    .duet-sum-stat-k{
+      font-size:12px;
+      color:#6b7280;
+      font-weight:1000;
+    }
+
+    .duet-sum-stat-v{
+      margin-top:5px;
+      font-size:24px;
+      font-weight:1100;
+      color:#244f6d;
+    }
+
+    .duet-praise{
+      border-radius:22px;
+      border:1px solid #ffd9ea;
+      background:linear-gradient(180deg,#fff8fc,#fffdf8);
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .duet-praise-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .duet-praise-title{
+      font-size:24px;
+      line-height:1.15;
+      font-weight:1100;
+      color:#7a2558;
+    }
+
+    .duet-praise-sub{
+      color:#6b7280;
+      font-size:14px;
+      line-height:1.7;
+      font-weight:900;
+    }
+
+    .duet-stars{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .duet-star{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:42px;
+      height:42px;
+      padding:0 12px;
+      border-radius:999px;
+      border:1px solid #ffe4a3;
+      background:linear-gradient(180deg,#fff7cf,#ffe58f);
+      color:#9a6700;
+      font-size:20px;
+      box-shadow:0 6px 16px rgba(0,0,0,.08);
+    }
+
+    .duet-badges{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .duet-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid #bfe3f2;
+      background:#f8fdff;
+      color:#355d72;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .duet-badge.good{
+      background:#ecfdf3;
+      border-color:#bbf7d0;
+      color:#166534;
+    }
+
+    .duet-badge.warn{
+      background:#fff7ed;
+      border-color:#fed7aa;
+      color:#9a3412;
+    }
+
+    .duet-badge.pink{
+      background:#fff1f7;
+      border-color:#fbcfe8;
+      color:#9d174d;
+    }
+
+    .duet-badge.blue{
+      background:#eef8ff;
+      border-color:#cdeaff;
+      color:#235f86;
+    }
+
+    .duet-badge.gold{
+      background:#fff8db;
+      border-color:#fde68a;
+      color:#a16207;
+    }
+
+    .duet-recap{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .duet-recap-card{
+      border:1px solid #bfe3f2;
+      border-radius:16px;
+      background:#ffffff;
+      padding:12px;
+    }
+
+    .duet-recap-k{
+      font-size:12px;
+      color:#6b7280;
+      font-weight:1000;
+    }
+
+    .duet-recap-v{
+      margin-top:6px;
+      font-size:16px;
+      line-height:1.5;
+      color:#244f6d;
+      font-weight:1000;
+    }
+
+    .duet-result-card.hubv2{
+      position:relative;
+      overflow:hidden;
       background:
         radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
         radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
+        linear-gradient(180deg,#fffef9,#f7fff4 42%, #fff9ef);
+      border:3px solid #bfe3f2;
+      box-shadow:0 28px 80px rgba(86,155,194,.22);
+      transform-origin:center bottom;
+    }
+
+    .duet-result-card.hubv2::before{
+      content:"";
+      position:absolute;
+      left:-28px;
+      top:-28px;
+      width:140px;
+      height:140px;
+      border-radius:999px;
+      background:rgba(127,207,255,.20);
+      filter:blur(6px);
+      pointer-events:none;
+    }
+
+    .duet-result-card.hubv2::after{
+      content:"";
+      position:absolute;
+      right:-26px;
+      bottom:-26px;
+      width:132px;
+      height:132px;
+      border-radius:999px;
+      background:rgba(255,169,201,.18);
+      filter:blur(6px);
+      pointer-events:none;
+    }
+
+    .duet-summary-head{
+      position:relative;
+      z-index:1;
+      display:grid;
+      gap:10px;
+    }
+
+    .duet-summary-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:#eaf8ff;
+      border:2px solid #bfe3f2;
+      color:#5ea8d0;
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .duet-result-card.hubv2 .duet-result-title{
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .duet-result-card.hubv2 .duet-result-sub{
+      color:#7b7a72;
+    }
+
+    .duet-praise.hubv2{
+      border:2px solid #ffd9ea;
+      background:linear-gradient(180deg,#fff8fc,#fffef8);
+      box-shadow:0 10px 24px rgba(86,155,194,.12);
+    }
+
+    .duet-stars.big .duet-star{
+      min-width:46px;
+      height:46px;
+      font-size:22px;
+    }
+
+    .duet-sum-top-card.hubv2{
+      border:2px solid #bfe3f2;
+      background:rgba(255,255,255,.92);
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+    }
+
+    .duet-sum-top-card.hubv2.goal{
+      background:linear-gradient(180deg,#fff7fb,#fffdf6);
+      border-color:#ffd7ea;
+    }
+
+    .duet-sum-stat.hubv2{
+      border:2px solid #bfe3f2;
+      background:#fff;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+    }
+
+    .duet-recap-card.hubv2{
+      border:2px solid #bfe3f2;
+      background:#fff;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+    }
+
+    .duet-result-actions.hubv2{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .duet-result-actions.hubv2 .btn{
+      min-height:48px;
+      border-radius:18px;
+      font-weight:1100;
+    }
+
+    .duet-result-actions.hubv2 .btn.good{
+      background:linear-gradient(180deg,#7ed957,#58c33f);
+      color:#fffef9;
+      border:0;
+    }
+
+    .duet-result-actions.hubv2 .btn.primary{
+      background:linear-gradient(180deg,#ffa9c9,#ff8fc7);
+      color:#6b214e;
+      border:0;
+    }
+
+    .duet-result-actions.hubv2 .btn.ghost{
+      background:#ffffff;
+      color:#6b7280;
+      border:2px solid #bfe3f2;
+    }
+
+    .duet-trophy-strip{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .duet-trophy{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:36px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid #bfe3f2;
+      color:#4d4a42;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 8px 14px rgba(86,155,194,.08);
+    }
+
+    .duet-trophy.good{
+      border-color:#bbf7d0;
+      background:#ecfdf3;
+      color:#166534;
+    }
+
+    .duet-trophy.gold{
+      border-color:#fde68a;
+      background:#fff8db;
+      color:#a16207;
+    }
+
+    .duet-result-card.hubv2.celebrate{
+      animation:duetCardPop .42s ease-out both;
+    }
+
+    .duet-stars.big.celebrate .duet-star{
+      animation:duetStarBounce 1.1s ease-in-out infinite;
+    }
+
+    .duet-stars.big.celebrate .duet-star:nth-child(2){
+      animation-delay:.12s;
+    }
+    .duet-stars.big.celebrate .duet-star:nth-child(3){
+      animation-delay:.24s;
+    }
+
+    .duet-sum-top-score.pair.celebrate{
+      animation:duetPairPulse 1.15s ease-in-out infinite;
+    }
+
+    .duet-confetti{
+      position:absolute;
+      inset:0;
       overflow:hidden;
-    }
-    body{ min-height:100dvh; }
-    #app{ position:relative; width:100vw; height:100dvh; overflow:hidden; isolation:isolate; }
-    #gameMount{ position:absolute; inset:0; z-index:1; overflow:hidden; }
-
-    .shell{
-      position:absolute; inset:0; display:grid; grid-template-rows:auto 1fr auto; gap:12px;
-      padding:calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
-      pointer-events:none; z-index:2;
-    }
-    .top{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start; }
-    .hero-card{
-      max-width:min(780px,100%);
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line); border-radius:28px; box-shadow:var(--shadow);
-      padding:18px 16px; position:relative; overflow:hidden;
-    }
-    .hero-card::before{
-      content:""; position:absolute; left:-36px; top:-36px; width:140px; height:140px;
-      border-radius:999px; background:rgba(255,169,201,.18); filter:blur(8px);
-    }
-    .hero-card::after{
-      content:""; position:absolute; right:-26px; bottom:-26px; width:120px; height:120px;
-      border-radius:999px; background:rgba(205,185,255,.20); filter:blur(8px);
-    }
-    .kicker{
-      position:relative; z-index:1; display:inline-flex; align-items:center; gap:8px;
-      padding:8px 14px; border-radius:999px; background:#fff0f6; border:2px solid var(--line);
-      color:#c45d8a; font-size:13px; font-weight:1000; margin-bottom:10px;
-    }
-    h1{
-      position:relative; z-index:1; margin:0 0 6px; font-size:clamp(28px,5vw,42px);
-      line-height:1.05; font-weight:1000; color:#c45d8a; text-shadow:0 2px 0 #fff;
-    }
-    .sub{
-      position:relative; z-index:1; margin:0; color:var(--muted);
-      line-height:1.7; font-size:14px; font-weight:900; max-width:720px;
-    }
-    .side{ display:grid; gap:8px; align-content:start; }
-    .pill{
-      display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:999px;
-      border:2px solid var(--line); background:#fff; color:#6c6a61; font-size:12px; font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.10); width:max-content; max-width:100%;
+      pointer-events:none;
+      z-index:0;
     }
 
-    .status-card{
-      align-self:end; background:linear-gradient(180deg,#fffef9,#f7fff4); border:3px solid var(--line);
-      border-radius:24px; box-shadow:var(--shadow); padding:12px 14px; color:var(--muted);
-      font-size:13px; font-weight:900; line-height:1.6; pointer-events:auto; max-width:min(920px,100%);
-    }
-    .status-head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-    .status-badge{
-      width:54px; height:54px; border-radius:18px; display:grid; place-items:center;
-      background:#fff; border:2px solid var(--line); box-shadow:0 8px 18px rgba(86,155,194,.10);
-      font-size:28px; flex:0 0 auto;
-    }
-    .status-headtext{ min-width:220px; flex:1 1 280px; }
-    .status-title{ color:#c45d8a; font-size:14px; font-weight:1000; margin-bottom:2px; }
-    .status-sub{ margin-top:0; color:#8b887f; font-size:12px; line-height:1.55; font-weight:900; }
-    .status-minirow{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
-    .status-mini{
-      display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px;
-      background:#fff; border:2px solid var(--line); color:#6d6a62; font-size:12px; font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-    .status-steps{
-      margin-top:10px; display:grid; gap:6px; padding:12px; border-radius:18px;
-      background:rgba(255,255,255,.65); border:2px dashed var(--line); color:#6f6c65;
-      font-size:12px; line-height:1.6; font-weight:1000;
-    }
-    .status-step{ display:flex; gap:8px; align-items:flex-start; }
-    .status-tip{
-      margin-top:10px; padding:10px 12px; border-radius:16px; background:#fff; border:2px solid var(--line);
-      color:#7a776f; font-size:12px; line-height:1.6; font-weight:1000;
-    }
-    .status-tip strong{ color:#4d4a42; }
-    .status-actions{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; pointer-events:auto; }
-    .status-btn{
-      appearance:none; border:0; cursor:pointer; border-radius:16px; padding:10px 14px;
-      font-size:13px; font-weight:1000; transition:.12s ease; box-shadow:0 8px 18px rgba(86,155,194,.12);
-    }
-    .status-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
-    .status-btn:active{ transform:translateY(0); }
-    .status-btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
-    .status-btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
-    .status-card.is-ready{ animation: status-ready-pop .22s ease; }
-    @keyframes status-ready-pop{ 0%{ transform:scale(.985); } 100%{ transform:scale(1); } }
-    .debug{
-      margin-top:8px; padding-top:8px; border-top:1px dashed rgba(191,227,242,.95);
-      white-space:pre-wrap; word-break:break-word; font-size:11px; color:#8a8a82; max-height:140px; overflow:auto;
-    }
-    .error{ color:#b45309; white-space:pre-wrap; word-break:break-word; }
-
-    .summary-overlay{
-      position:absolute; inset:0; z-index:30; display:grid; place-items:center;
-      padding:calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-      background:rgba(255,240,246,.72); backdrop-filter:blur(10px); pointer-events:auto;
-    }
-    .summary-overlay[hidden]{ display:none !important; }
-    .summary-card{
-      width:min(940px,100%); max-height:88dvh; overflow:auto; background:linear-gradient(180deg,#fffef8,#f7fff4);
-      border:3px solid var(--line); border-radius:30px; box-shadow:0 28px 70px rgba(86,155,194,.24); padding:18px; position:relative;
-    }
-    .summary-kicker{
-      display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:999px;
-      background:#fff0f6; border:2px solid var(--line); color:#c45d8a; font-size:13px; font-weight:1000; margin-bottom:10px;
-    }
-    .summary-hero{
-      display:grid; grid-template-columns:96px 1fr; gap:14px; align-items:center;
-      margin-bottom:14px; padding:14px; border-radius:24px; background:#fff;
-      border:2px solid #f4cfe0; box-shadow:0 10px 24px rgba(86,155,194,.10);
-    }
-    .summary-badge{
-      width:96px; height:96px; border-radius:28px; display:grid; place-items:center;
-      background:linear-gradient(180deg,#fff0f6,#fffdf6); border:3px solid #f4cfe0; font-size:42px;
-      box-shadow:0 10px 20px rgba(86,155,194,.10);
-    }
-    .summary-hero-title,.summary-title{ color:#c45d8a; text-shadow:0 2px 0 #fff; font-weight:1000; }
-    .summary-hero-title{ margin:0 0 6px; font-size:clamp(24px,4vw,36px); line-height:1.08; }
-    .summary-hero-sub,.summary-sub{ color:#6d6b63; font-size:14px; line-height:1.7; font-weight:900; }
-    .summary-hero-sub{ margin:0; }
-    .summary-title{ margin:0 0 6px; text-align:center; font-size:clamp(28px,5vw,42px); line-height:1.05; }
-    .summary-sub{ margin:0; text-align:center; }
-    .summary-stars{ display:flex; justify-content:center; gap:10px; margin:12px 0 14px; flex-wrap:wrap; }
-    .summary-star{ font-size:48px; line-height:1; filter:drop-shadow(0 6px 12px rgba(0,0,0,.12)); }
-    .summary-star.off{ opacity:.22; filter:none; }
-    .summary-scorecard{
-      margin:0 auto 14px; width:min(480px,100%); border-radius:24px; background:#fff;
-      border:3px solid #f4cfe0; box-shadow:0 10px 22px rgba(86,155,194,.10); padding:16px 14px; text-align:center;
-    }
-    .summary-scorelabel{ color:#cf7da0; font-size:15px; font-weight:1000; margin-bottom:4px; }
-    .summary-scorevalue{ color:#4d4a42; font-size:clamp(42px,9vw,70px); line-height:1; font-weight:1000; }
-    .summary-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:0; }
-    .summary-item{
-      background:#fff; border:2px solid #f4cfe0; border-radius:22px; box-shadow:0 8px 18px rgba(86,155,194,.08); padding:14px;
-    }
-    .summary-label{ color:#cf7da0; font-size:12px; font-weight:1000; margin-bottom:6px; }
-    .summary-value{ color:#4d4a42; font-size:clamp(20px,3.5vw,32px); font-weight:1000; line-height:1.18; }
-    .summary-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
-    .btn{
-      appearance:none; border:0; cursor:pointer; border-radius:18px; padding:13px 18px;
-      font-weight:1000; font-size:15px; transition:.12s ease; box-shadow:0 10px 20px rgba(86,155,194,.14);
-    }
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
-    .btn:active{ transform:translateY(0); }
-    .btn-primary{ background:linear-gradient(180deg,var(--green),var(--green2)); color:#fffef9; }
-    .btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
-    .btn-warn{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#6d4e00; }
-    .btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
-    .summary-debug{
-      margin-top:14px; padding-top:10px; border-top:1px dashed #f4cfe0; color:#8a887f;
-      font-size:11px; line-height:1.6; font-weight:900; white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto;
+    .duet-confetti-piece{
+      position:absolute;
+      top:-12%;
+      width:12px;
+      height:22px;
+      border-radius:999px;
+      opacity:.9;
+      animation-name:duetConfettiFall;
+      animation-timing-function:linear;
+      animation-fill-mode:forwards;
+      box-shadow:0 4px 10px rgba(0,0,0,.08);
     }
 
-    @media (max-width:780px){
-      .top{ align-items:stretch; }
-      .side{ width:100%; }
-      .pill{ width:100%; justify-content:center; }
-      .summary-grid{ grid-template-columns:1fr; }
-      .summary-actions .btn,
-      .status-actions .status-btn{ flex:1 1 100%; }
+    .duet-confetti-piece.pink{ background:#ffa9c9; }
+    .duet-confetti-piece.blue{ background:#7fcfff; }
+    .duet-confetti-piece.green{ background:#7ed957; }
+    .duet-confetti-piece.gold{ background:#ffd45c; }
+    .duet-confetti-piece.violet{ background:#cdb9ff; }
+
+    @keyframes duetCardPop{
+      0%{
+        opacity:0;
+        transform:translateY(12px) scale(.985);
+      }
+      100%{
+        opacity:1;
+        transform:translateY(0) scale(1);
+      }
+    }
+
+    @keyframes duetStarBounce{
+      0%,100%{ transform:translateY(0) rotate(0deg); }
+      25%{ transform:translateY(-4px) rotate(-6deg); }
+      50%{ transform:translateY(-8px) rotate(0deg); }
+      75%{ transform:translateY(-4px) rotate(6deg); }
+    }
+
+    @keyframes duetPairPulse{
+      0%,100%{ transform:scale(1); text-shadow:none; }
+      50%{ transform:scale(1.07); text-shadow:0 0 0 rgba(0,0,0,0); }
+    }
+
+    @keyframes duetConfettiFall{
+      0%{
+        transform:translate3d(0,-10%,0) rotate(0deg);
+        opacity:0;
+      }
+      8%{
+        opacity:1;
+      }
+      100%{
+        transform:translate3d(var(--dx, 0px),112vh,0) rotate(var(--rot, 540deg));
+        opacity:0;
+      }
+    }
+
+    @media (max-width:980px){
+      html,body{
+        min-height:100%;
+        height:auto;
+      }
+
+      body{
+        overflow:auto;
+      }
+
+      .page{
+        min-height:auto;
+        padding-bottom:calc(16px + var(--sab));
+      }
+
+      .run-shell{
+        grid-template-columns:1fr;
+        min-height:auto;
+      }
+
+      .duet-hud{
+        order:2;
+        padding:12px;
+        gap:10px;
+      }
+
+      .stage-wrap{
+        order:1;
+        min-height:unset;
+      }
+
+      .stage-inner,
+      #duetGameStage{
+        min-height:54dvh;
+      }
+
+      .topbar{
+        gap:12px;
+      }
+
+      .brand{
+        width:100%;
+      }
+
+      .top-actions{
+        width:100%;
+        justify-content:space-between;
+      }
+
+      .top-actions .btn{
+        flex:1 1 0;
+      }
+
+      .duet-score-value{
+        font-size:34px;
+      }
+
+      .duet-stats{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:8px;
+      }
+
+      .duet-stat,
+      .duet-mini{
+        padding:10px;
+      }
+
+      .duet-panel{
+        padding:10px;
+      }
+
+      .stage-wrap{
+        border-radius:20px;
+      }
+
+      .stage-head{
+        font-size:13px;
+        padding:12px 14px;
+      }
+    }
+
+    @media (max-width:760px){
+      .duet-result-mount{
+        padding:10px;
+        align-items:flex-end;
+      }
+      .duet-result-card{
+        border-radius:22px;
+        padding:12px;
+      }
+      .duet-result-title{
+        font-size:20px;
+      }
+      .duet-result-sub{
+        font-size:12px;
+      }
+      .duet-sum-top{
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+      .duet-sum-top-card{
+        border-radius:18px;
+        padding:12px;
+      }
+      .duet-sum-top-score{
+        font-size:28px;
+      }
+      .duet-sum-top-score.pair{
+        font-size:32px;
+      }
+      .duet-sum-stats{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:10px;
+      }
+      .duet-recap{
+        grid-template-columns:1fr;
+      }
+      .duet-stars.big .duet-star{
+        min-width:40px;
+        height:40px;
+        font-size:18px;
+      }
+      .duet-result-actions.hubv2{
+        grid-template-columns:1fr 1fr;
+      }
+      .duet-result-actions.hubv2 .btn{
+        width:100%;
+        min-height:50px;
+        font-size:14px;
+      }
+      .duet-sum-top-label{
+        font-size:13px;
+      }
+      .duet-sum-top-sub{
+        font-size:11px;
+        line-height:1.6;
+      }
+      .duet-sum-status{
+        width:100%;
+      }
+      .duet-praise{
+        border-radius:18px;
+        padding:12px;
+      }
+      .duet-praise-title{
+        font-size:20px;
+      }
+      .duet-praise-sub{
+        font-size:13px;
+        line-height:1.6;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .duet-result-card.hubv2.celebrate,
+      .duet-stars.big.celebrate .duet-star,
+      .duet-sum-top-score.pair.celebrate,
+      .duet-confetti-piece{
+        animation:none !important;
+      }
     }
   </style>
 </head>
 <body>
-  <div id="app">
-    <div id="gameMount"></div>
-    <div class="shell">
-      <div class="top">
-        <div class="hero-card">
-          <div class="kicker">🫶 GOODJUNK DUET</div>
-          <h1>Buddy Food Mission!</h1>
-          <p class="sub">
-            เล่นเป็นคู่ ช่วยกันเก็บอาหารดีให้ต่อเนื่อง ทำคะแนนร่วมกัน และพาคู่ของเราไปให้ได้ไกลที่สุด
-          </p>
-        </div>
-        <div class="side">
-          <div class="pill" id="pillRoom">ROOM • -</div>
-          <div class="pill" id="pillPlayer">HERO • -</div>
-          <div class="pill" id="pillRole">ROLE • player</div>
-          <div class="pill" id="pillDiff">LEVEL • normal</div>
-          <div class="pill" id="pillTime">TIME • 150</div>
+  <div class="page">
+    <div class="topbar">
+      <div class="brand">
+        <div style="font-size:20px;">👯</div>
+        <div>
+          <div class="brand-title">GoodJunk • เล่นคู่</div>
+          <div class="brand-sub">ช่วยกันแตะอาหารดี ทำคะแนนคู่ไปด้วยกัน</div>
         </div>
       </div>
 
-      <div></div>
-
-      <div class="status-card" id="engineStatusCard">
-        <div class="status-head">
-          <div class="status-badge" id="engineStatusBadge">🫶</div>
-          <div class="status-headtext">
-            <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
-            <div id="engineStatusText">กำลังโหลด duet engine</div>
-            <div class="status-sub" id="engineStatusSub">เกมจะเริ่มเองเมื่อโหลดพร้อม รอบนี้เล่นเป็นคู่ ช่วยกันเก็บอาหารดีและดูแลคะแนนของทีม</div>
-          </div>
-        </div>
-
-        <div class="status-minirow">
-          <div class="status-mini" id="engineMiniMode">MODE • DUET</div>
-          <div class="status-mini" id="engineMiniRoom">ROOM • -</div>
-          <div class="status-mini" id="engineMiniPlayer">HERO • -</div>
-        </div>
-
-        <div class="status-steps" id="engineSteps">
-          <div class="status-step"><span>1️⃣</span><span>รอหน้าเกมโหลดให้พร้อมก่อน</span></div>
-          <div class="status-step"><span>2️⃣</span><span>ช่วยกันแตะเก็บอาหารดีให้ต่อเนื่อง</span></div>
-          <div class="status-step"><span>3️⃣</span><span>ดูคะแนนรวมของคู่เราและพาไปให้ไกลที่สุด</span></div>
-        </div>
-
-        <div class="status-tip" id="engineTip"><strong>Tip:</strong> โหมดนี้เน้นเล่นเป็นคู่ ช่วยกันทำคะแนนให้ลื่นและต่อเนื่อง</div>
-
-        <div class="status-actions">
-          <button class="status-btn status-btn-copy" id="btnQuickCopyRoom" type="button">คัดลอกห้อง</button>
-          <button class="status-btn status-btn-ghost" id="btnQuickBackHub" type="button">กลับ HUB</button>
-        </div>
-
-        <div class="debug" id="engineDebugInfo"></div>
+      <div class="top-actions">
+        <a class="btn ghost" id="btnBackLauncher" href="../goodjunk-launcher.html">← เลือกโหมด</a>
+        <a class="btn primary" id="btnGoHub" href="../hub.html">🏠 หน้าหลัก</a>
       </div>
     </div>
 
-    <div class="summary-overlay" id="summaryOverlay" hidden>
-      <div class="summary-card">
-        <div class="summary-kicker">🫶 GOODJUNK DUET SUMMARY</div>
+    <div class="run-shell">
+      <div id="duetHud" class="duet-hud">
+        <div class="duet-hud-toolbar">
+          <div class="coach-badge" id="duetCoachBadge">🤖 AI Coach</div>
+          <button id="duetHudToggle" class="duet-hud-toggle" type="button">⋯</button>
+        </div>
 
-        <div class="summary-hero">
-          <div class="summary-badge" id="summaryBadge">🫶</div>
-          <div>
-            <h3 class="summary-hero-title" id="summaryHeroTitle">Duet Hero!</h3>
-            <p class="summary-hero-sub" id="summaryHeroSub">เธอกับคู่เล่นช่วยกันเก็บอาหารดีได้ดีมาก</p>
+        <div class="duet-top">
+          <div class="duet-pill" id="duetModePill">เล่นคู่</div>
+          <div class="duet-pill" id="duetRoomPill">ห้อง -</div>
+        </div>
+
+        <div class="duet-score">
+          <div class="duet-score-label">คะแนน</div>
+          <div class="duet-score-value" id="duetScoreValue">0</div>
+        </div>
+
+        <div class="duet-stats">
+          <div class="duet-stat">
+            <div class="duet-stat-k">เวลา</div>
+            <div class="duet-stat-v" id="duetTimeValue">0:00</div>
+          </div>
+          <div class="duet-stat">
+            <div class="duet-stat-k">พลาด</div>
+            <div class="duet-stat-v" id="duetMissValue">0</div>
+          </div>
+          <div class="duet-stat">
+            <div class="duet-stat-k">ต่อเนื่อง</div>
+            <div class="duet-stat-v" id="duetStreakValue">0</div>
           </div>
         </div>
 
-        <h2 class="summary-title" id="summaryTitle">Great Job!</h2>
-        <p class="summary-sub" id="summarySub">จบรอบแล้ว มาดูผลการเล่นเป็นคู่กัน</p>
+        <div class="duet-panel">
+          <div class="duet-item">
+            <div class="duet-item-icon" id="duetItemIcon">
+              <div class="emoji" id="duetItemEmoji">🍉</div>
+            </div>
+            <div class="duet-item-meta">
+              <div class="duet-item-title" id="duetItemTitle">อาหารดี</div>
+              <div class="duet-item-sub" id="duetItemSub">แตะอาหารดีให้ไว ช่วยกันทำคะแนน</div>
+            </div>
+          </div>
 
-        <div class="summary-stars" id="summaryStars"></div>
+          <div class="duet-mini-stats">
+            <div class="duet-mini">
+              <div class="duet-mini-k">เก็บอาหารดี</div>
+              <div class="duet-mini-v" id="duetGoodHitValue">0</div>
+            </div>
+            <div class="duet-mini">
+              <div class="duet-mini-k">โดน Junk</div>
+              <div class="duet-mini-v" id="duetJunkHitValue">0</div>
+            </div>
+            <div class="duet-mini">
+              <div class="duet-mini-k">พลาดอาหารดี</div>
+              <div class="duet-mini-v" id="duetGoodMissValue">0</div>
+            </div>
+          </div>
 
-        <div class="summary-scorecard">
-          <div class="summary-scorelabel">Team Score</div>
-          <div class="summary-scorevalue" id="summaryScoreValue">0</div>
+          <div class="duet-tip" id="duetTipText">ช่วยกันแตะอาหารดีให้ได้มากที่สุด</div>
+
+          <div class="duet-goal">
+            <div class="duet-goal-head">
+              <div class="duet-goal-title">เป้าหมายคู่</div>
+              <div class="duet-goal-value" id="duetPairGoalValue">360</div>
+            </div>
+
+            <div class="duet-bar">
+              <div class="duet-bar-fill" id="duetPairGoalFill"></div>
+            </div>
+
+            <div class="duet-bar-sub">
+              <div class="duet-bar-sub-fill" id="duetPairGoalSubFill"></div>
+            </div>
+          </div>
         </div>
-
-        <div class="summary-grid" id="summaryGrid"></div>
-
-        <div class="summary-actions">
-          <button class="btn btn-primary" id="btnReplay" type="button">เล่นใหม่</button>
-          <button class="btn btn-copy" id="btnCopyRoom" type="button">คัดลอกห้อง</button>
-          <button class="btn btn-warn" id="btnExport" type="button">Export JSON</button>
-          <button class="btn btn-ghost" id="btnBackHub" type="button">กลับ HUB</button>
-        </div>
-
-        <div class="summary-debug" id="summaryDebug"></div>
       </div>
+
+      <section class="stage-wrap">
+        <div class="stage-head">สนามเล่นคู่</div>
+        <div class="stage-inner">
+          <div class="stage-cloud c1"></div>
+          <div class="stage-cloud c2"></div>
+          <div class="stage-cloud c3"></div>
+          <div class="stage-ground"></div>
+
+          <div id="duetGameStage"></div>
+
+          <div id="duetCountdownOverlay" class="countdown-overlay">
+            <div class="countdown-card">
+              <div class="countdown-badge">พร้อมแล้วทั้งคู่</div>
+              <div id="duetCountdownNum" class="countdown-num">3</div>
+              <div id="duetCountdownText" class="countdown-text">เตรียมตัวแตะอาหารดีให้ได้มากที่สุด</div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 
-  <script src="../js/hha-cloud-logger.js"></script>
+  <div id="duetResultMount" class="duet-result-mount" hidden></div>
+
   <script>
-    (function(){
-      const q = new URLSearchParams(location.search);
-      const MODE = 'duet';
-      const MODE_LABEL = 'Duet';
-      const DEFAULT_ENGINE_CANDIDATES = [
-        './goodjunk-duet.safe.js','./goodjunk-duet.js','./goodjunk-duet-run.safe.js','./goodjunk-duet-run.js',
-        './duet.safe.js','./duet.js','./js/goodjunk-duet.safe.js','./js/goodjunk-duet.js',
-        './js/goodjunk-duet-run.safe.js','./js/goodjunk-duet-run.js','./js/duet.safe.js','./js/duet.js'
-      ];
+    (function duetRunShellBoot(){
+      const qs = new URLSearchParams(location.search);
+      const hub = qs.get('hub') || '../hub.html';
 
-      function qs(key, fb=''){ return q.get(key) ?? fb; }
-      function clean(v){ return String(v || '').trim(); }
-      function dedupe(arr){ const out=[]; const seen=new Set(); for(const item of arr||[]){ const s=clean(item); if(!s||seen.has(s)) continue; seen.add(s); out.push(s);} return out; }
-      function parseList(text){ return String(text||'').split(',').map(s=>clean(s)).filter(Boolean); }
-      function resolveHub(){ try{return qs('hub')||new URL('../hub.html',location.href).toString();}catch{return '../hub.html';} }
-      function safeJson(v){ try{return JSON.stringify(v,null,2);}catch{return '{}';} }
-      function saveText(name,text,type='application/json'){ const blob=new Blob([text],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
-      function buildReplayUrl(){ const url=new URL(location.href); url.searchParams.set('seed',String(Date.now())); return url.toString(); }
-      function copyText(text){ const t=String(text||'').trim(); if(!t) return Promise.reject(new Error('empty')); return navigator.clipboard.writeText(t); }
+      const btnGoHub = document.getElementById('btnGoHub');
+      const btnBackLauncher = document.getElementById('btnBackLauncher');
 
-      window.HHA_CLOUD_ENDPOINT = clean(qs('api') || window.HHA_CLOUD_ENDPOINT || '');
-      const runCtx = {
-        pid: qs('pid','anon'),
-        name: qs('name',''),
-        studyId: qs('studyId',''),
-        roomId: qs('roomId') || qs('room') || '',
-        role: qs('role','player'),
-        mode: MODE,
-        diff: qs('diff','normal'),
-        time: qs('time','150'),
-        seed: qs('seed',String(Date.now())),
-        startAt:0,
-        hub: resolveHub(),
-        view: qs('view','mobile'),
-        run: qs('run','play'),
-        gameId: qs('gameId','goodjunk')
-      };
-      window.__GJ_RUN_CTX__ = runCtx;
-      window.__GJ_MULTI_RUN_CTX__ = runCtx;
+      if (btnGoHub) btnGoHub.href = hub;
 
-      function deriveHeroAvatarFromName(name){ const text=String(name||'').trim(); if(!text) return clean(qs('heroAvatar')) || '🙂'; const parts=text.split(/\s+/).filter(Boolean); const key=parts[parts.length-1]||parts[0]||''; const byWord={Apple:'🍎',Carrot:'🥕',Bunny:'🐰',Panda:'🐼',Star:'⭐',Berry:'🍓',Tiger:'🐯',Cloud:'☁️',Rocket:'🚀',Kitty:'🐱',Buddy:'🧡',Hero:'🦸'}; return clean(qs('heroAvatar')) || byWord[key] || '🙂';}
-      function readHeroMeta(){ const displayName=String(runCtx.name||runCtx.pid||'Hero').trim()||'Hero'; return { name:displayName, avatar:clean(qs('heroAvatar'))||deriveHeroAvatarFromName(displayName), soft:clean(qs('heroSoft'))||'#eef8ff', border:clean(qs('heroBorder'))||'#bfe3f2', text:clean(qs('heroText'))||'#4d4a42' }; }
-      const heroMeta = readHeroMeta();
-      function applyHeroBadgeTheme(el){ if(!el) return; el.textContent=heroMeta.avatar; el.style.borderColor=heroMeta.border; el.style.background=`linear-gradient(180deg,#fffdf7,${heroMeta.soft})`; el.style.color=heroMeta.text; }
-      function applyHeroPillTheme(el,text){ if(!el) return; el.textContent=text; el.style.borderColor=heroMeta.border; el.style.background=heroMeta.soft; el.style.color=heroMeta.text; }
-      function applyHeroIdentity(){ const heroText=`HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`; applyHeroPillTheme($('pillPlayer'),heroText); applyHeroPillTheme($('engineMiniPlayer'),heroText); applyHeroBadgeTheme($('engineStatusBadge')); }
-      function applySummaryIdentity(){ applyHeroBadgeTheme($('summaryBadge')); }
-      function buildHeroIdentityPayload(){ return { heroName:heroMeta.name, heroAvatar:heroMeta.avatar, heroSoft:heroMeta.soft, heroBorder:heroMeta.border, heroText:heroMeta.text, heroDisplay:`${heroMeta.avatar} ${heroMeta.name}`.trim() }; }
-      function enrichSummaryWithHero(summary){ const hero=buildHeroIdentityPayload(); return { ...summary, ...hero, identity:hero }; }
-      function emitEnrichedSummaryEvents(modeKey,enrichedSummary){ try{ window.dispatchEvent(new CustomEvent(`gj:${modeKey}-summary-enriched`,{detail:enrichedSummary})); }catch{} try{ window.dispatchEvent(new CustomEvent('gj:summary-enriched',{detail:enrichedSummary})); }catch{} try{ window.dispatchEvent(new CustomEvent('hha:summary-enriched',{detail:enrichedSummary})); }catch{} }
-
-      const ENGINE_CANDIDATES = dedupe([clean(qs('engine')),...parseList(qs('engineCandidates')),...DEFAULT_ENGINE_CANDIDATES]);
-      const SUMMARY_KEY = 'GJ_DUET_LAST_SUMMARY_' + (runCtx.roomId || 'noroom') + '_' + (runCtx.pid || 'anon');
-      const $ = (id) => document.getElementById(id);
-
-      function setMiniInfo(){ if($('engineMiniRoom')) $('engineMiniRoom').textContent=`ROOM • ${runCtx.roomId || '-'}`; if($('engineMiniMode')) $('engineMiniMode').textContent=`MODE • ${MODE.toUpperCase()}`; if($('engineMiniPlayer')) $('engineMiniPlayer').textContent=`HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`; }
-      function wireQuickActions(){
-        $('btnQuickCopyRoom')?.addEventListener('click',()=>{ const room=String(runCtx.roomId||'').trim(); if(!room){ if($('engineTip')) $('engineTip').innerHTML='<strong>Tip:</strong> ตอนนี้ยังไม่มีรหัสห้องให้คัดลอก'; return; } navigator.clipboard.writeText(room).then(()=>{ if($('engineTip')) $('engineTip').innerHTML='<strong>คัดลอกแล้ว:</strong> ส่งรหัสห้องนี้ให้เพื่อนได้เลย'; }).catch(()=>{ if($('engineTip')) $('engineTip').innerHTML='<strong>ยังคัดลอกไม่ได้:</strong> ลองคัดลอกจากข้อความ ROOM ด้านบนแทน'; }); });
-        $('btnQuickBackHub')?.addEventListener('click',()=>{ location.href=runCtx.hub; });
-      }
-
-      $('pillRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
-      $('pillRole').textContent = `ROLE • ${runCtx.role || 'player'}`;
-      $('pillDiff').textContent = `LEVEL • ${runCtx.diff}`;
-      $('pillTime').textContent = `TIME • ${runCtx.time}`;
-      applyHeroIdentity();
-      setMiniInfo();
-      wireQuickActions();
-
-      $('engineDebugInfo').textContent =
-        '[MODE] ' + MODE + '\n' +
-        '[PID] ' + (runCtx.pid || '-') + '\n' +
-        '[ROOM] ' + (runCtx.roomId || '-') + '\n' +
-        '[API] ' + (window.HHA_CLOUD_ENDPOINT || '-') + '\n' +
-        '[HERO] ' + heroMeta.avatar + ' ' + heroMeta.name + '\n\n' +
-        '[CANDIDATES]\n' + ENGINE_CANDIDATES.join('\n');
-
-      function setStatus(title,text,isError=false){ $('engineStatusTitle').textContent=title; $('engineStatusText').textContent=text; $('engineStatusText').className=isError?'error':''; }
-      function setDebug(text){ $('engineDebugInfo').textContent=text; }
-      function setFriendlyReadyState(src,type){
-        const card=$('engineStatusCard'); if(card) card.classList.add('is-ready');
-        setStatus('พร้อมแล้ว!', `${MODE_LABEL} engine loaded: ${src} (${type})`);
-        if($('engineStatusSub')) $('engineStatusSub').textContent='เข้าเกมสำเร็จแล้ว อีกครู่หน้าช่วยเล่นจะหายไปและเกมจะเริ่มเอง';
-        if($('engineSteps')) $('engineSteps').innerHTML=`<div class="status-step"><span>✅</span><span>โหลดหน้าเกมสำเร็จแล้ว</span></div><div class="status-step"><span>🎮</span><span>เตรียมแตะเก็บอาหารดีเมื่อเกมเริ่ม</span></div><div class="status-step"><span>🌟</span><span>ขอให้สนุกกับรอบนี้นะ</span></div>`;
-        if($('engineTip')) $('engineTip').innerHTML='<strong>พร้อมแล้ว:</strong> อีกครู่หน้าช่วยเล่นนี้จะซ่อนลงอัตโนมัติ';
-      }
-      function hideStatusCardSoon(){ const card=$('engineStatusCard'); if(!card) return; setTimeout(()=>{ card.style.display='none'; },1200); }
-      function loadScriptWithType(src,type){ return new Promise((resolve,reject)=>{ const s=document.createElement('script'); if(type==='module') s.type='module'; s.src=new URL(src,location.href).toString(); s.async=true; s.onload=()=>resolve({src,type}); s.onerror=()=>reject(new Error(`โหลด script ไม่สำเร็จ: ${src} [${type}]`)); document.body.appendChild(s); }); }
-      async function tryLoad(src){ try{ setStatus('กำลังโหลดเกม…',`ลองโหลด ${src} (classic)`); return await loadScriptWithType(src,'classic'); } catch(e1){ try{ setStatus('กำลังโหลดเกม…',`ลองโหลด ${src} (module)`); return await loadScriptWithType(src,'module'); } catch(e2){ throw new Error(`${src}\n- classic: ${String(e1&&e1.message?e1.message:e1)}\n- module: ${String(e2&&e2.message?e2.message:e2)}`); } } }
-      async function loadEngine(){
-        if(!ENGINE_CANDIDATES.length){ setStatus('ไม่พบ candidate','ไม่มี candidate engine ให้ลองโหลด',true); return; }
-        const errors=[];
-        for(const src of ENGINE_CANDIDATES){
-          try{
-            const result=await tryLoad(src);
-            window.__GJ_MULTI_ENGINE_INFO__={ mode:MODE, label:MODE_LABEL, src:result.src, type:result.type, loadedAt:Date.now() };
-            setFriendlyReadyState(result.src,result.type);
-            applyHeroIdentity();
-            setDebug('[SUCCESS]\n'+'src: '+result.src+'\n'+'type: '+result.type+'\n'+'room: '+(runCtx.roomId||'-')+'\n'+'player: '+heroMeta.avatar+' '+(runCtx.name||runCtx.pid||'-')+'\n'+'role: '+(runCtx.role||'player'));
-            console.log('[GJ-DUET-RUN] loaded engine',result.src,runCtx);
-            hideStatusCardSoon();
-            return;
-          }catch(err){
-            const msg=String(err&&err.message?err.message:err);
-            errors.push(msg);
-            console.warn('[GJ-DUET-RUN] candidate failed',src,err);
-          }
-        }
-        setStatus('ไม่พบไฟล์ engine','หา duet engine ไม่เจอ\nลองแก้ ?engine=... หรือ ?engineCandidates=... ให้ตรงกับไฟล์จริง',true);
-        setDebug('[FAILED CANDIDATES]\n'+ENGINE_CANDIDATES.join('\n')+'\n\n[ERRORS]\n'+errors.join('\n\n'));
-      }
-
-      function normalizeSummary(detail){
-        const src=(detail&&typeof detail==='object'&&detail.summary&&typeof detail.summary==='object') ? detail.summary : (detail||{});
-        const score=src.score ?? src.totalScore ?? src.playerScore ?? src.myScore ?? '';
-        const partnerScore=src.partnerScore ?? src.duetPartnerScore ?? src.otherScore ?? src.friendScore ?? '';
-        const teamScore=src.teamScore ?? src.totalTeamScore ?? src.roomScore ?? src.duetScore ?? '';
-        const teamGoal=src.teamGoal ?? src.goal ?? src.targetScore ?? '';
-        const miss=src.miss ?? src.misses ?? src.totalMiss ?? '';
-        const goodHit=src.goodHit ?? src.hitsGood ?? src.goodHits ?? src.correct ?? '';
-        const junkHit=src.junkHit ?? src.hitsBad ?? src.junkHits ?? src.wrong ?? '';
-        const streak=src.bestStreak ?? src.streak ?? src.comboMax ?? '';
-        const result=src.result ?? src.outcome ?? src.status ?? (teamScore !== '' ? 'จบรอบแล้ว' : 'สรุปผลแล้ว');
-        const reason=src.reason ?? src.finishReason ?? src.endReason ?? '';
-        const players=src.players ?? src.playerCount ?? src.totalPlayers ?? 2;
-        const duration=src.duration ?? src.durationSec ?? src.timeUsed ?? '';
-
-        return enrichSummaryWithHero({
-          mode: MODE,
-          label: MODE_LABEL,
-          roomId: runCtx.roomId,
-          pid: runCtx.pid,
-          name: runCtx.name,
-          role: runCtx.role,
-          diff: runCtx.diff,
-          time: runCtx.time,
-          result,
-          score,
-          partnerScore,
-          teamScore,
-          teamGoal,
-          players,
-          miss,
-          goodHit,
-          junkHit,
-          bestStreak: streak,
-          duration,
-          reason,
-          raw: src,
-          receivedAt: Date.now()
+      if (btnBackLauncher) {
+        const u = new URL('../goodjunk-launcher.html', location.href);
+        [
+          'pid','name','nick','hub','run','diff','time','studyId','phase',
+          'conditionGroup','sessionOrder','blockLabel','siteCode',
+          'schoolYear','semester','view','api','log','debug','ai','zone','theme'
+        ].forEach(k=>{
+          const v = qs.get(k);
+          if (v != null && v !== '') u.searchParams.set(k, v);
         });
+        btnBackLauncher.href = u.toString();
       }
-
-      function addSummaryItem(label,value){ if(value===''||value===null||value===undefined) return ''; return `<div class="summary-item"><div class="summary-label">${label}</div><div class="summary-value">${String(value)}</div></div>`; }
-      function renderSummaryStars(n){ const count=Math.max(0,Math.min(3,Number(n||0))); return [1,2,3].map(i=>`<span class="summary-star ${i<=count?'':'off'}">⭐</span>`).join(''); }
-      function duetStarCount(summary){ if(summary.teamGoal!=='' && summary.teamScore!=='' && Number(summary.teamScore)>=Number(summary.teamGoal)) return 3; if(Number(summary.teamScore||0)>0) return 2; return 1; }
-      function duetHero(summary){
-        if(summary.teamGoal!=='' && summary.teamScore!=='' && Number(summary.teamScore)>=Number(summary.teamGoal)){
-          return { badge:'💖', heroTitle:'Duet Goal Clear!', heroSub:'เธอกับคู่เล่นช่วยกันทำเป้าหมายได้สำเร็จแล้ว', title:'Awesome Teamwork!' };
-        }
-        return { badge:'🫶', heroTitle:'Duet Hero!', heroSub:'เธอกับคู่เล่นช่วยกันเก็บอาหารดีได้ดีมาก', title:'Great Job!' };
-      }
-      function summarySubText(summary){ const parts=[]; if(summary.roomId) parts.push('ห้อง '+summary.roomId); if(summary.result) parts.push(summary.result); if(summary.players!=='') parts.push('ผู้เล่น '+summary.players); if(summary.reason) parts.push(summary.reason); return parts.join(' • ') || 'จบรอบแล้ว มาดูผลการเล่นเป็นคู่กัน'; }
-
-      function showSummary(detail){
-        const summary=normalizeSummary(detail);
-        const hero=duetHero(summary);
-        const stars=duetStarCount(summary);
-
-        try{ localStorage.setItem(SUMMARY_KEY,JSON.stringify(summary)); }catch{}
-
-        $('summaryBadge').textContent = hero.badge;
-        applySummaryIdentity();
-        $('summaryHeroTitle').textContent = hero.heroTitle;
-        $('summaryHeroSub').textContent = `${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'} • ${hero.heroSub}`;
-        $('summaryTitle').textContent = hero.title;
-        $('summarySub').textContent = summarySubText(summary);
-        $('summaryStars').innerHTML = renderSummaryStars(stars);
-        $('summaryScoreValue').textContent = String(summary.teamScore ?? summary.score ?? 0);
-
-        $('summaryGrid').innerHTML =
-          addSummaryItem('ผลลัพธ์', summary.result) +
-          addSummaryItem('ฮีโร่', summary.heroDisplay) +
-          addSummaryItem('คะแนนเรา', summary.score) +
-          addSummaryItem('คะแนนคู่เล่น', summary.partnerScore) +
-          addSummaryItem('คะแนนรวม', summary.teamScore) +
-          addSummaryItem('เป้าหมายทีม', summary.teamGoal) +
-          addSummaryItem('ผู้เล่นทั้งหมด', summary.players) +
-          addSummaryItem('Good Hit', summary.goodHit) +
-          addSummaryItem('Junk Hit', summary.junkHit) +
-          addSummaryItem('Miss', summary.miss) +
-          addSummaryItem('Best Streak', summary.bestStreak) +
-          addSummaryItem('เวลาใช้', summary.duration) +
-          addSummaryItem('ห้อง', summary.roomId || '-') +
-          addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-');
-
-        $('summaryDebug').textContent =
-          '[DUET SUMMARY]\n' +
-          'hero=' + (summary.heroDisplay || '-') + '\n' +
-          'teamScore=' + (summary.teamScore || 0) + '\n' +
-          'partner=' + (summary.partnerScore || 0) + '\n' +
-          'teamGoal=' + (summary.teamGoal || '-') + '\n\n' +
-          safeJson(summary);
-
-        $('summaryOverlay').hidden = false;
-        window.__GJ_DUET_LAST_SUMMARY__ = summary;
-        emitEnrichedSummaryEvents('duet', summary);
-      }
-
-      function hideSummary(){ $('summaryOverlay').hidden=true; }
-      function handleSummaryEvent(evtName,detail){ console.log('[GJ-DUET-SUMMARY]',evtName,detail); showSummary(detail||{}); }
-
-      $('btnReplay').addEventListener('click',()=>{ location.href=buildReplayUrl(); });
-      $('btnCopyRoom').addEventListener('click',()=>{ copyText(runCtx.roomId||'').then(()=>{ $('summarySub').textContent='คัดลอก room code แล้ว'; }).catch(()=>{ $('summarySub').textContent='คัดลอก room code ไม่สำเร็จ'; }); });
-      $('btnExport').addEventListener('click',()=>{ const payload=window.__GJ_DUET_LAST_SUMMARY__||{}; saveText(`goodjunk-duet-summary-${clean(runCtx.roomId||'room')}-${Date.now()}.json`,safeJson(payload)); });
-      $('btnBackHub').addEventListener('click',()=>{ location.href=runCtx.hub; });
-
-      window.__GJ_SHOW_DUET_SUMMARY__ = showSummary;
-      window.__GJ_HIDE_DUET_SUMMARY__ = hideSummary;
-      window.__GJ_DUET_SUMMARY_BRIDGE__ = { show:showSummary, hide:hideSummary };
-
-      ['gj:duet-summary','gj:summary','gj:match-summary','gj:session-end','hha:summary','hha:session-summary','hha:match-summary'].forEach((eventName)=>{
-        window.addEventListener(eventName,(evt)=>{ handleSummaryEvent(eventName,evt&&evt.detail?evt.detail:{}); });
-      });
-
-      window.addEventListener('message',(evt)=>{
-        const data=evt&&evt.data?evt.data:null;
-        if(!data||typeof data!=='object') return;
-        if(data.type==='gj:duet-summary'||data.type==='gj:summary'||data.type==='hha:summary'){
-          handleSummaryEvent(data.type,data.detail||data.summary||data);
-        }
-      });
-
-      if(qs('showLastSummary')==='1'){
-        try{ const raw=localStorage.getItem(SUMMARY_KEY); if(raw) showSummary(JSON.parse(raw)); }catch{}
-      }
-
-      loadEngine();
     })();
   </script>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="../firebase-config.js"></script>
+  <script src="../common/hha-multiplayer.js"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260327-duet-celebration-v12"></script>
 </body>
 </html>
