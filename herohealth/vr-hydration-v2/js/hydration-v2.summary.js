@@ -1,86 +1,197 @@
-import { HYDRATION_V2_CONFIG } from './hydration-v2.config.js';
+// === /herohealth/vr-hydration-v2/js/hydration-v2.summary.js ===
+// Hydration V2 Summary / Navigation Helpers
+// FULL PATCH v20260327-HYDRATION-V2-SUMMARY-ABC
 
-function computeStars(accuracy) {
-  if (accuracy >= 90) return 3;
-  if (accuracy >= 70) return 2;
-  if (accuracy >= 1) return 1;
-  return 0;
+const FALLBACK_HUB_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+
+function clamp(n, min, max) {
+  n = Number(n);
+  if (!Number.isFinite(n)) n = min;
+  return Math.max(min, Math.min(max, n));
 }
 
-export function buildHydrationV2Summary(result, ctx) {
-  const answerAccuracy = result.totalRounds ? Math.round((result.answerCorrect / result.totalRounds) * 100) : 0;
-  const reasonAccuracy = result.totalRounds ? Math.round((result.reasonCorrect / result.totalRounds) * 100) : 0;
-  const stars = computeStars(answerAccuracy);
+function toInt(n, fallback = 0) {
+  n = Number(n);
+  return Number.isFinite(n) ? Math.round(n) : fallback;
+}
 
-  let lead = HYDRATION_V2_CONFIG.COPY.finishLow;
-  if (answerAccuracy >= 90) lead = HYDRATION_V2_CONFIG.COPY.finishGood;
-  else if (answerAccuracy >= 70) lead = HYDRATION_V2_CONFIG.COPY.finishMid;
+function safeArray(v, fallback = []) {
+  return Array.isArray(v) ? v : fallback;
+}
 
-  let tip = 'ลองคิดต่อว่าเวลาอากาศร้อนหรือหลังออกแรง เราควรเติมน้ำอย่างไร';
-  if (answerAccuracy >= 90 && reasonAccuracy >= 80) {
-    tip = 'ยอดเยี่ยมมาก! วันนี้ทั้งเลือกได้เหมาะและให้เหตุผลได้ดีมาก';
-  } else if (answerAccuracy >= 70) {
-    tip = 'ทำได้ดีมาก ลองฝึกอธิบายเหตุผลให้ชัดขึ้นอีกนิดนะ';
+function safeObject(v, fallback = {}) {
+  return v && typeof v === 'object' && !Array.isArray(v) ? v : fallback;
+}
+
+function resolveHub(ctx = {}) {
+  const raw = String(ctx.hub || '').trim();
+  return raw || FALLBACK_HUB_URL;
+}
+
+function resolveResearchForm(ctx = {}) {
+  const f = String(ctx.researchForm || ctx.form || '').trim().toUpperCase();
+  if (f === 'A' || f === 'B' || f === 'C') return f;
+  return 'B';
+}
+
+function resolveResearchPhase(ctx = {}) {
+  const raw = String(ctx.researchPhase || ctx.testPhase || '').trim().toLowerCase();
+  if (raw === 'pre' || raw === 'pretest') return 'pre';
+  if (raw === 'delayed' || raw === 'followup' || raw === 'retention') return 'delayed';
+  if (raw === 'post' || raw === 'posttest') return 'post';
+
+  const form = resolveResearchForm(ctx);
+  if (form === 'A') return 'pre';
+  if (form === 'C') return 'delayed';
+  return 'post';
+}
+
+function buildGateUrl(ctx = {}, phase = 'cooldown') {
+  const base = new URL('../warmup-gate.html', window.location.href);
+
+  base.searchParams.set('game', 'hydration');
+  base.searchParams.set('zone', 'nutrition');
+  base.searchParams.set('hub', resolveHub(ctx));
+
+  // ใส่ทั้งสองชื่อไว้เพื่อรองรับฝั่ง gate ที่อาจอ่านไม่เหมือนกัน
+  base.searchParams.set('phase', String(phase));
+  base.searchParams.set('gatePhase', String(phase));
+
+  // passthrough context
+  if (ctx.pid) base.searchParams.set('pid', String(ctx.pid));
+  if (ctx.sessionId) base.searchParams.set('sessionId', String(ctx.sessionId));
+  if (ctx.studyId) base.searchParams.set('studyId', String(ctx.studyId));
+  if (ctx.runMode) base.searchParams.set('runMode', String(ctx.runMode));
+  if (ctx.conditionGroup) base.searchParams.set('conditionGroup', String(ctx.conditionGroup));
+  if (ctx.studentKey) base.searchParams.set('studentKey', String(ctx.studentKey));
+  if (ctx.schoolCode) base.searchParams.set('schoolCode', String(ctx.schoolCode));
+  if (ctx.classRoom) base.searchParams.set('classRoom', String(ctx.classRoom));
+  if (ctx.studentNo) base.searchParams.set('studentNo', String(ctx.studentNo));
+  if (ctx.nickName) base.searchParams.set('nickName', String(ctx.nickName));
+
+  base.searchParams.set('researchForm', resolveResearchForm(ctx));
+  base.searchParams.set('researchPhase', resolveResearchPhase(ctx));
+
+  return base.toString();
+}
+
+function buildHubUrl(ctx = {}, extra = {}) {
+  const hub = new URL(resolveHub(ctx), window.location.href);
+
+  const merged = {
+    game: 'hydration',
+    zone: 'nutrition',
+    pid: ctx.pid || '',
+    sessionId: ctx.sessionId || '',
+    studyId: ctx.studyId || '',
+    runMode: ctx.runMode || '',
+    conditionGroup: ctx.conditionGroup || '',
+    studentKey: ctx.studentKey || '',
+    schoolCode: ctx.schoolCode || '',
+    classRoom: ctx.classRoom || '',
+    studentNo: ctx.studentNo || '',
+    nickName: ctx.nickName || '',
+    researchForm: resolveResearchForm(ctx),
+    researchPhase: resolveResearchPhase(ctx),
+    ...extra
+  };
+
+  Object.entries(merged).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === '') return;
+    hub.searchParams.set(k, String(v));
+  });
+
+  return hub.toString();
+}
+
+export function buildHydrationV2Summary(raw = {}, ctx = {}) {
+  const totalRounds = Math.max(0, toInt(raw.totalRounds, 0));
+  const answerCorrect = clamp(toInt(raw.answerCorrect, 0), 0, totalRounds);
+  const reasonCorrect = clamp(toInt(raw.reasonCorrect, 0), 0, totalRounds);
+  const highConfidenceCount = clamp(toInt(raw.highConfidenceCount, 0), 0, totalRounds);
+  const score = Math.max(0, toInt(raw.score, 0));
+  const durationMs = Math.max(0, toInt(raw.durationMs, 0));
+
+  const answerAccuracy = totalRounds > 0 ? Math.round((answerCorrect / totalRounds) * 100) : 0;
+  const reasonAccuracy = totalRounds > 0 ? Math.round((reasonCorrect / totalRounds) * 100) : 0;
+
+  let stars = 1;
+  if (score >= 80 || (answerAccuracy >= 80 && reasonAccuracy >= 75)) stars = 3;
+  else if (score >= 45 || (answerAccuracy >= 60 && reasonAccuracy >= 50)) stars = 2;
+
+  let lead = 'เก่งมาก หนูได้ฝึกคิดเรื่องการดื่มน้ำแล้ว';
+  if (stars === 3) lead = 'ยอดเยี่ยมมาก ทั้งตอบถูกและให้เหตุผลได้ดี';
+  else if (stars === 2) lead = 'ทำได้ดีมาก ใกล้เป็นผู้เชี่ยวชาญเรื่องการดื่มน้ำแล้ว';
+
+  let tip = 'ลองคิดเพิ่มว่าเมื่ออากาศร้อนหรือออกแรงมาก ควรปรับแผนดื่มน้ำอย่างไร';
+  if (answerAccuracy >= 80 && reasonAccuracy >= 80) {
+    tip = 'หนูเข้าใจทั้งคำตอบและเหตุผลได้ดี ลองรักษานิสัยนี้ต่อไป';
+  } else if (answerAccuracy >= 60) {
+    tip = 'หนูเริ่มจับหลักได้แล้ว ลองฝึกเชื่อม “เหตุผล” กับสถานการณ์ให้มากขึ้น';
   }
 
   return {
-    game: HYDRATION_V2_CONFIG.GAME_ID,
-    zone: HYDRATION_V2_CONFIG.ZONE,
-    title: HYDRATION_V2_CONFIG.TITLE,
-    version: HYDRATION_V2_CONFIG.VERSION,
-    sessionId: ctx.sessionId || '',
-    pid: ctx.pid || '',
-    score: result.score,
-    totalRounds: result.totalRounds,
-    answerCorrect: result.answerCorrect,
-    reasonCorrect: result.reasonCorrect,
+    gameId: 'hydration-v2',
+    zone: 'nutrition',
+    savedAt: new Date().toISOString(),
+
+    pid: String(ctx.pid || ''),
+    sessionId: String(ctx.sessionId || ''),
+    studyId: String(ctx.studyId || ''),
+    runMode: String(ctx.runMode || 'play'),
+    phase: String(ctx.phase || ''),
+    conditionGroup: String(ctx.conditionGroup || ''),
+    studentKey: String(ctx.studentKey || ''),
+    schoolCode: String(ctx.schoolCode || ''),
+    classRoom: String(ctx.classRoom || ''),
+    studentNo: String(ctx.studentNo || ''),
+    nickName: String(ctx.nickName || ''),
+
+    researchForm: resolveResearchForm(ctx),
+    researchPhase: resolveResearchPhase(ctx),
+    hub: resolveHub(ctx),
+
+    score,
+    totalRounds,
+    answerCorrect,
+    reasonCorrect,
+    highConfidenceCount,
     answerAccuracy,
     reasonAccuracy,
-    highConfidenceCount: result.highConfidenceCount,
+    durationMs,
+
     stars,
-    durationSec: Math.max(1, Math.round(result.durationMs / 1000)),
     lead,
     tip,
-    endedAt: new Date().toISOString()
+
+    // เผื่อใช้ใน summary/report ภายหลัง
+    meta: safeObject(raw.meta, {})
   };
 }
 
 export function saveHydrationV2Summary(summary) {
+  const payload = safeObject(summary, {});
   try {
-    localStorage.setItem(HYDRATION_V2_CONFIG.STORAGE_KEYS.LAST_SUMMARY, JSON.stringify(summary));
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+    localStorage.setItem('HHA_HYDRATION_V2_LAST', JSON.stringify(payload));
 
-    const raw = localStorage.getItem(HYDRATION_V2_CONFIG.STORAGE_KEYS.SUMMARY_HISTORY);
-    const arr = raw ? JSON.parse(raw) : [];
-    arr.push(summary);
-    while (arr.length > 20) arr.shift();
-    localStorage.setItem(HYDRATION_V2_CONFIG.STORAGE_KEYS.SUMMARY_HISTORY, JSON.stringify(arr));
-  } catch {}
-}
-
-export function goHydrationV2Hub(ctx) {
-  location.href = ctx.hub || new URL('../hub.html', location.href).href;
-}
-
-export function goHydrationV2Cooldown(ctx) {
-  const cooldown = new URL('../gate/cooldown-gate.html', location.href).href;
-  const url = new URL(cooldown);
-  const nextKey = `HHA_NEXT_HYDRATION_V2_COOLDOWN_${Date.now()}`;
-
-  try {
-    sessionStorage.setItem(nextKey, ctx.hub || new URL('../hub.html', location.href).href);
-  } catch {}
-
-  url.searchParams.set('game', 'hydration');
-  url.searchParams.set('zone', HYDRATION_V2_CONFIG.ZONE);
-  url.searchParams.set('hub', ctx.hub || new URL('../hub.html', location.href).href);
-  url.searchParams.set('next', ctx.hub || new URL('../hub.html', location.href).href);
-  url.searchParams.set('nextKey', nextKey);
-  url.searchParams.set('pid', ctx.pid || '');
-
-  const passthrough = ['studyId','runMode','phase','conditionGroup','studentKey','schoolCode','classRoom','studentNo','nickName','sessionId'];
-  for (const key of passthrough) {
-    if (ctx[key]) url.searchParams.set(key, ctx[key]);
+    const historyRaw = localStorage.getItem('HHA_SUMMARY_HISTORY') || '[]';
+    const history = safeArray(JSON.parse(historyRaw), []);
+    history.unshift(payload);
+    if (history.length > 50) history.length = 50;
+    localStorage.setItem('HHA_SUMMARY_HISTORY', JSON.stringify(history));
+  } catch (err) {
+    console.warn('[HydrationV2Summary] save failed', err);
   }
+  return payload;
+}
 
-  location.href = url.href;
+export function goHydrationV2Cooldown(ctx = {}) {
+  const url = buildGateUrl(ctx, 'cooldown');
+  window.location.href = url;
+}
+
+export function goHydrationV2Hub(ctx = {}, extra = {}) {
+  const url = buildHubUrl(ctx, extra);
+  window.location.href = url;
 }
