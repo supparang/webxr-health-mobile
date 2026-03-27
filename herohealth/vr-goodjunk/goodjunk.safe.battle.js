@@ -252,6 +252,15 @@
       .slice(0, 24);
   }
 
+  function extractRoomIdLike(v) {
+    if (!v) return '';
+    if (typeof v === 'string') return v;
+    if (typeof v === 'object') {
+      return v.roomId || v.id || v.meta?.roomId || v.state?.roomId || '';
+    }
+    return '';
+  }
+
   function roomIdCandidates(raw) {
     const exact = normalizeRoomId(raw);
     const compact = exact.replace(/[^A-Z0-9]/g, '');
@@ -315,21 +324,19 @@
   function currentRoomId() {
     const raw = txt(
       STATE.roomId ||
-      STATE.room?.roomId ||
-      STATE.room?.id ||
+      extractRoomIdLike(STATE.room) ||
       STATE.roomMeta?.roomId ||
       BOOT?.roomId ||
-      BOOT?.room ||
+      extractRoomIdLike(BOOT?.room) ||
       RUN_CTX?.roomId ||
-      RUN_CTX?.room ||
+      extractRoomIdLike(RUN_CTX?.room) ||
       qsGet('roomId') ||
       qsGet('room') ||
-      window.__BATTLE_ROOM__?.roomId ||
-      window.__BATTLE_ROOM__?.id ||
-      window.battleRoom?.roomId ||
-      window.roomState?.roomId ||
-      window.state?.room?.roomId ||
-      window.gameState?.room?.roomId
+      extractRoomIdLike(window.__BATTLE_ROOM__) ||
+      extractRoomIdLike(window.battleRoom) ||
+      extractRoomIdLike(window.roomState) ||
+      extractRoomIdLike(window.state?.room) ||
+      extractRoomIdLike(window.gameState?.room)
     );
 
     const candidates = roomIdCandidates(raw);
@@ -444,16 +451,24 @@
     let rows = [];
 
     if (Array.isArray(input)) {
-      rows = input.map((p, idx) => ({ key: '', value: p || {}, idx }));
+      rows = input.map((p, idx) => ({ key: '', value: p || {}, idx, fromArray: true }));
     } else if (input && typeof input === 'object' && input.players && typeof input.players === 'object') {
-      rows = Object.entries(input.players).map(([key, value], idx) => ({ key, value: value || {}, idx }));
+      rows = Object.entries(input.players)
+        .filter(([, value]) => looksLikePlayerRecord(value))
+        .map(([key, value], idx) => ({ key, value: value || {}, idx, fromArray: false }));
     } else if (input && typeof input === 'object') {
-      rows = Object.entries(input).map(([key, value], idx) => ({ key, value: value || {}, idx }));
+      rows = Object.entries(input)
+        .filter(([key, value]) => {
+          if (key === 'meta' || key === 'state' || key === 'match' || key === 'reports' || key === 'rematch') return false;
+          return looksLikePlayerRecord(value);
+        })
+        .map(([key, value], idx) => ({ key, value: value || {}, idx, fromArray: false }));
     }
 
     return rows.map(({ key, value: p, idx }) => {
       const pid = normalizePid(p?.pid || p?.playerId || p?.uid || p?.id || key || `p${idx + 1}`);
       const name = normalizeName(p?.name || p?.nick || p?.playerName || p?.displayName || `Player ${idx + 1}`);
+
       return {
         key: txt(key),
         pid,
@@ -478,7 +493,7 @@
         isHost: !!p?.isHost,
         raw: p || {}
       };
-    });
+    }).filter((p) => p.pid || p.uid || p.playerId || p.name);
   }
 
   function normalizeRoomShape(room) {
@@ -496,8 +511,7 @@
     const state = room.state && typeof room.state === 'object' ? room.state : null;
 
     const roomId = normalizeRoomId(
-      room.roomId ||
-      room.id ||
+      extractRoomIdLike(room) ||
       meta?.roomId ||
       qsGet('roomId') ||
       qsGet('room') ||
@@ -1248,6 +1262,9 @@
       endReason: detail.endReason || detail.reason || 'finished'
     });
 
+    BRIDGE.resultShown = true;
+    STATE.ended = true;
+
     const summary = buildSummary();
     saveLastSummary(summary);
 
@@ -1258,9 +1275,11 @@
 
     emitBattleSummary(summary);
 
-    BRIDGE.resultShown = true;
-    STATE.ended = true;
-    stopBridge();
+    if (BRIDGE.timer) {
+      setTimeout(() => {
+        stopBridge();
+      }, 1500);
+    }
   }
 
   function render() {
