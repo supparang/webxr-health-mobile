@@ -20,8 +20,6 @@
       --violet:#a78bfa;
       --good:#22c55e;
       --warn:#f59e0b;
-      --bad:#ef4444;
-      --pink:#f472b6;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
@@ -124,13 +122,6 @@
       margin-bottom:8px;
     }
 
-    .muted{
-      color:var(--muted);
-      font-size:.88rem;
-      line-height:1.45;
-      font-weight:800;
-    }
-
     .field{
       display:flex;
       flex-direction:column;
@@ -156,11 +147,6 @@
       font:inherit;
     }
 
-    .input:focus, .select:focus{
-      border-color:rgba(59,130,246,.42);
-      box-shadow:0 0 0 3px rgba(59,130,246,.12);
-    }
-
     .viewGrid{
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
@@ -179,37 +165,15 @@
       box-shadow:0 14px 28px rgba(0,0,0,.18);
       padding:14px 12px;
       cursor:pointer;
-      transition:transform .15s ease,border-color .15s ease,background .15s ease;
       min-height:120px;
       display:flex;
       flex-direction:column;
       gap:8px;
-      justify-content:flex-start;
-    }
-    .viewCard:hover{
-      transform:translateY(-2px);
-      border-color:rgba(59,130,246,.30);
-      background:rgba(59,130,246,.10);
     }
     .viewCard.is-active{
       border-color:rgba(59,130,246,.38);
       background:rgba(59,130,246,.16);
       box-shadow:0 0 0 3px rgba(59,130,246,.10), 0 18px 30px rgba(0,0,0,.22);
-    }
-    .viewEmoji{
-      font-size:2rem;
-      line-height:1;
-    }
-    .viewTitle{
-      font-size:.98rem;
-      font-weight:1000;
-      color:var(--text);
-    }
-    .viewDesc{
-      font-size:.82rem;
-      line-height:1.4;
-      color:var(--muted);
-      font-weight:800;
     }
     .viewCheck{
       position:absolute;
@@ -230,6 +194,26 @@
       color:#dcfce7;
       border-color:rgba(34,197,94,.28);
       background:rgba(34,197,94,.14);
+    }
+    .viewEmoji{ font-size:2rem; line-height:1; }
+    .viewTitle{ font-size:.98rem; font-weight:1000; }
+    .viewDesc{ font-size:.82rem; line-height:1.4; color:var(--muted); font-weight:800; }
+
+    .presetRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+    .presetBtn{
+      min-height:42px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.28);
+      color:var(--text);
+      padding:10px 12px;
+      font-weight:1000;
+      cursor:pointer;
     }
 
     .actions{
@@ -252,23 +236,10 @@
       font-weight:1000;
       cursor:pointer;
     }
-    .btn.primary{
-      border-color:rgba(59,130,246,.28);
-      background:rgba(59,130,246,.16);
-      box-shadow:0 12px 24px rgba(59,130,246,.14);
-    }
-    .btn.violet{
-      border-color:rgba(167,139,250,.28);
-      background:rgba(167,139,250,.14);
-    }
-    .btn.good{
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.14);
-    }
-    .btn.ghost{
-      background:transparent;
-      color:var(--muted);
-    }
+    .btn.primary{ border-color:rgba(59,130,246,.28); background:rgba(59,130,246,.16); }
+    .btn.violet{ border-color:rgba(167,139,250,.28); background:rgba(167,139,250,.14); }
+    .btn.good{ border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.14); }
+    .btn.ghost{ background:transparent; color:var(--muted); }
 
     .mini{
       margin-top:10px;
@@ -307,27 +278,6 @@
       font-size:.92em;
       color:#c7d2fe;
     }
-
-    .presetRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:12px;
-    }
-    .presetBtn{
-      min-height:42px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.28);
-      color:var(--text);
-      padding:10px 12px;
-      font-weight:1000;
-      cursor:pointer;
-    }
-    .presetBtn:hover{
-      border-color:rgba(59,130,246,.30);
-      background:rgba(59,130,246,.10);
-    }
   </style>
 </head>
 <body>
@@ -336,13 +286,13 @@
       <div class="kicker">HeroHealth • Exercise Zone</div>
       <h1>Shadow Breaker Launcher</h1>
       <div class="sub">
-        เลือกวิธีเล่นที่เหมาะกับอุปกรณ์ของหนู แล้วค่อยกดเริ่มได้เลย<br/>
-        Flow นี้จะใช้แบบเดียว: <b>Hub → Warmup → Game → Cooldown → Summary → Hub</b>
+        ทางเข้ามาตรฐานของเกมนี้คือ
+        <b>Hub → Launcher → Warmup → Game → Cooldown → Summary → Hub</b>
       </div>
 
       <div class="row">
         <span class="pill"><b>Launcher</b>: <span>/herohealth/shadow-breaker-vr.html</span></span>
-        <span class="pill"><b>Gate</b>: <span>/herohealth/warmup-gate.html</span></span>
+        <span class="pill"><b>Warmup</b>: <span>/fitness/warmup-gate.html</span></span>
         <span class="pill"><b>Run</b>: <span>/fitness/shadow-breaker.html</span></span>
       </div>
 
@@ -390,21 +340,21 @@
                 <div class="viewCheck">✓</div>
                 <div class="viewEmoji">💻</div>
                 <div class="viewTitle">PC</div>
-                <div class="viewDesc">เหมาะกับเมาส์หรือแตะบนจอใหญ่ มองเห็นพื้นที่เล่นกว้าง</div>
+                <div class="viewDesc">เหมาะกับจอใหญ่และเมาส์</div>
               </button>
 
               <button class="viewCard" id="cardViewMobile" type="button" data-view="mobile">
                 <div class="viewCheck">✓</div>
                 <div class="viewEmoji">📱</div>
                 <div class="viewTitle">Mobile</div>
-                <div class="viewDesc">เหมาะกับมือถือ แตะเป้าง่าย ตัวหนังสือใหญ่ขึ้น</div>
+                <div class="viewDesc">เหมาะกับมือถือ แตะง่ายขึ้น</div>
               </button>
 
               <button class="viewCard" id="cardViewCvr" type="button" data-view="cvr">
                 <div class="viewCheck">✓</div>
                 <div class="viewEmoji">🥽</div>
                 <div class="viewTitle">Cardboard VR</div>
-                <div class="viewDesc">ใช้ crosshair กลางจอ แตะจอเพื่อยิงจากกลางภาพ</div>
+                <div class="viewDesc">ใช้จุดเล็งกลางจอ แล้วแตะเพื่อยิง</div>
               </button>
             </div>
           </div>
@@ -418,11 +368,11 @@
           </div>
 
           <div id="modeExplain" class="mini">
-            โหมดเด็ก: ปุ่มใหญ่ อ่านง่าย เล่นได้ทันที
+            โหมดเด็ก: จะส่งเข้าเกมแบบ <b>mode=normal</b>
           </div>
 
           <div id="viewExplain" class="mini">
-            ตอนนี้เลือก: <b>PC</b> — เหมาะกับจอใหญ่และเมาส์
+            ตอนนี้เลือก: <b>PC</b>
           </div>
 
           <div id="researchOnlyBox" style="display:none;">
@@ -445,30 +395,19 @@
           <div class="actions">
             <button class="btn primary" id="btnStartNormal" type="button">▶ เริ่มเล่น</button>
             <button class="btn violet" id="btnStartHard" type="button">🔥 ลุยแบบท้าทาย</button>
-            <button class="btn good" id="btnStartResearch" type="button">📋 เข้าโหมดครู / ทดสอบ</button>
+            <button class="btn good" id="btnStartResearch" type="button">📋 เข้าโหมดครู / วิจัย</button>
             <a class="btn ghost" id="btnBackHub" href="./hub.html">← กลับหน้าเกมหลัก</a>
           </div>
         </section>
 
         <section class="card">
-          <div class="cardTitle">วิธีเลือกโหมดให้เหมาะ</div>
+          <div class="cardTitle">สิ่งที่ launcher ตัวนี้แก้แล้ว</div>
           <ul class="list">
-            <li><b>PC</b> — ใช้เมาส์ / คลิกเป้า / พื้นที่กว้าง</li>
-            <li><b>Mobile</b> — ปุ่มและเป้าใหญ่ขึ้นสำหรับมือถือ</li>
-            <li><b>Cardboard VR</b> — ใช้จุดเล็งกลางจอ แล้วแตะเพื่อยิง</li>
+            <li>ไม่ส่ง path ผิดแบบ <code>fitness/fitness/shadow-breaker.html</code></li>
+            <li>ส่ง <code>next</code> เป็น absolute URL ที่ถูกต้อง</li>
+            <li>เด็กเล่นปกติจะใช้ <code>mode=normal&amp;run=normal</code></li>
+            <li>warmup เสร็จแล้ว run game จะ auto start</li>
           </ul>
-
-          <div class="mini">
-            ถ้าเล่นบนมือถือธรรมดา ให้เลือก <b>Mobile</b><br/>
-            ถ้าใส่แว่น Cardboard ให้เลือก <b>Cardboard VR</b>
-          </div>
-
-          <div class="mini">
-            แนะนำเริ่มต้น:
-            <br/>💻 PC → ปกติ / 80 วินาที
-            <br/>📱 Mobile → ง่ายหรือปกติ / 80 วินาที
-            <br/>🥽 Cardboard → ง่ายหรือปกติ / 80 วินาที
-          </div>
 
           <div class="debug" id="debugBox">กำลังเตรียมเส้นทางเข้าเกม…</div>
         </section>
@@ -480,7 +419,8 @@
     (function(){
       'use strict';
 
-      const RUN_PATH = '/webxr-health-mobile/herohealth/warmup-gate.html';
+      const WARMUP_PATH = '/webxr-health-mobile/fitness/warmup-gate.html';
+      const RUN_PATH = '/webxr-health-mobile/fitness/shadow-breaker.html';
 
       const $ = (s)=>document.querySelector(s);
       const qs = (k, d='')=>{
@@ -523,7 +463,6 @@
       function detectDefaultView(){
         const qv = String(qs('view','')).toLowerCase();
         if (qv === 'pc' || qv === 'mobile' || qv === 'cvr') return qv;
-
         const ua = navigator.userAgent || '';
         const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
         return isMobile ? 'mobile' : 'pc';
@@ -532,48 +471,36 @@
       if (inpPid)  inpPid.value = String(qs('pid','anon')).trim() || 'anon';
       if (selDiff) selDiff.value = String(qs('diff','normal')).trim() || 'normal';
       if (selTime) selTime.value = String(qs('time','80')).trim() || '80';
-      if (selMode) selMode.value = String(qs('mode', qs('run','normal'))).trim() || 'normal';
+      if (selMode) selMode.value = String(qs('mode','normal')).trim() || 'normal';
       if (inpView) inpView.value = detectDefaultView();
 
       function syncModeUI(){
         const isResearch = (selMode?.value === 'research');
-
         if (modeExplain) {
-          modeExplain.textContent = isResearch
-            ? 'โหมดครู / วิจัย: ใช้สำหรับเก็บข้อมูลและตั้งค่าการทดลอง'
-            : 'โหมดเด็ก: ปุ่มใหญ่ อ่านง่าย เล่นได้ทันที';
+          modeExplain.innerHTML = isResearch
+            ? 'โหมดครู / วิจัย: จะส่งเข้าเกมแบบ <b>mode=research</b>'
+            : 'โหมดเด็ก: จะส่งเข้าเกมแบบ <b>mode=normal</b>';
         }
-
-        if (researchOnlyBox) {
-          researchOnlyBox.style.display = isResearch ? '' : 'none';
-        }
+        if (researchOnlyBox) researchOnlyBox.style.display = isResearch ? '' : 'none';
       }
 
       function syncViewCards(){
         const view = String(inpView?.value || 'pc');
-
-        [cardViewPc, cardViewMobile, cardViewCvr].forEach(el=>{
-          el?.classList.remove('is-active');
-        });
-
+        [cardViewPc, cardViewMobile, cardViewCvr].forEach(el => el?.classList.remove('is-active'));
         if (view === 'pc') cardViewPc?.classList.add('is-active');
         if (view === 'mobile') cardViewMobile?.classList.add('is-active');
         if (view === 'cvr') cardViewCvr?.classList.add('is-active');
 
-        if (viewExplain){
-          if (view === 'pc'){
-            viewExplain.innerHTML = 'ตอนนี้เลือก: <b>PC</b> — เหมาะกับจอใหญ่และเมาส์';
-          } else if (view === 'mobile'){
-            viewExplain.innerHTML = 'ตอนนี้เลือก: <b>Mobile</b> — เหมาะกับมือถือ แตะเป้าง่าย';
-          } else {
-            viewExplain.innerHTML = 'ตอนนี้เลือก: <b>Cardboard VR</b> — ใช้จุดเล็งกลางจอ แล้วแตะเพื่อยิง';
-          }
+        if (viewExplain) {
+          if (view === 'pc') viewExplain.innerHTML = 'ตอนนี้เลือก: <b>PC</b>';
+          else if (view === 'mobile') viewExplain.innerHTML = 'ตอนนี้เลือก: <b>Mobile</b>';
+          else viewExplain.innerHTML = 'ตอนนี้เลือก: <b>Cardboard VR</b>';
         }
       }
 
       function setViewMode(view){
-        const next = (view === 'pc' || view === 'mobile' || view === 'cvr') ? view : 'pc';
-        if (inpView) inpView.value = next;
+        const v = (view === 'pc' || view === 'mobile' || view === 'cvr') ? view : 'pc';
+        if (inpView) inpView.value = v;
         syncViewCards();
       }
 
@@ -585,118 +512,146 @@
         if (selDiff) selDiff.value = 'easy';
         if (selTime) selTime.value = '80';
       });
-
       btnPresetNormal?.addEventListener('click', ()=>{
         if (selDiff) selDiff.value = 'normal';
         if (selTime) selTime.value = '80';
       });
-
       btnPresetHard?.addEventListener('click', ()=>{
         if (selDiff) selDiff.value = 'hard';
         if (selTime) selTime.value = '80';
       });
 
-      function buildRunUrl(extra){
-        const u = new URL(RUN_PATH, location.origin);
-        const passKeys = [
-          'run','mode','diff','time','seed','studyId','phase','conditionGroup','log',
-          'view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode',
-          'planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade'
-        ];
-
-        passKeys.forEach(k=>{
-          const v = sp.get(k);
-          if(v != null && v !== '') u.searchParams.set(k, v);
-        });
-
-        const pidVal = (inpPid?.value || qs('pid','anon') || 'anon').trim() || 'anon';
+      function buildRunUrl(modeOverride){
+        const hubAbs = new URL(hubFromQuery, location.href).toString();
+        const pidVal = (inpPid?.value || 'anon').trim() || 'anon';
         const diffVal = selDiff?.value || 'normal';
         const timeVal = selTime?.value || '80';
-        const modeVal = selMode?.value || 'normal';
         const viewVal = inpView?.value || detectDefaultView();
-        const hubAbs = new URL(hubFromQuery, location.href).toString();
+        const modeVal = modeOverride || selMode?.value || 'normal';
+        const seedVal = String(Date.now());
 
-        u.searchParams.set('pid', pidVal);
-        u.searchParams.set('diff', diffVal);
-        u.searchParams.set('time', timeVal);
-        u.searchParams.set('mode', modeVal);
-        u.searchParams.set('run', modeVal);
-        u.searchParams.set('view', viewVal);
-        u.searchParams.set('zone', sp.get('zone') || 'fitness');
-        u.searchParams.set('hub', hubAbs);
-
-        u.searchParams.set('phase', 'warmup');
-        u.searchParams.set('game', 'shadowbreaker');
-        u.searchParams.set('cat', 'fitness');
-        u.searchParams.set('theme', 'shadowbreaker');
-        u.searchParams.set('finalGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
-        u.searchParams.set('plannedGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
+        const runUrl = new URL(RUN_PATH, location.origin);
+        runUrl.searchParams.set('pid', pidVal);
+        runUrl.searchParams.set('diff', diffVal);
+        runUrl.searchParams.set('time', timeVal);
+        runUrl.searchParams.set('mode', modeVal);
+        runUrl.searchParams.set('run', modeVal);
+        runUrl.searchParams.set('view', viewVal);
+        runUrl.searchParams.set('zone', 'fitness');
+        runUrl.searchParams.set('hub', hubAbs);
+        runUrl.searchParams.set('game', 'shadowbreaker');
+        runUrl.searchParams.set('cat', 'fitness');
+        runUrl.searchParams.set('theme', 'shadowbreaker');
+        runUrl.searchParams.set('finalGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
+        runUrl.searchParams.set('plannedGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
+        runUrl.searchParams.set('gameId', 'shadowbreaker');
+        runUrl.searchParams.set('seed', seedVal);
+        runUrl.searchParams.set('wgskip', '1');
 
         if (modeVal === 'research') {
-          if (inpStudyId?.value?.trim()) u.searchParams.set('studyId', inpStudyId.value.trim());
-          if (inpGroup?.value?.trim()) u.searchParams.set('group', inpGroup.value.trim());
-          if (inpCondition?.value?.trim()) u.searchParams.set('conditionGroup', inpCondition.value.trim());
+          if (inpStudyId?.value?.trim()) runUrl.searchParams.set('studyId', inpStudyId.value.trim());
+          if (inpGroup?.value?.trim()) runUrl.searchParams.set('group', inpGroup.value.trim());
+          if (inpCondition?.value?.trim()) runUrl.searchParams.set('conditionGroup', inpCondition.value.trim());
         }
 
-        if (extra && typeof extra === 'object'){
-          Object.keys(extra).forEach(k=>{
-            const v = extra[k];
-            if(v == null || v === '') u.searchParams.delete(k);
-            else u.searchParams.set(k, String(v));
-          });
-        }
-
-        return u.toString();
+        return runUrl.toString();
       }
 
-      function go(extra){
-        const target = buildRunUrl(extra);
-        try{
-          location.href = target;
-        }catch(_){
-          location.assign(target);
+      function buildWarmupUrl(modeOverride){
+        const hubAbs = new URL(hubFromQuery, location.href).toString();
+        const pidVal = (inpPid?.value || 'anon').trim() || 'anon';
+        const diffVal = selDiff?.value || 'normal';
+        const timeVal = selTime?.value || '80';
+        const viewVal = inpView?.value || detectDefaultView();
+        const modeVal = modeOverride || selMode?.value || 'normal';
+        const seedVal = String(Date.now());
+
+        const nextUrl = new URL(RUN_PATH, location.origin);
+        nextUrl.searchParams.set('pid', pidVal);
+        nextUrl.searchParams.set('diff', diffVal);
+        nextUrl.searchParams.set('time', timeVal);
+        nextUrl.searchParams.set('mode', modeVal);
+        nextUrl.searchParams.set('run', modeVal);
+        nextUrl.searchParams.set('view', viewVal);
+        nextUrl.searchParams.set('zone', 'fitness');
+        nextUrl.searchParams.set('hub', hubAbs);
+        nextUrl.searchParams.set('game', 'shadowbreaker');
+        nextUrl.searchParams.set('cat', 'fitness');
+        nextUrl.searchParams.set('theme', 'shadowbreaker');
+        nextUrl.searchParams.set('finalGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
+        nextUrl.searchParams.set('plannedGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
+        nextUrl.searchParams.set('gameId', 'shadowbreaker');
+        nextUrl.searchParams.set('seed', seedVal);
+        nextUrl.searchParams.set('wgskip', '1');
+
+        if (modeVal === 'research') {
+          if (inpStudyId?.value?.trim()) nextUrl.searchParams.set('studyId', inpStudyId.value.trim());
+          if (inpGroup?.value?.trim()) nextUrl.searchParams.set('group', inpGroup.value.trim());
+          if (inpCondition?.value?.trim()) nextUrl.searchParams.set('conditionGroup', inpCondition.value.trim());
         }
+
+        const warmupUrl = new URL(WARMUP_PATH, location.origin);
+        warmupUrl.searchParams.set('pid', pidVal);
+        warmupUrl.searchParams.set('run', modeVal);
+        warmupUrl.searchParams.set('mode', modeVal);
+        warmupUrl.searchParams.set('view', viewVal);
+        warmupUrl.searchParams.set('diff', diffVal);
+        warmupUrl.searchParams.set('time', timeVal);
+        warmupUrl.searchParams.set('seed', seedVal);
+        warmupUrl.searchParams.set('zone', 'fitness');
+        warmupUrl.searchParams.set('gatePhase', 'warmup');
+        warmupUrl.searchParams.set('phase', 'warmup');
+        warmupUrl.searchParams.set('cat', 'fitness');
+        warmupUrl.searchParams.set('theme', 'shadowbreaker');
+        warmupUrl.searchParams.set('game', 'shadowbreaker');
+        warmupUrl.searchParams.set('gameId', 'shadowbreaker');
+        warmupUrl.searchParams.set('hub', hubAbs);
+        warmupUrl.searchParams.set('next', nextUrl.toString());
+        warmupUrl.searchParams.set('nextKey', 'HHA_NEXT_URL:shadowbreaker');
+
+        if (modeVal === 'research') {
+          if (inpStudyId?.value?.trim()) warmupUrl.searchParams.set('studyId', inpStudyId.value.trim());
+          if (inpGroup?.value?.trim()) warmupUrl.searchParams.set('group', inpGroup.value.trim());
+          if (inpCondition?.value?.trim()) warmupUrl.searchParams.set('conditionGroup', inpCondition.value.trim());
+        }
+
+        return warmupUrl.toString();
+      }
+
+      function go(modeOverride){
+        const target = buildWarmupUrl(modeOverride);
+        try{ location.href = target; }
+        catch(_){ location.assign(target); }
       }
 
       btnStartNormal?.addEventListener('click', ()=>{
         if (selMode) selMode.value = 'normal';
         syncModeUI();
-        go({ mode:'normal', run:'normal' });
+        go('normal');
       });
 
       btnStartHard?.addEventListener('click', ()=>{
         if (selMode) selMode.value = 'normal';
         if (selDiff) selDiff.value = 'hard';
         syncModeUI();
-        go({ mode:'normal', run:'normal', diff:'hard' });
+        go('normal');
       });
 
       btnStartResearch?.addEventListener('click', ()=>{
         if (selMode) selMode.value = 'research';
         syncModeUI();
-        go({ mode:'research', run:'research' });
+        go('research');
       });
 
       selMode?.addEventListener('change', syncModeUI);
 
-      const auto = String(qs('auto','0')).toLowerCase();
-      const autostart = ['1','true','yes','on'].includes(auto);
-
       syncModeUI();
       syncViewCards();
 
-      const previewUrl = buildRunUrl();
-      if (debugBox){
+      if (debugBox) {
         debugBox.innerHTML =
-          `<div><b>Hub:</b> <code>${new URL(hubFromQuery, location.href).pathname}</code></div>` +
-          `<div><b>Warmup gate:</b> <code>${previewUrl}</code></div>` +
-          `<div><b>Flow:</b> <code>Hub → Warmup → Game → Cooldown → Summary → Hub</code></div>` +
-          `<div><b>View:</b> <code>${inpView?.value || 'pc'}</code></div>` +
-          `<div><b>Auto:</b> <code>${autostart ? 'ON' : 'OFF'}</code></div>`;
-      }
-
-      if (autostart) {
-        go({});
+          `<div><b>Warmup target:</b> <code>${buildWarmupUrl(selMode?.value || 'normal')}</code></div>` +
+          `<div><b>Run target:</b> <code>${buildRunUrl(selMode?.value || 'normal')}</code></div>`;
       }
     })();
   </script>
