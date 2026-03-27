@@ -1,12 +1,5 @@
 /* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
    FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-ROOMCODE-QRSHORT-V5
-   - duet room path: hha-battle/goodjunk/duetRooms/{ROOM}
-   - anonymous auth required
-   - 2 players only
-   - host start only when ready 2/2
-   - countdown + redirect to duet run
-   - short invite link for readable QR
-   - room code UI: join by code / use current room / new room
 */
 (function(){
   'use strict';
