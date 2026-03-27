@@ -1,36 +1,43 @@
 /* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
-   FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-ROOMCODE-QRSHORT-V5
+   FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-FINAL-V1
 */
 (function(){
   'use strict';
 
   const W = window;
   const D = document;
-
   const $ = (id) => D.getElementById(id);
 
+  const DEBUG = (function(){
+    try{
+      return new URL(W.location.href).searchParams.get('debug') === '1';
+    }catch{
+      return false;
+    }
+  })();
+
   const els = {
-    roomCode        : $('roomCode'),
-    playerCount     : $('playerCount'),
-    roomStatus      : $('roomStatus'),
-    hostName        : $('hostName'),
-    playersBox      : $('playersBox'),
-    copyState       : $('copyState'),
-    joinGuard       : $('joinGuard'),
-    inviteLink      : $('inviteLink'),
-    qrBox           : $('qrBox'),
-    countdown       : $('countdown'),
-    btnCopyRoom     : $('btnCopyRoom'),
-    btnCopyInvite   : $('btnCopyInvite'),
-    btnReady        : $('btnReady'),
-    btnUnready      : $('btnUnready'),
-    btnStart        : $('btnStart'),
-    btnBack         : $('btnBack'),
-    hint            : $('hint'),
-    roomInput       : $('roomInput'),
-    btnJoinByCode   : $('btnJoinByCode'),
+    roomCode         : $('roomCode'),
+    playerCount      : $('playerCount'),
+    roomStatus       : $('roomStatus'),
+    hostName         : $('hostName'),
+    playersBox       : $('playersBox'),
+    copyState        : $('copyState'),
+    joinGuard        : $('joinGuard'),
+    inviteLink       : $('inviteLink'),
+    qrBox            : $('qrBox'),
+    countdown        : $('countdown'),
+    btnCopyRoom      : $('btnCopyRoom'),
+    btnCopyInvite    : $('btnCopyInvite'),
+    btnReady         : $('btnReady'),
+    btnUnready       : $('btnUnready'),
+    btnStart         : $('btnStart'),
+    btnBack          : $('btnBack'),
+    hint             : $('hint'),
+    roomInput        : $('roomInput'),
+    btnJoinByCode    : $('btnJoinByCode'),
     btnUseCurrentRoom: $('btnUseCurrentRoom'),
-    btnNewRoom      : $('btnNewRoom')
+    btnNewRoom       : $('btnNewRoom')
   };
 
   const GAME_KEY = 'goodjunk';
@@ -58,6 +65,22 @@
   };
 
   const now = () => Date.now();
+
+  const IS_REMATCH_ENTRY = (function(){
+    try{
+      return new URL(W.location.href).searchParams.get('rematch') === '1';
+    }catch{
+      return false;
+    }
+  })();
+
+  let __duetAutoStartTimer = 0;
+  function stopAutoStartTimer(){
+    if (__duetAutoStartTimer){
+      clearTimeout(__duetAutoStartTimer);
+      __duetAutoStartTimer = 0;
+    }
+  }
 
   function esc(s){
     return String(s == null ? '' : s)
@@ -189,7 +212,12 @@
     heartbeatTimer: 0,
     countdownTimer: 0,
     redirected: false,
-    repairingHost: false
+    repairingHost: false,
+
+    rematchEntry: IS_REMATCH_ENTRY,
+    autoReadyDone: false,
+    autoStartAttempted: false,
+    autoStartLocked: false
   };
 
   try{ localStorage.setItem('HHA_PLAYER_PID', STATE.pid); }catch{}
@@ -227,6 +255,7 @@
     const u = new URL(W.location.href);
     u.search = '';
     u.searchParams.set('room', STATE.roomId);
+    if (DEBUG) u.searchParams.set('debug', '1');
     return u.toString();
   }
 
@@ -248,8 +277,10 @@
     if (STATE.time)  u.searchParams.set('time', String(STATE.time));
     if (STATE.zone)  u.searchParams.set('zone', STATE.zone);
     if (STATE.theme) u.searchParams.set('theme', STATE.theme);
+    if (DEBUG) u.searchParams.set('debug', '1');
 
     u.searchParams.set('seed', String(Date.now()));
+    u.searchParams.delete('rematch');
     return u.toString();
   }
 
@@ -285,6 +316,7 @@
     u.searchParams.set('zone', String(room.zone || STATE.zone));
     u.searchParams.set('theme', String(room.theme || STATE.theme));
     u.searchParams.set('startAt', String(room.startAt || 0));
+    if (DEBUG) u.searchParams.set('debug', '1');
     return u.toString();
   }
 
@@ -397,7 +429,7 @@
     }
 
     if (!room){
-      setHint('กำลังเชื่อมห้อง...', false);
+      setHint(STATE.rematchEntry ? 'กำลังเชื่อมห้องรีแมตช์...' : 'กำลังเชื่อมห้อง...', false);
       return;
     }
 
@@ -411,6 +443,11 @@
     }
     if (String(room.status || 'waiting') === 'finished'){
       setHint('รอบก่อนหน้าจบแล้ว สร้างห้องใหม่เพื่อเริ่ม Duet รอบถัดไป', false);
+      return;
+    }
+
+    if (STATE.rematchEntry && readyCount === ROOM_SIZE && amHost){
+      setHint('รีแมตช์พร้อมแล้ว กำลังเริ่มอัตโนมัติ...', false);
       return;
     }
 
@@ -540,6 +577,150 @@
     }
   }
 
+  let __lobbyDebugLastPaint = 0;
+  function ensureLobbyDebugBox(){
+    if (!DEBUG) return null;
+    let el = D.getElementById('duetLobbyDebugBox');
+    if (el) return el;
+
+    el = D.createElement('div');
+    el.id = 'duetLobbyDebugBox';
+    el.style.cssText = [
+      'position:fixed',
+      'left:10px',
+      'right:10px',
+      'bottom:10px',
+      'z-index:9999',
+      'padding:10px 12px',
+      'border-radius:14px',
+      'border:1px solid rgba(244,114,182,.28)',
+      'background:rgba(2,6,23,.92)',
+      'color:#f8fafc',
+      'font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace',
+      'box-shadow:0 18px 40px rgba(0,0,0,.28)',
+      'white-space:pre-wrap',
+      'word-break:break-word',
+      'backdrop-filter:blur(8px)',
+      'max-height:40vh',
+      'overflow:auto'
+    ].join(';');
+
+    D.body.appendChild(el);
+    return el;
+  }
+
+  function renderLobbyDebug(room){
+    if (!DEBUG) return;
+    const t = now();
+    if (t - __lobbyDebugLastPaint < 120) return;
+    __lobbyDebugLastPaint = t;
+
+    const el = ensureLobbyDebugBox();
+    if (!el) return;
+
+    const players = activePlayers(room);
+    const ready = readyPlayers(room);
+    const ids = participantIds(room);
+    const me = room && room.players ? room.players[STATE.uid] : null;
+
+    const lines = [
+      '[DUET LOBBY DEBUG]',
+      `room=${STATE.roomId}`,
+      `uid=${STATE.uid || '-'}`,
+      `pid=${STATE.pid || '-'}`,
+      `name=${STATE.name || '-'}`,
+      `status=${room ? String(room.status || 'waiting') : '-'}`,
+      `host=${room ? String(room.hostId || '-') : '-'}`,
+      `players=${players.length}/${ROOM_SIZE}`,
+      `ready=${ready.length}/${ROOM_SIZE}`,
+      `participantIds=${ids.length ? ids.join(', ') : '-'}`,
+      `startAt=${room ? Number(room.startAt || 0) : 0}`,
+      `joined=${STATE.joined ? 'yes' : 'no'}`,
+      `joinDenied=${STATE.joinDenied ? 'yes' : 'no'}`,
+      `myReady=${me ? (!!me.ready) : '-'}`,
+      `myPhase=${me ? String(me.phase || '-') : '-'}`,
+      `rematchEntry=${STATE.rematchEntry}`,
+      `autoReadyDone=${STATE.autoReadyDone}`,
+      `autoStartAttempted=${STATE.autoStartAttempted}`,
+      '',
+      '[PLAYERS]'
+    ];
+
+    players.forEach((p, idx) => {
+      lines.push(
+        `${idx + 1}. ${String(p.name || 'Player')} | uid=${p.id} | ready=${!!p.ready} | connected=${p.connected !== false} | phase=${String(p.phase || '-')}`
+      );
+    });
+
+    el.textContent = lines.join('\n');
+  }
+
+  function canAutoStartRematch(room){
+    if (!room) return false;
+    if (!STATE.rematchEntry) return false;
+    if (STATE.joinDenied) return false;
+
+    const status = String(room.status || 'waiting');
+    if (status !== 'waiting') return false;
+
+    const players = activePlayers(room);
+    const ready = readyPlayers(room);
+    const me = room.players ? room.players[STATE.uid] : null;
+    const amHost = room.hostId === STATE.uid;
+
+    if (!amHost) return false;
+    if (!me) return false;
+    if (players.length !== ROOM_SIZE) return false;
+    if (ready.length !== ROOM_SIZE) return false;
+
+    return true;
+  }
+
+  async function maybeAutoReady(room){
+    if (!STATE.rematchEntry) return;
+    if (STATE.autoReadyDone) return;
+    if (!room || !room.players || !room.players[STATE.uid]) return;
+    if (String(room.status || 'waiting') !== 'waiting') return;
+
+    const me = room.players[STATE.uid];
+    if (me.ready){
+      STATE.autoReadyDone = true;
+      return;
+    }
+
+    STATE.autoReadyDone = true;
+
+    try{
+      await setReady(true);
+      setHint('รีแมตช์รอบใหม่: ตั้งเป็นพร้อมให้อัตโนมัติแล้ว', false);
+    }catch(err){
+      STATE.autoReadyDone = false;
+      setHint('ตั้งพร้อมอัตโนมัติไม่สำเร็จ: ' + (err && err.message ? err.message : 'unknown'), true);
+    }
+  }
+
+  function maybeAutoStartRematch(room){
+    if (!canAutoStartRematch(room)) return;
+    if (STATE.autoStartAttempted || STATE.autoStartLocked) return;
+
+    STATE.autoStartLocked = true;
+    stopAutoStartTimer();
+    setHint('พร้อมครบแล้ว กำลังเริ่มรีแมตช์อัตโนมัติ...', false);
+
+    __duetAutoStartTimer = setTimeout(async () => {
+      STATE.autoStartLocked = false;
+      if (STATE.autoStartAttempted) return;
+
+      STATE.autoStartAttempted = true;
+      try{
+        await startDuet();
+      }catch(err){
+        STATE.autoStartAttempted = false;
+        setHint('เริ่มรีแมตช์อัตโนมัติไม่สำเร็จ: ' + (err && err.message ? err.message : 'unknown'), true);
+      }
+    }, 900);
+  }
+
   function renderRoom(room){
     STATE.room = room || null;
 
@@ -556,6 +737,7 @@
       if (els.hostName) els.hostName.textContent = '-';
       renderPlayers(null);
       updateButtons(null);
+      renderLobbyDebug(null);
       return;
     }
 
@@ -571,6 +753,9 @@
     updateButtons(room);
     maybeRepairHost(room);
     maybeHandleCountdown(room);
+    maybeAutoReady(room);
+    maybeAutoStartRematch(room);
+    renderLobbyDebug(room);
   }
 
   async function ensureFirebaseReady(){
@@ -933,6 +1118,7 @@
       els.btnReady.addEventListener('click', async () => {
         try{
           await setReady(true);
+          STATE.autoReadyDone = true;
         }catch(err){
           setHint('กดพร้อมไม่สำเร็จ: ' + (err && err.message ? err.message : 'unknown'), true);
         }
@@ -943,6 +1129,8 @@
       els.btnUnready.addEventListener('click', async () => {
         try{
           await setReady(false);
+          STATE.autoStartAttempted = false;
+          stopAutoStartTimer();
         }catch(err){
           setHint('ยกเลิกพร้อมไม่สำเร็จ: ' + (err && err.message ? err.message : 'unknown'), true);
         }
@@ -971,6 +1159,7 @@
 
     W.addEventListener('beforeunload', () => {
       stopHeartbeat();
+      stopAutoStartTimer();
       try{
         if (STATE.meRef){
           STATE.meRef.update({
@@ -982,7 +1171,10 @@
       }catch{}
     });
 
-    W.addEventListener('pagehide', stopHeartbeat);
+    W.addEventListener('pagehide', () => {
+      stopHeartbeat();
+      stopAutoStartTimer();
+    });
   }
 
   async function init(){
