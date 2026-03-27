@@ -9,9 +9,9 @@
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --sky1:#e8fbff;
-      --sky2:#cbf0ff;
-      --sky3:#aee2ff;
+      --sky1:#e9fbff;
+      --sky2:#cff2ff;
+      --sky3:#afe4ff;
 
       --card:#fffef9;
       --card2:#f7fff5;
@@ -23,17 +23,21 @@
 
       --green1:#87de67;
       --green2:#57ba44;
+
       --blue1:#7fd0ff;
       --blue2:#4fa9ef;
+
+      --pink1:#ffcae4;
+      --pink2:#ff93c1;
+
+      --violet1:#ece8ff;
+      --violet2:#d4caff;
+      --violet3:#ae9fff;
+
       --yellow1:#ffe179;
       --yellow2:#f6bd42;
       --orange1:#ffbf74;
       --orange2:#ff9857;
-      --pink1:#ffd1e8;
-      --pink2:#ff98c6;
-      --violet1:#ece8ff;
-      --violet2:#d5ccff;
-      --violet3:#aa9dff;
 
       --shadow:0 14px 34px rgba(90,145,180,.16);
       --shadow-lg:0 22px 56px rgba(90,145,180,.22);
@@ -41,6 +45,7 @@
       --radius-xl:32px;
       --radius-lg:26px;
       --radius-md:20px;
+      --radius-sm:16px;
     }
 
     *{ box-sizing:border-box; }
@@ -51,8 +56,8 @@
       font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 14% 10%, rgba(255,255,255,.72), transparent 15%),
-        radial-gradient(circle at 86% 12%, rgba(255,255,255,.58), transparent 14%),
+        radial-gradient(circle at 14% 10%, rgba(255,255,255,.74), transparent 15%),
+        radial-gradient(circle at 86% 12%, rgba(255,255,255,.60), transparent 14%),
         linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 44%, var(--sky3) 100%);
     }
 
@@ -160,7 +165,7 @@
       border-radius:28px;
       display:grid;
       place-items:center;
-      background:linear-gradient(180deg, #fff7e4, #ffe7ba);
+      background:linear-gradient(180deg,#fff7e4,#ffe7ba);
       border:1px solid rgba(255,255,255,.96);
       box-shadow:var(--shadow);
       overflow:hidden;
@@ -190,7 +195,7 @@
       width:30px;
       height:18px;
       border-radius:16px 16px 10px 10px;
-      background:linear-gradient(180deg, #7c3f24, #5f2f18);
+      background:linear-gradient(180deg,#7c3f24,#5f2f18);
       z-index:4;
       transform:rotate(-8deg);
     }
@@ -251,7 +256,6 @@
     }
 
     .logo-hero{ color:#8fbe1e; }
-
     .logo-health{
       color:#ffffff;
       text-shadow:
@@ -336,7 +340,7 @@
       width:26px;
       height:16px;
       border-radius:16px 16px 10px 10px;
-      background:linear-gradient(180deg, #7c3f24, #5f2f18);
+      background:linear-gradient(180deg,#7c3f24,#5f2f18);
       z-index:4;
       transform:rotate(-8deg);
     }
@@ -602,7 +606,7 @@
       background:
         radial-gradient(circle at 14% 14%, rgba(255,255,255,.92), transparent 10%),
         radial-gradient(circle at 84% 16%, rgba(255,255,255,.72), transparent 12%),
-        linear-gradient(180deg, #e9fbff 0%, #c9f0ff 42%, #aee2ff 100%);
+        linear-gradient(180deg,#e9fbff 0%,#c9f0ff 42%,#aee2ff 100%);
       border:1px solid rgba(255,255,255,.96);
       box-shadow:var(--shadow);
       display:grid;
@@ -614,7 +618,7 @@
       background:
         radial-gradient(circle at 14% 14%, rgba(255,255,255,.92), transparent 10%),
         radial-gradient(circle at 84% 16%, rgba(255,255,255,.72), transparent 12%),
-        linear-gradient(180deg, #f4f1ff 0%, #e6e0ff 42%, #d8d0ff 100%);
+        linear-gradient(180deg,#f4f1ff 0%,#e6e0ff 42%,#d8d0ff 100%);
     }
 
     .launch-stage::after{
@@ -651,6 +655,13 @@
       align-items:flex-start;
       gap:8px;
       flex-wrap:wrap;
+    }
+
+    .tiny-stack{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
     }
 
     .tiny-badge{
@@ -764,7 +775,7 @@
     }
 
     .launch-bubble{
-      max-width:410px;
+      max-width:430px;
       justify-self:center;
       padding:12px 16px;
       border-radius:18px;
@@ -1186,12 +1197,13 @@
   <main class="page">
     <section class="hero-shell">
       <div class="topbar">
-        <button class="corner-btn" type="button" aria-label="settings">⚙️</button>
+        <button id="btnSettings" class="corner-btn" type="button" aria-label="settings">⚙️</button>
 
         <div class="topchips">
           <span class="topchip">💧 Play</span>
           <span class="topchip">⭐ Hero</span>
           <span class="topchip">🤝 Team</span>
+          <span class="topchip">NEW FLOW</span>
         </div>
       </div>
 
@@ -1230,7 +1242,7 @@
 
           <div>
             <div id="profileName" class="profile-name">Rocky</div>
-            <div id="speechText" class="speech">พร้อมแล้ว! ไปเก็บน้ำดีให้เต็มพลังกันเลย</div>
+            <div id="speechText" class="speech">พร้อมแล้ว! เลือกโหมดก่อน แล้วไปลุยกันเลย</div>
           </div>
         </div>
 
@@ -1290,13 +1302,15 @@
       <section class="panel">
         <div>
           <h1 id="panelTitle" class="panel-title">Hydration Hero</h1>
-          <p id="panelSub" class="panel-sub">เลือกโหมดเล่นก่อน แล้วระบบจะพาไป flow ที่เหมาะกับโหมดนั้น</p>
+          <p id="panelSub" class="panel-sub">Launcher หลักของเกมนี้ ใช้เลือกโหมดก่อนเข้าเล่นเสมอ</p>
         </div>
 
         <div id="launchStage" class="launch-stage">
           <div class="launch-top-row">
-            <span id="launchModeBadge" class="tiny-badge">💧 Solo Adventure</span>
-            <span id="launchSoonBadge" class="tiny-badge hidden" style="display:none;">เร็วๆ นี้</span>
+            <div class="tiny-stack">
+              <span id="launchModeBadge" class="tiny-badge">💧 Solo Adventure</span>
+              <span id="launchSoonBadge" class="tiny-badge soon" style="display:none;">Coming Soon</span>
+            </div>
             <span class="tiny-badge">⭐ Lv. 5</span>
           </div>
 
@@ -1327,12 +1341,12 @@
           <div class="mode-grid">
             <button id="modeSoloBtn" class="mode-card active" type="button" data-mode="solo">
               <div class="mode-card-title">💧 Solo</div>
-              <div class="mode-card-desc">เล่นคนเดียว ผ่าน warmup ก่อนเข้าด่านหลัก</div>
+              <div class="mode-card-desc">เล่นคนเดียว ผ่าน warmup ก่อน แล้วค่อยเข้าด่านหลัก</div>
             </button>
 
             <button id="modeDuetBtn" class="mode-card duet" type="button" data-mode="duet">
               <div class="mode-card-title">🤝 Duet</div>
-              <div class="mode-card-desc">เล่น 2 คน คนละเครื่อง ผ่าน lobby และ room code</div>
+              <div class="mode-card-desc">เล่น 2 คน คนละเครื่อง ผ่าน lobby และ room code เดียวกัน</div>
             </button>
 
             <button id="modeCoopBtn" class="mode-card coop" type="button" data-mode="coop">
@@ -1340,7 +1354,7 @@
                 🛟 Coop
                 <span class="soon-badge">เร็วๆ นี้</span>
               </div>
-              <div class="mode-card-desc">เข้า lobby แบบ Coming Soon เพื่อเตรียม flow ทีมในรอบถัดไป</div>
+              <div class="mode-card-desc">ยังเป็น Coming Soon แต่มี lobby flow รองรับไว้ก่อนแล้ว</div>
             </button>
           </div>
         </div>
@@ -1397,9 +1411,10 @@
         </div>
 
         <div id="routeNote" class="route-note">
-          <strong>เส้นทางเข้าเล่น</strong><br />
+          <strong>Canonical Flow</strong><br />
           Solo: <strong>/herohealth/warmup-gate.html</strong> → <strong>/herohealth/hydration-vr/hydration-vr.html</strong><br />
-          Duet / Coop: <strong>/herohealth/hydration-lobby.html</strong>
+          Duet: <strong>/herohealth/hydration-lobby.html?mode=duet</strong><br />
+          Coop: <strong>/herohealth/hydration-lobby.html?mode=coop</strong>
         </div>
       </section>
     </section>
@@ -1407,7 +1422,21 @@
 
   <script>
     (function(){
+      const PASS_KEYS = [
+        'studyId','phase','conditionGroup','sessionOrder','blockLabel',
+        'siteCode','schoolYear','semester',
+        'studentKey','schoolCode','classRoom','studentNo',
+        'nickName','grade','planDay','planSlot',
+        'teacher','run','log','api','debug','cooldown',
+        'apiUrl','logUrl'
+      ];
+
       const qs = new URLSearchParams(location.search);
+      const LS = {
+        pid:'HHA_DEVICE_PID',
+        nick:'HHA_HERO_NICK',
+        mode:'HHA_HYDRATION_LAST_MODE'
+      };
 
       function q(name, fallback=''){
         const v = qs.get(name);
@@ -1429,6 +1458,15 @@
           .slice(0, 24);
       }
 
+      function readLS(key, fallback=''){
+        try{ return localStorage.getItem(key) || fallback; }
+        catch{ return fallback; }
+      }
+
+      function writeLS(key, value){
+        try{ localStorage.setItem(key, value); }catch{}
+      }
+
       function defaultHub(){
         return q('hub', new URL('./hub.html', location.href).href);
       }
@@ -1441,59 +1479,6 @@
 
       function makeSessionId(){
         return `hydr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
-      }
-
-      function ensurePid(){
-        const typed = sanitizePid(UI.pidInput.value);
-        if(typed){
-          try{ localStorage.setItem('HHA_DEVICE_PID', typed); }catch{}
-          return typed;
-        }
-
-        const fromQs = sanitizePid(q('pid', ''));
-        if(fromQs){
-          UI.pidInput.value = fromQs;
-          try{ localStorage.setItem('HHA_DEVICE_PID', fromQs); }catch{}
-          return fromQs;
-        }
-
-        try{
-          let pid = localStorage.getItem('HHA_DEVICE_PID');
-          if(!pid){
-            pid = `p-${Math.random().toString(36).slice(2,10)}`;
-            localStorage.setItem('HHA_DEVICE_PID', pid);
-          }
-          UI.pidInput.value = pid;
-          return sanitizePid(pid);
-        }catch{
-          const pid = `p-${Math.random().toString(36).slice(2,10)}`;
-          UI.pidInput.value = pid;
-          return pid;
-        }
-      }
-
-      function ensureNick(){
-        const typed = sanitizeNick(UI.nickInput.value);
-        if(typed){
-          try{ localStorage.setItem('HHA_HERO_NICK', typed); }catch{}
-          return typed;
-        }
-
-        const fromQs = sanitizeNick(q('nick', q('nickName', '')));
-        if(fromQs){
-          UI.nickInput.value = fromQs;
-          try{ localStorage.setItem('HHA_HERO_NICK', fromQs); }catch{}
-          return fromQs;
-        }
-
-        try{
-          const fromLs = sanitizeNick(localStorage.getItem('HHA_HERO_NICK') || 'Rocky') || 'Rocky';
-          UI.nickInput.value = fromLs;
-          return fromLs;
-        }catch{
-          UI.nickInput.value = 'Rocky';
-          return 'Rocky';
-        }
       }
 
       const UI = {
@@ -1522,11 +1507,64 @@
 
         hubBtn: document.getElementById('hubBtn'),
         hubBtnTop: document.getElementById('hubBtnTop'),
-        helpBtn: document.getElementById('helpBtn')
+        helpBtn: document.getElementById('helpBtn'),
+        btnSettings: document.getElementById('btnSettings')
       };
 
-      let mode = String(q('mode', 'solo')).toLowerCase();
-      if(!['solo','duet','coop'].includes(mode)) mode = 'solo';
+      let mode = (function(){
+        const fromQs = String(q('mode', '')).toLowerCase();
+        if(['solo','duet','coop'].includes(fromQs)) return fromQs;
+
+        const fromLs = String(readLS(LS.mode, 'solo')).toLowerCase();
+        if(['solo','duet','coop'].includes(fromLs)) return fromLs;
+
+        return 'solo';
+      })();
+
+      function ensurePid(){
+        const typed = sanitizePid(UI.pidInput.value);
+        if(typed){
+          writeLS(LS.pid, typed);
+          return typed;
+        }
+
+        const fromQs = sanitizePid(q('pid', ''));
+        if(fromQs){
+          UI.pidInput.value = fromQs;
+          writeLS(LS.pid, fromQs);
+          return fromQs;
+        }
+
+        const fromLs = sanitizePid(readLS(LS.pid, ''));
+        if(fromLs){
+          UI.pidInput.value = fromLs;
+          return fromLs;
+        }
+
+        const pid = `p-${Math.random().toString(36).slice(2,10)}`;
+        UI.pidInput.value = pid;
+        writeLS(LS.pid, pid);
+        return pid;
+      }
+
+      function ensureNick(){
+        const typed = sanitizeNick(UI.nickInput.value);
+        if(typed){
+          writeLS(LS.nick, typed);
+          return typed;
+        }
+
+        const fromQs = sanitizeNick(q('nick', q('nickName', '')));
+        if(fromQs){
+          UI.nickInput.value = fromQs;
+          writeLS(LS.nick, fromQs);
+          return fromQs;
+        }
+
+        const fromLs = sanitizeNick(readLS(LS.nick, 'Rocky')) || 'Rocky';
+        UI.nickInput.value = fromLs;
+        return fromLs;
+      }
 
       function syncProfile(){
         UI.profileName.textContent = ensureNick();
@@ -1539,6 +1577,7 @@
       }
 
       function syncModeUi(){
+        writeLS(LS.mode, mode);
         setActiveModeCard();
 
         UI.launchStage.classList.remove('coop');
@@ -1553,23 +1592,24 @@
 
         if(mode === 'solo'){
           UI.panelTitle.textContent = 'Hydration Hero';
-          UI.panelSub.textContent = 'เล่นคนเดียว ผ่าน warmup ก่อนเข้าด่านหลัก แล้วไปคูลดาวน์ก่อนกลับ HUB';
+          UI.panelSub.textContent = 'เล่นคนเดียว ผ่าน warmup ก่อนเข้าด่านหลัก แล้วค่อยไป summary / cooldown';
           UI.launchModeBadge.textContent = '💧 Solo Adventure';
           UI.launchBubble.textContent = 'Great! ไปเก็บน้ำดีให้ได้เยอะที่สุดกันเลย!';
           UI.levelPill.textContent = 'Solo Mode';
           UI.startBtn.textContent = 'Go Solo';
-          UI.speechText.textContent = 'พร้อมแล้ว! ไปเก็บน้ำดีให้เต็มพลังกันเลย';
+          UI.speechText.textContent = 'พร้อมแล้ว! เลือกโหมดก่อน แล้วไปลุยกันเลย';
           UI.tipCard.innerHTML =
             '<strong>วิธีเล่นแบบสั้น</strong><br />แตะน้ำดีเพื่อเพิ่มคะแนน เก็บโล่ไว้กันสายฟ้า และหลบของไม่ดีให้ได้มากที่สุด';
           UI.routeNote.innerHTML =
-            '<strong>เส้นทางเข้าเล่น</strong><br />' +
+            '<strong>Canonical Flow</strong><br />' +
             'Solo: <strong>/herohealth/warmup-gate.html</strong> → ' +
             '<strong>/herohealth/hydration-vr/hydration-vr.html</strong><br />' +
-            'Duet / Coop: <strong>/herohealth/hydration-lobby.html</strong>';
+            'Duet: <strong>/herohealth/hydration-lobby.html?mode=duet</strong><br />' +
+            'Coop: <strong>/herohealth/hydration-lobby.html?mode=coop</strong>';
         }
         else if(mode === 'duet'){
           UI.panelTitle.textContent = 'Hydration Duet';
-          UI.panelSub.textContent = 'เข้า lobby เล่น 2 คนด้วย room code เดียวกัน แล้วช่วยกันส่งผลคะแนนของทีม';
+          UI.panelSub.textContent = 'ใช้ lobby ก่อนเสมอ แล้วให้ผู้เล่น 2 คนเข้าห้องด้วย room code เดียวกัน';
           UI.launchModeBadge.textContent = '🤝 Duet Lobby';
           UI.launchBubble.textContent = 'ชวนเพื่อนมาเล่นด้วยกัน แล้วเข้าห้อง duet เพื่อเริ่มภารกิจทีม!';
           UI.levelPill.textContent = 'Duet Mode';
@@ -1580,10 +1620,11 @@
           UI.tipCard.innerHTML =
             '<strong>วิธีเล่นแบบสั้น</strong><br />เข้า lobby → สร้างห้องหรือใส่ room code → กด Ready ทั้งสองคน → Host กด Start';
           UI.routeNote.innerHTML =
-            '<strong>เส้นทางเข้าเล่น</strong><br />' +
+            '<strong>Canonical Flow</strong><br />' +
             'Duet: <strong>/herohealth/hydration-lobby.html?mode=duet</strong><br />' +
             'Solo: <strong>/herohealth/warmup-gate.html</strong> → ' +
-            '<strong>/herohealth/hydration-vr/hydration-vr.html</strong>';
+            '<strong>/herohealth/hydration-vr/hydration-vr.html</strong><br />' +
+            'Coop: <strong>/herohealth/hydration-lobby.html?mode=coop</strong>';
         }
         else{
           UI.panelTitle.textContent = 'Hydration Coop';
@@ -1592,8 +1633,6 @@
           UI.launchModeBadge.textContent = '🛟 Coop Lobby';
           UI.launchModeBadge.classList.add('soon');
           UI.launchSoonBadge.style.display = 'inline-flex';
-          UI.launchSoonBadge.textContent = 'Coming Soon';
-          UI.launchSoonBadge.className = 'tiny-badge soon';
           UI.launchBubble.textContent = 'โหมดทีมกำลังมาอีกนิดนะ ✨ ตอนนี้เข้าไปดูหน้า lobby ของ Coop ได้ก่อน';
           UI.launchBubble.classList.add('coop');
           UI.levelPill.textContent = 'Coop Soon';
@@ -1604,12 +1643,13 @@
           UI.speechText.classList.add('coop');
           UI.tipCard.classList.add('coop');
           UI.tipCard.innerHTML =
-            '<strong>สถานะตอนนี้</strong><br />Coop ยังเป็น Coming Soon โดยระบบจะพาไปหน้า lobby แบบเตรียมไว้ก่อน เพื่อให้ภาษาและ flow ตรงกับโหมดนี้';
+            '<strong>สถานะตอนนี้</strong><br />Coop ยังเป็น Coming Soon โดยระบบจะพาไปหน้า lobby แบบ child-friendly ที่ซ่อน flow ที่ยังไม่พร้อมไว้แล้ว';
           UI.routeNote.classList.add('coop');
           UI.routeNote.innerHTML =
-            '<strong>เส้นทางเข้าเล่น</strong><br />' +
+            '<strong>Canonical Flow</strong><br />' +
             'Coop: <strong>/herohealth/hydration-lobby.html?mode=coop</strong><br />' +
-            'หน้า lobby จะขึ้น Coming Soon แบบ child-friendly และยังไม่เปิดห้องจริง';
+            'หน้า lobby จะขึ้น Coming Soon และยังไม่เปิดสร้างห้องจริง<br />' +
+            'Solo / Duet ยังเป็นโหมดที่ใช้งานหลักในตอนนี้';
         }
       }
 
@@ -1631,29 +1671,14 @@
       }
 
       function passthroughKeys(){
-        return [
-          'studyId',
-          'phase',
-          'conditionGroup',
-          'sessionOrder',
-          'blockLabel',
-          'siteCode',
-          'schoolYear',
-          'semester',
-          'studentKey',
-          'schoolCode',
-          'classRoom',
-          'studentNo',
-          'nickName',
-          'grade',
-          'planDay',
-          'planSlot',
-          'teacher',
-          'log',
-          'api',
-          'debug',
-          'room'
-        ];
+        return PASS_KEYS.slice();
+      }
+
+      function copyPassParams(url){
+        for(const key of passthroughKeys()){
+          const v = qs.get(key);
+          if(v) url.searchParams.set(key, v);
+        }
       }
 
       function buildSoloRunUrl(seed){
@@ -1679,11 +1704,7 @@
         run.searchParams.set('time', time);
         run.searchParams.set('seed', seed);
 
-        for(const key of passthroughKeys()){
-          const v = qs.get(key);
-          if(v) run.searchParams.set(key, v);
-        }
-
+        copyPassParams(run);
         return run;
       }
 
@@ -1709,11 +1730,7 @@
         lobby.searchParams.set('time', time);
         lobby.searchParams.set('seed', seed);
 
-        for(const key of passthroughKeys()){
-          const v = qs.get(key);
-          if(v) lobby.searchParams.set(key, v);
-        }
-
+        copyPassParams(lobby);
         return lobby;
       }
 
@@ -1760,6 +1777,7 @@
         gate.searchParams.set('time', time);
         gate.searchParams.set('cooldown', q('cooldown', '1'));
 
+        copyPassParams(gate);
         location.href = gate.href;
       }
 
@@ -1825,6 +1843,10 @@
       UI.hubBtn.addEventListener('click', goHub);
       UI.hubBtnTop.addEventListener('click', goHub);
       UI.helpBtn.addEventListener('click', showHelp);
+
+      UI.btnSettings.addEventListener('click', ()=>{
+        alert('ตั้งค่าหลักของรอบเล่นนี้อยู่ทางขวา เช่น โหมด ชื่อเล่น ความยาก มุมมอง และเวลาเล่น');
+      });
 
       syncDefaults();
     })();
