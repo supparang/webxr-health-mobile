@@ -1,38 +1,48 @@
 /* /herohealth/firebase-config.js
-   Firebase v8 compat config bootstrap
+   FULL PATCH v20260327-FIREBASE-CONFIG-SDK-SAFE-R4
 */
-(function(){
+(function (W) {
   'use strict';
 
-  if (!window.firebase) {
-    console.error('[firebase-config] firebase sdk missing');
+  const firebaseConfig = {
+    apiKey: 'AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo',
+    authDomain: 'herohealth-d7f8c.firebaseapp.com',
+    databaseURL: 'https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app',
+    projectId: 'herohealth-d7f8c',
+    storageBucket: 'herohealth-d7f8c.firebasestorage.app',
+    messagingSenderId: '680817376848',
+    appId: '1:680817376848:web:eed21b522b0703f6bd9b55'
+  };
+
+  W.HHA_FIREBASE_CONFIG = firebaseConfig;
+
+  W.HHA_CLOUD_ENDPOINT =
+    W.HHA_CLOUD_ENDPOINT ||
+    'https://script.google.com/macros/s/AKfycbwNOpsjFTV_nK0PzNV23KziF5hZxIMI50P8o_vZgwVg_T4anpXZOaKQUy_uf5PPg9kT6Q/exec';
+
+  W.HHA_FIREBASE_APP = W.HHA_FIREBASE_APP || null;
+  W.HHA_DB = W.HHA_DB || null;
+  W.HHA_AUTH = W.HHA_AUTH || null;
+  W.HHA_FIREBASE_READY = false;
+
+  if (!W.firebase) {
+    console.warn('[firebase-config] firebase sdk not loaded yet; config exported only');
     return;
   }
 
-  const firebase = window.firebase;
+  try {
+    const app = (W.firebase.apps && W.firebase.apps.length)
+      ? W.firebase.app()
+      : W.firebase.initializeApp(firebaseConfig);
 
-  const config = {
-    apiKey: 'YOUR_API_KEY',
-    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-    databaseURL: 'https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    appId: 'YOUR_APP_ID'
-  };
+    W.HHA_FIREBASE_APP = app;
+    W.HHA_DB = W.firebase.database ? W.firebase.database() : null;
+    W.HHA_AUTH = W.firebase.auth ? W.firebase.auth() : null;
+    W.HHA_FIREBASE_READY = !!(W.HHA_DB && firebaseConfig.databaseURL);
 
-  try{
-    if (!firebase.apps || !firebase.apps.length){
-      firebase.initializeApp(config);
-      console.log('[firebase-config] initializeApp ok');
-    }else{
-      console.log('[firebase-config] reused existing app');
-    }
-
-    window.HHA_FIREBASE_READY = true;
-    console.log('[firebase-config] ready =', !!(firebase.apps && firebase.apps.length));
-  }catch(err){
-    window.HHA_FIREBASE_READY = false;
+    console.log('[firebase-config] ready =', W.HHA_FIREBASE_READY);
+  } catch (err) {
+    W.HHA_FIREBASE_READY = false;
     console.error('[firebase-config] init failed:', err);
   }
-})();
+})(window);
