@@ -2,7 +2,6 @@
    Shadow Breaker Engine
    FULL PATCH v20260327-SHADOWBREAKER-GATE-AUTOSTART-CVR
 */
-
 (function(){
   'use strict';
 
@@ -108,11 +107,6 @@
     return new Date().toISOString();
   }
 
-  function absUrl(pathOrUrl){
-    try{ return new URL(pathOrUrl, location.href).toString(); }
-    catch(_){ return String(pathOrUrl || ''); }
-  }
-
   function getViewMode(){
     const root = DOC.getElementById('sb-wrap');
     const dv = String(root?.dataset?.viewMode || '').toLowerCase();
@@ -127,7 +121,7 @@
 
   function buildCooldownGateUrl(summary){
     const hubUrl = String(summary?.hub || qs('hub','') || '../herohealth/hub.html');
-    const summaryUrl = `../herohealth/shadow-breaker-summary.html?pid=${encodeURIComponent(summary?.pid || 'anon')}`;
+    const summaryUrl = `../herohealth/shadow-breaker-summary.html?pid=${encodeURIComponent(summary?.pid || 'anon')}&hub=${encodeURIComponent(hubUrl)}`;
 
     const u = new URL('/webxr-health-mobile/herohealth/warmup-gate.html', location.origin);
 
@@ -905,7 +899,7 @@
 
     const hubUrl = String(qs('hub','') || '../herohealth/hub.html');
     const teacherUrl = `../herohealth/teacher-panel.html?game=shadowbreaker&pid=${encodeURIComponent(STATE.pid)}`;
-    const summaryUrl = `../herohealth/shadow-breaker-summary.html?pid=${encodeURIComponent(STATE.pid)}`;
+    const summaryUrl = `../herohealth/shadow-breaker-summary.html?pid=${encodeURIComponent(STATE.pid)}&hub=${encodeURIComponent(hubUrl)}`;
     const runUrl = `../herohealth/shadow-breaker-vr.html?pid=${encodeURIComponent(STATE.pid)}&diff=${encodeURIComponent(STATE.diff)}&time=${encodeURIComponent(Math.round(STATE.totalMs/1000))}&view=${encodeURIComponent(getViewMode())}&zone=fitness&hub=${encodeURIComponent(hubUrl)}`;
 
     const summaryBase = {
