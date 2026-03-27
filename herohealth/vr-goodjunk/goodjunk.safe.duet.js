@@ -1,9 +1,12 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260327-GOODJUNK-DUET-FINAL-V4
+   FULL PATCH v20260327-GOODJUNK-DUET-FINAL-V5
    - bindRoom retry ถ้า room ยัง sync มาไม่ทัน
+   - bindRoom ไม่ reset score/finished โดยไม่จำเป็น
    - ไม่ลบ room อัตโนมัติแล้ว
    - rematch flow
    - mobile summary scroll/sticky action bar
+   - background/unload/reconnect presence แข็งขึ้น
+   - กัน result overlay rerender ซ้ำโดยไม่จำเป็น
 */
 
 (function(){
@@ -210,6 +213,7 @@
     UI.resultMount.hidden = true;
     UI.resultMount.innerHTML = '';
     STATE.resultOpen = false;
+    STATE.lastOverlaySig = '';
   }
 
   function isMobileViewport(){
@@ -309,6 +313,7 @@
     started: false,
     ended: false,
     resultOpen: false,
+    lastOverlaySig: '',
 
     roomStatus: 'waiting',
     startAt: Number(qs('startAt') || 0) || 0,
@@ -864,6 +869,42 @@
     }
   }
 
+  function getTransientPhase(){
+    if (STATE.ended) return 'done';
+
+    const room = STATE.room || null;
+    const status = String((room && room.status) || STATE.roomStatus || 'waiting');
+
+    if (STATE.started || status === 'countdown' || status === 'running'){
+      return 'run';
+    }
+    return 'lobby';
+  }
+
+  async function markDisconnectedForSuspend(){
+    try{
+      if (STATE.meRef){
+        await STATE.meRef.update({
+          connected: false,
+          phase: getTransientPhase(),
+          lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+        });
+      }
+    }catch{}
+  }
+
+  async function markReconnectedAfterResume(){
+    try{
+      if (STATE.meRef){
+        await STATE.meRef.update({
+          connected: true,
+          phase: STATE.ended ? 'done' : (STATE.started ? 'run' : 'lobby'),
+          lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+        });
+      }
+    }catch{}
+  }
+
   function buildSummary(){
     const peer = getPeer(STATE.room) || {};
     const peerName = String(peer.name || 'เพื่อน');
@@ -892,7 +933,7 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: peerFinished,
       endedAt: new Date().toISOString(),
-      version: 'v20260327-GOODJUNK-DUET-FINAL-V4'
+      version: 'v20260327-GOODJUNK-DUET-FINAL-V5'
     };
   }
 
@@ -1124,10 +1165,6 @@
       console.warn('[duet.leave] meRef update failed:', err);
     }
 
-    /* ไม่ remove room อัตโนมัติแล้ว
-       กันห้องหายระหว่าง reload / rematch / reconnect ช้า
-    */
-
     W.location.href = nextHref;
   }
 
@@ -1143,6 +1180,23 @@
 
     const goalReached = pairScore >= STATE.pairGoal;
     const peerDone = !!peer.finished;
+    const rematchInfo = getRematchInfo(STATE.room);
+
+    const overlaySig = JSON.stringify({
+      reason: String(reason || ''),
+      peerScore,
+      peerDone,
+      pairScore,
+      rematchCount: rematchInfo.count,
+      rematchRequested: !!STATE.rematchRequested,
+      roomStatus: String((STATE.room && STATE.room.status) || ''),
+      goalReached
+    });
+
+    if (STATE.resultOpen && STATE.lastOverlaySig === overlaySig){
+      return;
+    }
+    STATE.lastOverlaySig = overlaySig;
 
     const statusText = reason === 'peer-stale'
       ? 'เพื่อนหลุดจากห้องนานเกินกำหนด จึงสรุปผลจากคะแนนล่าสุด'
@@ -1162,7 +1216,6 @@
     const recap = getRecapLines();
     const trophies = getTrophyBadges();
     const fx = getCelebrationFlags(goalReached);
-    const rematchInfo = getRematchInfo(STATE.room);
     const rematchBadges = [
       `<span class="duet-badge blue">🔁 รีแมตช์ ${rematchInfo.count}/2</span>`
     ];
@@ -1437,6 +1490,8 @@
     STATE.blockReason = title;
     UI.resultMount.hidden = false;
     STATE.resultOpen = true;
+    STATE.lastOverlaySig = `block:${String(title)}|${String(sub)}`;
+
     UI.resultMount.innerHTML = `
       <div class="duet-result-card">
         <div class="duet-result-title">${esc(title)}</div>
@@ -1490,9 +1545,9 @@
       throw new Error('room not found');
     }
 
-    const me = room.players && room.players[STATE.uid];
+    const prev = room.players && room.players[STATE.uid];
     const isKnownParticipant = isParticipant(room);
-    const meExists = !!me;
+    const meExists = !!prev;
 
     if (!meExists){
       throw new Error('player not in room');
@@ -1513,18 +1568,18 @@
       lastSeenAt: firebase.database.ServerValue.TIMESTAMP
     });
 
+    const computedPhase = prev.finished
+      ? 'done'
+      : ((String(room.status || 'waiting') === 'waiting') ? 'lobby' : 'run');
+
     await STATE.meRef.update({
       id: STATE.uid,
       uid: STATE.uid,
       pid: STATE.pid,
       name: STATE.name,
       connected: true,
-      ready: true,
-      phase: (String(room.status || 'waiting') === 'waiting') ? 'lobby' : 'run',
-      finished: false,
-      finalScore: 0,
-      miss: 0,
-      streak: 0,
+      ready: (typeof prev.ready === 'boolean') ? prev.ready : true,
+      phase: computedPhase,
       lastSeenAt: firebase.database.ServerValue.TIMESTAMP
     });
   }
@@ -1588,19 +1643,28 @@
     W.addEventListener('beforeunload', () => {
       stopHeartbeat();
       caf(STATE.loopId);
-      try{
-        if (STATE.meRef){
-          STATE.meRef.update({
-            connected: false,
-            phase: STATE.ended ? 'done' : 'left',
-            lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-          }).catch(() => {});
-        }
-      }catch{}
+      markDisconnectedForSuspend();
     });
 
     W.addEventListener('pagehide', () => {
       stopHeartbeat();
+      markDisconnectedForSuspend();
+    });
+
+    D.addEventListener('visibilitychange', () => {
+      if (D.visibilityState === 'hidden'){
+        stopHeartbeat();
+        markDisconnectedForSuspend();
+        return;
+      }
+
+      if (D.visibilityState === 'visible'){
+        markReconnectedAfterResume();
+        if (!STATE.ended){
+          startHeartbeat();
+          publishLivePresence();
+        }
+      }
     });
 
     W.addEventListener('resize', () => {
