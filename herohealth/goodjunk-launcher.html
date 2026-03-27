@@ -14,9 +14,6 @@
       --sky3:#fff7d8;
       --bg:#f4fbff;
 
-      --card:#fffdf6;
-      --panel:#ffffffef;
-
       --line:#bfe3f2;
       --line-strong:#98d4ec;
 
@@ -37,6 +34,7 @@
 
       --shadow:0 16px 34px rgba(63,114,155,.16);
       --radius:28px;
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
     }
@@ -514,14 +512,14 @@
 
             <div class="summary-item">
               <div class="summary-k">ค่าพารามิเตอร์</div>
-              <div class="summary-v" id="summaryParams">pid, name, nick, studyId, phase, conditionGroup, sessionOrder, blockLabel, siteCode, schoolYear, semester, diff, time, view, seed, hub</div>
+              <div class="summary-v" id="summaryParams">pid, name, nick, studyId, phase, conditionGroup, sessionOrder, blockLabel, siteCode, schoolYear, semester, run, diff, time, view, seed, api, log, debug, hub</div>
             </div>
           </div>
         </div>
 
         <div class="notice">
           <div class="notice-emoji">💡</div>
-          <div class="notice-text">
+          <div class="notice-text" id="autoNotice">
             หน้า launcher นี้จะคง query สำคัญไว้ แล้วส่งต่อไปยัง solo launcher หรือ multiplayer hub / lobby
           </div>
         </div>
@@ -629,6 +627,7 @@
       const UI = {
         summaryNick: document.getElementById('summaryNick'),
         summaryHub: document.getElementById('summaryHub'),
+        autoNotice: document.getElementById('autoNotice'),
 
         btnSolo: document.getElementById('btnSolo'),
         btnMultiHub: document.getElementById('btnMultiHub'),
@@ -638,28 +637,60 @@
         btnCoopLobby: document.getElementById('btnCoopLobby')
       };
 
+      const PASS_KEYS = [
+        'pid', 'name', 'nick',
+        'studyId', 'phase', 'conditionGroup', 'sessionOrder',
+        'blockLabel', 'siteCode', 'schoolYear', 'semester',
+        'run', 'diff', 'time', 'view', 'seed',
+        'api', 'log', 'debug',
+        'planDay', 'planSlot', 'grade',
+        'zone', 'game'
+      ];
+
       const ROUTES = {
         solo: './goodjunk-vr-launcher.html',
         multi: './goodjunk-multi.html',
-        duetLobby: './goodjunk-duet-lobby.html',
-        raceLobby: './goodjunk-race-lobby.html',
-        battleLobby: './goodjunk-battle-lobby.html',
-        coopLobby: './goodjunk-coop-lobby.html'
+        duet: './goodjunk-duet-lobby.html',
+        race: './goodjunk-race-lobby.html',
+        battle: './goodjunk-battle-lobby.html',
+        coop: './goodjunk-coop-lobby.html'
       };
 
-      function buildUrl(route, extraParams){
-        const url = new URL(route, location.href);
-        const src = new URL(location.href);
+      const ENTRY_MAP = {
+        solo: 'solo',
+        single: 'solo',
+        multi: 'multi',
+        multiplayer: 'multi',
+        duet: 'duet',
+        race: 'race',
+        battle: 'battle',
+        coop: 'coop'
+      };
 
-        src.searchParams.forEach((value, key) => {
-          url.searchParams.set(key, value);
+      function buildCanonicalHubUrl() {
+        const hub = qs('hub', '');
+        if (hub) return hub;
+        return new URL('../hub.html', location.href).toString();
+      }
+
+      function buildUrl(route, extraParams){
+        const src = new URL(location.href);
+        const url = new URL(route, location.href);
+
+        PASS_KEYS.forEach((key) => {
+          const value = src.searchParams.get(key);
+          if (value != null && value !== '') {
+            url.searchParams.set(key, value);
+          }
         });
 
-        if (extraParams && typeof extraParams === 'object'){
-          Object.entries(extraParams).forEach(([key, value]) => {
+        url.searchParams.set('hub', buildCanonicalHubUrl());
+
+        Object.entries(extraParams || {}).forEach(([key, value]) => {
+          if (value != null && value !== '') {
             url.searchParams.set(key, String(value));
-          });
-        }
+          }
+        });
 
         return url.toString();
       }
@@ -670,39 +701,72 @@
 
       function initSummary(){
         const nick = qs('name', qs('nick', '-')) || '-';
-        const hub = qs('hub', '../hub.html') || '../hub.html';
+        const hub = buildCanonicalHubUrl();
+
         UI.summaryNick.textContent = nick;
         UI.summaryHub.textContent = hub;
       }
 
       function bind(){
         UI.btnSolo.addEventListener('click', () => {
-          go(ROUTES.solo);
+          go(ROUTES.solo, { zone: 'nutrition', game: 'goodjunk', entry: 'solo' });
         });
 
         UI.btnMultiHub.addEventListener('click', () => {
-          go(ROUTES.multi);
+          go(ROUTES.multi, { zone: 'nutrition', game: 'goodjunk', entry: 'multi' });
         });
 
         UI.btnDuetLobby.addEventListener('click', () => {
-          go(ROUTES.duetLobby, { mode: 'duet' });
+          go(ROUTES.duet, { mode: 'duet', zone: 'nutrition', game: 'goodjunk', entry: 'duet' });
         });
 
         UI.btnRaceLobby.addEventListener('click', () => {
-          go(ROUTES.raceLobby, { mode: 'race' });
+          go(ROUTES.race, { mode: 'race', zone: 'nutrition', game: 'goodjunk', entry: 'race' });
         });
 
         UI.btnBattleLobby.addEventListener('click', () => {
-          go(ROUTES.battleLobby, { mode: 'battle' });
+          go(ROUTES.battle, { mode: 'battle', zone: 'nutrition', game: 'goodjunk', entry: 'battle' });
         });
 
         UI.btnCoopLobby.addEventListener('click', () => {
-          go(ROUTES.coopLobby, { mode: 'coop' });
+          go(ROUTES.coop, { mode: 'coop', zone: 'nutrition', game: 'goodjunk', entry: 'coop' });
         });
+      }
+
+      function handleAutoEntry(){
+        const rawEntry = String(qs('entry', '') || '').toLowerCase().trim();
+        const entry = ENTRY_MAP[rawEntry] || '';
+
+        if (!entry) return;
+
+        const messageMap = {
+          solo: 'กำลังพาเข้า Solo Launcher…',
+          multi: 'กำลังพาเข้า Multiplayer Hub…',
+          duet: 'กำลังพาเข้า Duet Lobby…',
+          race: 'กำลังพาเข้า Race Lobby…',
+          battle: 'กำลังพาเข้า Battle Lobby…',
+          coop: 'กำลังพาเข้า Coop Lobby…'
+        };
+
+        UI.autoNotice.textContent = messageMap[entry] || 'กำลังพาเข้าเป้าหมายที่เลือก…';
+
+        const routeMap = {
+          solo: () => go(ROUTES.solo, { zone: 'nutrition', game: 'goodjunk', entry: 'solo' }),
+          multi: () => go(ROUTES.multi, { zone: 'nutrition', game: 'goodjunk', entry: 'multi' }),
+          duet: () => go(ROUTES.duet, { mode: 'duet', zone: 'nutrition', game: 'goodjunk', entry: 'duet' }),
+          race: () => go(ROUTES.race, { mode: 'race', zone: 'nutrition', game: 'goodjunk', entry: 'race' }),
+          battle: () => go(ROUTES.battle, { mode: 'battle', zone: 'nutrition', game: 'goodjunk', entry: 'battle' }),
+          coop: () => go(ROUTES.coop, { mode: 'coop', zone: 'nutrition', game: 'goodjunk', entry: 'coop' })
+        };
+
+        setTimeout(() => {
+          routeMap[entry]?.();
+        }, 120);
       }
 
       initSummary();
       bind();
+      handleAutoEntry();
     })();
   </script>
 </body>
