@@ -3,7 +3,6 @@
    FULL PATCH v20260317-GATE-COMMON-SUMMARY-TOAST-FIX
 */
 
-/* ---------- base ---------- */
 :root{
   --gate-bg1:#020617;
   --gate-bg2:#0b1226;
@@ -46,7 +45,6 @@ body{
     calc(12px + var(--sal));
 }
 
-/* ---------- shell ---------- */
 .gate-wrap{
   width:min(980px, 100%);
   margin:0 auto;
@@ -179,7 +177,6 @@ body{
   word-break:break-all;
 }
 
-/* ---------- summary overlay ---------- */
 .gate-overlay{
   position:fixed;
   inset:0;
@@ -248,7 +245,6 @@ body{
   flex-wrap:wrap;
 }
 
-/* ---------- buttons ---------- */
 .gate-btn,
 .btn{
   appearance:none;
@@ -285,7 +281,6 @@ body{
   flex:1 1 180px;
 }
 
-/* ---------- toast ---------- */
 .gate-toast{
   position:fixed;
   left:50%;
@@ -313,7 +308,6 @@ body{
   transform:translateX(-50%) translateY(0);
 }
 
-/* ---------- daily done card ---------- */
 .gate-skip-card{
   position:relative;
   max-width:760px;
@@ -410,62 +404,19 @@ body{
   font-weight:1000;
 }
 
-/* ---------- responsive ---------- */
 @media (max-width: 760px){
   .gate-wrap{ gap:10px; }
-
-  .gate-hero{
-    border-radius:20px;
-    padding:16px 12px;
-  }
-
-  .gate-title{
-    font-size:clamp(24px, 7vw, 32px);
-  }
-
-  .gate-sub{
-    font-size:13px;
-  }
-
-  .gate-stats{
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:8px;
-  }
-
-  .gate-stat{
-    border-radius:16px;
-    padding:10px 8px;
-  }
-
-  .gate-stat-v{
-    font-size:18px;
-  }
-
-  .gate-main{
-    border-radius:20px;
-    padding:12px;
-    min-height:260px;
-  }
-
-  .gate-skip-card{
-    border-radius:22px;
-    padding:22px 14px 18px;
-  }
-
-  .gate-skip-title{
-    font-size:clamp(24px, 7vw, 32px);
-  }
-
-  .gate-skip-sub{
-    font-size:14px;
-  }
-
-  .gate-skip-emoji{
-    width:68px;
-    height:68px;
-    font-size:32px;
-    border-radius:18px;
-  }
+  .gate-hero{ border-radius:20px; padding:16px 12px; }
+  .gate-title{ font-size:clamp(24px, 7vw, 32px); }
+  .gate-sub{ font-size:13px; }
+  .gate-stats{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .gate-stat{ border-radius:16px; padding:10px 8px; }
+  .gate-stat-v{ font-size:18px; }
+  .gate-main{ border-radius:20px; padding:12px; min-height:260px; }
+  .gate-skip-card{ border-radius:22px; padding:22px 14px 18px; }
+  .gate-skip-title{ font-size:clamp(24px, 7vw, 32px); }
+  .gate-skip-sub{ font-size:14px; }
+  .gate-skip-emoji{ width:68px; height:68px; font-size:32px; border-radius:18px; }
 }
 
 @media (max-width: 560px){
@@ -476,14 +427,10 @@ body{
     padding:14px 12px;
   }
 
-  .gate-summary h2{
-    font-size:22px;
-  }
+  .gate-summary h2{ font-size:22px; }
 
   .gate-summary p,
-  .gate-summary-line{
-    font-size:13px;
-  }
+  .gate-summary-line{ font-size:13px; }
 
   .gate-footer{
     display:grid;
@@ -491,24 +438,12 @@ body{
   }
 
   .gate-footer .btn,
-  .gate-footer .gate-btn{
-    width:100%;
-  }
+  .gate-footer .gate-btn{ width:100%; }
 }
 
 @media (max-width: 420px){
-  .gate-meta{
-    gap:6px;
-  }
-
-  .gate-meta > div{
-    min-height:32px;
-    padding:6px 9px;
-    font-size:11px;
-  }
-
+  .gate-meta{ gap:6px; }
+  .gate-meta > div{ min-height:32px; padding:6px 9px; font-size:11px; }
   .gate-skip-badge,
-  .gate-skip-hint{
-    font-size:11px;
-  }
+  .gate-skip-hint{ font-size:11px; }
 }
