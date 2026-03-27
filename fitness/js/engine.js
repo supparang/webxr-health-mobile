@@ -1,6 +1,6 @@
 // === /fitness/js/engine.js ===
 // Shadow Breaker Engine
-// FULL PATCH v20260327f-SHADOWBREAKER-KIDSOFT-MOBILE-HARDSAFE-FULL
+// FULL PATCH v20260327g-SHADOWBREAKER-FINAL-BALANCE-FULL
 
 (function(){
   'use strict';
@@ -19,10 +19,6 @@
     v = Number(v);
     if(!Number.isFinite(v)) v = a;
     return Math.max(a, Math.min(b, v));
-  }
-
-  function safeJsonParse(v, fallback=null){
-    try{ return JSON.parse(v); }catch(_){ return fallback; }
   }
 
   function loadJson(key, fallback=null){
@@ -542,13 +538,13 @@
 
     const sizeBase =
       viewMode === 'mobile'
-        ? (STATE.diff === 'easy' ? 110 : STATE.diff === 'hard' ? 86 : 96)
+        ? (STATE.diff === 'easy' ? 98 : STATE.diff === 'hard' ? 80 : 88)
         : viewMode === 'cvr'
-          ? (STATE.diff === 'easy' ? 128 : STATE.diff === 'hard' ? 100 : 112)
-          : (STATE.diff === 'easy' ? 96 : STATE.diff === 'hard' ? 74 : 84);
+          ? (STATE.diff === 'easy' ? 122 : STATE.diff === 'hard' ? 96 : 106)
+          : (STATE.diff === 'easy' ? 92 : STATE.diff === 'hard' ? 72 : 82);
 
     const size =
-      type === 'bossface' ? sizeBase + 16 :
+      type === 'bossface' ? sizeBase + 10 :
       type === 'bomb' ? sizeBase - 8 :
       type === 'heal' || type === 'shield' ? sizeBase - 2 : sizeBase;
 
