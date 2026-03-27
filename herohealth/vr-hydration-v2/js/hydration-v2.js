@@ -18,18 +18,46 @@ function parseCtx() {
       const KEY = 'HHA_DEVICE_PID';
       let pid = localStorage.getItem(KEY);
       if (!pid) {
-        pid = `p-${Math.random().toString(36).slice(2,10)}`;
+        pid = `p-${Math.random().toString(36).slice(2, 10)}`;
         localStorage.setItem(KEY, pid);
       }
       return pid;
     } catch {
-      return `p-${Math.random().toString(36).slice(2,10)}`;
+      return `p-${Math.random().toString(36).slice(2, 10)}`;
     }
   }
 
+  function normalizeForm(raw) {
+    const f = String(raw || '').trim().toUpperCase();
+    if (f === 'A' || f === 'B' || f === 'C') return f;
+    return 'B';
+  }
+
+  function normalizePhase(raw, form) {
+    const p = String(raw || '').trim().toLowerCase();
+    if (p === 'pre' || p === 'pretest') return 'pre';
+    if (p === 'delayed' || p === 'followup' || p === 'retention') return 'delayed';
+    if (p === 'post' || p === 'posttest') return 'post';
+
+    if (form === 'A') return 'pre';
+    if (form === 'C') return 'delayed';
+    return 'post';
+  }
+
+  const researchForm = normalizeForm(
+    qs.get('researchForm') || qs.get('form')
+  );
+
+  const researchPhase = normalizePhase(
+    qs.get('researchPhase') || qs.get('testPhase'),
+    researchForm
+  );
+
   return {
     pid: normalizePid(qs.get('pid')),
-    sessionId: qs.get('sessionId') || `hydr2-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`,
+    sessionId:
+      qs.get('sessionId') ||
+      `hydr2-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     hub: defaultHub(),
     studyId: qs.get('studyId') || '',
     runMode: qs.get('runMode') || 'play',
@@ -39,7 +67,9 @@ function parseCtx() {
     schoolCode: qs.get('schoolCode') || '',
     classRoom: qs.get('classRoom') || '',
     studentNo: qs.get('studentNo') || '',
-    nickName: qs.get('nickName') || ''
+    nickName: qs.get('nickName') || '',
+    researchForm,
+    researchPhase
   };
 }
 
@@ -66,7 +96,9 @@ function createUI() {
 
   function setProgress(roundNo, totalRounds) {
     els.roundText.textContent = `${roundNo} / ${totalRounds}`;
-    const pct = totalRounds > 0 ? Math.max(0, Math.min(100, (roundNo / totalRounds) * 100)) : 0;
+    const pct = totalRounds > 0
+      ? Math.max(0, Math.min(100, (roundNo / totalRounds) * 100))
+      : 0;
     els.progressFill.style.width = `${pct}%`;
   }
 
@@ -83,11 +115,12 @@ function createUI() {
     els.scenarioText.textContent = data.text;
     els.scenarioHint.textContent = data.hint || '';
     els.promptBox.textContent = data.prompt;
-    els.feedbackBox.innerHTML = data.stepType === 'answer'
-      ? 'อ่านสถานการณ์ให้ดีก่อน แล้วเลือกคำตอบที่เหมาะที่สุด'
-      : data.stepType === 'reason'
-        ? 'ต่อไปเลือกเหตุผลที่ตรงกับคำตอบที่เหมาะที่สุด'
-        : 'ไม่มีถูกหรือผิด แค่เลือกตามความรู้สึกของเรา';
+    els.feedbackBox.innerHTML =
+      data.stepType === 'answer'
+        ? 'อ่านสถานการณ์ให้ดีก่อน แล้วเลือกคำตอบที่เหมาะที่สุด'
+        : data.stepType === 'reason'
+          ? 'ต่อไปเลือกเหตุผลที่ตรงกับคำตอบที่เหมาะที่สุด'
+          : 'ไม่มีถูกหรือผิด แค่เลือกตามความรู้สึกของเรา';
 
     els.choiceArea.innerHTML = '';
     data.choices.forEach((choice) => {
