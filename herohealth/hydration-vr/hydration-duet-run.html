@@ -1,1 +1,1599 @@
-html <!doctype html> <html lang="th"> <head> <meta charset="utf-8" /> <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" /> <title>HeroHealth • Hydration Duet Run</title> <meta name="color-scheme" content="light" /> <meta name="theme-color" content="#bfeeff" /> <link rel="icon" href="../favicon.ico" /> <style> :root{ --sky1:#eafcff; --sky2:#cdf2ff; --sky3:#aee3ff; --card:#fffefb; --card2:#f5fffb; --card3:#eefaff; --line:#d6edf6; --line-strong:#c5e4ef; --text:#2f5268; --muted:#6f91a6; --green1:#90e36f; --green2:#58bd46; --green3:#3da43a; --blue1:#85d6ff; --blue2:#51acef; --blue3:#398fda; --yellow1:#ffe588; --yellow2:#f7c84f; --orange1:#ffc47e; --orange2:#ff9d5e; --red1:#ffb3b3; --red2:#ef6767; --shadow:0 14px 34px rgba(84,142,176,.14); --shadow-lg:0 24px 56px rgba(84,142,176,.18); --radius-xl:32px; --radius-lg:26px; --radius-md:20px; --radius-sm:16px; } *{ box-sizing:border-box; } html,body{ margin:0; min-height:100%; } body{ font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif; color:var(--text); background: radial-gradient(circle at 10% 8%, rgba(255,255,255,.82), transparent 13%), radial-gradient(circle at 84% 10%, rgba(255,255,255,.66), transparent 14%), linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 48%, var(--sky3) 100%); padding:14px; } button{ font:inherit; -webkit-tap-highlight-color:transparent; } .page{ width:min(1320px,100%); margin:0 auto; display:grid; gap:14px; } .shell, .panel{ background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.95)); border:1px solid rgba(255,255,255,.96); box-shadow: 0 18px 40px rgba(84,142,176,.12), inset 0 1px 0 rgba(255,255,255,.92); } .shell{ position:relative; overflow:hidden; border-radius:var(--radius-xl); padding:14px; display:grid; gap:14px; } .shell::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:96px; background: radial-gradient(circle at 10% 78%, #d7f3ae 0 18%, transparent 19%), radial-gradient(circle at 32% 100%, #b7e788 0 12%, transparent 13%), radial-gradient(circle at 84% 74%, #d8f4b3 0 18%, transparent 19%), linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.10) 38%, rgba(104,191,70,.22) 100%); pointer-events:none; } .shell > *{ position:relative; z-index:1; } .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; } .brand{ display:flex; align-items:center; gap:12px; min-width:0; } .brand-badge{ width:72px; height:72px; border-radius:24px; background:linear-gradient(180deg,#fff8e8,#ffe8b9); border:1px solid rgba(255,255,255,.95); box-shadow:var(--shadow); display:grid; place-items:center; overflow:hidden; flex:0 0 72px; } .hero-wrap{ position:relative; width:56px; height:56px; } .hero-head{ position:absolute; left:16px; top:8px; width:22px; height:22px; border-radius:999px; background:#ffd9b8; z-index:4; } .hero-hair{ position:absolute; left:12px; top:5px; width:28px; height:16px; border-radius:16px 16px 10px 10px; background:linear-gradient(180deg,#7a3b22,#5f2f18); transform:rotate(-8deg); z-index:5; } .hero-body{ position:absolute; left:13px; top:24px; width:28px; height:18px; border-radius:14px 14px 11px 11px; background:linear-gradient(180deg,#8fd7ff,#58acef); z-index:3; } .hero-cape{ position:absolute; left:4px; top:20px; width:16px; height:22px; border-radius:14px 0 14px 14px; background:linear-gradient(180deg,#ff8063,#ef5d44); transform:rotate(-24deg); z-index:2; } .hero-drop{ position:absolute; right:2px; bottom:7px; width:18px; height:18px; border-radius:999px; display:grid; place-items:center; color:#fff; font-size:10px; background:linear-gradient(180deg,#8de36b,#58bf44); z-index:6; } .brand-text{ min-width:0; } .logo{ display:flex; align-items:center; gap:2px; line-height:1; font-size:clamp(28px,4vw,44px); font-weight:1000; letter-spacing:-.03em; text-shadow:0 3px 0 rgba(255,255,255,.72); } .logo-hero{ color:#8fbe1e; } .logo-health{ color:#ffffff; text-shadow: 0 3px 0 rgba(90,145,180,.22), 0 0 1px rgba(90,145,180,.16); } .logo-sub{ margin-top:4px; color:#6f91a6; font-size:14px; font-weight:900; } .top-actions{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; } .pill{ min-height:38px; padding:8px 14px; border-radius:999px; background:rgba(255,255,255,.82); border:1px solid rgba(255,255,255,.96); box-shadow:var(--shadow); color:#6d8fa3; font-size:13px; font-weight:1000; display:inline-flex; align-items:center; gap:8px; } .btn{ min-height:50px; padding:12px 18px; border-radius:18px; font-size:18px; font-weight:1000; cursor:pointer; transition:transform .12s ease, filter .12s ease; box-shadow: 0 12px 26px rgba(84,142,176,.14), inset 0 1px 0 rgba(255,255,255,.18); } .btn:hover{ transform:translateY(-1px) scale(1.01); filter:brightness(1.02); } .btn-soft{ border:1px solid rgba(255,255,255,.95); background:linear-gradient(180deg,#ffffff,#eefcff); color:#2f5268; } .btn-blue{ border:0; background:linear-gradient(180deg,var(--blue1),var(--blue2)); color:#fff; } .btn-green{ border:0; background:linear-gradient(180deg,#8de36b,#58bf44); color:#fff; } .hero-grid{ display:grid; grid-template-columns:.92fr 1.08fr; gap:14px; } .stack{ display:grid; gap:14px; align-content:start; } .panel{ border-radius:28px; padding:14px; display:grid; gap:14px; } .section-title{ margin:0; color:#2d5269; font-size:30px; line-height:1.06; font-weight:1000; } .section-sub{ margin:0; color:#6f91a6; font-size:15px; line-height:1.5; font-weight:800; } .status-strip{ display:flex; flex-wrap:wrap; gap:10px; } .player-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; } .player-card{ min-height:170px; border-radius:24px; padding:14px; background:linear-gradient(180deg,#fffef8,#f3fff0); border:1px solid rgba(255,255,255,.96); box-shadow:var(--shadow); display:grid; gap:12px; align-content:start; } .player-card.offline{ background:linear-gradient(180deg,#ffffff,#eefcff); } .player-top{ display:flex; gap:10px; justify-content:space-between; align-items:center; flex-wrap:wrap; } .chip{ min-height:34px; padding:7px 12px; border-radius:999px; background:linear-gradient(180deg,#ffffff,#eefcff); border:1px solid rgba(255,255,255,.95); color:#5c849c; font-size:12px; font-weight:1000; display:inline-flex; align-items:center; gap:6px; box-shadow:var(--shadow); } .chip.green{ background:linear-gradient(180deg,#8de36b,#58bf44); color:#fff; border:0; } .chip.yellow{ background:linear-gradient(180deg,#ffe588,#f7c84f); color:#7c6112; border:0; } .chip.red{ background:linear-gradient(180deg,#ffc7c7,#ef6767); color:#fff; border:0; } .player-name{ margin:0; color:#2e556f; font-size:24px; line-height:1.08; font-weight:1000; } .player-meta{ color:#6f91a6; font-size:14px; line-height:1.55; font-weight:800; } .stage-shell{ position:relative; overflow:hidden; min-height:78vh; border-radius:30px; padding:12px; background: radial-gradient(circle at 14% 14%, rgba(255,255,255,.92), transparent 10%), radial-gradient(circle at 84% 16%, rgba(255,255,255,.72), transparent 12%), linear-gradient(180deg,#e9fbff 0%,#c9f0ff 42%,#aee2ff 100%); border:1px solid rgba(255,255,255,.96); box-shadow:var(--shadow-lg); display:grid; } .stage-shell::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:104px; background: radial-gradient(circle at 10% 76%, #d4f3ad 0 18%, transparent 19%), radial-gradient(circle at 34% 100%, #a8e37f 0 12%, transparent 13%), radial-gradient(circle at 84% 74%, #d4f3ad 0 18%, transparent 19%), linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.12) 40%, rgba(104,191,70,.24) 100%); pointer-events:none; } .frame-wrap{ position:relative; z-index:1; min-height:calc(78vh - 24px); border-radius:24px; overflow:hidden; border:1px solid rgba(255,255,255,.96); background:#d8f3ff; box-shadow:inset 0 1px 0 rgba(255,255,255,.8); } iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; background:#d8f3ff; } .overlay{ position:absolute; inset:0; z-index:5; display:grid; place-items:center; padding:18px; background:rgba(234,252,255,.78); backdrop-filter:blur(6px); transition:opacity .24s ease, visibility .24s ease; } .overlay.hide{ opacity:0; visibility:hidden; pointer-events:none; } .overlay-card{ width:min(560px,100%); padding:18px; border-radius:30px; background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96)); border:1px solid rgba(255,255,255,.96); box-shadow:var(--shadow-lg); display:grid; gap:14px; text-align:center; justify-items:center; } .big-team{ display:flex; gap:16px; justify-content:center; flex-wrap:wrap; align-items:end; } .mini-hero-box{ width:108px; min-height:128px; border-radius:26px; padding:12px; background:linear-gradient(180deg,#f3fbff,#def4ff); border:1px solid rgba(255,255,255,.95); box-shadow:var(--shadow); display:grid; justify-items:center; gap:10px; } .mini-hero-box.alt{ background:linear-gradient(180deg,#fff8eb,#ffe9c1); } .mini-hero-head{ width:66px; height:66px; border-radius:20px; display:grid; place-items:center; background:linear-gradient(180deg,#ffffff,#eefcff); border:1px solid rgba(255,255,255,.95); box-shadow:var(--shadow); } .mini-hero-head .hero-wrap{ transform:scale(.84); transform-origin:center; } .mini-hero-name{ color:#2e556f; font-size:16px; line-height:1.1; font-weight:1000; text-align:center; } .team-link{ width:74px; height:74px; border-radius:999px; display:grid; place-items:center; font-size:34px; background:linear-gradient(180deg,#fff7db,#ffefbd); border:1px solid #ffe39a; box-shadow:var(--shadow); margin-bottom:18px; } .overlay-title{ margin:0; color:#2d5269; font-size:34px; line-height:1.04; font-weight:1000; } .overlay-text{ margin:0; color:#6f91a6; font-size:16px; line-height:1.5; font-weight:800; } .bubble{ max-width:420px; padding:12px 16px; border-radius:18px; background:linear-gradient(180deg,#fff7db,#ffefbd); border:1px solid #ffe39a; color:#6d5f29; font-size:15px; line-height:1.45; font-weight:1000; box-shadow:var(--shadow); } .count-num{ width:118px; height:118px; border-radius:999px; display:grid; place-items:center; background:linear-gradient(180deg,#8de36b,#58bf44); color:#fff; font-size:56px; line-height:1; font-weight:1000; box-shadow:var(--shadow-lg); } .mini-progress{ width:min(320px,100%); height:16px; border-radius:999px; background:#e8f7df; border:1px solid #cceab8; overflow:hidden; } .mini-progress > span{ display:block; width:48%; height:100%; border-radius:999px; background:linear-gradient(90deg,#8de36b,#58bf44); animation:loadMove 1.2s linear infinite alternate; } @keyframes loadMove{ from{ width:24%; } to{ width:82%; } } .backdrop{ position:fixed; inset:0; background:rgba(25,52,68,.26); backdrop-filter:blur(6px); display:none; align-items:center; justify-content:center; padding:18px; z-index:40; } .backdrop.open{ display:flex; } .dialog{ width:min(560px,100%); border-radius:30px; padding:18px; background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96)); border:1px solid rgba(255,255,255,.96); box-shadow:var(--shadow-lg); display:grid; gap:14px; } .dialog h2{ margin:0; color:#2d5269; font-size:28px; line-height:1.05; font-weight:1000; } .dialog-item{ padding:12px 14px; border-radius:18px; background:linear-gradient(180deg,#fffef8,#f3fff0); border:1px solid rgba(255,255,255,.96); box-shadow:var(--shadow); color:#567b90; font-size:15px; line-height:1.5; font-weight:900; } body.cvr-mode{ padding:0; background:#000; } body.cvr-mode .page{ width:100%; gap:0; } body.cvr-mode .shell{ border-radius:0; padding:10px; min-height:100vh; background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05)); border:0; box-shadow:none; } body.cvr-mode .shell::after{ display:none; } body.cvr-mode .hero-grid{ grid-template-columns:1fr; } body.cvr-mode .panel{ background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.12); box-shadow:none; } body.cvr-mode .pill, body.cvr-mode .chip{ background:rgba(255,255,255,.16); color:#fff; border-color:rgba(255,255,255,.14); box-shadow:none; } body.cvr-mode .btn-soft, body.cvr-mode .btn-blue, body.cvr-mode .btn-green{ box-shadow:none; } body.cvr-mode .stage-shell{ min-height:calc(100vh - 120px); } body.cvr-mode .frame-wrap{ min-height:calc(100vh - 144px); } @media (max-width: 980px){ .hero-grid{ grid-template-columns:1fr; } } @media (max-width: 760px){ body{ padding:10px; } .player-grid{ grid-template-columns:1fr; } .top-actions{ width:100%; justify-content:flex-start; } .brand-badge{ width:58px; height:58px; border-radius:18px; flex-basis:58px; } .hero-wrap{ width:46px; height:46px; } .hero-head{ left:13px; top:7px; width:18px; height:18px; } .hero-hair{ left:10px; top:4px; width:22px; height:14px; } .hero-body{ left:11px; top:20px; width:22px; height:16px; } .hero-cape{ left:3px; top:17px; width:14px; height:18px; } .hero-drop{ width:15px; height:15px; font-size:9px; } .logo{ font-size:28px; } .overlay-title{ font-size:28px; } .count-num{ width:98px; height:98px; font-size:48px; } .btn{ width:100%; } .top-actions .btn{ width:auto; } } </style> </head> <body> <main class="page"> <section class="shell"> <div class="topbar"> <div class="brand"> <div class="brand-badge"> <div class="hero-wrap"> <div class="hero-head"></div> <div class="hero-hair"></div> <div class="hero-body"></div> <div class="hero-cape"></div> <div class="hero-drop">💧</div> </div> </div> <div class="brand-text"> <div class="logo"> <span class="logo-hero">Hero</span><span class="logo-health">Health</span> </div> <div class="logo-sub">Hydration Duet Run</div> </div> </div> <div class="top-actions"> <span id="metaRoom" class="pill">🏷️ Room —</span> <span id="metaDiff" class="pill">🎯 Normal</span> <span id="metaView" class="pill">📱 Mobile</span> <span id="metaTime" class="pill">⏱ 80 วินาที</span> <button id="helpBtn" class="btn btn-blue" type="button">❓ วิธีเล่น</button> <button id="hubBtn" class="btn btn-soft" type="button">🏠 HUB</button> </div> </div> <section class="hero-grid"> <div class="stack"> <section class="panel"> <div> <h2 class="section-title">สถานะทีม</h2> <p class="section-sub">Duet รุ่นแรกจะ sync lobby / countdown / start / finished ก่อน แล้วค่อยต่อ coop logic เต็มรูปแบบ</p> </div> <div class="status-strip"> <span class="pill">🛰️ Online <strong id="onlineText">—</strong></span> <span class="pill">🔐 Auth <strong id="authText">กำลังเชื่อมต่อ</strong></span> <span id="phaseChip" class="chip yellow">⌛ Waiting</span> </div> <div class="player-grid"> <div id="meCard" class="player-card"> <div class="player-top"> <h3 id="meName" class="player-name">Me</h3> <span id="meStatusChip" class="chip yellow">⌛ waiting</span> </div> <div id="meMeta" class="player-meta"> score: 0<br /> state: lobby </div> </div> <div id="peerCard" class="player-card offline"> <div class="player-top"> <h3 id="peerName" class="player-name">Peer</h3> <span id="peerStatusChip" class="chip red">🔴 offline</span> </div> <div id="peerMeta" class="player-meta"> score: 0<br /> state: waiting </div> </div> </div> <div class="status-strip"> <span class="pill">🤖 Seed <strong id="seedText">—</strong></span> <span class="pill">🎮 Mode <strong>Duet</strong></span> <span class="pill">💧 Mission <strong>Team Play</strong></span> </div> <div class="section-sub"> inner game ของ wrapper นี้จะโหลดจาก <strong>/herohealth/hydration-vr/hydration-duet-game.html</strong> </div> </section> </div> <div class="stack"> <section class="panel"> <div class="frame-wrap"> <iframe id="gameFrame" title="Hydration Duet Game" allow="fullscreen; xr-spatial-tracking; accelerometer; gyroscope; autoplay; gamepad; clipboard-read; clipboard-write" referrerpolicy="same-origin" ></iframe> <div id="waitOverlay" class="overlay"> <div class="overlay-card"> <div class="big-team"> <div class="mini-hero-box"> <div class="mini-hero-head"> <div class="hero-wrap"> <div class="hero-head"></div> <div class="hero-hair"></div> <div class="hero-body"></div> <div class="hero-cape"></div> <div class="hero-drop">💧</div> </div> </div> <div id="overlayNameLeft" class="mini-hero-name">Player 1</div> </div> <div class="team-link">🤝</div> <div class="mini-hero-box alt"> <div class="mini-hero-head"> <div class="hero-wrap"> <div class="hero-head"></div> <div class="hero-hair"></div> <div class="hero-body"></div> <div class="hero-cape"></div> <div class="hero-drop">💧</div> </div> </div> <div id="overlayNameRight" class="mini-hero-name">Player 2</div> </div> </div> <h1 id="overlayTitle" class="overlay-title">Hydration Duet</h1> <p id="overlayText" class="overlay-text">กำลังรอห้องพร้อมเล่น...</p> <div id="overlayBubble" class="bubble">เมื่อทั้งสองคนพร้อม ระบบจะนับถอยหลังแล้วเข้าเกมพร้อมกัน</div> <div id="countNum" class="count-num" hidden>3</div> <div id="miniProgress" class="mini-progress"><span></span></div> </div> </div> </div> </section> </div> </section> </section> </main> <div id="helpBackdrop" class="backdrop" aria-hidden="true"> <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="helpTitle"> <h2 id="helpTitle">วิธีเล่น Hydration Duet Run</h2> <div class="dialog-item">1) wrapper นี้จะรอ startAt จากห้อง duet ก่อน</div> <div class="dialog-item">2) เมื่อถึงเวลาจะเข้าเกมพร้อมกันทั้งสองเครื่อง</div> <div class="dialog-item">3) ตอนจบเกม wrapper จะอัปเดตผลลัพธ์ของผู้เล่นกลับเข้าห้อง</div> <div class="dialog-item">4) เวอร์ชันแรกยังไม่โจมตีกันหรือ sync object แบบ real-time ทีละลูก</div> <button id="closeHelpBtn" class="btn btn-blue" type="button">เข้าใจแล้ว</button> </div> </div> <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script> <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script> <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script> <script> (function(){ const INNER_GAME_PATH = './hydration-duet-game.html'; const HEARTBEAT_MS = 2500; const PASS_KEYS = [ 'studyId','phase','conditionGroup','sessionOrder','blockLabel', 'siteCode','schoolYear','semester','studentKey','schoolCode', 'classRoom','studentNo','nickName','grade','planDay','planSlot', 'teacher','run','log','api','debug' ]; const qs = new URLSearchParams(location.search); const EL = { gameFrame: document.getElementById('gameFrame'), waitOverlay: document.getElementById('waitOverlay'), overlayTitle: document.getElementById('overlayTitle'), overlayText: document.getElementById('overlayText'), overlayBubble: document.getElementById('overlayBubble'), countNum: document.getElementById('countNum'), miniProgress: document.getElementById('miniProgress'), metaRoom: document.getElementById('metaRoom'), metaDiff: document.getElementById('metaDiff'), metaView: document.getElementById('metaView'), metaTime: document.getElementById('metaTime'), onlineText: document.getElementById('onlineText'), authText: document.getElementById('authText'), phaseChip: document.getElementById('phaseChip'), meCard: document.getElementById('meCard'), meName: document.getElementById('meName'), meMeta: document.getElementById('meMeta'), meStatusChip: document.getElementById('meStatusChip'), peerCard: document.getElementById('peerCard'), peerName: document.getElementById('peerName'), peerMeta: document.getElementById('peerMeta'), peerStatusChip: document.getElementById('peerStatusChip'), overlayNameLeft: document.getElementById('overlayNameLeft'), overlayNameRight: document.getElementById('overlayNameRight'), seedText: document.getElementById('seedText'), helpBtn: document.getElementById('helpBtn'), closeHelpBtn: document.getElementById('closeHelpBtn'), helpBackdrop: document.getElementById('helpBackdrop'), hubBtn: document.getElementById('hubBtn') }; const state = { firebaseReady:false, authReady:false, db:null, auth:null, uid:'', roomCode:'', roomData:null, roomRef:null, roomListener:null, infoConnRef:null, infoConnListener:null, heartbeatTimer:0, isHost:false, hasLoadedFrame:false, hasStartedRunning:false, lastCountdownShown:null, currentStartAt:0 }; function q(name, fallback=''){ const v = qs.get(name); return v == null || v === '' ? fallback : v; } function sanitizePid(v){ return String(v || '').trim().replace(/[.#$[\]/]/g, '-').replace(/\s+/g, '-').slice(0,36); } function sanitizeNick(v){ return String(v || '').trim().replace(/\s+/g, ' ').slice(0,24); } function sanitizeRoomCode(v){ return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,6); } function defaultHub(){ return q('hub', new URL('../hub.html', location.href).href); } function diffLabel(v){ return v === 'easy' ? 'Easy' : v === 'hard' ? 'Hard' : 'Normal'; } function viewLabel(v){ if(v === 'pc') return 'PC'; if(v === 'cvr') return 'Cardboard / cVR'; return 'Mobile'; } function escapeHtml(s){ return String(s || '') .replace(/&/g, '&amp;') .replace(/</g, '&lt;') .replace(/>/g, '&gt;') .replace(/"/g, '&quot;') .replace(/'/g, '&#39;'); } function defaultTimeForDiff(diff){ if(diff === 'easy') return '60'; if(diff === 'hard') return '90'; return '80'; } function roomPath(roomCode){ return `hha-battle/hydration/duetRooms/${roomCode}`; } function playerPath(roomCode, uid){ return `${roomPath(roomCode)}/players/${uid}`; } function nowTs(){ return firebase.database.ServerValue.TIMESTAMP; } function setPhaseChip(text, kind){ EL.phaseChip.className = `chip ${kind || ''}`.trim(); EL.phaseChip.textContent = text; } function setOverlay(title, text, bubble){ EL.overlayTitle.textContent = title; EL.overlayText.textContent = text; EL.overlayBubble.textContent = bubble || ''; } function showOverlay(showCountdown){ EL.waitOverlay.classList.remove('hide'); EL.countNum.hidden = !showCountdown; EL.miniProgress.hidden = !!showCountdown; } function hideOverlay(){ EL.waitOverlay.classList.add('hide'); } function openHelp(){ EL.helpBackdrop.classList.add('open'); EL.helpBackdrop.setAttribute('aria-hidden', 'false'); } function closeHelp(){ EL.helpBackdrop.classList.remove('open'); EL.helpBackdrop.setAttribute('aria-hidden', 'true'); } function goHub(){ location.href = defaultHub(); } function applyMeta(room){ const diff = (room && room.diff) || q('diff', 'normal'); const time = String((room && room.time) || q('time', defaultTimeForDiff(diff))); const view = (room && room.view) || q('view', 'mobile'); const roomCode = (room && room.roomId) || state.roomCode || '—'; const seed = (room && room.seed) || q('seed', '—'); EL.metaRoom.textContent = `🏷️ Room ${roomCode}`; EL.metaDiff.textContent = `🎯 ${diffLabel(diff)}`; EL.metaView.textContent = `📱 ${viewLabel(view)}`; EL.metaTime.textContent = `⏱ ${time} วินาที`; EL.seedText.textContent = seed; if(view === 'cvr'){ document.body.classList.add('cvr-mode'); }else{ document.body.classList.remove('cvr-mode'); } } function setupFirebaseApp(){ if(typeof firebase === 'undefined'){ throw new Error('Firebase scripts not loaded'); } if(firebase.apps && firebase.apps.length){ return firebase.app(); } const cfg = window.HHA_FIREBASE_CONFIG || window.FIREBASE_CONFIG || window.__firebaseConfig || null; if(!cfg || !cfg.apiKey){ throw new Error('Missing Firebase config'); } return firebase.initializeApp(cfg); } function waitForAuthUser(){ return new Promise((resolve, reject)=>{ const unsub = state.auth.onAuthStateChanged((user)=>{ if(user){ unsub(); resolve(user); } }, (err)=> reject(err)); }); } async function ensureFirebase(){ const app = setupFirebaseApp(); state.db = firebase.database(app); state.auth = firebase.auth(app); state.firebaseReady = true; if(!state.auth.currentUser){ await state.auth.signInAnonymously(); } const user = state.auth.currentUser || await waitForAuthUser(); state.uid = user.uid; state.authReady = true; EL.authText.textContent = 'พร้อมใช้งาน'; } function sortPlayers(players){ return Object.values(players || {}).sort((a,b)=>{ const aJoin = Number(a && a.joinedAt) || 0; const bJoin = Number(b && b.joinedAt) || 0; return aJoin - bJoin; }); } function findMe(room){ return room && room.players ? room.players[state.uid] || null : null; } function findPeer(room){ const arr = sortPlayers(room && room.players || {}); return arr.find(p => p && p.uid !== state.uid) || null; } function statusChipHtml(player){ if(!player) return { text:'⌛ waiting', cls:'yellow' }; if(player.finished) return { text:'🏁 finished', cls:'green' }; if(!player.connected) return { text:'🔴 offline', cls:'red' }; if(player.phase === 'run') return { text:'🎮 running', cls:'green' }; if(player.phase === 'done') return { text:'🏁 done', cls:'green' }; if(player.ready) return { text:'✅ ready', cls:'green' }; return { text:'⌛ waiting', cls:'yellow' }; } function renderPlayers(room){ const me = findMe(room); const peer = findPeer(room); EL.meName.textContent = me && me.name ? me.name : sanitizeNick(q('nick', q('nickName', 'Me'))) || 'Me'; EL.peerName.textContent = peer && peer.name ? peer.name : 'Peer'; EL.overlayNameLeft.textContent = EL.meName.textContent; EL.overlayNameRight.textContent = EL.peerName.textContent; const meChip = statusChipHtml(me); EL.meStatusChip.className = `chip ${meChip.cls}`.trim(); EL.meStatusChip.textContent = meChip.text; EL.meMeta.innerHTML = ` score: ${Number(me && me.finalScore || 0)}<br /> state: ${escapeHtml(me && me.phase || 'lobby')}<br /> pid: ${escapeHtml(me && me.pid || sanitizePid(q('pid', '')) || '-')} `; const peerChip = statusChipHtml(peer); EL.peerStatusChip.className = `chip ${peerChip.cls}`.trim(); EL.peerStatusChip.textContent = peerChip.text; EL.peerMeta.innerHTML = ` score: ${Number(peer && peer.finalScore || 0)}<br /> state: ${escapeHtml(peer && peer.phase || 'waiting')}<br /> pid: ${escapeHtml(peer && peer.pid || '-')} `; EL.peerCard.className = `player-card ${peer && peer.connected ? '' : 'offline'}`.trim(); } async function reservePresence(){ if(!state.db || !state.uid || !state.roomCode) return; const playerRef = state.db.ref(playerPath(state.roomCode, state.uid)); if(state.infoConnRef && state.infoConnListener){ state.infoConnRef.off('value', state.infoConnListener); } state.infoConnRef = state.db.ref('.info/connected'); state.infoConnListener = async (snap)=>{ const isConnected = !!snap.val(); EL.onlineText.textContent = isConnected ? 'Yes' : 'No'; if(!isConnected) return; try{ await playerRef.onDisconnect().update({ connected:false, lastSeenAt: nowTs(), phase: state.hasStartedRunning ? 'left' : 'lobby' }); }catch{} try{ await playerRef.update({ connected:true, lastSeenAt: nowTs(), phase: state.hasStartedRunning ? 'run' : 'lobby' }); }catch{} }; state.infoConnRef.on('value', state.infoConnListener); } function teardownPresence(){ try{ if(state.infoConnRef && state.infoConnListener){ state.infoConnRef.off('value', state.infoConnListener); } }catch{} state.infoConnRef = null; state.infoConnListener = null; } function buildInnerGameUrl(room){ const url = new URL(INNER_GAME_PATH, location.href); const diff = (room && room.diff) || q('diff', 'normal'); const time = String((room && room.time) || q('time', defaultTimeForDiff(diff))); const view = (room && room.view) || q('view', 'mobile'); const seed = (room && room.seed) || q('seed', String(Date.now())); const nick = sanitizeNick(q('nick', q('nickName', ''))) || 'Rocky'; const pid = sanitizePid(q('pid', '')) || 'p-anon'; url.searchParams.set('game', 'hydration'); url.searchParams.set('theme', 'hydration'); url.searchParams.set('zone', q('zone', 'nutrition')); url.searchParams.set('cat', q('cat', q('zone', 'nutrition'))); url.searchParams.set('mode', 'duet'); url.searchParams.set('multiplayer', '1'); url.searchParams.set('duet', '1'); url.searchParams.set('roomCode', state.roomCode); url.searchParams.set('uid', state.uid); url.searchParams.set('hub', (room && room.hub) || defaultHub()); url.searchParams.set('pid', pid); url.searchParams.set('nick', nick); url.searchParams.set('nickName', nick); url.searchParams.set('sessionId', q('sessionId', `hydrduet-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`)); url.searchParams.set('diff', diff); url.searchParams.set('run', q('run', 'play')); url.searchParams.set('view', view); url.searchParams.set('cooldown', q('cooldown', '1')); url.searchParams.set('time', time); url.searchParams.set('seed', seed); url.searchParams.set('startAt', String((room && room.startAt) || q('startAt', Date.now() + 2500))); url.searchParams.set('wrapper', 'hydration-duet-run'); for(const key of PASS_KEYS){ const v = qs.get(key); if(v) url.searchParams.set(key, v); } return url.href; } async function markMePhase(phase, extra){ if(!state.roomCode || !state.uid || !state.db) return; try{ await state.db.ref(playerPath(state.roomCode, state.uid)).update({ phase, connected:true, lastSeenAt: nowTs(), ...(extra || {}) }); }catch(err){ console.warn('markMePhase failed', err); } } async function heartbeat(){ if(!state.roomCode || !state.uid || !state.db) return; try{ await state.db.ref(playerPath(state.roomCode, state.uid)).update({ connected:true, phase: state.hasStartedRunning ? 'run' : 'lobby', lastSeenAt: nowTs() }); }catch(err){ console.warn('heartbeat failed', err); } } function installHeartbeat(){ clearInterval(state.heartbeatTimer); state.heartbeatTimer = setInterval(heartbeat, HEARTBEAT_MS); } function stopHeartbeat(){ clearInterval(state.heartbeatTimer); state.heartbeatTimer = 0; } async function startGameFrame(room){ if(state.hasLoadedFrame) return; state.hasLoadedFrame = true; state.hasStartedRunning = true; showOverlay(false); setPhaseChip('🎮 Running', 'green'); setOverlay( 'Hydration Duet', 'กำลังเข้าเกมพร้อมกัน...', 'อีกนิดเดียว! ทั้งสองเครื่องจะเริ่มด่านใน seed เดียวกัน' ); await markMePhase('run'); EL.gameFrame.src = buildInnerGameUrl(room); try{ if(state.isHost && String(room.status || 'waiting') === 'countdown'){ await state.roomRef.update({ status:'running', updatedAt: nowTs() }); await state.roomRef.child('match').update({ status:'running' }); } }catch(err){ console.warn('set running failed', err); } } function renderCountdown(room){ const startAt = Number(room && room.startAt) || Number(q('startAt', 0)) || 0; state.currentStartAt = startAt; if(!startAt){ showOverlay(false); setPhaseChip('⌛ Waiting', 'yellow'); setOverlay( 'Hydration Duet', 'กำลังรอเวลาเริ่มจาก host...', 'เมื่อ host กด Start แล้ว ระบบจะนับถอยหลังพร้อมกัน' ); return; } const remainMs = startAt - Date.now(); if(remainMs > 0){ const n = Math.max(1, Math.ceil(remainMs / 1000)); if(state.lastCountdownShown !== n){ state.lastCountdownShown = n; EL.countNum.textContent = String(n); } showOverlay(true); setPhaseChip('⏳ Countdown', 'yellow'); setOverlay( 'เตรียมพร้อม!', 'กำลังนับถอยหลังเข้าเกม', 'เล็งให้พร้อม แล้วช่วยกันเก็บน้ำดีให้เต็มพลังของทีม' ); return; } EL.countNum.textContent = 'Go!'; startGameFrame(room); } async function maybeFinishRoom(room){ if(!room || !room.players || !state.isHost) return; const players = Object.values(room.players); if(players.length < 2) return; const allFinished = players.every(p => p && p.finished); if(!allFinished) return; try{ await state.roomRef.update({ status:'finished', updatedAt: nowTs() }); await state.roomRef.child('match').update({ status:'finished', finishedAt: nowTs() }); }catch(err){ console.warn('finish room failed', err); } } async function subscribeRoom(){ if(!state.roomCode){ throw new Error('Missing roomCode'); } if(state.roomRef && state.roomListener){ state.roomRef.off('value', state.roomListener); } state.roomRef = state.db.ref(roomPath(state.roomCode)); state.roomListener = async (snap)=>{ const room = snap.val(); state.roomData = room || null; if(!room){ showOverlay(false); setPhaseChip('🔴 Room Missing', 'red'); setOverlay( 'ไม่พบห้องแล้ว', 'ห้อง duet นี้อาจถูกลบหรือหมดอายุ', 'ให้กลับไปหน้า lobby แล้วสร้างห้องใหม่อีกครั้ง' ); return; } state.isHost = room.hostId === state.uid; applyMeta(room); renderPlayers(room); await reservePresence(); await maybeFinishRoom(room); const status = String(room.status || 'waiting').toLowerCase(); if(status === 'waiting'){ state.hasLoadedFrame = false; state.hasStartedRunning = false; showOverlay(false); setPhaseChip('⌛ Waiting', 'yellow'); setOverlay( 'Hydration Duet', 'กำลังรอทั้งทีมพร้อม', 'ถ้ายังไม่เริ่ม ให้กลับไป lobby แล้วกด Ready ทั้งสองคนก่อน' ); }else if(status === 'countdown' || status === 'running'){ renderCountdown(room); }else if(status === 'finished'){ setPhaseChip('🏁 Finished', 'green'); if(!state.hasLoadedFrame){ showOverlay(false); setOverlay( 'Hydration Duet', 'รอบนี้จบแล้ว', 'ถ้าต้องการเล่นใหม่ ให้กลับไปสร้างห้องใหม่หรือ rematch ในรอบถัดไป' ); }else{ hideOverlay(); } } }; state.roomRef.on('value', state.roomListener); } function installCountdownTicker(){ setInterval(()=>{ if(!state.roomData) return; const status = String(state.roomData.status || 'waiting').toLowerCase(); if((status === 'countdown' || status === 'running') && !state.hasStartedRunning){ renderCountdown(state.roomData); } }, 120); } function installMessageBridge(){ window.addEventListener('message', async (event)=>{ if(event.origin !== location.origin) return; const data = event.data || {}; if(!data || typeof data !== 'object') return; if(data.type === 'hha:ready'){ if(state.hasStartedRunning){ hideOverlay(); } } else if(data.type === 'hha:setStatus' && typeof data.text === 'string'){ if(!state.hasStartedRunning || !state.hasLoadedFrame){ EL.overlayBubble.textContent = data.text.slice(0, 160); } } else if(data.type === 'hha:duet-finished'){ const score = Number(data.score || 0); const miss = Number(data.miss || 0); const streak = Number(data.streak || 0); await markMePhase('done', { finished:true, finalScore: score, miss, streak, finishedAt: nowTs(), lastSeenAt: nowTs() }); if(state.roomRef){ try{ await state.roomRef.update({ updatedAt: nowTs() }); }catch{} } showOverlay(false); setPhaseChip('🏁 Finished', 'green'); setOverlay( 'รอเพื่อนจบเกม', 'คุณเล่นจบรอบนี้แล้ว', 'ถ้าเพื่อนยังเล่นอยู่ ระบบจะรอให้ครบทั้งสองคนก่อนปิด match' ); } else if(data.type === 'hha:goHub'){ goHub(); } else if(data.type === 'hha:reload'){ if(state.roomData){ state.hasLoadedFrame = false; state.hasStartedRunning = false; renderCountdown(state.roomData); } } }); } function installUnloadHooks(){ window.addEventListener('beforeunload', ()=>{ try{ if(state.roomCode && state.uid && state.db){ state.db.ref(playerPath(state.roomCode, state.uid)).update({ connected:false, phase: state.hasStartedRunning ? 'left' : 'lobby', lastSeenAt: nowTs() }); } }catch{} }); document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'hidden'){ try{ if(state.roomCode && state.uid && state.db){ state.db.ref(playerPath(state.roomCode, state.uid)).update({ lastSeenAt: nowTs() }); } }catch{} } }); } async function init(){ try{ const roomCode = sanitizeRoomCode(q('roomCode', '')); if(!roomCode){ throw new Error('Missing roomCode'); } state.roomCode = roomCode; applyMeta(null); EL.metaRoom.textContent = `🏷️ Room ${roomCode}`; await ensureFirebase(); const online = navigator.onLine ? 'Yes' : 'No'; EL.onlineText.textContent = online; window.addEventListener('online', ()=> EL.onlineText.textContent = 'Yes'); window.addEventListener('offline', ()=> EL.onlineText.textContent = 'No'); const queryUid = String(q('uid', '')).trim(); if(queryUid && queryUid !== state.uid){ setPhaseChip('⚠️ UID Changed', 'red'); setOverlay( 'เบราว์เซอร์นี้ไม่ตรงกับห้องเดิม', 'anonymous auth ของเครื่องนี้ไม่ตรงกับ uid ที่เข้าจาก lobby', 'ให้กลับไปเข้าผ่าน lobby เดิมในเบราว์เซอร์เดิมอีกครั้ง' ); } await subscribeRoom(); installCountdownTicker(); installMessageBridge(); installHeartbeat(); installUnloadHooks(); EL.helpBtn.addEventListener('click', openHelp); EL.closeHelpBtn.addEventListener('click', closeHelp); EL.helpBackdrop.addEventListener('click', (e)=>{ if(e.target === EL.helpBackdrop) closeHelp(); }); EL.hubBtn.addEventListener('click', goHub); }catch(err){ console.error(err); EL.authText.textContent = 'ยังไม่พร้อม'; EL.onlineText.textContent = '—'; setPhaseChip('🔴 Error', 'red'); setOverlay( 'เข้า run ไม่สำเร็จ', String(err && err.message || 'เกิดข้อผิดพลาด'), 'ตรวจ roomCode / Firebase config แล้วลองใหม่อีกครั้ง' ); } } init(); })(); </script> </body> </html>
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Hydration Duet Run</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#bfeeff" />
+  <link rel="icon" href="../favicon.ico" />
+
+  <style>
+    :root{
+      --sky1:#eafcff;
+      --sky2:#cdf2ff;
+      --sky3:#aee3ff;
+
+      --card:#fffefb;
+      --card2:#f5fffb;
+      --card3:#eefaff;
+
+      --line:#d6edf6;
+      --line-strong:#c5e4ef;
+
+      --text:#2f5268;
+      --muted:#6f91a6;
+
+      --green1:#90e36f;
+      --green2:#58bd46;
+      --green3:#3da43a;
+
+      --blue1:#85d6ff;
+      --blue2:#51acef;
+      --blue3:#398fda;
+
+      --yellow1:#ffe588;
+      --yellow2:#f7c84f;
+      --orange1:#ffc47e;
+      --orange2:#ff9d5e;
+      --red1:#ffb3b3;
+      --red2:#ef6767;
+
+      --shadow:0 14px 34px rgba(84,142,176,.14);
+      --shadow-lg:0 24px 56px rgba(84,142,176,.18);
+
+      --radius-xl:32px;
+      --radius-lg:26px;
+      --radius-md:20px;
+      --radius-sm:16px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 10% 8%, rgba(255,255,255,.82), transparent 13%),
+        radial-gradient(circle at 84% 10%, rgba(255,255,255,.66), transparent 14%),
+        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 48%, var(--sky3) 100%);
+      padding:14px;
+    }
+
+    button{
+      font:inherit;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .page{
+      width:min(1320px,100%);
+      margin:0 auto;
+      display:grid;
+      gap:14px;
+    }
+
+    .shell,
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.95));
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:
+        0 18px 40px rgba(84,142,176,.12),
+        inset 0 1px 0 rgba(255,255,255,.92);
+    }
+
+    .shell{
+      position:relative;
+      overflow:hidden;
+      border-radius:var(--radius-xl);
+      padding:14px;
+      display:grid;
+      gap:14px;
+    }
+
+    .shell::after{
+      content:"";
+      position:absolute;
+      left:0; right:0; bottom:0;
+      height:96px;
+      background:
+        radial-gradient(circle at 10% 78%, #d7f3ae 0 18%, transparent 19%),
+        radial-gradient(circle at 32% 100%, #b7e788 0 12%, transparent 13%),
+        radial-gradient(circle at 84% 74%, #d8f4b3 0 18%, transparent 19%),
+        linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.10) 38%, rgba(104,191,70,.22) 100%);
+      pointer-events:none;
+    }
+
+    .shell > *{ position:relative; z-index:1; }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+
+    .brand-badge{
+      width:72px;
+      height:72px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fff8e8,#ffe8b9);
+      border:1px solid rgba(255,255,255,.95);
+      box-shadow:var(--shadow);
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+      flex:0 0 72px;
+    }
+
+    .hero-wrap{
+      position:relative;
+      width:56px;
+      height:56px;
+    }
+    .hero-head{
+      position:absolute; left:16px; top:8px;
+      width:22px; height:22px; border-radius:999px; background:#ffd9b8; z-index:4;
+    }
+    .hero-hair{
+      position:absolute; left:12px; top:5px;
+      width:28px; height:16px; border-radius:16px 16px 10px 10px;
+      background:linear-gradient(180deg,#7a3b22,#5f2f18); transform:rotate(-8deg); z-index:5;
+    }
+    .hero-body{
+      position:absolute; left:13px; top:24px;
+      width:28px; height:18px; border-radius:14px 14px 11px 11px;
+      background:linear-gradient(180deg,#8fd7ff,#58acef); z-index:3;
+    }
+    .hero-cape{
+      position:absolute; left:4px; top:20px;
+      width:16px; height:22px; border-radius:14px 0 14px 14px;
+      background:linear-gradient(180deg,#ff8063,#ef5d44); transform:rotate(-24deg); z-index:2;
+    }
+    .hero-drop{
+      position:absolute; right:2px; bottom:7px;
+      width:18px; height:18px; border-radius:999px;
+      display:grid; place-items:center; color:#fff; font-size:10px;
+      background:linear-gradient(180deg,#8de36b,#58bf44); z-index:6;
+    }
+
+    .brand-text{ min-width:0; }
+    .logo{
+      display:flex;
+      align-items:center;
+      gap:2px;
+      line-height:1;
+      font-size:clamp(28px,4vw,44px);
+      font-weight:1000;
+      letter-spacing:-.03em;
+      text-shadow:0 3px 0 rgba(255,255,255,.72);
+    }
+    .logo-hero{ color:#8fbe1e; }
+    .logo-health{
+      color:#ffffff;
+      text-shadow:
+        0 3px 0 rgba(90,145,180,.22),
+        0 0 1px rgba(90,145,180,.16);
+    }
+    .logo-sub{
+      margin-top:4px;
+      color:#6f91a6;
+      font-size:14px;
+      font-weight:900;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-end;
+    }
+
+    .pill{
+      min-height:38px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.82);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      color:#6d8fa3;
+      font-size:13px;
+      font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .btn{
+      min-height:50px;
+      padding:12px 18px;
+      border-radius:18px;
+      font-size:18px;
+      font-weight:1000;
+      cursor:pointer;
+      transition:transform .12s ease, filter .12s ease;
+      box-shadow:
+        0 12px 26px rgba(84,142,176,.14),
+        inset 0 1px 0 rgba(255,255,255,.18);
+    }
+
+    .btn:hover{
+      transform:translateY(-1px) scale(1.01);
+      filter:brightness(1.02);
+    }
+
+    .btn-soft{
+      border:1px solid rgba(255,255,255,.95);
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      color:#2f5268;
+    }
+
+    .btn-blue{
+      border:0;
+      background:linear-gradient(180deg,var(--blue1),var(--blue2));
+      color:#fff;
+    }
+
+    .btn-green{
+      border:0;
+      background:linear-gradient(180deg,#8de36b,#58bf44);
+      color:#fff;
+    }
+
+    .hero-grid{
+      display:grid;
+      grid-template-columns:.92fr 1.08fr;
+      gap:14px;
+    }
+
+    .stack{
+      display:grid;
+      gap:14px;
+      align-content:start;
+    }
+
+    .panel{
+      border-radius:28px;
+      padding:14px;
+      display:grid;
+      gap:14px;
+    }
+
+    .section-title{
+      margin:0;
+      color:#2d5269;
+      font-size:30px;
+      line-height:1.06;
+      font-weight:1000;
+    }
+
+    .section-sub{
+      margin:0;
+      color:#6f91a6;
+      font-size:15px;
+      line-height:1.5;
+      font-weight:800;
+    }
+
+    .status-strip{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .player-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .player-card{
+      min-height:170px;
+      border-radius:24px;
+      padding:14px;
+      background:linear-gradient(180deg,#fffef8,#f3fff0);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+
+    .player-card.offline{
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+    }
+
+    .player-top{
+      display:flex;
+      gap:10px;
+      justify-content:space-between;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .chip{
+      min-height:34px;
+      padding:7px 12px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      border:1px solid rgba(255,255,255,.95);
+      color:#5c849c;
+      font-size:12px;
+      font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      box-shadow:var(--shadow);
+    }
+
+    .chip.green{
+      background:linear-gradient(180deg,#8de36b,#58bf44);
+      color:#fff;
+      border:0;
+    }
+
+    .chip.yellow{
+      background:linear-gradient(180deg,#ffe588,#f7c84f);
+      color:#7c6112;
+      border:0;
+    }
+
+    .chip.red{
+      background:linear-gradient(180deg,#ffc7c7,#ef6767);
+      color:#fff;
+      border:0;
+    }
+
+    .player-name{
+      margin:0;
+      color:#2e556f;
+      font-size:24px;
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .player-meta{
+      color:#6f91a6;
+      font-size:14px;
+      line-height:1.55;
+      font-weight:800;
+    }
+
+    .stage-shell{
+      position:relative;
+      overflow:hidden;
+      min-height:78vh;
+      border-radius:30px;
+      padding:12px;
+      background:
+        radial-gradient(circle at 14% 14%, rgba(255,255,255,.92), transparent 10%),
+        radial-gradient(circle at 84% 16%, rgba(255,255,255,.72), transparent 12%),
+        linear-gradient(180deg,#e9fbff 0%,#c9f0ff 42%,#aee2ff 100%);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow-lg);
+      display:grid;
+    }
+
+    .stage-shell::after{
+      content:"";
+      position:absolute;
+      left:0; right:0; bottom:0;
+      height:104px;
+      background:
+        radial-gradient(circle at 10% 76%, #d4f3ad 0 18%, transparent 19%),
+        radial-gradient(circle at 34% 100%, #a8e37f 0 12%, transparent 13%),
+        radial-gradient(circle at 84% 74%, #d4f3ad 0 18%, transparent 19%),
+        linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.12) 40%, rgba(104,191,70,.24) 100%);
+      pointer-events:none;
+    }
+
+    .frame-wrap{
+      position:relative;
+      z-index:1;
+      min-height:calc(78vh - 24px);
+      border-radius:24px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.96);
+      background:#d8f3ff;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+    }
+
+    iframe{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      border:0;
+      background:#d8f3ff;
+    }
+
+    .overlay{
+      position:absolute;
+      inset:0;
+      z-index:5;
+      display:grid;
+      place-items:center;
+      padding:18px;
+      background:rgba(234,252,255,.78);
+      backdrop-filter:blur(6px);
+      transition:opacity .24s ease, visibility .24s ease;
+    }
+
+    .overlay.hide{
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+    }
+
+    .overlay-card{
+      width:min(560px,100%);
+      padding:18px;
+      border-radius:30px;
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow-lg);
+      display:grid;
+      gap:14px;
+      text-align:center;
+      justify-items:center;
+    }
+
+    .big-team{
+      display:flex;
+      gap:16px;
+      justify-content:center;
+      flex-wrap:wrap;
+      align-items:end;
+    }
+
+    .mini-hero-box{
+      width:108px;
+      min-height:128px;
+      border-radius:26px;
+      padding:12px;
+      background:linear-gradient(180deg,#f3fbff,#def4ff);
+      border:1px solid rgba(255,255,255,.95);
+      box-shadow:var(--shadow);
+      display:grid;
+      justify-items:center;
+      gap:10px;
+    }
+
+    .mini-hero-box.alt{
+      background:linear-gradient(180deg,#fff8eb,#ffe9c1);
+    }
+
+    .mini-hero-head{
+      width:66px;
+      height:66px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#ffffff,#eefcff);
+      border:1px solid rgba(255,255,255,.95);
+      box-shadow:var(--shadow);
+    }
+
+    .mini-hero-head .hero-wrap{
+      transform:scale(.84);
+      transform-origin:center;
+    }
+
+    .mini-hero-name{
+      color:#2e556f;
+      font-size:16px;
+      line-height:1.1;
+      font-weight:1000;
+      text-align:center;
+    }
+
+    .team-link{
+      width:74px;
+      height:74px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      background:linear-gradient(180deg,#fff7db,#ffefbd);
+      border:1px solid #ffe39a;
+      box-shadow:var(--shadow);
+      margin-bottom:18px;
+    }
+
+    .overlay-title{
+      margin:0;
+      color:#2d5269;
+      font-size:34px;
+      line-height:1.04;
+      font-weight:1000;
+    }
+
+    .overlay-text{
+      margin:0;
+      color:#6f91a6;
+      font-size:16px;
+      line-height:1.5;
+      font-weight:800;
+    }
+
+    .bubble{
+      max-width:420px;
+      padding:12px 16px;
+      border-radius:18px;
+      background:linear-gradient(180deg,#fff7db,#ffefbd);
+      border:1px solid #ffe39a;
+      color:#6d5f29;
+      font-size:15px;
+      line-height:1.45;
+      font-weight:1000;
+      box-shadow:var(--shadow);
+    }
+
+    .count-num{
+      width:118px;
+      height:118px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#8de36b,#58bf44);
+      color:#fff;
+      font-size:56px;
+      line-height:1;
+      font-weight:1000;
+      box-shadow:var(--shadow-lg);
+    }
+
+    .mini-progress{
+      width:min(320px,100%);
+      height:16px;
+      border-radius:999px;
+      background:#e8f7df;
+      border:1px solid #cceab8;
+      overflow:hidden;
+    }
+
+    .mini-progress > span{
+      display:block;
+      width:48%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#8de36b,#58bf44);
+      animation:loadMove 1.2s linear infinite alternate;
+    }
+
+    @keyframes loadMove{
+      from{ width:24%; }
+      to{ width:82%; }
+    }
+
+    .backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(25,52,68,.26);
+      backdrop-filter:blur(6px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:40;
+    }
+
+    .backdrop.open{ display:flex; }
+
+    .dialog{
+      width:min(560px,100%);
+      border-radius:30px;
+      padding:18px;
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow-lg);
+      display:grid;
+      gap:14px;
+    }
+
+    .dialog h2{
+      margin:0;
+      color:#2d5269;
+      font-size:28px;
+      line-height:1.05;
+      font-weight:1000;
+    }
+
+    .dialog-item{
+      padding:12px 14px;
+      border-radius:18px;
+      background:linear-gradient(180deg,#fffef8,#f3fff0);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      color:#567b90;
+      font-size:15px;
+      line-height:1.5;
+      font-weight:900;
+    }
+
+    body.cvr-mode{
+      padding:0;
+      background:#000;
+    }
+
+    body.cvr-mode .page{
+      width:100%;
+      gap:0;
+    }
+
+    body.cvr-mode .shell{
+      border-radius:0;
+      padding:10px;
+      min-height:100vh;
+      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
+      border:0;
+      box-shadow:none;
+    }
+
+    body.cvr-mode .shell::after{
+      display:none;
+    }
+
+    body.cvr-mode .hero-grid{
+      grid-template-columns:1fr;
+    }
+
+    body.cvr-mode .panel{
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow:none;
+    }
+
+    body.cvr-mode .pill,
+    body.cvr-mode .chip{
+      background:rgba(255,255,255,.16);
+      color:#fff;
+      border-color:rgba(255,255,255,.14);
+      box-shadow:none;
+    }
+
+    body.cvr-mode .btn-soft,
+    body.cvr-mode .btn-blue,
+    body.cvr-mode .btn-green{
+      box-shadow:none;
+    }
+
+    body.cvr-mode .stage-shell{
+      min-height:calc(100vh - 120px);
+    }
+
+    body.cvr-mode .frame-wrap{
+      min-height:calc(100vh - 144px);
+    }
+
+    @media (max-width: 980px){
+      .hero-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width: 760px){
+      body{ padding:10px; }
+      .player-grid{
+        grid-template-columns:1fr;
+      }
+      .top-actions{
+        width:100%;
+        justify-content:flex-start;
+      }
+      .brand-badge{
+        width:58px;
+        height:58px;
+        border-radius:18px;
+        flex-basis:58px;
+      }
+      .hero-wrap{
+        width:46px;
+        height:46px;
+      }
+      .hero-head{ left:13px; top:7px; width:18px; height:18px; }
+      .hero-hair{ left:10px; top:4px; width:22px; height:14px; }
+      .hero-body{ left:11px; top:20px; width:22px; height:16px; }
+      .hero-cape{ left:3px; top:17px; width:14px; height:18px; }
+      .hero-drop{ width:15px; height:15px; font-size:9px; }
+
+      .logo{ font-size:28px; }
+      .overlay-title{ font-size:28px; }
+      .count-num{ width:98px; height:98px; font-size:48px; }
+      .btn{ width:100%; }
+      .top-actions .btn{ width:auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="shell">
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-badge">
+            <div class="hero-wrap">
+              <div class="hero-head"></div>
+              <div class="hero-hair"></div>
+              <div class="hero-body"></div>
+              <div class="hero-cape"></div>
+              <div class="hero-drop">💧</div>
+            </div>
+          </div>
+
+          <div class="brand-text">
+            <div class="logo">
+              <span class="logo-hero">Hero</span><span class="logo-health">Health</span>
+            </div>
+            <div class="logo-sub">Hydration Duet Run</div>
+          </div>
+        </div>
+
+        <div class="top-actions">
+          <span id="metaRoom" class="pill">🏷️ Room —</span>
+          <span id="metaDiff" class="pill">🎯 Normal</span>
+          <span id="metaView" class="pill">📱 Mobile</span>
+          <span id="metaTime" class="pill">⏱ 80 วินาที</span>
+          <button id="helpBtn" class="btn btn-blue" type="button">❓ วิธีเล่น</button>
+          <button id="hubBtn" class="btn btn-soft" type="button">🏠 HUB</button>
+        </div>
+      </div>
+
+      <section class="hero-grid">
+        <div class="stack">
+          <section class="panel">
+            <div>
+              <h2 class="section-title">สถานะทีม</h2>
+              <p class="section-sub">Duet รุ่นแรกจะ sync lobby / countdown / start / finished ก่อน แล้วค่อยต่อ coop logic เต็มรูปแบบ</p>
+            </div>
+
+            <div class="status-strip">
+              <span class="pill">🛰️ Online <strong id="onlineText">—</strong></span>
+              <span class="pill">🔐 Auth <strong id="authText">กำลังเชื่อมต่อ</strong></span>
+              <span id="phaseChip" class="chip yellow">⌛ Waiting</span>
+            </div>
+
+            <div class="player-grid">
+              <div id="meCard" class="player-card">
+                <div class="player-top">
+                  <h3 id="meName" class="player-name">Me</h3>
+                  <span id="meStatusChip" class="chip yellow">⌛ waiting</span>
+                </div>
+                <div id="meMeta" class="player-meta">
+                  score: 0<br />
+                  state: lobby
+                </div>
+              </div>
+
+              <div id="peerCard" class="player-card offline">
+                <div class="player-top">
+                  <h3 id="peerName" class="player-name">Peer</h3>
+                  <span id="peerStatusChip" class="chip red">🔴 offline</span>
+                </div>
+                <div id="peerMeta" class="player-meta">
+                  score: 0<br />
+                  state: waiting
+                </div>
+              </div>
+            </div>
+
+            <div class="status-strip">
+              <span class="pill">🤖 Seed <strong id="seedText">—</strong></span>
+              <span class="pill">🎮 Mode <strong>Duet</strong></span>
+              <span class="pill">💧 Mission <strong>Team Play</strong></span>
+            </div>
+
+            <div class="section-sub">
+              inner game ของ wrapper นี้จะโหลดจาก
+              <strong>/herohealth/hydration-vr/hydration-duet-game.html</strong>
+            </div>
+          </section>
+        </div>
+
+        <div class="stack">
+          <section class="panel">
+            <div class="frame-wrap">
+              <iframe
+                id="gameFrame"
+                title="Hydration Duet Game"
+                allow="fullscreen; xr-spatial-tracking; accelerometer; gyroscope; autoplay; gamepad; clipboard-read; clipboard-write"
+                referrerpolicy="same-origin"
+              ></iframe>
+
+              <div id="waitOverlay" class="overlay">
+                <div class="overlay-card">
+                  <div class="big-team">
+                    <div class="mini-hero-box">
+                      <div class="mini-hero-head">
+                        <div class="hero-wrap">
+                          <div class="hero-head"></div>
+                          <div class="hero-hair"></div>
+                          <div class="hero-body"></div>
+                          <div class="hero-cape"></div>
+                          <div class="hero-drop">💧</div>
+                        </div>
+                      </div>
+                      <div id="overlayNameLeft" class="mini-hero-name">Player 1</div>
+                    </div>
+
+                    <div class="team-link">🤝</div>
+
+                    <div class="mini-hero-box alt">
+                      <div class="mini-hero-head">
+                        <div class="hero-wrap">
+                          <div class="hero-head"></div>
+                          <div class="hero-hair"></div>
+                          <div class="hero-body"></div>
+                          <div class="hero-cape"></div>
+                          <div class="hero-drop">💧</div>
+                        </div>
+                      </div>
+                      <div id="overlayNameRight" class="mini-hero-name">Player 2</div>
+                    </div>
+                  </div>
+
+                  <h1 id="overlayTitle" class="overlay-title">Hydration Duet</h1>
+                  <p id="overlayText" class="overlay-text">กำลังรอห้องพร้อมเล่น...</p>
+                  <div id="overlayBubble" class="bubble">เมื่อทั้งสองคนพร้อม ระบบจะนับถอยหลังแล้วเข้าเกมพร้อมกัน</div>
+                  <div id="countNum" class="count-num" hidden>3</div>
+                  <div id="miniProgress" class="mini-progress"><span></span></div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div id="helpBackdrop" class="backdrop" aria-hidden="true">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <h2 id="helpTitle">วิธีเล่น Hydration Duet Run</h2>
+      <div class="dialog-item">1) wrapper นี้จะรอ startAt จากห้อง duet ก่อน</div>
+      <div class="dialog-item">2) เมื่อถึงเวลาจะเข้าเกมพร้อมกันทั้งสองเครื่อง</div>
+      <div class="dialog-item">3) ตอนจบเกม wrapper จะอัปเดตผลลัพธ์ของผู้เล่นกลับเข้าห้อง</div>
+      <div class="dialog-item">4) เวอร์ชันแรกยังไม่โจมตีกันหรือ sync object แบบ real-time ทีละลูก</div>
+      <button id="closeHelpBtn" class="btn btn-blue" type="button">เข้าใจแล้ว</button>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <script>
+    (function(){
+      const INNER_GAME_PATH = './hydration-duet-game.html';
+      const HEARTBEAT_MS = 2500;
+
+      const PASS_KEYS = [
+        'studyId','phase','conditionGroup','sessionOrder','blockLabel',
+        'siteCode','schoolYear','semester','studentKey','schoolCode',
+        'classRoom','studentNo','nickName','grade','planDay','planSlot',
+        'teacher','run','log','api','debug'
+      ];
+
+      const qs = new URLSearchParams(location.search);
+
+      const EL = {
+        gameFrame: document.getElementById('gameFrame'),
+        waitOverlay: document.getElementById('waitOverlay'),
+        overlayTitle: document.getElementById('overlayTitle'),
+        overlayText: document.getElementById('overlayText'),
+        overlayBubble: document.getElementById('overlayBubble'),
+        countNum: document.getElementById('countNum'),
+        miniProgress: document.getElementById('miniProgress'),
+
+        metaRoom: document.getElementById('metaRoom'),
+        metaDiff: document.getElementById('metaDiff'),
+        metaView: document.getElementById('metaView'),
+        metaTime: document.getElementById('metaTime'),
+
+        onlineText: document.getElementById('onlineText'),
+        authText: document.getElementById('authText'),
+        phaseChip: document.getElementById('phaseChip'),
+
+        meCard: document.getElementById('meCard'),
+        meName: document.getElementById('meName'),
+        meMeta: document.getElementById('meMeta'),
+        meStatusChip: document.getElementById('meStatusChip'),
+
+        peerCard: document.getElementById('peerCard'),
+        peerName: document.getElementById('peerName'),
+        peerMeta: document.getElementById('peerMeta'),
+        peerStatusChip: document.getElementById('peerStatusChip'),
+
+        overlayNameLeft: document.getElementById('overlayNameLeft'),
+        overlayNameRight: document.getElementById('overlayNameRight'),
+
+        seedText: document.getElementById('seedText'),
+
+        helpBtn: document.getElementById('helpBtn'),
+        closeHelpBtn: document.getElementById('closeHelpBtn'),
+        helpBackdrop: document.getElementById('helpBackdrop'),
+        hubBtn: document.getElementById('hubBtn')
+      };
+
+      const state = {
+        firebaseReady:false,
+        authReady:false,
+        db:null,
+        auth:null,
+        uid:'',
+        roomCode:'',
+        roomData:null,
+        roomRef:null,
+        roomListener:null,
+        infoConnRef:null,
+        infoConnListener:null,
+        heartbeatTimer:0,
+        isHost:false,
+        hasLoadedFrame:false,
+        hasStartedRunning:false,
+        lastCountdownShown:null,
+        currentStartAt:0
+      };
+
+      function q(name, fallback=''){
+        const v = qs.get(name);
+        return v == null || v === '' ? fallback : v;
+      }
+
+      function sanitizePid(v){
+        return String(v || '').trim().replace(/[.#$[\]/]/g, '-').replace(/\s+/g, '-').slice(0,36);
+      }
+
+      function sanitizeNick(v){
+        return String(v || '').trim().replace(/\s+/g, ' ').slice(0,24);
+      }
+
+      function sanitizeRoomCode(v){
+        return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,6);
+      }
+
+      function defaultHub(){
+        return q('hub', new URL('../hub.html', location.href).href);
+      }
+
+      function diffLabel(v){
+        return v === 'easy' ? 'Easy' : v === 'hard' ? 'Hard' : 'Normal';
+      }
+
+      function viewLabel(v){
+        if(v === 'pc') return 'PC';
+        if(v === 'cvr') return 'Cardboard / cVR';
+        return 'Mobile';
+      }
+
+      function escapeHtml(s){
+        return String(s || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function defaultTimeForDiff(diff){
+        if(diff === 'easy') return '60';
+        if(diff === 'hard') return '90';
+        return '80';
+      }
+
+      function roomPath(roomCode){
+        return `hha-battle/hydration/duetRooms/${roomCode}`;
+      }
+
+      function playerPath(roomCode, uid){
+        return `${roomPath(roomCode)}/players/${uid}`;
+      }
+
+      function nowTs(){
+        return firebase.database.ServerValue.TIMESTAMP;
+      }
+
+      function setPhaseChip(text, kind){
+        EL.phaseChip.className = `chip ${kind || ''}`.trim();
+        EL.phaseChip.textContent = text;
+      }
+
+      function setOverlay(title, text, bubble){
+        EL.overlayTitle.textContent = title;
+        EL.overlayText.textContent = text;
+        EL.overlayBubble.textContent = bubble || '';
+      }
+
+      function showOverlay(showCountdown){
+        EL.waitOverlay.classList.remove('hide');
+        EL.countNum.hidden = !showCountdown;
+        EL.miniProgress.hidden = !!showCountdown;
+      }
+
+      function hideOverlay(){
+        EL.waitOverlay.classList.add('hide');
+      }
+
+      function openHelp(){
+        EL.helpBackdrop.classList.add('open');
+        EL.helpBackdrop.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeHelp(){
+        EL.helpBackdrop.classList.remove('open');
+        EL.helpBackdrop.setAttribute('aria-hidden', 'true');
+      }
+
+      function goHub(){
+        location.href = defaultHub();
+      }
+
+      function applyMeta(room){
+        const diff = (room && room.diff) || q('diff', 'normal');
+        const time = String((room && room.time) || q('time', defaultTimeForDiff(diff)));
+        const view = (room && room.view) || q('view', 'mobile');
+        const roomCode = (room && room.roomId) || state.roomCode || '—';
+        const seed = (room && room.seed) || q('seed', '—');
+
+        EL.metaRoom.textContent = `🏷️ Room ${roomCode}`;
+        EL.metaDiff.textContent = `🎯 ${diffLabel(diff)}`;
+        EL.metaView.textContent = `📱 ${viewLabel(view)}`;
+        EL.metaTime.textContent = `⏱ ${time} วินาที`;
+        EL.seedText.textContent = seed;
+
+        if(view === 'cvr'){
+          document.body.classList.add('cvr-mode');
+        }else{
+          document.body.classList.remove('cvr-mode');
+        }
+      }
+
+      function setupFirebaseApp(){
+        if(typeof firebase === 'undefined'){
+          throw new Error('Firebase scripts not loaded');
+        }
+
+        if(firebase.apps && firebase.apps.length){
+          return firebase.app();
+        }
+
+        const cfg =
+          window.HHA_FIREBASE_CONFIG ||
+          window.FIREBASE_CONFIG ||
+          window.__firebaseConfig ||
+          null;
+
+        if(!cfg || !cfg.apiKey){
+          throw new Error('Missing Firebase config');
+        }
+
+        return firebase.initializeApp(cfg);
+      }
+
+      function waitForAuthUser(){
+        return new Promise((resolve, reject)=>{
+          const unsub = state.auth.onAuthStateChanged((user)=>{
+            if(user){
+              unsub();
+              resolve(user);
+            }
+          }, (err)=> reject(err));
+        });
+      }
+
+      async function ensureFirebase(){
+        const app = setupFirebaseApp();
+        state.db = firebase.database(app);
+        state.auth = firebase.auth(app);
+        state.firebaseReady = true;
+
+        if(!state.auth.currentUser){
+          await state.auth.signInAnonymously();
+        }
+
+        const user = state.auth.currentUser || await waitForAuthUser();
+        state.uid = user.uid;
+        state.authReady = true;
+        EL.authText.textContent = 'พร้อมใช้งาน';
+      }
+
+      function sortPlayers(players){
+        return Object.values(players || {}).sort((a,b)=>{
+          const aJoin = Number(a && a.joinedAt) || 0;
+          const bJoin = Number(b && b.joinedAt) || 0;
+          return aJoin - bJoin;
+        });
+      }
+
+      function findMe(room){
+        return room && room.players ? room.players[state.uid] || null : null;
+      }
+
+      function findPeer(room){
+        const arr = sortPlayers(room && room.players || {});
+        return arr.find(p => p && p.uid !== state.uid) || null;
+      }
+
+      function statusChipHtml(player){
+        if(!player) return { text:'⌛ waiting', cls:'yellow' };
+        if(player.finished) return { text:'🏁 finished', cls:'green' };
+        if(!player.connected) return { text:'🔴 offline', cls:'red' };
+        if(player.phase === 'run') return { text:'🎮 running', cls:'green' };
+        if(player.phase === 'done') return { text:'🏁 done', cls:'green' };
+        if(player.ready) return { text:'✅ ready', cls:'green' };
+        return { text:'⌛ waiting', cls:'yellow' };
+      }
+
+      function renderPlayers(room){
+        const me = findMe(room);
+        const peer = findPeer(room);
+
+        EL.meName.textContent = me && me.name ? me.name : sanitizeNick(q('nick', q('nickName', 'Me'))) || 'Me';
+        EL.peerName.textContent = peer && peer.name ? peer.name : 'Peer';
+
+        EL.overlayNameLeft.textContent = EL.meName.textContent;
+        EL.overlayNameRight.textContent = EL.peerName.textContent;
+
+        const meChip = statusChipHtml(me);
+        EL.meStatusChip.className = `chip ${meChip.cls}`.trim();
+        EL.meStatusChip.textContent = meChip.text;
+        EL.meMeta.innerHTML = `
+          score: ${Number(me && me.finalScore || 0)}<br />
+          state: ${escapeHtml(me && me.phase || 'lobby')}<br />
+          pid: ${escapeHtml(me && me.pid || sanitizePid(q('pid', '')) || '-')}
+        `;
+
+        const peerChip = statusChipHtml(peer);
+        EL.peerStatusChip.className = `chip ${peerChip.cls}`.trim();
+        EL.peerStatusChip.textContent = peerChip.text;
+        EL.peerMeta.innerHTML = `
+          score: ${Number(peer && peer.finalScore || 0)}<br />
+          state: ${escapeHtml(peer && peer.phase || 'waiting')}<br />
+          pid: ${escapeHtml(peer && peer.pid || '-')}
+        `;
+
+        EL.peerCard.className = `player-card ${peer && peer.connected ? '' : 'offline'}`.trim();
+      }
+
+      async function reservePresence(){
+        if(!state.db || !state.uid || !state.roomCode) return;
+
+        const playerRef = state.db.ref(playerPath(state.roomCode, state.uid));
+
+        if(state.infoConnRef && state.infoConnListener){
+          state.infoConnRef.off('value', state.infoConnListener);
+        }
+
+        state.infoConnRef = state.db.ref('.info/connected');
+        state.infoConnListener = async (snap)=>{
+          const isConnected = !!snap.val();
+          EL.onlineText.textContent = isConnected ? 'Yes' : 'No';
+
+          if(!isConnected) return;
+
+          try{
+            await playerRef.onDisconnect().update({
+              connected:false,
+              lastSeenAt: nowTs(),
+              phase: state.hasStartedRunning ? 'left' : 'lobby'
+            });
+          }catch{}
+
+          try{
+            await playerRef.update({
+              connected:true,
+              lastSeenAt: nowTs(),
+              phase: state.hasStartedRunning ? 'run' : 'lobby'
+            });
+          }catch{}
+        };
+
+        state.infoConnRef.on('value', state.infoConnListener);
+      }
+
+      function teardownPresence(){
+        try{
+          if(state.infoConnRef && state.infoConnListener){
+            state.infoConnRef.off('value', state.infoConnListener);
+          }
+        }catch{}
+        state.infoConnRef = null;
+        state.infoConnListener = null;
+      }
+
+      function buildInnerGameUrl(room){
+        const url = new URL(INNER_GAME_PATH, location.href);
+
+        const diff = (room && room.diff) || q('diff', 'normal');
+        const time = String((room && room.time) || q('time', defaultTimeForDiff(diff)));
+        const view = (room && room.view) || q('view', 'mobile');
+        const seed = (room && room.seed) || q('seed', String(Date.now()));
+        const nick = sanitizeNick(q('nick', q('nickName', ''))) || 'Rocky';
+        const pid = sanitizePid(q('pid', '')) || 'p-anon';
+
+        url.searchParams.set('game', 'hydration');
+        url.searchParams.set('theme', 'hydration');
+        url.searchParams.set('zone', q('zone', 'nutrition'));
+        url.searchParams.set('cat', q('cat', q('zone', 'nutrition')));
+        url.searchParams.set('mode', 'duet');
+        url.searchParams.set('multiplayer', '1');
+        url.searchParams.set('duet', '1');
+        url.searchParams.set('roomCode', state.roomCode);
+        url.searchParams.set('uid', state.uid);
+        url.searchParams.set('hub', (room && room.hub) || defaultHub());
+        url.searchParams.set('pid', pid);
+        url.searchParams.set('nick', nick);
+        url.searchParams.set('nickName', nick);
+        url.searchParams.set('sessionId', q('sessionId', `hydrduet-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`));
+        url.searchParams.set('diff', diff);
+        url.searchParams.set('run', q('run', 'play'));
+        url.searchParams.set('view', view);
+        url.searchParams.set('cooldown', q('cooldown', '1'));
+        url.searchParams.set('time', time);
+        url.searchParams.set('seed', seed);
+        url.searchParams.set('startAt', String((room && room.startAt) || q('startAt', Date.now() + 2500)));
+        url.searchParams.set('wrapper', 'hydration-duet-run');
+
+        for(const key of PASS_KEYS){
+          const v = qs.get(key);
+          if(v) url.searchParams.set(key, v);
+        }
+
+        return url.href;
+      }
+
+      async function markMePhase(phase, extra){
+        if(!state.roomCode || !state.uid || !state.db) return;
+        try{
+          await state.db.ref(playerPath(state.roomCode, state.uid)).update({
+            phase,
+            connected:true,
+            lastSeenAt: nowTs(),
+            ...(extra || {})
+          });
+        }catch(err){
+          console.warn('markMePhase failed', err);
+        }
+      }
+
+      async function heartbeat(){
+        if(!state.roomCode || !state.uid || !state.db) return;
+        try{
+          await state.db.ref(playerPath(state.roomCode, state.uid)).update({
+            connected:true,
+            phase: state.hasStartedRunning ? 'run' : 'lobby',
+            lastSeenAt: nowTs()
+          });
+        }catch(err){
+          console.warn('heartbeat failed', err);
+        }
+      }
+
+      function installHeartbeat(){
+        clearInterval(state.heartbeatTimer);
+        state.heartbeatTimer = setInterval(heartbeat, HEARTBEAT_MS);
+      }
+
+      function stopHeartbeat(){
+        clearInterval(state.heartbeatTimer);
+        state.heartbeatTimer = 0;
+      }
+
+      async function startGameFrame(room){
+        if(state.hasLoadedFrame) return;
+        state.hasLoadedFrame = true;
+        state.hasStartedRunning = true;
+
+        showOverlay(false);
+        setPhaseChip('🎮 Running', 'green');
+        setOverlay(
+          'Hydration Duet',
+          'กำลังเข้าเกมพร้อมกัน...',
+          'อีกนิดเดียว! ทั้งสองเครื่องจะเริ่มด่านใน seed เดียวกัน'
+        );
+
+        await markMePhase('run');
+
+        EL.gameFrame.src = buildInnerGameUrl(room);
+
+        try{
+          if(state.isHost && String(room.status || 'waiting') === 'countdown'){
+            await state.roomRef.update({
+              status:'running',
+              updatedAt: nowTs()
+            });
+            await state.roomRef.child('match').update({
+              status:'running'
+            });
+          }
+        }catch(err){
+          console.warn('set running failed', err);
+        }
+      }
+
+      function renderCountdown(room){
+        const startAt = Number(room && room.startAt) || Number(q('startAt', 0)) || 0;
+        state.currentStartAt = startAt;
+
+        if(!startAt){
+          showOverlay(false);
+          setPhaseChip('⌛ Waiting', 'yellow');
+          setOverlay(
+            'Hydration Duet',
+            'กำลังรอเวลาเริ่มจาก host...',
+            'เมื่อ host กด Start แล้ว ระบบจะนับถอยหลังพร้อมกัน'
+          );
+          return;
+        }
+
+        const remainMs = startAt - Date.now();
+
+        if(remainMs > 0){
+          const n = Math.max(1, Math.ceil(remainMs / 1000));
+          if(state.lastCountdownShown !== n){
+            state.lastCountdownShown = n;
+            EL.countNum.textContent = String(n);
+          }
+
+          showOverlay(true);
+          setPhaseChip('⏳ Countdown', 'yellow');
+          setOverlay(
+            'เตรียมพร้อม!',
+            'กำลังนับถอยหลังเข้าเกม',
+            'เล็งให้พร้อม แล้วช่วยกันเก็บน้ำดีให้เต็มพลังของทีม'
+          );
+          return;
+        }
+
+        EL.countNum.textContent = 'Go!';
+        startGameFrame(room);
+      }
+
+      async function maybeFinishRoom(room){
+        if(!room || !room.players || !state.isHost) return;
+        const players = Object.values(room.players);
+        if(players.length < 2) return;
+
+        const allFinished = players.every(p => p && p.finished);
+        if(!allFinished) return;
+
+        try{
+          await state.roomRef.update({
+            status:'finished',
+            updatedAt: nowTs()
+          });
+
+          await state.roomRef.child('match').update({
+            status:'finished',
+            finishedAt: nowTs()
+          });
+        }catch(err){
+          console.warn('finish room failed', err);
+        }
+      }
+
+      async function subscribeRoom(){
+        if(!state.roomCode){
+          throw new Error('Missing roomCode');
+        }
+
+        if(state.roomRef && state.roomListener){
+          state.roomRef.off('value', state.roomListener);
+        }
+
+        state.roomRef = state.db.ref(roomPath(state.roomCode));
+
+        state.roomListener = async (snap)=>{
+          const room = snap.val();
+          state.roomData = room || null;
+
+          if(!room){
+            showOverlay(false);
+            setPhaseChip('🔴 Room Missing', 'red');
+            setOverlay(
+              'ไม่พบห้องแล้ว',
+              'ห้อง duet นี้อาจถูกลบหรือหมดอายุ',
+              'ให้กลับไปหน้า lobby แล้วสร้างห้องใหม่อีกครั้ง'
+            );
+            return;
+          }
+
+          state.isHost = room.hostId === state.uid;
+          applyMeta(room);
+          renderPlayers(room);
+          await reservePresence();
+          await maybeFinishRoom(room);
+
+          const status = String(room.status || 'waiting').toLowerCase();
+
+          if(status === 'waiting'){
+            state.hasLoadedFrame = false;
+            state.hasStartedRunning = false;
+            showOverlay(false);
+            setPhaseChip('⌛ Waiting', 'yellow');
+            setOverlay(
+              'Hydration Duet',
+              'กำลังรอทั้งทีมพร้อม',
+              'ถ้ายังไม่เริ่ม ให้กลับไป lobby แล้วกด Ready ทั้งสองคนก่อน'
+            );
+          }else if(status === 'countdown' || status === 'running'){
+            renderCountdown(room);
+          }else if(status === 'finished'){
+            setPhaseChip('🏁 Finished', 'green');
+            if(!state.hasLoadedFrame){
+              showOverlay(false);
+              setOverlay(
+                'Hydration Duet',
+                'รอบนี้จบแล้ว',
+                'ถ้าต้องการเล่นใหม่ ให้กลับไปสร้างห้องใหม่หรือ rematch ในรอบถัดไป'
+              );
+            }else{
+              hideOverlay();
+            }
+          }
+        };
+
+        state.roomRef.on('value', state.roomListener);
+      }
+
+      function installCountdownTicker(){
+        setInterval(()=>{
+          if(!state.roomData) return;
+          const status = String(state.roomData.status || 'waiting').toLowerCase();
+          if((status === 'countdown' || status === 'running') && !state.hasStartedRunning){
+            renderCountdown(state.roomData);
+          }
+        }, 120);
+      }
+
+      function installMessageBridge(){
+        window.addEventListener('message', async (event)=>{
+          if(event.origin !== location.origin) return;
+          const data = event.data || {};
+          if(!data || typeof data !== 'object') return;
+
+          if(data.type === 'hha:ready'){
+            if(state.hasStartedRunning){
+              hideOverlay();
+            }
+          }
+          else if(data.type === 'hha:setStatus' && typeof data.text === 'string'){
+            if(!state.hasStartedRunning || !state.hasLoadedFrame){
+              EL.overlayBubble.textContent = data.text.slice(0, 160);
+            }
+          }
+          else if(data.type === 'hha:duet-finished'){
+            const score = Number(data.score || 0);
+            const miss = Number(data.miss || 0);
+            const streak = Number(data.streak || 0);
+
+            await markMePhase('done', {
+              finished:true,
+              finalScore: score,
+              miss,
+              streak,
+              finishedAt: nowTs(),
+              lastSeenAt: nowTs()
+            });
+
+            if(state.roomRef){
+              try{
+                await state.roomRef.update({
+                  updatedAt: nowTs()
+                });
+              }catch{}
+            }
+
+            showOverlay(false);
+            setPhaseChip('🏁 Finished', 'green');
+            setOverlay(
+              'รอเพื่อนจบเกม',
+              'คุณเล่นจบรอบนี้แล้ว',
+              'ถ้าเพื่อนยังเล่นอยู่ ระบบจะรอให้ครบทั้งสองคนก่อนปิด match'
+            );
+          }
+          else if(data.type === 'hha:goHub'){
+            goHub();
+          }
+          else if(data.type === 'hha:reload'){
+            if(state.roomData){
+              state.hasLoadedFrame = false;
+              state.hasStartedRunning = false;
+              renderCountdown(state.roomData);
+            }
+          }
+        });
+      }
+
+      function installUnloadHooks(){
+        window.addEventListener('beforeunload', ()=>{
+          try{
+            if(state.roomCode && state.uid && state.db){
+              state.db.ref(playerPath(state.roomCode, state.uid)).update({
+                connected:false,
+                phase: state.hasStartedRunning ? 'left' : 'lobby',
+                lastSeenAt: nowTs()
+              });
+            }
+          }catch{}
+        });
+
+        document.addEventListener('visibilitychange', ()=>{
+          if(document.visibilityState === 'hidden'){
+            try{
+              if(state.roomCode && state.uid && state.db){
+                state.db.ref(playerPath(state.roomCode, state.uid)).update({
+                  lastSeenAt: nowTs()
+                });
+              }
+            }catch{}
+          }
+        });
+      }
+
+      async function init(){
+        try{
+          const roomCode = sanitizeRoomCode(q('roomCode', ''));
+          if(!roomCode){
+            throw new Error('Missing roomCode');
+          }
+          state.roomCode = roomCode;
+
+          applyMeta(null);
+          EL.metaRoom.textContent = `🏷️ Room ${roomCode}`;
+
+          await ensureFirebase();
+
+          const online = navigator.onLine ? 'Yes' : 'No';
+          EL.onlineText.textContent = online;
+          window.addEventListener('online', ()=> EL.onlineText.textContent = 'Yes');
+          window.addEventListener('offline', ()=> EL.onlineText.textContent = 'No');
+
+          const queryUid = String(q('uid', '')).trim();
+          if(queryUid && queryUid !== state.uid){
+            setPhaseChip('⚠️ UID Changed', 'red');
+            setOverlay(
+              'เบราว์เซอร์นี้ไม่ตรงกับห้องเดิม',
+              'anonymous auth ของเครื่องนี้ไม่ตรงกับ uid ที่เข้าจาก lobby',
+              'ให้กลับไปเข้าผ่าน lobby เดิมในเบราว์เซอร์เดิมอีกครั้ง'
+            );
+          }
+
+          await subscribeRoom();
+          installCountdownTicker();
+          installMessageBridge();
+          installHeartbeat();
+          installUnloadHooks();
+
+          EL.helpBtn.addEventListener('click', openHelp);
+          EL.closeHelpBtn.addEventListener('click', closeHelp);
+          EL.helpBackdrop.addEventListener('click', (e)=>{
+            if(e.target === EL.helpBackdrop) closeHelp();
+          });
+          EL.hubBtn.addEventListener('click', goHub);
+
+        }catch(err){
+          console.error(err);
+          EL.authText.textContent = 'ยังไม่พร้อม';
+          EL.onlineText.textContent = '—';
+          setPhaseChip('🔴 Error', 'red');
+          setOverlay(
+            'เข้า run ไม่สำเร็จ',
+            String(err && err.message || 'เกิดข้อผิดพลาด'),
+            'ตรวจ roomCode / Firebase config แล้วลองใหม่อีกครั้ง'
+          );
+        }
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
