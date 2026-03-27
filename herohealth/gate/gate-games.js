@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260317b-GATE-GAMES-ALIAS-ROBUST-RUN-CANDIDATES
+// FULL PATCH v20260327b-GATE-GAMES-SHADOWBREAKER-RUN-SUMMARY
 
 export const GATE_GAMES = {
   bath: {
@@ -154,7 +154,7 @@ export const GATE_GAMES = {
   },
 
   shadow: {
-    cat: 'exercise',
+    cat: 'fitness',
     label: 'Shadow Breaker',
     theme: 'shadow',
     warmupTitle: 'Shadow Breaker Warmup',
@@ -164,8 +164,13 @@ export const GATE_GAMES = {
       cooldown: './games/shadowbreaker/cooldown.js',
       style: './games/shadowbreaker/style.css'
     },
-    run: '../shadow-breaker-vr.html',
-    runCandidates: ['../shadow-breaker-vr.html']
+    run: '../../fitness/shadow-breaker.html',
+    runCandidates: ['../../fitness/shadow-breaker.html'],
+    defaults: {
+      runPath: '/webxr-health-mobile/fitness/shadow-breaker.html',
+      summaryPath: '/webxr-health-mobile/herohealth/shadow-breaker-summary.html',
+      hubPath: '/webxr-health-mobile/herohealth/hub.html'
+    }
   },
 
   rhythm: {
@@ -280,12 +285,13 @@ export function getGameStyleFile(gameId=''){
 
 export function getRunFile(gameId=''){
   const meta = getGameMeta(gameId);
-  return meta?.run || '';
+  return meta?.run || meta?.defaults?.runPath || '';
 }
 
 export function getRunCandidates(gameId=''){
   const meta = getGameMeta(gameId);
   const list = Array.isArray(meta?.runCandidates) ? meta.runCandidates : [];
   if (list.length) return list.filter(Boolean);
+  if (meta?.defaults?.runPath) return [meta.defaults.runPath];
   return meta?.run ? [meta.run] : [];
 }
