@@ -1,13 +1,8 @@
 /* /herohealth/firebase-config.js
-   FULL PATCH v20260327-FIREBASE-CONFIG-DUET-READY
+   FULL PATCH v20260327-FIREBASE-CONFIG-DUET-READY-R2
 */
 (function (W) {
   'use strict';
-
-  if (!W.firebase) {
-    console.error('[firebase-config] firebase sdk not found');
-    return;
-  }
 
   const firebaseConfig = {
     apiKey: 'AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo',
@@ -19,28 +14,33 @@
     appId: '1:680817376848:web:eed21b522b0703f6bd9b55'
   };
 
-  try {
-    if (!firebase.apps || !firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-      console.log('[firebase-config] initialized');
-    } else {
-      firebase.app();
-      console.log('[firebase-config] reuse existing app');
-    }
-  } catch (err) {
-    console.error('[firebase-config] init failed:', err);
-  }
-
-  try {
-    W.HHA_FIREBASE_APP = firebase.app();
-    W.HHA_DB = firebase.database();
-  } catch (err) {
-    console.error('[firebase-config] database bind failed:', err);
-  }
+  /* สำคัญ: duet / battle / race / coop หลายไฟล์จะหา config จากตัวนี้ */
+  W.HHA_FIREBASE_CONFIG = firebaseConfig;
 
   /* optional cloud logger endpoint */
   W.HHA_CLOUD_ENDPOINT =
     W.HHA_CLOUD_ENDPOINT ||
     'https://script.google.com/macros/s/AKfycbwNOpsjFTV_nK0PzNV23KziF5hZxIMI50P8o_vZgwVg_T4anpXZOaKQUy_uf5PPg9kT6Q/exec';
 
+  if (!W.firebase) {
+    W.HHA_FIREBASE_READY = false;
+    console.error('[firebase-config] firebase sdk not found');
+    return;
+  }
+
+  try {
+    const app = (W.firebase.apps && W.firebase.apps.length)
+      ? W.firebase.app()
+      : W.firebase.initializeApp(firebaseConfig);
+
+    W.HHA_FIREBASE_APP = app;
+    W.HHA_DB = W.firebase.database ? W.firebase.database() : null;
+    W.HHA_AUTH = W.firebase.auth ? W.firebase.auth() : null;
+    W.HHA_FIREBASE_READY = !!(W.HHA_DB && firebaseConfig.databaseURL);
+
+    console.log('[firebase-config] ready =', W.HHA_FIREBASE_READY);
+  } catch (err) {
+    W.HHA_FIREBASE_READY = false;
+    console.error('[firebase-config] init failed:', err);
+  }
 })(window);
