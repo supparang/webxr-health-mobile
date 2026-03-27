@@ -1,14 +1,5 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260327-GOODJUNK-DUET-MOBILEFIX-V6
-   - duet room path: hha-battle/goodjunk/duetRooms/{ROOM}
-   - firebase anonymous auth
-   - authoritative countdown from room.startAt
-   - child-friendly duet gameplay
-   - seeded spawn pattern + simple AI coach
-   - live sync score to room.players/{uid}
-   - final summary + pair score + last summary save
-   - FIX: result overlay hidden/reset on init + startGame + prestart
-   - FIX: mobile auto-collapse HUD so stage shows first
+   FULL PATCH v20260327-GOODJUNK-DUET-CELEBRATION-V12
 */
 (function(){
   'use strict';
@@ -176,17 +167,17 @@
   ];
 
   const TIPS_GOOD = [
-    'แตะของดีให้ไว แล้วช่วยกันทำคะแนนคู่',
-    'ของดีเพิ่มคะแนนและช่วยให้ streak ยาวขึ้น',
-    'ถ้าเก็บของดีต่อเนื่อง คะแนนจะพุ่งเร็วมาก',
-    'ช่วยกันมองของดีให้ทันก่อนหลุดจอ'
+    'แตะอาหารดีให้ไว แล้วช่วยกันทำคะแนนคู่',
+    'อาหารดีช่วยเพิ่มคะแนน ลุยต่อได้เลย',
+    'แตะต่อเนื่องได้ดีมาก คะแนนจะขึ้นเร็ว',
+    'ช่วยกันมองอาหารดีให้ทันก่อนหลุดจอ'
   ];
 
   const TIPS_JUNK = [
     'ของหวานจัดและของทอดให้ปล่อยผ่าน',
-    'เห็น junk แล้วอย่าแตะนะ',
-    'อย่ากดพลาดโดน junk ไม่งั้น miss จะเพิ่ม',
-    'เก็บของดีอย่างเดียว คะแนนจะสวยกว่า'
+    'ชิ้นที่ไม่ดีต่อสุขภาพไม่ต้องแตะนะ',
+    'ระวังอย่าเผลอแตะ junk ไม่งั้นจะเสียคะแนน',
+    'เลือกแตะเฉพาะอาหารดี คะแนนจะสวยมาก'
   ];
 
   const DIFF_CFG = {
@@ -277,15 +268,16 @@
 
   function updateItemGuide(kind){
     if (!UI.itemIcon || !UI.itemEmoji || !UI.itemTitle || !UI.itemSub) return;
+
     if (kind === 'junk'){
       UI.itemEmoji.textContent = '🍩';
-      UI.itemTitle.textContent = 'JUNK';
-      UI.itemSub.textContent = 'ของแบบนี้ไม่ต้องแตะ ปล่อยให้ผ่านไป';
+      UI.itemTitle.textContent = 'อาหารควรเลี่ยง';
+      UI.itemSub.textContent = 'ชิ้นแบบนี้ไม่ต้องแตะ ปล่อยให้ผ่านไป';
       setCoach(TIPS_JUNK[(STATE.seq + STATE.junkHit) % TIPS_JUNK.length]);
     } else {
       UI.itemEmoji.textContent = '🍉';
-      UI.itemTitle.textContent = 'GOOD';
-      UI.itemSub.textContent = 'แตะของดีให้ไว ช่วยกันทำคะแนน';
+      UI.itemTitle.textContent = 'อาหารดี';
+      UI.itemSub.textContent = 'แตะอาหารดีให้ไว ช่วยกันทำคะแนน';
       setCoach(TIPS_GOOD[(STATE.seq + STATE.goodHit) % TIPS_GOOD.length]);
     }
   }
@@ -329,7 +321,7 @@
   }
 
   function renderHud(){
-    if (UI.roomPill) UI.roomPill.textContent = `ROOM ${STATE.roomId || '-'}`;
+    if (UI.roomPill) UI.roomPill.textContent = `ห้อง ${STATE.roomId || '-'}`;
     if (UI.score) UI.score.textContent = String(Math.max(0, Math.round(STATE.score)));
     if (UI.time) {
       const left = STATE.started ? Math.max(0, (STATE.endAt - now()) / 1000) : (STATE.timeSec || 0);
@@ -357,7 +349,7 @@
     STATE.hudCompact = !!flag;
     const children = UI.hud ? Array.from(UI.hud.children) : [];
     children.forEach((el, idx) => {
-      if (idx <= 2) return; // toolbar + top pills + score
+      if (idx <= 2) return;
       el.style.display = STATE.hudCompact ? 'none' : '';
     });
     if (UI.hudToggle) UI.hudToggle.textContent = STATE.hudCompact ? '＋' : '⋯';
@@ -457,13 +449,13 @@
       const gain = 10 + comboBonus;
       STATE.score += gain;
       STATE.goodHit += 1;
-      setCoach('ดีมาก แตะของดีต่อเนื่องได้เลย');
+      setCoach('เก่งมาก แตะอาหารดีต่อเนื่องได้เลย');
     } else {
       STATE.junkHit += 1;
       STATE.miss += 1;
       STATE.streak = 0;
       STATE.score = Math.max(0, STATE.score - 8);
-      setCoach('ไม่เป็นไร รอบหน้าปล่อย junk ผ่านไปนะ');
+      setCoach('ไม่เป็นไร รอบหน้าปล่อยอาหารควรเลี่ยงผ่านไปนะ');
     }
 
     pulseScore();
@@ -477,7 +469,7 @@
       STATE.goodMiss += 1;
       STATE.miss += 1;
       STATE.streak = 0;
-      setCoach('ของดีหลุดไปแล้ว ลองแตะให้ไวขึ้นอีกนิด');
+      setCoach('อาหารดีหลุดไปแล้ว ลองแตะให้ไวขึ้นอีกนิด');
       renderHud();
       refreshLiveScore();
     }
@@ -503,19 +495,19 @@
     const left = STATE.started ? Math.max(0, (STATE.endAt - now()) / 1000) : STATE.timeSec;
 
     if (STATE.junkHit >= 3 && STATE.junkHit > STATE.goodHit / 2){
-      return 'ระวัง junk ให้มากขึ้น แตะเฉพาะของดีนะ';
+      return 'ลองแตะเฉพาะอาหารดีให้มากขึ้นนะ';
     }
     if (STATE.goodMiss >= 3 && STATE.goodMiss > STATE.goodHit / 2){
-      return 'ของดีหลุดหลายชิ้น ลองกวาดสายตามุมบนให้เร็วขึ้น';
+      return 'อาหารดีหลุดหลายชิ้น ลองมองให้ไวขึ้นอีกนิด';
     }
     if (STATE.streak >= 6){
-      return 'ยอดเยี่ยมมาก streak กำลังดี รักษาจังหวะนี้ไว้';
+      return 'ยอดเยี่ยมมาก แตะต่อเนื่องได้ดีสุด ๆ';
     }
     if (left <= 15 && STATE.pairScore < STATE.pairGoal){
-      return 'ช่วงท้ายแล้ว เก็บของดีให้ไวเพื่อปิด gap ให้ได้';
+      return 'ใกล้หมดเวลาแล้ว รีบช่วยกันเก็บอาหารดี';
     }
     if (STATE.pairScore >= STATE.pairGoal){
-      return 'ถึงเป้าหมายคู่แล้ว ลุยต่อเพื่อทำคะแนนเพิ่มได้เลย';
+      return 'ถึงเป้าหมายคู่แล้ว เก่งมาก ลุยต่อได้เลย';
     }
     return TIPS_GOOD[(STATE.goodHit + STATE.junkHit + STATE.goodMiss) % TIPS_GOOD.length];
   }
@@ -582,6 +574,7 @@
   }
 
   function prestartTick(){
+    if (STATE.blockReason) return;
     resetResultMount();
 
     const room = STATE.room;
@@ -594,7 +587,7 @@
     }
 
     if (!isParticipant(room)){
-      showCountdown('คุณยังไม่ถูกล็อกเป็นผู้เล่นในรอบนี้ ให้กลับไปเริ่มจาก Lobby', '!');
+      showCountdown('รอบนี้ยังไม่พร้อมสำหรับผู้เล่นคนนี้ ลองกลับไปเข้าห้องใหม่อีกครั้ง', '!');
       return;
     }
 
@@ -602,7 +595,7 @@
       const ms = startAt - now();
       if (ms > 0){
         const sec = Math.ceil(ms / 1000);
-        showCountdown('พร้อมกันทั้งคู่ กำลังเริ่มเกม', String(sec));
+        showCountdown('พร้อมแล้วทั้งคู่ กำลังเริ่มเล่น', String(sec));
         return;
       }
       startGame();
@@ -614,7 +607,7 @@
       return;
     }
 
-    showCountdown('รอ Host กดเริ่มจาก Duet Lobby', '…');
+    showCountdown('รอหัวหน้าห้องกดเริ่มเกม', '…');
   }
 
   async function markRoomRunning(){
@@ -635,6 +628,7 @@
   function startGame(){
     if (STATE.started || STATE.ended) return;
 
+    STATE.blockReason = '';
     resetResultMount();
 
     STATE.started = true;
@@ -686,7 +680,7 @@
 
   function buildSummary(){
     const peer = getPeer(STATE.room) || {};
-    const peerName = String(peer.name || 'Partner');
+    const peerName = String(peer.name || 'เพื่อน');
     const peerFinished = !!peer.finished;
     return {
       game: 'goodjunk',
@@ -712,20 +706,167 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: peerFinished,
       endedAt: new Date().toISOString(),
-      version: 'v20260327-GOODJUNK-DUET-MOBILEFIX-V6'
+      version: 'v20260327-GOODJUNK-DUET-CELEBRATION-V12'
     };
+  }
+
+  function getPraiseMeta(){
+    const ratio = STATE.pairGoal > 0 ? (STATE.pairScore / STATE.pairGoal) : 0;
+    const accBase = STATE.goodHit + STATE.junkHit + STATE.goodMiss;
+    const accuracy = accBase > 0 ? (STATE.goodHit / accBase) : 0;
+
+    let title = 'เก่งมาก เล่นคู่ได้ดี';
+    let sub = 'ช่วยกันแตะอาหารดีได้ดีมาก';
+    let stars = 2;
+    const badges = [];
+
+    if (ratio >= 1.45){
+      title = 'สุดยอดมาก คะแนนคู่พุ่งเลย';
+      sub = 'ทั้งคู่ช่วยกันได้เยี่ยมมาก เก็บอาหารดีได้ต่อเนื่องสุด ๆ';
+      stars = 3;
+      badges.push({ cls:'good', text:'🌟 คะแนนคู่ยอดเยี่ยม' });
+    } else if (ratio >= 1.0){
+      title = 'เยี่ยมมาก ทำคะแนนคู่ได้ดีมาก';
+      sub = 'ถึงเป้าหมายคู่แล้ว เก่งมากทั้งสองคน';
+      stars = 3;
+      badges.push({ cls:'good', text:'🎯 ถึงเป้าหมายแล้ว' });
+    } else if (ratio >= 0.7){
+      title = 'เก่งมาก ใกล้ถึงเป้าหมายแล้ว';
+      sub = 'อีกนิดเดียวก็ถึงเป้าหมายคู่แล้ว';
+      stars = 2;
+      badges.push({ cls:'pink', text:'💪 ใกล้ถึงเป้าหมาย' });
+    } else {
+      title = 'เริ่มได้ดี ลองอีกครั้งนะ';
+      sub = 'ครั้งหน้าช่วยกันแตะอาหารดีให้มากขึ้นอีกนิด';
+      stars = 1;
+      badges.push({ cls:'warn', text:'🔁 ลองอีกครั้ง' });
+    }
+
+    if (accuracy >= 0.72){
+      badges.push({ cls:'good', text:'🍉 เลือกอาหารดีเก่งมาก' });
+    } else if (STATE.junkHit >= 6){
+      badges.push({ cls:'warn', text:'🍩 ระวัง Junk เพิ่มอีกนิด' });
+    }
+
+    if (STATE.bestStreak >= 12){
+      badges.push({ cls:'pink', text:'🔥 แตะต่อเนื่องเก่งมาก' });
+    }
+
+    if (STATE.goodMiss >= 20){
+      badges.push({ cls:'warn', text:'👀 ลองมองอาหารดีให้ไวขึ้น' });
+    }
+
+    return { title, sub, stars, badges };
+  }
+
+  function getRecapLines(){
+    const peer = getPeer(STATE.room) || {};
+    const peerName = String(peer.name || 'เพื่อน').trim() || 'เพื่อน';
+
+    return [
+      {
+        k: 'สิ่งที่ทำได้ดี',
+        v: STATE.goodHit >= Math.max(10, STATE.junkHit * 2)
+          ? 'แตะอาหารดีได้เยอะมาก ช่วยดันคะแนนคู่ขึ้นดีมาก'
+          : 'ช่วยกันเล่นจนคะแนนคู่เพิ่มขึ้นต่อเนื่อง'
+      },
+      {
+        k: 'ลองพัฒนาต่อ',
+        v: STATE.goodMiss > STATE.junkHit
+          ? 'ถ้าแตะอาหารดีได้ไวขึ้นอีกนิด คะแนนจะขึ้นเร็วมาก'
+          : 'ถ้าระวัง Junk มากขึ้น คะแนนจะสวยกว่าเดิม'
+      },
+      {
+        k: 'เพื่อนร่วมทีม',
+        v: `${peerName} ช่วยทำคะแนนได้ ${Number(peer.finalScore || 0)} คะแนน`
+      }
+    ];
+  }
+
+  function buildConfettiHtml(count){
+    const colors = ['pink','blue','green','gold','violet'];
+    const pieces = [];
+
+    for (let i = 0; i < count; i++){
+      const left = Math.random() * 100;
+      const dx = (Math.random() * 180 - 90).toFixed(1) + 'px';
+      const rot = (360 + Math.random() * 540).toFixed(0) + 'deg';
+      const dur = (2.6 + Math.random() * 1.8).toFixed(2) + 's';
+      const delay = (Math.random() * 0.45).toFixed(2) + 's';
+      const color = colors[i % colors.length];
+      const w = (8 + Math.random() * 8).toFixed(0) + 'px';
+      const h = (14 + Math.random() * 14).toFixed(0) + 'px';
+
+      pieces.push(
+        `<span class="duet-confetti-piece ${color}" style="left:${left}%;width:${w};height:${h};--dx:${dx};--rot:${rot};animation-duration:${dur};animation-delay:${delay};"></span>`
+      );
+    }
+
+    return `<div class="duet-confetti" aria-hidden="true">${pieces.join('')}</div>`;
+  }
+
+  function getCelebrationFlags(goalReached){
+    return {
+      cardClass: goalReached ? 'celebrate' : '',
+      starClass: goalReached ? 'celebrate' : '',
+      pairClass: goalReached ? 'celebrate' : '',
+      confettiHtml: goalReached ? buildConfettiHtml(26) : ''
+    };
+  }
+
+  function getTrophyBadges(){
+    const out = [];
+
+    if (STATE.pairScore >= STATE.pairGoal){
+      out.push({ cls:'good', text:'🏆 ทำคะแนนถึงเป้าหมายคู่' });
+    } else {
+      out.push({ cls:'gold', text:'🎯 ยังเหลืออีกนิดก็ถึงเป้า' });
+    }
+
+    if (STATE.bestStreak >= 10){
+      out.push({ cls:'good', text:'🔥 ต่อเนื่องเก่งมาก' });
+    }
+
+    if (STATE.goodHit >= Math.max(20, STATE.junkHit * 2)){
+      out.push({ cls:'good', text:'🍉 เลือกอาหารดีเก่งมาก' });
+    }
+
+    if (STATE.junkHit <= 3){
+      out.push({ cls:'gold', text:'🛡️ ระวัง Junk ได้ดี' });
+    }
+
+    return out;
   }
 
   function renderResultOverlay(reason){
     if (!UI.resultMount) return;
 
     const peer = getPeer(STATE.room) || {};
-    const peerName = String(peer.name || 'Partner');
+    const peerNameRaw = String(peer.name || 'เพื่อน');
+    const peerName = peerNameRaw.trim() || 'เพื่อน';
     const peerScore = Number(peer.finalScore || 0);
     const pairScore = STATE.score + peerScore;
+    STATE.pairScore = pairScore;
+
     const goalReached = pairScore >= STATE.pairGoal;
     const peerDone = !!peer.finished;
-    const statusText = peerDone ? 'เพื่อนจบรอบแล้ว' : 'กำลังรอคะแนนเพื่อน / เพื่อนอาจยังเล่นอยู่';
+
+    const statusText = peerDone
+      ? 'เพื่อนเล่นจบแล้ว มาดูคะแนนคู่กัน'
+      : 'กำลังรอคะแนนจากเพื่อนอีกนิด';
+
+    const peerStatusHtml = peerDone
+      ? '<span class="duet-sum-status done">เล่นจบแล้ว</span>'
+      : '<span class="duet-sum-status wait">กำลังรอคะแนน</span>';
+
+    const praise = getPraiseMeta();
+    const recap = getRecapLines();
+    const trophies = getTrophyBadges();
+    const fx = getCelebrationFlags(goalReached);
+
+    const starsHtml = Array.from({ length: praise.stars }, () => '<span class="duet-star">⭐</span>').join('');
+    const badgesHtml = praise.badges.map(b => `<span class="duet-badge ${esc(b.cls)}">${esc(b.text)}</span>`).join('');
+    const trophiesHtml = trophies.map(t => `<span class="duet-trophy ${esc(t.cls)}">${esc(t.text)}</span>`).join('');
 
     const summary = buildSummary();
     saveLastSummary(summary);
@@ -733,62 +874,92 @@
     UI.resultMount.hidden = false;
     STATE.resultOpen = true;
     UI.resultMount.innerHTML = `
-      <div class="duet-result-card">
-        <div class="duet-result-title">${goalReached ? 'เยี่ยมมาก ทำคะแนนคู่ได้ดีมาก' : 'จบรอบ GoodJunk Duet แล้ว'}</div>
-        <div class="duet-result-sub">
-          ${esc(reason === 'room-finished' ? 'รอบนี้ถูกปิดจากห้องส่วนกลางแล้ว' : 'สรุปผลของฉัน + เพื่อน + คะแนนคู่')}<br>
-          ${esc(statusText)}
-        </div>
+      <div class="duet-result-card hubv2 ${fx.cardClass}">
+        ${fx.confettiHtml}
 
-        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
-          <div style="border:1px solid #bfe3f2;border-radius:20px;background:#fff;padding:14px;text-align:center;">
-            <div style="color:#6b7280;font-size:12px;font-weight:1000;">ฉัน</div>
-            <div style="margin-top:6px;font-size:34px;line-height:1;font-weight:1100;color:#7a2558;">${STATE.score}</div>
-            <div style="margin-top:8px;color:#6b7280;font-size:12px;line-height:1.7;font-weight:900;">
-              Good ${STATE.goodHit} • Junk ${STATE.junkHit} • Miss ${STATE.miss}
-            </div>
-          </div>
-
-          <div style="border:1px solid #bfe3f2;border-radius:20px;background:#fff;padding:14px;text-align:center;">
-            <div style="color:#6b7280;font-size:12px;font-weight:1000;">${esc(peerName)}</div>
-            <div style="margin-top:6px;font-size:34px;line-height:1;font-weight:1100;color:#1f5d73;">${peerScore}</div>
-            <div style="margin-top:8px;color:#6b7280;font-size:12px;line-height:1.7;font-weight:900;">
-              ${peerDone ? 'finished' : 'waiting sync'}
-            </div>
-          </div>
-
-          <div style="border:1px solid #bfe3f2;border-radius:20px;background:linear-gradient(180deg,#fff7fb,#fff);padding:14px;text-align:center;">
-            <div style="color:#6b7280;font-size:12px;font-weight:1000;">คะแนนคู่</div>
-            <div style="margin-top:6px;font-size:38px;line-height:1;font-weight:1100;color:#c2410c;">${pairScore}</div>
-            <div style="margin-top:8px;color:#6b7280;font-size:12px;line-height:1.7;font-weight:900;">
-              เป้าหมาย ${STATE.pairGoal} ${goalReached ? '• ถึงเป้าแล้ว' : '• ยังไปต่อได้'}
-            </div>
+        <div class="duet-summary-head" style="position:relative;z-index:1;">
+          <div class="duet-summary-kicker">👯 GOODJUNK • สรุปผลเล่นคู่</div>
+          <div class="duet-result-title">${goalReached ? 'เยี่ยมมาก ทำคะแนนคู่ได้ดีมาก' : 'จบรอบเล่นคู่แล้ว'}</div>
+          <div class="duet-result-sub">
+            ${esc(reason === 'room-finished' ? 'รอบนี้ปิดจากห้องส่วนกลางแล้ว' : 'สรุปคะแนนของฉัน + เพื่อน + คะแนนคู่')}<br>
+            ${esc(statusText)}
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;">
-          <div style="border:1px solid #bfe3f2;border-radius:16px;background:#ffffff;padding:12px;text-align:center;">
-            <div style="font-size:12px;color:#6b7280;font-weight:1000;">Best Streak</div>
-            <div style="margin-top:5px;font-size:24px;font-weight:1100;color:#244f6d;">${STATE.bestStreak}</div>
+        <div class="duet-praise hubv2" style="position:relative;z-index:1;">
+          <div class="duet-praise-top">
+            <div>
+              <div class="duet-praise-title">${esc(praise.title)}</div>
+              <div class="duet-praise-sub">${esc(praise.sub)}</div>
+            </div>
+            <div class="duet-stars big ${fx.starClass}">${starsHtml}</div>
           </div>
-          <div style="border:1px solid #bfe3f2;border-radius:16px;background:#ffffff;padding:12px;text-align:center;">
-            <div style="font-size:12px;color:#6b7280;font-weight:1000;">Good hit</div>
-            <div style="margin-top:5px;font-size:24px;font-weight:1100;color:#244f6d;">${STATE.goodHit}</div>
+
+          <div class="duet-badges">${badgesHtml}</div>
+          <div class="duet-trophy-strip">${trophiesHtml}</div>
+        </div>
+
+        <div class="duet-sum-top" style="position:relative;z-index:1;">
+          <div class="duet-sum-top-card hubv2">
+            <div class="duet-sum-top-label">ฉัน</div>
+            <div class="duet-sum-top-score me">${STATE.score}</div>
+            <div class="duet-sum-top-sub">
+              แตะอาหารดี ${STATE.goodHit} • โดน Junk ${STATE.junkHit} • พลาด ${STATE.miss}
+            </div>
           </div>
-          <div style="border:1px solid #bfe3f2;border-radius:16px;background:#ffffff;padding:12px;text-align:center;">
-            <div style="font-size:12px;color:#6b7280;font-weight:1000;">Junk hit</div>
-            <div style="margin-top:5px;font-size:24px;font-weight:1100;color:#244f6d;">${STATE.junkHit}</div>
+
+          <div class="duet-sum-top-card hubv2">
+            <div class="duet-sum-top-label">${esc(peerName)}</div>
+            <div class="duet-sum-top-score peer">${peerScore}</div>
+            <div class="duet-sum-top-sub">
+              ${peerStatusHtml}
+            </div>
           </div>
-          <div style="border:1px solid #bfe3f2;border-radius:16px;background:#ffffff;padding:12px;text-align:center;">
-            <div style="font-size:12px;color:#6b7280;font-weight:1000;">Good missed</div>
-            <div style="margin-top:5px;font-size:24px;font-weight:1100;color:#244f6d;">${STATE.goodMiss}</div>
+
+          <div class="duet-sum-top-card hubv2 goal">
+            <div class="duet-sum-top-label">คะแนนคู่</div>
+            <div class="duet-sum-top-score pair ${fx.pairClass}">${pairScore}</div>
+            <div class="duet-sum-top-sub">
+              เป้าหมาย ${STATE.pairGoal}
+              <span class="${goalReached ? 'duet-sum-goal-ok' : 'duet-sum-goal-wait'}">
+                ${goalReached ? '• ถึงเป้าแล้ว' : '• ยังไปต่อได้'}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div class="duet-result-actions">
+        <div class="duet-sum-stats" style="position:relative;z-index:1;">
+          <div class="duet-sum-stat hubv2">
+            <div class="duet-sum-stat-k">ต่อเนื่องสูงสุด</div>
+            <div class="duet-sum-stat-v">${STATE.bestStreak}</div>
+          </div>
+          <div class="duet-sum-stat hubv2">
+            <div class="duet-sum-stat-k">แตะอาหารดี</div>
+            <div class="duet-sum-stat-v">${STATE.goodHit}</div>
+          </div>
+          <div class="duet-sum-stat hubv2">
+            <div class="duet-sum-stat-k">โดน Junk</div>
+            <div class="duet-sum-stat-v">${STATE.junkHit}</div>
+          </div>
+          <div class="duet-sum-stat hubv2">
+            <div class="duet-sum-stat-k">พลาดอาหารดี</div>
+            <div class="duet-sum-stat-v">${STATE.goodMiss}</div>
+          </div>
+        </div>
+
+        <div class="duet-recap" style="position:relative;z-index:1;">
+          ${recap.map(item => `
+            <div class="duet-recap-card hubv2">
+              <div class="duet-recap-k">${esc(item.k)}</div>
+              <div class="duet-recap-v">${esc(item.v)}</div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="duet-result-actions hubv2" style="position:relative;z-index:1;">
           <a class="btn good" href="./goodjunk-duet-lobby.html?pid=${encodeURIComponent(STATE.pid)}&name=${encodeURIComponent(STATE.name)}&hub=${encodeURIComponent(STATE.hub)}&diff=${encodeURIComponent(STATE.diff)}&time=${encodeURIComponent(String(STATE.timeSec))}&seed=${encodeURIComponent(String(now()))}&view=${encodeURIComponent(STATE.view)}&run=${encodeURIComponent(STATE.run)}&zone=${encodeURIComponent(STATE.zone)}&theme=${encodeURIComponent(STATE.theme)}">เล่นอีกรอบ</a>
-          <a class="btn ghost" href="${esc((UI.btnBackLauncher && UI.btnBackLauncher.href) || '../goodjunk-launcher.html')}">กลับ Launcher</a>
-          <a class="btn primary" href="${esc(STATE.hub)}">กลับ Hub</a>
+          <a class="btn ghost" href="${esc((UI.btnBackLauncher && UI.btnBackLauncher.href) || '../goodjunk-launcher.html')}">กลับหน้าเลือกโหมด</a>
+          <a class="btn primary" href="${esc(STATE.hub)}">กลับหน้าหลัก</a>
           <button class="btn ghost" id="duetBtnClose" type="button">ปิดหน้าสรุป</button>
         </div>
       </div>
@@ -858,6 +1029,7 @@
 
   async function showBlockOverlay(title, sub){
     if (!UI.resultMount) return;
+    STATE.blockReason = title;
     UI.resultMount.hidden = false;
     STATE.resultOpen = true;
     UI.resultMount.innerHTML = `
