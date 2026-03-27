@@ -4,7 +4,6 @@
 export function mountSummaryLayer(root){
   const host = (root && typeof root.appendChild === 'function') ? root : document.body;
 
-  // กันซ้ำ: ถ้ามี overlay เดิมใน host นี้ ให้ลบทิ้งก่อน
   const old = host.querySelector('#gateSummaryOverlay');
   if (old) old.remove();
 
@@ -39,7 +38,6 @@ export function mountSummaryLayer(root){
     onBackRef = null;
   }
 
-  // กดพื้นหลังเพื่อปิดได้
   overlay.addEventListener('click', (ev) => {
     if (ev.target === overlay) hide();
   });
@@ -93,7 +91,6 @@ export function mountSummaryLayer(root){
 export function mountToast(root=document.body){
   const host = (root && typeof root.appendChild === 'function') ? root : document.body;
 
-  // กันซ้ำ: ถ้ามี toast เดิมใน host นี้ ให้ลบทิ้งก่อน
   const old = host.querySelector('#gateToast');
   if (old) old.remove();
 
