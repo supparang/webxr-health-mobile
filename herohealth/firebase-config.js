@@ -1,5 +1,5 @@
 /* /herohealth/firebase-config.js
-   FULL PATCH v20260327-FIREBASE-CONFIG-DUET-READY-R2
+   FULL PATCH v20260327-FIREBASE-CONFIG-DUET-READY-R3
 */
 (function (W) {
   'use strict';
@@ -14,7 +14,7 @@
     appId: '1:680817376848:web:eed21b522b0703f6bd9b55'
   };
 
-  /* สำคัญ: duet / battle / race / coop หลายไฟล์จะหา config จากตัวนี้ */
+  /* สำคัญมาก: ให้ไฟล์ run ทุกโหมดอ่าน config จากตัวนี้ได้ */
   W.HHA_FIREBASE_CONFIG = firebaseConfig;
 
   /* optional cloud logger endpoint */
