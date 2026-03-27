@@ -41,6 +41,7 @@ const app = {
   briefCard: $('#briefCard'),
   scene: $('#scene'),
   roomStage: $('#roomStage'),
+  avatar: $('#avatar'),
   hotspotsLayer: $('#hotspotsLayer'),
   itemsLayer: $('#itemsLayer'),
   effectsLayer: $('#effectsLayer'),
@@ -84,7 +85,6 @@ const state = {
   },
   runConfig: {
     mission: null,
-    badge: null,
     readyCorrectIds: [],
     readyWrongIds: [],
     scrubHotspotIds: [],
@@ -195,23 +195,6 @@ function showPhaseBurst(text = 'ผ่านด่านแล้ว') {
   setTimeout(() => burst.remove(), 900);
 }
 
-function spawnSparkleAtHotspot(hotspotId) {
-  if (!app.hotspotsLayer || !app.roomStage || !app.effectsLayer) return;
-  const node = app.hotspotsLayer.querySelector(`[data-hotspot="${hotspotId}"]`);
-  if (!node) return;
-
-  const stageRect = app.roomStage.getBoundingClientRect();
-  const rect = node.getBoundingClientRect();
-
-  const sp = document.createElement('div');
-  sp.className = 'sparkle';
-  sp.textContent = '✨';
-  sp.style.left = `${rect.left - stageRect.left + rect.width / 2 - 10}px`;
-  sp.style.top = `${rect.top - stageRect.top + rect.height / 2 - 10}px`;
-  app.effectsLayer.appendChild(sp);
-  setTimeout(() => sp.remove(), 700);
-}
-
 /* random */
 
 function makeSeededRandom(seedStr) {
@@ -246,7 +229,7 @@ function pickOne(arr, rand) {
   return arr[Math.floor(rand() * arr.length)];
 }
 
-/* progress / rewards */
+/* progress */
 
 function createDefaultProgress() {
   return {
@@ -672,7 +655,6 @@ function buildBathRunConfig() {
 
   state.runConfig = {
     mission,
-    badge: null,
     readyCorrectIds,
     readyWrongIds,
     scrubHotspotIds,
@@ -843,7 +825,164 @@ function renderMemoryGate() {
   });
 }
 
-/* run init */
+/* avatar-relative positioning */
+
+function getAvatarMetrics() {
+  if (!app.roomStage || !app.avatar) return null;
+  const stageRect = app.roomStage.getBoundingClientRect();
+  const avatarRect = app.avatar.getBoundingClientRect();
+
+  return {
+    stageRect,
+    avatarRect,
+    avatarLeft: avatarRect.left - stageRect.left,
+    avatarTop: avatarRect.top - stageRect.top
+  };
+}
+
+function hotspotRectForAvatar(h) {
+  const m = getAvatarMetrics();
+  if (!m) return null;
+
+  return {
+    left: m.avatarLeft + h.ax,
+    top: m.avatarTop + h.ay,
+    width: h.w,
+    height: h.h
+  };
+}
+
+function spawnSparkleAtHotspot(hotspotId) {
+  if (!app.effectsLayer) return;
+  const h = BATH_HOTSPOTS.find(x => x.id === hotspotId);
+  const rect = h ? hotspotRectForAvatar(h) : null;
+  if (!rect) return;
+
+  const sp = document.createElement('div');
+  sp.className = 'sparkle';
+  sp.textContent = '✨';
+  sp.style.left = `${rect.left + rect.width / 2 - 10}px`;
+  sp.style.top = `${rect.top + rect.height / 2 - 10}px`;
+  app.effectsLayer.appendChild(sp);
+  setTimeout(() => sp.remove(), 700);
+}
+
+function renderAvatarHotspots(mode = 'normal') {
+  if (!app.hotspotsLayer) return;
+  app.hotspotsLayer.innerHTML = '';
+
+  const allowedIds = mode === 'boss'
+    ? [getBossTargetHotspotId()]
+    : (state.runConfig.scrubHotspotIds?.length ? state.runConfig.scrubHotspotIds : BATH_SCRUB_POOL);
+
+  const targetId = state.mode === 'learn' && mode !== 'boss' ? getFirstPendingHotspotId() : null;
+
+  BATH_HOTSPOTS.forEach(h => {
+    if (!allowedIds.includes(h.id)) return;
+
+    const rect = hotspotRectForAvatar(h);
+    if (!rect) return;
+
+    const st = mode === 'boss' ? state.bossHotspot : state.hotspots[h.id];
+
+    const div = document.createElement('div');
+    div.className = 'hotspot';
+    div.dataset.hotspot = h.id;
+    div.style.left = `${rect.left}px`;
+    div.style.top = `${rect.top}px`;
+    div.style.width = `${rect.width}px`;
+    div.style.height = `${rect.height}px`;
+
+    if (st.scrubDone) div.classList.add('is-done');
+    if (st.rinsed && mode !== 'boss') div.classList.add('is-rinsed');
+    if (st.dry && mode !== 'boss') div.classList.add('is-dry');
+    if (targetId && h.id === targetId) div.classList.add('is-target');
+
+    const label = document.createElement('div');
+    label.className = 'hotspot-label';
+    label.textContent = h.label;
+
+    const prog = document.createElement('div');
+    prog.className = 'hotspot-progress';
+    const bar = document.createElement('i');
+    const ratio = Math.min(1, st.scrubMs / (mode === 'boss' ? 1000 : h.needMs));
+    bar.style.width = `${Math.round(ratio * 100)}%`;
+    prog.appendChild(bar);
+
+    div.appendChild(label);
+    div.appendChild(prog);
+
+    if (mode !== 'boss') {
+      const chip = document.createElement('div');
+      chip.className = 'state-chip';
+      if (st.dry) chip.textContent = '✨';
+      else if (st.rinsed) chip.textContent = '💧';
+      else if (st.scrubDone) chip.textContent = '🫧';
+      else chip.textContent = '🧼';
+      div.appendChild(chip);
+    }
+
+    div.addEventListener('pointerdown', () => onHotspotDown(h.id, div));
+    div.addEventListener('pointerup', clearActiveScrub);
+    div.addEventListener('pointerleave', clearActiveScrub);
+    div.addEventListener('pointercancel', clearActiveScrub);
+
+    app.hotspotsLayer.appendChild(div);
+  });
+}
+
+function updateHotspotProgress(hotspotId, ratio) {
+  if (!app.hotspotsLayer) return;
+  const bar = app.hotspotsLayer.querySelector(`[data-hotspot="${hotspotId}"] .hotspot-progress > i`);
+  if (bar) bar.style.width = `${Math.min(100, Math.round(ratio * 100))}%`;
+}
+
+function updateHotspotDone(hotspotId) {
+  if (!app.hotspotsLayer) return;
+  const node = app.hotspotsLayer.querySelector(`[data-hotspot="${hotspotId}"]`);
+  if (node) node.classList.add('is-done');
+}
+
+function renderFoamDecor() {
+  if (!app.effectsLayer) return;
+  app.effectsLayer.querySelectorAll('.foam-dot').forEach(n => n.remove());
+
+  const phaseId = BATH_PHASES[state.phaseIndex]?.id;
+  if (!phaseId) return;
+
+  if (phaseId === 'boss') {
+    const currentTarget = getBossTargetHotspotId();
+    const h = BATH_HOTSPOTS.find(x => x.id === currentTarget);
+    const rect = h ? hotspotRectForAvatar(h) : null;
+    if (!rect || !state.bossHotspot.scrubDone || state.bossHotspot.rinsed) return;
+
+    for (let i = 0; i < 3; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'foam-dot';
+      dot.style.left = `${rect.left + 4 + (i * 10)}px`;
+      dot.style.top = `${rect.top + 6 + (i % 2) * 8}px`;
+      app.effectsLayer.appendChild(dot);
+    }
+    return;
+  }
+
+  state.runConfig.scrubHotspotIds.forEach(id => {
+    const h = BATH_HOTSPOTS.find(x => x.id === id);
+    const rect = h ? hotspotRectForAvatar(h) : null;
+    const st = state.hotspots[id];
+    if (!rect || !st || !st.scrubDone || st.rinsed) return;
+
+    for (let i = 0; i < 3; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'foam-dot';
+      dot.style.left = `${rect.left + 4 + (i * 10)}px`;
+      dot.style.top = `${rect.top + 6 + (i % 2) * 8}px`;
+      app.effectsLayer.appendChild(dot);
+    }
+  });
+}
+
+/* runtime */
 
 function initHotspotsState() {
   state.hotspots = {};
@@ -1120,7 +1259,7 @@ function selectTool(toolId, tools, opts) {
   }
 }
 
-/* ready phase */
+/* ready */
 
 function renderReadyChecklist() {
   if (!app.itemsLayer) return;
@@ -1208,7 +1347,7 @@ function handleReadyItem(item, el) {
   }
 }
 
-/* hotspot helpers */
+/* hotspot runtime */
 
 function getFirstPendingHotspotId() {
   const phaseId = BATH_PHASES[state.phaseIndex]?.id;
@@ -1235,119 +1374,6 @@ function getBossTargetHotspotId() {
   const step = state.runConfig.bossSteps[state.bossIndex];
   return step?.hotspot || state.bossHotspot?.id || 'armpit';
 }
-
-function renderAvatarHotspots(mode = 'normal') {
-  if (!app.hotspotsLayer) return;
-  app.hotspotsLayer.innerHTML = '';
-
-  const allowedIds = mode === 'boss'
-    ? [getBossTargetHotspotId()]
-    : (state.runConfig.scrubHotspotIds?.length ? state.runConfig.scrubHotspotIds : BATH_SCRUB_POOL);
-
-  const targetId = state.mode === 'learn' && mode !== 'boss' ? getFirstPendingHotspotId() : null;
-
-  BATH_HOTSPOTS.forEach(h => {
-    if (!allowedIds.includes(h.id)) return;
-
-    const st = mode === 'boss' ? state.bossHotspot : state.hotspots[h.id];
-
-    const div = document.createElement('div');
-    div.className = 'hotspot';
-    div.dataset.hotspot = h.id;
-    div.style.left = `calc(50% - 90px + ${h.x}px)`;
-    div.style.top = `${h.y}px`;
-    div.style.width = `${h.w}px`;
-    div.style.height = `${h.h}px`;
-
-    if (st.scrubDone) div.classList.add('is-done');
-    if (st.rinsed && mode !== 'boss') div.classList.add('is-rinsed');
-    if (st.dry && mode !== 'boss') div.classList.add('is-dry');
-    if (targetId && h.id === targetId) div.classList.add('is-target');
-
-    const label = document.createElement('div');
-    label.className = 'hotspot-label';
-    label.textContent = h.label;
-
-    const prog = document.createElement('div');
-    prog.className = 'hotspot-progress';
-    const bar = document.createElement('i');
-    const ratio = Math.min(1, st.scrubMs / (mode === 'boss' ? 1000 : h.needMs));
-    bar.style.width = `${Math.round(ratio * 100)}%`;
-    prog.appendChild(bar);
-
-    div.appendChild(label);
-    div.appendChild(prog);
-
-    if (mode !== 'boss') {
-      const chip = document.createElement('div');
-      chip.className = 'state-chip';
-      if (st.dry) chip.textContent = '✨';
-      else if (st.rinsed) chip.textContent = '💧';
-      else if (st.scrubDone) chip.textContent = '🫧';
-      else chip.textContent = '🧼';
-      div.appendChild(chip);
-    }
-
-    div.addEventListener('pointerdown', () => onHotspotDown(h.id, div));
-    div.addEventListener('pointerup', clearActiveScrub);
-    div.addEventListener('pointerleave', clearActiveScrub);
-    div.addEventListener('pointercancel', clearActiveScrub);
-
-    app.hotspotsLayer.appendChild(div);
-  });
-}
-
-function updateHotspotProgress(hotspotId, ratio) {
-  if (!app.hotspotsLayer) return;
-  const bar = app.hotspotsLayer.querySelector(`[data-hotspot="${hotspotId}"] .hotspot-progress > i`);
-  if (bar) bar.style.width = `${Math.min(100, Math.round(ratio * 100))}%`;
-}
-
-function updateHotspotDone(hotspotId) {
-  if (!app.hotspotsLayer) return;
-  const node = app.hotspotsLayer.querySelector(`[data-hotspot="${hotspotId}"]`);
-  if (node) node.classList.add('is-done');
-}
-
-function renderFoamDecor() {
-  if (!app.effectsLayer) return;
-  app.effectsLayer.querySelectorAll('.foam-dot').forEach(n => n.remove());
-
-  const phaseId = BATH_PHASES[state.phaseIndex]?.id;
-  if (!phaseId) return;
-
-  if (phaseId === 'boss') {
-    const currentTarget = getBossTargetHotspotId();
-    if (state.bossHotspot.scrubDone && !state.bossHotspot.rinsed) {
-      const h = BATH_HOTSPOTS.find(x => x.id === currentTarget);
-      if (!h) return;
-      for (let i = 0; i < 3; i++) {
-        const dot = document.createElement('div');
-        dot.className = 'foam-dot';
-        dot.style.left = `calc(50% - 90px + ${h.x + 4 + (i * 10)}px)`;
-        dot.style.top = `${h.y + 8 + (i % 2) * 8}px`;
-        app.effectsLayer.appendChild(dot);
-      }
-    }
-    return;
-  }
-
-  state.runConfig.scrubHotspotIds.forEach(id => {
-    const h = BATH_HOTSPOTS.find(x => x.id === id);
-    const st = state.hotspots[id];
-    if (!h || !st || !st.scrubDone || st.rinsed) return;
-
-    for (let i = 0; i < 3; i++) {
-      const dot = document.createElement('div');
-      dot.className = 'foam-dot';
-      dot.style.left = `calc(50% - 90px + ${h.x + 4 + (i * 10)}px)`;
-      dot.style.top = `${h.y + 8 + (i % 2) * 8}px`;
-      app.effectsLayer.appendChild(dot);
-    }
-  });
-}
-
-/* scrub phase */
 
 function renderScrubPhase() {
   state.selectedTool = 'soap';
@@ -1856,6 +1882,13 @@ function bindTopButtons() {
 window.addEventListener('pointerup', clearActiveScrub);
 window.addEventListener('pointercancel', clearActiveScrub);
 window.addEventListener('pagehide', cleanupRuntime);
+window.addEventListener('resize', () => {
+  const phaseId = BATH_PHASES[state.phaseIndex]?.id;
+  if (phaseId === 'scrub' || phaseId === 'rinseDry' || phaseId === 'boss') {
+    renderAvatarHotspots(phaseId === 'boss' ? 'boss' : 'normal');
+    renderFoamDecor();
+  }
+});
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) cleanupRuntime();
 });
