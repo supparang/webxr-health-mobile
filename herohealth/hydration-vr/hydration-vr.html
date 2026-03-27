@@ -3,1878 +3,331 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Hydration Hero Game</title>
-  <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#bfeeff" />
+  <title>HeroHealth • Hydration Hero</title>
+  <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <style>
-    :root{
-      --sky1:#ebfcff;
-      --sky2:#d5f4ff;
-      --sky3:#b5e6ff;
-
-      --panel:#fffefb;
-      --panel-2:#f5fffb;
-      --panel-3:#eefaff;
-
-      --line:#d8eef7;
-      --text:#2f556d;
-      --muted:#7091a7;
-
-      --good1:#90e36f;
-      --good2:#58bf44;
-      --good3:#3ea63b;
-
-      --blue1:#8ad7ff;
-      --blue2:#54adef;
-      --blue3:#3b91d8;
-
-      --yellow1:#ffe68e;
-      --yellow2:#f7ca54;
-      --orange1:#ffc987;
-      --orange2:#ff9f60;
-      --red1:#ff9b9b;
-      --red2:#f26363;
-
-      --shadow:0 14px 34px rgba(84,142,176,.14);
-      --shadow-lg:0 24px 56px rgba(84,142,176,.18);
-
-      --radius-xl:30px;
-      --radius-lg:24px;
-      --radius-md:18px;
-      --radius-sm:14px;
-
-      --top-safe:env(safe-area-inset-top, 0px);
-      --bottom-safe:env(safe-area-inset-bottom, 0px);
-    }
-
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; min-height:100%; }
-    body{
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(circle at 14% 10%, rgba(255,255,255,.86), transparent 13%),
-        radial-gradient(circle at 86% 10%, rgba(255,255,255,.66), transparent 13%),
-        linear-gradient(180deg,var(--sky1) 0%,var(--sky2) 45%,var(--sky3) 100%);
-      padding:12px;
-    }
-
-    button{
-      font:inherit;
-      -webkit-tap-highlight-color:transparent;
-    }
-
-    .page{
-      width:min(1320px,100%);
-      margin:0 auto;
-      display:grid;
-      gap:12px;
-    }
-
-    .shell,
-    .panel{
-      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:
-        0 18px 40px rgba(84,142,176,.12),
-        inset 0 1px 0 rgba(255,255,255,.92);
-    }
-
-    .shell{
-      position:relative;
-      overflow:hidden;
-      border-radius:var(--radius-xl);
-      padding:12px;
-      display:grid;
-      gap:12px;
-    }
-
-    .shell::after{
-      content:"";
-      position:absolute;
-      left:0; right:0; bottom:0;
-      height:96px;
-      background:
-        radial-gradient(circle at 10% 78%, #d7f3ae 0 18%, transparent 19%),
-        radial-gradient(circle at 32% 100%, #b7e788 0 12%, transparent 13%),
-        radial-gradient(circle at 84% 74%, #d8f4b3 0 18%, transparent 19%),
-        linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.10) 38%, rgba(104,191,70,.22) 100%);
-      pointer-events:none;
-    }
-    .shell > *{ position:relative; z-index:1; }
-
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      min-width:0;
-    }
-
-    .brand-badge{
-      width:64px;
-      height:64px;
-      border-radius:22px;
-      background:linear-gradient(180deg,#fff8e8,#ffe8b9);
-      border:1px solid rgba(255,255,255,.95);
-      box-shadow:var(--shadow);
-      display:grid;
-      place-items:center;
-      overflow:hidden;
-      flex:0 0 64px;
-    }
-
-    .hero{
-      position:relative;
-      width:48px;
-      height:48px;
-    }
-    .hero-head{
-      position:absolute; left:13px; top:7px;
-      width:18px; height:18px;
-      border-radius:999px;
-      background:#ffd9b8;
-      z-index:4;
-    }
-    .hero-hair{
-      position:absolute; left:9px; top:4px;
-      width:24px; height:14px;
-      border-radius:14px 14px 9px 9px;
-      background:linear-gradient(180deg,#7a3b22,#5f2f18);
-      transform:rotate(-8deg);
-      z-index:5;
-    }
-    .hero-body{
-      position:absolute; left:10px; top:20px;
-      width:24px; height:16px;
-      border-radius:13px 13px 10px 10px;
-      background:linear-gradient(180deg,#8fd7ff,#58acef);
-      z-index:3;
-    }
-    .hero-cape{
-      position:absolute; left:3px; top:16px;
-      width:14px; height:20px;
-      border-radius:12px 0 12px 12px;
-      background:linear-gradient(180deg,#ff8063,#ef5d44);
-      transform:rotate(-24deg);
-      z-index:2;
-    }
-    .hero-drop{
-      position:absolute; right:1px; bottom:6px;
-      width:15px; height:15px;
-      border-radius:999px;
-      display:grid; place-items:center;
-      color:#fff; font-size:9px;
-      background:linear-gradient(180deg,#8de36b,#58bf44);
-      z-index:6;
-    }
-
-    .brand-text{ min-width:0; }
-    .logo{
-      display:flex;
-      align-items:center;
-      gap:2px;
-      line-height:1;
-      font-size:clamp(26px,4vw,38px);
-      font-weight:1000;
-      letter-spacing:-.03em;
-      text-shadow:0 3px 0 rgba(255,255,255,.72);
-    }
-    .logo-hero{ color:#8fbe1e; }
-    .logo-health{
-      color:#ffffff;
-      text-shadow:
-        0 3px 0 rgba(90,145,180,.22),
-        0 0 1px rgba(90,145,180,.16);
-    }
-    .logo-sub{
-      margin-top:3px;
-      color:#7091a7;
-      font-size:13px;
-      font-weight:900;
-    }
-
-    .top-actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:flex-end;
-    }
-
-    .pill{
-      min-height:36px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.84);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      color:#6d8fa3;
-      font-size:13px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-    }
-
-    .btn{
-      min-height:46px;
-      padding:10px 16px;
-      border-radius:16px;
-      font-size:17px;
-      font-weight:1000;
-      cursor:pointer;
-      transition:transform .12s ease, filter .12s ease;
-      box-shadow:
-        0 12px 26px rgba(84,142,176,.14),
-        inset 0 1px 0 rgba(255,255,255,.18);
-      border:0;
-    }
-    .btn:hover{
-      transform:translateY(-1px) scale(1.01);
-      filter:brightness(1.02);
-    }
-    .btn-soft{
-      border:1px solid rgba(255,255,255,.95);
-      background:linear-gradient(180deg,#ffffff,#eefcff);
-      color:#2f5268;
-    }
-    .btn-blue{
-      background:linear-gradient(180deg,var(--blue1),var(--blue2));
-      color:#fff;
-    }
-    .btn-green{
-      background:linear-gradient(180deg,#8de36b,#58bf44);
-      color:#fff;
-    }
-
-    .stage-shell{
-      position:relative;
-      overflow:hidden;
-      border-radius:28px;
-      min-height:76vh;
-      background:
-        radial-gradient(circle at 18% 18%, rgba(255,255,255,.9), transparent 12%),
-        radial-gradient(circle at 82% 16%, rgba(255,255,255,.72), transparent 12%),
-        linear-gradient(180deg,#eefcff 0%,#d4f4ff 42%,#b8e8ff 100%);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow-lg);
-    }
-
-    .stage-shell::before{
-      content:"";
-      position:absolute;
-      left:3%;
-      top:8%;
-      width:140px;
-      height:44px;
-      border-radius:999px;
-      background:rgba(255,255,255,.50);
-      box-shadow:
-        56px -8px 0 6px rgba(255,255,255,.38),
-        20px -16px 0 2px rgba(255,255,255,.56),
-        108px 2px 0 3px rgba(255,255,255,.32);
-      pointer-events:none;
-      z-index:0;
-    }
-
-    .stage-shell::after{
-      content:"";
-      position:absolute;
-      left:0; right:0; bottom:0;
-      height:110px;
-      background:
-        radial-gradient(circle at 12% 80%, #d8f4b3 0 16%, transparent 17%),
-        radial-gradient(circle at 28% 100%, #b7e788 0 11%, transparent 12%),
-        radial-gradient(circle at 76% 86%, #d4f2a8 0 15%, transparent 16%),
-        radial-gradient(circle at 92% 100%, #b4e681 0 12%, transparent 13%),
-        linear-gradient(180deg, rgba(255,255,255,0), rgba(125,209,92,.10) 44%, rgba(104,191,70,.24) 100%);
-      pointer-events:none;
-      z-index:0;
-    }
-
-    .stage{
-      position:relative;
-      min-height:76vh;
-      overflow:hidden;
-      isolation:isolate;
-    }
-
-    .hud-top,
-    .hud-bottom{
-      position:absolute;
-      left:0; right:0;
-      z-index:6;
-      pointer-events:none;
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      padding:12px;
-    }
-
-    .hud-top{
-      top:0;
-      padding-top:calc(12px + var(--top-safe));
-      align-items:flex-start;
-    }
-
-    .hud-bottom{
-      bottom:0;
-      padding-bottom:calc(12px + var(--bottom-safe));
-      align-items:flex-end;
-      flex-wrap:wrap;
-    }
-
-    .hud-col{
-      display:grid;
-      gap:10px;
-      max-width:min(420px, 48vw);
-      pointer-events:none;
-    }
-
-    .hud-card{
-      pointer-events:auto;
-      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,255,251,.95));
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      border-radius:22px;
-      padding:12px;
-      display:grid;
-      gap:10px;
-    }
-
-    .hero-card{
-      display:grid;
-      grid-template-columns:auto 1fr;
-      gap:12px;
-      align-items:center;
-      min-width:240px;
-    }
-
-    .mini-avatar{
-      width:58px;
-      height:58px;
-      border-radius:18px;
-      background:linear-gradient(180deg,#eefaff,#d8f2ff);
-      border:1px solid rgba(255,255,255,.95);
-      box-shadow:var(--shadow);
-      display:grid;
-      place-items:center;
-      overflow:hidden;
-      flex:0 0 58px;
-    }
-
-    .mini-avatar .hero{
-      transform:scale(.9);
-      transform-origin:center;
-    }
-
-    .player-name{
-      font-size:24px;
-      line-height:1.04;
-      font-weight:1000;
-      color:#2d5269;
-      margin:0;
-    }
-
-    .coach-bubble{
-      display:inline-block;
-      max-width:100%;
-      padding:10px 14px;
-      border-radius:18px;
-      background:linear-gradient(180deg,#fff7db,#ffefbd);
-      border:1px solid #ffe39a;
-      color:#6d5f29;
-      font-size:14px;
-      line-height:1.45;
-      font-weight:900;
-      box-shadow:var(--shadow);
-    }
-
-    .chips{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .chip{
-      min-height:34px;
-      padding:7px 10px;
-      border-radius:999px;
-      background:linear-gradient(180deg,#ffffff,#eefcff);
-      border:1px solid rgba(255,255,255,.95);
-      color:#5f879f;
-      font-size:13px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      box-shadow:var(--shadow);
-    }
-
-    .chip strong{
-      color:#2e556e;
-      font-weight:1000;
-    }
-
-    .stat-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .stat{
-      min-height:68px;
-      padding:10px 12px;
-      border-radius:20px;
-      background:linear-gradient(180deg,#ffffff,#eefcff);
-      border:1px solid rgba(255,255,255,.95);
-      box-shadow:var(--shadow);
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-
-    .stat-icon{
-      width:38px;
-      height:38px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      font-size:18px;
-      flex:0 0 38px;
-      background:linear-gradient(180deg,#fff7d8,#ffe8aa);
-      box-shadow:0 8px 16px rgba(84,142,176,.10);
-    }
-
-    .stat small{
-      display:block;
-      color:#7798ad;
-      font-size:12px;
-      font-weight:1000;
-      margin-bottom:2px;
-    }
-
-    .stat strong{
-      color:#2d5269;
-      font-size:20px;
-      line-height:1.05;
-      font-weight:1000;
-    }
-
-    .mission-card{
-      min-width:280px;
-      max-width:min(440px, 48vw);
-    }
-
-    .mission-title{
-      color:#2d5269;
-      font-size:20px;
-      line-height:1.05;
-      font-weight:1000;
-      margin:0;
-    }
-
-    .mission-sub{
-      color:#6f92a6;
-      font-size:14px;
-      line-height:1.45;
-      font-weight:800;
-      margin:0;
-    }
-
-    .progress{
-      height:16px;
-      border-radius:999px;
-      background:#e8f7df;
-      border:1px solid #cceab8;
-      overflow:hidden;
-    }
-
-    .progress > span{
-      display:block;
-      width:0%;
-      height:100%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#8de36b,#58bf44);
-      transition:width .16s linear;
-    }
-
-    .mission-row{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap;
-    }
-
-    .mission-badge{
-      min-height:34px;
-      padding:7px 12px;
-      border-radius:999px;
-      background:linear-gradient(180deg,#8de36b,#58bf44);
-      color:#fff;
-      font-size:13px;
-      font-weight:1000;
-      display:inline-grid;
-      place-items:center;
-    }
-
-    .floating-layer,
-    .effect-layer,
-    .boss-layer{
-      position:absolute;
-      inset:0;
-      z-index:2;
-      pointer-events:none;
-    }
-
-    .object-layer{
-      position:absolute;
-      inset:0;
-      z-index:3;
-    }
-
-    .target{
-      position:absolute;
-      display:grid;
-      place-items:center;
-      border:0;
-      user-select:none;
-      cursor:pointer;
-      touch-action:manipulation;
-      box-shadow:
-        0 12px 22px rgba(84,142,176,.14),
-        inset 0 1px 0 rgba(255,255,255,.35);
-      transition:transform .08s ease, filter .08s ease;
-      will-change:transform,left,top;
-    }
-    .target:hover{ filter:brightness(1.02); }
-    .target:active{ transform:scale(.94); }
-
-    .target.good{
-      background:linear-gradient(180deg,#a7eaff,#6dcaff);
-      border:2px solid rgba(255,255,255,.94);
-      color:#fff;
-    }
-
-    .target.bad{
-      background:linear-gradient(180deg,#ffb8a8,#ff8a71);
-      border:2px solid rgba(255,255,255,.94);
-      color:#fff;
-    }
-
-    .target.shield{
-      background:linear-gradient(180deg,#fff2a8,#ffd966);
-      border:2px solid rgba(255,255,255,.94);
-      color:#7a6212;
-    }
-
-    .target.boss{
-      background:linear-gradient(180deg,#8bdcff,#48a8ef);
-      border:3px solid rgba(255,255,255,.95);
-      color:#fff;
-      box-shadow:
-        0 16px 28px rgba(84,142,176,.18),
-        0 0 0 8px rgba(255,255,255,.18),
-        inset 0 1px 0 rgba(255,255,255,.45);
-    }
-
-    .target .emoji{
-      display:block;
-      line-height:1;
-      filter:drop-shadow(0 2px 0 rgba(0,0,0,.08));
-    }
-
-    .target .label{
-      position:absolute;
-      left:50%;
-      transform:translateX(-50%);
-      bottom:-18px;
-      min-width:max-content;
-      padding:2px 8px;
-      border-radius:999px;
-      background:rgba(255,255,255,.88);
-      color:#43657c;
-      font-size:11px;
-      font-weight:1000;
-      box-shadow:var(--shadow);
-      pointer-events:none;
-    }
-
-    .splash{
-      position:absolute;
-      transform:translate(-50%,-50%);
-      font-size:22px;
-      font-weight:1000;
-      white-space:nowrap;
-      pointer-events:none;
-      z-index:8;
-      animation:popUp .65s ease forwards;
-    }
-
-    .splash.good{ color:#39a93d; }
-    .splash.bad{ color:#e34f4f; }
-    .splash.shield{ color:#c08d00; }
-    .splash.boss{ color:#2388d9; }
-
-    @keyframes popUp{
-      0%{ opacity:0; transform:translate(-50%,-40%) scale(.8); }
-      18%{ opacity:1; transform:translate(-50%,-58%) scale(1.04); }
-      100%{ opacity:0; transform:translate(-50%,-120%) scale(.96); }
-    }
-
-    .banner-wrap{
-      position:absolute;
-      left:50%;
-      top:13%;
-      transform:translateX(-50%);
-      z-index:7;
-      display:grid;
-      gap:10px;
-      pointer-events:none;
-    }
-
-    .banner{
-      min-width:min(88vw, 460px);
-      padding:12px 18px;
-      border-radius:20px;
-      text-align:center;
-      font-size:24px;
-      line-height:1.1;
-      font-weight:1000;
-      box-shadow:var(--shadow-lg);
-      opacity:0;
-      transform:translateY(-10px) scale(.96);
-      transition:opacity .22s ease, transform .22s ease;
-    }
-
-    .banner.show{
-      opacity:1;
-      transform:translateY(0) scale(1);
-    }
-
-    .banner.storm{
-      background:linear-gradient(180deg,#fff6cf,#ffe48a);
-      color:#7b610f;
-      border:1px solid #ffe08f;
-    }
-
-    .banner.boss{
-      background:linear-gradient(180deg,#8fdcff,#4fa9ef);
-      color:#fff;
-      border:1px solid rgba(255,255,255,.95);
-    }
-
-    .countdown{
-      position:absolute;
-      inset:0;
-      z-index:9;
-      display:grid;
-      place-items:center;
-      background:rgba(231,250,255,.34);
-      backdrop-filter:blur(4px);
-      transition:opacity .24s ease, visibility .24s ease;
-    }
-
-    .countdown.hide{
-      opacity:0;
-      visibility:hidden;
-      pointer-events:none;
-    }
-
-    .count-card{
-      width:min(420px,92%);
-      padding:22px;
-      border-radius:28px;
-      text-align:center;
-      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow-lg);
-      display:grid;
-      gap:14px;
-      justify-items:center;
-    }
-
-    .count-title{
-      color:#2d5269;
-      font-size:30px;
-      line-height:1.05;
-      font-weight:1000;
-      margin:0;
-    }
-
-    .count-bubble{
-      max-width:340px;
-      padding:12px 16px;
-      border-radius:18px;
-      background:linear-gradient(180deg,#fff7db,#ffefbd);
-      border:1px solid #ffe39a;
-      color:#6d5f29;
-      font-size:15px;
-      line-height:1.45;
-      font-weight:1000;
-      box-shadow:var(--shadow);
-    }
-
-    .count-num{
-      width:114px;
-      height:114px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#8de36b,#58bf44);
-      color:#fff;
-      font-size:56px;
-      line-height:1;
-      font-weight:1000;
-      box-shadow:var(--shadow-lg);
-    }
-
-    .overlay{
-      position:absolute;
-      inset:0;
-      z-index:12;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      background:rgba(22,47,63,.28);
-      backdrop-filter:blur(6px);
-    }
-
-    .overlay.open{ display:flex; }
-
-    .summary-card{
-      width:min(560px,100%);
-      border-radius:30px;
-      padding:18px;
-      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow-lg);
-      display:grid;
-      gap:14px;
-      text-align:center;
-      justify-items:center;
-    }
-
-    .ribbon{
-      min-width:min(88vw,420px);
-      min-height:66px;
-      padding:12px 20px;
-      border-radius:20px;
-      background:linear-gradient(180deg,#8fdcff,#4fa9ef);
-      color:#fff;
-      font-size:34px;
-      line-height:1.05;
-      font-weight:1000;
-      display:grid;
-      place-items:center;
-      box-shadow:var(--shadow-lg);
-    }
-
-    .stars{
-      display:flex;
-      gap:8px;
-      font-size:44px;
-      line-height:1;
-    }
-
-    .score-pill{
-      min-height:58px;
-      min-width:220px;
-      padding:10px 18px;
-      border-radius:999px;
-      background:linear-gradient(180deg,#eefbff,#d4f4ff);
-      border:1px solid rgba(255,255,255,.96);
-      color:#2e556e;
-      font-size:24px;
-      font-weight:1000;
-      display:grid;
-      place-items:center;
-      box-shadow:var(--shadow);
-    }
-
-    .big-score{
-      font-size:56px;
-      line-height:1;
-      font-weight:1000;
-      color:#1f4962;
-      margin:0;
-    }
-
-    .reward-row{
-      display:flex;
-      flex-wrap:wrap;
-      justify-content:center;
-      gap:10px;
-    }
-
-    .reward{
-      min-height:46px;
-      padding:10px 16px;
-      border-radius:999px;
-      background:linear-gradient(180deg,#ffffff,#eefcff);
-      border:1px solid rgba(255,255,255,.95);
-      color:#587d93;
-      font-size:16px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      box-shadow:var(--shadow);
-    }
-
-    .summary-msg{
-      width:100%;
-      padding:14px 16px;
-      border-radius:20px;
-      background:linear-gradient(180deg,#fffef8,#f3fff0);
-      border:1px solid rgba(255,255,255,.96);
-      color:#557a8e;
-      font-size:16px;
-      line-height:1.55;
-      font-weight:900;
-      text-align:left;
-      box-shadow:var(--shadow);
-    }
-
-    .action-row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:center;
-      width:100%;
-    }
-
-    .action-row .btn{
-      min-width:180px;
-    }
-
-    .help-backdrop{
-      position:fixed;
-      inset:0;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      background:rgba(22,47,63,.28);
-      backdrop-filter:blur(6px);
-      z-index:30;
-    }
-
-    .help-backdrop.open{ display:flex; }
-
-    .help-card{
-      width:min(560px,100%);
-      border-radius:30px;
-      padding:18px;
-      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow-lg);
-      display:grid;
-      gap:14px;
-    }
-
-    .help-title{
-      margin:0;
-      color:#2d5269;
-      font-size:28px;
-      line-height:1.05;
-      font-weight:1000;
-    }
-
-    .help-item{
-      padding:12px 14px;
-      border-radius:18px;
-      background:linear-gradient(180deg,#fffef8,#f3fff0);
-      border:1px solid rgba(255,255,255,.96);
-      box-shadow:var(--shadow);
-      color:#567b90;
-      font-size:15px;
-      line-height:1.5;
-      font-weight:900;
-    }
-
-    body.cvr-mode{
-      padding:0;
-      background:#000;
-    }
-
-    body.cvr-mode .page{
-      width:100%;
-      gap:0;
-    }
-
-    body.cvr-mode .shell{
-      border-radius:0;
-      min-height:100vh;
-      padding:8px;
-      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
-      border:0;
-      box-shadow:none;
-    }
-
-    body.cvr-mode .shell::after{ display:none; }
-    body.cvr-mode .stage-shell{
-      min-height:calc(100vh - 94px);
-      border-radius:22px;
-    }
-
-    body.cvr-mode .stage{
-      min-height:calc(100vh - 94px);
-    }
-
-    body.cvr-mode .hud-card,
-    body.cvr-mode .pill{
-      background:rgba(255,255,255,.16);
-      color:#fff;
-      border-color:rgba(255,255,255,.14);
-      box-shadow:none;
-    }
-
-    body.cvr-mode .coach-bubble{
-      background:rgba(255,247,219,.94);
-      color:#6d5f29;
-    }
-
-    body.cvr-mode .btn-soft,
-    body.cvr-mode .btn-blue,
-    body.cvr-mode .btn-green{
-      box-shadow:none;
-    }
-
-    @media (max-width: 900px){
-      .hud-top,
-      .hud-bottom{
-        flex-direction:column;
-        align-items:stretch;
-      }
-
-      .hud-col,
-      .mission-card{
-        max-width:none;
-        width:100%;
-      }
-
-      .stat-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-    }
-
-    @media (max-width: 720px){
-      body{ padding:8px; }
-      .brand-badge{
-        width:56px; height:56px; border-radius:18px; flex-basis:56px;
-      }
-      .hero{
-        width:42px; height:42px;
-      }
-      .hero-head{ left:11px; top:6px; width:16px; height:16px; }
-      .hero-hair{ left:8px; top:3px; width:20px; height:12px; }
-      .hero-body{ left:9px; top:18px; width:20px; height:14px; }
-      .hero-cape{ left:3px; top:15px; width:12px; height:16px; }
-      .hero-drop{ width:13px; height:13px; font-size:8px; }
-
-      .top-actions{ width:100%; justify-content:flex-start; }
-      .stage-shell,
-      .stage{
-        min-height:78vh;
-      }
-      .player-name{ font-size:20px; }
-      .hero-card{ min-width:0; }
-      .stat-grid{ grid-template-columns:1fr 1fr; }
-      .mission-title{ font-size:18px; }
-      .banner{ font-size:20px; }
-      .count-num{ width:96px; height:96px; font-size:48px; }
-      .ribbon{ font-size:28px; min-width:0; width:100%; }
-      .big-score{ font-size:46px; }
-      .action-row{
-        flex-direction:column;
-      }
-      .action-row .btn{
-        width:100%;
-        min-width:0;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="./hydration.css?v=20260327-HYD-DUET-BO3" />
 </head>
 <body>
-  <main class="page">
-    <section class="shell">
-      <div class="topbar">
-        <div class="brand">
-          <div class="brand-badge">
-            <div class="hero">
-              <div class="hero-head"></div>
-              <div class="hero-hair"></div>
-              <div class="hero-body"></div>
-              <div class="hero-cape"></div>
-              <div class="hero-drop">💧</div>
-            </div>
-          </div>
-          <div class="brand-text">
-            <div class="logo">
-              <span class="logo-hero">Hero</span><span class="logo-health">Health</span>
-            </div>
-            <div class="logo-sub">Hydration Hero</div>
-          </div>
-        </div>
+  <main class="hydr-page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="kicker">💧 Nutrition Zone • Hydration Hero</div>
+        <h1 class="title">เก็บน้ำดี เลี่ยงของไม่ดี</h1>
+        <p class="sub">แตะฟองที่ดี เก็บโล่ แล้วผ่านช่วงพายุและบอสให้ได้</p>
+      </div>
 
-        <div class="top-actions">
-          <span id="metaDiff" class="pill">🎯 Normal</span>
-          <span id="metaView" class="pill">📱 Mobile</span>
-          <span id="metaTime" class="pill">⏱ 80 วินาที</span>
-          <button id="helpBtn" class="btn btn-blue" type="button">❓ วิธีเล่น</button>
+      <div class="top-actions">
+        <button id="btnSfx" class="ghost small" type="button">🔊 เสียง</button>
+        <button id="btnHelp" class="ghost small" type="button">❓ วิธีเล่น</button>
+        <button id="btnPause" class="ghost small" type="button">⏸️ พัก</button>
+      </div>
+    </header>
+
+    <section class="hud-grid">
+      <div class="hud-card">
+        <span class="hud-label">คะแนน</span>
+        <strong id="uiScore" class="hud-value">0</strong>
+      </div>
+
+      <div class="hud-card">
+        <span class="hud-label">เวลา</span>
+        <strong id="uiTime" class="hud-value">00:00</strong>
+      </div>
+
+      <div class="hud-card">
+        <span class="hud-label">พลาดชน</span>
+        <strong id="uiMiss" class="hud-value">0</strong>
+      </div>
+
+      <div class="hud-card hud-mobile-hide">
+        <span class="hud-label">หมดเวลาเอง</span>
+        <strong id="uiExpire" class="hud-value">0</strong>
+      </div>
+
+      <div class="hud-card hud-mobile-hide">
+        <span class="hud-label">บล็อก</span>
+        <strong id="uiBlock" class="hud-value">0</strong>
+      </div>
+
+      <div class="hud-card">
+        <span class="hud-label">เกรด</span>
+        <strong id="uiGrade" class="hud-value">C</strong>
+      </div>
+
+      <div class="hud-card">
+        <span class="hud-label">น้ำ</span>
+        <strong id="uiWater" class="hud-value">40%</strong>
+      </div>
+
+      <div class="hud-card">
+        <span class="hud-label">คอมโบ</span>
+        <strong id="uiCombo" class="hud-value">0</strong>
+      </div>
+
+      <div class="hud-card">
+        <span class="hud-label">โล่</span>
+        <strong id="uiShield" class="hud-value">0</strong>
+      </div>
+
+      <div class="hud-card phase-card">
+        <span class="hud-label">สถานะ</span>
+        <strong id="uiPhase" class="hud-value">💧 ช่วงเก็บน้ำ</strong>
+      </div>
+    </section>
+
+    <section class="mini-status-row">
+      <div class="mini-pill">วอร์มอัป: <strong id="uiWarmDone">ยังไม่ทำ ✨</strong></div>
+      <div class="mini-pill">คูลดาวน์: <strong id="uiCoolDone">ยังไม่ทำ ✨</strong></div>
+      <div class="mini-pill">AI Risk: <strong id="aiRisk">0.00</strong></div>
+      <div class="mini-pill wide">คำแนะนำ: <strong id="aiHint">แตะน้ำดี และอย่าโดนของไม่ดี 😊</strong></div>
+    </section>
+
+    <section id="missionBar" class="missionBar">
+      <div class="mission-title">🎯 ภารกิจรอบนี้</div>
+
+      <div id="missionChipHit" class="mission-chip">
+        <span class="chip-title">เก็บน้ำดี</span>
+        <span class="chip-value"><strong id="missionHitNow">0</strong>/<strong id="missionHitGoal">12</strong></span>
+      </div>
+
+      <div id="missionChipBlock" class="mission-chip">
+        <span class="chip-title">บล็อกสายฟ้า</span>
+        <span class="chip-value"><strong id="missionBlockNow">0</strong>/<strong id="missionBlockGoal">3</strong></span>
+      </div>
+
+      <div id="missionChipCombo" class="mission-chip">
+        <span class="chip-title">คอมโบ</span>
+        <span class="chip-value"><strong id="missionComboNow">0</strong>/<strong id="missionComboGoal">8</strong></span>
+      </div>
+    </section>
+
+    <section id="stage" class="stage" aria-label="Hydration playfield">
+      <div id="zoneSign" class="zoneSign"></div>
+
+      <div id="calloutLayer" class="calloutLayer" aria-hidden="true"></div>
+      <div id="stickerBurst" class="stickerBurst" aria-hidden="true"></div>
+      <div id="bossFace" class="bossFace" aria-hidden="true">⚡</div>
+
+      <div class="centerCrosshair" aria-hidden="true"></div>
+
+      <div id="layer" class="bubbleLayer" aria-label="interactive bubbles"></div>
+    </section>
+
+    <section class="coach-panel">
+      <div class="coach-main">
+        <div class="coach-face">🫧</div>
+        <div>
+          <div class="coach-name">โค้ชเพื่อนช่วยคิด</div>
+          <p id="coachExplain" class="coach-copy">
+            เก็บน้ำดีให้เยอะ ระวังของไม่ดี และอย่าลืมหาโล่ไว้กันสายฟ้านะ
+          </p>
         </div>
       </div>
 
-      <section class="stage-shell">
-        <div id="stage" class="stage">
-          <div class="hud-top">
-            <div class="hud-col">
-              <div class="hud-card hero-card">
-                <div class="mini-avatar">
-                  <div class="hero">
-                    <div class="hero-head"></div>
-                    <div class="hero-hair"></div>
-                    <div class="hero-body"></div>
-                    <div class="hero-cape"></div>
-                    <div class="hero-drop">💧</div>
-                  </div>
-                </div>
-                <div>
-                  <h1 id="playerName" class="player-name">Rocky</h1>
-                  <div id="coachBubble" class="coach-bubble">แตะน้ำดีให้ไว แล้วหลบของไม่ดีนะ!</div>
-                </div>
-              </div>
+      <div class="risk-card hud-mobile-hide">
+        <div class="risk-label">ความเสี่ยงตอนนี้</div>
+        <div class="risk-bar">
+          <div id="riskFill" class="risk-fill" style="width:0%"></div>
+        </div>
+      </div>
+    </section>
 
-              <div class="chips">
-                <div class="chip">🏆 คะแนน <strong id="scoreVal">0</strong></div>
-                <div class="chip">🔥 คอมโบ <strong id="comboVal">0</strong></div>
-                <div class="chip">💧 น้ำ <strong id="waterVal">40%</strong></div>
-              </div>
-            </div>
+    <section id="duetHud" class="duetHud hidden" aria-live="polite">
+      <div class="duetHudHead">
+        <div class="duetHudTitle">🤝 Duet Live</div>
+        <div class="duetHudChips">
+          <div id="duetSeriesMini" class="duetHudBadge soft">BO3 0-0</div>
+          <div id="duetHudBadge" class="duetHudBadge">กำลังซิงก์</div>
+        </div>
+      </div>
 
-            <div class="hud-col">
-              <div class="stat-grid">
-                <div class="stat">
-                  <div class="stat-icon">❤️</div>
-                  <div><small>Hearts</small><strong id="heartsVal">8</strong></div>
-                </div>
-                <div class="stat">
-                  <div class="stat-icon">🛡️</div>
-                  <div><small>Shield</small><strong id="shieldVal">0</strong></div>
-                </div>
-                <div class="stat">
-                  <div class="stat-icon">⏱</div>
-                  <div><small>Time</small><strong id="timeVal">80</strong></div>
-                </div>
-                <div class="stat">
-                  <div class="stat-icon">⭐</div>
-                  <div><small>Best</small><strong id="bestComboVal">0</strong></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="banner-wrap">
-            <div id="stormBanner" class="banner storm">🌪️ Storm Phase!</div>
-            <div id="bossBanner" class="banner boss">💧 Boss Phase!</div>
-          </div>
-
-          <div id="floatingLayer" class="floating-layer"></div>
-          <div id="effectLayer" class="effect-layer"></div>
-          <div id="bossLayer" class="boss-layer"></div>
-          <div id="objectLayer" class="object-layer"></div>
-
-          <div class="hud-bottom">
-            <div class="hud-card mission-card">
-              <div class="mission-row">
-                <h2 class="mission-title">Mission: เก็บน้ำดี</h2>
-                <div id="missionBadge" class="mission-badge">0 / 18</div>
-              </div>
-              <p class="mission-sub">เก็บน้ำดีให้ครบเป้า เพื่อผ่านรอบนี้แบบยอดเยี่ยม</p>
-              <div class="progress"><span id="missionFill"></span></div>
-            </div>
-
-            <div class="chips">
-              <div class="chip">🥗 Zone <strong>Nutrition</strong></div>
-              <div class="chip">💧 Game <strong>Hydration Hero</strong></div>
-              <div class="chip">🎮 Run <strong id="runVal">Play</strong></div>
-            </div>
-          </div>
-
-          <div id="countdown" class="countdown">
-            <div class="count-card">
-              <h2 class="count-title">Hydration Hero</h2>
-              <div id="countBubble" class="count-bubble">พร้อมไหม! เริ่มเก็บน้ำดีและหลบของไม่ดีกันเลย</div>
-              <div id="countNum" class="count-num">3</div>
-            </div>
-          </div>
-
-          <div id="summaryOverlay" class="overlay" aria-hidden="true">
-            <div class="summary-card">
-              <div id="summaryRibbon" class="ribbon">Great Job!</div>
-              <div id="summaryStars" class="stars" aria-label="stars">⭐️⭐️⭐️</div>
-              <div class="score-pill">Score</div>
-              <p id="summaryScore" class="big-score">0</p>
-
-              <div class="reward-row">
-                <div class="reward">🪙 <span id="summaryCoins">0</span></div>
-                <div class="reward">💧 <span id="summaryWater">0%</span></div>
-                <div class="reward">🔥 <span id="summaryBestCombo">0</span></div>
-              </div>
-
-              <div id="summaryMsg" class="summary-msg">
-                Well done! ดื่มน้ำให้พอดีและเลือกสิ่งที่ดีต่อร่างกายนะ
-              </div>
-
-              <div class="action-row">
-                <button id="replayBtn" class="btn btn-green" type="button">Replay</button>
-                <button id="backHubBtn" class="btn btn-soft" type="button">Back to Hub</button>
-              </div>
-            </div>
+      <div class="duetHudGrid">
+        <div class="duetHudCard me">
+          <div class="duetHudLabel">ฝั่งฉัน</div>
+          <div id="duetMyName" class="duetHudName">ฉัน</div>
+          <div class="duetHudStats">
+            <div class="duetHudStat">คะแนน <strong id="duetMyScore">0</strong></div>
+            <div class="duetHudStat">น้ำ <strong id="duetMyWater">0%</strong></div>
+            <div class="duetHudStat">คอมโบ <strong id="duetMyCombo">0</strong></div>
+            <div class="duetHudStat">สถานะ <strong id="duetMyPhase">run</strong></div>
           </div>
         </div>
-      </section>
+
+        <div class="duetHudCard peer">
+          <div class="duetHudLabel">อีกฝั่ง</div>
+          <div id="duetPeerName" class="duetHudName">เพื่อน</div>
+          <div class="duetHudStats">
+            <div class="duetHudStat">คะแนน <strong id="duetPeerScore">0</strong></div>
+            <div class="duetHudStat">น้ำ <strong id="duetPeerWater">0%</strong></div>
+            <div class="duetHudStat">คอมโบ <strong id="duetPeerCombo">0</strong></div>
+            <div class="duetHudStat">สถานะ <strong id="duetPeerPhase">รอเข้าเกม</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="debugMini" class="debugMini is-hidden" aria-hidden="true">
+      <div>phase: <strong id="dbgPhase">normal</strong></div>
+      <div>combo: <strong id="dbgCombo">0</strong></div>
+      <div>water: <strong id="dbgWater">40</strong></div>
+      <div>shield: <strong id="dbgShield">0</strong></div>
+      <div>bubbles: <strong id="dbgBubbles">0</strong></div>
+      <div>fps: <strong id="dbgFps">—</strong></div>
     </section>
   </main>
 
-  <div id="helpBackdrop" class="help-backdrop" aria-hidden="true">
-    <div class="help-card">
-      <h2 class="help-title">วิธีเล่น Hydration Hero</h2>
-      <div class="help-item">💧 แตะน้ำดีเพื่อเพิ่มคะแนนและเพิ่มค่าน้ำ</div>
-      <div class="help-item">⚠️ หลบของไม่ดี ถ้าเผลอแตะอาจเสียหัวใจและค่าน้ำ</div>
-      <div class="help-item">🛡️ เก็บโล่ไว้กันของไม่ดีได้ 1 ครั้ง</div>
-      <div class="help-item">🌪️ ช่วงท้ายจะมี Storm และ Boss Phase ให้รีบเก็บแต้มเพิ่ม</div>
-      <button id="closeHelpBtn" class="btn btn-blue" type="button">เข้าใจแล้ว</button>
+  <!-- HELP -->
+  <div id="helpOverlay" class="overlay" aria-hidden="true">
+    <div class="dialog help-dialog">
+      <h2>วิธีเล่น</h2>
+      <ul class="help-list">
+        <li>แตะฟองน้ำดี เช่น 💧 💦 🫗 เพื่อเพิ่มคะแนนและเพิ่มน้ำ</li>
+        <li>หลบของไม่ดี เช่น 🧋 🥤 🍟 เพราะจะเสียคะแนนและเสียน้ำ</li>
+        <li>เก็บ 🛡️ เพื่อกันสายฟ้าช่วงพายุหรือบอส</li>
+        <li>ถ้าใช้โหมด cardboard ให้เล็งกลางจอแล้วแตะ/ยิงได้</li>
+      </ul>
+      <div class="dialog-actions">
+        <button id="btnHelpStart" class="primary" type="button">เริ่มเล่น</button>
+      </div>
     </div>
   </div>
 
-  <script>
-    (function(){
-      const qs = new URLSearchParams(location.search);
-
-      function q(name, fallback=''){
-        const v = qs.get(name);
-        return v == null || v === '' ? fallback : v;
-      }
-
-      function clamp(v,a,b){
-        v = Number(v);
-        if(!Number.isFinite(v)) v = a;
-        return Math.max(a, Math.min(b, v));
-      }
-
-      function nowMs(){
-        return (performance && performance.now) ? performance.now() : Date.now();
-      }
-
-      function sanitizePid(v){
-        return String(v || '').trim().replace(/[.#$[\]/]/g, '-').replace(/\s+/g, '-').slice(0,36);
-      }
-
-      function defaultHub(){
-        return q('hub', new URL('../hub.html', location.href).href);
-      }
-
-      function defaultTimeForDiff(diff){
-        if(diff === 'easy') return 60;
-        if(diff === 'hard') return 90;
-        return 80;
-      }
-
-      function diffLabel(v){
-        return v === 'easy' ? 'Easy' : v === 'hard' ? 'Hard' : 'Normal';
-      }
-
-      function viewLabel(v){
-        if(v === 'pc') return 'PC';
-        if(v === 'cvr') return 'Cardboard / cVR';
-        return 'Mobile';
-      }
-
-      function xmur3(str){
-        str = String(str || '');
-        let h = 1779033703 ^ str.length;
-        for(let i=0;i<str.length;i++){
-          h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-          h = (h << 13) | (h >>> 19);
-        }
-        return function(){
-          h = Math.imul(h ^ (h >>> 16), 2246822507);
-          h = Math.imul(h ^ (h >>> 13), 3266489909);
-          h ^= h >>> 16;
-          return h >>> 0;
-        };
-      }
-
-      function sfc32(a,b,c,d){
-        return function(){
-          a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
-          let t = (a + b) | 0;
-          a = b ^ (b >>> 9);
-          b = (c + (c << 3)) | 0;
-          c = (c << 21) | (c >>> 11);
-          d = (d + 1) | 0;
-          t = (t + d) | 0;
-          c = (c + t) | 0;
-          return (t >>> 0) / 4294967296;
-        };
-      }
-
-      const RUN  = String(q('run','play')).toLowerCase();
-      const DIFF = String(q('diff','normal')).toLowerCase();
-      const VIEW = String(q('view','mobile')).toLowerCase();
-      const HUB  = defaultHub();
-      const PID  = sanitizePid(q('pid','p-anon')) || 'p-anon';
-      const NICK = String(q('nick', q('nickName','Rocky'))).trim().slice(0,24) || 'Rocky';
-      const SEED = String(q('seed', String(Date.now())));
-      const TIME = clamp(q('time', String(defaultTimeForDiff(DIFF))), 30, 180);
-      const COOLDOWN = String(q('cooldown','1')) === '1';
-      const SESSION_ID = String(q('sessionId', `hydr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`));
-      const RNG_SEED = xmur3(`${SEED}|${PID}|${DIFF}|${TIME}|${VIEW}`);
-      const rand = sfc32(RNG_SEED(), RNG_SEED(), RNG_SEED(), RNG_SEED());
-
-      const CFG = {
-        easy:   { spawnMs: 860, speedMin: 70,  speedMax: 130, goodRate: .68, badRate:.18, shieldRate:.14, targetBase:76, mission:14 },
-        normal: { spawnMs: 650, speedMin: 110, speedMax: 190, goodRate: .62, badRate:.24, shieldRate:.14, targetBase:68, mission:18 },
-        hard:   { spawnMs: 500, speedMin: 150, speedMax: 250, goodRate: .56, badRate:.29, shieldRate:.15, targetBase:60, mission:22 }
-      }[DIFF] || {
-        spawnMs: 650, speedMin:110, speedMax:190, goodRate:.62, badRate:.24, shieldRate:.14, targetBase:68, mission:18
-      };
-
-      const GOOD_POOL = [
-        { emoji:'💧', label:'น้ำดี', score:10, water:4 },
-        { emoji:'🫧', label:'ฟองน้ำ', score:12, water:5 },
-        { emoji:'🥛', label:'นมจืด', score:14, water:4 }
-      ];
-
-      const BAD_POOL = [
-        { emoji:'🥤', label:'น้ำหวาน', score:-10, water:-8, heart:-1 },
-        { emoji:'🍟', label:'ของทอด', score:-8,  water:-6, heart:-1 },
-        { emoji:'🍩', label:'ขนมหวาน', score:-9,  water:-7, heart:-1 }
-      ];
-
-      const SHIELD_ITEM = { emoji:'🛡️', label:'โล่', score:6, water:2, shield:1 };
-
-      const EL = {
-        stage: document.getElementById('stage'),
-        objectLayer: document.getElementById('objectLayer'),
-        effectLayer: document.getElementById('effectLayer'),
-        bossLayer: document.getElementById('bossLayer'),
-
-        playerName: document.getElementById('playerName'),
-        coachBubble: document.getElementById('coachBubble'),
-        scoreVal: document.getElementById('scoreVal'),
-        comboVal: document.getElementById('comboVal'),
-        waterVal: document.getElementById('waterVal'),
-        heartsVal: document.getElementById('heartsVal'),
-        shieldVal: document.getElementById('shieldVal'),
-        timeVal: document.getElementById('timeVal'),
-        bestComboVal: document.getElementById('bestComboVal'),
-        metaDiff: document.getElementById('metaDiff'),
-        metaView: document.getElementById('metaView'),
-        metaTime: document.getElementById('metaTime'),
-        runVal: document.getElementById('runVal'),
-
-        missionFill: document.getElementById('missionFill'),
-        missionBadge: document.getElementById('missionBadge'),
-
-        stormBanner: document.getElementById('stormBanner'),
-        bossBanner: document.getElementById('bossBanner'),
-
-        countdown: document.getElementById('countdown'),
-        countNum: document.getElementById('countNum'),
-        countBubble: document.getElementById('countBubble'),
-
-        summaryOverlay: document.getElementById('summaryOverlay'),
-        summaryRibbon: document.getElementById('summaryRibbon'),
-        summaryStars: document.getElementById('summaryStars'),
-        summaryScore: document.getElementById('summaryScore'),
-        summaryCoins: document.getElementById('summaryCoins'),
-        summaryWater: document.getElementById('summaryWater'),
-        summaryBestCombo: document.getElementById('summaryBestCombo'),
-        summaryMsg: document.getElementById('summaryMsg'),
-
-        replayBtn: document.getElementById('replayBtn'),
-        backHubBtn: document.getElementById('backHubBtn'),
-
-        helpBtn: document.getElementById('helpBtn'),
-        closeHelpBtn: document.getElementById('closeHelpBtn'),
-        helpBackdrop: document.getElementById('helpBackdrop')
-      };
-
-      const state = {
-        score:0,
-        water:40,
-        hearts:8,
-        shield:0,
-        combo:0,
-        bestCombo:0,
-        goodCaught:0,
-        badHit:0,
-        missedGood:0,
-        collectedShield:0,
-        storm:false,
-        boss:false,
-        bossHits:0,
-        started:false,
-        ended:false,
-        lastMs:0,
-        timeLeft:TIME,
-        spawnTimer:0,
-        bossTimer:0,
-        missionNeed:CFG.mission,
-        objects:[],
-        stageW:0,
-        stageH:0
-      };
-
-      function postToWrapper(msg){
-        try{
-          if(window.parent && window.parent !== window){
-            window.parent.postMessage(msg, location.origin);
-          }
-        }catch{}
-      }
-
-      function setCoach(text){
-        EL.coachBubble.textContent = text;
-        postToWrapper({ type:'hha:setStatus', text });
-      }
-
-      function updateMeta(){
-        EL.playerName.textContent = NICK;
-        EL.metaDiff.textContent = `🎯 ${diffLabel(DIFF)}`;
-        EL.metaView.textContent = `📱 ${viewLabel(VIEW)}`;
-        EL.metaTime.textContent = `⏱ ${TIME} วินาที`;
-        EL.runVal.textContent = RUN.charAt(0).toUpperCase() + RUN.slice(1);
-        if(VIEW === 'cvr'){
-          document.body.classList.add('cvr-mode');
-        }else{
-          document.body.classList.remove('cvr-mode');
-        }
-      }
-
-      function updateHud(){
-        EL.scoreVal.textContent = String(Math.max(0, Math.round(state.score)));
-        EL.comboVal.textContent = String(state.combo);
-        EL.waterVal.textContent = `${clamp(state.water,0,100)}%`;
-        EL.heartsVal.textContent = String(Math.max(0, state.hearts));
-        EL.shieldVal.textContent = String(state.shield);
-        EL.timeVal.textContent = String(Math.max(0, Math.ceil(state.timeLeft)));
-        EL.bestComboVal.textContent = String(state.bestCombo);
-
-        const pct = clamp((state.goodCaught / Math.max(1, state.missionNeed)) * 100, 0, 100);
-        EL.missionFill.style.width = `${pct}%`;
-        EL.missionBadge.textContent = `${state.goodCaught} / ${state.missionNeed}`;
-      }
-
-      function stageRect(){
-        return EL.stage.getBoundingClientRect();
-      }
-
-      function refreshStageSize(){
-        const r = stageRect();
-        state.stageW = r.width;
-        state.stageH = r.height;
-      }
-
-      function randFloat(min,max){
-        return min + (max-min) * rand();
-      }
-
-      function randInt(min,max){
-        return Math.floor(randFloat(min, max+1));
-      }
-
-      function chooseByWeight(){
-        const roll = rand();
-        if(roll < CFG.goodRate) return 'good';
-        if(roll < CFG.goodRate + CFG.badRate) return 'bad';
-        return 'shield';
-      }
-
-      function makeTarget(kind){
-        refreshStageSize();
-
-        const base = CFG.targetBase + (VIEW === 'cvr' ? 14 : 0) + (VIEW === 'mobile' ? 6 : 0);
-        const size = kind === 'boss'
-          ? clamp(base + 34, 88, 132)
-          : clamp(base + randInt(-6, 8), 52, 94);
-
-        const safePad = 14;
-        const x = randFloat(safePad, Math.max(safePad, state.stageW - size - safePad));
-        const y = -size - randFloat(0, 30);
-
-        let data;
-        if(kind === 'good'){
-          data = GOOD_POOL[randInt(0, GOOD_POOL.length-1)];
-        }else if(kind === 'bad'){
-          data = BAD_POOL[randInt(0, BAD_POOL.length-1)];
-        }else if(kind === 'shield'){
-          data = SHIELD_ITEM;
-        }else{
-          data = { emoji:'💧', label:'Boss', score:30, water:8 };
-        }
-
-        const el = document.createElement('button');
-        el.type = 'button';
-        el.className = `target ${kind}`;
-        el.setAttribute('aria-label', data.label);
-        el.style.width = `${size}px`;
-        el.style.height = `${size}px`;
-        el.style.borderRadius = kind === 'boss' ? '28px' : '999px';
-        el.style.left = `${x}px`;
-        el.style.top = `${y}px`;
-
-        const emoji = document.createElement('span');
-        emoji.className = 'emoji';
-        emoji.textContent = data.emoji;
-        emoji.style.fontSize = `${kind === 'boss' ? Math.round(size * .46) : Math.round(size * .42)}px`;
-
-        const label = document.createElement('span');
-        label.className = 'label';
-        label.textContent = data.label;
-
-        el.appendChild(emoji);
-        el.appendChild(label);
-        EL.objectLayer.appendChild(el);
-
-        const obj = {
-          id: `o_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
-          kind,
-          el,
-          x,
-          y,
-          size,
-          data,
-          speed: kind === 'boss'
-            ? randFloat(55, 85)
-            : randFloat(CFG.speedMin, CFG.speedMax) * (state.storm ? 1.18 : 1),
-          drift: randFloat(-18, 18),
-          alive:true
-        };
-
-        el.addEventListener('pointerdown', (ev)=>{
-          ev.preventDefault();
-          if(!obj.alive || state.ended || !state.started) return;
-          hitTarget(obj);
-        });
-
-        state.objects.push(obj);
-        return obj;
-      }
-
-      function removeTarget(obj){
-        obj.alive = false;
-        if(obj.el && obj.el.parentNode) obj.el.parentNode.removeChild(obj.el);
-      }
-
-      function splash(text, x, y, type){
-        const el = document.createElement('div');
-        el.className = `splash ${type}`;
-        el.textContent = text;
-        el.style.left = `${x}px`;
-        el.style.top = `${y}px`;
-        EL.effectLayer.appendChild(el);
-        setTimeout(()=>{
-          if(el.parentNode) el.parentNode.removeChild(el);
-        }, 700);
-      }
-
-      function centerOf(obj){
-        return {
-          x: obj.x + obj.size/2,
-          y: obj.y + obj.size/2
-        };
-      }
-
-      function showBanner(el, ms){
-        el.classList.add('show');
-        setTimeout(()=> el.classList.remove('show'), ms || 1500);
-      }
-
-      function hitTarget(obj){
-        const c = centerOf(obj);
-
-        if(obj.kind === 'good'){
-          state.score += obj.data.score + (state.combo >= 5 ? 2 : 0);
-          state.water = clamp(state.water + obj.data.water, 0, 100);
-          state.combo += 1;
-          state.bestCombo = Math.max(state.bestCombo, state.combo);
-          state.goodCaught += 1;
-
-          splash(`+${obj.data.score}`, c.x, c.y, 'good');
-
-          if(state.combo === 3){
-            setCoach('เยี่ยมเลย! คอมโบเริ่มมาแล้ว');
-          }else if(state.combo === 7){
-            setCoach('สุดยอด! เก็บน้ำดีต่อเนื่องได้เก่งมาก');
-          }
-        }
-        else if(obj.kind === 'bad'){
-          if(state.shield > 0){
-            state.shield -= 1;
-            splash('BLOCK!', c.x, c.y, 'shield');
-            setCoach('โล่ช่วยป้องกันไว้แล้ว!');
-          }else{
-            state.score = Math.max(0, state.score + obj.data.score);
-            state.water = clamp(state.water + obj.data.water, 0, 100);
-            state.hearts = Math.max(0, state.hearts + obj.data.heart);
-            state.badHit += 1;
-            state.combo = 0;
-            splash('โอ๊ะ!', c.x, c.y, 'bad');
-            setCoach('ระวังของไม่ดีด้วยนะ!');
-          }
-        }
-        else if(obj.kind === 'shield'){
-          state.score += obj.data.score;
-          state.water = clamp(state.water + obj.data.water, 0, 100);
-          state.shield += 1;
-          state.collectedShield += 1;
-          splash('+Shield', c.x, c.y, 'shield');
-          setCoach('ดีมาก! ตอนนี้มีโล่ไว้กันอันตรายแล้ว');
-        }
-        else if(obj.kind === 'boss'){
-          state.score += obj.data.score;
-          state.water = clamp(state.water + obj.data.water, 0, 100);
-          state.combo += 1;
-          state.bestCombo = Math.max(state.bestCombo, state.combo);
-          state.bossHits += 1;
-          splash(`Boss +${obj.data.score}`, c.x, c.y, 'boss');
-          setCoach('สุดยอด! โจมตีบอสได้แล้ว');
-        }
-
-        removeTarget(obj);
-        updateHud();
-      }
-
-      function missTarget(obj){
-        if(obj.kind === 'good'){
-          state.missedGood += 1;
-          state.combo = 0;
-          if(state.water > 5){
-            state.water = clamp(state.water - 1, 0, 100);
-          }
-        }
-        else if(obj.kind === 'bad'){
-          // bad ผ่านไปเฉย ๆ ไม่มีโทษ เพื่อให้เด็กเล่นแล้วไม่เครียดเกินไป
-        }
-        else if(obj.kind === 'boss'){
-          state.combo = 0;
-        }
-        removeTarget(obj);
-      }
-
-      function updateObjects(dt){
-        for(let i=state.objects.length-1;i>=0;i--){
-          const obj = state.objects[i];
-          if(!obj.alive){
-            state.objects.splice(i,1);
-            continue;
-          }
-
-          obj.y += obj.speed * dt;
-          obj.x += obj.drift * dt;
-
-          if(obj.x < 4) obj.x = 4;
-          if(obj.x > state.stageW - obj.size - 4) obj.x = state.stageW - obj.size - 4;
-
-          obj.el.style.left = `${obj.x}px`;
-          obj.el.style.top = `${obj.y}px`;
-
-          if(obj.y > state.stageH + obj.size + 10){
-            missTarget(obj);
-            state.objects.splice(i,1);
-          }
-        }
-      }
-
-      function spawnTick(dt){
-        state.spawnTimer += dt * 1000;
-        let spawnGap = CFG.spawnMs;
-        if(state.storm) spawnGap *= 0.82;
-        if(state.boss)  spawnGap *= 0.76;
-
-        while(state.spawnTimer >= spawnGap){
-          state.spawnTimer -= spawnGap;
-          const kind = chooseByWeight();
-          makeTarget(kind);
-        }
-
-        if(state.boss){
-          state.bossTimer += dt * 1000;
-          if(state.bossTimer >= 2200){
-            state.bossTimer = 0;
-            makeTarget('boss');
-          }
-        }
-      }
-
-      function maybePhaseChange(){
-        const stormAt = TIME * 0.62;
-        const bossAt  = TIME * 0.38;
-
-        if(!state.storm && state.timeLeft <= stormAt){
-          state.storm = true;
-          showBanner(EL.stormBanner, 1600);
-          setCoach('Storm Phase! ของจะมาเร็วขึ้นแล้วนะ');
-        }
-
-        if(!state.boss && state.timeLeft <= bossAt && state.water >= 55){
-          state.boss = true;
-          showBanner(EL.bossBanner, 1800);
-          setCoach('Boss Phase! รีบเก็บแต้มช่วงท้ายเลย');
-        }
-      }
-
-      function gradeSummary(){
-        let stars = 1;
-        const perf = (
-          (state.score >= 150 ? 1 : 0) +
-          (state.water >= 60 ? 1 : 0) +
-          (state.hearts >= 5 ? 1 : 0)
-        );
-        stars = Math.max(1, perf);
-
-        let title = 'Good Job!';
-        let msg = 'Well done! ดื่มน้ำให้พอดีและเลือกสิ่งที่ดีต่อร่างกายนะ';
-
-        if(stars === 3){
-          title = 'Great Job!';
-          msg = 'ยอดเยี่ยมมาก! เก็บน้ำดีได้ดีมาก หลบของไม่ดีเก่ง และรักษาพลังได้ดี';
-        }else if(stars === 2){
-          title = 'Nice Try!';
-          msg = 'ทำได้ดีเลย! รอบหน้าลองเก็บน้ำดีต่อเนื่องมากขึ้น แล้วหลบของไม่ดีให้แม่นขึ้นอีกนิด';
-        }else{
-          title = 'Keep Going!';
-          msg = 'เริ่มต้นได้ดีแล้ว ลองโฟกัสแตะน้ำดีและเก็บโล่ให้มากขึ้นในรอบต่อไป';
-        }
-
-        return { stars, title, msg };
-      }
-
-      function saveSummary(payload){
-        try{
-          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
-          const arr = JSON.parse(localStorage.getItem('HHA_SUMMARY_HISTORY') || '[]');
-          arr.unshift(payload);
-          localStorage.setItem('HHA_SUMMARY_HISTORY', JSON.stringify(arr.slice(0,20)));
-        }catch{}
-      }
-
-      function buildCooldownOrHubUrl(){
-        if(!COOLDOWN) return HUB;
-
-        const cd = new URL('../cooldown-gate.html', location.href);
-        cd.searchParams.set('game', 'hydration');
-        cd.searchParams.set('zone', q('zone', 'nutrition'));
-        cd.searchParams.set('cat', q('cat', q('zone', 'nutrition')));
-        cd.searchParams.set('hub', HUB);
-        cd.searchParams.set('pid', PID);
-        cd.searchParams.set('nick', NICK);
-        cd.searchParams.set('nextAfterCooldown', HUB);
-        cd.searchParams.set('seed', SEED);
-        cd.searchParams.set('diff', DIFF);
-        cd.searchParams.set('view', VIEW);
-        cd.searchParams.set('time', String(TIME));
-        cd.searchParams.set('sessionId', SESSION_ID);
-        return cd.href;
-      }
-
-      function endGame(reason){
-        if(state.ended) return;
-        state.ended = true;
-        state.started = false;
-
-        for(const obj of state.objects.slice()){
-          removeTarget(obj);
-        }
-        state.objects.length = 0;
-
-        const judged = gradeSummary();
-        const coins = Math.max(10, Math.round(state.score / 4));
-        const summary = {
-          game:'hydration',
-          pid:PID,
-          nick:NICK,
-          diff:DIFF,
-          view:VIEW,
-          time:TIME,
-          sessionId:SESSION_ID,
-          seed:SEED,
-          score:Math.max(0, Math.round(state.score)),
-          water:clamp(state.water,0,100),
-          hearts:Math.max(0, state.hearts),
-          comboBest:state.bestCombo,
-          goodCaught:state.goodCaught,
-          badHit:state.badHit,
-          shield:state.collectedShield,
-          bossHits:state.bossHits,
-          stars:judged.stars,
-          reason,
-          ts:new Date().toISOString()
-        };
-
-        saveSummary(summary);
-
-        EL.summaryRibbon.textContent = judged.title;
-        EL.summaryStars.textContent = '⭐'.repeat(judged.stars) + '☆'.repeat(3 - judged.stars);
-        EL.summaryScore.textContent = String(summary.score);
-        EL.summaryCoins.textContent = String(coins);
-        EL.summaryWater.textContent = `${summary.water}%`;
-        EL.summaryBestCombo.textContent = String(summary.comboBest);
-        EL.summaryMsg.textContent = judged.msg;
-        EL.summaryOverlay.classList.add('open');
-        EL.summaryOverlay.setAttribute('aria-hidden', 'false');
-
-        setCoach(judged.msg);
-        postToWrapper({ type:'hha:setStatus', text: `${judged.title} Score ${summary.score}` });
-      }
-
-      function gameLoop(t){
-        if(!state.started || state.ended) return;
-
-        if(!state.lastMs) state.lastMs = t;
-        const dt = Math.min(0.035, Math.max(0.001, (t - state.lastMs) / 1000));
-        state.lastMs = t;
-
-        state.timeLeft = Math.max(0, state.timeLeft - dt);
-
-        maybePhaseChange();
-        spawnTick(dt);
-        updateObjects(dt);
-        updateHud();
-
-        if(state.hearts <= 0){
-          endGame('no-hearts');
-          return;
-        }
-
-        if(state.timeLeft <= 0){
-          endGame('time-up');
-          return;
-        }
-
-        requestAnimationFrame(gameLoop);
-      }
-
-      function startGame(){
-        state.started = true;
-        state.ended = false;
-        state.lastMs = 0;
-        setCoach('เริ่มเลย! แตะน้ำดีให้ไว แล้วหลบของไม่ดีนะ');
-        requestAnimationFrame(gameLoop);
-      }
-
-      function countdownStart(){
-        let n = 3;
-        const bubbleText =
-          DIFF === 'hard'
-            ? 'รอบนี้ไวขึ้นนะ! เตรียมแตะน้ำดีให้ทัน'
-            : DIFF === 'easy'
-              ? 'เริ่มแบบสบาย ๆ ค่อย ๆ เก็บน้ำดีไปด้วยกัน'
-              : 'พร้อมไหม! เริ่มเก็บน้ำดีและหลบของไม่ดีกันเลย';
-
-        EL.countBubble.textContent = bubbleText;
-        EL.countNum.textContent = String(n);
-        EL.countdown.classList.remove('hide');
-
-        const timer = setInterval(()=>{
-          n -= 1;
-          if(n > 0){
-            EL.countNum.textContent = String(n);
-          }else if(n === 0){
-            EL.countNum.textContent = 'Go!';
-          }else{
-            clearInterval(timer);
-            EL.countdown.classList.add('hide');
-            startGame();
-          }
-        }, 700);
-      }
-
-      function replay(){
-        const url = new URL(location.href);
-        url.searchParams.set('seed', String(Date.now()));
-        url.searchParams.set('sessionId', `hydr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`);
-        location.href = url.href;
-      }
-
-      function backHub(){
-        location.href = buildCooldownOrHubUrl();
-      }
-
-      function openHelp(){
-        EL.helpBackdrop.classList.add('open');
-        EL.helpBackdrop.setAttribute('aria-hidden', 'false');
-      }
-
-      function closeHelp(){
-        EL.helpBackdrop.classList.remove('open');
-        EL.helpBackdrop.setAttribute('aria-hidden', 'true');
-      }
-
-      function initFloatingDeco(){
-        // ตกแต่งชั้นหลังแบบเบา ๆ
-        for(let i=0;i<8;i++){
-          const b = document.createElement('div');
-          const s = randInt(12, 34);
-          b.style.position = 'absolute';
-          b.style.left = `${randFloat(2, 92)}%`;
-          b.style.top = `${randFloat(12, 72)}%`;
-          b.style.width = `${s}px`;
-          b.style.height = `${s}px`;
-          b.style.borderRadius = '999px';
-          b.style.background = 'rgba(255,255,255,.26)';
-          b.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,.42)';
-          b.style.zIndex = '1';
-          EL.bossLayer.appendChild(b);
-        }
-      }
-
-      function init(){
-        updateMeta();
-        refreshStageSize();
-        initFloatingDeco();
-        updateHud();
-
-        if(DIFF === 'easy'){
-          setCoach('เริ่มแบบง่าย ๆ ก่อนนะ ค่อย ๆ เก็บน้ำดีไปด้วยกัน');
-        }else if(DIFF === 'hard'){
-          setCoach('รอบนี้ท้าทายขึ้นนะ! ต้องไวและแม่นกว่าเดิม');
-        }else{
-          setCoach('แตะน้ำดีให้ไว แล้วหลบของไม่ดีนะ!');
-        }
-
-        postToWrapper({ type:'hha:ready' });
-        countdownStart();
-      }
-
-      window.addEventListener('resize', refreshStageSize);
-
-      EL.helpBtn.addEventListener('click', openHelp);
-      EL.closeHelpBtn.addEventListener('click', closeHelp);
-      EL.helpBackdrop.addEventListener('click', (e)=>{
-        if(e.target === EL.helpBackdrop) closeHelp();
-      });
-
-      EL.replayBtn.addEventListener('click', replay);
-      EL.backHubBtn.addEventListener('click', backHub);
-
-      init();
-    })();
+  <!-- PAUSE -->
+  <div id="pauseOverlay" class="overlay" aria-hidden="true">
+    <div class="dialog">
+      <h2>พักเกมชั่วคราว</h2>
+      <p class="dialog-copy">พร้อมแล้วค่อยกลับไปเล่นต่อได้เลย</p>
+      <div class="dialog-actions">
+        <button id="btnResume" class="primary" type="button">▶️ เล่นต่อ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- END -->
+  <div id="end" class="overlay endOverlay" aria-hidden="true">
+    <div class="dialog endDialog">
+      <div class="endHeader">
+        <h2 id="endTitle">เล่นจบรอบแล้ว</h2>
+        <p id="endSub" class="dialog-copy">มุมมอง mobile • ระดับ normal</p>
+      </div>
+
+      <section class="endStats">
+        <div class="endStat">
+          <span class="endStatLabel">เกรด</span>
+          <strong id="endGrade" class="endStatValue">C</strong>
+        </div>
+        <div class="endStat">
+          <span class="endStatLabel">คะแนน</span>
+          <strong id="endScore" class="endStatValue">0</strong>
+        </div>
+        <div class="endStat">
+          <span class="endStatLabel">พลาดชน</span>
+          <strong id="endMiss" class="endStatValue">0</strong>
+        </div>
+        <div class="endStat">
+          <span class="endStatLabel">น้ำคงเหลือ</span>
+          <strong id="endWater" class="endStatValue">0%</strong>
+        </div>
+      </section>
+
+      <div class="endBox">
+        <div class="endBoxTitle">คำแนะนำจากโค้ช</div>
+        <div id="endCoach" class="endBoxText">ลองเล่นอีกครั้งเพื่อเก็บน้ำให้มากขึ้นนะ</div>
+      </div>
+
+      <div class="endBox">
+        <div class="endBoxTitle">สรุปช่วงการเล่น</div>
+        <div id="endPhaseSummary" class="endBoxText">จบรอบปกติ</div>
+      </div>
+
+      <div class="endBox rewardCard end-mobile-optional">
+        <div class="endBoxTitle">รางวัลรอบนี้</div>
+        <div id="endReward" class="endBoxText">💧 เล่นจบแล้ว</div>
+        <div id="endBadge" class="endBadge">🌈 ลองอีกครั้ง</div>
+      </div>
+
+      <div class="endBox end-mobile-optional">
+        <div class="endBoxTitle">คอลเลกชัน</div>
+        <div id="endCollection" class="endBoxText">ยังไม่มีของสะสม</div>
+      </div>
+
+      <div class="endBox rewardCard end-mobile-optional">
+        <div class="endBoxTitle">การ์ดรางวัล</div>
+        <div id="endRewardCard" class="endRewardCard">Hydration Hero</div>
+        <div id="endRewardMini" class="endRewardMini">รอบนี้เก็บน้ำได้ดีขึ้นอีกนิด</div>
+      </div>
+
+      <div class="endBox end-mobile-optional">
+        <div class="endBoxTitle">สติกเกอร์ที่มี</div>
+        <div id="endStickerRow" class="stickerRow"></div>
+      </div>
+
+      <div class="copyTools end-mobile-optional">
+        <button id="btnCopy" class="ghost small" type="button">Copy Summary</button>
+        <button id="btnCopyEvents" class="ghost small" type="button">Copy Events</button>
+        <button id="btnCopyTimeline" class="ghost small" type="button">Copy Timeline</button>
+        <button id="btnCopyFeatures" class="ghost small" type="button">Copy Features</button>
+        <button id="btnCopyLabels" class="ghost small" type="button">Copy Labels</button>
+        <button id="btnCopyFeaturesCsv" class="ghost small" type="button">Features CSV</button>
+        <button id="btnCopyLabelsCsv" class="ghost small" type="button">Labels CSV</button>
+        <button id="btnSendCloud" class="ghost small" type="button">Send Cloud</button>
+      </div>
+
+      <div class="dialog-actions endActions">
+        <button id="btnReplay" class="ghost" type="button">🔁 เล่นอีกครั้ง</button>
+        <button id="btnNextCooldown" class="primary" type="button">🌈 ไปคูลดาวน์</button>
+        <button id="btnBackHub" class="secondary" type="button">🏠 กลับ HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DUET WAIT -->
+  <div id="duetWait" class="overlay" aria-hidden="true">
+    <div class="dialog">
+      <h2>รอเพื่อนอีกนิดนะ 💧</h2>
+      <p id="duetWaitText" class="dialog-copy">กำลังรออีกฝั่งเล่นจบ แล้วจะสรุปผลพร้อมกัน</p>
+      <div class="dialog-actions">
+        <button id="duetWaitBackHub" class="secondary" type="button">🏠 กลับ HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DUET END -->
+  <div id="duetEnd" class="overlay endOverlay" aria-hidden="true">
+    <div class="dialog endDialog">
+      <div class="endHeader">
+        <h2 id="duetEndTitle">ผลสรุปแบบ Duet</h2>
+        <p id="duetEndSub" class="dialog-copy">สรุปผล 2 ฝั่งพร้อมกัน</p>
+      </div>
+
+      <div class="endBox">
+        <div class="endBoxTitle">ผลรอบนี้</div>
+        <div id="duetResultText" class="endBoxText">—</div>
+        <div id="duetSeriesBanner" class="endBadge">BO3</div>
+        <div id="duetSeriesScore" class="endBoxText" style="margin-top:8px;">ซีรีส์ 0 - 0</div>
+      </div>
+
+      <div id="duetRows" style="display:grid; gap:12px;"></div>
+
+      <div class="dialog-actions endActions">
+        <button id="duetReplay" class="ghost" type="button">🔁 รอบถัดไป</button>
+        <button id="duetBackHub" class="secondary" type="button">🏠 กลับ HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js?v=20260327-hyd-duet-summary"></script>
+
+  <script type="module">
+    import { boot } from './hydration.safe.js?v=20260327-HYD-DUET-BO3-FULL';
+
+    boot({}).catch((err) => {
+      console.error('[hydration] boot failed', err);
+    });
   </script>
 </body>
 </html>
