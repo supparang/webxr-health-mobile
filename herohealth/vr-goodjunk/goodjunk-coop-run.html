@@ -11,8 +11,6 @@
       --sky1:#dff4ff;
       --sky2:#bfe8ff;
       --sky3:#fff7d8;
-      --card:#fffdf6;
-      --card2:#f8fff3;
       --line:#bfe3f2;
       --text:#4d4a42;
       --muted:#7b7a72;
@@ -22,20 +20,15 @@
       --blue2:#58b7f5;
       --yellow:#ffd45c;
       --orange:#ffb547;
-      --violet:#cdb9ff;
       --shadow:0 18px 40px rgba(86,155,194,.16);
-
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
     }
-
     *{ box-sizing:border-box; }
-
     html,body{
-      margin:0;
-      min-height:100%;
+      margin:0; min-height:100%;
       font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
       color:var(--text);
       background:
@@ -44,216 +37,186 @@
         linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
       overflow:hidden;
     }
-
     body{ min-height:100dvh; }
-
-    #app{
-      position:relative;
-      width:100vw;
-      height:100dvh;
-      overflow:hidden;
-      isolation:isolate;
-    }
-
-    #gameMount{
-      position:absolute;
-      inset:0;
-      z-index:1;
-      overflow:hidden;
-    }
+    #app{ position:relative; width:100vw; height:100dvh; overflow:hidden; isolation:isolate; }
+    #gameMount{ position:absolute; inset:0; z-index:1; overflow:hidden; }
 
     .shell{
-      position:absolute;
-      inset:0;
-      display:grid;
-      grid-template-rows:auto 1fr auto;
-      gap:12px;
-      padding:
-        calc(12px + var(--sat))
-        calc(12px + var(--sar))
-        calc(12px + var(--sab))
-        calc(12px + var(--sal));
-      pointer-events:none;
-      z-index:0;
+      position:absolute; inset:0; display:grid; grid-template-rows:auto 1fr auto; gap:12px;
+      padding:calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
+      pointer-events:none; z-index:2;
     }
-
-    .top{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:flex-start;
-    }
-
+    .top{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start; }
     .hero-card{
       max-width:min(780px,100%);
       background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:28px;
-      box-shadow:var(--shadow);
-      padding:18px 16px;
-      position:relative;
-      overflow:hidden;
+      border:3px solid var(--line); border-radius:28px; box-shadow:var(--shadow);
+      padding:18px 16px; position:relative; overflow:hidden;
     }
-
     .hero-card::before{
-      content:"";
-      position:absolute;
-      left:-36px;
-      top:-36px;
-      width:140px;
-      height:140px;
-      border-radius:999px;
-      background:rgba(205,185,255,.20);
-      filter:blur(8px);
+      content:""; position:absolute; left:-36px; top:-36px; width:140px; height:140px;
+      border-radius:999px; background:rgba(205,185,255,.20); filter:blur(8px);
     }
-
     .hero-card::after{
-      content:"";
-      position:absolute;
-      right:-26px;
-      bottom:-26px;
-      width:120px;
-      height:120px;
-      border-radius:999px;
-      background:rgba(127,207,255,.22);
-      filter:blur(8px);
+      content:""; position:absolute; right:-26px; bottom:-26px; width:120px; height:120px;
+      border-radius:999px; background:rgba(127,207,255,.22); filter:blur(8px);
     }
-
     .kicker{
-      position:relative;
-      z-index:1;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:#f2ecff;
-      border:2px solid var(--line);
-      color:#7a63c7;
-      font-size:13px;
-      font-weight:1000;
-      margin-bottom:10px;
+      position:relative; z-index:1; display:inline-flex; align-items:center; gap:8px;
+      padding:8px 14px; border-radius:999px; background:#f2ecff; border:2px solid var(--line);
+      color:#7a63c7; font-size:13px; font-weight:1000; margin-bottom:10px;
     }
-
     h1{
-      position:relative;
-      z-index:1;
-      margin:0 0 6px;
-      font-size:clamp(28px,5vw,42px);
-      line-height:1.05;
-      font-weight:1000;
-      color:#7a63c7;
-      text-shadow:0 2px 0 #fff;
+      position:relative; z-index:1; margin:0 0 6px; font-size:clamp(28px,5vw,42px);
+      line-height:1.05; font-weight:1000; color:#7a63c7; text-shadow:0 2px 0 #fff;
     }
-
     .sub{
-      position:relative;
-      z-index:1;
-      margin:0;
-      color:var(--muted);
-      line-height:1.7;
-      font-size:14px;
-      font-weight:900;
-      max-width:720px;
+      position:relative; z-index:1; margin:0; color:var(--muted);
+      line-height:1.7; font-size:14px; font-weight:900; max-width:720px;
     }
-
-    .side{
-      display:grid;
-      gap:8px;
-      align-content:start;
-    }
-
+    .side{ display:grid; gap:8px; align-content:start; }
     .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 14px;
-      border-radius:999px;
-      border:2px solid var(--line);
-      background:#fff;
-      color:#6c6a61;
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-      width:max-content;
-      max-width:100%;
+      display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:999px;
+      border:2px solid var(--line); background:#fff; color:#6c6a61; font-size:12px; font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.10); width:max-content; max-width:100%;
     }
 
     .status-card{
-      align-self:end;
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:24px;
-      box-shadow:var(--shadow);
-      padding:12px 14px;
-      color:var(--muted);
-      font-size:13px;
-      font-weight:900;
-      line-height:1.6;
-      pointer-events:auto;
-      max-width:min(880px,100%);
+      align-self:end; background:linear-gradient(180deg,#fffef9,#f7fff4); border:3px solid var(--line);
+      border-radius:24px; box-shadow:var(--shadow); padding:12px 14px; color:var(--muted);
+      font-size:13px; font-weight:900; line-height:1.6; pointer-events:auto; max-width:min(920px,100%);
     }
-
-    .status-title{
-      color:#7a63c7;
-      font-size:14px;
-      font-weight:1000;
-      margin-bottom:4px;
+    .status-head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .status-badge{
+      width:54px; height:54px; border-radius:18px; display:grid; place-items:center;
+      background:#fff; border:2px solid var(--line); box-shadow:0 8px 18px rgba(86,155,194,.10);
+      font-size:28px; flex:0 0 auto;
     }
-
-    .status-sub{
-      margin-top:6px;
-      color:#8b887f;
-      font-size:12px;
-      line-height:1.55;
-      font-weight:900;
+    .status-headtext{ min-width:220px; flex:1 1 280px; }
+    .status-title{ color:#7a63c7; font-size:14px; font-weight:1000; margin-bottom:2px; }
+    .status-sub{ margin-top:0; color:#8b887f; font-size:12px; line-height:1.55; font-weight:900; }
+    .status-minirow{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+    .status-mini{
+      display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px;
+      background:#fff; border:2px solid var(--line); color:#6d6a62; font-size:12px; font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
     }
-
+    .status-steps{
+      margin-top:10px; display:grid; gap:6px; padding:12px; border-radius:18px;
+      background:rgba(255,255,255,.65); border:2px dashed var(--line); color:#6f6c65;
+      font-size:12px; line-height:1.6; font-weight:1000;
+    }
+    .status-step{ display:flex; gap:8px; align-items:flex-start; }
+    .status-tip{
+      margin-top:10px; padding:10px 12px; border-radius:16px; background:#fff; border:2px solid var(--line);
+      color:#7a776f; font-size:12px; line-height:1.6; font-weight:1000;
+    }
+    .status-tip strong{ color:#4d4a42; }
+    .status-actions{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; pointer-events:auto; }
+    .status-btn{
+      appearance:none; border:0; cursor:pointer; border-radius:16px; padding:10px 14px;
+      font-size:13px; font-weight:1000; transition:.12s ease; box-shadow:0 8px 18px rgba(86,155,194,.12);
+    }
+    .status-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .status-btn:active{ transform:translateY(0); }
+    .status-btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
+    .status-btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
+    .status-card.is-ready{ animation: status-ready-pop .22s ease; }
+    @keyframes status-ready-pop{ 0%{ transform:scale(.985); } 100%{ transform:scale(1); } }
     .debug{
-      margin-top:8px;
-      padding-top:8px;
-      border-top:1px dashed rgba(191,227,242,.95);
-      white-space:pre-wrap;
-      word-break:break-word;
-      font-size:11px;
-      color:#8a8a82;
-      max-height:140px;
-      overflow:auto;
+      margin-top:8px; padding-top:8px; border-top:1px dashed rgba(191,227,242,.95);
+      white-space:pre-wrap; word-break:break-word; font-size:11px; color:#8a8a82; max-height:140px; overflow:auto;
     }
+    .error{ color:#b45309; white-space:pre-wrap; word-break:break-word; }
 
-    .error{
-      color:#b45309;
-      white-space:pre-wrap;
-      word-break:break-word;
+    .summary-overlay{
+      position:absolute; inset:0; z-index:30; display:grid; place-items:center;
+      padding:calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+      background:rgba(242,236,255,.72); backdrop-filter:blur(10px); pointer-events:auto;
+    }
+    .summary-overlay[hidden]{ display:none !important; }
+    .summary-card{
+      width:min(940px,100%); max-height:88dvh; overflow:auto; background:linear-gradient(180deg,#fffef8,#f7fff4);
+      border:3px solid var(--line); border-radius:30px; box-shadow:0 28px 70px rgba(86,155,194,.24); padding:18px; position:relative;
+    }
+    .summary-kicker{
+      display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:999px;
+      background:#f2ecff; border:2px solid var(--line); color:#7a63c7; font-size:13px; font-weight:1000; margin-bottom:10px;
+    }
+    .summary-hero{
+      display:grid; grid-template-columns:96px 1fr; gap:14px; align-items:center;
+      margin-bottom:14px; padding:14px; border-radius:24px; background:#fff;
+      border:2px solid #d8cff8; box-shadow:0 10px 24px rgba(86,155,194,.10);
+    }
+    .summary-badge{
+      width:96px; height:96px; border-radius:28px; display:grid; place-items:center;
+      background:linear-gradient(180deg,#f2ecff,#fffdf6); border:3px solid #d8cff8; font-size:42px;
+      box-shadow:0 10px 20px rgba(86,155,194,.10);
+    }
+    .summary-hero-title,.summary-title{ color:#7a63c7; text-shadow:0 2px 0 #fff; font-weight:1000; }
+    .summary-hero-title{ margin:0 0 6px; font-size:clamp(24px,4vw,36px); line-height:1.08; }
+    .summary-hero-sub,.summary-sub{ color:#6d6b63; font-size:14px; line-height:1.7; font-weight:900; }
+    .summary-hero-sub{ margin:0; }
+    .summary-title{ margin:0 0 6px; text-align:center; font-size:clamp(28px,5vw,42px); line-height:1.05; }
+    .summary-sub{ margin:0; text-align:center; }
+    .summary-stars{ display:flex; justify-content:center; gap:10px; margin:12px 0 14px; flex-wrap:wrap; }
+    .summary-star{ font-size:48px; line-height:1; filter:drop-shadow(0 6px 12px rgba(0,0,0,.12)); }
+    .summary-star.off{ opacity:.22; filter:none; }
+    .summary-scorecard{
+      margin:0 auto 14px; width:min(480px,100%); border-radius:24px; background:#fff;
+      border:3px solid #d8cff8; box-shadow:0 10px 22px rgba(86,155,194,.10); padding:16px 14px; text-align:center;
+    }
+    .summary-scorelabel{ color:#9884db; font-size:15px; font-weight:1000; margin-bottom:4px; }
+    .summary-scorevalue{ color:#4d4a42; font-size:clamp(42px,9vw,70px); line-height:1; font-weight:1000; }
+    .summary-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:0; }
+    .summary-item{
+      background:#fff; border:2px solid #d8cff8; border-radius:22px; box-shadow:0 8px 18px rgba(86,155,194,.08); padding:14px;
+    }
+    .summary-label{ color:#9884db; font-size:12px; font-weight:1000; margin-bottom:6px; }
+    .summary-value{ color:#4d4a42; font-size:clamp(20px,3.5vw,32px); font-weight:1000; line-height:1.18; }
+    .summary-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+    .btn{
+      appearance:none; border:0; cursor:pointer; border-radius:18px; padding:13px 18px;
+      font-weight:1000; font-size:15px; transition:.12s ease; box-shadow:0 10px 20px rgba(86,155,194,.14);
+    }
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .btn:active{ transform:translateY(0); }
+    .btn-primary{ background:linear-gradient(180deg,var(--green),var(--green2)); color:#fffef9; }
+    .btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
+    .btn-warn{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#6d4e00; }
+    .btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
+    .summary-debug{
+      margin-top:14px; padding-top:10px; border-top:1px dashed #d8cff8; color:#8a887f;
+      font-size:11px; line-height:1.6; font-weight:900; white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto;
     }
 
     @media (max-width:780px){
       .top{ align-items:stretch; }
       .side{ width:100%; }
       .pill{ width:100%; justify-content:center; }
+      .summary-grid{ grid-template-columns:1fr; }
+      .summary-actions .btn,
+      .status-actions .status-btn{ flex:1 1 100%; }
     }
   </style>
 </head>
 <body>
   <div id="app">
     <div id="gameMount"></div>
-
     <div class="shell">
       <div class="top">
         <div class="hero-card">
           <div class="kicker">🤝 GOODJUNK COOP</div>
-          <h1>Coop Run</h1>
+          <h1>Team Food Mission!</h1>
           <p class="sub">
-            ช่วยกันเก็บอาหารดีในห้องเดียวกัน ใช้ room code เดียวกันเพื่อเริ่มทีมเดียวกัน
+            ช่วยกันเก็บอาหารดีให้ได้มากที่สุด ทำคะแนนรวมของทีมให้สูง และผ่านภารกิจไปด้วยกัน
           </p>
         </div>
-
         <div class="side">
           <div class="pill" id="pillRoom">ROOM • -</div>
-          <div class="pill" id="pillPlayer">PLAYER • -</div>
+          <div class="pill" id="pillPlayer">HERO • -</div>
           <div class="pill" id="pillRole">ROLE • player</div>
-          <div class="pill" id="pillDiff">DIFF • normal</div>
+          <div class="pill" id="pillDiff">LEVEL • normal</div>
           <div class="pill" id="pillTime">TIME • 180</div>
         </div>
       </div>
@@ -261,217 +224,310 @@
       <div></div>
 
       <div class="status-card" id="engineStatusCard">
-        <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
-        <div id="engineStatusText">กำลังโหลด coop engine</div>
-        <div class="status-sub" id="engineStatusSub">รองรับทั้ง classic / module และ override path ผ่าน query</div>
+        <div class="status-head">
+          <div class="status-badge" id="engineStatusBadge">🤝</div>
+          <div class="status-headtext">
+            <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
+            <div id="engineStatusText">กำลังโหลด coop engine</div>
+            <div class="status-sub" id="engineStatusSub">เกมจะเริ่มเองเมื่อโหลดพร้อม รอบนี้เน้นช่วยกันเล่นและทำคะแนนรวมของทีมให้ดีที่สุด</div>
+          </div>
+        </div>
+
+        <div class="status-minirow">
+          <div class="status-mini" id="engineMiniMode">MODE • COOP</div>
+          <div class="status-mini" id="engineMiniRoom">ROOM • -</div>
+          <div class="status-mini" id="engineMiniPlayer">HERO • -</div>
+        </div>
+
+        <div class="status-steps" id="engineSteps">
+          <div class="status-step"><span>1️⃣</span><span>รอหน้าเกมโหลดให้พร้อมก่อน</span></div>
+          <div class="status-step"><span>2️⃣</span><span>ช่วยกันแตะเก็บอาหารดีให้ได้เยอะ ๆ</span></div>
+          <div class="status-step"><span>3️⃣</span><span>ดูคะแนนรวมของทีมและพยายามทำให้สูงที่สุด</span></div>
+        </div>
+
+        <div class="status-tip" id="engineTip"><strong>Tip:</strong> โหมดนี้ไม่ได้แข่งกันเอง แต่ช่วยกันทำคะแนนรวมของทีม</div>
+
+        <div class="status-actions">
+          <button class="status-btn status-btn-copy" id="btnQuickCopyRoom" type="button">คัดลอกห้อง</button>
+          <button class="status-btn status-btn-ghost" id="btnQuickBackHub" type="button">กลับ HUB</button>
+        </div>
+
         <div class="debug" id="engineDebugInfo"></div>
+      </div>
+    </div>
+
+    <div class="summary-overlay" id="summaryOverlay" hidden>
+      <div class="summary-card">
+        <div class="summary-kicker">🤝 GOODJUNK COOP SUMMARY</div>
+
+        <div class="summary-hero">
+          <div class="summary-badge" id="summaryBadge">🤝</div>
+          <div>
+            <h3 class="summary-hero-title" id="summaryHeroTitle">Teamwork Hero!</h3>
+            <p class="summary-hero-sub" id="summaryHeroSub">เธอและเพื่อนช่วยกันเก็บอาหารดีได้ยอดเยี่ยมมาก</p>
+          </div>
+        </div>
+
+        <h2 class="summary-title" id="summaryTitle">Great Job!</h2>
+        <p class="summary-sub" id="summarySub">จบรอบแล้ว มาดูผลการช่วยกันเล่นกัน</p>
+
+        <div class="summary-stars" id="summaryStars"></div>
+
+        <div class="summary-scorecard">
+          <div class="summary-scorelabel">Team Score</div>
+          <div class="summary-scorevalue" id="summaryScoreValue">0</div>
+        </div>
+
+        <div class="summary-grid" id="summaryGrid"></div>
+
+        <div class="summary-actions">
+          <button class="btn btn-primary" id="btnReplay" type="button">เล่นใหม่</button>
+          <button class="btn btn-copy" id="btnCopyRoom" type="button">คัดลอกห้อง</button>
+          <button class="btn btn-warn" id="btnExport" type="button">Export JSON</button>
+          <button class="btn btn-ghost" id="btnBackHub" type="button">กลับ HUB</button>
+        </div>
+
+        <div class="summary-debug" id="summaryDebug"></div>
       </div>
     </div>
   </div>
 
+  <script src="../js/hha-cloud-logger.js"></script>
   <script>
     (function(){
       const q = new URLSearchParams(location.search);
-
       const MODE = 'coop';
       const MODE_LABEL = 'Coop';
-
       const DEFAULT_ENGINE_CANDIDATES = [
-        './goodjunk-coop.safe.js',
-        './goodjunk-coop.js',
-        './goodjunk-coop-run.safe.js',
-        './goodjunk-coop-run.js',
-        './coop.safe.js',
-        './coop.js',
-        './js/goodjunk-coop.safe.js',
-        './js/goodjunk-coop.js',
-        './js/goodjunk-coop-run.safe.js',
-        './js/goodjunk-coop-run.js',
-        './js/coop.safe.js',
-        './js/coop.js'
+        './goodjunk-coop.safe.js','./goodjunk-coop.js','./goodjunk-coop-run.safe.js','./goodjunk-coop-run.js',
+        './coop.safe.js','./coop.js','./js/goodjunk-coop.safe.js','./js/goodjunk-coop.js',
+        './js/goodjunk-coop-run.safe.js','./js/goodjunk-coop-run.js','./js/coop.safe.js','./js/coop.js'
       ];
 
-      function qs(key, fb=''){
-        return q.get(key) ?? fb;
-      }
+      function qs(key, fb=''){ return q.get(key) ?? fb; }
+      function clean(v){ return String(v || '').trim(); }
+      function dedupe(arr){ const out=[]; const seen=new Set(); for(const item of arr||[]){ const s=clean(item); if(!s||seen.has(s)) continue; seen.add(s); out.push(s);} return out; }
+      function parseList(text){ return String(text||'').split(',').map(s=>clean(s)).filter(Boolean); }
+      function resolveHub(){ try{return qs('hub')||new URL('../hub.html',location.href).toString();}catch{return '../hub.html';} }
+      function safeJson(v){ try{return JSON.stringify(v,null,2);}catch{return '{}';} }
+      function saveText(name,text,type='application/json'){ const blob=new Blob([text],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+      function buildReplayUrl(){ const url=new URL(location.href); url.searchParams.set('seed',String(Date.now())); return url.toString(); }
+      function copyText(text){ const t=String(text||'').trim(); if(!t) return Promise.reject(new Error('empty')); return navigator.clipboard.writeText(t); }
 
-      function clean(v){
-        return String(v || '').trim();
-      }
-
-      function dedupe(arr){
-        const out = [];
-        const seen = new Set();
-        for (const item of arr || []) {
-          const s = clean(item);
-          if (!s || seen.has(s)) continue;
-          seen.add(s);
-          out.push(s);
-        }
-        return out;
-      }
-
-      function parseList(text){
-        return String(text || '')
-          .split(',')
-          .map(s => clean(s))
-          .filter(Boolean);
-      }
-
-      function resolveHub(){
-        try{
-          return qs('hub') || new URL('../hub.html', location.href).toString();
-        }catch{
-          return '../hub.html';
-        }
-      }
-
-      window.HHA_CLOUD_ENDPOINT =
-        clean(
-          qs('api') ||
-          window.HHA_CLOUD_ENDPOINT ||
-          'https://script.google.com/macros/s/AKfycbwNOpsjFTV_nK0PzNV23KziF5hZxIMI50P8o_vZgwVg_T4anpXZOaKQUy_uf5PPg9kT6Q/exec'
-        );
-
+      window.HHA_CLOUD_ENDPOINT = clean(qs('api') || window.HHA_CLOUD_ENDPOINT || '');
       const runCtx = {
-        pid: qs('pid', 'anon'),
-        name: qs('name', ''),
-        studyId: qs('studyId', ''),
+        pid: qs('pid','anon'),
+        name: qs('name',''),
+        studyId: qs('studyId',''),
         roomId: qs('roomId') || qs('room') || '',
-        role: qs('role', 'player'),
+        role: qs('role','player'),
         mode: MODE,
-        diff: qs('diff', 'normal'),
-        time: qs('time', '180'),
-        seed: qs('seed', String(Date.now())),
-        startAt: 0,
+        diff: qs('diff','normal'),
+        time: qs('time','180'),
+        seed: qs('seed',String(Date.now())),
+        startAt:0,
         hub: resolveHub(),
-        view: qs('view', 'mobile'),
-        run: qs('run', 'play'),
-        gameId: qs('gameId', 'goodjunk')
+        view: qs('view','mobile'),
+        run: qs('run','play'),
+        gameId: qs('gameId','goodjunk')
       };
-
       window.__GJ_RUN_CTX__ = runCtx;
       window.__GJ_MULTI_RUN_CTX__ = runCtx;
 
-      const ENGINE_CANDIDATES = dedupe([
-        clean(qs('engine')),
-        ...parseList(qs('engineCandidates')),
-        ...DEFAULT_ENGINE_CANDIDATES
-      ]);
+      function deriveHeroAvatarFromName(name){ const text=String(name||'').trim(); if(!text) return clean(qs('heroAvatar')) || '🙂'; const parts=text.split(/\s+/).filter(Boolean); const key=parts[parts.length-1]||parts[0]||''; const byWord={Apple:'🍎',Carrot:'🥕',Bunny:'🐰',Panda:'🐼',Star:'⭐',Berry:'🍓',Tiger:'🐯',Cloud:'☁️',Rocket:'🚀',Kitty:'🐱',Buddy:'🧡',Hero:'🦸'}; return clean(qs('heroAvatar')) || byWord[key] || '🙂';}
+      function readHeroMeta(){ const displayName=String(runCtx.name||runCtx.pid||'Hero').trim()||'Hero'; return { name:displayName, avatar:clean(qs('heroAvatar'))||deriveHeroAvatarFromName(displayName), soft:clean(qs('heroSoft'))||'#eef8ff', border:clean(qs('heroBorder'))||'#bfe3f2', text:clean(qs('heroText'))||'#4d4a42' }; }
+      const heroMeta = readHeroMeta();
+      function applyHeroBadgeTheme(el){ if(!el) return; el.textContent=heroMeta.avatar; el.style.borderColor=heroMeta.border; el.style.background=`linear-gradient(180deg,#fffdf7,${heroMeta.soft})`; el.style.color=heroMeta.text; }
+      function applyHeroPillTheme(el,text){ if(!el) return; el.textContent=text; el.style.borderColor=heroMeta.border; el.style.background=heroMeta.soft; el.style.color=heroMeta.text; }
+      function applyHeroIdentity(){ const heroText=`HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`; applyHeroPillTheme($('pillPlayer'),heroText); applyHeroPillTheme($('engineMiniPlayer'),heroText); applyHeroBadgeTheme($('engineStatusBadge')); }
+      function applySummaryIdentity(){ applyHeroBadgeTheme($('summaryBadge')); }
+      function buildHeroIdentityPayload(){ return { heroName:heroMeta.name, heroAvatar:heroMeta.avatar, heroSoft:heroMeta.soft, heroBorder:heroMeta.border, heroText:heroMeta.text, heroDisplay:`${heroMeta.avatar} ${heroMeta.name}`.trim() }; }
+      function enrichSummaryWithHero(summary){ const hero=buildHeroIdentityPayload(); return { ...summary, ...hero, identity:hero }; }
+      function emitEnrichedSummaryEvents(modeKey,enrichedSummary){ try{ window.dispatchEvent(new CustomEvent(`gj:${modeKey}-summary-enriched`,{detail:enrichedSummary})); }catch{} try{ window.dispatchEvent(new CustomEvent('gj:summary-enriched',{detail:enrichedSummary})); }catch{} try{ window.dispatchEvent(new CustomEvent('hha:summary-enriched',{detail:enrichedSummary})); }catch{} }
 
+      const ENGINE_CANDIDATES = dedupe([clean(qs('engine')),...parseList(qs('engineCandidates')),...DEFAULT_ENGINE_CANDIDATES]);
+      const SUMMARY_KEY = 'GJ_COOP_LAST_SUMMARY_' + (runCtx.roomId || 'noroom') + '_' + (runCtx.pid || 'anon');
       const $ = (id) => document.getElementById(id);
 
+      function setMiniInfo(){ if($('engineMiniRoom')) $('engineMiniRoom').textContent=`ROOM • ${runCtx.roomId || '-'}`; if($('engineMiniMode')) $('engineMiniMode').textContent=`MODE • ${MODE.toUpperCase()}`; if($('engineMiniPlayer')) $('engineMiniPlayer').textContent=`HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`; }
+      function wireQuickActions(){
+        $('btnQuickCopyRoom')?.addEventListener('click',()=>{ const room=String(runCtx.roomId||'').trim(); if(!room){ if($('engineTip')) $('engineTip').innerHTML='<strong>Tip:</strong> ตอนนี้ยังไม่มีรหัสห้องให้คัดลอก'; return; } navigator.clipboard.writeText(room).then(()=>{ if($('engineTip')) $('engineTip').innerHTML='<strong>คัดลอกแล้ว:</strong> ส่งรหัสห้องนี้ให้เพื่อนได้เลย'; }).catch(()=>{ if($('engineTip')) $('engineTip').innerHTML='<strong>ยังคัดลอกไม่ได้:</strong> ลองคัดลอกจากข้อความ ROOM ด้านบนแทน'; }); });
+        $('btnQuickBackHub')?.addEventListener('click',()=>{ location.href=runCtx.hub; });
+      }
+
       $('pillRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
-      $('pillPlayer').textContent = `PLAYER • ${runCtx.name || runCtx.pid || '-'}`;
       $('pillRole').textContent = `ROLE • ${runCtx.role || 'player'}`;
-      $('pillDiff').textContent = `DIFF • ${runCtx.diff}`;
+      $('pillDiff').textContent = `LEVEL • ${runCtx.diff}`;
       $('pillTime').textContent = `TIME • ${runCtx.time}`;
+      applyHeroIdentity();
+      setMiniInfo();
+      wireQuickActions();
 
       $('engineDebugInfo').textContent =
         '[MODE] ' + MODE + '\n' +
         '[PID] ' + (runCtx.pid || '-') + '\n' +
         '[ROOM] ' + (runCtx.roomId || '-') + '\n' +
-        '[API] ' + (window.HHA_CLOUD_ENDPOINT || '-') + '\n\n' +
+        '[API] ' + (window.HHA_CLOUD_ENDPOINT || '-') + '\n' +
+        '[HERO] ' + heroMeta.avatar + ' ' + heroMeta.name + '\n\n' +
         '[CANDIDATES]\n' + ENGINE_CANDIDATES.join('\n');
 
-      function setStatus(title, text, isError = false) {
-        $('engineStatusTitle').textContent = title;
-        $('engineStatusText').textContent = text;
-        $('engineStatusText').className = isError ? 'error' : '';
+      function setStatus(title,text,isError=false){ $('engineStatusTitle').textContent=title; $('engineStatusText').textContent=text; $('engineStatusText').className=isError?'error':''; }
+      function setDebug(text){ $('engineDebugInfo').textContent=text; }
+      function setFriendlyReadyState(src,type){
+        const card=$('engineStatusCard'); if(card) card.classList.add('is-ready');
+        setStatus('พร้อมแล้ว!', `${MODE_LABEL} engine loaded: ${src} (${type})`);
+        if($('engineStatusSub')) $('engineStatusSub').textContent='เข้าเกมสำเร็จแล้ว อีกครู่หน้าช่วยเล่นจะหายไปและเกมจะเริ่มเอง';
+        if($('engineSteps')) $('engineSteps').innerHTML=`<div class="status-step"><span>✅</span><span>โหลดหน้าเกมสำเร็จแล้ว</span></div><div class="status-step"><span>🎮</span><span>เตรียมแตะเก็บอาหารดีเมื่อเกมเริ่ม</span></div><div class="status-step"><span>🌟</span><span>ขอให้สนุกกับรอบนี้นะ</span></div>`;
+        if($('engineTip')) $('engineTip').innerHTML='<strong>พร้อมแล้ว:</strong> อีกครู่หน้าช่วยเล่นนี้จะซ่อนลงอัตโนมัติ';
+      }
+      function hideStatusCardSoon(){ const card=$('engineStatusCard'); if(!card) return; setTimeout(()=>{ card.style.display='none'; },1200); }
+      function loadScriptWithType(src,type){ return new Promise((resolve,reject)=>{ const s=document.createElement('script'); if(type==='module') s.type='module'; s.src=new URL(src,location.href).toString(); s.async=true; s.onload=()=>resolve({src,type}); s.onerror=()=>reject(new Error(`โหลด script ไม่สำเร็จ: ${src} [${type}]`)); document.body.appendChild(s); }); }
+      async function tryLoad(src){ try{ setStatus('กำลังโหลดเกม…',`ลองโหลด ${src} (classic)`); return await loadScriptWithType(src,'classic'); } catch(e1){ try{ setStatus('กำลังโหลดเกม…',`ลองโหลด ${src} (module)`); return await loadScriptWithType(src,'module'); } catch(e2){ throw new Error(`${src}\n- classic: ${String(e1&&e1.message?e1.message:e1)}\n- module: ${String(e2&&e2.message?e2.message:e2)}`); } } }
+      async function loadEngine(){
+        if(!ENGINE_CANDIDATES.length){ setStatus('ไม่พบ candidate','ไม่มี candidate engine ให้ลองโหลด',true); return; }
+        const errors=[];
+        for(const src of ENGINE_CANDIDATES){
+          try{
+            const result=await tryLoad(src);
+            window.__GJ_MULTI_ENGINE_INFO__={ mode:MODE, label:MODE_LABEL, src:result.src, type:result.type, loadedAt:Date.now() };
+            setFriendlyReadyState(result.src,result.type);
+            applyHeroIdentity();
+            setDebug('[SUCCESS]\n'+'src: '+result.src+'\n'+'type: '+result.type+'\n'+'room: '+(runCtx.roomId||'-')+'\n'+'player: '+heroMeta.avatar+' '+(runCtx.name||runCtx.pid||'-')+'\n'+'role: '+(runCtx.role||'player'));
+            console.log('[GJ-COOP-RUN] loaded engine',result.src,runCtx);
+            hideStatusCardSoon();
+            return;
+          }catch(err){
+            const msg=String(err&&err.message?err.message:err);
+            errors.push(msg);
+            console.warn('[GJ-COOP-RUN] candidate failed',src,err);
+          }
+        }
+        setStatus('ไม่พบไฟล์ engine','หา coop engine ไม่เจอ\nลองแก้ ?engine=... หรือ ?engineCandidates=... ให้ตรงกับไฟล์จริง',true);
+        setDebug('[FAILED CANDIDATES]\n'+ENGINE_CANDIDATES.join('\n')+'\n\n[ERRORS]\n'+errors.join('\n\n'));
       }
 
-      function setDebug(text) {
-        $('engineDebugInfo').textContent = text;
-      }
+      function normalizeSummary(detail){
+        const src=(detail&&typeof detail==='object'&&detail.summary&&typeof detail.summary==='object') ? detail.summary : (detail||{});
+        const rank=src.rank ?? src.place ?? src.position ?? src.playerRank ?? src.finalRank ?? '';
+        const score=src.score ?? src.totalScore ?? src.playerScore ?? src.myScore ?? '';
+        const teamScore=src.teamScore ?? src.totalTeamScore ?? src.roomScore ?? src.coopScore ?? '';
+        const teamGoal=src.teamGoal ?? src.goal ?? src.targetScore ?? '';
+        const miss=src.miss ?? src.misses ?? src.totalMiss ?? '';
+        const goodHit=src.goodHit ?? src.hitsGood ?? src.goodHits ?? src.correct ?? '';
+        const junkHit=src.junkHit ?? src.hitsBad ?? src.junkHits ?? src.wrong ?? '';
+        const streak=src.bestStreak ?? src.streak ?? src.comboMax ?? '';
+        const result=src.result ?? src.outcome ?? src.status ?? (teamScore !== '' ? 'จบรอบแล้ว' : 'สรุปผลแล้ว');
+        const reason=src.reason ?? src.finishReason ?? src.endReason ?? '';
+        const players=src.players ?? src.playerCount ?? src.totalPlayers ?? '';
+        const duration=src.duration ?? src.durationSec ?? src.timeUsed ?? '';
 
-      function hideStatusCardSoon() {
-        const card = $('engineStatusCard');
-        if (!card) return;
-        setTimeout(() => {
-          card.style.display = 'none';
-        }, 1200);
-      }
-
-      function loadScriptWithType(src, type) {
-        return new Promise((resolve, reject) => {
-          const s = document.createElement('script');
-          if (type === 'module') s.type = 'module';
-          s.src = new URL(src, location.href).toString();
-          s.async = true;
-          s.onload = () => resolve({ src, type });
-          s.onerror = () => reject(new Error(`โหลด script ไม่สำเร็จ: ${src} [${type}]`));
-          document.body.appendChild(s);
+        return enrichSummaryWithHero({
+          mode: MODE,
+          label: MODE_LABEL,
+          roomId: runCtx.roomId,
+          pid: runCtx.pid,
+          name: runCtx.name,
+          role: runCtx.role,
+          diff: runCtx.diff,
+          time: runCtx.time,
+          result,
+          rank,
+          score,
+          teamScore,
+          teamGoal,
+          players,
+          miss,
+          goodHit,
+          junkHit,
+          bestStreak: streak,
+          duration,
+          reason,
+          raw: src,
+          receivedAt: Date.now()
         });
       }
 
-      async function tryLoad(src) {
-        try {
-          setStatus('กำลังโหลดเกม…', `ลองโหลด ${src} (classic)`);
-          return await loadScriptWithType(src, 'classic');
-        } catch (e1) {
-          try {
-            setStatus('กำลังโหลดเกม…', `ลองโหลด ${src} (module)`);
-            return await loadScriptWithType(src, 'module');
-          } catch (e2) {
-            throw new Error(
-              `${src}\n- classic: ${String(e1 && e1.message ? e1.message : e1)}\n- module: ${String(e2 && e2.message ? e2.message : e2)}`
-            );
-          }
+      function addSummaryItem(label,value){ if(value===''||value===null||value===undefined) return ''; return `<div class="summary-item"><div class="summary-label">${label}</div><div class="summary-value">${String(value)}</div></div>`; }
+      function renderSummaryStars(n){ const count=Math.max(0,Math.min(3,Number(n||0))); return [1,2,3].map(i=>`<span class="summary-star ${i<=count?'':'off'}">⭐</span>`).join(''); }
+      function coopStarCount(summary){ if(summary.teamGoal!=='' && summary.teamScore!=='' && Number(summary.teamScore)>=Number(summary.teamGoal)) return 3; if(Number(summary.teamScore||0)>0) return 2; return 1; }
+      function coopHero(summary){
+        if(summary.teamGoal!=='' && summary.teamScore!=='' && Number(summary.teamScore)>=Number(summary.teamGoal)){
+          return { badge:'🏆', heroTitle:'Team Goal Clear!', heroSub:'เธอกับทีมช่วยกันทำเป้าหมายได้สำเร็จแล้ว', title:'Awesome Teamwork!' };
         }
+        return { badge:'🤝', heroTitle:'Teamwork Hero!', heroSub:'เธอและเพื่อนช่วยกันเก็บอาหารดีได้ยอดเยี่ยมมาก', title:'Great Job!' };
+      }
+      function summarySubText(summary){ const parts=[]; if(summary.roomId) parts.push('ห้อง '+summary.roomId); if(summary.result) parts.push(summary.result); if(summary.players!=='') parts.push('ผู้เล่น '+summary.players); if(summary.reason) parts.push(summary.reason); return parts.join(' • ') || 'จบรอบแล้ว มาดูผลการช่วยกันเล่นกัน'; }
+
+      function showSummary(detail){
+        const summary=normalizeSummary(detail);
+        const hero=coopHero(summary);
+        const stars=coopStarCount(summary);
+
+        try{ localStorage.setItem(SUMMARY_KEY,JSON.stringify(summary)); }catch{}
+
+        $('summaryBadge').textContent = hero.badge;
+        applySummaryIdentity();
+        $('summaryHeroTitle').textContent = hero.heroTitle;
+        $('summaryHeroSub').textContent = `${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'} • ${hero.heroSub}`;
+        $('summaryTitle').textContent = hero.title;
+        $('summarySub').textContent = summarySubText(summary);
+        $('summaryStars').innerHTML = renderSummaryStars(stars);
+        $('summaryScoreValue').textContent = String(summary.teamScore ?? summary.score ?? 0);
+
+        $('summaryGrid').innerHTML =
+          addSummaryItem('ผลลัพธ์', summary.result) +
+          addSummaryItem('ฮีโร่', summary.heroDisplay) +
+          addSummaryItem('คะแนนเรา', summary.score) +
+          addSummaryItem('คะแนนทีม', summary.teamScore) +
+          addSummaryItem('เป้าหมายทีม', summary.teamGoal) +
+          addSummaryItem('ผู้เล่นทั้งหมด', summary.players) +
+          addSummaryItem('Good Hit', summary.goodHit) +
+          addSummaryItem('Junk Hit', summary.junkHit) +
+          addSummaryItem('Miss', summary.miss) +
+          addSummaryItem('Best Streak', summary.bestStreak) +
+          addSummaryItem('เวลาใช้', summary.duration) +
+          addSummaryItem('ห้อง', summary.roomId || '-') +
+          addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-');
+
+        $('summaryDebug').textContent =
+          '[COOP SUMMARY]\n' +
+          'hero=' + (summary.heroDisplay || '-') + '\n' +
+          'teamScore=' + (summary.teamScore || 0) + '\n' +
+          'teamGoal=' + (summary.teamGoal || '-') + '\n' +
+          'players=' + (summary.players || '-') + '\n\n' +
+          safeJson(summary);
+
+        $('summaryOverlay').hidden = false;
+        window.__GJ_COOP_LAST_SUMMARY__ = summary;
+        emitEnrichedSummaryEvents('coop', summary);
       }
 
-      async function loadEngine() {
-        if (!ENGINE_CANDIDATES.length) {
-          setStatus('ไม่พบ candidate', 'ไม่มี candidate engine ให้ลองโหลด', true);
-          return;
+      function hideSummary(){ $('summaryOverlay').hidden=true; }
+      function handleSummaryEvent(evtName,detail){ console.log('[GJ-COOP-SUMMARY]',evtName,detail); showSummary(detail||{}); }
+
+      $('btnReplay').addEventListener('click',()=>{ location.href=buildReplayUrl(); });
+      $('btnCopyRoom').addEventListener('click',()=>{ copyText(runCtx.roomId||'').then(()=>{ $('summarySub').textContent='คัดลอก room code แล้ว'; }).catch(()=>{ $('summarySub').textContent='คัดลอก room code ไม่สำเร็จ'; }); });
+      $('btnExport').addEventListener('click',()=>{ const payload=window.__GJ_COOP_LAST_SUMMARY__||{}; saveText(`goodjunk-coop-summary-${clean(runCtx.roomId||'room')}-${Date.now()}.json`,safeJson(payload)); });
+      $('btnBackHub').addEventListener('click',()=>{ location.href=runCtx.hub; });
+
+      window.__GJ_SHOW_COOP_SUMMARY__ = showSummary;
+      window.__GJ_HIDE_COOP_SUMMARY__ = hideSummary;
+      window.__GJ_COOP_SUMMARY_BRIDGE__ = { show:showSummary, hide:hideSummary };
+
+      ['gj:coop-summary','gj:summary','gj:match-summary','gj:session-end','hha:summary','hha:session-summary','hha:match-summary'].forEach((eventName)=>{
+        window.addEventListener(eventName,(evt)=>{ handleSummaryEvent(eventName,evt&&evt.detail?evt.detail:{}); });
+      });
+
+      window.addEventListener('message',(evt)=>{
+        const data=evt&&evt.data?evt.data:null;
+        if(!data||typeof data!=='object') return;
+        if(data.type==='gj:coop-summary'||data.type==='gj:summary'||data.type==='hha:summary'){
+          handleSummaryEvent(data.type,data.detail||data.summary||data);
         }
+      });
 
-        const errors = [];
-
-        for (const src of ENGINE_CANDIDATES) {
-          try {
-            const result = await tryLoad(src);
-
-            window.__GJ_MULTI_ENGINE_INFO__ = {
-              mode: MODE,
-              label: MODE_LABEL,
-              src: result.src,
-              type: result.type,
-              loadedAt: Date.now()
-            };
-
-            setStatus('เข้าเกมแล้ว', `${MODE_LABEL} engine loaded: ${result.src} (${result.type})`);
-            setDebug(
-              '[SUCCESS]\n' +
-              'src: ' + result.src + '\n' +
-              'type: ' + result.type + '\n' +
-              'room: ' + (runCtx.roomId || '-') + '\n' +
-              'player: ' + (runCtx.name || runCtx.pid || '-') + '\n' +
-              'role: ' + (runCtx.role || 'player')
-            );
-
-            console.log('[GJ-COOP-RUN] loaded engine', result.src, runCtx);
-            hideStatusCardSoon();
-            return;
-          } catch (err) {
-            const msg = String(err && err.message ? err.message : err);
-            errors.push(msg);
-            console.warn('[GJ-COOP-RUN] candidate failed', src, err);
-          }
-        }
-
-        setStatus(
-          'ไม่พบไฟล์ engine',
-          `หา coop engine ไม่เจอ\nลองแก้ ?engine=... หรือ ?engineCandidates=... ให้ตรงกับไฟล์จริง`,
-          true
-        );
-
-        setDebug(
-          '[FAILED CANDIDATES]\n' +
-          ENGINE_CANDIDATES.join('\n') +
-          '\n\n[ERRORS]\n' +
-          errors.join('\n\n')
-        );
+      if(qs('showLastSummary')==='1'){
+        try{ const raw=localStorage.getItem(SUMMARY_KEY); if(raw) showSummary(JSON.parse(raw)); }catch{}
       }
 
       loadEngine();
