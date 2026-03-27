@@ -81,11 +81,40 @@
   const TIME = clamp(q('time', String(defaultTimeForDiff(DIFF))), 30, 180);
   const COOLDOWN = String(q('cooldown','1')) === '1';
   const SESSION_ID = String(q('sessionId', `hydr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`));
+  const LOG_ENABLED = /^(1|true|yes)$/i.test(String(q('log','0')));
+  const API_URL = String(q('api','')).trim();
+
+  const PASS = {
+    game: 'hydration',
+    theme: String(q('theme','hydration')),
+    zone: String(q('zone','nutrition')),
+    cat: String(q('cat', q('zone','nutrition'))),
+    mode: String(q('mode','solo')),
+    wrapper: String(q('wrapper','hydration-vr')),
+    studyId: String(q('studyId','')),
+    phase: String(q('phase','')),
+    conditionGroup: String(q('conditionGroup','')),
+    sessionOrder: String(q('sessionOrder','')),
+    blockLabel: String(q('blockLabel','')),
+    siteCode: String(q('siteCode','')),
+    schoolYear: String(q('schoolYear','')),
+    semester: String(q('semester','')),
+    studentKey: String(q('studentKey','')),
+    schoolCode: String(q('schoolCode','')),
+    classRoom: String(q('classRoom','')),
+    studentNo: String(q('studentNo','')),
+    nickName: String(q('nickName', NICK)),
+    grade: String(q('grade','')),
+    planDay: String(q('planDay','')),
+    planSlot: String(q('planSlot','')),
+    teacher: String(q('teacher','')),
+    debug: String(q('debug','0'))
+  };
 
   const RNG_SEED = xmur3(`${SEED}|${PID}|${DIFF}|${TIME}|${VIEW}`);
   const rand = sfc32(RNG_SEED(), RNG_SEED(), RNG_SEED(), RNG_SEED());
-
   const PATTERN_VARIANT = xmur3(`pattern|${SEED}|${PID}`)() % 3;
+  const BUILD = 'FULL-v20260327-HYDRATION-AI-EVAL-LOG-FLUSH';
 
   const CFG = {
     easy:   { spawnMs: 860, speedMin: 70,  speedMax: 130, goodRate: .68, badRate:.18, shieldRate:.14, targetBase:76, mission:14, bossNeedWater:50 },
@@ -180,8 +209,8 @@
     objects:[],
     stageW:0,
     stageH:0,
-    eventLog:[],
     summary:null,
+    flushInFlight:false,
     ai:{
       currentMode:'Warmup',
       lastCoachAt:0,
@@ -190,6 +219,28 @@
       selectedReason:null,
       selectedConfidence:null,
       evalSubmitted:false
+    },
+    metrics:{
+      taps:0,
+      hits:0,
+      misses:0,
+      spawnGood:0,
+      spawnBad:0,
+      spawnShield:0,
+      spawnBoss:0,
+      hitGood:0,
+      hitBad:0,
+      hitShield:0,
+      hitBoss:0,
+      missGood:0,
+      missBad:0,
+      missShield:0,
+      missBoss:0,
+      shieldBlocks:0,
+      flushCount:0
+    },
+    logs:{
+      events:[]
     }
   };
 
@@ -201,13 +252,57 @@
     }catch{}
   }
 
-  function logEvent(type, extra){
-    state.eventLog.push({
-      ts: Date.now(),
-      t: Math.round((TIME - state.timeLeft) * 1000) / 1000,
+  function enqueueEvent(type, extra){
+    const row = {
+      schema:'hha.events.v1',
+      build:BUILD,
+      ts:new Date().toISOString(),
+      ms:Date.now(),
+      sessionId:SESSION_ID,
+      pid:PID,
+      nick:NICK,
+      game:PASS.game,
+      theme:PASS.theme,
+      zone:PASS.zone,
+      cat:PASS.cat,
+      mode:PASS.mode,
+      run:RUN,
+      diff:DIFF,
+      view:VIEW,
+      timePlanned:TIME,
+      timeElapsedMs:Math.round((TIME - state.timeLeft) * 1000),
+      seed:SEED,
       type,
+      score:Math.max(0, Math.round(state.score)),
+      water:clamp(state.water,0,100),
+      hearts:Math.max(0, state.hearts),
+      shield:state.shield,
+      combo:state.combo,
+      comboBest:state.bestCombo,
+      missionNeed:state.missionNeed,
+      missionDone:state.goodCaught,
+      aiMode:state.ai.currentMode,
+      storm:state.storm ? 1 : 0,
+      boss:state.boss ? 1 : 0,
+      studyId:PASS.studyId,
+      phase:PASS.phase,
+      conditionGroup:PASS.conditionGroup,
+      sessionOrder:PASS.sessionOrder,
+      blockLabel:PASS.blockLabel,
+      siteCode:PASS.siteCode,
+      schoolYear:PASS.schoolYear,
+      semester:PASS.semester,
+      studentKey:PASS.studentKey,
+      schoolCode:PASS.schoolCode,
+      classRoom:PASS.classRoom,
+      studentNo:PASS.studentNo,
+      grade:PASS.grade,
+      planDay:PASS.planDay,
+      planSlot:PASS.planSlot,
+      teacher:PASS.teacher,
       ...extra
-    });
+    };
+    state.logs.events.push(row);
   }
 
   function noteRecent(kind){
@@ -433,12 +528,16 @@
     let data;
     if(kind === 'good'){
       data = GOOD_POOL[randInt(0, GOOD_POOL.length-1)];
+      state.metrics.spawnGood += 1;
     }else if(kind === 'bad'){
       data = BAD_POOL[randInt(0, BAD_POOL.length-1)];
+      state.metrics.spawnBad += 1;
     }else if(kind === 'shield'){
       data = SHIELD_ITEM;
+      state.metrics.spawnShield += 1;
     }else{
       data = { emoji:'💧', label:'Boss', score:30, water:8 };
+      state.metrics.spawnBoss += 1;
     }
 
     const el = document.createElement('button');
@@ -482,14 +581,17 @@
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
       if(!obj.alive || state.ended || !state.started) return;
+      state.metrics.taps += 1;
       hitTarget(obj);
     });
 
     state.objects.push(obj);
-    logEvent('spawn', {
-      id: obj.id,
-      kind: obj.kind,
-      mode: profile.name,
+
+    enqueueEvent('spawn', {
+      objectId: obj.id,
+      objectKind: obj.kind,
+      objectLabel: data.label,
+      aiPattern: profile.name,
       x: Math.round(obj.x),
       y: Math.round(obj.y),
       size: obj.size
@@ -536,6 +638,8 @@
       state.combo += 1;
       state.bestCombo = Math.max(state.bestCombo, state.combo);
       state.goodCaught += 1;
+      state.metrics.hits += 1;
+      state.metrics.hitGood += 1;
       splash(`+${obj.data.score}`, c.x, c.y, 'good');
       noteRecent('good');
 
@@ -548,6 +652,7 @@
     else if(obj.kind === 'bad'){
       if(state.shield > 0){
         state.shield -= 1;
+        state.metrics.shieldBlocks += 1;
         splash('BLOCK!', c.x, c.y, 'shield');
         setCoach('โล่ช่วยป้องกันไว้แล้ว!');
         noteRecent('shield');
@@ -557,6 +662,8 @@
         state.hearts = Math.max(0, state.hearts + obj.data.heart);
         state.badHit += 1;
         state.combo = 0;
+        state.metrics.hits += 1;
+        state.metrics.hitBad += 1;
         splash('โอ๊ะ!', c.x, c.y, 'bad');
         setCoach('ระวังของไม่ดีด้วยนะ!');
         noteRecent('bad');
@@ -567,6 +674,8 @@
       state.water = clamp(state.water + obj.data.water, 0, 100);
       state.shield += 1;
       state.collectedShield += 1;
+      state.metrics.hits += 1;
+      state.metrics.hitShield += 1;
       splash('+Shield', c.x, c.y, 'shield');
       setCoach('ดีมาก! ตอนนี้มีโล่ไว้กันอันตรายแล้ว');
       noteRecent('shield');
@@ -577,14 +686,16 @@
       state.combo += 1;
       state.bestCombo = Math.max(state.bestCombo, state.combo);
       state.bossHits += 1;
+      state.metrics.hits += 1;
+      state.metrics.hitBoss += 1;
       splash(`Boss +${obj.data.score}`, c.x, c.y, 'boss');
       setCoach('สุดยอด! โจมตีบอสได้แล้ว');
       noteRecent('boss');
     }
 
-    logEvent('hit', {
-      id: obj.id,
-      kind: obj.kind,
+    enqueueEvent('hit', {
+      objectId: obj.id,
+      objectKind: obj.kind,
       score: state.score,
       water: state.water,
       hearts: state.hearts,
@@ -597,22 +708,32 @@
   }
 
   function missTarget(obj){
+    state.metrics.misses += 1;
+
     if(obj.kind === 'good'){
       state.missedGood += 1;
       state.combo = 0;
+      state.metrics.missGood += 1;
       if(state.water > 5){
         state.water = clamp(state.water - 1, 0, 100);
       }
       noteRecent('miss');
     }
+    else if(obj.kind === 'bad'){
+      state.metrics.missBad += 1;
+    }
+    else if(obj.kind === 'shield'){
+      state.metrics.missShield += 1;
+    }
     else if(obj.kind === 'boss'){
       state.combo = 0;
+      state.metrics.missBoss += 1;
       noteRecent('miss');
     }
 
-    logEvent('miss', {
-      id: obj.id,
-      kind: obj.kind,
+    enqueueEvent('miss', {
+      objectId: obj.id,
+      objectKind: obj.kind,
       score: state.score,
       water: state.water,
       hearts: state.hearts,
@@ -676,14 +797,14 @@
       state.storm = true;
       showBanner(EL.stormBanner, 1600);
       setCoach('Storm Phase! ของจะมาเร็วขึ้นแล้วนะ');
-      logEvent('phase', { phase:'storm' });
+      enqueueEvent('phase', { phase:'storm' });
     }
 
     if(!state.boss && state.timeLeft <= bossAt && state.water >= CFG.bossNeedWater){
       state.boss = true;
       showBanner(EL.bossBanner, 1800);
       setCoach('Boss Phase! รีบเก็บแต้มช่วงท้ายเลย');
-      logEvent('phase', { phase:'boss' });
+      enqueueEvent('phase', { phase:'boss' });
     }
   }
 
@@ -746,9 +867,9 @@
     if(!COOLDOWN) return HUB;
 
     const cd = new URL('../cooldown-gate.html', location.href);
-    cd.searchParams.set('game', 'hydration');
-    cd.searchParams.set('zone', q('zone', 'nutrition'));
-    cd.searchParams.set('cat', q('cat', q('zone', 'nutrition')));
+    cd.searchParams.set('game', PASS.game);
+    cd.searchParams.set('zone', PASS.zone);
+    cd.searchParams.set('cat', PASS.cat);
     cd.searchParams.set('hub', HUB);
     cd.searchParams.set('pid', PID);
     cd.searchParams.set('nick', NICK);
@@ -758,6 +879,15 @@
     cd.searchParams.set('view', VIEW);
     cd.searchParams.set('time', String(TIME));
     cd.searchParams.set('sessionId', SESSION_ID);
+
+    const passthrough = [
+      'studyId','phase','conditionGroup','sessionOrder','blockLabel',
+      'siteCode','schoolYear','semester','studentKey','schoolCode',
+      'classRoom','studentNo','nickName','grade','planDay','planSlot','teacher'
+    ];
+    for(const k of passthrough){
+      if(PASS[k]) cd.searchParams.set(k, PASS[k]);
+    }
     return cd.href;
   }
 
@@ -827,8 +957,7 @@
   }
 
   function openEvaluate(){
-    if(!EL.evaluateOverlay) return;
-    if(!state.summary) return;
+    if(!EL.evaluateOverlay || !state.summary) return;
 
     renderEvalPlans(state.summary);
 
@@ -866,13 +995,182 @@
     state.summary.evaluate = evaluateData;
     updateStoredEvaluation(state.summary.sessionId, evaluateData);
 
-    logEvent('evaluate', evaluateData);
+    enqueueEvent('evaluate', evaluateData);
 
     EL.summaryMsg.textContent =
       `คุณเลือก "${state.ai.selectedPlan.title}" เพราะ "${state.ai.selectedReason}" และมีความมั่นใจระดับ "${state.ai.selectedConfidence}"`;
 
     closeEvaluate();
     setCoach('ดีมาก! เลือกแผนหลังเล่นเสร็จเรียบร้อยแล้ว');
+    flushLogs('after-evaluate');
+  }
+
+  function buildSessionPayload(reason){
+    return {
+      schema:'hha.sessions.v1',
+      build:BUILD,
+      ts:new Date().toISOString(),
+      sessionId:SESSION_ID,
+      pid:PID,
+      nick:NICK,
+      game:PASS.game,
+      theme:PASS.theme,
+      zone:PASS.zone,
+      cat:PASS.cat,
+      mode:PASS.mode,
+      run:RUN,
+      diff:DIFF,
+      view:VIEW,
+      wrapper:PASS.wrapper,
+      seed:SEED,
+      timePlanned:TIME,
+      timePlayed:Math.round(TIME - state.timeLeft),
+      score:Math.max(0, Math.round(state.score)),
+      water:clamp(state.water,0,100),
+      hearts:Math.max(0, state.hearts),
+      shieldLeft:state.shield,
+      comboBest:state.bestCombo,
+      missionNeed:state.missionNeed,
+      missionDone:state.goodCaught,
+      goodCaught:state.goodCaught,
+      badHit:state.badHit,
+      missedGood:state.missedGood,
+      collectedShield:state.collectedShield,
+      bossHits:state.bossHits,
+      stormReached:state.storm ? 1 : 0,
+      bossReached:state.boss ? 1 : 0,
+      reason,
+      stars:state.summary ? state.summary.stars : null,
+      taps:state.metrics.taps,
+      hits:state.metrics.hits,
+      misses:state.metrics.misses,
+      spawnGood:state.metrics.spawnGood,
+      spawnBad:state.metrics.spawnBad,
+      spawnShield:state.metrics.spawnShield,
+      spawnBoss:state.metrics.spawnBoss,
+      hitGood:state.metrics.hitGood,
+      hitBad:state.metrics.hitBad,
+      hitShield:state.metrics.hitShield,
+      hitBoss:state.metrics.hitBoss,
+      missGood:state.metrics.missGood,
+      missBad:state.metrics.missBad,
+      missShield:state.metrics.missShield,
+      missBoss:state.metrics.missBoss,
+      shieldBlocks:state.metrics.shieldBlocks,
+      aiModeLast:state.ai.currentMode,
+      evaluate:state.summary && state.summary.evaluate ? state.summary.evaluate : null,
+      studyId:PASS.studyId,
+      phase:PASS.phase,
+      conditionGroup:PASS.conditionGroup,
+      sessionOrder:PASS.sessionOrder,
+      blockLabel:PASS.blockLabel,
+      siteCode:PASS.siteCode,
+      schoolYear:PASS.schoolYear,
+      semester:PASS.semester,
+      studentKey:PASS.studentKey,
+      schoolCode:PASS.schoolCode,
+      classRoom:PASS.classRoom,
+      studentNo:PASS.studentNo,
+      grade:PASS.grade,
+      planDay:PASS.planDay,
+      planSlot:PASS.planSlot,
+      teacher:PASS.teacher
+    };
+  }
+
+  function getQueueKey(){
+    return 'HHA_LOG_QUEUE';
+  }
+
+  function readQueue(){
+    try{
+      return JSON.parse(localStorage.getItem(getQueueKey()) || '[]');
+    }catch{
+      return [];
+    }
+  }
+
+  function writeQueue(rows){
+    try{
+      localStorage.setItem(getQueueKey(), JSON.stringify(rows.slice(-200)));
+    }catch{}
+  }
+
+  function enqueueOffline(payload){
+    const rows = readQueue();
+    rows.push(payload);
+    writeQueue(rows);
+  }
+
+  function beaconPost(url, payload){
+    try{
+      if(!navigator.sendBeacon) return false;
+      const blob = new Blob([JSON.stringify(payload)], { type:'application/json' });
+      return navigator.sendBeacon(url, blob);
+    }catch{
+      return false;
+    }
+  }
+
+  async function networkPost(url, payload){
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true,
+      credentials: 'omit',
+      mode: 'cors'
+    });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  }
+
+  async function flushLogs(reason){
+    if(!LOG_ENABLED) return;
+    if(!API_URL) return;
+    if(state.flushInFlight) return;
+
+    const payload = {
+      kind:'herohealth_log_bundle',
+      game:PASS.game,
+      reason,
+      build:BUILD,
+      ts:new Date().toISOString(),
+      session: buildSessionPayload(reason),
+      events: state.logs.events.slice()
+    };
+
+    state.flushInFlight = true;
+    state.metrics.flushCount += 1;
+
+    try{
+      if(reason === 'pagehide' || reason === 'beforeunload' || reason === 'visibilityhidden'){
+        const ok = beaconPost(API_URL, payload);
+        if(!ok) enqueueOffline(payload);
+      }else{
+        await networkPost(API_URL, payload);
+      }
+      state.logs.events.length = 0;
+    }catch{
+      enqueueOffline(payload);
+    }finally{
+      state.flushInFlight = false;
+    }
+  }
+
+  async function flushQueuedLogs(){
+    if(!LOG_ENABLED || !API_URL) return;
+    const queued = readQueue();
+    if(!queued.length) return;
+
+    const remain = [];
+    for(const item of queued){
+      try{
+        await networkPost(API_URL, item);
+      }catch{
+        remain.push(item);
+      }
+    }
+    writeQueue(remain);
   }
 
   function endGame(reason){
@@ -909,14 +1207,21 @@
       stars:judged.stars,
       reason,
       run:RUN,
-      eventCount:state.eventLog.length,
+      eventCount:state.logs.events.length,
+      build:BUILD,
       ts:new Date().toISOString()
     };
 
     state.summary = summary;
-
     saveSummary(summary);
-    logEvent('end', { reason, ...summary });
+
+    enqueueEvent('end', {
+      endReason: reason,
+      stars: summary.stars,
+      scoreFinal: summary.score,
+      waterFinal: summary.water,
+      heartsFinal: summary.hearts
+    });
 
     EL.summaryRibbon.textContent = judged.title;
     EL.summaryStars.textContent = '⭐'.repeat(judged.stars) + '☆'.repeat(3 - judged.stars);
@@ -934,6 +1239,8 @@
     if(EL.evalBtn){
       EL.evalBtn.style.display = '';
     }
+
+    flushLogs('end-game');
 
     setTimeout(()=>{
       if(!state.ai.evalSubmitted){
@@ -975,7 +1282,7 @@
     state.ended = false;
     state.lastMs = 0;
     setCoach('เริ่มเลย! แตะน้ำดีให้ไว แล้วหลบของไม่ดีนะ');
-    logEvent('start', { sessionId: SESSION_ID });
+    enqueueEvent('start', { sessionId: SESSION_ID });
     requestAnimationFrame(gameLoop);
   }
 
@@ -1007,6 +1314,10 @@
   }
 
   function replay(){
+    saveSummary(state.summary || buildSessionPayload('replay-before-end'));
+    enqueueEvent('nav', { to:'replay' });
+    flushLogs('replay-click');
+
     postToWrapper({ type:'hha:reload' });
     const url = new URL(location.href);
     url.searchParams.set('seed', String(Date.now()));
@@ -1015,6 +1326,10 @@
   }
 
   function backHub(){
+    saveSummary(state.summary || buildSessionPayload('hub-before-end'));
+    enqueueEvent('nav', { to:'hub' });
+    flushLogs('backhub-click');
+
     postToWrapper({ type:'hha:goHub' });
     location.href = buildCooldownOrHubUrl();
   }
@@ -1238,12 +1553,32 @@
     }
   }
 
-  function init(){
+  function installFlushHooks(){
+    window.addEventListener('pagehide', ()=>{
+      saveSummary(state.summary || buildSessionPayload('pagehide-fallback'));
+      flushLogs('pagehide');
+    });
+
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.visibilityState === 'hidden'){
+        saveSummary(state.summary || buildSessionPayload('visibilityhidden-fallback'));
+        flushLogs('visibilityhidden');
+      }
+    });
+
+    window.addEventListener('beforeunload', ()=>{
+      saveSummary(state.summary || buildSessionPayload('beforeunload-fallback'));
+      flushLogs('beforeunload');
+    });
+  }
+
+  async function init(){
     ensureDynamicUi();
     updateMeta();
     refreshStageSize();
     initFloatingDeco();
     updateHud();
+    installFlushHooks();
 
     if(DIFF === 'easy'){
       setCoach('เริ่มแบบง่าย ๆ ก่อนนะ ค่อย ๆ เก็บน้ำดีไปด้วยกัน');
@@ -1273,6 +1608,10 @@
 
     if(EL.skipEvalBtn){
       EL.skipEvalBtn.addEventListener('click', closeEvaluate);
+    }
+
+    if(LOG_ENABLED && API_URL){
+      await flushQueuedLogs();
     }
 
     postToWrapper({ type:'hha:ready' });
