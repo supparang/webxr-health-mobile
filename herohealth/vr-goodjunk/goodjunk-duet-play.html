@@ -38,6 +38,7 @@
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -49,7 +50,9 @@
         linear-gradient(180deg,var(--sky1),var(--sky2) 58%, var(--sky3));
     }
 
-    body{ overflow:hidden; }
+    body{
+      overflow:hidden;
+    }
 
     .page{
       min-height:100vh;
@@ -484,7 +487,9 @@
       z-index:35;
     }
 
-    .countdown-overlay.show{ display:flex; }
+    .countdown-overlay.show{
+      display:flex;
+    }
 
     .countdown-card{
       width:min(460px, calc(100% - 24px));
@@ -532,11 +537,19 @@
       position:fixed;
       inset:0;
       z-index:60;
+      display:flex;
       align-items:center;
       justify-content:center;
-      padding:18px;
+      padding:
+        calc(12px + var(--sat))
+        calc(12px + var(--sar))
+        calc(12px + var(--sab))
+        calc(12px + var(--sal));
       background:rgba(255,255,255,.52);
       backdrop-filter:blur(10px);
+      overflow-y:auto;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
     }
 
     .duet-result-mount[hidden]{
@@ -544,19 +557,19 @@
       pointer-events:none !important;
     }
 
-    .duet-result-mount:not([hidden]){
-      display:flex;
-    }
-
     .duet-result-card{
       width:min(980px,100%);
-      max-height:min(92vh,1020px);
+      max-height:min(96dvh,1020px);
       overflow:auto;
+      -webkit-overflow-scrolling:touch;
+      overscroll-behavior:contain;
+      touch-action:pan-y;
       border-radius:28px;
       border:1px solid var(--stroke);
       background:#fffdf8fa;
       box-shadow:0 28px 80px rgba(0,0,0,.22);
       padding:18px;
+      padding-bottom:calc(18px + var(--sab));
       display:grid;
       gap:14px;
     }
@@ -701,6 +714,10 @@
       padding:14px;
       display:grid;
       gap:10px;
+    }
+
+    .duet-mobile-quick-actions{
+      display:none;
     }
 
     .duet-praise-top{
@@ -932,12 +949,14 @@
       display:grid;
       grid-template-columns:repeat(5,minmax(0,1fr));
       gap:10px;
+      isolation:isolate;
     }
 
     .duet-result-actions.hubv2 .btn{
       min-height:48px;
       border-radius:18px;
       font-weight:1100;
+      touch-action:manipulation;
     }
 
     .duet-result-actions.hubv2 .btn.good{
@@ -1057,45 +1076,207 @@
     }
 
     @media (max-width:980px){
-      html,body{ min-height:100%; height:auto; }
-      body{ overflow:auto; }
-      .page{ min-height:auto; padding-bottom:calc(16px + var(--sab)); }
-      .run-shell{ grid-template-columns:1fr; min-height:auto; }
-      .duet-hud{ order:2; padding:12px; gap:10px; }
-      .stage-wrap{ order:1; min-height:unset; }
-      .stage-inner, #duetGameStage{ min-height:54dvh; }
-      .topbar{ gap:12px; }
-      .brand{ width:100%; }
-      .top-actions{ width:100%; justify-content:space-between; }
-      .top-actions .btn{ flex:1 1 0; }
-      .duet-score-value{ font-size:34px; }
-      .duet-stats{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
-      .duet-stat, .duet-mini{ padding:10px; }
-      .duet-panel{ padding:10px; }
-      .stage-wrap{ border-radius:20px; }
-      .stage-head{ font-size:13px; padding:12px 14px; }
+      html,body{
+        min-height:100%;
+        height:auto;
+      }
+
+      body{
+        overflow:auto;
+      }
+
+      .page{
+        min-height:auto;
+        padding-bottom:calc(16px + var(--sab));
+      }
+
+      .run-shell{
+        grid-template-columns:1fr;
+        min-height:auto;
+      }
+
+      .duet-hud{
+        order:2;
+        padding:12px;
+        gap:10px;
+      }
+
+      .stage-wrap{
+        order:1;
+        min-height:unset;
+      }
+
+      .stage-inner,
+      #duetGameStage{
+        min-height:54dvh;
+      }
+
+      .topbar{
+        gap:12px;
+      }
+
+      .brand{
+        width:100%;
+      }
+
+      .top-actions{
+        width:100%;
+        justify-content:space-between;
+      }
+
+      .top-actions .btn{
+        flex:1 1 0;
+      }
+
+      .duet-score-value{
+        font-size:34px;
+      }
+
+      .duet-stats{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:8px;
+      }
+
+      .duet-stat,
+      .duet-mini{
+        padding:10px;
+      }
+
+      .duet-panel{
+        padding:10px;
+      }
+
+      .stage-wrap{
+        border-radius:20px;
+      }
+
+      .stage-head{
+        font-size:13px;
+        padding:12px 14px;
+      }
     }
 
     @media (max-width:760px){
-      .duet-result-mount{ padding:10px; align-items:flex-end; }
-      .duet-result-card{ border-radius:22px; padding:12px; }
-      .duet-result-title{ font-size:20px; }
-      .duet-result-sub{ font-size:12px; }
-      .duet-sum-top{ grid-template-columns:1fr; gap:10px; }
-      .duet-sum-top-card{ border-radius:18px; padding:12px; }
-      .duet-sum-top-score{ font-size:28px; }
-      .duet-sum-top-score.pair{ font-size:32px; }
-      .duet-sum-stats{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-      .duet-recap{ grid-template-columns:1fr; }
-      .duet-stars.big .duet-star{ min-width:40px; height:40px; font-size:18px; }
-      .duet-result-actions.hubv2{ grid-template-columns:1fr 1fr; }
-      .duet-result-actions.hubv2 .btn{ width:100%; min-height:50px; font-size:14px; }
-      .duet-sum-top-label{ font-size:13px; }
-      .duet-sum-top-sub{ font-size:11px; line-height:1.6; }
-      .duet-sum-status{ width:100%; }
-      .duet-praise{ border-radius:18px; padding:12px; }
-      .duet-praise-title{ font-size:20px; }
-      .duet-praise-sub{ font-size:13px; line-height:1.6; }
+      .duet-result-mount{
+        padding:
+          calc(8px + var(--sat))
+          calc(8px + var(--sar))
+          calc(12px + var(--sab))
+          calc(8px + var(--sal));
+        align-items:flex-start;
+        justify-content:center;
+      }
+
+      .duet-result-card{
+        width:100%;
+        max-height:calc(100dvh - var(--sat) - var(--sab) - 16px);
+        border-radius:22px;
+        padding:12px;
+        padding-bottom:calc(16px + var(--sab));
+      }
+
+      .duet-result-title{
+        font-size:20px;
+      }
+
+      .duet-result-sub{
+        font-size:12px;
+      }
+
+      .duet-sum-top{
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+
+      .duet-sum-top-card{
+        border-radius:18px;
+        padding:12px;
+      }
+
+      .duet-sum-top-score{
+        font-size:28px;
+      }
+
+      .duet-sum-top-score.pair{
+        font-size:32px;
+      }
+
+      .duet-sum-stats{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:10px;
+      }
+
+      .duet-recap{
+        grid-template-columns:1fr;
+      }
+
+      .duet-stars.big .duet-star{
+        min-width:40px;
+        height:40px;
+        font-size:18px;
+      }
+
+      .duet-mobile-quick-actions{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+        margin-bottom:10px;
+      }
+
+      .duet-mobile-quick-actions .btn{
+        min-height:46px;
+        border-radius:16px;
+        font-weight:1100;
+      }
+
+      .duet-result-actions.hubv2{
+        grid-template-columns:1fr;
+        gap:8px;
+        position:sticky;
+        bottom:0;
+        z-index:12;
+        padding-top:8px;
+        background:linear-gradient(180deg, rgba(255,253,248,.2), #fffef8 22%);
+        margin-top:4px;
+        border-top:1px solid rgba(191,227,242,.8);
+      }
+
+      .duet-result-actions.hubv2 .btn{
+        width:100%;
+        min-height:50px;
+        font-size:14px;
+      }
+
+      .duet-sum-top-label{
+        font-size:13px;
+      }
+
+      .duet-sum-top-sub{
+        font-size:11px;
+        line-height:1.6;
+      }
+
+      .duet-sum-status{
+        width:100%;
+      }
+
+      .duet-praise{
+        border-radius:18px;
+        padding:12px;
+      }
+
+      .duet-praise-title{
+        font-size:20px;
+      }
+
+      .duet-praise-sub{
+        font-size:13px;
+        line-height:1.6;
+      }
+
+      .duet-result-card.hubv2{
+        padding-bottom:calc(88px + var(--sab));
+      }
     }
 
     @media (prefers-reduced-motion: reduce){
@@ -1256,6 +1437,6 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="../firebase-config.js"></script>
   <script src="../common/hha-multiplayer.js"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260327-duet-final-v1"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260327-duet-final-v3"></script>
 </body>
 </html>
