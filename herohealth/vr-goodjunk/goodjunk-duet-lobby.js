@@ -1,5 +1,5 @@
 /* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
-   FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-FINAL-V1
+   FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-FINAL-V2
 */
 (function(){
   'use strict';
@@ -255,6 +255,18 @@
     const u = new URL(W.location.href);
     u.search = '';
     u.searchParams.set('room', STATE.roomId);
+    if (STATE.pid) u.searchParams.set('pid', STATE.pid);
+    if (STATE.name){
+      u.searchParams.set('name', STATE.name);
+      u.searchParams.set('nick', STATE.name);
+    }
+    if (STATE.hub) u.searchParams.set('hub', STATE.hub);
+    if (STATE.diff) u.searchParams.set('diff', STATE.diff);
+    if (STATE.time) u.searchParams.set('time', String(STATE.time));
+    if (STATE.view) u.searchParams.set('view', STATE.view);
+    if (STATE.run) u.searchParams.set('run', STATE.run);
+    if (STATE.zone) u.searchParams.set('zone', STATE.zone);
+    if (STATE.theme) u.searchParams.set('theme', STATE.theme);
     if (DEBUG) u.searchParams.set('debug', '1');
     return u.toString();
   }
@@ -265,17 +277,17 @@
     u.searchParams.set('room', cleanRoom);
     u.searchParams.set('roomId', cleanRoom);
 
-    if (STATE.pid)   u.searchParams.set('pid', STATE.pid);
+    if (STATE.pid) u.searchParams.set('pid', STATE.pid);
     if (STATE.name){
       u.searchParams.set('name', STATE.name);
       u.searchParams.set('nick', STATE.name);
     }
-    if (STATE.hub)   u.searchParams.set('hub', STATE.hub);
-    if (STATE.view)  u.searchParams.set('view', STATE.view);
-    if (STATE.run)   u.searchParams.set('run', STATE.run);
-    if (STATE.diff)  u.searchParams.set('diff', STATE.diff);
-    if (STATE.time)  u.searchParams.set('time', String(STATE.time));
-    if (STATE.zone)  u.searchParams.set('zone', STATE.zone);
+    if (STATE.hub) u.searchParams.set('hub', STATE.hub);
+    if (STATE.view) u.searchParams.set('view', STATE.view);
+    if (STATE.run) u.searchParams.set('run', STATE.run);
+    if (STATE.diff) u.searchParams.set('diff', STATE.diff);
+    if (STATE.time) u.searchParams.set('time', String(STATE.time));
+    if (STATE.zone) u.searchParams.set('zone', STATE.zone);
     if (STATE.theme) u.searchParams.set('theme', STATE.theme);
     if (DEBUG) u.searchParams.set('debug', '1');
 
@@ -419,9 +431,9 @@
     const waitingOnly = !!room && String(room.status || 'waiting') === 'waiting';
     const fullEnough = players.length === ROOM_SIZE;
 
-    if (els.btnReady)   els.btnReady.disabled   = !waitingOnly || !me || !!me.ready || STATE.joinDenied;
+    if (els.btnReady) els.btnReady.disabled = !waitingOnly || !me || !!me.ready || STATE.joinDenied;
     if (els.btnUnready) els.btnUnready.disabled = !waitingOnly || !me || !me.ready || STATE.joinDenied;
-    if (els.btnStart)   els.btnStart.disabled   = !waitingOnly || !amHost || !fullEnough || readyCount !== ROOM_SIZE || STATE.joinDenied;
+    if (els.btnStart) els.btnStart.disabled = !waitingOnly || !amHost || !fullEnough || readyCount !== ROOM_SIZE || STATE.joinDenied;
 
     if (STATE.joinDenied){
       setHint(STATE.joinDeniedReason || 'ห้องนี้ยังเข้าไม่ได้', true);
@@ -705,13 +717,15 @@
 
     STATE.autoStartLocked = true;
     stopAutoStartTimer();
+
     setHint('พร้อมครบแล้ว กำลังเริ่มรีแมตช์อัตโนมัติ...', false);
 
     __duetAutoStartTimer = setTimeout(async () => {
       STATE.autoStartLocked = false;
-      if (STATE.autoStartAttempted) return;
 
+      if (STATE.autoStartAttempted) return;
       STATE.autoStartAttempted = true;
+
       try{
         await startDuet();
       }catch(err){
@@ -1102,7 +1116,7 @@
         if (els.roomInput){
           els.roomInput.value = STATE.roomId || '';
           els.roomInput.focus();
-          els.roomInput.select?.();
+          if (els.roomInput.select) els.roomInput.select();
         }
         setHint('ใส่ code ห้องปัจจุบันให้แล้ว', false);
       });
