@@ -1,19 +1,12 @@
-// === hydration.scenarios.js (scenario bank patch) ===
-// PATCH v20260327-HYDRATION-V2-SCENARIO-BANK-ABC
+// === /herohealth/vr-hydration-v2/js/hydration-v2.scenarios.js ===
+// Hydration V2 Scenario Bank
+// FULL PATCH v20260327-HYDRATION-V2-SCENARIOS-ABC-18
 //
 // เป้าหมาย:
+// - รองรับ parallel form A/B/C
 // - ลดการจำคำตอบ
-// - เพิ่ม parallel form A/B/C
-// - distractor ต้อง plausible มากขึ้น
-// - ใช้ได้กับเด็ก ป.5 และยัง child-friendly
-//
-// หมายเหตุ:
-// - เก็บ export HYDRATION_V2_SCENARIOS และ HYDRATION_V2_CONFIDENCE เหมือนเดิม
-// - เพิ่ม field: form, family, difficulty
-// - เพิ่ม helper สำหรับสุ่มข้อแบบไม่ซ้ำ family
-//
-// ถ้า openScenarios เดิมยังไม่ใช้ helper ชุดนี้ ก็ยังใช้ array เดิมได้
-// แต่แนะนำให้อัปเดต openScenarios ให้เรียก pickHydrationScenarioBatch()
+// - ใช้กับเกมจริงชุด hydration-v2.js / hydration-v2.core.js
+// - 6 ข้อต่อ form รวม 18 ข้อ
 
 export const HYDRATION_V2_SCENARIOS = [
   // =========================
@@ -22,7 +15,7 @@ export const HYDRATION_V2_SCENARIOS = [
   {
     id: 'A-school-morning',
     form: 'A',
-    family: 'schoolday',
+    family: 'schoolmorning',
     difficulty: 'easy',
     title: 'ก่อนเข้าเรียนตอนเช้า',
     text: 'นิดมาถึงโรงเรียนแล้วเริ่มรู้สึกคอแห้งเล็กน้อย ก่อนจะเข้าเรียนคาบแรก',
@@ -62,7 +55,7 @@ export const HYDRATION_V2_SCENARIOS = [
   {
     id: 'A-lunch-break',
     form: 'A',
-    family: 'schoolday',
+    family: 'lunch',
     difficulty: 'medium',
     title: 'ช่วงพักกลางวัน',
     text: 'แพรวกินข้าวกลางวันเสร็จแล้ว และยังมีเรียนต่อในช่วงบ่าย',
@@ -99,6 +92,46 @@ export const HYDRATION_V2_SCENARIOS = [
       { id: 'reason-short-time', emoji: '⌛', label: 'ออกไปไม่นานจึงไม่ต้องเตรียมน้ำ', isCorrect: false }
     ]
   },
+  {
+    id: 'A-after-lunch-water',
+    form: 'A',
+    family: 'afternoon',
+    difficulty: 'easy',
+    title: 'หลังพักเที่ยงก่อนเข้าคาบบ่าย',
+    text: 'หลังพักเที่ยง เด็กคนหนึ่งกำลังจะกลับเข้าเรียนคาบบ่ายต่อทันที',
+    hint: 'คิดถึงสิ่งที่ช่วยให้สดชื่นและพร้อมเรียนต่อ',
+    question: 'ควรทำอะไรดีที่สุด',
+    choices: [
+      { id: 'sip-before-class', emoji: '💧', label: 'จิบน้ำก่อนเข้าคาบบ่าย', sub: 'ช่วยให้พร้อมเรียนต่อ', isCorrect: true },
+      { id: 'wait-home', emoji: '🏠', label: 'รอกลับบ้านค่อยดื่ม', sub: 'ช้าเกินไป', isCorrect: false },
+      { id: 'sweet-only', emoji: '🥤', label: 'ดื่มน้ำหวานแทนน้ำเปล่า', sub: 'ไม่ใช่ตัวเลือกหลัก', isCorrect: false }
+    ],
+    reasons: [
+      { id: 'reason-ready-learn', emoji: '📘', label: 'ยังมีเรียนต่อ ควรเติมน้ำก่อนเข้าคาบ', isCorrect: true },
+      { id: 'reason-not-thirsty', emoji: '🙈', label: 'ถ้ายังไม่กระหายมากก็ยังไม่ต้องดื่ม', isCorrect: false },
+      { id: 'reason-faster', emoji: '⏱️', label: 'ข้ามการดื่มน้ำจะได้รีบเข้าเรียนกว่า', isCorrect: false }
+    ]
+  },
+  {
+    id: 'A-school-trip-ready',
+    form: 'A',
+    family: 'prepare',
+    difficulty: 'medium',
+    title: 'เตรียมตัวก่อนออกจากห้องเรียน',
+    text: 'ครูกำลังพาเด็ก ๆ ออกจากห้องไปทำกิจกรรมนอกอาคารประมาณ 1 ชั่วโมง',
+    hint: 'ลองคิดว่าควรเตรียมตัวเรื่องน้ำอย่างไร',
+    question: 'ควรเลือกแบบไหนดีที่สุด',
+    choices: [
+      { id: 'bring-water-bottle', emoji: '🎒', label: 'พกขวดน้ำติดตัวไปด้วย', sub: 'หยิบดื่มได้สะดวก', isCorrect: true },
+      { id: 'bring-snack-only', emoji: '🍪', label: 'พกขนมอย่างเดียวก็พอ', sub: 'ยังไม่ช่วยเติมน้ำ', isCorrect: false },
+      { id: 'prepare-nothing', emoji: '🫥', label: 'ไม่ต้องเตรียมอะไรเป็นพิเศษ', sub: 'ไม่เหมาะกับกิจกรรมนอกห้อง', isCorrect: false }
+    ],
+    reasons: [
+      { id: 'reason-outside-longer', emoji: '☀️', label: 'อยู่นอกห้องนานขึ้น ควรเตรียมน้ำไว้ก่อน', isCorrect: true },
+      { id: 'reason-can-wait', emoji: '⌛', label: 'ค่อยรอจนกลับเข้าห้องค่อยดื่มก็ได้', isCorrect: false },
+      { id: 'reason-food-enough', emoji: '🍬', label: 'มีขนมแล้วจึงไม่ต้องสนใจเรื่องน้ำ', isCorrect: false }
+    ]
+  },
 
   // =========================
   // FORM B
@@ -106,7 +139,7 @@ export const HYDRATION_V2_SCENARIOS = [
   {
     id: 'B-hot-classroom',
     form: 'B',
-    family: 'hot',
+    family: 'hotclass',
     difficulty: 'easy',
     title: 'วันที่อากาศร้อนมาก',
     text: 'วันนี้อากาศร้อนกว่าปกติ แม้อยู่ในห้องเรียนก็ยังรู้สึกร้อนง่าย',
@@ -126,7 +159,7 @@ export const HYDRATION_V2_SCENARIOS = [
   {
     id: 'B-pe-class',
     form: 'B',
-    family: 'exercise',
+    family: 'pe',
     difficulty: 'easy',
     title: 'หลังคาบพละ',
     text: 'หลังคาบพละ เด็ก ๆ ทุกคนรู้สึกเหนื่อยและหายใจแรงขึ้น',
@@ -166,7 +199,7 @@ export const HYDRATION_V2_SCENARIOS = [
   {
     id: 'B-assembly-sun',
     form: 'B',
-    family: 'hot',
+    family: 'sunline',
     difficulty: 'medium',
     title: 'เข้าแถวกลางแดด',
     text: 'วันนี้ต้องเข้าแถวกลางแดดนานกว่าปกติ ก่อนขึ้นเรียนคาบเช้า',
@@ -181,6 +214,46 @@ export const HYDRATION_V2_SCENARIOS = [
       { id: 'reason-sun-heat', emoji: '☀️', label: 'อากาศร้อน ควรใส่ใจเรื่องน้ำมากขึ้น', isCorrect: true },
       { id: 'reason-short', emoji: '⌚', label: 'ถ้าไม่นานมากก็ไม่ต้องดื่มน้ำก็ได้', isCorrect: false },
       { id: 'reason-busy', emoji: '📣', label: 'ตอนเช้ายุ่งจึงข้ามเรื่องดื่มน้ำได้', isCorrect: false }
+    ]
+  },
+  {
+    id: 'B-sports-day',
+    form: 'B',
+    family: 'sports',
+    difficulty: 'medium',
+    title: 'วันมีกิจกรรมกีฬา',
+    text: 'วันนี้โรงเรียนมีกิจกรรมกีฬาช่วงบ่าย เด็กหลายคนต้องเดินและเชียร์กลางแดด',
+    hint: 'คิดถึงการดูแลตัวเองในวันที่ร้อนและใช้แรงมากขึ้น',
+    question: 'ควรทำอย่างไรดีที่สุด',
+    choices: [
+      { id: 'drink-regularly', emoji: '🫗', label: 'ดื่มน้ำเป็นช่วง ๆ ระหว่างวัน', sub: 'ช่วยดูแลร่างกายในวันที่ใช้แรง', isCorrect: true },
+      { id: 'drink-after-only', emoji: '🌙', label: 'รอให้กิจกรรมจบแล้วค่อยดื่ม', sub: 'ช้าเกินไป', isCorrect: false },
+      { id: 'cold-sweet-drink', emoji: '🥤', label: 'เลือกแต่น้ำหวานเย็นแทนน้ำเปล่า', sub: 'ไม่ใช่ตัวเลือกหลัก', isCorrect: false }
+    ],
+    reasons: [
+      { id: 'reason-hot-active', emoji: '🏃', label: 'วันนี้ทั้งร้อนและใช้แรง ควรเติมน้ำสม่ำเสมอ', isCorrect: true },
+      { id: 'reason-cheer-only', emoji: '📣', label: 'ถ้าไม่ได้วิ่งเองก็ไม่ต้องสนใจเรื่องน้ำ', isCorrect: false },
+      { id: 'reason-one-time', emoji: '🫙', label: 'ดื่มครั้งเดียวเยอะ ๆ ตอนท้ายวันดีกว่า', isCorrect: false }
+    ]
+  },
+  {
+    id: 'B-hot-morning-line',
+    form: 'B',
+    family: 'morningheat',
+    difficulty: 'easy',
+    title: 'เช้าวันที่ร้อนผิดปกติ',
+    text: 'เช้าวันนี้อากาศร้อนตั้งแต่ก่อนเข้าเรียน และเด็กบางคนเริ่มบ่นว่าคอแห้ง',
+    hint: 'คิดถึงสิ่งที่ควรทำตั้งแต่ช่วงต้นวัน',
+    question: 'ควรทำอะไรเหมาะที่สุด',
+    choices: [
+      { id: 'drink-early', emoji: '💧', label: 'จิบน้ำตั้งแต่ช่วงเช้า', sub: 'เริ่มดูแลร่างกายได้ทันเวลา', isCorrect: true },
+      { id: 'ignore-morning', emoji: '🚫', label: 'ยังไม่ต้องดื่ม รอเที่ยงก่อน', sub: 'รอนานเกินไป', isCorrect: false },
+      { id: 'ice-only', emoji: '🍦', label: 'กินของเย็นแทนน้ำเปล่า', sub: 'ไม่ใช่ทางเลือกหลัก', isCorrect: false }
+    ],
+    reasons: [
+      { id: 'reason-start-early', emoji: '🌤️', label: 'วันที่ร้อนควรเริ่มใส่ใจเรื่องน้ำตั้งแต่ช่วงเช้า', isCorrect: true },
+      { id: 'reason-classroom-later', emoji: '🏫', label: 'เดี๋ยวเข้าเรียนในห้องแล้วจึงไม่ต้องดื่มตอนนี้', isCorrect: false },
+      { id: 'reason-not-sweat-yet', emoji: '🪶', label: 'ยังไม่เหงื่อออกมากจึงยังไม่จำเป็นต้องดื่ม', isCorrect: false }
     ]
   },
 
@@ -266,6 +339,46 @@ export const HYDRATION_V2_SCENARIOS = [
       { id: 'reason-same-liquid', emoji: '🧪', label: 'เพราะทุกเครื่องดื่มเป็นของเหลวเหมือนกันหมด', isCorrect: false },
       { id: 'reason-tasty-best', emoji: '😋', label: 'เพราะอร่อยกว่าน้ำเปล่าจึงเลือกแทนได้', isCorrect: false }
     ]
+  },
+  {
+    id: 'C-reading-day',
+    form: 'C',
+    family: 'study',
+    difficulty: 'medium',
+    title: 'วันอ่านหนังสืออยู่บ้าน',
+    text: 'วันหยุด เด็กคนหนึ่งนั่งอ่านหนังสือและทำการบ้านต่อเนื่องนานหลายช่วง',
+    hint: 'คิดถึงการดูแลตัวเองในวันที่ใช้สมาธินาน ๆ',
+    question: 'ควรทำอย่างไรดีที่สุด',
+    choices: [
+      { id: 'keep-water-nearby', emoji: '🧴', label: 'วางน้ำไว้ใกล้ตัวและจิบเป็นช่วง', sub: 'ช่วยไม่ให้ลืมดื่มน้ำ', isCorrect: true },
+      { id: 'finish-then-drink', emoji: '⌛', label: 'ทำงานให้เสร็จก่อนแล้วค่อยดื่ม', sub: 'รอนานเกินไป', isCorrect: false },
+      { id: 'sweet-drink-main', emoji: '🧋', label: 'ดื่มแต่น้ำหวานแทนน้ำเปล่า', sub: 'ไม่ควรเป็นตัวเลือกหลัก', isCorrect: false }
+    ],
+    reasons: [
+      { id: 'reason-study-focus', emoji: '📚', label: 'ใช้สมาธินาน ควรวางน้ำไว้ใกล้ตัวและดื่มเป็นช่วง', isCorrect: true },
+      { id: 'reason-home-ok', emoji: '🛋️', label: 'อยู่บ้านจึงไม่ต้องวางแผนเรื่องน้ำมาก', isCorrect: false },
+      { id: 'reason-once-later', emoji: '🫙', label: 'ดื่มครั้งเดียวหลังทำงานเสร็จก็น่าจะพอ', isCorrect: false }
+    ]
+  },
+  {
+    id: 'C-habit-plan',
+    form: 'C',
+    family: 'habit',
+    difficulty: 'easy',
+    title: 'ฝึกนิสัยดื่มน้ำทุกวัน',
+    text: 'เด็กคนหนึ่งอยากฝึกนิสัยดื่มน้ำให้ดีขึ้น แต่บางวันก็มักลืม',
+    hint: 'คิดถึงวิธีที่ช่วยให้ทำได้ต่อเนื่อง',
+    question: 'ควรเลือกแนวทางแบบไหนดีที่สุด',
+    choices: [
+      { id: 'plan-daily', emoji: '📅', label: 'ตั้งใจดื่มน้ำเป็นช่วง ๆ ทุกวัน', sub: 'ช่วยสร้างนิสัยที่ดี', isCorrect: true },
+      { id: 'only-when-thirsty', emoji: '🤔', label: 'ดื่มเฉพาะตอนกระหายมาก', sub: 'ยังไม่ใช่นิสัยที่ดีที่สุด', isCorrect: false },
+      { id: 'sweet-reward', emoji: '🍭', label: 'ดื่มน้ำหวานแทนน้ำเปล่าในหลายช่วง', sub: 'ไม่ควรแทนทั้งหมด', isCorrect: false }
+    ],
+    reasons: [
+      { id: 'reason-build-habit', emoji: '✅', label: 'การดื่มเป็นช่วง ๆ ช่วยให้ทำต่อเนื่องจนเป็นนิสัย', isCorrect: true },
+      { id: 'reason-thirst-signal-only', emoji: '🙈', label: 'รอให้กระหายมากก่อนแล้วค่อยดื่มก็พอ', isCorrect: false },
+      { id: 'reason-tasty-easier', emoji: '😋', label: 'ถ้าอร่อยกว่าก็ควรเลือกแทนน้ำเปล่าได้เลย', isCorrect: false }
+    ]
   }
 ];
 
@@ -285,7 +398,7 @@ export function cloneHydrationScenario(item) {
 
 export function shuffleHydrationArray(arr = [], randomFn = Math.random) {
   const out = Array.isArray(arr) ? arr.slice() : [];
-  for (let i = out.length - 1; i > 0; i--) {
+  for (let i = out.length - 1; i > 0; i -= 1) {
     const j = Math.floor(randomFn() * (i + 1));
     const t = out[i];
     out[i] = out[j];
@@ -326,14 +439,16 @@ export function resolveHydrationScenarioForm(stateLike = {}) {
 
 export function pickHydrationScenarioBatch({
   stateLike = {},
-  count = 2,
+  count = 6,
   randomFn = Math.random,
   avoidFamilies = []
 } = {}) {
   const form = resolveHydrationScenarioForm(stateLike);
   const familyBan = new Set(Array.isArray(avoidFamilies) ? avoidFamilies : []);
 
-  let pool = HYDRATION_V2_SCENARIOS.filter(x => x.form === form && !familyBan.has(x.family));
+  let pool = HYDRATION_V2_SCENARIOS.filter(
+    (x) => x.form === form && !familyBan.has(x.family)
+  );
   pool = shuffleHydrationArray(pool, randomFn);
 
   const picked = [];
@@ -348,9 +463,12 @@ export function pickHydrationScenarioBatch({
 
   if (picked.length < count) {
     const extra = shuffleHydrationArray(
-      HYDRATION_V2_SCENARIOS.filter(x => x.form === form && !picked.some(p => p.id === x.id)),
+      HYDRATION_V2_SCENARIOS.filter(
+        (x) => x.form === form && !picked.some((p) => p.id === x.id)
+      ),
       randomFn
     );
+
     for (const item of extra) {
       picked.push(shuffleHydrationScenario(item, randomFn));
       if (picked.length >= count) break;
