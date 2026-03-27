@@ -24,7 +24,6 @@
       --orange:#ffb547;
       --violet:#cdb9ff;
       --shadow:0 18px 40px rgba(86,155,194,.16);
-
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
@@ -32,7 +31,6 @@
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
       min-height:100%;
@@ -44,7 +42,6 @@
         linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
       overflow:hidden;
     }
-
     body{ min-height:100dvh; }
 
     #app{
@@ -54,7 +51,6 @@
       overflow:hidden;
       isolation:isolate;
     }
-
     #gameMount{
       position:absolute;
       inset:0;
@@ -74,9 +70,8 @@
         calc(12px + var(--sab))
         calc(12px + var(--sal));
       pointer-events:none;
-      z-index:0;
+      z-index:2;
     }
-
     .top{
       display:flex;
       justify-content:space-between;
@@ -95,26 +90,20 @@
       position:relative;
       overflow:hidden;
     }
-
     .hero-card::before{
       content:"";
       position:absolute;
-      left:-36px;
-      top:-36px;
-      width:140px;
-      height:140px;
+      left:-36px; top:-36px;
+      width:140px; height:140px;
       border-radius:999px;
       background:rgba(127,207,255,.20);
       filter:blur(8px);
     }
-
     .hero-card::after{
       content:"";
       position:absolute;
-      right:-26px;
-      bottom:-26px;
-      width:120px;
-      height:120px;
+      right:-26px; bottom:-26px;
+      width:120px; height:120px;
       border-radius:999px;
       background:rgba(255,212,92,.22);
       filter:blur(8px);
@@ -192,22 +181,147 @@
       font-weight:900;
       line-height:1.6;
       pointer-events:auto;
-      max-width:min(880px,100%);
+      max-width:min(920px,100%);
+    }
+
+    .status-head{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .status-badge{
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+      font-size:28px;
+      flex:0 0 auto;
+    }
+
+    .status-headtext{
+      min-width:220px;
+      flex:1 1 280px;
     }
 
     .status-title{
       color:#67a91c;
       font-size:14px;
       font-weight:1000;
-      margin-bottom:4px;
+      margin-bottom:2px;
     }
 
     .status-sub{
-      margin-top:6px;
+      margin-top:0;
       color:#8b887f;
       font-size:12px;
       line-height:1.55;
       font-weight:900;
+    }
+
+    .status-minirow{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .status-mini{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      color:#6d6a62;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+    }
+
+    .status-steps{
+      margin-top:10px;
+      display:grid;
+      gap:6px;
+      padding:12px;
+      border-radius:18px;
+      background:rgba(255,255,255,.65);
+      border:2px dashed var(--line);
+      color:#6f6c65;
+      font-size:12px;
+      line-height:1.6;
+      font-weight:1000;
+    }
+
+    .status-step{
+      display:flex;
+      gap:8px;
+      align-items:flex-start;
+    }
+
+    .status-tip{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+      color:#7a776f;
+      font-size:12px;
+      line-height:1.6;
+      font-weight:1000;
+    }
+
+    .status-tip strong{
+      color:#4d4a42;
+    }
+
+    .status-actions{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      pointer-events:auto;
+    }
+
+    .status-btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:16px;
+      padding:10px 14px;
+      font-size:13px;
+      font-weight:1000;
+      transition:.12s ease;
+      box-shadow:0 8px 18px rgba(86,155,194,.12);
+    }
+
+    .status-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .status-btn:active{ transform:translateY(0); }
+
+    .status-btn-copy{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef9;
+    }
+
+    .status-btn-ghost{
+      background:#fff;
+      color:#6d6a62;
+      border:2px solid var(--line);
+    }
+
+    .status-card.is-ready{
+      animation: status-ready-pop .22s ease;
+    }
+
+    @keyframes status-ready-pop{
+      0%{ transform:scale(.985); }
+      100%{ transform:scale(1); }
     }
 
     .debug{
@@ -239,17 +353,16 @@
         calc(16px + var(--sar))
         calc(16px + var(--sab))
         calc(16px + var(--sal));
-      background:rgba(223,244,255,.44);
+      background:rgba(223,244,255,.72);
       backdrop-filter:blur(10px);
       pointer-events:auto;
     }
-
     .summary-overlay[hidden]{
       display:none !important;
     }
 
     .summary-card{
-      width:min(940px, 100%);
+      width:min(940px,100%);
       max-height:88dvh;
       overflow:auto;
       background:linear-gradient(180deg,#fffef8,#f7fff4);
@@ -259,29 +372,23 @@
       padding:18px;
       position:relative;
     }
-
     .summary-card::before{
       content:"";
       position:absolute;
-      left:-40px;
-      top:-40px;
-      width:150px;
-      height:150px;
+      left:-40px; top:-40px;
+      width:150px; height:150px;
       border-radius:999px;
       background:rgba(127,207,255,.18);
       filter:blur(10px);
       pointer-events:none;
     }
-
     .summary-card::after{
       content:"";
       position:absolute;
-      right:-30px;
-      bottom:-30px;
-      width:130px;
-      height:130px;
+      right:-30px; bottom:-30px;
+      width:130px; height:130px;
       border-radius:999px;
-      background:rgba(255,212,92,.20);
+      background:rgba(255,212,92,.18);
       filter:blur(10px);
       pointer-events:none;
     }
@@ -302,14 +409,59 @@
       margin-bottom:10px;
     }
 
+    .summary-hero{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:96px 1fr;
+      gap:14px;
+      align-items:center;
+      margin-bottom:14px;
+      padding:14px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fffdf6,#f6fbff);
+      border:2px solid #cde7f4;
+      box-shadow:0 10px 24px rgba(86,155,194,.10);
+    }
+
+    .summary-badge{
+      width:96px;
+      height:96px;
+      border-radius:28px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#fdf7d8,#f5fbff);
+      border:3px solid #bfe3f2;
+      font-size:42px;
+      box-shadow:0 10px 20px rgba(86,155,194,.10);
+    }
+
+    .summary-hero-title{
+      margin:0 0 6px;
+      color:#67a91c;
+      font-size:clamp(24px,4vw,36px);
+      line-height:1.08;
+      font-weight:1000;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .summary-hero-sub{
+      margin:0;
+      color:#6d6b63;
+      font-size:14px;
+      line-height:1.65;
+      font-weight:900;
+    }
+
     .summary-title{
       position:relative;
       z-index:1;
       margin:0 0 6px;
+      text-align:center;
+      color:#67a91c;
       font-size:clamp(28px,5vw,42px);
       line-height:1.05;
       font-weight:1000;
-      color:#67a91c;
       text-shadow:0 2px 0 #fff;
     }
 
@@ -317,10 +469,57 @@
       position:relative;
       z-index:1;
       margin:0;
-      color:var(--muted);
-      line-height:1.7;
+      text-align:center;
+      color:#6d6b63;
       font-size:14px;
+      line-height:1.7;
       font-weight:900;
+    }
+
+    .summary-stars{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      margin:12px 0 14px;
+      flex-wrap:wrap;
+    }
+
+    .summary-star{
+      font-size:48px;
+      line-height:1;
+      filter:drop-shadow(0 6px 12px rgba(0,0,0,.12));
+    }
+
+    .summary-star.off{
+      opacity:.22;
+      filter:none;
+    }
+
+    .summary-scorecard{
+      margin:0 auto 14px;
+      width:min(480px,100%);
+      border-radius:24px;
+      border:3px solid #cde7f4;
+      background:#fff;
+      box-shadow:0 10px 22px rgba(86,155,194,.10);
+      padding:16px 14px;
+      text-align:center;
+    }
+
+    .summary-scorelabel{
+      color:#79aeca;
+      font-size:15px;
+      line-height:1.3;
+      font-weight:1000;
+      margin-bottom:4px;
+    }
+
+    .summary-scorevalue{
+      color:#4d4a42;
+      font-size:clamp(42px,9vw,70px);
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:.02em;
     }
 
     .summary-grid{
@@ -329,36 +528,34 @@
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:12px;
-      margin-top:16px;
+      margin-top:0;
     }
 
     .summary-item{
       background:#fff;
-      border:2px solid var(--line);
+      border:2px solid #cde7f4;
       border-radius:22px;
       box-shadow:0 8px 18px rgba(86,155,194,.08);
       padding:14px;
     }
 
     .summary-label{
-      color:#8a887f;
+      color:#79aeca;
       font-size:12px;
       font-weight:1000;
       margin-bottom:6px;
-      line-height:1.4;
+      line-height:1.35;
     }
 
     .summary-value{
       color:#4d4a42;
-      font-size:clamp(20px,3.4vw,30px);
+      font-size:clamp(20px,3.5vw,32px);
       font-weight:1000;
-      line-height:1.15;
+      line-height:1.18;
       word-break:break-word;
     }
 
     .summary-actions{
-      position:relative;
-      z-index:1;
       display:flex;
       gap:10px;
       flex-wrap:wrap;
@@ -380,33 +577,15 @@
     .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
     .btn:active{ transform:translateY(0); }
 
-    .btn-primary{
-      background:linear-gradient(180deg,var(--green),var(--green2));
-      color:#fffef9;
-    }
-
-    .btn-copy{
-      background:linear-gradient(180deg,var(--blue),var(--blue2));
-      color:#fffef9;
-    }
-
-    .btn-warn{
-      background:linear-gradient(180deg,var(--yellow),var(--orange));
-      color:#6d4e00;
-    }
-
-    .btn-ghost{
-      background:#fff;
-      color:#6d6a62;
-      border:2px solid var(--line);
-    }
+    .btn-primary{ background:linear-gradient(180deg,var(--green),var(--green2)); color:#fffef9; }
+    .btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
+    .btn-warn{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#6d4e00; }
+    .btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
 
     .summary-debug{
-      position:relative;
-      z-index:1;
       margin-top:14px;
       padding-top:10px;
-      border-top:1px dashed rgba(191,227,242,.95);
+      border-top:1px dashed #cde7f4;
       color:#8a887f;
       font-size:11px;
       line-height:1.6;
@@ -422,7 +601,8 @@
       .side{ width:100%; }
       .pill{ width:100%; justify-content:center; }
       .summary-grid{ grid-template-columns:1fr; }
-      .summary-actions .btn{ flex:1 1 100%; }
+      .summary-actions .btn,
+      .status-actions .status-btn{ flex:1 1 100%; }
     }
   </style>
 </head>
@@ -434,17 +614,17 @@
       <div class="top">
         <div class="hero-card">
           <div class="kicker">🏁 GOODJUNK RACE</div>
-          <h1>Race Run</h1>
+          <h1>Food Race!</h1>
           <p class="sub">
-            แข่งกันเก็บอาหารดีให้ได้คะแนนมากที่สุด ใช้ room code เดียวกันข้ามเครื่องได้
+            แตะเก็บอาหารดีให้ไว ทำคะแนนให้มาก และพยายามเข้าเส้นชัยด้วยคะแนนที่ดีที่สุดของรอบนี้
           </p>
         </div>
 
         <div class="side">
           <div class="pill" id="pillRoom">ROOM • -</div>
-          <div class="pill" id="pillPlayer">PLAYER • -</div>
+          <div class="pill" id="pillPlayer">HERO • -</div>
           <div class="pill" id="pillRole">ROLE • player</div>
-          <div class="pill" id="pillDiff">DIFF • normal</div>
+          <div class="pill" id="pillDiff">LEVEL • normal</div>
           <div class="pill" id="pillTime">TIME • 120</div>
         </div>
       </div>
@@ -452,9 +632,34 @@
       <div></div>
 
       <div class="status-card" id="engineStatusCard">
-        <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
-        <div id="engineStatusText">กำลังโหลด race engine</div>
-        <div class="status-sub" id="engineStatusSub">รองรับทั้ง classic / module และ override path ผ่าน query</div>
+        <div class="status-head">
+          <div class="status-badge" id="engineStatusBadge">🏁</div>
+          <div class="status-headtext">
+            <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
+            <div id="engineStatusText">กำลังโหลด race engine</div>
+            <div class="status-sub" id="engineStatusSub">เกมจะเริ่มเองเมื่อโหลดพร้อม ระหว่างเล่นให้ดูคะแนน เวลา และห้องเล่นด้านบน</div>
+          </div>
+        </div>
+
+        <div class="status-minirow">
+          <div class="status-mini" id="engineMiniMode">MODE • RACE</div>
+          <div class="status-mini" id="engineMiniRoom">ROOM • -</div>
+          <div class="status-mini" id="engineMiniPlayer">HERO • -</div>
+        </div>
+
+        <div class="status-steps" id="engineSteps">
+          <div class="status-step"><span>1️⃣</span><span>รอให้หน้าเกมโหลดให้พร้อมก่อน</span></div>
+          <div class="status-step"><span>2️⃣</span><span>เมื่อเริ่มแล้ว ให้แตะเก็บอาหารดีให้ไว</span></div>
+          <div class="status-step"><span>3️⃣</span><span>พยายามทำคะแนนให้มากที่สุดในรอบนี้</span></div>
+        </div>
+
+        <div class="status-tip" id="engineTip"><strong>Tip:</strong> โหมดนี้เน้นความไวและความแม่นในการเก็บอาหารดี</div>
+
+        <div class="status-actions">
+          <button class="status-btn status-btn-copy" id="btnQuickCopyRoom" type="button">คัดลอกห้อง</button>
+          <button class="status-btn status-btn-ghost" id="btnQuickBackHub" type="button">กลับ HUB</button>
+        </div>
+
         <div class="debug" id="engineDebugInfo"></div>
       </div>
     </div>
@@ -462,8 +667,24 @@
     <div class="summary-overlay" id="summaryOverlay" hidden>
       <div class="summary-card">
         <div class="summary-kicker">🏁 GOODJUNK RACE SUMMARY</div>
-        <h2 class="summary-title" id="summaryTitle">สรุปผลการแข่งขัน</h2>
-        <p class="summary-sub" id="summarySub">รอข้อมูลสรุปจาก race engine</p>
+
+        <div class="summary-hero">
+          <div class="summary-badge" id="summaryBadge">🏁</div>
+          <div>
+            <h3 class="summary-hero-title" id="summaryHeroTitle">Race Hero!</h3>
+            <p class="summary-hero-sub" id="summaryHeroSub">เธอวิ่งแข่งเก็บอาหารดีได้ยอดเยี่ยมมาก</p>
+          </div>
+        </div>
+
+        <h2 class="summary-title" id="summaryTitle">Great Job!</h2>
+        <p class="summary-sub" id="summarySub">จบรอบแล้ว มาดูผลการแข่งขันกัน</p>
+
+        <div class="summary-stars" id="summaryStars"></div>
+
+        <div class="summary-scorecard">
+          <div class="summary-scorelabel">Score</div>
+          <div class="summary-scorevalue" id="summaryScoreValue">0</div>
+        </div>
 
         <div class="summary-grid" id="summaryGrid"></div>
 
@@ -479,13 +700,12 @@
     </div>
   </div>
 
+  <script src="../js/hha-cloud-logger.js"></script>
   <script>
     (function(){
       const q = new URLSearchParams(location.search);
-
       const MODE = 'race';
       const MODE_LABEL = 'Race';
-
       const DEFAULT_ENGINE_CANDIDATES = [
         './goodjunk-race.safe.js',
         './goodjunk-race.js',
@@ -501,14 +721,8 @@
         './js/race.js'
       ];
 
-      function qs(key, fb=''){
-        return q.get(key) ?? fb;
-      }
-
-      function clean(v){
-        return String(v || '').trim();
-      }
-
+      function qs(key, fb=''){ return q.get(key) ?? fb; }
+      function clean(v){ return String(v || '').trim(); }
       function dedupe(arr){
         const out = [];
         const seen = new Set();
@@ -520,35 +734,14 @@
         }
         return out;
       }
-
       function parseList(text){
-        return String(text || '')
-          .split(',')
-          .map(s => clean(s))
-          .filter(Boolean);
+        return String(text || '').split(',').map(s => clean(s)).filter(Boolean);
       }
-
       function resolveHub(){
-        try{
-          return qs('hub') || new URL('../hub.html', location.href).toString();
-        }catch{
-          return '../hub.html';
-        }
+        try{ return qs('hub') || new URL('../hub.html', location.href).toString(); }
+        catch{ return '../hub.html'; }
       }
-
-      function escapeHtml(s){
-        return String(s ?? '')
-          .replaceAll('&', '&amp;')
-          .replaceAll('<', '&lt;')
-          .replaceAll('>', '&gt;')
-          .replaceAll('"', '&quot;');
-      }
-
-      function safeJson(v){
-        try { return JSON.stringify(v, null, 2); }
-        catch { return '{}'; }
-      }
-
+      function safeJson(v){ try { return JSON.stringify(v, null, 2); } catch { return '{}'; } }
       function saveText(name, text, type='application/json'){
         const blob = new Blob([text], { type });
         const url = URL.createObjectURL(blob);
@@ -560,13 +753,11 @@
         a.remove();
         URL.revokeObjectURL(url);
       }
-
       function buildReplayUrl(){
         const url = new URL(location.href);
         url.searchParams.set('seed', String(Date.now()));
         return url.toString();
       }
-
       function copyText(text){
         const t = String(text || '').trim();
         if (!t) return Promise.reject(new Error('empty'));
@@ -574,11 +765,7 @@
       }
 
       window.HHA_CLOUD_ENDPOINT =
-        clean(
-          qs('api') ||
-          window.HHA_CLOUD_ENDPOINT ||
-          'https://script.google.com/macros/s/AKfycbwNOpsjFTV_nK0PzNV23KziF5hZxIMI50P8o_vZgwVg_T4anpXZOaKQUy_uf5PPg9kT6Q/exec'
-        );
+        clean(qs('api') || window.HHA_CLOUD_ENDPOINT || '');
 
       const runCtx = {
         pid: qs('pid', 'anon'),
@@ -600,30 +787,135 @@
       window.__GJ_RUN_CTX__ = runCtx;
       window.__GJ_MULTI_RUN_CTX__ = runCtx;
 
+      function deriveHeroAvatarFromName(name) {
+        const text = String(name || '').trim();
+        if (!text) return clean(qs('heroAvatar')) || '🙂';
+
+        const parts = text.split(/\s+/).filter(Boolean);
+        const key = parts[parts.length - 1] || parts[0] || '';
+        const byWord = {
+          Apple:'🍎', Carrot:'🥕', Bunny:'🐰', Panda:'🐼', Star:'⭐', Berry:'🍓',
+          Tiger:'🐯', Cloud:'☁️', Rocket:'🚀', Kitty:'🐱', Buddy:'🧡', Hero:'🦸'
+        };
+        return clean(qs('heroAvatar')) || byWord[key] || '🙂';
+      }
+
+      function readHeroMeta() {
+        const displayName = String(runCtx.name || runCtx.pid || 'Hero').trim() || 'Hero';
+        return {
+          name: displayName,
+          avatar: clean(qs('heroAvatar')) || deriveHeroAvatarFromName(displayName),
+          soft: clean(qs('heroSoft')) || '#eef8ff',
+          border: clean(qs('heroBorder')) || '#bfe3f2',
+          text: clean(qs('heroText')) || '#4d4a42'
+        };
+      }
+
+      const heroMeta = readHeroMeta();
+
+      function applyHeroBadgeTheme(el) {
+        if (!el) return;
+        el.textContent = heroMeta.avatar;
+        el.style.borderColor = heroMeta.border;
+        el.style.background = `linear-gradient(180deg,#fffdf7,${heroMeta.soft})`;
+        el.style.color = heroMeta.text;
+      }
+
+      function applyHeroPillTheme(el, text) {
+        if (!el) return;
+        el.textContent = text;
+        el.style.borderColor = heroMeta.border;
+        el.style.background = heroMeta.soft;
+        el.style.color = heroMeta.text;
+      }
+
+      function applyHeroIdentity() {
+        const heroText = `HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`;
+        applyHeroPillTheme($('pillPlayer'), heroText);
+        applyHeroPillTheme($('engineMiniPlayer'), heroText);
+        applyHeroBadgeTheme($('engineStatusBadge'));
+      }
+
+      function applySummaryIdentity() {
+        applyHeroBadgeTheme($('summaryBadge'));
+      }
+
+      function buildHeroIdentityPayload() {
+        return {
+          heroName: heroMeta.name,
+          heroAvatar: heroMeta.avatar,
+          heroSoft: heroMeta.soft,
+          heroBorder: heroMeta.border,
+          heroText: heroMeta.text,
+          heroDisplay: `${heroMeta.avatar} ${heroMeta.name}`.trim()
+        };
+      }
+
+      function enrichSummaryWithHero(summary) {
+        const hero = buildHeroIdentityPayload();
+        return {
+          ...summary,
+          ...hero,
+          identity: hero
+        };
+      }
+
+      function emitEnrichedSummaryEvents(modeKey, enrichedSummary) {
+        try { window.dispatchEvent(new CustomEvent(`gj:${modeKey}-summary-enriched`, { detail: enrichedSummary })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('gj:summary-enriched', { detail: enrichedSummary })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('hha:summary-enriched', { detail: enrichedSummary })); } catch {}
+      }
+
       const ENGINE_CANDIDATES = dedupe([
         clean(qs('engine')),
         ...parseList(qs('engineCandidates')),
         ...DEFAULT_ENGINE_CANDIDATES
       ]);
 
-      const SUMMARY_KEY =
-        'GJ_RACE_LAST_SUMMARY_' +
-        (runCtx.roomId || 'noroom') + '_' +
-        (runCtx.pid || 'anon');
-
+      const SUMMARY_KEY = 'GJ_RACE_LAST_SUMMARY_' + (runCtx.roomId || 'noroom') + '_' + (runCtx.pid || 'anon');
       const $ = (id) => document.getElementById(id);
 
+      function setMiniInfo() {
+        const miniRoom = $('engineMiniRoom');
+        const miniMode = $('engineMiniMode');
+        if (miniRoom) miniRoom.textContent = `ROOM • ${runCtx.roomId || '-'}`;
+        if (miniMode) miniMode.textContent = `MODE • ${MODE.toUpperCase()}`;
+        if ($('engineMiniPlayer')) $('engineMiniPlayer').textContent = `HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`;
+      }
+
+      function wireQuickActions() {
+        $('btnQuickCopyRoom')?.addEventListener('click', () => {
+          const room = String(runCtx.roomId || '').trim();
+          if (!room) {
+            if ($('engineTip')) $('engineTip').innerHTML = '<strong>Tip:</strong> ตอนนี้ยังไม่มีรหัสห้องให้คัดลอก';
+            return;
+          }
+          navigator.clipboard.writeText(room).then(() => {
+            if ($('engineTip')) $('engineTip').innerHTML = '<strong>คัดลอกแล้ว:</strong> ส่งรหัสห้องนี้ให้เพื่อนได้เลย';
+          }).catch(() => {
+            if ($('engineTip')) $('engineTip').innerHTML = '<strong>ยังคัดลอกไม่ได้:</strong> ลองคัดลอกจากข้อความ ROOM ด้านบนแทน';
+          });
+        });
+
+        $('btnQuickBackHub')?.addEventListener('click', () => {
+          location.href = runCtx.hub;
+        });
+      }
+
       $('pillRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
-      $('pillPlayer').textContent = `PLAYER • ${runCtx.name || runCtx.pid || '-'}`;
       $('pillRole').textContent = `ROLE • ${runCtx.role || 'player'}`;
-      $('pillDiff').textContent = `DIFF • ${runCtx.diff}`;
+      $('pillDiff').textContent = `LEVEL • ${runCtx.diff}`;
       $('pillTime').textContent = `TIME • ${runCtx.time}`;
+      applyHeroIdentity();
+      setMiniInfo();
+      wireQuickActions();
 
       $('engineDebugInfo').textContent =
         '[MODE] ' + MODE + '\n' +
         '[PID] ' + (runCtx.pid || '-') + '\n' +
         '[ROOM] ' + (runCtx.roomId || '-') + '\n' +
-        '[API] ' + (window.HHA_CLOUD_ENDPOINT || '-') + '\n\n' +
+        '[API] ' + (window.HHA_CLOUD_ENDPOINT || '-') + '\n' +
+        '[HERO] ' + heroMeta.avatar + ' ' + heroMeta.name + '\n\n' +
         '[CANDIDATES]\n' + ENGINE_CANDIDATES.join('\n');
 
       function setStatus(title, text, isError = false) {
@@ -636,12 +928,31 @@
         $('engineDebugInfo').textContent = text;
       }
 
+      function setFriendlyReadyState(src, type) {
+        const card = $('engineStatusCard');
+        if (card) card.classList.add('is-ready');
+
+        setStatus('พร้อมแล้ว!', `${MODE_LABEL} engine loaded: ${src} (${type})`);
+        const sub = $('engineStatusSub');
+        if (sub) sub.textContent = 'เข้าเกมสำเร็จแล้ว อีกครู่หน้าช่วยเล่นจะหายไปและเกมจะเริ่มเอง';
+
+        const steps = $('engineSteps');
+        if (steps) {
+          steps.innerHTML = `
+            <div class="status-step"><span>✅</span><span>โหลดหน้าเกมสำเร็จแล้ว</span></div>
+            <div class="status-step"><span>🎮</span><span>เตรียมแตะเก็บอาหารดีเมื่อเกมเริ่ม</span></div>
+            <div class="status-step"><span>🌟</span><span>ขอให้สนุกกับรอบนี้นะ</span></div>
+          `;
+        }
+
+        const tip = $('engineTip');
+        if (tip) tip.innerHTML = '<strong>พร้อมแล้ว:</strong> อีกครู่หน้าช่วยเล่นนี้จะซ่อนลงอัตโนมัติ';
+      }
+
       function hideStatusCardSoon() {
         const card = $('engineStatusCard');
         if (!card) return;
-        setTimeout(() => {
-          card.style.display = 'none';
-        }, 1200);
+        setTimeout(() => { card.style.display = 'none'; }, 1200);
       }
 
       function loadScriptWithType(src, type) {
@@ -692,13 +1003,15 @@
               loadedAt: Date.now()
             };
 
-            setStatus('เข้าเกมแล้ว', `${MODE_LABEL} engine loaded: ${result.src} (${result.type})`);
+            setFriendlyReadyState(result.src, result.type);
+            applyHeroIdentity();
+
             setDebug(
               '[SUCCESS]\n' +
               'src: ' + result.src + '\n' +
               'type: ' + result.type + '\n' +
               'room: ' + (runCtx.roomId || '-') + '\n' +
-              'player: ' + (runCtx.name || runCtx.pid || '-') + '\n' +
+              'player: ' + heroMeta.avatar + ' ' + (runCtx.name || runCtx.pid || '-') + '\n' +
               'role: ' + (runCtx.role || 'player')
             );
 
@@ -712,18 +1025,8 @@
           }
         }
 
-        setStatus(
-          'ไม่พบไฟล์ engine',
-          `หา race engine ไม่เจอ\nลองแก้ ?engine=... หรือ ?engineCandidates=... ให้ตรงกับไฟล์จริง`,
-          true
-        );
-
-        setDebug(
-          '[FAILED CANDIDATES]\n' +
-          ENGINE_CANDIDATES.join('\n') +
-          '\n\n[ERRORS]\n' +
-          errors.join('\n\n')
-        );
+        setStatus('ไม่พบไฟล์ engine', 'หา race engine ไม่เจอ\nลองแก้ ?engine=... หรือ ?engineCandidates=... ให้ตรงกับไฟล์จริง', true);
+        setDebug('[FAILED CANDIDATES]\n' + ENGINE_CANDIDATES.join('\n') + '\n\n[ERRORS]\n' + errors.join('\n\n'));
       }
 
       function normalizeSummary(detail) {
@@ -731,78 +1034,19 @@
           ? detail.summary
           : (detail || {});
 
-        const rank =
-          src.rank ??
-          src.place ??
-          src.position ??
-          src.playerRank ??
-          src.finalRank ??
-          '';
+        const rank = src.rank ?? src.place ?? src.position ?? src.playerRank ?? src.finalRank ?? '';
+        const score = src.score ?? src.totalScore ?? src.playerScore ?? src.myScore ?? '';
+        const teamScore = src.teamScore ?? src.totalTeamScore ?? src.roomScore ?? '';
+        const miss = src.miss ?? src.misses ?? src.totalMiss ?? '';
+        const goodHit = src.goodHit ?? src.hitsGood ?? src.goodHits ?? src.correct ?? '';
+        const junkHit = src.junkHit ?? src.hitsBad ?? src.junkHits ?? src.wrong ?? '';
+        const streak = src.bestStreak ?? src.streak ?? src.comboMax ?? '';
+        const result = src.result ?? src.outcome ?? src.status ?? (rank !== '' ? `อันดับ ${rank}` : 'จบรอบแล้ว');
+        const reason = src.reason ?? src.finishReason ?? src.endReason ?? '';
+        const players = src.players ?? src.playerCount ?? src.totalPlayers ?? '';
+        const duration = src.duration ?? src.durationSec ?? src.timeUsed ?? '';
 
-        const score =
-          src.score ??
-          src.totalScore ??
-          src.playerScore ??
-          src.myScore ??
-          '';
-
-        const teamScore =
-          src.teamScore ??
-          src.totalTeamScore ??
-          src.roomScore ??
-          '';
-
-        const miss =
-          src.miss ??
-          src.misses ??
-          src.totalMiss ??
-          '';
-
-        const goodHit =
-          src.goodHit ??
-          src.hitsGood ??
-          src.goodHits ??
-          src.correct ??
-          '';
-
-        const junkHit =
-          src.junkHit ??
-          src.hitsBad ??
-          src.junkHits ??
-          src.wrong ??
-          '';
-
-        const streak =
-          src.bestStreak ??
-          src.streak ??
-          src.comboMax ??
-          '';
-
-        const result =
-          src.result ??
-          src.outcome ??
-          src.status ??
-          (rank !== '' ? `อันดับ ${rank}` : 'จบรอบแล้ว');
-
-        const reason =
-          src.reason ??
-          src.finishReason ??
-          src.endReason ??
-          '';
-
-        const players =
-          src.players ??
-          src.playerCount ??
-          src.totalPlayers ??
-          '';
-
-        const duration =
-          src.duration ??
-          src.durationSec ??
-          src.timeUsed ??
-          '';
-
-        return {
+        return enrichSummaryWithHero({
           mode: MODE,
           label: MODE_LABEL,
           roomId: runCtx.roomId,
@@ -824,13 +1068,53 @@
           reason,
           raw: src,
           receivedAt: Date.now()
-        };
+        });
       }
 
-      function summaryTitleText(summary) {
-        if (summary.rank === 1 || String(summary.rank) === '1') return 'เยี่ยมมาก! เข้าเส้นชัยอันดับ 1';
-        if (summary.rank !== '') return `จบการแข่งขันแล้ว • อันดับ ${summary.rank}`;
-        return 'สรุปผลการแข่งขัน';
+      function addSummaryItem(label, value) {
+        if (value === '' || value === null || value === undefined) return '';
+        return `
+          <div class="summary-item">
+            <div class="summary-label">${label}</div>
+            <div class="summary-value">${String(value)}</div>
+          </div>
+        `;
+      }
+
+      function renderSummaryStars(n) {
+        const count = Math.max(0, Math.min(3, Number(n || 0)));
+        return [1,2,3].map(i => `<span class="summary-star ${i <= count ? '' : 'off'}">⭐</span>`).join('');
+      }
+
+      function raceStarCount(summary) {
+        if (String(summary.rank) === '1') return 3;
+        if (String(summary.rank) === '2') return 2;
+        return 1;
+      }
+
+      function raceHero(summary) {
+        if (String(summary.rank) === '1') {
+          return {
+            badge: '🏆',
+            heroTitle: 'Race Champion!',
+            heroSub: 'เข้าเส้นชัยเป็นอันดับ 1 เก่งมากเลย',
+            title: 'You Win!'
+          };
+        }
+        if (String(summary.rank) === '2') {
+          return {
+            badge: '🌟',
+            heroTitle: 'Almost There!',
+            heroSub: 'ใกล้ชนะมากแล้ว ลองอีกครั้งนะ',
+            title: 'Great Job!'
+          };
+        }
+        return {
+          badge: '🏁',
+          heroTitle: 'Race Hero!',
+          heroSub: 'เธอวิ่งแข่งเก็บอาหารดีได้ยอดเยี่ยมมาก',
+          title: 'Nice Try!'
+        };
       }
 
       function summarySubText(summary) {
@@ -842,93 +1126,70 @@
         return parts.join(' • ') || 'จบรอบแล้ว มาดูผลการแข่งขันกัน';
       }
 
-      function addSummaryItem(label, value) {
-        if (value === '' || value === null || value === undefined) return '';
-        return `
-          <div class="summary-item">
-            <div class="summary-label">${escapeHtml(label)}</div>
-            <div class="summary-value">${escapeHtml(String(value))}</div>
-          </div>
-        `;
-      }
-
       function showSummary(detail) {
         const summary = normalizeSummary(detail);
+        const hero = raceHero(summary);
+        const stars = raceStarCount(summary);
 
-        try {
-          localStorage.setItem(SUMMARY_KEY, JSON.stringify(summary));
-        } catch {}
+        try { localStorage.setItem(SUMMARY_KEY, JSON.stringify(summary)); } catch {}
 
-        $('summaryTitle').textContent = summaryTitleText(summary);
+        $('summaryBadge').textContent = hero.badge;
+        applySummaryIdentity();
+        $('summaryHeroTitle').textContent = hero.heroTitle;
+        $('summaryHeroSub').textContent = `${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'} • ${hero.heroSub}`;
+        $('summaryTitle').textContent = hero.title;
         $('summarySub').textContent = summarySubText(summary);
+        $('summaryStars').innerHTML = renderSummaryStars(stars);
+        $('summaryScoreValue').textContent = String(summary.score ?? 0);
 
         $('summaryGrid').innerHTML =
-          addSummaryItem('ผลลัพธ์', summary.result) +
           addSummaryItem('อันดับ', summary.rank) +
-          addSummaryItem('คะแนน', summary.score) +
-          addSummaryItem('คะแนนทีม', summary.teamScore) +
-          addSummaryItem('จำนวนผู้เล่น', summary.players) +
-          addSummaryItem('Good hit', summary.goodHit) +
-          addSummaryItem('Junk hit', summary.junkHit) +
+          addSummaryItem('ผลลัพธ์', summary.result) +
+          addSummaryItem('ฮีโร่', summary.heroDisplay) +
+          addSummaryItem('คะแนนเรา', summary.score) +
+          addSummaryItem('ผู้เล่นทั้งหมด', summary.players) +
+          addSummaryItem('Good Hit', summary.goodHit) +
+          addSummaryItem('Junk Hit', summary.junkHit) +
           addSummaryItem('Miss', summary.miss) +
           addSummaryItem('Best Streak', summary.bestStreak) +
           addSummaryItem('เวลาใช้', summary.duration) +
-          addSummaryItem('Room', summary.roomId || '-') +
-          addSummaryItem('Player', summary.name || summary.pid || '-');
+          addSummaryItem('ห้อง', summary.roomId || '-') +
+          addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-');
 
         $('summaryDebug').textContent =
-          '[SUMMARY BRIDGE]\n' +
-          'mode: ' + summary.mode + '\n' +
-          'room: ' + (summary.roomId || '-') + '\n' +
-          'player: ' + (summary.name || summary.pid || '-') + '\n' +
-          'role: ' + (summary.role || '-') + '\n' +
-          'diff: ' + (summary.diff || '-') + '\n' +
-          'time: ' + (summary.time || '-') + '\n\n' +
-          safeJson(summary.raw);
+          '[RACE SUMMARY]\n' +
+          'hero=' + (summary.heroDisplay || '-') + '\n' +
+          'rank=' + (summary.rank || '-') + '\n' +
+          'score=' + (summary.score || 0) + '\n' +
+          'players=' + (summary.players || '-') + '\n\n' +
+          safeJson(summary);
 
         $('summaryOverlay').hidden = false;
         window.__GJ_RACE_LAST_SUMMARY__ = summary;
+        emitEnrichedSummaryEvents('race', summary);
       }
 
-      function hideSummary() {
-        $('summaryOverlay').hidden = true;
-      }
+      function hideSummary(){ $('summaryOverlay').hidden = true; }
 
       function handleSummaryEvent(evtName, detail) {
         console.log('[GJ-RACE-SUMMARY]', evtName, detail);
         showSummary(detail || {});
       }
 
-      $('btnReplay').addEventListener('click', () => {
-        location.href = buildReplayUrl();
-      });
-
+      $('btnReplay').addEventListener('click', () => { location.href = buildReplayUrl(); });
       $('btnCopyRoom').addEventListener('click', () => {
-        copyText(runCtx.roomId || '').then(() => {
-          $('summarySub').textContent = 'คัดลอก room code แล้ว';
-        }).catch(() => {
-          $('summarySub').textContent = 'คัดลอก room code ไม่สำเร็จ';
-        });
+        copyText(runCtx.roomId || '').then(() => { $('summarySub').textContent = 'คัดลอก room code แล้ว'; })
+        .catch(() => { $('summarySub').textContent = 'คัดลอก room code ไม่สำเร็จ'; });
       });
-
       $('btnExport').addEventListener('click', () => {
         const payload = window.__GJ_RACE_LAST_SUMMARY__ || {};
-        saveText(
-          `goodjunk-race-summary-${clean(runCtx.roomId || 'room')}-${Date.now()}.json`,
-          safeJson(payload)
-        );
+        saveText(`goodjunk-race-summary-${clean(runCtx.roomId || 'room')}-${Date.now()}.json`, safeJson(payload));
       });
-
-      $('btnBackHub').addEventListener('click', () => {
-        location.href = runCtx.hub;
-      });
+      $('btnBackHub').addEventListener('click', () => { location.href = runCtx.hub; });
 
       window.__GJ_SHOW_RACE_SUMMARY__ = showSummary;
       window.__GJ_HIDE_RACE_SUMMARY__ = hideSummary;
-      window.__GJ_RACE_SUMMARY_BRIDGE__ = {
-        show: showSummary,
-        hide: hideSummary
-      };
+      window.__GJ_RACE_SUMMARY_BRIDGE__ = { show: showSummary, hide: hideSummary };
 
       [
         'gj:race-summary',
@@ -947,11 +1208,7 @@
       window.addEventListener('message', (evt) => {
         const data = evt && evt.data ? evt.data : null;
         if (!data || typeof data !== 'object') return;
-        if (
-          data.type === 'gj:race-summary' ||
-          data.type === 'gj:summary' ||
-          data.type === 'hha:summary'
-        ) {
+        if (data.type === 'gj:race-summary' || data.type === 'gj:summary' || data.type === 'hha:summary') {
           handleSummaryEvent(data.type, data.detail || data.summary || data);
         }
       });
