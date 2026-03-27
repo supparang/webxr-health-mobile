@@ -1,5 +1,5 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260327-GOODJUNK-DUET-RUN-WORK-SURE-V3
+   FULL PATCH v20260327-GOODJUNK-DUET-OVERLAYFIX-V5
    - pairs with duet lobby path: hha-battle/goodjunk/duetRooms/{ROOM}
    - firebase anonymous auth
    - authoritative countdown from room.startAt
@@ -7,6 +7,7 @@
    - seeded spawn pattern + simple AI coach
    - live sync score to room.players/{uid}
    - final summary + pair score + last summary save
+   - FIX: result overlay hidden/reset on init + startGame + prestart
 */
 (function(){
   'use strict';
@@ -145,6 +146,13 @@
     }catch{}
   }
 
+  function resetResultMount(){
+    if (!UI.resultMount) return;
+    UI.resultMount.hidden = true;
+    UI.resultMount.innerHTML = '';
+    STATE.resultOpen = false;
+  }
+
   const GOOD_ITEMS = [
     { emoji:'🍎', name:'Apple' },
     { emoji:'🍌', name:'Banana' },
@@ -212,7 +220,6 @@
     peerId: '',
     loopId: 0,
     heartbeatTimer: 0,
-    coachTimer: 0,
 
     rng: null,
     cfg: null,
@@ -228,7 +235,6 @@
 
     lastFrameAt: 0,
     lastSpawnAt: 0,
-    lastCoachAt: 0,
 
     targets: [],
     seq: 0,
@@ -237,7 +243,7 @@
     goodHit: 0,
     junkHit: 0,
     goodMiss: 0,
-    miss: 0,           // standard miss = junk hit + good expired
+    miss: 0,
     streak: 0,
     bestStreak: 0,
 
@@ -350,7 +356,7 @@
     STATE.hudCompact = !STATE.hudCompact;
     const children = UI.hud ? Array.from(UI.hud.children) : [];
     children.forEach((el, idx) => {
-      if (idx <= 2) return; // keep toolbar + top + score
+      if (idx <= 2) return;
       el.style.display = STATE.hudCompact ? 'none' : '';
     });
     if (UI.hudToggle) UI.hudToggle.textContent = STATE.hudCompact ? '＋' : '⋯';
@@ -416,7 +422,6 @@
     if (!STATE.started || STATE.ended) return;
     if (!UI.stage) return;
     if (STATE.targets.length >= STATE.cfg.maxTargets) return;
-
     const kind = STATE.rng() < STATE.cfg.goodRatio ? 'good' : 'junk';
     makeTarget(kind);
   }
@@ -511,8 +516,7 @@
   }
 
   function coachTick(){
-    const t = pickCoachTip();
-    setCoach(t);
+    setCoach(pickCoachTip());
   }
 
   function loop(frameTs){
@@ -573,6 +577,8 @@
   }
 
   function prestartTick(){
+    resetResultMount();
+
     const room = STATE.room;
     const status = String((room && room.status) || STATE.roomStatus || 'waiting');
     const startAt = Number((room && room.startAt) || STATE.startAt || 0);
@@ -623,6 +629,9 @@
 
   function startGame(){
     if (STATE.started || STATE.ended) return;
+
+    resetResultMount();
+
     STATE.started = true;
     STATE.prestart = false;
     STATE.roomStatus = 'running';
@@ -674,7 +683,7 @@
     const peer = getPeer(STATE.room) || {};
     const peerName = String(peer.name || 'Partner');
     const peerFinished = !!peer.finished;
-    const summary = {
+    return {
       game: 'goodjunk',
       mode: 'duet',
       roomId: STATE.roomId,
@@ -698,9 +707,8 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: peerFinished,
       endedAt: new Date().toISOString(),
-      version: 'v20260327-GOODJUNK-DUET-RUN-WORK-SURE-V3'
+      version: 'v20260327-GOODJUNK-DUET-OVERLAYFIX-V5'
     };
-    return summary;
   }
 
   function renderResultOverlay(reason){
@@ -718,6 +726,7 @@
     saveLastSummary(summary);
 
     UI.resultMount.hidden = false;
+    STATE.resultOpen = true;
     UI.resultMount.innerHTML = `
       <div class="duet-result-card">
         <div class="duet-result-title">${goalReached ? 'เยี่ยมมาก ทำคะแนนคู่ได้ดีมาก' : 'จบรอบ GoodJunk Duet แล้ว'}</div>
@@ -772,9 +781,9 @@
         </div>
 
         <div class="duet-result-actions">
-          <a class="btn good" id="duetBtnNewRoom" href="./goodjunk-duet-lobby.html?pid=${encodeURIComponent(STATE.pid)}&name=${encodeURIComponent(STATE.name)}&hub=${encodeURIComponent(STATE.hub)}&diff=${encodeURIComponent(STATE.diff)}&time=${encodeURIComponent(String(STATE.timeSec))}&seed=${encodeURIComponent(String(now()))}&view=${encodeURIComponent(STATE.view)}&run=${encodeURIComponent(STATE.run)}&zone=${encodeURIComponent(STATE.zone)}&theme=${encodeURIComponent(STATE.theme)}">เล่นอีกรอบ</a>
-          <a class="btn ghost" id="duetBtnLauncher" href="${esc((UI.btnBackLauncher && UI.btnBackLauncher.href) || './goodjunk-launcher.html')}">กลับ Launcher</a>
-          <a class="btn primary" id="duetBtnHub" href="${esc(STATE.hub)}">กลับ Hub</a>
+          <a class="btn good" href="./goodjunk-duet-lobby.html?pid=${encodeURIComponent(STATE.pid)}&name=${encodeURIComponent(STATE.name)}&hub=${encodeURIComponent(STATE.hub)}&diff=${encodeURIComponent(STATE.diff)}&time=${encodeURIComponent(String(STATE.timeSec))}&seed=${encodeURIComponent(String(now()))}&view=${encodeURIComponent(STATE.view)}&run=${encodeURIComponent(STATE.run)}&zone=${encodeURIComponent(STATE.zone)}&theme=${encodeURIComponent(STATE.theme)}">เล่นอีกรอบ</a>
+          <a class="btn ghost" href="${esc((UI.btnBackLauncher && UI.btnBackLauncher.href) || '../goodjunk-launcher.html')}">กลับ Launcher</a>
+          <a class="btn primary" href="${esc(STATE.hub)}">กลับ Hub</a>
           <button class="btn ghost" id="duetBtnClose" type="button">ปิดหน้าสรุป</button>
         </div>
       </div>
@@ -783,7 +792,7 @@
     const btnClose = $('duetBtnClose');
     if (btnClose){
       btnClose.addEventListener('click', () => {
-        UI.resultMount.hidden = true;
+        resetResultMount();
       });
     }
   }
@@ -838,17 +847,14 @@
   async function publishFinish(){
     if (STATE.finishedPublished) return;
     STATE.finishedPublished = true;
-    try{
-      await publishLivePresence();
-    }catch{}
-    try{
-      await maybeFinalizeRoom();
-    }catch{}
+    try{ await publishLivePresence(); }catch{}
+    try{ await maybeFinalizeRoom(); }catch{}
   }
 
   async function showBlockOverlay(title, sub){
     if (!UI.resultMount) return;
     UI.resultMount.hidden = false;
+    STATE.resultOpen = true;
     UI.resultMount.innerHTML = `
       <div class="duet-result-card">
         <div class="duet-result-title">${esc(title)}</div>
@@ -1009,6 +1015,7 @@
 
   async function init(){
     bindUi();
+    resetResultMount();
 
     STATE.cfg = getCfg();
     STATE.pairGoal = computePairGoal();
