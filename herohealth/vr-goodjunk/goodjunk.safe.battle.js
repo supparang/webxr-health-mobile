@@ -3,10 +3,11 @@
  * FULL SAFE LAYER FOR BATTLE
  * ---------------------------------------------------------
  * Features:
- * - robust self detection (PID-first)
+ * - robust self detection (PID / UID / playerId / key)
+ * - new schema aware: rooms/{roomId}/{meta,state,players}
+ * - preserves player key when players is an object map
  * - battle HUD bridge
  * - HP / attack charge / ready state
- * - room/player bridge
  * - stable battle sorting
  * - fixed result table / rank badge
  * - no "guess first row as me"
@@ -28,6 +29,8 @@
 (() => {
   if (window.__GJ_BATTLE_SAFE_LOADED__) return;
   window.__GJ_BATTLE_SAFE_LOADED__ = true;
+
+  const BOOT = window.HHA_BATTLE_BOOT || window.__GJ_BATTLE_BOOT__ || null;
 
   const LS_KEYS = {
     devicePid: 'GJ_DEVICE_PID',
@@ -86,6 +89,8 @@
 
     players: [],
     room: null,
+    roomMeta: null,
+    roomState: null,
 
     ended: false,
     endedAt: '',
@@ -227,34 +232,83 @@
     const v = txt(raw).replace(/[.#$[\]/]/g, '-');
     if (!v) return '';
     if (v.toLowerCase() === 'anon') return '';
-    return v;
+    return v.slice(0, 80);
   }
 
   function normalizeName(raw) {
     return txt(raw).replace(/\s+/g, ' ').slice(0, 64);
   }
 
+  function normalizeRoomId(raw) {
+    return txt(raw)
+      .toUpperCase()
+      .replace(/[^A-Z0-9_-]/g, '')
+      .slice(0, 24);
+  }
+
+  function roomIdCandidates(raw) {
+    const exact = normalizeRoomId(raw);
+    const compact = exact.replace(/[^A-Z0-9]/g, '');
+    const out = [];
+
+    function push(v) {
+      v = normalizeRoomId(v);
+      if (!v) return;
+      if (!out.includes(v)) out.push(v);
+    }
+
+    push(exact);
+    push(compact);
+
+    if (/^GJB[A-Z0-9]{5,8}$/.test(compact)) {
+      push(`GJB-${compact.slice(3)}`);
+    }
+    if (/^GJB-[A-Z0-9]{5,8}$/.test(exact)) {
+      push(exact.replace('-', ''));
+    }
+
+    if (/^GJ[A-Z0-9]{5,10}$/.test(compact)) {
+      push(compact);
+    }
+
+    return out;
+  }
+
   function currentRoomId() {
     const raw = txt(
       STATE.roomId ||
       STATE.room?.roomId ||
+      STATE.room?.id ||
+      STATE.roomMeta?.roomId ||
+      BOOT?.roomId ||
+      BOOT?.room ||
       qsGet('roomId') ||
       qsGet('room') ||
       window.__BATTLE_ROOM__?.roomId ||
+      window.__BATTLE_ROOM__?.id ||
       window.battleRoom?.roomId ||
       window.roomState?.roomId ||
       window.state?.room?.roomId ||
       window.gameState?.room?.roomId
     );
-    return raw.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 24) || '-';
+
+    const candidates = roomIdCandidates(raw);
+    return candidates[0] || '-';
   }
 
   function getSelfPid() {
     return normalizePid(
+      BOOT?.uid ||
+      BOOT?.playerId ||
+      BOOT?.pid ||
       window.RUN_CTX?.pid ||
       window.RUN_CTX?.playerPid ||
+      window.RUN_CTX?.uid ||
       window.__GJ_CTX?.pid ||
+      window.__GJ_CTX?.uid ||
       window.__BATTLE_SELF_PID__ ||
+      qsGet('uid') ||
+      qsGet('playerId') ||
       qsGet('pid') ||
       readText(LS_KEYS.selfPidGlobal) ||
       devicePid()
@@ -263,11 +317,14 @@
 
   function getSelfName() {
     return normalizeName(
+      BOOT?.name ||
+      BOOT?.nick ||
       window.RUN_CTX?.name ||
       window.RUN_CTX?.nick ||
       window.__GJ_CTX?.name ||
       window.__BATTLE_SELF_NAME__ ||
       qsGet('name') ||
+      qsGet('nick') ||
       readText(LS_KEYS.selfNameGlobal)
     );
   }
@@ -298,10 +355,17 @@
     const set = new Set();
     [
       getSelfPid(),
+      normalizePid(BOOT?.uid),
+      normalizePid(BOOT?.playerId),
+      normalizePid(BOOT?.pid),
+      normalizePid(qsGet('uid')),
+      normalizePid(qsGet('playerId')),
       normalizePid(qsGet('pid')),
       normalizePid(window.RUN_CTX?.pid),
       normalizePid(window.RUN_CTX?.playerPid),
+      normalizePid(window.RUN_CTX?.uid),
       normalizePid(window.__GJ_CTX?.pid),
+      normalizePid(window.__GJ_CTX?.uid),
       normalizePid(readText(LS_KEYS.selfPidGlobal)),
       normalizePid(devicePid()),
       roomId ? normalizePid(readText(`${LS_KEYS.selfPidByRoomPrefix}${roomId}`)) : ''
@@ -313,7 +377,10 @@
     const set = new Set();
     [
       getSelfName(),
+      normalizeName(BOOT?.name),
+      normalizeName(BOOT?.nick),
       normalizeName(qsGet('name')),
+      normalizeName(qsGet('nick')),
       normalizeName(window.RUN_CTX?.name),
       normalizeName(window.RUN_CTX?.nick),
       normalizeName(window.__GJ_CTX?.name),
@@ -324,33 +391,88 @@
   }
 
   function normalizePlayers(input) {
-    const arr = Array.isArray(input)
-      ? input
-      : Array.isArray(input?.players)
-        ? input.players
-        : Object.values(input?.players || {});
+    let rows = [];
 
-    return arr.map((p, idx) => ({
-      pid: normalizePid(p?.pid || p?.playerId || p?.id || `p${idx + 1}`),
-      name: normalizeName(p?.name || p?.nick || p?.playerName || p?.displayName || `Player ${idx + 1}`),
-      score: int(p?.score, 0),
-      miss: int(p?.miss ?? p?.misses, 0),
-      bestStreak: int(p?.bestStreak ?? p?.comboMax ?? p?.streak, 0),
-      hp: int(p?.hp ?? p?.health, 100),
-      maxHp: Math.max(1, int(p?.maxHp ?? p?.maxHealth, 100)),
-      shield: int(p?.shield, 0),
-      attackCharge: int(p?.attackCharge ?? p?.charge, 0),
-      maxAttackCharge: Math.max(1, int(p?.maxAttackCharge ?? p?.maxCharge, 100)),
-      attackReady: !!(p?.attackReady ?? p?.canAttack ?? false),
-      attacksUsed: int(p?.attacksUsed, 0),
-      damageDealt: int(p?.damageDealt, 0),
-      damageTaken: int(p?.damageTaken, 0),
-      koCount: int(p?.koCount ?? p?.kills, 0),
-      alive: (p?.alive != null) ? !!p.alive : int(p?.hp ?? p?.health, 100) > 0,
-      ready: !!p?.ready,
-      isHost: !!p?.isHost,
-      raw: p || {}
-    }));
+    if (Array.isArray(input)) {
+      rows = input.map((p, idx) => ({ key: '', value: p || {}, idx }));
+    } else if (input && typeof input === 'object' && input.players && typeof input.players === 'object') {
+      rows = Object.entries(input.players).map(([key, value], idx) => ({ key, value: value || {}, idx }));
+    } else if (input && typeof input === 'object') {
+      rows = Object.entries(input).map(([key, value], idx) => ({ key, value: value || {}, idx }));
+    }
+
+    return rows.map(({ key, value: p, idx }) => {
+      const pid = normalizePid(p?.pid || p?.playerId || p?.uid || p?.id || key || `p${idx + 1}`);
+      const name = normalizeName(p?.name || p?.nick || p?.playerName || p?.displayName || `Player ${idx + 1}`);
+      return {
+        key: txt(key),
+        pid,
+        uid: normalizePid(p?.uid || p?.playerId || p?.pid || key || ''),
+        playerId: normalizePid(p?.playerId || p?.uid || p?.pid || key || ''),
+        name,
+        score: int(p?.score, 0),
+        miss: int(p?.miss ?? p?.misses, 0),
+        bestStreak: int(p?.bestStreak ?? p?.comboMax ?? p?.streak, 0),
+        hp: int(p?.hp ?? p?.health, 100),
+        maxHp: Math.max(1, int(p?.maxHp ?? p?.maxHealth, 100)),
+        shield: int(p?.shield, 0),
+        attackCharge: int(p?.attackCharge ?? p?.charge, 0),
+        maxAttackCharge: Math.max(1, int(p?.maxAttackCharge ?? p?.maxCharge, 100)),
+        attackReady: !!(p?.attackReady ?? p?.canAttack ?? false),
+        attacksUsed: int(p?.attacksUsed, 0),
+        damageDealt: int(p?.damageDealt, 0),
+        damageTaken: int(p?.damageTaken, 0),
+        koCount: int(p?.koCount ?? p?.kills, 0),
+        alive: (p?.alive != null) ? !!p.alive : int(p?.hp ?? p?.health, 100) > 0,
+        ready: !!p?.ready,
+        isHost: !!p?.isHost,
+        raw: p || {}
+      };
+    });
+  }
+
+  function normalizeRoomShape(room) {
+    if (!room || typeof room !== 'object') {
+      return {
+        roomId: currentRoomId(),
+        status: '',
+        meta: null,
+        state: null,
+        players: []
+      };
+    }
+
+    const meta = room.meta && typeof room.meta === 'object' ? room.meta : null;
+    const state = room.state && typeof room.state === 'object' ? room.state : null;
+
+    const roomId = normalizeRoomId(
+      room.roomId ||
+      room.id ||
+      meta?.roomId ||
+      qsGet('roomId') ||
+      qsGet('room') ||
+      currentRoomId()
+    ) || '-';
+
+    const status = txt(
+      state?.status ||
+      room.status ||
+      room.match?.status ||
+      ''
+    );
+
+    const players = normalizePlayers(
+      room.players ? room.players : room
+    );
+
+    return {
+      raw: room,
+      roomId,
+      status,
+      meta,
+      state,
+      players
+    };
   }
 
   function sortBattlePlayers(players) {
@@ -369,7 +491,12 @@
     const knownPids = gatherKnownSelfPidSet(roomId);
     const knownNames = gatherKnownSelfNameSet(roomId);
 
-    let self = players.find(p => p.pid && knownPids.has(p.pid));
+    let self = players.find(p =>
+      (p.pid && knownPids.has(p.pid)) ||
+      (p.uid && knownPids.has(p.uid)) ||
+      (p.playerId && knownPids.has(p.playerId)) ||
+      (p.key && knownPids.has(normalizePid(p.key)))
+    );
     if (self) return self;
 
     const matchedByName = players.filter(p => p.name && knownNames.has(p.name));
@@ -491,6 +618,75 @@
     setWidth(REF.chargeFill, pct(STATE.attackCharge, STATE.maxAttackCharge));
 
     renderAttackReady();
+    renderRunDebug();
+  }
+
+  let __runDebugLastPaint = 0;
+  function ensureRunDebugBox(){
+    if (!DEBUG) return null;
+    let el = document.getElementById('battleRunDebugBox');
+    if (el) return el;
+
+    el = document.createElement('div');
+    el.id = 'battleRunDebugBox';
+    el.style.cssText = [
+      'position:fixed',
+      'left:10px',
+      'right:10px',
+      'bottom:10px',
+      'z-index:9999',
+      'padding:10px 12px',
+      'border-radius:14px',
+      'border:1px solid rgba(191,227,242,.9)',
+      'background:rgba(15,23,42,.92)',
+      'color:#f8fafc',
+      'font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace',
+      'box-shadow:0 18px 40px rgba(0,0,0,.28)',
+      'white-space:pre-wrap',
+      'word-break:break-word',
+      'backdrop-filter:blur(8px)',
+      'max-height:42vh',
+      'overflow:auto'
+    ].join(';');
+
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function renderRunDebug() {
+    if (!DEBUG) return;
+    const t = Date.now();
+    if (t - __runDebugLastPaint < 120) return;
+    __runDebugLastPaint = t;
+
+    const el = ensureRunDebugBox();
+    if (!el) return;
+
+    const summary = buildSummary();
+    const self = summary.self || null;
+    const room = normalizeRoomShape(STATE.room || {});
+    const lines = [
+      '[BATTLE SAFE DEBUG]',
+      `room=${summary.roomId || '-'}`,
+      `pid=${summary.pid || '-'}`,
+      `name=${summary.name || '-'}`,
+      `players=${summary.players.length}`,
+      `selfKnown=${summary.selfKnown}`,
+      `selfRank=${summary.selfRank || '-'}`,
+      `status=${room.status || '-'}`,
+      `score=${summary.scoreFinal}`,
+      `hp=${summary.hp}/${summary.maxHp}`,
+      `charge=${summary.attackCharge}/${summary.maxAttackCharge}`,
+      `attackReady=${summary.attackReady}`,
+      `ko=${summary.koCount}`,
+      `damageDealt=${summary.damageDealt}`,
+      `damageTaken=${summary.damageTaken}`,
+      `selfPid=${self ? self.pid : '-'}`,
+      `selfUid=${self ? self.uid : '-'}`,
+      `selfKey=${self ? self.key : '-'}`
+    ];
+
+    el.textContent = lines.join('\n');
   }
 
   function findExistingResultRoot() {
@@ -532,7 +728,7 @@
 
     const players = sortBattlePlayers(normalizePlayers(STATE.players));
     const self = resolveSelfPlayer(players, STATE.roomId);
-    const selfIndex = self ? players.findIndex(p => p.pid === self.pid) : -1;
+    const selfIndex = self ? players.findIndex(p => p.pid === self.pid && p.key === self.key) : -1;
     const selfRank = selfIndex >= 0 ? selfIndex + 1 : null;
 
     return {
@@ -577,7 +773,7 @@
 
   function renderRowsHTML(summary) {
     return summary.players.map((p, idx) => {
-      const isMe = summary.self && p.pid === summary.self.pid;
+      const isMe = summary.self && p.pid === summary.self.pid && p.key === summary.self.key;
       return `
         <tr class="${isMe ? 'me-row' : ''}">
           <td>
@@ -716,7 +912,7 @@
               </thead>
               <tbody>
                 ${summary.players.map((p) => {
-                  const isMe = summary.self && p.pid === summary.self.pid;
+                  const isMe = summary.self && p.pid === summary.self.pid && p.key === summary.self.key;
                   const bg = isMe ? 'rgba(30,41,59,.78)' : 'rgba(2,6,23,.42)';
                   const outline = isMe ? 'outline:1px solid rgba(245,158,11,.26);' : '';
                   return `
@@ -781,13 +977,13 @@
   function mergeState(patch = {}) {
     const src = patch || {};
 
-    STATE.pid = normalizePid(src.pid ?? STATE.pid ?? getSelfPid());
+    if (src.room && typeof src.room === 'object') {
+      setRoomState(src.room);
+    }
+
+    STATE.pid = normalizePid(src.pid ?? src.uid ?? src.playerId ?? STATE.pid ?? getSelfPid());
     STATE.name = normalizeName(src.name ?? src.nick ?? STATE.name ?? getSelfName());
     STATE.roomId = txt(src.roomId ?? src.room ?? STATE.roomId ?? currentRoomId()) || '-';
-
-    if (src.room && typeof src.room === 'object') {
-      STATE.room = src.room;
-    }
 
     STATE.score = int(src.score ?? src.myScore ?? STATE.score, 0);
     STATE.miss = int(src.miss ?? src.misses ?? STATE.miss, 0);
@@ -829,11 +1025,13 @@
   }
 
   function setRoomState(room) {
-    if (!room || typeof room !== 'object') return;
-    STATE.room = room;
-    STATE.roomId = txt(room.roomId || room.id || STATE.roomId || '-');
-    STATE.players = normalizePlayers(room.players || room);
-    window.__BATTLE_ROOM__ = room;
+    const normalized = normalizeRoomShape(room);
+    STATE.room = normalized.raw;
+    STATE.roomMeta = normalized.meta;
+    STATE.roomState = normalized.state;
+    STATE.roomId = normalized.roomId || STATE.roomId || '-';
+    STATE.players = normalized.players;
+    window.__BATTLE_ROOM__ = normalized.raw;
     rememberSelfIdentity();
     renderHud();
   }
@@ -920,91 +1118,6 @@
     stopBridge();
   }
 
-  function patchExistingResultDOM(summary) {
-    const root = findExistingResultRoot();
-    if (!root) return false;
-
-    const badge = findRankBadge(root);
-    if (badge) {
-      if (!summary.selfKnown || !summary.selfRank) {
-        badge.textContent = 'อันดับ ?';
-        badge.style.opacity = '.72';
-      } else {
-        badge.textContent = `อันดับ #${summary.selfRank}`;
-        badge.style.opacity = '1';
-      }
-    }
-
-    const sub = findResultSubtitle(root);
-    if (sub) {
-      sub.textContent = `ผลสุดท้าย • ผู้เล่นทั้งหมด ${summary.players.length} คน`;
-    }
-
-    const tbody = findResultTbody(root);
-    if (tbody) {
-      tbody.innerHTML = renderRowsHTML(summary);
-    }
-
-    return true;
-  }
-
-  function findExistingResultRoot() {
-    return (
-      q('#battleResultMount:not([hidden])') ||
-      q('#battleResult:not([hidden])') ||
-      q('.battle-result-card') ||
-      q('.battle-result') ||
-      q('[data-battle-result]')
-    );
-  }
-
-  function findResultTbody(root) {
-    return (
-      q('#battleResultTable tbody', root) ||
-      q('.battle-result-table tbody', root) ||
-      q('[data-battle-result-table] tbody', root) ||
-      q('tbody', root)
-    );
-  }
-
-  function findRankBadge(root) {
-    return (
-      q('#battleRankBadge', root) ||
-      q('.battle-rank-badge', root) ||
-      q('[data-battle-rank-badge]', root)
-    );
-  }
-
-  function findResultSubtitle(root) {
-    return (
-      q('.battle-result-sub', root) ||
-      q('[data-battle-result-sub]', root)
-    );
-  }
-
-  function renderRowsHTML(summary) {
-    return summary.players.map((p, idx) => {
-      const isMe = summary.self && p.pid === summary.self.pid;
-      return `
-        <tr class="${isMe ? 'me-row' : ''}">
-          <td>
-            <div style="font-weight:1100;line-height:1.1">${esc(p.name || p.pid || `Player ${idx + 1}`)}</div>
-            ${p.pid ? `<div style="margin-top:4px;color:#94a3b8;font-size:12px;font-weight:900">${esc(p.pid)}</div>` : ''}
-            ${isMe ? `<div style="margin-top:6px;color:#fcd34d;font-size:12px;font-weight:1100">• คุณ</div>` : ''}
-            <div style="margin-top:4px;color:${p.alive ? '#86efac' : '#fca5a5'};font-size:12px;font-weight:1100">
-              ${p.alive ? 'ยังยืนอยู่' : 'HP หมดแล้ว'}
-            </div>
-          </td>
-          <td>${p.score}</td>
-          <td>${p.hp}</td>
-          <td>${p.miss}</td>
-          <td>${p.bestStreak}</td>
-          <td>${p.koCount}</td>
-        </tr>
-      `;
-    }).join('');
-  }
-
   function render() {
     renderHud();
     if (BRIDGE.resultShown) {
@@ -1022,7 +1135,8 @@
       window.gameState,
       window.__BATTLE_STATE__,
       window.RUN_CTX,
-      window.__GJ_CTX
+      window.__GJ_CTX,
+      BOOT
     ].filter(Boolean);
 
     for (const src of candidates) {
@@ -1034,7 +1148,8 @@
       window.battleRoom,
       window.roomState,
       window.state?.room,
-      window.gameState?.room
+      window.gameState?.room,
+      BOOT?.room
     ].filter(Boolean);
 
     for (const room of roomCandidates) {
@@ -1115,6 +1230,9 @@
       renderHud();
 
       const s = window.state || window.gameState || window.__BATTLE_STATE__ || {};
+      const roomShape = normalizeRoomShape(s.room || window.__BATTLE_ROOM__ || {});
+      const roomEnded = ['ended', 'finished'].includes((roomShape.status || '').toLowerCase());
+
       const ended =
         !!STATE.ended ||
         !!s.isEnded ||
@@ -1122,10 +1240,11 @@
         !!s.finished ||
         !!s.showSummary ||
         !!s.showResult ||
+        roomEnded ||
         (num(s.endsAtMs || s.endAtMs || 0, 0) > 0 && Date.now() > num(s.endsAtMs || s.endAtMs || 0, 0) + 300);
 
       if (ended && !BRIDGE.resultShown) {
-        finishGame({ reason: s.reason || 'finished' });
+        finishGame({ reason: s.reason || roomShape.status || 'finished' });
       }
 
       if (BRIDGE.resultShown) {
