@@ -272,12 +272,44 @@
     if (/^GJB-[A-Z0-9]{5,8}$/.test(exact)) {
       push(exact.replace('-', ''));
     }
-
     if (/^GJ[A-Z0-9]{5,10}$/.test(compact)) {
       push(compact);
     }
 
     return out;
+  }
+
+  function looksLikePlayerRecord(v) {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
+    return (
+      'pid' in v ||
+      'uid' in v ||
+      'playerId' in v ||
+      'name' in v ||
+      'nick' in v ||
+      'score' in v ||
+      'hp' in v ||
+      'health' in v ||
+      'miss' in v ||
+      'charge' in v ||
+      'attackCharge' in v
+    );
+  }
+
+  function looksLikePlayersMap(obj) {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+    const entries = Object.entries(obj);
+    if (!entries.length) return false;
+    return entries.some(([, v]) => looksLikePlayerRecord(v));
+  }
+
+  function isSamePlayer(a, b) {
+    if (!a || !b) return false;
+    if (a.key && b.key && a.key === b.key) return true;
+    if (a.pid && b.pid && a.pid === b.pid) return true;
+    if (a.uid && b.uid && a.uid === b.uid) return true;
+    if (a.playerId && b.playerId && a.playerId === b.playerId) return true;
+    return false;
   }
 
   function currentRoomId() {
@@ -479,9 +511,16 @@
       ''
     );
 
-    const players = normalizePlayers(
-      room.players ? room.players : room
-    );
+    let playersSource = [];
+    if (Array.isArray(room.players)) {
+      playersSource = room.players;
+    } else if (room.players && typeof room.players === 'object') {
+      playersSource = room.players;
+    } else if (looksLikePlayersMap(room)) {
+      playersSource = room;
+    }
+
+    const players = normalizePlayers(playersSource);
 
     return {
       raw: room,
@@ -746,7 +785,7 @@
 
     const players = sortBattlePlayers(normalizePlayers(STATE.players));
     const self = resolveSelfPlayer(players, STATE.roomId);
-    const selfIndex = self ? players.findIndex(p => p.pid === self.pid && p.key === self.key) : -1;
+    const selfIndex = self ? players.findIndex((p) => isSamePlayer(p, self)) : -1;
     const selfRank = selfIndex >= 0 ? selfIndex + 1 : null;
 
     return {
@@ -791,7 +830,7 @@
 
   function renderRowsHTML(summary) {
     return summary.players.map((p, idx) => {
-      const isMe = summary.self && p.pid === summary.self.pid && p.key === summary.self.key;
+      const isMe = summary.self && isSamePlayer(p, summary.self);
       return `
         <tr class="${isMe ? 'me-row' : ''}">
           <td>
@@ -930,7 +969,7 @@
               </thead>
               <tbody>
                 ${summary.players.map((p) => {
-                  const isMe = summary.self && p.pid === summary.self.pid && p.key === summary.self.key;
+                  const isMe = summary.self && isSamePlayer(p, summary.self);
                   const bg = isMe ? 'rgba(30,41,59,.78)' : 'rgba(2,6,23,.42)';
                   const outline = isMe ? 'outline:1px solid rgba(245,158,11,.26);' : '';
                   return `
@@ -998,7 +1037,7 @@
 
     const others = (summary.players || []).filter((p) => {
       if (!summary.self) return true;
-      return !(p.pid === summary.self.pid && p.key === summary.self.key);
+      return !isSamePlayer(p, summary.self);
     });
 
     const opponent = others[0] || null;
@@ -1078,9 +1117,16 @@
       setRoomState(src.room);
     }
 
+    const roomCandidate =
+      typeof src.room === 'string'
+        ? src.room
+        : (src.room && typeof src.room === 'object'
+            ? (src.room.roomId || src.room.id || src.room.meta?.roomId || src.room.state?.roomId || '')
+            : '');
+
     STATE.pid = normalizePid(src.pid ?? src.uid ?? src.playerId ?? STATE.pid ?? getSelfPid());
     STATE.name = normalizeName(src.name ?? src.nick ?? STATE.name ?? getSelfName());
-    STATE.roomId = txt(src.roomId ?? src.room ?? STATE.roomId ?? currentRoomId()) || '-';
+    STATE.roomId = normalizeRoomId(src.roomId || roomCandidate || STATE.roomId || currentRoomId()) || '-';
 
     STATE.score = int(src.score ?? src.myScore ?? STATE.score, 0);
     STATE.miss = int(src.miss ?? src.misses ?? STATE.miss, 0);
