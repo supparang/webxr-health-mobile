@@ -1,9 +1,9 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260327-GOODJUNK-DUET-FINAL-V5
+   FULL PATCH v20260327-GOODJUNK-DUET-FINAL-V6
    - bindRoom retry ถ้า room ยัง sync มาไม่ทัน
    - bindRoom ไม่ reset score/finished โดยไม่จำเป็น
    - ไม่ลบ room อัตโนมัติแล้ว
-   - rematch flow
+   - rematch flow + rematch fail-safe watcher
    - mobile summary scroll/sticky action bar
    - background/unload/reconnect presence แข็งขึ้น
    - กัน result overlay rerender ซ้ำโดยไม่จำเป็น
@@ -305,6 +305,7 @@
     peerId: '',
     loopId: 0,
     heartbeatTimer: 0,
+    rematchWatchTimer: 0,
 
     rng: null,
     cfg: null,
@@ -495,7 +496,8 @@
       `blockReason=${STATE.blockReason || '-'}`,
       `rematchRequested=${STATE.rematchRequested}`,
       `rematchCount=${getRematchInfo(room).count}`,
-      `rematchResetting=${STATE.rematchResetting}`
+      `rematchResetting=${STATE.rematchResetting}`,
+      `rematchWatchTimer=${STATE.rematchWatchTimer ? 'on' : 'off'}`
     ];
 
     el.textContent = lines.join('\n');
@@ -699,6 +701,57 @@
     if (!peer || !peer.id) return false;
     if (peer.connected !== false) return false;
     return (now() - Number(peer.lastSeenAt || 0)) > 45000;
+  }
+
+  function stopRematchWatch(){
+    if (STATE.rematchWatchTimer){
+      clearInterval(STATE.rematchWatchTimer);
+      STATE.rematchWatchTimer = 0;
+    }
+  }
+
+  function getRoomStatus(room){
+    return String((room && room.status) || 'waiting');
+  }
+
+  function getMatchStatus(room){
+    return String((((room || {}).match || {}).status) || 'idle');
+  }
+
+  async function maybeForceRematchTransition(room){
+    if (!room) return;
+
+    const info = getRematchInfo(room);
+    const roomStatus = getRoomStatus(room);
+    const matchStatus = getMatchStatus(room);
+
+    if (info.count < 2) return;
+
+    if (roomStatus === 'finished'){
+      await maybeResetRoomForRematch(room);
+      return;
+    }
+
+    if ((roomStatus === 'waiting' || matchStatus === 'idle') && !STATE.rematchRedirected){
+      STATE.rematchRedirected = true;
+      stopRematchWatch();
+      W.location.replace(buildSameRoomLobbyUrl(true));
+    }
+  }
+
+  function startRematchWatch(){
+    stopRematchWatch();
+
+    STATE.rematchWatchTimer = setInterval(async () => {
+      if (!STATE.roomRef || !STATE.rematchRequested || STATE.rematchRedirected) return;
+
+      try{
+        const snap = await STATE.roomRef.once('value');
+        const room = snap && typeof snap.val === 'function' ? snap.val() : null;
+        if (!room) return;
+        await maybeForceRematchTransition(room);
+      }catch{}
+    }, 700);
   }
 
   function loop(frameTs){
@@ -933,7 +986,7 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: peerFinished,
       endedAt: new Date().toISOString(),
-      version: 'v20260327-GOODJUNK-DUET-FINAL-V5'
+      version: 'v20260327-GOODJUNK-DUET-FINAL-V6'
     };
   }
 
@@ -1077,6 +1130,14 @@
       ready: true,
       requestedAt: firebase.database.ServerValue.TIMESTAMP
     });
+
+    startRematchWatch();
+
+    try{
+      const snap = await STATE.roomRef.once('value');
+      const room = snap && typeof snap.val === 'function' ? snap.val() : null;
+      if (room) await maybeForceRematchTransition(room);
+    }catch{}
   }
 
   async function maybeResetRoomForRematch(room){
@@ -1152,6 +1213,7 @@
   async function leaveFinishedRoomAndMaybeCleanup(nextHref){
     if (STATE.leaving) return;
     STATE.leaving = true;
+    stopRematchWatch();
 
     try{
       if (STATE.meRef){
@@ -1617,19 +1679,13 @@
 
       if (STATE.ended){
         renderResultOverlay('sync-finish');
-        maybeResetRoomForRematch(room);
         maybeFinalizeRoom();
 
-        if (
-          STATE.rematchRequested &&
-          String(room.status || 'waiting') === 'waiting' &&
-          !STATE.rematchRedirected
-        ){
-          STATE.rematchRedirected = true;
-          setTimeout(() => {
-            W.location.replace(buildSameRoomLobbyUrl(true));
-          }, 450);
+        if (STATE.rematchRequested){
+          startRematchWatch();
         }
+
+        maybeForceRematchTransition(room);
       }
     });
   }
@@ -1642,18 +1698,21 @@
 
     W.addEventListener('beforeunload', () => {
       stopHeartbeat();
+      stopRematchWatch();
       caf(STATE.loopId);
       markDisconnectedForSuspend();
     });
 
     W.addEventListener('pagehide', () => {
       stopHeartbeat();
+      stopRematchWatch();
       markDisconnectedForSuspend();
     });
 
     D.addEventListener('visibilitychange', () => {
       if (D.visibilityState === 'hidden'){
         stopHeartbeat();
+        stopRematchWatch();
         markDisconnectedForSuspend();
         return;
       }
@@ -1663,6 +1722,8 @@
         if (!STATE.ended){
           startHeartbeat();
           publishLivePresence();
+        } else if (STATE.rematchRequested){
+          startRematchWatch();
         }
       }
     });
