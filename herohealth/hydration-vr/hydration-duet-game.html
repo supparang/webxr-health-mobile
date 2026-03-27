@@ -361,7 +361,7 @@
 
     .mission-card{
       min-width:300px;
-      max-width:min(480px, 52vw);
+      max-width:min(500px, 54vw);
     }
 
     .mission-title{
@@ -575,7 +575,7 @@
     .overlay.open{ display:flex; }
 
     .summary-card{
-      width:min(560px,100%);
+      width:min(620px,100%);
       border-radius:30px;
       padding:18px;
       background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.96));
@@ -633,25 +633,31 @@
     }
 
     .reward-row{
-      display:flex;
-      flex-wrap:wrap;
-      justify-content:center;
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
       gap:10px;
+      width:100%;
     }
 
     .reward{
-      min-height:46px;
+      min-height:54px;
       padding:10px 16px;
-      border-radius:999px;
+      border-radius:20px;
       background:linear-gradient(180deg,#ffffff,#eefcff);
       border:1px solid rgba(255,255,255,.95);
       color:#587d93;
       font-size:16px;
       font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
+      display:grid;
+      place-items:center;
+      gap:4px;
       box-shadow:var(--shadow);
+    }
+
+    .reward small{
+      font-size:12px;
+      color:#7897ab;
+      font-weight:1000;
     }
 
     .summary-msg{
@@ -666,6 +672,17 @@
       font-weight:900;
       text-align:left;
       box-shadow:var(--shadow);
+    }
+
+    .summary-mini{
+      width:100%;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .summary-mini .reward{
+      min-height:64px;
     }
 
     .action-row{
@@ -751,6 +768,10 @@
       .banner{ font-size:20px; }
       .ribbon{ font-size:28px; min-width:0; width:100%; }
       .big-score{ font-size:46px; }
+      .reward-row,
+      .summary-mini{
+        grid-template-columns:1fr;
+      }
       .action-row{ flex-direction:column; }
       .action-row .btn{ width:100%; min-width:0; }
     }
@@ -843,9 +864,29 @@
               <p id="summaryScore" class="big-score">0</p>
 
               <div class="reward-row">
-                <div class="reward">💧 <span id="summaryWater">0%</span></div>
-                <div class="reward">🔥 <span id="summaryBestCombo">0</span></div>
-                <div class="reward">❌ <span id="summaryMiss">0</span></div>
+                <div class="reward">
+                  <small>Water</small>
+                  <span id="summaryWater">0%</span>
+                </div>
+                <div class="reward">
+                  <small>Best Combo</small>
+                  <span id="summaryBestCombo">0</span>
+                </div>
+                <div class="reward">
+                  <small>Miss</small>
+                  <span id="summaryMiss">0</span>
+                </div>
+              </div>
+
+              <div class="summary-mini">
+                <div class="reward">
+                  <small>Good Caught</small>
+                  <span id="summaryGoodCaught">0</span>
+                </div>
+                <div class="reward">
+                  <small>Boss Hits</small>
+                  <span id="summaryBossHits">0</span>
+                </div>
               </div>
 
               <div id="summaryMsg" class="summary-msg">
@@ -880,6 +921,10 @@
 
       function sanitizeText(v, maxLen){
         return String(v || '').trim().slice(0, maxLen || 64);
+      }
+
+      function sanitizePid(v){
+        return String(v || '').trim().replace(/[.#$[\]/]/g, '-').replace(/\s+/g, '-').slice(0,36);
       }
 
       function postToWrapper(msg){
@@ -927,12 +972,14 @@
 
       const ROOM_CODE = sanitizeText(q('roomCode', 'TEAM'), 12) || 'TEAM';
       const UID = sanitizeText(q('uid', ''), 80);
+      const PID = sanitizePid(q('pid', 'p-anon')) || 'p-anon';
       const DIFF = String(q('diff', 'normal')).toLowerCase();
       const VIEW = String(q('view', 'mobile')).toLowerCase();
       const SEED = String(q('seed', String(Date.now())));
       const TIME = clamp(q('time', String(defaultTimeForDiff(DIFF))), 30, 180);
       const NICK = sanitizeText(q('nick', q('nickName', 'Rocky')), 24) || 'Rocky';
       const HUB = q('hub', '../hub.html');
+      const RUN = String(q('run', 'play')).toLowerCase();
 
       const seedFn = xmur3(`${SEED}|${ROOM_CODE}|${UID || 'anon'}|${DIFF}|${TIME}|${VIEW}`);
       const rand = sfc32(seedFn(), seedFn(), seedFn(), seedFn());
@@ -990,6 +1037,8 @@
         summaryWater: document.getElementById('summaryWater'),
         summaryBestCombo: document.getElementById('summaryBestCombo'),
         summaryMiss: document.getElementById('summaryMiss'),
+        summaryGoodCaught: document.getElementById('summaryGoodCaught'),
+        summaryBossHits: document.getElementById('summaryBossHits'),
         summaryMsg: document.getElementById('summaryMsg'),
 
         replayBtn: document.getElementById('replayBtn'),
@@ -1020,7 +1069,9 @@
         missionNeed:CFG.mission,
         objects:[],
         stageW:0,
-        stageH:0
+        stageH:0,
+        lastProgressSentAt:0,
+        summary:null
       };
 
       function randFloat(min,max){
@@ -1096,6 +1147,29 @@
       function showBanner(el, ms){
         el.classList.add('show');
         setTimeout(()=> el.classList.remove('show'), ms || 1500);
+      }
+
+      function maybeSendProgress(force){
+        const now = Date.now();
+        if(!force && now - state.lastProgressSentAt < 1800) return;
+        state.lastProgressSentAt = now;
+
+        postToWrapper({
+          type:'hha:duet-progress',
+          roomCode: ROOM_CODE,
+          uid: UID,
+          score: Math.max(0, Math.round(state.score)),
+          water: clamp(state.water,0,100),
+          hearts: Math.max(0, state.hearts),
+          shieldLeft: state.shield,
+          goodCaught: state.goodCaught,
+          badHit: state.badHit,
+          bossHits: state.bossHits,
+          combo: state.combo,
+          comboBest: state.bestCombo,
+          miss: state.miss,
+          timeLeft: Math.max(0, Math.ceil(state.timeLeft))
+        });
       }
 
       function makeTarget(kind){
@@ -1229,6 +1303,7 @@
 
         removeTarget(obj);
         updateHud();
+        maybeSendProgress(false);
       }
 
       function missTarget(obj){
@@ -1339,6 +1414,54 @@
         return { stars, title, msg };
       }
 
+      function buildSummary(reason){
+        const judged = gradeSummary();
+        return {
+          game:'hydration-duet',
+          theme:'hydration',
+          mode:'duet',
+          roomCode:ROOM_CODE,
+          uid:UID,
+          pid:PID,
+          nick:NICK,
+          diff:DIFF,
+          view:VIEW,
+          timePlanned:TIME,
+          timePlayed:Math.round(TIME - state.timeLeft),
+          seed:SEED,
+          run:RUN,
+          score:Math.max(0, Math.round(state.score)),
+          water:clamp(state.water,0,100),
+          hearts:Math.max(0, state.hearts),
+          shieldLeft:state.shield,
+          comboBest:state.bestCombo,
+          goodCaught:state.goodCaught,
+          badHit:state.badHit,
+          bossHits:state.bossHits,
+          collectedShield:state.collectedShield,
+          miss:state.miss,
+          stars:judged.stars,
+          title:judged.title,
+          message:judged.msg,
+          reason,
+          ts:new Date().toISOString()
+        };
+      }
+
+      function renderSummary(summary){
+        EL.summaryRibbon.textContent = summary.title;
+        EL.summaryStars.textContent = '⭐'.repeat(summary.stars) + '☆'.repeat(3 - summary.stars);
+        EL.summaryScore.textContent = String(summary.score);
+        EL.summaryWater.textContent = `${summary.water}%`;
+        EL.summaryBestCombo.textContent = String(summary.comboBest);
+        EL.summaryMiss.textContent = String(summary.miss);
+        EL.summaryGoodCaught.textContent = String(summary.goodCaught);
+        EL.summaryBossHits.textContent = String(summary.bossHits);
+        EL.summaryMsg.textContent = summary.message;
+        EL.summaryOverlay.classList.add('open');
+        EL.summaryOverlay.setAttribute('aria-hidden', 'false');
+      }
+
       function endGame(reason){
         if(state.ended) return;
         state.ended = true;
@@ -1349,54 +1472,36 @@
         }
         state.objects.length = 0;
 
-        const judged = gradeSummary();
-        const summary = {
-          game:'hydration-duet',
-          roomCode:ROOM_CODE,
-          uid:UID,
-          nick:NICK,
-          diff:DIFF,
-          view:VIEW,
-          time:TIME,
-          seed:SEED,
-          score:Math.max(0, Math.round(state.score)),
-          water:clamp(state.water,0,100),
-          hearts:Math.max(0, state.hearts),
-          comboBest:state.bestCombo,
-          goodCaught:state.goodCaught,
-          badHit:state.badHit,
-          bossHits:state.bossHits,
-          shield:state.collectedShield,
-          miss:state.miss,
-          streak:state.bestCombo,
-          stars:judged.stars,
-          reason,
-          ts:new Date().toISOString()
-        };
-
+        const summary = buildSummary(reason);
+        state.summary = summary;
         saveSummary(summary);
+        renderSummary(summary);
+        setCoach(summary.message);
 
-        EL.summaryRibbon.textContent = judged.title;
-        EL.summaryStars.textContent = '⭐'.repeat(judged.stars) + '☆'.repeat(3 - judged.stars);
-        EL.summaryScore.textContent = String(summary.score);
-        EL.summaryWater.textContent = `${summary.water}%`;
-        EL.summaryBestCombo.textContent = String(summary.comboBest);
-        EL.summaryMiss.textContent = String(summary.miss);
-        EL.summaryMsg.textContent = judged.msg;
-        EL.summaryOverlay.classList.add('open');
-        EL.summaryOverlay.setAttribute('aria-hidden', 'false');
-
-        setCoach(judged.msg);
+        maybeSendProgress(true);
 
         postToWrapper({
           type:'hha:duet-finished',
+          roomCode: ROOM_CODE,
+          uid: UID,
           score: summary.score,
           miss: summary.miss,
           streak: summary.comboBest,
           water: summary.water,
+          hearts: summary.hearts,
+          shieldLeft: summary.shieldLeft,
+          goodCaught: summary.goodCaught,
+          badHit: summary.badHit,
+          bossHits: summary.bossHits,
+          collectedShield: summary.collectedShield,
+          comboBest: summary.comboBest,
+          timePlayed: summary.timePlayed,
+          timePlanned: summary.timePlanned,
           stars: summary.stars,
-          roomCode: ROOM_CODE,
-          uid: UID
+          title: summary.title,
+          message: summary.message,
+          reason: summary.reason,
+          summary
         });
       }
 
@@ -1413,6 +1518,7 @@
         spawnTick(dt);
         updateObjects(dt);
         updateHud();
+        maybeSendProgress(false);
 
         if(state.hearts <= 0){
           endGame('no-hearts');
@@ -1445,11 +1551,21 @@
       }
 
       function replay(){
-        postToWrapper({ type:'hha:reload' });
+        postToWrapper({
+          type:'hha:reload',
+          roomCode: ROOM_CODE,
+          uid: UID,
+          summary: state.summary || null
+        });
       }
 
       function goHub(){
-        postToWrapper({ type:'hha:goHub' });
+        postToWrapper({
+          type:'hha:goHub',
+          roomCode: ROOM_CODE,
+          uid: UID,
+          summary: state.summary || null
+        });
         try{
           window.top.location.href = HUB;
         }catch{}
@@ -1463,7 +1579,10 @@
 
         setCoach('เริ่มเลย! แตะน้ำดีให้ไว แล้วส่งคะแนนกลับไปช่วยทีม');
         postToWrapper({ type:'hha:ready' });
-        postToWrapper({ type:'hha:setStatus', text:'Hydration Duet พร้อมเล่นแล้ว' });
+        postToWrapper({
+          type:'hha:setStatus',
+          text:'Hydration Duet พร้อมเล่นแล้ว'
+        });
 
         window.addEventListener('resize', refreshStageSize);
         EL.replayBtn.addEventListener('click', replay);
