@@ -50,13 +50,17 @@ export const BATH_ITEMS = [
   { id: 'shoe', label: 'รองเท้า', emoji: '👟', correct: false }
 ];
 
+/*
+  พิกัดใหม่ใช้ ax / ay = anchor x/y ภายในกล่อง avatar
+  avatar ปัจจุบันกว้าง 200 สูง 290
+*/
 export const BATH_HOTSPOTS = [
-  { id: 'neck',   label: 'คอ',      needMs: 1400, x: 77, y: 122, w: 28, h: 32 },
-  { id: 'ear',    label: 'หลังหู',   needMs: 1400, x: 63, y: 100, w: 30, h: 30 },
-  { id: 'armpit', label: 'รักแร้',   needMs: 1700, x: 52, y: 164, w: 34, h: 30 },
-  { id: 'arm',    label: 'แขน',      needMs: 1200, x: 26, y: 166, w: 24, h: 62 },
-  { id: 'leg',    label: 'ขา',       needMs: 1200, x: 74, y: 230, w: 32, h: 74 },
-  { id: 'feet',   label: 'เท้า',      needMs: 1500, x: 74, y: 310, w: 36, h: 28 }
+  { id: 'neck',   label: 'คอ',      needMs: 1400, ax: 86, ay: 74,  w: 28, h: 20 },
+  { id: 'ear',    label: 'หลังหู',   needMs: 1400, ax: 58, ay: 38,  w: 22, h: 22 },
+  { id: 'armpit', label: 'รักแร้',   needMs: 1700, ax: 48, ay: 118, w: 28, h: 24 },
+  { id: 'arm',    label: 'แขน',      needMs: 1200, ax: 16, ay: 116, w: 24, h: 56 },
+  { id: 'leg',    label: 'ขา',       needMs: 1200, ax: 76, ay: 186, w: 28, h: 70 },
+  { id: 'feet',   label: 'เท้า',      needMs: 1500, ax: 72, ay: 262, w: 40, h: 20 }
 ];
 
 export const BATH_PHASES = [
@@ -86,8 +90,6 @@ export const BATH_QUIZ = [
     ]
   }
 ];
-
-/* replayable layer */
 
 export const BATH_READY_CORRECT_IDS = ['soap', 'shampoo', 'towel', 'clothes'];
 export const BATH_READY_WRONG_POOL = ['toy', 'snack', 'book', 'shoe'];
@@ -152,30 +154,6 @@ export const BATH_COACH_VARIANTS = {
     'แห้งแล้วจะสบายตัวกว่า'
   ]
 };
-
-export const BATH_MISSIONS = [
-  { id: 'sweat-spots', title: 'ภารกิจล้างจุดเหงื่อออกง่าย', subtitle: 'เน้นจุดที่เหงื่อออกง่ายและควรถูให้สะอาด' },
-  { id: 'foam-hunt', title: 'ภารกิจล่าฟองสบู่', subtitle: 'ล้างฟองออกให้หมด แล้วเช็ดตัวให้แห้ง' },
-  { id: 'bath-helper', title: 'ภารกิจผู้ช่วยอาบน้ำ', subtitle: 'เลือกของให้ถูก แล้วทำครบทุกขั้นตอน' },
-  { id: 'clean-step', title: 'ภารกิจจำลำดับอาบน้ำ', subtitle: 'จำให้ได้ว่า เลือก ถู ล้าง และเช็ด' }
-];
-
-export const BATH_BADGES = [
-  { id: 'bath-star', label: 'Bath Star 🛁' },
-  { id: 'foam-finder', label: 'Foam Finder 🫧' },
-  { id: 'dry-body-star', label: 'Dry Body Star ✨' },
-  { id: 'soap-smart', label: 'Soap Smart Kid 🧼' },
-  { id: 'clean-step-master', label: 'Clean Step Master 🌟' }
-];
-
-export const BATH_MISSION_FAMILIES = [
-  { id: 'ready', label: 'เลือกของให้ถูก', description: 'แยกของอาบน้ำกับของที่ไม่เกี่ยว' },
-  { id: 'scrub', label: 'ถูจุดสำคัญ', description: 'เน้น hotspot สำคัญบนร่างกาย' },
-  { id: 'rinse', label: 'ล้างฟองให้หมด', description: 'สังเกตฟองและล้างออกให้ครบ' },
-  { id: 'dry', label: 'เช็ดตัวให้แห้ง', description: 'ทำขั้นตอนหลังอาบน้ำให้ถูก' },
-  { id: 'memory', label: 'จำลำดับอาบน้ำ', description: 'จำและเลือกขั้นตอนให้ถูก' },
-  { id: 'boss', label: 'มินิบอส', description: 'รวมหลายขั้นในรอบสั้น' }
-];
 
 export const BATH_MISSIONS_50 = [
   { id:'m01-ready-basic-4', family:'ready', title:'เลือกของอาบน้ำ 4 ชิ้น', subtitle:'เลือกของที่ใช้ตอนอาบน้ำให้ครบ', phaseFocus:'ready', difficulty:'easy', tags:['ready','selection','core'], config:{ readyCorrectIds:['soap','shampoo','towel','clothes'], readyWrongCount:2 }, bonusText:'เลือกของผิดไม่เกิน 1 ชิ้น' },
