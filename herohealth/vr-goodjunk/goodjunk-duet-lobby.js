@@ -1,12 +1,12 @@
 /* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
-   FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-WORK-SURE-V4
+   FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-ROOMCODE-QRSHORT-V5
    - duet room path: hha-battle/goodjunk/duetRooms/{ROOM}
    - anonymous auth required
    - 2 players only
    - host start only when ready 2/2
    - countdown + redirect to duet run
-   - invite link + QR
-   - path aligned with ../goodjunk-launcher.html and ./goodjunk-duet-run.html
+   - short invite link for readable QR
+   - room code UI: join by code / use current room / new room
 */
 (function(){
   'use strict';
@@ -17,23 +17,27 @@
   const $ = (id) => D.getElementById(id);
 
   const els = {
-    roomCode     : $('roomCode'),
-    playerCount  : $('playerCount'),
-    roomStatus   : $('roomStatus'),
-    hostName     : $('hostName'),
-    playersBox   : $('playersBox'),
-    copyState    : $('copyState'),
-    joinGuard    : $('joinGuard'),
-    inviteLink   : $('inviteLink'),
-    qrBox        : $('qrBox'),
-    countdown    : $('countdown'),
-    btnCopyRoom  : $('btnCopyRoom'),
-    btnCopyInvite: $('btnCopyInvite'),
-    btnReady     : $('btnReady'),
-    btnUnready   : $('btnUnready'),
-    btnStart     : $('btnStart'),
-    btnBack      : $('btnBack'),
-    hint         : $('hint')
+    roomCode        : $('roomCode'),
+    playerCount     : $('playerCount'),
+    roomStatus      : $('roomStatus'),
+    hostName        : $('hostName'),
+    playersBox      : $('playersBox'),
+    copyState       : $('copyState'),
+    joinGuard       : $('joinGuard'),
+    inviteLink      : $('inviteLink'),
+    qrBox           : $('qrBox'),
+    countdown       : $('countdown'),
+    btnCopyRoom     : $('btnCopyRoom'),
+    btnCopyInvite   : $('btnCopyInvite'),
+    btnReady        : $('btnReady'),
+    btnUnready      : $('btnUnready'),
+    btnStart        : $('btnStart'),
+    btnBack         : $('btnBack'),
+    hint            : $('hint'),
+    roomInput       : $('roomInput'),
+    btnJoinByCode   : $('btnJoinByCode'),
+    btnUseCurrentRoom: $('btnUseCurrentRoom'),
+    btnNewRoom      : $('btnNewRoom')
   };
 
   const GAME_KEY = 'goodjunk';
@@ -228,22 +232,46 @@
 
   function buildInviteLink(){
     const u = new URL(W.location.href);
-    u.searchParams.set('mode', MODE_KEY);
-    u.searchParams.set('game', GAME_KEY);
+    u.search = '';
     u.searchParams.set('room', STATE.roomId);
-    u.searchParams.set('roomId', STATE.roomId);
-    u.searchParams.set('diff', STATE.diff);
-    u.searchParams.set('time', String(STATE.time));
-    u.searchParams.set('seed', STATE.seed);
-    u.searchParams.set('hub', STATE.hub);
-    u.searchParams.set('view', STATE.view);
-    u.searchParams.set('run', STATE.run);
-    u.searchParams.set('zone', STATE.zone);
-    u.searchParams.set('theme', STATE.theme);
-    u.searchParams.delete('pid');
-    u.searchParams.delete('name');
-    u.searchParams.delete('nick');
     return u.toString();
+  }
+
+  function buildLobbyUrlWithRoom(roomId){
+    const u = new URL(W.location.href);
+    const cleanRoom = normalizeRoomId(roomId);
+    u.searchParams.set('room', cleanRoom);
+    u.searchParams.set('roomId', cleanRoom);
+
+    if (STATE.pid)   u.searchParams.set('pid', STATE.pid);
+    if (STATE.name){
+      u.searchParams.set('name', STATE.name);
+      u.searchParams.set('nick', STATE.name);
+    }
+    if (STATE.hub)   u.searchParams.set('hub', STATE.hub);
+    if (STATE.view)  u.searchParams.set('view', STATE.view);
+    if (STATE.run)   u.searchParams.set('run', STATE.run);
+    if (STATE.diff)  u.searchParams.set('diff', STATE.diff);
+    if (STATE.time)  u.searchParams.set('time', String(STATE.time));
+    if (STATE.zone)  u.searchParams.set('zone', STATE.zone);
+    if (STATE.theme) u.searchParams.set('theme', STATE.theme);
+
+    u.searchParams.set('seed', String(Date.now()));
+    return u.toString();
+  }
+
+  function goJoinRoomByCode(raw){
+    const roomId = normalizeRoomId(raw);
+    if (!roomId){
+      setHint('กรุณาใส่ Room Code ก่อน', true);
+      if (els.roomInput) els.roomInput.focus();
+      return;
+    }
+    W.location.href = buildLobbyUrlWithRoom(roomId);
+  }
+
+  function goCreateNewRoom(){
+    W.location.href = buildLobbyUrlWithRoom(randomRoomId());
   }
 
   function buildRunUrl(room){
@@ -273,7 +301,7 @@
       els.qrBox.innerHTML = '<div class="qr-empty">ยังไม่มีลิงก์</div>';
       return;
     }
-    const src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(url);
+    const src = 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=' + encodeURIComponent(url);
     els.qrBox.innerHTML = `<img alt="QR Invite" src="${src}">`;
   }
 
@@ -524,6 +552,9 @@
 
     if (els.roomCode) els.roomCode.textContent = STATE.roomId;
     if (els.inviteLink) els.inviteLink.value = buildInviteLink();
+    if (els.roomInput && D.activeElement !== els.roomInput){
+      els.roomInput.value = STATE.roomId || '';
+    }
     renderQr(buildInviteLink());
 
     if (!room){
@@ -851,6 +882,7 @@
   function bindUi(){
     if (els.roomCode) els.roomCode.textContent = STATE.roomId;
     if (els.inviteLink) els.inviteLink.value = buildInviteLink();
+    if (els.roomInput) els.roomInput.value = STATE.roomId || '';
     renderQr(buildInviteLink());
 
     if (els.btnCopyRoom){
@@ -864,6 +896,43 @@
       els.btnCopyInvite.addEventListener('click', async () => {
         const ok = await copyText(buildInviteLink());
         setCopyState(ok ? 'คัดลอก Invite Link แล้ว' : 'คัดลอก Invite Link ไม่สำเร็จ', !ok);
+      });
+    }
+
+    if (els.roomInput){
+      els.roomInput.addEventListener('input', () => {
+        const v = normalizeRoomId(els.roomInput.value);
+        if (els.roomInput.value !== v) els.roomInput.value = v;
+      });
+
+      els.roomInput.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter'){
+          ev.preventDefault();
+          goJoinRoomByCode(els.roomInput.value);
+        }
+      });
+    }
+
+    if (els.btnJoinByCode){
+      els.btnJoinByCode.addEventListener('click', () => {
+        goJoinRoomByCode(els.roomInput ? els.roomInput.value : '');
+      });
+    }
+
+    if (els.btnUseCurrentRoom){
+      els.btnUseCurrentRoom.addEventListener('click', () => {
+        if (els.roomInput){
+          els.roomInput.value = STATE.roomId || '';
+          els.roomInput.focus();
+          els.roomInput.select?.();
+        }
+        setHint('ใส่ code ห้องปัจจุบันให้แล้ว', false);
+      });
+    }
+
+    if (els.btnNewRoom){
+      els.btnNewRoom.addEventListener('click', () => {
+        goCreateNewRoom();
       });
     }
 
