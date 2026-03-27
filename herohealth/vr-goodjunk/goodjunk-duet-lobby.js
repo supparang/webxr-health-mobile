@@ -268,7 +268,7 @@
   }
 
   function buildRunUrl(room){
-    const u = new URL('./goodjunk-duet-run.html', W.location.href);
+    const u = new URL('./goodjunk-duet-play.html', W.location.href);
     u.searchParams.set('mode', MODE_KEY);
     u.searchParams.set('game', GAME_KEY);
     u.searchParams.set('room', STATE.roomId);
