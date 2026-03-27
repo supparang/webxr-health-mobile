@@ -12,7 +12,7 @@
  * - fixed result table / rank badge
  * - no "guess first row as me"
  * - fallback result modal if existing result DOM is absent
- * - public API for legacy gameplay logic
+ * - emits summary events for battle run shell
  *
  * Public API:
  *   window.BattleSafe.setState(patch)
@@ -31,6 +31,11 @@
   window.__GJ_BATTLE_SAFE_LOADED__ = true;
 
   const BOOT = window.HHA_BATTLE_BOOT || window.__GJ_BATTLE_BOOT__ || null;
+  const RUN_CTX = window.__GJ_RUN_CTX__ || window.__GJ_MULTI_RUN_CTX__ || window.RUN_CTX || null;
+  const DEBUG = (
+    String(new URL(location.href).searchParams.get('debug') || '0') === '1' ||
+    String(new URL(location.href).searchParams.get('battleDebug') || '0') === '1'
+  );
 
   const LS_KEYS = {
     devicePid: 'GJ_DEVICE_PID',
@@ -62,7 +67,8 @@
     started: false,
     timer: null,
     resultShown: false,
-    wrapped: false
+    wrapped: false,
+    summaryEmitted: false
   };
 
   const STATE = {
@@ -282,6 +288,8 @@
       STATE.roomMeta?.roomId ||
       BOOT?.roomId ||
       BOOT?.room ||
+      RUN_CTX?.roomId ||
+      RUN_CTX?.room ||
       qsGet('roomId') ||
       qsGet('room') ||
       window.__BATTLE_ROOM__?.roomId ||
@@ -301,6 +309,9 @@
       BOOT?.uid ||
       BOOT?.playerId ||
       BOOT?.pid ||
+      RUN_CTX?.uid ||
+      RUN_CTX?.playerId ||
+      RUN_CTX?.pid ||
       window.RUN_CTX?.pid ||
       window.RUN_CTX?.playerPid ||
       window.RUN_CTX?.uid ||
@@ -319,6 +330,8 @@
     return normalizeName(
       BOOT?.name ||
       BOOT?.nick ||
+      RUN_CTX?.name ||
+      RUN_CTX?.nick ||
       window.RUN_CTX?.name ||
       window.RUN_CTX?.nick ||
       window.__GJ_CTX?.name ||
@@ -358,6 +371,9 @@
       normalizePid(BOOT?.uid),
       normalizePid(BOOT?.playerId),
       normalizePid(BOOT?.pid),
+      normalizePid(RUN_CTX?.uid),
+      normalizePid(RUN_CTX?.playerId),
+      normalizePid(RUN_CTX?.pid),
       normalizePid(qsGet('uid')),
       normalizePid(qsGet('playerId')),
       normalizePid(qsGet('pid')),
@@ -379,6 +395,8 @@
       getSelfName(),
       normalizeName(BOOT?.name),
       normalizeName(BOOT?.nick),
+      normalizeName(RUN_CTX?.name),
+      normalizeName(RUN_CTX?.nick),
       normalizeName(qsGet('name')),
       normalizeName(qsGet('nick')),
       normalizeName(window.RUN_CTX?.name),
@@ -974,6 +992,85 @@
     });
   }
 
+  function emitBattleSummary(summary) {
+    if (BRIDGE.summaryEmitted) return;
+    BRIDGE.summaryEmitted = true;
+
+    const others = (summary.players || []).filter((p) => {
+      if (!summary.self) return true;
+      return !(p.pid === summary.self.pid && p.key === summary.self.key);
+    });
+
+    const opponent = others[0] || null;
+    const resultText =
+      summary.selfRank === 1 ? 'win'
+      : summary.selfRank ? `อันดับ ${summary.selfRank}`
+      : 'finished';
+
+    const detail = {
+      summary: {
+        mode: 'battle',
+        game: 'goodjunk-battle',
+        roomId: summary.roomId,
+        pid: summary.pid,
+        name: summary.name,
+        rank: summary.selfRank ?? '',
+        score: summary.scoreFinal ?? 0,
+        opponentScore: opponent ? opponent.score : '',
+        players: (summary.players || []).length,
+        miss: summary.missTotal ?? 0,
+        bestStreak: summary.comboMax ?? 0,
+        result: resultText,
+        reason: summary.endReason || 'finished',
+        hp: summary.hp,
+        maxHp: summary.maxHp,
+        attackCharge: summary.attackCharge,
+        maxAttackCharge: summary.maxAttackCharge,
+        attackReady: summary.attackReady,
+        attacksUsed: summary.attacksUsed,
+        damageDealt: summary.damageDealt,
+        damageTaken: summary.damageTaken,
+        koCount: summary.koCount,
+        raw: summary
+      }
+    };
+
+    const eventNames = [
+      'gj:battle-summary',
+      'gj:summary',
+      'gj:match-summary',
+      'gj:session-end',
+      'hha:summary',
+      'hha:session-summary',
+      'hha:match-summary'
+    ];
+
+    eventNames.forEach((name) => {
+      try {
+        window.dispatchEvent(new CustomEvent(name, { detail }));
+      } catch (err) {
+        console.warn('[battle-safe] emit summary event failed:', name, err);
+      }
+    });
+
+    try {
+      window.postMessage({
+        type: 'gj:battle-summary',
+        detail
+      }, '*');
+    } catch (err) {
+      console.warn('[battle-safe] postMessage summary failed:', err);
+    }
+
+    try {
+      if (typeof window.__GJ_SHOW_BATTLE_SUMMARY__ === 'function') {
+        window.__GJ_SHOW_BATTLE_SUMMARY__(detail);
+      }
+    } catch (err) {
+      console.warn('[battle-safe] direct summary bridge failed:', err);
+    }
+  }
+
   function mergeState(patch = {}) {
     const src = patch || {};
 
@@ -1113,6 +1210,8 @@
       mountFallbackResult(summary);
     }
 
+    emitBattleSummary(summary);
+
     BRIDGE.resultShown = true;
     STATE.ended = true;
     stopBridge();
@@ -1136,7 +1235,10 @@
       window.__BATTLE_STATE__,
       window.RUN_CTX,
       window.__GJ_CTX,
-      BOOT
+      window.__GJ_RUN_CTX__,
+      window.__GJ_MULTI_RUN_CTX__,
+      BOOT,
+      RUN_CTX
     ].filter(Boolean);
 
     for (const src of candidates) {
@@ -1149,6 +1251,8 @@
       window.roomState,
       window.state?.room,
       window.gameState?.room,
+      window.__GJ_RUN_CTX__?.room,
+      window.__GJ_MULTI_RUN_CTX__?.room,
       BOOT?.room
     ].filter(Boolean);
 
