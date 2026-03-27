@@ -1,6 +1,6 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260327-GOODJUNK-DUET-OVERLAYFIX-V5
-   - pairs with duet lobby path: hha-battle/goodjunk/duetRooms/{ROOM}
+   FULL PATCH v20260327-GOODJUNK-DUET-MOBILEFIX-V6
+   - duet room path: hha-battle/goodjunk/duetRooms/{ROOM}
    - firebase anonymous auth
    - authoritative countdown from room.startAt
    - child-friendly duet gameplay
@@ -8,6 +8,7 @@
    - live sync score to room.players/{uid}
    - final summary + pair score + last summary save
    - FIX: result overlay hidden/reset on init + startGame + prestart
+   - FIX: mobile auto-collapse HUD so stage shows first
 */
 (function(){
   'use strict';
@@ -198,7 +199,7 @@
     roomId: normalizeRoomId(qs('roomId') || qs('room') || ''),
     pid: normalizePid(qs('pid') || ''),
     name: String(qs('name') || qs('nick') || 'Player').slice(0, 64),
-    hub: qs('hub') || './hub.html',
+    hub: qs('hub') || '../hub.html',
     view: (qs('view') || 'mobile').toLowerCase(),
     run: (qs('run') || 'play').toLowerCase(),
     diff: (() => {
@@ -352,14 +353,18 @@
     }
   }
 
-  function toggleHudCompact(){
-    STATE.hudCompact = !STATE.hudCompact;
+  function applyHudCompact(flag){
+    STATE.hudCompact = !!flag;
     const children = UI.hud ? Array.from(UI.hud.children) : [];
     children.forEach((el, idx) => {
-      if (idx <= 2) return;
+      if (idx <= 2) return; // toolbar + top pills + score
       el.style.display = STATE.hudCompact ? 'none' : '';
     });
     if (UI.hudToggle) UI.hudToggle.textContent = STATE.hudCompact ? '＋' : '⋯';
+  }
+
+  function toggleHudCompact(){
+    applyHudCompact(!STATE.hudCompact);
   }
 
   function showCountdown(text, num){
@@ -707,7 +712,7 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: peerFinished,
       endedAt: new Date().toISOString(),
-      version: 'v20260327-GOODJUNK-DUET-OVERLAYFIX-V5'
+      version: 'v20260327-GOODJUNK-DUET-MOBILEFIX-V6'
     };
   }
 
@@ -1016,6 +1021,12 @@
   async function init(){
     bindUi();
     resetResultMount();
+
+    if (window.matchMedia('(max-width: 980px)').matches) {
+      applyHudCompact(true);
+    } else {
+      applyHudCompact(false);
+    }
 
     STATE.cfg = getCfg();
     STATE.pairGoal = computePairGoal();
