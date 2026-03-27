@@ -3,32 +3,36 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Germ Detective</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth — Germ Detective Launcher</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#bfe9ff" />
   <meta name="robots" content="noindex" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#082032;
-      --bg2:#0f3460;
-      --bg3:#1b4965;
+      --bg1:#dff5ff;
+      --bg2:#ccecff;
+      --bg3:#f9f3df;
 
-      --panel:rgba(2,6,23,.64);
-      --panel-soft:rgba(255,255,255,.08);
-      --stroke:rgba(255,255,255,.16);
+      --card:#fffaf0;
+      --card2:#f2fbff;
+      --line:#bfdff0;
+      --line-strong:#9fcfe7;
 
-      --text:#f8fafc;
-      --muted:#dbeafe;
+      --text:#664c38;
+      --muted:#866f5f;
 
-      --cyan:#22d3ee;
-      --green:#22c55e;
-      --yellow:#facc15;
-      --blue:#38bdf8;
-      --pink:#f472b6;
-      --violet:#a78bfa;
+      --green1:#9be05f;
+      --green2:#73bf38;
 
-      --shadow:0 18px 55px rgba(0,0,0,.28);
-      --shadow-big:0 24px 80px rgba(0,0,0,.34);
+      --blue1:#97d9ff;
+      --blue2:#66bdf5;
+
+      --yellow1:#ffe088;
+      --yellow2:#f4c24f;
+
+      --shadow:0 18px 36px rgba(93,138,168,.14);
+      --shadow-soft:0 10px 22px rgba(93,138,168,.10);
 
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -39,646 +43,741 @@
     *{ box-sizing:border-box; }
 
     html,body{
-      min-height:100%;
       margin:0;
+      min-height:100%;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
       color:var(--text);
       background:
-        radial-gradient(900px 620px at 10% 10%, rgba(34,211,238,.24), transparent 60%),
-        radial-gradient(800px 580px at 100% 0%, rgba(167,139,250,.18), transparent 56%),
-        radial-gradient(700px 500px at 50% 100%, rgba(250,204,21,.14), transparent 58%),
-        linear-gradient(180deg, var(--bg1), var(--bg2) 56%, var(--bg3));
+        radial-gradient(1100px 700px at 50% -10%, rgba(168,229,255,.60), transparent 60%),
+        radial-gradient(900px 600px at 0% 25%, rgba(255,236,181,.28), transparent 60%),
+        linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 42%, var(--bg3) 100%);
     }
 
     body{
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
-      line-height:1.4;
-      overflow-x:hidden;
-    }
-
-    button{ font:inherit; }
-    a{ color:inherit; text-decoration:none; }
-
-    .wrap{
-      max-width:1120px;
-      margin:0 auto;
       padding:
         calc(14px + var(--sat))
         calc(14px + var(--sar))
-        calc(24px + var(--sab))
+        calc(18px + var(--sab))
         calc(14px + var(--sal));
     }
 
-    .hero{
-      position:relative;
-      overflow:hidden;
-      border-radius:30px;
-      border:1px solid var(--stroke);
-      background:
-        linear-gradient(135deg, rgba(34,211,238,.16), rgba(167,139,250,.14)),
-        var(--panel);
-      backdrop-filter:blur(12px);
-      box-shadow:var(--shadow-big);
-      padding:18px;
-    }
-
-    .hero::before{
-      content:"";
-      position:absolute;
-      inset:auto -60px -80px auto;
-      width:260px;
-      height:260px;
-      border-radius:999px;
-      background:radial-gradient(circle, rgba(34,211,238,.18), transparent 68%);
-      pointer-events:none;
-    }
-
-    .heroGrid{
+    .shell{
+      width:min(1100px, 100%);
+      margin:0 auto;
       display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:16px;
-      align-items:stretch;
-      position:relative;
-      z-index:1;
-    }
-
-    @media (max-width:920px){
-      .heroGrid{ grid-template-columns:1fr; }
-    }
-
-    .heroMain{
-      display:flex;
       gap:14px;
-      align-items:flex-start;
     }
 
-    .heroIcon{
-      width:94px;
-      height:94px;
-      border-radius:26px;
-      flex:0 0 auto;
+    .topbar{
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:14px;
+    }
+
+    .card{
+      border:2px solid var(--line);
+      border-radius:28px;
+      background:linear-gradient(180deg, rgba(255,252,245,.98), rgba(242,250,255,.96));
+      box-shadow:var(--shadow), inset 0 2px 0 rgba(255,255,255,.88);
+    }
+
+    .hero{
+      padding:18px;
+      display:flex;
+      align-items:center;
+      gap:14px;
+      min-height:128px;
+    }
+
+    .hero-logo{
+      width:92px;
+      height:92px;
+      border-radius:24px;
       display:grid;
       place-items:center;
       font-size:46px;
-      border:1px solid rgba(255,255,255,.16);
-      background:
-        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 42%),
-        linear-gradient(135deg, rgba(34,211,238,.24), rgba(167,139,250,.18));
-      box-shadow:0 12px 30px rgba(0,0,0,.20);
+      background:linear-gradient(180deg, #dff3ff, #fff0c8);
+      border:2px solid #cce6f5;
+      box-shadow:var(--shadow-soft);
+      flex:0 0 auto;
     }
 
-    .badge{
+    .hero-title{
+      font-size:34px;
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:.2px;
+      color:#6a4b35;
+      text-shadow:0 1px 0 rgba(255,255,255,.75);
+    }
+
+    .hero-sub{
+      margin-top:6px;
+      font-size:16px;
+      line-height:1.35;
+      font-weight:900;
+      color:var(--muted);
+    }
+
+    .hero-pill-row{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .pill{
       display:inline-flex;
       align-items:center;
       gap:8px;
       min-height:36px;
-      padding:8px 12px;
+      padding:7px 12px;
       border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      color:#e0f2fe;
-      font-size:12px;
+      border:2px solid #cce4f2;
+      background:linear-gradient(180deg, #f2fbff, #fff8ee);
+      box-shadow:0 8px 16px rgba(0,0,0,.05);
+      font-size:13px;
       font-weight:1000;
+      color:#5f4636;
     }
 
-    .title{
-      margin:10px 0 0;
-      font-size:clamp(28px,4.4vw,42px);
+    .player{
+      padding:16px;
+      display:grid;
+      gap:12px;
+      min-height:128px;
+    }
+
+    .player-head{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .avatar{
+      width:74px;
+      height:74px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      background:linear-gradient(180deg, #dff3ff, #fff0c8);
+      border:2px solid #cce6f5;
+      box-shadow:var(--shadow-soft);
+      flex:0 0 auto;
+    }
+
+    .player-name{
+      font-size:26px;
       line-height:1.05;
-      font-weight:1100;
-      letter-spacing:-.02em;
+      font-weight:1000;
+      color:#6a4a35;
     }
 
-    .sub{
-      margin-top:10px;
-      font-size:15px;
+    .player-sub{
+      margin-top:4px;
+      font-size:14px;
       font-weight:900;
-      line-height:1.6;
       color:var(--muted);
     }
 
-    .missionRow{
+    .player-stats{
       display:flex;
       flex-wrap:wrap;
       gap:8px;
-      margin-top:12px;
     }
 
-    .missionChip{
-      display:inline-flex;
+    .content{
+      display:grid;
+      grid-template-columns:1.06fr .94fr;
+      gap:14px;
+    }
+
+    .panel{
+      padding:16px;
+    }
+
+    .section-head{
+      display:flex;
       align-items:center;
-      gap:8px;
-      min-height:38px;
-      padding:8px 12px;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:10px;
+    }
+
+    .section-title{
+      font-size:22px;
+      line-height:1.1;
+      font-weight:1000;
+      color:#6a4a35;
+    }
+
+    .section-sub{
+      margin-top:2px;
+      font-size:12px;
+      font-weight:900;
+      color:var(--muted);
+    }
+
+    .helper-chip{
+      padding:7px 10px;
       border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:#eff6ff;
+      border:2px solid #d5e8f2;
+      background:linear-gradient(180deg, #f4fbff, #fffaf1);
       font-size:12px;
       font-weight:1000;
+      color:#6d5440;
+      white-space:nowrap;
     }
 
-    .heroActions{
-      margin-top:14px;
-      display:flex;
+    .scene-grid{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0,1fr));
       gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
     }
 
-    .btn{
+    .scene-card{
+      appearance:none;
+      border:2px solid #cfe5f2;
+      border-radius:24px;
+      background:linear-gradient(180deg, #eefaff, #fff8ee);
+      box-shadow:0 10px 18px rgba(0,0,0,.06);
+      padding:12px;
+      text-align:left;
       cursor:pointer;
-      min-height:48px;
-      padding:11px 16px;
+      color:#5e4635;
+    }
+
+    .scene-card.active{
+      border-color:#79c9e8;
+      background:linear-gradient(180deg, #ddf7ff, #eefcff);
+      box-shadow:0 12px 20px rgba(102,189,245,.14);
+    }
+
+    .scene-emoji{
+      width:54px;
+      height:54px;
       border-radius:18px;
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.06);
-      color:var(--text);
-      font-weight:1100;
-      box-shadow:0 10px 24px rgba(0,0,0,.16);
-      transition:transform .12s ease, filter .12s ease;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      background:linear-gradient(180deg, #dff3ff, #fff0c8);
+      border:2px solid #cce6f5;
+      box-shadow:0 8px 18px rgba(0,0,0,.05);
+      margin-bottom:10px;
     }
 
-    .btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.05);
+    .scene-name{
+      font-size:18px;
+      font-weight:1000;
+      color:#654b38;
+      line-height:1.1;
     }
 
-    .btn.primary{
-      border-color:rgba(34,197,94,.30);
-      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.16));
+    .scene-desc{
+      margin-top:6px;
+      font-size:12px;
+      line-height:1.35;
+      font-weight:900;
+      color:var(--muted);
     }
 
-    .btn.cyan{
-      border-color:rgba(34,211,238,.30);
-      background:linear-gradient(180deg, rgba(34,211,238,.22), rgba(34,211,238,.14));
+    .option-row{
+      margin-top:14px;
+      display:grid;
+      gap:12px;
     }
 
-    .btn.violet{
-      border-color:rgba(167,139,250,.30);
-      background:linear-gradient(180deg, rgba(167,139,250,.22), rgba(167,139,250,.14));
+    .option-group{
+      border:2px solid #dbe9ef;
+      border-radius:22px;
+      background:rgba(255,255,255,.62);
+      padding:12px;
+      box-shadow:0 8px 18px rgba(0,0,0,.04);
     }
 
-    .btn.ghost{
-      background:rgba(255,255,255,.04);
-      color:#e2e8f0;
+    .option-label{
+      font-size:14px;
+      font-weight:1000;
+      color:#6a4b35;
+      margin-bottom:8px;
     }
 
-    .sidePanel{
+    .chip-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .choice-chip{
+      appearance:none;
+      min-height:40px;
+      padding:8px 14px;
+      border-radius:999px;
+      border:2px solid #cfe5f2;
+      background:linear-gradient(180deg, #f8fdff, #fff8ef);
+      box-shadow:0 8px 16px rgba(0,0,0,.04);
+      color:#614836;
+      font-size:13px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .choice-chip.active{
+      border-color:#7fcdea;
+      background:linear-gradient(180deg, #ddf7ff, #eefcff);
+      color:#4d4338;
+    }
+
+    .coach-panel{
+      padding:16px;
       display:grid;
       gap:12px;
       align-content:start;
     }
 
-    .statCard,
-    .card,
-    .helpCard{
+    .coach-card{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:12px;
       border-radius:22px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.56);
-      backdrop-filter:blur(10px);
-      box-shadow:var(--shadow);
+      border:2px solid #d9e9ef;
+      background:linear-gradient(180deg, #fffef7, #f1fbff);
+      box-shadow:0 10px 22px rgba(0,0,0,.05);
     }
 
-    .statCard{
+    .coach-avatar{
+      width:66px;
+      height:66px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:32px;
+      background:linear-gradient(180deg, #dff3ff, #fff0c8);
+      border:2px solid #cce6f5;
+      box-shadow:0 8px 18px rgba(0,0,0,.05);
+      flex:0 0 auto;
+    }
+
+    .coach-bubble{
+      flex:1 1 auto;
+      padding:10px 12px;
+      border-radius:18px;
+      background:#fff8eb;
+      border:2px solid #ead7af;
+      color:#6b4d38;
+      font-size:14px;
+      line-height:1.45;
+      font-weight:1000;
+    }
+
+    .mission-preview{
+      border:2px solid #dbe9ef;
+      border-radius:24px;
+      background:rgba(255,255,255,.68);
       padding:14px;
+      box-shadow:0 8px 18px rgba(0,0,0,.04);
+      display:grid;
+      gap:12px;
     }
 
-    .statTitle{
+    .mission-banner{
+      padding:12px 14px;
+      border-radius:18px;
+      background:linear-gradient(180deg, #dff7ff, #eefcff);
+      border:2px solid #7ecae9;
+      color:#5a4737;
+      font-size:18px;
+      font-weight:1000;
+      text-align:center;
+      box-shadow:0 10px 18px rgba(102,189,245,.12);
+    }
+
+    .mission-steps{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+
+    .step-pill{
+      padding:8px 10px;
+      border-radius:999px;
+      border:2px solid #cfe5f2;
+      background:linear-gradient(180deg, #f8fdff, #fff8ef);
+      color:#6f5946;
       font-size:12px;
       font-weight:1000;
-      color:#dbeafe;
     }
 
-    .statValue{
-      margin-top:6px;
-      font-size:22px;
-      line-height:1;
-      font-weight:1100;
+    .step-arrow{
+      color:#9a7d62;
+      font-size:14px;
+      font-weight:1000;
     }
 
-    .statSub{
-      margin-top:6px;
-      font-size:12px;
+    .preview-note{
+      padding:10px 12px;
+      border-radius:18px;
+      border:2px solid #ebd7af;
+      background:#fff8eb;
+      color:#6b4d38;
+      font-size:13px;
       line-height:1.45;
-      color:#cbd5e1;
-      font-weight:900;
+      font-weight:1000;
     }
 
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:14px;
-      margin-top:14px;
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:4px;
+    }
+
+    .big-btn{
+      appearance:none;
+      min-height:52px;
+      padding:12px 18px;
+      border-radius:999px;
+      border:2px solid #cfe5f2;
+      box-shadow:0 10px 20px rgba(0,0,0,.07);
+      font-size:15px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .big-btn.primary{
+      background:linear-gradient(180deg, var(--green1), var(--green2));
+      border-color:#6cae34;
+      color:#fffef3;
+    }
+
+    .big-btn.cyan{
+      background:linear-gradient(180deg, var(--blue1), var(--blue2));
+      border-color:#63a9de;
+      color:#fff;
+    }
+
+    .big-btn.warn{
+      background:linear-gradient(180deg, var(--yellow1), var(--yellow2));
+      border-color:#d8a648;
+      color:#6d4d20;
+    }
+
+    .big-btn:active{
+      transform:translateY(1px) scale(.99);
+    }
+
+    .status-note{
+      min-height:46px;
+      padding:11px 14px;
+      border-radius:18px;
+      border:2px dashed #cde0ea;
+      background:rgba(255,255,255,.58);
+      color:#6b523d;
+      font-size:13px;
+      line-height:1.4;
+      font-weight:1000;
+      display:flex;
+      align-items:center;
     }
 
     @media (max-width:980px){
-      .grid{ grid-template-columns:1fr; }
-    }
-
-    .card{
-      padding:16px;
-    }
-
-    .cardTitle{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      margin:0;
-      font-size:18px;
-      font-weight:1100;
-    }
-
-    .cardSub{
-      margin-top:8px;
-      font-size:13px;
-      line-height:1.55;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .stepList{
-      display:grid;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .step{
-      display:grid;
-      grid-template-columns:42px 1fr;
-      gap:10px;
-      align-items:flex-start;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.04);
-      padding:12px;
-    }
-
-    .stepNo{
-      width:42px;
-      height:42px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      font-size:18px;
-      font-weight:1100;
-      background:rgba(255,255,255,.10);
-      border:1px solid rgba(255,255,255,.14);
-    }
-
-    .stepTitle{
-      font-size:15px;
-      font-weight:1100;
-      line-height:1.2;
-    }
-
-    .stepDesc{
-      margin-top:4px;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.5;
-      font-weight:900;
-    }
-
-    .sceneGrid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-      margin-top:12px;
-    }
-
-    @media (max-width:760px){
-      .sceneGrid{ grid-template-columns:1fr; }
-    }
-
-    .sceneBtn{
-      cursor:pointer;
-      min-height:96px;
-      padding:14px;
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.05);
-      color:var(--text);
-      text-align:left;
-      box-shadow:0 10px 24px rgba(0,0,0,.16);
-      transition:transform .12s ease, filter .12s ease, border-color .12s ease;
-    }
-
-    .sceneBtn:hover{
-      transform:translateY(-2px);
-      filter:brightness(1.04);
-    }
-
-    .sceneBtn.active{
-      border-color:rgba(34,211,238,.34);
-      background:rgba(34,211,238,.12);
-    }
-
-    .sceneName{
-      font-size:16px;
-      font-weight:1100;
-      line-height:1.2;
-    }
-
-    .sceneDesc{
-      margin-top:6px;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.45;
-      font-weight:900;
-    }
-
-    .levelRow{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:12px;
-    }
-
-    .levelBtn{
-      cursor:pointer;
-      min-height:40px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:var(--text);
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .levelBtn.active{
-      border-color:rgba(250,204,21,.36);
-      background:rgba(250,204,21,.14);
-    }
-
-    .infoList{
-      display:grid;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .infoItem{
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.04);
-      padding:12px;
-    }
-
-    .infoItemTitle{
-      font-size:14px;
-      font-weight:1100;
-      line-height:1.25;
-    }
-
-    .infoItemDesc{
-      margin-top:5px;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.5;
-      font-weight:900;
-    }
-
-    .bottomBar{
-      margin-top:14px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-    }
-
-    .statusPill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:38px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:#e0f2fe;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .helpCard{
-      margin-top:14px;
-      padding:16px;
-    }
-
-    .helpTitle{
-      font-size:17px;
-      font-weight:1100;
-      line-height:1.2;
-    }
-
-    .helpSub{
-      margin-top:8px;
-      font-size:13px;
-      line-height:1.55;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .helpActions{
-      margin-top:12px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .hint{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.5;
-    }
-
-    @media (prefers-reduced-motion: reduce){
-      *,
-      *::before,
-      *::after{
-        transition:none !important;
-        animation:none !important;
+      .topbar,
+      .content{
+        grid-template-columns:1fr;
       }
-      .btn:hover,
-      .sceneBtn:hover{
-        transform:none !important;
+    }
+
+    @media (max-width:720px){
+      body{
+        padding:
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(14px + var(--sab))
+          calc(10px + var(--sal));
+      }
+
+      .shell,
+      .topbar,
+      .content{
+        gap:10px;
+      }
+
+      .card{
+        border-radius:22px;
+      }
+
+      .hero{
+        min-height:unset;
+        padding:14px;
+        gap:10px;
+      }
+
+      .hero-logo{
+        width:72px;
+        height:72px;
+        border-radius:20px;
+        font-size:38px;
+      }
+
+      .hero-title{
+        font-size:26px;
+      }
+
+      .hero-sub{
+        font-size:13px;
+      }
+
+      .player{
+        min-height:unset;
+        padding:14px;
+      }
+
+      .avatar{
+        width:62px;
+        height:62px;
+        border-radius:18px;
+        font-size:30px;
+      }
+
+      .player-name{
+        font-size:22px;
+      }
+
+      .panel,
+      .coach-panel{
+        padding:14px;
+      }
+
+      .section-title{
+        font-size:18px;
+      }
+
+      .scene-grid{
+        grid-template-columns:1fr;
+      }
+
+      .scene-card{
+        border-radius:20px;
+      }
+
+      .scene-emoji{
+        width:48px;
+        height:48px;
+        border-radius:16px;
+        font-size:24px;
+      }
+
+      .scene-name{
+        font-size:16px;
+      }
+
+      .scene-desc{
+        font-size:11px;
+      }
+
+      .option-group{
+        border-radius:18px;
+        padding:10px;
+      }
+
+      .choice-chip{
+        min-height:38px;
+        font-size:12px;
+        padding:8px 12px;
+      }
+
+      .coach-card{
+        border-radius:18px;
+        gap:10px;
+        padding:10px;
+      }
+
+      .coach-avatar{
+        width:56px;
+        height:56px;
+        border-radius:16px;
+        font-size:28px;
+      }
+
+      .coach-bubble{
+        font-size:12px;
+        line-height:1.35;
+        border-radius:15px;
+      }
+
+      .mission-preview{
+        border-radius:20px;
+        gap:10px;
+        padding:12px;
+      }
+
+      .mission-banner{
+        font-size:16px;
+        border-radius:16px;
+        padding:10px 12px;
+      }
+
+      .step-pill{
+        font-size:11px;
+        padding:7px 9px;
+      }
+
+      .preview-note{
+        font-size:12px;
+        border-radius:16px;
+      }
+
+      .big-btn{
+        width:100%;
+        min-height:48px;
+        font-size:14px;
+      }
+
+      .status-note{
+        min-height:42px;
+        font-size:12px;
+        border-radius:16px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <section class="hero">
-      <div class="heroGrid">
+  <main class="shell">
+    <section class="topbar">
+      <div class="card hero">
+        <div class="hero-logo">🤖</div>
         <div>
-          <div class="heroMain">
-            <div class="heroIcon">🦠</div>
-            <div>
-              <div class="badge">🕵️ ภารกิจนักสืบเชื้อโรค</div>
-              <h1 class="title">ช่วยกันหาจุดเสี่ยง<br>แล้วทำให้พื้นที่ปลอดภัยขึ้น!</h1>
-              <div class="sub">
-                ในเกมนี้ เราจะส่องหา “จุดน่าสงสัย” เก็บหลักฐาน แล้วค่อยทำความสะอาด<br>
-                ถ้าช่วยลดความเสี่ยงได้สำเร็จ ก็จะปิดคดีได้อย่างเก่งเลย ✨
-              </div>
+          <div class="hero-title">Germ Detective</div>
+          <div class="hero-sub">หาเชื้อ • เก็บหลักฐาน • ทำให้ห้องปลอดภัย</div>
+          <div class="hero-pill-row">
+            <div class="pill">🧼 Hygiene Zone</div>
+            <div class="pill">🎮 HeroHealth</div>
+            <div class="pill">👧 เหมาะกับ ป.5</div>
+          </div>
+        </div>
+      </div>
 
-              <div class="missionRow">
-                <span class="missionChip">🔦 หา “จุดน่าสงสัย”</span>
-                <span class="missionChip">🧪 เก็บหลักฐาน</span>
-                <span class="missionChip">🧼 ลดความเสี่ยง</span>
-                <span class="missionChip">📋 ส่งรายงาน</span>
-              </div>
-
-              <div class="heroActions">
-                <button class="btn primary" id="btnStart" type="button">▶ เริ่มภารกิจ</button>
-                <button class="btn cyan" id="btnHow" type="button">📖 วิธีเล่น</button>
-                <button class="btn ghost" id="btnHub" type="button">🏠 กลับบ้านฮีโร่</button>
-              </div>
-            </div>
+      <div class="card player">
+        <div class="player-head">
+          <div class="avatar">🦸</div>
+          <div>
+            <div class="player-name" id="playerName">ผู้เล่น anon</div>
+            <div class="player-sub" id="playerSub">เตรียมออกภารกิจ</div>
           </div>
         </div>
 
-        <div class="sidePanel">
-          <div class="statCard">
-            <div class="statTitle">🧑‍🚀 รหัสผู้เล่น</div>
-            <div class="statValue" id="uiPid">anon</div>
-            <div class="statSub">ใช้สำหรับจำความก้าวหน้าในเครื่องนี้</div>
-          </div>
-
-          <div class="statCard">
-            <div class="statTitle">🎯 ระดับที่เลือก</div>
-            <div class="statValue" id="uiDiff">ปกติ</div>
-            <div class="statSub">เริ่มจากระดับปกติก่อนก็ได้</div>
-          </div>
-
-          <div class="statCard">
-            <div class="statTitle">⏱ เวลาเล่น</div>
-            <div class="statValue" id="uiTime">180 วินาที</div>
-            <div class="statSub">เวลามากพอให้ค่อย ๆ สำรวจทีละจุด</div>
-          </div>
+        <div class="player-stats">
+          <div class="pill">📍 โซนสุขอนามัย</div>
+          <div class="pill">🧪 Germ Detective</div>
+          <div class="pill" id="quickScenePill">🏫 ห้องเรียน</div>
         </div>
       </div>
     </section>
 
-    <div class="grid">
-      <section class="card">
-        <h2 class="cardTitle">🧭 วิธีเล่นแบบง่าย</h2>
-        <div class="cardSub">จำแค่ 4 ขั้นตอนนี้ก็เริ่มเล่นได้เลย</div>
+    <section class="content">
+      <section class="card panel">
+        <div class="section-head">
+          <div>
+            <div class="section-title">เลือกภารกิจ</div>
+            <div class="section-sub">เลือกฉาก ระดับ และเวลา ก่อนเริ่มเล่น</div>
+          </div>
+          <div class="helper-chip">พร้อมแล้วไป warmup</div>
+        </div>
 
-        <div class="stepList">
-          <div class="step">
-            <div class="stepNo">1</div>
-            <div>
-              <div class="stepTitle">ส่องหา “จุดน่าสงสัย”</div>
-              <div class="stepDesc">เริ่มจากจุดที่หลายคนจับบ่อย เช่น ลูกบิดประตู ก๊อกน้ำ หรือโต๊ะ</div>
+        <div class="scene-grid">
+          <button type="button" class="scene-card active" data-scene="classroom">
+            <div class="scene-emoji">🏫</div>
+            <div class="scene-name">ห้องเรียน</div>
+            <div class="scene-desc">ตามหาจุดที่คนจับบ่อย เช่น ลูกบิด ก๊อกน้ำ และราวจับ</div>
+          </button>
+
+          <button type="button" class="scene-card" data-scene="home">
+            <div class="scene-emoji">🏠</div>
+            <div class="scene-name">บ้าน</div>
+            <div class="scene-desc">ลองหาจุดเสี่ยงจากของใช้ร่วมในบ้าน</div>
+          </button>
+
+          <button type="button" class="scene-card" data-scene="canteen">
+            <div class="scene-emoji">🍽️</div>
+            <div class="scene-name">โรงอาหาร</div>
+            <div class="scene-desc">ช่วยกันทำให้พื้นที่กินข้าวปลอดภัยขึ้น</div>
+          </button>
+        </div>
+
+        <div class="option-row">
+          <div class="option-group">
+            <div class="option-label">เลือกระดับ</div>
+            <div class="chip-row">
+              <button type="button" class="choice-chip" data-diff="easy">🙂 ง่าย</button>
+              <button type="button" class="choice-chip active" data-diff="normal">😎 ปกติ</button>
+              <button type="button" class="choice-chip" data-diff="hard">🔥 ท้าทาย</button>
             </div>
           </div>
 
-          <div class="step">
-            <div class="stepNo">2</div>
-            <div>
-              <div class="stepTitle">เก็บตัวอย่างหรือถ่ายรูป</div>
-              <div class="stepDesc">เมื่อเจอจุดน่าสงสัยแล้ว ให้ใช้เครื่องมือเก็บหลักฐานให้ครบ</div>
+          <div class="option-group">
+            <div class="option-label">เลือกเวลา</div>
+            <div class="chip-row">
+              <button type="button" class="choice-chip" data-time="120">⏱ 120 วิ</button>
+              <button type="button" class="choice-chip active" data-time="180">⏱ 180 วิ</button>
+              <button type="button" class="choice-chip" data-time="240">⏱ 240 วิ</button>
             </div>
           </div>
 
-          <div class="step">
-            <div class="stepNo">3</div>
-            <div>
-              <div class="stepTitle">ทำความสะอาดจุดสำคัญ</div>
-              <div class="stepDesc">ลดความเสี่ยงของพื้นที่ให้ต่ำลง เพื่อให้ปลอดภัยมากขึ้น</div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="stepNo">4</div>
-            <div>
-              <div class="stepTitle">ส่งรายงานปิดคดี</div>
-              <div class="stepDesc">ถ้าหลักฐานครบและความเสี่ยงลดลง ก็ส่งรายงานได้เลย</div>
+          <div class="option-group">
+            <div class="option-label">โหมดแสดงผล</div>
+            <div class="chip-row">
+              <button type="button" class="choice-chip active" data-view="mobile">📱 มือถือ</button>
+              <button type="button" class="choice-chip" data-view="pc">💻 PC</button>
+              <button type="button" class="choice-chip" data-view="cvr">🥽 Cardboard</button>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="card">
-        <h2 class="cardTitle">🏫 เลือกฉากที่จะสำรวจ</h2>
-        <div class="cardSub">เลือกสถานที่ที่อยากเริ่มสืบคดีก่อน</div>
-
-        <div class="sceneGrid">
-          <button class="sceneBtn active" data-scene="classroom" type="button">
-            <div class="sceneName">🏫 ห้องเรียน</div>
-            <div class="sceneDesc">เริ่มง่ายที่สุด เหมาะกับการฝึกเล่นรอบแรก</div>
-          </button>
-
-          <button class="sceneBtn" data-scene="home" type="button">
-            <div class="sceneName">🏠 บ้าน</div>
-            <div class="sceneDesc">ฝึกมองหาจุดเสี่ยงใกล้ตัวในบ้าน</div>
-          </button>
-
-          <button class="sceneBtn" data-scene="canteen" type="button">
-            <div class="sceneName">🍽 โรงอาหาร</div>
-            <div class="sceneDesc">มีหลายจุดให้สำรวจ สนุกและท้าทายขึ้น</div>
-          </button>
-        </div>
-
-        <div class="levelRow">
-          <button class="levelBtn" data-diff="easy" type="button">🙂 ง่าย</button>
-          <button class="levelBtn active" data-diff="normal" type="button">😎 ปกติ</button>
-          <button class="levelBtn" data-diff="hard" type="button">🔥 ท้าทาย</button>
-        </div>
-
-        <div class="bottomBar">
-          <span class="statusPill" id="sceneHint">เริ่มจากห้องเรียนจะเล่นง่ายที่สุด</span>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2 class="cardTitle">🧰 เครื่องมือที่ใช้ในเกม</h2>
-        <div class="cardSub">ในเกมจะมีเครื่องมือ 4 อย่าง ใช้คนละหน้าที่</div>
-
-        <div class="infoList">
-          <div class="infoItem">
-            <div class="infoItemTitle">🔦 UV</div>
-            <div class="infoItemDesc">ใช้ส่องหา “จุดน่าสงสัย” ก่อนเป็นอย่างแรก</div>
-          </div>
-
-          <div class="infoItem">
-            <div class="infoItemTitle">🧪 Swab</div>
-            <div class="infoItemDesc">ใช้เก็บตัวอย่างเพื่อยืนยันหลักฐาน</div>
-          </div>
-
-          <div class="infoItem">
-            <div class="infoItemTitle">📷 Camera</div>
-            <div class="infoItemDesc">ใช้ถ่ายรูปเก็บหลักฐานไว้ในคดี</div>
-          </div>
-
-          <div class="infoItem">
-            <div class="infoItemTitle">🧼 Clean</div>
-            <div class="infoItemDesc">ใช้ทำความสะอาดเพื่อลดความเสี่ยงของพื้นที่</div>
+      <aside class="card coach-panel">
+        <div class="coach-card">
+          <div class="coach-avatar">🤖</div>
+          <div class="coach-bubble" id="coachBubble">
+            สวัสดี! วันนี้เราจะช่วยกันหาเชื้อ เก็บหลักฐาน แล้วทำให้ห้องปลอดภัยขึ้นนะ
           </div>
         </div>
-      </section>
-    </div>
 
-    <section class="helpCard" id="howPanel" style="display:none;">
-      <div class="helpTitle">📖 วิธีเล่นแบบสั้นมาก</div>
-      <div class="helpSub">
-        เริ่มจาก <b>UV</b> ก่อนเสมอ → เจอจุดน่าสงสัยแล้วค่อยใช้ <b>Swab</b> หรือ <b>Camera</b> →
-        จากนั้นใช้ <b>Clean</b> ลดความเสี่ยง → แล้วค่อย <b>ส่งรายงาน</b>
-      </div>
-      <div class="helpActions">
-        <button class="btn primary" id="btnStartFromHelp" type="button">🟢 พร้อมแล้ว เริ่มเลย</button>
-        <button class="btn ghost" id="btnHideHow" type="button">✖ ปิด</button>
-      </div>
+        <div class="mission-preview">
+          <div class="mission-banner" id="missionBanner">ภารกิจ: ห้องเรียน</div>
+
+          <div class="mission-steps">
+            <span class="step-pill">หา</span>
+            <span class="step-arrow">→</span>
+            <span class="step-pill">ตรวจ</span>
+            <span class="step-arrow">→</span>
+            <span class="step-pill">ถ่ายรูป</span>
+            <span class="step-arrow">→</span>
+            <span class="step-pill">ทำสะอาด</span>
+            <span class="step-arrow">→</span>
+            <span class="step-pill">ปิดคดี</span>
+          </div>
+
+          <div class="preview-note" id="previewNote">
+            เริ่มจากจุดที่คนจับบ่อยก่อน เช่น ลูกบิดประตูหรือก๊อกน้ำ
+          </div>
+
+          <div class="actions">
+            <button type="button" class="big-btn primary" id="btnStart">🚀 เริ่มเล่น</button>
+            <button type="button" class="big-btn cyan" id="btnWarmupOnly">✨ เข้า Warmup</button>
+            <button type="button" class="big-btn warn" id="btnBackHub">🏠 กลับหน้าแรก</button>
+          </div>
+
+          <div class="status-note" id="statusNote">
+            พร้อมเริ่มแล้ว • ระบบจะพาไป warmup ก่อนเข้าเกม
+          </div>
+        </div>
+      </aside>
     </section>
-
-    <div class="bottomBar">
-      <span class="statusPill" id="statusLine">พร้อมเริ่มภารกิจแล้ว</span>
-      <span class="hint">Tip: ถ้าเพิ่งเริ่มเล่น ให้เลือก “ห้องเรียน + ปกติ” ก่อน</span>
-    </div>
-  </div>
+  </main>
 
   <script>
     (function(){
@@ -689,9 +788,13 @@
         catch{ return d; }
       }
 
-      function safeUrl(raw, fallback){
-        try{ return new URL(raw || fallback, location.href).toString(); }
-        catch{ return new URL(fallback, location.href).toString(); }
+      function normalizeMaybeEncodedUrl(v){
+        v = String(v ?? '').trim();
+        if(!v || v === 'null' || v === 'undefined') return '';
+        if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
+          try{ v = decodeURIComponent(v); }catch(_){}
+        }
+        return v.trim();
       }
 
       function cleanUrl(raw, fallback){
@@ -704,133 +807,188 @@
           ].forEach(k=>u.searchParams.delete(k));
           return u.toString();
         }catch(_){
-          return safeUrl(fallback, fallback);
+          return fallback;
         }
       }
 
       const ORIGIN = location.origin;
-      const HUB_URL  = cleanUrl(qs('hub','') || (ORIGIN + '/webxr-health-mobile/herohealth/hub.html'), ORIGIN + '/webxr-health-mobile/herohealth/hub.html');
+      const HUB_URL  = ORIGIN + '/webxr-health-mobile/herohealth/hub.html';
       const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html';
       const RUN_URL  = ORIGIN + '/webxr-health-mobile/herohealth/germ-detective/germ-detective-vr.html';
 
-      const pid = String(qs('pid','anon')).trim() || 'anon';
-      let diff = String(qs('diff','normal')).toLowerCase() || 'normal';
-      let scene = String(qs('scene','classroom')).toLowerCase() || 'classroom';
-      const run = String(qs('run','play')).toLowerCase() || 'play';
-      const time = String(qs('time','180')) || '180';
-      const view = String(qs('view','mobile')).toLowerCase() || 'mobile';
-      const seed = String(qs('seed', String(Date.now()))) || String(Date.now());
+      const state = {
+        pid: String(qs('pid','anon')).trim() || 'anon',
+        run: String(qs('run','play')).toLowerCase() || 'play',
+        diff: String(qs('diff','normal')).toLowerCase() || 'normal',
+        time: String(qs('time','180')) || '180',
+        seed: String(qs('seed', String(Date.now()))),
+        view: String(qs('view','mobile')).toLowerCase() || 'mobile',
+        scene: String(qs('scene','classroom')).toLowerCase() || 'classroom',
+        zone: 'hygiene',
+        cat: 'hygiene',
+        theme: 'germdetective',
+        game: 'germdetective',
 
-      const uiPid = document.getElementById('uiPid');
-      const uiDiff = document.getElementById('uiDiff');
-      const uiTime = document.getElementById('uiTime');
-      const statusLine = document.getElementById('statusLine');
-      const sceneHint = document.getElementById('sceneHint');
-      const howPanel = document.getElementById('howPanel');
+        studyId: String(qs('studyId','')),
+        conditionGroup: String(qs('conditionGroup','')),
+        sessionOrder: String(qs('sessionOrder','')),
+        blockLabel: String(qs('blockLabel','')),
+        siteCode: String(qs('siteCode','')),
+        schoolYear: String(qs('schoolYear','')),
+        semester: String(qs('semester','')),
 
-      uiPid.textContent = pid;
-      uiTime.textContent = `${time} วินาที`;
+        hub: cleanUrl(normalizeMaybeEncodedUrl(qs('hub','')) || HUB_URL, HUB_URL)
+      };
 
-      function diffText(v){
-        if(v === 'easy') return 'ง่าย';
-        if(v === 'hard') return 'ท้าทาย';
-        return 'ปกติ';
-      }
+      const SCENE_META = {
+        classroom: {
+          pill:'🏫 ห้องเรียน',
+          title:'ภารกิจ: ห้องเรียน',
+          note:'เริ่มจากจุดที่คนจับบ่อยก่อน เช่น ลูกบิดประตูหรือก๊อกน้ำ',
+          coach:'ห้องเรียนมีจุดจับร่วมหลายจุด เรามาช่วยกันหาจุดเสี่ยงนะ'
+        },
+        home: {
+          pill:'🏠 บ้าน',
+          title:'ภารกิจ: บ้าน',
+          note:'ลองดูของใช้ร่วมในบ้าน เช่น ก๊อกน้ำ รีโมต หรือโต๊ะกินข้าว',
+          coach:'ในบ้านก็มีจุดเสี่ยงได้เหมือนกัน มาช่วยกันหาให้เจอนะ'
+        },
+        canteen: {
+          pill:'🍽️ โรงอาหาร',
+          title:'ภารกิจ: โรงอาหาร',
+          note:'ส่องจุดที่ใช้ร่วมกันตอนกินข้าว เช่น ช้อนกลางหรือถาดอาหาร',
+          coach:'โรงอาหารมีของใช้ร่วมกันเยอะ เรามาช่วยกันทำให้ปลอดภัยขึ้น'
+        }
+      };
 
-      function sceneText(v){
-        if(v === 'home') return 'บ้าน';
-        if(v === 'canteen') return 'โรงอาหาร';
-        return 'ห้องเรียน';
-      }
+      const playerName = document.getElementById('playerName');
+      const playerSub = document.getElementById('playerSub');
+      const coachBubble = document.getElementById('coachBubble');
+      const missionBanner = document.getElementById('missionBanner');
+      const previewNote = document.getElementById('previewNote');
+      const quickScenePill = document.getElementById('quickScenePill');
+      const statusNote = document.getElementById('statusNote');
 
-      function sceneHelp(v){
-        if(v === 'home') return 'บ้านเหมาะกับการฝึกมองหาจุดเสี่ยงใกล้ตัว';
-        if(v === 'canteen') return 'โรงอาหารสนุกและมีหลายจุดให้สำรวจ';
-        return 'เริ่มจากห้องเรียนจะเล่นง่ายที่สุด';
-      }
+      const sceneButtons = Array.from(document.querySelectorAll('[data-scene]'));
+      const diffButtons  = Array.from(document.querySelectorAll('[data-diff]'));
+      const timeButtons  = Array.from(document.querySelectorAll('[data-time]'));
+      const viewButtons  = Array.from(document.querySelectorAll('[data-view]'));
 
-      function renderState(){
-        uiDiff.textContent = diffText(diff);
-        sceneHint.textContent = sceneHelp(scene);
-        statusLine.textContent = `ฉากที่เลือก: ${sceneText(scene)} • ระดับ: ${diffText(diff)}`;
-      }
+      const btnStart = document.getElementById('btnStart');
+      const btnWarmupOnly = document.getElementById('btnWarmupOnly');
+      const btnBackHub = document.getElementById('btnBackHub');
 
-      document.querySelectorAll('.sceneBtn').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          document.querySelectorAll('.sceneBtn').forEach(n=>n.classList.remove('active'));
-          btn.classList.add('active');
-          scene = String(btn.dataset.scene || 'classroom');
-          renderState();
+      function setActive(buttons, value, key){
+        buttons.forEach(btn=>{
+          btn.classList.toggle('active', String(btn.dataset[key]) === String(value));
         });
-      });
+      }
 
-      document.querySelectorAll('.levelBtn').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          document.querySelectorAll('.levelBtn').forEach(n=>n.classList.remove('active'));
-          btn.classList.add('active');
-          diff = String(btn.dataset.diff || 'normal');
-          renderState();
-        });
-      });
+      function applyUI(){
+        playerName.textContent = `ผู้เล่น ${state.pid}`;
+        playerSub.textContent = `${state.run === 'research' ? 'โหมดวิจัย' : 'โหมดเล่น'} • ระดับ${state.diff === 'easy' ? 'ง่าย' : state.diff === 'hard' ? 'ท้าทาย' : 'ปกติ'} • ${state.time} วิ`;
+
+        const meta = SCENE_META[state.scene] || SCENE_META.classroom;
+        coachBubble.textContent = meta.coach;
+        missionBanner.textContent = meta.title;
+        previewNote.textContent = meta.note;
+        quickScenePill.textContent = meta.pill;
+
+        setActive(sceneButtons, state.scene, 'scene');
+        setActive(diffButtons, state.diff, 'diff');
+        setActive(timeButtons, state.time, 'time');
+        setActive(viewButtons, state.view, 'view');
+      }
+
+      function passthrough(u){
+        u.searchParams.set('pid', state.pid);
+        u.searchParams.set('run', state.run);
+        u.searchParams.set('diff', state.diff);
+        u.searchParams.set('time', state.time);
+        u.searchParams.set('seed', state.seed);
+        u.searchParams.set('view', state.view);
+        u.searchParams.set('scene', state.scene);
+        u.searchParams.set('zone', state.zone);
+        u.searchParams.set('cat', state.cat);
+        u.searchParams.set('hub', state.hub);
+
+        if(state.studyId) u.searchParams.set('studyId', state.studyId);
+        if(state.conditionGroup) u.searchParams.set('conditionGroup', state.conditionGroup);
+        if(state.sessionOrder) u.searchParams.set('sessionOrder', state.sessionOrder);
+        if(state.blockLabel) u.searchParams.set('blockLabel', state.blockLabel);
+        if(state.siteCode) u.searchParams.set('siteCode', state.siteCode);
+        if(state.schoolYear) u.searchParams.set('schoolYear', state.schoolYear);
+        if(state.semester) u.searchParams.set('semester', state.semester);
+      }
 
       function buildRunUrl(){
         const u = new URL(RUN_URL);
-        u.searchParams.set('pid', pid);
-        u.searchParams.set('run', run);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('time', time);
-        u.searchParams.set('seed', seed);
-        u.searchParams.set('view', view);
-        u.searchParams.set('scene', scene);
-        u.searchParams.set('zone', 'hygiene');
-        u.searchParams.set('cat', 'hygiene');
-        u.searchParams.set('hub', HUB_URL);
+        passthrough(u);
         u.searchParams.set('wgskip', '1');
         return u.toString();
       }
 
       function buildWarmupUrl(){
-        const next = buildRunUrl();
+        const nextRun = buildRunUrl();
+
         const u = new URL(GATE_URL);
         u.searchParams.set('gatePhase', 'warmup');
         u.searchParams.set('phase', 'warmup');
-        u.searchParams.set('cat', 'hygiene');
-        u.searchParams.set('theme', 'germdetective');
-        u.searchParams.set('game', 'germdetective');
-        u.searchParams.set('pid', pid);
-        u.searchParams.set('hub', HUB_URL);
-        u.searchParams.set('run', run);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('time', time);
-        u.searchParams.set('view', view);
-        u.searchParams.set('seed', seed);
-        u.searchParams.set('scene', scene);
-        u.searchParams.set('zone', 'hygiene');
-        u.searchParams.set('next', next);
+        u.searchParams.set('cat', state.cat);
+        u.searchParams.set('theme', state.theme);
+        u.searchParams.set('game', state.game);
+        u.searchParams.set('pid', state.pid);
+        u.searchParams.set('hub', state.hub);
+        u.searchParams.set('next', nextRun);
+
+        passthrough(u);
+
         return u.toString();
       }
 
-      function startGame(){
+      function goWarmup(){
+        statusNote.textContent = 'กำลังเข้า warmup...';
         location.href = buildWarmupUrl();
       }
 
-      document.getElementById('btnStart').onclick = startGame;
-      document.getElementById('btnStartFromHelp').onclick = startGame;
+      function goHub(){
+        location.href = state.hub || HUB_URL;
+      }
 
-      document.getElementById('btnHow').onclick = ()=>{
-        howPanel.style.display = '';
-        howPanel.scrollIntoView({ behavior:'smooth', block:'start' });
-      };
+      sceneButtons.forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          state.scene = String(btn.dataset.scene || 'classroom');
+          state.seed = String(Date.now());
+          applyUI();
+        });
+      });
 
-      document.getElementById('btnHideHow').onclick = ()=>{
-        howPanel.style.display = 'none';
-      };
+      diffButtons.forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          state.diff = String(btn.dataset.diff || 'normal');
+          applyUI();
+        });
+      });
 
-      document.getElementById('btnHub').onclick = ()=>{
-        location.href = HUB_URL;
-      };
+      timeButtons.forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          state.time = String(btn.dataset.time || '180');
+          applyUI();
+        });
+      });
 
-      renderState();
+      viewButtons.forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          state.view = String(btn.dataset.view || 'mobile');
+          applyUI();
+        });
+      });
+
+      btnStart.addEventListener('click', goWarmup);
+      btnWarmupOnly.addEventListener('click', goWarmup);
+      btnBackHub.addEventListener('click', goHub);
+
+      applyUI();
     })();
   </script>
 </body>
