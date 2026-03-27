@@ -1,13 +1,13 @@
 // === /herohealth/js/hha-cloud-logger.js ===
 // HeroHealth Cloud Logger Client — PRODUCTION (queue + offline + retry + flush-hardened)
-// GAS-safe variant: uses no-cors/sendBeacon for Google Apps Script Web App endpoints
+// FULL PATCH v20260327-HERO-IDENTITY-SUMMARY-BRIDGE
 'use strict';
 
 (function (global) {
   const WIN = global;
   const DOC = WIN.document;
 
-  const VERSION = 'hha-cloud-logger-client-v2-gas-nocors';
+  const VERSION = 'hha-cloud-logger-client-v2';
   const DEFAULT_SCHEMA = 'hha-cloud-logger-v1';
 
   const DEFAULTS = {
@@ -38,6 +38,14 @@
     gameVersion: '',
     schemaVersionSessions: 'hha-sessions-v1',
     schemaVersionEvents: 'hha-events-v1',
+
+    heroName: '',
+    heroAvatar: '',
+    heroSoft: '',
+    heroBorder: '',
+    heroText: '',
+    heroDisplay: '',
+
     onStatus: null
   };
 
@@ -121,10 +129,19 @@
     return `${String(game || 'game')}_${String(pid || 'anon')}_${nowMs()}_${randId(6)}`;
   }
 
-  function isGasWebAppUrl(url) {
-    const s = String(url || '').trim();
-    return /https:\/\/script\.google\.com\/macros\/s\//i.test(s) ||
-           /https:\/\/script\.googleusercontent\.com\//i.test(s);
+  function toCell_(v) {
+    if (v === undefined || v === null) return '';
+    if (typeof v === 'object') return safeJson(v, '{}');
+    return v;
+  }
+
+  function isBlankNumLike_(v) {
+    return v === '' || v === null || v === undefined || Number.isNaN(Number(v));
+  }
+
+  function round2_(n) {
+    n = Number(n || 0);
+    return Math.round(n * 100) / 100;
   }
 
   class HHACloudLogger {
@@ -145,11 +162,24 @@
       this.cfg.studyId = String(this.cfg.studyId || qs('studyId', '') || '');
       this.cfg.researchPhase = String(this.cfg.researchPhase || qs('researchPhase', '') || qs('phase', '') || '');
       this.cfg.conditionGroup = String(this.cfg.conditionGroup || qs('conditionGroup', '') || '');
-      this.cfg.variant = String(this.cfg.variant || qs('variant', '') || '');
+      this.cfg.variant = String(this.cfg.variant || qs('mode', '') || '');
+
+      this.cfg.heroName = String(this.cfg.heroName || qs('name', '') || '').trim();
+      this.cfg.heroAvatar = String(this.cfg.heroAvatar || qs('heroAvatar', '') || '').trim();
+      this.cfg.heroSoft = String(this.cfg.heroSoft || qs('heroSoft', '') || '').trim();
+      this.cfg.heroBorder = String(this.cfg.heroBorder || qs('heroBorder', '') || '').trim();
+      this.cfg.heroText = String(this.cfg.heroText || qs('heroText', '') || '').trim();
+      this.cfg.heroDisplay = String(
+        this.cfg.heroDisplay ||
+        qs('heroDisplay', '') ||
+        [this.cfg.heroAvatar, this.cfg.heroName].filter(Boolean).join(' ')
+      ).trim();
 
       this._timer = 0;
       this._flushInFlight = false;
       this._destroyed = false;
+      this._unbinders = [];
+      this._lastSummaryBridgeKey = '';
 
       this.state = {
         attempt: 0,
@@ -171,19 +201,16 @@
 
       this._loadPersisted();
       this._bindLifecycle();
+      this._bindSummaryBridge();
       this._startAutoFlush();
 
-      this._emitStatus('init', {
-        enabled: this.cfg.enabled,
-        endpoint: !!this.cfg.endpoint,
-        endpointType: isGasWebAppUrl(this.cfg.endpoint) ? 'gas' : 'generic'
-      });
+      this._emitStatus('init', { enabled: this.cfg.enabled, endpoint: !!this.cfg.endpoint });
       this.debug('init complete', { cfg: this.cfg, queueLens: this.lengths() });
     }
 
     debug(...args) {
       if (!this.cfg.debug) return;
-      try { console.log('[HHACloudLogger]', ...args); } catch (_) {}
+      try { console.log('[HHACloudLogger]', ...args); } catch {}
     }
 
     enabled() {
@@ -196,21 +223,6 @@
         events: this.queue.events.length,
         students_profile: this.queue.students_profile.length,
         total: this.queue.sessions.length + this.queue.events.length + this.queue.students_profile.length
-      };
-    }
-
-    getStatusSummary() {
-      return {
-        enabled: this.enabled(),
-        endpoint: String(this.cfg.endpoint || ''),
-        endpointType: isGasWebAppUrl(this.cfg.endpoint) ? 'gas' : 'generic',
-        queue: this.lengths(),
-        attempt: Number(this.state.attempt || 0),
-        nextRetryAt: Number(this.state.nextRetryAt || 0),
-        lastFlushAt: Number(this.state.lastFlushAt || 0),
-        lastOkAt: Number(this.state.lastOkAt || 0),
-        lastErrorAt: Number(this.state.lastErrorAt || 0),
-        lastError: String(this.state.lastError || '')
       };
     }
 
@@ -254,6 +266,13 @@
         class_room: partial.class_room || '',
         school: partial.school || '',
 
+        hero_name: partial.hero_name || this.cfg.heroName || '',
+        hero_avatar: partial.hero_avatar || this.cfg.heroAvatar || '',
+        hero_soft: partial.hero_soft || this.cfg.heroSoft || '',
+        hero_border: partial.hero_border || this.cfg.heroBorder || '',
+        hero_text: partial.hero_text || this.cfg.heroText || '',
+        hero_display: partial.hero_display || this.cfg.heroDisplay || '',
+
         game: partial.game || this.cfg.game || '',
         game_title: partial.game_title || '',
         zone: partial.zone || this.cfg.zone || '',
@@ -292,6 +311,11 @@
         combo_max: partial.combo_max ?? '',
         level_reached: partial.level_reached ?? '',
         boss_phase_reached: partial.boss_phase_reached ?? '',
+
+        team_score: partial.team_score ?? '',
+        partner_score: partial.partner_score ?? '',
+        opponent_score: partial.opponent_score ?? '',
+        rank: partial.rank ?? '',
 
         hints_used: partial.hints_used ?? 0,
         coach_tips_shown: partial.coach_tips_shown ?? 0,
@@ -388,6 +412,13 @@
         view_mode: evt.view_mode || (this.currentSession && this.currentSession.view_mode) || this.cfg.view || '',
         seed: evt.seed || (this.currentSession && this.currentSession.seed) || this.cfg.seed || '',
 
+        hero_name: evt.hero_name || (this.currentSession && this.currentSession.hero_name) || this.cfg.heroName || '',
+        hero_avatar: evt.hero_avatar || (this.currentSession && this.currentSession.hero_avatar) || this.cfg.heroAvatar || '',
+        hero_soft: evt.hero_soft || (this.currentSession && this.currentSession.hero_soft) || this.cfg.heroSoft || '',
+        hero_border: evt.hero_border || (this.currentSession && this.currentSession.hero_border) || this.cfg.heroBorder || '',
+        hero_text: evt.hero_text || (this.currentSession && this.currentSession.hero_text) || this.cfg.heroText || '',
+        hero_display: evt.hero_display || (this.currentSession && this.currentSession.hero_display) || this.cfg.heroDisplay || '',
+
         phase: evt.phase || '',
         event_type: evt.event_type || 'event',
         event_name: evt.event_name || '',
@@ -457,7 +488,7 @@
     logEvents(arr) {
       if (!Array.isArray(arr)) return 0;
       let n = 0;
-      for (const e of arr) if (this.logEvent(e)) n++;
+      for (const e of arr) { if (this.logEvent(e)) n++; }
       return n;
     }
 
@@ -486,7 +517,6 @@
         created_at: profile.created_at || nowIso(),
         updated_at: nowIso()
       }, profile || {});
-
       this.queue.students_profile.push(row);
       this._persistQueue();
       return row.pid;
@@ -502,6 +532,7 @@
 
       const lens = this.lengths();
       if (lens.total <= 0) return { ok: true, skipped: 'empty' };
+
       if (this._flushInFlight && !force) return { ok: false, skipped: 'in_flight' };
 
       if (!force && this.state.nextRetryAt && nowMs() < this.state.nextRetryAt && !urgent) {
@@ -517,57 +548,22 @@
         return { ok: true, skipped: 'nothing_batched' };
       }
 
-      const endpoint = String(this.cfg.endpoint || '').trim();
-      const isGas = isGasWebAppUrl(endpoint);
-
       let ok = false;
       let respData = null;
       let errMsg = '';
 
       try {
-        if (isGas) {
-          const bodyText = JSON.stringify(payload.body);
-
-          if (urgent && this.cfg.sendBeaconFallback && navigator.sendBeacon) {
-            try {
-              const sent = navigator.sendBeacon(
-                endpoint,
-                new Blob([bodyText], { type: 'text/plain;charset=utf-8' })
-              );
-              if (sent) {
-                this._commitBatchSuccess(payload, { beacon: true, transport: 'sendBeacon' });
-                this._flushInFlight = false;
-                this._emitStatus('flush_ok', {
-                  reason,
-                  beacon: true,
-                  counts: payload._counts,
-                  response: { beacon: true, transport: 'sendBeacon' }
-                });
-                return { ok: true, beacon: true, counts: payload._counts };
-              }
-            } catch (_) {}
+        if (urgent && this.cfg.sendBeaconFallback && navigator.sendBeacon) {
+          const sent = this._sendViaBeacon(payload);
+          if (sent) {
+            this._commitBatchSuccess(payload, { beacon: true });
+            this._flushInFlight = false;
+            this._emitStatus('flush_ok', { reason, beacon: true, counts: payload._counts });
+            return { ok: true, beacon: true, counts: payload._counts };
           }
-
-          await fetch(endpoint, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: bodyText,
-            keepalive: urgent ? true : false,
-            credentials: 'omit',
-            cache: 'no-store'
-          });
-
-          this._commitBatchSuccess(payload, { opaque: true, transport: 'no-cors' });
-          this._flushInFlight = false;
-          this._emitStatus('flush_ok', {
-            reason,
-            counts: payload._counts,
-            response: { opaque: true, transport: 'no-cors' }
-          });
-          return { ok: true, counts: payload._counts, response: { opaque: true, transport: 'no-cors' } };
         }
 
-        const resp = await fetch(endpoint, {
+        const resp = await fetch(this.cfg.endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload.body),
@@ -577,7 +573,7 @@
         });
 
         let text = '';
-        try { text = await resp.text(); } catch (_) {}
+        try { text = await resp.text(); } catch {}
         respData = parseJson(text, { raw: text });
 
         ok = !!(resp && resp.ok && (!isObj(respData) || respData.ok !== false));
@@ -612,6 +608,7 @@
       const evN = Math.min(this.cfg.maxBatchEvents, this.queue.events.length);
       const ssN = Math.min(this.cfg.maxBatchSessions, this.queue.sessions.length);
       const spN = Math.min(this.cfg.maxBatchProfiles, this.queue.students_profile.length);
+
       if (evN + ssN + spN <= 0) return null;
 
       const sessions = this.queue.sessions.slice(0, ssN).map(x => Object.assign({}, x));
@@ -646,6 +643,15 @@
       };
     }
 
+    _sendViaBeacon(payload) {
+      try {
+        const blob = new Blob([JSON.stringify(payload.body)], { type: 'application/json' });
+        return navigator.sendBeacon(this.cfg.endpoint, blob);
+      } catch {
+        return false;
+      }
+    }
+
     _commitBatchSuccess(payload, respData) {
       const c = payload._counts || { sessions: 0, events: 0, students_profile: 0 };
 
@@ -662,7 +668,7 @@
       this._persistQueue();
       this._persistStateOnly();
 
-      try { sessionStorage.removeItem(this.cfg.lastErrorKey); } catch (_) {}
+      try { sessionStorage.removeItem(this.cfg.lastErrorKey); } catch {}
       this.debug('flush success', c, respData || null);
     }
 
@@ -674,7 +680,6 @@
       this.state.nextRetryAt = nowMs() + computeBackoffMs(this.state.attempt);
 
       const c = payload && payload._counts ? payload._counts : { sessions: 0, events: 0, students_profile: 0 };
-
       for (let i = 0; i < Math.min(c.sessions || 0, this.queue.sessions.length); i++) {
         const r = this.queue.sessions[i];
         r.sync_status = 'queued';
@@ -682,7 +687,6 @@
         r.offline_cached = 1;
         r.updated_at = nowIso();
       }
-
       for (let i = 0; i < Math.min(c.events || 0, this.queue.events.length); i++) {
         const r = this.queue.events[i];
         r.sync_status = 'queued';
@@ -698,7 +702,7 @@
           nextRetryAt: this.state.nextRetryAt,
           error: this.state.lastError
         }));
-      } catch (_) {}
+      } catch {}
 
       this.debug('flush fail', errMsg, { attempt: this.state.attempt, nextRetryAt: this.state.nextRetryAt });
     }
@@ -726,7 +730,7 @@
             this.queue.students_profile = Array.isArray(q.students_profile) ? q.students_profile : [];
           }
         }
-      } catch (_) {}
+      } catch {}
 
       try {
         const rawS = localStorage.getItem(this.cfg.stateKey);
@@ -734,15 +738,15 @@
           const s = parseJson(rawS, null);
           if (s && isObj(s)) this.state = Object.assign(this.state, s);
         }
-      } catch (_) {}
+      } catch {}
     }
 
     _persistQueue() {
       try {
         localStorage.setItem(this.cfg.storageKey, JSON.stringify(this.queue));
-      } catch (err) {
+      } catch {
         this._trimStorageEmergency();
-        try { localStorage.setItem(this.cfg.storageKey, JSON.stringify(this.queue)); } catch (_) {}
+        try { localStorage.setItem(this.cfg.storageKey, JSON.stringify(this.queue)); } catch {}
       }
       this._persistStateOnly();
     }
@@ -761,11 +765,12 @@
             enabled: !!this.cfg.enabled,
             game: this.cfg.game || '',
             zone: this.cfg.zone || '',
-            pid: this.cfg.pid || 'anon'
+            pid: this.cfg.pid || 'anon',
+            heroDisplay: this.cfg.heroDisplay || ''
           },
           saved_at: nowIso()
         }));
-      } catch (_) {}
+      } catch {}
     }
 
     _trimStorageEmergency() {
@@ -803,12 +808,193 @@
       WIN.addEventListener('pagehide', onPageHide);
       WIN.addEventListener('beforeunload', onBeforeUnload);
 
-      this._unbinders = [
+      this._unbinders.push(
         () => WIN.removeEventListener('online', onOnline),
         () => DOC.removeEventListener('visibilitychange', onHidden),
         () => WIN.removeEventListener('pagehide', onPageHide),
         () => WIN.removeEventListener('beforeunload', onBeforeUnload)
-      ];
+      );
+    }
+
+    _bindSummaryBridge() {
+      const onSummary = (evt) => {
+        const detail = evt && evt.detail ? evt.detail : null;
+        this._ingestSummaryBridge(detail, evt && evt.type ? evt.type : '');
+      };
+
+      WIN.addEventListener('gj:summary-enriched', onSummary);
+      WIN.addEventListener('hha:summary-enriched', onSummary);
+
+      this._unbinders.push(
+        () => WIN.removeEventListener('gj:summary-enriched', onSummary),
+        () => WIN.removeEventListener('hha:summary-enriched', onSummary)
+      );
+    }
+
+    _ingestSummaryBridge(summary = {}, sourceEvent = '') {
+      if (!isObj(summary)) return;
+      if (!this.cfg.enabled) return;
+
+      const bridgeKey = [
+        summary.receivedAt || '',
+        summary.gameId || summary.game || '',
+        summary.mode || '',
+        summary.roomId || '',
+        summary.pid || '',
+        summary.heroDisplay || summary.name || '',
+        summary.score || '',
+        summary.teamScore || '',
+        summary.rank || ''
+      ].join('|');
+
+      if (bridgeKey && bridgeKey === this._lastSummaryBridgeKey) return;
+      this._lastSummaryBridgeKey = bridgeKey;
+
+      const lp = localDateParts();
+      const game = String(summary.gameId || summary.game || this.cfg.game || '').trim();
+      const mode = String(summary.mode || this.cfg.variant || '').trim();
+      const pid = String(summary.pid || this.cfg.pid || 'anon').trim() || 'anon';
+
+      const hero_name = String(summary.heroName || summary.name || this.cfg.heroName || '').trim();
+      const hero_avatar = String(summary.heroAvatar || this.cfg.heroAvatar || '').trim();
+      const hero_soft = String(summary.heroSoft || this.cfg.heroSoft || '').trim();
+      const hero_border = String(summary.heroBorder || this.cfg.heroBorder || '').trim();
+      const hero_text = String(summary.heroText || this.cfg.heroText || '').trim();
+      const hero_display = String(
+        summary.heroDisplay ||
+        [hero_avatar, hero_name].filter(Boolean).join(' ') ||
+        this.cfg.heroDisplay ||
+        ''
+      ).trim();
+
+      const durationParsed = parseInt(
+        String(summary.durationSec ?? summary.duration ?? '').replace(/[^\d]/g, ''),
+        10
+      );
+      const durationSec = Number.isFinite(durationParsed) && durationParsed > 0 ? durationParsed : '';
+
+      const now = nowMs();
+      const sessionId = String(
+        summary.sessionId ||
+        summary.session_id ||
+        `${String(game || 'game')}_${String(mode || 'mode')}_${String(pid || 'anon')}_${now}_${randId(4)}`
+      );
+
+      const score = Number(summary.score ?? 0) || 0;
+      const hits = Number(summary.goodHit ?? summary.hitsGood ?? summary.correct ?? 0) || 0;
+      const miss = Number(summary.miss ?? summary.misses ?? 0) || 0;
+
+      const sessionRow = {
+        session_id: sessionId,
+        start_ts: now,
+        end_ts: now,
+        date_local: lp.date_local,
+        time_local: lp.time_local,
+        timezone: lp.timezone,
+
+        pid,
+        player_name: hero_name,
+        hero_name,
+        hero_avatar,
+        hero_soft,
+        hero_border,
+        hero_text,
+        hero_display,
+
+        game,
+        game_title: String(summary.label || game || '').trim(),
+        zone: String(summary.zone || this.cfg.zone || '').trim(),
+        mode,
+        run: String(summary.run || this.cfg.run || 'play').trim(),
+        research_phase: String(summary.researchPhase || this.cfg.researchPhase || '').trim(),
+        study_id: String(summary.studyId || this.cfg.studyId || '').trim(),
+        condition_group: String(summary.conditionGroup || this.cfg.conditionGroup || '').trim(),
+        variant: String(summary.variant || this.cfg.variant || '').trim(),
+
+        difficulty: String(summary.diff || this.cfg.difficulty || '').trim(),
+        session_time_sec_setting: summary.time ?? '',
+        actual_duration_sec: durationSec,
+        view_mode: String(summary.view || this.cfg.view || '').trim(),
+        device_type: detectDeviceType(),
+        platform: detectPlatform(),
+        user_agent: navigator.userAgent || '',
+
+        seed: String(summary.seed || this.cfg.seed || '').trim(),
+        deterministic_flag: String(summary.run || this.cfg.run || 'play') === 'research' ? 1 : 0,
+
+        completed: 1,
+        quit_reason: String(summary.reason || '').trim(),
+
+        score,
+        hits,
+        miss,
+        accuracy_pct: '',
+        combo_max: summary.bestStreak ?? '',
+        level_reached: summary.rank ?? '',
+        boss_phase_reached: '',
+
+        team_score: summary.teamScore ?? '',
+        partner_score: summary.partnerScore ?? '',
+        opponent_score: summary.opponentScore ?? '',
+        rank: summary.rank ?? '',
+
+        hints_used: 0,
+        coach_tips_shown: 0,
+        coach_tips_used: 0,
+        safety_flags: '',
+        summary_json: summary,
+
+        api_log_enabled: this.enabled() ? 1 : 0,
+        log_endpoint: this.cfg.endpoint || '',
+        sync_status: 'queued',
+        offline_cached: 0,
+        retry_count: 0,
+
+        app_version: this.cfg.appVersion || '',
+        game_version: this.cfg.gameVersion || '',
+        schema_version: this.cfg.schemaVersionSessions || 'hha-sessions-v1',
+        created_at: nowIso(),
+        updated_at: nowIso()
+      };
+
+      this.queue.sessions = this.queue.sessions.filter(
+        (row) => String(row && row.session_id ? row.session_id : '') !== sessionId
+      );
+      this.queue.sessions.push(sessionRow);
+
+      this.logEvent({
+        session_id: sessionId,
+        pid,
+        game,
+        zone: String(summary.zone || this.cfg.zone || '').trim(),
+        mode,
+        run: String(summary.run || this.cfg.run || 'play').trim(),
+        study_id: String(summary.studyId || this.cfg.studyId || '').trim(),
+        condition_group: String(summary.conditionGroup || this.cfg.conditionGroup || '').trim(),
+        difficulty: String(summary.diff || this.cfg.difficulty || '').trim(),
+        view_mode: String(summary.view || this.cfg.view || '').trim(),
+        seed: String(summary.seed || this.cfg.seed || '').trim(),
+
+        event_type: 'multiplayer_summary',
+        event_name: sourceEvent || 'summary_enriched',
+        action: 'summary_bridge',
+
+        value_num: score,
+        value_num2: Number(summary.teamScore ?? 0) || '',
+        correct: summary.rank ?? '',
+        meta_json: summary,
+
+        hero_name,
+        hero_avatar,
+        hero_soft,
+        hero_border,
+        hero_text,
+        hero_display
+      });
+
+      this._trimQueueIfNeeded();
+      this._persistQueue();
+      this.flush({ reason: 'summary_bridge' });
     }
 
     _emitStatus(type, extra) {
@@ -823,9 +1009,8 @@
         lastErrorAt: this.state.lastErrorAt,
         lastError: this.state.lastError || ''
       }, extra || {});
-
       if (typeof this.cfg.onStatus === 'function') {
-        try { this.cfg.onStatus(payload); } catch (_) {}
+        try { this.cfg.onStatus(payload); } catch {}
       }
     }
 
@@ -833,7 +1018,7 @@
       this._destroyed = true;
       if (this._timer) clearInterval(this._timer);
       this._timer = 0;
-      try { (this._unbinders || []).forEach(fn => fn()); } catch (_) {}
+      try { (this._unbinders || []).forEach(fn => fn()); } catch {}
       if (opts.flush) this.flush({ reason: 'destroy', urgent: true, force: true });
     }
 
@@ -848,39 +1033,64 @@
     hhaSummaryAndEnd(summary = {}, patch = {}, opts = { flushNow: true }) {
       const s = Object.assign({}, patch || {});
       s.summary_json = summary || {};
-
       if (summary && typeof summary === 'object') {
         if (summary.score != null && s.score == null) s.score = summary.score;
         if (summary.hits != null && s.hits == null) s.hits = summary.hits;
         if (summary.miss != null && s.miss == null) s.miss = summary.miss;
         if (summary.combo_max != null && s.combo_max == null) s.combo_max = summary.combo_max;
         if (summary.completed != null && s.completed == null) s.completed = summary.completed;
-      }
 
+        if (summary.heroName != null && s.hero_name == null) s.hero_name = summary.heroName;
+        if (summary.heroAvatar != null && s.hero_avatar == null) s.hero_avatar = summary.heroAvatar;
+        if (summary.heroSoft != null && s.hero_soft == null) s.hero_soft = summary.heroSoft;
+        if (summary.heroBorder != null && s.hero_border == null) s.hero_border = summary.heroBorder;
+        if (summary.heroText != null && s.hero_text == null) s.hero_text = summary.heroText;
+        if (summary.heroDisplay != null && s.hero_display == null) s.hero_display = summary.heroDisplay;
+      }
       return this.endSession(s, opts || { flushNow: true });
     }
-  }
-
-  function toCell_(v) {
-    if (v === undefined || v === null) return '';
-    if (typeof v === 'object') return safeJson(v, '{}');
-    return v;
-  }
-
-  function isBlankNumLike_(v) {
-    return v === '' || v === null || v === undefined || Number.isNaN(Number(v));
-  }
-
-  function round2_(n) {
-    n = Number(n || 0);
-    return Math.round(n * 100) / 100;
   }
 
   function createHHACloudLogger(cfg = {}) {
     return new HHACloudLogger(cfg);
   }
 
+  function getOrCreateGlobalHHACloudLogger(cfg = {}) {
+    if (global.__HHA_CLOUD_LOGGER__ && typeof global.__HHA_CLOUD_LOGGER__ === 'object') {
+      return global.__HHA_CLOUD_LOGGER__;
+    }
+    global.__HHA_CLOUD_LOGGER__ = new HHACloudLogger(cfg);
+    global.hhaCloudLogger = global.__HHA_CLOUD_LOGGER__;
+    return global.__HHA_CLOUD_LOGGER__;
+  }
+
   global.HHACloudLogger = HHACloudLogger;
   global.createHHACloudLogger = createHHACloudLogger;
+  global.getOrCreateHHACloudLogger = getOrCreateGlobalHHACloudLogger;
 
+  try {
+    if (!global.__HHA_CLOUD_LOGGER__) {
+      getOrCreateGlobalHHACloudLogger({
+        endpoint: String(global.HHA_CLOUD_ENDPOINT || qs('api', '') || '').trim(),
+        enabled: true,
+        game: String(qs('gameId', '') || '').trim(),
+        zone: String(qs('zone', '') || '').trim(),
+        run: String(qs('run', 'play') || 'play').trim(),
+        pid: String(qs('pid', 'anon') || 'anon').trim(),
+        seed: String(qs('seed', '') || '').trim(),
+        view: String(qs('view', '') || '').trim(),
+        difficulty: String(qs('diff', '') || '').trim(),
+        studyId: String(qs('studyId', '') || '').trim(),
+        researchPhase: String(qs('phase', '') || '').trim(),
+        conditionGroup: String(qs('conditionGroup', '') || '').trim(),
+        variant: String(qs('mode', '') || '').trim(),
+        heroName: String(qs('name', '') || '').trim(),
+        heroAvatar: String(qs('heroAvatar', '') || '').trim(),
+        heroSoft: String(qs('heroSoft', '') || '').trim(),
+        heroBorder: String(qs('heroBorder', '') || '').trim(),
+        heroText: String(qs('heroText', '') || '').trim(),
+        heroDisplay: String(qs('heroDisplay', '') || '').trim()
+      });
+    }
+  } catch {}
 })(window);
