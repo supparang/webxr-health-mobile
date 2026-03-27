@@ -1,4 +1,6 @@
-<!-- === /herohealth/vr-groups/groups-race.html === -->
+<!-- === /herohealth/vr-groups/groups-race.html ===
+FULL PATCH v20260325-GROUPS-RACE-RUN-POLLING-FALLBACK
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -231,6 +233,7 @@
     }
     #stageFlash.good{ background:radial-gradient(circle at 50% 50%, rgba(34,197,94,.16), rgba(34,197,94,0)); }
     #stageFlash.bad{ background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.14), rgba(239,68,68,0)); }
+    #stageFlash.hot{ background:radial-gradient(circle at 50% 50%, rgba(250,204,21,.18), rgba(250,204,21,0)); }
     #fxLayer{ position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:38; }
     .scorePop{
       position:absolute; font-weight:1100; font-size:22px; line-height:1;
@@ -281,13 +284,22 @@
     .summaryHeroText .big{ font-size:18px; font-weight:1000; line-height:1.15; }
     .summaryHeroText .sub{ color:var(--muted); font-size:12px; font-weight:900; margin-top:4px; }
     .statGrid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-    .statCard{ border-radius:14px; border:1px solid rgba(148,163,184,.12); background:rgba(15,23,42,.52); padding:10px; min-width:0; }
+    .statCard{
+      border-radius:14px; border:1px solid rgba(148,163,184,.12); background:rgba(15,23,42,.52); padding:10px; min-width:0;
+    }
     .statCard .k{ color:var(--muted); font-size:10px; font-weight:1000; margin-bottom:4px; letter-spacing:.2px; }
     .statCard .v{ color:var(--text); font-size:18px; font-weight:1000; line-height:1.1; word-break:break-word; }
-    .overlayBtns{ padding:12px; border-top:1px solid rgba(148,163,184,.14); display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+    .overlayBtns{
+      padding:12px; border-top:1px solid rgba(148,163,184,.14); display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+    }
     .overlayBtns button{ min-height:54px; font-size:15px; font-weight:1000; }
-    #btnEndRematch{ border-color:rgba(250,204,21,.30); background:linear-gradient(180deg,#fde68a,#f59e0b); color:#3b2200; }
-    #btnEndGoHub{ border-color:rgba(59,130,246,.28); background:linear-gradient(180deg, rgba(59,130,246,.24), rgba(30,41,59,.88)); }
+    #btnEndRematch{
+      border-color:rgba(250,204,21,.30); background:linear-gradient(180deg,#fde68a,#f59e0b); color:#3b2200;
+      box-shadow:0 14px 28px rgba(245,158,11,.24);
+    }
+    #btnEndGoHub{
+      border-color:rgba(59,130,246,.28); background:linear-gradient(180deg, rgba(59,130,246,.24), rgba(30,41,59,.88));
+    }
     @media (max-width:760px){
       .hud{ left:6px; right:6px; }
       .hudBox{ grid-template-columns:repeat(3, minmax(0,1fr)); gap:4px; padding:4px 6px; border-radius:10px; }
@@ -307,6 +319,14 @@
     @media (max-width:640px){
       .tgt{ width:112px; height:112px; font-size:48px; border-radius:24px; }
     }
+    @media (max-width:480px){
+      .overlay{ padding:calc(8px + var(--sat)) 8px calc(12px + var(--sab) + 78px) 8px; }
+      .overlayCard{ border-radius:16px; }
+      .overlayBtns{
+        position:sticky; bottom:0; background:linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.96)); backdrop-filter:blur(10px);
+      }
+      .overlayBtns button{ flex:1 1 100%; }
+    }
   </style>
 </head>
 <body>
@@ -315,7 +335,7 @@
     <div class="title">
       <b>🏁 เกมอาหาร 5 หมู่ • Race</b>
       <span id="subline">แข่งเก็บคะแนนให้เร็วและแม่นกว่าคู่แข่ง</span>
-      <span id="debugMini" style="color:var(--muted); font-size:10px; line-height:1.25;"></span>
+      <span id="debugMini" style="color:var(--muted); font-size:10px; line-height:1.2;"></span>
     </div>
     <div class="row">
       <button id="btnRestart">Rematch</button>
@@ -454,6 +474,8 @@
     const VIEW = String(q('view','mobile')).toLowerCase();
     const HUB = String(q('hub', new URL('../hub.html', location.href).toString()));
 
+    document.body.setAttribute('data-view', VIEW);
+
     const $ = (s)=>document.querySelector(s);
     const hudTime = $('#hudTime');
     const hudScore = $('#hudScore');
@@ -506,6 +528,7 @@
     let roomUnwatch = null;
     let scoresUnwatch = null;
     let unbindPresence = null;
+    let rivalOffline = false;
     let rematchRequested = false;
     let localRoundNo = 0;
     let lastStartedAtSeen = 0;
@@ -519,7 +542,6 @@
     let bootStep = 'init';
     let bootTimeoutTimer = null;
     let roomPollTimer = null;
-    let engineStartWatchdog = null;
 
     debugMini.textContent = `room=${ROOM || '-'} • player=${PLAYER_ID || '-'} • view=${VIEW}`;
 
@@ -534,7 +556,8 @@
       try{ clearTimeout(bootTimeoutTimer); }catch(_){}
       bootTimeoutTimer = setTimeout(()=>{
         loadingOverlay.hidden = false;
-        loadingText.textContent = `หน้าแข่งโหลดช้าเกินกำหนด\nstep=${bootStep}\nroom=${ROOM}\nplayer=${PLAYER_ID}`;
+        loadingText.textContent =
+          `หน้าแข่งโหลดช้าเกินกำหนด\nstep=${bootStep}\nroom=${ROOM}\nplayer=${PLAYER_ID}`;
       }, ms);
     }
 
@@ -545,11 +568,6 @@
     function stopRoomPoll(){
       try{ clearInterval(roomPollTimer); }catch(_){}
       roomPollTimer = null;
-    }
-
-    function stopEngineWatchdog(){
-      try{ clearTimeout(engineStartWatchdog); }catch(_){}
-      engineStartWatchdog = null;
     }
 
     async function pollRoomUntilStarted(maxMs = 15000){
@@ -586,7 +604,10 @@
     }
 
     function faceFromMood(mood){
-      return mood === 'happy' ? '😄' : mood === 'fever' ? '🔥' : mood === 'sad' ? '😵' : '🏁';
+      return mood === 'happy' ? '😄'
+        : mood === 'fever' ? '🔥'
+        : mood === 'sad' ? '😵'
+        : '🏁';
     }
 
     function showToast(text, mood){
@@ -600,7 +621,6 @@
 
     function safeStopEngine(){
       try{ window.GroupsRace?.GameEngine?.stop?.(); }catch(_){}
-      stopEngineWatchdog();
     }
 
     function cleanupWatchers(){
@@ -628,6 +648,7 @@
       const pad = isMobile ? 40 : 24;
       const topSafe = isMobile ? 176 : 150;
       const botSafe = isMobile ? 190 : 160;
+
       window.__HHA_RACE_SPAWN_SAFE__ = {
         xMin: pad,
         xMax: Math.max(pad + 1, r.width - pad),
@@ -693,10 +714,13 @@
       const me = players?.[PLAYER_ID];
       const rivalId = getRivalPlayerId(players || {});
       const rival = rivalId ? players?.[rivalId] : null;
+
       myNameText = me?.name || 'เรา';
       rivalNameText = rival?.name || 'คู่แข่ง';
+      rivalOffline = !!rival && rival.online === false;
+
       meName.textContent = myNameText;
-      rivalName.textContent = rival?.online === false ? `${rivalNameText} (offline)` : rivalNameText;
+      rivalName.textContent = rivalOffline ? `${rivalNameText} (offline)` : rivalNameText;
     }
 
     function applyScoreBoard(scoreMap){
@@ -723,13 +747,16 @@
     function startRematchWaitTimer(seconds = 20){
       clearRematchWaitTimer();
       rematchDeadlineMs = Date.now() + (seconds * 1000);
+
       rematchWaitTimer = setInterval(()=>{
         const leftMs = rematchDeadlineMs - Date.now();
         const leftSec = Math.max(0, Math.ceil(leftMs / 1000));
+
         if(endOverlay.style.display === 'flex'){
           const base = rematchRequested ? 'กำลังรออีกฝ่ายกด Rematch' : 'กด Rematch เพื่อเริ่มรอบใหม่';
           document.getElementById('sumHeroSub').textContent = `${base} • เหลือ ${leftSec}s`;
         }
+
         if(leftMs <= 0){
           clearRematchWaitTimer();
           if(endOverlay.style.display === 'flex'){
@@ -780,50 +807,6 @@
       clearRematchWaitTimer();
       runMountedAt = Date.now();
       rivalOfflineSince = 0;
-      stopEngineWatchdog();
-    }
-
-    function startEngineSafe(data){
-      try{ window.GroupsRace?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
-
-      const diff = String(data?.meta?.diff || 'normal');
-      const timeSec = Number(data?.meta?.timeSec || 60);
-      const seed = String(data?.match?.startedAt || Date.now());
-
-      const tryStart = ()=>{
-        window.GroupsRace.GameEngine.start(diff, {
-          time: timeSec,
-          seed,
-          view: VIEW
-        });
-      };
-
-      tryStart();
-
-      stopEngineWatchdog();
-      engineStartWatchdog = setTimeout(()=>{
-        try{
-          const running = !!window.GroupsRace?.GameEngine?.isRunning?.();
-          if(running){
-            loadingOverlay.hidden = true;
-            return;
-          }
-          console.warn('[groups-race] engine watchdog restart');
-          tryStart();
-
-          setTimeout(()=>{
-            const running2 = !!window.GroupsRace?.GameEngine?.isRunning?.();
-            if(running2){
-              loadingOverlay.hidden = true;
-              return;
-            }
-            loadingOverlay.hidden = false;
-            loadingText.textContent = 'เกมยังไม่เริ่มจริง\nกำลังลองเริ่มใหม่อีกครั้ง...';
-          }, 700);
-        }catch(err){
-          console.error('[groups-race watchdog]', err);
-        }
-      }, 900);
     }
 
     async function waitUntilStartAndRun(data){
@@ -836,7 +819,6 @@
       lastStartedAtSeen = startedAt;
       resetRaceUiForNextRound();
       safeStopEngine();
-
       loadingOverlay.hidden = true;
       countdownOverlay.hidden = false;
 
@@ -855,10 +837,21 @@
       await new Promise(r=>setTimeout(r, 450));
       countdownOverlay.hidden = true;
 
+      try{ window.GroupsRace?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
+
+      const diff = String(data?.meta?.diff || 'normal');
+      const timeSec = Number(data?.meta?.timeSec || 60);
+      const seed = String(startedAt);
+
       runMountedAt = Date.now();
       rivalOfflineSince = 0;
 
-      startEngineSafe(data);
+      window.GroupsRace.GameEngine.start(diff, {
+        time: timeSec,
+        seed,
+        view: VIEW
+      });
+
       showToast(localRoundNo > 1 ? 'เริ่มรอบใหม่แล้ว! ลุยเลย' : 'เริ่มแข่งแล้ว! ยิงให้เร็วและแม่น', 'fever');
     }
 
@@ -869,6 +862,7 @@
       const rematchBtn2 = document.getElementById('btnEndRematch');
       if(rematchBtn1) rematchBtn1.disabled = true;
       if(rematchBtn2) rematchBtn2.disabled = true;
+
       try{
         const result = await requestRaceRematch(ROOM, PLAYER_ID);
         rematchRequested = true;
@@ -876,6 +870,7 @@
         const readyCount = result?.readyCount ?? getRematchReadyCount(roomData);
         const isHost = roomData?.meta?.hostPlayerId === PLAYER_ID;
         showToast(`Rematch ${readyCount}/${totalPlayers}`, readyCount >= totalPlayers ? 'happy' : 'neutral');
+
         if(isHost && totalPlayers >= 2 && readyCount >= totalPlayers){
           showToast('ครบแล้ว เริ่มรอบใหม่!', 'fever');
           await resetRaceForRematch(ROOM);
@@ -920,12 +915,15 @@
 
     window.addEventListener('race:coach', (ev)=>{
       const d = ev?.detail || {};
+      if(rivalOffline) showToast('คู่แข่งกำลัง reconnect', 'neutral');
       if(d.text) showToast(d.text, d.mood || 'neutral');
     });
 
     window.addEventListener('race:time', (ev)=>{
       const left = ev?.detail?.left;
-      if(typeof left === 'number') hudTime.textContent = left + 's';
+      if(typeof left === 'number'){
+        hudTime.textContent = left + 's';
+      }
     });
 
     window.addEventListener('race:score', async (ev)=>{
@@ -975,8 +973,9 @@
       const x = Number(d.x || (window.innerWidth * 0.5));
       const y = Number(d.y || (window.innerHeight * 0.5));
       const delta = Number(d.delta || (good ? 10 : -2));
+
       if(good){
-        flashStage('good');
+        flashStage(d.hot ? 'hot' : 'good');
         popScore(x, y, (delta > 0 ? '+' : '') + delta, true);
       }else{
         flashStage('bad');
@@ -987,10 +986,12 @@
     window.addEventListener('race:end', async (ev)=>{
       if(raceEnded) return;
       raceEnded = true;
+
       const s = ev?.detail || {};
       const finalMy = myScoreLatest;
       const finalRival = rivalScoreLatest;
       const result = finalMy > finalRival ? 'WIN' : finalMy < finalRival ? 'LOSE' : 'DRAW';
+
       const meta = getSummaryMeta(result);
       document.getElementById('sumBadgeIcon').textContent = meta.icon;
       document.getElementById('sumHeroBig').textContent = meta.big;
@@ -1095,6 +1096,11 @@
           const rivalId = getRivalPlayerId(players2);
           const rival = rivalId ? players2[rivalId] : null;
 
+          if(!rivalId && !window.__RACE_STARTED__){
+            loadingOverlay.hidden = false;
+            loadingText.textContent = 'กำลังรอผู้เล่นอีกคนเข้าเกม...';
+          }
+
           if(window.__RACE_STARTED__ && !raceEnded){
             const now = Date.now();
             const inGrace = (now - runMountedAt) < OFFLINE_GRACE_MS;
@@ -1103,6 +1109,7 @@
             if(rivalMissing){
               if(!rivalOfflineSince) rivalOfflineSince = now;
               const offlineMs = now - rivalOfflineSince;
+
               if(inGrace){
                 loadingOverlay.hidden = false;
                 loadingText.textContent = 'กำลังรอคู่แข่งเชื่อมต่อเข้าเกม...';
