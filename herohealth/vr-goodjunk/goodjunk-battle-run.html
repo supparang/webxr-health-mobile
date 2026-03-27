@@ -192,6 +192,17 @@
       font-size:11px; line-height:1.6; font-weight:900; white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto;
     }
 
+    .battle-bridge{
+      position:absolute;
+      left:-99999px;
+      top:-99999px;
+      width:1px;
+      height:1px;
+      overflow:hidden;
+      opacity:0;
+      pointer-events:none;
+    }
+
     @media (max-width:780px){
       .top{ align-items:stretch; }
       .side{ width:100%; }
@@ -205,6 +216,33 @@
 <body>
   <div id="app">
     <div id="gameMount"></div>
+
+    <!-- Hidden bridge HUD for goodjunk.safe.battle.js -->
+    <div class="battle-bridge" aria-hidden="true">
+      <div id="battleHud">
+        <div id="battleModePill">MODE battle</div>
+        <div id="battleRoomPill">ROOM -</div>
+        <div id="battleScoreValue">0</div>
+        <div id="battleTimeValue">0:00</div>
+        <div id="battleMissValue">0</div>
+        <div id="battleStreakValue">0</div>
+        <div id="battleHpValue">100/100</div>
+        <div id="battleHpFill"></div>
+        <div id="battleChargeValue">0/100</div>
+        <div id="battleChargeFill"></div>
+        <div id="battleAttackReady">CHARGING</div>
+      </div>
+
+      <!-- Hidden result bridge so safe layer patches this instead of opening fallback modal -->
+      <section class="battle-result" id="battleResultBridge" hidden>
+        <div class="battle-rank-badge" id="battleRankBadge">อันดับ ?</div>
+        <div class="battle-result-sub">ผลสุดท้าย</div>
+        <table id="battleResultTable">
+          <tbody></tbody>
+        </table>
+      </section>
+    </div>
+
     <div class="shell">
       <div class="top">
         <div class="hero-card">
@@ -294,7 +332,67 @@
     </div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js?v=20260327-gjbattle-run-r1"></script>
   <script src="../js/hha-cloud-logger.js"></script>
+
+  <script>
+    (function(){
+      function qsGet(k, d=''){
+        try{ return new URL(location.href).searchParams.get(k) ?? d; }
+        catch{ return d; }
+      }
+      function cleanRoom(v){
+        return String(v == null ? '' : v)
+          .trim()
+          .toUpperCase()
+          .replace(/[^A-Z0-9_-]/g, '')
+          .slice(0, 24);
+      }
+      function normalizePid(v){
+        return String(v == null ? '' : v)
+          .trim()
+          .replace(/[.#$[\]/]/g, '-')
+          .slice(0, 80);
+      }
+
+      const roomId = cleanRoom(qsGet('roomId') || qsGet('room') || '');
+      const uid = normalizePid(qsGet('uid') || qsGet('playerId') || qsGet('pid') || 'anon');
+      const name = String(qsGet('name') || qsGet('nick') || 'Player').trim().slice(0, 64);
+      const startAt = Number(qsGet('startAt') || 0) || 0;
+
+      window.HHA_BATTLE_BOOT = {
+        mode: 'battle',
+        roomId,
+        room: roomId,
+        pid: uid || 'anon',
+        uid: uid || 'anon',
+        playerId: uid || 'anon',
+        name,
+        nick: name,
+        diff: qsGet('diff', 'normal'),
+        time: Number(qsGet('time', '150')) || 150,
+        view: qsGet('view', 'mobile'),
+        seed: qsGet('seed', String(Date.now())),
+        hub: qsGet('hub', '../hub.html'),
+        run: qsGet('run', 'play'),
+        startAt,
+        autostart: qsGet('autostart', '') === '1'
+      };
+
+      window.__GJ_BATTLE_BOOT__ = window.HHA_BATTLE_BOOT;
+      window.__BATTLE_ROOM_ID__ = roomId;
+      window.__BATTLE_SELF_PID__ = uid || 'anon';
+      window.__BATTLE_SELF_NAME__ = name;
+
+      console.log('[GJ BATTLE RUN BOOT]', window.HHA_BATTLE_BOOT);
+    })();
+  </script>
+
+  <script src="./goodjunk.safe.battle.js?v=20260327-gjbattle-safe-r2"></script>
+
   <script>
     (function(){
       const q = new URLSearchParams(location.search);
@@ -315,24 +413,45 @@
       function saveText(name,text,type='application/json'){ const blob=new Blob([text],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
       function buildReplayUrl(){ const url=new URL(location.href); url.searchParams.set('seed',String(Date.now())); return url.toString(); }
       function copyText(text){ const t=String(text||'').trim(); if(!t) return Promise.reject(new Error('empty')); return navigator.clipboard.writeText(t); }
+      function normalizePid(v){ return String(v == null ? '' : v).trim().replace(/[.#$[\]/]/g, '-').slice(0,80); }
+      function roomIdCandidates(raw){
+        const exact = String(raw == null ? '' : raw).trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
+        const compact = exact.replace(/[^A-Z0-9]/g, '');
+        const out = [];
+        const push = (v) => {
+          v = String(v == null ? '' : v).trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
+          if (!v) return;
+          if (!out.includes(v)) out.push(v);
+        };
+        push(exact);
+        push(compact);
+        if (/^GJB[A-Z0-9]{5,8}$/.test(compact)) push(`GJB-${compact.slice(3)}`);
+        if (/^GJB-[A-Z0-9]{5,8}$/.test(exact)) push(exact.replace('-', ''));
+        return out;
+      }
 
       window.HHA_CLOUD_ENDPOINT = clean(qs('api') || window.HHA_CLOUD_ENDPOINT || '');
+
+      const BOOT = window.HHA_BATTLE_BOOT || {};
       const runCtx = {
-        pid: qs('pid','anon'),
-        name: qs('name',''),
+        pid: normalizePid(BOOT.uid || BOOT.playerId || BOOT.pid || qs('pid','anon')),
+        uid: normalizePid(BOOT.uid || BOOT.playerId || BOOT.pid || qs('uid', qs('playerId','anon'))),
+        name: qs('name','') || BOOT.name || '',
         studyId: qs('studyId',''),
-        roomId: qs('roomId') || qs('room') || '',
+        roomId: roomIdCandidates(BOOT.roomId || qs('roomId') || qs('room') || '')[0] || '',
         role: qs('role','player'),
         mode: MODE,
-        diff: qs('diff','normal'),
-        time: qs('time','150'),
-        seed: qs('seed',String(Date.now())),
-        startAt:0,
+        diff: qs('diff', BOOT.diff || 'normal'),
+        time: qs('time', String(BOOT.time || '150')),
+        seed: qs('seed', BOOT.seed || String(Date.now())),
+        startAt: Number(BOOT.startAt || qs('startAt','0')) || 0,
         hub: resolveHub(),
-        view: qs('view','mobile'),
-        run: qs('run','play'),
+        view: qs('view', BOOT.view || 'mobile'),
+        run: qs('run', BOOT.run || 'play'),
         gameId: qs('gameId','goodjunk')
       };
+      runCtx.playerId = runCtx.uid || runCtx.pid;
+
       window.__GJ_RUN_CTX__ = runCtx;
       window.__GJ_MULTI_RUN_CTX__ = runCtx;
 
@@ -351,9 +470,25 @@
       const SUMMARY_KEY = 'GJ_BATTLE_LAST_SUMMARY_' + (runCtx.roomId || 'noroom') + '_' + (runCtx.pid || 'anon');
       const $ = (id) => document.getElementById(id);
 
-      function setMiniInfo(){ if($('engineMiniRoom')) $('engineMiniRoom').textContent=`ROOM • ${runCtx.roomId || '-'}`; if($('engineMiniMode')) $('engineMiniMode').textContent=`MODE • ${MODE.toUpperCase()}`; if($('engineMiniPlayer')) $('engineMiniPlayer').textContent=`HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`; }
+      function setMiniInfo(){
+        if($('engineMiniRoom')) $('engineMiniRoom').textContent=`ROOM • ${runCtx.roomId || '-'}`;
+        if($('engineMiniMode')) $('engineMiniMode').textContent=`MODE • ${MODE.toUpperCase()}`;
+        if($('engineMiniPlayer')) $('engineMiniPlayer').textContent=`HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`;
+      }
+
       function wireQuickActions(){
-        $('btnQuickCopyRoom')?.addEventListener('click',()=>{ const room=String(runCtx.roomId||'').trim(); if(!room){ if($('engineTip')) $('engineTip').innerHTML='<strong>Tip:</strong> ตอนนี้ยังไม่มีรหัสห้องให้คัดลอก'; return; } navigator.clipboard.writeText(room).then(()=>{ if($('engineTip')) $('engineTip').innerHTML='<strong>คัดลอกแล้ว:</strong> ส่งรหัสห้องนี้ให้เพื่อนได้เลย'; }).catch(()=>{ if($('engineTip')) $('engineTip').innerHTML='<strong>ยังคัดลอกไม่ได้:</strong> ลองคัดลอกจากข้อความ ROOM ด้านบนแทน'; }); });
+        $('btnQuickCopyRoom')?.addEventListener('click',()=>{
+          const room=String(runCtx.roomId||'').trim();
+          if(!room){
+            if($('engineTip')) $('engineTip').innerHTML='<strong>Tip:</strong> ตอนนี้ยังไม่มีรหัสห้องให้คัดลอก';
+            return;
+          }
+          navigator.clipboard.writeText(room).then(()=>{
+            if($('engineTip')) $('engineTip').innerHTML='<strong>คัดลอกแล้ว:</strong> ส่งรหัสห้องนี้ให้เพื่อนได้เลย';
+          }).catch(()=>{
+            if($('engineTip')) $('engineTip').innerHTML='<strong>ยังคัดลอกไม่ได้:</strong> ลองคัดลอกจากข้อความ ROOM ด้านบนแทน';
+          });
+        });
         $('btnQuickBackHub')?.addEventListener('click',()=>{ location.href=runCtx.hub; });
       }
 
@@ -368,25 +503,107 @@
       $('engineDebugInfo').textContent =
         '[MODE] ' + MODE + '\n' +
         '[PID] ' + (runCtx.pid || '-') + '\n' +
+        '[UID] ' + (runCtx.uid || '-') + '\n' +
         '[ROOM] ' + (runCtx.roomId || '-') + '\n' +
+        '[START_AT] ' + (runCtx.startAt || 0) + '\n' +
         '[API] ' + (window.HHA_CLOUD_ENDPOINT || '-') + '\n' +
         '[HERO] ' + heroMeta.avatar + ' ' + heroMeta.name + '\n\n' +
         '[CANDIDATES]\n' + ENGINE_CANDIDATES.join('\n');
 
-      function setStatus(title,text,isError=false){ $('engineStatusTitle').textContent=title; $('engineStatusText').textContent=text; $('engineStatusText').className=isError?'error':''; }
+      function setStatus(title,text,isError=false){
+        $('engineStatusTitle').textContent=title;
+        $('engineStatusText').textContent=text;
+        $('engineStatusText').className=isError?'error':'';
+      }
       function setDebug(text){ $('engineDebugInfo').textContent=text; }
+
       function setFriendlyReadyState(src,type){
-        const card=$('engineStatusCard'); if(card) card.classList.add('is-ready');
+        const card=$('engineStatusCard');
+        if(card) card.classList.add('is-ready');
         setStatus('พร้อมแล้ว!', `${MODE_LABEL} engine loaded: ${src} (${type})`);
         if($('engineStatusSub')) $('engineStatusSub').textContent='เข้าเกมสำเร็จแล้ว อีกครู่หน้าช่วยเล่นจะหายไปและเกมจะเริ่มเอง';
         if($('engineSteps')) $('engineSteps').innerHTML=`<div class="status-step"><span>✅</span><span>โหลดหน้าเกมสำเร็จแล้ว</span></div><div class="status-step"><span>🎮</span><span>เตรียมแตะเก็บอาหารดีเมื่อเกมเริ่ม</span></div><div class="status-step"><span>🌟</span><span>ขอให้สนุกกับรอบนี้นะ</span></div>`;
         if($('engineTip')) $('engineTip').innerHTML='<strong>พร้อมแล้ว:</strong> อีกครู่หน้าช่วยเล่นนี้จะซ่อนลงอัตโนมัติ';
       }
-      function hideStatusCardSoon(){ const card=$('engineStatusCard'); if(!card) return; setTimeout(()=>{ card.style.display='none'; },1200); }
-      function loadScriptWithType(src,type){ return new Promise((resolve,reject)=>{ const s=document.createElement('script'); if(type==='module') s.type='module'; s.src=new URL(src,location.href).toString(); s.async=true; s.onload=()=>resolve({src,type}); s.onerror=()=>reject(new Error(`โหลด script ไม่สำเร็จ: ${src} [${type}]`)); document.body.appendChild(s); }); }
-      async function tryLoad(src){ try{ setStatus('กำลังโหลดเกม…',`ลองโหลด ${src} (classic)`); return await loadScriptWithType(src,'classic'); } catch(e1){ try{ setStatus('กำลังโหลดเกม…',`ลองโหลด ${src} (module)`); return await loadScriptWithType(src,'module'); } catch(e2){ throw new Error(`${src}\n- classic: ${String(e1&&e1.message?e1.message:e1)}\n- module: ${String(e2&&e2.message?e2.message:e2)}`); } } }
+
+      function hideStatusCardSoon(){
+        const card=$('engineStatusCard');
+        if(!card) return;
+        setTimeout(()=>{ card.style.display='none'; },1200);
+      }
+
+      function updateCountdownFromBoot(){
+        if (!runCtx.startAt) return;
+        const leftMs = runCtx.startAt - Date.now();
+        if (leftMs > 0) {
+          const sec = Math.max(0, Math.ceil(leftMs / 1000));
+          setStatus('กำลังนับถอยหลัง…', `Battle จะเริ่มใน ${sec} วินาที`);
+          if($('engineStatusSub')) $('engineStatusSub').textContent='ทั้งสองฝั่งจะเริ่มพร้อมกันจากเวลาที่ sync มาจาก lobby';
+        }
+      }
+
+      function syncVisibleFromBattleSafe(){
+        try{
+          if(!window.BattleSafe || typeof window.BattleSafe.getState !== 'function') return;
+          const st = window.BattleSafe.getState();
+          if(!st || typeof st !== 'object') return;
+
+          if (st.roomId) {
+            runCtx.roomId = st.roomId;
+            $('pillRoom').textContent = `ROOM • ${st.roomId}`;
+            $('engineMiniRoom').textContent = `ROOM • ${st.roomId}`;
+          }
+
+          const roomText = st.roomId || runCtx.roomId || '-';
+          const heroText = `${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`;
+          const hpText = `${st.hp ?? 0}/${st.maxHp ?? 100}`;
+          const chargeText = `${st.attackCharge ?? 0}/${st.maxAttackCharge ?? 100}`;
+          const scoreText = String(st.score ?? 0);
+
+          if ($('engineTip')) {
+            $('engineTip').innerHTML =
+              `<strong>ตอนนี้:</strong> คะแนน ${scoreText} • HP ${hpText} • Charge ${chargeText}`;
+          }
+
+          if ($('engineMiniMode')) $('engineMiniMode').textContent = `MODE • ${MODE.toUpperCase()}`;
+          if ($('engineMiniRoom')) $('engineMiniRoom').textContent = `ROOM • ${roomText}`;
+          if ($('engineMiniPlayer')) $('engineMiniPlayer').textContent = `HERO • ${heroText}`;
+        }catch(err){
+          console.warn('[GJ-BATTLE-RUN] syncVisibleFromBattleSafe failed', err);
+        }
+      }
+
+      function loadScriptWithType(src,type){
+        return new Promise((resolve,reject)=>{
+          const s=document.createElement('script');
+          if(type==='module') s.type='module';
+          s.src=new URL(src,location.href).toString();
+          s.async=true;
+          s.onload=()=>resolve({src,type});
+          s.onerror=()=>reject(new Error(`โหลด script ไม่สำเร็จ: ${src} [${type}]`));
+          document.body.appendChild(s);
+        });
+      }
+
+      async function tryLoad(src){
+        try{
+          setStatus('กำลังโหลดเกม…',`ลองโหลด ${src} (classic)`);
+          return await loadScriptWithType(src,'classic');
+        } catch(e1){
+          try{
+            setStatus('กำลังโหลดเกม…',`ลองโหลด ${src} (module)`);
+            return await loadScriptWithType(src,'module');
+          } catch(e2){
+            throw new Error(`${src}\n- classic: ${String(e1&&e1.message?e1.message:e1)}\n- module: ${String(e2&&e2.message?e2.message:e2)}`);
+          }
+        }
+      }
+
       async function loadEngine(){
-        if(!ENGINE_CANDIDATES.length){ setStatus('ไม่พบ candidate','ไม่มี candidate engine ให้ลองโหลด',true); return; }
+        if(!ENGINE_CANDIDATES.length){
+          setStatus('ไม่พบ candidate','ไม่มี candidate engine ให้ลองโหลด',true);
+          return;
+        }
         const errors=[];
         for(const src of ENGINE_CANDIDATES){
           try{
@@ -394,7 +611,7 @@
             window.__GJ_MULTI_ENGINE_INFO__={ mode:MODE, label:MODE_LABEL, src:result.src, type:result.type, loadedAt:Date.now() };
             setFriendlyReadyState(result.src,result.type);
             applyHeroIdentity();
-            setDebug('[SUCCESS]\n'+'src: '+result.src+'\n'+'type: '+result.type+'\n'+'room: '+(runCtx.roomId||'-')+'\n'+'player: '+heroMeta.avatar+' '+(runCtx.name||runCtx.pid||'-')+'\n'+'role: '+(runCtx.role||'player'));
+            setDebug('[SUCCESS]\n'+'src: '+result.src+'\n'+'type: '+result.type+'\n'+'room: '+(runCtx.roomId||'-')+'\n'+'player: '+heroMeta.avatar+' '+(runCtx.name||runCtx.pid||'-')+'\n'+'uid: '+(runCtx.uid||'-')+'\n'+'role: '+(runCtx.role||'player'));
             console.log('[GJ-BATTLE-RUN] loaded engine',result.src,runCtx);
             hideStatusCardSoon();
             return;
@@ -531,6 +748,8 @@
         try{ const raw=localStorage.getItem(SUMMARY_KEY); if(raw) showSummary(JSON.parse(raw)); }catch{}
       }
 
+      updateCountdownFromBoot();
+      setInterval(syncVisibleFromBattleSafe, 220);
       loadEngine();
     })();
   </script>
