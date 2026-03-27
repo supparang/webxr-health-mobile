@@ -1,375 +1,116 @@
-/* === /herohealth/gate/games/shadowbreaker/warmup.js ===
- * HeroHealth Gate Game: ShadowBreaker Warmup
- * FULL PATCH v20260319b-SHADOWBREAKER-WARMUP-MANUAL-RESULT
- */
+// === /herohealth/gate/games/shadowbreaker/warmup.js ===
+// FULL PATCH v20260327-SHADOWBREAKER-WARMUP
 
-function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+export default function mountShadowbreakerWarmup(ctx = {}){
+  const mount = document.getElementById('gateGameMount') || ctx?.mountRoot || ctx?.root;
+  if (!mount) return null;
 
-function getParam(ctx, key, fallback=''){
-  try{
-    if (ctx?.url) return ctx.url.searchParams.get(key) ?? fallback;
-    return new URL(window.location.href).searchParams.get(key) ?? fallback;
-  }catch(_){
-    return fallback;
-  }
-}
+  let hits = 0;
+  let remain = 15;
+  let timer = null;
+  let started = false;
+  let finished = false;
 
-export function loadStyle(){
-  const id = 'hh-gate-style-shadowbreaker';
-  const href = new URL('./style.css', import.meta.url).toString();
+  function finish(){
+    if (finished) return;
+    finished = true;
+    if (timer) clearInterval(timer);
 
-  const old = document.getElementById(id);
-  if (old) old.remove();
+    const buffPct = Math.min(15, 5 + Math.floor(hits / 4));
+    const result = {
+      ok: true,
+      phase: 'warmup',
+      game: 'shadowbreaker',
+      score: hits,
+      summary: `Warmup hits ${hits}`,
+      buff: {
+        wType: 'shadow',
+        wPct: buffPct
+      }
+    };
 
-  const link = document.createElement('link');
-  link.id = id;
-  link.rel = 'stylesheet';
-  link.href = href;
-  document.head.appendChild(link);
-}
-
-function starsFromScore(score){
-  if (score >= 90) return 3;
-  if (score >= 70) return 2;
-  return 1;
-}
-
-function makeResult(state){
-  const score = clamp(Math.round((state.success / Math.max(1, state.total)) * 100), 0, 100);
-  const passed = score >= 60 || state.success >= 5;
-  return {
-    ok: true,
-    zone: 'exercise',
-    game: 'shadowbreaker',
-    phase: 'warmup',
-    activityId: 'shadowbreaker-light-dodge-prep',
-    title: 'ซ้อมหลบเร็ว',
-    subtitle: passed
-      ? 'พร้อมแล้ว ไปเล่น Shadow Breaker กัน'
-      : 'ลองซ้อมหลบอีกนิด ให้ไวขึ้นอีกหน่อย',
-    passed,
-    score,
-    stars: starsFromScore(score),
-    lines: [
-      `สำเร็จ ${state.success}/${state.total}`,
-      `ผิด ${state.fail}`,
-      `พลาด ${state.misses}`,
-      `เวลาเฉลี่ย ${state.reactionCount ? Math.round(state.reactionSum / state.reactionCount) : 0} ms`
-    ],
-    metrics: {
-      total: state.total,
-      success: state.success,
-      fail: state.fail,
-      misses: state.misses,
-      avgReactionMs: state.reactionCount ? Math.round(state.reactionSum / state.reactionCount) : 0,
-      finished: state.finished ? 1 : 0
-    },
-    coach: {
-      tone: passed ? 'positive' : 'gentle',
-      line: passed
-        ? 'พร้อมแล้ว ไปเล่น Shadow Breaker กัน'
-        : 'ลองซ้อมหลบอีกนิด ให้ไวขึ้นอีกหน่อย'
-    },
-    buffs: {
-      wType: 'shadowbreaker_warmup',
-      wPct: score,
-      wSuccess: state.success,
-      wFail: state.fail,
-      wMisses: state.misses,
-      wStars: starsFromScore(score)
-    },
-    nextAction: 'run',
-    markDailyDone: true
-  };
-}
-
-export function mount(root, ctx = {}, api = {}){
-  loadStyle();
-
-  const phase = String(getParam(ctx, 'phase', 'warmup')).toLowerCase();
-  const fallbackComplete = typeof ctx?.onComplete === 'function' ? ctx.onComplete : null;
-
-  function complete(payload){
-    if (typeof api?.finish === 'function'){
-      api.finish(payload);
-      return;
-    }
-    if (typeof api?.complete === 'function'){
-      api.complete(payload);
-      return;
-    }
-    if (typeof fallbackComplete === 'function'){
-      fallbackComplete(payload);
-    }
+    window.__GATE_PHASE_RESULT__ = result;
+    mount.dispatchEvent(new CustomEvent('gate:complete', {
+      bubbles: true,
+      detail: result
+    }));
   }
 
-  if (phase !== 'warmup'){
-    root.innerHTML = `
-      <div class="sbg-wrap">
-        <section class="sbg-card">
-          <div class="sbg-kicker">EXERCISE ZONE • WARMUP</div>
-          <h1 class="sbg-title">⚡ ซ้อมหลบเร็ว</h1>
-          <p class="sbg-subtitle">โมดูลนี้ใช้สำหรับ phase=warmup เท่านั้น</p>
-        </section>
+  function startTimer(){
+    if (started) return;
+    started = true;
+
+    timer = setInterval(()=>{
+      remain -= 1;
+
+      const remainEl = document.getElementById('sbWarmRemain');
+      if (remainEl) remainEl.textContent = String(remain);
+
+      if (remain <= 0){
+        finish();
+      }
+    }, 1000);
+  }
+
+  function render(){
+    mount.innerHTML = `
+      <div class="sb-mini-card" style="padding:16px;">
+        <div style="font-size:14px;font-weight:900;color:#94a3b8;">Shadow Breaker • Warmup</div>
+        <h2 style="margin:8px 0 6px;">อุ่นเครื่องก่อนลุยบอส</h2>
+        <div style="color:#94a3b8;font-weight:800;line-height:1.5;">
+          แตะดาวให้ได้มากที่สุดภายใน <span id="sbWarmRemain">${remain}</span> วินาที
+        </div>
+
+        <div style="display:grid;place-items:center;margin-top:16px;">
+          <button id="sbWarmTap"
+            type="button"
+            aria-label="Tap star"
+            style="width:140px;height:140px;border-radius:999px;border:0;font-size:54px;cursor:pointer;background:rgba(59,130,246,.18);box-shadow:0 18px 36px rgba(0,0,0,.24);">
+            ⭐
+          </button>
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+          <div style="padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.56);font-weight:900;">แตะได้: <span id="sbWarmHits">${hits}</span></div>
+          <div style="padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.56);font-weight:900;">เป้าหมาย: 20+</div>
+        </div>
+
+        <div style="margin-top:12px;color:#94a3b8;font-size:.9rem;font-weight:800;line-height:1.5;">
+          เคล็ดลับ: แตะไว ๆ แบบสม่ำเสมอ จะได้บัฟก่อนเข้าเล่น
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+          <button id="sbWarmSkip" type="button"
+            style="min-height:42px;padding:10px 14px;border-radius:14px;border:1px solid rgba(148,163,184,.22);background:rgba(148,163,184,.10);color:#e5e7eb;font-weight:1000;cursor:pointer;">
+            ข้าม warmup
+          </button>
+        </div>
       </div>
     `;
-    return {
-      autostart: false,
-      start(){},
-      destroy(){}
-    };
-  }
 
-  const seed = Number(getParam(ctx, 'seed', Date.now()));
-  const TOTAL_ROUNDS = 7;
-  const ROUND_MS = 1900;
-  const GAME_SEC = 20;
+    const btnTap = document.getElementById('sbWarmTap');
+    const btnSkip = document.getElementById('sbWarmSkip');
 
-  const cues = [
-    { id:'left', label:'หลบซ้าย', emoji:'↙️' },
-    { id:'right', label:'หลบขวา', emoji:'↘️' },
-    { id:'duck', label:'ย่อหลบ', emoji:'⬇️' }
-  ];
+    btnTap?.addEventListener('click', ()=>{
+      if (finished) return;
+      startTimer();
+      hits += 1;
 
-  const state = {
-    started: false,
-    finished: false,
-    ended: false,
-    total: 0,
-    success: 0,
-    fail: 0,
-    misses: 0,
-    reactionSum: 0,
-    reactionCount: 0,
-    roundIndex: -1,
-    cueAt: 0,
-    remainSec: GAME_SEC,
-    roundTimer: null,
-    gameTimer: null,
-    sequence: []
-  };
+      const hitsEl = document.getElementById('sbWarmHits');
+      if (hitsEl) hitsEl.textContent = String(hits);
 
-  for (let i = 0; i < TOTAL_ROUNDS; i++){
-    const idx = Math.abs((seed + i * 13) % cues.length);
-    state.sequence.push(cues[idx]);
-  }
-
-  root.innerHTML = `
-    <div class="sbg-wrap">
-      <section class="sbg-card">
-        <div class="sbg-kicker">EXERCISE ZONE • WARMUP</div>
-        <h1 class="sbg-title">⚡ ซ้อมหลบเร็ว</h1>
-        <p class="sbg-subtitle">ซ้อมหลบซ้าย ขวา และย่อ ก่อนเข้าเกม Shadow Breaker</p>
-
-        <div class="sbg-grid">
-          <div class="sbg-panel">
-            <h2 class="sbg-h2">วิธีเล่น</h2>
-            <ol class="sbg-list">
-              <li>กดปุ่มให้ตรงกับท่าหลบที่ขึ้นบนจอ</li>
-              <li>มี 3 ท่า: หลบซ้าย หลบขวา ย่อหลบ</li>
-              <li>ทำสำเร็จอย่างน้อย 5 ครั้ง</li>
-            </ol>
-          </div>
-
-          <div class="sbg-panel sbg-play">
-            <div class="sbg-phase-badge">WARMUP</div>
-            <div class="sbg-cue" id="sbg-cue">พร้อม</div>
-            <div class="sbg-timer" id="sbg-timer">${GAME_SEC}s</div>
-            <div class="sbg-stats" id="sbg-stats">
-              <span>รอบ 0/${TOTAL_ROUNDS}</span>
-              <span>สำเร็จ 0</span>
-              <span>พลาด 0</span>
-            </div>
-
-            <div class="sbg-actions" id="sbg-actions">
-              ${cues.map(c => `
-                <button class="sbg-btn-action" type="button" data-action="${c.id}" disabled>
-                  <span class="sbg-emoji">${c.emoji}</span>
-                  <span>${c.label}</span>
-                </button>
-              `).join('')}
-            </div>
-          </div>
-        </div>
-
-        <div class="sbg-footer">
-          <button class="sbg-btn sbg-btn-primary" id="sbg-start">เริ่มอุ่นเครื่อง</button>
-          <button class="sbg-btn sbg-btn-ghost" id="sbg-finish" type="button" disabled>ดูผล</button>
-        </div>
-      </section>
-    </div>
-  `;
-
-  const cueEl = root.querySelector('#sbg-cue');
-  const timerEl = root.querySelector('#sbg-timer');
-  const statsEl = root.querySelector('#sbg-stats');
-  const actionsEl = root.querySelector('#sbg-actions');
-  const startBtn = root.querySelector('#sbg-start');
-  const finishBtn = root.querySelector('#sbg-finish');
-
-  function canOpenResult(){
-    return state.finished === true;
-  }
-
-  function syncFinishBtn(){
-    const ready = canOpenResult();
-    finishBtn.disabled = !ready;
-    finishBtn.style.pointerEvents = ready ? 'auto' : 'none';
-    finishBtn.style.opacity = ready ? '1' : '.65';
-  }
-
-  function renderStats(){
-    statsEl.innerHTML = `
-      <span>รอบ ${Math.max(0, state.roundIndex + 1)}/${TOTAL_ROUNDS}</span>
-      <span>สำเร็จ ${state.success}</span>
-      <span>พลาด ${state.fail + state.misses}</span>
-    `;
-    syncFinishBtn();
-  }
-
-  function lockActions(locked){
-    actionsEl.querySelectorAll('.sbg-btn-action').forEach(btn => {
-      btn.disabled = locked;
-      btn.style.pointerEvents = locked ? 'none' : 'auto';
-      btn.style.opacity = locked ? '.7' : '1';
+      btnTap.style.transform = 'scale(.94)';
+      setTimeout(()=>{ btnTap.style.transform = 'scale(1)'; }, 90);
     });
+
+    btnSkip?.addEventListener('click', finish);
   }
 
-  function finishGame(){
-    if (state.finished) return;
-    state.finished = true;
-    clearTimeout(state.roundTimer);
-    clearInterval(state.gameTimer);
-    lockActions(true);
-
-    startBtn.disabled = true;
-    startBtn.style.pointerEvents = 'none';
-    startBtn.style.opacity = '.65';
-
-    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
-    renderStats();
-  }
-
-  function nextCue(){
-    if (state.finished || state.ended) return;
-    state.roundIndex += 1;
-
-    if (state.roundIndex >= state.sequence.length){
-      finishGame();
-      return;
-    }
-
-    const cue = state.sequence[state.roundIndex];
-    state.total += 1;
-    state.cueAt = performance.now();
-    cueEl.textContent = `${cue.emoji} ${cue.label}`;
-    renderStats();
-
-    clearTimeout(state.roundTimer);
-    state.roundTimer = setTimeout(() => {
-      state.misses += 1;
-      cueEl.textContent = `ไม่ทัน! คำตอบคือ ${cue.label}`;
-      renderStats();
-      setTimeout(nextCue, 520);
-    }, ROUND_MS);
-  }
-
-  function answer(action){
-    if (!state.started || state.finished || state.roundIndex < 0) return;
-
-    const cue = state.sequence[state.roundIndex];
-    clearTimeout(state.roundTimer);
-
-    const rt = Math.max(0, Math.round(performance.now() - state.cueAt));
-    state.reactionSum += rt;
-    state.reactionCount += 1;
-
-    if (action === cue.id){
-      state.success += 1;
-      cueEl.textContent = `หลบสำเร็จ! ${cue.label}`;
-    } else {
-      state.fail += 1;
-      cueEl.textContent = `ยังไม่ใช่ — ต้องเป็น ${cue.label}`;
-    }
-
-    renderStats();
-    setTimeout(nextCue, 430);
-  }
-
-  function submitResult(){
-    if (!canOpenResult()) return;
-    if (state.ended) return;
-    state.ended = true;
-    complete(makeResult(state));
-  }
-
-  actionsEl.addEventListener('click', (ev) => {
-    const btn = ev.target.closest('.sbg-btn-action');
-    if (!btn) return;
-    answer(btn.dataset.action || '');
-  });
-
-  function startInternal(){
-    if (state.started) return;
-    state.started = true;
-
-    startBtn.disabled = true;
-    startBtn.style.pointerEvents = 'none';
-    startBtn.style.opacity = '.65';
-
-    lockActions(false);
-    cueEl.textContent = 'เริ่ม!';
-    renderStats();
-
-    state.gameTimer = setInterval(() => {
-      state.remainSec -= 1;
-      timerEl.textContent = `${Math.max(0, state.remainSec)}s`;
-      if (state.remainSec <= 0) finishGame();
-    }, 1000);
-
-    setTimeout(nextCue, 500);
-  }
-
-  startBtn.addEventListener('click', startInternal);
-
-  finishBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    submitResult();
-  }, { passive:false });
-
-  finishBtn.addEventListener('pointerup', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    submitResult();
-  }, { passive:false });
-
-  finishBtn.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    submitResult();
-  }, { passive:false });
-
-  renderStats();
-  syncFinishBtn();
-
-  api?.setSub?.('กดให้ตรงกับท่าหลบ ซ้าย ขวา หรือย่อ');
-  api?.setStats?.({
-    time: GAME_SEC,
-    score: 0,
-    miss: 0,
-    acc: '0%'
-  });
+  render();
 
   return {
-    autostart: false,
-    start(){},
     destroy(){
-      state.ended = true;
-      clearTimeout(state.roundTimer);
-      clearInterval(state.gameTimer);
+      if (timer) clearInterval(timer);
     }
   };
 }
-
-export default { loadStyle, mount };
