@@ -1,5 +1,5 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260327-GOODJUNK-DUET-FINAL-V2
+   FULL PATCH v20260327-GOODJUNK-DUET-FINAL-V2A
 */
 (function(){
   'use strict';
@@ -102,6 +102,7 @@
 
   function normalizeRoomId(raw){
     return String(raw || '')
+      .trim()
       .toUpperCase()
       .replace(/[^A-Z0-9_-]/g, '')
       .slice(0, 24);
@@ -134,6 +135,52 @@
 
   function roomPath(roomId){
     return `hha-battle/goodjunk/rooms/${roomId}`;
+  }
+
+  function roomIdCandidates(raw){
+    const exact = normalizeRoomId(raw);
+    const compact = exact.replace(/[^A-Z0-9]/g, '');
+    const out = [];
+
+    function push(v){
+      v = normalizeRoomId(v);
+      if (!v) return;
+      if (!out.includes(v)) out.push(v);
+    }
+
+    push(exact);
+    push(compact);
+
+    if (/^GJD[A-Z0-9]{5,8}$/.test(compact)){
+      push(`GJD-${compact.slice(3)}`);
+    }
+
+    if (/^GJD-[A-Z0-9]{5,8}$/.test(exact)){
+      push(exact.replace('-', ''));
+    }
+
+    return out;
+  }
+
+  async function resolveRoomRef(rawRoomId){
+    const candidates = roomIdCandidates(rawRoomId);
+
+    if (DEBUG) {
+      console.log('[duet.resolveRoomRef] candidates =', candidates);
+    }
+
+    for (const id of candidates){
+      const ref = STATE.db.ref(roomPath(id));
+      const snap = await ref.once('value');
+      if (snap.exists()){
+        if (DEBUG) {
+          console.log('[duet.resolveRoomRef] resolved =', id);
+        }
+        return { id, ref, snap };
+      }
+    }
+
+    throw new Error('room not found');
   }
 
   function saveLastSummary(summary){
@@ -483,7 +530,7 @@
       `bestStreak=${STATE.bestStreak}`,
       `participantIds=${getCurrentParticipantIds(room).join(', ') || '-'}`,
       `peerUid=${peer.id || '-'}`,
-      `peerName=${peer.name || '-'}`,
+      `peerName=${peer.name || peer.nick || '-'}`,
       `peerConnected=${peer.id ? (peer.connected !== false) : '-'}`,
       `peerFinished=${peer.id ? (!!peer.finished) : '-'}`,
       `peerLastSeen=${peer.id ? Number(peer.lastSeenAt || 0) : 0}`,
@@ -897,7 +944,7 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: peerFinished,
       endedAt: new Date().toISOString(),
-      version: 'v20260327-GOODJUNK-DUET-FINAL-V2'
+      version: 'v20260327-GOODJUNK-DUET-FINAL-V2A'
     };
   }
 
@@ -1344,14 +1391,16 @@
       throw new Error('roomId missing');
     }
 
-    STATE.roomRef = STATE.db.ref(roomPath(STATE.roomId));
+    const resolved = await resolveRoomRef(STATE.roomId);
+
+    STATE.roomId = resolved.id;
+    STATE.roomRef = resolved.ref;
     STATE.metaRef = STATE.roomRef.child('meta');
     STATE.stateRef = STATE.roomRef.child('state');
     STATE.playersRef = STATE.roomRef.child('players');
     STATE.meRef = STATE.playersRef.child(STATE.uid);
 
-    const snap = await STATE.roomRef.once('value');
-    const raw = snap.val();
+    const raw = resolved.snap.val();
 
     if (!raw){
       throw new Error('room not found');
