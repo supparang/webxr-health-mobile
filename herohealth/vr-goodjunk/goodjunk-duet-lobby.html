@@ -228,6 +228,62 @@
       line-height:1.55;
     }
 
+    .join-room-panel{
+      margin-top:12px;
+      padding:14px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.42);
+    }
+
+    .join-room-title{
+      font-size:14px;
+      font-weight:900;
+      color:#fce7f3;
+      margin-bottom:4px;
+    }
+
+    .join-room-sub{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+      margin-bottom:10px;
+    }
+
+    .join-room-row{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:10px;
+    }
+
+    .room-input{
+      width:100%;
+      appearance:none;
+      border:1px solid var(--stroke);
+      border-radius:14px;
+      padding:12px 14px;
+      background:rgba(15,23,42,.55);
+      color:var(--text);
+      font-size:16px;
+      font-weight:900;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      outline:none;
+    }
+
+    .room-input::placeholder{
+      letter-spacing:.04em;
+      text-transform:none;
+      color:#94a3b8;
+    }
+
+    .join-room-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
     #inviteWrap{ margin-top:10px; }
 
     #inviteLink{
@@ -266,21 +322,20 @@
     }
 
     .qr-box{
-      width:220px;
-      height:220px;
-      max-width:100%;
+      width:min(320px,100%);
+      aspect-ratio:1/1;
       margin:0 auto;
       border-radius:16px;
       border:1px dashed var(--stroke);
-      background:rgba(2,6,23,.42);
+      background:#fff;
       display:grid;
       place-items:center;
       overflow:hidden;
     }
 
     .qr-box img{
-      width:220px;
-      height:220px;
+      width:100%;
+      height:100%;
       display:block;
     }
 
@@ -362,6 +417,14 @@
       #countdown{ font-size:46px; min-height:54px; }
       .row .btn{ flex:1 1 100%; }
       .room-pill{ font-size:16px; }
+
+      .join-room-row{
+        grid-template-columns:1fr;
+      }
+
+      .join-room-actions .btn{
+        flex:1 1 100%;
+      }
     }
   </style>
 </head>
@@ -412,6 +475,32 @@
 
       <div id="copyState" class="muted">ส่ง room code หรือลิงก์นี้ให้เพื่อนอีกคนเข้าร่วมได้</div>
       <div id="joinGuard">ห้องนี้ไม่พร้อมให้เข้าร่วมตอนนี้</div>
+
+      <div class="join-room-panel">
+        <div class="join-room-title">เข้าห้องด้วย Room Code</div>
+        <div class="join-room-sub">ถ้าเพื่อนส่ง code มา ให้พิมพ์ที่นี่แล้วกดเข้าห้องได้เลย</div>
+
+        <div class="join-room-row">
+          <input
+            id="roomInput"
+            class="room-input"
+            type="text"
+            inputmode="latin"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            maxlength="8"
+            placeholder="เช่น 2UVHSM"
+            aria-label="Room Code"
+          />
+          <button class="btn btn-primary" id="btnJoinByCode" type="button">เข้าห้อง</button>
+        </div>
+
+        <div class="join-room-actions">
+          <button class="btn btn-ghost" id="btnUseCurrentRoom" type="button">ใช้ code ห้องนี้</button>
+          <button class="btn btn-ghost" id="btnNewRoom" type="button">สร้างห้องใหม่</button>
+        </div>
+      </div>
 
       <div id="inviteWrap">
         <input id="inviteLink" type="text" readonly value="" aria-label="Invite Link" />
@@ -474,6 +563,6 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="../firebase-config.js"></script>
   <script src="../common/hha-multiplayer.js"></script>
-  <script src="./goodjunk-duet-lobby.js?v=20260327-duet-work-sure-v3"></script>
+  <script src="./goodjunk-duet-lobby.js?v=20260327-duet-roomcode-ui-v1"></script>
 </body>
 </html>
