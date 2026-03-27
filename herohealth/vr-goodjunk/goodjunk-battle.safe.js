@@ -1,6 +1,6 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-battle.safe.js
- * FULL PATCH v20260327-GOODJUNK-BATTLE-ENGINE-R1
+ * FULL PATCH v20260327-GOODJUNK-BATTLE-ENGINE-R2
  * ---------------------------------------------------------
  * Engine role:
  * - actual playable battle engine
@@ -8,6 +8,7 @@
  * - injects stage + HUD into #gameMount
  * - syncs score / hp / charge / attacks to Firebase
  * - host ends round when time up or someone is KO
+ * - host promotes countdown -> playing automatically
  * - emits battle:* events for goodjunk.safe.battle.js
  * ========================================================= */
 
@@ -24,6 +25,7 @@
   const HEARTBEAT_MS = 2500;
   const ACTIVE_TTL_MS = 15000;
   const SYNC_MIN_MS = 120;
+
   const FIREBASE_SDKS = [
     'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js',
@@ -186,6 +188,7 @@
     timeSec: clamp(qs('time', '150'), 30, 300),
     seed: cleanText(qs('seed') || String(Date.now()), 60),
     roundToken: cleanText(qs('roundToken') || '', 120),
+    currentRoundToken: '',
     startAtQuery: num(qs('startAt', '0'), 0),
     hub: qs('hub', '../hub.html'),
     view: cleanText(qs('view', 'mobile'), 20),
@@ -247,7 +250,6 @@
     root: null,
     field: null,
     statusBanner: null,
-    tips: null,
     attackBtn: null,
 
     battleModePill: null,
@@ -273,8 +275,16 @@
     return num((STATE.room.state || {}).endsAt, 0);
   }
 
+  function countdownEndsAt(){
+    return num((STATE.room.state || {}).countdownEndsAt, 0);
+  }
+
   function roomStatus(){
     return String(((STATE.room || {}).state || {}).status || '');
+  }
+
+  function currentRoundTokenValue(){
+    return cleanText((STATE.room.state || {}).roundToken || '', 120);
   }
 
   function getSelfKey(){
@@ -290,7 +300,8 @@
         uid: cleanPid(p.uid || p.playerId || key),
         playerId: cleanPid(p.playerId || p.uid || key),
         pid: cleanPid(p.pid || p.playerId || p.uid || key),
-        name: cleanText(p.name || p.nick || 'Player', 40)
+        name: cleanText(p.name || p.nick || 'Player', 40),
+        nick: cleanText(p.nick || p.name || 'Player', 40)
       });
     });
     return out;
@@ -364,6 +375,19 @@
     });
 
     W.gameState = W.state;
+  }
+
+  function syncRunShellIdentityFromEngine(){
+    try{
+      if (W.__GJ_RUN_CTX__) W.__GJ_RUN_CTX__.name = STATE.name;
+      if (W.__GJ_MULTI_RUN_CTX__) W.__GJ_MULTI_RUN_CTX__.name = STATE.name;
+    } catch {}
+
+    const pillPlayer = D.getElementById('pillPlayer');
+    if (pillPlayer) pillPlayer.textContent = `HERO • ${STATE.name || 'Player'}`;
+
+    const engineMiniPlayer = D.getElementById('engineMiniPlayer');
+    if (engineMiniPlayer) engineMiniPlayer.textContent = `HERO • ${STATE.name || 'Player'}`;
   }
 
   function emit(name, detail){
@@ -680,6 +704,7 @@
       </div>
     `;
 
+    UI.mount = D.getElementById('gameMount');
     UI.root = D.getElementById('battleEngineRoot');
     UI.field = D.getElementById('battleField');
     UI.statusBanner = D.getElementById('battleBanner');
@@ -753,6 +778,7 @@
 
     renderOpponents();
     emitLiveEvents();
+    syncRunShellIdentityFromEngine();
   }
 
   function renderOpponents(){
@@ -863,6 +889,49 @@
     try { t.el.remove(); } catch {}
   }
 
+  function clearTargets(){
+    STATE.targets.forEach(removeTarget);
+    STATE.targets = [];
+  }
+
+  function resetLocalRoundState(roundToken){
+    clearTargets();
+
+    STATE.currentRoundToken = roundToken || '';
+    STATE.started = false;
+    STATE.finished = false;
+    STATE.localKo = false;
+
+    STATE.lastFrameTs = 0;
+    STATE.lastSpawnAt = 0;
+    STATE.seq = 0;
+    STATE.targets = [];
+    STATE.seenAttackIds = Object.create(null);
+
+    STATE.score = 0;
+    STATE.miss = 0;
+    STATE.streak = 0;
+    STATE.bestStreak = 0;
+    STATE.hp = 100;
+    STATE.maxHp = 100;
+    STATE.shield = 0;
+
+    STATE.attackCharge = 0;
+    STATE.maxAttackCharge = 100;
+    STATE.attackReady = false;
+    STATE.attacksUsed = 0;
+    STATE.damageDealt = 0;
+    STATE.damageTaken = 0;
+    STATE.koCount = 0;
+    STATE.goodHit = 0;
+    STATE.junkHit = 0;
+
+    STATE.lastAttackId = '';
+    STATE.lastAttackAt = 0;
+    STATE.lastAttackDamage = 0;
+    STATE.lastAttackTarget = '';
+  }
+
   function scheduleSync(force=false){
     if (!STATE.refs.self) return;
     if (force){
@@ -889,7 +958,7 @@
         ? 'ko'
         : STATE.started
           ? 'playing'
-          : 'waiting';
+          : (roomStatus() === 'countdown' ? 'countdown' : 'waiting');
 
     const payload = {
       pid: STATE.pid,
@@ -915,7 +984,8 @@
       damageTaken: Math.max(0, STATE.damageTaken),
       koCount: Math.max(0, STATE.koCount),
       updatedAt: t,
-      lastSeen: t
+      lastSeen: t,
+      roundToken: STATE.currentRoundToken || currentRoundTokenValue() || ''
     };
 
     if (STATE.lastAttackId){
@@ -956,11 +1026,12 @@
       STATE.goodHit += 1;
 
       const bonus = Math.min(12, Math.floor(STATE.streak / 3) * 2);
-      STATE.score += 10 + bonus;
+      const gain = 10 + bonus;
+      STATE.score += gain;
       addCharge(20);
 
       pulseScore();
-      flashText(t.x, t.y, `+${10 + bonus}`, 'good');
+      flashText(t.x, t.y, `+${gain}`, 'good');
       setBanner('เก่งมาก! แตะอาหารดีต่อเนื่องเพื่อชาร์จพลังโจมตี', 900);
     } else {
       STATE.junkHit += 1;
@@ -1034,6 +1105,7 @@
   function processRemoteAttacks(playersMap){
     const selfKey = getSelfKey();
     const players = normalizeRoomPlayersMap(playersMap);
+    const roundToken = STATE.currentRoundToken || currentRoundTokenValue() || '';
 
     Object.keys(players).forEach((key) => {
       if (key === selfKey) return;
@@ -1046,6 +1118,12 @@
       const target = cleanPid(p.lastAttackTarget || '');
       const selfCandidates = new Set([selfKey, STATE.uid, STATE.pid].filter(Boolean));
       if (target && !selfCandidates.has(target)){
+        STATE.seenAttackIds[key] = attackId;
+        return;
+      }
+
+      const remoteRoundToken = cleanText(p.roundToken || '', 120);
+      if (roundToken && remoteRoundToken && remoteRoundToken !== roundToken){
         STATE.seenAttackIds[key] = attackId;
         return;
       }
@@ -1091,6 +1169,114 @@
     renderHud();
   }
 
+  async function resetPlayersForRound(roundToken){
+    if (!STATE.refs.players) return;
+
+    const snap = await STATE.refs.players.once('value');
+    const players = normalizeRoomPlayersMap(snap.val() || {});
+    const updates = {};
+
+    Object.keys(players).forEach((key) => {
+      const p = players[key] || {};
+      updates[`${key}/score`] = 0;
+      updates[`${key}/miss`] = 0;
+      updates[`${key}/combo`] = 0;
+      updates[`${key}/bestStreak`] = 0;
+      updates[`${key}/hp`] = 100;
+      updates[`${key}/maxHp`] = 100;
+      updates[`${key}/shield`] = 0;
+      updates[`${key}/attackCharge`] = 0;
+      updates[`${key}/maxAttackCharge`] = 100;
+      updates[`${key}/attackReady`] = false;
+      updates[`${key}/attacksUsed`] = 0;
+      updates[`${key}/damageDealt`] = 0;
+      updates[`${key}/damageTaken`] = 0;
+      updates[`${key}/koCount`] = 0;
+      updates[`${key}/lastAttackId`] = '';
+      updates[`${key}/lastAttackAt`] = 0;
+      updates[`${key}/lastAttackDamage`] = 0;
+      updates[`${key}/lastAttackTarget`] = '';
+      updates[`${key}/status`] = 'playing';
+      updates[`${key}/ready`] = true;
+      updates[`${key}/connected`] = true;
+      updates[`${key}/updatedAt`] = now();
+      updates[`${key}/lastSeen`] = now();
+      updates[`${key}/roundToken`] = roundToken;
+      updates[`${key}/name`] = cleanText(p.name || p.nick || 'Player', 40);
+      updates[`${key}/nick`] = cleanText(p.nick || p.name || 'Player', 40);
+    });
+
+    if (Object.keys(updates).length){
+      await STATE.refs.players.update(updates);
+    }
+  }
+
+  async function hostPromoteCountdownToPlayingIfNeeded(){
+    if (!isHost() || !STATE.refs.state || STATE.hostEndingBusy) return false;
+    if (roomStatus() !== 'countdown') return false;
+
+    const cdEnds = countdownEndsAt();
+    if (!cdEnds || now() < cdEnds) return false;
+
+    STATE.hostEndingBusy = true;
+
+    try{
+      const plannedSec = clamp((STATE.room.state || {}).plannedSec || STATE.timeSec, 30, 300);
+      const startedAt = now();
+      const endsAt = startedAt + plannedSec * 1000;
+      const roundToken = `rt-${startedAt}-${Math.random().toString(36).slice(2, 8)}`;
+      const seed = cleanText(
+        (STATE.room.state || {}).seed ||
+        (STATE.room.meta || {}).seed ||
+        STATE.seed ||
+        String(startedAt),
+        60
+      );
+
+      const tx = await STATE.refs.state.transaction((cur) => {
+        cur = cur || {};
+
+        if (String(cur.status || '') !== 'countdown') return cur;
+
+        const curCd = num(cur.countdownEndsAt, 0);
+        if (curCd && curCd > Date.now()) return;
+
+        cur.status = 'playing';
+        cur.startedAt = startedAt;
+        cur.endsAt = endsAt;
+        cur.countdownEndsAt = 0;
+        cur.plannedSec = plannedSec;
+        cur.roundToken = roundToken;
+        cur.seed = seed;
+        cur.updatedAt = startedAt;
+
+        return cur;
+      });
+
+      if (!tx || !tx.committed) return false;
+
+      await resetPlayersForRound(roundToken);
+
+      STATE.room.state = Object.assign({}, STATE.room.state || {}, {
+        status: 'playing',
+        startedAt,
+        endsAt,
+        countdownEndsAt: 0,
+        plannedSec,
+        roundToken,
+        seed,
+        updatedAt: startedAt
+      });
+
+      return true;
+    } catch (err){
+      console.warn('[gj-battle] hostPromoteCountdownToPlayingIfNeeded failed:', err);
+      return false;
+    } finally {
+      STATE.hostEndingBusy = false;
+    }
+  }
+
   async function maybeHostEndRound(){
     if (!isHost() || !STATE.refs.state || STATE.hostEndingBusy) return;
     const status = roomStatus();
@@ -1120,23 +1306,50 @@
     }
   }
 
-  function clearTargets(){
-    STATE.targets.forEach(removeTarget);
-    STATE.targets = [];
-  }
-
   function loop(frameTs){
-    if (STATE.finished) return;
-
     const status = roomStatus();
-    if (status === 'ended' || status === 'finished'){
-      finishGame('room-ended');
+
+    if (STATE.finished && status !== 'playing'){
       return;
     }
 
     if (!STATE.started){
+      if (status === 'ended' || status === 'finished'){
+        finishGame('room-ended');
+        return;
+      }
+
+      if (status === 'playing'){
+        startGameIfReady();
+        renderHud();
+        STATE.loopId = raf(loop);
+        return;
+      }
+
+      if (status === 'countdown'){
+        const leftMs = countdownEndsAt() - now();
+
+        if (leftMs > 0){
+          setBanner(`เตรียมตัว! Battle จะเริ่มใน ${Math.ceil(leftMs / 1000)}...`);
+        } else {
+          if (isHost()){
+            setBanner('Host กำลังเปิดรอบ Battle…');
+            hostPromoteCountdownToPlayingIfNeeded();
+          } else {
+            setBanner('กำลังรอ host เปิดรอบจริง…');
+          }
+        }
+      } else {
+        setBanner('รอหัวหน้าห้องเริ่มรอบ Battle…');
+      }
+
       renderHud();
       STATE.loopId = raf(loop);
+      return;
+    }
+
+    if (status === 'ended' || status === 'finished'){
+      finishGame('room-ended');
       return;
     }
 
@@ -1146,6 +1359,7 @@
     STATE.lastFrameTs = ts;
 
     const tNow = now();
+
     if (!STATE.localKo && tNow - STATE.lastSpawnAt >= STATE.cfg.spawnEvery){
       STATE.lastSpawnAt = tNow;
       spawnTarget();
@@ -1174,14 +1388,14 @@
       }
     }
 
-    if (isHost()) {
+    if (isHost()){
       maybeHostEndRound();
     }
 
     if (currentRoomEndsAt() && now() >= currentRoomEndsAt()){
-      if (isHost()) {
+      if (isHost()){
         maybeHostEndRound();
-      } else if (roomStatus() !== 'ended' && roomStatus() !== 'finished') {
+      } else if (roomStatus() !== 'ended' && roomStatus() !== 'finished'){
         setBanner('หมดเวลาแล้ว รอหัวหน้าห้องปิดรอบ…', 1200);
       }
     }
@@ -1283,14 +1497,16 @@
   }
 
   function startGameIfReady(){
-    if (STATE.started || STATE.finished) return;
     if (roomStatus() !== 'playing') return;
 
     const startedAt = num((STATE.room.state || {}).startedAt, 0);
     const endsAt = currentRoomEndsAt();
+    const roundToken = currentRoundTokenValue() || `rt-${startedAt || now()}`;
 
-    if (!endsAt){
-      return;
+    if (!startedAt || !endsAt) return;
+
+    if (STATE.currentRoundToken !== roundToken){
+      resetLocalRoundState(roundToken);
     }
 
     STATE.started = true;
@@ -1298,20 +1514,37 @@
     STATE.localKo = false;
     STATE.lastFrameTs = 0;
     STATE.lastSpawnAt = now();
-    STATE.targets = [];
-    STATE.seq = 0;
 
-    const seedHash = xmur3(`${STATE.seed}|${STATE.roomId}|${STATE.roundToken}|${STATE.pid}|${startedAt}`)();
+    const me = selfPlayer();
+    if (me && cleanText(me.roundToken || '', 120) === roundToken){
+      STATE.score = num(me.score, 0);
+      STATE.miss = num(me.miss, 0);
+      STATE.bestStreak = num(me.bestStreak, 0);
+      STATE.hp = clamp(me.hp, 0, 100);
+      STATE.maxHp = Math.max(1, num(me.maxHp, 100));
+      STATE.attackCharge = clamp(me.attackCharge, 0, 100);
+      STATE.maxAttackCharge = Math.max(1, num(me.maxAttackCharge, 100));
+      STATE.attackReady = !!me.attackReady;
+      STATE.attacksUsed = num(me.attacksUsed, 0);
+      STATE.damageDealt = num(me.damageDealt, 0);
+      STATE.damageTaken = num(me.damageTaken, 0);
+      STATE.koCount = num(me.koCount, 0);
+    }
+
+    const seedBase = cleanText(
+      (STATE.room.state || {}).seed ||
+      (STATE.room.meta || {}).seed ||
+      STATE.seed,
+      60
+    );
+
+    const seedHash = xmur3(`${seedBase}|${STATE.roomId}|${roundToken}|${STATE.pid}|${startedAt}`)();
     STATE.rng = mulberry32(seedHash);
     STATE.cfg = getCfg();
 
     setBanner('เริ่มแล้ว! แตะอาหารดี ชาร์จพลัง แล้วใช้ ATTACK ให้ถูกจังหวะ', 1300);
     renderHud();
-
     scheduleSync(true);
-
-    caf(STATE.loopId);
-    STATE.loopId = raf(loop);
   }
 
   async function ensureFirebaseReady(){
@@ -1349,6 +1582,7 @@
     if (!user) throw new Error('Anonymous auth failed');
 
     STATE.uid = cleanPid(user.uid);
+    if (!STATE.pid || STATE.pid === 'anon') STATE.pid = STATE.uid;
     STATE.firebaseReady = true;
   }
 
@@ -1388,6 +1622,7 @@
         startedAt: 0,
         endsAt: 0,
         roundToken: '',
+        seed: STATE.seed,
         updatedAt: t
       },
       players: {}
@@ -1400,6 +1635,11 @@
   async function ensureSelfPlayerInRoom(){
     const t = now();
     const existing = (STATE.room.players || {})[getSelfKey()] || null;
+
+    const existingName = cleanText(existing && (existing.name || existing.nick) || '', 40);
+    if ((!STATE.name || STATE.name === 'Player') && existingName){
+      STATE.name = existingName;
+    }
 
     const base = {
       pid: STATE.pid,
@@ -1439,6 +1679,8 @@
         lastSeen: W.firebase.database.ServerValue.TIMESTAMP
       });
     } catch {}
+
+    syncRunShellIdentityFromEngine();
   }
 
   function attachRoomListeners(){
@@ -1458,12 +1700,14 @@
         startGameIfReady();
       } else if ((status === 'ended' || status === 'finished') && !STATE.finished){
         finishGame('room-state-ended');
+      } else if (status === 'countdown' && !STATE.finished){
+        setBanner('กำลังนับถอยหลังเพื่อเริ่ม Battle…');
       } else if (status === 'waiting' && !STATE.started && !STATE.finished){
         setBanner('รอหัวหน้าห้องเริ่มรอบ Battle…');
       }
     });
 
-    STATE.refs.players.on('value', (snap) => {
+    STATE.refs.players.on('value', async (snap) => {
       updatePlayersFromRoom(snap.val() || {});
       updateGlobals();
 
@@ -1473,12 +1717,21 @@
         STATE.miss = num(me.miss, 0);
         STATE.bestStreak = num(me.bestStreak, 0);
         STATE.hp = clamp(me.hp, 0, 100);
+        STATE.maxHp = Math.max(1, num(me.maxHp, 100));
         STATE.attackCharge = clamp(me.attackCharge, 0, 100);
+        STATE.maxAttackCharge = Math.max(1, num(me.maxAttackCharge, 100));
         STATE.attackReady = !!me.attackReady;
         STATE.attacksUsed = num(me.attacksUsed, 0);
         STATE.damageDealt = num(me.damageDealt, 0);
         STATE.damageTaken = num(me.damageTaken, 0);
         STATE.koCount = num(me.koCount, 0);
+      }
+
+      if (isHost() && roomStatus() === 'countdown'){
+        const leftMs = countdownEndsAt() - now();
+        if (leftMs <= 0){
+          hostPromoteCountdownToPlayingIfNeeded();
+        }
       }
 
       if (isHost()) {
@@ -1495,7 +1748,7 @@
         connected: true,
         updatedAt: now(),
         lastSeen: now(),
-        status: STATE.finished ? 'finished' : (STATE.localKo ? 'ko' : (STATE.started ? 'playing' : 'waiting'))
+        status: STATE.finished ? 'finished' : (STATE.localKo ? 'ko' : (STATE.started ? 'playing' : roomStatus()))
       }).catch(() => {});
     }, HEARTBEAT_MS);
   }
@@ -1521,24 +1774,30 @@
     startHeartbeat();
 
     STATE.cfg = getCfg();
+
     if (!STATE.rng){
-      const seedHash = xmur3(`${STATE.seed}|${STATE.roomId}|${STATE.roundToken}|${STATE.pid}`)();
+      const seedHash = xmur3(`${STATE.seed}|${STATE.roomId}|${STATE.pid}`)();
       STATE.rng = mulberry32(seedHash);
     }
 
     if (roomStatus() === 'playing'){
       startGameIfReady();
+    } else if (roomStatus() === 'countdown'){
+      setBanner('กำลังนับถอยหลังเพื่อเริ่ม Battle…');
     } else {
       setBanner('เชื่อมห้องสำเร็จ รอสถานะเล่นจาก Lobby…');
     }
 
     renderHud();
     updateGlobals();
+
+    caf(STATE.loopId);
+    STATE.loopId = raf(loop);
   }
 
   function failUi(err){
     console.error('[gj-battle] init failed:', err);
-    buildDom();
+    try { buildDom(); } catch {}
     setBanner('เข้า GoodJunk Battle ไม่สำเร็จ');
     if (UI.opponentStrip){
       UI.opponentStrip.innerHTML = `
