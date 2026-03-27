@@ -1,15 +1,13 @@
 // === /fitness/js/engine.js ===
 // Shadow Breaker Engine
-// FULL PATCH v20260327d-SHADOWBREAKER-KIDSOFT-FULL
+// FULL PATCH v20260327e-SHADOWBREAKER-KIDSOFT-ANTIBLOCK-FULL
 
 (function(){
   'use strict';
 
   const WIN = window;
   const DOC = document;
-
   const $ = (s, root=DOC) => root.querySelector(s);
-
   const nowMs = () => (WIN.performance && performance.now) ? performance.now() : Date.now();
 
   function qs(k, d=''){
@@ -563,11 +561,17 @@
     let padSide = 12;
 
     if (viewMode === 'mobile') {
-      padTop = 72; padBottom = 18; padSide = 10;
+      padTop = 72;
+      padBottom = 18;
+      padSide = 10;
     } else if (viewMode === 'pc') {
-      padTop = 70; padBottom = 16; padSide = 16;
+      padTop = 70;
+      padBottom = 16;
+      padSide = 16;
     } else if (viewMode === 'cvr') {
-      padTop = 90; padBottom = 40; padSide = 24;
+      padTop = 90;
+      padBottom = 40;
+      padSide = 24;
     }
 
     const w = Math.max(160, stageRect.width);
@@ -579,8 +583,9 @@
     let spawnBottom = h - size - padBottom;
 
     if (viewMode === 'mobile') {
-      spawnTop = Math.max(72, h * 0.16);
-      spawnBottom = h - size - 26;
+      spawnTop = Math.max(120, h * 0.24);
+      spawnBottom = h - size - 92;
+      spawnRight = Math.max(spawnLeft + 40, w - size - 110);
     }
 
     if (viewMode === 'pc') {
@@ -791,8 +796,8 @@
       let by = null;
 
       if (viewMode === 'mobile') {
-        bx = stageRect.width * (0.18 + STATE.rng() * 0.56);
-        by = stageRect.height * (0.28 + STATE.rng() * 0.42);
+        bx = stageRect.width * (0.16 + STATE.rng() * 0.50);
+        by = stageRect.height * (0.34 + STATE.rng() * 0.34);
       } else if (viewMode === 'pc') {
         bx = stageRect.width * (0.14 + STATE.rng() * 0.46);
         by = stageRect.height * (0.24 + STATE.rng() * 0.48);
@@ -1129,11 +1134,8 @@
     applyBossTheme(currentBoss());
 
     showBossSpeech(currentBoss().speech, 1800);
-    if (getViewMode() === 'cvr') {
-      setCenterMsg('แตะจอเพื่อยิงจากกลางจอ', 1200);
-    } else {
-      setCenterMsg('พร้อมแล้ว!', 900);
-    }
+    if (getViewMode() === 'cvr') setCenterMsg('แตะจอเพื่อยิงจากกลางจอ', 1200);
+    else setCenterMsg('พร้อมแล้ว!', 900);
 
     STATE.isPlaying = true;
     STATE.isPaused = false;
