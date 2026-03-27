@@ -647,9 +647,9 @@
                 <label for="timeSelect">เวลาเล่น</label>
                 <select class="select" id="timeSelect">
                   <option value="60">60 วินาที</option>
-                  <option value="90" selected>90 วินาที</option>
+                  <option value="90">90 วินาที</option>
                   <option value="120">120 วินาที</option>
-                  <option value="150">150 วินาที</option>
+                  <option value="150" selected>150 วินาที</option>
                 </select>
               </div>
             </div>
@@ -720,7 +720,7 @@
       </div>
     </section>
 
-    <div class="footer">HeroHealth • GoodJunk Battle Lobby • QR + Room Code UX</div>
+    <div class="footer">HeroHealth • GoodJunk Battle Lobby • FULL PATCH v20260327-GJBATTLE-LOBBY-R2</div>
   </main>
 
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -733,10 +733,11 @@
     (function(){
       'use strict';
 
+      const ROOT_PATH = 'hha-battle/goodjunk/rooms';
       const ACTIVE_TTL_MS = 12000;
       const HEARTBEAT_MS = 2500;
-      const STORE_KEY = 'GJ_BATTLE_LOBBY_V1';
-      const RUN_FILE = './goodjunk-battle-run.html';
+      const COUNTDOWN_MS = 2500;
+      const STORE_KEY = 'GJ_BATTLE_LOBBY_V2';
 
       const qs = (k, d='') => {
         try { return new URL(location.href).searchParams.get(k) ?? d; }
@@ -764,29 +765,11 @@
         .replace(/[^A-Z0-9_-]/g, '')
         .slice(0, 24);
 
-      const roomIdCandidates = (raw) => {
-        const exact = cleanRoom(raw);
-        const compact = exact.replace(/[^A-Z0-9]/g, '');
-        const out = [];
-
-        const push = (v) => {
-          v = cleanRoom(v);
-          if (!v) return;
-          if (!out.includes(v)) out.push(v);
-        };
-
-        push(exact);
-        push(compact);
-
-        if (/^GJB[A-Z0-9]{5,8}$/.test(compact)) {
-          push(`GJB-${compact.slice(3)}`);
-        }
-        if (/^GJB-[A-Z0-9]{5,8}$/.test(exact)) {
-          push(exact.replace('-', ''));
-        }
-
-        return out;
-      };
+      const escapeHtml = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 
       const randSeed = () => Math.floor(Math.random() * 900000000) + 100000000;
       const makeCode = () => `GJB-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
@@ -836,12 +819,13 @@
         joined: false,
         players: {},
         meta: {},
-        state: { status:'waiting', plannedSec:90 },
+        state: { status:'waiting', plannedSec:150, countdownEndsAt:0, startedAt:0, endsAt:0, roundToken:'', seed:'' },
         refs: null,
         offFns: [],
         heartbeat: 0,
         countdownTick: 0,
-        redirecting: false
+        redirecting: false,
+        lastRenderQrText: ''
       };
 
       function setTop(msg){ UI.topNotice.textContent = msg; }
@@ -879,11 +863,12 @@
       }
 
       function getDiff(){
-        return String(UI.diffSelect.value || qs('diff', 'normal') || 'normal');
+        const v = String(UI.diffSelect.value || qs('diff', 'normal') || 'normal');
+        return (v === 'easy' || v === 'hard') ? v : 'normal';
       }
 
       function getTime(){
-        return clamp(UI.timeSelect.value || qs('time', '90') || '90', 30, 300);
+        return clamp(UI.timeSelect.value || qs('time', '150') || '150', 30, 300);
       }
 
       function getView(){
@@ -896,10 +881,10 @@
       }
 
       function isHost(){
-        return !!S.uid && S.meta && S.meta.hostPid === S.uid;
+        return !!S.uid && S.meta && cleanRoom(S.meta.hostPid || '') === cleanRoom(S.uid || '');
       }
 
-      function isActivePlayer(p, nowTs = Date.now()){
+      function activePlayerPredicate(p, nowTs = Date.now()){
         if (!p) return false;
         if (p.connected === false) return false;
         const lastSeen = num(p.lastSeen || p.updatedAt || p.joinedAt, 0);
@@ -909,8 +894,26 @@
 
       function activePlayers(){
         const nowTs = Date.now();
-        return Object.values(S.players || {})
-          .filter((p) => isActivePlayer(p, nowTs))
+        return Object.entries(S.players || {})
+          .map(([key, p]) => ({
+            key,
+            uid: String((p && (p.uid || p.playerId || key)) || key),
+            pid: String((p && (p.pid || p.uid || p.playerId || key)) || key),
+            name: String((p && (p.name || p.nick || 'Player')) || 'Player'),
+            nick: String((p && (p.nick || p.name || 'Player')) || 'Player'),
+            score: num(p && p.score, 0),
+            hp: num(p && p.hp, 100),
+            maxHp: Math.max(1, num(p && p.maxHp, 100)),
+            miss: num(p && p.miss, 0),
+            bestStreak: num(p && p.bestStreak, 0),
+            connected: p ? p.connected !== false : false,
+            ready: !!(p && p.ready),
+            joinedAt: num(p && p.joinedAt, 0),
+            updatedAt: num(p && p.updatedAt, 0),
+            lastSeen: num(p && p.lastSeen, 0),
+            raw: p || {}
+          }))
+          .filter((p) => activePlayerPredicate(p, nowTs))
           .sort((a,b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
       }
 
@@ -926,7 +929,7 @@
         const src = new URL(location.href);
 
         src.searchParams.forEach((value, key) => {
-          if (key === 'roomId' || key === 'room' || key === 'create') return;
+          if (['roomId','room','create','autojoin','uid','playerId','pid','name','nick','role'].includes(key)) return;
           url.searchParams.set(key, value);
         });
 
@@ -944,41 +947,36 @@
       }
 
       function buildRunUrl(roomId){
-        const url = new URL(RUN_FILE, location.href);
+        const url = new URL('./goodjunk-battle-run.html', location.href);
         const src = new URL(location.href);
+        const role = isHost() ? 'host' : 'player';
 
         src.searchParams.forEach((value, key) => {
-          if (key === 'roomId' || key === 'room' || key === 'create' || key === 'autojoin') return;
+          if (['roomId','room','create','autojoin'].includes(key)) return;
           url.searchParams.set(key, value);
         });
-
-        const sharedStartAt = num(S.state.startAt || S.state.countdownEndsAt, 0);
 
         url.searchParams.set('mode', 'battle');
         url.searchParams.set('roomId', roomId);
         url.searchParams.set('room', roomId);
+        url.searchParams.set('uid', S.uid || '');
+        url.searchParams.set('playerId', S.uid || '');
+        url.searchParams.set('pid', S.uid || S.roomId || 'anon');
         url.searchParams.set('name', getNick());
         url.searchParams.set('nick', getNick());
-        url.searchParams.set('pid', S.uid || 'anon');
-        url.searchParams.set('playerId', S.uid || 'anon');
-        url.searchParams.set('uid', S.uid || 'anon');
+        url.searchParams.set('role', role);
         url.searchParams.set('diff', getDiff());
         url.searchParams.set('time', String(getTime()));
         url.searchParams.set('view', getView());
-        url.searchParams.set('seed', String(getSeed()));
+        url.searchParams.set('seed', String(S.state.seed || getSeed()));
         url.searchParams.set('hub', HUB);
-        url.searchParams.set('autostart', '1');
-
-        if (sharedStartAt > 0) {
-          url.searchParams.set('startAt', String(sharedStartAt));
-        }
 
         return url.toString();
       }
 
       async function copyText(t){
         try{
-          await navigator.clipboard.writeText(t);
+          await navigator.clipboard.writeText(String(t || ''));
           return true;
         }catch{
           return false;
@@ -1004,19 +1002,28 @@
         UI.joinLinkText.textContent = link;
 
         if (!window.QRCode || !UI.qrCanvas) return;
+        if (S.lastRenderQrText === link) return;
+        S.lastRenderQrText = link;
 
         QRCode.toCanvas(UI.qrCanvas, link, {
           width: 220,
           margin: 1,
-          color: {
-            dark: '#20324d',
-            light: '#ffffff'
-          }
+          color: { dark: '#20324d', light: '#ffffff' }
         }, function(){});
       }
 
       function renderPlayers(){
-        const players = Object.values(S.players || {})
+        const players = Object.entries(S.players || {})
+          .map(([key, p]) => ({
+            key,
+            uid: String((p && (p.uid || p.playerId || key)) || key),
+            name: String((p && (p.name || p.nick || 'player')) || 'player'),
+            hp: num(p && p.hp, 100),
+            status: String((p && p.status) || 'waiting'),
+            joinedAt: num(p && p.joinedAt, 0),
+            connected: !!(p && p.connected !== false),
+            raw: p || {}
+          }))
           .sort((a,b) => num(a.joinedAt,0) - num(b.joinedAt,0));
 
         if (!players.length){
@@ -1036,9 +1043,9 @@
         }
 
         UI.playersList.innerHTML = players.map((p) => {
-          const active = isActivePlayer(p);
-          const you = p.pid === S.uid;
-          const host = p.pid === (S.meta && S.meta.hostPid);
+          const active = activePlayerPredicate(p.raw);
+          const you = p.uid === S.uid;
+          const host = cleanRoom(S.meta && S.meta.hostPid || '') === cleanRoom(p.uid);
           const badge = you ? 'YOU' : active ? 'LIVE' : 'OFFLINE';
           const role = host ? 'host' : 'guest';
           return `
@@ -1046,8 +1053,8 @@
               <div class="player-left">
                 <div class="avatar">${host ? '👑' : '⚔️'}</div>
                 <div>
-                  <div class="name">${escapeHtml(p.nick || 'player')} ${host ? '• host' : ''}</div>
-                  <div class="mini">${role} • ${active ? 'online' : 'offline'} • HP ${num(p.hp,100)}%</div>
+                  <div class="name">${escapeHtml(p.name)} ${host ? '• host' : ''}</div>
+                  <div class="mini">${role} • ${active ? 'online' : 'offline'} • HP ${p.hp}% • ${escapeHtml(p.status)}</div>
                 </div>
               </div>
               <div class="badge">${badge}</div>
@@ -1114,43 +1121,40 @@
 
         UI.countdownBox.classList.add('show');
 
-        S.countdownTick = setInterval(async () => {
-          const leftMs = num(S.state.countdownEndsAt || S.state.startAt, 0) - Date.now();
+        S.countdownTick = setInterval(() => {
+          const leftMs = num(S.state.countdownEndsAt, 0) - Date.now();
           const sec = Math.max(0, Math.ceil(leftMs / 1000));
           UI.countdownBox.textContent = sec > 0 ? sec : 'GO!';
 
           if (leftMs <= 0){
             clearInterval(S.countdownTick);
-
-            if (isHost() && S.refs && S.state && S.state.status === 'countdown'){
-              await S.refs.state.update({
-                status: 'playing',
-                startedAt: num(S.state.countdownEndsAt || S.state.startAt, Date.now()),
-                updatedAt: Date.now()
-              }).catch(() => {});
+            if (S.state.status === 'playing'){
+              goRun();
             }
-
-            setTimeout(() => goRun(), 180);
           }
         }, 100);
-      }
-
-      function escapeHtml(s){
-        return String(s == null ? '' : s)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;');
       }
 
       async function ensureAuth(){
         if (typeof window.HHA_ensureAnonymousAuth === 'function'){
           await window.HHA_ensureAnonymousAuth();
+        } else {
+          if (!window.firebase || !firebase.auth) throw new Error('Firebase Auth ยังไม่พร้อม');
+          if (!firebase.auth().currentUser){
+            await firebase.auth().signInAnonymously();
+          }
         }
+
         if (!window.firebase || !firebase.auth || !firebase.auth().currentUser){
           throw new Error('Firebase Auth ยังไม่พร้อม');
         }
-        S.uid = firebase.auth().currentUser.uid;
+
+        S.uid = String(firebase.auth().currentUser.uid || '').trim();
+        if (!S.uid) throw new Error('หา uid ไม่เจอ');
+      }
+
+      function roomRootRef(roomId){
+        return firebase.database().ref(`${ROOT_PATH}/${roomId}`);
       }
 
       function cleanupRoom(){
@@ -1167,29 +1171,9 @@
         S.joined = false;
         S.players = {};
         S.meta = {};
-        S.state = { status:'waiting', plannedSec:getTime() };
+        S.state = { status:'waiting', plannedSec:getTime(), countdownEndsAt:0, startedAt:0, endsAt:0, roundToken:'', seed:'' };
         S.refs = null;
         S.redirecting = false;
-      }
-
-      async function resolveExistingRoomRef(db, rawRoomId){
-        const candidates = roomIdCandidates(rawRoomId);
-
-        for (const id of candidates){
-          const root = db.ref(`hha-battle/goodjunk/rooms/${id}`);
-          const metaSnap = await root.child('meta').once('value');
-          if (metaSnap.exists()){
-            return {
-              roomId: id,
-              root,
-              meta: root.child('meta'),
-              state: root.child('state'),
-              players: root.child('players')
-            };
-          }
-        }
-
-        return null;
       }
 
       async function createRoom(){
@@ -1201,9 +1185,7 @@
         UI.roomInput.value = S.roomId;
         UI.roomCodeBig.textContent = S.roomId;
 
-        const db = firebase.database();
-        const root = db.ref(`hha-battle/goodjunk/rooms/${S.roomId}`);
-
+        const root = roomRootRef(S.roomId);
         S.refs = {
           root,
           meta: root.child('meta'),
@@ -1212,22 +1194,30 @@
         };
 
         const nowTs = Date.now();
+        const seed = String(getSeed());
+        UI.seedInput.value = seed;
 
-        await S.refs.meta.set({
-          roomId: S.roomId,
-          game: 'goodjunk',
-          mode: 'battle',
-          diff: getDiff(),
-          hostPid: S.uid,
-          createdAt: nowTs,
-          updatedAt: nowTs
-        });
-
-        await S.refs.state.set({
-          status: 'waiting',
-          plannedSec: getTime(),
-          createdAt: nowTs,
-          updatedAt: nowTs
+        await S.refs.root.set({
+          meta: {
+            roomId: S.roomId,
+            game: 'goodjunk',
+            mode: 'battle',
+            diff: getDiff(),
+            hostPid: S.uid,
+            createdAt: nowTs,
+            updatedAt: nowTs
+          },
+          state: {
+            status: 'waiting',
+            plannedSec: getTime(),
+            countdownEndsAt: 0,
+            startedAt: 0,
+            endsAt: 0,
+            roundToken: '',
+            seed,
+            updatedAt: nowTs
+          },
+          players: {}
         });
 
         await joinBoundRoom(true);
@@ -1245,18 +1235,20 @@
           return;
         }
 
-        const db = firebase.database();
-        const resolved = await resolveExistingRoomRef(db, S.roomId);
-        if (!resolved){
+        const root = roomRootRef(S.roomId);
+        S.refs = {
+          root,
+          meta: root.child('meta'),
+          state: root.child('state'),
+          players: root.child('players')
+        };
+
+        const roomSnap = await S.refs.root.once('value');
+        if (!roomSnap.exists()){
           setTop('ไม่พบห้องนี้');
           setSide('ตรวจ room code แล้วลองใหม่');
           return;
         }
-
-        S.roomId = resolved.roomId;
-        UI.roomInput.value = S.roomId;
-        UI.roomCodeBig.textContent = S.roomId;
-        S.refs = resolved;
 
         await joinBoundRoom(false);
       }
@@ -1265,30 +1257,45 @@
         const nowTs = Date.now();
         const selfRef = S.refs.players.child(S.uid);
 
-        await selfRef.set({
+        const existing = await selfRef.once('value');
+        const old = existing.val() || {};
+        const preferredName = getNick() || old.name || old.nick || 'Player';
+
+        await selfRef.update({
           pid: S.uid,
           uid: S.uid,
           playerId: S.uid,
-          nick: getNick(),
+          name: preferredName,
+          nick: preferredName,
           connected: true,
           ready: true,
-          hp: 100,
-          score: 0,
+          hp: num(old.hp, 100) || 100,
+          maxHp: num(old.maxHp, 100) || 100,
+          score: num(old.score, 0) || 0,
           combo: 0,
-          miss: 0,
-          acc: 0,
-          charge: 0,
-          hits: 0,
-          badHits: 0,
-          totalTap: 0,
-          status: 'waiting',
-          joinedAt: nowTs,
+          bestStreak: num(old.bestStreak, 0) || 0,
+          miss: num(old.miss, 0) || 0,
+          attackCharge: num(old.attackCharge, 0) || 0,
+          maxAttackCharge: num(old.maxAttackCharge, 100) || 100,
+          attackReady: !!old.attackReady,
+          attacksUsed: num(old.attacksUsed, 0) || 0,
+          damageDealt: num(old.damageDealt, 0) || 0,
+          damageTaken: num(old.damageTaken, 0) || 0,
+          koCount: num(old.koCount, 0) || 0,
+          status: String((S.state && S.state.status) || 'waiting'),
+          roundToken: String((S.state && S.state.roundToken) || ''),
+          joinedAt: num(old.joinedAt, nowTs) || nowTs,
           updatedAt: nowTs,
           lastSeen: nowTs
         });
 
         try{
-          selfRef.onDisconnect().remove();
+          selfRef.onDisconnect().update({
+            connected: false,
+            status: 'left',
+            updatedAt: firebase.database.ServerValue.TIMESTAMP,
+            lastSeen: firebase.database.ServerValue.TIMESTAMP
+          });
         }catch{}
 
         const metaHandler = (snap) => {
@@ -1313,17 +1320,23 @@
         const playersHandler = async (snap) => {
           S.players = snap.val() || {};
 
-          if (isHost() && S.state && S.state.status === 'countdown' && activePlayers().length < 2){
+          const actives = activePlayers();
+
+          if (isHost() && S.state && S.state.status === 'countdown' && actives.length < 2){
             await S.refs.state.update({
               status: 'waiting',
-              countdownEndsAt: null,
-              startAt: null,
+              countdownEndsAt: 0,
+              startedAt: 0,
+              endsAt: 0,
+              roundToken: '',
               updatedAt: Date.now()
             }).catch(() => {});
           }
 
-          const actives = activePlayers();
-          if (S.meta && S.meta.hostPid && !actives.find(p => p.pid === S.meta.hostPid) && actives[0] && actives[0].pid === S.uid){
+          const hostStillActive = !!actives.find(p => cleanRoom(p.uid || p.key) === cleanRoom(S.meta && S.meta.hostPid || ''));
+          const takeover = actives[0] && cleanRoom(actives[0].uid || actives[0].key) === cleanRoom(S.uid);
+
+          if (!hostStillActive && takeover){
             await S.refs.meta.update({
               hostPid: S.uid,
               updatedAt: Date.now()
@@ -1337,10 +1350,13 @@
 
         S.heartbeat = setInterval(() => {
           selfRef.update({
+            name: getNick(),
             nick: getNick(),
             connected: true,
+            ready: true,
             updatedAt: Date.now(),
-            lastSeen: Date.now()
+            lastSeen: Date.now(),
+            status: S.state && S.state.status ? String(S.state.status) : 'waiting'
           }).catch(() => {});
         }, HEARTBEAT_MS);
 
@@ -1357,10 +1373,17 @@
       }
 
       async function leaveRoom(){
-        if (!S.joined || !S.refs) return;
+        if (!S.joined || !S.refs || !S.uid) return;
+
         try{
-          await S.refs.players.child(S.uid).remove();
+          await S.refs.players.child(S.uid).update({
+            connected: false,
+            status: 'left',
+            updatedAt: Date.now(),
+            lastSeen: Date.now()
+          });
         }catch{}
+
         cleanupRoom();
         renderState();
       }
@@ -1377,25 +1400,41 @@
 
         const seed = getSeed();
         UI.seedInput.value = seed;
-        const startAt = Date.now() + 2500;
+
+        const nowTs = Date.now();
 
         await S.refs.meta.update({
           diff: getDiff(),
-          updatedAt: Date.now()
+          updatedAt: nowTs
         });
 
         await S.refs.state.update({
           status: 'countdown',
           plannedSec: getTime(),
-          countdownEndsAt: startAt,
-          startAt: startAt,
-          startedAt: null,
-          updatedAt: Date.now()
+          countdownEndsAt: nowTs + COUNTDOWN_MS,
+          startedAt: 0,
+          endsAt: 0,
+          roundToken: '',
+          seed: String(seed),
+          updatedAt: nowTs
         });
+
+        const updates = {};
+        active.forEach((p) => {
+          const key = p.key;
+          updates[`${key}/status`] = 'countdown';
+          updates[`${key}/ready`] = true;
+          updates[`${key}/updatedAt`] = nowTs;
+          updates[`${key}/lastSeen`] = nowTs;
+        });
+
+        if (Object.keys(updates).length){
+          await S.refs.players.update(updates).catch(() => {});
+        }
       }
 
       function goRun(){
-        if (S.redirecting || !S.roomId) return;
+        if (S.redirecting || !S.roomId || !S.uid) return;
         S.redirecting = true;
         location.href = buildRunUrl(S.roomId);
       }
@@ -1466,9 +1505,16 @@
         });
 
         window.addEventListener('beforeunload', () => {
-          if (S.refs && S.uid){
-            try{ S.refs.players.child(S.uid).remove(); }catch{}
-          }
+          try{
+            if (S.refs && S.uid && S.refs.players){
+              S.refs.players.child(S.uid).update({
+                connected: false,
+                status: S.redirecting ? 'switching' : 'left',
+                updatedAt: Date.now(),
+                lastSeen: Date.now()
+              }).catch(() => {});
+            }
+          }catch{}
         });
       }
 
@@ -1495,7 +1541,7 @@
 
         UI.nickInput.value = clean(qs('name', qs('nick', UI.nickInput.value || '')), 24) || UI.nickInput.value || '';
         UI.diffSelect.value = qs('diff', UI.diffSelect.value || 'normal') || 'normal';
-        UI.timeSelect.value = String(clamp(qs('time', UI.timeSelect.value || '90'), 60, 150));
+        UI.timeSelect.value = String(clamp(qs('time', UI.timeSelect.value || '150'), 30, 300));
         UI.viewSelect.value = qs('view', UI.viewSelect.value || 'mobile') || 'mobile';
         UI.seedInput.value = qs('seed', UI.seedInput.value || '');
 
