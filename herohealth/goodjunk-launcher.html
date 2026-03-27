@@ -5,768 +5,637 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk Launcher</title>
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#9fe3ff" />
-  <link rel="icon" href="../favicon.ico" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
       --sky1:#dff4ff;
       --sky2:#bfe8ff;
       --sky3:#fff7d8;
-      --bg:#f4fbff;
-
+      --card:#fffdf6;
+      --card2:#f8fff3;
       --line:#bfe3f2;
-      --line-strong:#98d4ec;
+      --text:#4d4a42;
+      --muted:#7b7a72;
 
-      --text:#334155;
-      --text-strong:#20324d;
-      --muted:#6b7b93;
-
-      --yellow:#ffd37a;
-      --yellow2:#f8aa2b;
-      --blue:#7fcfff;
-      --blue2:#58b7f5;
-      --pink:#ffb3cc;
-      --pink2:#ff7ea8;
       --green:#7ed957;
       --green2:#58c33f;
-      --violet:#b69cff;
-      --violet2:#8b6df5;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --pink:#ffa9c9;
+      --pink2:#ff7fb3;
+      --violet:#cdb9ff;
 
-      --shadow:0 16px 34px rgba(63,114,155,.16);
-      --radius:28px;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
 
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
     }
 
     *{ box-sizing:border-box; }
-    html,body{ margin:0; min-height:100%; }
 
-    body{
-      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(1100px 560px at 10% -10%, rgba(127,207,255,.42), transparent 60%),
-        radial-gradient(900px 420px at 100% 0%, rgba(255,211,122,.34), transparent 55%),
-        linear-gradient(180deg, var(--sky1), var(--sky2) 44%, var(--bg));
-      padding:calc(10px + var(--sat)) 12px calc(18px + var(--sab));
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
     }
 
-    .clouds,
-    .clouds::before,
-    .clouds::after{
-      content:"";
-      position:fixed;
-      inset:auto;
-      pointer-events:none;
-      z-index:0;
-      filter:blur(1px);
-    }
-    .clouds{
-      top:88px;
-      left:6%;
-      width:180px;
-      height:56px;
-      background:rgba(255,255,255,.55);
-      border-radius:999px;
-      box-shadow:0 0 0 14px rgba(255,255,255,.22);
-    }
-    .clouds::before{
-      top:-20px;
-      left:18px;
-      width:82px;
-      height:82px;
-      background:rgba(255,255,255,.7);
-      border-radius:50%;
-    }
-    .clouds::after{
-      top:-10px;
-      left:84px;
-      width:62px;
-      height:62px;
-      background:rgba(255,255,255,.68);
-      border-radius:50%;
+    body{
+      min-height:100dvh;
+      padding:
+        calc(18px + var(--sat))
+        calc(16px + var(--sar))
+        calc(20px + var(--sab))
+        calc(16px + var(--sal));
     }
 
-    .shell{
-      position:relative;
-      z-index:1;
-      width:min(1180px, 100%);
+    .wrap{
+      max-width:1180px;
       margin:0 auto;
-      display:grid;
-      gap:14px;
     }
 
-    .panel{
-      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,253,246,.94));
-      border:1.5px solid var(--line);
-      border-radius:var(--radius);
+    .hero{
+      margin-bottom:18px;
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      border:3px solid var(--line);
+      border-radius:30px;
       box-shadow:var(--shadow);
+      padding:22px 18px;
+      position:relative;
       overflow:hidden;
     }
 
-    .panel-inner{ padding:18px; }
-
-    .hero{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:14px;
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-40px;
+      top:-40px;
+      width:160px;
+      height:160px;
+      border-radius:999px;
+      background:rgba(127,207,255,.20);
+      filter:blur(8px);
     }
 
-    .hero-card{
-      min-height:230px;
-      background:
-        radial-gradient(350px 180px at 10% 15%, rgba(127,207,255,.26), transparent 60%),
-        radial-gradient(340px 180px at 90% 12%, rgba(255,211,122,.26), transparent 58%),
-        linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,255,243,.95));
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-28px;
+      bottom:-28px;
+      width:140px;
+      height:140px;
+      border-radius:999px;
+      background:rgba(255,212,92,.22);
+      filter:blur(8px);
     }
 
-    .hero-title{
-      display:flex;
-      gap:14px;
-      align-items:flex-start;
+    .kicker{
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#eaf8ff;
+      border:2px solid var(--line);
+      color:#5ea8d0;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:12px;
     }
 
-    .hero-badge{
-      width:82px;
-      height:82px;
-      border-radius:24px;
-      display:grid;
-      place-items:center;
-      font-size:40px;
-      background:linear-gradient(180deg, #fff8d8, #dff4ff);
-      border:1.5px solid var(--line-strong);
-      box-shadow:0 12px 24px rgba(109,164,201,.18);
-      flex:0 0 auto;
-    }
-
-    h1,h2,h3,p{ margin:0; }
-
-    .hero h1{
-      font-size:clamp(26px, 4vw, 38px);
-      line-height:1.06;
-      color:var(--text-strong);
-      margin-bottom:8px;
+    h1{
+      position:relative;
+      z-index:1;
+      margin:0 0 8px;
+      font-size:clamp(30px,5vw,46px);
+      line-height:1.05;
+      font-weight:1000;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
     }
 
     .sub{
+      position:relative;
+      z-index:1;
+      margin:0;
       color:var(--muted);
-      line-height:1.6;
+      line-height:1.7;
       font-size:15px;
+      font-weight:900;
+      max-width:820px;
     }
 
     .pill-row{
+      position:relative;
+      z-index:1;
       display:flex;
-      flex-wrap:wrap;
       gap:8px;
+      flex-wrap:wrap;
       margin-top:14px;
     }
 
     .pill{
       display:inline-flex;
       align-items:center;
-      gap:8px;
-      padding:10px 14px;
+      gap:6px;
+      padding:8px 12px;
       border-radius:999px;
-      background:rgba(255,255,255,.84);
-      border:1px solid var(--line);
-      color:var(--text-strong);
-      font-weight:800;
-      font-size:13px;
-      box-shadow:0 6px 14px rgba(127,170,200,.08);
-    }
-
-    .notice{
-      display:flex;
-      align-items:flex-start;
-      gap:12px;
-      padding:14px 16px;
-      border-top:1px solid rgba(0,0,0,.04);
-      background:linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.55));
-    }
-
-    .notice-emoji{
-      width:38px;
-      height:38px;
-      border-radius:50%;
-      display:grid;
-      place-items:center;
+      border:2px solid var(--line);
       background:#fff;
-      border:1px solid var(--line);
-      flex:0 0 auto;
-      font-size:20px;
-    }
-
-    .notice-text{
-      font-weight:900;
-      color:#38506a;
-      line-height:1.45;
-      font-size:15px;
-    }
-
-    .summary-box{
-      display:grid;
-      gap:12px;
-      border:1.5px dashed var(--line-strong);
-      border-radius:24px;
-      padding:16px;
-      background:linear-gradient(180deg, rgba(223,244,255,.48), rgba(255,255,255,.72));
-      min-height:100%;
-    }
-
-    .summary-title{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-    }
-
-    .summary-title h2{
-      font-size:20px;
-      color:var(--text-strong);
-    }
-
-    .summary-badge{
-      border-radius:999px;
-      padding:8px 10px;
-      background:#fff;
-      border:1px solid var(--line);
+      color:#6c6a61;
       font-size:12px;
-      font-weight:900;
-      color:#43617f;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
     }
 
-    .summary-item{
-      background:#fff;
-      border:1.5px solid var(--line);
-      border-radius:18px;
-      padding:12px 14px;
+    .layout{
       display:grid;
-      gap:8px;
+      gap:16px;
+      grid-template-columns:360px 1fr;
     }
 
-    .summary-k{
-      font-size:12px;
-      font-weight:900;
-      color:var(--muted);
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
-
-    .summary-v{
-      font-size:15px;
-      font-weight:900;
-      color:var(--text-strong);
-      line-height:1.45;
-      word-break:break-word;
-    }
-
-    .cards{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:14px;
+    @media (max-width:960px){
+      .layout{ grid-template-columns:1fr; }
     }
 
     .card{
-      border:1.5px solid var(--line);
-      border-radius:26px;
-      background:linear-gradient(180deg, rgba(255,255,255,.94), rgba(248,255,243,.92));
+      background:linear-gradient(180deg,#fffef8,#f7fff4);
+      border:3px solid var(--line);
+      border-radius:28px;
+      padding:16px;
       box-shadow:var(--shadow);
-      padding:18px;
-      display:grid;
-      gap:14px;
-      min-height:250px;
     }
 
-    .card-head{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
+    .card h2{
+      margin:0 0 8px;
+      font-size:22px;
+      color:#67a91c;
     }
 
-    .card-icon{
-      width:64px;
-      height:64px;
-      border-radius:22px;
-      display:grid;
-      place-items:center;
-      font-size:32px;
-      background:#fff;
-      border:1.5px solid var(--line);
-      flex:0 0 auto;
-    }
-
-    .card-tag{
-      border-radius:999px;
-      padding:8px 10px;
-      background:#fff;
-      border:1px solid var(--line);
-      font-size:12px;
-      font-weight:900;
-      color:#43617f;
-      white-space:nowrap;
-    }
-
-    .card-title{
-      font-size:24px;
-      font-weight:1000;
-      color:var(--text-strong);
-    }
-
-    .card-desc{
+    .muted{
       color:var(--muted);
-      line-height:1.6;
-      font-size:14px;
-      min-height:64px;
-    }
-
-    .mini-points{
-      display:grid;
-      gap:8px;
-    }
-
-    .mini-point{
-      display:flex;
-      gap:8px;
-      align-items:flex-start;
-      color:#47607d;
       font-size:13px;
-      font-weight:700;
-      line-height:1.45;
-    }
-
-    .mini-check{
-      width:20px;
-      height:20px;
-      border-radius:50%;
-      display:grid;
-      place-items:center;
-      font-size:12px;
-      background:#fff;
-      border:1px solid var(--line);
-      flex:0 0 auto;
-      margin-top:1px;
-    }
-
-    .btn{
-      appearance:none;
-      border:none;
-      cursor:pointer;
-      border-radius:18px;
-      padding:13px 16px;
-      font-size:16px;
+      line-height:1.6;
       font-weight:900;
-      color:#20324d;
-      box-shadow:0 12px 24px rgba(85,140,175,.14);
-      transition:transform .12s ease;
     }
 
-    .btn:hover{ transform:translateY(-1px); }
-    .btn-primary{ background:linear-gradient(180deg, #ffe28f, #f7b733); }
-    .btn-secondary{ background:linear-gradient(180deg, #d8f2ff, #8fd6ff); }
-    .btn-soft{ background:linear-gradient(180deg, #ffddeb, #ffb8d0); }
-    .btn-green{ background:linear-gradient(180deg, #dff8bf, #7ed957); }
-    .btn-violet{ background:linear-gradient(180deg, #eadfff, #b69cff); }
-    .btn-ghost{
-      background:linear-gradient(180deg, #ffffff, #f6fbff);
-      border:1px solid var(--line);
-    }
-
-    .grid4{
+    .form-grid{
       display:grid;
-      grid-template-columns:repeat(4, 1fr);
+      gap:12px;
+      margin-top:12px;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:13px;
+      font-weight:1000;
+      color:#6f6c65;
+    }
+
+    input,select{
+      width:100%;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      padding:12px 14px;
+      font:inherit;
+      min-height:48px;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+    }
+
+    .mode-grid{
+      display:grid;
       gap:14px;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+    }
+
+    @media (max-width:1180px){
+      .mode-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    @media (max-width:720px){
+      .mode-grid{ grid-template-columns:1fr; }
     }
 
     .mode-card{
-      border:1.5px solid var(--line);
-      border-radius:24px;
-      background:linear-gradient(180deg, rgba(255,255,255,.94), rgba(248,255,243,.92));
-      box-shadow:var(--shadow);
-      padding:16px;
-      display:grid;
+      display:flex;
+      flex-direction:column;
       gap:12px;
       min-height:220px;
+      border-radius:28px;
+      border:3px solid var(--line);
+      background:linear-gradient(180deg,#fffef8,#f6fff4);
+      padding:18px;
+      box-shadow:var(--shadow);
+      position:relative;
+      overflow:hidden;
     }
 
-    .mode-top{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-    }
-
-    .mode-icon{
-      width:58px;
-      height:58px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      font-size:28px;
-      background:#fff;
-      border:1.5px solid var(--line);
-    }
-
-    .mode-tag{
+    .mode-card::before{
+      content:"";
+      position:absolute;
+      right:-24px;
+      top:-24px;
+      width:110px;
+      height:110px;
       border-radius:999px;
-      padding:8px 10px;
-      background:#fff;
-      border:1px solid var(--line);
-      font-size:12px;
-      font-weight:900;
-      color:#43617f;
-      white-space:nowrap;
+      background:rgba(255,255,255,.55);
     }
+
+    .mode-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      padding:7px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:1000;
+      border:2px solid var(--line);
+      background:#fff;
+      position:relative;
+      z-index:1;
+    }
+
+    .solo .mode-badge{ color:#5f9d1d; }
+    .race .mode-badge{ color:#4a9fcb; }
+    .duet .mode-badge{ color:#c04f85; }
+    .battle .mode-badge{ color:#c98928; }
+    .coop .mode-badge{ color:#8a73d6; }
 
     .mode-title{
-      font-size:22px;
+      margin:0;
+      font-size:26px;
+      line-height:1.08;
       font-weight:1000;
-      color:var(--text-strong);
+      color:var(--text);
+      position:relative;
+      z-index:1;
     }
 
     .mode-desc{
       color:var(--muted);
+      line-height:1.7;
       font-size:14px;
-      line-height:1.55;
-      min-height:64px;
+      flex:1 1 auto;
+      font-weight:900;
+      position:relative;
+      z-index:1;
     }
 
-    .mode-btn{
-      margin-top:auto;
-      width:100%;
-    }
-
-    .footer{
-      text-align:center;
-      color:var(--muted);
+    .mode-list{
+      display:grid;
+      gap:6px;
+      color:#6e6b63;
       font-size:13px;
-      padding:4px 0 0;
+      line-height:1.55;
+      font-weight:900;
+      position:relative;
+      z-index:1;
     }
 
-    @media (max-width: 1100px){
-      .hero,
-      .cards,
-      .grid4{
-        grid-template-columns:1fr;
-      }
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:4px;
+      position:relative;
+      z-index:1;
     }
 
-    @media (max-width: 720px){
-      .panel-inner{ padding:16px; }
-      .hero-title{ flex-direction:column; }
-      .hero-badge{ width:72px; height:72px; }
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:13px 18px;
+      font-weight:1000;
+      font-size:15px;
+      transition:.12s ease;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
+    }
+
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-solo{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#fffef9;
+    }
+
+    .btn-race{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef9;
+    }
+
+    .btn-duet{
+      background:linear-gradient(180deg,var(--pink),var(--pink2));
+      color:#6b214e;
+    }
+
+    .btn-battle{
+      background:linear-gradient(180deg,var(--yellow),var(--orange));
+      color:#6d4e00;
+    }
+
+    .btn-coop{
+      background:linear-gradient(180deg,#dccfff,var(--violet));
+      color:#fffef9;
+    }
+
+    .foot{
+      margin-top:14px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.7;
+      font-weight:900;
     }
   </style>
 </head>
 <body>
-  <div class="clouds" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="hero">
+      <div class="kicker">🍎 GOODJUNK • FOOD HERO</div>
+      <h1>เลือกโหมดเล่น GoodJunk</h1>
+      <p class="sub">
+        ออกผจญภัยเก็บอาหารดี หลีกเลี่ยง junk food และช่วยกันปกป้องเมืองสุขภาพ
+        โดยโหมด <strong>Solo</strong> จะผ่าน <strong>Warmup</strong> ก่อน แล้วค่อยไปเล่นจริงเสมอ
+        ส่วน <strong>Duet</strong> เป็นโหมดเล่นคู่ 2 คน ผ่าน <strong>Duet Lobby</strong> ก่อนเริ่ม
+      </p>
+      <div class="pill-row">
+        <div class="pill">SOLO = Warmup → Run → Cooldown</div>
+        <div class="pill">DUET = 2 Players → Lobby → Run</div>
+        <div class="pill">RACE = Multiplayer Lobby</div>
+        <div class="pill">BATTLE / COOP = Lobby</div>
+        <div class="pill">TEST = forcegate=1</div>
+      </div>
+    </div>
 
-  <main class="shell">
-    <section class="hero">
-      <section class="panel hero-card">
-        <div class="panel-inner">
-          <div class="hero-title">
-            <div class="hero-badge">🥗</div>
-            <div>
-              <h1>GoodJunk Launcher</h1>
-              <p class="sub">
-                ใช้หน้านี้เป็นประตูหลักของ GoodJunk ได้เลย
-                จะเล่นเดี่ยวหรือหลายคนก็เลือกจากตรงนี้ แล้วค่อยพาไป launcher / lobby ที่เหมาะกับโหมดนั้น
-              </p>
+    <div class="layout">
+      <section class="card">
+        <h2>ตั้งค่าผู้เล่น</h2>
+        <div class="muted">ค่าตรงนี้จะถูกส่งต่อไปยัง warmup, run, summary และ cloud logger</div>
 
-              <div class="pill-row">
-                <div class="pill">🎮 เข้าเกมง่ายขึ้น</div>
-                <div class="pill">🧭 flow ชัดกว่าเดิม</div>
-                <div class="pill">👫 multiplayer แยก lobby ชัด</div>
-              </div>
-            </div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="playerName">ชื่อผู้เล่น</label>
+            <input id="playerName" placeholder="เช่น เด็กชายเอ / Teacher / Test01" />
+          </div>
+
+          <div class="field">
+            <label for="diff">ความยาก</label>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="time">เวลา</label>
+            <select id="time">
+              <option value="90">90s</option>
+              <option value="120">120s</option>
+              <option value="150" selected>150s</option>
+              <option value="180">180s</option>
+            </select>
           </div>
         </div>
 
-        <div class="notice">
-          <div class="notice-emoji">🧑‍🏫</div>
-          <div class="notice-text" id="topNotice">
-            เลือกได้ทั้งเล่นเดี่ยว หรือเข้า multiplayer แล้วค่อยเลือก lobby ของแต่ละโหมด
-          </div>
+        <div class="foot">
+          เวอร์ชันทดสอบนี้ยังคงบังคับ <strong>forcegate=1</strong>
+          ในโหมด Solo เพื่อให้ warmup เข้าได้ทุกครั้งระหว่างทดสอบ
         </div>
       </section>
 
-      <section class="panel">
-        <div class="panel-inner">
-          <div class="summary-box">
-            <div class="summary-title">
-              <h2>ค่าที่จะส่งต่อ</h2>
-              <div class="summary-badge">PASSTHROUGH</div>
-            </div>
-
-            <div class="summary-item">
-              <div class="summary-k">ชื่อผู้เล่น</div>
-              <div class="summary-v" id="summaryNick">-</div>
-            </div>
-
-            <div class="summary-item">
-              <div class="summary-k">Hub กลับ</div>
-              <div class="summary-v" id="summaryHub">-</div>
-            </div>
-
-            <div class="summary-item">
-              <div class="summary-k">ค่าพารามิเตอร์</div>
-              <div class="summary-v" id="summaryParams">pid, name, nick, studyId, phase, conditionGroup, sessionOrder, blockLabel, siteCode, schoolYear, semester, run, diff, time, view, seed, api, log, debug, hub</div>
-            </div>
+      <section class="mode-grid">
+        <article class="mode-card solo">
+          <div class="mode-badge">⭐ SOLO MISSION</div>
+          <h3 class="mode-title">Solo</h3>
+          <div class="mode-desc">
+            ผจญภัยคนเดียว เก็บอาหารดีให้ถึงเป้าหมาย แล้วไปสู้กับ Junk King
           </div>
-        </div>
-
-        <div class="notice">
-          <div class="notice-emoji">💡</div>
-          <div class="notice-text" id="autoNotice">
-            หน้า launcher นี้จะคง query สำคัญไว้ แล้วส่งต่อไปยัง solo launcher หรือ multiplayer hub / lobby
+          <div class="mode-list">
+            <div>• เข้า Warmup ก่อนทุกครั้ง</div>
+            <div>• เล่นจบแล้วค่อยไป Cooldown</div>
+            <div>• ใช้ run: <code>vr-goodjunk/goodjunk-vr.html</code></div>
           </div>
-        </div>
+          <div class="actions">
+            <button class="btn btn-solo" id="btnSolo" type="button">เข้า Solo</button>
+          </div>
+        </article>
+
+        <article class="mode-card race">
+          <div class="mode-badge">🏁 MULTIPLAYER</div>
+          <h3 class="mode-title">Race</h3>
+          <div class="mode-desc">
+            แข่งคะแนนกับผู้เล่นคนอื่น ใครเก็บอาหารดีได้มากที่สุดชนะ
+          </div>
+          <div class="mode-list">
+            <div>• เข้า lobby ก่อน</div>
+            <div>• host กด start</div>
+            <div>• ใช้ run แยกจาก solo</div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-race" id="btnRace" type="button">เข้า Race</button>
+          </div>
+        </article>
+
+        <article class="mode-card duet">
+          <div class="mode-badge">👯 DUET MODE</div>
+          <h3 class="mode-title">Duet</h3>
+          <div class="mode-desc">
+            เล่นคู่ 2 คน ช่วยกันเก็บของดี ทำคะแนนของฉัน + คะแนนเพื่อน + คะแนนคู่
+          </div>
+          <div class="mode-list">
+            <div>• เข้า Duet Lobby ก่อน</div>
+            <div>• ready ครบ 2/2 แล้ว host กด start</div>
+            <div>• ใช้ run แยกเฉพาะของ duet</div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-duet" id="btnDuet" type="button">เข้า Duet</button>
+          </div>
+        </article>
+
+        <article class="mode-card battle">
+          <div class="mode-badge">⚔️ BATTLE</div>
+          <h3 class="mode-title">Battle</h3>
+          <div class="mode-desc">
+            โหมดปะทะกันโดยตรง ตอนนี้ยังวิ่งผ่าน lobby เวอร์ชันทดสอบ
+          </div>
+          <div class="mode-list">
+            <div>• route ไป multiplayer lobby</div>
+            <div>• ยังไม่ปิด flow เต็ม</div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-battle" id="btnBattle" type="button">เข้า Battle</button>
+          </div>
+        </article>
+
+        <article class="mode-card coop">
+          <div class="mode-badge">🤝 COOP</div>
+          <h3 class="mode-title">Coop</h3>
+          <div class="mode-desc">
+            ช่วยกันปกป้องเมืองอาหารดี ตอนนี้ยังใช้ lobby เวอร์ชันทดสอบก่อน
+          </div>
+          <div class="mode-list">
+            <div>• route ไป multiplayer lobby</div>
+            <div>• ยังไม่ปิด flow เต็ม</div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-coop" id="btnCoop" type="button">เข้า Coop</button>
+          </div>
+        </article>
       </section>
-    </section>
-
-    <section class="cards">
-      <article class="card">
-        <div class="card-head">
-          <div class="card-icon">🎯</div>
-          <div class="card-tag">Single Player</div>
-        </div>
-
-        <div class="card-title">เล่นเดี่ยว</div>
-        <div class="card-desc">
-          เหมาะกับการเข้าเล่นแบบคนเดียวตาม flow เดิมของ GoodJunk
-          ใช้ launcher เดี่ยวที่มีอยู่แล้ว และคงพารามิเตอร์จาก Hub ไปให้ครบ
-        </div>
-
-        <div class="mini-points">
-          <div class="mini-point"><div class="mini-check">✓</div><div>เข้า solo flow เดิม</div></div>
-          <div class="mini-point"><div class="mini-check">✓</div><div>ไม่ปะปนกับ logic ห้อง multiplayer</div></div>
-          <div class="mini-point"><div class="mini-check">✓</div><div>เหมาะกับ play / research แบบเดิม</div></div>
-        </div>
-
-        <button class="btn btn-primary" id="btnSolo" type="button">🚀 เข้า Solo Launcher</button>
-      </article>
-
-      <article class="card">
-        <div class="card-head">
-          <div class="card-icon">👫</div>
-          <div class="card-tag">Multiplayer</div>
-        </div>
-
-        <div class="card-title">เล่นหลายคน</div>
-        <div class="card-desc">
-          เข้าหน้า multiplayer hub ก่อน แล้วค่อยเลือก Duet, Race, Battle หรือ Coop
-          หรือจะกดปุ่มลัดไป lobby ของโหมดนั้นทันทีด้านล่างก็ได้
-        </div>
-
-        <div class="mini-points">
-          <div class="mini-point"><div class="mini-check">✓</div><div>มี flow แยกสร้างห้อง / เข้าห้อง</div></div>
-          <div class="mini-point"><div class="mini-check">✓</div><div>ใช้ room code + QR แบบเดียวกันทุกโหมด</div></div>
-          <div class="mini-point"><div class="mini-check">✓</div><div>debug และใช้งานง่ายกว่าเดิม</div></div>
-        </div>
-
-        <button class="btn btn-secondary" id="btnMultiHub" type="button">🎮 เข้า Multiplayer Hub</button>
-      </article>
-    </section>
-
-    <section class="grid4">
-      <article class="mode-card">
-        <div class="mode-top">
-          <div class="mode-icon">🤝</div>
-          <div class="mode-tag">เริ่มง่าย</div>
-        </div>
-        <div class="mode-title">Duet Lobby</div>
-        <div class="mode-desc">เล่นคู่แบบช่วยกัน เหมาะกับเริ่มต้นที่สุด</div>
-        <button class="btn btn-green mode-btn" id="btnDuetLobby" type="button">เข้า Duet Lobby</button>
-      </article>
-
-      <article class="mode-card">
-        <div class="mode-top">
-          <div class="mode-icon">🏁</div>
-          <div class="mode-tag">แข่งไว</div>
-        </div>
-        <div class="mode-title">Race Lobby</div>
-        <div class="mode-desc">แข่งกันว่าใครเร็วกว่าและแม่นกว่า</div>
-        <button class="btn btn-primary mode-btn" id="btnRaceLobby" type="button">เข้า Race Lobby</button>
-      </article>
-
-      <article class="mode-card">
-        <div class="mode-top">
-          <div class="mode-icon">⚔️</div>
-          <div class="mode-tag">ท้าทาย</div>
-        </div>
-        <div class="mode-title">Battle Lobby</div>
-        <div class="mode-desc">ชาร์จพลังแล้วโจมตีคู่ต่อสู้แบบเรียลไทม์</div>
-        <button class="btn btn-soft mode-btn" id="btnBattleLobby" type="button">เข้า Battle Lobby</button>
-      </article>
-
-      <article class="mode-card">
-        <div class="mode-top">
-          <div class="mode-icon">🛟</div>
-          <div class="mode-tag">ทีมเวิร์ก</div>
-        </div>
-        <div class="mode-title">Coop Lobby</div>
-        <div class="mode-desc">ช่วยกันผ่านเป้าหมายเดียวกันแบบร่วมมือ</div>
-        <button class="btn btn-violet mode-btn" id="btnCoopLobby" type="button">เข้า Coop Lobby</button>
-      </article>
-    </section>
-
-    <div class="footer">HeroHealth • GoodJunk Launcher • Hub v2 wrapper</div>
-  </main>
+    </div>
+  </div>
 
   <script>
     (function(){
-      'use strict';
+      const q = new URLSearchParams(location.search);
 
-      const qs = (k, d='') => {
-        try { return new URL(location.href).searchParams.get(k) ?? d; }
-        catch { return d; }
+      const MODE_DEFAULT_TIME = {
+        solo: '150',
+        race: '120',
+        duet: '150',
+        battle: '150',
+        coop: '180'
       };
 
-      const UI = {
-        summaryNick: document.getElementById('summaryNick'),
-        summaryHub: document.getElementById('summaryHub'),
-        autoNotice: document.getElementById('autoNotice'),
+      const PASS_THROUGH_TO_RUN = ['debug', 'bossdebug', 'api', 'log', 'ai'];
+      const PASS_THROUGH_TO_GATE = ['forcegate', 'resetGate'];
 
-        btnSolo: document.getElementById('btnSolo'),
-        btnMultiHub: document.getElementById('btnMultiHub'),
-        btnDuetLobby: document.getElementById('btnDuetLobby'),
-        btnRaceLobby: document.getElementById('btnRaceLobby'),
-        btnBattleLobby: document.getElementById('btnBattleLobby'),
-        btnCoopLobby: document.getElementById('btnCoopLobby')
-      };
+      const elName = document.getElementById('playerName');
+      const elDiff = document.getElementById('diff');
+      const elTime = document.getElementById('time');
 
-      const PASS_KEYS = [
-        'pid', 'name', 'nick',
-        'studyId', 'phase', 'conditionGroup', 'sessionOrder',
-        'blockLabel', 'siteCode', 'schoolYear', 'semester',
-        'run', 'diff', 'time', 'view', 'seed',
-        'api', 'log', 'debug',
-        'planDay', 'planSlot', 'grade',
-        'zone', 'game'
-      ];
+      elName.value = q.get('name') || q.get('nick') || '';
+      elDiff.value = q.get('diff') || 'normal';
+      elTime.value = q.get('time') || MODE_DEFAULT_TIME.solo;
 
-      const ROUTES = {
-        solo: './goodjunk-vr-launcher.html',
-        multi: './goodjunk-multi.html',
-        duet: './goodjunk-duet-lobby.html',
-        race: './goodjunk-race-lobby.html',
-        battle: './goodjunk-battle-lobby.html',
-        coop: './goodjunk-coop-lobby.html'
-      };
-
-      const ENTRY_MAP = {
-        solo: 'solo',
-        single: 'solo',
-        multi: 'multi',
-        multiplayer: 'multi',
-        duet: 'duet',
-        race: 'race',
-        battle: 'battle',
-        coop: 'coop'
-      };
-
-      function buildCanonicalHubUrl() {
-        const hub = qs('hub', '');
-        if (hub) return hub;
-        return new URL('../hub.html', location.href).toString();
+      function getHeroHealthRootUrl() {
+        return new URL('./', location.href);
       }
 
-      function buildUrl(route, extraParams){
-        const src = new URL(location.href);
-        const url = new URL(route, location.href);
-
-        PASS_KEYS.forEach((key) => {
-          const value = src.searchParams.get(key);
-          if (value != null && value !== '') {
-            url.searchParams.set(key, value);
-          }
-        });
-
-        url.searchParams.set('hub', buildCanonicalHubUrl());
-
-        Object.entries(extraParams || {}).forEach(([key, value]) => {
-          if (value != null && value !== '') {
-            url.searchParams.set(key, String(value));
-          }
-        });
-
-        return url.toString();
+      function getUnifiedGateUrl() {
+        return new URL('warmup-gate.html', getHeroHealthRootUrl()).toString();
       }
 
-      function go(route, extraParams){
-        location.href = buildUrl(route, extraParams);
+      function getHubUrl() {
+        try {
+          return new URL(q.get('hub') || './hub.html', getHeroHealthRootUrl()).toString();
+        } catch {
+          return new URL('hub.html', getHeroHealthRootUrl()).toString();
+        }
       }
 
-      function initSummary(){
-        const nick = qs('name', qs('nick', '-')) || '-';
-        const hub = buildCanonicalHubUrl();
-
-        UI.summaryNick.textContent = nick;
-        UI.summaryHub.textContent = hub;
+      function getApiUrl() {
+        return String(
+          q.get('api') ||
+          window.HHA_CLOUD_ENDPOINT ||
+          'https://script.google.com/macros/s/AKfycbwNOpsjFTV_nK0PzNV23KziF5hZxIMI50P8o_vZgwVg_T4anpXZOaKQUy_uf5PPg9kT6Q/exec'
+        ).trim();
       }
 
-      function bind(){
-        UI.btnSolo.addEventListener('click', () => {
-          go(ROUTES.solo, { zone: 'nutrition', game: 'goodjunk', entry: 'solo' });
+      function buildBaseQuery(mode){
+        const p = new URLSearchParams();
+        p.set('pid', q.get('pid') || 'anon');
+        p.set('name', elName.value.trim());
+        p.set('nick', elName.value.trim());
+        p.set('studyId', q.get('studyId') || '');
+        p.set('phase', q.get('phase') || '');
+        p.set('conditionGroup', q.get('conditionGroup') || '');
+        p.set('sessionOrder', q.get('sessionOrder') || '');
+        p.set('blockLabel', q.get('blockLabel') || '');
+        p.set('siteCode', q.get('siteCode') || '');
+        p.set('schoolYear', q.get('schoolYear') || '');
+        p.set('semester', q.get('semester') || '');
+        p.set('diff', elDiff.value || 'normal');
+        p.set('time', elTime.value || MODE_DEFAULT_TIME[mode] || '120');
+        p.set('seed', String(Date.now()));
+        p.set('hub', getHubUrl());
+        p.set('view', q.get('view') || 'mobile');
+        p.set('run', q.get('run') || 'play');
+        p.set('gameId', 'goodjunk');
+        p.set('game', 'goodjunk');
+        p.set('mode', mode);
+        p.set('zone', q.get('zone') || 'nutrition');
+        p.set('theme', q.get('theme') || 'goodjunk');
+
+        const api = getApiUrl();
+        if (api) p.set('api', api);
+
+        PASS_THROUGH_TO_RUN.forEach((key) => {
+          const v = q.get(key);
+          if (v) p.set(key, v);
         });
 
-        UI.btnMultiHub.addEventListener('click', () => {
-          go(ROUTES.multi, { zone: 'nutrition', game: 'goodjunk', entry: 'multi' });
-        });
-
-        UI.btnDuetLobby.addEventListener('click', () => {
-          go(ROUTES.duet, { mode: 'duet', zone: 'nutrition', game: 'goodjunk', entry: 'duet' });
-        });
-
-        UI.btnRaceLobby.addEventListener('click', () => {
-          go(ROUTES.race, { mode: 'race', zone: 'nutrition', game: 'goodjunk', entry: 'race' });
-        });
-
-        UI.btnBattleLobby.addEventListener('click', () => {
-          go(ROUTES.battle, { mode: 'battle', zone: 'nutrition', game: 'goodjunk', entry: 'battle' });
-        });
-
-        UI.btnCoopLobby.addEventListener('click', () => {
-          go(ROUTES.coop, { mode: 'coop', zone: 'nutrition', game: 'goodjunk', entry: 'coop' });
-        });
+        return p;
       }
 
-      function handleAutoEntry(){
-        const rawEntry = String(qs('entry', '') || '').toLowerCase().trim();
-        const entry = ENTRY_MAP[rawEntry] || '';
-
-        if (!entry) return;
-
-        const messageMap = {
-          solo: 'กำลังพาเข้า Solo Launcher…',
-          multi: 'กำลังพาเข้า Multiplayer Hub…',
-          duet: 'กำลังพาเข้า Duet Lobby…',
-          race: 'กำลังพาเข้า Race Lobby…',
-          battle: 'กำลังพาเข้า Battle Lobby…',
-          coop: 'กำลังพาเข้า Coop Lobby…'
-        };
-
-        UI.autoNotice.textContent = messageMap[entry] || 'กำลังพาเข้าเป้าหมายที่เลือก…';
-
-        const routeMap = {
-          solo: () => go(ROUTES.solo, { zone: 'nutrition', game: 'goodjunk', entry: 'solo' }),
-          multi: () => go(ROUTES.multi, { zone: 'nutrition', game: 'goodjunk', entry: 'multi' }),
-          duet: () => go(ROUTES.duet, { mode: 'duet', zone: 'nutrition', game: 'goodjunk', entry: 'duet' }),
-          race: () => go(ROUTES.race, { mode: 'race', zone: 'nutrition', game: 'goodjunk', entry: 'race' }),
-          battle: () => go(ROUTES.battle, { mode: 'battle', zone: 'nutrition', game: 'goodjunk', entry: 'battle' }),
-          coop: () => go(ROUTES.coop, { mode: 'coop', zone: 'nutrition', game: 'goodjunk', entry: 'coop' })
-        };
-
-        setTimeout(() => {
-          routeMap[entry]?.();
-        }, 120);
+      function buildGoodjunkSoloRunUrl(){
+        const p = buildBaseQuery('solo');
+        return `./vr-goodjunk/goodjunk-vr.html?${p.toString()}`;
       }
 
-      initSummary();
-      bind();
-      handleAutoEntry();
+      function buildGoodjunkWarmupUrl(){
+        const p = new URLSearchParams();
+        p.set('phase', 'warmup');
+        p.set('game', 'goodjunk');
+        p.set('gameId', 'goodjunk');
+        p.set('next', buildGoodjunkSoloRunUrl());
+        p.set('hub', getHubUrl());
+        p.set('forcegate', '1');
+
+        const api = getApiUrl();
+        if (api) p.set('api', api);
+
+        PASS_THROUGH_TO_GATE.forEach((key) => {
+          const v = q.get(key);
+          if (v) p.set(key, v);
+        });
+
+        return `${getUnifiedGateUrl()}?${p.toString()}`;
+      }
+
+      function buildGoodjunkDuetLobbyUrl(){
+        const p = buildBaseQuery('duet');
+        return `./vr-goodjunk/goodjunk-duet-lobby.html?${p.toString()}`;
+      }
+
+      function goSolo(){
+        location.href = buildGoodjunkWarmupUrl();
+      }
+
+      function goDuet(){
+        location.href = buildGoodjunkDuetLobbyUrl();
+      }
+
+      function goMultiplayer(mode){
+        const p = buildBaseQuery(mode);
+        location.href = `./vr-goodjunk/goodjunk-multi.html?${p.toString()}`;
+      }
+
+      document.getElementById('btnSolo')?.addEventListener('click', goSolo);
+      document.getElementById('btnRace')?.addEventListener('click', () => goMultiplayer('race'));
+      document.getElementById('btnDuet')?.addEventListener('click', goDuet);
+      document.getElementById('btnBattle')?.addEventListener('click', () => goMultiplayer('battle'));
+      document.getElementById('btnCoop')?.addEventListener('click', () => goMultiplayer('coop'));
     })();
   </script>
 </body>
