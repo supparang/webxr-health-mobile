@@ -1,13 +1,6 @@
 /* === /fitness/js/engine.js ===
    Shadow Breaker Engine
-   FULL PATCH v20260319-SHADOWBREAKER-CHILD-TEACHER-FLOW
-   - Menu -> Play -> Result
-   - Child-friendly boss ladder
-   - Bubble -> Meteor -> Hydra -> Final
-   - Boss speech / boss banner / stage theme
-   - Save summary/history/best score/best boss/best badge
-   - Summary + Teacher links in __extraJson
-   - CSV export events / session
+   FULL PATCH v20260327-SHADOWBREAKER-GATE-AUTOSTART-CVR
 */
 
 (function(){
@@ -17,7 +10,6 @@
   const DOC = document;
 
   const $ = (s, root=DOC) => root.querySelector(s);
-  const $$ = (s, root=DOC) => Array.from(root.querySelectorAll(s));
 
   const nowMs = () => (WIN.performance && performance.now) ? performance.now() : Date.now();
 
@@ -31,8 +23,6 @@
     if(!Number.isFinite(v)) v = a;
     return Math.max(a, Math.min(b, v));
   }
-
-  function lerp(a,b,t){ return a + (b-a)*t; }
 
   function safeJsonParse(v, fallback=null){
     try{ return JSON.parse(v); }catch(_){ return fallback; }
@@ -118,6 +108,53 @@
     return new Date().toISOString();
   }
 
+  function absUrl(pathOrUrl){
+    try{ return new URL(pathOrUrl, location.href).toString(); }
+    catch(_){ return String(pathOrUrl || ''); }
+  }
+
+  function getViewMode(){
+    const root = DOC.getElementById('sb-wrap');
+    const dv = String(root?.dataset?.viewMode || '').toLowerCase();
+    if (dv === 'pc' || dv === 'mobile' || dv === 'cvr') return dv;
+
+    const qv = String(qs('view','')).toLowerCase();
+    if (qv === 'pc' || qv === 'mobile' || qv === 'cvr') return qv;
+
+    const ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ? 'mobile' : 'pc';
+  }
+
+  function buildCooldownGateUrl(summary){
+    const hubUrl = String(summary?.hub || qs('hub','') || '../herohealth/hub.html');
+    const summaryUrl = `../herohealth/shadow-breaker-summary.html?pid=${encodeURIComponent(summary?.pid || 'anon')}`;
+
+    const u = new URL('/webxr-health-mobile/herohealth/warmup-gate.html', location.origin);
+
+    [
+      'run','mode','diff','time','seed','studyId','phase','conditionGroup','log',
+      'view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode',
+      'planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade','game'
+    ].forEach(k=>{
+      const v = qs(k,'');
+      if(v !== '') u.searchParams.set(k, v);
+    });
+
+    u.searchParams.set('phase', 'cooldown');
+    u.searchParams.set('gatePhase', 'cooldown');
+    u.searchParams.set('game', 'shadowbreaker');
+    u.searchParams.set('gameId', 'shadowbreaker');
+    u.searchParams.set('cat', 'fitness');
+    u.searchParams.set('theme', 'shadowbreaker');
+    u.searchParams.set('pid', String(summary?.pid || qs('pid','anon') || 'anon'));
+    u.searchParams.set('hub', hubUrl);
+    u.searchParams.set('finalGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
+    u.searchParams.set('plannedGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
+    u.searchParams.set('cdnext', summaryUrl);
+
+    return u.toString();
+  }
+
   const BOSSES = [
     {
       key:'bubble',
@@ -127,11 +164,7 @@
       clearTitle:'ผ่าน Bubble Glove แล้ว!',
       clearSub:'เก่งมาก เตรียมเจอ Meteor Punch',
       desc:'เป้ากลมใหญ่ ตีง่าย เหมาะเริ่มต้น',
-      theme:{
-        theme1:'rgba(56,189,248,.22)',
-        theme2:'rgba(59,130,246,.14)',
-        border:'rgba(56,189,248,.26)'
-      }
+      theme:{ theme1:'rgba(56,189,248,.22)', theme2:'rgba(59,130,246,.14)', border:'rgba(56,189,248,.26)' }
     },
     {
       key:'meteor',
@@ -141,11 +174,7 @@
       clearTitle:'ผ่าน Meteor Punch แล้ว!',
       clearSub:'อีกนิดเดียว จะไปถึง Neon Hydra',
       desc:'เป้าเร็วขึ้น เริ่มมี bomb มากขึ้น',
-      theme:{
-        theme1:'rgba(245,158,11,.22)',
-        theme2:'rgba(239,68,68,.12)',
-        border:'rgba(245,158,11,.26)'
-      }
+      theme:{ theme1:'rgba(245,158,11,.22)', theme2:'rgba(239,68,68,.12)', border:'rgba(245,158,11,.26)' }
     },
     {
       key:'hydra',
@@ -155,11 +184,7 @@
       clearTitle:'ผ่าน Neon Hydra แล้ว!',
       clearSub:'สุดยอด เหลือ Final Boss แล้ว',
       desc:'หลายเป้าพร้อมกัน ต้องตั้งสมาธิ',
-      theme:{
-        theme1:'rgba(167,139,250,.24)',
-        theme2:'rgba(99,102,241,.16)',
-        border:'rgba(167,139,250,.26)'
-      }
+      theme:{ theme1:'rgba(167,139,250,.24)', theme2:'rgba(99,102,241,.16)', border:'rgba(167,139,250,.26)' }
     },
     {
       key:'final',
@@ -169,11 +194,7 @@
       clearTitle:'Final Boss Clear!',
       clearSub:'หนูเป็นฮีโร่นักสู้แล้ว 🎉',
       desc:'ด่านสุดท้าย เป้าบอสเด่นที่สุด',
-      theme:{
-        theme1:'rgba(250,204,21,.24)',
-        theme2:'rgba(244,114,182,.16)',
-        border:'rgba(250,204,21,.30)'
-      }
+      theme:{ theme1:'rgba(250,204,21,.24)', theme2:'rgba(244,114,182,.16)', border:'rgba(250,204,21,.30)' }
     }
   ];
 
@@ -199,21 +220,11 @@
     const miss = Number(sum.missTotal || sum.miss || 0);
     const bestBoss = String(sum.bestReachedBoss || '');
 
-    if(bosses >= 4){
-      return { icon:'👑', title:'Final Boss Hero', desc:'ผ่านบอสสุดท้ายได้แล้ว เก่งมากจริง ๆ' };
-    }
-    if(bestBoss.toLowerCase().includes('hydra')){
-      return { icon:'🐉', title:'Hydra Hunter', desc:'ไปไกลถึง Neon Hydra แล้ว' };
-    }
-    if(bestBoss.toLowerCase().includes('meteor')){
-      return { icon:'☄️', title:'Meteor Chaser', desc:'ผ่าน Meteor Punch ได้ยอดเยี่ยม' };
-    }
-    if(acc >= 88 && score >= 1000){
-      return { icon:'🎯', title:'Accuracy Ace', desc:'ตีแม่นมาก น่าภูมิใจสุด ๆ' };
-    }
-    if(miss <= 3 && score >= 700){
-      return { icon:'🛡️', title:'Careful Fighter', desc:'พลาดน้อยมาก เล่นอย่างนิ่งเลย' };
-    }
+    if(bosses >= 4) return { icon:'👑', title:'Final Boss Hero', desc:'ผ่านบอสสุดท้ายได้แล้ว เก่งมากจริง ๆ' };
+    if(bestBoss.toLowerCase().includes('hydra')) return { icon:'🐉', title:'Hydra Hunter', desc:'ไปไกลถึง Neon Hydra แล้ว' };
+    if(bestBoss.toLowerCase().includes('meteor')) return { icon:'☄️', title:'Meteor Chaser', desc:'ผ่าน Meteor Punch ได้ยอดเยี่ยม' };
+    if(acc >= 88 && score >= 1000) return { icon:'🎯', title:'Accuracy Ace', desc:'ตีแม่นมาก น่าภูมิใจสุด ๆ' };
+    if(miss <= 3 && score >= 700) return { icon:'🛡️', title:'Careful Fighter', desc:'พลาดน้อยมาก เล่นอย่างนิ่งเลย' };
     return { icon:'🥊', title:'Shadow Starter', desc:'เริ่มต้นได้ดี ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม' };
   }
 
@@ -244,6 +255,7 @@
     btnFever: $('#sb-btn-fever'),
 
     targetLayer: $('#sb-target-layer'),
+    cvrCrosshair: $('#sb-cvr-crosshair'),
     msgMain: $('#sb-msg-main'),
 
     textTime: $('#sb-text-time'),
@@ -344,7 +356,9 @@
     events:[],
     sessionSummary:null,
 
-    latestBossBadge:null
+    latestBossBadge:null,
+    cvrFocusId:null,
+    cvrLastShotMs:0
   };
 
   function setView(name){
@@ -371,6 +385,14 @@
         ? 'Research: ใช้เก็บข้อมูลการทดลอง'
         : 'Normal: เล่นสนุก ไม่ต้องกรอกข้อมูลผู้เข้าร่วม';
     }
+
+    const vm = getViewMode();
+    if (vm === 'mobile' && DOM.currentBossName) {
+      DOM.currentBossName.textContent = currentBoss().name || 'Boss';
+    }
+    if (vm === 'cvr') {
+      if (DOM.btnPause) DOM.btnPause.checked = false;
+    }
   }
 
   function applyBossTheme(boss){
@@ -390,6 +412,68 @@
 
   function currentBoss(){
     return BOSSES[clamp(STATE.phaseIndex, 0, BOSSES.length-1)];
+  }
+
+  function getCrosshairPoint(){
+    const stageRect = DOM.targetLayer?.getBoundingClientRect?.();
+    if (!stageRect) return { x:0, y:0 };
+    return { x: stageRect.width / 2, y: stageRect.height / 2 };
+  }
+
+  function entityCenter(ent){
+    return {
+      x: Number(ent.x || 0) + Number(ent.size || 0) / 2,
+      y: Number(ent.y || 0) + Number(ent.size || 0) / 2
+    };
+  }
+
+  function dist2(ax, ay, bx, by){
+    const dx = ax - bx;
+    const dy = ay - by;
+    return dx*dx + dy*dy;
+  }
+
+  function getCvrFocusEntity(){
+    const viewMode = getViewMode();
+    if (viewMode !== 'cvr') return null;
+
+    const pt = getCrosshairPoint();
+    const alive = STATE.entities.filter(e => e && e.alive);
+    if (!alive.length) return null;
+
+    let best = null;
+    let bestD2 = Infinity;
+
+    for (const ent of alive){
+      const c = entityCenter(ent);
+      const d2 = dist2(pt.x, pt.y, c.x, c.y);
+      const focusRadius =
+        ent.type === 'bossface' ? 190 :
+        ent.type === 'normal' ? 170 :
+        ent.type === 'heal' || ent.type === 'shield' ? 160 : 150;
+
+      if (d2 <= focusRadius * focusRadius && d2 < bestD2){
+        best = ent;
+        bestD2 = d2;
+      }
+    }
+    return best;
+  }
+
+  function updateCvrFocusVisual(){
+    const viewMode = getViewMode();
+    if (viewMode !== 'cvr'){
+      STATE.cvrFocusId = null;
+      STATE.entities.forEach(e => e?.el?.classList?.remove('is-cvr-focus'));
+      return;
+    }
+
+    const focused = getCvrFocusEntity();
+    STATE.cvrFocusId = focused?.id || null;
+
+    for (const ent of STATE.entities){
+      ent?.el?.classList?.toggle('is-cvr-focus', !!focused && ent.id === focused.id);
+    }
   }
 
   function showBossSpeech(text, durMs=1800){
@@ -466,26 +550,59 @@
     el.setAttribute('aria-label', type);
 
     const stageRect = DOM.targetLayer.getBoundingClientRect();
-    const sizeBase = STATE.diff === 'easy' ? 92 : STATE.diff === 'hard' ? 70 : 80;
+    const viewMode = getViewMode();
+
+    const sizeBase =
+      viewMode === 'mobile'
+        ? (STATE.diff === 'easy' ? 98 : STATE.diff === 'hard' ? 76 : 86)
+        : viewMode === 'cvr'
+          ? (STATE.diff === 'easy' ? 120 : STATE.diff === 'hard' ? 92 : 104)
+          : (STATE.diff === 'easy' ? 92 : STATE.diff === 'hard' ? 70 : 80);
+
     const size =
       type === 'bossface' ? sizeBase + 18 :
       type === 'bomb' ? sizeBase - 8 :
       type === 'heal' || type === 'shield' ? sizeBase - 2 : sizeBase;
 
-    const padTop = 78;
-    const padBottom = 22;
-    const padSide = 12;
+    let padTop = 78;
+    let padBottom = 22;
+    let padSide = 12;
 
-    const w = Math.max(120, stageRect.width);
-    const h = Math.max(260, stageRect.height);
+    if (viewMode === 'mobile') {
+      padTop = 72; padBottom = 18; padSide = 10;
+    } else if (viewMode === 'pc') {
+      padTop = 70; padBottom = 16; padSide = 16;
+    } else if (viewMode === 'cvr') {
+      padTop = 90; padBottom = 40; padSide = 24;
+    }
 
-    const x = opts.x != null ? opts.x : padSide + STATE.rng() * Math.max(10, w - size - padSide*2);
-    const y = opts.y != null ? opts.y : padTop + STATE.rng() * Math.max(10, h - size - padTop - padBottom);
+    const w = Math.max(160, stageRect.width);
+    const h = Math.max(300, stageRect.height);
 
-    el.style.width = `${size}px`;
-    el.style.height = `${size}px`;
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
+    let spawnLeft = padSide;
+    let spawnRight = w - size - padSide;
+    let spawnTop = padTop;
+    let spawnBottom = h - size - padBottom;
+
+    if (viewMode === 'mobile') {
+      spawnTop = Math.max(64, h * 0.14);
+      spawnBottom = h - size - 18;
+    }
+
+    if (viewMode === 'pc') {
+      spawnRight = Math.max(spawnLeft + 40, w - size - 180);
+      spawnTop = Math.max(72, h * 0.16);
+    }
+
+    if (viewMode === 'cvr') {
+      spawnLeft = 24;
+      spawnRight = w - size - 24;
+      spawnTop = Math.max(96, h * 0.18);
+      spawnBottom = h - size - 48;
+    }
+
+    const x = opts.x != null ? opts.x : spawnLeft + STATE.rng() * Math.max(10, spawnRight - spawnLeft);
+    const y = opts.y != null ? opts.y : spawnTop + STATE.rng() * Math.max(10, spawnBottom - spawnTop);
 
     let emoji = '🎯';
     if(type === 'normal') emoji = choice(STATE.rng, ['🎯','⭐','✨']);
@@ -513,6 +630,11 @@
       alive:true,
       hit:false
     };
+
+    el.style.width = `${size}px`;
+    el.style.height = `${size}px`;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
 
     el.addEventListener('click', ()=>{
       onTapEntity(ent);
@@ -545,6 +667,11 @@
 
   function onTapEntity(ent){
     if(!STATE.isPlaying || STATE.isPaused || !ent || !ent.alive) return;
+
+    if (getViewMode() === 'cvr') {
+      const focused = getCvrFocusEntity();
+      if (!focused || focused.id !== ent.id) return;
+    }
 
     STATE.tapCount += 1;
     ent.hit = true;
@@ -604,11 +731,31 @@
     }
   }
 
+  function cvrShoot(){
+    if(!STATE.isPlaying || STATE.isPaused) return;
+    if (getViewMode() !== 'cvr') return;
+
+    const now = nowMs();
+    if (now - STATE.cvrLastShotMs < 160) return;
+    STATE.cvrLastShotMs = now;
+
+    const target = getCvrFocusEntity();
+    if (target){
+      logEvent('cvr_shoot_hit', { ent_id: target.id, ent_type: target.type });
+      onTapEntity(target);
+    } else {
+      STATE.tapCount += 1;
+      STATE.combo = 0;
+      logEvent('cvr_shoot_blank', {});
+      setCenterMsg('ยังไม่โดนเป้านะ', 260);
+      updateHud();
+    }
+  }
+
   function spawnPack(dtMs){
     STATE.spawnClock -= dtMs;
     if(STATE.spawnClock > 0) return;
 
-    const boss = currentBoss();
     const baseGap =
       STATE.diff === 'easy' ? 780 :
       STATE.diff === 'hard' ? 520 : 640;
@@ -643,7 +790,24 @@
       makeEntity(STATE.rng() < 0.5 ? 'heal' : 'shield');
     }
     if(STATE.rng() < bossFaceChance){
-      makeEntity('bossface');
+      const stageRect = DOM.targetLayer.getBoundingClientRect();
+      const viewMode = getViewMode();
+
+      let bx = null;
+      let by = null;
+
+      if (viewMode === 'mobile') {
+        bx = stageRect.width * (0.18 + STATE.rng() * 0.56);
+        by = stageRect.height * (0.28 + STATE.rng() * 0.42);
+      } else if (viewMode === 'pc') {
+        bx = stageRect.width * (0.14 + STATE.rng() * 0.46);
+        by = stageRect.height * (0.24 + STATE.rng() * 0.48);
+      } else if (viewMode === 'cvr') {
+        bx = stageRect.width * (0.16 + STATE.rng() * 0.58);
+        by = stageRect.height * (0.26 + STATE.rng() * 0.46);
+      }
+
+      makeEntity('bossface', { x: bx, y: by });
     }
   }
 
@@ -742,9 +906,9 @@
     const hubUrl = String(qs('hub','') || '../herohealth/hub.html');
     const teacherUrl = `../herohealth/teacher-panel.html?game=shadowbreaker&pid=${encodeURIComponent(STATE.pid)}`;
     const summaryUrl = `../herohealth/shadow-breaker-summary.html?pid=${encodeURIComponent(STATE.pid)}`;
-    const runUrl = `../herohealth/shadow-breaker-vr.html?pid=${encodeURIComponent(STATE.pid)}&diff=${encodeURIComponent(STATE.diff)}&time=${encodeURIComponent(Math.round(STATE.totalMs/1000))}&zone=fitness&hub=${encodeURIComponent(hubUrl)}`;
+    const runUrl = `../herohealth/shadow-breaker-vr.html?pid=${encodeURIComponent(STATE.pid)}&diff=${encodeURIComponent(STATE.diff)}&time=${encodeURIComponent(Math.round(STATE.totalMs/1000))}&view=${encodeURIComponent(getViewMode())}&zone=fitness&hub=${encodeURIComponent(hubUrl)}`;
 
-    const summary = {
+    const summaryBase = {
       game:'shadowbreaker',
       projectTag:'shadowbreaker',
       pid: STATE.pid,
@@ -771,16 +935,21 @@
       note: String(DOM.inputNote?.value || '').trim(),
       end_reason: endReason || 'ended',
       timestampIso: shortIsoNow(),
-      hub: hubUrl,
+      hub: hubUrl
+    };
+
+    const cooldownUrl = buildCooldownGateUrl(summaryBase);
+
+    return {
+      ...summaryBase,
       __extraJson: JSON.stringify({
         summaryUrl,
         teacherUrl,
         runUrl,
-        hubUrl
+        hubUrl,
+        cooldownUrl
       })
     };
-
-    return summary;
   }
 
   function persistSummary(summary){
@@ -846,6 +1015,15 @@
     }
   }
 
+  function goToCooldown(summary){
+    const target = buildCooldownGateUrl(summary);
+    try{
+      location.href = target;
+    }catch(_){
+      location.assign(target);
+    }
+  }
+
   function endGame(reason='ended'){
     if(STATE.isEnding) return;
     STATE.isEnding = true;
@@ -858,7 +1036,8 @@
     const summary = computeSummary(reason);
     persistSummary(summary);
     renderResult(summary);
-    setView('result');
+
+    goToCooldown(summary);
   }
 
   function resetRuntimeOnly(){
@@ -895,9 +1074,12 @@
     STATE.events = [];
     STATE.sessionSummary = null;
     STATE.latestBossBadge = null;
+    STATE.cvrFocusId = null;
+    STATE.cvrLastShotMs = 0;
 
     if(DOM.btnPause) DOM.btnPause.checked = false;
     resetTargetLayer();
+    updateCvrFocusVisual();
     updateHud();
   }
 
@@ -917,6 +1099,8 @@
   }
 
   function startGame(mode='normal'){
+    if (STATE.isPlaying && !STATE.isEnding) return;
+
     setUiMode(mode);
     resetRuntimeOnly();
 
@@ -936,8 +1120,13 @@
     STATE.bestReachedBoss = currentBoss().name;
 
     applyBossTheme(currentBoss());
+
     showBossSpeech(currentBoss().speech, 1800);
-    setCenterMsg('เริ่มเลย!', 900);
+    if (getViewMode() === 'cvr') {
+      setCenterMsg('แตะจอเพื่อยิงจากกลางจอ', 1200);
+    } else {
+      setCenterMsg('เริ่มเลย!', 900);
+    }
 
     STATE.isPlaying = true;
     STATE.isPaused = false;
@@ -950,7 +1139,8 @@
       mode: STATE.mode,
       diff: STATE.diff,
       time_sec: Math.round(STATE.totalMs/1000),
-      seed: STATE.seed
+      seed: STATE.seed,
+      view: getViewMode()
     });
 
     requestAnimationFrame(loop);
@@ -1005,6 +1195,7 @@
         return;
       }
 
+      updateCvrFocusVisual();
       updateHud();
     }
 
@@ -1045,6 +1236,22 @@
 
     DOM.tabNormal?.addEventListener('click', ()=> setUiMode('normal'));
     DOM.tabResearch?.addEventListener('click', ()=> setUiMode('research'));
+
+    DOM.targetLayer?.addEventListener('pointerdown', ()=>{
+      if (getViewMode() === 'cvr') cvrShoot();
+    });
+
+    DOC.addEventListener('keydown', (ev)=>{
+      if (getViewMode() !== 'cvr') return;
+      if (ev.code === 'Space' || ev.code === 'Enter') {
+        ev.preventDefault();
+        cvrShoot();
+      }
+    });
+
+    WIN.addEventListener('hha:shoot', ()=>{
+      if (getViewMode() === 'cvr') cvrShoot();
+    });
   }
 
   function initFromQuery(){
@@ -1052,32 +1259,55 @@
     if(hub && DOM.linkHub) DOM.linkHub.href = hub;
 
     const mode = String(qs('mode', qs('run','normal'))).toLowerCase();
-    setUiMode(mode === 'research' ? 'research' : 'normal');
+    const finalMode = (mode === 'research') ? 'research' : 'normal';
+    setUiMode(finalMode);
 
     if(DOM.inputDiff){
       const qDiff = String(qs('diff','normal')).toLowerCase();
       if(['easy','normal','hard'].includes(qDiff)) DOM.inputDiff.value = qDiff;
     }
+
     if(DOM.inputTime){
       const qTime = String(qs('time','70'));
-      DOM.inputTime.value = qTime;
+      if(qTime) DOM.inputTime.value = qTime;
     }
+
     if(DOM.inputPid){
       DOM.inputPid.value = String(qs('pid','anon')).trim() || 'anon';
     }
+
     if(DOM.inputGroup){
       DOM.inputGroup.value = String(qs('group','')).trim();
     }
 
+    const gameId = String(qs('game','')).toLowerCase();
+    const gatePhase = String(qs('phase','')).toLowerCase();
+    const gatePhase2 = String(qs('gatePhase','')).toLowerCase();
+    const gateSkip = String(qs('wgskip','0')).toLowerCase();
+    const warmupDone = String(qs('warmupDone','0')).toLowerCase();
     const auto = String(qs('auto','0')).toLowerCase();
-    const autostart = ['1','true','yes','on'].includes(auto);
-    if(autostart){
-      startGame(mode === 'research' ? 'research' : 'normal');
+
+    const fromWarmupGate =
+      gameId === 'shadowbreaker' && (
+        gateSkip === '1' ||
+        warmupDone === '1' ||
+        gatePhase === 'play' ||
+        gatePhase === 'game' ||
+        gatePhase2 === 'warmup'
+      );
+
+    const autostart =
+      ['1','true','yes','on'].includes(auto) ||
+      fromWarmupGate;
+
+    if (autostart) {
+      setTimeout(()=>{
+        startGame(finalMode);
+      }, 0);
     }
   }
 
   bindDom();
   initFromQuery();
   updateHud();
-
 })();
