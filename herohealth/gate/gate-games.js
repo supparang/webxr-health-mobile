@@ -1,488 +1,290 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260320-GATE-GAMES-ALL-ZONES-COMPLETE
+// FULL PATCH v20260317b-GATE-GAMES-ALIAS-ROBUST-RUN-CANDIDATES
 
 export const GATE_GAMES = {
-  // =========================================================
-  // HYGIENE ZONE
-  // =========================================================
+  bath: {
+    cat: 'hygiene',
+    label: 'Bath',
+    theme: 'bath',
+    warmupTitle: 'Bath Clean Hunt',
+    cooldownTitle: 'Bath Calm Bubbles',
+    files: {
+      warmup: './games/bath/warmup.js',
+      cooldown: './games/bath/cooldown.js',
+      style: './games/bath/style.css'
+    },
+    run: '../bath-vr.html',
+    runCandidates: ['../bath-vr.html']
+  },
+
   handwash: {
     cat: 'hygiene',
     label: 'Handwash',
     theme: 'handwash',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Handwash',
-    cooldownTitle: 'พักหลังเล่น Handwash',
-    phaseFiles: {
+    warmupTitle: 'Handwash Quick Prep',
+    cooldownTitle: 'Handwash Calm Check',
+    files: {
       warmup: './games/handwash/warmup.js',
-      cooldown: './games/handwash/cooldown.js'
+      cooldown: './games/handwash/cooldown.js',
+      style: './games/handwash/style.css'
     },
-    styleFile: './games/handwash/style.css',
     run: '../hygiene-vr.html',
-    runCandidates: [
-      '../hygiene-vr.html',
-      '../handwash-vr.html'
-    ]
+    runCandidates: ['../hygiene-vr.html', '../handwash-vr.html']
   },
 
   brush: {
     cat: 'hygiene',
     label: 'Brush',
     theme: 'brush',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Brush',
-    cooldownTitle: 'พักหลังเล่น Brush',
-    phaseFiles: {
+    warmupTitle: 'Brush Quick Prep',
+    cooldownTitle: 'Brush Calm Check',
+    files: {
       warmup: './games/brush/warmup.js',
-      cooldown: './games/brush/cooldown.js'
+      cooldown: './games/brush/cooldown.js',
+      style: './games/brush/style.css'
     },
-    styleFile: './games/brush/style.css',
     run: '../brush-vr.html',
-    runCandidates: [
-      '../brush-vr.html'
-    ]
+    runCandidates: ['../brush-vr.html']
   },
 
-  bath: {
+  clean: {
     cat: 'hygiene',
-    label: 'Bath',
-    theme: 'bath',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Bath',
-    cooldownTitle: 'พักหลังเล่น Bath',
-    phaseFiles: {
-      warmup: './games/bath/warmup.js',
-      cooldown: './games/bath/cooldown.js'
+    label: 'Clean Object',
+    theme: 'clean',
+    warmupTitle: 'Clean Object Quick Sort',
+    cooldownTitle: 'Clean Object Calm Review',
+    files: {
+      warmup: './games/cleanobject/warmup.js',
+      cooldown: './games/cleanobject/cooldown.js',
+      style: './games/cleanobject/style.css'
     },
-    styleFile: './games/bath/style.css',
-    run: '../bath-vr.html',
-    runCandidates: [
-      '../bath-vr.html'
-    ]
+    run: '../clean-objects.html',
+    runCandidates: ['../clean-objects.html', '../clean-object.html']
   },
 
   maskcough: {
     cat: 'hygiene',
-    label: 'Mask & Cough',
+    label: 'MaskCough',
     theme: 'maskcough',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Mask & Cough',
-    cooldownTitle: 'พักหลังเล่น Mask & Cough',
-    phaseFiles: {
+    warmupTitle: 'MaskCough Quick Prep',
+    cooldownTitle: 'MaskCough Calm Check',
+    files: {
       warmup: './games/maskcough/warmup.js',
-      cooldown: './games/maskcough/cooldown.js'
+      cooldown: './games/maskcough/cooldown.js',
+      style: './games/maskcough/style.css'
     },
-    styleFile: './games/maskcough/style.css',
     run: '../maskcough-vr.html',
-    runCandidates: [
-      '../maskcough-vr.html'
-    ]
+    runCandidates: ['../maskcough-vr.html']
   },
 
   germdetective: {
     cat: 'hygiene',
     label: 'Germ Detective',
     theme: 'germdetective',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Germ Detective',
-    cooldownTitle: 'พักหลังเล่น Germ Detective',
-    phaseFiles: {
+    warmupTitle: 'Germ Detective Scan',
+    cooldownTitle: 'Germ Detective Calm Review',
+    files: {
       warmup: './games/germdetective/warmup.js',
-      cooldown: './games/germdetective/cooldown.js'
+      cooldown: './games/germdetective/cooldown.js',
+      style: './games/germdetective/style.css'
     },
-    styleFile: './games/germdetective/style.css',
-    run: '../germ-detective-vr.html',
-    runCandidates: [
-      '../germ-detective-vr.html',
-      '../germ-detective.html'
-    ]
+    run: '../germ-detective.html',
+    runCandidates: ['../germ-detective.html', '../germ-detective-vr.html']
   },
 
-  cleanobjects: {
-    cat: 'hygiene',
-    label: 'Clean Objects',
-    theme: 'cleanobjects',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Clean Objects',
-    cooldownTitle: 'พักหลังเล่น Clean Objects',
-    phaseFiles: {
-      warmup: './games/cleanobjects/warmup.js',
-      cooldown: './games/cleanobjects/cooldown.js'
-    },
-    styleFile: './games/cleanobjects/style.css',
-    run: '../vr-clean/home-clean.html',
-    runCandidates: [
-      '../vr-clean/home-clean.html',
-      '../clean-objects.html',
-      '../clean-object.html'
-    ]
-  },
-
-  'cleanobjects-kids': {
-    cat: 'hygiene',
-    label: 'Clean Objects Kids',
-    theme: 'cleanobjects-kids',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Clean Objects Kids',
-    cooldownTitle: 'พักหลังเล่น Clean Objects Kids',
-    phaseFiles: {
-      warmup: './games/cleanobjects-kids/warmup.js',
-      cooldown: './games/cleanobjects-kids/cooldown.js'
-    },
-    styleFile: './games/cleanobjects-kids/style.css',
-    run: '../vr-clean/clean-kids.html',
-    runCandidates: [
-      '../vr-clean/clean-kids.html'
-    ]
-  },
-
-  // =========================================================
-  // NUTRITION ZONE
-  // =========================================================
   goodjunk: {
     cat: 'nutrition',
     label: 'GoodJunk',
     theme: 'goodjunk',
-    warmupTitle: 'วอร์มอัปก่อนเล่น GoodJunk',
-    cooldownTitle: 'พักหลังเล่น GoodJunk',
-    phaseFiles: {
+    warmupTitle: 'GoodJunk Quick Sort',
+    cooldownTitle: 'GoodJunk Calm Review',
+    files: {
       warmup: './games/goodjunk/warmup.js',
-      cooldown: './games/goodjunk/cooldown.js'
+      cooldown: './games/goodjunk/cooldown.js',
+      style: './games/goodjunk/style.css'
     },
-    styleFile: './games/goodjunk/style.css',
     run: '../goodjunk-launcher.html',
-    runCandidates: [
-      '../goodjunk-launcher.html',
-      '../goodjunk-vr.html'
-    ]
+    runCandidates: ['../goodjunk-launcher.html', '../goodjunk-vr.html']
   },
 
   groups: {
     cat: 'nutrition',
     label: 'Groups',
     theme: 'groups',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Groups',
-    cooldownTitle: 'พักหลังเล่น Groups',
-    phaseFiles: {
+    warmupTitle: 'Food Groups Quick Prep',
+    cooldownTitle: 'Food Groups Calm Review',
+    files: {
       warmup: './games/groups/warmup.js',
-      cooldown: './games/groups/cooldown.js'
+      cooldown: './games/groups/cooldown.js',
+      style: './games/groups/style.css'
     },
-    styleFile: './games/groups/style.css',
     run: '../groups-vr.html',
-    runCandidates: [
-      '../groups-vr.html'
-    ]
+    runCandidates: ['../groups-vr.html']
   },
 
   hydration: {
     cat: 'nutrition',
     label: 'Hydration',
     theme: 'hydration',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Hydration',
-    cooldownTitle: 'พักหลังเล่น Hydration',
-    phaseFiles: {
+    warmupTitle: 'Hydration Quick Prep',
+    cooldownTitle: 'Hydration Cooldown',
+    files: {
       warmup: './games/hydration/warmup.js',
-      cooldown: './games/hydration/cooldown.js'
+      cooldown: './games/hydration/cooldown.js',
+      style: './games/hydration/style.css'
     },
-    styleFile: './games/hydration/style.css',
     run: '../hydration-vr.html',
-    runCandidates: [
-      '../hydration-vr.html',
-      '../hydration-vr/hydration-vr.html'
-    ]
+    runCandidates: ['../hydration-vr.html', '../hydration-vr/hydration-vr.html']
   },
 
   plate: {
     cat: 'nutrition',
     label: 'Plate',
     theme: 'plate',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Plate',
-    cooldownTitle: 'พักหลังเล่น Plate',
-    phaseFiles: {
+    warmupTitle: 'Plate Quick Prep',
+    cooldownTitle: 'Plate Calm Review',
+    files: {
       warmup: './games/plate/warmup.js',
-      cooldown: './games/plate/cooldown.js'
+      cooldown: './games/plate/cooldown.js',
+      style: './games/plate/style.css'
     },
-    styleFile: './games/plate/style.css',
     run: '../plate-vr.html',
-    runCandidates: [
-      '../plate-vr.html'
-    ]
+    runCandidates: ['../plate-vr.html']
   },
 
-  platev1: {
-    cat: 'nutrition',
-    label: 'Plate V1',
-    theme: 'platev1',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Plate V1',
-    cooldownTitle: 'พักหลังเล่น Plate V1',
-    phaseFiles: {
-      warmup: './games/plate/warmup-v1.js',
-      cooldown: './games/plate/cooldown-v1.js'
-    },
-    styleFile: './games/plate/style.css',
-    run: '../plate/plate-v1.html',
-    runCandidates: [
-      '../plate/plate-v1.html',
-      '../plate-v1.html'
-    ]
-  },
-
-  // =========================================================
-  // EXERCISE ZONE
-  // =========================================================
-  shadowbreaker: {
+  shadow: {
     cat: 'exercise',
     label: 'Shadow Breaker',
-    theme: 'shadowbreaker',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Shadow Breaker',
-    cooldownTitle: 'พักหลังเล่น Shadow Breaker',
-    phaseFiles: {
+    theme: 'shadow',
+    warmupTitle: 'Shadow Breaker Warmup',
+    cooldownTitle: 'Shadow Breaker Cooldown',
+    files: {
       warmup: './games/shadowbreaker/warmup.js',
-      cooldown: './games/shadowbreaker/cooldown.js'
+      cooldown: './games/shadowbreaker/cooldown.js',
+      style: './games/shadowbreaker/style.css'
     },
-    styleFile: './games/shadowbreaker/style.css',
-    run: '../fitness/shadow-breaker.html',
-    runCandidates: [
-      '../fitness/shadow-breaker.html',
-      '../shadow-breaker-vr.html'
-    ]
+    run: '../shadow-breaker-vr.html',
+    runCandidates: ['../shadow-breaker-vr.html']
   },
 
-  rhythmboxer: {
+  rhythm: {
     cat: 'exercise',
     label: 'Rhythm Boxer',
-    theme: 'rhythmboxer',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Rhythm Boxer',
-    cooldownTitle: 'พักหลังเล่น Rhythm Boxer',
-    phaseFiles: {
+    theme: 'rhythm',
+    warmupTitle: 'Rhythm Boxer Warmup',
+    cooldownTitle: 'Rhythm Boxer Cooldown',
+    files: {
       warmup: './games/rhythmboxer/warmup.js',
-      cooldown: './games/rhythmboxer/cooldown.js'
+      cooldown: './games/rhythmboxer/cooldown.js',
+      style: './games/rhythmboxer/style.css'
     },
-    styleFile: './games/rhythmboxer/style.css',
-    run: '../fitness/rhythm-boxer.html',
-    runCandidates: [
-      '../fitness/rhythm-boxer.html',
-      '../rhythm-boxer-vr.html'
-    ]
+    run: '../rhythm-boxer-vr.html',
+    runCandidates: ['../rhythm-boxer-vr.html']
   },
 
   jumpduck: {
     cat: 'exercise',
     label: 'JumpDuck',
     theme: 'jumpduck',
-    warmupTitle: 'วอร์มอัปก่อนเล่น JumpDuck',
-    cooldownTitle: 'พักหลังเล่น JumpDuck',
-    phaseFiles: {
+    warmupTitle: 'JumpDuck Warmup',
+    cooldownTitle: 'JumpDuck Cooldown',
+    files: {
       warmup: './games/jumpduck/warmup.js',
-      cooldown: './games/jumpduck/cooldown.js'
+      cooldown: './games/jumpduck/cooldown.js',
+      style: './games/jumpduck/style.css'
     },
-    styleFile: './games/jumpduck/style.css',
-    run: '../fitness/jump-duck.html',
-    runCandidates: [
-      '../fitness/jump-duck.html',
-      '../jump-duck-vr.html'
-    ]
+    run: '../jump-duck-vr.html',
+    runCandidates: ['../jump-duck-vr.html']
   },
 
-  balancehold: {
+  balance: {
     cat: 'exercise',
     label: 'Balance Hold',
-    theme: 'balancehold',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Balance Hold',
-    cooldownTitle: 'พักหลังเล่น Balance Hold',
-    phaseFiles: {
+    theme: 'balance',
+    warmupTitle: 'Balance Hold Warmup',
+    cooldownTitle: 'Balance Hold Cooldown',
+    files: {
       warmup: './games/balancehold/warmup.js',
-      cooldown: './games/balancehold/cooldown.js'
+      cooldown: './games/balancehold/cooldown.js',
+      style: './games/balancehold/style.css'
     },
-    styleFile: './games/balancehold/style.css',
-    run: '../fitness/balance-hold.html',
-    runCandidates: [
-      '../fitness/balance-hold.html',
-      '../balance-hold-vr.html'
-    ]
+    run: '../balance-hold-vr.html',
+    runCandidates: ['../balance-hold-vr.html']
   },
 
-  fitnessplanner: {
+  planner: {
     cat: 'exercise',
     label: 'Fitness Planner',
-    theme: 'fitnessplanner',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Fitness Planner',
-    cooldownTitle: 'พักหลังเล่น Fitness Planner',
-    phaseFiles: {
+    theme: 'planner',
+    warmupTitle: 'Fitness Planner Warmup',
+    cooldownTitle: 'Fitness Planner Cooldown',
+    files: {
       warmup: './games/fitnessplanner/warmup.js',
-      cooldown: './games/fitnessplanner/cooldown.js'
+      cooldown: './games/fitnessplanner/cooldown.js',
+      style: './games/fitnessplanner/style.css'
     },
-    styleFile: './games/fitnessplanner/style.css',
-    run: '../fitness-planner.html',
-    runCandidates: [
-      '../fitness-planner.html',
-      './fitness-planner/planner.html'
-    ]
+    run: '../fitness-planner/planner.html',
+    runCandidates: ['../fitness-planner/planner.html', '../fitness-planner.html']
   }
 };
 
-// --------------------------------------------------
-// aliases / normalize
-// --------------------------------------------------
-const ALIASES = {
-  // =========================
-  // HYGIENE
-  // =========================
-  handwash: 'handwash',
-  'hand-wash': 'handwash',
-  hand_wash: 'handwash',
-  handwashvr: 'handwash',
-  'handwash-vr': 'handwash',
-  handwash_vr: 'handwash',
-
-  brush: 'brush',
-  brushvr: 'brush',
-  'brush-vr': 'brush',
-  brush_vr: 'brush',
-  toothbrush: 'brush',
-  brushing: 'brush',
-
-  bath: 'bath',
-  bathvr: 'bath',
-  'bath-vr': 'bath',
-  bath_vr: 'bath',
-
-  maskcough: 'maskcough',
-  'mask-cough': 'maskcough',
-  mask_cough: 'maskcough',
-  maskcoughvr: 'maskcough',
-  'maskcough-vr': 'maskcough',
-  maskcough_vr: 'maskcough',
-  maskcoughv2: 'maskcough',
-
-  germdetective: 'germdetective',
-  'germ-detective': 'germdetective',
-  germ_detective: 'germdetective',
-  germdetectivevr: 'germdetective',
-  'germdetective-vr': 'germdetective',
-  germdetective_vr: 'germdetective',
-  germ: 'germdetective',
-  germdetect: 'germdetective',
-
-  clean: 'cleanobjects',
-  'clean-object': 'cleanobjects',
-  'clean-objects': 'cleanobjects',
-  cleanobject: 'cleanobjects',
-  cleanobjects: 'cleanobjects',
-
-  'clean-kids': 'cleanobjects-kids',
-  'clean-kid': 'cleanobjects-kids',
-  'cleanobject-kids': 'cleanobjects-kids',
-  'cleanobjects-kids': 'cleanobjects-kids',
-  'clean-objects-kids': 'cleanobjects-kids',
-
-  // =========================
-  // NUTRITION
-  // =========================
-  goodjunk: 'goodjunk',
-  'good-junk': 'goodjunk',
-  good_junk: 'goodjunk',
-  goodjunkvr: 'goodjunk',
-  'goodjunk-vr': 'goodjunk',
-  goodjunk_vr: 'goodjunk',
-
-  groups: 'groups',
-  groupsvr: 'groups',
-  'groups-vr': 'groups',
-  groups_vr: 'groups',
-  foodgroups: 'groups',
-  'food-groups': 'groups',
-  food_groups: 'groups',
-  foodgroup: 'groups',
-
-  hydration: 'hydration',
-  hydrationvr: 'hydration',
-  'hydration-vr': 'hydration',
-  hydration_vr: 'hydration',
-  watergame: 'hydration',
-
-  plate: 'plate',
-  platevr: 'plate',
-  'plate-vr': 'plate',
-  plate_vr: 'plate',
-  balancedplate: 'plate',
-  'balanced-plate': 'plate',
-  balanced_plate: 'plate',
-
-  platev1: 'platev1',
-  'plate-v1': 'platev1',
-  plate_v1: 'platev1',
-  platev1vr: 'platev1',
-  'platev1-vr': 'platev1',
-  platev1_vr: 'platev1',
-  balancedplatev1: 'platev1',
-  'balanced-plate-v1': 'platev1',
-  balanced_plate_v1: 'platev1',
-
-  // =========================
-  // EXERCISE
-  // =========================
-  shadowbreaker: 'shadowbreaker',
-  'shadow-breaker': 'shadowbreaker',
-  shadow_breaker: 'shadowbreaker',
-  shadow: 'shadowbreaker',
-  shadowvr: 'shadowbreaker',
-  'shadow-vr': 'shadowbreaker',
-  shadow_vr: 'shadowbreaker',
-
-  rhythmboxer: 'rhythmboxer',
-  'rhythm-boxer': 'rhythmboxer',
-  rhythm_boxer: 'rhythmboxer',
-  rhythm: 'rhythmboxer',
-  rhythmvr: 'rhythmboxer',
-  'rhythm-vr': 'rhythmboxer',
-  rhythm_vr: 'rhythmboxer',
-
-  jumpduck: 'jumpduck',
-  'jump-duck': 'jumpduck',
-  jump_duck: 'jumpduck',
-  jumpduckvr: 'jumpduck',
-  'jumpduck-vr': 'jumpduck',
-  jumpduck_vr: 'jumpduck',
-
-  balancehold: 'balancehold',
-  'balance-hold': 'balancehold',
-  balance_hold: 'balancehold',
-  balance: 'balancehold',
-  balancevr: 'balancehold',
-  'balance-vr': 'balancehold',
-  balance_vr: 'balancehold',
-
-  fitnessplanner: 'fitnessplanner',
-  'fitness-planner': 'fitnessplanner',
-  fitness_planner: 'fitnessplanner',
-  planner: 'fitnessplanner',
-  plannervr: 'fitnessplanner',
-  'planner-vr': 'fitnessplanner',
-  planner_vr: 'fitnessplanner'
-};
-
-export function normalizeGameId(v=''){
-  const raw = String(v || '').trim().toLowerCase();
-  if(!raw) return '';
-  return ALIASES[raw] || raw;
+function squashId(id=''){
+  return String(id || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9_-]/g, '');
 }
 
-export function getGameMeta(game=''){
-  return GATE_GAMES[normalizeGameId(game)] || null;
+export function normalizeGameId(id=''){
+  const s = squashId(id);
+  if (!s) return '';
+
+  if (['bath','bathvr','bath-vr','bath_vr'].includes(s)) return 'bath';
+  if (['handwash','hand-wash','hand_wash','handwashvr','handwash-vr','handwash_vr'].includes(s)) return 'handwash';
+  if (['brush','brushvr','brush-vr','brush_vr','toothbrush','brushing'].includes(s)) return 'brush';
+  if (['clean','cleanobject','clean-object','clean_object','cleanobjects','clean-objects','clean_objects'].includes(s)) return 'clean';
+  if (['maskcough','mask-cough','mask_cough','maskcoughvr','maskcough-vr','maskcough_vr','maskcoughv2'].includes(s)) return 'maskcough';
+  if (['germdetective','germ-detective','germ_detective','germdetectivevr','germdetective-vr','germdetective_vr','germ','germdetect'].includes(s)) return 'germdetective';
+
+  if (['goodjunk','good-junk','good_junk','goodjunkvr','goodjunk-vr','goodjunk_vr'].includes(s)) return 'goodjunk';
+  if (['groups','groupsvr','groups-vr','groups_vr','foodgroups','food-groups','food_groups','foodgroup'].includes(s)) return 'groups';
+  if (['hydration','hydrationvr','hydration-vr','hydration_vr','watergame'].includes(s)) return 'hydration';
+  if (['plate','platevr','plate-vr','plate_vr','balancedplate','balanced-plate','balanced_plate'].includes(s)) return 'plate';
+
+  if (['shadow','shadowvr','shadow-vr','shadow_vr','shadowbreaker','shadow-breaker','shadow_breaker'].includes(s)) return 'shadow';
+  if (['rhythm','rhythmvr','rhythm-vr','rhythm_vr','rhythmboxer','rhythm-boxer','rhythm_boxer'].includes(s)) return 'rhythm';
+  if (['jumpduck','jump-duck','jump_duck','jumpduckvr','jumpduck-vr','jumpduck_vr'].includes(s)) return 'jumpduck';
+  if (['balance','balancevr','balance-vr','balance_vr','balancehold','balance-hold','balance_hold'].includes(s)) return 'balance';
+  if (['planner','fitnessplanner','fitness-planner','fitness_planner','plannervr','planner-vr','planner_vr'].includes(s)) return 'planner';
+
+  return s;
 }
 
-export function getPhaseFile(game='', mode='warmup'){
-  const meta = getGameMeta(game);
-  if(!meta || !meta.phaseFiles) return '';
-  return meta.phaseFiles[String(mode || '').toLowerCase()] || '';
+export function getGameMeta(gameId=''){
+  const id = normalizeGameId(gameId);
+  return GATE_GAMES[id] || null;
 }
 
-export function getGameStyleFile(game=''){
-  const meta = getGameMeta(game);
-  return meta?.styleFile || '';
+export function getPhaseFile(gameId='', phase='warmup'){
+  const meta = getGameMeta(gameId);
+  if (!meta || !meta.files) return '';
+  return phase === 'cooldown' ? meta.files.cooldown : meta.files.warmup;
 }
 
-export function getRunFile(game=''){
-  const meta = getGameMeta(game);
+export function getGameStyleFile(gameId=''){
+  const meta = getGameMeta(gameId);
+  return meta?.files?.style || '';
+}
+
+export function getRunFile(gameId=''){
+  const meta = getGameMeta(gameId);
   return meta?.run || '';
 }
 
-export function getRunCandidates(game=''){
-  const meta = getGameMeta(game);
+export function getRunCandidates(gameId=''){
+  const meta = getGameMeta(gameId);
   const list = Array.isArray(meta?.runCandidates) ? meta.runCandidates : [];
   if (list.length) return list.filter(Boolean);
   return meta?.run ? [meta.run] : [];
