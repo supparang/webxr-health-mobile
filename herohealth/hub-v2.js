@@ -46,7 +46,7 @@
       options: [
         { label: 'Plate', sub: 'จัดจานอาหารให้ครบ 5 หมู่', url: './plate-v1.html' },
         { label: 'Groups', sub: 'แยกอาหารตามหมู่', url: './group-v1.html' },
-        { label: 'GoodJunk VR', sub: 'เลือกอาหารดี หลบอาหารขยะ', url: './goodjunk-vr.html' },
+        { label: 'GoodJunk VR', sub: 'เลือกอาหารดี หลบอาหารขยะ', url: './goodjunk-launcher.html' },
         { label: 'Hydration VR', sub: 'ดื่มน้ำให้พอดีและดูแลร่างกาย', url: './hydration-vr.html' }
       ]
     },
