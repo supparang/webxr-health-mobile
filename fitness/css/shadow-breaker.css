@@ -1049,3 +1049,217 @@ button,input,select{
   .sb-panel,.sb-play{ padding:12px; }
   .sb-bars-top,.sb-bars-bottom{ grid-template-columns:1fr; }
 }
+
+/* === CHILD-FRIENDLY SOFT HEROHEALTH THEME === */
+
+.sb-theme-kidsoft{
+  --sb-theme1: rgba(125, 211, 252, .26);
+  --sb-theme2: rgba(254, 249, 195, .22);
+  --sb-themeBorder: rgba(147, 197, 253, .30);
+
+  --sb-bg1:#dff4ff;
+  --sb-bg2:#fff7da;
+  --sb-text:#4d4a42;
+  --sb-muted:#7b7a72;
+  --sb-panel:rgba(255,253,246,.88);
+  --sb-panel2:rgba(248,255,243,.86);
+  --sb-stroke:rgba(191,227,242,.92);
+}
+
+.sb-theme-kidsoft,
+.sb-theme-kidsoft body{
+  color:var(--sb-text);
+}
+
+.sb-theme-kidsoft{
+  background:
+    radial-gradient(circle at 18% 12%, rgba(127,207,255,.28), transparent 36%),
+    radial-gradient(circle at 84% 10%, rgba(255,220,120,.22), transparent 32%),
+    linear-gradient(180deg, #dff4ff 0%, #eefcff 42%, #fff7da 100%);
+}
+
+.sb-theme-kidsoft .sb-header,
+.sb-theme-kidsoft .sb-panel,
+.sb-theme-kidsoft .sb-play,
+.sb-theme-kidsoft .sb-result-card,
+.sb-theme-kidsoft .sb-fever,
+.sb-theme-kidsoft .sb-bars-compact,
+.sb-theme-kidsoft .sb-meta,
+.sb-theme-kidsoft .sb-res-badge{
+  background:var(--sb-panel);
+  border-color:var(--sb-stroke);
+  color:var(--sb-text);
+  box-shadow:0 14px 30px rgba(111,157,183,.14);
+}
+
+.sb-theme-kidsoft .sb-stage{
+  background:
+    radial-gradient(circle at 50% 18%, rgba(125,211,252,.20), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,.45), rgba(233,248,255,.85) 58%, rgba(255,248,220,.88));
+  border-color:rgba(147,197,253,.34);
+}
+
+.sb-theme-kidsoft .sb-stage-backdrop{
+  background:
+    radial-gradient(circle at 50% 20%, rgba(125,211,252,.18), transparent 36%),
+    linear-gradient(180deg, transparent, rgba(255,255,255,.16));
+}
+
+.sb-theme-kidsoft .sb-kicker,
+.sb-theme-kidsoft .sb-mode-desc,
+.sb-theme-kidsoft .sb-label,
+.sb-theme-kidsoft .sb-mini-note,
+.sb-theme-kidsoft .sb-fever-head .k,
+.sb-theme-kidsoft .sb-row .k,
+.sb-theme-kidsoft .sb-bar-label,
+.sb-theme-kidsoft .sb-stat .k{
+  color:var(--sb-muted);
+}
+
+.sb-theme-kidsoft .sb-title,
+.sb-theme-kidsoft .sb-result-title,
+.sb-theme-kidsoft .sb-boss-name,
+.sb-theme-kidsoft .sb-meta-name,
+.sb-theme-kidsoft .sb-res-badge-title,
+.sb-theme-kidsoft .sb-result-card .v{
+  color:#5a4a3f;
+}
+
+.sb-theme-kidsoft .sb-sub,
+.sb-theme-kidsoft .sb-meta-desc,
+.sb-theme-kidsoft .sb-res-badge-desc{
+  color:#786c61;
+}
+
+.sb-theme-kidsoft .sb-input{
+  background:rgba(255,255,255,.86);
+  border-color:rgba(191,227,242,.92);
+  color:#4d4a42;
+}
+
+.sb-theme-kidsoft .sb-input:focus{
+  border-color:#7fcfff;
+  box-shadow:0 0 0 3px rgba(127,207,255,.20);
+}
+
+.sb-theme-kidsoft .sb-btn,
+.sb-theme-kidsoft .sb-link,
+.sb-theme-kidsoft .sb-mode-btn,
+.sb-theme-kidsoft .sb-fever-btn{
+  border-radius:18px;
+  border-color:rgba(191,227,242,.96);
+  background:linear-gradient(180deg, #ffffff, #f7fff3);
+  color:#5b513f;
+  box-shadow:0 8px 16px rgba(111,157,183,.12);
+}
+
+.sb-theme-kidsoft .sb-btn-primary,
+.sb-theme-kidsoft .sb-mode-btn.is-active{
+  background:linear-gradient(180deg, #8fe388, #58c33f);
+  border-color:#75cf63;
+  color:#fffdf6;
+}
+
+.sb-theme-kidsoft .sb-btn-ghost{
+  background:linear-gradient(180deg, #eef9ff, #e3f5ff);
+  color:#5d6a70;
+}
+
+.sb-theme-kidsoft .sb-fever-btn{
+  background:linear-gradient(180deg, #ffd96a, #ffbe3b);
+  border-color:#f4bb39;
+  color:#6a4a00;
+}
+
+.sb-theme-kidsoft .sb-bar-track,
+.sb-theme-kidsoft .sb-fever-track{
+  background:rgba(210,236,246,.82);
+  border-color:rgba(191,227,242,.92);
+}
+
+.sb-theme-kidsoft .sb-bar-fill{
+  background:linear-gradient(90deg, #7ed957, #58c33f);
+}
+
+.sb-theme-kidsoft .sb-bar-fill.boss{
+  background:linear-gradient(90deg, #ffcf66, #ff9651);
+}
+
+.sb-theme-kidsoft .sb-fever-fill{
+  background:linear-gradient(90deg, #ffd45c, #ffb83f);
+}
+
+.sb-theme-kidsoft .sb-stat,
+.sb-theme-kidsoft .sb-msg-main,
+.sb-theme-kidsoft .sb-boss-banner,
+.sb-theme-kidsoft .sb-boss-speech-bubble{
+  background:rgba(255,252,244,.90);
+  border-color:rgba(191,227,242,.92);
+  color:#5a4a3f;
+}
+
+.sb-theme-kidsoft .sb-target{
+  border-width:4px;
+  border-color:rgba(255,255,255,.92);
+  box-shadow:
+    0 10px 22px rgba(111,157,183,.16),
+    0 0 0 8px rgba(255,255,255,.38);
+}
+
+.sb-theme-kidsoft .sb-target--normal{
+  background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.88), rgba(126,217,87,.72));
+}
+
+.sb-theme-kidsoft .sb-target--bossface{
+  background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.88), rgba(255,196,94,.78));
+}
+
+.sb-theme-kidsoft .sb-target--bomb{
+  background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.72), rgba(255,118,118,.78));
+}
+
+.sb-theme-kidsoft .sb-target--decoy{
+  background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.72), rgba(180,191,205,.72));
+}
+
+.sb-theme-kidsoft .sb-target--heal{
+  background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.80), rgba(125,232,170,.78));
+}
+
+.sb-theme-kidsoft .sb-target--shield{
+  background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.80), rgba(144,191,255,.78));
+}
+
+.sb-theme-kidsoft .sb-boss-banner-title{
+  color:#4f8f2c;
+}
+
+.sb-theme-kidsoft .sb-boss-banner-sub,
+.sb-theme-kidsoft .sb-fever-hint{
+  color:#7a6a3c;
+}
+
+.sb-theme-kidsoft .sb-result-card{
+  background:rgba(255,255,255,.70);
+}
+
+.sb-theme-kidsoft .sb-res-message{
+  background:linear-gradient(180deg, #dff4ff, #eefcff);
+  border-color:#bfe3f2;
+  color:#5b6670;
+}
+
+.sb-theme-kidsoft .sb-res-badge{
+  background:linear-gradient(180deg, #fffdf6, #f8fff3);
+}
+
+.sb-theme-kidsoft .sb-cvr-ring{
+  border-color:rgba(255,255,255,.95);
+  box-shadow:
+    0 0 0 6px rgba(255,255,255,.16),
+    0 0 18px rgba(127,207,255,.24);
+}
+
+.sb-theme-kidsoft .sb-cvr-dot{
+  background:#fff;
+}
