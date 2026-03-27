@@ -5,760 +5,1158 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk Multiplayer</title>
   <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="../favicon.ico" />
   <style>
     :root{
       --sky1:#dff4ff;
       --sky2:#bfe8ff;
       --sky3:#fff7d8;
+      --bg:#f4fbff;
+
       --card:#fffdf6;
       --card2:#f8fff3;
+      --panel:#ffffffd9;
+
       --line:#bfe3f2;
-      --text:#4d4a42;
-      --muted:#7b7a72;
+      --line-strong:#98d4ec;
+
+      --text:#334155;
+      --text-strong:#20324d;
+      --muted:#6b7b93;
 
       --green:#7ed957;
       --green2:#58c33f;
       --blue:#7fcfff;
       --blue2:#58b7f5;
-      --yellow:#ffd45c;
-      --orange:#ffb547;
-      --pink:#ffa9c9;
-      --violet:#cdb9ff;
+      --violet:#b69cff;
+      --violet2:#8b6df5;
+      --pink:#ffb3cc;
+      --pink2:#ff7ea8;
+      --orange:#ffd37a;
+      --orange2:#f8aa2b;
 
-      --shadow:0 18px 40px rgba(86,155,194,.16);
+      --shadow:0 16px 34px rgba(63,114,155,.16);
+      --radius:26px;
+      --radius-sm:18px;
 
-      --sat:env(safe-area-inset-top,0px);
-      --sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);
-      --sal:env(safe-area-inset-left,0px);
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
     }
 
     *{ box-sizing:border-box; }
-
-    html,body{
-      margin:0;
-      min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    html,body{ margin:0; min-height:100%; }
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
-        radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
+        radial-gradient(1100px 560px at 10% -10%, rgba(127,207,255,.42), transparent 60%),
+        radial-gradient(900px 420px at 100% 0%, rgba(255,211,122,.34), transparent 55%),
+        linear-gradient(180deg, var(--sky1), var(--sky2) 44%, var(--bg));
+      padding:calc(10px + var(--sat)) 12px calc(16px + var(--sab));
     }
 
-    body{
-      min-height:100dvh;
-      padding:
-        calc(18px + var(--sat))
-        calc(16px + var(--sar))
-        calc(20px + var(--sab))
-        calc(16px + var(--sal));
+    .clouds,
+    .clouds::before,
+    .clouds::after{
+      content:"";
+      position:fixed;
+      inset:auto;
+      pointer-events:none;
+      z-index:0;
+      filter:blur(1px);
+    }
+    .clouds{
+      top:90px; left:6%;
+      width:180px; height:56px;
+      background:rgba(255,255,255,.55);
+      border-radius:999px;
+      box-shadow:0 0 0 14px rgba(255,255,255,.22);
+    }
+    .clouds::before{
+      top:-20px; left:18px;
+      width:82px; height:82px;
+      background:rgba(255,255,255,.7);
+      border-radius:50%;
+    }
+    .clouds::after{
+      top:-10px; left:84px;
+      width:62px; height:62px;
+      background:rgba(255,255,255,.68);
+      border-radius:50%;
     }
 
-    .wrap{
-      max-width:1180px;
+    .shell{
+      position:relative;
+      z-index:1;
+      width:min(1180px, 100%);
       margin:0 auto;
+      display:grid;
+      gap:14px;
     }
 
     .hero{
-      margin-bottom:18px;
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:30px;
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:14px;
+    }
+
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.94), rgba(255,253,246,.92));
+      border:1.5px solid var(--line);
+      border-radius:var(--radius);
       box-shadow:var(--shadow);
-      padding:22px 18px;
-      position:relative;
       overflow:hidden;
     }
 
-    .hero::before{
-      content:"";
-      position:absolute;
-      left:-40px;
-      top:-40px;
-      width:160px;
-      height:160px;
-      border-radius:999px;
-      background:rgba(127,207,255,.20);
-      filter:blur(8px);
+    .panel-inner{
+      padding:18px;
     }
 
-    .hero::after{
-      content:"";
-      position:absolute;
-      right:-28px;
-      bottom:-28px;
-      width:140px;
-      height:140px;
-      border-radius:999px;
-      background:rgba(255,212,92,.22);
-      filter:blur(8px);
-    }
-
-    .kicker{
+    .hero-card{
       position:relative;
-      z-index:1;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:#eaf8ff;
-      border:2px solid var(--line);
-      color:#5ea8d0;
-      font-size:13px;
-      font-weight:1000;
-      margin-bottom:12px;
+      overflow:hidden;
+      min-height:210px;
+      background:
+        radial-gradient(350px 180px at 10% 15%, rgba(127,207,255,.26), transparent 60%),
+        radial-gradient(340px 180px at 90% 12%, rgba(255,211,122,.26), transparent 58%),
+        linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,255,243,.95));
     }
 
-    h1{
-      position:relative;
-      z-index:1;
-      margin:0 0 8px;
-      font-size:clamp(30px,5vw,46px);
-      line-height:1.05;
-      font-weight:1000;
-      color:#67a91c;
-      text-shadow:0 2px 0 #fff;
+    .hero-title{
+      display:flex;
+      gap:14px;
+      align-items:flex-start;
+    }
+
+    .hero-badge{
+      width:78px;
+      height:78px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      font-size:38px;
+      background:linear-gradient(180deg, #fff8d8, #dff4ff);
+      border:1.5px solid var(--line-strong);
+      box-shadow:0 12px 24px rgba(109,164,201,.18);
+      flex:0 0 auto;
+    }
+
+    h1,h2,h3,p{ margin:0; }
+
+    .hero h1{
+      font-size:clamp(24px, 4vw, 36px);
+      line-height:1.08;
+      color:var(--text-strong);
+      margin-bottom:8px;
     }
 
     .sub{
-      position:relative;
-      z-index:1;
-      margin:0;
       color:var(--muted);
-      line-height:1.7;
+      line-height:1.55;
       font-size:15px;
-      font-weight:900;
-      max-width:860px;
     }
 
     .pill-row{
-      position:relative;
-      z-index:1;
       display:flex;
-      gap:8px;
       flex-wrap:wrap;
+      gap:8px;
       margin-top:14px;
     }
 
     .pill{
       display:inline-flex;
       align-items:center;
-      gap:6px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:2px solid var(--line);
-      background:#fff;
-      color:#6c6a61;
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-    }
-
-    .layout{
-      display:grid;
-      gap:16px;
-      grid-template-columns:380px 1fr;
-    }
-
-    @media (max-width:980px){
-      .layout{ grid-template-columns:1fr; }
-    }
-
-    .card{
-      background:linear-gradient(180deg,#fffef8,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:28px;
-      padding:16px;
-      box-shadow:var(--shadow);
-    }
-
-    .card h2{
-      margin:0 0 8px;
-      font-size:22px;
-      color:#67a91c;
-    }
-
-    .muted{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.65;
-      font-weight:900;
-    }
-
-    .form-grid{
-      display:grid;
-      gap:12px;
-      margin-top:12px;
-    }
-
-    .field{
-      display:grid;
-      gap:6px;
-    }
-
-    .field label{
-      font-size:13px;
-      font-weight:1000;
-      color:#6f6c65;
-    }
-
-    input,select,textarea{
-      width:100%;
-      border-radius:18px;
-      border:2px solid var(--line);
-      background:#fff;
-      color:var(--text);
-      padding:12px 14px;
-      font:inherit;
-      min-height:48px;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-
-    textarea{
-      min-height:92px;
-      resize:vertical;
-    }
-
-    .tiny{
-      font-size:12px;
-      color:#8a887f;
-      line-height:1.6;
-      font-weight:900;
-    }
-
-    .mode-tabs{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-bottom:14px;
-    }
-
-    .tab-btn{
-      appearance:none;
-      border:0;
-      cursor:pointer;
-      border-radius:18px;
-      padding:12px 16px;
-      font-weight:1000;
-      font-size:15px;
-      transition:.12s ease;
-      box-shadow:0 10px 20px rgba(86,155,194,.14);
-      color:#fffef9;
-    }
-
-    .tab-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
-    .tab-btn:active{ transform:translateY(0); }
-
-    .tab-race{ background:linear-gradient(180deg,var(--blue),var(--blue2)); }
-    .tab-battle{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#6d4e00; }
-    .tab-coop{ background:linear-gradient(180deg,#dccfff,var(--violet)); }
-
-    .tab-btn.is-active{
-      outline:4px solid rgba(255,255,255,.55);
-    }
-
-    .panel{
-      display:grid;
-      gap:14px;
-    }
-
-    .mode-head{
-      display:grid;
-      gap:6px;
-    }
-
-    .mode-badge{
-      display:inline-flex;
-      align-items:center;
       gap:8px;
-      width:max-content;
-      padding:7px 12px;
+      padding:10px 14px;
       border-radius:999px;
-      font-size:12px;
-      font-weight:1000;
-      border:2px solid var(--line);
-      background:#fff;
-    }
-
-    .mode-title{
-      margin:0;
-      font-size:28px;
-      line-height:1.08;
-      font-weight:1000;
-      color:var(--text);
-    }
-
-    .mode-desc{
-      color:var(--muted);
-      line-height:1.7;
-      font-size:14px;
-      font-weight:900;
-      margin:0;
-    }
-
-    .grid2{
-      display:grid;
-      gap:14px;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-    }
-
-    @media (max-width:760px){
-      .grid2{ grid-template-columns:1fr; }
-    }
-
-    .mini-card{
-      border-radius:24px;
-      border:2px solid var(--line);
-      background:#fff;
-      padding:14px;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-
-    .mini-card h3{
-      margin:0 0 8px;
-      font-size:18px;
-      color:#67a91c;
-    }
-
-    .steps{
-      display:grid;
-      gap:6px;
-      color:#6e6b63;
+      background:rgba(255,255,255,.8);
+      border:1px solid var(--line);
+      color:var(--text-strong);
+      font-weight:800;
       font-size:13px;
-      line-height:1.55;
-      font-weight:900;
+      box-shadow:0 6px 14px rgba(127,170,200,.08);
     }
 
-    .status{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      width:max-content;
-      padding:8px 12px;
-      border-radius:999px;
-      border:2px solid var(--line);
-      background:#fff;
-      color:#6c6a61;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .actions{
+    .top-actions{
       display:flex;
-      gap:10px;
       flex-wrap:wrap;
-      margin-top:2px;
+      gap:10px;
+      margin-top:16px;
     }
 
     .btn{
       appearance:none;
-      border:0;
+      border:none;
       cursor:pointer;
       border-radius:18px;
-      padding:13px 18px;
-      font-weight:1000;
-      font-size:15px;
-      transition:.12s ease;
-      box-shadow:0 10px 20px rgba(86,155,194,.14);
+      padding:13px 16px;
+      font-size:16px;
+      font-weight:900;
+      color:#20324d;
+      box-shadow:0 12px 24px rgba(85,140,175,.14);
+      transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;
     }
 
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .btn:hover{ transform:translateY(-1px); }
     .btn:active{ transform:translateY(0); }
+    .btn:disabled{ cursor:not-allowed; opacity:.6; transform:none; }
 
     .btn-primary{
-      background:linear-gradient(180deg,var(--green),var(--green2));
-      color:#fffef9;
+      background:linear-gradient(180deg, #ffe28f, #f7b733);
     }
 
-    .btn-copy{
-      background:linear-gradient(180deg,var(--blue),var(--blue2));
-      color:#fffef9;
+    .btn-secondary{
+      background:linear-gradient(180deg, #d8f2ff, #8fd6ff);
+    }
+
+    .btn-soft{
+      background:linear-gradient(180deg, #ffddeb, #ffb8d0);
     }
 
     .btn-ghost{
-      background:#fff;
-      color:#6d6a62;
-      border:2px solid var(--line);
+      background:linear-gradient(180deg, #ffffff, #f6fbff);
+      border:1px solid var(--line);
     }
 
-    .share-box{
-      display:grid;
-      gap:10px;
-      padding:12px;
-      border-radius:20px;
-      border:2px dashed var(--line);
-      background:#fdfefe;
-    }
-
-    .share-link{
-      word-break:break-all;
-      color:#5c95b4;
+    .helper{
       font-size:13px;
-      line-height:1.6;
-      font-weight:900;
+      color:var(--muted);
+      margin-top:8px;
+      line-height:1.45;
     }
 
-    .route-box{
-      margin-top:10px;
-      padding-top:10px;
-      border-top:1px dashed rgba(191,227,242,.95);
-      color:#8b887f;
+    .modes{
+      display:grid;
+      grid-template-columns:repeat(4, 1fr);
+      gap:14px;
+    }
+
+    .mode-card{
+      position:relative;
+      border:1.5px solid var(--line);
+      border-radius:24px;
+      padding:16px;
+      background:linear-gradient(180deg, rgba(255,255,255,.94), rgba(248,255,243,.92));
+      box-shadow:var(--shadow);
+      cursor:pointer;
+      transition:transform .14s ease, border-color .14s ease, box-shadow .14s ease;
+      min-height:220px;
+    }
+
+    .mode-card:hover{
+      transform:translateY(-2px);
+      border-color:var(--line-strong);
+    }
+
+    .mode-card.active{
+      border-color:#6db8f2;
+      box-shadow:0 18px 34px rgba(91,164,219,.2);
+      background:linear-gradient(180deg, #ffffff, #f2fbff);
+    }
+
+    .mode-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:12px;
+    }
+
+    .mode-icon{
+      width:60px;
+      height:60px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      border:1.5px solid var(--line);
+      background:#fff;
+      flex:0 0 auto;
+    }
+
+    .mode-tag{
+      border-radius:999px;
+      padding:8px 10px;
       font-size:12px;
-      line-height:1.65;
       font-weight:900;
-      white-space:pre-wrap;
+      color:#29496c;
+      background:#fff;
+      border:1px solid var(--line);
+      white-space:nowrap;
+    }
+
+    .mode-title{
+      font-size:22px;
+      font-weight:900;
+      color:var(--text-strong);
+      margin-bottom:8px;
+    }
+
+    .mode-desc{
+      font-size:14px;
+      line-height:1.55;
+      color:var(--muted);
+      min-height:66px;
+    }
+
+    .mode-points{
+      display:grid;
+      gap:8px;
+      margin-top:12px;
+    }
+
+    .mode-point{
+      display:flex;
+      gap:8px;
+      align-items:flex-start;
+      font-size:13px;
+      color:#47607d;
+      line-height:1.45;
+      font-weight:700;
+    }
+
+    .mode-check{
+      width:20px;
+      height:20px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      font-size:12px;
+      background:#fff;
+      border:1px solid var(--line);
+      flex:0 0 auto;
+      margin-top:1px;
+    }
+
+    .setup-grid{
+      display:grid;
+      grid-template-columns:1fr .95fr;
+      gap:14px;
+    }
+
+    .fields{
+      display:grid;
+      gap:12px;
+    }
+
+    .field{
+      display:grid;
+      gap:8px;
+    }
+
+    .field label{
+      font-weight:900;
+      color:var(--text-strong);
+      font-size:14px;
+    }
+
+    .input,
+    .select{
+      width:100%;
+      border:none;
+      outline:none;
+      border-radius:18px;
+      padding:14px 16px;
+      background:#fff;
+      border:1.5px solid var(--line);
+      color:var(--text-strong);
+      font-size:16px;
+      font-weight:800;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.6);
+    }
+
+    .field-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .preview{
+      display:grid;
+      gap:12px;
+      border:1.5px dashed var(--line-strong);
+      border-radius:24px;
+      padding:16px;
+      background:linear-gradient(180deg, rgba(223,244,255,.48), rgba(255,255,255,.72));
+      min-height:100%;
+    }
+
+    .preview-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .preview-title{
+      font-size:18px;
+      font-weight:900;
+      color:var(--text-strong);
+    }
+
+    .preview-badge{
+      border-radius:999px;
+      padding:8px 10px;
+      background:#fff;
+      border:1px solid var(--line);
+      font-size:12px;
+      font-weight:900;
+      color:#43617f;
+    }
+
+    .room-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:fit-content;
+      padding:12px 14px;
+      border-radius:16px;
+      background:#fff;
+      border:1.5px solid var(--line);
+      font-weight:1000;
+      color:#244260;
+      letter-spacing:.04em;
+      font-size:18px;
+    }
+
+    .preview-box{
+      background:#fff;
+      border:1.5px solid var(--line);
+      border-radius:18px;
+      padding:12px 14px;
+      display:grid;
+      gap:8px;
+    }
+
+    .preview-k{
+      font-size:12px;
+      font-weight:900;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .preview-v{
+      font-size:15px;
+      font-weight:900;
+      color:var(--text-strong);
+      line-height:1.45;
       word-break:break-word;
     }
 
-    .footer-note{
-      margin-top:12px;
+    .action-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .action-grid-3{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:10px;
+    }
+
+    .tips{
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      gap:14px;
+    }
+
+    .tip{
+      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(248,255,243,.92));
+      border:1.5px solid var(--line);
+      border-radius:22px;
+      padding:16px;
+      box-shadow:var(--shadow);
+      display:grid;
+      gap:8px;
+    }
+
+    .tip-title{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color:var(--text-strong);
+      font-weight:1000;
+      font-size:17px;
+    }
+
+    .tip p{
       color:var(--muted);
-      font-size:12px;
-      line-height:1.7;
+      font-size:14px;
+      line-height:1.55;
+    }
+
+    .notice{
+      display:flex;
+      align-items:flex-start;
+      gap:12px;
+      padding:14px 16px;
+      border-top:1px solid rgba(0,0,0,.04);
+      background:linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.55));
+    }
+
+    .notice-emoji{
+      width:36px;
+      height:36px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      background:#fff;
+      border:1px solid var(--line);
+      flex:0 0 auto;
+      font-size:20px;
+    }
+
+    .notice-text{
       font-weight:900;
+      color:#38506a;
+      line-height:1.45;
+      font-size:15px;
+    }
+
+    .footer{
+      text-align:center;
+      color:var(--muted);
+      font-size:13px;
+      padding:4px 0 0;
+    }
+
+    @media (max-width: 1100px){
+      .hero,
+      .setup-grid{
+        grid-template-columns:1fr;
+      }
+      .modes{
+        grid-template-columns:repeat(2, 1fr);
+      }
+      .tips{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width: 720px){
+      .modes{
+        grid-template-columns:1fr;
+      }
+      .field-row,
+      .action-grid,
+      .action-grid-3{
+        grid-template-columns:1fr;
+      }
+      .panel-inner{
+        padding:16px;
+      }
+      .hero-title{
+        flex-direction:column;
+      }
+      .hero-badge{
+        width:70px;
+        height:70px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="hero">
-      <div class="kicker">🍎 GOODJUNK • MULTIPLAYER</div>
-      <h1>ห้องเล่นหลายคน</h1>
-      <p class="sub">
-        ใช้หน้านี้สำหรับ <strong>Race</strong>, <strong>Battle</strong> และ <strong>Coop</strong>
-        โดยจะส่ง query ต่อไปยัง run page ของแต่ละโหมดอัตโนมัติ รวมทั้งรองรับการ override engine path จากหน้านี้ได้เลย
-      </p>
-      <div class="pill-row">
-        <div class="pill">RACE → goodjunk-race-run.html</div>
-        <div class="pill">BATTLE → goodjunk-battle-run.html</div>
-        <div class="pill">COOP → goodjunk-coop-run.html</div>
-        <div class="pill">ส่ง room code ข้ามเครื่องได้</div>
-      </div>
-    </div>
+  <div class="clouds" aria-hidden="true"></div>
 
-    <div class="layout">
-      <section class="card">
-        <h2>ตั้งค่าห้อง</h2>
-        <div class="muted">ค่าด้านซ้ายจะถูกใช้ตอนสร้างห้อง เข้าห้อง และสร้าง invite link</div>
+  <main class="shell">
+    <section class="hero">
+      <section class="panel hero-card">
+        <div class="panel-inner">
+          <div class="hero-title">
+            <div class="hero-badge">🕹️</div>
+            <div>
+              <h1>GoodJunk Multiplayer</h1>
+              <p class="sub">
+                เลือกโหมดที่อยากเล่น แล้วสร้างห้องหรือเข้าห้องได้จากหน้าเดียวเลย
+                ให้ flow ง่ายขึ้นเหมือน Duet และคุมทุกโหมดไว้จุดเดียว
+              </p>
 
-        <div class="form-grid">
-          <div class="field">
-            <label for="playerName">ชื่อผู้เล่น</label>
-            <input id="playerName" placeholder="เช่น Player A / Teacher / Test01" />
-          </div>
+              <div class="pill-row">
+                <div class="pill">🎯 4 โหมดในหน้าเดียว</div>
+                <div class="pill">👫 เล่นกับเพื่อนได้ง่าย</div>
+                <div class="pill">🔗 คัดลอกลิงก์ / แชร์ห้อง</div>
+              </div>
 
-          <div class="field">
-            <label for="roomCode">Room Code</label>
-            <input id="roomCode" placeholder="เช่น GJ1234" />
-          </div>
+              <div class="top-actions">
+                <button class="btn btn-primary" id="btnCreateQuick" type="button">✨ สร้างห้องทันที</button>
+                <button class="btn btn-secondary" id="btnCopyQuick" type="button">📋 คัดลอกลิงก์</button>
+                <button class="btn btn-soft" id="btnShareQuick" type="button">📨 แชร์ลิงก์</button>
+                <button class="btn btn-ghost" id="btnGoHub" type="button">🏠 กลับ HUB</button>
+              </div>
 
-          <div class="field">
-            <label for="diff">ความยาก</label>
-            <select id="diff">
-              <option value="easy">easy</option>
-              <option value="normal" selected>normal</option>
-              <option value="hard">hard</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="time">เวลา</label>
-            <select id="time">
-              <option value="90">90s</option>
-              <option value="120" selected>120s</option>
-              <option value="150">150s</option>
-              <option value="180">180s</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="enginePath">Engine Path Override</label>
-            <input id="enginePath" placeholder="./js/goodjunk-race.safe.js" />
-            <div class="tiny">ถ้าปล่อยว่าง จะใช้ candidate path เริ่มต้นของแต่ละ run page</div>
-          </div>
-
-          <div class="field">
-            <label for="engineCandidates">Engine Candidates Override</label>
-            <textarea id="engineCandidates" placeholder="./js/goodjunk-race.safe.js, ./goodjunk-race.js"></textarea>
-            <div class="tiny">ใส่หลาย path คั่นด้วย comma เพื่อให้ run page ลองโหลดตามลำดับ</div>
+              <div class="helper">
+                หน้า run ของแต่ละโหมดจะรับพารามิเตอร์ต่อจากหน้านี้ เช่น roomId, nick, diff, time, hub, view, seed
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="footer-note">
-          แนะนำให้ host สร้างห้องก่อน แล้วให้ผู้เล่นเครื่องอื่นกดลิงก์เชิญหรือใส่ room code เดียวกัน
+        <div class="notice">
+          <div class="notice-emoji">🧑‍🏫</div>
+          <div class="notice-text" id="topNotice">
+            เลือกโหมดก่อน แล้วกด “สร้างห้องทันที” หรือกรอก room code เพื่อเข้าห้อง
+          </div>
         </div>
       </section>
 
-      <section class="card">
-        <div class="mode-tabs">
-          <button class="tab-btn tab-race" id="tabRace" type="button">🏁 Race</button>
-          <button class="tab-btn tab-battle" id="tabBattle" type="button">⚔️ Battle</button>
-          <button class="tab-btn tab-coop" id="tabCoop" type="button">🤝 Coop</button>
-        </div>
-
-        <div class="panel">
-          <div class="mode-head">
-            <div class="mode-badge" id="modeBadge">🏁 RACE MODE</div>
-            <h2 class="mode-title" id="modeTitle">Race Lobby</h2>
-            <p class="mode-desc" id="modeDesc">แข่งเก็บอาหารดี ใครทำคะแนนได้มากกว่าชนะ</p>
+      <section class="panel">
+        <div class="panel-inner">
+          <div class="preview-head">
+            <div class="preview-title">โหมดที่เลือก</div>
+            <div class="preview-badge" id="previewModeTag">DUET</div>
           </div>
 
-          <div class="grid2">
-            <div class="mini-card">
-              <h3>วิธีเข้าเล่น</h3>
-              <div class="steps" id="modeSteps">
-                <div>• host กดสร้างห้อง</div>
-                <div>• คัดลอกลิงก์เชิญหรือ room code</div>
-                <div>• ผู้เล่นเครื่องอื่นเข้าห้องด้วย code เดียวกัน</div>
+          <div class="preview">
+            <div class="room-pill" id="roomPreview">ROOM GJ-AB12CD</div>
+
+            <div class="preview-box">
+              <div class="preview-k">ปลายทาง</div>
+              <div class="preview-v" id="routePreview">./goodjunk-duet-run.html</div>
+            </div>
+
+            <div class="preview-box">
+              <div class="preview-k">คำอธิบาย</div>
+              <div class="preview-v" id="modePreviewDesc">เล่นคู่แบบช่วยกัน ทำคะแนนไปด้วยกัน</div>
+            </div>
+
+            <div class="preview-box">
+              <div class="preview-k">ลิงก์ตัวอย่าง</div>
+              <div class="preview-v" id="linkPreview">-</div>
+            </div>
+
+            <div class="action-grid">
+              <button class="btn btn-primary" id="btnCreateRoom" type="button">🚀 สร้างห้อง</button>
+              <button class="btn btn-secondary" id="btnJoinRoom" type="button">🎮 เข้าห้อง</button>
+            </div>
+
+            <div class="action-grid-3">
+              <button class="btn btn-ghost" id="btnCopyLink" type="button">📋 คัดลอก</button>
+              <button class="btn btn-soft" id="btnShareLink" type="button">📨 แชร์</button>
+              <button class="btn btn-ghost" id="btnRandomRoom" type="button">🎲 สุ่มโค้ด</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="modes" id="modeGrid"></section>
+
+    <section class="panel">
+      <div class="panel-inner">
+        <div class="setup-grid">
+          <div class="fields">
+            <div class="field">
+              <label for="nickInput">ชื่อผู้เล่น</label>
+              <input class="input" id="nickInput" type="text" maxlength="24" placeholder="เช่น KP" />
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="diffSelect">ระดับความยาก</label>
+                <select class="select" id="diffSelect">
+                  <option value="easy">easy</option>
+                  <option value="normal" selected>normal</option>
+                  <option value="hard">hard</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="timeSelect">เวลาเล่น</label>
+                <select class="select" id="timeSelect">
+                  <option value="60">60 วินาที</option>
+                  <option value="90" selected>90 วินาที</option>
+                  <option value="120">120 วินาที</option>
+                  <option value="150">150 วินาที</option>
+                </select>
               </div>
             </div>
 
-            <div class="mini-card">
-              <h3>สถานะ</h3>
-              <div class="status" id="routeStatus">พร้อม route ไป run page</div>
-              <div class="footer-note" id="routeInfo">path run ปัจจุบัน: <code>./goodjunk-race-run.html</code></div>
+            <div class="field-row">
+              <div class="field">
+                <label for="viewSelect">โหมดการแสดงผล</label>
+                <select class="select" id="viewSelect">
+                  <option value="mobile" selected>mobile</option>
+                  <option value="pc">pc</option>
+                  <option value="cvr">cvr</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="seedInput">Seed</label>
+                <input class="input" id="seedInput" type="number" inputmode="numeric" placeholder="สุ่มอัตโนมัติ" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="roomInput">Room Code</label>
+              <input class="input" id="roomInput" type="text" maxlength="24" placeholder="เช่น GJ-B7K2PA" />
+            </div>
+
+            <div class="helper">
+              ใช้ชื่อเดียวกันทุกโหมดได้เลย หน้านี้จะช่วยส่งค่าต่อไปยังโหมดที่เลือกให้อัตโนมัติ
             </div>
           </div>
 
-          <div class="actions">
-            <button class="btn btn-primary" id="btnCreate" type="button">สร้างห้อง</button>
-            <button class="btn btn-ghost" id="btnJoin" type="button">เข้าห้อง</button>
-            <button class="btn btn-copy" id="btnCopyLink" type="button">คัดลอกลิงก์เชิญ</button>
-            <button class="btn btn-ghost" id="btnCopyCode" type="button">คัดลอก Room Code</button>
-          </div>
+          <div class="preview">
+            <div class="preview-head">
+              <div class="preview-title">สรุปค่าที่จะส่งต่อ</div>
+              <div class="preview-badge" id="playerCountTag">2 Players</div>
+            </div>
 
-          <div class="share-box">
-            <div class="muted">Invite Link</div>
-            <div class="share-link" id="shareLink">-</div>
-            <div class="route-box" id="routeDebug">-</div>
+            <div class="preview-box">
+              <div class="preview-k">ผู้เล่น</div>
+              <div class="preview-v" id="summaryNick">KP</div>
+            </div>
+
+            <div class="preview-box">
+              <div class="preview-k">ห้อง</div>
+              <div class="preview-v" id="summaryRoom">GJ-AB12CD</div>
+            </div>
+
+            <div class="preview-box">
+              <div class="preview-k">ตั้งค่า</div>
+              <div class="preview-v" id="summaryMeta">normal • 90s • mobile</div>
+            </div>
+
+            <div class="preview-box">
+              <div class="preview-k">หมายเหตุ</div>
+              <div class="preview-v" id="summaryHint">
+                ถ้าสร้างห้อง ระบบจะสุ่ม room code ให้ก่อนส่งเข้าโหมดที่เลือก
+              </div>
+            </div>
           </div>
         </div>
-      </section>
-    </div>
-  </div>
+      </div>
+
+      <div class="notice">
+        <div class="notice-emoji">💡</div>
+        <div class="notice-text" id="bottomNotice">
+          แนะนำให้เข้าหน้านี้ก่อนทุกครั้ง แล้วค่อยเลือกโหมด เพื่อให้ flow ของ multiplayer ง่ายและเหมือนกันทั้ง 4 โหมด
+        </div>
+      </div>
+    </section>
+
+    <section class="tips">
+      <article class="tip">
+        <div class="tip-title">🤝 Duet</div>
+        <p>เล่นคู่แบบช่วยกัน เน้นความเข้าใจง่าย เหมาะกับเริ่มต้นที่สุด</p>
+      </article>
+
+      <article class="tip">
+        <div class="tip-title">🏁 Race</div>
+        <p>แข่งกันทำคะแนนหรือความเร็ว ใครคมกว่าและพลาดน้อยกว่ามักได้เปรียบ</p>
+      </article>
+
+      <article class="tip">
+        <div class="tip-title">⚔️ Battle / 🛟 Coop</div>
+        <p>Battle เน้นโจมตีอีกฝ่ายเมื่อ charge เต็ม ส่วน Coop คือช่วยกันผ่านเป้าหมายเดียวกัน</p>
+      </article>
+    </section>
+
+    <div class="footer">HeroHealth • GoodJunk Multiplayer Hub • 4 modes launcher</div>
+  </main>
 
   <script>
     (function(){
-      const q = new URLSearchParams(location.search);
+      'use strict';
+
+      const qs = (k, d='') => {
+        try { return new URL(location.href).searchParams.get(k) ?? d; }
+        catch { return d; }
+      };
+
+      const clamp = (v, a, b) => {
+        v = Number(v);
+        if (!Number.isFinite(v)) v = a;
+        return Math.max(a, Math.min(b, v));
+      };
+
+      const clean = (s, max=24) => String(s == null ? '' : s)
+        .replace(/[^a-zA-Z0-9ก-๙ _-]/g, '')
+        .trim()
+        .slice(0, max);
+
+      const cleanRoom = (s) => String(s == null ? '' : s)
+        .toUpperCase()
+        .replace(/[^A-Z0-9_-]/g, '')
+        .slice(0, 24);
+
+      const rand = () => Math.floor(Math.random() * 900000000) + 100000000;
+      const makeCode = (mode) => {
+        const prefixMap = {
+          duet:'GJD',
+          race:'GJR',
+          battle:'GJB',
+          coop:'GJC'
+        };
+        const p = prefixMap[mode] || 'GJ';
+        const t = Math.random().toString(36).slice(2, 8).toUpperCase();
+        return `${p}-${t}`;
+      };
+
+      const STORE_KEY = 'GJ_MULTI_LAST_V1';
+
+      const ROUTES = {
+        duet: './goodjunk-duet-run.html',
+        race: './goodjunk-race-run.html',
+        battle: './goodjunk-battle-run.html',
+        coop: './goodjunk-coop-run.html'
+      };
 
       const MODES = {
-        race: {
-          badge: '🏁 RACE MODE',
-          title: 'Race Lobby',
-          desc: 'แข่งเก็บอาหารดี ใครทำคะแนนได้มากกว่าชนะ',
-          steps: [
-            'host กดสร้างห้อง',
-            'คัดลอกลิงก์เชิญหรือ room code',
-            'ผู้เล่นเครื่องอื่นเข้าห้องด้วย code เดียวกัน'
+        duet: {
+          id:'duet',
+          icon:'🤝',
+          tag:'เริ่มง่าย',
+          title:'Duet',
+          desc:'เล่นคู่แบบช่วยกัน ทำคะแนนไปด้วยกัน เหมาะกับ flow ที่ง่ายที่สุด',
+          points:[
+            'ผู้เล่น 2 คน',
+            'ช่วยกันมากกว่าแข่งกัน',
+            'เหมาะกับเริ่มต้นและเด็กรู้ทางเร็ว'
           ],
-          runPath: './goodjunk-race-run.html',
-          time: '120'
+          players:'2 Players'
+        },
+        race: {
+          id:'race',
+          icon:'🏁',
+          tag:'แข่งไว',
+          title:'Race',
+          desc:'แข่งกันว่าใครเร็วกว่า คมกว่า และเก็บคะแนนได้ดีกว่า',
+          points:[
+            'ผู้เล่น 2 คน',
+            'เน้นความเร็วและความแม่น',
+            'เห็นผลแพ้ชนะชัดเจน'
+          ],
+          players:'2 Players'
         },
         battle: {
-          badge: '⚔️ BATTLE MODE',
-          title: 'Battle Lobby',
-          desc: 'ปะทะกันโดยตรง เน้นจังหวะและคะแนน',
-          steps: [
-            'host สร้างห้อง battle',
-            'ส่งลิงก์หรือ room code ให้ผู้เล่นอีกฝั่ง',
-            'เข้าห้องเดียวกันแล้วเริ่มแมตช์'
+          id:'battle',
+          icon:'⚔️',
+          tag:'ท้าทาย',
+          title:'Battle',
+          desc:'แตะอาหารดีเพื่อชาร์จพลัง แล้วโจมตีคู่ต่อสู้เมื่อพร้อม',
+          points:[
+            'ผู้เล่น 2 คน',
+            'มีระบบ charge และโจมตี',
+            'ต้องคุมทั้งคะแนนและ HP'
           ],
-          runPath: './goodjunk-battle-run.html',
-          time: '150'
+          players:'2 Players'
         },
         coop: {
-          badge: '🤝 COOP MODE',
-          title: 'Coop Lobby',
-          desc: 'ช่วยกันเก็บอาหารดีและปกป้องเมืองสุขภาพ',
-          steps: [
-            'host สร้างห้อง coop',
-            'เพื่อนเข้าห้องเดียวกัน',
-            'ช่วยกันเล่นให้ได้คะแนนรวมสูงสุด'
+          id:'coop',
+          icon:'🛟',
+          tag:'ทีมเวิร์ก',
+          title:'Coop',
+          desc:'ช่วยกันเก็บเป้าหมายเดียวกัน เหมาะกับการเล่นแบบร่วมมือ',
+          points:[
+            'ผู้เล่น 2 คน',
+            'โฟกัส teamwork',
+            'ใช้เป็นโหมดฝึกก่อนแข่งได้'
           ],
-          runPath: './goodjunk-coop-run.html',
-          time: '180'
+          players:'2 Players'
         }
       };
 
-      let currentMode = (q.get('mode') || 'race').toLowerCase();
-      if (!MODES[currentMode]) currentMode = 'race';
+      const UI = {
+        modeGrid: document.getElementById('modeGrid'),
+        topNotice: document.getElementById('topNotice'),
+        bottomNotice: document.getElementById('bottomNotice'),
 
-      const $ = (id) => document.getElementById(id);
+        previewModeTag: document.getElementById('previewModeTag'),
+        routePreview: document.getElementById('routePreview'),
+        modePreviewDesc: document.getElementById('modePreviewDesc'),
+        roomPreview: document.getElementById('roomPreview'),
+        linkPreview: document.getElementById('linkPreview'),
 
-      const elName = $('playerName');
-      const elRoom = $('roomCode');
-      const elDiff = $('diff');
-      const elTime = $('time');
-      const elEngine = $('enginePath');
-      const elEngineCandidates = $('engineCandidates');
+        playerCountTag: document.getElementById('playerCountTag'),
+        summaryNick: document.getElementById('summaryNick'),
+        summaryRoom: document.getElementById('summaryRoom'),
+        summaryMeta: document.getElementById('summaryMeta'),
+        summaryHint: document.getElementById('summaryHint'),
 
-      const elModeBadge = $('modeBadge');
-      const elModeTitle = $('modeTitle');
-      const elModeDesc = $('modeDesc');
-      const elModeSteps = $('modeSteps');
-      const elRouteStatus = $('routeStatus');
-      const elRouteInfo = $('routeInfo');
-      const elShareLink = $('shareLink');
-      const elRouteDebug = $('routeDebug');
+        nickInput: document.getElementById('nickInput'),
+        diffSelect: document.getElementById('diffSelect'),
+        timeSelect: document.getElementById('timeSelect'),
+        viewSelect: document.getElementById('viewSelect'),
+        seedInput: document.getElementById('seedInput'),
+        roomInput: document.getElementById('roomInput'),
 
-      elName.value = q.get('name') || '';
-      elRoom.value = q.get('roomId') || q.get('room') || '';
-      elDiff.value = q.get('diff') || 'normal';
-      elTime.value = q.get('time') || MODES[currentMode].time;
-      elEngine.value = q.get('engine') || '';
-      elEngineCandidates.value = q.get('engineCandidates') || '';
+        btnCreateQuick: document.getElementById('btnCreateQuick'),
+        btnCopyQuick: document.getElementById('btnCopyQuick'),
+        btnShareQuick: document.getElementById('btnShareQuick'),
+        btnGoHub: document.getElementById('btnGoHub'),
 
-      function getApiUrl() {
-        return String(
-          q.get('api') ||
-          window.HHA_CLOUD_ENDPOINT ||
-          'https://script.google.com/macros/s/AKfycbwNOpsjFTV_nK0PzNV23KziF5hZxIMI50P8o_vZgwVg_T4anpXZOaKQUy_uf5PPg9kT6Q/exec'
-        ).trim();
+        btnCreateRoom: document.getElementById('btnCreateRoom'),
+        btnJoinRoom: document.getElementById('btnJoinRoom'),
+        btnCopyLink: document.getElementById('btnCopyLink'),
+        btnShareLink: document.getElementById('btnShareLink'),
+        btnRandomRoom: document.getElementById('btnRandomRoom')
+      };
+
+      const HUB = qs('hub', '../hub.html');
+
+      const S = {
+        mode: qs('mode', 'duet').toLowerCase(),
+        nick: '',
+        diff: 'normal',
+        time: '90',
+        view: qs('view', 'mobile') || 'mobile',
+        seed: qs('seed', ''),
+        roomId: '',
+        hub: HUB
+      };
+
+      function loadStored(){
+        try{
+          const raw = localStorage.getItem(STORE_KEY);
+          if(!raw) return;
+          const d = JSON.parse(raw);
+          if (d && typeof d === 'object'){
+            if (d.mode && MODES[d.mode]) S.mode = d.mode;
+            if (d.nick) S.nick = clean(d.nick, 24);
+            if (d.diff) S.diff = d.diff;
+            if (d.time) S.time = String(d.time);
+            if (d.view) S.view = d.view;
+            if (d.seed != null) S.seed = String(d.seed);
+          }
+        }catch{}
       }
 
-      function getHubUrl() {
-        try {
-          return new URL(q.get('hub') || '../hub.html', location.href).toString();
-        } catch {
-          return new URL('../hub.html', location.href).toString();
-        }
+      function saveStored(){
+        try{
+          localStorage.setItem(STORE_KEY, JSON.stringify({
+            mode:S.mode,
+            nick:S.nick,
+            diff:S.diff,
+            time:S.time,
+            view:S.view,
+            seed:S.seed
+          }));
+        }catch{}
       }
 
-      function makeRoomCode() {
-        const seed = Math.random().toString(36).slice(2, 8).toUpperCase();
-        return `GJ-${seed}`;
+      function ensureMode(){
+        if (!MODES[S.mode]) S.mode = 'duet';
       }
 
-      function getRoomCode() {
-        const v = String(elRoom.value || '').trim().toUpperCase();
-        if (v) return v;
-        const code = makeRoomCode();
-        elRoom.value = code;
-        return code;
+      function ensureRoom(){
+        S.roomId = cleanRoom(S.roomId || '');
+        if (!S.roomId) S.roomId = makeCode(S.mode);
       }
 
-      function setIfHas(params, key, value) {
-        const s = String(value ?? '').trim();
-        if (s) params.set(key, s);
+      function getNick(){
+        return clean(UI.nickInput.value || S.nick || 'Player', 24) || 'Player';
       }
 
-      function buildRunUrl(mode, role) {
-        const meta = MODES[mode];
-        const url = new URL(meta.runPath, location.href);
-        const p = url.searchParams;
+      function getSeed(){
+        const v = String(UI.seedInput.value || '').trim();
+        return v || String(rand());
+      }
 
-        p.set('pid', q.get('pid') || 'anon');
-        p.set('name', elName.value.trim());
-        p.set('studyId', q.get('studyId') || '');
-        p.set('roomId', getRoomCode());
-        p.set('mode', mode);
-        p.set('diff', elDiff.value || 'normal');
-        p.set('time', elTime.value || meta.time);
-        p.set('seed', q.get('seed') || String(Date.now()));
-        p.set('hub', getHubUrl());
-        p.set('view', q.get('view') || 'mobile');
-        p.set('run', q.get('run') || 'play');
-        p.set('gameId', q.get('gameId') || 'goodjunk');
-        p.set('role', role || 'player');
+      function buildUrl(isJoin){
+        const route = ROUTES[S.mode] || './goodjunk-battle-run.html';
+        const nick = getNick();
+        const roomId = cleanRoom(UI.roomInput.value || S.roomId || makeCode(S.mode));
+        const diff = UI.diffSelect.value || 'normal';
+        const time = clamp(UI.timeSelect.value || '90', 30, 300);
+        const view = UI.viewSelect.value || 'mobile';
+        const seed = getSeed();
 
-        const api = getApiUrl();
-        if (api) p.set('api', api);
-
-        setIfHas(p, 'engine', elEngine.value);
-        setIfHas(p, 'engineCandidates', elEngineCandidates.value);
-
-        [
-          'debug','bossdebug','log',
-          'studentKey','schoolCode','classRoom','studentNo','nickName',
-          'conditionGroup','phase'
-        ].forEach((key) => {
-          const val = q.get(key);
-          if (val) p.set(key, val);
-        });
+        const url = new URL(route, location.href);
+        url.searchParams.set('mode', S.mode);
+        url.searchParams.set('roomId', roomId);
+        url.searchParams.set('room', roomId);
+        url.searchParams.set('name', nick);
+        url.searchParams.set('nick', nick);
+        url.searchParams.set('pid', 'anon');
+        url.searchParams.set('diff', diff);
+        url.searchParams.set('time', String(time));
+        url.searchParams.set('view', view);
+        url.searchParams.set('seed', String(seed));
+        url.searchParams.set('hub', S.hub);
+        url.searchParams.set('create', isJoin ? '0' : '1');
 
         return url.toString();
       }
 
-      function copyText(text) {
-        const t = String(text || '').trim();
-        if (!t) return;
-        navigator.clipboard?.writeText(t).then(() => {
-          elRouteStatus.textContent = 'คัดลอกแล้ว';
-        }).catch(() => {
-          elRouteStatus.textContent = 'คัดลอกไม่สำเร็จ';
+      function setNotice(top, bottom){
+        if (top) UI.topNotice.textContent = top;
+        if (bottom) UI.bottomNotice.textContent = bottom;
+      }
+
+      function renderModeCards(){
+        UI.modeGrid.innerHTML = Object.values(MODES).map(m => `
+          <article class="mode-card ${S.mode === m.id ? 'active' : ''}" data-mode="${m.id}">
+            <div class="mode-top">
+              <div class="mode-icon">${m.icon}</div>
+              <div class="mode-tag">${m.tag}</div>
+            </div>
+            <div class="mode-title">${m.title}</div>
+            <div class="mode-desc">${m.desc}</div>
+            <div class="mode-points">
+              ${m.points.map(p => `
+                <div class="mode-point">
+                  <div class="mode-check">✓</div>
+                  <div>${p}</div>
+                </div>
+              `).join('')}
+            </div>
+          </article>
+        `).join('');
+
+        UI.modeGrid.querySelectorAll('.mode-card').forEach(card => {
+          card.addEventListener('click', () => {
+            S.mode = card.dataset.mode || 'duet';
+            if (!cleanRoom(UI.roomInput.value || '')) {
+              S.roomId = makeCode(S.mode);
+              UI.roomInput.value = S.roomId;
+            }
+            saveStored();
+            renderAll();
+          });
         });
       }
 
-      function renderMode() {
-        const meta = MODES[currentMode];
-        elModeBadge.textContent = meta.badge;
-        elModeTitle.textContent = meta.title;
-        elModeDesc.textContent = meta.desc;
-        elModeSteps.innerHTML = meta.steps.map(s => `<div>• ${s}</div>`).join('');
-        elRouteStatus.textContent = 'พร้อม route ไป run page';
-        elRouteInfo.innerHTML = `path run ปัจจุบัน: <code>${meta.runPath}</code>`;
+      function renderAll(){
+        ensureMode();
 
-        const inviteUrl = buildRunUrl(currentMode, 'player');
-        elShareLink.textContent = inviteUrl;
+        S.nick = getNick();
+        S.diff = UI.diffSelect.value || S.diff || 'normal';
+        S.time = UI.timeSelect.value || S.time || '90';
+        S.view = UI.viewSelect.value || S.view || 'mobile';
+        S.seed = String(UI.seedInput.value || S.seed || '');
+        S.roomId = cleanRoom(UI.roomInput.value || S.roomId || '');
 
-        elRouteDebug.textContent =
-          '[MODE] ' + currentMode + '\n' +
-          '[RUN PATH] ' + meta.runPath + '\n' +
-          '[ROOM] ' + (elRoom.value.trim() || '-') + '\n' +
-          '[ENGINE] ' + (elEngine.value.trim() || '-') + '\n' +
-          '[ENGINE CANDIDATES] ' + (elEngineCandidates.value.trim() || '-') + '\n' +
-          '[API] ' + (getApiUrl() || '-');
+        ensureRoom();
 
-        $('tabRace').classList.toggle('is-active', currentMode === 'race');
-        $('tabBattle').classList.toggle('is-active', currentMode === 'battle');
-        $('tabCoop').classList.toggle('is-active', currentMode === 'coop');
+        const mode = MODES[S.mode];
+        const route = ROUTES[S.mode] || './goodjunk-battle-run.html';
+        const previewUrl = buildUrl(false);
+
+        UI.previewModeTag.textContent = mode.title.toUpperCase();
+        UI.routePreview.textContent = route;
+        UI.modePreviewDesc.textContent = mode.desc;
+        UI.roomPreview.textContent = `ROOM ${S.roomId}`;
+        UI.linkPreview.textContent = previewUrl;
+
+        UI.playerCountTag.textContent = mode.players;
+        UI.summaryNick.textContent = S.nick || 'Player';
+        UI.summaryRoom.textContent = S.roomId;
+        UI.summaryMeta.textContent = `${S.diff} • ${S.time}s • ${S.view}`;
+        UI.summaryHint.textContent =
+          S.mode === 'duet' ? 'โหมดนี้เน้นช่วยกันและเข้าใจง่ายที่สุด'
+          : S.mode === 'race' ? 'โหมดนี้เน้นแข่งความเร็วและความแม่น'
+          : S.mode === 'battle' ? 'โหมดนี้มี charge และโจมตีคู่ต่อสู้'
+          : 'โหมดนี้เน้นช่วยกันผ่านเป้าหมายเดียวกัน';
+
+        renderModeCards();
+
+        setNotice(
+          `ตอนนี้เลือกโหมด ${mode.title} อยู่ กดสร้างห้องหรือเข้าห้องได้เลย`,
+          `ค่า ${mode.title} จะถูกส่งต่อไปที่หน้า run ของโหมดนั้นโดยอัตโนมัติ`
+        );
+
+        saveStored();
       }
 
-      $('tabRace').addEventListener('click', () => {
-        currentMode = 'race';
-        if (!elTime.value) elTime.value = MODES.race.time;
-        renderMode();
-      });
+      async function copyText(t){
+        try{
+          await navigator.clipboard.writeText(t);
+          setNotice('คัดลอกลิงก์เรียบร้อยแล้ว', 'ส่งลิงก์นี้ให้เพื่อนอีกคนเพื่อเข้าห้องเดียวกัน');
+          return true;
+        }catch{
+          setNotice('คัดลอกไม่สำเร็จ', 'ลองกดแชร์ หรือคัดลอกจากกล่องลิงก์ตัวอย่างแทน');
+          return false;
+        }
+      }
 
-      $('tabBattle').addEventListener('click', () => {
-        currentMode = 'battle';
-        if (!elTime.value) elTime.value = MODES.battle.time;
-        renderMode();
-      });
+      async function shareText(url){
+        try{
+          if (navigator.share){
+            await navigator.share({
+              title: 'GoodJunk Multiplayer',
+              text: `มาเล่น ${MODES[S.mode].title} ด้วยกัน`,
+              url
+            });
+            setNotice('แชร์ลิงก์เรียบร้อย', 'อีกฝ่ายเปิดลิงก์แล้วจะเข้าหน้าโหมดเดียวกัน');
+            return true;
+          }
+        }catch{}
+        return copyText(url);
+      }
 
-      $('tabCoop').addEventListener('click', () => {
-        currentMode = 'coop';
-        if (!elTime.value) elTime.value = MODES.coop.time;
-        renderMode();
-      });
+      function goCreate(){
+        const url = buildUrl(false);
+        location.href = url;
+      }
 
-      $('btnCreate').addEventListener('click', () => {
-        location.href = buildRunUrl(currentMode, 'host');
-      });
+      function goJoin(){
+        const room = cleanRoom(UI.roomInput.value || '');
+        if (!room){
+          setNotice('ยังไม่มี room code', 'กรอก room code ก่อน หรือกดสุ่ม/สร้างห้องใหม่');
+          UI.roomInput.focus();
+          return;
+        }
+        const url = buildUrl(true);
+        location.href = url;
+      }
 
-      $('btnJoin').addEventListener('click', () => {
-        location.href = buildRunUrl(currentMode, 'player');
-      });
+      function bindEvents(){
+        [
+          UI.nickInput,
+          UI.diffSelect,
+          UI.timeSelect,
+          UI.viewSelect,
+          UI.seedInput,
+          UI.roomInput
+        ].forEach(el => {
+          el.addEventListener('input', renderAll);
+          el.addEventListener('change', renderAll);
+        });
 
-      $('btnCopyLink').addEventListener('click', () => {
-        const url = buildRunUrl(currentMode, 'player');
-        elShareLink.textContent = url;
-        copyText(url);
-      });
+        UI.btnRandomRoom.addEventListener('click', () => {
+          S.roomId = makeCode(S.mode);
+          UI.roomInput.value = S.roomId;
+          renderAll();
+        });
 
-      $('btnCopyCode').addEventListener('click', () => {
-        copyText(getRoomCode());
-      });
+        UI.btnCreateRoom.addEventListener('click', goCreate);
+        UI.btnJoinRoom.addEventListener('click', goJoin);
+        UI.btnCreateQuick.addEventListener('click', goCreate);
 
-      [elRoom, elName, elDiff, elTime, elEngine, elEngineCandidates].forEach((el) => {
-        el.addEventListener('input', renderMode);
-        el.addEventListener('change', renderMode);
-      });
+        UI.btnCopyLink.addEventListener('click', () => copyText(buildUrl(false)));
+        UI.btnCopyQuick.addEventListener('click', () => copyText(buildUrl(false)));
+        UI.btnShareLink.addEventListener('click', () => shareText(buildUrl(false)));
+        UI.btnShareQuick.addEventListener('click', () => shareText(buildUrl(false)));
 
-      renderMode();
+        UI.btnGoHub.addEventListener('click', () => {
+          location.href = S.hub || '../hub.html';
+        });
+      }
+
+      function init(){
+        loadStored();
+
+        UI.nickInput.value = clean(qs('name', qs('nick', S.nick || '')), 24) || S.nick || '';
+        UI.diffSelect.value = qs('diff', S.diff || 'normal') || 'normal';
+        UI.timeSelect.value = String(clamp(qs('time', S.time || '90'), 60, 150));
+        UI.viewSelect.value = qs('view', S.view || 'mobile') || 'mobile';
+        UI.seedInput.value = qs('seed', S.seed || '');
+        UI.roomInput.value = cleanRoom(qs('roomId', qs('room', S.roomId || '')));
+
+        if (!UI.roomInput.value){
+          UI.roomInput.value = makeCode(S.mode);
+        }
+
+        bindEvents();
+        renderAll();
+      }
+
+      init();
     })();
   </script>
 </body>
