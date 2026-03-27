@@ -1,6 +1,6 @@
 // === /fitness/js/engine.js ===
 // Shadow Breaker Engine
-// FULL PATCH v20260327e-SHADOWBREAKER-KIDSOFT-ANTIBLOCK-FULL
+// FULL PATCH v20260327f-SHADOWBREAKER-KIDSOFT-MOBILE-HARDSAFE-FULL
 
 (function(){
   'use strict';
@@ -165,7 +165,7 @@
       speech:'มาเร็วขึ้นอีกนิด!',
       clearTitle:'ผ่านอีกบอสแล้ว!',
       clearSub:'ยอดเยี่ยม ไปต่อกันเลย',
-      desc:'เป้าเร็วขึ้น เริ่มมี bomb มากขึ้น',
+      desc:'เป้าเร็วขึ้น เริ่มมีบอมบ์มากขึ้น',
       theme:{ theme1:'rgba(245,158,11,.22)', theme2:'rgba(239,68,68,.12)', border:'rgba(245,158,11,.26)' }
     },
     {
@@ -379,12 +379,8 @@
     }
 
     const vm = getViewMode();
-    if (vm === 'mobile' && DOM.currentBossName) {
-      DOM.currentBossName.textContent = currentBoss().name || 'Boss';
-    }
-    if (vm === 'cvr') {
-      if (DOM.btnPause) DOM.btnPause.checked = false;
-    }
+    if (vm === 'mobile' && DOM.currentBossName) DOM.currentBossName.textContent = currentBoss().name || 'Boss';
+    if (vm === 'cvr' && DOM.btnPause) DOM.btnPause.checked = false;
   }
 
   function applyBossTheme(boss){
@@ -546,51 +542,36 @@
 
     const sizeBase =
       viewMode === 'mobile'
-        ? (STATE.diff === 'easy' ? 106 : STATE.diff === 'hard' ? 82 : 92)
+        ? (STATE.diff === 'easy' ? 110 : STATE.diff === 'hard' ? 86 : 96)
         : viewMode === 'cvr'
           ? (STATE.diff === 'easy' ? 128 : STATE.diff === 'hard' ? 100 : 112)
           : (STATE.diff === 'easy' ? 96 : STATE.diff === 'hard' ? 74 : 84);
 
     const size =
-      type === 'bossface' ? sizeBase + 18 :
+      type === 'bossface' ? sizeBase + 16 :
       type === 'bomb' ? sizeBase - 8 :
       type === 'heal' || type === 'shield' ? sizeBase - 2 : sizeBase;
 
-    let padTop = 78;
-    let padBottom = 22;
-    let padSide = 12;
-
-    if (viewMode === 'mobile') {
-      padTop = 72;
-      padBottom = 18;
-      padSide = 10;
-    } else if (viewMode === 'pc') {
-      padTop = 70;
-      padBottom = 16;
-      padSide = 16;
-    } else if (viewMode === 'cvr') {
-      padTop = 90;
-      padBottom = 40;
-      padSide = 24;
-    }
-
     const w = Math.max(160, stageRect.width);
-    const h = Math.max(300, stageRect.height);
+    const h = Math.max(320, stageRect.height);
 
-    let spawnLeft = padSide;
-    let spawnRight = w - size - padSide;
-    let spawnTop = padTop;
-    let spawnBottom = h - size - padBottom;
+    let spawnLeft = 12;
+    let spawnRight = w - size - 12;
+    let spawnTop = 84;
+    let spawnBottom = h - size - 24;
 
     if (viewMode === 'mobile') {
-      spawnTop = Math.max(120, h * 0.24);
-      spawnBottom = h - size - 92;
-      spawnRight = Math.max(spawnLeft + 40, w - size - 110);
+      spawnLeft = 14;
+      spawnRight = w - size - 14;
+      spawnTop = Math.max(150, h * 0.28);
+      spawnBottom = h - size - 40;
     }
 
     if (viewMode === 'pc') {
-      spawnRight = Math.max(spawnLeft + 40, w - size - 170);
+      spawnLeft = 16;
+      spawnRight = w - size - 170;
       spawnTop = Math.max(76, h * 0.17);
+      spawnBottom = h - size - 20;
     }
 
     if (viewMode === 'cvr') {
@@ -617,7 +598,7 @@
       type === 'heal' || type === 'shield' ? 1800 :
       type === 'bomb' ? (STATE.diff === 'hard' ? 1200 : 1400) :
       type === 'bossface' ? 1800 :
-      (STATE.diff === 'easy' ? 1700 : STATE.diff === 'hard' ? 1150 : 1400);
+      (STATE.diff === 'easy' ? 1750 : STATE.diff === 'hard' ? 1200 : 1450);
 
     const ent = {
       id: `${Date.now()}_${Math.random().toString(36).slice(2,9)}`,
@@ -788,6 +769,7 @@
     if(STATE.rng() < utilityChance){
       makeEntity(STATE.rng() < 0.5 ? 'heal' : 'shield');
     }
+
     if(STATE.rng() < bossFaceChance){
       const stageRect = DOM.targetLayer.getBoundingClientRect();
       const viewMode = getViewMode();
@@ -796,8 +778,8 @@
       let by = null;
 
       if (viewMode === 'mobile') {
-        bx = stageRect.width * (0.16 + STATE.rng() * 0.50);
-        by = stageRect.height * (0.34 + STATE.rng() * 0.34);
+        bx = stageRect.width * (0.18 + STATE.rng() * 0.42);
+        by = stageRect.height * (0.40 + STATE.rng() * 0.24);
       } else if (viewMode === 'pc') {
         bx = stageRect.width * (0.14 + STATE.rng() * 0.46);
         by = stageRect.height * (0.24 + STATE.rng() * 0.48);
