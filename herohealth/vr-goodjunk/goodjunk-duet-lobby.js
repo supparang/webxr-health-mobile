@@ -1,5 +1,5 @@
 /* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
-   FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-FINAL-V2
+   FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-FINAL-V3
 */
 (function(){
   'use strict';
@@ -104,10 +104,10 @@
     if (W.crypto && W.crypto.getRandomValues){
       const arr = new Uint8Array(6);
       W.crypto.getRandomValues(arr);
-      for (let i = 0; i < arr.length; i++) out += chars[arr[i] % chars.length];
+      for(let i = 0; i < arr.length; i++) out += chars[arr[i] % chars.length];
       return out;
     }
-    for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    for(let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
     return out;
   }
 
@@ -166,15 +166,23 @@
   function prunePlayers(players, status){
     const out = {};
     const src = players || {};
+    const roomStatus = String(status || 'waiting');
+
     Object.keys(src).forEach((id) => {
       const p = src[id] || {};
+      const lastSeen = Number(p.lastSeenAt || 0);
+      const staleDisconnected = (
+        p.connected === false &&
+        (now() - lastSeen > STALE_MS)
+      );
+
       const shouldDrop =
-        p.phase === 'left' ||
-        (String(status || 'waiting') === 'waiting' &&
-         p.connected === false &&
-         (now() - Number(p.lastSeenAt || 0) > STALE_MS));
+        ((p.phase === 'left') && staleDisconnected) ||
+        (roomStatus === 'waiting' && staleDisconnected);
+
       if (!shouldDrop) out[id] = p;
     });
+
     return out;
   }
 
@@ -1071,6 +1079,28 @@
     }
   }
 
+  function getUnloadPhase(){
+    const room = STATE.room || null;
+    const status = String((room && room.status) || 'waiting');
+
+    if (status === 'countdown' || status === 'running'){
+      return 'lobby';
+    }
+    return 'left';
+  }
+
+  async function markDisconnectedForUnload(){
+    try{
+      if (STATE.meRef){
+        await STATE.meRef.update({
+          connected: false,
+          phase: getUnloadPhase(),
+          lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+        });
+      }
+    }catch{}
+  }
+
   function bindUi(){
     if (els.roomCode) els.roomCode.textContent = STATE.roomId;
     if (els.inviteLink) els.inviteLink.value = buildInviteLink();
@@ -1174,20 +1204,13 @@
     W.addEventListener('beforeunload', () => {
       stopHeartbeat();
       stopAutoStartTimer();
-      try{
-        if (STATE.meRef){
-          STATE.meRef.update({
-            connected: false,
-            phase: 'left',
-            lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-          }).catch(() => {});
-        }
-      }catch{}
+      markDisconnectedForUnload();
     });
 
     W.addEventListener('pagehide', () => {
       stopHeartbeat();
       stopAutoStartTimer();
+      markDisconnectedForUnload();
     });
   }
 
