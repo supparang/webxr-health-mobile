@@ -1,5 +1,5 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260327-GOODJUNK-DUET-FINAL-V1
+   FULL PATCH v20260327-GOODJUNK-DUET-FINAL-V2
 */
 (function(){
   'use strict';
@@ -44,6 +44,8 @@
     btnGoHub: $('btnGoHub'),
     btnBackLauncher: $('btnBackLauncher')
   };
+
+  const BRIDGE = W.HHA_DUET_BOOT || null;
 
   const qs = (k, d='') => {
     try{
@@ -101,8 +103,8 @@
   function normalizeRoomId(raw){
     return String(raw || '')
       .toUpperCase()
-      .replace(/[^A-Z0-9]/g, '')
-      .slice(0, 8);
+      .replace(/[^A-Z0-9_-]/g, '')
+      .slice(0, 24);
   }
 
   function makeDevicePid(){
@@ -110,12 +112,12 @@
       const KEY = 'GJ_DEVICE_PID';
       let pid = localStorage.getItem(KEY);
       if (!pid){
-        pid = 'p-' + Math.random().toString(36).slice(2,10);
+        pid = 'p-' + Math.random().toString(36).slice(2, 10);
         localStorage.setItem(KEY, pid);
       }
       return pid;
     }catch{
-      return 'p-' + Math.random().toString(36).slice(2,10);
+      return 'p-' + Math.random().toString(36).slice(2, 10);
     }
   }
 
@@ -125,8 +127,13 @@
     return v.slice(0, 80);
   }
 
+  function getBootValue(key, fallback=''){
+    if (BRIDGE && BRIDGE[key] != null && BRIDGE[key] !== '') return BRIDGE[key];
+    return qs(key, fallback);
+  }
+
   function roomPath(roomId){
-    return `hha-battle/goodjunk/duetRooms/${roomId}`;
+    return `hha-battle/goodjunk/rooms/${roomId}`;
   }
 
   function saveLastSummary(summary){
@@ -139,43 +146,48 @@
     }catch{}
   }
 
-  function buildSameRoomLobbyUrl(isRematch){
+  function buildSameRoomLobbyUrl(){
     const u = new URL('./goodjunk-duet-lobby.html', W.location.href);
     u.searchParams.set('room', STATE.roomId);
     u.searchParams.set('roomId', STATE.roomId);
-    u.searchParams.set('pid', STATE.pid);
+    u.searchParams.set('pid', STATE.uid || STATE.pid);
+    u.searchParams.set('uid', STATE.uid || STATE.pid);
+    u.searchParams.set('playerId', STATE.uid || STATE.pid);
     u.searchParams.set('name', STATE.name);
     u.searchParams.set('nick', STATE.name);
     u.searchParams.set('hub', STATE.hub);
     u.searchParams.set('diff', STATE.diff);
     u.searchParams.set('time', String(STATE.timeSec));
-    u.searchParams.set('seed', String(Date.now()));
+    u.searchParams.set('seed', String(now()));
     u.searchParams.set('view', STATE.view);
     u.searchParams.set('run', STATE.run);
     u.searchParams.set('zone', STATE.zone);
     u.searchParams.set('theme', STATE.theme);
     if (DEBUG) u.searchParams.set('debug', '1');
-    if (isRematch) u.searchParams.set('rematch', '1');
     return u.toString();
   }
 
-  function getCurrentParticipantIds(room){
-    const ids = (((room || {}).match || {}).participantIds || []).filter(Boolean);
-    if (ids.length) return ids;
-    const players = (room && room.players) ? Object.keys(room.players) : [];
-    return players.slice(0, 2);
-  }
-
-  function getRematchInfo(room){
-    const ids = getCurrentParticipantIds(room);
-    const votes = (room && room.rematch) ? room.rematch : {};
-    let count = 0;
-
-    ids.forEach((id) => {
-      if (votes[id] && votes[id].ready) count += 1;
+  function buildLauncherUrl(){
+    const u = new URL('./goodjunk-launcher.html', W.location.href);
+    [
+      'pid','uid','playerId','name','nick','hub','run','diff','time','studyId','phase',
+      'conditionGroup','sessionOrder','blockLabel','siteCode',
+      'schoolYear','semester','view','api','log','debug','ai','zone','theme'
+    ].forEach((k) => {
+      let v = '';
+      if (k === 'pid' || k === 'uid' || k === 'playerId') v = STATE.uid || STATE.pid;
+      else if (k === 'name' || k === 'nick') v = STATE.name;
+      else if (k === 'hub') v = STATE.hub;
+      else if (k === 'diff') v = STATE.diff;
+      else if (k === 'time') v = String(STATE.timeSec);
+      else if (k === 'view') v = STATE.view;
+      else if (k === 'run') v = STATE.run;
+      else if (k === 'zone') v = STATE.zone;
+      else if (k === 'theme') v = STATE.theme;
+      else v = qs(k, '');
+      if (v != null && v !== '') u.searchParams.set(k, v);
     });
-
-    return { ids, count, votes };
+    return u.toString();
   }
 
   function resetResultMount(){
@@ -227,28 +239,35 @@
   };
 
   const STATE = {
-    roomId: normalizeRoomId(qs('roomId') || qs('room') || ''),
-    pid: normalizePid(qs('pid') || ''),
-    name: String(qs('name') || qs('nick') || 'Player').slice(0, 64),
-    hub: qs('hub') || '../hub.html',
-    view: (qs('view') || 'mobile').toLowerCase(),
-    run: (qs('run') || 'play').toLowerCase(),
+    roomId: normalizeRoomId(getBootValue('roomId', getBootValue('room', ''))),
+    pid: normalizePid(getBootValue('pid', '')),
+    name: String(getBootValue('name', getBootValue('nick', 'Player'))).slice(0, 64),
+    hub: getBootValue('hub', '../hub.html'),
+    view: String(getBootValue('view', 'mobile')).toLowerCase(),
+    run: String(getBootValue('run', 'play')).toLowerCase(),
     diff: (() => {
-      const v = String(qs('diff') || 'normal').toLowerCase();
+      const v = String(getBootValue('diff', 'normal')).toLowerCase();
       return (v === 'easy' || v === 'hard') ? v : 'normal';
     })(),
-    timeSec: clamp(qs('time') || 90, 30, 300),
-    seed: String(qs('seed') || now()),
-    zone: qs('zone') || 'nutrition',
-    theme: qs('theme') || 'goodjunk',
+    timeSec: clamp(getBootValue('time', 90), 30, 300),
+    seed: String(getBootValue('seed', now())),
+    zone: getBootValue('zone', 'nutrition'),
+    theme: getBootValue('theme', 'goodjunk'),
 
     uid: '',
     db: null,
     auth: null,
     roomRef: null,
+    metaRef: null,
+    stateRef: null,
+    playersRef: null,
     meRef: null,
 
     room: null,
+    roomRaw: null,
+    meta: {},
+    stateNode: {},
+    playersNode: {},
     peerId: '',
     loopId: 0,
     heartbeatTimer: 0,
@@ -262,7 +281,7 @@
     resultOpen: false,
 
     roomStatus: 'waiting',
-    startAt: Number(qs('startAt') || 0) || 0,
+    startAt: Number(getBootValue('startAt', 0)) || 0,
     endAt: 0,
 
     lastFrameAt: 0,
@@ -286,10 +305,6 @@
     hudCompact: false,
     blockReason: '',
     finishedPublished: false,
-
-    rematchRequested: false,
-    rematchRedirected: false,
-    rematchResetting: false,
     leaving: false
   };
 
@@ -342,18 +357,55 @@
     };
   }
 
+  function normalizeRoom(raw){
+    const roomRaw = raw || {};
+    const meta = roomRaw.meta || {};
+    const stateNode = roomRaw.state || {};
+    const players = roomRaw.players || {};
+    const hostId = String(meta.hostPid || meta.hostPlayerId || '');
+    const status = String(stateNode.status || 'waiting');
+    const startAt = Number(stateNode.startAt || stateNode.countdownEndsAt || 0) || 0;
+
+    return {
+      raw: roomRaw,
+      meta,
+      state: stateNode,
+      players,
+      hostId,
+      status,
+      startAt
+    };
+  }
+
+  function getCurrentParticipantIds(room){
+    const players = (room && room.players) ? Object.keys(room.players) : [];
+    return players.filter(Boolean).slice(0, 2);
+  }
+
   function getPeer(room){
     if (!room || !room.players) return null;
     const ids = Object.keys(room.players);
     for (const id of ids){
-      if (id !== STATE.uid) return Object.assign({ id }, room.players[id] || {});
+      if (id !== STATE.uid){
+        return Object.assign({ id }, room.players[id] || {});
+      }
     }
     return null;
   }
 
   function isParticipant(room){
-    const ids = (((room || {}).match || {}).participantIds || []);
-    return Array.isArray(ids) && ids.includes(STATE.uid);
+    if (!room || !room.players || !STATE.uid) return false;
+    if (room.players[STATE.uid]) return true;
+
+    const me = Object.values(room.players).find((p) => {
+      return p && (
+        String(p.uid || '') === STATE.uid ||
+        String(p.playerId || '') === STATE.uid ||
+        String(p.pid || '') === STATE.uid
+      );
+    });
+
+    return !!me;
   }
 
   function getPeerScore(){
@@ -405,7 +457,6 @@
 
     const room = STATE.room || {};
     const peer = getPeer(room) || {};
-    const match = room.match || {};
     const leftSec = STATE.started ? Math.max(0, (STATE.endAt - now()) / 1000).toFixed(1) : '-';
     const me = room.players && STATE.uid ? (room.players[STATE.uid] || null) : null;
 
@@ -430,7 +481,7 @@
       `miss=${STATE.miss}`,
       `streak=${STATE.streak}`,
       `bestStreak=${STATE.bestStreak}`,
-      `participantIds=${Array.isArray(match.participantIds) ? match.participantIds.join(', ') : '-'}`,
+      `participantIds=${getCurrentParticipantIds(room).join(', ') || '-'}`,
       `peerUid=${peer.id || '-'}`,
       `peerName=${peer.name || '-'}`,
       `peerConnected=${peer.id ? (peer.connected !== false) : '-'}`,
@@ -438,10 +489,7 @@
       `peerLastSeen=${peer.id ? Number(peer.lastSeenAt || 0) : 0}`,
       `myPhase=${me ? String(me.phase || '-') : '-'}`,
       `myFinished=${me ? (!!me.finished) : '-'}`,
-      `blockReason=${STATE.blockReason || '-'}`,
-      `rematchRequested=${STATE.rematchRequested}`,
-      `rematchCount=${getRematchInfo(room).count}`,
-      `rematchResetting=${STATE.rematchResetting}`
+      `blockReason=${STATE.blockReason || '-'}`
     ];
 
     el.textContent = lines.join('\n');
@@ -559,7 +607,7 @@
   }
 
   function pulseScore(){
-    if (!UI.score) return;
+    if (!UI.score || typeof UI.score.animate !== 'function') return;
     UI.score.animate(
       [{ transform:'scale(1)' }, { transform:'scale(1.08)' }, { transform:'scale(1)' }],
       { duration:180, easing:'ease-out' }
@@ -728,7 +776,7 @@
       return;
     }
 
-    if ((status === 'countdown' || status === 'running') && startAt){
+    if ((status === 'countdown' || status === 'playing' || status === 'running') && startAt){
       const ms = startAt - now();
       if (ms > 0){
         const sec = Math.ceil(ms / 1000);
@@ -739,25 +787,29 @@
       return;
     }
 
-    if (status === 'running' && !startAt){
+    if ((status === 'playing' || status === 'running') && !startAt){
       startGame();
+      return;
+    }
+
+    if (status === 'ended' || status === 'finished'){
+      finishGame('room-finished');
       return;
     }
 
     showCountdown('รอหัวหน้าห้องกดเริ่มเกม', '…');
   }
 
-  async function markRoomRunning(){
-    if (!STATE.roomRef) return;
+  async function markRoomPlaying(){
+    if (!STATE.stateRef) return;
     try{
       const room = STATE.room;
       const isHost = room && room.hostId === STATE.uid;
       if (isHost){
-        await STATE.roomRef.update({
-          status: 'running',
+        await STATE.stateRef.update({
+          status: 'playing',
           updatedAt: firebase.database.ServerValue.TIMESTAMP
         });
-        await STATE.roomRef.child('match/status').set('running');
       }
     }catch{}
   }
@@ -770,12 +822,12 @@
 
     STATE.started = true;
     STATE.prestart = false;
-    STATE.roomStatus = 'running';
+    STATE.roomStatus = 'playing';
     STATE.endAt = now() + STATE.timeSec * 1000;
     STATE.lastFrameAt = 0;
     STATE.lastSpawnAt = 0;
     hideCountdown();
-    markRoomRunning();
+    markRoomPlaying();
     coachTick();
   }
 
@@ -785,8 +837,10 @@
       await STATE.meRef.update({
         id: STATE.uid,
         uid: STATE.uid,
-        pid: STATE.pid,
+        playerId: STATE.uid,
+        pid: STATE.uid,
         name: STATE.name,
+        nick: STATE.name,
         connected: true,
         ready: true,
         phase: STATE.ended ? 'done' : (STATE.started ? 'run' : 'lobby'),
@@ -817,13 +871,13 @@
 
   function buildSummary(){
     const peer = getPeer(STATE.room) || {};
-    const peerName = String(peer.name || 'เพื่อน');
+    const peerName = String(peer.name || peer.nick || 'เพื่อน');
     const peerFinished = !!peer.finished;
     return {
       game: 'goodjunk',
       mode: 'duet',
       roomId: STATE.roomId,
-      pid: STATE.pid,
+      pid: STATE.uid || STATE.pid,
       name: STATE.name,
       partnerName: peerName,
       diff: STATE.diff,
@@ -843,7 +897,7 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: peerFinished,
       endedAt: new Date().toISOString(),
-      version: 'v20260327-GOODJUNK-DUET-FINAL-V1'
+      version: 'v20260327-GOODJUNK-DUET-FINAL-V2'
     };
   }
 
@@ -898,7 +952,8 @@
 
   function getRecapLines(){
     const peer = getPeer(STATE.room) || {};
-    const peerName = String(peer.name || 'เพื่อน').trim() || 'เพื่อน';
+    const peerNameRaw = String(peer.name || peer.nick || 'เพื่อน');
+    const peerName = peerNameRaw.trim() || 'เพื่อน';
 
     return [
       {
@@ -975,89 +1030,6 @@
     return out;
   }
 
-  async function requestRematch(){
-    if (!STATE.roomRef || !STATE.uid) return;
-    STATE.rematchRequested = true;
-
-    await STATE.roomRef.child('rematch/' + STATE.uid).set({
-      uid: STATE.uid,
-      pid: STATE.pid,
-      name: STATE.name,
-      ready: true,
-      requestedAt: firebase.database.ServerValue.TIMESTAMP
-    });
-  }
-
-  async function maybeResetRoomForRematch(room){
-    if (!STATE.roomRef || !room || STATE.rematchResetting) return;
-
-    const status = String(room.status || 'waiting');
-    if (status !== 'finished') return;
-
-    const info = getRematchInfo(room);
-    if (info.ids.length !== 2) return;
-    if (info.count < 2) return;
-    if (room.hostId !== STATE.uid) return;
-
-    STATE.rematchResetting = true;
-
-    try{
-      await new Promise((resolve, reject) => {
-        STATE.roomRef.transaction((current) => {
-          if (!current) return current;
-
-          const currentStatus = String(current.status || 'waiting');
-          if (currentStatus !== 'finished') return current;
-
-          const ids = getCurrentParticipantIds(current);
-          const infoNow = getRematchInfo(current);
-          if (ids.length !== 2 || infoNow.count < 2) return current;
-
-          const t = now();
-          current.status = 'waiting';
-          current.startAt = 0;
-          current.updatedAt = t;
-          current.seed = String(t);
-          current.match = {
-            participantIds: [],
-            lockedAt: 0,
-            status: 'idle',
-            finishedAt: 0
-          };
-          current.rematch = {};
-          current.players = current.players || {};
-
-          ids.forEach((id) => {
-            const oldP = current.players[id] || {};
-            current.players[id] = Object.assign({}, oldP, {
-              id,
-              uid: id,
-              ready: false,
-              phase: 'lobby',
-              finished: false,
-              finalScore: 0,
-              miss: 0,
-              streak: 0,
-              finishedAt: 0,
-              connected: true,
-              lastSeenAt: t
-            });
-          });
-
-          return current;
-        }, (err, committed) => {
-          if (err) return reject(err);
-          if (!committed) return reject(new Error('rematch-reset-aborted'));
-          resolve();
-        }, false);
-      });
-    }catch(err){
-      console.error('[duet.rematch.reset] failed:', err);
-    }finally{
-      STATE.rematchResetting = false;
-    }
-  }
-
   async function leaveFinishedRoomAndMaybeCleanup(nextHref){
     if (STATE.leaving) return;
     STATE.leaving = true;
@@ -1075,7 +1047,7 @@
     }
 
     try{
-      if (STATE.roomRef && STATE.room && String(STATE.room.status || '') === 'finished'){
+      if (STATE.roomRef && STATE.room && String(STATE.room.status || '') === 'ended'){
         const room = STATE.room;
         const ids = getCurrentParticipantIds(room);
         const players = room.players || {};
@@ -1103,7 +1075,7 @@
     if (!UI.resultMount) return;
 
     const peer = getPeer(STATE.room) || {};
-    const peerNameRaw = String(peer.name || 'เพื่อน');
+    const peerNameRaw = String(peer.name || peer.nick || 'เพื่อน');
     const peerName = peerNameRaw.trim() || 'เพื่อน';
     const peerScore = Number(peer.finalScore || 0);
     const pairScore = STATE.score + peerScore;
@@ -1114,8 +1086,8 @@
 
     const statusText = reason === 'peer-stale'
       ? 'เพื่อนหลุดจากห้องนานเกินกำหนด จึงสรุปผลจากคะแนนล่าสุด'
-      : reason === 'rematch-requested'
-        ? 'ส่งคำขอรีแมตช์แล้ว รอเพื่อนกดรีแมตช์'
+      : reason === 'room-finished'
+        ? 'รอบนี้ปิดจากห้องส่วนกลางแล้ว'
         : (peerDone
             ? 'เพื่อนเล่นจบแล้ว มาดูคะแนนคู่กัน'
             : 'กำลังรอคะแนนจากเพื่อนอีกนิด');
@@ -1128,20 +1100,9 @@
     const recap = getRecapLines();
     const trophies = getTrophyBadges();
     const fx = getCelebrationFlags(goalReached);
-    const rematchInfo = getRematchInfo(STATE.room);
-    const rematchBadges = [
-      `<span class="duet-badge blue">🔁 รีแมตช์ ${rematchInfo.count}/2</span>`
-    ];
-
-    if (STATE.rematchRequested && rematchInfo.count < 2){
-      rematchBadges.push(`<span class="duet-badge gold">⌛ รอเพื่อนกดรีแมตช์</span>`);
-    }
 
     const starsHtml = Array.from({ length: praise.stars }, () => '<span class="duet-star">⭐</span>').join('');
-    const badgesHtml = praise.badges
-      .map(b => `<span class="duet-badge ${esc(b.cls)}">${esc(b.text)}</span>`)
-      .concat(rematchBadges)
-      .join('');
+    const badgesHtml = praise.badges.map(b => `<span class="duet-badge ${esc(b.cls)}">${esc(b.text)}</span>`).join('');
     const trophiesHtml = trophies.map(t => `<span class="duet-trophy ${esc(t.cls)}">${esc(t.text)}</span>`).join('');
 
     const summary = buildSummary();
@@ -1157,7 +1118,6 @@
           <div class="duet-summary-kicker">👯 GOODJUNK • สรุปผลเล่นคู่</div>
           <div class="duet-result-title">${goalReached ? 'เยี่ยมมาก ทำคะแนนคู่ได้ดีมาก' : 'จบรอบเล่นคู่แล้ว'}</div>
           <div class="duet-result-sub">
-            ${esc(reason === 'room-finished' ? 'รอบนี้ปิดจากห้องส่วนกลางแล้ว' : 'สรุปคะแนนของฉัน + เพื่อน + คะแนนคู่')}<br>
             ${esc(statusText)}
           </div>
         </div>
@@ -1233,7 +1193,7 @@
         </div>
 
         <div class="duet-result-actions hubv2" style="position:relative;z-index:1;">
-          <button class="btn good" id="duetBtnRematch" type="button">${STATE.rematchRequested ? 'กำลังรอรีแมตช์...' : 'ขอรีแมตช์'}</button>
+          <button class="btn good" id="duetBtnPlayAgain" type="button">เล่นอีกครั้ง</button>
           <button class="btn ghost" id="duetBtnBackLobby" type="button">กลับไป Lobby ห้องเดิม</button>
           <button class="btn ghost" id="duetBtnBackLauncher" type="button">กลับหน้าเลือกโหมด</button>
           <button class="btn primary" id="duetBtnBackHub" type="button">กลับหน้าหลัก</button>
@@ -1243,7 +1203,7 @@
     `;
 
     const btnClose = $('duetBtnClose');
-    const btnRematch = $('duetBtnRematch');
+    const btnPlayAgain = $('duetBtnPlayAgain');
     const btnBackLobby = $('duetBtnBackLobby');
     const btnBackLauncher = $('duetBtnBackLauncher');
     const btnBackHub = $('duetBtnBackHub');
@@ -1254,35 +1214,21 @@
       });
     }
 
-    if (btnRematch){
-      btnRematch.disabled = !!STATE.rematchRequested;
-      btnRematch.addEventListener('click', async () => {
-        if (STATE.rematchRequested) return;
-        btnRematch.disabled = true;
-        btnRematch.textContent = 'กำลังรอรีแมตช์...';
-
-        try{
-          await requestRematch();
-          renderResultOverlay('rematch-requested');
-        }catch(err){
-          console.error('[duet.rematch.request] failed:', err);
-          btnRematch.disabled = false;
-          btnRematch.textContent = 'ขอรีแมตช์';
-        }
+    if (btnPlayAgain){
+      btnPlayAgain.addEventListener('click', () => {
+        leaveFinishedRoomAndMaybeCleanup(buildSameRoomLobbyUrl());
       });
     }
 
     if (btnBackLobby){
       btnBackLobby.addEventListener('click', () => {
-        leaveFinishedRoomAndMaybeCleanup(buildSameRoomLobbyUrl(false));
+        leaveFinishedRoomAndMaybeCleanup(buildSameRoomLobbyUrl());
       });
     }
 
     if (btnBackLauncher){
       btnBackLauncher.addEventListener('click', () => {
-        leaveFinishedRoomAndMaybeCleanup(
-          (UI.btnBackLauncher && UI.btnBackLauncher.href) || '../goodjunk-launcher.html'
-        );
+        leaveFinishedRoomAndMaybeCleanup(buildLauncherUrl());
       });
     }
 
@@ -1294,11 +1240,11 @@
   }
 
   async function maybeFinalizeRoom(){
-    if (!STATE.roomRef || !STATE.room) return;
+    if (!STATE.stateRef || !STATE.room) return;
 
     try{
       const room = STATE.room;
-      const ids = (((room || {}).match || {}).participantIds || []).filter(Boolean);
+      const ids = getCurrentParticipantIds(room);
       if (ids.length < 2) return;
 
       const players = room.players || {};
@@ -1315,13 +1261,16 @@
       );
 
       if (!allFinished && !oneStale) return;
+      if (String(room.status || 'waiting') === 'ended') return;
 
-      await STATE.roomRef.update({
-        status: 'finished',
+      const isHost = room.hostId === STATE.uid;
+      if (!isHost) return;
+
+      await STATE.stateRef.update({
+        status: 'ended',
+        endedAt: firebase.database.ServerValue.TIMESTAMP,
         updatedAt: firebase.database.ServerValue.TIMESTAMP
       });
-      await STATE.roomRef.child('match/status').set('finished');
-      await STATE.roomRef.child('match/finishedAt').set(firebase.database.ServerValue.TIMESTAMP);
     }catch{}
   }
 
@@ -1330,7 +1279,7 @@
     STATE.ended = true;
     STATE.started = false;
     STATE.prestart = false;
-    STATE.roomStatus = 'finished';
+    STATE.roomStatus = 'ended';
     caf(STATE.loopId);
     clearTargets();
     hideCountdown();
@@ -1357,7 +1306,7 @@
         <div class="duet-result-title">${esc(title)}</div>
         <div class="duet-result-sub">${esc(sub)}</div>
         <div class="duet-result-actions">
-          <a class="btn ghost" href="./goodjunk-duet-lobby.html?pid=${encodeURIComponent(STATE.pid)}&name=${encodeURIComponent(STATE.name)}&hub=${encodeURIComponent(STATE.hub)}&diff=${encodeURIComponent(STATE.diff)}&time=${encodeURIComponent(String(STATE.timeSec))}&seed=${encodeURIComponent(String(now()))}&view=${encodeURIComponent(STATE.view)}&run=${encodeURIComponent(STATE.run)}&zone=${encodeURIComponent(STATE.zone)}&theme=${encodeURIComponent(STATE.theme)}${DEBUG ? '&debug=1' : ''}">กลับ Lobby</a>
+          <a class="btn ghost" href="${esc(buildSameRoomLobbyUrl())}">กลับ Lobby</a>
           <a class="btn primary" href="${esc(STATE.hub)}">กลับ Hub</a>
         </div>
       </div>
@@ -1396,43 +1345,50 @@
     }
 
     STATE.roomRef = STATE.db.ref(roomPath(STATE.roomId));
-    STATE.meRef = STATE.roomRef.child('players/' + STATE.uid);
+    STATE.metaRef = STATE.roomRef.child('meta');
+    STATE.stateRef = STATE.roomRef.child('state');
+    STATE.playersRef = STATE.roomRef.child('players');
+    STATE.meRef = STATE.playersRef.child(STATE.uid);
 
     const snap = await STATE.roomRef.once('value');
-    const room = snap.val();
+    const raw = snap.val();
 
-    if (!room){
+    if (!raw){
       throw new Error('room not found');
     }
 
+    const room = normalizeRoom(raw);
     const me = room.players && room.players[STATE.uid];
-    const isKnownParticipant = isParticipant(room);
     const meExists = !!me;
 
     if (!meExists){
       throw new Error('player not in room');
     }
 
-    if (!isKnownParticipant && String(room.status || 'waiting') !== 'waiting'){
-      throw new Error('player not locked into current duet round');
-    }
-
+    STATE.roomRaw = raw;
     STATE.room = room;
-    STATE.roomStatus = String(room.status || 'waiting');
-    STATE.startAt = Number(room.startAt || STATE.startAt || 0);
+    STATE.meta = room.meta;
+    STATE.stateNode = room.state;
+    STATE.playersNode = room.players;
+    STATE.roomStatus = room.status;
+    STATE.startAt = room.startAt;
     STATE.peerId = ((getPeer(room) || {}).id || '');
 
-    await STATE.meRef.onDisconnect().update({
-      connected: false,
-      phase: 'left',
-      lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-    });
+    try{
+      await STATE.meRef.onDisconnect().update({
+        connected: false,
+        phase: 'left',
+        lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+      });
+    }catch{}
 
     await STATE.meRef.update({
       id: STATE.uid,
       uid: STATE.uid,
-      pid: STATE.pid,
+      playerId: STATE.uid,
+      pid: STATE.uid,
       name: STATE.name,
+      nick: STATE.name,
       connected: true,
       ready: true,
       phase: (String(room.status || 'waiting') === 'waiting') ? 'lobby' : 'run',
@@ -1448,17 +1404,23 @@
     if (!STATE.roomRef) return;
 
     STATE.roomRef.on('value', (snap) => {
-      const room = snap.val();
-      if (!room){
+      const raw = snap.val();
+      if (!raw){
         if (!STATE.ended){
           showBlockOverlay('ไม่พบห้อง Duet แล้ว', 'ห้องนี้อาจถูกลบหรือหมดอายุ ให้กลับไปสร้างห้องใหม่');
         }
         return;
       }
 
+      const room = normalizeRoom(raw);
+
+      STATE.roomRaw = raw;
       STATE.room = room;
-      STATE.roomStatus = String(room.status || 'waiting');
-      STATE.startAt = Number(room.startAt || STATE.startAt || 0);
+      STATE.meta = room.meta;
+      STATE.stateNode = room.state;
+      STATE.playersNode = room.players;
+      STATE.roomStatus = room.status;
+      STATE.startAt = room.startAt;
       STATE.peerId = ((getPeer(room) || {}).id || '');
       STATE.peerScore = getPeerScore();
       STATE.pairScore = STATE.score + STATE.peerScore;
@@ -1476,25 +1438,15 @@
 
       if (STATE.ended){
         renderResultOverlay('sync-finish');
-        maybeResetRoomForRematch(room);
         maybeFinalizeRoom();
-
-        if (
-          STATE.rematchRequested &&
-          String(room.status || 'waiting') === 'waiting' &&
-          !STATE.rematchRedirected
-        ){
-          STATE.rematchRedirected = true;
-          setTimeout(() => {
-            W.location.replace(buildSameRoomLobbyUrl(true));
-          }, 450);
-        }
       }
     });
   }
 
   function bindUi(){
     if (UI.btnGoHub) UI.btnGoHub.href = STATE.hub;
+    if (UI.btnBackLauncher) UI.btnBackLauncher.href = buildLauncherUrl();
+
     if (UI.hudToggle){
       UI.hudToggle.addEventListener('click', toggleHudCompact);
     }
@@ -1526,7 +1478,7 @@
     bindUi();
     resetResultMount();
 
-    if (window.matchMedia('(max-width: 980px)').matches) {
+    if (W.matchMedia && W.matchMedia('(max-width: 980px)').matches) {
       applyHudCompact(true);
     } else {
       applyHudCompact(false);
@@ -1563,8 +1515,7 @@
         'เข้า GoodJunk Duet ไม่สำเร็จ',
         msg === 'roomId missing' ? 'ไม่มี room id ส่งมาจาก lobby'
         : msg === 'room not found' ? 'ไม่พบห้องนี้ใน Firebase'
-        : msg === 'player not in room' ? 'ผู้เล่นนี้ยังไม่ได้เข้าห้องจาก Lobby'
-        : msg === 'player not locked into current duet round' ? 'คุณยังไม่ถูกล็อกในรอบนี้ ให้กลับไปเริ่มจาก Lobby'
+        : msg === 'player not in room' ? 'ผู้เล่นนี้ยังไม่ได้เข้าห้องจาก Lobby หรือ uid ไม่ตรงกับห้อง'
         : 'เกิดปัญหาระหว่างเชื่อม Firebase หรือข้อมูลห้อง'
       );
     }
