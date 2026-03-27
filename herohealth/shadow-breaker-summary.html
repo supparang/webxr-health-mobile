@@ -8,9 +8,11 @@
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#020617; --bg2:#0b1226;
-      --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.52);
+      color-scheme: dark;
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.74);
+      --panel2:rgba(15,23,42,.58);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
@@ -18,8 +20,15 @@
       --violet:#a78bfa;
       --good:#22c55e;
       --warn:#f59e0b;
+      --pink:#f472b6;
+      --gold:#facc15;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -31,99 +40,245 @@
       color:var(--text);
     }
     a{ color:inherit; text-decoration:none; }
-    .summaryWrap{
-      max-width:920px;
+
+    .wrap{
+      max-width:980px;
       margin:0 auto;
-      padding:14px;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+      min-height:100vh;
     }
+
     .hero{
-      border-radius:24px;
+      border-radius:26px;
       border:1px solid var(--stroke);
       background:var(--panel);
       box-shadow:0 24px 80px rgba(0,0,0,.38);
-      padding:18px 16px;
+      padding:20px 18px;
+      position:relative;
+      overflow:hidden;
     }
+
+    .heroGlow{
+      position:absolute;
+      inset:auto -60px -60px auto;
+      width:220px;
+      height:220px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(250,204,21,.18), transparent 68%);
+      pointer-events:none;
+    }
+
     .kicker{
       color:var(--muted);
       font-size:.82rem;
       font-weight:900;
+      letter-spacing:.2px;
     }
+
     h1{
-      margin:8px 0 4px;
-      font-size:1.5rem;
-      line-height:1.12;
+      margin:8px 0 6px;
+      font-size:1.8rem;
+      line-height:1.1;
     }
+
     .sub{
       color:rgba(226,232,240,.88);
       line-height:1.5;
-      font-size:.95rem;
+      font-size:.97rem;
     }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top:14px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.52);
+      color:var(--muted);
+      font-size:.84rem;
+      font-weight:900;
+    }
+    .pill b{ color:var(--text); }
+
+    .heroBadge{
+      margin-top:16px;
+      display:grid;
+      grid-template-columns:92px 1fr;
+      gap:14px;
+      align-items:center;
+      padding:14px;
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.46);
+      box-shadow:0 16px 40px rgba(0,0,0,.22);
+    }
+
+    .heroBadgeIcon{
+      width:92px;
+      height:92px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:48px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.30);
+      box-shadow:0 14px 28px rgba(0,0,0,.20);
+    }
+
+    .heroBadgeTitle{
+      font-size:1.15rem;
+      font-weight:1000;
+      line-height:1.2;
+    }
+
+    .heroBadgeDesc{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:.9rem;
+      line-height:1.45;
+      font-weight:800;
+    }
+
     .grid{
       display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
+      grid-template-columns:1.06fr .94fr;
       gap:12px;
       margin-top:14px;
     }
-    @media (max-width:800px){ .grid{ grid-template-columns:1fr; } }
+    @media (max-width:920px){
+      .grid{ grid-template-columns:1fr; }
+      .heroBadge{ grid-template-columns:1fr; }
+      .heroBadgeIcon{ margin:auto; }
+    }
 
     .card{
       border-radius:22px;
       border:1px solid var(--stroke);
       background:var(--panel2);
-      box-shadow:0 18px 55px rgba(0,0,0,.24);
+      box-shadow:0 18px 55px rgba(0,0,0,.28);
       padding:14px;
     }
-    .resultGrid{
+
+    .cardTitle{
+      font-size:1rem;
+      font-weight:1000;
+      margin-bottom:8px;
+    }
+
+    .statGrid{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
+      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
-      margin-top:12px;
     }
-    @media (max-width:720px){
-      .resultGrid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    @media (max-width:520px){
+      .statGrid{ grid-template-columns:1fr; }
     }
-    .stat{
+
+    .statCard{
       border-radius:18px;
       border:1px solid rgba(148,163,184,.16);
       background:rgba(2,6,23,.28);
       padding:12px;
-      text-align:center;
+      min-height:84px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap:6px;
     }
-    .stat .k{
+
+    .statK{
       color:var(--muted);
-      font-size:.82rem;
-      font-weight:900;
-    }
-    .stat .v{
-      margin-top:4px;
-      font-size:1.08rem;
+      font-size:.78rem;
       font-weight:1000;
+      letter-spacing:.2px;
+      text-transform:uppercase;
     }
-    .badgeBox{
-      display:grid;
-      grid-template-columns:72px 1fr;
-      gap:12px;
+
+    .statV{
+      color:var(--text);
+      font-size:1.3rem;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .bossLine{
+      display:flex;
+      gap:10px;
       align-items:center;
       margin-top:12px;
-      border-radius:20px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.40);
       padding:12px;
-    }
-    .badgeIcon{
-      width:72px; height:72px; border-radius:18px;
-      display:grid; place-items:center; font-size:38px;
+      border-radius:18px;
       border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.36);
+      background:rgba(2,6,23,.24);
     }
-    .badgeTitle{ font-size:1rem; font-weight:1100; }
-    .badgeMeta{
-      margin-top:4px;
+
+    .bossIcon{
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      background:rgba(2,6,23,.30);
+      border:1px solid rgba(148,163,184,.16);
+    }
+
+    .bossBody{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+
+    .bossTitle{
+      font-weight:1000;
+      font-size:1rem;
+      line-height:1.15;
+    }
+
+    .bossDesc{
       color:var(--muted);
       font-size:.86rem;
-      line-height:1.45;
+      line-height:1.4;
+      font-weight:800;
+    }
+
+    .messageBox{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:18px;
+      border:1px solid rgba(59,130,246,.18);
+      background:rgba(59,130,246,.10);
+      color:#dbeafe;
+      line-height:1.5;
+      font-size:.94rem;
       font-weight:900;
     }
+
+    .kidHint{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:18px;
+      border:1px solid rgba(34,197,94,.18);
+      background:rgba(34,197,94,.10);
+      color:#dcfce7;
+      line-height:1.5;
+      font-size:.92rem;
+      font-weight:900;
+    }
+
     .mini{
       margin-top:10px;
       padding:10px 12px;
@@ -135,123 +290,194 @@
       font-weight:800;
       line-height:1.45;
     }
+
     .actions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      margin-top:12px;
+      margin-top:16px;
     }
+
     .btn{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:42px;
-      padding:10px 14px;
+      min-height:46px;
+      padding:11px 14px;
       border-radius:16px;
       border:1px solid rgba(148,163,184,.22);
       background:rgba(148,163,184,.10);
       color:var(--text);
       font-weight:1000;
       cursor:pointer;
+      text-decoration:none;
     }
     .btn.primary{
-      border-color:rgba(59,130,246,.30);
+      border-color:rgba(59,130,246,.28);
       background:rgba(59,130,246,.16);
-      box-shadow:0 12px 24px rgba(59,130,246,.18);
+      box-shadow:0 12px 24px rgba(59,130,246,.14);
     }
     .btn.violet{
       border-color:rgba(167,139,250,.28);
       background:rgba(167,139,250,.14);
+    }
+    .btn.good{
+      border-color:rgba(34,197,94,.28);
+      background:rgba(34,197,94,.14);
     }
     .btn.ghost{
       background:transparent;
       color:var(--muted);
     }
 
-    #vRecordFlag{
-      color:#facc15;
-      text-shadow:0 0 12px rgba(250,204,21,.22);
-    }
-
-    .sb-child-only{ display:block; }
-    .sb-research-only{ display:none; }
-
-    .summaryWrap[data-ui-mode="research"] .sb-child-only{
-      display:none !important;
-    }
-    .summaryWrap[data-ui-mode="research"] .sb-research-only{
-      display:block !important;
-    }
-    .summaryWrap[data-ui-mode="child"] .actions .btn.primary{
-      transform:scale(1.02);
-    }
-
-    .teacherJumpBox{
-      margin-top:14px;
+    .empty{
+      margin-top:12px;
+      padding:14px;
       border-radius:18px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.44);
-      padding:12px;
-      box-shadow:0 14px 28px rgba(0,0,0,.18);
-    }
-    .teacherJumpTitle{
-      font-size:.96rem;
-      font-weight:1000;
-      color:var(--text);
-    }
-    .teacherJumpSub{
-      margin-top:4px;
+      border:1px dashed rgba(148,163,184,.22);
       color:var(--muted);
-      font-size:.86rem;
-      line-height:1.45;
+      font-size:.92rem;
+      line-height:1.5;
       font-weight:800;
     }
+
+    .debug{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.18);
+      color:var(--muted);
+      font-size:.82rem;
+      line-height:1.5;
+      word-break:break-word;
+    }
+
+    .grade-S{ color:var(--gold); }
+    .grade-A{ color:#93c5fd; }
+    .grade-B{ color:#86efac; }
+    .grade-C{ color:#e5e7eb; }
   </style>
 </head>
 <body>
-  <div class="summaryWrap" id="sbSummaryWrap" data-ui-mode="child">
+  <div class="wrap">
     <section class="hero">
-      <div class="kicker">HeroHealth • Shadow Breaker</div>
-      <h1>สรุปผลการเล่น</h1>
-      <div class="sub">หนูผ่านบอสได้ไกลแค่ไหน และทำคะแนนได้เท่าไร มาดูกันเลย</div>
+      <div class="heroGlow" aria-hidden="true"></div>
 
-      <div class="resultGrid">
-        <div class="stat"><div class="k">คะแนนรอบนี้</div><div class="v" id="vScore">0</div></div>
-        <div class="stat"><div class="k">คะแนนสูงสุดของหนู</div><div class="v" id="vBestScoreEver">0</div></div>
-        <div class="stat"><div class="k">ความแม่น</div><div class="v" id="vAcc">0%</div></div>
-        <div class="stat"><div class="k">คอมโบสูงสุด</div><div class="v" id="vCombo">0</div></div>
-        <div class="stat"><div class="k">พลาด</div><div class="v" id="vMiss">0</div></div>
-        <div class="stat"><div class="k">ผ่านบอส</div><div class="v" id="vBosses">0</div></div>
-        <div class="stat"><div class="k">บอสที่ไปถึง</div><div class="v" id="vBestBoss">-</div></div>
-        <div class="stat"><div class="k">สถิติใหม่ไหม</div><div class="v" id="vRecordFlag">—</div></div>
+      <div class="kicker">HeroHealth • Exercise Zone</div>
+      <h1>สรุปผล Shadow Breaker</h1>
+      <div class="sub" id="summarySub">
+        มาดูว่าเราผ่านได้ไกลแค่ไหน และพร้อมลุยรอบต่อไปหรือยัง
       </div>
 
-      <div class="badgeBox">
-        <div class="badgeIcon" id="vBadgeIcon">🏅</div>
+      <div class="row">
+        <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
+        <span class="pill"><b>Mode</b>: <span id="uiMode">normal</span></span>
+        <span class="pill"><b>View</b>: <span id="uiView">-</span></span>
+      </div>
+
+      <div class="heroBadge">
+        <div class="heroBadgeIcon" id="badgeIcon">🏅</div>
         <div>
-          <div class="badgeTitle" id="vBadgeTitle">ฮีโร่นักสู้ตัวน้อย</div>
-          <div class="badgeMeta" id="vBadgeMeta">เล่นได้ดีมาก ลองอีกครั้งเพื่อเก็บรางวัลให้สูงขึ้น</div>
+          <div class="heroBadgeTitle" id="badgeTitle">Shadow Starter</div>
+          <div class="heroBadgeDesc" id="badgeDesc">เริ่มต้นได้ดีแล้ว ลองเล่นอีกครั้งเพื่อไปให้ไกลกว่าเดิม</div>
         </div>
       </div>
-
-      <div class="mini" id="vRecordTipBox">มาดูกันว่ารอบนี้หนูทำได้ดีแค่ไหน</div>
 
       <div class="actions">
         <a class="btn primary" id="btnPlayAgain" href="#">▶ เล่นอีกครั้ง</a>
-        <a class="btn" id="btnBackHub" href="#">🏠 กลับหน้าเกมหลัก</a>
+        <a class="btn violet" id="btnTeacherPanel" href="#">🧑‍🏫 Teacher Panel</a>
+        <a class="btn good" id="btnBackHub" href="./hub.html">🏠 กลับหน้าเกมหลัก</a>
       </div>
+    </section>
 
-      <div class="mini sb-child-only" id="summaryKidHint">
-        เก่งมาก! ถ้าอยากลองอีกครั้ง กด “เล่นอีกครั้ง” ได้เลย
-      </div>
+    <div class="grid">
+      <section class="card">
+        <div class="cardTitle">สถิติหลัก</div>
+        <div class="statGrid">
+          <div class="statCard">
+            <div class="statK">Score</div>
+            <div class="statV" id="statScore">0</div>
+          </div>
+          <div class="statCard">
+            <div class="statK">Grade</div>
+            <div class="statV" id="statGrade">C</div>
+          </div>
+          <div class="statCard">
+            <div class="statK">Accuracy</div>
+            <div class="statV" id="statAcc">0%</div>
+          </div>
+          <div class="statCard">
+            <div class="statK">Max Combo</div>
+            <div class="statV" id="statCombo">0</div>
+          </div>
+          <div class="statCard">
+            <div class="statK">Miss</div>
+            <div class="statV" id="statMiss">0</div>
+          </div>
+          <div class="statCard">
+            <div class="statK">เวลาเล่น</div>
+            <div class="statV" id="statTime">0.0 s</div>
+          </div>
+        </div>
 
-      <section class="teacherJumpBox sb-research-only" id="teacherJumpBox" style="display:none;">
-        <div class="teacherJumpTitle">สำหรับคุณครู / งานวิจัย</div>
-        <div class="teacherJumpSub">ดูผลละเอียด ประวัติ และ export ข้อมูลของผู้เล่นคนนี้</div>
-        <div class="actions" style="margin-top:10px;">
-          <a class="btn violet" id="btnOpenTeacherPanel" href="#">🧑‍🏫 เปิด Teacher Panel</a>
+        <div class="messageBox" id="summaryMessage">
+          เก่งมาก ลองอีกครั้งเพื่อทำคะแนนได้สูงขึ้นและผ่านบอสให้ไกลกว่าเดิม
+        </div>
+
+        <div class="kidHint" id="summaryKidHint">
+          ถ้าอยากเก่งขึ้นอีก ลองตีเป้าให้แม่นและเก็บคอมโบให้ได้นานขึ้นนะ
+        </div>
+
+        <div class="mini" id="summaryHubHint">
+          ถ้าหนูเล่นเสร็จแล้ว กด “กลับหน้าเกมหลัก” เพื่อกลับไปเลือกเกมอื่นได้เลย
         </div>
       </section>
+
+      <section class="card">
+        <div class="cardTitle">ความก้าวหน้าเรื่องบอส</div>
+
+        <div class="bossLine">
+          <div class="bossIcon" id="bestBossIcon">🥊</div>
+          <div class="bossBody">
+            <div class="bossTitle" id="bestBossTitle">ยังไม่มีข้อมูลบอส</div>
+            <div class="bossDesc" id="bestBossDesc">เล่นให้จบอย่างน้อยหนึ่งรอบเพื่อดูความก้าวหน้าของบอส</div>
+          </div>
+        </div>
+
+        <div class="statGrid" style="margin-top:12px;">
+          <div class="statCard">
+            <div class="statK">Bosses Cleared</div>
+            <div class="statV" id="statBossesCleared">0</div>
+          </div>
+          <div class="statCard">
+            <div class="statK">Phase Final</div>
+            <div class="statV" id="statPhaseFinal">1</div>
+          </div>
+          <div class="statCard">
+            <div class="statK">HP YOU END</div>
+            <div class="statV" id="statHpYou">0</div>
+          </div>
+          <div class="statCard">
+            <div class="statK">End Reason</div>
+            <div class="statV" id="statEndReason">-</div>
+          </div>
+        </div>
+
+        <div class="mini" id="metaLine">
+          session: -
+        </div>
+
+        <div class="debug" id="debugBox">กำลังอ่านผลล่าสุด…</div>
+      </section>
+    </div>
+
+    <section class="card" id="emptyState" style="display:none; margin-top:12px;">
+      <div class="cardTitle">ยังไม่พบผลล่าสุด</div>
+      <div class="empty">
+        ตอนนี้ยังไม่มีข้อมูลสรุปของ Shadow Breaker สำหรับ PID นี้<br/>
+        ลองเข้าเกม 1 รอบก่อน แล้วค่อยกลับมาดูหน้านี้อีกครั้ง
+      </div>
     </section>
   </div>
 
@@ -260,172 +486,204 @@
       'use strict';
 
       const $ = (s)=>document.querySelector(s);
-      const qs = (k,d='')=>{
+
+      function qs(k, d=''){
         try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
         catch(_){ return d; }
-      };
+      }
 
-      const vScore = $('#vScore');
-      const vBestScoreEver = $('#vBestScoreEver');
-      const vAcc = $('#vAcc');
-      const vCombo = $('#vCombo');
-      const vMiss = $('#vMiss');
-      const vBosses = $('#vBosses');
-      const vBestBoss = $('#vBestBoss');
-      const vRecordFlag = $('#vRecordFlag');
-      const vBadgeIcon = $('#vBadgeIcon');
-      const vBadgeTitle = $('#vBadgeTitle');
-      const vBadgeMeta = $('#vBadgeMeta');
-      const vRecordTipBox = $('#vRecordTipBox');
-      const summaryKidHint = $('#summaryKidHint');
-      const teacherJumpBox = $('#teacherJumpBox');
-      const btnOpenTeacherPanel = $('#btnOpenTeacherPanel');
-      const btnPlayAgain = $('#btnPlayAgain');
-      const btnBackHub = $('#btnBackHub');
-      const sbSummaryWrap = document.querySelector('.summaryWrap') || document.getElementById('sbSummaryWrap') || document.body;
+      function safeJsonParse(v, fallback=null){
+        try{ return JSON.parse(v); }catch(_){ return fallback; }
+      }
 
-      function loadJson(key, fallback=null){
+      function loadJson(k, fallback=null){
         try{
-          const raw = localStorage.getItem(key);
+          const raw = localStorage.getItem(k);
           return raw ? JSON.parse(raw) : fallback;
         }catch(_){
           return fallback;
         }
       }
-      function safeJsonParse(s){
-        try{ return JSON.parse(s); }catch(_){ return null; }
+
+      function pickBossEmoji(name){
+        const s = String(name || '').toLowerCase();
+        if (s.includes('bubble')) return '🫧';
+        if (s.includes('meteor')) return '☄️';
+        if (s.includes('hydra')) return '🐉';
+        if (s.includes('final')) return '👑';
+        return '🥊';
       }
 
-      function loadShadowBreakerSummaryFallback(){
-        const pidFromQs = String(qs('pid','')).trim();
-        const candidates = [];
-
-        const sumParam = qs('sum','');
-        if (sumParam) {
-          try{ candidates.push(JSON.parse(decodeURIComponent(sumParam))); }catch(_){}
-        }
-
-        if (pidFromQs) {
-          const hist = loadJson(`SB_SUMMARY_HISTORY:${pidFromQs}`, []);
-          if (Array.isArray(hist)) hist.forEach(item => candidates.push(item));
-        }
-
-        const globalHist = loadJson(`SB_SUMMARY_HISTORY:ALL`, []);
-        if (Array.isArray(globalHist)) globalHist.forEach(item => candidates.push(item));
-
-        if (pidFromQs) {
-          candidates.push(loadJson(`SB_LAST_SUMMARY:${pidFromQs}`, null));
-          candidates.push(loadJson(`HHA_LAST_SUMMARY:shadowbreaker:${pidFromQs}`, null));
-        }
-
-        const globalLast = loadJson('HHA_LAST_SUMMARY', null);
-        if (globalLast && String(globalLast.game || '').toLowerCase() === 'shadowbreaker') {
-          candidates.push(globalLast);
-        }
-
-        const cleaned = candidates.filter(Boolean).filter(x =>
-          String(x.game || 'shadowbreaker').toLowerCase() === 'shadowbreaker' ||
-          String(x.projectTag || '').toLowerCase() === 'shadowbreaker'
-        );
-
-        if (!cleaned.length) return null;
-
-        cleaned.sort((a,b)=>{
-          const ta = new Date(a.timestampIso || a.endedAt || a.created_at_iso || 0).getTime() || 0;
-          const tb = new Date(b.timestampIso || b.endedAt || b.created_at_iso || 0).getTime() || 0;
-          return tb - ta;
-        });
-
-        return cleaned[0] || null;
+      function bossFriendlyDesc(name){
+        const s = String(name || '').toLowerCase();
+        if (s.includes('bubble')) return 'หนูผ่านด่านเริ่มต้นได้แล้ว เก่งมาก';
+        if (s.includes('meteor')) return 'หนูผ่านด่านที่เร็วขึ้นได้แล้ว น่าภูมิใจมาก';
+        if (s.includes('hydra')) return 'หนูไปไกลถึง Neon Hydra แล้ว เก่งสุด ๆ';
+        if (s.includes('final')) return 'หนูไปถึงหรือผ่าน Final Boss แล้ว สุดยอดจริง ๆ';
+        return 'นี่คือบอสที่ไปได้ไกลที่สุดในตอนนี้';
       }
 
-      function applySummaryUiMode(sum){
-        const mode = String(sum?.mode || sum?.runMode || 'normal').toLowerCase();
-        const isResearch = mode === 'research';
-
-        if (sbSummaryWrap) {
-          sbSummaryWrap.dataset.uiMode = isResearch ? 'research' : 'child';
-        }
-        if (summaryKidHint) summaryKidHint.style.display = isResearch ? 'none' : '';
-        if (teacherJumpBox) teacherJumpBox.style.display = isResearch ? '' : 'none';
+      function gradeClass(grade){
+        const g = String(grade || 'C').toUpperCase();
+        return `grade-${g}`;
       }
 
-      function bindTeacherPanelLink(sum){
-        if (!btnOpenTeacherPanel) return;
+      function findSummary(pid){
+        const a = loadJson(`SB_LAST_SUMMARY:${pid}`, null);
+        if (a) return a;
 
-        let teacherUrl = '';
-        const ex = sum?.__extraJson ? safeJsonParse(sum.__extraJson) : null;
+        const b = loadJson(`HHA_LAST_SUMMARY:shadowbreaker:${pid}`, null);
+        if (b) return b;
 
-        if (ex?.teacherUrl) {
-          teacherUrl = ex.teacherUrl;
-        } else if (sum?.pid) {
-          teacherUrl = `./teacher-panel.html?game=shadowbreaker&pid=${encodeURIComponent(sum.pid)}`;
-        } else {
-          teacherUrl = './teacher-panel.html?game=shadowbreaker';
+        const c = loadJson('HHA_LAST_SUMMARY', null);
+        if (c && String(c.game || c.projectTag || '').toLowerCase() === 'shadowbreaker') {
+          if (!pid || String(c.pid || '') === pid) return c;
         }
 
-        btnOpenTeacherPanel.href = teacherUrl;
+        return null;
       }
 
       function render(sum){
-        const finalSum = sum || loadShadowBreakerSummaryFallback();
+        const uiPid = $('#uiPid');
+        const uiMode = $('#uiMode');
+        const uiView = $('#uiView');
 
-        if(!finalSum){
-          if (sbSummaryWrap) sbSummaryWrap.dataset.uiMode = 'child';
-          if (teacherJumpBox) teacherJumpBox.style.display = 'none';
-          if (vRecordTipBox) vRecordTipBox.textContent = 'ยังไม่มีผลการเล่นในตอนนี้';
-          return;
+        const badgeIcon = $('#badgeIcon');
+        const badgeTitle = $('#badgeTitle');
+        const badgeDesc = $('#badgeDesc');
+
+        const statScore = $('#statScore');
+        const statGrade = $('#statGrade');
+        const statAcc = $('#statAcc');
+        const statCombo = $('#statCombo');
+        const statMiss = $('#statMiss');
+        const statTime = $('#statTime');
+        const statBossesCleared = $('#statBossesCleared');
+        const statPhaseFinal = $('#statPhaseFinal');
+        const statHpYou = $('#statHpYou');
+        const statEndReason = $('#statEndReason');
+
+        const bestBossIcon = $('#bestBossIcon');
+        const bestBossTitle = $('#bestBossTitle');
+        const bestBossDesc = $('#bestBossDesc');
+
+        const summaryMessage = $('#summaryMessage');
+        const summaryKidHint = $('#summaryKidHint');
+        const summarySub = $('#summarySub');
+        const metaLine = $('#metaLine');
+        const debugBox = $('#debugBox');
+
+        let runUrl = `./shadow-breaker-vr.html?pid=${encodeURIComponent(sum.pid || qs('pid','anon'))}&zone=fitness`;
+        let hubUrl = String(sum.hub || qs('hub','') || './hub.html');
+        let teacherUrl = `./teacher-panel.html?game=shadowbreaker&pid=${encodeURIComponent(sum.pid || qs('pid','anon'))}`;
+
+        const ex = sum?.__extraJson ? safeJsonParse(sum.__extraJson) : null;
+        if (ex?.runUrl) runUrl = ex.runUrl;
+        if (ex?.hubUrl) hubUrl = ex.hubUrl;
+        if (ex?.teacherUrl) teacherUrl = ex.teacherUrl;
+        if (sum?.hub) hubUrl = sum.hub;
+
+        $('#btnPlayAgain').href = runUrl;
+        $('#btnTeacherPanel').href = teacherUrl;
+        $('#btnBackHub').href = hubUrl;
+
+        const pid = String(sum.pid || qs('pid','anon') || 'anon');
+        const mode = String(sum.mode || sum.runMode || 'normal');
+        const view = String(qs('view', ex?.view || '-'));
+
+        if (uiPid) uiPid.textContent = pid;
+        if (uiMode) uiMode.textContent = mode;
+        if (uiView) uiView.textContent = view || '-';
+
+        const badge = sum.badge || { icon:'🏅', title:'Shadow Starter', desc:'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม' };
+        if (badgeIcon) badgeIcon.textContent = badge.icon || '🏅';
+        if (badgeTitle) badgeTitle.textContent = badge.title || 'Shadow Starter';
+        if (badgeDesc) badgeDesc.textContent = badge.desc || 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
+
+        if (statScore) statScore.textContent = String(sum.scoreFinal ?? sum.score ?? 0);
+
+        if (statGrade){
+          const grade = String(sum.grade || 'C').toUpperCase();
+          statGrade.textContent = grade;
+          statGrade.className = `statV ${gradeClass(grade)}`;
         }
 
-        sum = finalSum;
+        if (statAcc) statAcc.textContent = `${Number(sum.accPct || 0).toFixed(1)}%`;
+        if (statCombo) statCombo.textContent = String(sum.comboMax ?? 0);
+        if (statMiss) statMiss.textContent = String(sum.missTotal ?? sum.miss ?? 0);
+        if (statTime) statTime.textContent = `${Number(sum.elapsedSec || 0).toFixed(1)} s`;
+        if (statBossesCleared) statBossesCleared.textContent = String(sum.bossesCleared ?? 0);
+        if (statPhaseFinal) statPhaseFinal.textContent = String(sum.phaseFinal ?? 1);
+        if (statHpYou) statHpYou.textContent = String(sum.hpYouEnd ?? 0);
+        if (statEndReason) statEndReason.textContent = String(sum.end_reason || '-');
 
-        applySummaryUiMode(sum);
-        bindTeacherPanelLink(sum);
+        const bossName = String(sum.bestReachedBoss || 'ยังไม่มีข้อมูลบอส');
+        if (bestBossIcon) bestBossIcon.textContent = pickBossEmoji(bossName);
+        if (bestBossTitle) bestBossTitle.textContent = bossName;
+        if (bestBossDesc) bestBossDesc.textContent = bossFriendlyDesc(bossName);
 
-        const currentScore = Number(sum.scoreFinal ?? sum.score ?? 0);
-        const bestEver = Math.max(
-          currentScore,
-          Number(localStorage.getItem(`SB_BEST_SCORE:${sum.pid || qs('pid','anon')}`) || '0') || 0
-        );
-        const newRecord = currentScore >= bestEver;
+        const cleared = Number(sum.bossesCleared || 0);
+        const score = Number(sum.scoreFinal || 0);
+        const acc = Number(sum.accPct || 0);
 
-        if (vScore) vScore.textContent = String(currentScore);
-        if (vBestScoreEver) vBestScoreEver.textContent = String(bestEver);
-        if (vAcc) vAcc.textContent = `${Number(sum.accPct || 0).toFixed(1)}%`;
-        if (vCombo) vCombo.textContent = String(sum.comboMax ?? 0);
-        if (vMiss) vMiss.textContent = String(sum.missTotal ?? sum.miss ?? 0);
-        if (vBosses) vBosses.textContent = String(sum.bossesCleared ?? 0);
-        if (vBestBoss) vBestBoss.textContent = String(sum.bestReachedBoss || sum.bossVariant || '-');
-        if (vRecordFlag) vRecordFlag.textContent = newRecord ? 'ได้เลย 🎉' : 'เกือบแล้ว';
+        if (summarySub) {
+          summarySub.textContent =
+            `คะแนน ${score} • ผ่านบอส ${cleared} ตัว • ความแม่น ${acc.toFixed(1)}%`;
+        }
 
-        const badge = sum.badge || null;
-        if (vBadgeIcon) vBadgeIcon.textContent = badge?.icon || '🏅';
-        if (vBadgeTitle) vBadgeTitle.textContent = badge?.title || 'ฮีโร่นักสู้ตัวน้อย';
-        if (vBadgeMeta) vBadgeMeta.textContent = badge?.desc || 'เล่นได้ดีมาก ลองอีกครั้งเพื่อเก็บรางวัลให้สูงขึ้น';
-
-        if (vRecordTipBox){
-          if (newRecord) {
-            vRecordTipBox.textContent = `สุดยอดเลย! รอบนี้หนูทำได้ ${currentScore} คะแนน และเป็นสถิติใหม่`;
+        if (summaryMessage){
+          if (String(sum.end_reason || '') === 'final_clear'){
+            summaryMessage.textContent = 'เยี่ยมที่สุดเลย หนูผ่าน Final Boss ได้แล้ว 🎉';
+          } else if (cleared >= 3){
+            summaryMessage.textContent = 'หนูไปไกลมากแล้ว อีกนิดเดียวก็ถึง Final Boss';
+          } else if (cleared >= 1){
+            summaryMessage.textContent = 'หนูผ่านบอสไปได้แล้ว ลองเล่นอีกครั้งเพื่อไปไกลกว่าเดิม';
           } else {
-            const gap = Math.max(0, bestEver - currentScore);
-            vRecordTipBox.textContent =
-              gap > 0
-                ? `อีก ${gap} คะแนน หนูจะเท่าคะแนนสูงสุดเดิมแล้ว`
-                : 'รอบนี้หนูทำได้ใกล้เคียงกับคะแนนที่ดีที่สุดแล้ว';
+            summaryMessage.textContent = 'เริ่มต้นได้ดีแล้ว ลองตีให้แม่นขึ้นอีกนิดนะ';
           }
         }
 
-        let runUrl = `../herohealth/shadow-breaker-vr.html?pid=${encodeURIComponent(sum.pid || qs('pid','anon'))}&zone=fitness`;
-        let hubUrl = String(sum.hub || qs('hub','') || './hub.html');
-        const ex = sum?.__extraJson ? safeJsonParse(sum.__extraJson) : null;
-        if (ex?.runUrl) runUrl = ex.runUrl;
-        if (sum?.hub) hubUrl = sum.hub;
+        if (summaryKidHint){
+          if (acc < 60){
+            summaryKidHint.textContent = 'เคล็ดลับ: ค่อย ๆ เล็งและแตะเป้าให้แม่นขึ้น จะช่วยให้คะแนนขึ้นเร็ว';
+          } else if ((sum.missTotal || 0) > 8){
+            summaryKidHint.textContent = 'เคล็ดลับ: ระวังเป้าหลอกและระเบิด จะช่วยให้ไปได้ไกลขึ้น';
+          } else if (cleared >= 2){
+            summaryKidHint.textContent = 'เก่งมากแล้ว ลองรักษาคอมโบให้นานขึ้นเพื่อเปิด FEVER ให้บ่อยกว่าเดิม';
+          } else {
+            summaryKidHint.textContent = 'ถ้าอยากเก่งขึ้นอีก ลองตีเป้าให้แม่นและเก็บคอมโบให้ได้นานขึ้นนะ';
+          }
+        }
 
-        if (btnPlayAgain) btnPlayAgain.href = runUrl;
-        if (btnBackHub) btnBackHub.href = hubUrl;
+        if (metaLine){
+          metaLine.textContent =
+            `session: ${sum.sessionId || '-'} • timestamp: ${sum.timestampIso || '-'}`;
+        }
+
+        if (debugBox){
+          debugBox.innerHTML =
+            `<div><b>runUrl:</b> <code>${runUrl}</code></div>` +
+            `<div><b>teacherUrl:</b> <code>${teacherUrl}</code></div>` +
+            `<div><b>hubUrl:</b> <code>${hubUrl}</code></div>`;
+        }
       }
 
-      render(null);
+      function init(){
+        const pid = String(qs('pid','anon')).trim() || 'anon';
+        const sum = findSummary(pid);
+
+        if (!sum) {
+          $('#emptyState').style.display = '';
+          $('#btnTeacherPanel').style.display = 'none';
+          $('#debugBox').textContent = `ไม่พบ summary สำหรับ pid=${pid}`;
+          $('#uiPid').textContent = pid;
+          return;
+        }
+
+        render(sum);
+      }
+
+      init();
     })();
   </script>
 </body>
