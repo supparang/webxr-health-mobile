@@ -1260,6 +1260,7 @@
     </div>
   </div>
 
+  <script src="./firebase-config.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -1453,6 +1454,39 @@
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#39;');
+      }
+
+      function getFirebaseConfig(){
+        const candidates = [
+          window.HHA_FIREBASE_CONFIG,
+          window.HEROHEALTH_FIREBASE_CONFIG,
+          window.FIREBASE_CONFIG,
+          window.__firebaseConfig
+        ];
+
+        for(const cfg of candidates){
+          if(cfg && typeof cfg === 'object' && cfg.apiKey && cfg.projectId){
+            return cfg;
+          }
+        }
+        return null;
+      }
+
+      function setupFirebaseApp(){
+        if(typeof firebase === 'undefined'){
+          throw new Error('Firebase scripts not loaded');
+        }
+
+        if(firebase.apps && firebase.apps.length){
+          return firebase.app();
+        }
+
+        const cfg = getFirebaseConfig();
+        if(!cfg){
+          throw new Error('Missing Firebase config');
+        }
+
+        return firebase.initializeApp(cfg);
       }
 
       function resetRoomViewOnly(){
@@ -1814,28 +1848,6 @@
         EL.pidInput.value = pid;
         writeLS(LS.pid, pid);
         return pid;
-      }
-
-      function setupFirebaseApp(){
-        if(typeof firebase === 'undefined'){
-          throw new Error('Firebase scripts not loaded');
-        }
-
-        if(firebase.apps && firebase.apps.length){
-          return firebase.app();
-        }
-
-        const cfg =
-          window.HHA_FIREBASE_CONFIG ||
-          window.FIREBASE_CONFIG ||
-          window.__firebaseConfig ||
-          null;
-
-        if(!cfg || !cfg.apiKey){
-          throw new Error('Missing Firebase config');
-        }
-
-        return firebase.initializeApp(cfg);
       }
 
       function waitForAuthUser(){
@@ -2550,11 +2562,12 @@
 
           let msg = 'ยังเชื่อมต่อระบบไม่ได้';
           if(String(err && err.message || '').includes('Missing Firebase config')){
-            msg = 'ยังไม่ได้ใส่ Firebase config';
+            msg = 'ยังไม่พบ firebase-config.js หรือยังไม่ได้ใส่ค่า Firebase config';
           }
+
           setLoader(`Hydration ${getModeTitle()}`, msg);
-          setCoach(msg + ' — ใส่ Firebase config ก่อน แล้วรีเฟรชหน้าอีกครั้ง');
-          alert(msg);
+          setCoach(msg + ' — ตรวจไฟล์ /herohealth/firebase-config.js แล้วรีเฟรชหน้าอีกครั้ง');
+          setTimeout(()=>{ alert(msg); }, 150);
         }
       }
 
