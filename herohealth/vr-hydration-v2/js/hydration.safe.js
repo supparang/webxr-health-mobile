@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.safe.js ===
 // Hydration V2 Main Orchestrator
-// PATCH v20260320b-HYDRATION-V2-PATCH-C-FIXED-HUB-SOCIAL-BREAKDOWN
+// FULL PATCH v20260327-HYDRATION-V2-RESEARCH-FORMS-ABC-FULL
 //
 // Flow:
 // Intro -> Main Run -> Summary -> Scenarios -> Evaluate -> Create -> Final Summary
@@ -81,6 +81,75 @@ const ctx = buildCtx();
 const researchCtx = initResearchContext(ctx);
 const rng = mulberry32(ctx.seed);
 
+function toJsonSafe(value, fallback = null) {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function resolveResearchFormFromQs(qs) {
+  const explicit = String(qs.get('form') || qs.get('researchForm') || '').toUpperCase();
+  if (explicit === 'A' || explicit === 'B' || explicit === 'C') return explicit;
+
+  const phase = String(qs.get('testPhase') || qs.get('researchPhase') || '').toLowerCase();
+  if (phase === 'pre' || phase === 'pretest') return 'A';
+  if (phase === 'delayed' || phase === 'followup' || phase === 'retention') return 'C';
+
+  return 'B';
+}
+
+function resolveResearchPhaseFromForm(form) {
+  const f = String(form || 'B').toUpperCase();
+  if (f === 'A') return 'pre';
+  if (f === 'C') return 'delayed';
+  return 'post';
+}
+
+function getNextResearchForm(currentForm) {
+  const f = String(currentForm || 'B').toUpperCase();
+  if (f === 'A') return 'B';
+  if (f === 'B') return 'C';
+  return 'C';
+}
+
+function getPhaseFromResearchForm(form) {
+  const f = String(form || 'B').toUpperCase();
+  if (f === 'A') return 'pre';
+  if (f === 'C') return 'delayed';
+  return 'post';
+}
+
+function buildHubUrl(extra = {}) {
+  const u = new URL(FIXED_HUB_URL, window.location.href);
+
+  const passthrough = {
+    zone: 'nutrition',
+    game: ctx.gameId || 'hydration',
+    mode: ctx.mode,
+    type: ctx.type,
+    run: ctx.run,
+    diff: ctx.diff,
+    pid: ctx.pid,
+    studyId: ctx.studyId,
+    researchForm: state?.researchForm || ctx.researchForm || 'B',
+    researchPhase: state?.researchPhase || ctx.researchPhase || 'post'
+  };
+
+  Object.entries({ ...passthrough, ...extra }).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === '') return;
+    u.searchParams.set(k, String(v));
+  });
+
+  return u.toString();
+}
+
+function goHub(reason = 'back_hub', extra = {}) {
+  saveSummary(reason);
+  window.location.href = buildHubUrl(extra);
+}
+
 const state = {
   phase: PHASES.INTRO,
   mode: ctx.mode,
@@ -89,6 +158,10 @@ const state = {
   seed: ctx.seed,
   pid: ctx.pid,
   studyId: ctx.studyId,
+  researchForm: ctx.researchForm,
+  researchPhase: ctx.researchPhase,
+  postForm: ctx.researchForm,
+  phaseTag: ctx.researchPhase,
   hub: ctx.hub,
 
   sessionNo: researchCtx.sessionNo,
@@ -143,6 +216,26 @@ const state = {
   items: [],
   nextItemId: 1,
 
+  flowLock: false,
+  learningStartedAt: 0,
+
+  scenarioElapsedMs: 0,
+  evaluateElapsedMs: 0,
+  createElapsedMs: 0,
+
+  scenarioResultRaw: null,
+  evaluateResultRaw: null,
+  createResultRaw: null,
+
+  scenarioItemIds: [],
+  evaluateItemId: '',
+  createTaskId: '',
+
+  evaluateFeedbackTitle: '',
+  evaluateFeedbackText: '',
+
+  researchPayload: null,
+
   lastEventLog: []
 };
 
@@ -167,6 +260,13 @@ function boot() {
 
 function buildCtx() {
   const qs = new URLSearchParams(window.location.search);
+  const researchForm = resolveResearchFormFromQs(qs);
+  const researchPhase = String(
+    qs.get('testPhase') ||
+    qs.get('researchPhase') ||
+    resolveResearchPhaseFromForm(researchForm)
+  ).toLowerCase();
+
   return {
     gameId: qs.get('gameId') || 'hydration',
     mode: normalizeEnum(qs.get('mode'), ['quick', 'program'], 'quick'),
@@ -176,7 +276,10 @@ function buildCtx() {
     studyId: qs.get('studyId') || '',
     diff: qs.get('diff') || 'normal',
     hub: FIXED_HUB_URL,
-    seed: toSeed(qs.get('seed'))
+    seed: toSeed(qs.get('seed')),
+
+    researchForm,
+    researchPhase
   };
 }
 
@@ -199,14 +302,14 @@ function setupIntro() {
     `${ctx.mode === 'program' ? 'Program' : 'Quick'} / ${ctx.type === 'team' ? 'Team' : 'Solo'}`;
 
   refs.introRunChip.textContent =
-    `${ctx.run === 'research' ? 'Research flow' : 'Play flow'} • W${researchCtx.weekNo} S${researchCtx.sessionNo}`;
+    `${ctx.run === 'research' ? 'Research flow' : 'Play flow'} • Form ${ctx.researchForm} (${ctx.researchPhase}) • W${researchCtx.weekNo} S${researchCtx.sessionNo}`;
 
   refs.introSeedChip.textContent = `seed=${ctx.seed}`;
 
   refs.stageSub.textContent =
     ctx.mode === 'program'
-      ? 'Program starter: รัน action ก่อน แล้วต่อ learning flow + research progress'
-      : 'Quick starter: เล่น action สั้น ๆ แล้วต่อ learning flow หลังเล่น';
+      ? `Program starter: รัน action ก่อน แล้วต่อ learning flow + research progress • Form ${ctx.researchForm}`
+      : `Quick starter: เล่น action สั้น ๆ แล้วต่อ learning flow หลังเล่น • Form ${ctx.researchForm}`;
 
   refs.coachLine.textContent =
     ctx.type === 'team'
@@ -226,7 +329,7 @@ function setupIntro() {
 function bindUI() {
   refs.startBtn.addEventListener('click', startRound);
   refs.backHubBtn.addEventListener('click', () => {
-    window.location.href = FIXED_HUB_URL;
+    goHub('intro_back_hub', { done: '0' });
   });
 
   refs.laneBtns.forEach(btn => {
@@ -252,6 +355,10 @@ function startRound() {
   cancelAnimationFrame(rafId);
 
   state.phase = PHASES.RUN;
+  state.researchForm = ctx.researchForm;
+  state.researchPhase = ctx.researchPhase;
+  state.postForm = ctx.researchForm;
+  state.phaseTag = ctx.researchPhase;
   state.clockMs = 0;
   state.actionScore = 0;
   state.knowledgeScore = 0;
@@ -297,6 +404,26 @@ function startRound() {
   state.items.forEach(removeItemNode);
   state.items = [];
   state.nextItemId = 1;
+
+  state.flowLock = false;
+  state.learningStartedAt = 0;
+
+  state.scenarioElapsedMs = 0;
+  state.evaluateElapsedMs = 0;
+  state.createElapsedMs = 0;
+
+  state.scenarioResultRaw = null;
+  state.evaluateResultRaw = null;
+  state.createResultRaw = null;
+
+  state.scenarioItemIds = [];
+  state.evaluateItemId = '';
+  state.createTaskId = '';
+
+  state.evaluateFeedbackTitle = '';
+  state.evaluateFeedbackText = '';
+
+  state.researchPayload = null;
 
   state.remainingMs = state.durationMs;
   loopPrevTs = 0;
@@ -652,7 +779,10 @@ function showMainSummaryOverlay() {
 
   refs.summaryOverlay.querySelector('#summaryHubBtn')
     .addEventListener('click', () => {
-      window.location.href = FIXED_HUB_URL;
+      goHub('summary_back_hub', {
+        done: '0',
+        total: state.totalScore
+      });
     });
 
   refs.summaryOverlay.querySelector('#summaryNextBtn')
@@ -671,87 +801,138 @@ function normalizeCreatePlanScore(rawScore) {
 }
 
 async function runPostGameLearningFlow() {
+  if (state.flowLock) return;
+  state.flowLock = true;
+  state.learningStartedAt = Date.now();
+
   hideOverlay(refs.summaryOverlay);
 
-  state.phase = PHASES.SCENARIOS;
-  const scenarioResult = await openScenarios(refs.scenarioOverlay, state, {
-    count: 2,
-    randomFn: rng
-  });
+  try {
+    state.phase = PHASES.SCENARIOS;
 
-  state.correctChoices = scenarioResult.correctCount || 0;
-  state.wrongChoices = scenarioResult.wrongCount || 0;
-  state.knowledgeScore += scenarioResult.knowledgeDelta || 0;
-  state.scenarioSummary = scenarioResult.summary || '';
-  recomputeSocial();
-  state.totalScore = computeTotalScore();
+    const scenarioStartedAt = performance.now();
+    const scenarioResult = await openScenarios(refs.scenarioOverlay, state, {
+      count: 2,
+      randomFn: rng
+    });
+    state.scenarioElapsedMs = Math.round(performance.now() - scenarioStartedAt);
+    state.scenarioResultRaw = toJsonSafe(scenarioResult, null);
+    state.scenarioItemIds = Array.isArray(scenarioResult.items)
+      ? scenarioResult.items.map(x => x.scenarioId)
+      : [];
 
-  logEvent('scenarios_done', scenarioResult);
+    state.correctChoices = scenarioResult.correctCount || 0;
+    state.wrongChoices = scenarioResult.wrongCount || 0;
+    state.knowledgeScore += scenarioResult.knowledgeDelta || 0;
+    state.scenarioSummary = scenarioResult.summary || '';
+    recomputeSocial();
+    state.totalScore = computeTotalScore();
 
-  state.phase = PHASES.EVALUATE;
-  const evalResult = await openEvaluate(refs.evaluateOverlay, state, {
-    title: 'เลือกแผนดื่มน้ำที่ดีที่สุด',
-    subtitle: 'หลังเล่นแล้ว ลองเลือกแผนที่ช่วยสร้างนิสัยการดื่มน้ำที่ดี'
-  });
+    logEvent('scenarios_done', {
+      ...scenarioResult,
+      elapsedMs: state.scenarioElapsedMs
+    });
 
-  state.evaluateChoice = evalResult.choice;
-  state.evaluateCorrect = evalResult.correct;
-  state.knowledgeScore += evalResult.knowledgeDelta || 0;
-  state.planningScore += evalResult.planningDelta || 0;
-  recomputeSocial();
-  state.totalScore = computeTotalScore();
+    state.phase = PHASES.EVALUATE;
 
-  logEvent('evaluate_done', {
-    choice: evalResult.choice,
-    correct: evalResult.correct,
-    knowledgeDelta: evalResult.knowledgeDelta,
-    planningDelta: evalResult.planningDelta
-  });
+    const evaluateStartedAt = performance.now();
+    const evalResult = await openEvaluate(refs.evaluateOverlay, state, {
+      title: 'เลือกแผนดื่มน้ำที่ดีที่สุด',
+      subtitle: 'หลังเล่นแล้ว ลองเลือกแผนที่ช่วยสร้างนิสัยการดื่มน้ำที่ดี',
+      randomFn: rng
+    });
+    state.evaluateElapsedMs = Math.round(performance.now() - evaluateStartedAt);
+    state.evaluateResultRaw = toJsonSafe(evalResult, null);
+    state.evaluateItemId = evalResult.itemId || '';
 
-  state.phase = PHASES.CREATE;
-  const createResult = await openCreate(refs.createOverlay, state);
+    state.evaluateChoice = evalResult.choice;
+    state.evaluateCorrect = evalResult.correct;
+    state.evaluateFeedbackTitle = evalResult.feedbackTitle || '';
+    state.evaluateFeedbackText = evalResult.feedbackText || '';
 
-  const normalizedPlanScore = normalizeCreatePlanScore(createResult.planScore || 0);
+    state.knowledgeScore += evalResult.knowledgeDelta || 0;
+    state.planningScore += evalResult.planningDelta || 0;
+    recomputeSocial();
+    state.totalScore = computeTotalScore();
 
-  state.createdPlan = createResult.plan || {};
-  state.createdPlanScore = normalizedPlanScore;
-  state.planningScore += normalizedPlanScore;
-  state.createFeedbackTitle = createResult.feedbackTitle || '';
-  state.createFeedbackText = createResult.feedbackText || '';
-  recomputeSocial();
-  state.totalScore = computeTotalScore();
+    logEvent('evaluate_done', {
+      choice: evalResult.choice,
+      correct: evalResult.correct,
+      knowledgeDelta: evalResult.knowledgeDelta,
+      planningDelta: evalResult.planningDelta,
+      elapsedMs: state.evaluateElapsedMs,
+      feedbackTitle: evalResult.feedbackTitle || '',
+      feedbackText: evalResult.feedbackText || '',
+      itemId: evalResult.itemId || ''
+    });
 
-  logEvent('create_done', {
-    ...createResult,
-    rawPlanScore: createResult.planScore || 0,
-    normalizedPlanScore
-  });
+    state.phase = PHASES.CREATE;
 
-  state.phase = PHASES.DONE;
-  refs.coachLine.textContent =
-    state.evaluateCorrect
-      ? 'เยี่ยมเลย เลือกแผนได้ดีและต่อยอดถึงการสร้างแผนของตัวเองแล้ว'
-      : 'ทำได้ดีมาก รอบนี้ได้ลองคิดทั้งสถานการณ์จริงและแผนดื่มน้ำแล้ว';
+    const createStartedAt = performance.now();
+    const createResult = await openCreate(refs.createOverlay, state, {
+      randomFn: rng
+    });
+    state.createElapsedMs = Math.round(performance.now() - createStartedAt);
+    state.createResultRaw = toJsonSafe(createResult, null);
+    state.createTaskId = createResult.taskId || '';
 
-  const researchPayload = buildResearchPayload({
-    ctx,
-    state,
-    researchCtx,
-    socialSummary: state.socialSummary
-  });
+    const normalizedPlanScore = normalizeCreatePlanScore(createResult.planScore || 0);
 
-  persistResearchPayload(researchPayload, researchCtx);
-  state.researchSavedAt = researchPayload.savedAt;
+    state.createdPlan = createResult.plan || {};
+    state.createdPlanScore = normalizedPlanScore;
+    state.planningScore += normalizedPlanScore;
+    state.createFeedbackTitle = createResult.feedbackTitle || '';
+    state.createFeedbackText = createResult.feedbackText || '';
+    recomputeSocial();
+    state.totalScore = computeTotalScore();
 
-  const nextProgress = markResearchSessionComplete(researchCtx);
-  state.nextSessionNo = nextProgress.nextSessionNo;
-  state.nextWeekNo = nextProgress.nextWeekNo;
+    logEvent('create_done', {
+      ...createResult,
+      rawPlanScore: createResult.planScore || 0,
+      normalizedPlanScore,
+      elapsedMs: state.createElapsedMs,
+      taskId: createResult.taskId || ''
+    });
 
-  saveSummary('post_learning');
-  showFinalOverlay(evalResult, createResult, researchPayload);
-  renderHUD();
-  renderTeamBox();
-  renderStatusRibbon();
+    state.phase = PHASES.DONE;
+    refs.coachLine.textContent =
+      state.evaluateCorrect
+        ? 'เยี่ยมเลย เลือกแผนได้ดีและต่อยอดถึงการสร้างแผนของตัวเองแล้ว'
+        : 'ทำได้ดีมาก รอบนี้ได้ลองคิดทั้งสถานการณ์จริงและแผนดื่มน้ำแล้ว';
+
+    const researchPayload = buildResearchPayload({
+      ctx,
+      state,
+      researchCtx,
+      socialSummary: state.socialSummary
+    });
+
+    state.researchPayload = toJsonSafe(researchPayload, null);
+
+    persistResearchPayload(researchPayload, researchCtx);
+    state.researchSavedAt = researchPayload.savedAt;
+
+    const nextProgress = markResearchSessionComplete(researchCtx);
+    state.nextSessionNo = nextProgress.nextSessionNo;
+    state.nextWeekNo = nextProgress.nextWeekNo;
+
+    saveSummary('post_learning');
+    showFinalOverlay(evalResult, createResult, researchPayload);
+  } catch (err) {
+    console.error('[HydrationV2] post-learning flow failed', err);
+    logEvent('post_learning_error', {
+      message: String(err?.message || err || 'unknown_error')
+    });
+
+    state.phase = PHASES.SUMMARY;
+    showOverlay(refs.summaryOverlay);
+    showToast('เกิดปัญหานิดหน่อย ลองกดไปต่ออีกครั้ง');
+  } finally {
+    state.flowLock = false;
+    renderHUD();
+    renderTeamBox();
+    renderStatusRibbon();
+  }
 }
 
 function showFinalOverlay(evalResult, createResult, researchPayload) {
@@ -819,6 +1000,14 @@ function showFinalOverlay(evalResult, createResult, researchPayload) {
 
       <div class="result-box">
         <strong>คะแนนรวม:</strong> ${state.totalScore}<br/>
+        <strong>Research Form:</strong> ${escapeHtml(state.researchForm)} (${escapeHtml(state.researchPhase)})<br/>
+        <strong>Scenario IDs:</strong> ${escapeHtml((state.scenarioItemIds || []).join(', ') || '-')}<br/>
+        <strong>Evaluate ID:</strong> ${escapeHtml(state.evaluateItemId || '-')}<br/>
+        <strong>Create Task:</strong> ${escapeHtml(state.createTaskId || '-')}<br/>
+        <strong>Post-learning Time:</strong>
+        scenarios ${state.scenarioElapsedMs} ms •
+        evaluate ${state.evaluateElapsedMs} ms •
+        create ${state.createElapsedMs} ms<br/>
         <strong>Scenarios:</strong> ${escapeHtml(state.scenarioSummary || 'ยังไม่มีผล')}<br/>
         <strong>Evaluate:</strong> ${escapeHtml(evalResult.feedbackTitle || '-')}<br/>
         ${escapeHtml(evalResult.feedbackText || '')}<br/><br/>
@@ -840,12 +1029,18 @@ function showFinalOverlay(evalResult, createResult, researchPayload) {
 
   refs.summaryOverlay.querySelector('#doneReplayBtn')
     .addEventListener('click', () => {
+      saveSummary('done_replay');
       window.location.href = buildReplayUrl(true);
     });
 
   refs.summaryOverlay.querySelector('#doneHubBtn')
     .addEventListener('click', () => {
-      window.location.href = FIXED_HUB_URL;
+      goHub('done_back_hub', {
+        done: '1',
+        total: state.totalScore,
+        session: state.nextSessionNo || state.sessionNo || 1,
+        week: state.nextWeekNo || state.weekNo || 1
+      });
     });
 
   refs.summaryOverlay.querySelector('#doneCloseBtn')
@@ -950,6 +1145,7 @@ function saveSummary(reason) {
   const payload = {
     reason,
     gameId: ctx.gameId,
+    gameVersion: 'PATCH v20260320b-HYDRATION-V2-PATCH-C-FIXED-HUB-SOCIAL-BREAKDOWN',
     mode: ctx.mode,
     type: ctx.type,
     run: ctx.run,
@@ -957,10 +1153,14 @@ function saveSummary(reason) {
     pid: ctx.pid,
     studyId: ctx.studyId,
     seed: ctx.seed,
+    researchForm: state.researchForm,
+    researchPhase: state.researchPhase,
     savedAt: new Date().toISOString(),
 
     sessionNo: state.sessionNo,
     weekNo: state.weekNo,
+    nextSessionNo: state.nextSessionNo,
+    nextWeekNo: state.nextWeekNo,
 
     actionScore: state.actionScore,
     knowledgeScore: state.knowledgeScore,
@@ -974,18 +1174,31 @@ function saveSummary(reason) {
     bestCombo: state.bestCombo,
 
     rewardCount: state.rewardCount,
-    rewardHistory: state.rewardHistory,
+    rewardHistory: toJsonSafe(state.rewardHistory, []) || [],
     shieldCount: state.shieldCount,
 
     correctChoices: state.correctChoices,
     wrongChoices: state.wrongChoices,
     scenarioSummary: state.scenarioSummary,
+    scenarioElapsedMs: state.scenarioElapsedMs,
+    scenarioItemIds: Array.isArray(state.scenarioItemIds) ? state.scenarioItemIds.slice() : [],
+    scenarioResultRaw: toJsonSafe(state.scenarioResultRaw, null),
 
     evaluateChoice: state.evaluateChoice,
     evaluateCorrect: state.evaluateCorrect,
+    evaluateElapsedMs: state.evaluateElapsedMs,
+    evaluateItemId: state.evaluateItemId,
+    evaluateFeedbackTitle: state.evaluateFeedbackTitle,
+    evaluateFeedbackText: state.evaluateFeedbackText,
+    evaluateResultRaw: toJsonSafe(state.evaluateResultRaw, null),
 
-    createdPlan: state.createdPlan,
+    createdPlan: toJsonSafe(state.createdPlan, {}),
     createdPlanScore: state.createdPlanScore,
+    createElapsedMs: state.createElapsedMs,
+    createTaskId: state.createTaskId,
+    createFeedbackTitle: state.createFeedbackTitle,
+    createFeedbackText: state.createFeedbackText,
+    createResultRaw: toJsonSafe(state.createResultRaw, null),
 
     classTankContribution: state.classTankContribution,
     teamMissionDone: state.teamMissionDone,
@@ -993,22 +1206,36 @@ function saveSummary(reason) {
     socialMissionNote: state.socialMissionNote,
     teamStars: state.teamStars,
     socialSummary: state.socialSummary,
+    socialChecklist: toJsonSafe(state.socialChecklist, null),
+    socialMetrics: toJsonSafe(state.socialMetrics, null),
+    socialBreakdown: toJsonSafe(state.socialBreakdown, null),
 
     researchSavedAt: state.researchSavedAt,
-    nextSessionNo: state.nextSessionNo,
-    nextWeekNo: state.nextWeekNo
+    researchPayload: toJsonSafe(state.researchPayload, null),
+
+    lastEventLog: toJsonSafe(state.lastEventLog.slice(-60), [])
   };
 
   try {
     localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
 
+    if (reason === 'post_learning' || state.phase === PHASES.DONE) {
+      localStorage.setItem('HHA_HYDRATION_POSTGAME_LAST', JSON.stringify(payload));
+    }
+
+    if (state.researchPayload) {
+      localStorage.setItem('HHA_HYDRATION_RESEARCH_LAST', JSON.stringify(state.researchPayload));
+    }
+
     const history = JSON.parse(localStorage.getItem('HHA_SUMMARY_HISTORY') || '[]');
     history.unshift(payload);
-    if (history.length > 20) history.length = 20;
+    if (history.length > 50) history.length = 50;
     localStorage.setItem('HHA_SUMMARY_HISTORY', JSON.stringify(history));
   } catch (err) {
     console.warn('[HydrationV2] localStorage save failed', err);
   }
+
+  return payload;
 }
 
 function snapshotRoundState() {
@@ -1017,6 +1244,8 @@ function snapshotRoundState() {
     mode: state.mode,
     type: state.type,
     run: state.run,
+    researchForm: state.researchForm,
+    researchPhase: state.researchPhase,
     sessionNo: state.sessionNo,
     weekNo: state.weekNo,
     actionScore: state.actionScore,
@@ -1038,7 +1267,10 @@ function snapshotRoundState() {
     classTankContribution: state.classTankContribution,
     teamMissionDone: state.teamMissionDone,
     socialMissionLabel: state.socialMissionLabel,
-    teamStars: state.teamStars
+    teamStars: state.teamStars,
+    scenarioItemIds: state.scenarioItemIds,
+    evaluateItemId: state.evaluateItemId,
+    createTaskId: state.createTaskId
   };
 }
 
@@ -1054,7 +1286,13 @@ function buildReplayUrl(useNextProgress = false) {
     u.searchParams.set('week', String(state.weekNo || 1));
   }
 
+  const currentForm = String(state.researchForm || ctx.researchForm || 'B');
+  const nextForm = useNextProgress ? getNextResearchForm(currentForm) : currentForm;
+
   u.searchParams.set('hub', FIXED_HUB_URL);
+  u.searchParams.set('researchForm', nextForm);
+  u.searchParams.set('researchPhase', getPhaseFromResearchForm(nextForm));
+
   return u.toString();
 }
 
