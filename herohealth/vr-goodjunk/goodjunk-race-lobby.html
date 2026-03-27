@@ -311,7 +311,7 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-  <script defer src="../firebase-config.js?v=20260327-gjrace-lobby-r1"></script>
+  <script defer src="../firebase-config.js?v=20260327-gjrace-lobby-r2"></script>
 
   <script>
     (function(){
@@ -462,10 +462,14 @@
       function buildRunUrl(roomId){
         const url = new URL(RUN_FILE, location.href);
         const src = new URL(location.href);
+
         src.searchParams.forEach((value,key)=>{
           if(key === 'roomId' || key === 'room' || key === 'create' || key === 'autojoin') return;
           url.searchParams.set(key, value);
         });
+
+        const sharedStartAt = num(S.state.startAt || S.state.countdownEndsAt, 0);
+
         url.searchParams.set('mode', MODE_ID);
         url.searchParams.set('roomId', roomId);
         url.searchParams.set('room', roomId);
@@ -477,6 +481,12 @@
         url.searchParams.set('view', getView());
         url.searchParams.set('seed', String(getSeed()));
         url.searchParams.set('hub', HUB);
+        url.searchParams.set('autostart', '1');
+
+        if (sharedStartAt > 0) {
+          url.searchParams.set('startAt', String(sharedStartAt));
+        }
+
         return url.toString();
       }
 
@@ -590,10 +600,14 @@
         if(!S.joined || !S.state || S.state.status !== 'countdown') return;
 
         UI.countdownBox.classList.add('show');
+
         S.countdownTick = setInterval(()=>{
-          const leftMs = num(S.state.countdownEndsAt,0) - Date.now();
+          const targetAt = num(S.state.startAt || S.state.countdownEndsAt, 0);
+          const leftMs = targetAt - Date.now();
           const sec = Math.max(0, Math.ceil(leftMs / 1000));
+
           UI.countdownBox.textContent = sec > 0 ? sec : 'GO!';
+
           if(leftMs <= 0){
             clearInterval(S.countdownTick);
             goRun();
@@ -646,7 +660,7 @@
           roomId:S.roomId, game:'goodjunk', mode:MODE_ID, diff:getDiff(), hostPid:S.uid, createdAt:nowTs, updatedAt:nowTs
         });
         await S.refs.state.set({
-          status:'waiting', plannedSec:getTime(), createdAt:nowTs, updatedAt:nowTs
+          status:'waiting', plannedSec:getTime(), createdAt:nowTs, updatedAt:nowTs, countdownEndsAt:null, startAt:null
         });
 
         await joinBoundRoom(true);
@@ -706,7 +720,12 @@
           S.players = snap.val() || {};
 
           if(isHost() && S.state && S.state.status === 'countdown' && activePlayers().length < 2){
-            await S.refs.state.update({ status:'waiting', countdownEndsAt:null, updatedAt:Date.now() }).catch(()=>{});
+            await S.refs.state.update({
+              status:'waiting',
+              countdownEndsAt:null,
+              startAt:null,
+              updatedAt:Date.now()
+            }).catch(()=>{});
           }
 
           const actives = activePlayers();
@@ -754,11 +773,23 @@
           return;
         }
 
-        UI.seedInput.value = getSeed();
+        const sharedSeed = getSeed();
+        const sharedStartAt = Date.now() + 3500;
 
-        await S.refs.meta.update({ diff:getDiff(), updatedAt:Date.now() });
+        UI.seedInput.value = sharedSeed;
+
+        await S.refs.meta.update({
+          diff:getDiff(),
+          updatedAt:Date.now()
+        });
+
         await S.refs.state.update({
-          status:'countdown', plannedSec:getTime(), countdownEndsAt:Date.now()+2500, startedAt:null, updatedAt:Date.now()
+          status:'countdown',
+          plannedSec:getTime(),
+          countdownEndsAt: sharedStartAt,
+          startAt: sharedStartAt,
+          startedAt:null,
+          updatedAt:Date.now()
         });
       }
 
