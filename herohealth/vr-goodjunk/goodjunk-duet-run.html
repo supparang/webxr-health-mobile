@@ -461,6 +461,7 @@
       cursor:pointer;
       user-select:none;
       transform:translateZ(0);
+      z-index:5;
     }
 
     .target.good{
@@ -535,12 +536,20 @@
       position:fixed;
       inset:0;
       z-index:60;
-      display:flex;
       align-items:center;
       justify-content:center;
       padding:18px;
       background:rgba(255,255,255,.52);
       backdrop-filter:blur(10px);
+    }
+
+    .duet-result-mount[hidden]{
+      display:none !important;
+      pointer-events:none !important;
+    }
+
+    .duet-result-mount:not([hidden]){
+      display:flex;
     }
 
     .duet-result-card{
@@ -747,6 +756,6 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="../firebase-config.js"></script>
   <script src="../common/hha-multiplayer.js"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260327-duet-work-sure-v3"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260327-duet-overlayfix-v4"></script>
 </body>
 </html>
