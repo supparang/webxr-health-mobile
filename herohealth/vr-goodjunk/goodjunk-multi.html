@@ -3,807 +3,2091 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Multiplayer</title>
+  <title>HeroHealth • GoodJunk Team Play</title>
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="../favicon.ico" />
   <style>
     :root{
       --sky1:#dff4ff;
       --sky2:#bfe8ff;
       --sky3:#fff7d8;
-      --bg:#f4fbff;
-
       --card:#fffdf6;
       --card2:#f8fff3;
-      --panel:#ffffffef;
-
       --line:#bfe3f2;
-      --line-strong:#98d4ec;
-
-      --text:#334155;
-      --text-strong:#20324d;
-      --muted:#6b7b93;
-
+      --text:#4d4a42;
+      --muted:#7b7a72;
       --green:#7ed957;
       --green2:#58c33f;
       --blue:#7fcfff;
       --blue2:#58b7f5;
-      --violet:#b69cff;
-      --violet2:#8b6df5;
-      --pink:#ffb3cc;
-      --pink2:#ff7ea8;
-      --orange:#ffd37a;
-      --orange2:#f8aa2b;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --violet:#cdb9ff;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
 
-      --shadow:0 16px 34px rgba(63,114,155,.16);
-      --radius:28px;
-      --radius-sm:18px;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
     }
 
     *{ box-sizing:border-box; }
-    html,body{ margin:0; min-height:100%; }
-
-    body{
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(1100px 560px at 10% -10%, rgba(127,207,255,.42), transparent 60%),
-        radial-gradient(900px 420px at 100% 0%, rgba(255,211,122,.34), transparent 55%),
-        linear-gradient(180deg, var(--sky1), var(--sky2) 44%, var(--bg));
-      padding:calc(10px + var(--sat)) 12px calc(18px + var(--sab));
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
     }
-
-    .clouds,
-    .clouds::before,
-    .clouds::after{
-      content:"";
-      position:fixed;
-      inset:auto;
-      pointer-events:none;
-      z-index:0;
-      filter:blur(1px);
-    }
-    .clouds{
-      top:90px;
-      left:6%;
-      width:180px;
-      height:56px;
-      background:rgba(255,255,255,.55);
-      border-radius:999px;
-      box-shadow:0 0 0 14px rgba(255,255,255,.22);
-    }
-    .clouds::before{
-      top:-20px;
-      left:18px;
-      width:82px;
-      height:82px;
-      background:rgba(255,255,255,.7);
-      border-radius:50%;
-    }
-    .clouds::after{
-      top:-10px;
-      left:84px;
-      width:62px;
-      height:62px;
-      background:rgba(255,255,255,.68);
-      border-radius:50%;
-    }
+    body{ min-height:100dvh; }
 
     .shell{
-      position:relative;
-      z-index:1;
-      width:min(1180px, 100%);
+      width:min(1180px, calc(100vw - 24px));
       margin:0 auto;
+      padding:
+        calc(14px + var(--sat))
+        calc(12px + var(--sar))
+        calc(20px + var(--sab))
+        calc(12px + var(--sal));
       display:grid;
       gap:14px;
-    }
-
-    .panel{
-      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,253,246,.94));
-      border:1.5px solid var(--line);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-
-    .panel-inner{
-      padding:18px;
     }
 
     .hero{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:14px;
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      border:3px solid var(--line);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+      padding:20px 18px;
+      position:relative;
+      overflow:hidden;
+    }
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-40px; top:-40px;
+      width:150px; height:150px;
+      border-radius:999px;
+      background:rgba(127,207,255,.20);
+      filter:blur(8px);
+    }
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-24px; bottom:-24px;
+      width:120px; height:120px;
+      border-radius:999px;
+      background:rgba(205,185,255,.18);
+      filter:blur(8px);
     }
 
-    .hero-card{
-      min-height:220px;
-      background:
-        radial-gradient(350px 180px at 10% 15%, rgba(127,207,255,.26), transparent 60%),
-        radial-gradient(340px 180px at 90% 12%, rgba(255,211,122,.26), transparent 58%),
-        linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,255,243,.95));
+    .kicker{
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#eaf8ff;
+      border:2px solid var(--line);
+      color:#5ea8d0;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
     }
 
-    .hero-title{
-      display:flex;
-      gap:14px;
-      align-items:flex-start;
-    }
-
-    .hero-badge{
-      width:80px;
-      height:80px;
-      border-radius:24px;
-      display:grid;
-      place-items:center;
-      font-size:40px;
-      background:linear-gradient(180deg, #fff8d8, #dff4ff);
-      border:1.5px solid var(--line-strong);
-      box-shadow:0 12px 24px rgba(109,164,201,.18);
-      flex:0 0 auto;
-    }
-
-    h1,h2,h3,p{ margin:0; }
-
-    .hero h1{
-      font-size:clamp(26px, 4vw, 38px);
-      line-height:1.06;
-      color:var(--text-strong);
-      margin-bottom:8px;
+    h1{
+      position:relative;
+      z-index:1;
+      margin:0 0 6px;
+      font-size:clamp(30px,5vw,44px);
+      line-height:1.05;
+      font-weight:1000;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
     }
 
     .sub{
+      position:relative;
+      z-index:1;
+      margin:0;
       color:var(--muted);
-      line-height:1.6;
-      font-size:15px;
+      line-height:1.75;
+      font-size:14px;
+      font-weight:900;
+      max-width:900px;
     }
 
     .pill-row{
+      position:relative;
+      z-index:1;
+      margin-top:12px;
       display:flex;
-      flex-wrap:wrap;
       gap:8px;
-      margin-top:14px;
+      flex-wrap:wrap;
     }
-
     .pill{
       display:inline-flex;
       align-items:center;
       gap:8px;
       padding:10px 14px;
       border-radius:999px;
-      background:rgba(255,255,255,.84);
-      border:1px solid var(--line);
-      color:var(--text-strong);
-      font-weight:800;
-      font-size:13px;
-      box-shadow:0 6px 14px rgba(127,170,200,.08);
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6c6a61;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+      width:max-content;
+      max-width:100%;
     }
 
-    .hero-actions{
+    .tabs{
       display:flex;
+      gap:8px;
       flex-wrap:wrap;
+    }
+    .tab-btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:12px 16px;
+      font-size:14px;
+      font-weight:1000;
+      transition:.12s ease;
+      box-shadow:0 10px 20px rgba(86,155,194,.10);
+      background:#fff;
+      color:#6e6b64;
+      border:2px solid var(--line);
+    }
+    .tab-btn:hover{ transform:translateY(-1px); }
+    .tab-btn.is-active{
+      background:linear-gradient(180deg,#7fcfff,#58b7f5);
+      color:#fffef9;
+      border-color:#7fcfff;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);
+      gap:14px;
+    }
+
+    .card{
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      border:3px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      padding:18px 16px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .card h2{
+      margin:0 0 4px;
+      color:#67a91c;
+      font-size:24px;
+      line-height:1.15;
+      font-weight:1000;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .muted{
+      color:var(--muted);
+      line-height:1.7;
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .fields{
+      margin-top:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    label{
+      color:#6f6c65;
+      font-size:13px;
+      line-height:1.4;
+      font-weight:1000;
+    }
+
+    input,select,textarea{
+      width:100%;
+      min-height:48px;
+      padding:12px 14px;
+      border-radius:16px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      font:inherit;
+      outline:none;
+      box-shadow:0 8px 18px rgba(86,155,194,.06);
+    }
+
+    textarea{
+      min-height:92px;
+      resize:vertical;
+    }
+
+    .tiny{
+      color:#8b887f;
+      font-size:12px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .hero-avatar-preview{
+      display:flex;
+      align-items:center;
       gap:10px;
-      margin-top:16px;
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+      transition:.12s ease;
+    }
+    .hero-avatar-preview.is-colored{
+      border-color:var(--hero-border, var(--line));
+      background:var(--hero-soft, #fff);
+    }
+
+    .hero-avatar-badge{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#fffdf7,#f2fbff);
+      border:2px solid var(--line);
+      font-size:22px;
+      flex:0 0 auto;
+      transition:.12s ease;
+    }
+
+    .hero-avatar-text{
+      color:#6d6b63;
+      font-size:13px;
+      line-height:1.45;
+      font-weight:1000;
+    }
+    .hero-avatar-text strong{
+      color:var(--hero-text, #4d4a42);
+    }
+
+    .mode-panel{
+      margin-top:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .mode-hero{
+      background:#fff;
+      border:2px solid var(--line);
+      border-radius:22px;
+      padding:14px;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+    }
+
+    .mode-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#f2ecff;
+      border:2px solid var(--line);
+      color:#7a63c7;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    .mode-title{
+      margin:0 0 6px;
+      color:#67a91c;
+      font-size:26px;
+      line-height:1.12;
+      font-weight:1000;
+    }
+
+    .mode-desc{
+      margin:0;
+      color:#7b7a72;
+      font-size:14px;
+      line-height:1.75;
+      font-weight:900;
+    }
+
+    .steps{
+      margin-top:12px;
+      display:grid;
+      gap:8px;
+    }
+
+    .step{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      padding:12px 14px;
+      border-radius:18px;
+      border:2px dashed var(--line);
+      background:#fff;
+      color:#706d66;
+      font-size:13px;
+      line-height:1.65;
+      font-weight:1000;
+    }
+
+    .actions{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
     }
 
     .btn{
       appearance:none;
-      border:none;
+      border:0;
       cursor:pointer;
       border-radius:18px;
-      padding:13px 16px;
-      font-size:16px;
-      font-weight:900;
-      color:#20324d;
-      box-shadow:0 12px 24px rgba(85,140,175,.14);
-      transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+      padding:13px 18px;
+      font-weight:1000;
+      font-size:14px;
+      transition:.12s ease;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
     }
-    .btn:hover{ transform:translateY(-1px); }
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
     .btn:active{ transform:translateY(0); }
-    .btn:disabled{ cursor:not-allowed; opacity:.6; transform:none; }
 
     .btn-primary{
-      background:linear-gradient(180deg, #ffe28f, #f7b733);
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#fffef9;
     }
-
-    .btn-secondary{
-      background:linear-gradient(180deg, #d8f2ff, #8fd6ff);
+    .btn-copy{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef9;
     }
-
     .btn-ghost{
-      background:linear-gradient(180deg, #ffffff, #f6fbff);
-      border:1px solid var(--line);
+      background:#fff;
+      color:#6d6a62;
+      border:2px solid var(--line);
+    }
+    .btn-qr{
+      background:linear-gradient(180deg,var(--violet),#b79cff);
+      color:#fffef9;
+    }
+    .btn-scan{
+      background:linear-gradient(180deg,#ffa9c9,#ff8fb5);
+      color:#fffef9;
+    }
+    .btn-random{
+      background:linear-gradient(180deg,#7ed957,#58c33f);
+      color:#fffef9;
+    }
+    .btn-reroll{
+      background:linear-gradient(180deg,#7ed957,#58c33f);
+      color:#fffef9;
+    }
+    .btn-soft{
+      background:linear-gradient(180deg,#ffd45c,#ffb547);
+      color:#6d4e00;
+    }
+    .btn-name{
+      background:linear-gradient(180deg,#7fcfff,#58b7f5);
+      color:#fffef9;
+    }
+    .btn-edit{
+      background:linear-gradient(180deg,#ffd45c,#ffb547);
+      color:#6d4e00;
     }
 
-    .notice{
-      display:flex;
-      align-items:flex-start;
-      gap:12px;
-      padding:14px 16px;
-      border-top:1px solid rgba(0,0,0,.04);
-      background:linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.55));
+    .status{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:#eaf8ff;
+      border:2px solid var(--line);
+      color:#5ea8d0;
+      font-size:13px;
+      font-weight:1000;
+      width:max-content;
+      max-width:100%;
+      margin-bottom:10px;
     }
 
-    .notice-emoji{
-      width:38px;
-      height:38px;
-      border-radius:50%;
+    .code-card, .link-card{
+      margin-top:12px;
+      border-radius:22px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+      padding:14px;
+    }
+
+    .link-text{
+      margin-top:8px;
+      padding:12px 14px;
+      border-radius:18px;
+      border:2px dashed var(--line);
+      background:#fff;
+      color:#5c95b4;
+      font-size:12px;
+      line-height:1.65;
+      font-weight:900;
+      word-break:break-all;
+      min-height:52px;
+    }
+
+    .footer-note{
+      margin-top:12px;
+      color:#8a887f;
+      font-size:12px;
+      line-height:1.7;
+      font-weight:900;
+    }
+
+    .debug{
+      margin-top:12px;
+      padding-top:10px;
+      border-top:1px dashed #cde7f4;
+      color:#8a887f;
+      font-size:11px;
+      line-height:1.6;
+      font-weight:900;
+      white-space:pre-wrap;
+      word-break:break-word;
+      max-height:180px;
+      overflow:auto;
+    }
+
+    .qr-overlay,.scan-overlay,.scan-confirm-overlay{
+      position:fixed;
+      inset:0;
       display:grid;
       place-items:center;
-      background:#fff;
-      border:1px solid var(--line);
-      flex:0 0 auto;
-      font-size:20px;
+      padding:
+        calc(16px + var(--sat))
+        calc(16px + var(--sar))
+        calc(16px + var(--sab))
+        calc(16px + var(--sal));
+      background:rgba(223,244,255,.55);
+      backdrop-filter:blur(10px);
+    }
+    .qr-overlay{ z-index:60; }
+    .scan-overlay{ z-index:70; }
+    .scan-confirm-overlay{ z-index:75; }
+
+    .qr-overlay[hidden],
+    .scan-overlay[hidden],
+    .scan-confirm-overlay[hidden]{
+      display:none !important;
     }
 
-    .notice-text{
-      font-weight:900;
-      color:#38506a;
-      line-height:1.45;
-      font-size:15px;
+    .qr-card,.scan-card,.scan-confirm-card{
+      width:min(92vw,560px);
+      background:linear-gradient(180deg,#fffef8,#f7fff4);
+      border:3px solid var(--line);
+      border-radius:28px;
+      box-shadow:0 28px 70px rgba(86,155,194,.24);
+      padding:18px;
+      position:relative;
+      overflow:hidden;
     }
 
-    .side-box{
-      display:grid;
-      gap:12px;
-      height:100%;
-    }
-
-    .preview{
-      display:grid;
-      gap:12px;
-      border:1.5px dashed var(--line-strong);
-      border-radius:24px;
-      padding:16px;
-      background:linear-gradient(180deg, rgba(223,244,255,.48), rgba(255,255,255,.72));
-      min-height:100%;
-    }
-
-    .preview-title{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-    }
-
-    .preview-title h2{
-      font-size:20px;
-      color:var(--text-strong);
-    }
-
-    .preview-badge{
+    .qr-card::before,.scan-card::before,.scan-confirm-card::before{
+      content:"";
+      position:absolute;
+      left:-36px; top:-36px;
+      width:140px; height:140px;
       border-radius:999px;
-      padding:8px 10px;
-      background:#fff;
-      border:1px solid var(--line);
-      font-size:12px;
-      font-weight:900;
-      color:#43617f;
+      background:rgba(127,207,255,.18);
+      filter:blur(8px);
+      pointer-events:none;
+    }
+    .qr-card::after,.scan-card::after,.scan-confirm-card::after{
+      content:"";
+      position:absolute;
+      right:-24px; bottom:-24px;
+      width:120px; height:120px;
+      border-radius:999px;
+      background:rgba(205,185,255,.18);
+      filter:blur(8px);
+      pointer-events:none;
     }
 
-    .preview-box{
-      background:#fff;
-      border:1.5px solid var(--line);
-      border-radius:18px;
-      padding:12px 14px;
-      display:grid;
+    .qr-kicker,.scan-kicker,.scan-confirm-kicker{
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
       gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#f2ecff;
+      border:2px solid var(--line);
+      color:#7a63c7;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
     }
 
-    .preview-k{
-      font-size:12px;
-      font-weight:900;
+    .qr-title,.scan-title,.scan-confirm-title{
+      position:relative;
+      z-index:1;
+      margin:0 0 6px;
+      font-size:clamp(26px,5vw,38px);
+      line-height:1.06;
+      font-weight:1000;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .qr-sub,.scan-sub,.scan-confirm-sub{
+      position:relative;
+      z-index:1;
+      margin:0;
       color:var(--muted);
-      text-transform:uppercase;
-      letter-spacing:.04em;
+      line-height:1.7;
+      font-size:14px;
+      font-weight:900;
     }
 
-    .preview-v{
-      font-size:15px;
-      font-weight:900;
-      color:var(--text-strong);
-      line-height:1.45;
+    .qr-box{
+      position:relative;
+      z-index:1;
+      margin:16px auto 14px;
+      width:min(280px, 76vw);
+      aspect-ratio:1/1;
+      border-radius:26px;
+      border:3px solid var(--line);
+      background:#fff;
+      display:grid;
+      place-items:center;
+      box-shadow:0 10px 24px rgba(86,155,194,.10);
+      padding:12px;
+    }
+    .qr-box img{
+      display:block;
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      border-radius:16px;
+    }
+
+    .qr-meta,.scan-confirm-grid{
+      position:relative;
+      z-index:1;
+      display:grid;
+      gap:10px;
+      margin-top:16px;
+    }
+
+    .qr-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      width:100%;
+      min-height:48px;
+      padding:10px 14px;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6c6a61;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+      text-align:center;
       word-break:break-word;
     }
 
-    .big-enter{
-      width:100%;
-      padding:16px 18px;
-      border-radius:20px;
-      font-size:18px;
+    .qr-link{
+      padding:12px 14px;
+      border-radius:18px;
+      border:2px dashed var(--line);
+      background:#fff;
+      color:#5c95b4;
+      font-size:12px;
+      line-height:1.6;
+      font-weight:900;
+      word-break:break-all;
     }
 
-    .modes{
-      display:grid;
-      grid-template-columns:repeat(4, 1fr);
-      gap:14px;
-    }
-
-    .mode-card{
+    .qr-actions,.scan-actions,.scan-confirm-actions{
       position:relative;
-      border:1.5px solid var(--line);
+      z-index:1;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .qr-note,.scan-note,.scan-confirm-note{
+      position:relative;
+      z-index:1;
+      margin-top:12px;
+      color:#8a887f;
+      font-size:12px;
+      line-height:1.65;
+      font-weight:900;
+    }
+
+    .scan-video-wrap{
+      position:relative;
+      z-index:1;
+      margin:16px auto 14px;
+      width:min(360px, 82vw);
+      aspect-ratio:1/1;
       border-radius:24px;
-      padding:16px;
-      background:linear-gradient(180deg, rgba(255,255,255,.94), rgba(248,255,243,.92));
-      box-shadow:var(--shadow);
-      min-height:260px;
-      display:grid;
-      gap:12px;
-      transition:transform .14s ease, border-color .14s ease, box-shadow .14s ease;
-    }
-
-    .mode-card:hover{
-      transform:translateY(-2px);
-      border-color:var(--line-strong);
-    }
-
-    .mode-card.active{
-      border-color:#6db8f2;
-      box-shadow:0 18px 34px rgba(91,164,219,.2);
-      background:linear-gradient(180deg, #ffffff, #f2fbff);
-    }
-
-    .mode-top{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-    }
-
-    .mode-icon{
-      width:62px;
-      height:62px;
-      border-radius:20px;
-      display:grid;
-      place-items:center;
-      font-size:30px;
-      border:1.5px solid var(--line);
+      border:3px solid var(--line);
       background:#fff;
-      flex:0 0 auto;
+      overflow:hidden;
+      box-shadow:0 10px 24px rgba(86,155,194,.10);
     }
 
-    .mode-tag{
-      border-radius:999px;
-      padding:8px 10px;
-      font-size:12px;
-      font-weight:900;
-      color:#29496c;
-      background:#fff;
-      border:1px solid var(--line);
-      white-space:nowrap;
-    }
-
-    .mode-title{
-      font-size:22px;
-      font-weight:900;
-      color:var(--text-strong);
-    }
-
-    .mode-desc{
-      font-size:14px;
-      line-height:1.55;
-      color:var(--muted);
-      min-height:68px;
-    }
-
-    .mode-points{
-      display:grid;
-      gap:8px;
-    }
-
-    .mode-point{
-      display:flex;
-      gap:8px;
-      align-items:flex-start;
-      font-size:13px;
-      color:#47607d;
-      line-height:1.45;
-      font-weight:700;
-    }
-
-    .mode-check{
-      width:20px;
-      height:20px;
-      border-radius:50%;
-      display:grid;
-      place-items:center;
-      font-size:12px;
-      background:#fff;
-      border:1px solid var(--line);
-      flex:0 0 auto;
-      margin-top:1px;
-    }
-
-    .mode-enter{
-      margin-top:auto;
+    .scan-video{
       width:100%;
+      height:100%;
+      object-fit:cover;
+      background:#eaf8ff;
+      display:block;
     }
 
-    .tips{
+    .scan-frame{
+      position:absolute;
+      inset:12%;
+      border:4px solid rgba(255,255,255,.92);
+      border-radius:24px;
+      box-shadow:0 0 0 999px rgba(0,0,0,.10) inset;
+      pointer-events:none;
+    }
+
+    .scan-status{
+      position:relative;
+      z-index:1;
+      padding:12px 14px;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6c6a61;
+      font-size:13px;
+      line-height:1.65;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+      word-break:break-word;
+    }
+    .scan-status.is-ok{ color:#2f7d1d; }
+    .scan-status.is-warn{ color:#a15b00; }
+    .scan-status.is-error{ color:#b45309; }
+
+    .scan-confirm-item{
       display:grid;
-      grid-template-columns:repeat(3, 1fr);
-      gap:14px;
+      gap:6px;
+      padding:12px 14px;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
     }
 
-    .tip{
-      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(248,255,243,.92));
-      border:1.5px solid var(--line);
-      border-radius:22px;
-      padding:16px;
-      box-shadow:var(--shadow);
-      display:grid;
-      gap:8px;
+    .scan-confirm-label{
+      color:#79aeca;
+      font-size:12px;
+      line-height:1.35;
+      font-weight:1000;
     }
 
-    .tip-title{
+    .scan-confirm-value{
+      color:#4d4a42;
+      font-size:18px;
+      line-height:1.2;
+      font-weight:1000;
+      word-break:break-word;
+    }
+
+    .scan-confirm-value.is-soft{
+      color:#7b7a72;
+    }
+
+    .scan-confirm-value.with-avatar{
       display:flex;
       align-items:center;
       gap:10px;
-      color:var(--text-strong);
+      flex-wrap:wrap;
+    }
+
+    .scan-confirm-avatar{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#fffdf7,#f2fbff);
+      border:2px solid var(--line);
+      font-size:22px;
+      flex:0 0 auto;
+      transition:.12s ease;
+    }
+
+    .scan-confirm-warn{
+      position:relative;
+      z-index:1;
+      margin-top:14px;
+      padding:14px;
+      border-radius:20px;
+      border:2px solid #ffd58a;
+      background:linear-gradient(180deg,#fff8e8,#fffdf7);
+      box-shadow:0 8px 18px rgba(255,181,71,.10);
+    }
+    .scan-confirm-warn[hidden]{
+      display:none !important;
+    }
+
+    .scan-confirm-warn-title{
+      color:#b7791f;
+      font-size:15px;
+      line-height:1.35;
       font-weight:1000;
-      font-size:17px;
+      margin-bottom:4px;
     }
 
-    .tip p{
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.55;
-    }
-
-    .footer{
-      text-align:center;
-      color:var(--muted);
+    .scan-confirm-warn-sub{
+      color:#7b6e55;
       font-size:13px;
-      padding:4px 0 0;
+      line-height:1.65;
+      font-weight:900;
     }
 
-    @media (max-width: 1100px){
-      .hero{
-        grid-template-columns:1fr;
-      }
-      .modes{
-        grid-template-columns:repeat(2, 1fr);
-      }
-      .tips{
+    .scan-confirm-warn-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    .scan-name-suggest{
+      display:grid;
+      gap:8px;
+      margin-top:10px;
+    }
+
+    .scan-name-suggest-row{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .scan-name-chip{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      min-height:46px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+      color:#4d4a42;
+      font-size:13px;
+      line-height:1.35;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+      transition:.12s ease;
+      word-break:break-word;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+    }
+    .scan-name-chip:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .scan-name-chip:active{ transform:translateY(0); }
+    .scan-name-chip.is-colored{
+      border-color:var(--hero-border, var(--line));
+      background:var(--hero-soft, #fff);
+    }
+    .scan-name-chip.is-colored .scan-name-label{
+      color:var(--hero-text, #4d4a42);
+    }
+
+    .scan-name-emoji{
+      font-size:18px;
+      line-height:1;
+      flex:0 0 auto;
+    }
+    .scan-name-label{
+      min-width:0;
+    }
+
+    .scan-name-tools{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+
+    @media (max-width:980px){
+      .grid{
         grid-template-columns:1fr;
       }
     }
 
-    @media (max-width: 720px){
-      .modes{
+    @media (max-width:640px){
+      .actions .btn,
+      .qr-actions .btn,
+      .scan-actions .btn,
+      .scan-confirm-actions .btn,
+      .scan-confirm-warn-actions .btn,
+      .scan-name-tools .btn{
+        flex:1 1 100%;
+      }
+      .scan-name-suggest-row{
         grid-template-columns:1fr;
-      }
-      .panel-inner{
-        padding:16px;
-      }
-      .hero-title{
-        flex-direction:column;
-      }
-      .hero-badge{
-        width:72px;
-        height:72px;
-      }
-      .hero-actions{
-        flex-direction:column;
-      }
-      .hero-actions .btn{
-        width:100%;
       }
     }
   </style>
 </head>
 <body>
-  <div class="clouds" aria-hidden="true"></div>
-
   <main class="shell">
     <section class="hero">
-      <section class="panel hero-card">
-        <div class="panel-inner">
-          <div class="hero-title">
-            <div class="hero-badge">🕹️</div>
-            <div>
-              <h1>GoodJunk Multiplayer</h1>
-              <p class="sub">
-                หน้านี้เอาไว้เลือกโหมดอย่างเดียว แล้วค่อยเข้า lobby ของแต่ละโหมด
-                เพื่อให้ flow ชัด เข้าใจง่าย และแยกหน้าที่ระหว่างเลือกโหมด / จัดการห้อง / เล่นจริง
-              </p>
+      <div class="kicker">🍎 GOODJUNK • TEAM PLAY</div>
+      <h1>เลือกห้องเล่นกับเพื่อน</h1>
+      <p class="sub">
+        ที่หน้านี้สามารถเลือกเล่น <strong>Race</strong>, <strong>Battle</strong>, <strong>Coop</strong> และ <strong>Duet</strong>
+        จากนั้นส่งลิงก์หรือ room code ให้เพื่อนเพื่อเข้าห้องเดียวกัน แล้วไปสนุกกับภารกิจอาหารดีด้วยกัน
+      </p>
+      <div class="pill-row">
+        <div class="pill">🏁 Race • แข่งทำคะแนน</div>
+        <div class="pill">⚔️ Battle • แข่งกันตรง ๆ</div>
+        <div class="pill">🤝 Coop • ช่วยกันทั้งทีม</div>
+        <div class="pill">🫶 Duet • เล่นเป็นคู่</div>
+      </div>
+    </section>
 
-              <div class="pill-row">
-                <div class="pill">🎯 เลือก 4 โหมด</div>
-                <div class="pill">🚪 เข้า lobby ของโหมดนั้น</div>
-                <div class="pill">🧩 แยก gameplay ออกจาก room logic</div>
-              </div>
+    <div class="tabs">
+      <button class="tab-btn is-active" id="tabRace" type="button">🏁 Race</button>
+      <button class="tab-btn" id="tabBattle" type="button">⚔️ Battle</button>
+      <button class="tab-btn" id="tabCoop" type="button">🤝 Coop</button>
+      <button class="tab-btn" id="tabDuet" type="button">🫶 Duet</button>
+    </div>
 
-              <div class="hero-actions">
-                <button class="btn btn-primary" id="btnEnterSelected" type="button">🚀 เข้า lobby ของโหมดที่เลือก</button>
-                <button class="btn btn-secondary" id="btnEnterLast" type="button">🧠 เข้าโหมดล่าสุด</button>
-                <button class="btn btn-ghost" id="btnGoHub" type="button">🏠 กลับ HUB</button>
-              </div>
+    <section class="grid">
+      <section class="card">
+        <h2>ตั้งค่าก่อนเล่น</h2>
+        <div class="muted">ใส่ชื่อ เลือกห้อง และตั้งค่าเกมก่อนส่งลิงก์ให้เพื่อน</div>
+
+        <div class="fields">
+          <div class="field">
+            <label for="playerName">ชื่อฮีโร่ของเรา</label>
+            <input id="playerName" placeholder="เช่น Ploy / ทีมฟ้า / Hero01" />
+            <div class="hero-avatar-preview" id="heroAvatarPreview">
+              <div class="hero-avatar-badge" id="heroAvatarBadge">🙂</div>
+              <div class="hero-avatar-text" id="heroAvatarText">ยังไม่ได้ตั้งชื่อฮีโร่</div>
             </div>
+          </div>
+
+          <div class="field">
+            <label for="roomCode">รหัสห้อง</label>
+            <input id="roomCode" placeholder="เช่น GJ1234" />
+            <div class="tiny">ถ้ายังไม่ได้ใส่ ระบบจะสุ่มรหัสห้องให้ตอนสร้างหรือเข้าห้อง</div>
+          </div>
+
+          <div class="field">
+            <label for="diff">ระดับเกม</label>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="time">เวลาเล่น</label>
+            <select id="time">
+              <option value="120">120 วินาที</option>
+              <option value="150">150 วินาที</option>
+              <option value="180">180 วินาที</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="enginePath">ทางลัดไฟล์เกม (สำหรับทดสอบ)</label>
+            <input id="enginePath" placeholder="./js/goodjunk-race.safe.js" />
+            <div class="tiny">ปกติไม่ต้องใส่ก็ได้ ใช้เมื่อต้องการชี้ path ของ engine เอง</div>
+          </div>
+
+          <div class="field">
+            <label for="engineCandidates">รายชื่อไฟล์เกมสำรอง (สำหรับทดสอบ)</label>
+            <textarea id="engineCandidates" placeholder="./js/goodjunk-race.safe.js, ./goodjunk-race.js"></textarea>
+            <div class="tiny">ใส่หลาย path คั่นด้วย comma ถ้าต้องการให้หน้าเกมลองโหลดทีละไฟล์</div>
           </div>
         </div>
 
-        <div class="notice">
-          <div class="notice-emoji">🧑‍🏫</div>
-          <div class="notice-text" id="topNotice">
-            เลือกโหมดก่อน แล้วค่อยไปสร้างห้องหรือเข้าห้องใน lobby ของโหมดนั้น
-          </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="btnCreate" type="button">เริ่มห้องใหม่</button>
+          <button class="btn btn-ghost" id="btnJoin" type="button">เข้าห้องนี้</button>
+          <button class="btn btn-copy" id="btnCopyLink" type="button">คัดลอกลิงก์ชวนเพื่อน</button>
+          <button class="btn btn-qr" id="btnShowQr" type="button">แสดง QR</button>
+          <button class="btn btn-scan" id="btnScanQr" type="button">สแกน QR</button>
+          <button class="btn btn-ghost" id="btnCopyCode" type="button">คัดลอกรหัสห้อง</button>
+        </div>
+
+        <div class="footer-note">
+          เริ่มง่ายที่สุดคือให้คนแรกสร้างห้องก่อน แล้วคัดลอกลิงก์หรือรหัสห้องส่งให้เพื่อนอีกคนเข้าเล่นตาม
         </div>
       </section>
 
-      <section class="panel">
-        <div class="panel-inner">
-          <div class="preview">
-            <div class="preview-title">
-              <h2>โหมดที่เลือก</h2>
-              <div class="preview-badge" id="selectedModeTag">DUET</div>
-            </div>
+      <section class="card">
+        <div class="status" id="routeStatus">พร้อมเข้าเล่น</div>
+        <div class="footer-note" id="routeInfo">หน้าเกมที่จะเปิด: <code>./goodjunk-race-run.html</code></div>
 
-            <div class="preview-box">
-              <div class="preview-k">Lobby ปลายทาง</div>
-              <div class="preview-v" id="routePreview">./goodjunk-duet-lobby.html</div>
-            </div>
+        <div class="mode-panel">
+          <div class="mode-hero">
+            <div class="mode-badge" id="modeBadge">🏁 RACE MODE</div>
+            <h3 class="mode-title" id="modeTitle">Food Race</h3>
+            <p class="mode-desc" id="modeDesc">แข่งเก็บอาหารดีให้ไว แล้วพยายามทำคะแนนให้มากที่สุดในรอบนี้</p>
 
-            <div class="preview-box">
-              <div class="preview-k">คำอธิบาย</div>
-              <div class="preview-v" id="modePreviewDesc">เล่นคู่แบบช่วยกัน ทำคะแนนไปด้วยกัน</div>
+            <div class="steps" id="modeSteps">
+              <div class="step"><span>1️⃣</span><span>คนแรกกดสร้างห้อง</span></div>
+              <div class="step"><span>2️⃣</span><span>ส่งลิงก์หรือรหัสห้องให้เพื่อน</span></div>
+              <div class="step"><span>3️⃣</span><span>เมื่อเข้าห้องเดียวกันแล้วก็เริ่มแข่งได้เลย</span></div>
             </div>
-
-            <div class="preview-box">
-              <div class="preview-k">ค่าที่จะส่งต่อ</div>
-              <div class="preview-v" id="passthroughPreview">nick, pid, hub, diff, time, view, seed และ query สำคัญอื่น ๆ</div>
-            </div>
-
-            <button class="btn btn-primary big-enter" id="btnEnterBig" type="button">🎮 เข้า Lobby</button>
           </div>
-        </div>
 
-        <div class="notice">
-          <div class="notice-emoji">💡</div>
-          <div class="notice-text" id="sideNotice">
-            ใน lobby ของแต่ละโหมดจะค่อยทำเรื่อง สร้างห้อง เข้าห้อง room code share link และ ready/start
+          <div class="code-card">
+            <div class="muted">รหัสห้องตอนนี้</div>
+            <div class="pill-row" style="margin-top:8px">
+              <div class="pill" id="roomPreviewPill">ROOM • -</div>
+              <div class="pill" id="heroPreviewPill">HERO • -</div>
+              <div class="pill" id="diffPreviewPill">LEVEL • normal</div>
+              <div class="pill" id="timePreviewPill">TIME • 120</div>
+            </div>
           </div>
+
+          <div class="link-card">
+            <div class="muted">ลิงก์ชวนเพื่อน</div>
+            <div class="link-text" id="shareLinkText"></div>
+          </div>
+
+          <div class="debug" id="routeDebug"></div>
         </div>
       </section>
     </section>
-
-    <section class="modes" id="modeGrid"></section>
-
-    <section class="tips">
-      <article class="tip">
-        <div class="tip-title">🤝 Duet</div>
-        <p>เล่นคู่แบบช่วยกัน เหมาะกับโหมดเริ่มต้น เข้าใจง่ายที่สุด</p>
-      </article>
-
-      <article class="tip">
-        <div class="tip-title">🏁 Race</div>
-        <p>แข่งกันว่าใครเร็วกว่าและแม่นกว่า เห็นผลแพ้ชนะชัดเจน</p>
-      </article>
-
-      <article class="tip">
-        <div class="tip-title">⚔️ Battle / 🛟 Coop</div>
-        <p>Battle เน้นชาร์จแล้วโจมตี ส่วน Coop เน้นช่วยกันผ่านเป้าหมาย</p>
-      </article>
-    </section>
-
-    <div class="footer">HeroHealth • GoodJunk Multiplayer Hub • mode selector only</div>
   </main>
+
+  <div class="qr-overlay" id="qrOverlay" hidden>
+    <div class="qr-card">
+      <div class="qr-kicker">📱 QUICK JOIN QR</div>
+      <h3 class="qr-title" id="qrTitle">สแกนเพื่อเข้าห้อง</h3>
+      <p class="qr-sub" id="qrSub">ใช้มือถืออีกเครื่องสแกน QR นี้เพื่อเข้าเล่นห้องเดียวกันได้เลย</p>
+
+      <div class="qr-box">
+        <img id="qrImage" alt="Invite QR Code" />
+      </div>
+
+      <div class="qr-meta">
+        <div class="qr-pill" id="qrModePill">MODE • -</div>
+        <div class="qr-pill" id="qrRoomPill">ROOM • -</div>
+        <div class="qr-link" id="qrLinkText">-</div>
+      </div>
+
+      <div class="qr-actions">
+        <button class="btn btn-copy" id="btnQrCopyLink" type="button">คัดลอกลิงก์</button>
+        <button class="btn btn-ghost" id="btnQrCopyCode" type="button">คัดลอกรหัสห้อง</button>
+        <button class="btn btn-primary" id="btnQrClose" type="button">ปิด</button>
+      </div>
+
+      <div class="qr-note">
+        ถ้าอีกเครื่องสแกนไม่ได้ สามารถใช้ “รหัสห้อง” หรือ “คัดลอกลิงก์” ส่งให้เพื่อนได้เหมือนกัน
+      </div>
+    </div>
+  </div>
+
+  <div class="scan-overlay" id="scanOverlay" hidden>
+    <div class="scan-card">
+      <div class="scan-kicker">📷 SCAN QR</div>
+      <h3 class="scan-title">สแกนเพื่อเข้าห้อง</h3>
+      <p class="scan-sub">
+        ใช้กล้องสแกน QR ของลิงก์ชวนเพื่อน หรือสแกน QR ที่มี room code เพื่อเติมข้อมูลให้อัตโนมัติ
+      </p>
+
+      <div class="scan-video-wrap">
+        <video id="scanVideo" class="scan-video" playsinline muted autoplay></video>
+        <div class="scan-frame"></div>
+      </div>
+
+      <div class="scan-status" id="scanStatus">กด “เริ่มสแกน” เพื่อเปิดกล้อง</div>
+
+      <div class="scan-actions">
+        <button class="btn btn-primary" id="btnScanStart" type="button">เริ่มสแกน</button>
+        <button class="btn btn-copy" id="btnScanTryPaste" type="button">วางลิงก์จากคลิปบอร์ด</button>
+        <button class="btn btn-ghost" id="btnScanClose" type="button">ปิด</button>
+      </div>
+
+      <div class="scan-note">
+        หมายเหตุ: ฟังก์ชันนี้ทำงานได้ดีบนเว็บแบบ HTTPS และเบราว์เซอร์ที่รองรับการอ่าน QR จากกล้อง
+      </div>
+    </div>
+  </div>
+
+  <div class="scan-confirm-overlay" id="scanConfirmOverlay" hidden>
+    <div class="scan-confirm-card">
+      <div class="scan-confirm-kicker">✅ JOIN CHECK</div>
+      <h3 class="scan-confirm-title" id="scanConfirmTitle">เจอห้องแล้ว</h3>
+      <p class="scan-confirm-sub" id="scanConfirmSub">ตรวจดูก่อนว่าเป็นห้องที่ต้องการ แล้วค่อยกดเข้าห้องนี้</p>
+
+      <div class="scan-confirm-grid">
+        <div class="scan-confirm-item">
+          <div class="scan-confirm-label">โหมด</div>
+          <div class="scan-confirm-value" id="scanConfirmMode">-</div>
+        </div>
+
+        <div class="scan-confirm-item">
+          <div class="scan-confirm-label">รหัสห้อง</div>
+          <div class="scan-confirm-value" id="scanConfirmRoom">-</div>
+        </div>
+
+        <div class="scan-confirm-item">
+          <div class="scan-confirm-label">ระดับเกม</div>
+          <div class="scan-confirm-value" id="scanConfirmDiff">-</div>
+        </div>
+
+        <div class="scan-confirm-item">
+          <div class="scan-confirm-label">เวลาเล่น</div>
+          <div class="scan-confirm-value" id="scanConfirmTime">-</div>
+        </div>
+
+        <div class="scan-confirm-item">
+          <div class="scan-confirm-label">ชื่อฮีโร่ตอนนี้</div>
+          <div class="scan-confirm-value with-avatar" id="scanConfirmCurrentNameWrap">
+            <div class="scan-confirm-avatar" id="scanConfirmCurrentAvatar">🙂</div>
+            <div id="scanConfirmCurrentName">-</div>
+          </div>
+        </div>
+
+        <div class="scan-confirm-item">
+          <div class="scan-confirm-label">ชื่อจากลิงก์</div>
+          <div class="scan-confirm-value with-avatar is-soft" id="scanConfirmLinkNameWrap">
+            <div class="scan-confirm-avatar" id="scanConfirmLinkAvatar">🙂</div>
+            <div id="scanConfirmLinkName">ไม่มี</div>
+          </div>
+        </div>
+
+        <div class="scan-confirm-item">
+          <div class="scan-confirm-label">ลิงก์ที่จะเข้า</div>
+          <div class="scan-confirm-value" id="scanConfirmLink">-</div>
+        </div>
+      </div>
+
+      <div class="scan-confirm-warn" id="scanConfirmWarn" hidden>
+        <div class="scan-confirm-warn-title">ยังไม่มีชื่อฮีโร่</div>
+        <div class="scan-confirm-warn-sub">
+          เลือกชื่อฮีโร่จากตัวเลือกด้านล่างได้เลย หรือกดสุ่มชื่อใหม่อีกชุดก็ได้
+        </div>
+
+        <div class="scan-name-suggest">
+          <div class="scan-name-suggest-row">
+            <button class="scan-name-chip" id="scanNameChoice1" type="button">Sunny Apple</button>
+            <button class="scan-name-chip" id="scanNameChoice2" type="button">Happy Bunny</button>
+            <button class="scan-name-chip" id="scanNameChoice3" type="button">Brave Star</button>
+          </div>
+
+          <div class="scan-name-tools">
+            <button class="btn btn-reroll" id="btnScanRerollNames" type="button">สุ่มชื่อใหม่</button>
+            <button class="btn btn-soft" id="btnScanGuestJoin" type="button">เข้าแบบ Guest</button>
+            <button class="btn btn-ghost" id="btnScanWarnEditName" type="button">แก้ชื่อก่อนเข้า</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="scan-confirm-actions">
+        <button class="btn btn-primary" id="btnScanConfirmJoin" type="button">เข้าห้องนี้</button>
+        <button class="btn btn-name" id="btnScanUseLinkName" type="button">ใช้ชื่อจากลิงก์</button>
+        <button class="btn btn-edit" id="btnScanEditName" type="button">แก้ชื่อก่อนเข้า</button>
+        <button class="btn btn-copy" id="btnScanConfirmCopy" type="button">คัดลอกลิงก์</button>
+        <button class="btn btn-qr" id="btnScanConfirmRescan" type="button">สแกนใหม่</button>
+        <button class="btn btn-ghost" id="btnScanConfirmClose" type="button">ยกเลิก</button>
+      </div>
+
+      <div class="scan-confirm-note">
+        ถ้าห้องหรือโหมดไม่ตรง ให้กด “สแกนใหม่” หรือ “ยกเลิก” ก่อนเข้าเล่น
+      </div>
+    </div>
+  </div>
 
   <script>
     (function(){
-      'use strict';
-
-      const qs = (k, d='') => {
-        try { return new URL(location.href).searchParams.get(k) ?? d; }
-        catch { return d; }
-      };
-
-      const STORE_KEY = 'GJ_MULTI_LAST_MODE_V2';
-
-      const HUB = qs('hub', '../hub.html');
-
-      const LOBBY_ROUTES = {
-        duet: './goodjunk-duet-lobby.html',
-        race: './goodjunk-race-lobby.html',
-        battle: './goodjunk-battle-lobby.html',
-        coop: './goodjunk-coop-lobby.html'
-      };
-
+      const q = new URLSearchParams(location.search);
       const MODES = {
-        duet: {
-          id:'duet',
-          icon:'🤝',
-          tag:'เริ่มง่าย',
-          title:'Duet',
-          desc:'เล่นคู่แบบช่วยกัน ทำคะแนนไปด้วยกัน เหมาะกับ flow ที่ง่ายที่สุด',
-          points:[
-            'เข้าใจง่ายที่สุด',
-            'เหมาะกับเริ่มต้น',
-            'เน้นช่วยกันมากกว่าแข่งกัน'
-          ]
-        },
         race: {
-          id:'race',
-          icon:'🏁',
-          tag:'แข่งไว',
-          title:'Race',
-          desc:'แข่งกันว่าใครเร็วกว่า คมกว่า และเก็บคะแนนได้ดีกว่า',
-          points:[
-            'เน้นความเร็ว',
-            'แข่งคะแนนชัดเจน',
-            'ลุ้นสนุก'
-          ]
+          badge: '🏁 RACE MODE',
+          title: 'Food Race',
+          desc: 'แข่งเก็บอาหารดีให้ไว แล้วพยายามทำคะแนนให้มากที่สุดในรอบนี้',
+          steps: [
+            'คนแรกกดสร้างห้อง',
+            'ส่งลิงก์หรือรหัสห้องให้เพื่อน',
+            'เมื่อเข้าห้องเดียวกันแล้วก็เริ่มแข่งได้เลย'
+          ],
+          runPath: './goodjunk-race-run.html',
+          time: '120'
         },
         battle: {
-          id:'battle',
-          icon:'⚔️',
-          tag:'ท้าทาย',
-          title:'Battle',
-          desc:'แตะอาหารดีเพื่อชาร์จพลัง แล้วโจมตีคู่ต่อสู้เมื่อพร้อม',
-          points:[
-            'มีระบบ charge',
-            'มี HP และโจมตี',
-            'ลุ้นมากสุด'
-          ]
+          badge: '⚔️ BATTLE MODE',
+          title: 'Food Battle',
+          desc: 'แข่งกันตรง ๆ ใครเก็บอาหารดีแม่นกว่าและคะแนนสูงกว่าจะได้เปรียบ',
+          steps: [
+            'คนแรกกดสร้างห้อง battle',
+            'ส่งลิงก์หรือรหัสห้องให้อีกฝ่าย',
+            'เข้าห้องเดียวกันแล้วเริ่มปะทะกันได้เลย'
+          ],
+          runPath: './goodjunk-battle-run.html',
+          time: '150'
         },
         coop: {
-          id:'coop',
-          icon:'🛟',
-          tag:'ทีมเวิร์ก',
-          title:'Coop',
-          desc:'ช่วยกันเก็บเป้าหมายเดียวกัน เหมาะกับการเล่นแบบร่วมมือ',
-          points:[
-            'เน้น teamwork',
-            'ช่วยกันผ่านด่าน',
-            'ใช้ฝึกก่อนโหมดแข่งได้'
-          ]
+          badge: '🤝 COOP MODE',
+          title: 'Team Food Mission',
+          desc: 'ช่วยกันเก็บอาหารดี ทำคะแนนรวมของทีมให้สูง และผ่านภารกิจไปด้วยกัน',
+          steps: [
+            'คนแรกกดสร้างห้อง coop',
+            'ชวนเพื่อนเข้าห้องเดียวกัน',
+            'ช่วยกันเล่นและดูคะแนนรวมของทีม'
+          ],
+          runPath: './goodjunk-coop-run.html',
+          time: '180'
+        },
+        duet: {
+          badge: '🫶 DUET MODE',
+          title: 'Buddy Food Mission',
+          desc: 'เล่นเป็นคู่ ช่วยกันเก็บอาหารดีให้ต่อเนื่องและทำคะแนนร่วมกัน',
+          steps: [
+            'คนแรกกดสร้างห้อง duet',
+            'ส่งลิงก์หรือรหัสห้องให้คู่เล่นอีกคน',
+            'เข้าห้องเดียวกันแล้วช่วยกันเล่นเป็นคู่'
+          ],
+          runPath: './goodjunk-duet-run.html',
+          time: '150'
         }
       };
 
-      const UI = {
-        modeGrid: document.getElementById('modeGrid'),
-        topNotice: document.getElementById('topNotice'),
-        sideNotice: document.getElementById('sideNotice'),
-        selectedModeTag: document.getElementById('selectedModeTag'),
-        routePreview: document.getElementById('routePreview'),
-        modePreviewDesc: document.getElementById('modePreviewDesc'),
-        passthroughPreview: document.getElementById('passthroughPreview'),
-        btnEnterSelected: document.getElementById('btnEnterSelected'),
-        btnEnterLast: document.getElementById('btnEnterLast'),
-        btnGoHub: document.getElementById('btnGoHub'),
-        btnEnterBig: document.getElementById('btnEnterBig')
+      const HERO_NAME_PART_A = [
+        'Sunny', 'Happy', 'Brave', 'Blue', 'Magic', 'Sparkle',
+        'Super', 'Honey', 'Lucky', 'Tiny', 'Jolly', 'Rainbow'
+      ];
+      const HERO_NAME_PART_B = [
+        'Apple', 'Carrot', 'Bunny', 'Panda', 'Star', 'Berry',
+        'Tiger', 'Cloud', 'Rocket', 'Kitty', 'Buddy', 'Hero'
+      ];
+
+      const HERO_AVATAR_BY_WORD = {
+        Apple: '🍎',
+        Carrot: '🥕',
+        Bunny: '🐰',
+        Panda: '🐼',
+        Star: '⭐',
+        Berry: '🍓',
+        Tiger: '🐯',
+        Cloud: '☁️',
+        Rocket: '🚀',
+        Kitty: '🐱',
+        Buddy: '🧡',
+        Hero: '🦸',
+        Sunny: '🌞',
+        Happy: '😊',
+        Brave: '🛡️',
+        Blue: '💙',
+        Magic: '✨',
+        Sparkle: '🌟',
+        Super: '⚡',
+        Honey: '🍯',
+        Lucky: '🍀',
+        Tiny: '🐣',
+        Jolly: '🎈',
+        Rainbow: '🌈'
       };
 
-      const S = {
-        mode: 'duet'
+      const HERO_THEME_BY_WORD = {
+        Apple:  { soft:'#eefbea', border:'#bfe4b5', text:'#4c8f1f', badgeBg:'linear-gradient(180deg,#fffdf7,#eefbea)' },
+        Carrot: { soft:'#fff5e8', border:'#ffd7a6', text:'#c96e19', badgeBg:'linear-gradient(180deg,#fffdf7,#fff5e8)' },
+        Bunny:  { soft:'#f7efff', border:'#d9c5ff', text:'#7a63c7', badgeBg:'linear-gradient(180deg,#fffdf7,#f7efff)' },
+        Panda:  { soft:'#eef9ff', border:'#bfe3f2', text:'#4f7f95', badgeBg:'linear-gradient(180deg,#fffdf7,#eef9ff)' },
+        Star:   { soft:'#fff8e5', border:'#ffe08d', text:'#b78614', badgeBg:'linear-gradient(180deg,#fffdf7,#fff8e5)' },
+        Berry:  { soft:'#fff0f6', border:'#f6c4d7', text:'#c45d8a', badgeBg:'linear-gradient(180deg,#fffdf7,#fff0f6)' },
+        Tiger:  { soft:'#fff4e9', border:'#ffcda1', text:'#cf7b27', badgeBg:'linear-gradient(180deg,#fffdf7,#fff4e9)' },
+        Cloud:  { soft:'#eef8ff', border:'#cde7f4', text:'#5c95b4', badgeBg:'linear-gradient(180deg,#fffdf7,#eef8ff)' },
+        Rocket: { soft:'#fff3ea', border:'#ffd1b3', text:'#d56a2d', badgeBg:'linear-gradient(180deg,#fffdf7,#fff3ea)' },
+        Kitty:  { soft:'#fff0f7', border:'#f7cade', text:'#cf6c9b', badgeBg:'linear-gradient(180deg,#fffdf7,#fff0f7)' },
+        Buddy:  { soft:'#fff6ec', border:'#ffd8a6', text:'#b87a2b', badgeBg:'linear-gradient(180deg,#fffdf7,#fff6ec)' },
+        Hero:   { soft:'#eefbea', border:'#bfe4b5', text:'#58a126', badgeBg:'linear-gradient(180deg,#fffdf7,#eefbea)' },
+
+        Sunny:  { soft:'#fff8e5', border:'#ffe08d', text:'#b78614', badgeBg:'linear-gradient(180deg,#fffdf7,#fff8e5)' },
+        Happy:  { soft:'#eefbea', border:'#bfe4b5', text:'#58a126', badgeBg:'linear-gradient(180deg,#fffdf7,#eefbea)' },
+        Brave:  { soft:'#eef4ff', border:'#c8d7ff', text:'#5977c5', badgeBg:'linear-gradient(180deg,#fffdf7,#eef4ff)' },
+        Blue:   { soft:'#eef8ff', border:'#cde7f4', text:'#5c95b4', badgeBg:'linear-gradient(180deg,#fffdf7,#eef8ff)' },
+        Magic:  { soft:'#f7efff', border:'#d9c5ff', text:'#7a63c7', badgeBg:'linear-gradient(180deg,#fffdf7,#f7efff)' },
+        Sparkle:{ soft:'#fff8e5', border:'#ffe08d', text:'#b78614', badgeBg:'linear-gradient(180deg,#fffdf7,#fff8e5)' },
+        Super:  { soft:'#fff3ea', border:'#ffd1b3', text:'#d56a2d', badgeBg:'linear-gradient(180deg,#fffdf7,#fff3ea)' },
+        Honey:  { soft:'#fff7e8', border:'#ffd891', text:'#bc8520', badgeBg:'linear-gradient(180deg,#fffdf7,#fff7e8)' },
+        Lucky:  { soft:'#eefbea', border:'#bfe4b5', text:'#4c8f1f', badgeBg:'linear-gradient(180deg,#fffdf7,#eefbea)' },
+        Tiny:   { soft:'#fff9e8', border:'#ffe5a8', text:'#b99522', badgeBg:'linear-gradient(180deg,#fffdf7,#fff9e8)' },
+        Jolly:  { soft:'#fff0f6', border:'#f6c4d7', text:'#c45d8a', badgeBg:'linear-gradient(180deg,#fffdf7,#fff0f6)' },
+        Rainbow:{ soft:'#f3f1ff', border:'#d7cff8', text:'#7a63c7', badgeBg:'linear-gradient(180deg,#fffdf7,#f3f1ff)' }
       };
 
-      function loadStoredMode(){
-        try{
-          const m = localStorage.getItem(STORE_KEY);
-          if (m && MODES[m]) S.mode = m;
-        }catch{}
-      }
+      const HERO_THEME_FALLBACKS = [
+        { soft:'#eef8ff', border:'#cde7f4', text:'#5c95b4', badgeBg:'linear-gradient(180deg,#fffdf7,#eef8ff)' },
+        { soft:'#fff8e5', border:'#ffe08d', text:'#b78614', badgeBg:'linear-gradient(180deg,#fffdf7,#fff8e5)' },
+        { soft:'#f7efff', border:'#d9c5ff', text:'#7a63c7', badgeBg:'linear-gradient(180deg,#fffdf7,#f7efff)' },
+        { soft:'#fff0f6', border:'#f6c4d7', text:'#c45d8a', badgeBg:'linear-gradient(180deg,#fffdf7,#fff0f6)' },
+        { soft:'#eefbea', border:'#bfe4b5', text:'#58a126', badgeBg:'linear-gradient(180deg,#fffdf7,#eefbea)' },
+        { soft:'#fff3ea', border:'#ffd1b3', text:'#d56a2d', badgeBg:'linear-gradient(180deg,#fffdf7,#fff3ea)' }
+      ];
 
-      function saveStoredMode(){
-        try{
-          localStorage.setItem(STORE_KEY, S.mode);
-        }catch{}
-      }
+      const $ = (id) => document.getElementById(id);
 
-      function ensureMode(){
-        const fromQuery = String(qs('mode', '') || '').toLowerCase();
-        if (MODES[fromQuery]) {
-          S.mode = fromQuery;
-          return;
+      const elName = $('playerName');
+      const elRoom = $('roomCode');
+      const elDiff = $('diff');
+      const elTime = $('time');
+      const elEngine = $('enginePath');
+      const elEngineCandidates = $('engineCandidates');
+
+      const elHeroAvatarPreview = $('heroAvatarPreview');
+      const elHeroAvatarBadge = $('heroAvatarBadge');
+      const elHeroAvatarText = $('heroAvatarText');
+
+      const elQrOverlay = $('qrOverlay');
+      const elQrImage = $('qrImage');
+      const elQrTitle = $('qrTitle');
+      const elQrSub = $('qrSub');
+      const elQrModePill = $('qrModePill');
+      const elQrRoomPill = $('qrRoomPill');
+      const elQrLinkText = $('qrLinkText');
+
+      const elScanOverlay = $('scanOverlay');
+      const elScanVideo = $('scanVideo');
+      const elScanStatus = $('scanStatus');
+
+      const elScanConfirmOverlay = $('scanConfirmOverlay');
+      const elScanConfirmTitle = $('scanConfirmTitle');
+      const elScanConfirmSub = $('scanConfirmSub');
+      const elScanConfirmMode = $('scanConfirmMode');
+      const elScanConfirmRoom = $('scanConfirmRoom');
+      const elScanConfirmDiff = $('scanConfirmDiff');
+      const elScanConfirmTime = $('scanConfirmTime');
+      const elScanConfirmCurrentName = $('scanConfirmCurrentName');
+      const elScanConfirmLinkName = $('scanConfirmLinkName');
+      const elScanConfirmLink = $('scanConfirmLink');
+      const elScanConfirmWarn = $('scanConfirmWarn');
+      const elScanConfirmCurrentAvatar = $('scanConfirmCurrentAvatar');
+      const elScanConfirmLinkAvatar = $('scanConfirmLinkAvatar');
+
+      const elScanNameChoice1 = $('scanNameChoice1');
+      const elScanNameChoice2 = $('scanNameChoice2');
+      const elScanNameChoice3 = $('scanNameChoice3');
+
+      let currentMode = MODES[(q.get('mode') || '').toLowerCase()] ? (q.get('mode') || '').toLowerCase() : 'race';
+      let selectedHeroAvatar = '🙂';
+      let selectedHeroTheme = null;
+
+      let scanStream = null;
+      let scanDetector = null;
+      let scanRaf = 0;
+      let scanActive = false;
+
+      let pendingScanJoinUrl = '';
+      let pendingScanPayload = null;
+
+      function clean(v){ return String(v || '').trim(); }
+
+      function hashText(text) {
+        const s = String(text || '');
+        let h = 0;
+        for (let i = 0; i < s.length; i++) {
+          h = ((h << 5) - h) + s.charCodeAt(i);
+          h |= 0;
         }
-        if (!MODES[S.mode]) S.mode = 'duet';
+        return Math.abs(h);
       }
 
-      function buildLobbyUrl(mode){
-        const route = LOBBY_ROUTES[mode] || LOBBY_ROUTES.duet;
-        const url = new URL(route, location.href);
-        const src = new URL(location.href);
+      function getHeroAvatarFromName(name) {
+        const text = String(name || '').trim();
+        if (!text) return '🙂';
+        const parts = text.split(/\s+/).filter(Boolean);
+        const last = parts[parts.length - 1] || '';
+        const first = parts[0] || '';
+        return HERO_AVATAR_BY_WORD[last] || HERO_AVATAR_BY_WORD[first] || '🙂';
+      }
 
-        src.searchParams.forEach((value, key) => {
-          url.searchParams.set(key, value);
-        });
+      function getHeroThemeFromName(name) {
+        const text = String(name || '').trim();
+        if (!text) return HERO_THEME_FALLBACKS[0];
+        const parts = text.split(/\s+/).filter(Boolean);
+        const last = parts[parts.length - 1] || '';
+        const first = parts[0] || '';
+        return HERO_THEME_BY_WORD[last] ||
+               HERO_THEME_BY_WORD[first] ||
+               HERO_THEME_FALLBACKS[hashText(text) % HERO_THEME_FALLBACKS.length];
+      }
 
-        url.searchParams.set('mode', mode);
-        url.searchParams.set('hub', HUB);
+      function applyThemeToBadge(el, theme) {
+        if (!el || !theme) return;
+        el.style.background = theme.badgeBg;
+        el.style.borderColor = theme.border;
+        el.style.color = theme.text;
+      }
+
+      function applyThemeToWrap(el, theme) {
+        if (!el || !theme) return;
+        el.style.setProperty('--hero-soft', theme.soft);
+        el.style.setProperty('--hero-border', theme.border);
+        el.style.setProperty('--hero-text', theme.text);
+      }
+
+      function updateHeroAvatarPreview() {
+        const name = String(elName.value || '').trim();
+        const avatar = getHeroAvatarFromName(name);
+        const theme = getHeroThemeFromName(name);
+
+        selectedHeroAvatar = avatar;
+        selectedHeroTheme = theme;
+
+        if (elHeroAvatarBadge) {
+          elHeroAvatarBadge.textContent = avatar;
+          applyThemeToBadge(elHeroAvatarBadge, theme);
+        }
+
+        if (elHeroAvatarPreview) {
+          elHeroAvatarPreview.classList.add('is-colored');
+          applyThemeToWrap(elHeroAvatarPreview, theme);
+        }
+
+        if (elHeroAvatarText) {
+          elHeroAvatarText.innerHTML = name
+            ? `<strong>${avatar} ${name}</strong>`
+            : 'ยังไม่ได้ตั้งชื่อฮีโร่';
+        }
+      }
+
+      function pickRandom(arr) {
+        const list = Array.isArray(arr) ? arr : [];
+        if (!list.length) return '';
+        return list[Math.floor(Math.random() * list.length)];
+      }
+
+      function makeGuestHeroName() {
+        const room = String(elRoom.value || '').trim().toUpperCase();
+        const tail = room ? room.replace(/[^A-Z0-9]/g, '').slice(-4) : String(Date.now()).slice(-4);
+        return `Hero-${tail || '0001'}`;
+      }
+
+      function makeCuteHeroName() {
+        let name = `${pickRandom(HERO_NAME_PART_A)} ${pickRandom(HERO_NAME_PART_B)}`.trim();
+        const current = String(elName.value || '').trim();
+        if (name && name === current) {
+          name = `${pickRandom(HERO_NAME_PART_A)} ${pickRandom(HERO_NAME_PART_B)}`.trim();
+        }
+        return name || makeGuestHeroName();
+      }
+
+      function buildHeroChoice(name) {
+        const finalName = String(name || '').trim() || makeGuestHeroName();
+        return {
+          name: finalName,
+          avatar: getHeroAvatarFromName(finalName),
+          theme: getHeroThemeFromName(finalName)
+        };
+      }
+
+      function makeCuteHeroNameBatch(count = 3) {
+        const out = [];
+        const seen = new Set();
+        const maxLoop = Math.max(12, count * 10);
+
+        for (let i = 0; i < maxLoop && out.length < count; i++) {
+          const choice = buildHeroChoice(makeCuteHeroName());
+          if (!choice.name || seen.has(choice.name)) continue;
+          seen.add(choice.name);
+          out.push(choice);
+        }
+
+        while (out.length < count) {
+          out.push(buildHeroChoice(makeGuestHeroName()));
+        }
+
+        return out;
+      }
+
+      function setScanNameChoices(choices = []) {
+        const list = Array.isArray(choices) ? choices : [];
+        const a = list[0] || buildHeroChoice('Sunny Apple');
+        const b = list[1] || buildHeroChoice('Happy Bunny');
+        const c = list[2] || buildHeroChoice('Brave Star');
+
+        const applyToBtn = (el, choice) => {
+          if (!el) return;
+          el.dataset.heroName = choice.name;
+          el.dataset.heroAvatar = choice.avatar;
+          el.classList.add('is-colored');
+          applyThemeToWrap(el, choice.theme);
+          el.innerHTML = `
+            <span class="scan-name-emoji">${choice.avatar}</span>
+            <span class="scan-name-label">${choice.name}</span>
+          `;
+        };
+
+        applyToBtn(elScanNameChoice1, a);
+        applyToBtn(elScanNameChoice2, b);
+        applyToBtn(elScanNameChoice3, c);
+      }
+
+      function applyHeroName(name) {
+        const finalName = String(name || '').trim();
+        if (!finalName) return;
+
+        const avatar = getHeroAvatarFromName(finalName);
+        const theme = getHeroThemeFromName(finalName);
+
+        elName.value = finalName;
+        selectedHeroAvatar = avatar;
+        selectedHeroTheme = theme;
+
+        renderMode();
+        updateHeroAvatarPreview();
+
+        if (elScanConfirmCurrentName) {
+          elScanConfirmCurrentName.textContent = finalName;
+        }
+        if (elScanConfirmCurrentAvatar) {
+          elScanConfirmCurrentAvatar.textContent = avatar;
+          applyThemeToBadge(elScanConfirmCurrentAvatar, theme);
+        }
+
+        refreshScanConfirmWarning();
+      }
+
+      function hasHeroName() {
+        return String(elName.value || '').trim().length > 0;
+      }
+
+      function getHubUrl() {
+        try {
+          return q.get('hub') || new URL('../hub.html', location.href).toString();
+        } catch {
+          return '../hub.html';
+        }
+      }
+
+      function getApiUrl() {
+        return clean(q.get('api') || window.HHA_CLOUD_ENDPOINT || '');
+      }
+
+      function randomRoomCode() {
+        return 'GJ' + Math.random().toString(36).slice(2, 6).toUpperCase();
+      }
+
+      function getRoomCode() {
+        const current = clean(elRoom.value).toUpperCase();
+        if (current) return current;
+        const code = randomRoomCode();
+        elRoom.value = code;
+        return code;
+      }
+
+      function getCurrentHeroMetaForLink() {
+        const name = String(elName.value || '').trim();
+        const avatar = getHeroAvatarFromName(name);
+        const theme = getHeroThemeFromName(name);
+
+        return {
+          avatar,
+          soft: theme?.soft || '#eef8ff',
+          border: theme?.border || '#bfe3f2',
+          text: theme?.text || '#4d4a42'
+        };
+      }
+
+      function buildRunUrl(mode, role = 'player') {
+        const meta = MODES[mode] || MODES.race;
+        const url = new URL(meta.runPath, location.href);
+        const p = url.searchParams;
+
+        p.set('mode', mode);
+        p.set('role', role);
+        p.set('pid', clean(q.get('pid')) || clean(elName.value) || 'anon');
+        p.set('name', clean(elName.value));
+        p.set('roomId', getRoomCode());
+        p.set('diff', clean(elDiff.value) || 'normal');
+        p.set('time', clean(elTime.value) || meta.time);
+        p.set('seed', String(Date.now()));
+        p.set('hub', getHubUrl());
+        p.set('view', clean(q.get('view')) || 'mobile');
+        p.set('run', clean(q.get('run')) || 'play');
+        p.set('studyId', clean(q.get('studyId')));
+        p.set('gameId', clean(q.get('gameId')) || 'goodjunk');
+
+        const api = getApiUrl();
+        if (api) p.set('api', api);
+
+        const engine = clean(elEngine.value);
+        const engineCandidates = clean(elEngineCandidates.value);
+        if (engine) p.set('engine', engine);
+        if (engineCandidates) p.set('engineCandidates', engineCandidates);
+
+        const heroMeta = getCurrentHeroMetaForLink();
+        if (heroMeta.avatar) p.set('heroAvatar', heroMeta.avatar);
+        if (heroMeta.soft) p.set('heroSoft', heroMeta.soft);
+        if (heroMeta.border) p.set('heroBorder', heroMeta.border);
+        if (heroMeta.text) p.set('heroText', heroMeta.text);
 
         return url.toString();
       }
 
-      function renderCards(){
-        UI.modeGrid.innerHTML = Object.values(MODES).map(m => `
-          <article class="mode-card ${S.mode === m.id ? 'active' : ''}" data-mode="${m.id}">
-            <div class="mode-top">
-              <div class="mode-icon">${m.icon}</div>
-              <div class="mode-tag">${m.tag}</div>
-            </div>
+      function copyText(text) {
+        const value = String(text || '').trim();
+        if (!value) return Promise.reject(new Error('empty'));
+        return navigator.clipboard.writeText(value);
+      }
 
-            <div class="mode-title">${m.title}</div>
-            <div class="mode-desc">${m.desc}</div>
+      function renderMode() {
+        const meta = MODES[currentMode];
+        $('tabRace').classList.toggle('is-active', currentMode === 'race');
+        $('tabBattle').classList.toggle('is-active', currentMode === 'battle');
+        $('tabCoop').classList.toggle('is-active', currentMode === 'coop');
+        $('tabDuet').classList.toggle('is-active', currentMode === 'duet');
 
-            <div class="mode-points">
-              ${m.points.map(p => `
-                <div class="mode-point">
-                  <div class="mode-check">✓</div>
-                  <div>${p}</div>
-                </div>
-              `).join('')}
-            </div>
+        if (!elTime.value) elTime.value = meta.time;
 
-            <button class="btn btn-secondary mode-enter" type="button" data-enter="${m.id}">
-              เข้า ${m.title} Lobby
-            </button>
-          </article>
+        $('modeBadge').textContent = meta.badge;
+        $('modeTitle').textContent = meta.title;
+        $('modeDesc').textContent = meta.desc;
+        $('modeSteps').innerHTML = meta.steps.map((s, i) => `
+          <div class="step"><span>${i + 1}️⃣</span><span>${s}</span></div>
         `).join('');
 
-        UI.modeGrid.querySelectorAll('.mode-card').forEach(card => {
-          card.addEventListener('click', (e) => {
-            if (e.target && e.target.matches('[data-enter]')) return;
-            S.mode = card.dataset.mode || 'duet';
-            saveStoredMode();
-            renderAll();
+        $('routeStatus').textContent = 'พร้อมเข้าเล่น';
+        $('routeInfo').innerHTML = `หน้าเกมที่จะเปิด: <code>${meta.runPath}</code>`;
+
+        $('roomPreviewPill').textContent = `ROOM • ${getRoomCode()}`;
+        $('heroPreviewPill').textContent = `HERO • ${selectedHeroAvatar || '🙂'} ${clean(elName.value) || '-'}`;
+        $('diffPreviewPill').textContent = `LEVEL • ${clean(elDiff.value) || 'normal'}`;
+        $('timePreviewPill').textContent = `TIME • ${clean(elTime.value) || meta.time}`;
+
+        $('shareLinkText').textContent = buildRunUrl(currentMode, 'player');
+
+        $('routeDebug').textContent =
+          '[MODE] ' + currentMode + '\n' +
+          '[RUN PAGE] ' + meta.runPath + '\n' +
+          '[ROOM] ' + (clean(elRoom.value) || '-') + '\n' +
+          '[ENGINE] ' + (clean(elEngine.value) || '-') + '\n' +
+          '[ENGINE CANDIDATES] ' + (clean(elEngineCandidates.value) || '-') + '\n' +
+          '[API] ' + (getApiUrl() || '-');
+      }
+
+      function getQrImageUrl(text) {
+        const payload = encodeURIComponent(String(text || ''));
+        return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=${payload}`;
+      }
+
+      function showQrCard() {
+        const meta = MODES[currentMode];
+        const inviteUrl = buildRunUrl(currentMode, 'player');
+        const room = getRoomCode();
+
+        elQrTitle.textContent = `สแกนเพื่อเข้า ${meta.title}`;
+        elQrSub.textContent = `ให้เพื่อนสแกน QR นี้เพื่อเข้าห้อง ${room} และเล่นโหมด ${meta.title}`;
+        elQrModePill.textContent = `MODE • ${currentMode.toUpperCase()}`;
+        elQrRoomPill.textContent = `ROOM • ${room}`;
+        elQrLinkText.textContent = inviteUrl;
+        elQrImage.src = getQrImageUrl(inviteUrl);
+        elQrImage.alt = `QR for ${meta.title} room ${room}`;
+        elQrOverlay.hidden = false;
+      }
+
+      function hideQrCard() {
+        elQrOverlay.hidden = true;
+      }
+
+      function setScanStatus(text, variant = '') {
+        elScanStatus.textContent = String(text || '');
+        elScanStatus.className = 'scan-status' + (variant ? ` is-${variant}` : '');
+      }
+
+      async function ensureBarcodeDetector() {
+        if (!('BarcodeDetector' in window)) return null;
+        if (scanDetector) return scanDetector;
+
+        try {
+          if (typeof BarcodeDetector.getSupportedFormats === 'function') {
+            const formats = await BarcodeDetector.getSupportedFormats();
+            if (Array.isArray(formats) && !formats.includes('qr_code')) return null;
+          }
+          scanDetector = new BarcodeDetector({ formats: ['qr_code'] });
+          return scanDetector;
+        } catch {
+          return null;
+        }
+      }
+
+      function applyScannedText(text) {
+        const raw = String(text || '').trim();
+        if (!raw) return { ok: false, reason: 'empty' };
+
+        try {
+          const url = new URL(raw);
+
+          const mode = (url.searchParams.get('mode') || '').toLowerCase();
+          if (MODES[mode]) currentMode = mode;
+
+          const room = url.searchParams.get('roomId') || url.searchParams.get('room') || '';
+          if (room) elRoom.value = String(room).trim().toUpperCase();
+
+          const diff = url.searchParams.get('diff') || '';
+          if (diff && [...elDiff.options].some(o => o.value === diff)) {
+            elDiff.value = diff;
+          }
+
+          const time = url.searchParams.get('time') || '';
+          if (time && [...elTime.options].some(o => o.value === time)) {
+            elTime.value = time;
+          }
+
+          const engine = url.searchParams.get('engine') || '';
+          const engineCandidates = url.searchParams.get('engineCandidates') || '';
+          const scannedName = (url.searchParams.get('name') || '').trim();
+
+          if (engine) elEngine.value = engine;
+          if (engineCandidates) elEngineCandidates.value = engineCandidates;
+
+          renderMode();
+
+          return {
+            ok: true,
+            kind: 'invite_link',
+            value: raw,
+            payload: {
+              mode: currentMode,
+              room: elRoom.value.trim().toUpperCase(),
+              diff: elDiff.value,
+              time: elTime.value,
+              nameFromLink: scannedName
+            }
+          };
+        } catch {}
+
+        if (/^[A-Z0-9_-]{3,}$/i.test(raw)) {
+          elRoom.value = raw.toUpperCase();
+          renderMode();
+
+          return {
+            ok: true,
+            kind: 'room_code',
+            value: raw,
+            payload: {
+              mode: currentMode,
+              room: elRoom.value.trim().toUpperCase(),
+              diff: elDiff.value,
+              time: elTime.value,
+              nameFromLink: ''
+            }
+          };
+        }
+
+        return { ok: false, reason: 'unsupported' };
+      }
+
+      function stopScanner() {
+        scanActive = false;
+
+        if (scanRaf) {
+          cancelAnimationFrame(scanRaf);
+          scanRaf = 0;
+        }
+
+        if (scanStream) {
+          scanStream.getTracks().forEach(track => {
+            try { track.stop(); } catch {}
           });
-        });
+          scanStream = null;
+        }
 
-        UI.modeGrid.querySelectorAll('[data-enter]').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const mode = btn.getAttribute('data-enter') || 'duet';
-            goLobby(mode);
+        if (elScanVideo) {
+          try { elScanVideo.pause(); } catch {}
+          elScanVideo.srcObject = null;
+        }
+      }
+
+      function hideScanCard() {
+        stopScanner();
+        elScanOverlay.hidden = true;
+      }
+
+      function showScanConfirm(scanResult = null) {
+        const meta = MODES[currentMode];
+        const joinUrl = buildRunUrl(currentMode, 'player');
+        const currentName = String(elName.value || '').trim();
+        const nameFromLink =
+          scanResult && scanResult.payload
+            ? String(scanResult.payload.nameFromLink || '').trim()
+            : '';
+
+        pendingScanJoinUrl = joinUrl;
+        pendingScanPayload = {
+          mode: currentMode,
+          room: getRoomCode(),
+          diff: elDiff.value || '',
+          time: elTime.value || '',
+          currentName,
+          nameFromLink,
+          joinUrl
+        };
+
+        elScanConfirmTitle.textContent = 'เจอห้องแล้ว';
+
+        if (!currentName && nameFromLink) {
+          elScanConfirmSub.textContent =
+            `เจอห้อง ${getRoomCode()} แล้ว และพบชื่อจากลิงก์ด้วย จะใช้ชื่อนั้นหรือแก้ชื่อก่อนเข้าก็ได้`;
+        } else if (!currentName) {
+          elScanConfirmSub.textContent =
+            `เจอห้อง ${getRoomCode()} แล้ว แต่ยังไม่ได้ใส่ชื่อฮีโร่ จะเข้าเลยหรือแก้ชื่อก่อนก็ได้`;
+        } else {
+          elScanConfirmSub.textContent =
+            `ตรวจดูก่อนว่าเป็นห้อง ${getRoomCode()} ของโหมด ${meta.title} แล้วค่อยกดเข้าห้องนี้`;
+        }
+
+        const currentAvatar = getHeroAvatarFromName(currentName);
+        const currentTheme = getHeroThemeFromName(currentName);
+        const linkAvatar = getHeroAvatarFromName(nameFromLink);
+        const linkTheme = getHeroThemeFromName(nameFromLink);
+
+        elScanConfirmMode.textContent = `${meta.title}`;
+        elScanConfirmRoom.textContent = `${getRoomCode()}`;
+        elScanConfirmDiff.textContent = `${elDiff.value || '-'}`;
+        elScanConfirmTime.textContent = `${elTime.value || '-'} วินาที`;
+        elScanConfirmCurrentName.textContent = currentName || 'ยังไม่ได้ใส่ชื่อ';
+        elScanConfirmLinkName.textContent = nameFromLink || 'ไม่มี';
+        elScanConfirmLink.textContent = joinUrl;
+
+        if (elScanConfirmCurrentAvatar) {
+          elScanConfirmCurrentAvatar.textContent = currentName ? currentAvatar : '🙂';
+          applyThemeToBadge(elScanConfirmCurrentAvatar, currentTheme);
+        }
+        if (elScanConfirmLinkAvatar) {
+          elScanConfirmLinkAvatar.textContent = nameFromLink ? linkAvatar : '🙂';
+          applyThemeToBadge(elScanConfirmLinkAvatar, linkTheme);
+        }
+
+        $('btnScanUseLinkName').style.display = nameFromLink ? '' : 'none';
+
+        elScanConfirmOverlay.hidden = false;
+        refreshScanConfirmWarning();
+      }
+
+      function hideScanConfirm() {
+        pendingScanJoinUrl = '';
+        pendingScanPayload = null;
+        elScanConfirmOverlay.hidden = true;
+      }
+
+      function refreshScanConfirmWarning() {
+        if (!elScanConfirmWarn) return;
+        const showWarn = !hasHeroName();
+        elScanConfirmWarn.hidden = !showWarn;
+        if (showWarn) {
+          setScanNameChoices(makeCuteHeroNameBatch(3));
+        }
+      }
+
+      async function scanLoop() {
+        if (!scanActive || !scanDetector) return;
+
+        try {
+          if (elScanVideo.readyState >= 2) {
+            const codes = await scanDetector.detect(elScanVideo);
+            if (codes && codes.length > 0) {
+              const raw = codes[0].rawValue || '';
+              const result = applyScannedText(raw);
+
+              if (result.ok) {
+                setScanStatus(
+                  result.kind === 'invite_link'
+                    ? 'สแกนสำเร็จแล้ว • อ่านลิงก์ชวนเพื่อนเรียบร้อย'
+                    : 'สแกนสำเร็จแล้ว • ใส่รหัสห้องให้แล้ว',
+                  'ok'
+                );
+
+                $('routeStatus').textContent = 'อ่าน QR สำเร็จแล้ว';
+                stopScanner();
+                hideScanCard();
+                showScanConfirm(result);
+                return;
+              }
+
+              setScanStatus('อ่าน QR ได้ แต่ข้อมูลยังไม่ใช่ลิงก์ชวนเพื่อนหรือรหัสห้องที่รองรับ', 'warn');
+            }
+          }
+        } catch {
+          setScanStatus('กำลังสแกน... ถ้ายังไม่ติด ลองขยับกล้องให้เห็น QR ชัดขึ้น', 'warn');
+        }
+
+        scanRaf = requestAnimationFrame(scanLoop);
+      }
+
+      async function startScanner() {
+        stopScanner();
+        setScanStatus('กำลังเปิดกล้อง...', '');
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setScanStatus('อุปกรณ์นี้ไม่รองรับการเปิดกล้องจากหน้าเว็บ', 'error');
+          return;
+        }
+
+        const detector = await ensureBarcodeDetector();
+        if (!detector) {
+          setScanStatus('เบราว์เซอร์นี้ยังไม่รองรับการอ่าน QR อัตโนมัติ ลองใช้ “แสดง QR” หรือ “วางลิงก์จากคลิปบอร์ด” แทน', 'warn');
+          return;
+        }
+
+        try {
+          scanStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } },
+            audio: false
           });
+
+          elScanVideo.srcObject = scanStream;
+          await elScanVideo.play();
+
+          scanActive = true;
+          setScanStatus('กล้องพร้อมแล้ว • เล็ง QR ให้อยู่ในกรอบ', 'ok');
+          scanLoop();
+        } catch {
+          setScanStatus('เปิดกล้องไม่สำเร็จ กรุณาอนุญาตการใช้กล้อง หรือใช้ลิงก์/รหัสห้องแทน', 'error');
+        }
+      }
+
+      $('tabRace').addEventListener('click', () => { currentMode = 'race'; renderMode(); });
+      $('tabBattle').addEventListener('click', () => { currentMode = 'battle'; renderMode(); });
+      $('tabCoop').addEventListener('click', () => { currentMode = 'coop'; renderMode(); });
+      $('tabDuet').addEventListener('click', () => { currentMode = 'duet'; renderMode(); });
+
+      [elRoom, elName, elDiff, elTime, elEngine, elEngineCandidates].forEach((el) => {
+        el.addEventListener('input', () => {
+          renderMode();
+          if (!elQrOverlay.hidden) showQrCard();
         });
-      }
-
-      function renderAll(){
-        ensureMode();
-        saveStoredMode();
-
-        const m = MODES[S.mode];
-        UI.selectedModeTag.textContent = m.title.toUpperCase();
-        UI.routePreview.textContent = LOBBY_ROUTES[S.mode] || LOBBY_ROUTES.duet;
-        UI.modePreviewDesc.textContent = m.desc;
-        UI.passthroughPreview.textContent = buildLobbyUrl(S.mode);
-
-        UI.topNotice.textContent = `ตอนนี้เลือกโหมด ${m.title} อยู่ กดเข้า lobby ของโหมดนี้ได้เลย`;
-        UI.sideNotice.textContent = `หน้า ${m.title} Lobby จะเป็นที่สำหรับสร้างห้อง เข้าห้อง room code และ start game`;
-
-        renderCards();
-      }
-
-      function goLobby(mode){
-        location.href = buildLobbyUrl(mode);
-      }
-
-      function bind(){
-        UI.btnEnterSelected.addEventListener('click', () => goLobby(S.mode));
-        UI.btnEnterBig.addEventListener('click', () => goLobby(S.mode));
-        UI.btnEnterLast.addEventListener('click', () => {
-          loadStoredMode();
-          ensureMode();
-          goLobby(S.mode);
+        el.addEventListener('change', () => {
+          renderMode();
+          if (!elQrOverlay.hidden) showQrCard();
         });
-        UI.btnGoHub.addEventListener('click', () => {
-          location.href = HUB || '../hub.html';
-        });
+      });
+
+      elName.addEventListener('input', () => {
+        updateHeroAvatarPreview();
+
+        if (!elScanConfirmOverlay.hidden) {
+          const currentName = String(elName.value || '').trim();
+          const currentAvatar = getHeroAvatarFromName(currentName);
+          const currentTheme = getHeroThemeFromName(currentName);
+
+          if (elScanConfirmCurrentName) {
+            elScanConfirmCurrentName.textContent = currentName || 'ยังไม่ได้ใส่ชื่อ';
+          }
+          if (elScanConfirmCurrentAvatar) {
+            elScanConfirmCurrentAvatar.textContent = currentName ? currentAvatar : '🙂';
+            applyThemeToBadge(elScanConfirmCurrentAvatar, currentTheme);
+          }
+
+          refreshScanConfirmWarning();
+        }
+      });
+
+      $('btnCreate').addEventListener('click', () => {
+        location.href = buildRunUrl(currentMode, 'player');
+      });
+
+      $('btnJoin').addEventListener('click', () => {
+        location.href = buildRunUrl(currentMode, 'player');
+      });
+
+      $('btnCopyLink').addEventListener('click', () => {
+        const url = buildRunUrl(currentMode, 'player');
+        $('shareLinkText').textContent = url;
+        copyText(url);
+      });
+
+      $('btnCopyCode').addEventListener('click', () => {
+        copyText(getRoomCode());
+      });
+
+      $('btnShowQr').addEventListener('click', () => {
+        showQrCard();
+      });
+
+      $('btnQrClose').addEventListener('click', () => {
+        hideQrCard();
+      });
+
+      $('btnQrCopyLink').addEventListener('click', () => {
+        const url = buildRunUrl(currentMode, 'player');
+        $('shareLinkText').textContent = url;
+        copyText(url);
+      });
+
+      $('btnQrCopyCode').addEventListener('click', () => {
+        copyText(getRoomCode());
+      });
+
+      elQrOverlay.addEventListener('click', (ev) => {
+        if (ev.target === elQrOverlay) hideQrCard();
+      });
+
+      $('btnScanQr').addEventListener('click', () => {
+        elScanOverlay.hidden = false;
+        setScanStatus('กด “เริ่มสแกน” เพื่อเปิดกล้อง', '');
+      });
+
+      $('btnScanClose').addEventListener('click', () => {
+        hideScanCard();
+      });
+
+      $('btnScanStart').addEventListener('click', () => {
+        startScanner();
+      });
+
+      $('btnScanTryPaste').addEventListener('click', async () => {
+        try {
+          if (!navigator.clipboard || !navigator.clipboard.readText) {
+            setScanStatus('เครื่องนี้ยังไม่รองรับการอ่านคลิปบอร์ดอัตโนมัติ', 'warn');
+            return;
+          }
+
+          const text = await navigator.clipboard.readText();
+          const result = applyScannedText(text);
+
+          if (result.ok) {
+            setScanStatus(
+              result.kind === 'invite_link'
+                ? 'วางลิงก์สำเร็จแล้ว • เติมค่าจาก invite link ให้แล้ว'
+                : 'วางรหัสห้องสำเร็จแล้ว',
+              'ok'
+            );
+            hideScanCard();
+            showScanConfirm(result);
+            return;
+          }
+
+          setScanStatus('ข้อความในคลิปบอร์ดยังไม่ใช่ลิงก์ชวนเพื่อนหรือรหัสห้องที่รองรับ', 'warn');
+        } catch {
+          setScanStatus('อ่านคลิปบอร์ดไม่สำเร็จ ลองคัดลอกลิงก์ใหม่อีกครั้ง', 'warn');
+        }
+      });
+
+      elScanOverlay.addEventListener('click', (ev) => {
+        if (ev.target === elScanOverlay) hideScanCard();
+      });
+
+      $('btnScanConfirmJoin').addEventListener('click', () => {
+        if (!hasHeroName()) {
+          refreshScanConfirmWarning();
+          return;
+        }
+        const url = buildRunUrl(currentMode, 'player');
+        pendingScanJoinUrl = url;
+        location.href = url;
+      });
+
+      $('btnScanConfirmCopy').addEventListener('click', () => {
+        const url = buildRunUrl(currentMode, 'player');
+        pendingScanJoinUrl = url;
+        copyText(url);
+      });
+
+      $('btnScanConfirmRescan').addEventListener('click', () => {
+        hideScanConfirm();
+        elScanOverlay.hidden = false;
+        setScanStatus('กด “เริ่มสแกน” เพื่อเปิดกล้อง', '');
+      });
+
+      $('btnScanConfirmClose').addEventListener('click', () => {
+        hideScanConfirm();
+      });
+
+      $('btnScanUseLinkName').addEventListener('click', () => {
+        const nameFromLink = pendingScanPayload?.nameFromLink || '';
+        if (!nameFromLink) return;
+        applyHeroName(nameFromLink);
+      });
+
+      $('btnScanEditName').addEventListener('click', () => {
+        hideScanConfirm();
+        setTimeout(() => {
+          elName.focus();
+          try { elName.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
+        }, 50);
+      });
+
+      $('btnScanGuestJoin').addEventListener('click', () => {
+        if (!hasHeroName()) {
+          applyHeroName('Guest Hero');
+        }
+        refreshScanConfirmWarning();
+
+        const url = buildRunUrl(currentMode, 'player');
+        pendingScanJoinUrl = url;
+        location.href = url;
+      });
+
+      $('btnScanWarnEditName').addEventListener('click', () => {
+        hideScanConfirm();
+        setTimeout(() => {
+          elName.focus();
+          try { elName.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
+        }, 50);
+      });
+
+      $('btnScanRerollNames').addEventListener('click', () => {
+        setScanNameChoices(makeCuteHeroNameBatch(3));
+      });
+
+      elScanNameChoice1.addEventListener('click', () => {
+        applyHeroName(elScanNameChoice1.dataset.heroName || elScanNameChoice1.textContent);
+      });
+      elScanNameChoice2.addEventListener('click', () => {
+        applyHeroName(elScanNameChoice2.dataset.heroName || elScanNameChoice2.textContent);
+      });
+      elScanNameChoice3.addEventListener('click', () => {
+        applyHeroName(elScanNameChoice3.dataset.heroName || elScanNameChoice3.textContent);
+      });
+
+      elScanConfirmOverlay.addEventListener('click', (ev) => {
+        if (ev.target === elScanConfirmOverlay) hideScanConfirm();
+      });
+
+      window.addEventListener('beforeunload', () => {
+        stopScanner();
+        hideScanConfirm();
+      });
+
+      if (!elName.value.trim()) {
+        applyHeroName(makeCuteHeroName());
+      } else {
+        updateHeroAvatarPreview();
       }
 
-      function init(){
-        loadStoredMode();
-        ensureMode();
-        bind();
-        renderAll();
-      }
-
-      init();
+      renderMode();
+      updateHeroAvatarPreview();
     })();
   </script>
 </body>
