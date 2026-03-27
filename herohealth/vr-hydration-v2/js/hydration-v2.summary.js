@@ -1,7 +1,3 @@
-// === /herohealth/vr-hydration-v2/js/hydration-v2.summary.js ===
-// Hydration V2 Summary / Navigation Helpers
-// FULL PATCH v20260327-HYDRATION-V2-SUMMARY-ABC
-
 const FALLBACK_HUB_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
 
 function clamp(n, min, max) {
@@ -53,11 +49,9 @@ function buildGateUrl(ctx = {}, phase = 'cooldown') {
   base.searchParams.set('zone', 'nutrition');
   base.searchParams.set('hub', resolveHub(ctx));
 
-  // ใส่ทั้งสองชื่อไว้เพื่อรองรับฝั่ง gate ที่อาจอ่านไม่เหมือนกัน
   base.searchParams.set('phase', String(phase));
   base.searchParams.set('gatePhase', String(phase));
 
-  // passthrough context
   if (ctx.pid) base.searchParams.set('pid', String(ctx.pid));
   if (ctx.sessionId) base.searchParams.set('sessionId', String(ctx.sessionId));
   if (ctx.studyId) base.searchParams.set('studyId', String(ctx.studyId));
@@ -164,7 +158,6 @@ export function buildHydrationV2Summary(raw = {}, ctx = {}) {
     lead,
     tip,
 
-    // เผื่อใช้ใน summary/report ภายหลัง
     meta: safeObject(raw.meta, {})
   };
 }
