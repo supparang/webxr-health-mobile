@@ -930,7 +930,7 @@
 
     .duet-result-actions.hubv2{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
+      grid-template-columns:repeat(5,minmax(0,1fr));
       gap:10px;
     }
 
@@ -999,12 +999,8 @@
       animation:duetStarBounce 1.1s ease-in-out infinite;
     }
 
-    .duet-stars.big.celebrate .duet-star:nth-child(2){
-      animation-delay:.12s;
-    }
-    .duet-stars.big.celebrate .duet-star:nth-child(3){
-      animation-delay:.24s;
-    }
+    .duet-stars.big.celebrate .duet-star:nth-child(2){ animation-delay:.12s; }
+    .duet-stars.big.celebrate .duet-star:nth-child(3){ animation-delay:.24s; }
 
     .duet-sum-top-score.pair.celebrate{
       animation:duetPairPulse 1.15s ease-in-out infinite;
@@ -1038,14 +1034,8 @@
     .duet-confetti-piece.violet{ background:#cdb9ff; }
 
     @keyframes duetCardPop{
-      0%{
-        opacity:0;
-        transform:translateY(12px) scale(.985);
-      }
-      100%{
-        opacity:1;
-        transform:translateY(0) scale(1);
-      }
+      0%{ opacity:0; transform:translateY(12px) scale(.985); }
+      100%{ opacity:1; transform:translateY(0) scale(1); }
     }
 
     @keyframes duetStarBounce{
@@ -1061,170 +1051,51 @@
     }
 
     @keyframes duetConfettiFall{
-      0%{
-        transform:translate3d(0,-10%,0) rotate(0deg);
-        opacity:0;
-      }
-      8%{
-        opacity:1;
-      }
-      100%{
-        transform:translate3d(var(--dx, 0px),112vh,0) rotate(var(--rot, 540deg));
-        opacity:0;
-      }
+      0%{ transform:translate3d(0,-10%,0) rotate(0deg); opacity:0; }
+      8%{ opacity:1; }
+      100%{ transform:translate3d(var(--dx, 0px),112vh,0) rotate(var(--rot, 540deg)); opacity:0; }
     }
 
     @media (max-width:980px){
-      html,body{
-        min-height:100%;
-        height:auto;
-      }
-
-      body{
-        overflow:auto;
-      }
-
-      .page{
-        min-height:auto;
-        padding-bottom:calc(16px + var(--sab));
-      }
-
-      .run-shell{
-        grid-template-columns:1fr;
-        min-height:auto;
-      }
-
-      .duet-hud{
-        order:2;
-        padding:12px;
-        gap:10px;
-      }
-
-      .stage-wrap{
-        order:1;
-        min-height:unset;
-      }
-
-      .stage-inner,
-      #duetGameStage{
-        min-height:54dvh;
-      }
-
-      .topbar{
-        gap:12px;
-      }
-
-      .brand{
-        width:100%;
-      }
-
-      .top-actions{
-        width:100%;
-        justify-content:space-between;
-      }
-
-      .top-actions .btn{
-        flex:1 1 0;
-      }
-
-      .duet-score-value{
-        font-size:34px;
-      }
-
-      .duet-stats{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:8px;
-      }
-
-      .duet-stat,
-      .duet-mini{
-        padding:10px;
-      }
-
-      .duet-panel{
-        padding:10px;
-      }
-
-      .stage-wrap{
-        border-radius:20px;
-      }
-
-      .stage-head{
-        font-size:13px;
-        padding:12px 14px;
-      }
+      html,body{ min-height:100%; height:auto; }
+      body{ overflow:auto; }
+      .page{ min-height:auto; padding-bottom:calc(16px + var(--sab)); }
+      .run-shell{ grid-template-columns:1fr; min-height:auto; }
+      .duet-hud{ order:2; padding:12px; gap:10px; }
+      .stage-wrap{ order:1; min-height:unset; }
+      .stage-inner, #duetGameStage{ min-height:54dvh; }
+      .topbar{ gap:12px; }
+      .brand{ width:100%; }
+      .top-actions{ width:100%; justify-content:space-between; }
+      .top-actions .btn{ flex:1 1 0; }
+      .duet-score-value{ font-size:34px; }
+      .duet-stats{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+      .duet-stat, .duet-mini{ padding:10px; }
+      .duet-panel{ padding:10px; }
+      .stage-wrap{ border-radius:20px; }
+      .stage-head{ font-size:13px; padding:12px 14px; }
     }
 
     @media (max-width:760px){
-      .duet-result-mount{
-        padding:10px;
-        align-items:flex-end;
-      }
-      .duet-result-card{
-        border-radius:22px;
-        padding:12px;
-      }
-      .duet-result-title{
-        font-size:20px;
-      }
-      .duet-result-sub{
-        font-size:12px;
-      }
-      .duet-sum-top{
-        grid-template-columns:1fr;
-        gap:10px;
-      }
-      .duet-sum-top-card{
-        border-radius:18px;
-        padding:12px;
-      }
-      .duet-sum-top-score{
-        font-size:28px;
-      }
-      .duet-sum-top-score.pair{
-        font-size:32px;
-      }
-      .duet-sum-stats{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:10px;
-      }
-      .duet-recap{
-        grid-template-columns:1fr;
-      }
-      .duet-stars.big .duet-star{
-        min-width:40px;
-        height:40px;
-        font-size:18px;
-      }
-      .duet-result-actions.hubv2{
-        grid-template-columns:1fr 1fr;
-      }
-      .duet-result-actions.hubv2 .btn{
-        width:100%;
-        min-height:50px;
-        font-size:14px;
-      }
-      .duet-sum-top-label{
-        font-size:13px;
-      }
-      .duet-sum-top-sub{
-        font-size:11px;
-        line-height:1.6;
-      }
-      .duet-sum-status{
-        width:100%;
-      }
-      .duet-praise{
-        border-radius:18px;
-        padding:12px;
-      }
-      .duet-praise-title{
-        font-size:20px;
-      }
-      .duet-praise-sub{
-        font-size:13px;
-        line-height:1.6;
-      }
+      .duet-result-mount{ padding:10px; align-items:flex-end; }
+      .duet-result-card{ border-radius:22px; padding:12px; }
+      .duet-result-title{ font-size:20px; }
+      .duet-result-sub{ font-size:12px; }
+      .duet-sum-top{ grid-template-columns:1fr; gap:10px; }
+      .duet-sum-top-card{ border-radius:18px; padding:12px; }
+      .duet-sum-top-score{ font-size:28px; }
+      .duet-sum-top-score.pair{ font-size:32px; }
+      .duet-sum-stats{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+      .duet-recap{ grid-template-columns:1fr; }
+      .duet-stars.big .duet-star{ min-width:40px; height:40px; font-size:18px; }
+      .duet-result-actions.hubv2{ grid-template-columns:1fr 1fr; }
+      .duet-result-actions.hubv2 .btn{ width:100%; min-height:50px; font-size:14px; }
+      .duet-sum-top-label{ font-size:13px; }
+      .duet-sum-top-sub{ font-size:11px; line-height:1.6; }
+      .duet-sum-status{ width:100%; }
+      .duet-praise{ border-radius:18px; padding:12px; }
+      .duet-praise-title{ font-size:20px; }
+      .duet-praise-sub{ font-size:13px; line-height:1.6; }
     }
 
     @media (prefers-reduced-motion: reduce){
@@ -1385,6 +1256,6 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="../firebase-config.js"></script>
   <script src="../common/hha-multiplayer.js"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260327-duet-celebration-v12"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260327-duet-final-v1"></script>
 </body>
 </html>
