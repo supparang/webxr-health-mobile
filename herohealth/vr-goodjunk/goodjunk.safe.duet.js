@@ -1,9 +1,10 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
    FULL PATCH v20260327-GOODJUNK-DUET-FINAL-V6
+   - quota-safe localStorage
    - bindRoom retry ถ้า room ยัง sync มาไม่ทัน
    - bindRoom ไม่ reset score/finished โดยไม่จำเป็น
    - ไม่ลบ room อัตโนมัติแล้ว
-   - rematch flow + rematch fail-safe watcher
+   - rematch flow
    - mobile summary scroll/sticky action bar
    - background/unload/reconnect presence แข็งขึ้น
    - กัน result overlay rerender ซ้ำโดยไม่จำเป็น
@@ -74,6 +75,31 @@
   const raf = W.requestAnimationFrame ? W.requestAnimationFrame.bind(W) : (fn => setTimeout(fn, 16));
   const caf = W.cancelAnimationFrame ? W.cancelAnimationFrame.bind(W) : clearTimeout;
 
+  function safeSetItem(key, value){
+    try{
+      localStorage.setItem(key, value);
+      return true;
+    }catch(err){
+      console.warn('[safeSetItem] failed:', key, err && err.message ? err.message : err);
+      return false;
+    }
+  }
+
+  function safeGetItem(key, fallback = null){
+    try{
+      const v = localStorage.getItem(key);
+      return v == null ? fallback : v;
+    }catch{
+      return fallback;
+    }
+  }
+
+  function safeRemoveItem(key){
+    try{
+      localStorage.removeItem(key);
+    }catch{}
+  }
+
   function esc(s){
     return String(s == null ? '' : s)
       .replace(/&/g,'&amp;')
@@ -114,17 +140,14 @@
   }
 
   function makeDevicePid(){
-    try{
-      const KEY = 'GJ_DEVICE_PID';
-      let pid = localStorage.getItem(KEY);
-      if (!pid){
-        pid = 'p-' + Math.random().toString(36).slice(2, 10);
-        localStorage.setItem(KEY, pid);
-      }
-      return pid;
-    }catch{
-      return 'p-' + Math.random().toString(36).slice(2, 10);
+    const KEY = 'GJ_DEVICE_PID';
+    let pid = safeGetItem(KEY, '');
+
+    if (!pid){
+      pid = 'p-' + Math.random().toString(36).slice(2, 10);
+      safeSetItem(KEY, pid);
     }
+    return pid;
   }
 
   function normalizePid(raw){
@@ -161,12 +184,25 @@
 
   function saveLastSummary(summary){
     try{
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+      safeSetItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+
       const key = 'HHA_SUMMARY_HISTORY';
-      const arr = JSON.parse(localStorage.getItem(key) || '[]');
+      let arr = [];
+
+      try{
+        arr = JSON.parse(safeGetItem(key, '[]') || '[]');
+        if (!Array.isArray(arr)) arr = [];
+      }catch{
+        arr = [];
+      }
+
       arr.unshift(summary);
-      localStorage.setItem(key, JSON.stringify(arr.slice(0, 20)));
-    }catch{}
+      arr = arr.slice(0, 8);
+
+      safeSetItem(key, JSON.stringify(arr));
+    }catch(err){
+      console.warn('[saveLastSummary] failed:', err && err.message ? err.message : err);
+    }
   }
 
   function buildSameRoomLobbyUrl(isRematch){
@@ -305,7 +341,6 @@
     peerId: '',
     loopId: 0,
     heartbeatTimer: 0,
-    rematchWatchTimer: 0,
 
     rng: null,
     cfg: null,
@@ -348,8 +383,8 @@
     leaving: false
   };
 
-  try{ localStorage.setItem('HHA_PLAYER_PID', STATE.pid); }catch{}
-  try{ localStorage.setItem('HHA_PLAYER_NICK', STATE.name); }catch{}
+  safeSetItem('HHA_PLAYER_PID', STATE.pid);
+  safeSetItem('HHA_PLAYER_NICK', STATE.name);
 
   function getCfg(){
     return DIFF_CFG[STATE.diff] || DIFF_CFG.normal;
@@ -496,8 +531,7 @@
       `blockReason=${STATE.blockReason || '-'}`,
       `rematchRequested=${STATE.rematchRequested}`,
       `rematchCount=${getRematchInfo(room).count}`,
-      `rematchResetting=${STATE.rematchResetting}`,
-      `rematchWatchTimer=${STATE.rematchWatchTimer ? 'on' : 'off'}`
+      `rematchResetting=${STATE.rematchResetting}`
     ];
 
     el.textContent = lines.join('\n');
@@ -701,57 +735,6 @@
     if (!peer || !peer.id) return false;
     if (peer.connected !== false) return false;
     return (now() - Number(peer.lastSeenAt || 0)) > 45000;
-  }
-
-  function stopRematchWatch(){
-    if (STATE.rematchWatchTimer){
-      clearInterval(STATE.rematchWatchTimer);
-      STATE.rematchWatchTimer = 0;
-    }
-  }
-
-  function getRoomStatus(room){
-    return String((room && room.status) || 'waiting');
-  }
-
-  function getMatchStatus(room){
-    return String((((room || {}).match || {}).status) || 'idle');
-  }
-
-  async function maybeForceRematchTransition(room){
-    if (!room) return;
-
-    const info = getRematchInfo(room);
-    const roomStatus = getRoomStatus(room);
-    const matchStatus = getMatchStatus(room);
-
-    if (info.count < 2) return;
-
-    if (roomStatus === 'finished'){
-      await maybeResetRoomForRematch(room);
-      return;
-    }
-
-    if ((roomStatus === 'waiting' || matchStatus === 'idle') && !STATE.rematchRedirected){
-      STATE.rematchRedirected = true;
-      stopRematchWatch();
-      W.location.replace(buildSameRoomLobbyUrl(true));
-    }
-  }
-
-  function startRematchWatch(){
-    stopRematchWatch();
-
-    STATE.rematchWatchTimer = setInterval(async () => {
-      if (!STATE.roomRef || !STATE.rematchRequested || STATE.rematchRedirected) return;
-
-      try{
-        const snap = await STATE.roomRef.once('value');
-        const room = snap && typeof snap.val === 'function' ? snap.val() : null;
-        if (!room) return;
-        await maybeForceRematchTransition(room);
-      }catch{}
-    }, 700);
   }
 
   function loop(frameTs){
@@ -1130,14 +1113,6 @@
       ready: true,
       requestedAt: firebase.database.ServerValue.TIMESTAMP
     });
-
-    startRematchWatch();
-
-    try{
-      const snap = await STATE.roomRef.once('value');
-      const room = snap && typeof snap.val === 'function' ? snap.val() : null;
-      if (room) await maybeForceRematchTransition(room);
-    }catch{}
   }
 
   async function maybeResetRoomForRematch(room){
@@ -1213,7 +1188,6 @@
   async function leaveFinishedRoomAndMaybeCleanup(nextHref){
     if (STATE.leaving) return;
     STATE.leaving = true;
-    stopRematchWatch();
 
     try{
       if (STATE.meRef){
@@ -1679,13 +1653,19 @@
 
       if (STATE.ended){
         renderResultOverlay('sync-finish');
+        maybeResetRoomForRematch(room);
         maybeFinalizeRoom();
 
-        if (STATE.rematchRequested){
-          startRematchWatch();
+        if (
+          STATE.rematchRequested &&
+          String(room.status || 'waiting') === 'waiting' &&
+          !STATE.rematchRedirected
+        ){
+          STATE.rematchRedirected = true;
+          setTimeout(() => {
+            W.location.replace(buildSameRoomLobbyUrl(true));
+          }, 450);
         }
-
-        maybeForceRematchTransition(room);
       }
     });
   }
@@ -1698,21 +1678,18 @@
 
     W.addEventListener('beforeunload', () => {
       stopHeartbeat();
-      stopRematchWatch();
       caf(STATE.loopId);
       markDisconnectedForSuspend();
     });
 
     W.addEventListener('pagehide', () => {
       stopHeartbeat();
-      stopRematchWatch();
       markDisconnectedForSuspend();
     });
 
     D.addEventListener('visibilitychange', () => {
       if (D.visibilityState === 'hidden'){
         stopHeartbeat();
-        stopRematchWatch();
         markDisconnectedForSuspend();
         return;
       }
@@ -1722,8 +1699,6 @@
         if (!STATE.ended){
           startHeartbeat();
           publishLivePresence();
-        } else if (STATE.rematchRequested){
-          startRematchWatch();
         }
       }
     });
