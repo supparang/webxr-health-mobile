@@ -34,7 +34,7 @@
       place-items:center;
       padding:20px;
     }
-    .wrap{width:min(960px,100%)}
+    .wrap{width:min(980px,100%)}
     .hero{
       background:linear-gradient(180deg,#ffffff,#f8fdff);
       border:1px solid var(--line);
@@ -167,6 +167,11 @@
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:12px;
     }
+    .calib-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
     .mode-btn,.back-btn{
       border:0;
       border-radius:22px;
@@ -187,9 +192,29 @@
     .learn{background:#9fe8c3}
     .play{background:#ffe39a}
     .research{background:#cfe3ff}
+    .calib-a{background:#ffd7ea}
+    .calib-b{background:#e9dcff}
+    .calib-c{background:#d8f0ff}
     .back-btn{
       background:#fff;
       border:1px solid var(--line);
+    }
+    .section{
+      margin-top:8px;
+      background:#f8fdff;
+      border:1px solid var(--line);
+      border-radius:22px;
+      padding:14px;
+    }
+    .section h2{
+      margin:0 0 6px;
+      font-size:18px;
+    }
+    .section p{
+      margin:0 0 10px;
+      color:var(--muted);
+      font-weight:700;
+      font-size:14px;
     }
     .hint{
       margin-top:12px;
@@ -203,7 +228,7 @@
 
     @media (max-width:760px){
       .top{grid-template-columns:1fr}
-      .mode-grid{grid-template-columns:1fr}
+      .mode-grid,.calib-grid{grid-template-columns:1fr}
     }
   </style>
 </head>
@@ -258,11 +283,30 @@
           </button>
         </div>
 
+        <div class="section">
+          <h2>Calibration Launcher</h2>
+          <p>เข้าโหมดจูนพร้อม debug / safe / compare ได้ทันที</p>
+          <div class="calib-grid">
+            <button class="mode-btn calib-a" data-calib-profile="desktop">
+              Calibrate Desktop
+              <small>safe + compare + slot desktop-calib</small>
+            </button>
+            <button class="mode-btn calib-b" data-calib-profile="mobile">
+              Calibrate Mobile
+              <small>safe + compare + slot mobile-calib</small>
+            </button>
+            <button class="mode-btn calib-c" data-calib-profile="narrow">
+              Calibrate Narrow
+              <small>safe + compare + slot narrow-calib</small>
+            </button>
+          </div>
+        </div>
+
         <button id="backBtn" class="back-btn">← กลับ HUB</button>
       </div>
 
       <div class="hint">
-        เวอร์ชันนี้มี mission, reward, progress และเล่นซ้ำได้มากขึ้น
+        เวอร์ชันนี้เข้า calibrate-ready ได้ในคลิกเดียว พร้อม boot params สำหรับ slot / safe / compare / profile
       </div>
     </section>
   </div>
@@ -278,7 +322,7 @@
       const phase = qs.get('phase') || '';
       const audio = qs.get('audio') || '1';
 
-      function buildBathRunUrl(mode){
+      function baseRunUrl(mode){
         const next = new URL('./bath-v2/bath.html', location.href);
         next.searchParams.set('mode', mode);
         next.searchParams.set('hub', hub);
@@ -289,12 +333,41 @@
         if (pid) next.searchParams.set('pid', pid);
         if (studyId) next.searchParams.set('studyId', studyId);
         if (phase) next.searchParams.set('phase', phase);
-        return next.toString();
+        return next;
+      }
+
+      function goMode(mode){
+        location.href = baseRunUrl(mode).toString();
+      }
+
+      function goCalibrate(profile){
+        const next = baseRunUrl('play');
+        next.searchParams.set('debugHotspots', '1');
+        next.searchParams.set('calibrateHotspots', '1');
+        next.searchParams.set('calibProfile', profile);
+        next.searchParams.set('calibSafe', '1');
+        next.searchParams.set('calibCompare', '1');
+        next.searchParams.set('calibSolo', '0');
+        next.searchParams.set('calibLabels', '1');
+        next.searchParams.set('calibCompact', '0');
+        next.searchParams.set('calibFine', '0');
+        next.searchParams.set('calibSnap', '1');
+        next.searchParams.set('calibGhost', '0.68');
+        next.searchParams.set('calibUi', '1');
+        next.searchParams.set('calibSlot', `${profile}-calib`);
+        next.searchParams.set('calibNote', `${profile} launcher boot`);
+        location.href = next.toString();
       }
 
       document.querySelectorAll('[data-mode]').forEach(btn=>{
         btn.addEventListener('click', ()=>{
-          location.href = buildBathRunUrl(btn.dataset.mode);
+          goMode(btn.dataset.mode);
+        });
+      });
+
+      document.querySelectorAll('[data-calib-profile]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          goCalibrate(btn.dataset.calibProfile);
         });
       });
 
