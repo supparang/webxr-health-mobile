@@ -1,9 +1,19 @@
 // === /herohealth/gate/games/shadowbreaker/warmup.js ===
-// FULL PATCH v20260327-SHADOWBREAKER-WARMUP
+// FULL PATCH v20260327c-SHADOWBREAKER-WARMUP-GATECORE-COMPAT
 
-export default function mountShadowbreakerWarmup(ctx = {}){
-  const mount = document.getElementById('gateGameMount') || ctx?.mountRoot || ctx?.root;
-  if (!mount) return null;
+export default function mountShadowbreakerWarmup(mountRoot, ctx = {}, api = {}) {
+  const mount =
+    mountRoot ||
+    document.getElementById('gateGameMount') ||
+    ctx?.mountRoot ||
+    ctx?.root ||
+    api?.mountRoot ||
+    api?.root;
+
+  if (!mount) {
+    console.warn('[shadowbreaker warmup] mount root not found');
+    return null;
+  }
 
   let hits = 0;
   let remain = 15;
@@ -11,48 +21,85 @@ export default function mountShadowbreakerWarmup(ctx = {}){
   let started = false;
   let finished = false;
 
-  function finish(){
+  function pushStats() {
+    try {
+      api?.setStats?.({
+        time: remain,
+        score: hits,
+        miss: 0,
+        acc: hits > 0 ? '100%' : '0%'
+      });
+    } catch (_) {}
+  }
+
+  function complete(detail = {}) {
     if (finished) return;
     finished = true;
-    if (timer) clearInterval(timer);
+
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
 
     const buffPct = Math.min(15, 5 + Math.floor(hits / 4));
-    const result = {
+
+    const payload = {
       ok: true,
       phase: 'warmup',
       game: 'shadowbreaker',
       score: hits,
-      summary: `Warmup hits ${hits}`,
+      title: 'Warmup เสร็จแล้ว',
+      subtitle: 'พร้อมเข้าเกมหลักแล้ว ไปสู้กับบอสกันเลย',
+      lines: [
+        `แตะดาวได้ ${hits} ครั้ง`,
+        `ได้บัฟเริ่มต้น +${buffPct}%`
+      ],
       buff: {
         wType: 'shadow',
         wPct: buffPct
-      }
+      },
+      ...detail
     };
 
-    window.__GATE_PHASE_RESULT__ = result;
-    mount.dispatchEvent(new CustomEvent('gate:complete', {
-      bubbles: true,
-      detail: result
-    }));
+    window.__GATE_PHASE_RESULT__ = payload;
+
+    try {
+      mount.dispatchEvent(new CustomEvent('gate:complete', {
+        bubbles: true,
+        detail: payload
+      }));
+    } catch (err) {
+      console.warn('[shadowbreaker warmup] dispatch gate:complete failed', err);
+      try { api?.complete?.(payload); } catch (_) {}
+    }
   }
 
-  function startTimer(){
-    if (started) return;
+  function startTimer() {
+    if (started || finished) return;
     started = true;
 
-    timer = setInterval(()=>{
+    try {
+      api?.setTitle?.('Shadow Breaker Warmup');
+      api?.setSub?.('แตะดาวให้ได้มากที่สุดก่อนเข้าเล่น');
+    } catch (_) {}
+
+    timer = setInterval(() => {
+      if (finished) return;
+
       remain -= 1;
 
       const remainEl = document.getElementById('sbWarmRemain');
-      if (remainEl) remainEl.textContent = String(remain);
+      if (remainEl) remainEl.textContent = String(Math.max(0, remain));
 
-      if (remain <= 0){
-        finish();
+      pushStats();
+
+      if (remain <= 0) {
+        complete();
       }
     }, 1000);
   }
 
-  function render(){
+  function render() {
     mount.innerHTML = `
       <div class="sb-mini-card" style="padding:16px;">
         <div style="font-size:14px;font-weight:900;color:#94a3b8;">Shadow Breaker • Warmup</div>
@@ -65,7 +112,7 @@ export default function mountShadowbreakerWarmup(ctx = {}){
           <button id="sbWarmTap"
             type="button"
             aria-label="Tap star"
-            style="width:140px;height:140px;border-radius:999px;border:0;font-size:54px;cursor:pointer;background:rgba(59,130,246,.18);box-shadow:0 18px 36px rgba(0,0,0,.24);">
+            style="width:140px;height:140px;border-radius:999px;border:0;font-size:54px;cursor:pointer;background:rgba(59,130,246,.18);box-shadow:0 18px 36px rgba(0,0,0,.24);transition:transform .08s ease;">
             ⭐
           </button>
         </div>
@@ -91,26 +138,47 @@ export default function mountShadowbreakerWarmup(ctx = {}){
     const btnTap = document.getElementById('sbWarmTap');
     const btnSkip = document.getElementById('sbWarmSkip');
 
-    btnTap?.addEventListener('click', ()=>{
+    btnTap?.addEventListener('click', () => {
       if (finished) return;
+
       startTimer();
       hits += 1;
 
       const hitsEl = document.getElementById('sbWarmHits');
       if (hitsEl) hitsEl.textContent = String(hits);
 
+      pushStats();
+
       btnTap.style.transform = 'scale(.94)';
-      setTimeout(()=>{ btnTap.style.transform = 'scale(1)'; }, 90);
+      setTimeout(() => {
+        try { btnTap.style.transform = 'scale(1)'; } catch (_) {}
+      }, 90);
     });
 
-    btnSkip?.addEventListener('click', finish);
+    btnSkip?.addEventListener('click', () => {
+      complete({
+        skipped: true,
+        subtitle: 'ข้าม warmup แล้ว พร้อมเข้าเกมหลัก'
+      });
+    });
+
+    pushStats();
   }
 
   render();
 
   return {
-    destroy(){
-      if (timer) clearInterval(timer);
+    start() {
+      try {
+        api?.setTitle?.('Shadow Breaker Warmup');
+        api?.setSub?.('แตะดาวให้ได้มากที่สุดก่อนเข้าเล่น');
+      } catch (_) {}
+    },
+    destroy() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
     }
   };
 }
