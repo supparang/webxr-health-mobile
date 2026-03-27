@@ -22,11 +22,13 @@ const GJ_HUB = RUN_CTX.hub || '../hub.html';
 const GJ_GAME_ID = RUN_CTX.gameId || 'goodjunk';
 
 const GAME_MOUNT = document.getElementById('gameMount') || document.body;
-const STYLE_ID = 'goodjunk-phaseboss-style-v20260326';
+const STYLE_ID = 'goodjunk-phaseboss-style-v20260328-v2';
 const ROOT_ID = 'gjpbRoot';
 
 const GJ_SOLO_LAST_SUMMARY_KEY = `GJ_SOLO_LAST_SUMMARY_${GJ_PID}`;
 const GJ_SOLO_SUMMARY_HISTORY_KEY = `GJ_SOLO_SUMMARY_HISTORY_${GJ_PID}`;
+const GJ_SOLO_BOSS_REWARD_KEY = 'GJ_SOLO_BOSS_REWARD_V2';
+
 const HHA_LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const HHA_SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
 const HHA_EVENT_QUEUE_KEY = 'HHA_EVENT_QUEUE';
@@ -35,17 +37,7 @@ const HHA_EVENTS_SCHEMA_QUEUE_KEY = 'HHA_EVENTS_SCHEMA_QUEUE';
 const HHA_SESSIONS_SCHEMA_QUEUE_KEY = 'HHA_SESSIONS_SCHEMA_QUEUE';
 
 const SESSION_ID = `gjsolo-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-const PATCH_VERSION = '20260326-goodjunk-solo-theme-pack4-bossguard-r1';
-const HHA_ENDPOINT = String(__qs.get('api') || window.HHA_CLOUD_ENDPOINT || '').trim();
-
-let __cloudLogger = null;
-let __cloudSessionStarted = false;
-
-console.log('[GJ-CLOUD] phaseboss patch loaded', {
-  patch: PATCH_VERSION,
-  endpoint: HHA_ENDPOINT,
-  hasFactory: typeof window.createHHACloudLogger === 'function'
-});
+const PATCH_VERSION = '20260328-goodjunk-solo-phaseboss-v2';
 
 const GOOD_ITEMS = [
   { emoji: '🍎', label: 'apple' },
@@ -70,9 +62,9 @@ const JUNK_ITEMS = [
 ];
 
 const PHASE_GOALS = {
-  easy:   { 1: 50, 2: 130 },
-  normal: { 1: 65, 2: 165 },
-  hard:   { 1: 80, 2: 205 }
+  easy:   { 1: 70,  2: 170 },
+  normal: { 1: 90,  2: 220 },
+  hard:   { 1: 110, 2: 260 }
 };
 
 const DIFF_PRESET = {
@@ -80,20 +72,15 @@ const DIFF_PRESET = {
     p1: { spawnMs: 900, goodRatio: 0.76, speedMin: 86, speedMax: 138, sizeMin: 66, sizeMax: 90 },
     p2: { spawnMs: 740, goodRatio: 0.67, speedMin: 112, speedMax: 178, sizeMin: 62, sizeMax: 86 },
     boss: {
-      hp: 14,
+      hp: 18,
       stormMs: 1120,
-      weakSpeed: 112,
-      weakMoveMs: 1500,
-      weakSize: 94,
-      stunBonusMs: 140,
-      clearBonus: 56,
+      weakSpeed: 122,
+      weakMoveMs: 1480,
+      weakSize: 96,
+      stunBonusMs: 160,
+      clearBonus: 70,
       stormBurst: 4,
-      enrageStormPenalty: 80,
-
-      minWeakHits: 9,
-      minPatternHitEach: 1,
-      minBossMs: 12000,
-      reviveHp: 3
+      enrageStormPenalty: 80
     }
   },
 
@@ -101,20 +88,15 @@ const DIFF_PRESET = {
     p1: { spawnMs: 760, goodRatio: 0.68, speedMin: 105, speedMax: 165, sizeMin: 60, sizeMax: 84 },
     p2: { spawnMs: 610, goodRatio: 0.57, speedMin: 135, speedMax: 225, sizeMin: 56, sizeMax: 78 },
     boss: {
-      hp: 18,
-      stormMs: 860,
-      weakSpeed: 158,
+      hp: 24,
+      stormMs: 930,
+      weakSpeed: 172,
       weakMoveMs: 1160,
-      weakSize: 78,
-      stunBonusMs: 0,
-      clearBonus: 48,
+      weakSize: 82,
+      stunBonusMs: 80,
+      clearBonus: 80,
       stormBurst: 5,
-      enrageStormPenalty: 110,
-
-      minWeakHits: 11,
-      minPatternHitEach: 1,
-      minBossMs: 15000,
-      reviveHp: 4
+      enrageStormPenalty: 110
     }
   },
 
@@ -122,22 +104,41 @@ const DIFF_PRESET = {
     p1: { spawnMs: 650, goodRatio: 0.60, speedMin: 126, speedMax: 198, sizeMin: 56, sizeMax: 78 },
     p2: { spawnMs: 500, goodRatio: 0.48, speedMin: 168, speedMax: 276, sizeMin: 52, sizeMax: 72 },
     boss: {
-      hp: 24,
-      stormMs: 660,
-      weakSpeed: 220,
+      hp: 30,
+      stormMs: 760,
+      weakSpeed: 230,
       weakMoveMs: 920,
-      weakSize: 66,
-      stunBonusMs: -20,
-      clearBonus: 40,
+      weakSize: 72,
+      stunBonusMs: 0,
+      clearBonus: 96,
       stormBurst: 6,
-      enrageStormPenalty: 140,
-
-      minWeakHits: 13,
-      minPatternHitEach: 2,
-      minBossMs: 18000,
-      reviveHp: 5
+      enrageStormPenalty: 140
     }
   }
+};
+
+const BOSS_STAGE_TUNING = {
+  easy: {
+    1: { weakSizeAdd: 16, weakSpeedMul: 0.86, weakMoveMul: 1.10, stormMul: 1.18, armorBreakDamage: 2, label: 'LEARN' },
+    2: { weakSizeAdd: 8,  weakSpeedMul: 1.00, weakMoveMul: 1.00, stormMul: 1.00, armorBreakDamage: 2, label: 'PRESSURE' },
+    3: { weakSizeAdd: 2,  weakSpeedMul: 1.08, weakMoveMul: 0.92, stormMul: 0.84, armorBreakDamage: 2, label: 'FINAL' }
+  },
+  normal: {
+    1: { weakSizeAdd: 12, weakSpeedMul: 0.90, weakMoveMul: 1.08, stormMul: 1.14, armorBreakDamage: 2, label: 'LEARN' },
+    2: { weakSizeAdd: 4,  weakSpeedMul: 1.02, weakMoveMul: 1.00, stormMul: 0.98, armorBreakDamage: 2, label: 'PRESSURE' },
+    3: { weakSizeAdd: -2, weakSpeedMul: 1.10, weakMoveMul: 0.90, stormMul: 0.82, armorBreakDamage: 2, label: 'FINAL' }
+  },
+  hard: {
+    1: { weakSizeAdd: 10, weakSpeedMul: 0.92, weakMoveMul: 1.06, stormMul: 1.10, armorBreakDamage: 2, label: 'LEARN' },
+    2: { weakSizeAdd: 2,  weakSpeedMul: 1.04, weakMoveMul: 0.98, stormMul: 0.94, armorBreakDamage: 2, label: 'PRESSURE' },
+    3: { weakSizeAdd: -4, weakSpeedMul: 1.12, weakMoveMul: 0.88, stormMul: 0.78, armorBreakDamage: 2, label: 'FINAL' }
+  }
+};
+
+const BOSS_COMBO_REWARD = {
+  easy:   { threshold: 5, stunMs: 440, bonusScore: 10 },
+  normal: { threshold: 6, stunMs: 380, bonusScore: 8 },
+  hard:   { threshold: 7, stunMs: 320, bonusScore: 6 }
 };
 
 const ui = {
@@ -160,6 +161,7 @@ const ui = {
   bossHpBar: null,
   bossHpText: null,
   bossState: null,
+  bossStagePill: null,
   summary: null,
   summaryTitle: null,
   summarySub: null,
@@ -167,23 +169,7 @@ const ui = {
   btnAgain: null,
   btnCooldown: null,
   btnHub: null,
-  btnExport: null,
-  rewardCoins: null,
-  rewardStars: null,
-  rewardBadge: null,
-  summaryRibbon: null,
-  summaryScoreValue: null,
-  stageBadge: null,
-  playerAvatar: null,
-  playerName: null,
-  playerSub: null,
-  levelBadge: null,
-  miniMission: null,
-  summaryHeroAvatar: null,
-  summaryHeroName: null,
-  summaryHeroDesc: null,
-  hubTitle: null,
-  hubDesc: null
+  btnExport: null
 };
 
 const state = {
@@ -215,6 +201,8 @@ const state = {
   targets: new Map(),
   rect: { width: 320, height: 420 },
 
+  recentMistakeAt: [],
+
   boss: {
     active: false,
     maxHp: 0,
@@ -239,8 +227,9 @@ const state = {
     stunMs: 0,
     victoryShown: false,
 
-    finishGuardTriggered: false,
-    reviveCount: 0
+    stage: 1,
+    lastStageShown: 0,
+    lastComboRewardTier: 0
   },
 
   summaryPayload: null,
@@ -276,7 +265,6 @@ boot();
 
 function boot() {
   injectStyle();
-  injectThemePack4Extras();
   buildShell();
   bindShell();
   refreshStageRect();
@@ -298,80 +286,51 @@ function injectStyle() {
       user-select:none;
       -webkit-user-select:none;
       touch-action:manipulation;
-
-      --hh-sky:#dff4ff;
-      --hh-sky-2:#bfe8ff;
-      --hh-cream:#fff9e8;
-      --hh-card:#fffdf6;
-      --hh-card-2:#f7fff3;
-      --hh-line:#bfe3f2;
-      --hh-text:#4d4a42;
-      --hh-muted:#7c7a73;
-      --hh-green:#7ed957;
-      --hh-green-2:#58c33f;
-      --hh-blue:#7fcfff;
-      --hh-blue-2:#58b7f5;
-      --hh-yellow:#ffd45c;
-      --hh-orange:#ffb547;
-      --hh-pink:#ffa9c9;
-      --hh-danger:#ff9494;
-      --hh-shadow:0 18px 40px rgba(86,155,194,.18);
-
-      color:var(--hh-text);
-      background:
-        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
-        radial-gradient(circle at 84% 14%, rgba(255,255,255,.78), transparent 16%),
-        linear-gradient(180deg,var(--hh-sky),var(--hh-sky-2) 54%, var(--hh-cream));
+      color:#e5e7eb;
     }
-
     .gjpb-shell{
       position:absolute;
       inset:0;
       display:grid;
-      grid-template-rows:auto auto auto 1fr auto;
-      gap:12px;
+      grid-template-rows:auto auto 1fr auto;
+      gap:10px;
       padding:
         calc(12px + env(safe-area-inset-top,0px))
         calc(12px + env(safe-area-inset-right,0px))
         calc(12px + env(safe-area-inset-bottom,0px))
         calc(12px + env(safe-area-inset-left,0px));
     }
-
     .gjpb-topbar{
       display:flex;
       justify-content:space-between;
-      gap:12px;
+      gap:10px;
       flex-wrap:wrap;
       align-items:flex-start;
       z-index:3;
     }
-
     .gjpb-chip-row{
       display:flex;
       gap:8px;
       flex-wrap:wrap;
-      width:100%;
     }
-
     .gjpb-chip{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:10px 14px;
+      padding:9px 12px;
       border-radius:999px;
-      border:2px solid var(--hh-line);
-      background:#fff;
-      box-shadow:0 10px 22px rgba(86,155,194,.12);
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.72);
+      box-shadow:0 12px 28px rgba(0,0,0,.2);
+      backdrop-filter:blur(8px);
       font-size:13px;
-      font-weight:1000;
-      color:var(--hh-text);
+      font-weight:900;
+      color:#e5e7eb;
     }
-
     .gjpb-chip span{
-      color:#6fa6c4;
-      font-weight:1000;
+      color:#94a3b8;
+      font-weight:800;
     }
-
     .gjpb-phasebar{
       display:flex;
       align-items:center;
@@ -380,365 +339,270 @@ function injectStyle() {
       flex-wrap:wrap;
       z-index:2;
     }
-
     .gjpb-phase-pill,
     .gjpb-goal-pill{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:11px 16px;
+      padding:10px 14px;
       border-radius:999px;
-      border:2px solid var(--hh-line);
-      background:linear-gradient(180deg,#fffef8,#f7fff5);
-      box-shadow:0 10px 22px rgba(86,155,194,.12);
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.72);
+      backdrop-filter:blur(8px);
+      box-shadow:0 12px 28px rgba(0,0,0,.2);
       font-size:13px;
       font-weight:1000;
-      color:var(--hh-text);
     }
-
     .gjpb-stage{
       position:relative;
       min-height:340px;
-      border:3px solid var(--hh-line);
-      border-radius:30px;
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:26px;
       overflow:hidden;
       background:
-        linear-gradient(180deg, #dff4ff 0%, #d8f1ff 48%, #fdf4ce 100%);
-      box-shadow:var(--hh-shadow);
+        radial-gradient(circle at 50% 0%, rgba(56,189,248,.08), transparent 30%),
+        radial-gradient(circle at 20% 20%, rgba(167,139,250,.08), transparent 26%),
+        linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.9));
+      box-shadow:0 24px 64px rgba(0,0,0,.24);
       isolation:isolate;
     }
-
     .gjpb-stage::before{
       content:"";
       position:absolute;
       inset:0;
       pointer-events:none;
       background:
-        radial-gradient(circle at 16% 12%, rgba(255,255,255,.95), transparent 12%),
-        radial-gradient(circle at 78% 16%, rgba(255,255,255,.82), transparent 10%),
-        linear-gradient(180deg, rgba(255,255,255,.25), transparent 30%);
+        linear-gradient(180deg, rgba(255,255,255,.04), transparent 24%),
+        linear-gradient(0deg, rgba(255,255,255,.02), transparent 22%);
       z-index:0;
     }
-
     .gjpb-stars{
       position:absolute;
       inset:0;
       background-image:
-        radial-gradient(circle at 10% 15%, rgba(255,255,255,.95) 0 2px, transparent 2.5px),
-        radial-gradient(circle at 28% 68%, rgba(255,255,255,.72) 0 2px, transparent 2.5px),
-        radial-gradient(circle at 44% 24%, rgba(255,255,255,.86) 0 2px, transparent 2.5px),
-        radial-gradient(circle at 72% 38%, rgba(255,255,255,.72) 0 2px, transparent 2.5px),
-        radial-gradient(circle at 82% 72%, rgba(255,255,255,.78) 0 2px, transparent 2.5px),
-        radial-gradient(circle at 90% 20%, rgba(255,255,255,.66) 0 2px, transparent 2.5px);
-      opacity:.88;
-      z-index:0;
-      pointer-events:none;
-    }
-
-    .gjpb-scene{
-      position:absolute;
-      inset:0;
-      z-index:0;
-      pointer-events:none;
-      overflow:hidden;
-    }
-
-    .gjpb-cloud{
-      position:absolute;
-      border-radius:999px;
-      background:rgba(255,255,255,.82);
-      filter:blur(.2px);
-      box-shadow:0 6px 18px rgba(255,255,255,.28);
-    }
-
-    .gjpb-cloud.c1{ width:120px; height:34px; left:7%; top:11%; }
-    .gjpb-cloud.c2{ width:86px; height:28px; left:23%; top:18%; }
-    .gjpb-cloud.c3{ width:132px; height:36px; right:12%; top:13%; }
-    .gjpb-cloud.c4{ width:94px; height:30px; right:28%; top:22%; }
-
-    .gjpb-cloud::before,
-    .gjpb-cloud::after{
-      content:"";
-      position:absolute;
-      border-radius:999px;
-      background:inherit;
-    }
-
-    .gjpb-cloud::before{
-      width:42%;
-      height:130%;
-      left:12%;
-      bottom:30%;
-    }
-
-    .gjpb-cloud::after{
-      width:38%;
-      height:115%;
-      right:12%;
-      bottom:20%;
-    }
-
-    .gjpb-hill{
-      position:absolute;
-      left:-5%;
-      right:-5%;
-      border-radius:999px;
-      background:linear-gradient(180deg,#b9ed8b,#8fdb61);
-    }
-
-    .gjpb-hill.h1{
-      bottom:10%;
-      height:28%;
-      z-index:0;
-    }
-
-    .gjpb-hill.h2{
-      bottom:3%;
-      height:24%;
-      background:linear-gradient(180deg,#8cde66,#66c746);
-      z-index:0;
-    }
-
-    .gjpb-path{
-      position:absolute;
-      left:50%;
-      bottom:-8%;
-      width:36%;
-      height:34%;
-      transform:translateX(-50%);
-      background:linear-gradient(180deg,#fff6d7,#efd69b);
-      border-radius:50% 50% 0 0/65% 65% 0 0;
+        radial-gradient(circle at 10% 15%, rgba(255,255,255,.55) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 28% 68%, rgba(255,255,255,.35) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 44% 24%, rgba(255,255,255,.42) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 72% 38%, rgba(255,255,255,.32) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 82% 72%, rgba(255,255,255,.4) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 90% 20%, rgba(255,255,255,.28) 0 1px, transparent 1.5px);
       opacity:.85;
       z-index:0;
+      pointer-events:none;
     }
-
-    .gjpb-stage-badge{
-      position:absolute;
-      right:14px;
-      bottom:14px;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:2px solid var(--hh-line);
-      background:rgba(255,255,255,.92);
-      color:#6a7b52;
-      font-size:12px;
-      font-weight:1000;
-      z-index:2;
-      box-shadow:0 10px 18px rgba(86,155,194,.1);
-    }
-
     .gjpb-layer{
       position:absolute;
       inset:0;
       overflow:hidden;
       z-index:1;
     }
-
     .gjpb-banner{
       position:absolute;
       left:50%;
       top:50%;
       transform:translate(-50%,-50%);
-      width:min(88vw,560px);
-      padding:18px 18px;
-      border-radius:24px;
-      border:3px solid var(--hh-line);
-      background:linear-gradient(180deg,#fffdf6,#f6fff5);
-      color:var(--hh-text);
+      min-width:min(80vw,520px);
+      padding:16px 18px;
+      border-radius:20px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.72);
+      color:#e5e7eb;
       text-align:center;
-      box-shadow:var(--hh-shadow);
+      backdrop-filter:blur(8px);
+      box-shadow:0 24px 50px rgba(0,0,0,.26);
       font-weight:1000;
       z-index:5;
       transition:opacity .2s ease, transform .2s ease;
     }
-
     .gjpb-banner.hide{
       opacity:0;
       transform:translate(-50%,-56%) scale(.98);
       pointer-events:none;
     }
-
     .gjpb-banner small{
       display:block;
-      margin-top:8px;
-      color:var(--hh-muted);
-      font-size:14px;
-      font-weight:900;
+      margin-top:6px;
+      color:#cbd5e1;
+      font-size:13px;
+      font-weight:700;
       line-height:1.55;
     }
-
     .gjpb-target{
       position:absolute;
       display:grid;
       place-items:center;
-      border-radius:24px;
-      border:2px solid rgba(255,255,255,.92);
-      box-shadow:0 12px 24px rgba(93,155,196,.18);
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(15,23,42,.86);
+      box-shadow:0 14px 28px rgba(0,0,0,.22);
       overflow:hidden;
       cursor:pointer;
       padding:0;
       transform:translate3d(0,0,0);
       z-index:2;
     }
-
     .gjpb-target.good{
       background:
-        radial-gradient(circle at 30% 22%, rgba(255,255,255,.45), transparent 24%),
-        linear-gradient(180deg, rgba(126,217,87,.88), rgba(95,198,63,.92));
-      border-color:#efffe4;
+        radial-gradient(circle at 30% 22%, rgba(255,255,255,.22), transparent 24%),
+        linear-gradient(180deg, rgba(34,197,94,.34), rgba(34,197,94,.18)),
+        rgba(15,23,42,.9);
+      border-color:rgba(34,197,94,.34);
     }
-
     .gjpb-target.junk,
     .gjpb-target.storm{
       background:
-        radial-gradient(circle at 30% 22%, rgba(255,255,255,.35), transparent 24%),
-        linear-gradient(180deg, rgba(255,177,71,.95), rgba(255,143,143,.92));
-      border-color:#fff1eb;
+        radial-gradient(circle at 30% 22%, rgba(255,255,255,.18), transparent 24%),
+        linear-gradient(180deg, rgba(244,63,94,.28), rgba(244,63,94,.12)),
+        rgba(15,23,42,.9);
+      border-color:rgba(244,63,94,.32);
     }
-
     .gjpb-target.weakspot{
       background:
-        radial-gradient(circle at 30% 22%, rgba(255,255,255,.55), transparent 24%),
-        linear-gradient(180deg, rgba(255,212,92,.98), rgba(255,181,71,.95));
-      border-color:#fff8d6;
-      box-shadow:0 0 0 6px rgba(255,212,92,.22), 0 16px 28px rgba(93,155,196,.2);
+        radial-gradient(circle at 30% 22%, rgba(255,255,255,.32), transparent 24%),
+        linear-gradient(180deg, rgba(250,204,21,.32), rgba(249,115,22,.18)),
+        rgba(15,23,42,.94);
+      border-color:rgba(250,204,21,.42);
+      box-shadow:0 0 0 4px rgba(250,204,21,.08), 0 18px 42px rgba(0,0,0,.28);
       animation: gjpb-weakspot-pulse .9s ease-in-out infinite;
     }
-
     @keyframes gjpb-weakspot-pulse{
-      0%,100%{ box-shadow:0 0 0 0 rgba(255,212,92,.18), 0 16px 28px rgba(93,155,196,.2); }
-      50%{ box-shadow:0 0 0 8px rgba(255,212,92,.18), 0 16px 28px rgba(93,155,196,.2); }
+      0%,100%{
+        box-shadow:0 0 0 0 rgba(250,204,21,.10), 0 18px 42px rgba(0,0,0,.28);
+      }
+      50%{
+        box-shadow:0 0 0 8px rgba(250,204,21,.08), 0 18px 42px rgba(0,0,0,.28);
+      }
     }
-
     .gjpb-emoji{
-      font-size:36px;
+      font-size:34px;
       line-height:1;
-      filter:drop-shadow(0 5px 8px rgba(255,255,255,.28));
+      filter:drop-shadow(0 6px 12px rgba(0,0,0,.2));
       transform:translateY(-2px);
       pointer-events:none;
     }
-
     .gjpb-tag{
       position:absolute;
       left:8px;
       right:8px;
-      bottom:7px;
+      bottom:6px;
       text-align:center;
       font-size:10px;
       font-weight:1000;
       letter-spacing:.08em;
       text-transform:uppercase;
-      color:#fffef8;
-      text-shadow:0 1px 0 rgba(0,0,0,.12);
+      color:#e2e8f0;
+      opacity:.94;
       pointer-events:none;
       white-space:nowrap;
     }
-
     .gjpb-fx{
       position:absolute;
-      font-size:18px;
+      font-size:16px;
       font-weight:1000;
       pointer-events:none;
       transform:translate(-50%,-50%);
-      text-shadow:0 3px 0 #fff;
+      text-shadow:0 8px 18px rgba(0,0,0,.24);
       animation:gjpb-fx-up .72s ease forwards;
       z-index:6;
     }
-
     @keyframes gjpb-fx-up{
       from{ opacity:1; transform:translate(-50%,-20%); }
       to{ opacity:0; transform:translate(-50%,-145%); }
     }
-
     .gjpb-bosswrap{
       position:absolute;
       left:12px;
       top:12px;
-      width:min(300px, calc(100% - 24px));
-      border:3px solid var(--hh-line);
-      border-radius:24px;
-      background:linear-gradient(180deg,#fffdf8,#f8fff3);
-      box-shadow:var(--hh-shadow);
+      width:min(280px, calc(100% - 24px));
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:20px;
+      background:rgba(2,6,23,.7);
+      backdrop-filter:blur(8px);
+      box-shadow:0 20px 40px rgba(0,0,0,.18);
       padding:12px;
       z-index:4;
       display:none;
       transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
     }
-
-    .gjpb-bosswrap.show{ display:block; }
-
+    .gjpb-bosswrap.show{
+      display:block;
+    }
     .gjpb-boss-head{
       display:flex;
-      align-items:center;
+      align-items:flex-start;
       gap:10px;
       margin-bottom:10px;
     }
-
     .gjpb-boss-icon{
-      width:56px;
-      height:56px;
-      border-radius:18px;
+      width:54px;
+      height:54px;
+      border-radius:16px;
       display:grid;
       place-items:center;
       font-size:28px;
-      background:linear-gradient(180deg,#ffe4ae,#ffd077);
-      border:2px solid #ffecc6;
-      box-shadow:0 8px 18px rgba(255,181,71,.22);
+      background:linear-gradient(180deg, rgba(239,68,68,.26), rgba(120,53,15,.2));
+      border:1px solid rgba(239,68,68,.28);
+      box-shadow:0 10px 20px rgba(0,0,0,.2);
       flex:0 0 auto;
     }
-
     .gjpb-boss-name{
       font-size:18px;
       font-weight:1000;
       margin:0;
-      color:#67a91c;
     }
-
     .gjpb-boss-state{
-      color:var(--hh-muted);
+      color:#cbd5e1;
       font-size:12px;
-      font-weight:1000;
+      font-weight:800;
       margin-top:2px;
     }
-
+    .gjpb-boss-stagepill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      margin-top:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(125,211,252,.14);
+      border:1px solid rgba(125,211,252,.28);
+      color:#bae6fd;
+      font-size:11px;
+      font-weight:1000;
+      letter-spacing:.04em;
+    }
     .gjpb-boss-bar{
-      height:16px;
+      height:14px;
       border-radius:999px;
       overflow:hidden;
-      border:2px solid var(--hh-line);
-      background:#eef9ff;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(255,255,255,.06);
       margin-top:6px;
     }
-
     .gjpb-boss-barfill{
       height:100%;
       width:100%;
       transform-origin:left center;
-      background:linear-gradient(90deg, var(--hh-yellow), var(--hh-orange));
+      background:linear-gradient(90deg, rgba(250,204,21,.95), rgba(249,115,22,.95));
       transition:transform .16s linear;
     }
-
     .gjpb-boss-hptext{
       margin-top:6px;
-      color:var(--hh-text);
+      color:#e5e7eb;
       font-size:12px;
       font-weight:1000;
       text-align:right;
     }
-
-    .gjpb-bottom{ z-index:3; }
-
-    .gjpb-bottom-card{
-      border:3px solid var(--hh-line);
-      border-radius:24px;
-      padding:14px;
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      box-shadow:var(--hh-shadow);
+    .gjpb-bottom{
+      z-index:3;
     }
-
+    .gjpb-bottom-card{
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      padding:12px;
+      background:rgba(2,6,23,.7);
+      box-shadow:0 12px 28px rgba(0,0,0,.2);
+      backdrop-filter:blur(8px);
+    }
     .gjpb-bottom-top{
       display:flex;
       justify-content:space-between;
@@ -747,94 +611,38 @@ function injectStyle() {
       align-items:center;
       margin-bottom:10px;
     }
-
     .gjpb-hint{
-      color:var(--hh-text);
-      font-size:14px;
+      color:#cbd5e1;
+      font-size:13px;
       line-height:1.55;
-      font-weight:1000;
     }
-
     .gjpb-stats{
       display:flex;
       gap:12px;
       flex-wrap:wrap;
-      color:var(--hh-muted);
+      color:#cbd5e1;
       font-size:13px;
       line-height:1.55;
-      font-weight:900;
     }
-
-    .gjpb-stats strong{ color:#67a91c; }
-
+    .gjpb-stats strong{
+      color:#e5e7eb;
+    }
     .gjpb-progress{
       position:relative;
       width:100%;
-      height:16px;
+      height:12px;
       border-radius:999px;
-      border:2px solid var(--hh-line);
+      border:1px solid rgba(148,163,184,.18);
       overflow:hidden;
-      background:#eef9ff;
+      background:rgba(255,255,255,.06);
     }
-
     .gjpb-progress-bar{
       height:100%;
       width:100%;
       transform-origin:left center;
-      background:linear-gradient(90deg,var(--hh-green),var(--hh-blue));
+      background:linear-gradient(90deg, rgba(56,189,248,.92), rgba(34,197,94,.88));
       transition:transform .1s linear;
     }
-
-    .gjpb-reward-strip{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:12px;
-    }
-
-    .gjpb-reward-card{
-      flex:1 1 160px;
-      min-height:60px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:20px;
-      border:2px solid var(--hh-line);
-      background:#fff;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-
-    .gjpb-reward-icon{
-      width:42px;
-      height:42px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      font-size:22px;
-      background:linear-gradient(180deg,#fff7d7,#eefaff);
-      border:2px solid var(--hh-line);
-      flex:0 0 auto;
-    }
-
-    .gjpb-reward-copy{
-      display:grid;
-      gap:2px;
-    }
-
-    .gjpb-reward-copy .label{
-      font-size:11px;
-      color:#79a9c4;
-      font-weight:1000;
-    }
-
-    .gjpb-reward-copy .value{
-      font-size:20px;
-      color:var(--hh-text);
-      font-weight:1000;
-      line-height:1.1;
-    }
-
     .gjpb-summary{
       position:fixed;
       inset:0;
@@ -845,229 +653,102 @@ function injectStyle() {
         calc(16px + env(safe-area-inset-right,0px))
         calc(16px + env(safe-area-inset-bottom,0px))
         calc(16px + env(safe-area-inset-left,0px));
-      background:rgba(183,233,255,.52);
-      backdrop-filter:blur(8px);
+      background:rgba(2,6,23,.82);
+      backdrop-filter:blur(10px);
       z-index:20;
     }
-
     .gjpb-summary[hidden]{
       display:none !important;
     }
-
     .gjpb-summary-card{
-      width:min(94vw,780px);
+      width:min(94vw,760px);
       max-height:88vh;
       overflow:auto;
-      border:3px solid var(--hh-line);
-      border-radius:30px;
-      background:linear-gradient(180deg,#fffef9,#f8fff4);
-      box-shadow:0 24px 56px rgba(86,155,194,.18);
-      padding:22px 18px 18px;
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:24px;
+      background:rgba(15,23,42,.96);
+      box-shadow:0 28px 64px rgba(0,0,0,.38);
+      padding:20px 18px 18px;
     }
-
     .gjpb-summary-kicker{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:8px 14px;
+      padding:6px 12px;
       border-radius:999px;
-      background:#eaf8ff;
-      border:2px solid var(--hh-line);
-      color:#5fa7cf;
+      background:rgba(56,189,248,.12);
+      border:1px solid rgba(56,189,248,.24);
+      color:#7dd3fc;
       font-size:13px;
       font-weight:1000;
       margin-bottom:12px;
     }
-
-    .gjpb-summary-ribbon{
-      margin:8px auto 10px;
-      width:min(100%, 520px);
-      padding:14px 18px;
-      border-radius:22px;
-      background:linear-gradient(180deg,#7fcfff,#58b7f5);
-      color:#fffef9;
-      text-align:center;
-      font-size:18px;
-      font-weight:1000;
-      box-shadow:0 14px 24px rgba(88,183,245,.22);
-      position:relative;
-    }
-
-    .gjpb-summary-ribbon::before,
-    .gjpb-summary-ribbon::after{
-      content:"⭐";
-      position:absolute;
-      top:50%;
-      transform:translateY(-50%);
-      font-size:26px;
-    }
-
-    .gjpb-summary-ribbon::before{ left:14px; }
-    .gjpb-summary-ribbon::after{ right:14px; }
-
     .gjpb-summary-title{
-      margin:0 0 6px;
-      font-size:clamp(28px,5vw,44px);
-      line-height:1.06;
+      margin:0 0 8px;
+      font-size:clamp(26px, 5vw, 38px);
+      line-height:1.08;
       font-weight:1000;
-      color:#67a91c;
-      text-shadow:0 2px 0 #fff;
-      text-align:center;
     }
-
     .gjpb-summary-sub{
       margin:0;
-      color:var(--hh-muted);
+      color:#94a3b8;
       font-size:14px;
       line-height:1.65;
-      font-weight:900;
-      text-align:center;
     }
-
-    .gjpb-stars-row{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      margin:16px 0 10px;
-      font-size:42px;
-      line-height:1;
-    }
-
-    .gjpb-star.on{ filter:drop-shadow(0 3px 0 rgba(255,255,255,.75)); }
-    .gjpb-star.off{ opacity:.26; }
-
-    .gjpb-summary-score{
-      margin:0 auto 14px;
-      width:min(100%, 420px);
-      border-radius:24px;
-      border:2px solid var(--hh-line);
-      background:#fff;
-      padding:14px 18px;
-      text-align:center;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-
-    .gjpb-summary-score .label{
-      color:#6ea8c7;
-      font-size:13px;
-      font-weight:1000;
-      margin-bottom:6px;
-    }
-
-    .gjpb-summary-score .value{
-      color:var(--hh-text);
-      font-size:52px;
-      font-weight:1000;
-      line-height:1;
-    }
-
-    .gjpb-coach{
-      display:flex;
-      gap:12px;
-      align-items:center;
-      margin:14px 0 0;
-      padding:14px;
-      border-radius:22px;
-      border:2px solid var(--hh-line);
-      background:#fff;
-    }
-
-    .gjpb-coach-avatar{
-      width:68px;
-      height:68px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      font-size:34px;
-      background:linear-gradient(180deg,#e8f8ff,#fff7d8);
-      border:2px solid var(--hh-line);
-      flex:0 0 auto;
-    }
-
-    .gjpb-coach-text{
-      color:var(--hh-text);
-      font-size:15px;
-      line-height:1.55;
-      font-weight:900;
-    }
-
     .gjpb-summary-grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
       margin-top:16px;
     }
-
     .gjpb-summary-item{
-      border:2px solid var(--hh-line);
-      border-radius:20px;
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
       padding:12px;
-      background:#fff;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
+      background:rgba(2,6,23,.45);
     }
-
     .gjpb-summary-item .label{
-      color:#72a7c6;
+      color:#94a3b8;
       font-size:12px;
-      font-weight:1000;
+      font-weight:900;
       margin-bottom:6px;
     }
-
     .gjpb-summary-item .value{
-      color:var(--hh-text);
+      color:#e5e7eb;
       font-size:22px;
       font-weight:1000;
       line-height:1.2;
     }
-
     .gjpb-summary-actions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
       margin-top:18px;
     }
-
     .gjpb-btn{
       appearance:none;
       border:0;
       cursor:pointer;
-      border-radius:18px;
-      padding:13px 16px;
-      font-size:15px;
+      border-radius:16px;
+      padding:12px 16px;
+      font-size:14px;
       font-weight:1000;
       transition:.12s ease;
-      box-shadow:0 10px 18px rgba(86,155,194,.12);
     }
-
-    .gjpb-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .gjpb-btn:hover{ transform:translateY(-1px); filter:brightness(1.05); }
     .gjpb-btn:active{ transform:translateY(0); }
-
-    .gjpb-btn.good{
-      background:linear-gradient(180deg,var(--hh-green),var(--hh-green-2));
-      color:#fffef8;
-    }
-
-    .gjpb-btn.blue{
-      background:linear-gradient(180deg,var(--hh-blue),var(--hh-blue-2));
-      color:#fffef8;
-    }
-
-    .gjpb-btn.warn{
-      background:linear-gradient(180deg,var(--hh-yellow),var(--hh-orange));
-      color:#6d4e00;
-    }
-
+    .gjpb-btn.good{ background:#22c55e; color:#052e16; }
+    .gjpb-btn.blue{ background:#38bdf8; color:#082f49; }
+    .gjpb-btn.warn{ background:#f59e0b; color:#3b1d00; }
     .gjpb-btn.ghost{
-      background:linear-gradient(180deg,#edf8ff,#dbefff);
-      color:#5d8eab;
-      border:2px solid var(--hh-line);
+      background:rgba(255,255,255,.06);
+      color:#e5e7eb;
+      border:1px solid rgba(148,163,184,.18);
     }
 
     #${ROOT_ID}.gjpb-shake .gjpb-stage{
       animation: gjpb-stage-shake .22s linear 1;
     }
-
     @keyframes gjpb-stage-shake{
       0%{ transform:translate3d(0,0,0); }
       20%{ transform:translate3d(-6px, 2px, 0); }
@@ -1076,10 +757,11 @@ function injectStyle() {
       80%{ transform:translate3d(4px, -1px, 0); }
       100%{ transform:translate3d(0,0,0); }
     }
-
     .gjpb-bosswrap.flash{
-      border-color:#ffe0a2;
-      box-shadow:0 0 0 4px rgba(255,212,92,.18), var(--hh-shadow);
+      border-color:rgba(250,204,21,.48);
+      box-shadow:
+        0 0 0 3px rgba(250,204,21,.10),
+        0 20px 40px rgba(0,0,0,.18);
       transform:scale(1.02);
     }
 
@@ -1087,7 +769,7 @@ function injectStyle() {
       content:"";
       position:absolute;
       inset:0;
-      background:linear-gradient(180deg, rgba(255,212,92,.16), rgba(255,255,255,.06));
+      background:linear-gradient(180deg, rgba(250,204,21,.10), rgba(255,255,255,.02));
       pointer-events:none;
       z-index:4;
     }
@@ -1100,67 +782,77 @@ function injectStyle() {
       transform:translate(-50%,-50%);
       animation:gjpb-victory-burst 900ms ease-out forwards;
       z-index:8;
-      text-shadow:0 2px 0 #fff;
+      text-shadow:0 10px 24px rgba(0,0,0,.28);
     }
-
     @keyframes gjpb-victory-burst{
-      from{ opacity:1; transform:translate(-50%,-50%) scale(.7); }
-      to{ opacity:0; transform:translate(var(--tx), var(--ty)) scale(1.25); }
+      from{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(.7);
+      }
+      to{
+        opacity:0;
+        transform:translate(var(--tx), var(--ty)) scale(1.25);
+      }
     }
 
     .gjpb-stage.telegraph-storm{
-      box-shadow:0 0 0 4px rgba(255,169,201,.22), var(--hh-shadow);
+      box-shadow:
+        0 0 0 2px rgba(244,63,94,.18),
+        0 24px 64px rgba(0,0,0,.24);
     }
-
     .gjpb-stage.telegraph-storm::after{
       content:"";
       position:absolute;
       inset:0;
-      background:linear-gradient(180deg, rgba(255,169,201,.16), transparent 40%);
+      background:linear-gradient(180deg, rgba(244,63,94,.10), transparent 40%);
       pointer-events:none;
       z-index:3;
     }
 
     .gjpb-stage.telegraph-break{
-      box-shadow:0 0 0 4px rgba(255,212,92,.24), var(--hh-shadow);
+      box-shadow:
+        0 0 0 2px rgba(250,204,21,.18),
+        0 24px 64px rgba(0,0,0,.24);
     }
-
     .gjpb-stage.telegraph-break::after{
       content:"";
       position:absolute;
       inset:0;
-      background:linear-gradient(180deg, rgba(255,212,92,.16), transparent 40%);
+      background:linear-gradient(180deg, rgba(250,204,21,.10), transparent 40%);
       pointer-events:none;
       z-index:3;
     }
 
     .gjpb-stage.telegraph-hunt{
-      box-shadow:0 0 0 4px rgba(127,207,255,.24), var(--hh-shadow);
+      box-shadow:
+        0 0 0 2px rgba(56,189,248,.18),
+        0 24px 64px rgba(0,0,0,.24);
     }
-
     .gjpb-stage.telegraph-hunt::after{
       content:"";
       position:absolute;
       inset:0;
-      background:linear-gradient(180deg, rgba(127,207,255,.16), transparent 40%);
+      background:linear-gradient(180deg, rgba(56,189,248,.10), transparent 40%);
       pointer-events:none;
       z-index:3;
     }
 
     .gjpb-bosswrap.defeated{
-      border-color:#bde895;
-      background:linear-gradient(180deg,#faffef,#f6fff1);
+      border-color:rgba(34,197,94,.34);
+      background:
+        linear-gradient(180deg, rgba(34,197,94,.12), rgba(2,6,23,.7));
       transform:scale(1.03);
     }
 
     .gjpb-bosswrap.defeated .gjpb-boss-icon{
-      background:linear-gradient(180deg,#dff7bf,#fff3c4);
-      border-color:#d3efae;
+      background:linear-gradient(180deg, rgba(34,197,94,.30), rgba(20,83,45,.18));
+      border-color:rgba(34,197,94,.30);
     }
 
     @media (max-width:760px){
       .gjpb-shell{
-        gap:10px;
+        grid-template-rows:auto auto 1fr auto;
+        gap:8px;
         padding:10px;
       }
       .gjpb-bosswrap{
@@ -1172,248 +864,13 @@ function injectStyle() {
       .gjpb-summary-actions .gjpb-btn{
         flex:1 1 calc(50% - 10px);
       }
-      .gjpb-reward-card{
-        flex:1 1 calc(50% - 10px);
-      }
     }
-
     @media (max-width:540px){
       .gjpb-summary-grid{
         grid-template-columns:1fr;
       }
       .gjpb-summary-actions .gjpb-btn{
         flex:1 1 100%;
-      }
-      .gjpb-coach{
-        align-items:flex-start;
-      }
-      .gjpb-reward-card{
-        flex:1 1 100%;
-      }
-      .gjpb-summary-score .value{
-        font-size:42px;
-      }
-    }
-  `;
-  document.head.appendChild(style);
-}
-
-function injectThemePack4Extras() {
-  const extraId = STYLE_ID + '-pack4';
-  if (document.getElementById(extraId)) return;
-
-  const style = document.createElement('style');
-  style.id = extraId;
-  style.textContent = `
-    .gjpb-topdeck{
-      display:grid;
-      grid-template-columns:minmax(0,1fr) auto;
-      gap:12px;
-      align-items:start;
-      z-index:4;
-    }
-
-    .gjpb-player-card{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      min-width:0;
-      padding:12px 14px;
-      border-radius:24px;
-      border:3px solid var(--hh-line);
-      background:linear-gradient(180deg,#fffef8,#f7fff4);
-      box-shadow:var(--hh-shadow);
-    }
-
-    .gjpb-player-avatar{
-      width:64px;
-      height:64px;
-      border-radius:20px;
-      display:grid;
-      place-items:center;
-      flex:0 0 auto;
-      font-size:34px;
-      background:linear-gradient(180deg,#e8f8ff,#fff7d8);
-      border:2px solid var(--hh-line);
-      box-shadow:0 8px 16px rgba(86,155,194,.12);
-    }
-
-    .gjpb-player-meta{
-      min-width:0;
-      display:grid;
-      gap:2px;
-    }
-
-    .gjpb-player-kicker{
-      color:#74a8c5;
-      font-size:12px;
-      font-weight:1000;
-      line-height:1.2;
-    }
-
-    .gjpb-player-name{
-      color:var(--hh-text);
-      font-size:18px;
-      font-weight:1000;
-      line-height:1.15;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-    }
-
-    .gjpb-player-sub{
-      color:var(--hh-muted);
-      font-size:12px;
-      font-weight:900;
-      line-height:1.25;
-    }
-
-    .gjpb-level-card{
-      display:grid;
-      gap:8px;
-      justify-items:end;
-    }
-
-    .gjpb-level-badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 14px;
-      border-radius:999px;
-      border:3px solid var(--hh-line);
-      background:linear-gradient(180deg,#fffef7,#f7fff4);
-      box-shadow:var(--hh-shadow);
-      color:#6a6a61;
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .gjpb-level-badge strong{
-      color:#67a91c;
-      font-size:15px;
-    }
-
-    .gjpb-mini-mission{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:2px solid var(--hh-line);
-      background:#fff;
-      color:#6f6d65;
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-
-    .gjpb-summary-hero{
-      display:grid;
-      grid-template-columns:110px 1fr;
-      gap:14px;
-      align-items:center;
-      margin:0 0 14px;
-      padding:14px;
-      border-radius:24px;
-      border:2px solid var(--hh-line);
-      background:linear-gradient(180deg,#fffef8,#f7fff4);
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-
-    .gjpb-summary-hero-avatar{
-      width:110px;
-      height:110px;
-      border-radius:28px;
-      display:grid;
-      place-items:center;
-      font-size:58px;
-      background:linear-gradient(180deg,#e8f8ff,#fff7d8);
-      border:3px solid var(--hh-line);
-      box-shadow:0 10px 18px rgba(86,155,194,.1);
-    }
-
-    .gjpb-summary-hero-copy{
-      display:grid;
-      gap:6px;
-      min-width:0;
-    }
-
-    .gjpb-summary-hero-copy .name{
-      color:#67a91c;
-      font-size:24px;
-      font-weight:1000;
-      line-height:1.08;
-    }
-
-    .gjpb-summary-hero-copy .desc{
-      color:var(--hh-muted);
-      font-size:14px;
-      font-weight:900;
-      line-height:1.55;
-    }
-
-    .gjpb-hub-card{
-      margin-top:14px;
-      padding:14px;
-      border-radius:22px;
-      border:2px solid var(--hh-line);
-      background:#fff;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-      display:flex;
-      align-items:center;
-      gap:12px;
-    }
-
-    .gjpb-hub-icon{
-      width:54px;
-      height:54px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      flex:0 0 auto;
-      font-size:28px;
-      background:linear-gradient(180deg,#e8f8ff,#fff7d8);
-      border:2px solid var(--hh-line);
-    }
-
-    .gjpb-hub-copy{
-      min-width:0;
-      display:grid;
-      gap:2px;
-    }
-
-    .gjpb-hub-copy .title{
-      color:var(--hh-text);
-      font-size:16px;
-      font-weight:1000;
-      line-height:1.15;
-    }
-
-    .gjpb-hub-copy .desc{
-      color:var(--hh-muted);
-      font-size:13px;
-      font-weight:900;
-      line-height:1.45;
-    }
-
-    .gjpb-summary-actions{
-      margin-top:16px;
-    }
-
-    @media (max-width:760px){
-      .gjpb-topdeck{
-        grid-template-columns:1fr;
-      }
-      .gjpb-level-card{
-        justify-items:start;
-      }
-      .gjpb-summary-hero{
-        grid-template-columns:1fr;
-        justify-items:center;
-        text-align:center;
-      }
-      .gjpb-summary-hero-copy .name{
-        font-size:22px;
       }
     }
   `;
@@ -1424,53 +881,27 @@ function buildShell() {
   GAME_MOUNT.innerHTML = `
     <div id="${ROOT_ID}">
       <div class="gjpb-shell">
-        <div class="gjpb-topdeck">
-          <div class="gjpb-player-card">
-            <div class="gjpb-player-avatar" id="gjpbPlayerAvatar">🙂</div>
-            <div class="gjpb-player-meta">
-              <div class="gjpb-player-kicker">PLAYER</div>
-              <div class="gjpb-player-name" id="gjpbPlayerName">${escapeHtml(GJ_NAME || GJ_PID || 'Food Hero')}</div>
-              <div class="gjpb-player-sub" id="gjpbPlayerSub">พร้อมเริ่มภารกิจอาหารดี</div>
-            </div>
-          </div>
-
-          <div class="gjpb-level-card">
-            <div class="gjpb-level-badge">🏅 <span>Level</span> <strong id="gjpbLevelBadge">1</strong></div>
-            <div class="gjpb-mini-mission" id="gjpbMiniMission">🌱 Beginner Food Hero</div>
-          </div>
-        </div>
-
         <div class="gjpb-topbar">
           <div class="gjpb-chip-row">
-            <div class="gjpb-chip">🪙 <span>Score</span><strong id="gjpbScore">0</strong></div>
-            <div class="gjpb-chip">⏰ <span>Time</span><strong id="gjpbTimer">0:00</strong></div>
-            <div class="gjpb-chip">❤️ <span>Miss</span><strong id="gjpbMiss">0</strong></div>
-            <div class="gjpb-chip">⭐ <span>Streak</span><strong id="gjpbStreak">0</strong></div>
+            <div class="gjpb-chip"><span>Score</span><strong id="gjpbScore">0</strong></div>
+            <div class="gjpb-chip"><span>Time</span><strong id="gjpbTimer">0:00</strong></div>
+            <div class="gjpb-chip"><span>Miss</span><strong id="gjpbMiss">0</strong></div>
+            <div class="gjpb-chip"><span>Streak</span><strong id="gjpbStreak">0</strong></div>
           </div>
         </div>
 
         <div class="gjpb-phasebar">
-          <div class="gjpb-phase-pill" id="gjpbPhasePill">Mission 1</div>
-          <div class="gjpb-goal-pill" id="gjpbGoalText">เก็บอาหารดีให้ถึงเป้า</div>
+          <div class="gjpb-phase-pill" id="gjpbPhasePill">PHASE 1</div>
+          <div class="gjpb-goal-pill" id="gjpbGoalText">GOAL สะสมคะแนน</div>
         </div>
 
         <div class="gjpb-stage" id="gjpbStage">
-          <div class="gjpb-scene">
-            <div class="gjpb-cloud c1"></div>
-            <div class="gjpb-cloud c2"></div>
-            <div class="gjpb-cloud c3"></div>
-            <div class="gjpb-cloud c4"></div>
-            <div class="gjpb-hill h1"></div>
-            <div class="gjpb-hill h2"></div>
-            <div class="gjpb-path"></div>
-          </div>
-
           <div class="gjpb-stars"></div>
           <div class="gjpb-layer" id="gjpbLayer"></div>
 
           <div class="gjpb-banner" id="gjpbBanner">
-            <div id="gjpbBannerTitle">HeroHealth Food Mission</div>
-            <small id="gjpbBannerSub">เก็บอาหารดี หลีกเลี่ยง junk food แล้วไปช่วยปราบ Junk King</small>
+            <div id="gjpbBannerTitle">GoodJunk Phase Boss v2</div>
+            <small id="gjpbBannerSub">เก็บอาหารดี • หลีกเลี่ยง junk • ผ่าน 2 phase แล้วเข้าสู้กับ Junk King</small>
           </div>
 
           <div class="gjpb-bosswrap" id="gjpbBossWrap">
@@ -1479,6 +910,7 @@ function buildShell() {
               <div>
                 <h3 class="gjpb-boss-name" id="gjpbBossName">Junk King</h3>
                 <div class="gjpb-boss-state" id="gjpbBossState">รอเข้าสู่บอส</div>
+                <div class="gjpb-boss-stagepill" id="gjpbBossStagePill">STAGE 1 • LEARN</div>
               </div>
             </div>
             <div class="gjpb-boss-bar">
@@ -1486,50 +918,21 @@ function buildShell() {
             </div>
             <div class="gjpb-boss-hptext" id="gjpbBossHpText">0 / 0</div>
           </div>
-
-          <div class="gjpb-stage-badge" id="gjpbStageBadge">🌱 Healthy Town</div>
         </div>
 
         <div class="gjpb-bottom">
           <div class="gjpb-bottom-card">
             <div class="gjpb-bottom-top">
-              <div class="gjpb-hint" id="gjpbHint">แตะอาหารดีให้เร็ว และอย่าแตะ junk food</div>
+              <div class="gjpb-hint" id="gjpbHint">เก็บอาหารดีให้ได้คะแนนสูงขึ้น • อย่ากด junk</div>
               <div class="gjpb-stats" id="gjpbStats">
-                <div><strong>Good:</strong> 0</div>
-                <div><strong>Junk:</strong> 0</div>
-                <div><strong>Missed:</strong> 0</div>
-                <div><strong>Power:</strong> 0</div>
+                <div><strong>Good hit:</strong> 0</div>
+                <div><strong>Junk hit:</strong> 0</div>
+                <div><strong>Good missed:</strong> 0</div>
+                <div><strong>Power hit:</strong> 0</div>
               </div>
             </div>
-
             <div class="gjpb-progress">
               <div class="gjpb-progress-bar" id="gjpbProgressBar"></div>
-            </div>
-
-            <div class="gjpb-reward-strip">
-              <div class="gjpb-reward-card">
-                <div class="gjpb-reward-icon">🪙</div>
-                <div class="gjpb-reward-copy">
-                  <div class="label">Reward Coins</div>
-                  <div class="value" id="gjpbRewardCoins">0</div>
-                </div>
-              </div>
-
-              <div class="gjpb-reward-card">
-                <div class="gjpb-reward-icon">⭐</div>
-                <div class="gjpb-reward-copy">
-                  <div class="label">Star Rank</div>
-                  <div class="value" id="gjpbRewardStars">1</div>
-                </div>
-              </div>
-
-              <div class="gjpb-reward-card">
-                <div class="gjpb-reward-icon">🏅</div>
-                <div class="gjpb-reward-copy">
-                  <div class="label">Mission Badge</div>
-                  <div class="value" id="gjpbRewardBadge">Start</div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -1537,47 +940,15 @@ function buildShell() {
 
       <div class="gjpb-summary" id="gjpbSummary" hidden>
         <div class="gjpb-summary-card">
-          <div class="gjpb-summary-kicker">🌟 GOODJUNK SOLO SUMMARY</div>
-          <div class="gjpb-summary-ribbon" id="gjpbSummaryRibbon">Great Job!</div>
-
-          <div class="gjpb-summary-hero">
-            <div class="gjpb-summary-hero-avatar" id="gjpbSummaryHeroAvatar">😄</div>
-            <div class="gjpb-summary-hero-copy">
-              <div class="name" id="gjpbSummaryHeroName">Food Hero Complete!</div>
-              <div class="desc" id="gjpbSummaryHeroDesc">เธอช่วยปกป้องเมืองอาหารดีได้สำเร็จ</div>
-            </div>
-          </div>
-
-          <h2 class="gjpb-summary-title" id="gjpbSummaryTitle">Great Job!</h2>
-          <p class="gjpb-summary-sub" id="gjpbSummarySub">มาดูผลของรอบนี้กัน</p>
-
-          <div class="gjpb-stars-row" id="gjpbStarsRow"></div>
-
-          <div class="gjpb-summary-score">
-            <div class="label">Score</div>
-            <div class="value" id="gjpbSummaryScoreValue">0</div>
-          </div>
-
+          <div class="gjpb-summary-kicker">GOODJUNK SOLO BOSS v2</div>
+          <h2 class="gjpb-summary-title" id="gjpbSummaryTitle">สรุปผลการเล่น</h2>
+          <p class="gjpb-summary-sub" id="gjpbSummarySub">จบรอบแล้ว มาดูผลของรอบนี้กัน</p>
           <div class="gjpb-summary-grid" id="gjpbSummaryGrid"></div>
-
-          <div class="gjpb-coach" id="gjpbCoachCard">
-            <div class="gjpb-coach-avatar">🦸</div>
-            <div class="gjpb-coach-text" id="gjpbCoachText">ยอดเยี่ยมมาก! วันนี้เธอช่วยปกป้องอาหารดีได้ดีเลย</div>
-          </div>
-
-          <div class="gjpb-hub-card" id="gjpbHubCard">
-            <div class="gjpb-hub-icon">🏠</div>
-            <div class="gjpb-hub-copy">
-              <div class="title" id="gjpbHubTitle">กลับไปที่ HeroHealth Hub</div>
-              <div class="desc" id="gjpbHubDesc">เลือกภารกิจถัดไปหรือเล่น GoodJunk อีกรอบได้เลย</div>
-            </div>
-          </div>
-
           <div class="gjpb-summary-actions">
-            <button class="gjpb-btn blue" id="gjpbBtnAgain" type="button">เล่นอีกครั้ง</button>
+            <button class="gjpb-btn blue" id="gjpbBtnAgain" type="button">เล่นใหม่</button>
             <button class="gjpb-btn good" id="gjpbBtnCooldown" type="button">ไป Cooldown</button>
-            <button class="gjpb-btn ghost" id="gjpbBtnHub" type="button">กลับ HUB</button>
             <button class="gjpb-btn warn" id="gjpbBtnExport" type="button">Export JSON</button>
+            <button class="gjpb-btn ghost" id="gjpbBtnHub" type="button">กลับ HUB</button>
           </div>
         </div>
       </div>
@@ -1603,6 +974,7 @@ function buildShell() {
   ui.bossHpBar = document.getElementById('gjpbBossHpBar');
   ui.bossHpText = document.getElementById('gjpbBossHpText');
   ui.bossState = document.getElementById('gjpbBossState');
+  ui.bossStagePill = document.getElementById('gjpbBossStagePill');
   ui.summary = document.getElementById('gjpbSummary');
   ui.summaryTitle = document.getElementById('gjpbSummaryTitle');
   ui.summarySub = document.getElementById('gjpbSummarySub');
@@ -1611,25 +983,6 @@ function buildShell() {
   ui.btnCooldown = document.getElementById('gjpbBtnCooldown');
   ui.btnHub = document.getElementById('gjpbBtnHub');
   ui.btnExport = document.getElementById('gjpbBtnExport');
-
-  ui.rewardCoins = document.getElementById('gjpbRewardCoins');
-  ui.rewardStars = document.getElementById('gjpbRewardStars');
-  ui.rewardBadge = document.getElementById('gjpbRewardBadge');
-  ui.summaryRibbon = document.getElementById('gjpbSummaryRibbon');
-  ui.summaryScoreValue = document.getElementById('gjpbSummaryScoreValue');
-  ui.stageBadge = document.getElementById('gjpbStageBadge');
-
-  ui.playerAvatar = document.getElementById('gjpbPlayerAvatar');
-  ui.playerName = document.getElementById('gjpbPlayerName');
-  ui.playerSub = document.getElementById('gjpbPlayerSub');
-  ui.levelBadge = document.getElementById('gjpbLevelBadge');
-  ui.miniMission = document.getElementById('gjpbMiniMission');
-
-  ui.summaryHeroAvatar = document.getElementById('gjpbSummaryHeroAvatar');
-  ui.summaryHeroName = document.getElementById('gjpbSummaryHeroName');
-  ui.summaryHeroDesc = document.getElementById('gjpbSummaryHeroDesc');
-  ui.hubTitle = document.getElementById('gjpbHubTitle');
-  ui.hubDesc = document.getElementById('gjpbHubDesc');
 }
 
 function bindShell() {
@@ -1759,7 +1112,7 @@ function getTimeBalance() {
 
 function getPhaseGoal(phase) {
   const diffKey = DIFF_PRESET[state.diff] ? state.diff : 'normal';
-  const base = PHASE_GOALS[diffKey]?.[phase] ?? (phase === 1 ? 65 : 165);
+  const base = PHASE_GOALS[diffKey]?.[phase] ?? (phase === 1 ? 90 : 220);
   const scale = getTimeBalance().goalScale || 1;
   return Math.max(20, Math.round(base * scale));
 }
@@ -1768,151 +1121,86 @@ function getBossBase() {
   const raw = DIFF_PRESET[state.diff]?.boss || DIFF_PRESET.normal.boss;
   const tb = getTimeBalance();
 
-  const weakHitsDelta =
-    tb.band === 'short' ? -1 :
-    tb.band === 'long' ? 1 : 0;
-
-  const bossMsDelta =
-    tb.band === 'short' ? -2000 :
-    tb.band === 'long' ? 2500 : 0;
-
-  const reviveHpDelta =
-    tb.band === 'long' ? 1 : 0;
-
   return {
     ...raw,
-    hp: Math.max(8, raw.hp + (tb.bossHpDelta || 0)),
+    hp: Math.max(6, raw.hp + (tb.bossHpDelta || 0)),
     weakSpeed: Math.max(90, raw.weakSpeed + (tb.weakSpeedDelta || 0)),
-    clearBonus: Math.max(24, raw.clearBonus + (tb.clearBonusDelta || 0)),
-
-    minWeakHits: Math.max(8, raw.minWeakHits + weakHitsDelta),
-    minPatternHitEach: Math.max(1, raw.minPatternHitEach),
-    minBossMs: Math.max(10000, raw.minBossMs + bossMsDelta),
-    reviveHp: Math.max(3, raw.reviveHp + reviveHpDelta)
+    clearBonus: Math.max(20, raw.clearBonus + (tb.clearBonusDelta || 0))
   };
 }
 
-function getBossClearRequirements() {
-  const b = getBossBase();
-  return {
-    minWeakHits: Number(b.minWeakHits || 10),
-    minPatternHitEach: Number(b.minPatternHitEach || 1),
-    minBossMs: Number(b.minBossMs || 14000),
-    reviveHp: Number(b.reviveHp || 4)
-  };
+function noteMistakeNow() {
+  const now = Date.now();
+  state.recentMistakeAt.push(now);
+  state.recentMistakeAt = state.recentMistakeAt.filter(ts => now - ts <= 8000);
 }
 
-function getBossPatternHitCount(key) {
-  return Number(state.research?.patternWeakHits?.[key] || 0);
+function getRecentMistakeCount(windowMs = 8000) {
+  const now = Date.now();
+  state.recentMistakeAt = state.recentMistakeAt.filter(ts => now - ts <= windowMs);
+  return state.recentMistakeAt.length;
 }
 
-function getBossDurationSoFarMs() {
-  if (!state.research.bossStartTimeLeftMs) return 0;
-  return Math.max(0, state.research.bossStartTimeLeftMs - state.timeLeftMs);
+function getBossStage() {
+  if (!state.boss.maxHp) return 1;
+  const ratio = state.boss.hp / state.boss.maxHp;
+  if (ratio > 0.66) return 1;
+  if (ratio > 0.33) return 2;
+  return 3;
 }
 
-function getBossNeededPatternIndex(req = getBossClearRequirements()) {
-  if (getBossPatternHitCount('targetHunt') < req.minPatternHitEach) return 0;
-  if (getBossPatternHitCount('junkStorm') < req.minPatternHitEach) return 1;
-  if (getBossPatternHitCount('armorBreak') < req.minPatternHitEach) return 2;
-  return 2;
+function getBossStageConfig() {
+  const diffMap = BOSS_STAGE_TUNING[state.diff] || BOSS_STAGE_TUNING.normal;
+  return diffMap[getBossStage()] || diffMap[1];
 }
 
-function getBossClearCheck() {
-  const req = getBossClearRequirements();
-  const weakHits = Number(state.research.weakspotHit || 0);
-  const bossDurationMs = getBossDurationSoFarMs();
+function syncBossStage(force = false) {
+  const stage = getBossStage();
+  state.boss.stage = stage;
 
-  const missingPatterns = [];
-  if (getBossPatternHitCount('targetHunt') < req.minPatternHitEach) missingPatterns.push('targetHunt');
-  if (getBossPatternHitCount('junkStorm') < req.minPatternHitEach) missingPatterns.push('junkStorm');
-  if (getBossPatternHitCount('armorBreak') < req.minPatternHitEach) missingPatterns.push('armorBreak');
+  if (!force && stage === state.boss.lastStageShown) return;
 
-  const weakHitsOk = weakHits >= req.minWeakHits;
-  const patternOk = missingPatterns.length === 0;
-  const bossMsOk = bossDurationMs >= req.minBossMs;
+  state.boss.lastStageShown = stage;
 
-  return {
-    requirements: req,
-    weakHits,
-    bossDurationMs,
-    missingWeakHits: Math.max(0, req.minWeakHits - weakHits),
-    missingPatterns,
-    weakHitsOk,
-    patternOk,
-    bossMsOk,
-    ok: weakHitsOk && patternOk && bossMsOk
-  };
+  if (stage === 1) {
+    showBanner('BOSS STAGE 1', 'อ่านจังหวะบอสก่อน แล้วแตะเป้าทองให้แม่น', 1200);
+    updateHint('Stage 1: เรียนรู้จังหวะก่อน');
+  } else if (stage === 2) {
+    showBanner('BOSS STAGE 2', 'เริ่มเร็วขึ้นแล้ว! อ่าน telegraph แล้วรีบตอบสนอง', 1200);
+    updateHint('Stage 2: กดดันขึ้นแล้ว อย่าพลาด junk');
+  } else {
+    showBanner('FINAL STAGE', 'ช่วงสุดท้ายแล้ว! รักษาคอมโบเพื่อ stun บอส', 1400);
+    updateHint('Stage 3: ลุ้นสุด แต่ยัง comeback ได้');
+  }
+
+  logGameEvent('boss_stage_change', {
+    bossStage: stage,
+    bossHp: state.boss.hp,
+    bossMaxHp: state.boss.maxHp
+  });
 }
 
-function buildBossNeedText(check = getBossClearCheck()) {
-  const bits = [];
-  if (check.missingWeakHits > 0) bits.push(`อีก ${check.missingWeakHits} hit`);
-  if (check.missingPatterns.length > 0) bits.push('ตีให้ครบทุกท่า');
-  if (!check.bossMsOk) bits.push('ยืนระยะอีกนิด');
-  return bits.length ? bits.join(' • ') : 'พร้อมปิดฉาก';
-}
+function maybeTriggerBossComboReward() {
+  if (!state.boss.active || state.boss.hp <= 0) return;
 
-function getBossPatternKeyFromIndex(index) {
-  if (index === 1) return 'junkStorm';
-  if (index === 2) return 'armorBreak';
-  return 'targetHunt';
-}
+  const cfg = BOSS_COMBO_REWARD[state.diff] || BOSS_COMBO_REWARD.normal;
+  const tier = Math.floor((state.streak || 0) / cfg.threshold);
 
-function triggerBossLastStand(check = getBossClearCheck()) {
-  const req = check.requirements || getBossClearRequirements();
+  if (tier <= 0) return;
+  if (tier <= state.boss.lastComboRewardTier) return;
 
-  const missingWeak = Math.max(0, check.missingWeakHits || 0);
-  const missingPatternCount = Array.isArray(check.missingPatterns) ? check.missingPatterns.length : 0;
-  const needTime = !check.bossMsOk;
+  state.boss.lastComboRewardTier = tier;
+  state.score += cfg.bonusScore;
 
-  const extraHp = Math.max(
-    0,
-    missingWeak + missingPatternCount + (needTime ? 1 : 0) - 1
-  );
+  createFx(state.rect.width * 0.5, 118, 'COMBO POWER!', '#93c5fd');
+  startBossStun(cfg.stunMs, 'COMBO STUN!');
+  updateHint('คอมโบดีมาก! บอสชะงักแล้ว');
 
-  state.boss.reviveCount += 1;
-  state.boss.finishGuardTriggered = true;
-  state.boss.enrage = true;
-
-  state.boss.hp = Math.min(
-    state.boss.maxHp,
-    Math.max(req.reviveHp, Math.min(8, req.reviveHp + extraHp))
-  );
-
-  state.boss.stunMs = 0;
-  state.boss.stormAccum = 0;
-  state.boss.weakTick = 0;
-  state.boss.telegraphMs = 0;
-  state.boss.nextPatternIndex = -1;
-
-  const nextPatternIndex = getBossNeededPatternIndex(req);
-  applyBossPattern(nextPatternIndex);
-  state.boss.patternTimeLeft = Math.max(state.boss.patternTimeLeft, 2800);
-
-  const weak = getWeakspot();
-  if (!weak) spawnWeakspot();
-
-  showBanner('Junk King ยังไม่ยอมแพ้!', buildBossNeedText(check), 980);
-  updateHint(`บอสยังไม่ล้ม • ${buildBossNeedText(check)}`);
-
-  createFx(
-    Math.round(state.rect.width * 0.5),
-    112,
-    'LAST STAND!',
-    '#fde68a'
-  );
-
-  logGameEvent('boss_last_stand', {
-    reviveCount: state.boss.reviveCount,
-    missingWeakHits: check.missingWeakHits,
-    missingPatterns: Array.isArray(check.missingPatterns) ? check.missingPatterns.join('|') : '',
-    bossDurationMs: check.bossDurationMs,
-    requiredWeakHits: req.minWeakHits,
-    requiredPatternHitEach: req.minPatternHitEach,
-    requiredBossMs: req.minBossMs,
-    bossHpResetTo: state.boss.hp,
-    patternForced: getBossPatternKeyFromIndex(nextPatternIndex)
+  logGameEvent('boss_combo_reward', {
+    combo: state.streak,
+    rewardTier: tier,
+    stunMs: cfg.stunMs,
+    bonusScore: cfg.bonusScore
   });
 }
 
@@ -1965,7 +1253,7 @@ function makeBaseLogFields() {
     timestampIso: nowIso(),
     sessionId: SESSION_ID,
     projectTag: 'herohealth',
-    source: 'goodjunk-solo-phaseboss',
+    source: 'goodjunk-solo-phaseboss-v2',
     version: PATCH_VERSION,
 
     gameId: GJ_GAME_ID,
@@ -2014,7 +1302,7 @@ function makeRowId(prefix = 'row') {
 }
 
 function currentPhaseLabel() {
-  if (state.boss.active) return `boss:${getPatternKey()}`;
+  if (state.boss.active) return `boss:${getPatternKey()}:stage${getBossStage()}`;
   return `phase-${state.phase}`;
 }
 
@@ -2162,195 +1450,6 @@ function emitExternalLog(type, payload) {
   } catch {}
 }
 
-function getCloudLogger() {
-  if (__cloudLogger) return __cloudLogger;
-  if (typeof window.createHHACloudLogger !== 'function') return null;
-
-  __cloudLogger = window.createHHACloudLogger({
-    endpoint: HHA_ENDPOINT,
-    enabled: true,
-    debug: true,
-
-    game: GJ_GAME_ID,
-    zone: 'nutrition',
-    run: RUN_CTX.run || 'play',
-    pid: GJ_PID,
-    seed: RUN_CTX.seed || '',
-    view: RUN_CTX.view || 'mobile',
-    difficulty: state.diff,
-    studyId: RUN_CTX.studyId || '',
-    researchPhase: __qs.get('phase') || '',
-    conditionGroup: __qs.get('conditionGroup') || '',
-    variant: 'goodjunk-solo-phaseboss',
-    appVersion: 'herohealth',
-    gameVersion: PATCH_VERSION
-  });
-
-  console.log('[GJ-CLOUD] logger created', {
-    endpoint: HHA_ENDPOINT,
-    pid: GJ_PID,
-    game: GJ_GAME_ID
-  });
-
-  return __cloudLogger;
-}
-
-function startCloudSessionIfNeeded() {
-  console.log('[GJ-CLOUD] startCloudSessionIfNeeded()', {
-    alreadyStarted: __cloudSessionStarted,
-    endpoint: HHA_ENDPOINT,
-    hasFactory: typeof window.createHHACloudLogger === 'function'
-  });
-
-  if (__cloudSessionStarted) return;
-
-  const logger = getCloudLogger();
-  if (!logger) {
-    console.warn('[GJ-CLOUD] createHHACloudLogger not found');
-    return;
-  }
-
-  logger.hhaSessionStart({
-    session_id: SESSION_ID,
-    pid: GJ_PID,
-    player_name: GJ_NAME,
-    game: GJ_GAME_ID,
-    game_title: 'GoodJunk Solo Phase Boss',
-    zone: 'nutrition',
-    mode: 'solo',
-    run: RUN_CTX.run || 'play',
-    study_id: RUN_CTX.studyId || '',
-    condition_group: __qs.get('conditionGroup') || '',
-    variant: 'goodjunk-solo-phaseboss',
-    difficulty: state.diff,
-    session_time_sec_setting: Number(RUN_CTX.time || 150),
-    view_mode: RUN_CTX.view || 'mobile',
-    seed: RUN_CTX.seed || '',
-    warmup_used: 1,
-    cooldown_used: 1,
-    app_version: 'herohealth',
-    game_version: PATCH_VERSION
-  });
-
-  __cloudSessionStarted = true;
-  console.log('[GJ-CLOUD] session started', SESSION_ID);
-}
-
-function pushCloudEvent(eventType, extra = {}) {
-  console.log('[GJ-CLOUD] pushCloudEvent', eventType, {
-    sessionStarted: __cloudSessionStarted,
-    endpoint: HHA_ENDPOINT
-  });
-
-  const logger = getCloudLogger();
-  if (!logger || !__cloudSessionStarted) return;
-
-  logger.hhaEvent(eventType, {
-    session_id: SESSION_ID,
-    pid: GJ_PID,
-    game: GJ_GAME_ID,
-    zone: 'nutrition',
-    mode: 'solo',
-    run: RUN_CTX.run || 'play',
-    study_id: RUN_CTX.studyId || '',
-    condition_group: __qs.get('conditionGroup') || '',
-    difficulty: state.diff,
-    view_mode: RUN_CTX.view || 'mobile',
-    seed: RUN_CTX.seed || '',
-
-    phase: typeof currentPhaseLabel === 'function' ? currentPhaseLabel() : '',
-    event_type: eventType,
-    event_name: eventType,
-    action: eventType,
-
-    target_id: extra.targetId || '',
-    target_type: extra.itemType || '',
-    target_label: extra.emoji || '',
-
-    lane: extra.lane ?? '',
-    correct: typeof extra.isGood === 'boolean' ? extra.isGood : '',
-    score_delta: extra.gain ?? extra.penalty ?? extra.damage ?? 0,
-    combo: state.streak,
-    rt_ms: extra.rtMs ?? '',
-    x: extra.x ?? '',
-    y: extra.y ?? '',
-    value_num: extra.damage ?? extra.weakspotHitRatePct ?? '',
-    value_num2: extra.stormHits ?? extra.comboBonus ?? '',
-
-    meta_json: {
-      reason: extra.reason || '',
-      patternKey: extra.patternKey || '',
-      patternLabel: extra.patternLabel || '',
-      bossHpAfter: extra.bossHpAfter ?? '',
-      weakspotHit: extra.weakspotHit ?? '',
-      weakspotHitRatePct: extra.weakspotHitRatePct ?? '',
-      bossDurationMs: extra.bossDurationMs ?? '',
-      nextPattern: extra.nextPattern || '',
-      telegraphMs: extra.telegraphMs ?? '',
-      extra
-    }
-  });
-}
-
-function endCloudSession(summary) {
-  const logger = getCloudLogger();
-  if (!logger || !__cloudSessionStarted) return;
-
-  console.log('[GJ-CLOUD] endCloudSession', summary);
-
-  logger.hhaSummaryAndEnd(
-    summary,
-    {
-      completed: summary.bossDefeated ? 1 : 0,
-      quit_reason: summary.reason || '',
-      score: summary.score,
-      hits: Number(summary.hitsGood || 0) + Number(summary.powerHits || 0),
-      miss: summary.miss,
-      combo_max: summary.bestStreak,
-      boss_phase_reached: summary.bossEntered ? 1 : 0,
-      difficulty: summary.diff,
-      summary_json: summary
-    },
-    { flushNow: true }
-  );
-}
-
-function getCloudStatusSnapshot() {
-  const logger = getCloudLogger();
-  if (!logger || typeof logger.getStatusSummary !== 'function') {
-    return {
-      queueTotal: 0,
-      queueSessions: 0,
-      queueEvents: 0,
-      queueProfiles: 0,
-      lastFlushAt: 0,
-      lastOkAt: 0,
-      lastError: ''
-    };
-  }
-
-  const s = logger.getStatusSummary();
-  return {
-    queueTotal: Number(s.queue?.total || 0),
-    queueSessions: Number(s.queue?.sessions || 0),
-    queueEvents: Number(s.queue?.events || 0),
-    queueProfiles: Number(s.queue?.students_profile || 0),
-    lastFlushAt: Number(s.lastFlushAt || 0),
-    lastOkAt: Number(s.lastOkAt || 0),
-    lastError: String(s.lastError || '')
-  };
-}
-
-function formatCloudTs(ms) {
-  const n = Number(ms || 0);
-  if (!n) return '-';
-  try {
-    return new Date(n).toLocaleString('th-TH');
-  } catch {
-    return '-';
-  }
-}
-
 function logGameEvent(eventType, extra = {}) {
   const payload = {
     ...makeBaseLogFields(),
@@ -2368,6 +1467,7 @@ function logGameEvent(eventType, extra = {}) {
     bossHp: state.boss.hp,
     bossMaxHp: state.boss.maxHp,
     bossPattern: state.boss.patternLabel,
+    bossStage: state.boss.stage,
     ...extra
   };
 
@@ -2379,7 +1479,6 @@ function logGameEvent(eventType, extra = {}) {
   emitExternalLog('hha:log-event', payload);
   emitExternalLog('hha:event-row', eventRow);
   tryBridgeCall('event', eventRow);
-  pushCloudEvent(eventType, extra || {});
 
   return payload;
 }
@@ -2399,7 +1498,6 @@ function logSessionSummary(summary) {
   emitExternalLog('hha:log-summary', payload);
   emitExternalLog('hha:session-row', sessionRow);
   tryBridgeCall('session', sessionRow);
-  endCloudSession(summary);
 
   return payload;
 }
@@ -2427,6 +1525,7 @@ function startGame() {
   state.targetSeq = 0;
   state.targets.clear();
   state.summaryPayload = null;
+  state.recentMistakeAt = [];
 
   state.research = {
     reachedBossAtMs: 0,
@@ -2461,10 +1560,11 @@ function startGame() {
   if (ui.bossIcon) ui.bossIcon.textContent = '🍔';
   if (ui.bossName) ui.bossName.textContent = 'Junk King';
   if (ui.bossState) ui.bossState.textContent = 'รอเข้าสู่บอส';
+  if (ui.bossStagePill) ui.bossStagePill.textContent = 'STAGE 1 • LEARN';
 
   showBanner(
-    'Food Hero Mission',
-    'เก็บอาหารดี • หลีกเลี่ยง junk • ผ่าน Mission 1 และ Mission 2 เพื่อไปสู้กับ Junk King',
+    'GoodJunk Phase Boss v2',
+    'เก็บอาหารดี • หลีกเลี่ยง junk • ผ่าน Phase 1 และ Phase 2 เพื่อไปสู้กับ Junk King',
     1800
   );
 
@@ -2472,14 +1572,6 @@ function startGame() {
   renderHud();
 
   logGameEvent('session_start', {
-    phaseGoal1: getPhaseGoal(1),
-    phaseGoal2: getPhaseGoal(2),
-    timeBand: getTimeBand()
-  });
-
-  startCloudSessionIfNeeded();
-  pushCloudEvent('session_start', {
-    reason: 'session_start',
     phaseGoal1: getPhaseGoal(1),
     phaseGoal2: getPhaseGoal(2),
     timeBand: getTimeBand()
@@ -2513,8 +1605,9 @@ function resetBossState() {
   state.boss.stunMs = 0;
   state.boss.victoryShown = false;
 
-  state.boss.finishGuardTriggered = false;
-  state.boss.reviveCount = 0;
+  state.boss.stage = 1;
+  state.boss.lastStageShown = 0;
+  state.boss.lastComboRewardTier = 0;
 }
 
 function getBossPatternName(index) {
@@ -2528,18 +1621,19 @@ function getBossPatternSpec() {
   const pressure = getBossPressureRatio();
   const easyWeakBonus = getEasyGraceWeakSizeBonus();
   const tb = getTimeBalance();
+  const stageCfg = getBossStageConfig();
 
   if (state.boss.patternIndex === 1) {
     return {
       label: 'Junk Storm',
-      hint: 'ระวังพายุขยะก่อน แล้วค่อยตีเป้าทอง',
+      hint: 'หลบ junk ก่อน แล้วค่อยตีเป้าทอง',
       stormMs: Math.max(
-        state.diff === 'hard' ? 230 : 300,
-        (base.stormMs - 220 - (state.boss.enrage ? base.enrageStormPenalty : 0)) * (tb.stormScale || 1)
+        state.diff === 'hard' ? 240 : 320,
+        Math.round((base.stormMs - 170 - (state.boss.enrage ? base.enrageStormPenalty : 0)) * stageCfg.stormMul * (tb.stormScale || 1))
       ),
-      weakSpeed: base.weakSpeed + (state.boss.enrage ? 70 : 30) + Math.round(pressure * 12),
-      weakSize: Math.max(54, base.weakSize - 8 + easyWeakBonus),
-      weakMoveMs: Math.max(620, base.weakMoveMs - 160),
+      weakSpeed: Math.max(90, Math.round((base.weakSpeed + (state.boss.enrage ? 60 : 26) + Math.round(pressure * 12)) * stageCfg.weakSpeedMul)),
+      weakSize: Math.max(58, Math.round(base.weakSize - 8 + stageCfg.weakSizeAdd + easyWeakBonus)),
+      weakMoveMs: Math.max(620, Math.round((base.weakMoveMs - 140) * stageCfg.weakMoveMul)),
       damage: 1
     };
   }
@@ -2547,12 +1641,12 @@ function getBossPatternSpec() {
   if (state.boss.patternIndex === 2) {
     return {
       label: 'Armor Break',
-      hint: 'ตอนนี้เป้าทองใหญ่ขึ้น ตีโดนจะเจ็บแรง',
-      stormMs: Math.max(260, (base.stormMs + 120) * (tb.stormScale || 1)),
-      weakSpeed: Math.max(100, base.weakSpeed - 34),
-      weakSize: base.weakSize + 16 + easyWeakBonus,
-      weakMoveMs: base.weakMoveMs + 220,
-      damage: 2
+      hint: 'ตอนนี้จุดอ่อนเปิดกว้างขึ้น ตีให้ทัน',
+      stormMs: Math.max(260, Math.round((base.stormMs + 90) * stageCfg.stormMul * (tb.stormScale || 1))),
+      weakSpeed: Math.max(100, Math.round((base.weakSpeed - 28) * stageCfg.weakSpeedMul)),
+      weakSize: Math.max(62, Math.round(base.weakSize + 14 + stageCfg.weakSizeAdd + easyWeakBonus)),
+      weakMoveMs: Math.max(700, Math.round((base.weakMoveMs + 180) * stageCfg.weakMoveMul)),
+      damage: stageCfg.armorBreakDamage || 2
     };
   }
 
@@ -2560,12 +1654,12 @@ function getBossPatternSpec() {
     label: 'Target Hunt',
     hint: 'มองหาเป้าทองที่กำลังวิ่ง แล้วแตะให้แม่น',
     stormMs: Math.max(
-      state.diff === 'hard' ? 280 : 340,
-      (base.stormMs - (state.boss.enrage ? Math.round(base.enrageStormPenalty * 0.45) : 0)) * (tb.stormScale || 1)
+      state.diff === 'hard' ? 300 : 360,
+      Math.round((base.stormMs - (state.boss.enrage ? Math.round(base.enrageStormPenalty * 0.42) : 0)) * stageCfg.stormMul * (tb.stormScale || 1))
     ),
-    weakSpeed: base.weakSpeed + Math.round(pressure * (state.diff === 'hard' ? 22 : 10)),
-    weakSize: base.weakSize + easyWeakBonus,
-    weakMoveMs: Math.max(700, base.weakMoveMs - Math.round(pressure * 80)),
+    weakSpeed: Math.max(90, Math.round((base.weakSpeed + Math.round(pressure * (state.diff === 'hard' ? 18 : 10))) * stageCfg.weakSpeedMul)),
+    weakSize: Math.max(58, Math.round(base.weakSize + stageCfg.weakSizeAdd + easyWeakBonus)),
+    weakMoveMs: Math.max(720, Math.round((base.weakMoveMs - Math.round(pressure * 80)) * stageCfg.weakMoveMul)),
     damage: 1
   };
 }
@@ -2749,10 +1843,12 @@ function spawnFoodTarget(preset) {
 }
 
 function updateBossPhase(dt) {
-  if (state.boss.hp <= Math.ceil(state.boss.maxHp / 2) && !state.boss.enrage) {
+  syncBossStage();
+
+  if (getBossStage() === 3 && !state.boss.enrage && getRecentMistakeCount(8000) >= 3) {
     state.boss.enrage = true;
-    showBanner('Junk King โกรธแล้ว!', 'บอสเร็วขึ้นและพายุขยะถี่ขึ้น', 1300);
-    updateHint('ระวัง! บอสโกรธแล้ว อ่านสัญญาณเตือนให้ดี');
+    showBanner('Junk King โกรธแล้ว!', 'พลาดติดกันหลายครั้ง บอสเร่งจังหวะขึ้น', 1300);
+    updateHint('ตั้งสติ อ่าน telegraph แล้วกลับมาคุมเกม');
     applyBossPattern(state.boss.patternIndex);
   }
 
@@ -2955,49 +2051,6 @@ function updateTargets(dt) {
   removeIds.forEach(removeTarget);
 }
 
-function getTargetTheme(kind) {
-  if (kind === 'good') {
-    return {
-      face: '😊',
-      sticker: 'GOOD',
-      tilt: randRange(-8, 8),
-      scale: 1
-    };
-  }
-
-  if (kind === 'weakspot') {
-    return {
-      face: '⭐',
-      sticker: 'HIT!',
-      tilt: randRange(-6, 6),
-      scale: 1.02
-    };
-  }
-
-  if (kind === 'storm') {
-    return {
-      face: '😵',
-      sticker: 'OH NO',
-      tilt: randRange(-10, 10),
-      scale: 1
-    };
-  }
-
-  return {
-    face: '😬',
-    sticker: 'JUNK',
-    tilt: randRange(-10, 10),
-    scale: 1
-  };
-}
-
-function getPhaseLabelText() {
-  if (state.boss.active) return 'Boss Mission';
-  if (state.phase === 1) return 'Mission 1';
-  if (state.phase === 2) return 'Mission 2';
-  return 'Mission';
-}
-
 function createTarget({
   kind,
   emoji,
@@ -3010,38 +2063,15 @@ function createTarget({
   vy = 0
 }) {
   const id = `t-${++state.targetSeq}`;
-  const theme = getTargetTheme(kind);
 
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = `gjpb-target ${kind}`;
   btn.style.width = `${w}px`;
   btn.style.height = `${h}px`;
-  btn.dataset.tilt = String(theme.tilt || 0);
-  btn.dataset.scale = String(theme.scale || 1);
   btn.innerHTML = `
-    <div style="
-      position:absolute; inset:0;
-      background:
-        radial-gradient(circle at 28% 22%, rgba(255,255,255,.35), transparent 24%),
-        linear-gradient(180deg, rgba(255,255,255,.12), transparent 45%);
-      pointer-events:none;"></div>
-
-    <div style="
-      position:absolute; top:6px; right:7px;
-      min-width:24px; height:24px; padding:0 6px;
-      border-radius:999px;
-      display:grid; place-items:center;
-      background:rgba(255,255,255,.88);
-      border:2px solid rgba(255,255,255,.95);
-      color:#7b6b53;
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:0 4px 10px rgba(0,0,0,.08);
-      pointer-events:none;">${theme.face}</div>
-
     <div class="gjpb-emoji">${emoji}</div>
-    <div class="gjpb-tag">${theme.sticker}</div>
+    <div class="gjpb-tag">${label}</div>
   `;
 
   btn.addEventListener('pointerdown', (ev) => {
@@ -3061,9 +2091,7 @@ function createTarget({
     vx,
     vy,
     el: btn,
-    dead: false,
-    tilt: theme.tilt || 0,
-    scale: theme.scale || 1
+    dead: false
   };
 
   ui.layer?.appendChild(btn);
@@ -3073,10 +2101,7 @@ function createTarget({
 }
 
 function drawTarget(target) {
-  const tilt = Number(target.tilt || 0);
-  const scale = Number(target.scale || 1);
-  target.el.style.transform =
-    `translate3d(${target.x}px, ${target.y}px, 0) rotate(${tilt}deg) scale(${scale})`;
+  target.el.style.transform = `translate3d(${target.x}px, ${target.y}px, 0)`;
 }
 
 function removeTarget(id) {
@@ -3129,6 +2154,7 @@ function hitTarget(id) {
     state.miss += 1;
     state.streak = 0;
     state.score = Math.max(0, state.score - 8);
+    noteMistakeNow();
 
     if (target.kind === 'storm') {
       state.research.stormHits += 1;
@@ -3162,6 +2188,7 @@ function hitTarget(id) {
     state.score += damage >= 2 ? 24 : 15;
     state.streak += 1;
     state.bestStreak = Math.max(state.bestStreak, state.streak);
+    maybeTriggerBossComboReward();
 
     createFx(cx, cy, damage >= 2 ? 'CRUSH HIT!' : 'POWER HIT!', '#fde68a');
     triggerBossHitFeedback(damage);
@@ -3177,7 +2204,7 @@ function hitTarget(id) {
 
     updateHint(state.boss.hp > 0
       ? (damage >= 2 ? 'แรงมาก! ตอนนี้บอสชะงักอยู่' : 'โดนแล้ว! รีบตามจังหวะต่อ')
-      : 'Junk King ใกล้ล้มแล้ว!');
+      : 'Junk King ถูกล้มแล้ว!');
 
     logGameEvent('weakspot_hit', {
       targetId: target.id,
@@ -3197,17 +2224,9 @@ function hitTarget(id) {
     removeTarget(id);
 
     if (state.boss.hp <= 0) {
-      const bossCheck = getBossClearCheck();
-
-      if (bossCheck.ok) {
-        state.score += getBossClearBonus();
-        renderHud();
-        beginBossDefeatSequence();
-        return;
-      }
-
-      triggerBossLastStand(bossCheck);
+      state.score += getBossClearBonus();
       renderHud();
+      beginBossDefeatSequence();
       return;
     }
   }
@@ -3220,6 +2239,7 @@ function registerMissedGood(target) {
   state.missedGood += 1;
   state.miss += 1;
   state.streak = 0;
+  noteMistakeNow();
   createFx(target.x + target.w / 2, Math.max(24, target.y), 'พลาดของดี', '#fbbf24');
   playSfx('miss-good');
   updateHint('มีของดีหลุดไปแล้ว รีบเก็บชิ้นต่อไป');
@@ -3262,8 +2282,8 @@ function enterPhase2() {
   state.phase = 2;
   clearTargets();
   state.spawnAccum = 0;
-  showBanner('Mission 2', `เก่งมาก! ต่อไปเก็บให้ถึง ${getPhaseGoal(2)} คะแนน`, 1400);
-  updateHint('ด่าน 2 เริ่มแล้ว เก็บของดีต่อไป และระวัง junk ให้มากขึ้น');
+  showBanner('PHASE 2', `เร็วขึ้น • junk มากขึ้น • เก็บให้ถึงเป้าหมาย ${getPhaseGoal(2)}`, 1400);
+  updateHint('Phase 2 เริ่มแล้ว! อ่านเป้าให้แม่นและอย่ารีบกดผิด');
   renderHud();
 
   logGameEvent('phase_transition', {
@@ -3284,28 +2304,24 @@ function enterBossPhase() {
   state.boss.enrage = false;
   state.boss.stormAccum = 0;
   state.boss.weakTick = 0;
-  state.boss.finishGuardTriggered = false;
-  state.boss.reviveCount = 0;
   ui.bossWrap?.classList.add('show');
 
   applyBossPattern(0);
   state.boss.patternTimeLeft = 3200;
+  syncBossStage(true);
 
   showBanner(
-    'Boss Mission!',
-    `ถึงเวลาไปช่วยกันปราบ Junk King แล้ว แตะจุดอ่อนให้แม่นนะ`,
+    'BOSS PHASE',
+    `โหมดเวลา ${getRunTimeSeconds()} วินาที • อ่านสัญญาณเตือน แล้วแตะเป้าทองเพื่อโจมตี Junk King`,
     1700
   );
-  updateHint('มองหาเป้าทอง แล้วแตะให้แม่นเพื่อโจมตีบอส');
+  updateHint('รอเป้าทอง แล้วแตะให้แม่น');
   renderHud();
 
   logGameEvent('boss_enter', {
     reachedBossAtMs: state.research.reachedBossAtMs,
     bossHpStart: state.boss.hp,
-    timeBand: getTimeBand(),
-    requiredWeakHits: getBossClearRequirements().minWeakHits,
-    requiredPatternHitEach: getBossClearRequirements().minPatternHitEach,
-    requiredBossMs: getBossClearRequirements().minBossMs
+    timeBand: getTimeBand()
   });
 }
 
@@ -3332,133 +2348,23 @@ function formatTime(ms) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function getSummaryStars(summary) {
-  if (summary.bossDefeated && Number(summary.miss || 0) <= 1) return 3;
-  if (summary.bossDefeated) return 3;
-  if (summary.phaseReached === 'boss') return 2;
-  if (summary.phaseReached === 'phase-2') return 2;
-  return 1;
-}
-
-function getCoachMessage(summary) {
-  if (summary.bossDefeated && Number(summary.miss || 0) === 0) {
-    return 'สุดยอดมาก! เธอเลือกอาหารดีได้แม่นมาก และปกป้องเมืองจาก Junk King ได้สำเร็จ';
-  }
-  if (summary.bossDefeated) {
-    return 'เก่งมาก! เธอผ่านภารกิจและช่วยให้เมืองอาหารดีปลอดภัยแล้ว';
-  }
-  if (summary.phaseReached === 'boss') {
-    return 'เกือบชนะแล้ว! รอบหน้าลองอ่านจังหวะเป้าทองอีกนิด แล้วจะผ่านบอสได้แน่';
-  }
-  if (summary.phaseReached === 'phase-2') {
-    return 'ดีมาก! เธอผ่านด่านแรกได้แล้ว ลองลด miss ลงอีกนิดเพื่อไปถึงบอส';
-  }
-  return 'เริ่มต้นได้ดีมาก! ลองเก็บอาหารดีให้ต่อเนื่อง แล้วจะทำคะแนนได้สูงขึ้น';
-}
-
-function getRewardCoinsNow() {
-  return Math.max(0, Math.round(
-    Number(state.score || 0) +
-    Number(state.powerHits || 0) * 5 +
-    Math.max(0, 10 - Number(state.miss || 0)) * 2
-  ));
-}
-
-function getMissionBadgeNow() {
-  if (state.boss.active) return state.boss.enrage ? 'Boss Hero' : 'Boss Ready';
-  if (state.phase === 2) return 'Food Guard';
-  return 'Starter';
-}
-
-function getSummaryRibbonText(summary) {
-  if (summary.bossDefeated) return 'Great Job!';
-  if (summary.phaseReached === 'boss') return 'Almost There!';
-  if (summary.phaseReached === 'phase-2') return 'Nice Work!';
-  return 'Keep Going!';
-}
-
-function getPlayerDisplayName() {
-  return String(GJ_NAME || GJ_PID || 'Food Hero').trim() || 'Food Hero';
-}
-
-function getAvatarMoodNow() {
-  if (state.boss.active && state.boss.hp <= 0) return '🥳';
-  if (state.boss.active && state.boss.enrage) return '😤';
-  if (state.streak >= 8) return '😎';
-  if (state.miss >= 6) return '😅';
-  if (state.phase >= 2) return '😄';
-  return '🙂';
-}
-
-function getLevelNow() {
-  const score = Number(state.score || 0);
-  if (score >= 220) return 5;
-  if (score >= 160) return 4;
-  if (score >= 100) return 3;
-  if (score >= 50) return 2;
-  return 1;
-}
-
-function getMiniMissionText() {
-  if (state.boss.active) return '🏰 Boss Mission Active';
-  if (state.phase === 2) return '🍎 Collect More Good Food';
-  return '🌱 Beginner Food Hero';
-}
-
-function getSummaryHeroAvatar(summary) {
-  if (summary.bossDefeated) return '🥳';
-  if (summary.phaseReached === 'boss') return '😄';
-  if (summary.phaseReached === 'phase-2') return '🙂';
-  return '😊';
-}
-
-function getSummaryHeroName(summary) {
-  if (summary.bossDefeated) return 'Food Hero Complete!';
-  if (summary.phaseReached === 'boss') return 'Boss Mission Reached!';
-  if (summary.phaseReached === 'phase-2') return 'Mission 2 Complete!';
-  return 'Good Start!';
-}
-
-function getSummaryHeroDesc(summary) {
-  if (summary.bossDefeated) return 'เธอช่วยปกป้องเมืองอาหารดีและเอาชนะ Junk King ได้แล้ว';
-  if (summary.phaseReached === 'boss') return 'เธอไปถึงด่านบอสแล้ว รอบหน้าอีกนิดเดียวจะชนะได้แน่';
-  if (summary.phaseReached === 'phase-2') return 'เธอผ่านภารกิจช่วงแรกได้ดีมาก เหลืออีกนิดเดียวจะถึงบอส';
-  return 'เริ่มต้นได้ดีมาก ลองเก็บอาหารดีต่อเนื่องอีกนิดนะ';
-}
-
-function getHubReturnTitle(summary) {
-  if (summary.bossDefeated) return 'กลับไปเลือกภารกิจใหม่ได้เลย';
-  return 'พร้อมลองอีกครั้งหรือไปภารกิจถัดไป';
-}
-
-function getHubReturnDesc(summary) {
-  if (summary.bossDefeated) {
-    return 'ไปที่ HeroHealth Hub เพื่อเลือกเกมโซนอื่น หรือกลับมาเก็บคะแนนเพิ่มก็ได้';
-  }
-  return 'กลับไปที่ HeroHealth Hub เพื่อเลือกโหมดอื่น หรือเล่น GoodJunk ต่อเพื่อทำดาวเพิ่ม';
-}
-
 function renderHud() {
-  const bossReq = getBossClearRequirements();
-  const bossCheck = getBossClearCheck();
-
   if (ui.score) ui.score.textContent = String(state.score);
   if (ui.timer) ui.timer.textContent = formatTime(state.timeLeftMs);
   if (ui.miss) ui.miss.textContent = String(state.miss);
   if (ui.streak) ui.streak.textContent = String(state.streak);
 
   if (ui.phasePill) {
-    ui.phasePill.textContent = getPhaseLabelText();
+    ui.phasePill.textContent = state.boss.active ? 'BOSS PHASE' : `PHASE ${state.phase}`;
   }
 
   if (ui.goalText) {
-    if (state.phase === 1 && !state.boss.active) {
-      ui.goalText.textContent = `เก็บอาหารดีให้ถึง ${getPhaseGoal(1)} คะแนน`;
-    } else if (state.phase === 2 && !state.boss.active) {
-      ui.goalText.textContent = `เร่งคะแนนต่อให้ถึง ${getPhaseGoal(2)} คะแนน`;
+    if (state.phase === 1) {
+      ui.goalText.textContent = `GOAL สะสมคะแนน • เป้าหมาย ${getPhaseGoal(1)}`;
+    } else if (state.phase === 2) {
+      ui.goalText.textContent = `GOAL เร่งคะแนนต่อ • เป้าหมาย ${getPhaseGoal(2)}`;
     } else {
-      ui.goalText.textContent =
-        `แตะจุดอ่อน ${state.research.weakspotHit}/${bossReq.minWeakHits} • HP ${state.boss.hp}`;
+      ui.goalText.textContent = `GOAL โจมตี weak spot • HP เหลือ ${state.boss.hp}`;
     }
   }
 
@@ -3469,83 +2375,34 @@ function renderHud() {
 
   if (ui.stats) {
     ui.stats.innerHTML = `
-      <div><strong>Good:</strong> ${state.hitsGood}</div>
-      <div><strong>Junk:</strong> ${state.hitsBad}</div>
-      <div><strong>Missed:</strong> ${state.missedGood}</div>
-      <div><strong>Power:</strong> ${state.powerHits}</div>
+      <div><strong>Good hit:</strong> ${state.hitsGood}</div>
+      <div><strong>Junk hit:</strong> ${state.hitsBad}</div>
+      <div><strong>Good missed:</strong> ${state.missedGood}</div>
+      <div><strong>Power hit:</strong> ${state.powerHits}</div>
     `;
   }
 
-  if (ui.rewardCoins) {
-    ui.rewardCoins.textContent = String(getRewardCoinsNow());
-  }
-
-  if (ui.rewardStars) {
-    ui.rewardStars.textContent = String(getSummaryStars({
-      bossDefeated: state.boss.active && state.boss.hp <= 0 && bossCheck.ok,
-      phaseReached: state.boss.active ? 'boss' : (state.phase === 2 ? 'phase-2' : 'phase-1'),
-      miss: state.miss
-    }));
-  }
-
-  if (ui.rewardBadge) {
-    ui.rewardBadge.textContent = getMissionBadgeNow();
-  }
-
-  if (ui.stageBadge) {
-    ui.stageBadge.textContent = state.boss.active ? '🏰 Boss Garden' : '🌱 Healthy Town';
-  }
-
-  if (ui.playerAvatar) {
-    ui.playerAvatar.textContent = getAvatarMoodNow();
-  }
-
-  if (ui.playerName) {
-    ui.playerName.textContent = getPlayerDisplayName();
-  }
-
-  if (ui.playerSub) {
-    ui.playerSub.textContent = state.boss.active
-      ? 'กำลังสู้กับ Junk King'
-      : (state.phase === 2 ? 'ภารกิจระดับกลางแล้ว' : 'พร้อมเริ่มภารกิจอาหารดี');
-  }
-
-  if (ui.levelBadge) {
-    ui.levelBadge.textContent = String(getLevelNow());
-  }
-
-  if (ui.miniMission) {
-    ui.miniMission.textContent = getMiniMissionText();
-  }
-
-  if (ui.bossName) {
-    ui.bossName.textContent = ui.bossWrap?.classList.contains('defeated')
-      ? 'Junk King Down!'
-      : 'Junk King';
-  }
-
-  if (ui.bossHpText) {
-    ui.bossHpText.textContent =
-      `${state.boss.hp} / ${state.boss.maxHp} • Weak ${state.research.weakspotHit}/${bossReq.minWeakHits}`;
-  }
-
+  if (ui.bossName) ui.bossName.textContent = ui.bossWrap?.classList.contains('defeated') ? 'Junk King Down!' : 'Junk King';
+  if (ui.bossHpText) ui.bossHpText.textContent = `${state.boss.hp} / ${state.boss.maxHp}`;
   if (ui.bossHpBar) {
     const hpRatio = state.boss.maxHp > 0 ? state.boss.hp / state.boss.maxHp : 0;
     ui.bossHpBar.style.transform = `scaleX(${clamp(hpRatio, 0, 1)})`;
   }
-
   if (ui.bossState) {
     if (!state.boss.active) {
-      ui.bossState.textContent = 'เตรียมตัวก่อนเข้าด่านบอส';
+      ui.bossState.textContent = 'รอเข้าสู่บอส';
     } else if (state.boss.telegraphMs > 0) {
       ui.bossState.textContent = `เตรียมท่า: ${getBossPatternName(state.boss.nextPatternIndex)}`;
-    } else if (ui.bossWrap?.classList.contains('defeated')) {
-      ui.bossState.textContent = 'ภารกิจสำเร็จแล้ว';
+    } else if (state.boss.enrage) {
+      ui.bossState.textContent = `${state.boss.patternLabel} • ENRAGE`;
     } else {
-      const needText = buildBossNeedText(bossCheck);
-      ui.bossState.textContent =
-        `${state.boss.patternLabel} • ${state.boss.enrage ? 'โหมดโกรธ • ' : ''}${needText}`;
+      ui.bossState.textContent = state.boss.patternLabel;
     }
+  }
+  if (ui.bossStagePill) {
+    const stage = getBossStage();
+    const label = getBossStageConfig().label || 'LEARN';
+    ui.bossStagePill.textContent = `STAGE ${stage} • ${label}`;
   }
 }
 
@@ -3566,14 +2423,9 @@ function endGame(reason = 'finished') {
     state.research.bossDurationMs = 0;
   }
 
-  const cloudLoggerReady = !!getCloudLogger();
-  const cloudEndpointReady = !!HHA_ENDPOINT;
-  const cloudStatus = getCloudStatusSnapshot();
-  const bossReq = getBossClearRequirements();
-
   const summary = {
     version: PATCH_VERSION,
-    source: 'goodjunk-solo-phaseboss',
+    source: 'goodjunk-solo-phaseboss-v2',
     gameId: GJ_GAME_ID,
     mode: 'solo',
     pid: GJ_PID,
@@ -3602,7 +2454,7 @@ function endGame(reason = 'finished') {
     bossEnraged: state.boss.enrage,
     bossVictoryShown: state.finishing,
     bossStuns: state.bossStuns,
-    bossReviveCount: state.boss.reviveCount,
+    bossStageFinal: getBossStage(),
     phaseGoal1: getPhaseGoal(1),
     phaseGoal2: getPhaseGoal(2),
     timeBand: getTimeBand(),
@@ -3616,20 +2468,6 @@ function endGame(reason = 'finished') {
     stormAvoidRatePct: getStormAvoidRatePct(),
     patternStarts: { ...state.research.patternStarts },
     patternWeakHits: { ...state.research.patternWeakHits },
-
-    bossRequiredWeakHits: bossReq.minWeakHits,
-    bossRequiredPatternHitEach: bossReq.minPatternHitEach,
-    bossRequiredMinMs: bossReq.minBossMs,
-
-    cloudLoggerReady,
-    cloudEndpointReady,
-    cloudQueueTotal: cloudStatus.queueTotal,
-    cloudQueueSessions: cloudStatus.queueSessions,
-    cloudQueueEvents: cloudStatus.queueEvents,
-    cloudQueueProfiles: cloudStatus.queueProfiles,
-    cloudLastFlushAt: cloudStatus.lastFlushAt,
-    cloudLastOkAt: cloudStatus.lastOkAt,
-    cloudLastError: cloudStatus.lastError,
     updatedAt: Date.now()
   };
 
@@ -3644,6 +2482,7 @@ function endGame(reason = 'finished') {
 
   state.summaryPayload = summary;
   persistSummary(summary);
+  persistSoloBossReward(summary);
   logSessionSummary(summary);
   showSummary(summary);
 }
@@ -3655,45 +2494,54 @@ function getBossOutcomeLabel(summary) {
   return 'Reached Phase 1';
 }
 
+function getSoloBossStars(summary) {
+  if (summary.bossDefeated && summary.miss <= 6 && summary.weakspotHitRatePct >= 65) return 3;
+  if (summary.bossDefeated || summary.phaseReached === 'boss') return 2;
+  return 1;
+}
+
+function getSoloBossReason(summary) {
+  if (summary.bossDefeated && summary.weakspotHitRatePct >= 70) return 'แม่นจุดอ่อนมาก';
+  if (summary.stormAvoidRatePct >= 75) return 'หลบ Junk Storm ดีมาก';
+  if (summary.bestStreak >= 8) return 'รักษาคอมโบได้ยอดเยี่ยม';
+  if (summary.phaseReached === 'boss') return 'อ่านเกมจนถึงบอสได้แล้ว';
+  return 'เริ่มต้นได้ดี';
+}
+
 function showSummary(summary) {
   if (!ui.summary || !ui.summaryGrid) return;
 
-  const stars = getSummaryStars(summary);
+  const stars = getSoloBossStars(summary);
+  const reason = getSoloBossReason(summary);
+
   const title = summary.bossDefeated
-    ? 'Great Job!'
+    ? 'เยี่ยมมาก! ปราบ Junk King ได้แล้ว'
     : summary.phaseReached === 'boss'
-      ? 'Almost There!'
+      ? 'เกือบชนะแล้ว! ถึงบอสแล้ว'
       : summary.phaseReached === 'phase-2'
-        ? 'Nice Work!'
-        : 'Good Start!';
+        ? 'ผ่านด่านก่อนบอสแล้ว'
+        : 'เริ่มต้นได้ดีมาก';
 
   const sub = summary.bossDefeated
-    ? `เธอปราบ Junk King ได้แล้ว • weakspot ${summary.weakspotHitRatePct}%`
-    : summary.phaseReached === 'boss'
-      ? `ถึงบอสแล้ว • หลบ storm ได้ ${summary.stormAvoidRatePct}%`
-      : `เล่นต่ออีกนิด แล้วจะไปได้ไกลกว่าเดิม`;
+    ? `วันนี้เด่นเรื่อง “${reason}” • ได้ ${stars} ดาว`
+    : `วันนี้เด่นเรื่อง “${reason}” • รอบหน้าไปได้อีกไกล`;
 
   ui.summaryTitle.textContent = title;
   ui.summarySub.textContent = sub;
-  if (ui.summaryRibbon) ui.summaryRibbon.textContent = getSummaryRibbonText(summary);
-  if (ui.summaryScoreValue) ui.summaryScoreValue.textContent = String(summary.score || 0);
-
-  if (ui.summaryHeroAvatar) ui.summaryHeroAvatar.textContent = getSummaryHeroAvatar(summary);
-  if (ui.summaryHeroName) ui.summaryHeroName.textContent = getSummaryHeroName(summary);
-  if (ui.summaryHeroDesc) ui.summaryHeroDesc.textContent = getSummaryHeroDesc(summary);
-  if (ui.hubTitle) ui.hubTitle.textContent = getHubReturnTitle(summary);
-  if (ui.hubDesc) ui.hubDesc.textContent = getHubReturnDesc(summary);
-
-  const starsRow = document.getElementById('gjpbStarsRow');
-  if (starsRow) {
-    starsRow.innerHTML = `
-      <span class="gjpb-star ${stars >= 1 ? 'on' : 'off'}">⭐</span>
-      <span class="gjpb-star ${stars >= 2 ? 'on' : 'off'}">⭐</span>
-      <span class="gjpb-star ${stars >= 3 ? 'on' : 'off'}">⭐</span>
-    `;
-  }
 
   ui.summaryGrid.innerHTML = `
+    <div class="gjpb-summary-item">
+      <div class="label">Stars</div>
+      <div class="value">${'⭐'.repeat(stars)}</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">ผลงานเด่น</div>
+      <div class="value">${escapeHtml(reason)}</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">คะแนน</div>
+      <div class="value">${summary.score}</div>
+    </div>
     <div class="gjpb-summary-item">
       <div class="label">Miss</div>
       <div class="value">${summary.miss}</div>
@@ -3703,80 +2551,26 @@ function showSummary(summary) {
       <div class="value">${summary.bestStreak}</div>
     </div>
     <div class="gjpb-summary-item">
-      <div class="label">Reached</div>
+      <div class="label">ผลลัพธ์</div>
       <div class="value">${escapeHtml(getBossOutcomeLabel(summary))}</div>
     </div>
     <div class="gjpb-summary-item">
-      <div class="label">Reward Coins</div>
-      <div class="value">${Math.max(0, Math.round(
-        Number(summary.score || 0) +
-        Number(summary.powerHits || 0) * 5 +
-        Math.max(0, 10 - Number(summary.miss || 0)) * 2
-      ))}</div>
-    </div>
-
-    <div class="gjpb-summary-item">
-      <div class="label">Good Hit</div>
-      <div class="value">${summary.hitsGood}</div>
-    </div>
-    <div class="gjpb-summary-item">
-      <div class="label">Power Hit</div>
-      <div class="value">${summary.powerHits}</div>
-    </div>
-    <div class="gjpb-summary-item">
-      <div class="label">Boss Weak Hit</div>
-      <div class="value">${summary.weakspotHit}/${summary.bossRequiredWeakHits}</div>
-    </div>
-    <div class="gjpb-summary-item">
-      <div class="label">Boss Time</div>
-      <div class="value">${Math.round((summary.bossDurationMs || 0) / 1000)}s</div>
-    </div>
-
-    <div class="gjpb-summary-item">
-      <div class="label">Weakspot Rate</div>
+      <div class="label">Weakspot Hit Rate</div>
       <div class="value">${summary.weakspotHitRatePct}%</div>
     </div>
     <div class="gjpb-summary-item">
-      <div class="label">Storm Avoid</div>
+      <div class="label">Storm Avoid Rate</div>
       <div class="value">${summary.stormAvoidRatePct}%</div>
     </div>
     <div class="gjpb-summary-item">
-      <div class="label">Last Stand</div>
-      <div class="value">${summary.bossReviveCount || 0}</div>
+      <div class="label">Reached Boss At</div>
+      <div class="value">${summary.reachedBossAtMs ? Math.round(summary.reachedBossAtMs / 1000) + 's' : '-'}</div>
     </div>
     <div class="gjpb-summary-item">
-      <div class="label">Pattern Need</div>
-      <div class="value">each ${summary.bossRequiredPatternHitEach}</div>
-    </div>
-
-    <div class="gjpb-summary-item">
-      <div class="label">Time Profile</div>
-      <div class="value">${escapeHtml(summary.timeBand || 'standard')}</div>
-    </div>
-    <div class="gjpb-summary-item">
-      <div class="label">Cloud Client</div>
-      <div class="value">${summary.cloudLoggerReady ? 'ready' : 'missing'}</div>
-    </div>
-    <div class="gjpb-summary-item">
-      <div class="label">Cloud Endpoint</div>
-      <div class="value">${summary.cloudEndpointReady ? 'ready' : 'missing'}</div>
-    </div>
-    <div class="gjpb-summary-item">
-      <div class="label">Last Flush</div>
-      <div class="value">${escapeHtml(typeof formatCloudTs === 'function' ? formatCloudTs(summary.cloudLastOkAt || summary.cloudLastFlushAt) : '-')}</div>
-    </div>
-    <div class="gjpb-summary-item">
-      <div class="label">Queue Left</div>
-      <div class="value">${summary.cloudQueueTotal ?? 0}</div>
-    </div>
-    <div class="gjpb-summary-item">
-      <div class="label">Queue Events</div>
-      <div class="value">${summary.cloudQueueEvents ?? 0}</div>
+      <div class="label">Boss Duration</div>
+      <div class="value">${summary.bossDurationMs ? Math.round(summary.bossDurationMs / 1000) + 's' : '-'}</div>
     </div>
   `;
-
-  const coachText = document.getElementById('gjpbCoachText');
-  if (coachText) coachText.textContent = getCoachMessage(summary);
 
   ui.summary.hidden = false;
 }
@@ -3794,7 +2588,6 @@ function buildReplayUrl() {
   url.searchParams.set('run', RUN_CTX.run || 'play');
   url.searchParams.set('gameId', GJ_GAME_ID);
   url.searchParams.set('mode', 'solo');
-  if (HHA_ENDPOINT) url.searchParams.set('api', HHA_ENDPOINT);
   return url.toString();
 }
 
@@ -3816,7 +2609,6 @@ function buildCooldownUrl() {
   gate.searchParams.set('view', RUN_CTX.view || 'mobile');
   gate.searchParams.set('run', RUN_CTX.run || 'play');
   gate.searchParams.set('forcegate', '1');
-  if (HHA_ENDPOINT) gate.searchParams.set('api', HHA_ENDPOINT);
   return gate.toString();
 }
 
@@ -3837,7 +2629,7 @@ function persistSummary(summary) {
     localStorage.setItem(HHA_LAST_SUMMARY_KEY, JSON.stringify({
       source: summary.source,
       gameId: summary.gameId,
-      title: 'GoodJunk Solo Phase Boss',
+      title: 'GoodJunk Solo Phase Boss v2',
       mode: summary.mode,
       pid: summary.pid,
       studyId: summary.studyId,
@@ -3866,6 +2658,24 @@ function persistSummary(summary) {
   try {
     window.dispatchEvent(new CustomEvent('gj:solo-summary', { detail: summary }));
     window.dispatchEvent(new CustomEvent('hha:solo-summary', { detail: summary }));
+  } catch {}
+}
+
+function persistSoloBossReward(summary) {
+  const stars = getSoloBossStars(summary);
+  const reward = {
+    updatedAt: Date.now(),
+    pid: GJ_PID,
+    stars,
+    bossDefeated: !!summary.bossDefeated,
+    bestStreak: summary.bestStreak || 0,
+    weakspotHitRatePct: summary.weakspotHitRatePct || 0,
+    stormAvoidRatePct: summary.stormAvoidRatePct || 0,
+    score: summary.score || 0
+  };
+
+  try {
+    localStorage.setItem(GJ_SOLO_BOSS_REWARD_KEY, JSON.stringify(reward));
   } catch {}
 }
 
@@ -4001,12 +2811,12 @@ function beginBossDefeatSequence() {
   ui.stage?.classList.remove('stunned');
   clearTelegraphTheme();
 
-  if (ui.bossIcon) ui.bossIcon.textContent = '🏆';
-  if (ui.bossName) ui.bossName.textContent = 'Mission Clear!';
-  if (ui.bossState) ui.bossState.textContent = 'เธอช่วยเมืองอาหารดีได้แล้ว';
+  if (ui.bossIcon) ui.bossIcon.textContent = '💫';
+  if (ui.bossName) ui.bossName.textContent = 'Junk King Down!';
+  if (ui.bossState) ui.bossState.textContent = 'แพ้แล้ว • ทางสะอาดขึ้นแล้ว';
 
-  showBanner('Great Job!', 'เธอชนะแล้วและช่วยปราบ Junk King สำเร็จ', 900);
-  updateHint('ภารกิจสำเร็จ กำลังเข้าสู่หน้าสรุปผล');
+  showBanner('Junk King แพ้แล้ว!', 'ยอดเยี่ยม! คุณผ่านบอสสำเร็จ', 900);
+  updateHint('ชนะบอสแล้ว กำลังเข้าสู่หน้าสรุปผล');
 
   logGameEvent('boss_defeat_sequence_start', {
     bossHpRemaining: state.boss.hp,
@@ -4080,7 +2890,9 @@ function makeResearchSnapshot(summary) {
       bossHpRemaining: summary.bossHpRemaining,
       bossDurationMs: summary.bossDurationMs,
       reachedBossAtMs: summary.reachedBossAtMs,
-      bossStuns: summary.bossStuns
+      bossStuns: summary.bossStuns,
+      bossPatternLast: summary.bossPatternLast,
+      bossStageFinal: summary.bossStageFinal
     },
     precision: {
       weakspotSpawned: summary.weakspotSpawned,
