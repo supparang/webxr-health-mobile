@@ -1,13 +1,13 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-battle.safe.js
- * FULL PATCH v20260328-GOODJUNK-BATTLE-ENGINE-R2
+ * FULL PATCH v20260328-GOODJUNK-BATTLE-ENGINE-R3
  * ---------------------------------------------------------
  * Engine role:
  * - actual playable battle engine
  * - works with lobby schema: hha-battle/goodjunk/rooms/{roomId}/{meta,state,players}
  * - injects stage + HUD into #gameMount
  * - syncs score / hp / charge / attacks to Firebase
- * - host promotes countdown -> playing
+ * - host promotes waiting -> countdown -> playing
  * - host ends round when time up or someone is KO
  * - emits battle:* events for goodjunk.safe.battle.js
  * ========================================================= */
@@ -25,6 +25,7 @@
   const HEARTBEAT_MS = 2500;
   const ACTIVE_TTL_MS = 15000;
   const SYNC_MIN_MS = 120;
+  const COUNTDOWN_SEC = 3;
 
   const FIREBASE_SDKS = [
     'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js',
@@ -240,6 +241,7 @@
     lastRoundStartedAt: 0,
     hostEndingBusy: false,
     hostPromoteBusy: false,
+    hostCountdownBusy: false,
     bannerLockUntil: 0
   };
 
@@ -893,7 +895,7 @@
         ? 'ko'
         : STATE.started
           ? 'playing'
-          : 'waiting';
+          : (roomStatus() || 'waiting');
 
     const payload = {
       pid: STATE.pid,
@@ -1093,6 +1095,99 @@
     maybeAwardKoFromOpponentState();
     processRemoteAttacks(STATE.room.players);
     renderHud();
+  }
+
+  async function resetPlayersForNewRound(){
+    if (!STATE.refs.players) return;
+
+    const src = normalizeRoomPlayersMap(STATE.room.players);
+    const t = now();
+    const payload = {};
+
+    Object.keys(src).forEach((key) => {
+      const p = src[key] || {};
+      const displayName = cleanText(p.name || p.nick || 'Player', 40);
+      const uid = cleanPid(p.uid || p.playerId || key);
+      const pid = cleanPid(p.pid || p.playerId || p.uid || key);
+
+      payload[key] = Object.assign({}, p, {
+        pid,
+        uid,
+        playerId: uid,
+        name: displayName,
+        nick: displayName,
+        connected: p.connected !== false,
+        ready: true,
+        status: 'countdown',
+
+        score: 0,
+        miss: 0,
+        combo: 0,
+        bestStreak: 0,
+
+        hp: 100,
+        maxHp: 100,
+        shield: 0,
+
+        attackCharge: 0,
+        maxAttackCharge: 100,
+        attackReady: false,
+
+        attacksUsed: 0,
+        damageDealt: 0,
+        damageTaken: 0,
+        koCount: 0,
+
+        lastAttackId: '',
+        lastAttackAt: 0,
+        lastAttackDamage: 0,
+        lastAttackTarget: '',
+
+        updatedAt: t,
+        lastSeen: t,
+        joinedAt: num(p.joinedAt, t)
+      });
+    });
+
+    if (Object.keys(payload).length){
+      await STATE.refs.players.update(payload);
+    }
+  }
+
+  async function maybeHostStartCountdown(){
+    if (!isHost() || !STATE.refs.state || STATE.hostCountdownBusy) return;
+    if (roomStatus() !== 'waiting') return;
+
+    const readyPlayers = activePlayers().filter((p) => p.ready !== false);
+    if (readyPlayers.length < 2) return;
+
+    STATE.hostCountdownBusy = true;
+    try {
+      const countdownEndsAt = now() + COUNTDOWN_SEC * 1000;
+
+      const tx = await STATE.refs.state.transaction((cur) => {
+        cur = cur || {};
+        const status = String(cur.status || 'waiting');
+        if (status !== 'waiting') return cur;
+
+        cur.status = 'countdown';
+        cur.plannedSec = clamp(cur.plannedSec || STATE.timeSec, 30, 300);
+        cur.countdownEndsAt = countdownEndsAt;
+        cur.startedAt = 0;
+        cur.endsAt = 0;
+        cur.roundToken = `cd-${countdownEndsAt}`;
+        cur.updatedAt = now();
+        return cur;
+      });
+
+      if (tx && tx.committed) {
+        await resetPlayersForNewRound();
+      }
+    } catch (err){
+      console.warn('[gj-battle] host start countdown failed:', err);
+    } finally {
+      STATE.hostCountdownBusy = false;
+    }
   }
 
   async function maybeHostPromoteCountdown(){
@@ -1327,10 +1422,14 @@
     }
 
     if (status === 'waiting'){
-      const actives = activePlayers().length;
-      setBanner(actives >= 2
-        ? 'รอหัวหน้าห้องกด Start จาก Lobby…'
-        : `รอผู้เล่นเพิ่มอีก ${Math.max(0, 2 - actives)} คน`);
+      if (isHost()) maybeHostStartCountdown();
+
+      const actives = activePlayers().filter((p) => p.ready !== false).length;
+      if (actives >= 2) {
+        setBanner('ผู้เล่นครบแล้ว กำลังเตรียมนับถอยหลัง...');
+      } else {
+        setBanner(`รอผู้เล่นเพิ่มอีก ${Math.max(0, 2 - actives)} คน`);
+      }
       return;
     }
 
@@ -1549,6 +1648,7 @@
       } else if ((status === 'ended' || status === 'finished') && !STATE.finished){
         finishGame('room-state-ended');
       } else if (status === 'waiting' && !STATE.started && !STATE.finished){
+        if (isHost()) maybeHostStartCountdown();
         setBanner('รอหัวหน้าห้องเริ่มรอบ Battle…');
       }
     });
@@ -1574,6 +1674,7 @@
       }
 
       if (isHost()) {
+        maybeHostStartCountdown();
         maybeHostPromoteCountdown();
         maybeHostEndRound();
       }
@@ -1592,6 +1693,7 @@
       }).catch(() => {});
 
       if (isHost()){
+        maybeHostStartCountdown();
         maybeHostPromoteCountdown();
         maybeHostEndRound();
       }
@@ -1630,6 +1732,9 @@
     } else if (status === 'countdown'){
       setBanner('กำลังนับถอยหลังก่อนเริ่ม Battle…');
       if (isHost()) maybeHostPromoteCountdown();
+    } else if (status === 'waiting'){
+      if (isHost()) maybeHostStartCountdown();
+      setBanner('เชื่อมห้องสำเร็จ รอผู้เล่นเข้าครบ…');
     } else {
       setBanner('เชื่อมห้องสำเร็จ รอสถานะเล่นจาก Lobby…');
     }
@@ -1643,7 +1748,7 @@
 
   function failUi(err){
     console.error('[gj-battle] init failed:', err);
-    try{ buildDom(); }catch{}
+    try { buildDom(); } catch {}
     setBanner('เข้า GoodJunk Battle ไม่สำเร็จ');
     if (UI.opponentStrip){
       UI.opponentStrip.innerHTML = `
