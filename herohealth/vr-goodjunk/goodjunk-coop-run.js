@@ -1,15 +1,16 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-coop-run.js
- * FULL PATCH v20260328-GOODJUNK-COOP-ENGINE-R1
+ * FULL PATCH v20260328-GOODJUNK-COOP-ENGINE-R2
  * ---------------------------------------------------------
  * Coop gameplay engine
- * - works with lobby room path: hha-battle/goodjunk/rooms/{roomId}
  * - participant-locked coop round
  * - falling good/junk gameplay
+ * - team mission
+ * - power-up: shield / double / freeze
+ * - boss phase
  * - live score sync to Firebase
  * - team score / goal / players sync
  * - summary event bridge for run shell + CoopSafe
- * - loads goodjunk.safe.coop.js automatically
  * ========================================================= */
 
 (() => {
@@ -47,9 +48,9 @@
   const JUNK_ITEMS = ['🍔','🍟','🍩','🍭','🥤','🍕','🧁','🍫'];
 
   const PRESETS = {
-    easy:   { spawnMs: 900, goodRatio: 0.74, speedMin: 110, speedMax: 170, sizeMin: 68, sizeMax: 92, junkPenalty: 6, goodReward: 10 },
-    normal: { spawnMs: 760, goodRatio: 0.67, speedMin: 135, speedMax: 220, sizeMin: 62, sizeMax: 86, junkPenalty: 7, goodReward: 10 },
-    hard:   { spawnMs: 620, goodRatio: 0.60, speedMin: 165, speedMax: 280, sizeMin: 56, sizeMax: 80, junkPenalty: 8, goodReward: 11 }
+    easy:   { spawnMs: 900, goodRatio: 0.75, speedMin: 110, speedMax: 170, sizeMin: 68, sizeMax: 92, junkPenalty: 6, goodReward: 10, bossHp: 6, bossReward: 36 },
+    normal: { spawnMs: 760, goodRatio: 0.67, speedMin: 135, speedMax: 220, sizeMin: 62, sizeMax: 86, junkPenalty: 7, goodReward: 10, bossHp: 8, bossReward: 48 },
+    hard:   { spawnMs: 620, goodRatio: 0.60, speedMin: 165, speedMax: 280, sizeMin: 56, sizeMax: 80, junkPenalty: 8, goodReward: 11, bossHp: 10, bossReward: 60 }
   };
 
   const state = {
@@ -68,6 +69,7 @@
 
     loopRaf: 0,
     spawnAccum: 0,
+    powerAccum: 0,
     lastTs: 0,
     startedAtPerf: 0,
     timeLeftMs: ctx.time * 1000,
@@ -85,6 +87,19 @@
     junkHit: 0,
     goodMiss: 0,
 
+    shieldCharges: 0,
+    doubleUntil: 0,
+    freezeUntil: 0,
+
+    mission: null,
+    missionBonusGiven: false,
+    missionFailed: false,
+
+    bossStarted: false,
+    bossCleared: false,
+    bossId: '',
+    bossHits: 0,
+
     targets: new Map(),
     targetSeq: 0,
 
@@ -97,6 +112,15 @@
     stage: null,
     layer: null,
     note: null,
+    missionTitle: null,
+    missionDesc: null,
+    missionProgress: null,
+    missionBadge: null,
+    powerShield: null,
+    powerDouble: null,
+    powerFreeze: null,
+    bossWrap: null,
+    bossFill: null,
     hudScore: null,
     hudTime: null,
     hudMiss: null,
@@ -248,7 +272,7 @@
 
   function teamGoal(room = state.room) {
     const count = Math.max(2, participants(room).length || 0);
-    const base = ctx.diff === 'easy' ? 80 : ctx.diff === 'hard' ? 120 : 100;
+    const base = ctx.diff === 'easy' ? 85 : ctx.diff === 'hard' ? 125 : 105;
     return base * count;
   }
 
@@ -286,6 +310,14 @@
       });
   }
 
+  function activeDouble() {
+    return now() < state.doubleUntil;
+  }
+
+  function activeFreeze() {
+    return now() < state.freezeUntil;
+  }
+
   function writeBridgeHud() {
     if (ui.hudScore) ui.hudScore.textContent = String(state.score);
     if (ui.hudTime) ui.hudTime.textContent = fmtClock(Math.ceil(state.timeLeftMs / 1000));
@@ -296,6 +328,27 @@
     if (ui.hudContribution) ui.hudContribution.textContent = String(state.contribution);
     if (ui.hudPlayers) ui.hudPlayers.textContent = String(participants().length);
     if (ui.hudFill) ui.hudFill.style.width = `${Math.round(clamp01(teamScore() / Math.max(1, teamGoal())) * 100)}%`;
+
+    if (ui.powerShield) ui.powerShield.textContent = `🛡️ ${state.shieldCharges}`;
+    if (ui.powerDouble) ui.powerDouble.textContent = activeDouble() ? `✨ x2 ${Math.ceil((state.doubleUntil - now())/1000)}s` : '✨ x2 0s';
+    if (ui.powerFreeze) ui.powerFreeze.textContent = activeFreeze() ? `❄️ ${Math.ceil((state.freezeUntil - now())/1000)}s` : '❄️ 0s';
+
+    if (state.mission) {
+      if (ui.missionTitle) ui.missionTitle.textContent = state.mission.title;
+      if (ui.missionDesc) ui.missionDesc.textContent = state.mission.desc;
+      if (ui.missionProgress) ui.missionProgress.textContent = missionProgressText();
+      if (ui.missionBadge) {
+        ui.missionBadge.textContent = state.mission.cleared ? '✅' : '🎯';
+        ui.missionBadge.style.background = state.mission.cleared ? 'linear-gradient(180deg,#eaffdf,#fffef9)' : 'linear-gradient(180deg,#f2ecff,#fffef9)';
+      }
+      if (ui.bossWrap) ui.bossWrap.style.display = state.bossStarted ? '' : 'none';
+      if (ui.bossFill) {
+        const boss = state.targets.get(state.bossId);
+        const hpMax = state.mission?.bossHp || preset().bossHp;
+        const hpNow = boss && boss.kind === 'boss' ? boss.hp : (state.bossCleared ? 0 : hpMax);
+        ui.bossFill.style.width = `${Math.round(clamp01(hpNow / Math.max(1, hpMax)) * 100)}%`;
+      }
+    }
   }
 
   function pushBridgeState() {
@@ -316,6 +369,10 @@
       playersReady: participants().filter((p) => p.ready).length,
       helps: state.helps,
       stars: state.stars,
+      missionLabel: state.mission?.title || '',
+      missionCleared: !!state.mission?.cleared,
+      shieldCharges: state.shieldCharges,
+      bossCleared: state.bossCleared,
       players: summaryPlayers.map((p) => ({
         pid: p.pid,
         name: p.name,
@@ -400,10 +457,22 @@
         background:linear-gradient(180deg,#fff7f4,#fffef9);
         border:3px solid rgba(255,165,86,.96);
       }
+      .gj-coop-target.power{
+        background:linear-gradient(180deg,#f2ecff,#fffef9);
+        border:3px solid rgba(122,99,199,.82);
+      }
+      .gj-coop-target.boss{
+        background:linear-gradient(180deg,#ffe8df,#fff5e7);
+        border:4px solid rgba(255,136,63,.96);
+        box-shadow:0 18px 34px rgba(255,138,61,.20);
+      }
       .gj-coop-emoji{
         font-size:clamp(28px,4vw,42px);
         line-height:1;
         filter:drop-shadow(0 4px 8px rgba(0,0,0,.10));
+      }
+      .gj-coop-target.boss .gj-coop-emoji{
+        font-size:clamp(38px,6vw,58px);
       }
       .gj-coop-tag{
         position:absolute;left:50%;bottom:6px;transform:translateX(-50%);
@@ -414,15 +483,77 @@
         position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
         min-width:min(84vw,380px);max-width:min(90vw,520px);
         padding:16px 18px;border-radius:24px;
-        background:rgba(255,255,255,.86);
+        background:rgba(255,255,255,.88);
         border:3px solid rgba(191,227,242,.98);
         box-shadow:0 18px 40px rgba(86,155,194,.18);
         color:#6d6a62;text-align:center;font-size:18px;font-weight:1000;
-        line-height:1.5;z-index:4;
+        line-height:1.5;z-index:7;
       }
       .gj-coop-note.hide{display:none}
+
+      .gj-coop-board{
+        position:absolute;left:12px;right:12px;top:12px;z-index:5;
+        display:flex;justify-content:space-between;gap:10px;align-items:flex-start;pointer-events:none;
+      }
+      .gj-coop-panel{
+        min-width:min(46vw,280px);
+        max-width:min(48vw,320px);
+        border-radius:22px;
+        background:rgba(255,255,255,.82);
+        border:3px solid rgba(191,227,242,.95);
+        box-shadow:0 10px 22px rgba(86,155,194,.14);
+        padding:12px;
+      }
+      .gj-coop-panel-title{
+        font-size:12px;font-weight:1000;color:#9884db;margin-bottom:6px;
+      }
+      .gj-coop-panel-badge{
+        width:42px;height:42px;border-radius:14px;
+        display:grid;place-items:center;
+        border:2px solid rgba(191,227,242,.95);
+        background:linear-gradient(180deg,#f2ecff,#fffef9);
+        font-size:22px;flex:0 0 auto;
+      }
+      .gj-coop-panel-row{
+        display:flex;gap:10px;align-items:flex-start;
+      }
+      .gj-coop-panel-main{
+        min-width:0;flex:1 1 auto;
+      }
+      .gj-coop-panel-main strong{
+        display:block;color:#4d4a42;font-size:16px;line-height:1.15;
+      }
+      .gj-coop-panel-main div{
+        margin-top:4px;color:#7b7a72;font-size:12px;line-height:1.6;font-weight:1000;
+      }
+      .gj-coop-minirow{
+        display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;
+      }
+      .gj-coop-mini{
+        display:inline-flex;align-items:center;gap:6px;
+        padding:8px 10px;border-radius:999px;
+        background:#fff;border:2px solid rgba(191,227,242,.95);
+        color:#6d6a62;font-size:12px;font-weight:1000;
+      }
+
+      .gj-coop-boss{
+        margin-top:10px;display:none;
+      }
+      .gj-coop-boss-label{
+        font-size:11px;font-weight:1000;color:#a05a25;margin-bottom:6px;
+      }
+      .gj-coop-boss-bar{
+        height:14px;border-radius:999px;overflow:hidden;
+        background:rgba(255,255,255,.72);
+        border:2px solid rgba(255,185,132,.9);
+      }
+      .gj-coop-boss-fill{
+        height:100%;width:100%;
+        background:linear-gradient(90deg,#ffcf6a,#ff9e4a,#ff7548);
+      }
+
       .gj-coop-fx{
-        position:absolute;z-index:5;font-size:20px;font-weight:1000;
+        position:absolute;z-index:8;font-size:20px;font-weight:1000;
         transform:translate(-50%,-50%);
         pointer-events:none;
         animation:gj-coop-fx-up .72s ease forwards;
@@ -431,7 +562,19 @@
         0%{opacity:1;transform:translate(-50%,-20%) scale(.94)}
         100%{opacity:0;transform:translate(-50%,-150%) scale(1.06)}
       }
+
       .gj-coop-bridge{display:none !important}
+
+      @media (max-width:760px){
+        .gj-coop-board{
+          left:10px; right:10px; top:10px;
+          flex-direction:column;
+          align-items:stretch;
+        }
+        .gj-coop-panel{
+          min-width:0; max-width:none;
+        }
+      }
     `;
     D.head.appendChild(style);
   }
@@ -440,6 +583,35 @@
     MOUNT.innerHTML = `
       <div id="gjCoopEngineRoot">
         <div class="gj-coop-stage" id="gjCoopStage">
+          <div class="gj-coop-board">
+            <div class="gj-coop-panel">
+              <div class="gj-coop-panel-title">TEAM MISSION</div>
+              <div class="gj-coop-panel-row">
+                <div class="gj-coop-panel-badge" id="gjMissionBadge">🎯</div>
+                <div class="gj-coop-panel-main">
+                  <strong id="gjMissionTitle">เตรียมภารกิจ...</strong>
+                  <div id="gjMissionDesc">กำลังเลือกภารกิจให้รอบนี้</div>
+                </div>
+              </div>
+              <div class="gj-coop-minirow">
+                <div class="gj-coop-mini" id="gjMissionProgress">...</div>
+              </div>
+              <div class="gj-coop-boss" id="gjBossWrap">
+                <div class="gj-coop-boss-label">BOSS HP</div>
+                <div class="gj-coop-boss-bar"><div class="gj-coop-boss-fill" id="gjBossFill"></div></div>
+              </div>
+            </div>
+
+            <div class="gj-coop-panel">
+              <div class="gj-coop-panel-title">POWER-UP</div>
+              <div class="gj-coop-minirow">
+                <div class="gj-coop-mini" id="gjPowerShield">🛡️ 0</div>
+                <div class="gj-coop-mini" id="gjPowerDouble">✨ x2 0s</div>
+                <div class="gj-coop-mini" id="gjPowerFreeze">❄️ 0s</div>
+              </div>
+            </div>
+          </div>
+
           <div class="gj-coop-layer" id="gjCoopLayer"></div>
           <div class="gj-coop-note" id="gjCoopNote">กำลังเตรียม GoodJunk Coop...</div>
 
@@ -462,6 +634,16 @@
     ui.stage = D.getElementById('gjCoopStage');
     ui.layer = D.getElementById('gjCoopLayer');
     ui.note = D.getElementById('gjCoopNote');
+
+    ui.missionTitle = D.getElementById('gjMissionTitle');
+    ui.missionDesc = D.getElementById('gjMissionDesc');
+    ui.missionProgress = D.getElementById('gjMissionProgress');
+    ui.missionBadge = D.getElementById('gjMissionBadge');
+    ui.powerShield = D.getElementById('gjPowerShield');
+    ui.powerDouble = D.getElementById('gjPowerDouble');
+    ui.powerFreeze = D.getElementById('gjPowerFreeze');
+    ui.bossWrap = D.getElementById('gjBossWrap');
+    ui.bossFill = D.getElementById('gjBossFill');
 
     ui.hudScore = D.getElementById('coopScoreValue');
     ui.hudTime = D.getElementById('coopTimeValue');
@@ -505,7 +687,154 @@
     setTimeout(() => fx.remove(), 740);
   }
 
-  function createTarget() {
+  function chooseMission() {
+    const pcount = Math.max(2, participants().length || 2);
+    const diffOffset = ctx.diff === 'easy' ? 0 : ctx.diff === 'hard' ? 2 : 1;
+    const selector = Math.floor(rand() * 3);
+
+    if (selector === 0) {
+      const goal = 14 + (pcount * 2) + diffOffset * 2;
+      return {
+        kind: 'collect',
+        goal,
+        title: 'Healthy Collector',
+        desc: `เก็บอาหารดีให้ได้อย่างน้อย ${goal} ชิ้น`,
+        cleared: false,
+        bonus: 28,
+        bossHp: preset().bossHp
+      };
+    }
+
+    if (selector === 1) {
+      const goal = ctx.diff === 'easy' ? 7 : ctx.diff === 'hard' ? 11 : 9;
+      return {
+        kind: 'streak',
+        goal,
+        title: 'Super Streak',
+        desc: `ทำสตรีกให้ถึง ${goal} ครั้ง`,
+        cleared: false,
+        bonus: 26,
+        bossHp: preset().bossHp
+      };
+    }
+
+    const goal = ctx.diff === 'easy' ? 4 : ctx.diff === 'hard' ? 6 : 5;
+    return {
+      kind: 'careful',
+      goal,
+      title: 'Careful Hero',
+      desc: `จบรอบโดยมี Miss ไม่เกิน ${goal}`,
+      cleared: false,
+      bonus: 24,
+      bossHp: preset().bossHp
+    };
+  }
+
+  function missionProgressText() {
+    if (!state.mission) return '-';
+    if (state.mission.kind === 'collect') {
+      return `เก็บแล้ว ${state.goodHit}/${state.mission.goal}`;
+    }
+    if (state.mission.kind === 'streak') {
+      return `สตรีกสูงสุด ${state.bestStreak}/${state.mission.goal}`;
+    }
+    if (state.mission.kind === 'careful') {
+      return `Miss ${state.miss}/${state.mission.goal}`;
+    }
+    return '-';
+  }
+
+  function maybeClearMission(fromFinish = false) {
+    if (!state.mission || state.mission.cleared || state.missionFailed) return false;
+
+    let ok = false;
+    if (state.mission.kind === 'collect') ok = state.goodHit >= state.mission.goal;
+    if (state.mission.kind === 'streak') ok = state.bestStreak >= state.mission.goal;
+    if (state.mission.kind === 'careful' && fromFinish) ok = state.miss <= state.mission.goal;
+
+    if (!ok) return false;
+
+    state.mission.cleared = true;
+    if (!state.missionBonusGiven) {
+      state.missionBonusGiven = true;
+      state.score += state.mission.bonus;
+      state.contribution = state.score;
+      state.stars += 1;
+      showNote(`Mission Clear!<br>+${state.mission.bonus} โบนัส`);
+      setTimeout(hideNote, 900);
+    }
+    return true;
+  }
+
+  function spawnPowerTarget() {
+    const powerKinds = ['shield','double','freeze'];
+    const powerType = pick(powerKinds);
+
+    const size = 70;
+    const x = clampInt(randRange(16, state.width - size - 16), 16, Math.max(16, state.width - size - 16));
+    const y = -size - 16;
+    const speed = 120;
+
+    const icon = powerType === 'shield' ? '🛡️' : powerType === 'double' ? '✨' : '❄️';
+    const label = powerType === 'shield' ? 'shield' : powerType === 'double' ? 'x2' : 'freeze';
+
+    const id = `gjc-p-${++state.targetSeq}`;
+    const el = D.createElement('button');
+    el.type = 'button';
+    el.className = 'gj-coop-target power';
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.width = `${size}px`;
+    el.style.height = `${size}px`;
+    el.innerHTML = `
+      <div class="gj-coop-emoji">${icon}</div>
+      <div class="gj-coop-tag">${label}</div>
+    `;
+
+    const target = { id, el, kind:'power', powerType, x, y, size, speed, dead:false };
+    el.addEventListener('click', () => hitTarget(target));
+
+    ui.layer.appendChild(el);
+    state.targets.set(id, target);
+  }
+
+  function spawnBossTarget() {
+    const size = clampInt(Math.min(state.width * 0.20, 136), 96, 136);
+    const x = clampInt(state.width * 0.5 - size * 0.5, 20, Math.max(20, state.width - size - 20));
+    const y = 72;
+    const hp = state.mission?.bossHp || preset().bossHp;
+
+    const id = `gjc-b-${++state.targetSeq}`;
+    const el = D.createElement('button');
+    el.type = 'button';
+    el.className = 'gj-coop-target boss';
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.width = `${size}px`;
+    el.style.height = `${size}px`;
+    el.innerHTML = `
+      <div class="gj-coop-emoji">👾</div>
+      <div class="gj-coop-tag">boss</div>
+    `;
+
+    const target = {
+      id, el, kind:'boss', x, y, size,
+      dx: rand() > .5 ? 160 : -160,
+      hp,
+      hpMax: hp,
+      dead:false
+    };
+
+    el.addEventListener('click', () => hitTarget(target));
+
+    ui.layer.appendChild(el);
+    state.targets.set(id, target);
+    state.bossId = id;
+    state.bossStarted = true;
+    ui.bossWrap.style.display = '';
+  }
+
+  function createFallingTarget() {
     if (!state.running) return;
 
     const p = preset();
@@ -528,7 +857,7 @@
       <div class="gj-coop-tag">${good ? 'good' : 'junk'}</div>
     `;
 
-    const target = { id, el, good, x, y, size, speed, dead: false };
+    const target = { id, el, kind:good ? 'good' : 'junk', x, y, size, speed, dead:false };
     el.addEventListener('click', () => hitTarget(target));
 
     ui.layer.appendChild(el);
@@ -540,6 +869,27 @@
     target.dead = true;
     state.targets.delete(target.id);
     target.el?.remove();
+    if (state.bossId === target.id) state.bossId = '';
+  }
+
+  function applyPower(powerType) {
+    if (powerType === 'shield') {
+      state.shieldCharges = Math.min(3, state.shieldCharges + 1);
+      showNote('Shield +1');
+      setTimeout(hideNote, 700);
+      return;
+    }
+    if (powerType === 'double') {
+      state.doubleUntil = now() + 6000;
+      showNote('Double Score 6s');
+      setTimeout(hideNote, 700);
+      return;
+    }
+    if (powerType === 'freeze') {
+      state.freezeUntil = now() + 4500;
+      showNote('Freeze 4.5s');
+      setTimeout(hideNote, 700);
+    }
   }
 
   function hitTarget(target) {
@@ -549,38 +899,94 @@
     const cx = target.x + target.size / 2;
     const cy = target.y + target.size / 2;
 
-    if (target.good) {
-      state.score += p.goodReward;
+    if (target.kind === 'good') {
+      const multi = activeDouble() ? 2 : 1;
+      const reward = p.goodReward * multi;
+      state.score += reward;
       state.contribution = state.score;
       state.streak += 1;
       state.bestStreak = Math.max(state.bestStreak, state.streak);
       state.goodHit += 1;
       state.helps += (state.streak > 0 && state.streak % 8 === 0) ? 1 : 0;
-      spawnFx(cx, cy, `+${p.goodReward}`, true);
-    } else {
-      state.score = Math.max(0, state.score - p.junkPenalty);
-      state.contribution = state.score;
-      state.miss += 1;
-      state.streak = 0;
-      state.junkHit += 1;
-      spawnFx(cx, cy, `-${p.junkPenalty}`, false);
+      spawnFx(cx, cy, `+${reward}`, true);
+      maybeClearMission(false);
+      writeBridgeHud();
+      pushBridgeState();
+      removeTarget(target);
+      return;
     }
 
-    writeBridgeHud();
-    pushBridgeState();
-    removeTarget(target);
+    if (target.kind === 'junk') {
+      if (state.shieldCharges > 0) {
+        state.shieldCharges -= 1;
+        spawnFx(cx, cy, 'SHIELD!', true);
+      } else {
+        state.score = Math.max(0, state.score - p.junkPenalty);
+        state.contribution = state.score;
+        state.miss += 1;
+        state.streak = 0;
+        state.junkHit += 1;
+        spawnFx(cx, cy, `-${p.junkPenalty}`, false);
+      }
+      writeBridgeHud();
+      pushBridgeState();
+      removeTarget(target);
+      return;
+    }
+
+    if (target.kind === 'power') {
+      applyPower(target.powerType);
+      writeBridgeHud();
+      pushBridgeState();
+      removeTarget(target);
+      return;
+    }
+
+    if (target.kind === 'boss') {
+      const hitPower = activeDouble() ? 2 : 1;
+      target.hp = Math.max(0, target.hp - hitPower);
+      state.bossHits += hitPower;
+      spawnFx(cx, cy, `HIT`, true);
+
+      if (target.hp <= 0) {
+        const reward = preset().bossReward * (activeDouble() ? 2 : 1);
+        state.score += reward;
+        state.contribution = state.score;
+        state.bossCleared = true;
+        state.stars += 1;
+        spawnFx(cx, cy, `+${reward}`, true);
+        showNote('Boss Clear!');
+        setTimeout(hideNote, 900);
+        removeTarget(target);
+      }
+
+      writeBridgeHud();
+      pushBridgeState();
+    }
   }
 
   function updateTargets(dtSec) {
+    const freezeFactor = activeFreeze() ? 0.45 : 1;
     const floorY = state.height + 40;
 
     state.targets.forEach((target) => {
       if (target.dead) return;
-      target.y += target.speed * dtSec;
+
+      if (target.kind === 'boss') {
+        target.x += target.dx * dtSec;
+        if (target.x <= 12 || target.x >= state.width - target.size - 12) {
+          target.dx *= -1;
+          target.x = Math.max(12, Math.min(state.width - target.size - 12, target.x));
+        }
+        target.el.style.left = `${target.x}px`;
+        return;
+      }
+
+      target.y += (target.speed * freezeFactor) * dtSec;
       target.el.style.top = `${target.y}px`;
 
       if (target.y > floorY) {
-        if (target.good) {
+        if (target.kind === 'good') {
           state.miss += 1;
           state.goodMiss += 1;
           state.streak = 0;
@@ -589,6 +995,17 @@
         removeTarget(target);
       }
     });
+  }
+
+  function maybeStartBossPhase() {
+    if (state.bossStarted || state.bossCleared) return;
+    const elapsed = state.totalMs - state.timeLeftMs;
+    if (elapsed < state.totalMs * 0.62) return;
+
+    state.bossStarted = true;
+    showNote('Boss Phase!');
+    setTimeout(hideNote, 900);
+    spawnBossTarget();
   }
 
   function gameFrame(ts) {
@@ -600,14 +1017,23 @@
     state.lastTs = ts;
     state.timeLeftMs = Math.max(0, state.totalMs - (ts - state.startedAtPerf));
     state.spawnAccum += dtMs;
+    state.powerAccum += dtMs;
 
     const p = preset();
+
     while (state.spawnAccum >= p.spawnMs) {
       state.spawnAccum -= p.spawnMs;
-      createTarget();
+      createFallingTarget();
     }
 
+    if (state.powerAccum >= 6500) {
+      state.powerAccum = 0;
+      spawnPowerTarget();
+    }
+
+    maybeStartBossPhase();
     updateTargets(dtSec);
+    maybeClearMission(false);
     pushBridgeState();
 
     if (state.timeLeftMs <= 0) {
@@ -812,6 +1238,7 @@
     state.timeLeftMs = ctx.time * 1000;
     state.totalMs = ctx.time * 1000;
     state.spawnAccum = 0;
+    state.powerAccum = 2200;
     state.lastTs = performance.now();
     state.startedAtPerf = state.lastTs;
 
@@ -821,9 +1248,23 @@
     state.bestStreak = 0;
     state.streak = 0;
     state.helps = 0;
+    state.stars = 0;
     state.goodHit = 0;
     state.junkHit = 0;
     state.goodMiss = 0;
+
+    state.shieldCharges = 0;
+    state.doubleUntil = 0;
+    state.freezeUntil = 0;
+
+    state.mission = chooseMission();
+    state.missionBonusGiven = false;
+    state.missionFailed = false;
+
+    state.bossStarted = false;
+    state.bossCleared = false;
+    state.bossId = '';
+    state.bossHits = 0;
 
     hideNote();
     writeBridgeHud();
@@ -835,6 +1276,8 @@
 
   async function finishGame(reason = 'finished') {
     if (state.ended) return;
+
+    maybeClearMission(true);
 
     state.ended = true;
     state.running = false;
@@ -898,6 +1341,13 @@
       bestStreak: state.bestStreak,
       duration: ctx.time,
       finalClear: teamScore() >= teamGoal(),
+      missionTitle: state.mission?.title || '',
+      missionDesc: state.mission?.desc || '',
+      missionCleared: !!state.mission?.cleared,
+      missionBonus: state.mission?.cleared ? state.mission?.bonus || 0 : 0,
+      shieldCharges: state.shieldCharges,
+      bossCleared: state.bossCleared,
+      stars: state.stars,
       endedAt: new Date().toISOString(),
       summary: {
         mode: 'coop',
@@ -916,6 +1366,13 @@
         roomId: ctx.roomId,
         result: teamScore() >= teamGoal() ? 'ผ่านเป้าหมายทีม' : 'จบรอบ',
         reason,
+        missionTitle: state.mission?.title || '',
+        missionDesc: state.mission?.desc || '',
+        missionCleared: !!state.mission?.cleared,
+        missionBonus: state.mission?.cleared ? state.mission?.bonus || 0 : 0,
+        shieldCharges: state.shieldCharges,
+        bossCleared: state.bossCleared,
+        stars: state.stars,
         endedAt: new Date().toISOString()
       }
     };
