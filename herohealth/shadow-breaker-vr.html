@@ -4,41 +4,77 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Shadow Breaker Launcher</title>
-  <meta name="color-scheme" content="dark light" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      color-scheme: dark;
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.56);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --blue:#3b82f6;
-      --violet:#a78bfa;
-      --good:#22c55e;
-      --warn:#f59e0b;
+      --sky1:#dff4ff;
+      --sky2:#eefcff;
+      --sky3:#fff7da;
+
+      --card:#fffdf6;
+      --card2:#f8fff3;
+      --line:#bfe3f2;
+      --line-strong:#98d4ec;
+
+      --text:#4d4a42;
+      --muted:#7b7a72;
+
+      --green:#7ed957;
+      --green2:#58c33f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd45c;
+      --yellow2:#ffbe3b;
+      --pink:#ffb7d5;
+      --violet:#c6b7ff;
+
+      --shadow:0 18px 40px rgba(111,157,183,.16);
+      --radius:26px;
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
+
     *{ box-sizing:border-box; }
     html,body{
       margin:0;
       min-height:100%;
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
       background:
-        radial-gradient(circle at 15% 10%, rgba(59,130,246,.18), transparent 45%),
-        radial-gradient(circle at 85% 90%, rgba(167,139,250,.16), transparent 45%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
+        radial-gradient(circle at 12% 14%, rgba(127,207,255,.34), transparent 28%),
+        radial-gradient(circle at 88% 10%, rgba(255,220,120,.22), transparent 24%),
+        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 48%, var(--sky3) 100%);
       color:var(--text);
     }
     a{ color:inherit; text-decoration:none; }
+    button,input,select{ font:inherit; }
+
+    .bg-clouds{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      pointer-events:none;
+      z-index:0;
+    }
+    .cloud{
+      position:absolute;
+      background:rgba(255,255,255,.65);
+      border-radius:999px;
+      filter:blur(1px);
+      box-shadow:0 10px 24px rgba(255,255,255,.22);
+    }
+    .c1{ width:140px; height:44px; left:6%; top:9%; }
+    .c2{ width:190px; height:58px; right:8%; top:13%; }
+    .c3{ width:120px; height:38px; left:18%; bottom:18%; }
+    .c4{ width:170px; height:52px; right:20%; bottom:24%; }
 
     .wrap{
+      position:relative;
+      z-index:1;
       max-width:980px;
       margin:0 auto;
       padding:
@@ -49,31 +85,69 @@
       min-height:100vh;
     }
 
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom:12px;
+      flex-wrap:wrap;
+    }
+
+    .backBtn,
+    .topPill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:42px;
+      padding:10px 14px;
+      border-radius:16px;
+      background:rgba(255,255,255,.88);
+      border:1px solid var(--line);
+      color:var(--text);
+      box-shadow:var(--shadow);
+      font-weight:1000;
+    }
+
+    .topPill{
+      color:#5f7b88;
+      border-radius:999px;
+    }
+
     .hero{
-      border-radius:24px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      box-shadow:0 24px 80px rgba(0,0,0,.38);
-      padding:20px 18px;
+      border-radius:28px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, var(--card), var(--card2));
+      box-shadow:var(--shadow);
+      padding:18px;
     }
 
     .kicker{
-      color:var(--muted);
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid var(--line);
+      color:#5f7b88;
       font-size:.82rem;
-      font-weight:900;
-      letter-spacing:.2px;
+      font-weight:1000;
     }
 
     h1{
-      margin:8px 0 6px;
-      font-size:1.7rem;
-      line-height:1.1;
+      margin:12px 0 6px;
+      font-size:clamp(1.8rem, 5vw, 2.8rem);
+      line-height:1.02;
+      color:#4f8f2c;
     }
 
     .sub{
-      color:rgba(226,232,240,.88);
-      line-height:1.5;
-      font-size:.96rem;
+      color:#786c61;
+      line-height:1.55;
+      font-size:1rem;
+      font-weight:800;
     }
 
     .row{
@@ -90,13 +164,14 @@
       gap:8px;
       padding:8px 10px;
       border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.52);
-      color:var(--muted);
+      border:1px solid var(--line);
+      background:#fff;
+      color:#7b7a72;
       font-size:.84rem;
-      font-weight:900;
+      font-weight:1000;
+      box-shadow:0 8px 16px rgba(111,157,183,.10);
     }
-    .pill b{ color:var(--text); }
+    .pill b{ color:#5a4a3f; }
 
     .grid{
       display:grid;
@@ -109,10 +184,10 @@
     }
 
     .card{
-      border-radius:22px;
-      border:1px solid var(--stroke);
-      background:var(--panel2);
-      box-shadow:0 18px 55px rgba(0,0,0,.28);
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, var(--card), var(--card2));
+      box-shadow:var(--shadow);
       padding:14px;
     }
 
@@ -120,6 +195,7 @@
       font-size:1rem;
       font-weight:1000;
       margin-bottom:8px;
+      color:#5a4a3f;
     }
 
     .field{
@@ -131,20 +207,24 @@
 
     .label{
       font-size:.82rem;
-      color:rgba(226,232,240,.92);
-      font-weight:900;
+      color:#6c6a62;
+      font-weight:1000;
     }
 
     .input, .select{
       width:100%;
-      min-height:44px;
+      min-height:46px;
       padding:10px 12px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.45);
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:#fff;
       color:var(--text);
       outline:none;
-      font:inherit;
+      box-shadow:0 8px 16px rgba(111,157,183,.08);
+    }
+    .input:focus, .select:focus{
+      border-color:#7fcfff;
+      box-shadow:0 0 0 3px rgba(127,207,255,.20);
     }
 
     .viewGrid{
@@ -159,22 +239,26 @@
 
     .viewCard{
       position:relative;
-      border-radius:20px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.26);
-      box-shadow:0 14px 28px rgba(0,0,0,.18);
+      border-radius:22px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.84);
+      box-shadow:0 12px 24px rgba(111,157,183,.12);
       padding:14px 12px;
       cursor:pointer;
       min-height:120px;
       display:flex;
       flex-direction:column;
       gap:8px;
+      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
     }
+    .viewCard:hover{ transform:translateY(-1px); }
     .viewCard.is-active{
-      border-color:rgba(59,130,246,.38);
-      background:rgba(59,130,246,.16);
-      box-shadow:0 0 0 3px rgba(59,130,246,.10), 0 18px 30px rgba(0,0,0,.22);
+      border-color:#75cf63;
+      background:linear-gradient(180deg, #8fe388, #58c33f);
+      box-shadow:0 16px 28px rgba(88,195,63,.18);
+      color:#fffdf6;
     }
+
     .viewCheck{
       position:absolute;
       top:10px;
@@ -184,20 +268,21 @@
       border-radius:999px;
       display:grid;
       place-items:center;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.52);
+      border:1px solid var(--line);
+      background:#fff;
       color:transparent;
       font-size:.86rem;
       font-weight:1000;
     }
     .viewCard.is-active .viewCheck{
-      color:#dcfce7;
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.14);
+      color:#4f8f2c;
+      border-color:#c9efbd;
+      background:#f4ffe8;
     }
     .viewEmoji{ font-size:2rem; line-height:1; }
     .viewTitle{ font-size:.98rem; font-weight:1000; }
-    .viewDesc{ font-size:.82rem; line-height:1.4; color:var(--muted); font-weight:800; }
+    .viewDesc{ font-size:.82rem; line-height:1.4; color:#7b7a72; font-weight:800; }
+    .viewCard.is-active .viewDesc{ color:#f3fff0; }
 
     .presetRow{
       display:flex;
@@ -208,12 +293,13 @@
     .presetBtn{
       min-height:42px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.28);
-      color:var(--text);
+      border:1px solid var(--line);
+      background:#fff;
+      color:#5a4a3f;
       padding:10px 12px;
       font-weight:1000;
       cursor:pointer;
+      box-shadow:0 8px 16px rgba(111,157,183,.10);
     }
 
     .actions{
@@ -227,27 +313,43 @@
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:44px;
+      min-height:46px;
       padding:10px 14px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(148,163,184,.10);
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#fff;
       color:var(--text);
       font-weight:1000;
       cursor:pointer;
+      box-shadow:0 10px 18px rgba(111,157,183,.12);
     }
-    .btn.primary{ border-color:rgba(59,130,246,.28); background:rgba(59,130,246,.16); }
-    .btn.violet{ border-color:rgba(167,139,250,.28); background:rgba(167,139,250,.14); }
-    .btn.good{ border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.14); }
-    .btn.ghost{ background:transparent; color:var(--muted); }
+    .btn.primary{
+      background:linear-gradient(180deg, var(--green), var(--green2));
+      border-color:#74c864;
+      color:#fffdf6;
+    }
+    .btn.violet{
+      background:linear-gradient(180deg, #d9d0ff, #b8a8ff);
+      border-color:#b4a2ff;
+      color:#4b3c82;
+    }
+    .btn.good{
+      background:linear-gradient(180deg, #ffd96a, #ffbe3b);
+      border-color:#f4bb39;
+      color:#6a4a00;
+    }
+    .btn.ghost{
+      background:linear-gradient(180deg, #eef9ff, #e3f5ff);
+      color:#5d6a70;
+    }
 
     .mini{
       margin-top:10px;
       padding:10px 12px;
       border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.20);
-      color:var(--muted);
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.76);
+      color:#7b7a72;
       font-size:.84rem;
       font-weight:800;
       line-height:1.45;
@@ -257,9 +359,9 @@
       margin-top:12px;
       padding:10px 12px;
       border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.18);
-      color:var(--muted);
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.74);
+      color:#7b7a72;
       font-size:.82rem;
       line-height:1.5;
       word-break:break-word;
@@ -268,25 +370,58 @@
     .list{
       margin:10px 0 0;
       padding-left:18px;
-      color:rgba(226,232,240,.9);
+      color:#746d66;
       line-height:1.55;
       font-size:.92rem;
+      font-weight:800;
     }
 
     code{
       font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
       font-size:.92em;
-      color:#c7d2fe;
+      color:#5777a5;
+    }
+
+    @media (max-width:640px){
+      .wrap{
+        padding:
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(14px + var(--sab))
+          calc(10px + var(--sal));
+      }
+      .topbar{
+        align-items:stretch;
+      }
+      .backBtn, .topPill{
+        width:100%;
+      }
+      .actions{ flex-direction:column; }
+      .btn{ width:100%; }
+      .presetRow{ flex-direction:column; }
+      .presetBtn{ width:100%; }
     }
   </style>
 </head>
 <body>
+  <div class="bg-clouds" aria-hidden="true">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+    <div class="cloud c4"></div>
+  </div>
+
   <div class="wrap">
+    <div class="topbar">
+      <a class="backBtn" id="btnBackHub" href="./hub.html">← กลับหน้าเกมหลัก</a>
+      <div class="topPill">Shadow Breaker • Launcher</div>
+    </div>
+
     <section class="hero">
       <div class="kicker">HeroHealth • Exercise Zone</div>
       <h1>Shadow Breaker Launcher</h1>
       <div class="sub">
-        ทางเข้ามาตรฐานของเกมนี้คือ
+        ทางเข้าแบบมาตรฐานของเกมนี้คือ
         <b>Hub → Launcher → Warmup → Game → Cooldown → Summary → Hub</b>
       </div>
 
@@ -336,7 +471,7 @@
             <div class="label">เลือกอุปกรณ์ที่ใช้เล่น</div>
 
             <div class="viewGrid">
-              <button class="viewCard is-active" id="cardViewPc" type="button" data-view="pc">
+              <button class="viewCard" id="cardViewPc" type="button" data-view="pc">
                 <div class="viewCheck">✓</div>
                 <div class="viewEmoji">💻</div>
                 <div class="viewTitle">PC</div>
@@ -396,7 +531,7 @@
             <button class="btn primary" id="btnStartNormal" type="button">▶ เริ่มเล่น</button>
             <button class="btn violet" id="btnStartHard" type="button">🔥 ลุยแบบท้าทาย</button>
             <button class="btn good" id="btnStartResearch" type="button">📋 เข้าโหมดครู / วิจัย</button>
-            <a class="btn ghost" id="btnBackHub" href="./hub.html">← กลับหน้าเกมหลัก</a>
+            <a class="btn ghost" id="btnBackHub2" href="./hub.html">← กลับหน้าเกมหลัก</a>
           </div>
         </section>
 
@@ -452,13 +587,13 @@
       const btnStartHard = $('#btnStartHard');
       const btnStartResearch = $('#btnStartResearch');
       const btnBackHub = $('#btnBackHub');
+      const btnBackHub2 = $('#btnBackHub2');
       const debugBox = $('#debugBox');
 
-      const currentUrl = new URL(location.href);
-      const sp = currentUrl.searchParams;
-
       const hubFromQuery = String(qs('hub','')).trim() || './hub.html';
+
       if (btnBackHub) btnBackHub.href = hubFromQuery;
+      if (btnBackHub2) btnBackHub2.href = hubFromQuery;
 
       function detectDefaultView(){
         const qv = String(qs('view','')).toLowerCase();
@@ -474,6 +609,10 @@
       if (selMode) selMode.value = String(qs('mode','normal')).trim() || 'normal';
       if (inpView) inpView.value = detectDefaultView();
 
+      if (inpStudyId) inpStudyId.value = String(qs('studyId','')).trim();
+      if (inpGroup) inpGroup.value = String(qs('group','')).trim();
+      if (inpCondition) inpCondition.value = String(qs('conditionGroup','')).trim();
+
       function syncModeUI(){
         const isResearch = (selMode?.value === 'research');
         if (modeExplain) {
@@ -482,6 +621,7 @@
             : 'โหมดเด็ก: จะส่งเข้าเกมแบบ <b>mode=normal</b>';
         }
         if (researchOnlyBox) researchOnlyBox.style.display = isResearch ? '' : 'none';
+        renderDebug();
       }
 
       function syncViewCards(){
@@ -496,6 +636,7 @@
           else if (view === 'mobile') viewExplain.innerHTML = 'ตอนนี้เลือก: <b>Mobile</b>';
           else viewExplain.innerHTML = 'ตอนนี้เลือก: <b>Cardboard VR</b>';
         }
+        renderDebug();
       }
 
       function setViewMode(view){
@@ -511,15 +652,26 @@
       btnPresetEasy?.addEventListener('click', ()=>{
         if (selDiff) selDiff.value = 'easy';
         if (selTime) selTime.value = '80';
+        renderDebug();
       });
       btnPresetNormal?.addEventListener('click', ()=>{
         if (selDiff) selDiff.value = 'normal';
         if (selTime) selTime.value = '80';
+        renderDebug();
       });
       btnPresetHard?.addEventListener('click', ()=>{
         if (selDiff) selDiff.value = 'hard';
         if (selTime) selTime.value = '80';
+        renderDebug();
       });
+
+      selDiff?.addEventListener('change', renderDebug);
+      selTime?.addEventListener('change', renderDebug);
+      inpPid?.addEventListener('input', renderDebug);
+      inpStudyId?.addEventListener('input', renderDebug);
+      inpGroup?.addEventListener('input', renderDebug);
+      inpCondition?.addEventListener('input', renderDebug);
+      selMode?.addEventListener('change', syncModeUI);
 
       function buildRunUrl(modeOverride){
         const hubAbs = new URL(hubFromQuery, location.href).toString();
@@ -624,6 +776,14 @@
         catch(_){ location.assign(target); }
       }
 
+      function renderDebug(){
+        if (!debugBox) return;
+        const modeVal = selMode?.value || 'normal';
+        debugBox.innerHTML =
+          `<div><b>Warmup target:</b> <code>${buildWarmupUrl(modeVal)}</code></div>` +
+          `<div style="margin-top:8px;"><b>Run target:</b> <code>${buildRunUrl(modeVal)}</code></div>`;
+      }
+
       btnStartNormal?.addEventListener('click', ()=>{
         if (selMode) selMode.value = 'normal';
         syncModeUI();
@@ -643,16 +803,9 @@
         go('research');
       });
 
-      selMode?.addEventListener('change', syncModeUI);
-
       syncModeUI();
       syncViewCards();
-
-      if (debugBox) {
-        debugBox.innerHTML =
-          `<div><b>Warmup target:</b> <code>${buildWarmupUrl(selMode?.value || 'normal')}</code></div>` +
-          `<div><b>Run target:</b> <code>${buildRunUrl(selMode?.value || 'normal')}</code></div>`;
-      }
+      renderDebug();
     })();
   </script>
 </body>
