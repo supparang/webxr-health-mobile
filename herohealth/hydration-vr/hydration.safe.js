@@ -1,6 +1,6 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // HeroHealth Hydration VR — SOLO + DUET FULL PATCH
-// PATCH v20260327-HYD-DUET-BO3-FULL
+// PATCH v20260328-HYD-SPAWN-WATCHDOG-DUET-BO3-FULL
 
 'use strict';
 
@@ -9,7 +9,6 @@ import {
   HYD_DEFAULT_CAT,
   HYD_STICKER_META,
   isGateDone,
-  setGateDone,
   loadHydShelf,
   hydrationShelfText,
   saveHydrationRewards,
@@ -17,86 +16,78 @@ import {
   rewardCardMini
 } from './hydration.shared.js?v=20260315';
 
-export async function boot(cfg = {}){
+export async function boot(cfg = {}) {
   const WIN = window;
   const DOC = document;
   const stageEl = DOC.getElementById('stage');
   const layer = DOC.getElementById('layer');
-  if(!stageEl || !layer) return;
+  if (!stageEl || !layer) return;
 
   // ------------------------------------------------------------
   // helpers
   // ------------------------------------------------------------
-  const qs = (k, d='') => {
-    try{
+  const qs = (k, d = '') => {
+    try {
       const v = new URLSearchParams(location.search).get(k);
       return v == null ? d : v;
-    }catch(e){
+    } catch (e) {
       return d;
     }
   };
 
-  const nowMs = ()=> performance.now();
-  const nowIso = ()=> new Date().toISOString();
+  const nowMs = () => performance.now();
+  const nowIso = () => new Date().toISOString();
 
-  const clamp = (v,a,b)=>{
+  const clamp = (v, a, b) => {
     v = Number(v);
-    if(!Number.isFinite(v)) v = a;
+    if (!Number.isFinite(v)) v = a;
     return Math.max(a, Math.min(b, v));
   };
 
-  const lerp = (a,b,t)=> a + (b-a)*t;
+  const lerp = (a, b, t) => a + (b - a) * t;
 
-  function safeJson(v){
-    try{ return JSON.stringify(v, null, 2); }
-    catch(e){ return String(v); }
-  }
-
-  function safeRun(fn, fallback=null){
-    try{ return fn(); }
-    catch(e){
+  function safeRun(fn, fallback = null) {
+    try { return fn(); }
+    catch (e) {
       console.warn('[hydration] safeRun failed', e);
       return fallback;
     }
   }
 
-  function safeText(el, value){
-    if(el) el.textContent = String(value ?? '');
+  function safeText(el, value) {
+    if (el) el.textContent = String(value ?? '');
   }
 
-  function safeHtml(el, value){
-    if(el) el.innerHTML = String(value ?? '');
+  function safeHtml(el, value) {
+    if (el) el.innerHTML = String(value ?? '');
   }
 
-  function safeToggle(el, cls, on){
-    if(el) el.classList.toggle(cls, !!on);
+  function safeToggle(el, cls, on) {
+    if (el) el.classList.toggle(cls, !!on);
   }
 
-  async function copyText(text, label='Copied'){
-    try{
+  async function copyText(text, label = 'Copied') {
+    try {
       await navigator.clipboard.writeText(String(text ?? ''));
       console.log('[hydration]', label);
-    }catch(e){
+    } catch (e) {
       console.warn('[hydration] clipboard failed', e);
     }
   }
 
-  function isMobileCompact(){
-    try{
-      return WIN.matchMedia('(max-width: 560px)').matches;
-    }catch(e){
-      return WIN.innerWidth <= 560;
-    }
+  function isMobileCompact() {
+    try { return WIN.matchMedia('(max-width: 560px)').matches; }
+    catch (e) { return WIN.innerWidth <= 560; }
   }
 
-  function formatClock(sec){
+  function formatClock(sec) {
     const s = Math.max(0, Math.ceil(Number(sec || 0)));
-    const mm = String(Math.floor(s / 60)).padStart(2,'0');
-    const ss = String(s % 60).padStart(2,'0');
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
     return `${mm}:${ss}`;
   }
 
-  function esc(s){
+  function esc(s) {
     return String(s ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -105,10 +96,10 @@ export async function boot(cfg = {}){
       .replace(/'/g, '&#39;');
   }
 
-  function waitForAuthUser(auth){
-    return new Promise((resolve, reject)=>{
-      const unsub = auth.onAuthStateChanged((user)=>{
-        if(user){
+  function waitForAuthUser(auth) {
+    return new Promise((resolve, reject) => {
+      const unsub = auth.onAuthStateChanged((user) => {
+        if (user) {
           unsub();
           resolve(user);
         }
@@ -129,7 +120,15 @@ export async function boot(cfg = {}){
   const gameKey = HYD_GAME;
   const seedStr = String(qs('seed', String(Date.now())));
   const cooldownRequired = String(qs('cooldown', '1')) !== '0';
-  const plannedSec = clamp(Number(qs('time', diff === 'hard' ? 90 : 80)), 30, 300);
+
+  const plannedSecRaw = Number(qs('time', diff === 'hard' ? 90 : 80));
+  const plannedSec = clamp(
+    Number.isFinite(plannedSecRaw) && plannedSecRaw > 0
+      ? plannedSecRaw
+      : (diff === 'hard' ? 90 : 80),
+    30,
+    300
+  );
 
   const IS_DUET =
     String(qs('mode', '')).toLowerCase() === 'duet' ||
@@ -256,23 +255,23 @@ export async function boot(cfg = {}){
   // ------------------------------------------------------------
   // rng
   // ------------------------------------------------------------
-  function xmur3(str){
+  function xmur3(str) {
     str = String(str || '');
     let h = 1779033703 ^ str.length;
-    for(let i=0;i<str.length;i++){
+    for (let i = 0; i < str.length; i++) {
       h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
       h = (h << 13) | (h >>> 19);
     }
-    return function(){
+    return function () {
       h = Math.imul(h ^ (h >>> 16), 2246822507);
       h = Math.imul(h ^ (h >>> 13), 3266489909);
       return (h ^= (h >>> 16)) >>> 0;
     };
   }
 
-  function sfc32(a,b,c,d){
-    return function(){
-      a>>>=0; b>>>=0; c>>>=0; d>>>=0;
+  function sfc32(a, b, c, d) {
+    return function () {
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
       let t = (a + b) | 0;
       a = b ^ (b >>> 9);
       b = (c + (c << 3)) | 0;
@@ -286,7 +285,7 @@ export async function boot(cfg = {}){
 
   const seedFn = xmur3(seedStr);
   const rand = sfc32(seedFn(), seedFn(), seedFn(), seedFn());
-  const r01 = ()=> rand();
+  const r01 = () => rand();
   const pick = arr => arr[Math.floor(r01() * arr.length)] || arr[0];
 
   // ------------------------------------------------------------
@@ -352,6 +351,7 @@ export async function boot(cfg = {}){
   let nextStormAt = 22;
   let nextBossAt = 46;
   let nextFinalAt = 68;
+  let bubbleWatchdogSec = 0;
 
   let rafId = 0;
   let loopRunning = false;
@@ -374,18 +374,18 @@ export async function boot(cfg = {}){
   const eventLog = [];
 
   const phaseStats = {
-    normal:{ goodHit:0, badHit:0, expire:0 },
-    storm:{ goodHit:0, badHit:0, expire:0 },
-    boss1:{ goodHit:0, badHit:0, expire:0 },
-    boss2:{ goodHit:0, badHit:0, expire:0 },
-    boss3:{ goodHit:0, badHit:0, expire:0 },
-    final:{ goodHit:0, badHit:0, expire:0 },
+    normal: { goodHit: 0, badHit: 0, expire: 0 },
+    storm: { goodHit: 0, badHit: 0, expire: 0 },
+    boss1: { goodHit: 0, badHit: 0, expire: 0 },
+    boss2: { goodHit: 0, badHit: 0, expire: 0 },
+    boss3: { goodHit: 0, badHit: 0, expire: 0 },
+    final: { goodHit: 0, badHit: 0, expire: 0 },
   };
 
   const missionState = {
-    hitGoodDone:false,
-    blockDone:false,
-    comboDone:false
+    hitGoodDone: false,
+    blockDone: false,
+    comboDone: false
   };
 
   let adaptiveTier = 0;
@@ -418,17 +418,17 @@ export async function boot(cfg = {}){
     let ctx = null;
     let unlocked = false;
 
-    function ensure(){
-      if(!ctx){
+    function ensure() {
+      if (!ctx) {
         const AC = WIN.AudioContext || WIN.webkitAudioContext;
-        if(AC) ctx = new AC();
+        if (AC) ctx = new AC();
       }
       return ctx;
     }
 
-    function beep(freq=440, dur=0.07, type='sine', gain=0.03){
+    function beep(freq = 440, dur = 0.07, type = 'sine', gain = 0.03) {
       const c = ensure();
-      if(!c || !unlocked) return;
+      if (!c || !unlocked) return;
       const o = c.createOscillator();
       const g = c.createGain();
       o.type = type;
@@ -442,53 +442,48 @@ export async function boot(cfg = {}){
     }
 
     return {
-      unlock(){
-        try{
+      unlock() {
+        try {
           const c = ensure();
-          if(c && c.state === 'suspended') c.resume();
+          if (c && c.state === 'suspended') c.resume();
           unlocked = true;
-        }catch(e){}
+        } catch (e) {}
       },
-      good(){ beep(740, 0.05, 'sine', 0.025); },
-      bad(){ beep(180, 0.08, 'square', 0.03); },
-      shield(){ beep(980, 0.08, 'triangle', 0.03); },
-      phase(){ beep(520, 0.14, 'sawtooth', 0.02); },
-      setPhaseVolume(){ /* no-op */ }
+      good() { beep(740, 0.05, 'sine', 0.025); },
+      bad() { beep(180, 0.08, 'square', 0.03); },
+      shield() { beep(980, 0.08, 'triangle', 0.03); },
+      phase() { beep(520, 0.14, 'sawtooth', 0.02); },
+      setPhaseVolume() {}
     };
   })();
 
   // ------------------------------------------------------------
   // misc
   // ------------------------------------------------------------
-  function hhDayKey(){
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  }
-
-  function currentPhaseKey(){
-    if(phase === 'storm') return 'storm';
-    if(phase === 'boss') return `boss${bossLevel}`;
-    if(phase === 'final') return 'final';
+  function currentPhaseKey() {
+    if (phase === 'storm') return 'storm';
+    if (phase === 'boss') return `boss${bossLevel}`;
+    if (phase === 'final') return 'final';
     return 'normal';
   }
 
-  function childDoneText(done){
+  function childDoneText(done) {
     return done ? 'เสร็จแล้ว ✅' : 'ยังไม่ทำ ✨';
   }
 
-  function cooldownDone(cat, game, who){
+  function cooldownDone(cat, game, who) {
     return isGateDone('cooldown', cat, game, who);
   }
 
-  function computeGrade(){
-    if(score >= 260 && waterPct >= 70 && missBadHit <= 3) return 'S';
-    if(score >= 200 && waterPct >= 55 && missBadHit <= 5) return 'A';
-    if(score >= 140 && waterPct >= 35 && missBadHit <= 8) return 'B';
-    if(score >= 80) return 'C';
+  function computeGrade() {
+    if (score >= 260 && waterPct >= 70 && missBadHit <= 3) return 'S';
+    if (score >= 200 && waterPct >= 55 && missBadHit <= 5) return 'A';
+    if (score >= 140 && waterPct >= 35 && missBadHit <= 8) return 'B';
+    if (score >= 80) return 'C';
     return 'D';
   }
 
-  function buildSummary(reason){
+  function buildSummary(reason) {
     return {
       reason,
       pid,
@@ -510,7 +505,7 @@ export async function boot(cfg = {}){
     };
   }
 
-  function totalGoodHits(){
+  function totalGoodHits() {
     return phaseStats.normal.goodHit +
       phaseStats.storm.goodHit +
       phaseStats.boss1.goodHit +
@@ -519,19 +514,18 @@ export async function boot(cfg = {}){
       phaseStats.final.goodHit;
   }
 
-  function logEvent(type, data={}){
-    const item = {
+  function logEvent(type, data = {}) {
+    eventLog.push({
       ts: Math.round((plannedSec - tLeft) * 1000),
       type,
       phase: currentPhaseKey(),
       ...data
-    };
-    eventLog.push(item);
+    });
   }
 
-  function buildRisk(){
+  function buildRisk() {
     return clamp(
-      (waterPct < 25 ? (25 - waterPct)/25 * 0.40 : 0) +
+      (waterPct < 25 ? ((25 - waterPct) / 25) * 0.40 : 0) +
       (missBadHit / Math.max(1, TUNE.missLimit)) * 0.30 +
       (phase !== 'normal' && shield <= 0 ? 0.18 : 0) +
       (combo <= 1 ? 0.05 : 0),
@@ -539,7 +533,7 @@ export async function boot(cfg = {}){
     );
   }
 
-  function buildFeatureRow(risk){
+  function buildFeatureRow(risk) {
     return {
       ts: Math.round((plannedSec - tLeft) * 1000),
       phase: currentPhaseKey(),
@@ -555,7 +549,7 @@ export async function boot(cfg = {}){
       timeLeft: +tLeft.toFixed(2),
       feverOn: feverOn ? 1 : 0,
       inDangerPhase: phase === 'storm' || phase === 'boss' || phase === 'final' ? 1 : 0,
-      inCorrectZone: isInNeededZone() ? 1 : 0,
+      inCorrectZone: 1,
       missRateRecent: 0,
       goodHitRateRecent: 0,
       badHitRateRecent: 0,
@@ -571,40 +565,38 @@ export async function boot(cfg = {}){
     };
   }
 
-  function updateTimelineAndFeatures(risk){
+  function updateTimelineAndFeatures(risk) {
     const ts = Math.round((plannedSec - tLeft) * 1000);
     riskTimeline.push({ ts, risk });
-    if(riskTimeline.length > 300) riskTimeline.shift();
+    if (riskTimeline.length > 300) riskTimeline.shift();
 
     featureRows.push(buildFeatureRow(risk));
-    if(featureRows.length > 500) featureRows.shift();
+    if (featureRows.length > 500) featureRows.shift();
   }
 
   // ------------------------------------------------------------
   // mobile compact helpers
   // ------------------------------------------------------------
-  function resetEndSectionVisibility(){
-    DOC.querySelectorAll('.end-mobile-optional').forEach(el=>{
-      el.style.display = '';
-    });
+  function resetEndSectionVisibility() {
+    DOC.querySelectorAll('.end-mobile-optional').forEach(el => { el.style.display = ''; });
   }
 
-  function hideMobileOptionalEndSections(summary){
-    if(!isMobileCompact()) return;
+  function hideMobileOptionalEndSections(summary) {
+    if (!isMobileCompact()) return;
 
-    DOC.querySelectorAll('.end-mobile-optional').forEach(el=>{
+    DOC.querySelectorAll('.end-mobile-optional').forEach(el => {
       el.style.display = 'none';
     });
 
-    if(summary?.reason === 'final-clear' || summary?.grade === 'S' || summary?.grade === 'A'){
+    if (summary?.reason === 'final-clear' || summary?.grade === 'S' || summary?.grade === 'A') {
       const rewardCard = DOC.querySelector('.rewardCard.end-mobile-optional');
-      if(rewardCard) rewardCard.style.display = '';
+      if (rewardCard) rewardCard.style.display = '';
     }
   }
 
-  function compactHudForMobileDuringPlay(){
-    if(!isMobileCompact()) return;
-    DOC.querySelectorAll('.hud-mobile-hide').forEach(el=>{
+  function compactHudForMobileDuringPlay() {
+    if (!isMobileCompact()) return;
+    DOC.querySelectorAll('.hud-mobile-hide').forEach(el => {
       el.style.display = 'none';
     });
   }
@@ -612,167 +604,167 @@ export async function boot(cfg = {}){
   // ------------------------------------------------------------
   // phase / coach text
   // ------------------------------------------------------------
-  function childZoneLabel(){
+  function childZoneLabel() {
     return needZone === 'L' ? 'ฝั่งซ้าย' : 'ฝั่งขวา';
   }
 
-  function childCoachHint(){
-    if(isMobileCompact()){
-      if(phase === 'storm') return `ไป${childZoneLabel()} + หาโล่`;
-      if(phase === 'boss') return `บอส ${bossLevel} ไป${childZoneLabel()}`;
-      if(phase === 'final') return `ด่านสุดท้าย ไป${childZoneLabel()}`;
-      if(feverOn) return 'ไฟลุก รีบเก็บน้ำ';
-      if(waterPct < 25) return 'น้ำต่ำ รีบเก็บน้ำ';
-      if(shield <= 0) return 'หาโล่ไว้กันฟ้าผ่า';
+  function childCoachHint() {
+    if (isMobileCompact()) {
+      if (phase === 'storm') return `ไป${childZoneLabel()} + หาโล่`;
+      if (phase === 'boss') return `บอส ${bossLevel} ไป${childZoneLabel()}`;
+      if (phase === 'final') return `ด่านสุดท้าย ไป${childZoneLabel()}`;
+      if (feverOn) return 'ไฟลุก รีบเก็บน้ำ';
+      if (waterPct < 25) return 'น้ำต่ำ รีบเก็บน้ำ';
+      if (shield <= 0) return 'หาโล่ไว้กันฟ้าผ่า';
       return 'แตะน้ำดี เลี่ยงของไม่ดี';
     }
 
-    if(phase === 'storm'){
-      if(shield <= 0) return `พายุกำลังมา! ไป${childZoneLabel()} แล้วหาโล่ 🛡️`;
+    if (phase === 'storm') {
+      if (shield <= 0) return `พายุกำลังมา! ไป${childZoneLabel()} แล้วหาโล่ 🛡️`;
       return `พายุแรงแล้ว อยู่${childZoneLabel()} ให้ถูก 🌧️`;
     }
 
-    if(phase === 'boss'){
-      if(bossLevel === 1){
-        if(shield <= 0) return `บอสสายฟ้ามาแล้ว! หาโล่เร็ว 🛡️`;
+    if (phase === 'boss') {
+      if (bossLevel === 1) {
+        if (shield <= 0) return `บอสสายฟ้ามาแล้ว! หาโล่เร็ว 🛡️`;
         return `บอส 1 มาแล้ว ไป${childZoneLabel()} ⚡`;
       }
-      if(bossLevel === 2){
-        if(shield <= 0) return `บอสแรงขึ้นแล้ว! อย่าลืมเก็บโล่ ⚡`;
+      if (bossLevel === 2) {
+        if (shield <= 0) return `บอสแรงขึ้นแล้ว! อย่าลืมเก็บโล่ ⚡`;
         return `บอส 2 โจมตีไว ไป${childZoneLabel()} 🌪️`;
       }
-      if(shield <= 0) return `บอส 3 มาแล้ว! ตั้งสติแล้วหาโล่ 👀`;
+      if (shield <= 0) return `บอส 3 มาแล้ว! ตั้งสติแล้วหาโล่ 👀`;
       return `บอส 3 ดุสุดแล้ว ไป${childZoneLabel()} 🔥`;
     }
 
-    if(phase === 'final'){
-      if(shield <= 0) return `ด่านสุดท้ายแล้ว! โล่สำคัญมาก 👑`;
+    if (phase === 'final') {
+      if (shield <= 0) return `ด่านสุดท้ายแล้ว! โล่สำคัญมาก 👑`;
       return `อีกนิดเดียว! ไป${childZoneLabel()} แล้วเก็บน้ำให้ไว 💧`;
     }
 
-    if(feverOn) return 'ไฟลุกแล้ว! กวาดน้ำให้เร็ว 🔥';
-    if(waterPct < 25) return 'น้ำน้อยแล้ว รีบเก็บน้ำเพิ่ม 💧';
-    if(shield <= 0) return 'ลองหาโล่ไว้ก่อนนะ 🛡️';
-    if(combo >= 8) return 'เก่งมาก! คอมโบต่ออีกนิด ✨';
+    if (feverOn) return 'ไฟลุกแล้ว! กวาดน้ำให้เร็ว 🔥';
+    if (waterPct < 25) return 'น้ำน้อยแล้ว รีบเก็บน้ำเพิ่ม 💧';
+    if (shield <= 0) return 'ลองหาโล่ไว้ก่อนนะ 🛡️';
+    if (combo >= 8) return 'เก่งมาก! คอมโบต่ออีกนิด ✨';
     return 'แตะน้ำดี และอย่าโดนของไม่ดี 😊';
   }
 
-  function phaseSummaryChildText(summary){
+  function phaseSummaryChildText(summary) {
     const warmDoneNow = isGateDone('warmup', catKey, gameKey, pid);
     const cooldownDoneNow = isGateDone('cooldown', catKey, gameKey, pid) || cooldownDone(catKey, gameKey, pid);
 
     let phaseText = 'จบรอบปกติ';
-    if(summary.reason === 'final-clear' || phase === 'final' || finalHits >= finalGoal){
+    if (summary.reason === 'final-clear' || phase === 'final' || finalHits >= finalGoal) {
       phaseText = 'ผ่านด่านสุดท้าย';
-    }else if(phase === 'boss'){
+    } else if (phase === 'boss') {
       phaseText = `ถึงบอส ${bossLevel}`;
-    }else if(phase === 'storm'){
+    } else if (phase === 'storm') {
       phaseText = 'ถึงพายุ';
     }
 
-    if(isMobileCompact()){
+    if (isMobileCompact()) {
       return `${phaseText} • วอร์ม${warmDoneNow ? '✅' : '✨'} • คูล${cooldownDoneNow ? '✅' : '✨'}`;
     }
 
     return `${phaseText} • วอร์มอัป: ${childDoneText(warmDoneNow)} • คูลดาวน์: ${childDoneText(cooldownDoneNow)}`;
   }
 
-  function childEndCoach(summary){
-    if(isMobileCompact()){
-      if(summary.reason === 'final-clear') return 'ชนะด่านสุดท้ายแล้ว 🏆';
-      if(summary.waterPct <= 10) return 'รอบหน้ารีบเก็บน้ำอีกนิด 💧';
-      if(summary.missBadHit >= Math.max(3, Math.floor(BASE_TUNE.missLimit * 0.5))) return 'ระวังของไม่ดีอีกนิด 🚫';
-      if(summary.comboMax >= 10) return 'คอมโบดีมาก ✨';
+  function childEndCoach(summary) {
+    if (isMobileCompact()) {
+      if (summary.reason === 'final-clear') return 'ชนะด่านสุดท้ายแล้ว 🏆';
+      if (summary.waterPct <= 10) return 'รอบหน้ารีบเก็บน้ำอีกนิด 💧';
+      if (summary.missBadHit >= Math.max(3, Math.floor(BASE_TUNE.missLimit * 0.5))) return 'ระวังของไม่ดีอีกนิด 🚫';
+      if (summary.comboMax >= 10) return 'คอมโบดีมาก ✨';
       return 'ลองเล่นอีกครั้งนะ 😊';
     }
 
-    if(summary.reason === 'final-clear') return 'สุดยอดจริง ๆ วันนี้ชนะด่านสุดท้ายแล้ว 🏆';
-    if(summary.waterPct <= 10) return 'รอบหน้าลองรีบเก็บน้ำมากขึ้นอีกนิดนะ คราวนี้ใกล้มากแล้ว 💧';
-    if(summary.missBadHit >= Math.max(3, Math.floor(BASE_TUNE.missLimit * 0.5))) return 'ถ้าหลบของไม่ดีได้มากขึ้น คะแนนจะพุ่งอีกเยอะเลย 🚫';
-    if(summary.comboMax >= 10) return 'คอมโบดีมากแล้ว รอบหน้ามีลุ้นทำได้สูงกว่านี้อีก ✨';
+    if (summary.reason === 'final-clear') return 'สุดยอดจริง ๆ วันนี้ชนะด่านสุดท้ายแล้ว 🏆';
+    if (summary.waterPct <= 10) return 'รอบหน้าลองรีบเก็บน้ำมากขึ้นอีกนิดนะ คราวนี้ใกล้มากแล้ว 💧';
+    if (summary.missBadHit >= Math.max(3, Math.floor(BASE_TUNE.missLimit * 0.5))) return 'ถ้าหลบของไม่ดีได้มากขึ้น คะแนนจะพุ่งอีกเยอะเลย 🚫';
+    if (summary.comboMax >= 10) return 'คอมโบดีมากแล้ว รอบหน้ามีลุ้นทำได้สูงกว่านี้อีก ✨';
     return 'ทำได้ดีมากแล้ว ลองเล่นอีกรอบเพื่อเก็บรางวัลเพิ่มนะ 😊';
   }
 
-  function childRewardText(summary){
-    if(isMobileCompact()){
-      if(summary.reason === 'final-clear') return '🏆 ชนะด่านสุดท้าย';
-      if((summary.missionsDone || 0) >= 3) return '🎁 ภารกิจครบ';
-      if((summary.missionsDone || 0) === 2) return '✨ ภารกิจ 2 อย่าง';
-      if((summary.missionsDone || 0) === 1) return '🌟 ภารกิจ 1 อย่าง';
+  function childRewardText(summary) {
+    if (isMobileCompact()) {
+      if (summary.reason === 'final-clear') return '🏆 ชนะด่านสุดท้าย';
+      if ((summary.missionsDone || 0) >= 3) return '🎁 ภารกิจครบ';
+      if ((summary.missionsDone || 0) === 2) return '✨ ภารกิจ 2 อย่าง';
+      if ((summary.missionsDone || 0) === 1) return '🌟 ภารกิจ 1 อย่าง';
       return '💧 เล่นจบแล้ว';
     }
 
-    if(summary.reason === 'final-clear') return '🏆 ปลดล็อกชัยชนะด่านสุดท้าย';
-    if((summary.missionsDone || 0) >= 3) return '🎁 ได้รางวัลภารกิจครบ';
-    if((summary.missionsDone || 0) === 2) return '✨ ได้รางวัลภารกิจ 2 อย่าง';
-    if((summary.missionsDone || 0) === 1) return '🌟 ได้รางวัลภารกิจ 1 อย่าง';
-    if(summary.comboMax >= 10) return '🔥 ได้รางวัลคอมโบสวย';
+    if (summary.reason === 'final-clear') return '🏆 ปลดล็อกชัยชนะด่านสุดท้าย';
+    if ((summary.missionsDone || 0) >= 3) return '🎁 ได้รางวัลภารกิจครบ';
+    if ((summary.missionsDone || 0) === 2) return '✨ ได้รางวัลภารกิจ 2 อย่าง';
+    if ((summary.missionsDone || 0) === 1) return '🌟 ได้รางวัลภารกิจ 1 อย่าง';
+    if (summary.comboMax >= 10) return '🔥 ได้รางวัลคอมโบสวย';
     return '💧 เก็บประสบการณ์รอบนี้แล้ว';
   }
 
-  function childBadgeText(summary){
-    if(isMobileCompact()){
-      if(summary.reason === 'final-clear') return '👑 ผู้ชนะ';
-      if(summary.grade === 'S') return '⭐ เจ้าน้ำ';
-      if(summary.grade === 'A') return '💙 เก่งมาก';
-      if(summary.grade === 'B') return '💧 ฮีโร่น้ำ';
+  function childBadgeText(summary) {
+    if (isMobileCompact()) {
+      if (summary.reason === 'final-clear') return '👑 ผู้ชนะ';
+      if (summary.grade === 'S') return '⭐ เจ้าน้ำ';
+      if (summary.grade === 'A') return '💙 เก่งมาก';
+      if (summary.grade === 'B') return '💧 ฮีโร่น้ำ';
       return '🌈 ลองอีกครั้ง';
     }
 
-    if(summary.reason === 'final-clear') return '👑 ผู้พิชิตด่านสุดท้าย';
-    if(summary.grade === 'S') return '⭐ เจ้าน้ำตัวจริง';
-    if(summary.comboMax >= 10) return '✨ เจ้าคอมโบสายฟ้า';
-    if(summary.blockCount >= 3) return '🛡️ ผู้พิทักษ์โล่';
-    if(summary.grade === 'A') return '💙 นักเก็บน้ำเก่งมาก';
-    if(summary.grade === 'B') return '💧 ฮีโร่น้ำ';
+    if (summary.reason === 'final-clear') return '👑 ผู้พิชิตด่านสุดท้าย';
+    if (summary.grade === 'S') return '⭐ เจ้าน้ำตัวจริง';
+    if (summary.comboMax >= 10) return '✨ เจ้าคอมโบสายฟ้า';
+    if (summary.blockCount >= 3) return '🛡️ ผู้พิทักษ์โล่';
+    if (summary.grade === 'A') return '💙 นักเก็บน้ำเก่งมาก';
+    if (summary.grade === 'B') return '💧 ฮีโร่น้ำ';
     return '🌈 นักสู้ฝึกหัด';
   }
 
   // ------------------------------------------------------------
   // fx
   // ------------------------------------------------------------
-  function fxRing(x,y){
+  function fxRing(x, y) {
     const el = DOC.createElement('div');
     el.className = 'fx-ring';
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
     stageEl.appendChild(el);
-    setTimeout(()=> el.remove(), 500);
+    setTimeout(() => el.remove(), 500);
   }
 
-  function fxScore(x,y,text){
+  function fxScore(x, y, text) {
     const el = DOC.createElement('div');
     el.className = 'fx-score';
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
     el.textContent = text;
     stageEl.appendChild(el);
-    setTimeout(()=> el.remove(), 1000);
+    setTimeout(() => el.remove(), 1000);
   }
 
-  function fxBubblePop(el, kind='good'){
-    if(!el) return;
+  function fxBubblePop(el, kind = 'good') {
+    if (!el) return;
     el.classList.add(kind === 'bad' ? 'fx-bad' : 'fx-pop');
   }
 
-  function fxStageFlash(){
+  function fxStageFlash() {
     const el = DOC.createElement('div');
     el.className = 'storm-flash';
     stageEl.appendChild(el);
-    setTimeout(()=> el.remove(), 250);
+    setTimeout(() => el.remove(), 250);
   }
 
-  function fxBolt(x){
+  function fxBolt(x) {
     const el = DOC.createElement('div');
     el.className = 'bolt';
     el.style.left = `${x}px`;
     stageEl.appendChild(el);
-    setTimeout(()=> el.remove(), 350);
+    setTimeout(() => el.remove(), 350);
   }
 
-  function fxPhaseBanner(text){
+  function fxPhaseBanner(text) {
     const old = DOC.getElementById('hydrationPhaseBanner');
-    if(old) old.remove();
+    if (old) old.remove();
 
     const banner = DOC.createElement('div');
     banner.id = 'hydrationPhaseBanner';
@@ -797,83 +789,83 @@ export async function boot(cfg = {}){
     banner.textContent = text;
     stageEl.appendChild(banner);
 
-    requestAnimationFrame(()=>{
+    requestAnimationFrame(() => {
       banner.style.opacity = '1';
       banner.style.transform = 'translate(-50%,-50%) scale(1)';
     });
 
-    setTimeout(()=>{
+    setTimeout(() => {
       banner.style.opacity = '0';
       banner.style.transform = 'translate(-50%,-50%) scale(.96)';
-      setTimeout(()=>{ try{ banner.remove(); }catch(e){} }, 220);
+      setTimeout(() => { try { banner.remove(); } catch (e) {} }, 220);
     }, 1100);
   }
 
-  function showCallout(text, tone='good'){
+  function showCallout(text, tone = 'good') {
     const now = Date.now();
-    if(now - lastCalloutAt < 650) return;
+    if (now - lastCalloutAt < 650) return;
     lastCalloutAt = now;
 
-    if(!ui.calloutLayer) return;
+    if (!ui.calloutLayer) return;
     const liveCount = ui.calloutLayer.querySelectorAll('.callout').length;
-    if(liveCount >= 2){
+    if (liveCount >= 2) {
       const first = ui.calloutLayer.querySelector('.callout');
-      if(first) first.remove();
+      if (first) first.remove();
     }
 
     const el = DOC.createElement('div');
     el.className = `callout ${tone}`;
     el.textContent = String(text || '');
     ui.calloutLayer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 1400);
+    setTimeout(() => { try { el.remove(); } catch (e) {} }, 1400);
   }
 
-  function setBossFace(mode='hide'){
-    if(!ui.bossFace) return;
+  function setBossFace(mode = 'hide') {
+    if (!ui.bossFace) return;
 
-    if(mode === 'hide'){
+    if (mode === 'hide') {
       ui.bossFace.className = 'bossFace';
       ui.bossFace.textContent = '⚡';
       return;
     }
 
-    if(mode === 'storm'){
+    if (mode === 'storm') {
       ui.bossFace.className = 'bossFace show b1';
       ui.bossFace.textContent = '🌧️';
       return;
     }
 
-    if(mode === 'boss1'){
+    if (mode === 'boss1') {
       ui.bossFace.className = 'bossFace show b1';
       ui.bossFace.textContent = '⚡';
       return;
     }
 
-    if(mode === 'boss2'){
+    if (mode === 'boss2') {
       ui.bossFace.className = 'bossFace show b2';
       ui.bossFace.textContent = '🌪️';
       return;
     }
 
-    if(mode === 'boss3'){
+    if (mode === 'boss3') {
       ui.bossFace.className = 'bossFace show b3';
       ui.bossFace.textContent = '🔥';
       return;
     }
 
-    if(mode === 'final'){
+    if (mode === 'final') {
       ui.bossFace.className = 'bossFace show final';
       ui.bossFace.textContent = '👑';
     }
   }
 
-  function spawnSticker(text){
-    if(!ui.stickerBurst) return;
+  function spawnSticker(text) {
+    if (!ui.stickerBurst) return;
 
     const liveCount = ui.stickerBurst.querySelectorAll('.sticker').length;
-    if(liveCount >= 6){
+    if (liveCount >= 6) {
       const first = ui.stickerBurst.querySelector('.sticker');
-      if(first) first.remove();
+      if (first) first.remove();
     }
 
     const el = DOC.createElement('div');
@@ -886,55 +878,53 @@ export async function boot(cfg = {}){
     el.style.top = `${y}%`;
 
     ui.stickerBurst.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 1200);
+    setTimeout(() => { try { el.remove(); } catch (e) {} }, 1200);
   }
 
-  function clearTransientVisuals(){
-    try{ DOC.getElementById('hydrationPhaseBanner')?.remove(); }catch(e){}
-    try{ ui.calloutLayer && safeHtml(ui.calloutLayer, ''); }catch(e){}
-    try{ ui.stickerBurst && safeHtml(ui.stickerBurst, ''); }catch(e){}
+  function clearTransientVisuals() {
+    try { DOC.getElementById('hydrationPhaseBanner')?.remove(); } catch (e) {}
+    try { ui.calloutLayer && safeHtml(ui.calloutLayer, ''); } catch (e) {}
+    try { ui.stickerBurst && safeHtml(ui.stickerBurst, ''); } catch (e) {}
 
-    try{
-      for(const b of bubbles.values()){
+    try {
+      for (const b of bubbles.values()) {
         b?.el?.remove?.();
       }
       bubbles.clear();
-    }catch(e){}
+    } catch (e) {}
   }
 
-  function fxMission(text){
+  function fxMission(text) {
     showCallout(text, 'good');
   }
 
-  function checkStreakTier(){
+  function checkStreakTier() {
     let newTier = 0;
-    if(combo >= 15) newTier = 3;
-    else if(combo >= 10) newTier = 2;
-    else if(combo >= 5) newTier = 1;
+    if (combo >= 15) newTier = 3;
+    else if (combo >= 10) newTier = 2;
+    else if (combo >= 5) newTier = 1;
 
-    if(newTier > streakTier){
+    if (newTier > streakTier) {
       streakTier = newTier;
-      if(newTier === 1){
+      if (newTier === 1) {
         showCallout('✨ คอมโบเริ่มมาแล้ว', 'good');
         spawnSticker('✨ COMBO');
-      }else if(newTier === 2){
+      } else if (newTier === 2) {
         showCallout('🔥 เก่งมาก! คอมโบแรงขึ้นแล้ว', 'good');
         spawnSticker('🔥 HOT');
-      }else if(newTier === 3){
+      } else if (newTier === 3) {
         showCallout('🌟 สุดยอด! คอมโบสวยมาก', 'good');
         spawnSticker('🌟 WOW');
       }
     }
 
-    if(combo === 0){
-      streakTier = 0;
-    }
+    if (combo === 0) streakTier = 0;
   }
 
-  function updateBonusChain(dt){
-    if(bonusChainTimer > 0){
+  function updateBonusChain(dt) {
+    if (bonusChainTimer > 0) {
       bonusChainTimer = Math.max(0, bonusChainTimer - dt);
-      if(bonusChainTimer <= 0){
+      if (bonusChainTimer <= 0) {
         bonusChain = 0;
       }
     }
@@ -943,70 +933,66 @@ export async function boot(cfg = {}){
   // ------------------------------------------------------------
   // gameplay helpers
   // ------------------------------------------------------------
-  const GOOD = ['💧','💦','🫗'];
-  const BAD  = ['🧋','🥤','🍟'];
+  const GOOD = ['💧', '💦', '🫗'];
+  const BAD = ['🧋', '🥤', '🍟'];
   const SHLD = ['🛡️'];
-  const BONUS = ['🌟','💎','🫧'];
+  const BONUS = ['🌟', '💎', '🫧'];
 
-  function isInNeededZone(){
-    return true;
-  }
-
-  function phaseSpawnMul(){
+  function phaseSpawnMul() {
     let base = 1.0;
-    if(phase === 'storm') base = TUNE.stormSpawnMul;
-    else if(phase === 'boss'){
-      if(bossLevel === 1) base = TUNE.boss1SpawnMul;
-      else if(bossLevel === 2) base = TUNE.boss2SpawnMul;
+    if (phase === 'storm') base = TUNE.stormSpawnMul;
+    else if (phase === 'boss') {
+      if (bossLevel === 1) base = TUNE.boss1SpawnMul;
+      else if (bossLevel === 2) base = TUNE.boss2SpawnMul;
       else base = TUNE.boss3SpawnMul;
-    }else if(phase === 'final'){
+    } else if (phase === 'final') {
       base = TUNE.finalSpawnMul;
     }
     return base * pacingSpawnBoost();
   }
 
-  function phaseBadP(){
+  function phaseBadP() {
     let base = 0.24;
-    if(phase === 'storm') base = TUNE.stormBadP;
-    else if(phase === 'boss'){
-      if(bossLevel === 1) base = TUNE.boss1BadP;
-      else if(bossLevel === 2) base = TUNE.boss2BadP;
+    if (phase === 'storm') base = TUNE.stormBadP;
+    else if (phase === 'boss') {
+      if (bossLevel === 1) base = TUNE.boss1BadP;
+      else if (bossLevel === 2) base = TUNE.boss2BadP;
       else base = TUNE.boss3BadP;
-    }else if(phase === 'final'){
+    } else if (phase === 'final') {
       base = TUNE.finalBadP;
     }
     return clamp(base + pacingBadBoost(), 0.12, 0.75);
   }
 
-  function runProgress01(){
+  function runProgress01() {
     return clamp((plannedSec - tLeft) / Math.max(1, plannedSec), 0, 1);
   }
 
-  function pacingSpawnBoost(){
+  function pacingSpawnBoost() {
     const p = runProgress01();
-    if(p < 0.20) return 0.88;
-    if(p < 0.55) return 1.00;
-    if(p < 0.80) return 1.10;
+    if (p < 0.20) return 0.88;
+    if (p < 0.55) return 1.00;
+    if (p < 0.80) return 1.10;
     return 1.22;
   }
 
-  function pacingBadBoost(){
+  function pacingBadBoost() {
     const p = runProgress01();
-    if(p < 0.20) return -0.03;
-    if(p < 0.55) return 0.00;
-    if(p < 0.80) return 0.03;
+    if (p < 0.20) return -0.03;
+    if (p < 0.55) return 0.00;
+    if (p < 0.80) return 0.03;
     return 0.06;
   }
 
-  function updateAdaptiveTier(){
+  function updateAdaptiveTier() {
     const p = runProgress01();
 
-    if(p < 0.35 && waterPct < 24 && missBadHit >= 2){
+    if (p < 0.35 && waterPct < 24 && missBadHit >= 2) {
       adaptiveTier = -1;
       return;
     }
 
-    if(combo >= 10 && waterPct > 55 && missBadHit <= 1){
+    if (combo >= 10 && waterPct > 55 && missBadHit <= 1) {
       adaptiveTier = 1;
       return;
     }
@@ -1014,34 +1000,46 @@ export async function boot(cfg = {}){
     adaptiveTier = 0;
   }
 
-  function adaptiveSpawnFactor(){
-    if(adaptiveTier < 0) return 0.90;
-    if(adaptiveTier > 0) return 1.08;
+  function adaptiveSpawnFactor() {
+    if (adaptiveTier < 0) return 0.90;
+    if (adaptiveTier > 0) return 1.08;
     return 1.00;
   }
 
-  function adaptiveBadFactor(){
-    if(adaptiveTier < 0) return -0.04;
-    if(adaptiveTier > 0) return 0.03;
+  function adaptiveBadFactor() {
+    if (adaptiveTier < 0) return -0.04;
+    if (adaptiveTier > 0) return 0.03;
     return 0.00;
   }
 
-  function safeSpawnXY(){
+  function safeSpawnXY() {
     const rect = stageEl.getBoundingClientRect();
-    const gap = (view === 'mobile') ? 8 : 12;
-    const topPad = isMobileCompact() ? 210 : 280;
-    const bottomPad = (view === 'mobile') ? 108 : 90;
 
-    const x = lerp(gap, rect.width - gap, r01());
-    const y = lerp(topPad, rect.height - bottomPad, r01());
+    const sidePad = clamp(Math.round(rect.width * 0.08), 16, 44);
+    const topPad = isMobileCompact()
+      ? clamp(Math.round(rect.height * 0.12), 56, 120)
+      : clamp(Math.round(rect.height * 0.14), 72, 150);
+
+    const bottomPad = isMobileCompact()
+      ? clamp(Math.round(rect.height * 0.16), 84, 120)
+      : clamp(Math.round(rect.height * 0.14), 76, 110);
+
+    const minX = sidePad;
+    const maxX = Math.max(sidePad + 20, rect.width - sidePad);
+
+    const minY = topPad;
+    const maxY = Math.max(topPad + 40, rect.height - bottomPad);
+
+    const x = lerp(minX, maxX, r01());
+    const y = lerp(minY, maxY, r01());
 
     return {
-      x: clamp(x, gap, rect.width - gap),
-      y: clamp(y, topPad, rect.height - bottomPad)
+      x: clamp(x, minX, maxX),
+      y: clamp(y, minY, maxY)
     };
   }
 
-  function makeBubble(kind, emoji, ttlSec){
+  function makeBubble(kind, emoji, ttlSec) {
     const { x, y } = safeSpawnXY();
     const id = `b${++bubbleSeq}`;
 
@@ -1062,19 +1060,32 @@ export async function boot(cfg = {}){
     });
   }
 
-  function removeBubble(id){
+  function emergencySpawnIfEmpty() {
+    if (!stageEl || !layer) return;
+    if (bubbles.size > 0) return;
+
+    const rect = stageEl.getBoundingClientRect();
+    if (rect.width < 80 || rect.height < 180) return;
+
+    makeBubble('good', pick(GOOD), Math.max(2.4, TUNE.ttlGood));
+    makeBubble('shield', pick(SHLD), 2.8);
+
+    showCallout('เริ่มกันเลย 💧', 'good');
+  }
+
+  function removeBubble(id) {
     const b = bubbles.get(id);
-    if(!b) return;
-    try{ b.el.remove(); }catch(e){}
+    if (!b) return;
+    try { b.el.remove(); } catch (e) {}
     bubbles.delete(id);
   }
 
-  function maybeTriggerFever(){
+  function maybeTriggerFever() {
     feverOn = combo >= 10;
   }
 
-  function maybeCompleteMissions(){
-    if(!missionState.hitGoodDone && totalGoodHits() >= TUNE.missionHitGood){
+  function maybeCompleteMissions() {
+    if (!missionState.hitGoodDone && totalGoodHits() >= TUNE.missionHitGood) {
       missionState.hitGoodDone = true;
       score += 20;
       fxMission('ภารกิจเก็บน้ำสำเร็จ +20');
@@ -1082,7 +1093,7 @@ export async function boot(cfg = {}){
       spawnSticker('💧 CLEAR');
     }
 
-    if(!missionState.blockDone && blockCount >= TUNE.missionBlock){
+    if (!missionState.blockDone && blockCount >= TUNE.missionBlock) {
       missionState.blockDone = true;
       score += 18;
       fxMission('ภารกิจบล็อกสำเร็จ +18');
@@ -1090,7 +1101,7 @@ export async function boot(cfg = {}){
       spawnSticker('🛡️ CLEAR');
     }
 
-    if(!missionState.comboDone && bestCombo >= TUNE.missionCombo){
+    if (!missionState.comboDone && bestCombo >= TUNE.missionCombo) {
       missionState.comboDone = true;
       score += 22;
       fxMission('ภารกิจคอมโบสำเร็จ +22');
@@ -1099,12 +1110,12 @@ export async function boot(cfg = {}){
     }
   }
 
-  function hit(b){
-    if(!b || !b.el) return;
+  function hit(b) {
+    if (!b || !b.el) return;
     const bx = b.x;
     const by = b.y;
 
-    if(b.kind === 'bonus'){
+    if (b.kind === 'bonus') {
       combo++;
       bestCombo = Math.max(bestCombo, combo);
       maybeTriggerFever();
@@ -1118,11 +1129,11 @@ export async function boot(cfg = {}){
       bonusChain += 1;
       bonusChainTimer = 3.2;
 
-      if(bonusChain === 2){
+      if (bonusChain === 2) {
         score += 10;
         showCallout('โบนัสต่อเนื่อง +10', 'good');
         spawnSticker('✨ CHAIN');
-      }else if(bonusChain >= 3){
+      } else if (bonusChain >= 3) {
         score += 18;
         showCallout('โบนัสต่อเนื่องสุดยอด +18', 'good');
         spawnSticker('🌟 CHAIN');
@@ -1135,14 +1146,14 @@ export async function boot(cfg = {}){
       fxMission('โบนัสพิเศษ! +น้ำ +โล่');
       showCallout('เจอโบนัสพิเศษแล้ว 🎁', 'good');
       spawnSticker('🎁 BONUS');
-      logEvent('bonus_hit', { scoreAdd:add, combo, waterPct, shield });
+      logEvent('bonus_hit', { scoreAdd: add, combo, waterPct, shield });
 
-      setTimeout(()=> removeBubble(b.id), 50);
+      setTimeout(() => removeBubble(b.id), 50);
       maybeCompleteMissions();
       return;
     }
 
-    if(b.kind === 'good'){
+    if (b.kind === 'good') {
       combo++;
       bestCombo = Math.max(bestCombo, combo);
       maybeTriggerFever();
@@ -1155,21 +1166,24 @@ export async function boot(cfg = {}){
       fxBubblePop(b.el, 'good');
       fxRing(bx, by);
       fxScore(bx, by, `+${add}`);
-      setTimeout(()=> removeBubble(b.id), 50);
+      setTimeout(() => removeBubble(b.id), 50);
 
       const ps = phaseStats[currentPhaseKey()] || phaseStats.normal;
       ps.goodHit += 1;
-      logEvent('good_hit', { scoreAdd:add, combo });
+      logEvent('good_hit', { scoreAdd: add, combo });
 
-      if(combo === 3) showCallout('ดีมาก เก็บน้ำต่อได้เลย', 'good');
-      if(combo === 7) showCallout('คอมโบสวยมาก ✨', 'good');
-      if(combo === 12) showCallout('เก่งสุด ๆ ไปเลย 🌟', 'good');
+      if (combo === 3) showCallout('ดีมาก เก็บน้ำต่อได้เลย', 'good');
+      if (combo === 7) showCallout('คอมโบสวยมาก ✨', 'good');
+      if (combo === 12) showCallout('เก่งสุด ๆ ไปเลย 🌟', 'good');
+
+      if (phase === 'boss') bossHits += 1;
+      if (phase === 'final') finalHits += 1;
 
       maybeCompleteMissions();
       return;
     }
 
-    if(b.kind === 'shield'){
+    if (b.kind === 'shield') {
       combo++;
       bestCombo = Math.max(bestCombo, combo);
       maybeTriggerFever();
@@ -1180,12 +1194,11 @@ export async function boot(cfg = {}){
       fxBubblePop(b.el, 'good');
       fxRing(bx, by);
       fxScore(bx, by, '🛡️');
-      setTimeout(()=> removeBubble(b.id), 50);
+      setTimeout(() => removeBubble(b.id), 50);
       logEvent('shield_hit', { shield });
       return;
     }
 
-    // bad
     combo = 0;
     maybeTriggerFever();
     bonusChain = 0;
@@ -1197,7 +1210,7 @@ export async function boot(cfg = {}){
     SFX.bad();
     fxBubblePop(b.el, 'bad');
     fxScore(bx, by, '-9');
-    setTimeout(()=> removeBubble(b.id), 50);
+    setTimeout(() => removeBubble(b.id), 50);
 
     const ps = phaseStats[currentPhaseKey()] || phaseStats.normal;
     ps.badHit += 1;
@@ -1205,16 +1218,16 @@ export async function boot(cfg = {}){
     showCallout('อุ๊ย โดนของไม่ดี', 'warn');
   }
 
-  function applyLightningStrike(rate=1){
+  function applyLightningStrike(rate = 1) {
     const rect = stageEl.getBoundingClientRect();
     const x = lerp(20, rect.width - 20, r01());
 
     fxStageFlash();
     fxBolt(x);
     stageEl.classList.add('fx-shake');
-    setTimeout(()=> stageEl.classList.remove('fx-shake'), 220);
+    setTimeout(() => stageEl.classList.remove('fx-shake'), 220);
 
-    if(shield > 0){
+    if (shield > 0) {
       shield -= 1;
       blockCount += 1;
       logEvent('lightning_block', { shield, blockCount, rate });
@@ -1230,47 +1243,47 @@ export async function boot(cfg = {}){
     showCallout('ฟ้าผ่ามาแล้ว รีบตั้งตัว', 'warn');
   }
 
-  function refreshMissionBar(){
-    if(ui.missionHitGoal) ui.missionHitGoal.textContent = String(TUNE.missionHitGood);
-    if(ui.missionBlockGoal) ui.missionBlockGoal.textContent = String(TUNE.missionBlock);
-    if(ui.missionComboGoal) ui.missionComboGoal.textContent = String(TUNE.missionCombo);
+  function refreshMissionBar() {
+    if (ui.missionHitGoal) ui.missionHitGoal.textContent = String(TUNE.missionHitGood);
+    if (ui.missionBlockGoal) ui.missionBlockGoal.textContent = String(TUNE.missionBlock);
+    if (ui.missionComboGoal) ui.missionComboGoal.textContent = String(TUNE.missionCombo);
 
-    if(ui.missionHitNow) ui.missionHitNow.textContent = String(Math.min(totalGoodHits(), TUNE.missionHitGood));
-    if(ui.missionBlockNow) ui.missionBlockNow.textContent = String(Math.min(blockCount, TUNE.missionBlock));
-    if(ui.missionComboNow) ui.missionComboNow.textContent = String(Math.min(bestCombo, TUNE.missionCombo));
+    if (ui.missionHitNow) ui.missionHitNow.textContent = String(Math.min(totalGoodHits(), TUNE.missionHitGood));
+    if (ui.missionBlockNow) ui.missionBlockNow.textContent = String(Math.min(blockCount, TUNE.missionBlock));
+    if (ui.missionComboNow) ui.missionComboNow.textContent = String(Math.min(bestCombo, TUNE.missionCombo));
 
-    if(ui.missionChipHit){
+    if (ui.missionChipHit) {
       ui.missionChipHit.classList.toggle('done', missionState.hitGoodDone);
       ui.missionChipHit.classList.toggle('hot', !missionState.hitGoodDone && totalGoodHits() >= TUNE.missionHitGood - 2);
     }
 
-    if(ui.missionChipBlock){
+    if (ui.missionChipBlock) {
       ui.missionChipBlock.classList.toggle('done', missionState.blockDone);
       ui.missionChipBlock.classList.toggle('hot', !missionState.blockDone && blockCount >= TUNE.missionBlock - 1);
     }
 
-    if(ui.missionChipCombo){
+    if (ui.missionChipCombo) {
       ui.missionChipCombo.classList.toggle('done', missionState.comboDone);
       ui.missionChipCombo.classList.toggle('hot', !missionState.comboDone && bestCombo >= TUNE.missionCombo - 2);
     }
   }
 
-  function setStagePhase(p){
-    stageEl?.classList?.toggle('is-storm', p==='storm');
-    stageEl?.classList?.toggle('is-boss', p==='boss');
-    stageEl?.classList?.toggle('is-final', p==='final');
+  function setStagePhase(p) {
+    stageEl?.classList?.toggle('is-storm', p === 'storm');
+    stageEl?.classList?.toggle('is-boss', p === 'boss');
+    stageEl?.classList?.toggle('is-final', p === 'final');
     stageEl?.classList?.toggle('is-fever', feverOn);
 
-    stageEl?.classList?.remove('boss-1','boss-2','boss-3','final-win');
+    stageEl?.classList?.remove('boss-1', 'boss-2', 'boss-3', 'final-win');
 
-    if(p === 'boss'){
-      if(bossLevel === 1) stageEl?.classList?.add('boss-1');
-      else if(bossLevel === 2) stageEl?.classList?.add('boss-2');
-      else if(bossLevel >= 3) stageEl?.classList?.add('boss-3');
+    if (p === 'boss') {
+      if (bossLevel === 1) stageEl?.classList?.add('boss-1');
+      else if (bossLevel === 2) stageEl?.classList?.add('boss-2');
+      else if (bossLevel >= 3) stageEl?.classList?.add('boss-3');
     }
   }
 
-  function startStorm(){
+  function startStorm() {
     phase = 'storm';
     phaseTimer = 7.5;
     needZone = r01() < 0.5 ? 'L' : 'R';
@@ -1281,7 +1294,7 @@ export async function boot(cfg = {}){
     SFX.phase();
   }
 
-  function startBoss(level){
+  function startBoss(level) {
     phase = 'boss';
     bossLevel = level;
     phaseTimer = 8.5;
@@ -1290,13 +1303,13 @@ export async function boot(cfg = {}){
     setStagePhase('boss');
     fxPhaseBanner(`⚡ บอส ${bossLevel} มาแล้ว`);
 
-    if(level === 1){
+    if (level === 1) {
       setBossFace('boss1');
       showCallout('บอสสายฟ้ามาแล้ว ⚡', 'boss');
-    }else if(level === 2){
+    } else if (level === 2) {
       setBossFace('boss2');
       showCallout('บอสพายุมาแล้ว 🌪️', 'boss');
-    }else{
+    } else {
       setBossFace('boss3');
       showCallout('บอสไฟมาแล้ว 🔥', 'boss');
     }
@@ -1304,7 +1317,7 @@ export async function boot(cfg = {}){
     SFX.phase();
   }
 
-  function startFinal(){
+  function startFinal() {
     phase = 'final';
     phaseTimer = 12;
     needZone = r01() < 0.5 ? 'L' : 'R';
@@ -1316,90 +1329,90 @@ export async function boot(cfg = {}){
     SFX.phase();
   }
 
-  function setAIHud(risk, hint){
+  function setAIHud(risk, hint) {
     safeText(ui.aiRisk, risk.toFixed(2));
-    if(ui.riskFill) ui.riskFill.style.width = `${Math.round(clamp(risk, 0, 1) * 100)}%`;
+    if (ui.riskFill) ui.riskFill.style.width = `${Math.round(clamp(risk, 0, 1) * 100)}%`;
     safeText(ui.aiHint, hint);
     safeText(ui.coachExplain, hint);
   }
 
-  function refreshDebug(dt=0){
-    const debugOn = ['1','true','yes','on'].includes(String(qs('debug','0')).toLowerCase());
-    if(!ui.debugMini) return;
+  function refreshDebug(dt = 0) {
+    const debugOn = ['1', 'true', 'yes', 'on'].includes(String(qs('debug', '0')).toLowerCase());
+    if (!ui.debugMini) return;
     safeToggle(ui.debugMini, 'is-hidden', !debugOn);
-    if(!debugOn) return;
+    if (!debugOn) return;
 
     fpsTimer += dt;
     fpsFrames += 1;
-    if(fpsTimer >= 0.45){
+    if (fpsTimer >= 0.45) {
       fpsValue = String(Math.round(fpsFrames / Math.max(0.001, fpsTimer)));
       fpsTimer = 0;
       fpsFrames = 0;
     }
 
     safeText(ui.dbgPhase, currentPhaseKey());
-    safeText(ui.dbgCombo, combo|0);
+    safeText(ui.dbgCombo, combo | 0);
     safeText(ui.dbgWater, Math.round(waterPct));
-    safeText(ui.dbgShield, shield|0);
+    safeText(ui.dbgShield, shield | 0);
     safeText(ui.dbgBubbles, bubbles.size);
     safeText(ui.dbgFps, fpsValue);
   }
 
-  function setDuetHudVisible(on){
-    if(!ui.duetHud) return;
+  function setDuetHudVisible(on) {
+    if (!ui.duetHud) return;
     ui.duetHud.classList.toggle('hidden', !on);
   }
 
-  function peerPhaseLabel(peer){
-    if(!peer) return 'รอเข้าเกม';
-    if(peer.finished) return 'จบแล้ว';
-    if(!peer.connected) return 'หลุด';
+  function peerPhaseLabel(peer) {
+    if (!peer) return 'รอเข้าเกม';
+    if (peer.finished) return 'จบแล้ว';
+    if (!peer.connected) return 'หลุด';
     const p = String(peer.livePhase || peer.phase || 'run');
 
-    if(p === 'normal') return 'ช่วงปกติ';
-    if(p === 'storm') return 'พายุ';
-    if(p === 'boss1') return 'บอส 1';
-    if(p === 'boss2') return 'บอส 2';
-    if(p === 'boss3') return 'บอส 3';
-    if(p === 'final') return 'ด่านสุดท้าย';
-    if(p === 'run') return 'กำลังเล่น';
-    if(p === 'done') return 'จบแล้ว';
-    if(p === 'lobby') return 'รอเข้า';
+    if (p === 'normal') return 'ช่วงปกติ';
+    if (p === 'storm') return 'พายุ';
+    if (p === 'boss1') return 'บอส 1';
+    if (p === 'boss2') return 'บอส 2';
+    if (p === 'boss3') return 'บอส 3';
+    if (p === 'final') return 'ด่านสุดท้าย';
+    if (p === 'run') return 'กำลังเล่น';
+    if (p === 'done') return 'จบแล้ว';
+    if (p === 'lobby') return 'รอเข้า';
     return p;
   }
 
-  function getDistinctRoomPlayers(room){
+  function getDistinctRoomPlayers(room) {
     const raw = Object.values((room && room.players) || {}).filter(Boolean);
     const byUid = new Map();
 
-    for(const p of raw){
+    for (const p of raw) {
       const uid = String(p.uid || p.id || '').trim();
-      if(!uid) continue;
+      if (!uid) continue;
 
       const prev = byUid.get(uid);
       const prevTs = Number(prev?.finishedAt || prev?.lastSeenAt || prev?.joinedAt || 0);
       const nextTs = Number(p?.finishedAt || p?.lastSeenAt || p?.joinedAt || 0);
 
-      if(!prev || nextTs >= prevTs){
+      if (!prev || nextTs >= prevTs) {
         byUid.set(uid, p);
       }
     }
 
-    return Array.from(byUid.values()).sort((a,b)=>{
+    return Array.from(byUid.values()).sort((a, b) => {
       const aj = Number(a?.joinedAt || 0);
       const bj = Number(b?.joinedAt || 0);
       return aj - bj;
     });
   }
 
-  function myPeerFromRoom(room){
+  function myPeerFromRoom(room) {
     const ps = getDistinctRoomPlayers(room);
     const me = ps.find(p => String(p.uid || '') === String(MP.uid || '')) || null;
     const peer = ps.find(p => String(p.uid || '') !== String(MP.uid || '')) || null;
     return { ps, me, peer };
   }
 
-  function getSeriesState(room){
+  function getSeriesState(room) {
     const bestOf = Number(room?.bestOf || 3);
     const targetWins = Number(room?.targetWins || Math.ceil(bestOf / 2));
     const roundNo = Number(room?.seriesRound || 0);
@@ -1423,8 +1436,8 @@ export async function boot(cfg = {}){
     };
   }
 
-  function renderSeriesMini(room){
-    if(!ui.duetSeriesMini) return;
+  function renderSeriesMini(room) {
+    if (!ui.duetSeriesMini) return;
 
     const { me, peer } = myPeerFromRoom(room);
     const series = getSeriesState(room);
@@ -1433,16 +1446,16 @@ export async function boot(cfg = {}){
     const peerWins = Number(series.wins[String(peer?.uid || '')] || 0);
 
     let text = `BO${series.bestOf} ${myWins}-${peerWins}`;
-    if(series.draws > 0) text += ` • เสมอ ${series.draws}`;
-    if(series.championUid){
+    if (series.draws > 0) text += ` • เสมอ ${series.draws}`;
+    if (series.championUid) {
       text = String(series.championUid) === String(MP.uid) ? `🏆 ฉันชนะซีรีส์` : `🌈 เพื่อนชนะซีรีส์`;
     }
 
     safeText(ui.duetSeriesMini, text);
   }
 
-  function renderDuetLiveHud(room){
-    if(!MP.enabled || !ui.duetHud) return;
+  function renderDuetLiveHud(room) {
+    if (!MP.enabled || !ui.duetHud) return;
 
     setDuetHudVisible(true);
 
@@ -1459,13 +1472,13 @@ export async function boot(cfg = {}){
       phase: endShown ? 'done' : 'run'
     }));
 
-    if(peer){
+    if (peer) {
       safeText(ui.duetPeerName, String(peer.name || 'เพื่อน').slice(0, 64) || 'เพื่อน');
       safeText(ui.duetPeerScore, String(Number(peer.scoreLive || peer.finalScore || 0)));
       safeText(ui.duetPeerWater, `${Number(peer.waterPct || 0)}%`);
       safeText(ui.duetPeerCombo, String(Number(peer.combo || peer.comboMax || 0)));
       safeText(ui.duetPeerPhase, peerPhaseLabel(peer));
-    }else{
+    } else {
       safeText(ui.duetPeerName, 'เพื่อน');
       safeText(ui.duetPeerScore, '0');
       safeText(ui.duetPeerWater, '0%');
@@ -1474,54 +1487,54 @@ export async function boot(cfg = {}){
     }
 
     let badge = 'กำลังซิงก์';
-    if(peer && peer.finished && MP.doneCommitted) badge = 'จบครบ 2 ฝั่ง';
-    else if(peer && peer.finished) badge = 'อีกฝั่งจบแล้ว';
-    else if(MP.doneCommitted) badge = 'รออีกฝั่ง';
-    else if(peer && peer.connected) badge = 'เล่นพร้อมกัน';
-    else if(peer && !peer.connected) badge = 'อีกฝั่งหลุด';
-    else if(!peer) badge = 'รอเพื่อน';
+    if (peer && peer.finished && MP.doneCommitted) badge = 'จบครบ 2 ฝั่ง';
+    else if (peer && peer.finished) badge = 'อีกฝั่งจบแล้ว';
+    else if (MP.doneCommitted) badge = 'รออีกฝั่ง';
+    else if (peer && peer.connected) badge = 'เล่นพร้อมกัน';
+    else if (peer && !peer.connected) badge = 'อีกฝั่งหลุด';
+    else if (!peer) badge = 'รอเพื่อน';
 
     safeText(ui.duetHudBadge, badge);
     renderSeriesMini(room);
   }
 
-  function setHUD(){
-    safeText(ui.score, score|0);
+  function setHUD() {
+    safeText(ui.score, score | 0);
     safeText(ui.time, formatClock(tLeft));
-    safeText(ui.miss, missBadHit|0);
-    safeText(ui.expire, missGoodExpired|0);
-    safeText(ui.block, blockCount|0);
+    safeText(ui.miss, missBadHit | 0);
+    safeText(ui.expire, missGoodExpired | 0);
+    safeText(ui.block, blockCount | 0);
     safeText(ui.water, `${Math.round(waterPct)}%`);
     safeText(ui.grade, computeGrade());
-    safeText(ui.combo, combo|0);
-    safeText(ui.shield, shield|0);
+    safeText(ui.combo, combo | 0);
+    safeText(ui.shield, shield | 0);
     safeText(ui.warmDone, childDoneText(isGateDone('warmup', catKey, gameKey, pid)));
     safeText(ui.coolDone, childDoneText(isGateDone('cooldown', catKey, gameKey, pid)));
 
-    if(ui.phase){
-      if(phase === 'storm'){
+    if (ui.phase) {
+      if (phase === 'storm') {
         ui.phase.textContent = `🌧️ พายุ • ไป${childZoneLabel()}`;
-      }else if(phase === 'boss'){
+      } else if (phase === 'boss') {
         ui.phase.textContent = `⚡ บอส ${bossLevel} • ไป${childZoneLabel()} • ${bossHits}/${bossGoal}`;
-      }else if(phase === 'final'){
+      } else if (phase === 'final') {
         ui.phase.textContent = `👑 ด่านสุดท้าย • ไป${childZoneLabel()} • ${finalHits}/${finalGoal}`;
-      }else if(feverOn){
+      } else if (feverOn) {
         ui.phase.textContent = '🔥 ไฟลุก • รีบเก็บน้ำ';
-      }else{
+      } else {
         ui.phase.textContent = '💧 ช่วงเก็บน้ำ';
       }
     }
 
-    if(zoneSign){
-      if(phase === 'storm'){
+    if (zoneSign) {
+      if (phase === 'storm') {
         zoneSign.textContent = `🌧️ ตอนนี้ปลอดภัยที่ ${childZoneLabel()}`;
-      }else if(phase === 'boss'){
+      } else if (phase === 'boss') {
         zoneSign.textContent = `⚡ บอส ${bossLevel} มาแล้ว ไป${childZoneLabel()}`;
-      }else if(phase === 'final'){
+      } else if (phase === 'final') {
         zoneSign.textContent = `👑 ด่านสุดท้าย ไป${childZoneLabel()}`;
-      }else if(feverOn){
+      } else if (feverOn) {
         zoneSign.textContent = '🔥 ไฟลุกแล้ว รีบเก็บน้ำ';
-      }else{
+      } else {
         zoneSign.textContent = '';
       }
     }
@@ -1533,7 +1546,7 @@ export async function boot(cfg = {}){
     refreshMissionBar();
     compactHudForMobileDuringPlay();
 
-    if(MP.enabled){
+    if (MP.enabled) {
       renderDuetLiveHud(MP.room);
     }
   }
@@ -1541,22 +1554,22 @@ export async function boot(cfg = {}){
   // ------------------------------------------------------------
   // duet live sync / summary helpers
   // ------------------------------------------------------------
-  function duetSummaryReady(room){
+  function duetSummaryReady(room) {
     const ps = getDistinctRoomPlayers(room);
     return ps.length === 2 && ps.every(p => !!p.finished);
   }
 
-  function buildDuetLobbyUrl(){
+  function buildDuetLobbyUrl() {
     const u = new URL('../hydration-lobby.html', location.href);
     const src = new URL(location.href);
 
     [
       'hub','zone','cat','theme','mode','roomCode','pid','nick','nickName',
       'diff','run','view','cooldown','time','seed'
-    ].forEach((k)=>{
+    ].forEach((k) => {
       const v = src.searchParams.get(k);
-      if(v != null && v !== ''){
-        if(k === 'roomCode') u.searchParams.set('room', v);
+      if (v != null && v !== '') {
+        if (k === 'roomCode') u.searchParams.set('room', v);
         else u.searchParams.set(k, v);
       }
     });
@@ -1565,28 +1578,28 @@ export async function boot(cfg = {}){
     return u.toString();
   }
 
-  function showDuetWait(){
-    if(ui.end) ui.end.setAttribute('aria-hidden', 'true');
-    if(ui.duetEnd) ui.duetEnd.setAttribute('aria-hidden', 'true');
-    if(ui.duetWait) ui.duetWait.setAttribute('aria-hidden', 'false');
+  function showDuetWait() {
+    if (ui.end) ui.end.setAttribute('aria-hidden', 'true');
+    if (ui.duetEnd) ui.duetEnd.setAttribute('aria-hidden', 'true');
+    if (ui.duetWait) ui.duetWait.setAttribute('aria-hidden', 'false');
     safeText(ui.duetWaitText, 'กำลังรออีกฝั่งเล่นจบ แล้วจะสรุปผลพร้อมกัน');
   }
 
-  function hideDuetWait(){
-    if(ui.duetWait) ui.duetWait.setAttribute('aria-hidden', 'true');
+  function hideDuetWait() {
+    if (ui.duetWait) ui.duetWait.setAttribute('aria-hidden', 'true');
   }
 
-  function renderDuetWaitStatus(room){
-    if(!MP.waitingSummary || !ui.duetWaitText) return;
+  function renderDuetWaitStatus(room) {
+    if (!MP.waitingSummary || !ui.duetWaitText) return;
 
     const { peer } = myPeerFromRoom(room);
 
-    if(!peer){
+    if (!peer) {
       safeText(ui.duetWaitText, 'กำลังรอผู้เล่นอีกฝั่งกลับเข้ามา...');
       return;
     }
 
-    if(peer.finished){
+    if (peer.finished) {
       safeText(ui.duetWaitText, 'อีกฝั่งเล่นจบแล้ว กำลังสรุปผลพร้อมกัน...');
       return;
     }
@@ -1602,37 +1615,37 @@ export async function boot(cfg = {}){
     );
   }
 
-  function getRoundWinner(a, b){
+  function getRoundWinner(a, b) {
     const aScore = Number(a?.finalScore || 0);
     const bScore = Number(b?.finalScore || 0);
-    if(aScore !== bScore) return aScore > bScore ? String(a.uid || '') : String(b.uid || '');
+    if (aScore !== bScore) return aScore > bScore ? String(a.uid || '') : String(b.uid || '');
 
     const aWater = Number(a?.waterPct || 0);
     const bWater = Number(b?.waterPct || 0);
-    if(aWater !== bWater) return aWater > bWater ? String(a.uid || '') : String(b.uid || '');
+    if (aWater !== bWater) return aWater > bWater ? String(a.uid || '') : String(b.uid || '');
 
     const aMiss = Number(a?.miss || a?.missBadHit || 0);
     const bMiss = Number(b?.miss || b?.missBadHit || 0);
-    if(aMiss !== bMiss) return aMiss < bMiss ? String(a.uid || '') : String(b.uid || '');
+    if (aMiss !== bMiss) return aMiss < bMiss ? String(a.uid || '') : String(b.uid || '');
 
     const aCombo = Number(a?.comboMax || 0);
     const bCombo = Number(b?.comboMax || 0);
-    if(aCombo !== bCombo) return aCombo > bCombo ? String(a.uid || '') : String(b.uid || '');
+    if (aCombo !== bCombo) return aCombo > bCombo ? String(a.uid || '') : String(b.uid || '');
 
     return '';
   }
 
-  function isDuetHost(room){
+  function isDuetHost(room) {
     return !!room && String(room.hostId || '') === String(MP.uid || '');
   }
 
-  function goDuetLobbySameRoom(){
-    if(MP.rematchNavigating) return;
+  function goDuetLobbySameRoom() {
+    if (MP.rematchNavigating) return;
     MP.rematchNavigating = true;
     location.replace(buildDuetLobbyUrl());
   }
 
-  function renderSeriesSummary(room, me, peer){
+  function renderSeriesSummary(room, me, peer) {
     const series = getSeriesState(room);
 
     const myWins = Number(series.wins[String(me?.uid || '')] || 0);
@@ -1640,13 +1653,13 @@ export async function boot(cfg = {}){
 
     const roundWinnerUid = series.lastWinnerUid;
     let banner = '🤝 รอบนี้เสมอกัน';
-    if(roundWinnerUid){
+    if (roundWinnerUid) {
       banner = String(roundWinnerUid) === String(MP.uid)
         ? '🎉 รอบนี้ชนะ'
         : '💪 รอบหน้าลุยต่อ';
     }
 
-    if(series.championUid){
+    if (series.championUid) {
       banner = String(series.championUid) === String(MP.uid)
         ? '🏆 ชนะซีรีส์แล้ว'
         : '🌈 เล่นเก่งมาก สู้ใหม่ได้';
@@ -1655,10 +1668,10 @@ export async function boot(cfg = {}){
     safeText(ui.duetSeriesBanner, banner);
 
     let scoreText = `Best of ${series.bestOf} • ซีรีส์ ${myWins} - ${peerWins}`;
-    if(series.draws > 0) scoreText += ` • เสมอ ${series.draws}`;
+    if (series.draws > 0) scoreText += ` • เสมอ ${series.draws}`;
     scoreText += ` • รอบ ${series.roundNo}`;
 
-    if(series.championUid){
+    if (series.championUid) {
       const champName = series.championName || (String(series.championUid) === String(MP.uid) ? (me?.name || 'ฉัน') : (peer?.name || 'เพื่อน'));
       scoreText += ` • แชมป์: ${champName}`;
     }
@@ -1667,18 +1680,18 @@ export async function boot(cfg = {}){
     renderSeriesMini(room);
   }
 
-  function refreshDuetReplayButton(room){
-    if(!ui.duetReplay) return;
+  function refreshDuetReplayButton(room) {
+    if (!ui.duetReplay) return;
 
     const host = isDuetHost(room);
     const series = getSeriesState(room);
 
-    if(host){
+    if (host) {
       ui.duetReplay.disabled = !!MP.rematchBusy;
       ui.duetReplay.textContent = series.championUid
         ? (MP.rematchBusy ? '⏳ กำลังเปิดซีรีส์ใหม่...' : '🌟 ซีรีส์ใหม่')
         : (MP.rematchBusy ? '⏳ กำลังเปิดรอบถัดไป...' : '🔁 รอบถัดไป');
-    }else{
+    } else {
       ui.duetReplay.disabled = true;
       ui.duetReplay.textContent = series.championUid
         ? '⏳ รอ Host เปิดซีรีส์ใหม่'
@@ -1686,26 +1699,26 @@ export async function boot(cfg = {}){
     }
   }
 
-  function renderDuetSummary(room){
+  function renderDuetSummary(room) {
     const ps = getDistinctRoomPlayers(room);
-    if(ps.length !== 2) return;
+    if (ps.length !== 2) return;
 
     const me = ps.find(p => String(p.uid || '') === String(MP.uid || ''));
     const peer = ps.find(p => String(p.uid || '') !== String(MP.uid || ''));
 
-    if(!me || !peer) return;
+    if (!me || !peer) return;
 
     const myScore = Number(me.finalScore || 0);
     const peerScore = Number(peer.finalScore || 0);
 
     let result = 'เสมอกัน 🤝';
-    if(myScore > peerScore) result = 'รอบนี้ชนะ 🎉';
-    else if(myScore < peerScore) result = 'รอบนี้ยังไม่ชนะ 💪';
+    if (myScore > peerScore) result = 'รอบนี้ชนะ 🎉';
+    else if (myScore < peerScore) result = 'รอบนี้ยังไม่ชนะ 💪';
 
     safeText(ui.duetEndTitle, 'ผลสรุปแบบ Duet');
     safeText(ui.duetResultText, result);
 
-    if(ui.duetRows){
+    if (ui.duetRows) {
       ui.duetRows.innerHTML = `
         <div class="endBox">
           <div class="endBoxTitle">ฝั่งฉัน</div>
@@ -1735,14 +1748,14 @@ export async function boot(cfg = {}){
     refreshDuetReplayButton(room);
 
     const series = getSeriesState(room);
-    if(series.championUid){
+    if (series.championUid) {
       safeText(
         ui.duetEndSub,
         String(series.championUid) === String(MP.uid)
           ? 'ชนะซีรีส์แล้ว! Host กดซีรีส์ใหม่ได้เลย'
           : 'ซีรีส์นี้จบแล้ว รอ Host เปิดซีรีส์ใหม่'
       );
-    }else{
+    } else {
       safeText(
         ui.duetEndSub,
         isDuetHost(room)
@@ -1752,10 +1765,10 @@ export async function boot(cfg = {}){
     }
 
     hideDuetWait();
-    if(ui.duetEnd) ui.duetEnd.setAttribute('aria-hidden', 'false');
+    if (ui.duetEnd) ui.duetEnd.setAttribute('aria-hidden', 'false');
   }
 
-  function buildDuetLivePatch(){
+  function buildDuetLivePatch() {
     return {
       uid: MP.uid,
       id: MP.uid,
@@ -1782,64 +1795,59 @@ export async function boot(cfg = {}){
     };
   }
 
-  async function syncDuetLive(force=false){
-    if(!MP.enabled || !MP.roomRef || !MP.uid) return;
-    if(MP.doneCommitted) return;
+  async function syncDuetLive(force = false) {
+    if (!MP.enabled || !MP.roomRef || !MP.uid) return;
+    if (MP.doneCommitted) return;
 
     const now = Date.now();
-    if(!force && (now - MP.syncLastAt) < 650){
-      return;
-    }
+    if (!force && (now - MP.syncLastAt) < 650) return;
     MP.syncLastAt = now;
 
-    try{
+    try {
       await MP.roomRef.child(`players/${MP.uid}`).update(buildDuetLivePatch());
-    }catch(e){
+    } catch (e) {
       console.warn('[hydration duet] sync live failed', e);
     }
   }
 
-  function stopDuetLiveSync(){
-    if(MP.liveTimer){
+  function stopDuetLiveSync() {
+    if (MP.liveTimer) {
       clearInterval(MP.liveTimer);
       MP.liveTimer = 0;
     }
   }
 
-  function startDuetLiveSync(){
+  function startDuetLiveSync() {
     stopDuetLiveSync();
-    if(!MP.enabled) return;
+    if (!MP.enabled) return;
 
-    MP.liveTimer = setInterval(()=>{
-      if(!playing || paused || helpOpen) return;
-      if(endShown || MP.doneCommitted) return;
+    MP.liveTimer = setInterval(() => {
+      if (!playing || paused || helpOpen) return;
+      if (endShown || MP.doneCommitted) return;
       syncDuetLive(false);
     }, 700);
   }
 
-  async function resolveDuetSeriesRound(room){
-    if(!MP.enabled || !MP.roomRef || !room) return room;
-    if(!isDuetHost(room)) return room;
-    if(MP.seriesResolveBusy) return room;
+  async function resolveDuetSeriesRound(room) {
+    if (!MP.enabled || !MP.roomRef || !room) return room;
+    if (!isDuetHost(room)) return room;
+    if (MP.seriesResolveBusy) return room;
 
     const { ps } = myPeerFromRoom(room);
-    if(ps.length !== 2 || !ps.every(p => !!p.finished)) return room;
+    if (ps.length !== 2 || !ps.every(p => !!p.finished)) return room;
 
     const resolvedKey = `seed:${String(room.seed || room.startAt || 'round')}`;
     const series = getSeriesState(room);
-    if(series.resolvedKey === resolvedKey) return room;
+    if (series.resolvedKey === resolvedKey) return room;
 
     MP.seriesResolveBusy = true;
-    try{
+    try {
       const winnerUid = getRoundWinner(ps[0], ps[1]);
       const wins = Object.assign({}, series.wins);
       let draws = series.draws;
 
-      if(winnerUid){
-        wins[winnerUid] = Number(wins[winnerUid] || 0) + 1;
-      }else{
-        draws += 1;
-      }
+      if (winnerUid) wins[winnerUid] = Number(wins[winnerUid] || 0) + 1;
+      else draws += 1;
 
       const bestOf = series.bestOf || 3;
       const targetWins = series.targetWins || 2;
@@ -1849,10 +1857,10 @@ export async function boot(cfg = {}){
 
       let championUid = '';
       let championName = '';
-      if(p1Wins >= targetWins){
+      if (p1Wins >= targetWins) {
         championUid = String(ps[0].uid || '');
         championName = String(ps[0].name || '');
-      }else if(p2Wins >= targetWins){
+      } else if (p2Wins >= targetWins) {
         championUid = String(ps[1].uid || '');
         championName = String(ps[1].name || '');
       }
@@ -1872,22 +1880,22 @@ export async function boot(cfg = {}){
 
       const snap = await MP.roomRef.once('value');
       return snap.val() || room;
-    }catch(e){
+    } catch (e) {
       console.warn('[hydration duet] resolve series failed', e);
       return room;
-    }finally{
+    } finally {
       MP.seriesResolveBusy = false;
     }
   }
 
-  async function requestDuetRematch(){
-    if(!MP.enabled || !MP.roomRef || !MP.room) return false;
-    if(!isDuetHost(MP.room)) return false;
-    if(MP.rematchBusy) return false;
+  async function requestDuetRematch() {
+    if (!MP.enabled || !MP.roomRef || !MP.room) return false;
+    if (!isDuetHost(MP.room)) return false;
+    if (MP.rematchBusy) return false;
 
     MP.rematchBusy = true;
 
-    try{
+    try {
       const room = MP.room;
       const players = getDistinctRoomPlayers(room);
       const nextCycle = Number(room.rematchCycle || 0) + 1;
@@ -1903,7 +1911,7 @@ export async function boot(cfg = {}){
         updatedAt: WIN.firebase.database.ServerValue.TIMESTAMP
       };
 
-      if(resetSeries){
+      if (resetSeries) {
         updates.bestOf = 3;
         updates.targetWins = 2;
         updates.seriesRound = 0;
@@ -1923,7 +1931,7 @@ export async function boot(cfg = {}){
         finishedAt: 0
       });
 
-      for(const p of players){
+      for (const p of players) {
         await MP.roomRef.child(`players/${p.uid}`).update({
           connected: true,
           ready: false,
@@ -1948,17 +1956,17 @@ export async function boot(cfg = {}){
       }
 
       return true;
-    }catch(e){
+    } catch (e) {
       console.warn('[hydration duet] rematch failed', e);
       return false;
-    }finally{
+    } finally {
       MP.rematchBusy = false;
     }
   }
 
-  async function initDuetBridge(){
-    if(!MP.enabled) return;
-    if(!WIN.firebase || !WIN.HHA_FIREBASE_CONFIG) return;
+  async function initDuetBridge() {
+    if (!MP.enabled) return;
+    if (!WIN.firebase || !WIN.HHA_FIREBASE_CONFIG) return;
 
     const app = (WIN.firebase.apps && WIN.firebase.apps.length)
       ? WIN.firebase.app()
@@ -1967,10 +1975,8 @@ export async function boot(cfg = {}){
     MP.db = WIN.firebase.database(app);
     MP.auth = WIN.firebase.auth(app);
 
-    if(!MP.auth.currentUser){
-      try{
-        await MP.auth.signInAnonymously();
-      }catch(e){}
+    if (!MP.auth.currentUser) {
+      try { await MP.auth.signInAnonymously(); } catch (e) {}
     }
 
     const user = MP.auth.currentUser || await waitForAuthUser(MP.auth);
@@ -2007,7 +2013,7 @@ export async function boot(cfg = {}){
     renderSeriesMini(MP.room);
     refreshDuetReplayButton(MP.room);
 
-    MP.roomRef.on('value', async (snap)=>{
+    MP.roomRef.on('value', async (snap) => {
       const prevCycle = Number(MP.roomCycle || 0);
       MP.room = snap.val() || null;
 
@@ -2016,17 +2022,17 @@ export async function boot(cfg = {}){
 
       renderDuetLiveHud(MP.room);
 
-      if(MP.waitingSummary){
+      if (MP.waitingSummary) {
         renderDuetWaitStatus(MP.room);
 
-        if(duetSummaryReady(MP.room)){
+        if (duetSummaryReady(MP.room)) {
           const resolved = await resolveDuetSeriesRound(MP.room);
           const series = getSeriesState(resolved);
           const expectedKey = `seed:${String(resolved?.seed || resolved?.startAt || 'round')}`;
 
           MP.room = resolved || MP.room;
 
-          if(!isDuetHost(MP.room) && series.resolvedKey !== expectedKey){
+          if (!isDuetHost(MP.room) && series.resolvedKey !== expectedKey) {
             safeText(ui.duetWaitText, 'กำลังสรุปผลรอบนี้...');
             return;
           }
@@ -2035,28 +2041,28 @@ export async function boot(cfg = {}){
         }
       }
 
-      if((MP.doneCommitted || MP.waitingSummary) && nextCycle > prevCycle){
+      if ((MP.doneCommitted || MP.waitingSummary) && nextCycle > prevCycle) {
         goDuetLobbySameRoom();
       }
     });
 
-    if(ui.duetWaitBackHub){
-      ui.duetWaitBackHub.onclick = ()=>{ location.href = hubUrl; };
+    if (ui.duetWaitBackHub) {
+      ui.duetWaitBackHub.onclick = () => { location.href = hubUrl; };
     }
 
-    if(ui.duetReplay){
-      ui.duetReplay.onclick = async ()=>{
-        if(!MP.enabled){
+    if (ui.duetReplay) {
+      ui.duetReplay.onclick = async () => {
+        if (!MP.enabled) {
           location.href = buildDuetLobbyUrl();
           return;
         }
 
-        if(!MP.room){
+        if (!MP.room) {
           location.href = buildDuetLobbyUrl();
           return;
         }
 
-        if(!isDuetHost(MP.room)){
+        if (!isDuetHost(MP.room)) {
           const series = getSeriesState(MP.room);
           safeText(
             ui.duetEndSub,
@@ -2069,30 +2075,30 @@ export async function boot(cfg = {}){
 
         refreshDuetReplayButton(MP.room);
         const ok = await requestDuetRematch();
-        if(!ok){
+        if (!ok) {
           safeText(ui.duetEndSub, 'เริ่มรอบใหม่ไม่สำเร็จ ลองกดอีกครั้ง');
           refreshDuetReplayButton(MP.room);
         }
       };
     }
 
-    if(ui.duetBackHub){
-      ui.duetBackHub.onclick = ()=>{ location.href = hubUrl; };
+    if (ui.duetBackHub) {
+      ui.duetBackHub.onclick = () => { location.href = hubUrl; };
     }
 
-    WIN.addEventListener('beforeunload', ()=>{
-      if(!MP.enabled || !MP.roomRef || !MP.uid) return;
-      try{
+    WIN.addEventListener('beforeunload', () => {
+      if (!MP.enabled || !MP.roomRef || !MP.uid) return;
+      try {
         MP.roomRef.child(`players/${MP.uid}`).update({
-          connected:false,
+          connected: false,
           lastSeenAt: WIN.firebase.database.ServerValue.TIMESTAMP
         });
-      }catch(e){}
+      } catch (e) {}
     });
   }
 
-  async function commitDuetFinish(summary, reason){
-    if(!MP.enabled || !MP.roomRef || !MP.uid) return false;
+  async function commitDuetFinish(summary, reason) {
+    if (!MP.enabled || !MP.roomRef || !MP.uid) return false;
 
     MP.localSummary = summary;
     MP.doneCommitted = true;
@@ -2133,8 +2139,8 @@ export async function boot(cfg = {}){
     MP.room = snap.val() || null;
     refreshDuetReplayButton(MP.room);
 
-    if(duetSummaryReady(MP.room)){
-      try{
+    if (duetSummaryReady(MP.room)) {
+      try {
         await MP.roomRef.update({
           status: 'finished',
           updatedAt: WIN.firebase.database.ServerValue.TIMESTAMP
@@ -2143,14 +2149,14 @@ export async function boot(cfg = {}){
           status: 'finished',
           finishedAt: WIN.firebase.database.ServerValue.TIMESTAMP
         });
-      }catch(e){
+      } catch (e) {
         console.warn('[hydration duet] mark room finished failed', e);
       }
 
       const resolved = await resolveDuetSeriesRound(MP.room);
       MP.room = resolved || MP.room;
       renderDuetSummary(MP.room);
-    }else{
+    } else {
       renderDuetWaitStatus(MP.room);
     }
 
@@ -2160,11 +2166,13 @@ export async function boot(cfg = {}){
   // ------------------------------------------------------------
   // spawn/update
   // ------------------------------------------------------------
-  function spawnTick(dt){
+  function spawnTick(dt) {
     updateAdaptiveTier();
+
+    bubbleWatchdogSec += dt;
     spawnAcc += (TUNE.spawnBase * phaseSpawnMul() * adaptiveSpawnFactor()) * dt;
 
-    while(spawnAcc >= 1){
+    while (spawnAcc >= 1) {
       spawnAcc -= 1;
 
       const p = r01();
@@ -2177,29 +2185,36 @@ export async function boot(cfg = {}){
         phase === 'storm' ? 0.04 :
         0.03;
 
-      if(phase === 'normal'){
-        if(p < 0.58) kind = 'good';
-        else if(p < 0.82) kind = 'bad';
-        else if(p < 0.92) kind = 'shield';
+      if (phase === 'normal') {
+        if (p < 0.58) kind = 'good';
+        else if (p < 0.82) kind = 'bad';
+        else if (p < 0.92) kind = 'shield';
         else kind = 'bonus';
-      }else{
-        if(p < bonusP) kind = 'bonus';
-        else if(p < (1.0 - badP - 0.08)) kind = 'good';
-        else if(p < (1.0 - 0.08)) kind = 'bad';
+      } else {
+        if (p < bonusP) kind = 'bonus';
+        else if (p < (1.0 - badP - 0.08)) kind = 'good';
+        else if (p < (1.0 - 0.08)) kind = 'bad';
         else kind = 'shield';
       }
 
-      if(kind === 'good') makeBubble('good', pick(GOOD), TUNE.ttlGood);
-      else if(kind === 'shield') makeBubble('shield', pick(SHLD), 2.6);
-      else if(kind === 'bonus') makeBubble('bonus', pick(BONUS), 2.2);
+      if (kind === 'good') makeBubble('good', pick(GOOD), TUNE.ttlGood);
+      else if (kind === 'shield') makeBubble('shield', pick(SHLD), 2.6);
+      else if (kind === 'bonus') makeBubble('bonus', pick(BONUS), 2.2);
       else makeBubble('bad', pick(BAD), TUNE.ttlBad);
+    }
+
+    if (bubbles.size > 0) {
+      bubbleWatchdogSec = 0;
+    } else if (bubbleWatchdogSec >= 1.2) {
+      emergencySpawnIfEmpty();
+      bubbleWatchdogSec = 0;
     }
   }
 
-  function updateBubbles(now){
-    for(const [id, b] of bubbles.entries()){
-      if(now - b.born >= b.ttlMs){
-        if(b.kind === 'good'){
+  function updateBubbles(now) {
+    for (const [id, b] of bubbles.entries()) {
+      if (now - b.born >= b.ttlMs) {
+        if (b.kind === 'good') {
           missGoodExpired += 1;
           combo = 0;
           phaseStats[currentPhaseKey()].expire += 1;
@@ -2210,17 +2225,17 @@ export async function boot(cfg = {}){
     }
   }
 
-  function updatePhases(dt){
+  function updatePhases(dt) {
     const elapsed = plannedSec - tLeft;
 
-    if(phase === 'normal'){
-      if(elapsed >= nextStormAt){
+    if (phase === 'normal') {
+      if (elapsed >= nextStormAt) {
         nextStormAt = 1e9;
         startStorm();
-      }else if(elapsed >= nextBossAt){
+      } else if (elapsed >= nextBossAt) {
         nextBossAt = 1e9;
         startBoss(1);
-      }else if(elapsed >= nextFinalAt){
+      } else if (elapsed >= nextFinalAt) {
         nextFinalAt = 1e9;
         startFinal();
       }
@@ -2228,9 +2243,9 @@ export async function boot(cfg = {}){
     }
 
     phaseTimer -= dt;
-    if(phase === 'storm'){
-      if(r01() < 0.025) applyLightningStrike(1);
-      if(phaseTimer <= 0){
+    if (phase === 'storm') {
+      if (r01() < 0.025) applyLightningStrike(1);
+      if (phaseTimer <= 0) {
         phase = 'normal';
         setStagePhase('normal');
         setBossFace('hide');
@@ -2238,12 +2253,11 @@ export async function boot(cfg = {}){
       return;
     }
 
-    if(phase === 'boss'){
-      if(r01() < 0.02) applyLightningStrike(1.1);
-      if(phaseTimer <= 0 || bossHits >= bossGoal){
-        if(bossLevel < 3){
-          startBoss(bossLevel + 1);
-        }else{
+    if (phase === 'boss') {
+      if (r01() < 0.02) applyLightningStrike(1.1);
+      if (phaseTimer <= 0 || bossHits >= bossGoal) {
+        if (bossLevel < 3) startBoss(bossLevel + 1);
+        else {
           phase = 'normal';
           setStagePhase('normal');
           setBossFace('hide');
@@ -2252,11 +2266,11 @@ export async function boot(cfg = {}){
       return;
     }
 
-    if(phase === 'final'){
-      if(r01() < 0.03) applyLightningStrike(1.2);
-      if(finalHits >= finalGoal){
+    if (phase === 'final') {
+      if (r01() < 0.03) applyLightningStrike(1.2);
+      if (finalHits >= finalGoal) {
         void showEnd('final-clear');
-      }else if(phaseTimer <= 0){
+      } else if (phaseTimer <= 0) {
         phase = 'normal';
         setStagePhase('normal');
         setBossFace('hide');
@@ -2264,22 +2278,22 @@ export async function boot(cfg = {}){
     }
   }
 
-  function checkEnd(){
-    if(tLeft <= 0) return true;
-    if(missBadHit >= TUNE.missLimit) return true;
-    if(waterPct <= 0) return true;
+  function checkEnd() {
+    if (tLeft <= 0) return true;
+    if (missBadHit >= TUNE.missLimit) return true;
+    if (waterPct <= 0) return true;
     return false;
   }
 
-  function rewardCardMiniText(summary, shelf){
+  function rewardCardMiniText(summary, shelf) {
     return rewardCardMini(summary, shelf);
   }
 
-  function renderStickerCollection(shelf){
-    if(!ui.endStickerRow) return;
+  function renderStickerCollection(shelf) {
+    if (!ui.endStickerRow) return;
     ui.endStickerRow.innerHTML = '';
 
-    Object.entries(HYD_STICKER_META).forEach(([key, meta])=>{
+    Object.entries(HYD_STICKER_META).forEach(([key, meta]) => {
       const owned = !!(shelf?.stickers || {})[key];
       const chip = DOC.createElement('div');
       chip.className = `stickerChip ${owned ? '' : 'locked'}`.trim();
@@ -2288,13 +2302,13 @@ export async function boot(cfg = {}){
     });
   }
 
-  function setEndButtons(summary){
-    if(ui.btnNextCooldown){
+  function setEndButtons(summary) {
+    if (ui.btnNextCooldown) {
       const showCooldown = cooldownRequired && !isGateDone('cooldown', catKey, gameKey, pid);
       ui.btnNextCooldown.classList.toggle('is-hidden', !showCooldown);
 
-      ui.btnNextCooldown.onclick = ()=>{
-        if(ui.btnNextCooldown.disabled) return;
+      ui.btnNextCooldown.onclick = () => {
+        if (ui.btnNextCooldown.disabled) return;
         ui.btnNextCooldown.disabled = true;
         ui.btnReplay && (ui.btnReplay.disabled = true);
         ui.btnBackHub && (ui.btnBackHub.disabled = true);
@@ -2303,7 +2317,7 @@ export async function boot(cfg = {}){
         stopLoop();
         bootDestroyed = true;
 
-        try{
+        try {
           const u = new URL('../warmup-gate.html', location.href);
           u.searchParams.set('gatePhase', 'cooldown');
           u.searchParams.set('zone', zoneKey);
@@ -2319,26 +2333,26 @@ export async function boot(cfg = {}){
           u.searchParams.set('hub', hubUrl);
           u.searchParams.set('next', hubUrl);
           location.href = u.toString();
-        }catch(e){
+        } catch (e) {
           console.warn(e);
-          try{
+          try {
             ui.btnReplay && (ui.btnReplay.disabled = false);
             ui.btnBackHub && (ui.btnBackHub.disabled = false);
-          }catch(_){}
+          } catch (_) {}
         }
       };
     }
 
-    if(ui.btnReplay){
+    if (ui.btnReplay) {
       ui.btnReplay.classList.remove('primary');
       ui.btnReplay.classList.add('warn');
 
-      if(ui.btnNextCooldown && ui.btnNextCooldown.classList.contains('is-hidden')){
+      if (ui.btnNextCooldown && ui.btnNextCooldown.classList.contains('is-hidden')) {
         ui.btnReplay.classList.remove('warn');
         ui.btnReplay.classList.add('primary');
       }
 
-      ui.btnReplay.onclick = ()=>{
+      ui.btnReplay.onclick = () => {
         resetEndSectionVisibility();
         clearTransientVisuals();
         stopLoop();
@@ -2349,8 +2363,8 @@ export async function boot(cfg = {}){
       };
     }
 
-    if(ui.btnBackHub){
-      ui.btnBackHub.onclick = ()=>{
+    if (ui.btnBackHub) {
+      ui.btnBackHub.onclick = () => {
         clearTransientVisuals();
         stopLoop();
         bootDestroyed = true;
@@ -2359,8 +2373,8 @@ export async function boot(cfg = {}){
     }
   }
 
-  async function showEnd(reason){
-    if(endShown) return;
+  async function showEnd(reason) {
+    if (endShown) return;
     endShown = true;
 
     clearTransientVisuals();
@@ -2369,51 +2383,45 @@ export async function boot(cfg = {}){
     playing = false;
     paused = false;
 
-    const shelfBefore = safeRun(()=> loadHydShelf(pid), {
-      bestScore:0, bestGrade:'—', finalClearCount:0, totalRuns:0, stickers:{}, lastReward:null
+    const shelfBefore = safeRun(() => loadHydShelf(pid), {
+      bestScore: 0, bestGrade: '—', finalClearCount: 0, totalRuns: 0, stickers: {}, lastReward: null
     });
 
-    const summary = safeRun(()=> buildSummary(reason), {
+    const summary = safeRun(() => buildSummary(reason), {
       reason,
-      grade:'—',
-      scoreFinal:0,
-      missBadHit:0,
-      waterPct:0,
-      comboMax:0,
-      blockCount:0,
-      missionsDone:0
+      grade: '—',
+      scoreFinal: 0,
+      missBadHit: 0,
+      waterPct: 0,
+      comboMax: 0,
+      blockCount: 0,
+      missionsDone: 0
     });
 
-    const shelf = safeRun(()=> saveHydrationRewards(pid, summary, nowIso()), shelfBefore) || shelfBefore;
+    const shelf = safeRun(() => saveHydrationRewards(pid, summary, nowIso()), shelfBefore) || shelfBefore;
 
-    if(MP.enabled){
+    if (MP.enabled) {
       const committed = await commitDuetFinish(summary, reason);
-      if(committed){
-        return;
-      }
+      if (committed) return;
     }
 
     setStagePhase('normal');
-    stageEl?.classList?.remove('boss-1','boss-2','boss-3');
+    stageEl?.classList?.remove('boss-1', 'boss-2', 'boss-3');
     setBossFace('hide');
-    if(reason === 'final-clear'){
+    if (reason === 'final-clear') {
       stageEl?.classList?.add('final-win');
-      try{
-        fxPhaseBanner('🏆 ชนะแล้ว');
-      }catch(e){}
+      try { fxPhaseBanner('🏆 ชนะแล้ว'); } catch (e) {}
     }
 
-    if(ui.end) ui.end.setAttribute('aria-hidden','false');
+    if (ui.end) ui.end.setAttribute('aria-hidden', 'false');
 
-    try{
-      ui.end.scrollTop = 0;
-    }catch(e){}
+    try { ui.end.scrollTop = 0; } catch (e) {}
 
     safeText(ui.endTitle, (reason === 'final-clear') ? 'ผ่านด่านสุดท้ายแล้ว!' : 'เล่นจบรอบแล้ว');
     safeText(ui.endSub, `มุมมอง ${view} • ระดับ ${diff}`);
     safeText(ui.endGrade, summary.grade || '—');
-    safeText(ui.endScore, String(summary.scoreFinal|0));
-    safeText(ui.endMiss, String(summary.missBadHit|0));
+    safeText(ui.endScore, String(summary.scoreFinal | 0));
+    safeText(ui.endMiss, String(summary.missBadHit | 0));
     safeText(ui.endWater, `${summary.waterPct}%`);
     safeText(ui.endCoach, childEndCoach(summary));
     safeText(ui.endPhaseSummary, phaseSummaryChildText(summary));
@@ -2426,90 +2434,91 @@ export async function boot(cfg = {}){
 
     hideMobileOptionalEndSections(summary);
 
-    if(ui.endCollection){
+    if (ui.endCollection) {
       const wrap = ui.endCollection.closest('.endBox');
-      if(wrap){
+      if (wrap) {
         wrap.classList.remove('collectionGlow');
         wrap.classList.add('collectionGlow');
       }
     }
 
-    if(Number(summary.scoreFinal || 0) > Number(shelfBefore.bestScore || 0)){
-      setTimeout(()=> spawnSticker('🏆 NEW BEST'), 80);
+    if (Number(summary.scoreFinal || 0) > Number(shelfBefore.bestScore || 0)) {
+      setTimeout(() => spawnSticker('🏆 NEW BEST'), 80);
     }
-    if(summary.grade === 'S'){
-      setTimeout(()=> spawnSticker('⭐ S RANK'), 160);
+    if (summary.grade === 'S') {
+      setTimeout(() => spawnSticker('⭐ S RANK'), 160);
     }
-    if(summary.reason === 'final-clear'){
-      setTimeout(()=> spawnSticker('👑 CLEAR'), 240);
-      setTimeout(()=> spawnSticker('🏆 WIN'), 80);
-      setTimeout(()=> spawnSticker('👑 HERO'), 120);
-    }else if(summary.grade === 'A'){
-      setTimeout(()=> spawnSticker('💙 GREAT'), 120);
-    }else if(summary.grade === 'B'){
-      setTimeout(()=> spawnSticker('💧 GOOD'), 120);
+    if (summary.reason === 'final-clear') {
+      setTimeout(() => spawnSticker('👑 CLEAR'), 240);
+      setTimeout(() => spawnSticker('🏆 WIN'), 80);
+      setTimeout(() => spawnSticker('👑 HERO'), 120);
+    } else if (summary.grade === 'A') {
+      setTimeout(() => spawnSticker('💙 GREAT'), 120);
+    } else if (summary.grade === 'B') {
+      setTimeout(() => spawnSticker('💧 GOOD'), 120);
     }
 
     setEndButtons(summary);
 
-    setTimeout(()=>{
-      try{
-        if(ui.btnNextCooldown && !ui.btnNextCooldown.classList.contains('is-hidden')){
+    setTimeout(() => {
+      try {
+        if (ui.btnNextCooldown && !ui.btnNextCooldown.classList.contains('is-hidden')) {
           ui.btnNextCooldown.focus?.();
-        }else{
+        } else {
           ui.btnReplay?.focus?.();
         }
-      }catch(e){}
+      } catch (e) {}
     }, 40);
   }
 
-  function scheduleLoop(){
-    if(bootDestroyed) return;
-    if(loopRunning) return;
+  function scheduleLoop() {
+    if (bootDestroyed) return;
+    if (loopRunning) return;
     loopRunning = true;
     rafId = requestAnimationFrame(loop);
   }
 
-  function stopLoop(){
+  function stopLoop() {
     loopRunning = false;
-    if(rafId){
-      try{ cancelAnimationFrame(rafId); }catch(e){}
+    if (rafId) {
+      try { cancelAnimationFrame(rafId); } catch (e) {}
       rafId = 0;
     }
   }
 
-  function showHelp(){
+  function showHelp() {
     helpOpen = true;
     paused = true;
-    ui.helpOverlay?.setAttribute('aria-hidden','false');
+    ui.helpOverlay?.setAttribute('aria-hidden', 'false');
   }
 
-  function hideHelp(){
+  function hideHelp() {
     helpOpen = false;
-    ui.helpOverlay?.setAttribute('aria-hidden','true');
+    ui.helpOverlay?.setAttribute('aria-hidden', 'true');
     paused = false;
     lastTick = nowMs();
     loopRunning = false;
+    emergencySpawnIfEmpty();
     scheduleLoop();
   }
 
-  function showPause(){
+  function showPause() {
     paused = true;
-    ui.pauseOverlay?.setAttribute('aria-hidden','false');
+    ui.pauseOverlay?.setAttribute('aria-hidden', 'false');
   }
 
-  function hidePause(){
-    ui.pauseOverlay?.setAttribute('aria-hidden','true');
+  function hidePause() {
+    ui.pauseOverlay?.setAttribute('aria-hidden', 'true');
     paused = false;
     lastTick = nowMs();
     loopRunning = false;
     scheduleLoop();
   }
 
-  function loop(t){
-    if(bootDestroyed) return;
+  function loop(t) {
+    if (bootDestroyed) return;
 
-    if(paused || helpOpen){
+    if (paused || helpOpen) {
       loopRunning = false;
       scheduleLoop();
       return;
@@ -2533,11 +2542,11 @@ export async function boot(cfg = {}){
     setHUD();
     refreshDebug(dt);
 
-    if(MP.enabled && !MP.doneCommitted){
+    if (MP.enabled && !MP.doneCommitted) {
       void syncDuetLive(false);
     }
 
-    if(checkEnd()){
+    if (checkEnd()) {
       void showEnd(tLeft <= 0 ? 'time' : (waterPct <= 0 ? 'water-empty' : 'miss-limit'));
       loopRunning = false;
       return;
@@ -2551,46 +2560,46 @@ export async function boot(cfg = {}){
   // pointer / shoot
   // ------------------------------------------------------------
   const __bound = {
-    pointerLayer:false,
-    shoot:false,
-    visibility:false,
-    unlock:false
+    pointerLayer: false,
+    shoot: false,
+    visibility: false,
+    unlock: false
   };
 
-  function unlockOnce(){
+  function unlockOnce() {
     SFX.unlock();
   }
 
-  if(!__bound.unlock){
+  if (!__bound.unlock) {
     __bound.unlock = true;
     DOC.addEventListener('pointerdown', unlockOnce, true);
     DOC.addEventListener('touchstart', unlockOnce, true);
     DOC.addEventListener('keydown', unlockOnce, true);
   }
 
-  if(!__bound.pointerLayer){
+  if (!__bound.pointerLayer) {
     __bound.pointerLayer = true;
-    layer.addEventListener('pointerdown', (ev)=>{
-      if(!playing || paused) return;
+    layer.addEventListener('pointerdown', (ev) => {
+      if (!playing || paused) return;
       const el = ev.target?.closest?.('.bubble');
-      if(!el) return;
+      if (!el) return;
       const b = bubbles.get(String(el.dataset.id));
-      if(b) hit(b);
-    }, { passive:true });
+      if (b) hit(b);
+    }, { passive: true });
   }
 
-  function pickClosestToCenter(lockPx = 56){
+  function pickClosestToCenter(lockPx = 56) {
     const rect = stageEl.getBoundingClientRect();
     const cx = rect.width / 2;
     const cy = rect.height / 2;
     let best = null;
     let bestD = 1e9;
 
-    for(const b of bubbles.values()){
+    for (const b of bubbles.values()) {
       const dx = b.x - cx;
       const dy = b.y - cy;
       const d = Math.hypot(dx, dy);
-      if(d < bestD && d <= lockPx){
+      if (d < bestD && d <= lockPx) {
         bestD = d;
         best = b;
       }
@@ -2598,22 +2607,22 @@ export async function boot(cfg = {}){
     return best;
   }
 
-  if(!__bound.shoot){
+  if (!__bound.shoot) {
     __bound.shoot = true;
-    WIN.addEventListener('hha:shoot', (ev)=>{
-      if(!playing || paused) return;
+    WIN.addEventListener('hha:shoot', (ev) => {
+      if (!playing || paused) return;
       const b = pickClosestToCenter(ev?.detail?.lockPx ?? 56);
-      if(b) hit(b);
+      if (b) hit(b);
     });
   }
 
-  if(!__bound.visibility){
+  if (!__bound.visibility) {
     __bound.visibility = true;
-    DOC.addEventListener('visibilitychange', ()=>{
-      if(!playing) return;
-      if(DOC.hidden){
+    DOC.addEventListener('visibilitychange', () => {
+      if (!playing) return;
+      if (DOC.hidden) {
         paused = true;
-        ui.pauseOverlay?.setAttribute('aria-hidden','false');
+        ui.pauseOverlay?.setAttribute('aria-hidden', 'false');
       }
     });
   }
@@ -2621,35 +2630,33 @@ export async function boot(cfg = {}){
   // ------------------------------------------------------------
   // ui actions
   // ------------------------------------------------------------
-  if(ui.btnHelp) ui.btnHelp.onclick = showHelp;
-  if(ui.btnHelpStart) ui.btnHelpStart.onclick = hideHelp;
-  if(ui.btnPause) ui.btnPause.onclick = ()=> paused ? hidePause() : showPause();
-  if(ui.btnResume) ui.btnResume.onclick = hidePause;
+  if (ui.btnHelp) ui.btnHelp.onclick = showHelp;
+  if (ui.btnHelpStart) ui.btnHelpStart.onclick = hideHelp;
+  if (ui.btnPause) ui.btnPause.onclick = () => paused ? hidePause() : showPause();
+  if (ui.btnResume) ui.btnResume.onclick = hidePause;
 
-  if(ui.btnCopy) ui.btnCopy.onclick = async ()=> copyText(safeJson(buildSummary('manual-copy')), 'Copy Summary JSON');
-  if(ui.btnCopyEvents) ui.btnCopyEvents.onclick = async ()=> copyText(safeJson(eventLog), 'Copy Events JSON');
-  if(ui.btnCopyTimeline) ui.btnCopyTimeline.onclick = async ()=> copyText(safeJson(riskTimeline), 'Copy Timeline JSON');
-  if(ui.btnCopyFeatures) ui.btnCopyFeatures.onclick = async ()=> copyText(safeJson({ featureRows }), 'Copy Features JSON');
-  if(ui.btnCopyLabels) ui.btnCopyLabels.onclick = async ()=> copyText(safeJson({ labelRows }), 'Copy Labels JSON');
-  if(ui.btnCopyFeaturesCsv) ui.btnCopyFeaturesCsv.onclick = async ()=> copyText(featureRows.map(r=> Object.values(r).join(',')).join('\n'), 'Copy Features CSV');
-  if(ui.btnCopyLabelsCsv) ui.btnCopyLabelsCsv.onclick = async ()=> copyText(labelRows.map(r=> Object.values(r).join(',')).join('\n'), 'Copy Labels CSV');
+  if (ui.btnCopy) ui.btnCopy.onclick = async () => copyText(JSON.stringify(buildSummary('manual-copy'), null, 2), 'Copy Summary JSON');
+  if (ui.btnCopyEvents) ui.btnCopyEvents.onclick = async () => copyText(JSON.stringify(eventLog, null, 2), 'Copy Events JSON');
+  if (ui.btnCopyTimeline) ui.btnCopyTimeline.onclick = async () => copyText(JSON.stringify(riskTimeline, null, 2), 'Copy Timeline JSON');
+  if (ui.btnCopyFeatures) ui.btnCopyFeatures.onclick = async () => copyText(JSON.stringify({ featureRows }, null, 2), 'Copy Features JSON');
+  if (ui.btnCopyLabels) ui.btnCopyLabels.onclick = async () => copyText(JSON.stringify({ labelRows }, null, 2), 'Copy Labels JSON');
+  if (ui.btnCopyFeaturesCsv) ui.btnCopyFeaturesCsv.onclick = async () => copyText(featureRows.map(r => Object.values(r).join(',')).join('\n'), 'Copy Features CSV');
+  if (ui.btnCopyLabelsCsv) ui.btnCopyLabelsCsv.onclick = async () => copyText(labelRows.map(r => Object.values(r).join(',')).join('\n'), 'Copy Labels CSV');
 
   // ------------------------------------------------------------
   // boot visual state
   // ------------------------------------------------------------
   endShown = false;
   setBossFace('hide');
-  if(ui.end) ui.end.setAttribute('aria-hidden','true');
-  if(ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden','true');
-  if(ui.duetWait) ui.duetWait.setAttribute('aria-hidden','true');
-  if(ui.duetEnd) ui.duetEnd.setAttribute('aria-hidden','true');
+  if (ui.end) ui.end.setAttribute('aria-hidden', 'true');
+  if (ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden', 'true');
+  if (ui.duetWait) ui.duetWait.setAttribute('aria-hidden', 'true');
+  if (ui.duetEnd) ui.duetEnd.setAttribute('aria-hidden', 'true');
 
   SFX.setPhaseVolume('normal');
   showHelp();
   setHUD();
   await initDuetBridge();
-  if(!MP.enabled){
-    setDuetHudVisible(false);
-  }
+  if (!MP.enabled) setDuetHudVisible(false);
   scheduleLoop();
 }
