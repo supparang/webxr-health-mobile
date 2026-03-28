@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Hydration Hero</title>
   <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#2563eb" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./hydration-vr.css?v=20260328-targetfix-2" />
+  <link rel="stylesheet" href="./hydration-vr.css?v=20260328-targetfix-3" />
 </head>
 <body>
   <main class="hydr-page">
@@ -14,7 +15,7 @@
       <div class="brand">
         <div class="kicker">💧 Nutrition Zone • Hydration Hero</div>
         <h1 class="title">เก็บน้ำดี เลี่ยงของไม่ดี</h1>
-        <p class="sub">แตะฟองที่ดี เก็บโล่ แล้วผ่านช่วงพายุและบอสให้ได้</p>
+        <p class="sub">แตะฟองน้ำดี เก็บโล่ แล้วผ่านช่วงพายุและบอสให้ได้</p>
       </div>
 
       <div class="top-actions">
@@ -104,13 +105,10 @@
 
     <section id="stage" class="stage" aria-label="Hydration playfield">
       <div id="zoneSign" class="zoneSign"></div>
-
       <div id="calloutLayer" class="calloutLayer" aria-hidden="true"></div>
       <div id="stickerBurst" class="stickerBurst" aria-hidden="true"></div>
       <div id="bossFace" class="bossFace" aria-hidden="true">⚡</div>
-
       <div class="centerCrosshair" aria-hidden="true"></div>
-
       <div id="layer" class="bubbleLayer" aria-label="interactive bubbles"></div>
     </section>
 
@@ -143,7 +141,6 @@
     </section>
   </main>
 
-  <!-- HELP -->
   <div id="helpOverlay" class="overlay" aria-hidden="true">
     <div class="dialog help-dialog">
       <h2>วิธีเล่น</h2>
@@ -159,7 +156,6 @@
     </div>
   </div>
 
-  <!-- PAUSE -->
   <div id="pauseOverlay" class="overlay" aria-hidden="true">
     <div class="dialog">
       <h2>พักเกมชั่วคราว</h2>
@@ -170,7 +166,6 @@
     </div>
   </div>
 
-  <!-- END -->
   <div id="end" class="overlay endOverlay" aria-hidden="true">
     <div class="dialog endDialog">
       <div class="endHeader">
@@ -249,7 +244,7 @@
   </div>
 
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260328-targetfix-2';
+    import { boot } from './hydration.safe.js?v=20260328-targetfix-3';
     boot().catch((err) => {
       console.error('[hydration] boot failed', err);
     });
