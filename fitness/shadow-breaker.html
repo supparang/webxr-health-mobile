@@ -1,336 +1,364 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Shadow Breaker — HeroHealth</title>
-  <meta name="color-scheme" content="light"/>
-  <link rel="icon" href="../herohealth/favicon.ico"/>
-  <link rel="stylesheet" href="./css/shadow-breaker.css?v=20260327-kidsoft-theme-full"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Shadow Breaker</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
+  <link rel="icon" href="../herohealth/favicon.ico" />
+  <link rel="stylesheet" href="./css/shadow-breaker.css?v=20260328c-HUD-CHILD-FRIENDLY" />
 </head>
 <body>
-<div id="sb-wrap" class="sb-wrap sb-theme-kidsoft" data-ui-mode="child" data-view-mode="mobile">
-
-  <header class="sb-header sb-header-compact">
-    <div class="sb-header-left">
-      <div class="sb-kicker">HeroHealth • Fitness Zone</div>
-      <h1 class="sb-title">Shadow Breaker</h1>
-      <div class="sb-sub">
-        แตะเป้าให้ทัน • หลบบอมบ์ • สู้บอสให้ชนะ
-      </div>
-    </div>
-
-    <div class="sb-header-right">
-      <a class="sb-link" id="sb-link-hub" href="../herohealth/hub.html">← กลับ Hub</a>
-    </div>
-  </header>
-
-  <main class="sb-main">
-
-    <!-- MENU VIEW -->
+  <div
+    id="sb-wrap"
+    class="sb-wrap sb-theme-kidsoft"
+    data-view-mode="mobile"
+    data-ui-mode="child"
+  >
+    <!-- MENU -->
     <section id="sb-view-menu" class="sb-view is-active">
-      <section class="sb-panel">
-
-        <div class="sb-mode-row">
-          <button class="sb-mode-btn is-active" id="sb-tab-normal" type="button">🎮 เล่นปกติ</button>
-          <button class="sb-mode-btn" id="sb-tab-research" type="button">📊 วิจัย</button>
+      <header class="sb-header sb-header-compact">
+        <div>
+          <div class="sb-kicker">HeroHealth • Fitness Zone</div>
+          <h1 class="sb-title">Shadow Breaker</h1>
+          <div class="sb-sub">แตะเป้าให้ทัน ระวังเป้าหลอก และลุยบอสให้ผ่านทีละด่าน</div>
         </div>
 
-        <div id="sb-mode-desc" class="sb-mode-desc">
-          เล่นสนุกได้เลย ไม่ต้องกรอกข้อมูลเพิ่ม
-        </div>
+        <a id="sb-link-hub" class="sb-link" href="../herohealth/hub.html">กลับ HUB</a>
+      </header>
 
-        <div class="sb-form">
-          <div class="sb-field">
-            <label class="sb-label" for="sb-input-diff">ระดับความยาก</label>
-            <select id="sb-input-diff" class="sb-input">
-              <option value="easy">ง่าย</option>
-              <option value="normal" selected>ปกติ</option>
-              <option value="hard">ท้าทาย</option>
-            </select>
+      <main class="sb-main">
+        <div class="sb-panel">
+          <div class="sb-mode-row">
+            <button id="sb-tab-normal" class="sb-mode-btn is-active" type="button">เล่นปกติ</button>
+            <button id="sb-tab-research" class="sb-mode-btn" type="button">โหมดวิจัย</button>
           </div>
 
-          <div class="sb-field">
-            <label class="sb-label" for="sb-input-time">เวลาเล่น</label>
-            <select id="sb-input-time" class="sb-input">
-              <option value="60">60 วินาที</option>
-              <option value="70" selected>70 วินาที</option>
-              <option value="80">80 วินาที</option>
-              <option value="90">90 วินาที</option>
-            </select>
+          <div id="sb-mode-desc" class="sb-mode-desc">
+            เล่นสนุกได้เลย ไม่ต้องกรอกข้อมูลเพิ่ม
           </div>
 
-          <div id="sb-research-fields" style="display:none;">
+          <div class="sb-form">
             <div class="sb-field">
-              <label class="sb-label" for="sb-input-pid">Participant ID</label>
-              <input id="sb-input-pid" class="sb-input" placeholder="เช่น S05-001"/>
+              <label class="sb-label" for="sb-input-pid">ชื่อเล่น / รหัสผู้เล่น</label>
+              <input id="sb-input-pid" class="sb-input" type="text" value="anon" />
             </div>
 
             <div class="sb-field">
-              <label class="sb-label" for="sb-input-group">Group</label>
-              <input id="sb-input-group" class="sb-input" placeholder="เช่น Control / Exp-A"/>
+              <label class="sb-label" for="sb-input-diff">ระดับความยาก</label>
+              <select id="sb-input-diff" class="sb-input">
+                <option value="easy">ง่าย</option>
+                <option value="normal" selected>ปกติ</option>
+                <option value="hard">ยาก</option>
+              </select>
             </div>
 
             <div class="sb-field">
-              <label class="sb-label" for="sb-input-note">Note</label>
-              <input id="sb-input-note" class="sb-input" placeholder="โน้ตเพิ่มเติม"/>
+              <label class="sb-label" for="sb-input-time">เวลาเล่น (วินาที)</label>
+              <input id="sb-input-time" class="sb-input" type="number" min="40" max="180" step="5" value="70" />
+            </div>
+
+            <div id="sb-research-fields" style="display:none;">
+              <div class="sb-field">
+                <label class="sb-label" for="sb-input-group">กลุ่มทดลอง</label>
+                <input id="sb-input-group" class="sb-input" type="text" value="" />
+              </div>
+
+              <div class="sb-field">
+                <label class="sb-label" for="sb-input-note">หมายเหตุ</label>
+                <input id="sb-input-note" class="sb-input" type="text" value="" />
+              </div>
+            </div>
+
+            <div class="sb-mini-note">
+              แตะเป้าดีเพื่อทำคะแนน • ระวังบอมบ์และเป้าหลอก • เก็บไอเท็มช่วยเหลือ • เอาชนะบอสให้ได้
+            </div>
+
+            <div class="sb-actions">
+              <button id="sb-btn-play" class="sb-btn sb-btn-primary" type="button">เริ่มเล่น</button>
+              <button id="sb-btn-research" class="sb-btn" type="button">เริ่มโหมดวิจัย</button>
+              <button id="sb-btn-howto" class="sb-btn sb-btn-ghost" type="button">วิธีเล่น</button>
+            </div>
+
+            <div id="sb-howto" class="sb-howto">
+              แตะเป้าดาวและเป้าบอสให้เร็วที่สุด • หลีกเลี่ยงบอมบ์และเป้าหลอก • เก็บโล่และพลังช่วยเมื่อเห็น • สะสมพลังให้เต็มแล้วกดใช้พลังพิเศษ
             </div>
           </div>
-
-          <div class="sb-mini-note">
-            แตะเป้าดี • ระวังบอมบ์ • เก็บพลัง • แล้วลุยบอสกัน!
-          </div>
-
-          <div class="sb-actions">
-            <button class="sb-btn sb-btn-primary" id="sb-btn-play" type="button">▶ เริ่มเล่น</button>
-            <button class="sb-btn" id="sb-btn-research" type="button">📊 เริ่มแบบวิจัย</button>
-            <button class="sb-btn sb-btn-ghost" id="sb-btn-howto" type="button">❓ วิธีเล่น</button>
-          </div>
-
-          <div id="sb-howto" class="sb-howto">
-            <ul style="margin:0;padding-left:20px;line-height:1.6;">
-              <li>แตะเป้าดาวให้ทัน ⭐</li>
-              <li>อย่าแตะบอมบ์ 💣</li>
-              <li>เก็บพลังชีวิต 🩹 และโล่ 🛡️</li>
-              <li>พลังเต็มแล้วกด ⚡ FEVER</li>
-            </ul>
-          </div>
         </div>
-
-      </section>
+      </main>
     </section>
 
-    <!-- PLAY VIEW -->
+    <!-- PLAY -->
     <section id="sb-view-play" class="sb-view">
-      <section class="sb-play sb-play-child">
-
-        <!-- HUD -->
-        <div class="sb-hud sb-hud-child">
-          <div class="sb-hud-left">
-            <div class="sb-stat"><span class="k">Time</span><span class="v" id="sb-text-time">0.0 s</span></div>
-            <div class="sb-stat"><span class="k">Score</span><span class="v" id="sb-text-score">0</span></div>
-            <div class="sb-stat"><span class="k">Combo</span><span class="v" id="sb-text-combo">0</span></div>
-          </div>
-
-          <div class="sb-hud-center">
-            <div class="sb-boss-name" id="sb-current-boss-name">Boss</div>
-          </div>
-
-          <div class="sb-hud-right">
-            <div class="sb-stat"><span class="k">Phase</span><span class="v" id="sb-text-phase">1</span></div>
-            <div class="sb-stat"><span class="k">Miss</span><span class="v" id="sb-text-miss">0</span></div>
-            <label class="sb-toggle">
-              <input id="sb-btn-pause" type="checkbox"/>
-              Pause
-            </label>
-          </div>
+      <header class="sb-header sb-header-compact">
+        <div>
+          <div class="sb-kicker">HeroHealth • Shadow Breaker</div>
+          <h2 class="sb-title">ลุยด่านบอส</h2>
+          <div class="sb-sub">แตะให้ทันและผ่านไปทีละด่าน</div>
         </div>
 
-        <!-- TOP BARS -->
-        <div class="sb-bars sb-bars-top sb-bars-top-child">
-          <div class="sb-bar">
-            <div class="sb-bar-label">พลังเรา</div>
-            <div class="sb-bar-track">
-              <div class="sb-bar-fill" id="sb-hp-you-top"></div>
+        <button id="sb-btn-back-menu" class="sb-btn sb-btn-ghost" type="button">กลับเมนู</button>
+      </header>
+
+      <main class="sb-main">
+        <div class="sb-play sb-play-child">
+          <!-- HUD -->
+          <div class="sb-hud sb-hud-child">
+            <div class="sb-hud-left">
+              <div class="sb-stat">
+                <span class="k">เวลา</span>
+                <span class="v" id="sb-text-time">0.0 s</span>
+              </div>
+              <div class="sb-stat">
+                <span class="k">คะแนน</span>
+                <span class="v" id="sb-text-score">0</span>
+              </div>
+              <div class="sb-stat">
+                <span class="k">คอมโบ</span>
+                <span class="v" id="sb-text-combo">0</span>
+              </div>
             </div>
-          </div>
 
-          <div class="sb-bar">
-            <div class="sb-bar-label">พลังบอส</div>
-            <div class="sb-bar-track">
-              <div class="sb-bar-fill boss" id="sb-hp-boss-top"></div>
+            <div class="sb-hud-center">
+              <div class="sb-boss-name" id="sb-current-boss-name">Boss</div>
             </div>
-          </div>
-        </div>
 
-        <!-- STAGE -->
-        <div class="sb-stage sb-stage-child">
-          <div id="sb-boss-banner" class="sb-boss-banner">
-            <div class="sb-boss-banner-title" id="sb-boss-banner-title">ผ่านบอสแล้ว!</div>
-            <div class="sb-boss-banner-sub" id="sb-boss-banner-sub">เตรียมลุยด่านถัดไป</div>
-          </div>
-
-          <div id="sb-target-layer" class="sb-target-layer"></div>
-
-          <div id="sb-cvr-crosshair" class="sb-cvr-crosshair" aria-hidden="true">
-            <div class="sb-cvr-ring"></div>
-            <div class="sb-cvr-dot"></div>
-          </div>
-
-          <div class="sb-center-msg">
-            <div id="sb-msg-main" class="sb-msg-main">พร้อมแล้ว!</div>
-          </div>
-
-          <div id="sb-boss-speech" class="sb-boss-speech" aria-hidden="true">
-            <div class="sb-boss-speech-bubble">
-              <div class="sb-boss-speech-emoji" id="sb-boss-speech-emoji">🐣</div>
-              <div class="sb-boss-speech-body">
-                <div class="sb-boss-speech-name" id="sb-boss-speech-name">Boss</div>
-                <div class="sb-boss-speech-text" id="sb-boss-speech-text">พร้อมลุยแล้วนะ!</div>
+            <div class="sb-hud-right">
+              <div class="sb-stat">
+                <span class="k">ด่าน</span>
+                <span class="v" id="sb-text-phase">1</span>
+              </div>
+              <div class="sb-stat">
+                <span class="k">พลาด</span>
+                <span class="v" id="sb-text-miss">0</span>
               </div>
             </div>
           </div>
 
-          <div class="sb-stage-backdrop"></div>
-          <div class="sb-stage-boss-face" id="sb-stage-boss-face">🐣</div>
-          <div class="sb-stage-boss-name" id="sb-stage-boss-name">Bubble Glove</div>
-
-          <aside id="sb-meta" class="sb-meta sb-meta-child">
-            <div class="sb-meta-rowtop">
-              <div class="sb-meta-emoji" id="sb-meta-emoji">🐣</div>
+          <!-- TOP BARS -->
+          <div class="sb-bars-top sb-bars-top-child">
+            <div>
+              <div class="sb-bar-label">พลังเรา</div>
+              <div class="sb-bar-track">
+                <div id="sb-hp-you-top" class="sb-bar-fill"></div>
+              </div>
             </div>
 
-            <div id="sb-meta-body" class="sb-meta-body">
-              <div class="sb-meta-name" id="sb-meta-name">Boss</div>
-              <div class="sb-meta-desc" id="sb-meta-desc">คำใบ้บอส…</div>
+            <div>
+              <div class="sb-bar-label">พลังบอส</div>
+              <div class="sb-bar-track">
+                <div id="sb-hp-boss-top" class="sb-bar-fill boss"></div>
+              </div>
+            </div>
+          </div>
 
+          <!-- STAGE -->
+          <div class="sb-stage sb-stage-child">
+            <div class="sb-stage-backdrop"></div>
+
+            <div id="sb-stage-boss-face" class="sb-stage-boss-face">🥊</div>
+            <div id="sb-stage-boss-name" class="sb-stage-boss-name">Boss</div>
+
+            <div id="sb-target-layer" class="sb-target-layer"></div>
+
+            <div class="sb-center-msg">
+              <div id="sb-msg-main" class="sb-msg-main"></div>
+            </div>
+
+            <div id="sb-boss-banner" class="sb-boss-banner" aria-hidden="true">
+              <div id="sb-boss-banner-title" class="sb-boss-banner-title">ผ่านบอสแล้ว!</div>
+              <div id="sb-boss-banner-sub" class="sb-boss-banner-sub">เก่งมาก ไปต่อกันเลย</div>
+            </div>
+
+            <div id="sb-boss-speech" class="sb-boss-speech" aria-hidden="true">
+              <div class="sb-boss-speech-bubble">
+                <div id="sb-boss-speech-emoji" class="sb-boss-speech-emoji">🥊</div>
+                <div>
+                  <div id="sb-boss-speech-name" class="sb-boss-speech-name">Boss</div>
+                  <div id="sb-boss-speech-text" class="sb-boss-speech-text">พร้อมแล้ว ลุยเลย!</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sb-meta sb-meta-child">
+              <div class="sb-meta-rowtop">
+                <div id="sb-meta-emoji" class="sb-meta-emoji">🥊</div>
+              </div>
+              <div id="sb-meta-name" class="sb-meta-name">Boss</div>
+              <div id="sb-meta-desc" class="sb-meta-desc"></div>
               <div class="sb-meta-row">
-                <span>Phase</span>
-                <b id="sb-boss-phase-label">1</b>
+                <span>ด่าน</span>
+                <span id="sb-boss-phase-label">1</span>
               </div>
-
               <div class="sb-meta-row">
-                <span>Shield</span>
-                <b id="sb-boss-shield-label">0</b>
-              </div>
-
-              <div style="margin-top:8px;">
-                <button class="sb-btn sb-btn-ghost" id="sb-btn-back-menu" type="button">← กลับเมนู</button>
+                <span>โล่</span>
+                <span id="sb-boss-shield-label">0</span>
               </div>
             </div>
-          </aside>
-        </div>
 
-        <!-- BOTTOM -->
-        <div class="sb-bars-bottom sb-bars-bottom-child">
+            <div id="sb-cvr-crosshair" class="sb-cvr-crosshair" aria-hidden="true">
+              <div class="sb-cvr-ring"></div>
+              <div class="sb-cvr-dot"></div>
+            </div>
+          </div>
+
+          <!-- BOTTOM BARS -->
+          <div class="sb-bars-bottom sb-bars-bottom-child">
+            <div>
+              <div class="sb-bar-label">พลังเรา</div>
+              <div class="sb-bar-track">
+                <div id="sb-hp-you-bottom" class="sb-bar-fill"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="sb-bar-label">พลังบอส</div>
+              <div class="sb-bar-track">
+                <div id="sb-hp-boss-bottom" class="sb-bar-fill boss"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FEVER / ACTIONS -->
           <div class="sb-fever">
             <div class="sb-fever-head">
-              <div><span class="k">FEVER</span> <span class="v" id="sb-label-fever">0%</span></div>
-              <button class="sb-fever-btn" id="sb-btn-fever" type="button">⚡ พลังพิเศษ</button>
+              <div>
+                <div class="k">พลังพิเศษ</div>
+                <div class="v"><span id="sb-label-fever">0%</span></div>
+              </div>
+
+              <div class="sb-hud-actions">
+                <label class="sb-toggle-pill">
+                  <input id="sb-btn-pause" type="checkbox" />
+                  <span>พักเกม</span>
+                </label>
+
+                <button id="sb-btn-fever" class="sb-fever-btn" type="button">สะสมพลัง</button>
+              </div>
             </div>
 
             <div class="sb-fever-track">
-              <div class="sb-fever-fill" id="sb-fever-bar"></div>
+              <div id="sb-fever-bar" class="sb-fever-fill"></div>
             </div>
-
-            <div class="sb-fever-hint" id="sb-fever-hint">
-              ตีแม่น ๆ เพื่อเปิดพลังพิเศษ
-            </div>
+            <div id="sb-fever-hint" class="sb-fever-hint">ตีแม่น ๆ เพื่อเปิดพลังพิเศษ</div>
           </div>
 
+          <!-- EXTRA -->
           <div class="sb-bars-compact">
             <div class="sb-row">
-              <span class="k">พลังเรา</span>
-              <span class="v">พร้อม!</span>
+              <span class="k">โหมด</span>
+              <span class="v">Shadow Breaker</span>
             </div>
-            <div class="sb-bar-track">
-              <div class="sb-bar-fill" id="sb-hp-you-bottom"></div>
-            </div>
-
             <div class="sb-row">
-              <span class="k">พลังบอส</span>
-              <span class="v">ลุย!</span>
-            </div>
-            <div class="sb-bar-track">
-              <div class="sb-bar-fill boss" id="sb-hp-boss-bottom"></div>
+              <span class="k">คำแนะนำ</span>
+              <span class="v">แตะเป้าดี ระวังเป้าหลอก</span>
             </div>
           </div>
         </div>
-
-      </section>
+      </main>
     </section>
 
-    <!-- RESULT VIEW -->
+    <!-- RESULT -->
     <section id="sb-view-result" class="sb-view">
-      <section class="sb-panel">
-        <h2 class="sb-result-title">สรุปผล</h2>
-
-        <div class="sb-result-grid">
-          <div class="sb-result-card"><div class="k">Time</div><div class="v" id="sb-res-time">0.0 s</div></div>
-          <div class="sb-result-card"><div class="k">Score</div><div class="v" id="sb-res-score">0</div></div>
-          <div class="sb-result-card"><div class="k">Max Combo</div><div class="v" id="sb-res-max-combo">0</div></div>
-          <div class="sb-result-card"><div class="k">Miss</div><div class="v" id="sb-res-miss">0</div></div>
-          <div class="sb-result-card"><div class="k">Phase</div><div class="v" id="sb-res-phase">1</div></div>
-          <div class="sb-result-card"><div class="k">Boss Cleared</div><div class="v" id="sb-res-boss-cleared">0</div></div>
-          <div class="sb-result-card"><div class="k">Accuracy</div><div class="v" id="sb-res-acc">0%</div></div>
-          <div class="sb-result-card"><div class="k">Grade</div><div class="v" id="sb-res-grade">C</div></div>
+      <header class="sb-header sb-header-compact">
+        <div>
+          <div class="sb-kicker">HeroHealth • Shadow Breaker</div>
+          <h2 class="sb-title">สรุปผลการเล่น</h2>
+          <div class="sb-sub">มาดูว่ารอบนี้ทำได้ดีแค่ไหน</div>
         </div>
 
-        <div id="sb-res-message" class="sb-res-message">เก่งมาก! ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม</div>
+        <a id="sb-link-hub-result" class="sb-link" href="../herohealth/hub.html">กลับ HUB</a>
+      </header>
 
-        <div id="sb-res-badge" class="sb-res-badge">
-          <div class="sb-res-badge-icon" id="sb-res-badge-icon">🏅</div>
-          <div class="sb-res-badge-body">
-            <div class="sb-res-badge-title" id="sb-res-badge-title">Shadow Starter</div>
-            <div class="sb-res-badge-desc" id="sb-res-badge-desc">เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม</div>
+      <main class="sb-main">
+        <div class="sb-panel">
+          <h3 class="sb-result-title">ผลลัพธ์ของรอบนี้</h3>
+
+          <div class="sb-result-grid">
+            <div class="sb-result-card">
+              <div class="k">เวลา</div>
+              <div class="v" id="sb-res-time">0.0 s</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">คะแนน</div>
+              <div class="v" id="sb-res-score">0</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">คอมโบสูงสุด</div>
+              <div class="v" id="sb-res-max-combo">0</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">พลาด</div>
+              <div class="v" id="sb-res-miss">0</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">ด่านสุดท้าย</div>
+              <div class="v" id="sb-res-phase">1</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">บอสที่ผ่าน</div>
+              <div class="v" id="sb-res-boss-cleared">0</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">ความแม่นยำ</div>
+              <div class="v" id="sb-res-acc">0%</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">เกรด</div>
+              <div class="v" id="sb-res-grade">C</div>
+            </div>
+          </div>
+
+          <div id="sb-res-message" class="sb-res-message">
+            เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม
+          </div>
+
+          <div class="sb-res-badge">
+            <div id="sb-res-badge-icon" class="sb-res-badge-icon">🏅</div>
+            <div>
+              <div id="sb-res-badge-title" class="sb-res-badge-title">Shadow Starter</div>
+              <div id="sb-res-badge-desc" class="sb-res-badge-desc">
+                เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม
+              </div>
+            </div>
+          </div>
+
+          <div class="sb-result-actions">
+            <button id="sb-btn-result-retry" class="sb-btn sb-btn-primary" type="button">เล่นอีกครั้ง</button>
+            <button id="sb-btn-result-menu" class="sb-btn" type="button">กลับเมนู</button>
+            <button id="sb-btn-download-events" class="sb-btn" type="button">ดาวน์โหลด Events</button>
+            <button id="sb-btn-download-session" class="sb-btn" type="button">ดาวน์โหลด Session</button>
           </div>
         </div>
-
-        <div class="sb-result-actions">
-          <button class="sb-btn sb-btn-primary" id="sb-btn-result-retry" type="button">เล่นอีกครั้ง</button>
-          <button class="sb-btn" id="sb-btn-result-menu" type="button">กลับเมนู</button>
-          <button class="sb-btn sb-btn-ghost" id="sb-btn-download-events" type="button">ดาวน์โหลด events.csv</button>
-          <button class="sb-btn sb-btn-ghost" id="sb-btn-download-session" type="button">ดาวน์โหลด session.csv</button>
-        </div>
-      </section>
+      </main>
     </section>
+  </div>
 
-  </main>
-</div>
+  <script>
+    (function(){
+      const root = document.getElementById('sb-wrap');
+      if(!root) return;
 
-<script type="module" src="./js/engine.js?v=20260327-kidsoft-theme-full"></script>
+      const q = new URLSearchParams(location.search);
+      const view = String(q.get('view') || '').toLowerCase();
+      if(view === 'pc' || view === 'mobile' || view === 'cvr'){
+        root.dataset.viewMode = view;
+      }else{
+        const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+        root.dataset.viewMode = mobile ? 'mobile' : 'pc';
+      }
 
-<script>
-(function(){
-  const $ = (s)=>document.querySelector(s);
+      const hub = q.get('hub');
+      if(hub){
+        const a1 = document.getElementById('sb-link-hub');
+        const a2 = document.getElementById('sb-link-hub-result');
+        if(a1) a1.href = hub;
+        if(a2) a2.href = hub;
+      }
+    })();
+  </script>
 
-  function qs(k, d=''){
-    try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
-    catch(_){ return d; }
-  }
-
-  function detectViewMode(){
-    const qv = String(qs('view','')).toLowerCase();
-    if (qv === 'pc' || qv === 'mobile' || qv === 'cvr') return qv;
-
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-    return isMobile ? 'mobile' : 'pc';
-  }
-
-  function applyViewMode(mode){
-    const root = document.getElementById('sb-wrap');
-    if (!root) return;
-    root.dataset.viewMode = mode || 'mobile';
-  }
-
-  const tabN = $('#sb-tab-normal');
-  const tabR = $('#sb-tab-research');
-  const rf = $('#sb-research-fields');
-  const desc = $('#sb-mode-desc');
-
-  function setMode(m){
-    const isR = (m === 'research');
-    tabN?.classList.toggle('is-active', !isR);
-    tabR?.classList.toggle('is-active', isR);
-    if (rf) rf.style.display = isR ? '' : 'none';
-    if (desc) {
-      desc.textContent = isR
-        ? 'โหมดวิจัย: ใช้เก็บข้อมูลการทดลอง'
-        : 'เล่นสนุกได้เลย ไม่ต้องกรอกข้อมูลเพิ่ม';
-    }
-  }
-
-  tabN?.addEventListener('click', ()=> setMode('normal'));
-  tabR?.addEventListener('click', ()=> setMode('research'));
-
-  const hub = String(qs('hub','')).trim() || '../herohealth/hub.html';
-  const btnHub = $('#sb-link-hub');
-  if(btnHub) btnHub.href = hub;
-
-  setMode(String(qs('mode', qs('run','normal'))).trim() || 'normal');
-  applyViewMode(detectViewMode());
-})();
-</script>
+  <script src="./js/engine.js?v=20260328b-FINAL-CLEAN-PRODUCTION"></script>
 </body>
 </html>
