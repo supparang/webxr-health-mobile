@@ -5,125 +5,125 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Hydration Hero</title>
   <meta name="color-scheme" content="dark light" />
-  <meta name="theme-color" content="#2563eb" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./hydration-vr.css?v=20260328-targetfix-3" />
+  <link rel="stylesheet" href="./hydration-vr.css?v=20260329-ui-targetfix-1" />
 </head>
 <body>
-  <main class="hydr-page">
-    <header class="topbar">
-      <div class="brand">
-        <div class="kicker">💧 Nutrition Zone • Hydration Hero</div>
-        <h1 class="title">เก็บน้ำดี เลี่ยงของไม่ดี</h1>
-        <p class="sub">แตะฟองน้ำดี เก็บโล่ แล้วผ่านช่วงพายุและบอสให้ได้</p>
+  <main class="hydr-app">
+    <header class="hero-topbar">
+      <div class="brand-wrap">
+        <div class="brand-badge">💧</div>
+        <div class="brand-copy">
+          <div class="brand-kicker">Nutrition Zone • Hydration Hero</div>
+          <h1 class="brand-title">เก็บน้ำดี เลี่ยงของไม่ดี</h1>
+          <p class="brand-sub">แตะน้ำดี เก็บโล่ ระวังพายุและสายฟ้า แล้วผ่านด่านสุดท้ายให้ได้</p>
+        </div>
       </div>
 
       <div class="top-actions">
-        <button id="btnSfx" class="ghost small" type="button">🔊 เสียง</button>
-        <button id="btnHelp" class="ghost small" type="button">❓ วิธีเล่น</button>
-        <button id="btnPause" class="ghost small" type="button">⏸️ พัก</button>
+        <button id="btnSfx" class="ghost-btn small" type="button">🔊 เสียง</button>
+        <button id="btnHelp" class="ghost-btn small" type="button">❓ วิธีเล่น</button>
+        <button id="btnPause" class="ghost-btn small" type="button">⏸️ พัก</button>
       </div>
     </header>
 
-    <section class="hud-grid">
-      <div class="hud-card">
-        <span class="hud-label">คะแนน</span>
-        <strong id="uiScore" class="hud-value">0</strong>
+    <section class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">คะแนน</span>
+        <strong id="uiScore" class="stat-value">0</strong>
       </div>
 
-      <div class="hud-card">
-        <span class="hud-label">เวลา</span>
-        <strong id="uiTime" class="hud-value">00:00</strong>
+      <div class="stat-card">
+        <span class="stat-label">เวลา</span>
+        <strong id="uiTime" class="stat-value">00:00</strong>
       </div>
 
-      <div class="hud-card">
-        <span class="hud-label">พลาดชน</span>
-        <strong id="uiMiss" class="hud-value">0</strong>
+      <div class="stat-card">
+        <span class="stat-label">เกรด</span>
+        <strong id="uiGrade" class="stat-value">C</strong>
       </div>
 
-      <div class="hud-card hud-mobile-hide">
-        <span class="hud-label">หมดเวลาเอง</span>
-        <strong id="uiExpire" class="hud-value">0</strong>
+      <div class="stat-card">
+        <span class="stat-label">น้ำ</span>
+        <strong id="uiWater" class="stat-value">40%</strong>
       </div>
 
-      <div class="hud-card hud-mobile-hide">
-        <span class="hud-label">บล็อก</span>
-        <strong id="uiBlock" class="hud-value">0</strong>
+      <div class="stat-card">
+        <span class="stat-label">โล่</span>
+        <strong id="uiShield" class="stat-value">0</strong>
       </div>
 
-      <div class="hud-card">
-        <span class="hud-label">เกรด</span>
-        <strong id="uiGrade" class="hud-value">C</strong>
+      <div class="stat-card">
+        <span class="stat-label">คอมโบ</span>
+        <strong id="uiCombo" class="stat-value">0</strong>
       </div>
 
-      <div class="hud-card">
-        <span class="hud-label">น้ำ</span>
-        <strong id="uiWater" class="hud-value">40%</strong>
+      <div class="stat-card stat-hide-mobile">
+        <span class="stat-label">พลาดชน</span>
+        <strong id="uiMiss" class="stat-value">0</strong>
       </div>
 
-      <div class="hud-card">
-        <span class="hud-label">คอมโบ</span>
-        <strong id="uiCombo" class="hud-value">0</strong>
+      <div class="stat-card stat-hide-mobile">
+        <span class="stat-label">หมดเวลาเอง</span>
+        <strong id="uiExpire" class="stat-value">0</strong>
       </div>
 
-      <div class="hud-card">
-        <span class="hud-label">โล่</span>
-        <strong id="uiShield" class="hud-value">0</strong>
+      <div class="stat-card stat-hide-mobile">
+        <span class="stat-label">บล็อก</span>
+        <strong id="uiBlock" class="stat-value">0</strong>
       </div>
 
-      <div class="hud-card phase-card">
-        <span class="hud-label">สถานะ</span>
-        <strong id="uiPhase" class="hud-value">💧 ช่วงเก็บน้ำ</strong>
+      <div class="stat-card stat-wide">
+        <span class="stat-label">สถานะ</span>
+        <strong id="uiPhase" class="stat-value phase-text">💧 ช่วงเก็บน้ำ</strong>
       </div>
     </section>
 
-    <section class="mini-status-row">
-      <div class="mini-pill">วอร์มอัป: <strong id="uiWarmDone">พร้อม ✨</strong></div>
-      <div class="mini-pill">คูลดาวน์: <strong id="uiCoolDone">รอหลังเกม ✨</strong></div>
+    <section class="mini-row">
+      <div class="mini-pill">Warmup: <strong id="uiWarmDone">พร้อม ✨</strong></div>
+      <div class="mini-pill">Cooldown: <strong id="uiCoolDone">รอหลังเกม ✨</strong></div>
       <div class="mini-pill">AI Risk: <strong id="aiRisk">0.00</strong></div>
-      <div class="mini-pill wide">คำแนะนำ: <strong id="aiHint">แตะน้ำดี และอย่าโดนของไม่ดี 😊</strong></div>
+      <div class="mini-pill mini-wide">คำแนะนำ: <strong id="aiHint">แตะน้ำดี และอย่าโดนของไม่ดี 😊</strong></div>
     </section>
 
-    <section id="missionBar" class="missionBar">
-      <div class="mission-title">🎯 ภารกิจรอบนี้</div>
+    <section class="mission-board">
+      <div class="mission-head">🎯 ภารกิจรอบนี้</div>
 
-      <div id="missionChipHit" class="mission-chip">
-        <span class="chip-title">เก็บน้ำดี</span>
-        <span class="chip-value"><strong id="missionHitNow">0</strong>/<strong id="missionHitGoal">10</strong></span>
+      <div id="missionChipHit" class="mission-card">
+        <div class="mission-title">เก็บน้ำดี</div>
+        <div class="mission-value"><strong id="missionHitNow">0</strong>/<strong id="missionHitGoal">10</strong></div>
       </div>
 
-      <div id="missionChipBlock" class="mission-chip">
-        <span class="chip-title">บล็อกสายฟ้า</span>
-        <span class="chip-value"><strong id="missionBlockNow">0</strong>/<strong id="missionBlockGoal">2</strong></span>
+      <div id="missionChipBlock" class="mission-card">
+        <div class="mission-title">บล็อกสายฟ้า</div>
+        <div class="mission-value"><strong id="missionBlockNow">0</strong>/<strong id="missionBlockGoal">2</strong></div>
       </div>
 
-      <div id="missionChipCombo" class="mission-chip">
-        <span class="chip-title">คอมโบ</span>
-        <span class="chip-value"><strong id="missionComboNow">0</strong>/<strong id="missionComboGoal">6</strong></span>
+      <div id="missionChipCombo" class="mission-card">
+        <div class="mission-title">คอมโบ</div>
+        <div class="mission-value"><strong id="missionComboNow">0</strong>/<strong id="missionComboGoal">6</strong></div>
       </div>
     </section>
 
-    <section id="stage" class="stage" aria-label="Hydration playfield">
-      <div id="zoneSign" class="zoneSign"></div>
-      <div id="calloutLayer" class="calloutLayer" aria-hidden="true"></div>
-      <div id="stickerBurst" class="stickerBurst" aria-hidden="true"></div>
-      <div id="bossFace" class="bossFace" aria-hidden="true">⚡</div>
-      <div class="centerCrosshair" aria-hidden="true"></div>
-      <div id="layer" class="bubbleLayer" aria-label="interactive bubbles"></div>
+    <section id="stage" class="play-stage" aria-label="Hydration play area">
+      <div id="zoneSign" class="zone-sign"></div>
+      <div id="calloutLayer" class="callout-layer" aria-hidden="true"></div>
+      <div id="stickerBurst" class="sticker-burst" aria-hidden="true"></div>
+      <div id="bossFace" class="boss-face" aria-hidden="true">⚡</div>
+      <div class="center-crosshair" aria-hidden="true"></div>
+      <div id="layer" class="bubble-layer" aria-label="bubbles"></div>
     </section>
 
     <section class="coach-panel">
       <div class="coach-main">
-        <div class="coach-face">🫧</div>
-        <div>
+        <div class="coach-icon">🫧</div>
+        <div class="coach-copy-wrap">
           <div class="coach-name">โค้ชเพื่อนช่วยคิด</div>
-          <p id="coachExplain" class="coach-copy">
-            เก็บน้ำดีให้เยอะ ระวังของไม่ดี และอย่าลืมหาโล่ไว้กันสายฟ้านะ
-          </p>
+          <p id="coachExplain" class="coach-copy">เก็บน้ำดีให้เยอะ ระวังของไม่ดี และอย่าลืมหาโล่ไว้กันสายฟ้านะ</p>
         </div>
       </div>
 
-      <div class="risk-card hud-mobile-hide">
+      <div class="risk-box stat-hide-mobile">
         <div class="risk-label">ความเสี่ยงตอนนี้</div>
         <div class="risk-bar">
           <div id="riskFill" class="risk-fill" style="width:0%"></div>
@@ -131,7 +131,7 @@
       </div>
     </section>
 
-    <section id="debugMini" class="debugMini is-hidden" aria-hidden="true">
+    <section id="debugMini" class="debug-mini is-hidden" aria-hidden="true">
       <div>phase: <strong id="dbgPhase">normal</strong></div>
       <div>combo: <strong id="dbgCombo">0</strong></div>
       <div>water: <strong id="dbgWater">40</strong></div>
@@ -147,11 +147,11 @@
       <ul class="help-list">
         <li>แตะฟองน้ำดี เช่น 💧 💦 🫗 เพื่อเพิ่มคะแนนและเพิ่มน้ำ</li>
         <li>หลบของไม่ดี เช่น 🧋 🥤 🍟 เพราะจะเสียคะแนนและเสียน้ำ</li>
-        <li>เก็บ 🛡️ เพื่อกันสายฟ้าช่วงพายุหรือบอส</li>
-        <li>ถ้ามี ⚡ ให้ใช้โล่แตะบล็อกก่อนจะโดนฟ้าผ่า</li>
+        <li>เก็บ 🛡️ เพื่อใช้กันสายฟ้าช่วงพายุหรือบอส</li>
+        <li>ถ้ามี ⚡ โผล่มา ให้ใช้โล่แตะบล็อกก่อนจะโดนฟ้าผ่า</li>
       </ul>
       <div class="dialog-actions">
-        <button id="btnHelpStart" class="primary" type="button">เริ่มเล่น</button>
+        <button id="btnHelpStart" class="primary-btn" type="button">เริ่มเล่น</button>
       </div>
     </div>
   </div>
@@ -159,92 +159,92 @@
   <div id="pauseOverlay" class="overlay" aria-hidden="true">
     <div class="dialog">
       <h2>พักเกมชั่วคราว</h2>
-      <p class="dialog-copy">พร้อมแล้วค่อยกลับไปเล่นต่อได้เลย</p>
+      <p class="dialog-sub">พร้อมแล้วค่อยกลับไปเล่นต่อได้เลย</p>
       <div class="dialog-actions">
-        <button id="btnResume" class="primary" type="button">▶️ เล่นต่อ</button>
+        <button id="btnResume" class="primary-btn" type="button">▶️ เล่นต่อ</button>
       </div>
     </div>
   </div>
 
-  <div id="end" class="overlay endOverlay" aria-hidden="true">
-    <div class="dialog endDialog">
-      <div class="endHeader">
+  <div id="end" class="overlay" aria-hidden="true">
+    <div class="dialog end-dialog">
+      <div class="end-head">
         <h2 id="endTitle">เล่นจบรอบแล้ว</h2>
-        <p id="endSub" class="dialog-copy">มุมมอง mobile • ระดับ normal</p>
+        <p id="endSub" class="dialog-sub">มุมมอง mobile • ระดับ normal</p>
       </div>
 
-      <section class="endStats">
-        <div class="endStat">
-          <span class="endStatLabel">เกรด</span>
-          <strong id="endGrade" class="endStatValue">C</strong>
+      <section class="end-stats">
+        <div class="end-stat">
+          <span class="end-stat-label">เกรด</span>
+          <strong id="endGrade" class="end-stat-value">C</strong>
         </div>
-        <div class="endStat">
-          <span class="endStatLabel">คะแนน</span>
-          <strong id="endScore" class="endStatValue">0</strong>
+        <div class="end-stat">
+          <span class="end-stat-label">คะแนน</span>
+          <strong id="endScore" class="end-stat-value">0</strong>
         </div>
-        <div class="endStat">
-          <span class="endStatLabel">พลาดชน</span>
-          <strong id="endMiss" class="endStatValue">0</strong>
+        <div class="end-stat">
+          <span class="end-stat-label">พลาดชน</span>
+          <strong id="endMiss" class="end-stat-value">0</strong>
         </div>
-        <div class="endStat">
-          <span class="endStatLabel">น้ำคงเหลือ</span>
-          <strong id="endWater" class="endStatValue">0%</strong>
+        <div class="end-stat">
+          <span class="end-stat-label">น้ำคงเหลือ</span>
+          <strong id="endWater" class="end-stat-value">0%</strong>
         </div>
       </section>
 
-      <div class="endBox">
-        <div class="endBoxTitle">คำแนะนำจากโค้ช</div>
-        <div id="endCoach" class="endBoxText">ลองเล่นอีกครั้งเพื่อเก็บน้ำให้มากขึ้นนะ</div>
+      <div class="end-box">
+        <div class="end-box-title">คำแนะนำจากโค้ช</div>
+        <div id="endCoach" class="end-box-text">ลองเล่นอีกครั้งเพื่อเก็บน้ำให้มากขึ้นนะ</div>
       </div>
 
-      <div class="endBox">
-        <div class="endBoxTitle">สรุปช่วงการเล่น</div>
-        <div id="endPhaseSummary" class="endBoxText">จบรอบปกติ</div>
+      <div class="end-box">
+        <div class="end-box-title">สรุปช่วงการเล่น</div>
+        <div id="endPhaseSummary" class="end-box-text">จบรอบปกติ</div>
       </div>
 
-      <div class="endBox rewardCard end-mobile-optional">
-        <div class="endBoxTitle">รางวัลรอบนี้</div>
-        <div id="endReward" class="endBoxText">💧 เล่นจบแล้ว</div>
-        <div id="endBadge" class="endBadge">🌈 ลองอีกครั้ง</div>
+      <div class="end-box">
+        <div class="end-box-title">รางวัลรอบนี้</div>
+        <div id="endReward" class="end-box-text">💧 เล่นจบแล้ว</div>
+        <div id="endBadge" class="end-badge">🌈 ลองอีกครั้ง</div>
       </div>
 
-      <div class="endBox end-mobile-optional">
-        <div class="endBoxTitle">คอลเลกชัน</div>
-        <div id="endCollection" class="endBoxText">ยังไม่มีของสะสม</div>
+      <div class="end-box">
+        <div class="end-box-title">คอลเลกชัน</div>
+        <div id="endCollection" class="end-box-text">ยังไม่มีของสะสม</div>
       </div>
 
-      <div class="endBox rewardCard end-mobile-optional">
-        <div class="endBoxTitle">การ์ดรางวัล</div>
-        <div id="endRewardCard" class="endRewardCard">Hydration Hero</div>
-        <div id="endRewardMini" class="endRewardMini">รอบนี้เก็บน้ำได้ดีขึ้นอีกนิด</div>
+      <div class="end-box">
+        <div class="end-box-title">การ์ดรางวัล</div>
+        <div id="endRewardCard" class="reward-card-title">Hydration Hero</div>
+        <div id="endRewardMini" class="end-box-text">รอบนี้เก็บน้ำได้ดีขึ้นอีกนิด</div>
       </div>
 
-      <div class="endBox end-mobile-optional">
-        <div class="endBoxTitle">สติกเกอร์ที่มี</div>
-        <div id="endStickerRow" class="stickerRow"></div>
+      <div class="end-box">
+        <div class="end-box-title">สติกเกอร์ที่มี</div>
+        <div id="endStickerRow" class="sticker-row"></div>
       </div>
 
-      <div class="copyTools end-mobile-optional">
-        <button id="btnCopy" class="ghost small" type="button">Copy Summary</button>
-        <button id="btnCopyEvents" class="ghost small" type="button">Copy Events</button>
-        <button id="btnCopyTimeline" class="ghost small" type="button">Copy Timeline</button>
-        <button id="btnCopyFeatures" class="ghost small" type="button">Copy Features</button>
-        <button id="btnCopyLabels" class="ghost small" type="button">Copy Labels</button>
-        <button id="btnCopyFeaturesCsv" class="ghost small" type="button">Features CSV</button>
-        <button id="btnCopyLabelsCsv" class="ghost small" type="button">Labels CSV</button>
-        <button id="btnSendCloud" class="ghost small" type="button">Send Cloud</button>
+      <div class="copy-tools">
+        <button id="btnCopy" class="ghost-btn small" type="button">Copy Summary</button>
+        <button id="btnCopyEvents" class="ghost-btn small" type="button">Copy Events</button>
+        <button id="btnCopyTimeline" class="ghost-btn small" type="button">Copy Timeline</button>
+        <button id="btnCopyFeatures" class="ghost-btn small" type="button">Copy Features</button>
+        <button id="btnCopyLabels" class="ghost-btn small" type="button">Copy Labels</button>
+        <button id="btnCopyFeaturesCsv" class="ghost-btn small" type="button">Features CSV</button>
+        <button id="btnCopyLabelsCsv" class="ghost-btn small" type="button">Labels CSV</button>
+        <button id="btnSendCloud" class="ghost-btn small" type="button">Send Cloud</button>
       </div>
 
-      <div class="dialog-actions endActions">
-        <button id="btnReplay" class="ghost" type="button">🔁 เล่นอีกครั้ง</button>
-        <button id="btnNextCooldown" class="primary" type="button">🌈 ไปคูลดาวน์</button>
-        <button id="btnBackHub" class="secondary" type="button">🏠 กลับ HUB</button>
+      <div class="dialog-actions end-actions">
+        <button id="btnReplay" class="ghost-btn" type="button">🔁 เล่นอีกครั้ง</button>
+        <button id="btnNextCooldown" class="primary-btn" type="button">🌈 ไปคูลดาวน์</button>
+        <button id="btnBackHub" class="secondary-btn" type="button">🏠 กลับ HUB</button>
       </div>
     </div>
   </div>
 
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260328-targetfix-3';
+    import { boot } from './hydration.safe.js?v=20260329-ui-targetfix-1';
     boot().catch((err) => {
       console.error('[hydration] boot failed', err);
     });
