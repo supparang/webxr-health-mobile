@@ -1,13 +1,13 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-battle.safe.js
- * FULL PATCH v20260327-GOODJUNK-BATTLE-ENGINE-R2
+ * FULL PATCH v20260328-GOODJUNK-BATTLE-ENGINE-R2
  * ---------------------------------------------------------
  * Engine role:
  * - actual playable battle engine
  * - works with lobby schema: hha-battle/goodjunk/rooms/{roomId}/{meta,state,players}
  * - injects stage + HUD into #gameMount
  * - syncs score / hp / charge / attacks to Firebase
- * - host promotes countdown -> playing automatically
+ * - host promotes countdown -> playing
  * - host ends round when time up or someone is KO
  * - emits battle:* events for goodjunk.safe.battle.js
  * ========================================================= */
@@ -25,6 +25,7 @@
   const HEARTBEAT_MS = 2500;
   const ACTIVE_TTL_MS = 15000;
   const SYNC_MIN_MS = 120;
+
   const FIREBASE_SDKS = [
     'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js',
@@ -170,27 +171,24 @@
     });
   }
 
-  const RUN_CTX = W.__GJ_RUN_CTX__ || W.__GJ_MULTI_RUN_CTX__ || W.RUN_CTX || {};
-  const BOOT = W.HHA_BATTLE_BOOT || W.__GJ_BATTLE_BOOT__ || {};
-
   const STATE = {
-    roomId: roomIdCandidates(qs('roomId') || qs('room') || BOOT.roomId || RUN_CTX.roomId || '')[0] || '',
-    queryUid: cleanPid(qs('uid') || qs('playerId') || BOOT.uid || BOOT.playerId || RUN_CTX.uid || RUN_CTX.playerId || ''),
-    pid: cleanPid(qs('pid') || BOOT.pid || RUN_CTX.pid || '') || 'anon',
+    roomId: cleanRoom(qs('roomId') || qs('room') || ''),
+    queryUid: cleanPid(qs('uid') || qs('playerId') || ''),
+    pid: cleanPid(qs('pid') || '') || cleanPid((W.__GJ_RUN_CTX__ || {}).pid) || 'anon',
     uid: '',
-    name: cleanText(qs('name') || qs('nick') || BOOT.name || BOOT.nick || RUN_CTX.name || RUN_CTX.nick || 'Player', 40),
-    role: cleanText(qs('role') || BOOT.role || RUN_CTX.role || 'player', 20),
+    name: cleanText(qs('name') || qs('nick') || (W.__GJ_RUN_CTX__ || {}).name || 'Player', 40),
+    role: cleanText(qs('role') || 'player', 20),
     diff: (() => {
-      const v = String(qs('diff', BOOT.diff || RUN_CTX.diff || 'normal')).toLowerCase();
+      const v = String(qs('diff', 'normal')).toLowerCase();
       return (v === 'easy' || v === 'hard') ? v : 'normal';
     })(),
-    timeSec: clamp(qs('time', String(BOOT.timeSec || BOOT.time || RUN_CTX.time || 150)), 30, 300),
-    seed: cleanText(qs('seed') || BOOT.seed || RUN_CTX.seed || String(Date.now()), 60),
-    roundToken: cleanText(qs('roundToken') || BOOT.roundToken || '', 120),
-    startAtQuery: num(qs('startAt', String(BOOT.startAt || 0)), 0),
-    hub: qs('hub', BOOT.hub || RUN_CTX.hub || '../hub.html'),
-    view: cleanText(qs('view', BOOT.view || RUN_CTX.view || 'mobile'), 20),
-    run: cleanText(qs('run', BOOT.run || RUN_CTX.run || 'play'), 20),
+    timeSec: clamp(qs('time', '150'), 30, 300),
+    seed: cleanText(qs('seed') || String(Date.now()), 60),
+    roundToken: cleanText(qs('roundToken') || '', 120),
+    startAtQuery: num(qs('startAt', '0'), 0),
+    hub: qs('hub', '../hub.html'),
+    view: cleanText(qs('view', 'mobile'), 20),
+    run: cleanText(qs('run', 'play'), 20),
 
     firebaseReady: false,
     db: null,
@@ -239,10 +237,9 @@
     lastAttackDamage: 0,
     lastAttackTarget: '',
 
+    lastRoundStartedAt: 0,
     hostEndingBusy: false,
-    countdownPromoteBusy: false,
-    roundPreparedToken: '',
-    startedRoundToken: '',
+    hostPromoteBusy: false,
     bannerLockUntil: 0
   };
 
@@ -264,12 +261,15 @@
     battleChargeValue: null,
     battleChargeFill: null,
     battleAttackReady: null,
-
     opponentStrip: null
   };
 
   function getCfg(){
     return DIFF_CFG[STATE.diff] || DIFF_CFG.normal;
+  }
+
+  function roomStatus(){
+    return String(((STATE.room || {}).state || {}).status || '');
   }
 
   function currentRoomEndsAt(){
@@ -282,14 +282,6 @@
 
   function currentStartedAt(){
     return num((STATE.room.state || {}).startedAt, 0);
-  }
-
-  function currentRoundToken(){
-    return cleanText((STATE.room.state || {}).roundToken || STATE.roundToken || '', 120);
-  }
-
-  function roomStatus(){
-    return String(((STATE.room || {}).state || {}).status || '');
   }
 
   function getSelfKey(){
@@ -382,7 +374,8 @@
   }
 
   function emit(name, detail){
-    try { W.dispatchEvent(new CustomEvent(name, { detail })); } catch {}
+    try { W.dispatchEvent(new CustomEvent(name, { detail })); }
+    catch {}
   }
 
   function emitLiveEvents(){
@@ -572,12 +565,8 @@
         transform:translateZ(0);
         min-width:56px; min-height:56px;
       }
-      .gjb-target.good{
-        background:linear-gradient(180deg,#ffffff,#f1fff1);
-      }
-      .gjb-target.junk{
-        background:linear-gradient(180deg,#fff3f3,#ffe1e1);
-      }
+      .gjb-target.good{ background:linear-gradient(180deg,#ffffff,#f1fff1); }
+      .gjb-target.junk{ background:linear-gradient(180deg,#fff3f3,#ffe1e1); }
       .gjb-target .emoji{
         font-size:clamp(24px, 3.8vw, 38px);
         line-height:1;
@@ -600,9 +589,7 @@
         #battleHud{ gap:8px; left:10px; right:10px; top:10px; }
         .gjb-stat{ min-width:94px; }
         .gjb-gauge{ min-width:160px; }
-        #battleBanner{
-          top:116px; min-width:min(94vw,520px); font-size:13px;
-        }
+        #battleBanner{ top:116px; min-width:min(94vw,520px); font-size:13px; }
         #battleActionDock{ right:10px; bottom:74px; }
         #battleAttackBtn{ min-width:130px; min-height:50px; font-size:14px; }
       }
@@ -816,9 +803,15 @@
   }
 
   function timeLeftSec(){
-    const endsAt = currentRoomEndsAt();
-    if (!endsAt) return STATE.started ? 0 : STATE.timeSec;
-    return Math.max(0, (endsAt - now()) / 1000);
+    const status = roomStatus();
+    if (status === 'countdown'){
+      return Math.max(0, (currentCountdownEndsAt() - now()) / 1000);
+    }
+    if (status === 'playing'){
+      const endsAt = currentRoomEndsAt();
+      return endsAt ? Math.max(0, (endsAt - now()) / 1000) : STATE.timeSec;
+    }
+    return STATE.started ? 0 : STATE.timeSec;
   }
 
   function makeTarget(kind){
@@ -1095,115 +1088,42 @@
     }
   }
 
-  function hydrateLocalFromSelf(){
-    const me = selfPlayer();
-    if (!me) return;
-
-    if ((!STATE.name || STATE.name === 'Player') && me.name){
-      STATE.name = cleanText(me.name, 40);
-    }
-
-    if (!STATE.started){
-      STATE.score = num(me.score, 0);
-      STATE.miss = num(me.miss, 0);
-      STATE.bestStreak = num(me.bestStreak, 0);
-      STATE.hp = clamp(me.hp, 0, 100);
-      STATE.maxHp = Math.max(1, num(me.maxHp, 100));
-      STATE.attackCharge = clamp(me.attackCharge, 0, 100);
-      STATE.maxAttackCharge = Math.max(1, num(me.maxAttackCharge, 100));
-      STATE.attackReady = !!me.attackReady;
-      STATE.attacksUsed = num(me.attacksUsed, 0);
-      STATE.damageDealt = num(me.damageDealt, 0);
-      STATE.damageTaken = num(me.damageTaken, 0);
-      STATE.koCount = num(me.koCount, 0);
-    }
-  }
-
   function updatePlayersFromRoom(playersValue){
     STATE.room.players = normalizeRoomPlayersMap(playersValue);
-    hydrateLocalFromSelf();
     maybeAwardKoFromOpponentState();
     processRemoteAttacks(STATE.room.players);
     renderHud();
   }
 
-  async function maybePromoteCountdownToPlaying(){
-    if (!isHost() || !STATE.roomRef || STATE.countdownPromoteBusy) return false;
-    if (roomStatus() !== 'countdown') return false;
+  async function maybeHostPromoteCountdown(){
+    if (!isHost() || !STATE.refs.state || STATE.hostPromoteBusy) return;
+    if (roomStatus() !== 'countdown') return;
 
     const countdownEndsAt = currentCountdownEndsAt();
-    if (!countdownEndsAt || now() < countdownEndsAt) return false;
+    if (!countdownEndsAt || now() < countdownEndsAt) return;
 
-    STATE.countdownPromoteBusy = true;
+    STATE.hostPromoteBusy = true;
     try{
-      await new Promise((resolve, reject) => {
-        STATE.roomRef.transaction((cur) => {
-          cur = cur || {};
-          cur.meta = cur.meta || {};
-          cur.state = cur.state || {};
-          cur.players = cur.players || {};
+      await STATE.refs.state.transaction((cur) => {
+        cur = cur || {};
+        if (String(cur.status || '') !== 'countdown') return cur;
 
-          if (String(cur.state.status || '') !== 'countdown') return cur;
+        const plannedSec = clamp(cur.plannedSec || STATE.timeSec, 30, 300);
+        const startedAt = now();
 
-          const t = now();
-          const plannedSec = clamp(cur.state.plannedSec || STATE.timeSec || 150, 30, 300);
-          const roundToken = cleanText(cur.state.roundToken || `r-${t}-${Math.random().toString(36).slice(2,7)}`, 120);
+        cur.status = 'playing';
+        cur.startedAt = startedAt;
+        cur.endsAt = startedAt + plannedSec * 1000;
+        cur.countdownEndsAt = 0;
+        cur.roundToken = String(startedAt);
+        cur.updatedAt = startedAt;
 
-          cur.state.status = 'playing';
-          cur.state.startedAt = t;
-          cur.state.endsAt = t + plannedSec * 1000;
-          cur.state.countdownEndsAt = 0;
-          cur.state.roundToken = roundToken;
-          cur.state.updatedAt = t;
-
-          Object.keys(cur.players).forEach((key) => {
-            const p = cur.players[key] || {};
-            cur.players[key] = Object.assign({}, p, {
-              pid: cleanPid(p.pid || p.playerId || p.uid || key),
-              uid: cleanPid(p.uid || p.playerId || key),
-              playerId: cleanPid(p.playerId || p.uid || key),
-              name: cleanText(p.name || p.nick || 'Player', 40),
-              nick: cleanText(p.nick || p.name || 'Player', 40),
-              connected: p.connected !== false,
-              ready: true,
-              status: 'playing',
-              score: 0,
-              miss: 0,
-              combo: 0,
-              bestStreak: 0,
-              hp: 100,
-              maxHp: 100,
-              shield: 0,
-              attackCharge: 0,
-              maxAttackCharge: 100,
-              attackReady: false,
-              attacksUsed: 0,
-              damageDealt: 0,
-              damageTaken: 0,
-              koCount: 0,
-              updatedAt: t,
-              lastSeen: t,
-              lastAttackId: '',
-              lastAttackAt: 0,
-              lastAttackDamage: 0,
-              lastAttackTarget: ''
-            });
-          });
-
-          return cur;
-        }, (err, committed) => {
-          if (err) return reject(err);
-          if (!committed) return reject(new Error('countdown-promote-not-committed'));
-          resolve();
-        }, false);
+        return cur;
       });
-
-      return true;
-    }catch(err){
-      console.warn('[gj-battle] promote countdown->playing failed:', err);
-      return false;
-    }finally{
-      STATE.countdownPromoteBusy = false;
+    } catch (err){
+      console.warn('[gj-battle] host promote countdown failed:', err);
+    } finally {
+      STATE.hostPromoteBusy = false;
     }
   }
 
@@ -1241,32 +1161,41 @@
     STATE.targets = [];
   }
 
-  function resetLocalRoundStateFromRoom(){
-    const me = selfPlayer();
+  function startGameIfReady(){
+    if (STATE.finished) return;
+    if (roomStatus() !== 'playing') return;
 
-    STATE.started = false;
+    const startedAt = currentStartedAt();
+    const endsAt = currentRoomEndsAt();
+    if (!startedAt || !endsAt) return;
+
+    if (STATE.started && STATE.lastRoundStartedAt === startedAt) return;
+
+    STATE.started = true;
     STATE.finished = false;
     STATE.localKo = false;
+    STATE.lastRoundStartedAt = startedAt;
+
     STATE.lastFrameTs = 0;
-    STATE.lastSpawnAt = 0;
+    STATE.lastSpawnAt = now();
     STATE.targets = [];
     STATE.seq = 0;
     STATE.seenAttackIds = Object.create(null);
 
-    STATE.score = num(me && me.score, 0);
-    STATE.miss = num(me && me.miss, 0);
+    const me = selfPlayer();
+    STATE.score = me ? num(me.score, 0) : 0;
+    STATE.miss = me ? num(me.miss, 0) : 0;
     STATE.streak = 0;
-    STATE.bestStreak = num(me && me.bestStreak, 0);
-    STATE.hp = clamp(me && me.hp, 0, 100);
-    STATE.maxHp = Math.max(1, num(me && me.maxHp, 100));
-    STATE.shield = num(me && me.shield, 0);
-    STATE.attackCharge = clamp(me && me.attackCharge, 0, 100);
-    STATE.maxAttackCharge = Math.max(1, num(me && me.maxAttackCharge, 100));
+    STATE.bestStreak = me ? num(me.bestStreak, 0) : 0;
+    STATE.hp = me ? clamp(me.hp, 0, 100) : 100;
+    STATE.maxHp = me ? Math.max(1, num(me.maxHp, 100)) : 100;
+    STATE.attackCharge = me ? clamp(me.attackCharge, 0, 100) : 0;
+    STATE.maxAttackCharge = me ? Math.max(1, num(me.maxAttackCharge, 100)) : 100;
     STATE.attackReady = !!(me && me.attackReady);
-    STATE.attacksUsed = num(me && me.attacksUsed, 0);
-    STATE.damageDealt = num(me && me.damageDealt, 0);
-    STATE.damageTaken = num(me && me.damageTaken, 0);
-    STATE.koCount = num(me && me.koCount, 0);
+    STATE.attacksUsed = me ? num(me.attacksUsed, 0) : 0;
+    STATE.damageDealt = me ? num(me.damageDealt, 0) : 0;
+    STATE.damageTaken = me ? num(me.damageTaken, 0) : 0;
+    STATE.koCount = me ? num(me.koCount, 0) : 0;
     STATE.goodHit = 0;
     STATE.junkHit = 0;
     STATE.lastAttackId = '';
@@ -1274,70 +1203,16 @@
     STATE.lastAttackDamage = 0;
     STATE.lastAttackTarget = '';
 
+    const roundToken = cleanText((STATE.room.state || {}).roundToken || String(startedAt), 120);
+    STATE.roundToken = roundToken;
     STATE.cfg = getCfg();
-  }
 
-  function loop(frameTs){
-    if (STATE.finished) return;
+    const seedHash = xmur3(`${STATE.seed}|${STATE.roomId}|${STATE.roundToken}|${STATE.pid}|${startedAt}`)();
+    STATE.rng = mulberry32(seedHash);
 
-    const status = roomStatus();
-    if (status === 'ended' || status === 'finished'){
-      finishGame('room-ended');
-      return;
-    }
-
-    if (!STATE.started){
-      renderHud();
-      STATE.loopId = raf(loop);
-      return;
-    }
-
-    const ts = Number(frameTs || performance.now());
-    if (!STATE.lastFrameTs) STATE.lastFrameTs = ts;
-    const dt = Math.min(40, ts - STATE.lastFrameTs) / 1000;
-    STATE.lastFrameTs = ts;
-
-    const tNow = now();
-    if (!STATE.localKo && tNow - STATE.lastSpawnAt >= STATE.cfg.spawnEvery){
-      STATE.lastSpawnAt = tNow;
-      spawnTarget();
-    }
-
-    const rect = fieldRect();
-
-    for (let i = STATE.targets.length - 1; i >= 0; i--){
-      const t = STATE.targets[i];
-      if (!t || t.dead){
-        STATE.targets.splice(i, 1);
-        continue;
-      }
-
-      t.y += t.speed * dt;
-      t.x += Math.sin((tNow - t.bornAt) / 240) * t.sway * dt;
-      t.x = Math.max(2, Math.min(rect.w - t.size - 2, t.x));
-
-      t.el.style.left = `${t.x.toFixed(1)}px`;
-      t.el.style.top = `${t.y.toFixed(1)}px`;
-
-      const expired = (tNow - t.bornAt > t.ttl) || (t.y > rect.h + t.size + 8);
-      if (expired){
-        STATE.targets.splice(i, 1);
-        expireTarget(t);
-      }
-    }
-
-    if (isHost()) maybeHostEndRound();
-
-    if (currentRoomEndsAt() && now() >= currentRoomEndsAt()){
-      if (isHost()){
-        maybeHostEndRound();
-      } else if (roomStatus() !== 'ended' && roomStatus() !== 'finished'){
-        setBanner('หมดเวลาแล้ว รอหัวหน้าห้องปิดรอบ…', 1200);
-      }
-    }
-
+    setBanner('เริ่มแล้ว! แตะอาหารดี ชาร์จพลัง แล้วใช้ ATTACK ให้ถูกจังหวะ', 1300);
     renderHud();
-    STATE.loopId = raf(loop);
+    scheduleSync(true);
   }
 
   function computeResultSummary(reason){
@@ -1407,6 +1282,7 @@
 
   async function finishGame(reason){
     if (STATE.finished) return;
+
     STATE.finished = true;
     STATE.started = false;
 
@@ -1431,37 +1307,98 @@
     }
   }
 
-  function startGameIfReady(){
+  function renderWaitingStates(){
+    const status = roomStatus();
+
+    if (status === 'countdown'){
+      const left = Math.max(0, Math.ceil((currentCountdownEndsAt() - now()) / 1000));
+      if (left > 0){
+        setBanner(`พร้อมแล้ว เริ่มเกมใน ${left}...`);
+      } else {
+        setBanner('กำลังเริ่มเกม...');
+      }
+      if (isHost()) maybeHostPromoteCountdown();
+      return;
+    }
+
+    if (status === 'playing'){
+      startGameIfReady();
+      return;
+    }
+
+    if (status === 'waiting'){
+      const actives = activePlayers().length;
+      setBanner(actives >= 2
+        ? 'รอหัวหน้าห้องกด Start จาก Lobby…'
+        : `รอผู้เล่นเพิ่มอีก ${Math.max(0, 2 - actives)} คน`);
+      return;
+    }
+
+    if (status === 'ended' || status === 'finished'){
+      if (!STATE.finished) finishGame('room-ended');
+      return;
+    }
+
+    setBanner('กำลังรอสถานะห้อง Battle…');
+  }
+
+  function loop(frameTs){
     if (STATE.finished) return;
-    if (roomStatus() !== 'playing') return;
 
-    const startedAt = currentStartedAt();
-    const endsAt = currentRoomEndsAt();
-    const roundToken = currentRoundToken();
+    renderWaitingStates();
 
-    if (!endsAt || !startedAt || !roundToken) return;
+    if (!STATE.started){
+      renderHud();
+      STATE.loopId = raf(loop);
+      return;
+    }
 
-    if (STATE.started && STATE.startedRoundToken === roundToken) return;
+    const ts = Number(frameTs || performance.now());
+    if (!STATE.lastFrameTs) STATE.lastFrameTs = ts;
+    const dt = Math.min(40, ts - STATE.lastFrameTs) / 1000;
+    STATE.lastFrameTs = ts;
 
-    clearTargets();
-    resetLocalRoundStateFromRoom();
+    const tNow = now();
 
-    const seedHash = xmur3(`${STATE.seed}|${STATE.roomId}|${roundToken}|${STATE.pid}|${startedAt}`)();
-    STATE.rng = mulberry32(seedHash);
-    STATE.cfg = getCfg();
-    STATE.started = true;
-    STATE.finished = false;
-    STATE.localKo = false;
-    STATE.lastFrameTs = 0;
-    STATE.lastSpawnAt = now();
-    STATE.startedRoundToken = roundToken;
-    STATE.roundPreparedToken = roundToken;
+    if (!STATE.localKo && tNow - STATE.lastSpawnAt >= STATE.cfg.spawnEvery){
+      STATE.lastSpawnAt = tNow;
+      spawnTarget();
+    }
 
-    setBanner('เริ่มแล้ว! แตะอาหารดี ชาร์จพลัง แล้วใช้ ATTACK ให้ถูกจังหวะ', 1300);
+    const rect = fieldRect();
+
+    for (let i = STATE.targets.length - 1; i >= 0; i--){
+      const t = STATE.targets[i];
+      if (!t || t.dead){
+        STATE.targets.splice(i, 1);
+        continue;
+      }
+
+      t.y += t.speed * dt;
+      t.x += Math.sin((tNow - t.bornAt) / 240) * t.sway * dt;
+      t.x = Math.max(2, Math.min(rect.w - t.size - 2, t.x));
+
+      t.el.style.left = `${t.x.toFixed(1)}px`;
+      t.el.style.top = `${t.y.toFixed(1)}px`;
+
+      const expired = (tNow - t.bornAt > t.ttl) || (t.y > rect.h + t.size + 8);
+      if (expired){
+        STATE.targets.splice(i, 1);
+        expireTarget(t);
+      }
+    }
+
+    if (isHost()) maybeHostEndRound();
+
+    if (currentRoomEndsAt() && now() >= currentRoomEndsAt()){
+      if (isHost()){
+        maybeHostEndRound();
+      } else if (roomStatus() === 'playing'){
+        setBanner('หมดเวลาแล้ว รอหัวหน้าห้องปิดรอบ…', 1200);
+      }
+    }
+
     renderHud();
-    scheduleSync(true);
-
-    caf(STATE.loopId);
     STATE.loopId = raf(loop);
   }
 
@@ -1560,7 +1497,7 @@
       nick: STATE.name,
       connected: true,
       ready: true,
-      status: roomStatus() === 'playing' ? 'playing' : 'waiting',
+      status: roomStatus() === 'playing' ? 'playing' : (roomStatus() === 'countdown' ? 'countdown' : 'waiting'),
       score: existing ? num(existing.score, 0) : 0,
       miss: existing ? num(existing.miss, 0) : 0,
       combo: 0,
@@ -1599,32 +1536,19 @@
       updateGlobals();
     });
 
-    STATE.refs.state.on('value', async (snap) => {
+    STATE.refs.state.on('value', (snap) => {
       STATE.room.state = snap.val() || {};
       renderHud();
       updateGlobals();
 
       const status = roomStatus();
-
       if (status === 'countdown'){
-        const leftMs = currentCountdownEndsAt() - now();
-        const sec = Math.max(0, Math.ceil(leftMs / 1000));
-        setBanner(sec > 0 ? `Battle จะเริ่มใน ${sec}...` : 'กำลังเริ่มรอบ Battle...');
-        await maybePromoteCountdownToPlaying();
-        return;
-      }
-
-      if (status === 'playing'){
+        if (isHost()) maybeHostPromoteCountdown();
+      } else if (status === 'playing'){
         startGameIfReady();
-        return;
-      }
-
-      if ((status === 'ended' || status === 'finished') && !STATE.finished){
+      } else if ((status === 'ended' || status === 'finished') && !STATE.finished){
         finishGame('room-state-ended');
-        return;
-      }
-
-      if (status === 'waiting' && !STATE.started && !STATE.finished){
+      } else if (status === 'waiting' && !STATE.started && !STATE.finished){
         setBanner('รอหัวหน้าห้องเริ่มรอบ Battle…');
       }
     });
@@ -1633,12 +1557,25 @@
       updatePlayersFromRoom(snap.val() || {});
       updateGlobals();
 
-      if (isHost()) {
-        maybeHostEndRound();
+      const me = selfPlayer();
+      if (me && !STATE.started && !STATE.finished){
+        STATE.score = num(me.score, 0);
+        STATE.miss = num(me.miss, 0);
+        STATE.bestStreak = num(me.bestStreak, 0);
+        STATE.hp = clamp(me.hp, 0, 100);
+        STATE.maxHp = Math.max(1, num(me.maxHp, 100));
+        STATE.attackCharge = clamp(me.attackCharge, 0, 100);
+        STATE.maxAttackCharge = Math.max(1, num(me.maxAttackCharge, 100));
+        STATE.attackReady = !!me.attackReady;
+        STATE.attacksUsed = num(me.attacksUsed, 0);
+        STATE.damageDealt = num(me.damageDealt, 0);
+        STATE.damageTaken = num(me.damageTaken, 0);
+        STATE.koCount = num(me.koCount, 0);
       }
 
-      if (roomStatus() === 'playing'){
-        startGameIfReady();
+      if (isHost()) {
+        maybeHostPromoteCountdown();
+        maybeHostEndRound();
       }
     });
   }
@@ -1651,8 +1588,13 @@
         connected: true,
         updatedAt: now(),
         lastSeen: now(),
-        status: STATE.finished ? 'finished' : (STATE.localKo ? 'ko' : (STATE.started ? 'playing' : 'waiting'))
+        status: STATE.finished ? 'finished' : (STATE.localKo ? 'ko' : (STATE.started ? 'playing' : roomStatus() || 'waiting'))
       }).catch(() => {});
+
+      if (isHost()){
+        maybeHostPromoteCountdown();
+        maybeHostEndRound();
+      }
     }, HEARTBEAT_MS);
   }
 
@@ -1664,7 +1606,7 @@
 
     await ensureFirebaseReady();
 
-    const roomCandidates = roomIdCandidates(STATE.roomId || qs('roomId') || qs('room') || BOOT.roomId || RUN_CTX.roomId);
+    const roomCandidates = roomIdCandidates(STATE.roomId || qs('roomId') || qs('room'));
     STATE.roomId = roomCandidates[0] || STATE.roomId;
     if (!STATE.roomId){
       throw new Error('roomId missing');
@@ -1683,22 +1625,25 @@
     }
 
     const status = roomStatus();
-    if (status === 'countdown'){
-      await maybePromoteCountdownToPlaying();
-    } else if (status === 'playing'){
+    if (status === 'playing'){
       startGameIfReady();
+    } else if (status === 'countdown'){
+      setBanner('กำลังนับถอยหลังก่อนเริ่ม Battle…');
+      if (isHost()) maybeHostPromoteCountdown();
     } else {
       setBanner('เชื่อมห้องสำเร็จ รอสถานะเล่นจาก Lobby…');
     }
 
     renderHud();
     updateGlobals();
+
+    caf(STATE.loopId);
+    STATE.loopId = raf(loop);
   }
 
   function failUi(err){
     console.error('[gj-battle] init failed:', err);
-    try { buildDom(); } catch {}
-
+    try{ buildDom(); }catch{}
     setBanner('เข้า GoodJunk Battle ไม่สำเร็จ');
     if (UI.opponentStrip){
       UI.opponentStrip.innerHTML = `
