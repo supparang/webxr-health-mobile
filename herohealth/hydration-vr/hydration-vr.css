@@ -48,14 +48,7 @@ html,body{
 }
 
 button,input,select,textarea{ font:inherit; }
-
-button{
-  -webkit-tap-highlight-color:transparent;
-}
-
-.hidden{
-  display:none !important;
-}
+button{ -webkit-tap-highlight-color:transparent; }
 
 .hydr-page{
   width:min(1180px,100%);
@@ -66,9 +59,6 @@ button{
   gap:14px;
 }
 
-/* --------------------------------
-   topbar
---------------------------------- */
 .topbar{
   display:flex;
   justify-content:space-between;
@@ -81,9 +71,7 @@ button{
   padding:18px;
 }
 
-.brand{
-  min-width:0;
-}
+.brand{ min-width:0; }
 
 .kicker{
   font-weight:900;
@@ -112,9 +100,6 @@ button{
   justify-content:flex-end;
 }
 
-/* --------------------------------
-   buttons
---------------------------------- */
 .primary,
 .secondary,
 .ghost{
@@ -161,13 +146,11 @@ button{
   color:#fff;
 }
 
-.is-hidden{
+.is-hidden,
+.hidden{
   display:none !important;
 }
 
-/* --------------------------------
-   HUD
---------------------------------- */
 .hud-grid{
   display:grid;
   grid-template-columns:repeat(10,minmax(0,1fr));
@@ -233,9 +216,6 @@ button{
   flex:1 1 320px;
 }
 
-/* --------------------------------
-   missions
---------------------------------- */
 .missionBar{
   display:grid;
   grid-template-columns:auto repeat(3,minmax(0,1fr));
@@ -288,9 +268,6 @@ button{
   background:linear-gradient(180deg, rgba(34,197,94,.16), rgba(22,163,74,.08));
 }
 
-/* --------------------------------
-   stage
---------------------------------- */
 .stage{
   position:relative;
   min-height:58vh;
@@ -403,9 +380,6 @@ button{
   touch-action:manipulation;
 }
 
-/* --------------------------------
-   bubbles
---------------------------------- */
 .bubble{
   position:absolute;
   transform:translate(-50%, -50%);
@@ -459,9 +433,6 @@ button{
     linear-gradient(180deg, rgba(250,204,21,.98), rgba(245,158,11,.94));
 }
 
-/* --------------------------------
-   center crosshair
---------------------------------- */
 .centerCrosshair{
   position:absolute;
   left:50%;
@@ -497,9 +468,6 @@ button{
   height:2px;
 }
 
-/* --------------------------------
-   callouts / stickers / boss
---------------------------------- */
 .calloutLayer,
 .stickerBurst{
   position:absolute;
@@ -526,15 +494,9 @@ button{
   color:#fff;
 }
 
-.callout.good{
-  box-shadow:0 18px 50px rgba(34,197,94,.16);
-}
-.callout.warn{
-  box-shadow:0 18px 50px rgba(245,158,11,.16);
-}
-.callout.boss{
-  box-shadow:0 18px 50px rgba(167,139,250,.18);
-}
+.callout.good{ box-shadow:0 18px 50px rgba(34,197,94,.16); }
+.callout.warn{ box-shadow:0 18px 50px rgba(245,158,11,.16); }
+.callout.boss{ box-shadow:0 18px 50px rgba(167,139,250,.18); }
 
 @keyframes callout-pop{
   0%{ opacity:0; transform:translate(-50%, 8px) scale(.96); }
@@ -601,9 +563,6 @@ button{
   background:linear-gradient(180deg, rgba(250,204,21,.30), rgba(2,6,23,.72));
 }
 
-/* --------------------------------
-   coach / risk
---------------------------------- */
 .coach-panel{
   display:grid;
   grid-template-columns:1.15fr .85fr;
@@ -672,9 +631,6 @@ button{
   transition:width .18s ease;
 }
 
-/* --------------------------------
-   debug
---------------------------------- */
 .debugMini{
   display:grid;
   grid-template-columns:repeat(6,minmax(0,1fr));
@@ -692,9 +648,6 @@ button{
   color:#fff;
 }
 
-/* --------------------------------
-   overlays / dialogs
---------------------------------- */
 .overlay{
   position:fixed;
   inset:0;
@@ -747,9 +700,6 @@ button{
   flex-wrap:wrap;
 }
 
-/* --------------------------------
-   end dialog
---------------------------------- */
 .endDialog{
   width:min(940px,100%);
   max-height:min(92vh, 980px);
@@ -819,8 +769,7 @@ button{
 }
 
 .rewardCard{
-  background:
-    linear-gradient(180deg, rgba(96,165,250,.12), rgba(255,255,255,.05));
+  background:linear-gradient(180deg, rgba(96,165,250,.12), rgba(255,255,255,.05));
 }
 
 .endRewardCard{
@@ -854,11 +803,6 @@ button{
   font-weight:900;
 }
 
-.stickerChip.locked{
-  opacity:.58;
-  filter:grayscale(.22);
-}
-
 .copyTools{
   display:flex;
   flex-wrap:wrap;
@@ -869,13 +813,6 @@ button{
   justify-content:flex-start;
 }
 
-.collectionGlow{
-  box-shadow:0 0 0 1px rgba(56,189,248,.18), 0 12px 40px rgba(56,189,248,.08);
-}
-
-/* --------------------------------
-   FX for safe.js
---------------------------------- */
 .fx-ring{
   position:absolute;
   width:84px;
@@ -890,14 +827,8 @@ button{
 }
 
 @keyframes ring-pop{
-  0%{
-    opacity:.95;
-    transform:scale(.45);
-  }
-  100%{
-    opacity:0;
-    transform:scale(1.28);
-  }
+  0%{ opacity:.95; transform:scale(.45); }
+  100%{ opacity:0; transform:scale(1.28); }
 }
 
 .fx-score{
@@ -984,131 +915,17 @@ button{
   100%{ transform:translate(0,0); }
 }
 
-/* --------------------------------
-   duet live hud
---------------------------------- */
-.duetHud{
-  display:grid;
-  gap:12px;
-  padding:16px 18px;
-  border-radius:24px;
-  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,255,251,.95));
-  border:1px solid rgba(255,255,255,.96);
-  box-shadow:
-    0 18px 40px rgba(84,142,176,.12),
-    inset 0 1px 0 rgba(255,255,255,.92);
+@keyframes threat-pulse{
+  0%{
+    transform:translate(-50%, -50%) scale(1);
+    filter:brightness(1);
+  }
+  100%{
+    transform:translate(-50%, -50%) scale(1.08);
+    filter:brightness(1.08);
+  }
 }
 
-.duetHudHead{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-.duetHudTitle{
-  color:#2d5269;
-  font-size:22px;
-  line-height:1.1;
-  font-weight:1000;
-}
-
-.duetHudChips{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  flex-wrap:wrap;
-  justify-content:flex-end;
-}
-
-.duetHudBadge{
-  min-height:34px;
-  padding:7px 12px;
-  border-radius:999px;
-  background:linear-gradient(180deg,#eefbff,#d4f4ff);
-  border:1px solid rgba(255,255,255,.96);
-  box-shadow:0 10px 24px rgba(84,142,176,.10);
-  color:#2f6a88;
-  font-size:13px;
-  font-weight:1000;
-  display:inline-flex;
-  align-items:center;
-}
-
-.duetHudBadge.soft{
-  background:linear-gradient(180deg,#fff8eb,#ffe9c1);
-  color:#7c6218;
-  border:1px solid #ffe19a;
-}
-
-.duetHudGrid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:12px;
-}
-
-.duetHudCard{
-  display:grid;
-  gap:10px;
-  padding:14px;
-  border-radius:22px;
-  border:1px solid rgba(255,255,255,.96);
-  box-shadow:0 12px 24px rgba(84,142,176,.10);
-}
-
-.duetHudCard.me{
-  background:linear-gradient(180deg,#fffef8,#f3fff0);
-}
-
-.duetHudCard.peer{
-  background:linear-gradient(180deg,#f8fbff,#edf8ff);
-}
-
-.duetHudLabel{
-  color:#6f91a6;
-  font-size:13px;
-  line-height:1.1;
-  font-weight:1000;
-}
-
-.duetHudName{
-  color:#2d5269;
-  font-size:24px;
-  line-height:1.05;
-  font-weight:1000;
-}
-
-.duetHudStats{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-}
-
-.duetHudStat{
-  min-height:46px;
-  padding:10px 12px;
-  border-radius:16px;
-  background:rgba(255,255,255,.76);
-  border:1px solid rgba(255,255,255,.96);
-  color:#688aa0;
-  font-size:13px;
-  line-height:1.35;
-  font-weight:900;
-}
-
-.duetHudStat strong{
-  display:block;
-  margin-top:2px;
-  color:#2d5269;
-  font-size:18px;
-  line-height:1.05;
-  font-weight:1000;
-}
-
-/* --------------------------------
-   compact / mobile
---------------------------------- */
 @media (max-width: 1080px){
   .hud-grid{
     grid-template-columns:repeat(5,minmax(0,1fr));
@@ -1130,20 +947,6 @@ button{
   }
   .debugMini{
     grid-template-columns:repeat(3,minmax(0,1fr));
-  }
-}
-
-@media (max-width: 760px){
-  .duetHudGrid{
-    grid-template-columns:1fr;
-  }
-
-  .duetHudName{
-    font-size:22px;
-  }
-
-  .duetHudStats{
-    grid-template-columns:1fr 1fr;
   }
 }
 
@@ -1251,20 +1054,6 @@ button{
     border-radius:20px;
   }
 
-  .duetHud{
-    padding:14px;
-    border-radius:20px;
-  }
-
-  .duetHudTitle{
-    font-size:20px;
-  }
-
-  .duetHudChips{
-    width:100%;
-    justify-content:flex-start;
-  }
-
   .dialog{
     padding:18px;
   }
@@ -1295,10 +1084,6 @@ button{
 
   .end-mobile-optional{
     display:block;
-  }
-
-  .duetHudStats{
-    grid-template-columns:1fr;
   }
 }
 
