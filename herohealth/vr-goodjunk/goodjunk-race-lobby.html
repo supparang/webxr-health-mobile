@@ -311,7 +311,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-  <script src="../firebase-config.js?v=20260327-gjrace-lobby-r4"></script>
+  <script src="../firebase-config.js?v=20260328-gjrace-lobby-corefix"></script>
 
   <script>
     (function(){
@@ -521,9 +521,6 @@
 
       async function ensureAuth(){
         const user = await ensureAnonymousAuth();
-        if (!user || !user.uid) {
-          throw new Error('Firebase Auth ยังไม่พร้อม');
-        }
         S.uid = user.uid;
       }
 
@@ -623,6 +620,10 @@
         url.searchParams.set('seed', String(getSeed()));
         url.searchParams.set('hub', HUB);
         url.searchParams.set('autostart', '1');
+
+        url.searchParams.set('safe', './goodjunk-race.safe.js');
+        url.searchParams.set('core', './goodjunk.safe.race.js');
+        url.searchParams.set('controller', './goodjunk-race.js');
 
         if (sharedStartAt > 0) {
           url.searchParams.set('startAt', String(sharedStartAt));
@@ -756,11 +757,6 @@
         }, 100);
       }
 
-      async function ensureAuth(){
-        const user = await ensureAnonymousAuth();
-        S.uid = user.uid;
-      }
-
       function cleanupRoom(){
         clearInterval(S.heartbeat);
         clearInterval(S.countdownTick);
@@ -776,68 +772,6 @@
         S.state = { status:'waiting', plannedSec:getTime() };
         S.refs = null;
         S.redirecting = false;
-      }
-
-      async function createRoom(){
-        try {
-          await ensureAuth();
-          saveStored();
-
-          cleanupRoom();
-          S.roomId = makeCode();
-          UI.roomInput.value = S.roomId;
-          UI.roomCodeBig.textContent = S.roomId;
-
-          const db = ensureFirebaseDb();
-          const root = db.ref(`hha-battle/goodjunk/rooms/${S.roomId}`);
-          S.refs = { root, meta: root.child('meta'), state: root.child('state'), players: root.child('players') };
-
-          const nowTs = Date.now();
-          await S.refs.meta.set({
-            roomId:S.roomId, game:'goodjunk', mode:MODE_ID, diff:getDiff(), hostPid:S.uid, createdAt:nowTs, updatedAt:nowTs
-          });
-          await S.refs.state.set({
-            status:'waiting', plannedSec:getTime(), createdAt:nowTs, updatedAt:nowTs, countdownEndsAt:null, startAt:null
-          });
-
-          await joinBoundRoom(true);
-        } catch (err) {
-          console.error('[race-lobby] createRoom failed', err);
-          setTop(`สร้างห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
-          setSide('ตรวจ Firebase config / auth / database แล้วลองใหม่');
-        }
-      }
-
-      async function joinRoom(){
-        try {
-          await ensureAuth();
-          saveStored();
-
-          cleanupRoom();
-          S.roomId = cleanRoom(UI.roomInput.value || '');
-          if(!S.roomId){
-            setTop('ยังไม่มี room code');
-            UI.roomInput.focus();
-            return;
-          }
-
-          const db = ensureFirebaseDb();
-          const root = db.ref(`hha-battle/goodjunk/rooms/${S.roomId}`);
-          S.refs = { root, meta: root.child('meta'), state: root.child('state'), players: root.child('players') };
-
-          const metaSnap = await S.refs.meta.once('value');
-          if(!metaSnap.exists()){
-            setTop('ไม่พบห้องนี้');
-            setSide('ตรวจ room code แล้วลองใหม่');
-            return;
-          }
-
-          await joinBoundRoom(false);
-        } catch (err) {
-          console.error('[race-lobby] joinRoom failed', err);
-          setTop(`เข้าห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
-          setSide('ตรวจ Firebase config / auth / database แล้วลองใหม่');
-        }
       }
 
       async function joinBoundRoom(created){
@@ -901,6 +835,79 @@
         } else {
           setTop('เข้าห้องสำเร็จ');
           setSide('รอ host กด Start Race');
+        }
+      }
+
+      async function createRoom(){
+        try {
+          await ensureAuth();
+          saveStored();
+
+          cleanupRoom();
+          S.roomId = makeCode();
+          UI.roomInput.value = S.roomId;
+          UI.roomCodeBig.textContent = S.roomId;
+
+          const db = ensureFirebaseDb();
+          const root = db.ref(`hha-battle/goodjunk/rooms/${S.roomId}`);
+          S.refs = { root, meta: root.child('meta'), state: root.child('state'), players: root.child('players') };
+
+          const nowTs = Date.now();
+          await S.refs.meta.set({
+            roomId:S.roomId,
+            game:'goodjunk',
+            mode:MODE_ID,
+            diff:getDiff(),
+            hostPid:S.uid,
+            createdAt:nowTs,
+            updatedAt:nowTs
+          });
+          await S.refs.state.set({
+            status:'waiting',
+            plannedSec:getTime(),
+            createdAt:nowTs,
+            updatedAt:nowTs,
+            countdownEndsAt:null,
+            startAt:null
+          });
+
+          await joinBoundRoom(true);
+        } catch (err) {
+          console.error('[race-lobby] createRoom failed', err);
+          setTop(`สร้างห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+          setSide('ตรวจ Firebase config / auth / database แล้วลองใหม่');
+        }
+      }
+
+      async function joinRoom(){
+        try {
+          await ensureAuth();
+          saveStored();
+
+          cleanupRoom();
+          S.roomId = cleanRoom(UI.roomInput.value || '');
+          if(!S.roomId){
+            setTop('ยังไม่มี room code');
+            UI.roomInput.focus();
+            return;
+          }
+
+          const db = ensureFirebaseDb();
+          const root = db.ref(`hha-battle/goodjunk/rooms/${S.roomId}`);
+          S.refs = { root, meta: root.child('meta'), state: root.child('state'), players: root.child('players') };
+
+          const metaSnap = await S.refs.meta.once('value');
+          if(!metaSnap.exists()){
+            setTop('ไม่พบห้องนี้');
+            setSide('ตรวจ room code แล้วลองใหม่');
+            return;
+          }
+
+          await joinBoundRoom(false);
+        } catch (err) {
+          console.error('[race-lobby] joinRoom failed', err);
+          setTop(`เข้าห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+          setSide('ตรวจ Firebase config / auth / database แล้วลองใหม่');
         }
       }
 
