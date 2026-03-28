@@ -3,67 +3,764 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Battle Run Bridge</title>
+  <title>HeroHealth • GoodJunk Battle</title>
+  <meta name="color-scheme" content="light" />
+  <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --sky1:#dff4ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d8;
+      --line:#bfe3f2;
+      --text:#4d4a42;
+      --muted:#7b7a72;
+      --green:#7ed957;
+      --green2:#58c33f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
+      overflow:hidden;
+    }
+    body{ min-height:100dvh; }
+    #app{ position:relative; width:100vw; height:100dvh; overflow:hidden; isolation:isolate; }
+    #gameMount{ position:absolute; inset:0; z-index:1; overflow:hidden; }
+
+    .shell{
+      position:absolute; inset:0; display:grid; grid-template-rows:auto 1fr auto; gap:12px;
+      padding:calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
+      pointer-events:none; z-index:2;
+    }
+    .top{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start; }
+    .hero-card{
+      max-width:min(780px,100%);
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      border:3px solid var(--line); border-radius:28px; box-shadow:var(--shadow);
+      padding:18px 16px; position:relative; overflow:hidden;
+    }
+    .hero-card::before{
+      content:""; position:absolute; left:-36px; top:-36px; width:140px; height:140px;
+      border-radius:999px; background:rgba(255,181,71,.18); filter:blur(8px);
+    }
+    .hero-card::after{
+      content:""; position:absolute; right:-26px; bottom:-26px; width:120px; height:120px;
+      border-radius:999px; background:rgba(255,212,92,.24); filter:blur(8px);
+    }
+    .kicker{
+      position:relative; z-index:1; display:inline-flex; align-items:center; gap:8px;
+      padding:8px 14px; border-radius:999px; background:#fff4dd; border:2px solid var(--line);
+      color:#b7791f; font-size:13px; font-weight:1000; margin-bottom:10px;
+    }
+    h1{
+      position:relative; z-index:1; margin:0 0 6px; font-size:clamp(28px,5vw,42px);
+      line-height:1.05; font-weight:1000; color:#b7791f; text-shadow:0 2px 0 #fff;
+    }
+    .sub{
+      position:relative; z-index:1; margin:0; color:var(--muted);
+      line-height:1.7; font-size:14px; font-weight:900; max-width:720px;
+    }
+    .side{ display:grid; gap:8px; align-content:start; }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:999px;
+      border:2px solid var(--line); background:#fff; color:#6c6a61; font-size:12px; font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.10); width:max-content; max-width:100%;
+    }
+
+    .status-card{
+      align-self:end; background:linear-gradient(180deg,#fffef9,#f7fff4); border:3px solid var(--line);
+      border-radius:24px; box-shadow:var(--shadow); padding:12px 14px; color:var(--muted);
+      font-size:13px; font-weight:900; line-height:1.6; pointer-events:auto; max-width:min(920px,100%);
+    }
+    .status-head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .status-badge{
+      width:54px; height:54px; border-radius:18px; display:grid; place-items:center;
+      background:#fff; border:2px solid var(--line); box-shadow:0 8px 18px rgba(86,155,194,.10);
+      font-size:28px; flex:0 0 auto;
+    }
+    .status-headtext{ min-width:220px; flex:1 1 280px; }
+    .status-title{ color:#b7791f; font-size:14px; font-weight:1000; margin-bottom:2px; }
+    .status-sub{ margin-top:0; color:#8b887f; font-size:12px; line-height:1.55; font-weight:900; }
+    .status-minirow{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+    .status-mini{
+      display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px;
+      background:#fff; border:2px solid var(--line); color:#6d6a62; font-size:12px; font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+    }
+    .status-steps{
+      margin-top:10px; display:grid; gap:6px; padding:12px; border-radius:18px;
+      background:rgba(255,255,255,.65); border:2px dashed var(--line); color:#6f6c65;
+      font-size:12px; line-height:1.6; font-weight:1000;
+    }
+    .status-step{ display:flex; gap:8px; align-items:flex-start; }
+    .status-tip{
+      margin-top:10px; padding:10px 12px; border-radius:16px; background:#fff; border:2px solid var(--line);
+      color:#7a776f; font-size:12px; line-height:1.6; font-weight:1000;
+    }
+    .status-tip strong{ color:#4d4a42; }
+    .status-actions{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; pointer-events:auto; }
+    .status-btn{
+      appearance:none; border:0; cursor:pointer; border-radius:16px; padding:10px 14px;
+      font-size:13px; font-weight:1000; transition:.12s ease; box-shadow:0 8px 18px rgba(86,155,194,.12);
+    }
+    .status-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .status-btn:active{ transform:translateY(0); }
+    .status-btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
+    .status-btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
+    .status-card.is-ready{ animation: status-ready-pop .22s ease; }
+    @keyframes status-ready-pop{ 0%{ transform:scale(.985); } 100%{ transform:scale(1); } }
+    .debug{
+      margin-top:8px; padding-top:8px; border-top:1px dashed rgba(191,227,242,.95);
+      white-space:pre-wrap; word-break:break-word; font-size:11px; color:#8a8a82; max-height:140px; overflow:auto;
+    }
+    .error{ color:#b45309; white-space:pre-wrap; word-break:break-word; }
+
+    .summary-overlay{
+      position:absolute; inset:0; z-index:30; display:grid; place-items:center;
+      padding:calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+      background:rgba(255,244,221,.72); backdrop-filter:blur(10px); pointer-events:auto;
+    }
+    .summary-overlay[hidden]{ display:none !important; }
+    .summary-card{
+      width:min(940px,100%); max-height:88dvh; overflow:auto; background:linear-gradient(180deg,#fffef8,#f7fff4);
+      border:3px solid var(--line); border-radius:30px; box-shadow:0 28px 70px rgba(86,155,194,.24);
+      padding:18px; position:relative;
+    }
+    .summary-kicker{
+      display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:999px;
+      background:#fff4dd; border:2px solid var(--line); color:#b7791f; font-size:13px; font-weight:1000; margin-bottom:10px;
+    }
+    .summary-hero{
+      display:grid; grid-template-columns:96px 1fr; gap:14px; align-items:center;
+      margin-bottom:14px; padding:14px; border-radius:24px; background:#fff;
+      border:2px solid #f0ddbc; box-shadow:0 10px 24px rgba(86,155,194,.10);
+    }
+    .summary-badge{
+      width:96px; height:96px; border-radius:28px; display:grid; place-items:center;
+      background:linear-gradient(180deg,#fff4dd,#fffdf6); border:3px solid #f0ddbc; font-size:42px;
+      box-shadow:0 10px 20px rgba(86,155,194,.10);
+    }
+    .summary-hero-title,.summary-title{ color:#b7791f; text-shadow:0 2px 0 #fff; font-weight:1000; }
+    .summary-hero-title{ margin:0 0 6px; font-size:clamp(24px,4vw,36px); line-height:1.08; }
+    .summary-hero-sub,.summary-sub{ color:#6d6b63; font-size:14px; line-height:1.7; font-weight:900; }
+    .summary-hero-sub{ margin:0; }
+    .summary-title{ margin:0 0 6px; text-align:center; font-size:clamp(28px,5vw,42px); line-height:1.05; }
+    .summary-sub{ margin:0; text-align:center; }
+    .summary-stars{ display:flex; justify-content:center; gap:10px; margin:12px 0 14px; flex-wrap:wrap; }
+    .summary-star{ font-size:48px; line-height:1; filter:drop-shadow(0 6px 12px rgba(0,0,0,.12)); }
+    .summary-star.off{ opacity:.22; filter:none; }
+    .summary-scorecard{
+      margin:0 auto 14px; width:min(480px,100%); border-radius:24px; background:#fff;
+      border:3px solid #f0ddbc; box-shadow:0 10px 22px rgba(86,155,194,.10); padding:16px 14px; text-align:center;
+    }
+    .summary-scorelabel{ color:#d09e52; font-size:15px; font-weight:1000; margin-bottom:4px; }
+    .summary-scorevalue{ color:#4d4a42; font-size:clamp(42px,9vw,70px); line-height:1; font-weight:1000; }
+    .summary-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:0; }
+    .summary-item{
+      background:#fff; border:2px solid #f0ddbc; border-radius:22px; box-shadow:0 8px 18px rgba(86,155,194,.08); padding:14px;
+    }
+    .summary-label{ color:#d09e52; font-size:12px; font-weight:1000; margin-bottom:6px; }
+    .summary-value{ color:#4d4a42; font-size:clamp(20px,3.5vw,32px); font-weight:1000; line-height:1.18; }
+    .summary-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+    .btn{
+      appearance:none; border:0; cursor:pointer; border-radius:18px; padding:13px 18px;
+      font-weight:1000; font-size:15px; transition:.12s ease; box-shadow:0 10px 20px rgba(86,155,194,.14);
+    }
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .btn:active{ transform:translateY(0); }
+    .btn-primary{ background:linear-gradient(180deg,var(--green),var(--green2)); color:#fffef9; }
+    .btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
+    .btn-warn{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#6d4e00; }
+    .btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
+    .summary-debug{
+      margin-top:14px; padding-top:10px; border-top:1px dashed #f0ddbc; color:#8a887f;
+      font-size:11px; line-height:1.6; font-weight:900; white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto;
+    }
+
+    @media (max-width:780px){
+      .top{ align-items:stretch; }
+      .side{ width:100%; }
+      .pill{ width:100%; justify-content:center; }
+      .summary-grid{ grid-template-columns:1fr; }
+      .summary-actions .btn,
+      .status-actions .status-btn{ flex:1 1 100%; }
+    }
+  </style>
 </head>
 <body>
-<script>
-(function () {
-  'use strict';
+  <div id="app">
+    <div id="gameMount"></div>
 
-  const q = new URLSearchParams(location.search);
+    <div class="shell">
+      <div class="top">
+        <div class="hero-card">
+          <div class="kicker">⚔️ GOODJUNK BATTLE</div>
+          <h1>Food Battle!</h1>
+          <p class="sub">
+            แตะเก็บอาหารดีให้ไว ระวัง junk และพยายามทำคะแนนให้มากกว่าคู่แข่งในรอบนี้
+          </p>
+        </div>
 
-  function firstNonEmpty() {
-    for (let i = 0; i < arguments.length; i++) {
-      const v = String(arguments[i] || '').trim();
-      if (v) return v;
-    }
-    return '';
-  }
+        <div class="side">
+          <div class="pill" id="pillRoom">ROOM • -</div>
+          <div class="pill" id="pillPlayer">HERO • -</div>
+          <div class="pill" id="pillRole">ROLE • player</div>
+          <div class="pill" id="pillDiff">LEVEL • normal</div>
+          <div class="pill" id="pillTime">TIME • 150</div>
+        </div>
+      </div>
 
-  function cleanRoom(v) {
-    return String(v || '')
-      .trim()
-      .toUpperCase()
-      .replace(/[^A-Z0-9_-]/g, '')
-      .slice(0, 24);
-  }
+      <div></div>
 
-  function cleanText(v, maxLen) {
-    return String(v || '').trim().slice(0, maxLen || 64);
-  }
+      <div class="status-card" id="engineStatusCard">
+        <div class="status-head">
+          <div class="status-badge" id="engineStatusBadge">⚔️</div>
+          <div class="status-headtext">
+            <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
+            <div id="engineStatusText">กำลังโหลด battle safe + engine</div>
+            <div class="status-sub" id="engineStatusSub">เกมจะเริ่มเองเมื่อโหลดพร้อม</div>
+          </div>
+        </div>
 
-  const roomRaw = firstNonEmpty(q.get('roomId'), q.get('room'));
-  const roomId = cleanRoom(roomRaw);
+        <div class="status-minirow">
+          <div class="status-mini" id="engineMiniMode">MODE • BATTLE</div>
+          <div class="status-mini" id="engineMiniRoom">ROOM • -</div>
+          <div class="status-mini" id="engineMiniPlayer">HERO • -</div>
+        </div>
 
-  const nameRaw = firstNonEmpty(q.get('name'), q.get('nick'));
-  const name = cleanText(nameRaw, 40);
+        <div class="status-steps" id="engineSteps">
+          <div class="status-step"><span>1️⃣</span><span>โหลด safe layer ก่อน</span></div>
+          <div class="status-step"><span>2️⃣</span><span>โหลด battle engine จริง</span></div>
+          <div class="status-step"><span>3️⃣</span><span>เชื่อมห้องแล้วเริ่มรอบอัตโนมัติ</span></div>
+        </div>
 
-  const target = new URL('./goodjunk-battle-run.html', location.href);
+        <div class="status-tip" id="engineTip"><strong>Tip:</strong> โหมดนี้ใช้ 2 ไฟล์ร่วมกัน — safe layer + engine</div>
 
-  q.forEach((value, key) => {
-    if (!target.searchParams.has(key)) {
-      target.searchParams.set(key, value);
-    }
-  });
+        <div class="status-actions">
+          <button class="status-btn status-btn-copy" id="btnQuickCopyRoom" type="button">คัดลอกห้อง</button>
+          <button class="status-btn status-btn-ghost" id="btnQuickBackHub" type="button">กลับ HUB</button>
+        </div>
 
-  if (roomId) {
-    target.searchParams.set('roomId', roomId);
-    target.searchParams.set('room', roomId);
-  }
+        <div class="debug" id="engineDebugInfo"></div>
+      </div>
+    </div>
 
-  if (name) {
-    target.searchParams.set('name', name);
-    target.searchParams.set('nick', name);
-  }
+    <div class="summary-overlay" id="summaryOverlay" hidden>
+      <div class="summary-card">
+        <div class="summary-kicker">⚔️ GOODJUNK BATTLE SUMMARY</div>
 
-  target.searchParams.set('mode', 'battle');
+        <div class="summary-hero">
+          <div class="summary-badge" id="summaryBadge">⚔️</div>
+          <div>
+            <h3 class="summary-hero-title" id="summaryHeroTitle">Battle Hero!</h3>
+            <p class="summary-hero-sub" id="summaryHeroSub">เธอสู้ได้เก่งมากและอ่านจังหวะได้ดี</p>
+          </div>
+        </div>
 
-  if (location.hash) {
-    target.hash = location.hash;
-  }
+        <h2 class="summary-title" id="summaryTitle">Great Job!</h2>
+        <p class="summary-sub" id="summarySub">จบรอบแล้ว มาดูผลการปะทะกัน</p>
 
-  location.replace(target.toString());
-})();
-</script>
+        <div class="summary-stars" id="summaryStars"></div>
+
+        <div class="summary-scorecard">
+          <div class="summary-scorelabel">Score</div>
+          <div class="summary-scorevalue" id="summaryScoreValue">0</div>
+        </div>
+
+        <div class="summary-grid" id="summaryGrid"></div>
+
+        <div class="summary-actions">
+          <button class="btn btn-primary" id="btnReplay" type="button">เล่นใหม่</button>
+          <button class="btn btn-copy" id="btnCopyRoom" type="button">คัดลอกห้อง</button>
+          <button class="btn btn-warn" id="btnExport" type="button">Export JSON</button>
+          <button class="btn btn-ghost" id="btnBackHub" type="button">กลับ HUB</button>
+        </div>
+
+        <div class="summary-debug" id="summaryDebug"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/hha-cloud-logger.js"></script>
+  <script>
+    (function(){
+      'use strict';
+
+      const q = new URLSearchParams(location.search);
+      const MODE = 'battle';
+      const MODE_LABEL = 'Battle';
+
+      const SAFE_LAYER_SRC = './goodjunk.safe.battle.js?v=20260328-GOODJUNK-BATTLE-SAFE-R2';
+      const ENGINE_SRC = './goodjunk-battle.safe.js?v=20260327-GOODJUNK-BATTLE-ENGINE-R1';
+
+      function qs(key, fb=''){ return q.get(key) ?? fb; }
+      function clean(v){ return String(v || '').trim(); }
+      function cleanText(v, max=64){ return String(v || '').trim().slice(0, max); }
+      function cleanRoom(v){
+        return String(v || '')
+          .trim()
+          .toUpperCase()
+          .replace(/[^A-Z0-9_-]/g,'')
+          .slice(0,24);
+      }
+      function normalizePid(v){
+        const s = String(v || '').trim().replace(/[.#$[\]/]/g, '-');
+        if (!s || s.toLowerCase() === 'anon') return '';
+        return s.slice(0, 80);
+      }
+      function safeJson(v){ try{return JSON.stringify(v,null,2);}catch{return '{}';} }
+      function saveText(name,text,type='application/json'){
+        const blob=new Blob([text],{type});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');
+        a.href=url;
+        a.download=name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+      function copyText(text){
+        const t = String(text || '').trim();
+        if (!t) return Promise.reject(new Error('empty'));
+        return navigator.clipboard.writeText(t);
+      }
+      function resolveHub(){
+        try { return qs('hub') || new URL('../hub.html', location.href).toString(); }
+        catch { return '../hub.html'; }
+      }
+      function loadScript(src){
+        return new Promise((resolve, reject) => {
+          const full = new URL(src, location.href).toString();
+          const found = Array.from(document.scripts).find(s => s.src === full);
+          if (found) {
+            resolve(full);
+            return;
+          }
+          const s = document.createElement('script');
+          s.src = full;
+          s.async = true;
+          s.onload = () => resolve(full);
+          s.onerror = () => reject(new Error('โหลดไม่สำเร็จ: ' + src));
+          document.body.appendChild(s);
+        });
+      }
+      function buildReplayUrl(){
+        const url = new URL(location.href);
+        url.searchParams.set('seed', String(Date.now()));
+        return url.toString();
+      }
+
+      const roomId = cleanRoom(qs('roomId') || qs('room') || '');
+      const queryUid = normalizePid(qs('uid') || qs('playerId') || '');
+      const queryPid = normalizePid(qs('pid') || '');
+      const playerPid = queryPid || queryUid || 'anon';
+      const playerName = cleanText(qs('name') || qs('nick') || 'Player', 40);
+
+      const runCtx = {
+        pid: playerPid,
+        uid: queryUid,
+        playerId: queryUid,
+        name: playerName,
+        nick: playerName,
+        studyId: qs('studyId',''),
+        roomId,
+        room: roomId,
+        role: qs('role','player'),
+        mode: MODE,
+        diff: qs('diff','normal'),
+        time: qs('time','150'),
+        seed: qs('seed',String(Date.now())),
+        startAt: Number(qs('startAt','0')) || 0,
+        roundToken: qs('roundToken',''),
+        hub: resolveHub(),
+        view: qs('view','mobile'),
+        run: qs('run','play'),
+        gameId: qs('gameId','goodjunk')
+      };
+
+      window.__GJ_RUN_CTX__ = runCtx;
+      window.__GJ_MULTI_RUN_CTX__ = runCtx;
+      window.RUN_CTX = Object.assign({}, window.RUN_CTX || {}, runCtx);
+      window.HHA_BATTLE_BOOT = Object.assign({}, runCtx, {
+        roomId,
+        room,
+        pid: playerPid,
+        uid: queryUid,
+        playerId: queryUid,
+        name: playerName,
+        nick: playerName
+      });
+
+      const $ = (id) => document.getElementById(id);
+
+      function deriveHeroAvatarFromName(name){
+        const text = String(name || '').trim();
+        if (!text) return '🙂';
+        const parts = text.split(/\s+/).filter(Boolean);
+        const key = parts[parts.length - 1] || parts[0] || '';
+        const byWord = {
+          Apple:'🍎', Carrot:'🥕', Bunny:'🐰', Panda:'🐼', Star:'⭐',
+          Berry:'🍓', Tiger:'🐯', Cloud:'☁️', Rocket:'🚀', Kitty:'🐱',
+          Buddy:'🧡', Hero:'🦸'
+        };
+        return byWord[key] || '🙂';
+      }
+
+      const heroMeta = {
+        name: playerName || 'Hero',
+        avatar: clean(qs('heroAvatar')) || deriveHeroAvatarFromName(playerName),
+        soft: clean(qs('heroSoft')) || '#eef8ff',
+        border: clean(qs('heroBorder')) || '#bfe3f2',
+        text: clean(qs('heroText')) || '#4d4a42'
+      };
+
+      function applyHeroBadgeTheme(el){
+        if(!el) return;
+        el.textContent = heroMeta.avatar;
+        el.style.borderColor = heroMeta.border;
+        el.style.background = `linear-gradient(180deg,#fffdf7,${heroMeta.soft})`;
+        el.style.color = heroMeta.text;
+      }
+
+      function applyHeroPillTheme(el,text){
+        if(!el) return;
+        el.textContent = text;
+        el.style.borderColor = heroMeta.border;
+        el.style.background = heroMeta.soft;
+        el.style.color = heroMeta.text;
+      }
+
+      function applyHeroIdentity(){
+        const heroText = `HERO • ${heroMeta.avatar} ${playerName || playerPid || '-'}`;
+        applyHeroPillTheme($('pillPlayer'), heroText);
+        applyHeroPillTheme($('engineMiniPlayer'), heroText);
+        applyHeroBadgeTheme($('engineStatusBadge'));
+      }
+
+      function applySummaryIdentity(){
+        applyHeroBadgeTheme($('summaryBadge'));
+      }
+
+      function setMiniInfo(){
+        $('pillRoom').textContent = `ROOM • ${roomId || '-'}`;
+        $('pillRole').textContent = `ROLE • ${runCtx.role || 'player'}`;
+        $('pillDiff').textContent = `LEVEL • ${runCtx.diff}`;
+        $('pillTime').textContent = `TIME • ${runCtx.time}`;
+
+        $('engineMiniMode').textContent = `MODE • ${MODE.toUpperCase()}`;
+        $('engineMiniRoom').textContent = `ROOM • ${roomId || '-'}`;
+        $('engineMiniPlayer').textContent = `HERO • ${heroMeta.avatar} ${playerName || playerPid || '-'}`;
+      }
+
+      function setStatus(title, text, isError){
+        $('engineStatusTitle').textContent = title;
+        $('engineStatusText').textContent = text;
+        $('engineStatusText').className = isError ? 'error' : '';
+      }
+
+      function setDebug(text){
+        $('engineDebugInfo').textContent = text;
+      }
+
+      function setFriendlyReadyState(){
+        const card = $('engineStatusCard');
+        if (card) card.classList.add('is-ready');
+
+        setStatus('พร้อมแล้ว!', 'โหลด safe layer และ engine สำเร็จแล้ว');
+        $('engineStatusSub').textContent = 'ระบบพร้อมเข้าเล่น Battle และสรุปผลด้วย summary overlay';
+        $('engineSteps').innerHTML =
+          '<div class="status-step"><span>✅</span><span>safe layer พร้อมแล้ว</span></div>' +
+          '<div class="status-step"><span>✅</span><span>engine พร้อมแล้ว</span></div>' +
+          '<div class="status-step"><span>🎮</span><span>เกมจะเริ่มตามสถานะห้องทันที</span></div>';
+        $('engineTip').innerHTML = '<strong>พร้อมแล้ว:</strong> รอบนี้ใช้ 2 ไฟล์ร่วมกันเรียบร้อย';
+      }
+
+      function hideStatusCardSoon(){
+        const card = $('engineStatusCard');
+        if (!card) return;
+        setTimeout(() => { card.style.display = 'none'; }, 1200);
+      }
+
+      function buildHeroIdentityPayload(){
+        return {
+          heroName: heroMeta.name,
+          heroAvatar: heroMeta.avatar,
+          heroSoft: heroMeta.soft,
+          heroBorder: heroMeta.border,
+          heroText: heroMeta.text,
+          heroDisplay: `${heroMeta.avatar} ${heroMeta.name}`.trim()
+        };
+      }
+
+      function enrichSummaryWithHero(summary){
+        const hero = buildHeroIdentityPayload();
+        return Object.assign({}, summary, hero, { identity: hero });
+      }
+
+      function emitEnrichedSummaryEvents(modeKey, enrichedSummary){
+        try { window.dispatchEvent(new CustomEvent(`gj:${modeKey}-summary-enriched`, { detail: enrichedSummary })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('gj:summary-enriched', { detail: enrichedSummary })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('hha:summary-enriched', { detail: enrichedSummary })); } catch {}
+      }
+
+      function normalizeSummary(detail){
+        const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
+          ? detail.summary
+          : (detail || {});
+
+        const rank = src.rank ?? src.place ?? src.position ?? src.playerRank ?? src.finalRank ?? '';
+        const score = src.score ?? src.totalScore ?? src.playerScore ?? src.myScore ?? '';
+        const opponentScore = src.opponentScore ?? src.enemyScore ?? src.otherScore ?? '';
+        const miss = src.miss ?? src.misses ?? src.totalMiss ?? '';
+        const streak = src.bestStreak ?? src.streak ?? src.comboMax ?? '';
+        const players = src.players ?? src.playerCount ?? src.totalPlayers ?? '';
+        const result = src.result ?? src.outcome ?? src.status ?? (rank !== '' ? `อันดับ ${rank}` : 'จบรอบแล้ว');
+        const reason = src.reason ?? src.finishReason ?? src.endReason ?? '';
+
+        return enrichSummaryWithHero({
+          mode: MODE,
+          label: MODE_LABEL,
+          roomId: roomId,
+          pid: playerPid,
+          name: playerName,
+          role: runCtx.role,
+          diff: runCtx.diff,
+          time: runCtx.time,
+          result,
+          rank,
+          score,
+          opponentScore,
+          players,
+          miss,
+          bestStreak: streak,
+          reason,
+          raw: src,
+          receivedAt: Date.now()
+        });
+      }
+
+      function addSummaryItem(label, value){
+        if (value === '' || value === null || value === undefined) return '';
+        return `<div class="summary-item"><div class="summary-label">${label}</div><div class="summary-value">${String(value)}</div></div>`;
+      }
+
+      function renderSummaryStars(n){
+        const count = Math.max(0, Math.min(3, Number(n || 0)));
+        return [1,2,3].map(i => `<span class="summary-star ${i <= count ? '' : 'off'}">⭐</span>`).join('');
+      }
+
+      function battleStarCount(summary){
+        if (String(summary.rank) === '1') return 3;
+        if (String(summary.rank) === '2') return 2;
+        return 1;
+      }
+
+      function battleHero(summary){
+        if (String(summary.rank) === '1') {
+          return { badge:'🏆', heroTitle:'Battle Winner!', heroSub:'เธอชนะการปะทะครั้งนี้ได้สุดยอดมาก', title:'You Win!' };
+        }
+        if (String(summary.rank) === '2') {
+          return { badge:'🛡️', heroTitle:'Almost Won!', heroSub:'อีกนิดเดียวก็ชนะแล้ว ลองใหม่ได้เลย', title:'Great Fight!' };
+        }
+        return { badge:'⚔️', heroTitle:'Battle Hero!', heroSub:'เธอสู้ได้เก่งมากและอ่านจังหวะได้ดี', title:'Nice Try!' };
+      }
+
+      function summarySubText(summary){
+        const parts = [];
+        if (summary.roomId) parts.push('ห้อง ' + summary.roomId);
+        if (summary.result) parts.push(summary.result);
+        if (summary.players !== '') parts.push('ผู้เล่น ' + summary.players);
+        if (summary.reason) parts.push(summary.reason);
+        return parts.join(' • ') || 'จบรอบแล้ว มาดูผลการปะทะกัน';
+      }
+
+      const SUMMARY_KEY = 'GJ_BATTLE_LAST_SUMMARY_' + (roomId || 'noroom') + '_' + (playerPid || 'anon');
+
+      function showSummary(detail){
+        const summary = normalizeSummary(detail);
+        const hero = battleHero(summary);
+        const stars = battleStarCount(summary);
+
+        try { localStorage.setItem(SUMMARY_KEY, JSON.stringify(summary)); } catch {}
+
+        $('summaryBadge').textContent = hero.badge;
+        applySummaryIdentity();
+        $('summaryHeroTitle').textContent = hero.heroTitle;
+        $('summaryHeroSub').textContent = `${heroMeta.avatar} ${playerName || playerPid || '-'} • ${hero.heroSub}`;
+        $('summaryTitle').textContent = hero.title;
+        $('summarySub').textContent = summarySubText(summary);
+        $('summaryStars').innerHTML = renderSummaryStars(stars);
+        $('summaryScoreValue').textContent = String(summary.score ?? 0);
+
+        $('summaryGrid').innerHTML =
+          addSummaryItem('ผลลัพธ์', summary.result) +
+          addSummaryItem('อันดับ', summary.rank) +
+          addSummaryItem('ฮีโร่', summary.heroDisplay) +
+          addSummaryItem('คะแนนเรา', summary.score) +
+          addSummaryItem('คะแนนคู่แข่ง', summary.opponentScore) +
+          addSummaryItem('ผู้เล่นทั้งหมด', summary.players) +
+          addSummaryItem('Miss', summary.miss) +
+          addSummaryItem('Best Streak', summary.bestStreak) +
+          addSummaryItem('ห้อง', summary.roomId || '-') +
+          addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-');
+
+        $('summaryDebug').textContent =
+          '[BATTLE SUMMARY]\n' +
+          'hero=' + (summary.heroDisplay || '-') + '\n' +
+          'rank=' + (summary.rank || '-') + '\n' +
+          'score=' + (summary.score || 0) + '\n' +
+          'opponent=' + (summary.opponentScore || 0) + '\n\n' +
+          safeJson(summary);
+
+        $('summaryOverlay').hidden = false;
+        window.__GJ_BATTLE_LAST_SUMMARY__ = summary;
+        emitEnrichedSummaryEvents('battle', summary);
+      }
+
+      function hideSummary(){
+        $('summaryOverlay').hidden = true;
+      }
+
+      function handleSummaryEvent(evtName, detail){
+        console.log('[GJ-BATTLE-SUMMARY]', evtName, detail);
+        showSummary(detail || {});
+      }
+
+      function wireQuickActions(){
+        $('btnQuickCopyRoom').addEventListener('click', () => {
+          copyText(roomId || '').then(() => {
+            $('engineTip').innerHTML = '<strong>คัดลอกแล้ว:</strong> ส่งรหัสห้องนี้ให้เพื่อนได้เลย';
+          }).catch(() => {
+            $('engineTip').innerHTML = '<strong>ยังคัดลอกไม่ได้:</strong> ลองคัดลอกจากข้อความ ROOM ด้านบนแทน';
+          });
+        });
+
+        $('btnQuickBackHub').addEventListener('click', () => {
+          location.href = runCtx.hub;
+        });
+      }
+
+      $('btnReplay').addEventListener('click', () => {
+        location.href = buildReplayUrl();
+      });
+
+      $('btnCopyRoom').addEventListener('click', () => {
+        copyText(roomId || '').then(() => {
+          $('summarySub').textContent = 'คัดลอก room code แล้ว';
+        }).catch(() => {
+          $('summarySub').textContent = 'คัดลอก room code ไม่สำเร็จ';
+        });
+      });
+
+      $('btnExport').addEventListener('click', () => {
+        const payload = window.__GJ_BATTLE_LAST_SUMMARY__ || {};
+        saveText(`goodjunk-battle-summary-${clean(roomId || 'room')}-${Date.now()}.json`, safeJson(payload));
+      });
+
+      $('btnBackHub').addEventListener('click', () => {
+        location.href = runCtx.hub;
+      });
+
+      window.__GJ_SHOW_BATTLE_SUMMARY__ = showSummary;
+      window.__GJ_HIDE_BATTLE_SUMMARY__ = hideSummary;
+      window.__GJ_BATTLE_SUMMARY_BRIDGE__ = { show:showSummary, hide:hideSummary };
+
+      [
+        'gj:battle-summary',
+        'gj:summary',
+        'gj:match-summary',
+        'gj:session-end',
+        'hha:summary',
+        'hha:session-summary',
+        'hha:match-summary'
+      ].forEach((eventName) => {
+        window.addEventListener(eventName, (evt) => {
+          handleSummaryEvent(eventName, evt && evt.detail ? evt.detail : {});
+        });
+      });
+
+      window.addEventListener('message', (evt) => {
+        const data = evt && evt.data ? evt.data : null;
+        if (!data || typeof data !== 'object') return;
+        if (data.type === 'gj:battle-summary' || data.type === 'gj:summary' || data.type === 'hha:summary') {
+          handleSummaryEvent(data.type, data.detail || data.summary || data);
+        }
+      });
+
+      if (qs('showLastSummary') === '1') {
+        try {
+          const raw = localStorage.getItem(SUMMARY_KEY);
+          if (raw) showSummary(JSON.parse(raw));
+        } catch {}
+      }
+
+      async function boot(){
+        applyHeroIdentity();
+        setMiniInfo();
+        wireQuickActions();
+
+        setDebug(
+          '[RUN CTX]\n' +
+          'roomId=' + (roomId || '-') + '\n' +
+          'pid=' + (playerPid || '-') + '\n' +
+          'uid=' + (queryUid || '-') + '\n' +
+          'name=' + (playerName || '-') + '\n' +
+          'hub=' + (runCtx.hub || '-') + '\n' +
+          'diff=' + (runCtx.diff || '-') + '\n' +
+          'time=' + (runCtx.time || '-') + '\n' +
+          'seed=' + (runCtx.seed || '-') + '\n\n' +
+          '[LOAD ORDER]\n' +
+          '1) ' + SAFE_LAYER_SRC + '\n' +
+          '2) ' + ENGINE_SRC
+        );
+
+        try {
+          setStatus('กำลังโหลด safe layer…', SAFE_LAYER_SRC);
+          await loadScript(SAFE_LAYER_SRC);
+
+          setStatus('กำลังโหลด battle engine…', ENGINE_SRC);
+          await loadScript(ENGINE_SRC);
+
+          setFriendlyReadyState();
+          setDebug(
+            '[SUCCESS]\n' +
+            'safe=' + SAFE_LAYER_SRC + '\n' +
+            'engine=' + ENGINE_SRC + '\n' +
+            'room=' + (roomId || '-') + '\n' +
+            'player=' + heroMeta.avatar + ' ' + (playerName || playerPid || '-') + '\n' +
+            'role=' + (runCtx.role || 'player')
+          );
+          hideStatusCardSoon();
+        } catch (err) {
+          console.error('[GJ-BATTLE-RUN] boot failed', err);
+          setStatus('โหลด Battle ไม่สำเร็จ', String(err && err.message ? err.message : err), true);
+          setDebug(
+            '[FAILED]\n' +
+            'safe=' + SAFE_LAYER_SRC + '\n' +
+            'engine=' + ENGINE_SRC + '\n\n' +
+            String(err && err.stack ? err.stack : err)
+          );
+        }
+      }
+
+      boot();
+    })();
+  </script>
 </body>
 </html>
