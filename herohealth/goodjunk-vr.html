@@ -102,7 +102,7 @@
         calc(12px + var(--sab))
         calc(12px + var(--sal));
       pointer-events:none;
-      z-index:1;
+      z-index:3;
     }
 
     .top{
@@ -277,8 +277,8 @@
 
       <div class="status-card" id="engineStatusCard">
         <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
-        <div id="engineStatusText">กำลังโหลด solo boss engine</div>
-        <div class="mini-note" id="engineStatusMini">ถ้าไฟล์ JS อยู่ path อื่น ให้แก้รายการ ENGINE_CANDIDATES ด้านล่าง</div>
+        <div id="engineStatusText">เริ่มต้นตัวโหลด engine...</div>
+        <div class="mini-note" id="engineStatusMini">ถ้าไฟล์ JS อยู่ path อื่น ให้แก้ ENGINE_CANDIDATES ด้านล่าง</div>
       </div>
     </div>
   </div>
@@ -286,6 +286,7 @@
   <script>
     (function () {
       const q = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
 
       const runCtx = {
         pid: q.get('pid') || 'anon',
@@ -299,85 +300,141 @@
         seed: q.get('seed') || String(Date.now()),
         startAt: 0,
         hub: q.get('hub') || new URL('./hub.html', location.href).toString(),
+        nextAfterCooldown: q.get('nextAfterCooldown') || '',
+        cdnext: q.get('cdnext') || '',
         view: q.get('view') || 'mobile',
         run: q.get('run') || 'play',
         gameId: q.get('gameId') || 'goodjunk'
       };
 
       window.__GJ_RUN_CTX__ = runCtx;
-      window.HHA_CLOUD_ENDPOINT =
-        String(q.get('api') || window.HHA_CLOUD_ENDPOINT || '').trim();
+      window.HHA_CLOUD_ENDPOINT = String(q.get('api') || window.HHA_CLOUD_ENDPOINT || '').trim();
 
       const ENGINE_CANDIDATES = [
+        '/webxr-health-mobile/herohealth/goodjunk-solo-phaseboss-v2.js',
         './goodjunk-solo-phaseboss-v2.js',
         './js/goodjunk-solo-phaseboss-v2.js'
       ];
 
-      const $ = (id) => document.getElementById(id);
-
-      $('pillPlayer').textContent = \`PLAYER • \${runCtx.name || runCtx.pid || '-'}\`;
-      $('pillDiff').textContent = \`LEVEL • \${runCtx.diff}\`;
-      $('pillTime').textContent = \`TIME • \${runCtx.time}\`;
-      $('pillMode').textContent = 'MODE • solo boss';
-
       function setStatus(title, text, isError = false) {
-        $('engineStatusTitle').textContent = title;
-        $('engineStatusText').textContent = text;
-        $('engineStatusText').className = isError ? 'error' : '';
+        const t1 = $('engineStatusTitle');
+        const t2 = $('engineStatusText');
+        if (t1) t1.textContent = title;
+        if (t2) {
+          t2.textContent = text;
+          t2.className = isError ? 'error' : '';
+        }
+      }
+
+      function updatePills() {
+        const pillPlayer = $('pillPlayer');
+        const pillDiff = $('pillDiff');
+        const pillTime = $('pillTime');
+        const pillMode = $('pillMode');
+
+        if (pillPlayer) pillPlayer.textContent = `PLAYER • ${runCtx.name || runCtx.pid || '-'}`;
+        if (pillDiff) pillDiff.textContent = `LEVEL • ${runCtx.diff}`;
+        if (pillTime) pillTime.textContent = `TIME • ${runCtx.time}`;
+        if (pillMode) pillMode.textContent = 'MODE • solo boss';
       }
 
       async function fetchText(src) {
         const res = await fetch(src, { cache: 'no-store' });
-        if (!res.ok) throw new Error(\`\${src} -> HTTP \${res.status}\`);
+        if (!res.ok) throw new Error(`${src} -> HTTP ${res.status}`);
         return await res.text();
       }
 
-      async function loadEngine() {
-        for (const src of ENGINE_CANDIDATES) {
+      async function injectClassicScriptFromCode(code, srcLabel) {
+        return await new Promise((resolve, reject) => {
           try {
-            setStatus('กำลังโหลดเกม…', \`ลองโหลด \${src}\`);
-            const code = await fetchText(src);
-
             const blob = new Blob([code], { type: 'text/javascript' });
             const blobUrl = URL.createObjectURL(blob);
 
-            await new Promise((resolve, reject) => {
-              const s = document.createElement('script');
-              s.src = blobUrl;
-              s.onload = () => resolve();
-              s.onerror = () => reject(new Error(\`โหลด script ไม่สำเร็จ: \${src}\`));
-              document.body.appendChild(s);
-            });
+            const s = document.createElement('script');
+            s.src = blobUrl;
 
-            setStatus('เข้าเกมแล้ว', \`solo boss engine loaded: \${src}\`);
+            s.onload = () => {
+              try { URL.revokeObjectURL(blobUrl); } catch {}
+              resolve(true);
+            };
+
+            s.onerror = () => {
+              try { URL.revokeObjectURL(blobUrl); } catch {}
+              reject(new Error(`โหลด script ไม่สำเร็จ: ${srcLabel}`));
+            };
+
+            document.body.appendChild(s);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      }
+
+      function verifyEngineStarted() {
+        const mount = document.getElementById('gameMount');
+        if (!mount) return false;
+        return mount.children.length > 0;
+      }
+
+      async function loadEngine() {
+        updatePills();
+
+        let lastErr = null;
+
+        for (const src of ENGINE_CANDIDATES) {
+          try {
+            setStatus('กำลังโหลดเกม…', `ลองโหลด ${src}`);
+            const code = await fetchText(src);
+
+            if (!code || !code.trim()) {
+              throw new Error(`ไฟล์ว่าง: ${src}`);
+            }
+
+            await injectClassicScriptFromCode(code, src);
+
             setTimeout(() => {
-              const card = $('engineStatusCard');
-              if (card) card.style.display = 'none';
-            }, 1200);
+              const ok = verifyEngineStarted();
+              if (!ok) {
+                setStatus(
+                  'โหลดไฟล์ได้ แต่เกมยังไม่เริ่ม',
+                  `โหลด ${src} ได้แล้ว แต่ engine ยังไม่ mount ลง #gameMount\nให้ตรวจ goodjunk-solo-phaseboss-v2.js ว่ามี error syntax หรือ runtime ตอนเริ่มต้น`,
+                  true
+                );
+                return;
+              }
 
-            console.log('[GJ-SOLO-BOSS] loaded engine', src, runCtx);
+              setStatus('เข้าเกมแล้ว', `solo boss engine loaded: ${src}`);
+              const card = $('engineStatusCard');
+              if (card) {
+                setTimeout(() => { card.style.display = 'none'; }, 600);
+              }
+            }, 120);
+
             return;
           } catch (err) {
+            lastErr = err;
             console.warn('[GJ-SOLO-BOSS] candidate failed', src, err);
           }
         }
 
         setStatus(
           'ไม่พบไฟล์ engine',
-          \`หา solo boss engine ไม่เจอ
-
-Candidates:
-\${ENGINE_CANDIDATES.join('\n')}
-
-ให้เซฟ JS ก้อนก่อนหน้าเป็น:
-- ./goodjunk-solo-phaseboss-v2.js
-หรือ
-- ./js/goodjunk-solo-phaseboss-v2.js\`,
+          `โหลด engine ไม่สำเร็จ\n${lastErr ? String(lastErr.message || lastErr) : ''}\n\nCandidates:\n${ENGINE_CANDIDATES.join('\n')}`,
           true
         );
       }
 
-      loadEngine();
+      try {
+        updatePills();
+        setStatus('กำลังเตรียมเกม…', 'เริ่มต้นตัวโหลด engine...');
+        loadEngine();
+      } catch (err) {
+        setStatus(
+          'เกิดปัญหาใน run page',
+          String(err && (err.stack || err.message || err) || 'Unknown error'),
+          true
+        );
+      }
     })();
   </script>
 </body>
