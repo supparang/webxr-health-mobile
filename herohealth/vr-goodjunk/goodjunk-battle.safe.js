@@ -1,6 +1,6 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-battle.safe.js
- * FULL PATCH v20260328-GOODJUNK-BATTLE-ENGINE-R3
+ * FULL PATCH v20260328-GOODJUNK-BATTLE-ENGINE-R4
  * ---------------------------------------------------------
  * Engine role:
  * - actual playable battle engine
@@ -9,6 +9,7 @@
  * - syncs score / hp / charge / attacks to Firebase
  * - host promotes waiting -> countdown -> playing
  * - host ends round when time up or someone is KO
+ * - ATTACK now damages opponent authoritatively in Firebase
  * - emits battle:* events for goodjunk.safe.battle.js
  * ========================================================= */
 
@@ -107,7 +108,6 @@
 
     if (/^GJB[A-Z0-9]{5,8}$/.test(compact)) push(`GJB-${compact.slice(3)}`);
     if (/^GJB-[A-Z0-9]{5,8}$/.test(exact)) push(exact.replace('-', ''));
-
     return out;
   }
 
@@ -215,6 +215,7 @@
     targets: [],
     seq: 0,
     seenAttackIds: Object.create(null),
+    seenIncomingFxIds: Object.create(null),
 
     score: 0,
     miss: 0,
@@ -438,8 +439,8 @@
       #battleEngineRoot{
         position:absolute; inset:0; z-index:1; overflow:hidden;
         background:
-          radial-gradient(circle at 12% 10%, rgba(255,255,255,.9), transparent 18%),
-          radial-gradient(circle at 86% 14%, rgba(255,255,255,.76), transparent 16%),
+          radial-gradient(circle at 12% 10%, rgba(255,255,255,.95), transparent 18%),
+          radial-gradient(circle at 86% 14%, rgba(255,255,255,.82), transparent 16%),
           linear-gradient(180deg,#dff4ff,#bfe8ff 54%, #fff7d8);
       }
       #battleEngineStage{
@@ -450,12 +451,12 @@
       }
       #battleField::before{
         content:"";
-        position:absolute; left:0; right:0; bottom:0; height:140px;
+        position:absolute; left:0; right:0; bottom:0; height:150px;
         background:
           radial-gradient(circle at 20% 40%, rgba(126,217,87,.34), transparent 18%),
           radial-gradient(circle at 72% 44%, rgba(126,217,87,.28), transparent 18%),
-          linear-gradient(180deg,#b3f28f,#88d96b);
-        border-top:1px solid rgba(88,195,63,.26);
+          linear-gradient(180deg,#b7f39b,#8cdc6f);
+        border-top:2px solid rgba(88,195,63,.28);
         pointer-events:none;
       }
       #battleHud{
@@ -466,9 +467,9 @@
         display:flex; gap:8px; flex-wrap:wrap; align-items:center;
       }
       .gjb-pill, .gjb-stat, .gjb-gauge, .gjb-opponent-card{
-        background:rgba(255,255,255,.92);
+        background:rgba(255,255,255,.93);
         border:2px solid #bfe3f2;
-        border-radius:18px;
+        border-radius:20px;
         box-shadow:0 10px 20px rgba(86,155,194,.12);
       }
       .gjb-pill{
@@ -502,12 +503,14 @@
       }
       #battleHpFill{ background:linear-gradient(90deg,#7ed957,#58c33f); }
       #battleChargeFill{ background:linear-gradient(90deg,#7fcfff,#58b7f5); }
+
       #battleOpponentStrip{
         position:absolute; left:14px; right:14px; bottom:14px; z-index:5;
         display:flex; gap:10px; flex-wrap:wrap;
       }
       .gjb-opponent-card{
-        min-width:220px; padding:12px 14px; color:#4d4a42;
+        min-width:240px; padding:12px 14px; color:#4d4a42;
+        background:linear-gradient(180deg,#fffef9,#f9fff4);
       }
       .gjb-opponent-top{
         display:flex; justify-content:space-between; gap:8px; align-items:center;
@@ -518,23 +521,34 @@
       .gjb-opponent-mini{
         margin-top:7px; font-size:12px; color:#7b7a72; font-weight:1000;
       }
+      .gjb-opponent-bar{
+        margin-top:8px; height:10px; border-radius:999px; overflow:hidden; background:#e8f6ff;
+        border:1px solid rgba(191,227,242,.9);
+      }
+      .gjb-opponent-fill{
+        height:100%; width:0%;
+        border-radius:999px;
+        background:linear-gradient(90deg,#7ed957,#58c33f);
+      }
+
       #battleBanner{
-        position:absolute; left:50%; top:110px; transform:translateX(-50%);
+        position:absolute; left:50%; top:112px; transform:translateX(-50%);
         z-index:7; min-width:min(92vw,520px); max-width:min(92vw,620px);
         border-radius:22px; padding:12px 16px;
         border:2px solid #bfe3f2;
-        background:rgba(255,255,255,.95);
+        background:rgba(255,255,255,.96);
         box-shadow:0 14px 24px rgba(86,155,194,.16);
         color:#4d4a42; text-align:center; font-size:14px; line-height:1.6; font-weight:1000;
       }
+
       #battleActionDock{
-        position:absolute; right:14px; bottom:86px; z-index:8; pointer-events:auto;
+        position:absolute; right:14px; bottom:124px; z-index:8; pointer-events:auto;
         display:grid; gap:8px; justify-items:end;
       }
       #battleAttackBtn{
         appearance:none; border:none; cursor:pointer;
-        min-width:146px; min-height:54px; padding:12px 16px;
-        border-radius:18px; font-size:15px; font-weight:1000;
+        min-width:164px; min-height:58px; padding:12px 16px;
+        border-radius:20px; font-size:16px; font-weight:1000;
         color:#fffef9; background:linear-gradient(180deg,#7fcfff,#58b7f5);
         box-shadow:0 14px 24px rgba(86,155,194,.18);
         transition:transform .12s ease, opacity .12s ease, filter .12s ease;
@@ -545,12 +559,13 @@
         cursor:not-allowed; opacity:.55; filter:grayscale(.06); transform:none;
       }
       #attackReadyBadge{
-        background:rgba(255,255,255,.92);
+        background:rgba(255,255,255,.93);
         border:2px solid #bfe3f2;
-        border-radius:999px; min-height:36px; padding:7px 12px;
+        border-radius:999px; min-height:38px; padding:8px 12px;
         box-shadow:0 10px 20px rgba(86,155,194,.12);
         font-size:12px; font-weight:1000; color:#7b7a72;
       }
+
       .gjb-cloud{
         position:absolute; background:#fff; border-radius:999px;
         box-shadow:0 8px 18px rgba(0,0,0,.06); opacity:.8; pointer-events:none;
@@ -558,21 +573,27 @@
       .gjb-cloud.c1{ width:130px;height:42px;left:4%;top:8%; }
       .gjb-cloud.c2{ width:95px;height:34px;left:72%;top:11%; }
       .gjb-cloud.c3{ width:110px;height:36px;left:38%;top:18%; }
+
       .gjb-target{
         position:absolute;
         display:grid; place-items:center;
-        border-radius:22px; border:2px solid #fff;
+        border-radius:24px; border:2px solid #fff;
         box-shadow:0 12px 24px rgba(0,0,0,.14);
         cursor:pointer; user-select:none;
         transform:translateZ(0);
         min-width:56px; min-height:56px;
       }
-      .gjb-target.good{ background:linear-gradient(180deg,#ffffff,#f1fff1); }
-      .gjb-target.junk{ background:linear-gradient(180deg,#fff3f3,#ffe1e1); }
+      .gjb-target.good{
+        background:linear-gradient(180deg,#ffffff,#f1fff1);
+      }
+      .gjb-target.junk{
+        background:linear-gradient(180deg,#fff3f3,#ffe1e1);
+      }
       .gjb-target .emoji{
         font-size:clamp(24px, 3.8vw, 38px);
         line-height:1;
       }
+
       .gjb-hitfx{
         position:absolute; pointer-events:none; z-index:9;
         font-size:20px; font-weight:1000; color:#244260;
@@ -582,23 +603,26 @@
       .gjb-hitfx.good{ color:#15803d; }
       .gjb-hitfx.bad{ color:#b91c1c; }
       .gjb-hitfx.atk{ color:#2563eb; font-size:24px; }
+
       @keyframes gjb-float{
         0%{ opacity:0; transform:translateY(8px) scale(.9); }
         15%{ opacity:1; }
         100%{ opacity:0; transform:translateY(-28px) scale(1.04); }
       }
+
       @media (max-width: 860px){
         #battleHud{ gap:8px; left:10px; right:10px; top:10px; }
         .gjb-stat{ min-width:94px; }
         .gjb-gauge{ min-width:160px; }
-        #battleBanner{ top:116px; min-width:min(94vw,520px); font-size:13px; }
-        #battleActionDock{ right:10px; bottom:74px; }
-        #battleAttackBtn{ min-width:130px; min-height:50px; font-size:14px; }
+        #battleBanner{ top:120px; min-width:min(94vw,520px); font-size:13px; }
+        #battleActionDock{ right:10px; bottom:106px; }
+        #battleAttackBtn{ min-width:142px; min-height:52px; font-size:14px; }
       }
+
       @media (max-width: 640px){
         .gjb-stat-v{ font-size:20px; }
         .gjb-opponent-card{ min-width:unset; width:100%; }
-        #battleBanner{ top:136px; }
+        #battleBanner{ top:142px; }
         #battleOpponentStrip{ left:10px; right:10px; bottom:10px; }
       }
     `;
@@ -698,11 +722,11 @@
     UI.battleAttackReady = D.getElementById('attackReadyBadge');
     UI.opponentStrip = D.getElementById('battleOpponentStrip');
 
-    UI.attackBtn.addEventListener('click', useAttack);
+    UI.attackBtn.addEventListener('click', () => { useAttack().catch(console.warn); });
     W.addEventListener('keydown', (ev) => {
       if ((ev.code === 'Space' || ev.key === ' ') && !ev.repeat){
         ev.preventDefault();
-        useAttack();
+        useAttack().catch(console.warn);
       }
     });
   }
@@ -767,6 +791,7 @@
             <div>⌛</div>
           </div>
           <div class="gjb-opponent-mini">เมื่ออีกฝั่งเข้ามา จะเห็นคะแนนและ HP ที่นี่</div>
+          <div class="gjb-opponent-bar"><div class="gjb-opponent-fill" style="width:0%"></div></div>
         </div>
       `;
       return;
@@ -774,6 +799,9 @@
 
     UI.opponentStrip.innerHTML = opponents.map((p) => {
       const alive = num(p.hp, 100) > 0;
+      const hp = Math.max(0, num(p.hp, 100));
+      const maxHp = Math.max(1, num(p.maxHp, 100));
+      const hpPct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
       return `
         <div class="gjb-opponent-card">
           <div class="gjb-opponent-top">
@@ -781,7 +809,10 @@
             <div>${alive ? '⚔️' : '💥'}</div>
           </div>
           <div class="gjb-opponent-mini">
-            Score ${num(p.score,0)} • HP ${num(p.hp,100)}/${num(p.maxHp,100)} • Miss ${num(p.miss,0)}
+            Score ${num(p.score,0)} • HP ${hp}/${maxHp} • Miss ${num(p.miss,0)}
+          </div>
+          <div class="gjb-opponent-bar">
+            <div class="gjb-opponent-fill" style="width:${hpPct.toFixed(1)}%"></div>
           </div>
         </div>
       `;
@@ -1013,10 +1044,46 @@
     }
   }
 
-  function useAttack(){
+  async function applyAttackToTarget(targetKey, dmg, attackId){
+    if (!STATE.refs.players || !targetKey) return { ok:false, ko:false };
+
+    const targetRef = STATE.refs.players.child(targetKey);
+    let becameKo = false;
+    const attackAt = now();
+
+    try {
+      const tx = await targetRef.transaction((cur) => {
+        cur = cur || {};
+        const hp0 = clamp(cur.hp ?? 100, 0, Math.max(1, num(cur.maxHp, 100)));
+        if (hp0 <= 0) return cur;
+
+        const hp1 = Math.max(0, hp0 - dmg);
+        if (hp1 <= 0 && hp0 > 0) becameKo = true;
+
+        cur.maxHp = Math.max(1, num(cur.maxHp, 100));
+        cur.hp = hp1;
+        cur.damageTaken = Math.max(0, num(cur.damageTaken, 0)) + dmg;
+        cur.status = hp1 <= 0 ? 'ko' : (cur.status || 'playing');
+        cur.lastIncomingAttackId = attackId;
+        cur.lastIncomingAttackAt = attackAt;
+        cur.lastIncomingAttackBy = getSelfKey();
+        cur.lastIncomingAttackDamage = dmg;
+        cur.updatedAt = attackAt;
+        cur.lastSeen = attackAt;
+        return cur;
+      });
+
+      return { ok: !!(tx && tx.committed), ko: becameKo };
+    } catch (err) {
+      console.warn('[gj-battle] applyAttackToTarget failed:', err);
+      return { ok:false, ko:false, error: err };
+    }
+  }
+
+  async function useAttack(){
     if (!STATE.started || STATE.finished || STATE.localKo || !STATE.attackReady) return;
     const opp = topOpponent();
-    if (!opp) return;
+    if (!opp || !opp.key) return;
 
     const dmg = STATE.cfg.atkDamage || 18;
     const attackId = `atk-${STATE.uid}-${now()}-${Math.random().toString(36).slice(2,6)}`;
@@ -1035,51 +1102,66 @@
 
     renderHud();
     scheduleSync(true);
-  }
 
-  function processRemoteAttacks(playersMap){
-    const selfKey = getSelfKey();
-    const players = normalizeRoomPlayersMap(playersMap);
-
-    Object.keys(players).forEach((key) => {
-      if (key === selfKey) return;
-
-      const p = players[key] || {};
-      const attackId = cleanText(p.lastAttackId || '', 120);
-      if (!attackId) return;
-      if (STATE.seenAttackIds[key] === attackId) return;
-
-      const target = cleanPid(p.lastAttackTarget || '');
-      const selfCandidates = new Set([selfKey, STATE.uid, STATE.pid].filter(Boolean));
-      if (target && !selfCandidates.has(target)){
-        STATE.seenAttackIds[key] = attackId;
-        return;
-      }
-
-      const attackAt = num(p.lastAttackAt, 0);
-      const roundStart = currentStartedAt();
-      if (roundStart && attackAt && attackAt < roundStart - 500){
-        STATE.seenAttackIds[key] = attackId;
-        return;
-      }
-
-      const dmg = clamp(num(p.lastAttackDamage, 0), 0, 100);
-      if (dmg <= 0){
-        STATE.seenAttackIds[key] = attackId;
-        return;
-      }
-
-      STATE.seenAttackIds[key] = attackId;
-      if (!STATE.started || STATE.finished || STATE.localKo) return;
-
-      STATE.damageTaken += dmg;
-      STATE.hp = Math.max(0, STATE.hp - dmg);
-      flashText(fieldRect().w * 0.34, fieldRect().h * 0.28, `-${dmg} HP`, 'bad');
-      setBanner(`${p.name || 'คู่ต่อสู้'} ใช้ ATTACK ใส่คุณ!`, 1000);
-      applyLocalDamageCheck();
+    const hit = await applyAttackToTarget(opp.key, dmg, attackId);
+    if (hit.ko) {
+      STATE.koCount += 1;
+      setBanner(`โจมตีสำเร็จ! ${opp.name || 'คู่ต่อสู้'} HP หมดแล้ว`, 1200);
       renderHud();
       scheduleSync(true);
-    });
+    }
+  }
+
+  function syncSelfFromRoom(me){
+    if (!me) return;
+
+    const remoteHp = clamp(me.hp, 0, Math.max(1, num(me.maxHp, 100)));
+    const remoteMaxHp = Math.max(1, num(me.maxHp, 100));
+    const remoteDamageTaken = Math.max(0, num(me.damageTaken, 0));
+    const remoteKoCount = Math.max(0, num(me.koCount, 0));
+
+    if (!STATE.started || STATE.finished){
+      STATE.score = Math.max(0, num(me.score, 0));
+      STATE.miss = Math.max(0, num(me.miss, 0));
+      STATE.bestStreak = Math.max(0, num(me.bestStreak, 0));
+      STATE.hp = remoteHp;
+      STATE.maxHp = remoteMaxHp;
+      STATE.attackCharge = clamp(me.attackCharge, 0, Math.max(1, num(me.maxAttackCharge, 100)));
+      STATE.maxAttackCharge = Math.max(1, num(me.maxAttackCharge, 100));
+      STATE.attackReady = !!me.attackReady;
+      STATE.attacksUsed = Math.max(0, num(me.attacksUsed, 0));
+      STATE.damageDealt = Math.max(0, num(me.damageDealt, 0));
+      STATE.damageTaken = remoteDamageTaken;
+      STATE.koCount = remoteKoCount;
+      return;
+    }
+
+    STATE.hp = remoteHp;
+    STATE.maxHp = remoteMaxHp;
+    STATE.damageTaken = Math.max(STATE.damageTaken, remoteDamageTaken);
+    STATE.koCount = Math.max(STATE.koCount, remoteKoCount);
+    if (remoteHp <= 0) {
+      STATE.localKo = true;
+      STATE.attackCharge = 0;
+      STATE.attackReady = false;
+    }
+  }
+
+  function processIncomingAttackFx(me){
+    if (!me) return;
+
+    const attackId = cleanText(me.lastIncomingAttackId || '', 120);
+    if (!attackId) return;
+    if (STATE.seenIncomingFxIds[attackId]) return;
+    STATE.seenIncomingFxIds[attackId] = 1;
+
+    const dmg = clamp(num(me.lastIncomingAttackDamage, 0), 0, 100);
+    const by = cleanText(me.lastIncomingAttackBy || 'คู่ต่อสู้', 80);
+
+    if (!STATE.finished) {
+      flashText(fieldRect().w * 0.30, fieldRect().h * 0.28, `-${dmg} HP`, 'bad');
+      setBanner(`โดน ATTACK จาก ${by}! ระวังให้ดี`, 1000);
+    }
   }
 
   function maybeAwardKoFromOpponentState(){
@@ -1092,8 +1174,12 @@
 
   function updatePlayersFromRoom(playersValue){
     STATE.room.players = normalizeRoomPlayersMap(playersValue);
+
+    const me = selfPlayer();
+    syncSelfFromRoom(me);
+    processIncomingAttackFx(me);
+
     maybeAwardKoFromOpponentState();
-    processRemoteAttacks(STATE.room.players);
     renderHud();
   }
 
@@ -1142,6 +1228,10 @@
         lastAttackAt: 0,
         lastAttackDamage: 0,
         lastAttackTarget: '',
+        lastIncomingAttackId: '',
+        lastIncomingAttackAt: 0,
+        lastIncomingAttackBy: '',
+        lastIncomingAttackDamage: 0,
 
         updatedAt: t,
         lastSeen: t,
@@ -1276,6 +1366,7 @@
     STATE.targets = [];
     STATE.seq = 0;
     STATE.seenAttackIds = Object.create(null);
+    STATE.seenIncomingFxIds = Object.create(null);
 
     const me = selfPlayer();
     STATE.score = me ? num(me.score, 0) : 0;
@@ -1656,22 +1747,6 @@
     STATE.refs.players.on('value', (snap) => {
       updatePlayersFromRoom(snap.val() || {});
       updateGlobals();
-
-      const me = selfPlayer();
-      if (me && !STATE.started && !STATE.finished){
-        STATE.score = num(me.score, 0);
-        STATE.miss = num(me.miss, 0);
-        STATE.bestStreak = num(me.bestStreak, 0);
-        STATE.hp = clamp(me.hp, 0, 100);
-        STATE.maxHp = Math.max(1, num(me.maxHp, 100));
-        STATE.attackCharge = clamp(me.attackCharge, 0, 100);
-        STATE.maxAttackCharge = Math.max(1, num(me.maxAttackCharge, 100));
-        STATE.attackReady = !!me.attackReady;
-        STATE.attacksUsed = num(me.attacksUsed, 0);
-        STATE.damageDealt = num(me.damageDealt, 0);
-        STATE.damageTaken = num(me.damageTaken, 0);
-        STATE.koCount = num(me.koCount, 0);
-      }
 
       if (isHost()) {
         maybeHostStartCountdown();
