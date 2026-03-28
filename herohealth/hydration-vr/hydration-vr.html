@@ -6,7 +6,7 @@
   <title>HeroHealth • Hydration Hero</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./hydration-vr.css?v=20260328b" />
+  <link rel="stylesheet" href="./hydration-vr.css?v=20260328-targetfix-2" />
 </head>
 <body>
   <main class="hydr-page">
@@ -77,8 +77,8 @@
     </section>
 
     <section class="mini-status-row">
-      <div class="mini-pill">วอร์มอัป: <strong id="uiWarmDone">ยังไม่ทำ ✨</strong></div>
-      <div class="mini-pill">คูลดาวน์: <strong id="uiCoolDone">ยังไม่ทำ ✨</strong></div>
+      <div class="mini-pill">วอร์มอัป: <strong id="uiWarmDone">พร้อม ✨</strong></div>
+      <div class="mini-pill">คูลดาวน์: <strong id="uiCoolDone">รอหลังเกม ✨</strong></div>
       <div class="mini-pill">AI Risk: <strong id="aiRisk">0.00</strong></div>
       <div class="mini-pill wide">คำแนะนำ: <strong id="aiHint">แตะน้ำดี และอย่าโดนของไม่ดี 😊</strong></div>
     </section>
@@ -88,17 +88,17 @@
 
       <div id="missionChipHit" class="mission-chip">
         <span class="chip-title">เก็บน้ำดี</span>
-        <span class="chip-value"><strong id="missionHitNow">0</strong>/<strong id="missionHitGoal">12</strong></span>
+        <span class="chip-value"><strong id="missionHitNow">0</strong>/<strong id="missionHitGoal">10</strong></span>
       </div>
 
       <div id="missionChipBlock" class="mission-chip">
         <span class="chip-title">บล็อกสายฟ้า</span>
-        <span class="chip-value"><strong id="missionBlockNow">0</strong>/<strong id="missionBlockGoal">3</strong></span>
+        <span class="chip-value"><strong id="missionBlockNow">0</strong>/<strong id="missionBlockGoal">2</strong></span>
       </div>
 
       <div id="missionChipCombo" class="mission-chip">
         <span class="chip-title">คอมโบ</span>
-        <span class="chip-value"><strong id="missionComboNow">0</strong>/<strong id="missionComboGoal">8</strong></span>
+        <span class="chip-value"><strong id="missionComboNow">0</strong>/<strong id="missionComboGoal">6</strong></span>
       </div>
     </section>
 
@@ -133,40 +133,6 @@
       </div>
     </section>
 
-    <section id="duetHud" class="duetHud hidden" aria-live="polite">
-      <div class="duetHudHead">
-        <div class="duetHudTitle">🤝 Duet Live</div>
-        <div class="duetHudChips">
-          <div id="duetSeriesMini" class="duetHudBadge soft">BO3 0-0</div>
-          <div id="duetHudBadge" class="duetHudBadge">กำลังซิงก์</div>
-        </div>
-      </div>
-
-      <div class="duetHudGrid">
-        <div class="duetHudCard me">
-          <div class="duetHudLabel">ฝั่งฉัน</div>
-          <div id="duetMyName" class="duetHudName">ฉัน</div>
-          <div class="duetHudStats">
-            <div class="duetHudStat">คะแนน <strong id="duetMyScore">0</strong></div>
-            <div class="duetHudStat">น้ำ <strong id="duetMyWater">0%</strong></div>
-            <div class="duetHudStat">คอมโบ <strong id="duetMyCombo">0</strong></div>
-            <div class="duetHudStat">สถานะ <strong id="duetMyPhase">run</strong></div>
-          </div>
-        </div>
-
-        <div class="duetHudCard peer">
-          <div class="duetHudLabel">อีกฝั่ง</div>
-          <div id="duetPeerName" class="duetHudName">เพื่อน</div>
-          <div class="duetHudStats">
-            <div class="duetHudStat">คะแนน <strong id="duetPeerScore">0</strong></div>
-            <div class="duetHudStat">น้ำ <strong id="duetPeerWater">0%</strong></div>
-            <div class="duetHudStat">คอมโบ <strong id="duetPeerCombo">0</strong></div>
-            <div class="duetHudStat">สถานะ <strong id="duetPeerPhase">รอเข้าเกม</strong></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <section id="debugMini" class="debugMini is-hidden" aria-hidden="true">
       <div>phase: <strong id="dbgPhase">normal</strong></div>
       <div>combo: <strong id="dbgCombo">0</strong></div>
@@ -185,7 +151,7 @@
         <li>แตะฟองน้ำดี เช่น 💧 💦 🫗 เพื่อเพิ่มคะแนนและเพิ่มน้ำ</li>
         <li>หลบของไม่ดี เช่น 🧋 🥤 🍟 เพราะจะเสียคะแนนและเสียน้ำ</li>
         <li>เก็บ 🛡️ เพื่อกันสายฟ้าช่วงพายุหรือบอส</li>
-        <li>ถ้าใช้โหมด cardboard ให้เล็งกลางจอแล้วแตะ/ยิงได้</li>
+        <li>ถ้ามี ⚡ ให้ใช้โล่แตะบล็อกก่อนจะโดนฟ้าผ่า</li>
       </ul>
       <div class="dialog-actions">
         <button id="btnHelpStart" class="primary" type="button">เริ่มเล่น</button>
@@ -282,50 +248,9 @@
     </div>
   </div>
 
-  <!-- DUET WAIT -->
-  <div id="duetWait" class="overlay" aria-hidden="true">
-    <div class="dialog">
-      <h2>รอเพื่อนอีกนิดนะ 💧</h2>
-      <p id="duetWaitText" class="dialog-copy">กำลังรออีกฝั่งเล่นจบ แล้วจะสรุปผลพร้อมกัน</p>
-      <div class="dialog-actions">
-        <button id="duetWaitBackHub" class="secondary" type="button">🏠 กลับ HUB</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- DUET END -->
-  <div id="duetEnd" class="overlay endOverlay" aria-hidden="true">
-    <div class="dialog endDialog">
-      <div class="endHeader">
-        <h2 id="duetEndTitle">ผลสรุปแบบ Duet</h2>
-        <p id="duetEndSub" class="dialog-copy">สรุปผล 2 ฝั่งพร้อมกัน</p>
-      </div>
-
-      <div class="endBox">
-        <div class="endBoxTitle">ผลรอบนี้</div>
-        <div id="duetResultText" class="endBoxText">—</div>
-        <div id="duetSeriesBanner" class="endBadge">BO3</div>
-        <div id="duetSeriesScore" class="endBoxText" style="margin-top:8px;">ซีรีส์ 0 - 0</div>
-      </div>
-
-      <div id="duetRows" style="display:grid; gap:12px;"></div>
-
-      <div class="dialog-actions endActions">
-        <button id="duetReplay" class="ghost" type="button">🔁 รอบถัดไป</button>
-        <button id="duetBackHub" class="secondary" type="button">🏠 กลับ HUB</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260328b"></script>
-
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260328b';
-
-    boot({}).catch((err) => {
+    import { boot } from './hydration.safe.js?v=20260328-targetfix-2';
+    boot().catch((err) => {
       console.error('[hydration] boot failed', err);
     });
   </script>
