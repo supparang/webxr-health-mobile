@@ -32,7 +32,7 @@
     html,body{
       margin:0;
       min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
       color:var(--text);
       background:
         radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
@@ -64,11 +64,7 @@
       display:grid;
       grid-template-rows:auto 1fr auto;
       gap:12px;
-      padding:
-        calc(12px + var(--sat))
-        calc(12px + var(--sar))
-        calc(12px + var(--sab))
-        calc(12px + var(--sal));
+      padding:calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
       pointer-events:none;
       z-index:2;
     }
@@ -188,7 +184,7 @@
       font-weight:900;
       line-height:1.6;
       pointer-events:auto;
-      max-width:min(920px,100%);
+      max-width:min(940px,100%);
     }
 
     .status-head{
@@ -223,8 +219,16 @@
       margin-bottom:2px;
     }
 
+    .status-text{
+      margin:0;
+      color:#4d4a42;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:1000;
+    }
+
     .status-sub{
-      margin-top:0;
+      margin-top:2px;
       color:#8b887f;
       font-size:12px;
       line-height:1.55;
@@ -306,11 +310,7 @@
       box-shadow:0 8px 18px rgba(86,155,194,.12);
     }
 
-    .status-btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.03);
-    }
-
+    .status-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
     .status-btn:active{ transform:translateY(0); }
 
     .status-btn-copy{
@@ -341,7 +341,7 @@
       word-break:break-word;
       font-size:11px;
       color:#8a8a82;
-      max-height:180px;
+      max-height:140px;
       overflow:auto;
     }
 
@@ -357,17 +357,15 @@
       z-index:30;
       display:grid;
       place-items:center;
-      padding:
-        calc(16px + var(--sat))
-        calc(16px + var(--sar))
-        calc(16px + var(--sab))
-        calc(16px + var(--sal));
+      padding:calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
       background:rgba(255,244,221,.72);
       backdrop-filter:blur(10px);
       pointer-events:auto;
     }
 
-    .summary-overlay[hidden]{ display:none !important; }
+    .summary-overlay[hidden]{
+      display:none !important;
+    }
 
     .summary-card{
       width:min(940px,100%);
@@ -545,11 +543,7 @@
       box-shadow:0 10px 20px rgba(86,155,194,.14);
     }
 
-    .btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.03);
-    }
-
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
     .btn:active{ transform:translateY(0); }
 
     .btn-primary{
@@ -627,10 +621,8 @@
           <div class="status-badge" id="engineStatusBadge">⚔️</div>
           <div class="status-headtext">
             <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
-            <div id="engineStatusText">กำลังโหลด battle safe layer และ engine</div>
-            <div class="status-sub" id="engineStatusSub">
-              เกมจะเริ่มเองเมื่อโหลดพร้อม ใครเก็บอาหารดีได้แม่นและต่อเนื่องกว่าจะมีโอกาสชนะ
-            </div>
+            <p class="status-text" id="engineStatusText">กำลังโหลด battle engine</p>
+            <div class="status-sub" id="engineStatusSub">เกมจะเริ่มเองเมื่อโหลดพร้อม ใครเก็บอาหารดีได้แม่นและต่อเนื่องกว่าจะมีโอกาสชนะ</div>
           </div>
         </div>
 
@@ -641,14 +633,12 @@
         </div>
 
         <div class="status-steps" id="engineSteps">
-          <div class="status-step"><span>1️⃣</span><span>โหลด safe layer ให้พร้อมก่อน</span></div>
-          <div class="status-step"><span>2️⃣</span><span>โหลด battle engine แล้วเชื่อมห้อง</span></div>
-          <div class="status-step"><span>3️⃣</span><span>เมื่อห้องอยู่สถานะ playing เกมจะเริ่มเอง</span></div>
+          <div class="status-step"><span>1️⃣</span><span>รอหน้าเกมโหลดให้พร้อมก่อน</span></div>
+          <div class="status-step"><span>2️⃣</span><span>แตะเก็บอาหารดีและระวัง junk</span></div>
+          <div class="status-step"><span>3️⃣</span><span>ทำคะแนนให้มากกว่าคู่แข่งในรอบนี้</span></div>
         </div>
 
-        <div class="status-tip" id="engineTip">
-          <strong>Tip:</strong> ถ้าเข้าจาก lobby ถูกต้อง ห้องเดียวกันจะเด้งเข้าเกมพร้อมกัน
-        </div>
+        <div class="status-tip" id="engineTip"><strong>Tip:</strong> โหมดนี้เน้นทั้งความเร็ว ความแม่น และการไม่พลาดของเสีย</div>
 
         <div class="status-actions">
           <button class="status-btn status-btn-copy" id="btnQuickCopyRoom" type="button">คัดลอกห้อง</button>
@@ -704,57 +694,15 @@
       const MODE = 'battle';
       const MODE_LABEL = 'Battle';
 
-      const SAFE_CANDIDATES = [
-        './goodjunk.safe.battle.js',
-        './goodjunk.safe.battle.js?v=20260328-battle-safe-final'
-      ];
-
-      const ENGINE_CANDIDATES = [
-        './goodjunk-battle.safe.js',
-        './goodjunk-battle.safe.js?v=20260328-battle-engine-r2',
-        './goodjunk-battle.js'
-      ];
-
-      const $ = (id) => document.getElementById(id);
-
-      function qs(key, fb=''){
-        return q.get(key) ?? fb;
-      }
-
-      function clean(v){
-        return String(v || '').trim();
-      }
-
+      function qs(key, fb=''){ return q.get(key) ?? fb; }
+      function clean(v){ return String(v || '').trim(); }
       function cleanPid(v){
-        return String(v || '').replace(/[.#$[\]/]/g, '-').trim();
+        const s = String(v || '').replace(/[.#$[\]/]/g,'-').trim();
+        if (!s || s.toLowerCase() === 'anon') return '';
+        return s.slice(0,80);
       }
-
-      function safeJson(v){
-        try { return JSON.stringify(v, null, 2); }
-        catch { return '{}'; }
-      }
-
-      function dedupe(arr){
-        const out = [];
-        const seen = new Set();
-        for (const item of arr || []){
-          const s = clean(item);
-          if (!s || seen.has(s)) continue;
-          seen.add(s);
-          out.push(s);
-        }
-        return out;
-      }
-
-      function resolveHub(){
-        try{
-          return qs('hub') || new URL('../hub.html', location.href).toString();
-        }catch{
-          return '../hub.html';
-        }
-      }
-
-      function saveText(name, text, type='application/json'){
+      function safeJson(v){ try{return JSON.stringify(v,null,2);}catch{return '{}';} }
+      function saveText(name,text,type='application/json'){
         const blob = new Blob([text], { type });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -765,9 +713,25 @@
         a.remove();
         URL.revokeObjectURL(url);
       }
-
+      function escapeHtml(s){
+        return String(s == null ? '' : s)
+          .replace(/&/g,'&amp;')
+          .replace(/</g,'&lt;')
+          .replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;');
+      }
       function copyText(text){
-        return navigator.clipboard.writeText(String(text || '').trim());
+        const t = String(text || '').trim();
+        if (!t) return Promise.reject(new Error('empty'));
+        return navigator.clipboard.writeText(t);
+      }
+
+      function resolveHub(){
+        try{
+          return qs('hub') || new URL('../hub.html', location.href).toString();
+        }catch{
+          return '../hub.html';
+        }
       }
 
       function buildReplayUrl(){
@@ -776,22 +740,70 @@
         return url.toString();
       }
 
-      function buildHeroMeta(){
-        const displayName = clean(qs('name') || qs('nick') || 'Hero');
-        const avatar =
-          clean(qs('heroAvatar')) ||
-          (displayName ? '⚔️' : '🙂');
+      const runCtx = {
+        pid: cleanPid(qs('pid','') || qs('uid','') || qs('playerId','')) || 'anon',
+        uid: cleanPid(qs('uid','') || qs('playerId','') || qs('pid','')),
+        playerId: cleanPid(qs('playerId','') || qs('uid','') || qs('pid','')),
+        name: qs('name','') || qs('nick',''),
+        nick: qs('nick','') || qs('name',''),
+        studyId: qs('studyId',''),
+        roomId: qs('roomId') || qs('room') || '',
+        role: qs('role','player'),
+        mode: MODE,
+        diff: qs('diff','normal'),
+        time: qs('time','90'),
+        seed: qs('seed', String(Date.now())),
+        roundToken: qs('roundToken',''),
+        startAt: Number(qs('startAt','0')) || 0,
+        hub: resolveHub(),
+        view: qs('view','mobile'),
+        run: qs('run','play'),
+        gameId: qs('gameId','goodjunk')
+      };
 
+      window.HHA_BATTLE_BOOT = {
+        roomId: runCtx.roomId,
+        room: runCtx.roomId,
+        uid: runCtx.uid || runCtx.pid,
+        playerId: runCtx.playerId || runCtx.uid || runCtx.pid,
+        pid: runCtx.pid,
+        name: runCtx.name,
+        nick: runCtx.nick
+      };
+
+      window.__GJ_RUN_CTX__ = runCtx;
+      window.__GJ_MULTI_RUN_CTX__ = runCtx;
+      window.RUN_CTX = Object.assign({}, window.RUN_CTX || {}, runCtx);
+
+      function deriveHeroAvatarFromName(name){
+        const text = String(name || '').trim();
+        if (!text) return qs('heroAvatar') || '🙂';
+        const parts = text.split(/\s+/).filter(Boolean);
+        const key = parts[parts.length - 1] || parts[0] || '';
+        const byWord = {
+          Apple:'🍎', Carrot:'🥕', Bunny:'🐰', Panda:'🐼', Star:'⭐',
+          Berry:'🍓', Tiger:'🐯', Cloud:'☁️', Rocket:'🚀', Kitty:'🐱',
+          Buddy:'🧡', Hero:'🦸'
+        };
+        return qs('heroAvatar') || byWord[key] || '🙂';
+      }
+
+      function readHeroMeta(){
+        const displayName = String(runCtx.name || runCtx.nick || runCtx.pid || 'Hero').trim() || 'Hero';
         return {
-          name: displayName || 'Hero',
-          avatar,
-          soft: clean(qs('heroSoft')) || '#eef8ff',
-          border: clean(qs('heroBorder')) || '#bfe3f2',
-          text: clean(qs('heroText')) || '#4d4a42'
+          name: displayName,
+          avatar: qs('heroAvatar') || deriveHeroAvatarFromName(displayName),
+          soft: qs('heroSoft') || '#eef8ff',
+          border: qs('heroBorder') || '#bfe3f2',
+          text: qs('heroText') || '#4d4a42'
         };
       }
 
-      function applyHeroBadgeTheme(el, heroMeta){
+      const heroMeta = readHeroMeta();
+
+      function $(id){ return document.getElementById(id); }
+
+      function applyHeroBadgeTheme(el){
         if (!el) return;
         el.textContent = heroMeta.avatar;
         el.style.borderColor = heroMeta.border;
@@ -799,7 +811,7 @@
         el.style.color = heroMeta.text;
       }
 
-      function applyHeroPillTheme(el, text, heroMeta){
+      function applyHeroPillTheme(el, text){
         if (!el) return;
         el.textContent = text;
         el.style.borderColor = heroMeta.border;
@@ -807,247 +819,81 @@
         el.style.color = heroMeta.text;
       }
 
-      function normalizeSummary(detail){
-        const src = (detail && detail.summary && typeof detail.summary === 'object')
-          ? detail.summary
-          : (detail || {});
-
-        const rank = src.rank ?? src.place ?? src.position ?? src.playerRank ?? src.finalRank ?? '';
-        const score = src.score ?? src.totalScore ?? src.playerScore ?? src.myScore ?? '';
-        const opponentScore = src.opponentScore ?? src.enemyScore ?? src.otherScore ?? '';
-        const miss = src.miss ?? src.misses ?? src.totalMiss ?? '';
-        const bestStreak = src.bestStreak ?? src.streak ?? src.comboMax ?? '';
-        const result = src.result ?? src.outcome ?? src.status ?? (rank !== '' ? `อันดับ ${rank}` : 'จบรอบแล้ว');
-        const reason = src.reason ?? src.finishReason ?? src.endReason ?? '';
-        const players = src.players ?? src.playerCount ?? src.totalPlayers ?? '';
-        const hp = src.hp ?? '';
-        const maxHp = src.maxHp ?? '';
-        const attacksUsed = src.attacksUsed ?? '';
-        const damageDealt = src.damageDealt ?? '';
-        const damageTaken = src.damageTaken ?? '';
-        const koCount = src.koCount ?? '';
-
+      function buildHeroIdentityPayload(){
         return {
-          mode: MODE,
-          label: MODE_LABEL,
-          roomId: runCtx.roomId,
-          pid: runCtx.pid,
-          uid: runCtx.uid,
-          name: runCtx.name,
-          rank,
-          score,
-          opponentScore,
-          players,
-          miss,
-          bestStreak,
-          result,
-          reason,
-          hp,
-          maxHp,
-          attacksUsed,
-          damageDealt,
-          damageTaken,
-          koCount,
-          raw: src,
-          receivedAt: Date.now()
+          heroName: heroMeta.name,
+          heroAvatar: heroMeta.avatar,
+          heroSoft: heroMeta.soft,
+          heroBorder: heroMeta.border,
+          heroText: heroMeta.text,
+          heroDisplay: `${heroMeta.avatar} ${heroMeta.name}`.trim()
         };
       }
 
-      function battleStarCount(summary){
-        if (String(summary.rank) === '1') return 3;
-        if (String(summary.rank) === '2') return 2;
-        return 1;
+      function enrichSummaryWithHero(summary){
+        const hero = buildHeroIdentityPayload();
+        return Object.assign({}, summary, hero, { identity: hero });
       }
 
-      function battleHero(summary){
-        if (String(summary.rank) === '1'){
-          return {
-            badge:'🏆',
-            heroTitle:'Battle Winner!',
-            heroSub:'เธอชนะการปะทะครั้งนี้ได้สุดยอดมาก',
-            title:'You Win!'
-          };
-        }
-        if (String(summary.rank) === '2'){
-          return {
-            badge:'🛡️',
-            heroTitle:'Almost Won!',
-            heroSub:'อีกนิดเดียวก็ชนะแล้ว ลองใหม่ได้เลย',
-            title:'Great Fight!'
-          };
-        }
-        return {
-          badge:'⚔️',
-          heroTitle:'Battle Hero!',
-          heroSub:'เธอสู้ได้เก่งมากและอ่านจังหวะได้ดี',
-          title:'Nice Try!'
-        };
+      function emitEnrichedSummaryEvents(modeKey, enrichedSummary){
+        try { window.dispatchEvent(new CustomEvent(`gj:${modeKey}-summary-enriched`, { detail: enrichedSummary })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('gj:summary-enriched', { detail: enrichedSummary })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('hha:summary-enriched', { detail: enrichedSummary })); } catch {}
       }
 
-      function renderSummaryStars(n){
-        const count = Math.max(0, Math.min(3, Number(n || 0)));
-        return [1,2,3].map(i => `<span class="summary-star ${i <= count ? '' : 'off'}">⭐</span>`).join('');
+      function applyHeroIdentity(){
+        applyHeroPillTheme($('pillPlayer'), `HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.nick || runCtx.pid || '-'}`);
+        applyHeroPillTheme($('engineMiniPlayer'), `HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.nick || runCtx.pid || '-'}`);
+        applyHeroBadgeTheme($('engineStatusBadge'));
       }
 
-      function addSummaryItem(label, value){
-        if (value === '' || value === null || value === undefined) return '';
-        return `
-          <div class="summary-item">
-            <div class="summary-label">${label}</div>
-            <div class="summary-value">${String(value)}</div>
-          </div>
-        `;
+      function applySummaryIdentity(){
+        applyHeroBadgeTheme($('summaryBadge'));
       }
 
-      function summarySubText(summary){
-        const parts = [];
-        if (summary.roomId) parts.push('ห้อง ' + summary.roomId);
-        if (summary.result) parts.push(summary.result);
-        if (summary.players !== '') parts.push('ผู้เล่น ' + summary.players);
-        if (summary.reason) parts.push(summary.reason);
-        return parts.join(' • ') || 'จบรอบแล้ว มาดูผลการปะทะกัน';
-      }
+      function setMiniInfo(){
+        $('pillRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
+        $('pillRole').textContent = `ROLE • ${runCtx.role || 'player'}`;
+        $('pillDiff').textContent = `LEVEL • ${runCtx.diff || 'normal'}`;
+        $('pillTime').textContent = `TIME • ${runCtx.time || '90'}`;
 
-      function showSummary(detail){
-        const summary = normalizeSummary(detail);
-        const hero = battleHero(summary);
-        const stars = battleStarCount(summary);
-
-        try{
-          localStorage.setItem(summaryKey, JSON.stringify(summary));
-        }catch{}
-
-        $('summaryBadge').textContent = hero.badge;
-        applyHeroBadgeTheme($('summaryBadge'), heroMeta);
-        $('summaryHeroTitle').textContent = hero.heroTitle;
-        $('summaryHeroSub').textContent = `${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'} • ${hero.heroSub}`;
-        $('summaryTitle').textContent = hero.title;
-        $('summarySub').textContent = summarySubText(summary);
-        $('summaryStars').innerHTML = renderSummaryStars(stars);
-        $('summaryScoreValue').textContent = String(summary.score ?? 0);
-
-        $('summaryGrid').innerHTML =
-          addSummaryItem('ผลลัพธ์', summary.result) +
-          addSummaryItem('อันดับ', summary.rank) +
-          addSummaryItem('คะแนนเรา', summary.score) +
-          addSummaryItem('คะแนนคู่แข่ง', summary.opponentScore) +
-          addSummaryItem('ผู้เล่นทั้งหมด', summary.players) +
-          addSummaryItem('Miss', summary.miss) +
-          addSummaryItem('Best Streak', summary.bestStreak) +
-          addSummaryItem('HP', summary.hp !== '' ? `${summary.hp}/${summary.maxHp || 100}` : '') +
-          addSummaryItem('Attacks', summary.attacksUsed) +
-          addSummaryItem('Damage Dealt', summary.damageDealt) +
-          addSummaryItem('Damage Taken', summary.damageTaken) +
-          addSummaryItem('KO', summary.koCount) +
-          addSummaryItem('ห้อง', summary.roomId || '-') +
-          addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-');
-
-        $('summaryDebug').textContent =
-          '[BATTLE SUMMARY]\n' +
-          'rank=' + (summary.rank || '-') + '\n' +
-          'score=' + (summary.score || 0) + '\n' +
-          'opponent=' + (summary.opponentScore || 0) + '\n' +
-          'room=' + (summary.roomId || '-') + '\n\n' +
-          safeJson(summary);
-
-        $('summaryOverlay').hidden = false;
-        window.__GJ_BATTLE_LAST_SUMMARY__ = summary;
-      }
-
-      function hideSummary(){
-        $('summaryOverlay').hidden = true;
-      }
-
-      function handleSummaryEvent(eventName, detail){
-        console.log('[GJ-BATTLE-SUMMARY]', eventName, detail);
-        showSummary(detail || {});
-      }
-
-      async function loadScriptClassic(src){
-        return new Promise((resolve, reject) => {
-          const full = new URL(src, location.href).toString();
-          const existed = Array.from(document.scripts).find(s => s.src === full);
-          if (existed){
-            if (existed.dataset.loaded === '1') return resolve(full);
-            existed.addEventListener('load', () => resolve(full), { once:true });
-            existed.addEventListener('error', () => reject(new Error('load failed: ' + src)), { once:true });
-            return;
-          }
-
-          const s = document.createElement('script');
-          s.src = full;
-          s.async = true;
-          s.onload = () => {
-            s.dataset.loaded = '1';
-            resolve(full);
-          };
-          s.onerror = () => reject(new Error('load failed: ' + src));
-          document.body.appendChild(s);
-        });
-      }
-
-      async function tryLoadFromList(label, candidates){
-        const errors = [];
-
-        for (const src of dedupe(candidates)){
-          try{
-            setStatus(`กำลังโหลด ${label}…`, `ลอง ${src}`);
-            const full = await loadScriptClassic(src);
-            return { src, full };
-          }catch(err){
-            errors.push(`${src}\n- ${String(err && err.message ? err.message : err)}`);
-            console.warn('[battle-run] load fail:', src, err);
-          }
-        }
-
-        throw new Error(`[${label}] load failed\n` + errors.join('\n\n'));
+        $('engineMiniMode').textContent = `MODE • ${MODE.toUpperCase()}`;
+        $('engineMiniRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
       }
 
       function setStatus(title, text, isError=false){
         $('engineStatusTitle').textContent = title;
         $('engineStatusText').textContent = text;
-        $('engineStatusText').className = isError ? 'error' : '';
+        $('engineStatusText').className = isError ? 'status-text error' : 'status-text';
       }
 
       function setDebug(text){
         $('engineDebugInfo').textContent = text;
       }
 
-      function setReadyVisuals(safeSrc, engineSrc){
+      function setFriendlyReadyState(msg){
         const card = $('engineStatusCard');
         if (card) card.classList.add('is-ready');
 
-        setStatus('พร้อมแล้ว!', `safe: ${safeSrc} • engine: ${engineSrc}`);
-        $('engineStatusSub').textContent = 'เข้าเกมสำเร็จแล้ว อีกครู่หน้าช่วยเล่นจะหายไปและเกมจะเริ่มเอง';
+        setStatus('พร้อมแล้ว!', msg || 'Battle engine loaded');
+        $('engineStatusSub').textContent = 'เข้าเกมสำเร็จแล้ว อีกครู่หน้าช่วยเล่นนี้จะหายไปและเกมจะเริ่มเอง';
         $('engineSteps').innerHTML =
-          '<div class="status-step"><span>✅</span><span>โหลด safe layer สำเร็จ</span></div>' +
-          '<div class="status-step"><span>✅</span><span>โหลด battle engine สำเร็จ</span></div>' +
-          '<div class="status-step"><span>🎮</span><span>ถ้าห้องอยู่สถานะ playing เกมจะเริ่มเองทันที</span></div>';
-        $('engineTip').innerHTML = '<strong>พร้อมแล้ว:</strong> ถ้ายังไม่เริ่ม ให้ตรวจว่า lobby ห้องนี้อยู่สถานะ playing';
+          `<div class="status-step"><span>✅</span><span>โหลดหน้าเกมสำเร็จแล้ว</span></div>
+           <div class="status-step"><span>🎮</span><span>เตรียมแตะเก็บอาหารดีเมื่อเกมเริ่ม</span></div>
+           <div class="status-step"><span>🌟</span><span>ขอให้สนุกกับรอบนี้นะ</span></div>`;
+        $('engineTip').innerHTML = '<strong>พร้อมแล้ว:</strong> อีกครู่หน้าช่วยเล่นนี้จะซ่อนลงอัตโนมัติ';
       }
 
-      function hideStatusSoon(){
+      function hideStatusCardSoon(){
         const card = $('engineStatusCard');
         if (!card) return;
         setTimeout(() => {
           card.style.display = 'none';
-        }, 1400);
+        }, 1200);
       }
 
-      function applyTopPills(){
-        $('pillRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
-        applyHeroPillTheme($('pillPlayer'), `HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`, heroMeta);
-        $('pillRole').textContent = `ROLE • ${runCtx.role || 'player'}`;
-        $('pillDiff').textContent = `LEVEL • ${runCtx.diff}`;
-        $('pillTime').textContent = `TIME • ${runCtx.time}`;
-        $('engineMiniMode').textContent = `MODE • ${MODE.toUpperCase()}`;
-        $('engineMiniRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
-        $('engineMiniPlayer').textContent = `HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`;
-        applyHeroBadgeTheme($('engineStatusBadge'), heroMeta);
-      }
-
-      function wireActions(){
-        $('btnQuickCopyRoom').addEventListener('click', () => {
+      function wireQuickActions(){
+        $('btnQuickCopyRoom')?.addEventListener('click', () => {
           const room = String(runCtx.roomId || '').trim();
           if (!room){
             $('engineTip').innerHTML = '<strong>Tip:</strong> ตอนนี้ยังไม่มีรหัสห้องให้คัดลอก';
@@ -1060,80 +906,162 @@
           });
         });
 
-        $('btnQuickBackHub').addEventListener('click', () => {
-          location.href = runCtx.hub;
-        });
-
-        $('btnReplay').addEventListener('click', () => {
-          location.href = buildReplayUrl();
-        });
-
-        $('btnCopyRoom').addEventListener('click', () => {
-          copyText(runCtx.roomId || '').then(() => {
-            $('summarySub').textContent = 'คัดลอก room code แล้ว';
-          }).catch(() => {
-            $('summarySub').textContent = 'คัดลอก room code ไม่สำเร็จ';
-          });
-        });
-
-        $('btnExport').addEventListener('click', () => {
-          const payload = window.__GJ_BATTLE_LAST_SUMMARY__ || {};
-          saveText(
-            `goodjunk-battle-summary-${clean(runCtx.roomId || 'room')}-${Date.now()}.json`,
-            safeJson(payload)
-          );
-        });
-
-        $('btnBackHub').addEventListener('click', () => {
+        $('btnQuickBackHub')?.addEventListener('click', () => {
           location.href = runCtx.hub;
         });
       }
 
-      const runCtx = {
-        pid: cleanPid(qs('pid', 'anon')) || 'anon',
-        uid: cleanPid(qs('uid', qs('playerId', ''))),
-        playerId: cleanPid(qs('playerId', qs('uid', ''))),
-        name: clean(qs('name', qs('nick', ''))),
-        nick: clean(qs('nick', qs('name', ''))),
-        studyId: qs('studyId',''),
-        roomId: clean(qs('roomId') || qs('room') || ''),
-        role: clean(qs('role','player')) || 'player',
-        mode: MODE,
-        diff: clean(qs('diff','normal')) || 'normal',
-        time: clean(qs('time','90')) || '90',
-        seed: clean(qs('seed', String(Date.now()))),
-        roundToken: clean(qs('roundToken','')),
-        startAt: clean(qs('startAt','0')),
-        hub: resolveHub(),
-        view: clean(qs('view','mobile')) || 'mobile',
-        run: clean(qs('run','play')) || 'play',
-        gameId: clean(qs('gameId','goodjunk'))
-      };
+      function addSummaryItem(label, value){
+        if (value === '' || value === null || value === undefined) return '';
+        return `<div class="summary-item"><div class="summary-label">${escapeHtml(label)}</div><div class="summary-value">${escapeHtml(String(value))}</div></div>`;
+      }
 
-      const heroMeta = buildHeroMeta();
-      const summaryKey = 'GJ_BATTLE_LAST_SUMMARY_' + (runCtx.roomId || 'noroom') + '_' + (runCtx.pid || 'anon');
+      function renderSummaryStars(n){
+        const count = Math.max(0, Math.min(3, Number(n || 0)));
+        return [1,2,3].map(i => `<span class="summary-star ${i <= count ? '' : 'off'}">⭐</span>`).join('');
+      }
 
-      window.__GJ_RUN_CTX__ = runCtx;
-      window.__GJ_MULTI_RUN_CTX__ = runCtx;
-      window.HHA_BATTLE_BOOT = {
-        roomId: runCtx.roomId,
-        room: runCtx.roomId,
-        uid: runCtx.uid,
-        playerId: runCtx.playerId || runCtx.uid,
-        pid: runCtx.pid,
-        name: runCtx.name,
-        nick: runCtx.nick || runCtx.name
-      };
+      function battleStarCount(summary){
+        if (String(summary.rank) === '1') return 3;
+        if (String(summary.rank) === '2') return 2;
+        return 1;
+      }
 
-      applyTopPills();
-      wireActions();
+      function battleHero(summary){
+        if (String(summary.rank) === '1'){
+          return { badge:'🏆', heroTitle:'Battle Winner!', heroSub:'เธอชนะการปะทะครั้งนี้ได้สุดยอดมาก', title:'You Win!' };
+        }
+        if (String(summary.rank) === '2'){
+          return { badge:'🛡️', heroTitle:'Almost Won!', heroSub:'อีกนิดเดียวก็ชนะแล้ว ลองใหม่ได้เลย', title:'Great Fight!' };
+        }
+        return { badge:'⚔️', heroTitle:'Battle Hero!', heroSub:'เธอสู้ได้เก่งมากและอ่านจังหวะได้ดี', title:'Nice Try!' };
+      }
 
-      setDebug(
-        '[RUN CTX]\n' +
-        safeJson(runCtx) +
-        '\n\n[SAFE CANDIDATES]\n' + SAFE_CANDIDATES.join('\n') +
-        '\n\n[ENGINE CANDIDATES]\n' + ENGINE_CANDIDATES.join('\n')
-      );
+      function summarySubText(summary){
+        const parts = [];
+        if (summary.roomId) parts.push('ห้อง ' + summary.roomId);
+        if (summary.result) parts.push(summary.result);
+        if (summary.players !== '') parts.push('ผู้เล่น ' + summary.players);
+        if (summary.reason) parts.push(summary.reason);
+        return parts.join(' • ') || 'จบรอบแล้ว มาดูผลการปะทะกัน';
+      }
+
+      function normalizeSummary(detail){
+        const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
+          ? detail.summary
+          : (detail || {});
+
+        const rank = src.rank ?? src.place ?? src.position ?? src.playerRank ?? src.finalRank ?? '';
+        const score = src.score ?? src.totalScore ?? src.playerScore ?? src.myScore ?? '';
+        const opponentScore = src.opponentScore ?? src.enemyScore ?? src.otherScore ?? '';
+        const teamScore = src.teamScore ?? src.totalTeamScore ?? src.roomScore ?? '';
+        const miss = src.miss ?? src.misses ?? src.totalMiss ?? '';
+        const goodHit = src.goodHit ?? src.hitsGood ?? src.goodHits ?? src.correct ?? '';
+        const junkHit = src.junkHit ?? src.hitsBad ?? src.junkHits ?? src.wrong ?? '';
+        const streak = src.bestStreak ?? src.streak ?? src.comboMax ?? '';
+        const result = src.result ?? src.outcome ?? src.status ?? (rank !== '' ? `อันดับ ${rank}` : 'จบรอบแล้ว');
+        const reason = src.reason ?? src.finishReason ?? src.endReason ?? '';
+        const players = src.players ?? src.playerCount ?? src.totalPlayers ?? '';
+        const duration = src.duration ?? src.durationSec ?? src.timeUsed ?? '';
+
+        return enrichSummaryWithHero({
+          mode: MODE,
+          label: MODE_LABEL,
+          roomId: runCtx.roomId,
+          pid: runCtx.pid,
+          name: runCtx.name || runCtx.nick,
+          role: runCtx.role,
+          diff: runCtx.diff,
+          time: runCtx.time,
+          result,
+          rank,
+          score,
+          opponentScore,
+          teamScore,
+          players,
+          miss,
+          goodHit,
+          junkHit,
+          bestStreak: streak,
+          duration,
+          reason,
+          raw: src,
+          receivedAt: Date.now()
+        });
+      }
+
+      function showSummary(detail){
+        const summary = normalizeSummary(detail);
+        const hero = battleHero(summary);
+        const stars = battleStarCount(summary);
+
+        $('summaryBadge').textContent = hero.badge;
+        applySummaryIdentity();
+        $('summaryHeroTitle').textContent = hero.heroTitle;
+        $('summaryHeroSub').textContent = `${heroMeta.avatar} ${runCtx.name || runCtx.nick || runCtx.pid || '-'} • ${hero.heroSub}`;
+        $('summaryTitle').textContent = hero.title;
+        $('summarySub').textContent = summarySubText(summary);
+        $('summaryStars').innerHTML = renderSummaryStars(stars);
+        $('summaryScoreValue').textContent = String(summary.score ?? 0);
+
+        $('summaryGrid').innerHTML =
+          addSummaryItem('ผลลัพธ์', summary.result) +
+          addSummaryItem('อันดับ', summary.rank) +
+          addSummaryItem('ฮีโร่', summary.heroDisplay) +
+          addSummaryItem('คะแนนเรา', summary.score) +
+          addSummaryItem('คะแนนคู่แข่ง', summary.opponentScore) +
+          addSummaryItem('ผู้เล่นทั้งหมด', summary.players) +
+          addSummaryItem('Miss', summary.miss) +
+          addSummaryItem('Best Streak', summary.bestStreak) +
+          addSummaryItem('Damage dealt', summary.raw?.damageDealt ?? '') +
+          addSummaryItem('Damage taken', summary.raw?.damageTaken ?? '') +
+          addSummaryItem('Attacks used', summary.raw?.attacksUsed ?? '') +
+          addSummaryItem('KO', summary.raw?.koCount ?? '') +
+          addSummaryItem('ห้อง', summary.roomId || '-') +
+          addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-');
+
+        $('summaryDebug').textContent =
+          '[BATTLE SUMMARY]\n' +
+          'hero=' + (summary.heroDisplay || '-') + '\n' +
+          'rank=' + (summary.rank || '-') + '\n' +
+          'score=' + (summary.score || 0) + '\n' +
+          'opponent=' + (summary.opponentScore || 0) + '\n\n' +
+          safeJson(summary);
+
+        $('summaryOverlay').hidden = false;
+        window.__GJ_BATTLE_LAST_SUMMARY__ = summary;
+        emitEnrichedSummaryEvents('battle', summary);
+      }
+
+      function hideSummary(){
+        $('summaryOverlay').hidden = true;
+      }
+
+      function handleSummaryEvent(evtName, detail){
+        console.log('[GJ-BATTLE-SUMMARY]', evtName, detail);
+        showSummary(detail || {});
+      }
+
+      $('btnReplay').addEventListener('click', () => {
+        location.href = buildReplayUrl();
+      });
+
+      $('btnCopyRoom').addEventListener('click', () => {
+        copyText(runCtx.roomId || '').then(() => {
+          $('summarySub').textContent = 'คัดลอก room code แล้ว';
+        }).catch(() => {
+          $('summarySub').textContent = 'คัดลอก room code ไม่สำเร็จ';
+        });
+      });
+
+      $('btnExport').addEventListener('click', () => {
+        const payload = window.__GJ_BATTLE_LAST_SUMMARY__ || {};
+        saveText(`goodjunk-battle-summary-${clean(runCtx.roomId || 'room')}-${Date.now()}.json`, safeJson(payload));
+      });
+
+      $('btnBackHub').addEventListener('click', () => {
+        location.href = runCtx.hub;
+      });
 
       window.__GJ_SHOW_BATTLE_SUMMARY__ = showSummary;
       window.__GJ_HIDE_BATTLE_SUMMARY__ = hideSummary;
@@ -1161,60 +1089,91 @@
         }
       });
 
-      if (qs('showLastSummary') === '1'){
-        try{
-          const raw = localStorage.getItem(summaryKey);
-          if (raw) showSummary(JSON.parse(raw));
-        }catch{}
-      }
-
-      (async function bootRun(){
-        try{
-          if (!runCtx.roomId){
-            setStatus('ไม่มี room id', 'ต้องเปิดหน้านี้จาก lobby ห้อง battle เดิม', true);
-            setDebug('[ERROR]\nroomId missing in query\n\n' + safeJson(runCtx));
+      function loadScript(src){
+        return new Promise((resolve, reject) => {
+          const full = new URL(src, location.href).toString();
+          const exist = Array.from(document.scripts).find(s => s.src === full);
+          if (exist){
+            resolve(full);
             return;
           }
+          const s = document.createElement('script');
+          s.src = full;
+          s.async = true;
+          s.onload = () => resolve(full);
+          s.onerror = () => reject(new Error('load failed: ' + src));
+          document.body.appendChild(s);
+        });
+      }
 
-          const safeLoaded = await tryLoadFromList('safe layer', SAFE_CANDIDATES);
+      async function loadBattleStack(){
+        const safeLayer = './goodjunk.safe.battle.js';
+        const engine = './goodjunk-battle.safe.js';
 
-          if (!window.BattleSafe){
-            throw new Error('โหลด safe layer แล้ว แต่ window.BattleSafe ยังไม่มา');
+        setStatus('กำลังโหลดเกม…', 'โหลด safe layer');
+        await loadScript(safeLayer);
+
+        setStatus('กำลังโหลดเกม…', 'โหลด battle engine');
+        await loadScript(engine);
+
+        window.__GJ_MULTI_ENGINE_INFO__ = {
+          mode: MODE,
+          label: MODE_LABEL,
+          safeLayer,
+          engine,
+          loadedAt: Date.now()
+        };
+
+        setFriendlyReadyState('Battle stack loaded สำเร็จ');
+        setDebug(
+          '[SUCCESS]\n' +
+          'safe=' + safeLayer + '\n' +
+          'engine=' + engine + '\n' +
+          'room=' + (runCtx.roomId || '-') + '\n' +
+          'player=' + heroMeta.avatar + ' ' + (runCtx.name || runCtx.nick || runCtx.pid || '-') + '\n' +
+          'uid=' + (runCtx.uid || runCtx.playerId || runCtx.pid || '-') + '\n' +
+          'diff=' + (runCtx.diff || '-') + '\n' +
+          'time=' + (runCtx.time || '-') + '\n' +
+          'seed=' + (runCtx.seed || '-')
+        );
+
+        setTimeout(() => {
+          if (window.BattleSafe || window.__GJ_BATTLE_ENGINE_LOADED__){
+            hideStatusCardSoon();
           }
+        }, 700);
+      }
 
-          const engineLoaded = await tryLoadFromList('battle engine', ENGINE_CANDIDATES);
+      function failUi(err){
+        console.error('[GJ-BATTLE-RUN] load failed:', err);
+        setStatus(
+          'เข้า GoodJunk Battle ไม่สำเร็จ',
+          'โหลด battle stack ไม่สำเร็จ',
+          true
+        );
+        $('engineStatusSub').textContent = 'ตรวจชื่อไฟล์ goodjunk.safe.battle.js และ goodjunk-battle.safe.js ให้ตรงกับในโฟลเดอร์';
+        $('engineTip').innerHTML = '<strong>วิธีแก้:</strong> เช็ก path ของ safe layer และ engine ให้ตรง แล้วเข้าใหม่จาก lobby';
+        setDebug('[FAILED]\n' + String(err && err.message ? err.message : err));
+      }
 
-          setReadyVisuals(safeLoaded.src, engineLoaded.src);
-          setDebug(
-            '[SUCCESS]\n' +
-            'safe=' + safeLoaded.src + '\n' +
-            'engine=' + engineLoaded.src + '\n' +
-            'room=' + (runCtx.roomId || '-') + '\n' +
-            'uid=' + (runCtx.uid || '-') + '\n' +
-            'pid=' + (runCtx.pid || '-') + '\n' +
-            'player=' + (runCtx.name || runCtx.pid || '-') + '\n' +
-            'diff=' + (runCtx.diff || '-') + '\n' +
-            'time=' + (runCtx.time || '-') + '\n' +
-            'roundToken=' + (runCtx.roundToken || '-') + '\n' +
-            'startAt=' + (runCtx.startAt || '-') + '\n\n' +
-            '[CTX]\n' + safeJson(runCtx)
-          );
+      applyHeroIdentity();
+      setMiniInfo();
+      wireQuickActions();
 
-          hideStatusSoon();
-        }catch(err){
-          console.error('[GJ-BATTLE-RUN] boot failed:', err);
-          setStatus(
-            'เข้า GoodJunk Battle ไม่สำเร็จ',
-            String(err && err.message ? err.message : err),
-            true
-          );
-          setDebug(
-            '[FAILED]\n' +
-            String(err && err.stack ? err.stack : err) +
-            '\n\n[CTX]\n' + safeJson(runCtx)
-          );
-        }
-      })();
+      setDebug(
+        '[BOOT]\n' +
+        'room=' + (runCtx.roomId || '-') + '\n' +
+        'pid=' + (runCtx.pid || '-') + '\n' +
+        'uid=' + (runCtx.uid || runCtx.playerId || '-') + '\n' +
+        'name=' + (runCtx.name || runCtx.nick || '-') + '\n' +
+        'diff=' + (runCtx.diff || '-') + '\n' +
+        'time=' + (runCtx.time || '-') + '\n' +
+        'seed=' + (runCtx.seed || '-') + '\n' +
+        'roundToken=' + (runCtx.roundToken || '-') + '\n' +
+        'hub=' + (runCtx.hub || '-')
+      );
+
+      loadBattleStack().catch(failUi);
     })();
   </script>
 </body>
