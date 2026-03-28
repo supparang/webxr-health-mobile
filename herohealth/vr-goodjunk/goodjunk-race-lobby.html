@@ -311,7 +311,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-  <script src="../firebase-config.js?v=20260328-gjrace-lobby-corefix"></script>
+  <script src="../firebase-config.js?v=20260328-gjrace-lobby-final"></script>
 
   <script>
     (function(){
@@ -374,7 +374,7 @@
         joined: false,
         players: {},
         meta: {},
-        state: { status:'waiting', plannedSec:90 },
+        state: { status:'waiting', plannedSec:90, seed:'' },
         refs: null,
         offFns: [],
         heartbeat: 0,
@@ -479,9 +479,7 @@
 
           try {
             off = auth.onAuthStateChanged((user) => {
-              if (user && user.uid) {
-                finish(null, user);
-              }
+              if (user && user.uid) finish(null, user);
             }, (err) => {
               finish(err || new Error('Auth state error'));
             });
@@ -504,18 +502,9 @@
           return auth.currentUser;
         }
 
-        try {
-          await auth.signInAnonymously();
-        } catch (err) {
-          console.error('[race-lobby] signInAnonymously failed', err);
-          throw err;
-        }
-
+        await auth.signInAnonymously();
         const user = await waitForAuthUser(auth, 12000);
-        if (!user || !user.uid) {
-          throw new Error('Firebase Auth ยังไม่พร้อม');
-        }
-
+        if (!user || !user.uid) throw new Error('Firebase Auth ยังไม่พร้อม');
         return user;
       }
 
@@ -606,18 +595,28 @@
           url.searchParams.set(key, value);
         });
 
-        const sharedStartAt = num(S.state.startAt || S.state.countdownEndsAt, 0);
+        const sharedStartAt = num(S.state && (S.state.startAt || S.state.countdownEndsAt), 0);
+        const sharedDiff = String((S.meta && S.meta.diff) || getDiff());
+        const sharedTime = String(num(S.state && S.state.plannedSec, getTime()));
+        const sharedSeed = String(
+          (S.state && S.state.seed) ||
+          (S.meta && S.meta.seed) ||
+          getSeed()
+        );
 
         url.searchParams.set('mode', MODE_ID);
         url.searchParams.set('roomId', roomId);
         url.searchParams.set('room', roomId);
         url.searchParams.set('name', getNick());
         url.searchParams.set('nick', getNick());
-        url.searchParams.set('pid', 'anon');
-        url.searchParams.set('diff', getDiff());
-        url.searchParams.set('time', String(getTime()));
+        url.searchParams.set('pid', S.uid || 'anon');
+        url.searchParams.set('role', isHost() ? 'host' : 'player');
+        url.searchParams.set('host', isHost() ? '1' : '0');
+        url.searchParams.set('wait', '1');
+        url.searchParams.set('diff', sharedDiff);
+        url.searchParams.set('time', sharedTime);
         url.searchParams.set('view', getView());
-        url.searchParams.set('seed', String(getSeed()));
+        url.searchParams.set('seed', sharedSeed);
         url.searchParams.set('hub', HUB);
         url.searchParams.set('autostart', '1');
 
@@ -769,7 +768,7 @@
         S.joined = false;
         S.players = {};
         S.meta = {};
-        S.state = { status:'waiting', plannedSec:getTime() };
+        S.state = { status:'waiting', plannedSec:getTime(), seed:'' };
         S.refs = null;
         S.redirecting = false;
       }
@@ -779,8 +778,13 @@
         const selfRef = S.refs.players.child(S.uid);
 
         await selfRef.set({
-          pid:S.uid, nick:getNick(), connected:true, ready:true,
-          joinedAt:nowTs, updatedAt:nowTs, lastSeen:nowTs
+          pid:S.uid,
+          nick:getNick(),
+          connected:true,
+          ready:true,
+          joinedAt:nowTs,
+          updatedAt:nowTs,
+          lastSeen:nowTs
         });
 
         try{ selfRef.onDisconnect().remove(); }catch{}
@@ -822,7 +826,10 @@
 
         S.heartbeat = setInterval(()=>{
           selfRef.update({
-            nick:getNick(), connected:true, updatedAt:Date.now(), lastSeen:Date.now()
+            nick:getNick(),
+            connected:true,
+            updatedAt:Date.now(),
+            lastSeen:Date.now()
           }).catch(()=>{});
         }, HEARTBEAT_MS);
 
@@ -853,11 +860,13 @@
           S.refs = { root, meta: root.child('meta'), state: root.child('state'), players: root.child('players') };
 
           const nowTs = Date.now();
+          const initialSeed = String(getSeed());
           await S.refs.meta.set({
             roomId:S.roomId,
             game:'goodjunk',
             mode:MODE_ID,
             diff:getDiff(),
+            seed: initialSeed,
             hostPid:S.uid,
             createdAt:nowTs,
             updatedAt:nowTs
@@ -865,6 +874,7 @@
           await S.refs.state.set({
             status:'waiting',
             plannedSec:getTime(),
+            seed: initialSeed,
             createdAt:nowTs,
             updatedAt:nowTs,
             countdownEndsAt:null,
@@ -928,19 +938,23 @@
           return;
         }
 
-        const sharedSeed = getSeed();
+        const sharedSeed = String(getSeed());
+        const sharedDiff = String(getDiff());
+        const sharedTime = Number(getTime());
         const sharedStartAt = Date.now() + 3500;
 
         UI.seedInput.value = sharedSeed;
 
         await S.refs.meta.update({
-          diff:getDiff(),
-          updatedAt:Date.now()
+          diff: sharedDiff,
+          seed: sharedSeed,
+          updatedAt: Date.now()
         });
 
         await S.refs.state.update({
           status:'countdown',
-          plannedSec:getTime(),
+          plannedSec: sharedTime,
+          seed: sharedSeed,
           countdownEndsAt: sharedStartAt,
           startAt: sharedStartAt,
           startedAt:null,
@@ -996,6 +1010,7 @@
         UI.btnHub.addEventListener('click', ()=>{ location.href = HUB || '../hub.html'; });
 
         window.addEventListener('beforeunload', ()=>{
+          if(S.redirecting) return;
           if(S.refs && S.uid){
             try{ S.refs.players.child(S.uid).remove(); }catch{}
           }
