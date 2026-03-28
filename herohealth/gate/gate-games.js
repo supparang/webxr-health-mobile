@@ -1,5 +1,5 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260328-GATE-GAMES-GOODJUNK-SOLO-BOSS
+// FULL PATCH v20260328b-GATE-GAMES-GOODJUNK-SOLO-BOSS-ABS
 
 export function normalizeGameId(id = '') {
   const x = String(id || '').trim().toLowerCase();
@@ -28,11 +28,11 @@ function clean(v) {
 }
 
 function defaultHubUrl() {
-  return new URL('../hub.html', location.href).toString();
+  return new URL('/herohealth/hub.html', location.origin).toString();
 }
 
 function buildGoodJunkRunUrl(params = {}) {
-  const url = new URL('../goodjunk-vr.html', location.href);
+  const url = new URL('/herohealth/goodjunk-vr.html', location.origin);
 
   url.searchParams.set('pid', clean(params.pid) || 'anon');
   url.searchParams.set('name', clean(params.name) || 'Hero');
@@ -57,7 +57,6 @@ function buildGoodJunkRunUrl(params = {}) {
   if (clean(params.studentNo)) url.searchParams.set('studentNo', clean(params.studentNo));
   if (clean(params.nickName)) url.searchParams.set('nickName', clean(params.nickName));
 
-  // warmup buff passthrough
   if (clean(params.wType)) url.searchParams.set('wType', clean(params.wType));
   if (clean(params.wPct)) url.searchParams.set('wPct', clean(params.wPct));
   if (clean(params.wCrit)) url.searchParams.set('wCrit', clean(params.wCrit));
@@ -69,8 +68,8 @@ function buildGoodJunkRunUrl(params = {}) {
   return url.toString();
 }
 
-function buildGoodJunkCooldownUrl(params = {}) {
-  const gate = new URL('../warmup-gate.html', location.href);
+function buildGoodJunkCooldownGateUrl(params = {}) {
+  const gate = new URL('/herohealth/warmup-gate.html', location.origin);
 
   gate.searchParams.set('phase', 'cooldown');
   gate.searchParams.set('game', 'goodjunk');
@@ -112,11 +111,11 @@ const GAME_META = {
     category: 'nutrition',
     theme: 'goodjunk',
 
-    launcherPath: '../goodjunk-launcher.html',
-    warmupPath: '../warmup-gate.html',
-    runPath: '../goodjunk-vr.html',
-    cooldownPath: '../warmup-gate.html',
-    hubPath: '../hub.html',
+    launcherPath: '/herohealth/goodjunk-launcher.html',
+    warmupPath: '/herohealth/warmup-gate.html',
+    runPath: '/herohealth/goodjunk-vr.html',
+    cooldownPath: '/herohealth/warmup-gate.html',
+    hubPath: '/herohealth/hub.html',
 
     supports: {
       warmup: true,
@@ -126,7 +125,7 @@ const GAME_META = {
     },
 
     buildRunUrl: buildGoodJunkRunUrl,
-    buildCooldownUrl: buildGoodJunkCooldownUrl
+    buildCooldownGateUrl: buildGoodJunkCooldownGateUrl
   }
 };
 
@@ -141,8 +140,8 @@ export function getRunUrl(gameId = '', params = {}) {
   return meta.buildRunUrl(params);
 }
 
-export function getCooldownUrl(gameId = '', params = {}) {
+export function getCooldownGateUrl(gameId = '', params = {}) {
   const meta = getGameMeta(gameId);
-  if (!meta || typeof meta.buildCooldownUrl !== 'function') return '';
-  return meta.buildCooldownUrl(params);
+  if (!meta || typeof meta.buildCooldownGateUrl !== 'function') return '';
+  return meta.buildCooldownGateUrl(params);
 }
