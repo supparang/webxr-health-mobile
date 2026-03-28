@@ -1,337 +1,351 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260328c-GATE-GAMES-GOODJUNK-SHADOWBREAKER-COMPAT
+// FULL PATCH v20260328h-HYDRATION-GATE-REGISTRY-FIX
+// เป้าหมาย:
+// 1) ให้ warmup/cooldown gate รู้จัก game=hydration
+// 2) รองรับ alias หลายแบบ เช่น hydration-vr / hydrationhero
+// 3) ถ้าเป็นเกมใหม่ที่ยังไม่ได้ลง registry แบบเต็ม ให้ fallback เข้า generic gate ได้ ไม่ขึ้น "ไม่พบเกมที่ต้องการ"
 
-function clean(v) {
-  return String(v || '').trim();
+const DEFAULTS = {
+  title: '',
+  label: '',
+  emoji: '🎮',
+  zone: '',
+  cat: '',
+  theme: '',
+  runFile: '',
+  warmupFile: '',
+  cooldownFile: '',
+  styleFile: ''
+};
+
+function makeMeta(id, cfg = {}) {
+  const base = { ...DEFAULTS, ...cfg };
+  return {
+    id: String(id || '').trim().toLowerCase(),
+    title: base.title || prettyTitle(id),
+    label: base.label || base.title || prettyTitle(id),
+    emoji: base.emoji || '🎮',
+    zone: base.zone || inferZoneFromId(id),
+    cat: base.cat || inferZoneFromId(id),
+    theme: base.theme || String(id || '').trim().toLowerCase(),
+    runFile: base.runFile || '',
+    warmupFile: base.warmupFile || '',
+    cooldownFile: base.cooldownFile || '',
+    styleFile: base.styleFile || ''
+  };
 }
 
-function defaultHubUrl() {
-  return new URL('/herohealth/hub.html', location.origin).toString();
+function prettyTitle(id = '') {
+  const raw = String(id || '')
+    .trim()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ');
+  if (!raw) return 'Game';
+  return raw.replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function inferZoneFromId(id = '') {
+  const k = String(id || '').toLowerCase();
+
+  if (
+    k.includes('hydration') ||
+    k.includes('plate') ||
+    k.includes('group') ||
+    k.includes('goodjunk') ||
+    k.includes('nutrition')
+  ) return 'nutrition';
+
+  if (
+    k.includes('shadow') ||
+    k.includes('jump') ||
+    k.includes('balance') ||
+    k.includes('rhythm') ||
+    k.includes('fitness')
+  ) return 'fitness';
+
+  if (
+    k.includes('brush') ||
+    k.includes('germ') ||
+    k.includes('bath') ||
+    k.includes('hygiene') ||
+    k.includes('handwash')
+  ) return 'hygiene';
+
+  return '';
+}
+
+export const GAME_REGISTRY = {
+  // Nutrition
+  hydration: makeMeta('hydration', {
+    title: 'Hydration Hero',
+    label: 'Hydration Hero',
+    emoji: '💧',
+    zone: 'nutrition',
+    cat: 'nutrition',
+    theme: 'hydration',
+    runFile: '../hydration-vr/hydration-vr.html',
+    warmupFile: '',
+    cooldownFile: '',
+    styleFile: '../hydration-vr/hydration-vr.css'
+  }),
+
+  goodjunk: makeMeta('goodjunk', {
+    title: 'GoodJunk VR',
+    label: 'GoodJunk VR',
+    emoji: '🍎',
+    zone: 'nutrition',
+    cat: 'nutrition',
+    theme: 'goodjunk',
+    runFile: '../goodjunk-vr.html'
+  }),
+
+  plate: makeMeta('plate', {
+    title: 'Plate VR',
+    label: 'Plate VR',
+    emoji: '🍽️',
+    zone: 'nutrition',
+    cat: 'nutrition',
+    theme: 'plate',
+    runFile: '../plate/plate-vr.html'
+  }),
+
+  groups: makeMeta('groups', {
+    title: 'Food Groups VR',
+    label: 'Food Groups VR',
+    emoji: '🥦',
+    zone: 'nutrition',
+    cat: 'nutrition',
+    theme: 'groups',
+    runFile: '../vr-groups/groups.html'
+  }),
+
+  // Hygiene
+  brush: makeMeta('brush', {
+    title: 'Brush VR',
+    label: 'Brush VR',
+    emoji: '🪥',
+    zone: 'hygiene',
+    cat: 'hygiene',
+    theme: 'brush',
+    runFile: '../brush-vr.html'
+  }),
+
+  'germ-detective': makeMeta('germ-detective', {
+    title: 'Germ Detective',
+    label: 'Germ Detective',
+    emoji: '🦠',
+    zone: 'hygiene',
+    cat: 'hygiene',
+    theme: 'germ-detective',
+    runFile: '../germ-detective.html'
+  }),
+
+  bath: makeMeta('bath', {
+    title: 'Bath Hero',
+    label: 'Bath Hero',
+    emoji: '🛁',
+    zone: 'hygiene',
+    cat: 'hygiene',
+    theme: 'bath',
+    runFile: '../bath.html'
+  }),
+
+  // Fitness
+  'shadow-breaker': makeMeta('shadow-breaker', {
+    title: 'Shadow Breaker',
+    label: 'Shadow Breaker',
+    emoji: '🥊',
+    zone: 'fitness',
+    cat: 'fitness',
+    theme: 'shadow-breaker',
+    runFile: '../fitness/shadow-breaker.html'
+  }),
+
+  'jump-duck': makeMeta('jump-duck', {
+    title: 'Jump Duck',
+    label: 'Jump Duck',
+    emoji: '🏃',
+    zone: 'fitness',
+    cat: 'fitness',
+    theme: 'jump-duck',
+    runFile: '../jump-duck-vr.html'
+  }),
+
+  'balance-hold': makeMeta('balance-hold', {
+    title: 'Balance Hold',
+    label: 'Balance Hold',
+    emoji: '🧘',
+    zone: 'fitness',
+    cat: 'fitness',
+    theme: 'balance-hold',
+    runFile: '../balance-hold.html'
+  }),
+
+  'rhythm-boxer': makeMeta('rhythm-boxer', {
+    title: 'Rhythm Boxer',
+    label: 'Rhythm Boxer',
+    emoji: '🥁',
+    zone: 'fitness',
+    cat: 'fitness',
+    theme: 'rhythm-boxer',
+    runFile: '../fitness/rhythm-boxer.html'
+  }),
+
+  'fitness-planner': makeMeta('fitness-planner', {
+    title: 'Fitness Planner',
+    label: 'Fitness Planner',
+    emoji: '📅',
+    zone: 'fitness',
+    cat: 'fitness',
+    theme: 'fitness-planner',
+    runFile: '../fitness-planner/index.html'
+  })
+};
+
+const GAME_ALIAS = {
+  // hydration
+  hydration: 'hydration',
+  'hydration-vr': 'hydration',
+  hydrationvr: 'hydration',
+  hydrationhero: 'hydration',
+  'hydration-hero': 'hydration',
+  hydrationv1: 'hydration',
+
+  // goodjunk
+  goodjunk: 'goodjunk',
+  'goodjunk-vr': 'goodjunk',
+  goodjunkvr: 'goodjunk',
+  goodjunkv1: 'goodjunk',
+
+  // plate
+  plate: 'plate',
+  platev1: 'plate',
+  'plate-vr': 'plate',
+  platevr: 'plate',
+
+  // groups
+  groups: 'groups',
+  groupsvr: 'groups',
+  'groups-vr': 'groups',
+  foodgroups: 'groups',
+  'food-groups': 'groups',
+
+  // brush / hygiene
+  brush: 'brush',
+  brushvr: 'brush',
+  'brush-vr': 'brush',
+  hygiene: 'brush',
+  handwash: 'brush',
+  handwashvr: 'brush',
+
+  'germ-detective': 'germ-detective',
+  germdetective: 'germ-detective',
+  germ: 'germ-detective',
+
+  bath: 'bath',
+  bathhero: 'bath',
+  bathvr: 'bath',
+
+  // fitness
+  'shadow-breaker': 'shadow-breaker',
+  shadowbreaker: 'shadow-breaker',
+  shadow: 'shadow-breaker',
+
+  'jump-duck': 'jump-duck',
+  jumpduck: 'jump-duck',
+
+  'balance-hold': 'balance-hold',
+  balancehold: 'balance-hold',
+
+  'rhythm-boxer': 'rhythm-boxer',
+  rhythmboxer: 'rhythm-boxer',
+
+  'fitness-planner': 'fitness-planner',
+  fitnessplanner: 'fitness-planner'
+};
+
+function compactId(id = '') {
+  return String(id || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/--+/g, '-');
+}
+
+function inferLooseMeta(id = '') {
+  const key = compactId(id);
+  if (!key) return null;
+
+  return makeMeta(key, {
+    title: prettyTitle(key),
+    label: prettyTitle(key),
+    emoji: inferZoneFromId(key) === 'nutrition'
+      ? '🍎'
+      : inferZoneFromId(key) === 'fitness'
+        ? '🏃'
+        : inferZoneFromId(key) === 'hygiene'
+          ? '🧼'
+          : '🎮',
+    zone: inferZoneFromId(key),
+    cat: inferZoneFromId(key),
+    theme: key,
+    runFile: '',
+    warmupFile: '',
+    cooldownFile: '',
+    styleFile: ''
+  });
 }
 
 export function normalizeGameId(id = '') {
-  const x = String(id || '').trim().toLowerCase();
+  const raw = String(id || '').trim().toLowerCase();
+  if (!raw) return '';
 
-  if (!x) return '';
-
-  if (
-    x === 'goodjunk' ||
-    x === 'goodjunkv1' ||
-    x === 'goodjunkv2' ||
-    x === 'good-junk' ||
-    x === 'good_junk' ||
-    x === 'nutrition-goodjunk' ||
-    x === 'goodjunk-solo' ||
-    x === 'goodjunk-boss' ||
-    x === 'goodjunk-solo-boss'
-  ) {
-    return 'goodjunk';
-  }
-
-  if (
-    x === 'shadowbreaker' ||
-    x === 'shadow-breaker' ||
-    x === 'shadow_breaker' ||
-    x === 'shadowbreaker-vr' ||
-    x === 'fitness-shadowbreaker'
-  ) {
-    return 'shadowbreaker';
-  }
-
-  return x;
+  const compact = compactId(raw);
+  return GAME_ALIAS[raw] || GAME_ALIAS[compact] || compact;
 }
 
-/* -------------------------------------------------------
- * GOODJUNK
- * ----------------------------------------------------- */
-
-function buildGoodJunkRunUrl(params = {}) {
-  const url = new URL('/herohealth/goodjunk-vr.html', location.origin);
-
-  url.searchParams.set('pid', clean(params.pid) || 'anon');
-  url.searchParams.set('name', clean(params.name) || 'Hero');
-  if (clean(params.studyId)) url.searchParams.set('studyId', clean(params.studyId));
-
-  url.searchParams.set('mode', 'solo');
-  url.searchParams.set('diff', clean(params.diff) || 'normal');
-  url.searchParams.set('time', clean(params.time) || '150');
-  url.searchParams.set('seed', clean(params.seed) || String(Date.now()));
-  url.searchParams.set('hub', clean(params.hub) || defaultHubUrl());
-  url.searchParams.set('view', clean(params.view) || 'mobile');
-  url.searchParams.set('run', clean(params.run) || 'play');
-  url.searchParams.set('gameId', 'goodjunk');
-  url.searchParams.set('game', 'goodjunk');
-  url.searchParams.set('theme', 'goodjunk');
-  url.searchParams.set('cat', 'nutrition');
-  url.searchParams.set('zone', 'nutrition');
-
-  if (clean(params.api)) url.searchParams.set('api', clean(params.api));
-  if (clean(params.conditionGroup)) url.searchParams.set('conditionGroup', clean(params.conditionGroup));
-  if (clean(params.phaseTag)) url.searchParams.set('phase', clean(params.phaseTag));
-  if (clean(params.studentKey)) url.searchParams.set('studentKey', clean(params.studentKey));
-  if (clean(params.schoolCode)) url.searchParams.set('schoolCode', clean(params.schoolCode));
-  if (clean(params.classRoom)) url.searchParams.set('classRoom', clean(params.classRoom));
-  if (clean(params.studentNo)) url.searchParams.set('studentNo', clean(params.studentNo));
-  if (clean(params.nickName)) url.searchParams.set('nickName', clean(params.nickName));
-
-  if (clean(params.wType)) url.searchParams.set('wType', clean(params.wType));
-  if (clean(params.wPct)) url.searchParams.set('wPct', clean(params.wPct));
-  if (clean(params.wCrit)) url.searchParams.set('wCrit', clean(params.wCrit));
-  if (clean(params.wDmg)) url.searchParams.set('wDmg', clean(params.wDmg));
-  if (clean(params.wHeal)) url.searchParams.set('wHeal', clean(params.wHeal));
-  if (clean(params.rank)) url.searchParams.set('rank', clean(params.rank));
-  if (clean(params.calm)) url.searchParams.set('calm', clean(params.calm));
-
-  return url.toString();
+export function getGameMeta(id = '') {
+  const key = normalizeGameId(id);
+  if (!key) return null;
+  return GAME_REGISTRY[key] || inferLooseMeta(key);
 }
 
-function buildGoodJunkCooldownGateUrl(params = {}) {
-  const gate = new URL('/herohealth/warmup-gate.html', location.origin);
-
-  gate.searchParams.set('phase', 'cooldown');
-  gate.searchParams.set('gatePhase', 'cooldown');
-  gate.searchParams.set('game', 'goodjunk');
-  gate.searchParams.set('gameId', 'goodjunk');
-  gate.searchParams.set('theme', 'goodjunk');
-  gate.searchParams.set('cat', 'nutrition');
-  gate.searchParams.set('zone', 'nutrition');
-
-  gate.searchParams.set('pid', clean(params.pid) || 'anon');
-  gate.searchParams.set('name', clean(params.name) || 'Hero');
-  if (clean(params.studyId)) gate.searchParams.set('studyId', clean(params.studyId));
-
-  gate.searchParams.set('diff', clean(params.diff) || 'normal');
-  gate.searchParams.set('time', clean(params.time) || '150');
-  gate.searchParams.set('seed', clean(params.seed) || String(Date.now()));
-  gate.searchParams.set('hub', clean(params.hub) || defaultHubUrl());
-  gate.searchParams.set('view', clean(params.view) || 'mobile');
-  gate.searchParams.set('run', clean(params.run) || 'play');
-  gate.searchParams.set('forcegate', '1');
-
-  if (clean(params.api)) gate.searchParams.set('api', clean(params.api));
-  if (clean(params.conditionGroup)) gate.searchParams.set('conditionGroup', clean(params.conditionGroup));
-  if (clean(params.phaseTag)) gate.searchParams.set('phaseTag', clean(params.phaseTag));
-  if (clean(params.studentKey)) gate.searchParams.set('studentKey', clean(params.studentKey));
-  if (clean(params.schoolCode)) gate.searchParams.set('schoolCode', clean(params.schoolCode));
-  if (clean(params.classRoom)) gate.searchParams.set('classRoom', clean(params.classRoom));
-  if (clean(params.studentNo)) gate.searchParams.set('studentNo', clean(params.studentNo));
-  if (clean(params.nickName)) gate.searchParams.set('nickName', clean(params.nickName));
-
-  return gate.toString();
+export function hasGameMeta(id = '') {
+  return !!getGameMeta(id);
 }
 
-/* -------------------------------------------------------
- * SHADOW BREAKER
- * ----------------------------------------------------- */
-
-function buildShadowBreakerRunUrl(params = {}) {
-  const url = new URL('/fitness/shadow-breaker.html', location.origin);
-
-  url.searchParams.set('pid', clean(params.pid) || 'anon');
-  url.searchParams.set('diff', clean(params.diff) || 'normal');
-  url.searchParams.set('time', clean(params.time) || '80');
-  url.searchParams.set('seed', clean(params.seed) || String(Date.now()));
-  url.searchParams.set('hub', clean(params.hub) || defaultHubUrl());
-  url.searchParams.set('view', clean(params.view) || 'mobile');
-
-  const runMode = clean(params.run) || clean(params.mode) || 'normal';
-  url.searchParams.set('run', runMode);
-  url.searchParams.set('mode', runMode);
-
-  url.searchParams.set('game', 'shadowbreaker');
-  url.searchParams.set('gameId', 'shadowbreaker');
-  url.searchParams.set('theme', 'shadowbreaker');
-  url.searchParams.set('cat', 'fitness');
-  url.searchParams.set('zone', 'fitness');
-
-  url.searchParams.set('finalGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
-  url.searchParams.set('plannedGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
-
-  if (clean(params.studyId)) url.searchParams.set('studyId', clean(params.studyId));
-  if (clean(params.group)) url.searchParams.set('group', clean(params.group));
-  if (clean(params.conditionGroup)) url.searchParams.set('conditionGroup', clean(params.conditionGroup));
-
-  return url.toString();
-}
-
-function buildShadowBreakerCooldownGateUrl(params = {}) {
-  const gate = new URL('/herohealth/warmup-gate.html', location.origin);
-
-  const runMode = clean(params.run) || clean(params.mode) || 'normal';
-  const hub = clean(params.hub) || defaultHubUrl();
-  const pid = clean(params.pid) || 'anon';
-  const diff = clean(params.diff) || 'normal';
-  const time = clean(params.time) || '80';
-  const seed = clean(params.seed) || String(Date.now());
-
-  gate.searchParams.set('phase', 'cooldown');
-  gate.searchParams.set('gatePhase', 'cooldown');
-  gate.searchParams.set('game', 'shadowbreaker');
-  gate.searchParams.set('gameId', 'shadowbreaker');
-  gate.searchParams.set('theme', 'shadowbreaker');
-  gate.searchParams.set('cat', 'fitness');
-  gate.searchParams.set('zone', 'fitness');
-
-  gate.searchParams.set('pid', pid);
-  gate.searchParams.set('run', runMode);
-  gate.searchParams.set('mode', runMode);
-  gate.searchParams.set('diff', diff);
-  gate.searchParams.set('time', time);
-  gate.searchParams.set('seed', seed);
-  gate.searchParams.set('hub', hub);
-  gate.searchParams.set('view', clean(params.view) || 'mobile');
-  gate.searchParams.set('forcegate', '1');
-
-  if (clean(params.studyId)) gate.searchParams.set('studyId', clean(params.studyId));
-  if (clean(params.group)) gate.searchParams.set('group', clean(params.group));
-  if (clean(params.conditionGroup)) gate.searchParams.set('conditionGroup', clean(params.conditionGroup));
-
-  const summaryUrl = new URL('/herohealth/shadow-breaker-summary.html', location.origin);
-  summaryUrl.searchParams.set('pid', pid);
-  summaryUrl.searchParams.set('hub', hub);
-  summaryUrl.searchParams.set('diff', diff);
-  summaryUrl.searchParams.set('mode', runMode);
-
-  gate.searchParams.set('cdnext', summaryUrl.toString());
-
-  return gate.toString();
-}
-
-/* -------------------------------------------------------
- * REGISTRY
- * ----------------------------------------------------- */
-
-const GAME_META = {
-  goodjunk: {
-    id: 'goodjunk',
-    title: 'GoodJunk Solo Boss v2',
-    shortTitle: 'GoodJunk',
-    label: 'GoodJunk',
-    zone: 'nutrition',
-    cat: 'nutrition',
-    category: 'nutrition',
-    theme: 'goodjunk',
-
-    launcherPath: '/herohealth/goodjunk-launcher.html',
-    warmupPath: '/herohealth/warmup-gate.html',
-    runPath: '/herohealth/goodjunk-vr.html',
-    cooldownPath: '/herohealth/warmup-gate.html',
-    hubPath: '/herohealth/hub.html',
-
-    warmupTitle: 'GoodJunk Warmup',
-    cooldownTitle: 'GoodJunk Cooldown',
-
-    supports: {
-      warmup: true,
-      cooldown: true,
-      solo: true,
-      multiplayer: false
-    },
-
-    run: '../goodjunk-vr.html',
-    runCandidates: [
-      '../goodjunk-vr.html',
-      '/webxr-health-mobile/herohealth/goodjunk-vr.html'
-    ],
-
-    phases: {
-      warmup: './games/goodjunk/warmup.js',
-      cooldown: './games/goodjunk/cooldown.js'
-    },
-
-    gateStyle: '',
-    buildRunUrl: buildGoodJunkRunUrl,
-    buildCooldownGateUrl: buildGoodJunkCooldownGateUrl
-  },
-
-  shadowbreaker: {
-    id: 'shadowbreaker',
-    title: 'Shadow Breaker',
-    shortTitle: 'Shadow Breaker',
-    label: 'Shadow Breaker',
-    zone: 'fitness',
-    cat: 'fitness',
-    category: 'fitness',
-    theme: 'shadowbreaker',
-
-    launcherPath: '/herohealth/shadow-breaker-vr.html',
-    warmupPath: '/herohealth/warmup-gate.html',
-    runPath: '/fitness/shadow-breaker.html',
-    cooldownPath: '/herohealth/warmup-gate.html',
-    hubPath: '/herohealth/hub.html',
-
-    warmupTitle: 'Shadow Breaker Warmup',
-    cooldownTitle: 'Shadow Breaker Cooldown',
-
-    supports: {
-      warmup: true,
-      cooldown: true,
-      solo: true,
-      multiplayer: false
-    },
-
-    run: '../fitness/shadow-breaker.html',
-    runCandidates: [
-      '../fitness/shadow-breaker.html',
-      '/webxr-health-mobile/fitness/shadow-breaker.html'
-    ],
-
-    phases: {
-      warmup: './games/shadowbreaker/warmup.js',
-      cooldown: './games/shadowbreaker/cooldown.js'
-    },
-
-    gateStyle: '',
-    buildRunUrl: buildShadowBreakerRunUrl,
-    buildCooldownGateUrl: buildShadowBreakerCooldownGateUrl
-  }
-};
-
-/* -------------------------------------------------------
- * PUBLIC HELPERS
- * ----------------------------------------------------- */
-
-export function getGameMeta(gameId = '') {
-  const key = normalizeGameId(gameId);
-  return GAME_META[key] || null;
-}
-
-export function getRunFile(gameId = '') {
-  return getGameMeta(gameId)?.run || '';
-}
-
-export function getRunCandidates(gameId = '') {
-  const meta = getGameMeta(gameId);
-  if (!meta) return [];
-
-  if (Array.isArray(meta.runCandidates) && meta.runCandidates.length) {
-    return meta.runCandidates.filter(Boolean);
-  }
-
-  return meta.run ? [meta.run] : [];
-}
-
-export function getPhaseFile(gameId = '', phase = 'warmup') {
-  const meta = getGameMeta(gameId);
+export function getPhaseFile(id = '', gatePhase = 'warmup') {
+  const meta = getGameMeta(id);
   if (!meta) return '';
 
-  const p = String(phase || 'warmup').trim().toLowerCase();
-  return meta?.phases?.[p] || '';
+  const phase = String(gatePhase || 'warmup').trim().toLowerCase();
+
+  if (phase === 'warmup') return meta.warmupFile || '';
+  if (phase === 'cooldown') return meta.cooldownFile || '';
+  return meta.runFile || '';
 }
 
-export function getGameStyleFile(gameId = '') {
-  const meta = getGameMeta(gameId);
-  return meta?.gateStyle || '';
+export function getGameStyleFile(id = '') {
+  const meta = getGameMeta(id);
+  return meta?.styleFile || '';
 }
 
-export function getRunUrl(gameId = '', params = {}) {
-  const meta = getGameMeta(gameId);
-  if (!meta || typeof meta.buildRunUrl !== 'function') return '';
-  return meta.buildRunUrl(params);
+export function getRunFile(id = '') {
+  const meta = getGameMeta(id);
+  return meta?.runFile || '';
 }
 
-export function getCooldownGateUrl(gameId = '', params = {}) {
-  const meta = getGameMeta(gameId);
-  if (!meta || typeof meta.buildCooldownGateUrl !== 'function') return '';
-  return meta.buildCooldownGateUrl(params);
+export function listGameIds() {
+  return Object.keys(GAME_REGISTRY);
 }
+
+export default {
+  GAME_REGISTRY,
+  normalizeGameId,
+  getGameMeta,
+  hasGameMeta,
+  getPhaseFile,
+  getGameStyleFile,
+  getRunFile,
+  listGameIds
+};
