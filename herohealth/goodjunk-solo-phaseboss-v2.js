@@ -19,16 +19,16 @@
     gameId: q.get('gameId') || 'goodjunk'
   };
 
-  const ROOT_ID = 'gjSoloBossRootV2';
-  const STYLE_ID = 'gjSoloBossStyleV2';
+  const ROOT_ID = 'gjSoloBossRootV3';
+  const STYLE_ID = 'gjSoloBossStyleV3';
 
   const GOOD = ['🍎','🥕','🥦','🍌','🥛','🥗','🍉','🐟'];
   const JUNK = ['🍟','🍩','🍭','🍔','🥤','🍕','🧁','🍫'];
 
   const DIFF = {
-    easy:   { p1Goal: 70,  p2Goal: 170, spawn1: 920, spawn2: 760, storm: 1280, bossHp: 16, weakSize: 96, weakSpeed: 180 },
+    easy:   { p1Goal: 70,  p2Goal: 170, spawn1: 920, spawn2: 760, storm: 1300, bossHp: 16, weakSize: 96, weakSpeed: 175 },
     normal: { p1Goal: 90,  p2Goal: 220, spawn1: 760, spawn2: 620, storm: 980,  bossHp: 22, weakSize: 82, weakSpeed: 240 },
-    hard:   { p1Goal: 110, p2Goal: 260, spawn1: 620, spawn2: 500, storm: 820,  bossHp: 28, weakSize: 72, weakSpeed: 300 }
+    hard:   { p1Goal: 110, p2Goal: 260, spawn1: 620, spawn2: 500, storm: 820,  bossHp: 28, weakSize: 72, weakSpeed: 305 }
   };
 
   const diffKey = DIFF[ctx.diff] ? ctx.diff : 'normal';
@@ -38,6 +38,7 @@
     running: false,
     ended: false,
     phase: 1,
+
     score: 0,
     miss: 0,
     streak: 0,
@@ -55,6 +56,8 @@
     lastTs: 0,
     spawnAcc: 0,
     stormAcc: 0,
+    telegraphAcc: 0,
+    weakRetargetAcc: 0,
 
     items: new Map(),
     seq: 0,
@@ -65,8 +68,12 @@
       hp: cfg.bossHp,
       maxHp: cfg.bossHp,
       weakId: '',
-      stage: 1,
-      pattern: 'learn'
+      stage: 'A',
+      pattern: 'learn',
+      stormTelegraph: false,
+      stormTelegraphMs: 0,
+      pendingStormBurst: 0,
+      stageJustChanged: ''
     }
   };
 
@@ -153,6 +160,71 @@
     } catch {}
   }
 
+  function playTone(freq = 440, duration = 0.08, type = 'triangle', gainValue = 0.028) {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!playTone._ctx) playTone._ctx = new AC();
+      const ctxx = playTone._ctx;
+
+      const osc = ctxx.createOscillator();
+      const gain = ctxx.createGain();
+
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.value = gainValue;
+
+      osc.connect(gain);
+      gain.connect(ctxx.destination);
+
+      const now = ctxx.currentTime;
+      gain.gain.setValueAtTime(gainValue, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      osc.start(now);
+      osc.stop(now + duration);
+    } catch {}
+  }
+
+  function playSfx(kind) {
+    if (kind === 'good') {
+      playTone(720, 0.05, 'triangle', 0.018);
+      setTimeout(() => playTone(900, 0.05, 'triangle', 0.014), 35);
+      return;
+    }
+    if (kind === 'bad') {
+      playTone(210, 0.08, 'sawtooth', 0.018);
+      return;
+    }
+    if (kind === 'phase-up') {
+      playTone(520, 0.08, 'triangle', 0.022);
+      setTimeout(() => playTone(720, 0.08, 'triangle', 0.020), 90);
+      setTimeout(() => playTone(980, 0.10, 'triangle', 0.022), 180);
+      return;
+    }
+    if (kind === 'telegraph') {
+      playTone(340, 0.08, 'square', 0.018);
+      setTimeout(() => playTone(340, 0.08, 'square', 0.018), 120);
+      return;
+    }
+    if (kind === 'boss-hit') {
+      playTone(560, 0.06, 'square', 0.02);
+      setTimeout(() => playTone(780, 0.07, 'triangle', 0.018), 40);
+      return;
+    }
+    if (kind === 'boss-break') {
+      playTone(520, 0.07, 'square', 0.024);
+      setTimeout(() => playTone(760, 0.09, 'triangle', 0.020), 45);
+      setTimeout(() => playTone(990, 0.09, 'triangle', 0.018), 95);
+      return;
+    }
+    if (kind === 'boss-clear') {
+      playTone(784, 0.10, 'triangle', 0.03);
+      setTimeout(() => playTone(988, 0.12, 'triangle', 0.03), 110);
+      setTimeout(() => playTone(1174, 0.16, 'triangle', 0.032), 240);
+    }
+  }
+
   function injectStyle() {
     if (document.getElementById(STYLE_ID)) return;
 
@@ -192,6 +264,18 @@
       .gjsb-cloud.c1{ left:6%; top:8%; }
       .gjsb-cloud.c2{ left:64%; top:13%; transform:scale(1.18); }
       .gjsb-cloud.c3{ left:30%; top:22%; transform:scale(.9); }
+
+      .gjsb-flash{
+        position:absolute; inset:0; z-index:42; pointer-events:none;
+        background:radial-gradient(circle at 50% 32%, rgba(255,255,255,.82), rgba(255,255,255,0) 60%);
+        opacity:0;
+      }
+      .gjsb-flash.show{ animation:gjsbFlash .55s ease; }
+      @keyframes gjsbFlash{
+        0%{ opacity:0; }
+        18%{ opacity:1; }
+        100%{ opacity:0; }
+      }
 
       .gjsb-topHud{
         position:absolute; left:10px; right:10px; top:10px;
@@ -239,6 +323,28 @@
       }
       .gjsb-banner.hide{ opacity:0; transform:translateY(-6px); }
 
+      .gjsb-telegraph{
+        display:none;
+        justify-self:center;
+        max-width:min(94vw,460px);
+        padding:10px 14px;
+        border-radius:18px;
+        background:linear-gradient(180deg,#fff2f2,#ffffff);
+        color:#a6461c;
+        border:3px solid #ffd1c2;
+        box-shadow:0 12px 22px rgba(86,155,194,.12);
+        text-align:center;
+        font-size:13px;
+        line-height:1.35;
+        font-weight:1000;
+        animation:gjsbTelegraphPulse .55s ease-in-out infinite;
+      }
+      .gjsb-telegraph.show{ display:block; }
+      @keyframes gjsbTelegraphPulse{
+        0%,100%{ transform:scale(1); }
+        50%{ transform:scale(1.03); }
+      }
+
       .gjsb-progressWrap{
         height:12px;
         border-radius:999px;
@@ -256,8 +362,8 @@
       }
 
       .gjsb-boss{
-        position:absolute; right:10px; top:92px;
-        z-index:28; width:min(240px,52vw);
+        position:absolute; right:10px; top:126px;
+        z-index:28; width:min(250px,54vw);
         display:none;
       }
       .gjsb-boss.show{ display:block; }
@@ -311,6 +417,10 @@
         font-size:11px;
         font-weight:1000;
       }
+
+      .gjsb-boss-stage.a{ color:#7c6c14; background:#fff8dd; }
+      .gjsb-boss-stage.b{ color:#9a5f10; background:#fff0cf; }
+      .gjsb-boss-stage.c{ color:#a33e1a; background:#ffe1d8; }
 
       .gjsb-boss-bar{
         margin-top:10px;
@@ -486,8 +596,9 @@
       @media (max-width:720px){
         .gjsb-topHud{ top:8px; left:8px; right:8px; }
         .gjsb-banner{ max-width:100%; padding:9px 12px; font-size:12px; }
+        .gjsb-telegraph{ max-width:100%; padding:9px 12px; font-size:12px; }
         .gjsb-boss{
-          top:96px; right:8px; width:min(220px,58vw);
+          top:132px; right:8px; width:min(220px,58vw);
         }
         .gjsb-boss-card{ padding:10px; }
         .gjsb-boss-head{ grid-template-columns:48px 1fr; gap:8px; }
@@ -511,6 +622,7 @@
           <div class="gjsb-cloud c2"></div>
           <div class="gjsb-cloud c3"></div>
           <div class="gjsb-ground"></div>
+          <div class="gjsb-flash" id="hudFlash"></div>
 
           <div class="gjsb-topHud">
             <div class="gjsb-bar">
@@ -522,6 +634,7 @@
             </div>
 
             <div class="gjsb-banner" id="hudBanner">เก็บอาหารดี หลีกเลี่ยง junk แล้วไปสู้กับ Junk King!</div>
+            <div class="gjsb-telegraph" id="hudTelegraph">⚠️ ระวัง! Junk Storm กำลังมา</div>
 
             <div class="gjsb-progressWrap">
               <div class="gjsb-progressFill" id="hudProgress"></div>
@@ -534,11 +647,11 @@
                 <div class="gjsb-boss-icon" id="bossIcon">🍔</div>
                 <div>
                   <div class="gjsb-boss-title">Junk King</div>
-                  <div class="gjsb-boss-sub" id="bossPatternText">เรียนรู้จังหวะก่อน แล้วค่อยโจมตี</div>
+                  <div class="gjsb-boss-sub" id="bossPatternText">อ่านจังหวะก่อน แล้วค่อยโจมตี</div>
                 </div>
               </div>
 
-              <div class="gjsb-boss-stage" id="bossStageText">Stage 1 • Learn</div>
+              <div class="gjsb-boss-stage a" id="bossStageText">Stage A • Learn</div>
 
               <div class="gjsb-boss-bar">
                 <div class="gjsb-boss-fill" id="bossHpFill"></div>
@@ -578,7 +691,9 @@
       root: document.getElementById(ROOT_ID),
       stage: document.getElementById('gjsbStage'),
       banner: document.getElementById('hudBanner'),
+      telegraph: document.getElementById('hudTelegraph'),
       progress: document.getElementById('hudProgress'),
+      flash: document.getElementById('hudFlash'),
       score: document.getElementById('hudScore'),
       time: document.getElementById('hudTime'),
       miss: document.getElementById('hudMiss'),
@@ -625,17 +740,90 @@
     }
   }
 
-  function setBossStage() {
+  function phaseFlash() {
+    ui.flash.classList.remove('show');
+    void ui.flash.offsetWidth;
+    ui.flash.classList.add('show');
+  }
+
+  function showTelegraph(text, ms = 800) {
+    ui.telegraph.textContent = text;
+    ui.telegraph.classList.add('show');
+    playSfx('telegraph');
+    setTimeout(() => ui.telegraph.classList.remove('show'), ms);
+  }
+
+  function getBossProfile(stageLetter) {
+    if (stageLetter === 'A') {
+      return {
+        label: 'Stage A • Learn',
+        stageClass: 'a',
+        icon: '🍔',
+        patternText: 'เป้าใหญ่กว่า ช้ากว่า ให้เรียนรู้จังหวะก่อน',
+        weakSize: cfg.weakSize + 16,
+        weakSpeed: cfg.weakSpeed * 0.78,
+        weakDamage: 1,
+        weakRetargetMs: 1400,
+        stormEvery: cfg.storm * 1.35,
+        stormBurst: 1
+      };
+    }
+
+    if (stageLetter === 'B') {
+      return {
+        label: 'Stage B • Pressure',
+        stageClass: 'b',
+        icon: '😤',
+        patternText: 'จังหวะเร็วขึ้น และเป้าทองตีได้แรงขึ้น',
+        weakSize: cfg.weakSize + 2,
+        weakSpeed: cfg.weakSpeed * 1.02,
+        weakDamage: 2,
+        weakRetargetMs: 1020,
+        stormEvery: cfg.storm * 1.0,
+        stormBurst: 2
+      };
+    }
+
+    return {
+      label: 'Stage C • Final',
+      stageClass: 'c',
+      icon: '😈',
+      patternText: 'เป้าเล็ก เร็ว พายุถี่และรุนแรงที่สุด',
+      weakSize: Math.max(54, cfg.weakSize - 10),
+      weakSpeed: cfg.weakSpeed * 1.28,
+      weakDamage: 1,
+      weakRetargetMs: 740,
+      stormEvery: cfg.storm * 0.72,
+      stormBurst: 3
+    };
+  }
+
+  function calcBossStage() {
     const ratio = state.boss.hp / state.boss.maxHp;
-    if (ratio > 0.66) {
-      state.boss.stage = 1;
-      state.boss.pattern = 'learn';
-    } else if (ratio > 0.33) {
-      state.boss.stage = 2;
-      state.boss.pattern = 'pressure';
-    } else {
-      state.boss.stage = 3;
-      state.boss.pattern = 'final';
+    if (ratio > 0.66) return 'A';
+    if (ratio > 0.33) return 'B';
+    return 'C';
+  }
+
+  function setBossStage(force = false) {
+    const nextStage = calcBossStage();
+    if (!force && nextStage === state.boss.stage) return;
+
+    state.boss.stage = nextStage;
+    const profile = getBossProfile(state.boss.stage);
+
+    if (ui.bossStageText) {
+      ui.bossStageText.textContent = profile.label;
+      ui.bossStageText.className = `gjsb-boss-stage ${profile.stageClass}`;
+    }
+
+    if (ui.bossPatternText) ui.bossPatternText.textContent = profile.patternText;
+    if (ui.bossIcon) ui.bossIcon.textContent = profile.icon;
+
+    if (!force) {
+      setBanner(profile.label, 1100);
+      phaseFlash();
+      playSfx('phase-up');
     }
   }
 
@@ -645,25 +833,15 @@
       return;
     }
 
+    const profile = getBossProfile(state.boss.stage);
+
     ui.bossWrap.classList.add('show');
-
-    const patternText =
-      state.boss.pattern === 'learn'
-        ? 'อ่านจังหวะก่อน แล้วค่อยโจมตี'
-        : state.boss.pattern === 'pressure'
-          ? 'เร็วขึ้นแล้ว ต้องตัดสินใจให้แม่น'
-          : 'ช่วงสุดท้ายแล้ว สู้ต่ออีกนิด';
-
-    const stageText =
-      state.boss.stage === 1 ? 'Stage 1 • Learn'
-      : state.boss.stage === 2 ? 'Stage 2 • Pressure'
-      : 'Stage 3 • Final';
-
-    ui.bossPatternText.textContent = patternText;
-    ui.bossStageText.textContent = stageText;
+    ui.bossPatternText.textContent = profile.patternText;
+    ui.bossStageText.textContent = profile.label;
+    ui.bossStageText.className = `gjsb-boss-stage ${profile.stageClass}`;
     ui.bossHpText.textContent = `HP ${state.boss.hp} / ${state.boss.maxHp}`;
     ui.bossHpFill.style.transform = `scaleX(${clamp(state.boss.hp / state.boss.maxHp, 0, 1)})`;
-    ui.bossIcon.textContent = state.boss.stage === 3 ? '😈' : '🍔';
+    ui.bossIcon.textContent = profile.icon;
   }
 
   function renderHud() {
@@ -730,6 +908,7 @@
       state.score += gain;
       fx(cx, cy, `+${gain}`, '#2f8f2f');
       setBanner('เยี่ยม! เก็บอาหารดีต่อไป', 650);
+      playSfx('good');
       removeItem(item);
     } else if (item.kind === 'junk' || item.kind === 'storm') {
       state.hitsBad += 1;
@@ -738,18 +917,21 @@
       state.score = Math.max(0, state.score - 8);
       if (item.kind === 'storm') state.stormHits += 1;
       fx(cx, cy, 'MISS', '#d16b27');
-      setBanner(item.kind === 'storm' ? 'อย่ากดพายุ junk!' : 'ระวัง junk!', 700);
+      setBanner(item.kind === 'storm' ? 'โดน Junk Storm!' : 'ระวัง junk!', 700);
+      playSfx('bad');
       removeItem(item);
     } else if (item.kind === 'weak') {
       state.powerHits += 1;
       state.streak += 1;
       state.bestStreak = Math.max(state.bestStreak, state.streak);
 
-      const damage = state.boss.stage === 2 ? 2 : 1;
+      const profile = getBossProfile(state.boss.stage);
+      const damage = profile.weakDamage;
       state.boss.hp = Math.max(0, state.boss.hp - damage);
       state.score += damage === 2 ? 24 : 15;
 
       fx(cx, cy, damage === 2 ? 'CRUSH!' : 'POWER!', '#cf8a00');
+      playSfx(damage === 2 ? 'boss-break' : 'boss-hit');
       removeItem(item);
 
       if (state.boss.hp <= 0) {
@@ -758,12 +940,7 @@
       }
 
       setBossStage();
-      setBanner(
-        state.boss.stage === 1 ? 'Boss Stage 1 • Learn'
-        : state.boss.stage === 2 ? 'Boss Stage 2 • Pressure'
-        : 'Boss Stage 3 • Final',
-        900
-      );
+      setBanner(profile.label, 900);
     }
 
     renderHud();
@@ -774,6 +951,7 @@
     state.missedGood += 1;
     state.streak = 0;
     fx(item.x + item.size / 2, Math.max(30, item.y), 'พลาดของดี', '#d18d00');
+    playSfx('bad');
     removeItem(item);
     renderHud();
   }
@@ -797,35 +975,74 @@
     );
   }
 
-  function spawnStorm() {
+  function spawnStormOne() {
     const r = stageRect();
     const size = range(42, 62);
     const x = range(10, Math.max(12, r.width - size - 10));
     const y = -size - range(0, 20);
-    const vx = range(-60, 60);
-    const vy = state.boss.stage === 3 ? range(240, 360) : range(180, 280);
+    const vx = range(-70, 70);
+    const profile = getBossProfile(state.boss.stage);
+    const vy = state.boss.stage === 'C' ? range(250, 370) : range(180, 280);
     state.spawnedStorm += 1;
     createItem('storm', JUNK[Math.floor(rand() * JUNK.length)], x, y, size, vx, vy, 'storm');
+    setBanner(`Junk Storm x${profile.stormBurst}`, 520);
+  }
+
+  function triggerStormTelegraph() {
+    if (state.boss.stormTelegraph) return;
+
+    const profile = getBossProfile(state.boss.stage);
+    state.boss.stormTelegraph = true;
+    state.boss.stormTelegraphMs = state.boss.stage === 'C' ? 760 : 880;
+    state.boss.pendingStormBurst = profile.stormBurst;
+
+    showTelegraph(`⚠️ ระวัง! Junk Storm กำลังมา x${profile.stormBurst}`, state.boss.stormTelegraphMs);
+    setBanner(
+      state.boss.stage === 'A'
+        ? 'เตรียมหลบ junk 1 ชุด'
+        : state.boss.stage === 'B'
+          ? 'เตรียมหลบ junk 2 ชุด'
+          : 'เตรียมหลบ junk 3 ชุด!',
+      state.boss.stormTelegraphMs
+    );
+  }
+
+  function releaseStormBurst() {
+    const burst = Math.max(1, state.boss.pendingStormBurst || 1);
+    state.boss.pendingStormBurst = 0;
+    state.boss.stormTelegraph = false;
+    state.boss.stormTelegraphMs = 0;
+
+    for (let i = 0; i < burst; i++) {
+      setTimeout(() => spawnStormOne(), i * 120);
+    }
   }
 
   function spawnWeak() {
     if (state.boss.weakId) return;
 
+    const profile = getBossProfile(state.boss.stage);
     const r = stageRect();
-    const size = state.boss.stage === 1 ? cfg.weakSize + 14 : state.boss.stage === 2 ? cfg.weakSize + 4 : cfg.weakSize - 4;
+    const size = profile.weakSize;
     const x = range(20, Math.max(22, r.width - size - 20));
     const y = range(150, Math.max(160, r.height - size - 40));
-    const speed = state.boss.stage === 1 ? cfg.weakSpeed * 0.82 : state.boss.stage === 2 ? cfg.weakSpeed : cfg.weakSpeed * 1.15;
+    const speed = profile.weakSpeed;
 
     const item = createItem('weak', '🎯', x, y, size, range(-speed, speed), range(-speed, speed), 'weak');
     state.boss.weakId = item.id;
+  }
+
+  function retargetWeak(item) {
+    const profile = getBossProfile(state.boss.stage);
+    item.vx = range(-profile.weakSpeed, profile.weakSpeed);
+    item.vy = range(-profile.weakSpeed, profile.weakSpeed);
   }
 
   function updateWeak(item, dt, r) {
     item.x += item.vx * dt / 1000;
     item.y += item.vy * dt / 1000;
 
-    const minY = 132;
+    const minY = 138;
 
     if (item.x <= 8) { item.x = 8; item.vx *= -1; }
     if (item.x + item.size >= r.width - 8) { item.x = r.width - item.size - 8; item.vx *= -1; }
@@ -839,7 +1056,9 @@
     state.phase = 2;
     clearItems();
     state.spawnAcc = 0;
-    setBanner('Phase 2 • เร็วขึ้นและกดดันขึ้น', 1200);
+    phaseFlash();
+    playSfx('phase-up');
+    setBanner('Phase 2 • เร็วขึ้นและกดดันขึ้น', 1400);
     renderHud();
   }
 
@@ -848,13 +1067,24 @@
     state.boss.active = true;
     state.boss.hp = cfg.bossHp;
     state.boss.maxHp = cfg.bossHp;
-    state.boss.stage = 1;
+    state.boss.stage = 'A';
     state.boss.pattern = 'learn';
+    state.boss.stormTelegraph = false;
+    state.boss.stormTelegraphMs = 0;
+    state.boss.pendingStormBurst = 0;
+
     clearItems();
     state.spawnAcc = 0;
     state.stormAcc = 0;
-    setBanner('Boss Phase • Junk King มาแล้ว!', 1400);
+    state.telegraphAcc = 0;
+    state.weakRetargetAcc = 0;
+
+    setBossStage(true);
     spawnWeak();
+
+    phaseFlash();
+    playSfx('phase-up');
+    setBanner('Boss Phase • Junk King มาแล้ว!', 1600);
     renderHud();
   }
 
@@ -882,12 +1112,29 @@
         spawnFood(state.phase);
       }
     } else {
+      const profile = getBossProfile(state.boss.stage);
+
       state.stormAcc += dt;
-      if (state.stormAcc >= cfg.storm) {
+      if (!state.boss.stormTelegraph && state.stormAcc >= profile.stormEvery) {
         state.stormAcc = 0;
-        spawnStorm();
+        triggerStormTelegraph();
       }
+
+      if (state.boss.stormTelegraph) {
+        state.boss.stormTelegraphMs -= dt;
+        if (state.boss.stormTelegraphMs <= 0) {
+          releaseStormBurst();
+        }
+      }
+
       spawnWeak();
+
+      state.weakRetargetAcc += dt;
+      if (state.weakRetargetAcc >= profile.weakRetargetMs) {
+        state.weakRetargetAcc = 0;
+        const weak = state.boss.weakId ? state.items.get(state.boss.weakId) : null;
+        if (weak) retargetWeak(weak);
+      }
     }
 
     state.items.forEach((item) => {
@@ -943,13 +1190,13 @@
 
   function coachMessage(bossClear) {
     if (bossClear && state.miss <= 5) {
-      return 'สุดยอดเลย! เธอเก็บอาหารดีได้ต่อเนื่องและปราบ Junk King ได้อย่างมั่นใจ';
+      return 'สุดยอดเลย! เธอเก็บอาหารดีได้ต่อเนื่อง อ่านจังหวะบอสแม่น และปราบ Junk King ได้อย่างมั่นใจ';
     }
     if (bossClear) {
       return 'เยี่ยมมาก! แม้จะมีพลาดบ้าง แต่เธอก็ยังเอาชนะ Junk King ได้สำเร็จ';
     }
     if (state.boss.active) {
-      return 'เก่งมาก! ถึงบอสแล้ว รอบหน้าลองอ่านเป้าทองให้ไวขึ้นอีกนิดนะ';
+      return 'เก่งมาก! ถึงบอสแล้ว รอบหน้าลองอ่านสัญญาณเตือน Junk Storm ให้ไวขึ้นอีกนิดนะ';
     }
     if (state.phase >= 2) {
       return 'ดีมาก! ผ่าน Phase 2 แล้ว ลองรักษาคอมโบให้ยาวขึ้นในรอบต่อไป';
@@ -970,10 +1217,11 @@
     state.running = false;
     cancelAnimationFrame(state.raf);
     clearItems();
+    playSfx(bossClear ? 'boss-clear' : 'phase-up');
 
     const stars = starsFromSummary(bossClear);
     const summary = {
-      source: 'goodjunk-solo-phaseboss-v2-ui',
+      source: 'goodjunk-solo-phaseboss-v3-abc-telegraph',
       gameId: ctx.gameId || 'goodjunk',
       mode: 'solo',
       pid: ctx.pid || 'anon',
@@ -991,6 +1239,7 @@
       stormSpawned: state.spawnedStorm,
       bossDefeated: !!bossClear,
       phaseReached: state.boss.active ? 'boss' : `phase-${state.phase}`,
+      bossStageReached: state.boss.stage,
       updatedAt: Date.now()
     };
 
@@ -1010,7 +1259,7 @@
       <div class="gjsb-stat"><div class="k">Score</div><div class="v">${state.score}</div></div>
       <div class="gjsb-stat"><div class="k">Miss</div><div class="v">${state.miss}</div></div>
       <div class="gjsb-stat"><div class="k">Best Streak</div><div class="v">${state.bestStreak}</div></div>
-      <div class="gjsb-stat"><div class="k">Reached</div><div class="v">${bossClear ? 'Boss Clear' : (state.boss.active ? 'Boss' : `Phase ${state.phase}`)}</div></div>
+      <div class="gjsb-stat"><div class="k">Reached</div><div class="v">${bossClear ? 'Boss Clear' : (state.boss.active ? `Boss ${state.boss.stage}` : `Phase ${state.phase}`)}</div></div>
       <div class="gjsb-stat"><div class="k">Good Hit</div><div class="v">${state.hitsGood}</div></div>
       <div class="gjsb-stat"><div class="k">Power Hit</div><div class="v">${state.powerHits}</div></div>
     `;
