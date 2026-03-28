@@ -25,7 +25,6 @@
       --blue2:#58b7f5;
       --yellow:#ffd45c;
       --orange:#ffb547;
-      --violet:#cdb9ff;
 
       --shadow:0 18px 40px rgba(86,155,194,.16);
 
@@ -36,6 +35,7 @@
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -83,11 +83,18 @@
       to{ transform:translateX(12vw); }
     }
 
+    /* ปรับให้ game area เริ่มใต้ top HUD เลย */
     #gameMount{
       position:absolute;
-      inset:0;
-      z-index:2;
+      left:8px;
+      right:8px;
+      top:calc(164px + var(--sat));
+      bottom:calc(8px + var(--sab));
+      z-index:1;
       overflow:hidden;
+      border-radius:30px;
+      box-shadow:0 16px 32px rgba(86,155,194,.12);
+      background:rgba(255,255,255,.16);
     }
 
     .shell{
@@ -95,51 +102,50 @@
       inset:0;
       display:grid;
       grid-template-rows:auto 1fr auto;
-      gap:12px;
+      gap:10px;
       padding:
-        calc(12px + var(--sat))
-        calc(12px + var(--sar))
-        calc(12px + var(--sab))
-        calc(12px + var(--sal));
+        calc(8px + var(--sat))
+        calc(8px + var(--sar))
+        calc(8px + var(--sab))
+        calc(8px + var(--sal));
       pointer-events:none;
       z-index:3;
     }
 
-    .top{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:flex-start;
+    .topbar{
+      display:grid;
+      gap:8px;
+      align-content:start;
     }
 
     .hero-card{
-      max-width:min(820px,100%);
       background:linear-gradient(180deg,#fffef9,#f7fff4);
       border:3px solid var(--line);
-      border-radius:28px;
+      border-radius:24px;
       box-shadow:var(--shadow);
-      padding:18px 16px;
+      padding:12px 14px;
       position:relative;
       overflow:hidden;
       pointer-events:auto;
     }
+
     .hero-card::before{
       content:"";
       position:absolute;
-      left:-36px; top:-36px;
-      width:140px; height:140px;
+      left:-30px; top:-30px;
+      width:110px; height:110px;
       border-radius:999px;
-      background:rgba(127,207,255,.20);
+      background:rgba(127,207,255,.18);
       filter:blur(8px);
     }
+
     .hero-card::after{
       content:"";
       position:absolute;
-      right:-26px; bottom:-26px;
-      width:120px; height:120px;
+      right:-24px; bottom:-24px;
+      width:96px; height:96px;
       border-radius:999px;
-      background:rgba(255,212,92,.22);
+      background:rgba(255,212,92,.18);
       filter:blur(8px);
     }
 
@@ -149,22 +155,22 @@
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:8px 14px;
+      padding:7px 12px;
       border-radius:999px;
       background:#eaf8ff;
       border:2px solid var(--line);
       color:#5ea8d0;
-      font-size:13px;
+      font-size:12px;
       font-weight:1000;
-      margin-bottom:10px;
+      margin-bottom:8px;
     }
 
     h1{
       position:relative;
       z-index:1;
-      margin:0 0 6px;
-      font-size:clamp(28px,5vw,42px);
-      line-height:1.05;
+      margin:0 0 4px;
+      font-size:clamp(24px,5.4vw,36px);
+      line-height:1.02;
       font-weight:1000;
       color:#67a91c;
       text-shadow:0 2px 0 #fff;
@@ -175,54 +181,63 @@
       z-index:1;
       margin:0;
       color:var(--muted);
-      line-height:1.7;
-      font-size:14px;
+      line-height:1.5;
+      font-size:13px;
       font-weight:900;
-      max-width:720px;
+      max-width:900px;
     }
 
-    .side{
+    .chipbar{
       display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:8px;
-      align-content:start;
+      pointer-events:none;
     }
 
     .pill{
-      display:inline-flex;
+      display:flex;
       align-items:center;
-      gap:8px;
-      padding:10px 14px;
+      justify-content:center;
+      text-align:center;
+      min-height:42px;
+      padding:10px 12px;
       border-radius:999px;
       border:2px solid var(--line);
-      background:#fff;
+      background:rgba(255,255,255,.92);
       color:#6c6a61;
       font-size:12px;
       font-weight:1000;
       box-shadow:0 8px 18px rgba(86,155,194,.10);
-      width:max-content;
-      max-width:100%;
+      pointer-events:auto;
+      backdrop-filter:blur(6px);
+    }
+
+    .bottomDock{
+      display:flex;
+      justify-content:flex-start;
+      align-items:end;
+      pointer-events:none;
     }
 
     .status-card{
-      align-self:end;
+      width:min(92vw,420px);
       background:linear-gradient(180deg,#fffef9,#f7fff4);
       border:3px solid var(--line);
-      border-radius:24px;
+      border-radius:22px;
       box-shadow:var(--shadow);
-      padding:12px 14px;
+      padding:10px 12px;
       color:var(--muted);
-      font-size:13px;
+      font-size:12px;
       font-weight:900;
-      line-height:1.6;
+      line-height:1.55;
       pointer-events:auto;
-      max-width:min(760px,100%);
     }
 
     .status-title{
       color:#67a91c;
-      font-size:14px;
+      font-size:13px;
       font-weight:1000;
-      margin-bottom:4px;
+      margin-bottom:3px;
     }
 
     .error{
@@ -232,15 +247,53 @@
     }
 
     .mini-note{
-      font-size:12px;
+      font-size:11px;
       color:#7b7a72;
-      margin-top:6px;
+      margin-top:4px;
     }
 
-    @media (max-width:780px){
-      .top{ align-items:stretch; }
-      .side{ width:100%; }
-      .pill{ width:100%; justify-content:center; }
+    @media (min-width: 760px){
+      #gameMount{
+        left:14px;
+        right:14px;
+        top:calc(132px + var(--sat));
+        bottom:calc(14px + var(--sab));
+      }
+
+      .topbar{
+        grid-template-columns:minmax(0,1fr) auto;
+        align-items:start;
+      }
+
+      .chipbar{
+        width:min(420px,42vw);
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .hero-card{
+        min-height:92px;
+        padding:14px 16px;
+      }
+
+      h1{
+        font-size:clamp(26px,3.3vw,40px);
+      }
+
+      .sub{
+        font-size:13px;
+        line-height:1.45;
+      }
+    }
+
+    @media (min-width: 1080px){
+      .chipbar{
+        width:auto;
+        grid-template-columns:repeat(4,minmax(130px,1fr));
+      }
+
+      #gameMount{
+        top:calc(118px + var(--sat));
+      }
     }
   </style>
 </head>
@@ -255,17 +308,16 @@
     <div id="gameMount"></div>
 
     <div class="shell">
-      <div class="top">
+      <div class="topbar">
         <div class="hero-card">
           <div class="kicker">👑 GOODJUNK SOLO BOSS v2</div>
           <h1>Boss Adventure</h1>
           <p class="sub">
-            เก็บอาหารดี หลีกเลี่ยง junk และผ่าน 2 phase เพื่อเข้าสู้กับ Junk King
-            แบบสนุก เร้าใจ และอ่านจังหวะได้ชัดเจน
+            เก็บอาหารดี หลบ junk แล้วผ่าน 2 phase เพื่อเข้าสู้กับ Junk King แบบสนุกและอ่านจังหวะได้ชัดเจน
           </p>
         </div>
 
-        <div class="side">
+        <div class="chipbar">
           <div class="pill" id="pillPlayer">PLAYER • -</div>
           <div class="pill" id="pillDiff">LEVEL • normal</div>
           <div class="pill" id="pillTime">TIME • 150</div>
@@ -275,10 +327,12 @@
 
       <div></div>
 
-      <div class="status-card" id="engineStatusCard">
-        <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
-        <div id="engineStatusText">เริ่มต้นตัวโหลด engine...</div>
-        <div class="mini-note" id="engineStatusMini">ถ้าไฟล์ JS อยู่ path อื่น ให้แก้ ENGINE_CANDIDATES ด้านล่าง</div>
+      <div class="bottomDock">
+        <div class="status-card" id="engineStatusCard">
+          <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
+          <div id="engineStatusText">เริ่มต้นตัวโหลด engine...</div>
+          <div class="mini-note" id="engineStatusMini">ถ้าไฟล์ JS อยู่ path อื่น ให้แก้ ENGINE_CANDIDATES ด้านล่าง</div>
+        </div>
       </div>
     </div>
   </div>
@@ -406,7 +460,7 @@
               setStatus('เข้าเกมแล้ว', `solo boss engine loaded: ${src}`);
               const card = $('engineStatusCard');
               if (card) {
-                setTimeout(() => { card.style.display = 'none'; }, 600);
+                setTimeout(() => { card.style.display = 'none'; }, 450);
               }
             }, 120);
 
