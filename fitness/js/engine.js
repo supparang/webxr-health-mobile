@@ -1,6 +1,6 @@
 // === /fitness/js/engine.js ===
 // Shadow Breaker Engine
-// FULL PATCH v20260327g-SHADOWBREAKER-FINAL-BALANCE-FULL
+// FULL PATCH v20260328a-SHADOWBREAKER-FINETUNE-FROM-SCREENSHOT
 
 (function(){
   'use strict';
@@ -432,9 +432,9 @@
       const c = entityCenter(ent);
       const d2 = dist2(pt.x, pt.y, c.x, c.y);
       const focusRadius =
-        ent.type === 'bossface' ? 210 :
-        ent.type === 'normal' ? 190 :
-        ent.type === 'heal' || ent.type === 'shield' ? 176 : 165;
+        ent.type === 'bossface' ? 196 :
+        ent.type === 'normal' ? 180 :
+        ent.type === 'heal' || ent.type === 'shield' ? 166 : 156;
 
       if (d2 <= focusRadius * focusRadius && d2 < bestD2){
         best = ent;
@@ -496,7 +496,7 @@
     const remainSec = Math.max(0, (STATE.totalMs - STATE.elapsedMs) / 1000);
     if(DOM.textTime) DOM.textTime.textContent = `${remainSec.toFixed(1)} s`;
     if(DOM.textScore) DOM.textScore.textContent = String(Math.round(STATE.score));
-    if(DOM.textCombo) DOM.textCombo.textContent = String(STATE.combo);
+    if(DOM.textCombo) DOM.textCombo.textContent = String(STATE.combo));
     if(DOM.textPhase) DOM.textPhase.textContent = String(STATE.phaseIndex + 1);
     if(DOM.textMiss) DOM.textMiss.textContent = String(STATE.missTotal);
 
@@ -538,15 +538,15 @@
 
     const sizeBase =
       viewMode === 'mobile'
-        ? (STATE.diff === 'easy' ? 98 : STATE.diff === 'hard' ? 80 : 88)
+        ? (STATE.diff === 'easy' ? 92 : STATE.diff === 'hard' ? 76 : 82)
         : viewMode === 'cvr'
-          ? (STATE.diff === 'easy' ? 122 : STATE.diff === 'hard' ? 96 : 106)
-          : (STATE.diff === 'easy' ? 92 : STATE.diff === 'hard' ? 72 : 82);
+          ? (STATE.diff === 'easy' ? 116 : STATE.diff === 'hard' ? 92 : 100)
+          : (STATE.diff === 'easy' ? 88 : STATE.diff === 'hard' ? 68 : 78);
 
     const size =
-      type === 'bossface' ? sizeBase + 10 :
+      type === 'bossface' ? sizeBase + 8 :
       type === 'bomb' ? sizeBase - 8 :
-      type === 'heal' || type === 'shield' ? sizeBase - 2 : sizeBase;
+      type === 'heal' || type === 'shield' ? sizeBase - 4 : sizeBase;
 
     const w = Math.max(160, stageRect.width);
     const h = Math.max(320, stageRect.height);
@@ -559,8 +559,8 @@
     if (viewMode === 'mobile') {
       spawnLeft = 14;
       spawnRight = w - size - 14;
-      spawnTop = Math.max(150, h * 0.28);
-      spawnBottom = h - size - 40;
+      spawnTop = Math.max(146, h * 0.27);
+      spawnBottom = h - size - 44;
     }
 
     if (viewMode === 'pc') {
@@ -591,10 +591,10 @@
 
     const ttl =
       opts.ttl != null ? opts.ttl :
-      type === 'heal' || type === 'shield' ? 1800 :
-      type === 'bomb' ? (STATE.diff === 'hard' ? 1200 : 1400) :
-      type === 'bossface' ? 1800 :
-      (STATE.diff === 'easy' ? 1750 : STATE.diff === 'hard' ? 1200 : 1450);
+      type === 'heal' || type === 'shield' ? 1700 :
+      type === 'bomb' ? (STATE.diff === 'hard' ? 1180 : 1380) :
+      type === 'bossface' ? 1750 :
+      (STATE.diff === 'easy' ? 1720 : STATE.diff === 'hard' ? 1180 : 1420);
 
     const ent = {
       id: `${Date.now()}_${Math.random().toString(36).slice(2,9)}`,
@@ -733,8 +733,8 @@
     if(STATE.spawnClock > 0) return;
 
     const baseGap =
-      STATE.diff === 'easy' ? 860 :
-      STATE.diff === 'hard' ? 560 : 700;
+      STATE.diff === 'easy' ? 880 :
+      STATE.diff === 'hard' ? 580 : 720;
 
     const phaseMul = [1.00, 0.92, 0.84, 0.78][clamp(STATE.phaseIndex,0,3)] || 1;
     STATE.spawnClock = baseGap * phaseMul;
@@ -742,21 +742,21 @@
     let goodCount = 1;
     let badChance = 0.22;
     let decoyChance = 0.16;
-    let utilityChance = 0.10;
-    let bossFaceChance = 0.14;
+    let utilityChance = 0.09;
+    let bossFaceChance = 0.13;
 
     if(STATE.phaseIndex === 1){
-      badChance = 0.28; decoyChance = 0.18; bossFaceChance = 0.18;
+      badChance = 0.27; decoyChance = 0.18; bossFaceChance = 0.17;
     } else if(STATE.phaseIndex === 2){
-      goodCount = 2; badChance = 0.30; decoyChance = 0.24; bossFaceChance = 0.22;
+      goodCount = 2; badChance = 0.29; decoyChance = 0.23; bossFaceChance = 0.21;
     } else if(STATE.phaseIndex === 3){
-      goodCount = 2; badChance = 0.34; decoyChance = 0.24; bossFaceChance = 0.28;
+      goodCount = 2; badChance = 0.33; decoyChance = 0.24; bossFaceChance = 0.26;
     }
 
     if(STATE.feverOn){
       goodCount += 1;
-      bossFaceChance += 0.08;
-      badChance *= 0.75;
+      bossFaceChance += 0.07;
+      badChance *= 0.78;
     }
 
     for(let i=0;i<goodCount;i++) makeEntity('normal');
@@ -774,8 +774,8 @@
       let by = null;
 
       if (viewMode === 'mobile') {
-        bx = stageRect.width * (0.18 + STATE.rng() * 0.42);
-        by = stageRect.height * (0.40 + STATE.rng() * 0.24);
+        bx = stageRect.width * (0.18 + STATE.rng() * 0.40);
+        by = stageRect.height * (0.40 + STATE.rng() * 0.22);
       } else if (viewMode === 'pc') {
         bx = stageRect.width * (0.14 + STATE.rng() * 0.46);
         by = stageRect.height * (0.24 + STATE.rng() * 0.48);
