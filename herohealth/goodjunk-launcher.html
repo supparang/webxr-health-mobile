@@ -617,12 +617,12 @@
       };
 
       function readRadio(name, fallback) {
-        const checked = document.querySelector(`input[name="${name}"]:checked`);
+        const checked = document.querySelector(\`input[name="\${name}"]:checked\`);
         return checked ? checked.value : fallback;
       }
 
       function setRadio(name, value) {
-        const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+        const el = document.querySelector(\`input[name="\${name}"][value="\${value}"]\`);
         if (el) el.checked = true;
       }
 
