@@ -237,13 +237,19 @@
     const raw = txt(
       STATE.roomId ||
       STATE.room?.roomId ||
+      STATE.room?.roomCode ||
       qsGet('roomId') ||
       qsGet('room') ||
       window.__COOP_ROOM__?.roomId ||
+      window.__COOP_ROOM__?.roomCode ||
       window.coopRoom?.roomId ||
+      window.coopRoom?.roomCode ||
       window.roomState?.roomId ||
+      window.roomState?.roomCode ||
       window.state?.room?.roomId ||
-      window.gameState?.room?.roomId
+      window.state?.room?.roomCode ||
+      window.gameState?.room?.roomId ||
+      window.gameState?.room?.roomCode
     );
     return raw.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 24) || '-';
   }
@@ -605,6 +611,23 @@
     return true;
   }
 
+  function buildCoopLobbyUrl() {
+    const src = new URL(location.href);
+    const u = new URL('./goodjunk-coop-lobby.html', location.href);
+
+    [
+      'hub','pid','name','room','roomId','diff','time','seed','view','run',
+      'zone','studyId','phase','conditionGroup','sessionOrder','blockLabel',
+      'siteCode','schoolYear','semester','api','log','debug'
+    ].forEach(k => {
+      const v = src.searchParams.get(k);
+      if (v != null && v !== '') u.searchParams.set(k, v);
+    });
+
+    u.searchParams.set('roomId', currentRoomId());
+    return u.toString();
+  }
+
   function mountFallbackResult(summary) {
     const mount = ensureResultMount();
     if (!mount) return;
@@ -750,8 +773,7 @@
       location.href = qsGet('hub', '../hub.html');
     });
     byId('coopSafeRematchBtn')?.addEventListener('click', () => {
-      const u = new URL(location.href);
-      location.href = u.toString();
+      location.href = buildCoopLobbyUrl();
     });
   }
 
@@ -760,7 +782,7 @@
 
     STATE.pid = normalizePid(src.pid ?? STATE.pid ?? getSelfPid());
     STATE.name = normalizeName(src.name ?? src.nick ?? STATE.name ?? getSelfName());
-    STATE.roomId = txt(src.roomId ?? src.room ?? STATE.roomId ?? currentRoomId()) || '-';
+    STATE.roomId = txt(src.roomId ?? src.room ?? src.roomCode ?? STATE.roomId ?? currentRoomId()) || '-';
 
     if (src.room && typeof src.room === 'object') {
       STATE.room = src.room;
@@ -801,7 +823,7 @@
   function setRoomState(room) {
     if (!room || typeof room !== 'object') return;
     STATE.room = room;
-    STATE.roomId = txt(room.roomId || room.id || STATE.roomId || '-');
+    STATE.roomId = txt(room.roomId || room.roomCode || room.id || STATE.roomId || '-');
     STATE.players = normalizePlayers(room.players || room);
     if (room.teamGoal != null || room.goal != null) {
       STATE.teamGoal = Math.max(1, int(room.teamGoal ?? room.goal, STATE.teamGoal));
@@ -862,6 +884,13 @@
 
     const summary = buildSummary();
     saveLastSummary(summary);
+
+    if (window.__GJ_COOP_RUN_HAS_SUMMARY_OVERLAY__) {
+      BRIDGE.resultShown = true;
+      STATE.ended = true;
+      stopBridge();
+      return;
+    }
 
     const patchedExisting = patchExistingResultDOM(summary);
     if (!patchedExisting) {
@@ -982,6 +1011,7 @@
 
   function bridgeLoop() {
     try {
+      installEndHooks();
       readKnownGlobals();
       readLegacyDom();
       tickTimeFromEndsAt();
@@ -1049,9 +1079,6 @@
   }
 
   function installEndHooks() {
-    if (BRIDGE.wrapped) return;
-    BRIDGE.wrapped = true;
-
     const keys = [
       'showCoopResult',
       'openCoopResult',
@@ -1063,9 +1090,11 @@
       'openResult'
     ];
 
+    let wrappedAny = false;
     for (const key of keys) {
-      wrapEndFunction(window, key);
+      if (wrapEndFunction(window, key)) wrappedAny = true;
     }
+    if (wrappedAny) BRIDGE.wrapped = true;
   }
 
   function installCustomEventHooks() {
