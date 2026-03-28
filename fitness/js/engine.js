@@ -1,6 +1,6 @@
 // === /fitness/js/engine.js ===
 // Shadow Breaker Engine
-// FULL PATCH v20260328a-SHADOWBREAKER-FINETUNE-FROM-SCREENSHOT
+// FULL PATCH v20260328b-SHADOWBREAKER-FINAL-CLEAN-PRODUCTION
 
 (function(){
   'use strict';
@@ -462,7 +462,18 @@
 
   function showBossSpeech(text, durMs=1800){
     const boss = currentBoss();
+    const viewMode = getViewMode();
+
     if(!DOM.bossSpeech) return;
+
+    if(viewMode === 'mobile'){
+      hideBossSpeech();
+      if(text){
+        setCenterMsg(text, Math.min(1200, durMs));
+      }
+      return;
+    }
+
     if(DOM.bossSpeechEmoji) DOM.bossSpeechEmoji.textContent = boss.emoji || '🥊';
     if(DOM.bossSpeechName) DOM.bossSpeechName.textContent = boss.name || 'Boss';
     if(DOM.bossSpeechText) DOM.bossSpeechText.textContent = text || boss.speech || '';
@@ -489,14 +500,17 @@
 
   function setCenterMsg(text, durMs=1100){
     if(DOM.msgMain) DOM.msgMain.textContent = text || '';
-    STATE.stageMessageClock = durMs;
+    const viewMode = getViewMode();
+    STATE.stageMessageClock = viewMode === 'mobile'
+      ? Math.min(durMs, 800)
+      : durMs;
   }
 
   function updateHud(){
     const remainSec = Math.max(0, (STATE.totalMs - STATE.elapsedMs) / 1000);
     if(DOM.textTime) DOM.textTime.textContent = `${remainSec.toFixed(1)} s`;
     if(DOM.textScore) DOM.textScore.textContent = String(Math.round(STATE.score));
-    if(DOM.textCombo) DOM.textCombo.textContent = String(STATE.combo));
+    if(DOM.textCombo) DOM.textCombo.textContent = String(STATE.combo);
     if(DOM.textPhase) DOM.textPhase.textContent = String(STATE.phaseIndex + 1);
     if(DOM.textMiss) DOM.textMiss.textContent = String(STATE.missTotal);
 
