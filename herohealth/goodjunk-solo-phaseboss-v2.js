@@ -19,16 +19,16 @@
     gameId: q.get('gameId') || 'goodjunk'
   };
 
-  const ROOT_ID = 'gjSoloBossRootV3';
-  const STYLE_ID = 'gjSoloBossStyleV3';
+  const ROOT_ID = 'gjSoloBossRootV4';
+  const STYLE_ID = 'gjSoloBossStyleV4';
 
   const GOOD = ['🍎','🥕','🥦','🍌','🥛','🥗','🍉','🐟'];
   const JUNK = ['🍟','🍩','🍭','🍔','🥤','🍕','🧁','🍫'];
 
   const DIFF = {
-    easy:   { p1Goal: 70,  p2Goal: 170, spawn1: 920, spawn2: 760, storm: 1300, bossHp: 16, weakSize: 96, weakSpeed: 175 },
-    normal: { p1Goal: 90,  p2Goal: 220, spawn1: 760, spawn2: 620, storm: 980,  bossHp: 22, weakSize: 82, weakSpeed: 240 },
-    hard:   { p1Goal: 110, p2Goal: 260, spawn1: 620, spawn2: 500, storm: 820,  bossHp: 28, weakSize: 72, weakSpeed: 305 }
+    easy:   { p1Goal: 70,  p2Goal: 170, spawn1: 920, spawn2: 760, bossHp: 16 },
+    normal: { p1Goal: 90,  p2Goal: 220, spawn1: 760, spawn2: 620, bossHp: 22 },
+    hard:   { p1Goal: 110, p2Goal: 260, spawn1: 620, spawn2: 500, bossHp: 28 }
   };
 
   const diffKey = DIFF[ctx.diff] ? ctx.diff : 'normal';
@@ -55,9 +55,6 @@
 
     lastTs: 0,
     spawnAcc: 0,
-    stormAcc: 0,
-    telegraphAcc: 0,
-    weakRetargetAcc: 0,
 
     items: new Map(),
     seq: 0,
@@ -68,12 +65,24 @@
       hp: cfg.bossHp,
       maxHp: cfg.bossHp,
       weakId: '',
+
       stage: 'A',
-      pattern: 'learn',
-      stormTelegraph: false,
-      stormTelegraphMs: 0,
-      pendingStormBurst: 0,
-      stageJustChanged: ''
+      stageReached: 'A',
+
+      pattern: 'hunt',
+      patternTimeLeft: 0,
+      patternCycleIndex: 0,
+
+      telegraphOn: false,
+      telegraphText: '',
+      telegraphMs: 0,
+
+      stormBurstLeft: 0,
+      stormBurstGapMs: 0,
+      stormWaveCooldown: 0,
+
+      weakRetargetMs: 0,
+      weakRetargetAcc: 0
     }
   };
 
@@ -277,6 +286,18 @@
         100%{ opacity:0; }
       }
 
+      .gjsb-shake{
+        animation:gjsbShake .22s linear 1;
+      }
+      @keyframes gjsbShake{
+        0%{ transform:translate3d(0,0,0); }
+        20%{ transform:translate3d(-6px, 2px, 0); }
+        40%{ transform:translate3d(6px, -2px, 0); }
+        60%{ transform:translate3d(-4px, 1px, 0); }
+        80%{ transform:translate3d(4px, -1px, 0); }
+        100%{ transform:translate3d(0,0,0); }
+      }
+
       .gjsb-topHud{
         position:absolute; left:10px; right:10px; top:10px;
         z-index:30; pointer-events:none;
@@ -466,6 +487,10 @@
         background:linear-gradient(180deg,#fff8d5,#ffffff);
         border-color:#ffe08a;
         animation:gjsbPulse .9s infinite;
+      }
+      .gjsb-item.weak.break{
+        border-color:#ffbe7a;
+        background:linear-gradient(180deg,#fff1da,#ffffff);
       }
 
       @keyframes gjsbPulse{
@@ -663,7 +688,7 @@
           <div class="gjsb-summary" id="summary">
             <div class="gjsb-summary-card">
               <div class="gjsb-summary-head">
-                <div class="gjsb-summary-ribbon">GOODJUNK SOLO BOSS v2</div>
+                <div class="gjsb-summary-ribbon">GOODJUNK SOLO BOSS v4</div>
                 <div class="gjsb-summary-avatar" id="sumAvatar">😊</div>
                 <h2 id="sumTitle" style="margin:0;font-size:38px;line-height:1.05;color:#67a91c;">Great Job!</h2>
                 <div id="sumSub" style="margin-top:6px;font-size:15px;color:#7b7a72;font-weight:1000;">มาดูผลการเล่นรอบนี้กัน</div>
@@ -746,6 +771,12 @@
     ui.flash.classList.add('show');
   }
 
+  function stageShake() {
+    ui.stage.classList.remove('gjsb-shake');
+    void ui.stage.offsetWidth;
+    ui.stage.classList.add('gjsb-shake');
+  }
+
   function showTelegraph(text, ms = 800) {
     ui.telegraph.textContent = text;
     ui.telegraph.classList.add('show');
@@ -753,78 +784,105 @@
     setTimeout(() => ui.telegraph.classList.remove('show'), ms);
   }
 
-  function getBossProfile(stageLetter) {
-    if (stageLetter === 'A') {
-      return {
-        label: 'Stage A • Learn',
-        stageClass: 'a',
-        icon: '🍔',
-        patternText: 'เป้าใหญ่กว่า ช้ากว่า ให้เรียนรู้จังหวะก่อน',
-        weakSize: cfg.weakSize + 16,
-        weakSpeed: cfg.weakSpeed * 0.78,
-        weakDamage: 1,
-        weakRetargetMs: 1400,
-        stormEvery: cfg.storm * 1.35,
-        stormBurst: 1
-      };
-    }
-
-    if (stageLetter === 'B') {
-      return {
-        label: 'Stage B • Pressure',
-        stageClass: 'b',
-        icon: '😤',
-        patternText: 'จังหวะเร็วขึ้น และเป้าทองตีได้แรงขึ้น',
-        weakSize: cfg.weakSize + 2,
-        weakSpeed: cfg.weakSpeed * 1.02,
-        weakDamage: 2,
-        weakRetargetMs: 1020,
-        stormEvery: cfg.storm * 1.0,
-        stormBurst: 2
-      };
-    }
-
-    return {
-      label: 'Stage C • Final',
-      stageClass: 'c',
-      icon: '😈',
-      patternText: 'เป้าเล็ก เร็ว พายุถี่และรุนแรงที่สุด',
-      weakSize: Math.max(54, cfg.weakSize - 10),
-      weakSpeed: cfg.weakSpeed * 1.28,
-      weakDamage: 1,
-      weakRetargetMs: 740,
-      stormEvery: cfg.storm * 0.72,
-      stormBurst: 3
-    };
-  }
-
-  function calcBossStage() {
+  function getBossStageByHp() {
     const ratio = state.boss.hp / state.boss.maxHp;
     if (ratio > 0.66) return 'A';
     if (ratio > 0.33) return 'B';
     return 'C';
   }
 
-  function setBossStage(force = false) {
-    const nextStage = calcBossStage();
-    if (!force && nextStage === state.boss.stage) return;
-
-    state.boss.stage = nextStage;
-    const profile = getBossProfile(state.boss.stage);
-
-    if (ui.bossStageText) {
-      ui.bossStageText.textContent = profile.label;
-      ui.bossStageText.className = `gjsb-boss-stage ${profile.stageClass}`;
+  function getBossStageProfile(stageLetter) {
+    if (stageLetter === 'A') {
+      return {
+        stage: 'A',
+        label: 'Stage A • Learn',
+        stageClass: 'a',
+        icon: '🍔',
+        weakSizeHunt: diffKey === 'hard' ? 82 : 92,
+        weakSizeBreak: diffKey === 'hard' ? 96 : 108,
+        weakSpeedHunt: diffKey === 'hard' ? 190 : 160,
+        weakSpeedBreak: diffKey === 'hard' ? 145 : 120,
+        huntRetargetMs: 1300,
+        breakRetargetMs: 1450,
+        stormWaveEvery: 2200,
+        stormBurstCount: 1,
+        stormBurstGap: 150,
+        patternDuration: 3600,
+        telegraphMs: 900
+      };
     }
 
-    if (ui.bossPatternText) ui.bossPatternText.textContent = profile.patternText;
-    if (ui.bossIcon) ui.bossIcon.textContent = profile.icon;
-
-    if (!force) {
-      setBanner(profile.label, 1100);
-      phaseFlash();
-      playSfx('phase-up');
+    if (stageLetter === 'B') {
+      return {
+        stage: 'B',
+        label: 'Stage B • Pressure',
+        stageClass: 'b',
+        icon: '😤',
+        weakSizeHunt: diffKey === 'hard' ? 72 : 80,
+        weakSizeBreak: diffKey === 'hard' ? 88 : 96,
+        weakSpeedHunt: diffKey === 'hard' ? 255 : 215,
+        weakSpeedBreak: diffKey === 'hard' ? 180 : 150,
+        huntRetargetMs: 980,
+        breakRetargetMs: 1120,
+        stormWaveEvery: 1700,
+        stormBurstCount: 2,
+        stormBurstGap: 120,
+        patternDuration: 3200,
+        telegraphMs: 820
+      };
     }
+
+    return {
+      stage: 'C',
+      label: 'Stage C • Final',
+      stageClass: 'c',
+      icon: '😈',
+      weakSizeHunt: diffKey === 'hard' ? 60 : 68,
+      weakSizeBreak: diffKey === 'hard' ? 78 : 84,
+      weakSpeedHunt: diffKey === 'hard' ? 320 : 280,
+      weakSpeedBreak: diffKey === 'hard' ? 220 : 185,
+      huntRetargetMs: 720,
+      breakRetargetMs: 860,
+      stormWaveEvery: 1120,
+      stormBurstCount: 3,
+      stormBurstGap: 105,
+      patternDuration: 2600,
+      telegraphMs: 740
+    };
+  }
+
+  function getPatternLabel(pattern) {
+    if (pattern === 'break') return 'Armor Break';
+    if (pattern === 'storm') return 'Junk Storm Rage';
+    return 'Target Hunt';
+  }
+
+  function getPatternSubtitle(pattern) {
+    const stageProfile = getBossStageProfile(state.boss.stage);
+
+    if (pattern === 'break') {
+      return stageProfile.stage === 'A'
+        ? 'เป้าใหญ่ ตีเข้าแรงขึ้น'
+        : stageProfile.stage === 'B'
+          ? 'เกราะเปิดแล้ว ตีให้คุ้ม'
+          : 'โอกาสแรงแต่สั้น รีบโจมตี';
+    }
+
+    if (pattern === 'storm') {
+      return `พายุลงเป็นชุด x${stageProfile.stormBurstCount}`;
+    }
+
+    return stageProfile.stage === 'A'
+      ? 'เป้าใหญ่ ช้ากว่า ให้เรียนรู้'
+      : stageProfile.stage === 'B'
+        ? 'เป้าเร็วขึ้น ต้องแม่นขึ้น'
+        : 'เป้าเล็กและเร็วสุดแล้ว';
+  }
+
+  function getPatternCycle(stageLetter) {
+    if (stageLetter === 'A') return ['hunt', 'storm'];
+    if (stageLetter === 'B') return ['hunt', 'break', 'storm'];
+    return ['storm', 'hunt', 'break'];
   }
 
   function updateBossUi() {
@@ -833,15 +891,14 @@
       return;
     }
 
-    const profile = getBossProfile(state.boss.stage);
-
+    const stageProfile = getBossStageProfile(state.boss.stage);
     ui.bossWrap.classList.add('show');
-    ui.bossPatternText.textContent = profile.patternText;
-    ui.bossStageText.textContent = profile.label;
-    ui.bossStageText.className = `gjsb-boss-stage ${profile.stageClass}`;
+    ui.bossPatternText.textContent = `${getPatternLabel(state.boss.pattern)} • ${getPatternSubtitle(state.boss.pattern)}`;
+    ui.bossStageText.textContent = stageProfile.label;
+    ui.bossStageText.className = `gjsb-boss-stage ${stageProfile.stageClass}`;
     ui.bossHpText.textContent = `HP ${state.boss.hp} / ${state.boss.maxHp}`;
     ui.bossHpFill.style.transform = `scaleX(${clamp(state.boss.hp / state.boss.maxHp, 0, 1)})`;
-    ui.bossIcon.textContent = profile.icon;
+    ui.bossIcon.textContent = stageProfile.icon;
   }
 
   function renderHud() {
@@ -893,6 +950,13 @@
     if (state.boss.weakId === item.id) state.boss.weakId = '';
   }
 
+  function getWeakDamageForPattern(pattern) {
+    if (pattern === 'break') {
+      return state.boss.stage === 'C' ? 3 : 2;
+    }
+    return 1;
+  }
+
   function onHit(item) {
     if (!state.running || state.ended) return;
 
@@ -919,19 +983,21 @@
       fx(cx, cy, 'MISS', '#d16b27');
       setBanner(item.kind === 'storm' ? 'โดน Junk Storm!' : 'ระวัง junk!', 700);
       playSfx('bad');
+      stageShake();
       removeItem(item);
     } else if (item.kind === 'weak') {
       state.powerHits += 1;
       state.streak += 1;
       state.bestStreak = Math.max(state.bestStreak, state.streak);
 
-      const profile = getBossProfile(state.boss.stage);
-      const damage = profile.weakDamage;
+      const damage = getWeakDamageForPattern(state.boss.pattern);
       state.boss.hp = Math.max(0, state.boss.hp - damage);
-      state.score += damage === 2 ? 24 : 15;
+      state.score += damage >= 3 ? 30 : damage === 2 ? 24 : 15;
 
-      fx(cx, cy, damage === 2 ? 'CRUSH!' : 'POWER!', '#cf8a00');
-      playSfx(damage === 2 ? 'boss-break' : 'boss-hit');
+      fx(cx, cy, damage >= 3 ? 'MEGA!' : damage === 2 ? 'CRUSH!' : 'POWER!', '#cf8a00');
+      playSfx(damage >= 2 ? 'boss-break' : 'boss-hit');
+      phaseFlash();
+      stageShake();
       removeItem(item);
 
       if (state.boss.hp <= 0) {
@@ -939,8 +1005,8 @@
         return;
       }
 
-      setBossStage();
-      setBanner(profile.label, 900);
+      syncBossStageByHp();
+      setBanner(`${getPatternLabel(state.boss.pattern)} โดนแล้ว!`, 820);
     }
 
     renderHud();
@@ -981,61 +1047,119 @@
     const x = range(10, Math.max(12, r.width - size - 10));
     const y = -size - range(0, 20);
     const vx = range(-70, 70);
-    const profile = getBossProfile(state.boss.stage);
     const vy = state.boss.stage === 'C' ? range(250, 370) : range(180, 280);
     state.spawnedStorm += 1;
     createItem('storm', JUNK[Math.floor(rand() * JUNK.length)], x, y, size, vx, vy, 'storm');
-    setBanner(`Junk Storm x${profile.stormBurst}`, 520);
   }
 
-  function triggerStormTelegraph() {
-    if (state.boss.stormTelegraph) return;
-
-    const profile = getBossProfile(state.boss.stage);
-    state.boss.stormTelegraph = true;
-    state.boss.stormTelegraphMs = state.boss.stage === 'C' ? 760 : 880;
-    state.boss.pendingStormBurst = profile.stormBurst;
-
-    showTelegraph(`⚠️ ระวัง! Junk Storm กำลังมา x${profile.stormBurst}`, state.boss.stormTelegraphMs);
-    setBanner(
-      state.boss.stage === 'A'
-        ? 'เตรียมหลบ junk 1 ชุด'
-        : state.boss.stage === 'B'
-          ? 'เตรียมหลบ junk 2 ชุด'
-          : 'เตรียมหลบ junk 3 ชุด!',
-      state.boss.stormTelegraphMs
-    );
+  function startTelegraph(text, ms) {
+    state.boss.telegraphOn = true;
+    state.boss.telegraphText = text;
+    state.boss.telegraphMs = ms;
+    showTelegraph(text, ms);
   }
 
-  function releaseStormBurst() {
-    const burst = Math.max(1, state.boss.pendingStormBurst || 1);
-    state.boss.pendingStormBurst = 0;
-    state.boss.stormTelegraph = false;
-    state.boss.stormTelegraphMs = 0;
+  function startPattern(pattern, withTelegraph = true) {
+    const stageProfile = getBossStageProfile(state.boss.stage);
 
-    for (let i = 0; i < burst; i++) {
-      setTimeout(() => spawnStormOne(), i * 120);
+    state.boss.pattern = pattern;
+    state.boss.patternTimeLeft = stageProfile.patternDuration;
+    state.boss.stormBurstLeft = 0;
+    state.boss.stormBurstGapMs = 0;
+    state.boss.stormWaveCooldown = 0;
+    state.boss.weakRetargetAcc = 0;
+    state.boss.weakRetargetMs =
+      pattern === 'break' ? stageProfile.breakRetargetMs : stageProfile.huntRetargetMs;
+
+    clearWeakOnly();
+
+    if (withTelegraph) {
+      if (pattern === 'storm') {
+        startTelegraph(`⚠️ Junk Storm กำลังมา x${stageProfile.stormBurstCount}`, stageProfile.telegraphMs);
+      } else if (pattern === 'break') {
+        startTelegraph('🛡️ Armor Break! เป้าทองจะใหญ่และคุ้มกว่าเดิม', stageProfile.telegraphMs - 120);
+      } else {
+        startTelegraph('🎯 Target Hunt! ตามเป้าทองให้ทัน', stageProfile.telegraphMs - 120);
+      }
+    } else {
+      state.boss.telegraphOn = false;
+      state.boss.telegraphMs = 0;
     }
+
+    if (pattern === 'storm') {
+      state.boss.stormWaveCooldown = stageProfile.stormWaveEvery;
+    }
+
+    setBanner(`${getPatternLabel(pattern)} • ${getPatternSubtitle(pattern)}`, 1050);
+    renderHud();
   }
 
-  function spawnWeak() {
+  function beginNextBossPattern(forcePattern) {
+    const cycle = getPatternCycle(state.boss.stage);
+
+    if (forcePattern && cycle.includes(forcePattern)) {
+      startPattern(forcePattern, true);
+      return;
+    }
+
+    state.boss.patternCycleIndex = (state.boss.patternCycleIndex + 1) % cycle.length;
+    const nextPattern = cycle[state.boss.patternCycleIndex];
+    startPattern(nextPattern, true);
+  }
+
+  function syncBossStageByHp() {
+    const nextStage = getBossStageByHp();
+    if (nextStage === state.boss.stage) return;
+
+    state.boss.stage = nextStage;
+    state.boss.stageReached = nextStage;
+
+    phaseFlash();
+    playSfx('phase-up');
+    setBanner(`${getBossStageProfile(nextStage).label}`, 1200);
+    beginNextBossPattern(nextStage === 'B' ? 'break' : 'storm');
+  }
+
+  function clearWeakOnly() {
+    if (!state.boss.weakId) return;
+    const weak = state.items.get(state.boss.weakId);
+    if (weak) removeItem(weak);
+    state.boss.weakId = '';
+  }
+
+  function ensureWeakForPattern() {
     if (state.boss.weakId) return;
 
-    const profile = getBossProfile(state.boss.stage);
+    const stageProfile = getBossStageProfile(state.boss.stage);
     const r = stageRect();
-    const size = profile.weakSize;
+
+    const isBreak = state.boss.pattern === 'break';
+    const size = isBreak ? stageProfile.weakSizeBreak : stageProfile.weakSizeHunt;
+    const speed = isBreak ? stageProfile.weakSpeedBreak : stageProfile.weakSpeedHunt;
+
     const x = range(20, Math.max(22, r.width - size - 20));
     const y = range(150, Math.max(160, r.height - size - 40));
-    const speed = profile.weakSpeed;
 
-    const item = createItem('weak', '🎯', x, y, size, range(-speed, speed), range(-speed, speed), 'weak');
+    const item = createItem(
+      'weak',
+      isBreak ? '💥' : '🎯',
+      x,
+      y,
+      size,
+      range(-speed, speed),
+      range(-speed, speed),
+      isBreak ? 'break' : 'weak'
+    );
+
+    if (isBreak) item.el.classList.add('break');
     state.boss.weakId = item.id;
   }
 
   function retargetWeak(item) {
-    const profile = getBossProfile(state.boss.stage);
-    item.vx = range(-profile.weakSpeed, profile.weakSpeed);
-    item.vy = range(-profile.weakSpeed, profile.weakSpeed);
+    const stageProfile = getBossStageProfile(state.boss.stage);
+    const speed = state.boss.pattern === 'break' ? stageProfile.weakSpeedBreak : stageProfile.weakSpeedHunt;
+    item.vx = range(-speed, speed);
+    item.vy = range(-speed, speed);
   }
 
   function updateWeak(item, dt, r) {
@@ -1050,6 +1174,70 @@
     if (item.y + item.size >= r.height - 18) { item.y = r.height - item.size - 18; item.vy *= -1; }
 
     drawItem(item);
+  }
+
+  function updateBossPattern(dt) {
+    const stageProfile = getBossStageProfile(state.boss.stage);
+
+    if (state.boss.telegraphOn) {
+      state.boss.telegraphMs -= dt;
+      if (state.boss.telegraphMs <= 0) {
+        state.boss.telegraphOn = false;
+        ui.telegraph.classList.remove('show');
+
+        if (state.boss.pattern === 'storm') {
+          state.boss.stormBurstLeft = stageProfile.stormBurstCount;
+          state.boss.stormBurstGapMs = 0;
+        } else {
+          ensureWeakForPattern();
+        }
+      }
+      return;
+    }
+
+    state.boss.patternTimeLeft -= dt;
+
+    if (state.boss.pattern === 'hunt' || state.boss.pattern === 'break') {
+      ensureWeakForPattern();
+
+      state.boss.weakRetargetAcc += dt;
+      if (state.boss.weakRetargetAcc >= state.boss.weakRetargetMs) {
+        state.boss.weakRetargetAcc = 0;
+        const weak = state.boss.weakId ? state.items.get(state.boss.weakId) : null;
+        if (weak) retargetWeak(weak);
+      }
+    }
+
+    if (state.boss.pattern === 'storm') {
+      state.boss.stormWaveCooldown -= dt;
+
+      if (state.boss.stormWaveCooldown <= 0 && state.boss.stormBurstLeft <= 0) {
+        state.boss.stormBurstLeft = stageProfile.stormBurstCount;
+        state.boss.stormBurstGapMs = 0;
+        state.boss.stormWaveCooldown = stageProfile.stormWaveEvery;
+      }
+
+      if (state.boss.stormBurstLeft > 0) {
+        state.boss.stormBurstGapMs -= dt;
+        if (state.boss.stormBurstGapMs <= 0) {
+          spawnStormOne();
+          state.boss.stormBurstLeft -= 1;
+          state.boss.stormBurstGapMs = stageProfile.stormBurstGap;
+        }
+      }
+
+      ensureWeakForPattern();
+      state.boss.weakRetargetAcc += dt;
+      if (state.boss.weakRetargetAcc >= stageProfile.huntRetargetMs) {
+        state.boss.weakRetargetAcc = 0;
+        const weak = state.boss.weakId ? state.items.get(state.boss.weakId) : null;
+        if (weak) retargetWeak(weak);
+      }
+    }
+
+    if (state.boss.patternTimeLeft <= 0) {
+      beginNextBossPattern();
+    }
   }
 
   function enterPhase2() {
@@ -1068,23 +1256,19 @@
     state.boss.hp = cfg.bossHp;
     state.boss.maxHp = cfg.bossHp;
     state.boss.stage = 'A';
-    state.boss.pattern = 'learn';
-    state.boss.stormTelegraph = false;
-    state.boss.stormTelegraphMs = 0;
-    state.boss.pendingStormBurst = 0;
+    state.boss.stageReached = 'A';
+    state.boss.patternCycleIndex = -1;
+    state.boss.telegraphOn = false;
+    state.boss.telegraphMs = 0;
 
     clearItems();
     state.spawnAcc = 0;
-    state.stormAcc = 0;
-    state.telegraphAcc = 0;
-    state.weakRetargetAcc = 0;
-
-    setBossStage(true);
-    spawnWeak();
 
     phaseFlash();
     playSfx('phase-up');
     setBanner('Boss Phase • Junk King มาแล้ว!', 1600);
+
+    beginNextBossPattern('hunt');
     renderHud();
   }
 
@@ -1112,29 +1296,7 @@
         spawnFood(state.phase);
       }
     } else {
-      const profile = getBossProfile(state.boss.stage);
-
-      state.stormAcc += dt;
-      if (!state.boss.stormTelegraph && state.stormAcc >= profile.stormEvery) {
-        state.stormAcc = 0;
-        triggerStormTelegraph();
-      }
-
-      if (state.boss.stormTelegraph) {
-        state.boss.stormTelegraphMs -= dt;
-        if (state.boss.stormTelegraphMs <= 0) {
-          releaseStormBurst();
-        }
-      }
-
-      spawnWeak();
-
-      state.weakRetargetAcc += dt;
-      if (state.weakRetargetAcc >= profile.weakRetargetMs) {
-        state.weakRetargetAcc = 0;
-        const weak = state.boss.weakId ? state.items.get(state.boss.weakId) : null;
-        if (weak) retargetWeak(weak);
-      }
+      updateBossPattern(dt);
     }
 
     state.items.forEach((item) => {
@@ -1163,10 +1325,6 @@
       enterPhase2();
     } else if (!state.boss.active && state.phase === 2 && state.score >= cfg.p2Goal) {
       enterBoss();
-    }
-
-    if (state.boss.active) {
-      setBossStage();
     }
 
     renderHud();
@@ -1221,7 +1379,7 @@
 
     const stars = starsFromSummary(bossClear);
     const summary = {
-      source: 'goodjunk-solo-phaseboss-v3-abc-telegraph',
+      source: 'goodjunk-solo-phaseboss-v4-pattern-pack',
       gameId: ctx.gameId || 'goodjunk',
       mode: 'solo',
       pid: ctx.pid || 'anon',
@@ -1239,7 +1397,8 @@
       stormSpawned: state.spawnedStorm,
       bossDefeated: !!bossClear,
       phaseReached: state.boss.active ? 'boss' : `phase-${state.phase}`,
-      bossStageReached: state.boss.stage,
+      bossStageReached: state.boss.stageReached,
+      bossPatternLast: state.boss.pattern,
       updatedAt: Date.now()
     };
 
@@ -1259,7 +1418,7 @@
       <div class="gjsb-stat"><div class="k">Score</div><div class="v">${state.score}</div></div>
       <div class="gjsb-stat"><div class="k">Miss</div><div class="v">${state.miss}</div></div>
       <div class="gjsb-stat"><div class="k">Best Streak</div><div class="v">${state.bestStreak}</div></div>
-      <div class="gjsb-stat"><div class="k">Reached</div><div class="v">${bossClear ? 'Boss Clear' : (state.boss.active ? `Boss ${state.boss.stage}` : `Phase ${state.phase}`)}</div></div>
+      <div class="gjsb-stat"><div class="k">Reached</div><div class="v">${bossClear ? 'Boss Clear' : (state.boss.active ? `Boss ${state.boss.stageReached}` : `Phase ${state.phase}`)}</div></div>
       <div class="gjsb-stat"><div class="k">Good Hit</div><div class="v">${state.hitsGood}</div></div>
       <div class="gjsb-stat"><div class="k">Power Hit</div><div class="v">${state.powerHits}</div></div>
     `;
