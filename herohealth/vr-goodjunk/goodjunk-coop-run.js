@@ -660,7 +660,6 @@
 
   async function ensureSafeLayer() {
     if (W.CoopSafe || W.__GJ_COOP_SAFE_LOADED__) return;
-
     await loadScript('./goodjunk.safe.coop.js');
   }
 
