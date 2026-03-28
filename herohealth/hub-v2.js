@@ -1,4 +1,4 @@
-(function () {
+(() => {
   'use strict';
 
   const PASS_KEYS = [
@@ -7,7 +7,10 @@
     'studyId','phase','conditionGroup','sessionOrder','blockLabel',
     'siteCode','schoolYear','semester',
     'log','api','debug',
-    'grade','zone'
+    'grade','zone',
+    'room','pro','ai','sbUrl','sbAnon',
+    'planSeq','planDay','planSlot','planMode','planSlots','planIndex',
+    'autoNext','cdnext'
   ];
 
   const DEFAULT_PLAYER = {
@@ -27,38 +30,198 @@
     lastByZone: 'HHA_LAST_BY_ZONE'
   };
 
-  const GAMES = {
+  const MODE_LABELS = {
+    solo: '🎮 Solo',
+    pro: '🔥 PRO',
+    duet: '🧑‍🤝‍🧑 Duet',
+    race: '🏁 Race',
+    battle: '⚔️ Battle',
+    coop: '🤝 Co-op',
+    teacher: '🧑‍🏫 Teacher'
+  };
+
+  const GAME_CATALOG = {
     hygiene: {
       label: 'Hygiene Zone',
-      defaultUrl: './germ-detective.html',
-      options: [
-        { label: 'Germ Detective', sub: 'จับเชื้อโรคให้หมด', url: './germ-detective.html' },
-        { label: 'Handwash VR', sub: 'ล้างมือให้ครบขั้นตอน', url: './handwash-vr.html' },
-        { label: 'Brush VR', sub: 'แปรงฟันให้สะอาดสดใส', url: 'https://supparang.github.io/webxr-health-mobile/herohealth/brush-vr.html' },
-        { label: 'Mask & Cough', sub: 'ฝึกปิดปากและป้องกันเชื้อโรค', url: './maskcough-vr.html' },
-        { label: 'Bath VR', sub: 'อาบน้ำให้สะอาดและสนุก', url: './bath-vr.html' },
-        { label: 'Clean Objects', sub: 'เลือกของสะอาดให้ถูกต้อง', url: './clean-objects.html' }
+      defaultGameId: 'germdetective',
+      games: [
+        {
+          id: 'germdetective',
+          label: 'Germ Detective',
+          sub: 'จับเชื้อโรคให้หมด',
+          defaultMode: 'solo',
+          modeStrategy: 'single',
+          modes: [
+            { id:'solo', url:'./germ-detective.html' }
+          ]
+        },
+        {
+          id: 'handwash',
+          label: 'Handwash VR',
+          sub: 'ล้างมือให้ครบขั้นตอน',
+          defaultMode: 'solo',
+          modeStrategy: 'single',
+          modes: [
+            { id:'solo', url:'./hygiene-vr.html' }
+          ]
+        },
+        {
+          id: 'brush',
+          label: 'Brush VR',
+          sub: 'แปรงฟันให้สะอาดสดใส',
+          defaultMode: 'solo',
+          modeStrategy: 'single',
+          modes: [
+            { id:'solo', url:'./brush-vr.html' }
+          ]
+        },
+        {
+          id: 'maskcough',
+          label: 'Mask & Cough',
+          sub: 'ฝึกปิดปากและป้องกันเชื้อโรค',
+          defaultMode: 'solo',
+          modeStrategy: 'single',
+          modes: [
+            { id:'solo', url:'./maskcough-v2.html' }
+          ]
+        },
+        {
+          id: 'bath',
+          label: 'Bath VR',
+          sub: 'อาบน้ำให้สะอาดและสนุก',
+          defaultMode: 'solo',
+          modeStrategy: 'single',
+          modes: [
+            { id:'solo', url:'./bath-vr.html' }
+          ]
+        },
+        {
+          id: 'cleanobject',
+          label: 'Clean Objects',
+          sub: 'เลือกของสะอาดให้ถูกต้อง',
+          defaultMode: 'solo',
+          modeStrategy: 'single',
+          modes: [
+            { id:'solo', url:'./clean-objects.html' }
+          ]
+        }
       ]
     },
+
     nutrition: {
       label: 'Nutrition Zone',
-      defaultUrl: './plate-v1.html',
-      options: [
-        { label: 'Plate', sub: 'จัดจานอาหารให้ครบ 5 หมู่', url: './plate-v1.html' },
-        { label: 'Groups', sub: 'แยกอาหารตามหมู่', url: './group-v1.html' },
-        { label: 'GoodJunk VR', sub: 'เลือกอาหารดี หลบอาหารขยะ', url: './goodjunk-launcher.html' },
-        { label: 'Hydration VR', sub: 'ดื่มน้ำให้พอดีและดูแลร่างกาย', url: './hydration-vr.html' }
+      defaultGameId: 'plate',
+      games: [
+        {
+          id: 'plate',
+          label: 'Plate',
+          sub: 'จัดจานอาหารให้ครบ 5 หมู่',
+          defaultMode: 'solo',
+          modeStrategy: 'multimode',
+          modes: [
+            { id:'solo',   url:'./plate-vr.html' },
+            { id:'duet',   url:'./plate-vr.html' },
+            { id:'race',   url:'./plate-vr.html' },
+            { id:'battle', url:'./plate-vr.html' },
+            { id:'coop',   url:'./plate-vr.html' }
+          ]
+        },
+        {
+          id: 'groups',
+          label: 'Groups',
+          sub: 'แยกอาหารตามหมู่',
+          defaultMode: 'solo',
+          modeStrategy: 'multimode',
+          modes: [
+            { id:'solo',   url:'./groups-vr.html' },
+            { id:'duet',   url:'./groups-vr.html' },
+            { id:'race',   url:'./groups-vr.html' },
+            { id:'battle', url:'./groups-vr.html' },
+            { id:'coop',   url:'./groups-vr.html' }
+          ]
+        },
+        {
+          id: 'goodjunk',
+          label: 'GoodJunk VR',
+          sub: 'เลือกอาหารดี หลบอาหารขยะ',
+          defaultMode: 'solo',
+          modeStrategy: 'multimode',
+          modes: [
+            { id:'solo',   url:'./goodjunk-launcher.html' },
+            { id:'pro',    url:'./goodjunk-launcher.html' },
+            { id:'race',   url:'./goodjunk-launcher.html' },
+            { id:'battle', url:'./goodjunk-launcher.html' },
+            { id:'coop',   url:'./goodjunk-launcher.html' }
+          ]
+        },
+        {
+          id: 'hydration',
+          label: 'Hydration VR',
+          sub: 'ดื่มน้ำให้พอดีและดูแลร่างกาย',
+          defaultMode: 'solo',
+          modeStrategy: 'single',
+          modes: [
+            { id:'solo', url:'./hydration-vr.html' }
+          ]
+        }
       ]
     },
+
     fitness: {
       label: 'Fitness Zone',
-      defaultUrl: './shadow-breaker-vr.html',
-      options: [
-        { label: 'Shadow Breaker', sub: 'ต่อยเป้าให้แม่นและเร็ว', url: './shadow-breaker-vr.html' },
-        { label: 'Rhythm Boxer', sub: 'ชกตามจังหวะเพลง', url: './rhythm-boxer-vr.html' },
-        { label: 'Balance Hold', sub: 'ทรงตัวให้นานที่สุด', url: './balance-hold-vr.html' },
-        { label: 'JumpDuck', sub: 'กระโดดและก้มหลบให้ทัน', url: './jump-duck-vr.html' },
-        { label: 'Fitness Planner', sub: 'วางแผนออกกำลังกายแบบสนุก ๆ', url: './fitness-planner.html' }
+      defaultGameId: 'shadowbreaker',
+      games: [
+        {
+          id: 'shadowbreaker',
+          label: 'Shadow Breaker',
+          sub: 'ต่อยเป้าให้แม่นและเร็ว',
+          defaultMode: 'solo',
+          modeStrategy: 'multimode',
+          modes: [
+            { id:'solo',   url:'./shadow-breaker-vr.html' },
+            { id:'battle', url:'./shadow-breaker-vr.html' }
+          ]
+        },
+        {
+          id: 'rhythmboxer',
+          label: 'Rhythm Boxer',
+          sub: 'ชกตามจังหวะเพลง',
+          defaultMode: 'solo',
+          modeStrategy: 'single',
+          modes: [
+            { id:'solo', url:'./rhythm-boxer-vr.html' }
+          ]
+        },
+        {
+          id: 'balancehold',
+          label: 'Balance Hold',
+          sub: 'ทรงตัวให้นานที่สุด',
+          defaultMode: 'solo',
+          modeStrategy: 'single',
+          modes: [
+            { id:'solo', url:'./balance-hold-vr.html' }
+          ]
+        },
+        {
+          id: 'jumpduck',
+          label: 'JumpDuck',
+          sub: 'กระโดดและก้มหลบให้ทัน',
+          defaultMode: 'solo',
+          modeStrategy: 'single',
+          modes: [
+            { id:'solo', url:'./jump-duck-vr.html' }
+          ]
+        },
+        {
+          id: 'fitnessplanner',
+          label: 'Fitness Planner',
+          sub: 'วางแผนออกกำลังกายแบบสนุก ๆ',
+          defaultMode: 'solo',
+          modeStrategy: 'single',
+          modes: [
+            { id:'solo', url:'./fitness-planner.html' }
+          ]
+        }
       ]
     }
   };
@@ -71,6 +234,13 @@
 
   const qs = new URLSearchParams(location.search);
   const $ = (sel) => document.querySelector(sel);
+
+  let pickerState = {
+    zone: '',
+    kind: 'all',
+    gameId: '',
+    step: 'games'
+  };
 
   function clamp(n, min, max) {
     return Math.max(min, Math.min(max, n));
@@ -113,29 +283,36 @@
   }
 
   function zoneLabel(zone) {
-    return GAMES[zone]?.label || 'HeroHealth';
+    return GAME_CATALOG[zone]?.label || 'HeroHealth';
   }
 
-  function getDefaultOption(zone) {
-    const set = GAMES[zone];
-    if (!set) return null;
-    return set.options.find((item) => item.url === set.defaultUrl) || set.options[0] || null;
+  function getZoneGames(zone) {
+    return GAME_CATALOG[zone]?.games || [];
   }
 
-  function findOptionByUrl(zone, url) {
-    const set = GAMES[zone];
-    if (!set || !url) return null;
-    return set.options.find((item) => item.url === url) || null;
+  function getGame(zone, gameId) {
+    return getZoneGames(zone).find((g) => g.id === gameId) || null;
   }
 
-  function findOptionByName(zone, name) {
-    const set = GAMES[zone];
-    if (!set || !name) return null;
-    const target = String(name).trim().toLowerCase();
-    return set.options.find((item) => {
-      const label = String(item.label || '').toLowerCase();
-      const sub = String(item.sub || '').toLowerCase();
-      return label.includes(target) || target.includes(label) || sub.includes(target);
+  function getDefaultGame(zone) {
+    const cat = GAME_CATALOG[zone];
+    if (!cat) return null;
+    return getGame(zone, cat.defaultGameId) || cat.games[0] || null;
+  }
+
+  function getDefaultMode(game) {
+    if (!game) return null;
+    return game.modes.find((m) => m.id === game.defaultMode) || game.modes[0] || null;
+  }
+
+  function findGameByName(zone, name) {
+    const target = String(name || '').trim().toLowerCase();
+    if (!target) return null;
+    return getZoneGames(zone).find((g) => {
+      const label = String(g.label || '').toLowerCase();
+      const sub = String(g.sub || '').toLowerCase();
+      const id = String(g.id || '').toLowerCase();
+      return label.includes(target) || target.includes(label) || sub.includes(target) || id === target;
     }) || null;
   }
 
@@ -163,6 +340,26 @@
     });
 
     return u.toString();
+  }
+
+  function resolveModeUrl(zone, game, mode) {
+    if (!game || !mode) return '#';
+
+    const extra = { zone, game: game.id, mode: mode.id };
+
+    if (mode.id === 'pro') {
+      extra.mode = 'solo';
+      extra.pro = '1';
+      extra.diff = 'hard';
+      extra.auto = '0';
+    }
+
+    if (['race','battle','coop','duet'].includes(mode.id)) {
+      extra.room = String(qs.get('room') || `${String(game.id).toUpperCase()}-ROOM1`).trim();
+      extra.auto = '1';
+    }
+
+    return carryQuery(mode.url, extra);
   }
 
   function readProfile() {
@@ -237,16 +434,18 @@
       const zone = item.zone || zoneFromGameId(item.game || item.gameId || item.title || item.url || '');
       if (!zone) return;
 
-      const matched =
-        findOptionByUrl(zone, item.replayUrl || item.url || '') ||
-        findOptionByName(zone, item.title || item.game || item.gameId || '');
+      const game =
+        getGame(zone, String(item.game || item.gameId || '').toLowerCase()) ||
+        findGameByName(zone, item.title || item.game || item.gameId || '');
 
-      if (!matched) return;
+      if (!game) return;
 
+      const mode = getDefaultMode(game);
       map[zone] = {
         zone,
-        label: matched.label,
-        url: matched.url,
+        gameId: game.id,
+        label: game.label,
+        url: resolveModeUrl(zone, game, mode),
         score: fmtInt(item.score, 0),
         stars: clamp(fmtInt(item.stars, 0), 0, 3),
         time: item.timestampIso || item.time || item.date || ''
@@ -371,12 +570,11 @@
       const btnEl = $(btnSel);
       const recentPillEl = $(recentPillSel);
       const recentTextEl = $(recentTextSel);
-      const set = GAMES[zone];
-      const def = getDefaultOption(zone);
+      const def = getDefaultGame(zone);
       const recent = lastByZone[zone];
 
       if (featuredEl && def) featuredEl.textContent = def.label;
-      if (btnEl && set) btnEl.textContent = `ดูเกมในโซน (${set.options.length})`;
+      if (btnEl) btnEl.textContent = 'ดูเกมในโซน';
 
       if (recentPillEl && recentTextEl) {
         if (recent) {
@@ -405,15 +603,19 @@
 
     maps.forEach(([zone, hostSel]) => {
       const host = $(hostSel);
-      const set = GAMES[zone];
-      if (!host || !set) return;
+      const games = getZoneGames(zone);
+      if (!host || !games.length) return;
 
-      host.innerHTML = set.options.slice(0, 4).map((item) => `
-        <a class="zone-preview-item" href="${escapeHtml(carryQuery(item.url, { zone }))}">
-          <div class="pill">${escapeHtml(item.label)}</div>
-          <div class="zone-preview-label">${escapeHtml(item.sub)}</div>
-        </a>
-      `).join('');
+      host.innerHTML = games.slice(0, 4).map((game) => {
+        const mode = getDefaultMode(game);
+        const url = resolveModeUrl(zone, game, mode);
+        return `
+          <a class="zone-preview-item" href="${escapeHtml(url)}">
+            <div class="pill">${escapeHtml(game.label)}</div>
+            <div class="zone-preview-label">${escapeHtml(game.sub)}</div>
+          </a>
+        `;
+      }).join('');
     });
   }
 
@@ -437,7 +639,15 @@
     const coins = fmtInt(lastSummary.coins ?? lastSummary.rewardCoins, 0);
     const stars = clamp(fmtInt(lastSummary.stars, 0), 0, 3);
     const note = lastSummary.note || lastSummary.feedback || lastSummary.message || 'เก่งมาก! เล่นต่อได้เลย';
-    const replayUrl = lastSummary.replayUrl || lastSummary.url || GAMES[zone]?.defaultUrl || './hub-v2.html';
+
+    let replayUrl = lastSummary.replayUrl || lastSummary.url || '';
+    if (!replayUrl && zone) {
+      const game =
+        getGame(zone, String(lastSummary.game || lastSummary.gameId || '').toLowerCase()) ||
+        findGameByName(zone, title);
+      if (game) replayUrl = resolveModeUrl(zone, game, getDefaultMode(game));
+    }
+    if (!replayUrl) replayUrl = './hub-v2.html';
 
     box.innerHTML = `
       <div class="last-summary">
@@ -466,7 +676,7 @@
 
         <p class="last-meta">${escapeHtml(note)}</p>
 
-        <a class="btn primary" href="${escapeHtml(carryQuery(replayUrl, { zone }))}">
+        <a class="btn primary" href="${escapeHtml(replayUrl)}">
           ▶️ เล่นต่อ
         </a>
       </div>
@@ -477,25 +687,27 @@
     const box = $('#libraryBox');
     if (!box) return;
 
-    const cards = Object.entries(GAMES).map(([zone, set]) => {
-      const names = set.options.map((item) => item.label).join(' • ');
-      const def = getDefaultOption(zone);
+    const cards = Object.entries(GAME_CATALOG).map(([zone, set]) => {
+      const names = set.games.map((item) => item.label).join(' • ');
+      const def = getDefaultGame(zone);
+      const defMode = getDefaultMode(def);
       const recent = lastByZone[zone];
 
       return `
         <div class="library-card">
           <div class="library-top">
             <div class="library-name">${escapeHtml(set.label)}</div>
-            <div class="library-count">${set.options.length} เกม</div>
+            <div class="library-count">${set.games.length} เกม</div>
           </div>
 
           <div class="library-games">${escapeHtml(names)}</div>
 
           <div class="library-actions">
-            <a class="btn secondary small" href="${escapeHtml(carryQuery(def.url, { zone }))}">🎮 เล่นแนะนำ</a>
+            <button class="btn secondary small" type="button" data-open-zone="${escapeHtml(zone)}" data-open-kind="recommended">🎮 เล่นแนะนำ</button>
+            <button class="btn secondary small" type="button" data-open-zone="${escapeHtml(zone)}" data-open-kind="all">🗺️ ทุกเกม</button>
             ${
               recent
-                ? `<a class="btn secondary small" href="${escapeHtml(carryQuery(recent.url, { zone }))}">🕹️ เล่นล่าสุด</a>`
+                ? `<a class="btn secondary small" href="${escapeHtml(recent.url)}">🕹️ เล่นล่าสุด</a>`
                 : `<div class="library-empty">ยังไม่มีเกมล่าสุด</div>`
             }
           </div>
@@ -504,6 +716,12 @@
     }).join('');
 
     box.innerHTML = cards;
+
+    box.querySelectorAll('[data-open-zone]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        openPicker(btn.getAttribute('data-open-zone') || '', btn.getAttribute('data-open-kind') || 'all');
+      });
+    });
   }
 
   function toast(msg) {
@@ -515,9 +733,12 @@
     toast._t = setTimeout(() => el.classList.remove('show'), 1800);
   }
 
-  function bindTopButtons(profile) {
+  function bindTopButtons(profile, lastByZone) {
     const btnSettings = $('#btnSettings');
     const btnRewards = $('#btnRewards');
+    const btnQuickRecommended = $('#btnQuickRecommended');
+    const btnQuickRecent = $('#btnQuickRecent');
+    const btnQuickAllGames = $('#btnQuickAllGames');
 
     if (btnSettings) {
       btnSettings.addEventListener('click', () => {
@@ -530,44 +751,44 @@
         toast(`ตอนนี้มี ${profile.coins} เหรียญ และ ${profile.stars} ดาว`);
       });
     }
+
+    if (btnQuickRecommended) {
+      btnQuickRecommended.addEventListener('click', () => {
+        const zone = bestRecommendedZone(lastByZone);
+        openPicker(zone, 'recommended');
+      });
+    }
+
+    if (btnQuickRecent) {
+      btnQuickRecent.addEventListener('click', () => {
+        const recent = newestRecent(lastByZone);
+        if (recent?.url) {
+          location.href = recent.url;
+        } else {
+          toast('ยังไม่มีเกมล่าสุด ลองเริ่มเล่นสักเกมก่อนนะ');
+        }
+      });
+    }
+
+    if (btnQuickAllGames) {
+      btnQuickAllGames.addEventListener('click', () => {
+        openPicker('nutrition', 'all_zones');
+      });
+    }
   }
 
-  function openPicker(zone) {
-    const picker = $('#gamePicker');
-    const title = $('#pickerTitle');
-    const sub = $('#pickerSub');
-    const list = $('#pickerList');
-    const data = GAMES[zone];
+  function newestRecent(lastByZone) {
+    const items = Object.values(lastByZone || {}).filter(Boolean);
+    if (!items.length) return null;
+    items.sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')));
+    return items[0] || null;
+  }
 
-    if (!picker || !title || !sub || !list || !data) return;
-
-    title.textContent = data.label;
-    sub.textContent = `เลือกเกมใน ${data.label} ได้เลย`;
-
-    list.innerHTML = data.options.map((item) => {
-      const isFeatured = item.url === data.defaultUrl;
-      return `
-        <button class="picker-item" type="button" data-url="${escapeHtml(item.url)}" data-zone="${escapeHtml(zone)}">
-          <span class="picker-item-top">
-            <span class="name">${escapeHtml(item.label)}</span>
-            ${isFeatured ? '<span class="picker-badge">แนะนำ</span>' : ''}
-          </span>
-          <span class="sub">${escapeHtml(item.sub)}</span>
-        </button>
-      `;
-    }).join('');
-
-    list.querySelectorAll('.picker-item').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const url = btn.getAttribute('data-url');
-        const zoneValue = btn.getAttribute('data-zone');
-        closePicker();
-        location.href = carryQuery(url, { zone: zoneValue });
-      });
-    });
-
-    picker.classList.add('show');
-    picker.setAttribute('aria-hidden', 'false');
+  function bestRecommendedZone(lastByZone) {
+    if (!lastByZone.nutrition) return 'nutrition';
+    if (!lastByZone.hygiene) return 'hygiene';
+    if (!lastByZone.fitness) return 'fitness';
+    return 'nutrition';
   }
 
   function closePicker() {
@@ -575,6 +796,125 @@
     if (!picker) return;
     picker.classList.remove('show');
     picker.setAttribute('aria-hidden', 'true');
+  }
+
+  function openPicker(zone, kind = 'all') {
+    pickerState.zone = zone;
+    pickerState.kind = kind;
+    pickerState.gameId = '';
+    pickerState.step = 'games';
+    renderPickerGames();
+  }
+
+  function renderPickerGames() {
+    const picker = $('#gamePicker');
+    const title = $('#pickerTitle');
+    const sub = $('#pickerSub');
+    const list = $('#pickerList');
+    if (!picker || !title || !sub || !list) return;
+
+    const allZones = pickerState.kind === 'all_zones';
+
+    title.textContent = allZones ? 'คลังเกมทั้งหมด' : zoneLabel(pickerState.zone);
+    sub.textContent = allZones
+      ? 'เลือกโซนหรือเกมที่อยากเล่นได้เลย'
+      : pickerState.kind === 'recommended'
+        ? `เลือกเกมแนะนำใน ${zoneLabel(pickerState.zone)}`
+        : `เลือกเกมใน ${zoneLabel(pickerState.zone)} ได้เลย`;
+
+    let games = [];
+    if (allZones) {
+      Object.entries(GAME_CATALOG).forEach(([zone, cat]) => {
+        cat.games.forEach((g) => games.push({ ...g, __zone: zone }));
+      });
+    } else {
+      games = getZoneGames(pickerState.zone).map((g) => ({ ...g, __zone: pickerState.zone }));
+      if (pickerState.kind === 'recommended') {
+        const recommended = getDefaultGame(pickerState.zone);
+        games = recommended ? [recommended].map((g) => ({ ...g, __zone: pickerState.zone })) : games;
+      }
+      if (pickerState.kind === 'recent') {
+        const recent = readLastByZone()[pickerState.zone];
+        if (recent) {
+          const game = getGame(pickerState.zone, recent.gameId);
+          games = game ? [{ ...game, __zone: pickerState.zone }] : games;
+        }
+      }
+    }
+
+    list.innerHTML = games.map((game) => `
+      <button class="picker-item" type="button" data-game-id="${escapeHtml(game.id)}" data-zone="${escapeHtml(game.__zone)}">
+        <span class="picker-item-top">
+          <span class="name">${escapeHtml(game.label)}</span>
+          <span class="picker-badge">${escapeHtml(zoneLabel(game.__zone))}</span>
+        </span>
+        <span class="sub">${escapeHtml(game.sub)}</span>
+      </button>
+    `).join('');
+
+    list.querySelectorAll('.picker-item').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        pickerState.zone = btn.getAttribute('data-zone') || pickerState.zone;
+        pickerState.gameId = btn.getAttribute('data-game-id') || '';
+        pickerState.step = 'modes';
+        renderPickerModes();
+      });
+    });
+
+    picker.classList.add('show');
+    picker.setAttribute('aria-hidden', 'false');
+  }
+
+  function renderPickerModes() {
+    const picker = $('#gamePicker');
+    const title = $('#pickerTitle');
+    const sub = $('#pickerSub');
+    const list = $('#pickerList');
+    if (!picker || !title || !sub || !list) return;
+
+    const game = getGame(pickerState.zone, pickerState.gameId);
+    if (!game) {
+      renderPickerGames();
+      return;
+    }
+
+    title.textContent = game.label;
+    sub.textContent = `${game.sub} • เลือกโหมดที่อยากเล่นได้เลย`;
+
+    list.innerHTML = game.modes.map((mode) => `
+      <button class="picker-item" type="button" data-mode-id="${escapeHtml(mode.id)}">
+        <span class="picker-item-top">
+          <span class="name">${escapeHtml(MODE_LABELS[mode.id] || mode.id)}</span>
+          ${mode.id === game.defaultMode ? '<span class="picker-badge">แนะนำ</span>' : ''}
+        </span>
+        <span class="sub">${escapeHtml(game.label)} • ${escapeHtml(zoneLabel(pickerState.zone))}</span>
+      </button>
+    `).join('');
+
+    const backBtn = document.createElement('button');
+    backBtn.type = 'button';
+    backBtn.className = 'picker-item';
+    backBtn.innerHTML = `
+      <span class="picker-item-top">
+        <span class="name">⬅ กลับไปเลือกเกม</span>
+      </span>
+      <span class="sub">ย้อนกลับไปยังรายการเกม</span>
+    `;
+    backBtn.addEventListener('click', renderPickerGames);
+    list.appendChild(backBtn);
+
+    list.querySelectorAll('[data-mode-id]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const modeId = btn.getAttribute('data-mode-id') || '';
+        const mode = game.modes.find((m) => m.id === modeId);
+        if (!mode) return;
+        closePicker();
+        location.href = resolveModeUrl(pickerState.zone, game, mode);
+      });
+    });
+
+    picker.classList.add('show');
+    picker.setAttribute('aria-hidden', 'false');
   }
 
   function bindPicker() {
@@ -585,24 +925,34 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closePicker();
     });
+
+    $('#pickerShowRecommended')?.addEventListener('click', () => {
+      if (!pickerState.zone) pickerState.zone = 'nutrition';
+      pickerState.kind = 'recommended';
+      renderPickerGames();
+    });
+
+    $('#pickerShowAllModes')?.addEventListener('click', () => {
+      if (pickerState.step === 'modes') return;
+      pickerState.kind = 'all';
+      renderPickerGames();
+    });
+
+    $('#pickerShowRecent')?.addEventListener('click', () => {
+      if (!pickerState.zone) pickerState.zone = 'nutrition';
+      pickerState.kind = 'recent';
+      renderPickerGames();
+    });
   }
 
   function bindZoneLinks() {
-    const playHyg = $('#btnPlayHygiene');
-    const playNut = $('#btnPlayNutrition');
-    const playFit = $('#btnPlayFitness');
-
-    const zoneHyg = $('#btnZoneHygiene');
-    const zoneNut = $('#btnZoneNutrition');
-    const zoneFit = $('#btnZoneFitness');
-
-    if (playHyg) playHyg.href = carryQuery(GAMES.hygiene.defaultUrl, { zone: 'hygiene' });
-    if (playNut) playNut.href = carryQuery(GAMES.nutrition.defaultUrl, { zone: 'nutrition' });
-    if (playFit) playFit.href = carryQuery(GAMES.fitness.defaultUrl, { zone: 'fitness' });
-
-    if (zoneHyg) zoneHyg.addEventListener('click', () => openPicker('hygiene'));
-    if (zoneNut) zoneNut.addEventListener('click', () => openPicker('nutrition'));
-    if (zoneFit) zoneFit.addEventListener('click', () => openPicker('fitness'));
+    document.querySelectorAll('[data-open-zone]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const zone = btn.getAttribute('data-open-zone') || '';
+        const kind = btn.getAttribute('data-open-kind') || 'all';
+        openPicker(zone, kind);
+      });
+    });
   }
 
   function mergeSummaryIntoProfile(profile, lastSummary) {
@@ -645,7 +995,7 @@
     renderLastSummary(lastSummary);
     renderLibraryBox(lastByZone);
     bindZoneLinks();
-    bindTopButtons(profile);
+    bindTopButtons(profile, lastByZone);
     bindPicker();
   }
 
