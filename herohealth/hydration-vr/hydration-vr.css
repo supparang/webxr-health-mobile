@@ -31,8 +31,6 @@
   --radius-lg:22px;
   --radius-md:18px;
   --radius-sm:14px;
-
-  --topbar-h:0px;
 }
 
 *{ box-sizing:border-box; }
@@ -141,13 +139,7 @@ button{ -webkit-tap-highlight-color:transparent; }
   border-radius:14px;
 }
 
-.warn{
-  background:linear-gradient(180deg, #fb7185, #ef4444);
-  color:#fff;
-}
-
-.is-hidden,
-.hidden{
+.is-hidden{
   display:none !important;
 }
 
@@ -339,11 +331,13 @@ button{ -webkit-tap-highlight-color:transparent; }
     radial-gradient(circle at 30% 10%, rgba(255,255,255,.13), transparent 12%),
     radial-gradient(circle at 80% 20%, rgba(167,139,250,.12), transparent 14%);
 }
+
 .stage.boss-2::before{
   background:
     radial-gradient(circle at 18% 12%, rgba(96,165,250,.12), transparent 14%),
     radial-gradient(circle at 82% 18%, rgba(167,139,250,.14), transparent 16%);
 }
+
 .stage.boss-3::before{
   background:
     radial-gradient(circle at 20% 10%, rgba(244,114,182,.14), transparent 16%),
@@ -453,6 +447,7 @@ button{ -webkit-tap-highlight-color:transparent; }
   box-shadow:0 0 12px rgba(255,255,255,.20);
   border-radius:999px;
 }
+
 .centerCrosshair::before{
   left:50%;
   top:4px;
@@ -460,6 +455,7 @@ button{ -webkit-tap-highlight-color:transparent; }
   width:2px;
   height:30px;
 }
+
 .centerCrosshair::after{
   top:50%;
   left:4px;
@@ -550,18 +546,10 @@ button{ -webkit-tap-highlight-color:transparent; }
   transform:scale(1);
 }
 
-.bossFace.b1{
-  background:linear-gradient(180deg, rgba(59,130,246,.34), rgba(2,6,23,.72));
-}
-.bossFace.b2{
-  background:linear-gradient(180deg, rgba(167,139,250,.34), rgba(2,6,23,.72));
-}
-.bossFace.b3{
-  background:linear-gradient(180deg, rgba(244,114,182,.28), rgba(2,6,23,.72));
-}
-.bossFace.final{
-  background:linear-gradient(180deg, rgba(250,204,21,.30), rgba(2,6,23,.72));
-}
+.bossFace.b1{ background:linear-gradient(180deg, rgba(59,130,246,.34), rgba(2,6,23,.72)); }
+.bossFace.b2{ background:linear-gradient(180deg, rgba(167,139,250,.34), rgba(2,6,23,.72)); }
+.bossFace.b3{ background:linear-gradient(180deg, rgba(244,114,182,.28), rgba(2,6,23,.72)); }
+.bossFace.final{ background:linear-gradient(180deg, rgba(250,204,21,.30), rgba(2,6,23,.72)); }
 
 .coach-panel{
   display:grid;
@@ -644,9 +632,7 @@ button{ -webkit-tap-highlight-color:transparent; }
   box-shadow:var(--shadow);
 }
 
-.debugMini strong{
-  color:#fff;
-}
+.debugMini strong{ color:#fff; }
 
 .overlay{
   position:fixed;
@@ -659,9 +645,7 @@ button{ -webkit-tap-highlight-color:transparent; }
   z-index:50;
 }
 
-.overlay[aria-hidden="true"]{
-  display:none;
-}
+.overlay[aria-hidden="true"]{ display:none; }
 
 .dialog{
   width:min(760px,100%);
@@ -849,13 +833,8 @@ button{ -webkit-tap-highlight-color:transparent; }
   100%{ opacity:0; transform:translate(-50%,-120%) scale(1.02); }
 }
 
-.fx-pop{
-  animation:bubble-pop .20s ease forwards;
-}
-
-.fx-bad{
-  animation:bubble-bad .22s ease forwards;
-}
+.fx-pop{ animation:bubble-pop .20s ease forwards; }
+.fx-bad{ animation:bubble-bad .22s ease forwards; }
 
 @keyframes bubble-pop{
   0%{ transform:translate(-50%,-50%) scale(1); opacity:1; }
@@ -888,8 +867,7 @@ button{ -webkit-tap-highlight-color:transparent; }
   width:6px;
   height:72%;
   border-radius:999px;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.95), rgba(125,211,252,.70), rgba(255,255,255,0));
+  background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(125,211,252,.70), rgba(255,255,255,0));
   pointer-events:none;
   z-index:17;
   filter:drop-shadow(0 0 12px rgba(255,255,255,.65));
@@ -902,9 +880,7 @@ button{ -webkit-tap-highlight-color:transparent; }
   100%{ opacity:0; transform:scaleY(1); }
 }
 
-.fx-shake{
-  animation:stage-shake .22s linear;
-}
+.fx-shake{ animation:stage-shake .22s linear; }
 
 @keyframes stage-shake{
   0%{ transform:translate(0,0); }
@@ -990,21 +966,12 @@ button{ -webkit-tap-highlight-color:transparent; }
     border-radius:18px;
   }
 
-  .hud-label{
-    font-size:12px;
-  }
+  .hud-label{ font-size:12px; }
+  .hud-value{ font-size:20px; }
 
-  .hud-value{
-    font-size:20px;
-  }
+  .phase-card{ grid-column:span 3; }
 
-  .phase-card{
-    grid-column:span 3;
-  }
-
-  .mini-status-row{
-    gap:8px;
-  }
+  .mini-status-row{ gap:8px; }
 
   .mini-pill{
     width:100%;
@@ -1043,15 +1010,6 @@ button{ -webkit-tap-highlight-color:transparent; }
     width:34px;
     height:34px;
     opacity:.48;
-  }
-
-  .coach-main,
-  .risk-card,
-  .mission-chip,
-  .mission-title,
-  .dialog,
-  .endBox{
-    border-radius:20px;
   }
 
   .dialog{
