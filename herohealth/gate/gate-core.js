@@ -1,9 +1,9 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260327-GATE-SHADOWBREAKER-CDNEXT-SUMMARY
+// FULL PATCH v20260328-GATE-SHADOWBREAKER-SUMMARYHREF-CDNEXT-HARDENED
 
-import * as GateGames from './gate-games.js?v=20260319a-GATE-GAMES-GOODJUNK-HARDFIX';
+import * as GateGames from './gate-games.js?v=20260328c-GATE-GAMES-GOODJUNK-SHADOWBREAKER-COMPAT';
 
-const PATCH = 'v20260327-GATE-SHADOWBREAKER-CDNEXT-SUMMARY';
+const PATCH = 'v20260328-GATE-SHADOWBREAKER-SUMMARYHREF-CDNEXT-HARDENED';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -644,12 +644,18 @@ function resolveHubHref(ctx) {
   }
 }
 
-function resolveCooldownNextHref(ctx) {
+function resolveSummaryHref(ctx, payload = {}) {
+  const fromPayload = resolveAbsoluteUrl(String(payload?.summaryHref || '').trim());
+  if (fromPayload) {
+    console.log('[GATE] resolveSummaryHref via payload', fromPayload);
+    return fromPayload;
+  }
+
   const rawCdNext = String(ctx.params.get('cdnext') || '').trim();
   if (rawCdNext) {
     const href = resolveAbsoluteUrl(rawCdNext);
     if (href) {
-      console.log('[GATE] resolveCooldownNextHref via cdnext', href);
+      console.log('[GATE] resolveSummaryHref via cdnext', href);
       return href;
     }
   }
@@ -662,7 +668,7 @@ function resolveCooldownNextHref(ctx) {
     const hubHref = resolveHubHref(ctx);
     if (hubHref) url.searchParams.set('hub', hubHref);
 
-    console.log('[GATE] resolveCooldownNextHref via meta summary', url.href);
+    console.log('[GATE] resolveSummaryHref via meta summary', url.href);
     return url.href;
   }
 
@@ -695,11 +701,12 @@ function goHub(ctx) {
   location.href = href;
 }
 
-function goCooldownNext(ctx) {
-  const href = resolveCooldownNextHref(ctx);
-  console.log('[GATE] goCooldownNext ->', href, {
+function goSummary(ctx, payload = {}) {
+  const href = resolveSummaryHref(ctx, payload);
+  console.log('[GATE] goSummary ->', href, {
     game: ctx.game,
     phase: ctx.phase,
+    payloadSummaryHref: payload?.summaryHref || '',
     cdnext: ctx.params.get('cdnext') || '',
     search: location.search
   });
@@ -885,12 +892,12 @@ function showAlreadyDone(stage, footer, ctx) {
     );
 
     setActions(footer, [
-      { label: 'ไปหน้าสรุป', primary: true, onClick: () => goCooldownNext(ctx) },
+      { label: 'ไปหน้าสรุป', primary: true, onClick: () => goSummary(ctx) },
       { label: 'กลับ HUB', onClick: () => goHub(ctx) }
     ]);
 
     setTimeout(() => {
-      goCooldownNext(ctx);
+      goSummary(ctx);
     }, 450);
     return;
   }
@@ -1007,6 +1014,16 @@ export async function bootGate(root = document.getElementById('gate-app')) {
         return;
       }
 
+      const resolvedSummaryHref = resolveSummaryHref(ctx, payload);
+
+      console.log('[GATE] cooldown complete', {
+        game: ctx.game,
+        phase: ctx.phase,
+        cdnext: ctx.params.get('cdnext') || '',
+        payloadSummaryHref: payload?.summaryHref || '',
+        resolvedSummaryHref
+      });
+
       saveLastSummary({
         source: 'gate-core',
         phase: ctx.phase,
@@ -1018,18 +1035,29 @@ export async function bootGate(root = document.getElementById('gate-app')) {
         seed: ctx.seed,
         view: ctx.view,
         patch: PATCH,
-        payload
+        payload,
+        summaryHref: resolvedSummaryHref
       });
 
       renderInfo(stage, title, subtitle, extra);
 
+      if (resolvedSummaryHref) {
+        setActions(footer, [
+          { label: 'ไปหน้าสรุป', primary: true, onClick: () => goSummary(ctx, payload) },
+          { label: 'กลับ HUB', onClick: () => goHub(ctx) }
+        ]);
+
+        await delay(180);
+        location.href = resolvedSummaryHref;
+        return;
+      }
+
       setActions(footer, [
-        { label: 'ไปหน้าสรุป', primary: true, onClick: () => goCooldownNext(ctx) },
-        { label: 'กลับ HUB', onClick: () => goHub(ctx) }
+        { label: 'กลับ HUB', primary: true, onClick: () => goHub(ctx) }
       ]);
 
       await delay(250);
-      goCooldownNext(ctx);
+      goHub(ctx);
       return;
     },
 
@@ -1060,8 +1088,8 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       return goHub(ctx);
     },
 
-    goCooldownNext() {
-      return goCooldownNext(ctx);
+    goSummary(payload = {}) {
+      return goSummary(ctx, payload);
     }
   };
 
