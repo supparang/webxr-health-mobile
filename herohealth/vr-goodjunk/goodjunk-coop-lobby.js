@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-coop-lobby.js ===
 // GoodJunk Coop Lobby
-// FULL PATCH v20260320-COOP-LOBBY-READY2-MAX10-QR
+// FULL PATCH v20260328-COOP-LOBBY-RUNLOCK-PRESERVE-SCORE
 
 const params = new URLSearchParams(location.search);
 
@@ -300,8 +300,11 @@ function sanitizeRoom(r) {
       lastSeenAt: Number(p.lastSeenAt || now()),
       finished: !!p.finished,
       finalScore: Number(p.finalScore || 0),
+      score: Number(p.score || 0),
+      contribution: Number(p.contribution || p.score || p.finalScore || 0),
       miss: Number(p.miss || 0),
       streak: Number(p.streak || 0),
+      helps: Number(p.helps || 0),
       phase: String(p.phase || 'lobby').trim(),
       connected: p.connected !== false
     }))
@@ -383,8 +386,11 @@ function roomToFirebase(r) {
       lastSeenAt: Number(p.lastSeenAt || now()),
       finished: !!p.finished,
       finalScore: Number(p.finalScore || 0),
+      score: Number(p.score || 0),
+      contribution: Number(p.contribution || p.score || p.finalScore || 0),
       miss: Number(p.miss || 0),
       streak: Number(p.streak || 0),
+      helps: Number(p.helps || 0),
       phase: String(p.phase || 'lobby'),
       connected: p.connected !== false
     };
@@ -554,7 +560,10 @@ function runCountdown(startAt) {
       countdownRunning = false;
       countdownStartAt = 0;
 
-      if (roomRef) {
+      const participant = amIMatchParticipant(room);
+      const host = isHost(room);
+
+      if (host && roomRef) {
         roomRef.update({
           status: 'running',
           updatedAt: now(),
@@ -562,9 +571,13 @@ function runCountdown(startAt) {
         }).catch(() => {});
       }
 
-      window.setTimeout(() => {
-        enterRun(startAt);
-      }, 250);
+      if (participant) {
+        window.setTimeout(() => {
+          enterRun(startAt);
+        }, 250);
+      } else {
+        setHint('รอบนี้เริ่มแล้ว แต่คุณไม่ได้อยู่ใน participant ของรอบนี้');
+      }
       return;
     }
 
@@ -648,6 +661,12 @@ async function maybeRepairRoomIfNeeded(cur) {
   const me = cur.players.find((p) => p.id === ctx.pid);
   if (!me || me.connected === false) return;
 
+  const hostAlive = cur.players.some((p) => p.id === cur.hostId && p.connected !== false);
+  const oldestConnectedId = pickNextHostId(cur, '');
+  const iMayRepair = (ctx.pid === cur.hostId) || (!hostAlive && ctx.pid === oldestConnectedId);
+
+  if (!iMayRepair) return;
+
   const next = clone(cur);
   let changed = false;
   const ts = now();
@@ -670,15 +689,17 @@ async function maybeRepairRoomIfNeeded(cur) {
     }
   }
 
-  const repaired = maybeResetCountdownIfHostMissing(next);
-  if (repaired.status !== next.status || repaired.startAt !== next.startAt) changed = true;
+  const beforeStatus = next.status;
+  const beforeStartAt = next.startAt;
+  maybeResetCountdownIfHostMissing(next);
+  if (beforeStatus !== next.status || beforeStartAt !== next.startAt) changed = true;
 
-  if (repaired.status === 'waiting' && repaired.match?.status !== 'idle') {
-    clearMatchState(repaired);
+  if (next.status === 'waiting' && next.match?.status !== 'idle') {
+    clearMatchState(next);
     changed = true;
   }
 
-  if (!repaired.players.length) {
+  if (!next.players.length) {
     repairBusy = true;
     try { await roomRef.remove(); }
     finally { repairBusy = false; }
@@ -688,7 +709,7 @@ async function maybeRepairRoomIfNeeded(cur) {
   if (!changed) return;
 
   repairBusy = true;
-  try { await roomRef.set(roomToFirebase(repaired)); }
+  try { await roomRef.set(roomToFirebase(next)); }
   finally { repairBusy = false; }
 }
 
@@ -752,8 +773,11 @@ async function ensureJoined() {
     lastSeenAt: now(),
     finished: !!existing?.finished,
     finalScore: Number(existing?.finalScore || 0),
+    score: Number(existing?.score || 0),
+    contribution: Number(existing?.contribution || existing?.score || existing?.finalScore || 0),
     miss: Number(existing?.miss || 0),
     streak: Number(existing?.streak || 0),
+    helps: Number(existing?.helps || 0),
     phase: String(existing?.phase || 'lobby'),
     connected: true
   };
@@ -865,7 +889,7 @@ async function enterRun(startAt) {
     startAt: String(startAt || now())
   });
 
-  location.href = `./goodjunk-coop-run.html?v=20260320-coop-lobby-ready2-max10-qr&${q.toString()}`;
+  location.href = `./goodjunk-coop-run.html?v=20260328-coop-engine-r1&${q.toString()}`;
 }
 
 async function leaveRoom() {
@@ -890,17 +914,44 @@ async function leaveRoom() {
     next.hostId = pickNextHostId(next, '');
   }
 
-  if (next.status !== 'waiting') {
-    next.status = 'waiting';
-    next.startAt = null;
+  if (next.status === 'waiting') {
     clearMatchState(next);
-    next.players = next.players.map((p) => ({
-      ...p,
-      ready: false,
-      phase: 'lobby'
-    }));
-  } else {
-    clearMatchState(next);
+    await roomRef.set(roomToFirebase(next));
+    return;
+  }
+
+  if (next.status === 'countdown' || next.status === 'running') {
+    const keepIds = getMatchParticipantIds(next).filter((id) => remaining.some((p) => p.id === id));
+    next.match.participantIds = keepIds;
+    const enough = keepIds.length >= (next.minPlayers || 2);
+
+    if (!enough) {
+      next.status = 'waiting';
+      next.startAt = null;
+      clearMatchState(next);
+      next.players = next.players.map((p) => ({
+        ...p,
+        ready: false,
+        phase: 'lobby',
+        finished: false,
+        finalScore: 0,
+        score: 0,
+        contribution: 0,
+        miss: 0,
+        streak: 0,
+        helps: 0
+      }));
+    } else {
+      next.match.status = next.status === 'countdown' ? 'countdown' : 'running';
+    }
+
+    await roomRef.set(roomToFirebase(next));
+    return;
+  }
+
+  if (next.status === 'finished') {
+    await roomRef.set(roomToFirebase(next));
+    return;
   }
 
   await roomRef.set(roomToFirebase(next));
