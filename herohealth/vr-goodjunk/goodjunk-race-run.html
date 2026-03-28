@@ -920,10 +920,12 @@
     const CORE_CANDIDATES = dedupe([
       clean(qs('core')),
       ...parseList(qs('coreCandidates')),
+      './goodjunk.safe.race.js',
       './goodjunk.safe.js',
       './goodjunk.js',
       './goodjunk-run.js',
       './goodjunk.safe.run.js',
+      './js/goodjunk.safe.race.js',
       './js/goodjunk.safe.js',
       './js/goodjunk.js',
       './js/goodjunk-run.js',
@@ -1055,7 +1057,7 @@
 
     function buildVersionedUrl(src) {
       const u = new URL(src, location.href);
-      u.searchParams.set('v', '20260327-gjr-shell-quickstart2');
+      u.searchParams.set('v', '20260328-gjr-shell-corefix');
       return u.toString();
     }
 
@@ -1297,11 +1299,11 @@
     function addSummaryItem(label, value) {
       if (value === '' || value === null || value === undefined) return '';
       return `
-        <div class="summary-item">
-          <div class="summary-label">${label}</div>
-          <div class="summary-value">${String(value)}</div>
-        </div>
-      `;
+          <div class="summary-item">
+            <div class="summary-label">${label}</div>
+            <div class="summary-value">${String(value)}</div>
+          </div>
+        `;
     }
 
     function renderSummaryStars(n) {
@@ -1533,6 +1535,9 @@
         `[WAIT] ${runCtx.wait}`,
         `[HOST] ${runCtx.host}`,
         `[USE_CONTROLLER] ${WANT_RACE_CONTROLLER ? 'yes' : 'no'}`,
+        '',
+        '[SAFE CANDIDATES]',
+        ...SAFE_LAYER_CANDIDATES,
         '',
         '[CORE CANDIDATES]',
         ...CORE_CANDIDATES,
