@@ -1,184 +1,370 @@
 // === /herohealth/gate/games/shadowbreaker/warmup.js ===
-// FULL PATCH v20260327c-SHADOWBREAKER-WARMUP-GATECORE-COMPAT
+// Shadow Breaker Warmup
+// FULL PATCH v20260328-SB-WARMUP-CHILD-FRIENDLY
 
-export default function mountShadowbreakerWarmup(mountRoot, ctx = {}, api = {}) {
-  const mount =
-    mountRoot ||
-    document.getElementById('gateGameMount') ||
-    ctx?.mountRoot ||
-    ctx?.root ||
-    api?.mountRoot ||
-    api?.root;
+export default async function mountShadowBreakerWarmup(root, ctx = {}, api = {}) {
+  const D = document;
+  const q = ctx?.params || new URLSearchParams(location.search);
 
-  if (!mount) {
-    console.warn('[shadowbreaker warmup] mount root not found');
-    return null;
-  }
+  const pid = String(ctx?.pid || q.get('pid') || 'anon').trim() || 'anon';
+  const targetHits = 6;
 
-  let hits = 0;
-  let remain = 15;
-  let timer = null;
-  let started = false;
-  let finished = false;
+  ensureStyle();
 
-  function pushStats() {
-    try {
-      api?.setStats?.({
-        time: remain,
-        score: hits,
-        miss: 0,
-        acc: hits > 0 ? '100%' : '0%'
-      });
-    } catch (_) {}
-  }
+  root.innerHTML = `
+    <div class="sbwu-wrap">
+      <div class="sbwu-stage">
+        <div class="sbwu-cloud c1"></div>
+        <div class="sbwu-cloud c2"></div>
+        <div class="sbwu-cloud c3"></div>
 
-  function complete(detail = {}) {
-    if (finished) return;
-    finished = true;
+        <div class="sbwu-card">
+          <div class="sbwu-kicker">HeroHealth Gate • Warmup</div>
+          <h2 class="sbwu-title">อุ่นเครื่องก่อนลุยบอส</h2>
+          <p class="sbwu-sub">
+            แตะดาวให้ครบ <b>${targetHits}</b> ครั้ง เพื่อเตรียมตัวก่อนเข้า Shadow Breaker
+          </p>
 
-    if (timer) {
-      clearInterval(timer);
-      timer = null;
-    }
+          <div class="sbwu-player">ผู้เล่น: <b>${escapeHtml(pid)}</b></div>
 
-    const buffPct = Math.min(15, 5 + Math.floor(hits / 4));
+          <div class="sbwu-progress">
+            <div class="sbwu-progress-bar">
+              <div class="sbwu-progress-fill" id="sbwuProgressFill"></div>
+            </div>
+            <div class="sbwu-progress-note" id="sbwuProgressNote">แตะแล้ว 0 / ${targetHits}</div>
+          </div>
 
-    const payload = {
-      ok: true,
-      phase: 'warmup',
-      game: 'shadowbreaker',
-      score: hits,
-      title: 'Warmup เสร็จแล้ว',
-      subtitle: 'พร้อมเข้าเกมหลักแล้ว ไปสู้กับบอสกันเลย',
-      lines: [
-        `แตะดาวได้ ${hits} ครั้ง`,
-        `ได้บัฟเริ่มต้น +${buffPct}%`
-      ],
-      buff: {
-        wType: 'shadow',
-        wPct: buffPct
-      },
-      ...detail
-    };
+          <div class="sbwu-playbox" id="sbwuPlaybox">
+            <button id="sbwuTarget" class="sbwu-target" type="button" aria-label="แตะดาว">⭐</button>
+          </div>
 
-    window.__GATE_PHASE_RESULT__ = payload;
+          <div class="sbwu-tip" id="sbwuTip">แตะดาวเมื่อพร้อมได้เลย</div>
 
-    try {
-      mount.dispatchEvent(new CustomEvent('gate:complete', {
-        bubbles: true,
-        detail: payload
-      }));
-    } catch (err) {
-      console.warn('[shadowbreaker warmup] dispatch gate:complete failed', err);
-      try { api?.complete?.(payload); } catch (_) {}
-    }
-  }
-
-  function startTimer() {
-    if (started || finished) return;
-    started = true;
-
-    try {
-      api?.setTitle?.('Shadow Breaker Warmup');
-      api?.setSub?.('แตะดาวให้ได้มากที่สุดก่อนเข้าเล่น');
-    } catch (_) {}
-
-    timer = setInterval(() => {
-      if (finished) return;
-
-      remain -= 1;
-
-      const remainEl = document.getElementById('sbWarmRemain');
-      if (remainEl) remainEl.textContent = String(Math.max(0, remain));
-
-      pushStats();
-
-      if (remain <= 0) {
-        complete();
-      }
-    }, 1000);
-  }
-
-  function render() {
-    mount.innerHTML = `
-      <div class="sb-mini-card" style="padding:16px;">
-        <div style="font-size:14px;font-weight:900;color:#94a3b8;">Shadow Breaker • Warmup</div>
-        <h2 style="margin:8px 0 6px;">อุ่นเครื่องก่อนลุยบอส</h2>
-        <div style="color:#94a3b8;font-weight:800;line-height:1.5;">
-          แตะดาวให้ได้มากที่สุดภายใน <span id="sbWarmRemain">${remain}</span> วินาที
-        </div>
-
-        <div style="display:grid;place-items:center;margin-top:16px;">
-          <button id="sbWarmTap"
-            type="button"
-            aria-label="Tap star"
-            style="width:140px;height:140px;border-radius:999px;border:0;font-size:54px;cursor:pointer;background:rgba(59,130,246,.18);box-shadow:0 18px 36px rgba(0,0,0,.24);transition:transform .08s ease;">
-            ⭐
-          </button>
-        </div>
-
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
-          <div style="padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.56);font-weight:900;">แตะได้: <span id="sbWarmHits">${hits}</span></div>
-          <div style="padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.56);font-weight:900;">เป้าหมาย: 20+</div>
-        </div>
-
-        <div style="margin-top:12px;color:#94a3b8;font-size:.9rem;font-weight:800;line-height:1.5;">
-          เคล็ดลับ: แตะไว ๆ แบบสม่ำเสมอ จะได้บัฟก่อนเข้าเล่น
-        </div>
-
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
-          <button id="sbWarmSkip" type="button"
-            style="min-height:42px;padding:10px 14px;border-radius:14px;border:1px solid rgba(148,163,184,.22);background:rgba(148,163,184,.10);color:#e5e7eb;font-weight:1000;cursor:pointer;">
-            ข้าม warmup
-          </button>
+          <div class="sbwu-actions">
+            <button class="sbwu-btn sbwu-btn-primary" id="sbwuBtnSkip" type="button">ข้าม warmup</button>
+          </div>
         </div>
       </div>
-    `;
+    </div>
+  `;
 
-    const btnTap = document.getElementById('sbWarmTap');
-    const btnSkip = document.getElementById('sbWarmSkip');
+  const playbox = D.getElementById('sbwuPlaybox');
+  const target = D.getElementById('sbwuTarget');
+  const progressFill = D.getElementById('sbwuProgressFill');
+  const progressNote = D.getElementById('sbwuProgressNote');
+  const tip = D.getElementById('sbwuTip');
+  const btnSkip = D.getElementById('sbwuBtnSkip');
 
-    btnTap?.addEventListener('click', () => {
-      if (finished) return;
+  let hits = 0;
+  let done = false;
+  let busy = false;
 
-      startTimer();
-      hits += 1;
-
-      const hitsEl = document.getElementById('sbWarmHits');
-      if (hitsEl) hitsEl.textContent = String(hits);
-
-      pushStats();
-
-      btnTap.style.transform = 'scale(.94)';
-      setTimeout(() => {
-        try { btnTap.style.transform = 'scale(1)'; } catch (_) {}
-      }, 90);
-    });
-
-    btnSkip?.addEventListener('click', () => {
-      complete({
-        skipped: true,
-        subtitle: 'ข้าม warmup แล้ว พร้อมเข้าเกมหลัก'
-      });
-    });
-
-    pushStats();
+  function rand(min, max) {
+    return min + Math.random() * (max - min);
   }
 
-  render();
+  function moveTarget() {
+    if (!playbox || !target) return;
 
-  return {
-    start() {
-      try {
-        api?.setTitle?.('Shadow Breaker Warmup');
-        api?.setSub?.('แตะดาวให้ได้มากที่สุดก่อนเข้าเล่น');
-      } catch (_) {}
-    },
-    destroy() {
-      if (timer) {
-        clearInterval(timer);
-        timer = null;
+    const box = playbox.getBoundingClientRect();
+    const t = target.getBoundingClientRect();
+
+    const pad = 10;
+    const maxX = Math.max(pad, box.width - t.width - pad);
+    const maxY = Math.max(pad, box.height - t.height - pad);
+
+    const x = rand(pad, maxX);
+    const y = rand(pad, maxY);
+
+    target.style.left = `${x}px`;
+    target.style.top = `${y}px`;
+  }
+
+  function updateProgress() {
+    const pct = Math.round((hits / targetHits) * 100);
+    if (progressFill) progressFill.style.width = `${pct}%`;
+    if (progressNote) progressNote.textContent = `แตะแล้ว ${hits} / ${targetHits}`;
+
+    if (tip) {
+      if (hits < targetHits) {
+        tip.textContent = hits === 0
+          ? 'แตะดาวเมื่อพร้อมได้เลย'
+          : 'เก่งมาก แตะต่ออีกนิด';
+      } else {
+        tip.textContent = 'พร้อมแล้ว ไปเข้าเกมจริงกันเลย!';
       }
     }
+  }
+
+  function finishWarmup(skipped = false) {
+    if (done) return;
+    done = true;
+
+    if (target) {
+      target.disabled = true;
+      target.classList.add('is-done');
+    }
+
+    if (typeof api?.complete === 'function') {
+      api.complete({
+        title: skipped ? 'ข้าม warmup แล้ว' : 'Warmup เสร็จแล้ว',
+        subtitle: skipped
+          ? 'ระบบกำลังพาเข้าเกมหลัก'
+          : 'อุ่นเครื่องเรียบร้อย พร้อมเข้า Shadow Breaker',
+        lines: skipped
+          ? [`ผู้เล่น: ${pid}`, 'สถานะ: skipped']
+          : [`ผู้เล่น: ${pid}`, `แตะดาวครบ ${targetHits} ครั้งแล้ว`],
+        markDailyDone: true
+      });
+      return;
+    }
+
+    root.dispatchEvent(new CustomEvent('gate:complete', {
+      bubbles: true,
+      detail: {
+        title: skipped ? 'ข้าม warmup แล้ว' : 'Warmup เสร็จแล้ว',
+        subtitle: skipped
+          ? 'ระบบกำลังพาเข้าเกมหลัก'
+          : 'อุ่นเครื่องเรียบร้อย พร้อมเข้า Shadow Breaker',
+        markDailyDone: true
+      }
+    }));
+  }
+
+  target?.addEventListener('click', async () => {
+    if (done || busy) return;
+    busy = true;
+
+    hits += 1;
+    updateProgress();
+
+    target.classList.add('pop');
+    setTimeout(() => target.classList.remove('pop'), 140);
+
+    if (hits >= targetHits) {
+      setTimeout(() => finishWarmup(false), 450);
+      return;
+    }
+
+    moveTarget();
+    setTimeout(() => { busy = false; }, 80);
+  });
+
+  btnSkip?.addEventListener('click', () => finishWarmup(true));
+
+  updateProgress();
+  setTimeout(moveTarget, 40);
+
+  return {
+    destroy() {
+      done = true;
+    }
   };
+}
+
+function escapeHtml(s = '') {
+  return String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+function ensureStyle() {
+  if (document.getElementById('sbwu-style')) return;
+
+  const style = document.createElement('style');
+  style.id = 'sbwu-style';
+  style.textContent = `
+    .sbwu-wrap{
+      min-height:100%;
+      display:grid;
+      place-items:center;
+    }
+
+    .sbwu-stage{
+      position:relative;
+      width:100%;
+      min-height:320px;
+      border-radius:24px;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 18% 14%, rgba(127,207,255,.28), transparent 28%),
+        radial-gradient(circle at 82% 10%, rgba(255,220,120,.22), transparent 24%),
+        linear-gradient(180deg, #dff4ff 0%, #eefcff 48%, #fff7da 100%);
+      border:1px solid rgba(191,227,242,.92);
+      box-shadow:0 18px 40px rgba(111,157,183,.16);
+      padding:18px;
+    }
+
+    .sbwu-cloud{
+      position:absolute;
+      background:rgba(255,255,255,.64);
+      border-radius:999px;
+      filter:blur(1px);
+      pointer-events:none;
+    }
+    .sbwu-cloud.c1{ width:110px; height:34px; left:6%; top:10%; }
+    .sbwu-cloud.c2{ width:140px; height:44px; right:10%; top:14%; }
+    .sbwu-cloud.c3{ width:90px; height:30px; left:18%; bottom:16%; }
+
+    .sbwu-card{
+      position:relative;
+      z-index:1;
+      width:min(760px,100%);
+      margin:0 auto;
+      padding:18px;
+      border-radius:26px;
+      border:1px solid rgba(191,227,242,.92);
+      background:linear-gradient(180deg, rgba(255,253,246,.94), rgba(248,255,243,.96));
+      box-shadow:0 16px 34px rgba(111,157,183,.14);
+    }
+
+    .sbwu-kicker{
+      display:inline-flex;
+      align-items:center;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid rgba(191,227,242,.92);
+      color:#5f7b88;
+      font-size:.82rem;
+      font-weight:1000;
+    }
+
+    .sbwu-title{
+      margin:12px 0 8px;
+      font-size:clamp(1.5rem,4vw,2.2rem);
+      line-height:1.06;
+      color:#4f8f2c;
+      font-weight:1000;
+    }
+
+    .sbwu-sub{
+      margin:0;
+      color:#786c61;
+      line-height:1.55;
+      font-weight:800;
+      font-size:.96rem;
+    }
+
+    .sbwu-player{
+      margin-top:10px;
+      color:#7b7a72;
+      font-size:.88rem;
+      font-weight:900;
+    }
+
+    .sbwu-progress{
+      margin-top:14px;
+    }
+
+    .sbwu-progress-bar{
+      height:14px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(210,236,246,.82);
+      border:1px solid rgba(191,227,242,.92);
+    }
+
+    .sbwu-progress-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, #7ed957, #58c33f);
+      transition:width .12s linear;
+    }
+
+    .sbwu-progress-note{
+      margin-top:8px;
+      color:#7a6a3c;
+      font-size:.82rem;
+      font-weight:1000;
+      text-align:center;
+    }
+
+    .sbwu-playbox{
+      position:relative;
+      margin-top:16px;
+      min-height:260px;
+      border-radius:24px;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(125,211,252,.14), transparent 34%),
+        linear-gradient(180deg, rgba(255,255,255,.82), rgba(248,255,243,.92));
+      border:1px solid rgba(191,227,242,.92);
+      overflow:hidden;
+    }
+
+    .sbwu-target{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%, -50%);
+      width:92px;
+      height:92px;
+      border:none;
+      border-radius:999px;
+      background:linear-gradient(180deg, #ffd96a, #ffbe3b);
+      box-shadow:
+        0 14px 24px rgba(255,190,59,.18),
+        inset 0 8px 18px rgba(255,255,255,.28);
+      font-size:2rem;
+      cursor:pointer;
+      transition:transform .14s ease, box-shadow .14s ease, opacity .14s ease;
+    }
+
+    .sbwu-target.pop{
+      transform:scale(1.08);
+    }
+
+    .sbwu-target.is-done{
+      opacity:.72;
+      cursor:default;
+    }
+
+    .sbwu-tip{
+      margin-top:12px;
+      text-align:center;
+      color:#7b7a72;
+      font-size:.9rem;
+      font-weight:1000;
+    }
+
+    .sbwu-actions{
+      margin-top:16px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+
+    .sbwu-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:46px;
+      padding:10px 14px;
+      border-radius:18px;
+      border:1px solid rgba(191,227,242,.92);
+      background:#fff;
+      color:#5a4a3f;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:0 10px 18px rgba(111,157,183,.12);
+    }
+
+    .sbwu-btn-primary{
+      background:linear-gradient(180deg, #8fe388, #58c33f);
+      border-color:#74c864;
+      color:#fffdf6;
+    }
+
+    @media (max-width: 760px){
+      .sbwu-card{ padding:14px; }
+      .sbwu-playbox{ min-height:220px; }
+      .sbwu-actions{ flex-direction:column; }
+      .sbwu-btn{ width:100%; }
+    }
+  `;
+  document.head.appendChild(style);
 }
