@@ -299,9 +299,22 @@
       const MODE = 'coop';
       const MODE_LABEL = 'Coop';
       const DEFAULT_ENGINE_CANDIDATES = [
-        './goodjunk-coop.safe.js','./goodjunk-coop.js','./goodjunk-coop-run.safe.js','./goodjunk-coop-run.js',
-        './coop.safe.js','./coop.js','./js/goodjunk-coop.safe.js','./js/goodjunk-coop.js',
-        './js/goodjunk-coop-run.safe.js','./js/goodjunk-coop-run.js','./js/coop.safe.js','./js/coop.js'
+        './goodjunk-coop-run.js',
+        './goodjunk-coop-run.safe.js',
+        './goodjunk-coop.js',
+        './goodjunk-coop.safe.js',
+        './goodjunk.safe.coop.js',
+
+        './js/goodjunk-coop-run.js',
+        './js/goodjunk-coop-run.safe.js',
+        './js/goodjunk-coop.js',
+        './js/goodjunk-coop.safe.js',
+        './js/goodjunk.safe.coop.js',
+
+        './coop.js',
+        './coop.safe.js',
+        './js/coop.js',
+        './js/coop.safe.js'
       ];
 
       function qs(key, fb=''){ return q.get(key) ?? fb; }
@@ -311,7 +324,25 @@
       function resolveHub(){ try{return qs('hub')||new URL('../hub.html',location.href).toString();}catch{return '../hub.html';} }
       function safeJson(v){ try{return JSON.stringify(v,null,2);}catch{return '{}';} }
       function saveText(name,text,type='application/json'){ const blob=new Blob([text],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
-      function buildReplayUrl(){ const url=new URL(location.href); url.searchParams.set('seed',String(Date.now())); return url.toString(); }
+      function buildReplayUrl(){
+        const url = new URL('./goodjunk-coop-lobby.html', location.href);
+
+        [
+          'hub','pid','name','room','roomId','role','diff','time','seed','view','run',
+          'zone','studyId','phase','conditionGroup','sessionOrder','blockLabel',
+          'siteCode','schoolYear','semester','api','log','debug','gameId'
+        ].forEach((k) => {
+          const v = q.get(k);
+          if (v != null && v !== '') url.searchParams.set(k, v);
+        });
+
+        if (!url.searchParams.get('roomId') && runCtx.roomId) {
+          url.searchParams.set('roomId', runCtx.roomId);
+        }
+
+        url.searchParams.set('seed', String(Date.now()));
+        return url.toString();
+      }
       function copyText(text){ const t=String(text||'').trim(); if(!t) return Promise.reject(new Error('empty')); return navigator.clipboard.writeText(t); }
 
       window.HHA_CLOUD_ENDPOINT = clean(qs('api') || window.HHA_CLOUD_ENDPOINT || '');
@@ -333,6 +364,7 @@
       };
       window.__GJ_RUN_CTX__ = runCtx;
       window.__GJ_MULTI_RUN_CTX__ = runCtx;
+      window.__GJ_COOP_RUN_HAS_SUMMARY_OVERLAY__ = true;
 
       function deriveHeroAvatarFromName(name){ const text=String(name||'').trim(); if(!text) return clean(qs('heroAvatar')) || '🙂'; const parts=text.split(/\s+/).filter(Boolean); const key=parts[parts.length-1]||parts[0]||''; const byWord={Apple:'🍎',Carrot:'🥕',Bunny:'🐰',Panda:'🐼',Star:'⭐',Berry:'🍓',Tiger:'🐯',Cloud:'☁️',Rocket:'🚀',Kitty:'🐱',Buddy:'🧡',Hero:'🦸'}; return clean(qs('heroAvatar')) || byWord[key] || '🙂';}
       function readHeroMeta(){ const displayName=String(runCtx.name||runCtx.pid||'Hero').trim()||'Hero'; return { name:displayName, avatar:clean(qs('heroAvatar'))||deriveHeroAvatarFromName(displayName), soft:clean(qs('heroSoft'))||'#eef8ff', border:clean(qs('heroBorder'))||'#bfe3f2', text:clean(qs('heroText'))||'#4d4a42' }; }
@@ -458,7 +490,12 @@
       }
       function summarySubText(summary){ const parts=[]; if(summary.roomId) parts.push('ห้อง '+summary.roomId); if(summary.result) parts.push(summary.result); if(summary.players!=='') parts.push('ผู้เล่น '+summary.players); if(summary.reason) parts.push(summary.reason); return parts.join(' • ') || 'จบรอบแล้ว มาดูผลการช่วยกันเล่นกัน'; }
 
+      let __COOP_RUN_SUMMARY_SHOWN__ = false;
+
       function showSummary(detail){
+        if (__COOP_RUN_SUMMARY_SHOWN__) return;
+        __COOP_RUN_SUMMARY_SHOWN__ = true;
+
         const summary=normalizeSummary(detail);
         const hero=coopHero(summary);
         const stars=coopStarCount(summary);
@@ -502,7 +539,10 @@
         emitEnrichedSummaryEvents('coop', summary);
       }
 
-      function hideSummary(){ $('summaryOverlay').hidden=true; }
+      function hideSummary(){
+        __COOP_RUN_SUMMARY_SHOWN__ = false;
+        $('summaryOverlay').hidden=true;
+      }
       function handleSummaryEvent(evtName,detail){ console.log('[GJ-COOP-SUMMARY]',evtName,detail); showSummary(detail||{}); }
 
       $('btnReplay').addEventListener('click',()=>{ location.href=buildReplayUrl(); });
