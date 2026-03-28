@@ -1,6 +1,6 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.battle.js
- * FULL SAFE LAYER FOR BATTLE
+ * FULL PATCH v20260328-GOODJUNK-BATTLE-SAFE-R2
  * ---------------------------------------------------------
  * Features:
  * - robust self detection (PID / UID / playerId / key)
@@ -32,10 +32,14 @@
 
   const BOOT = window.HHA_BATTLE_BOOT || window.__GJ_BATTLE_BOOT__ || null;
   const RUN_CTX = window.__GJ_RUN_CTX__ || window.__GJ_MULTI_RUN_CTX__ || window.RUN_CTX || null;
-  const DEBUG = (
-    String(new URL(location.href).searchParams.get('debug') || '0') === '1' ||
-    String(new URL(location.href).searchParams.get('battleDebug') || '0') === '1'
-  );
+
+  let DEBUG = false;
+  try {
+    const u = new URL(location.href);
+    DEBUG =
+      String(u.searchParams.get('debug') || '0') === '1' ||
+      String(u.searchParams.get('battleDebug') || '0') === '1';
+  } catch (_) {}
 
   const LS_KEYS = {
     devicePid: 'GJ_DEVICE_PID',
@@ -210,15 +214,6 @@
 
   function setWidth(el, percent) {
     if (el) el.style.width = `${clamp(num(percent, 0), 0, 100)}%`;
-  }
-
-  function safeCall(fn, ...args) {
-    try {
-      if (typeof fn === 'function') return fn(...args);
-    } catch (err) {
-      console.warn('[battle-safe] safeCall error:', err);
-    }
-    return undefined;
   }
 
   function devicePid() {
@@ -451,18 +446,18 @@
     let rows = [];
 
     if (Array.isArray(input)) {
-      rows = input.map((p, idx) => ({ key: '', value: p || {}, idx, fromArray: true }));
+      rows = input.map((p, idx) => ({ key: '', value: p || {}, idx }));
     } else if (input && typeof input === 'object' && input.players && typeof input.players === 'object') {
       rows = Object.entries(input.players)
         .filter(([, value]) => looksLikePlayerRecord(value))
-        .map(([key, value], idx) => ({ key, value: value || {}, idx, fromArray: false }));
+        .map(([key, value], idx) => ({ key, value: value || {}, idx }));
     } else if (input && typeof input === 'object') {
       rows = Object.entries(input)
         .filter(([key, value]) => {
           if (key === 'meta' || key === 'state' || key === 'match' || key === 'reports' || key === 'rematch') return false;
           return looksLikePlayerRecord(value);
         })
-        .map(([key, value], idx) => ({ key, value: value || {}, idx, fromArray: false }));
+        .map(([key, value], idx) => ({ key, value: value || {}, idx }));
     }
 
     return rows.map(({ key, value: p, idx }) => {
@@ -672,26 +667,6 @@
     REF.attackReady.style.fontWeight = '1100';
   }
 
-  function renderHud() {
-    recalcState();
-
-    setText(REF.mode, 'MODE battle');
-    setText(REF.room, `ROOM ${STATE.roomId}`);
-    setText(REF.score, STATE.score);
-    setText(REF.time, fmtClock(STATE.timeLeftSec));
-    setText(REF.miss, STATE.miss);
-    setText(REF.streak, STATE.bestStreak);
-
-    setText(REF.hp, `${STATE.hp}/${STATE.maxHp}`);
-    setWidth(REF.hpFill, pct(STATE.hp, STATE.maxHp));
-
-    setText(REF.charge, `${STATE.attackCharge}/${STATE.maxAttackCharge}`);
-    setWidth(REF.chargeFill, pct(STATE.attackCharge, STATE.maxAttackCharge));
-
-    renderAttackReady();
-    renderRunDebug();
-  }
-
   let __runDebugLastPaint = 0;
   function ensureRunDebugBox(){
     if (!DEBUG) return null;
@@ -722,76 +697,6 @@
 
     document.body.appendChild(el);
     return el;
-  }
-
-  function renderRunDebug() {
-    if (!DEBUG) return;
-    const t = Date.now();
-    if (t - __runDebugLastPaint < 120) return;
-    __runDebugLastPaint = t;
-
-    const el = ensureRunDebugBox();
-    if (!el) return;
-
-    const summary = buildSummary();
-    const self = summary.self || null;
-    const room = normalizeRoomShape(STATE.room || {});
-    const lines = [
-      '[BATTLE SAFE DEBUG]',
-      `room=${summary.roomId || '-'}`,
-      `pid=${summary.pid || '-'}`,
-      `name=${summary.name || '-'}`,
-      `players=${summary.players.length}`,
-      `selfKnown=${summary.selfKnown}`,
-      `selfRank=${summary.selfRank || '-'}`,
-      `status=${room.status || '-'}`,
-      `score=${summary.scoreFinal}`,
-      `hp=${summary.hp}/${summary.maxHp}`,
-      `charge=${summary.attackCharge}/${summary.maxAttackCharge}`,
-      `attackReady=${summary.attackReady}`,
-      `ko=${summary.koCount}`,
-      `damageDealt=${summary.damageDealt}`,
-      `damageTaken=${summary.damageTaken}`,
-      `selfPid=${self ? self.pid : '-'}`,
-      `selfUid=${self ? self.uid : '-'}`,
-      `selfKey=${self ? self.key : '-'}`
-    ];
-
-    el.textContent = lines.join('\n');
-  }
-
-  function findExistingResultRoot() {
-    return (
-      q('#battleResultMount:not([hidden])') ||
-      q('#battleResult:not([hidden])') ||
-      q('.battle-result-card') ||
-      q('.battle-result') ||
-      q('[data-battle-result]')
-    );
-  }
-
-  function findResultTbody(root) {
-    return (
-      q('#battleResultTable tbody', root) ||
-      q('.battle-result-table tbody', root) ||
-      q('[data-battle-result-table] tbody', root) ||
-      q('tbody', root)
-    );
-  }
-
-  function findRankBadge(root) {
-    return (
-      q('#battleRankBadge', root) ||
-      q('.battle-rank-badge', root) ||
-      q('[data-battle-rank-badge]', root)
-    );
-  }
-
-  function findResultSubtitle(root) {
-    return (
-      q('.battle-result-sub', root) ||
-      q('[data-battle-result-sub]', root)
-    );
   }
 
   function buildSummary() {
@@ -833,6 +738,96 @@
       endReason: STATE.endReason || 'finished',
       timestampIso: nowIso()
     };
+  }
+
+  function renderRunDebug() {
+    if (!DEBUG) return;
+    const t = Date.now();
+    if (t - __runDebugLastPaint < 120) return;
+    __runDebugLastPaint = t;
+
+    const el = ensureRunDebugBox();
+    if (!el) return;
+
+    const summary = buildSummary();
+    const self = summary.self || null;
+    const room = normalizeRoomShape(STATE.room || {});
+    const lines = [
+      '[BATTLE SAFE DEBUG]',
+      `room=${summary.roomId || '-'}`,
+      `pid=${summary.pid || '-'}`,
+      `name=${summary.name || '-'}`,
+      `players=${summary.players.length}`,
+      `selfKnown=${summary.selfKnown}`,
+      `selfRank=${summary.selfRank || '-'}`,
+      `status=${room.status || '-'}`,
+      `score=${summary.scoreFinal}`,
+      `hp=${summary.hp}/${summary.maxHp}`,
+      `charge=${summary.attackCharge}/${summary.maxAttackCharge}`,
+      `attackReady=${summary.attackReady}`,
+      `ko=${summary.koCount}`,
+      `damageDealt=${summary.damageDealt}`,
+      `damageTaken=${summary.damageTaken}`,
+      `selfPid=${self ? self.pid : '-'}`,
+      `selfUid=${self ? self.uid : '-'}`,
+      `selfKey=${self ? self.key : '-'}`
+    ];
+
+    el.textContent = lines.join('\n');
+  }
+
+  function renderHud() {
+    recalcState();
+
+    setText(REF.mode, 'MODE battle');
+    setText(REF.room, `ROOM ${STATE.roomId}`);
+    setText(REF.score, STATE.score);
+    setText(REF.time, fmtClock(STATE.timeLeftSec));
+    setText(REF.miss, STATE.miss);
+    setText(REF.streak, STATE.bestStreak);
+
+    setText(REF.hp, `${STATE.hp}/${STATE.maxHp}`);
+    setWidth(REF.hpFill, pct(STATE.hp, STATE.maxHp));
+
+    setText(REF.charge, `${STATE.attackCharge}/${STATE.maxAttackCharge}`);
+    setWidth(REF.chargeFill, pct(STATE.attackCharge, STATE.maxAttackCharge));
+
+    renderAttackReady();
+    renderRunDebug();
+  }
+
+  function findExistingResultRoot() {
+    return (
+      q('#battleResultMount:not([hidden])') ||
+      q('#battleResult:not([hidden])') ||
+      q('.battle-result-card') ||
+      q('.battle-result') ||
+      q('[data-battle-result]')
+    );
+  }
+
+  function findResultTbody(root) {
+    return (
+      q('#battleResultTable tbody', root) ||
+      q('.battle-result-table tbody', root) ||
+      q('[data-battle-result-table] tbody', root) ||
+      q('tbody', root)
+    );
+  }
+
+  function findRankBadge(root) {
+    return (
+      q('#battleRankBadge', root) ||
+      q('.battle-rank-badge', root) ||
+      q('[data-battle-rank-badge]', root)
+    );
+  }
+
+  function findResultSubtitle(root) {
+    return (
+      q('.battle-result-sub', root) ||
+      q('[data-battle-result-sub]', root)
+    );
   }
 
   function saveLastSummary(summary) {
@@ -1135,7 +1130,7 @@
       typeof src.room === 'string'
         ? src.room
         : (src.room && typeof src.room === 'object'
-            ? (src.room.roomId || src.room.id || src.room.meta?.roomId || src.room.state?.roomId || '')
+            ? extractRoomIdLike(src.room)
             : '');
 
     STATE.pid = normalizePid(src.pid ?? src.uid ?? src.playerId ?? STATE.pid ?? getSelfPid());
@@ -1521,7 +1516,7 @@
     });
 
     on('battle:finish', detail => {
-      finishGame(detail);
+      finishGame(detail.summary || detail);
     });
 
     on('hha:battle:update', detail => {
@@ -1530,7 +1525,7 @@
     });
 
     on('hha:battle:finish', detail => {
-      finishGame(detail);
+      finishGame(detail.summary || detail);
     });
   }
 
