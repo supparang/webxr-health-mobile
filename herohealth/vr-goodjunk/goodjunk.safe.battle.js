@@ -1,6 +1,6 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.battle.js
- * FULL PATCH v20260328-GOODJUNK-BATTLE-SAFE-R2
+ * FULL PATCH v20260328-GOODJUNK-BATTLE-SAFE-R3
  * ---------------------------------------------------------
  * Features:
  * - robust self detection (PID / UID / playerId / key)
@@ -13,17 +13,7 @@
  * - no "guess first row as me"
  * - fallback result modal if existing result DOM is absent
  * - emits summary events for battle run shell
- *
- * Public API:
- *   window.BattleSafe.setState(patch)
- *   window.BattleSafe.setRoomState(room)
- *   window.BattleSafe.setPlayers(players)
- *   window.BattleSafe.onJudge(judge)
- *   window.BattleSafe.onDamage(detail)
- *   window.BattleSafe.onAttackCharge(detail)
- *   window.BattleSafe.finishGame(detail)
- *   window.BattleSafe.render()
- *   window.BattleSafe.getState()
+ * - lazy HUD rebind after engine injects DOM
  * ========================================================= */
 
 (() => {
@@ -610,6 +600,20 @@
     return mount;
   }
 
+  function ensureHudRefsBound() {
+    const hasBattleHudNow =
+      byId('battleHud') ||
+      byId('hudBattle') ||
+      byId('battleHUD') ||
+      byId('battleScoreValue') ||
+      byId('battleHpValue') ||
+      byId('battleChargeValue');
+
+    if (!REF.resultMount || ((!REF.score || !REF.hp || !REF.charge) && hasBattleHudNow)) {
+      bindNodes();
+    }
+  }
+
   function recalcState() {
     STATE.pid = getSelfPid();
     STATE.name = getSelfName();
@@ -777,6 +781,7 @@
   }
 
   function renderHud() {
+    ensureHudRefsBound();
     recalcState();
 
     setText(REF.mode, 'MODE battle');
@@ -861,6 +866,7 @@
   }
 
   function patchExistingResultDOM(summary) {
+    ensureHudRefsBound();
     const root = findExistingResultRoot();
     if (!root) return false;
 
@@ -1251,10 +1257,10 @@
     if (BRIDGE.resultShown) return;
 
     mergeState({
-      ...detail,
+      ...(detail.summary || detail),
       ended: true,
-      endedAt: detail.endedAt || detail.timestampIso || nowIso(),
-      endReason: detail.endReason || detail.reason || 'finished'
+      endedAt: (detail.summary || detail).endedAt || (detail.summary || detail).timestampIso || nowIso(),
+      endReason: (detail.summary || detail).endReason || (detail.summary || detail).reason || 'finished'
     });
 
     BRIDGE.resultShown = true;
@@ -1530,7 +1536,7 @@
   }
 
   function ensureBoot() {
-    bindNodes();
+    ensureHudRefsBound();
     rememberSelfIdentity();
     installEndHooks();
     installCustomEventHooks();
