@@ -3,32 +3,38 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Shadow Breaker Summary</title>
+  <title>HeroHealth • Shadow Breaker Summary</title>
   <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
       --sky1:#dff4ff;
       --sky2:#eefcff;
       --sky3:#fff7da;
+
       --card:#fffdf6;
       --card2:#f8fff3;
       --line:#bfe3f2;
+      --line-strong:#98d4ec;
+
       --text:#4d4a42;
       --muted:#7b7a72;
+
       --green:#7ed957;
       --green2:#58c33f;
       --blue:#7fcfff;
       --blue2:#58b7f5;
       --yellow:#ffd45c;
-      --yellow2:#ffb83f;
-      --orange:#ff9651;
+      --yellow2:#ffbe3b;
+      --pink:#ffb7d5;
+      --violet:#c6b7ff;
+
       --shadow:0 18px 40px rgba(111,157,183,.16);
+      --radius:26px;
 
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
     }
 
     *{ box-sizing:border-box; }
@@ -39,404 +45,275 @@
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 18% 12%, rgba(127,207,255,.28), transparent 36%),
-        radial-gradient(circle at 84% 10%, rgba(255,220,120,.22), transparent 32%),
-        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 42%, var(--sky3) 100%);
+        radial-gradient(circle at 12% 14%, rgba(127,207,255,.34), transparent 28%),
+        radial-gradient(circle at 88% 10%, rgba(255,220,120,.22), transparent 24%),
+        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 48%, var(--sky3) 100%);
     }
 
-    a{ color:inherit; text-decoration:none; }
+    button,a{
+      font:inherit;
+      color:inherit;
+      text-decoration:none;
+    }
 
-    .wrap{
-      max-width:980px;
+    .bg-clouds{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      pointer-events:none;
+      z-index:0;
+    }
+
+    .cloud{
+      position:absolute;
+      background:rgba(255,255,255,.65);
+      border-radius:999px;
+      filter:blur(1px);
+      box-shadow:0 10px 24px rgba(255,255,255,.22);
+    }
+    .c1{ width:140px; height:44px; left:6%; top:9%; }
+    .c2{ width:190px; height:58px; right:8%; top:13%; }
+    .c3{ width:120px; height:38px; left:18%; bottom:18%; }
+    .c4{ width:170px; height:52px; right:20%; bottom:24%; }
+
+    .shell{
+      position:relative;
+      z-index:1;
+      width:min(1040px,100%);
       margin:0 auto;
       padding:
         calc(14px + var(--sat))
-        calc(14px + var(--sar))
-        calc(18px + var(--sab))
-        calc(14px + var(--sal));
-      min-height:100vh;
+        14px
+        calc(18px + var(--sab));
+    }
+
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+
+    .top-pill,.back-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:42px;
+      padding:10px 14px;
+      border-radius:16px;
+      background:rgba(255,255,255,.88);
+      border:1px solid var(--line);
+      color:var(--text);
+      box-shadow:var(--shadow);
+      font-weight:1000;
+    }
+
+    .top-pill{
+      border-radius:999px;
+      color:#5f7b88;
     }
 
     .hero{
       border-radius:28px;
       border:1px solid var(--line);
-      background:linear-gradient(180deg, rgba(255,255,255,.84), rgba(255,253,246,.92));
+      background:linear-gradient(180deg, var(--card), var(--card2));
       box-shadow:var(--shadow);
       padding:18px;
       position:relative;
       overflow:hidden;
     }
 
-    .cloud{
+    .hero-badge{
       position:absolute;
-      width:150px;
-      height:60px;
-      border-radius:999px;
-      background:rgba(255,255,255,.48);
-      filter:blur(2px);
-      pointer-events:none;
-    }
-    .c1{ top:24px; right:30px; }
-    .c2{ top:86px; left:24px; width:120px; }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-      position:relative;
-      z-index:1;
-    }
-
-    .brandLogo{
-      width:74px;
-      height:74px;
-      border-radius:22px;
+      right:18px;
+      top:18px;
+      width:86px;
+      height:86px;
+      border-radius:24px;
       display:grid;
       place-items:center;
-      font-size:38px;
-      background:linear-gradient(180deg, #ffffff, #f7fff3);
-      border:1px solid var(--line);
-      box-shadow:0 12px 24px rgba(111,157,183,.12);
+      background:linear-gradient(180deg, #fff8d8, #ffe79b);
+      border:1px solid #f6d97a;
+      box-shadow:0 10px 22px rgba(255,190,59,.22);
+      font-size:2.2rem;
     }
 
     .kicker{
-      color:var(--muted);
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid var(--line);
+      color:#5f7b88;
       font-size:.82rem;
       font-weight:1000;
     }
 
-    h1{
-      margin:4px 0 4px;
-      font-size:1.75rem;
-      line-height:1.05;
-      color:#5a4a3f;
+    .title{
+      margin:12px 0 8px;
+      font-size:clamp(1.9rem, 5vw, 3rem);
+      line-height:1.02;
+      color:#4f8f2c;
+      font-weight:1000;
     }
 
     .sub{
       color:#786c61;
-      line-height:1.45;
-      font-size:.96rem;
+      line-height:1.55;
+      font-size:1rem;
       font-weight:800;
+      max-width:60ch;
     }
 
-    .greatWrap{
-      margin-top:16px;
-      display:grid;
-      place-items:center;
-      position:relative;
-      z-index:1;
-    }
-
-    .greatRibbon{
-      min-width:min(92%, 460px);
-      padding:14px 20px;
-      border-radius:24px;
-      background:linear-gradient(180deg, var(--blue), var(--blue2));
-      color:#fffdf6;
-      text-align:center;
-      font-size:1.35rem;
-      font-weight:1100;
-      box-shadow:0 12px 24px rgba(88,183,245,.26);
-      position:relative;
-    }
-
-    .greatRibbon:before,
-    .greatRibbon:after{
-      content:"⭐";
-      position:absolute;
-      top:50%;
-      transform:translateY(-50%);
-      font-size:30px;
-    }
-
-    .greatRibbon:before{ left:-16px; }
-    .greatRibbon:after{ right:-16px; }
-
-    .starRow{
-      display:flex;
-      justify-content:center;
-      gap:10px;
-      margin-top:12px;
-      font-size:34px;
-    }
-
-    .star{
-      filter:drop-shadow(0 4px 8px rgba(0,0,0,.10));
-    }
-
-    .heroBadge{
-      margin-top:16px;
-      display:grid;
-      grid-template-columns:92px 1fr;
-      gap:14px;
-      align-items:center;
-      padding:14px;
-      border-radius:24px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, var(--card), var(--card2));
-      box-shadow:0 14px 24px rgba(111,157,183,.10);
-      position:relative;
-      z-index:1;
-    }
-
-    .heroBadgeIcon{
-      width:92px;
-      height:92px;
-      border-radius:24px;
-      display:grid;
-      place-items:center;
-      font-size:48px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, #ffffff, #f7fff3);
-      box-shadow:0 10px 20px rgba(111,157,183,.10);
-    }
-
-    .heroBadgeTitle{
-      font-size:1.15rem;
-      font-weight:1100;
-      line-height:1.2;
-      color:#5a4a3f;
-    }
-
-    .heroBadgeDesc{
-      margin-top:4px;
-      color:#7b7a72;
-      font-size:.9rem;
-      line-height:1.45;
-      font-weight:900;
-    }
-
-    .pillRow{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
+    .hero-note{
       margin-top:14px;
-      position:relative;
-      z-index:1;
-    }
-
-    .pill{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:8px 10px;
+      min-height:40px;
+      padding:10px 14px;
       border-radius:999px;
+      background:#fff;
       border:1px solid var(--line);
-      background:rgba(255,255,255,.78);
-      color:var(--muted);
-      font-size:12px;
+      color:#6f675f;
       font-weight:1000;
+      box-shadow:0 8px 16px rgba(111,157,183,.10);
     }
-    .pill b{ color:var(--text); }
 
     .grid{
       display:grid;
-      grid-template-columns:1.06fr .94fr;
+      grid-template-columns:repeat(4,minmax(0,1fr));
       gap:12px;
       margin-top:14px;
     }
 
-    @media (max-width:920px){
-      .grid{ grid-template-columns:1fr; }
-      .heroBadge{ grid-template-columns:1fr; }
-      .heroBadgeIcon{ margin:auto; }
-    }
-
-    .card{
-      border-radius:24px;
+    .stat{
+      border-radius:22px;
       border:1px solid var(--line);
-      background:linear-gradient(180deg, rgba(255,255,255,.84), rgba(255,253,246,.92));
+      background:linear-gradient(180deg, var(--card), var(--card2));
       box-shadow:var(--shadow);
       padding:14px;
+      text-align:center;
     }
 
-    .cardTitle{
-      font-size:1rem;
-      font-weight:1100;
-      margin-bottom:10px;
+    .stat .k{
+      font-size:.82rem;
+      color:#7b7a72;
+      font-weight:1000;
+    }
+
+    .stat .v{
+      margin-top:8px;
+      font-size:1.45rem;
       color:#5a4a3f;
+      font-weight:1000;
     }
 
-    .scoreBig{
-      margin-top:6px;
+    .panel-wrap{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:14px;
+      margin-top:14px;
+    }
+
+    .panel{
       border-radius:24px;
       border:1px solid var(--line);
+      background:linear-gradient(180deg, var(--card), var(--card2));
+      box-shadow:var(--shadow);
+      padding:16px;
+    }
+
+    .panel-title{
+      font-size:1.02rem;
+      color:#5a4a3f;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    .message{
+      padding:14px;
+      border-radius:20px;
       background:linear-gradient(180deg, #dff4ff, #eefcff);
-      text-align:center;
-      padding:16px 12px;
+      border:1px solid #bfe3f2;
+      color:#5b6670;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .badge-card{
+      display:grid;
+      grid-template-columns:72px 1fr;
+      gap:12px;
+      align-items:center;
+      padding:14px;
+      border-radius:22px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, #fffdf6, #f8fff3);
       box-shadow:0 8px 18px rgba(111,157,183,.10);
     }
 
-    .scoreBig .k{
-      color:#6f8291;
-      font-size:.92rem;
-      font-weight:1000;
-    }
-
-    .scoreBig .v{
-      margin-top:8px;
-      color:#4d4a42;
-      font-size:2.4rem;
-      font-weight:1100;
-      line-height:1;
-    }
-
-    .rewardRow{
-      margin-top:12px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .rewardChip{
-      min-width:120px;
-      padding:10px 12px;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, #fffdf6, #f8fff3);
-      box-shadow:0 8px 16px rgba(111,157,183,.08);
-      text-align:center;
-    }
-
-    .rewardChip .rk{
-      color:#7b7a72;
-      font-size:.76rem;
-      font-weight:1000;
-    }
-
-    .rewardChip .rv{
-      margin-top:6px;
-      font-size:1.15rem;
-      font-weight:1100;
-      color:#5a4a3f;
-    }
-
-    .statGrid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin-top:12px;
-    }
-
-    @media (max-width:520px){
-      .statGrid{ grid-template-columns:1fr; }
-    }
-
-    .statCard{
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, #fffdf6, #f8fff3);
-      padding:12px;
-      min-height:84px;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      gap:6px;
-      box-shadow:0 8px 16px rgba(111,157,183,.08);
-    }
-
-    .statK{
-      color:#7b7a72;
-      font-size:.78rem;
-      font-weight:1000;
-      letter-spacing:.2px;
-      text-transform:uppercase;
-    }
-
-    .statV{
-      color:#4d4a42;
-      font-size:1.2rem;
-      font-weight:1100;
-      line-height:1.1;
-    }
-
-    .bossLine{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      margin-top:12px;
-      padding:12px;
-      border-radius:20px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, #fffdf6, #f8fff3);
-      box-shadow:0 8px 16px rgba(111,157,183,.08);
-    }
-
-    .bossIcon{
-      width:58px;
-      height:58px;
-      border-radius:18px;
+    .badge-icon{
+      width:72px;
+      height:72px;
+      border-radius:22px;
       display:grid;
       place-items:center;
-      font-size:28px;
-      background:linear-gradient(180deg, #ffffff, #eefcff);
-      border:1px solid var(--line);
+      background:linear-gradient(180deg, #fff8d8, #ffe79b);
+      border:1px solid #f6d97a;
+      font-size:2rem;
     }
 
-    .bossBody{
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
-
-    .bossTitle{
-      font-weight:1100;
+    .badge-title{
       font-size:1rem;
-      line-height:1.15;
+      font-weight:1000;
       color:#5a4a3f;
     }
 
-    .bossDesc{
-      color:#7b7a72;
-      font-size:.86rem;
-      line-height:1.4;
-      font-weight:900;
-    }
-
-    .messageBox{
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:20px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, #dff4ff, #eefcff);
-      color:#5b6670;
-      line-height:1.5;
-      font-size:.94rem;
-      font-weight:1000;
-    }
-
-    .kidHint{
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:20px;
-      border:1px solid #b7ebb2;
-      background:linear-gradient(180deg, #efffe7, #f8fff3);
-      color:#56714d;
-      line-height:1.5;
+    .badge-desc{
+      margin-top:4px;
       font-size:.92rem;
-      font-weight:1000;
+      line-height:1.5;
+      color:#786c61;
+      font-weight:800;
     }
 
-    .mini{
-      margin-top:10px;
+    .boss-box{
+      display:grid;
+      gap:10px;
+    }
+
+    .boss-pill{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      min-height:48px;
       padding:10px 12px;
       border-radius:16px;
+      background:#fff;
       border:1px solid var(--line);
-      background:rgba(255,255,255,.72);
+      box-shadow:0 8px 16px rgba(111,157,183,.08);
+      font-weight:1000;
+      color:#5c544a;
+    }
+
+    .boss-pill .muted{
       color:#7b7a72;
-      font-size:.84rem;
+      font-size:.88rem;
       font-weight:900;
-      line-height:1.45;
     }
 
     .actions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      margin-top:16px;
-      position:relative;
-      z-index:1;
+      margin-top:14px;
     }
 
     .btn{
@@ -444,428 +321,388 @@
       align-items:center;
       justify-content:center;
       min-height:46px;
-      padding:11px 16px;
+      padding:10px 14px;
       border-radius:18px;
       border:1px solid var(--line);
-      background:linear-gradient(180deg, #ffffff, #f7fff3);
-      color:#5b513f;
-      font-weight:1100;
+      background:#fff;
+      color:var(--text);
+      font-weight:1000;
       cursor:pointer;
-      text-decoration:none;
-      box-shadow:0 8px 16px rgba(111,157,183,.12);
+      box-shadow:0 10px 18px rgba(111,157,183,.12);
     }
 
     .btn.primary{
       background:linear-gradient(180deg, var(--green), var(--green2));
-      border-color:#75cf63;
+      border-color:#74c864;
       color:#fffdf6;
     }
 
-    .btn.violet{
-      background:linear-gradient(180deg, #e7f4ff, #dff4ff);
-      color:#55718a;
+    .btn.blue{
+      background:linear-gradient(180deg, var(--blue), var(--blue2));
+      border-color:#72c1ef;
+      color:#fff;
     }
 
-    .btn.good{
-      background:linear-gradient(180deg, #ffd96a, var(--yellow2));
-      border-color:#f2bf4b;
-      color:#6a4a00;
+    .btn.ghost{
+      background:linear-gradient(180deg, #eef9ff, #e3f5ff);
+      color:#5d6a70;
+    }
+
+    .mini{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:rgba(255,255,255,.78);
+      border:1px solid var(--line);
+      color:#7b7a72;
+      font-size:.85rem;
+      line-height:1.5;
+      font-weight:800;
     }
 
     .empty{
-      margin-top:12px;
-      padding:14px;
-      border-radius:18px;
-      border:1px dashed var(--line);
-      color:#7b7a72;
-      font-size:.92rem;
-      line-height:1.5;
-      font-weight:900;
+      text-align:center;
+      padding:18px;
+      border-radius:22px;
+      border:1px dashed var(--line-strong);
       background:rgba(255,255,255,.60);
-    }
-
-    .debug{
-      margin-top:12px;
-      padding:10px 12px;
-      border-radius:16px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.66);
       color:#7b7a72;
-      font-size:.82rem;
-      line-height:1.5;
-      word-break:break-word;
+      font-weight:900;
+      line-height:1.6;
     }
 
-    .grade-S{ color:#d99b00; }
-    .grade-A{ color:#4c97e8; }
-    .grade-B{ color:#4f9f3b; }
-    .grade-C{ color:#6f6a63; }
+    @media (max-width: 960px){
+      .grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .panel-wrap{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width: 640px){
+      .shell{
+        padding:
+          calc(10px + var(--sat))
+          10px
+          calc(14px + var(--sab));
+      }
+
+      .topbar{
+        align-items:stretch;
+      }
+
+      .top-pill,.back-btn,.btn{
+        width:100%;
+      }
+
+      .grid{
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+      }
+
+      .hero{
+        padding:14px;
+      }
+
+      .hero-badge{
+        right:12px;
+        top:12px;
+        width:72px;
+        height:72px;
+        border-radius:20px;
+        font-size:1.8rem;
+      }
+
+      .stat{
+        padding:12px;
+      }
+
+      .stat .v{
+        font-size:1.2rem;
+      }
+
+      .actions{
+        flex-direction:column;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <section class="hero">
-      <div class="cloud c1"></div>
-      <div class="cloud c2"></div>
+  <div class="bg-clouds" aria-hidden="true">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+    <div class="cloud c4"></div>
+  </div>
 
-      <div class="brand">
-        <div class="brandLogo">🦸</div>
-        <div>
-          <div class="kicker">HeroHealth • Fitness Zone</div>
-          <h1>Shadow Breaker</h1>
-          <div class="sub" id="summarySub">
-            มาดูคะแนนและความเก่งของรอบนี้กันเลย
-          </div>
-        </div>
-      </div>
-
-      <div class="greatWrap">
-        <div class="greatRibbon">Great Job!</div>
-        <div class="starRow" id="starRow">
-          <span class="star">⭐</span>
-          <span class="star">⭐</span>
-          <span class="star">⭐</span>
-        </div>
-      </div>
-
-      <div class="heroBadge">
-        <div class="heroBadgeIcon" id="badgeIcon">🏅</div>
-        <div>
-          <div class="heroBadgeTitle" id="badgeTitle">Shadow Starter</div>
-          <div class="heroBadgeDesc" id="badgeDesc">เริ่มต้นได้ดีแล้ว ลองเล่นอีกครั้งเพื่อไปให้ไกลกว่าเดิม</div>
-        </div>
-      </div>
-
-      <div class="pillRow">
-        <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
-        <span class="pill"><b>Mode</b>: <span id="uiMode">normal</span></span>
-        <span class="pill"><b>View</b>: <span id="uiView">-</span></span>
-      </div>
-
-      <div class="actions">
-        <a class="btn primary" id="btnPlayAgain" href="#">▶ Play Again</a>
-        <a class="btn violet" id="btnTeacherPanel" href="#">🧑‍🏫 Teacher Panel</a>
-        <a class="btn good" id="btnBackHub" href="./hub.html">🏠 Back to Hub</a>
-      </div>
-    </section>
-
-    <div class="grid">
-      <section class="card">
-        <div class="cardTitle">คะแนนของหนู</div>
-
-        <div class="scoreBig">
-          <div class="k">Score</div>
-          <div class="v" id="statScore">0</div>
-        </div>
-
-        <div class="rewardRow">
-          <div class="rewardChip">
-            <div class="rk">GRADE</div>
-            <div class="rv" id="statGrade">C</div>
-          </div>
-          <div class="rewardChip">
-            <div class="rk">ACCURACY</div>
-            <div class="rv" id="statAcc">0%</div>
-          </div>
-          <div class="rewardChip">
-            <div class="rk">MAX COMBO</div>
-            <div class="rv" id="statCombo">0</div>
-          </div>
-        </div>
-
-        <div class="statGrid">
-          <div class="statCard">
-            <div class="statK">Miss</div>
-            <div class="statV" id="statMiss">0</div>
-          </div>
-          <div class="statCard">
-            <div class="statK">เวลาเล่น</div>
-            <div class="statV" id="statTime">0.0 s</div>
-          </div>
-        </div>
-
-        <div class="messageBox" id="summaryMessage">
-          เก่งมาก ลองเล่นอีกครั้งเพื่อทำคะแนนได้สูงขึ้นนะ
-        </div>
-
-        <div class="kidHint" id="summaryKidHint">
-          ถ้าอยากเก่งขึ้นอีก ลองตีเป้าให้แม่นและเก็บคอมโบให้นานขึ้นนะ
-        </div>
-
-        <div class="mini" id="summaryHubHint">
-          เล่นเสร็จแล้วกด Back to Hub เพื่อกลับไปเลือกเกมอื่นได้เลย
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="cardTitle">บอสที่ไปได้ไกลที่สุด</div>
-
-        <div class="bossLine">
-          <div class="bossIcon" id="bestBossIcon">🥊</div>
-          <div class="bossBody">
-            <div class="bossTitle" id="bestBossTitle">ยังไม่มีข้อมูลบอส</div>
-            <div class="bossDesc" id="bestBossDesc">เล่นให้จบอย่างน้อยหนึ่งรอบเพื่อดูความก้าวหน้า</div>
-          </div>
-        </div>
-
-        <div class="statGrid">
-          <div class="statCard">
-            <div class="statK">Bosses Cleared</div>
-            <div class="statV" id="statBossesCleared">0</div>
-          </div>
-          <div class="statCard">
-            <div class="statK">Phase Final</div>
-            <div class="statV" id="statPhaseFinal">1</div>
-          </div>
-          <div class="statCard">
-            <div class="statK">HP YOU END</div>
-            <div class="statV" id="statHpYou">0</div>
-          </div>
-          <div class="statCard">
-            <div class="statK">End Reason</div>
-            <div class="statV" id="statEndReason">-</div>
-          </div>
-        </div>
-
-        <div class="mini" id="metaLine">
-          session: -
-        </div>
-
-        <div class="debug" id="debugBox">กำลังอ่านผลล่าสุด…</div>
-      </section>
+  <main class="shell">
+    <div class="topbar">
+      <a id="btnBackHubTop" class="back-btn" href="./hub.html">← กลับ HUB</a>
+      <div class="top-pill">Shadow Breaker • Summary</div>
     </div>
 
-    <section class="card" id="emptyState" style="display:none; margin-top:12px;">
-      <div class="cardTitle">ยังไม่พบผลล่าสุด</div>
-      <div class="empty">
-        ตอนนี้ยังไม่มีข้อมูลสรุปของ Shadow Breaker สำหรับ PID นี้<br/>
-        ลองเข้าเกม 1 รอบก่อน แล้วค่อยกลับมาดูหน้านี้อีกครั้ง
+    <section class="hero">
+      <div class="hero-badge" id="heroBadge">🏅</div>
+      <div class="kicker">HeroHealth • Exercise Zone</div>
+      <h1 class="title">สรุปผล Shadow Breaker</h1>
+      <div class="sub" id="heroSub">
+        มาดูผลการเล่นรอบล่าสุดกันว่าไปได้ไกลแค่ไหน และได้เหรียญอะไรกลับบ้าน
+      </div>
+      <div class="hero-note" id="heroNote">พร้อมสำหรับรอบถัดไปแล้ว!</div>
+    </section>
+
+    <section id="summaryContent" style="display:none;">
+      <div class="grid">
+        <div class="stat">
+          <div class="k">คะแนน</div>
+          <div class="v" id="statScore">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">ความแม่นยำ</div>
+          <div class="v" id="statAcc">0%</div>
+        </div>
+        <div class="stat">
+          <div class="k">คอมโบสูงสุด</div>
+          <div class="v" id="statCombo">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">เกรด</div>
+          <div class="v" id="statGrade">C</div>
+        </div>
+        <div class="stat">
+          <div class="k">บอสที่ผ่าน</div>
+          <div class="v" id="statBosses">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">ด่านสุดท้าย</div>
+          <div class="v" id="statPhase">1</div>
+        </div>
+        <div class="stat">
+          <div class="k">พลาด</div>
+          <div class="v" id="statMiss">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">เวลา</div>
+          <div class="v" id="statTime">0.0 s</div>
+        </div>
+      </div>
+
+      <div class="panel-wrap">
+        <section class="panel">
+          <div class="panel-title">ข้อความจากโค้ช</div>
+          <div id="resultMessage" class="message">
+            เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม
+          </div>
+
+          <div style="height:12px"></div>
+
+          <div class="panel-title">เหรียญของรอบนี้</div>
+          <div class="badge-card">
+            <div id="badgeIcon" class="badge-icon">🏅</div>
+            <div>
+              <div id="badgeTitle" class="badge-title">Shadow Starter</div>
+              <div id="badgeDesc" class="badge-desc">เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <a id="btnReplay" class="btn primary" href="../fitness/shadow-breaker.html">เล่นอีกครั้ง</a>
+            <a id="btnBackHub" class="btn blue" href="./hub.html">กลับ HUB</a>
+            <button id="btnClear" class="btn ghost" type="button">ล้างผลล่าสุด</button>
+          </div>
+
+          <div class="mini" id="metaBox">
+            ผู้เล่น: anon
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">เส้นทางที่ไปได้รอบนี้</div>
+          <div class="boss-box">
+            <div class="boss-pill">
+              <span>บอสที่ไปไกลสุด</span>
+              <span id="bestBoss">Bubble Glove</span>
+            </div>
+            <div class="boss-pill">
+              <span>โหมด</span>
+              <span id="bestMode">normal</span>
+            </div>
+            <div class="boss-pill">
+              <span>ระดับความยาก</span>
+              <span id="bestDiff">normal</span>
+            </div>
+            <div class="boss-pill">
+              <span>เวลาที่ตั้งไว้</span>
+              <span id="bestTime">80 s</span>
+            </div>
+            <div class="boss-pill">
+              <span>เหตุผลที่จบเกม</span>
+              <span id="endReason">ended</span>
+            </div>
+            <div class="boss-pill">
+              <span>วันที่เล่น</span>
+              <span id="playedAt">-</span>
+            </div>
+          </div>
+
+          <div class="mini">
+            รอบต่อไปลองตั้งเป้าหมายง่าย ๆ เช่น “ผ่านบอสเพิ่มอีก 1 ตัว” หรือ “ทำ accuracy ให้เกิน 80%”
+          </div>
+        </section>
       </div>
     </section>
-  </div>
+
+    <section id="emptyState" class="empty">
+      ยังไม่พบผลล่าสุดของ Shadow Breaker สำหรับผู้เล่นนี้<br />
+      ลองเข้าเล่นเกมก่อน แล้วค่อยกลับมาดูหน้าสรุปอีกครั้ง
+    </section>
+  </main>
 
   <script>
     (function(){
       'use strict';
 
-      const $ = (s)=>document.querySelector(s);
+      const q = new URLSearchParams(location.search);
+      const pid = String(q.get('pid') || 'anon').trim() || 'anon';
+      const hub = String(q.get('hub') || './hub.html').trim() || './hub.html';
 
-      function qs(k, d=''){
-        try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
-        catch(_){ return d; }
-      }
+      const $ = (id)=>document.getElementById(id);
+
+      const btnBackHubTop = $('btnBackHubTop');
+      const btnBackHub = $('btnBackHub');
+      const btnReplay = $('btnReplay');
+
+      if (btnBackHubTop) btnBackHubTop.href = hub;
+      if (btnBackHub) btnBackHub.href = hub;
 
       function safeJsonParse(v, fallback=null){
         try{ return JSON.parse(v); }catch(_){ return fallback; }
       }
 
-      function loadJson(k, fallback=null){
-        try{
-          const raw = localStorage.getItem(k);
-          return raw ? JSON.parse(raw) : fallback;
-        }catch(_){
-          return fallback;
+      function loadSummaryForPid(playerId){
+        const keys = [
+          `SB_LAST_SUMMARY:${playerId}`,
+          `HHA_LAST_SUMMARY:shadowbreaker:${playerId}`,
+          'HHA_LAST_SUMMARY'
+        ];
+
+        for (const key of keys){
+          try{
+            const raw = localStorage.getItem(key);
+            if (!raw) continue;
+            const obj = safeJsonParse(raw, null);
+            if (!obj || typeof obj !== 'object') continue;
+            if (obj.game && obj.game !== 'shadowbreaker') continue;
+            if (obj.pid && String(obj.pid).trim() !== playerId && key !== 'HHA_LAST_SUMMARY') continue;
+            return obj;
+          }catch(_){}
         }
-      }
-
-      function pickBossEmoji(name){
-        const s = String(name || '').toLowerCase();
-        if (s.includes('bubble')) return '🫧';
-        if (s.includes('meteor')) return '☄️';
-        if (s.includes('hydra')) return '🐉';
-        if (s.includes('final')) return '👑';
-        return '🥊';
-      }
-
-      function bossFriendlyDesc(name){
-        const s = String(name || '').toLowerCase();
-        if (s.includes('bubble')) return 'หนูผ่านด่านเริ่มต้นได้แล้ว เก่งมาก';
-        if (s.includes('meteor')) return 'หนูผ่านด่านที่เร็วขึ้นได้แล้ว น่าภูมิใจมาก';
-        if (s.includes('hydra')) return 'หนูไปไกลถึง Neon Hydra แล้ว เก่งสุด ๆ';
-        if (s.includes('final')) return 'หนูไปถึงหรือผ่าน Final Boss แล้ว สุดยอดจริง ๆ';
-        return 'นี่คือบอสที่ไปได้ไกลที่สุดในตอนนี้';
-      }
-
-      function gradeClass(grade){
-        const g = String(grade || 'C').toUpperCase();
-        return `grade-${g}`;
-      }
-
-      function starCountFromGrade(grade){
-        const g = String(grade || 'C').toUpperCase();
-        if (g === 'S') return 3;
-        if (g === 'A') return 3;
-        if (g === 'B') return 2;
-        return 1;
-      }
-
-      function findSummary(pid){
-        const a = loadJson(`SB_LAST_SUMMARY:${pid}`, null);
-        if (a) return a;
-
-        const b = loadJson(`HHA_LAST_SUMMARY:shadowbreaker:${pid}`, null);
-        if (b) return b;
-
-        const c = loadJson('HHA_LAST_SUMMARY', null);
-        if (c && String(c.game || c.projectTag || '').toLowerCase() === 'shadowbreaker') {
-          if (!pid || String(c.pid || '') === pid) return c;
-        }
-
         return null;
       }
 
-      function renderStars(grade){
-        const n = starCountFromGrade(grade);
-        const row = $('#starRow');
-        if (!row) return;
-        row.innerHTML = Array.from({length:3}, (_,i)=> i < n ? '⭐' : '☆')
-          .map(s => `<span class="star">${s}</span>`).join('');
+      function formatDate(iso){
+        if (!iso) return '-';
+        try{
+          const d = new Date(iso);
+          if (Number.isNaN(d.getTime())) return String(iso);
+          return d.toLocaleString('th-TH', {
+            year:'numeric',
+            month:'short',
+            day:'numeric',
+            hour:'2-digit',
+            minute:'2-digit'
+          });
+        }catch(_){
+          return String(iso);
+        }
+      }
+
+      function reasonLabel(reason){
+        const r = String(reason || '').toLowerCase();
+        if (r === 'final_clear') return 'ชนะบอสสุดท้าย';
+        if (r === 'time_up') return 'หมดเวลา';
+        if (r === 'hp_zero') return 'พลังหมด';
+        if (!r) return '-';
+        return r;
+      }
+
+      function buildReplayHref(sum){
+        const url = new URL('../fitness/shadow-breaker.html', location.href);
+        url.searchParams.set('pid', String(sum?.pid || pid || 'anon'));
+        url.searchParams.set('diff', String(sum?.diff || 'normal'));
+        url.searchParams.set('time', String(sum?.timeSec || 80));
+        url.searchParams.set('mode', String(sum?.mode || 'normal'));
+        url.searchParams.set('run', String(sum?.runMode || sum?.mode || 'normal'));
+        url.searchParams.set('view', String(q.get('view') || 'mobile'));
+        url.searchParams.set('zone', 'fitness');
+        url.searchParams.set('cat', 'fitness');
+        url.searchParams.set('game', 'shadowbreaker');
+        url.searchParams.set('gameId', 'shadowbreaker');
+        url.searchParams.set('theme', 'shadowbreaker');
+        url.searchParams.set('hub', hub);
+        return url.toString();
       }
 
       function render(sum){
-        const uiPid = $('#uiPid');
-        const uiMode = $('#uiMode');
-        const uiView = $('#uiView');
-
-        const badgeIcon = $('#badgeIcon');
-        const badgeTitle = $('#badgeTitle');
-        const badgeDesc = $('#badgeDesc');
-
-        const statScore = $('#statScore');
-        const statGrade = $('#statGrade');
-        const statAcc = $('#statAcc');
-        const statCombo = $('#statCombo');
-        const statMiss = $('#statMiss');
-        const statTime = $('#statTime');
-        const statBossesCleared = $('#statBossesCleared');
-        const statPhaseFinal = $('#statPhaseFinal');
-        const statHpYou = $('#statHpYou');
-        const statEndReason = $('#statEndReason');
-
-        const bestBossIcon = $('#bestBossIcon');
-        const bestBossTitle = $('#bestBossTitle');
-        const bestBossDesc = $('#bestBossDesc');
-
-        const summaryMessage = $('#summaryMessage');
-        const summaryKidHint = $('#summaryKidHint');
-        const summarySub = $('#summarySub');
-        const metaLine = $('#metaLine');
-        const debugBox = $('#debugBox');
-
-        let runUrl = `./shadow-breaker-vr.html?pid=${encodeURIComponent(sum.pid || qs('pid','anon'))}&zone=fitness`;
-        let hubUrl = String(sum.hub || qs('hub','') || './hub.html');
-        let teacherUrl = `./teacher-panel.html?game=shadowbreaker&pid=${encodeURIComponent(sum.pid || qs('pid','anon'))}`;
-
-        const ex = sum?.__extraJson ? safeJsonParse(sum.__extraJson) : null;
-        if (ex?.runUrl) runUrl = ex.runUrl;
-        if (ex?.hubUrl) hubUrl = ex.hubUrl;
-        if (ex?.teacherUrl) teacherUrl = ex.teacherUrl;
-        if (sum?.hub) hubUrl = sum.hub;
-
-        $('#btnPlayAgain').href = runUrl;
-        $('#btnTeacherPanel').href = teacherUrl;
-        $('#btnBackHub').href = hubUrl;
-
-        const pid = String(sum.pid || qs('pid','anon') || 'anon');
-        const mode = String(sum.mode || sum.runMode || 'normal');
-        const view = String(qs('view', ex?.view || '-'));
-
-        if (uiPid) uiPid.textContent = pid;
-        if (uiMode) uiMode.textContent = mode;
-        if (uiView) uiView.textContent = view || '-';
+        $('summaryContent').style.display = '';
+        $('emptyState').style.display = 'none';
 
         const badge = sum.badge || { icon:'🏅', title:'Shadow Starter', desc:'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม' };
-        if (badgeIcon) badgeIcon.textContent = badge.icon || '🏅';
-        if (badgeTitle) badgeTitle.textContent = badge.title || 'Shadow Starter';
-        if (badgeDesc) badgeDesc.textContent = badge.desc || 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
 
-        if (statScore) statScore.textContent = String(sum.scoreFinal ?? sum.score ?? 0);
+        $('heroBadge').textContent = badge.icon || '🏅';
+        $('heroNote').textContent =
+          (sum.grade === 'S' || sum.grade === 'A')
+            ? 'วันนี้ทำได้ยอดเยี่ยมมาก!'
+            : (Number(sum.bossesCleared || 0) >= 1 ? 'ผ่านบอสได้แล้ว เก่งมาก!' : 'เริ่มต้นได้ดี ลองอีกครั้งได้นะ');
 
-        const grade = String(sum.grade || 'C').toUpperCase();
+        $('statScore').textContent = String(sum.scoreFinal ?? 0);
+        $('statAcc').textContent = `${Number(sum.accPct ?? 0).toFixed(1)}%`;
+        $('statCombo').textContent = String(sum.comboMax ?? 0);
+        $('statGrade').textContent = String(sum.grade || 'C');
+        $('statBosses').textContent = String(sum.bossesCleared ?? 0);
+        $('statPhase').textContent = String(sum.phaseFinal ?? 1);
+        $('statMiss').textContent = String(sum.missTotal ?? 0);
+        $('statTime').textContent = `${Number(sum.elapsedSec ?? 0).toFixed(1)} s`;
 
-        if (statGrade){
-          statGrade.textContent = grade;
-          statGrade.className = `rv ${gradeClass(grade)}`;
-        }
+        $('resultMessage').textContent =
+          String(sum.end_reason || '') === 'final_clear'
+            ? 'สุดยอดมาก! หนูผ่านบอสสุดท้ายได้แล้ว วันนี้เป็นฮีโร่ตัวจริงเลย 🎉'
+            : (sum.bossesCleared >= 3
+                ? 'เก่งมาก ไปได้ไกลมากแล้ว อีกนิดเดียวก็ถึงบอสสุดท้าย'
+                : (sum.bossesCleared >= 1
+                    ? 'ยอดเยี่ยม ผ่านบอสได้แล้ว ลองอีกครั้งเพื่อไปต่อ'
+                    : 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นนะ'));
 
-        renderStars(grade);
+        $('badgeIcon').textContent = badge.icon || '🏅';
+        $('badgeTitle').textContent = badge.title || 'Shadow Starter';
+        $('badgeDesc').textContent = badge.desc || 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
 
-        if (statAcc) statAcc.textContent = `${Number(sum.accPct || 0).toFixed(1)}%`;
-        if (statCombo) statCombo.textContent = String(sum.comboMax ?? 0);
-        if (statMiss) statMiss.textContent = String(sum.missTotal ?? sum.miss ?? 0);
-        if (statTime) statTime.textContent = `${Number(sum.elapsedSec || 0).toFixed(1)} s`;
-        if (statBossesCleared) statBossesCleared.textContent = String(sum.bossesCleared ?? 0);
-        if (statPhaseFinal) statPhaseFinal.textContent = String(sum.phaseFinal ?? 1);
-        if (statHpYou) statHpYou.textContent = String(sum.hpYouEnd ?? 0);
-        if (statEndReason) statEndReason.textContent = String(sum.end_reason || '-');
+        $('bestBoss').textContent = String(sum.bestReachedBoss || 'Bubble Glove');
+        $('bestMode').textContent = String(sum.mode || 'normal');
+        $('bestDiff').textContent = String(sum.diff || 'normal');
+        $('bestTime').textContent = `${String(sum.timeSec || 80)} s`;
+        $('endReason').textContent = reasonLabel(sum.end_reason);
+        $('playedAt').textContent = formatDate(sum.timestampIso);
 
-        const bossName = String(sum.bestReachedBoss || 'ยังไม่มีข้อมูลบอส');
-        if (bestBossIcon) bestBossIcon.textContent = pickBossEmoji(bossName);
-        if (bestBossTitle) bestBossTitle.textContent = bossName;
-        if (bestBossDesc) bestBossDesc.textContent = bossFriendlyDesc(bossName);
+        $('metaBox').textContent =
+          `ผู้เล่น: ${String(sum.pid || pid)} • session: ${String(sum.sessionId || '-')} • studyId: ${String(sum.studyId || '-')}`;
 
-        const cleared = Number(sum.bossesCleared || 0);
-        const score = Number(sum.scoreFinal || 0);
-        const acc = Number(sum.accPct || 0);
-
-        if (summarySub) {
-          summarySub.textContent =
-            `คะแนน ${score} • ผ่านบอส ${cleared} ตัว • ความแม่น ${acc.toFixed(1)}%`;
-        }
-
-        if (summaryMessage){
-          if (String(sum.end_reason || '') === 'final_clear'){
-            summaryMessage.textContent = 'เก่งที่สุดเลย! หนูผ่านบอสสุดท้ายได้แล้ว 🎉';
-          } else if (cleared >= 3){
-            summaryMessage.textContent = 'เก่งมาก! อีกนิดเดียวก็จะถึงบอสสุดท้ายแล้ว';
-          } else if (cleared >= 1){
-            summaryMessage.textContent = 'เยี่ยมเลย! ลองเล่นอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
-          } else {
-            summaryMessage.textContent = 'เริ่มต้นดีมาก ลองตีให้แม่นขึ้นอีกนิดนะ';
-          }
-        }
-
-        if (summaryKidHint){
-          if (acc < 60){
-            summaryKidHint.textContent = 'เคล็ดลับ: ค่อย ๆ เล็งและแตะเป้าให้แม่นขึ้น จะช่วยให้คะแนนขึ้นเร็ว';
-          } else if ((sum.missTotal || 0) > 8){
-            summaryKidHint.textContent = 'เคล็ดลับ: ระวังเป้าหลอกและบอมบ์ จะช่วยให้ไปได้ไกลขึ้น';
-          } else if (cleared >= 2){
-            summaryKidHint.textContent = 'เก่งมากแล้ว ลองรักษาคอมโบให้นานขึ้นเพื่อเปิดพลังพิเศษให้บ่อยกว่าเดิม';
-          } else {
-            summaryKidHint.textContent = 'ถ้าอยากเก่งขึ้นอีก ลองตีเป้าให้แม่นและเก็บคอมโบให้นานขึ้นนะ';
-          }
-        }
-
-        if (metaLine){
-          metaLine.textContent =
-            `session: ${sum.sessionId || '-'} • timestamp: ${sum.timestampIso || '-'}`;
-        }
-
-        if (debugBox){
-          debugBox.innerHTML =
-            `<div><b>runUrl:</b> <code>${runUrl}</code></div>` +
-            `<div><b>teacherUrl:</b> <code>${teacherUrl}</code></div>` +
-            `<div><b>hubUrl:</b> <code>${hubUrl}</code></div>`;
-        }
+        if (btnReplay) btnReplay.href = buildReplayHref(sum);
       }
 
-      function init(){
-        const pid = String(qs('pid','anon')).trim() || 'anon';
-        const sum = findSummary(pid);
+      const summary = loadSummaryForPid(pid);
 
-        if (!sum) {
-          $('#emptyState').style.display = '';
-          $('#btnTeacherPanel').style.display = 'none';
-          $('#debugBox').textContent = `ไม่พบ summary สำหรับ pid=${pid}`;
-          $('#uiPid').textContent = pid;
-          return;
-        }
-
-        render(sum);
+      if (summary) {
+        render(summary);
+      } else {
+        $('summaryContent').style.display = 'none';
+        $('emptyState').style.display = '';
       }
 
-      init();
+      $('btnClear')?.addEventListener('click', ()=>{
+        try{
+          localStorage.removeItem(`SB_LAST_SUMMARY:${pid}`);
+          localStorage.removeItem(`HHA_LAST_SUMMARY:shadowbreaker:${pid}`);
+        }catch(_){}
+        location.reload();
+      });
     })();
   </script>
 </body>
