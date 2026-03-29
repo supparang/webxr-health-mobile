@@ -13,7 +13,6 @@
       --sky2:#bfe8ff;
       --sky3:#fff7d8;
 
-      --card:#fffdf6;
       --line:#bfe3f2;
       --text:#4d4a42;
       --muted:#7b7a72;
@@ -26,6 +25,9 @@
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
+
+      --gj-top-offset:128px;
+      --gj-bottom-offset:12px;
     }
 
     *{ box-sizing:border-box; }
@@ -85,34 +87,35 @@
       position:absolute;
       left:8px;
       right:8px;
-      top:calc(114px + var(--sat));
-      bottom:calc(8px + var(--sab));
+      top:calc(var(--gj-top-offset) + var(--sat));
+      bottom:calc(var(--gj-bottom-offset) + var(--sab));
       z-index:1;
       overflow:hidden;
       border-radius:28px;
       box-shadow:0 16px 32px rgba(86,155,194,.12);
-      background:rgba(255,255,255,.16);
+      background:rgba(255,255,255,.14);
     }
 
     .shell{
       position:absolute;
       inset:0;
-      display:grid;
-      grid-template-rows:auto 1fr auto;
-      gap:8px;
+      z-index:4;
+      pointer-events:none;
       padding:
         calc(8px + var(--sat))
         calc(8px + var(--sar))
         calc(8px + var(--sab))
         calc(8px + var(--sal));
-      pointer-events:none;
-      z-index:4;
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:8px;
     }
 
     .topbar{
       display:grid;
       gap:8px;
       align-content:start;
+      pointer-events:none;
     }
 
     .hero-strip{
@@ -157,6 +160,7 @@
       align-items:center;
       gap:8px;
       flex-wrap:wrap;
+      margin-bottom:4px;
     }
 
     .kicker{
@@ -175,7 +179,7 @@
 
     h1{
       margin:0;
-      font-size:clamp(22px,5vw,30px);
+      font-size:clamp(22px,5vw,32px);
       line-height:1.02;
       font-weight:1000;
       color:#67a91c;
@@ -185,7 +189,7 @@
     .sub{
       position:relative;
       z-index:1;
-      margin:6px 0 0;
+      margin:0;
       color:var(--muted);
       line-height:1.35;
       font-size:12px;
@@ -199,8 +203,10 @@
     .chipbar{
       display:flex;
       gap:6px;
-      overflow:auto;
-      padding-bottom:2px;
+      flex-wrap:nowrap;
+      overflow-x:auto;
+      overflow-y:hidden;
+      padding:0 2px 2px;
       scrollbar-width:none;
       -ms-overflow-style:none;
       pointer-events:auto;
@@ -210,7 +216,7 @@
 
     .pill{
       flex:0 0 auto;
-      min-width:112px;
+      min-width:108px;
       min-height:36px;
       display:inline-flex;
       align-items:center;
@@ -219,12 +225,11 @@
       padding:8px 10px;
       border-radius:999px;
       border:2px solid var(--line);
-      background:rgba(255,255,255,.92);
+      background:rgba(255,255,255,.94);
       color:#6c6a61;
       font-size:12px;
       font-weight:1000;
       box-shadow:0 8px 18px rgba(86,155,194,.10);
-      backdrop-filter:blur(6px);
       white-space:nowrap;
     }
 
@@ -247,6 +252,13 @@
       font-weight:900;
       line-height:1.45;
       pointer-events:auto;
+      transition:opacity .24s ease, transform .24s ease;
+    }
+
+    .status-card.hide{
+      opacity:0;
+      transform:translateY(8px);
+      pointer-events:none;
     }
 
     .status-title{
@@ -268,42 +280,72 @@
       margin-top:4px;
     }
 
-    @media (min-width:760px){
-      #gameMount{
-        left:12px;
-        right:12px;
-        top:calc(100px + var(--sat));
-        bottom:calc(12px + var(--sab));
+    @media (max-width:720px){
+      .shell{
+        padding:
+          calc(6px + var(--sat))
+          calc(6px + var(--sar))
+          calc(6px + var(--sab))
+          calc(6px + var(--sal));
       }
 
+      .hero-strip{
+        padding:9px 10px;
+        border-radius:20px;
+      }
+
+      .title-row{
+        gap:6px;
+      }
+
+      .kicker{
+        font-size:11px;
+        padding:5px 9px;
+      }
+
+      h1{
+        font-size:18px;
+      }
+
+      .sub{
+        font-size:11px;
+        -webkit-line-clamp:2;
+      }
+
+      .pill{
+        min-width:92px;
+        min-height:34px;
+        padding:7px 9px;
+        font-size:11px;
+      }
+
+      #gameMount{
+        left:6px;
+        right:6px;
+        bottom:calc(6px + var(--sab));
+      }
+    }
+
+    @media (min-width:721px){
       .topbar{
         grid-template-columns:minmax(0,1fr) auto;
         align-items:start;
       }
 
       .hero-strip{
-        min-height:84px;
-        padding:12px 14px;
+        min-height:86px;
       }
 
       .chipbar{
-        max-width:min(46vw,520px);
-      }
-
-      .pill{
-        min-width:120px;
+        max-width:min(48vw,560px);
+        align-self:start;
       }
     }
 
     @media (min-width:1080px){
-      #gameMount{
-        top:calc(92px + var(--sat));
-      }
-
       .hero-strip{
         min-height:76px;
       }
-
       .sub{
         -webkit-line-clamp:1;
       }
@@ -321,7 +363,7 @@
     <div id="gameMount"></div>
 
     <div class="shell">
-      <div class="topbar">
+      <div class="topbar" id="topbar">
         <div class="hero-strip">
           <div class="title-row">
             <div class="kicker">👑 GOODJUNK SOLO BOSS v2</div>
@@ -332,7 +374,7 @@
           </p>
         </div>
 
-        <div class="chipbar">
+        <div class="chipbar" id="chipbar">
           <div class="pill" id="pillPlayer">PLAYER • -</div>
           <div class="pill" id="pillDiff">LEVEL • normal</div>
           <div class="pill" id="pillTime">TIME • 150</div>
@@ -356,6 +398,7 @@
     (function () {
       const q = new URLSearchParams(location.search);
       const $ = (id) => document.getElementById(id);
+      const root = document.documentElement;
 
       const runCtx = {
         pid: q.get('pid') || 'anon',
@@ -385,31 +428,56 @@
         './js/goodjunk-solo-phaseboss-v2.js'
       ];
 
-      function setStatus(title, text, isError = false) {
-        const t1 = $('engineStatusTitle');
-        const t2 = $('engineStatusText');
-        if (t1) t1.textContent = title;
-        if (t2) {
-          t2.textContent = text;
-          t2.className = isError ? 'error' : '';
-        }
+      function isSmall() {
+        return window.innerWidth < 520;
       }
 
       function updatePills() {
-        const pillPlayer = $('pillPlayer');
-        const pillDiff = $('pillDiff');
-        const pillTime = $('pillTime');
-        const pillMode = $('pillMode');
+        const short = isSmall();
 
-        if (pillPlayer) pillPlayer.textContent = `PLAYER • ${runCtx.name || runCtx.pid || '-'}`;
-        if (pillDiff) pillDiff.textContent = `LEVEL • ${runCtx.diff}`;
-        if (pillTime) pillTime.textContent = `TIME • ${runCtx.time}`;
-        if (pillMode) pillMode.textContent = 'MODE • solo boss';
+        const player = runCtx.name || runCtx.pid || '-';
+        const diff = runCtx.diff || 'normal';
+        const time = runCtx.time || '150';
+
+        if ($('pillPlayer')) $('pillPlayer').textContent = short ? `P • ${player}` : `PLAYER • ${player}`;
+        if ($('pillDiff')) $('pillDiff').textContent = short ? `LV • ${diff}` : `LEVEL • ${diff}`;
+        if ($('pillTime')) $('pillTime').textContent = short ? `T • ${time}` : `TIME • ${time}`;
+        if ($('pillMode')) $('pillMode').textContent = short ? 'M • solo' : 'MODE • solo boss';
+      }
+
+      function syncTopOffset() {
+        const topbar = $('topbar');
+        if (!topbar) return;
+
+        const rect = topbar.getBoundingClientRect();
+        const offset = Math.ceil(rect.height) + 12;
+        root.style.setProperty('--gj-top-offset', offset + 'px');
+      }
+
+      function scheduleLayoutSync() {
+        requestAnimationFrame(() => {
+          updatePills();
+          syncTopOffset();
+        });
+      }
+
+      function setStatus(title, text, isError) {
+        const titleEl = $('engineStatusTitle');
+        const textEl = $('engineStatusText');
+
+        if (titleEl) titleEl.textContent = title;
+
+        if (textEl) {
+          textEl.textContent = text;
+          textEl.className = isError ? 'error' : '';
+        }
+
+        scheduleLayoutSync();
       }
 
       async function fetchText(src) {
         const res = await fetch(src, { cache: 'no-store' });
-        if (!res.ok) throw new Error(`${src} -> HTTP ${res.status}`);
+        if (!res.ok) throw new Error(src + ' -> HTTP ' + res.status);
         return await res.text();
       }
 
@@ -418,18 +486,17 @@
           try {
             const blob = new Blob([code], { type: 'text/javascript' });
             const blobUrl = URL.createObjectURL(blob);
-
             const s = document.createElement('script');
             s.src = blobUrl;
 
             s.onload = () => {
-              try { URL.revokeObjectURL(blobUrl); } catch {}
+              try { URL.revokeObjectURL(blobUrl); } catch (_) {}
               resolve(true);
             };
 
             s.onerror = () => {
-              try { URL.revokeObjectURL(blobUrl); } catch {}
-              reject(new Error(`โหลด script ไม่สำเร็จ: ${srcLabel}`));
+              try { URL.revokeObjectURL(blobUrl); } catch (_) {}
+              reject(new Error('โหลด script ไม่สำเร็จ: ' + srcLabel));
             };
 
             document.body.appendChild(s);
@@ -440,23 +507,31 @@
       }
 
       function verifyEngineStarted() {
-        const mount = document.getElementById('gameMount');
-        if (!mount) return false;
-        return mount.children.length > 0;
+        const mount = $('gameMount');
+        return !!(mount && mount.children.length > 0);
+      }
+
+      function hideStatusCardSoon() {
+        const card = $('engineStatusCard');
+        if (!card) return;
+        setTimeout(() => {
+          card.classList.add('hide');
+        }, 480);
       }
 
       async function loadEngine() {
         updatePills();
+        scheduleLayoutSync();
 
         let lastErr = null;
 
         for (const src of ENGINE_CANDIDATES) {
           try {
-            setStatus('กำลังโหลดเกม…', `ลองโหลด ${src}`);
-            const code = await fetchText(src);
+            setStatus('กำลังโหลดเกม…', 'ลองโหลด ' + src, false);
 
+            const code = await fetchText(src);
             if (!code || !code.trim()) {
-              throw new Error(`ไฟล์ว่าง: ${src}`);
+              throw new Error('ไฟล์ว่าง: ' + src);
             }
 
             await injectClassicScriptFromCode(code, src);
@@ -466,17 +541,14 @@
               if (!ok) {
                 setStatus(
                   'โหลดไฟล์ได้ แต่เกมยังไม่เริ่ม',
-                  `โหลด ${src} ได้แล้ว แต่ engine ยังไม่ mount ลง #gameMount\nให้ตรวจ goodjunk-solo-phaseboss-v2.js ว่ามี error syntax หรือ runtime ตอนเริ่มต้น`,
+                  'โหลด ' + src + ' ได้แล้ว แต่ engine ยังไม่ mount ลง #gameMount\nให้ตรวจ goodjunk-solo-phaseboss-v2.js ว่ามี error syntax หรือ runtime ตอนเริ่มต้น',
                   true
                 );
                 return;
               }
 
-              setStatus('เข้าเกมแล้ว', `solo boss engine loaded: ${src}`);
-              const card = $('engineStatusCard');
-              if (card) {
-                setTimeout(() => { card.style.display = 'none'; }, 420);
-              }
+              setStatus('เข้าเกมแล้ว', 'solo boss engine loaded: ' + src, false);
+              hideStatusCardSoon();
             }, 120);
 
             return;
@@ -488,19 +560,42 @@
 
         setStatus(
           'ไม่พบไฟล์ engine',
-          `โหลด engine ไม่สำเร็จ\n${lastErr ? String(lastErr.message || lastErr) : ''}\n\nCandidates:\n${ENGINE_CANDIDATES.join('\n')}`,
+          'โหลด engine ไม่สำเร็จ\n' +
+          (lastErr ? String(lastErr.message || lastErr) : '') +
+          '\n\nCandidates:\n' + ENGINE_CANDIDATES.join('\n'),
           true
         );
       }
 
+      function bindLayoutObservers() {
+        window.addEventListener('resize', scheduleLayoutSync, { passive: true });
+        window.addEventListener('orientationchange', scheduleLayoutSync, { passive: true });
+
+        if (window.ResizeObserver) {
+          const ro = new ResizeObserver(() => scheduleLayoutSync());
+          const topbar = $('topbar');
+          const chipbar = $('chipbar');
+          const status = $('engineStatusCard');
+          if (topbar) ro.observe(topbar);
+          if (chipbar) ro.observe(chipbar);
+          if (status) ro.observe(status);
+        }
+
+        setTimeout(scheduleLayoutSync, 50);
+        setTimeout(scheduleLayoutSync, 250);
+        setTimeout(scheduleLayoutSync, 700);
+      }
+
       try {
         updatePills();
-        setStatus('กำลังเตรียมเกม…', 'เริ่มต้นตัวโหลด engine...');
+        scheduleLayoutSync();
+        bindLayoutObservers();
+        setStatus('กำลังเตรียมเกม…', 'เริ่มต้นตัวโหลด engine...', false);
         loadEngine();
       } catch (err) {
         setStatus(
           'เกิดปัญหาใน run page',
-          String(err && (err.stack || err.message || err) || 'Unknown error'),
+          String((err && (err.stack || err.message || err)) || 'Unknown error'),
           true
         );
       }
