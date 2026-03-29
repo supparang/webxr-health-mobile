@@ -1,19 +1,14 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.battle.js
- * FULL PATCH v20260329-GOODJUNK-BATTLE-SAFE-R3
+ * FULL PATCH v20260328-GOODJUNK-BATTLE-SAFE-R4
  * ---------------------------------------------------------
- * Features:
+ * Safe layer role:
  * - robust self detection (PID / UID / playerId / key)
- * - new schema aware: rooms/{roomId}/{meta,state,players}
- * - preserves player key when players is an object map
- * - battle HUD bridge
- * - HP / attack charge / ready state
- * - stable battle sorting
- * - fixed result table / rank badge
- * - no "guess first row as me"
- * - fallback result modal if existing result DOM is absent
- * - emits summary events for battle run shell
- * - guard / blocked damage / last action aware
+ * - understands rooms/{roomId}/{meta,state,players}
+ * - keeps HUD values synced even if engine or room shape shifts
+ * - patches / provides result modal
+ * - emits summary events for run shell
+ * - supports guard / blockedDamage / critHits / perfectGuards / phase
  * ========================================================= */
 
 (() => {
@@ -87,13 +82,12 @@
     damageTaken: 0,
     koCount: 0,
 
-    guardActive: false,
-    guardUntil: 0,
-    guardCooldownUntil: 0,
     guardsUsed: 0,
     blockedDamage: 0,
     lastAction: '',
-    lastActionAt: 0,
+    critHits: 0,
+    perfectGuards: 0,
+    phase: 'A',
 
     players: [],
     room: null,
@@ -287,8 +281,8 @@
       'hp' in v ||
       'health' in v ||
       'miss' in v ||
-      'charge' in v ||
-      'attackCharge' in v
+      'attackCharge' in v ||
+      'charge' in v
     );
   }
 
@@ -306,18 +300,6 @@
     if (a.uid && b.uid && a.uid === b.uid) return true;
     if (a.playerId && b.playerId && a.playerId === b.playerId) return true;
     return false;
-  }
-
-  function actionLabel(action) {
-    switch (String(action || '')) {
-      case 'attack': return '⚡ โจมตี';
-      case 'crit': return '💥 คริติคอล';
-      case 'guard': return '🛡 ป้องกัน';
-      case 'block': return '🛡 กันได้';
-      case 'hit': return '💢 โดนตี';
-      case 'ko': return '💥 KO';
-      default: return '-';
-    }
   }
 
   function currentRoomId() {
@@ -487,15 +469,12 @@
         damageDealt: int(p?.damageDealt, 0),
         damageTaken: int(p?.damageTaken, 0),
         koCount: int(p?.koCount ?? p?.kills, 0),
-
-        guardActive: !!p?.guardActive,
-        guardUntil: int(p?.guardUntil, 0),
-        guardCooldownUntil: int(p?.guardCooldownUntil, 0),
         guardsUsed: int(p?.guardsUsed, 0),
         blockedDamage: int(p?.blockedDamage, 0),
+        critHits: int(p?.critHits, 0),
+        perfectGuards: int(p?.perfectGuards, 0),
+        phase: txt(p?.phase || 'A') || 'A',
         lastAction: txt(p?.lastAction || ''),
-        lastActionAt: int(p?.lastActionAt, 0),
-
         alive: (p?.alive != null) ? !!p.alive : int(p?.hp ?? p?.health, 100) > 0,
         ready: !!p?.ready,
         isHost: !!p?.isHost,
@@ -647,14 +626,12 @@
         STATE.damageDealt = self.damageDealt;
         STATE.damageTaken = self.damageTaken;
         STATE.koCount = self.koCount;
-
-        STATE.guardActive = !!self.guardActive;
-        STATE.guardUntil = self.guardUntil;
-        STATE.guardCooldownUntil = self.guardCooldownUntil;
         STATE.guardsUsed = self.guardsUsed;
         STATE.blockedDamage = self.blockedDamage;
-        STATE.lastAction = self.lastAction;
-        STATE.lastActionAt = self.lastActionAt;
+        STATE.critHits = self.critHits;
+        STATE.perfectGuards = self.perfectGuards;
+        STATE.phase = self.phase || 'A';
+        STATE.lastAction = self.lastAction || '';
       }
 
       STATE.players = sorted;
@@ -672,15 +649,11 @@
       STATE.damageDealt = int(STATE.damageDealt, 0);
       STATE.damageTaken = int(STATE.damageTaken, 0);
       STATE.koCount = int(STATE.koCount, 0);
-
-      STATE.guardActive = !!STATE.guardActive;
-      STATE.guardUntil = int(STATE.guardUntil, 0);
-      STATE.guardCooldownUntil = int(STATE.guardCooldownUntil, 0);
       STATE.guardsUsed = int(STATE.guardsUsed, 0);
       STATE.blockedDamage = int(STATE.blockedDamage, 0);
-      STATE.lastAction = txt(STATE.lastAction);
-      STATE.lastActionAt = int(STATE.lastActionAt, 0);
-
+      STATE.critHits = int(STATE.critHits, 0);
+      STATE.perfectGuards = int(STATE.perfectGuards, 0);
+      STATE.phase = txt(STATE.phase || 'A') || 'A';
       STATE.players = [];
     }
 
@@ -691,14 +664,6 @@
   function renderAttackReady() {
     if (!REF.attackReady) return;
 
-    if (STATE.guardActive) {
-      REF.attackReady.textContent = 'GUARD ACTIVE';
-      REF.attackReady.style.opacity = '1';
-      REF.attackReady.style.color = '#a855f7';
-      REF.attackReady.style.fontWeight = '1100';
-      return;
-    }
-
     REF.attackReady.textContent = STATE.attackReady ? 'ATTACK READY' : 'CHARGING';
     REF.attackReady.style.opacity = STATE.attackReady ? '1' : '.72';
     REF.attackReady.style.color = STATE.attackReady ? '#fcd34d' : '#cbd5e1';
@@ -706,7 +671,7 @@
   }
 
   let __runDebugLastPaint = 0;
-  function ensureRunDebugBox(){
+  function ensureRunDebugBox() {
     if (!DEBUG) return null;
     let el = document.getElementById('battleRunDebugBox');
     if (el) return el;
@@ -767,13 +732,12 @@
       damageTaken: STATE.damageTaken,
       koCount: STATE.koCount,
 
-      guardActive: STATE.guardActive,
-      guardUntil: STATE.guardUntil,
-      guardCooldownUntil: STATE.guardCooldownUntil,
       guardsUsed: STATE.guardsUsed,
       blockedDamage: STATE.blockedDamage,
       lastAction: STATE.lastAction,
-      lastActionAt: STATE.lastActionAt,
+      critHits: STATE.critHits,
+      perfectGuards: STATE.perfectGuards,
+      phase: STATE.phase,
 
       players,
       self,
@@ -807,15 +771,16 @@
       `selfKnown=${summary.selfKnown}`,
       `selfRank=${summary.selfRank || '-'}`,
       `status=${room.status || '-'}`,
+      `phase=${summary.phase || '-'}`,
       `score=${summary.scoreFinal}`,
       `hp=${summary.hp}/${summary.maxHp}`,
       `charge=${summary.attackCharge}/${summary.maxAttackCharge}`,
       `attackReady=${summary.attackReady}`,
-      `guardActive=${summary.guardActive}`,
-      `guardsUsed=${summary.guardsUsed}`,
-      `blockedDamage=${summary.blockedDamage}`,
-      `lastAction=${summary.lastAction || '-'}`,
       `ko=${summary.koCount}`,
+      `guards=${summary.guardsUsed}`,
+      `blocked=${summary.blockedDamage}`,
+      `critHits=${summary.critHits}`,
+      `perfectGuards=${summary.perfectGuards}`,
       `damageDealt=${summary.damageDealt}`,
       `damageTaken=${summary.damageTaken}`,
       `selfPid=${self ? self.pid : '-'}`,
@@ -827,9 +792,10 @@
   }
 
   function renderHud() {
+    if (!REF.score || !REF.room || !REF.time) bindNodes();
     recalcState();
 
-    setText(REF.mode, 'MODE battle');
+    setText(REF.mode, `MODE battle • PHASE ${STATE.phase || 'A'}`);
     setText(REF.room, `ROOM ${STATE.roomId}`);
     setText(REF.score, STATE.score);
     setText(REF.time, fmtClock(STATE.timeLeftSec));
@@ -890,14 +856,15 @@
   function renderRowsHTML(summary) {
     return summary.players.map((p, idx) => {
       const isMe = summary.self && isSamePlayer(p, summary.self);
-      const status = p.alive ? (p.guardActive ? '🛡 Guard' : '⚔️ Active') : '💥 KO';
       return `
         <tr class="${isMe ? 'me-row' : ''}">
           <td>
             <div style="font-weight:1100;line-height:1.1">${esc(p.name || p.pid || `Player ${idx + 1}`)}</div>
             ${p.pid ? `<div style="margin-top:4px;color:#94a3b8;font-size:12px;font-weight:900">${esc(p.pid)}</div>` : ''}
             ${isMe ? `<div style="margin-top:6px;color:#7dd3fc;font-size:12px;font-weight:1100">• คุณ</div>` : ''}
-            <div style="margin-top:4px;color:${p.alive ? '#86efac' : '#fca5a5'};font-size:12px;font-weight:1100">${status}</div>
+            <div style="margin-top:4px;color:${p.alive ? '#86efac' : '#fca5a5'};font-size:12px;font-weight:1100">
+              ${p.alive ? 'ยังยืนอยู่' : 'HP หมดแล้ว'}
+            </div>
           </td>
           <td>${p.score}</td>
           <td>${p.hp}</td>
@@ -926,7 +893,7 @@
 
     const sub = findResultSubtitle(root);
     if (sub) {
-      sub.textContent = `ผลสุดท้าย • ผู้เล่นทั้งหมด ${summary.players.length} คน • Block ${summary.blockedDamage}`;
+      sub.textContent = `ผลสุดท้าย • ผู้เล่นทั้งหมด ${summary.players.length} คน • Phase ${summary.phase || '-'}`;
     }
 
     const tbody = findResultTbody(root);
@@ -986,8 +953,8 @@
                 <div style="margin-top:4px;font-size:22px;line-height:1;font-weight:1100;">${summary.attacksUsed}</div>
               </div>
               <div style="border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.42);padding:10px 12px;">
-                <div style="color:#94a3b8;font-size:12px;font-weight:1000;">KO</div>
-                <div style="margin-top:4px;font-size:22px;line-height:1;font-weight:1100;">${summary.koCount}</div>
+                <div style="color:#94a3b8;font-size:12px;font-weight:1000;">GUARDS</div>
+                <div style="margin-top:4px;font-size:22px;line-height:1;font-weight:1100;">${summary.guardsUsed}</div>
               </div>
             </div>
           </div>
@@ -1002,11 +969,10 @@
               ${summary.selfKnown && summary.selfRank ? `อันดับ #${summary.selfRank}` : 'อันดับ ?'}
             </div>
 
-            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Damage dealt ${summary.damageDealt}</div>
-            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Damage taken ${summary.damageTaken}</div>
-            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Guards used ${summary.guardsUsed}</div>
-            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Blocked damage ${summary.blockedDamage}</div>
-            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Last action ${esc(actionLabel(summary.lastAction))}</div>
+            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Phase ${esc(summary.phase || '-')}</div>
+            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Critical ${summary.critHits}</div>
+            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Perfect Guard ${summary.perfectGuards}</div>
+            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Blocked ${summary.blockedDamage}</div>
           </div>
         </div>
 
@@ -1030,14 +996,15 @@
                   const isMe = summary.self && isSamePlayer(p, summary.self);
                   const bg = isMe ? 'rgba(30,41,59,.78)' : 'rgba(2,6,23,.42)';
                   const outline = isMe ? 'outline:1px solid rgba(245,158,11,.26);' : '';
-                  const status = p.alive ? (p.guardActive ? '🛡 Guard' : '⚔️ Active') : '💥 KO';
                   return `
                     <tr>
                       <td style="padding:12px 10px;background:${bg};${outline}border-top-left-radius:14px;border-bottom-left-radius:14px;">
                         <div style="font-weight:1100;line-height:1.1">${esc(p.name || p.pid)}</div>
                         ${p.pid ? `<div style="margin-top:4px;color:#94a3b8;font-size:12px;font-weight:900">${esc(p.pid)}</div>` : ''}
                         ${isMe ? `<div style="margin-top:6px;color:#fcd34d;font-size:12px;font-weight:1100">• คุณ</div>` : ''}
-                        <div style="margin-top:4px;color:${p.alive ? '#86efac' : '#fca5a5'};font-size:12px;font-weight:1100">${status}</div>
+                        <div style="margin-top:4px;color:${p.alive ? '#86efac' : '#fca5a5'};font-size:12px;font-weight:1100">
+                          ${p.alive ? 'ยังยืนอยู่' : 'HP หมดแล้ว'}
+                        </div>
                       </td>
                       <td style="padding:12px 10px;background:${bg};${outline}">${p.score}</td>
                       <td style="padding:12px 10px;background:${bg};${outline}">${p.hp}</td>
@@ -1084,6 +1051,7 @@
     });
     byId('battleSafeRematchBtn')?.addEventListener('click', () => {
       const u = new URL(location.href);
+      u.searchParams.set('seed', String(Date.now()));
       location.href = u.toString();
     });
   }
@@ -1118,7 +1086,6 @@
         bestStreak: summary.comboMax ?? 0,
         result: resultText,
         reason: summary.endReason || 'finished',
-
         hp: summary.hp,
         maxHp: summary.maxHp,
         attackCharge: summary.attackCharge,
@@ -1128,15 +1095,12 @@
         damageDealt: summary.damageDealt,
         damageTaken: summary.damageTaken,
         koCount: summary.koCount,
-
-        guardActive: summary.guardActive,
-        guardUntil: summary.guardUntil,
-        guardCooldownUntil: summary.guardCooldownUntil,
         guardsUsed: summary.guardsUsed,
         blockedDamage: summary.blockedDamage,
         lastAction: summary.lastAction,
-        lastActionAt: summary.lastActionAt,
-
+        critHits: summary.critHits,
+        perfectGuards: summary.perfectGuards,
+        phase: summary.phase,
         raw: summary
       }
     };
@@ -1160,10 +1124,7 @@
     });
 
     try {
-      window.postMessage({
-        type: 'gj:battle-summary',
-        detail
-      }, '*');
+      window.postMessage({ type: 'gj:battle-summary', detail }, '*');
     } catch (err) {
       console.warn('[battle-safe] postMessage summary failed:', err);
     }
@@ -1217,13 +1178,12 @@
     STATE.damageTaken = int(src.damageTaken ?? STATE.damageTaken, 0);
     STATE.koCount = int(src.koCount ?? src.kills ?? STATE.koCount, 0);
 
-    STATE.guardActive = !!(src.guardActive ?? STATE.guardActive);
-    STATE.guardUntil = int(src.guardUntil ?? STATE.guardUntil, 0);
-    STATE.guardCooldownUntil = int(src.guardCooldownUntil ?? STATE.guardCooldownUntil, 0);
     STATE.guardsUsed = int(src.guardsUsed ?? STATE.guardsUsed, 0);
     STATE.blockedDamage = int(src.blockedDamage ?? STATE.blockedDamage, 0);
     STATE.lastAction = txt(src.lastAction ?? STATE.lastAction);
-    STATE.lastActionAt = int(src.lastActionAt ?? STATE.lastActionAt, 0);
+    STATE.critHits = int(src.critHits ?? STATE.critHits, 0);
+    STATE.perfectGuards = int(src.perfectGuards ?? STATE.perfectGuards, 0);
+    STATE.phase = txt(src.phase ?? STATE.phase) || 'A';
 
     if (Array.isArray(src.players)) {
       STATE.players = normalizePlayers(src.players);
@@ -1287,8 +1247,23 @@
     if (detail.koCount != null || detail.kills != null) {
       STATE.koCount = int(detail.koCount ?? detail.kills, STATE.koCount);
     }
+    if (detail.guardsUsed != null) {
+      STATE.guardsUsed = int(detail.guardsUsed, STATE.guardsUsed);
+    }
     if (detail.blockedDamage != null) {
       STATE.blockedDamage = int(detail.blockedDamage, STATE.blockedDamage);
+    }
+    if (detail.critHits != null) {
+      STATE.critHits = int(detail.critHits, STATE.critHits);
+    }
+    if (detail.perfectGuards != null) {
+      STATE.perfectGuards = int(detail.perfectGuards, STATE.perfectGuards);
+    }
+    if (detail.phase != null) {
+      STATE.phase = txt(detail.phase) || STATE.phase;
+    }
+    if (detail.lastAction != null) {
+      STATE.lastAction = txt(detail.lastAction) || STATE.lastAction;
     }
     renderHud();
   }
@@ -1320,10 +1295,10 @@
     if (BRIDGE.resultShown) return;
 
     mergeState({
-      ...(detail.summary || detail),
+      ...detail,
       ended: true,
-      endedAt: (detail.summary || detail).endedAt || (detail.summary || detail).timestampIso || nowIso(),
-      endReason: (detail.summary || detail).endReason || (detail.summary || detail).reason || 'finished'
+      endedAt: detail.endedAt || detail.timestampIso || nowIso(),
+      endReason: detail.endReason || detail.reason || 'finished'
     });
 
     BRIDGE.resultShown = true;
@@ -1447,7 +1422,24 @@
     });
   }
 
-  function tickTimeFromEndsAt() {
+  function tickTimeFromRoomState() {
+    const room = normalizeRoomShape(STATE.room || {});
+    const status = String(room.status || '').toLowerCase();
+    const state = room.state || {};
+
+    const countdownEndsAt = num(state.countdownEndsAt, 0);
+    const endsAt = num(state.endsAt, 0);
+
+    if (status === 'countdown' && countdownEndsAt > 0 && !STATE.ended) {
+      STATE.timeLeftSec = Math.max(0, Math.ceil((countdownEndsAt - Date.now()) / 1000));
+      return;
+    }
+
+    if (status === 'playing' && endsAt > 0 && !STATE.ended) {
+      STATE.timeLeftSec = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+      return;
+    }
+
     const s = window.state || window.gameState || window.__BATTLE_STATE__ || {};
     const endsAtMs = num(s.endsAtMs || s.endAtMs || 0, 0);
     if (endsAtMs > 0 && !STATE.ended) {
@@ -1459,7 +1451,7 @@
     try {
       readKnownGlobals();
       readLegacyDom();
-      tickTimeFromEndsAt();
+      tickTimeFromRoomState();
       renderHud();
 
       const s = window.state || window.gameState || window.__BATTLE_STATE__ || {};
