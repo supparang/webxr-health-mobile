@@ -1,6 +1,6 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.battle.js
- * FULL PATCH v20260328-GOODJUNK-BATTLE-SAFE-R3
+ * FULL PATCH v20260329-GOODJUNK-BATTLE-SAFE-R3
  * ---------------------------------------------------------
  * Features:
  * - robust self detection (PID / UID / playerId / key)
@@ -13,19 +13,7 @@
  * - no "guess first row as me"
  * - fallback result modal if existing result DOM is absent
  * - emits summary events for battle run shell
- * - rebind HUD refs after engine injects DOM
- * - avoids pid=anon overriding real uid
- *
- * Public API:
- *   window.BattleSafe.setState(patch)
- *   window.BattleSafe.setRoomState(room)
- *   window.BattleSafe.setPlayers(players)
- *   window.BattleSafe.onJudge(judge)
- *   window.BattleSafe.onDamage(detail)
- *   window.BattleSafe.onAttackCharge(detail)
- *   window.BattleSafe.finishGame(detail)
- *   window.BattleSafe.render()
- *   window.BattleSafe.getState()
+ * - guard / blocked damage / last action aware
  * ========================================================= */
 
 (() => {
@@ -79,8 +67,6 @@
 
   const STATE = {
     pid: '',
-    uid: '',
-    playerId: '',
     name: '',
     roomId: '-',
 
@@ -100,6 +86,14 @@
     damageDealt: 0,
     damageTaken: 0,
     koCount: 0,
+
+    guardActive: false,
+    guardUntil: 0,
+    guardCooldownUntil: 0,
+    guardsUsed: 0,
+    blockedDamage: 0,
+    lastAction: '',
+    lastActionAt: 0,
 
     players: [],
     room: null,
@@ -220,6 +214,19 @@
     if (el) el.style.width = `${clamp(num(percent, 0), 0, 100)}%`;
   }
 
+  function devicePid() {
+    try {
+      let pid = localStorage.getItem(LS_KEYS.devicePid);
+      if (!pid) {
+        pid = `p-${Math.random().toString(36).slice(2, 10)}`;
+        localStorage.setItem(LS_KEYS.devicePid, pid);
+      }
+      return pid;
+    } catch (_) {
+      return `p-${Math.random().toString(36).slice(2, 10)}`;
+    }
+  }
+
   function normalizePid(raw) {
     const v = txt(raw).replace(/[.#$[\]/]/g, '-');
     if (!v) return '';
@@ -236,22 +243,6 @@
       .toUpperCase()
       .replace(/[^A-Z0-9_-]/g, '')
       .slice(0, 24);
-  }
-
-  function firstPid(...vals) {
-    for (const v of vals) {
-      const n = normalizePid(v);
-      if (n) return n;
-    }
-    return '';
-  }
-
-  function firstName(...vals) {
-    for (const v of vals) {
-      const n = normalizeName(v);
-      if (n) return n;
-    }
-    return '';
   }
 
   function extractRoomIdLike(v) {
@@ -277,15 +268,9 @@
     push(exact);
     push(compact);
 
-    if (/^GJB[A-Z0-9]{5,8}$/.test(compact)) {
-      push(`GJB-${compact.slice(3)}`);
-    }
-    if (/^GJB-[A-Z0-9]{5,8}$/.test(exact)) {
-      push(exact.replace('-', ''));
-    }
-    if (/^GJ[A-Z0-9]{5,10}$/.test(compact)) {
-      push(compact);
-    }
+    if (/^GJB[A-Z0-9]{5,8}$/.test(compact)) push(`GJB-${compact.slice(3)}`);
+    if (/^GJB-[A-Z0-9]{5,8}$/.test(exact)) push(exact.replace('-', ''));
+    if (/^GJ[A-Z0-9]{5,10}$/.test(compact)) push(compact);
 
     return out;
   }
@@ -317,22 +302,21 @@
   function isSamePlayer(a, b) {
     if (!a || !b) return false;
     if (a.key && b.key && a.key === b.key) return true;
+    if (a.pid && b.pid && a.pid === b.pid) return true;
     if (a.uid && b.uid && a.uid === b.uid) return true;
     if (a.playerId && b.playerId && a.playerId === b.playerId) return true;
-    if (a.pid && b.pid && a.pid === b.pid) return true;
     return false;
   }
 
-  function devicePid() {
-    try {
-      let pid = localStorage.getItem(LS_KEYS.devicePid);
-      if (!pid) {
-        pid = `p-${Math.random().toString(36).slice(2, 10)}`;
-        localStorage.setItem(LS_KEYS.devicePid, pid);
-      }
-      return pid;
-    } catch (_) {
-      return `p-${Math.random().toString(36).slice(2, 10)}`;
+  function actionLabel(action) {
+    switch (String(action || '')) {
+      case 'attack': return '⚡ โจมตี';
+      case 'crit': return '💥 คริติคอล';
+      case 'guard': return '🛡 ป้องกัน';
+      case 'block': return '🛡 กันได้';
+      case 'hit': return '💢 โดนตี';
+      case 'ko': return '💥 KO';
+      default: return '-';
     }
   }
 
@@ -359,42 +343,39 @@
   }
 
   function getSelfPid() {
-    return firstPid(
-      BOOT?.uid,
-      BOOT?.playerId,
-      BOOT?.pid,
-      RUN_CTX?.uid,
-      RUN_CTX?.playerId,
-      RUN_CTX?.pid,
-      window.state?.uid,
-      window.gameState?.uid,
-      window.__BATTLE_STATE__?.uid,
-      window.RUN_CTX?.uid,
-      window.RUN_CTX?.playerPid,
-      window.RUN_CTX?.pid,
-      window.__GJ_CTX?.uid,
-      window.__GJ_CTX?.pid,
-      window.__BATTLE_SELF_PID__,
-      qsGet('uid'),
-      qsGet('playerId'),
-      qsGet('pid'),
-      readText(LS_KEYS.selfPidGlobal),
+    return normalizePid(
+      BOOT?.uid ||
+      BOOT?.playerId ||
+      BOOT?.pid ||
+      RUN_CTX?.uid ||
+      RUN_CTX?.playerId ||
+      RUN_CTX?.pid ||
+      window.RUN_CTX?.pid ||
+      window.RUN_CTX?.playerPid ||
+      window.RUN_CTX?.uid ||
+      window.__GJ_CTX?.pid ||
+      window.__GJ_CTX?.uid ||
+      window.__BATTLE_SELF_PID__ ||
+      qsGet('uid') ||
+      qsGet('playerId') ||
+      qsGet('pid') ||
+      readText(LS_KEYS.selfPidGlobal) ||
       devicePid()
     );
   }
 
   function getSelfName() {
-    return firstName(
-      BOOT?.name,
-      BOOT?.nick,
-      RUN_CTX?.name,
-      RUN_CTX?.nick,
-      window.RUN_CTX?.name,
-      window.RUN_CTX?.nick,
-      window.__GJ_CTX?.name,
-      window.__BATTLE_SELF_NAME__,
-      qsGet('name'),
-      qsGet('nick'),
+    return normalizeName(
+      BOOT?.name ||
+      BOOT?.nick ||
+      RUN_CTX?.name ||
+      RUN_CTX?.nick ||
+      window.RUN_CTX?.name ||
+      window.RUN_CTX?.nick ||
+      window.__GJ_CTX?.name ||
+      window.__BATTLE_SELF_NAME__ ||
+      qsGet('name') ||
+      qsGet('nick') ||
       readText(LS_KEYS.selfNameGlobal)
     );
   }
@@ -425,26 +406,23 @@
     const set = new Set();
     [
       getSelfPid(),
-      firstPid(BOOT?.uid),
-      firstPid(BOOT?.playerId),
-      firstPid(BOOT?.pid),
-      firstPid(RUN_CTX?.uid),
-      firstPid(RUN_CTX?.playerId),
-      firstPid(RUN_CTX?.pid),
-      firstPid(window.state?.uid),
-      firstPid(window.gameState?.uid),
-      firstPid(window.__BATTLE_STATE__?.uid),
-      firstPid(qsGet('uid')),
-      firstPid(qsGet('playerId')),
-      firstPid(qsGet('pid')),
-      firstPid(window.RUN_CTX?.uid),
-      firstPid(window.RUN_CTX?.playerPid),
-      firstPid(window.RUN_CTX?.pid),
-      firstPid(window.__GJ_CTX?.uid),
-      firstPid(window.__GJ_CTX?.pid),
-      firstPid(readText(LS_KEYS.selfPidGlobal)),
-      firstPid(devicePid()),
-      roomId ? firstPid(readText(`${LS_KEYS.selfPidByRoomPrefix}${roomId}`)) : ''
+      normalizePid(BOOT?.uid),
+      normalizePid(BOOT?.playerId),
+      normalizePid(BOOT?.pid),
+      normalizePid(RUN_CTX?.uid),
+      normalizePid(RUN_CTX?.playerId),
+      normalizePid(RUN_CTX?.pid),
+      normalizePid(qsGet('uid')),
+      normalizePid(qsGet('playerId')),
+      normalizePid(qsGet('pid')),
+      normalizePid(window.RUN_CTX?.pid),
+      normalizePid(window.RUN_CTX?.playerPid),
+      normalizePid(window.RUN_CTX?.uid),
+      normalizePid(window.__GJ_CTX?.pid),
+      normalizePid(window.__GJ_CTX?.uid),
+      normalizePid(readText(LS_KEYS.selfPidGlobal)),
+      normalizePid(devicePid()),
+      roomId ? normalizePid(readText(`${LS_KEYS.selfPidByRoomPrefix}${roomId}`)) : ''
     ].forEach(v => { if (v) set.add(v); });
     return set;
   }
@@ -488,15 +466,13 @@
 
     return rows.map(({ key, value: p, idx }) => {
       const pid = normalizePid(p?.pid || p?.playerId || p?.uid || p?.id || key || `p${idx + 1}`);
-      const uid = normalizePid(p?.uid || p?.playerId || p?.pid || key || '');
-      const playerId = normalizePid(p?.playerId || p?.uid || p?.pid || key || '');
       const name = normalizeName(p?.name || p?.nick || p?.playerName || p?.displayName || `Player ${idx + 1}`);
 
       return {
         key: txt(key),
         pid,
-        uid,
-        playerId,
+        uid: normalizePid(p?.uid || p?.playerId || p?.pid || key || ''),
+        playerId: normalizePid(p?.playerId || p?.uid || p?.pid || key || ''),
         name,
         score: int(p?.score, 0),
         miss: int(p?.miss ?? p?.misses, 0),
@@ -511,6 +487,15 @@
         damageDealt: int(p?.damageDealt, 0),
         damageTaken: int(p?.damageTaken, 0),
         koCount: int(p?.koCount ?? p?.kills, 0),
+
+        guardActive: !!p?.guardActive,
+        guardUntil: int(p?.guardUntil, 0),
+        guardCooldownUntil: int(p?.guardCooldownUntil, 0),
+        guardsUsed: int(p?.guardsUsed, 0),
+        blockedDamage: int(p?.blockedDamage, 0),
+        lastAction: txt(p?.lastAction || ''),
+        lastActionAt: int(p?.lastActionAt, 0),
+
         alive: (p?.alive != null) ? !!p.alive : int(p?.hp ?? p?.health, 100) > 0,
         ready: !!p?.ready,
         isHost: !!p?.isHost,
@@ -522,7 +507,6 @@
   function normalizeRoomShape(room) {
     if (!room || typeof room !== 'object') {
       return {
-        raw: room,
         roomId: currentRoomId(),
         status: '',
         meta: null,
@@ -578,7 +562,7 @@
       if (a.miss !== b.miss) return a.miss - b.miss;
       if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
       if (b.koCount !== a.koCount) return b.koCount - a.koCount;
-      return String(a.name || '').localeCompare(String(b.name || ''), 'th');
+      return a.name.localeCompare(b.name, 'th');
     });
   }
 
@@ -587,9 +571,9 @@
     const knownNames = gatherKnownSelfNameSet(roomId);
 
     let self = players.find(p =>
+      (p.pid && knownPids.has(p.pid)) ||
       (p.uid && knownPids.has(p.uid)) ||
       (p.playerId && knownPids.has(p.playerId)) ||
-      (p.pid && knownPids.has(p.pid)) ||
       (p.key && knownPids.has(normalizePid(p.key)))
     );
     if (self) return self;
@@ -618,17 +602,6 @@
     ensureResultMount();
   }
 
-  function ensureHudRefs() {
-    if (
-      !REF.room || !document.body.contains(REF.room) ||
-      !REF.score || !document.body.contains(REF.score) ||
-      !REF.time || !document.body.contains(REF.time) ||
-      !REF.hp || !document.body.contains(REF.hp)
-    ) {
-      bindNodes();
-    }
-  }
-
   function ensureResultMount() {
     let mount = byId('battleSafeResultMount');
     if (!mount) {
@@ -652,22 +625,6 @@
 
   function recalcState() {
     STATE.pid = getSelfPid();
-    STATE.uid = firstPid(
-      BOOT?.uid,
-      RUN_CTX?.uid,
-      window.state?.uid,
-      window.gameState?.uid,
-      window.__BATTLE_STATE__?.uid,
-      qsGet('uid')
-    );
-    STATE.playerId = firstPid(
-      BOOT?.playerId,
-      RUN_CTX?.playerId,
-      window.state?.playerId,
-      window.gameState?.playerId,
-      qsGet('playerId'),
-      STATE.uid
-    );
     STATE.name = getSelfName();
     STATE.roomId = currentRoomId();
 
@@ -690,6 +647,14 @@
         STATE.damageDealt = self.damageDealt;
         STATE.damageTaken = self.damageTaken;
         STATE.koCount = self.koCount;
+
+        STATE.guardActive = !!self.guardActive;
+        STATE.guardUntil = self.guardUntil;
+        STATE.guardCooldownUntil = self.guardCooldownUntil;
+        STATE.guardsUsed = self.guardsUsed;
+        STATE.blockedDamage = self.blockedDamage;
+        STATE.lastAction = self.lastAction;
+        STATE.lastActionAt = self.lastActionAt;
       }
 
       STATE.players = sorted;
@@ -707,6 +672,15 @@
       STATE.damageDealt = int(STATE.damageDealt, 0);
       STATE.damageTaken = int(STATE.damageTaken, 0);
       STATE.koCount = int(STATE.koCount, 0);
+
+      STATE.guardActive = !!STATE.guardActive;
+      STATE.guardUntil = int(STATE.guardUntil, 0);
+      STATE.guardCooldownUntil = int(STATE.guardCooldownUntil, 0);
+      STATE.guardsUsed = int(STATE.guardsUsed, 0);
+      STATE.blockedDamage = int(STATE.blockedDamage, 0);
+      STATE.lastAction = txt(STATE.lastAction);
+      STATE.lastActionAt = int(STATE.lastActionAt, 0);
+
       STATE.players = [];
     }
 
@@ -716,6 +690,15 @@
 
   function renderAttackReady() {
     if (!REF.attackReady) return;
+
+    if (STATE.guardActive) {
+      REF.attackReady.textContent = 'GUARD ACTIVE';
+      REF.attackReady.style.opacity = '1';
+      REF.attackReady.style.color = '#a855f7';
+      REF.attackReady.style.fontWeight = '1100';
+      return;
+    }
+
     REF.attackReady.textContent = STATE.attackReady ? 'ATTACK READY' : 'CHARGING';
     REF.attackReady.style.opacity = STATE.attackReady ? '1' : '.72';
     REF.attackReady.style.color = STATE.attackReady ? '#fcd34d' : '#cbd5e1';
@@ -723,7 +706,7 @@
   }
 
   let __runDebugLastPaint = 0;
-  function ensureRunDebugBox() {
+  function ensureRunDebugBox(){
     if (!DEBUG) return null;
     let el = document.getElementById('battleRunDebugBox');
     if (el) return el;
@@ -766,8 +749,6 @@
       game: 'goodjunk-battle',
       mode: 'battle',
       pid: getSelfPid(),
-      uid: STATE.uid,
-      playerId: STATE.playerId,
       name: getSelfName(),
       roomId: STATE.roomId,
 
@@ -785,6 +766,14 @@
       damageDealt: STATE.damageDealt,
       damageTaken: STATE.damageTaken,
       koCount: STATE.koCount,
+
+      guardActive: STATE.guardActive,
+      guardUntil: STATE.guardUntil,
+      guardCooldownUntil: STATE.guardCooldownUntil,
+      guardsUsed: STATE.guardsUsed,
+      blockedDamage: STATE.blockedDamage,
+      lastAction: STATE.lastAction,
+      lastActionAt: STATE.lastActionAt,
 
       players,
       self,
@@ -813,8 +802,6 @@
       '[BATTLE SAFE DEBUG]',
       `room=${summary.roomId || '-'}`,
       `pid=${summary.pid || '-'}`,
-      `uid=${summary.uid || '-'}`,
-      `playerId=${summary.playerId || '-'}`,
       `name=${summary.name || '-'}`,
       `players=${summary.players.length}`,
       `selfKnown=${summary.selfKnown}`,
@@ -824,6 +811,10 @@
       `hp=${summary.hp}/${summary.maxHp}`,
       `charge=${summary.attackCharge}/${summary.maxAttackCharge}`,
       `attackReady=${summary.attackReady}`,
+      `guardActive=${summary.guardActive}`,
+      `guardsUsed=${summary.guardsUsed}`,
+      `blockedDamage=${summary.blockedDamage}`,
+      `lastAction=${summary.lastAction || '-'}`,
       `ko=${summary.koCount}`,
       `damageDealt=${summary.damageDealt}`,
       `damageTaken=${summary.damageTaken}`,
@@ -836,7 +827,6 @@
   }
 
   function renderHud() {
-    ensureHudRefs();
     recalcState();
 
     setText(REF.mode, 'MODE battle');
@@ -900,15 +890,14 @@
   function renderRowsHTML(summary) {
     return summary.players.map((p, idx) => {
       const isMe = summary.self && isSamePlayer(p, summary.self);
+      const status = p.alive ? (p.guardActive ? '🛡 Guard' : '⚔️ Active') : '💥 KO';
       return `
         <tr class="${isMe ? 'me-row' : ''}">
           <td>
             <div style="font-weight:1100;line-height:1.1">${esc(p.name || p.pid || `Player ${idx + 1}`)}</div>
             ${p.pid ? `<div style="margin-top:4px;color:#94a3b8;font-size:12px;font-weight:900">${esc(p.pid)}</div>` : ''}
             ${isMe ? `<div style="margin-top:6px;color:#7dd3fc;font-size:12px;font-weight:1100">• คุณ</div>` : ''}
-            <div style="margin-top:4px;color:${p.alive ? '#86efac' : '#fca5a5'};font-size:12px;font-weight:1100">
-              ${p.alive ? 'ยังยืนอยู่' : 'HP หมดแล้ว'}
-            </div>
+            <div style="margin-top:4px;color:${p.alive ? '#86efac' : '#fca5a5'};font-size:12px;font-weight:1100">${status}</div>
           </td>
           <td>${p.score}</td>
           <td>${p.hp}</td>
@@ -937,7 +926,7 @@
 
     const sub = findResultSubtitle(root);
     if (sub) {
-      sub.textContent = `ผลสุดท้าย • ผู้เล่นทั้งหมด ${summary.players.length} คน`;
+      sub.textContent = `ผลสุดท้าย • ผู้เล่นทั้งหมด ${summary.players.length} คน • Block ${summary.blockedDamage}`;
     }
 
     const tbody = findResultTbody(root);
@@ -1015,9 +1004,9 @@
 
             <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Damage dealt ${summary.damageDealt}</div>
             <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Damage taken ${summary.damageTaken}</div>
-            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">
-              ${summary.attackReady ? 'ตอนจบมีสถานะ ATTACK READY' : 'ตอนจบยังชาร์จไม่เต็ม'}
-            </div>
+            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Guards used ${summary.guardsUsed}</div>
+            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Blocked damage ${summary.blockedDamage}</div>
+            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Last action ${esc(actionLabel(summary.lastAction))}</div>
           </div>
         </div>
 
@@ -1041,15 +1030,14 @@
                   const isMe = summary.self && isSamePlayer(p, summary.self);
                   const bg = isMe ? 'rgba(30,41,59,.78)' : 'rgba(2,6,23,.42)';
                   const outline = isMe ? 'outline:1px solid rgba(245,158,11,.26);' : '';
+                  const status = p.alive ? (p.guardActive ? '🛡 Guard' : '⚔️ Active') : '💥 KO';
                   return `
                     <tr>
                       <td style="padding:12px 10px;background:${bg};${outline}border-top-left-radius:14px;border-bottom-left-radius:14px;">
                         <div style="font-weight:1100;line-height:1.1">${esc(p.name || p.pid)}</div>
                         ${p.pid ? `<div style="margin-top:4px;color:#94a3b8;font-size:12px;font-weight:900">${esc(p.pid)}</div>` : ''}
                         ${isMe ? `<div style="margin-top:6px;color:#fcd34d;font-size:12px;font-weight:1100">• คุณ</div>` : ''}
-                        <div style="margin-top:4px;color:${p.alive ? '#86efac' : '#fca5a5'};font-size:12px;font-weight:1100">
-                          ${p.alive ? 'ยังยืนอยู่' : 'HP หมดแล้ว'}
-                        </div>
+                        <div style="margin-top:4px;color:${p.alive ? '#86efac' : '#fca5a5'};font-size:12px;font-weight:1100">${status}</div>
                       </td>
                       <td style="padding:12px 10px;background:${bg};${outline}">${p.score}</td>
                       <td style="padding:12px 10px;background:${bg};${outline}">${p.hp}</td>
@@ -1121,8 +1109,6 @@
         game: 'goodjunk-battle',
         roomId: summary.roomId,
         pid: summary.pid,
-        uid: summary.uid,
-        playerId: summary.playerId,
         name: summary.name,
         rank: summary.selfRank ?? '',
         score: summary.scoreFinal ?? 0,
@@ -1132,6 +1118,7 @@
         bestStreak: summary.comboMax ?? 0,
         result: resultText,
         reason: summary.endReason || 'finished',
+
         hp: summary.hp,
         maxHp: summary.maxHp,
         attackCharge: summary.attackCharge,
@@ -1141,6 +1128,15 @@
         damageDealt: summary.damageDealt,
         damageTaken: summary.damageTaken,
         koCount: summary.koCount,
+
+        guardActive: summary.guardActive,
+        guardUntil: summary.guardUntil,
+        guardCooldownUntil: summary.guardCooldownUntil,
+        guardsUsed: summary.guardsUsed,
+        blockedDamage: summary.blockedDamage,
+        lastAction: summary.lastAction,
+        lastActionAt: summary.lastActionAt,
+
         raw: summary
       }
     };
@@ -1191,18 +1187,18 @@
     const roomCandidate =
       typeof src.room === 'string'
         ? src.room
-        : (src.room && typeof src.room === 'object' ? extractRoomIdLike(src.room) : '');
+        : (src.room && typeof src.room === 'object'
+            ? extractRoomIdLike(src.room)
+            : '');
 
-    STATE.pid = firstPid(src.pid, src.uid, src.playerId, STATE.pid, getSelfPid());
-    STATE.uid = firstPid(src.uid, src.playerId, STATE.uid, RUN_CTX?.uid, BOOT?.uid, window.state?.uid);
-    STATE.playerId = firstPid(src.playerId, src.uid, STATE.playerId, RUN_CTX?.playerId, BOOT?.playerId, STATE.uid);
-    STATE.name = firstName(src.name, src.nick, STATE.name, getSelfName());
+    STATE.pid = normalizePid(src.pid ?? src.uid ?? src.playerId ?? STATE.pid ?? getSelfPid());
+    STATE.name = normalizeName(src.name ?? src.nick ?? STATE.name ?? getSelfName());
     STATE.roomId = normalizeRoomId(src.roomId || roomCandidate || STATE.roomId || currentRoomId()) || '-';
 
     STATE.score = int(src.score ?? src.myScore ?? STATE.score, 0);
     STATE.miss = int(src.miss ?? src.misses ?? STATE.miss, 0);
     STATE.bestStreak = int(src.bestStreak ?? src.comboMax ?? src.streak ?? STATE.bestStreak, 0);
-    STATE.timeLeftSec = int(src.timeLeftSec ?? src.timeLeft ?? STATE.timeLeft ?? STATE.timeLeftRemaining ?? STATE.timeLeftSec, 0);
+    STATE.timeLeftSec = int(src.timeLeftSec ?? src.timeLeft ?? STATE.timeLeftSec, 0);
 
     STATE.hp = clamp(int(src.hp ?? src.health ?? STATE.hp, 100), 0, Math.max(1, int(src.maxHp ?? src.maxHealth ?? STATE.maxHp, 100)));
     STATE.maxHp = Math.max(1, int(src.maxHp ?? src.maxHealth ?? STATE.maxHp, 100));
@@ -1220,6 +1216,14 @@
     STATE.damageDealt = int(src.damageDealt ?? STATE.damageDealt, 0);
     STATE.damageTaken = int(src.damageTaken ?? STATE.damageTaken, 0);
     STATE.koCount = int(src.koCount ?? src.kills ?? STATE.koCount, 0);
+
+    STATE.guardActive = !!(src.guardActive ?? STATE.guardActive);
+    STATE.guardUntil = int(src.guardUntil ?? STATE.guardUntil, 0);
+    STATE.guardCooldownUntil = int(src.guardCooldownUntil ?? STATE.guardCooldownUntil, 0);
+    STATE.guardsUsed = int(src.guardsUsed ?? STATE.guardsUsed, 0);
+    STATE.blockedDamage = int(src.blockedDamage ?? STATE.blockedDamage, 0);
+    STATE.lastAction = txt(src.lastAction ?? STATE.lastAction);
+    STATE.lastActionAt = int(src.lastActionAt ?? STATE.lastActionAt, 0);
 
     if (Array.isArray(src.players)) {
       STATE.players = normalizePlayers(src.players);
@@ -1283,6 +1287,9 @@
     if (detail.koCount != null || detail.kills != null) {
       STATE.koCount = int(detail.koCount ?? detail.kills, STATE.koCount);
     }
+    if (detail.blockedDamage != null) {
+      STATE.blockedDamage = int(detail.blockedDamage, STATE.blockedDamage);
+    }
     renderHud();
   }
 
@@ -1312,15 +1319,11 @@
   function finishGame(detail = {}) {
     if (BRIDGE.resultShown) return;
 
-    const src = (detail && detail.summary && typeof detail.summary === 'object')
-      ? detail.summary
-      : detail;
-
     mergeState({
-      ...src,
+      ...(detail.summary || detail),
       ended: true,
-      endedAt: src.endedAt || src.timestampIso || nowIso(),
-      endReason: src.endReason || src.reason || 'finished'
+      endedAt: (detail.summary || detail).endedAt || (detail.summary || detail).timestampIso || nowIso(),
+      endReason: (detail.summary || detail).endReason || (detail.summary || detail).reason || 'finished'
     });
 
     BRIDGE.resultShown = true;
@@ -1602,8 +1605,6 @@
     installCustomEventHooks();
     mergeState({
       pid: getSelfPid(),
-      uid: firstPid(RUN_CTX?.uid, BOOT?.uid, qsGet('uid')),
-      playerId: firstPid(RUN_CTX?.playerId, BOOT?.playerId, qsGet('playerId')),
       name: getSelfName(),
       roomId: currentRoomId()
     });
