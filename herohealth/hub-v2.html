@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./hub-v2.css?v=20260329-hub-allmodes-childfriendly" />
+  <link rel="stylesheet" href="./hub-v2.css?v=20260329-final" />
 </head>
 <body>
   <div class="bg-clouds" aria-hidden="true">
@@ -39,14 +39,16 @@
           <p>
             เลือกดินแดนที่อยากไป แล้วเก็บดาว เหรียญ และพลังสุขภาพกันเลย
           </p>
+
           <div id="heroQuickline" class="hero-quickline">วันนี้ลองเล่นให้ครบ 3 โซนกันนะ</div>
 
           <div class="hero-cta-row" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
-            <button id="btnQuickRecommended" class="btn primary" type="button">✨ เกมแนะนำตอนนี้</button>
-            <button id="btnQuickRecent" class="btn secondary" type="button">🕹️ เล่นเกมล่าสุด</button>
-            <button id="btnQuickAllGames" class="btn secondary" type="button">🗺️ ดูเกมทั้งหมด</button>
+            <button id="btnQuickRecommended" class="btn primary" type="button">✨ เกมแนะนำ</button>
+            <button id="btnQuickRecent" class="btn secondary" type="button">🕹️ เล่นล่าสุด</button>
+            <button id="btnQuickAllGames" class="btn secondary" type="button">🗺️ ดูทุกเกม</button>
           </div>
         </div>
+
         <div class="hero-kid" aria-hidden="true"></div>
       </div>
 
@@ -56,6 +58,7 @@
         <div class="profile-main">
           <h2 id="playerName">Rocky</h2>
           <p class="profile-meta" id="playerMeta">ฮีโร่ประจำวัน • พร้อมผจญภัย</p>
+
           <div class="chips">
             <div class="chip"><span>⭐</span><span>Lv. <b id="playerLevel">5</b></span></div>
             <div class="chip gold"><span>🪙</span><span><b id="playerCoins">380</b> Coins</span></div>
@@ -82,6 +85,7 @@
 
     <section class="content">
       <div class="zones">
+
         <article id="zoneCard-hygiene" class="zone-card hygiene" data-zone-card="hygiene">
           <div class="zone-left">
             <div class="zone-top">
@@ -115,18 +119,8 @@
           <div class="zone-right">
             <div class="zone-art hygiene" aria-hidden="true"></div>
             <div class="actions">
-              <button
-                id="btnPlayHygiene"
-                class="btn primary"
-                type="button"
-                data-open-zone="hygiene"
-                data-open-kind="recommended">🫧 เล่นเลย</button>
-              <button
-                id="btnZoneHygiene"
-                class="btn secondary"
-                type="button"
-                data-open-zone="hygiene"
-                data-open-kind="all">ดูเกมในโซน</button>
+              <a id="btnPlayHygiene" class="btn primary" href="#">🫧 เล่นเลย</a>
+              <button id="btnZoneHygiene" class="btn secondary" type="button">ดูเกมในโซน</button>
             </div>
           </div>
         </article>
@@ -164,18 +158,8 @@
           <div class="zone-right">
             <div class="zone-art nutrition" aria-hidden="true"></div>
             <div class="actions">
-              <button
-                id="btnPlayNutrition"
-                class="btn primary"
-                type="button"
-                data-open-zone="nutrition"
-                data-open-kind="recommended">🥗 เล่นเลย</button>
-              <button
-                id="btnZoneNutrition"
-                class="btn secondary"
-                type="button"
-                data-open-zone="nutrition"
-                data-open-kind="all">ดูเกมในโซน</button>
+              <a id="btnPlayNutrition" class="btn primary" href="#">🥗 เล่นเลย</a>
+              <button id="btnZoneNutrition" class="btn secondary" type="button">ดูเกมในโซน</button>
             </div>
           </div>
         </article>
@@ -213,21 +197,12 @@
           <div class="zone-right">
             <div class="zone-art fitness" aria-hidden="true"></div>
             <div class="actions">
-              <button
-                id="btnPlayFitness"
-                class="btn primary"
-                type="button"
-                data-open-zone="fitness"
-                data-open-kind="recommended">🏃 เล่นเลย</button>
-              <button
-                id="btnZoneFitness"
-                class="btn secondary"
-                type="button"
-                data-open-zone="fitness"
-                data-open-kind="all">ดูเกมในโซน</button>
+              <a id="btnPlayFitness" class="btn primary" href="#">🏃 เล่นเลย</a>
+              <button id="btnZoneFitness" class="btn secondary" type="button">ดูเกมในโซน</button>
             </div>
           </div>
         </article>
+
       </div>
 
       <aside class="side">
@@ -243,7 +218,7 @@
 
         <section class="panel section">
           <h3 class="section-title">🗺️ คลังเกมฮีโร่</h3>
-          <p class="section-note">กดเล่นเกมแนะนำ หรือเลือกโหมดที่อยากเล่นได้เลย</p>
+          <p class="section-note">กดเล่นเกมแนะนำ หรือเล่นซ้ำเกมล่าสุดของแต่ละโซนได้เลย</p>
           <div id="libraryBox" class="library-box"></div>
         </section>
       </aside>
@@ -258,273 +233,25 @@
 
   <div id="gamePicker" class="modal" aria-hidden="true">
     <div class="modal-backdrop" data-close-picker></div>
+
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
       <div class="modal-head">
         <h3 id="pickerTitle">เลือกเกม</h3>
         <button class="modal-close" type="button" data-close-picker aria-label="ปิด">✕</button>
       </div>
+
       <p id="pickerSub" class="modal-sub">เลือกเกมที่อยากเล่นได้เลย</p>
 
-      <div class="picker-toolbar" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px;">
-        <button id="pickerShowRecommended" class="btn secondary" type="button">✨ เกมแนะนำ</button>
-        <button id="pickerShowAllModes" class="btn secondary" type="button">🎮 ทุกโหมด</button>
-        <button id="pickerShowRecent" class="btn secondary" type="button">🕹️ ล่าสุด</button>
+      <div class="picker-toolbar" style="margin-bottom:12px;">
+        <button id="pickerShowRecommended" class="btn secondary small" type="button">✨ แนะนำ</button>
+        <button id="pickerShowAllModes" class="btn secondary small" type="button">🎮 ทุกเกม</button>
+        <button id="pickerShowRecent" class="btn secondary small" type="button">🕹️ ล่าสุด</button>
       </div>
 
       <div id="pickerList" class="picker-list"></div>
     </div>
   </div>
 
-  <script>
-    window.HH_HUB_CONFIG = {
-      version: '20260329-hub-all-games-all-modes-childfriendly',
-
-      query_passthrough_keys: [
-        'pid','nick','run','diff','time','seed','view','log','api','ai','debug',
-        'studyId','phase','conditionGroup',
-        'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-        'cdnext','room','pro','sbUrl','sbAnon'
-      ],
-
-      default_player: {
-        pid: 'anon',
-        nick: 'Rocky',
-        view: 'mobile',
-        diff: 'normal',
-        time: '80',
-        run: 'play'
-      },
-
-      zones: {
-        hygiene: {
-          label_th: 'โลกสุขอนามัย',
-          emoji: '🫧',
-          recommended_game: 'germdetective',
-          games: ['handwash','brush','bath','cleanobject','maskcough','germdetective']
-        },
-        nutrition: {
-          label_th: 'โลกโภชนาการ',
-          emoji: '🥗',
-          recommended_game: 'plate',
-          games: ['goodjunk','groups','hydration','plate']
-        },
-        fitness: {
-          label_th: 'โลกออกกำลังกาย',
-          emoji: '🏃',
-          recommended_game: 'shadowbreaker',
-          games: ['shadowbreaker','rhythmboxer','jumpduck','balancehold','fitnessplanner']
-        }
-      },
-
-      mode_labels: {
-        solo: '🎮 Solo',
-        pro: '🔥 PRO',
-        duet: '🧑‍🤝‍🧑 Duet',
-        race: '🏁 Race',
-        battle: '⚔ Battle',
-        coop: '🤝 Co-op',
-        teacher: '🧑‍🏫 Teacher'
-      },
-
-      games: {
-        handwash: {
-          title: 'Handwash',
-          title_th: 'ล้างมือ',
-          emoji: '🧼',
-          zone: 'hygiene',
-          description: 'ล้างมือให้สะอาดครบขั้น',
-          mode_strategy: 'single',
-          default_mode: 'solo',
-          modes: ['solo'],
-          path: './hygiene-vr.html',
-          extra: { zone:'hygiene', game:'handwash', theme:'hygiene' }
-        },
-
-        brush: {
-          title: 'Brush',
-          title_th: 'แปรงฟัน',
-          emoji: '🪥',
-          zone: 'hygiene',
-          description: 'แปรงฟันให้ถูกวิธีและครบทุกจุด',
-          mode_strategy: 'single',
-          default_mode: 'solo',
-          modes: ['solo'],
-          path: './brush-vr.html',
-          extra: { zone:'hygiene', game:'brush', theme:'brush' }
-        },
-
-        bath: {
-          title: 'Bath',
-          title_th: 'อาบน้ำ',
-          emoji: '🛁',
-          zone: 'hygiene',
-          description: 'ค้นหาจุดสกปรกแล้วอาบน้ำให้สะอาด',
-          mode_strategy: 'single',
-          default_mode: 'solo',
-          modes: ['solo'],
-          path: './bath-vr.html',
-          extra: { zone:'hygiene', game:'bath', theme:'bath' }
-        },
-
-        cleanobject: {
-          title: 'Clean Object',
-          title_th: 'ของสะอาด',
-          emoji: '🧴',
-          zone: 'hygiene',
-          description: 'แยกของสะอาดและไม่สะอาด',
-          mode_strategy: 'single',
-          default_mode: 'solo',
-          modes: ['solo'],
-          path: './clean-objects.html',
-          extra: { zone:'hygiene', game:'cleanobject', theme:'cleanobject' }
-        },
-
-        maskcough: {
-          title: 'Mask & Cough',
-          title_th: 'หน้ากากและการไอ',
-          emoji: '😷',
-          zone: 'hygiene',
-          description: 'ฝึกมารยาทสุขอนามัยเวลาไอหรือจาม',
-          mode_strategy: 'single',
-          default_mode: 'solo',
-          modes: ['solo'],
-          path: './maskcough-v2.html',
-          extra: { zone:'hygiene', game:'maskcough', theme:'maskcough' }
-        },
-
-        germdetective: {
-          title: 'Germ Detective',
-          title_th: 'นักสืบเชื้อโรค',
-          emoji: '🦠',
-          zone: 'hygiene',
-          description: 'ตามหาเชื้อโรคและเรียนรู้การป้องกัน',
-          mode_strategy: 'single',
-          default_mode: 'solo',
-          modes: ['solo'],
-          path: './germ-detective.html',
-          extra: { zone:'hygiene', game:'germdetective', theme:'germdetective' }
-        },
-
-        goodjunk: {
-          title: 'GoodJunk',
-          title_th: 'อาหารดี vs ขนมล่อใจ',
-          emoji: '🍔',
-          zone: 'nutrition',
-          description: 'เลือกอาหารดี หลีกเลี่ยง junk food',
-          mode_strategy: 'launcher',
-          default_mode: 'solo',
-          modes: ['solo','pro','race','battle','coop'],
-          path: './goodjunk-launcher.html',
-          extra: { zone:'nutrition', game:'goodjunk', theme:'goodjunk' }
-        },
-
-        groups: {
-          title: 'Food Groups',
-          title_th: 'หมวดอาหาร',
-          emoji: '🥚',
-          zone: 'nutrition',
-          description: 'แยกอาหารตามหมวดให้ถูกต้อง',
-          mode_strategy: 'launcher',
-          default_mode: 'solo',
-          modes: ['solo','duet','race','battle','coop'],
-          path: './groups-vr.html',
-          extra: { zone:'nutrition', game:'groups', theme:'groups' }
-        },
-
-        hydration: {
-          title: 'Hydration',
-          title_th: 'ดื่มน้ำพลังชีวิต',
-          emoji: '💧',
-          zone: 'nutrition',
-          description: 'ฝึกดื่มน้ำให้พอดีและสู้กับพายุ',
-          mode_strategy: 'single',
-          default_mode: 'solo',
-          modes: ['solo'],
-          path: './hydration-vr.html',
-          extra: { zone:'nutrition', game:'hydration', theme:'hydration' }
-        },
-
-        plate: {
-          title: 'Plate',
-          title_th: 'จานอาหารสมดุล',
-          emoji: '🍽️',
-          zone: 'nutrition',
-          description: 'จัดจานอาหารให้ครบและสมดุล',
-          mode_strategy: 'launcher',
-          default_mode: 'solo',
-          modes: ['solo','duet','race','battle','coop'],
-          path: './plate-vr.html',
-          extra: { zone:'nutrition', game:'plate', theme:'plate' }
-        },
-
-        shadowbreaker: {
-          title: 'Shadow Breaker',
-          title_th: 'นักชกเงาสายฟ้า',
-          emoji: '🥊',
-          zone: 'fitness',
-          description: 'ต่อยเป้า เก็บคอมโบ และสู้บอส',
-          mode_strategy: 'launcher',
-          default_mode: 'solo',
-          modes: ['solo','battle'],
-          path: './shadow-breaker-vr.html',
-          extra: { zone:'fitness', game:'shadowbreaker', theme:'shadowbreaker' }
-        },
-
-        rhythmboxer: {
-          title: 'Rhythm Boxer',
-          title_th: 'นักชกจังหวะ',
-          emoji: '🎵',
-          zone: 'fitness',
-          description: 'ขยับตามจังหวะให้แม่นและสนุก',
-          mode_strategy: 'single',
-          default_mode: 'solo',
-          modes: ['solo'],
-          path: './rhythm-boxer-vr.html',
-          extra: { zone:'fitness', game:'rhythmboxer', theme:'rhythmboxer' }
-        },
-
-        jumpduck: {
-          title: 'JumpDuck',
-          title_th: 'กระโดด-ก้มหลบ',
-          emoji: '⬆️',
-          zone: 'fitness',
-          description: 'กระโดด หลบ และเก็บคะแนนให้ได้มากที่สุด',
-          mode_strategy: 'single',
-          default_mode: 'solo',
-          modes: ['solo'],
-          path: './jump-duck-vr.html',
-          extra: { zone:'fitness', game:'jumpduck', theme:'jumpduck' }
-        },
-
-        balancehold: {
-          title: 'Balance Hold',
-          title_th: 'ทรงตัว',
-          emoji: '⚖️',
-          zone: 'fitness',
-          description: 'ฝึกการทรงตัวและสมาธิ',
-          mode_strategy: 'single',
-          default_mode: 'solo',
-          modes: ['solo'],
-          path: './balance-hold-vr.html',
-          extra: { zone:'fitness', game:'balancehold', theme:'balancehold' }
-        },
-
-        fitnessplanner: {
-          title: 'Fitness Planner',
-          title_th: 'วางแผนออกกำลัง',
-          emoji: '📅',
-          zone: 'fitness',
-          description: 'วางแผนการออกกำลังกายของตัวเอง',
-          mode_strategy: 'single',
-          default_mode: 'solo',
-          modes: ['solo'],
-          path: './fitness-planner.html',
-          extra: { zone:'fitness', game:'fitnessplanner', theme:'fitnessplanner' }
-        }
-      }
-    };
-  </script>
-
-  <script src="./hub-v2.js?v=20260329-hub-allmodes-childfriendly"></script>
+  <script src="./hub-v2.js?v=20260329-final"></script>
 </body>
 </html>
