@@ -1,4 +1,4 @@
-(() => {
+(function () {
   'use strict';
 
   const PASS_KEYS = [
@@ -50,7 +50,6 @@
           label: 'Germ Detective',
           sub: 'จับเชื้อโรคให้หมด',
           defaultMode: 'solo',
-          modeStrategy: 'single',
           modes: [
             { id:'solo', url:'./germ-detective.html' }
           ]
@@ -60,7 +59,6 @@
           label: 'Handwash VR',
           sub: 'ล้างมือให้ครบขั้นตอน',
           defaultMode: 'solo',
-          modeStrategy: 'single',
           modes: [
             { id:'solo', url:'./hygiene-vr.html' }
           ]
@@ -70,7 +68,6 @@
           label: 'Brush VR',
           sub: 'แปรงฟันให้สะอาดสดใส',
           defaultMode: 'solo',
-          modeStrategy: 'single',
           modes: [
             { id:'solo', url:'./brush-vr.html' }
           ]
@@ -80,7 +77,6 @@
           label: 'Mask & Cough',
           sub: 'ฝึกปิดปากและป้องกันเชื้อโรค',
           defaultMode: 'solo',
-          modeStrategy: 'single',
           modes: [
             { id:'solo', url:'./maskcough-v2.html' }
           ]
@@ -90,7 +86,6 @@
           label: 'Bath VR',
           sub: 'อาบน้ำให้สะอาดและสนุก',
           defaultMode: 'solo',
-          modeStrategy: 'single',
           modes: [
             { id:'solo', url:'./bath-vr.html' }
           ]
@@ -100,7 +95,6 @@
           label: 'Clean Objects',
           sub: 'เลือกของสะอาดให้ถูกต้อง',
           defaultMode: 'solo',
-          modeStrategy: 'single',
           modes: [
             { id:'solo', url:'./clean-objects.html' }
           ]
@@ -117,7 +111,6 @@
           label: 'Plate',
           sub: 'จัดจานอาหารให้ครบ 5 หมู่',
           defaultMode: 'solo',
-          modeStrategy: 'multimode',
           modes: [
             { id:'solo',   url:'./plate-vr.html' },
             { id:'duet',   url:'./plate-vr.html' },
@@ -131,7 +124,6 @@
           label: 'Groups',
           sub: 'แยกอาหารตามหมู่',
           defaultMode: 'solo',
-          modeStrategy: 'multimode',
           modes: [
             { id:'solo',   url:'./groups-vr.html' },
             { id:'duet',   url:'./groups-vr.html' },
@@ -145,7 +137,6 @@
           label: 'GoodJunk VR',
           sub: 'เลือกอาหารดี หลบอาหารขยะ',
           defaultMode: 'solo',
-          modeStrategy: 'multimode',
           modes: [
             { id:'solo',   url:'./goodjunk-launcher.html' },
             { id:'pro',    url:'./goodjunk-launcher.html' },
@@ -159,7 +150,6 @@
           label: 'Hydration VR',
           sub: 'ดื่มน้ำให้พอดีและดูแลร่างกาย',
           defaultMode: 'solo',
-          modeStrategy: 'single',
           modes: [
             { id:'solo', url:'./hydration-vr.html' }
           ]
@@ -176,7 +166,6 @@
           label: 'Shadow Breaker',
           sub: 'ต่อยเป้าให้แม่นและเร็ว',
           defaultMode: 'solo',
-          modeStrategy: 'multimode',
           modes: [
             { id:'solo',   url:'./shadow-breaker-vr.html' },
             { id:'battle', url:'./shadow-breaker-vr.html' }
@@ -187,7 +176,6 @@
           label: 'Rhythm Boxer',
           sub: 'ชกตามจังหวะเพลง',
           defaultMode: 'solo',
-          modeStrategy: 'single',
           modes: [
             { id:'solo', url:'./rhythm-boxer-vr.html' }
           ]
@@ -197,7 +185,6 @@
           label: 'Balance Hold',
           sub: 'ทรงตัวให้นานที่สุด',
           defaultMode: 'solo',
-          modeStrategy: 'single',
           modes: [
             { id:'solo', url:'./balance-hold-vr.html' }
           ]
@@ -207,7 +194,6 @@
           label: 'JumpDuck',
           sub: 'กระโดดและก้มหลบให้ทัน',
           defaultMode: 'solo',
-          modeStrategy: 'single',
           modes: [
             { id:'solo', url:'./jump-duck-vr.html' }
           ]
@@ -217,7 +203,6 @@
           label: 'Fitness Planner',
           sub: 'วางแผนออกกำลังกายแบบสนุก ๆ',
           defaultMode: 'solo',
-          modeStrategy: 'single',
           modes: [
             { id:'solo', url:'./fitness-planner.html' }
           ]
@@ -441,6 +426,7 @@
       if (!game) return;
 
       const mode = getDefaultMode(game);
+
       map[zone] = {
         zone,
         gameId: game.id,
@@ -508,24 +494,9 @@
     });
 
     const missions = [
-      {
-        icon: '🫧',
-        name: 'เล่น Hygiene 1 เกม',
-        sub: 'ล้างมือ แปรงฟัน หรือกันเชื้อโรค',
-        done: todayDone.hygiene
-      },
-      {
-        icon: '🥗',
-        name: 'เล่น Nutrition 1 เกม',
-        sub: 'เรียนรู้การกินอาหารที่ดี',
-        done: todayDone.nutrition
-      },
-      {
-        icon: '🏃',
-        name: 'เล่น Fitness 1 เกม',
-        sub: 'ขยับร่างกายให้แข็งแรง',
-        done: todayDone.fitness
-      }
+      { icon: '🫧', name: 'เล่น Hygiene 1 เกม', sub: 'ล้างมือ แปรงฟัน หรือกันเชื้อโรค', done: todayDone.hygiene },
+      { icon: '🥗', name: 'เล่น Nutrition 1 เกม', sub: 'เรียนรู้การกินอาหารที่ดี', done: todayDone.nutrition },
+      { icon: '🏃', name: 'เล่น Fitness 1 เกม', sub: 'ขยับร่างกายให้แข็งแรง', done: todayDone.fitness }
     ];
 
     missionList.innerHTML = missions.map((m) => `
@@ -535,9 +506,7 @@
           <p class="mission-name">${escapeHtml(m.name)}</p>
           <p class="mission-sub">${escapeHtml(m.sub)}</p>
         </div>
-        <div class="mission-check" aria-label="${m.done ? 'สำเร็จ' : 'ยังไม่สำเร็จ'}">
-          ${m.done ? '✓' : '•'}
-        </div>
+        <div class="mission-check" aria-label="${m.done ? 'สำเร็จ' : 'ยังไม่สำเร็จ'}">${m.done ? '✓' : '•'}</div>
       </div>
     `).join('');
   }
@@ -553,9 +522,7 @@
     }
 
     const completed = Object.values(lastByZone).filter(Boolean).length;
-    el.textContent = completed >= 3
-      ? 'เก่งมาก! เคยเล่นครบทั้ง 3 โซนแล้ว'
-      : 'วันนี้ลองเล่นให้ครบ 3 โซนกันนะ';
+    el.textContent = completed >= 3 ? 'เก่งมาก! เคยเล่นครบทั้ง 3 โซนแล้ว' : 'วันนี้ลองเล่นให้ครบ 3 โซนกันนะ';
   }
 
   function renderZoneMeta(lastByZone) {
@@ -676,9 +643,7 @@
 
         <p class="last-meta">${escapeHtml(note)}</p>
 
-        <a class="btn primary" href="${escapeHtml(replayUrl)}">
-          ▶️ เล่นต่อ
-        </a>
+        <a class="btn primary" href="${escapeHtml(replayUrl)}">▶️ เล่นต่อ</a>
       </div>
     `;
   }
@@ -689,8 +654,6 @@
 
     const cards = Object.entries(GAME_CATALOG).map(([zone, set]) => {
       const names = set.games.map((item) => item.label).join(' • ');
-      const def = getDefaultGame(zone);
-      const defMode = getDefaultMode(def);
       const recent = lastByZone[zone];
 
       return `
@@ -733,6 +696,20 @@
     toast._t = setTimeout(() => el.classList.remove('show'), 1800);
   }
 
+  function newestRecent(lastByZone) {
+    const items = Object.values(lastByZone || {}).filter(Boolean);
+    if (!items.length) return null;
+    items.sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')));
+    return items[0] || null;
+  }
+
+  function bestRecommendedZone(lastByZone) {
+    if (!lastByZone.nutrition) return 'nutrition';
+    if (!lastByZone.hygiene) return 'hygiene';
+    if (!lastByZone.fitness) return 'fitness';
+    return 'nutrition';
+  }
+
   function bindTopButtons(profile, lastByZone) {
     const btnSettings = $('#btnSettings');
     const btnRewards = $('#btnRewards');
@@ -762,11 +739,8 @@
     if (btnQuickRecent) {
       btnQuickRecent.addEventListener('click', () => {
         const recent = newestRecent(lastByZone);
-        if (recent?.url) {
-          location.href = recent.url;
-        } else {
-          toast('ยังไม่มีเกมล่าสุด ลองเริ่มเล่นสักเกมก่อนนะ');
-        }
+        if (recent?.url) location.href = recent.url;
+        else toast('ยังไม่มีเกมล่าสุด ลองเริ่มเล่นสักเกมก่อนนะ');
       });
     }
 
@@ -775,20 +749,6 @@
         openPicker('nutrition', 'all_zones');
       });
     }
-  }
-
-  function newestRecent(lastByZone) {
-    const items = Object.values(lastByZone || {}).filter(Boolean);
-    if (!items.length) return null;
-    items.sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')));
-    return items[0] || null;
-  }
-
-  function bestRecommendedZone(lastByZone) {
-    if (!lastByZone.nutrition) return 'nutrition';
-    if (!lastByZone.hygiene) return 'hygiene';
-    if (!lastByZone.fitness) return 'fitness';
-    return 'nutrition';
   }
 
   function closePicker() {
@@ -820,7 +780,9 @@
       ? 'เลือกโซนหรือเกมที่อยากเล่นได้เลย'
       : pickerState.kind === 'recommended'
         ? `เลือกเกมแนะนำใน ${zoneLabel(pickerState.zone)}`
-        : `เลือกเกมใน ${zoneLabel(pickerState.zone)} ได้เลย`;
+        : pickerState.kind === 'recent'
+          ? `เลือกเกมล่าสุดใน ${zoneLabel(pickerState.zone)}`
+          : `เลือกเกมใน ${zoneLabel(pickerState.zone)} ได้เลย`;
 
     let games = [];
     if (allZones) {
@@ -829,10 +791,12 @@
       });
     } else {
       games = getZoneGames(pickerState.zone).map((g) => ({ ...g, __zone: pickerState.zone }));
+
       if (pickerState.kind === 'recommended') {
         const recommended = getDefaultGame(pickerState.zone);
-        games = recommended ? [recommended].map((g) => ({ ...g, __zone: pickerState.zone })) : games;
+        games = recommended ? [{ ...recommended, __zone: pickerState.zone }] : games;
       }
+
       if (pickerState.kind === 'recent') {
         const recent = readLastByZone()[pickerState.zone];
         if (recent) {
@@ -846,7 +810,7 @@
       <button class="picker-item" type="button" data-game-id="${escapeHtml(game.id)}" data-zone="${escapeHtml(game.__zone)}">
         <span class="picker-item-top">
           <span class="name">${escapeHtml(game.label)}</span>
-          <span class="picker-badge">${escapeHtml(zoneLabel(game.__zone))}</span>
+          <span class="picker-badge zone">${escapeHtml(zoneLabel(game.__zone))}</span>
         </span>
         <span class="sub">${escapeHtml(game.sub)}</span>
       </button>
@@ -882,10 +846,10 @@
     sub.textContent = `${game.sub} • เลือกโหมดที่อยากเล่นได้เลย`;
 
     list.innerHTML = game.modes.map((mode) => `
-      <button class="picker-item" type="button" data-mode-id="${escapeHtml(mode.id)}">
+      <button class="picker-item mode-${escapeHtml(mode.id)}" type="button" data-mode-id="${escapeHtml(mode.id)}">
         <span class="picker-item-top">
           <span class="name">${escapeHtml(MODE_LABELS[mode.id] || mode.id)}</span>
-          ${mode.id === game.defaultMode ? '<span class="picker-badge">แนะนำ</span>' : ''}
+          ${mode.id === game.defaultMode ? '<span class="picker-badge recommended">แนะนำ</span>' : '<span class="picker-badge mode">โหมด</span>'}
         </span>
         <span class="sub">${escapeHtml(game.label)} • ${escapeHtml(zoneLabel(pickerState.zone))}</span>
       </button>
@@ -946,6 +910,25 @@
   }
 
   function bindZoneLinks() {
+    const playHyg = $('#btnPlayHygiene');
+    const playNut = $('#btnPlayNutrition');
+    const playFit = $('#btnPlayFitness');
+
+    if (playHyg) {
+      const game = getDefaultGame('hygiene');
+      playHyg.href = resolveModeUrl('hygiene', game, getDefaultMode(game));
+    }
+
+    if (playNut) {
+      const game = getDefaultGame('nutrition');
+      playNut.href = resolveModeUrl('nutrition', game, getDefaultMode(game));
+    }
+
+    if (playFit) {
+      const game = getDefaultGame('fitness');
+      playFit.href = resolveModeUrl('fitness', game, getDefaultMode(game));
+    }
+
     document.querySelectorAll('[data-open-zone]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const zone = btn.getAttribute('data-open-zone') || '';
@@ -953,6 +936,10 @@
         openPicker(zone, kind);
       });
     });
+
+    $('#btnZoneHygiene')?.addEventListener('click', () => openPicker('hygiene', 'all'));
+    $('#btnZoneNutrition')?.addEventListener('click', () => openPicker('nutrition', 'all'));
+    $('#btnZoneFitness')?.addEventListener('click', () => openPicker('fitness', 'all'));
   }
 
   function mergeSummaryIntoProfile(profile, lastSummary) {
