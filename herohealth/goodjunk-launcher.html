@@ -617,12 +617,12 @@
       };
 
       function readRadio(name, fallback) {
-        const checked = document.querySelector(\`input[name="\${name}"]:checked\`);
+        const checked = document.querySelector('input[name="' + name + '"]:checked');
         return checked ? checked.value : fallback;
       }
 
       function setRadio(name, value) {
-        const el = document.querySelector(\`input[name="\${name}"][value="\${value}"]\`);
+        const el = document.querySelector('input[name="' + name + '"][value="' + value + '"]');
         if (el) el.checked = true;
       }
 
@@ -719,6 +719,7 @@
         gate.searchParams.set('view', readRadio('view', 'mobile'));
         gate.searchParams.set('run', readRadio('run', 'play'));
         gate.searchParams.set('forcegate', '1');
+        gate.searchParams.set('next', buildRunUrl());
 
         if (q.get('api')) gate.searchParams.set('api', q.get('api'));
         if (q.get('conditionGroup')) gate.searchParams.set('conditionGroup', q.get('conditionGroup'));
