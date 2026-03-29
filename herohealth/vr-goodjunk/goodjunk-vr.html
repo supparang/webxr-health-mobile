@@ -3,37 +3,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk</title>
+  <title>HeroHealth • GoodJunk Solo Boss v2</title>
   <meta name="color-scheme" content="light" />
-  <link rel="icon" href="../favicon.ico" />
-
+  <meta name="theme-color" content="#9fe3ff" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
       --sky1:#dff4ff;
       --sky2:#bfe8ff;
-      --sky3:#fff7d9;
-      --cloud:#ffffffcc;
+      --sky3:#fff7d8;
+
       --card:#fffdf6;
-      --card-2:#f8fff4;
       --line:#bfe3f2;
       --text:#4d4a42;
-      --muted:#7a7a73;
+      --muted:#7b7a72;
 
       --green:#7ed957;
-      --green-2:#56c53e;
       --blue:#7fcfff;
-      --blue-2:#58b7f5;
-      --yellow:#ffd45c;
-      --orange:#ffb547;
-      --pink:#ff9dc4;
-      --danger:#ff8f8f;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
 
-      --shadow:0 18px 40px rgba(86, 155, 194, .18);
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
     }
 
     *{ box-sizing:border-box; }
@@ -45,7 +37,7 @@
       color:var(--text);
       background:
         radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
-        radial-gradient(circle at 84% 14%, rgba(255,255,255,.78), transparent 16%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
         linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
       overflow:hidden;
     }
@@ -60,193 +52,459 @@
       isolation:isolate;
     }
 
-    #gameMount{
+    .bg-clouds{
       position:absolute;
       inset:0;
-      z-index:1;
       overflow:hidden;
+      pointer-events:none;
+      z-index:0;
     }
 
-    .boot-shell{
+    .cloud{
+      position:absolute;
+      border-radius:999px;
+      background:rgba(255,255,255,.7);
+      filter:blur(1px);
+      box-shadow:
+        50px 8px 0 8px rgba(255,255,255,.65),
+        100px 0 0 0 rgba(255,255,255,.75),
+        70px -10px 0 4px rgba(255,255,255,.72);
+      animation:floatCloud linear infinite;
+    }
+
+    .cloud.c1{ width:110px; height:34px; left:6%; top:10%; animation-duration:28s; }
+    .cloud.c2{ width:140px; height:40px; left:62%; top:14%; animation-duration:36s; }
+    .cloud.c3{ width:100px; height:30px; left:30%; top:22%; animation-duration:32s; }
+
+    @keyframes floatCloud{
+      from{ transform:translateX(-5vw); }
+      to{ transform:translateX(12vw); }
+    }
+
+    #gameMount{
+      position:absolute;
+      left:8px;
+      right:8px;
+      top:calc(114px + var(--sat));
+      bottom:calc(8px + var(--sab));
+      z-index:1;
+      overflow:hidden;
+      border-radius:28px;
+      box-shadow:0 16px 32px rgba(86,155,194,.12);
+      background:rgba(255,255,255,.16);
+    }
+
+    .shell{
       position:absolute;
       inset:0;
       display:grid;
-      place-items:center;
+      grid-template-rows:auto 1fr auto;
+      gap:8px;
       padding:
-        calc(18px + var(--sat))
-        calc(16px + var(--sar))
-        calc(18px + var(--sab))
-        calc(16px + var(--sal));
-      z-index:0;
+        calc(8px + var(--sat))
+        calc(8px + var(--sar))
+        calc(8px + var(--sab))
+        calc(8px + var(--sal));
       pointer-events:none;
+      z-index:4;
     }
 
-    .boot-card{
-      width:min(94vw,560px);
-      background:linear-gradient(180deg,#fffef9,#f6fff7);
+    .topbar{
+      display:grid;
+      gap:8px;
+      align-content:start;
+    }
+
+    .hero-strip{
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
       border:3px solid var(--line);
-      border-radius:28px;
+      border-radius:22px;
       box-shadow:var(--shadow);
-      padding:22px 18px;
-      text-align:center;
+      padding:10px 12px;
       position:relative;
       overflow:hidden;
+      pointer-events:auto;
     }
 
-    .boot-card::before{
+    .hero-strip::before{
       content:"";
       position:absolute;
-      inset:-20% auto auto -10%;
-      width:180px;
-      height:180px;
+      left:-24px;
+      top:-24px;
+      width:90px;
+      height:90px;
       border-radius:999px;
-      background:rgba(127,207,255,.22);
-      filter:blur(6px);
+      background:rgba(127,207,255,.16);
+      filter:blur(8px);
     }
 
-    .boot-card::after{
+    .hero-strip::after{
       content:"";
       position:absolute;
       right:-20px;
-      bottom:-28px;
-      width:150px;
-      height:150px;
+      bottom:-20px;
+      width:82px;
+      height:82px;
       border-radius:999px;
-      background:rgba(255,212,92,.24);
-      filter:blur(6px);
+      background:rgba(255,212,92,.16);
+      filter:blur(8px);
     }
 
-    .boot-kicker{
+    .title-row{
       position:relative;
       z-index:1;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .kicker{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:8px 14px;
+      padding:6px 10px;
       border-radius:999px;
       background:#eaf8ff;
       border:2px solid var(--line);
-      color:#4f9bc6;
-      font-size:13px;
+      color:#5ea8d0;
+      font-size:12px;
       font-weight:1000;
-      margin-bottom:12px;
+      white-space:nowrap;
     }
 
-    .boot-title{
-      position:relative;
-      z-index:1;
-      margin:0 0 8px;
-      font-size:clamp(28px, 5vw, 42px);
-      line-height:1.06;
+    h1{
+      margin:0;
+      font-size:clamp(22px,5vw,30px);
+      line-height:1.02;
       font-weight:1000;
       color:#67a91c;
       text-shadow:0 2px 0 #fff;
     }
 
-    .boot-sub{
+    .sub{
       position:relative;
       z-index:1;
-      margin:0;
+      margin:6px 0 0;
       color:var(--muted);
-      font-size:15px;
-      line-height:1.65;
-      font-weight:800;
+      line-height:1.35;
+      font-size:12px;
+      font-weight:900;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
     }
 
-    .boot-meta{
-      position:relative;
-      z-index:1;
+    .chipbar{
       display:flex;
-      justify-content:center;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:14px;
+      gap:6px;
+      overflow:auto;
+      padding-bottom:2px;
+      scrollbar-width:none;
+      -ms-overflow-style:none;
+      pointer-events:auto;
     }
 
-    .boot-pill{
+    .chipbar::-webkit-scrollbar{ display:none; }
+
+    .pill{
+      flex:0 0 auto;
+      min-width:112px;
+      min-height:36px;
       display:inline-flex;
       align-items:center;
-      gap:6px;
-      padding:9px 12px;
+      justify-content:center;
+      text-align:center;
+      padding:8px 10px;
       border-radius:999px;
-      background:#fff;
       border:2px solid var(--line);
-      color:#6d6a62;
+      background:rgba(255,255,255,.92);
+      color:#6c6a61;
       font-size:12px;
       font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.12);
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+      backdrop-filter:blur(6px);
+      white-space:nowrap;
     }
 
-    .boot-pill strong{
-      color:#4d4a42;
+    .bottomDock{
+      display:flex;
+      justify-content:flex-start;
+      align-items:end;
+      pointer-events:none;
+    }
+
+    .status-card{
+      width:min(88vw,320px);
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      border:3px solid var(--line);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      padding:10px 12px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.45;
+      pointer-events:auto;
+    }
+
+    .status-title{
+      color:#67a91c;
+      font-size:13px;
       font-weight:1000;
+      margin-bottom:3px;
+    }
+
+    .error{
+      color:#b45309;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    .mini-note{
+      font-size:11px;
+      color:#7b7a72;
+      margin-top:4px;
+    }
+
+    @media (min-width:760px){
+      #gameMount{
+        left:12px;
+        right:12px;
+        top:calc(100px + var(--sat));
+        bottom:calc(12px + var(--sab));
+      }
+
+      .topbar{
+        grid-template-columns:minmax(0,1fr) auto;
+        align-items:start;
+      }
+
+      .hero-strip{
+        min-height:84px;
+        padding:12px 14px;
+      }
+
+      .chipbar{
+        max-width:min(46vw,520px);
+      }
+
+      .pill{
+        min-width:120px;
+      }
+    }
+
+    @media (min-width:1080px){
+      #gameMount{
+        top:calc(92px + var(--sat));
+      }
+
+      .hero-strip{
+        min-height:76px;
+      }
+
+      .sub{
+        -webkit-line-clamp:1;
+      }
     }
   </style>
 </head>
 <body>
   <div id="app">
+    <div class="bg-clouds" aria-hidden="true">
+      <div class="cloud c1"></div>
+      <div class="cloud c2"></div>
+      <div class="cloud c3"></div>
+    </div>
+
     <div id="gameMount"></div>
 
-    <div class="boot-shell" aria-hidden="true">
-      <div class="boot-card">
-        <div class="boot-kicker">🍎 GOODJUNK • HEROHEALTH</div>
-        <h1 class="boot-title">Food Hero Mission</h1>
-        <p class="boot-sub">
-          เก็บอาหารดีให้มากที่สุด หลีกเลี่ยง junk food
-          แล้วไปช่วยปราบ <strong>Junk King</strong> กันเลย
-        </p>
-        <div class="boot-meta">
-          <div class="boot-pill">MODE <strong id="bootMode">solo</strong></div>
-          <div class="boot-pill">DIFF <strong id="bootDiff">normal</strong></div>
-          <div class="boot-pill">TIME <strong id="bootTime">150</strong></div>
+    <div class="shell">
+      <div class="topbar">
+        <div class="hero-strip">
+          <div class="title-row">
+            <div class="kicker">👑 GOODJUNK SOLO BOSS v2</div>
+            <h1>Boss Adventure</h1>
+          </div>
+          <p class="sub">
+            เก็บอาหารดี หลบ junk แล้วผ่าน 2 phase เพื่อเข้าสู้กับ Junk King แบบสนุกและอ่านจังหวะได้ชัดเจน
+          </p>
+        </div>
+
+        <div class="chipbar">
+          <div class="pill" id="pillPlayer">PLAYER • -</div>
+          <div class="pill" id="pillDiff">LEVEL • normal</div>
+          <div class="pill" id="pillTime">TIME • 150</div>
+          <div class="pill" id="pillMode">MODE • solo boss</div>
+        </div>
+      </div>
+
+      <div></div>
+
+      <div class="bottomDock">
+        <div class="status-card" id="engineStatusCard">
+          <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
+          <div id="engineStatusText">เริ่มต้นตัวโหลด engine...</div>
+          <div class="mini-note" id="engineStatusMini">ถ้าไฟล์ JS อยู่ path อื่น ให้แก้ ENGINE_CANDIDATES ด้านล่าง</div>
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    (function(){
+    (function () {
       const q = new URLSearchParams(location.search);
-
-      window.HHA_CLOUD_ENDPOINT =
-        String(
-          q.get('api') ||
-          window.HHA_CLOUD_ENDPOINT ||
-          'https://script.google.com/macros/s/AKfycbwNOpsjFTV_nK0PzNV23KziF5hZxIMI50P8o_vZgwVg_T4anpXZOaKQUy_uf5PPg9kT6Q/exec'
-        ).trim();
+      const $ = (id) => document.getElementById(id);
 
       const runCtx = {
         pid: q.get('pid') || 'anon',
         name: q.get('name') || '',
         studyId: q.get('studyId') || '',
         roomId: '',
+        role: 'player',
         mode: 'solo',
         diff: q.get('diff') || 'normal',
         time: q.get('time') || '150',
-        seed: q.get('seed') || '',
+        seed: q.get('seed') || String(Date.now()),
         startAt: 0,
-        hub: new URL('../hub.html', location.href).toString(),
+        hub: q.get('hub') || new URL('./hub.html', location.href).toString(),
+        nextAfterCooldown: q.get('nextAfterCooldown') || '',
+        cdnext: q.get('cdnext') || '',
         view: q.get('view') || 'mobile',
         run: q.get('run') || 'play',
         gameId: q.get('gameId') || 'goodjunk'
       };
 
       window.__GJ_RUN_CTX__ = runCtx;
+      window.HHA_CLOUD_ENDPOINT = String(q.get('api') || window.HHA_CLOUD_ENDPOINT || '').trim();
 
-      const modeEl = document.getElementById('bootMode');
-      const diffEl = document.getElementById('bootDiff');
-      const timeEl = document.getElementById('bootTime');
+      const ENGINE_CANDIDATES = [
+        '/webxr-health-mobile/herohealth/goodjunk-solo-phaseboss-v2.js',
+        './goodjunk-solo-phaseboss-v2.js',
+        './js/goodjunk-solo-phaseboss-v2.js'
+      ];
 
-      if (modeEl) modeEl.textContent = runCtx.mode || 'solo';
-      if (diffEl) diffEl.textContent = runCtx.diff || 'normal';
-      if (timeEl) timeEl.textContent = runCtx.time || '150';
+      function setStatus(title, text, isError = false) {
+        const t1 = $('engineStatusTitle');
+        const t2 = $('engineStatusText');
+        if (t1) t1.textContent = title;
+        if (t2) {
+          t2.textContent = text;
+          t2.className = isError ? 'error' : '';
+        }
+      }
 
-      console.log('[GJ-SOLO-ENTRY] goodjunk-vr.html loaded', runCtx);
-      console.log('[GJ-SOLO-ENTRY] cloud endpoint =', window.HHA_CLOUD_ENDPOINT);
+      function updatePills() {
+        const pillPlayer = $('pillPlayer');
+        const pillDiff = $('pillDiff');
+        const pillTime = $('pillTime');
+        const pillMode = $('pillMode');
+
+        if (pillPlayer) pillPlayer.textContent = `PLAYER • ${runCtx.name || runCtx.pid || '-'}`;
+        if (pillDiff) pillDiff.textContent = `LEVEL • ${runCtx.diff}`;
+        if (pillTime) pillTime.textContent = `TIME • ${runCtx.time}`;
+        if (pillMode) pillMode.textContent = 'MODE • solo boss';
+      }
+
+      async function fetchText(src) {
+        const res = await fetch(src, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`${src} -> HTTP ${res.status}`);
+        return await res.text();
+      }
+
+      async function injectClassicScriptFromCode(code, srcLabel) {
+        return await new Promise((resolve, reject) => {
+          try {
+            const blob = new Blob([code], { type: 'text/javascript' });
+            const blobUrl = URL.createObjectURL(blob);
+
+            const s = document.createElement('script');
+            s.src = blobUrl;
+
+            s.onload = () => {
+              try { URL.revokeObjectURL(blobUrl); } catch {}
+              resolve(true);
+            };
+
+            s.onerror = () => {
+              try { URL.revokeObjectURL(blobUrl); } catch {}
+              reject(new Error(`โหลด script ไม่สำเร็จ: ${srcLabel}`));
+            };
+
+            document.body.appendChild(s);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      }
+
+      function verifyEngineStarted() {
+        const mount = document.getElementById('gameMount');
+        if (!mount) return false;
+        return mount.children.length > 0;
+      }
+
+      async function loadEngine() {
+        updatePills();
+
+        let lastErr = null;
+
+        for (const src of ENGINE_CANDIDATES) {
+          try {
+            setStatus('กำลังโหลดเกม…', `ลองโหลด ${src}`);
+            const code = await fetchText(src);
+
+            if (!code || !code.trim()) {
+              throw new Error(`ไฟล์ว่าง: ${src}`);
+            }
+
+            await injectClassicScriptFromCode(code, src);
+
+            setTimeout(() => {
+              const ok = verifyEngineStarted();
+              if (!ok) {
+                setStatus(
+                  'โหลดไฟล์ได้ แต่เกมยังไม่เริ่ม',
+                  `โหลด ${src} ได้แล้ว แต่ engine ยังไม่ mount ลง #gameMount\nให้ตรวจ goodjunk-solo-phaseboss-v2.js ว่ามี error syntax หรือ runtime ตอนเริ่มต้น`,
+                  true
+                );
+                return;
+              }
+
+              setStatus('เข้าเกมแล้ว', `solo boss engine loaded: ${src}`);
+              const card = $('engineStatusCard');
+              if (card) {
+                setTimeout(() => { card.style.display = 'none'; }, 420);
+              }
+            }, 120);
+
+            return;
+          } catch (err) {
+            lastErr = err;
+            console.warn('[GJ-SOLO-BOSS] candidate failed', src, err);
+          }
+        }
+
+        setStatus(
+          'ไม่พบไฟล์ engine',
+          `โหลด engine ไม่สำเร็จ\n${lastErr ? String(lastErr.message || lastErr) : ''}\n\nCandidates:\n${ENGINE_CANDIDATES.join('\n')}`,
+          true
+        );
+      }
+
+      try {
+        updatePills();
+        setStatus('กำลังเตรียมเกม…', 'เริ่มต้นตัวโหลด engine...');
+        loadEngine();
+      } catch (err) {
+        setStatus(
+          'เกิดปัญหาใน run page',
+          String(err && (err.stack || err.message || err) || 'Unknown error'),
+          true
+        );
+      }
     })();
   </script>
-
-  <script src="../js/hha-cloud-logger.js?v=20260326-client-v3"></script>
-  <script type="module" src="./goodjunk.safe.phaseboss.js?v=20260326-goodjunk-solo-themepack-v4"></script>
 </body>
 </html>
