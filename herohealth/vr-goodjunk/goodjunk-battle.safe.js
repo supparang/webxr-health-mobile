@@ -6,17 +6,11 @@
  * - actual playable battle engine
  * - works with lobby schema: hha-battle/goodjunk/rooms/{roomId}/{meta,state,players}
  * - injects stage + HUD into #gameMount
- * - syncs score / hp / charge / attacks / guard to Firebase
+ * - syncs score / hp / charge / attacks to Firebase
  * - host promotes countdown -> playing
  * - host ends round when time up or someone is KO
+ * - adds GUARD / BLOCK mechanic + cooldown
  * - emits battle:* events for goodjunk.safe.battle.js
- *
- * Added in R3:
- * - GUARD (duration + cooldown + block damage)
- * - CRIT attack when streak >= 5
- * - opponent cards with HP/Charge/Status/Last action
- * - hit / block / crit / attack feedback
- * - child-friendly battle theme polish
  * ========================================================= */
 
 (() => {
@@ -32,12 +26,6 @@
   const HEARTBEAT_MS = 2500;
   const ACTIVE_TTL_MS = 15000;
   const SYNC_MIN_MS = 120;
-
-  const GUARD_DURATION_MS = 1400;
-  const GUARD_COOLDOWN_MS = 4500;
-  const GUARD_BLOCK_RATIO = 0.55; // block 55%, receive 45%
-  const CRIT_STREAK = 5;
-  const CRIT_DAMAGE = 26;
 
   const FIREBASE_SDKS = [
     'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js',
@@ -247,17 +235,17 @@
 
     guardActive: false,
     guardUntil: 0,
+    guardCooldownMs: 2800,
+    guardDurationMs: 900,
     guardCooldownUntil: 0,
     guardsUsed: 0,
     blockedDamage: 0,
+    lastAction: '',
 
     lastAttackId: '',
     lastAttackAt: 0,
     lastAttackDamage: 0,
     lastAttackTarget: '',
-
-    lastAction: '',
-    lastActionAt: 0,
 
     lastRoundStartedAt: 0,
     hostEndingBusy: false,
@@ -320,17 +308,7 @@
         uid: cleanPid(p.uid || p.playerId || key),
         playerId: cleanPid(p.playerId || p.uid || key),
         pid: cleanPid(p.pid || p.playerId || p.uid || key),
-        name: cleanText(p.name || p.nick || 'Player', 40),
-        guardActive: !!p.guardActive,
-        guardUntil: num(p.guardUntil, 0),
-        guardCooldownUntil: num(p.guardCooldownUntil, 0),
-        guardsUsed: num(p.guardsUsed, 0),
-        blockedDamage: num(p.blockedDamage, 0),
-        lastAction: cleanText(p.lastAction || '', 24),
-        lastActionAt: num(p.lastActionAt, 0),
-        attackCharge: num(p.attackCharge, 0),
-        maxAttackCharge: Math.max(1, num(p.maxAttackCharge, 100)),
-        attackReady: !!p.attackReady
+        name: cleanText(p.name || p.nick || 'Player', 40)
       });
     });
     return out;
@@ -373,6 +351,14 @@
     return !!host && host === getSelfKey();
   }
 
+  function isGuarding(){
+    return STATE.guardActive && now() < STATE.guardUntil;
+  }
+
+  function guardReady(){
+    return !STATE.guardActive && now() >= STATE.guardCooldownUntil;
+  }
+
   function updateGlobals(){
     W.battleRoom = STATE.room;
     W.__BATTLE_ROOM__ = STATE.room;
@@ -396,13 +382,11 @@
       damageDealt: STATE.damageDealt,
       damageTaken: STATE.damageTaken,
       koCount: STATE.koCount,
-      guardActive: STATE.guardActive,
-      guardUntil: STATE.guardUntil,
-      guardCooldownUntil: STATE.guardCooldownUntil,
       guardsUsed: STATE.guardsUsed,
       blockedDamage: STATE.blockedDamage,
       lastAction: STATE.lastAction,
-      lastActionAt: STATE.lastActionAt,
+      guardActive: isGuarding(),
+      guardCooldownUntil: STATE.guardCooldownUntil,
       timeLeftSec: timeLeftSec(),
       started: STATE.started,
       finished: STATE.finished,
@@ -439,13 +423,11 @@
       damageDealt: STATE.damageDealt,
       damageTaken: STATE.damageTaken,
       koCount: STATE.koCount,
-      guardActive: STATE.guardActive,
-      guardUntil: STATE.guardUntil,
-      guardCooldownUntil: STATE.guardCooldownUntil,
       guardsUsed: STATE.guardsUsed,
       blockedDamage: STATE.blockedDamage,
       lastAction: STATE.lastAction,
-      lastActionAt: STATE.lastActionAt,
+      guardActive: isGuarding(),
+      guardCooldownUntil: STATE.guardCooldownUntil,
       timeLeftSec: timeLeftSec(),
       players: normalizeRoomPlayersMap(STATE.room.players),
       room: STATE.room
@@ -465,7 +447,9 @@
       damageDealt: STATE.damageDealt,
       damageTaken: STATE.damageTaken,
       koCount: STATE.koCount,
-      blockedDamage: STATE.blockedDamage
+      guardsUsed: STATE.guardsUsed,
+      blockedDamage: STATE.blockedDamage,
+      lastAction: STATE.lastAction
     });
     emit('battle:charge', {
       attackCharge: STATE.attackCharge,
@@ -484,7 +468,7 @@
       #battleEngineRoot{
         position:absolute; inset:0; z-index:1; overflow:hidden;
         background:
-          radial-gradient(circle at 12% 10%, rgba(255,255,255,.90), transparent 18%),
+          radial-gradient(circle at 12% 10%, rgba(255,255,255,.9), transparent 18%),
           radial-gradient(circle at 86% 14%, rgba(255,255,255,.76), transparent 16%),
           linear-gradient(180deg,#dff4ff,#bfe8ff 54%, #fff7d8);
       }
@@ -502,14 +486,6 @@
           radial-gradient(circle at 72% 44%, rgba(126,217,87,.28), transparent 18%),
           linear-gradient(180deg,#b3f28f,#88d96b);
         border-top:1px solid rgba(88,195,63,.26);
-        pointer-events:none;
-      }
-      #battleField::after{
-        content:"";
-        position:absolute; inset:0;
-        background:
-          radial-gradient(300px 160px at 16% 16%, rgba(255,255,255,.14), transparent 60%),
-          radial-gradient(280px 140px at 84% 18%, rgba(255,255,255,.14), transparent 60%);
         pointer-events:none;
       }
       #battleHud{
@@ -556,14 +532,12 @@
       }
       #battleHpFill{ background:linear-gradient(90deg,#7ed957,#58c33f); }
       #battleChargeFill{ background:linear-gradient(90deg,#7fcfff,#58b7f5); }
-
       #battleOpponentStrip{
         position:absolute; left:14px; right:14px; bottom:14px; z-index:5;
         display:flex; gap:10px; flex-wrap:wrap;
       }
       .gjb-opponent-card{
-        min-width:240px; padding:12px 14px; color:#4d4a42;
-        background:linear-gradient(180deg,#fffef9,#f7fff4);
+        min-width:220px; padding:12px 14px; color:#4d4a42;
       }
       .gjb-opponent-top{
         display:flex; justify-content:space-between; gap:8px; align-items:center;
@@ -574,60 +548,45 @@
       .gjb-opponent-mini{
         margin-top:7px; font-size:12px; color:#7b7a72; font-weight:1000;
       }
-      .gjb-opponent-status{
-        display:inline-flex; align-items:center; gap:6px;
-        padding:6px 10px; border-radius:999px;
-        background:#fff; border:2px solid #bfe3f2;
-        font-size:11px; font-weight:1000; color:#6c6a61;
-      }
-      .gjb-opponent-action{
-        margin-top:8px;
-        display:inline-flex; align-items:center; gap:6px;
-        padding:6px 10px; border-radius:999px;
-        background:#fff4dd; border:2px solid #f4d28a;
-        font-size:11px; font-weight:1000; color:#9a6d12;
-      }
-      .gjb-opponent-action.subtle{
-        background:#fff;
-        border-color:#d8e9f6;
-        color:#7b7a72;
-      }
-
       #battleBanner{
         position:absolute; left:50%; top:110px; transform:translateX(-50%);
         z-index:7; min-width:min(92vw,520px); max-width:min(92vw,620px);
         border-radius:22px; padding:12px 16px;
         border:2px solid #bfe3f2;
-        background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(255,248,221,.96));
+        background:rgba(255,255,255,.95);
         box-shadow:0 14px 24px rgba(86,155,194,.16);
         color:#4d4a42; text-align:center; font-size:14px; line-height:1.6; font-weight:1000;
       }
-
       #battleActionDock{
         position:absolute; right:14px; bottom:86px; z-index:8; pointer-events:auto;
         display:grid; gap:8px; justify-items:end;
       }
-      #battleAttackBtn, #battleGuardBtn{
+      #battleAttackBtn,
+      #battleGuardBtn{
         appearance:none; border:none; cursor:pointer;
         min-width:146px; min-height:54px; padding:12px 16px;
         border-radius:18px; font-size:15px; font-weight:1000;
+        color:#fffef9;
         box-shadow:0 14px 24px rgba(86,155,194,.18);
         transition:transform .12s ease, opacity .12s ease, filter .12s ease;
       }
       #battleAttackBtn{
-        color:#fffef9;
         background:linear-gradient(180deg,#7fcfff,#58b7f5);
       }
       #battleGuardBtn{
-        color:#35506b;
-        background:linear-gradient(180deg,#e8f7ff,#cdeeff);
+        background:linear-gradient(180deg,#c5b7ff,#8b6df5);
       }
-      #battleAttackBtn:hover, #battleGuardBtn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
-      #battleAttackBtn:active, #battleGuardBtn:active{ transform:translateY(0); }
-      #battleAttackBtn:disabled, #battleGuardBtn:disabled{
+      #battleGuardBtn.is-active{
+        background:linear-gradient(180deg,#9ee6b8,#4fc97a);
+      }
+      #battleAttackBtn:hover,
+      #battleGuardBtn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+      #battleAttackBtn:active,
+      #battleGuardBtn:active{ transform:translateY(0); }
+      #battleAttackBtn:disabled,
+      #battleGuardBtn:disabled{
         cursor:not-allowed; opacity:.55; filter:grayscale(.06); transform:none;
       }
-
       #attackReadyBadge{
         background:rgba(255,255,255,.92);
         border:2px solid #bfe3f2;
@@ -635,7 +594,6 @@
         box-shadow:0 10px 20px rgba(86,155,194,.12);
         font-size:12px; font-weight:1000; color:#7b7a72;
       }
-
       .gjb-cloud{
         position:absolute; background:#fff; border-radius:999px;
         box-shadow:0 8px 18px rgba(0,0,0,.06); opacity:.8; pointer-events:none;
@@ -643,7 +601,6 @@
       .gjb-cloud.c1{ width:130px;height:42px;left:4%;top:8%; }
       .gjb-cloud.c2{ width:95px;height:34px;left:72%;top:11%; }
       .gjb-cloud.c3{ width:110px;height:36px;left:38%;top:18%; }
-
       .gjb-target{
         position:absolute;
         display:grid; place-items:center;
@@ -659,7 +616,6 @@
         font-size:clamp(24px, 3.8vw, 38px);
         line-height:1;
       }
-
       .gjb-hitfx{
         position:absolute; pointer-events:none; z-index:9;
         font-size:20px; font-weight:1000; color:#244260;
@@ -669,22 +625,20 @@
       .gjb-hitfx.good{ color:#15803d; }
       .gjb-hitfx.bad{ color:#b91c1c; }
       .gjb-hitfx.atk{ color:#2563eb; font-size:24px; }
-      .gjb-hitfx.block{ color:#7c3aed; font-size:22px; }
-      .gjb-hitfx.crit{ color:#d97706; font-size:26px; }
-
+      .gjb-hitfx.guard{ color:#6d47c7; font-size:24px; }
       @keyframes gjb-float{
         0%{ opacity:0; transform:translateY(8px) scale(.9); }
         15%{ opacity:1; }
         100%{ opacity:0; transform:translateY(-28px) scale(1.04); }
       }
-
       @media (max-width: 860px){
         #battleHud{ gap:8px; left:10px; right:10px; top:10px; }
         .gjb-stat{ min-width:94px; }
         .gjb-gauge{ min-width:160px; }
         #battleBanner{ top:116px; min-width:min(94vw,520px); font-size:13px; }
         #battleActionDock{ right:10px; bottom:74px; }
-        #battleAttackBtn, #battleGuardBtn{ min-width:130px; min-height:50px; font-size:14px; }
+        #battleAttackBtn,
+        #battleGuardBtn{ min-width:130px; min-height:50px; font-size:14px; }
       }
       @media (max-width: 640px){
         .gjb-stat-v{ font-size:20px; }
@@ -763,8 +717,8 @@
 
           <div id="battleActionDock">
             <div id="attackReadyBadge">CHARGING</div>
-            <button id="battleAttackBtn" type="button" disabled>⚡ ATTACK</button>
             <button id="battleGuardBtn" type="button">🛡 GUARD</button>
+            <button id="battleAttackBtn" type="button" disabled>⚡ ATTACK</button>
           </div>
 
           <div id="battleOpponentStrip"></div>
@@ -799,7 +753,7 @@
         ev.preventDefault();
         useAttack();
       }
-      if ((ev.key === 'g' || ev.key === 'G') && !ev.repeat){
+      if ((ev.code === 'ShiftLeft' || ev.code === 'ShiftRight' || ev.key === 'Shift') && !ev.repeat){
         ev.preventDefault();
         useGuard();
       }
@@ -825,18 +779,6 @@
     setTimeout(() => el.remove(), 520);
   }
 
-  function lastActionLabel(action){
-    switch (String(action || '')) {
-      case 'attack': return '⚡ โจมตี';
-      case 'crit': return '💥 คริติคอล';
-      case 'guard': return '🛡 ป้องกัน';
-      case 'block': return '🛡 กันได้';
-      case 'hit': return '💢 โดนโจมตี';
-      case 'ko': return '💥 KO';
-      default: return '⌛ รอจังหวะ';
-    }
-  }
-
   function renderHud(){
     if (UI.battleModePill) UI.battleModePill.textContent = 'MODE battle';
     if (UI.battleRoomPill) UI.battleRoomPill.textContent = `ROOM ${STATE.roomId || '-'}`;
@@ -852,14 +794,19 @@
     if (UI.battleChargeFill) UI.battleChargeFill.style.width = `${((STATE.attackCharge / Math.max(1, STATE.maxAttackCharge)) * 100).toFixed(1)}%`;
 
     if (UI.battleAttackReady){
-      if (STATE.guardActive) {
+      const guardLeft = Math.max(0, Math.ceil((STATE.guardCooldownUntil - now()) / 1000));
+      if (isGuarding()){
         UI.battleAttackReady.textContent = 'GUARD ACTIVE';
-        UI.battleAttackReady.style.color = '#7c3aed';
-        UI.battleAttackReady.style.borderColor = '#d8b4fe';
+        UI.battleAttackReady.style.color = '#6d47c7';
+        UI.battleAttackReady.style.borderColor = '#c5b7ff';
       } else if (STATE.attackReady) {
-        UI.battleAttackReady.textContent = (STATE.streak >= CRIT_STREAK) ? 'CRIT READY' : 'ATTACK READY';
-        UI.battleAttackReady.style.color = (STATE.streak >= CRIT_STREAK) ? '#d97706' : '#2563eb';
-        UI.battleAttackReady.style.borderColor = (STATE.streak >= CRIT_STREAK) ? '#f4d28a' : '#7fcfff';
+        UI.battleAttackReady.textContent = 'ATTACK READY';
+        UI.battleAttackReady.style.color = '#2563eb';
+        UI.battleAttackReady.style.borderColor = '#7fcfff';
+      } else if (guardLeft > 0) {
+        UI.battleAttackReady.textContent = `GUARD CD ${guardLeft}s`;
+        UI.battleAttackReady.style.color = '#7b7a72';
+        UI.battleAttackReady.style.borderColor = '#bfe3f2';
       } else {
         UI.battleAttackReady.textContent = 'CHARGING';
         UI.battleAttackReady.style.color = '#7b7a72';
@@ -868,18 +815,25 @@
     }
 
     if (UI.attackBtn){
-      UI.attackBtn.disabled = !(STATE.started && !STATE.finished && !STATE.localKo && !STATE.guardActive && STATE.attackReady && !!topOpponent());
-      UI.attackBtn.textContent = STATE.attackReady
-        ? ((STATE.streak >= CRIT_STREAK) ? '💥 CRIT ATTACK' : '⚡ ATTACK')
-        : '⚡ CHARGING';
+      UI.attackBtn.disabled = !(STATE.started && !STATE.finished && !STATE.localKo && STATE.attackReady && !!topOpponent());
+      UI.attackBtn.textContent = STATE.attackReady ? '⚡ ATTACK' : '⚡ CHARGING';
     }
 
     if (UI.guardBtn){
-      const cdLeft = Math.max(0, Math.ceil((num(STATE.guardCooldownUntil, 0) - now()) / 1000));
-      UI.guardBtn.disabled = !(STATE.started && !STATE.finished && !STATE.localKo && !STATE.guardActive && cdLeft <= 0);
-      UI.guardBtn.textContent = STATE.guardActive
-        ? '🛡 GUARDING'
-        : (cdLeft > 0 ? `🛡 CD ${cdLeft}` : '🛡 GUARD');
+      const ready = guardReady();
+      const guarding = isGuarding();
+      const guardLeft = Math.max(0, Math.ceil((STATE.guardCooldownUntil - now()) / 1000));
+
+      UI.guardBtn.classList.toggle('is-active', guarding);
+      UI.guardBtn.disabled = !(STATE.started && !STATE.finished && !STATE.localKo && (ready || guarding));
+
+      if (guarding){
+        UI.guardBtn.textContent = '🛡 GUARDING';
+      } else if (ready){
+        UI.guardBtn.textContent = '🛡 GUARD';
+      } else {
+        UI.guardBtn.textContent = `🛡 ${guardLeft}s`;
+      }
     }
 
     renderOpponents();
@@ -897,8 +851,7 @@
             <div class="gjb-opponent-name">รอคู่ต่อสู้</div>
             <div>⌛</div>
           </div>
-          <div class="gjb-opponent-mini">เมื่ออีกฝั่งเข้ามา จะเห็นคะแนน HP และ charge ที่นี่</div>
-          <div class="gjb-opponent-action subtle">⌛ ยังไม่มีคู่ต่อสู้</div>
+          <div class="gjb-opponent-mini">เมื่ออีกฝั่งเข้ามา จะเห็นคะแนนและ HP ที่นี่</div>
         </div>
       `;
       return;
@@ -906,45 +859,15 @@
 
     UI.opponentStrip.innerHTML = opponents.map((p) => {
       const alive = num(p.hp, 100) > 0;
-      const hpPct = Math.max(0, Math.min(100, (num(p.hp,100) / Math.max(1, num(p.maxHp,100))) * 100));
-      const chPct = Math.max(0, Math.min(100, (num(p.attackCharge,0) / Math.max(1, num(p.maxAttackCharge,100))) * 100));
-      const guarding = !!p.guardActive && now() <= num(p.guardUntil, 0);
-      const ready = !!p.attackReady || chPct >= 100;
-
-      const statusText = !alive ? '💥 KO' : guarding ? '🛡 GUARD' : ready ? '⚡ READY' : '⚔️ READY';
-      const lastRecent = (now() - num(p.lastActionAt, 0)) <= 2200;
-      const actionText = lastRecent ? lastActionLabel(p.lastAction) : '⌛ รอจังหวะ';
-
       return `
         <div class="gjb-opponent-card">
           <div class="gjb-opponent-top">
             <div class="gjb-opponent-name">${escapeHtml(p.name || p.nick || 'Opponent')}</div>
-            <div class="gjb-opponent-status">${statusText}</div>
+            <div>${alive ? '⚔️' : '💥'}</div>
           </div>
-
-          <div class="gjb-opponent-mini">Score ${num(p.score,0)} • Miss ${num(p.miss,0)}</div>
-
-          <div class="gjb-gauge" style="margin-top:8px; min-width:unset;">
-            <div class="gjb-gauge-head">
-              <span>HP</span>
-              <span>${num(p.hp,100)}/${num(p.maxHp,100)}</span>
-            </div>
-            <div class="gjb-gauge-bar">
-              <div class="gjb-gauge-fill" style="width:${hpPct}%; background:linear-gradient(90deg,#7ed957,#58c33f);"></div>
-            </div>
+          <div class="gjb-opponent-mini">
+            Score ${num(p.score,0)} • HP ${num(p.hp,100)}/${num(p.maxHp,100)} • Miss ${num(p.miss,0)}
           </div>
-
-          <div class="gjb-gauge" style="margin-top:8px; min-width:unset;">
-            <div class="gjb-gauge-head">
-              <span>CHARGE</span>
-              <span>${num(p.attackCharge,0)}/${num(p.maxAttackCharge,100)}</span>
-            </div>
-            <div class="gjb-gauge-bar">
-              <div class="gjb-gauge-fill" style="width:${chPct}%; background:linear-gradient(90deg,#7fcfff,#58b7f5);"></div>
-            </div>
-          </div>
-
-          <div class="gjb-opponent-action ${lastRecent ? '' : 'subtle'}">${actionText}</div>
         </div>
       `;
     }).join('');
@@ -976,42 +899,6 @@
       return endsAt ? Math.max(0, (endsAt - now()) / 1000) : STATE.timeSec;
     }
     return STATE.started ? 0 : STATE.timeSec;
-  }
-
-  function canUseGuard(){
-    return (
-      STATE.started &&
-      !STATE.finished &&
-      !STATE.localKo &&
-      !STATE.guardActive &&
-      now() >= num(STATE.guardCooldownUntil, 0)
-    );
-  }
-
-  function useGuard(){
-    if (!canUseGuard()) return;
-
-    const t = now();
-    STATE.guardActive = true;
-    STATE.guardUntil = t + GUARD_DURATION_MS;
-    STATE.guardCooldownUntil = t + GUARD_COOLDOWN_MS;
-    STATE.guardsUsed += 1;
-    STATE.lastAction = 'guard';
-    STATE.lastActionAt = t;
-
-    setBanner('🛡 เปิดการป้องกันแล้ว!', 900);
-    renderHud();
-    scheduleSync(true);
-  }
-
-  function tickGuardState(){
-    const t = now();
-    if (STATE.guardActive && t >= num(STATE.guardUntil, 0)) {
-      STATE.guardActive = false;
-      STATE.guardUntil = 0;
-      renderHud();
-      scheduleSync(false);
-    }
   }
 
   function makeTarget(kind){
@@ -1093,7 +980,7 @@
         ? 'ko'
         : STATE.started
           ? 'playing'
-          : roomStatus() || 'waiting';
+          : 'waiting';
 
     const payload = {
       pid: STATE.pid,
@@ -1118,13 +1005,12 @@
       damageDealt: Math.max(0, STATE.damageDealt),
       damageTaken: Math.max(0, STATE.damageTaken),
       koCount: Math.max(0, STATE.koCount),
-      guardActive: !!STATE.guardActive,
-      guardUntil: STATE.guardUntil || 0,
-      guardCooldownUntil: STATE.guardCooldownUntil || 0,
       guardsUsed: Math.max(0, STATE.guardsUsed),
       blockedDamage: Math.max(0, STATE.blockedDamage),
+      guardActive: isGuarding(),
+      guardUntil: STATE.guardUntil,
+      guardCooldownUntil: STATE.guardCooldownUntil,
       lastAction: STATE.lastAction || '',
-      lastActionAt: STATE.lastActionAt || 0,
       updatedAt: t,
       lastSeen: t
     };
@@ -1165,27 +1051,23 @@
       STATE.streak += 1;
       STATE.bestStreak = Math.max(STATE.bestStreak, STATE.streak);
       STATE.goodHit += 1;
-      STATE.lastAction = 'hit';
-      STATE.lastActionAt = now();
 
       const bonus = Math.min(12, Math.floor(STATE.streak / 3) * 2);
       STATE.score += 10 + bonus;
       addCharge(20);
+      STATE.lastAction = 'collect';
 
       pulseScore();
       flashText(t.x, t.y, `+${10 + bonus}`, 'good');
-      setBanner(STATE.streak >= CRIT_STREAK
-        ? 'สุดยอด! ตอนนี้โจมตีจะเป็น CRIT แล้ว'
-        : 'เก่งมาก! แตะอาหารดีต่อเนื่องเพื่อชาร์จพลังโจมตี', 900);
+      setBanner('เก่งมาก! แตะอาหารดีต่อเนื่องเพื่อชาร์จพลังโจมตี', 900);
     } else {
       STATE.junkHit += 1;
       STATE.miss += 1;
       STATE.streak = 0;
       STATE.score = Math.max(0, STATE.score - 8);
       STATE.hp = Math.max(0, STATE.hp - 8);
-      STATE.lastAction = 'hit';
-      STATE.lastActionAt = now();
       addCharge(-10);
+      STATE.lastAction = 'junk';
 
       flashText(t.x, t.y, '-8', 'bad');
       setBanner('โดน junk! คะแนนและ HP ลดลง', 900);
@@ -1203,9 +1085,7 @@
       STATE.miss += 1;
       STATE.streak = 0;
       STATE.hp = Math.max(0, STATE.hp - 2);
-      STATE.lastAction = 'hit';
-      STATE.lastActionAt = now();
-
+      STATE.lastAction = 'miss';
       flashText(t.x, t.y, 'MISS', 'bad');
       setBanner('อาหารดีหลุดไปแล้ว ระวังให้มากขึ้นอีกนิด', 800);
       applyLocalDamageCheck();
@@ -1220,11 +1100,7 @@
       STATE.localKo = true;
       STATE.attackCharge = 0;
       STATE.attackReady = false;
-      STATE.guardActive = false;
-      STATE.guardUntil = 0;
       STATE.lastAction = 'ko';
-      STATE.lastActionAt = now();
-
       setBanner('HP หมดแล้ว! รอระบบสรุปรอบนี้…', 1600);
       renderHud();
       scheduleSync(true);
@@ -1233,12 +1109,11 @@
   }
 
   function useAttack(){
-    if (!STATE.started || STATE.finished || STATE.localKo || STATE.guardActive || !STATE.attackReady) return;
+    if (!STATE.started || STATE.finished || STATE.localKo || !STATE.attackReady) return;
     const opp = topOpponent();
     if (!opp) return;
 
-    const isCrit = STATE.streak >= CRIT_STREAK;
-    const dmg = isCrit ? CRIT_DAMAGE : (STATE.cfg.atkDamage || 18);
+    const dmg = STATE.cfg.atkDamage || 18;
     const attackId = `atk-${STATE.uid}-${now()}-${Math.random().toString(36).slice(2,6)}`;
 
     STATE.attacksUsed += 1;
@@ -1249,22 +1124,28 @@
     STATE.lastAttackAt = now();
     STATE.lastAttackDamage = dmg;
     STATE.lastAttackTarget = opp.uid || opp.playerId || opp.key || '';
-    STATE.lastAction = isCrit ? 'crit' : 'attack';
-    STATE.lastActionAt = now();
+    STATE.lastAction = 'attack';
 
-    flashText(
-      fieldRect().w * 0.52,
-      fieldRect().h * 0.42,
-      isCrit ? `💥 CRIT -${dmg}` : `⚡-${dmg}`,
-      isCrit ? 'crit' : 'atk'
-    );
+    flashText(fieldRect().w * 0.52, fieldRect().h * 0.42, `⚡-${dmg}`, 'atk');
+    setBanner(`ปล่อย ATTACK ใส่ ${opp.name || 'คู่ต่อสู้'} แล้ว!`, 1000);
 
-    setBanner(
-      isCrit
-        ? `คริติคอล! โจมตี ${opp.name || 'คู่ต่อสู้'} อย่างแรง!`
-        : `ปล่อย ATTACK ใส่ ${opp.name || 'คู่ต่อสู้'} แล้ว!`,
-      1000
-    );
+    renderHud();
+    scheduleSync(true);
+  }
+
+  function useGuard(){
+    if (!STATE.started || STATE.finished || STATE.localKo) return;
+    if (!guardReady()) return;
+
+    const t = now();
+    STATE.guardActive = true;
+    STATE.guardUntil = t + STATE.guardDurationMs;
+    STATE.guardCooldownUntil = STATE.guardUntil + STATE.guardCooldownMs;
+    STATE.guardsUsed += 1;
+    STATE.lastAction = 'guard';
+
+    flashText(fieldRect().w * 0.46, fieldRect().h * 0.34, '🛡 GUARD', 'guard');
+    setBanner('เปิด Guard แล้ว! ถ้าโดนโจมตีช่วงนี้จะ block ได้', 900);
 
     renderHud();
     scheduleSync(true);
@@ -1296,7 +1177,7 @@
         return;
       }
 
-      let dmg = clamp(num(p.lastAttackDamage, 0), 0, 100);
+      const dmg = clamp(num(p.lastAttackDamage, 0), 0, 100);
       if (dmg <= 0){
         STATE.seenAttackIds[key] = attackId;
         return;
@@ -1305,28 +1186,21 @@
       STATE.seenAttackIds[key] = attackId;
       if (!STATE.started || STATE.finished || STATE.localKo) return;
 
-      let blocked = false;
-      if (STATE.guardActive && now() <= num(STATE.guardUntil, 0)) {
-        const reduced = Math.max(1, Math.round(dmg * (1 - GUARD_BLOCK_RATIO)));
-        STATE.blockedDamage += Math.max(0, dmg - reduced);
-        dmg = reduced;
-        blocked = true;
+      if (isGuarding()){
+        STATE.blockedDamage += dmg;
+        STATE.lastAction = 'block';
+        flashText(fieldRect().w * 0.34, fieldRect().h * 0.28, 'BLOCK!', 'guard');
+        setBanner(`${p.name || 'คู่ต่อสู้'} โจมตีมา แต่คุณกันได้!`, 1000);
+        renderHud();
+        scheduleSync(true);
+        return;
       }
 
       STATE.damageTaken += dmg;
       STATE.hp = Math.max(0, STATE.hp - dmg);
-      STATE.lastAction = blocked ? 'block' : 'hit';
-      STATE.lastActionAt = now();
-
-      if (blocked) {
-        flashText(fieldRect().w * 0.34, fieldRect().h * 0.28, `BLOCK -${dmg}`, 'block');
-        setBanner(`🛡 กันการโจมตีจาก ${p.name || 'คู่ต่อสู้'} ได้บางส่วน!`, 1000);
-      } else {
-        const isCrit = num(p.lastAttackDamage, 0) >= CRIT_DAMAGE;
-        flashText(fieldRect().w * 0.34, fieldRect().h * 0.28, isCrit ? `CRIT -${dmg}` : `-${dmg} HP`, isCrit ? 'crit' : 'bad');
-        setBanner(`${p.name || 'คู่ต่อสู้'} ใช้ ATTACK ใส่คุณ!`, 1000);
-      }
-
+      STATE.lastAction = 'hit';
+      flashText(fieldRect().w * 0.34, fieldRect().h * 0.28, `-${dmg} HP`, 'bad');
+      setBanner(`${p.name || 'คู่ต่อสู้'} ใช้ ATTACK ใส่คุณ!`, 1000);
       applyLocalDamageCheck();
       renderHud();
       scheduleSync(true);
@@ -1449,11 +1323,11 @@
     STATE.damageDealt = me ? num(me.damageDealt, 0) : 0;
     STATE.damageTaken = me ? num(me.damageTaken, 0) : 0;
     STATE.koCount = me ? num(me.koCount, 0) : 0;
+    STATE.guardsUsed = me ? num(me.guardsUsed, 0) : 0;
+    STATE.blockedDamage = me ? num(me.blockedDamage, 0) : 0;
     STATE.guardActive = false;
     STATE.guardUntil = 0;
     STATE.guardCooldownUntil = 0;
-    STATE.guardsUsed = 0;
-    STATE.blockedDamage = 0;
     STATE.goodHit = 0;
     STATE.junkHit = 0;
     STATE.lastAttackId = '';
@@ -1461,7 +1335,6 @@
     STATE.lastAttackDamage = 0;
     STATE.lastAttackTarget = '';
     STATE.lastAction = '';
-    STATE.lastActionAt = 0;
 
     const roundToken = cleanText((STATE.room.state || {}).roundToken || String(startedAt), 120);
     STATE.roundToken = roundToken;
@@ -1470,7 +1343,7 @@
     const seedHash = xmur3(`${STATE.seed}|${STATE.roomId}|${STATE.roundToken}|${STATE.pid}|${startedAt}`)();
     STATE.rng = mulberry32(seedHash);
 
-    setBanner('เริ่มแล้ว! แตะอาหารดี ชาร์จพลัง แล้วใช้ ATTACK หรือ GUARD ให้ถูกจังหวะ', 1300);
+    setBanner('เริ่มแล้ว! แตะอาหารดี ชาร์จโจมตี หรือกด GUARD กันดาเมจ', 1300);
     renderHud();
     scheduleSync(true);
   }
@@ -1529,20 +1402,16 @@
       attacksUsed: STATE.attacksUsed,
       damageDealt: STATE.damageDealt,
       damageTaken: STATE.damageTaken,
-      koCount: STATE.koCount,
       guardsUsed: STATE.guardsUsed,
       blockedDamage: STATE.blockedDamage,
+      koCount: STATE.koCount,
+      lastAction: STATE.lastAction || '',
       raw: {
         players,
         room: STATE.room,
         endedAt: now(),
         goodHit: STATE.goodHit,
-        junkHit: STATE.junkHit,
-        guardActive: STATE.guardActive,
-        guardUntil: STATE.guardUntil,
-        guardCooldownUntil: STATE.guardCooldownUntil,
-        lastAction: STATE.lastAction,
-        lastActionAt: STATE.lastActionAt
+        junkHit: STATE.junkHit
       }
     };
   }
@@ -1552,6 +1421,7 @@
 
     STATE.finished = true;
     STATE.started = false;
+    STATE.guardActive = false;
 
     caf(STATE.loopId);
     clearTargets();
@@ -1620,7 +1490,9 @@
       return;
     }
 
-    tickGuardState();
+    if (STATE.guardActive && now() >= STATE.guardUntil){
+      STATE.guardActive = false;
+    }
 
     const ts = Number(frameTs || performance.now());
     if (!STATE.lastFrameTs) STATE.lastFrameTs = ts;
@@ -1781,13 +1653,12 @@
       damageDealt: existing ? num(existing.damageDealt, 0) : 0,
       damageTaken: existing ? num(existing.damageTaken, 0) : 0,
       koCount: existing ? num(existing.koCount, 0) : 0,
+      guardsUsed: existing ? num(existing.guardsUsed, 0) : 0,
+      blockedDamage: existing ? num(existing.blockedDamage, 0) : 0,
       guardActive: false,
       guardUntil: 0,
       guardCooldownUntil: 0,
-      guardsUsed: existing ? num(existing.guardsUsed, 0) : 0,
-      blockedDamage: existing ? num(existing.blockedDamage, 0) : 0,
-      lastAction: '',
-      lastActionAt: 0,
+      lastAction: existing ? cleanText(existing.lastAction || '', 30) : '',
       joinedAt: existing ? num(existing.joinedAt, t) : t,
       updatedAt: t,
       lastSeen: t
@@ -1849,6 +1720,7 @@
         STATE.koCount = num(me.koCount, 0);
         STATE.guardsUsed = num(me.guardsUsed, 0);
         STATE.blockedDamage = num(me.blockedDamage, 0);
+        STATE.lastAction = cleanText(me.lastAction || STATE.lastAction, 30);
       }
 
       if (isHost()) {
