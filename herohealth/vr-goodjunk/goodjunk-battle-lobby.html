@@ -1,1283 +1,1015 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Battle Lobby</title>
-  <meta name="color-scheme" content="light" />
-  <link rel="icon" href="../favicon.ico" />
-  <style>
-    :root{
-      --sky1:#dff4ff;
-      --sky2:#bfe8ff;
-      --sky3:#fff7d8;
-      --line:#bfe3f2;
-      --line2:#f0ddbc;
-      --text:#4d4a42;
-      --muted:#7b7a72;
-      --green:#7ed957;
-      --green2:#58c33f;
-      --blue:#7fcfff;
-      --blue2:#58b7f5;
-      --yellow:#ffd45c;
-      --orange:#ffb547;
-      --cream:#fffef9;
-      --card:#fffef9;
-      --card2:#f7fff4;
-      --shadow:0 18px 40px rgba(86,155,194,.16);
-      --sat:env(safe-area-inset-top,0px);
-      --sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);
-      --sal:env(safe-area-inset-left,0px);
-    }
-    *{ box-sizing:border-box; }
-    html,body{
-      margin:0;
-      min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
-        radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
-    }
-    body{ min-height:100dvh; }
-    .app{
-      width:min(1100px,100%);
-      margin:0 auto;
-      padding:
-        calc(14px + var(--sat))
-        calc(14px + var(--sar))
-        calc(24px + var(--sab))
-        calc(14px + var(--sal));
-    }
+(function(){
+  'use strict';
 
-    .hero{
-      background:linear-gradient(180deg,var(--cream),var(--card2));
-      border:3px solid var(--line);
-      border-radius:30px;
-      box-shadow:var(--shadow);
-      padding:18px;
-      position:relative;
-      overflow:hidden;
-    }
-    .hero::before{
-      content:"";
-      position:absolute;
-      left:-28px; top:-28px;
-      width:140px; height:140px;
-      border-radius:999px;
-      background:rgba(127,207,255,.18);
-      filter:blur(8px);
-    }
-    .hero::after{
-      content:"";
-      position:absolute;
-      right:-24px; bottom:-24px;
-      width:120px; height:120px;
-      border-radius:999px;
-      background:rgba(255,212,92,.22);
-      filter:blur(8px);
-    }
+  const ACTIVE_TTL_MS = 12000;
+  const HEARTBEAT_MS = 2500;
+  const COUNTDOWN_MS = 2500;
+  const STORE_KEY = 'GJ_BATTLE_LOBBY_V2';
 
-    .kicker{
-      position:relative; z-index:1;
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:#fff4dd;
-      border:2px solid var(--line);
-      color:#b7791f;
-      font-size:13px;
-      font-weight:1000;
-      margin-bottom:10px;
-    }
-    h1{
-      position:relative; z-index:1;
-      margin:0 0 6px;
-      font-size:clamp(28px,5vw,42px);
-      line-height:1.05;
-      font-weight:1000;
-      color:#b7791f;
-      text-shadow:0 2px 0 #fff;
-    }
-    .sub{
-      position:relative; z-index:1;
-      margin:0;
-      color:var(--muted);
-      line-height:1.7;
-      font-size:14px;
-      font-weight:900;
-      max-width:760px;
-    }
+  const qs = (k, d='') => {
+    try { return new URL(location.href).searchParams.get(k) ?? d; }
+    catch { return d; }
+  };
 
-    .grid{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:14px;
-      margin-top:14px;
-      align-items:start;
-    }
+  const clamp = (v, a, b) => {
+    v = Number(v);
+    if (!Number.isFinite(v)) v = a;
+    return Math.max(a, Math.min(b, v));
+  };
 
-    .card{
-      background:linear-gradient(180deg,var(--cream),var(--card2));
-      border:3px solid var(--line);
-      border-radius:28px;
-      box-shadow:var(--shadow);
-      padding:16px;
-    }
-    .card h2{
-      margin:0 0 12px;
-      color:#b7791f;
-      font-size:22px;
-      line-height:1.15;
-      font-weight:1000;
-    }
-    .label{
-      color:#b7791f;
-      font-size:12px;
-      font-weight:1000;
-      margin-bottom:6px;
-    }
-    .muted{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.6;
-      font-weight:900;
-    }
+  const num = (v, d=0) => {
+    v = Number(v);
+    return Number.isFinite(v) ? v : d;
+  };
 
-    .row{
-      display:grid;
-      gap:10px;
-      grid-template-columns:1fr 1fr;
+  const now = () => Date.now();
+
+  const clean = (s, max=24) => String(s == null ? '' : s)
+    .replace(/[^a-zA-Z0-9ก-๙ _-]/g, '')
+    .trim()
+    .slice(0, max);
+
+  const cleanPid = (s, max=80) => String(s == null ? '' : s)
+    .replace(/[.#$[\]/]/g, '-')
+    .trim()
+    .slice(0, max);
+
+  const cleanRoom = (s) => String(s == null ? '' : s)
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]/g, '')
+    .slice(0, 24);
+
+  const randSeed = () => Math.floor(Math.random() * 900000000) + 100000000;
+  const makeCode = () => `GJB-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+  const makeRoundToken = () => `r-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+
+  const HUB = qs('hub', '../hub.html');
+  const LAUNCHER = './goodjunk-multi.html';
+  const ROOT_PATH = 'hha-battle/goodjunk/rooms';
+
+  const UI = {
+    topNotice: document.getElementById('topNotice'),
+    sideNotice: document.getElementById('sideNotice'),
+    bottomNotice: document.getElementById('bottomNotice'),
+
+    statusBadge: document.getElementById('statusBadge'),
+    roomCodeBig: document.getElementById('roomCodeBig'),
+    roomSummary: document.getElementById('roomSummary'),
+    joinLinkText: document.getElementById('joinLinkText'),
+    countdownBox: document.getElementById('countdownBox'),
+
+    nickInput: document.getElementById('nickInput'),
+    diffSelect: document.getElementById('diffSelect'),
+    timeSelect: document.getElementById('timeSelect'),
+    viewSelect: document.getElementById('viewSelect'),
+    seedInput: document.getElementById('seedInput'),
+    roomInput: document.getElementById('roomInput'),
+
+    btnCreateTop: document.getElementById('btnCreateTop'),
+    btnJoinTop: document.getElementById('btnJoinTop'),
+    btnLauncher: document.getElementById('btnLauncher'),
+    btnHub: document.getElementById('btnHub'),
+
+    btnCreateRoom: document.getElementById('btnCreateRoom'),
+    btnJoinRoom: document.getElementById('btnJoinRoom'),
+    btnPasteRoom: document.getElementById('btnPasteRoom'),
+    btnShareRoom: document.getElementById('btnShareRoom'),
+    btnRandomRoom: document.getElementById('btnRandomRoom'),
+    btnCopyRoom: document.getElementById('btnCopyRoom'),
+    btnStartGame: document.getElementById('btnStartGame'),
+    btnLeaveRoom: document.getElementById('btnLeaveRoom'),
+
+    qrCanvas: document.getElementById('qrCanvas'),
+    playersList: document.getElementById('playersList'),
+    copyState: document.getElementById('copyState'),
+    joinGuard: document.getElementById('joinGuard')
+  };
+
+  const S = {
+    uid: '',
+    pid: '',
+    roomId: '',
+    joined: false,
+    redirecting: false,
+
+    refs: null,
+    offFns: [],
+    heartbeat: 0,
+    countdownTick: 0,
+
+    meta: {},
+    state: {
+      status: 'waiting',
+      plannedSec: 90,
+      countdownEndsAt: 0,
+      startedAt: 0,
+      endsAt: 0,
+      roundToken: '',
+      updatedAt: 0
+    },
+    players: {}
+  };
+
+  function setTop(msg){ if (UI.topNotice) UI.topNotice.textContent = msg; }
+  function setSide(msg){ if (UI.sideNotice) UI.sideNotice.textContent = msg; }
+  function setBottom(msg){ if (UI.bottomNotice) UI.bottomNotice.textContent = msg; }
+  function setCopyState(msg){ if (UI.copyState) UI.copyState.textContent = msg; }
+
+  function showJoinGuard(msg){
+    if (!UI.joinGuard) return;
+    UI.joinGuard.textContent = String(msg || '');
+    UI.joinGuard.classList.add('show');
+  }
+
+  function clearJoinGuard(){
+    if (!UI.joinGuard) return;
+    UI.joinGuard.textContent = '';
+    UI.joinGuard.classList.remove('show');
+  }
+
+  async function guardAsync(fn){
+    clearJoinGuard();
+    try{
+      await fn();
+    }catch(err){
+      const msg = (err && err.message) ? err.message : String(err || 'unknown error');
+      console.error('[battle-lobby]', err);
+      setTop(`เกิดข้อผิดพลาด: ${msg}`);
+      setSide('ตรวจ Firebase config / auth / path ของไฟล์ แล้วลองใหม่');
+      setBottom('ถ้ายังไม่ได้ ให้เปิด anonymous auth และเช็ก firebase-config.js');
+      showJoinGuard(`❌ ${msg}`);
+      setCopyState(`Error: ${msg}`);
     }
-    .field{
-      display:grid;
-      gap:6px;
-    }
-    .input{
-      appearance:none;
-      width:100%;
-      min-height:52px;
-      border-radius:18px;
-      border:3px solid var(--line);
-      background:#fff;
-      color:var(--text);
-      padding:0 14px;
-      font-size:16px;
-      font-weight:900;
-      outline:none;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-    .input:focus{
-      border-color:#9cd9ff;
-      box-shadow:0 0 0 4px rgba(127,207,255,.18);
-    }
+  }
 
-    .btns{
-      display:grid;
-      gap:10px;
-      margin-top:12px;
-      grid-template-columns:1fr 1fr;
-    }
-    .btn{
-      appearance:none;
-      border:0;
-      cursor:pointer;
-      min-height:54px;
-      padding:12px 16px;
-      border-radius:18px;
-      font-size:16px;
-      font-weight:1000;
-      box-shadow:0 10px 20px rgba(86,155,194,.14);
-      transition:.12s ease;
-    }
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
-    .btn:active{ transform:translateY(0); }
-    .btn:disabled{
-      cursor:not-allowed;
-      opacity:.56;
-      filter:grayscale(.05);
-      transform:none;
-    }
-    .btn-primary{ background:linear-gradient(180deg,var(--green),var(--green2)); color:#fffef9; }
-    .btn-blue{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
-    .btn-warn{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#6d4e00; }
-    .btn-ghost{
-      background:#fff;
-      color:#6d6a62;
-      border:3px solid var(--line);
-    }
+  function saveStored(){
+    try{
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        nick: getNick(),
+        diff: getDiff(),
+        time: getTime(),
+        view: getView(),
+        seed: getSeed()
+      }));
+    }catch{}
+  }
 
-    .pill-row{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-bottom:12px;
-    }
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      min-height:42px;
-      padding:10px 14px;
-      border-radius:999px;
-      border:3px solid var(--line);
-      background:#fff;
-      color:#6c6a61;
-      font-size:13px;
-      font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-    }
+  function loadStored(){
+    try{
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (!d || typeof d !== 'object') return;
+      if (d.nick && UI.nickInput) UI.nickInput.value = clean(d.nick, 24);
+      if (d.diff && UI.diffSelect) UI.diffSelect.value = d.diff;
+      if (d.time && UI.timeSelect) UI.timeSelect.value = String(d.time);
+      if (d.view && UI.viewSelect) UI.viewSelect.value = d.view;
+      if (d.seed != null && UI.seedInput) UI.seedInput.value = String(d.seed);
+    }catch{}
+  }
 
-    .room-code-box{
-      border:3px solid var(--line2);
-      border-radius:24px;
-      background:#fffdf6;
-      padding:14px;
-      box-shadow:0 10px 22px rgba(86,155,194,.08);
-    }
-    .room-code{
-      font-size:clamp(28px,7vw,46px);
-      line-height:1;
-      font-weight:1000;
-      color:#344054;
-      letter-spacing:.03em;
-      margin:6px 0 12px;
-    }
+  function getNick(){
+    return clean((UI.nickInput && UI.nickInput.value) || qs('name', qs('nick', 'Player')), 24) || 'Player';
+  }
 
-    .status-line{
-      margin-top:12px;
-      border-radius:18px;
-      border:3px solid var(--line);
-      background:#fff;
-      padding:14px;
-      font-size:15px;
-      font-weight:1000;
-      color:#4d4a42;
-    }
+  function getDiff(){
+    const v = String((UI.diffSelect && UI.diffSelect.value) || qs('diff', 'normal') || 'normal').toLowerCase();
+    return (v === 'easy' || v === 'hard') ? v : 'normal';
+  }
 
-    .players{
-      display:grid;
-      gap:12px;
-      margin-top:8px;
-    }
-    .player-card{
-      border-radius:22px;
-      border:3px solid var(--line);
-      background:#fff;
-      padding:14px;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-    .player-top{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .player-name{
-      font-size:18px;
-      font-weight:1000;
-      color:#3f3d38;
-      margin-bottom:4px;
-    }
-    .player-meta{
-      color:#6e6b64;
-      font-size:13px;
-      line-height:1.6;
-      font-weight:900;
-    }
-    .tag-row{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-    .tag{
-      display:inline-flex;
-      align-items:center;
-      min-height:34px;
-      padding:6px 12px;
-      border-radius:999px;
-      border:3px solid var(--line);
-      background:#fffdf6;
-      color:#7b5b11;
-      font-size:12px;
-      font-weight:1000;
-    }
-    .tag.you{
-      color:#2f6f34;
-      background:#f5fff2;
-    }
-    .tag.host{
-      color:#8b5d00;
-      background:#fff9ef;
-    }
-    .tag.state{
-      color:#995c00;
-      background:#fffaf0;
-    }
+  function getTime(){
+    return clamp((UI.timeSelect && UI.timeSelect.value) || qs('time', '90') || '90', 30, 300);
+  }
 
-    .debug{
-      margin-top:12px;
-      padding-top:12px;
-      border-top:2px dashed rgba(191,227,242,.95);
-      white-space:pre-wrap;
-      word-break:break-word;
-      font-size:11px;
-      color:#8a8a82;
-      max-height:180px;
-      overflow:auto;
-    }
+  function getView(){
+    return String((UI.viewSelect && UI.viewSelect.value) || qs('view', 'mobile') || 'mobile');
+  }
 
-    .how-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:12px;
-    }
-    .how-card{
-      border-radius:22px;
-      border:3px solid var(--line);
-      background:#fff;
-      padding:14px;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-    .how-icon{
-      font-size:38px;
-      line-height:1;
-      margin-bottom:8px;
-    }
-    .how-title{
-      color:#b7791f;
-      font-size:18px;
-      font-weight:1000;
-      margin-bottom:6px;
-    }
-    .how-text{
-      color:#6f6c65;
-      font-size:13px;
-      line-height:1.65;
-      font-weight:900;
-    }
+  function getSeed(){
+    const v = String((UI.seedInput && UI.seedInput.value) || qs('seed', '') || '').trim();
+    return v || String(randSeed());
+  }
 
-    @media (max-width:920px){
-      .grid{ grid-template-columns:1fr; }
-      .how-grid{ grid-template-columns:1fr; }
-    }
-    @media (max-width:680px){
-      .row{ grid-template-columns:1fr; }
-      .btns{ grid-template-columns:1fr; }
-      .room-code{ font-size:36px; }
-    }
-  </style>
-</head>
-<body>
-  <main class="app">
-    <section class="hero">
-      <div class="kicker">⚔️ GOODJUNK BATTLE LOBBY</div>
-      <h1>Food Battle!</h1>
-      <p class="sub">
-        สร้างห้องหรือเข้าห้องกับเพื่อน แล้วเริ่มแข่งเก็บอาหารดี ชาร์จพลัง และโจมตีคู่แข่งให้ถูกจังหวะ
-      </p>
-    </section>
-
-    <section class="grid">
-      <div class="card">
-        <div class="pill-row">
-          <div class="pill" id="pillState">STATE • waiting</div>
-          <div class="pill" id="pillDiff">LEVEL • normal</div>
-          <div class="pill" id="pillTime">TIME • 150</div>
-        </div>
-
-        <div class="row">
-          <div class="field">
-            <div class="label">ชื่อผู้เล่น</div>
-            <input id="inputName" class="input" type="text" maxlength="40" placeholder="เช่น Rocky" />
-          </div>
-          <div class="field">
-            <div class="label">PID</div>
-            <input id="inputPid" class="input" type="text" maxlength="40" placeholder="เช่น p1" />
-          </div>
-        </div>
-
-        <div class="row" style="margin-top:10px;">
-          <div class="field">
-            <div class="label">รหัสห้อง</div>
-            <input id="inputRoom" class="input" type="text" maxlength="24" placeholder="เช่น GJB-ABC123" />
-          </div>
-          <div class="field">
-            <div class="label">เวลาต่อรอบ (วินาที)</div>
-            <select id="inputTime" class="input">
-              <option value="90">90 วินาที</option>
-              <option value="120">120 วินาที</option>
-              <option value="150" selected>150 วินาที</option>
-              <option value="180">180 วินาที</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="btns">
-          <button id="btnCreate" class="btn btn-warn" type="button">สร้างห้องใหม่</button>
-          <button id="btnJoin" class="btn btn-blue" type="button">เข้าห้องนี้</button>
-          <button id="btnStart" class="btn btn-primary" type="button" disabled>เริ่ม Battle</button>
-          <button id="btnLeave" class="btn btn-ghost" type="button">ออกจากห้อง</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="room-code-box">
-          <div class="label">ROOM CODE</div>
-          <div class="room-code" id="roomCodeText">-</div>
-          <div class="btns" style="margin-top:0;">
-            <button id="btnCopyRoom" class="btn btn-blue" type="button">คัดลอกห้อง</button>
-            <button id="btnCopyLink" class="btn btn-ghost" type="button">คัดลอกลิงก์</button>
-          </div>
-        </div>
-
-        <div class="status-line" id="statusLine">ยังไม่ได้เข้าห้อง Battle</div>
-      </div>
-    </section>
-
-    <section class="card" style="margin-top:14px;">
-      <h2>ผู้เล่นในห้อง</h2>
-      <div class="players" id="playersBox"></div>
-      <div class="debug" id="debugBox"></div>
-    </section>
-
-    <section class="card" style="margin-top:14px;">
-      <h2>Battle สู้กันยังไง</h2>
-      <div class="how-grid">
-        <div class="how-card">
-          <div class="how-icon">🍎</div>
-          <div class="how-title">เก็บอาหารดี</div>
-          <div class="how-text">แตะอาหารดีเพื่อเพิ่มคะแนนและชาร์จพลังโจมตี</div>
-        </div>
-        <div class="how-card">
-          <div class="how-icon">🍩</div>
-          <div class="how-title">หลบ junk</div>
-          <div class="how-text">ถ้าแตะ junk หรือปล่อยอาหารดีหลุด จะเสียคะแนนและ HP</div>
-        </div>
-        <div class="how-card">
-          <div class="how-icon">⚡</div>
-          <div class="how-title">โจมตีคู่แข่ง</div>
-          <div class="how-text">เมื่อชาร์จเต็ม กด ATTACK เพื่อทำดาเมจใส่คู่แข่งโดยตรง</div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js"></script>
-
-  <script>
-    (function(){
-      'use strict';
-
-      if (window.__GJ_BATTLE_LOBBY_LOADED__) return;
-      window.__GJ_BATTLE_LOBBY_LOADED__ = true;
-
-      const ROOT_PATH = 'hha-battle/goodjunk/rooms';
-      const HEARTBEAT_MS = 2500;
-      const UI_TICK_MS = 250;
-      const COUNTDOWN_MS = 3000;
-
-      const PASS_KEYS = [
-        'run','view','diff','time','seed','hub',
-        'studyId','phase','conditionGroup','sessionOrder','blockLabel',
-        'siteCode','schoolYear','semester','log','api','debug',
-        'grade','zone','game','theme','cat'
-      ];
-
-      const q = new URLSearchParams(location.search);
-
-      const $ = (id) => document.getElementById(id);
-
-      const UI = {
-        inputName: $('inputName'),
-        inputPid: $('inputPid'),
-        inputRoom: $('inputRoom'),
-        inputTime: $('inputTime'),
-
-        btnCreate: $('btnCreate'),
-        btnJoin: $('btnJoin'),
-        btnStart: $('btnStart'),
-        btnLeave: $('btnLeave'),
-        btnCopyRoom: $('btnCopyRoom'),
-        btnCopyLink: $('btnCopyLink'),
-
-        pillState: $('pillState'),
-        pillDiff: $('pillDiff'),
-        pillTime: $('pillTime'),
-
-        roomCodeText: $('roomCodeText'),
-        statusLine: $('statusLine'),
-        playersBox: $('playersBox'),
-        debugBox: $('debugBox')
-      };
-
-      const STATE = {
-        db: null,
-        auth: null,
-        uid: '',
-        pid: '',
-        name: '',
-        roomId: '',
-        diff: 'normal',
-        timeSec: 150,
-        hub: '',
-        seed: '',
-        run: '',
-        view: '',
-        entering: false,
-
-        refs: { room:null, meta:null, state:null, players:null, self:null },
-        room: { meta:{}, state:{}, players:{} },
-
-        heartbeatId: 0,
-        uiTickId: 0,
-        listenersBound: false,
-        hostPromoteBusy: false
-      };
-
-      function now(){ return Date.now(); }
-
-      function cleanText(v, max=64){
-        return String(v == null ? '' : v).trim().slice(0, max);
+  function ensureDevicePid(){
+    try{
+      const KEY = 'GJ_DEVICE_PID';
+      let pid = localStorage.getItem(KEY);
+      if (!pid){
+        pid = 'p-' + Math.random().toString(36).slice(2,10);
+        localStorage.setItem(KEY, pid);
       }
+      return cleanPid(pid);
+    }catch{
+      return cleanPid('p-' + Math.random().toString(36).slice(2,10));
+    }
+  }
 
-      function cleanPid(v){
-        const s = String(v == null ? '' : v).replace(/[.#$[\]/]/g, '-').trim();
-        if (!s) return '';
-        return s.slice(0, 80);
-      }
+  function isHost(){
+    return !!S.uid && cleanPid(S.meta && S.meta.hostPid) === cleanPid(S.uid);
+  }
 
-      function cleanRoom(v){
-        return String(v == null ? '' : v)
-          .toUpperCase()
-          .replace(/[^A-Z0-9_-]/g, '')
-          .slice(0, 24);
-      }
+  function normalizeRoomId(v){
+    const room = cleanRoom(v || (UI.roomInput && UI.roomInput.value) || qs('roomId', qs('room', S.roomId || '')));
+    S.roomId = room || makeCode();
+    if (UI.roomInput) UI.roomInput.value = S.roomId;
+    if (UI.roomCodeBig) UI.roomCodeBig.textContent = S.roomId;
+    return S.roomId;
+  }
 
-      function num(v, d=0){
-        v = Number(v);
-        return Number.isFinite(v) ? v : d;
-      }
+  function roomRootRef(){
+    return firebase.database().ref(`${ROOT_PATH}/${S.roomId}`);
+  }
 
-      function clamp(v, a, b){
-        return Math.max(a, Math.min(b, num(v, a)));
-      }
+  function activePlayer(p, nowTs = Date.now()){
+    if (!p) return false;
+    if (p.connected === false) return false;
+    const lastSeen = num(p.lastSeen || p.updatedAt || p.joinedAt, 0);
+    if (!lastSeen) return true;
+    return (nowTs - lastSeen) <= ACTIVE_TTL_MS;
+  }
 
-      function qs(key, fb=''){
-        return q.get(key) ?? fb;
-      }
+  function activePlayers(){
+    const ts = now();
+    return Object.entries(S.players || {})
+      .map(([key, p]) => Object.assign({ key }, p || {}))
+      .filter((p) => activePlayer(p, ts))
+      .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
+  }
 
-      function roomStatus(){
-        return String((STATE.room.state || {}).status || 'waiting');
-      }
+  function currentRoundToken(){
+    return String((S.state && S.state.roundToken) || '').trim();
+  }
 
-      function currentCountdownEndsAt(){
-        return num((STATE.room.state || {}).countdownEndsAt, 0);
-      }
+  function buildLobbyUrl(roomId){
+    const url = new URL('./goodjunk-battle-lobby.html', location.href);
+    const src = new URL(location.href);
 
-      function currentStartedAt(){
-        return num((STATE.room.state || {}).startedAt, 0);
-      }
+    src.searchParams.forEach((value, key) => {
+      if (key === 'roomId' || key === 'room' || key === 'create' || key === 'autojoin') return;
+      url.searchParams.set(key, value);
+    });
 
-      function currentEndsAt(){
-        return num((STATE.room.state || {}).endsAt, 0);
-      }
+    url.searchParams.set('mode', 'battle');
+    url.searchParams.set('roomId', roomId);
+    url.searchParams.set('room', roomId);
+    url.searchParams.set('diff', getDiff());
+    url.searchParams.set('time', String(getTime()));
+    url.searchParams.set('view', getView());
+    url.searchParams.set('seed', String(getSeed()));
+    url.searchParams.set('hub', HUB);
+    url.searchParams.set('autojoin', '1');
 
-      function isHost(){
-        return cleanPid((STATE.room.meta || {}).hostPid || '') === cleanPid(STATE.uid);
-      }
+    if (S.uid) url.searchParams.set('uid', S.uid);
+    if (S.pid) url.searchParams.set('pid', S.pid);
+    if (getNick()) {
+      url.searchParams.set('name', getNick());
+      url.searchParams.set('nick', getNick());
+    }
 
-      function activePlayers(){
-        const t = now();
-        const map = normalizePlayersMap(STATE.room.players);
-        return Object.entries(map)
-          .map(([key, p]) => Object.assign({ key }, p))
-          .filter((p) => {
-            if (p.connected === false) return false;
-            const lastSeen = num(p.lastSeen || p.updatedAt || p.joinedAt, 0);
-            if (!lastSeen) return true;
-            return (t - lastSeen) <= 15000;
-          })
-          .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
-      }
+    return url.toString();
+  }
 
-      function normalizePlayersMap(obj){
-        const out = {};
-        const src = (obj && typeof obj === 'object') ? obj : {};
-        Object.keys(src).forEach((key) => {
-          const p = src[key] || {};
-          out[key] = Object.assign({}, p, {
-            uid: cleanPid(p.uid || p.playerId || key),
-            playerId: cleanPid(p.playerId || p.uid || key),
-            pid: cleanPid(p.pid || p.playerId || p.uid || key),
-            name: cleanText(p.name || p.nick || 'Player', 40)
-          });
+  function buildRunUrl(roomId){
+    const url = new URL('./goodjunk-battle-run.html', location.href);
+    const src = new URL(location.href);
+
+    src.searchParams.forEach((value, key) => {
+      if (key === 'roomId' || key === 'room' || key === 'create' || key === 'autojoin') return;
+      url.searchParams.set(key, value);
+    });
+
+    url.searchParams.set('mode', 'battle');
+    url.searchParams.set('roomId', roomId);
+    url.searchParams.set('room', roomId);
+    url.searchParams.set('uid', S.uid);
+    url.searchParams.set('playerId', S.uid);
+    url.searchParams.set('pid', S.pid || 'anon');
+    url.searchParams.set('name', getNick());
+    url.searchParams.set('nick', getNick());
+    url.searchParams.set('diff', getDiff());
+    url.searchParams.set('time', String(getTime()));
+    url.searchParams.set('view', getView());
+    url.searchParams.set('seed', String(getSeed()));
+    url.searchParams.set('hub', HUB);
+
+    if (currentRoundToken()) url.searchParams.set('roundToken', currentRoundToken());
+    if (num(S.state && S.state.startedAt, 0) > 0) url.searchParams.set('startAt', String(S.state.startedAt));
+
+    return url.toString();
+  }
+
+  async function copyText(text){
+    try{
+      await navigator.clipboard.writeText(String(text || ''));
+      return true;
+    }catch{
+      return false;
+    }
+  }
+
+  async function shareLink(url){
+    try{
+      if (navigator.share){
+        await navigator.share({
+          title: 'GoodJunk Battle Lobby',
+          text: 'มาเข้าห้อง Battle นี้ด้วยกัน',
+          url
         });
-        return out;
+        return true;
       }
+    }catch{}
+    return copyText(url);
+  }
 
-      function formatClock(sec){
-        sec = Math.max(0, Math.ceil(num(sec, 0)));
-        const m = Math.floor(sec / 60);
-        const s = sec % 60;
-        return `${m}:${String(s).padStart(2, '0')}`;
-      }
+  function renderQr(){
+    const link = buildLobbyUrl(S.roomId || normalizeRoomId());
+    if (UI.joinLinkText) UI.joinLinkText.textContent = link;
 
-      function randomCode(len=6){
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let out = '';
-        for (let i=0;i<len;i++){
-          out += chars[Math.floor(Math.random() * chars.length)];
-        }
-        return out;
-      }
+    if (!window.QRCode || !UI.qrCanvas) return;
+    QRCode.toCanvas(UI.qrCanvas, link, {
+      width: 220,
+      margin: 1,
+      color: { dark: '#20324d', light: '#ffffff' }
+    }, function(){});
+  }
 
-      function makeRoomId(){
-        return `GJB-${randomCode(6)}`;
-      }
+  function renderPlayers(){
+    const players = Object.entries(S.players || {})
+      .map(([key, p]) => Object.assign({ key }, p || {}))
+      .sort((a,b) => num(a.joinedAt,0) - num(b.joinedAt,0));
 
-      function saveProfile(){
-        try{
-          localStorage.setItem('GJ_BATTLE_NAME', STATE.name);
-          localStorage.setItem('GJ_BATTLE_PID', STATE.pid);
-        }catch{}
-      }
+    if (!UI.playersList) return;
 
-      function loadProfile(){
-        let name = cleanText(qs('name') || qs('nick') || '', 40);
-        let pid = cleanPid(qs('pid') || '');
-        if (!name){
-          try{ name = cleanText(localStorage.getItem('GJ_BATTLE_NAME') || 'Rocky', 40); }catch{ name='Rocky'; }
-        }
-        if (!pid){
-          try{ pid = cleanPid(localStorage.getItem('GJ_BATTLE_PID') || 'anon'); }catch{ pid='anon'; }
-        }
-        STATE.name = name || 'Rocky';
-        STATE.pid = pid || 'anon';
-        STATE.roomId = cleanRoom(qs('roomId') || qs('room') || '');
-        STATE.diff = String(qs('diff','normal')).toLowerCase() === 'hard' ? 'hard'
-          : String(qs('diff','normal')).toLowerCase() === 'easy' ? 'easy'
-          : 'normal';
-        STATE.timeSec = clamp(qs('time','150'), 30, 300);
-        STATE.hub = qs('hub','../hub.html');
-        STATE.seed = cleanText(qs('seed') || String(Date.now()), 64);
-        STATE.run = cleanText(qs('run') || 'play', 24);
-        STATE.view = cleanText(qs('view') || 'mobile', 24);
-
-        UI.inputName.value = STATE.name;
-        UI.inputPid.value = STATE.pid;
-        UI.inputRoom.value = STATE.roomId;
-        UI.inputTime.value = String(STATE.timeSec);
-        UI.pillDiff.textContent = `LEVEL • ${STATE.diff}`;
-        UI.pillTime.textContent = `TIME • ${STATE.timeSec}`;
-      }
-
-      function pullInputs(){
-        STATE.name = cleanText(UI.inputName.value || 'Rocky', 40);
-        STATE.pid = cleanPid(UI.inputPid.value || 'anon') || 'anon';
-        STATE.roomId = cleanRoom(UI.inputRoom.value || STATE.roomId);
-        STATE.timeSec = clamp(UI.inputTime.value || STATE.timeSec, 30, 300);
-        saveProfile();
-      }
-
-      function setStatus(text){
-        UI.statusLine.textContent = text;
-      }
-
-      function renderStatePill(){
-        UI.pillState.textContent = `STATE • ${roomStatus()}`;
-      }
-
-      function renderRoomCode(){
-        UI.roomCodeText.textContent = STATE.roomId || '-';
-      }
-
-      function renderPlayers(){
-        const players = activePlayers();
-
-        if (!players.length){
-          UI.playersBox.innerHTML = `
-            <div class="player-card">
-              <div class="player-name">ยังไม่มีผู้เล่นในห้อง</div>
-              <div class="player-meta">สร้างห้องหรือเข้าห้องก่อน แล้วรายชื่อผู้เล่นจะขึ้นที่นี่</div>
+    if (!players.length){
+      UI.playersList.innerHTML = `
+        <div class="player">
+          <div class="player-left">
+            <div class="avatar">⌛</div>
+            <div>
+              <div class="name">ยังไม่มีผู้เล่น</div>
+              <div class="mini">สร้างห้องหรือเข้าห้องก่อน</div>
             </div>
-          `;
-          return;
-        }
+          </div>
+          <div class="badge">WAIT</div>
+        </div>
+      `;
+      return;
+    }
 
-        UI.playersBox.innerHTML = players.map((p) => {
-          const tags = [];
-          if (cleanPid(p.uid) === cleanPid(STATE.uid)) tags.push('<span class="tag you">you</span>');
-          if (cleanPid(p.uid) === cleanPid((STATE.room.meta || {}).hostPid || '')) tags.push('<span class="tag host">host</span>');
-          tags.push(`<span class="tag state">${escapeHtml(String(p.status || roomStatus() || 'waiting'))}</span>`);
+    UI.playersList.innerHTML = players.map((p) => {
+      const active = activePlayer(p);
+      const you = cleanPid(p.uid || p.playerId || p.pid || p.key) === cleanPid(S.uid);
+      const host = cleanPid(p.uid || p.playerId || p.pid || p.key) === cleanPid(S.meta && S.meta.hostPid);
+      const badge = you ? 'YOU' : active ? 'LIVE' : 'OFFLINE';
 
-          return `
-            <div class="player-card">
-              <div class="player-top">
-                <div>
-                  <div class="player-name">${escapeHtml(p.name || 'Player')}</div>
-                  <div class="player-meta">
-                    PID ${escapeHtml(p.pid || 'anon')} •
-                    Score ${num(p.score,0)} •
-                    HP ${num(p.hp,100)}/${num(p.maxHp,100)}
-                  </div>
-                </div>
-                <div class="tag-row">${tags.join('')}</div>
+      return `
+        <div class="player">
+          <div class="player-left">
+            <div class="avatar">${host ? '👑' : '⚔️'}</div>
+            <div>
+              <div class="name">${escapeHtml(p.name || p.nick || 'player')} ${host ? '• host' : ''}</div>
+              <div class="mini">
+                ${active ? 'online' : 'offline'} • score ${num(p.score,0)} • HP ${num(p.hp,100)}
               </div>
             </div>
-          `;
-        }).join('');
-      }
+          </div>
+          <div class="badge">${badge}</div>
+        </div>
+      `;
+    }).join('');
+  }
 
-      function renderDebug(){
-        const players = activePlayers();
-        UI.debugBox.textContent =
-          '[LOBBY]\n' +
-          'room=' + (STATE.roomId || '-') + '\n' +
-          'uid=' + (STATE.uid || '-') + '\n' +
-          'pid=' + (STATE.pid || '-') + '\n' +
-          'name=' + (STATE.name || '-') + '\n' +
-          'host=' + (isHost() ? 'yes' : 'no') + '\n' +
-          'state=' + roomStatus() + '\n' +
-          'players=' + players.length + '\n' +
-          'countdownEndsAt=' + currentCountdownEndsAt() + '\n' +
-          'endsAt=' + currentEndsAt();
-      }
+  function renderCountdown(){
+    clearInterval(S.countdownTick);
+    if (UI.countdownBox) UI.countdownBox.classList.remove('show');
 
-      function renderButtons(){
-        const players = activePlayers();
-        const status = roomStatus();
-        const canStart = !!STATE.roomId && isHost() && players.length >= 2 && (status === 'waiting' || status === '');
-        UI.btnStart.disabled = !canStart;
-        UI.btnCopyRoom.disabled = !STATE.roomId;
-        UI.btnCopyLink.disabled = !STATE.roomId;
-        UI.btnLeave.disabled = !STATE.roomId;
-      }
+    if (!S.joined) return;
+    if (!S.state || S.state.status !== 'countdown') return;
+    if (!UI.countdownBox) return;
 
-      function renderDynamicStatus(){
-        const status = roomStatus();
+    UI.countdownBox.classList.add('show');
 
-        if (!STATE.roomId){
-          setStatus('ยังไม่ได้เข้าห้อง Battle');
-          return;
+    S.countdownTick = setInterval(async () => {
+      const leftMs = num(S.state.countdownEndsAt, 0) - Date.now();
+      const sec = Math.max(0, Math.ceil(leftMs / 1000));
+      UI.countdownBox.textContent = sec > 0 ? sec : 'GO!';
+
+      if (leftMs <= 0){
+        clearInterval(S.countdownTick);
+        await maybePromoteCountdownToPlaying();
+        if (String((S.state && S.state.status) || '') === 'playing'){
+          goRun();
         }
+      }
+    }, 100);
+  }
 
-        if (status === 'waiting'){
-          const need = Math.max(0, 2 - activePlayers().length);
-          if (need > 0) {
-            setStatus(`รอผู้เล่นเพิ่มอีก ${need} คน`);
-          } else if (isHost()) {
-            setStatus('พร้อมแล้ว กดเริ่ม Battle ได้เลย');
-          } else {
-            setStatus('รอหัวหน้าห้องกดเริ่ม Battle');
-          }
-          return;
-        }
+  function renderState(){
+    normalizeRoomId();
 
-        if (status === 'countdown'){
-          const left = Math.max(0, Math.ceil((currentCountdownEndsAt() - now()) / 1000));
-          if (left > 0) setStatus(`เริ่มนับถอยหลังแล้ว เริ่มใน ${left}...`);
-          else setStatus('กำลังเข้าสู่สนาม Battle...');
-          return;
-        }
+    const active = activePlayers();
+    const count = active.length;
+    const status = String((S.state && S.state.status) || 'waiting');
 
-        if (status === 'playing'){
-          setStatus('กำลังเข้าสู่สนาม Battle...');
-          return;
-        }
+    if (UI.statusBadge) UI.statusBadge.textContent = status.toUpperCase();
+    if (UI.roomSummary){
+      UI.roomSummary.textContent =
+        status === 'countdown' ? `กำลังนับถอยหลัง • ${count}/2 players`
+        : status === 'playing' ? `กำลังเข้าเกม • ${count}/2 players`
+        : status === 'ended' ? `รอบก่อนจบแล้ว • ${count}/2 players`
+        : `รอผู้เล่น • ${count}/2 players`;
+    }
 
-        if (status === 'ended' || status === 'finished'){
-          setStatus('รอบก่อนจบแล้ว สร้างห้องใหม่หรือเริ่มรอบใหม่จากห้องใหม่');
-          return;
-        }
+    if (UI.btnStartGame) UI.btnStartGame.disabled = !(S.joined && isHost() && count >= 2 && (status === 'waiting' || status === 'ended'));
+    if (UI.btnLeaveRoom) UI.btnLeaveRoom.disabled = !S.joined;
 
-        setStatus('กำลังเชื่อมห้อง Battle...');
+    if (!S.joined){
+      setTop('ใส่ชื่อ แล้วกดสร้างห้องหรือเข้าห้องได้เลย');
+      setSide('เมื่อเข้าห้องแล้ว QR, room code และรายชื่อผู้เล่นจะอัปเดตให้ทันที');
+      setBottom('ถ้ายังมีแค่ 1 คน ระบบจะรอผู้เล่นอีก 1 คนก่อนเริ่ม');
+      setCopyState('กำลังรอให้คุณสร้างห้องหรือเข้าห้อง');
+    } else if (status === 'waiting'){
+      if (count >= 2){
+        setTop('ครบ 2 คนแล้ว Host กด Start Game ได้เลย');
+        setSide('ตอนนี้ห้องพร้อมเริ่มเกมแล้ว');
+        setBottom('ถ้าคุณเป็น host ให้กด Start Game');
+        setCopyState(`ห้องพร้อม • ${S.roomId}`);
+      } else {
+        setTop(`เข้าห้องสำเร็จ • รอผู้เล่นอีก ${Math.max(0, 2 - count)} คน`);
+        setSide('ส่ง room code หรือให้เพื่อน scan QR เพื่อเข้าห้องเดียวกัน');
+        setBottom('Battle ต้องมี 2 คนจึงจะเริ่มได้');
+        setCopyState(`คัดลอก room หรือแชร์ลิงก์ได้ทันที`);
+      }
+    } else if (status === 'countdown'){
+      setTop('กำลังนับถอยหลัง เตรียมเข้าเกม');
+      setSide('ทั้งสองฝั่งจะเข้าเกมพร้อมกัน');
+      setBottom('ห้ามปิดหน้าในช่วงนับถอยหลัง');
+      setCopyState('Countdown started');
+    } else if (status === 'playing'){
+      setTop('กำลังพาเข้าสู่หน้าเล่นจริง');
+      setSide('ถ้าไม่เด้งเอง ให้รอสักครู่');
+      setBottom('ระบบกำลัง sync ห้องก่อนเข้าเกม');
+      setCopyState('กำลัง redirect ไปหน้า battle run');
+    } else if (status === 'ended'){
+      setTop('รอบก่อนจบแล้ว • กด Start เพื่อเริ่มรอบใหม่');
+      setSide('Host สามารถเริ่มรอบใหม่ได้จากห้องเดิม');
+      setBottom('ระบบจะ reset ค่าในหน้าเล่นเมื่อเริ่มรอบใหม่');
+      setCopyState('ห้องยังอยู่ ใช้เริ่มรอบใหม่ได้');
+    }
+
+    renderPlayers();
+    renderQr();
+    renderCountdown();
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  async function ensureAuth(){
+    if (!window.firebase || !firebase.auth || !firebase.database){
+      throw new Error('Firebase SDK ยังไม่พร้อม');
+    }
+
+    if (typeof window.HHA_ensureAnonymousAuth === 'function'){
+      await window.HHA_ensureAnonymousAuth();
+    } else {
+      if (!firebase.auth().currentUser){
+        await firebase.auth().signInAnonymously();
+      }
+    }
+
+    if (!firebase.auth().currentUser){
+      throw new Error('Anonymous auth ไม่สำเร็จ');
+    }
+
+    S.uid = cleanPid(firebase.auth().currentUser.uid);
+    S.pid = cleanPid(qs('pid') || ensureDevicePid());
+
+    if (!S.uid){
+      throw new Error('ไม่ได้ uid จาก Firebase');
+    }
+  }
+
+  function cleanupRoom(){
+    clearInterval(S.heartbeat);
+    clearInterval(S.countdownTick);
+    S.heartbeat = 0;
+    S.countdownTick = 0;
+
+    while (S.offFns.length){
+      const fn = S.offFns.pop();
+      try{ fn(); }catch{}
+    }
+
+    S.joined = false;
+    S.redirecting = false;
+    S.players = {};
+    S.meta = {};
+    S.state = {
+      status:'waiting',
+      plannedSec:getTime(),
+      countdownEndsAt:0,
+      startedAt:0,
+      endsAt:0,
+      roundToken:'',
+      updatedAt:0
+    };
+    S.refs = null;
+  }
+
+  function bindRefs(root){
+    S.refs = {
+      root,
+      meta: root.child('meta'),
+      state: root.child('state'),
+      players: root.child('players'),
+      self: root.child('players').child(S.uid)
+    };
+  }
+
+  async function createRoom(){
+    console.log('[battle-lobby] createRoom:start');
+    await ensureAuth();
+    console.log('[battle-lobby] createRoom:auth-ok', { uid:S.uid, pid:S.pid });
+
+    saveStored();
+    cleanupRoom();
+
+    S.roomId = makeCode();
+    normalizeRoomId(S.roomId);
+
+    const root = roomRootRef();
+    bindRefs(root);
+
+    const t = now();
+    await root.set({
+      meta: {
+        roomId: S.roomId,
+        game: 'goodjunk',
+        mode: 'battle',
+        diff: getDiff(),
+        hostPid: S.uid,
+        createdAt: t,
+        updatedAt: t
+      },
+      state: {
+        status: 'waiting',
+        plannedSec: getTime(),
+        countdownEndsAt: 0,
+        startedAt: 0,
+        endsAt: 0,
+        roundToken: '',
+        updatedAt: t
+      },
+      players: {}
+    });
+
+    console.log('[battle-lobby] createRoom:set-ok', S.roomId);
+    await joinBoundRoom(true);
+  }
+
+  async function joinRoom(){
+    await ensureAuth();
+    saveStored();
+
+    cleanupRoom();
+    S.roomId = cleanRoom((UI.roomInput && UI.roomInput.value) || '');
+    if (!S.roomId){
+      setTop('ยังไม่มี room code');
+      if (UI.roomInput) UI.roomInput.focus();
+      throw new Error('ยังไม่ได้กรอก room code');
+    }
+
+    const root = roomRootRef();
+    bindRefs(root);
+
+    const snap = await root.once('value');
+    if (!snap.exists()){
+      setTop('ไม่พบห้องนี้');
+      setSide('ตรวจ room code แล้วลองใหม่');
+      throw new Error('ไม่พบห้องนี้');
+    }
+
+    await joinBoundRoom(false);
+  }
+
+  async function joinBoundRoom(created){
+    const t = now();
+    const metaSnap = await S.refs.meta.once('value');
+    const stateSnap = await S.refs.state.once('value');
+    const playersSnap = await S.refs.players.once('value');
+
+    S.meta = metaSnap.val() || {};
+    S.state = stateSnap.val() || {};
+    S.players = playersSnap.val() || {};
+
+    await S.refs.self.update({
+      pid: S.pid || ensureDevicePid(),
+      uid: S.uid,
+      playerId: S.uid,
+      name: getNick(),
+      nick: getNick(),
+      connected: true,
+      ready: true,
+      status: (String(S.state.status || '') === 'playing') ? 'playing' : 'waiting',
+      score: num((S.players[S.uid] || {}).score, 0),
+      miss: num((S.players[S.uid] || {}).miss, 0),
+      combo: 0,
+      bestStreak: num((S.players[S.uid] || {}).bestStreak, 0),
+      hp: num((S.players[S.uid] || {}).hp, 100),
+      maxHp: num((S.players[S.uid] || {}).maxHp, 100) || 100,
+      shield: 0,
+      attackCharge: num((S.players[S.uid] || {}).attackCharge, 0),
+      maxAttackCharge: num((S.players[S.uid] || {}).maxAttackCharge, 100) || 100,
+      attackReady: !!((S.players[S.uid] || {}).attackReady),
+      attacksUsed: num((S.players[S.uid] || {}).attacksUsed, 0),
+      damageDealt: num((S.players[S.uid] || {}).damageDealt, 0),
+      damageTaken: num((S.players[S.uid] || {}).damageTaken, 0),
+      koCount: num((S.players[S.uid] || {}).koCount, 0),
+      joinedAt: num((S.players[S.uid] || {}).joinedAt, t) || t,
+      updatedAt: t,
+      lastSeen: t
+    });
+
+    try{
+      S.refs.self.onDisconnect().update({
+        connected: false,
+        status: 'left',
+        updatedAt: firebase.database.ServerValue.TIMESTAMP,
+        lastSeen: firebase.database.ServerValue.TIMESTAMP
+      });
+    }catch{}
+
+    const metaHandler = (snap) => {
+      S.meta = snap.val() || {};
+      renderState();
+    };
+    S.refs.meta.on('value', metaHandler);
+    S.offFns.push(() => S.refs.meta.off('value', metaHandler));
+
+    const stateHandler = async (snap) => {
+      S.state = snap.val() || {};
+      renderState();
+
+      if (String(S.state.status || '') === 'countdown'){
+        await maybePromoteCountdownToPlaying();
       }
 
-      function renderAll(){
-        renderStatePill();
-        renderRoomCode();
-        renderPlayers();
-        renderButtons();
-        renderDynamicStatus();
-        renderDebug();
+      if (String(S.state.status || '') === 'playing'){
+        goRun();
+      }
+    };
+    S.refs.state.on('value', stateHandler);
+    S.offFns.push(() => S.refs.state.off('value', stateHandler));
+
+    const playersHandler = async (snap) => {
+      S.players = snap.val() || {};
+
+      const actives = activePlayers();
+      const hostAlive = actives.find((p) => cleanPid(p.uid || p.playerId || p.pid || p.key) === cleanPid(S.meta.hostPid));
+
+      if (!hostAlive && actives[0] && cleanPid(actives[0].uid || actives[0].playerId || actives[0].pid || actives[0].key) === cleanPid(S.uid)){
+        await S.refs.meta.update({
+          hostPid: S.uid,
+          updatedAt: now()
+        }).catch(() => {});
       }
 
-      function escapeHtml(s){
-        return String(s == null ? '' : s)
-          .replace(/&/g,'&amp;')
-          .replace(/</g,'&lt;')
-          .replace(/>/g,'&gt;')
-          .replace(/"/g,'&quot;');
-      }
-
-      async function ensureFirebaseReady(){
-        if (!window.firebase) throw new Error('Firebase SDK ไม่ถูกโหลด');
-        if (!window.HHA_FIREBASE_READY) throw new Error('Firebase config ยังไม่พร้อม');
-
-        STATE.db = firebase.database();
-        STATE.auth = firebase.auth();
-
-        if (typeof window.HHA_ensureAnonymousAuth === 'function'){
-          await window.HHA_ensureAnonymousAuth();
-        } else if (!STATE.auth.currentUser){
-          await STATE.auth.signInAnonymously();
-        }
-
-        const user = STATE.auth.currentUser;
-        if (!user) throw new Error('Anonymous auth failed');
-
-        STATE.uid = cleanPid(user.uid);
-      }
-
-      function bindRefs(roomId){
-        STATE.roomId = cleanRoom(roomId);
-        UI.inputRoom.value = STATE.roomId;
-
-        const base = STATE.db.ref(`${ROOT_PATH}/${STATE.roomId}`);
-        STATE.refs.room = base;
-        STATE.refs.meta = base.child('meta');
-        STATE.refs.state = base.child('state');
-        STATE.refs.players = base.child('players');
-        STATE.refs.self = STATE.refs.players.child(STATE.uid);
-      }
-
-      function detachListeners(){
-        if (!STATE.listenersBound) return;
-        try{ STATE.refs.meta && STATE.refs.meta.off(); }catch{}
-        try{ STATE.refs.state && STATE.refs.state.off(); }catch{}
-        try{ STATE.refs.players && STATE.refs.players.off(); }catch{}
-        STATE.listenersBound = false;
-      }
-
-      async function ensureSelfPlayerInRoom(){
-        const existing = normalizePlayersMap(STATE.room.players)[STATE.uid] || null;
-        const t = now();
-
-        await STATE.refs.self.update({
-          pid: STATE.pid,
-          uid: STATE.uid,
-          playerId: STATE.uid,
-          name: STATE.name,
-          nick: STATE.name,
-          connected: true,
-          ready: true,
-          status: roomStatus() === 'playing' ? 'playing' : roomStatus() || 'waiting',
-          score: existing ? num(existing.score, 0) : 0,
-          miss: existing ? num(existing.miss, 0) : 0,
-          bestStreak: existing ? num(existing.bestStreak, 0) : 0,
-          hp: existing ? clamp(existing.hp, 0, 100) : 100,
-          maxHp: existing ? Math.max(1, num(existing.maxHp, 100)) : 100,
-          attackCharge: existing ? clamp(existing.attackCharge, 0, 100) : 0,
-          maxAttackCharge: existing ? Math.max(1, num(existing.maxAttackCharge, 100)) : 100,
-          attackReady: !!(existing && existing.attackReady),
-          attacksUsed: existing ? num(existing.attacksUsed, 0) : 0,
-          damageDealt: existing ? num(existing.damageDealt, 0) : 0,
-          damageTaken: existing ? num(existing.damageTaken, 0) : 0,
-          koCount: existing ? num(existing.koCount, 0) : 0,
-          joinedAt: existing ? num(existing.joinedAt, t) : t,
-          updatedAt: t,
-          lastSeen: t
-        });
-
-        try{
-          STATE.refs.self.onDisconnect().update({
-            connected: false,
-            status: 'left',
-            updatedAt: firebase.database.ServerValue.TIMESTAMP,
-            lastSeen: firebase.database.ServerValue.TIMESTAMP
-          });
-        } catch {}
-      }
-
-      function attachListeners(){
-        detachListeners();
-
-        STATE.refs.meta.on('value', (snap) => {
-          STATE.room.meta = snap.val() || {};
-          renderAll();
-        });
-
-        STATE.refs.state.on('value', (snap) => {
-          STATE.room.state = snap.val() || {};
-          renderAll();
-          if (isHost()) maybeHostPromoteCountdown();
-          maybeAutoEnterBattle();
-        });
-
-        STATE.refs.players.on('value', (snap) => {
-          STATE.room.players = normalizePlayersMap(snap.val() || {});
-          renderAll();
-          if (isHost()) maybeHostPromoteCountdown();
-          maybeAutoEnterBattle();
-        });
-
-        STATE.listenersBound = true;
-      }
-
-      async function createRoom(){
-        pullInputs();
-        await ensureFirebaseReady();
-
-        const roomId = makeRoomId();
-        bindRefs(roomId);
-
-        const t = now();
-        const bootstrap = {
-          meta: {
-            roomId,
-            game: 'goodjunk',
-            mode: 'battle',
-            diff: STATE.diff,
-            hostPid: STATE.uid,
-            createdAt: t,
-            updatedAt: t
-          },
-          state: {
-            status: 'waiting',
-            plannedSec: STATE.timeSec,
-            countdownEndsAt: 0,
-            startedAt: 0,
-            endsAt: 0,
-            roundToken: '',
-            updatedAt: t
-          },
-          players: {}
-        };
-
-        await STATE.refs.room.set(bootstrap);
-        STATE.room = bootstrap;
-
-        await ensureSelfPlayerInRoom();
-        attachListeners();
-        startLoops();
-        renderAll();
-      }
-
-      async function joinRoom(roomId){
-        pullInputs();
-        roomId = cleanRoom(roomId || STATE.roomId);
-        if (!roomId){
-          setStatus('กรุณาใส่รหัสห้องก่อน');
-          return;
-        }
-
-        await ensureFirebaseReady();
-        bindRefs(roomId);
-
-        const snap = await STATE.refs.room.once('value');
-        if (!snap.exists()){
-          setStatus('ไม่พบห้องนี้');
-          return;
-        }
-
-        const room = snap.val() || {};
-        STATE.room.meta = room.meta || {};
-        STATE.room.state = room.state || {};
-        STATE.room.players = normalizePlayersMap(room.players || {});
-
-        await ensureSelfPlayerInRoom();
-        attachListeners();
-        startLoops();
-        renderAll();
-      }
-
-      async function leaveRoom(){
-        if (!STATE.roomId || !STATE.refs.self) {
-          STATE.roomId = '';
-          STATE.room = { meta:{}, state:{}, players:{} };
-          renderAll();
-          return;
-        }
-
-        try{
-          await STATE.refs.self.update({
-            connected:false,
-            status:'left',
-            updatedAt:now(),
-            lastSeen:now()
-          });
-        } catch {}
-
-        detachListeners();
-        STATE.roomId = '';
-        STATE.room = { meta:{}, state:{}, players:{} };
-        STATE.entering = false;
-        UI.inputRoom.value = '';
-        renderAll();
-      }
-
-      async function startBattle(){
-        if (!STATE.roomId || !STATE.refs.state) return;
-        if (!isHost()){
-          setStatus('เฉพาะ host เท่านั้นที่เริ่ม Battle ได้');
-          return;
-        }
-
-        const players = activePlayers();
-        if (players.length < 2){
-          setStatus('ต้องมีผู้เล่นอย่างน้อย 2 คนก่อน');
-          return;
-        }
-
-        const t = now();
-        await STATE.refs.state.update({
-          status: 'countdown',
-          plannedSec: STATE.timeSec,
-          countdownEndsAt: t + COUNTDOWN_MS,
+      if (isHost() && String((S.state && S.state.status) || '') === 'countdown' && actives.length < 2){
+        await S.refs.state.update({
+          status: 'waiting',
+          countdownEndsAt: 0,
           startedAt: 0,
           endsAt: 0,
           roundToken: '',
-          updatedAt: t
-        });
-
-        setStatus('เริ่มนับถอยหลังแล้ว');
+          updatedAt: now()
+        }).catch(() => {});
       }
 
-      async function maybeHostPromoteCountdown(){
-        if (!STATE.refs.state || !isHost() || STATE.hostPromoteBusy) return;
-        if (roomStatus() !== 'countdown') return;
+      renderState();
+    };
+    S.refs.players.on('value', playersHandler);
+    S.offFns.push(() => S.refs.players.off('value', playersHandler));
 
-        const countdownEndsAt = currentCountdownEndsAt();
-        if (!countdownEndsAt || now() < countdownEndsAt) return;
+    S.heartbeat = setInterval(() => {
+      if (!S.refs || !S.refs.self) return;
+      S.refs.self.update({
+        pid: S.pid || ensureDevicePid(),
+        uid: S.uid,
+        playerId: S.uid,
+        name: getNick(),
+        nick: getNick(),
+        connected: true,
+        ready: true,
+        updatedAt: now(),
+        lastSeen: now(),
+        status: String((S.state && S.state.status) || 'waiting') === 'playing' ? 'playing' : 'waiting'
+      }).catch(() => {});
+    }, HEARTBEAT_MS);
 
-        STATE.hostPromoteBusy = true;
-        try{
-          await STATE.refs.state.transaction((cur) => {
-            cur = cur || {};
-            if (String(cur.status || '') !== 'countdown') return cur;
+    S.joined = true;
+    renderState();
 
-            const plannedSec = clamp(cur.plannedSec || STATE.timeSec, 30, 300);
-            const startedAt = now();
+    if (created){
+      setTop('สร้างห้องสำเร็จ');
+      setSide('ส่ง room code หรือ QR นี้ให้เพื่อนอีกคน');
+      setCopyState(`สร้างห้อง ${S.roomId} แล้ว`);
+    } else {
+      setTop('เข้าห้องสำเร็จ');
+      setSide('รอ host กด Start Game');
+      setCopyState(`เข้าห้อง ${S.roomId} แล้ว`);
+    }
 
-            cur.status = 'playing';
-            cur.startedAt = startedAt;
-            cur.endsAt = startedAt + (plannedSec * 1000);
-            cur.countdownEndsAt = 0;
-            cur.roundToken = String(startedAt);
-            cur.updatedAt = startedAt;
+    if (String(S.state.status || '') === 'playing'){
+      goRun();
+    }
+  }
 
-            return cur;
+  async function leaveRoom(){
+    if (!S.joined || !S.refs) return;
+    try{
+      await S.refs.self.remove();
+    }catch{}
+    cleanupRoom();
+    renderState();
+  }
+
+  function getNickFromPlayer(p){
+    return p && (p.name || p.nick || p.displayName || p.playerName || '');
+  }
+
+  async function startGame(){
+    if (!S.joined || !S.refs || !isHost()) {
+      throw new Error('มีเฉพาะ host ที่เริ่มเกมได้');
+    }
+
+    const actives = activePlayers();
+    if (actives.length < 2){
+      setTop('ยังเริ่มไม่ได้');
+      setSide('ต้องมีผู้เล่น 2 คนก่อน');
+      throw new Error('ผู้เล่นยังไม่ครบ 2 คน');
+    }
+
+    const t = now();
+    const roundToken = makeRoundToken();
+    const seed = getSeed();
+    if (UI.seedInput) UI.seedInput.value = seed;
+
+    await S.refs.meta.update({
+      diff: getDiff(),
+      updatedAt: t
+    });
+
+    await new Promise((resolve, reject) => {
+      S.refs.root.transaction((cur) => {
+        cur = cur || {};
+        cur.meta = cur.meta || {};
+        cur.state = cur.state || {};
+        cur.players = cur.players || {};
+
+        cur.meta.roomId = S.roomId;
+        cur.meta.game = 'goodjunk';
+        cur.meta.mode = 'battle';
+        cur.meta.diff = getDiff();
+        cur.meta.hostPid = cleanPid(cur.meta.hostPid || S.uid || '');
+        cur.meta.updatedAt = t;
+
+        cur.state.status = 'countdown';
+        cur.state.plannedSec = getTime();
+        cur.state.countdownEndsAt = t + COUNTDOWN_MS;
+        cur.state.startedAt = 0;
+        cur.state.endsAt = 0;
+        cur.state.roundToken = roundToken;
+        cur.state.updatedAt = t;
+
+        Object.keys(cur.players).forEach((key) => {
+          const p = cur.players[key] || {};
+          cur.players[key] = Object.assign({}, p, {
+            pid: cleanPid(p.pid || p.playerId || p.uid || key),
+            uid: cleanPid(p.uid || p.playerId || key),
+            playerId: cleanPid(p.playerId || p.uid || key),
+            name: clean(getNickFromPlayer(p), 24) || 'Player',
+            nick: clean(getNickFromPlayer(p), 24) || 'Player',
+            connected: p.connected !== false,
+            ready: true,
+            status: 'countdown',
+            score: 0,
+            miss: 0,
+            combo: 0,
+            bestStreak: 0,
+            hp: 100,
+            maxHp: 100,
+            shield: 0,
+            attackCharge: 0,
+            maxAttackCharge: 100,
+            attackReady: false,
+            attacksUsed: 0,
+            damageDealt: 0,
+            damageTaken: 0,
+            koCount: 0,
+            updatedAt: t,
+            lastSeen: t,
+            lastAttackId: '',
+            lastAttackAt: 0,
+            lastAttackDamage: 0,
+            lastAttackTarget: ''
           });
-        } catch (err){
-          console.error('[battle-lobby] promote countdown failed:', err);
-        } finally {
-          STATE.hostPromoteBusy = false;
-        }
-      }
-
-      function buildShareUrl(){
-        const u = new URL(location.href);
-        u.search = '';
-        u.searchParams.set('roomId', STATE.roomId);
-        u.searchParams.set('diff', STATE.diff);
-        u.searchParams.set('time', String(STATE.timeSec));
-        if (STATE.hub) u.searchParams.set('hub', STATE.hub);
-        if (STATE.view) u.searchParams.set('view', STATE.view);
-        if (STATE.run) u.searchParams.set('run', STATE.run);
-        PASS_KEYS.forEach((k) => {
-          const v = qs(k);
-          if (v && !u.searchParams.has(k)) u.searchParams.set(k, v);
-        });
-        return u.toString();
-      }
-
-      function buildRunUrl(){
-        const u = new URL('./goodjunk-battle-run-bridge.html', location.href);
-        PASS_KEYS.forEach((k) => {
-          const v = qs(k);
-          if (v) u.searchParams.set(k, v);
         });
 
-        u.searchParams.set('roomId', STATE.roomId);
-        u.searchParams.set('name', STATE.name);
-        u.searchParams.set('pid', STATE.pid);
-        u.searchParams.set('uid', STATE.uid);
-        u.searchParams.set('playerId', STATE.uid);
-        u.searchParams.set('mode', 'battle');
-        u.searchParams.set('diff', STATE.diff);
-        u.searchParams.set('time', String(STATE.timeSec));
-        u.searchParams.set('seed', STATE.seed || String(Date.now()));
-        u.searchParams.set('hub', STATE.hub || '../hub.html');
-        u.searchParams.set('view', STATE.view || 'mobile');
-        u.searchParams.set('run', STATE.run || 'play');
+        return cur;
+      }, (err, committed) => {
+        if (err) return reject(err);
+        if (!committed) return reject(new Error('start-not-committed'));
+        resolve();
+      }, false);
+    });
 
-        const rt = cleanText((STATE.room.state || {}).roundToken || '', 120);
-        const sa = num((STATE.room.state || {}).startedAt, 0);
-        if (rt) u.searchParams.set('roundToken', rt);
-        if (sa) u.searchParams.set('startAt', String(sa));
+    setTop('เริ่มนับถอยหลังแล้ว');
+    setSide('ทั้งสองฝั่งจะเข้าเกมพร้อมกัน');
+    setCopyState('Countdown started');
+  }
 
-        return u.toString();
-      }
+  async function maybePromoteCountdownToPlaying(){
+    if (!S.joined || !S.refs || !isHost()) return false;
+    if (String((S.state && S.state.status) || '') !== 'countdown') return false;
 
-      function maybeAutoEnterBattle(){
-        if (STATE.entering) return;
-        if (!STATE.roomId) return;
-        if (roomStatus() !== 'playing') return;
-        if (!currentStartedAt()) return;
+    const countdownEndsAt = num(S.state.countdownEndsAt, 0);
+    if (!countdownEndsAt || Date.now() < countdownEndsAt) return false;
 
-        STATE.entering = true;
-        setStatus('กำลังเข้าสู่สนาม Battle...');
-        setTimeout(() => {
-          location.href = buildRunUrl();
-        }, 180);
-      }
+    const t = now();
+    const plannedSec = clamp(S.state.plannedSec || getTime(), 30, 300);
+    const roundToken = String(S.state.roundToken || makeRoundToken());
 
-      function startLoops(){
-        if (!STATE.uiTickId){
-          STATE.uiTickId = setInterval(() => {
-            renderAll();
-            if (isHost()) maybeHostPromoteCountdown();
-            maybeAutoEnterBattle();
-          }, UI_TICK_MS);
-        }
+    try{
+      await new Promise((resolve, reject) => {
+        S.refs.root.transaction((cur) => {
+          cur = cur || {};
+          cur.meta = cur.meta || {};
+          cur.state = cur.state || {};
+          cur.players = cur.players || {};
 
-        if (!STATE.heartbeatId){
-          STATE.heartbeatId = setInterval(() => {
-            if (!STATE.refs.self) return;
+          if (String(cur.state.status || '') !== 'countdown') return cur;
 
-            STATE.refs.self.update({
-              connected:true,
-              updatedAt:now(),
-              lastSeen:now(),
-              status: roomStatus() || 'waiting'
-            }).catch(() => {});
+          cur.state.status = 'playing';
+          cur.state.startedAt = t;
+          cur.state.endsAt = t + plannedSec * 1000;
+          cur.state.countdownEndsAt = 0;
+          cur.state.roundToken = String(cur.state.roundToken || roundToken);
+          cur.state.updatedAt = t;
 
-            if (isHost()) maybeHostPromoteCountdown();
-          }, HEARTBEAT_MS);
-        }
-      }
+          Object.keys(cur.players).forEach((key) => {
+            const p = cur.players[key] || {};
+            cur.players[key] = Object.assign({}, p, {
+              status: 'playing',
+              updatedAt: t,
+              lastSeen: t
+            });
+          });
 
-      function stopLoops(){
-        clearInterval(STATE.uiTickId);
-        clearInterval(STATE.heartbeatId);
-        STATE.uiTickId = 0;
-        STATE.heartbeatId = 0;
-      }
-
-      async function copyText(text){
-        const t = String(text || '').trim();
-        if (!t) throw new Error('empty');
-        if (navigator.clipboard && navigator.clipboard.writeText){
-          await navigator.clipboard.writeText(t);
-          return;
-        }
-        const ta = document.createElement('textarea');
-        ta.value = t;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        ta.remove();
-      }
-
-      function bindUi(){
-        UI.btnCreate.addEventListener('click', async () => {
-          try{
-            await createRoom();
-          } catch (err){
-            console.error(err);
-            setStatus('สร้างห้องไม่สำเร็จ');
-          }
-        });
-
-        UI.btnJoin.addEventListener('click', async () => {
-          try{
-            await joinRoom(UI.inputRoom.value);
-          } catch (err){
-            console.error(err);
-            setStatus('เข้าห้องไม่สำเร็จ');
-          }
-        });
-
-        UI.btnStart.addEventListener('click', async () => {
-          try{
-            await startBattle();
-          } catch (err){
-            console.error(err);
-            setStatus('เริ่ม Battle ไม่สำเร็จ');
-          }
-        });
-
-        UI.btnLeave.addEventListener('click', async () => {
-          try{
-            await leaveRoom();
-          } catch (err){
-            console.error(err);
-            setStatus('ออกจากห้องไม่สำเร็จ');
-          }
-        });
-
-        UI.btnCopyRoom.addEventListener('click', async () => {
-          try{
-            await copyText(STATE.roomId);
-            setStatus('คัดลอกรหัสห้องแล้ว');
-          } catch {
-            setStatus('คัดลอกรหัสห้องไม่สำเร็จ');
-          }
-        });
-
-        UI.btnCopyLink.addEventListener('click', async () => {
-          try{
-            await copyText(buildShareUrl());
-            setStatus('คัดลอกลิงก์ห้องแล้ว');
-          } catch {
-            setStatus('คัดลอกลิงก์ไม่สำเร็จ');
-          }
-        });
-
-        UI.inputName.addEventListener('change', () => { pullInputs(); renderAll(); });
-        UI.inputPid.addEventListener('change', () => { pullInputs(); renderAll(); });
-        UI.inputRoom.addEventListener('change', () => { pullInputs(); renderAll(); });
-        UI.inputTime.addEventListener('change', () => { pullInputs(); renderAll(); });
-      }
-
-      async function init(){
-        loadProfile();
-        bindUi();
-        renderAll();
-        setStatus('กำลังเตรียม Battle Lobby…');
-
-        await ensureFirebaseReady();
-        renderAll();
-
-        const autoRoom = cleanRoom(qs('roomId') || qs('room') || '');
-        if (autoRoom){
-          try{
-            await joinRoom(autoRoom);
-          } catch (err){
-            console.error(err);
-            setStatus('เข้า room จากลิงก์ไม่สำเร็จ');
-          }
-        } else {
-          setStatus('พร้อมแล้ว จะสร้างห้องหรือเข้าห้องก็ได้');
-        }
-      }
-
-      window.addEventListener('beforeunload', () => {
-        try{
-          if (STATE.refs.self){
-            STATE.refs.self.update({
-              connected:false,
-              status:'left',
-              updatedAt:now(),
-              lastSeen:now()
-            }).catch(() => {});
-          }
-        } catch {}
-        stopLoops();
-        detachListeners();
+          return cur;
+        }, (err, committed) => {
+          if (err) return reject(err);
+          if (!committed) return reject(new Error('promote-not-committed'));
+          resolve();
+        }, false);
       });
+      return true;
+    }catch(err){
+      console.warn('[battle-lobby] promote countdown->playing failed:', err);
+      return false;
+    }
+  }
 
-      init().catch((err) => {
-        console.error('[battle-lobby] init failed:', err);
-        setStatus('Battle Lobby พร้อมไม่สำเร็จ');
-        renderDebug();
+  function goRun(){
+    if (S.redirecting || !S.roomId) return;
+    S.redirecting = true;
+    location.href = buildRunUrl(S.roomId);
+  }
+
+  async function pasteRoom(){
+    try{
+      const t = await navigator.clipboard.readText();
+      if (UI.roomInput) UI.roomInput.value = cleanRoom(t || '');
+      normalizeRoomId();
+      renderState();
+    }catch{
+      setTop('Paste ไม่สำเร็จ');
+      throw new Error('ไม่สามารถอ่านจาก clipboard');
+    }
+  }
+
+  function bind(){
+    [
+      UI.nickInput,
+      UI.diffSelect,
+      UI.timeSelect,
+      UI.viewSelect,
+      UI.seedInput,
+      UI.roomInput
+    ].filter(Boolean).forEach((el) => {
+      el.addEventListener('input', () => {
+        saveStored();
+        normalizeRoomId();
+        renderState();
       });
-    })();
-  </script>
-</body>
-</html>
+      el.addEventListener('change', () => {
+        saveStored();
+        normalizeRoomId();
+        renderState();
+      });
+    });
+
+    UI.btnCreateTop && UI.btnCreateTop.addEventListener('click', () => guardAsync(createRoom));
+    UI.btnJoinTop && UI.btnJoinTop.addEventListener('click', () => guardAsync(joinRoom));
+    UI.btnCreateRoom && UI.btnCreateRoom.addEventListener('click', () => guardAsync(createRoom));
+    UI.btnJoinRoom && UI.btnJoinRoom.addEventListener('click', () => guardAsync(joinRoom));
+
+    UI.btnPasteRoom && UI.btnPasteRoom.addEventListener('click', () => guardAsync(pasteRoom));
+
+    UI.btnRandomRoom && UI.btnRandomRoom.addEventListener('click', () => {
+      if (UI.roomInput) UI.roomInput.value = makeCode();
+      normalizeRoomId();
+      renderState();
+    });
+
+    UI.btnCopyRoom && UI.btnCopyRoom.addEventListener('click', async () => {
+      const ok = await copyText(S.roomId || (UI.roomInput && UI.roomInput.value) || '');
+      setTop(ok ? 'คัดลอก room code แล้ว' : 'คัดลอก room code ไม่สำเร็จ');
+      setCopyState(ok ? 'คัดลอก room code แล้ว' : 'คัดลอกไม่สำเร็จ');
+    });
+
+    UI.btnShareRoom && UI.btnShareRoom.addEventListener('click', async () => {
+      const ok = await shareLink(buildLobbyUrl(S.roomId || cleanRoom((UI.roomInput && UI.roomInput.value) || makeCode())));
+      setTop(ok ? 'แชร์ลิงก์แล้ว' : 'แชร์ไม่สำเร็จ');
+      setCopyState(ok ? 'แชร์ลิงก์แล้ว' : 'แชร์ไม่สำเร็จ');
+    });
+
+    UI.btnStartGame && UI.btnStartGame.addEventListener('click', () => guardAsync(startGame));
+    UI.btnLeaveRoom && UI.btnLeaveRoom.addEventListener('click', () => guardAsync(leaveRoom));
+
+    UI.btnLauncher && UI.btnLauncher.addEventListener('click', () => {
+      location.href = `${LAUNCHER}${HUB ? `?hub=${encodeURIComponent(HUB)}` : ''}`;
+    });
+
+    UI.btnHub && UI.btnHub.addEventListener('click', () => {
+      location.href = HUB || '../hub.html';
+    });
+
+    window.addEventListener('beforeunload', () => {
+      try{
+        if (S.refs && S.refs.self){
+          S.refs.self.update({
+            connected: false,
+            status: 'left',
+            updatedAt: now(),
+            lastSeen: now()
+          }).catch(() => {});
+        }
+      }catch{}
+    });
+  }
+
+  async function autoJoinIfNeeded(){
+    const room = cleanRoom(qs('roomId', qs('room', '')));
+    const autojoin = qs('autojoin', '') === '1';
+    if (!room) return;
+
+    if (UI.roomInput) UI.roomInput.value = room;
+    normalizeRoomId();
+    renderState();
+
+    if (autojoin){
+      await joinRoom();
+    }
+  }
+
+  async function init(){
+    loadStored();
+
+    if (UI.nickInput) UI.nickInput.value = clean(qs('name', qs('nick', UI.nickInput.value || '')), 24) || UI.nickInput.value || '';
+    if (UI.diffSelect) UI.diffSelect.value = qs('diff', UI.diffSelect.value || 'normal') || 'normal';
+    if (UI.timeSelect) UI.timeSelect.value = String(clamp(qs('time', UI.timeSelect.value || '90'), 30, 300));
+    if (UI.viewSelect) UI.viewSelect.value = qs('view', UI.viewSelect.value || 'mobile') || 'mobile';
+    if (UI.seedInput) UI.seedInput.value = qs('seed', UI.seedInput.value || '');
+
+    normalizeRoomId();
+    bind();
+    renderState();
+
+    try{
+      await autoJoinIfNeeded();
+    }catch(err){
+      console.error('[battle-lobby] autoJoin failed', err);
+      const msg = err && err.message ? err.message : String(err);
+      showJoinGuard(`❌ autojoin failed: ${msg}`);
+      setTop(`เข้าห้องอัตโนมัติไม่สำเร็จ: ${msg}`);
+    }
+  }
+
+  init();
+})();
