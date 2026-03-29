@@ -103,12 +103,11 @@
           defaultMode: 'solo',
           modes: [
             { id:'solo',   url:'./goodjunk-launcher.html' },
-            { id:'pro',    url:'./goodjunk-launcher.html' },
-            { id:'duet',   url:'./goodjunk-launcher.html' },
-            { id:'race',   url:'./vr-goodjunk/goodjunk-race-run.html' },
-            { id:'battle', url:'./vr-goodjunk/goodjunk-battle-run.html' },
-            { id:'coop',   url:'./vr-goodjunk/goodjunk-coop-run.html' },
-            { id:'teacher',url:'./goodjunk-launcher.html' }
+            { id:'duet',   url:'./vr-goodjunk/goodjunk-duet.html' },
+            { id:'race',   url:'./vr-goodjunk/goodjunk-multi.html?mode=race' },
+            { id:'battle', url:'./vr-goodjunk/goodjunk-multi.html?mode=battle' },
+            { id:'coop',   url:'./vr-goodjunk/goodjunk-multi.html?mode=coop' },
+            { id:'teacher',url:'./goodjunk-teacher.html' }
           ]
         },
         {
@@ -124,12 +123,12 @@
           sub: 'แยกอาหารตามหมู่',
           defaultMode: 'solo',
           modes: [
-            { id:'solo',   url:'./groups-vr.html' },
-            { id:'duet',   url:'./groups-vr.html' },
-            { id:'race',   url:'./groups-vr.html' },
-            { id:'battle', url:'./groups-vr.html' },
-            { id:'coop',   url:'./groups-vr.html' },
-            { id:'teacher',url:'./groups-vr.html' }
+            { id:'solo',   url:'./group-v1.html' },
+            { id:'duet',   url:'./group-v1.html' },
+            { id:'race',   url:'./group-v1.html' },
+            { id:'battle', url:'./group-v1.html' },
+            { id:'coop',   url:'./group-v1.html' },
+            { id:'teacher',url:'./group-v1.html' }
           ]
         },
         {
@@ -217,34 +216,45 @@
 
   const FINAL_ROUTE_TABLE = {
     hygiene: {
-      germdetective: { solo: { url:'./germ-detective.html', type:'run' } },
-      handwash:      { solo: { url:'./hygiene-vr.html', type:'run' } },
-      brush:         { solo: { url:'./brush-vr.html', type:'run' } },
-      maskcough:     { solo: { url:'./maskcough-v2.html', type:'run' } },
-      bath:          { solo: { url:'./bath-vr.html', type:'run' } },
-      cleanobject:   { solo: { url:'./clean-objects.html', type:'run' } }
+      germdetective: {
+        solo: { url:'./germ-detective.html', type:'run' }
+      },
+      handwash: {
+        solo: { url:'./hygiene-vr.html', type:'run' }
+      },
+      brush: {
+        solo: { url:'./brush-vr.html', type:'run' }
+      },
+      maskcough: {
+        solo: { url:'./maskcough-v2.html', type:'run' }
+      },
+      bath: {
+        solo: { url:'./bath-vr.html', type:'run' }
+      },
+      cleanobject: {
+        solo: { url:'./clean-objects.html', type:'run' }
+      }
     },
 
     nutrition: {
       goodjunk: {
         solo:   { url:'./goodjunk-launcher.html', type:'launcher' },
-        pro:    { url:'./goodjunk-launcher.html', type:'launcher' },
-        duet:   { url:'./goodjunk-launcher.html', type:'launcher' },
-        race:   { url:'./vr-goodjunk/goodjunk-race-run.html', type:'run' },
-        battle: { url:'./vr-goodjunk/goodjunk-battle-run.html', type:'run' },
-        coop:   { url:'./vr-goodjunk/goodjunk-coop-run.html', type:'run' },
-        teacher:{ url:'./goodjunk-launcher.html', type:'teacher' }
+        duet:   { url:'./vr-goodjunk/goodjunk-duet.html', type:'launcher' },
+        race:   { url:'./vr-goodjunk/goodjunk-multi.html?mode=race', type:'launcher' },
+        battle: { url:'./vr-goodjunk/goodjunk-multi.html?mode=battle', type:'launcher' },
+        coop:   { url:'./vr-goodjunk/goodjunk-multi.html?mode=coop', type:'launcher' },
+        teacher:{ url:'./goodjunk-teacher.html', type:'teacher' }
       },
       hydration: {
         solo: { url:'./hydration-vr.html', type:'run' }
       },
       groups: {
-        solo:   { url:'./groups-vr.html', type:'launcher' },
-        duet:   { url:'./groups-vr.html', type:'launcher' },
-        race:   { url:'./groups-vr.html', type:'launcher' },
-        battle: { url:'./groups-vr.html', type:'launcher' },
-        coop:   { url:'./groups-vr.html', type:'launcher' },
-        teacher:{ url:'./groups-vr.html', type:'teacher' }
+        solo:   { url:'./group-v1.html', type:'run' },
+        duet:   { url:'./group-v1.html', type:'run' },
+        race:   { url:'./group-v1.html', type:'run' },
+        battle: { url:'./group-v1.html', type:'run' },
+        coop:   { url:'./group-v1.html', type:'run' },
+        teacher:{ url:'./group-v1.html', type:'teacher' }
       },
       plate: {
         solo:   { url:'./plate-vr.html', type:'launcher' },
@@ -280,7 +290,7 @@
   const GENERIC_GAME_FALLBACK = {
     goodjunk:      { url:'./goodjunk-launcher.html', type:'launcher' },
     hydration:     { url:'./hydration-vr.html', type:'run' },
-    groups:        { url:'./groups-vr.html', type:'launcher' },
+    groups:        { url:'./group-v1.html', type:'run' },
     plate:         { url:'./plate-vr.html', type:'launcher' },
 
     germdetective: { url:'./germ-detective.html', type:'run' },
