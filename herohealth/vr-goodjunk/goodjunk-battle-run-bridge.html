@@ -8,10 +8,16 @@
 <body>
 <script>
 (function(){
+  const LAUNCH_KEY = 'GJ_BATTLE_LAUNCH';
   const q = new URLSearchParams(location.search);
 
   function cleanRoom(v){
     return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,24);
+  }
+  function cleanPid(v){
+    const s = String(v || '').trim().replace(/[.#$[\]/]/g,'-');
+    if (!s) return '';
+    return s.slice(0,80);
   }
   function firstNonEmpty(){
     for (const v of arguments){
@@ -19,27 +25,88 @@
     }
     return '';
   }
+  function readStored(){
+    try{
+      const a = localStorage.getItem(LAUNCH_KEY);
+      if (a) return JSON.parse(a);
+    }catch(_){}
+    try{
+      const b = sessionStorage.getItem(LAUNCH_KEY);
+      if (b) return JSON.parse(b);
+    }catch(_){}
+    return {};
+  }
+  function writeStored(payload){
+    try { localStorage.setItem(LAUNCH_KEY, JSON.stringify(payload)); } catch(_){}
+    try { sessionStorage.setItem(LAUNCH_KEY, JSON.stringify(payload)); } catch(_){}
+  }
 
-  const roomId = cleanRoom(firstNonEmpty(q.get('roomId'), q.get('room')));
-  const name = firstNonEmpty(q.get('name'), q.get('nick'));
+  const saved = readStored();
+
+  const roomId = cleanRoom(firstNonEmpty(
+    q.get('roomId'),
+    q.get('room'),
+    saved.roomId
+  ));
+
+  const name = firstNonEmpty(
+    q.get('name'),
+    q.get('nick'),
+    saved.name,
+    saved.nick
+  );
+
+  const pid = cleanPid(firstNonEmpty(
+    q.get('pid'),
+    saved.pid
+  ));
+
+  const uid = cleanPid(firstNonEmpty(
+    q.get('uid'),
+    q.get('playerId'),
+    saved.uid,
+    saved.playerId
+  ));
 
   const u = new URL('./goodjunk-battle-run.html', location.href);
 
-  q.forEach((value, key) => {
-    if (!u.searchParams.has(key)) u.searchParams.set(key, value);
+  Object.entries(saved || {}).forEach(([key, value]) => {
+    if (value != null && String(value) !== '' && !u.searchParams.has(key)) {
+      u.searchParams.set(key, String(value));
+    }
   });
 
-  if (roomId) {
-    u.searchParams.set('roomId', roomId);
-    u.searchParams.set('room', roomId);
-  }
+  q.forEach((value, key) => {
+    u.searchParams.set(key, value);
+  });
+
+  if (roomId) u.searchParams.set('roomId', roomId);
+  u.searchParams.delete('room');
 
   if (name) {
     u.searchParams.set('name', name);
+    u.searchParams.delete('nick');
   }
 
-  u.searchParams.delete('nick');
+  if (pid) u.searchParams.set('pid', pid);
+
+  if (uid) {
+    u.searchParams.set('uid', uid);
+    u.searchParams.set('playerId', uid);
+  }
+
   u.searchParams.set('mode', 'battle');
+
+  writeStored({
+    ...(saved || {}),
+    roomId,
+    name,
+    nick: name,
+    pid,
+    uid,
+    playerId: uid,
+    mode: 'battle'
+  });
 
   location.replace(u.toString());
 })();
