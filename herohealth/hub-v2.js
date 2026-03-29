@@ -10,7 +10,8 @@
     'grade','zone',
     'room','pro','ai','sbUrl','sbAnon',
     'planSeq','planDay','planSlot','planMode','planSlots','planIndex',
-    'autoNext','cdnext'
+    'autoNext','cdnext',
+    'mode'
   ];
 
   const DEFAULT_PLAYER = {
@@ -38,6 +39,46 @@
     battle: '⚔️ Battle',
     coop: '🤝 Co-op',
     teacher: '🧑‍🏫 Teacher'
+  };
+
+  const GAME_ALIASES = {
+    germdetective: ['germdetective','germ-detective','germ detective','germ'],
+    handwash: ['handwash','hand-wash','washhands','hygiene','hygiene-vr'],
+    brush: ['brush','brush-vr','toothbrush'],
+    maskcough: ['maskcough','mask-cough','maskandcough','mask & cough'],
+    bath: ['bath','bath-vr'],
+    cleanobject: ['cleanobject','clean-object','cleanobjects','clean-objects'],
+
+    goodjunk: ['goodjunk','good-junk','gj'],
+    hydration: ['hydration','hydration-vr','water'],
+    groups: ['groups','group','foodgroups','food-groups'],
+    plate: ['plate','plate-vr','plate-v1','balancedplate','balanced-plate'],
+
+    shadowbreaker: ['shadowbreaker','shadow-breaker','shadow breaker','sb'],
+    rhythmboxer: ['rhythmboxer','rhythm-boxer','rhythm boxer','rb'],
+    balancehold: ['balancehold','balance-hold','balance hold'],
+    jumpduck: ['jumpduck','jump-duck','jump duck','jd'],
+    fitnessplanner: ['fitnessplanner','fitness-planner','fitness planner','planner']
+  };
+
+  const MODE_ALIASES = {
+    solo: ['solo','single','normal'],
+    pro: ['pro','hardpro'],
+    duet: ['duet','pair','2p'],
+    race: ['race','racing'],
+    battle: ['battle','versus','vs','pvp'],
+    coop: ['coop','co-op','team'],
+    teacher: ['teacher','dashboard','board']
+  };
+
+  const qs = new URLSearchParams(location.search);
+  const $ = (sel) => document.querySelector(sel);
+
+  let pickerState = {
+    zone: '',
+    kind: 'all',
+    gameId: '',
+    step: 'games'
   };
 
   const GAME_CATALOG = {
@@ -104,34 +145,8 @@
 
     nutrition: {
       label: 'Nutrition Zone',
-      defaultGameId: 'plate',
+      defaultGameId: 'goodjunk',
       games: [
-        {
-          id: 'plate',
-          label: 'Plate',
-          sub: 'จัดจานอาหารให้ครบ 5 หมู่',
-          defaultMode: 'solo',
-          modes: [
-            { id:'solo',   url:'./plate-vr.html' },
-            { id:'duet',   url:'./plate-vr.html' },
-            { id:'race',   url:'./plate-vr.html' },
-            { id:'battle', url:'./plate-vr.html' },
-            { id:'coop',   url:'./plate-vr.html' }
-          ]
-        },
-        {
-          id: 'groups',
-          label: 'Groups',
-          sub: 'แยกอาหารตามหมู่',
-          defaultMode: 'solo',
-          modes: [
-            { id:'solo',   url:'./groups-vr.html' },
-            { id:'duet',   url:'./groups-vr.html' },
-            { id:'race',   url:'./groups-vr.html' },
-            { id:'battle', url:'./groups-vr.html' },
-            { id:'coop',   url:'./groups-vr.html' }
-          ]
-        },
         {
           id: 'goodjunk',
           label: 'GoodJunk VR',
@@ -153,14 +168,49 @@
           modes: [
             { id:'solo', url:'./hydration-vr.html' }
           ]
+        },
+        {
+          id: 'groups',
+          label: 'Groups',
+          sub: 'แยกอาหารตามหมู่',
+          defaultMode: 'solo',
+          modes: [
+            { id:'solo',   url:'./groups-vr.html' },
+            { id:'duet',   url:'./groups-vr.html' },
+            { id:'race',   url:'./groups-vr.html' },
+            { id:'battle', url:'./groups-vr.html' },
+            { id:'coop',   url:'./groups-vr.html' }
+          ]
+        },
+        {
+          id: 'plate',
+          label: 'Plate',
+          sub: 'จัดจานอาหารให้ครบ 5 หมู่',
+          defaultMode: 'solo',
+          modes: [
+            { id:'solo',   url:'./plate-vr.html' },
+            { id:'duet',   url:'./plate-vr.html' },
+            { id:'race',   url:'./plate-vr.html' },
+            { id:'battle', url:'./plate-vr.html' },
+            { id:'coop',   url:'./plate-vr.html' }
+          ]
         }
       ]
     },
 
     fitness: {
       label: 'Fitness Zone',
-      defaultGameId: 'shadowbreaker',
+      defaultGameId: 'jumpduck',
       games: [
+        {
+          id: 'jumpduck',
+          label: 'JumpDuck',
+          sub: 'กระโดดและก้มหลบให้ทัน',
+          defaultMode: 'solo',
+          modes: [
+            { id:'solo', url:'./jump-duck-vr.html' }
+          ]
+        },
         {
           id: 'shadowbreaker',
           label: 'Shadow Breaker',
@@ -169,15 +219,6 @@
           modes: [
             { id:'solo',   url:'./shadow-breaker-vr.html' },
             { id:'battle', url:'./shadow-breaker-vr.html' }
-          ]
-        },
-        {
-          id: 'rhythmboxer',
-          label: 'Rhythm Boxer',
-          sub: 'ชกตามจังหวะเพลง',
-          defaultMode: 'solo',
-          modes: [
-            { id:'solo', url:'./rhythm-boxer-vr.html' }
           ]
         },
         {
@@ -190,12 +231,12 @@
           ]
         },
         {
-          id: 'jumpduck',
-          label: 'JumpDuck',
-          sub: 'กระโดดและก้มหลบให้ทัน',
+          id: 'rhythmboxer',
+          label: 'Rhythm Boxer',
+          sub: 'ชกตามจังหวะเพลง',
           defaultMode: 'solo',
           modes: [
-            { id:'solo', url:'./jump-duck-vr.html' }
+            { id:'solo', url:'./rhythm-boxer-vr.html' }
           ]
         },
         {
@@ -215,16 +256,6 @@
     hygiene: { level: 5, stars: 4, pct: 80 },
     nutrition: { level: 4, stars: 3, pct: 60 },
     fitness: { level: 3, stars: 2, pct: 40 }
-  };
-
-  const qs = new URLSearchParams(location.search);
-  const $ = (sel) => document.querySelector(sel);
-
-  let pickerState = {
-    zone: '',
-    kind: 'all',
-    gameId: '',
-    step: 'games'
   };
 
   function clamp(n, min, max) {
@@ -259,11 +290,48 @@
     return '⭐'.repeat(v) + '☆'.repeat(3 - v);
   }
 
-  function zoneFromGameId(gameId) {
-    const id = String(gameId || '').toLowerCase();
-    if (/wash|brush|germ|hygiene|bath|mask|cough|clean/.test(id)) return 'hygiene';
-    if (/plate|group|food|goodjunk|nutrition|hydration/.test(id)) return 'nutrition';
-    if (/shadow|rhythm|balance|jump|duck|fitness|planner/.test(id)) return 'fitness';
+  function normalizeText(v) {
+    return String(v || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[_\s]+/g, '-')
+      .replace(/[^a-z0-9\-./]/g, '');
+  }
+
+  function normalizeGameId(v) {
+    const s = normalizeText(v);
+    if (!s) return '';
+    for (const [canonical, aliases] of Object.entries(GAME_ALIASES)) {
+      if (aliases.includes(s)) return canonical;
+    }
+    return s.replace(/[^a-z0-9]/g, '');
+  }
+
+  function normalizeModeId(v) {
+    const s = normalizeText(v);
+    if (!s) return '';
+    for (const [canonical, aliases] of Object.entries(MODE_ALIASES)) {
+      if (aliases.includes(s)) return canonical;
+    }
+    return s.replace(/[^a-z0-9]/g, '');
+  }
+
+  function pathLooksLike(url, parts) {
+    const s = normalizeText(url);
+    return parts.some((p) => s.includes(normalizeText(p)));
+  }
+
+  function zoneFromGameId(gameIdOrUrl) {
+    const id = normalizeGameId(gameIdOrUrl);
+
+    if (['germdetective','handwash','brush','maskcough','bath','cleanobject'].includes(id)) return 'hygiene';
+    if (['goodjunk','hydration','groups','plate'].includes(id)) return 'nutrition';
+    if (['shadowbreaker','rhythmboxer','balancehold','jumpduck','fitnessplanner'].includes(id)) return 'fitness';
+
+    const raw = String(gameIdOrUrl || '').toLowerCase();
+    if (/wash|brush|germ|bath|mask|cough|clean|hygiene/.test(raw)) return 'hygiene';
+    if (/plate|group|food|goodjunk|hydration|nutrition/.test(raw)) return 'nutrition';
+    if (/shadow|rhythm|balance|jump|duck|fitness|planner/.test(raw)) return 'fitness';
     return '';
   }
 
@@ -276,7 +344,8 @@
   }
 
   function getGame(zone, gameId) {
-    return getZoneGames(zone).find((g) => g.id === gameId) || null;
+    const id = normalizeGameId(gameId);
+    return getZoneGames(zone).find((g) => g.id === id) || null;
   }
 
   function getDefaultGame(zone) {
@@ -293,12 +362,29 @@
   function findGameByName(zone, name) {
     const target = String(name || '').trim().toLowerCase();
     if (!target) return null;
+
     return getZoneGames(zone).find((g) => {
       const label = String(g.label || '').toLowerCase();
       const sub = String(g.sub || '').toLowerCase();
       const id = String(g.id || '').toLowerCase();
-      return label.includes(target) || target.includes(label) || sub.includes(target) || id === target;
+      return label.includes(target) || target.includes(label) || sub.includes(target) || id === normalizeGameId(target);
     }) || null;
+  }
+
+  function findGameByUrl(url) {
+    const s = String(url || '').toLowerCase();
+    if (!s) return null;
+
+    for (const [zone, cat] of Object.entries(GAME_CATALOG)) {
+      for (const game of cat.games) {
+        for (const mode of game.modes) {
+          if (pathLooksLike(s, [mode.url, game.id, game.label])) {
+            return { zone, game };
+          }
+        }
+      }
+    }
+    return null;
   }
 
   function getHubCanonical() {
@@ -330,16 +416,17 @@
   function resolveModeUrl(zone, game, mode) {
     if (!game || !mode) return '#';
 
-    const extra = { zone, game: game.id, mode: mode.id };
+    const modeId = normalizeModeId(mode.id) || 'solo';
+    const extra = { zone, game: game.id, mode: modeId };
 
-    if (mode.id === 'pro') {
+    if (modeId === 'pro') {
       extra.mode = 'solo';
       extra.pro = '1';
-      extra.diff = 'hard';
+      extra.diff = qs.get('diff') || 'hard';
       extra.auto = '0';
     }
 
-    if (['race','battle','coop','duet'].includes(mode.id)) {
+    if (['race','battle','coop','duet'].includes(modeId)) {
       extra.room = String(qs.get('room') || `${String(game.id).toUpperCase()}-ROOM1`).trim();
       extra.auto = '1';
     }
@@ -396,7 +483,7 @@
     const base = JSON.parse(JSON.stringify(ZONE_DEFAULTS));
 
     history.slice(-30).forEach((item) => {
-      const zone = item.zone || zoneFromGameId(item.game || item.gameId || item.title || '');
+      const zone = item.zone || zoneFromGameId(item.game || item.gameId || item.title || item.url || '');
       if (!zone || !base[zone]) return;
 
       const score = fmtInt(item.score, 0);
@@ -416,16 +503,25 @@
     if (lastSummary) items.push(lastSummary);
 
     items.forEach((item) => {
-      const zone = item.zone || zoneFromGameId(item.game || item.gameId || item.title || item.url || '');
+      const inferredFromUrl = findGameByUrl(item.replayUrl || item.url || '');
+      const zone =
+        item.zone ||
+        inferredFromUrl?.zone ||
+        zoneFromGameId(item.game || item.gameId || item.title || item.url || '');
+
       if (!zone) return;
 
+      const rawGameId = item.game || item.gameId || item.title || '';
       const game =
-        getGame(zone, String(item.game || item.gameId || '').toLowerCase()) ||
-        findGameByName(zone, item.title || item.game || item.gameId || '');
+        (inferredFromUrl && inferredFromUrl.zone === zone ? inferredFromUrl.game : null) ||
+        getGame(zone, rawGameId) ||
+        findGameByName(zone, rawGameId) ||
+        getDefaultGame(zone);
 
       if (!game) return;
 
-      const mode = getDefaultMode(game);
+      const modeId = normalizeModeId(item.mode || qs.get('mode') || '') || game.defaultMode;
+      const mode = game.modes.find((m) => m.id === modeId) || getDefaultMode(game);
 
       map[zone] = {
         zone,
@@ -474,12 +570,7 @@
     const missionList = $('#missionList');
     if (!missionList) return;
 
-    const todayDone = {
-      hygiene: false,
-      nutrition: false,
-      fitness: false
-    };
-
+    const todayDone = { hygiene: false, nutrition: false, fitness: false };
     const today = new Date();
     const dayKey = [
       today.getFullYear(),
@@ -488,7 +579,7 @@
     ].join('-');
 
     history.forEach((item) => {
-      const zone = item.zone || zoneFromGameId(item.game || item.gameId || item.title || '');
+      const zone = item.zone || zoneFromGameId(item.game || item.gameId || item.title || item.url || '');
       const stamp = String(item.timestampIso || item.time || item.date || '');
       if (zone && stamp.startsWith(dayKey)) todayDone[zone] = true;
     });
@@ -600,8 +691,13 @@
       return;
     }
 
-    const zone = lastSummary.zone || zoneFromGameId(lastSummary.game || lastSummary.gameId || lastSummary.title || '');
-    const title = lastSummary.title || lastSummary.game || lastSummary.gameId || 'เกมล่าสุด';
+    const inferredFromUrl = findGameByUrl(lastSummary.replayUrl || lastSummary.url || '');
+    const zone =
+      lastSummary.zone ||
+      inferredFromUrl?.zone ||
+      zoneFromGameId(lastSummary.game || lastSummary.gameId || lastSummary.title || lastSummary.url || '');
+
+    const title = lastSummary.title || lastSummary.game || lastSummary.gameId || inferredFromUrl?.game?.label || 'เกมล่าสุด';
     const score = fmtInt(lastSummary.score, 0);
     const coins = fmtInt(lastSummary.coins ?? lastSummary.rewardCoins, 0);
     const stars = clamp(fmtInt(lastSummary.stars, 0), 0, 3);
@@ -610,9 +706,15 @@
     let replayUrl = lastSummary.replayUrl || lastSummary.url || '';
     if (!replayUrl && zone) {
       const game =
-        getGame(zone, String(lastSummary.game || lastSummary.gameId || '').toLowerCase()) ||
-        findGameByName(zone, title);
-      if (game) replayUrl = resolveModeUrl(zone, game, getDefaultMode(game));
+        (inferredFromUrl && inferredFromUrl.zone === zone ? inferredFromUrl.game : null) ||
+        getGame(zone, lastSummary.game || lastSummary.gameId || '') ||
+        findGameByName(zone, title) ||
+        getDefaultGame(zone);
+      if (game) {
+        const modeId = normalizeModeId(lastSummary.mode || '') || game.defaultMode;
+        const mode = game.modes.find((m) => m.id === modeId) || getDefaultMode(game);
+        replayUrl = resolveModeUrl(zone, game, mode);
+      }
     }
     if (!replayUrl) replayUrl = './hub-v2.html';
 
@@ -711,44 +813,28 @@
   }
 
   function bindTopButtons(profile, lastByZone) {
-    const btnSettings = $('#btnSettings');
-    const btnRewards = $('#btnRewards');
-    const btnQuickRecommended = $('#btnQuickRecommended');
-    const btnQuickRecent = $('#btnQuickRecent');
-    const btnQuickAllGames = $('#btnQuickAllGames');
+    $('#btnSettings')?.addEventListener('click', () => {
+      toast('หน้าตั้งค่าจะเพิ่มต่อได้ภายหลัง');
+    });
 
-    if (btnSettings) {
-      btnSettings.addEventListener('click', () => {
-        toast('หน้าตั้งค่าจะเพิ่มต่อได้ภายหลัง');
-      });
-    }
+    $('#btnRewards')?.addEventListener('click', () => {
+      toast(`ตอนนี้มี ${profile.coins} เหรียญ และ ${profile.stars} ดาว`);
+    });
 
-    if (btnRewards) {
-      btnRewards.addEventListener('click', () => {
-        toast(`ตอนนี้มี ${profile.coins} เหรียญ และ ${profile.stars} ดาว`);
-      });
-    }
+    $('#btnQuickRecommended')?.addEventListener('click', () => {
+      const zone = bestRecommendedZone(lastByZone);
+      openPicker(zone, 'recommended');
+    });
 
-    if (btnQuickRecommended) {
-      btnQuickRecommended.addEventListener('click', () => {
-        const zone = bestRecommendedZone(lastByZone);
-        openPicker(zone, 'recommended');
-      });
-    }
+    $('#btnQuickRecent')?.addEventListener('click', () => {
+      const recent = newestRecent(lastByZone);
+      if (recent?.url) location.href = recent.url;
+      else toast('ยังไม่มีเกมล่าสุด ลองเริ่มเล่นสักเกมก่อนนะ');
+    });
 
-    if (btnQuickRecent) {
-      btnQuickRecent.addEventListener('click', () => {
-        const recent = newestRecent(lastByZone);
-        if (recent?.url) location.href = recent.url;
-        else toast('ยังไม่มีเกมล่าสุด ลองเริ่มเล่นสักเกมก่อนนะ');
-      });
-    }
-
-    if (btnQuickAllGames) {
-      btnQuickAllGames.addEventListener('click', () => {
-        openPicker('nutrition', 'all_zones');
-      });
-    }
+    $('#btnQuickAllGames')?.addEventListener('click', () => {
+      openPicker('nutrition', 'all_zones');
+    });
   }
 
   function closePicker() {
@@ -910,23 +996,20 @@
   }
 
   function bindZoneLinks() {
-    const playHyg = $('#btnPlayHygiene');
-    const playNut = $('#btnPlayNutrition');
-    const playFit = $('#btnPlayFitness');
+    const hygGame = getDefaultGame('hygiene');
+    const nutGame = getDefaultGame('nutrition');
+    const fitGame = getDefaultGame('fitness');
 
-    if (playHyg) {
-      const game = getDefaultGame('hygiene');
-      playHyg.href = resolveModeUrl('hygiene', game, getDefaultMode(game));
+    if ($('#btnPlayHygiene') && hygGame) {
+      $('#btnPlayHygiene').href = resolveModeUrl('hygiene', hygGame, getDefaultMode(hygGame));
     }
 
-    if (playNut) {
-      const game = getDefaultGame('nutrition');
-      playNut.href = resolveModeUrl('nutrition', game, getDefaultMode(game));
+    if ($('#btnPlayNutrition') && nutGame) {
+      $('#btnPlayNutrition').href = resolveModeUrl('nutrition', nutGame, getDefaultMode(nutGame));
     }
 
-    if (playFit) {
-      const game = getDefaultGame('fitness');
-      playFit.href = resolveModeUrl('fitness', game, getDefaultMode(game));
+    if ($('#btnPlayFitness') && fitGame) {
+      $('#btnPlayFitness').href = resolveModeUrl('fitness', fitGame, getDefaultMode(fitGame));
     }
 
     document.querySelectorAll('[data-open-zone]').forEach((btn) => {
