@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./hub-v2.css?v=20260329-final-ah" />
+  <link rel="stylesheet" href="./hub-v2.css?v=20260329-final" />
 </head>
 <body>
   <div class="bg-clouds" aria-hidden="true">
@@ -28,10 +28,7 @@
         </div>
       </div>
 
-      <div class="topbar-actions">
-        <button id="btnDiagnostics" class="icon-btn" type="button" aria-label="diagnostics">🛠️</button>
-        <button id="btnRewards" class="icon-btn" type="button" aria-label="รางวัล">🏆</button>
-      </div>
+      <button id="btnRewards" class="icon-btn" type="button" aria-label="รางวัล">🏆</button>
     </header>
 
     <section class="hero">
@@ -42,13 +39,12 @@
           <p>
             เลือกดินแดนที่อยากไป แล้วเก็บดาว เหรียญ และพลังสุขภาพกันเลย
           </p>
-
           <div id="heroQuickline" class="hero-quickline">วันนี้ลองเล่นให้ครบ 3 โซนกันนะ</div>
 
           <div class="hero-cta-row">
-            <button id="btnQuickRecommended" class="btn primary" type="button">✨ เกมแนะนำ</button>
-            <button id="btnQuickRecent" class="btn secondary" type="button">🕹️ เล่นล่าสุด</button>
-            <button id="btnQuickAllGames" class="btn secondary" type="button">🗺️ ดูทุกเกม</button>
+            <button id="btnQuickRecommended" class="btn secondary small" type="button">🎮 เกมแนะนำ</button>
+            <button id="btnQuickRecent" class="btn secondary small" type="button">🕹️ เล่นล่าสุด</button>
+            <button id="btnQuickAllGames" class="btn secondary small" type="button">🗺️ ทุกเกม</button>
           </div>
         </div>
 
@@ -86,123 +82,75 @@
       </div>
     </section>
 
-    <section class="panel quick-stats-panel" id="quickStatsPanel">
-      <div class="quick-stats-head">
-        <h3 class="section-title" style="margin:0;">📊 สถานะวันนี้</h3>
-        <div class="quick-stats-actions">
-          <button id="btnResumeNow" class="btn primary small" type="button">▶️ เล่นต่อเลย</button>
+    <section class="dashboard-strip">
+      <article class="panel dashboard-card">
+        <h3 class="section-title">📌 สรุปวันนี้</h3>
+        <div class="dash-grid">
+          <div class="dash-pill">
+            <span class="dash-n" id="todayPlayedCount">0</span>
+            <span class="dash-t">เกมวันนี้</span>
+          </div>
+          <div class="dash-pill">
+            <span class="dash-n" id="todayZoneCount">0</span>
+            <span class="dash-t">โซนที่เล่น</span>
+          </div>
+          <div class="dash-pill">
+            <span class="dash-n dash-small" id="todayLastGame">ยังไม่มี</span>
+            <span class="dash-t">ล่าสุด</span>
+          </div>
+          <div class="dash-pill">
+            <span class="dash-n dash-small" id="todayNextGame">ระบบกำลังเลือกให้</span>
+            <span class="dash-t">แนะนำต่อ</span>
+          </div>
+        </div>
+
+        <div class="resume-row">
+          <button id="btnResumeNow" class="btn primary small" type="button">▶️ เล่นต่อทันที</button>
           <button id="btnNextInZone" class="btn secondary small" type="button">⏭️ เกมถัดไป</button>
         </div>
-      </div>
+      </article>
 
-      <div class="quick-stats-grid">
-        <div class="quick-stat-card">
-          <div class="quick-stat-icon">🎮</div>
-          <div class="quick-stat-body">
-            <div class="quick-stat-label">เล่นวันนี้</div>
-            <div class="quick-stat-value"><span id="todayPlayedCount">0</span> เกม</div>
-          </div>
-        </div>
-
-        <div class="quick-stat-card">
-          <div class="quick-stat-icon">🌍</div>
-          <div class="quick-stat-body">
-            <div class="quick-stat-label">ผ่านแล้ว</div>
-            <div class="quick-stat-value"><span id="todayZoneCount">0</span> / 3 โซน</div>
-          </div>
-        </div>
-
-        <div class="quick-stat-card">
-          <div class="quick-stat-icon">🕹️</div>
-          <div class="quick-stat-body">
-            <div class="quick-stat-label">ล่าสุด</div>
-            <div class="quick-stat-value" id="todayLastGame">ยังไม่มี</div>
-          </div>
-        </div>
-
-        <div class="quick-stat-card">
-          <div class="quick-stat-icon">🚪</div>
-          <div class="quick-stat-body">
-            <div class="quick-stat-label">เส้นทางถัดไป</div>
-            <div class="quick-stat-value" id="todayNextGame">ระบบกำลังเลือกให้</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel reward-sticker-panel" id="rewardStickerPanel">
-      <div class="quick-stats-head">
-        <h3 class="section-title" style="margin:0;">🎖️ ภารกิจต่อเนื่อง & สติกเกอร์ฮีโร่</h3>
-        <div class="quick-stats-actions">
+      <article class="panel dashboard-card">
+        <div class="section-head">
+          <h3 class="section-title">🎯 ภารกิจต่อเนื่อง</h3>
           <button id="btnResetTodayMissions" class="btn secondary small" type="button">♻️ รีเซ็ตวันนี้</button>
         </div>
-      </div>
 
-      <div class="mission-chain-grid">
-        <div class="mission-chain-card hygiene">
-          <div class="mission-chain-head">
-            <div class="mission-chain-icon">🫧</div>
-            <div>
-              <div class="mission-chain-title">Bubble Mission</div>
-              <div class="mission-chain-sub">Handwash → Brush → Bath</div>
+        <div class="chain-board">
+          <div class="chain-zone">
+            <div class="chain-zone-head">
+              <span>🫧 Hygiene</span>
+              <span id="rewardHygiene" class="reward-chip">ยังไม่ได้รับ</span>
             </div>
+            <div id="chainHygiene" class="chain-list"></div>
           </div>
 
-          <div class="mission-chain-steps" id="chainHygiene"></div>
-
-          <div class="mission-chain-reward">
-            <span class="reward-pill">🎁 Reward</span>
-            <span id="rewardHygiene">ยังไม่ได้รับ</span>
-          </div>
-        </div>
-
-        <div class="mission-chain-card nutrition">
-          <div class="mission-chain-head">
-            <div class="mission-chain-icon">🥗</div>
-            <div>
-              <div class="mission-chain-title">Yummy Mission</div>
-              <div class="mission-chain-sub">GoodJunk → Hydration → Plate</div>
+          <div class="chain-zone">
+            <div class="chain-zone-head">
+              <span>🥗 Nutrition</span>
+              <span id="rewardNutrition" class="reward-chip">ยังไม่ได้รับ</span>
             </div>
+            <div id="chainNutrition" class="chain-list"></div>
           </div>
 
-          <div class="mission-chain-steps" id="chainNutrition"></div>
-
-          <div class="mission-chain-reward">
-            <span class="reward-pill">🎁 Reward</span>
-            <span id="rewardNutrition">ยังไม่ได้รับ</span>
-          </div>
-        </div>
-
-        <div class="mission-chain-card fitness">
-          <div class="mission-chain-head">
-            <div class="mission-chain-icon">🏃</div>
-            <div>
-              <div class="mission-chain-title">Action Mission</div>
-              <div class="mission-chain-sub">JumpDuck → Shadow Breaker → Balance Hold</div>
+          <div class="chain-zone">
+            <div class="chain-zone-head">
+              <span>🏃 Fitness</span>
+              <span id="rewardFitness" class="reward-chip">ยังไม่ได้รับ</span>
             </div>
-          </div>
-
-          <div class="mission-chain-steps" id="chainFitness"></div>
-
-          <div class="mission-chain-reward">
-            <span class="reward-pill">🎁 Reward</span>
-            <span id="rewardFitness">ยังไม่ได้รับ</span>
+            <div id="chainFitness" class="chain-list"></div>
           </div>
         </div>
-      </div>
+      </article>
 
-      <div class="sticker-shelf">
-        <div class="sticker-shelf-head">
-          <h4>🌟 ชั้นสติกเกอร์ของวันนี้</h4>
-          <p>เล่นครบภารกิจแล้วจะได้สติกเกอร์สะสมตรงนี้</p>
-        </div>
-        <div id="stickerShelf" class="sticker-shelf-grid"></div>
-      </div>
+      <article class="panel dashboard-card">
+        <h3 class="section-title">🏅 Sticker Shelf</h3>
+        <div id="stickerShelf" class="sticker-shelf"></div>
+      </article>
     </section>
 
     <section class="content">
       <div class="zones">
-
         <article id="zoneCard-hygiene" class="zone-card hygiene" data-zone-card="hygiene">
           <div class="zone-left">
             <div class="zone-top">
@@ -334,16 +282,16 @@
 
         <section class="panel section">
           <h3 class="section-title">🗺️ คลังเกมฮีโร่</h3>
-          <p class="section-note">กดเล่นเกมแนะนำ หรือเล่นซ้ำเกมล่าสุดของแต่ละโซนได้เลย</p>
+          <p class="section-note">กดเล่นเกมแนะนำ หรือเลือกทุกเกมทุกโหมดได้เลย</p>
           <div id="libraryBox" class="library-box"></div>
         </section>
       </aside>
     </section>
 
-    <section class="panel diagnostics-panel" id="diagnosticsPanel" hidden>
-      <div class="quick-stats-head">
-        <h3 class="section-title" style="margin:0;">🛠️ Diagnostics Panel</h3>
-        <div class="quick-stats-actions">
+    <section id="diagnosticsPanel" class="panel diagnostics" hidden>
+      <div class="diagnostics-head">
+        <h3 class="section-title">🧪 Diagnostics</h3>
+        <div class="diag-actions">
           <button id="btnCopyDebugSnapshot" class="btn secondary small" type="button">📋 Copy Snapshot</button>
           <button id="btnCloseDiagnostics" class="btn secondary small" type="button">✖ ปิด</button>
         </div>
@@ -351,36 +299,35 @@
 
       <div class="diag-grid">
         <div class="diag-card">
-          <h4>Current Context</h4>
-          <pre id="diagContext">-</pre>
+          <h4>Context</h4>
+          <pre id="diagContext"></pre>
         </div>
-
         <div class="diag-card">
-          <h4>Warmup Today</h4>
-          <pre id="diagWarmup">-</pre>
+          <h4>Warmup / Cooldown</h4>
+          <pre id="diagWarmup"></pre>
         </div>
-
         <div class="diag-card">
           <h4>Last Summary</h4>
-          <pre id="diagLastSummary">-</pre>
+          <pre id="diagLastSummary"></pre>
         </div>
-
         <div class="diag-card">
-          <h4>Recent By Zone</h4>
-          <pre id="diagRecentByZone">-</pre>
+          <h4>Recent by Zone</h4>
+          <pre id="diagRecentByZone"></pre>
         </div>
-
         <div class="diag-card diag-card-wide">
           <h4>Resolved Routes</h4>
-          <pre id="diagResolvedRoutes">-</pre>
+          <pre id="diagResolvedRoutes"></pre>
         </div>
-
         <div class="diag-card diag-card-wide">
-          <h4>Quick Jump Links</h4>
+          <h4>Quick Links</h4>
           <div id="diagQuickLinks" class="diag-links"></div>
         </div>
       </div>
     </section>
+
+    <div class="footer-tools">
+      <button id="btnDiagnostics" class="btn secondary small" type="button">🧪 Diagnostics</button>
+    </div>
 
     <p class="footer-note">
       HeroHealth Hub v2 • child-friendly • cute mode • mobile-first
@@ -391,7 +338,6 @@
 
   <div id="gamePicker" class="modal" aria-hidden="true">
     <div class="modal-backdrop" data-close-picker></div>
-
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
       <div class="modal-head">
         <h3 id="pickerTitle">เลือกเกม</h3>
@@ -401,8 +347,8 @@
       <p id="pickerSub" class="modal-sub">เลือกเกมที่อยากเล่นได้เลย</p>
 
       <div class="picker-toolbar">
-        <button id="pickerShowRecommended" class="btn secondary small" type="button">✨ แนะนำ</button>
-        <button id="pickerShowAllModes" class="btn secondary small" type="button">🎮 ทุกเกม</button>
+        <button id="pickerShowRecommended" class="btn secondary small" type="button">🎮 แนะนำ</button>
+        <button id="pickerShowAllModes" class="btn secondary small" type="button">🗺️ ทุกเกม</button>
         <button id="pickerShowRecent" class="btn secondary small" type="button">🕹️ ล่าสุด</button>
       </div>
 
@@ -410,6 +356,6 @@
     </div>
   </div>
 
-  <script src="./hub-v2.js?v=20260329-final-ah"></script>
+  <script src="./hub-v2.js?v=20260329-final"></script>
 </body>
 </html>
