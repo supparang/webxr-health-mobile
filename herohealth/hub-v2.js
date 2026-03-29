@@ -27,6 +27,11 @@
     lastByZone: 'HHA_LAST_BY_ZONE'
   };
 
+  const STORAGE_MISSIONS = {
+    chain: 'HHA_MISSION_CHAIN_PROGRESS',
+    stickers: 'HHA_STICKER_SHELF'
+  };
+
   const MODE_LABELS = {
     solo: 'Solo',
     pro: 'PRO',
@@ -208,11 +213,6 @@
     nutrition: { emoji: '🥦', name: 'Yummy Hero' },
     fitness: { emoji: '⚡', name: 'Action Hero' },
     crown: { emoji: '👑', name: 'Super Hero Crown' }
-  };
-
-  const STORAGE_MISSIONS = {
-    chain: 'HHA_MISSION_CHAIN_PROGRESS',
-    stickers: 'HHA_STICKER_SHELF'
   };
 
   const FINAL_ROUTE_TABLE = {
@@ -499,21 +499,9 @@
     return meta?.url || '';
   }
 
-  function getStrictModeRoute(zone, game, modeId) {
-    if (!game) return '';
-    const gid = normalizeGameId(game.id);
-    const mid = normalizeModeId(modeId || game.defaultMode || 'solo');
-
-    const finalRoute = lookupFinalRoute(zone, gid, mid);
-    if (finalRoute) return finalRoute;
-
-    const fromGameModes = (game.modes || []).find((m) => normalizeModeId(m.id) === mid);
-    if (fromGameModes && fromGameModes.url) return fromGameModes.url;
-
-    const solo = (game.modes || []).find((m) => normalizeModeId(m.id) === 'solo');
-    if (solo && solo.url) return solo.url;
-
-    return '';
+  function getRouteType(zone, game, mode) {
+    const modeId = normalizeModeId(mode?.id || game?.defaultMode || 'solo');
+    return lookupFinalRouteMeta(zone, game?.id, modeId)?.type || 'run';
   }
 
   function makeRoomId(game, modeId) {
@@ -655,11 +643,6 @@
   function hasMultipleModes(zone, game) {
     const modes = getAllPlayableModes(zone, game);
     return modes.length > 1;
-  }
-
-  function getRouteType(zone, game, mode) {
-    const modeId = normalizeModeId(mode?.id || game?.defaultMode || 'solo');
-    return lookupFinalRouteMeta(zone, game?.id, modeId)?.type || 'run';
   }
 
   function readProfile() {
@@ -818,7 +801,8 @@
         url: resolvePlayableUrl(zone, game, mode),
         score: fmtInt(item.score, 0),
         stars: clamp(fmtInt(item.stars, 0), 0, 3),
-        time: item.timestampIso || item.time || item.date || ''
+        time: item.timestampIso || item.time || item.date || '',
+        timestampIso: item.timestampIso || item.time || item.date || ''
       };
     });
 
@@ -1129,13 +1113,32 @@
 
       host.querySelectorAll('[data-preview-game]').forEach((btn) => {
         btn.addEventListener('click', () => {
-          pickerState.zone = btn.getAttribute('data-preview-zone') || zone;
-          pickerState.gameId = btn.getAttribute('data-preview-game') || '';
+          const zoneValue = btn.getAttribute('data-preview-zone') || zone;
+          const gameId = btn.getAttribute('data-preview-game') || '';
+          const game = getGame(zoneValue, gameId);
+          if (!game) return;
+
+          const modes = getAllPlayableModes(zoneValue, game);
+          if (modes.length <= 1) {
+            const onlyMode = modes[0] || getDefaultMode(game);
+            const onlyUrl = onlyMode?.resolvedUrl || resolvePlayableUrl(zoneValue, game, onlyMode);
+            if (onlyUrl) location.href = onlyUrl;
+            return;
+          }
+
+          pickerState.zone = zoneValue;
+          pickerState.gameId = gameId;
           pickerState.step = 'modes';
           renderPickerModes();
         });
       });
     });
+  }
+
+  function GAMES_DEFAULT_URL(zone) {
+    const game = getDefaultGame(zone);
+    if (!game) return './hub-v2.html';
+    return resolvePlayableUrl(zone, game, getDefaultMode(game));
   }
 
   function renderLastSummary(lastSummary) {
@@ -1202,12 +1205,6 @@
     `;
   }
 
-  function GAMES_DEFAULT_URL(zone) {
-    const game = getDefaultGame(zone);
-    if (!game) return './hub-v2.html';
-    return resolvePlayableUrl(zone, game, getDefaultMode(game));
-  }
-
   function renderLibraryBox(lastByZone) {
     const box = $('#libraryBox');
     if (!box) return;
@@ -1255,18 +1252,34 @@
 
   function renderQuickStats(history, lastSummary) {
     const dayKey = todayKey();
-    const todayItems = (history || []).filter((item) => {
+    const todayItems = [...(history || [])];
+
+    if (lastSummary) {
+      const stamp = String(lastSummary.timestampIso || lastSummary.time || lastSummary.date || '');
+      const alreadyIncluded = todayItems.some((item) => {
+        const a = String(item.timestampIso || item.time || item.date || '');
+        const ag = String(item.gameId || item.game || '');
+        const bg = String(lastSummary.gameId || lastSummary.game || '');
+        return a === stamp && ag === bg;
+      });
+
+      if (stamp.startsWith(dayKey) && !alreadyIncluded) {
+        todayItems.push(lastSummary);
+      }
+    }
+
+    const filteredToday = todayItems.filter((item) => {
       const stamp = String(item.timestampIso || item.time || item.date || '');
       return stamp.startsWith(dayKey);
     });
 
     const zoneSet = new Set();
-    todayItems.forEach((item) => {
+    filteredToday.forEach((item) => {
       const zone = item.zone || zoneFromGameId(item.game || item.gameId || item.title || '');
       if (zone) zoneSet.add(zone);
     });
 
-    $('#todayPlayedCount') && ($('#todayPlayedCount').textContent = String(todayItems.length));
+    $('#todayPlayedCount') && ($('#todayPlayedCount').textContent = String(filteredToday.length));
     $('#todayZoneCount') && ($('#todayZoneCount').textContent = String(zoneSet.size));
     $('#todayLastGame') && ($('#todayLastGame').textContent =
       lastSummary ? String(lastSummary.title || lastSummary.game || lastSummary.gameId || 'ล่าสุด') : 'ยังไม่มี');
@@ -1303,6 +1316,19 @@
     el.classList.add('show');
     clearTimeout(toast._t);
     toast._t = setTimeout(() => el.classList.remove('show'), 1800);
+  }
+
+  function getMostRecentZoneEntry(lastByZone) {
+    const items = Object.values(lastByZone || {}).filter(Boolean);
+    if (!items.length) return null;
+
+    items.sort((a, b) => {
+      const ta = Date.parse(a.time || '') || 0;
+      const tb = Date.parse(b.time || '') || 0;
+      return tb - ta;
+    });
+
+    return items[0] || null;
   }
 
   function openPicker(zone, kind = 'all') {
@@ -1373,8 +1399,22 @@
 
     list.querySelectorAll('.picker-item[data-game-id]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        pickerState.zone = btn.getAttribute('data-zone') || pickerState.zone;
-        pickerState.gameId = btn.getAttribute('data-game-id') || '';
+        const zone = btn.getAttribute('data-zone') || pickerState.zone;
+        const gameId = btn.getAttribute('data-game-id') || '';
+        const game = getGame(zone, gameId);
+        if (!game) return;
+
+        const modes = getAllPlayableModes(zone, game);
+        if (modes.length <= 1) {
+          const onlyMode = modes[0] || getDefaultMode(game);
+          const onlyUrl = onlyMode?.resolvedUrl || resolvePlayableUrl(zone, game, onlyMode);
+          closePicker();
+          if (onlyUrl) location.href = onlyUrl;
+          return;
+        }
+
+        pickerState.zone = zone;
+        pickerState.gameId = gameId;
         pickerState.step = 'modes';
         renderPickerModes();
       });
@@ -1418,7 +1458,7 @@
         <button class="picker-item mode-${escapeHtml(mode.id)}" type="button" data-mode-id="${escapeHtml(mode.id)}">
           <span class="picker-item-top">
             <span class="name">${escapeHtml(MODE_LABELS[mode.id] || mode.id)}</span>
-            ${mode.id === game.defaultMode
+            ${normalizeModeId(mode.id) === normalizeModeId(game.defaultMode)
               ? '<span class="picker-badge recommended">แนะนำ</span>'
               : '<span class="picker-badge mode">โหมด</span>'}
           </span>
@@ -1553,14 +1593,10 @@
     });
 
     $('#btnQuickRecent')?.addEventListener('click', () => {
-      const recentZones = Object.keys(lastByZone || {});
-      if (recentZones.length) {
-        const zone = recentZones[recentZones.length - 1];
-        const item = lastByZone[zone];
-        if (item?.url) {
-          location.href = item.url;
-          return;
-        }
+      const recent = getMostRecentZoneEntry(lastByZone);
+      if (recent?.url) {
+        location.href = recent.url;
+        return;
       }
       toast('ยังไม่มีเกมล่าสุด');
     });
@@ -1584,9 +1620,41 @@
     const nutDef = getDefaultGame('nutrition');
     const fitDef = getDefaultGame('fitness');
 
-    if (playHyg && hygDef) playHyg.href = resolvePlayableUrl('hygiene', hygDef, getDefaultMode(hygDef));
-    if (playNut && nutDef) playNut.href = resolvePlayableUrl('nutrition', nutDef, getDefaultMode(nutDef));
-    if (playFit && fitDef) playFit.href = resolvePlayableUrl('fitness', fitDef, getDefaultMode(fitDef));
+    if (playHyg && hygDef) {
+      if (hasMultipleModes('hygiene', hygDef)) {
+        playHyg.href = '#';
+        playHyg.addEventListener('click', (e) => {
+          e.preventDefault();
+          openPicker('hygiene', 'recommended');
+        });
+      } else {
+        playHyg.href = resolvePlayableUrl('hygiene', hygDef, getDefaultMode(hygDef));
+      }
+    }
+
+    if (playNut && nutDef) {
+      if (hasMultipleModes('nutrition', nutDef)) {
+        playNut.href = '#';
+        playNut.addEventListener('click', (e) => {
+          e.preventDefault();
+          openPicker('nutrition', 'recommended');
+        });
+      } else {
+        playNut.href = resolvePlayableUrl('nutrition', nutDef, getDefaultMode(nutDef));
+      }
+    }
+
+    if (playFit && fitDef) {
+      if (hasMultipleModes('fitness', fitDef)) {
+        playFit.href = '#';
+        playFit.addEventListener('click', (e) => {
+          e.preventDefault();
+          openPicker('fitness', 'recommended');
+        });
+      } else {
+        playFit.href = resolvePlayableUrl('fitness', fitDef, getDefaultMode(fitDef));
+      }
+    }
 
     zoneHyg?.addEventListener('click', () => openPicker('hygiene', 'all'));
     zoneNut?.addEventListener('click', () => openPicker('nutrition', 'all'));
@@ -1696,7 +1764,7 @@
     const btnCopy = $('#btnCopyDebugSnapshot');
 
     if (btnOpen) {
-      const debugEnabled = qs.get('debug') === '1' || qs.get('diag') === '1' || !qs.has('debug');
+      const debugEnabled = qs.get('debug') === '1' || qs.get('diag') === '1';
       if (!debugEnabled) {
         btnOpen.hidden = true;
       } else {
