@@ -1,0 +1,87 @@
+:root{
+  --page-bg1:var(--hh-sky-1);
+  --page-bg2:var(--hh-sky-2);
+  --page-bg3:var(--hh-sky-3);
+
+  --page-card:var(--hh-card);
+  --page-card-soft:var(--hh-card-soft);
+  --page-line:var(--hh-line);
+  --page-text:var(--hh-text);
+  --page-muted:var(--hh-muted);
+  --page-shadow:var(--hh-shadow);
+
+  --page-accent:var(--hh-nutri);
+  --page-accent-2:var(--hh-green-2);
+  --page-accent-soft:var(--hh-nutri-soft);
+}
+
+.gj-boss-preview{
+  padding:18px 16px;
+  display:grid;
+  grid-template-columns:92px 1fr;
+  gap:14px;
+  align-items:center;
+}
+
+.gj-boss-icon{
+  width:92px;
+  height:92px;
+  border-radius:24px;
+  display:grid;
+  place-items:center;
+  font-size:48px;
+  background:linear-gradient(180deg,#fff3de,#ffe0b8);
+  border:3px solid #ffd89b;
+  box-shadow:0 12px 24px rgba(255,181,71,.18);
+}
+
+.gj-boss-title{
+  margin:0 0 6px;
+  font-size:24px;
+  font-weight:1000;
+  color:#f59e0b;
+}
+
+.gj-boss-sub{
+  margin:0;
+  font-size:13px;
+  color:var(--page-muted);
+  line-height:1.7;
+  font-weight:900;
+}
+
+.gj-mini-badges{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+
+.gj-mini-badge{
+  padding:8px 12px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:1000;
+  border:2px solid var(--page-line);
+  background:#fff;
+  color:#6c6a61;
+  box-shadow:0 8px 18px rgba(86,155,194,.10);
+}
+
+@media (max-width:720px){
+  .gj-boss-preview{
+    grid-template-columns:72px 1fr;
+    gap:10px;
+  }
+
+  .gj-boss-icon{
+    width:72px;
+    height:72px;
+    font-size:38px;
+    border-radius:20px;
+  }
+
+  .gj-boss-title{
+    font-size:20px;
+  }
+}
