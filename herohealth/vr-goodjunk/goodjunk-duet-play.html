@@ -535,14 +535,19 @@
     .duet-result-mount{
       position:fixed;
       inset:0;
-      z-index:60;
+      z-index:99999;
       display:flex;
       align-items:center;
       justify-content:center;
       padding:18px;
-      background:rgba(255,255,255,.52);
-      backdrop-filter:blur(10px);
       overflow:auto;
+      background:rgba(245,252,255,.96);
+      backdrop-filter:none !important;
+      -webkit-backdrop-filter:none !important;
+      opacity:1 !important;
+      filter:none !important;
+      isolation:isolate;
+      transform:translateZ(0);
     }
 
     .duet-result-card{
@@ -551,12 +556,18 @@
       overflow:auto;
       border-radius:28px;
       border:1px solid var(--stroke);
-      background:#fffdf8fa;
+      background:#fffdf8;
       box-shadow:0 28px 80px rgba(0,0,0,.22);
       padding:18px;
       display:grid;
       gap:14px;
       position:relative;
+      opacity:1 !important;
+      filter:none !important;
+      visibility:visible !important;
+      backdrop-filter:none !important;
+      -webkit-backdrop-filter:none !important;
+      transform:none !important;
     }
 
     .duet-result-card.celebrate{
@@ -595,6 +606,10 @@
       border:1px solid var(--stroke);
       background:#fff;
       padding:14px;
+      backdrop-filter:none !important;
+      -webkit-backdrop-filter:none !important;
+      filter:none !important;
+      opacity:1 !important;
     }
 
     .duet-praise-top{
@@ -807,6 +822,7 @@
       animation-name:duetConfettiFall;
       animation-timing-function:linear;
       animation-iteration-count:1;
+      filter:none !important;
     }
 
     .duet-confetti-piece.pink{ background:#ff9fca; }
@@ -831,32 +847,147 @@
 
     @media (max-width:760px){
       body{ overflow:auto; }
+
       .duet-result-mount{
         padding:10px;
         align-items:flex-end;
       }
+
       .duet-result-card{
         border-radius:22px;
         padding:12px;
       }
+
       .duet-result-title{
         font-size:22px;
       }
+
       .duet-result-sub{
         font-size:12px;
       }
+
       .duet-mobile-quick-actions{
         display:grid;
         grid-template-columns:1fr 1fr;
       }
+
       .duet-result-actions{
         display:grid;
         grid-template-columns:1fr;
         gap:10px;
       }
+
       .duet-result-actions .btn{
         flex:auto;
         width:100%;
+      }
+    }
+
+    /* === PATCH v20260329-DUET-SUMMARY-UNBLUR-HARDFIX === */
+    #duetResultMount{
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      overflow: auto;
+      padding: 14px;
+      background: rgba(245,252,255,.96) !important;
+      opacity: 1 !important;
+      filter: none !important;
+      isolation: isolate;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      transform: translateZ(0);
+    }
+
+    #duetResultMount[hidden]{
+      display: none !important;
+    }
+
+    #duetResultMount::before,
+    #duetResultMount::after{
+      content: none !important;
+      display: none !important;
+    }
+
+    #duetResultMount .duet-result-card{
+      position: relative;
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      border-radius: 28px;
+      background: #fffdf8 !important;
+      color: #244f6d !important;
+      opacity: 1 !important;
+      filter: none !important;
+      visibility: visible !important;
+      overflow: visible !important;
+      box-shadow: 0 18px 48px rgba(33,66,88,.16) !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      transform: none !important;
+    }
+
+    #duetResultMount .duet-result-card,
+    #duetResultMount .duet-result-card *{
+      filter: none !important;
+      visibility: visible !important;
+    }
+
+    #duetResultMount .duet-summary-head,
+    #duetResultMount .duet-summary-hero,
+    #duetResultMount .duet-medals,
+    #duetResultMount .duet-judge-box,
+    #duetResultMount .duet-compare-grid,
+    #duetResultMount .duet-adaptive-card,
+    #duetResultMount .duet-research-grid,
+    #duetResultMount .duet-export-card,
+    #duetResultMount .duet-praise,
+    #duetResultMount .duet-sum-top,
+    #duetResultMount .duet-sum-stats,
+    #duetResultMount .duet-recap,
+    #duetResultMount .duet-result-actions{
+      opacity: 1 !important;
+      filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+
+    #duetResultMount .duet-export-jsonbox,
+    #duetResultMount .duet-export-tagbox,
+    #duetResultMount .duet-research-card,
+    #duetResultMount .duet-adaptive-card,
+    #duetResultMount .duet-judge-box,
+    #duetResultMount .duet-compare-card{
+      background: #ffffff !important;
+      opacity: 1 !important;
+      filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+
+    #duetResultMount .duet-export-json,
+    #duetResultMount .duet-export-tag{
+      background: #ffffff !important;
+      color: #244f6d !important;
+      opacity: 1 !important;
+      filter: none !important;
+    }
+
+    #duetResultMount .duet-confetti{
+      pointer-events: none;
+    }
+
+    #duetResultMount .duet-confetti-piece{
+      opacity: .9 !important;
+      filter: none !important;
+    }
+
+    @media (max-width:760px){
+      #duetResultMount{
+        padding: 10px 10px calc(14px + env(safe-area-inset-bottom, 0px));
+      }
+
+      #duetResultMount .duet-result-card{
+        border-radius: 24px;
       }
     }
   </style>
@@ -1002,7 +1133,7 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-  <script src="../firebase-config.js?v=20260327-fix-init-v1"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260327-fix-init-v1"></script>
+  <script src="../firebase-config.js?v=20260329-summary-unblur-v1"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260329-summary-unblur-v1"></script>
 </body>
 </html>
