@@ -164,31 +164,6 @@
     .summary-stars{ display:flex; justify-content:center; gap:10px; margin:12px 0 14px; flex-wrap:wrap; }
     .summary-star{ font-size:48px; line-height:1; filter:drop-shadow(0 6px 12px rgba(0,0,0,.12)); }
     .summary-star.off{ opacity:.22; filter:none; }
-
-    .summary-ribbons{
-      display:flex;
-      justify-content:center;
-      gap:8px;
-      flex-wrap:wrap;
-      margin:0 0 14px;
-    }
-    .summary-ribbon{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#6d6a62;
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-    .summary-ribbon.phaseA{ background:#eefbff; }
-    .summary-ribbon.phaseB{ background:#fff7dd; }
-    .summary-ribbon.phaseC{ background:#ffe7e7; }
-
     .summary-scorecard{
       margin:0 auto 14px; width:min(480px,100%); border-radius:24px; background:#fff;
       border:3px solid #f0ddbc; box-shadow:0 10px 22px rgba(86,155,194,.10); padding:16px 14px; text-align:center;
@@ -237,8 +212,7 @@
           <div class="kicker">⚔️ GOODJUNK BATTLE</div>
           <h1>Food Battle!</h1>
           <p class="sub">
-            แตะเก็บอาหารดีให้ไว ระวัง junk ใช้ ATTACK ตอนชาร์จเต็ม
-            และใช้ GUARD กันจังหวะสวนจากคู่แข่ง
+            แตะเก็บอาหารดีให้ไว ระวัง junk ใช้ ATTACK ตอนชาร์จเต็ม และใช้ GUARD กันจังหวะสวนจากคู่แข่ง
           </p>
         </div>
 
@@ -257,7 +231,7 @@
         <div class="status-head">
           <div class="status-badge" id="engineStatusBadge">⚔️</div>
           <div class="status-headtext">
-            <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
+            <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม...</div>
             <div id="engineStatusText">กำลังโหลด battle safe + engine</div>
             <div class="status-sub" id="engineStatusSub">เกมจะเริ่มเองเมื่อโหลดพร้อม</div>
           </div>
@@ -302,7 +276,6 @@
         <p class="summary-sub" id="summarySub">จบรอบแล้ว มาดูผลการปะทะกัน</p>
 
         <div class="summary-stars" id="summaryStars"></div>
-        <div class="summary-ribbons" id="summaryRibbons"></div>
 
         <div class="summary-scorecard">
           <div class="summary-scorelabel">Score</div>
@@ -332,8 +305,8 @@
       const MODE = 'battle';
       const MODE_LABEL = 'Battle';
 
-      const SAFE_LAYER_SRC = './goodjunk.safe.battle.js?v=20260328-GOODJUNK-BATTLE-SAFE-R4';
-      const ENGINE_SRC = './goodjunk-battle.safe.js?v=20260328-GOODJUNK-BATTLE-ENGINE-R4';
+      const SAFE_LAYER_SRC = './goodjunk.safe.battle.js?v=20260328-GOODJUNK-BATTLE-SAFE-R2';
+      const ENGINE_SRC = './goodjunk-battle.safe.js?v=20260328-GOODJUNK-BATTLE-ENGINE-R2';
 
       function qs(key, fb=''){ return q.get(key) ?? fb; }
       function clean(v){ return String(v || '').trim(); }
@@ -406,7 +379,7 @@
         name: playerName,
         nick: playerName,
         studyId: qs('studyId',''),
-        roomId,
+        roomId: roomId,
         room: roomId,
         role: qs('role','player'),
         mode: MODE,
@@ -425,8 +398,8 @@
       window.__GJ_MULTI_RUN_CTX__ = runCtx;
       window.RUN_CTX = Object.assign({}, window.RUN_CTX || {}, runCtx);
       window.HHA_BATTLE_BOOT = Object.assign({}, runCtx, {
-        roomId,
-        room,
+        roomId: roomId,
+        room: roomId,
         pid: playerPid,
         uid: queryUid,
         playerId: queryUid,
@@ -559,18 +532,6 @@
         const players = src.players ?? src.playerCount ?? src.totalPlayers ?? '';
         const result = src.result ?? src.outcome ?? src.status ?? (rank !== '' ? `อันดับ ${rank}` : 'จบรอบแล้ว');
         const reason = src.reason ?? src.finishReason ?? src.endReason ?? '';
-        const damageDealt = src.damageDealt ?? '';
-        const damageTaken = src.damageTaken ?? '';
-        const attacksUsed = src.attacksUsed ?? '';
-        const guardsUsed = src.guardsUsed ?? '';
-        const blockedDamage = src.blockedDamage ?? '';
-        const critHits = src.critHits ?? '';
-        const perfectGuards = src.perfectGuards ?? '';
-        const koCount = src.koCount ?? '';
-        const phase = src.phase ?? '';
-        const lastAction = src.lastAction ?? '';
-        const hp = src.hp ?? '';
-        const maxHp = src.maxHp ?? '';
 
         return enrichSummaryWithHero({
           mode: MODE,
@@ -589,18 +550,6 @@
           miss,
           bestStreak: streak,
           reason,
-          damageDealt,
-          damageTaken,
-          attacksUsed,
-          guardsUsed,
-          blockedDamage,
-          critHits,
-          perfectGuards,
-          koCount,
-          phase,
-          lastAction,
-          hp,
-          maxHp,
           raw: src,
           receivedAt: Date.now()
         });
@@ -641,38 +590,6 @@
         return parts.join(' • ') || 'จบรอบแล้ว มาดูผลการปะทะกัน';
       }
 
-      function buildBattleRibbons(summary){
-        const ribbons = [];
-
-        if (summary.phase) {
-          ribbons.push(`<div class="summary-ribbon phase${summary.phase}">🔥 PHASE ${summary.phase}</div>`);
-        }
-        if (Number(summary.critHits || 0) > 0) {
-          ribbons.push(`<div class="summary-ribbon">💥 Critical ${summary.critHits}</div>`);
-        }
-        if (Number(summary.perfectGuards || 0) > 0) {
-          ribbons.push(`<div class="summary-ribbon">🛡 Perfect Guard ${summary.perfectGuards}</div>`);
-        }
-        if (Number(summary.blockedDamage || 0) > 0) {
-          ribbons.push(`<div class="summary-ribbon">✨ Blocked ${summary.blockedDamage}</div>`);
-        }
-
-        return ribbons.join('');
-      }
-
-      const lastActionLabelMap = {
-        attack: '⚡ โจมตี',
-        'crit-attack': '💥 คริจิคอล',
-        guard: '🛡 เปิดการ์ด',
-        block: '🛡 กันได้',
-        'perfect-guard': '✨ Perfect Guard',
-        hit: '💢 โดนโจมตี',
-        ko: '💥 KO',
-        collect: '🍎 เก็บอาหารดี',
-        junk: '🍩 โดน junk',
-        miss: '❌ พลาด'
-      };
-
       const SUMMARY_KEY = 'GJ_BATTLE_LAST_SUMMARY_' + (roomId || 'noroom') + '_' + (playerPid || 'anon');
 
       function showSummary(detail){
@@ -689,7 +606,6 @@
         $('summaryTitle').textContent = hero.title;
         $('summarySub').textContent = summarySubText(summary);
         $('summaryStars').innerHTML = renderSummaryStars(stars);
-        $('summaryRibbons').innerHTML = buildBattleRibbons(summary);
         $('summaryScoreValue').textContent = String(summary.score ?? 0);
 
         $('summaryGrid').innerHTML =
@@ -701,16 +617,6 @@
           addSummaryItem('ผู้เล่นทั้งหมด', summary.players) +
           addSummaryItem('Miss', summary.miss) +
           addSummaryItem('Best Streak', summary.bestStreak) +
-          addSummaryItem('Damage Dealt', summary.damageDealt) +
-          addSummaryItem('Damage Taken', summary.damageTaken) +
-          addSummaryItem('Attacks Used', summary.attacksUsed) +
-          addSummaryItem('Guards Used', summary.guardsUsed) +
-          addSummaryItem('Blocked Damage', summary.blockedDamage) +
-          addSummaryItem('Critical Hits', summary.critHits) +
-          addSummaryItem('Perfect Guards', summary.perfectGuards) +
-          addSummaryItem('KO', summary.koCount) +
-          addSummaryItem('Phase จบเกม', summary.phase) +
-          addSummaryItem('Last Action', lastActionLabelMap[summary.lastAction] || summary.lastAction || '') +
           addSummaryItem('ห้อง', summary.roomId || '-') +
           addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-');
 
