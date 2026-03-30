@@ -645,15 +645,33 @@
       function renderQr(){
         const link = buildLobbyUrl(S.roomId || makeCode());
         UI.joinLinkText.textContent = link;
-        if(!window.QRCode || !UI.qrCanvas) return;
+
+        if(!UI.qrCanvas) return;
+
+        const ctx2d = UI.qrCanvas.getContext('2d');
+        if (ctx2d) ctx2d.clearRect(0, 0, UI.qrCanvas.width, UI.qrCanvas.height);
+
+        if(!window.QRCode){
+          setSide('QR library ยังไม่พร้อม แต่ยังใช้ room code หรือ share link ได้');
+          return;
+        }
+
         QRCode.toCanvas(UI.qrCanvas, link, {
-          width:220, margin:1,
+          width:220,
+          margin:1,
           color:{ dark:'#20324d', light:'#ffffff' }
-        }, function(){});
+        }, function(err){
+          if (err) {
+            console.error('[race-lobby] QR render failed', err);
+            setSide('QR ยังไม่ขึ้น แต่ยังใช้ room code หรือ share link ได้');
+          }
+        });
       }
 
       function renderPlayers(){
         const players = Object.values(S.players || {}).sort((a,b)=>num(a.joinedAt,0)-num(b.joinedAt,0));
+        const hostPid = String((S.meta && S.meta.hostPid) || '');
+
         if(!players.length){
           UI.playersList.innerHTML = `
             <div class="player">
@@ -668,11 +686,14 @@
             </div>`;
           return;
         }
+
         UI.playersList.innerHTML = players.map((p)=>{
           const active = isActivePlayer(p);
-          const you = p.pid === S.uid;
-          const host = p.pid === (S.meta && S.meta.hostPid);
+          const pid = String(p.pid || '');
+          const you = pid === S.uid;
+          const host = hostPid && pid === hostPid;
           const badge = you ? 'YOU' : active ? 'LIVE' : 'OFFLINE';
+
           return `
             <div class="player">
               <div class="player-left">
@@ -861,6 +882,7 @@
 
           const nowTs = Date.now();
           const initialSeed = String(getSeed());
+
           await S.refs.meta.set({
             roomId:S.roomId,
             game:'goodjunk',
@@ -871,6 +893,7 @@
             createdAt:nowTs,
             updatedAt:nowTs
           });
+
           await S.refs.state.set({
             status:'waiting',
             plannedSec:getTime(),
@@ -880,6 +903,27 @@
             countdownEndsAt:null,
             startAt:null
           });
+
+          S.meta = {
+            roomId:S.roomId,
+            game:'goodjunk',
+            mode:MODE_ID,
+            diff:getDiff(),
+            seed: initialSeed,
+            hostPid:S.uid,
+            createdAt:nowTs,
+            updatedAt:nowTs
+          };
+
+          S.state = {
+            status:'waiting',
+            plannedSec:getTime(),
+            seed: initialSeed,
+            createdAt:nowTs,
+            updatedAt:nowTs,
+            countdownEndsAt:null,
+            startAt:null
+          };
 
           await joinBoundRoom(true);
         } catch (err) {
@@ -960,6 +1004,17 @@
           startedAt:null,
           updatedAt:Date.now()
         });
+
+        S.meta.diff = sharedDiff;
+        S.meta.seed = sharedSeed;
+        S.state.status = 'countdown';
+        S.state.plannedSec = sharedTime;
+        S.state.seed = sharedSeed;
+        S.state.countdownEndsAt = sharedStartAt;
+        S.state.startAt = sharedStartAt;
+
+        renderState();
+        renderCountdown();
       }
 
       function goRun(){
