@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Hydration Coop Run Bridge</title>
+</head>
+<body>
+<script>
+(function(){
+  const q = new URLSearchParams(location.search);
+  const u = new URL('./hydration-vr.html', location.href);
+
+  q.forEach((value, key) => {
+    u.searchParams.set(key, value);
+  });
+
+  u.searchParams.set('mode', 'coop');
+  u.searchParams.set('multiplayer', '1');
+
+  location.replace(u.toString());
+})();
+</script>
+</body>
+</html>
