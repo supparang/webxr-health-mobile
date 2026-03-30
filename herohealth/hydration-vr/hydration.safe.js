@@ -1,11 +1,10 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// FULL PATCH v20260329-HYDRATION-SOLO-MOBILE-TARGETFIX-UI
-// เป้าหมาย:
-// - แก้เป้าไม่โผล่บน mobile
-// - บังคับ starter targets ตอนเริ่ม
-// - ถ้าจอว่างเกิน 0.85s ให้สร้างเป้าใหม่อัตโนมัติ
-// - ปรับ logic spawn ให้อยู่ใน safe play area
-// - UI hook เข้ากับ hydration-vr.html / hydration-vr.css ชุดใหม่
+// FULL PATCH v20260329h-HYDRATION-DUET-FULL
+// - HeroHealth UI
+// - mobile readability
+// - storm / boss / final rush drama
+// - duet sync barrier
+// - duet combined summary
 
 export async function boot() {
   const WIN = window;
@@ -63,6 +62,45 @@ export async function boot() {
   const r01 = () => rand();
   const pick = (arr) => arr[Math.floor(r01() * arr.length)] || arr[0];
 
+  const diff = String(qs('diff', 'normal')).toLowerCase();
+  const view = String(qs('view', 'mobile')).toLowerCase();
+  const hubUrl = String(qs('hub', '../hub.html'));
+  const game = String(qs('game', 'hydration'));
+  const theme = String(qs('theme', 'hydration'));
+  const zone = String(qs('zone', 'nutrition'));
+  const cat = String(qs('cat', zone || 'nutrition'));
+  const mode = String(qs('mode', 'solo'));
+  const pid = String(qs('pid', 'anon'));
+  const nick = String(qs('nick', qs('nickName', 'Player'))) || 'Player';
+  const runMode = String(qs('run', 'play'));
+  const cooldownRequired = String(qs('cooldown', '1')) !== '0';
+  const plannedSecRaw = Number(qs('time', diff === 'hard' ? 90 : 80));
+  const plannedSec = clamp(
+    Number.isFinite(plannedSecRaw) && plannedSecRaw > 0
+      ? plannedSecRaw
+      : (diff === 'hard' ? 90 : 80),
+    30,
+    300
+  );
+
+  const duet = {
+    enabled: mode === 'duet' && String(qs('multiplayer', '0')) === '1',
+    roomCode: String(qs('roomCode', '')),
+    uid: String(qs('uid', '')),
+    db: null,
+    roomRef: null,
+    roomData: null,
+    isHost: false,
+    started: false,
+    armedAt: 0,
+    startCommitSent: false,
+    waitingForPeerEnd: false,
+    combinedShown: false,
+    roomListener: null,
+    countdownTimer: 0,
+    gateStartedAt: 0
+  };
+
   const ui = {
     stage: DOC.getElementById('stage'),
     layer: DOC.getElementById('layer'),
@@ -70,6 +108,14 @@ export async function boot() {
     calloutLayer: DOC.getElementById('calloutLayer'),
     stickerBurst: DOC.getElementById('stickerBurst'),
     bossFace: DOC.getElementById('bossFace'),
+    stageMascotFace: DOC.getElementById('stageMascotFace'),
+    stageMascotMood: DOC.getElementById('stageMascotMood'),
+
+    hhPlayerName: DOC.getElementById('hhPlayerName'),
+    hhPlayerHint: DOC.getElementById('hhPlayerHint'),
+    hhDiffText: DOC.getElementById('hhDiffText'),
+    hhViewText: DOC.getElementById('hhViewText'),
+    hhTimeText: DOC.getElementById('hhTimeText'),
 
     score: DOC.getElementById('uiScore'),
     time: DOC.getElementById('uiTime'),
@@ -85,6 +131,8 @@ export async function boot() {
     coolDone: DOC.getElementById('uiCoolDone'),
     aiRisk: DOC.getElementById('aiRisk'),
     aiHint: DOC.getElementById('aiHint'),
+    aiRiskMini: DOC.getElementById('aiRiskMini'),
+    aiHintMini: DOC.getElementById('aiHintMini'),
     coachExplain: DOC.getElementById('coachExplain'),
     riskFill: DOC.getElementById('riskFill'),
 
@@ -97,6 +145,15 @@ export async function boot() {
     missionChipHit: DOC.getElementById('missionChipHit'),
     missionChipBlock: DOC.getElementById('missionChipBlock'),
     missionChipCombo: DOC.getElementById('missionChipCombo'),
+
+    duetOverlay: DOC.getElementById('duetOverlay'),
+    duetGateTitle: DOC.getElementById('duetGateTitle'),
+    duetGateSub: DOC.getElementById('duetGateSub'),
+    duetGateMeName: DOC.getElementById('duetGateMeName'),
+    duetGatePeerName: DOC.getElementById('duetGatePeerName'),
+    duetGateMeState: DOC.getElementById('duetGateMeState'),
+    duetGatePeerState: DOC.getElementById('duetGatePeerState'),
+    duetGateCountdown: DOC.getElementById('duetGateCountdown'),
 
     helpOverlay: DOC.getElementById('helpOverlay'),
     btnHelp: DOC.getElementById('btnHelp'),
@@ -115,6 +172,8 @@ export async function boot() {
     endScore: DOC.getElementById('endScore'),
     endMiss: DOC.getElementById('endMiss'),
     endWater: DOC.getElementById('endWater'),
+    endPhaseMini: DOC.getElementById('endPhaseMini'),
+    endStars: DOC.getElementById('endStars'),
     endCoach: DOC.getElementById('endCoach'),
     endPhaseSummary: DOC.getElementById('endPhaseSummary'),
     endReward: DOC.getElementById('endReward'),
@@ -123,6 +182,17 @@ export async function boot() {
     endRewardCard: DOC.getElementById('endRewardCard'),
     endRewardMini: DOC.getElementById('endRewardMini'),
     endStickerRow: DOC.getElementById('endStickerRow'),
+    btnEndToggleDetail: DOC.getElementById('btnEndToggleDetail'),
+    endDetailWrap: DOC.getElementById('endDetailWrap'),
+
+    duetEndBoard: DOC.getElementById('duetEndBoard'),
+    duetEndMeName: DOC.getElementById('duetEndMeName'),
+    duetEndMeScore: DOC.getElementById('duetEndMeScore'),
+    duetEndMeMeta: DOC.getElementById('duetEndMeMeta'),
+    duetEndPeerName: DOC.getElementById('duetEndPeerName'),
+    duetEndPeerScore: DOC.getElementById('duetEndPeerScore'),
+    duetEndPeerMeta: DOC.getElementById('duetEndPeerMeta'),
+    duetEndWinner: DOC.getElementById('duetEndWinner'),
 
     btnCopy: DOC.getElementById('btnCopy'),
     btnCopyEvents: DOC.getElementById('btnCopyEvents'),
@@ -149,28 +219,6 @@ export async function boot() {
   const stageEl = ui.stage;
   const layer = ui.layer;
   if (!stageEl || !layer) return;
-
-  const diff = String(qs('diff', 'normal')).toLowerCase();
-  const view = String(qs('view', 'mobile')).toLowerCase();
-  const hubUrl = String(qs('hub', '../hub.html'));
-  const game = String(qs('game', 'hydration'));
-  const theme = String(qs('theme', 'hydration'));
-  const zone = String(qs('zone', 'nutrition'));
-  const cat = String(qs('cat', zone || 'nutrition'));
-  const mode = String(qs('mode', 'solo'));
-  const pid = String(qs('pid', 'anon'));
-  const nick = String(qs('nick', qs('nickName', 'Player'))) || 'Player';
-  const runMode = String(qs('run', 'play'));
-  const cooldownRequired = String(qs('cooldown', '1')) !== '0';
-
-  const plannedSecRaw = Number(qs('time', diff === 'hard' ? 90 : 80));
-  const plannedSec = clamp(
-    Number.isFinite(plannedSecRaw) && plannedSecRaw > 0
-      ? plannedSecRaw
-      : (diff === 'hard' ? 90 : 80),
-    30,
-    300
-  );
 
   const GOOD = ['💧', '💦', '🫗'];
   const BAD = ['🧋', '🥤', '🍟'];
@@ -222,7 +270,6 @@ export async function boot() {
     const bossSpan = bossEnd - stormEnd;
     const bossMood1End = stormEnd + bossSpan * 0.33;
     const bossMood2End = stormEnd + bossSpan * 0.66;
-
     return {
       total,
       normalEnd,
@@ -259,6 +306,7 @@ export async function boot() {
   let currentPhase = 'normal';
   let bossMood = 0;
   let phaseAnnounced = '';
+  let finalRushCelebrated = false;
 
   let lightningCd = 0;
   let lightningWarnTimer = 0;
@@ -310,13 +358,6 @@ export async function boot() {
     return WIN.matchMedia ? WIN.matchMedia('(max-width: 640px)').matches : WIN.innerWidth <= 640;
   }
 
-  function formatClock(sec) {
-    const s = Math.max(0, Math.ceil(sec));
-    const mm = String(Math.floor(s / 60)).padStart(2, '0');
-    const ss = String(s % 60).padStart(2, '0');
-    return `${mm}:${ss}`;
-  }
-
   function setText(el, v) {
     if (el) el.textContent = String(v ?? '');
   }
@@ -325,12 +366,41 @@ export async function boot() {
     if (el) el.classList.toggle(cls, !!on);
   }
 
+  function formatClock(sec) {
+    const s = Math.max(0, Math.ceil(sec));
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    return `${mm}:${ss}`;
+  }
+
   function safeLocalSet(key, value) {
     try { localStorage.setItem(key, value); } catch {}
   }
 
   function safeLocalGet(key, fallback = '') {
     try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
+  }
+
+  function niceDiffText(v) {
+    const s = String(v || '').toLowerCase();
+    if (s === 'easy') return 'Easy';
+    if (s === 'hard') return 'Hard';
+    return 'Normal';
+  }
+
+  function niceViewText(v) {
+    const s = String(v || '').toLowerCase();
+    if (s === 'pc') return 'PC';
+    if (s === 'cvr') return 'Cardboard';
+    return 'Mobile';
+  }
+
+  function bindKidHudMeta() {
+    setText(ui.hhPlayerName, nick || 'Player');
+    setText(ui.hhPlayerHint, 'Hydration Hero');
+    setText(ui.hhDiffText, niceDiffText(diff));
+    setText(ui.hhViewText, niceViewText(view));
+    setText(ui.hhTimeText, `${plannedSec} วินาที`);
   }
 
   function currentGrade() {
@@ -353,17 +423,14 @@ export async function boot() {
 
   function phaseProfile() {
     const elapsed = elapsedSec();
-
     if (elapsed < PHASE_PLAN.normalEnd) return { phase: 'normal', bossMood: 0 };
     if (elapsed < PHASE_PLAN.stormEnd) return { phase: 'storm', bossMood: 0 };
-
     if (elapsed < PHASE_PLAN.bossEnd) {
       let mood = 1;
       if (elapsed >= PHASE_PLAN.bossMood2End) mood = 3;
       else if (elapsed >= PHASE_PLAN.bossMood1End) mood = 2;
       return { phase: 'boss', bossMood: mood };
     }
-
     return { phase: 'final', bossMood: 0 };
   }
 
@@ -390,8 +457,7 @@ export async function boot() {
     stageEl.classList.toggle('is-final', currentPhase === 'final');
     stageEl.classList.toggle('is-fever', combo >= 10);
 
-    stageEl.classList.remove('boss-1', 'boss-2', 'boss-3', 'final-win');
-
+    stageEl.classList.remove('boss-1', 'boss-2', 'boss-3');
     if (currentPhase === 'boss') {
       if (bossMood === 1) stageEl.classList.add('boss-1');
       else if (bossMood === 2) stageEl.classList.add('boss-2');
@@ -413,6 +479,41 @@ export async function boot() {
         ui.bossFace.textContent = '⚡';
       }
     }
+  }
+
+  function showDuetOverlay() {
+    if (ui.duetOverlay) ui.duetOverlay.setAttribute('aria-hidden', 'false');
+  }
+
+  function hideDuetOverlay() {
+    if (ui.duetOverlay) ui.duetOverlay.setAttribute('aria-hidden', 'true');
+  }
+
+  function showHelp() {
+    helpOpen = true;
+    if (ui.helpOverlay) ui.helpOverlay.setAttribute('aria-hidden', 'false');
+  }
+
+  function hideHelp() {
+    helpOpen = false;
+    if (ui.helpOverlay) ui.helpOverlay.setAttribute('aria-hidden', 'true');
+    paused = false;
+    lastTick = nowMs();
+    ensureStarterTargets(true);
+    emergencySpawnIfEmpty();
+    scheduleLoop();
+  }
+
+  function showPause() {
+    paused = true;
+    if (ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden', 'false');
+  }
+
+  function hidePause() {
+    paused = false;
+    if (ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden', 'true');
+    lastTick = nowMs();
+    scheduleLoop();
   }
 
   function showCallout(text, tone = 'good') {
@@ -527,6 +628,147 @@ export async function boot() {
     }, 1050);
   }
 
+  function phaseCheerClass(kind) {
+    if (kind === 'storm') return 'phase-cheer-storm';
+    if (kind === 'boss') return 'phase-cheer-boss';
+    if (kind === 'rage') return 'phase-cheer-rage';
+    if (kind === 'final' || kind === 'rush') return 'phase-cheer-final';
+    return '';
+  }
+
+  function pulsePhaseCheer(kind) {
+    const cls = phaseCheerClass(kind);
+    if (!cls) return;
+    stageEl.classList.remove(
+      'phase-cheer-storm',
+      'phase-cheer-boss',
+      'phase-cheer-rage',
+      'phase-cheer-final'
+    );
+    stageEl.classList.add(cls);
+    setTimeout(() => {
+      stageEl.classList.remove(cls);
+    }, 380);
+  }
+
+  function makePhaseCheerLayer() {
+    const layerEl = DOC.createElement('div');
+    layerEl.className = 'phase-cheer-layer';
+    stageEl.appendChild(layerEl);
+    return layerEl;
+  }
+
+  function addPhaseRibbon(kind, title, sub) {
+    const layerEl = makePhaseCheerLayer();
+    const ribbon = DOC.createElement('div');
+    ribbon.className = `phase-ribbon ${kind}`;
+    ribbon.innerHTML = `
+      <span class="phase-ribbon-main">${title}</span>
+      <span class="phase-ribbon-sub">${sub}</span>
+    `;
+    layerEl.appendChild(ribbon);
+    setTimeout(() => {
+      try { layerEl.remove(); } catch {}
+    }, 1550);
+  }
+
+  function addPhaseBurstIcon(icon) {
+    const layerEl = makePhaseCheerLayer();
+    const node = DOC.createElement('div');
+    node.className = 'phase-burst-icon';
+    node.textContent = String(icon || '✨');
+    layerEl.appendChild(node);
+    setTimeout(() => {
+      try { layerEl.remove(); } catch {}
+    }, 1150);
+  }
+
+  function addPhaseSparkSpray(kind, icon) {
+    const layerEl = makePhaseCheerLayer();
+    const wrap = DOC.createElement('div');
+    wrap.className = 'phase-stars-spray';
+    layerEl.appendChild(wrap);
+
+    const count = isMobileCompact() ? 8 : 12;
+    for (let i = 0; i < count; i += 1) {
+      const spark = DOC.createElement('div');
+      spark.className = 'phase-spark';
+      spark.textContent = i % 3 === 0 ? icon : (kind === 'storm' ? '✨' : kind === 'final' ? '⭐' : '💥');
+      const left = 50 + lerp(-14, 14, r01());
+      const top = 34 + lerp(-6, 8, r01());
+      spark.style.left = `${left}%`;
+      spark.style.top = `${top}%`;
+      spark.style.setProperty('--tx', `${lerp(-120, 120, r01()).toFixed(0)}px`);
+      spark.style.setProperty('--ty', `${lerp(-90, 50, r01()).toFixed(0)}px`);
+      spark.style.animationDelay = `${(i * 0.03).toFixed(2)}s`;
+      wrap.appendChild(spark);
+    }
+
+    setTimeout(() => {
+      try { layerEl.remove(); } catch {}
+    }, 1350);
+  }
+
+  function addPhaseMilestoneChip(kind, text) {
+    const chip = DOC.createElement('div');
+    chip.className = `phase-milestone-chip ${kind}`;
+    chip.textContent = String(text || '');
+    stageEl.appendChild(chip);
+    setTimeout(() => {
+      try { chip.remove(); } catch {}
+    }, 1700);
+  }
+
+  function celebratePhaseEntry(kind, config) {
+    if (!config || !stageEl) return;
+    pulsePhaseCheer(kind);
+    addPhaseRibbon(kind, config.title, config.sub);
+    addPhaseBurstIcon(config.icon);
+    addPhaseSparkSpray(kind, config.spark || config.icon || '✨');
+    addPhaseMilestoneChip(kind, config.chip || config.title);
+  }
+
+  function pulseStage(kind) {
+    stageEl.classList.remove(
+      'stage-good-pop',
+      'stage-bad-pop',
+      'stage-bonus-pop',
+      'stage-shield-pop',
+      'stage-threat-pop'
+    );
+
+    const cls =
+      kind === 'good' ? 'stage-good-pop' :
+      kind === 'bad' ? 'stage-bad-pop' :
+      kind === 'bonus' ? 'stage-bonus-pop' :
+      kind === 'shield' ? 'stage-shield-pop' :
+      kind === 'threat' ? 'stage-threat-pop' :
+      '';
+
+    if (!cls) return;
+
+    stageEl.classList.add(cls);
+    setTimeout(() => {
+      stageEl.classList.remove(cls);
+    }, 220);
+  }
+
+  function bubbleBadge(kind) {
+    if (kind === 'good') return 'GOOD';
+    if (kind === 'bad') return 'BAD';
+    if (kind === 'shield') return 'SHIELD';
+    if (kind === 'bonus') return 'BONUS';
+    if (kind === 'threat') return 'BLOCK';
+    return '';
+  }
+
+  function bubbleFloatClass() {
+    const n = Math.floor(r01() * 3);
+    if (n === 0) return 'float-a';
+    if (n === 1) return 'float-b';
+    return 'float-c';
+  }
+
   function laneX(lane = 'C') {
     const rect = stageEl.getBoundingClientRect();
     const ratio = lane === 'L' ? 0.22 : lane === 'R' ? 0.78 : 0.50;
@@ -571,9 +813,7 @@ export async function boot() {
     let n = 0;
     for (const b of bubbles.values()) {
       if (!b || !b.el || !b.el.isConnected) continue;
-      if (['good', 'bad', 'shield', 'bonus', 'threat'].includes(String(b.kind || ''))) {
-        n += 1;
-      }
+      if (['good', 'bad', 'shield', 'bonus', 'threat'].includes(String(b.kind || ''))) n += 1;
     }
     return n;
   }
@@ -582,9 +822,7 @@ export async function boot() {
     let n = 0;
     for (const b of bubbles.values()) {
       if (!b || !b.el || !b.el.isConnected) continue;
-      if (['good', 'shield', 'bonus'].includes(String(b.kind || ''))) {
-        n += 1;
-      }
+      if (['good', 'shield', 'bonus'].includes(String(b.kind || ''))) n += 1;
     }
     return n;
   }
@@ -599,6 +837,9 @@ export async function boot() {
     const id = `b${++bubbleSeq}`;
     const el = DOC.createElement('button');
     el.className = `bubble bubble-${kind}`;
+    el.dataset.kind = kind;
+    el.dataset.badge = bubbleBadge(kind);
+    el.classList.add(bubbleFloatClass());
     el.type = 'button';
     el.textContent = String(emoji || '');
     el.dataset.id = id;
@@ -606,9 +847,6 @@ export async function boot() {
     el.style.top = `${pos.y}px`;
 
     if (kind === 'threat') {
-      el.style.background = 'radial-gradient(circle at 30% 28%, rgba(255,255,255,.34), transparent 24%), linear-gradient(180deg, rgba(255,216,92,.98), rgba(255,184,77,.94))';
-      el.style.border = '1px solid rgba(255,255,255,.24)';
-      el.style.boxShadow = 'inset 0 10px 18px rgba(255,255,255,.18), 0 10px 30px rgba(255,184,77,.24)';
       el.style.animation = 'threat-pulse .68s ease-in-out infinite alternate';
     }
 
@@ -630,12 +868,22 @@ export async function boot() {
     return item;
   }
 
+  function removeThreatLaneGuides() {
+    stageEl.querySelectorAll('.threat-lane-guide').forEach((node) => {
+      try { node.remove(); } catch {}
+    });
+  }
+
   function removeBubble(id) {
     const b = bubbles.get(id);
     if (!b) return;
     try { b.el.remove(); } catch {}
     bubbles.delete(id);
-    if (id === lightningThreatId) lightningThreatId = '';
+
+    if (id === lightningThreatId) {
+      lightningThreatId = '';
+      removeThreatLaneGuides();
+    }
   }
 
   function makeStarterBubble(kind, emoji, ttlSec, xr, yr, meta = {}) {
@@ -673,14 +921,6 @@ export async function boot() {
       makeStarterBubble('shield', pick(SHLD), 3.1, 0.50, 0.30);
     }
 
-    console.log('[hydration] ensureStarterTargets', {
-      force,
-      liveTargets: countLiveTargets(),
-      friendlyTargets: countFriendlyTargets(),
-      width: Math.round(rect.width),
-      height: Math.round(rect.height)
-    });
-
     showCallout('เริ่มได้เลย 💧', 'good');
   }
 
@@ -700,7 +940,6 @@ export async function boot() {
     }
 
     liveTargetWatchdogSec += dt;
-
     if (liveTargetWatchdogSec >= 0.85) {
       ensureStarterTargets(true);
       liveTargetWatchdogSec = 0;
@@ -715,31 +954,6 @@ export async function boot() {
       missed: 0,
       resolved: false
     };
-  }
-
-  function beginPatternRun(label, total) {
-    lightningPatternRun = {
-      label: String(label || ''),
-      total: Number(total || 0),
-      blocked: 0,
-      missed: 0,
-      resolved: false
-    };
-  }
-
-  function flashMiniPattern(ok) {
-    if (!ui.zoneSign) return;
-
-    const oldBg = ui.zoneSign.style.background;
-    const oldBorder = ui.zoneSign.style.borderColor;
-
-    ui.zoneSign.style.background = ok ? 'rgba(82,222,131,.22)' : 'rgba(255,107,122,.18)';
-    ui.zoneSign.style.borderColor = ok ? 'rgba(82,222,131,.55)' : 'rgba(255,107,122,.48)';
-
-    setTimeout(() => {
-      ui.zoneSign.style.background = oldBg;
-      ui.zoneSign.style.borderColor = oldBorder;
-    }, 420);
   }
 
   function tryResolvePatternRun() {
@@ -773,7 +987,6 @@ export async function boot() {
       showCallout(`แพทเทิร์นสำเร็จ +${bonus}`, 'good');
       spawnSticker('⚡ CLEAR');
       spawnSticker('🌟 BONUS');
-      flashMiniPattern(true);
 
       logEvent('lightning_pattern_clear', {
         label: lightningPatternRun.label,
@@ -781,7 +994,6 @@ export async function boot() {
         bonus
       });
     } else {
-      flashMiniPattern(false);
       logEvent('lightning_pattern_fail', {
         label: lightningPatternRun.label,
         total: lightningPatternRun.total,
@@ -795,18 +1007,15 @@ export async function boot() {
     if (currentPhase === 'storm') {
       return { good: 0.50, bad: 0.24, shield: 0.20, bonus: 0.06 };
     }
-
     if (currentPhase === 'boss') {
       if (bossMood === 1) return { good: 0.49, bad: 0.28, shield: 0.16, bonus: 0.07 };
       if (bossMood === 2) return { good: 0.45, bad: 0.33, shield: 0.14, bonus: 0.08 };
       return { good: 0.41, bad: 0.38, shield: 0.12, bonus: 0.09 };
     }
-
     if (currentPhase === 'final') {
       if (inFinalRushNow()) return { good: 0.43, bad: 0.35, shield: 0.12, bonus: 0.10 };
       return { good: 0.47, bad: 0.29, shield: 0.15, bonus: 0.09 };
     }
-
     return { good: 0.58, bad: 0.20, shield: 0.14, bonus: 0.08 };
   }
 
@@ -829,12 +1038,10 @@ export async function boot() {
       spawnAcc -= 1;
 
       const profile = getSpawnProfile();
-
       const bonusP = clamp(profile.bonus, 0.02, 0.14);
       const shieldP = clamp(profile.shield + (shield <= 0 ? 0.03 : 0), 0.06, 0.24);
       const badP = clamp(profile.bad, 0.10, 0.62);
       const goodP = clamp(1 - bonusP - shieldP - badP, 0.18, 0.72);
-
       const total = goodP + badP + shieldP + bonusP;
       const p = r01() * total;
 
@@ -965,19 +1172,21 @@ export async function boot() {
     }
 
     if (!patterns.length) return null;
-
     const lanes = pick(patterns);
 
     return {
       label: patternLabelFromLanes(lanes),
-      steps: lanes.map((lane, idx) => ({
+      steps: lanes.map((lane, idx, arr) => ({
         lane,
         rate:
           currentPhase === 'storm'
             ? 1.00 + idx * 0.03
             : currentPhase === 'boss'
               ? (bossMood === 1 ? 1.02 : bossMood === 2 ? 1.10 : 1.18) + idx * 0.04
-              : (inFinalRushNow() ? 1.22 : 1.12) + idx * 0.05
+              : (inFinalRushNow() ? 1.22 : 1.12) + idx * 0.05,
+        patternIndex: idx,
+        total: arr.length,
+        label: patternLabelFromLanes(lanes)
       }))
     };
   }
@@ -998,16 +1207,16 @@ export async function boot() {
     const pattern = buildLightningPatternForCurrentPhase();
     if (!pattern) return;
 
-    lightningPatternQueue = pattern.steps.map((step, idx, arr) => ({
-      ...step,
-      patternIndex: idx,
-      total: arr.length,
-      label: pattern.label
-    }));
-
+    lightningPatternQueue = pattern.steps.slice();
     lightningPatternLabel = pattern.label;
     lightningPatternHint = `แพทเทิร์น: ${pattern.label}`;
-    beginPatternRun(pattern.label, lightningPatternQueue.length);
+    lightningPatternRun = {
+      label: pattern.label,
+      total: lightningPatternQueue.length,
+      blocked: 0,
+      missed: 0,
+      resolved: false
+    };
 
     fxPhaseBanner(pattern.label);
     showCallout(`⚠️ ${pattern.label}`, currentPhase === 'storm' ? 'warn' : 'boss');
@@ -1016,7 +1225,6 @@ export async function boot() {
 
   function armThreatStep(step) {
     if (!step) return;
-
     lightningPendingStep = step;
     lightningWarnTimer = isMobileCompact() ? 0.28 : 0.42;
     lightningCd = Math.max(lightningCd, isMobileCompact() ? 0.95 : 1.10);
@@ -1049,7 +1257,6 @@ export async function boot() {
 
   function spawnLightningThreatFromPending() {
     if (!lightningPendingStep) return;
-
     const step = lightningPendingStep;
     const x = laneX(step.lane);
     const y = lightningThreatY();
@@ -1105,6 +1312,177 @@ export async function boot() {
     }
   }
 
+  function syncStageMascot() {
+    if (!ui.stageMascotFace || !ui.stageMascotMood) return;
+
+    let face = '💧';
+    let mood = 'พร้อมเริ่มแล้ว';
+
+    if (currentPhase === 'storm') {
+      face = '🌧️';
+      mood = 'พายุมาแล้ว ระวังสายฟ้านะ';
+    } else if (currentPhase === 'boss') {
+      if (bossMood === 1) {
+        face = '⚡';
+        mood = 'บอสมาแล้ว หาโล่ไว้ก่อน';
+      } else if (bossMood === 2) {
+        face = '🌪️';
+        mood = 'บอสแรงขึ้นแล้ว รีบเก็บน้ำ';
+      } else {
+        face = '🔥';
+        mood = 'บอสโกรธแล้ว สู้ต่ออีกนิด';
+      }
+    } else if (currentPhase === 'final') {
+      face = '👑';
+      mood = inFinalRushNow()
+        ? 'FINAL RUSH! รีบเก็บน้ำเลย'
+        : 'ถึงด่านสุดท้ายแล้ว';
+    } else if (combo >= 10) {
+      face = '🔥';
+      mood = 'ไฟลุกแล้ว เก็บต่อได้เลย';
+    } else if (waterPct < 25) {
+      face = '💦';
+      mood = 'น้ำน้อยแล้ว รีบเก็บน้ำเพิ่ม';
+    } else if (shield <= 0) {
+      face = '🛡️';
+      mood = 'ลองหาโล่ไว้ก่อนนะ';
+    } else {
+      face = '💧';
+      mood = 'เก็บน้ำดีต่อได้เลย';
+    }
+
+    setText(ui.stageMascotFace, face);
+    setText(ui.stageMascotMood, mood);
+  }
+
+  function syncPhaseDramaDecor() {
+    if (!stageEl) return;
+    stageEl.classList.toggle('boss-rage', currentPhase === 'boss' && bossMood >= 2);
+    stageEl.classList.toggle('final-rush', currentPhase === 'final' && inFinalRushNow());
+    if (ui.zoneSign) {
+      if (currentPhase === 'storm') ui.zoneSign.style.letterSpacing = '.01em';
+      else if (currentPhase === 'boss') ui.zoneSign.style.letterSpacing = bossMood >= 2 ? '.02em' : '.01em';
+      else if (currentPhase === 'final' && inFinalRushNow()) ui.zoneSign.style.letterSpacing = '.03em';
+      else ui.zoneSign.style.letterSpacing = '';
+    }
+  }
+
+  function isThreatLive() {
+    return !!(lightningThreatId || lightningPendingStep || lightningWarnTimer > 0 || lightningPatternQueue.length > 0);
+  }
+
+  function findBestFocusBubble() {
+    let threat = null;
+    let shieldBubble = null;
+    let goodBubble = null;
+
+    for (const b of bubbles.values()) {
+      if (!b || !b.el || !b.el.isConnected) continue;
+      if (b.kind === 'threat' && !threat) threat = b;
+      else if (b.kind === 'shield' && !shieldBubble) shieldBubble = b;
+      else if (b.kind === 'good' && !goodBubble) goodBubble = b;
+    }
+
+    if (threat) return threat;
+    if (shield <= 0 && shieldBubble) return shieldBubble;
+    if (waterPct < 25 && goodBubble) return goodBubble;
+    return null;
+  }
+
+  function clearBubbleFocusClasses() {
+    for (const b of bubbles.values()) {
+      if (!b || !b.el) continue;
+      b.el.classList.remove('bubble-focus', 'bubble-priority');
+      delete b.el.dataset.priority;
+    }
+  }
+
+  function syncBubbleFocus() {
+    clearBubbleFocusClasses();
+
+    for (const b of bubbles.values()) {
+      if (!b || !b.el) continue;
+      if (b.kind === 'threat' || b.kind === 'shield') {
+        b.el.classList.add('bubble-priority');
+        b.el.dataset.priority = '1';
+      }
+    }
+
+    const focusBubble = findBestFocusBubble();
+    if (focusBubble && focusBubble.el) {
+      focusBubble.el.classList.add('bubble-focus', 'bubble-priority');
+      focusBubble.el.dataset.priority = '1';
+    }
+  }
+
+  function ensureThreatLaneGuide() {
+    removeThreatLaneGuides();
+    if (!isMobileCompact() || !isThreatLive()) return;
+
+    let lane = 'C';
+    if (lightningPendingStep && lightningPendingStep.lane) {
+      lane = lightningPendingStep.lane;
+    } else {
+      const liveThreat = bubbles.get(lightningThreatId);
+      if (liveThreat && liveThreat.lane) lane = liveThreat.lane;
+    }
+
+    const guide = DOC.createElement('div');
+    guide.className = 'threat-lane-guide';
+    const x = laneX(lane);
+    guide.style.left = `${x}px`;
+    stageEl.appendChild(guide);
+  }
+
+  function ensureScreenEdgeHint() {
+    let hint = stageEl.querySelector('.screen-edge-hint');
+    if (!hint) {
+      hint = DOC.createElement('div');
+      hint.className = 'screen-edge-hint';
+      stageEl.appendChild(hint);
+    }
+  }
+
+  function syncCompactHudFocus() {
+    if (!stageEl) return;
+
+    stageEl.classList.add('mobile-readable');
+    stageEl.classList.toggle('compact-danger', waterPct < 20 || missBadHit >= Math.max(3, Math.floor(TUNE.missLimit * 0.55)));
+    stageEl.classList.toggle('compact-low-water', waterPct < 28);
+    stageEl.classList.toggle('compact-threat-live', isThreatLive());
+    stageEl.classList.toggle('compact-final-rush', currentPhase === 'final' && inFinalRushNow());
+
+    const statGrid = DOC.querySelector('.stats-grid-kid');
+    if (statGrid) statGrid.classList.add('compact-mobile-live');
+
+    const cards = statGrid ? Array.from(statGrid.querySelectorAll('.stat-card')) : [];
+    cards.forEach((c) => c.classList.remove('critical', 'focus'));
+
+    if (cards.length) {
+      const waterCard = cards.find((c) => c.querySelector('#uiWater'));
+      const shieldCard = cards.find((c) => c.querySelector('#uiShield'));
+      const timeCard = cards.find((c) => c.querySelector('#uiTime'));
+
+      if (waterCard && waterPct < 28) waterCard.classList.add('critical');
+      if (shieldCard && isThreatLive()) shieldCard.classList.add('focus');
+      if (timeCard && currentPhase === 'final' && inFinalRushNow()) timeCard.classList.add('focus');
+    }
+
+    ensureScreenEdgeHint();
+    ensureThreatLaneGuide();
+    syncBubbleFocus();
+
+    if (ui.zoneSign && isMobileCompact()) {
+      if (isThreatLive()) {
+        ui.zoneSign.textContent = shield > 0 ? '⚡ ใช้โล่บล็อกสายฟ้า!' : '⚡ รีบหาโล่แล้วแตะสายฟ้า!';
+      } else if (currentPhase === 'final' && inFinalRushNow()) {
+        ui.zoneSign.textContent = '⚡ FINAL RUSH • รีบเก็บน้ำ!';
+      } else if (waterPct < 25) {
+        ui.zoneSign.textContent = '💧 น้ำน้อยแล้ว รีบเก็บน้ำเพิ่ม';
+      }
+    }
+  }
+
   function updatePhaseState() {
     const p = phaseProfile();
     const key = `${p.phase}-${p.bossMood}`;
@@ -1119,20 +1497,191 @@ export async function boot() {
       if (currentPhase === 'storm') {
         fxPhaseBanner('🌧️ พายุมาแล้ว');
         showCallout('พายุมาแล้ว ระวังสายฟ้า', 'warn');
+
+        celebratePhaseEntry('storm', {
+          title: 'Storm Time!',
+          sub: 'ระวังสายฟ้า แล้วรีบหาโล่',
+          icon: '🌧️',
+          spark: '⚡',
+          chip: 'เข้าสู่ช่วงพายุแล้ว'
+        });
+
       } else if (currentPhase === 'boss') {
-        fxPhaseBanner(bossMood === 1 ? '⚡ บอสมาแล้ว' : bossMood === 2 ? '🌪️ บอสแรงขึ้น' : '🔥 บอสโกรธแล้ว');
-        showCallout(bossMood === 1 ? 'บอสเริ่มแล้ว' : bossMood === 2 ? 'บอสแรงขึ้นแล้ว' : 'บอสเข้าสู่ Rage Mode', 'boss');
+        if (bossMood === 1) {
+          fxPhaseBanner('⚡ บอสมาแล้ว');
+          showCallout('บอสเริ่มแล้ว', 'boss');
+
+          celebratePhaseEntry('boss', {
+            title: 'Boss Stage!',
+            sub: 'เริ่มด่านบอสแล้ว สู้เลย',
+            icon: '⚡',
+            spark: '✨',
+            chip: 'เข้าสู่ด่านบอส'
+          });
+
+        } else if (bossMood === 2) {
+          fxPhaseBanner('🌪️ บอสแรงขึ้น');
+          showCallout('บอสแรงขึ้นแล้ว', 'boss');
+
+          celebratePhaseEntry('boss', {
+            title: 'Boss Power Up!',
+            sub: 'บอสเริ่มแรงขึ้นแล้ว',
+            icon: '🌪️',
+            spark: '💥',
+            chip: 'บอสแข็งแรงขึ้น'
+          });
+
+        } else {
+          fxPhaseBanner('🔥 บอสโกรธแล้ว');
+          showCallout('บอสเข้าสู่ Rage Mode', 'boss');
+
+          celebratePhaseEntry('rage', {
+            title: 'Rage Mode!',
+            sub: 'บอสโกรธแล้ว ตั้งสติไว้',
+            icon: '🔥',
+            spark: '💥',
+            chip: 'บอสเข้าสู่ Rage Mode'
+          });
+        }
+
       } else if (currentPhase === 'final') {
         fxPhaseBanner('👑 ด่านสุดท้าย');
         showCallout('ด่านสุดท้ายแล้ว สู้ต่ออีกนิด', 'boss');
+
+        celebratePhaseEntry('final', {
+          title: 'Final Stage!',
+          sub: 'ถึงด่านสุดท้ายแล้ว',
+          icon: '👑',
+          spark: '⭐',
+          chip: 'เข้าสู่ด่านสุดท้าย'
+        });
       }
     }
 
-    if (currentPhase === 'final' && inFinalRushNow() && !safeLocalGet(`HHA_HYD_FINAL_RUSH_${seedStr}`, '')) {
-      safeLocalSet(`HHA_HYD_FINAL_RUSH_${seedStr}`, '1');
+    if (currentPhase === 'final' && inFinalRushNow() && !finalRushCelebrated) {
+      finalRushCelebrated = true;
       fxPhaseBanner('⚡ FINAL RUSH');
       showCallout('รีบเลย เหลือเวลาไม่มากแล้ว!', 'boss');
       spawnSticker('⚡ RUSH');
+
+      celebratePhaseEntry('rush', {
+        title: 'Final Rush!',
+        sub: 'รีบเก็บน้ำเลย เหลือเวลาไม่มาก',
+        icon: '⚡',
+        spark: '⭐',
+        chip: 'เข้าสู่ FINAL RUSH'
+      });
+    }
+  }
+
+  function checkMissions() {
+    setText(ui.missionHitGoal, TUNE.missionHitGood);
+    setText(ui.missionBlockGoal, TUNE.missionBlock);
+    setText(ui.missionComboGoal, TUNE.missionCombo);
+
+    setText(ui.missionHitNow, Math.min(goodHits, TUNE.missionHitGood));
+    setText(ui.missionBlockNow, Math.min(blockCount, TUNE.missionBlock));
+    setText(ui.missionComboNow, Math.min(bestCombo, TUNE.missionCombo));
+
+    addClassIf(ui.missionChipHit, 'done', goodHits >= TUNE.missionHitGood);
+    addClassIf(ui.missionChipHit, 'hot', goodHits >= Math.max(1, TUNE.missionHitGood - 2) && goodHits < TUNE.missionHitGood);
+
+    addClassIf(ui.missionChipBlock, 'done', blockCount >= TUNE.missionBlock);
+    addClassIf(ui.missionChipBlock, 'hot', blockCount >= Math.max(1, TUNE.missionBlock - 1) && blockCount < TUNE.missionBlock);
+
+    addClassIf(ui.missionChipCombo, 'done', bestCombo >= TUNE.missionCombo);
+    addClassIf(ui.missionChipCombo, 'hot', bestCombo >= Math.max(1, TUNE.missionCombo - 2) && bestCombo < TUNE.missionCombo);
+  }
+
+  function setHUD() {
+    setText(ui.score, score);
+    setText(ui.time, formatClock(tLeft));
+    setText(ui.miss, missBadHit);
+    setText(ui.expire, missGoodExpired);
+    setText(ui.block, blockCount);
+    setText(ui.grade, currentGrade());
+    setText(ui.water, `${Math.round(waterPct)}%`);
+    setText(ui.combo, combo);
+    setText(ui.shield, shield);
+    setText(ui.warmDone, 'พร้อม ✨');
+    setText(ui.coolDone, cooldownRequired ? 'รอหลังเกม ✨' : 'ไม่ใช้');
+
+    let phaseText = currentPhaseText();
+    if (lightningPatternLabel && (lightningThreatId || lightningPendingStep || lightningPatternQueue.length > 0)) {
+      phaseText += ` • ${lightningPatternLabel}`;
+    }
+    setText(ui.phase, phaseText);
+
+    const risk = buildRisk();
+    setText(ui.aiRisk, risk.toFixed(2));
+    setText(ui.aiRiskMini, risk.toFixed(2));
+
+    let coach = 'แตะน้ำดี และอย่าโดนของไม่ดี 😊';
+    if (lightningPatternHint && (lightningThreatId || lightningPendingStep || lightningPatternQueue.length > 0)) {
+      coach = shield > 0
+        ? `⚡ ${lightningPatternHint} แล้วใช้โล่บล็อก`
+        : `⚡ ${lightningPatternHint} แต่ยังไม่มีโล่`;
+    } else if (currentPhase === 'final') {
+      coach = inFinalRushNow() ? 'รีบเก็บน้ำเลย เหลือเวลาไม่มากแล้ว!' : 'ด่านสุดท้ายแล้ว อย่าพลาดนะ';
+    } else if (currentPhase === 'boss') {
+      coach = shield > 0 ? 'บอสมาแล้ว ใช้โล่บล็อกสายฟ้าได้' : 'บอสมาแล้ว หาโล่ไว้ก่อน';
+    } else if (currentPhase === 'storm') {
+      coach = shield > 0 ? 'พายุมาแล้ว ใช้โล่ช่วยได้' : 'พายุมาแล้ว รีบหาโล่';
+    } else if (combo >= 10) {
+      coach = 'ไฟลุกแล้ว! กวาดน้ำให้เร็ว 🔥';
+    } else if (waterPct < 25) {
+      coach = 'น้ำน้อยแล้ว รีบเก็บน้ำเพิ่ม 💧';
+    } else if (shield <= 0) {
+      coach = 'ลองหาโล่ไว้ก่อนนะ 🛡️';
+    }
+
+    setText(ui.aiHint, coach);
+    setText(ui.aiHintMini, coach);
+    setText(ui.coachExplain, coach);
+
+    if (ui.riskFill) ui.riskFill.style.width = `${Math.round(risk * 100)}%`;
+
+    if (ui.zoneSign) {
+      if (lightningPatternLabel && (lightningThreatId || lightningPendingStep || lightningPatternQueue.length > 0)) {
+        ui.zoneSign.textContent = `⚠️ แพทเทิร์น: ${lightningPatternLabel}`;
+      } else if (currentPhase === 'storm') {
+        ui.zoneSign.textContent = '🌧️ พายุมาแล้ว ระวังสายฟ้า';
+      } else if (currentPhase === 'boss') {
+        ui.zoneSign.textContent = bossMood === 1 ? '⚡ บอสเริ่มแล้ว' : bossMood === 2 ? '🌪️ บอสแรงขึ้น' : '🔥 บอส Rage Mode';
+      } else if (currentPhase === 'final') {
+        ui.zoneSign.textContent = inFinalRushNow() ? '⚡ FINAL RUSH' : '👑 ด่านสุดท้าย';
+      } else if (combo >= 10) {
+        ui.zoneSign.textContent = '🔥 ไฟลุกแล้ว รีบเก็บน้ำ';
+      } else {
+        ui.zoneSign.textContent = '';
+      }
+    }
+
+    checkMissions();
+    syncStageMascot();
+    syncPhaseDramaDecor();
+    syncCompactHudFocus();
+    stageEl.classList.toggle('has-shield', shield > 0);
+
+    const debugOn = ['1', 'true', 'yes', 'on'].includes(String(qs('debug', '0')).toLowerCase());
+    addClassIf(ui.debugMini, 'is-hidden', !debugOn);
+
+    if (debugOn) {
+      fpsFrames += 1;
+      fpsTimer += 1 / 60;
+
+      if (fpsTimer >= 0.45) {
+        fpsValue = String(Math.round(fpsFrames / Math.max(0.001, fpsTimer)));
+        fpsFrames = 0;
+        fpsTimer = 0;
+      }
+
+      setText(ui.dbgPhase, currentPhaseKey());
+      setText(ui.dbgCombo, combo);
+      setText(ui.dbgWater, Math.round(waterPct));
+      setText(ui.dbgShield, shield);
+      setText(ui.dbgBubbles, countLiveTargets());
+      setText(ui.dbgFps, fpsValue);
     }
   }
 
@@ -1182,6 +1731,7 @@ export async function boot() {
         score += add;
 
         fxBubblePop(b.el, false);
+        pulseStage('threat');
         fxRing(bx, by);
         fxScore(bx, by, 'BLOCK');
         spawnSticker('⚡ BLOCK');
@@ -1227,6 +1777,7 @@ export async function boot() {
       shield = clamp(shield + 1, 0, 9);
 
       fxBubblePop(b.el, false);
+      pulseStage('bonus');
       fxRing(bx, by);
       fxScore(bx, by, 'BONUS');
       spawnSticker('🎁 BONUS');
@@ -1249,6 +1800,7 @@ export async function boot() {
       waterPct = clamp(waterPct + 4.5, 0, 100);
 
       fxBubblePop(b.el, false);
+      pulseStage('good');
       fxRing(bx, by);
       fxScore(bx, by, `+${add}`);
 
@@ -1269,6 +1821,7 @@ export async function boot() {
       score += 6;
 
       fxBubblePop(b.el, false);
+      pulseStage('shield');
       fxRing(bx, by);
       fxScore(bx, by, '🛡️');
       spawnSticker('🛡️ READY');
@@ -1286,6 +1839,7 @@ export async function boot() {
     missBadHit += 1;
 
     fxBubblePop(b.el, true);
+    pulseStage('bad');
     fxScore(bx, by, '-9');
     showCallout('อุ๊ย โดนของไม่ดี', 'warn');
 
@@ -1293,172 +1847,11 @@ export async function boot() {
     setTimeout(() => removeBubble(b.id), 40);
   }
 
-  function checkMissions() {
-    setText(ui.missionHitGoal, TUNE.missionHitGood);
-    setText(ui.missionBlockGoal, TUNE.missionBlock);
-    setText(ui.missionComboGoal, TUNE.missionCombo);
-
-    setText(ui.missionHitNow, Math.min(goodHits, TUNE.missionHitGood));
-    setText(ui.missionBlockNow, Math.min(blockCount, TUNE.missionBlock));
-    setText(ui.missionComboNow, Math.min(bestCombo, TUNE.missionCombo));
-
-    addClassIf(ui.missionChipHit, 'done', goodHits >= TUNE.missionHitGood);
-    addClassIf(ui.missionChipHit, 'hot', goodHits >= Math.max(1, TUNE.missionHitGood - 2) && goodHits < TUNE.missionHitGood);
-
-    addClassIf(ui.missionChipBlock, 'done', blockCount >= TUNE.missionBlock);
-    addClassIf(ui.missionChipBlock, 'hot', blockCount >= Math.max(1, TUNE.missionBlock - 1) && blockCount < TUNE.missionBlock);
-
-    addClassIf(ui.missionChipCombo, 'done', bestCombo >= TUNE.missionCombo);
-    addClassIf(ui.missionChipCombo, 'hot', bestCombo >= Math.max(1, TUNE.missionCombo - 2) && bestCombo < TUNE.missionCombo);
-  }
-
-  function setHUD() {
-    setText(ui.score, score);
-    setText(ui.time, formatClock(tLeft));
-    setText(ui.miss, missBadHit);
-    setText(ui.expire, missGoodExpired);
-    setText(ui.block, blockCount);
-    setText(ui.grade, currentGrade());
-    setText(ui.water, `${Math.round(waterPct)}%`);
-    setText(ui.combo, combo);
-    setText(ui.shield, shield);
-    setText(ui.warmDone, 'พร้อม ✨');
-    setText(ui.coolDone, cooldownRequired ? 'รอหลังเกม ✨' : 'ไม่ใช้');
-
-    let phaseText = currentPhaseText();
-    if (lightningPatternLabel && (lightningThreatId || lightningPendingStep || lightningPatternQueue.length > 0)) {
-      phaseText += ` • ${lightningPatternLabel}`;
-    }
-    setText(ui.phase, phaseText);
-
-    if (ui.zoneSign) {
-      if (lightningPatternLabel && (lightningThreatId || lightningPendingStep || lightningPatternQueue.length > 0)) {
-        ui.zoneSign.textContent = `⚠️ แพทเทิร์น: ${lightningPatternLabel}`;
-      } else if (currentPhase === 'storm') {
-        ui.zoneSign.textContent = '🌧️ พายุมาแล้ว ระวังสายฟ้า';
-      } else if (currentPhase === 'boss') {
-        ui.zoneSign.textContent = bossMood === 1 ? '⚡ บอสเริ่มแล้ว' : bossMood === 2 ? '🌪️ บอสแรงขึ้น' : '🔥 บอส Rage Mode';
-      } else if (currentPhase === 'final') {
-        ui.zoneSign.textContent = inFinalRushNow() ? '⚡ FINAL RUSH' : '👑 ด่านสุดท้าย';
-      } else if (combo >= 10) {
-        ui.zoneSign.textContent = '🔥 ไฟลุกแล้ว รีบเก็บน้ำ';
-      } else {
-        ui.zoneSign.textContent = '';
-      }
-    }
-
-    const risk = buildRisk();
-    setText(ui.aiRisk, risk.toFixed(2));
-
-    let coach = 'แตะน้ำดี และอย่าโดนของไม่ดี 😊';
-    if (lightningPatternHint && (lightningThreatId || lightningPendingStep || lightningPatternQueue.length > 0)) {
-      coach = shield > 0
-        ? `⚡ ${lightningPatternHint} แล้วใช้โล่บล็อก`
-        : `⚡ ${lightningPatternHint} แต่ยังไม่มีโล่`;
-    } else if (currentPhase === 'final') {
-      coach = inFinalRushNow() ? 'รีบเก็บน้ำเลย เหลือเวลาไม่มากแล้ว!' : 'ด่านสุดท้ายแล้ว อย่าพลาดนะ';
-    } else if (currentPhase === 'boss') {
-      coach = shield > 0 ? 'บอสมาแล้ว ใช้โล่บล็อกสายฟ้าได้' : 'บอสมาแล้ว หาโล่ไว้ก่อน';
-    } else if (currentPhase === 'storm') {
-      coach = shield > 0 ? 'พายุมาแล้ว ใช้โล่ช่วยได้' : 'พายุมาแล้ว รีบหาโล่';
-    } else if (combo >= 10) {
-      coach = 'ไฟลุกแล้ว! กวาดน้ำให้เร็ว 🔥';
-    } else if (waterPct < 25) {
-      coach = 'น้ำน้อยแล้ว รีบเก็บน้ำเพิ่ม 💧';
-    } else if (shield <= 0) {
-      coach = 'ลองหาโล่ไว้ก่อนนะ 🛡️';
-    }
-
-    setText(ui.aiHint, coach);
-    setText(ui.coachExplain, coach);
-
-    if (ui.riskFill) {
-      ui.riskFill.style.width = `${Math.round(risk * 100)}%`;
-    }
-
-    checkMissions();
-
-    const debugOn = ['1', 'true', 'yes', 'on'].includes(String(qs('debug', '0')).toLowerCase());
-    addClassIf(ui.debugMini, 'is-hidden', !debugOn);
-
-    if (debugOn) {
-      fpsFrames += 1;
-      fpsTimer += 1 / 60;
-
-      if (fpsTimer >= 0.45) {
-        fpsValue = String(Math.round(fpsFrames / Math.max(0.001, fpsTimer)));
-        fpsFrames = 0;
-        fpsTimer = 0;
-      }
-
-      setText(ui.dbgPhase, currentPhaseKey());
-      setText(ui.dbgCombo, combo);
-      setText(ui.dbgWater, Math.round(waterPct));
-      setText(ui.dbgShield, shield);
-      setText(ui.dbgBubbles, countLiveTargets());
-      setText(ui.dbgFps, fpsValue);
-    }
-  }
-
-  function buildSummary(reason = 'time') {
-    return {
-      reason,
-      pid,
-      nick,
-      game,
-      theme,
-      zone,
-      cat,
-      mode,
-      runMode,
-      diff,
-      view,
-      seed: seedStr,
-      plannedSec,
-      score,
-      waterPct: Math.round(waterPct),
-      missBadHit,
-      missGoodExpired,
-      blockCount,
-      comboMax: bestCombo,
-      goodHits,
-      finalHits,
-      finalGoal,
-      grade: currentGrade(),
-      ts: new Date().toISOString()
-    };
-  }
-
-  function saveLastSummary(summary) {
-    safeLocalSet('HHA_LAST_SUMMARY', JSON.stringify(summary));
-
-    const raw = safeLocalGet('HHA_SUMMARY_HISTORY', '[]');
-    let arr = [];
-    try { arr = JSON.parse(raw); } catch {}
-    if (!Array.isArray(arr)) arr = [];
-
-    arr.unshift(summary);
-    if (arr.length > 30) arr = arr.slice(0, 30);
-    safeLocalSet('HHA_SUMMARY_HISTORY', JSON.stringify(arr));
-  }
-
-  function renderStickerCollection() {
-    if (!ui.endStickerRow) return;
-    ui.endStickerRow.innerHTML = '';
-
-    const list = [
-      { icon: '💧', label: 'เริ่มเก็บน้ำ' },
-      { icon: '🛡️', label: 'นักป้องกัน' },
-      { icon: '⚡', label: 'ผู้ท้าสายฟ้า' },
-      { icon: '👑', label: 'ผู้พิชิตด่านสุดท้าย' }
-    ];
-
-    list.forEach((it) => {
-      const chip = DOC.createElement('div');
-      chip.className = 'stickerChip';
-      chip.textContent = `${it.icon} ${it.label}`;
-      ui.endStickerRow.appendChild(chip);
-    });
+  function checkEnd() {
+    if (tLeft <= 0) return true;
+    if (waterPct <= 0) return true;
+    if (missBadHit >= TUNE.missLimit) return true;
+    return false;
   }
 
   function qualifiesSoftFinalClear() {
@@ -1474,6 +1867,7 @@ export async function boot() {
     try { DOC.getElementById('hydrationPhaseBanner')?.remove(); } catch {}
     try { if (ui.calloutLayer) ui.calloutLayer.innerHTML = ''; } catch {}
     try { if (ui.stickerBurst) ui.stickerBurst.innerHTML = ''; } catch {}
+    try { removeThreatLaneGuides(); } catch {}
 
     for (const b of Array.from(bubbles.values())) {
       try { b.el.remove(); } catch {}
@@ -1491,157 +1885,17 @@ export async function boot() {
     bubbleWatchdogSec = 0;
   }
 
-  function buildCooldownUrl() {
-    const u = new URL('../warmup-gate.html', location.href);
-    u.searchParams.set('gatePhase', 'cooldown');
-    u.searchParams.set('game', game);
-    u.searchParams.set('theme', theme);
-    u.searchParams.set('zone', zone);
-    u.searchParams.set('cat', cat);
-    u.searchParams.set('mode', mode);
-    u.searchParams.set('hub', hubUrl);
-    u.searchParams.set('next', hubUrl);
-    u.searchParams.set('pid', pid);
-    u.searchParams.set('nick', nick);
-    u.searchParams.set('nickName', nick);
-    u.searchParams.set('seed', String(Date.now()));
-    u.searchParams.set('diff', diff);
-    u.searchParams.set('run', runMode);
-    u.searchParams.set('view', view);
-    u.searchParams.set('time', String(plannedSec));
-    u.searchParams.set('cooldown', cooldownRequired ? '1' : '0');
-    return u.toString();
-  }
-
-  function showEnd(reason) {
-    if (ended) return;
-    ended = true;
-    paused = false;
-    clearTransientVisuals();
-
-    if (reason === 'final-clear') {
-      stageEl.classList.add('final-win');
-    }
-
-    const summary = buildSummary(reason);
-    saveLastSummary(summary);
-
-    if (ui.end) ui.end.setAttribute('aria-hidden', 'false');
-
-    setText(ui.endTitle, reason === 'final-clear' ? 'ผ่านด่านสุดท้ายแล้ว!' : 'เล่นจบรอบแล้ว');
-    setText(ui.endSub, `มุมมอง ${view} • ระดับ ${diff}`);
-    setText(ui.endGrade, summary.grade);
-    setText(ui.endScore, summary.score);
-    setText(ui.endMiss, summary.missBadHit);
-    setText(ui.endWater, `${summary.waterPct}%`);
-
-    let coach = 'ลองเล่นอีกครั้งเพื่อเก็บน้ำให้มากขึ้นนะ';
-    if (reason === 'final-clear') coach = 'สุดยอดจริง ๆ วันนี้ชนะด่านสุดท้ายแล้ว 🏆';
-    else if (summary.waterPct <= 10) coach = 'รอบหน้าลองรีบเก็บน้ำมากขึ้นอีกนิดนะ 💧';
-    else if (summary.missBadHit >= Math.max(3, Math.floor(TUNE.missLimit * 0.5))) coach = 'ถ้าหลบของไม่ดีได้มากขึ้น คะแนนจะพุ่งอีกเยอะเลย 🚫';
-    else if (summary.comboMax >= 10) coach = 'คอมโบดีมากแล้ว รอบหน้ามีลุ้นทำได้สูงกว่านี้อีก ✨';
-
-    setText(ui.endCoach, coach);
-
-    let phaseSummary = 'จบรอบปกติ';
-    if (reason === 'final-clear') phaseSummary = 'ผ่านด่านสุดท้าย';
-    else if (currentPhase === 'boss') phaseSummary = 'ไปถึงช่วงบอส';
-    else if (currentPhase === 'storm') phaseSummary = 'ไปถึงช่วงพายุ';
-    setText(ui.endPhaseSummary, phaseSummary);
-
-    let reward = '💧 เล่นจบแล้ว';
-    if (reason === 'final-clear') reward = '🏆 ปลดล็อกชัยชนะด่านสุดท้าย';
-    else if (blockCount >= TUNE.missionBlock) reward = '🛡️ ได้รางวัลนักป้องกัน';
-    else if (bestCombo >= TUNE.missionCombo) reward = '✨ ได้รางวัลคอมโบสวย';
-    setText(ui.endReward, reward);
-
-    let badge = '🌈 ลองอีกครั้ง';
-    if (reason === 'final-clear') badge = '👑 ผู้พิชิตด่านสุดท้าย';
-    else if (summary.grade === 'S') badge = '⭐ เจ้าน้ำตัวจริง';
-    else if (summary.grade === 'A') badge = '💙 นักเก็บน้ำเก่งมาก';
-    else if (summary.grade === 'B') badge = '💧 ฮีโร่น้ำ';
-    setText(ui.endBadge, badge);
-
-    setText(ui.endCollection, `สถิติล่าสุด • คะแนน ${summary.score} • เกรด ${summary.grade}`);
-    setText(ui.endRewardCard, reason === 'final-clear' ? 'Hydration Master' : 'Hydration Hero');
-    setText(ui.endRewardMini, reason === 'final-clear' ? 'วันนี้ผ่านด่านสุดท้ายได้สำเร็จ' : 'รอบนี้เก็บน้ำได้ดีขึ้นอีกนิด');
-    renderStickerCollection();
-
-    if (ui.btnNextCooldown) {
-      ui.btnNextCooldown.classList.toggle('is-hidden', !cooldownRequired);
-      ui.btnNextCooldown.onclick = () => {
-        location.href = buildCooldownUrl();
-      };
-    }
-
-    if (ui.btnReplay) {
-      ui.btnReplay.onclick = () => {
-        const u = new URL(location.href);
-        u.searchParams.set('seed', String(Date.now()));
-        location.href = u.toString();
-      };
-    }
-
-    if (ui.btnBackHub) {
-      ui.btnBackHub.onclick = () => {
-        location.href = hubUrl;
-      };
-    }
-  }
-
-  async function copyText(text) {
-    try {
-      await navigator.clipboard.writeText(String(text || ''));
-      showCallout('คัดลอกแล้ว', 'good');
-    } catch {
-      console.warn('[hydration] clipboard failed');
-    }
-  }
-
-  function showHelp() {
-    helpOpen = true;
-    if (ui.helpOverlay) ui.helpOverlay.setAttribute('aria-hidden', 'false');
-  }
-
-  function hideHelp() {
-    helpOpen = false;
-    if (ui.helpOverlay) ui.helpOverlay.setAttribute('aria-hidden', 'true');
-    paused = false;
-    lastTick = nowMs();
-
-    ensureStarterTargets(true);
-    emergencySpawnIfEmpty();
-    scheduleLoop();
-  }
-
-  function showPause() {
-    paused = true;
-    if (ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden', 'false');
-  }
-
-  function hidePause() {
-    paused = false;
-    if (ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden', 'true');
-    lastTick = nowMs();
-    scheduleLoop();
-  }
-
   function scheduleLoop() {
     if (ended || paused || helpOpen) return;
+    if (duet.enabled && !duet.started) return;
     if (rafId) return;
     rafId = requestAnimationFrame(loop);
-  }
-
-  function checkEnd() {
-    if (tLeft <= 0) return true;
-    if (waterPct <= 0) return true;
-    if (missBadHit >= TUNE.missLimit) return true;
-    return false;
   }
 
   function loop(t) {
     rafId = 0;
     if (ended || paused || helpOpen) return;
+    if (duet.enabled && !duet.started) return;
 
     if (!lastTick) lastTick = t;
     const dt = clamp((t - lastTick) / 1000, 0, 0.05);
@@ -1681,21 +1935,637 @@ export async function boot() {
     }
 
     if (checkEnd()) {
-      if (tLeft <= 0 && qualifiesSoftFinalClear()) {
-        showEnd('final-clear');
-      } else if (tLeft <= 0) {
-        showEnd('time');
-      } else if (waterPct <= 0) {
-        showEnd('water-empty');
-      } else {
-        showEnd('miss-limit');
-      }
+      if (tLeft <= 0 && qualifiesSoftFinalClear()) showEnd('final-clear');
+      else if (tLeft <= 0) showEnd('time');
+      else if (waterPct <= 0) showEnd('water-empty');
+      else showEnd('miss-limit');
       return;
     }
 
     scheduleLoop();
   }
 
+  function buildSummary(reason = 'time') {
+    return {
+      reason,
+      pid,
+      nick,
+      game,
+      theme,
+      zone,
+      cat,
+      mode,
+      runMode,
+      diff,
+      view,
+      seed: seedStr,
+      plannedSec,
+      score,
+      waterPct: Math.round(waterPct),
+      missBadHit,
+      missGoodExpired,
+      blockCount,
+      comboMax: bestCombo,
+      goodHits,
+      finalHits,
+      finalGoal,
+      grade: currentGrade(),
+      ts: new Date().toISOString()
+    };
+  }
+
+  function saveLastSummary(summary) {
+    safeLocalSet('HHA_LAST_SUMMARY', JSON.stringify(summary));
+    const raw = safeLocalGet('HHA_SUMMARY_HISTORY', '[]');
+    let arr = [];
+    try { arr = JSON.parse(raw); } catch {}
+    if (!Array.isArray(arr)) arr = [];
+    arr.unshift(summary);
+    if (arr.length > 30) arr = arr.slice(0, 30);
+    safeLocalSet('HHA_SUMMARY_HISTORY', JSON.stringify(arr));
+  }
+
+  function renderStickerCollection() {
+    if (!ui.endStickerRow) return;
+    ui.endStickerRow.innerHTML = '';
+
+    const list = [
+      { icon: '💧', label: 'เริ่มเก็บน้ำ' },
+      { icon: '🛡️', label: 'นักป้องกัน' },
+      { icon: '⚡', label: 'ผู้ท้าสายฟ้า' },
+      { icon: '👑', label: 'ผู้พิชิตด่านสุดท้าย' }
+    ];
+
+    list.forEach((it) => {
+      const chip = DOC.createElement('div');
+      chip.className = 'stickerChip';
+      chip.textContent = `${it.icon} ${it.label}`;
+      ui.endStickerRow.appendChild(chip);
+    });
+  }
+
+  function setEndDetailExpanded(expanded) {
+    if (!ui.endDetailWrap) return;
+    ui.endDetailWrap.classList.toggle('is-collapsed', !expanded);
+    if (ui.btnEndToggleDetail) {
+      ui.btnEndToggleDetail.textContent = expanded ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียดเพิ่ม';
+    }
+  }
+
+  function endPhaseMiniText(reason) {
+    if (reason === 'final-clear') return 'ชนะด่าน';
+    if (currentPhase === 'final') return 'ด่านสุดท้าย';
+    if (currentPhase === 'boss') return 'ด่านบอส';
+    if (currentPhase === 'storm') return 'พายุ';
+    return 'ปกติ';
+  }
+
+  function endCoachText(summary, reason) {
+    if (reason === 'final-clear') return 'สุดยอดมาก! วันนี้ผ่านด่านสุดท้ายได้แล้ว 🏆';
+    if (summary.waterPct <= 10) return 'รอบหน้าลองรีบเก็บน้ำดีเพิ่มอีกนิดนะ 💧';
+    if (summary.missBadHit >= Math.max(3, Math.floor(TUNE.missLimit * 0.5))) return 'ถ้าหลบของไม่ดีได้มากขึ้น คะแนนจะพุ่งอีกเยอะเลย 🚫';
+    if (summary.comboMax >= 10) return 'คอมโบดีมากแล้ว รอบหน้ามีลุ้นทำได้สูงกว่านี้อีก ✨';
+    if (summary.blockCount >= TUNE.missionBlock) return 'กันสายฟ้าเก่งมากเลย ลองเก็บคอมโบเพิ่มอีกนิด 🌩️';
+    return 'เล่นได้ดีแล้ว ลองเก็บน้ำดีต่อเนื่องให้มากขึ้นนะ 😊';
+  }
+
+  function endRewardText(summary, reason) {
+    if (reason === 'final-clear') return '🏆 ปลดล็อกชัยชนะด่านสุดท้าย';
+    if (summary.blockCount >= TUNE.missionBlock) return '🛡️ ได้รางวัลนักป้องกัน';
+    if (summary.comboMax >= TUNE.missionCombo) return '✨ ได้รางวัลคอมโบสวย';
+    if (summary.grade === 'A' || summary.grade === 'S') return '💧 ได้รางวัลฮีโร่น้ำ';
+    return '💧 เล่นจบแล้ว';
+  }
+
+  function endBadgeText(summary, reason) {
+    if (reason === 'final-clear') return '👑 ผู้พิชิตด่านสุดท้าย';
+    if (summary.grade === 'S') return '⭐ เจ้าน้ำตัวจริง';
+    if (summary.grade === 'A') return '💙 นักเก็บน้ำเก่งมาก';
+    if (summary.grade === 'B') return '💧 ฮีโร่น้ำ';
+    return '🌈 ลองอีกครั้ง';
+  }
+
+  function endPhaseSummaryText(reason) {
+    if (reason === 'final-clear') return 'ผ่านด่านสุดท้ายได้สำเร็จ';
+    if (currentPhase === 'final') return 'ไปถึงด่านสุดท้ายแล้ว';
+    if (currentPhase === 'boss') return 'ไปถึงด่านบอสแล้ว';
+    if (currentPhase === 'storm') return 'ไปถึงช่วงพายุแล้ว';
+    return 'เล่นได้จนจบรอบปกติ';
+  }
+
+  function endStarCount(summary, reason) {
+    if (reason === 'final-clear') return 3;
+    if (summary.grade === 'S') return 3;
+    if (summary.grade === 'A') return 3;
+    if (summary.grade === 'B') return 2;
+    if (summary.grade === 'C') return 1;
+    return 1;
+  }
+
+  function renderEndStars(count) {
+    if (!ui.endStars) return;
+    const total = 3;
+    const safeCount = Math.max(0, Math.min(total, Number(count) || 0));
+    ui.endStars.innerHTML = '';
+    for (let i = 0; i < total; i += 1) {
+      const star = DOC.createElement('span');
+      star.className = `end-star ${i < safeCount ? 'on' : 'off'}`;
+      star.textContent = '⭐';
+      ui.endStars.appendChild(star);
+    }
+  }
+
+  function buildCooldownUrl() {
+    const u = new URL('../warmup-gate.html', location.href);
+    u.searchParams.set('gatePhase', 'cooldown');
+    u.searchParams.set('game', game);
+    u.searchParams.set('theme', theme);
+    u.searchParams.set('zone', zone);
+    u.searchParams.set('cat', cat);
+    u.searchParams.set('mode', mode);
+    u.searchParams.set('hub', hubUrl);
+    u.searchParams.set('next', hubUrl);
+    u.searchParams.set('pid', pid);
+    u.searchParams.set('nick', nick);
+    u.searchParams.set('nickName', nick);
+    u.searchParams.set('seed', String(Date.now()));
+    u.searchParams.set('diff', diff);
+    u.searchParams.set('run', runMode);
+    u.searchParams.set('view', view);
+    u.searchParams.set('time', String(plannedSec));
+    u.searchParams.set('cooldown', cooldownRequired ? '1' : '0');
+    return u.toString();
+  }
+
+  /* duet helpers */
+  function duetRoomPath() {
+    return `hha-battle/hydration/duetRooms/${duet.roomCode}`;
+  }
+
+  function firebaseConfigFromWindow() {
+    const list = [
+      WIN.HHA_FIREBASE_CONFIG,
+      WIN.HEROHEALTH_FIREBASE_CONFIG,
+      WIN.FIREBASE_CONFIG,
+      WIN.__firebaseConfig
+    ];
+    for (const cfg of list) {
+      if (cfg && typeof cfg === 'object' && cfg.apiKey && cfg.projectId) return cfg;
+    }
+    return null;
+  }
+
+  async function ensureDuetFirebase() {
+    if (!duet.enabled) return;
+    if (typeof firebase === 'undefined') {
+      throw new Error('Firebase SDK not loaded in duet run');
+    }
+
+    let app = null;
+    if (firebase.apps && firebase.apps.length) {
+      app = firebase.app();
+    } else {
+      const cfg = firebaseConfigFromWindow();
+      if (!cfg) throw new Error('Missing Firebase config in duet run');
+      app = firebase.initializeApp(cfg);
+    }
+
+    duet.db = firebase.database(app);
+  }
+
+  function duetSortedPlayers(room) {
+    return Object.values((room && room.players) || {}).sort((a, b) => {
+      const aj = Number(a && a.joinedAt) || 0;
+      const bj = Number(b && b.joinedAt) || 0;
+      return aj - bj;
+    });
+  }
+
+  function duetMePeer(room) {
+    const players = duetSortedPlayers(room);
+    const me = players.find((p) => p && p.uid === duet.uid) || null;
+    const peer = players.find((p) => p && p.uid !== duet.uid) || null;
+    return { players, me, peer };
+  }
+
+  function stopDuetCountdownTicker() {
+    if (duet.countdownTimer) {
+      clearInterval(duet.countdownTimer);
+      duet.countdownTimer = 0;
+    }
+  }
+
+  function startDuetCountdownTicker(startAt) {
+    stopDuetCountdownTicker();
+    duet.gateStartedAt = startAt || 0;
+    if (!startAt) return;
+
+    duet.countdownTimer = setInterval(() => {
+      if (!duet.gateStartedAt) {
+        stopDuetCountdownTicker();
+        return;
+      }
+      const remainMs = duet.gateStartedAt - Date.now();
+      if (remainMs <= 0) {
+        setText(ui.duetGateCountdown, 'GO!');
+        stopDuetCountdownTicker();
+        if (!duet.started) startDuetGameplay();
+        return;
+      }
+      const remain = Math.max(1, Math.ceil(remainMs / 1000));
+      setText(ui.duetGateCountdown, String(remain));
+    }, 150);
+  }
+
+  function setDuetGateTexts(room) {
+    const { players, me, peer } = duetMePeer(room);
+
+    setText(ui.duetGateMeName, me?.name || nick || 'ฉัน');
+    setText(ui.duetGatePeerName, peer?.name || 'กำลังรอเพื่อน');
+
+    const myState =
+      !me ? 'กำลังเข้าเกม...' :
+      me.phase === 'finished' ? 'จบรอบแล้ว' :
+      me.runReady ? 'พร้อมแล้ว' :
+      'กำลังโหลด...';
+
+    const peerState =
+      !peer ? 'กำลังรอ...' :
+      peer.phase === 'finished' ? 'จบรอบแล้ว' :
+      peer.runReady ? 'พร้อมแล้ว' :
+      'กำลังเข้าเกม...';
+
+    setText(ui.duetGateMeState, myState);
+    setText(ui.duetGatePeerState, peerState);
+
+    if (players.length < 2) {
+      setText(ui.duetGateTitle, 'กำลังรอเพื่อนเข้าเกม');
+      setText(ui.duetGateSub, 'เมื่อครบ 2 คนแล้ว ระบบจะเริ่มนับถอยหลัง');
+      setText(ui.duetGateCountdown, 'รอเพื่อนเข้าเกม...');
+      stopDuetCountdownTicker();
+      return;
+    }
+
+    const gate = (((room || {}).match || {}).runGate || {});
+    const startAt = Number(gate.startedAt) || 0;
+
+    if (startAt > Date.now()) {
+      setText(ui.duetGateTitle, 'เตรียมเริ่มพร้อมกัน');
+      setText(ui.duetGateSub, 'ทั้งสองคนเข้าเกมแล้ว กำลังนับถอยหลัง');
+      startDuetCountdownTicker(startAt);
+      return;
+    }
+
+    if (duet.started) {
+      setText(ui.duetGateTitle, duet.waitingForPeerEnd ? 'รอเพื่อนจบรอบ' : 'เริ่มแล้ว');
+      setText(ui.duetGateSub, duet.waitingForPeerEnd ? 'ส่งผลของคุณแล้ว กำลังรออีกคน' : 'เริ่มเล่นพร้อมกันแล้ว');
+      setText(ui.duetGateCountdown, duet.waitingForPeerEnd ? 'รอผลสรุปคู่...' : 'GO!');
+      stopDuetCountdownTicker();
+      return;
+    }
+
+    setText(ui.duetGateTitle, 'กำลังจัดคิวเริ่มพร้อมกัน');
+    setText(ui.duetGateSub, 'รอให้ host สร้าง start barrier');
+    setText(ui.duetGateCountdown, 'พร้อม...');
+    stopDuetCountdownTicker();
+  }
+
+  async function armDuetStartIfHost(room) {
+    if (!duet.enabled || !duet.isHost || duet.startCommitSent || !duet.roomRef) return;
+
+    const { players } = duetMePeer(room);
+    const bothReady = players.length === 2 && players.every((p) => p && p.runReady === true);
+    const gate = (((room || {}).match || {}).runGate || {});
+    if (!bothReady || Number(gate.startedAt) > 0) return;
+
+    duet.startCommitSent = true;
+    const armedAt = Date.now() + 2200;
+
+    await duet.roomRef.child('match/runGate').update({
+      startedAt: armedAt,
+      armedBy: duet.uid,
+      state: 'armed'
+    });
+
+    await duet.roomRef.update({
+      status: 'running',
+      updatedAt: firebase.database.ServerValue.TIMESTAMP
+    });
+  }
+
+  function startDuetGameplay() {
+    if (duet.started) return;
+
+    duet.started = true;
+    duet.waitingForPeerEnd = false;
+    ended = false;
+    hideDuetOverlay();
+    stopDuetCountdownTicker();
+
+    paused = false;
+    helpOpen = false;
+    lastTick = nowMs();
+
+    ensureStarterTargets(true);
+    emergencySpawnIfEmpty();
+    scheduleLoop();
+  }
+
+  async function markDuetRunReady() {
+    if (!duet.enabled || !duet.db || !duet.roomCode || !duet.uid) return;
+    const ref = duet.db.ref(`${duetRoomPath()}/players/${duet.uid}`);
+    await ref.update({
+      connected: true,
+      phase: 'running',
+      runReady: true,
+      runLoadedAt: firebase.database.ServerValue.TIMESTAMP,
+      lastSeenAt: firebase.database.ServerValue.TIMESTAMP,
+      name: nick,
+      pid
+    });
+  }
+
+  function duetReports(room) {
+    return (((room || {}).match || {}).reports) || {};
+  }
+
+  function bothDuetReportsReady(room) {
+    const reports = duetReports(room);
+    const { peer } = duetMePeer(room);
+    if (!reports || !reports[duet.uid]) return false;
+    if (!peer || !peer.uid || !reports[peer.uid]) return false;
+    return true;
+  }
+
+  function renderCombinedDuetEnd(room) {
+    if (duet.combinedShown) return;
+
+    const reports = duetReports(room);
+    const { peer } = duetMePeer(room);
+
+    const myReport = reports[duet.uid];
+    const peerReport = peer ? reports[peer.uid] : null;
+    if (!myReport || !peerReport) return;
+
+    duet.combinedShown = true;
+    duet.waitingForPeerEnd = false;
+    hideDuetOverlay();
+    stopDuetCountdownTicker();
+
+    if (ui.duetEndBoard) ui.duetEndBoard.classList.remove('hidden');
+    if (ui.end) ui.end.setAttribute('aria-hidden', 'false');
+
+    clearTransientVisuals();
+    ended = true;
+    paused = false;
+
+    const myScore = Number(myReport.score || 0);
+    const peerScore = Number(peerReport.score || 0);
+
+    let winnerText = '🤝 เสมอกันสุดมันส์';
+    if (myScore > peerScore) winnerText = `🏆 ${myReport.name || nick} ชนะรอบนี้`;
+    else if (peerScore > myScore) winnerText = `🏆 ${peerReport.name || 'เพื่อน'} ชนะรอบนี้`;
+
+    setText(ui.endTitle, 'รอบคู่จบแล้ว');
+    setText(ui.endSub, `Duet • ${niceDiffText(diff)} • ${niceViewText(view)}`);
+    setText(ui.endGrade, myReport.grade || currentGrade());
+    setText(ui.endScore, myScore);
+    setText(ui.endMiss, Number(myReport.missBadHit || 0));
+    setText(ui.endWater, `${Number(myReport.waterPct || 0)}%`);
+    if (ui.endPhaseMini) setText(ui.endPhaseMini, 'Duet');
+
+    renderEndStars(endStarCount({
+      grade: myReport.grade || currentGrade(),
+      waterPct: Number(myReport.waterPct || 0),
+      missBadHit: Number(myReport.missBadHit || 0),
+      comboMax: Number(myReport.comboMax || 0),
+      blockCount: Number(myReport.blockCount || 0)
+    }, myReport.reason || 'duet'));
+
+    setText(ui.endCoach, winnerText);
+    setText(ui.endPhaseSummary, 'เริ่มพร้อมกันและสรุปผลเมื่อครบทั้งสองคน');
+    setText(ui.endReward, myScore >= peerScore ? '💧 คุณเก็บน้ำได้ดีกว่าในรอบนี้' : '🌊 ลองอีกครั้งเพื่อแซงเพื่อน');
+    setText(ui.endBadge, myScore >= peerScore ? '🤝 Duet Winner' : '🌈 Duet Challenger');
+    setText(ui.endCollection, `ฉัน ${myScore} คะแนน • เพื่อน ${peerScore} คะแนน`);
+    setText(ui.endRewardCard, 'Hydration Duet');
+    setText(ui.endRewardMini, 'สรุปผลแบบคู่พร้อมกันแล้ว');
+    setText(ui.duetEndMeName, myReport.name || nick);
+    setText(ui.duetEndMeScore, myScore);
+    setText(ui.duetEndMeMeta, `น้ำ ${Number(myReport.waterPct || 0)}% • เกรด ${myReport.grade || '-'}`);
+    setText(ui.duetEndPeerName, peerReport.name || 'เพื่อน');
+    setText(ui.duetEndPeerScore, peerScore);
+    setText(ui.duetEndPeerMeta, `น้ำ ${Number(peerReport.waterPct || 0)}% • เกรด ${peerReport.grade || '-'}`);
+    setText(ui.duetEndWinner, winnerText);
+
+    renderStickerCollection();
+
+    if (ui.btnNextCooldown) {
+      ui.btnNextCooldown.classList.toggle('is-hidden', !cooldownRequired);
+      ui.btnNextCooldown.onclick = () => {
+        location.href = buildCooldownUrl();
+      };
+    }
+
+    if (ui.btnReplay) {
+      ui.btnReplay.onclick = () => {
+        const u = new URL(location.href);
+        u.searchParams.set('seed', String(Date.now()));
+        location.href = u.toString();
+      };
+    }
+
+    if (ui.btnBackHub) {
+      ui.btnBackHub.onclick = () => {
+        location.href = hubUrl;
+      };
+    }
+
+    const compact = isMobileCompact();
+    setEndDetailExpanded(!compact);
+  }
+
+  async function commitDuetSummary(reason) {
+    if (!duet.enabled || duet.waitingForPeerEnd || !duet.roomRef) return;
+
+    duet.waitingForPeerEnd = true;
+    paused = true;
+
+    const summary = buildSummary(reason);
+    saveLastSummary(summary);
+
+    await duet.roomRef.child(`match/reports/${duet.uid}`).set({
+      uid: duet.uid,
+      pid,
+      name: nick,
+      reason,
+      score: summary.score,
+      waterPct: summary.waterPct,
+      missBadHit: summary.missBadHit,
+      missGoodExpired: summary.missGoodExpired,
+      blockCount: summary.blockCount,
+      comboMax: summary.comboMax,
+      goodHits: summary.goodHits,
+      finalHits: summary.finalHits,
+      finalGoal: summary.finalGoal,
+      grade: summary.grade,
+      finishedAt: firebase.database.ServerValue.TIMESTAMP
+    });
+
+    await duet.roomRef.child(`players/${duet.uid}`).update({
+      phase: 'finished',
+      finished: true,
+      finalScore: summary.score,
+      ready: false,
+      lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+    });
+
+    showDuetOverlay();
+    setText(ui.duetGateTitle, 'รอเพื่อนจบรอบ');
+    setText(ui.duetGateSub, 'ส่งผลของคุณแล้ว กำลังรอผลของอีกคน');
+    setText(ui.duetGateCountdown, 'รอผลสรุปคู่...');
+  }
+
+  async function initDuetSync() {
+    if (!duet.enabled) return;
+
+    helpOpen = false;
+    paused = true;
+    lastTick = 0;
+
+    if (ui.helpOverlay) ui.helpOverlay.setAttribute('aria-hidden', 'true');
+    showDuetOverlay();
+
+    await ensureDuetFirebase();
+    duet.roomRef = duet.db.ref(duetRoomPath());
+
+    await markDuetRunReady();
+
+    duet.roomListener = async (snap) => {
+      const room = snap.val();
+      duet.roomData = room || null;
+
+      if (!room) {
+        setText(ui.duetGateTitle, 'ไม่พบห้อง');
+        setText(ui.duetGateSub, 'ห้อง duet นี้อาจถูกลบหรือหมดอายุแล้ว');
+        setText(ui.duetGateCountdown, 'กลับไป lobby');
+        stopDuetCountdownTicker();
+        return;
+      }
+
+      duet.isHost = room.hostId === duet.uid;
+      setDuetGateTexts(room);
+      await armDuetStartIfHost(room);
+
+      const gate = (((room || {}).match || {}).runGate || {});
+      const startAt = Number(gate.startedAt) || 0;
+      duet.armedAt = startAt;
+
+      if (!duet.started && startAt > 0 && Date.now() >= startAt) {
+        startDuetGameplay();
+      }
+
+      if (duet.waitingForPeerEnd && bothDuetReportsReady(room)) {
+        renderCombinedDuetEnd(room);
+      }
+    };
+
+    duet.roomRef.on('value', duet.roomListener);
+  }
+
+  async function showEnd(reason) {
+    if (ended && !duet.enabled) return;
+
+    if (duet.enabled && !duet.combinedShown) {
+      clearTransientVisuals();
+      ended = true;
+      await commitDuetSummary(reason);
+      return;
+    }
+
+    if (ended && duet.enabled && duet.combinedShown) return;
+
+    ended = true;
+    paused = false;
+    clearTransientVisuals();
+
+    if (reason === 'final-clear') {
+      stageEl.classList.add('final-win');
+    }
+
+    const summary = buildSummary(reason);
+    saveLastSummary(summary);
+
+    if (ui.duetEndBoard) ui.duetEndBoard.classList.add('hidden');
+    if (ui.end) ui.end.setAttribute('aria-hidden', 'false');
+
+    setText(
+      ui.endTitle,
+      reason === 'final-clear'
+        ? 'สุดยอด! ผ่านด่านสุดท้ายแล้ว'
+        : 'เก่งมาก! จบรอบแล้ว'
+    );
+
+    setText(ui.endSub, `มุมมอง ${view} • ระดับ ${diff}`);
+    setText(ui.endGrade, summary.grade);
+    setText(ui.endScore, summary.score);
+    setText(ui.endMiss, summary.missBadHit);
+    setText(ui.endWater, `${summary.waterPct}%`);
+    setText(ui.endPhaseMini, endPhaseMiniText(reason));
+    renderEndStars(endStarCount(summary, reason));
+
+    setText(ui.endCoach, endCoachText(summary, reason));
+    setText(ui.endPhaseSummary, endPhaseSummaryText(reason));
+    setText(ui.endReward, endRewardText(summary, reason));
+    setText(ui.endBadge, endBadgeText(summary, reason));
+    setText(ui.endCollection, `สถิติล่าสุด • คะแนน ${summary.score} • เกรด ${summary.grade}`);
+    setText(
+      ui.endRewardCard,
+      reason === 'final-clear' ? 'Hydration Master' : 'Hydration Hero'
+    );
+    setText(
+      ui.endRewardMini,
+      reason === 'final-clear'
+        ? 'วันนี้ผ่านด่านสุดท้ายได้สำเร็จ'
+        : 'รอบนี้เก็บน้ำได้ดีขึ้นอีกนิด'
+    );
+
+    renderStickerCollection();
+
+    if (ui.btnNextCooldown) {
+      ui.btnNextCooldown.classList.toggle('is-hidden', !cooldownRequired);
+      ui.btnNextCooldown.onclick = () => {
+        location.href = buildCooldownUrl();
+      };
+    }
+
+    if (ui.btnReplay) {
+      ui.btnReplay.onclick = () => {
+        const u = new URL(location.href);
+        u.searchParams.set('seed', String(Date.now()));
+        location.href = u.toString();
+      };
+    }
+
+    if (ui.btnBackHub) {
+      ui.btnBackHub.onclick = () => {
+        location.href = hubUrl;
+      };
+    }
+
+    const compact = isMobileCompact();
+    setEndDetailExpanded(!compact);
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(String(text || ''));
+      showCallout('คัดลอกแล้ว', 'good');
+    } catch {
+      console.warn('[hydration] clipboard failed');
+    }
+  }
+
+  /* events */
   layer.addEventListener('pointerdown', (ev) => {
     if (paused || helpOpen || ended) return;
     const el = ev.target?.closest?.('.bubble');
@@ -1706,12 +2576,8 @@ export async function boot() {
 
   WIN.addEventListener('resize', () => {
     try {
-      if (countLiveTargets() <= 0) {
-        ensureStarterTargets(true);
-      }
-    } catch (e) {
-      console.warn('[hydration] resize recovery failed', e);
-    }
+      if (countLiveTargets() <= 0) ensureStarterTargets(true);
+    } catch {}
   });
 
   if (ui.btnHelp) ui.btnHelp.onclick = showHelp;
@@ -1743,11 +2609,28 @@ export async function boot() {
     showCallout('เวอร์ชันนี้ยังไม่ส่ง cloud', 'warn');
   };
 
+  if (ui.btnEndToggleDetail) {
+    ui.btnEndToggleDetail.onclick = () => {
+      if (!ui.endDetailWrap) return;
+      const isCollapsed = ui.endDetailWrap.classList.contains('is-collapsed');
+      setEndDetailExpanded(isCollapsed);
+    };
+  }
+
   if (ui.end) ui.end.setAttribute('aria-hidden', 'true');
   if (ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden', 'true');
+  if (ui.helpOverlay) ui.helpOverlay.setAttribute('aria-hidden', 'true');
+  if (ui.duetOverlay) ui.duetOverlay.setAttribute('aria-hidden', 'true');
 
+  bindKidHudMeta();
   applyStagePhaseVisuals();
-  ensureStarterTargets(true);
+  syncPhaseDramaDecor();
   setHUD();
-  showHelp();
+
+  if (duet.enabled) {
+    await initDuetSync();
+  } else {
+    ensureStarterTargets(true);
+    showHelp();
+  }
 }
