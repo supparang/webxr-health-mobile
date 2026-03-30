@@ -1,17 +1,3 @@
-/* =========================================================
- * /herohealth/vr-goodjunk/goodjunk-battle.safe.js
- * FULL PATCH v20260328-GOODJUNK-BATTLE-ENGINE-R4
- * ---------------------------------------------------------
- * Engine role:
- * - actual playable battle engine
- * - works with lobby schema: hha-battle/goodjunk/rooms/{roomId}/{meta,state,players}
- * - injects stage + HUD into #gameMount
- * - syncs score / hp / charge / attacks / guards to Firebase
- * - host promotes countdown -> playing
- * - host ends round when time up or someone is KO
- * - features: attack, guard, perfect guard, crit hit, phase A/B/C
- * ========================================================= */
-
 (() => {
   'use strict';
 
@@ -226,32 +212,29 @@
     maxAttackCharge: 100,
     attackReady: false,
     attacksUsed: 0,
+    guardCharge: 0,
+    maxGuardCharge: 100,
+    guardReady: false,
+    guardsUsed: 0,
+    guardActiveUntil: 0,
+    guardWindowUntil: 0,
+    perfectGuardCount: 0,
+    blockedDamage: 0,
+    criticalCount: 0,
     damageDealt: 0,
     damageTaken: 0,
     koCount: 0,
     goodHit: 0,
     junkHit: 0,
 
-    guardsUsed: 0,
-    blockedDamage: 0,
-    critHits: 0,
-    perfectGuards: 0,
-    phase: 'A',
-    phaseChangedAt: 0,
-    lastAction: '',
-
-    guardActive: false,
-    guardUntil: 0,
-    guardCooldownUntil: 0,
-    guardDurationMs: 650,
-    guardCooldownMs: 1800,
-    lastGuardAt: 0,
-
     lastAttackId: '',
     lastAttackAt: 0,
     lastAttackDamage: 0,
     lastAttackTarget: '',
     lastAttackCritical: false,
+
+    lastGuardId: '',
+    lastGuardAt: 0,
 
     lastRoundStartedAt: 0,
     hostEndingBusy: false,
@@ -264,7 +247,6 @@
     root: null,
     field: null,
     statusBanner: null,
-
     attackBtn: null,
     guardBtn: null,
 
@@ -278,6 +260,8 @@
     battleHpFill: null,
     battleChargeValue: null,
     battleChargeFill: null,
+    battleGuardValue: null,
+    battleGuardFill: null,
     battleAttackReady: null,
     battleGuardReady: null,
     opponentStrip: null
@@ -359,9 +343,28 @@
     return !!host && host === getSelfKey();
   }
 
+  function sortFinalPlayers(players){
+    return [...players].sort((a, b) => {
+      if (Number(b.alive) !== Number(a.alive)) return Number(b.alive) - Number(a.alive);
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.hp !== a.hp) return b.hp - a.hp;
+      if (a.miss !== b.miss) return a.miss - b.miss;
+      if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
+      if (b.koCount !== a.koCount) return b.koCount - a.koCount;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'th');
+    });
+  }
+
+  function getFrozenFinal(){
+    const f = (((STATE.room || {}).state || {}).final) || null;
+    return (f && typeof f === 'object') ? f : null;
+  }
+
   function updateGlobals(){
     W.battleRoom = STATE.room;
     W.__BATTLE_ROOM__ = STATE.room;
+
+    const final = getFrozenFinal();
 
     W.state = Object.assign({}, W.state || {}, {
       room: STATE.room,
@@ -379,20 +382,22 @@
       maxAttackCharge: STATE.maxAttackCharge,
       attackReady: STATE.attackReady,
       attacksUsed: STATE.attacksUsed,
+      guardCharge: STATE.guardCharge,
+      maxGuardCharge: STATE.maxGuardCharge,
+      guardReady: STATE.guardReady,
+      guardsUsed: STATE.guardsUsed,
+      perfectGuardCount: STATE.perfectGuardCount,
+      blockedDamage: STATE.blockedDamage,
+      criticalCount: STATE.criticalCount,
       damageDealt: STATE.damageDealt,
       damageTaken: STATE.damageTaken,
       koCount: STATE.koCount,
-      guardsUsed: STATE.guardsUsed,
-      blockedDamage: STATE.blockedDamage,
-      critHits: STATE.critHits,
-      perfectGuards: STATE.perfectGuards,
-      phase: STATE.phase,
-      lastAction: STATE.lastAction,
       timeLeftSec: timeLeftSec(),
       started: STATE.started,
       finished: STATE.finished,
       isEnded: STATE.finished,
-      endsAtMs: currentRoomEndsAt()
+      endsAtMs: currentRoomEndsAt(),
+      final: final || null
     });
 
     W.gameState = W.state;
@@ -421,15 +426,16 @@
       maxAttackCharge: STATE.maxAttackCharge,
       attackReady: STATE.attackReady,
       attacksUsed: STATE.attacksUsed,
+      guardCharge: STATE.guardCharge,
+      maxGuardCharge: STATE.maxGuardCharge,
+      guardReady: STATE.guardReady,
+      guardsUsed: STATE.guardsUsed,
+      perfectGuardCount: STATE.perfectGuardCount,
+      blockedDamage: STATE.blockedDamage,
+      criticalCount: STATE.criticalCount,
       damageDealt: STATE.damageDealt,
       damageTaken: STATE.damageTaken,
       koCount: STATE.koCount,
-      guardsUsed: STATE.guardsUsed,
-      blockedDamage: STATE.blockedDamage,
-      critHits: STATE.critHits,
-      perfectGuards: STATE.perfectGuards,
-      phase: STATE.phase,
-      lastAction: STATE.lastAction,
       timeLeftSec: timeLeftSec(),
       players: normalizeRoomPlayersMap(STATE.room.players),
       room: STATE.room
@@ -449,18 +455,18 @@
       damageDealt: STATE.damageDealt,
       damageTaken: STATE.damageTaken,
       koCount: STATE.koCount,
-      guardsUsed: STATE.guardsUsed,
       blockedDamage: STATE.blockedDamage,
-      critHits: STATE.critHits,
-      perfectGuards: STATE.perfectGuards,
-      phase: STATE.phase,
-      lastAction: STATE.lastAction
+      criticalCount: STATE.criticalCount
     });
     emit('battle:charge', {
       attackCharge: STATE.attackCharge,
       maxAttackCharge: STATE.maxAttackCharge,
       attackReady: STATE.attackReady,
-      attacksUsed: STATE.attacksUsed
+      attacksUsed: STATE.attacksUsed,
+      guardCharge: STATE.guardCharge,
+      maxGuardCharge: STATE.maxGuardCharge,
+      guardReady: STATE.guardReady,
+      guardsUsed: STATE.guardsUsed
     });
   }
 
@@ -533,7 +539,7 @@
       }
       #battleHpFill{ background:linear-gradient(90deg,#7ed957,#58c33f); }
       #battleChargeFill{ background:linear-gradient(90deg,#7fcfff,#58b7f5); }
-
+      #battleGuardFill{ background:linear-gradient(90deg,#c4b5fd,#8b5cf6); }
       #battleOpponentStrip{
         position:absolute; left:14px; right:14px; bottom:14px; z-index:5;
         display:flex; gap:10px; flex-wrap:wrap;
@@ -544,13 +550,10 @@
       .gjb-opponent-top{
         display:flex; justify-content:space-between; gap:8px; align-items:center;
       }
-      .gjb-opponent-name{
-        font-size:15px; font-weight:1000;
-      }
+      .gjb-opponent-name{ font-size:15px; font-weight:1000; }
       .gjb-opponent-mini{
         margin-top:7px; font-size:12px; color:#7b7a72; font-weight:1000;
       }
-
       #battleBanner{
         position:absolute; left:50%; top:110px; transform:translateX(-50%);
         z-index:7; min-width:min(92vw,520px); max-width:min(92vw,620px);
@@ -560,43 +563,34 @@
         box-shadow:0 14px 24px rgba(86,155,194,.16);
         color:#4d4a42; text-align:center; font-size:14px; line-height:1.6; font-weight:1000;
       }
-
       #battleActionDock{
         position:absolute; right:14px; bottom:86px; z-index:8; pointer-events:auto;
         display:grid; gap:8px; justify-items:end;
       }
-      .battleActionRow{
-        display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;
+      .gjb-action-row{
+        display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;
       }
-
       #battleAttackBtn, #battleGuardBtn{
         appearance:none; border:none; cursor:pointer;
-        min-width:138px; min-height:54px; padding:12px 16px;
+        min-width:146px; min-height:54px; padding:12px 16px;
         border-radius:18px; font-size:15px; font-weight:1000;
         color:#fffef9; box-shadow:0 14px 24px rgba(86,155,194,.18);
         transition:transform .12s ease, opacity .12s ease, filter .12s ease;
       }
-      #battleAttackBtn{
-        background:linear-gradient(180deg,#7fcfff,#58b7f5);
-      }
-      #battleGuardBtn{
-        background:linear-gradient(180deg,#ffd45c,#ffb547);
-        color:#6d4e00;
-      }
-      #battleAttackBtn:hover, #battleGuardBtn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
-      #battleAttackBtn:active, #battleGuardBtn:active{ transform:translateY(0); }
-      #battleAttackBtn:disabled, #battleGuardBtn:disabled{
+      #battleAttackBtn{ background:linear-gradient(180deg,#7fcfff,#58b7f5); }
+      #battleGuardBtn{ background:linear-gradient(180deg,#b8a7ff,#8b5cf6); }
+      #battleAttackBtn:hover,#battleGuardBtn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+      #battleAttackBtn:active,#battleGuardBtn:active{ transform:translateY(0); }
+      #battleAttackBtn:disabled,#battleGuardBtn:disabled{
         cursor:not-allowed; opacity:.55; filter:grayscale(.06); transform:none;
       }
-
-      #attackReadyBadge, #guardReadyBadge{
+      #attackReadyBadge,#guardReadyBadge{
         background:rgba(255,255,255,.92);
         border:2px solid #bfe3f2;
         border-radius:999px; min-height:36px; padding:7px 12px;
         box-shadow:0 10px 20px rgba(86,155,194,.12);
         font-size:12px; font-weight:1000; color:#7b7a72;
       }
-
       .gjb-cloud{
         position:absolute; background:#fff; border-radius:999px;
         box-shadow:0 8px 18px rgba(0,0,0,.06); opacity:.8; pointer-events:none;
@@ -604,7 +598,6 @@
       .gjb-cloud.c1{ width:130px;height:42px;left:4%;top:8%; }
       .gjb-cloud.c2{ width:95px;height:34px;left:72%;top:11%; }
       .gjb-cloud.c3{ width:110px;height:36px;left:38%;top:18%; }
-
       .gjb-target{
         position:absolute;
         display:grid; place-items:center;
@@ -620,7 +613,6 @@
         font-size:clamp(24px, 3.8vw, 38px);
         line-height:1;
       }
-
       .gjb-hitfx{
         position:absolute; pointer-events:none; z-index:9;
         font-size:20px; font-weight:1000; color:#244260;
@@ -630,23 +622,20 @@
       .gjb-hitfx.good{ color:#15803d; }
       .gjb-hitfx.bad{ color:#b91c1c; }
       .gjb-hitfx.atk{ color:#2563eb; font-size:24px; }
-      .gjb-hitfx.guard{ color:#d97706; font-size:22px; }
-
+      .gjb-hitfx.guard{ color:#7c3aed; font-size:22px; }
       @keyframes gjb-float{
         0%{ opacity:0; transform:translateY(8px) scale(.9); }
         15%{ opacity:1; }
         100%{ opacity:0; transform:translateY(-28px) scale(1.04); }
       }
-
       @media (max-width: 860px){
         #battleHud{ gap:8px; left:10px; right:10px; top:10px; }
         .gjb-stat{ min-width:94px; }
         .gjb-gauge{ min-width:160px; }
         #battleBanner{ top:116px; min-width:min(94vw,520px); font-size:13px; }
         #battleActionDock{ right:10px; bottom:74px; }
-        #battleAttackBtn, #battleGuardBtn{ min-width:124px; min-height:50px; font-size:14px; }
+        #battleAttackBtn,#battleGuardBtn{ min-width:130px; min-height:50px; font-size:14px; }
       }
-
       @media (max-width: 640px){
         .gjb-stat-v{ font-size:20px; }
         .gjb-opponent-card{ min-width:unset; width:100%; }
@@ -709,11 +698,21 @@
 
               <div class="gjb-gauge">
                 <div class="gjb-gauge-head">
-                  <span>ATTACK CHARGE</span>
+                  <span>ATTACK</span>
                   <span id="battleChargeValue">0/100</span>
                 </div>
                 <div class="gjb-gauge-bar">
                   <div class="gjb-gauge-fill" id="battleChargeFill"></div>
+                </div>
+              </div>
+
+              <div class="gjb-gauge">
+                <div class="gjb-gauge-head">
+                  <span>GUARD</span>
+                  <span id="battleGuardValue">0/100</span>
+                </div>
+                <div class="gjb-gauge-bar">
+                  <div class="gjb-gauge-fill" id="battleGuardFill"></div>
                 </div>
               </div>
             </div>
@@ -723,13 +722,13 @@
           <div id="battleField"></div>
 
           <div id="battleActionDock">
-            <div class="battleActionRow">
-              <div id="attackReadyBadge">CHARGING</div>
-              <div id="guardReadyBadge">GUARD READY</div>
-            </div>
-            <div class="battleActionRow">
-              <button id="battleGuardBtn" type="button">🛡 GUARD</button>
+            <div class="gjb-action-row">
+              <div id="attackReadyBadge">ATTACK CHARGING</div>
               <button id="battleAttackBtn" type="button" disabled>⚡ ATTACK</button>
+            </div>
+            <div class="gjb-action-row">
+              <div id="guardReadyBadge">GUARD CHARGING</div>
+              <button id="battleGuardBtn" type="button" disabled>🛡️ GUARD</button>
             </div>
           </div>
 
@@ -754,6 +753,8 @@
     UI.battleHpFill = D.getElementById('battleHpFill');
     UI.battleChargeValue = D.getElementById('battleChargeValue');
     UI.battleChargeFill = D.getElementById('battleChargeFill');
+    UI.battleGuardValue = D.getElementById('battleGuardValue');
+    UI.battleGuardFill = D.getElementById('battleGuardFill');
     UI.battleAttackReady = D.getElementById('attackReadyBadge');
     UI.battleGuardReady = D.getElementById('guardReadyBadge');
     UI.opponentStrip = D.getElementById('battleOpponentStrip');
@@ -766,7 +767,7 @@
         ev.preventDefault();
         useAttack();
       }
-      if ((ev.key === 'Shift' || ev.code === 'ShiftLeft' || ev.code === 'ShiftRight') && !ev.repeat){
+      if ((ev.code === 'ShiftLeft' || ev.code === 'ShiftRight') && !ev.repeat){
         ev.preventDefault();
         useGuard();
       }
@@ -792,107 +793,8 @@
     setTimeout(() => el.remove(), 520);
   }
 
-  function fieldRect(){
-    const r = UI.field.getBoundingClientRect();
-    return {
-      w: Math.max(320, Math.round(r.width || 960)),
-      h: Math.max(400, Math.round(r.height || 580))
-    };
-  }
-
-  function timeLeftSec(){
-    const status = roomStatus();
-    if (status === 'countdown'){
-      return Math.max(0, (currentCountdownEndsAt() - now()) / 1000);
-    }
-    if (status === 'playing'){
-      const endsAt = currentRoomEndsAt();
-      return endsAt ? Math.max(0, (endsAt - now()) / 1000) : STATE.timeSec;
-    }
-    return STATE.started ? 0 : STATE.timeSec;
-  }
-
-  function phaseByTimeLeft(){
-    const left = timeLeftSec();
-    const total = Math.max(1, STATE.timeSec || 150);
-    const ratio = left / total;
-
-    if (ratio <= 0.33) return 'C';
-    if (ratio <= 0.66) return 'B';
-    return 'A';
-  }
-
-  function phaseTuning(){
-    const base = getCfg();
-    const phase = STATE.phase || 'A';
-
-    if (phase === 'B'){
-      return {
-        spawnEvery: Math.max(300, Math.round(base.spawnEvery * 0.86)),
-        maxTargets: base.maxTargets + 1,
-        ttl: Math.max(1200, Math.round(base.ttl * 0.92)),
-        speed: Math.round(base.speed * 1.10),
-        goodRatio: Math.max(0.56, base.goodRatio - 0.03),
-        atkDamage: base.atkDamage + 2,
-        critChance: 0.16
-      };
-    }
-
-    if (phase === 'C'){
-      return {
-        spawnEvery: Math.max(240, Math.round(base.spawnEvery * 0.74)),
-        maxTargets: base.maxTargets + 2,
-        ttl: Math.max(1000, Math.round(base.ttl * 0.84)),
-        speed: Math.round(base.speed * 1.22),
-        goodRatio: Math.max(0.52, base.goodRatio - 0.07),
-        atkDamage: base.atkDamage + 4,
-        critChance: 0.24
-      };
-    }
-
-    return {
-      spawnEvery: base.spawnEvery,
-      maxTargets: base.maxTargets,
-      ttl: base.ttl,
-      speed: base.speed,
-      goodRatio: base.goodRatio,
-      atkDamage: base.atkDamage,
-      critChance: 0.10
-    };
-  }
-
-  function maybeUpdatePhase(){
-    if (!STATE.started || STATE.finished) return;
-    const nextPhase = phaseByTimeLeft();
-    if (nextPhase === STATE.phase) return;
-
-    STATE.phase = nextPhase;
-    STATE.phaseChangedAt = now();
-
-    if (nextPhase === 'B'){
-      setBanner('PHASE B! เกมจะไวขึ้น ดาเมจแรงขึ้น!', 1200);
-    } else if (nextPhase === 'C'){
-      setBanner('PHASE C! ช่วงเดือดสุด โอกาสคริติคอลสูงขึ้น!', 1400);
-    }
-
-    renderHud();
-    scheduleSync(true);
-  }
-
-  function isGuarding(){
-    return STATE.guardActive && now() < STATE.guardUntil;
-  }
-
-  function guardCooldownLeftMs(){
-    return Math.max(0, STATE.guardCooldownUntil - now());
-  }
-
-  function guardReady(){
-    return !STATE.finished && !STATE.localKo && !isGuarding() && guardCooldownLeftMs() <= 0;
-  }
-
   function renderHud(){
-    if (UI.battleModePill) UI.battleModePill.textContent = `MODE battle • PHASE ${STATE.phase || 'A'}`;
+    if (UI.battleModePill) UI.battleModePill.textContent = 'MODE battle';
     if (UI.battleRoomPill) UI.battleRoomPill.textContent = `ROOM ${STATE.roomId || '-'}`;
     if (UI.battleScoreValue) UI.battleScoreValue.textContent = String(Math.max(0, Math.round(STATE.score)));
     if (UI.battleTimeValue) UI.battleTimeValue.textContent = formatClock(timeLeftSec());
@@ -905,29 +807,22 @@
     if (UI.battleChargeValue) UI.battleChargeValue.textContent = `${STATE.attackCharge}/${STATE.maxAttackCharge}`;
     if (UI.battleChargeFill) UI.battleChargeFill.style.width = `${((STATE.attackCharge / Math.max(1, STATE.maxAttackCharge)) * 100).toFixed(1)}%`;
 
+    if (UI.battleGuardValue) UI.battleGuardValue.textContent = `${STATE.guardCharge}/${STATE.maxGuardCharge}`;
+    if (UI.battleGuardFill) UI.battleGuardFill.style.width = `${((STATE.guardCharge / Math.max(1, STATE.maxGuardCharge)) * 100).toFixed(1)}%`;
+
     if (UI.battleAttackReady){
-      UI.battleAttackReady.textContent = STATE.attackReady ? 'ATTACK READY' : 'CHARGING';
+      UI.battleAttackReady.textContent = STATE.attackReady ? 'ATTACK READY' : 'ATTACK CHARGING';
       UI.battleAttackReady.style.color = STATE.attackReady ? '#2563eb' : '#7b7a72';
       UI.battleAttackReady.style.borderColor = STATE.attackReady ? '#7fcfff' : '#bfe3f2';
     }
 
     if (UI.battleGuardReady){
-      if (isGuarding()){
-        UI.battleGuardReady.textContent = 'GUARDING';
-        UI.battleGuardReady.style.color = '#d97706';
-        UI.battleGuardReady.style.borderColor = '#ffd45c';
-      } else {
-        const cd = guardCooldownLeftMs();
-        if (cd > 0){
-          UI.battleGuardReady.textContent = `GUARD CD ${Math.ceil(cd / 1000)}s`;
-          UI.battleGuardReady.style.color = '#7b7a72';
-          UI.battleGuardReady.style.borderColor = '#bfe3f2';
-        } else {
-          UI.battleGuardReady.textContent = 'GUARD READY';
-          UI.battleGuardReady.style.color = '#d97706';
-          UI.battleGuardReady.style.borderColor = '#ffd45c';
-        }
-      }
+      const active = now() < STATE.guardActiveUntil;
+      UI.battleGuardReady.textContent = active
+        ? 'GUARD ACTIVE'
+        : (STATE.guardReady ? 'GUARD READY' : 'GUARD CHARGING');
+      UI.battleGuardReady.style.color = active ? '#7c3aed' : (STATE.guardReady ? '#7c3aed' : '#7b7a72');
+      UI.battleGuardReady.style.borderColor = active || STATE.guardReady ? '#c4b5fd' : '#bfe3f2';
     }
 
     if (UI.attackBtn){
@@ -936,8 +831,8 @@
     }
 
     if (UI.guardBtn){
-      UI.guardBtn.disabled = !(STATE.started && !STATE.finished && !STATE.localKo && guardReady());
-      UI.guardBtn.textContent = isGuarding() ? '🛡 GUARDING' : '🛡 GUARD';
+      UI.guardBtn.disabled = !(STATE.started && !STATE.finished && !STATE.localKo && STATE.guardReady && now() >= STATE.guardActiveUntil);
+      UI.guardBtn.textContent = (now() < STATE.guardActiveUntil) ? '🛡️ ACTIVE' : (STATE.guardReady ? '🛡️ GUARD' : '🛡️ CHARGING');
     }
 
     renderOpponents();
@@ -985,15 +880,34 @@
       .replace(/"/g, '&quot;');
   }
 
+  function fieldRect(){
+    const r = UI.field.getBoundingClientRect();
+    return {
+      w: Math.max(320, Math.round(r.width || 960)),
+      h: Math.max(400, Math.round(r.height || 580))
+    };
+  }
+
+  function timeLeftSec(){
+    const status = roomStatus();
+    if (status === 'countdown'){
+      return Math.max(0, (currentCountdownEndsAt() - now()) / 1000);
+    }
+    if (status === 'playing'){
+      const endsAt = currentRoomEndsAt();
+      return endsAt ? Math.max(0, (endsAt - now()) / 1000) : STATE.timeSec;
+    }
+    return STATE.started ? 0 : STATE.timeSec;
+  }
+
   function makeTarget(kind){
     const rect = fieldRect();
-    const tune = phaseTuning();
     const size = Math.round(60 + STATE.rng() * 28);
     const pad = 10;
     const x = pad + Math.round((rect.w - size - pad * 2) * STATE.rng());
     const y = -size - Math.round(STATE.rng() * 30);
-    const speed = tune.speed * (0.9 + STATE.rng() * 0.55);
-    const ttl = Math.round(tune.ttl * (0.92 + STATE.rng() * 0.18));
+    const speed = STATE.cfg.speed * (0.9 + STATE.rng() * 0.55);
+    const ttl = Math.round(STATE.cfg.ttl * (0.92 + STATE.rng() * 0.18));
     const sway = (STATE.rng() - 0.5) * 52;
     const bank = kind === 'good' ? GOOD_ITEMS : JUNK_ITEMS;
     const pick = bank[Math.floor(STATE.rng() * bank.length)];
@@ -1028,9 +942,8 @@
 
   function spawnTarget(){
     if (!STATE.started || STATE.finished || STATE.localKo) return;
-    const tune = phaseTuning();
-    if (STATE.targets.length >= tune.maxTargets) return;
-    const kind = STATE.rng() < tune.goodRatio ? 'good' : 'junk';
+    if (STATE.targets.length >= STATE.cfg.maxTargets) return;
+    const kind = STATE.rng() < STATE.cfg.goodRatio ? 'good' : 'junk';
     makeTarget(kind);
   }
 
@@ -1088,17 +1001,19 @@
       maxAttackCharge: Math.max(1, STATE.maxAttackCharge),
       attackReady: !!STATE.attackReady,
       attacksUsed: Math.max(0, STATE.attacksUsed),
+
+      guardCharge: Math.max(0, STATE.guardCharge),
+      maxGuardCharge: Math.max(1, STATE.maxGuardCharge),
+      guardReady: !!STATE.guardReady,
+      guardsUsed: Math.max(0, STATE.guardsUsed),
+      guardActiveUntil: Math.max(0, STATE.guardActiveUntil),
+      perfectGuardCount: Math.max(0, STATE.perfectGuardCount),
+      blockedDamage: Math.max(0, STATE.blockedDamage),
+
+      criticalCount: Math.max(0, STATE.criticalCount),
       damageDealt: Math.max(0, STATE.damageDealt),
       damageTaken: Math.max(0, STATE.damageTaken),
       koCount: Math.max(0, STATE.koCount),
-      guardsUsed: Math.max(0, STATE.guardsUsed),
-      blockedDamage: Math.max(0, STATE.blockedDamage),
-      critHits: Math.max(0, STATE.critHits),
-      perfectGuards: Math.max(0, STATE.perfectGuards),
-      phase: STATE.phase || 'A',
-      lastAction: STATE.lastAction || '',
-      guardActive: !!isGuarding(),
-      guardUntil: Math.max(0, STATE.guardUntil),
       updatedAt: t,
       lastSeen: t
     };
@@ -1111,6 +1026,11 @@
       payload.lastAttackCritical = !!STATE.lastAttackCritical;
     }
 
+    if (STATE.lastGuardId){
+      payload.lastGuardId = STATE.lastGuardId;
+      payload.lastGuardAt = STATE.lastGuardAt;
+    }
+
     try {
       await STATE.refs.self.update(payload);
     } catch (err){
@@ -1121,6 +1041,11 @@
   function addCharge(delta){
     STATE.attackCharge = clamp(STATE.attackCharge + delta, 0, STATE.maxAttackCharge);
     STATE.attackReady = STATE.attackCharge >= STATE.maxAttackCharge;
+  }
+
+  function addGuardCharge(delta){
+    STATE.guardCharge = clamp(STATE.guardCharge + delta, 0, STATE.maxGuardCharge);
+    STATE.guardReady = STATE.guardCharge >= STATE.maxGuardCharge;
   }
 
   function pulseScore(){
@@ -1144,11 +1069,11 @@
       const bonus = Math.min(12, Math.floor(STATE.streak / 3) * 2);
       STATE.score += 10 + bonus;
       addCharge(20);
-      STATE.lastAction = 'collect';
+      addGuardCharge(16);
 
       pulseScore();
       flashText(t.x, t.y, `+${10 + bonus}`, 'good');
-      setBanner('เก่งมาก! แตะอาหารดีต่อเนื่องเพื่อชาร์จพลังโจมตี', 900);
+      setBanner('เก่งมาก! แตะอาหารดีต่อเนื่องเพื่อชาร์จ ATTACK และ GUARD', 900);
     } else {
       STATE.junkHit += 1;
       STATE.miss += 1;
@@ -1156,7 +1081,7 @@
       STATE.score = Math.max(0, STATE.score - 8);
       STATE.hp = Math.max(0, STATE.hp - 8);
       addCharge(-10);
-      STATE.lastAction = 'junk';
+      addGuardCharge(-12);
 
       flashText(t.x, t.y, '-8', 'bad');
       setBanner('โดน junk! คะแนนและ HP ลดลง', 900);
@@ -1174,7 +1099,7 @@
       STATE.miss += 1;
       STATE.streak = 0;
       STATE.hp = Math.max(0, STATE.hp - 2);
-      STATE.lastAction = 'miss';
+      addGuardCharge(-6);
       flashText(t.x, t.y, 'MISS', 'bad');
       setBanner('อาหารดีหลุดไปแล้ว ระวังให้มากขึ้นอีกนิด', 800);
       applyLocalDamageCheck();
@@ -1189,7 +1114,9 @@
       STATE.localKo = true;
       STATE.attackCharge = 0;
       STATE.attackReady = false;
-      STATE.lastAction = 'ko';
+      STATE.guardCharge = 0;
+      STATE.guardReady = false;
+      STATE.guardActiveUntil = 0;
       setBanner('HP หมดแล้ว! รอระบบสรุปรอบนี้…', 1600);
       renderHud();
       scheduleSync(true);
@@ -1197,43 +1124,18 @@
     }
   }
 
-  function useGuard(){
-    if (!STATE.started || STATE.finished || STATE.localKo || !guardReady()) return;
-
-    const t = now();
-    STATE.guardActive = true;
-    STATE.guardUntil = t + STATE.guardDurationMs;
-    STATE.guardCooldownUntil = STATE.guardUntil + STATE.guardCooldownMs;
-    STATE.guardsUsed += 1;
-    STATE.lastGuardAt = t;
-    STATE.lastAction = 'guard';
-
-    flashText(fieldRect().w * 0.56, fieldRect().h * 0.56, 'GUARD!', 'guard');
-    setBanner('เปิด GUARD แล้ว! กันจังหวะโจมตีให้แม่น', 800);
-
-    renderHud();
-    scheduleSync(true);
-  }
-
   function useAttack(){
     if (!STATE.started || STATE.finished || STATE.localKo || !STATE.attackReady) return;
     const opp = topOpponent();
     if (!opp) return;
 
-    const tune = phaseTuning();
+    const isCritical = STATE.streak >= 5;
+    const dmg = isCritical ? Math.round((STATE.cfg.atkDamage || 18) * 1.5) : (STATE.cfg.atkDamage || 18);
     const attackId = `atk-${STATE.uid}-${now()}-${Math.random().toString(36).slice(2,6)}`;
 
-    const streakBonusChance = Math.min(0.10, Math.max(0, STATE.streak) * 0.01);
-    const critChance = Math.min(0.36, tune.critChance + streakBonusChance);
-    const isCrit = (STATE.rng ? STATE.rng() : Math.random()) < critChance;
-
-    let dmg = tune.atkDamage;
-    if (isCrit){
-      dmg = Math.round(dmg * 1.75);
-      STATE.critHits += 1;
-    }
-
     STATE.attacksUsed += 1;
+    if (isCritical) STATE.criticalCount += 1;
+
     STATE.attackCharge = 0;
     STATE.attackReady = false;
     STATE.damageDealt += dmg;
@@ -1241,22 +1143,30 @@
     STATE.lastAttackAt = now();
     STATE.lastAttackDamage = dmg;
     STATE.lastAttackTarget = opp.uid || opp.playerId || opp.key || '';
-    STATE.lastAttackCritical = !!isCrit;
-    STATE.lastAction = isCrit ? 'crit-attack' : 'attack';
+    STATE.lastAttackCritical = isCritical;
 
-    flashText(
-      fieldRect().w * 0.52,
-      fieldRect().h * 0.42,
-      isCrit ? `💥 CRIT ${dmg}` : `⚡-${dmg}`,
-      'atk'
-    );
+    flashText(fieldRect().w * 0.52, fieldRect().h * 0.42, isCritical ? `CRIT ⚡-${dmg}` : `⚡-${dmg}`, 'atk');
+    setBanner(isCritical
+      ? `Critical Attack ใส่ ${opp.name || 'คู่ต่อสู้'}!`
+      : `ปล่อย ATTACK ใส่ ${opp.name || 'คู่ต่อสู้'} แล้ว!`, 1000);
 
-    setBanner(
-      isCrit
-        ? `CRITICAL HIT! โจมตี ${opp.name || 'คู่ต่อสู้'} แบบแรงมาก!`
-        : `ปล่อย ATTACK ใส่ ${opp.name || 'คู่ต่อสู้'} แล้ว!`,
-      1000
-    );
+    renderHud();
+    scheduleSync(true);
+  }
+
+  function useGuard(){
+    if (!STATE.started || STATE.finished || STATE.localKo || !STATE.guardReady || now() < STATE.guardActiveUntil) return;
+
+    STATE.guardsUsed += 1;
+    STATE.guardCharge = 0;
+    STATE.guardReady = false;
+    STATE.guardActiveUntil = now() + 1500;
+    STATE.guardWindowUntil = now() + 420;
+    STATE.lastGuardId = `grd-${STATE.uid}-${now()}-${Math.random().toString(36).slice(2,6)}`;
+    STATE.lastGuardAt = now();
+
+    flashText(fieldRect().w * 0.48, fieldRect().h * 0.34, 'GUARD!', 'guard');
+    setBanner('เปิด GUARD แล้ว! กันการโจมตีจากคู่แข่งให้ทันจังหวะ', 900);
 
     renderHud();
     scheduleSync(true);
@@ -1297,36 +1207,32 @@
       STATE.seenAttackIds[key] = attackId;
       if (!STATE.started || STATE.finished || STATE.localKo) return;
 
-      if (isGuarding()){
-        const perfectWindow = 260;
-        const isPerfectGuard = (now() - STATE.lastGuardAt) <= perfectWindow;
+      const t = now();
+      const guardActive = t < STATE.guardActiveUntil;
+      const perfectGuard = t < STATE.guardWindowUntil;
 
-        STATE.blockedDamage += dmg;
+      if (guardActive){
+        const reduced = perfectGuard ? 0 : Math.round(dmg * 0.35);
+        const blocked = Math.max(0, dmg - reduced);
+        STATE.blockedDamage += blocked;
+        if (perfectGuard) STATE.perfectGuardCount += 1;
 
-        if (isPerfectGuard){
-          STATE.perfectGuards += 1;
-          STATE.score += 6;
-          addCharge(26);
-          STATE.lastAction = 'perfect-guard';
-          flashText(fieldRect().w * 0.34, fieldRect().h * 0.28, 'PERFECT BLOCK!', 'guard');
-          setBanner(`${p.name || 'คู่ต่อสู้'} โจมตีมา แต่คุณ PERFECT GUARD ได้!`, 1100);
+        if (reduced > 0){
+          STATE.damageTaken += reduced;
+          STATE.hp = Math.max(0, STATE.hp - reduced);
+          flashText(fieldRect().w * 0.34, fieldRect().h * 0.28, `BLOCK ${blocked}`, 'guard');
+          setBanner(`${p.name || 'คู่ต่อสู้'} โจมตีมา แต่ GUARD ช่วยลดดาเมจ!`, 1000);
         } else {
-          addCharge(10);
-          STATE.lastAction = 'block';
-          flashText(fieldRect().w * 0.34, fieldRect().h * 0.28, 'BLOCK!', 'guard');
-          setBanner(`${p.name || 'คู่ต่อสู้'} โจมตีมา แต่คุณกันได้!`, 1000);
+          flashText(fieldRect().w * 0.34, fieldRect().h * 0.28, 'PERFECT GUARD!', 'guard');
+          setBanner('Perfect Guard! ป้องกันดาเมจได้ทั้งหมด', 1000);
         }
-
-        renderHud();
-        scheduleSync(true);
-        return;
+      } else {
+        STATE.damageTaken += dmg;
+        STATE.hp = Math.max(0, STATE.hp - dmg);
+        flashText(fieldRect().w * 0.34, fieldRect().h * 0.28, `-${dmg} HP`, 'bad');
+        setBanner(`${p.name || 'คู่ต่อสู้'} ใช้ ATTACK ใส่คุณ!`, 1000);
       }
 
-      STATE.damageTaken += dmg;
-      STATE.hp = Math.max(0, STATE.hp - dmg);
-      STATE.lastAction = 'hit';
-      flashText(fieldRect().w * 0.34, fieldRect().h * 0.28, `-${dmg} HP`, 'bad');
-      setBanner(`${p.name || 'คู่ต่อสู้'} ใช้ ATTACK ใส่คุณ!`, 1000);
       applyLocalDamageCheck();
       renderHud();
       scheduleSync(true);
@@ -1346,6 +1252,47 @@
     maybeAwardKoFromOpponentState();
     processRemoteAttacks(STATE.room.players);
     renderHud();
+  }
+
+  async function freezeFinalState(reason){
+    if (!isHost() || !STATE.refs.state) return;
+
+    const players = roomPlayersArray().map((p) => ({
+      key: p.key,
+      pid: p.pid,
+      uid: p.uid,
+      playerId: p.playerId,
+      name: p.name,
+      score: num(p.score, 0),
+      miss: num(p.miss, 0),
+      bestStreak: num(p.bestStreak, 0),
+      hp: num(p.hp, 100),
+      maxHp: num(p.maxHp, 100),
+      attacksUsed: num(p.attacksUsed, 0),
+      guardsUsed: num(p.guardsUsed, 0),
+      perfectGuardCount: num(p.perfectGuardCount, 0),
+      blockedDamage: num(p.blockedDamage, 0),
+      criticalCount: num(p.criticalCount, 0),
+      damageDealt: num(p.damageDealt, 0),
+      damageTaken: num(p.damageTaken, 0),
+      koCount: num(p.koCount, 0),
+      alive: num(p.hp, 100) > 0
+    }));
+
+    const sorted = sortFinalPlayers(players);
+
+    try {
+      await STATE.refs.state.update({
+        final: {
+          reason: reason || 'finished',
+          endedAt: now(),
+          players: sorted
+        },
+        updatedAt: now()
+      });
+    } catch (err){
+      console.warn('[gj-battle] freezeFinalState failed:', err);
+    }
   }
 
   async function maybeHostPromoteCountdown(){
@@ -1369,6 +1316,7 @@
         cur.endsAt = startedAt + plannedSec * 1000;
         cur.countdownEndsAt = 0;
         cur.roundToken = String(startedAt);
+        cur.final = null;
         cur.updatedAt = startedAt;
 
         return cur;
@@ -1394,6 +1342,7 @@
 
     STATE.hostEndingBusy = true;
     try{
+      await freezeFinalState(timeUp ? 'timeup' : 'ko');
       await STATE.refs.state.transaction((cur) => {
         cur = cur || {};
         if (String(cur.status || '') !== 'playing') return cur;
@@ -1442,33 +1391,35 @@
     STATE.bestStreak = me ? num(me.bestStreak, 0) : 0;
     STATE.hp = me ? clamp(me.hp, 0, 100) : 100;
     STATE.maxHp = me ? Math.max(1, num(me.maxHp, 100)) : 100;
+
     STATE.attackCharge = me ? clamp(me.attackCharge, 0, 100) : 0;
     STATE.maxAttackCharge = me ? Math.max(1, num(me.maxAttackCharge, 100)) : 100;
     STATE.attackReady = !!(me && me.attackReady);
     STATE.attacksUsed = me ? num(me.attacksUsed, 0) : 0;
+
+    STATE.guardCharge = me ? clamp(me.guardCharge, 0, 100) : 0;
+    STATE.maxGuardCharge = me ? Math.max(1, num(me.maxGuardCharge, 100)) : 100;
+    STATE.guardReady = !!(me && me.guardReady);
+    STATE.guardsUsed = me ? num(me.guardsUsed, 0) : 0;
+    STATE.guardActiveUntil = 0;
+    STATE.guardWindowUntil = 0;
+    STATE.perfectGuardCount = me ? num(me.perfectGuardCount, 0) : 0;
+    STATE.blockedDamage = me ? num(me.blockedDamage, 0) : 0;
+
     STATE.damageDealt = me ? num(me.damageDealt, 0) : 0;
     STATE.damageTaken = me ? num(me.damageTaken, 0) : 0;
+    STATE.criticalCount = me ? num(me.criticalCount, 0) : 0;
     STATE.koCount = me ? num(me.koCount, 0) : 0;
-    STATE.guardsUsed = me ? num(me.guardsUsed, 0) : 0;
-    STATE.blockedDamage = me ? num(me.blockedDamage, 0) : 0;
-    STATE.critHits = me ? num(me.critHits, 0) : 0;
-    STATE.perfectGuards = me ? num(me.perfectGuards, 0) : 0;
-    STATE.phase = 'A';
-    STATE.phaseChangedAt = now();
-    STATE.lastAction = '';
-
-    STATE.guardActive = false;
-    STATE.guardUntil = 0;
-    STATE.guardCooldownUntil = 0;
-    STATE.lastGuardAt = 0;
-
     STATE.goodHit = 0;
     STATE.junkHit = 0;
+
     STATE.lastAttackId = '';
     STATE.lastAttackAt = 0;
     STATE.lastAttackDamage = 0;
     STATE.lastAttackTarget = '';
     STATE.lastAttackCritical = false;
+    STATE.lastGuardId = '';
+    STATE.lastGuardAt = 0;
 
     const roundToken = cleanText((STATE.room.state || {}).roundToken || String(startedAt), 120);
     STATE.roundToken = roundToken;
@@ -1477,36 +1428,56 @@
     const seedHash = xmur3(`${STATE.seed}|${STATE.roomId}|${STATE.roundToken}|${STATE.pid}|${startedAt}`)();
     STATE.rng = mulberry32(seedHash);
 
-    setBanner('เริ่มแล้ว! แตะอาหารดี ชาร์จพลัง แล้วใช้ ATTACK / GUARD ให้ถูกจังหวะ', 1300);
+    setBanner('เริ่มแล้ว! แตะอาหารดี ชาร์จพลัง แล้วใช้ ATTACK หรือ GUARD ให้ถูกจังหวะ', 1300);
     renderHud();
     scheduleSync(true);
   }
 
   function computeResultSummary(reason){
-    const players = roomPlayersArray().map((p) => ({
-      key: p.key,
-      pid: p.pid,
-      uid: p.uid,
-      playerId: p.playerId,
-      name: p.name,
-      score: num(p.score, 0),
-      miss: num(p.miss, 0),
-      bestStreak: num(p.bestStreak, 0),
-      hp: num(p.hp, 100),
-      maxHp: num(p.maxHp, 100),
-      koCount: num(p.koCount, 0),
-      alive: num(p.hp, 100) > 0
-    }));
-
-    players.sort((a, b) => {
-      if (Number(b.alive) !== Number(a.alive)) return Number(b.alive) - Number(a.alive);
-      if (b.score !== a.score) return b.score - a.score;
-      if (b.hp !== a.hp) return b.hp - a.hp;
-      if (a.miss !== b.miss) return a.miss - b.miss;
-      if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
-      if (b.koCount !== a.koCount) return b.koCount - a.koCount;
-      return String(a.name || '').localeCompare(String(b.name || ''), 'th');
-    });
+    const frozen = getFrozenFinal();
+    const players = frozen && Array.isArray(frozen.players)
+      ? frozen.players.map((p) => ({
+          key: p.key,
+          pid: p.pid,
+          uid: p.uid,
+          playerId: p.playerId,
+          name: p.name,
+          score: num(p.score, 0),
+          miss: num(p.miss, 0),
+          bestStreak: num(p.bestStreak, 0),
+          hp: num(p.hp, 100),
+          maxHp: num(p.maxHp, 100),
+          attacksUsed: num(p.attacksUsed, 0),
+          guardsUsed: num(p.guardsUsed, 0),
+          perfectGuardCount: num(p.perfectGuardCount, 0),
+          blockedDamage: num(p.blockedDamage, 0),
+          criticalCount: num(p.criticalCount, 0),
+          damageDealt: num(p.damageDealt, 0),
+          damageTaken: num(p.damageTaken, 0),
+          koCount: num(p.koCount, 0),
+          alive: !!p.alive
+        }))
+      : sortFinalPlayers(roomPlayersArray().map((p) => ({
+          key: p.key,
+          pid: p.pid,
+          uid: p.uid,
+          playerId: p.playerId,
+          name: p.name,
+          score: num(p.score, 0),
+          miss: num(p.miss, 0),
+          bestStreak: num(p.bestStreak, 0),
+          hp: num(p.hp, 100),
+          maxHp: num(p.maxHp, 100),
+          attacksUsed: num(p.attacksUsed, 0),
+          guardsUsed: num(p.guardsUsed, 0),
+          perfectGuardCount: num(p.perfectGuardCount, 0),
+          blockedDamage: num(p.blockedDamage, 0),
+          criticalCount: num(p.criticalCount, 0),
+          damageDealt: num(p.damageDealt, 0),
+          damageTaken: num(p.damageTaken, 0),
+          koCount: num(p.koCount, 0),
+          alive: num(p.hp, 100) > 0
+        })));
 
     const me = players.find((p) => p.key === getSelfKey() || (STATE.pid && p.pid === STATE.pid)) || null;
     const rank = me ? (players.findIndex((p) => p.key === me.key) + 1) : '';
@@ -1521,31 +1492,36 @@
       uid: STATE.uid,
       name: STATE.name,
       rank,
-      score: STATE.score,
+      score: me ? me.score : STATE.score,
       opponentScore: opp ? opp.score : '',
       players: players.length,
-      miss: STATE.miss,
-      bestStreak: STATE.bestStreak,
+      miss: me ? me.miss : STATE.miss,
+      bestStreak: me ? me.bestStreak : STATE.bestStreak,
       result,
-      reason: reason || 'finished',
-      hp: STATE.hp,
-      maxHp: STATE.maxHp,
-      attackCharge: STATE.attackCharge,
+      reason: (frozen && frozen.reason) || reason || 'finished',
+      hp: me ? me.hp : STATE.hp,
+      maxHp: me ? me.maxHp : STATE.maxHp,
+      attackCharge: me ? num(me.attackCharge, STATE.attackCharge) : STATE.attackCharge,
       maxAttackCharge: STATE.maxAttackCharge,
       attackReady: STATE.attackReady,
-      attacksUsed: STATE.attacksUsed,
-      damageDealt: STATE.damageDealt,
-      damageTaken: STATE.damageTaken,
-      koCount: STATE.koCount,
-      guardsUsed: STATE.guardsUsed,
-      blockedDamage: STATE.blockedDamage,
-      lastAction: STATE.lastAction,
-      critHits: STATE.critHits,
-      perfectGuards: STATE.perfectGuards,
-      phase: STATE.phase,
+      attacksUsed: me ? me.attacksUsed : STATE.attacksUsed,
+
+      guardCharge: me ? num(me.guardCharge, STATE.guardCharge) : STATE.guardCharge,
+      maxGuardCharge: STATE.maxGuardCharge,
+      guardReady: STATE.guardReady,
+      guardsUsed: me ? me.guardsUsed : STATE.guardsUsed,
+      perfectGuardCount: me ? me.perfectGuardCount : STATE.perfectGuardCount,
+      blockedDamage: me ? me.blockedDamage : STATE.blockedDamage,
+
+      criticalCount: me ? me.criticalCount : STATE.criticalCount,
+      damageDealt: me ? me.damageDealt : STATE.damageDealt,
+      damageTaken: me ? me.damageTaken : STATE.damageTaken,
+      koCount: me ? me.koCount : STATE.koCount,
+
       raw: {
         players,
         room: STATE.room,
+        final: frozen || null,
         endedAt: now(),
         goodHit: STATE.goodHit,
         junkHit: STATE.junkHit
@@ -1558,7 +1534,6 @@
 
     STATE.finished = true;
     STATE.started = false;
-    STATE.guardActive = false;
 
     caf(STATE.loopId);
     clearTargets();
@@ -1586,7 +1561,7 @@
 
     if (status === 'countdown'){
       const left = Math.max(0, Math.ceil((currentCountdownEndsAt() - now()) / 1000));
-      if (left > 0) {
+      if (left > 0){
         setBanner(`พร้อมแล้ว เริ่มเกมใน ${left}...`);
       } else {
         setBanner('กำลังเริ่มเกม...');
@@ -1620,7 +1595,6 @@
     if (STATE.finished) return;
 
     renderWaitingStates();
-    maybeUpdatePhase();
 
     if (!STATE.started){
       renderHud();
@@ -1635,13 +1609,7 @@
 
     const tNow = now();
 
-    if (STATE.guardActive && tNow >= STATE.guardUntil){
-      STATE.guardActive = false;
-    }
-
-    const tune = phaseTuning();
-
-    if (!STATE.localKo && tNow - STATE.lastSpawnAt >= tune.spawnEvery){
+    if (!STATE.localKo && tNow - STATE.lastSpawnAt >= STATE.cfg.spawnEvery){
       STATE.lastSpawnAt = tNow;
       spawnTarget();
     }
@@ -1667,6 +1635,11 @@
         STATE.targets.splice(i, 1);
         expireTarget(t);
       }
+    }
+
+    if (now() >= STATE.guardActiveUntil){
+      STATE.guardActiveUntil = 0;
+      STATE.guardWindowUntil = 0;
     }
 
     if (isHost()) maybeHostEndRound();
@@ -1757,6 +1730,7 @@
         startedAt: 0,
         endsAt: 0,
         roundToken: '',
+        final: null,
         updatedAt: t
       },
       players: {}
@@ -1784,21 +1758,25 @@
       combo: 0,
       bestStreak: existing ? num(existing.bestStreak, 0) : 0,
       hp: existing ? clamp(existing.hp, 0, 100) : 100,
-      maxHp: existing ? Math.max(1, num(existing.maxHp, 100)) : 100,
+      maxHp: 100,
       shield: 0,
       attackCharge: existing ? clamp(existing.attackCharge, 0, 100) : 0,
-      maxAttackCharge: existing ? Math.max(1, num(existing.maxAttackCharge, 100)) : 100,
+      maxAttackCharge: 100,
       attackReady: !!(existing && existing.attackReady),
       attacksUsed: existing ? num(existing.attacksUsed, 0) : 0,
+
+      guardCharge: existing ? clamp(existing.guardCharge, 0, 100) : 0,
+      maxGuardCharge: 100,
+      guardReady: !!(existing && existing.guardReady),
+      guardsUsed: existing ? num(existing.guardsUsed, 0) : 0,
+      guardActiveUntil: 0,
+      perfectGuardCount: existing ? num(existing.perfectGuardCount, 0) : 0,
+      blockedDamage: existing ? num(existing.blockedDamage, 0) : 0,
+
+      criticalCount: existing ? num(existing.criticalCount, 0) : 0,
       damageDealt: existing ? num(existing.damageDealt, 0) : 0,
       damageTaken: existing ? num(existing.damageTaken, 0) : 0,
       koCount: existing ? num(existing.koCount, 0) : 0,
-      guardsUsed: existing ? num(existing.guardsUsed, 0) : 0,
-      blockedDamage: existing ? num(existing.blockedDamage, 0) : 0,
-      critHits: existing ? num(existing.critHits, 0) : 0,
-      perfectGuards: existing ? num(existing.perfectGuards, 0) : 0,
-      phase: existing ? cleanText(existing.phase || 'A', 4) : 'A',
-      lastAction: existing ? cleanText(existing.lastAction || '', 24) : '',
       joinedAt: existing ? num(existing.joinedAt, t) : t,
       updatedAt: t,
       lastSeen: t
@@ -1855,15 +1833,18 @@
         STATE.maxAttackCharge = Math.max(1, num(me.maxAttackCharge, 100));
         STATE.attackReady = !!me.attackReady;
         STATE.attacksUsed = num(me.attacksUsed, 0);
+
+        STATE.guardCharge = clamp(me.guardCharge, 0, 100);
+        STATE.maxGuardCharge = Math.max(1, num(me.maxGuardCharge, 100));
+        STATE.guardReady = !!me.guardReady;
+        STATE.guardsUsed = num(me.guardsUsed, 0);
+        STATE.perfectGuardCount = num(me.perfectGuardCount, 0);
+        STATE.blockedDamage = num(me.blockedDamage, 0);
+
         STATE.damageDealt = num(me.damageDealt, 0);
         STATE.damageTaken = num(me.damageTaken, 0);
+        STATE.criticalCount = num(me.criticalCount, 0);
         STATE.koCount = num(me.koCount, 0);
-        STATE.guardsUsed = num(me.guardsUsed, 0);
-        STATE.blockedDamage = num(me.blockedDamage, 0);
-        STATE.critHits = num(me.critHits, 0);
-        STATE.perfectGuards = num(me.perfectGuards, 0);
-        STATE.phase = cleanText(me.phase || STATE.phase || 'A', 4) || 'A';
-        STATE.lastAction = cleanText(me.lastAction || STATE.lastAction || '', 24);
       }
 
       if (isHost()) {
