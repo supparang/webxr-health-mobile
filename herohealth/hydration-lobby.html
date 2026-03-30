@@ -944,7 +944,7 @@
 
             <div class="status-strip">
               <div class="status-group">
-                <span class="pill">🧷 UID <strong id="uidText">-</strong></span>
+                <span class="pill">🔐 UID <strong id="uidText">-</strong></span>
                 <span class="pill">🛰️ Online <strong id="onlineText">Yes</strong></span>
               </div>
 
@@ -1037,8 +1037,9 @@
     </div>
   </div>
 
-  <!-- สำคัญ: โหลด Firebase SDK ก่อน แล้วค่อย firebase-config.js -->
+  <!-- สำคัญ: auth ก่อน firebase-config -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="./firebase-config.js"></script>
 
@@ -1056,7 +1057,6 @@
       const LS = {
         nick: 'HHA_HYDR_NICK',
         pid: 'HHA_HYDR_PID',
-        uid: 'HHA_HYDR_UID',
         lastRoom: 'HHA_HYDR_DUET_LAST_ROOM'
       };
 
@@ -1112,13 +1112,15 @@
 
       const state = {
         db: null,
+        auth: null,
         uid: '',
         roomCode: '',
         roomRef: null,
         roomData: null,
         roomListener: null,
         isHost: false,
-        redirecting: false
+        redirecting: false,
+        authReady: false
       };
 
       function q(name, fallback=''){
@@ -1144,7 +1146,7 @@
       }
 
       function sanitizeUid(v){
-        return String(v || '').trim().replace(/[.#$[\]/]/g, '-').replace(/\s+/g, '-').slice(0, 40);
+        return String(v || '').trim().replace(/[.#$[\]/]/g, '-').replace(/\s+/g, '-').slice(0, 64);
       }
 
       function sanitizeRoom(v){
@@ -1199,19 +1201,41 @@
         return pid;
       }
 
-      function ensureUid(){
-        const fromLs = sanitizeUid(readLS(LS.uid, ''));
-        if (fromLs){
-          state.uid = fromLs;
-          EL.uidText.textContent = fromLs;
-          return fromLs;
+      async function ensureFirebaseAndAuth(){
+        if (typeof firebase === 'undefined'){
+          throw new Error('Firebase SDK not loaded');
         }
 
-        const uid = sanitizeUid(`u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`);
-        state.uid = uid;
-        EL.uidText.textContent = uid;
-        writeLS(LS.uid, uid);
-        return uid;
+        if (!window.HHA_FIREBASE_READY){
+          throw new Error('HHA_FIREBASE_READY is false');
+        }
+
+        const app = (window.HHA_getFirebaseApp && window.HHA_getFirebaseApp())
+          || (firebase.apps && firebase.apps.length ? firebase.app() : null);
+
+        if (!app){
+          throw new Error('Firebase app not ready');
+        }
+
+        state.db = firebase.database(app);
+        state.auth = firebase.auth ? firebase.auth(app) : null;
+
+        if (typeof window.HHA_ensureAnonymousAuth === 'function'){
+          const user = await window.HHA_ensureAnonymousAuth();
+          if (!user || !user.uid){
+            throw new Error('Anonymous auth did not return a user');
+          }
+          state.uid = sanitizeUid(user.uid);
+        } else {
+          const currentUser = state.auth && state.auth.currentUser ? state.auth.currentUser : null;
+          if (!currentUser || !currentUser.uid){
+            throw new Error('Anonymous auth helper missing');
+          }
+          state.uid = sanitizeUid(currentUser.uid);
+        }
+
+        state.authReady = true;
+        EL.uidText.textContent = state.uid || '-';
       }
 
       function defaultHub(){
@@ -1263,7 +1287,7 @@
         EL.tinyStatus.textContent = niceStatusText(s);
 
         EL.roomStatusPill.className = 'status-pill';
-        if (s === 'running' || s === 'countdown'){
+        if (s === 'countdown' || s === 'running'){
           EL.roomStatusPill.classList.add('running');
           EL.roomStatusPill.textContent = s === 'countdown' ? 'Countdown' : 'Running';
         } else if (s === 'finished'){
@@ -1324,7 +1348,6 @@
         const seed = (room && room.seed) || q('seed', String(Date.now()));
         const nick = ensureNick();
         const pid = ensurePid();
-        const uid = ensureUid();
 
         url.searchParams.set('game', 'hydration');
         url.searchParams.set('theme', 'hydration');
@@ -1333,7 +1356,7 @@
         url.searchParams.set('mode', 'duet');
         url.searchParams.set('multiplayer', '1');
         url.searchParams.set('roomCode', roomCode);
-        url.searchParams.set('uid', uid);
+        url.searchParams.set('uid', state.uid);
         url.searchParams.set('hub', (room && room.hub) || defaultHub());
         url.searchParams.set('pid', pid);
         url.searchParams.set('nick', nick);
@@ -1487,12 +1510,18 @@
         const { players, me, peer } = getMeAndPeer(room);
         state.isHost = room.hostId === state.uid;
 
-        EL.heroLeftName.textContent = me ? (me.name || 'ฉัน') : 'Player 1';
-        EL.heroRightName.textContent = peer ? (peer.name || 'Player 2') : 'รอเพื่อน';
+        EL.heroLeftName.textContent = players[0] ? (players[0].name || 'Player 1') : 'Player 1';
+        EL.heroRightName.textContent = players[1] ? (players[1].name || 'Player 2') : 'Player 2';
+
         EL.heroLeftState.textContent =
-          me ? (me.runReady ? 'entered run' : me.ready ? 'ready' : 'waiting') : 'กำลังเข้า';
+          players[0]
+            ? (players[0].runReady ? 'entered run' : players[0].ready ? 'ready' : 'waiting')
+            : 'host หรือคนที่เข้าก่อน';
+
         EL.heroRightState.textContent =
-          peer ? (peer.runReady ? 'entered run' : peer.ready ? 'ready' : 'waiting') : 'รอเพื่อนเข้าห้อง';
+          players[1]
+            ? (players[1].runReady ? 'entered run' : players[1].ready ? 'ready' : 'waiting')
+            : 'รอเพื่อนเข้าห้อง';
 
         renderPlayerCard(EL.slot1, players[0] || null, players[0] && players[0].uid === room.hostId);
         renderPlayerCard(EL.slot2, players[1] || null, players[1] && players[1].uid === room.hostId);
@@ -1531,36 +1560,6 @@
             location.href = buildRunUrl(state.roomCode, room);
           }, Math.max(60, Math.min(700, startAt - Date.now())));
         }
-      }
-
-      function ensureFirebase(){
-        if (typeof firebase === 'undefined'){
-          throw new Error('Firebase SDK not loaded');
-        }
-
-        if (window.HHA_DB){
-          state.db = window.HHA_DB;
-          return;
-        }
-
-        if (firebase.apps && firebase.apps.length){
-          state.db = firebase.database(firebase.app());
-          return;
-        }
-
-        const cfg =
-          window.HHA_FIREBASE_CONFIG ||
-          window.HEROHEALTH_FIREBASE_CONFIG ||
-          window.FIREBASE_CONFIG ||
-          window.__firebaseConfig ||
-          null;
-
-        if (!cfg){
-          throw new Error('Missing Firebase config');
-        }
-
-        const app = firebase.initializeApp(cfg);
-        state.db = firebase.database(app);
       }
 
       async function detachRoomLocal(){
@@ -1607,9 +1606,10 @@
       }
 
       async function createRoom(){
+        if (!state.authReady) return;
+
         ensureNick();
         ensurePid();
-        ensureUid();
 
         const diff = EL.diffSel.value || q('diff', 'normal');
         const time = Number(EL.timeSel.value || q('time', defaultTimeForDiff(diff)));
@@ -1676,9 +1676,10 @@
       }
 
       async function joinRoom(rawRoomCode){
+        if (!state.authReady) return;
+
         ensureNick();
         ensurePid();
-        ensureUid();
 
         const roomCode = sanitizeRoom(rawRoomCode || EL.roomInput.value);
         if (!roomCode){
@@ -1925,7 +1926,6 @@
       function seedDefaults(){
         ensureNick();
         ensurePid();
-        ensureUid();
 
         const diff = q('diff', 'normal');
         const time = String(q('time', defaultTimeForDiff(diff)));
@@ -1947,7 +1947,7 @@
       async function init(){
         try{
           seedDefaults();
-          ensureFirebase();
+          await ensureFirebaseAndAuth();
 
           EL.onlineText.textContent = navigator.onLine ? 'Yes' : 'No';
           window.addEventListener('online', () => EL.onlineText.textContent = 'Yes');
@@ -1995,7 +1995,7 @@
 
           window.addEventListener('beforeunload', () => {
             try{
-              if (state.roomCode && state.db){
+              if (state.roomCode && state.db && state.uid){
                 state.db.ref(playerPath(state.roomCode, state.uid)).update({
                   connected: false,
                   ready: false,
@@ -2010,7 +2010,7 @@
 
         }catch(err){
           console.error(err);
-          alert('Lobby ยังเชื่อมต่อ Firebase ไม่ได้ ตรวจ firebase-config.js และ script order อีกครั้ง');
+          alert('Lobby ยังเชื่อมต่อ Firebase/Auth ไม่ได้ ตรวจลำดับ script และ firebase-config.js อีกครั้ง');
         }
       }
 
