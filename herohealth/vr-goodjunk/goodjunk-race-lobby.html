@@ -311,7 +311,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-  <script src="../firebase-config.js?v=20260328-gjrace-lobby-final"></script>
+  <script src="../firebase-config.js?v=20260330-race-lobby-a"></script>
 
   <script>
     (function(){
@@ -619,10 +619,10 @@
         url.searchParams.set('seed', sharedSeed);
         url.searchParams.set('hub', HUB);
         url.searchParams.set('autostart', '1');
-
         url.searchParams.set('safe', './goodjunk-race.safe.js');
         url.searchParams.set('core', './goodjunk.safe.race.js');
         url.searchParams.set('controller', './goodjunk-race.js');
+        url.searchParams.set('rv', '20260330-race-run-a');
 
         if (sharedStartAt > 0) {
           url.searchParams.set('startAt', String(sharedStartAt));
@@ -631,7 +631,15 @@
         return url.toString();
       }
 
-      async function copyText(t){ try{ await navigator.clipboard.writeText(t); return true; }catch{ return false; } }
+      async function copyText(t){
+        try{
+          await navigator.clipboard.writeText(t);
+          return true;
+        }catch{
+          return false;
+        }
+      }
+
       async function shareLink(url){
         try{
           if(navigator.share){
@@ -755,6 +763,19 @@
         renderQr();
       }
 
+      function goRun(){
+        if(S.redirecting || !S.roomId) return;
+
+        const url = buildRunUrl(S.roomId);
+        S.redirecting = true;
+
+        console.log('[race-lobby] goRun ->', url);
+        setTop('กำลังเข้าเกม Race…');
+        setSide('ถ้าไม่เด้งภายใน 1–2 วินาที ให้ดู console');
+
+        location.assign(url);
+      }
+
       function renderCountdown(){
         clearInterval(S.countdownTick);
         UI.countdownBox.classList.remove('show');
@@ -763,7 +784,7 @@
 
         UI.countdownBox.classList.add('show');
 
-        S.countdownTick = setInterval(()=>{
+        S.countdownTick = setInterval(async ()=>{
           const targetAt = num(S.state.startAt || S.state.countdownEndsAt, 0);
           const leftMs = targetAt - Date.now();
           const sec = Math.max(0, Math.ceil(leftMs / 1000));
@@ -772,7 +793,26 @@
 
           if(leftMs <= 0){
             clearInterval(S.countdownTick);
-            goRun();
+
+            if (isHost() && S.refs && S.state.status !== 'playing') {
+              try {
+                await S.refs.state.update({
+                  status:'playing',
+                  startedAt: Date.now(),
+                  updatedAt: Date.now()
+                });
+                console.log('[race-lobby] countdown done -> set playing');
+              } catch (err) {
+                console.error('[race-lobby] set playing failed', err);
+              }
+            }
+
+            setTimeout(() => {
+              if (!S.redirecting) {
+                console.log('[race-lobby] countdown fallback -> goRun');
+                goRun();
+              }
+            }, 350);
           }
         }, 100);
       }
@@ -810,7 +850,10 @@
 
         try{ selfRef.onDisconnect().remove(); }catch{}
 
-        const metaHandler = (snap)=>{ S.meta = snap.val() || {}; renderState(); };
+        const metaHandler = (snap)=>{
+          S.meta = snap.val() || {};
+          renderState();
+        };
         S.refs.meta.on('value', metaHandler);
         S.offFns.push(()=>S.refs.meta.off('value', metaHandler));
 
@@ -818,13 +861,20 @@
           S.state = snap.val() || {};
           renderState();
           renderCountdown();
-          if(S.state.status === 'playing'){ goRun(); }
+
+          if (S.state.status === 'playing') {
+            console.log('[race-lobby] state -> playing, goRun');
+            goRun();
+          }
         };
         S.refs.state.on('value', stateHandler);
         S.offFns.push(()=>S.refs.state.off('value', stateHandler));
 
         const playersHandler = async (snap)=>{
-          S.players = snap.val() || {};
+          const raw = snap.val() || {};
+          S.players = Object.fromEntries(
+            Object.entries(raw).map(([pid, data]) => [pid, { pid, ...(data || {}) }])
+          );
 
           if(isHost() && S.state && S.state.status === 'countdown' && activePlayers().length < 2){
             await S.refs.state.update({
@@ -847,6 +897,7 @@
 
         S.heartbeat = setInterval(()=>{
           selfRef.update({
+            pid:S.uid,
             nick:getNick(),
             connected:true,
             updatedAt:Date.now(),
@@ -973,12 +1024,29 @@
       }
 
       async function startGame(){
-        if(!S.joined || !S.refs || !isHost()) return;
+        if(!S.joined || !S.refs){
+          setTop('ยังเริ่มไม่ได้');
+          setSide('ระบบยังไม่ได้ join ห้องสมบูรณ์');
+          console.warn('[race-lobby] start blocked: not joined', { joined:S.joined, refs:!!S.refs });
+          return;
+        }
+
+        if(!isHost()){
+          setTop('ยังเริ่มไม่ได้');
+          setSide('เครื่องนี้ไม่ใช่ host');
+          console.warn('[race-lobby] start blocked: not host', {
+            uid: S.uid,
+            hostPid: S.meta && S.meta.hostPid,
+            meta: S.meta
+          });
+          return;
+        }
 
         const active = activePlayers();
         if(active.length < 2){
           setTop('ยังเริ่มไม่ได้');
           setSide('ต้องมีผู้เล่น 2 คนก่อน');
+          console.warn('[race-lobby] start blocked: not enough players', active);
           return;
         }
 
@@ -989,38 +1057,58 @@
 
         UI.seedInput.value = sharedSeed;
 
-        await S.refs.meta.update({
-          diff: sharedDiff,
-          seed: sharedSeed,
-          updatedAt: Date.now()
-        });
+        try {
+          await S.refs.meta.update({
+            diff: sharedDiff,
+            seed: sharedSeed,
+            updatedAt: Date.now()
+          });
 
-        await S.refs.state.update({
-          status:'countdown',
-          plannedSec: sharedTime,
-          seed: sharedSeed,
-          countdownEndsAt: sharedStartAt,
-          startAt: sharedStartAt,
-          startedAt:null,
-          updatedAt:Date.now()
-        });
+          await S.refs.state.update({
+            status:'countdown',
+            plannedSec: sharedTime,
+            seed: sharedSeed,
+            countdownEndsAt: sharedStartAt,
+            startAt: sharedStartAt,
+            startedAt:null,
+            updatedAt:Date.now()
+          });
 
-        S.meta.diff = sharedDiff;
-        S.meta.seed = sharedSeed;
-        S.state.status = 'countdown';
-        S.state.plannedSec = sharedTime;
-        S.state.seed = sharedSeed;
-        S.state.countdownEndsAt = sharedStartAt;
-        S.state.startAt = sharedStartAt;
+          S.meta.diff = sharedDiff;
+          S.meta.seed = sharedSeed;
+          S.state.status = 'countdown';
+          S.state.plannedSec = sharedTime;
+          S.state.seed = sharedSeed;
+          S.state.countdownEndsAt = sharedStartAt;
+          S.state.startAt = sharedStartAt;
 
-        renderState();
-        renderCountdown();
-      }
+          console.log('[race-lobby] startGame ok', {
+            roomId: S.roomId,
+            uid: S.uid,
+            hostPid: S.meta.hostPid,
+            startAt: sharedStartAt,
+            diff: sharedDiff,
+            time: sharedTime,
+            seed: sharedSeed
+          });
 
-      function goRun(){
-        if(S.redirecting || !S.roomId) return;
-        S.redirecting = true;
-        location.href = buildRunUrl(S.roomId);
+          setTop('เริ่มนับถอยหลังแล้ว');
+          setSide('ทั้งห้องกำลังจะเข้าเกมพร้อมกัน');
+          renderState();
+          renderCountdown();
+
+          window.setTimeout(() => {
+            if (!S.redirecting && S.state && (S.state.status === 'countdown' || S.state.status === 'playing')) {
+              console.warn('[race-lobby] fallback goRun fired');
+              goRun();
+            }
+          }, Math.max(4200, sharedStartAt - Date.now() + 700));
+
+        } catch (err) {
+          console.error('[race-lobby] startGame failed', err);
+          setTop('เริ่มเกมไม่สำเร็จ');
+          setSide(`เกิดข้อผิดพลาด: ${err && err.message ? err.message : err}`);
+        }
       }
 
       async function pasteRoom(){
