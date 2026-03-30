@@ -311,7 +311,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-  <script src="../firebase-config.js?v=20260330-race-lobby-b"></script>
+  <script src="../firebase-config.js?v=20260330-race-lobby-c"></script>
 
   <script>
     (function(){
@@ -930,7 +930,7 @@
           UI.roomCodeBig.textContent = S.roomId;
 
           const db = ensureFirebaseDb();
-          const root = db.ref(`hha-battle/goodjunk/rooms/${S.roomId}`);
+          const root = db.ref(`hha-battle/goodjunk/raceRooms/${S.roomId}`);
           S.refs = { root, meta: root.child('meta'), state: root.child('state'), players: root.child('players') };
 
           const nowTs = Date.now();
@@ -1000,7 +1000,7 @@
           }
 
           const db = ensureFirebaseDb();
-          const root = db.ref(`hha-battle/goodjunk/rooms/${S.roomId}`);
+          const root = db.ref(`hha-battle/goodjunk/raceRooms/${S.roomId}`);
           S.refs = { root, meta: root.child('meta'), state: root.child('state'), players: root.child('players') };
 
           const metaSnap = await S.refs.meta.once('value');
