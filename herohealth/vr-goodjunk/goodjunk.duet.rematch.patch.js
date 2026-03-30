@@ -1,6 +1,5 @@
 /* /herohealth/vr-goodjunk/goodjunk.duet.rematch.patch.js
    FULL PATCH v20260329-GOODJUNK-DUET-REMATCH-SIDECAR
-   ใช้เป็น sidecar patch แก้ rematch ค้าง โดยไม่ต้องแก้ core เยอะ
 */
 (function () {
   'use strict';
@@ -380,7 +379,7 @@
         local.firebaseReady = true;
         bindRoomListener();
         watchButton();
-        console.log('[DUET][REMATCH] sidcar ready • ' + PATCH);
+        console.log('[DUET][REMATCH] sidecar ready • ' + PATCH);
         return;
       }
 
