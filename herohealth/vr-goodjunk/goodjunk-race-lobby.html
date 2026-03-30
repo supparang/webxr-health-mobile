@@ -311,7 +311,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-  <script src="../firebase-config.js?v=20260330-race-lobby-a"></script>
+  <script src="../firebase-config.js?v=20260330-race-lobby-b"></script>
 
   <script>
     (function(){
@@ -605,24 +605,26 @@
         );
 
         url.searchParams.set('mode', MODE_ID);
+        url.searchParams.set('entry', 'lobby');
+        url.searchParams.set('raceController', '0');
+
         url.searchParams.set('roomId', roomId);
         url.searchParams.set('room', roomId);
         url.searchParams.set('name', getNick());
         url.searchParams.set('nick', getNick());
         url.searchParams.set('pid', S.uid || 'anon');
         url.searchParams.set('role', isHost() ? 'host' : 'player');
-        url.searchParams.set('host', isHost() ? '1' : '0');
-        url.searchParams.set('wait', '1');
+
         url.searchParams.set('diff', sharedDiff);
         url.searchParams.set('time', sharedTime);
         url.searchParams.set('view', getView());
         url.searchParams.set('seed', sharedSeed);
         url.searchParams.set('hub', HUB);
         url.searchParams.set('autostart', '1');
+
         url.searchParams.set('safe', './goodjunk-race.safe.js');
         url.searchParams.set('core', './goodjunk.safe.race.js');
-        url.searchParams.set('controller', './goodjunk-race.js');
-        url.searchParams.set('rv', '20260330-race-run-a');
+        url.searchParams.set('rv', '20260330-race-run-b');
 
         if (sharedStartAt > 0) {
           url.searchParams.set('startAt', String(sharedStartAt));
