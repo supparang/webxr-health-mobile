@@ -1,16 +1,26 @@
 /* /herohealth/firebase-config.js
-   Firebase compat bootstrap - REAL CONFIG
+   FULL PATCH v20260330-FIREBASE-CONFIG-HYDR-DUET-ANON
+   ใช้กับ:
+   - /herohealth/hydration-lobby.html
+   - /herohealth/hydration-vr/hydration-vr.html
+   - anonymous auth + RTDB rules using auth.uid
+
+   SCRIPT ORDER (สำคัญมาก)
+   1) firebase-app-compat.js
+   2) firebase-auth-compat.js
+   3) firebase-database-compat.js
+   4) firebase-config.js
 */
-(function(){
+(function (W) {
   'use strict';
 
-  if (!window.firebase) {
+  if (!W.firebase) {
     console.error('[firebase-config] firebase sdk missing');
-    window.HHA_FIREBASE_READY = false;
+    W.HHA_FIREBASE_READY = false;
     return;
   }
 
-  const firebase = window.firebase;
+  const firebase = W.firebase;
 
   const config = {
     apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
@@ -23,40 +33,86 @@
     measurementId: "G-T5J8DC0BKD"
   };
 
+  function hasAuthSdk() {
+    return typeof firebase.auth === 'function';
+  }
+
+  function hasDbSdk() {
+    return typeof firebase.database === 'function';
+  }
+
+  let app = null;
+  let db = null;
+  let auth = null;
+
   try {
-    if (!firebase.apps || !firebase.apps.length) {
-      firebase.initializeApp(config);
-      console.log('[firebase-config] initializeApp ok');
+    app = (firebase.apps && firebase.apps.length)
+      ? firebase.app()
+      : firebase.initializeApp(config);
+
+    if (!hasDbSdk()) {
+      throw new Error('firebase-database-compat.js missing');
+    }
+
+    db = firebase.database(app);
+
+    if (hasAuthSdk()) {
+      auth = firebase.auth(app);
     } else {
-      console.log('[firebase-config] reuse existing app');
+      console.warn('[firebase-config] firebase-auth-compat.js missing');
     }
 
-    window.HHA_FIREBASE_CONFIG = config;
-    window.__HHA_FIREBASE_CONFIG__ = config;
-    window.HHA_FIREBASE_READY = !!(firebase.apps && firebase.apps.length);
+    W.HHA_FIREBASE_CONFIG = config;
+    W.__firebaseConfig = config;
+    W.__HHA_FIREBASE_CONFIG__ = config;
 
-    if (!window.HHA_ensureAnonymousAuth) {
-      window.HHA_ensureAnonymousAuth = async function(){
-        try {
-          const auth = firebase.auth();
-          if (!auth.currentUser) {
-            await auth.signInAnonymously();
-          }
-          return auth.currentUser || null;
-        } catch (err) {
-          console.error('[firebase-config] anonymous auth failed:', err);
-          throw err;
-        }
-      };
-    }
+    W.HHA_FIREBASE_APP = app;
+    W.HHA_DB = db;
+    W.HHA_AUTH = auth || null;
 
-    window.HHA_getFirebaseApp = function(){
-      return firebase.apps && firebase.apps.length ? firebase.app() : null;
+    W.HHA_getFirebaseApp = function () {
+      return W.HHA_FIREBASE_APP || null;
     };
 
-    console.log('[firebase-config] ready =', window.HHA_FIREBASE_READY);
+    W.HHA_getFirebaseDb = function () {
+      return W.HHA_DB || null;
+    };
+
+    W.HHA_getFirebaseAuth = function () {
+      return W.HHA_AUTH || null;
+    };
+
+    W.HHA_ensureAnonymousAuth = async function () {
+      if (!hasAuthSdk()) {
+        throw new Error('firebase-auth-compat.js missing');
+      }
+
+      const authInstance = W.HHA_AUTH || firebase.auth(app);
+
+      if (authInstance.currentUser && authInstance.currentUser.uid) {
+        return authInstance.currentUser;
+      }
+
+      const cred = await authInstance.signInAnonymously();
+      const user = (cred && cred.user) || authInstance.currentUser || null;
+
+      if (!user || !user.uid) {
+        throw new Error('Anonymous auth did not return a valid user');
+      }
+
+      W.HHA_AUTH = authInstance;
+      return user;
+    };
+
+    W.HHA_FIREBASE_READY = !!(app && db);
+
+    console.log('[firebase-config] initializeApp ok');
+    console.log('[firebase-config] auth sdk =', hasAuthSdk());
+    console.log('[firebase-config] database sdk =', hasDbSdk());
+    console.log('[firebase-config] ready =', W.HHA_FIREBASE_READY);
+
   } catch (err) {
-    window.HHA_FIREBASE_READY = false;
+    W.HHA_FIREBASE_READY = false;
     console.error('[firebase-config] init failed:', err);
   }
-})();
+})(window);
