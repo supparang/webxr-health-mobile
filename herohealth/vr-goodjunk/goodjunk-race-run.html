@@ -648,12 +648,12 @@
         </div>
 
         <div class="status-steps" id="engineSteps">
-          <div class="status-step"><span>1️⃣</span><span>รอให้หน้าเกมโหลดให้พร้อมก่อน</span></div>
-          <div class="status-step"><span>2️⃣</span><span>เมื่อเริ่มแล้ว ให้แตะเก็บอาหารดีให้ไว</span></div>
-          <div class="status-step"><span>3️⃣</span><span>พยายามทำคะแนนให้มากที่สุดในรอบนี้</span></div>
+          <div class="status-step"><span>1️⃣</span><span>กำลังโหลดตัวเกมหลัก</span></div>
+          <div class="status-step"><span>2️⃣</span><span>เมื่อโหลดพร้อม เกมจะเริ่มอัตโนมัติ</span></div>
+          <div class="status-step"><span>3️⃣</span><span>ถ้าค้าง ให้ดู debug ด้านล่าง</span></div>
         </div>
 
-        <div class="status-tip" id="engineTip"><strong>Tip:</strong> โหมดนี้เน้นความไวและความแม่นในการเก็บอาหารดี</div>
+        <div class="status-tip" id="engineTip"><strong>Tip:</strong> run หน้านี้จะโหลด core game ตรง ไม่ผ่าน controller overlay</div>
 
         <div class="status-actions">
           <button class="status-btn status-btn-copy" id="btnQuickCopyRoom" type="button">คัดลอกห้อง</button>
@@ -705,19 +705,6 @@
   (function(){
     'use strict';
 
-    function normalizeRaceUrl() {
-      try {
-        const u = new URL(location.href);
-        let changed = false;
-        if (!u.searchParams.get('mode')) {
-          u.searchParams.set('mode', 'race');
-          changed = true;
-        }
-        if (changed) history.replaceState(null, '', u.toString());
-      } catch(_) {}
-    }
-    normalizeRaceUrl();
-
     const MODE = 'race';
     const MODE_LABEL = 'Race';
     const $ = (id) => document.getElementById(id);
@@ -746,8 +733,8 @@
       return String(text || '').split(',').map(s => clean(s)).filter(Boolean);
     }
     function resolveHub(){
-      try { return qs('hub') || new URL('../hub.html', location.href).toString(); }
-      catch { return '../hub.html'; }
+      try{ return qs('hub') || new URL('../hub.html', location.href).toString(); }
+      catch{ return '../hub.html'; }
     }
     function safeJson(v){
       try { return JSON.stringify(v, null, 2); }
@@ -768,10 +755,8 @@
       const u = new URL(location.href);
       u.searchParams.set('seed', String(Date.now()));
       u.searchParams.set('mode', 'race');
-      u.searchParams.delete('wait');
-      u.searchParams.delete('host');
-      u.searchParams.delete('startAt');
-      u.searchParams.delete('lead');
+      u.searchParams.set('raceController', '0');
+      u.searchParams.delete('forceRaceController');
       return u.toString();
     }
     function copyText(text){
@@ -801,8 +786,6 @@
     }
     function wait(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
 
-    window.HHA_CLOUD_ENDPOINT = clean(qs('api') || window.HHA_CLOUD_ENDPOINT || '');
-
     const runCtx = {
       pid: qs('pid', 'anon'),
       name: qs('name', qs('nick', '')),
@@ -817,24 +800,15 @@
       hub: resolveHub(),
       view: qs('view', 'mobile'),
       run: qs('run', 'play'),
-      gameId: qs('gameId', 'goodjunk'),
-      wait: qs('wait', '0'),
-      host: qs('host', '0')
+      gameId: qs('gameId', 'goodjunk')
     };
 
     window.__GJ_RUN_CTX__ = runCtx;
     window.__GJ_MULTI_RUN_CTX__ = runCtx;
-    window.__GJ_RACE_ENGINE_READY__ = false;
-
-    window.GJRaceShellReady = function(info) {
-      window.__GJ_RACE_ENGINE_READY__ = true;
-      console.log('[GJ-RACE-RUN] shell ready', info || {});
-    };
 
     function deriveHeroAvatarFromName(name) {
       const text = String(name || '').trim();
       if (!text) return clean(qs('heroAvatar')) || '🙂';
-
       const parts = text.split(/\s+/).filter(Boolean);
       const key = parts[parts.length - 1] || parts[0] || '';
       const byWord = {
@@ -921,29 +895,12 @@
       clean(qs('core')),
       ...parseList(qs('coreCandidates')),
       './goodjunk.safe.race.js',
-      './js/goodjunk.safe.race.js',
-      './goodjunk.safe.js',
-      './goodjunk.js',
-      './goodjunk-run.js',
-      './goodjunk.safe.run.js',
-      './js/goodjunk.safe.js',
-      './js/goodjunk.js',
-      './js/goodjunk-run.js',
-      './js/goodjunk.safe.run.js'
-    ]);
-
-    const CONTROLLER_CANDIDATES = dedupe([
-      clean(qs('controller')),
-      ...parseList(qs('controllerCandidates')),
-      './goodjunk-race.js',
-      './js/goodjunk-race.js'
+      './js/goodjunk.safe.race.js'
     ]);
 
     const WANT_RACE_CONTROLLER =
       qs('forceRaceController', '0') === '1' ||
-      qs('wait', '0') === '1' ||
-      qs('host', '0') === '1' ||
-      Number(qs('startAt', '0')) > 0;
+      qs('raceController', '0') === '1';
 
     const SUMMARY_KEY = 'GJ_RACE_LAST_SUMMARY_' + (runCtx.roomId || 'noroom') + '_' + (runCtx.pid || 'anon');
 
@@ -956,15 +913,8 @@
     function wireQuickActions() {
       $('btnQuickCopyRoom')?.addEventListener('click', () => {
         const room = String(runCtx.roomId || '').trim();
-        if (!room) {
-          if ($('engineTip')) $('engineTip').innerHTML = '<strong>Tip:</strong> ตอนนี้ยังไม่มีรหัสห้องให้คัดลอก';
-          return;
-        }
-        copyText(room).then(() => {
-          if ($('engineTip')) $('engineTip').innerHTML = '<strong>คัดลอกแล้ว:</strong> ส่งรหัสห้องนี้ให้เพื่อนได้เลย';
-        }).catch(() => {
-          if ($('engineTip')) $('engineTip').innerHTML = '<strong>ยังคัดลอกไม่ได้:</strong> ลองคัดลอกจากข้อความ ROOM ด้านบนแทน';
-        });
+        if (!room) return;
+        copyText(room).catch(()=>{});
       });
 
       $('btnQuickBackHub')?.addEventListener('click', () => {
@@ -987,24 +937,10 @@
     function setFriendlyReadyState(note) {
       const card = $('engineStatusCard');
       if (card) card.classList.add('is-ready');
-
       setStatus('พร้อมแล้ว!', note || 'โหลดเกมสำเร็จ');
-      if ($('engineStatusSub')) {
-        $('engineStatusSub').textContent = 'เข้าเกมสำเร็จแล้ว อีกครู่หน้าช่วยเล่นจะหายไปและเกมจะเริ่มเอง';
-      }
-
-      const steps = $('engineSteps');
-      if (steps) {
-        steps.innerHTML = `
-          <div class="status-step"><span>✅</span><span>โหลดหน้าเกมสำเร็จแล้ว</span></div>
-          <div class="status-step"><span>🎮</span><span>เตรียมแตะเก็บอาหารดีเมื่อเกมเริ่ม</span></div>
-          <div class="status-step"><span>🌟</span><span>ขอให้สนุกกับรอบนี้นะ</span></div>
-        `;
-      }
-
-      if ($('engineTip')) {
-        $('engineTip').innerHTML = '<strong>พร้อมแล้ว:</strong> อีกครู่หน้าช่วยเล่นนี้จะซ่อนลงอัตโนมัติ';
-      }
+      if ($('engineStatusSub')) $('engineStatusSub').textContent = 'โหลด core game สำเร็จแล้ว เกมจะเริ่มเอง';
+      const tip = $('engineTip');
+      if (tip) tip.innerHTML = '<strong>พร้อมแล้ว:</strong> หน้านี้ไม่ได้ใช้ controller overlay แล้ว';
     }
 
     function hideStatusCardSoon() {
@@ -1013,78 +949,21 @@
       setTimeout(() => { card.style.display = 'none'; }, 1200);
     }
 
-    function installRaceSafeStub() {
-      if (window.GJRaceSafe) return;
-
-      const safe = {
-        state: {},
-        setState(patch) {
-          this.state = Object.assign({}, this.state, patch || {});
-          return this.state;
-        },
-        setRoomState(room) {
-          this.state.room = room || null;
-          return this.state.room;
-        },
-        setPlayers(players) {
-          this.state.players = Array.isArray(players)
-            ? players.slice()
-            : (players && typeof players === 'object' ? Object.values(players) : []);
-          return this.state.players;
-        },
-        setScore(){},
-        setSummary(summary){ this.state.summary = summary || null; return this.state.summary; },
-        render(){},
-        updateHud(){},
-        syncRoom(){},
-        syncPlayers(){},
-        onJudge(){},
-        onDamage(){},
-        onAttackCharge(){},
-        showLoading(msg){ setStatus('กำลังโหลดเกม…', msg || 'กำลังเตรียมเกม'); },
-        showWarn(msg){ setStatus('กำลังโหลดเกม…', msg || 'กำลังรอข้อมูล'); },
-        showError(msg){ setStatus('เกิดปัญหาในการโหลด', msg || 'โหลดเกมไม่สำเร็จ', true); },
-        clearMessage(){},
-        finishGame(detail){
-          try { window.dispatchEvent(new CustomEvent('gj:race-summary', { detail: detail || {} })); } catch {}
-        }
-      };
-
-      window.GJRaceSafe = safe;
-      window.RaceSafe = safe;
-    }
-    installRaceSafeStub();
-
     function buildVersionedUrl(src) {
       const u = new URL(src, location.href);
-      u.searchParams.set('v', '20260330-race-run-a');
+      u.searchParams.set('v', '20260330-race-run-b');
       return u.toString();
     }
 
-    function loadScriptWithType(src, type) {
+    function loadScript(src) {
       return new Promise((resolve, reject) => {
         const s = document.createElement('script');
-        if (type === 'module') s.type = 'module';
         s.src = buildVersionedUrl(src);
         s.async = false;
-        s.onload = () => resolve({ src, type });
-        s.onerror = () => reject(new Error(`โหลด script ไม่สำเร็จ: ${src} [${type}]`));
+        s.onload = () => resolve(src);
+        s.onerror = () => reject(new Error(`โหลด script ไม่สำเร็จ: ${src}`));
         document.body.appendChild(s);
       });
-    }
-
-    async function tryLoad(src) {
-      try {
-        return await loadScriptWithType(src, 'classic');
-      } catch (e1) {
-        try {
-          return await loadScriptWithType(src, 'module');
-        } catch (e2) {
-          throw new Error(
-            `${src}\n- classic: ${String(e1 && e1.message ? e1.message : e1)}\n- module: ${String(e2 && e2.message ? e2.message : e2)}`
-          );
-        }
-      }
     }
 
     function getMountSnapshot() {
@@ -1121,7 +1000,6 @@
       const seenFns = new Set();
 
       const namespaces = [
-        ['GJRaceRun', window.GJRaceRun],
         ['GoodJunkRaceRun', window.GoodJunkRaceRun],
         ['GoodJunkRun', window.GoodJunkRun],
         ['GoodJunk', window.GoodJunk],
@@ -1169,88 +1047,47 @@
       return called;
     }
 
-    async function probeCoreReady(before, timeoutMs = 2200) {
+    async function probeCoreReady(before, timeoutMs = 2400) {
       const start = Date.now();
       while (Date.now() - start < timeoutMs) {
-        if (window.__GJ_RACE_ENGINE_READY__ === true) {
-          return { ok: true, note: '__GJ_RACE_ENGINE_READY__' };
-        }
-        if (coreApiPresent()) {
-          return { ok: true, note: 'core-api' };
-        }
-        if (mountLooksAlive(before)) {
-          return { ok: true, note: 'mount-active' };
-        }
+        if (coreApiPresent()) return { ok: true, note: 'core-api' };
+        if (mountLooksAlive(before)) return { ok: true, note: 'mount-active' };
         await wait(60);
       }
       return { ok: false, note: 'timeout' };
     }
 
-    let __gjQuickStartDone = false;
-
-    function quickStartAttempt(tag, debugRows) {
-      const actions = [];
+    async function forceQuickStartSequence(debugRows) {
+      if (WANT_RACE_CONTROLLER) {
+        debugRows.push('[QUICK START] skipped because controller mode forced');
+        return;
+      }
 
       try {
-        const bootCalls = invokeKnownBoots();
-        if (bootCalls.length) actions.push(`boots=${bootCalls.join(', ')}`);
+        const boots = invokeKnownBoots();
+        debugRows.push(`[BOOT CALLS] ${boots.join(', ') || '-'}`);
       } catch (err) {
-        console.warn('[GJ-RACE-RUN] quick start boot retry failed', err);
+        debugRows.push(`[BOOT CALLS ERROR] ${String(err && err.message ? err.message : err)}`);
       }
 
       try {
         if (typeof window.__GJ_SET_PAUSED__ === 'function') {
           window.__GJ_SET_PAUSED__(false);
-          actions.push('__GJ_SET_PAUSED__(false)');
+          debugRows.push('[QUICK START] __GJ_SET_PAUSED__(false)');
         }
       } catch (err) {
-        console.warn('[GJ-RACE-RUN] quick start unpause failed', err);
+        debugRows.push(`[QUICK START] unpause failed: ${String(err && err.message ? err.message : err)}`);
       }
 
       try {
         if (typeof window.__GJ_START_NOW__ === 'function') {
           window.__GJ_START_NOW__();
-          actions.push('__GJ_START_NOW__()');
-          __gjQuickStartDone = true;
+          debugRows.push('[QUICK START] __GJ_START_NOW__()');
+        } else {
+          debugRows.push('[QUICK START] __GJ_START_NOW__ not found');
         }
       } catch (err) {
-        console.warn('[GJ-RACE-RUN] quick start start-now failed', err);
-      }
-
-      try {
-        window.dispatchEvent(new CustomEvent('gj:quick-start', {
-          detail: { mode: MODE, roomId: runCtx.roomId, pid: runCtx.pid, tag }
-        }));
-        actions.push('dispatch gj:quick-start');
-      } catch (_) {}
-
-      try {
-        window.dispatchEvent(new CustomEvent('hha:start', {
-          detail: { mode: MODE, roomId: runCtx.roomId, pid: runCtx.pid, tag }
-        }));
-        actions.push('dispatch hha:start');
-      } catch (_) {}
-
-      debugRows.push(`[QUICK START ${tag}] ${actions.join(' | ') || 'no-op'}`);
-      return actions;
-    }
-
-    async function forceQuickStartSequence(debugRows) {
-      if (WANT_RACE_CONTROLLER) {
-        debugRows.push('[QUICK START] skipped (controller mode)');
-        return;
-      }
-
-      quickStartAttempt('#1', debugRows);
-      await wait(120);
-      quickStartAttempt('#2', debugRows);
-      await wait(220);
-      quickStartAttempt('#3', debugRows);
-
-      if (__gjQuickStartDone) {
-        debugRows.push('[QUICK START] start signal sent');
-      } else {
-        debugRows.push('[QUICK START] no __GJ_START_NOW__ found');
+        debugRows.push(`[QUICK START] start failed: ${String(err && err.message ? err.message : err)}`);
       }
     }
 
@@ -1398,6 +1235,7 @@
     }
 
     function hideSummary(){ if ($('summaryOverlay')) $('summaryOverlay').hidden = true; }
+
     function handleSummaryEvent(evtName, detail) {
       console.log('[GJ-RACE-SUMMARY]', evtName, detail);
       showSummary(detail || {});
@@ -1449,25 +1287,18 @@
       }
     });
 
-    if (qs('showLastSummary') === '1') {
-      try {
-        const raw = localStorage.getItem(SUMMARY_KEY);
-        if (raw) showSummary(JSON.parse(raw));
-      } catch {}
-    }
-
-    async function loadOptionalSafeLayer(debugRows) {
+    async function loadSafe(debugRows) {
       for (const src of SAFE_LAYER_CANDIDATES) {
         try {
-          const loaded = await tryLoad(src);
-          debugRows.push(`[SAFE] ${loaded.src} [${loaded.type}]`);
-          return loaded;
-        } catch (_) {
-          debugRows.push(`[SAFE FAIL] ${src}`);
+          await loadScript(src);
+          debugRows.push(`[SAFE OK] ${src}`);
+          return src;
+        } catch (err) {
+          debugRows.push(`[SAFE FAIL] ${src} :: ${String(err && err.message ? err.message : err)}`);
         }
       }
-      debugRows.push('[SAFE] stub only');
-      return null;
+      debugRows.push('[SAFE] no safe layer loaded');
+      return '';
     }
 
     async function loadCore(debugRows) {
@@ -1476,53 +1307,28 @@
         const before = getMountSnapshot();
         try {
           setStatus('กำลังโหลดเกม…', `กำลังโหลด core: ${src}`);
-          const loaded = await tryLoad(src);
-          const bootCalls = invokeKnownBoots();
-          const probe = await probeCoreReady(before, 2200);
+          await loadScript(src);
+          const boots = invokeKnownBoots();
+          const probe = await probeCoreReady(before, 2400);
+
+          debugRows.push(`[CORE TRY] ${src}`);
+          debugRows.push(`[BOOT CALLS] ${boots.join(', ') || '-'}`);
+          debugRows.push(`[PROBE] ${probe.note}`);
 
           if (!probe.ok) {
-            errors.push(`${src} โหลดได้ แต่ยังไม่พบ core signature`);
-            debugRows.push(`[CORE NOT READY] ${src} [${loaded.type}]`);
-            debugRows.push(`bootCalls=${bootCalls.join(', ') || '-'}`);
+            errors.push(`${src} loaded but core signature not ready`);
             continue;
           }
 
-          debugRows.push(`[CORE OK] ${src} [${loaded.type}]`);
-          debugRows.push(`bootCalls=${bootCalls.join(', ') || '-'}`);
-          debugRows.push(`probe=${probe.note}`);
-          return { loaded, bootCalls, probe };
+          return src;
         } catch (err) {
           const msg = String(err && err.message ? err.message : err);
-          errors.push(msg);
-          debugRows.push(`[CORE FAIL] ${src}`);
-        }
-      }
-      throw new Error(errors.join('\n\n') || 'โหลด core game ไม่สำเร็จ');
-    }
-
-    async function loadController(debugRows) {
-      if (!WANT_RACE_CONTROLLER) {
-        debugRows.push('[CONTROLLER] skipped (quick play mode)');
-        return null;
-      }
-
-      const errors = [];
-      for (const src of CONTROLLER_CANDIDATES) {
-        try {
-          setStatus('กำลังโหลดเกม…', `กำลังโหลด race controller: ${src}`);
-          const loaded = await tryLoad(src);
-          debugRows.push(`[CONTROLLER OK] ${loaded.src} [${loaded.type}]`);
-          return loaded;
-        } catch (err) {
-          const msg = String(err && err.message ? err.message : err);
-          errors.push(msg);
-          debugRows.push(`[CONTROLLER FAIL] ${src}`);
+          errors.push(`${src} :: ${msg}`);
+          debugRows.push(`[CORE FAIL] ${src} :: ${msg}`);
         }
       }
 
-      debugRows.push('[CONTROLLER] failed but core is already loaded');
-      console.warn('[GJ-RACE-RUN] controller load failed', errors);
-      return null;
+      throw new Error(errors.join('\n'));
     }
 
     async function loadEngine() {
@@ -1530,55 +1336,34 @@
         `[MODE] ${MODE}`,
         `[PID] ${runCtx.pid || '-'}`,
         `[ROOM] ${runCtx.roomId || '-'}`,
-        `[API] ${window.HHA_CLOUD_ENDPOINT || '-'}`,
-        `[HERO] ${heroMeta.avatar} ${heroMeta.name}`,
-        `[WAIT] ${runCtx.wait}`,
-        `[HOST] ${runCtx.host}`,
-        `[USE_CONTROLLER] ${WANT_RACE_CONTROLLER ? 'yes' : 'no'}`,
-        '',
-        '[CORE CANDIDATES]',
-        ...CORE_CANDIDATES,
-        '',
-        '[CONTROLLER CANDIDATES]',
-        ...CONTROLLER_CANDIDATES
+        `[ROLE] ${runCtx.role || '-'}`,
+        `[DIFF] ${runCtx.diff || '-'}`,
+        `[TIME] ${runCtx.time || '-'}`,
+        `[SEED] ${runCtx.seed || '-'}`,
+        `[SAFE PARAM] ${qs('safe', '-')}`,
+        `[CORE PARAM] ${qs('core', '-')}`,
+        `[RACE CONTROLLER] ${qs('raceController', '0')}`,
+        `[FORCE CONTROLLER] ${qs('forceRaceController', '0')}`,
+        `[USE_CONTROLLER] ${WANT_RACE_CONTROLLER ? 'yes' : 'no'}`
       ];
 
       try {
-        await loadOptionalSafeLayer(debugRows);
-        const core = await loadCore(debugRows);
-        const controller = await loadController(debugRows);
+        await loadSafe(debugRows);
 
-        window.__GJ_MULTI_ENGINE_INFO__ = {
-          mode: MODE,
-          label: MODE_LABEL,
-          coreSrc: core.loaded.src,
-          coreType: core.loaded.type,
-          controllerSrc: controller ? controller.src : '',
-          controllerType: controller ? controller.type : '',
-          loadedAt: Date.now(),
-          readyNote: core.probe.note
-        };
+        if (WANT_RACE_CONTROLLER) {
+          throw new Error('raceController mode ถูกเปิดอยู่ ซึ่ง flow นี้ไม่ควรใช้');
+        }
 
-        window.__GJ_RACE_ENGINE_READY__ = true;
-
+        const coreSrc = await loadCore(debugRows);
         await forceQuickStartSequence(debugRows);
 
-        setFriendlyReadyState(
-          `core: ${core.loaded.src} (${core.loaded.type})` +
-          (controller ? ` • controller: ${controller.src} (${controller.type})` : ' • quick play')
-        );
-        applyHeroIdentity();
+        setFriendlyReadyState(`core: ${coreSrc}`);
         setDebug(debugRows.join('\n'));
-        console.log('[GJ-RACE-RUN] ready', window.__GJ_MULTI_ENGINE_INFO__);
+        console.log('[GJ-RACE-RUN] ready', { coreSrc, runCtx });
         hideStatusCardSoon();
       } catch (err) {
         const msg = String(err && err.message ? err.message : err);
-        setStatus(
-          'ไม่พบไฟล์เกมหลัก',
-          'โหลด GoodJunk core game ไม่สำเร็จ\nลองตรวจชื่อไฟล์ core ให้ตรงกับไฟล์จริง',
-          true
-        );
-        debugRows.push('');
+        setStatus('ไม่พบไฟล์เกมหลัก', msg, true);
         debugRows.push('[ERROR]');
         debugRows.push(msg);
         setDebug(debugRows.join('\n'));
@@ -1590,11 +1375,10 @@
       '[MODE] ' + MODE + '\n' +
       '[PID] ' + (runCtx.pid || '-') + '\n' +
       '[ROOM] ' + (runCtx.roomId || '-') + '\n' +
-      '[API] ' + (window.HHA_CLOUD_ENDPOINT || '-') + '\n' +
-      '[HERO] ' + heroMeta.avatar + ' ' + heroMeta.name + '\n' +
-      '[WAIT] ' + runCtx.wait + '\n' +
-      '[HOST] ' + runCtx.host + '\n' +
-      '[USE_CONTROLLER] ' + (WANT_RACE_CONTROLLER ? 'yes' : 'no')
+      '[ROLE] ' + (runCtx.role || '-') + '\n' +
+      '[SAFE] ' + qs('safe', '-') + '\n' +
+      '[CORE] ' + qs('core', '-') + '\n' +
+      '[RACE CONTROLLER] ' + qs('raceController', '0')
     );
 
     loadEngine();
