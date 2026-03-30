@@ -1135,5 +1135,27 @@
 
   <script src="../firebase-config.js?v=20260329-summary-unblur-v1"></script>
   <script src="./goodjunk.safe.duet.js?v=20260329-summary-unblur-v2"></script>
+  <script src="./goodjunk.duet.rematch.patch.js?v=20260329-rematch-sidecar-v1"></script>
+
+  <script>
+    (function duetRematchLoadReset(){
+      'use strict';
+
+      const q = new URLSearchParams(location.search);
+      const isRematch = q.get('rematch') === '1';
+
+      if (!isRematch) return;
+
+      window.addEventListener('load', function () {
+        try {
+          if (typeof window.clearRematchStatePatched === 'function') {
+            window.clearRematchStatePatched('page-rematch-load');
+          }
+        } catch (err) {
+          console.warn('[DUET] rematch load reset failed', err);
+        }
+      }, { once: true });
+    })();
+  </script>
 </body>
 </html>
