@@ -1,16 +1,3 @@
-/* =========================================================
- * /herohealth/vr-goodjunk/goodjunk.safe.battle.js
- * FULL PATCH v20260328-GOODJUNK-BATTLE-SAFE-R4
- * ---------------------------------------------------------
- * Safe layer role:
- * - robust self detection (PID / UID / playerId / key)
- * - understands rooms/{roomId}/{meta,state,players}
- * - keeps HUD values synced even if engine or room shape shifts
- * - patches / provides result modal
- * - emits summary events for run shell
- * - supports guard / blockedDamage / critHits / perfectGuards / phase
- * ========================================================= */
-
 (() => {
   if (window.__GJ_BATTLE_SAFE_LOADED__) return;
   window.__GJ_BATTLE_SAFE_LOADED__ = true;
@@ -48,7 +35,10 @@
     hpFill: null,
     charge: null,
     chargeFill: null,
+    guard: null,
+    guardFill: null,
     attackReady: null,
+    guardReady: null,
     resultMount: null
   };
 
@@ -78,47 +68,35 @@
     maxAttackCharge: 100,
     attackReady: false,
     attacksUsed: 0,
+
+    guardCharge: 0,
+    maxGuardCharge: 100,
+    guardReady: false,
+    guardsUsed: 0,
+    perfectGuardCount: 0,
+    blockedDamage: 0,
+
+    criticalCount: 0,
     damageDealt: 0,
     damageTaken: 0,
     koCount: 0,
-
-    guardsUsed: 0,
-    blockedDamage: 0,
-    lastAction: '',
-    critHits: 0,
-    perfectGuards: 0,
-    phase: 'A',
 
     players: [],
     room: null,
     roomMeta: null,
     roomState: null,
+    final: null,
 
     ended: false,
     endedAt: '',
     endReason: ''
   };
 
-  function byId(id) {
-    return document.getElementById(id);
-  }
-
-  function q(sel, root = document) {
-    try { return root.querySelector(sel); } catch (_) { return null; }
-  }
-
-  function txt(v) {
-    return String(v ?? '').trim();
-  }
-
-  function num(v, d = 0) {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : d;
-  }
-
-  function int(v, d = 0) {
-    return Math.round(num(v, d));
-  }
+  function byId(id) { return document.getElementById(id); }
+  function q(sel, root = document) { try { return root.querySelector(sel); } catch (_) { return null; } }
+  function txt(v) { return String(v ?? '').trim(); }
+  function num(v, d = 0) { const n = Number(v); return Number.isFinite(n) ? n : d; }
+  function int(v, d = 0) { return Math.round(num(v, d)); }
 
   function esc(s) {
     return String(s ?? '')
@@ -129,11 +107,8 @@
   }
 
   function qsGet(k, d = '') {
-    try {
-      return new URL(location.href).searchParams.get(k) ?? d;
-    } catch (_) {
-      return d;
-    }
+    try { return new URL(location.href).searchParams.get(k) ?? d; }
+    catch (_) { return d; }
   }
 
   function parseNumText(v, d = 0) {
@@ -151,31 +126,23 @@
   }
 
   function readText(key) {
-    try {
-      return txt(localStorage.getItem(key));
-    } catch (_) {
-      return '';
-    }
+    try { return txt(localStorage.getItem(key)); }
+    catch (_) { return ''; }
   }
 
   function writeText(key, value) {
-    try {
-      localStorage.setItem(key, txt(value));
-    } catch (_) {}
+    try { localStorage.setItem(key, txt(value)); }
+    catch (_) {}
   }
 
   function writeJSON(key, value) {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (_) {}
+    try { localStorage.setItem(key, JSON.stringify(value)); }
+    catch (_) {}
   }
 
   function nowIso() {
-    try {
-      return new Date().toISOString();
-    } catch (_) {
-      return '';
-    }
+    try { return new Date().toISOString(); }
+    catch (_) { return ''; }
   }
 
   function shortDateTime(iso) {
@@ -233,18 +200,13 @@
   }
 
   function normalizeRoomId(raw) {
-    return txt(raw)
-      .toUpperCase()
-      .replace(/[^A-Z0-9_-]/g, '')
-      .slice(0, 24);
+    return txt(raw).toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
   }
 
   function extractRoomIdLike(v) {
     if (!v) return '';
     if (typeof v === 'string') return v;
-    if (typeof v === 'object') {
-      return v.roomId || v.id || v.meta?.roomId || v.state?.roomId || '';
-    }
+    if (typeof v === 'object') return v.roomId || v.id || v.meta?.roomId || v.state?.roomId || '';
     return '';
   }
 
@@ -272,17 +234,9 @@
   function looksLikePlayerRecord(v) {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
     return (
-      'pid' in v ||
-      'uid' in v ||
-      'playerId' in v ||
-      'name' in v ||
-      'nick' in v ||
-      'score' in v ||
-      'hp' in v ||
-      'health' in v ||
-      'miss' in v ||
-      'attackCharge' in v ||
-      'charge' in v
+      'pid' in v || 'uid' in v || 'playerId' in v || 'name' in v || 'nick' in v ||
+      'score' in v || 'hp' in v || 'health' in v || 'miss' in v ||
+      'charge' in v || 'attackCharge' in v || 'guardCharge' in v
     );
   }
 
@@ -370,17 +324,13 @@
     if (pid) {
       window.__BATTLE_SELF_PID__ = pid;
       writeText(LS_KEYS.selfPidGlobal, pid);
-      if (roomId && roomId !== '-') {
-        writeText(`${LS_KEYS.selfPidByRoomPrefix}${roomId}`, pid);
-      }
+      if (roomId && roomId !== '-') writeText(`${LS_KEYS.selfPidByRoomPrefix}${roomId}`, pid);
     }
 
     if (name) {
       window.__BATTLE_SELF_NAME__ = name;
       writeText(LS_KEYS.selfNameGlobal, name);
-      if (roomId && roomId !== '-') {
-        writeText(`${LS_KEYS.selfNameByRoomPrefix}${roomId}`, name);
-      }
+      if (roomId && roomId !== '-') writeText(`${LS_KEYS.selfNameByRoomPrefix}${roomId}`, name);
     }
   }
 
@@ -440,7 +390,7 @@
     } else if (input && typeof input === 'object') {
       rows = Object.entries(input)
         .filter(([key, value]) => {
-          if (key === 'meta' || key === 'state' || key === 'match' || key === 'reports' || key === 'rematch') return false;
+          if (key === 'meta' || key === 'state' || key === 'match' || key === 'reports' || key === 'rematch' || key === 'final') return false;
           return looksLikePlayerRecord(value);
         })
         .map(([key, value], idx) => ({ key, value: value || {}, idx }));
@@ -462,19 +412,23 @@
         hp: int(p?.hp ?? p?.health, 100),
         maxHp: Math.max(1, int(p?.maxHp ?? p?.maxHealth, 100)),
         shield: int(p?.shield, 0),
+
         attackCharge: int(p?.attackCharge ?? p?.charge, 0),
         maxAttackCharge: Math.max(1, int(p?.maxAttackCharge ?? p?.maxCharge, 100)),
         attackReady: !!(p?.attackReady ?? p?.canAttack ?? false),
         attacksUsed: int(p?.attacksUsed, 0),
+
+        guardCharge: int(p?.guardCharge, 0),
+        maxGuardCharge: Math.max(1, int(p?.maxGuardCharge, 100)),
+        guardReady: !!p?.guardReady,
+        guardsUsed: int(p?.guardsUsed, 0),
+        perfectGuardCount: int(p?.perfectGuardCount, 0),
+        blockedDamage: int(p?.blockedDamage, 0),
+
+        criticalCount: int(p?.criticalCount, 0),
         damageDealt: int(p?.damageDealt, 0),
         damageTaken: int(p?.damageTaken, 0),
         koCount: int(p?.koCount ?? p?.kills, 0),
-        guardsUsed: int(p?.guardsUsed, 0),
-        blockedDamage: int(p?.blockedDamage, 0),
-        critHits: int(p?.critHits, 0),
-        perfectGuards: int(p?.perfectGuards, 0),
-        phase: txt(p?.phase || 'A') || 'A',
-        lastAction: txt(p?.lastAction || ''),
         alive: (p?.alive != null) ? !!p.alive : int(p?.hp ?? p?.health, 100) > 0,
         ready: !!p?.ready,
         isHost: !!p?.isHost,
@@ -485,13 +439,7 @@
 
   function normalizeRoomShape(room) {
     if (!room || typeof room !== 'object') {
-      return {
-        roomId: currentRoomId(),
-        status: '',
-        meta: null,
-        state: null,
-        players: []
-      };
+      return { roomId: currentRoomId(), status: '', meta: null, state: null, players: [], final: null };
     }
 
     const meta = room.meta && typeof room.meta === 'object' ? room.meta : null;
@@ -505,32 +453,17 @@
       currentRoomId()
     ) || '-';
 
-    const status = txt(
-      state?.status ||
-      room.status ||
-      room.match?.status ||
-      ''
-    );
+    const status = txt(state?.status || room.status || room.match?.status || '');
 
     let playersSource = [];
-    if (Array.isArray(room.players)) {
-      playersSource = room.players;
-    } else if (room.players && typeof room.players === 'object') {
-      playersSource = room.players;
-    } else if (looksLikePlayersMap(room)) {
-      playersSource = room;
-    }
+    if (Array.isArray(room.players)) playersSource = room.players;
+    else if (room.players && typeof room.players === 'object') playersSource = room.players;
+    else if (looksLikePlayersMap(room)) playersSource = room;
 
     const players = normalizePlayers(playersSource);
+    const final = (state && state.final && typeof state.final === 'object') ? state.final : null;
 
-    return {
-      raw: room,
-      roomId,
-      status,
-      meta,
-      state,
-      players
-    };
+    return { raw: room, roomId, status, meta, state, players, final };
   }
 
   function sortBattlePlayers(players) {
@@ -574,9 +507,15 @@
 
     REF.hp = byId('battleHpValue') || byId('hpValue');
     REF.hpFill = byId('battleHpFill') || byId('hpFill');
+
     REF.charge = byId('battleChargeValue') || byId('attackChargeValue') || byId('chargeValue');
     REF.chargeFill = byId('battleChargeFill') || byId('attackChargeFill') || byId('chargeFill');
+
+    REF.guard = byId('battleGuardValue') || byId('guardChargeValue');
+    REF.guardFill = byId('battleGuardFill') || byId('guardChargeFill');
+
     REF.attackReady = byId('battleAttackReady') || byId('attackReadyBadge') || byId('attackReady');
+    REF.guardReady = byId('battleGuardReady') || byId('guardReadyBadge') || byId('guardReady');
 
     ensureResultMount();
   }
@@ -607,7 +546,17 @@
     STATE.name = getSelfName();
     STATE.roomId = currentRoomId();
 
-    const players = normalizePlayers(STATE.players);
+    const roomNorm = normalizeRoomShape(STATE.room || {});
+    STATE.final = roomNorm.final || STATE.final || null;
+
+    const finalPlayers = STATE.final && Array.isArray(STATE.final.players)
+      ? normalizePlayers(STATE.final.players)
+      : null;
+
+    const players = finalPlayers && finalPlayers.length
+      ? finalPlayers
+      : normalizePlayers(STATE.players);
+
     if (players.length) {
       const sorted = sortBattlePlayers(players);
       const self = resolveSelfPlayer(sorted, STATE.roomId);
@@ -619,19 +568,23 @@
         STATE.hp = self.hp;
         STATE.maxHp = self.maxHp;
         STATE.shield = self.shield;
+
         STATE.attackCharge = self.attackCharge;
         STATE.maxAttackCharge = self.maxAttackCharge;
         STATE.attackReady = !!self.attackReady;
         STATE.attacksUsed = self.attacksUsed;
+
+        STATE.guardCharge = self.guardCharge;
+        STATE.maxGuardCharge = self.maxGuardCharge;
+        STATE.guardReady = !!self.guardReady;
+        STATE.guardsUsed = self.guardsUsed;
+        STATE.perfectGuardCount = self.perfectGuardCount;
+        STATE.blockedDamage = self.blockedDamage;
+
+        STATE.criticalCount = self.criticalCount;
         STATE.damageDealt = self.damageDealt;
         STATE.damageTaken = self.damageTaken;
         STATE.koCount = self.koCount;
-        STATE.guardsUsed = self.guardsUsed;
-        STATE.blockedDamage = self.blockedDamage;
-        STATE.critHits = self.critHits;
-        STATE.perfectGuards = self.perfectGuards;
-        STATE.phase = self.phase || 'A';
-        STATE.lastAction = self.lastAction || '';
       }
 
       STATE.players = sorted;
@@ -639,21 +592,27 @@
       STATE.score = int(STATE.score, 0);
       STATE.miss = int(STATE.miss, 0);
       STATE.bestStreak = int(STATE.bestStreak, 0);
+
       STATE.hp = clamp(int(STATE.hp, 100), 0, Math.max(1, int(STATE.maxHp, 100)));
       STATE.maxHp = Math.max(1, int(STATE.maxHp, 100));
       STATE.shield = Math.max(0, int(STATE.shield, 0));
+
       STATE.attackCharge = clamp(int(STATE.attackCharge, 0), 0, Math.max(1, int(STATE.maxAttackCharge, 100)));
       STATE.maxAttackCharge = Math.max(1, int(STATE.maxAttackCharge, 100));
       STATE.attackReady = !!STATE.attackReady;
       STATE.attacksUsed = int(STATE.attacksUsed, 0);
+
+      STATE.guardCharge = clamp(int(STATE.guardCharge, 0), 0, Math.max(1, int(STATE.maxGuardCharge, 100)));
+      STATE.maxGuardCharge = Math.max(1, int(STATE.maxGuardCharge, 100));
+      STATE.guardReady = !!STATE.guardReady;
+      STATE.guardsUsed = int(STATE.guardsUsed, 0);
+      STATE.perfectGuardCount = int(STATE.perfectGuardCount, 0);
+      STATE.blockedDamage = int(STATE.blockedDamage, 0);
+
+      STATE.criticalCount = int(STATE.criticalCount, 0);
       STATE.damageDealt = int(STATE.damageDealt, 0);
       STATE.damageTaken = int(STATE.damageTaken, 0);
       STATE.koCount = int(STATE.koCount, 0);
-      STATE.guardsUsed = int(STATE.guardsUsed, 0);
-      STATE.blockedDamage = int(STATE.blockedDamage, 0);
-      STATE.critHits = int(STATE.critHits, 0);
-      STATE.perfectGuards = int(STATE.perfectGuards, 0);
-      STATE.phase = txt(STATE.phase || 'A') || 'A';
       STATE.players = [];
     }
 
@@ -663,15 +622,22 @@
 
   function renderAttackReady() {
     if (!REF.attackReady) return;
-
-    REF.attackReady.textContent = STATE.attackReady ? 'ATTACK READY' : 'CHARGING';
+    REF.attackReady.textContent = STATE.attackReady ? 'ATTACK READY' : 'ATTACK CHARGING';
     REF.attackReady.style.opacity = STATE.attackReady ? '1' : '.72';
     REF.attackReady.style.color = STATE.attackReady ? '#fcd34d' : '#cbd5e1';
     REF.attackReady.style.fontWeight = '1100';
   }
 
+  function renderGuardReady() {
+    if (!REF.guardReady) return;
+    REF.guardReady.textContent = STATE.guardReady ? 'GUARD READY' : 'GUARD CHARGING';
+    REF.guardReady.style.opacity = STATE.guardReady ? '1' : '.72';
+    REF.guardReady.style.color = STATE.guardReady ? '#c4b5fd' : '#cbd5e1';
+    REF.guardReady.style.fontWeight = '1100';
+  }
+
   let __runDebugLastPaint = 0;
-  function ensureRunDebugBox() {
+  function ensureRunDebugBox(){
     if (!DEBUG) return null;
     let el = document.getElementById('battleRunDebugBox');
     if (el) return el;
@@ -679,23 +645,12 @@
     el = document.createElement('div');
     el.id = 'battleRunDebugBox';
     el.style.cssText = [
-      'position:fixed',
-      'left:10px',
-      'right:10px',
-      'bottom:10px',
-      'z-index:9999',
-      'padding:10px 12px',
-      'border-radius:14px',
-      'border:1px solid rgba(191,227,242,.9)',
-      'background:rgba(15,23,42,.92)',
-      'color:#f8fafc',
-      'font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace',
-      'box-shadow:0 18px 40px rgba(0,0,0,.28)',
-      'white-space:pre-wrap',
-      'word-break:break-word',
-      'backdrop-filter:blur(8px)',
-      'max-height:42vh',
-      'overflow:auto'
+      'position:fixed','left:10px','right:10px','bottom:10px','z-index:9999',
+      'padding:10px 12px','border-radius:14px',
+      'border:1px solid rgba(191,227,242,.9)','background:rgba(15,23,42,.92)',
+      'color:#f8fafc','font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace',
+      'box-shadow:0 18px 40px rgba(0,0,0,.28)','white-space:pre-wrap',
+      'word-break:break-word','backdrop-filter:blur(8px)','max-height:42vh','overflow:auto'
     ].join(';');
 
     document.body.appendChild(el);
@@ -705,7 +660,10 @@
   function buildSummary() {
     recalcState();
 
-    const players = sortBattlePlayers(normalizePlayers(STATE.players));
+    const players = STATE.players && STATE.players.length
+      ? STATE.players
+      : sortBattlePlayers(normalizePlayers(STATE.players));
+
     const self = resolveSelfPlayer(players, STATE.roomId);
     const selfIndex = self ? players.findIndex((p) => isSamePlayer(p, self)) : -1;
     const selfRank = selfIndex >= 0 ? selfIndex + 1 : null;
@@ -723,29 +681,32 @@
 
       hp: STATE.hp,
       maxHp: STATE.maxHp,
-      shield: STATE.shield,
+
       attackCharge: STATE.attackCharge,
       maxAttackCharge: STATE.maxAttackCharge,
       attackReady: STATE.attackReady,
       attacksUsed: STATE.attacksUsed,
+
+      guardCharge: STATE.guardCharge,
+      maxGuardCharge: STATE.maxGuardCharge,
+      guardReady: STATE.guardReady,
+      guardsUsed: STATE.guardsUsed,
+      perfectGuardCount: STATE.perfectGuardCount,
+      blockedDamage: STATE.blockedDamage,
+
+      criticalCount: STATE.criticalCount,
       damageDealt: STATE.damageDealt,
       damageTaken: STATE.damageTaken,
       koCount: STATE.koCount,
-
-      guardsUsed: STATE.guardsUsed,
-      blockedDamage: STATE.blockedDamage,
-      lastAction: STATE.lastAction,
-      critHits: STATE.critHits,
-      perfectGuards: STATE.perfectGuards,
-      phase: STATE.phase,
 
       players,
       self,
       selfRank,
       selfKnown: !!self,
+      final: STATE.final || null,
 
       endedAt: STATE.endedAt || nowIso(),
-      endReason: STATE.endReason || 'finished',
+      endReason: STATE.endReason || (STATE.final && STATE.final.reason) || 'finished',
       timestampIso: nowIso()
     };
   }
@@ -771,18 +732,19 @@
       `selfKnown=${summary.selfKnown}`,
       `selfRank=${summary.selfRank || '-'}`,
       `status=${room.status || '-'}`,
-      `phase=${summary.phase || '-'}`,
       `score=${summary.scoreFinal}`,
       `hp=${summary.hp}/${summary.maxHp}`,
-      `charge=${summary.attackCharge}/${summary.maxAttackCharge}`,
-      `attackReady=${summary.attackReady}`,
-      `ko=${summary.koCount}`,
+      `attack=${summary.attackCharge}/${summary.maxAttackCharge}`,
+      `guard=${summary.guardCharge}/${summary.maxGuardCharge}`,
+      `attacks=${summary.attacksUsed}`,
       `guards=${summary.guardsUsed}`,
+      `perfectGuard=${summary.perfectGuardCount}`,
       `blocked=${summary.blockedDamage}`,
-      `critHits=${summary.critHits}`,
-      `perfectGuards=${summary.perfectGuards}`,
+      `critical=${summary.criticalCount}`,
+      `ko=${summary.koCount}`,
       `damageDealt=${summary.damageDealt}`,
       `damageTaken=${summary.damageTaken}`,
+      `frozen=${summary.final ? 'yes' : 'no'}`,
       `selfPid=${self ? self.pid : '-'}`,
       `selfUid=${self ? self.uid : '-'}`,
       `selfKey=${self ? self.key : '-'}`
@@ -792,10 +754,9 @@
   }
 
   function renderHud() {
-    if (!REF.score || !REF.room || !REF.time) bindNodes();
     recalcState();
 
-    setText(REF.mode, `MODE battle • PHASE ${STATE.phase || 'A'}`);
+    setText(REF.mode, 'MODE battle');
     setText(REF.room, `ROOM ${STATE.roomId}`);
     setText(REF.score, STATE.score);
     setText(REF.time, fmtClock(STATE.timeLeftSec));
@@ -808,7 +769,11 @@
     setText(REF.charge, `${STATE.attackCharge}/${STATE.maxAttackCharge}`);
     setWidth(REF.chargeFill, pct(STATE.attackCharge, STATE.maxAttackCharge));
 
+    setText(REF.guard, `${STATE.guardCharge}/${STATE.maxGuardCharge}`);
+    setWidth(REF.guardFill, pct(STATE.guardCharge, STATE.maxGuardCharge));
+
     renderAttackReady();
+    renderGuardReady();
     renderRunDebug();
   }
 
@@ -861,7 +826,7 @@
           <td>
             <div style="font-weight:1100;line-height:1.1">${esc(p.name || p.pid || `Player ${idx + 1}`)}</div>
             ${p.pid ? `<div style="margin-top:4px;color:#94a3b8;font-size:12px;font-weight:900">${esc(p.pid)}</div>` : ''}
-            ${isMe ? `<div style="margin-top:6px;color:#7dd3fc;font-size:12px;font-weight:1100">• คุณ</div>` : ''}
+            ${isMe ? `<div style="margin-top:6px;color:#fcd34d;font-size:12px;font-weight:1100">• คุณ</div>` : ''}
             <div style="margin-top:4px;color:${p.alive ? '#86efac' : '#fca5a5'};font-size:12px;font-weight:1100">
               ${p.alive ? 'ยังยืนอยู่' : 'HP หมดแล้ว'}
             </div>
@@ -882,24 +847,15 @@
 
     const badge = findRankBadge(root);
     if (badge) {
-      if (!summary.selfKnown || !summary.selfRank) {
-        badge.textContent = 'อันดับ ?';
-        badge.style.opacity = '.72';
-      } else {
-        badge.textContent = `อันดับ #${summary.selfRank}`;
-        badge.style.opacity = '1';
-      }
+      badge.textContent = summary.selfKnown && summary.selfRank ? `อันดับ #${summary.selfRank}` : 'อันดับ ?';
+      badge.style.opacity = summary.selfKnown && summary.selfRank ? '1' : '.72';
     }
 
     const sub = findResultSubtitle(root);
-    if (sub) {
-      sub.textContent = `ผลสุดท้าย • ผู้เล่นทั้งหมด ${summary.players.length} คน • Phase ${summary.phase || '-'}`;
-    }
+    if (sub) sub.textContent = `ผลสุดท้าย • ผู้เล่นทั้งหมด ${summary.players.length} คน`;
 
     const tbody = findResultTbody(root);
-    if (tbody) {
-      tbody.innerHTML = renderRowsHTML(summary);
-    }
+    if (tbody) tbody.innerHTML = renderRowsHTML(summary);
 
     return true;
   }
@@ -936,7 +892,7 @@
             color:#e5e7eb;font-weight:1100;cursor:pointer;">✕</button>
         </div>
 
-        <div style="display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-bottom:14px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
           <div style="
             border-radius:22px;border:1px solid rgba(148,163,184,.16);
             background:rgba(15,23,42,.72);padding:14px;">
@@ -946,15 +902,15 @@
             <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px;">
               <div style="border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.42);padding:10px 12px;">
                 <div style="color:#94a3b8;font-size:12px;font-weight:1000;">HP</div>
-                <div style="margin-top:4px;font-size:22px;line-height:1;font-weight:1100;">${summary.hp}/${summary.maxHp}</div>
+                <div style="margin-top:4px;font-size:22px;line-height:1.1;font-weight:1100;">${summary.hp}/${summary.maxHp}</div>
               </div>
               <div style="border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.42);padding:10px 12px;">
                 <div style="color:#94a3b8;font-size:12px;font-weight:1000;">ATTACKS</div>
-                <div style="margin-top:4px;font-size:22px;line-height:1;font-weight:1100;">${summary.attacksUsed}</div>
+                <div style="margin-top:4px;font-size:22px;line-height:1.1;font-weight:1100;">${summary.attacksUsed}</div>
               </div>
               <div style="border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.42);padding:10px 12px;">
                 <div style="color:#94a3b8;font-size:12px;font-weight:1000;">GUARDS</div>
-                <div style="margin-top:4px;font-size:22px;line-height:1;font-weight:1100;">${summary.guardsUsed}</div>
+                <div style="margin-top:4px;font-size:22px;line-height:1.1;font-weight:1100;">${summary.guardsUsed}</div>
               </div>
             </div>
           </div>
@@ -969,9 +925,8 @@
               ${summary.selfKnown && summary.selfRank ? `อันดับ #${summary.selfRank}` : 'อันดับ ?'}
             </div>
 
-            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Phase ${esc(summary.phase || '-')}</div>
-            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Critical ${summary.critHits}</div>
-            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Perfect Guard ${summary.perfectGuards}</div>
+            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Critical ${summary.criticalCount}</div>
+            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Perfect Guard ${summary.perfectGuardCount}</div>
             <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Blocked ${summary.blockedDamage}</div>
           </div>
         </div>
@@ -1051,7 +1006,6 @@
     });
     byId('battleSafeRematchBtn')?.addEventListener('click', () => {
       const u = new URL(location.href);
-      u.searchParams.set('seed', String(Date.now()));
       location.href = u.toString();
     });
   }
@@ -1088,19 +1042,23 @@
         reason: summary.endReason || 'finished',
         hp: summary.hp,
         maxHp: summary.maxHp,
+
         attackCharge: summary.attackCharge,
         maxAttackCharge: summary.maxAttackCharge,
         attackReady: summary.attackReady,
         attacksUsed: summary.attacksUsed,
+
+        guardCharge: summary.guardCharge,
+        maxGuardCharge: summary.maxGuardCharge,
+        guardReady: summary.guardReady,
+        guardsUsed: summary.guardsUsed,
+        perfectGuardCount: summary.perfectGuardCount,
+        blockedDamage: summary.blockedDamage,
+
+        criticalCount: summary.criticalCount,
         damageDealt: summary.damageDealt,
         damageTaken: summary.damageTaken,
         koCount: summary.koCount,
-        guardsUsed: summary.guardsUsed,
-        blockedDamage: summary.blockedDamage,
-        lastAction: summary.lastAction,
-        critHits: summary.critHits,
-        perfectGuards: summary.perfectGuards,
-        phase: summary.phase,
         raw: summary
       }
     };
@@ -1116,18 +1074,12 @@
     ];
 
     eventNames.forEach((name) => {
-      try {
-        window.dispatchEvent(new CustomEvent(name, { detail }));
-      } catch (err) {
-        console.warn('[battle-safe] emit summary event failed:', name, err);
-      }
+      try { window.dispatchEvent(new CustomEvent(name, { detail })); }
+      catch (err) { console.warn('[battle-safe] emit summary event failed:', name, err); }
     });
 
-    try {
-      window.postMessage({ type: 'gj:battle-summary', detail }, '*');
-    } catch (err) {
-      console.warn('[battle-safe] postMessage summary failed:', err);
-    }
+    try { window.postMessage({ type: 'gj:battle-summary', detail }, '*'); }
+    catch (err) { console.warn('[battle-safe] postMessage summary failed:', err); }
 
     try {
       if (typeof window.__GJ_SHOW_BATTLE_SUMMARY__ === 'function') {
@@ -1141,16 +1093,12 @@
   function mergeState(patch = {}) {
     const src = patch || {};
 
-    if (src.room && typeof src.room === 'object') {
-      setRoomState(src.room);
-    }
+    if (src.room && typeof src.room === 'object') setRoomState(src.room);
 
     const roomCandidate =
       typeof src.room === 'string'
         ? src.room
-        : (src.room && typeof src.room === 'object'
-            ? extractRoomIdLike(src.room)
-            : '');
+        : (src.room && typeof src.room === 'object' ? extractRoomIdLike(src.room) : '');
 
     STATE.pid = normalizePid(src.pid ?? src.uid ?? src.playerId ?? STATE.pid ?? getSelfPid());
     STATE.name = normalizeName(src.name ?? src.nick ?? STATE.name ?? getSelfName());
@@ -1165,31 +1113,27 @@
     STATE.maxHp = Math.max(1, int(src.maxHp ?? src.maxHealth ?? STATE.maxHp, 100));
     STATE.shield = Math.max(0, int(src.shield ?? STATE.shield, 0));
 
-    STATE.attackCharge = clamp(
-      int(src.attackCharge ?? src.charge ?? STATE.attackCharge, 0),
-      0,
-      Math.max(1, int(src.maxAttackCharge ?? src.maxCharge ?? STATE.maxAttackCharge, 100))
-    );
+    STATE.attackCharge = clamp(int(src.attackCharge ?? src.charge ?? STATE.attackCharge, 0), 0, Math.max(1, int(src.maxAttackCharge ?? src.maxCharge ?? STATE.maxAttackCharge, 100)));
     STATE.maxAttackCharge = Math.max(1, int(src.maxAttackCharge ?? src.maxCharge ?? STATE.maxAttackCharge, 100));
     STATE.attackReady = !!(src.attackReady ?? src.canAttack ?? STATE.attackReady);
-
     STATE.attacksUsed = int(src.attacksUsed ?? STATE.attacksUsed, 0);
+
+    STATE.guardCharge = clamp(int(src.guardCharge ?? STATE.guardCharge, 0), 0, Math.max(1, int(src.maxGuardCharge ?? STATE.maxGuardCharge, 100)));
+    STATE.maxGuardCharge = Math.max(1, int(src.maxGuardCharge ?? STATE.maxGuardCharge, 100));
+    STATE.guardReady = !!(src.guardReady ?? STATE.guardReady);
+    STATE.guardsUsed = int(src.guardsUsed ?? STATE.guardsUsed, 0);
+    STATE.perfectGuardCount = int(src.perfectGuardCount ?? STATE.perfectGuardCount, 0);
+    STATE.blockedDamage = int(src.blockedDamage ?? STATE.blockedDamage, 0);
+
+    STATE.criticalCount = int(src.criticalCount ?? STATE.criticalCount, 0);
     STATE.damageDealt = int(src.damageDealt ?? STATE.damageDealt, 0);
     STATE.damageTaken = int(src.damageTaken ?? STATE.damageTaken, 0);
     STATE.koCount = int(src.koCount ?? src.kills ?? STATE.koCount, 0);
 
-    STATE.guardsUsed = int(src.guardsUsed ?? STATE.guardsUsed, 0);
-    STATE.blockedDamage = int(src.blockedDamage ?? STATE.blockedDamage, 0);
-    STATE.lastAction = txt(src.lastAction ?? STATE.lastAction);
-    STATE.critHits = int(src.critHits ?? STATE.critHits, 0);
-    STATE.perfectGuards = int(src.perfectGuards ?? STATE.perfectGuards, 0);
-    STATE.phase = txt(src.phase ?? STATE.phase) || 'A';
+    if (Array.isArray(src.players)) STATE.players = normalizePlayers(src.players);
+    else if (src.players && typeof src.players === 'object') STATE.players = normalizePlayers(src.players);
 
-    if (Array.isArray(src.players)) {
-      STATE.players = normalizePlayers(src.players);
-    } else if (src.players && typeof src.players === 'object') {
-      STATE.players = normalizePlayers(src.players);
-    }
+    if (src.final && typeof src.final === 'object') STATE.final = src.final;
 
     STATE.ended = !!(src.ended ?? src.finished ?? src.isEnded ?? STATE.ended);
     STATE.endedAt = txt(src.endedAt ?? src.timestampIso ?? src.finishedAt ?? STATE.endedAt);
@@ -1209,6 +1153,7 @@
     STATE.roomState = normalized.state;
     STATE.roomId = normalized.roomId || STATE.roomId || '-';
     STATE.players = normalized.players;
+    STATE.final = normalized.final || STATE.final || null;
     window.__BATTLE_ROOM__ = normalized.raw;
     rememberSelfIdentity();
     renderHud();
@@ -1228,66 +1173,45 @@
   }
 
   function onDamage(detail = {}) {
-    if (detail.hp != null || detail.health != null) {
-      STATE.hp = clamp(int(detail.hp ?? detail.health, STATE.hp), 0, STATE.maxHp);
-    }
+    if (detail.hp != null || detail.health != null) STATE.hp = clamp(int(detail.hp ?? detail.health, STATE.hp), 0, STATE.maxHp);
     if (detail.maxHp != null || detail.maxHealth != null) {
       STATE.maxHp = Math.max(1, int(detail.maxHp ?? detail.maxHealth, STATE.maxHp));
       STATE.hp = clamp(STATE.hp, 0, STATE.maxHp);
     }
-    if (detail.shield != null) {
-      STATE.shield = Math.max(0, int(detail.shield, STATE.shield));
-    }
-    if (detail.damageTaken != null) {
-      STATE.damageTaken = int(detail.damageTaken, STATE.damageTaken);
-    }
-    if (detail.damageDealt != null) {
-      STATE.damageDealt = int(detail.damageDealt, STATE.damageDealt);
-    }
-    if (detail.koCount != null || detail.kills != null) {
-      STATE.koCount = int(detail.koCount ?? detail.kills, STATE.koCount);
-    }
-    if (detail.guardsUsed != null) {
-      STATE.guardsUsed = int(detail.guardsUsed, STATE.guardsUsed);
-    }
-    if (detail.blockedDamage != null) {
-      STATE.blockedDamage = int(detail.blockedDamage, STATE.blockedDamage);
-    }
-    if (detail.critHits != null) {
-      STATE.critHits = int(detail.critHits, STATE.critHits);
-    }
-    if (detail.perfectGuards != null) {
-      STATE.perfectGuards = int(detail.perfectGuards, STATE.perfectGuards);
-    }
-    if (detail.phase != null) {
-      STATE.phase = txt(detail.phase) || STATE.phase;
-    }
-    if (detail.lastAction != null) {
-      STATE.lastAction = txt(detail.lastAction) || STATE.lastAction;
-    }
+    if (detail.shield != null) STATE.shield = Math.max(0, int(detail.shield, STATE.shield));
+    if (detail.damageTaken != null) STATE.damageTaken = int(detail.damageTaken, STATE.damageTaken);
+    if (detail.damageDealt != null) STATE.damageDealt = int(detail.damageDealt, STATE.damageDealt);
+    if (detail.criticalCount != null) STATE.criticalCount = int(detail.criticalCount, STATE.criticalCount);
+    if (detail.blockedDamage != null) STATE.blockedDamage = int(detail.blockedDamage, STATE.blockedDamage);
+    if (detail.koCount != null || detail.kills != null) STATE.koCount = int(detail.koCount ?? detail.kills, STATE.koCount);
     renderHud();
   }
 
   function onAttackCharge(detail = {}) {
     if (detail.attackCharge != null || detail.charge != null) {
-      STATE.attackCharge = clamp(
-        int(detail.attackCharge ?? detail.charge, STATE.attackCharge),
-        0,
-        STATE.maxAttackCharge
-      );
+      STATE.attackCharge = clamp(int(detail.attackCharge ?? detail.charge, STATE.attackCharge), 0, STATE.maxAttackCharge);
     }
     if (detail.maxAttackCharge != null || detail.maxCharge != null) {
       STATE.maxAttackCharge = Math.max(1, int(detail.maxAttackCharge ?? detail.maxCharge, STATE.maxAttackCharge));
       STATE.attackCharge = clamp(STATE.attackCharge, 0, STATE.maxAttackCharge);
     }
-    if (detail.attackReady != null || detail.canAttack != null) {
-      STATE.attackReady = !!(detail.attackReady ?? detail.canAttack);
-    } else {
-      STATE.attackReady = STATE.attackCharge >= STATE.maxAttackCharge;
+    if (detail.attackReady != null || detail.canAttack != null) STATE.attackReady = !!(detail.attackReady ?? detail.canAttack);
+    else STATE.attackReady = STATE.attackCharge >= STATE.maxAttackCharge;
+
+    if (detail.attacksUsed != null) STATE.attacksUsed = int(detail.attacksUsed, STATE.attacksUsed);
+
+    if (detail.guardCharge != null) STATE.guardCharge = clamp(int(detail.guardCharge, STATE.guardCharge), 0, STATE.maxGuardCharge);
+    if (detail.maxGuardCharge != null) {
+      STATE.maxGuardCharge = Math.max(1, int(detail.maxGuardCharge, STATE.maxGuardCharge));
+      STATE.guardCharge = clamp(STATE.guardCharge, 0, STATE.maxGuardCharge);
     }
-    if (detail.attacksUsed != null) {
-      STATE.attacksUsed = int(detail.attacksUsed, STATE.attacksUsed);
-    }
+    if (detail.guardReady != null) STATE.guardReady = !!detail.guardReady;
+    else STATE.guardReady = STATE.guardCharge >= STATE.maxGuardCharge;
+
+    if (detail.guardsUsed != null) STATE.guardsUsed = int(detail.guardsUsed, STATE.guardsUsed);
+    if (detail.perfectGuardCount != null) STATE.perfectGuardCount = int(detail.perfectGuardCount, STATE.perfectGuardCount);
+    if (detail.blockedDamage != null) STATE.blockedDamage = int(detail.blockedDamage, STATE.blockedDamage);
+
     renderHud();
   }
 
@@ -1296,6 +1220,7 @@
 
     mergeState({
       ...detail,
+      final: detail.final || detail.raw?.final || detail.room?.state?.final || STATE.final || null,
       ended: true,
       endedAt: detail.endedAt || detail.timestampIso || nowIso(),
       endReason: detail.endReason || detail.reason || 'finished'
@@ -1308,24 +1233,18 @@
     saveLastSummary(summary);
 
     const patchedExisting = patchExistingResultDOM(summary);
-    if (!patchedExisting) {
-      mountFallbackResult(summary);
-    }
+    if (!patchedExisting) mountFallbackResult(summary);
 
     emitBattleSummary(summary);
 
     if (BRIDGE.timer) {
-      setTimeout(() => {
-        stopBridge();
-      }, 1500);
+      setTimeout(() => { stopBridge(); }, 1500);
     }
   }
 
   function render() {
     renderHud();
-    if (BRIDGE.resultShown) {
-      patchExistingResultDOM(buildSummary());
-    }
+    if (BRIDGE.resultShown) patchExistingResultDOM(buildSummary());
   }
 
   function getState() {
@@ -1398,6 +1317,11 @@
       parseNumText(txt(q('.charge-value')?.textContent)) ||
       STATE.attackCharge;
 
+    const guard =
+      parseNumText(txt(q('#guardChargeValue')?.textContent)) ||
+      parseNumText(txt(q('.guard-charge-value')?.textContent)) ||
+      STATE.guardCharge;
+
     const timerText =
       txt(q('#timeValue')?.textContent) ||
       txt(q('.time-value')?.textContent) ||
@@ -1418,28 +1342,13 @@
       hp,
       attackCharge: charge,
       attackReady: charge >= STATE.maxAttackCharge,
+      guardCharge: guard,
+      guardReady: guard >= STATE.maxGuardCharge,
       timeLeftSec
     });
   }
 
-  function tickTimeFromRoomState() {
-    const room = normalizeRoomShape(STATE.room || {});
-    const status = String(room.status || '').toLowerCase();
-    const state = room.state || {};
-
-    const countdownEndsAt = num(state.countdownEndsAt, 0);
-    const endsAt = num(state.endsAt, 0);
-
-    if (status === 'countdown' && countdownEndsAt > 0 && !STATE.ended) {
-      STATE.timeLeftSec = Math.max(0, Math.ceil((countdownEndsAt - Date.now()) / 1000));
-      return;
-    }
-
-    if (status === 'playing' && endsAt > 0 && !STATE.ended) {
-      STATE.timeLeftSec = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
-      return;
-    }
-
+  function tickTimeFromEndsAt() {
     const s = window.state || window.gameState || window.__BATTLE_STATE__ || {};
     const endsAtMs = num(s.endsAtMs || s.endAtMs || 0, 0);
     if (endsAtMs > 0 && !STATE.ended) {
@@ -1451,7 +1360,7 @@
     try {
       readKnownGlobals();
       readLegacyDom();
-      tickTimeFromRoomState();
+      tickTimeFromEndsAt();
       renderHud();
 
       const s = window.state || window.gameState || window.__BATTLE_STATE__ || {};
@@ -1469,12 +1378,13 @@
         (num(s.endsAtMs || s.endAtMs || 0, 0) > 0 && Date.now() > num(s.endsAtMs || s.endAtMs || 0, 0) + 300);
 
       if (ended && !BRIDGE.resultShown) {
-        finishGame({ reason: s.reason || roomShape.status || 'finished' });
+        finishGame({
+          reason: s.reason || roomShape.status || 'finished',
+          final: s.final || roomShape.final || null
+        });
       }
 
-      if (BRIDGE.resultShown) {
-        patchExistingResultDOM(buildSummary());
-      }
+      if (BRIDGE.resultShown) patchExistingResultDOM(buildSummary());
     } catch (err) {
       console.warn('[battle-safe] bridgeLoop error:', err);
     }
@@ -1502,11 +1412,8 @@
       const original = obj[key];
       const wrapped = function (...args) {
         const out = original.apply(this, args);
-        try {
-          finishGame({ reason: key });
-        } catch (err) {
-          console.warn(`[battle-safe] wrapped end fn error for ${key}:`, err);
-        }
+        try { finishGame({ reason: key, final: window.state?.final || null }); }
+        catch (err) { console.warn(`[battle-safe] wrapped end fn error for ${key}:`, err); }
         return out;
       };
       wrapped.__battleWrapped = true;
@@ -1534,9 +1441,7 @@
       'openResult'
     ];
 
-    for (const key of keys) {
-      wrapEndFunction(window, key);
-    }
+    for (const key of keys) wrapEndFunction(window, key);
   }
 
   function installCustomEventHooks() {
@@ -1544,50 +1449,19 @@
     window.__BATTLE_SAFE_EVENTS_BOUND__ = true;
 
     const on = (name, fn) => window.addEventListener(name, (ev) => {
-      try {
-        fn(ev?.detail || {});
-      } catch (err) {
-        console.warn(`[battle-safe] custom event ${name} error:`, err);
-      }
+      try { fn(ev?.detail || {}); }
+      catch (err) { console.warn(`[battle-safe] custom event ${name} error:`, err); }
     });
 
-    on('battle:update', detail => {
-      mergeState(detail);
-      renderHud();
-    });
-
-    on('battle:room', detail => {
-      setRoomState(detail);
-    });
-
-    on('battle:players', detail => {
-      setPlayers(detail.players || detail);
-    });
-
-    on('battle:judge', detail => {
-      onJudge(detail);
-    });
-
-    on('battle:damage', detail => {
-      onDamage(detail);
-    });
-
-    on('battle:charge', detail => {
-      onAttackCharge(detail);
-    });
-
-    on('battle:finish', detail => {
-      finishGame(detail.summary || detail);
-    });
-
-    on('hha:battle:update', detail => {
-      mergeState(detail);
-      renderHud();
-    });
-
-    on('hha:battle:finish', detail => {
-      finishGame(detail.summary || detail);
-    });
+    on('battle:update', detail => { mergeState(detail); renderHud(); });
+    on('battle:room', detail => { setRoomState(detail); });
+    on('battle:players', detail => { setPlayers(detail.players || detail); });
+    on('battle:judge', detail => { onJudge(detail); });
+    on('battle:damage', detail => { onDamage(detail); });
+    on('battle:charge', detail => { onAttackCharge(detail); });
+    on('battle:finish', detail => { finishGame(detail.summary || detail); });
+    on('hha:battle:update', detail => { mergeState(detail); renderHud(); });
+    on('hha:battle:finish', detail => { finishGame(detail.summary || detail); });
   }
 
   function ensureBoot() {
@@ -1605,34 +1479,15 @@
   }
 
   const API = {
-    setState(patch) {
-      mergeState(patch);
-      renderHud();
-    },
-    setRoomState(room) {
-      setRoomState(room);
-    },
-    setPlayers(players) {
-      setPlayers(players);
-    },
-    onJudge(judge) {
-      onJudge(judge);
-    },
-    onDamage(detail) {
-      onDamage(detail);
-    },
-    onAttackCharge(detail) {
-      onAttackCharge(detail);
-    },
-    finishGame(detail) {
-      finishGame(detail);
-    },
-    render() {
-      render();
-    },
-    getState() {
-      return getState();
-    }
+    setState(patch) { mergeState(patch); renderHud(); },
+    setRoomState(room) { setRoomState(room); },
+    setPlayers(players) { setPlayers(players); },
+    onJudge(judge) { onJudge(judge); },
+    onDamage(detail) { onDamage(detail); },
+    onAttackCharge(detail) { onAttackCharge(detail); },
+    finishGame(detail) { finishGame(detail); },
+    render() { render(); },
+    getState() { return getState(); }
   };
 
   window.BattleSafe = API;
