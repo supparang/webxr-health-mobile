@@ -1,28 +1,7 @@
-/* /herohealth/firebase-config.js
-   FULL PATCH v20260330-FIREBASE-CONFIG-HYDR-DUET-ANON
-   ใช้กับ:
-   - /herohealth/hydration-lobby.html
-   - /herohealth/hydration-vr/hydration-vr.html
-   - anonymous auth + RTDB rules using auth.uid
-
-   SCRIPT ORDER (สำคัญมาก)
-   1) firebase-app-compat.js
-   2) firebase-auth-compat.js
-   3) firebase-database-compat.js
-   4) firebase-config.js
-*/
-(function (W) {
+(function () {
   'use strict';
 
-  if (!W.firebase) {
-    console.error('[firebase-config] firebase sdk missing');
-    W.HHA_FIREBASE_READY = false;
-    return;
-  }
-
-  const firebase = W.firebase;
-
-  const config = {
+  const firebaseConfig = {
     apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
     authDomain: "herohealth-d7f8c.firebaseapp.com",
     databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -33,86 +12,106 @@
     measurementId: "G-T5J8DC0BKD"
   };
 
-  function hasAuthSdk() {
-    return typeof firebase.auth === 'function';
+  window.HHA_FIREBASE_CONFIG = firebaseConfig;
+
+  function markReady(ok, error) {
+    try {
+      window.dispatchEvent(new CustomEvent('hha:firebase_ready', {
+        detail: {
+          ok: !!ok,
+          error: error ? String(error) : ''
+        }
+      }));
+    } catch (_) {}
   }
 
-  function hasDbSdk() {
-    return typeof firebase.database === 'function';
-  }
-
-  let app = null;
-  let db = null;
-  let auth = null;
-
-  try {
-    app = (firebase.apps && firebase.apps.length)
-      ? firebase.app()
-      : firebase.initializeApp(config);
-
-    if (!hasDbSdk()) {
-      throw new Error('firebase-database-compat.js missing');
+  function ensureFirebaseDb() {
+    if (!window.firebase) {
+      throw new Error('Firebase SDK not loaded');
     }
 
-    db = firebase.database(app);
-
-    if (hasAuthSdk()) {
-      auth = firebase.auth(app);
+    let app = null;
+    if (window.firebase.apps && window.firebase.apps.length) {
+      app = window.firebase.app();
     } else {
-      console.warn('[firebase-config] firebase-auth-compat.js missing');
+      app = window.firebase.initializeApp(firebaseConfig);
     }
 
-    W.HHA_FIREBASE_CONFIG = config;
-    W.__firebaseConfig = config;
-    W.__HHA_FIREBASE_CONFIG__ = config;
-
-    W.HHA_FIREBASE_APP = app;
-    W.HHA_DB = db;
-    W.HHA_AUTH = auth || null;
-
-    W.HHA_getFirebaseApp = function () {
-      return W.HHA_FIREBASE_APP || null;
-    };
-
-    W.HHA_getFirebaseDb = function () {
-      return W.HHA_DB || null;
-    };
-
-    W.HHA_getFirebaseAuth = function () {
-      return W.HHA_AUTH || null;
-    };
-
-    W.HHA_ensureAnonymousAuth = async function () {
-      if (!hasAuthSdk()) {
-        throw new Error('firebase-auth-compat.js missing');
-      }
-
-      const authInstance = W.HHA_AUTH || firebase.auth(app);
-
-      if (authInstance.currentUser && authInstance.currentUser.uid) {
-        return authInstance.currentUser;
-      }
-
-      const cred = await authInstance.signInAnonymously();
-      const user = (cred && cred.user) || authInstance.currentUser || null;
-
-      if (!user || !user.uid) {
-        throw new Error('Anonymous auth did not return a valid user');
-      }
-
-      W.HHA_AUTH = authInstance;
-      return user;
-    };
-
-    W.HHA_FIREBASE_READY = !!(app && db);
-
-    console.log('[firebase-config] initializeApp ok');
-    console.log('[firebase-config] auth sdk =', hasAuthSdk());
-    console.log('[firebase-config] database sdk =', hasDbSdk());
-    console.log('[firebase-config] ready =', W.HHA_FIREBASE_READY);
-
-  } catch (err) {
-    W.HHA_FIREBASE_READY = false;
-    console.error('[firebase-config] init failed:', err);
+    const db = window.firebase.database(app);
+    window.HHA_FIREBASE = window.firebase;
+    window.HHA_FIREBASE_APP = app;
+    window.HHA_FIREBASE_DB = db;
+    return db;
   }
-})(window);
+
+  window.HHA_ENSURE_FIREBASE_DB = function () {
+    if (window.HHA_FIREBASE_DB) return window.HHA_FIREBASE_DB;
+    return ensureFirebaseDb();
+  };
+
+  window.HHA_ensureAnonymousAuth = async function () {
+    const db = window.HHA_ENSURE_FIREBASE_DB();
+    void db;
+
+    if (!window.firebase || typeof window.firebase.auth !== 'function') {
+      throw new Error('Firebase Auth not available');
+    }
+
+    const auth = window.firebase.auth();
+    if (auth.currentUser && auth.currentUser.uid) {
+      return auth.currentUser;
+    }
+
+    await auth.signInAnonymously();
+
+    return await new Promise((resolve, reject) => {
+      let done = false;
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        reject(new Error('Anonymous auth timeout'));
+      }, 12000);
+
+      const off = auth.onAuthStateChanged((user) => {
+        if (done) return;
+        if (user && user.uid) {
+          done = true;
+          clearTimeout(timer);
+          try { off(); } catch (_) {}
+          resolve(user);
+        }
+      }, (err) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        try { off(); } catch (_) {}
+        reject(err || new Error('Auth state failed'));
+      });
+    });
+  };
+
+  function bootWhenReady() {
+    try {
+      if (!window.firebase) {
+        return false;
+      }
+      window.HHA_ENSURE_FIREBASE_DB();
+      markReady(true, '');
+      return true;
+    } catch (err) {
+      console.warn('[HHA] Firebase boot failed:', err);
+      markReady(false, err && err.message ? err.message : err);
+      return false;
+    }
+  }
+
+  if (!bootWhenReady()) {
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      if (bootWhenReady() || tries >= 80) {
+        clearInterval(timer);
+      }
+    }, 150);
+  }
+})();
