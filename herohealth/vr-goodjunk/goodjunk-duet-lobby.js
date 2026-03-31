@@ -1,10 +1,10 @@
 /* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
-   FULL PATCH v20260331-GOODJUNK-DUET-LOBBY-REMATCH-RECOVERY-R1
-   - join room permission_denied hardening
-   - onDisconnect must not break join
-   - rematch recovery from lobby
-   - host auto-reset finished room when both rematch votesครบ
-   - host auto-start on rematch entry after reset
+   FULL PATCH v20260331-GJ-DUET-LOBBY-R3
+   - rematch recovery แข็งขึ้น
+   - finished -> waiting recovery ได้แม้ host เดิมไม่อยู่
+   - rematch entry auto-ready + auto-start
+   - join room hardening
+   - countdown redirect เข้า run
 */
 (function(){
   'use strict';
@@ -13,7 +13,7 @@
   const D = document;
   const $ = (id) => D.getElementById(id);
 
-  const DEBUG = (function(){
+  const DEBUG = (() => {
     try{
       return new URL(W.location.href).searchParams.get('debug') === '1';
     }catch{
@@ -86,23 +86,6 @@
       W.location.replace(nextHref);
     }catch(_){
       W.location.href = nextHref;
-    }
-  }
-
-  const IS_REMATCH_ENTRY = (function(){
-    try{
-      return new URL(W.location.href).searchParams.get('rematch') === '1';
-    }catch{
-      return false;
-    }
-  })();
-
-  let __duetAutoStartTimer = 0;
-
-  function stopAutoStartTimer(){
-    if (__duetAutoStartTimer){
-      clearTimeout(__duetAutoStartTimer);
-      __duetAutoStartTimer = 0;
     }
   }
 
@@ -258,15 +241,30 @@
     redirected: false,
     repairingHost: false,
 
-    rematchEntry: IS_REMATCH_ENTRY,
+    rematchEntry: (() => {
+      try{
+        return new URL(W.location.href).searchParams.get('rematch') === '1';
+      }catch{
+        return false;
+      }
+    })(),
     autoReadyDone: false,
     autoStartAttempted: false,
     autoStartLocked: false,
     rematchRecoveryRunning: false
   };
 
+  let __duetAutoStartTimer = 0;
+
   try{ localStorage.setItem('HHA_PLAYER_PID', STATE.pid); }catch{}
   try{ localStorage.setItem('HHA_PLAYER_NICK', STATE.name); }catch{}
+
+  function stopAutoStartTimer(){
+    if (__duetAutoStartTimer){
+      clearTimeout(__duetAutoStartTimer);
+      __duetAutoStartTimer = 0;
+    }
+  }
 
   function setCopyState(msg, isBad){
     if (!els.copyState) return;
@@ -503,7 +501,7 @@
 
     if (status === 'finished'){
       if (rematchInfo.count >= ROOM_SIZE){
-        setHint('รีแมตช์ครบแล้ว กำลังกู้ห้องกลับเข้า Lobby...', false);
+        setHint('รีแมตช์ครบแล้ว กำลังเตรียมห้องรอบใหม่...', false);
       } else {
         setHint('รอบก่อนหน้าจบแล้ว รอรีแมตช์หรือสร้างห้องใหม่', false);
       }
@@ -545,7 +543,8 @@
   }
 
   async function markRunningIfHost(room){
-    if (!room || room.hostId !== STATE.uid) return;
+    if (!room || !STATE.roomRef) return;
+    if (room.hostId !== STATE.uid) return;
     if (String(room.status || 'waiting') !== 'countdown') return;
     if (Number(room.startAt || 0) > now()) return;
 
@@ -643,33 +642,64 @@
     }
   }
 
-  async function hostRecoverFinishedRoomForRematch(room){
+  function pickRecoveryHost(room){
+    const players = activePlayers(room).filter(Boolean);
+    if (!players.length) return null;
+
+    players.sort((a, b) => {
+      const aLive = isProbablyAlive(a) ? 1 : 0;
+      const bLive = isProbablyAlive(b) ? 1 : 0;
+      if (aLive !== bLive) return bLive - aLive;
+
+      const aMe = a.id === STATE.uid ? 1 : 0;
+      const bMe = b.id === STATE.uid ? 1 : 0;
+      if (aMe !== bMe) return bMe - aMe;
+
+      const aj = Number(a.joinedAt || 0);
+      const bj = Number(b.joinedAt || 0);
+      if (aj !== bj) return aj - bj;
+
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    });
+
+    return players[0] || null;
+  }
+
+  async function recoverFinishedRoomForRematch(room){
     if (!room || !STATE.roomRef || STATE.rematchRecoveryRunning) return false;
 
     const status = String(room.status || 'waiting');
-    const rematchInfo = getRematchInfo(room);
-
     if (status !== 'finished') return false;
-    if (rematchInfo.ids.length !== ROOM_SIZE) return false;
-    if (rematchInfo.count < ROOM_SIZE) return false;
-    if (room.hostId !== STATE.uid) return false;
+
+    const info = getRematchInfo(room);
+    if (info.ids.length !== ROOM_SIZE) return false;
+    if (info.count < ROOM_SIZE) return false;
+
+    const host = room.players && room.players[room.hostId] ? room.players[room.hostId] : null;
+    const chosenHost = (host && isProbablyAlive(host)) ? host : pickRecoveryHost(room);
+
+    if (!chosenHost) return false;
+    if (chosenHost.id !== STATE.uid) return false;
 
     STATE.rematchRecoveryRunning = true;
 
     try{
+      const t = now();
       const updates = {
         status: 'waiting',
         startAt: 0,
         updatedAt: firebase.database.ServerValue.TIMESTAMP,
-        seed: String(now()),
+        seed: String(t),
+        hostId: chosenHost.id,
+        hostName: chosenHost.name || 'Host',
+        rematch: null,
         'match/status': 'idle',
         'match/lockedAt': 0,
         'match/finishedAt': 0,
-        'match/participantIds': null,
-        rematch: null
+        'match/participantIds': null
       };
 
-      rematchInfo.ids.forEach((id) => {
+      info.ids.forEach((id) => {
         updates[`players/${id}/ready`] = false;
         updates[`players/${id}/phase`] = 'lobby';
         updates[`players/${id}/finished`] = false;
@@ -682,9 +712,15 @@
       });
 
       await STATE.roomRef.update(updates);
+
+      STATE.autoReadyDone = false;
+      STATE.autoStartAttempted = false;
+      STATE.autoStartLocked = false;
+      stopAutoStartTimer();
+
       return true;
     }catch(err){
-      console.error('[duet.lobby] hostRecoverFinishedRoomForRematch failed:', err);
+      console.error('[duet.lobby] recoverFinishedRoomForRematch failed:', err);
       return false;
     }finally{
       STATE.rematchRecoveryRunning = false;
@@ -827,6 +863,20 @@
     __duetAutoStartTimer = setTimeout(async () => {
       STATE.autoStartLocked = false;
       if (STATE.autoStartAttempted) return;
+
+      const latestSnap = await STATE.roomRef.once('value');
+      const latestRoom = latestSnap && latestSnap.val ? latestSnap.val() : null;
+      if (!latestRoom) return;
+
+      const latestStatus = String(latestRoom.status || 'waiting');
+      const latestPlayers = activePlayers(latestRoom);
+      const latestReady = readyPlayers(latestRoom);
+
+      if (latestStatus !== 'waiting') return;
+      if (latestRoom.hostId !== STATE.uid) return;
+      if (latestPlayers.length !== ROOM_SIZE) return;
+      if (latestReady.length !== ROOM_SIZE) return;
+
       STATE.autoStartAttempted = true;
 
       try{
@@ -835,7 +885,7 @@
         STATE.autoStartAttempted = false;
         setHint('เริ่มรีแมตช์อัตโนมัติไม่สำเร็จ: ' + (err && err.message ? err.message : 'unknown'), true);
       }
-    }, 900);
+    }, 700);
   }
 
   function renderRoom(room){
@@ -861,6 +911,7 @@
     const players = activePlayers(room);
     const status = String(room.status || 'waiting');
     const host = room.players && room.players[room.hostId] ? room.players[room.hostId] : null;
+    const rematchInfo = getRematchInfo(room);
 
     if (els.playerCount) els.playerCount.textContent = `${players.length}/${ROOM_SIZE}`;
     if (els.roomStatus) els.roomStatus.textContent = status;
@@ -870,13 +921,17 @@
     updateButtons(room);
     maybeRepairHost(room);
     maybeHandleCountdown(room);
-    maybeAutoReady(room);
-    maybeAutoStartRematch(room);
 
-    if (status === 'finished'){
-      fireAndForget(hostRecoverFinishedRoomForRematch(room));
+    if (status === 'finished' && rematchInfo.count >= ROOM_SIZE){
+      fireAndForget(recoverFinishedRoomForRematch(room));
     }
 
+    if (status === 'waiting'){
+      STATE.redirected = false;
+    }
+
+    maybeAutoReady(room);
+    maybeAutoStartRematch(room);
     renderLobbyDebug(room);
   }
 
@@ -1166,8 +1221,16 @@
 
       if (!room) return;
 
-      if (STATE.rematchEntry && String(room.status || 'waiting') === 'waiting'){
+      const status = String(room.status || 'waiting');
+      const info = getRematchInfo(room);
+
+      if (STATE.rematchEntry && status === 'waiting'){
         STATE.redirected = false;
+        STATE.autoStartLocked = false;
+      }
+
+      if (status === 'finished' && info.count >= ROOM_SIZE){
+        fireAndForget(recoverFinishedRoomForRematch(room));
       }
     }, (err) => {
       showJoinGuard('ฟังสถานะห้องไม่ได้: ' + (err && err.message ? err.message : 'unknown'));
