@@ -332,7 +332,7 @@
       word-break:break-word;
       font-size:11px;
       color:#8a8a82;
-      max-height:160px;
+      max-height:180px;
       overflow:auto;
     }
 
@@ -372,30 +372,8 @@
       padding:18px;
       position:relative;
     }
-    .summary-card::before{
-      content:"";
-      position:absolute;
-      left:-40px; top:-40px;
-      width:150px; height:150px;
-      border-radius:999px;
-      background:rgba(127,207,255,.18);
-      filter:blur(10px);
-      pointer-events:none;
-    }
-    .summary-card::after{
-      content:"";
-      position:absolute;
-      right:-30px; bottom:-30px;
-      width:130px; height:130px;
-      border-radius:999px;
-      background:rgba(255,212,92,.18);
-      filter:blur(10px);
-      pointer-events:none;
-    }
 
     .summary-kicker{
-      position:relative;
-      z-index:1;
       display:inline-flex;
       align-items:center;
       gap:8px;
@@ -410,8 +388,6 @@
     }
 
     .summary-hero{
-      position:relative;
-      z-index:1;
       display:grid;
       grid-template-columns:96px 1fr;
       gap:14px;
@@ -454,8 +430,6 @@
     }
 
     .summary-title{
-      position:relative;
-      z-index:1;
       margin:0 0 6px;
       text-align:center;
       color:#67a91c;
@@ -466,8 +440,6 @@
     }
 
     .summary-sub{
-      position:relative;
-      z-index:1;
       margin:0;
       text-align:center;
       color:#6d6b63;
@@ -523,8 +495,6 @@
     }
 
     .summary-grid{
-      position:relative;
-      z-index:1;
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:12px;
@@ -1049,7 +1019,7 @@
 
     function buildVersionedUrl(src) {
       const u = new URL(src, location.href);
-      u.searchParams.set('v', qs('rv', '20260331-race-run-corefix'));
+      u.searchParams.set('v', qs('rv', '20260331-race-run-spawnfix'));
       return u.toString();
     }
 
@@ -1199,6 +1169,310 @@
         await wait(60);
       }
       return { ok: false, note: 'timeout' };
+    }
+
+    function installFallbackRaceEngine(debugRows){
+      if (window.__GJ_FALLBACK_RACE_INSTALLED__) return;
+      window.__GJ_FALLBACK_RACE_INSTALLED__ = true;
+
+      const mount = document.getElementById('gameMount');
+      if (!mount) return;
+
+      const ctx = window.__GJ_RUN_CTX__ || window.__GJ_MULTI_RUN_CTX__ || {};
+      const diff = String(ctx.diff || 'normal');
+      const timeSec = Math.max(30, Number(ctx.time || 90));
+      const seedText = String(ctx.seed || Date.now());
+
+      function xmur3(str){
+        let h = 1779033703 ^ str.length;
+        for(let i=0;i<str.length;i++){
+          h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+          h = (h << 13) | (h >>> 19);
+        }
+        return function(){
+          h = Math.imul(h ^ (h >>> 16), 2246822507);
+          h = Math.imul(h ^ (h >>> 13), 3266489909);
+          return (h ^= h >>> 16) >>> 0;
+        };
+      }
+      function mulberry32(a){
+        return function(){
+          let t = a += 0x6D2B79F5;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      const seedFn = xmur3(seedText);
+      const rand = mulberry32(seedFn());
+
+      const style = document.createElement('style');
+      style.textContent = `
+        .gj-fallback-stage{
+          position:absolute; inset:0; overflow:hidden;
+          background:
+            radial-gradient(circle at 20% 12%, rgba(255,255,255,.45), transparent 18%),
+            linear-gradient(180deg, rgba(223,244,255,.28), rgba(255,247,216,.18));
+          z-index:1;
+        }
+        .gj-fallback-target{
+          position:absolute;
+          width:72px; height:72px;
+          border-radius:999px;
+          border:3px solid #ffffff;
+          box-shadow:0 10px 18px rgba(0,0,0,.12);
+          display:grid; place-items:center;
+          font-size:34px;
+          user-select:none;
+          -webkit-user-select:none;
+          cursor:pointer;
+          transform:translate(-50%,-50%);
+          animation: gj-pop-in .12s ease;
+        }
+        .gj-fallback-target.good{
+          background:linear-gradient(180deg,#ffffff,#f2fff0);
+          border-color:#bfe7c7;
+        }
+        .gj-fallback-target.junk{
+          background:linear-gradient(180deg,#fff7f7,#ffe5e5);
+          border-color:#f0b3b3;
+        }
+        .gj-fallback-hud{
+          position:absolute;
+          left:12px; right:12px; bottom:12px;
+          z-index:2;
+          display:flex; gap:8px; flex-wrap:wrap;
+          pointer-events:none;
+        }
+        .gj-fallback-chip{
+          background:rgba(255,255,255,.88);
+          border:2px solid #bfe3f2;
+          border-radius:999px;
+          padding:8px 12px;
+          font-size:13px;
+          font-weight:1000;
+          color:#4d4a42;
+          box-shadow:0 8px 16px rgba(86,155,194,.10);
+        }
+        @keyframes gj-pop-in{
+          from{ transform:translate(-50%,-50%) scale(.85); opacity:.6; }
+          to{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+        }
+      `;
+      document.head.appendChild(style);
+
+      mount.innerHTML = `
+        <div class="gj-fallback-stage" id="gjFallbackStage"></div>
+        <div class="gj-fallback-hud">
+          <div class="gj-fallback-chip" id="gjFbScore">SCORE • 0</div>
+          <div class="gj-fallback-chip" id="gjFbGood">GOOD • 0</div>
+          <div class="gj-fallback-chip" id="gjFbJunk">JUNK • 0</div>
+          <div class="gj-fallback-chip" id="gjFbMiss">MISS • 0</div>
+          <div class="gj-fallback-chip" id="gjFbTime">TIME • ${timeSec}</div>
+        </div>
+      `;
+
+      const stage = document.getElementById('gjFallbackStage');
+      const elScore = document.getElementById('gjFbScore');
+      const elGood = document.getElementById('gjFbGood');
+      const elJunk = document.getElementById('gjFbJunk');
+      const elMiss = document.getElementById('gjFbMiss');
+      const elTime = document.getElementById('gjFbTime');
+
+      let paused = true;
+      let started = false;
+      let ended = false;
+
+      let score = 0;
+      let shots = 0;
+      let hits = 0;
+      let miss = 0;
+      let goodHit = 0;
+      let junkHit = 0;
+      let bestStreak = 0;
+      let streak = 0;
+
+      let spawnTimer = 0;
+      let clockTimer = 0;
+      let endAt = 0;
+      let startMs = 0;
+
+      const spawnMs = diff === 'easy' ? 720 : diff === 'hard' ? 360 : 520;
+      const lifeMs = diff === 'easy' ? 1800 : diff === 'hard' ? 980 : 1350;
+      const goodRate = diff === 'hard' ? 0.68 : 0.76;
+
+      const GOOD_ITEMS = ['🍎','🥕','🥦','🍌','🥛','🥗','🍉','🐟'];
+      const JUNK_ITEMS = ['🍟','🍩','🍭','🍔','🥤','🍕','🧁','🍫'];
+
+      function updateHud(){
+        elScore.textContent = `SCORE • ${score}`;
+        elGood.textContent = `GOOD • ${goodHit}`;
+        elJunk.textContent = `JUNK • ${junkHit}`;
+        elMiss.textContent = `MISS • ${miss}`;
+        const left = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+        elTime.textContent = `TIME • ${left}`;
+      }
+
+      function clearTargets(){
+        stage.querySelectorAll('.gj-fallback-target').forEach(n => n.remove());
+      }
+
+      function finishGame(reason='finish'){
+        if (ended) return;
+        ended = true;
+        paused = true;
+        clearInterval(spawnTimer);
+        clearInterval(clockTimer);
+        clearTargets();
+        updateHud();
+
+        const duration = Math.max(0, Math.round((Date.now() - startMs) / 1000));
+
+        try { window.dispatchEvent(new CustomEvent('hha:end', { detail:{ reason } })); } catch(_) {}
+        try {
+          window.dispatchEvent(new CustomEvent('gj:race-summary', {
+            detail: {
+              score,
+              goodHit,
+              junkHit,
+              miss,
+              bestStreak,
+              duration,
+              result: 'จบรอบแล้ว',
+              rank: '',
+              players: '',
+              reason
+            }
+          }));
+        } catch(_) {}
+      }
+
+      function spawnOne(){
+        if (paused || ended) return;
+        if (Date.now() >= endAt) {
+          finishGame('timeout');
+          return;
+        }
+
+        const rect = stage.getBoundingClientRect();
+        const pad = 46;
+        const x = pad + rand() * Math.max(1, rect.width - pad * 2);
+        const y = 90 + rand() * Math.max(1, rect.height - 170);
+
+        const isGood = rand() < goodRate;
+        const item = isGood
+          ? GOOD_ITEMS[Math.floor(rand() * GOOD_ITEMS.length)]
+          : JUNK_ITEMS[Math.floor(rand() * JUNK_ITEMS.length)];
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `gj-fallback-target ${isGood ? 'good' : 'junk'}`;
+        btn.textContent = item;
+        btn.style.left = `${x}px`;
+        btn.style.top = `${y}px`;
+
+        let gone = false;
+
+        const timeoutId = setTimeout(() => {
+          if (gone) return;
+          gone = true;
+          btn.remove();
+          if (isGood) {
+            miss += 1;
+            streak = 0;
+          }
+          updateHud();
+        }, lifeMs);
+
+        btn.addEventListener('click', () => {
+          if (gone) return;
+          gone = true;
+          clearTimeout(timeoutId);
+          btn.remove();
+
+          shots += 1;
+          if (isGood) {
+            hits += 1;
+            goodHit += 1;
+            score += 10;
+            streak += 1;
+            if (streak > bestStreak) bestStreak = streak;
+          } else {
+            junkHit += 1;
+            score = Math.max(0, score - 6);
+            streak = 0;
+          }
+          updateHud();
+        });
+
+        stage.appendChild(btn);
+      }
+
+      function startNow(){
+        if (started || ended) return;
+        started = true;
+        paused = false;
+        startMs = Date.now();
+        endAt = startMs + timeSec * 1000;
+        updateHud();
+
+        spawnOne();
+        setTimeout(spawnOne, 180);
+        setTimeout(spawnOne, 360);
+
+        spawnTimer = setInterval(spawnOne, spawnMs);
+        clockTimer = setInterval(() => {
+          updateHud();
+          if (Date.now() >= endAt) finishGame('timeout');
+        }, 200);
+      }
+
+      window.__GJ_SET_PAUSED__ = function(v){
+        paused = !!v;
+        if (!paused && !started) startNow();
+      };
+      window.__GJ_START_NOW__ = function(){
+        startNow();
+      };
+      window.__GJ_GET_SCORE__ = function(){ return score; };
+      window.__GJ_GET_SHOTS__ = function(){ return shots; };
+      window.__GJ_GET_HITS__ = function(){ return hits; };
+      window.__GJ_GET_MISS__ = function(){ return miss; };
+      window.__GJ_GET_FINISH_MS__ = function(){ return ended ? Math.max(0, Date.now() - startMs) : 0; };
+
+      debugRows.push('[FALLBACK] minimal race engine installed');
+    }
+
+    function armFallbackSpawnWatchdog(debugRows){
+      const start = Date.now();
+      const timer = setInterval(() => {
+        const hasTargets = !!document.querySelector(
+          '#gameMount .gj-fallback-target, #gameMount .target, #gameMount .food, #gameMount .item, #gameMount .goodjunk-target, canvas'
+        );
+        if (hasTargets) {
+          clearInterval(timer);
+          debugRows.push('[WATCHDOG] visual target detected');
+          setDebug(debugRows.join('\n'));
+          return;
+        }
+
+        if (Date.now() - start >= 1800) {
+          clearInterval(timer);
+          debugRows.push('[WATCHDOG] no spawn detected after 1800ms');
+          installFallbackRaceEngine(debugRows);
+
+          try {
+            if (typeof window.__GJ_SET_PAUSED__ === 'function') window.__GJ_SET_PAUSED__(false);
+          } catch(_) {}
+
+          try {
+            if (typeof window.__GJ_START_NOW__ === 'function') window.__GJ_START_NOW__();
+          } catch(_) {}
+
+          setDebug(debugRows.join('\n'));
+        }
+      }, 180);
     }
 
     function normalizeSummary(detail) {
@@ -1527,12 +1801,15 @@
           (controller ? ` • controller: ${controller.src} (${controller.type})` : ' • quick start')
         );
         applyHeroIdentity();
-        setDebug(debugRows.join('\n'));
-        console.log('[GJ-RACE-RUN] ready', window.__GJ_MULTI_ENGINE_INFO__);
 
         try {
-          if (typeof window.__GJ_SET_PAUSED__ === 'function') window.__GJ_SET_PAUSED__(false);
-        } catch(_) {}
+          if (typeof window.__GJ_SET_PAUSED__ === 'function') {
+            window.__GJ_SET_PAUSED__(false);
+            debugRows.push('[START] __GJ_SET_PAUSED__(false)');
+          }
+        } catch (err) {
+          debugRows.push('[START ERROR] setPaused ' + String(err && err.message ? err.message : err));
+        }
 
         try {
           if (typeof window.__GJ_START_NOW__ === 'function') {
@@ -1542,18 +1819,16 @@
             debugRows.push('[START] no __GJ_START_NOW__ found');
           }
         } catch (err) {
-          debugRows.push('[START ERROR] ' + String(err && err.message ? err.message : err));
+          debugRows.push('[START ERROR] startNow ' + String(err && err.message ? err.message : err));
         }
 
         setDebug(debugRows.join('\n'));
+        armFallbackSpawnWatchdog(debugRows);
         hideStatusCardSoon();
+        console.log('[GJ-RACE-RUN] ready', window.__GJ_MULTI_ENGINE_INFO__);
       } catch (err) {
         const msg = String(err && err.message ? err.message : err);
-        setStatus(
-          'ไม่พบไฟล์เกมหลัก',
-          msg,
-          true
-        );
+        setStatus('ไม่พบไฟล์เกมหลัก', msg, true);
         debugRows.push('');
         debugRows.push('[ERROR]');
         debugRows.push(msg);
