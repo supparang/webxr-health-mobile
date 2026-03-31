@@ -39,6 +39,7 @@
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -122,6 +123,12 @@
       justify-content:center;
       gap:8px;
       box-shadow:var(--shadow);
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+      user-select:none;
+      pointer-events:auto;
+      position:relative;
+      z-index:2;
     }
 
     .btn.primary{
@@ -180,6 +187,7 @@
       font-size:18px;
       font-weight:1000;
       cursor:pointer;
+      touch-action:manipulation;
     }
 
     .coach-badge{
@@ -462,6 +470,7 @@
       cursor:pointer;
       user-select:none;
       transform:translateZ(0);
+      touch-action:manipulation;
     }
 
     .target.good{
@@ -548,6 +557,7 @@
       filter:none !important;
       isolation:isolate;
       transform:translateZ(0);
+      pointer-events:auto !important;
     }
 
     .duet-result-card{
@@ -568,6 +578,8 @@
       backdrop-filter:none !important;
       -webkit-backdrop-filter:none !important;
       transform:none !important;
+      isolation:isolate;
+      pointer-events:auto !important;
     }
 
     .duet-result-card.celebrate{
@@ -789,6 +801,19 @@
       display:none;
       gap:8px;
       margin-bottom:10px;
+      position:sticky;
+      top:0;
+      z-index:8;
+      background:linear-gradient(180deg, rgba(255,253,248,1), rgba(255,253,248,.96));
+      padding-bottom:6px;
+      pointer-events:auto !important;
+    }
+
+    .duet-mobile-quick-actions .btn{
+      width:100%;
+      min-height:50px;
+      pointer-events:auto !important;
+      z-index:9;
     }
 
     .duet-result-actions{
@@ -797,21 +822,26 @@
       flex-wrap:wrap;
       position:sticky;
       bottom:0;
+      z-index:10;
       padding-top:10px;
       background:linear-gradient(180deg, rgba(255,253,248,0), rgba(255,253,248,.92) 22%, rgba(255,253,248,1));
+      pointer-events:auto !important;
     }
 
     .duet-result-actions .btn{
       flex:1 1 180px;
       min-height:50px;
+      pointer-events:auto !important;
+      z-index:11;
     }
 
     .duet-confetti{
       position:absolute;
       inset:0;
       overflow:hidden;
-      pointer-events:none;
+      pointer-events:none !important;
       border-radius:28px;
+      z-index:1;
     }
 
     .duet-confetti-piece{
@@ -823,6 +853,7 @@
       animation-timing-function:linear;
       animation-iteration-count:1;
       filter:none !important;
+      pointer-events:none !important;
     }
 
     .duet-confetti-piece.pink{ background:#ff9fca; }
@@ -883,7 +914,7 @@
       }
     }
 
-    /* === PATCH v20260329-DUET-SUMMARY-UNBLUR-HARDFIX === */
+    /* === PATCH v20260329-DUET-SUMMARY-ACTION-LAYER-HARDFIX === */
     #duetResultMount{
       position: fixed;
       inset: 0;
@@ -894,100 +925,96 @@
       opacity: 1 !important;
       filter: none !important;
       isolation: isolate;
+      pointer-events: auto !important;
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
       transform: translateZ(0);
     }
 
     #duetResultMount[hidden]{
-      display: none !important;
+      display:none !important;
     }
 
     #duetResultMount::before,
     #duetResultMount::after{
-      content: none !important;
-      display: none !important;
+      content:none !important;
+      display:none !important;
+      pointer-events:none !important;
     }
 
     #duetResultMount .duet-result-card{
-      position: relative;
-      width: min(1120px, 100%);
-      margin: 0 auto;
-      border-radius: 28px;
-      background: #fffdf8 !important;
-      color: #244f6d !important;
-      opacity: 1 !important;
-      filter: none !important;
-      visibility: visible !important;
-      overflow: visible !important;
-      box-shadow: 0 18px 48px rgba(33,66,88,.16) !important;
-      -webkit-backdrop-filter: none !important;
-      backdrop-filter: none !important;
-      transform: none !important;
+      position:relative;
+      width:min(1120px,100%);
+      margin:0 auto;
+      border-radius:28px;
+      background:#fffdf8 !important;
+      color:#244f6d !important;
+      opacity:1 !important;
+      filter:none !important;
+      visibility:visible !important;
+      overflow:auto !important;
+      box-shadow:0 18px 48px rgba(33,66,88,.16) !important;
+      pointer-events:auto !important;
+      isolation:isolate;
+      -webkit-backdrop-filter:none !important;
+      backdrop-filter:none !important;
+      transform:none !important;
     }
 
     #duetResultMount .duet-result-card,
     #duetResultMount .duet-result-card *{
-      filter: none !important;
-      visibility: visible !important;
+      filter:none !important;
+      visibility:visible !important;
     }
 
     #duetResultMount .duet-summary-head,
-    #duetResultMount .duet-summary-hero,
-    #duetResultMount .duet-medals,
-    #duetResultMount .duet-judge-box,
-    #duetResultMount .duet-compare-grid,
-    #duetResultMount .duet-adaptive-card,
-    #duetResultMount .duet-research-grid,
-    #duetResultMount .duet-export-card,
     #duetResultMount .duet-praise,
     #duetResultMount .duet-sum-top,
     #duetResultMount .duet-sum-stats,
-    #duetResultMount .duet-recap,
+    #duetResultMount .duet-recap{
+      position:relative;
+      z-index:2;
+      pointer-events:auto !important;
+    }
+
+    #duetResultMount .duet-mobile-quick-actions,
     #duetResultMount .duet-result-actions{
-      opacity: 1 !important;
-      filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      backdrop-filter: none !important;
+      position:sticky;
+      z-index:20 !important;
+      pointer-events:auto !important;
     }
 
-    #duetResultMount .duet-export-jsonbox,
-    #duetResultMount .duet-export-tagbox,
-    #duetResultMount .duet-research-card,
-    #duetResultMount .duet-adaptive-card,
-    #duetResultMount .duet-judge-box,
-    #duetResultMount .duet-compare-card{
-      background: #ffffff !important;
-      opacity: 1 !important;
-      filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      backdrop-filter: none !important;
+    #duetResultMount .duet-result-actions .btn,
+    #duetResultMount .duet-mobile-quick-actions .btn,
+    #duetResultMount #duetBtnRematch,
+    #duetResultMount #duetBtnBackLobby,
+    #duetResultMount #duetBtnBackLauncher,
+    #duetResultMount #duetBtnBackHub,
+    #duetResultMount #duetBtnClose,
+    #duetResultMount #duetBtnRematchTop,
+    #duetResultMount #duetBtnBackLobbyTop{
+      pointer-events:auto !important;
+      position:relative !important;
+      z-index:30 !important;
+      touch-action:manipulation !important;
     }
 
-    #duetResultMount .duet-export-json,
-    #duetResultMount .duet-export-tag{
-      background: #ffffff !important;
-      color: #244f6d !important;
-      opacity: 1 !important;
-      filter: none !important;
-    }
-
-    #duetResultMount .duet-confetti{
-      pointer-events: none;
-    }
-
+    #duetResultMount .duet-confetti,
     #duetResultMount .duet-confetti-piece{
-      opacity: .9 !important;
-      filter: none !important;
+      pointer-events:none !important;
     }
 
     @media (max-width:760px){
       #duetResultMount{
-        padding: 10px 10px calc(14px + env(safe-area-inset-bottom, 0px));
+        padding:10px 10px calc(14px + env(safe-area-inset-bottom, 0px));
       }
 
       #duetResultMount .duet-result-card{
-        border-radius: 24px;
+        border-radius:24px;
+      }
+
+      #duetResultMount .duet-result-actions{
+        bottom:0;
       }
     }
   </style>
@@ -1117,6 +1144,7 @@
       const btnBackLauncher = document.getElementById('btnBackLauncher');
 
       if (btnGoHub) btnGoHub.href = hub;
+
       if (btnBackLauncher) {
         const u = new URL('./goodjunk-launcher.html', location.href);
         ['pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai','room','roomId']
@@ -1133,29 +1161,7 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-  <script src="../firebase-config.js?v=20260329-summary-unblur-v1"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260329-summary-unblur-v2"></script>
-  <script src="./goodjunk.duet.rematch.patch.js?v=20260329-rematch-sidecar-v1"></script>
-
-  <script>
-    (function duetRematchLoadReset(){
-      'use strict';
-
-      const q = new URLSearchParams(location.search);
-      const isRematch = q.get('rematch') === '1';
-
-      if (!isRematch) return;
-
-      window.addEventListener('load', function () {
-        try {
-          if (typeof window.clearRematchStatePatched === 'function') {
-            window.clearRematchStatePatched('page-rematch-load');
-          }
-        } catch (err) {
-          console.warn('[DUET] rematch load reset failed', err);
-        }
-      }, { once: true });
-    })();
-  </script>
+  <script src="../firebase-config.js?v=20260329-duet-action-layer-v1"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260329-duet-action-layer-v3"></script>
 </body>
 </html>
