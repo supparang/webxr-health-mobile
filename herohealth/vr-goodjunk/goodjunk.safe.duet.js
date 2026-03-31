@@ -1,10 +1,9 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260331-GOODJUNK-DUET-RUN-REMATCH-R2
-   - run summary button click hard fix
-   - rematch 2/2 force redirect back to same lobby
-   - host resets finished room for rematch
-   - onDisconnect must not break run bind
-   - overlay blur / layer / pointer hard fix
+   FULL PATCH v20260331-GJ-DUET-RUN-R3
+   - rematch 2/2 recovery แข็งขึ้น
+   - summary ปุ่มกดติดบน mobile/pc
+   - finished room recover ได้แม้ host เดิมไม่อยู่
+   - redirect กลับ lobby ห้องเดิมพร้อม rematch=1
 */
 (function(){
   'use strict';
@@ -140,17 +139,13 @@
 
   async function getRoomSnapshotWithRetry(roomRef, tries = 12, gap = 350){
     let lastSnap = null;
-
     for (let i = 0; i < tries; i++){
       const snap = await roomRef.once('value');
       lastSnap = snap;
-
       if (snap && typeof snap.exists === 'function' && snap.exists()) return snap;
       if (snap && typeof snap.val === 'function' && snap.val()) return snap;
-
       if (i < tries - 1) await waitMs(gap);
     }
-
     return lastSnap;
   }
 
@@ -219,6 +214,97 @@
     });
 
     return { ids, count, votes };
+  }
+
+  function isProbablyAlivePlayer(p){
+    if (!p) return false;
+    const seen = Number(p.lastSeenAt || 0);
+    if (p.connected !== false) return true;
+    return (now() - seen) <= 20000;
+  }
+
+  function pickRecoveryHost(room){
+    if (!room || !room.players) return null;
+
+    const players = Object.keys(room.players)
+      .map((id) => Object.assign({ id }, room.players[id] || {}))
+      .filter(Boolean);
+
+    if (!players.length) return null;
+
+    players.sort((a, b) => {
+      const aLive = isProbablyAlivePlayer(a) ? 1 : 0;
+      const bLive = isProbablyAlivePlayer(b) ? 1 : 0;
+      if (aLive !== bLive) return bLive - aLive;
+
+      const aMe = a.id === STATE.uid ? 1 : 0;
+      const bMe = b.id === STATE.uid ? 1 : 0;
+      if (aMe !== bMe) return bMe - aMe;
+
+      const aj = Number(a.joinedAt || 0);
+      const bj = Number(b.joinedAt || 0);
+      if (aj !== bj) return aj - bj;
+
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    });
+
+    return players[0] || null;
+  }
+
+  async function recoverFinishedRoomForRematchFromRun(room){
+    if (!room || !STATE.roomRef || STATE.rematchResetting) return false;
+
+    const status = String(room.status || 'waiting');
+    if (status !== 'finished') return false;
+
+    const info = getRematchInfo(room);
+    if (info.ids.length !== 2) return false;
+    if (info.count < 2) return false;
+
+    const host = room.players && room.players[room.hostId] ? room.players[room.hostId] : null;
+    const chosenHost = (host && isProbablyAlivePlayer(host)) ? host : pickRecoveryHost(room);
+
+    if (!chosenHost) return false;
+    if (chosenHost.id !== STATE.uid) return false;
+
+    STATE.rematchResetting = true;
+
+    try{
+      const t = now();
+      const updates = {
+        status: 'waiting',
+        startAt: 0,
+        updatedAt: firebase.database.ServerValue.TIMESTAMP,
+        seed: String(t),
+        hostId: chosenHost.id,
+        hostName: chosenHost.name || 'Host',
+        rematch: null,
+        'match/status': 'idle',
+        'match/lockedAt': 0,
+        'match/finishedAt': 0,
+        'match/participantIds': null
+      };
+
+      info.ids.forEach((id) => {
+        updates[`players/${id}/ready`] = false;
+        updates[`players/${id}/phase`] = 'lobby';
+        updates[`players/${id}/finished`] = false;
+        updates[`players/${id}/finalScore`] = 0;
+        updates[`players/${id}/miss`] = 0;
+        updates[`players/${id}/streak`] = 0;
+        updates[`players/${id}/finishedAt`] = 0;
+        updates[`players/${id}/connected`] = true;
+        updates[`players/${id}/lastSeenAt`] = firebase.database.ServerValue.TIMESTAMP;
+      });
+
+      await STATE.roomRef.update(updates);
+      return true;
+    }catch(err){
+      console.error('[duet.run] recoverFinishedRoomForRematchFromRun failed:', err);
+      return false;
+    }finally{
+      STATE.rematchResetting = false;
+    }
   }
 
   function resetResultMount(){
@@ -866,7 +952,7 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: !!peer.finished,
       endedAt: new Date().toISOString(),
-      version: 'v20260331-GOODJUNK-DUET-RUN-REMATCH-R2'
+      version: 'v20260331-GJ-DUET-RUN-R3'
     };
   }
 
@@ -988,57 +1074,23 @@
         ready: true,
         requestedAt: firebase.database.ServerValue.TIMESTAMP
       });
+
+      const snap = await STATE.roomRef.once('value');
+      const room = snap && typeof snap.val === 'function' ? snap.val() : null;
+      const info = getRematchInfo(room);
+
+      if (info.count >= 2 && !STATE.rematchRedirected){
+        STATE.rematchRedirected = true;
+        fireAndForget(recoverFinishedRoomForRematchFromRun(room));
+
+        setTimeout(() => {
+          safeReplace(buildSameRoomLobbyUrl(true));
+        }, 250);
+      }
     }catch(err){
       console.error('[duet.run] requestRematch failed:', err);
+      STATE.rematchRequested = false;
       throw err;
-    }
-  }
-
-  async function hostRecoverFinishedRoomForRematch(room){
-    if (!room || !STATE.roomRef || STATE.rematchResetting) return false;
-
-    const status = String(room.status || 'waiting');
-    const rematchInfo = getRematchInfo(room);
-
-    if (status !== 'finished') return false;
-    if (rematchInfo.ids.length !== 2) return false;
-    if (rematchInfo.count < 2) return false;
-    if (room.hostId !== STATE.uid) return false;
-
-    STATE.rematchResetting = true;
-
-    try{
-      const updates = {
-        status: 'waiting',
-        startAt: 0,
-        updatedAt: firebase.database.ServerValue.TIMESTAMP,
-        seed: String(now()),
-        'match/status': 'idle',
-        'match/lockedAt': 0,
-        'match/finishedAt': 0,
-        'match/participantIds': null,
-        rematch: null
-      };
-
-      rematchInfo.ids.forEach((id) => {
-        updates[`players/${id}/ready`] = false;
-        updates[`players/${id}/phase`] = 'lobby';
-        updates[`players/${id}/finished`] = false;
-        updates[`players/${id}/finalScore`] = 0;
-        updates[`players/${id}/miss`] = 0;
-        updates[`players/${id}/streak`] = 0;
-        updates[`players/${id}/finishedAt`] = 0;
-        updates[`players/${id}/connected`] = true;
-        updates[`players/${id}/lastSeenAt`] = firebase.database.ServerValue.TIMESTAMP;
-      });
-
-      await STATE.roomRef.update(updates);
-      return true;
-    }catch(err){
-      console.error('[duet.run] hostRecoverFinishedRoomForRematch failed:', err);
-      return false;
-    }finally{
-      STATE.rematchResetting = false;
     }
   }
 
@@ -1301,8 +1353,14 @@
         if (STATE.rematchRequested) return;
         btnRematch.disabled = true;
         btnRematch.textContent = 'กำลังรอรีแมตช์...';
-        await requestRematch();
-        renderResultOverlay('rematch-requested');
+
+        try{
+          await requestRematch();
+          renderResultOverlay('rematch-requested');
+        }catch(err){
+          btnRematch.disabled = false;
+          btnRematch.textContent = 'ขอรีแมตช์';
+        }
       });
     }
 
@@ -1338,8 +1396,14 @@
         if (STATE.rematchRequested) return;
         btnRematchTop.disabled = true;
         btnRematchTop.textContent = 'กำลังรอรีแมตช์...';
-        await requestRematch();
-        renderResultOverlay('rematch-requested');
+
+        try{
+          await requestRematch();
+          renderResultOverlay('rematch-requested');
+        }catch(err){
+          btnRematchTop.disabled = false;
+          btnRematchTop.textContent = 'รีแมตช์';
+        }
       });
     }
 
@@ -1498,14 +1562,11 @@
         if (rematchInfo.count >= 2 && !STATE.rematchRedirected){
           STATE.rematchRedirected = true;
 
-          if (room.hostId === STATE.uid){
-            fireAndForget(hostRecoverFinishedRoomForRematch(room));
-          }
+          fireAndForget(recoverFinishedRoomForRematchFromRun(room));
 
           setTimeout(() => {
             safeReplace(buildSameRoomLobbyUrl(true));
           }, 450);
-
           return;
         }
 
