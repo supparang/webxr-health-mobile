@@ -7,6 +7,7 @@
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
       --sky1:#dff4ff;
@@ -17,13 +18,18 @@
       --line:#bfe3f2;
       --text:#4d4a42;
       --muted:#7b7a72;
+
       --green:#7ed957;
       --green2:#58c33f;
       --blue:#7fcfff;
       --blue2:#58b7f5;
+      --pink:#ff8fc7;
+      --pink2:#ffc5e3;
       --yellow:#ffd45c;
       --orange:#ffb547;
+
       --shadow:0 18px 40px rgba(86,155,194,.16);
+
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
@@ -31,6 +37,7 @@
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -41,6 +48,7 @@
         radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
         linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
     }
+
     body{ min-height:100dvh; }
 
     .bg-clouds{
@@ -50,6 +58,7 @@
       pointer-events:none;
       z-index:0;
     }
+
     .cloud{
       position:absolute;
       border-radius:999px;
@@ -61,9 +70,11 @@
         70px -10px 0 4px rgba(255,255,255,.72);
       animation:floatCloud linear infinite;
     }
+
     .cloud.c1{ width:110px; height:34px; left:6%; top:10%; animation-duration:28s; }
     .cloud.c2{ width:140px; height:40px; left:62%; top:14%; animation-duration:36s; }
     .cloud.c3{ width:100px; height:30px; left:30%; top:22%; animation-duration:32s; }
+
     @keyframes floatCloud{
       from{ transform:translateX(-5vw); }
       to{ transform:translateX(12vw); }
@@ -72,7 +83,7 @@
     .shell{
       position:relative;
       z-index:1;
-      max-width:1180px;
+      max-width:1200px;
       margin:0 auto;
       padding:
         calc(16px + var(--sat))
@@ -83,7 +94,7 @@
 
     .hero{
       display:grid;
-      grid-template-columns:1.3fr .9fr;
+      grid-template-columns:1.15fr .85fr;
       gap:14px;
       align-items:stretch;
     }
@@ -101,6 +112,7 @@
     .hero-card{
       padding:20px 18px;
     }
+
     .hero-card::before{
       content:"";
       position:absolute;
@@ -110,6 +122,7 @@
       background:rgba(127,207,255,.20);
       filter:blur(8px);
     }
+
     .hero-card::after{
       content:"";
       position:absolute;
@@ -158,6 +171,26 @@
       max-width:760px;
     }
 
+    .mini-badges{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:12px;
+      position:relative;
+      z-index:1;
+    }
+
+    .mini-badge{
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:1000;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6c6a61;
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+    }
+
     .boss-preview{
       padding:18px 16px;
       display:grid;
@@ -165,6 +198,7 @@
       gap:14px;
       align-items:center;
     }
+
     .boss-icon{
       width:92px;
       height:92px;
@@ -176,12 +210,14 @@
       border:3px solid #ffd89b;
       box-shadow:0 12px 24px rgba(255,181,71,.18);
     }
+
     .boss-title{
       margin:0 0 6px;
       font-size:24px;
       font-weight:1000;
       color:#f59e0b;
     }
+
     .boss-sub{
       margin:0;
       font-size:13px;
@@ -224,10 +260,12 @@
       grid-template-columns:1fr 1fr;
       gap:12px;
     }
+
     .field{
       display:grid;
       gap:6px;
     }
+
     .field.span-2{
       grid-column:1 / -1;
     }
@@ -239,20 +277,28 @@
     }
 
     input[type="text"],
-    select{
+    select,
+    textarea{
       width:100%;
-      height:46px;
+      min-height:46px;
       border-radius:16px;
       border:2px solid var(--line);
       background:#fff;
-      padding:0 14px;
+      padding:10px 14px;
       font-size:15px;
       font-weight:900;
       color:var(--text);
       outline:none;
       box-shadow:0 6px 16px rgba(86,155,194,.08);
     }
-    input:focus, select:focus{
+
+    textarea{
+      min-height:88px;
+      resize:vertical;
+      font-family:inherit;
+    }
+
+    input:focus, select:focus, textarea:focus{
       border-color:#86d7ff;
       box-shadow:0 0 0 4px rgba(127,207,255,.18);
     }
@@ -262,15 +308,18 @@
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:10px;
     }
+
     .chip-radio{
       position:relative;
     }
+
     .chip-radio input{
       position:absolute;
       inset:0;
       opacity:0;
       pointer-events:none;
     }
+
     .chip-radio span{
       min-height:58px;
       display:grid;
@@ -287,6 +336,7 @@
       line-height:1.35;
       transition:.14s ease;
     }
+
     .chip-radio input:checked + span{
       border-color:#8bd8ff;
       background:linear-gradient(180deg,#f4fdff,#ebfbff);
@@ -295,28 +345,46 @@
       color:#4d4a42;
     }
 
-    .mini-badges{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:10px;
+    .preset-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
     }
-    .mini-badge{
-      padding:8px 12px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:1000;
-      border:2px solid var(--line);
+
+    .preset{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      border-radius:18px;
+      min-height:64px;
+      padding:10px 12px;
       background:#fff;
-      color:#6c6a61;
+      border:2px solid var(--line);
       box-shadow:0 8px 18px rgba(86,155,194,.10);
+      font-size:13px;
+      font-weight:1000;
+      color:#6c6a61;
+      line-height:1.35;
+      text-align:center;
+      transition:.14s ease;
     }
+
+    .preset:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.02);
+    }
+
+    .preset.easy{ background:linear-gradient(180deg,#f6fff1,#ffffff); }
+    .preset.normal{ background:linear-gradient(180deg,#eefbff,#ffffff); }
+    .preset.hard{ background:linear-gradient(180deg,#fff4f1,#ffffff); }
+    .preset.research{ background:linear-gradient(180deg,#fff8ea,#ffffff); }
 
     .tips{
       display:grid;
       gap:10px;
       margin-top:10px;
     }
+
     .tip{
       border-radius:20px;
       padding:12px 14px;
@@ -326,6 +394,28 @@
       font-weight:900;
       color:#6c6a61;
       line-height:1.65;
+    }
+
+    .quick-chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
+    }
+
+    .quick-chip{
+      min-height:34px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      color:#6c6a61;
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+      font-size:12px;
+      font-weight:1000;
     }
 
     .footer-bar{
@@ -345,6 +435,7 @@
       color:#6c6a61;
       line-height:1.65;
       word-break:break-word;
+      min-height:58px;
     }
 
     .actions{
@@ -364,6 +455,7 @@
       transition:.14s ease;
       box-shadow:0 12px 24px rgba(86,155,194,.14);
     }
+
     .btn:hover{ transform:translateY(-1px); filter:brightness(1.02); }
     .btn:active{ transform:translateY(0); }
 
@@ -371,18 +463,26 @@
       background:linear-gradient(180deg,var(--green),var(--green2));
       color:#133b09;
     }
+
     .btn.secondary{
       background:linear-gradient(180deg,var(--blue),var(--blue2));
       color:#08374d;
     }
+
     .btn.soft{
       background:#fff;
       color:#6c6a61;
       border:2px solid var(--line);
     }
+
     .btn.warn{
       background:linear-gradient(180deg,var(--yellow),var(--orange));
       color:#5a3a00;
+    }
+
+    .btn.pink{
+      background:linear-gradient(180deg,var(--pink),var(--pink2));
+      color:#6b214e;
     }
 
     .note{
@@ -392,17 +492,36 @@
       line-height:1.7;
     }
 
+    .notice{
+      margin-top:10px;
+      display:none;
+      border-radius:18px;
+      padding:12px 14px;
+      background:#eefbff;
+      border:2px solid var(--line);
+      color:#376882;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .notice.show{
+      display:block;
+    }
+
     @media (max-width:980px){
       .hero, .grid{
         grid-template-columns:1fr;
       }
     }
 
-    @media (max-width:720px){
+    @media (max-width:760px){
       .form-grid,
-      .option-grid{
+      .option-grid,
+      .preset-grid{
         grid-template-columns:1fr;
       }
+
       .actions .btn{
         flex:1 1 100%;
       }
@@ -420,16 +539,17 @@
     <section class="hero">
       <div class="hero-card">
         <div class="kicker">🍎 GOODJUNK LAUNCHER</div>
-        <h1>Solo Boss Adventure</h1>
+        <h1>Solo Phase Boss Adventure</h1>
         <p class="sub">
-          เตรียมตัวเข้าสู่ GoodJunk Solo Boss v2 เก็บอาหารดี หลีกเลี่ยง junk
-          ผ่าน 2 phase แล้วเข้าสู้กับ Junk King แบบสนุก เร้าใจ และ child-friendly
+          เตรียมตัวเข้าสู่ GoodJunk Solo Boss ผ่าน <strong>warmup → run → summary → cooldown → hub</strong>
+          เก็บอาหารดี หลีกเลี่ยง junk และเอาชนะ <strong>Junk King</strong> แบบสนุก เร้าใจ และ child-friendly
         </p>
+
         <div class="mini-badges">
           <div class="mini-badge">👦 Child-friendly</div>
-          <div class="mini-badge">🎯 2 Phase + Boss 3 Stage</div>
-          <div class="mini-badge">⭐ Summary แบบดาว</div>
-          <div class="mini-badge">🔥 Warmup ก่อนเล่น</div>
+          <div class="mini-badge">🔥 Phase 1 → 2 → Boss</div>
+          <div class="mini-badge">👑 Boss A / B / C / Rage</div>
+          <div class="mini-badge">🧪 Research-ready</div>
         </div>
       </div>
 
@@ -448,7 +568,7 @@
     <section class="grid">
       <div class="card">
         <h2 class="card-title">🧒 ข้อมูลผู้เล่น</h2>
-        <div class="section-sub">กรอกสั้น ๆ แล้วเข้าเล่นได้ทันที</div>
+        <div class="section-sub">กรอกสั้น ๆ แล้วเริ่มเล่นได้เลย</div>
 
         <div class="form-grid">
           <div class="field">
@@ -478,7 +598,7 @@
         </div>
 
         <h2 class="card-title" style="margin-top:18px;">⚙️ ตั้งค่ารอบเล่น</h2>
-        <div class="section-sub">เลือกยากง่าย เวลาที่ใช้ และมุมมองการเล่น</div>
+        <div class="section-sub">เลือกความยาก เวลา มุมมอง และโหมดการใช้งาน</div>
 
         <div class="field">
           <label>ระดับความยาก</label>
@@ -551,46 +671,102 @@
             </label>
           </div>
         </div>
-      </div>
 
-      <div class="card">
-        <h2 class="card-title">🗺️ แผนการเล่น</h2>
-        <div class="section-sub">flow ครบ: warmup → run → summary → cooldown → hub</div>
+        <h2 class="card-title" style="margin-top:18px;">🚀 Preset เร็ว</h2>
+        <div class="section-sub">กดครั้งเดียวเพื่อเซ็ตค่าทั้งชุด</div>
 
-        <div class="tips">
-          <div class="tip">
-            <strong>Warmup:</strong> วอร์มอัปก่อนเล่น เพื่อเตรียมร่างกายและโฟกัส
+        <div class="preset-grid">
+          <button class="preset easy" id="presetEasy" type="button">🌱 Easy<br>120s / play / mobile</button>
+          <button class="preset normal" id="presetNormal" type="button">⚡ Normal<br>150s / play / mobile</button>
+          <button class="preset hard" id="presetHard" type="button">🔥 Hard<br>180s / play / mobile</button>
+          <button class="preset research" id="presetResearch" type="button">🧪 Research<br>normal / 150s / research</button>
+        </div>
+
+        <h2 class="card-title" style="margin-top:18px;">🧪 Research Params</h2>
+        <div class="section-sub">ถ้าไม่ได้ใช้วิจัย เว้นว่างได้ทั้งหมด</div>
+
+        <div class="form-grid">
+          <div class="field">
+            <label for="conditionGroupInput">Condition Group</label>
+            <input id="conditionGroupInput" type="text" placeholder="เช่น A / B / control" />
           </div>
-          <div class="tip">
-            <strong>Phase 1:</strong> สะสมคะแนนจากอาหารดี หลีกเลี่ยง junk
+
+          <div class="field">
+            <label for="phaseTagInput">Phase Tag</label>
+            <input id="phaseTagInput" type="text" placeholder="เช่น pretest / posttest" />
           </div>
-          <div class="tip">
-            <strong>Phase 2:</strong> เร็วขึ้นและกดดันขึ้น ต้องอ่านเป้าให้แม่น
+
+          <div class="field">
+            <label for="apiInput">API / Logger URL</label>
+            <input id="apiInput" type="text" placeholder="เว้นว่างได้" />
           </div>
-          <div class="tip">
-            <strong>Boss:</strong> Junk King มี 3 stage — Learn, Pressure และ Final
+
+          <div class="field">
+            <label for="studentKeyInput">Student Key</label>
+            <input id="studentKeyInput" type="text" placeholder="เว้นว่างได้" />
           </div>
-          <div class="tip">
-            <strong>Cooldown:</strong> หลังจบรอบจะมีช่วง cooldown ก่อนกลับ HUB
+
+          <div class="field">
+            <label for="schoolCodeInput">School Code</label>
+            <input id="schoolCodeInput" type="text" placeholder="เว้นว่างได้" />
+          </div>
+
+          <div class="field">
+            <label for="classRoomInput">Class Room</label>
+            <input id="classRoomInput" type="text" placeholder="เว้นว่างได้" />
+          </div>
+
+          <div class="field">
+            <label for="studentNoInput">Student No</label>
+            <input id="studentNoInput" type="text" placeholder="เว้นว่างได้" />
+          </div>
+
+          <div class="field">
+            <label for="nickNameInput">Nick Name</label>
+            <input id="nickNameInput" type="text" placeholder="เว้นว่างได้" />
           </div>
         </div>
 
-        <h2 class="card-title" style="margin-top:18px;">🔗 ลิงก์เข้าเล่น</h2>
-        <div class="section-sub">ปุ่มเริ่มเกมจะพาเข้า warmup-gate ก่อน แล้วค่อยเข้า run</div>
+        <div class="quick-chips">
+          <div class="quick-chip">🎯 gameId = goodjunk</div>
+          <div class="quick-chip">🍎 zone = nutrition</div>
+          <div class="quick-chip">🔥 phase boss route</div>
+          <div class="quick-chip">💾 save preset local</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">🗺️ Flow การเล่น</h2>
+        <div class="section-sub">ระบบจะพาไปตามลำดับอัตโนมัติ</div>
+
+        <div class="tips">
+          <div class="tip"><strong>Warmup:</strong> วอร์มอัปก่อนเล่น เพื่อเตรียมร่างกายและโฟกัส</div>
+          <div class="tip"><strong>Run:</strong> เข้า <code>/herohealth/goodjunk-vr.html</code> เพื่อเล่น Phase Boss</div>
+          <div class="tip"><strong>Summary:</strong> หลังจบรอบจะมีผลสรุป + export payload</div>
+          <div class="tip"><strong>Cooldown:</strong> ไป cooldown ผ่าน <code>warmup-gate.html?phase=cooldown</code></div>
+          <div class="tip"><strong>Hub:</strong> กลับ HUB เดิมที่ส่งมาใน query หรือค่าที่ตั้งไว้</div>
+        </div>
+
+        <h2 class="card-title" style="margin-top:18px;">🔗 ลิงก์เริ่มเล่น</h2>
+        <div class="section-sub">ปุ่มเริ่มเกมจะพาเข้า warmup-gate ก่อน แล้วค่อยเข้า run page</div>
 
         <div class="url-box" id="urlPreview">กำลังเตรียมลิงก์…</div>
 
         <div class="footer-bar">
           <div class="actions">
-            <button class="btn primary" id="btnStart" type="button">🚀 เริ่มเล่น (ผ่าน Warmup)</button>
+            <button class="btn primary" id="btnStart" type="button">🚀 เริ่มเล่น (Warmup)</button>
+            <button class="btn pink" id="btnDirectRun" type="button">⚡ เข้า Run ตรง</button>
             <button class="btn secondary" id="btnCopy" type="button">📋 คัดลอกลิงก์</button>
             <button class="btn warn" id="btnRandomSeed" type="button">🎲 สุ่ม Seed</button>
             <button class="btn soft" id="btnBackHub" type="button">🏠 กลับ HUB</button>
           </div>
+
           <div class="note">
-            Launcher นี้จะส่งผู้เล่นเข้า <strong>/herohealth/warmup-gate.html</strong> ก่อน
-            แล้วระบบจึงพาเข้าสู่ <strong>/herohealth/goodjunk-vr.html</strong>
+            launcher นี้จะส่งผู้เล่นเข้า <strong>/herohealth/warmup-gate.html</strong> พร้อม
+            <strong>next=./goodjunk-vr.html</strong> เพื่อให้ flow ไปต่อได้แน่นอน
           </div>
+
+          <div class="notice" id="noticeBox"></div>
         </div>
       </div>
     </section>
@@ -601,7 +777,7 @@
       const q = new URLSearchParams(location.search);
       const $ = (id) => document.getElementById(id);
 
-      const STORAGE_KEY = 'HHA_GJ_LAUNCHER_V3';
+      const STORAGE_KEY = 'HHA_GJ_LAUNCHER_PROD_V1';
 
       const els = {
         pid: $('pidInput'),
@@ -609,12 +785,36 @@
         studyId: $('studyIdInput'),
         seed: $('seedInput'),
         hub: $('hubInput'),
+
+        conditionGroup: $('conditionGroupInput'),
+        phaseTag: $('phaseTagInput'),
+        api: $('apiInput'),
+        studentKey: $('studentKeyInput'),
+        schoolCode: $('schoolCodeInput'),
+        classRoom: $('classRoomInput'),
+        studentNo: $('studentNoInput'),
+        nickName: $('nickNameInput'),
+
         urlPreview: $('urlPreview'),
+        notice: $('noticeBox'),
+
         btnStart: $('btnStart'),
+        btnDirectRun: $('btnDirectRun'),
         btnCopy: $('btnCopy'),
         btnRandomSeed: $('btnRandomSeed'),
-        btnBackHub: $('btnBackHub')
+        btnBackHub: $('btnBackHub'),
+
+        presetEasy: $('presetEasy'),
+        presetNormal: $('presetNormal'),
+        presetHard: $('presetHard'),
+        presetResearch: $('presetResearch')
       };
+
+      function showNotice(text) {
+        if (!els.notice) return;
+        els.notice.textContent = text || '';
+        els.notice.classList.toggle('show', !!text);
+      }
 
       function readRadio(name, fallback) {
         const checked = document.querySelector('input[name="' + name + '"]:checked');
@@ -630,8 +830,23 @@
         return String(Math.floor(Date.now() + Math.random() * 100000));
       }
 
-      function getDefaultHub() {
-        return q.get('hub') || new URL('./hub.html', location.href).toString();
+      function first(...vals) {
+        for (const v of vals) {
+          if (String(v || '').trim()) return String(v).trim();
+        }
+        return '';
+      }
+
+      function cleanText(v, max) {
+        return String(v || '').replace(/[<>]/g, '').trim().slice(0, max || 80);
+      }
+
+      function cleanPid(v) {
+        return String(v || 'anon').replace(/[^\w-]/g, '').trim().slice(0, 40) || 'anon';
+      }
+
+      function defaultHub() {
+        return q.get('hub') || new URL('./hub-v2.html', location.href).toString();
       }
 
       function loadSaved() {
@@ -640,95 +855,100 @@
           saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {};
         } catch {}
 
-        els.pid.value = q.get('pid') || saved.pid || 'anon';
-        els.name.value = q.get('name') || saved.name || '';
-        els.studyId.value = q.get('studyId') || saved.studyId || '';
-        els.seed.value = q.get('seed') || saved.seed || randSeed();
-        els.hub.value = getDefaultHub();
+        els.pid.value = cleanPid(first(q.get('pid'), saved.pid, 'anon'));
+        els.name.value = cleanText(first(q.get('name'), q.get('nickName'), saved.name, 'Hero'), 40);
+        els.studyId.value = cleanText(first(q.get('studyId'), saved.studyId, ''), 60);
+        els.seed.value = cleanText(first(q.get('seed'), saved.seed, randSeed()), 40);
+        els.hub.value = first(q.get('hub'), saved.hub, defaultHub());
 
-        setRadio('diff', q.get('diff') || saved.diff || 'normal');
-        setRadio('time', q.get('time') || saved.time || '150');
-        setRadio('view', q.get('view') || saved.view || 'mobile');
-        setRadio('run', q.get('run') || saved.run || 'play');
+        els.conditionGroup.value = cleanText(first(q.get('conditionGroup'), saved.conditionGroup, ''), 40);
+        els.phaseTag.value = cleanText(first(q.get('phase'), saved.phaseTag, ''), 40);
+        els.api.value = cleanText(first(q.get('api'), saved.api, ''), 300);
+        els.studentKey.value = cleanText(first(q.get('studentKey'), saved.studentKey, ''), 80);
+        els.schoolCode.value = cleanText(first(q.get('schoolCode'), saved.schoolCode, ''), 40);
+        els.classRoom.value = cleanText(first(q.get('classRoom'), saved.classRoom, ''), 40);
+        els.studentNo.value = cleanText(first(q.get('studentNo'), saved.studentNo, ''), 40);
+        els.nickName.value = cleanText(first(q.get('nickName'), saved.nickName, ''), 40);
+
+        setRadio('diff', first(q.get('diff'), saved.diff, 'normal'));
+        setRadio('time', first(q.get('time'), saved.time, '150'));
+        setRadio('view', first(q.get('view'), saved.view, 'mobile'));
+        setRadio('run', first(q.get('run'), saved.run, 'play'));
       }
 
       function saveState() {
         const payload = {
-          pid: els.pid.value.trim(),
-          name: els.name.value.trim(),
-          studyId: els.studyId.value.trim(),
-          seed: els.seed.value.trim(),
-          hub: els.hub.value.trim(),
+          pid: cleanPid(els.pid.value),
+          name: cleanText(els.name.value, 40),
+          studyId: cleanText(els.studyId.value, 60),
+          seed: cleanText(els.seed.value, 40),
+          hub: cleanText(els.hub.value, 400),
+
+          conditionGroup: cleanText(els.conditionGroup.value, 40),
+          phaseTag: cleanText(els.phaseTag.value, 40),
+          api: cleanText(els.api.value, 300),
+          studentKey: cleanText(els.studentKey.value, 80),
+          schoolCode: cleanText(els.schoolCode.value, 40),
+          classRoom: cleanText(els.classRoom.value, 40),
+          studentNo: cleanText(els.studentNo.value, 40),
+          nickName: cleanText(els.nickName.value, 40),
+
           diff: readRadio('diff', 'normal'),
           time: readRadio('time', '150'),
           view: readRadio('view', 'mobile'),
           run: readRadio('run', 'play')
         };
+
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
         } catch {}
       }
 
-      function buildRunUrl() {
-        const url = new URL('./goodjunk-vr.html', location.href);
+      function fillCommonParams(url) {
+        url.searchParams.set('pid', cleanPid(els.pid.value));
+        url.searchParams.set('name', cleanText(els.name.value || 'Hero', 40));
+        if (cleanText(els.studyId.value, 60)) url.searchParams.set('studyId', cleanText(els.studyId.value, 60));
 
-        url.searchParams.set('pid', els.pid.value.trim() || 'anon');
-        url.searchParams.set('name', els.name.value.trim() || 'Hero');
-        if (els.studyId.value.trim()) url.searchParams.set('studyId', els.studyId.value.trim());
-
-        url.searchParams.set('mode', 'solo');
         url.searchParams.set('diff', readRadio('diff', 'normal'));
         url.searchParams.set('time', readRadio('time', '150'));
-        url.searchParams.set('seed', els.seed.value.trim() || randSeed());
-        url.searchParams.set('hub', els.hub.value.trim() || getDefaultHub());
+        url.searchParams.set('seed', cleanText(els.seed.value || randSeed(), 40));
+        url.searchParams.set('hub', cleanText(els.hub.value || defaultHub(), 400));
         url.searchParams.set('view', readRadio('view', 'mobile'));
         url.searchParams.set('run', readRadio('run', 'play'));
+
         url.searchParams.set('gameId', 'goodjunk');
+        url.searchParams.set('game', 'goodjunk');
+        url.searchParams.set('theme', 'goodjunk');
         url.searchParams.set('zone', 'nutrition');
+        url.searchParams.set('cat', 'nutrition');
+        url.searchParams.set('mode', 'solo');
 
-        if (q.get('api')) url.searchParams.set('api', q.get('api'));
-        if (q.get('conditionGroup')) url.searchParams.set('conditionGroup', q.get('conditionGroup'));
-        if (q.get('phase')) url.searchParams.set('phase', q.get('phase'));
-        if (q.get('studentKey')) url.searchParams.set('studentKey', q.get('studentKey'));
-        if (q.get('schoolCode')) url.searchParams.set('schoolCode', q.get('schoolCode'));
-        if (q.get('classRoom')) url.searchParams.set('classRoom', q.get('classRoom'));
-        if (q.get('studentNo')) url.searchParams.set('studentNo', q.get('studentNo'));
-        if (q.get('nickName')) url.searchParams.set('nickName', q.get('nickName'));
+        if (cleanText(els.conditionGroup.value, 40)) url.searchParams.set('conditionGroup', cleanText(els.conditionGroup.value, 40));
+        if (cleanText(els.phaseTag.value, 40)) url.searchParams.set('phase', cleanText(els.phaseTag.value, 40));
+        if (cleanText(els.api.value, 300)) url.searchParams.set('api', cleanText(els.api.value, 300));
+        if (cleanText(els.studentKey.value, 80)) url.searchParams.set('studentKey', cleanText(els.studentKey.value, 80));
+        if (cleanText(els.schoolCode.value, 40)) url.searchParams.set('schoolCode', cleanText(els.schoolCode.value, 40));
+        if (cleanText(els.classRoom.value, 40)) url.searchParams.set('classRoom', cleanText(els.classRoom.value, 40));
+        if (cleanText(els.studentNo.value, 40)) url.searchParams.set('studentNo', cleanText(els.studentNo.value, 40));
+        if (cleanText(els.nickName.value, 40)) url.searchParams.set('nickName', cleanText(els.nickName.value, 40));
 
+        return url;
+      }
+
+      function buildRunUrl() {
+        const url = new URL('./goodjunk-vr.html', location.href);
+        fillCommonParams(url);
         return url.toString();
       }
 
       function buildWarmupUrl() {
         const gate = new URL('./warmup-gate.html', location.href);
+        fillCommonParams(gate);
 
         gate.searchParams.set('phase', 'warmup');
-        gate.searchParams.set('game', 'goodjunk');
-        gate.searchParams.set('gameId', 'goodjunk');
-        gate.searchParams.set('theme', 'goodjunk');
-        gate.searchParams.set('cat', 'nutrition');
-        gate.searchParams.set('zone', 'nutrition');
-
-        gate.searchParams.set('pid', els.pid.value.trim() || 'anon');
-        gate.searchParams.set('name', els.name.value.trim() || 'Hero');
-        if (els.studyId.value.trim()) gate.searchParams.set('studyId', els.studyId.value.trim());
-
-        gate.searchParams.set('diff', readRadio('diff', 'normal'));
-        gate.searchParams.set('time', readRadio('time', '150'));
-        gate.searchParams.set('seed', els.seed.value.trim() || randSeed());
-        gate.searchParams.set('hub', els.hub.value.trim() || getDefaultHub());
-        gate.searchParams.set('view', readRadio('view', 'mobile'));
-        gate.searchParams.set('run', readRadio('run', 'play'));
+        gate.searchParams.set('gatePhase', 'warmup');
         gate.searchParams.set('forcegate', '1');
-        gate.searchParams.set('next', buildRunUrl());
-
-        if (q.get('api')) gate.searchParams.set('api', q.get('api'));
-        if (q.get('conditionGroup')) gate.searchParams.set('conditionGroup', q.get('conditionGroup'));
-        if (q.get('phase')) gate.searchParams.set('phaseTag', q.get('phase'));
-        if (q.get('studentKey')) gate.searchParams.set('studentKey', q.get('studentKey'));
-        if (q.get('schoolCode')) gate.searchParams.set('schoolCode', q.get('schoolCode'));
-        if (q.get('classRoom')) gate.searchParams.set('classRoom', q.get('classRoom'));
-        if (q.get('studentNo')) gate.searchParams.set('studentNo', q.get('studentNo'));
-        if (q.get('nickName')) gate.searchParams.set('nickName', q.get('nickName'));
+        gate.searchParams.set('next', './goodjunk-vr.html');
 
         return gate.toString();
       }
@@ -736,18 +956,17 @@
       function renderPreview() {
         saveState();
         els.urlPreview.textContent = buildWarmupUrl();
+        showNotice('');
       }
 
       async function copyUrl() {
         const text = buildWarmupUrl();
         try {
           await navigator.clipboard.writeText(text);
-          els.btnCopy.textContent = '✅ คัดลอกแล้ว';
-          setTimeout(() => els.btnCopy.textContent = '📋 คัดลอกลิงก์', 1200);
+          showNotice('คัดลอกลิงก์เริ่มเล่นแล้ว');
         } catch {
           els.urlPreview.textContent = text;
-          els.btnCopy.textContent = 'คัดลอกไม่สำเร็จ';
-          setTimeout(() => els.btnCopy.textContent = '📋 คัดลอกลิงก์', 1200);
+          showNotice('คัดลอกไม่สำเร็จ แสดงลิงก์ไว้ให้แล้ว');
         }
       }
 
@@ -755,28 +974,70 @@
         location.href = buildWarmupUrl();
       }
 
+      function goDirectRun() {
+        location.href = buildRunUrl();
+      }
+
       function goHub() {
-        location.href = els.hub.value.trim() || getDefaultHub();
+        location.href = cleanText(els.hub.value || defaultHub(), 400);
+      }
+
+      function applyPreset(kind) {
+        if (kind === 'easy') {
+          setRadio('diff', 'easy');
+          setRadio('time', '120');
+          setRadio('view', 'mobile');
+          setRadio('run', 'play');
+        } else if (kind === 'normal') {
+          setRadio('diff', 'normal');
+          setRadio('time', '150');
+          setRadio('view', 'mobile');
+          setRadio('run', 'play');
+        } else if (kind === 'hard') {
+          setRadio('diff', 'hard');
+          setRadio('time', '180');
+          setRadio('view', 'mobile');
+          setRadio('run', 'play');
+        } else if (kind === 'research') {
+          setRadio('diff', 'normal');
+          setRadio('time', '150');
+          setRadio('view', 'mobile');
+          setRadio('run', 'research');
+        }
+        renderPreview();
+        showNotice('ใช้ preset ' + kind + ' แล้ว');
       }
 
       function bind() {
-        [els.pid, els.name, els.studyId, els.seed, els.hub].forEach(el => {
+        [
+          els.pid, els.name, els.studyId, els.seed, els.hub,
+          els.conditionGroup, els.phaseTag, els.api,
+          els.studentKey, els.schoolCode, els.classRoom,
+          els.studentNo, els.nickName
+        ].forEach((el) => {
           el.addEventListener('input', renderPreview);
           el.addEventListener('change', renderPreview);
         });
 
-        document.querySelectorAll('input[type="radio"]').forEach(el => {
+        document.querySelectorAll('input[type="radio"]').forEach((el) => {
           el.addEventListener('change', renderPreview);
         });
 
         els.btnRandomSeed.addEventListener('click', () => {
           els.seed.value = randSeed();
           renderPreview();
+          showNotice('สุ่ม seed ใหม่แล้ว');
         });
 
         els.btnCopy.addEventListener('click', copyUrl);
         els.btnStart.addEventListener('click', goStart);
+        els.btnDirectRun.addEventListener('click', goDirectRun);
         els.btnBackHub.addEventListener('click', goHub);
+
+        els.presetEasy.addEventListener('click', () => applyPreset('easy'));
+        els.presetNormal.addEventListener('click', () => applyPreset('normal'));
+        els.presetHard.addEventListener('click', () => applyPreset('hard'));
+        els.presetResearch.addEventListener('click', () => applyPreset('research'));
       }
 
       loadSaved();
