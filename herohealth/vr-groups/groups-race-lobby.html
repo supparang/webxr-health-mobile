@@ -1,645 +1,468 @@
-<!-- === /herohealth/vr-groups/groups-race-lobby.html ===
-Groups Race Lobby
-FULL PATCH v20260323-GROUPS-RACE-LOBBY-PRESENCE-ONLINE-GUARD
-Requires:
-- ../firebase-config.js
-- ./groups-race-rtdb.js
--->
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Groups Race Lobby</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="../favicon.ico" />
-  <style>
-    :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --panel:rgba(2,6,23,.82);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --blue:#38bdf8;
-      --pink:#f472b6;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
-    *{ box-sizing:border-box; }
-    html,body{
-      margin:0;
-      min-height:100%;
-      color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-      background:
-        radial-gradient(1200px 700px at 20% 0%, rgba(56,189,248,.14), transparent 50%),
-        radial-gradient(1000px 700px at 80% 10%, rgba(244,114,182,.12), transparent 55%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
-    }
-    .wrap{
-      max-width:980px;
-      margin:0 auto;
-      padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(20px + var(--sab)) calc(16px + var(--sal));
-    }
-    .hero{
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      border-radius:28px;
-      box-shadow:0 24px 80px rgba(0,0,0,.35);
-      padding:20px;
-    }
-    .kicker{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(56,189,248,.24);
-      background:rgba(56,189,248,.12);
-      color:#dbeafe;
-      font-size:12px;
-      font-weight:1000;
-    }
-    h1{
-      margin:14px 0 8px;
-      font-size:clamp(28px, 5vw, 44px);
-      line-height:1.05;
-    }
-    .sub{
-      color:#cbd5e1;
-      font-size:16px;
-      line-height:1.6;
-      max-width:760px;
-    }
-    .grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:14px;
-      margin-top:18px;
-    }
-    @media (max-width:860px){
-      .grid{ grid-template-columns:1fr; }
-    }
-    .card{
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.48);
-      border-radius:22px;
-      padding:16px;
-      box-shadow:0 18px 60px rgba(0,0,0,.24);
-    }
-    .card h2{
-      margin:0 0 12px;
-      font-size:18px;
-    }
-    .field{
-      display:grid;
-      gap:6px;
-      margin-bottom:12px;
-    }
-    .label{
-      color:#cbd5e1;
-      font-size:13px;
-      font-weight:900;
-    }
-    input, select{
-      width:100%;
-      min-height:52px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.56);
-      color:var(--text);
-      padding:12px 14px;
-      font-size:16px;
-      font-weight:900;
-    }
-    .actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:14px;
-    }
-    .btn{
-      appearance:none;
-      cursor:pointer;
-      border:1px solid rgba(148,163,184,.20);
-      border-radius:18px;
-      min-height:54px;
-      padding:14px 18px;
-      font-size:16px;
-      font-weight:1000;
-      color:var(--text);
-      background:rgba(15,23,42,.75);
-      box-shadow:0 14px 30px rgba(0,0,0,.20);
-    }
-    .btn.primary{
-      color:#052e16;
-      border-color:rgba(34,197,94,.30);
-      background:linear-gradient(180deg,#86efac,#22c55e);
-      box-shadow:0 14px 30px rgba(34,197,94,.24);
-    }
-    .btn.blue{
-      border-color:rgba(56,189,248,.28);
-      background:linear-gradient(180deg, rgba(56,189,248,.18), rgba(15,23,42,.9));
-    }
-    .btn.pink{
-      border-color:rgba(244,114,182,.28);
-      background:linear-gradient(180deg, rgba(244,114,182,.18), rgba(15,23,42,.9));
-    }
-    .btn[disabled]{
-      opacity:.58;
-      cursor:not-allowed;
-      filter:grayscale(.15);
-    }
-    .mini{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      line-height:1.5;
-      margin-top:8px;
-    }
-    .roomBox{
-      margin-top:14px;
-      padding:14px;
-      border-radius:18px;
-      border:1px dashed rgba(148,163,184,.24);
-      background:rgba(2,6,23,.28);
-    }
-    .roomCode{
-      font-size:28px;
-      font-weight:1000;
-      letter-spacing:.08em;
-      color:#fef3c7;
-    }
-    .status{
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.34);
-      font-weight:900;
-      line-height:1.5;
-      white-space:pre-line;
-    }
-    .good{ color:#dcfce7; }
-    .warn{ color:#fde68a; }
-    .bad{ color:#fecaca; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <section class="hero">
-      <div class="kicker">🏁 GROUPS RACE • ONLINE LOBBY</div>
-      <h1>เข้าแข่ง Race 2 คน</h1>
-      <div class="sub">
-        สร้างห้องหรือเข้าห้องด้วยรหัส จากนั้นรอผู้เล่นอีกคน ระบบจะพาเข้าเกมแข่งเมื่อเจ้าของห้องกดเริ่ม
-      </div>
 
-      <div class="grid">
-        <div class="card">
-          <h2>สร้างห้อง</h2>
+(function () {
+  'use strict';
 
-          <div class="field">
-            <div class="label">ชื่อผู้เล่น</div>
-            <input id="hostName" type="text" maxlength="20" placeholder="เช่น ผู้เล่น A" />
-          </div>
+  const ROOM_ROOT = 'hha-battle/groups/raceRooms';
+  const START_DELAY_MS = 3500;
 
-          <div class="field">
-            <div class="label">ระดับความยาก</div>
-            <select id="hostDiff">
-              <option value="easy">easy</option>
-              <option value="normal" selected>normal</option>
-              <option value="hard">hard</option>
-            </select>
-          </div>
+  // เปลี่ยนได้ถ้าชื่อไฟล์ run ของคุณไม่ตรงนี้
+  const RUN_PAGE = './groups-race-run.html';
 
-          <div class="field">
-            <div class="label">เวลาแข่ง</div>
-            <select id="hostTime">
-              <option value="45">45 วินาที</option>
-              <option value="60" selected>60 วินาที</option>
-              <option value="75">75 วินาที</option>
-            </select>
-          </div>
+  const qs = new URLSearchParams(location.search);
 
-          <div class="actions">
-            <button class="btn primary" id="btnCreate">สร้างห้อง</button>
-            <button class="btn blue" id="btnHub1">กลับ HUB</button>
-          </div>
+  const state = {
+    roomId: '',
+    uid: '',
+    name: '',
+    isHost: false,
+    roomRef: null,
+    roomListener: null,
+    redirecting: false,
+    lastRoomData: null
+  };
 
-          <div class="mini">สร้างห้องแล้วจะได้ Room Code สำหรับให้อีกเครื่องเข้าร่วม</div>
-        </div>
+  function $(sel) {
+    try { return document.querySelector(sel); }
+    catch (_) { return null; }
+  }
 
-        <div class="card">
-          <h2>เข้าห้อง</h2>
-
-          <div class="field">
-            <div class="label">ชื่อผู้เล่น</div>
-            <input id="joinName" type="text" maxlength="20" placeholder="เช่น ผู้เล่น B" />
-          </div>
-
-          <div class="field">
-            <div class="label">รหัสห้อง</div>
-            <input id="joinRoom" type="text" maxlength="12" placeholder="เช่น A1B2C3" style="text-transform:uppercase;" />
-          </div>
-
-          <div class="actions">
-            <button class="btn pink" id="btnJoin">เข้าห้อง</button>
-            <button class="btn blue" id="btnHub2">กลับ HUB</button>
-          </div>
-
-          <div class="mini">ใส่รหัสห้องจากเครื่องเจ้าของห้องแล้วกดเข้าห้อง</div>
-        </div>
-      </div>
-
-      <div class="roomBox" id="roomBox" hidden>
-        <div class="mini">รหัสห้อง</div>
-        <div class="roomCode" id="roomCode">------</div>
-        <div class="actions">
-          <button class="btn blue" id="btnCopy">คัดลอกรหัส</button>
-          <button class="btn pink" id="btnRematch">Rematch</button>
-          <button class="btn primary" id="btnStartRoom" disabled>เริ่มแข่ง</button>
-        </div>
-      </div>
-
-      <div class="status" id="statusBox">ยังไม่ได้เชื่อมต่อห้อง</div>
-    </section>
-  </div>
-
-  <script src="../firebase-config.js"></script>
-  <script type="module">
-    import {
-      makeRacePlayerId,
-      normalizeRoomCode,
-      createRaceRoom,
-      joinRaceRoom,
-      watchRaceRoom,
-      markReady,
-      startRaceMatch,
-      requestRaceRematch,
-      resetRaceForRematch,
-      leaveRaceRoom,
-      bindRacePresence,
-      cleanupRaceRoomIfStale
-    } from './groups-race-rtdb.js';
-
-    const QS = new URL(location.href).searchParams;
-    const HUB = String(QS.get('hub') || new URL('../hub.html', location.href).toString());
-    const VIEW = String(QS.get('view') || 'mobile');
-
-    const hostName = document.getElementById('hostName');
-    const hostDiff = document.getElementById('hostDiff');
-    const hostTime = document.getElementById('hostTime');
-    const joinName = document.getElementById('joinName');
-    const joinRoom = document.getElementById('joinRoom');
-    const btnCreate = document.getElementById('btnCreate');
-    const btnJoin = document.getElementById('btnJoin');
-    const btnStartRoom = document.getElementById('btnStartRoom');
-    const btnCopy = document.getElementById('btnCopy');
-    const btnRematch = document.getElementById('btnRematch');
-    const roomBox = document.getElementById('roomBox');
-    const roomCodeEl = document.getElementById('roomCode');
-    const statusBox = document.getElementById('statusBox');
-
-    let currentRoomCode = '';
-    let currentPlayerId = '';
-    let currentRole = '';
-    let unwatch = null;
-    let unbindPresence = null;
-    let lastRoomData = null;
-    let openingRun = false;
-
-    function setStatus(text, tone=''){
-      statusBox.textContent = text;
-      statusBox.className = `status ${tone}`.trim();
+  function pick(...selectors) {
+    for (const sel of selectors) {
+      const el = $(sel);
+      if (el) return el;
     }
+    return null;
+  }
 
-    function goHub(){
-      location.assign(HUB);
+  const el = {
+    createName: pick('#hostName', '#createName', '#nickCreate', 'input[name="createName"]'),
+    joinName: pick('#joinName', '#nickJoin', 'input[name="joinName"]'),
+    joinRoom: pick('#roomCode', '#joinRoomCode', '#joinRoom', '#roomId', 'input[name="roomCode"]'),
+    diff: pick('#diff', '#difficulty', 'select[name="diff"]'),
+    time: pick('#timeSec', '#time', '#duration', 'select[name="time"]'),
+    btnCreate: pick('#btnCreateRoom', '[data-action="create-room"]'),
+    btnJoin: pick('#btnJoinRoom', '[data-action="join-room"]'),
+    btnStart: pick('#btnStartRace', '[data-action="start-race"]'),
+    status: pick('#statusMsg', '#raceStatus', '.status-text', '.error-text', '[data-role="status"]'),
+    roomCodeOut: pick('#roomCodeOut', '#createdRoomCode', '[data-role="room-code"]'),
+    players: pick('#playersList', '.players-list', '[data-role="players"]')
+  };
+
+  function setStatus(message) {
+    console.log('[Groups Race]', message);
+    if (el.status) el.status.textContent = message;
+  }
+
+  function setRoomCode(roomId) {
+    if (el.roomCodeOut) el.roomCodeOut.textContent = roomId || '-';
+    if (el.joinRoom && roomId && !String(el.joinRoom.value || '').trim()) {
+      el.joinRoom.value = roomId;
     }
+  }
 
-    function buildRaceRunUrl(roomCode, playerId){
-      const url = new URL('./groups-race.html', location.href);
-      url.searchParams.set('room', String(roomCode || ''));
-      url.searchParams.set('playerId', String(playerId || ''));
-      url.searchParams.set('view', VIEW);
-      url.searchParams.set('hub', HUB);
-      return url.toString();
+  function num(v, d = 0) {
+    v = Number(v);
+    return Number.isFinite(v) ? v : d;
+  }
+
+  function cleanName(v, fallback) {
+    const s = String(v || '')
+      .replace(/[^\wก-๙ _-]/g, '')
+      .trim()
+      .slice(0, 24);
+    return s || fallback;
+  }
+
+  function cleanRoom(v) {
+    return String(v || '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9-]/g, '')
+      .slice(0, 16);
+  }
+
+  function genRoomCode(prefix = 'GRP') {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let out = prefix + '-';
+    for (let i = 0; i < 6; i++) {
+      out += chars[Math.floor(Math.random() * chars.length)];
     }
+    return out;
+  }
 
-    function openRaceRun(roomCode, playerId){
-      if(openingRun) return;
+  function now() {
+    return Date.now();
+  }
 
-      const room = String(roomCode || '').trim();
-      const pid = String(playerId || '').trim();
+  function getFirebase() {
+    return window.HHA_FIREBASE || null;
+  }
 
-      if(!room || !pid){
-        setStatus(`เปิดเกมไม่ได้\nroom=${room || '-'}\nplayerId=${pid || '-'}`, 'bad');
+  function waitFirebaseReady(timeoutMs = 10000) {
+    return new Promise((resolve, reject) => {
+      const fb = getFirebase();
+      if (fb && fb.ready && fb.auth && fb.db) {
+        resolve(fb);
         return;
       }
 
-      openingRun = true;
-      location.assign(buildRaceRunUrl(room, pid));
-    }
+      let done = false;
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        cleanup();
+        reject(new Error(getFirebase()?.error || 'Firebase not initialized'));
+      }, timeoutMs);
 
-    function safeName(v, fallback){
-      const s = String(v || '').trim();
-      return s || fallback;
-    }
+      function onReady() {
+        if (done) return;
+        done = true;
+        cleanup();
+        resolve(getFirebase());
+      }
 
-    function cleanupBindings(){
-      try{ unwatch?.(); }catch(_){}
-      try{ unbindPresence?.(); }catch(_){}
-      unwatch = null;
-      unbindPresence = null;
-    }
+      function onError(e) {
+        if (done) return;
+        done = true;
+        cleanup();
+        reject(new Error(e?.detail?.message || getFirebase()?.error || 'Firebase init failed'));
+      }
 
-    async function waitForFirebaseReady(timeoutMs = 4000){
-      const started = Date.now();
-      while(Date.now() - started < timeoutMs){
-        if(window.HHA_FIREBASE_DB) return true;
-        if(typeof window.HHA_WAIT_FIREBASE === 'function'){
-          try{
-            const db = await window.HHA_WAIT_FIREBASE(300);
-            if(db) return true;
-          }catch(_){}
+      function cleanup() {
+        clearTimeout(timer);
+        window.removeEventListener('hha:firebase-ready', onReady);
+        window.removeEventListener('hha:firebase-error', onError);
+      }
+
+      window.addEventListener('hha:firebase-ready', onReady, { once: true });
+      window.addEventListener('hha:firebase-error', onError, { once: true });
+    });
+  }
+
+  function onceValue(ref) {
+    return new Promise((resolve, reject) => {
+      ref.once('value', resolve, reject);
+    });
+  }
+
+  function getRunParamsBase() {
+    return {
+      zone: qs.get('zone') || 'nutrition',
+      game: qs.get('game') || 'groups',
+      mode: 'race',
+      entry: qs.get('entry') || 'race',
+      hub: qs.get('hub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html',
+      run: qs.get('run') || 'play',
+      view: qs.get('view') || 'mobile',
+      seed: qs.get('seed') || '',
+      studyId: qs.get('studyId') || '',
+      pid: qs.get('pid') || ''
+    };
+  }
+
+  function buildRunUrl(roomId, name, diff, timeSec, startAt) {
+    const base = getRunParamsBase();
+    const u = new URL(RUN_PAGE, location.href);
+
+    u.searchParams.set('roomId', roomId);
+    u.searchParams.set('room', roomId);
+    u.searchParams.set('name', name);
+    u.searchParams.set('nick', name);
+    u.searchParams.set('diff', diff || 'normal');
+    u.searchParams.set('time', String(timeSec || 60));
+    u.searchParams.set('timeSec', String(timeSec || 60));
+    u.searchParams.set('mode', 'race');
+    u.searchParams.set('game', base.game);
+    u.searchParams.set('zone', base.zone);
+    u.searchParams.set('entry', base.entry);
+    u.searchParams.set('hub', base.hub);
+    u.searchParams.set('run', base.run);
+    u.searchParams.set('view', base.view);
+
+    if (base.seed) u.searchParams.set('seed', base.seed);
+    if (base.studyId) u.searchParams.set('studyId', base.studyId);
+    if (base.pid) u.searchParams.set('pid', base.pid);
+    if (startAt) u.searchParams.set('startAt', String(startAt));
+
+    return u.toString();
+  }
+
+  function renderPlayers(playersObj) {
+    if (!el.players) return;
+    const players = Object.values(playersObj || {});
+    players.sort((a, b) => num(a.joinedAt) - num(b.joinedAt));
+
+    el.players.innerHTML = players.map((p) => {
+      const badge = p.isHost ? ' 👑' : '';
+      const ready = p.ready ? 'พร้อม' : 'ยังไม่พร้อม';
+      return `
+        <div class="player-row" style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);">
+          <div>${escapeHtml(p.name || p.uid || 'Player')}${badge}</div>
+          <div style="opacity:.8">${ready}</div>
+        </div>
+      `;
+    }).join('') || '<div style="opacity:.8">ยังไม่มีผู้เล่น</div>';
+  }
+
+  function escapeHtml(s) {
+    return String(s || '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function updateStartButton(roomData) {
+    if (!el.btnStart) return;
+
+    const players = Object.values(roomData?.players || {});
+    const readyCount = players.filter(p => p.ready).length;
+    const canStart = state.isHost && players.length >= 2 && readyCount >= 2 && roomData?.status === 'lobby';
+
+    el.btnStart.disabled = !canStart;
+    el.btnStart.style.opacity = canStart ? '1' : '.55';
+  }
+
+  function detachRoomListener() {
+    if (state.roomRef && state.roomListener) {
+      state.roomRef.off('value', state.roomListener);
+    }
+    state.roomRef = null;
+    state.roomListener = null;
+  }
+
+  function attachRoomListener(roomId) {
+    const fb = getFirebase();
+    if (!fb?.db) return;
+
+    detachRoomListener();
+
+    const ref = fb.db.ref(`${ROOM_ROOT}/${roomId}`);
+    state.roomRef = ref;
+    state.roomListener = (snap) => {
+      const data = snap.val();
+      state.lastRoomData = data || null;
+
+      if (!data) {
+        setStatus('ห้องถูกลบหรือไม่พบข้อมูลห้อง');
+        return;
+      }
+
+      setRoomCode(data.roomId || roomId);
+      renderPlayers(data.players || {});
+      updateStartButton(data);
+
+      const players = Object.values(data.players || {});
+      const readyCount = players.filter(p => p.ready).length;
+
+      if (data.status === 'lobby') {
+        setStatus(`อยู่ในห้อง ${roomId} • ผู้เล่น ${players.length} คน • พร้อม ${readyCount} คน`);
+      }
+
+      if (data.status === 'starting' && !state.redirecting) {
+        state.redirecting = true;
+        const startAt = num(data.startAt, now() + START_DELAY_MS);
+        const waitMs = Math.max(0, startAt - now());
+
+        setStatus(`กำลังเริ่มเกม... ${Math.ceil(waitMs / 1000)} วิ`);
+
+        setTimeout(() => {
+          const diff = data.diff || 'normal';
+          const timeSec = num(data.timeSec, 60);
+          location.href = buildRunUrl(roomId, state.name, diff, timeSec, startAt);
+        }, waitMs);
+      }
+    };
+
+    ref.on('value', state.roomListener);
+  }
+
+  async function createRoom() {
+    try {
+      setStatus('กำลังเชื่อมต่อ Firebase...');
+      const fb = await waitFirebaseReady();
+
+      const uid = fb.auth.currentUser?.uid || fb.uid || ('anon_' + now());
+      const roomId = genRoomCode('GRP');
+      const name = cleanName(el.createName?.value, 'Host');
+      const diff = el.diff?.value || 'normal';
+      const timeSec = Math.max(30, num(el.time?.value, 60));
+
+      state.uid = uid;
+      state.name = name;
+      state.roomId = roomId;
+      state.isHost = true;
+
+      const ref = fb.db.ref(`${ROOM_ROOT}/${roomId}`);
+
+      await ref.set({
+        roomId,
+        game: 'groups',
+        mode: 'race',
+        status: 'lobby',
+        hostId: uid,
+        createdAt: now(),
+        updatedAt: now(),
+        diff,
+        timeSec,
+        players: {
+          [uid]: {
+            uid,
+            name,
+            isHost: true,
+            ready: true,
+            joinedAt: now(),
+            updatedAt: now()
+          }
         }
-        await new Promise(r => setTimeout(r, 80));
-      }
-      return !!window.HHA_FIREBASE_DB;
-    }
-
-    function renderPlayersText(data){
-      const players = data?.players || {};
-      const ids = Object.keys(players);
-      if(!ids.length) return 'ยังไม่มีผู้เล่น';
-
-      return ids.map(id=>{
-        const p = players[id] || {};
-        const online = p.online === false ? 'offline' : 'online';
-        const ready = p.ready ? 'ready' : 'not ready';
-        const host = p.role === 'host' ? ' (host)' : '';
-        return `- ${p.name || id}${host} • ${online} • ${ready}`;
-      }).join('\n');
-    }
-
-    function renderRoomState(data){
-      if(!data) return;
-      lastRoomData = data;
-
-      const players = data.players || {};
-      const playerCount = Object.keys(players).length;
-      const readyCount = Object.values(players).filter(p => p && p.ready).length;
-      const onlineCount = Object.values(players).filter(p => p && p.online !== false).length;
-      const allOnline = playerCount >= 2 && onlineCount >= 2;
-      const started = !!data.match?.started;
-      const ended = !!data.match?.endedAt;
-      const rematchReady = Number(data.rematch?.readyCount || 0);
-
-      let lines = [
-        `ห้อง ${currentRoomCode}`,
-        `ผู้เล่น ${playerCount}/2`,
-        `พร้อม ${readyCount}/2`
-      ];
-
-      if(data.meta?.hostName) lines.push(`Host: ${data.meta.hostName}`);
-      if(data.meta?.diff) lines.push(`ระดับ: ${data.meta.diff}`);
-      if(data.meta?.timeSec) lines.push(`เวลา: ${data.meta.timeSec}s`);
-
-      lines.push('');
-      lines.push(renderPlayersText(data));
-
-      if(started){
-        setStatus(lines.concat([
-          '',
-          `กำลังเข้าเกม...`,
-          `room=${currentRoomCode}`,
-          `playerId=${currentPlayerId || '-'}`
-        ]).join('\n'), 'good');
-        openRaceRun(currentRoomCode, currentPlayerId);
-        return;
-      }
-
-      if(ended){
-        const totalPlayers = Object.keys(players).length;
-        const canRematch = totalPlayers >= 2;
-
-        if(currentRole === 'host'){
-          btnStartRoom.textContent = canRematch ? `เริ่มใหม่ (${rematchReady}/${totalPlayers})` : 'รอผู้เล่นครบ';
-          btnStartRoom.disabled = !(canRematch && rematchReady >= totalPlayers && allOnline);
-        }else{
-          btnStartRoom.textContent = 'รอ Host เริ่มใหม่';
-          btnStartRoom.disabled = true;
-        }
-
-        setStatus(lines.concat([
-          '',
-          `Rematch ready ${rematchReady}/${totalPlayers}`,
-          !allOnline ? 'ยังมีผู้เล่น offline อยู่ ห้ามเริ่มก่อน' :
-          (currentRole === 'host'
-            ? (btnStartRoom.disabled ? 'รอให้ทุกคนกด Rematch' : 'ทุกคนพร้อมแล้ว กดเริ่มใหม่ได้')
-            : 'กด Rematch แล้วรอ Host เริ่ม')
-        ]).join('\n'), allOnline ? 'warn' : 'bad');
-        return;
-      }
-
-      if(currentRole === 'host'){
-        btnStartRoom.textContent = 'เริ่มแข่ง';
-        btnStartRoom.disabled = !(playerCount >= 2 && readyCount >= 2 && allOnline);
-
-        setStatus(lines.concat([
-          '',
-          playerCount < 2 ? 'กำลังรอผู้เล่นอีกคน...' : 'ผู้เล่นครบแล้ว',
-          readyCount < 2 ? 'รอให้ทุกคนกด Ready' : 'พร้อมแล้ว',
-          !allOnline ? 'ยังมีผู้เล่น offline อยู่ ห้ามเริ่มก่อน' : 'ทุกคน online พร้อมเริ่มแข่ง'
-        ]).join('\n'), (playerCount >= 2 && readyCount >= 2 && allOnline) ? 'good' : 'warn');
-      }else{
-        btnStartRoom.textContent = 'รอ Host';
-        btnStartRoom.disabled = true;
-
-        setStatus(lines.concat([
-          '',
-          'เข้าห้องสำเร็จแล้ว',
-          !allOnline ? 'สถานะยังไม่ stable กำลังรอ online...' :
-          (readyCount >= 2 ? 'กำลังรอ Host กดเริ่ม' : 'ระบบส่ง Ready แล้ว')
-        ]).join('\n'), allOnline ? 'good' : 'warn');
-      }
-    }
-
-    async function attachWatch(roomCode){
-      cleanupBindings();
-      unwatch = watchRaceRoom(roomCode, (data)=>{
-        renderRoomState(data);
       });
-      unbindPresence = bindRacePresence(roomCode, currentPlayerId);
+
+      localStorage.setItem('HHA_GROUPS_RACE_LAST_ROOM', roomId);
+      localStorage.setItem('HHA_GROUPS_RACE_LAST_NAME', name);
+
+      setRoomCode(roomId);
+      setStatus(`สร้างห้องสำเร็จ: ${roomId}`);
+      attachRoomListener(roomId);
+
+    } catch (err) {
+      console.error(err);
+      setStatus(`สร้างห้องไม่สำเร็จ: ${err?.message || err}`);
+    }
+  }
+
+  async function joinRoom() {
+    try {
+      setStatus('กำลังเชื่อมต่อ Firebase...');
+      const fb = await waitFirebaseReady();
+
+      const uid = fb.auth.currentUser?.uid || fb.uid || ('anon_' + now());
+      const roomId = cleanRoom(el.joinRoom?.value);
+      const name = cleanName(el.joinName?.value, 'ผู้เล่น');
+
+      if (!roomId) {
+        throw new Error('กรุณาใส่รหัสห้อง');
+      }
+
+      const ref = fb.db.ref(`${ROOM_ROOT}/${roomId}`);
+      const snap = await onceValue(ref);
+
+      if (!snap.exists()) {
+        throw new Error('ไม่พบห้องนี้');
+      }
+
+      const data = snap.val() || {};
+      if (data.status && data.status !== 'lobby') {
+        throw new Error('ห้องนี้เริ่มเกมไปแล้ว');
+      }
+
+      state.uid = uid;
+      state.name = name;
+      state.roomId = roomId;
+      state.isHost = false;
+
+      await ref.child(`players/${uid}`).set({
+        uid,
+        name,
+        isHost: false,
+        ready: true,
+        joinedAt: now(),
+        updatedAt: now()
+      });
+
+      await ref.update({
+        updatedAt: now()
+      });
+
+      localStorage.setItem('HHA_GROUPS_RACE_LAST_ROOM', roomId);
+      localStorage.setItem('HHA_GROUPS_RACE_LAST_NAME', name);
+
+      setRoomCode(roomId);
+      setStatus(`เข้าห้องสำเร็จ: ${roomId}`);
+      attachRoomListener(roomId);
+
+    } catch (err) {
+      console.error(err);
+      setStatus(`เข้าห้องไม่สำเร็จ: ${err?.message || err}`);
+    }
+  }
+
+  async function startRace() {
+    try {
+      if (!state.roomId) throw new Error('ยังไม่มีห้อง');
+      if (!state.isHost) throw new Error('เฉพาะเจ้าของห้องเท่านั้น');
+
+      const fb = await waitFirebaseReady();
+      const ref = fb.db.ref(`${ROOM_ROOT}/${state.roomId}`);
+      const snap = await onceValue(ref);
+
+      if (!snap.exists()) throw new Error('ไม่พบห้อง');
+
+      const data = snap.val() || {};
+      const players = Object.values(data.players || {});
+      const readyCount = players.filter(p => p.ready).length;
+
+      if (players.length < 2) {
+        throw new Error('ต้องมีอย่างน้อย 2 คน');
+      }
+      if (readyCount < 2) {
+        throw new Error('ผู้เล่นยังพร้อมไม่ครบ');
+      }
+
+      const startAt = now() + START_DELAY_MS;
+
+      await ref.update({
+        status: 'starting',
+        startAt,
+        updatedAt: now()
+      });
+
+      setStatus('เริ่มนับถอยหลังเข้าสู่เกม...');
+
+    } catch (err) {
+      console.error(err);
+      setStatus(`เริ่มเกมไม่สำเร็จ: ${err?.message || err}`);
+    }
+  }
+
+  function bindEvents() {
+    el.btnCreate?.addEventListener('click', createRoom);
+    el.btnJoin?.addEventListener('click', joinRoom);
+    el.btnStart?.addEventListener('click', startRace);
+  }
+
+  function hydrateFromLocal() {
+    const lastRoom = cleanRoom(localStorage.getItem('HHA_GROUPS_RACE_LAST_ROOM') || '');
+    const lastName = localStorage.getItem('HHA_GROUPS_RACE_LAST_NAME') || '';
+
+    if (el.joinRoom && !el.joinRoom.value && lastRoom) el.joinRoom.value = lastRoom;
+    if (el.joinName && !el.joinName.value && lastName) el.joinName.value = lastName;
+    if (el.createName && !el.createName.value && lastName) el.createName.value = lastName;
+  }
+
+  async function boot() {
+    bindEvents();
+    hydrateFromLocal();
+
+    if (el.btnStart) {
+      el.btnStart.disabled = true;
+      el.btnStart.style.opacity = '.55';
     }
 
-    btnCreate.addEventListener('click', async ()=>{
-      try{
-        btnCreate.disabled = true;
-        setStatus('กำลังเตรียม Firebase...', 'warn');
+    setStatus('พร้อมใช้งาน');
 
-        const ok = await waitForFirebaseReady(4000);
-        if(!ok) throw new Error('Firebase not initialized');
-
-        setStatus('กำลังสร้างห้อง...', 'warn');
-
-        const playerName = safeName(hostName.value, 'Host');
-        const playerId = makeRacePlayerId();
-        const roomCode = await createRaceRoom({
-          hostName: playerName,
-          playerId,
-          diff: hostDiff.value,
-          timeSec: Number(hostTime.value || 60),
-          view: VIEW
-        });
-
-        currentRoomCode = roomCode;
-        currentPlayerId = playerId;
-        currentRole = 'host';
-        openingRun = false;
-
-        roomBox.hidden = false;
-        roomCodeEl.textContent = roomCode;
-
-        await markReady(roomCode, playerId, true);
-        await attachWatch(roomCode);
-
-        setStatus(`สร้างห้องสำเร็จ\nRoom: ${roomCode}\nplayerId=${playerId}\nกำลังรอผู้เล่นอีกคน...`, 'good');
-      }catch(err){
-        console.error(err);
-        setStatus(`สร้างห้องไม่สำเร็จ\n${err?.message || err}`, 'bad');
-      }finally{
-        btnCreate.disabled = false;
-      }
-    });
-
-    btnJoin.addEventListener('click', async ()=>{
-      try{
-        btnJoin.disabled = true;
-        setStatus('กำลังเตรียม Firebase...', 'warn');
-
-        const ok = await waitForFirebaseReady(4000);
-        if(!ok) throw new Error('Firebase not initialized');
-
-        setStatus('กำลังเข้าห้อง...', 'warn');
-
-        const roomCode = normalizeRoomCode(joinRoom.value);
-        const playerName = safeName(joinName.value, 'Guest');
-        const playerId = makeRacePlayerId();
-
-        if(!roomCode){
-          throw new Error('กรุณาใส่รหัสห้อง');
-        }
-
-        await cleanupRaceRoomIfStale(roomCode);
-
-        await joinRaceRoom({
-          roomCode,
-          playerId,
-          playerName
-        });
-
-        currentRoomCode = roomCode;
-        currentPlayerId = playerId;
-        currentRole = 'guest';
-        openingRun = false;
-
-        roomBox.hidden = false;
-        roomCodeEl.textContent = roomCode;
-        btnStartRoom.disabled = true;
-
-        await markReady(roomCode, playerId, true);
-        await attachWatch(roomCode);
-
-        window.dispatchEvent(new Event('focus'));
-
-        setStatus(`เข้าห้องสำเร็จ\nRoom: ${roomCode}\nplayerId=${playerId}\nกำลังรอ Host กดเริ่ม`, 'good');
-      }catch(err){
-        console.error(err);
-        setStatus(`เข้าห้องไม่สำเร็จ\n${err?.message || err}`, 'bad');
-      }finally{
-        btnJoin.disabled = false;
-      }
-    });
-
-    btnStartRoom.addEventListener('click', async ()=>{
-      try{
-        if(!currentRoomCode) return;
-        btnStartRoom.disabled = true;
-
-        const room = lastRoomData;
-        const ended = !!room?.match?.endedAt;
-
-        if(ended){
-          setStatus('กำลังเริ่มรอบใหม่...', 'warn');
-          openingRun = false;
-          await resetRaceForRematch(currentRoomCode);
-          return;
-        }
-
-        const players = room?.players || {};
-        const onlineCount = Object.values(players).filter(p => p && p.online !== false).length;
-        if(onlineCount < 2){
-          throw new Error('ยังมีผู้เล่น offline อยู่');
-        }
-
-        setStatus(`กำลังเริ่มการแข่งขัน...\nroom=${currentRoomCode}\nplayerId=${currentPlayerId || '-'}`, 'warn');
-        openingRun = false;
-        await startRaceMatch(currentRoomCode);
-      }catch(err){
-        console.error(err);
-        setStatus(`เริ่มแข่งไม่สำเร็จ\n${err?.message || err}`, 'bad');
-        btnStartRoom.disabled = false;
-      }
-    });
-
-    btnCopy.addEventListener('click', async ()=>{
-      try{
-        if(!currentRoomCode) return;
-        await navigator.clipboard.writeText(currentRoomCode);
-        setStatus(`คัดลอกรหัสห้องแล้ว\n${currentRoomCode}`, 'good');
-      }catch{
-        setStatus(`รหัสห้อง: ${currentRoomCode}`, 'good');
-      }
-    });
-
-    btnRematch.addEventListener('click', async ()=>{
-      try{
-        if(!currentRoomCode || !currentPlayerId) return;
-        setStatus('กำลังส่งคำขอ Rematch...', 'warn');
-
-        const result = await requestRaceRematch(currentRoomCode, currentPlayerId);
-        setStatus(
-          `ส่งคำขอ Rematch แล้ว\nพร้อม ${result.readyCount}/${result.totalPlayers}\nรอให้ทุกคนกด Rematch ครบ`,
-          'good'
-        );
-      }catch(err){
-        console.error(err);
-        setStatus(`ส่ง Rematch ไม่สำเร็จ\n${err?.message || err}`, 'bad');
-      }
-    });
-
-    async function leaveThenHub(){
-      try{
-        if(currentRoomCode && currentPlayerId){
-          await leaveRaceRoom(currentRoomCode, currentPlayerId);
-        }
-      }catch(_){}
-      cleanupBindings();
-      goHub();
+    try {
+      await waitFirebaseReady();
+      setStatus('เชื่อมต่อ Firebase สำเร็จ');
+    } catch (err) {
+      setStatus(`Firebase ยังไม่พร้อม: ${err?.message || err}`);
     }
+  }
 
-    document.getElementById('btnHub1').addEventListener('click', leaveThenHub);
-    document.getElementById('btnHub2').addEventListener('click', leaveThenHub);
+  boot();
 
-    window.addEventListener('pageshow', ()=>{
-      openingRun = false;
-    });
-  </script>
-</body>
-</html>
+  window.GROUPS_RACE_LOBBY = {
+    createRoom,
+    joinRoom,
+    startRace
+  };
+})();
