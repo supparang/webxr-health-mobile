@@ -1,468 +1,601 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Groups Race Lobby</title>
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#08142f" />
+  <link rel="icon" href="../favicon.ico" />
 
-(function () {
-  'use strict';
+  <style>
+    :root{
+      --bg1:#050b1f;
+      --bg2:#08142f;
+      --bg3:#0b1b42;
 
-  const ROOM_ROOT = 'hha-battle/groups/raceRooms';
-  const START_DELAY_MS = 3500;
+      --card:rgba(7,18,46,.88);
+      --card2:rgba(10,25,61,.92);
+      --stroke:rgba(122,162,255,.18);
+      --stroke-2:rgba(122,162,255,.28);
 
-  // เปลี่ยนได้ถ้าชื่อไฟล์ run ของคุณไม่ตรงนี้
-  const RUN_PAGE = './groups-race-run.html';
+      --text:#eef4ff;
+      --muted:#a9b9e8;
 
-  const qs = new URLSearchParams(location.search);
+      --green1:#68f2a3;
+      --green2:#2ad067;
+      --blue1:#2a79ff;
+      --blue2:#44c2ff;
+      --pink1:#8f4cff;
+      --pink2:#ff68c7;
+      --warn:#ffb454;
+      --danger:#ff8b8b;
 
-  const state = {
-    roomId: '',
-    uid: '',
-    name: '',
-    isHost: false,
-    roomRef: null,
-    roomListener: null,
-    redirecting: false,
-    lastRoomData: null
-  };
-
-  function $(sel) {
-    try { return document.querySelector(sel); }
-    catch (_) { return null; }
-  }
-
-  function pick(...selectors) {
-    for (const sel of selectors) {
-      const el = $(sel);
-      if (el) return el;
+      --shadow:0 20px 60px rgba(0,0,0,.45);
+      --radius:26px;
+      --radius-sm:18px;
     }
-    return null;
-  }
 
-  const el = {
-    createName: pick('#hostName', '#createName', '#nickCreate', 'input[name="createName"]'),
-    joinName: pick('#joinName', '#nickJoin', 'input[name="joinName"]'),
-    joinRoom: pick('#roomCode', '#joinRoomCode', '#joinRoom', '#roomId', 'input[name="roomCode"]'),
-    diff: pick('#diff', '#difficulty', 'select[name="diff"]'),
-    time: pick('#timeSec', '#time', '#duration', 'select[name="time"]'),
-    btnCreate: pick('#btnCreateRoom', '[data-action="create-room"]'),
-    btnJoin: pick('#btnJoinRoom', '[data-action="join-room"]'),
-    btnStart: pick('#btnStartRace', '[data-action="start-race"]'),
-    status: pick('#statusMsg', '#raceStatus', '.status-text', '.error-text', '[data-role="status"]'),
-    roomCodeOut: pick('#roomCodeOut', '#createdRoomCode', '[data-role="room-code"]'),
-    players: pick('#playersList', '.players-list', '[data-role="players"]')
-  };
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
 
-  function setStatus(message) {
-    console.log('[Groups Race]', message);
-    if (el.status) el.status.textContent = message;
-  }
-
-  function setRoomCode(roomId) {
-    if (el.roomCodeOut) el.roomCodeOut.textContent = roomId || '-';
-    if (el.joinRoom && roomId && !String(el.joinRoom.value || '').trim()) {
-      el.joinRoom.value = roomId;
+    body{
+      margin:0;
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif;
+      background:
+        radial-gradient(1000px 500px at 10% -10%, rgba(68,194,255,.16), transparent 60%),
+        radial-gradient(900px 480px at 110% 10%, rgba(143,76,255,.16), transparent 58%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 45%,var(--bg3));
+      min-height:100vh;
     }
-  }
 
-  function num(v, d = 0) {
-    v = Number(v);
-    return Number.isFinite(v) ? v : d;
-  }
-
-  function cleanName(v, fallback) {
-    const s = String(v || '')
-      .replace(/[^\wก-๙ _-]/g, '')
-      .trim()
-      .slice(0, 24);
-    return s || fallback;
-  }
-
-  function cleanRoom(v) {
-    return String(v || '')
-      .toUpperCase()
-      .replace(/[^A-Z0-9-]/g, '')
-      .slice(0, 16);
-  }
-
-  function genRoomCode(prefix = 'GRP') {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let out = prefix + '-';
-    for (let i = 0; i < 6; i++) {
-      out += chars[Math.floor(Math.random() * chars.length)];
+    .wrap{
+      width:min(1120px,100%);
+      margin:0 auto;
+      padding:18px 14px 32px;
     }
-    return out;
-  }
 
-  function now() {
-    return Date.now();
-  }
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:16px;
+    }
 
-  function getFirebase() {
-    return window.HHA_FIREBASE || null;
-  }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
 
-  function waitFirebaseReady(timeoutMs = 10000) {
-    return new Promise((resolve, reject) => {
-      const fb = getFirebase();
-      if (fb && fb.ready && fb.auth && fb.db) {
-        resolve(fb);
-        return;
+    .logo{
+      width:52px;
+      height:52px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      background:linear-gradient(135deg,#12306b,#1c5cff 58%,#5ce1ff);
+      box-shadow:0 12px 30px rgba(28,92,255,.28);
+      flex:0 0 auto;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:clamp(1.2rem,2vw,1.7rem);
+      line-height:1.1;
+    }
+
+    .brand p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:.95rem;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      border-radius:20px;
+      padding:14px 18px;
+      font-weight:800;
+      font-size:1rem;
+      color:#fff;
+      transition:transform .12s ease, opacity .12s ease, filter .12s ease;
+      box-shadow:var(--shadow);
+    }
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.04); }
+    .btn:active{ transform:translateY(0); }
+    .btn[disabled]{ cursor:not-allowed; opacity:.6; }
+
+    .btn-back{
+      background:linear-gradient(135deg,#0f2f63,#103f82 56%,#1664c0);
+      border:1px solid rgba(115,180,255,.22);
+    }
+    .btn-create{
+      color:#0a1e12;
+      background:linear-gradient(180deg,var(--green1),var(--green2));
+    }
+    .btn-join{
+      background:linear-gradient(135deg,#4f2d84,#8242d9 55%,#ff74cd);
+    }
+    .btn-start{
+      background:linear-gradient(135deg,#ffbf57,#ff9447 55%,#ff6a5e);
+      color:#2a1205;
+    }
+
+    .hero{
+      background:linear-gradient(180deg, rgba(11,26,62,.95), rgba(8,18,45,.92));
+      border:1px solid var(--stroke);
+      border-radius:30px;
+      padding:18px;
+      box-shadow:var(--shadow);
+      margin-bottom:16px;
+    }
+
+    .hero-row{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:16px;
+    }
+
+    .headline{
+      padding:8px 6px 6px;
+    }
+
+    .headline .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      background:rgba(76,126,255,.12);
+      color:#cfe0ff;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(126,170,255,.14);
+      font-weight:700;
+      font-size:.92rem;
+      margin-bottom:10px;
+    }
+
+    .headline h2{
+      margin:0 0 8px;
+      font-size:clamp(1.5rem,3.2vw,2.3rem);
+      line-height:1.1;
+    }
+
+    .headline p{
+      margin:0;
+      color:var(--muted);
+      font-size:1rem;
+      max-width:60ch;
+    }
+
+    .tips{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+      margin-top:16px;
+    }
+
+    .tip{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.07);
+      border-radius:18px;
+      padding:12px;
+    }
+
+    .tip b{
+      display:block;
+      margin-bottom:4px;
+      font-size:.98rem;
+    }
+
+    .tip span{
+      color:var(--muted);
+      font-size:.92rem;
+    }
+
+    .status-card{
+      background:linear-gradient(180deg, rgba(9,24,58,.96), rgba(7,18,44,.94));
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      justify-content:center;
+    }
+
+    .status-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      align-self:flex-start;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(64,204,255,.12);
+      border:1px solid rgba(64,204,255,.18);
+      color:#d9f7ff;
+      font-weight:800;
+      font-size:.92rem;
+    }
+
+    .room-box{
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:20px;
+      padding:14px;
+    }
+
+    .room-box .label{
+      color:var(--muted);
+      font-size:.9rem;
+      margin-bottom:6px;
+    }
+
+    .room-code{
+      font-size:clamp(1.3rem,3vw,2rem);
+      font-weight:900;
+      letter-spacing:.06em;
+      line-height:1.05;
+      word-break:break-word;
+    }
+
+    .status-text{
+      min-height:48px;
+      color:#ffd8d8;
+      font-weight:800;
+      font-size:1rem;
+      line-height:1.45;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
+    }
+
+    .card{
+      background:linear-gradient(180deg,var(--card),var(--card2));
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow:var(--shadow);
+    }
+
+    .card h3{
+      margin:0 0 12px;
+      font-size:1.45rem;
+      line-height:1.1;
+    }
+
+    .sub{
+      margin:-6px 0 14px;
+      color:var(--muted);
+      font-size:.98rem;
+    }
+
+    .field{
+      display:grid;
+      gap:8px;
+      margin-bottom:12px;
+    }
+
+    .field label{
+      font-weight:800;
+      color:#e9f0ff;
+      font-size:1rem;
+    }
+
+    .input,
+    .select{
+      width:100%;
+      min-height:56px;
+      border-radius:18px;
+      border:1px solid rgba(130,166,255,.16);
+      background:#04112e;
+      color:var(--text);
+      padding:0 16px;
+      outline:none;
+      font-size:1.05rem;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+    }
+
+    .input::placeholder{ color:#7f92c7; }
+
+    .row-2{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .actions{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    .actions .btn{
+      flex:1 1 180px;
+      min-height:56px;
+    }
+
+    .note{
+      color:var(--muted);
+      font-size:.95rem;
+      margin-top:10px;
+      line-height:1.45;
+    }
+
+    .players-card{
+      margin-top:16px;
+    }
+
+    .players-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+      flex-wrap:wrap;
+    }
+
+    .pill{
+      padding:8px 12px;
+      border-radius:999px;
+      font-weight:800;
+      font-size:.92rem;
+      background:rgba(143,76,255,.12);
+      border:1px solid rgba(143,76,255,.22);
+      color:#f2ddff;
+    }
+
+    .players-list{
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.07);
+      border-radius:20px;
+      padding:12px 14px;
+      min-height:86px;
+    }
+
+    .footer-start{
+      margin-top:14px;
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .footer-start .btn{
+      flex:1 1 220px;
+      min-height:58px;
+    }
+
+    .tiny{
+      color:var(--muted);
+      font-size:.9rem;
+      margin-top:8px;
+      line-height:1.4;
+    }
+
+    @media (max-width: 900px){
+      .hero-row,
+      .grid{
+        grid-template-columns:1fr;
       }
-
-      let done = false;
-      const timer = setTimeout(() => {
-        if (done) return;
-        done = true;
-        cleanup();
-        reject(new Error(getFirebase()?.error || 'Firebase not initialized'));
-      }, timeoutMs);
-
-      function onReady() {
-        if (done) return;
-        done = true;
-        cleanup();
-        resolve(getFirebase());
+      .tips{
+        grid-template-columns:1fr;
       }
+    }
 
-      function onError(e) {
-        if (done) return;
-        done = true;
-        cleanup();
-        reject(new Error(e?.detail?.message || getFirebase()?.error || 'Firebase init failed'));
+    @media (max-width: 640px){
+      .wrap{ padding:14px 12px 28px; }
+      .topbar{
+        align-items:flex-start;
+        flex-direction:column;
       }
-
-      function cleanup() {
-        clearTimeout(timer);
-        window.removeEventListener('hha:firebase-ready', onReady);
-        window.removeEventListener('hha:firebase-error', onError);
+      .top-actions{
+        width:100%;
       }
-
-      window.addEventListener('hha:firebase-ready', onReady, { once: true });
-      window.addEventListener('hha:firebase-error', onError, { once: true });
-    });
-  }
-
-  function onceValue(ref) {
-    return new Promise((resolve, reject) => {
-      ref.once('value', resolve, reject);
-    });
-  }
-
-  function getRunParamsBase() {
-    return {
-      zone: qs.get('zone') || 'nutrition',
-      game: qs.get('game') || 'groups',
-      mode: 'race',
-      entry: qs.get('entry') || 'race',
-      hub: qs.get('hub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html',
-      run: qs.get('run') || 'play',
-      view: qs.get('view') || 'mobile',
-      seed: qs.get('seed') || '',
-      studyId: qs.get('studyId') || '',
-      pid: qs.get('pid') || ''
-    };
-  }
-
-  function buildRunUrl(roomId, name, diff, timeSec, startAt) {
-    const base = getRunParamsBase();
-    const u = new URL(RUN_PAGE, location.href);
-
-    u.searchParams.set('roomId', roomId);
-    u.searchParams.set('room', roomId);
-    u.searchParams.set('name', name);
-    u.searchParams.set('nick', name);
-    u.searchParams.set('diff', diff || 'normal');
-    u.searchParams.set('time', String(timeSec || 60));
-    u.searchParams.set('timeSec', String(timeSec || 60));
-    u.searchParams.set('mode', 'race');
-    u.searchParams.set('game', base.game);
-    u.searchParams.set('zone', base.zone);
-    u.searchParams.set('entry', base.entry);
-    u.searchParams.set('hub', base.hub);
-    u.searchParams.set('run', base.run);
-    u.searchParams.set('view', base.view);
-
-    if (base.seed) u.searchParams.set('seed', base.seed);
-    if (base.studyId) u.searchParams.set('studyId', base.studyId);
-    if (base.pid) u.searchParams.set('pid', base.pid);
-    if (startAt) u.searchParams.set('startAt', String(startAt));
-
-    return u.toString();
-  }
-
-  function renderPlayers(playersObj) {
-    if (!el.players) return;
-    const players = Object.values(playersObj || {});
-    players.sort((a, b) => num(a.joinedAt) - num(b.joinedAt));
-
-    el.players.innerHTML = players.map((p) => {
-      const badge = p.isHost ? ' 👑' : '';
-      const ready = p.ready ? 'พร้อม' : 'ยังไม่พร้อม';
-      return `
-        <div class="player-row" style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);">
-          <div>${escapeHtml(p.name || p.uid || 'Player')}${badge}</div>
-          <div style="opacity:.8">${ready}</div>
+      .top-actions .btn{
+        flex:1 1 auto;
+      }
+      .row-2{
+        grid-template-columns:1fr;
+      }
+      .actions{
+        flex-direction:column;
+      }
+      .footer-start{
+        flex-direction:column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">🏁</div>
+        <div>
+          <h1>Groups Race Lobby</h1>
+          <p>สร้างห้อง • เข้าห้อง • รอเพื่อน • แล้วกดเริ่มแข่งพร้อมกัน</p>
         </div>
-      `;
-    }).join('') || '<div style="opacity:.8">ยังไม่มีผู้เล่น</div>';
-  }
+      </div>
 
-  function escapeHtml(s) {
-    return String(s || '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;');
-  }
+      <div class="top-actions">
+        <button id="btnBackTop" class="btn btn-back" type="button">กลับ HUB</button>
+      </div>
+    </div>
 
-  function updateStartButton(roomData) {
-    if (!el.btnStart) return;
+    <section class="hero">
+      <div class="hero-row">
+        <div class="headline">
+          <div class="eyebrow">⚡ Multiplayer พร้อมใช้</div>
+          <h2>เล่นแข่งหลายเครื่องแบบง่าย ๆ</h2>
+          <p>
+            เครื่องเจ้าของห้องกด <b>สร้างห้อง</b> แล้วแชร์รหัสห้องให้เพื่อน
+            จากนั้นทุกคนเข้าห้อง รอให้ครบ แล้วเจ้าของห้องกดเริ่มแข่งได้เลย
+          </p>
 
-    const players = Object.values(roomData?.players || {});
-    const readyCount = players.filter(p => p.ready).length;
-    const canStart = state.isHost && players.length >= 2 && readyCount >= 2 && roomData?.status === 'lobby';
+          <div class="tips">
+            <div class="tip">
+              <b>1) สร้างห้อง</b>
+              <span>เจ้าของห้องเลือกความยากและเวลาแข่ง แล้วกดสร้างห้อง</span>
+            </div>
+            <div class="tip">
+              <b>2) แชร์รหัส</b>
+              <span>ส่ง Room Code ให้เพื่อนเอาไปกรอกในช่องเข้าห้อง</span>
+            </div>
+            <div class="tip">
+              <b>3) เริ่มพร้อมกัน</b>
+              <span>เมื่อมีผู้เล่นอย่างน้อย 2 คน ปุ่มเริ่มแข่งจะกดได้</span>
+            </div>
+          </div>
+        </div>
 
-    el.btnStart.disabled = !canStart;
-    el.btnStart.style.opacity = canStart ? '1' : '.55';
-  }
+        <div class="status-card">
+          <div class="status-chip">📡 สถานะระบบ</div>
 
-  function detachRoomListener() {
-    if (state.roomRef && state.roomListener) {
-      state.roomRef.off('value', state.roomListener);
-    }
-    state.roomRef = null;
-    state.roomListener = null;
-  }
+          <div class="room-box">
+            <div class="label">Room Code</div>
+            <div id="roomCodeOut" class="room-code">-</div>
+          </div>
 
-  function attachRoomListener(roomId) {
-    const fb = getFirebase();
-    if (!fb?.db) return;
+          <div id="statusMsg" class="status-text">กำลังเตรียมระบบ...</div>
+        </div>
+      </div>
+    </section>
 
-    detachRoomListener();
+    <section class="grid">
+      <div class="card">
+        <h3>สร้างห้อง</h3>
+        <p class="sub">ใช้เครื่องนี้เป็นเจ้าของห้อง แล้วรอเพื่อนเข้าร่วม</p>
 
-    const ref = fb.db.ref(`${ROOM_ROOT}/${roomId}`);
-    state.roomRef = ref;
-    state.roomListener = (snap) => {
-      const data = snap.val();
-      state.lastRoomData = data || null;
+        <div class="field">
+          <label for="hostName">ชื่อเจ้าของห้อง</label>
+          <input id="hostName" class="input" type="text" placeholder="เช่น ผู้เล่น A" maxlength="24" />
+        </div>
 
-      if (!data) {
-        setStatus('ห้องถูกลบหรือไม่พบข้อมูลห้อง');
-        return;
+        <div class="row-2">
+          <div class="field">
+            <label for="diff">ระดับความยาก</label>
+            <select id="diff" class="select">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="timeSec">เวลาแข่ง</label>
+            <select id="timeSec" class="select">
+              <option value="60" selected>60 วินาที</option>
+              <option value="90">90 วินาที</option>
+              <option value="120">120 วินาที</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="btnCreateRoom" class="btn btn-create" type="button">สร้างห้อง</button>
+          <button id="btnBackCreate" class="btn btn-back" type="button">กลับ HUB</button>
+        </div>
+
+        <div class="note">
+          เมื่อสร้างห้องสำเร็จ ระบบจะแสดง Room Code ด้านบนสำหรับให้เครื่องอื่นเข้าร่วม
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>เข้าห้อง</h3>
+        <p class="sub">ใส่ชื่อผู้เล่นและรหัสห้องจากเจ้าของห้อง</p>
+
+        <div class="field">
+          <label for="joinName">ชื่อผู้เล่น</label>
+          <input id="joinName" class="input" type="text" placeholder="เช่น ผู้เล่น B" maxlength="24" />
+        </div>
+
+        <div class="field">
+          <label for="roomCode">รหัสห้อง</label>
+          <input id="roomCode" class="input" type="text" placeholder="เช่น GRP-A1B2C3" maxlength="16" />
+        </div>
+
+        <div class="actions">
+          <button id="btnJoinRoom" class="btn btn-join" type="button">เข้าห้อง</button>
+          <button id="btnBackJoin" class="btn btn-back" type="button">กลับ HUB</button>
+        </div>
+
+        <div class="note">
+          ใส่รหัสห้องจากเครื่องเจ้าของห้อง แล้วกดเข้าห้องเพื่อรอเริ่มแข่งพร้อมกัน
+        </div>
+      </div>
+    </section>
+
+    <section class="card players-card">
+      <div class="players-head">
+        <h3 style="margin:0">ผู้เล่นในห้อง</h3>
+        <div class="pill">เริ่มได้เมื่อมีอย่างน้อย 2 คน</div>
+      </div>
+
+      <div id="playersList" class="players-list">
+        <div style="opacity:.82">ยังไม่มีข้อมูลห้อง</div>
+      </div>
+
+      <div class="footer-start">
+        <button id="btnStartRace" class="btn btn-start" type="button" disabled>เริ่มแข่ง</button>
+        <button id="btnBackBottom" class="btn btn-back" type="button">กลับ HUB</button>
+      </div>
+
+      <div class="tiny">
+        ปุ่มเริ่มแข่งใช้ได้เฉพาะเจ้าของห้อง และต้องมีผู้เล่นพร้อมอย่างน้อย 2 คน
+      </div>
+    </section>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <!-- Shared config/init -->
+  <script src="../firebase-config.js"></script>
+  <script src="../firebase-init.js"></script>
+
+  <!-- Lobby logic -->
+  <script src="./groups-race-lobby.js"></script>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const q = new URLSearchParams(location.search);
+      const hub = q.get('hub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+
+      function goHub(){
+        location.href = hub;
       }
 
-      setRoomCode(data.roomId || roomId);
-      renderPlayers(data.players || {});
-      updateStartButton(data);
-
-      const players = Object.values(data.players || {});
-      const readyCount = players.filter(p => p.ready).length;
-
-      if (data.status === 'lobby') {
-        setStatus(`อยู่ในห้อง ${roomId} • ผู้เล่น ${players.length} คน • พร้อม ${readyCount} คน`);
-      }
-
-      if (data.status === 'starting' && !state.redirecting) {
-        state.redirecting = true;
-        const startAt = num(data.startAt, now() + START_DELAY_MS);
-        const waitMs = Math.max(0, startAt - now());
-
-        setStatus(`กำลังเริ่มเกม... ${Math.ceil(waitMs / 1000)} วิ`);
-
-        setTimeout(() => {
-          const diff = data.diff || 'normal';
-          const timeSec = num(data.timeSec, 60);
-          location.href = buildRunUrl(roomId, state.name, diff, timeSec, startAt);
-        }, waitMs);
-      }
-    };
-
-    ref.on('value', state.roomListener);
-  }
-
-  async function createRoom() {
-    try {
-      setStatus('กำลังเชื่อมต่อ Firebase...');
-      const fb = await waitFirebaseReady();
-
-      const uid = fb.auth.currentUser?.uid || fb.uid || ('anon_' + now());
-      const roomId = genRoomCode('GRP');
-      const name = cleanName(el.createName?.value, 'Host');
-      const diff = el.diff?.value || 'normal';
-      const timeSec = Math.max(30, num(el.time?.value, 60));
-
-      state.uid = uid;
-      state.name = name;
-      state.roomId = roomId;
-      state.isHost = true;
-
-      const ref = fb.db.ref(`${ROOM_ROOT}/${roomId}`);
-
-      await ref.set({
-        roomId,
-        game: 'groups',
-        mode: 'race',
-        status: 'lobby',
-        hostId: uid,
-        createdAt: now(),
-        updatedAt: now(),
-        diff,
-        timeSec,
-        players: {
-          [uid]: {
-            uid,
-            name,
-            isHost: true,
-            ready: true,
-            joinedAt: now(),
-            updatedAt: now()
-          }
-        }
+      [
+        '#btnBackTop',
+        '#btnBackCreate',
+        '#btnBackJoin',
+        '#btnBackBottom'
+      ].forEach((sel) => {
+        const el = document.querySelector(sel);
+        if (el) el.addEventListener('click', goHub);
       });
-
-      localStorage.setItem('HHA_GROUPS_RACE_LAST_ROOM', roomId);
-      localStorage.setItem('HHA_GROUPS_RACE_LAST_NAME', name);
-
-      setRoomCode(roomId);
-      setStatus(`สร้างห้องสำเร็จ: ${roomId}`);
-      attachRoomListener(roomId);
-
-    } catch (err) {
-      console.error(err);
-      setStatus(`สร้างห้องไม่สำเร็จ: ${err?.message || err}`);
-    }
-  }
-
-  async function joinRoom() {
-    try {
-      setStatus('กำลังเชื่อมต่อ Firebase...');
-      const fb = await waitFirebaseReady();
-
-      const uid = fb.auth.currentUser?.uid || fb.uid || ('anon_' + now());
-      const roomId = cleanRoom(el.joinRoom?.value);
-      const name = cleanName(el.joinName?.value, 'ผู้เล่น');
-
-      if (!roomId) {
-        throw new Error('กรุณาใส่รหัสห้อง');
-      }
-
-      const ref = fb.db.ref(`${ROOM_ROOT}/${roomId}`);
-      const snap = await onceValue(ref);
-
-      if (!snap.exists()) {
-        throw new Error('ไม่พบห้องนี้');
-      }
-
-      const data = snap.val() || {};
-      if (data.status && data.status !== 'lobby') {
-        throw new Error('ห้องนี้เริ่มเกมไปแล้ว');
-      }
-
-      state.uid = uid;
-      state.name = name;
-      state.roomId = roomId;
-      state.isHost = false;
-
-      await ref.child(`players/${uid}`).set({
-        uid,
-        name,
-        isHost: false,
-        ready: true,
-        joinedAt: now(),
-        updatedAt: now()
-      });
-
-      await ref.update({
-        updatedAt: now()
-      });
-
-      localStorage.setItem('HHA_GROUPS_RACE_LAST_ROOM', roomId);
-      localStorage.setItem('HHA_GROUPS_RACE_LAST_NAME', name);
-
-      setRoomCode(roomId);
-      setStatus(`เข้าห้องสำเร็จ: ${roomId}`);
-      attachRoomListener(roomId);
-
-    } catch (err) {
-      console.error(err);
-      setStatus(`เข้าห้องไม่สำเร็จ: ${err?.message || err}`);
-    }
-  }
-
-  async function startRace() {
-    try {
-      if (!state.roomId) throw new Error('ยังไม่มีห้อง');
-      if (!state.isHost) throw new Error('เฉพาะเจ้าของห้องเท่านั้น');
-
-      const fb = await waitFirebaseReady();
-      const ref = fb.db.ref(`${ROOM_ROOT}/${state.roomId}`);
-      const snap = await onceValue(ref);
-
-      if (!snap.exists()) throw new Error('ไม่พบห้อง');
-
-      const data = snap.val() || {};
-      const players = Object.values(data.players || {});
-      const readyCount = players.filter(p => p.ready).length;
-
-      if (players.length < 2) {
-        throw new Error('ต้องมีอย่างน้อย 2 คน');
-      }
-      if (readyCount < 2) {
-        throw new Error('ผู้เล่นยังพร้อมไม่ครบ');
-      }
-
-      const startAt = now() + START_DELAY_MS;
-
-      await ref.update({
-        status: 'starting',
-        startAt,
-        updatedAt: now()
-      });
-
-      setStatus('เริ่มนับถอยหลังเข้าสู่เกม...');
-
-    } catch (err) {
-      console.error(err);
-      setStatus(`เริ่มเกมไม่สำเร็จ: ${err?.message || err}`);
-    }
-  }
-
-  function bindEvents() {
-    el.btnCreate?.addEventListener('click', createRoom);
-    el.btnJoin?.addEventListener('click', joinRoom);
-    el.btnStart?.addEventListener('click', startRace);
-  }
-
-  function hydrateFromLocal() {
-    const lastRoom = cleanRoom(localStorage.getItem('HHA_GROUPS_RACE_LAST_ROOM') || '');
-    const lastName = localStorage.getItem('HHA_GROUPS_RACE_LAST_NAME') || '';
-
-    if (el.joinRoom && !el.joinRoom.value && lastRoom) el.joinRoom.value = lastRoom;
-    if (el.joinName && !el.joinName.value && lastName) el.joinName.value = lastName;
-    if (el.createName && !el.createName.value && lastName) el.createName.value = lastName;
-  }
-
-  async function boot() {
-    bindEvents();
-    hydrateFromLocal();
-
-    if (el.btnStart) {
-      el.btnStart.disabled = true;
-      el.btnStart.style.opacity = '.55';
-    }
-
-    setStatus('พร้อมใช้งาน');
-
-    try {
-      await waitFirebaseReady();
-      setStatus('เชื่อมต่อ Firebase สำเร็จ');
-    } catch (err) {
-      setStatus(`Firebase ยังไม่พร้อม: ${err?.message || err}`);
-    }
-  }
-
-  boot();
-
-  window.GROUPS_RACE_LOBBY = {
-    createRoom,
-    joinRoom,
-    startRace
-  };
-})();
+    })();
+  </script>
+</body>
+</html>
