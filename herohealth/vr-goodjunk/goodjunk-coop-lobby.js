@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-coop-lobby.js ===
 // GoodJunk Coop Lobby
-// FULL PATCH v20260328-COOP-LOBBY-RUNLOCK-PRESERVE-SCORE
+// FULL PATCH v20260331-COOP-LOBBY-COOPROOMS-FIX
 
 const params = new URLSearchParams(location.search);
 
@@ -44,7 +44,9 @@ const ctx = {
   roomId: normalizeRoomCode(params.get('roomId') || `GJ${Math.random().toString(36).slice(2, 8).toUpperCase()}`)
 };
 
-const ROOM_PATH = `hha-battle/goodjunk/rooms/${ctx.roomId}`;
+// สำคัญ: ใช้ coopRooms ให้ตรงกับ Firebase Rules
+const ROOM_PATH = `hha-battle/goodjunk/coopRooms/${ctx.roomId}`;
+
 const PRESENCE_HEARTBEAT_MS = 4000;
 const DISCONNECT_PRUNE_MS = 15000;
 
@@ -63,8 +65,10 @@ const els = {
   btnCopyInvite: $('btnCopyInvite'),
   playersBox: $('playersBox'),
   countdown: $('countdown'),
+  countdownLarge: $('countdownLarge'),
   btnReady: $('btnReady'),
   btnStart: $('btnStart'),
+  btnSpectate: $('btnSpectate'),
   btnBack: $('btnBack'),
   hint: $('hint')
 };
@@ -211,7 +215,7 @@ function getJoinBlockReason(r, pid = ctx.pid) {
   if (existing) return '';
   if ((activePlayers(r).length || 0) >= (r.maxPlayers || 10)) return 'ห้องนี้เต็มแล้ว';
   if (r.status === 'countdown') return 'ห้องนี้กำลังนับถอยหลังก่อนเริ่มเกม';
-  if (r.status === 'running') return 'ห้องนี้กำลังเล่นอยู่ ผู้เล่นใหม่เข้ากลางเกมไม่ได้';
+  if (r.status === 'running') return 'ห้องนี้กำลังเล่นอยู่ เข้าร่วมกลางรอบไม่ได้ แต่กด "ดูรอบนี้" ได้';
   if (r.status === 'finished') return 'รอบนี้จบแล้ว รอเล่นใหม่หรือสร้างห้องใหม่';
   return '';
 }
@@ -231,6 +235,33 @@ function canStart(r = room) {
   if (!r) return false;
   if (r.status !== 'waiting') return false;
   return readyPlayers(r).length >= (r.minPlayers || 2);
+}
+
+function canSpectate(r = room) {
+  if (!r) return false;
+  if (r.status !== 'running') return false;
+  return !amIMatchParticipant(r);
+}
+
+function buildRunUrl(startAt, spectator = false) {
+  const q = new URLSearchParams({
+    pid: ctx.pid,
+    name: getMeName(),
+    studyId: ctx.studyId,
+    diff: ctx.diff,
+    time: ctx.time,
+    seed: ctx.seed,
+    hub: ctx.hub,
+    view: ctx.view,
+    run: ctx.run,
+    gameId: ctx.gameId,
+    mode: 'coop',
+    roomId: ctx.roomId,
+    startAt: String(startAt || now()),
+    spectator: spectator ? '1' : '0'
+  });
+
+  return `./goodjunk-coop-run.html?v=20260331-cooprooms-fix&${q.toString()}`;
 }
 
 function getPlayersText(r = room) {
@@ -300,11 +331,8 @@ function sanitizeRoom(r) {
       lastSeenAt: Number(p.lastSeenAt || now()),
       finished: !!p.finished,
       finalScore: Number(p.finalScore || 0),
-      score: Number(p.score || 0),
-      contribution: Number(p.contribution || p.score || p.finalScore || 0),
       miss: Number(p.miss || 0),
       streak: Number(p.streak || 0),
-      helps: Number(p.helps || 0),
       phase: String(p.phase || 'lobby').trim(),
       connected: p.connected !== false
     }))
@@ -386,11 +414,8 @@ function roomToFirebase(r) {
       lastSeenAt: Number(p.lastSeenAt || now()),
       finished: !!p.finished,
       finalScore: Number(p.finalScore || 0),
-      score: Number(p.score || 0),
-      contribution: Number(p.contribution || p.score || p.finalScore || 0),
       miss: Number(p.miss || 0),
       streak: Number(p.streak || 0),
-      helps: Number(p.helps || 0),
       phase: String(p.phase || 'lobby'),
       connected: p.connected !== false
     };
@@ -467,6 +492,13 @@ function renderButtons(r = room) {
     els.btnStart.disabled = !isHost(r) || !canStart(r);
     els.btnStart.textContent = isHost(r) ? 'เริ่ม Coop' : 'รอ host เริ่ม';
   }
+
+  if (els.btnSpectate) {
+    const show = canSpectate(r);
+    els.btnSpectate.style.display = show ? '' : 'none';
+    els.btnSpectate.disabled = !show;
+    els.btnSpectate.textContent = 'ดูรอบนี้';
+  }
 }
 
 function renderStatus(r = room) {
@@ -484,6 +516,7 @@ function renderStatus(r = room) {
   if (!r) {
     setHint('กำลังสร้างห้อง...');
     if (els.countdown) els.countdown.textContent = '';
+    if (els.countdownLarge) els.countdownLarge.textContent = '';
     return;
   }
 
@@ -504,6 +537,10 @@ function renderStatus(r = room) {
 
     setCopyState('ส่ง room code หรือลิงก์นี้ให้ผู้เล่นคนอื่นเข้าร่วมได้');
     if (els.countdown) els.countdown.textContent = '';
+    if (els.countdownLarge) {
+      els.countdownLarge.style.display = 'none';
+      els.countdownLarge.textContent = '';
+    }
   }
 
   if (r.status === 'countdown') {
@@ -513,6 +550,7 @@ function renderStatus(r = room) {
       setHint('รอบนี้เริ่มแล้ว แต่คุณไม่ได้อยู่ใน participant');
     }
     setCopyState('ห้องถูกล็อกแล้ว กำลังจะเริ่ม Coop', false);
+    if (els.countdownLarge) els.countdownLarge.style.display = '';
   }
 
   if (r.status === 'running') {
@@ -522,11 +560,13 @@ function renderStatus(r = room) {
       setHint('Coop กำลังดำเนินอยู่ และคุณไม่ได้อยู่ใน participant ของรอบนี้');
     }
     setCopyState('รอบนี้กำลังดำเนินอยู่', false);
+    if (els.countdownLarge) els.countdownLarge.style.display = 'none';
   }
 
   if (r.status === 'finished') {
     setHint('รอบนี้จบแล้ว');
     setCopyState('สามารถกลับ lobby เพื่อเล่นใหม่ได้', false);
+    if (els.countdownLarge) els.countdownLarge.style.display = 'none';
   }
 }
 
@@ -557,13 +597,14 @@ function runCountdown(startAt) {
 
     if (ms <= 0) {
       if (els.countdown) els.countdown.textContent = 'GO!';
+      if (els.countdownLarge) {
+        els.countdownLarge.style.display = '';
+        els.countdownLarge.textContent = 'GO!';
+      }
       countdownRunning = false;
       countdownStartAt = 0;
 
-      const participant = amIMatchParticipant(room);
-      const host = isHost(room);
-
-      if (host && roomRef) {
+      if (roomRef) {
         roomRef.update({
           status: 'running',
           updatedAt: now(),
@@ -571,18 +612,18 @@ function runCountdown(startAt) {
         }).catch(() => {});
       }
 
-      if (participant) {
-        window.setTimeout(() => {
-          enterRun(startAt);
-        }, 250);
-      } else {
-        setHint('รอบนี้เริ่มแล้ว แต่คุณไม่ได้อยู่ใน participant ของรอบนี้');
-      }
+      window.setTimeout(() => {
+        enterRun(startAt);
+      }, 250);
       return;
     }
 
     const sec = Math.ceil(ms / 1000);
     if (els.countdown) els.countdown.textContent = String(sec);
+    if (els.countdownLarge) {
+      els.countdownLarge.style.display = '';
+      els.countdownLarge.textContent = String(sec);
+    }
     countdownRAF = requestAnimationFrame(tick);
   };
 
@@ -661,12 +702,6 @@ async function maybeRepairRoomIfNeeded(cur) {
   const me = cur.players.find((p) => p.id === ctx.pid);
   if (!me || me.connected === false) return;
 
-  const hostAlive = cur.players.some((p) => p.id === cur.hostId && p.connected !== false);
-  const oldestConnectedId = pickNextHostId(cur, '');
-  const iMayRepair = (ctx.pid === cur.hostId) || (!hostAlive && ctx.pid === oldestConnectedId);
-
-  if (!iMayRepair) return;
-
   const next = clone(cur);
   let changed = false;
   const ts = now();
@@ -689,17 +724,15 @@ async function maybeRepairRoomIfNeeded(cur) {
     }
   }
 
-  const beforeStatus = next.status;
-  const beforeStartAt = next.startAt;
-  maybeResetCountdownIfHostMissing(next);
-  if (beforeStatus !== next.status || beforeStartAt !== next.startAt) changed = true;
+  const repaired = maybeResetCountdownIfHostMissing(next);
+  if (repaired.status !== next.status || repaired.startAt !== next.startAt) changed = true;
 
-  if (next.status === 'waiting' && next.match?.status !== 'idle') {
-    clearMatchState(next);
+  if (repaired.status === 'waiting' && repaired.match?.status !== 'idle') {
+    clearMatchState(repaired);
     changed = true;
   }
 
-  if (!next.players.length) {
+  if (!repaired.players.length) {
     repairBusy = true;
     try { await roomRef.remove(); }
     finally { repairBusy = false; }
@@ -709,7 +742,7 @@ async function maybeRepairRoomIfNeeded(cur) {
   if (!changed) return;
 
   repairBusy = true;
-  try { await roomRef.set(roomToFirebase(next)); }
+  try { await roomRef.set(roomToFirebase(repaired)); }
   finally { repairBusy = false; }
 }
 
@@ -773,11 +806,8 @@ async function ensureJoined() {
     lastSeenAt: now(),
     finished: !!existing?.finished,
     finalScore: Number(existing?.finalScore || 0),
-    score: Number(existing?.score || 0),
-    contribution: Number(existing?.contribution || existing?.score || existing?.finalScore || 0),
     miss: Number(existing?.miss || 0),
     streak: Number(existing?.streak || 0),
-    helps: Number(existing?.helps || 0),
     phase: String(existing?.phase || 'lobby'),
     connected: true
   };
@@ -873,23 +903,7 @@ async function enterRun(startAt) {
     lastSeenAt: now()
   });
 
-  const q = new URLSearchParams({
-    pid: ctx.pid,
-    name: getMeName(),
-    studyId: ctx.studyId,
-    diff: ctx.diff,
-    time: ctx.time,
-    seed: ctx.seed,
-    hub: ctx.hub,
-    view: ctx.view,
-    run: ctx.run,
-    gameId: ctx.gameId,
-    mode: 'coop',
-    roomId: ctx.roomId,
-    startAt: String(startAt || now())
-  });
-
-  location.href = `./goodjunk-coop-run.html?v=20260328-coop-engine-r1&${q.toString()}`;
+  location.href = buildRunUrl(startAt, false);
 }
 
 async function leaveRoom() {
@@ -914,44 +928,17 @@ async function leaveRoom() {
     next.hostId = pickNextHostId(next, '');
   }
 
-  if (next.status === 'waiting') {
+  if (next.status !== 'waiting') {
+    next.status = 'waiting';
+    next.startAt = null;
     clearMatchState(next);
-    await roomRef.set(roomToFirebase(next));
-    return;
-  }
-
-  if (next.status === 'countdown' || next.status === 'running') {
-    const keepIds = getMatchParticipantIds(next).filter((id) => remaining.some((p) => p.id === id));
-    next.match.participantIds = keepIds;
-    const enough = keepIds.length >= (next.minPlayers || 2);
-
-    if (!enough) {
-      next.status = 'waiting';
-      next.startAt = null;
-      clearMatchState(next);
-      next.players = next.players.map((p) => ({
-        ...p,
-        ready: false,
-        phase: 'lobby',
-        finished: false,
-        finalScore: 0,
-        score: 0,
-        contribution: 0,
-        miss: 0,
-        streak: 0,
-        helps: 0
-      }));
-    } else {
-      next.match.status = next.status === 'countdown' ? 'countdown' : 'running';
-    }
-
-    await roomRef.set(roomToFirebase(next));
-    return;
-  }
-
-  if (next.status === 'finished') {
-    await roomRef.set(roomToFirebase(next));
-    return;
+    next.players = next.players.map((p) => ({
+      ...p,
+      ready: false,
+      phase: 'lobby'
+    }));
+  } else {
+    clearMatchState(next);
   }
 
   await roomRef.set(roomToFirebase(next));
@@ -984,6 +971,11 @@ async function onStartClick() {
   await beginCountdown();
 }
 
+async function onSpectateClick() {
+  const startAt = Number(room?.startAt || now()) || now();
+  location.href = buildRunUrl(startAt, true);
+}
+
 async function onBackClick() {
   try { await leaveRoom(); } catch {}
   location.href = ctx.hub || '../hub.html';
@@ -1003,6 +995,7 @@ async function onCopyInviteClick() {
 function bindEvents() {
   els.btnReady?.addEventListener('click', onReadyClick);
   els.btnStart?.addEventListener('click', onStartClick);
+  els.btnSpectate?.addEventListener('click', onSpectateClick);
   els.btnBack?.addEventListener('click', onBackClick);
   els.btnCopyRoom?.addEventListener('click', onCopyRoomClick);
   els.btnCopyInvite?.addEventListener('click', onCopyInviteClick);
