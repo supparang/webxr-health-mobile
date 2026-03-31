@@ -3,59 +3,70 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Solo Boss v2</title>
+  <title>HeroHealth • GoodJunk Solo Boss</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
       --sky1:#dff4ff;
       --sky2:#bfe8ff;
       --sky3:#fff7d8;
-
+      --card:#fffdf6;
+      --card2:#f8fff3;
       --line:#bfe3f2;
       --text:#4d4a42;
       --muted:#7b7a72;
 
       --green:#7ed957;
+      --green2:#58c33f;
       --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --pink:#ff8fc7;
+      --pink2:#ffc5e3;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+
       --shadow:0 18px 40px rgba(86,155,194,.16);
 
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
-
-      --gj-top-offset:128px;
-      --gj-bottom-offset:12px;
     }
 
     *{ box-sizing:border-box; }
 
     html,body{
       margin:0;
+      width:100%;
       min-height:100%;
       font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
-        radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
+        radial-gradient(circle at 12% 8%, rgba(255,255,255,.84), transparent 18%),
+        radial-gradient(circle at 86% 10%, rgba(255,255,255,.72), transparent 18%),
         linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
+    }
+
+    body{
+      min-height:100dvh;
       overflow:hidden;
     }
 
-    body{ min-height:100dvh; }
-
-    #app{
+    .page{
       position:relative;
-      width:100vw;
-      height:100dvh;
-      overflow:hidden;
-      isolation:isolate;
+      min-height:100dvh;
+      padding:
+        calc(10px + var(--sat))
+        calc(10px + var(--sar))
+        calc(10px + var(--sab))
+        calc(10px + var(--sal));
     }
 
     .bg-clouds{
-      position:absolute;
+      position:fixed;
       inset:0;
       overflow:hidden;
       pointer-events:none;
@@ -65,17 +76,17 @@
     .cloud{
       position:absolute;
       border-radius:999px;
-      background:rgba(255,255,255,.7);
+      background:rgba(255,255,255,.74);
       filter:blur(1px);
       box-shadow:
-        50px 8px 0 8px rgba(255,255,255,.65),
-        100px 0 0 0 rgba(255,255,255,.75),
-        70px -10px 0 4px rgba(255,255,255,.72);
+        50px 8px 0 8px rgba(255,255,255,.66),
+        100px 0 0 0 rgba(255,255,255,.74),
+        70px -10px 0 4px rgba(255,255,255,.70);
       animation:floatCloud linear infinite;
     }
 
-    .cloud.c1{ width:110px; height:34px; left:6%; top:10%; animation-duration:28s; }
-    .cloud.c2{ width:140px; height:40px; left:62%; top:14%; animation-duration:36s; }
+    .cloud.c1{ width:110px; height:34px; left:6%; top:9%; animation-duration:28s; }
+    .cloud.c2{ width:140px; height:40px; left:64%; top:13%; animation-duration:36s; }
     .cloud.c3{ width:100px; height:30px; left:30%; top:22%; animation-duration:32s; }
 
     @keyframes floatCloud{
@@ -83,523 +94,473 @@
       to{ transform:translateX(12vw); }
     }
 
-    #gameMount{
-      position:absolute;
-      left:8px;
-      right:8px;
-      top:calc(var(--gj-top-offset) + var(--sat));
-      bottom:calc(var(--gj-bottom-offset) + var(--sab));
-      z-index:1;
-      overflow:hidden;
-      border-radius:28px;
-      box-shadow:0 16px 32px rgba(86,155,194,.12);
-      background:rgba(255,255,255,.14);
-    }
-
-    .shell{
-      position:absolute;
-      inset:0;
-      z-index:4;
-      pointer-events:none;
-      padding:
-        calc(8px + var(--sat))
-        calc(8px + var(--sar))
-        calc(8px + var(--sab))
-        calc(8px + var(--sal));
-      display:grid;
-      grid-template-rows:auto 1fr auto;
-      gap:8px;
-    }
-
     .topbar{
-      display:grid;
-      gap:8px;
-      align-content:start;
+      position:relative;
+      z-index:8;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
       pointer-events:none;
     }
 
-    .hero-strip{
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:22px;
-      box-shadow:var(--shadow);
-      padding:10px 12px;
-      position:relative;
-      overflow:hidden;
+    .brand,
+    .actions{
       pointer-events:auto;
     }
 
-    .hero-strip::before{
-      content:"";
-      position:absolute;
-      left:-24px;
-      top:-24px;
-      width:90px;
-      height:90px;
-      border-radius:999px;
-      background:rgba(127,207,255,.16);
-      filter:blur(8px);
-    }
-
-    .hero-strip::after{
-      content:"";
-      position:absolute;
-      right:-20px;
-      bottom:-20px;
-      width:82px;
-      height:82px;
-      border-radius:999px;
-      background:rgba(255,212,92,.16);
-      filter:blur(8px);
-    }
-
-    .title-row{
-      position:relative;
-      z-index:1;
+    .brand{
       display:flex;
       align-items:center;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-bottom:4px;
+      gap:10px;
+      min-height:52px;
+      padding:10px 14px;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:rgba(255,255,255,.84);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(6px);
     }
 
-    .kicker{
+    .brand-icon{
+      width:38px;
+      height:38px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#fff3de,#ffe0b8);
+      border:2px solid #ffd89b;
+      font-size:20px;
+    }
+
+    .brand-title{
+      font-size:15px;
+      line-height:1.05;
+      font-weight:1000;
+      color:#67a91c;
+    }
+
+    .brand-sub{
+      margin-top:3px;
+      font-size:12px;
+      line-height:1.2;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      text-decoration:none;
       display:inline-flex;
       align-items:center;
+      justify-content:center;
       gap:8px;
-      padding:6px 10px;
+      min-height:44px;
+      padding:10px 14px;
+      border-radius:16px;
+      font-size:14px;
+      font-weight:1000;
+      box-shadow:var(--shadow);
+      transition:.14s ease;
+      pointer-events:auto;
+    }
+
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.02); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn.hub{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#133b09;
+    }
+
+    .btn.launcher{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#08374d;
+    }
+
+    .btn.soft{
+      background:rgba(255,255,255,.92);
+      color:#6c6a61;
+      border:2px solid var(--line);
+    }
+
+    .game-shell{
+      position:relative;
+      z-index:1;
+      width:100%;
+      height:calc(100dvh - 84px - var(--sat) - var(--sab));
+      min-height:580px;
+      border-radius:28px;
+      border:3px solid var(--line);
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    #gameMount{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(255,255,255,.78), transparent 18%),
+        radial-gradient(circle at 80% 10%, rgba(255,255,255,.72), transparent 18%),
+        linear-gradient(180deg,#aee6ff 0%, #d9f5ff 54%, #fff5cf 100%);
+    }
+
+    .loading{
+      position:absolute;
+      inset:0;
+      z-index:20;
+      display:grid;
+      place-items:center;
+      background:
+        radial-gradient(circle at 50% 24%, rgba(255,255,255,.8), transparent 24%),
+        linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,.18));
+      transition:opacity .2s ease, visibility .2s ease;
+    }
+
+    .loading.hidden{
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+    }
+
+    .loading-card{
+      width:min(92vw,460px);
+      border-radius:28px;
+      border:3px solid var(--line);
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      box-shadow:var(--shadow);
+      padding:22px 20px;
+      text-align:center;
+    }
+
+    .loading-badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:34px;
+      padding:6px 12px;
       border-radius:999px;
       background:#eaf8ff;
       border:2px solid var(--line);
       color:#5ea8d0;
       font-size:12px;
       font-weight:1000;
-      white-space:nowrap;
     }
 
-    h1{
+    .loading-emoji{
+      margin:14px auto 8px;
+      width:94px;
+      height:94px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      font-size:46px;
+      background:linear-gradient(180deg,#fff3de,#ffe0b8);
+      border:3px solid #ffd89b;
+      box-shadow:0 12px 24px rgba(255,181,71,.16);
+    }
+
+    .loading-title{
       margin:0;
-      font-size:clamp(22px,5vw,32px);
-      line-height:1.02;
+      font-size:30px;
+      line-height:1.06;
       font-weight:1000;
       color:#67a91c;
-      text-shadow:0 2px 0 #fff;
     }
 
-    .sub{
-      position:relative;
-      z-index:1;
-      margin:0;
+    .loading-sub{
+      margin:10px 0 0;
+      font-size:14px;
+      line-height:1.65;
       color:var(--muted);
-      line-height:1.35;
-      font-size:12px;
       font-weight:900;
-      display:-webkit-box;
-      -webkit-line-clamp:2;
-      -webkit-box-orient:vertical;
-      overflow:hidden;
     }
 
-    .chipbar{
+    .loading-meta{
+      margin-top:14px;
       display:flex;
-      gap:6px;
-      flex-wrap:nowrap;
-      overflow-x:auto;
-      overflow-y:hidden;
-      padding:0 2px 2px;
-      scrollbar-width:none;
-      -ms-overflow-style:none;
-      pointer-events:auto;
+      gap:8px;
+      justify-content:center;
+      flex-wrap:wrap;
     }
 
-    .chipbar::-webkit-scrollbar{ display:none; }
-
-    .pill{
-      flex:0 0 auto;
-      min-width:108px;
-      min-height:36px;
+    .chip{
+      min-height:32px;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      text-align:center;
-      padding:8px 10px;
+      padding:6px 10px;
       border-radius:999px;
+      background:#fff;
       border:2px solid var(--line);
-      background:rgba(255,255,255,.94);
       color:#6c6a61;
       font-size:12px;
       font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-      white-space:nowrap;
-    }
-
-    .bottomDock{
-      display:flex;
-      justify-content:flex-start;
-      align-items:end;
-      pointer-events:none;
-    }
-
-    .status-card{
-      width:min(88vw,320px);
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:18px;
-      box-shadow:var(--shadow);
-      padding:10px 12px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      line-height:1.45;
-      pointer-events:auto;
-      transition:opacity .24s ease, transform .24s ease;
-    }
-
-    .status-card.hide{
-      opacity:0;
-      transform:translateY(8px);
-      pointer-events:none;
-    }
-
-    .status-title{
-      color:#67a91c;
-      font-size:13px;
-      font-weight:1000;
-      margin-bottom:3px;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
     }
 
     .error{
-      color:#b45309;
-      white-space:pre-wrap;
-      word-break:break-word;
+      position:absolute;
+      inset:auto 12px 12px 12px;
+      z-index:25;
+      display:none;
+      border-radius:20px;
+      border:2px solid #ffd1d1;
+      background:#fff6f6;
+      color:#9a2d2d;
+      padding:12px 14px;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:900;
+      box-shadow:0 12px 24px rgba(0,0,0,.10);
     }
 
-    .mini-note{
-      font-size:11px;
-      color:#7b7a72;
-      margin-top:4px;
+    .error.show{
+      display:block;
     }
 
-    @media (max-width:720px){
-      .shell{
-        padding:
-          calc(6px + var(--sat))
-          calc(6px + var(--sar))
-          calc(6px + var(--sab))
-          calc(6px + var(--sal));
-      }
-
-      .hero-strip{
-        padding:9px 10px;
-        border-radius:20px;
-      }
-
-      .title-row{
-        gap:6px;
-      }
-
-      .kicker{
-        font-size:11px;
-        padding:5px 9px;
-      }
-
-      h1{
-        font-size:18px;
-      }
-
-      .sub{
-        font-size:11px;
-        -webkit-line-clamp:2;
-      }
-
-      .pill{
-        min-width:92px;
-        min-height:34px;
-        padding:7px 9px;
-        font-size:11px;
-      }
-
-      #gameMount{
-        left:6px;
-        right:6px;
-        bottom:calc(6px + var(--sab));
-      }
-    }
-
-    @media (min-width:721px){
+    @media (max-width:760px){
       .topbar{
-        grid-template-columns:minmax(0,1fr) auto;
-        align-items:start;
+        gap:8px;
       }
 
-      .hero-strip{
-        min-height:86px;
+      .brand{
+        width:100%;
       }
 
-      .chipbar{
-        max-width:min(48vw,560px);
-        align-self:start;
+      .actions{
+        width:100%;
       }
-    }
 
-    @media (min-width:1080px){
-      .hero-strip{
-        min-height:76px;
+      .actions .btn{
+        flex:1 1 0;
+        min-width:0;
       }
-      .sub{
-        -webkit-line-clamp:1;
+
+      .game-shell{
+        height:calc(100dvh - 134px - var(--sat) - var(--sab));
+        min-height:520px;
+        border-radius:24px;
+      }
+
+      .loading-card{
+        border-radius:24px;
+        padding:18px 16px;
+      }
+
+      .loading-title{
+        font-size:25px;
+      }
+
+      .loading-sub{
+        font-size:13px;
       }
     }
   </style>
 </head>
 <body>
-  <div id="app">
-    <div class="bg-clouds" aria-hidden="true">
-      <div class="cloud c1"></div>
-      <div class="cloud c2"></div>
-      <div class="cloud c3"></div>
+  <div class="bg-clouds" aria-hidden="true">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+  </div>
+
+  <div class="page">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-icon">🍔</div>
+        <div>
+          <div class="brand-title">GoodJunk Solo Boss</div>
+          <div class="brand-sub">child-friendly • phase boss • warmup → run → summary → cooldown</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a id="btnLauncher" class="btn launcher" href="./goodjunk-launcher.html">🎮 Launcher</a>
+        <a id="btnHub" class="btn hub" href="./hub-v2.html">🏠 Hub</a>
+      </div>
     </div>
 
-    <div id="gameMount"></div>
+    <div class="game-shell">
+      <div id="gameMount"></div>
 
-    <div class="shell">
-      <div class="topbar" id="topbar">
-        <div class="hero-strip">
-          <div class="title-row">
-            <div class="kicker">👑 GOODJUNK SOLO BOSS v2</div>
-            <h1>Boss Adventure</h1>
-          </div>
-          <p class="sub">
-            เก็บอาหารดี หลบ junk แล้วผ่าน 2 phase เพื่อเข้าสู้กับ Junk King แบบสนุกและอ่านจังหวะได้ชัดเจน
+      <div id="loadingScreen" class="loading">
+        <div class="loading-card">
+          <div class="loading-badge">GOODJUNK PHASE BOSS</div>
+          <div class="loading-emoji">🍎</div>
+          <h1 class="loading-title">เตรียมลุยกับ Junk King!</h1>
+          <p class="loading-sub">
+            เก็บอาหารดี หลีกเลี่ยง junk ผ่าน Phase 1 → Phase 2 → Boss แล้วปราบบอสให้ได้
           </p>
-        </div>
 
-        <div class="chipbar" id="chipbar">
-          <div class="pill" id="pillPlayer">PLAYER • -</div>
-          <div class="pill" id="pillDiff">LEVEL • normal</div>
-          <div class="pill" id="pillTime">TIME • 150</div>
-          <div class="pill" id="pillMode">MODE • solo boss</div>
-        </div>
-      </div>
-
-      <div></div>
-
-      <div class="bottomDock">
-        <div class="status-card" id="engineStatusCard">
-          <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
-          <div id="engineStatusText">เริ่มต้นตัวโหลด engine...</div>
-          <div class="mini-note" id="engineStatusMini">ถ้าไฟล์ JS อยู่ path อื่น ให้แก้ ENGINE_CANDIDATES ด้านล่าง</div>
+          <div class="loading-meta">
+            <div class="chip" id="metaDiff">diff: normal</div>
+            <div class="chip" id="metaTime">time: 150s</div>
+            <div class="chip" id="metaRun">run: play</div>
+          </div>
         </div>
       </div>
+
+      <div id="errorBox" class="error"></div>
     </div>
   </div>
 
   <script>
-    (function () {
+    (function buildRunContext(){
       const q = new URLSearchParams(location.search);
-      const $ = (id) => document.getElementById(id);
-      const root = document.documentElement;
+
+      function first(...vals){
+        for (const v of vals){
+          if (String(v || '').trim()) return String(v).trim();
+        }
+        return '';
+      }
+
+      function cleanPid(v){
+        return String(v || 'anon').trim().replace(/[^\w-]/g,'').slice(0,40) || 'anon';
+      }
+
+      function cleanName(v){
+        return String(v || '').trim().replace(/[<>]/g,'').slice(0,40);
+      }
+
+      function cleanEnum(v, allow, fallback){
+        v = String(v || '').trim().toLowerCase();
+        return allow.includes(v) ? v : fallback;
+      }
+
+      function numIn(v, fallback, min, max){
+        v = Number(v);
+        if (!Number.isFinite(v)) return fallback;
+        return Math.max(min, Math.min(max, v));
+      }
+
+      function defaultHub(){
+        return q.get('hub') || new URL('./hub-v2.html', location.href).toString();
+      }
 
       const runCtx = {
-        pid: q.get('pid') || 'anon',
-        name: q.get('name') || '',
-        studyId: q.get('studyId') || '',
-        roomId: '',
-        role: 'player',
-        mode: 'solo',
-        diff: q.get('diff') || 'normal',
-        time: q.get('time') || '150',
-        seed: q.get('seed') || String(Date.now()),
-        startAt: 0,
-        hub: q.get('hub') || new URL('./hub.html', location.href).toString(),
-        nextAfterCooldown: q.get('nextAfterCooldown') || '',
-        cdnext: q.get('cdnext') || '',
-        view: q.get('view') || 'mobile',
-        run: q.get('run') || 'play',
-        gameId: q.get('gameId') || 'goodjunk'
+        pid: cleanPid(first(q.get('pid'), 'anon')),
+        name: cleanName(first(q.get('name'), q.get('nickName'), 'Hero')),
+        studyId: first(q.get('studyId'), ''),
+        diff: cleanEnum(first(q.get('diff'), 'normal'), ['easy','normal','hard'], 'normal'),
+        time: String(numIn(first(q.get('time'), 150), 150, 90, 300)),
+        seed: first(q.get('seed'), String(Date.now())),
+        hub: defaultHub(),
+        view: cleanEnum(first(q.get('view'), 'mobile'), ['mobile','pc','cvr'], 'mobile'),
+        run: cleanEnum(first(q.get('run'), 'play'), ['play','research','demo'], 'play'),
+        gameId: first(q.get('gameId'), q.get('game'), 'goodjunk'),
+        zone: first(q.get('zone'), 'nutrition')
       };
 
       window.__GJ_RUN_CTX__ = runCtx;
-      window.HHA_CLOUD_ENDPOINT = String(q.get('api') || window.HHA_CLOUD_ENDPOINT || '').trim();
 
-      const ENGINE_CANDIDATES = [
-        '/webxr-health-mobile/herohealth/goodjunk-solo-phaseboss-v2.js',
-        './goodjunk-solo-phaseboss-v2.js',
-        './js/goodjunk-solo-phaseboss-v2.js'
-      ];
+      const btnHub = document.getElementById('btnHub');
+      const btnLauncher = document.getElementById('btnLauncher');
+      const metaDiff = document.getElementById('metaDiff');
+      const metaTime = document.getElementById('metaTime');
+      const metaRun = document.getElementById('metaRun');
 
-      function isSmall() {
-        return window.innerWidth < 520;
-      }
+      if (btnHub) btnHub.href = runCtx.hub;
 
-      function updatePills() {
-        const short = isSmall();
+      if (btnLauncher) {
+        const u = new URL('./goodjunk-launcher.html', location.href);
+        [
+          'pid','name','studyId','diff','time','seed','hub','view','run',
+          'gameId','zone','phase','conditionGroup','api','studentKey',
+          'schoolCode','classRoom','studentNo','nickName','log','debug'
+        ].forEach((k) => {
+          const v =
+            k === 'name' ? runCtx.name :
+            k === 'pid' ? runCtx.pid :
+            k === 'studyId' ? runCtx.studyId :
+            k === 'diff' ? runCtx.diff :
+            k === 'time' ? runCtx.time :
+            k === 'seed' ? runCtx.seed :
+            k === 'hub' ? runCtx.hub :
+            k === 'view' ? runCtx.view :
+            k === 'run' ? runCtx.run :
+            k === 'gameId' ? runCtx.gameId :
+            k === 'zone' ? runCtx.zone :
+            q.get(k);
 
-        const player = runCtx.name || runCtx.pid || '-';
-        const diff = runCtx.diff || 'normal';
-        const time = runCtx.time || '150';
-
-        if ($('pillPlayer')) $('pillPlayer').textContent = short ? `P • ${player}` : `PLAYER • ${player}`;
-        if ($('pillDiff')) $('pillDiff').textContent = short ? `LV • ${diff}` : `LEVEL • ${diff}`;
-        if ($('pillTime')) $('pillTime').textContent = short ? `T • ${time}` : `TIME • ${time}`;
-        if ($('pillMode')) $('pillMode').textContent = short ? 'M • solo' : 'MODE • solo boss';
-      }
-
-      function syncTopOffset() {
-        const topbar = $('topbar');
-        if (!topbar) return;
-
-        const rect = topbar.getBoundingClientRect();
-        const offset = Math.ceil(rect.height) + 12;
-        root.style.setProperty('--gj-top-offset', offset + 'px');
-      }
-
-      function scheduleLayoutSync() {
-        requestAnimationFrame(() => {
-          updatePills();
-          syncTopOffset();
-        });
-      }
-
-      function setStatus(title, text, isError) {
-        const titleEl = $('engineStatusTitle');
-        const textEl = $('engineStatusText');
-
-        if (titleEl) titleEl.textContent = title;
-
-        if (textEl) {
-          textEl.textContent = text;
-          textEl.className = isError ? 'error' : '';
-        }
-
-        scheduleLayoutSync();
-      }
-
-      async function fetchText(src) {
-        const res = await fetch(src, { cache: 'no-store' });
-        if (!res.ok) throw new Error(src + ' -> HTTP ' + res.status);
-        return await res.text();
-      }
-
-      async function injectClassicScriptFromCode(code, srcLabel) {
-        return await new Promise((resolve, reject) => {
-          try {
-            const blob = new Blob([code], { type: 'text/javascript' });
-            const blobUrl = URL.createObjectURL(blob);
-            const s = document.createElement('script');
-            s.src = blobUrl;
-
-            s.onload = () => {
-              try { URL.revokeObjectURL(blobUrl); } catch (_) {}
-              resolve(true);
-            };
-
-            s.onerror = () => {
-              try { URL.revokeObjectURL(blobUrl); } catch (_) {}
-              reject(new Error('โหลด script ไม่สำเร็จ: ' + srcLabel));
-            };
-
-            document.body.appendChild(s);
-          } catch (err) {
-            reject(err);
+          if (v != null && String(v).trim() !== '') {
+            u.searchParams.set(k, v);
           }
         });
+        btnLauncher.href = u.toString();
       }
 
-      function verifyEngineStarted() {
-        const mount = $('gameMount');
-        return !!(mount && mount.children.length > 0);
-      }
+      if (metaDiff) metaDiff.textContent = 'diff: ' + runCtx.diff;
+      if (metaTime) metaTime.textContent = 'time: ' + runCtx.time + 's';
+      if (metaRun) metaRun.textContent = 'run: ' + runCtx.run;
 
-      function hideStatusCardSoon() {
-        const card = $('engineStatusCard');
-        if (!card) return;
-        setTimeout(() => {
-          card.classList.add('hide');
-        }, 480);
-      }
-
-      async function loadEngine() {
-        updatePills();
-        scheduleLayoutSync();
-
-        let lastErr = null;
-
-        for (const src of ENGINE_CANDIDATES) {
-          try {
-            setStatus('กำลังโหลดเกม…', 'ลองโหลด ' + src, false);
-
-            const code = await fetchText(src);
-            if (!code || !code.trim()) {
-              throw new Error('ไฟล์ว่าง: ' + src);
-            }
-
-            await injectClassicScriptFromCode(code, src);
-
-            setTimeout(() => {
-              const ok = verifyEngineStarted();
-              if (!ok) {
-                setStatus(
-                  'โหลดไฟล์ได้ แต่เกมยังไม่เริ่ม',
-                  'โหลด ' + src + ' ได้แล้ว แต่ engine ยังไม่ mount ลง #gameMount\nให้ตรวจ goodjunk-solo-phaseboss-v2.js ว่ามี error syntax หรือ runtime ตอนเริ่มต้น',
-                  true
-                );
-                return;
-              }
-
-              setStatus('เข้าเกมแล้ว', 'solo boss engine loaded: ' + src, false);
-              hideStatusCardSoon();
-            }, 120);
-
-            return;
-          } catch (err) {
-            lastErr = err;
-            console.warn('[GJ-SOLO-BOSS] candidate failed', src, err);
-          }
-        }
-
-        setStatus(
-          'ไม่พบไฟล์ engine',
-          'โหลด engine ไม่สำเร็จ\n' +
-          (lastErr ? String(lastErr.message || lastErr) : '') +
-          '\n\nCandidates:\n' + ENGINE_CANDIDATES.join('\n'),
-          true
-        );
-      }
-
-      function bindLayoutObservers() {
-        window.addEventListener('resize', scheduleLayoutSync, { passive: true });
-        window.addEventListener('orientationchange', scheduleLayoutSync, { passive: true });
-
-        if (window.ResizeObserver) {
-          const ro = new ResizeObserver(() => scheduleLayoutSync());
-          const topbar = $('topbar');
-          const chipbar = $('chipbar');
-          const status = $('engineStatusCard');
-          if (topbar) ro.observe(topbar);
-          if (chipbar) ro.observe(chipbar);
-          if (status) ro.observe(status);
-        }
-
-        setTimeout(scheduleLayoutSync, 50);
-        setTimeout(scheduleLayoutSync, 250);
-        setTimeout(scheduleLayoutSync, 700);
-      }
-
-      try {
-        updatePills();
-        scheduleLayoutSync();
-        bindLayoutObservers();
-        setStatus('กำลังเตรียมเกม…', 'เริ่มต้นตัวโหลด engine...', false);
-        loadEngine();
-      } catch (err) {
-        setStatus(
-          'เกิดปัญหาใน run page',
-          String((err && (err.stack || err.message || err)) || 'Unknown error'),
-          true
-        );
-      }
+      document.title =
+        'HeroHealth • GoodJunk Solo Boss • ' +
+        runCtx.diff.charAt(0).toUpperCase() + runCtx.diff.slice(1);
     })();
   </script>
+
+  <script>
+    (function loadingAndErrorShell(){
+      const loading = document.getElementById('loadingScreen');
+      const errorBox = document.getElementById('errorBox');
+
+      function hideLoading(){
+        if (loading) loading.classList.add('hidden');
+      }
+
+      function showError(msg){
+        if (!errorBox) return;
+        errorBox.textContent = msg;
+        errorBox.classList.add('show');
+      }
+
+      let tries = 0;
+      const maxTries = 160;
+
+      const tick = () => {
+        tries += 1;
+
+        if (window.__GJ_ENGINE_MOUNTED__) {
+          hideLoading();
+          return;
+        }
+
+        if (tries >= maxTries) {
+          showError('โหลดเกมนานกว่าปกติ กรุณาลองรีเฟรชหน้า หรือกลับไป Launcher แล้วเริ่มใหม่อีกครั้ง');
+          return;
+        }
+
+        setTimeout(tick, 125);
+      };
+
+      tick();
+
+      window.addEventListener('error', function (ev) {
+        const msg = ev && ev.message ? ev.message : 'เกิดข้อผิดพลาดระหว่างโหลดเกม';
+        showError(msg);
+      });
+
+      window.addEventListener('unhandledrejection', function (ev) {
+        const reason = ev && ev.reason ? String(ev.reason) : 'เกิดข้อผิดพลาดแบบ promise';
+        showError(reason);
+      });
+    })();
+  </script>
+
+  <script src="./goodjunk-solo-phaseboss-v2.js?v=20260331-phaseboss-final-v1"></script>
 </body>
 </html>
