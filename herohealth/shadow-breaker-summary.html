@@ -100,9 +100,9 @@
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:42px;
+      min-height:46px;
       padding:10px 14px;
-      border-radius:16px;
+      border-radius:18px;
       background:rgba(255,255,255,.88);
       border:1px solid var(--line);
       color:var(--text);
@@ -121,6 +121,7 @@
       background:linear-gradient(180deg, var(--card), var(--card2));
       box-shadow:var(--shadow);
       padding:18px;
+      padding-right:120px;
       position:relative;
       overflow:hidden;
     }
@@ -157,9 +158,10 @@
     .title{
       margin:12px 0 8px;
       font-size:clamp(1.9rem, 5vw, 3rem);
-      line-height:1.02;
+      line-height:1.05;
       color:#4f8f2c;
       font-weight:1000;
+      word-break:break-word;
     }
 
     .sub{
@@ -175,7 +177,7 @@
       display:inline-flex;
       align-items:center;
       gap:8px;
-      min-height:40px;
+      min-height:42px;
       padding:10px 14px;
       border-radius:999px;
       background:#fff;
@@ -212,6 +214,8 @@
       font-size:1.45rem;
       color:#5a4a3f;
       font-weight:1000;
+      line-height:1.15;
+      word-break:break-word;
     }
 
     .panel-wrap{
@@ -293,9 +297,9 @@
       justify-content:space-between;
       gap:10px;
       align-items:center;
-      min-height:48px;
-      padding:10px 12px;
-      border-radius:16px;
+      min-height:52px;
+      padding:12px 14px;
+      border-radius:18px;
       background:#fff;
       border:1px solid var(--line);
       box-shadow:0 8px 16px rgba(111,157,183,.08);
@@ -303,15 +307,22 @@
       color:#5c544a;
     }
 
-    .boss-pill .muted{
+    .boss-pill .left{
       color:#7b7a72;
       font-size:.88rem;
       font-weight:900;
     }
 
+    .boss-pill .right{
+      text-align:right;
+      font-size:1rem;
+      font-weight:1000;
+      word-break:break-word;
+    }
+
     .actions{
       display:flex;
-      gap:10px;
+      gap:12px;
       flex-wrap:wrap;
       margin-top:14px;
     }
@@ -320,9 +331,9 @@
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:46px;
-      padding:10px 14px;
-      border-radius:18px;
+      min-height:54px;
+      padding:12px 16px;
+      border-radius:20px;
       border:1px solid var(--line);
       background:#fff;
       color:var(--text);
@@ -358,6 +369,7 @@
       font-size:.85rem;
       line-height:1.5;
       font-weight:800;
+      word-break:break-word;
     }
 
     .empty{
@@ -399,15 +411,21 @@
 
       .hero{
         padding:14px;
+        padding-right:84px;
       }
 
       .hero-badge{
         right:12px;
         top:12px;
-        width:72px;
-        height:72px;
-        border-radius:20px;
-        font-size:1.8rem;
+        width:64px;
+        height:64px;
+        border-radius:18px;
+        font-size:1.5rem;
+      }
+
+      .title{
+        font-size:clamp(1.55rem, 8vw, 2.15rem);
+        line-height:1.06;
       }
 
       .stat{
@@ -420,6 +438,27 @@
 
       .actions{
         flex-direction:column;
+        gap:12px;
+      }
+
+      .badge-card{
+        grid-template-columns:64px 1fr;
+      }
+
+      .badge-icon{
+        width:64px;
+        height:64px;
+        border-radius:18px;
+        font-size:1.7rem;
+      }
+
+      .boss-pill{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+
+      .boss-pill .right{
+        text-align:left;
       }
     }
   </style>
@@ -480,7 +519,7 @@
         </div>
         <div class="stat">
           <div class="k">เวลา</div>
-          <div class="v" id="statTime">0.0 s</div>
+          <div class="v" id="statTime">0 วินาที</div>
         </div>
       </div>
 
@@ -503,7 +542,7 @@
           </div>
 
           <div class="actions">
-            <a id="btnReplay" class="btn primary" href="../fitness/shadow-breaker.html">เล่นอีกครั้ง</a>
+            <a id="btnReplay" class="btn primary" href="./shadow-breaker-vr.html">เล่นอีกครั้ง</a>
             <a id="btnBackHub" class="btn blue" href="./hub.html">กลับ HUB</a>
             <button id="btnClear" class="btn ghost" type="button">ล้างผลล่าสุด</button>
           </div>
@@ -517,33 +556,33 @@
           <div class="panel-title">เส้นทางที่ไปได้รอบนี้</div>
           <div class="boss-box">
             <div class="boss-pill">
-              <span>บอสที่ไปไกลสุด</span>
-              <span id="bestBoss">Bubble Glove</span>
+              <span class="left">บอสที่ไปไกลสุด</span>
+              <span class="right" id="bestBoss">Bubble Glove</span>
             </div>
             <div class="boss-pill">
-              <span>โหมด</span>
-              <span id="bestMode">normal</span>
+              <span class="left">โหมด</span>
+              <span class="right" id="bestMode">normal</span>
             </div>
             <div class="boss-pill">
-              <span>ระดับความยาก</span>
-              <span id="bestDiff">normal</span>
+              <span class="left">ระดับความยาก</span>
+              <span class="right" id="bestDiff">normal</span>
             </div>
             <div class="boss-pill">
-              <span>เวลาที่ตั้งไว้</span>
-              <span id="bestTime">80 s</span>
+              <span class="left">เวลาที่ตั้งไว้</span>
+              <span class="right" id="bestTime">80 วินาที</span>
             </div>
             <div class="boss-pill">
-              <span>เหตุผลที่จบเกม</span>
-              <span id="endReason">ended</span>
+              <span class="left">เหตุผลที่จบเกม</span>
+              <span class="right" id="endReason">ended</span>
             </div>
             <div class="boss-pill">
-              <span>วันที่เล่น</span>
-              <span id="playedAt">-</span>
+              <span class="left">วันที่เล่น</span>
+              <span class="right" id="playedAt">-</span>
             </div>
           </div>
 
           <div class="mini">
-            รอบต่อไปลองตั้งเป้าหมายง่าย ๆ เช่น “ผ่านบอสเพิ่มอีก 1 ตัว” หรือ “ทำ accuracy ให้เกิน 80%”
+            รอบต่อไปลองตั้งเป้าหมายง่าย ๆ เช่น “ผ่านบอสเพิ่มอีก 1 ตัว” หรือ “ทำความแม่นยำให้เกิน 80%”
           </div>
         </section>
       </div>
@@ -590,6 +629,7 @@
             const obj = safeJsonParse(raw, null);
             if (!obj || typeof obj !== 'object') continue;
             if (obj.game && obj.game !== 'shadowbreaker') continue;
+            if (!obj.game && key === 'HHA_LAST_SUMMARY') continue;
             if (obj.pid && String(obj.pid).trim() !== playerId && key !== 'HHA_LAST_SUMMARY') continue;
             return obj;
           }catch(_){}
@@ -624,19 +664,21 @@
       }
 
       function buildReplayHref(sum){
-        const url = new URL('../fitness/shadow-breaker.html', location.href);
+        const url = new URL('./shadow-breaker-vr.html', location.href);
+        const replayView =
+          String(sum?.view || new URLSearchParams(location.search).get('view') || 'mobile');
+
         url.searchParams.set('pid', String(sum?.pid || pid || 'anon'));
         url.searchParams.set('diff', String(sum?.diff || 'normal'));
         url.searchParams.set('time', String(sum?.timeSec || 80));
         url.searchParams.set('mode', String(sum?.mode || 'normal'));
-        url.searchParams.set('run', String(sum?.runMode || sum?.mode || 'normal'));
-        url.searchParams.set('view', String(q.get('view') || 'mobile'));
-        url.searchParams.set('zone', 'fitness');
-        url.searchParams.set('cat', 'fitness');
-        url.searchParams.set('game', 'shadowbreaker');
-        url.searchParams.set('gameId', 'shadowbreaker');
-        url.searchParams.set('theme', 'shadowbreaker');
+        url.searchParams.set('view', replayView);
         url.searchParams.set('hub', hub);
+
+        if (sum?.studyId) url.searchParams.set('studyId', String(sum.studyId));
+        if (sum?.group) url.searchParams.set('group', String(sum.group));
+        if (sum?.conditionGroup) url.searchParams.set('conditionGroup', String(sum.conditionGroup));
+
         return url.toString();
       }
 
@@ -644,9 +686,13 @@
         $('summaryContent').style.display = '';
         $('emptyState').style.display = 'none';
 
-        const badge = sum.badge || { icon:'🏅', title:'Shadow Starter', desc:'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม' };
+        const badge = sum.badge || {
+          icon:'🥊',
+          title:'Shadow Starter',
+          desc:'เริ่มต้นได้ดี ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม'
+        };
 
-        $('heroBadge').textContent = badge.icon || '🏅';
+        $('heroBadge').textContent = badge.icon || '🥊';
         $('heroNote').textContent =
           (sum.grade === 'S' || sum.grade === 'A')
             ? 'วันนี้ทำได้ยอดเยี่ยมมาก!'
@@ -659,27 +705,27 @@
         $('statBosses').textContent = String(sum.bossesCleared ?? 0);
         $('statPhase').textContent = String(sum.phaseFinal ?? 1);
         $('statMiss').textContent = String(sum.missTotal ?? 0);
-        $('statTime').textContent = `${Number(sum.elapsedSec ?? 0).toFixed(1)} s`;
+        $('statTime').textContent = `${Number(sum.elapsedSec ?? 0).toFixed(1)} วินาที`;
 
         $('resultMessage').textContent =
           String(sum.end_reason || '') === 'final_clear'
-            ? 'สุดยอดมาก! หนูผ่านบอสสุดท้ายได้แล้ว วันนี้เป็นฮีโร่ตัวจริงเลย 🎉'
+            ? 'สุดยอดมาก! วันนี้หนูชนะบอสสุดท้ายได้แล้ว 🎉'
             : (sum.bossesCleared >= 3
                 ? 'เก่งมาก ไปได้ไกลมากแล้ว อีกนิดเดียวก็ถึงบอสสุดท้าย'
                 : (sum.bossesCleared >= 1
-                    ? 'ยอดเยี่ยม ผ่านบอสได้แล้ว ลองอีกครั้งเพื่อไปต่อ'
+                    ? 'เยี่ยมมาก ผ่านบอสได้แล้ว ลองอีกครั้งเพื่อไปต่อให้ไกลขึ้น'
                     : 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นนะ'));
 
-        $('badgeIcon').textContent = badge.icon || '🏅';
+        $('badgeIcon').textContent = badge.icon || '🥊';
         $('badgeTitle').textContent = badge.title || 'Shadow Starter';
-        $('badgeDesc').textContent = badge.desc || 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
+        $('badgeDesc').textContent = badge.desc || 'เริ่มต้นได้ดี ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
 
         $('bestBoss').textContent = String(sum.bestReachedBoss || 'Bubble Glove');
         $('bestMode').textContent = String(sum.mode || 'normal');
         $('bestDiff').textContent = String(sum.diff || 'normal');
-        $('bestTime').textContent = `${String(sum.timeSec || 80)} s`;
+        $('bestTime').textContent = `${String(sum.timeSec || 80)} วินาที`;
         $('endReason').textContent = reasonLabel(sum.end_reason);
-        $('playedAt').textContent = formatDate(sum.timestampIso);
+        $('playedAt').textContent = formatDate(sum.timestampIso || sum.ts || Date.now());
 
         $('metaBox').textContent =
           `ผู้เล่น: ${String(sum.pid || pid)} • session: ${String(sum.sessionId || '-')} • studyId: ${String(sum.studyId || '-')}`;
