@@ -2,7 +2,11 @@
   'use strict';
 
   const q = new URLSearchParams(location.search);
-  const mount = document.getElementById('gameMount') || document.body;
+  const mount =
+    document.getElementById('gameMount') ||
+    document.getElementById('goodjunkGameMount') ||
+    document.getElementById('app') ||
+    document.body;
 
   const ctx = window.__GJ_RUN_CTX__ || {
     pid: q.get('pid') || 'anon',
@@ -17,18 +21,47 @@
     gameId: q.get('gameId') || 'goodjunk'
   };
 
-  const ROOT_ID = 'gjSoloBossRootV6';
-  const STYLE_ID = 'gjSoloBossStyleV6';
+  const ROOT_ID = 'gjSoloBossRootV8';
+  const STYLE_ID = 'gjSoloBossStyleV8';
   const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
   const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
+  const RESEARCH_LAST_KEY = 'HHA_GJ_BOSS_RESEARCH_LAST';
+  const RESEARCH_HISTORY_KEY = 'HHA_GJ_BOSS_RESEARCH_HISTORY';
 
-  const GOOD = ['🍎','🥕','🥦','🍌','🥛','🥗','🍉','🐟'];
-  const JUNK = ['🍟','🍩','🍭','🍔','🥤','🍕','🧁','🍫'];
+  const GOOD = ['🍎', '🥕', '🥦', '🍌', '🥛', '🥗', '🍉', '🐟'];
+  const JUNK = ['🍟', '🍩', '🍭', '🍔', '🥤', '🍕', '🧁', '🍫'];
 
   const DIFF = {
-    easy:   { p1Goal: 70,  p2Goal: 170, spawn1: 920, spawn2: 760, bossHp: 16 },
-    normal: { p1Goal: 90,  p2Goal: 220, spawn1: 760, spawn2: 620, bossHp: 22 },
-    hard:   { p1Goal: 110, p2Goal: 260, spawn1: 620, spawn2: 500, bossHp: 28 }
+    easy: {
+      p1Goal: 70,
+      p2Goal: 170,
+      spawn1: 940,
+      spawn2: 790,
+      bossHp: 16,
+      scoreGood: 12,
+      penaltyJunk: 7,
+      penaltyFake: 5
+    },
+    normal: {
+      p1Goal: 90,
+      p2Goal: 220,
+      spawn1: 760,
+      spawn2: 620,
+      bossHp: 22,
+      scoreGood: 10,
+      penaltyJunk: 8,
+      penaltyFake: 6
+    },
+    hard: {
+      p1Goal: 110,
+      p2Goal: 260,
+      spawn1: 620,
+      spawn2: 500,
+      bossHp: 28,
+      scoreGood: 9,
+      penaltyJunk: 9,
+      penaltyFake: 7
+    }
   };
 
   const diffKey = DIFF[ctx.diff] ? ctx.diff : 'normal';
@@ -37,6 +70,9 @@
   const state = {
     running: false,
     ended: false,
+    paused: false,
+    muted: false,
+    pauseReason: '',
 
     score: 0,
     miss: 0,
@@ -64,6 +100,22 @@
     presentationLockMs: 0,
 
     items: new Map(),
+
+    lastTelegraphAt: 0,
+
+    a11y: {
+      reducedMotion: false,
+      highContrastTelegraph: false
+    },
+
+    fx: {
+      bossHurtMs: 0,
+      rageAuraMs: 0,
+      stormLaneMs: 0,
+      stormLaneX: 0,
+      stormLaneW: 0,
+      phasePulseMs: 0
+    },
 
     boss: {
       active: false,
@@ -101,14 +153,74 @@
 
       killSequence: false,
       introShowing: false
+    },
+
+    metrics: {
+      runStartAt: Date.now(),
+      bossEnterAt: 0,
+      bossEndAt: 0,
+
+      telegraphShown: 0,
+      telegraphByPattern: { hunt: 0, break: 0, storm: 0 },
+      telegraphReactMs: [],
+
+      patternStarts: { hunt: 0, break: 0, storm: 0 },
+      weakHitsByStage: { A: 0, B: 0, C: 0, RAGE: 0 },
+      weakHitsByPattern: { hunt: 0, break: 0, storm: 0 },
+
+      fakeWeakTapped: 0,
+      stormDodgedApprox: 0,
+      stormSpawned: 0,
+
+      rageEntered: false,
+      rageAtHp: 0,
+
+      bossDurationMs: 0,
+      clearTimeMs: 0
+    },
+
+    research: {
+      sessionId: 'gjsb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+      events: [],
+      splits: {
+        phase1StartAt: 0,
+        phase2StartAt: 0,
+        bossStartAt: 0,
+        rageStartAt: 0,
+        endAt: 0
+      },
+      counters: {
+        goodTap: 0,
+        junkTap: 0,
+        fakeTap: 0,
+        weakTap: 0,
+        stormHit: 0,
+        goodMiss: 0
+      }
     }
   };
 
   let ui = null;
 
-  function rand() { return Math.random(); }
-  function range(min, max) { return min + Math.random() * (max - min); }
-  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function rand() {
+    return Math.random();
+  }
+
+  function range(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  function clamp(v, a, b) {
+    return Math.max(a, Math.min(b, v));
+  }
+
+  function nowMs() {
+    return Date.now();
+  }
+
+  function elapsedRunMs() {
+    return nowMs() - state.metrics.runStartAt;
+  }
 
   function fmtTime(ms) {
     const total = Math.max(0, Math.ceil(ms / 1000));
@@ -121,6 +233,44 @@
     return ui.stage.getBoundingClientRect();
   }
 
+  function detectAccessibilityPrefs() {
+    try {
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      state.a11y.reducedMotion = !!mq.matches;
+    } catch (_) {
+      state.a11y.reducedMotion = false;
+    }
+    state.a11y.highContrastTelegraph = window.innerWidth < 720;
+  }
+
+  function safeAvg(arr) {
+    return Array.isArray(arr) && arr.length
+      ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length)
+      : 0;
+  }
+
+  function safeRatio(a, b) {
+    if (!b) return 0;
+    return Number((a / b).toFixed(4));
+  }
+
+  function pushEvent(type, detail) {
+    const item = {
+      t: nowMs(),
+      runMs: elapsedRunMs(),
+      type: String(type || 'event'),
+      detail: detail || {}
+    };
+    state.research.events.push(item);
+    if (state.research.events.length > 500) {
+      state.research.events.shift();
+    }
+  }
+
+  function markSplit(key) {
+    state.research.splits[key] = elapsedRunMs();
+  }
+
   function saveLastSummary(payload) {
     try {
       const item = { ts: Date.now(), ...payload };
@@ -130,6 +280,105 @@
       list.unshift(item);
       localStorage.setItem(SUMMARY_HISTORY_KEY, JSON.stringify(list.slice(0, 40)));
     } catch (_) {}
+  }
+
+  function saveResearchPayload(payload) {
+    try {
+      localStorage.setItem(RESEARCH_LAST_KEY, JSON.stringify(payload));
+      const arr = JSON.parse(localStorage.getItem(RESEARCH_HISTORY_KEY) || '[]');
+      const list = Array.isArray(arr) ? arr : [];
+      list.unshift(payload);
+      localStorage.setItem(RESEARCH_HISTORY_KEY, JSON.stringify(list.slice(0, 30)));
+    } catch (_) {}
+    window.HHA_LAST_BOSS_PAYLOAD = payload;
+  }
+
+  function buildResearchPayload(bossClear, grade) {
+    const avgReact = safeAvg(state.metrics.telegraphReactMs);
+    const totalStormSeen = state.metrics.stormSpawned || 0;
+    const totalStormDodged = state.metrics.stormDodgedApprox || 0;
+
+    return {
+      source: 'goodjunk-solo-phaseboss-v2',
+      sessionId: state.research.sessionId,
+      ts: nowMs(),
+
+      participant: {
+        pid: ctx.pid || 'anon',
+        name: ctx.name || '',
+        studyId: ctx.studyId || ''
+      },
+
+      context: {
+        gameId: ctx.gameId || 'goodjunk',
+        mode: 'solo',
+        diff: diffKey,
+        run: ctx.run || 'play',
+        timeSec: Math.round(state.timeTotal / 1000),
+        seed: ctx.seed || '',
+        view: ctx.view || 'mobile'
+      },
+
+      outcome: {
+        bossClear: !!bossClear,
+        rageTriggered: !!state.boss.rageTriggered,
+        grade: grade,
+        score: state.score,
+        miss: state.miss,
+        bestStreak: state.bestStreak,
+        phaseReached: state.boss.active ? 'boss' : ('phase-' + state.phase),
+        bossStageReached: state.boss.stageReached,
+        lastPattern: state.boss.pattern
+      },
+
+      performance: {
+        hitsGood: state.hitsGood,
+        hitsBad: state.hitsBad,
+        goodMissed: state.goodMissed,
+        powerHits: state.powerHits,
+        stormHits: state.stormHits,
+        fakeWeakTapped: state.metrics.fakeWeakTapped,
+        stormDodgedApprox: totalStormDodged,
+        stormSpawned: totalStormSeen,
+        telegraphAvgReactMs: avgReact,
+        telegraphShown: state.metrics.telegraphShown,
+        bossDurationMs: state.metrics.bossDurationMs,
+        clearTimeMs: state.metrics.clearTimeMs
+      },
+
+      derived: {
+        accuracyGoodVsBad: safeRatio(state.hitsGood, state.hitsGood + state.hitsBad),
+        fakeTapRatePerWeak: safeRatio(state.metrics.fakeWeakTapped, Math.max(1, state.powerHits)),
+        stormDodgeRatio: safeRatio(totalStormDodged, Math.max(1, totalStormSeen)),
+        telegraphResponseCount: state.metrics.telegraphReactMs.length
+      },
+
+      splits: {
+        phase1StartAtMs: state.research.splits.phase1StartAt,
+        phase2StartAtMs: state.research.splits.phase2StartAt,
+        bossStartAtMs: state.research.splits.bossStartAt,
+        rageStartAtMs: state.research.splits.rageStartAt,
+        endAtMs: state.research.splits.endAt
+      },
+
+      counters: {
+        goodTap: state.research.counters.goodTap,
+        junkTap: state.research.counters.junkTap,
+        fakeTap: state.research.counters.fakeTap,
+        weakTap: state.research.counters.weakTap,
+        stormHit: state.research.counters.stormHit,
+        goodMiss: state.research.counters.goodMiss
+      },
+
+      analytics: {
+        weakHitsByStage: state.metrics.weakHitsByStage,
+        weakHitsByPattern: state.metrics.weakHitsByPattern,
+        patternStarts: state.metrics.patternStarts,
+        telegraphByPattern: state.metrics.telegraphByPattern
+      },
+
+      events: state.research.events.slice()
+    };
   }
 
   function playTone(freq, duration, type, gainValue) {
@@ -159,37 +408,45 @@
   }
 
   function playSfx(kind) {
+    if (state.muted) return;
+
     if (kind === 'good') {
       playTone(720, 0.05, 'triangle', 0.018);
       setTimeout(() => playTone(900, 0.05, 'triangle', 0.014), 35);
       return;
     }
+
     if (kind === 'bad') {
       playTone(210, 0.08, 'sawtooth', 0.018);
       return;
     }
+
     if (kind === 'phase-up') {
       playTone(520, 0.08, 'triangle', 0.022);
       setTimeout(() => playTone(720, 0.08, 'triangle', 0.02), 90);
       setTimeout(() => playTone(980, 0.10, 'triangle', 0.022), 180);
       return;
     }
+
     if (kind === 'telegraph') {
       playTone(340, 0.08, 'square', 0.018);
       setTimeout(() => playTone(340, 0.08, 'square', 0.018), 120);
       return;
     }
+
     if (kind === 'boss-hit') {
       playTone(560, 0.06, 'square', 0.02);
       setTimeout(() => playTone(780, 0.07, 'triangle', 0.018), 40);
       return;
     }
+
     if (kind === 'boss-break') {
       playTone(520, 0.07, 'square', 0.024);
       setTimeout(() => playTone(760, 0.09, 'triangle', 0.02), 45);
       setTimeout(() => playTone(990, 0.09, 'triangle', 0.018), 95);
       return;
     }
+
     if (kind === 'boss-clear') {
       playTone(784, 0.10, 'triangle', 0.03);
       setTimeout(() => playTone(988, 0.12, 'triangle', 0.03), 110);
@@ -254,6 +511,20 @@
         display:grid;
         gap:6px;
         --boss-reserve:0px;
+      }
+
+      .gjsb-topHud.compact .gjsb-bar{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+
+      .gjsb-topHud.compact .gjsb-pill{
+        min-height:26px;
+        padding:4px 6px;
+        font-size:10px;
+      }
+
+      .gjsb-topHud.compact .gjsb-progressWrap{
+        height:7px;
       }
 
       .gjsb-bar{
@@ -347,6 +618,13 @@
       }
       .gjsb-telegraph.show{ display:block; }
 
+      .gjsb-telegraph.hc{
+        background:linear-gradient(180deg,#fff7dc,#ffffff);
+        color:#8a4d00;
+        border:3px solid #ffcf70;
+        box-shadow:0 10px 20px rgba(255,181,71,.18);
+      }
+
       @keyframes gjsbTelegraphPulse{
         0%,100%{ transform:translateX(-50%) scale(1); }
         50%{ transform:translateX(-50%) scale(1.03); }
@@ -358,9 +636,9 @@
         background:rgba(255,255,255,.82);
         border:2px solid rgba(191,227,242,.95);
         overflow:hidden;
-        box-shadow:0 6px 12px rgba(86,155,194,.08);
         width:calc(100% - var(--boss-reserve));
         max-width:calc(100% - var(--boss-reserve));
+        box-shadow:0 6px 12px rgba(86,155,194,.08);
       }
 
       .gjsb-progressFill{
@@ -369,6 +647,34 @@
         transform-origin:left center;
         background:linear-gradient(90deg,#7fcfff,#7ed957);
         transition:transform .1s linear;
+      }
+
+      .gjsb-utilRow{
+        display:flex;
+        gap:6px;
+        align-items:center;
+        justify-content:flex-end;
+        margin-top:4px;
+      }
+
+      .gjsb-utilBtn{
+        min-height:32px;
+        min-width:32px;
+        padding:6px 10px;
+        border:none;
+        border-radius:12px;
+        background:rgba(255,255,255,.92);
+        color:#57534c;
+        border:2px solid rgba(191,227,242,.95);
+        box-shadow:0 6px 12px rgba(86,155,194,.08);
+        font-size:11px;
+        font-weight:1000;
+        cursor:pointer;
+      }
+
+      .gjsb-utilBtn.active{
+        background:#eefbff;
+        color:#2d6f94;
       }
 
       .gjsb-boss{
@@ -389,12 +695,46 @@
         box-shadow:0 10px 18px rgba(86,155,194,.12);
         padding:8px 9px;
         color:#5e5a52;
+        position:relative;
       }
 
       .gjsb-boss-card.rage{
         border-color:#ffb0a2;
         box-shadow:0 12px 24px rgba(86,155,194,.14), 0 0 0 6px rgba(255,120,120,.12);
         animation:gjsbRagePulse .8s ease-in-out infinite;
+      }
+
+      .gjsb-boss-card.hurt{
+        animation:gjsbBossHurt .22s linear 1;
+      }
+
+      @keyframes gjsbBossHurt{
+        0%{ transform:translateX(0) scale(1); filter:brightness(1); }
+        25%{ transform:translateX(-4px) scale(1.02); filter:brightness(1.08); }
+        50%{ transform:translateX(4px) scale(.99); filter:brightness(1.18); }
+        100%{ transform:translateX(0) scale(1); filter:brightness(1); }
+      }
+
+      .gjsb-rageAura{
+        position:absolute;
+        inset:-10px;
+        border-radius:28px;
+        pointer-events:none;
+        opacity:0;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(255,120,120,.18), transparent 50%),
+          radial-gradient(circle at 30% 20%, rgba(255,80,80,.14), transparent 36%),
+          radial-gradient(circle at 70% 78%, rgba(255,145,70,.16), transparent 34%);
+      }
+
+      .gjsb-rageAura.show{
+        opacity:1;
+        animation:gjsbAuraPulse .9s ease-in-out infinite;
+      }
+
+      @keyframes gjsbAuraPulse{
+        0%,100%{ transform:scale(1); filter:brightness(1); }
+        50%{ transform:scale(1.03); filter:brightness(1.06); }
       }
 
       @keyframes gjsbRagePulse{
@@ -593,6 +933,31 @@
         text-shadow:0 8px 18px rgba(0,0,0,.14);
       }
 
+      .gjsb-scorePop{
+        position:absolute;
+        transform:translate(-50%,-50%) scale(.9);
+        z-index:36;
+        pointer-events:none;
+        font-weight:1100;
+        line-height:1;
+        text-shadow:0 8px 18px rgba(0,0,0,.16);
+        opacity:0;
+      }
+
+      .gjsb-scorePop.show{
+        animation:gjsbScorePop .7s cubic-bezier(.2,.8,.2,1) forwards;
+      }
+
+      .gjsb-scorePop.good{ color:#2f8f2f; }
+      .gjsb-scorePop.power{ color:#cf8a00; }
+      .gjsb-scorePop.bad{ color:#d16b27; }
+
+      @keyframes gjsbScorePop{
+        0%{ opacity:0; transform:translate(-50%,-10%) scale(.72); }
+        18%{ opacity:1; transform:translate(-50%,-42%) scale(1.12); }
+        100%{ opacity:0; transform:translate(-50%,-155%) scale(1); }
+      }
+
       @keyframes gjsbFx{
         from{ opacity:1; transform:translate(-50%,-10%); }
         to{ opacity:0; transform:translate(-50%,-150%); }
@@ -629,6 +994,40 @@
         50%{ opacity:1; box-shadow:inset 0 0 0 10px rgba(255,120,120,.28), inset 0 0 40px 18px rgba(255,86,86,.18); }
       }
 
+      .gjsb-stormLane{
+        position:absolute;
+        top:0;
+        bottom:0;
+        width:72px;
+        pointer-events:none;
+        opacity:0;
+        z-index:18;
+        background:
+          linear-gradient(180deg, rgba(255,110,110,.00), rgba(255,110,110,.18) 22%, rgba(255,120,120,.28) 50%, rgba(255,110,110,.18) 78%, rgba(255,110,110,.00)),
+          repeating-linear-gradient(180deg, rgba(255,255,255,.28) 0 10px, rgba(255,255,255,0) 10px 20px);
+        border-left:2px dashed rgba(255,255,255,.45);
+        border-right:2px dashed rgba(255,255,255,.45);
+        box-shadow:inset 0 0 18px rgba(255,90,90,.18);
+      }
+
+      .gjsb-stormLane.show{
+        opacity:1;
+        animation:gjsbLaneBlink .45s ease-in-out infinite;
+      }
+
+      .gjsb-stormLane.hc{
+        background:
+          linear-gradient(180deg, rgba(255,110,110,.05), rgba(255,110,110,.24) 22%, rgba(255,120,120,.38) 50%, rgba(255,110,110,.24) 78%, rgba(255,110,110,.05)),
+          repeating-linear-gradient(180deg, rgba(255,255,255,.46) 0 12px, rgba(255,255,255,0) 12px 22px);
+        border-left:3px dashed rgba(255,255,255,.7);
+        border-right:3px dashed rgba(255,255,255,.7);
+      }
+
+      @keyframes gjsbLaneBlink{
+        0%,100%{ opacity:.42; }
+        50%{ opacity:.9; }
+      }
+
       .gjsb-stage.shake{ animation:gjsbShake .22s linear 1; }
       @keyframes gjsbShake{
         0%{ transform:translate3d(0,0,0); }
@@ -637,6 +1036,27 @@
         60%{ transform:translate3d(-4px,1px,0); }
         80%{ transform:translate3d(4px,-1px,0); }
         100%{ transform:translate3d(0,0,0); }
+      }
+
+      .gjsb-phasePulse{
+        position:absolute;
+        inset:0;
+        z-index:16;
+        pointer-events:none;
+        opacity:0;
+        background:
+          radial-gradient(circle at 50% 30%, rgba(255,255,255,.26), transparent 42%),
+          linear-gradient(180deg, rgba(255,230,120,.00), rgba(255,230,120,.10) 45%, rgba(255,180,80,.00));
+      }
+
+      .gjsb-phasePulse.show{
+        animation:gjsbPhasePulse .7s ease-out 1;
+      }
+
+      @keyframes gjsbPhasePulse{
+        0%{ opacity:0; transform:scale(.98); }
+        25%{ opacity:1; transform:scale(1.01); }
+        100%{ opacity:0; transform:scale(1); }
       }
 
       .gjsb-presentation{
@@ -723,6 +1143,72 @@
       .gjsb-patternBanner.break .gjsb-cardKicker{ border-color:#ffd8ae; color:#a35b12; }
       .gjsb-patternBanner.storm .gjsb-cardKicker{ border-color:#ffc6c6; color:#b3472d; }
 
+      .gjsb-pause{
+        position:absolute;
+        inset:0;
+        z-index:70;
+        display:none;
+        place-items:center;
+        background:rgba(255,255,255,.42);
+        backdrop-filter:blur(4px);
+      }
+
+      .gjsb-pause.show{
+        display:grid;
+      }
+
+      .gjsb-pauseCard{
+        width:min(88vw,420px);
+        border-radius:24px;
+        background:linear-gradient(180deg,#fffef8,#fff);
+        border:4px solid #d7edf7;
+        box-shadow:0 18px 36px rgba(86,155,194,.18);
+        padding:18px;
+        text-align:center;
+        color:#5a554c;
+      }
+
+      .gjsb-pauseTitle{
+        font-size:28px;
+        line-height:1.08;
+        font-weight:1000;
+        color:#67a91c;
+      }
+
+      .gjsb-pauseSub{
+        margin-top:8px;
+        font-size:14px;
+        line-height:1.55;
+        color:#7b7a72;
+        font-weight:1000;
+      }
+
+      .gjsb-pauseActions{
+        display:grid;
+        gap:10px;
+        margin-top:16px;
+      }
+
+      .gjsb-pauseBtn{
+        border:none;
+        border-radius:18px;
+        padding:13px 16px;
+        font-size:15px;
+        font-weight:1000;
+        cursor:pointer;
+      }
+
+      .gjsb-pauseBtn.resume{
+        background:linear-gradient(180deg,#7ed957,#58c33f);
+        color:#173b0b;
+      }
+
+      .gjsb-pauseBtn.hub{
+        background:#fff;
+        color:#6c6a61;
+        border:3px solid #d7edf7;
+      }
+
       .gjsb-summary{
         position:absolute;
         inset:0;
@@ -745,6 +1231,12 @@
         box-shadow:0 18px 36px rgba(86,155,194,.18);
         padding:18px;
         color:#55514a;
+      }
+
+      .gjsb-summary-card.replay-hot{
+        box-shadow:
+          0 18px 36px rgba(86,155,194,.18),
+          0 0 0 8px rgba(127,207,255,.08);
       }
 
       .gjsb-summary-ribbon{
@@ -840,6 +1332,18 @@
         font-weight:1000;
       }
 
+      .gjsb-nextHint{
+        margin-top:12px;
+        border-radius:18px;
+        background:linear-gradient(180deg,#fffef6,#fff);
+        border:3px dashed #d7edf7;
+        padding:12px 14px;
+        font-size:14px;
+        line-height:1.55;
+        color:#6b675f;
+        font-weight:1000;
+      }
+
       .gjsb-actions{
         display:grid;
         gap:10px;
@@ -858,6 +1362,27 @@
       .gjsb-btn.replay{ background:linear-gradient(180deg,#7ed957,#58c33f); color:#173b0b; }
       .gjsb-btn.cooldown{ background:linear-gradient(180deg,#7fcfff,#58b7f5); color:#08374d; }
       .gjsb-btn.hub{ background:#fff; color:#6c6a61; border:3px solid #d7edf7; }
+
+      .gjsb-stage.reduced-motion *{
+        animation-duration:.01ms !important;
+        animation-iteration-count:1 !important;
+        transition-duration:.01ms !important;
+        scroll-behavior:auto !important;
+      }
+
+      .gjsb-stage.reduced-motion .gjsb-dangerEdge.show,
+      .gjsb-stage.reduced-motion .gjsb-rageAura.show,
+      .gjsb-stage.reduced-motion .gjsb-stormLane.show,
+      .gjsb-stage.reduced-motion .gjsb-praise.show,
+      .gjsb-stage.reduced-motion .gjsb-patternBanner.show,
+      .gjsb-stage.reduced-motion .gjsb-bossIntro.show{
+        animation:none !important;
+      }
+
+      .gjsb-stage.reduced-motion .gjsb-flash.show{
+        animation:none !important;
+        opacity:.8;
+      }
 
       @media (max-width:720px){
         .gjsb-bar{
@@ -885,13 +1410,65 @@
           font-size:10px;
         }
 
-        .gjsb-boss{
-          top:46px;
-          right:6px;
-          width:min(170px,45vw);
+        .gjsb-utilRow{
+          justify-content:stretch;
         }
 
-        .gjsb-summary-grid{ grid-template-columns:1fr; }
+        .gjsb-utilBtn{
+          flex:1 1 0;
+          min-height:34px;
+          border-radius:10px;
+          font-size:10px;
+          padding:6px 8px;
+        }
+
+        .gjsb-boss{
+          width:min(154px,42vw);
+        }
+
+        .gjsb-boss-card{
+          padding:7px 7px;
+        }
+
+        .gjsb-boss-head{
+          grid-template-columns:34px 1fr;
+          gap:6px;
+        }
+
+        .gjsb-boss-icon{
+          width:34px;
+          height:34px;
+          font-size:19px;
+          border-radius:12px;
+        }
+
+        .gjsb-boss-title{
+          font-size:12px;
+        }
+
+        .gjsb-boss-sub{
+          font-size:9px;
+        }
+
+        .gjsb-boss-stage,
+        .gjsb-patternChip,
+        .gjsb-rageBadge{
+          font-size:9px;
+          padding:5px 7px;
+        }
+
+        .gjsb-boss-bar{
+          height:12px;
+          margin-top:8px;
+        }
+
+        .gjsb-boss-hp{
+          font-size:9px;
+        }
+
+        .gjsb-summary-grid{
+          grid-template-columns:1fr;
+        }
       }
     `;
     document.head.appendChild(style);
@@ -906,6 +1483,8 @@
           <div class="gjsb-cloud c3"></div>
           <div class="gjsb-ground"></div>
 
+          <div class="gjsb-phasePulse" id="phasePulse"></div>
+          <div class="gjsb-stormLane" id="stormLane"></div>
           <div class="gjsb-flash" id="hudFlash"></div>
           <div class="gjsb-dangerEdge" id="dangerEdge"></div>
 
@@ -924,6 +1503,12 @@
 
             <div class="gjsb-progressWrap">
               <div class="gjsb-progressFill" id="hudProgress"></div>
+            </div>
+
+            <div class="gjsb-utilRow">
+              <button class="gjsb-utilBtn" id="btnPause" type="button">⏸ Pause</button>
+              <button class="gjsb-utilBtn" id="btnMute" type="button">🔊 Sound</button>
+              <button class="gjsb-utilBtn" id="btnMotion" type="button">✨ Motion</button>
             </div>
           </div>
 
@@ -945,6 +1530,8 @@
                 <div class="gjsb-boss-fill" id="bossHpFill"></div>
               </div>
               <div class="gjsb-boss-hp" id="bossHpText">HP 0 / 0</div>
+
+              <div class="gjsb-rageAura" id="bossRageAura"></div>
             </div>
           </div>
 
@@ -964,8 +1551,20 @@
             </div>
           </div>
 
+          <div class="gjsb-pause" id="pauseOverlay">
+            <div class="gjsb-pauseCard">
+              <div class="gjsb-pauseTitle">พักก่อนนะ</div>
+              <div class="gjsb-pauseSub" id="pauseSub">เกมถูกหยุดไว้ชั่วคราว กดเล่นต่อได้เมื่อพร้อม</div>
+
+              <div class="gjsb-pauseActions">
+                <button class="gjsb-pauseBtn resume" id="btnResume" type="button">▶️ เล่นต่อ</button>
+                <button class="gjsb-pauseBtn hub" id="btnPauseHub" type="button">🏠 กลับ HUB</button>
+              </div>
+            </div>
+          </div>
+
           <div class="gjsb-summary" id="summary">
-            <div class="gjsb-summary-card">
+            <div class="gjsb-summary-card" id="summaryCard">
               <div class="gjsb-summary-head">
                 <div class="gjsb-summary-ribbon">GOODJUNK SOLO BOSS</div>
                 <div class="gjsb-medal" id="sumMedal">🥈</div>
@@ -977,10 +1576,13 @@
 
               <div class="gjsb-summary-grid" id="sumGrid"></div>
               <div class="gjsb-coach" id="sumCoach">วันนี้ทำได้ดีมาก ลองเก็บอาหารดีต่อเนื่อง และระวัง junk ให้มากขึ้นนะ</div>
+              <div class="gjsb-nextHint" id="sumNextHint">รอบหน้าลองเข้าไปให้ถึง Stage C และลด miss ลงอีกนิดนะ</div>
+              <div class="gjsb-nextHint" id="sumExportBox">payload พร้อม export หลังจบเกม</div>
 
               <div class="gjsb-actions">
                 <button class="gjsb-btn replay" id="btnReplay">🔁 เล่นใหม่</button>
                 <button class="gjsb-btn cooldown" id="btnCooldown">🧊 ไป Cooldown</button>
+                <button class="gjsb-btn hub" id="btnCopyJson">📋 คัดลอก JSON</button>
                 <button class="gjsb-btn hub" id="btnHub">🏠 กลับ HUB</button>
               </div>
             </div>
@@ -1004,6 +1606,12 @@
       telegraph: document.getElementById('hudTelegraph'),
       flash: document.getElementById('hudFlash'),
       dangerEdge: document.getElementById('dangerEdge'),
+      phasePulse: document.getElementById('phasePulse'),
+      stormLane: document.getElementById('stormLane'),
+
+      btnPause: document.getElementById('btnPause'),
+      btnMute: document.getElementById('btnMute'),
+      btnMotion: document.getElementById('btnMotion'),
 
       bossWrap: document.getElementById('bossWrap'),
       bossCard: document.getElementById('bossCard'),
@@ -1014,6 +1622,7 @@
       bossRageBadge: document.getElementById('bossRageBadge'),
       bossHpText: document.getElementById('bossHpText'),
       bossHpFill: document.getElementById('bossHpFill'),
+      bossRageAura: document.getElementById('bossRageAura'),
 
       bossIntroCard: document.getElementById('bossIntroCard'),
       bossIntroIcon: document.getElementById('bossIntroIcon'),
@@ -1024,7 +1633,13 @@
       patternBannerTitle: document.getElementById('patternBannerTitle'),
       patternBannerSub: document.getElementById('patternBannerSub'),
 
+      pauseOverlay: document.getElementById('pauseOverlay'),
+      pauseSub: document.getElementById('pauseSub'),
+      btnResume: document.getElementById('btnResume'),
+      btnPauseHub: document.getElementById('btnPauseHub'),
+
       summary: document.getElementById('summary'),
+      summaryCard: document.getElementById('summaryCard'),
       sumMedal: document.getElementById('sumMedal'),
       sumGrade: document.getElementById('sumGrade'),
       sumTitle: document.getElementById('sumTitle'),
@@ -1032,42 +1647,104 @@
       sumStars: document.getElementById('sumStars'),
       sumGrid: document.getElementById('sumGrid'),
       sumCoach: document.getElementById('sumCoach'),
+      sumNextHint: document.getElementById('sumNextHint'),
+      sumExportBox: document.getElementById('sumExportBox'),
       btnReplay: document.getElementById('btnReplay'),
       btnCooldown: document.getElementById('btnCooldown'),
+      btnCopyJson: document.getElementById('btnCopyJson'),
       btnHub: document.getElementById('btnHub')
     };
+  }
+
+  function wakeHud(ms) {
+    state.hudAwakeMs = Math.max(state.hudAwakeMs || 0, ms || 1600);
+  }
+
+  function setMuted(next) {
+    state.muted = !!next;
+    if (ui.btnMute) {
+      ui.btnMute.textContent = state.muted ? '🔇 Mute' : '🔊 Sound';
+      ui.btnMute.classList.toggle('active', !state.muted);
+    }
+  }
+
+  function setReducedMotion(next) {
+    state.a11y.reducedMotion = !!next;
+    ui.stage.classList.toggle('reduced-motion', !!next);
+
+    if (ui.btnMotion) {
+      ui.btnMotion.textContent = state.a11y.reducedMotion ? '🪶 Low Motion' : '✨ Motion';
+      ui.btnMotion.classList.toggle('active', !state.a11y.reducedMotion);
+    }
+  }
+
+  function refreshUtilityButtons() {
+    setMuted(state.muted);
+    setReducedMotion(state.a11y.reducedMotion);
+  }
+
+  function mobileHudCompact() {
+    const compact =
+      window.innerWidth < 720 &&
+      (state.boss.active || ui.telegraph.classList.contains('show'));
+
+    ui.topHud.classList.toggle('compact', compact);
+  }
+
+  function pauseGame(reason) {
+    if (state.ended || state.paused) return;
+
+    state.paused = true;
+    state.pauseReason = String(reason || 'pause');
+
+    if (ui.pauseSub) {
+      ui.pauseSub.textContent =
+        state.pauseReason === 'hidden'
+          ? 'เกมหยุดอัตโนมัติเมื่อหน้าจอถูกสลับออก เพื่อไม่ให้พลาดระหว่างเล่น'
+          : 'เกมถูกหยุดไว้ชั่วคราว กดเล่นต่อได้เมื่อพร้อม';
+    }
+
+    ui.pauseOverlay.classList.add('show');
+  }
+
+  function resumeGame() {
+    if (state.ended || !state.paused) return;
+    state.paused = false;
+    state.pauseReason = '';
+    ui.pauseOverlay.classList.remove('show');
+    state.lastTs = performance.now();
   }
 
   function layoutInnerHud() {
     if (!ui || !ui.topHud || !ui.bossWrap) return;
 
+    const telegraphShown = ui.telegraph.classList.contains('show');
+    const bannerShown = !ui.banner.classList.contains('hide');
+    const compact = window.innerWidth < 720 && (state.boss.active || telegraphShown);
+
     if (!state.boss.active) {
       ui.topHud.style.setProperty('--boss-reserve', '0px');
-      ui.bossWrap.style.top = window.innerWidth < 720 ? '46px' : '52px';
+      ui.bossWrap.style.top = compact ? '50px' : '52px';
+      mobileHudCompact();
       return;
     }
 
-    const reserve = window.innerWidth < 720 ? 156 : 220;
+    const reserve = compact ? 142 : (window.innerWidth < 980 ? 176 : 220);
     ui.topHud.style.setProperty('--boss-reserve', reserve + 'px');
 
-    const bannerShown = !ui.banner.classList.contains('hide');
-    const telegraphShown = ui.telegraph.classList.contains('show');
-
-    if (window.innerWidth < 720) {
+    if (compact) {
       ui.bossWrap.style.top =
-        telegraphShown ? '84px' :
-        bannerShown ? '62px' :
-        '46px';
+        telegraphShown ? '86px' :
+        bannerShown ? '66px' :
+        '50px';
     } else {
       ui.bossWrap.style.top =
         telegraphShown ? '96px' :
         bannerShown ? '72px' :
         '52px';
     }
-  }
 
-  function wakeHud(ms) {
-    state.hudAwakeMs = Math.max(state.hudAwakeMs || 0, ms || 1600);
+    mobileHudCompact();
   }
 
   function fx(x, y, text, color) {
@@ -1081,13 +1758,36 @@
     setTimeout(() => el.remove(), 760);
   }
 
+  function scorePop(x, y, text, kind, sizePx) {
+    const el = document.createElement('div');
+    el.className = 'gjsb-scorePop ' + (kind || 'good');
+    el.textContent = text;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.fontSize = (sizePx || 28) + 'px';
+    ui.stage.appendChild(el);
+
+    requestAnimationFrame(() => {
+      el.classList.add('show');
+    });
+
+    setTimeout(() => {
+      try { el.remove(); } catch (_) {}
+    }, 760);
+  }
+
   function phaseFlash() {
     ui.flash.classList.remove('show');
     void ui.flash.offsetWidth;
     ui.flash.classList.add('show');
+
+    if (state.a11y.reducedMotion) {
+      setTimeout(() => ui.flash.classList.remove('show'), 120);
+    }
   }
 
   function stageShake() {
+    if (state.a11y.reducedMotion) return;
     ui.stage.classList.remove('shake');
     void ui.stage.offsetWidth;
     ui.stage.classList.add('shake');
@@ -1098,6 +1798,45 @@
     ui.dangerEdge.classList.add('show');
     clearTimeout(showDangerEdge._t);
     showDangerEdge._t = setTimeout(() => ui.dangerEdge.classList.remove('show'), ms || 700);
+  }
+
+  function pulseBossHit() {
+    if (!ui.bossCard) return;
+    state.fx.bossHurtMs = 220;
+    ui.bossCard.classList.remove('hurt');
+    void ui.bossCard.offsetWidth;
+    ui.bossCard.classList.add('hurt');
+  }
+
+  function pulsePhase() {
+    if (!ui.phasePulse) return;
+    state.fx.phasePulseMs = 700;
+    ui.phasePulse.classList.remove('show');
+    void ui.phasePulse.offsetWidth;
+    ui.phasePulse.classList.add('show');
+  }
+
+  function setStormLane(x, width, ms) {
+    if (!ui.stormLane) return;
+
+    state.fx.stormLaneX = x;
+    state.fx.stormLaneW = width;
+    state.fx.stormLaneMs = ms || 700;
+
+    ui.stormLane.style.left = x + 'px';
+    ui.stormLane.style.width = width + 'px';
+    ui.stormLane.classList.toggle('hc', !!state.a11y.highContrastTelegraph);
+    ui.stormLane.classList.add('show');
+
+    clearTimeout(setStormLane._t);
+    setStormLane._t = setTimeout(() => {
+      ui.stormLane.classList.remove('show');
+    }, ms || 700);
+  }
+
+  function setRageAura(on) {
+    if (!ui.bossRageAura) return;
+    ui.bossRageAura.classList.toggle('show', !!on);
   }
 
   function lockPresentation(ms) {
@@ -1123,6 +1862,7 @@
   function showTelegraph(text, ms) {
     wakeHud((ms || 800) + 600);
     ui.telegraph.textContent = text;
+    ui.telegraph.classList.toggle('hc', !!state.a11y.highContrastTelegraph);
     ui.telegraph.classList.add('show');
     playSfx('telegraph');
     layoutInnerHud();
@@ -1272,17 +2012,25 @@
         label: 'Stage A • Learn',
         stageClass: 'a',
         icon: '🍔',
+
         weakSizeHunt: diffKey === 'hard' ? 82 : 92,
         weakSizeBreak: diffKey === 'hard' ? 96 : 108,
+
         weakSpeedHunt: diffKey === 'hard' ? 190 : 160,
         weakSpeedBreak: diffKey === 'hard' ? 145 : 120,
+
         huntRetargetMs: 1300,
         breakRetargetMs: 1450,
-        stormWaveEvery: 2200,
+
+        stormWaveEvery: 2350,
         stormBurstCount: 1,
         stormBurstGap: 150,
+
         patternDuration: 3600,
-        telegraphMs: 900
+        telegraphMs: 920,
+
+        stormMode: 'single',
+        huntMode: 'steady'
       };
     }
 
@@ -1292,17 +2040,25 @@
         label: 'Stage B • Pressure',
         stageClass: 'b',
         icon: '😤',
+
         weakSizeHunt: diffKey === 'hard' ? 72 : 80,
         weakSizeBreak: diffKey === 'hard' ? 88 : 96,
+
         weakSpeedHunt: diffKey === 'hard' ? 255 : 215,
         weakSpeedBreak: diffKey === 'hard' ? 180 : 150,
+
         huntRetargetMs: 980,
         breakRetargetMs: 1120,
+
         stormWaveEvery: 1700,
         stormBurstCount: 2,
         stormBurstGap: 120,
+
         patternDuration: 3200,
-        telegraphMs: 820
+        telegraphMs: 820,
+
+        stormMode: 'cross',
+        huntMode: 'pressure'
       };
     }
 
@@ -1313,17 +2069,25 @@
       label: rage ? 'Stage C • Rage Finale' : 'Stage C • Final',
       stageClass: 'c',
       icon: rage ? '👹' : '😈',
+
       weakSizeHunt: rage ? (diffKey === 'hard' ? 52 : 60) : (diffKey === 'hard' ? 60 : 68),
       weakSizeBreak: rage ? (diffKey === 'hard' ? 70 : 76) : (diffKey === 'hard' ? 78 : 84),
+
       weakSpeedHunt: rage ? (diffKey === 'hard' ? 360 : 315) : (diffKey === 'hard' ? 320 : 280),
       weakSpeedBreak: rage ? (diffKey === 'hard' ? 250 : 215) : (diffKey === 'hard' ? 220 : 185),
+
       huntRetargetMs: rage ? 520 : 720,
       breakRetargetMs: rage ? 680 : 860,
+
       stormWaveEvery: rage ? 780 : 1120,
       stormBurstCount: rage ? 4 : 3,
       stormBurstGap: rage ? 85 : 105,
+
       patternDuration: rage ? 1800 : 2600,
-      telegraphMs: rage ? 620 : 740
+      telegraphMs: rage ? 620 : 740,
+
+      stormMode: rage ? 'rage-rain' : 'fan',
+      huntMode: rage ? 'trickster' : 'aggressive'
     };
   }
 
@@ -1386,8 +2150,25 @@
   function retargetWeak(item) {
     const p = getBossStageProfile(state.boss.stage);
     const speed = state.boss.pattern === 'break' ? p.weakSpeedBreak : p.weakSpeedHunt;
-    const vx = range(-speed, speed);
-    const vy = range(-speed, speed);
+
+    let vx = range(-speed, speed);
+    let vy = range(-speed, speed);
+
+    if (p.huntMode === 'steady') {
+      vx *= 0.82;
+      vy *= 0.82;
+    } else if (p.huntMode === 'pressure') {
+      vx *= 1.0;
+      vy *= 1.0;
+    } else if (p.huntMode === 'aggressive') {
+      vx *= 1.08;
+      vy *= 1.08;
+    } else if (p.huntMode === 'trickster') {
+      vx *= 1.15;
+      vy *= 1.15;
+      if (rand() < 0.22) vx *= -1;
+      if (rand() < 0.22) vy *= -1;
+    }
 
     item.vx = Math.abs(vx) < speed * 0.22 ? (vx < 0 ? -speed * 0.35 : speed * 0.35) : vx;
     item.vy = Math.abs(vy) < speed * 0.22 ? (vy < 0 ? -speed * 0.35 : speed * 0.35) : vy;
@@ -1429,6 +2210,7 @@
 
     const spawnRealWeak = () => {
       const pos = randomBossSpawn(size);
+
       const item = createItem(
         'weak',
         isBreak ? '💥' : '🎯',
@@ -1478,28 +2260,6 @@
       state.boss.fakeWeakDecoyId = '';
       if (!state.boss.weakId) spawnRealWeak();
     }, state.boss.rage ? 280 : 360);
-  }
-
-  function spawnStormOne() {
-    const r = stageRect();
-    const size = range(42, 62);
-    const x = range(10, Math.max(12, r.width - size - 10));
-    const y = -size - range(0, 20);
-    const vx = range(-70, 70);
-    const vy = state.boss.stage === 'C' ? range(250, 370) : range(180, 280);
-
-    state.spawnedStorm += 1;
-
-    createItem(
-      'storm',
-      JUNK[Math.floor(rand() * JUNK.length)],
-      x,
-      y,
-      size,
-      vx,
-      vy,
-      'storm'
-    );
   }
 
   function showBossIntroCard() {
@@ -1555,6 +2315,19 @@
     state.boss.telegraphOn = true;
     state.boss.telegraphText = text;
     state.boss.telegraphMs = ms || 800;
+    state.lastTelegraphAt = Date.now();
+
+    state.metrics.telegraphShown += 1;
+    state.metrics.telegraphByPattern[state.boss.pattern] =
+      (state.metrics.telegraphByPattern[state.boss.pattern] || 0) + 1;
+
+    pushEvent('boss_telegraph', {
+      pattern: state.boss.pattern,
+      stage: state.boss.rage ? 'RAGE' : state.boss.stage,
+      text: text,
+      durationMs: ms || 800
+    });
+
     showTelegraph(text, ms || 800);
   }
 
@@ -1562,6 +2335,16 @@
     const p = getBossStageProfile(state.boss.stage);
 
     state.boss.pattern = pattern;
+    state.metrics.patternStarts[pattern] =
+      (state.metrics.patternStarts[pattern] || 0) + 1;
+
+    pushEvent('boss_pattern_start', {
+      pattern: pattern,
+      stage: state.boss.rage ? 'RAGE' : state.boss.stage,
+      withTelegraph: !!withTelegraph,
+      hp: state.boss.hp
+    });
+
     state.boss.patternTimeLeft = p.patternDuration;
     state.boss.stormBurstLeft = 0;
     state.boss.stormBurstGapMs = 0;
@@ -1623,6 +2406,65 @@
     beginNextBossPattern(nextStage === 'B' ? 'break' : 'storm');
   }
 
+  function enterPhase2() {
+    state.phase = 2;
+    clearItems();
+    state.spawnAcc = 0;
+
+    markSplit('phase2StartAt');
+    pushEvent('phase_enter', {
+      phase: 2,
+      score: state.score,
+      miss: state.miss,
+      bestStreak: state.bestStreak
+    });
+
+    pulsePhase();
+    phaseFlash();
+    playSfx('phase-up');
+    setBanner('Phase 2 • เร็วขึ้นและกดดันขึ้น', 1400);
+    renderHud();
+  }
+
+  function enterBoss() {
+    state.phase = 3;
+    state.boss.active = true;
+    state.boss.hp = cfg.bossHp;
+    state.boss.maxHp = cfg.bossHp;
+    state.boss.stage = 'A';
+    state.boss.stageReached = 'A';
+    state.boss.patternCycleIndex = -1;
+    state.boss.telegraphOn = false;
+    state.boss.telegraphMs = 0;
+    state.boss.killSequence = false;
+    state.boss.rage = false;
+    state.boss.rageTriggered = false;
+    state.boss.fakeWeakActive = false;
+    state.boss.fakeWeakDecoyId = '';
+
+    state.metrics.bossEnterAt = Date.now();
+    markSplit('bossStartAt');
+    pushEvent('boss_enter', {
+      hp: cfg.bossHp,
+      score: state.score,
+      miss: state.miss,
+      bestStreak: state.bestStreak
+    });
+
+    clearItems();
+    state.spawnAcc = 0;
+
+    pulsePhase();
+    phaseFlash();
+    stageShake();
+    playSfx('phase-up');
+    setBanner('Boss Phase • Junk King มาแล้ว!', 1600);
+    showBossIntroCard();
+
+    beginNextBossPattern('hunt');
+    renderHud();
+  }
+
   function enterRageFinale() {
     if (state.boss.rageTriggered || state.ended) return;
 
@@ -1631,18 +2473,83 @@
     state.boss.rageEnterMs = 1400;
     state.boss.stageReached = 'RAGE';
 
+    state.metrics.rageEntered = true;
+    state.metrics.rageAtHp = state.boss.hp;
+    markSplit('rageStartAt');
+    pushEvent('boss_rage_enter', {
+      bossHp: state.boss.hp,
+      score: state.score,
+      miss: state.miss
+    });
+
     clearPatternTargets();
 
+    pulsePhase();
     phaseFlash();
     stageShake();
     playSfx('phase-up');
     showDangerEdge(1800);
     setBanner('🔥 RAGE FINALE! บอสโกรธสุดแล้ว!', 1500);
     showBossIntroCard();
+    setRageAura(true);
     startTelegraph('🔥 Rage Finale! เป้าหลอก + พายุถี่ขึ้น', 720);
 
     startPattern('storm', true);
     renderHud();
+  }
+
+  function spawnStormOne() {
+    const r = stageRect();
+    const p = getBossStageProfile(state.boss.stage);
+
+    const size = range(42, 62);
+    let x = range(10, Math.max(12, r.width - size - 10));
+    let y = -size - range(0, 20);
+    let vx = range(-70, 70);
+    let vy = state.boss.stage === 'C' ? range(250, 370) : range(180, 280);
+
+    if (p.stormMode === 'single') {
+      vx = range(-45, 45);
+      vy = range(170, 240);
+    } else if (p.stormMode === 'cross') {
+      x = rand() < 0.5 ? 24 : Math.max(28, r.width - size - 24);
+      vx = x < r.width / 2 ? range(70, 120) : range(-120, -70);
+      vy = range(190, 280);
+    } else if (p.stormMode === 'fan') {
+      const mid = r.width * 0.5;
+      x = clamp(mid + range(-80, 80), 10, r.width - size - 10);
+      vx = range(-120, 120);
+      vy = range(220, 320);
+    } else if (p.stormMode === 'rage-rain') {
+      x = range(10, Math.max(12, r.width - size - 10));
+      vx = range(-90, 90);
+      vy = range(280, 420);
+    }
+
+    state.spawnedStorm += 1;
+    state.metrics.stormSpawned += 1;
+    setStormLane(Math.max(0, x - 10), size + 20, p.stage === 'C' ? 520 : 680);
+
+    const create = () => {
+      createItem(
+        'storm',
+        JUNK[Math.floor(rand() * JUNK.length)],
+        x,
+        y,
+        size,
+        vx,
+        vy,
+        'storm'
+      );
+    };
+
+    if (p.stage === 'A') {
+      setTimeout(create, 150);
+    } else if (p.stage === 'B') {
+      setTimeout(create, 110);
+    } else {
+      setTimeout(create, state.boss.rage ? 70 : 90);
+    }
   }
 
   function updateBossPattern(dt) {
@@ -1708,10 +2615,12 @@
     if (!state.boss.active) {
       ui.bossWrap.classList.remove('show');
       ui.topHud.style.setProperty('--boss-reserve', '0px');
+      setRageAura(false);
       return;
     }
 
     const p = getBossStageProfile(state.boss.stage);
+
     ui.bossWrap.classList.add('show');
     ui.bossPatternText.textContent = getPatternLabel(state.boss.pattern) + ' • ' + getPatternSubtitle(state.boss.pattern);
     ui.bossStageText.textContent = p.label;
@@ -1723,6 +2632,7 @@
     ui.bossPatternChip.className = 'gjsb-patternChip ' + state.boss.pattern;
     ui.bossRageBadge.classList.toggle('show', !!state.boss.rage);
     ui.bossCard.classList.toggle('rage', !!state.boss.rage);
+    setRageAura(!!state.boss.rage);
   }
 
   function renderHud() {
@@ -1744,46 +2654,8 @@
 
     updateBossUi();
     layoutInnerHud();
-  }
-
-  function enterPhase2() {
-    state.phase = 2;
-    clearItems();
-    state.spawnAcc = 0;
-
-    phaseFlash();
-    playSfx('phase-up');
-    setBanner('Phase 2 • เร็วขึ้นและกดดันขึ้น', 1400);
-    renderHud();
-  }
-
-  function enterBoss() {
-    state.phase = 3;
-    state.boss.active = true;
-    state.boss.hp = cfg.bossHp;
-    state.boss.maxHp = cfg.bossHp;
-    state.boss.stage = 'A';
-    state.boss.stageReached = 'A';
-    state.boss.patternCycleIndex = -1;
-    state.boss.telegraphOn = false;
-    state.boss.telegraphMs = 0;
-    state.boss.killSequence = false;
-    state.boss.rage = false;
-    state.boss.rageTriggered = false;
-    state.boss.fakeWeakActive = false;
-    state.boss.fakeWeakDecoyId = '';
-
-    clearItems();
-    state.spawnAcc = 0;
-
-    phaseFlash();
-    stageShake();
-    playSfx('phase-up');
-    setBanner('Boss Phase • Junk King มาแล้ว!', 1600);
-    showBossIntroCard();
-
-    beginNextBossPattern('hunt');
-    renderHud();
+    mobileHudCompact();
+    refreshUtilityButtons();
   }
 
   function startKillSequence(x, y) {
@@ -1810,47 +2682,94 @@
     const cy = item.y + item.size / 2;
 
     if (item.kind === 'good') {
+      state.research.counters.goodTap += 1;
+
       state.hitsGood += 1;
       state.streak += 1;
       state.bestStreak = Math.max(state.bestStreak, state.streak);
 
       const bonus = Math.min(10, Math.floor(state.streak / 3) * 2);
-      const gain = 10 + bonus;
+      const gain = cfg.scoreGood + bonus;
       state.score += gain;
 
+      pushEvent('tap_good', {
+        gain: gain,
+        streak: state.streak,
+        score: state.score
+      });
+
       fx(cx, cy, '+' + gain, '#2f8f2f');
+      scorePop(cx, cy, '+' + gain, 'good', state.streak >= 8 ? 34 : 28);
       setBanner('เยี่ยม! เก็บอาหารดีต่อไป', 650);
       playSfx('good');
       maybePraiseStreak();
       removeItem(item);
     } else if (item.kind === 'junk' || item.kind === 'storm') {
+      state.research.counters.junkTap += 1;
+      if (item.kind === 'storm') state.research.counters.stormHit += 1;
+
       state.hitsBad += 1;
       state.miss += 1;
       state.streak = 0;
-      state.score = Math.max(0, state.score - 8);
+      state.score = Math.max(0, state.score - cfg.penaltyJunk);
 
       if (item.kind === 'storm') state.stormHits += 1;
 
+      pushEvent(item.kind === 'storm' ? 'hit_storm' : 'tap_junk', {
+        penalty: cfg.penaltyJunk,
+        score: state.score,
+        miss: state.miss
+      });
+
       fx(cx, cy, 'MISS', '#d16b27');
+      scorePop(cx, cy, '-' + cfg.penaltyJunk, 'bad', 26);
       setBanner(item.kind === 'storm' ? 'โดน Junk Storm!' : 'ระวัง junk!', 700);
       playSfx('bad');
       stageShake();
       showDangerEdge(item.kind === 'storm' ? 900 : 420);
       removeItem(item);
     } else if (item.kind === 'fakeweak') {
+      state.research.counters.fakeTap += 1;
+
+      state.metrics.fakeWeakTapped += 1;
       state.miss += 1;
       state.streak = 0;
-      state.score = Math.max(0, state.score - 6);
+      state.score = Math.max(0, state.score - cfg.penaltyFake);
+
+      pushEvent('tap_fake_weak', {
+        penalty: cfg.penaltyFake,
+        score: state.score,
+        miss: state.miss,
+        bossStage: state.boss.rage ? 'RAGE' : state.boss.stage
+      });
 
       fx(cx, cy, 'หลอก!', '#c05621');
+      scorePop(cx, cy, '-' + cfg.penaltyFake, 'bad', 24);
       playSfx('bad');
       stageShake();
       showDangerEdge(620);
       removeItem(item);
     } else if (item.kind === 'weak') {
+      state.research.counters.weakTap += 1;
+
       state.powerHits += 1;
       state.streak += 1;
       state.bestStreak = Math.max(state.bestStreak, state.streak);
+
+      const hitStage = state.boss.rage ? 'RAGE' : state.boss.stage;
+      state.metrics.weakHitsByStage[hitStage] =
+        (state.metrics.weakHitsByStage[hitStage] || 0) + 1;
+      state.metrics.weakHitsByPattern[state.boss.pattern] =
+        (state.metrics.weakHitsByPattern[state.boss.pattern] || 0) + 1;
+
+      let reactMs = 0;
+      if (state.lastTelegraphAt > 0) {
+        reactMs = Date.now() - state.lastTelegraphAt;
+        if (reactMs > 0 && reactMs < 5000) {
+          state.metrics.telegraphReactMs.push(reactMs);
+        }
+        state.lastTelegraphAt = 0;
+      }
 
       const damage = state.boss.pattern === 'break'
         ? (state.boss.stage === 'C' ? 3 : 2)
@@ -1859,7 +2778,18 @@
       state.boss.hp = Math.max(0, state.boss.hp - damage);
       state.score += damage >= 3 ? 30 : damage === 2 ? 24 : 15;
 
+      pushEvent('tap_weak', {
+        damage: damage,
+        pattern: state.boss.pattern,
+        stage: hitStage,
+        reactMs: reactMs || 0,
+        bossHpAfter: state.boss.hp,
+        score: state.score
+      });
+
       fx(cx, cy, damage >= 3 ? 'MEGA!' : damage === 2 ? 'CRUSH!' : 'POWER!', '#cf8a00');
+      scorePop(cx, cy, damage >= 3 ? '+30' : damage === 2 ? '+24' : '+15', 'power', damage >= 3 ? 40 : 32);
+      pulseBossHit();
       playSfx(damage >= 2 ? 'boss-break' : 'boss-hit');
       maybePraiseStreak();
       phaseFlash();
@@ -1867,6 +2797,11 @@
       removeItem(item);
 
       if (state.boss.hp <= 0) {
+        pushEvent('boss_defeat_trigger', {
+          stage: hitStage,
+          pattern: state.boss.pattern,
+          score: state.score
+        });
         startKillSequence(cx, cy);
         return;
       }
@@ -1879,9 +2814,10 @@
   }
 
   function calcGrade(bossClear) {
-    if (bossClear && state.miss <= 3 && state.bestStreak >= 10) return 'S';
-    if (bossClear || (state.score >= cfg.p2Goal && state.miss <= 8)) return 'A';
-    if (state.score >= cfg.p1Goal || state.boss.active) return 'B';
+    const avgReact = safeAvg(state.metrics.telegraphReactMs) || 9999;
+    if (bossClear && state.miss <= 3 && state.bestStreak >= 10 && avgReact <= 950) return 'S';
+    if (bossClear && state.miss <= 7) return 'A';
+    if (bossClear || (state.score >= cfg.p2Goal && state.miss <= 10)) return 'B';
     return 'C';
   }
 
@@ -1899,19 +2835,48 @@
   }
 
   function coachMessage(bossClear) {
-    if (bossClear && state.miss <= 5) {
-      return 'สุดยอดเลย! เธอเก็บอาหารดีได้ต่อเนื่อง อ่านจังหวะบอสแม่น และปราบ Junk King ได้แล้ว';
+    const avgReact = safeAvg(state.metrics.telegraphReactMs);
+
+    if (bossClear && state.miss <= 5 && avgReact && avgReact <= 950) {
+      return 'สุดยอดเลย! เธออ่านสัญญาณเตือนได้ไว รักษาคอมโบดี และปราบ Junk King ได้อย่างมั่นใจ';
+    }
+
+    if (bossClear) {
+      return 'เยี่ยมมาก! เธอผ่านทุก phase จนเอาชนะ Junk King ได้สำเร็จ รอบหน้าลองลด miss ลงอีกนิดจะได้เกรดสูงขึ้น';
+    }
+
+    if (state.metrics.rageEntered) {
+      return 'เก่งมาก! เธอไปถึง Rage Finale แล้ว รอบหน้าลองหลบ Junk Storm ให้มากขึ้น และอย่าโดนเป้าหลอก';
+    }
+
+    if (state.boss.active) {
+      return 'ใกล้มากแล้ว! เธอถึงบอสแล้ว ลองจับจังหวะ telegraph ให้ไว และใช้โอกาส Armor Break ให้คุ้มที่สุด';
+    }
+
+    if (state.phase >= 2) {
+      return 'ดีมาก! ผ่าน Phase 2 แล้ว รอบหน้าถ้ารักษาคอมโบและแตะของดีให้ต่อเนื่อง จะทะลุบอสได้แน่';
+    }
+
+    return 'เริ่มต้นได้ดีเลย ลองเก็บอาหารดีให้ต่อเนื่อง และหลบ junk ให้แม่นขึ้น แล้วจะไปถึงบอสได้เร็วขึ้น';
+  }
+
+  function nextHintMessage(bossClear) {
+    if (bossClear && state.miss <= 3) {
+      return '🎯 Challenge ต่อไป: ลองจบแบบ Miss ไม่เกิน 2 และทำ Best Streak ให้ถึง 12';
     }
     if (bossClear) {
-      return 'เยี่ยมมาก! แม้จะมีพลาดบ้าง แต่ก็ยังเอาชนะ Junk King ได้สำเร็จ';
+      return '🏆 Challenge ต่อไป: ลองเคลียร์บอสให้เร็วขึ้น และอย่าโดน Fake Weak';
+    }
+    if (state.metrics.rageEntered) {
+      return '🔥 Challenge ต่อไป: ไปถึง Rage Finale อีกครั้ง แล้วลด Storm Hit ลง';
     }
     if (state.boss.active) {
-      return 'เก่งมาก! ถึงบอสแล้ว รอบหน้าลองอ่านสัญญาณเตือน Junk Storm ให้ไวขึ้นอีกนิดนะ';
+      return '👑 Challenge ต่อไป: ไปให้ถึง Stage C แล้วปิดบอสให้ได้';
     }
     if (state.phase >= 2) {
-      return 'ดีมาก! ผ่าน Phase 2 แล้ว ลองรักษาคอมโบให้ยาวขึ้นในรอบต่อไป';
+      return '⚡ Challenge ต่อไป: ทำคะแนนให้ถึงเกณฑ์เข้าบอสเร็วขึ้น';
     }
-    return 'เริ่มต้นได้ดีเลย ลองแตะอาหารดีให้ต่อเนื่องมากขึ้น แล้วหลบ junk ให้แม่นขึ้นนะ';
+    return '🍎 Challenge ต่อไป: รักษาคอมโบให้นานขึ้น แล้วแตะของดีต่อเนื่อง';
   }
 
   function buildReplayUrl() {
@@ -1922,7 +2887,7 @@
     u.searchParams.set('mode', 'solo');
     u.searchParams.set('diff', diffKey);
     u.searchParams.set('time', String(Math.round(state.timeTotal / 1000)));
-    u.searchParams.set('seed', String(Date.now()));
+    u.searchParams.set('seed', String(Date.now() + Math.floor(Math.random() * 10000)));
     u.searchParams.set('hub', ctx.hub || new URL('./hub-v2.html', location.href).toString());
     u.searchParams.set('view', ctx.view || 'mobile');
     u.searchParams.set('run', ctx.run || 'play');
@@ -1960,9 +2925,31 @@
     cancelAnimationFrame(state.raf);
     clearItems();
 
+    state.metrics.bossEndAt = state.boss.active ? Date.now() : 0;
+    state.metrics.bossDurationMs =
+      state.metrics.bossEnterAt > 0 && state.metrics.bossEndAt > 0
+        ? (state.metrics.bossEndAt - state.metrics.bossEnterAt)
+        : 0;
+    state.metrics.clearTimeMs = Date.now() - state.metrics.runStartAt;
+
+    markSplit('endAt');
+
     const stars = starsFromSummary(bossClear);
     const grade = calcGrade(bossClear);
     const medal = medalEmojiForGrade(grade);
+    const avgReact = safeAvg(state.metrics.telegraphReactMs);
+
+    pushEvent('run_end', {
+      bossClear: !!bossClear,
+      grade: grade,
+      score: state.score,
+      miss: state.miss,
+      bestStreak: state.bestStreak,
+      avgReactMs: avgReact
+    });
+
+    const payload = buildResearchPayload(bossClear, grade);
+    saveResearchPayload(payload);
 
     ui.sumTitle.textContent = bossClear ? 'Food Hero Complete!' : 'Great Job!';
     ui.sumSub.textContent = bossClear
@@ -1983,6 +2970,12 @@
       <div class="gjsb-stat"><div class="k">Good Hit</div><div class="v">${state.hitsGood}</div></div>
       <div class="gjsb-stat"><div class="k">Power Hit</div><div class="v">${state.powerHits}</div></div>
       <div class="gjsb-stat"><div class="k">Storm Hit</div><div class="v">${state.stormHits || 0}</div></div>
+      <div class="gjsb-stat"><div class="k">Storm Dodge</div><div class="v">${state.metrics.stormDodgedApprox}</div></div>
+      <div class="gjsb-stat"><div class="k">Fake Weak Tap</div><div class="v">${state.metrics.fakeWeakTapped}</div></div>
+      <div class="gjsb-stat"><div class="k">Telegraph Avg</div><div class="v">${avgReact ? avgReact + 'ms' : '-'}</div></div>
+      <div class="gjsb-stat"><div class="k">Boss Time</div><div class="v">${
+        state.metrics.bossDurationMs ? (state.metrics.bossDurationMs / 1000).toFixed(1) + 's' : '-'
+      }</div></div>
       <div class="gjsb-stat"><div class="k">Reached</div><div class="v">${
         bossClear
           ? (state.boss.rageTriggered ? 'Rage Clear' : 'Boss Clear')
@@ -1992,7 +2985,16 @@
     `;
 
     ui.sumCoach.textContent = coachMessage(bossClear);
-    ui.summary.classList.add('show');
+    ui.sumNextHint.textContent = nextHintMessage(bossClear);
+    ui.sumExportBox.textContent =
+      'sessionId: ' + payload.sessionId +
+      ' • events: ' + payload.events.length +
+      ' • export พร้อมแล้ว';
+
+    ui.summaryCard.classList.toggle(
+      'replay-hot',
+      !!bossClear || state.metrics.rageEntered || state.boss.active
+    );
 
     saveLastSummary({
       source: 'goodjunk-solo-phaseboss-v2',
@@ -2013,8 +3015,26 @@
       bossStageReached: state.boss.stageReached,
       bossPatternLast: state.boss.pattern,
       rageTriggered: !!state.boss.rageTriggered,
+      fakeWeakTapped: state.metrics.fakeWeakTapped,
+      stormDodgedApprox: state.metrics.stormDodgedApprox,
+      telegraphAvgReactMs: avgReact,
+      bossDurationMs: state.metrics.bossDurationMs,
+      clearTimeMs: state.metrics.clearTimeMs,
+      weakHitsByStage: state.metrics.weakHitsByStage,
+      weakHitsByPattern: state.metrics.weakHitsByPattern,
+      patternStarts: state.metrics.patternStarts,
       finalGrade: grade
     });
+
+    state.paused = false;
+    ui.pauseOverlay.classList.remove('show');
+    ui.telegraph.classList.remove('show');
+    ui.banner.classList.add('hide');
+    ui.dangerEdge.classList.remove('show');
+    ui.stormLane.classList.remove('show');
+    setRageAura(false);
+
+    ui.summary.classList.add('show');
   }
 
   function bindButtons() {
@@ -2026,14 +3046,93 @@
       location.href = buildCooldownUrl();
     });
 
+    ui.btnCopyJson.addEventListener('click', async function () {
+      try {
+        const payload = window.HHA_LAST_BOSS_PAYLOAD || null;
+        if (!payload) {
+          ui.sumExportBox.textContent = 'ยังไม่มี payload ให้คัดลอก';
+          return;
+        }
+
+        const text = JSON.stringify(payload, null, 2);
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          ui.sumExportBox.textContent = 'คัดลอก JSON แล้ว';
+        } else {
+          ui.sumExportBox.textContent = 'อุปกรณ์นี้ไม่รองรับ clipboard';
+        }
+      } catch (_) {
+        ui.sumExportBox.textContent = 'คัดลอกไม่สำเร็จ';
+      }
+    });
+
     ui.btnHub.addEventListener('click', function () {
       location.href = ctx.hub || new URL('./hub-v2.html', location.href).toString();
     });
 
-    window.addEventListener('resize', layoutInnerHud, { passive: true });
+    ui.btnPause.addEventListener('click', function () {
+      if (state.paused) resumeGame();
+      else pauseGame('manual');
+    });
+
+    ui.btnMute.addEventListener('click', function () {
+      setMuted(!state.muted);
+    });
+
+    ui.btnMotion.addEventListener('click', function () {
+      setReducedMotion(!state.a11y.reducedMotion);
+    });
+
+    ui.btnResume.addEventListener('click', function () {
+      resumeGame();
+    });
+
+    ui.btnPauseHub.addEventListener('click', function () {
+      location.href = ctx.hub || new URL('./hub-v2.html', location.href).toString();
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden && !state.ended) {
+        pauseGame('hidden');
+      }
+    });
+
+    window.addEventListener('blur', function () {
+      if (!state.ended) {
+        pauseGame('hidden');
+      }
+    });
+
+    window.addEventListener('resize', function () {
+      state.a11y.highContrastTelegraph = window.innerWidth < 720;
+      layoutInnerHud();
+      renderHud();
+    }, { passive: true });
+
+    window.addEventListener('keydown', function (ev) {
+      if (state.ended) return;
+
+      if (ev.key === 'p' || ev.key === 'P') {
+        ev.preventDefault();
+        if (state.paused) resumeGame();
+        else pauseGame('manual');
+      }
+
+      if (ev.key === 'm' || ev.key === 'M') {
+        ev.preventDefault();
+        setMuted(!state.muted);
+        renderHud();
+      }
+    });
   }
 
   function update(dt) {
+    if (state.paused) {
+      renderHud();
+      return;
+    }
+
     state.timeLeft -= dt;
     if (state.timeLeft <= 0) {
       state.timeLeft = 0;
@@ -2068,16 +3167,39 @@
 
       const r = stageRect();
 
-      if (item.x <= 8) { item.x = 8; item.vx *= -1; }
-      if (item.x + item.size >= r.width - 8) { item.x = r.width - item.size - 8; item.vx *= -1; }
+      if (item.x <= 8) {
+        item.x = 8;
+        item.vx *= -1;
+      }
+      if (item.x + item.size >= r.width - 8) {
+        item.x = r.width - item.size - 8;
+        item.vx *= -1;
+      }
 
       drawItem(item);
 
       if (item.y > r.height + item.size * 0.5) {
         if (item.kind === 'good') {
+          state.research.counters.goodMiss += 1;
+
           state.miss += 1;
           state.goodMissed += 1;
           state.streak = 0;
+
+          pushEvent('miss_good', {
+            score: state.score,
+            miss: state.miss
+          });
+
+          removeItem(item);
+        } else if (item.kind === 'storm') {
+          state.metrics.stormDodgedApprox += 1;
+
+          pushEvent('storm_dodged_approx', {
+            dodged: state.metrics.stormDodgedApprox,
+            spawned: state.metrics.stormSpawned
+          });
+
           removeItem(item);
         } else {
           removeItem(item);
@@ -2115,6 +3237,21 @@
   }
 
   function start() {
+    detectAccessibilityPrefs();
+    setReducedMotion(state.a11y.reducedMotion);
+    setMuted(false);
+
+    state.metrics.runStartAt = nowMs();
+    markSplit('phase1StartAt');
+
+    pushEvent('run_start', {
+      diff: diffKey,
+      timeSec: Math.round(state.timeTotal / 1000),
+      pid: ctx.pid || 'anon',
+      run: ctx.run || 'play',
+      seed: ctx.seed || ''
+    });
+
     state.running = true;
     state.lastTs = performance.now();
     renderHud();
