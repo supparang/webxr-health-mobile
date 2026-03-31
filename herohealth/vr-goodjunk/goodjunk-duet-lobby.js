@@ -1,8 +1,10 @@
 /* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
-   FULL PATCH v20260329-GOODJUNK-DUET-LOBBY-JOINFIX-V1
-   - fix join room permission_denied flow
+   FULL PATCH v20260331-GOODJUNK-DUET-LOBBY-REMATCH-RECOVERY-R1
+   - join room permission_denied hardening
    - onDisconnect must not break join
-   - keep duet rematch / countdown / host repair
+   - rematch recovery from lobby
+   - host auto-reset finished room when both rematch votesครบ
+   - host auto-start on rematch entry after reset
 */
 (function(){
   'use strict';
@@ -79,6 +81,14 @@
     }
   }
 
+  function safeReplace(nextHref){
+    try{
+      W.location.replace(nextHref);
+    }catch(_){
+      W.location.href = nextHref;
+    }
+  }
+
   const IS_REMATCH_ENTRY = (function(){
     try{
       return new URL(W.location.href).searchParams.get('rematch') === '1';
@@ -88,6 +98,7 @@
   })();
 
   let __duetAutoStartTimer = 0;
+
   function stopAutoStartTimer(){
     if (__duetAutoStartTimer){
       clearTimeout(__duetAutoStartTimer);
@@ -176,6 +187,25 @@
     return Array.isArray(ids) ? ids.filter(Boolean) : [];
   }
 
+  function getCurrentParticipantIds(room){
+    const ids = participantIds(room);
+    if (ids.length) return ids;
+    const players = activePlayers(room).map((p) => p.id);
+    return players.slice(0, 2);
+  }
+
+  function getRematchInfo(room){
+    const ids = getCurrentParticipantIds(room);
+    const votes = (room && room.rematch) ? room.rematch : {};
+    let count = 0;
+
+    ids.forEach((id) => {
+      if (votes[id] && votes[id].ready) count += 1;
+    });
+
+    return { ids, count, votes };
+  }
+
   function prunePlayers(players, status){
     const out = {};
     const src = players || {};
@@ -186,6 +216,7 @@
         (String(status || 'waiting') === 'waiting' &&
          p.connected === false &&
          (now() - Number(p.lastSeenAt || 0) > STALE_MS));
+
       if (!shouldDrop) out[id] = p;
     });
     return out;
@@ -230,7 +261,8 @@
     rematchEntry: IS_REMATCH_ENTRY,
     autoReadyDone: false,
     autoStartAttempted: false,
-    autoStartLocked: false
+    autoStartLocked: false,
+    rematchRecoveryRunning: false
   };
 
   try{ localStorage.setItem('HHA_PLAYER_PID', STATE.pid); }catch{}
@@ -309,20 +341,6 @@
     return u.toString();
   }
 
-  function goJoinRoomByCode(raw){
-    const roomId = normalizeRoomId(raw);
-    if (!roomId){
-      setHint('กรุณาใส่ Room Code ก่อน', true);
-      if (els.roomInput) els.roomInput.focus();
-      return;
-    }
-    W.location.href = buildLobbyUrlWithRoom(roomId);
-  }
-
-  function goCreateNewRoom(){
-    W.location.href = buildLobbyUrlWithRoom(randomRoomId());
-  }
-
   function buildRunUrl(room){
     const u = new URL('./goodjunk-duet-play.html', W.location.href);
     u.searchParams.set('mode', MODE_KEY);
@@ -343,6 +361,20 @@
     u.searchParams.set('startAt', String(room.startAt || 0));
     if (DEBUG) u.searchParams.set('debug', '1');
     return u.toString();
+  }
+
+  function goJoinRoomByCode(raw){
+    const roomId = normalizeRoomId(raw);
+    if (!roomId){
+      setHint('กรุณาใส่ Room Code ก่อน', true);
+      if (els.roomInput) els.roomInput.focus();
+      return;
+    }
+    safeReplace(buildLobbyUrlWithRoom(roomId));
+  }
+
+  function goCreateNewRoom(){
+    safeReplace(buildLobbyUrlWithRoom(randomRoomId()));
   }
 
   function renderQr(url){
@@ -415,9 +447,7 @@
             <div>${badge}</div>
           </div>
           <div style="margin-top:6px;color:#cbd5e1;font-size:13px;line-height:1.55;">${esc(meta || 'ผู้เล่น')}</div>
-          <div style="margin-top:8px;color:#94a3b8;font-size:12px;line-height:1.55;">
-            phase: ${esc(p.phase || 'lobby')}
-          </div>
+          <div style="margin-top:8px;color:#94a3b8;font-size:12px;line-height:1.55;">phase: ${esc(p.phase || 'lobby')}</div>
         </div>
       `;
     });
@@ -458,16 +488,25 @@
       return;
     }
 
-    if (String(room.status || 'waiting') === 'countdown'){
+    const status = String(room.status || 'waiting');
+    const rematchInfo = getRematchInfo(room);
+
+    if (status === 'countdown'){
       setHint('กำลังนับถอยหลังเพื่อเข้าเกมพร้อมกัน', false);
       return;
     }
-    if (String(room.status || 'waiting') === 'running'){
+
+    if (status === 'running'){
       setHint('กำลังพาเข้าสู่ GoodJunk Duet Run...', false);
       return;
     }
-    if (String(room.status || 'waiting') === 'finished'){
-      setHint('รอบก่อนหน้าจบแล้ว สร้างห้องใหม่เพื่อเริ่ม Duet รอบถัดไป', false);
+
+    if (status === 'finished'){
+      if (rematchInfo.count >= ROOM_SIZE){
+        setHint('รีแมตช์ครบแล้ว กำลังกู้ห้องกลับเข้า Lobby...', false);
+      } else {
+        setHint('รอบก่อนหน้าจบแล้ว รอรีแมตช์หรือสร้างห้องใหม่', false);
+      }
       return;
     }
 
@@ -489,10 +528,12 @@
       setHint('ยังไม่ครบ 2 คน แชร์ลิงก์หรือ QR ให้เพื่อนเข้ามาอีก 1 คน', false);
       return;
     }
+
     if (readyCount < ROOM_SIZE){
       setHint('ต้องมีผู้เล่นพร้อมครบ 2 คนก่อนเริ่ม Duet', false);
       return;
     }
+
     setHint('พร้อมครบ 2/2 แล้ว Host กด “เริ่ม Duet” ได้เลย', false);
   }
 
@@ -538,7 +579,7 @@
         await markRunningIfHost(room);
         if (!STATE.redirected){
           STATE.redirected = true;
-          W.location.replace(buildRunUrl(room));
+          safeReplace(buildRunUrl(room));
         }
         return;
       }
@@ -563,7 +604,7 @@
         if (els.countdown) els.countdown.textContent = 'GO!';
         if (!STATE.redirected){
           STATE.redirected = true;
-          setTimeout(() => W.location.replace(buildRunUrl(room)), 150);
+          setTimeout(() => safeReplace(buildRunUrl(room)), 150);
         }
         return;
       }
@@ -599,6 +640,54 @@
     }catch{}
     finally{
       STATE.repairingHost = false;
+    }
+  }
+
+  async function hostRecoverFinishedRoomForRematch(room){
+    if (!room || !STATE.roomRef || STATE.rematchRecoveryRunning) return false;
+
+    const status = String(room.status || 'waiting');
+    const rematchInfo = getRematchInfo(room);
+
+    if (status !== 'finished') return false;
+    if (rematchInfo.ids.length !== ROOM_SIZE) return false;
+    if (rematchInfo.count < ROOM_SIZE) return false;
+    if (room.hostId !== STATE.uid) return false;
+
+    STATE.rematchRecoveryRunning = true;
+
+    try{
+      const updates = {
+        status: 'waiting',
+        startAt: 0,
+        updatedAt: firebase.database.ServerValue.TIMESTAMP,
+        seed: String(now()),
+        'match/status': 'idle',
+        'match/lockedAt': 0,
+        'match/finishedAt': 0,
+        'match/participantIds': null,
+        rematch: null
+      };
+
+      rematchInfo.ids.forEach((id) => {
+        updates[`players/${id}/ready`] = false;
+        updates[`players/${id}/phase`] = 'lobby';
+        updates[`players/${id}/finished`] = false;
+        updates[`players/${id}/finalScore`] = 0;
+        updates[`players/${id}/miss`] = 0;
+        updates[`players/${id}/streak`] = 0;
+        updates[`players/${id}/finishedAt`] = 0;
+        updates[`players/${id}/connected`] = true;
+        updates[`players/${id}/lastSeenAt`] = firebase.database.ServerValue.TIMESTAMP;
+      });
+
+      await STATE.roomRef.update(updates);
+      return true;
+    }catch(err){
+      console.error('[duet.lobby] hostRecoverFinishedRoomForRematch failed:', err);
+      return false;
+    }finally{
+      STATE.rematchRecoveryRunning = false;
     }
   }
 
@@ -647,6 +736,7 @@
     const ready = readyPlayers(room);
     const ids = participantIds(room);
     const me = room && room.players ? room.players[STATE.uid] : null;
+    const rematchInfo = getRematchInfo(room);
 
     const lines = [
       '[DUET LOBBY DEBUG]',
@@ -659,6 +749,7 @@
       `players=${players.length}/${ROOM_SIZE}`,
       `ready=${ready.length}/${ROOM_SIZE}`,
       `participantIds=${ids.length ? ids.join(', ') : '-'}`,
+      `rematchCount=${rematchInfo.count}/${ROOM_SIZE}`,
       `startAt=${room ? Number(room.startAt || 0) : 0}`,
       `joined=${STATE.joined ? 'yes' : 'no'}`,
       `joinDenied=${STATE.joinDenied ? 'yes' : 'no'}`,
@@ -735,7 +826,6 @@
 
     __duetAutoStartTimer = setTimeout(async () => {
       STATE.autoStartLocked = false;
-
       if (STATE.autoStartAttempted) return;
       STATE.autoStartAttempted = true;
 
@@ -782,6 +872,11 @@
     maybeHandleCountdown(room);
     maybeAutoReady(room);
     maybeAutoStartRematch(room);
+
+    if (status === 'finished'){
+      fireAndForget(hostRecoverFinishedRoomForRematch(room));
+    }
+
     renderLobbyDebug(room);
   }
 
@@ -876,7 +971,7 @@
       const players = prunePlayers(existing.players, existing.status || 'waiting');
       const ids = Object.keys(players || {});
       const hasMe = !!players[STATE.uid];
-      const alreadyRunning = String(existing.status || 'waiting') !== 'waiting';
+      const alreadyRunning = String(existing.status || 'waiting') !== 'waiting' && String(existing.status || 'waiting') !== 'finished';
 
       if (!hasMe && ids.length >= ROOM_SIZE){
         showJoinGuard('ห้องนี้เต็มแล้ว (Duet รับได้แค่ 2 คน)');
@@ -902,7 +997,7 @@
         const status = String(current.status || 'waiting');
 
         if (!hasMe && ids.length >= ROOM_SIZE) return;
-        if (!hasMe && status !== 'waiting') return;
+        if (!hasMe && status !== 'waiting' && status !== 'finished') return;
 
         const prev = current.players[STATE.uid] || {};
         current.players[STATE.uid] = Object.assign({}, freshPlayer(STATE.uid), prev, {
@@ -911,7 +1006,7 @@
           pid: STATE.pid,
           name: STATE.name,
           connected: true,
-          phase: 'lobby',
+          phase: (status === 'finished' ? (prev.phase || 'done') : 'lobby'),
           lastSeenAt: t
         });
 
@@ -946,8 +1041,9 @@
           if (room){
             const players = prunePlayers(room.players, room.status || 'waiting');
             const ids = Object.keys(players || {});
+            const status = String(room.status || 'waiting');
             if (ids.length >= ROOM_SIZE && !players[STATE.uid]) return reject(new Error('room-full'));
-            if (String(room.status || 'waiting') !== 'waiting' && !players[STATE.uid]) return reject(new Error('room-not-joinable'));
+            if (status !== 'waiting' && status !== 'finished' && !players[STATE.uid]) return reject(new Error('room-not-joinable'));
           }
           return reject(new Error('join-aborted'));
         }
@@ -980,7 +1076,6 @@
         pid: STATE.pid,
         name: STATE.name,
         connected: true,
-        phase: 'lobby',
         lastSeenAt: firebase.database.ServerValue.TIMESTAMP
       });
     }catch(err){
@@ -1068,6 +1163,12 @@
     STATE.roomRef.on('value', (snap) => {
       const room = snap.val();
       renderRoom(room);
+
+      if (!room) return;
+
+      if (STATE.rematchEntry && String(room.status || 'waiting') === 'waiting'){
+        STATE.redirected = false;
+      }
     }, (err) => {
       showJoinGuard('ฟังสถานะห้องไม่ได้: ' + (err && err.message ? err.message : 'unknown'));
     });
@@ -1193,7 +1294,7 @@
 
     if (els.btnBack){
       els.btnBack.addEventListener('click', () => {
-        W.location.href = STATE.hub || '../hub.html';
+        safeReplace(STATE.hub || '../hub.html');
       });
     }
 
@@ -1245,7 +1346,7 @@
       } else if (msg === 'room-not-joinable'){
         showJoinGuard('ห้องนี้เริ่มเกมไปแล้ว ให้สร้างห้องใหม่สำหรับรอบถัดไป');
       } else if (msg === 'permission_denied'){
-        showJoinGuard('เข้าห้องไม่สำเร็จ: permission_denied — ให้ใช้ rules ชุดใหม่ที่แปะให้ด้านล่าง');
+        showJoinGuard('เข้าห้องไม่สำเร็จ: permission_denied');
       } else {
         showJoinGuard('เข้าห้องไม่สำเร็จ: ' + msg);
       }
