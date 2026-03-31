@@ -1,16 +1,9 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260329-GOODJUNK-DUET-SUMMARY-UNBLUR-V3
-   - bindRoom retry ถ้า room ยัง sync มาไม่ทัน
-   - bindRoom ไม่ reset score/finished โดยไม่จำเป็น
-   - ไม่ลบ room อัตโนมัติแล้ว
-   - rematch flow
-   - mobile summary scroll/sticky action bar
-   - background/unload/reconnect presence แข็งขึ้น
-   - กัน result overlay rerender ซ้ำโดยไม่จำเป็น
-   - JS hard-fix summary white blur / compositing bug
-   - hard-fix ปุ่ม summary บน mobile/overlay กดแล้วไปต่อแน่นอน
+   FULL PATCH v20260329-GOODJUNK-DUET-RUN-JOINFIX-V1
+   - keep latest duet run behavior
+   - onDisconnect must not break bindRoom
+   - summary/rematch/back navigation harden
 */
-
 (function(){
   'use strict';
 
@@ -145,19 +138,13 @@
 
   async function getRoomSnapshotWithRetry(roomRef, tries = 12, gap = 350){
     let lastSnap = null;
-
     for (let i = 0; i < tries; i++){
       const snap = await roomRef.once('value');
       lastSnap = snap;
-
       if (snap && typeof snap.exists === 'function' && snap.exists()) return snap;
       if (snap && typeof snap.val === 'function' && snap.val()) return snap;
-
-      if (i < tries - 1){
-        await waitMs(gap);
-      }
+      if (i < tries - 1) await waitMs(gap);
     }
-
     return lastSnap;
   }
 
@@ -202,30 +189,17 @@
     const ids = getCurrentParticipantIds(room);
     const votes = (room && room.rematch) ? room.rematch : {};
     let count = 0;
-
     ids.forEach((id) => {
       if (votes[id] && votes[id].ready) count += 1;
     });
-
     return { ids, count, votes };
   }
 
   function resetResultMount(){
     if (!UI.resultMount) return;
-
     UI.resultMount.hidden = true;
     UI.resultMount.innerHTML = '';
     UI.resultMount.style.display = 'none';
-    UI.resultMount.style.opacity = '';
-    UI.resultMount.style.visibility = '';
-    UI.resultMount.style.filter = '';
-    UI.resultMount.style.backdropFilter = '';
-    UI.resultMount.style.webkitBackdropFilter = '';
-    UI.resultMount.style.background = '';
-    UI.resultMount.style.transform = '';
-    UI.resultMount.style.pointerEvents = '';
-    UI.resultMount.style.zIndex = '';
-
     STATE.resultOpen = false;
     STATE.lastOverlaySig = '';
   }
@@ -250,18 +224,16 @@
 
   function bindPress(el, handler){
     if (!el || typeof handler !== 'function') return;
-
     let locked = false;
 
     const run = async (ev) => {
       if (ev){
         ev.preventDefault();
         ev.stopPropagation();
-        if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
+        ev.stopImmediatePropagation?.();
       }
       if (locked) return;
       locked = true;
-
       try{
         await handler(ev);
       }catch(err){
@@ -275,113 +247,8 @@
     el.addEventListener('click', run, { passive:false });
   }
 
-  function hardFixResultOverlayStyles(){
-    if (!UI.resultMount) return;
-
-    const mount = UI.resultMount;
-
-    mount.hidden = false;
-    mount.style.display = 'flex';
-    mount.style.opacity = '1';
-    mount.style.visibility = 'visible';
-    mount.style.filter = 'none';
-    mount.style.backdropFilter = 'none';
-    mount.style.webkitBackdropFilter = 'none';
-    mount.style.background = 'rgba(245,252,255,.96)';
-    mount.style.isolation = 'isolate';
-    mount.style.transform = 'translateZ(0)';
-    mount.style.pointerEvents = 'auto';
-    mount.style.zIndex = '99999';
-
-    const card = mount.querySelector('.duet-result-card');
-    if (card){
-      card.style.opacity = '1';
-      card.style.visibility = 'visible';
-      card.style.filter = 'none';
-      card.style.backdropFilter = 'none';
-      card.style.webkitBackdropFilter = 'none';
-      card.style.transform = 'none';
-      card.style.background = '#fffdf8';
-      card.style.color = '#244f6d';
-      card.style.overflow = 'auto';
-      card.style.boxShadow = '0 18px 48px rgba(33,66,88,.16)';
-    }
-
-    const forceClear = mount.querySelectorAll([
-      '.duet-summary-head',
-      '.duet-summary-hero',
-      '.duet-medals',
-      '.duet-judge-box',
-      '.duet-compare-grid',
-      '.duet-compare-card',
-      '.duet-adaptive-card',
-      '.duet-research-grid',
-      '.duet-research-card',
-      '.duet-export-card',
-      '.duet-export-tagbox',
-      '.duet-export-jsonbox',
-      '.duet-export-json',
-      '.duet-export-tag',
-      '.duet-praise',
-      '.duet-sum-top',
-      '.duet-sum-top-card',
-      '.duet-sum-stats',
-      '.duet-sum-stat',
-      '.duet-recap',
-      '.duet-recap-card',
-      '.duet-result-actions'
-    ].join(','));
-
-    forceClear.forEach((el) => {
-      el.style.opacity = '1';
-      el.style.visibility = 'visible';
-      el.style.filter = 'none';
-      el.style.backdropFilter = 'none';
-      el.style.webkitBackdropFilter = 'none';
-
-      if (
-        el.classList.contains('duet-research-card') ||
-        el.classList.contains('duet-export-card') ||
-        el.classList.contains('duet-export-tagbox') ||
-        el.classList.contains('duet-export-jsonbox') ||
-        el.classList.contains('duet-compare-card') ||
-        el.classList.contains('duet-adaptive-card') ||
-        el.classList.contains('duet-judge-box') ||
-        el.classList.contains('duet-praise') ||
-        el.classList.contains('duet-sum-top-card') ||
-        el.classList.contains('duet-sum-stat') ||
-        el.classList.contains('duet-recap-card')
-      ){
-        el.style.background = '#ffffff';
-      }
-    });
-
-    const confetti = mount.querySelectorAll('.duet-confetti-piece');
-    confetti.forEach((el) => {
-      el.style.filter = 'none';
-      el.style.opacity = '.9';
-    });
-  }
-
-  function scheduleHardFixResultOverlay(){
-    hardFixResultOverlayStyles();
-    setTimeout(hardFixResultOverlayStyles, 0);
-    setTimeout(hardFixResultOverlayStyles, 80);
-    setTimeout(hardFixResultOverlayStyles, 220);
-
-    if (W.requestAnimationFrame){
-      W.requestAnimationFrame(() => {
-        hardFixResultOverlayStyles();
-        W.requestAnimationFrame(() => {
-          hardFixResultOverlayStyles();
-        });
-      });
-    }
-  }
-
   function injectResultOverlayHardFixCSS(){
     if (D.getElementById('gjDuetResultHardFixStyle')) return;
-
     const style = D.createElement('style');
     style.id = 'gjDuetResultHardFixStyle';
     style.textContent = `
@@ -607,93 +474,6 @@
     return Number((peer && peer.finalScore) || 0);
   }
 
-  let __runDebugLastPaint = 0;
-  function ensureRunDebugBox(){
-    if (!DEBUG) return null;
-    let el = D.getElementById('duetRunDebugBox');
-    if (el) return el;
-
-    el = D.createElement('div');
-    el.id = 'duetRunDebugBox';
-    el.style.cssText = [
-      'position:fixed',
-      'left:10px',
-      'right:10px',
-      'bottom:10px',
-      'z-index:9999',
-      'padding:10px 12px',
-      'border-radius:14px',
-      'border:1px solid rgba(191,227,242,.9)',
-      'background:rgba(15,23,42,.92)',
-      'color:#f8fafc',
-      'font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace',
-      'box-shadow:0 18px 40px rgba(0,0,0,.28)',
-      'white-space:pre-wrap',
-      'word-break:break-word',
-      'backdrop-filter:blur(8px)',
-      'max-height:42vh',
-      'overflow:auto'
-    ].join(';');
-
-    D.body.appendChild(el);
-    return el;
-  }
-
-  function renderRunDebug(){
-    if (!DEBUG) return;
-
-    const t = now();
-    if (t - __runDebugLastPaint < 120) return;
-    __runDebugLastPaint = t;
-
-    const el = ensureRunDebugBox();
-    if (!el) return;
-
-    const room = STATE.room || {};
-    const peer = getPeer(room) || {};
-    const match = room.match || {};
-    const leftSec = STATE.started ? Math.max(0, (STATE.endAt - now()) / 1000).toFixed(1) : '-';
-    const me = room.players && STATE.uid ? (room.players[STATE.uid] || null) : null;
-
-    const lines = [
-      '[DUET RUN DEBUG]',
-      `room=${STATE.roomId || '-'}`,
-      `uid=${STATE.uid || '-'}`,
-      `pid=${STATE.pid || '-'}`,
-      `status=${String(room.status || STATE.roomStatus || '-')}`,
-      `startAt=${Number(room.startAt || STATE.startAt || 0)}`,
-      `started=${STATE.started}`,
-      `ended=${STATE.ended}`,
-      `leftSec=${leftSec}`,
-      `targetCount=${STATE.targets.length}`,
-      `score=${STATE.score}`,
-      `peerScore=${Number(peer.finalScore || 0)}`,
-      `pairScore=${STATE.pairScore}`,
-      `pairGoal=${STATE.pairGoal}`,
-      `goodHit=${STATE.goodHit}`,
-      `junkHit=${STATE.junkHit}`,
-      `goodMiss=${STATE.goodMiss}`,
-      `miss=${STATE.miss}`,
-      `streak=${STATE.streak}`,
-      `bestStreak=${STATE.bestStreak}`,
-      `participantIds=${Array.isArray(match.participantIds) ? match.participantIds.join(', ') : '-'}`,
-      `peerUid=${peer.id || '-'}`,
-      `peerName=${peer.name || '-'}`,
-      `peerConnected=${peer.id ? (peer.connected !== false) : '-'}`,
-      `peerFinished=${peer.id ? (!!peer.finished) : '-'}`,
-      `peerLastSeen=${peer.id ? Number(peer.lastSeenAt || 0) : 0}`,
-      `myPhase=${me ? String(me.phase || '-') : '-'}`,
-      `myFinished=${me ? (!!me.finished) : '-'}`,
-      `blockReason=${STATE.blockReason || '-'}`,
-      `rematchRequested=${STATE.rematchRequested}`,
-      `rematchCount=${getRematchInfo(room).count}`,
-      `rematchResetting=${STATE.rematchResetting}`,
-      `resultOpen=${STATE.resultOpen}`
-    ];
-
-    el.textContent = lines.join('\n');
-  }
-
   function renderHud(){
     if (UI.roomPill) UI.roomPill.textContent = `ห้อง ${STATE.roomId || '-'}`;
     if (UI.score) UI.score.textContent = String(Math.max(0, Math.round(STATE.score)));
@@ -717,8 +497,6 @@
       const mine = Math.max(0, Math.min(100, (STATE.score / Math.max(1, STATE.pairGoal)) * 100));
       UI.pairGoalSubFill.style.width = mine.toFixed(1) + '%';
     }
-
-    renderRunDebug();
   }
 
   function applyHudCompact(flag){
@@ -805,14 +583,6 @@
     try{ t.el && t.el.remove(); }catch{}
   }
 
-  function pulseScore(){
-    if (!UI.score || !UI.score.animate) return;
-    UI.score.animate(
-      [{ transform:'scale(1)' }, { transform:'scale(1.08)' }, { transform:'scale(1)' }],
-      { duration:180, easing:'ease-out' }
-    );
-  }
-
   function hitTarget(t){
     if (!t || t.dead || !STATE.started || STATE.ended) return;
 
@@ -834,7 +604,6 @@
       setCoach('ไม่เป็นไร รอบหน้าปล่อยอาหารควรเลี่ยงผ่านไปนะ');
     }
 
-    pulseScore();
     refreshLiveScore();
     renderHud();
   }
@@ -860,31 +629,6 @@
     STATE.peerScore = getPeerScore();
     STATE.pairScore = STATE.score + STATE.peerScore;
     renderHud();
-  }
-
-  function pickCoachTip(){
-    const left = STATE.started ? Math.max(0, (STATE.endAt - now()) / 1000) : STATE.timeSec;
-
-    if (STATE.junkHit >= 3 && STATE.junkHit > STATE.goodHit / 2){
-      return 'ลองแตะเฉพาะอาหารดีให้มากขึ้นนะ';
-    }
-    if (STATE.goodMiss >= 3 && STATE.goodMiss > STATE.goodHit / 2){
-      return 'อาหารดีหลุดหลายชิ้น ลองมองให้ไวขึ้นอีกนิด';
-    }
-    if (STATE.streak >= 6){
-      return 'ยอดเยี่ยมมาก แตะต่อเนื่องได้ดีสุด ๆ';
-    }
-    if (left <= 15 && STATE.pairScore < STATE.pairGoal){
-      return 'ใกล้หมดเวลาแล้ว รีบช่วยกันเก็บอาหารดี';
-    }
-    if (STATE.pairScore >= STATE.pairGoal){
-      return 'ถึงเป้าหมายคู่แล้ว เก่งมาก ลุยต่อได้เลย';
-    }
-    return TIPS_GOOD[(STATE.goodHit + STATE.junkHit + STATE.goodMiss) % TIPS_GOOD.length];
-  }
-
-  function coachTick(){
-    setCoach(pickCoachTip());
   }
 
   function isPeerStale(room){
@@ -1023,7 +767,6 @@
     STATE.lastSpawnAt = 0;
     hideCountdown();
     markRoomRunning();
-    coachTick();
   }
 
   async function publishLivePresence(){
@@ -1062,58 +805,15 @@
     }
   }
 
-  function getTransientPhase(){
-    if (STATE.ended) return 'done';
-
-    const room = STATE.room || null;
-    const status = String((room && room.status) || STATE.roomStatus || 'waiting');
-
-    if (STATE.started || status === 'countdown' || status === 'running'){
-      return 'run';
-    }
-    return 'lobby';
-  }
-
-  async function markDisconnectedForSuspend(){
-    try{
-      if (STATE.meRef){
-        await STATE.meRef.update({
-          connected: false,
-          phase: getTransientPhase(),
-          lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-        });
-      }
-    }catch{}
-  }
-
-  async function markReconnectedAfterResume(){
-    try{
-      if (STATE.meRef){
-        await STATE.meRef.update({
-          connected: true,
-          phase: STATE.ended ? 'done' : (STATE.started ? 'run' : 'lobby'),
-          lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-        });
-      }
-    }catch{}
-  }
-
   function buildSummary(){
     const peer = getPeer(STATE.room) || {};
-    const peerName = String(peer.name || 'เพื่อน');
-    const partnerScore = Number(peer.finalScore || 0);
-    const pairScore = STATE.score + partnerScore;
-    const accBase = STATE.goodHit + STATE.junkHit + STATE.goodMiss;
-    const accuracy = accBase > 0 ? (STATE.goodHit / accBase) : 0;
-    const pairRatio = STATE.pairGoal > 0 ? (pairScore / STATE.pairGoal) : 0;
-
     return {
       game: 'goodjunk',
       mode: 'duet',
       roomId: STATE.roomId,
       pid: STATE.pid,
       name: STATE.name,
-      partnerName: peerName,
+      partnerName: String(peer.name || 'เพื่อน'),
       diff: STATE.diff,
       time: STATE.timeSec,
       seed: STATE.seed,
@@ -1121,11 +821,9 @@
       zone: STATE.zone,
       theme: STATE.theme,
       score: STATE.score,
-      partnerScore,
-      pairScore,
+      partnerScore: Number(peer.finalScore || 0),
+      pairScore: STATE.score + Number(peer.finalScore || 0),
       pairGoal: STATE.pairGoal,
-      pairRatio,
-      accuracy,
       goodHit: STATE.goodHit,
       junkHit: STATE.junkHit,
       goodMiss: STATE.goodMiss,
@@ -1133,12 +831,7 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: !!peer.finished,
       endedAt: new Date().toISOString(),
-      grade:
-        pairRatio >= 1.45 ? 'A'
-        : pairRatio >= 1.00 ? 'B'
-        : pairRatio >= 0.70 ? 'C'
-        : 'D',
-      version: 'v20260329-GOODJUNK-DUET-SUMMARY-UNBLUR-V3'
+      version: 'v20260329-GOODJUNK-DUET-RUN-JOINFIX-V1'
     };
   }
 
@@ -1193,8 +886,7 @@
 
   function getRecapLines(){
     const peer = getPeer(STATE.room) || {};
-    const peerNameRaw = String(peer.name || 'เพื่อน');
-    const peerName = peerNameRaw.trim() || 'เพื่อน';
+    const peerName = String(peer.name || 'เพื่อน').trim() || 'เพื่อน';
 
     return [
       {
@@ -1216,58 +908,14 @@
     ];
   }
 
-  function buildConfettiHtml(count){
-    const colors = ['pink','blue','green','gold','violet'];
-    const pieces = [];
-
-    for (let i = 0; i < count; i++){
-      const left = Math.random() * 100;
-      const dx = (Math.random() * 180 - 90).toFixed(1) + 'px';
-      const rot = (360 + Math.random() * 540).toFixed(0) + 'deg';
-      const dur = (2.6 + Math.random() * 1.8).toFixed(2) + 's';
-      const delay = (Math.random() * 0.45).toFixed(2) + 's';
-      const color = colors[i % colors.length];
-      const w = (8 + Math.random() * 8).toFixed(0) + 'px';
-      const h = (14 + Math.random() * 14).toFixed(0) + 'px';
-
-      pieces.push(
-        `<span class="duet-confetti-piece ${color}" style="left:${left}%;width:${w};height:${h};--dx:${dx};--rot:${rot};animation-duration:${dur};animation-delay:${delay};"></span>`
-      );
-    }
-
-    return `<div class="duet-confetti" aria-hidden="true">${pieces.join('')}</div>`;
-  }
-
-  function getCelebrationFlags(goalReached){
-    return {
-      cardClass: goalReached ? 'celebrate' : '',
-      starClass: goalReached ? 'celebrate' : '',
-      pairClass: goalReached ? 'celebrate' : '',
-      confettiHtml: goalReached ? buildConfettiHtml(26) : ''
-    };
-  }
-
   function getTrophyBadges(){
     const out = [];
+    if (STATE.pairScore >= STATE.pairGoal) out.push({ cls:'good', text:'🏆 ทำคะแนนถึงเป้าหมายคู่' });
+    else out.push({ cls:'gold', text:'🎯 ยังเหลืออีกนิดก็ถึงเป้า' });
 
-    if (STATE.pairScore >= STATE.pairGoal){
-      out.push({ cls:'good', text:'🏆 ทำคะแนนถึงเป้าหมายคู่' });
-    } else {
-      out.push({ cls:'gold', text:'🎯 ยังเหลืออีกนิดก็ถึงเป้า' });
-    }
-
-    if (STATE.bestStreak >= 10){
-      out.push({ cls:'good', text:'🔥 ต่อเนื่องเก่งมาก' });
-    }
-
-    if (STATE.goodHit >= Math.max(20, STATE.junkHit * 2)){
-      out.push({ cls:'good', text:'🍉 เลือกอาหารดีเก่งมาก' });
-    }
-
-    if (STATE.junkHit <= 3){
-      out.push({ cls:'gold', text:'🛡️ ระวัง Junk ได้ดี' });
-    }
-
+    if (STATE.bestStreak >= 10) out.push({ cls:'good', text:'🔥 ต่อเนื่องเก่งมาก' });
+    if (STATE.goodHit >= Math.max(20, STATE.junkHit * 2)) out.push({ cls:'good', text:'🍉 เลือกอาหารดีเก่งมาก' });
+    if (STATE.junkHit <= 3) out.push({ cls:'gold', text:'🛡️ ระวัง Junk ได้ดี' });
     return out;
   }
 
@@ -1386,8 +1034,7 @@
     if (!UI.resultMount) return;
 
     const peer = getPeer(STATE.room) || {};
-    const peerNameRaw = String(peer.name || 'เพื่อน');
-    const peerName = peerNameRaw.trim() || 'เพื่อน';
+    const peerName = String(peer.name || 'เพื่อน').trim() || 'เพื่อน';
     const peerScore = Number(peer.finalScore || 0);
     const pairScore = STATE.score + peerScore;
     STATE.pairScore = pairScore;
@@ -1407,10 +1054,7 @@
       goalReached
     });
 
-    if (STATE.resultOpen && STATE.lastOverlaySig === overlaySig){
-      scheduleHardFixResultOverlay();
-      return;
-    }
+    if (STATE.resultOpen && STATE.lastOverlaySig === overlaySig) return;
     STATE.lastOverlaySig = overlaySig;
 
     const statusText = reason === 'peer-stale'
@@ -1419,9 +1063,7 @@
         ? 'ส่งคำขอรีแมตช์แล้ว รอเพื่อนกดรีแมตช์'
         : reason === 'room-finished'
           ? 'รอบนี้ปิดจากห้องส่วนกลางแล้ว'
-          : (peerDone
-              ? 'เพื่อนเล่นจบแล้ว มาดูคะแนนคู่กัน'
-              : 'กำลังรอคะแนนจากเพื่อนอีกนิด');
+          : (peerDone ? 'เพื่อนเล่นจบแล้ว มาดูคะแนนคู่กัน' : 'กำลังรอคะแนนจากเพื่อนอีกนิด');
 
     const peerStatusHtml = peerDone
       ? '<span class="duet-sum-status done">เล่นจบแล้ว</span>'
@@ -1430,7 +1072,6 @@
     const praise = getPraiseMeta();
     const recap = getRecapLines();
     const trophies = getTrophyBadges();
-    const fx = getCelebrationFlags(goalReached);
     const rematchBadges = [
       `<span class="duet-badge blue">🔁 รีแมตช์ ${rematchInfo.count}/2</span>`
     ];
@@ -1450,12 +1091,11 @@
     saveLastSummary(summary);
 
     UI.resultMount.hidden = false;
+    UI.resultMount.style.display = 'flex';
     STATE.resultOpen = true;
     UI.resultMount.innerHTML = `
-      <div class="duet-result-card hubv2 ${fx.cardClass}">
-        ${fx.confettiHtml}
-
-        <div class="duet-summary-head" style="position:relative;z-index:1;">
+      <div class="duet-result-card">
+        <div class="duet-summary-head">
           <div class="duet-summary-kicker">👯 GOODJUNK • สรุปผลเล่นคู่</div>
           <div class="duet-result-title">${goalReached ? 'เยี่ยมมาก ทำคะแนนคู่ได้ดีมาก' : 'จบรอบเล่นคู่แล้ว'}</div>
           <div class="duet-result-sub">
@@ -1464,23 +1104,21 @@
           </div>
         </div>
 
-        <div class="duet-praise hubv2" style="position:relative;z-index:1;">
+        <div class="duet-praise">
           <div class="duet-mobile-quick-actions"></div>
-
           <div class="duet-praise-top">
             <div>
               <div class="duet-praise-title">${esc(praise.title)}</div>
               <div class="duet-praise-sub">${esc(praise.sub)}</div>
             </div>
-            <div class="duet-stars big ${fx.starClass}">${starsHtml}</div>
+            <div class="duet-stars big">${starsHtml}</div>
           </div>
-
           <div class="duet-badges">${badgesHtml}</div>
           <div class="duet-trophy-strip">${trophiesHtml}</div>
         </div>
 
-        <div class="duet-sum-top" style="position:relative;z-index:1;">
-          <div class="duet-sum-top-card hubv2">
+        <div class="duet-sum-top">
+          <div class="duet-sum-top-card">
             <div class="duet-sum-top-label">ฉัน</div>
             <div class="duet-sum-top-score me">${STATE.score}</div>
             <div class="duet-sum-top-sub">
@@ -1488,17 +1126,15 @@
             </div>
           </div>
 
-          <div class="duet-sum-top-card hubv2">
+          <div class="duet-sum-top-card">
             <div class="duet-sum-top-label">${esc(peerName)}</div>
             <div class="duet-sum-top-score peer">${peerScore}</div>
-            <div class="duet-sum-top-sub">
-              ${peerStatusHtml}
-            </div>
+            <div class="duet-sum-top-sub">${peerStatusHtml}</div>
           </div>
 
-          <div class="duet-sum-top-card hubv2 goal">
+          <div class="duet-sum-top-card">
             <div class="duet-sum-top-label">คะแนนคู่</div>
-            <div class="duet-sum-top-score pair ${fx.pairClass}">${pairScore}</div>
+            <div class="duet-sum-top-score pair">${pairScore}</div>
             <div class="duet-sum-top-sub">
               เป้าหมาย ${STATE.pairGoal}
               <span class="${goalReached ? 'duet-sum-goal-ok' : 'duet-sum-goal-wait'}">
@@ -1508,35 +1144,35 @@
           </div>
         </div>
 
-        <div class="duet-sum-stats" style="position:relative;z-index:1;">
-          <div class="duet-sum-stat hubv2">
+        <div class="duet-sum-stats">
+          <div class="duet-sum-stat">
             <div class="duet-sum-stat-k">ต่อเนื่องสูงสุด</div>
             <div class="duet-sum-stat-v">${STATE.bestStreak}</div>
           </div>
-          <div class="duet-sum-stat hubv2">
+          <div class="duet-sum-stat">
             <div class="duet-sum-stat-k">แตะอาหารดี</div>
             <div class="duet-sum-stat-v">${STATE.goodHit}</div>
           </div>
-          <div class="duet-sum-stat hubv2">
+          <div class="duet-sum-stat">
             <div class="duet-sum-stat-k">โดน Junk</div>
             <div class="duet-sum-stat-v">${STATE.junkHit}</div>
           </div>
-          <div class="duet-sum-stat hubv2">
+          <div class="duet-sum-stat">
             <div class="duet-sum-stat-k">พลาดอาหารดี</div>
             <div class="duet-sum-stat-v">${STATE.goodMiss}</div>
           </div>
         </div>
 
-        <div class="duet-recap" style="position:relative;z-index:1;">
+        <div class="duet-recap">
           ${recap.map(item => `
-            <div class="duet-recap-card hubv2">
+            <div class="duet-recap-card">
               <div class="duet-recap-k">${esc(item.k)}</div>
               <div class="duet-recap-v">${esc(item.v)}</div>
             </div>
           `).join('')}
         </div>
 
-        <div class="duet-result-actions hubv2" style="position:relative;z-index:1;">
+        <div class="duet-result-actions">
           <button class="btn good" id="duetBtnRematch" type="button">${STATE.rematchRequested ? 'กำลังรอรีแมตช์...' : 'ขอรีแมตช์'}</button>
           <button class="btn ghost" id="duetBtnBackLobby" type="button">กลับไป Lobby ห้องเดิม</button>
           <button class="btn ghost" id="duetBtnBackLauncher" type="button">กลับหน้าเลือกโหมด</button>
@@ -1545,23 +1181,6 @@
         </div>
       </div>
     `;
-
-    UI.resultMount.hidden = false;
-    UI.resultMount.style.display = 'flex';
-    scheduleHardFixResultOverlay();
-
-    const resultCard = UI.resultMount.querySelector('.duet-result-card');
-    if (resultCard){
-      resultCard.scrollTop = 0;
-      resultCard.style.webkitOverflowScrolling = 'touch';
-      resultCard.style.overscrollBehavior = 'contain';
-      resultCard.style.touchAction = 'pan-y';
-    }
-
-    UI.resultMount.scrollTop = 0;
-    UI.resultMount.style.overflowY = 'auto';
-    UI.resultMount.style.webkitOverflowScrolling = 'touch';
-    UI.resultMount.style.overscrollBehavior = 'contain';
 
     const quickWrap = UI.resultMount.querySelector('.duet-mobile-quick-actions');
     if (quickWrap && isMobileViewport()){
@@ -1572,7 +1191,6 @@
     }
 
     ensureResultActionsVisible();
-    scheduleHardFixResultOverlay();
 
     const btnClose = $('duetBtnClose');
     const btnRematch = $('duetBtnRematch');
@@ -1592,15 +1210,12 @@
       btnRematch.disabled = !!STATE.rematchRequested;
       bindPress(btnRematch, async () => {
         if (STATE.rematchRequested) return;
-
         btnRematch.disabled = true;
         btnRematch.textContent = 'กำลังรอรีแมตช์...';
-
         try{
           await requestRematch();
           renderResultOverlay('rematch-requested');
         }catch(err){
-          console.error('[duet.rematch.request] failed:', err);
           btnRematch.disabled = false;
           btnRematch.textContent = 'ขอรีแมตช์';
         }
@@ -1631,15 +1246,12 @@
       btnRematchTop.disabled = !!STATE.rematchRequested;
       bindPress(btnRematchTop, async () => {
         if (STATE.rematchRequested) return;
-
         btnRematchTop.disabled = true;
         btnRematchTop.textContent = 'รอรีแมตช์...';
-
         try{
           await requestRematch();
           renderResultOverlay('rematch-requested');
         }catch(err){
-          console.error('[duet.rematch.request.top] failed:', err);
           btnRematchTop.disabled = false;
           btnRematchTop.textContent = 'รีแมตช์';
         }
@@ -1697,11 +1309,7 @@
 
     await publishFinish();
     renderHud();
-
-    setTimeout(() => {
-      renderResultOverlay(reason || 'timer-end');
-      scheduleHardFixResultOverlay();
-    }, 120);
+    renderResultOverlay(reason || 'timer-end');
   }
 
   async function publishFinish(){
@@ -1715,6 +1323,7 @@
     if (!UI.resultMount) return;
     STATE.blockReason = title;
     UI.resultMount.hidden = false;
+    UI.resultMount.style.display = 'flex';
     STATE.resultOpen = true;
     STATE.lastOverlaySig = `block:${String(title)}|${String(sub)}`;
 
@@ -1728,10 +1337,6 @@
         </div>
       </div>
     `;
-
-    UI.resultMount.hidden = false;
-    UI.resultMount.style.display = 'flex';
-    scheduleHardFixResultOverlay();
   }
 
   async function ensureFirebaseReady(){
@@ -1792,11 +1397,20 @@
     STATE.startAt = Number(room.startAt || STATE.startAt || 0);
     STATE.peerId = ((getPeer(room) || {}).id || '');
 
-    await STATE.meRef.onDisconnect().update({
-      connected: false,
-      phase: 'left',
-      lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-    });
+    try{
+      const od = STATE.meRef.onDisconnect();
+      if (od && typeof od.update === 'function'){
+        fireAndForgetWrite(
+          od.update({
+            connected: false,
+            phase: 'left',
+            lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+          })
+        );
+      }
+    }catch(err){
+      console.warn('[duet.run] onDisconnect setup ignored:', err);
+    }
 
     const computedPhase = prev.finished
       ? 'done'
@@ -1849,7 +1463,6 @@
         renderResultOverlay('sync-finish');
         maybeResetRoomForRematch(room);
         maybeFinalizeRoom();
-        scheduleHardFixResultOverlay();
 
         if (
           STATE.rematchRequested &&
@@ -1874,34 +1487,33 @@
     W.addEventListener('beforeunload', () => {
       stopHeartbeat();
       caf(STATE.loopId);
-      markDisconnectedForSuspend();
+      try{
+        if (STATE.meRef){
+          STATE.meRef.update({
+            connected: false,
+            phase: STATE.ended ? 'done' : 'left',
+            lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+          }).catch(() => {});
+        }
+      }catch{}
     });
 
     W.addEventListener('pagehide', () => {
       stopHeartbeat();
-      markDisconnectedForSuspend();
     });
 
     D.addEventListener('visibilitychange', () => {
       if (D.visibilityState === 'hidden'){
         stopHeartbeat();
-        markDisconnectedForSuspend();
         return;
       }
 
       if (D.visibilityState === 'visible'){
-        markReconnectedAfterResume();
         if (!STATE.ended){
           startHeartbeat();
           publishLivePresence();
         }
-        if (STATE.resultOpen) scheduleHardFixResultOverlay();
       }
-    });
-
-    W.addEventListener('resize', () => {
-      renderHud();
-      if (STATE.resultOpen) scheduleHardFixResultOverlay();
     });
   }
 
@@ -1931,7 +1543,6 @@
       attachRoomListener();
       startHeartbeat();
       publishLivePresence();
-      coachTick();
 
       if (STATE.room) {
         STATE.peerScore = getPeerScore();
