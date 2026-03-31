@@ -1,5 +1,5 @@
 /* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
-   FULL PATCH v20260331-GJ-DUET-LOBBY-R4
+   FULL PATCH v20260331-GJ-DUET-LOBBY-R5
    - แก้ maxretry ตอน join ห้อง
    - ไม่ใช้ root transaction สำหรับ join ปกติ
    - create room เฉพาะตอนห้องยังไม่มี
