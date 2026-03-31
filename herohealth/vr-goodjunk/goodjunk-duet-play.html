@@ -39,7 +39,6 @@
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
       min-height:100%;
@@ -125,10 +124,6 @@
       box-shadow:var(--shadow);
       touch-action:manipulation;
       -webkit-tap-highlight-color:transparent;
-      user-select:none;
-      pointer-events:auto;
-      position:relative;
-      z-index:2;
     }
 
     .btn.primary{
@@ -187,7 +182,6 @@
       font-size:18px;
       font-weight:1000;
       cursor:pointer;
-      touch-action:manipulation;
     }
 
     .coach-badge{
@@ -473,18 +467,9 @@
       touch-action:manipulation;
     }
 
-    .target.good{
-      background:linear-gradient(180deg,#ffffff,#f1fff1);
-    }
-
-    .target.junk{
-      background:linear-gradient(180deg,#fff3f3,#ffe1e1);
-    }
-
-    .target .t-emoji{
-      font-size:clamp(24px, 4vw, 38px);
-      line-height:1;
-    }
+    .target.good{ background:linear-gradient(180deg,#ffffff,#f1fff1); }
+    .target.junk{ background:linear-gradient(180deg,#fff3f3,#ffe1e1); }
+    .target .t-emoji{ font-size:clamp(24px, 4vw, 38px); line-height:1; }
 
     .countdown-overlay{
       position:absolute;
@@ -549,15 +534,8 @@
       align-items:center;
       justify-content:center;
       padding:18px;
-      overflow:auto;
       background:rgba(245,252,255,.96);
-      backdrop-filter:none !important;
-      -webkit-backdrop-filter:none !important;
-      opacity:1 !important;
-      filter:none !important;
-      isolation:isolate;
-      transform:translateZ(0);
-      pointer-events:auto !important;
+      overflow:auto;
     }
 
     .duet-result-card{
@@ -572,14 +550,6 @@
       display:grid;
       gap:14px;
       position:relative;
-      opacity:1 !important;
-      filter:none !important;
-      visibility:visible !important;
-      backdrop-filter:none !important;
-      -webkit-backdrop-filter:none !important;
-      transform:none !important;
-      isolation:isolate;
-      pointer-events:auto !important;
     }
 
     .duet-result-card.celebrate{
@@ -618,10 +588,6 @@
       border:1px solid var(--stroke);
       background:#fff;
       padding:14px;
-      backdrop-filter:none !important;
-      -webkit-backdrop-filter:none !important;
-      filter:none !important;
-      opacity:1 !important;
     }
 
     .duet-praise-top{
@@ -801,19 +767,6 @@
       display:none;
       gap:8px;
       margin-bottom:10px;
-      position:sticky;
-      top:0;
-      z-index:8;
-      background:linear-gradient(180deg, rgba(255,253,248,1), rgba(255,253,248,.96));
-      padding-bottom:6px;
-      pointer-events:auto !important;
-    }
-
-    .duet-mobile-quick-actions .btn{
-      width:100%;
-      min-height:50px;
-      pointer-events:auto !important;
-      z-index:9;
     }
 
     .duet-result-actions{
@@ -825,23 +778,19 @@
       z-index:10;
       padding-top:10px;
       background:linear-gradient(180deg, rgba(255,253,248,0), rgba(255,253,248,.92) 22%, rgba(255,253,248,1));
-      pointer-events:auto !important;
     }
 
     .duet-result-actions .btn{
       flex:1 1 180px;
       min-height:50px;
-      pointer-events:auto !important;
-      z-index:11;
     }
 
     .duet-confetti{
       position:absolute;
       inset:0;
       overflow:hidden;
-      pointer-events:none !important;
+      pointer-events:none;
       border-radius:28px;
-      z-index:1;
     }
 
     .duet-confetti-piece{
@@ -852,8 +801,7 @@
       animation-name:duetConfettiFall;
       animation-timing-function:linear;
       animation-iteration-count:1;
-      filter:none !important;
-      pointer-events:none !important;
+      pointer-events:none;
     }
 
     .duet-confetti-piece.pink{ background:#ff9fca; }
@@ -863,159 +811,20 @@
     .duet-confetti-piece.violet{ background:#cdb9ff; }
 
     @keyframes duetConfettiFall{
-      0%{
-        transform:translate3d(0,0,0) rotate(0deg);
-        opacity:0;
-      }
-      10%{
-        opacity:1;
-      }
-      100%{
-        transform:translate3d(var(--dx), 110vh, 0) rotate(var(--rot));
-        opacity:1;
-      }
+      0%{ transform:translate3d(0,0,0) rotate(0deg); opacity:0; }
+      10%{ opacity:1; }
+      100%{ transform:translate3d(var(--dx), 110vh, 0) rotate(var(--rot)); opacity:1; }
     }
 
     @media (max-width:760px){
       body{ overflow:auto; }
-
-      .duet-result-mount{
-        padding:10px;
-        align-items:flex-end;
-      }
-
-      .duet-result-card{
-        border-radius:22px;
-        padding:12px;
-      }
-
-      .duet-result-title{
-        font-size:22px;
-      }
-
-      .duet-result-sub{
-        font-size:12px;
-      }
-
-      .duet-mobile-quick-actions{
-        display:grid;
-        grid-template-columns:1fr 1fr;
-      }
-
-      .duet-result-actions{
-        display:grid;
-        grid-template-columns:1fr;
-        gap:10px;
-      }
-
-      .duet-result-actions .btn{
-        flex:auto;
-        width:100%;
-      }
-    }
-
-    /* === PATCH v20260329-DUET-SUMMARY-ACTION-LAYER-HARDFIX === */
-    #duetResultMount{
-      position: fixed;
-      inset: 0;
-      z-index: 99999;
-      overflow: auto;
-      padding: 14px;
-      background: rgba(245,252,255,.96) !important;
-      opacity: 1 !important;
-      filter: none !important;
-      isolation: isolate;
-      pointer-events: auto !important;
-      -webkit-backdrop-filter: none !important;
-      backdrop-filter: none !important;
-      transform: translateZ(0);
-    }
-
-    #duetResultMount[hidden]{
-      display:none !important;
-    }
-
-    #duetResultMount::before,
-    #duetResultMount::after{
-      content:none !important;
-      display:none !important;
-      pointer-events:none !important;
-    }
-
-    #duetResultMount .duet-result-card{
-      position:relative;
-      width:min(1120px,100%);
-      margin:0 auto;
-      border-radius:28px;
-      background:#fffdf8 !important;
-      color:#244f6d !important;
-      opacity:1 !important;
-      filter:none !important;
-      visibility:visible !important;
-      overflow:auto !important;
-      box-shadow:0 18px 48px rgba(33,66,88,.16) !important;
-      pointer-events:auto !important;
-      isolation:isolate;
-      -webkit-backdrop-filter:none !important;
-      backdrop-filter:none !important;
-      transform:none !important;
-    }
-
-    #duetResultMount .duet-result-card,
-    #duetResultMount .duet-result-card *{
-      filter:none !important;
-      visibility:visible !important;
-    }
-
-    #duetResultMount .duet-summary-head,
-    #duetResultMount .duet-praise,
-    #duetResultMount .duet-sum-top,
-    #duetResultMount .duet-sum-stats,
-    #duetResultMount .duet-recap{
-      position:relative;
-      z-index:2;
-      pointer-events:auto !important;
-    }
-
-    #duetResultMount .duet-mobile-quick-actions,
-    #duetResultMount .duet-result-actions{
-      position:sticky;
-      z-index:20 !important;
-      pointer-events:auto !important;
-    }
-
-    #duetResultMount .duet-result-actions .btn,
-    #duetResultMount .duet-mobile-quick-actions .btn,
-    #duetResultMount #duetBtnRematch,
-    #duetResultMount #duetBtnBackLobby,
-    #duetResultMount #duetBtnBackLauncher,
-    #duetResultMount #duetBtnBackHub,
-    #duetResultMount #duetBtnClose,
-    #duetResultMount #duetBtnRematchTop,
-    #duetResultMount #duetBtnBackLobbyTop{
-      pointer-events:auto !important;
-      position:relative !important;
-      z-index:30 !important;
-      touch-action:manipulation !important;
-    }
-
-    #duetResultMount .duet-confetti,
-    #duetResultMount .duet-confetti-piece{
-      pointer-events:none !important;
-    }
-
-    @media (max-width:760px){
-      #duetResultMount{
-        padding:10px 10px calc(14px + env(safe-area-inset-bottom, 0px));
-      }
-
-      #duetResultMount .duet-result-card{
-        border-radius:24px;
-      }
-
-      #duetResultMount .duet-result-actions{
-        bottom:0;
-      }
+      .duet-result-mount{ padding:10px; align-items:flex-end; }
+      .duet-result-card{ border-radius:22px; padding:12px; }
+      .duet-result-title{ font-size:22px; }
+      .duet-result-sub{ font-size:12px; }
+      .duet-mobile-quick-actions{ display:grid; grid-template-columns:1fr 1fr; }
+      .duet-result-actions{ display:grid; grid-template-columns:1fr; gap:10px; }
+      .duet-result-actions .btn{ width:100%; }
     }
   </style>
 </head>
@@ -1161,7 +970,7 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-  <script src="../firebase-config.js?v=20260329-duet-action-layer-v1"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260329-duet-action-layer-v3"></script>
+  <script src="../firebase-config.js?v=20260331-gjduet-r2"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260331-gjduet-r2"></script>
 </body>
 </html>
