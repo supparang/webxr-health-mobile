@@ -1,7 +1,9 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260331-GJ-DUET-RUN-R6
+   FULL PATCH v20260331-GJ-DUET-RUN-R7
    - กด rematch แล้ว write vote + กลับ lobby ทันที
-   - ลด race condition ที่มือถือค้างหน้า summary
+   - cancel onDisconnect ก่อน redirect รีแมตช์
+   - กัน beforeunload/pagehide ยิง phase:left ทับ
+   - detach room listener ก่อนเด้งหน้า
    - summary overlay mobile/pc กดปุ่มได้ชัดเจน
 */
 
@@ -195,6 +197,61 @@
     if (DEBUG) u.searchParams.set('debug', '1');
     if (isRematch) u.searchParams.set('rematch', '1');
     return u.toString();
+  }
+
+  async function cancelDisconnectMarker(){
+    try{
+      if (STATE.meOnDisconnect && typeof STATE.meOnDisconnect.cancel === 'function'){
+        await STATE.meOnDisconnect.cancel();
+      }
+    }catch(err){
+      console.warn('[duet.run] cancel onDisconnect failed:', err);
+    }
+  }
+
+  function detachRoomListener(){
+    try{
+      if (STATE.roomRef && STATE.roomOff){
+        STATE.roomRef.off('value', STATE.roomOff);
+      }
+    }catch(err){
+      console.warn('[duet.run] detach room listener failed:', err);
+    }
+    STATE.roomOff = null;
+  }
+
+  async function goLobbyForRematchNow(){
+    if (STATE.rematchRedirected) return;
+
+    STATE.rematchRedirected = true;
+    stopHeartbeat();
+    stopRematchPoll();
+    detachRoomListener();
+
+    await cancelDisconnectMarker();
+
+    try{
+      if (STATE.meRef){
+        await STATE.meRef.update({
+          connected: true,
+          ready: true,
+          phase: 'lobby',
+          lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+        });
+      }
+    }catch(err){
+      console.warn('[duet.run] pre-rematch lobby presence update failed:', err);
+    }
+
+    const nextUrl = buildSameRoomLobbyUrl(true);
+
+    try{ W.location.replace(nextUrl); }catch(_){ W.location.href = nextUrl; }
+    setTimeout(() => {
+      try{ W.location.href = nextUrl; }catch(_){}
+    }, 120);
+    setTimeout(() => {
+      try{ W.location.replace(nextUrl); }catch(_){}
+    }, 320);
   }
 
   function getCurrentParticipantIds(room){
@@ -469,7 +526,10 @@
     rematchRequested: false,
     rematchRedirected: false,
     rematchResetting: false,
-    leaving: false
+    leaving: false,
+
+    roomOff: null,
+    meOnDisconnect: null
   };
 
   try{ localStorage.setItem('HHA_PLAYER_PID', STATE.pid); }catch{}
@@ -954,7 +1014,7 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: !!peer.finished,
       endedAt: new Date().toISOString(),
-      version: 'v20260331-GJ-DUET-RUN-R6'
+      version: 'v20260331-GJ-DUET-RUN-R7'
     };
   }
 
@@ -1135,10 +1195,7 @@
         requestedAt: firebase.database.ServerValue.TIMESTAMP
       });
 
-      stopRematchPoll();
-
-      STATE.rematchRedirected = true;
-      safeReplace(buildSameRoomLobbyUrl(true));
+      await goLobbyForRematchNow();
     }catch(err){
       console.error('[duet.run] requestRematch failed:', err);
       STATE.rematchRequested = false;
@@ -1209,6 +1266,7 @@
 
     stopHeartbeat();
     stopRematchPoll();
+    detachRoomListener();
 
     try{
       if (STATE.meRef){
@@ -1547,6 +1605,8 @@
 
     try{
       const od = STATE.meRef.onDisconnect();
+      STATE.meOnDisconnect = od || null;
+
       if (od && typeof od.update === 'function'){
         fireAndForget(
           od.update({
@@ -1579,7 +1639,7 @@
   function attachRoomListener(){
     if (!STATE.roomRef) return;
 
-    STATE.roomRef.on('value', (snap) => {
+    STATE.roomOff = (snap) => {
       const room = snap.val();
 
       if (!room){
@@ -1622,18 +1682,15 @@
           (status === 'waiting' || status === 'countdown' || status === 'running') &&
           !STATE.rematchRedirected
         ){
-          STATE.rematchRedirected = true;
-          stopRematchPoll();
-
-          setTimeout(() => {
-            safeReplace(buildSameRoomLobbyUrl(true));
-          }, 80);
+          fireAndForget(goLobbyForRematchNow());
           return;
         }
 
         fireAndForget(maybeFinalizeRoom());
       }
-    });
+    };
+
+    STATE.roomRef.on('value', STATE.roomOff);
   }
 
   function bindUi(){
@@ -1646,6 +1703,9 @@
       stopHeartbeat();
       stopRematchPoll();
       caf(STATE.loopId);
+
+      if (STATE.rematchRedirected) return;
+
       try{
         if (STATE.meRef){
           STATE.meRef.update({
@@ -1660,6 +1720,8 @@
     W.addEventListener('pagehide', () => {
       stopHeartbeat();
       stopRematchPoll();
+
+      if (STATE.rematchRedirected) return;
     });
 
     D.addEventListener('visibilitychange', () => {
@@ -1673,7 +1735,7 @@
         if (!STATE.ended){
           startHeartbeat();
           publishLivePresence();
-        } else if (STATE.rematchRequested){
+        } else if (STATE.rematchRequested && !STATE.rematchRedirected){
           startRematchPoll();
         }
       }
