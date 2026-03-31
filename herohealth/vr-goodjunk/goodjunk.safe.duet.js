@@ -1,5 +1,5 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260329-GOODJUNK-DUET-SUMMARY-UNBLUR-V2
+   FULL PATCH v20260329-GOODJUNK-DUET-SUMMARY-UNBLUR-V3
    - bindRoom retry ถ้า room ยัง sync มาไม่ทัน
    - bindRoom ไม่ reset score/finished โดยไม่จำเป็น
    - ไม่ลบ room อัตโนมัติแล้ว
@@ -8,6 +8,7 @@
    - background/unload/reconnect presence แข็งขึ้น
    - กัน result overlay rerender ซ้ำโดยไม่จำเป็น
    - JS hard-fix summary white blur / compositing bug
+   - hard-fix ปุ่ม summary บน mobile/overlay กดแล้วไปต่อแน่นอน
 */
 
 (function(){
@@ -229,6 +230,51 @@
     STATE.lastOverlaySig = '';
   }
 
+  function fireAndForgetWrite(promiseLike){
+    try{
+      Promise.resolve(promiseLike).catch((err) => {
+        console.warn('[duet.write] ignored:', err);
+      });
+    }catch(err){
+      console.warn('[duet.write] wrap failed:', err);
+    }
+  }
+
+  function safeReplace(nextHref){
+    try{
+      W.location.replace(nextHref);
+    }catch(_){
+      W.location.href = nextHref;
+    }
+  }
+
+  function bindPress(el, handler){
+    if (!el || typeof handler !== 'function') return;
+
+    let locked = false;
+
+    const run = async (ev) => {
+      if (ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
+      }
+      if (locked) return;
+      locked = true;
+
+      try{
+        await handler(ev);
+      }catch(err){
+        console.error('[duet.bindPress] handler failed:', err);
+      }finally{
+        setTimeout(() => { locked = false; }, 280);
+      }
+    };
+
+    el.addEventListener('pointerup', run, { passive:false });
+    el.addEventListener('click', run, { passive:false });
+  }
+
   function hardFixResultOverlayStyles(){
     if (!UI.resultMount) return;
 
@@ -354,6 +400,9 @@
         filter:none !important;
         opacity:1 !important;
         color:#244f6d !important;
+      }
+      #duetResultMount .btn{
+        touch-action:manipulation !important;
       }
     `;
     D.head.appendChild(style);
@@ -1089,7 +1138,7 @@
         : pairRatio >= 1.00 ? 'B'
         : pairRatio >= 0.70 ? 'C'
         : 'D',
-      version: 'v20260329-GOODJUNK-DUET-SUMMARY-UNBLUR-V2'
+      version: 'v20260329-GOODJUNK-DUET-SUMMARY-UNBLUR-V3'
     };
   }
 
@@ -1226,13 +1275,18 @@
     if (!STATE.roomRef || !STATE.uid) return;
     STATE.rematchRequested = true;
 
-    await STATE.roomRef.child('rematch/' + STATE.uid).set({
+    const writePromise = STATE.roomRef.child('rematch/' + STATE.uid).set({
       uid: STATE.uid,
       pid: STATE.pid,
       name: STATE.name,
       ready: true,
       requestedAt: firebase.database.ServerValue.TIMESTAMP
     });
+
+    await Promise.race([
+      writePromise,
+      new Promise((resolve) => setTimeout(resolve, 1200))
+    ]);
   }
 
   async function maybeResetRoomForRematch(room){
@@ -1309,19 +1363,23 @@
     if (STATE.leaving) return;
     STATE.leaving = true;
 
+    stopHeartbeat();
+
     try{
       if (STATE.meRef){
-        await STATE.meRef.update({
-          connected: false,
-          phase: STATE.ended ? 'done' : 'left',
-          lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-        });
+        fireAndForgetWrite(
+          STATE.meRef.update({
+            connected: false,
+            phase: STATE.ended ? 'done' : 'left',
+            lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+          })
+        );
       }
     }catch(err){
       console.warn('[duet.leave] meRef update failed:', err);
     }
 
-    W.location.href = nextHref;
+    safeReplace(nextHref);
   }
 
   function renderResultOverlay(reason){
@@ -1525,15 +1583,16 @@
     const btnBackLobbyTop = $('duetBtnBackLobbyTop');
 
     if (btnClose){
-      btnClose.addEventListener('click', () => {
+      bindPress(btnClose, async () => {
         resetResultMount();
       });
     }
 
     if (btnRematch){
       btnRematch.disabled = !!STATE.rematchRequested;
-      btnRematch.addEventListener('click', async () => {
+      bindPress(btnRematch, async () => {
         if (STATE.rematchRequested) return;
+
         btnRematch.disabled = true;
         btnRematch.textContent = 'กำลังรอรีแมตช์...';
 
@@ -1549,29 +1608,30 @@
     }
 
     if (btnBackLobby){
-      btnBackLobby.addEventListener('click', () => {
-        leaveFinishedRoomAndMaybeCleanup(buildSameRoomLobbyUrl(false));
+      bindPress(btnBackLobby, async () => {
+        await leaveFinishedRoomAndMaybeCleanup(buildSameRoomLobbyUrl(false));
       });
     }
 
     if (btnBackLauncher){
-      btnBackLauncher.addEventListener('click', () => {
-        leaveFinishedRoomAndMaybeCleanup(
+      bindPress(btnBackLauncher, async () => {
+        await leaveFinishedRoomAndMaybeCleanup(
           (UI.btnBackLauncher && UI.btnBackLauncher.href) || '../goodjunk-launcher.html'
         );
       });
     }
 
     if (btnBackHub){
-      btnBackHub.addEventListener('click', () => {
-        leaveFinishedRoomAndMaybeCleanup(STATE.hub);
+      bindPress(btnBackHub, async () => {
+        await leaveFinishedRoomAndMaybeCleanup(STATE.hub);
       });
     }
 
     if (btnRematchTop){
       btnRematchTop.disabled = !!STATE.rematchRequested;
-      btnRematchTop.addEventListener('click', async () => {
+      bindPress(btnRematchTop, async () => {
         if (STATE.rematchRequested) return;
+
         btnRematchTop.disabled = true;
         btnRematchTop.textContent = 'รอรีแมตช์...';
 
@@ -1587,8 +1647,8 @@
     }
 
     if (btnBackLobbyTop){
-      btnBackLobbyTop.addEventListener('click', () => {
-        leaveFinishedRoomAndMaybeCleanup(buildSameRoomLobbyUrl(false));
+      bindPress(btnBackLobbyTop, async () => {
+        await leaveFinishedRoomAndMaybeCleanup(buildSameRoomLobbyUrl(false));
       });
     }
   }
@@ -1798,7 +1858,7 @@
         ){
           STATE.rematchRedirected = true;
           setTimeout(() => {
-            W.location.replace(buildSameRoomLobbyUrl(true));
+            safeReplace(buildSameRoomLobbyUrl(true));
           }, 450);
         }
       }
