@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="HeroHealth asset">
+
+
+<defs>
+  <linearGradient id="shieldBlue" x1="0" x2="0" y1="0" y2="1">
+    <stop offset="0%" stop-color="#5DD2FF"/>
+    <stop offset="100%" stop-color="#2D8CFF"/>
+  </linearGradient>
+  <linearGradient id="shieldGreen" x1="0" x2="0" y1="0" y2="1">
+    <stop offset="0%" stop-color="#A9E34B"/>
+    <stop offset="100%" stop-color="#62B93E"/>
+  </linearGradient>
+  <linearGradient id="shieldOrange" x1="0" x2="0" y1="0" y2="1">
+    <stop offset="0%" stop-color="#FFC342"/>
+    <stop offset="100%" stop-color="#FF7D1A"/>
+  </linearGradient>
+</defs>
+<circle cx="512" cy="512" r="452" fill="#16305C"/>
+<path d="M512 150 C615 205 700 218 830 230 C830 430 760 600 512 740 C264 600 194 430 194 230 C324 218 409 205 512 150 Z"
+      fill="#ffffff" stroke="#17305A" stroke-width="18"/>
+<path d="M512 178 C592 218 659 230 772 240 C771 410 718 540 512 672 C306 540 253 410 252 240 C365 230 432 218 512 178 Z"
+      fill="#17305A"/>
+<path d="M283 255 L485 230 L485 665 C365 585 305 483 283 255 Z" fill="url(#shieldBlue)"/>
+<path d="M512 226 L700 250 C680 466 624 572 512 665 C400 572 344 466 324 250 Z" fill="url(#shieldGreen)"/>
+<path d="M739 255 L539 230 L539 665 C659 585 717 483 739 255 Z" fill="url(#shieldOrange)"/>
+<path d="M485 225 L539 225 L539 669 L485 669 Z" fill="#17305A"/>
+<path d="M512 88 L535 133 L584 140 L549 175 L557 223 L512 200 L467 223 L475 175 L440 140 L489 133 Z" fill="#F5C243" stroke="#C88B00" stroke-width="6"/>
+<path d="M382 434 C382 491 344 528 293 528 C242 528 204 491 204 434 C204 384 266 315 293 265 C320 315 382 384 382 434 Z"
+      fill="#1D4F91" opacity="0.92"/>
+<path d="M290 314 C260 369 238 395 238 436 C238 466 262 492 293 492 C310 492 327 483 338 469 C321 476 304 473 290 465 C266 452 257 429 262 407 C267 384 278 362 290 314 Z"
+      fill="#9EEBFF" opacity="0.9"/>
+<path d="M536 409 C540 361 580 337 615 345 C645 352 664 378 668 406 C705 418 726 455 726 496 C726 555 688 600 635 600 C601 600 580 585 559 585 C536 585 517 600 484 600 C430 600 391 553 391 495 C391 449 416 412 454 404 C458 369 482 348 514 344 C535 342 553 349 566 361 C575 343 594 325 622 318 L625 336 C602 343 587 359 583 381 Z"
+      fill="#F34D35" stroke="#17305A" stroke-width="10"/>
+<g fill="none" stroke="#ffffff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="702" cy="334" r="28" fill="#ffffff" stroke="#ffffff"/>
+  <path d="M690 369 L651 434 L606 454"/>
+  <path d="M688 375 L746 413 L793 405"/>
+  <path d="M649 434 L667 514"/>
+  <path d="M665 514 L617 569"/>
+  <path d="M741 413 L748 494"/>
+  <path d="M748 494 L811 537"/>
+</g>
+
+</svg>
