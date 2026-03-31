@@ -1,10 +1,11 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260331-GJ-DUET-RUN-R3
+   FULL PATCH v20260331-GJ-DUET-RUN-R5
    - rematch 2/2 recovery แข็งขึ้น
+   - ถ้าห้องถูก reset ไป waiting/countdown/running หลังเรากด rematch แล้ว ให้เด้งกลับ lobby ทันที
    - summary ปุ่มกดติดบน mobile/pc
-   - finished room recover ได้แม้ host เดิมไม่อยู่
    - redirect กลับ lobby ห้องเดิมพร้อม rematch=1
 */
+
 (function(){
   'use strict';
 
@@ -251,62 +252,6 @@
     return players[0] || null;
   }
 
-  async function recoverFinishedRoomForRematchFromRun(room){
-    if (!room || !STATE.roomRef || STATE.rematchResetting) return false;
-
-    const status = String(room.status || 'waiting');
-    if (status !== 'finished') return false;
-
-    const info = getRematchInfo(room);
-    if (info.ids.length !== 2) return false;
-    if (info.count < 2) return false;
-
-    const host = room.players && room.players[room.hostId] ? room.players[room.hostId] : null;
-    const chosenHost = (host && isProbablyAlivePlayer(host)) ? host : pickRecoveryHost(room);
-
-    if (!chosenHost) return false;
-    if (chosenHost.id !== STATE.uid) return false;
-
-    STATE.rematchResetting = true;
-
-    try{
-      const t = now();
-      const updates = {
-        status: 'waiting',
-        startAt: 0,
-        updatedAt: firebase.database.ServerValue.TIMESTAMP,
-        seed: String(t),
-        hostId: chosenHost.id,
-        hostName: chosenHost.name || 'Host',
-        rematch: null,
-        'match/status': 'idle',
-        'match/lockedAt': 0,
-        'match/finishedAt': 0,
-        'match/participantIds': null
-      };
-
-      info.ids.forEach((id) => {
-        updates[`players/${id}/ready`] = false;
-        updates[`players/${id}/phase`] = 'lobby';
-        updates[`players/${id}/finished`] = false;
-        updates[`players/${id}/finalScore`] = 0;
-        updates[`players/${id}/miss`] = 0;
-        updates[`players/${id}/streak`] = 0;
-        updates[`players/${id}/finishedAt`] = 0;
-        updates[`players/${id}/connected`] = true;
-        updates[`players/${id}/lastSeenAt`] = firebase.database.ServerValue.TIMESTAMP;
-      });
-
-      await STATE.roomRef.update(updates);
-      return true;
-    }catch(err){
-      console.error('[duet.run] recoverFinishedRoomForRematchFromRun failed:', err);
-      return false;
-    }finally{
-      STATE.rematchResetting = false;
-    }
-  }
-
   function resetResultMount(){
     if (!UI.resultMount) return;
     UI.resultMount.hidden = true;
@@ -485,6 +430,7 @@
     peerId: '',
     loopId: 0,
     heartbeatTimer: 0,
+    rematchPollTimer: 0,
 
     rng: null,
     cfg: null,
@@ -824,7 +770,6 @@
 
   function prestartTick(){
     if (STATE.blockReason) return;
-    resetResultMount();
 
     const room = STATE.room;
     const status = String((room && room.status) || STATE.roomStatus || 'waiting');
@@ -926,6 +871,64 @@
     }
   }
 
+  function stopRematchPoll(){
+    if (STATE.rematchPollTimer){
+      clearInterval(STATE.rematchPollTimer);
+      STATE.rematchPollTimer = 0;
+    }
+  }
+
+  function startRematchPoll(){
+    stopRematchPoll();
+
+    let tries = 0;
+
+    STATE.rematchPollTimer = setInterval(async () => {
+      tries += 1;
+
+      try{
+        if (!STATE.roomRef){
+          stopRematchPoll();
+          return;
+        }
+
+        const snap = await STATE.roomRef.once('value');
+        const room = snap && typeof snap.val === 'function' ? snap.val() : null;
+
+        if (!room){
+          if (tries >= 24) stopRematchPoll();
+          return;
+        }
+
+        const status = String(room.status || 'waiting');
+        const info = getRematchInfo(room);
+
+        if (status === 'finished' && info.count >= 2){
+          fireAndForget(recoverFinishedRoomForRematchFromRun(room));
+        }
+
+        if ((status === 'waiting' || status === 'countdown' || status === 'running') && STATE.rematchRequested){
+          stopRematchPoll();
+
+          if (!STATE.rematchRedirected){
+            STATE.rematchRedirected = true;
+            safeReplace(buildSameRoomLobbyUrl(true));
+          }
+          return;
+        }
+
+        if (tries >= 24){
+          stopRematchPoll();
+        }
+      }catch(err){
+        console.warn('[duet.run] rematch poll failed:', err);
+        if (tries >= 24){
+          stopRematchPoll();
+        }
+      }
+    }, 500);
+  }
+
   function buildSummary(){
     const peer = getPeer(STATE.room) || {};
     return {
@@ -952,7 +955,7 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: !!peer.finished,
       endedAt: new Date().toISOString(),
-      version: 'v20260331-GJ-DUET-RUN-R3'
+      version: 'v20260331-GJ-DUET-RUN-R5'
     };
   }
 
@@ -1062,6 +1065,62 @@
     return out;
   }
 
+  async function recoverFinishedRoomForRematchFromRun(room){
+    if (!room || !STATE.roomRef || STATE.rematchResetting) return false;
+
+    const status = String(room.status || 'waiting');
+    if (status !== 'finished') return false;
+
+    const info = getRematchInfo(room);
+    if (info.ids.length !== 2) return false;
+    if (info.count < 2) return false;
+
+    const host = room.players && room.players[room.hostId] ? room.players[room.hostId] : null;
+    const chosenHost = (host && isProbablyAlivePlayer(host)) ? host : pickRecoveryHost(room);
+
+    if (!chosenHost) return false;
+    if (chosenHost.id !== STATE.uid) return false;
+
+    STATE.rematchResetting = true;
+
+    try{
+      const t = now();
+      const updates = {
+        status: 'waiting',
+        startAt: 0,
+        updatedAt: firebase.database.ServerValue.TIMESTAMP,
+        seed: String(t),
+        hostId: chosenHost.id,
+        hostName: chosenHost.name || 'Host',
+        rematch: null,
+        'match/status': 'idle',
+        'match/lockedAt': 0,
+        'match/finishedAt': 0,
+        'match/participantIds': null
+      };
+
+      info.ids.forEach((id) => {
+        updates[`players/${id}/ready`] = false;
+        updates[`players/${id}/phase`] = 'lobby';
+        updates[`players/${id}/finished`] = false;
+        updates[`players/${id}/finalScore`] = 0;
+        updates[`players/${id}/miss`] = 0;
+        updates[`players/${id}/streak`] = 0;
+        updates[`players/${id}/finishedAt`] = 0;
+        updates[`players/${id}/connected`] = true;
+        updates[`players/${id}/lastSeenAt`] = firebase.database.ServerValue.TIMESTAMP;
+      });
+
+      await STATE.roomRef.update(updates);
+      return true;
+    }catch(err){
+      console.error('[duet.run] recoverFinishedRoomForRematchFromRun failed:', err);
+      return false;
+    }finally{
+      STATE.rematchResetting = false;
+    }
+  }
+
   async function requestRematch(){
     if (!STATE.roomRef || !STATE.uid) return;
     STATE.rematchRequested = true;
@@ -1075,21 +1134,28 @@
         requestedAt: firebase.database.ServerValue.TIMESTAMP
       });
 
+      startRematchPoll();
+
       const snap = await STATE.roomRef.once('value');
       const room = snap && typeof snap.val === 'function' ? snap.val() : null;
       const info = getRematchInfo(room);
+      const status = String((room && room.status) || 'waiting');
 
-      if (info.count >= 2 && !STATE.rematchRedirected){
-        STATE.rematchRedirected = true;
+      if (status === 'finished' && info.count >= 2){
         fireAndForget(recoverFinishedRoomForRematchFromRun(room));
-
-        setTimeout(() => {
-          safeReplace(buildSameRoomLobbyUrl(true));
-        }, 250);
       }
+
+      if ((status === 'waiting' || status === 'countdown' || status === 'running') && !STATE.rematchRedirected){
+        STATE.rematchRedirected = true;
+        safeReplace(buildSameRoomLobbyUrl(true));
+        return;
+      }
+
+      renderResultOverlay('rematch-requested');
     }catch(err){
       console.error('[duet.run] requestRematch failed:', err);
       STATE.rematchRequested = false;
+      stopRematchPoll();
       throw err;
     }
   }
@@ -1154,6 +1220,7 @@
     STATE.leaving = true;
 
     stopHeartbeat();
+    stopRematchPoll();
 
     try{
       if (STATE.meRef){
@@ -1556,17 +1623,25 @@
 
       if (STATE.ended){
         const rematchInfo = getRematchInfo(room);
+        const status = String(room.status || 'waiting');
 
         renderResultOverlay(rematchInfo.count >= 2 ? 'rematch-requested' : 'sync-finish');
 
-        if (rematchInfo.count >= 2 && !STATE.rematchRedirected){
-          STATE.rematchRedirected = true;
-
+        if (status === 'finished' && rematchInfo.count >= 2){
           fireAndForget(recoverFinishedRoomForRematchFromRun(room));
+        }
+
+        if (
+          STATE.rematchRequested &&
+          (status === 'waiting' || status === 'countdown' || status === 'running') &&
+          !STATE.rematchRedirected
+        ){
+          STATE.rematchRedirected = true;
+          stopRematchPoll();
 
           setTimeout(() => {
             safeReplace(buildSameRoomLobbyUrl(true));
-          }, 450);
+          }, 250);
           return;
         }
 
@@ -1583,6 +1658,7 @@
 
     W.addEventListener('beforeunload', () => {
       stopHeartbeat();
+      stopRematchPoll();
       caf(STATE.loopId);
       try{
         if (STATE.meRef){
@@ -1597,11 +1673,13 @@
 
     W.addEventListener('pagehide', () => {
       stopHeartbeat();
+      stopRematchPoll();
     });
 
     D.addEventListener('visibilitychange', () => {
       if (D.visibilityState === 'hidden'){
         stopHeartbeat();
+        stopRematchPoll();
         return;
       }
 
@@ -1609,6 +1687,8 @@
         if (!STATE.ended){
           startHeartbeat();
           publishLivePresence();
+        } else if (STATE.rematchRequested){
+          startRematchPoll();
         }
       }
     });
