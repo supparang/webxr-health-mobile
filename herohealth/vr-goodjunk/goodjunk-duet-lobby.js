@@ -1,8 +1,8 @@
 /* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
-   FULL PATCH v20260327-GOODJUNK-DUET-LOBBY-FINAL-V3
-   - quota-safe localStorage
-   - room code join/create
-   - rematch auto-ready / auto-start
+   FULL PATCH v20260329-GOODJUNK-DUET-LOBBY-JOINFIX-V1
+   - fix join room permission_denied flow
+   - onDisconnect must not break join
+   - keep duet rematch / countdown / host repair
 */
 (function(){
   'use strict';
@@ -10,31 +10,6 @@
   const W = window;
   const D = document;
   const $ = (id) => D.getElementById(id);
-
-  function safeSetItem(key, value){
-    try{
-      localStorage.setItem(key, value);
-      return true;
-    }catch(err){
-      console.warn('[safeSetItem] failed:', key, err && err.message ? err.message : err);
-      return false;
-    }
-  }
-
-  function safeGetItem(key, fallback = null){
-    try{
-      const v = localStorage.getItem(key);
-      return v == null ? fallback : v;
-    }catch{
-      return fallback;
-    }
-  }
-
-  function safeRemoveItem(key){
-    try{
-      localStorage.removeItem(key);
-    }catch{}
-  }
 
   const DEBUG = (function(){
     try{
@@ -94,6 +69,16 @@
 
   const now = () => Date.now();
 
+  function fireAndForget(p){
+    try{
+      Promise.resolve(p).catch((err) => {
+        console.warn('[duet.lobby] ignored async error:', err);
+      });
+    }catch(err){
+      console.warn('[duet.lobby] fireAndForget failed:', err);
+    }
+  }
+
   const IS_REMATCH_ENTRY = (function(){
     try{
       return new URL(W.location.href).searchParams.get('rematch') === '1';
@@ -140,13 +125,17 @@
   }
 
   function makeDevicePid(){
-    const KEY = 'GJ_DEVICE_PID';
-    let pid = safeGetItem(KEY, '');
-    if (!pid){
-      pid = 'p-' + Math.random().toString(36).slice(2, 10);
-      safeSetItem(KEY, pid);
+    try{
+      const KEY = 'GJ_DEVICE_PID';
+      let pid = localStorage.getItem(KEY);
+      if (!pid){
+        pid = 'p-' + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem(KEY, pid);
+      }
+      return pid;
+    }catch{
+      return 'p-' + Math.random().toString(36).slice(2, 10);
     }
-    return pid;
   }
 
   function normalizePid(raw){
@@ -208,7 +197,11 @@
     name: (() => {
       const fromQs = qs('name', 'nick', 'playerName');
       if (fromQs) return fromQs.slice(0, 64);
-      return String(safeGetItem('HHA_PLAYER_NICK', 'Player') || 'Player').slice(0, 64);
+      try{
+        return String(localStorage.getItem('HHA_PLAYER_NICK') || 'Player').slice(0, 64);
+      }catch{
+        return 'Player';
+      }
     })(),
     hub: qs('hub') || '../hub.html',
     view: (qs('view') || 'mobile').toLowerCase(),
@@ -240,8 +233,8 @@
     autoStartLocked: false
   };
 
-  safeSetItem('HHA_PLAYER_PID', STATE.pid);
-  safeSetItem('HHA_PLAYER_NICK', STATE.name);
+  try{ localStorage.setItem('HHA_PLAYER_PID', STATE.pid); }catch{}
+  try{ localStorage.setItem('HHA_PLAYER_NICK', STATE.name); }catch{}
 
   function setCopyState(msg, isBad){
     if (!els.copyState) return;
@@ -965,21 +958,34 @@
     hideJoinGuard();
     STATE.joined = true;
 
-    await STATE.meRef.onDisconnect().update({
-      connected: false,
-      phase: 'left',
-      lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-    });
+    try{
+      const od = STATE.meRef.onDisconnect();
+      if (od && typeof od.update === 'function'){
+        fireAndForget(
+          od.update({
+            connected: false,
+            phase: 'left',
+            lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+          })
+        );
+      }
+    }catch(err){
+      console.warn('[duet.lobby] onDisconnect setup ignored:', err);
+    }
 
-    await STATE.meRef.update({
-      id: STATE.uid,
-      uid: STATE.uid,
-      pid: STATE.pid,
-      name: STATE.name,
-      connected: true,
-      phase: 'lobby',
-      lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-    });
+    try{
+      await STATE.meRef.update({
+        id: STATE.uid,
+        uid: STATE.uid,
+        pid: STATE.pid,
+        name: STATE.name,
+        connected: true,
+        phase: 'lobby',
+        lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+      });
+    }catch(err){
+      console.warn('[duet.lobby] meRef update failed after join:', err);
+    }
   }
 
   async function setReady(flag){
@@ -1238,6 +1244,8 @@
         showJoinGuard('ห้องนี้เต็มแล้ว (Duet รับได้แค่ 2 คน)');
       } else if (msg === 'room-not-joinable'){
         showJoinGuard('ห้องนี้เริ่มเกมไปแล้ว ให้สร้างห้องใหม่สำหรับรอบถัดไป');
+      } else if (msg === 'permission_denied'){
+        showJoinGuard('เข้าห้องไม่สำเร็จ: permission_denied — ให้ใช้ rules ชุดใหม่ที่แปะให้ด้านล่าง');
       } else {
         showJoinGuard('เข้าห้องไม่สำเร็จ: ' + msg);
       }
