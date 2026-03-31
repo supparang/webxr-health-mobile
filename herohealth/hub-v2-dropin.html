@@ -1,0 +1,16 @@
+<!-- 1) ใส่ใน <head> -->
+<link rel="stylesheet" href="./assets/logo-system/code/herohealth-logo-system.css">
+<link rel="stylesheet" href="./assets/herohealth-brand.css">
+<script defer src="./assets/herohealth-brand.js"></script>
+
+<!-- 2) ใส่ใน <body> ต้นหน้า / herohealth/hub-v2.html -->
+<div id="hhHubBrandMount"></div>
+
+<!-- 3) ใส่ก่อน </body> -->
+<script>
+  window.addEventListener('DOMContentLoaded', function(){
+    if (window.HeroHealthBrand) {
+      HeroHealthBrand.mountHubBrand('#hhHubBrandMount');
+    }
+  });
+</script>

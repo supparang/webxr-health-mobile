@@ -1,0 +1,57 @@
+:root{
+  --hh-blue:#4FC3F7;
+  --hh-blue-deep:#1D7FD6;
+  --hh-green:#79C94B;
+  --hh-orange:#FFA726;
+  --hh-navy:#17335E;
+  --hh-navy-2:#244A7A;
+  --hh-white:#ffffff;
+  --hh-text:#183153;
+  --hh-shadow:0 10px 30px rgba(20,45,89,.16);
+}
+
+.hh-brandbar{
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding:14px 18px; border-radius:24px; background:rgba(255,255,255,.82);
+  border:2px solid rgba(255,255,255,.66); box-shadow:var(--hh-shadow); backdrop-filter: blur(10px);
+}
+.hh-brandbar--hub{ padding:16px 20px; }
+.hh-brandbar__left{ display:flex; align-items:center; gap:14px; min-width:0; }
+.hh-brandbar__logo{ display:block; width:min(320px, 46vw); height:auto; }
+.hh-brandbar__icon{ width:64px; height:64px; border-radius:18px; box-shadow:var(--hh-shadow); flex:0 0 auto; }
+.hh-brandbar__titles{ min-width:0; }
+.hh-brandbar__eyebrow{ font-size:12px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:var(--hh-navy-2); opacity:.9; }
+.hh-brandbar__title{ margin:2px 0 0; font-size:clamp(24px,4vw,38px); line-height:1; font-weight:1000; color:var(--hh-navy); }
+.hh-brandbar__subtitle{ margin-top:4px; color:#52739d; font-size:14px; font-weight:800; }
+.hh-zones{ display:flex; flex-wrap:wrap; justify-content:flex-end; gap:10px; }
+.hh-chip{ display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:999px; padding:10px 14px; font-weight:900; font-size:13px; color:#163457; background:#fff; border:2px solid rgba(22,52,87,.08); box-shadow:0 6px 18px rgba(31,58,102,.08); }
+.hh-chip--hygiene{ color:var(--hh-blue-deep); }
+.hh-chip--nutrition{ color:#4F8A1C; }
+.hh-chip--exercise{ color:#E88910; }
+
+.hh-gamebrand{
+  display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:22px;
+  background:rgba(255,255,255,.90); border:2px solid rgba(255,255,255,.7); box-shadow:var(--hh-shadow);
+}
+.hh-gamebrand__logo{ width:56px; height:56px; border-radius:16px; flex:0 0 auto; }
+.hh-gamebrand__meta{ min-width:0; }
+.hh-gamebrand__zone{ font-size:12px; font-weight:1000; letter-spacing:.08em; text-transform:uppercase; }
+.hh-gamebrand__title{ margin-top:2px; font-size:clamp(18px,3vw,28px); line-height:1.05; font-weight:1000; color:var(--hh-navy); }
+.hh-gamebrand__caption{ margin-top:4px; font-size:13px; font-weight:800; color:#597699; }
+.hh-zone-hygiene .hh-gamebrand__zone{ color:var(--hh-blue-deep); }
+.hh-zone-nutrition .hh-gamebrand__zone{ color:#4F8A1C; }
+.hh-zone-exercise .hh-gamebrand__zone{ color:#E88910; }
+
+.hh-badge-row{ display:flex; flex-wrap:wrap; gap:10px; }
+.hh-badge{ display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; background:rgba(255,255,255,.92); box-shadow:0 6px 18px rgba(31,58,102,.08); font-weight:900; font-size:13px; color:var(--hh-navy); }
+.hh-badge img{ width:20px; height:20px; }
+
+.hh-hud{ display:flex; flex-wrap:wrap; gap:8px; }
+.hh-hud__pill{ display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; background:rgba(255,255,255,.94); border:2px solid rgba(255,255,255,.75); box-shadow:0 6px 18px rgba(31,58,102,.10); color:var(--hh-navy); font-weight:900; font-size:13px; }
+.hh-hud__pill img{ width:18px; height:18px; }
+
+@media (max-width: 860px){
+  .hh-brandbar{ flex-direction:column; align-items:stretch; }
+  .hh-zones{ justify-content:flex-start; }
+  .hh-brandbar__logo{ width:min(360px, 100%); }
+}

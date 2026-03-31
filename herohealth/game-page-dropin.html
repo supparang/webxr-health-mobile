@@ -1,0 +1,20 @@
+<!-- 1) ใส่ใน <head> ของทุกหน้าเกม -->
+<link rel="stylesheet" href="./assets/logo-system/code/herohealth-logo-system.css">
+<link rel="stylesheet" href="./assets/herohealth-brand.css">
+<script defer src="./assets/herohealth-brand.js"></script>
+
+<!-- 2) ใส่ในส่วน header / hero ของหน้า -->
+<div id="hhGameBrandMount"></div>
+
+<!-- 3) ถ้ามี h1 เดิม ให้ใส่ id นี้ด้วย -->
+<h1 id="gameTitle">Game Title</h1>
+
+<!-- 4) ใส่ก่อน </body> -->
+<script>
+  window.addEventListener('DOMContentLoaded', function(){
+    if (window.HeroHealthBrand) {
+      HeroHealthBrand.mountGameBrand('#hhGameBrandMount');
+      HeroHealthBrand.injectPageTitle('#gameTitle');
+    }
+  });
+</script>
