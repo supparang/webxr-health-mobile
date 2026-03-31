@@ -48,40 +48,44 @@
           </div>
         </section>
 
-        <section class="stage-card">
+        <section id="stageCard" class="stage-card">
           <div id="feedbackPop" class="feedback-pop">เยี่ยม!</div>
 
-          <div id="speechBubble" class="speech-bubble">เริ่มเลย! ถูให้สะอาดก่อนนะ</div>
+          <div id="speechBubble" class="speech-bubble">เริ่มเลย! เลือกอุปกรณ์ก่อนนะ</div>
           <div class="coach-bot">🤖</div>
 
           <div class="tool-rail">
-            <button id="toolSoap" class="tool-fab active" type="button">🧼</button>
-            <button id="toolWater" class="tool-fab" type="button">🚿</button>
-            <button id="toolTowel" class="tool-fab" type="button">🧴</button>
+            <button id="toolSoap" class="tool-fab" type="button" aria-label="สบู่">🧼</button>
+            <button id="toolWater" class="tool-fab" type="button" aria-label="ฝักบัว">🚿</button>
+            <button id="toolTowel" class="tool-fab" type="button" aria-label="ผ้าเช็ดตัว">🧴</button>
           </div>
 
           <div class="window"></div>
 
           <div id="avatarWrap" class="avatar-wrap">
-            <div class="foam foam-a"></div>
-            <div class="foam foam-b"></div>
-            <div class="foam foam-c"></div>
             <div class="avatar-head"></div>
+            <div class="avatar-hair"></div>
             <div class="avatar-body"></div>
+            <div class="avatar-arm left"></div>
+            <div class="avatar-arm right"></div>
+            <div class="avatar-leg left"></div>
+            <div class="avatar-leg right"></div>
+
+            <div id="hotspotsLayer" class="hotspots-layer"></div>
+            <div id="effectsLayer" class="effects-layer"></div>
           </div>
 
           <div class="sink"></div>
           <div class="soap-bottle"></div>
 
-          <div id="sparkle1" class="sparkle sp1">✨</div>
-          <div id="sparkle2" class="sparkle sp2">⭐</div>
-          <div id="sparkle3" class="sparkle sp3">💧</div>
+          <div class="sparkle sp1">✨</div>
+          <div class="sparkle sp2">⭐</div>
+          <div class="sparkle sp3">💧</div>
         </section>
 
-        <section class="action-grid">
-          <button id="primaryActionBtn" class="action-btn primary" type="button">🧼 ถู</button>
-          <button id="bonusActionBtn" class="action-btn gold" type="button">⭐ Perfect</button>
-          <button id="mistakeBtn" class="action-btn soft" type="button">💦 พลาดนิดหน่อย</button>
+        <section class="action-row-mini">
+          <button id="retryBtn" class="mini-btn" type="button">เริ่มรอบใหม่</button>
+          <button id="mistakeBtn" class="mini-btn warn" type="button">พลาดนิดหน่อย</button>
         </section>
 
         <section class="stats-grid">
@@ -94,8 +98,8 @@
 
           <article class="stat-card">
             <div class="stat-label">เป้าหมายรอบนี้</div>
-            <div id="goalText" class="stat-value">ผ่าน 3 phase ให้ครบ</div>
-            <div id="subGoalText" class="stat-sub">ถ้ารักษา combo จะได้คะแนนพุ่งเร็ว</div>
+            <div id="goalText" class="stat-value">ผ่าน 5 ขั้นให้ครบ</div>
+            <div id="subGoalText" class="stat-sub">ทำต่อเนื่องจะได้คะแนนเพิ่ม</div>
           </article>
 
           <article class="stat-card">
@@ -103,6 +107,7 @@
             <div class="metric-line">Best combo <strong id="bestComboValue">1</strong></div>
             <div class="metric-line">Perfect <strong id="perfectValue">0</strong></div>
             <div class="metric-line">Mode <strong id="modeValue">play</strong></div>
+            <div class="metric-line">Target <strong id="focusValue">-</strong></div>
           </article>
         </section>
       </section>
