@@ -27,7 +27,6 @@
       --good:#22c55e;
       --bad:#ef4444;
       --gold:#f59e0b;
-      --gold-2:#fde68a;
       --violet:#cdb9ff;
 
       --shadow:0 18px 40px rgba(0,0,0,.12);
@@ -467,9 +466,18 @@
       touch-action:manipulation;
     }
 
-    .target.good{ background:linear-gradient(180deg,#ffffff,#f1fff1); }
-    .target.junk{ background:linear-gradient(180deg,#fff3f3,#ffe1e1); }
-    .target .t-emoji{ font-size:clamp(24px, 4vw, 38px); line-height:1; }
+    .target.good{
+      background:linear-gradient(180deg,#ffffff,#f1fff1);
+    }
+
+    .target.junk{
+      background:linear-gradient(180deg,#fff3f3,#ffe1e1);
+    }
+
+    .target .t-emoji{
+      font-size:clamp(24px, 4vw, 38px);
+      line-height:1;
+    }
 
     .countdown-overlay{
       position:absolute;
@@ -539,7 +547,7 @@
     }
 
     .duet-result-card{
-      width:min(980px,100%);
+      width:min(1100px,100%);
       max-height:min(92vh,1020px);
       overflow:auto;
       border-radius:28px;
@@ -550,6 +558,302 @@
       display:grid;
       gap:14px;
       position:relative;
+    }
+
+    .duet-result-card.celebrate{
+      box-shadow:0 32px 90px rgba(255,176,71,.24);
+    }
+
+    .duet-summary-kicker{
+      display:inline-flex;
+      align-items:center;
+      min-height:32px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:#f4fbff;
+      color:#658cb1;
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .duet-result-title{
+      font-size:28px;
+      line-height:1.15;
+      font-weight:1100;
+      color:#7a2558;
+    }
+
+    .duet-result-sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .duet-praise,.duet-sum-top-card,.duet-sum-stat,.duet-recap-card{
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:#fff;
+      padding:14px;
+    }
+
+    .duet-praise-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .duet-praise-title{
+      font-size:26px;
+      line-height:1.15;
+      font-weight:1100;
+      color:#7a2558;
+    }
+
+    .duet-praise-sub{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .duet-stars{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .duet-stars.big .duet-star{
+      font-size:26px;
+    }
+
+    .duet-badges,.duet-trophy-strip{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:10px;
+    }
+
+    .duet-badge,.duet-trophy{
+      display:inline-flex;
+      align-items:center;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      font-size:13px;
+      font-weight:1000;
+      border:1px solid var(--stroke);
+      background:#fff;
+    }
+
+    .duet-badge.good,.duet-trophy.good{ background:#eefcf0; color:#247635; }
+    .duet-badge.pink,.duet-trophy.pink{ background:#fff2f8; color:#a33268; }
+    .duet-badge.warn,.duet-trophy.warn{ background:#fff7ea; color:#9a5a00; }
+    .duet-badge.blue,.duet-trophy.blue{ background:#eef8ff; color:#2d6f94; }
+    .duet-badge.gold,.duet-trophy.gold{ background:#fff8db; color:#8a6000; }
+
+    .duet-sum-top{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    @media (max-width:820px){
+      .duet-sum-top{ grid-template-columns:1fr; }
+    }
+
+    .duet-sum-top-label{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:1000;
+      text-align:center;
+    }
+
+    .duet-sum-top-score{
+      margin-top:8px;
+      text-align:center;
+      font-size:56px;
+      line-height:1;
+      font-weight:1100;
+    }
+
+    .duet-sum-top-score.me{ color:#8a2d66; }
+    .duet-sum-top-score.peer{ color:#236f89; }
+    .duet-sum-top-score.pair{ color:#c85c00; }
+
+    .duet-sum-top-sub{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.7;
+      font-weight:900;
+      text-align:center;
+    }
+
+    .duet-sum-goal-ok{ color:#3a8e2f; font-weight:1100; }
+    .duet-sum-goal-wait{ color:#aa6e00; font-weight:1100; }
+
+    .duet-sum-status.done,
+    .duet-sum-status.wait{
+      display:inline-flex;
+      min-height:26px;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:1100;
+      border:1px solid transparent;
+    }
+
+    .duet-sum-status.done{
+      background:#eefcf0;
+      color:#247635;
+      border-color:#d2f3d7;
+    }
+
+    .duet-sum-status.wait{
+      background:#fff8db;
+      color:#8a6000;
+      border-color:#f5e6a6;
+    }
+
+    .duet-sum-stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    @media (max-width:820px){
+      .duet-sum-stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    .duet-sum-stat-k{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:1000;
+      text-align:center;
+    }
+
+    .duet-sum-stat-v{
+      margin-top:8px;
+      color:#245f73;
+      font-size:44px;
+      line-height:1;
+      font-weight:1100;
+      text-align:center;
+    }
+
+    .duet-recap{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    @media (max-width:820px){
+      .duet-recap{ grid-template-columns:1fr; }
+    }
+
+    .duet-recap-k{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .duet-recap-v{
+      margin-top:8px;
+      color:#234e65;
+      font-size:16px;
+      line-height:1.65;
+      font-weight:1000;
+    }
+
+    .duet-mobile-quick-actions{
+      display:none;
+      gap:8px;
+      margin-bottom:10px;
+    }
+
+    .duet-result-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      position:sticky;
+      bottom:0;
+      padding-top:10px;
+      background:linear-gradient(180deg, rgba(255,253,248,0), rgba(255,253,248,.92) 22%, rgba(255,253,248,1));
+      z-index:30;
+    }
+
+    .duet-result-actions .btn{
+      flex:1 1 180px;
+      min-height:50px;
+    }
+
+    .duet-confetti{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      pointer-events:none;
+      border-radius:28px;
+    }
+
+    .duet-confetti-piece{
+      position:absolute;
+      top:-30px;
+      border-radius:999px;
+      opacity:.92;
+      animation-name:duetConfettiFall;
+      animation-timing-function:linear;
+      animation-iteration-count:1;
+      pointer-events:none;
+    }
+
+    .duet-confetti-piece.pink{ background:#ff9fca; }
+    .duet-confetti-piece.blue{ background:#7fcfff; }
+    .duet-confetti-piece.green{ background:#7ed957; }
+    .duet-confetti-piece.gold{ background:#ffd45c; }
+    .duet-confetti-piece.violet{ background:#cdb9ff; }
+
+    @keyframes duetConfettiFall{
+      0%{
+        transform:translate3d(0,0,0) rotate(0deg);
+        opacity:0;
+      }
+      10%{ opacity:1; }
+      100%{
+        transform:translate3d(var(--dx), 110vh, 0) rotate(var(--rot));
+        opacity:1;
+      }
+    }
+
+    @media (max-width:760px){
+      body{ overflow:auto; }
+      .duet-result-mount{
+        padding:10px;
+        align-items:flex-end;
+      }
+      .duet-result-card{
+        border-radius:22px;
+        padding:12px;
+      }
+      .duet-result-title{ font-size:22px; }
+      .duet-result-sub{ font-size:12px; }
+      .duet-mobile-quick-actions{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+      }
+      .duet-result-actions{
+        display:grid;
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+      .duet-result-actions .btn{
+        flex:auto;
+        width:100%;
+      }
     }
   </style>
 </head>
@@ -678,7 +982,6 @@
       const btnBackLauncher = document.getElementById('btnBackLauncher');
 
       if (btnGoHub) btnGoHub.href = hub;
-
       if (btnBackLauncher) {
         const u = new URL('./goodjunk-launcher.html', location.href);
         ['pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai','room','roomId']
@@ -695,7 +998,7 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-  <script src="../firebase-config.js?v=20260331-gjduet-r3"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260331-gjduet-r3"></script>
+  <script src="../firebase-config.js?v=20260331-gjduet-run-r5"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260331-gjduet-run-r5"></script>
 </body>
 </html>
