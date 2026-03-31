@@ -21,8 +21,10 @@
     gameId: q.get('gameId') || 'goodjunk'
   };
 
-  const ROOT_ID = 'gjSoloBossRootV8';
-  const STYLE_ID = 'gjSoloBossStyleV8';
+  const DEBUG = q.get('debug') === '1';
+
+  const ROOT_ID = 'gjSoloBossRootClean';
+  const STYLE_ID = 'gjSoloBossStyleClean';
   const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
   const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
   const RESEARCH_LAST_KEY = 'HHA_GJ_BOSS_RESEARCH_LAST';
@@ -100,7 +102,6 @@
     presentationLockMs: 0,
 
     items: new Map(),
-
     lastTelegraphAt: 0,
 
     a11y: {
@@ -148,9 +149,6 @@
       rageTriggered: false,
       rageEnterMs: 0,
 
-      adaptiveMode: 'steady',
-      assistGraceMs: 0,
-
       killSequence: false,
       introShowing: false
     },
@@ -197,10 +195,24 @@
         stormHit: 0,
         goodMiss: 0
       }
+    },
+
+    runtime: {
+      timers: new Set(),
+      mounted: false,
+      started: false,
+      destroyed: false
     }
   };
 
   let ui = null;
+
+  function dlog() {
+    if (!DEBUG) return;
+    try {
+      console.log('[GJSB]', ...arguments);
+    } catch (_) {}
+  }
 
   function rand() {
     return Math.random();
@@ -233,6 +245,74 @@
     return ui.stage.getBoundingClientRect();
   }
 
+  function safeTimeout(fn, ms) {
+    const id = setTimeout(() => {
+      state.runtime.timers.delete(id);
+      try { fn(); } catch (err) { dlog('timer error', err); }
+    }, ms);
+    state.runtime.timers.add(id);
+    return id;
+  }
+
+  function clearRuntimeTimers() {
+    state.runtime.timers.forEach((id) => {
+      try { clearTimeout(id); } catch (_) {}
+    });
+    state.runtime.timers.clear();
+  }
+
+  function safeJsonParse(text, fallback) {
+    try {
+      return JSON.parse(text);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function storageGet(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw == null ? fallback : raw;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function storageSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function safeCopyText(text) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (_) {}
+
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', 'readonly');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return !!ok;
+    } catch (_) {
+      return false;
+    }
+  }
+
   function detectAccessibilityPrefs() {
     try {
       const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -261,6 +341,7 @@
       type: String(type || 'event'),
       detail: detail || {}
     };
+
     state.research.events.push(item);
     if (state.research.events.length > 500) {
       state.research.events.shift();
@@ -274,23 +355,36 @@
   function saveLastSummary(payload) {
     try {
       const item = { ts: Date.now(), ...payload };
-      localStorage.setItem(LAST_SUMMARY_KEY, JSON.stringify(item));
-      const arr = JSON.parse(localStorage.getItem(SUMMARY_HISTORY_KEY) || '[]');
+      storageSet(LAST_SUMMARY_KEY, JSON.stringify(item));
+
+      const arr = safeJsonParse(storageGet(SUMMARY_HISTORY_KEY, '[]'), []);
       const list = Array.isArray(arr) ? arr : [];
       list.unshift(item);
-      localStorage.setItem(SUMMARY_HISTORY_KEY, JSON.stringify(list.slice(0, 40)));
+      storageSet(SUMMARY_HISTORY_KEY, JSON.stringify(list.slice(0, 40)));
     } catch (_) {}
   }
 
   function saveResearchPayload(payload) {
     try {
-      localStorage.setItem(RESEARCH_LAST_KEY, JSON.stringify(payload));
-      const arr = JSON.parse(localStorage.getItem(RESEARCH_HISTORY_KEY) || '[]');
+      storageSet(RESEARCH_LAST_KEY, JSON.stringify(payload));
+
+      const arr = safeJsonParse(storageGet(RESEARCH_HISTORY_KEY, '[]'), []);
       const list = Array.isArray(arr) ? arr : [];
       list.unshift(payload);
-      localStorage.setItem(RESEARCH_HISTORY_KEY, JSON.stringify(list.slice(0, 30)));
+      storageSet(RESEARCH_HISTORY_KEY, JSON.stringify(list.slice(0, 30)));
     } catch (_) {}
+
     window.HHA_LAST_BOSS_PAYLOAD = payload;
+  }
+
+  function loadPreviousResearchPayload() {
+    try {
+      const raw = storageGet(RESEARCH_LAST_KEY, '');
+      if (!raw) return null;
+      return safeJsonParse(raw, null);
+    } catch (_) {
+      return null;
+    }
   }
 
   function buildResearchPayload(bossClear, grade) {
@@ -412,7 +506,7 @@
 
     if (kind === 'good') {
       playTone(720, 0.05, 'triangle', 0.018);
-      setTimeout(() => playTone(900, 0.05, 'triangle', 0.014), 35);
+      safeTimeout(() => playTone(900, 0.05, 'triangle', 0.014), 35);
       return;
     }
 
@@ -423,34 +517,34 @@
 
     if (kind === 'phase-up') {
       playTone(520, 0.08, 'triangle', 0.022);
-      setTimeout(() => playTone(720, 0.08, 'triangle', 0.02), 90);
-      setTimeout(() => playTone(980, 0.10, 'triangle', 0.022), 180);
+      safeTimeout(() => playTone(720, 0.08, 'triangle', 0.02), 90);
+      safeTimeout(() => playTone(980, 0.10, 'triangle', 0.022), 180);
       return;
     }
 
     if (kind === 'telegraph') {
       playTone(340, 0.08, 'square', 0.018);
-      setTimeout(() => playTone(340, 0.08, 'square', 0.018), 120);
+      safeTimeout(() => playTone(340, 0.08, 'square', 0.018), 120);
       return;
     }
 
     if (kind === 'boss-hit') {
       playTone(560, 0.06, 'square', 0.02);
-      setTimeout(() => playTone(780, 0.07, 'triangle', 0.018), 40);
+      safeTimeout(() => playTone(780, 0.07, 'triangle', 0.018), 40);
       return;
     }
 
     if (kind === 'boss-break') {
       playTone(520, 0.07, 'square', 0.024);
-      setTimeout(() => playTone(760, 0.09, 'triangle', 0.02), 45);
-      setTimeout(() => playTone(990, 0.09, 'triangle', 0.018), 95);
+      safeTimeout(() => playTone(760, 0.09, 'triangle', 0.02), 45);
+      safeTimeout(() => playTone(990, 0.09, 'triangle', 0.018), 95);
       return;
     }
 
     if (kind === 'boss-clear') {
       playTone(784, 0.10, 'triangle', 0.03);
-      setTimeout(() => playTone(988, 0.12, 'triangle', 0.03), 110);
-      setTimeout(() => playTone(1174, 0.16, 'triangle', 0.032), 240);
+      safeTimeout(() => playTone(988, 0.12, 'triangle', 0.03), 110);
+      safeTimeout(() => playTone(1174, 0.16, 'triangle', 0.032), 240);
     }
   }
 
@@ -511,6 +605,8 @@
         display:grid;
         gap:6px;
         --boss-reserve:0px;
+        padding-right:var(--boss-reserve);
+        transition:padding-right .16s ease;
       }
 
       .gjsb-topHud.compact .gjsb-bar{
@@ -527,9 +623,27 @@
         height:7px;
       }
 
+      .gjsb-topHud.boss-mode{
+        --boss-reserve:0px !important;
+        padding-right:0 !important;
+      }
+
+      .gjsb-topHud.boss-mode #hudPhase{
+        display:none !important;
+      }
+
+      .gjsb-topHud.boss-mode .gjsb-bar{
+        grid-template-columns:repeat(4,minmax(0,1fr));
+      }
+
+      .gjsb-topHud.boss-mode .gjsb-progressWrap{
+        width:100% !important;
+        max-width:100% !important;
+      }
+
       .gjsb-bar{
         display:grid;
-        grid-template-columns:repeat(5,minmax(0,1fr));
+        grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
         gap:6px;
         align-items:center;
       }
@@ -636,8 +750,8 @@
         background:rgba(255,255,255,.82);
         border:2px solid rgba(191,227,242,.95);
         overflow:hidden;
-        width:calc(100% - var(--boss-reserve));
-        max-width:calc(100% - var(--boss-reserve));
+        width:100%;
+        max-width:100%;
         box-shadow:0 6px 12px rgba(86,155,194,.08);
       }
 
@@ -687,6 +801,19 @@
         transition:top .18s ease,right .18s ease,width .18s ease,transform .18s ease;
       }
       .gjsb-boss.show{ display:block; }
+
+      .gjsb-boss.dock-lower{
+        top:auto !important;
+        right:10px !important;
+        bottom:108px !important;
+        width:min(220px,34vw);
+      }
+
+      .gjsb-boss.dock-lower .gjsb-boss-card{
+        box-shadow:
+          0 14px 28px rgba(86,155,194,.18),
+          0 0 0 6px rgba(255,255,255,.18);
+      }
 
       .gjsb-boss-card{
         border-radius:18px;
@@ -963,6 +1090,78 @@
         to{ opacity:0; transform:translate(-50%,-150%); }
       }
 
+      .gjsb-trailDot{
+        position:absolute;
+        pointer-events:none;
+        z-index:14;
+        border-radius:999px;
+        opacity:.9;
+        transform:translate(-50%,-50%) scale(1);
+        animation:gjsbTrailFade .34s linear forwards;
+      }
+
+      .gjsb-trailDot.weak{
+        background:radial-gradient(circle, rgba(255,224,138,.95), rgba(255,224,138,.25) 60%, rgba(255,224,138,0) 72%);
+        box-shadow:0 0 12px rgba(255,224,138,.35);
+      }
+
+      .gjsb-trailDot.fake{
+        background:radial-gradient(circle, rgba(255,145,145,.90), rgba(255,145,145,.22) 60%, rgba(255,145,145,0) 72%);
+        box-shadow:0 0 10px rgba(255,120,120,.28);
+      }
+
+      @keyframes gjsbTrailFade{
+        0%{ opacity:.95; transform:translate(-50%,-50%) scale(1); }
+        100%{ opacity:0; transform:translate(-50%,-50%) scale(.42); }
+      }
+
+      .gjsb-afterImage{
+        position:absolute;
+        pointer-events:none;
+        z-index:13;
+        border-radius:22px;
+        border:2px solid rgba(255,199,199,.72);
+        background:linear-gradient(180deg, rgba(255,242,242,.78), rgba(255,255,255,.30));
+        opacity:.65;
+        animation:gjsbAfterImageFade .28s linear forwards;
+      }
+
+      .gjsb-afterImage .gjsb-emoji{
+        opacity:.7;
+        filter:saturate(.85);
+      }
+
+      @keyframes gjsbAfterImageFade{
+        0%{ opacity:.62; transform:scale(1); }
+        100%{ opacity:0; transform:scale(.92); }
+      }
+
+      .gjsb-impact{
+        position:absolute;
+        pointer-events:none;
+        z-index:19;
+        border-radius:999px;
+        transform:translate(-50%,-50%) scale(.5);
+        opacity:.95;
+        animation:gjsbImpactPop .42s ease-out forwards;
+      }
+
+      .gjsb-impact.storm{
+        background:
+          radial-gradient(circle, rgba(255,255,255,.92) 0 18%, rgba(255,170,140,.88) 20%, rgba(255,120,120,.48) 42%, rgba(255,120,120,0) 72%);
+      }
+
+      .gjsb-impact.hit{
+        background:
+          radial-gradient(circle, rgba(255,255,255,.95) 0 20%, rgba(255,220,120,.92) 22%, rgba(255,170,70,.52) 46%, rgba(255,170,70,0) 74%);
+      }
+
+      @keyframes gjsbImpactPop{
+        0%{ opacity:.96; transform:translate(-50%,-50%) scale(.45); }
+        55%{ opacity:.78; transform:translate(-50%,-50%) scale(1); }
+        100%{ opacity:0; transform:translate(-50%,-50%) scale(1.28); }
+      }
+
       .gjsb-flash{
         position:absolute;
         inset:0;
@@ -1143,6 +1342,78 @@
       .gjsb-patternBanner.break .gjsb-cardKicker{ border-color:#ffd8ae; color:#a35b12; }
       .gjsb-patternBanner.storm .gjsb-cardKicker{ border-color:#ffc6c6; color:#b3472d; }
 
+      .gjsb-victoryMoment{
+        position:absolute;
+        inset:0;
+        z-index:58;
+        pointer-events:none;
+        display:none;
+        place-items:center;
+        background:
+          radial-gradient(circle at 50% 40%, rgba(255,255,255,.18), transparent 32%),
+          linear-gradient(180deg, rgba(255,246,190,.12), rgba(255,255,255,0));
+      }
+
+      .gjsb-victoryMoment.show{
+        display:grid;
+        animation:gjsbVictoryFade .8s ease-out forwards;
+      }
+
+      .gjsb-victoryCard{
+        min-width:min(84vw,420px);
+        max-width:88vw;
+        border-radius:28px;
+        border:4px solid #ffe08a;
+        background:linear-gradient(180deg,#fffef5,#fff9df);
+        box-shadow:0 20px 40px rgba(86,155,194,.18);
+        padding:18px 20px;
+        text-align:center;
+        color:#8a5a00;
+        transform:scale(.86);
+        animation:gjsbVictoryPop .55s cubic-bezier(.2,.8,.2,1) forwards;
+      }
+
+      .gjsb-victoryKicker{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        padding:7px 14px;
+        border-radius:999px;
+        background:#fff;
+        border:2px solid #f3df97;
+        font-size:12px;
+        font-weight:1000;
+      }
+
+      .gjsb-victoryTitle{
+        margin-top:12px;
+        font-size:34px;
+        line-height:1.04;
+        font-weight:1000;
+        color:#c57b00;
+        text-shadow:0 2px 0 #fff;
+      }
+
+      .gjsb-victorySub{
+        margin-top:8px;
+        font-size:15px;
+        line-height:1.55;
+        color:#7b6f5f;
+        font-weight:1000;
+      }
+
+      @keyframes gjsbVictoryPop{
+        0%{ opacity:0; transform:scale(.78); }
+        30%{ opacity:1; transform:scale(1.05); }
+        100%{ opacity:1; transform:scale(1); }
+      }
+
+      @keyframes gjsbVictoryFade{
+        0%{ opacity:0; }
+        12%{ opacity:1; }
+        100%{ opacity:1; }
+      }
+
       .gjsb-pause{
         position:absolute;
         inset:0;
@@ -1231,12 +1502,69 @@
         box-shadow:0 18px 36px rgba(86,155,194,.18);
         padding:18px;
         color:#55514a;
+        position:relative;
+      }
+
+      .gjsb-summary-card.celebrate{
+        box-shadow:
+          0 22px 46px rgba(86,155,194,.20),
+          0 0 0 10px rgba(255,224,138,.10);
       }
 
       .gjsb-summary-card.replay-hot{
         box-shadow:
           0 18px 36px rgba(86,155,194,.18),
           0 0 0 8px rgba(127,207,255,.08);
+      }
+
+      .gjsb-summary-card.grade-s{
+        background:linear-gradient(180deg,#fffdf2,#fff7d8);
+        border-color:#ffe08a;
+      }
+
+      .gjsb-summary-card.grade-a{
+        background:linear-gradient(180deg,#fbfff4,#f3ffe6);
+        border-color:#cfe9b8;
+      }
+
+      .gjsb-summary-card.grade-b{
+        background:linear-gradient(180deg,#f8fdff,#eef9ff);
+        border-color:#cdeeff;
+      }
+
+      .gjsb-summary-card.grade-c{
+        background:linear-gradient(180deg,#fffdf9,#fff6ef);
+        border-color:#ead7c6;
+      }
+
+      .gjsb-confetti{
+        position:absolute;
+        inset:0;
+        overflow:hidden;
+        pointer-events:none;
+        border-radius:28px;
+        z-index:2;
+      }
+
+      .gjsb-confettiPiece{
+        position:absolute;
+        top:-18px;
+        width:12px;
+        height:18px;
+        border-radius:999px;
+        opacity:.95;
+        animation:gjsbConfettiFall linear forwards;
+      }
+
+      .gjsb-confettiPiece.s{ background:#ffd45c; }
+      .gjsb-confettiPiece.a{ background:#7ed957; }
+      .gjsb-confettiPiece.b{ background:#7fcfff; }
+      .gjsb-confettiPiece.c{ background:#ffc5b0; }
+
+      @keyframes gjsbConfettiFall{
+        0%{ opacity:0; transform:translate3d(0,0,0) rotate(0deg); }
+        10%{ opacity:1; }
+        100%{ opacity:1; transform:translate3d(var(--dx), 105vh, 0) rotate(var(--rot)); }
       }
 
       .gjsb-summary-ribbon{
@@ -1252,9 +1580,21 @@
         font-weight:1000;
       }
 
+      .gjsb-summary-head.celebrate .gjsb-summary-ribbon{
+        animation:gjsbRibbonPop .55s cubic-bezier(.2,.8,.2,1) both;
+      }
+
+      @keyframes gjsbRibbonPop{
+        0%{ opacity:0; transform:translateY(-6px) scale(.94); }
+        60%{ opacity:1; transform:translateY(0) scale(1.04); }
+        100%{ opacity:1; transform:translateY(0) scale(1); }
+      }
+
       .gjsb-summary-head{
         text-align:center;
         margin-bottom:14px;
+        position:relative;
+        z-index:3;
       }
 
       .gjsb-medal{
@@ -1268,6 +1608,32 @@
         background:linear-gradient(180deg,#fff8d8,#fffef6);
         border:4px solid #d7edf7;
         box-shadow:0 12px 24px rgba(86,155,194,.14);
+      }
+
+      .gjsb-medal.shine{
+        position:relative;
+        overflow:hidden;
+        animation:gjsbMedalPop .62s cubic-bezier(.2,.8,.2,1) both;
+      }
+
+      .gjsb-medal.shine::after{
+        content:"";
+        position:absolute;
+        inset:-20%;
+        background:linear-gradient(120deg, transparent 0 35%, rgba(255,255,255,.85) 48%, transparent 60% 100%);
+        transform:translateX(-120%) rotate(10deg);
+        animation:gjsbMedalSweep 1.1s ease .35s 1 both;
+      }
+
+      @keyframes gjsbMedalPop{
+        0%{ opacity:0; transform:scale(.76) rotate(-8deg); }
+        50%{ opacity:1; transform:scale(1.08) rotate(4deg); }
+        100%{ opacity:1; transform:scale(1) rotate(0); }
+      }
+
+      @keyframes gjsbMedalSweep{
+        0%{ transform:translateX(-120%) rotate(10deg); }
+        100%{ transform:translateX(120%) rotate(10deg); }
       }
 
       .gjsb-grade{
@@ -1289,16 +1655,59 @@
       .gjsb-grade.b{ color:#2d6f8b; border-color:#cdeeff; background:#f1fbff; }
       .gjsb-grade.c{ color:#8b6a53; border-color:#ead7c6; background:#fff8f3; }
 
+      .gjsb-grade.pop{
+        animation:gjsbGradePop .58s cubic-bezier(.2,.8,.2,1) both;
+      }
+
+      @keyframes gjsbGradePop{
+        0%{ opacity:0; transform:scale(.7); }
+        55%{ opacity:1; transform:scale(1.12); }
+        100%{ opacity:1; transform:scale(1); }
+      }
+
       .gjsb-stars{
         font-size:30px;
         line-height:1;
         margin:10px 0 6px;
       }
 
+      .gjsb-stars.celebrate{
+        display:flex;
+        justify-content:center;
+        gap:8px;
+        flex-wrap:wrap;
+      }
+
+      .gjsb-star{
+        display:inline-block;
+        opacity:0;
+        transform:translateY(8px) scale(.72) rotate(-10deg);
+        animation:gjsbStarPop .55s cubic-bezier(.2,.8,.2,1) forwards;
+        animation-delay:var(--delay,0ms);
+      }
+
+      @keyframes gjsbStarPop{
+        0%{ opacity:0; transform:translateY(8px) scale(.72) rotate(-10deg); }
+        60%{ opacity:1; transform:translateY(-2px) scale(1.14) rotate(6deg); }
+        100%{ opacity:1; transform:translateY(0) scale(1) rotate(0); }
+      }
+
+      .gjsb-summary-head h2.pop,
+      #sumSub.pop{
+        animation:gjsbTextHeroPop .52s cubic-bezier(.2,.8,.2,1) both;
+      }
+
+      @keyframes gjsbTextHeroPop{
+        0%{ opacity:0; transform:translateY(8px) scale(.96); }
+        100%{ opacity:1; transform:translateY(0) scale(1); }
+      }
+
       .gjsb-summary-grid{
         display:grid;
         grid-template-columns:repeat(2,minmax(0,1fr));
         gap:10px;
+        position:relative;
+        z-index:3;
       }
 
       .gjsb-stat{
@@ -1306,6 +1715,18 @@
         background:#fff;
         border:3px solid #d7edf7;
         padding:12px;
+      }
+
+      .gjsb-stat.reveal{
+        opacity:0;
+        transform:translateY(10px) scale(.96);
+        animation:gjsbStatReveal .46s ease forwards;
+        animation-delay:var(--delay,0ms);
+      }
+
+      @keyframes gjsbStatReveal{
+        0%{ opacity:0; transform:translateY(10px) scale(.96); }
+        100%{ opacity:1; transform:translateY(0) scale(1); }
       }
 
       .gjsb-stat .k{
@@ -1330,6 +1751,8 @@
         line-height:1.5;
         color:#6b675f;
         font-weight:1000;
+        position:relative;
+        z-index:3;
       }
 
       .gjsb-nextHint{
@@ -1342,12 +1765,149 @@
         line-height:1.55;
         color:#6b675f;
         font-weight:1000;
+        position:relative;
+        z-index:3;
+      }
+
+      .gjsb-coach.reveal,
+      .gjsb-nextHint.reveal{
+        opacity:0;
+        transform:translateY(8px);
+        animation:gjsbTextReveal .46s ease forwards;
+        animation-delay:var(--delay,0ms);
+      }
+
+      @keyframes gjsbTextReveal{
+        0%{ opacity:0; transform:translateY(8px); }
+        100%{ opacity:1; transform:translateY(0); }
+      }
+
+      .gjsb-compareBox{
+        margin-top:12px;
+        border-radius:18px;
+        background:linear-gradient(180deg,#fffef6,#fff);
+        border:3px solid #d7edf7;
+        padding:12px 14px;
+        color:#6b675f;
+        position:relative;
+        z-index:3;
+      }
+
+      .gjsb-compareHead{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        flex-wrap:wrap;
+      }
+
+      .gjsb-compareTitle{
+        font-size:14px;
+        font-weight:1000;
+        color:#4d4a42;
+      }
+
+      .gjsb-compareBadge{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:30px;
+        padding:6px 12px;
+        border-radius:999px;
+        font-size:12px;
+        font-weight:1000;
+        border:2px solid #d7edf7;
+        background:#fff;
+        color:#5d6e7a;
+      }
+
+      .gjsb-compareBadge.better{
+        background:#eefcf0;
+        border-color:#d2f3d7;
+        color:#247635;
+      }
+
+      .gjsb-compareBadge.worse{
+        background:#fff6f0;
+        border-color:#ffd6c8;
+        color:#b75a32;
+      }
+
+      .gjsb-compareBadge.same{
+        background:#f5fbff;
+        border-color:#d7edf7;
+        color:#2d6f8b;
+      }
+
+      .gjsb-compareGrid{
+        margin-top:10px;
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:10px;
+      }
+
+      .gjsb-compareStat{
+        border-radius:16px;
+        background:#fff;
+        border:2px solid #e3f2f8;
+        padding:10px 12px;
+      }
+
+      .gjsb-compareK{
+        font-size:12px;
+        font-weight:1000;
+        color:#7b7a72;
+      }
+
+      .gjsb-compareV{
+        margin-top:4px;
+        font-size:20px;
+        font-weight:1000;
+        color:#244f6d;
+      }
+
+      .gjsb-compareDelta{
+        margin-top:4px;
+        font-size:12px;
+        font-weight:1000;
+      }
+
+      .gjsb-compareDelta.up{ color:#247635; }
+      .gjsb-compareDelta.down{ color:#b75a32; }
+      .gjsb-compareDelta.flat{ color:#6b7280; }
+
+      .gjsb-exportMeta{
+        margin-top:8px;
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+      }
+
+      .gjsb-exportChip{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:28px;
+        padding:5px 10px;
+        border-radius:999px;
+        background:#fff;
+        border:2px solid #d7edf7;
+        color:#5d6e7a;
+        font-size:11px;
+        font-weight:1000;
+      }
+
+      .gjsb-nextHint.pretty{
+        background:linear-gradient(180deg,#f7fcff,#ffffff);
+        border-style:solid;
       }
 
       .gjsb-actions{
         display:grid;
         gap:10px;
         margin-top:16px;
+        position:relative;
+        z-index:3;
       }
 
       .gjsb-btn{
@@ -1363,6 +1923,36 @@
       .gjsb-btn.cooldown{ background:linear-gradient(180deg,#7fcfff,#58b7f5); color:#08374d; }
       .gjsb-btn.hub{ background:#fff; color:#6c6a61; border:3px solid #d7edf7; }
 
+      .gjsb-actions.celebrate .gjsb-btn{
+        opacity:0;
+        transform:translateY(10px) scale(.97);
+        animation:gjsbBtnReveal .5s cubic-bezier(.2,.8,.2,1) forwards;
+        animation-delay:var(--delay,0ms);
+      }
+
+      @keyframes gjsbBtnReveal{
+        0%{ opacity:0; transform:translateY(10px) scale(.97); }
+        60%{ opacity:1; transform:translateY(-2px) scale(1.03); }
+        100%{ opacity:1; transform:translateY(0) scale(1); }
+      }
+
+      .gjsb-btn.replay.pulse,
+      .gjsb-btn.cooldown.pulse{
+        animation:gjsbActionPulse 1.2s ease-in-out infinite;
+        animation-delay:1.1s;
+      }
+
+      @keyframes gjsbActionPulse{
+        0%,100%{
+          transform:translateY(0) scale(1);
+          box-shadow:0 12px 24px rgba(86,155,194,.14);
+        }
+        50%{
+          transform:translateY(-1px) scale(1.03);
+          box-shadow:0 16px 30px rgba(86,155,194,.20);
+        }
+      }
+
       .gjsb-stage.reduced-motion *{
         animation-duration:.01ms !important;
         animation-iteration-count:1 !important;
@@ -1375,8 +1965,26 @@
       .gjsb-stage.reduced-motion .gjsb-stormLane.show,
       .gjsb-stage.reduced-motion .gjsb-praise.show,
       .gjsb-stage.reduced-motion .gjsb-patternBanner.show,
-      .gjsb-stage.reduced-motion .gjsb-bossIntro.show{
+      .gjsb-stage.reduced-motion .gjsb-bossIntro.show,
+      .gjsb-stage.reduced-motion .gjsb-victoryMoment.show,
+      .gjsb-stage.reduced-motion .gjsb-victoryCard,
+      .gjsb-stage.reduced-motion .gjsb-trailDot,
+      .gjsb-stage.reduced-motion .gjsb-afterImage,
+      .gjsb-stage.reduced-motion .gjsb-impact,
+      .gjsb-stage.reduced-motion .gjsb-medal.shine,
+      .gjsb-stage.reduced-motion .gjsb-medal.shine::after,
+      .gjsb-stage.reduced-motion .gjsb-grade.pop,
+      .gjsb-stage.reduced-motion .gjsb-star,
+      .gjsb-stage.reduced-motion .gjsb-stat.reveal,
+      .gjsb-stage.reduced-motion .gjsb-coach.reveal,
+      .gjsb-stage.reduced-motion .gjsb-nextHint.reveal,
+      .gjsb-stage.reduced-motion .gjsb-actions.celebrate .gjsb-btn,
+      .gjsb-stage.reduced-motion .gjsb-btn.replay.pulse,
+      .gjsb-stage.reduced-motion .gjsb-btn.cooldown.pulse,
+      .gjsb-stage.reduced-motion .gjsb-confettiPiece{
         animation:none !important;
+        opacity:1 !important;
+        transform:none !important;
       }
 
       .gjsb-stage.reduced-motion .gjsb-flash.show{
@@ -1385,8 +1993,12 @@
       }
 
       @media (max-width:720px){
+        .gjsb-topHud{
+          gap:5px;
+        }
+
         .gjsb-bar{
-          grid-template-columns:repeat(5,minmax(0,1fr));
+          grid-template-columns:repeat(3,minmax(0,1fr));
           gap:4px;
         }
 
@@ -1423,6 +2035,12 @@
         }
 
         .gjsb-boss{
+          width:min(154px,42vw);
+        }
+
+        .gjsb-boss.dock-lower{
+          right:8px !important;
+          bottom:92px !important;
           width:min(154px,42vw);
         }
 
@@ -1466,7 +2084,8 @@
           font-size:9px;
         }
 
-        .gjsb-summary-grid{
+        .gjsb-summary-grid,
+        .gjsb-compareGrid{
           grid-template-columns:1fr;
         }
       }
@@ -1551,6 +2170,14 @@
             </div>
           </div>
 
+          <div class="gjsb-victoryMoment" id="victoryMoment">
+            <div class="gjsb-victoryCard">
+              <div class="gjsb-victoryKicker">🏆 BOSS CLEAR</div>
+              <div class="gjsb-victoryTitle">Junk King Down!</div>
+              <div class="gjsb-victorySub">เธอผ่านทุก phase และปิดบอสได้สำเร็จ</div>
+            </div>
+          </div>
+
           <div class="gjsb-pause" id="pauseOverlay">
             <div class="gjsb-pauseCard">
               <div class="gjsb-pauseTitle">พักก่อนนะ</div>
@@ -1565,6 +2192,8 @@
 
           <div class="gjsb-summary" id="summary">
             <div class="gjsb-summary-card" id="summaryCard">
+              <div class="gjsb-confetti" id="sumConfetti"></div>
+
               <div class="gjsb-summary-head">
                 <div class="gjsb-summary-ribbon">GOODJUNK SOLO BOSS</div>
                 <div class="gjsb-medal" id="sumMedal">🥈</div>
@@ -1577,6 +2206,7 @@
               <div class="gjsb-summary-grid" id="sumGrid"></div>
               <div class="gjsb-coach" id="sumCoach">วันนี้ทำได้ดีมาก ลองเก็บอาหารดีต่อเนื่อง และระวัง junk ให้มากขึ้นนะ</div>
               <div class="gjsb-nextHint" id="sumNextHint">รอบหน้าลองเข้าไปให้ถึง Stage C และลด miss ลงอีกนิดนะ</div>
+              <div class="gjsb-compareBox" id="sumCompareBox">ยังไม่มีข้อมูลเทียบรอบก่อน</div>
               <div class="gjsb-nextHint" id="sumExportBox">payload พร้อม export หลังจบเกม</div>
 
               <div class="gjsb-actions">
@@ -1633,6 +2263,8 @@
       patternBannerTitle: document.getElementById('patternBannerTitle'),
       patternBannerSub: document.getElementById('patternBannerSub'),
 
+      victoryMoment: document.getElementById('victoryMoment'),
+
       pauseOverlay: document.getElementById('pauseOverlay'),
       pauseSub: document.getElementById('pauseSub'),
       btnResume: document.getElementById('btnResume'),
@@ -1640,6 +2272,7 @@
 
       summary: document.getElementById('summary'),
       summaryCard: document.getElementById('summaryCard'),
+      sumConfetti: document.getElementById('sumConfetti'),
       sumMedal: document.getElementById('sumMedal'),
       sumGrade: document.getElementById('sumGrade'),
       sumTitle: document.getElementById('sumTitle'),
@@ -1648,6 +2281,7 @@
       sumGrid: document.getElementById('sumGrid'),
       sumCoach: document.getElementById('sumCoach'),
       sumNextHint: document.getElementById('sumNextHint'),
+      sumCompareBox: document.getElementById('sumCompareBox'),
       sumExportBox: document.getElementById('sumExportBox'),
       btnReplay: document.getElementById('btnReplay'),
       btnCooldown: document.getElementById('btnCooldown'),
@@ -1656,13 +2290,177 @@
     };
   }
 
+  function clearStageTransientFx() {
+    if (!ui || !ui.stage) return;
+
+    [
+      '.gjsb-fx',
+      '.gjsb-scorePop',
+      '.gjsb-trailDot',
+      '.gjsb-afterImage',
+      '.gjsb-impact'
+    ].forEach((sel) => {
+      ui.stage.querySelectorAll(sel).forEach((el) => {
+        try { el.remove(); } catch (_) {}
+      });
+    });
+
+    if (ui.stormLane) ui.stormLane.classList.remove('show', 'hc');
+    if (ui.dangerEdge) ui.dangerEdge.classList.remove('show');
+    if (ui.flash) ui.flash.classList.remove('show');
+    if (ui.phasePulse) ui.phasePulse.classList.remove('show');
+    if (ui.victoryMoment) ui.victoryMoment.classList.remove('show');
+  }
+
+  function resetSummaryDom() {
+    if (!ui || !ui.summaryCard) return;
+
+    ui.summary.classList.remove('show');
+    ui.summaryCard.classList.remove(
+      'celebrate',
+      'replay-hot',
+      'grade-s',
+      'grade-a',
+      'grade-b',
+      'grade-c'
+    );
+
+    const head = ui.summaryCard.querySelector('.gjsb-summary-head');
+    if (head) head.classList.remove('celebrate');
+
+    if (ui.sumMedal) ui.sumMedal.classList.remove('shine');
+    if (ui.sumGrade) ui.sumGrade.classList.remove('pop');
+    if (ui.sumTitle) ui.sumTitle.classList.remove('pop');
+    if (ui.sumSub) ui.sumSub.classList.remove('pop');
+
+    if (ui.sumStars) {
+      ui.sumStars.classList.remove('celebrate');
+      ui.sumStars.textContent = '';
+    }
+
+    if (ui.sumGrid) {
+      ui.sumGrid.querySelectorAll('.gjsb-stat').forEach((el) => {
+        el.classList.remove('reveal');
+        el.style.removeProperty('--delay');
+      });
+      ui.sumGrid.innerHTML = '';
+    }
+
+    if (ui.sumCoach) {
+      ui.sumCoach.classList.remove('reveal');
+      ui.sumCoach.style.removeProperty('--delay');
+      ui.sumCoach.textContent = '';
+    }
+
+    if (ui.sumNextHint) {
+      ui.sumNextHint.classList.remove('reveal', 'pretty');
+      ui.sumNextHint.style.removeProperty('--delay');
+      ui.sumNextHint.textContent = '';
+    }
+
+    if (ui.sumCompareBox) {
+      ui.sumCompareBox.classList.remove('reveal');
+      ui.sumCompareBox.style.removeProperty('--delay');
+      ui.sumCompareBox.innerHTML = 'ยังไม่มีข้อมูลเทียบรอบก่อน';
+    }
+
+    if (ui.sumExportBox) {
+      ui.sumExportBox.classList.remove('reveal', 'pretty');
+      ui.sumExportBox.style.removeProperty('--delay');
+      ui.sumExportBox.innerHTML = 'payload พร้อม export หลังจบเกม';
+    }
+
+    const actions = ui.summaryCard.querySelector('.gjsb-actions');
+    if (actions) {
+      actions.classList.remove('celebrate');
+      actions.querySelectorAll('.gjsb-btn').forEach((btn) => {
+        btn.style.removeProperty('--delay');
+        btn.classList.remove('pulse');
+      });
+    }
+
+    if (ui.sumConfetti) ui.sumConfetti.innerHTML = '';
+  }
+
+  function beforeNavigationCleanup() {
+    clearRuntimeTimers();
+    clearStageTransientFx();
+    if (ui && ui.pauseOverlay) ui.pauseOverlay.classList.remove('show');
+    if (ui && ui.telegraph) ui.telegraph.classList.remove('show');
+    if (ui && ui.banner) ui.banner.classList.add('hide');
+    if (ui && ui.praise) ui.praise.classList.remove('show');
+  }
+
+  function hardResetRunVisuals() {
+    clearStageTransientFx();
+    resetSummaryDom();
+
+    state.paused = false;
+    state.ended = false;
+    state.boss.killSequence = false;
+    state.boss.telegraphOn = false;
+    state.lastTelegraphAt = 0;
+
+    if (ui && ui.pauseOverlay) ui.pauseOverlay.classList.remove('show');
+    if (ui && ui.telegraph) ui.telegraph.classList.remove('show');
+    if (ui && ui.banner) ui.banner.classList.add('hide');
+    if (ui && ui.praise) ui.praise.classList.remove('show');
+
+    setRageAura(false);
+  }
+
+  function ensureDebugPanel() {
+    if (!DEBUG || !ui || !ui.root) return;
+    if (document.getElementById('gjsbDebugPanel')) return;
+
+    const panel = document.createElement('div');
+    panel.id = 'gjsbDebugPanel';
+    panel.style.cssText = [
+      'position:absolute',
+      'left:8px',
+      'bottom:8px',
+      'z-index:90',
+      'max-width:min(92vw,360px)',
+      'padding:10px 12px',
+      'border-radius:16px',
+      'background:rgba(15,23,42,.88)',
+      'color:#e5e7eb',
+      'font:12px/1.45 system-ui,-apple-system,Segoe UI,sans-serif',
+      'box-shadow:0 10px 28px rgba(0,0,0,.24)',
+      'white-space:pre-wrap',
+      'pointer-events:none'
+    ].join(';');
+
+    ui.root.appendChild(panel);
+  }
+
+  function updateDebugPanel() {
+    if (!DEBUG) return;
+    const panel = document.getElementById('gjsbDebugPanel');
+    if (!panel) return;
+
+    panel.textContent =
+      'phase=' + state.phase +
+      ' | boss=' + (state.boss.active ? state.boss.stage : '-') +
+      ' | pattern=' + state.boss.pattern +
+      '\nscore=' + state.score +
+      ' miss=' + state.miss +
+      ' streak=' + state.streak +
+      '\ntime=' + Math.ceil(state.timeLeft / 1000) +
+      ' | items=' + state.items.size +
+      '\nhp=' + state.boss.hp + '/' + state.boss.maxHp +
+      ' | rage=' + (state.boss.rage ? '1' : '0') +
+      '\ntele=' + (state.boss.telegraphOn ? '1' : '0') +
+      ' | timers=' + state.runtime.timers.size;
+  }
+
   function wakeHud(ms) {
     state.hudAwakeMs = Math.max(state.hudAwakeMs || 0, ms || 1600);
   }
 
   function setMuted(next) {
     state.muted = !!next;
-    if (ui.btnMute) {
+    if (ui && ui.btnMute) {
       ui.btnMute.textContent = state.muted ? '🔇 Mute' : '🔊 Sound';
       ui.btnMute.classList.toggle('active', !state.muted);
     }
@@ -1670,9 +2468,9 @@
 
   function setReducedMotion(next) {
     state.a11y.reducedMotion = !!next;
-    ui.stage.classList.toggle('reduced-motion', !!next);
+    if (ui && ui.stage) ui.stage.classList.toggle('reduced-motion', !!next);
 
-    if (ui.btnMotion) {
+    if (ui && ui.btnMotion) {
       ui.btnMotion.textContent = state.a11y.reducedMotion ? '🪶 Low Motion' : '✨ Motion';
       ui.btnMotion.classList.toggle('active', !state.a11y.reducedMotion);
     }
@@ -1686,9 +2484,9 @@
   function mobileHudCompact() {
     const compact =
       window.innerWidth < 720 &&
-      (state.boss.active || ui.telegraph.classList.contains('show'));
+      (state.boss.active || (ui && ui.telegraph && ui.telegraph.classList.contains('show')));
 
-    ui.topHud.classList.toggle('compact', compact);
+    if (ui && ui.topHud) ui.topHud.classList.toggle('compact', compact);
   }
 
   function pauseGame(reason) {
@@ -1697,54 +2495,99 @@
     state.paused = true;
     state.pauseReason = String(reason || 'pause');
 
-    if (ui.pauseSub) {
+    if (ui && ui.pauseSub) {
       ui.pauseSub.textContent =
         state.pauseReason === 'hidden'
           ? 'เกมหยุดอัตโนมัติเมื่อหน้าจอถูกสลับออก เพื่อไม่ให้พลาดระหว่างเล่น'
           : 'เกมถูกหยุดไว้ชั่วคราว กดเล่นต่อได้เมื่อพร้อม';
     }
 
-    ui.pauseOverlay.classList.add('show');
+    if (ui && ui.pauseOverlay) ui.pauseOverlay.classList.add('show');
   }
 
   function resumeGame() {
     if (state.ended || !state.paused) return;
     state.paused = false;
     state.pauseReason = '';
-    ui.pauseOverlay.classList.remove('show');
+    if (ui && ui.pauseOverlay) ui.pauseOverlay.classList.remove('show');
     state.lastTs = performance.now();
+  }
+
+  function getBossReservePx() {
+    if (!state.boss.active || !ui || !ui.bossWrap) return 0;
+    const shown = ui.bossWrap.classList.contains('show');
+    if (!shown) return 0;
+
+    const rect = ui.bossWrap.getBoundingClientRect();
+    const w = Math.ceil(rect.width || 0);
+    if (!w) return window.innerWidth < 720 ? 150 : 190;
+    return w + 12;
+  }
+
+  function getTopHudBottomPx() {
+    if (!ui || !ui.topHud || !ui.stage) {
+      return window.innerWidth < 720 ? 96 : 112;
+    }
+
+    const hudRect = ui.topHud.getBoundingClientRect();
+    const stageRectPx = ui.stage.getBoundingClientRect();
+
+    return Math.max(0, Math.ceil(hudRect.bottom - stageRectPx.top));
+  }
+
+  function isBossDockLower() {
+    return !!state.boss.active;
+  }
+
+  function getBossDockBottomPx() {
+    const r = stageRect();
+    const groundBand = Math.round(r.height * 0.18);
+    if (window.innerWidth < 720) {
+      return Math.max(92, groundBand + 6);
+    }
+    return Math.max(108, groundBand + 8);
   }
 
   function layoutInnerHud() {
     if (!ui || !ui.topHud || !ui.bossWrap) return;
 
     const telegraphShown = ui.telegraph.classList.contains('show');
-    const bannerShown = !ui.banner.classList.contains('hide');
     const compact = window.innerWidth < 720 && (state.boss.active || telegraphShown);
 
+    ui.topHud.classList.toggle('compact', compact);
+
     if (!state.boss.active) {
+      ui.topHud.classList.remove('boss-mode');
       ui.topHud.style.setProperty('--boss-reserve', '0px');
+
+      ui.bossWrap.classList.remove('dock-lower');
       ui.bossWrap.style.top = compact ? '50px' : '52px';
-      mobileHudCompact();
+      ui.bossWrap.style.bottom = 'auto';
+      ui.bossWrap.style.right = '8px';
       return;
     }
 
-    const reserve = compact ? 142 : (window.innerWidth < 980 ? 176 : 220);
-    ui.topHud.style.setProperty('--boss-reserve', reserve + 'px');
+    if (isBossDockLower()) {
+      ui.topHud.classList.add('boss-mode');
+      ui.topHud.style.setProperty('--boss-reserve', '0px');
 
-    if (compact) {
-      ui.bossWrap.style.top =
-        telegraphShown ? '86px' :
-        bannerShown ? '66px' :
-        '50px';
-    } else {
-      ui.bossWrap.style.top =
-        telegraphShown ? '96px' :
-        bannerShown ? '72px' :
-        '52px';
+      ui.bossWrap.classList.add('dock-lower');
+      ui.bossWrap.style.top = 'auto';
+      ui.bossWrap.style.bottom = getBossDockBottomPx() + 'px';
+      ui.bossWrap.style.right = window.innerWidth < 720 ? '8px' : '10px';
+      return;
     }
 
-    mobileHudCompact();
+    ui.topHud.classList.remove('boss-mode');
+    ui.bossWrap.classList.remove('dock-lower');
+    ui.topHud.style.setProperty('--boss-reserve', getBossReservePx() + 'px');
+
+    const hudBottom = getTopHudBottomPx();
+    const minTop = compact ? 50 : 52;
+    const desiredTop = Math.max(minTop, hudBottom + 8);
+
+    ui.bossWrap.style.top = desiredTop + 'px';
+    ui.bossWrap.style.bottom = 'auto';
   }
 
   function fx(x, y, text, color) {
@@ -1755,7 +2598,7 @@
     el.style.top = y + 'px';
     el.style.color = color || '#333';
     ui.stage.appendChild(el);
-    setTimeout(() => el.remove(), 760);
+    safeTimeout(() => { try { el.remove(); } catch (_) {} }, 760);
   }
 
   function scorePop(x, y, text, kind, sizePx) {
@@ -1767,13 +2610,54 @@
     el.style.fontSize = (sizePx || 28) + 'px';
     ui.stage.appendChild(el);
 
-    requestAnimationFrame(() => {
-      el.classList.add('show');
-    });
+    requestAnimationFrame(() => el.classList.add('show'));
+    safeTimeout(() => { try { el.remove(); } catch (_) {} }, 760);
+  }
 
-    setTimeout(() => {
-      try { el.remove(); } catch (_) {}
-    }, 760);
+  function spawnTrailDot(x, y, kind, size) {
+    if (state.a11y.reducedMotion) return;
+
+    const el = document.createElement('div');
+    el.className = 'gjsb-trailDot ' + (kind || 'weak');
+
+    const s = size || (kind === 'fake' ? 20 : 18);
+    el.style.width = s + 'px';
+    el.style.height = s + 'px';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+
+    ui.stage.appendChild(el);
+    safeTimeout(() => { try { el.remove(); } catch (_) {} }, 360);
+  }
+
+  function spawnAfterImage(item) {
+    if (state.a11y.reducedMotion) return;
+    if (!item || !item.el) return;
+
+    const el = document.createElement('div');
+    el.className = 'gjsb-afterImage';
+    el.style.left = item.x + 'px';
+    el.style.top = item.y + 'px';
+    el.style.width = item.size + 'px';
+    el.style.height = item.size + 'px';
+    el.innerHTML = '<div class="gjsb-emoji">❌</div>';
+
+    ui.stage.appendChild(el);
+    safeTimeout(() => { try { el.remove(); } catch (_) {} }, 300);
+  }
+
+  function spawnImpact(x, y, type, size) {
+    const el = document.createElement('div');
+    el.className = 'gjsb-impact ' + (type || 'hit');
+
+    const s = size || 88;
+    el.style.width = s + 'px';
+    el.style.height = s + 'px';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+
+    ui.stage.appendChild(el);
+    safeTimeout(() => { try { el.remove(); } catch (_) {} }, 460);
   }
 
   function phaseFlash() {
@@ -1782,7 +2666,7 @@
     ui.flash.classList.add('show');
 
     if (state.a11y.reducedMotion) {
-      setTimeout(() => ui.flash.classList.remove('show'), 120);
+      safeTimeout(() => ui.flash.classList.remove('show'), 120);
     }
   }
 
@@ -1791,18 +2675,24 @@
     ui.stage.classList.remove('shake');
     void ui.stage.offsetWidth;
     ui.stage.classList.add('shake');
-    setTimeout(() => ui.stage.classList.remove('shake'), 240);
+    safeTimeout(() => ui.stage.classList.remove('shake'), 240);
   }
 
   function showDangerEdge(ms) {
     ui.dangerEdge.classList.add('show');
-    clearTimeout(showDangerEdge._t);
-    showDangerEdge._t = setTimeout(() => ui.dangerEdge.classList.remove('show'), ms || 700);
+
+    if (showDangerEdge._t) {
+      try { clearTimeout(showDangerEdge._t); } catch (_) {}
+      state.runtime.timers.delete(showDangerEdge._t);
+    }
+
+    showDangerEdge._t = safeTimeout(() => {
+      ui.dangerEdge.classList.remove('show');
+    }, ms || 700);
   }
 
   function pulseBossHit() {
     if (!ui.bossCard) return;
-    state.fx.bossHurtMs = 220;
     ui.bossCard.classList.remove('hurt');
     void ui.bossCard.offsetWidth;
     ui.bossCard.classList.add('hurt');
@@ -1810,7 +2700,6 @@
 
   function pulsePhase() {
     if (!ui.phasePulse) return;
-    state.fx.phasePulseMs = 700;
     ui.phasePulse.classList.remove('show');
     void ui.phasePulse.offsetWidth;
     ui.phasePulse.classList.add('show');
@@ -1819,17 +2708,17 @@
   function setStormLane(x, width, ms) {
     if (!ui.stormLane) return;
 
-    state.fx.stormLaneX = x;
-    state.fx.stormLaneW = width;
-    state.fx.stormLaneMs = ms || 700;
-
     ui.stormLane.style.left = x + 'px';
     ui.stormLane.style.width = width + 'px';
     ui.stormLane.classList.toggle('hc', !!state.a11y.highContrastTelegraph);
     ui.stormLane.classList.add('show');
 
-    clearTimeout(setStormLane._t);
-    setStormLane._t = setTimeout(() => {
+    if (setStormLane._t) {
+      try { clearTimeout(setStormLane._t); } catch (_) {}
+      state.runtime.timers.delete(setStormLane._t);
+    }
+
+    setStormLane._t = safeTimeout(() => {
       ui.stormLane.classList.remove('show');
     }, ms || 700);
   }
@@ -1850,9 +2739,13 @@
     ui.banner.classList.remove('hide');
     layoutInnerHud();
 
-    clearTimeout(setBanner._t);
+    if (setBanner._t) {
+      try { clearTimeout(setBanner._t); } catch (_) {}
+      state.runtime.timers.delete(setBanner._t);
+    }
+
     if (autoHide) {
-      setBanner._t = setTimeout(() => {
+      setBanner._t = safeTimeout(() => {
         ui.banner.classList.add('hide');
         layoutInnerHud();
       }, autoHide);
@@ -1867,8 +2760,12 @@
     playSfx('telegraph');
     layoutInnerHud();
 
-    clearTimeout(showTelegraph._t);
-    showTelegraph._t = setTimeout(() => {
+    if (showTelegraph._t) {
+      try { clearTimeout(showTelegraph._t); } catch (_) {}
+      state.runtime.timers.delete(showTelegraph._t);
+    }
+
+    showTelegraph._t = safeTimeout(() => {
       ui.telegraph.classList.remove('show');
       layoutInnerHud();
     }, ms || 800);
@@ -1893,8 +2790,12 @@
 
     state.praiseMs = Math.max(state.praiseMs || 0, ms || 760);
 
-    clearTimeout(showPraise._t);
-    showPraise._t = setTimeout(() => {
+    if (showPraise._t) {
+      try { clearTimeout(showPraise._t); } catch (_) {}
+      state.runtime.timers.delete(showPraise._t);
+    }
+
+    showPraise._t = safeTimeout(() => {
       ui.praise.classList.remove('show');
     }, ms || 760);
   }
@@ -1905,6 +2806,67 @@
     if ([3, 5, 8, 12].includes(state.streak)) {
       showPraise(text, state.streak >= 8 ? 920 : 760);
     }
+  }
+
+  function showBossIntroCard() {
+    if (!ui.bossIntroCard || state.ended) return;
+
+    state.boss.introShowing = true;
+    lockPresentation(980);
+
+    ui.bossIntroIcon.textContent = state.boss.rage ? '👹' : '🍔';
+    ui.bossIntroSub.textContent = state.boss.rage
+      ? 'ระวัง! บอสกำลังเข้าสู่ Rage Finale'
+      : 'พร้อมแล้วหรือยัง? บอสกำลังจะลงสนาม!';
+
+    ui.bossIntroCard.classList.remove('show');
+    void ui.bossIntroCard.offsetWidth;
+    ui.bossIntroCard.classList.add('show');
+
+    safeTimeout(() => {
+      state.boss.introShowing = false;
+      ui.bossIntroCard.classList.remove('show');
+    }, 760);
+  }
+
+  function showPatternBanner(pattern) {
+    if (!ui.patternBanner || state.ended) return;
+
+    const title = getPatternLabel(pattern);
+    const sub = getPatternSubtitle(pattern);
+    const icon = pattern === 'break' ? '💥' : pattern === 'storm' ? '🌪️' : '🎯';
+    const kicker =
+      pattern === 'break' ? '🛡️ ARMOR BREAK' :
+      pattern === 'storm' ? '⚠️ JUNK STORM' :
+      '🎯 TARGET HUNT';
+
+    ui.patternBanner.className = 'gjsb-patternBanner ' + pattern;
+    ui.patternBannerKicker.textContent = kicker;
+    ui.patternBannerIcon.textContent = icon;
+    ui.patternBannerTitle.textContent = title;
+    ui.patternBannerSub.textContent = sub;
+
+    ui.patternBanner.classList.remove('show');
+    void ui.patternBanner.offsetWidth;
+    ui.patternBanner.classList.add('show');
+
+    lockPresentation(pattern === 'storm' ? 720 : 620);
+
+    safeTimeout(() => {
+      ui.patternBanner.classList.remove('show');
+    }, 760);
+  }
+
+  function showVictoryMoment() {
+    if (!ui.victoryMoment) return;
+
+    ui.victoryMoment.classList.remove('show');
+    void ui.victoryMoment.offsetWidth;
+    ui.victoryMoment.classList.add('show');
+
+    safeTimeout(() => {
+      if (ui.victoryMoment) ui.victoryMoment.classList.remove('show');
+    }, 760);
   }
 
   function drawItem(item) {
@@ -1976,26 +2938,78 @@
     );
   }
 
-  function getBossPlayRect(itemSize) {
+  function getBossPlayRect(itemSize = 72) {
     const r = stageRect();
-    const top = window.innerWidth < 720 ? 108 : 136;
-    const left = 28;
-    const right = Math.max(left + 80, r.width - itemSize - 28);
-    const bottom = Math.max(top + 80, r.height - itemSize - 52);
-    return { left, top, right, bottom, width: r.width, height: r.height };
+
+    const hudRect = ui.topHud ? ui.topHud.getBoundingClientRect() : null;
+    const bossRect = (state.boss.active && ui.bossWrap && ui.bossWrap.classList.contains('show'))
+      ? ui.bossWrap.getBoundingClientRect()
+      : null;
+
+    const hudBottom = hudRect
+      ? Math.ceil(hudRect.bottom - r.top)
+      : (window.innerWidth < 720 ? 118 : 146);
+
+    const top = clamp(
+      hudBottom + 16,
+      window.innerWidth < 720 ? 112 : 140,
+      Math.max(window.innerWidth < 720 ? 160 : 200, r.height * 0.42)
+    );
+
+    const left = 20;
+    const right = Math.max(left + 120, r.width - itemSize - 20);
+    const bottom = Math.max(top + 120, r.height - itemSize - 56);
+
+    let bossBlock = null;
+    if (bossRect) {
+      const padX = 14;
+      const padY = 12;
+      bossBlock = {
+        left: Math.max(0, Math.floor(bossRect.left - r.left - padX)),
+        right: Math.min(r.width, Math.ceil(bossRect.right - r.left + padX)),
+        top: Math.max(0, Math.floor(bossRect.top - r.top - padY)),
+        bottom: Math.min(r.height, Math.ceil(bossRect.bottom - r.top + padY))
+      };
+    }
+
+    return {
+      left,
+      top,
+      right,
+      bottom,
+      width: r.width,
+      height: r.height,
+      bossBlock
+    };
   }
 
   function randomBossSpawn(itemSize) {
     const box = getBossPlayRect(itemSize);
-    const xMin = box.left + Math.max(24, box.width * 0.18);
-    const xMax = box.right - Math.max(10, box.width * 0.10);
-    const yMin = box.top + 8;
-    const yMax = box.bottom - Math.max(6, box.height * 0.10);
 
-    return {
-      x: range(xMin, Math.max(xMin + 20, xMax)),
-      y: range(yMin, Math.max(yMin + 20, yMax))
-    };
+    const minX = box.left + 8;
+    const maxX = Math.max(minX + 10, box.right - 8);
+    const minY = box.top + 8;
+    const maxY = Math.max(minY + 10, box.bottom - 8);
+
+    for (let i = 0; i < 24; i++) {
+      const x = range(minX, maxX);
+      const y = range(minY, maxY);
+
+      const b = box.bossBlock;
+      if (!b) return { x, y };
+
+      const overlapsBossCard =
+        x + itemSize > b.left &&
+        x < b.right &&
+        y + itemSize > b.top &&
+        y < b.bottom;
+
+      if (!overlapsBossCard) {
+        return { x, y };
+      }
+    }
+
+    return { x: minX, y: minY };
   }
 
   function getBossStageByHp() {
@@ -2012,23 +3026,17 @@
         label: 'Stage A • Learn',
         stageClass: 'a',
         icon: '🍔',
-
         weakSizeHunt: diffKey === 'hard' ? 82 : 92,
         weakSizeBreak: diffKey === 'hard' ? 96 : 108,
-
         weakSpeedHunt: diffKey === 'hard' ? 190 : 160,
         weakSpeedBreak: diffKey === 'hard' ? 145 : 120,
-
         huntRetargetMs: 1300,
         breakRetargetMs: 1450,
-
         stormWaveEvery: 2350,
         stormBurstCount: 1,
         stormBurstGap: 150,
-
         patternDuration: 3600,
         telegraphMs: 920,
-
         stormMode: 'single',
         huntMode: 'steady'
       };
@@ -2040,23 +3048,17 @@
         label: 'Stage B • Pressure',
         stageClass: 'b',
         icon: '😤',
-
         weakSizeHunt: diffKey === 'hard' ? 72 : 80,
         weakSizeBreak: diffKey === 'hard' ? 88 : 96,
-
         weakSpeedHunt: diffKey === 'hard' ? 255 : 215,
         weakSpeedBreak: diffKey === 'hard' ? 180 : 150,
-
         huntRetargetMs: 980,
         breakRetargetMs: 1120,
-
         stormWaveEvery: 1700,
         stormBurstCount: 2,
         stormBurstGap: 120,
-
         patternDuration: 3200,
         telegraphMs: 820,
-
         stormMode: 'cross',
         huntMode: 'pressure'
       };
@@ -2069,23 +3071,17 @@
       label: rage ? 'Stage C • Rage Finale' : 'Stage C • Final',
       stageClass: 'c',
       icon: rage ? '👹' : '😈',
-
       weakSizeHunt: rage ? (diffKey === 'hard' ? 52 : 60) : (diffKey === 'hard' ? 60 : 68),
       weakSizeBreak: rage ? (diffKey === 'hard' ? 70 : 76) : (diffKey === 'hard' ? 78 : 84),
-
       weakSpeedHunt: rage ? (diffKey === 'hard' ? 360 : 315) : (diffKey === 'hard' ? 320 : 280),
       weakSpeedBreak: rage ? (diffKey === 'hard' ? 250 : 215) : (diffKey === 'hard' ? 220 : 185),
-
       huntRetargetMs: rage ? 520 : 720,
       breakRetargetMs: rage ? 680 : 860,
-
       stormWaveEvery: rage ? 780 : 1120,
       stormBurstCount: rage ? 4 : 3,
       stormBurstGap: rage ? 85 : 105,
-
       patternDuration: rage ? 1800 : 2600,
       telegraphMs: rage ? 620 : 740,
-
       stormMode: rage ? 'rage-rain' : 'fan',
       huntMode: rage ? 'trickster' : 'aggressive'
     };
@@ -2197,6 +3193,61 @@
       item.vy = -Math.abs(item.vy);
     }
 
+    if (box.bossBlock) {
+      const b = box.bossBlock;
+      const overlapsBossCard =
+        item.x + item.size > b.left &&
+        item.x < b.right &&
+        item.y + item.size > b.top &&
+        item.y < b.bottom;
+
+      if (overlapsBossCard) {
+        const pushLeft = Math.abs((item.x + item.size) - b.left);
+        const pushRight = Math.abs(b.right - item.x);
+        const pushUp = Math.abs((item.y + item.size) - b.top);
+        const pushDown = Math.abs(b.bottom - item.y);
+
+        const minPush = Math.min(pushLeft, pushRight, pushUp, pushDown);
+
+        if (minPush === pushLeft) {
+          item.x = b.left - item.size - 2;
+          item.vx = -Math.abs(item.vx);
+        } else if (minPush === pushRight) {
+          item.x = b.right + 2;
+          item.vx = Math.abs(item.vx);
+        } else if (minPush === pushUp) {
+          item.y = b.top - item.size - 2;
+          item.vy = -Math.abs(item.vy);
+        } else {
+          item.y = b.bottom + 2;
+          item.vy = Math.abs(item.vy);
+        }
+      }
+    }
+
+    item._trailAcc = (item._trailAcc || 0) + dt;
+    if (item.kind === 'weak' && item._trailAcc >= 48) {
+      item._trailAcc = 0;
+      spawnTrailDot(
+        item.x + item.size / 2,
+        item.y + item.size / 2,
+        'weak',
+        Math.max(14, item.size * 0.18)
+      );
+    }
+
+    item._afterAcc = (item._afterAcc || 0) + dt;
+    if (item.kind === 'fakeweak' && item._afterAcc >= 72) {
+      item._afterAcc = 0;
+      spawnTrailDot(
+        item.x + item.size / 2,
+        item.y + item.size / 2,
+        'fake',
+        Math.max(16, item.size * 0.22)
+      );
+      spawnAfterImage(item);
+    }
+
     drawItem(item);
   }
 
@@ -2229,86 +3280,45 @@
     const shouldFake =
       state.boss.rage &&
       state.boss.stage === 'C' &&
-      rand() < (state.boss.pattern === 'break' ? 0.72 : 0.58);
+      rand() < (state.boss.pattern === 'break' ? 0.76 : 0.62);
 
     if (!shouldFake) {
       spawnRealWeak();
       return;
     }
 
-    const fakeSize = size + 8;
-    const pos = randomBossSpawn(fakeSize);
+    const fakeSize = size + 10;
+    const fakePos = randomBossSpawn(fakeSize);
 
     const fake = createItem(
       'fakeweak',
       '❌',
-      pos.x,
-      pos.y,
+      fakePos.x,
+      fakePos.y,
       fakeSize,
-      range(-speed * 0.6, speed * 0.6),
-      range(-speed * 0.6, speed * 0.6),
+      range(-speed * 0.72, speed * 0.72),
+      range(-speed * 0.72, speed * 0.72),
       'fake'
     );
 
     state.boss.fakeWeakActive = true;
     state.boss.fakeWeakDecoyId = fake.id;
 
-    setTimeout(() => {
+    spawnAfterImage(fake);
+
+    safeTimeout(() => {
       if (state.ended || !state.boss.active) return;
-      if (state.boss.fakeWeakDecoyId === fake.id) removeItem(fake);
+
+      if (state.boss.fakeWeakDecoyId === fake.id) {
+        spawnImpact(fake.x + fake.size / 2, fake.y + fake.size / 2, 'storm', Math.max(68, fake.size));
+        removeItem(fake);
+      }
+
       state.boss.fakeWeakActive = false;
       state.boss.fakeWeakDecoyId = '';
+
       if (!state.boss.weakId) spawnRealWeak();
-    }, state.boss.rage ? 280 : 360);
-  }
-
-  function showBossIntroCard() {
-    if (!ui.bossIntroCard || state.ended) return;
-
-    state.boss.introShowing = true;
-    lockPresentation(980);
-
-    ui.bossIntroIcon.textContent = state.boss.rage ? '👹' : '🍔';
-    ui.bossIntroSub.textContent = state.boss.rage
-      ? 'ระวัง! บอสกำลังเข้าสู่ Rage Finale'
-      : 'พร้อมแล้วหรือยัง? บอสกำลังจะลงสนาม!';
-
-    ui.bossIntroCard.classList.remove('show');
-    void ui.bossIntroCard.offsetWidth;
-    ui.bossIntroCard.classList.add('show');
-
-    setTimeout(() => {
-      state.boss.introShowing = false;
-      ui.bossIntroCard.classList.remove('show');
-    }, 760);
-  }
-
-  function showPatternBanner(pattern) {
-    if (!ui.patternBanner || state.ended) return;
-
-    const title = getPatternLabel(pattern);
-    const sub = getPatternSubtitle(pattern);
-    const icon = pattern === 'break' ? '💥' : pattern === 'storm' ? '🌪️' : '🎯';
-    const kicker =
-      pattern === 'break' ? '🛡️ ARMOR BREAK' :
-      pattern === 'storm' ? '⚠️ JUNK STORM' :
-      '🎯 TARGET HUNT';
-
-    ui.patternBanner.className = 'gjsb-patternBanner ' + pattern;
-    ui.patternBannerKicker.textContent = kicker;
-    ui.patternBannerIcon.textContent = icon;
-    ui.patternBannerTitle.textContent = title;
-    ui.patternBannerSub.textContent = sub;
-
-    ui.patternBanner.classList.remove('show');
-    void ui.patternBanner.offsetWidth;
-    ui.patternBanner.classList.add('show');
-
-    lockPresentation(pattern === 'storm' ? 720 : 620);
-
-    setTimeout(() => {
-      ui.patternBanner.classList.remove('show');
-    }, 760);
+    }, state.boss.rage ? 320 : 400);
   }
 
   function startTelegraph(text, ms) {
@@ -2528,6 +3538,7 @@
 
     state.spawnedStorm += 1;
     state.metrics.stormSpawned += 1;
+
     setStormLane(Math.max(0, x - 10), size + 20, p.stage === 'C' ? 520 : 680);
 
     const create = () => {
@@ -2544,11 +3555,11 @@
     };
 
     if (p.stage === 'A') {
-      setTimeout(create, 150);
+      safeTimeout(create, 150);
     } else if (p.stage === 'B') {
-      setTimeout(create, 110);
+      safeTimeout(create, 110);
     } else {
-      setTimeout(create, state.boss.rage ? 70 : 90);
+      safeTimeout(create, state.boss.rage ? 70 : 90);
     }
   }
 
@@ -2614,6 +3625,8 @@
   function updateBossUi() {
     if (!state.boss.active) {
       ui.bossWrap.classList.remove('show');
+      ui.bossWrap.classList.remove('dock-lower');
+      ui.topHud.classList.remove('boss-mode');
       ui.topHud.style.setProperty('--boss-reserve', '0px');
       setRageAura(false);
       return;
@@ -2622,17 +3635,23 @@
     const p = getBossStageProfile(state.boss.stage);
 
     ui.bossWrap.classList.add('show');
-    ui.bossPatternText.textContent = getPatternLabel(state.boss.pattern) + ' • ' + getPatternSubtitle(state.boss.pattern);
+    ui.bossPatternText.textContent =
+      getPatternLabel(state.boss.pattern) + ' • ' + getPatternSubtitle(state.boss.pattern);
+
     ui.bossStageText.textContent = p.label;
     ui.bossStageText.className = 'gjsb-boss-stage ' + p.stageClass;
     ui.bossHpText.textContent = 'HP ' + state.boss.hp + ' / ' + state.boss.maxHp;
     ui.bossHpFill.style.transform = 'scaleX(' + clamp(state.boss.hp / state.boss.maxHp, 0, 1) + ')';
+
     ui.bossIcon.textContent = p.icon;
     ui.bossPatternChip.textContent = getPatternLabel(state.boss.pattern);
     ui.bossPatternChip.className = 'gjsb-patternChip ' + state.boss.pattern;
+
     ui.bossRageBadge.classList.toggle('show', !!state.boss.rage);
     ui.bossCard.classList.toggle('rage', !!state.boss.rage);
     setRageAura(!!state.boss.rage);
+
+    layoutInnerHud();
   }
 
   function renderHud() {
@@ -2652,10 +3671,9 @@
     const progressRatio = clamp(state.timeLeft / state.timeTotal, 0, 1);
     ui.progress.style.transform = 'scaleX(' + progressRatio + ')';
 
+    refreshUtilityButtons();
     updateBossUi();
     layoutInnerHud();
-    mobileHudCompact();
-    refreshUtilityButtons();
   }
 
   function startKillSequence(x, y) {
@@ -2668,11 +3686,22 @@
     stageShake();
     playSfx('boss-clear');
     setBanner('ชนะแล้ว! Junk King แพ้แล้ว!', 1200);
-    fx(x, y, 'WIN!', '#cf8a00');
 
-    setTimeout(() => {
+    fx(x, y, 'WIN!', '#cf8a00');
+    scorePop(x, y, 'BOSS CLEAR!', 'power', 42);
+    spawnImpact(x, y, 'hit', 140);
+    showVictoryMoment();
+
+    pushEvent('victory_moment', {
+      x: Math.round(x),
+      y: Math.round(y),
+      score: state.score,
+      miss: state.miss
+    });
+
+    safeTimeout(() => {
       endGame(true);
-    }, 420);
+    }, 680);
   }
 
   function onHit(item) {
@@ -2723,6 +3752,9 @@
 
       fx(cx, cy, 'MISS', '#d16b27');
       scorePop(cx, cy, '-' + cfg.penaltyJunk, 'bad', 26);
+      if (item.kind === 'storm') {
+        spawnImpact(cx, cy, 'storm', Math.max(86, item.size * 1.5));
+      }
       setBanner(item.kind === 'storm' ? 'โดน Junk Storm!' : 'ระวัง junk!', 700);
       playSfx('bad');
       stageShake();
@@ -2745,6 +3777,7 @@
 
       fx(cx, cy, 'หลอก!', '#c05621');
       scorePop(cx, cy, '-' + cfg.penaltyFake, 'bad', 24);
+      spawnImpact(cx, cy, 'storm', Math.max(72, item.size * 1.2));
       playSfx('bad');
       stageShake();
       showDangerEdge(620);
@@ -2790,6 +3823,7 @@
       fx(cx, cy, damage >= 3 ? 'MEGA!' : damage === 2 ? 'CRUSH!' : 'POWER!', '#cf8a00');
       scorePop(cx, cy, damage >= 3 ? '+30' : damage === 2 ? '+24' : '+15', 'power', damage >= 3 ? 40 : 32);
       pulseBossHit();
+      spawnImpact(cx, cy, 'hit', damage >= 3 ? 118 : damage === 2 ? 100 : 84);
       playSfx(damage >= 2 ? 'boss-break' : 'boss-hit');
       maybePraiseStreak();
       phaseFlash();
@@ -2879,6 +3913,284 @@
     return '🍎 Challenge ต่อไป: รักษาคอมโบให้นานขึ้น แล้วแตะของดีต่อเนื่อง';
   }
 
+  function gradeRank(grade) {
+    if (grade === 'S') return 4;
+    if (grade === 'A') return 3;
+    if (grade === 'B') return 2;
+    return 1;
+  }
+
+  function compareDeltaText(current, previous, higherIsBetter) {
+    if (previous == null || !Number.isFinite(Number(previous))) {
+      return { cls: 'flat', text: 'รอบแรก' };
+    }
+
+    const a = Number(current);
+    const b = Number(previous);
+    const d = a - b;
+
+    if (d === 0) {
+      return { cls: 'flat', text: 'เท่าเดิม' };
+    }
+
+    const improved = higherIsBetter ? d > 0 : d < 0;
+    const abs = Math.abs(d);
+
+    return {
+      cls: improved ? 'up' : 'down',
+      text: (improved ? 'ดีขึ้น ' : 'ลดลง ') + abs
+    };
+  }
+
+  function buildCompareSummary(currentPayload, previousPayload) {
+    if (!previousPayload) {
+      return {
+        html: `
+          <div class="gjsb-compareHead">
+            <div class="gjsb-compareTitle">เทียบกับรอบก่อน</div>
+            <div class="gjsb-compareBadge same">ยังไม่มีรอบก่อนหน้า</div>
+          </div>
+          <div style="margin-top:10px;font-size:13px;line-height:1.6;font-weight:1000;color:#6b675f;">
+            รอบนี้จะถูกเก็บเป็น baseline เพื่อใช้เทียบกับรอบถัดไป
+          </div>
+        `
+      };
+    }
+
+    const cur = currentPayload;
+    const prev = previousPayload;
+
+    const scoreNow = Number(cur?.outcome?.score || 0);
+    const scorePrev = Number(prev?.outcome?.score || 0);
+    const missNow = Number(cur?.outcome?.miss || 0);
+    const missPrev = Number(prev?.outcome?.miss || 0);
+    const streakNow = Number(cur?.outcome?.bestStreak || 0);
+    const streakPrev = Number(prev?.outcome?.bestStreak || 0);
+
+    const gradeNow = String(cur?.outcome?.grade || 'C');
+    const gradePrev = String(prev?.outcome?.grade || 'C');
+
+    const rankNow = gradeRank(gradeNow);
+    const rankPrev = gradeRank(gradePrev);
+
+    let badgeClass = 'same';
+    let badgeText = 'ใกล้เคียงรอบก่อน';
+
+    if (rankNow > rankPrev || (rankNow === rankPrev && scoreNow > scorePrev && missNow <= missPrev)) {
+      badgeClass = 'better';
+      badgeText = 'Beat your last run!';
+    } else if (rankNow < rankPrev || (rankNow === rankPrev && scoreNow < scorePrev && missNow >= missPrev)) {
+      badgeClass = 'worse';
+      badgeText = 'ยังแพ้รอบก่อน';
+    }
+
+    const scoreDelta = compareDeltaText(scoreNow, scorePrev, true);
+    const missDelta = compareDeltaText(missNow, missPrev, false);
+    const streakDelta = compareDeltaText(streakNow, streakPrev, true);
+
+    return {
+      html: `
+        <div class="gjsb-compareHead">
+          <div class="gjsb-compareTitle">เทียบกับรอบก่อน</div>
+          <div class="gjsb-compareBadge ${badgeClass}">${badgeText}</div>
+        </div>
+
+        <div class="gjsb-compareGrid">
+          <div class="gjsb-compareStat">
+            <div class="gjsb-compareK">Score</div>
+            <div class="gjsb-compareV">${scoreNow}</div>
+            <div class="gjsb-compareDelta ${scoreDelta.cls}">
+              ก่อนหน้า ${scorePrev} • ${scoreDelta.text}
+            </div>
+          </div>
+
+          <div class="gjsb-compareStat">
+            <div class="gjsb-compareK">Miss</div>
+            <div class="gjsb-compareV">${missNow}</div>
+            <div class="gjsb-compareDelta ${missDelta.cls}">
+              ก่อนหน้า ${missPrev} • ${missDelta.text}
+            </div>
+          </div>
+
+          <div class="gjsb-compareStat">
+            <div class="gjsb-compareK">Best Streak</div>
+            <div class="gjsb-compareV">${streakNow}</div>
+            <div class="gjsb-compareDelta ${streakDelta.cls}">
+              ก่อนหน้า ${streakPrev} • ${streakDelta.text}
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:10px;font-size:13px;line-height:1.6;font-weight:1000;color:#6b675f;">
+          เกรดก่อนหน้า: <strong>${gradePrev}</strong> → รอบนี้: <strong>${gradeNow}</strong>
+        </div>
+      `
+    };
+  }
+
+  function spawnSummaryConfetti(grade) {
+    if (!ui.sumConfetti || state.a11y.reducedMotion) return;
+
+    ui.sumConfetti.innerHTML = '';
+
+    const count =
+      grade === 'S' ? 34 :
+      grade === 'A' ? 26 :
+      grade === 'B' ? 18 :
+      12;
+
+    const tone =
+      grade === 'S' ? 's' :
+      grade === 'A' ? 'a' :
+      grade === 'B' ? 'b' :
+      'c';
+
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement('div');
+      piece.className = 'gjsb-confettiPiece ' + tone;
+
+      const left = Math.random() * 100;
+      const dx = (Math.random() * 120 - 60).toFixed(0) + 'px';
+      const rot = (Math.random() * 500 - 250).toFixed(0) + 'deg';
+      const dur = (2.1 + Math.random() * 1.6).toFixed(2) + 's';
+      const delay = (Math.random() * 0.35).toFixed(2) + 's';
+      const w = (8 + Math.random() * 7).toFixed(0) + 'px';
+      const h = (12 + Math.random() * 10).toFixed(0) + 'px';
+
+      piece.style.left = left + '%';
+      piece.style.width = w;
+      piece.style.height = h;
+      piece.style.animationDuration = dur;
+      piece.style.animationDelay = delay;
+      piece.style.setProperty('--dx', dx);
+      piece.style.setProperty('--rot', rot);
+
+      ui.sumConfetti.appendChild(piece);
+    }
+  }
+
+  function applySummaryGradeTheme(grade) {
+    if (!ui.summaryCard) return;
+
+    ui.summaryCard.classList.remove('grade-s', 'grade-a', 'grade-b', 'grade-c');
+
+    if (grade === 'S') ui.summaryCard.classList.add('grade-s');
+    else if (grade === 'A') ui.summaryCard.classList.add('grade-a');
+    else if (grade === 'B') ui.summaryCard.classList.add('grade-b');
+    else ui.summaryCard.classList.add('grade-c');
+
+    if (ui.sumExportBox) ui.sumExportBox.classList.add('pretty');
+  }
+
+  function celebrateSummaryUI(bossClear, grade) {
+    if (!ui || !ui.summaryCard) return;
+
+    const head = ui.summaryCard.querySelector('.gjsb-summary-head');
+    const actions = ui.summaryCard.querySelector('.gjsb-actions');
+    const stats = ui.sumGrid ? Array.from(ui.sumGrid.querySelectorAll('.gjsb-stat')) : [];
+
+    applySummaryGradeTheme(grade);
+    spawnSummaryConfetti(grade);
+
+    ui.summaryCard.classList.add('celebrate');
+    if (head) head.classList.add('celebrate');
+
+    if (ui.sumMedal) {
+      ui.sumMedal.classList.remove('shine');
+      void ui.sumMedal.offsetWidth;
+      ui.sumMedal.classList.add('shine');
+    }
+
+    if (ui.sumGrade) {
+      ui.sumGrade.classList.remove('pop');
+      void ui.sumGrade.offsetWidth;
+      ui.sumGrade.classList.add('pop');
+    }
+
+    if (ui.sumTitle) {
+      ui.sumTitle.classList.remove('pop');
+      void ui.sumTitle.offsetWidth;
+      ui.sumTitle.classList.add('pop');
+    }
+
+    if (ui.sumSub) {
+      ui.sumSub.classList.remove('pop');
+      void ui.sumSub.offsetWidth;
+      ui.sumSub.classList.add('pop');
+    }
+
+    if (ui.sumStars) {
+      const starCount = bossClear ? (state.miss <= 5 ? 3 : 2) : (state.boss.active ? 2 : 1);
+      ui.sumStars.classList.add('celebrate');
+      ui.sumStars.innerHTML = '';
+
+      for (let i = 0; i < starCount; i++) {
+        const span = document.createElement('span');
+        span.className = 'gjsb-star';
+        span.textContent = '⭐';
+        span.style.setProperty('--delay', (180 + i * 120) + 'ms');
+        ui.sumStars.appendChild(span);
+      }
+    }
+
+    stats.forEach((card, idx) => {
+      card.classList.remove('reveal');
+      card.style.setProperty('--delay', (260 + idx * 70) + 'ms');
+      void card.offsetWidth;
+      card.classList.add('reveal');
+    });
+
+    if (ui.sumCoach) {
+      ui.sumCoach.classList.remove('reveal');
+      ui.sumCoach.style.setProperty('--delay', (260 + stats.length * 70 + 60) + 'ms');
+      void ui.sumCoach.offsetWidth;
+      ui.sumCoach.classList.add('reveal');
+    }
+
+    if (ui.sumNextHint) {
+      ui.sumNextHint.classList.remove('reveal');
+      ui.sumNextHint.style.setProperty('--delay', (260 + stats.length * 70 + 130) + 'ms');
+      void ui.sumNextHint.offsetWidth;
+      ui.sumNextHint.classList.add('reveal');
+    }
+
+    if (ui.sumCompareBox) {
+      ui.sumCompareBox.classList.remove('reveal');
+      ui.sumCompareBox.style.setProperty('--delay', (260 + stats.length * 70 + 190) + 'ms');
+      void ui.sumCompareBox.offsetWidth;
+      ui.sumCompareBox.classList.add('reveal');
+    }
+
+    if (ui.sumExportBox) {
+      ui.sumExportBox.classList.remove('reveal');
+      ui.sumExportBox.style.setProperty('--delay', (260 + stats.length * 70 + 250) + 'ms');
+      void ui.sumExportBox.offsetWidth;
+      ui.sumExportBox.classList.add('reveal');
+    }
+
+    if (actions) {
+      actions.classList.add('celebrate');
+      const btns = Array.from(actions.querySelectorAll('.gjsb-btn'));
+      btns.forEach((btn, idx) => {
+        btn.style.setProperty('--delay', (260 + stats.length * 70 + 320 + idx * 80) + 'ms');
+      });
+    }
+
+    if (ui.btnReplay) ui.btnReplay.classList.add('pulse');
+    if (ui.btnCooldown) ui.btnCooldown.classList.add('pulse');
+
+    const ribbon = ui.summaryCard.querySelector('.gjsb-summary-ribbon');
+    if (ribbon) {
+      ribbon.textContent =
+        grade === 'S' ? 'LEGENDARY CLEAR' :
+        grade === 'A' ? 'BOSS HERO CLEAR' :
+        bossClear ? 'BOSS CLEAR' :
+        state.boss.active ? 'BOSS REACHED' :
+        state.phase >= 2 ? 'PHASE 2 CLEAR' :
+        'GREAT START';
+    }
+  }
+
   function buildReplayUrl() {
     const u = new URL('./goodjunk-vr.html', location.href);
     u.searchParams.set('pid', ctx.pid || 'anon');
@@ -2893,6 +4205,7 @@
     u.searchParams.set('run', ctx.run || 'play');
     u.searchParams.set('gameId', ctx.gameId || 'goodjunk');
     u.searchParams.set('zone', 'nutrition');
+    if (DEBUG) u.searchParams.set('debug', '1');
     return u.toString();
   }
 
@@ -2914,6 +4227,7 @@
     u.searchParams.set('view', ctx.view || 'mobile');
     u.searchParams.set('run', ctx.run || 'play');
     u.searchParams.set('forcegate', '1');
+    if (DEBUG) u.searchParams.set('debug', '1');
     return u.toString();
   }
 
@@ -2948,6 +4262,7 @@
       avgReactMs: avgReact
     });
 
+    const previousPayload = loadPreviousResearchPayload();
     const payload = buildResearchPayload(bossClear, grade);
     saveResearchPayload(payload);
 
@@ -2986,10 +4301,22 @@
 
     ui.sumCoach.textContent = coachMessage(bossClear);
     ui.sumNextHint.textContent = nextHintMessage(bossClear);
-    ui.sumExportBox.textContent =
-      'sessionId: ' + payload.sessionId +
-      ' • events: ' + payload.events.length +
-      ' • export พร้อมแล้ว';
+
+    if (ui.sumCompareBox) {
+      const cmp = buildCompareSummary(payload, previousPayload);
+      ui.sumCompareBox.innerHTML = cmp.html;
+    }
+
+    ui.sumExportBox.innerHTML = `
+      <div><strong>payload พร้อม export แล้ว</strong></div>
+      <div class="gjsb-exportMeta">
+        <div class="gjsb-exportChip">sessionId: ${payload.sessionId}</div>
+        <div class="gjsb-exportChip">events: ${payload.events.length}</div>
+        <div class="gjsb-exportChip">grade: ${payload.outcome.grade}</div>
+        <div class="gjsb-exportChip">bossClear: ${payload.outcome.bossClear ? 'yes' : 'no'}</div>
+      </div>
+    `;
+    ui.sumExportBox.classList.add('pretty');
 
     ui.summaryCard.classList.toggle(
       'replay-hot',
@@ -3026,23 +4353,32 @@
       finalGrade: grade
     });
 
+    clearRuntimeTimers();
+
     state.paused = false;
     ui.pauseOverlay.classList.remove('show');
     ui.telegraph.classList.remove('show');
     ui.banner.classList.add('hide');
     ui.dangerEdge.classList.remove('show');
-    ui.stormLane.classList.remove('show');
+    if (ui.stormLane) ui.stormLane.classList.remove('show');
     setRageAura(false);
 
     ui.summary.classList.add('show');
+    celebrateSummaryUI(bossClear, grade);
   }
 
   function bindButtons() {
+    if (!ui || !ui.root) return;
+    if (ui.root.__gjsbBound) return;
+    ui.root.__gjsbBound = true;
+
     ui.btnReplay.addEventListener('click', function () {
+      beforeNavigationCleanup();
       location.href = buildReplayUrl();
     });
 
     ui.btnCooldown.addEventListener('click', function () {
+      beforeNavigationCleanup();
       location.href = buildCooldownUrl();
     });
 
@@ -3050,24 +4386,25 @@
       try {
         const payload = window.HHA_LAST_BOSS_PAYLOAD || null;
         if (!payload) {
-          ui.sumExportBox.textContent = 'ยังไม่มี payload ให้คัดลอก';
+          if (ui.sumExportBox) ui.sumExportBox.textContent = 'ยังไม่มี payload ให้คัดลอก';
           return;
         }
 
         const text = JSON.stringify(payload, null, 2);
+        const ok = await safeCopyText(text);
 
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(text);
-          ui.sumExportBox.textContent = 'คัดลอก JSON แล้ว';
-        } else {
-          ui.sumExportBox.textContent = 'อุปกรณ์นี้ไม่รองรับ clipboard';
+        if (ui.sumExportBox) {
+          ui.sumExportBox.innerHTML = ok
+            ? '<strong>คัดลอก JSON แล้ว</strong>'
+            : '<strong>คัดลอกไม่สำเร็จ</strong>';
         }
       } catch (_) {
-        ui.sumExportBox.textContent = 'คัดลอกไม่สำเร็จ';
+        if (ui.sumExportBox) ui.sumExportBox.innerHTML = '<strong>คัดลอกไม่สำเร็จ</strong>';
       }
     });
 
     ui.btnHub.addEventListener('click', function () {
+      beforeNavigationCleanup();
       location.href = ctx.hub || new URL('./hub-v2.html', location.href).toString();
     });
 
@@ -3089,19 +4426,16 @@
     });
 
     ui.btnPauseHub.addEventListener('click', function () {
+      beforeNavigationCleanup();
       location.href = ctx.hub || new URL('./hub-v2.html', location.href).toString();
     });
 
     document.addEventListener('visibilitychange', function () {
-      if (document.hidden && !state.ended) {
-        pauseGame('hidden');
-      }
+      if (document.hidden && !state.ended) pauseGame('hidden');
     });
 
     window.addEventListener('blur', function () {
-      if (!state.ended) {
-        pauseGame('hidden');
-      }
+      if (!state.ended) pauseGame('hidden');
     });
 
     window.addEventListener('resize', function () {
@@ -3124,6 +4458,10 @@
         setMuted(!state.muted);
         renderHud();
       }
+    });
+
+    window.addEventListener('beforeunload', function () {
+      beforeNavigationCleanup();
     });
   }
 
@@ -3200,6 +4538,13 @@
             spawned: state.metrics.stormSpawned
           });
 
+          spawnImpact(
+            item.x + item.size / 2,
+            Math.max(18, Math.min(r.height - 40, item.y)),
+            'storm',
+            Math.max(88, item.size * 1.7)
+          );
+
           removeItem(item);
         } else {
           removeItem(item);
@@ -3228,18 +4573,43 @@
   }
 
   function loop(ts) {
-    if (!state.running || state.ended) return;
+    if (!state.running || state.ended || state.runtime.destroyed) return;
 
     const dt = Math.min(40, (ts - state.lastTs) || 16);
     state.lastTs = ts;
-    update(dt);
+
+    try {
+      update(dt);
+      updateDebugPanel();
+    } catch (err) {
+      console.error('[GJSB] loop failed', err);
+      state.running = false;
+      state.ended = true;
+      if (ui && ui.sumExportBox) {
+        ui.sumExportBox.innerHTML = '<strong>เกิด error ระหว่าง run</strong>';
+      }
+      return;
+    }
+
     state.raf = requestAnimationFrame(loop);
   }
 
   function start() {
+    if (state.runtime.started) {
+      dlog('start skipped: already started');
+      return;
+    }
+
+    state.runtime.started = true;
+    state.runtime.destroyed = false;
+
     detectAccessibilityPrefs();
     setReducedMotion(state.a11y.reducedMotion);
     setMuted(false);
+
+    clearRuntimeTimers();
+    hardResetRunVisuals();
+    ensureDebugPanel();
 
     state.metrics.runStartAt = nowMs();
     markSplit('phase1StartAt');
@@ -3252,17 +4622,33 @@
       seed: ctx.seed || ''
     });
 
+    if (ui && ui.btnReplay) ui.btnReplay.classList.remove('pulse');
+    if (ui && ui.btnCooldown) ui.btnCooldown.classList.remove('pulse');
+    if (ui && ui.sumConfetti) ui.sumConfetti.innerHTML = '';
+    if (ui && ui.sumCompareBox) ui.sumCompareBox.innerHTML = 'ยังไม่มีข้อมูลเทียบรอบก่อน';
+    if (ui && ui.summaryCard) {
+      ui.summaryCard.classList.remove('grade-s', 'grade-a', 'grade-b', 'grade-c');
+    }
+
     state.running = true;
     state.lastTs = performance.now();
     renderHud();
     setBanner('เริ่มเลย! เก็บอาหารดี แล้วหลีกเลี่ยง junk', 1300);
     state.raf = requestAnimationFrame(loop);
     window.__GJ_ENGINE_MOUNTED__ = true;
+
+    dlog('engine started');
   }
 
-  injectStyle();
-  ui = buildUI();
-  bindButtons();
-  layoutInnerHud();
-  start();
+  if (!window.__GJSB_PHASEBOSS_BOOTED__) {
+    window.__GJSB_PHASEBOSS_BOOTED__ = true;
+
+    injectStyle();
+    ui = buildUI();
+    bindButtons();
+    layoutInnerHud();
+    start();
+  } else {
+    dlog('boot skipped: already booted');
+  }
 })();
