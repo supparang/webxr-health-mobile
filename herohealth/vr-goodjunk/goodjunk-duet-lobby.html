@@ -4,31 +4,29 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk Duet Lobby</title>
-  <meta name="color-scheme" content="dark light" />
+  <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" />
+
   <style>
     :root{
-      --bg1:#060817;
-      --bg2:#0b1330;
-      --bg3:#101b43;
-      --panel:rgba(7,12,33,.84);
-      --panel-2:rgba(11,18,45,.92);
-      --stroke:rgba(130,170,255,.20);
-      --text:#f8fbff;
-      --muted:#c5d5ff;
-      --muted-2:#8ea6d9;
+      --bg1:#040b24;
+      --bg2:#081033;
+      --bg3:#111a48;
+      --panel:rgba(8,14,40,.84);
+      --panel2:rgba(13,20,54,.92);
+      --stroke:rgba(140,170,255,.18);
+      --text:#f8fafc;
+      --muted:#c7d2fe;
+      --muted2:#94a3b8;
 
-      --pink:#ff96cf;
-      --pink-2:#ffc4e5;
-      --blue:#71cfff;
-      --blue-2:#4eaef2;
-      --green:#7ee081;
-      --green-2:#49c760;
-      --yellow:#ffd56a;
-      --yellow-2:#ffb84e;
-      --red:#ff8b8b;
+      --pink:#f7b0d8;
+      --pink2:#ffd2e9;
+      --green:#7ee067;
+      --green2:#b8f3a9;
+      --yellow:#f3c85b;
+      --yellow2:#ffe28a;
 
-      --shadow:0 22px 54px rgba(0,0,0,.30);
+      --shadow:0 18px 48px rgba(0,0,0,.36);
 
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
@@ -37,212 +35,200 @@
     }
 
     *{ box-sizing:border-box; }
-
-    html,body{
-      margin:0;
-      min-height:100%;
+    html,body{ margin:0; min-height:100%; }
+    body{
       font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans",Arial,sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 10% 0%, rgba(255,150,207,.10), transparent 22%),
-        radial-gradient(circle at 90% 0%, rgba(113,207,255,.12), transparent 26%),
+        radial-gradient(circle at 15% 12%, rgba(79,172,254,.18), transparent 22%),
+        radial-gradient(circle at 85% 18%, rgba(255,143,199,.14), transparent 24%),
+        radial-gradient(circle at 65% 80%, rgba(126,224,103,.09), transparent 22%),
         linear-gradient(180deg,var(--bg1),var(--bg2) 48%, var(--bg3));
     }
 
-    body{
-      min-height:100dvh;
+    .page{
+      min-height:100vh;
       padding:
-        calc(16px + var(--sat))
-        calc(16px + var(--sar))
-        calc(20px + var(--sab))
-        calc(16px + var(--sal));
-    }
-
-    .wrap{
-      width:min(1180px,100%);
-      margin:0 auto;
+        calc(12px + var(--sat))
+        calc(12px + var(--sar))
+        calc(16px + var(--sab))
+        calc(12px + var(--sal));
       display:grid;
-      gap:16px;
+      gap:12px;
     }
 
     .hero{
-      background:linear-gradient(180deg, rgba(13,20,52,.96), rgba(8,13,34,.94));
       border:1px solid var(--stroke);
       border-radius:28px;
-      padding:18px;
+      background:linear-gradient(180deg, rgba(16,24,64,.92), rgba(8,14,40,.9));
       box-shadow:var(--shadow);
-    }
-
-    .hero-top{
-      display:flex;
-      gap:14px;
-      align-items:flex-start;
-      justify-content:space-between;
-      flex-wrap:wrap;
-    }
-
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:36px;
-      padding:8px 14px;
-      border-radius:999px;
-      border:1px solid rgba(255,150,207,.26);
-      background:rgba(255,150,207,.12);
-      color:#ffd7ec;
-      font-size:12px;
-      font-weight:1000;
-      letter-spacing:.02em;
-    }
-
-    h1{
-      margin:10px 0 6px;
-      font-size:clamp(30px,4vw,54px);
-      line-height:1.02;
-      font-weight:1100;
-    }
-
-    .sub{
-      margin:0;
-      color:var(--muted);
-      font-size:16px;
-      line-height:1.75;
-      font-weight:900;
-      max-width:900px;
-    }
-
-    .hero-grid{
-      margin-top:16px;
+      padding:18px;
       display:grid;
-      grid-template-columns:1.25fr .85fr;
       gap:16px;
     }
 
-    @media (max-width:900px){
-      .hero-grid{ grid-template-columns:1fr; }
-    }
-
-    .panel{
-      border-radius:22px;
-      border:1px solid var(--stroke);
-      background:rgba(8,16,42,.52);
-      padding:16px;
-    }
-
-    .panel h2{
-      margin:0 0 10px;
-      font-size:18px;
-      font-weight:1100;
-    }
-
-    .panel ul{
-      margin:0;
-      padding-left:18px;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.9;
-      font-size:15px;
-    }
-
-    .room-shell{
-      border-radius:28px;
-      border:1px solid var(--stroke);
-      background:linear-gradient(180deg, rgba(7,12,33,.94), rgba(6,10,28,.92));
-      box-shadow:var(--shadow);
-      padding:18px;
-      display:grid;
-      gap:14px;
-    }
-
-    .room-head{
+    .topbar{
       display:flex;
-      gap:10px;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
       flex-wrap:wrap;
-      align-items:center;
     }
 
-    .pill{
+    .brand{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+    }
+
+    .brand-icon{
+      width:52px;
+      height:52px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#1c2a68,#122050);
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow);
+      font-size:24px;
+    }
+
+    .eyebrow{
       display:inline-flex;
       align-items:center;
-      justify-content:center;
-      min-height:38px;
-      padding:8px 14px;
+      min-height:30px;
+      padding:6px 12px;
       border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      font-size:14px;
+      background:rgba(247,176,216,.14);
+      color:#ffd7ea;
+      border:1px solid rgba(247,176,216,.24);
+      font-size:12px;
       font-weight:1000;
+      letter-spacing:.05em;
     }
 
-    .pill.room{
-      background:rgba(255,150,207,.14);
-      border-color:rgba(255,150,207,.26);
-      color:#ffe4f2;
-      font-size:16px;
-      letter-spacing:.03em;
+    .title{
+      margin-top:8px;
+      font-size:24px;
+      line-height:1.15;
+      font-weight:1100;
+      color:#ffffff;
     }
 
-    .actions{
+    .sub{
+      margin-top:6px;
+      font-size:14px;
+      line-height:1.7;
+      color:var(--muted);
+      font-weight:900;
+      max-width:820px;
+    }
+
+    .top-actions{
       display:flex;
-      gap:10px;
+      gap:8px;
       flex-wrap:wrap;
     }
 
     .btn{
       appearance:none;
-      border:1px solid var(--stroke);
-      background:rgba(255,255,255,.06);
-      color:var(--text);
+      border:none;
+      outline:none;
+      min-height:46px;
+      padding:10px 16px;
       border-radius:16px;
-      min-height:48px;
-      padding:12px 16px;
       font:inherit;
       font-weight:1000;
       cursor:pointer;
+      text-decoration:none;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      text-decoration:none;
-      transition:.16s ease;
-      box-shadow:0 10px 22px rgba(0,0,0,.18);
+      gap:8px;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+      box-shadow:var(--shadow);
+      transition:transform .12s ease, opacity .12s ease;
     }
 
     .btn:hover{ transform:translateY(-1px); }
     .btn:active{ transform:translateY(0); }
+    .btn[disabled]{ opacity:.5; cursor:not-allowed; transform:none; }
 
-    .btn.primary{
-      background:linear-gradient(180deg,var(--pink),var(--pink-2));
-      color:#5c2147;
-      border-color:transparent;
+    .btn-primary{
+      background:linear-gradient(180deg,var(--pink),var(--pink2));
+      color:#61224d;
     }
 
-    .btn.good{
-      background:linear-gradient(180deg,var(--green),var(--green-2));
-      color:#113d1d;
-      border-color:transparent;
+    .btn-good{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#103d19;
     }
 
-    .btn.warn{
-      background:linear-gradient(180deg,var(--yellow),var(--yellow-2));
-      color:#563600;
-      border-color:transparent;
+    .btn-warn{
+      background:linear-gradient(180deg,var(--yellow),var(--yellow2));
+      color:#5c4300;
     }
 
-    .btn.ghost{
-      background:rgba(255,255,255,.04);
+    .btn-ghost{
+      color:#eef2ff;
+      background:rgba(17,26,72,.9);
+      border:1px solid var(--stroke);
     }
 
-    .field-grid{
+    .grid{
       display:grid;
-      grid-template-columns:1fr auto;
-      gap:10px;
-      align-items:end;
+      grid-template-columns:minmax(320px, 1.05fr) minmax(280px, .95fr);
+      gap:14px;
+      align-items:start;
     }
 
-    @media (max-width:720px){
-      .field-grid{ grid-template-columns:1fr; }
+    @media (max-width:980px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      border:1px solid var(--stroke);
+      border-radius:26px;
+      background:var(--panel);
+      box-shadow:var(--shadow);
+      padding:16px;
+      display:grid;
+      gap:14px;
+      min-width:0;
+    }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      min-height:42px;
+      padding:8px 16px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(17,26,72,.84);
+      color:#fff;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:var(--shadow);
+    }
+
+    .chip.room{
+      background:linear-gradient(180deg, rgba(247,176,216,.18), rgba(247,176,216,.12));
+      border-color:rgba(247,176,216,.28);
+      color:#ffe2f0;
+    }
+
+    .section-title{
+      font-size:14px;
+      color:#e2e8f0;
+      font-weight:1000;
+      line-height:1.5;
     }
 
     .field{
@@ -250,286 +236,310 @@
       gap:8px;
     }
 
-    .field label{
-      color:var(--muted);
-      font-size:14px;
-      font-weight:1000;
-    }
-
-    input[type="text"]{
-      width:100%;
-      border-radius:18px;
-      border:1px solid var(--stroke);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      padding:14px 16px;
-      min-height:52px;
-      font:inherit;
-      font-size:18px;
-      font-weight:1000;
-      letter-spacing:.06em;
-      outline:none;
-    }
-
-    input[readonly]{
-      color:#dce7ff;
+    .label{
       font-size:13px;
-      font-weight:900;
-    }
-
-    .info{
-      color:var(--muted);
-      font-size:14px;
-      font-weight:900;
-      line-height:1.7;
-    }
-
-    .hint{
-      color:#dce7ff;
-      font-size:14px;
       font-weight:1000;
-      line-height:1.7;
+      color:#dbeafe;
     }
 
-    .danger{
+    .input-wrap{
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+
+    .input{
+      width:100%;
+      min-height:58px;
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:rgba(17,26,72,.88);
+      color:#fff;
+      padding:0 18px;
+      font:inherit;
+      font-size:22px;
+      font-weight:1100;
+      letter-spacing:.03em;
+      outline:none;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+    }
+
+    .input::placeholder{ color:#94a3b8; }
+
+    .helper{
+      font-size:12px;
+      line-height:1.65;
+      color:#dbeafe;
+      font-weight:900;
+    }
+
+    .linkbox{
+      width:100%;
+      min-height:58px;
+      border-radius:20px;
+      border:1px solid var(--stroke);
+      background:rgba(17,26,72,.88);
+      color:#fff;
+      padding:14px 16px;
+      font:inherit;
+      font-size:12px;
+      line-height:1.5;
+      font-weight:900;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .notice{
+      min-height:28px;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:1000;
+      color:#dbeafe;
+    }
+
+    .guard{
       display:none;
       border-radius:18px;
-      border:1px solid rgba(255,139,139,.28);
-      background:rgba(255,139,139,.12);
-      color:#ffd1d1;
+      border:1px solid rgba(255,154,168,.26);
+      background:rgba(86,26,42,.42);
+      color:#ffd5db;
       padding:14px 16px;
-      font-size:15px;
-      line-height:1.7;
-      font-weight:1000;
-    }
-
-    .copy-state{
-      color:#d7e6ff;
       font-size:14px;
+      line-height:1.65;
       font-weight:1000;
-      min-height:24px;
     }
 
-    .split{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:14px;
+    .cta-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
     }
 
-    @media (max-width:980px){
-      .split{ grid-template-columns:1fr; }
+    .cta-row .btn{
+      min-width:106px;
     }
 
-    .players-box{
+    .players{
       display:grid;
       gap:12px;
     }
 
     .player{
-      border-radius:20px;
+      border-radius:22px;
       border:1px solid var(--stroke);
-      background:rgba(255,255,255,.04);
-      padding:14px;
+      background:rgba(17,26,72,.9);
+      padding:16px;
+      box-shadow:var(--shadow);
     }
 
     .player.me{
-      border-color:rgba(126,224,129,.34);
-      box-shadow:0 0 0 1px rgba(126,224,129,.18) inset;
+      border-color:rgba(126,224,103,.35);
+      box-shadow:0 0 0 1px rgba(126,224,103,.08), var(--shadow);
     }
 
     .ready,.waiting,.offline{
       display:inline-flex;
       align-items:center;
-      justify-content:center;
-      min-height:28px;
-      padding:4px 10px;
+      min-height:34px;
+      padding:6px 12px;
       border-radius:999px;
       font-size:12px;
-      font-weight:1000;
+      font-weight:1100;
+      border:1px solid transparent;
     }
 
     .ready{
-      background:rgba(126,224,129,.18);
-      color:#baffb9;
-      border:1px solid rgba(126,224,129,.28);
+      background:rgba(126,224,103,.14);
+      color:#cbffbf;
+      border-color:rgba(126,224,103,.25);
     }
 
     .waiting{
-      background:rgba(113,207,255,.14);
-      color:#d9f4ff;
-      border:1px solid rgba(113,207,255,.25);
+      background:rgba(127,207,255,.14);
+      color:#d7f0ff;
+      border-color:rgba(127,207,255,.24);
     }
 
     .offline{
-      background:rgba(255,139,139,.14);
-      color:#ffd6d6;
-      border:1px solid rgba(255,139,139,.25);
+      background:rgba(255,154,168,.14);
+      color:#ffd8de;
+      border-color:rgba(255,154,168,.24);
     }
 
-    .qr-panel{
+    .sidebox{
+      border:1px dashed rgba(255,226,138,.26);
+      background:rgba(255,226,138,.05);
+      border-radius:24px;
+      min-height:200px;
+    }
+
+    .qr-card{
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      background:var(--panel2);
+      box-shadow:var(--shadow);
+      padding:16px;
       display:grid;
       gap:12px;
+      align-content:start;
+    }
+
+    .qr-title{
+      font-size:14px;
+      font-weight:1000;
+      color:#f8fafc;
     }
 
     .qr-box{
-      width:100%;
-      min-height:340px;
       border-radius:22px;
       border:1px solid var(--stroke);
-      background:rgba(255,255,255,.04);
+      background:#fff9ec;
+      min-height:260px;
       display:grid;
       place-items:center;
-      padding:16px;
       overflow:hidden;
+      padding:14px;
     }
 
     .qr-box img{
-      width:min(100%, 300px);
-      height:auto;
       display:block;
-      border-radius:18px;
+      width:min(100%, 320px);
+      height:auto;
+      border-radius:16px;
       background:#fff;
-      padding:10px;
     }
 
     .qr-empty{
-      color:var(--muted-2);
+      color:#7c8aa8;
       font-size:14px;
-      font-weight:900;
+      font-weight:1000;
+      text-align:center;
+      line-height:1.6;
     }
 
     .countdown{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      min-height:56px;
-      border-radius:18px;
-      border:1px dashed rgba(255,213,106,.30);
-      background:rgba(255,213,106,.08);
-      color:#ffe29d;
-      font-size:24px;
+      min-height:28px;
+      font-size:28px;
+      line-height:1;
+      color:#ffd966;
       font-weight:1100;
-      letter-spacing:.05em;
+      text-align:center;
+      letter-spacing:.04em;
     }
 
-    .foot{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
+    @media (max-width:760px){
+      .page{ gap:10px; }
+      .hero{ padding:14px; border-radius:22px; }
+      .title{ font-size:22px; }
+      .sub{ font-size:13px; }
+      .input-wrap{ align-items:stretch; }
+      .input{ font-size:20px; min-height:56px; }
+      .cta-row{
+        display:grid;
+        grid-template-columns:1fr 1fr 1fr;
+      }
+      .cta-row .btn{ min-width:0; width:100%; }
     }
 
-    @media (max-width:720px){
-      .foot{
-        justify-content:stretch;
+    @media (max-width:560px){
+      .cta-row{
+        grid-template-columns:1fr 1fr;
       }
-      .foot .btn{
-        flex:1 1 100%;
+      .top-actions{
+        width:100%;
+        display:grid;
+        grid-template-columns:1fr 1fr;
       }
+      .input-wrap{
+        display:grid;
+        grid-template-columns:1fr;
+      }
+      .chips{ gap:8px; }
+      .chip{ min-height:40px; padding:8px 14px; }
     }
   </style>
 </head>
 <body>
-  <main class="wrap">
+  <main class="page">
     <section class="hero">
-      <div class="hero-top">
-        <div>
-          <div class="badge">DUET LOBBY</div>
-          <h1>GoodJunk Duet Lobby</h1>
-          <p class="sub">
-            โหมดเล่นคู่ 2 คนเท่านั้น ต้องพร้อมครบทั้ง 2 คนก่อนเริ่ม และเริ่มพร้อมกันเสมอ
-          </p>
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-icon">👯</div>
+          <div>
+            <div class="eyebrow">DUET LOBBY</div>
+            <div class="title">GoodJunk Duet Lobby</div>
+            <div class="sub">
+              โหมดเล่นคู่ 2 คนเท่านั้น ต้องพร้อมครบทั้ง 2 คนก่อนเริ่ม และเริ่มพร้อมกันเสมอ
+            </div>
+          </div>
+        </div>
+
+        <div class="top-actions">
+          <a class="btn btn-ghost" id="btnBack" href="../hub.html">← กลับ Hub</a>
         </div>
       </div>
 
-      <div class="hero-grid">
-        <div class="panel">
-          <h2>กติกาสำคัญ</h2>
-          <ul>
-            <li>ห้องนี้รองรับ 2 คนเท่านั้น</li>
-            <li>ต้องมีผู้เล่น ready ครบ 2/2 ก่อนเริ่ม</li>
-            <li>ผู้เล่นทั้งสองคนจะเข้า Duet รอบเดียวกัน</li>
-            <li>เหมาะกับเล่นเป็นคู่ในห้องเรียน</li>
-          </ul>
-        </div>
+      <div class="grid">
+        <section class="card">
+          <div class="chips">
+            <div class="chip room" id="roomCode">ROOM: -</div>
+            <div class="chip">Players: <span id="playerCount" style="margin-left:6px;">0/2</span></div>
+            <div class="chip">Status: <span id="roomStatus" style="margin-left:6px;">waiting</span></div>
+            <div class="chip">Host: <span id="hostName" style="margin-left:6px;">-</span></div>
+          </div>
 
-        <div class="panel">
-          <h2>Duet รอบนี้</h2>
-          <ul>
-            <li>เล่นพร้อมเพื่อน 1 คน</li>
-            <li>สรุปผลเป็นคะแนนฉัน + คะแนนเพื่อน + คะแนนคู่</li>
-            <li>ใช้ flow แยกเฉพาะของ Duet</li>
-            <li>แชร์ห้องผ่านลิงก์หรือ QR ได้</li>
-          </ul>
-        </div>
-      </div>
-    </section>
+          <div class="cta-row">
+            <button class="btn btn-ghost" id="btnCopyRoom" type="button">คัดลอก Room Code</button>
+            <button class="btn btn-ghost" id="btnCopyInvite" type="button">คัดลอก Invite Link</button>
+          </div>
 
-    <section class="room-shell">
-      <div class="room-head">
-        <div class="pill room">ROOM: <span id="roomCode" style="margin-left:8px;">-</span></div>
-        <div class="pill">Players: <span id="playerCount" style="margin-left:6px;">0/2</span></div>
-        <div class="pill">Status: <span id="roomStatus" style="margin-left:6px;">waiting</span></div>
-        <div class="pill">Host: <span id="hostName" style="margin-left:6px;">-</span></div>
-      </div>
+          <div class="notice" id="copyState">กำลังเชื่อมห้อง Duet...</div>
+          <div class="guard" id="joinGuard"></div>
 
-      <div class="actions">
-        <button class="btn ghost" id="btnCopyRoom" type="button">คัดลอก Room Code</button>
-        <button class="btn ghost" id="btnCopyInvite" type="button">คัดลอก Invite Link</button>
-      </div>
-
-      <div id="copyState" class="copy-state">กำลังเชื่อมห้อง Duet...</div>
-      <div id="joinGuard" class="danger"></div>
-
-      <div class="split">
-        <div class="panel">
-          <div class="field-grid">
+          <div class="card" style="padding:14px; border-radius:22px; background:rgba(6,12,36,.5);">
             <div class="field">
-              <label for="roomInput">เข้าห้องด้วย Room Code</label>
-              <input id="roomInput" type="text" inputmode="latin" autocomplete="off" maxlength="8" placeholder="เช่น ABC123" />
-              <div class="info">ถ้ามีคนส่ง code มา ให้พิมพ์ที่นี่แล้วกดเข้าห้องได้เลย</div>
+              <div class="label">เข้าห้องด้วย Room Code</div>
+              <div class="input-wrap">
+                <input id="roomInput" class="input" type="text" inputmode="latin-prose" autocomplete="off" spellcheck="false" maxlength="8" placeholder="เช่น ATCPSY" />
+                <button class="btn btn-primary" id="btnJoinByCode" type="button">เข้าห้อง</button>
+              </div>
+              <div class="helper">ถ้ามีคนส่ง code มา ให้พิมพ์ที่นี่แล้วกดเข้าห้องได้เลย</div>
             </div>
-            <button class="btn primary" id="btnJoinByCode" type="button">เข้าห้อง</button>
+
+            <div class="cta-row">
+              <button class="btn btn-ghost" id="btnUseCurrentRoom" type="button">ใช้ code ห้องนี้</button>
+              <button class="btn btn-ghost" id="btnNewRoom" type="button">สร้างห้องใหม่</button>
+            </div>
+
+            <div class="field">
+              <div class="label">Invite Link</div>
+              <input id="inviteLink" class="linkbox" type="text" readonly />
+            </div>
+
+            <div class="notice" id="hint">ต้องมีผู้เล่นพร้อมครบ 2 คนก่อนเริ่ม Duet</div>
+
+            <div class="cta-row">
+              <button class="btn btn-good" id="btnReady" type="button">พร้อม</button>
+              <button class="btn btn-warn" id="btnUnready" type="button">ยกเลิกพร้อม</button>
+              <button class="btn btn-primary" id="btnStart" type="button">เริ่ม Duet</button>
+            </div>
           </div>
 
-          <div class="actions" style="margin-top:10px;">
-            <button class="btn ghost" id="btnUseCurrentRoom" type="button">ใช้ code ห้องนี้</button>
-            <button class="btn ghost" id="btnNewRoom" type="button">สร้างห้องใหม่</button>
+          <div>
+            <div class="section-title" style="margin-bottom:10px;">ผู้เล่นในห้อง</div>
+            <div class="players" id="playersBox"></div>
           </div>
+        </section>
 
-          <div class="field" style="margin-top:14px;">
-            <label for="inviteLink">Invite Link</label>
-            <input id="inviteLink" type="text" readonly value="" />
+        <aside class="qr-card">
+          <div class="sidebox"></div>
+          <div class="qr-title">QR Code สำหรับให้อีกเครื่องสแกนเข้าห้อง</div>
+          <div class="qr-box" id="qrBox">
+            <div class="qr-empty">กำลังสร้าง QR...</div>
           </div>
-
-          <div id="hint" class="hint" style="margin-top:12px;">กำลังเชื่อมห้อง...</div>
-
-          <div class="actions" style="margin-top:14px;">
-            <button class="btn good" id="btnReady" type="button">พร้อม</button>
-            <button class="btn warn" id="btnUnready" type="button">ยกเลิกพร้อม</button>
-            <button class="btn primary" id="btnStart" type="button">เริ่ม Duet</button>
-          </div>
-
-          <div style="margin-top:14px;">
-            <div class="info" style="margin-bottom:8px;">ผู้เล่นในห้อง</div>
-            <div id="playersBox" class="players-box"></div>
-          </div>
-        </div>
-
-        <div class="qr-panel">
           <div class="countdown" id="countdown"></div>
-
-          <div class="panel">
-            <div class="info" style="margin-bottom:10px;">QR Code สำหรับให้อีกเครื่องสแกนเข้าห้อง</div>
-            <div id="qrBox" class="qr-box">
-              <div class="qr-empty">กำลังสร้าง QR...</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="foot">
-        <button class="btn ghost" id="btnBack" type="button">กลับ Hub</button>
+        </aside>
       </div>
     </section>
   </main>
@@ -538,7 +548,7 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-  <script src="../firebase-config.js?v=20260327-fix-init-v1"></script>
-  <script src="./goodjunk-duet-lobby.js?v=20260327-fix-init-v1"></script>
+  <script src="../firebase-config.js?v=20260331-gjduet-lobby-r5"></script>
+  <script src="./goodjunk-duet-lobby.js?v=20260331-gjduet-lobby-r5"></script>
 </body>
 </html>
