@@ -1,8 +1,10 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260329-GOODJUNK-DUET-RUN-JOINFIX-V1
-   - keep latest duet run behavior
-   - onDisconnect must not break bindRoom
-   - summary/rematch/back navigation harden
+   FULL PATCH v20260331-GOODJUNK-DUET-RUN-REMATCH-R2
+   - run summary button click hard fix
+   - rematch 2/2 force redirect back to same lobby
+   - host resets finished room for rematch
+   - onDisconnect must not break run bind
+   - overlay blur / layer / pointer hard fix
 */
 (function(){
   'use strict';
@@ -138,14 +140,36 @@
 
   async function getRoomSnapshotWithRetry(roomRef, tries = 12, gap = 350){
     let lastSnap = null;
+
     for (let i = 0; i < tries; i++){
       const snap = await roomRef.once('value');
       lastSnap = snap;
+
       if (snap && typeof snap.exists === 'function' && snap.exists()) return snap;
       if (snap && typeof snap.val === 'function' && snap.val()) return snap;
+
       if (i < tries - 1) await waitMs(gap);
     }
+
     return lastSnap;
+  }
+
+  function fireAndForget(p){
+    try{
+      Promise.resolve(p).catch((err) => {
+        console.warn('[duet.run] ignored async error:', err);
+      });
+    }catch(err){
+      console.warn('[duet.run] wrap failed:', err);
+    }
+  }
+
+  function safeReplace(nextHref){
+    try{
+      W.location.replace(nextHref);
+    }catch(_){
+      W.location.href = nextHref;
+    }
   }
 
   function saveLastSummary(summary){
@@ -189,90 +213,21 @@
     const ids = getCurrentParticipantIds(room);
     const votes = (room && room.rematch) ? room.rematch : {};
     let count = 0;
+
     ids.forEach((id) => {
       if (votes[id] && votes[id].ready) count += 1;
     });
+
     return { ids, count, votes };
   }
 
   function resetResultMount(){
     if (!UI.resultMount) return;
     UI.resultMount.hidden = true;
-    UI.resultMount.innerHTML = '';
     UI.resultMount.style.display = 'none';
+    UI.resultMount.innerHTML = '';
     STATE.resultOpen = false;
     STATE.lastOverlaySig = '';
-  }
-
-  function fireAndForgetWrite(promiseLike){
-    try{
-      Promise.resolve(promiseLike).catch((err) => {
-        console.warn('[duet.write] ignored:', err);
-      });
-    }catch(err){
-      console.warn('[duet.write] wrap failed:', err);
-    }
-  }
-
-  function safeReplace(nextHref){
-    try{
-      W.location.replace(nextHref);
-    }catch(_){
-      W.location.href = nextHref;
-    }
-  }
-
-  function bindPress(el, handler){
-    if (!el || typeof handler !== 'function') return;
-    let locked = false;
-
-    const run = async (ev) => {
-      if (ev){
-        ev.preventDefault();
-        ev.stopPropagation();
-        ev.stopImmediatePropagation?.();
-      }
-      if (locked) return;
-      locked = true;
-      try{
-        await handler(ev);
-      }catch(err){
-        console.error('[duet.bindPress] handler failed:', err);
-      }finally{
-        setTimeout(() => { locked = false; }, 280);
-      }
-    };
-
-    el.addEventListener('pointerup', run, { passive:false });
-    el.addEventListener('click', run, { passive:false });
-  }
-
-  function injectResultOverlayHardFixCSS(){
-    if (D.getElementById('gjDuetResultHardFixStyle')) return;
-    const style = D.createElement('style');
-    style.id = 'gjDuetResultHardFixStyle';
-    style.textContent = `
-      #duetResultMount,
-      #duetResultMount *{
-        -webkit-backdrop-filter:none !important;
-        backdrop-filter:none !important;
-      }
-      #duetResultMount{
-        background:rgba(245,252,255,.96) !important;
-        filter:none !important;
-        opacity:1 !important;
-      }
-      #duetResultMount .duet-result-card{
-        background:#fffdf8 !important;
-        filter:none !important;
-        opacity:1 !important;
-        color:#244f6d !important;
-      }
-      #duetResultMount .btn{
-        touch-action:manipulation !important;
-      }
-    `;
-    D.head.appendChild(style);
   }
 
   function isMobileViewport(){
@@ -295,6 +250,86 @@
         }
       }catch{}
     });
+  }
+
+  function bindPress(el, handler){
+    if (!el || typeof handler !== 'function') return;
+    let locked = false;
+
+    const run = async (ev) => {
+      if (ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.stopImmediatePropagation?.();
+      }
+      if (locked) return;
+      locked = true;
+      try{
+        await handler(ev);
+      }catch(err){
+        console.error('[duet.run] bindPress failed:', err);
+      }finally{
+        setTimeout(() => { locked = false; }, 260);
+      }
+    };
+
+    el.addEventListener('pointerup', run, { passive:false });
+    el.addEventListener('click', run, { passive:false });
+  }
+
+  function injectOverlayHardFixCSS(){
+    if (D.getElementById('gjDuetSummaryHardFix')) return;
+
+    const style = D.createElement('style');
+    style.id = 'gjDuetSummaryHardFix';
+    style.textContent = `
+      #duetResultMount{
+        position:fixed !important;
+        inset:0 !important;
+        z-index:99999 !important;
+        overflow:auto !important;
+        padding:14px !important;
+        background:rgba(245,252,255,.96) !important;
+        opacity:1 !important;
+        filter:none !important;
+        pointer-events:auto !important;
+        isolation:isolate !important;
+        -webkit-backdrop-filter:none !important;
+        backdrop-filter:none !important;
+      }
+      #duetResultMount[hidden]{ display:none !important; }
+      #duetResultMount .duet-result-card{
+        position:relative !important;
+        width:min(1120px,100%) !important;
+        margin:0 auto !important;
+        background:#fffdf8 !important;
+        opacity:1 !important;
+        filter:none !important;
+        visibility:visible !important;
+        pointer-events:auto !important;
+        isolation:isolate !important;
+        -webkit-backdrop-filter:none !important;
+        backdrop-filter:none !important;
+      }
+      #duetResultMount .duet-confetti,
+      #duetResultMount .duet-confetti-piece{
+        pointer-events:none !important;
+      }
+      #duetResultMount .duet-mobile-quick-actions,
+      #duetResultMount .duet-result-actions{
+        position:sticky !important;
+        z-index:30 !important;
+        pointer-events:auto !important;
+      }
+      #duetResultMount .duet-result-actions .btn,
+      #duetResultMount .duet-mobile-quick-actions .btn{
+        pointer-events:auto !important;
+        z-index:31 !important;
+        position:relative !important;
+        touch-action:manipulation !important;
+      }
+    `;
+    D.head.appendChild(style);
   }
 
   const GOOD_ITEMS = [
@@ -831,7 +866,7 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: !!peer.finished,
       endedAt: new Date().toISOString(),
-      version: 'v20260329-GOODJUNK-DUET-RUN-JOINFIX-V1'
+      version: 'v20260331-GOODJUNK-DUET-RUN-REMATCH-R2'
     };
   }
 
@@ -908,6 +943,28 @@
     ];
   }
 
+  function buildConfettiHtml(count){
+    const colors = ['pink','blue','green','gold','violet'];
+    const pieces = [];
+
+    for (let i = 0; i < count; i++){
+      const left = Math.random() * 100;
+      const dx = (Math.random() * 180 - 90).toFixed(1) + 'px';
+      const rot = (360 + Math.random() * 540).toFixed(0) + 'deg';
+      const dur = (2.6 + Math.random() * 1.8).toFixed(2) + 's';
+      const delay = (Math.random() * 0.45).toFixed(2) + 's';
+      const color = colors[i % colors.length];
+      const w = (8 + Math.random() * 8).toFixed(0) + 'px';
+      const h = (14 + Math.random() * 14).toFixed(0) + 'px';
+
+      pieces.push(
+        `<span class="duet-confetti-piece ${color}" style="left:${left}%;width:${w};height:${h};--dx:${dx};--rot:${rot};animation-duration:${dur};animation-delay:${delay};"></span>`
+      );
+    }
+
+    return `<div class="duet-confetti" aria-hidden="true">${pieces.join('')}</div>`;
+  }
+
   function getTrophyBadges(){
     const out = [];
     if (STATE.pairScore >= STATE.pairGoal) out.push({ cls:'good', text:'🏆 ทำคะแนนถึงเป้าหมายคู่' });
@@ -923,345 +980,65 @@
     if (!STATE.roomRef || !STATE.uid) return;
     STATE.rematchRequested = true;
 
-    const writePromise = STATE.roomRef.child('rematch/' + STATE.uid).set({
-      uid: STATE.uid,
-      pid: STATE.pid,
-      name: STATE.name,
-      ready: true,
-      requestedAt: firebase.database.ServerValue.TIMESTAMP
-    });
-
-    await Promise.race([
-      writePromise,
-      new Promise((resolve) => setTimeout(resolve, 1200))
-    ]);
+    try{
+      await STATE.roomRef.child('rematch/' + STATE.uid).set({
+        uid: STATE.uid,
+        pid: STATE.pid,
+        name: STATE.name,
+        ready: true,
+        requestedAt: firebase.database.ServerValue.TIMESTAMP
+      });
+    }catch(err){
+      console.error('[duet.run] requestRematch failed:', err);
+      throw err;
+    }
   }
 
-  async function maybeResetRoomForRematch(room){
-    if (!STATE.roomRef || !room || STATE.rematchResetting) return;
+  async function hostRecoverFinishedRoomForRematch(room){
+    if (!room || !STATE.roomRef || STATE.rematchResetting) return false;
 
     const status = String(room.status || 'waiting');
-    if (status !== 'finished') return;
+    const rematchInfo = getRematchInfo(room);
 
-    const info = getRematchInfo(room);
-    if (info.ids.length !== 2) return;
-    if (info.count < 2) return;
-    if (room.hostId !== STATE.uid) return;
+    if (status !== 'finished') return false;
+    if (rematchInfo.ids.length !== 2) return false;
+    if (rematchInfo.count < 2) return false;
+    if (room.hostId !== STATE.uid) return false;
 
     STATE.rematchResetting = true;
 
     try{
-      await new Promise((resolve, reject) => {
-        STATE.roomRef.transaction((current) => {
-          if (!current) return current;
+      const updates = {
+        status: 'waiting',
+        startAt: 0,
+        updatedAt: firebase.database.ServerValue.TIMESTAMP,
+        seed: String(now()),
+        'match/status': 'idle',
+        'match/lockedAt': 0,
+        'match/finishedAt': 0,
+        'match/participantIds': null,
+        rematch: null
+      };
 
-          const currentStatus = String(current.status || 'waiting');
-          if (currentStatus !== 'finished') return current;
-
-          const ids = getCurrentParticipantIds(current);
-          const infoNow = getRematchInfo(current);
-          if (ids.length !== 2 || infoNow.count < 2) return current;
-
-          const t = now();
-          current.status = 'waiting';
-          current.startAt = 0;
-          current.updatedAt = t;
-          current.seed = String(t);
-          current.match = {
-            participantIds: [],
-            lockedAt: 0,
-            status: 'idle',
-            finishedAt: 0
-          };
-          current.rematch = {};
-          current.players = current.players || {};
-
-          ids.forEach((id) => {
-            const oldP = current.players[id] || {};
-            current.players[id] = Object.assign({}, oldP, {
-              id,
-              uid: id,
-              ready: false,
-              phase: 'lobby',
-              finished: false,
-              finalScore: 0,
-              miss: 0,
-              streak: 0,
-              finishedAt: 0,
-              connected: true,
-              lastSeenAt: t
-            });
-          });
-
-          return current;
-        }, (err, committed) => {
-          if (err) return reject(err);
-          if (!committed) return reject(new Error('rematch-reset-aborted'));
-          resolve();
-        }, false);
+      rematchInfo.ids.forEach((id) => {
+        updates[`players/${id}/ready`] = false;
+        updates[`players/${id}/phase`] = 'lobby';
+        updates[`players/${id}/finished`] = false;
+        updates[`players/${id}/finalScore`] = 0;
+        updates[`players/${id}/miss`] = 0;
+        updates[`players/${id}/streak`] = 0;
+        updates[`players/${id}/finishedAt`] = 0;
+        updates[`players/${id}/connected`] = true;
+        updates[`players/${id}/lastSeenAt`] = firebase.database.ServerValue.TIMESTAMP;
       });
+
+      await STATE.roomRef.update(updates);
+      return true;
     }catch(err){
-      console.error('[duet.rematch.reset] failed:', err);
+      console.error('[duet.run] hostRecoverFinishedRoomForRematch failed:', err);
+      return false;
     }finally{
       STATE.rematchResetting = false;
-    }
-  }
-
-  async function leaveFinishedRoomAndMaybeCleanup(nextHref){
-    if (STATE.leaving) return;
-    STATE.leaving = true;
-
-    stopHeartbeat();
-
-    try{
-      if (STATE.meRef){
-        fireAndForgetWrite(
-          STATE.meRef.update({
-            connected: false,
-            phase: STATE.ended ? 'done' : 'left',
-            lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-          })
-        );
-      }
-    }catch(err){
-      console.warn('[duet.leave] meRef update failed:', err);
-    }
-
-    safeReplace(nextHref);
-  }
-
-  function renderResultOverlay(reason){
-    if (!UI.resultMount) return;
-
-    const peer = getPeer(STATE.room) || {};
-    const peerName = String(peer.name || 'เพื่อน').trim() || 'เพื่อน';
-    const peerScore = Number(peer.finalScore || 0);
-    const pairScore = STATE.score + peerScore;
-    STATE.pairScore = pairScore;
-
-    const goalReached = pairScore >= STATE.pairGoal;
-    const peerDone = !!peer.finished;
-    const rematchInfo = getRematchInfo(STATE.room);
-
-    const overlaySig = JSON.stringify({
-      reason: String(reason || ''),
-      peerScore,
-      peerDone,
-      pairScore,
-      rematchCount: rematchInfo.count,
-      rematchRequested: !!STATE.rematchRequested,
-      roomStatus: String((STATE.room && STATE.room.status) || ''),
-      goalReached
-    });
-
-    if (STATE.resultOpen && STATE.lastOverlaySig === overlaySig) return;
-    STATE.lastOverlaySig = overlaySig;
-
-    const statusText = reason === 'peer-stale'
-      ? 'เพื่อนหลุดจากห้องนานเกินกำหนด จึงสรุปผลจากคะแนนล่าสุด'
-      : reason === 'rematch-requested'
-        ? 'ส่งคำขอรีแมตช์แล้ว รอเพื่อนกดรีแมตช์'
-        : reason === 'room-finished'
-          ? 'รอบนี้ปิดจากห้องส่วนกลางแล้ว'
-          : (peerDone ? 'เพื่อนเล่นจบแล้ว มาดูคะแนนคู่กัน' : 'กำลังรอคะแนนจากเพื่อนอีกนิด');
-
-    const peerStatusHtml = peerDone
-      ? '<span class="duet-sum-status done">เล่นจบแล้ว</span>'
-      : '<span class="duet-sum-status wait">กำลังรอคะแนน</span>';
-
-    const praise = getPraiseMeta();
-    const recap = getRecapLines();
-    const trophies = getTrophyBadges();
-    const rematchBadges = [
-      `<span class="duet-badge blue">🔁 รีแมตช์ ${rematchInfo.count}/2</span>`
-    ];
-
-    if (STATE.rematchRequested && rematchInfo.count < 2){
-      rematchBadges.push(`<span class="duet-badge gold">⌛ รอเพื่อนกดรีแมตช์</span>`);
-    }
-
-    const starsHtml = Array.from({ length: praise.stars }, () => '<span class="duet-star">⭐</span>').join('');
-    const badgesHtml = praise.badges
-      .map(b => `<span class="duet-badge ${esc(b.cls)}">${esc(b.text)}</span>`)
-      .concat(rematchBadges)
-      .join('');
-    const trophiesHtml = trophies.map(t => `<span class="duet-trophy ${esc(t.cls)}">${esc(t.text)}</span>`).join('');
-
-    const summary = buildSummary();
-    saveLastSummary(summary);
-
-    UI.resultMount.hidden = false;
-    UI.resultMount.style.display = 'flex';
-    STATE.resultOpen = true;
-    UI.resultMount.innerHTML = `
-      <div class="duet-result-card">
-        <div class="duet-summary-head">
-          <div class="duet-summary-kicker">👯 GOODJUNK • สรุปผลเล่นคู่</div>
-          <div class="duet-result-title">${goalReached ? 'เยี่ยมมาก ทำคะแนนคู่ได้ดีมาก' : 'จบรอบเล่นคู่แล้ว'}</div>
-          <div class="duet-result-sub">
-            ${esc('สรุปคะแนนของฉัน + เพื่อน + คะแนนคู่')}<br>
-            ${esc(statusText)}
-          </div>
-        </div>
-
-        <div class="duet-praise">
-          <div class="duet-mobile-quick-actions"></div>
-          <div class="duet-praise-top">
-            <div>
-              <div class="duet-praise-title">${esc(praise.title)}</div>
-              <div class="duet-praise-sub">${esc(praise.sub)}</div>
-            </div>
-            <div class="duet-stars big">${starsHtml}</div>
-          </div>
-          <div class="duet-badges">${badgesHtml}</div>
-          <div class="duet-trophy-strip">${trophiesHtml}</div>
-        </div>
-
-        <div class="duet-sum-top">
-          <div class="duet-sum-top-card">
-            <div class="duet-sum-top-label">ฉัน</div>
-            <div class="duet-sum-top-score me">${STATE.score}</div>
-            <div class="duet-sum-top-sub">
-              แตะอาหารดี ${STATE.goodHit} • โดน Junk ${STATE.junkHit} • พลาด ${STATE.miss}
-            </div>
-          </div>
-
-          <div class="duet-sum-top-card">
-            <div class="duet-sum-top-label">${esc(peerName)}</div>
-            <div class="duet-sum-top-score peer">${peerScore}</div>
-            <div class="duet-sum-top-sub">${peerStatusHtml}</div>
-          </div>
-
-          <div class="duet-sum-top-card">
-            <div class="duet-sum-top-label">คะแนนคู่</div>
-            <div class="duet-sum-top-score pair">${pairScore}</div>
-            <div class="duet-sum-top-sub">
-              เป้าหมาย ${STATE.pairGoal}
-              <span class="${goalReached ? 'duet-sum-goal-ok' : 'duet-sum-goal-wait'}">
-                ${goalReached ? '• ถึงเป้าแล้ว' : '• ยังไปต่อได้'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div class="duet-sum-stats">
-          <div class="duet-sum-stat">
-            <div class="duet-sum-stat-k">ต่อเนื่องสูงสุด</div>
-            <div class="duet-sum-stat-v">${STATE.bestStreak}</div>
-          </div>
-          <div class="duet-sum-stat">
-            <div class="duet-sum-stat-k">แตะอาหารดี</div>
-            <div class="duet-sum-stat-v">${STATE.goodHit}</div>
-          </div>
-          <div class="duet-sum-stat">
-            <div class="duet-sum-stat-k">โดน Junk</div>
-            <div class="duet-sum-stat-v">${STATE.junkHit}</div>
-          </div>
-          <div class="duet-sum-stat">
-            <div class="duet-sum-stat-k">พลาดอาหารดี</div>
-            <div class="duet-sum-stat-v">${STATE.goodMiss}</div>
-          </div>
-        </div>
-
-        <div class="duet-recap">
-          ${recap.map(item => `
-            <div class="duet-recap-card">
-              <div class="duet-recap-k">${esc(item.k)}</div>
-              <div class="duet-recap-v">${esc(item.v)}</div>
-            </div>
-          `).join('')}
-        </div>
-
-        <div class="duet-result-actions">
-          <button class="btn good" id="duetBtnRematch" type="button">${STATE.rematchRequested ? 'กำลังรอรีแมตช์...' : 'ขอรีแมตช์'}</button>
-          <button class="btn ghost" id="duetBtnBackLobby" type="button">กลับไป Lobby ห้องเดิม</button>
-          <button class="btn ghost" id="duetBtnBackLauncher" type="button">กลับหน้าเลือกโหมด</button>
-          <button class="btn primary" id="duetBtnBackHub" type="button">กลับหน้าหลัก</button>
-          <button class="btn ghost" id="duetBtnClose" type="button">ปิดหน้าสรุป</button>
-        </div>
-      </div>
-    `;
-
-    const quickWrap = UI.resultMount.querySelector('.duet-mobile-quick-actions');
-    if (quickWrap && isMobileViewport()){
-      quickWrap.innerHTML = `
-        <button class="btn good" id="duetBtnRematchTop" type="button">${STATE.rematchRequested ? 'รอรีแมตช์...' : 'รีแมตช์'}</button>
-        <button class="btn ghost" id="duetBtnBackLobbyTop" type="button">กลับ Lobby</button>
-      `;
-    }
-
-    ensureResultActionsVisible();
-
-    const btnClose = $('duetBtnClose');
-    const btnRematch = $('duetBtnRematch');
-    const btnBackLobby = $('duetBtnBackLobby');
-    const btnBackLauncher = $('duetBtnBackLauncher');
-    const btnBackHub = $('duetBtnBackHub');
-    const btnRematchTop = $('duetBtnRematchTop');
-    const btnBackLobbyTop = $('duetBtnBackLobbyTop');
-
-    if (btnClose){
-      bindPress(btnClose, async () => {
-        resetResultMount();
-      });
-    }
-
-    if (btnRematch){
-      btnRematch.disabled = !!STATE.rematchRequested;
-      bindPress(btnRematch, async () => {
-        if (STATE.rematchRequested) return;
-        btnRematch.disabled = true;
-        btnRematch.textContent = 'กำลังรอรีแมตช์...';
-        try{
-          await requestRematch();
-          renderResultOverlay('rematch-requested');
-        }catch(err){
-          btnRematch.disabled = false;
-          btnRematch.textContent = 'ขอรีแมตช์';
-        }
-      });
-    }
-
-    if (btnBackLobby){
-      bindPress(btnBackLobby, async () => {
-        await leaveFinishedRoomAndMaybeCleanup(buildSameRoomLobbyUrl(false));
-      });
-    }
-
-    if (btnBackLauncher){
-      bindPress(btnBackLauncher, async () => {
-        await leaveFinishedRoomAndMaybeCleanup(
-          (UI.btnBackLauncher && UI.btnBackLauncher.href) || '../goodjunk-launcher.html'
-        );
-      });
-    }
-
-    if (btnBackHub){
-      bindPress(btnBackHub, async () => {
-        await leaveFinishedRoomAndMaybeCleanup(STATE.hub);
-      });
-    }
-
-    if (btnRematchTop){
-      btnRematchTop.disabled = !!STATE.rematchRequested;
-      bindPress(btnRematchTop, async () => {
-        if (STATE.rematchRequested) return;
-        btnRematchTop.disabled = true;
-        btnRematchTop.textContent = 'รอรีแมตช์...';
-        try{
-          await requestRematch();
-          renderResultOverlay('rematch-requested');
-        }catch(err){
-          btnRematchTop.disabled = false;
-          btnRematchTop.textContent = 'รีแมตช์';
-        }
-      });
-    }
-
-    if (btnBackLobbyTop){
-      bindPress(btnBackLobbyTop, async () => {
-        await leaveFinishedRoomAndMaybeCleanup(buildSameRoomLobbyUrl(false));
-      });
     }
   }
 
@@ -1299,6 +1076,7 @@
 
   async function finishGame(reason){
     if (STATE.ended) return;
+
     STATE.ended = true;
     STATE.started = false;
     STATE.prestart = false;
@@ -1317,6 +1095,259 @@
     STATE.finishedPublished = true;
     try{ await publishLivePresence(); }catch{}
     try{ await maybeFinalizeRoom(); }catch{}
+  }
+
+  async function leaveFinishedRoomAndMaybeCleanup(nextHref){
+    if (STATE.leaving) return;
+    STATE.leaving = true;
+
+    stopHeartbeat();
+
+    try{
+      if (STATE.meRef){
+        fireAndForget(
+          STATE.meRef.update({
+            connected: false,
+            phase: STATE.ended ? 'done' : 'left',
+            lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+          })
+        );
+      }
+    }catch(err){
+      console.warn('[duet.run] leave update failed:', err);
+    }
+
+    safeReplace(nextHref);
+  }
+
+  function renderResultOverlay(reason){
+    if (!UI.resultMount) return;
+
+    const peer = getPeer(STATE.room) || {};
+    const peerName = String(peer.name || 'เพื่อน').trim() || 'เพื่อน';
+    const peerScore = Number(peer.finalScore || 0);
+    const pairScore = STATE.score + peerScore;
+    const goalReached = pairScore >= STATE.pairGoal;
+    const peerDone = !!peer.finished;
+    const rematchInfo = getRematchInfo(STATE.room);
+
+    STATE.pairScore = pairScore;
+
+    const overlaySig = JSON.stringify({
+      reason: String(reason || ''),
+      peerScore,
+      pairScore,
+      peerDone,
+      goalReached,
+      rematchCount: rematchInfo.count,
+      rematchRequested: !!STATE.rematchRequested,
+      status: String((STATE.room && STATE.room.status) || '')
+    });
+
+    if (STATE.resultOpen && STATE.lastOverlaySig === overlaySig){
+      return;
+    }
+
+    STATE.lastOverlaySig = overlaySig;
+
+    const statusText = reason === 'peer-stale'
+      ? 'เพื่อนหลุดจากห้องนานเกินกำหนด จึงสรุปผลจากคะแนนล่าสุด'
+      : reason === 'rematch-requested'
+        ? 'ส่งคำขอรีแมตช์แล้ว รอเพื่อนกดรีแมตช์'
+        : reason === 'room-finished'
+          ? 'รอบนี้ปิดจากห้องส่วนกลางแล้ว'
+          : (peerDone ? 'เพื่อนเล่นจบรอบแล้ว มาดูคะแนนคู่กัน' : 'กำลังรอคะแนนจากเพื่อนอีกนิด');
+
+    const praise = getPraiseMeta();
+    const recap = getRecapLines();
+    const trophies = getTrophyBadges();
+    const badges = praise.badges.slice();
+
+    badges.push({ cls:'blue', text:`🔁 รีแมตช์ ${rematchInfo.count}/2` });
+    if (STATE.rematchRequested && rematchInfo.count < 2){
+      badges.push({ cls:'gold', text:'⌛ รอเพื่อนกดรีแมตช์' });
+    }
+    if (STATE.rematchRequested && rematchInfo.count >= 2){
+      badges.push({ cls:'good', text:'✅ รีแมตช์ครบแล้ว' });
+    }
+
+    const starsHtml = Array.from({ length: praise.stars }, () => '<span class="duet-star">⭐</span>').join('');
+    const badgesHtml = badges.map(b => `<span class="duet-badge ${esc(b.cls)}">${esc(b.text)}</span>`).join('');
+    const trophiesHtml = trophies.map(t => `<span class="duet-trophy ${esc(t.cls)}">${esc(t.text)}</span>`).join('');
+    const confettiHtml = goalReached ? buildConfettiHtml(26) : '';
+
+    saveLastSummary(buildSummary());
+
+    UI.resultMount.hidden = false;
+    UI.resultMount.style.display = 'flex';
+    STATE.resultOpen = true;
+
+    UI.resultMount.innerHTML = `
+      <div class="duet-result-card ${goalReached ? 'celebrate' : ''}">
+        ${confettiHtml}
+
+        <div class="duet-summary-head" style="position:relative;z-index:1;">
+          <div class="duet-summary-kicker">👯 GOODJUNK • สรุปผลเล่นคู่</div>
+          <div class="duet-result-title">${goalReached ? 'เยี่ยมมาก ทำคะแนนคู่ได้ดีมาก' : 'จบรอบเล่นคู่แล้ว'}</div>
+          <div class="duet-result-sub">
+            ${esc('สรุปคะแนนของฉัน + เพื่อน + คะแนนคู่')}<br>
+            ${esc(statusText)}
+          </div>
+        </div>
+
+        <div class="duet-praise" style="position:relative;z-index:1;">
+          <div class="duet-mobile-quick-actions"></div>
+
+          <div class="duet-praise-top">
+            <div>
+              <div class="duet-praise-title">${esc(praise.title)}</div>
+              <div class="duet-praise-sub">${esc(praise.sub)}</div>
+            </div>
+            <div class="duet-stars big">${starsHtml}</div>
+          </div>
+
+          <div class="duet-badges">${badgesHtml}</div>
+          <div class="duet-trophy-strip">${trophiesHtml}</div>
+        </div>
+
+        <div class="duet-sum-top" style="position:relative;z-index:1;">
+          <div class="duet-sum-top-card">
+            <div class="duet-sum-top-label">ฉัน</div>
+            <div class="duet-sum-top-score me">${STATE.score}</div>
+            <div class="duet-sum-top-sub">
+              แตะอาหารดี ${STATE.goodHit} • โดน Junk ${STATE.junkHit} • พลาด ${STATE.miss}
+            </div>
+          </div>
+
+          <div class="duet-sum-top-card">
+            <div class="duet-sum-top-label">${esc(peerName)}</div>
+            <div class="duet-sum-top-score peer">${peerScore}</div>
+            <div class="duet-sum-top-sub">
+              ${peerDone ? '<span class="duet-sum-status done">เล่นจบแล้ว</span>' : '<span class="duet-sum-status wait">กำลังรอคะแนน</span>'}
+            </div>
+          </div>
+
+          <div class="duet-sum-top-card">
+            <div class="duet-sum-top-label">คะแนนคู่</div>
+            <div class="duet-sum-top-score pair">${pairScore}</div>
+            <div class="duet-sum-top-sub">
+              เป้าหมาย ${STATE.pairGoal}
+              <span class="${goalReached ? 'duet-sum-goal-ok' : 'duet-sum-goal-wait'}">
+                ${goalReached ? '• ถึงเป้าแล้ว' : '• ยังไปต่อได้'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="duet-sum-stats" style="position:relative;z-index:1;">
+          <div class="duet-sum-stat">
+            <div class="duet-sum-stat-k">ต่อเนื่องสูงสุด</div>
+            <div class="duet-sum-stat-v">${STATE.bestStreak}</div>
+          </div>
+          <div class="duet-sum-stat">
+            <div class="duet-sum-stat-k">แตะอาหารดี</div>
+            <div class="duet-sum-stat-v">${STATE.goodHit}</div>
+          </div>
+          <div class="duet-sum-stat">
+            <div class="duet-sum-stat-k">โดน Junk</div>
+            <div class="duet-sum-stat-v">${STATE.junkHit}</div>
+          </div>
+          <div class="duet-sum-stat">
+            <div class="duet-sum-stat-k">พลาดอาหารดี</div>
+            <div class="duet-sum-stat-v">${STATE.goodMiss}</div>
+          </div>
+        </div>
+
+        <div class="duet-recap" style="position:relative;z-index:1;">
+          ${recap.map(item => `
+            <div class="duet-recap-card">
+              <div class="duet-recap-k">${esc(item.k)}</div>
+              <div class="duet-recap-v">${esc(item.v)}</div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="duet-result-actions" style="position:relative;z-index:1;">
+          <button class="btn good" id="duetBtnRematch" type="button">${STATE.rematchRequested ? 'กำลังรอรีแมตช์...' : 'ขอรีแมตช์'}</button>
+          <button class="btn ghost" id="duetBtnBackLobby" type="button">กลับไป Lobby ห้องเดิม</button>
+          <button class="btn ghost" id="duetBtnBackLauncher" type="button">กลับหน้าเลือกโหมด</button>
+          <button class="btn primary" id="duetBtnBackHub" type="button">กลับหน้าหลัก</button>
+          <button class="btn ghost" id="duetBtnClose" type="button">ปิดหน้าสรุป</button>
+        </div>
+      </div>
+    `;
+
+    const quickWrap = UI.resultMount.querySelector('.duet-mobile-quick-actions');
+    if (quickWrap && isMobileViewport()){
+      quickWrap.innerHTML = `
+        <button class="btn good" id="duetBtnRematchTop" type="button">${STATE.rematchRequested ? 'กำลังรอรีแมตช์...' : 'รีแมตช์'}</button>
+        <button class="btn ghost" id="duetBtnBackLobbyTop" type="button">กลับ Lobby</button>
+      `;
+    }
+
+    ensureResultActionsVisible();
+
+    const btnRematch = $('duetBtnRematch');
+    const btnBackLobby = $('duetBtnBackLobby');
+    const btnBackLauncher = $('duetBtnBackLauncher');
+    const btnBackHub = $('duetBtnBackHub');
+    const btnClose = $('duetBtnClose');
+    const btnRematchTop = $('duetBtnRematchTop');
+    const btnBackLobbyTop = $('duetBtnBackLobbyTop');
+
+    if (btnRematch){
+      btnRematch.disabled = !!STATE.rematchRequested;
+      bindPress(btnRematch, async () => {
+        if (STATE.rematchRequested) return;
+        btnRematch.disabled = true;
+        btnRematch.textContent = 'กำลังรอรีแมตช์...';
+        await requestRematch();
+        renderResultOverlay('rematch-requested');
+      });
+    }
+
+    if (btnBackLobby){
+      bindPress(btnBackLobby, async () => {
+        await leaveFinishedRoomAndMaybeCleanup(buildSameRoomLobbyUrl(false));
+      });
+    }
+
+    if (btnBackLauncher){
+      bindPress(btnBackLauncher, async () => {
+        await leaveFinishedRoomAndMaybeCleanup(
+          (UI.btnBackLauncher && UI.btnBackLauncher.href) || './goodjunk-launcher.html'
+        );
+      });
+    }
+
+    if (btnBackHub){
+      bindPress(btnBackHub, async () => {
+        await leaveFinishedRoomAndMaybeCleanup(STATE.hub);
+      });
+    }
+
+    if (btnClose){
+      bindPress(btnClose, async () => {
+        resetResultMount();
+      });
+    }
+
+    if (btnRematchTop){
+      btnRematchTop.disabled = !!STATE.rematchRequested;
+      bindPress(btnRematchTop, async () => {
+        if (STATE.rematchRequested) return;
+        btnRematchTop.disabled = true;
+        btnRematchTop.textContent = 'กำลังรอรีแมตช์...';
+        await requestRematch();
+        renderResultOverlay('rematch-requested');
+      });
+    }
+
+    if (btnBackLobbyTop){
+      bindPress(btnBackLobbyTop, async () => {
+        await leaveFinishedRoomAndMaybeCleanup(buildSameRoomLobbyUrl(false));
+      });
+    }
   }
 
   async function showBlockOverlay(title, sub){
@@ -1400,7 +1431,7 @@
     try{
       const od = STATE.meRef.onDisconnect();
       if (od && typeof od.update === 'function'){
-        fireAndForgetWrite(
+        fireAndForget(
           od.update({
             connected: false,
             phase: 'left',
@@ -1460,20 +1491,25 @@
       renderHud();
 
       if (STATE.ended){
-        renderResultOverlay('sync-finish');
-        maybeResetRoomForRematch(room);
-        maybeFinalizeRoom();
+        const rematchInfo = getRematchInfo(room);
 
-        if (
-          STATE.rematchRequested &&
-          String(room.status || 'waiting') === 'waiting' &&
-          !STATE.rematchRedirected
-        ){
+        renderResultOverlay(rematchInfo.count >= 2 ? 'rematch-requested' : 'sync-finish');
+
+        if (rematchInfo.count >= 2 && !STATE.rematchRedirected){
           STATE.rematchRedirected = true;
+
+          if (room.hostId === STATE.uid){
+            fireAndForget(hostRecoverFinishedRoomForRematch(room));
+          }
+
           setTimeout(() => {
             safeReplace(buildSameRoomLobbyUrl(true));
           }, 450);
+
+          return;
         }
+
+        fireAndForget(maybeFinalizeRoom());
       }
     });
   }
@@ -1518,7 +1554,7 @@
   }
 
   async function init(){
-    injectResultOverlayHardFixCSS();
+    injectOverlayHardFixCSS();
     bindUi();
     resetResultMount();
 
