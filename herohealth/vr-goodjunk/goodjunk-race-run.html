@@ -332,7 +332,7 @@
       word-break:break-word;
       font-size:11px;
       color:#8a8a82;
-      max-height:180px;
+      max-height:160px;
       overflow:auto;
     }
 
@@ -372,8 +372,30 @@
       padding:18px;
       position:relative;
     }
+    .summary-card::before{
+      content:"";
+      position:absolute;
+      left:-40px; top:-40px;
+      width:150px; height:150px;
+      border-radius:999px;
+      background:rgba(127,207,255,.18);
+      filter:blur(10px);
+      pointer-events:none;
+    }
+    .summary-card::after{
+      content:"";
+      position:absolute;
+      right:-30px; bottom:-30px;
+      width:130px; height:130px;
+      border-radius:999px;
+      background:rgba(255,212,92,.18);
+      filter:blur(10px);
+      pointer-events:none;
+    }
 
     .summary-kicker{
+      position:relative;
+      z-index:1;
       display:inline-flex;
       align-items:center;
       gap:8px;
@@ -388,6 +410,8 @@
     }
 
     .summary-hero{
+      position:relative;
+      z-index:1;
       display:grid;
       grid-template-columns:96px 1fr;
       gap:14px;
@@ -430,6 +454,8 @@
     }
 
     .summary-title{
+      position:relative;
+      z-index:1;
       margin:0 0 6px;
       text-align:center;
       color:#67a91c;
@@ -440,6 +466,8 @@
     }
 
     .summary-sub{
+      position:relative;
+      z-index:1;
       margin:0;
       text-align:center;
       color:#6d6b63;
@@ -495,6 +523,8 @@
     }
 
     .summary-grid{
+      position:relative;
+      z-index:1;
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:12px;
@@ -784,6 +814,7 @@
       time: qs('time', '120'),
       seed: qs('seed', String(Date.now())),
       startAt: Number(qs('startAt', '0')) || 0,
+      roundId: qs('roundId', ''),
       hub: resolveHub(),
       view: qs('view', 'mobile'),
       run: qs('run', 'play'),
@@ -795,7 +826,6 @@
     window.__GJ_RUN_CTX__ = runCtx;
     window.__GJ_MULTI_RUN_CTX__ = runCtx;
     window.__GJ_RACE_ENGINE_READY__ = false;
-    window.__GJ_CORE_SCRIPT_LOADED__ = false;
 
     window.GJRaceShellReady = function(info) {
       window.__GJ_RACE_ENGINE_READY__ = true;
@@ -891,7 +921,16 @@
     const CORE_CANDIDATES = dedupe([
       clean(qs('core')),
       ...parseList(qs('coreCandidates')),
-      './goodjunk.safe.race.js'
+      './goodjunk.safe.race.js',
+      './js/goodjunk.safe.race.js',
+      './goodjunk.safe.js',
+      './goodjunk.js',
+      './goodjunk-run.js',
+      './goodjunk.safe.run.js',
+      './js/goodjunk.safe.js',
+      './js/goodjunk.js',
+      './js/goodjunk-run.js',
+      './js/goodjunk.safe.run.js'
     ]);
 
     const CONTROLLER_CANDIDATES = dedupe([
@@ -902,12 +941,130 @@
     ]);
 
     const WANT_RACE_CONTROLLER =
-      qs('raceController', '') === '1' ||
       qs('forceRaceController', '0') === '1' ||
       qs('wait', '0') === '1' ||
-      qs('host', '0') === '1';
+      qs('host', '0') === '1' ||
+      Number(qs('startAt', '0')) > 0;
 
     const SUMMARY_KEY = 'GJ_RACE_LAST_SUMMARY_' + (runCtx.roomId || 'noroom') + '_' + (runCtx.pid || 'anon');
+
+    function ensureRaceDb() {
+      try {
+        if (window.HHA_FIREBASE_DB) return window.HHA_FIREBASE_DB;
+        if (typeof window.HHA_ENSURE_FIREBASE_DB === 'function') {
+          return window.HHA_ENSURE_FIREBASE_DB();
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    function raceResultsRef() {
+      const db = ensureRaceDb();
+      if (!db || !runCtx.roomId) return null;
+      return db.ref(`hha-battle/goodjunk/rooms/${runCtx.roomId}/results`);
+    }
+
+    async function publishRaceResult(summary) {
+      const ref = raceResultsRef();
+      if (!ref || !runCtx.pid) return false;
+
+      const payload = {
+        pid: String(runCtx.pid || 'anon'),
+        name: String(runCtx.name || runCtx.pid || 'Player'),
+        roomId: String(runCtx.roomId || ''),
+        roundId: String(runCtx.roundId || ''),
+        score: Number(summary.score || 0),
+        goodHit: Number(summary.goodHit || 0),
+        junkHit: Number(summary.junkHit || 0),
+        miss: Number(summary.miss || 0),
+        bestStreak: Number(summary.bestStreak || 0),
+        duration: Number(summary.duration || runCtx.time || 0),
+        result: String(summary.result || ''),
+        reason: String(summary.reason || ''),
+        updatedAt: Date.now(),
+        final: true
+      };
+
+      await ref.child(String(runCtx.pid)).set(payload);
+      return true;
+    }
+
+    async function readRaceResults(waitMs = 1800) {
+      const ref = raceResultsRef();
+      if (!ref) return {};
+
+      const startedAt = Date.now();
+      const activeRoundId = String(runCtx.roundId || '');
+
+      function filterMap(data) {
+        const raw = data || {};
+        if (!activeRoundId) return raw;
+
+        const out = {};
+        Object.keys(raw).forEach((k) => {
+          const row = raw[k];
+          if (!row) return;
+          if (String(row.roundId || '') === activeRoundId) {
+            out[k] = row;
+          }
+        });
+        return out;
+      }
+
+      while (Date.now() - startedAt < waitMs) {
+        try {
+          const snap = await ref.once('value');
+          const data = filterMap(snap.val() || {});
+          const finals = Object.values(data).filter(v => v && v.final);
+          if (finals.length >= 2) return data;
+        } catch (_) {}
+        await wait(180);
+      }
+
+      try {
+        const snap = await ref.once('value');
+        return filterMap(snap.val() || {});
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function enrichSummaryWithRoomRanking(summary, rawMap) {
+      const rows = Object.values(rawMap || {})
+        .filter(Boolean)
+        .sort((a, b) => {
+          const scoreDiff = Number(b.score || 0) - Number(a.score || 0);
+          if (scoreDiff) return scoreDiff;
+
+          const goodDiff = Number(b.goodHit || 0) - Number(a.goodHit || 0);
+          if (goodDiff) return goodDiff;
+
+          const missDiff = Number(a.miss || 0) - Number(b.miss || 0);
+          if (missDiff) return missDiff;
+
+          const streakDiff = Number(b.bestStreak || 0) - Number(a.bestStreak || 0);
+          if (streakDiff) return streakDiff;
+
+          return String(a.pid || '').localeCompare(String(b.pid || ''));
+        });
+
+      const myIndex = rows.findIndex(r => String(r.pid || '') === String(runCtx.pid || ''));
+      const myRank = myIndex >= 0 ? (myIndex + 1) : Number(summary.rank || 0);
+      const playerCount = rows.length || Number(summary.players || 0) || '';
+
+      let resultText = summary.result || 'จบรอบแล้ว';
+      if (playerCount >= 2 && myRank >= 1) {
+        resultText = myRank === 1 ? 'ชนะรอบนี้' : `อันดับ ${myRank}/${playerCount}`;
+      }
+
+      return {
+        ...summary,
+        rank: myRank || summary.rank || '',
+        players: playerCount,
+        result: resultText,
+        roomResults: rows
+      };
+    }
 
     function setMiniInfo() {
       if ($('engineMiniRoom')) $('engineMiniRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
@@ -1019,7 +1176,7 @@
 
     function buildVersionedUrl(src) {
       const u = new URL(src, location.href);
-      u.searchParams.set('v', qs('rv', '20260331-race-run-spawnfix'));
+      u.searchParams.set('v', '20260331-gjr-full');
       return u.toString();
     }
 
@@ -1029,17 +1186,7 @@
         if (type === 'module') s.type = 'module';
         s.src = buildVersionedUrl(src);
         s.async = false;
-
-        s.onload = () => {
-          try {
-            if (/goodjunk\.safe\.race\.js(?:\?|$)/.test(String(src))) {
-              window.__GJ_CORE_SCRIPT_LOADED__ = true;
-              window.__GJ_LAST_CORE_SRC__ = src;
-            }
-          } catch(_) {}
-          resolve({ src, type });
-        };
-
+        s.onload = () => resolve({ src, type });
         s.onerror = () => reject(new Error(`โหลด script ไม่สำเร็จ: ${src} [${type}]`));
         document.body.appendChild(s);
       });
@@ -1069,19 +1216,12 @@
     }
 
     function coreApiPresent() {
-      return !!(
-        window.__GJ_RACE_ENGINE_READY__ === true ||
-        window.__GJ_CORE_SCRIPT_LOADED__ === true ||
+      return (
         typeof window.__GJ_START_NOW__ === 'function' ||
         typeof window.__GJ_GET_SCORE__ === 'function' ||
         typeof window.__GJ_GET_SHOTS__ === 'function' ||
         typeof window.__GJ_GET_HITS__ === 'function' ||
-        typeof window.__GJ_SET_PAUSED__ === 'function' ||
-        (window.GJRaceSafe && typeof window.GJRaceSafe === 'object') ||
-        (window.RaceSafe && typeof window.RaceSafe === 'object') ||
-        (window.GJRaceRun && typeof window.GJRaceRun === 'object') ||
-        (window.GoodJunkRun && typeof window.GoodJunkRun === 'object') ||
-        (window.GoodJunkSafeRace && typeof window.GoodJunkSafeRace === 'object')
+        typeof window.__GJ_SET_PAUSED__ === 'function'
       );
     }
 
@@ -1089,7 +1229,7 @@
       const mount = $('gameMount');
       const htmlChanged = !!(mount && String(mount.innerHTML || '') !== String(before.html || ''));
       const childChanged = !!(mount && mount.children && mount.children.length > Number(before.childCount || 0));
-      const hasVisualNode = !!document.querySelector('#gameMount canvas, #gameMount svg, #gameMount iframe, #gameMount .game-root, #gameMount .gj-root');
+      const hasVisualNode = !!document.querySelector('#gameMount canvas, #gameMount svg, #gameMount iframe, #gameMount .game-root, #gameMount .gj-root, #gameMount .gj-fallback-stage');
       const canvasChanged = document.querySelectorAll('#gameMount canvas, body > canvas').length > Number(before.canvasCount || 0);
       return htmlChanged || childChanged || hasVisualNode || canvasChanged;
     }
@@ -1105,16 +1245,12 @@
         ['GoodJunkRun', window.GoodJunkRun],
         ['GoodJunk', window.GoodJunk],
         ['GJRace', window.GJRace],
-        ['RaceGame', window.RaceGame],
-        ['GJRaceSafe', window.GJRaceSafe],
-        ['RaceSafe', window.RaceSafe],
-        ['GoodJunkSafeRace', window.GoodJunkSafeRace],
-        ['GJSafeRace', window.GJSafeRace]
+        ['RaceGame', window.RaceGame]
       ];
 
       for (const [label, target] of namespaces) {
         if (!target || typeof target !== 'object') continue;
-        for (const method of ['boot', 'init', 'start', 'mount', 'attach', 'resume']) {
+        for (const method of ['boot', 'init', 'start']) {
           const fn = target[method];
           if (typeof fn !== 'function' || seenFns.has(fn)) continue;
           seenFns.add(fn);
@@ -1132,11 +1268,9 @@
         ['bootGoodJunkRace', window.bootGoodJunkRace],
         ['initGoodJunkRace', window.initGoodJunkRace],
         ['startGoodJunkRace', window.startGoodJunkRace],
-        ['mountGoodJunkRace', window.mountGoodJunkRace],
         ['bootGoodJunk', window.bootGoodJunk],
         ['initGoodJunk', window.initGoodJunk],
         ['startGoodJunk', window.startGoodJunk],
-        ['mountGoodJunk', window.mountGoodJunk],
         ['__GJ_BOOT__', window.__GJ_BOOT__]
       ];
 
@@ -1171,50 +1305,85 @@
       return { ok: false, note: 'timeout' };
     }
 
-    function installFallbackRaceEngine(debugRows){
+    let __gjQuickStartDone = false;
+
+    function quickStartAttempt(tag, debugRows) {
+      const actions = [];
+
+      try {
+        const bootCalls = invokeKnownBoots();
+        if (bootCalls.length) actions.push(`boots=${bootCalls.join(', ')}`);
+      } catch (err) {
+        console.warn('[GJ-RACE-RUN] quick start boot retry failed', err);
+      }
+
+      try {
+        if (typeof window.__GJ_SET_PAUSED__ === 'function') {
+          window.__GJ_SET_PAUSED__(false);
+          actions.push('__GJ_SET_PAUSED__(false)');
+        }
+      } catch (err) {
+        console.warn('[GJ-RACE-RUN] quick start unpause failed', err);
+      }
+
+      try {
+        if (typeof window.__GJ_START_NOW__ === 'function') {
+          window.__GJ_START_NOW__();
+          actions.push('__GJ_START_NOW__()');
+          __gjQuickStartDone = true;
+        }
+      } catch (err) {
+        console.warn('[GJ-RACE-RUN] quick start start-now failed', err);
+      }
+
+      try {
+        window.dispatchEvent(new CustomEvent('gj:quick-start', {
+          detail: { mode: MODE, roomId: runCtx.roomId, pid: runCtx.pid, tag }
+        }));
+        actions.push('dispatch gj:quick-start');
+      } catch (_) {}
+
+      try {
+        window.dispatchEvent(new CustomEvent('hha:start', {
+          detail: { mode: MODE, roomId: runCtx.roomId, pid: runCtx.pid, tag }
+        }));
+        actions.push('dispatch hha:start');
+      } catch (_) {}
+
+      debugRows.push(`[QUICK START ${tag}] ${actions.join(' | ') || 'no-op'}`);
+      return actions;
+    }
+
+    async function forceQuickStartSequence(debugRows) {
+      if (WANT_RACE_CONTROLLER) {
+        debugRows.push('[QUICK START] skipped (controller mode)');
+        return;
+      }
+
+      quickStartAttempt('#1', debugRows);
+      await wait(120);
+      quickStartAttempt('#2', debugRows);
+      await wait(220);
+      quickStartAttempt('#3', debugRows);
+
+      if (__gjQuickStartDone) {
+        debugRows.push('[QUICK START] start signal sent');
+      } else {
+        debugRows.push('[QUICK START] no __GJ_START_NOW__ found');
+      }
+    }
+
+    function installFallbackRaceEngine(debugRows) {
       if (window.__GJ_FALLBACK_RACE_INSTALLED__) return;
       window.__GJ_FALLBACK_RACE_INSTALLED__ = true;
 
-      const mount = document.getElementById('gameMount');
+      const mount = $('gameMount');
       if (!mount) return;
 
-      const ctx = window.__GJ_RUN_CTX__ || window.__GJ_MULTI_RUN_CTX__ || {};
-      const diff = String(ctx.diff || 'normal');
-      const timeSec = Math.max(30, Number(ctx.time || 90));
-      const seedText = String(ctx.seed || Date.now());
-
-      function xmur3(str){
-        let h = 1779033703 ^ str.length;
-        for(let i=0;i<str.length;i++){
-          h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-          h = (h << 13) | (h >>> 19);
-        }
-        return function(){
-          h = Math.imul(h ^ (h >>> 16), 2246822507);
-          h = Math.imul(h ^ (h >>> 13), 3266489909);
-          return (h ^= h >>> 16) >>> 0;
-        };
-      }
-      function mulberry32(a){
-        return function(){
-          let t = a += 0x6D2B79F5;
-          t = Math.imul(t ^ (t >>> 15), t | 1);
-          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-        };
-      }
-
-      const seedFn = xmur3(seedText);
-      const rand = mulberry32(seedFn());
-
-      const style = document.createElement('style');
-      style.textContent = `
+      const css = document.createElement('style');
+      css.textContent = `
         .gj-fallback-stage{
           position:absolute; inset:0; overflow:hidden;
-          background:
-            radial-gradient(circle at 20% 12%, rgba(255,255,255,.45), transparent 18%),
-            linear-gradient(180deg, rgba(223,244,255,.28), rgba(255,247,216,.18));
-          z-index:1;
         }
         .gj-fallback-target{
           position:absolute;
@@ -1229,123 +1398,139 @@
           cursor:pointer;
           transform:translate(-50%,-50%);
           animation: gj-pop-in .12s ease;
+          z-index:1;
+          background:#fff;
         }
         .gj-fallback-target.good{
-          background:linear-gradient(180deg,#ffffff,#f2fff0);
-          border-color:#bfe7c7;
+          border-color:#cfeec5;
+          box-shadow:0 10px 22px rgba(126,217,87,.18);
         }
         .gj-fallback-target.junk{
-          background:linear-gradient(180deg,#fff7f7,#ffe5e5);
-          border-color:#f0b3b3;
+          border-color:#f5c5cf;
+          box-shadow:0 10px 22px rgba(244,114,182,.18);
         }
         .gj-fallback-hud{
           position:absolute;
-          left:12px; right:12px; bottom:12px;
+          left:16px; right:16px; bottom:16px;
+          display:flex; gap:10px; flex-wrap:wrap;
           z-index:2;
-          display:flex; gap:8px; flex-wrap:wrap;
           pointer-events:none;
         }
         .gj-fallback-chip{
-          background:rgba(255,255,255,.88);
+          background:#fff;
           border:2px solid #bfe3f2;
+          color:#5a564e;
           border-radius:999px;
-          padding:8px 12px;
-          font-size:13px;
+          padding:10px 16px;
+          font-size:14px;
           font-weight:1000;
-          color:#4d4a42;
-          box-shadow:0 8px 16px rgba(86,155,194,.10);
+          box-shadow:0 8px 18px rgba(86,155,194,.10);
         }
         @keyframes gj-pop-in{
-          from{ transform:translate(-50%,-50%) scale(.85); opacity:.6; }
-          to{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+          0%{ transform:translate(-50%,-50%) scale(.88); opacity:.6; }
+          100%{ transform:translate(-50%,-50%) scale(1); opacity:1; }
         }
       `;
-      document.head.appendChild(style);
+      document.head.appendChild(css);
 
-      mount.innerHTML = `
-        <div class="gj-fallback-stage" id="gjFallbackStage"></div>
-        <div class="gj-fallback-hud">
-          <div class="gj-fallback-chip" id="gjFbScore">SCORE • 0</div>
-          <div class="gj-fallback-chip" id="gjFbGood">GOOD • 0</div>
-          <div class="gj-fallback-chip" id="gjFbJunk">JUNK • 0</div>
-          <div class="gj-fallback-chip" id="gjFbMiss">MISS • 0</div>
-          <div class="gj-fallback-chip" id="gjFbTime">TIME • ${timeSec}</div>
-        </div>
+      const stage = document.createElement('div');
+      stage.className = 'gj-fallback-stage';
+
+      const hud = document.createElement('div');
+      hud.className = 'gj-fallback-hud';
+      hud.innerHTML = `
+        <div class="gj-fallback-chip" id="gjRaceChipScore">SCORE • 0</div>
+        <div class="gj-fallback-chip" id="gjRaceChipGood">GOOD • 0</div>
+        <div class="gj-fallback-chip" id="gjRaceChipJunk">JUNK • 0</div>
+        <div class="gj-fallback-chip" id="gjRaceChipMiss">MISS • 0</div>
+        <div class="gj-fallback-chip" id="gjRaceChipTime">TIME • ${Number(runCtx.time || 90)}</div>
       `;
 
-      const stage = document.getElementById('gjFallbackStage');
-      const elScore = document.getElementById('gjFbScore');
-      const elGood = document.getElementById('gjFbGood');
-      const elJunk = document.getElementById('gjFbJunk');
-      const elMiss = document.getElementById('gjFbMiss');
-      const elTime = document.getElementById('gjFbTime');
+      mount.innerHTML = '';
+      mount.appendChild(stage);
+      mount.appendChild(hud);
 
-      let paused = true;
-      let started = false;
-      let ended = false;
+      const chipScore = document.getElementById('gjRaceChipScore');
+      const chipGood = document.getElementById('gjRaceChipGood');
+      const chipJunk = document.getElementById('gjRaceChipJunk');
+      const chipMiss = document.getElementById('gjRaceChipMiss');
+      const chipTime = document.getElementById('gjRaceChipTime');
+
+      const GOOD_ITEMS = ['🥕','🍎','🥛','🥗','🍉','🐟','🍌','🥦'];
+      const JUNK_ITEMS = ['🍔','🍟','🍕','🍩','🍫','🧁','🥤','🍭'];
+      const mobileScale = window.innerWidth <= 780;
 
       let score = 0;
-      let shots = 0;
-      let hits = 0;
-      let miss = 0;
       let goodHit = 0;
       let junkHit = 0;
+      let miss = 0;
+      let shots = 0;
+      let hits = 0;
       let bestStreak = 0;
       let streak = 0;
-
-      let spawnTimer = 0;
-      let clockTimer = 0;
+      let paused = true;
+      let ended = false;
+      let startedAt = 0;
       let endAt = 0;
-      let startMs = 0;
+      let spawnTimer = 0;
+      const lifeMs = mobileScale ? 1700 : 1500;
+      const spawnMs = mobileScale ? 620 : 560;
+      const goodRate = 0.72;
+      let seed = Number(runCtx.seed || Date.now()) >>> 0;
 
-      const spawnMs = diff === 'easy' ? 720 : diff === 'hard' ? 360 : 520;
-      const lifeMs = diff === 'easy' ? 1800 : diff === 'hard' ? 980 : 1350;
-      const goodRate = diff === 'hard' ? 0.68 : 0.76;
-
-      const GOOD_ITEMS = ['🍎','🥕','🥦','🍌','🥛','🥗','🍉','🐟'];
-      const JUNK_ITEMS = ['🍟','🍩','🍭','🍔','🥤','🍕','🧁','🍫'];
-
-      function updateHud(){
-        elScore.textContent = `SCORE • ${score}`;
-        elGood.textContent = `GOOD • ${goodHit}`;
-        elJunk.textContent = `JUNK • ${junkHit}`;
-        elMiss.textContent = `MISS • ${miss}`;
-        const left = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
-        elTime.textContent = `TIME • ${left}`;
+      function rand() {
+        seed = (1664525 * seed + 1013904223) >>> 0;
+        return seed / 4294967296;
       }
 
-      function clearTargets(){
-        stage.querySelectorAll('.gj-fallback-target').forEach(n => n.remove());
+      function updateHud() {
+        const remainSec = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+        if (chipScore) chipScore.textContent = `SCORE • ${score}`;
+        if (chipGood) chipGood.textContent = `GOOD • ${goodHit}`;
+        if (chipJunk) chipJunk.textContent = `JUNK • ${junkHit}`;
+        if (chipMiss) chipMiss.textContent = `MISS • ${miss}`;
+        if (chipTime) chipTime.textContent = `TIME • ${remainSec}`;
       }
 
-      function finishGame(reason='finish'){
+      function buildSummary(reason='timeout') {
+        return {
+          mode: MODE,
+          label: MODE_LABEL,
+          roomId: runCtx.roomId,
+          pid: runCtx.pid,
+          name: runCtx.name,
+          role: runCtx.role,
+          diff: runCtx.diff,
+          time: runCtx.time,
+          result: 'จบรอบแล้ว',
+          rank: '',
+          score,
+          teamScore: '',
+          players: '',
+          miss,
+          goodHit,
+          junkHit,
+          bestStreak,
+          duration: Math.round((Date.now() - startedAt) / 1000),
+          reason,
+          raw: {
+            score, goodHit, junkHit, miss, bestStreak, durationSec: Math.round((Date.now() - startedAt) / 1000)
+          },
+          receivedAt: Date.now()
+        };
+      }
+
+      function finishGame(reason='timeout') {
         if (ended) return;
         ended = true;
         paused = true;
         clearInterval(spawnTimer);
-        clearInterval(clockTimer);
-        clearTargets();
+        spawnTimer = 0;
         updateHud();
-
-        const duration = Math.max(0, Math.round((Date.now() - startMs) / 1000));
-
-        try { window.dispatchEvent(new CustomEvent('hha:end', { detail:{ reason } })); } catch(_) {}
-        try {
-          window.dispatchEvent(new CustomEvent('gj:race-summary', {
-            detail: {
-              score,
-              goodHit,
-              junkHit,
-              miss,
-              bestStreak,
-              duration,
-              result: 'จบรอบแล้ว',
-              rank: '',
-              players: '',
-              reason
-            }
-          }));
-        } catch(_) {}
+        const summary = buildSummary(reason);
+        try { window.dispatchEvent(new CustomEvent('hha:end', { detail: summary })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('gj:race-summary', { detail: summary })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('hha:summary', { detail: summary })); } catch {}
       }
 
       function spawnOne(){
@@ -1356,9 +1541,21 @@
         }
 
         const rect = stage.getBoundingClientRect();
-        const pad = 46;
-        const x = pad + rand() * Math.max(1, rect.width - pad * 2);
-        const y = 90 + rand() * Math.max(1, rect.height - 170);
+
+        const topSafe = window.innerWidth <= 780 ? 360 : 120;
+        const rightSafe = window.innerWidth <= 780 ? 18 : 150;
+        const bottomSafe = window.innerWidth <= 780 ? 130 : 86;
+        const leftSafe = 24;
+        const radius = mobileScale ? 52 : 46;
+
+        const minX = leftSafe + radius;
+        const maxX = Math.max(minX + 1, rect.width - rightSafe - radius);
+
+        const minY = topSafe + radius;
+        const maxY = Math.max(minY + 1, rect.height - bottomSafe - radius);
+
+        const x = minX + rand() * Math.max(1, maxX - minX);
+        const y = minY + rand() * Math.max(1, maxY - minY);
 
         const isGood = rand() < goodRate;
         const item = isGood
@@ -1371,6 +1568,12 @@
         btn.textContent = item;
         btn.style.left = `${x}px`;
         btn.style.top = `${y}px`;
+
+        if (mobileScale) {
+          btn.style.width = '84px';
+          btn.style.height = '84px';
+          btn.style.fontSize = '38px';
+        }
 
         let gone = false;
 
@@ -1409,70 +1612,43 @@
         stage.appendChild(btn);
       }
 
-      function startNow(){
-        if (started || ended) return;
-        started = true;
-        paused = false;
-        startMs = Date.now();
-        endAt = startMs + timeSec * 1000;
+      function tickTimer() {
+        if (paused || ended) return;
         updateHud();
-
-        spawnOne();
-        setTimeout(spawnOne, 180);
-        setTimeout(spawnOne, 360);
-
-        spawnTimer = setInterval(spawnOne, spawnMs);
-        clockTimer = setInterval(() => {
-          updateHud();
-          if (Date.now() >= endAt) finishGame('timeout');
-        }, 200);
-      }
-
-      window.__GJ_SET_PAUSED__ = function(v){
-        paused = !!v;
-        if (!paused && !started) startNow();
-      };
-      window.__GJ_START_NOW__ = function(){
-        startNow();
-      };
-      window.__GJ_GET_SCORE__ = function(){ return score; };
-      window.__GJ_GET_SHOTS__ = function(){ return shots; };
-      window.__GJ_GET_HITS__ = function(){ return hits; };
-      window.__GJ_GET_MISS__ = function(){ return miss; };
-      window.__GJ_GET_FINISH_MS__ = function(){ return ended ? Math.max(0, Date.now() - startMs) : 0; };
-
-      debugRows.push('[FALLBACK] minimal race engine installed');
-    }
-
-    function armFallbackSpawnWatchdog(debugRows){
-      const start = Date.now();
-      const timer = setInterval(() => {
-        const hasTargets = !!document.querySelector(
-          '#gameMount .gj-fallback-target, #gameMount .target, #gameMount .food, #gameMount .item, #gameMount .goodjunk-target, canvas'
-        );
-        if (hasTargets) {
-          clearInterval(timer);
-          debugRows.push('[WATCHDOG] visual target detected');
-          setDebug(debugRows.join('\n'));
+        if (Date.now() >= endAt) {
+          finishGame('timeout');
           return;
         }
+        requestAnimationFrame(tickTimer);
+      }
 
-        if (Date.now() - start >= 1800) {
-          clearInterval(timer);
-          debugRows.push('[WATCHDOG] no spawn detected after 1800ms');
-          installFallbackRaceEngine(debugRows);
-
-          try {
-            if (typeof window.__GJ_SET_PAUSED__ === 'function') window.__GJ_SET_PAUSED__(false);
-          } catch(_) {}
-
-          try {
-            if (typeof window.__GJ_START_NOW__ === 'function') window.__GJ_START_NOW__();
-          } catch(_) {}
-
-          setDebug(debugRows.join('\n'));
+      function startNow() {
+        if (ended) return;
+        paused = false;
+        if (!startedAt) {
+          startedAt = Date.now();
+          endAt = startedAt + (Number(runCtx.time || 90) * 1000);
+          clearInterval(spawnTimer);
+          spawnTimer = setInterval(spawnOne, spawnMs);
+          updateHud();
+          requestAnimationFrame(tickTimer);
         }
-      }, 180);
+      }
+
+      function setPaused(v) {
+        paused = !!v;
+      }
+
+      window.__GJ_SET_PAUSED__ = setPaused;
+      window.__GJ_START_NOW__ = startNow;
+      window.__GJ_GET_SCORE__ = () => score;
+      window.__GJ_GET_SHOTS__ = () => shots;
+      window.__GJ_GET_HITS__ = () => hits;
+      window.__GJ_GET_MISS__ = () => miss;
+      window.__GJ_GET_FINISH_MS__ = () => Math.max(0, Date.now() - startedAt);
+
+      debugRows.push('[CORE FALLBACK] installed');
+      debugRows.push('probe=fallback-engine');
     }
 
     function normalizeSummary(detail) {
@@ -1527,6 +1703,39 @@
       `;
     }
 
+    function addRoomResultsHtml(rows) {
+      const list = Array.isArray(rows) ? rows : [];
+      if (!list.length) return '';
+
+      const items = list.map((row, idx) => {
+        const me = String(row.pid || '') === String(runCtx.pid || '');
+        const rank = idx + 1;
+        return `
+          <div class="summary-item">
+            <div class="summary-label">อันดับ ${rank}${me ? ' • YOU' : ''}</div>
+            <div class="summary-value" style="font-size:22px;">
+              ${(row.name || row.pid || 'Player')}
+            </div>
+            <div style="margin-top:8px;color:#6d6b63;font-size:14px;font-weight:900;line-height:1.6;">
+              Score ${Number(row.score || 0)}
+              • Good ${Number(row.goodHit || 0)}
+              • Junk ${Number(row.junkHit || 0)}
+              • Miss ${Number(row.miss || 0)}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="summary-item" style="grid-column:1 / -1;">
+          <div class="summary-label">ผลการแข่งขันทั้งห้อง</div>
+          <div style="display:grid;gap:10px;margin-top:8px;">
+            ${items}
+          </div>
+        </div>
+      `;
+    }
+
     function renderSummaryStars(n) {
       const count = Math.max(0, Math.min(3, Number(n || 0)));
       return [1,2,3].map(i => `<span class="summary-star ${i <= count ? '' : 'off'}">⭐</span>`).join('');
@@ -1573,19 +1782,29 @@
     }
 
     function showSummary(detail) {
-      const summary = normalizeSummary(detail);
+      const summary = (detail && detail.roomResults)
+        ? detail
+        : normalizeSummary(detail);
+
       const hero = raceHero(summary);
       const stars = raceStarCount(summary);
 
       try { localStorage.setItem(SUMMARY_KEY, JSON.stringify(summary)); } catch {}
 
       applySummaryBadge(hero.badge);
+
       if ($('summaryHeroTitle')) $('summaryHeroTitle').textContent = hero.heroTitle;
-      if ($('summaryHeroSub')) $('summaryHeroSub').textContent = `${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'} • ${hero.heroSub}`;
+      if ($('summaryHeroSub')) {
+        $('summaryHeroSub').textContent =
+          `${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'} • ${hero.heroSub}`;
+      }
+
       if ($('summaryTitle')) $('summaryTitle').textContent = hero.title;
       if ($('summarySub')) $('summarySub').textContent = summarySubText(summary);
       if ($('summaryStars')) $('summaryStars').innerHTML = renderSummaryStars(stars);
       if ($('summaryScoreValue')) $('summaryScoreValue').textContent = String(summary.score ?? 0);
+
+      const roomResults = Array.isArray(summary.roomResults) ? summary.roomResults : [];
 
       if ($('summaryGrid')) {
         $('summaryGrid').innerHTML =
@@ -1600,7 +1819,8 @@
           addSummaryItem('Best Streak', summary.bestStreak) +
           addSummaryItem('เวลาใช้', summary.duration) +
           addSummaryItem('ห้อง', summary.roomId || '-') +
-          addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-');
+          addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-') +
+          addRoomResultsHtml(roomResults);
       }
 
       if ($('summaryDebug')) {
@@ -1609,7 +1829,8 @@
           'hero=' + (summary.heroDisplay || '-') + '\n' +
           'rank=' + (summary.rank || '-') + '\n' +
           'score=' + (summary.score || 0) + '\n' +
-          'players=' + (summary.players || '-') + '\n\n' +
+          'players=' + (summary.players || '-') + '\n' +
+          'roomResults=' + (roomResults.length || 0) + '\n\n' +
           safeJson(summary);
       }
 
@@ -1619,9 +1840,26 @@
     }
 
     function hideSummary(){ if ($('summaryOverlay')) $('summaryOverlay').hidden = true; }
-    function handleSummaryEvent(evtName, detail) {
+
+    async function handleSummaryEvent(evtName, detail) {
       console.log('[GJ-RACE-SUMMARY]', evtName, detail);
-      showSummary(detail || {});
+
+      let summary = normalizeSummary(detail || {});
+
+      try {
+        await publishRaceResult(summary);
+      } catch (err) {
+        console.warn('[GJ-RACE-SUMMARY] publishRaceResult failed', err);
+      }
+
+      try {
+        const roomResults = await readRaceResults(1800);
+        summary = enrichSummaryWithRoomRanking(summary, roomResults);
+      } catch (err) {
+        console.warn('[GJ-RACE-SUMMARY] readRaceResults failed', err);
+      }
+
+      showSummary(summary);
     }
 
     $('pillRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
@@ -1693,10 +1931,8 @@
 
     async function loadCore(debugRows) {
       const errors = [];
-
       for (const src of CORE_CANDIDATES) {
         const before = getMountSnapshot();
-
         try {
           setStatus('กำลังโหลดเกม…', `กำลังโหลด core: ${src}`);
           const loaded = await tryLoad(src);
@@ -1704,17 +1940,6 @@
           const probe = await probeCoreReady(before, 2200);
 
           if (!probe.ok) {
-            if (/goodjunk\.safe\.race\.js(?:\?|$)/.test(String(src))) {
-              debugRows.push(`[CORE SOFT-OK] ${src} [${loaded.type}]`);
-              debugRows.push(`bootCalls=${bootCalls.join(', ') || '-'}`);
-              debugRows.push('probe=legacy-core-soft-ok');
-              return {
-                loaded,
-                bootCalls,
-                probe: { ok: true, note: 'legacy-core-soft-ok' }
-              };
-            }
-
             errors.push(`${src} โหลดได้ แต่ยังไม่พบ core signature`);
             debugRows.push(`[CORE NOT READY] ${src} [${loaded.type}]`);
             debugRows.push(`bootCalls=${bootCalls.join(', ') || '-'}`);
@@ -1731,13 +1956,12 @@
           debugRows.push(`[CORE FAIL] ${src}`);
         }
       }
-
       throw new Error(errors.join('\n\n') || 'โหลด core game ไม่สำเร็จ');
     }
 
     async function loadController(debugRows) {
       if (!WANT_RACE_CONTROLLER) {
-        debugRows.push('[CONTROLLER] skipped');
+        debugRows.push('[CONTROLLER] skipped (quick play mode)');
         return null;
       }
 
@@ -1755,7 +1979,7 @@
         }
       }
 
-      debugRows.push('[CONTROLLER] failed but core is already loaded');
+      debugRows.push('[CONTROLLER] failed but core/fallback is already loaded');
       console.warn('[GJ-RACE-RUN] controller load failed', errors);
       return null;
     }
@@ -1769,6 +1993,7 @@
         `[HERO] ${heroMeta.avatar} ${heroMeta.name}`,
         `[WAIT] ${runCtx.wait}`,
         `[HOST] ${runCtx.host}`,
+        `[ROUND] ${runCtx.roundId || '-'}`,
         `[USE_CONTROLLER] ${WANT_RACE_CONTROLLER ? 'yes' : 'no'}`,
         '',
         '[CORE CANDIDATES]',
@@ -1778,10 +2003,29 @@
         ...CONTROLLER_CANDIDATES
       ];
 
+      let core = null;
+      let controller = null;
+      let usingFallback = false;
+
       try {
         await loadOptionalSafeLayer(debugRows);
-        const core = await loadCore(debugRows);
-        const controller = await loadController(debugRows);
+
+        try {
+          core = await loadCore(debugRows);
+        } catch (err) {
+          debugRows.push('');
+          debugRows.push('[CORE LOAD FALLBACK]');
+          debugRows.push(String(err && err.message ? err.message : err));
+          installFallbackRaceEngine(debugRows);
+          usingFallback = true;
+          core = {
+            loaded: { src: './goodjunk.safe.race.js (fallback)', type: 'classic' },
+            bootCalls: [],
+            probe: { note: 'fallback-engine' }
+          };
+        }
+
+        controller = await loadController(debugRows);
 
         window.__GJ_MULTI_ENGINE_INFO__ = {
           mode: MODE,
@@ -1791,44 +2035,30 @@
           controllerSrc: controller ? controller.src : '',
           controllerType: controller ? controller.type : '',
           loadedAt: Date.now(),
-          readyNote: core.probe.note
+          readyNote: core.probe.note,
+          fallback: usingFallback
         };
 
         window.__GJ_RACE_ENGINE_READY__ = true;
 
+        await forceQuickStartSequence(debugRows);
+
         setFriendlyReadyState(
           `core: ${core.loaded.src} (${core.loaded.type})` +
-          (controller ? ` • controller: ${controller.src} (${controller.type})` : ' • quick start')
+          (controller ? ` • controller: ${controller.src} (${controller.type})` : ' • quick play') +
+          (usingFallback ? ' • fallback' : '')
         );
         applyHeroIdentity();
-
-        try {
-          if (typeof window.__GJ_SET_PAUSED__ === 'function') {
-            window.__GJ_SET_PAUSED__(false);
-            debugRows.push('[START] __GJ_SET_PAUSED__(false)');
-          }
-        } catch (err) {
-          debugRows.push('[START ERROR] setPaused ' + String(err && err.message ? err.message : err));
-        }
-
-        try {
-          if (typeof window.__GJ_START_NOW__ === 'function') {
-            window.__GJ_START_NOW__();
-            debugRows.push('[START] __GJ_START_NOW__()');
-          } else {
-            debugRows.push('[START] no __GJ_START_NOW__ found');
-          }
-        } catch (err) {
-          debugRows.push('[START ERROR] startNow ' + String(err && err.message ? err.message : err));
-        }
-
         setDebug(debugRows.join('\n'));
-        armFallbackSpawnWatchdog(debugRows);
-        hideStatusCardSoon();
         console.log('[GJ-RACE-RUN] ready', window.__GJ_MULTI_ENGINE_INFO__);
+        hideStatusCardSoon();
       } catch (err) {
         const msg = String(err && err.message ? err.message : err);
-        setStatus('ไม่พบไฟล์เกมหลัก', msg, true);
+        setStatus(
+          'ไม่พบไฟล์เกมหลัก',
+          'โหลด GoodJunk core game ไม่สำเร็จ\nลองตรวจชื่อไฟล์ core ให้ตรงกับไฟล์จริง',
+          true
+        );
         debugRows.push('');
         debugRows.push('[ERROR]');
         debugRows.push(msg);
@@ -1845,6 +2075,7 @@
       '[HERO] ' + heroMeta.avatar + ' ' + heroMeta.name + '\n' +
       '[WAIT] ' + runCtx.wait + '\n' +
       '[HOST] ' + runCtx.host + '\n' +
+      '[ROUND] ' + (runCtx.roundId || '-') + '\n' +
       '[USE_CONTROLLER] ' + (WANT_RACE_CONTROLLER ? 'yes' : 'no')
     );
 
