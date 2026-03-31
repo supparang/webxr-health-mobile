@@ -1,11 +1,13 @@
 /* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
-   FULL PATCH v20260331-GJ-DUET-LOBBY-R3
-   - rematch recovery แข็งขึ้น
-   - finished -> waiting recovery ได้แม้ host เดิมไม่อยู่
+   FULL PATCH v20260331-GJ-DUET-LOBBY-R4
+   - แก้ maxretry ตอน join ห้อง
+   - ไม่ใช้ root transaction สำหรับ join ปกติ
+   - create room เฉพาะตอนห้องยังไม่มี
+   - rematch recovery finished -> waiting แข็งขึ้น
    - rematch entry auto-ready + auto-start
-   - join room hardening
    - countdown redirect เข้า run
 */
+
 (function(){
   'use strict';
 
@@ -298,6 +300,7 @@
     const u = new URL(W.location.href);
     u.search = '';
     u.searchParams.set('room', STATE.roomId);
+    u.searchParams.set('roomId', STATE.roomId);
     if (STATE.pid) u.searchParams.set('pid', STATE.pid);
     if (STATE.name){
       u.searchParams.set('name', STATE.name);
@@ -891,7 +894,7 @@
   function renderRoom(room){
     STATE.room = room || null;
 
-    if (els.roomCode) els.roomCode.textContent = STATE.roomId;
+    if (els.roomCode) els.roomCode.textContent = `ROOM: ${STATE.roomId}`;
     if (els.inviteLink) els.inviteLink.value = buildInviteLink();
     if (els.roomInput && D.activeElement !== els.roomInput){
       els.roomInput.value = STATE.roomId || '';
@@ -1015,99 +1018,86 @@
     return room;
   }
 
+  async function ensureRoomExistsOrCreate(){
+    const firstSnap = await STATE.roomRef.once('value');
+    const firstRoom = firstSnap && firstSnap.val ? firstSnap.val() : null;
+    if (firstRoom) return firstRoom;
+
+    await new Promise((resolve, reject) => {
+      STATE.roomRef.transaction((current) => {
+        if (current) return current;
+        return freshRoom(STATE.uid);
+      }, (err, committed, postSnap) => {
+        if (err) return reject(err);
+        if (!committed) return reject(new Error('create-room-aborted'));
+        return resolve(postSnap && postSnap.val ? postSnap.val() : null);
+      }, false);
+    });
+
+    const secondSnap = await STATE.roomRef.once('value');
+    return secondSnap && secondSnap.val ? secondSnap.val() : null;
+  }
+
+  async function readJoinableRoom(){
+    const snap = await STATE.roomRef.once('value');
+    const room = snap && snap.val ? snap.val() : null;
+    if (!room) throw new Error('room-not-found-after-create');
+
+    const players = prunePlayers(room.players, room.status || 'waiting');
+    const ids = Object.keys(players || {});
+    const hasMe = !!players[STATE.uid];
+    const status = String(room.status || 'waiting');
+
+    if (!hasMe && ids.length >= ROOM_SIZE){
+      throw new Error('room-full');
+    }
+
+    if (!hasMe && status !== 'waiting' && status !== 'finished'){
+      throw new Error('room-not-joinable');
+    }
+
+    return Object.assign({}, room, { players });
+  }
+
   async function joinRoom(){
     STATE.roomRef = STATE.db.ref(roomPath(STATE.roomId));
     STATE.meRef = STATE.roomRef.child('players/' + STATE.uid);
 
-    const snap = await STATE.roomRef.once('value');
-    const existing = snap.val();
+    await ensureRoomExistsOrCreate();
+    const room = await readJoinableRoom();
 
-    if (existing){
-      const players = prunePlayers(existing.players, existing.status || 'waiting');
-      const ids = Object.keys(players || {});
-      const hasMe = !!players[STATE.uid];
-      const alreadyRunning = String(existing.status || 'waiting') !== 'waiting' && String(existing.status || 'waiting') !== 'finished';
-
-      if (!hasMe && ids.length >= ROOM_SIZE){
-        showJoinGuard('ห้องนี้เต็มแล้ว (Duet รับได้แค่ 2 คน)');
-      } else if (!hasMe && alreadyRunning){
-        showJoinGuard('ห้องนี้เริ่มเกมไปแล้ว ให้สร้างห้องใหม่สำหรับรอบถัดไป');
-      } else {
-        hideJoinGuard();
-      }
-    }
-
-    await new Promise((resolve, reject) => {
-      STATE.roomRef.transaction((current) => {
-        const t = now();
-
-        if (!current){
-          return freshRoom(STATE.uid);
-        }
-
-        current.players = prunePlayers(current.players, current.status || 'waiting');
-
-        const ids = Object.keys(current.players || {});
-        const hasMe = !!current.players[STATE.uid];
-        const status = String(current.status || 'waiting');
-
-        if (!hasMe && ids.length >= ROOM_SIZE) return;
-        if (!hasMe && status !== 'waiting' && status !== 'finished') return;
-
-        const prev = current.players[STATE.uid] || {};
-        current.players[STATE.uid] = Object.assign({}, freshPlayer(STATE.uid), prev, {
-          id: STATE.uid,
-          uid: STATE.uid,
-          pid: STATE.pid,
-          name: STATE.name,
-          connected: true,
-          phase: (status === 'finished' ? (prev.phase || 'done') : 'lobby'),
-          lastSeenAt: t
-        });
-
-        if (!current.hostId || !current.players[current.hostId]){
-          current.hostId = STATE.uid;
-        }
-        if (!current.hostName || current.hostId === STATE.uid){
-          current.hostName = (current.players[current.hostId] && current.players[current.hostId].name) || STATE.name || 'Host';
-        }
-
-        current.game = GAME_KEY;
-        current.mode = MODE_KEY;
-        current.roomId = STATE.roomId;
-        current.minPlayers = 2;
-        current.maxPlayers = 2;
-        current.diff = current.diff || STATE.diff;
-        current.time = Number(current.time || STATE.time);
-        current.seed = String(current.seed || STATE.seed);
-        current.view = current.view || STATE.view;
-        current.hub = current.hub || STATE.hub;
-        current.run = current.run || STATE.run;
-        current.zone = current.zone || STATE.zone;
-        current.theme = current.theme || STATE.theme;
-        current.match = current.match || { participantIds: [], lockedAt: 0, status: 'idle' };
-        current.updatedAt = t;
-
-        return current;
-      }, (err, committed, postSnap) => {
-        if (err) return reject(err);
-        if (!committed){
-          const room = postSnap && postSnap.val ? postSnap.val() : null;
-          if (room){
-            const players = prunePlayers(room.players, room.status || 'waiting');
-            const ids = Object.keys(players || {});
-            const status = String(room.status || 'waiting');
-            if (ids.length >= ROOM_SIZE && !players[STATE.uid]) return reject(new Error('room-full'));
-            if (status !== 'waiting' && status !== 'finished' && !players[STATE.uid]) return reject(new Error('room-not-joinable'));
-          }
-          return reject(new Error('join-aborted'));
-        }
-        return resolve(postSnap.val());
-      }, false);
-    });
+    const players = room.players || {};
+    const prev = players[STATE.uid] || {};
+    const status = String(room.status || 'waiting');
 
     hideJoinGuard();
-    STATE.joined = true;
+
+    const rootUpdates = {};
+
+    if (!room.hostId || !players[room.hostId]){
+      rootUpdates.hostId = STATE.uid;
+      rootUpdates.hostName = STATE.name || 'Host';
+    }
+
+    if (!room.roomId) rootUpdates.roomId = STATE.roomId;
+    if (!room.game) rootUpdates.game = GAME_KEY;
+    if (!room.mode) rootUpdates.mode = MODE_KEY;
+    if (room.minPlayers == null) rootUpdates.minPlayers = 2;
+    if (room.maxPlayers == null) rootUpdates.maxPlayers = 2;
+    if (!room.diff) rootUpdates.diff = STATE.diff;
+    if (!room.time) rootUpdates.time = Number(STATE.time);
+    if (!room.seed) rootUpdates.seed = String(STATE.seed);
+    if (!room.view) rootUpdates.view = STATE.view;
+    if (!room.hub) rootUpdates.hub = STATE.hub;
+    if (!room.run) rootUpdates.run = STATE.run;
+    if (!room.zone) rootUpdates.zone = STATE.zone;
+    if (!room.theme) rootUpdates.theme = STATE.theme;
+    if (!room.match) rootUpdates.match = { participantIds: [], lockedAt: 0, status: 'idle' };
+
+    if (Object.keys(rootUpdates).length){
+      rootUpdates.updatedAt = firebase.database.ServerValue.TIMESTAMP;
+      await STATE.roomRef.update(rootUpdates);
+    }
 
     try{
       const od = STATE.meRef.onDisconnect();
@@ -1124,18 +1114,28 @@
       console.warn('[duet.lobby] onDisconnect setup ignored:', err);
     }
 
-    try{
-      await STATE.meRef.update({
-        id: STATE.uid,
-        uid: STATE.uid,
-        pid: STATE.pid,
-        name: STATE.name,
-        connected: true,
-        lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-      });
-    }catch(err){
-      console.warn('[duet.lobby] meRef update failed after join:', err);
-    }
+    const computedPhase = prev.finished
+      ? 'done'
+      : (status === 'finished' ? (prev.phase || 'done') : 'lobby');
+
+    await STATE.meRef.update({
+      id: STATE.uid,
+      uid: STATE.uid,
+      pid: STATE.pid,
+      name: STATE.name,
+      ready: (typeof prev.ready === 'boolean') ? prev.ready : false,
+      connected: true,
+      phase: computedPhase,
+      finished: !!prev.finished,
+      finalScore: Number(prev.finalScore || 0),
+      miss: Number(prev.miss || 0),
+      streak: Number(prev.streak || 0),
+      joinedAt: prev.joinedAt || firebase.database.ServerValue.TIMESTAMP,
+      lastSeenAt: firebase.database.ServerValue.TIMESTAMP,
+      finishedAt: prev.finishedAt || 0
+    });
+
+    STATE.joined = true;
   }
 
   async function setReady(flag){
@@ -1262,7 +1262,7 @@
   }
 
   function bindUi(){
-    if (els.roomCode) els.roomCode.textContent = STATE.roomId;
+    if (els.roomCode) els.roomCode.textContent = `ROOM: ${STATE.roomId}`;
     if (els.inviteLink) els.inviteLink.value = buildInviteLink();
     if (els.roomInput) els.roomInput.value = STATE.roomId || '';
     renderQr(buildInviteLink());
@@ -1397,22 +1397,48 @@
       return;
     }
 
-    try{
-      await joinRoom();
-      attachRoomListener();
-      startHeartbeat();
-      setCopyState('ส่ง room code หรือลิงก์นี้ให้เพื่อนอีกคนเข้าร่วมได้', false);
-    }catch(err){
-      const msg = err && err.message ? err.message : 'join-failed';
+    let lastErr = null;
+
+    for (let i = 0; i < 2; i++){
+      try{
+        await joinRoom();
+        lastErr = null;
+        break;
+      }catch(err){
+        lastErr = err;
+        const msg = err && err.message ? err.message : 'join-failed';
+
+        if (msg === 'maxretry' && i === 0){
+          await new Promise(resolve => setTimeout(resolve, 450));
+          continue;
+        }
+        break;
+      }
+    }
+
+    if (lastErr){
+      const msg = lastErr && lastErr.message ? lastErr.message : 'join-failed';
+
       if (msg === 'room-full'){
         showJoinGuard('ห้องนี้เต็มแล้ว (Duet รับได้แค่ 2 คน)');
       } else if (msg === 'room-not-joinable'){
         showJoinGuard('ห้องนี้เริ่มเกมไปแล้ว ให้สร้างห้องใหม่สำหรับรอบถัดไป');
+      } else if (msg === 'maxretry'){
+        showJoinGuard('เข้าห้องไม่สำเร็จ: maxretry — ให้รีเฟรช 1 ครั้งแล้วลองใหม่');
       } else if (msg === 'permission_denied'){
         showJoinGuard('เข้าห้องไม่สำเร็จ: permission_denied');
       } else {
         showJoinGuard('เข้าห้องไม่สำเร็จ: ' + msg);
       }
+      return;
+    }
+
+    try{
+      attachRoomListener();
+      startHeartbeat();
+      setCopyState('ส่ง room code หรือลิงก์นี้ให้เพื่อนอีกคนเข้าร่วมได้', false);
+    }catch(err){
+      showJoinGuard('ฟังสถานะห้องไม่ได้: ' + (err && err.message ? err.message : 'unknown'));
     }
   }
 
