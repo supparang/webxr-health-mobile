@@ -1,9 +1,8 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260331-GJ-DUET-RUN-R5
-   - rematch 2/2 recovery แข็งขึ้น
-   - ถ้าห้องถูก reset ไป waiting/countdown/running หลังเรากด rematch แล้ว ให้เด้งกลับ lobby ทันที
-   - summary ปุ่มกดติดบน mobile/pc
-   - redirect กลับ lobby ห้องเดิมพร้อม rematch=1
+   FULL PATCH v20260331-GJ-DUET-RUN-R6
+   - กด rematch แล้ว write vote + กลับ lobby ทันที
+   - ลด race condition ที่มือถือค้างหน้า summary
+   - summary overlay mobile/pc กดปุ่มได้ชัดเจน
 */
 
 (function(){
@@ -955,7 +954,7 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: !!peer.finished,
       endedAt: new Date().toISOString(),
-      version: 'v20260331-GJ-DUET-RUN-R5'
+      version: 'v20260331-GJ-DUET-RUN-R6'
     };
   }
 
@@ -1123,6 +1122,8 @@
 
   async function requestRematch(){
     if (!STATE.roomRef || !STATE.uid) return;
+    if (STATE.rematchRedirected) return;
+
     STATE.rematchRequested = true;
 
     try{
@@ -1134,27 +1135,14 @@
         requestedAt: firebase.database.ServerValue.TIMESTAMP
       });
 
-      startRematchPoll();
+      stopRematchPoll();
 
-      const snap = await STATE.roomRef.once('value');
-      const room = snap && typeof snap.val === 'function' ? snap.val() : null;
-      const info = getRematchInfo(room);
-      const status = String((room && room.status) || 'waiting');
-
-      if (status === 'finished' && info.count >= 2){
-        fireAndForget(recoverFinishedRoomForRematchFromRun(room));
-      }
-
-      if ((status === 'waiting' || status === 'countdown' || status === 'running') && !STATE.rematchRedirected){
-        STATE.rematchRedirected = true;
-        safeReplace(buildSameRoomLobbyUrl(true));
-        return;
-      }
-
-      renderResultOverlay('rematch-requested');
+      STATE.rematchRedirected = true;
+      safeReplace(buildSameRoomLobbyUrl(true));
     }catch(err){
       console.error('[duet.run] requestRematch failed:', err);
       STATE.rematchRequested = false;
+      STATE.rematchRedirected = false;
       stopRematchPoll();
       throw err;
     }
@@ -1420,10 +1408,9 @@
         if (STATE.rematchRequested) return;
         btnRematch.disabled = true;
         btnRematch.textContent = 'กำลังรอรีแมตช์...';
-
         try{
           await requestRematch();
-          renderResultOverlay('rematch-requested');
+          return;
         }catch(err){
           btnRematch.disabled = false;
           btnRematch.textContent = 'ขอรีแมตช์';
@@ -1463,10 +1450,9 @@
         if (STATE.rematchRequested) return;
         btnRematchTop.disabled = true;
         btnRematchTop.textContent = 'กำลังรอรีแมตช์...';
-
         try{
           await requestRematch();
-          renderResultOverlay('rematch-requested');
+          return;
         }catch(err){
           btnRematchTop.disabled = false;
           btnRematchTop.textContent = 'รีแมตช์';
@@ -1641,7 +1627,7 @@
 
           setTimeout(() => {
             safeReplace(buildSameRoomLobbyUrl(true));
-          }, 250);
+          }, 80);
           return;
         }
 
