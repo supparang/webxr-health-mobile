@@ -13,8 +13,6 @@
       --sky1:#dff4ff;
       --sky2:#bfe8ff;
       --sky3:#fff7d8;
-      --card:#fffdf6;
-      --card2:#f8fff3;
       --line:#bfe3f2;
       --text:#4d4a42;
       --muted:#7b7a72;
@@ -55,16 +53,6 @@
       overflow:hidden;
     }
 
-    .page{
-      position:relative;
-      min-height:100dvh;
-      padding:
-        calc(10px + var(--sat))
-        calc(10px + var(--sar))
-        calc(10px + var(--sab))
-        calc(10px + var(--sal));
-    }
-
     .bg-clouds{
       position:fixed;
       inset:0;
@@ -92,6 +80,17 @@
     @keyframes floatCloud{
       from{ transform:translateX(-5vw); }
       to{ transform:translateX(12vw); }
+    }
+
+    .page{
+      position:relative;
+      min-height:100dvh;
+      padding:
+        calc(10px + var(--sat))
+        calc(10px + var(--sar))
+        calc(10px + var(--sab))
+        calc(10px + var(--sal));
+      z-index:1;
     }
 
     .topbar{
@@ -173,6 +172,7 @@
       box-shadow:var(--shadow);
       transition:.14s ease;
       pointer-events:auto;
+      color:inherit;
     }
 
     .btn:hover{ transform:translateY(-1px); filter:brightness(1.02); }
@@ -236,7 +236,7 @@
     }
 
     .loading-card{
-      width:min(92vw,460px);
+      width:min(92vw,500px);
       border-radius:28px;
       border:3px solid var(--line);
       background:linear-gradient(180deg,#fffef9,#f7fff4);
@@ -309,6 +309,17 @@
       font-size:12px;
       font-weight:1000;
       box-shadow:0 8px 18px rgba(86,155,194,.08);
+    }
+
+    .chip.debug{
+      background:#fff3f3;
+      border-color:#ffd1d1;
+      color:#a74b35;
+      display:none;
+    }
+
+    .chip.debug.show{
+      display:inline-flex;
     }
 
     .error{
@@ -402,13 +413,15 @@
           <div class="loading-emoji">🍎</div>
           <h1 class="loading-title">เตรียมลุยกับ Junk King!</h1>
           <p class="loading-sub">
-            เก็บอาหารดี หลีกเลี่ยง junk ผ่าน Phase 1 → Phase 2 → Boss แล้วปราบบอสให้ได้
+            เก็บอาหารดี หลีกเลี่ยง junk ผ่าน Phase 1 → Phase 2 → Boss
+            แล้วปราบบอสให้ได้
           </p>
 
           <div class="loading-meta">
             <div class="chip" id="metaDiff">diff: normal</div>
             <div class="chip" id="metaTime">time: 150s</div>
             <div class="chip" id="metaRun">run: play</div>
+            <div class="chip debug" id="metaDebug">debug: on</div>
           </div>
         </div>
       </div>
@@ -421,8 +434,9 @@
     (function buildRunContext(){
       const q = new URLSearchParams(location.search);
 
-      function first(...vals){
-        for (const v of vals){
+      function first(){
+        for (let i = 0; i < arguments.length; i++) {
+          const v = arguments[i];
           if (String(v || '').trim()) return String(v).trim();
         }
         return '';
@@ -438,7 +452,7 @@
 
       function cleanEnum(v, allow, fallback){
         v = String(v || '').trim().toLowerCase();
-        return allow.includes(v) ? v : fallback;
+        return allow.indexOf(v) >= 0 ? v : fallback;
       }
 
       function numIn(v, fallback, min, max){
@@ -472,6 +486,7 @@
       const metaDiff = document.getElementById('metaDiff');
       const metaTime = document.getElementById('metaTime');
       const metaRun = document.getElementById('metaRun');
+      const metaDebug = document.getElementById('metaDebug');
 
       if (btnHub) btnHub.href = runCtx.hub;
 
@@ -507,6 +522,10 @@
       if (metaTime) metaTime.textContent = 'time: ' + runCtx.time + 's';
       if (metaRun) metaRun.textContent = 'run: ' + runCtx.run;
 
+      if (q.get('debug') === '1' && metaDebug) {
+        metaDebug.classList.add('show');
+      }
+
       document.title =
         'HeroHealth • GoodJunk Solo Boss • ' +
         runCtx.diff.charAt(0).toUpperCase() + runCtx.diff.slice(1);
@@ -529,7 +548,7 @@
       }
 
       let tries = 0;
-      const maxTries = 160;
+      const maxTries = 180;
 
       const tick = () => {
         tries += 1;
@@ -561,6 +580,6 @@
     })();
   </script>
 
-  <script src="./goodjunk-solo-phaseboss-v2.js?v=20260331-phaseboss-final-v1"></script>
+  <script src="./goodjunk-solo-phaseboss-v2.js?v=20260401-clean-final"></script>
 </body>
 </html>
