@@ -5,31 +5,39 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk Coop</title>
   <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="../favicon.ico" />
   <style>
     :root{
       --sky1:#dff4ff;
       --sky2:#bfe8ff;
       --sky3:#fff7d8;
-      --line:#bfe3f2;
+      --line:#c8e7ef;
+      --line-soft:#d8eef5;
+      --line2:#d8cff8;
       --text:#4d4a42;
       --muted:#7b7a72;
-      --green:#7ed957;
-      --green2:#58c33f;
-      --blue:#7fcfff;
-      --blue2:#58b7f5;
-      --yellow:#ffd45c;
-      --orange:#ffb547;
+      --purple:#7a63c7;
+      --purple-soft:#f2ecff;
+      --green:#83dc5f;
+      --green2:#57c23f;
+      --blue:#90d9ff;
+      --blue2:#5dbcf4;
+      --yellow:#ffd96d;
+      --orange:#ffb94d;
       --shadow:0 18px 40px rgba(86,155,194,.16);
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
     }
+
     *{ box-sizing:border-box; }
+
     html,body{
-      margin:0; min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
       color:var(--text);
       background:
         radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
@@ -37,157 +45,948 @@
         linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
       overflow:hidden;
     }
-    body{ min-height:100dvh; }
-    #app{ position:relative; width:100vw; height:100dvh; overflow:hidden; isolation:isolate; }
-    #gameMount{ position:absolute; inset:0; z-index:1; overflow:hidden; }
+
+    body{
+      min-height:100dvh;
+    }
+
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at 12% 16%, rgba(255,255,255,.82) 0 6%, transparent 7%),
+        radial-gradient(circle at 22% 12%, rgba(255,255,255,.78) 0 5%, transparent 6%),
+        radial-gradient(circle at 78% 10%, rgba(255,255,255,.82) 0 6%, transparent 7%),
+        radial-gradient(circle at 88% 15%, rgba(255,255,255,.78) 0 5%, transparent 6%);
+      opacity:.85;
+      z-index:0;
+    }
+
+    #app{
+      position:relative;
+      width:100vw;
+      height:100dvh;
+      overflow:hidden;
+      isolation:isolate;
+    }
+
+    #gameMount{
+      position:absolute;
+      inset:0;
+      z-index:1;
+      overflow:hidden;
+    }
 
     .shell{
-      position:absolute; inset:0; display:grid; grid-template-rows:auto 1fr auto; gap:12px;
-      padding:calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
-      pointer-events:none; z-index:2;
+      position:absolute;
+      inset:0;
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:12px;
+      padding:
+        calc(12px + var(--sat))
+        calc(12px + var(--sar))
+        calc(12px + var(--sab))
+        calc(12px + var(--sal));
+      pointer-events:none;
+      z-index:20;
     }
-    .top{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start; }
+
+    .top{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+    }
+
     .hero-card{
       max-width:min(780px,100%);
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line); border-radius:28px; box-shadow:var(--shadow);
-      padding:18px 16px; position:relative; overflow:hidden;
+      background:linear-gradient(180deg,#eefcff,#f7fff8);
+      border:4px solid var(--line);
+      border-radius:30px;
+      box-shadow:
+        0 20px 46px rgba(86,155,194,.16),
+        inset 0 2px 0 rgba(255,255,255,.9);
+      padding:18px 18px 16px;
+      position:relative;
+      overflow:hidden;
+      text-align:center;
     }
+
     .hero-card::before{
-      content:""; position:absolute; left:-36px; top:-36px; width:140px; height:140px;
-      border-radius:999px; background:rgba(205,185,255,.20); filter:blur(8px);
+      content:"";
+      position:absolute;
+      left:-24px;
+      top:-24px;
+      width:120px;
+      height:120px;
+      border-radius:999px;
+      background:rgba(191,227,242,.35);
+      filter:blur(8px);
     }
+
     .hero-card::after{
-      content:""; position:absolute; right:-26px; bottom:-26px; width:120px; height:120px;
-      border-radius:999px; background:rgba(127,207,255,.22); filter:blur(8px);
+      content:"";
+      position:absolute;
+      right:-20px;
+      bottom:-20px;
+      width:110px;
+      height:110px;
+      border-radius:999px;
+      background:rgba(242,236,255,.46);
+      filter:blur(8px);
     }
+
     .kicker{
-      position:relative; z-index:1; display:inline-flex; align-items:center; gap:8px;
-      padding:8px 14px; border-radius:999px; background:#f2ecff; border:2px solid var(--line);
-      color:#7a63c7; font-size:13px; font-weight:1000; margin-bottom:10px;
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:var(--purple-soft);
+      border:2px solid var(--line);
+      color:var(--purple);
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
     }
-    h1{
-      position:relative; z-index:1; margin:0 0 6px; font-size:clamp(28px,5vw,42px);
-      line-height:1.05; font-weight:1000; color:#7a63c7; text-shadow:0 2px 0 #fff;
+
+    .logo-wrap{
+      position:relative;
+      z-index:1;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:6px;
+      margin-top:2px;
     }
+
+    .logo-mascot{
+      width:72px;
+      height:72px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#fffdf7,#eef8ff);
+      border:3px solid var(--line);
+      box-shadow:0 10px 22px rgba(86,155,194,.12);
+      font-size:36px;
+      margin-bottom:2px;
+    }
+
+    .hero-logo{
+      margin:0;
+      font-size:clamp(34px,6vw,56px);
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:-.03em;
+      text-shadow:
+        0 3px 0 rgba(255,255,255,.98),
+        0 6px 12px rgba(86,155,194,.10);
+    }
+
+    .hero-logo-a{
+      color:#7fbf29;
+      -webkit-text-stroke:2px rgba(132,111,43,.10);
+    }
+
+    .hero-logo-b{
+      color:#4f6f80;
+      margin-left:2px;
+      -webkit-text-stroke:2px rgba(255,255,255,.16);
+    }
+
     .sub{
-      position:relative; z-index:1; margin:0; color:var(--muted);
-      line-height:1.7; font-size:14px; font-weight:900; max-width:720px;
+      position:relative;
+      z-index:1;
+      margin:6px 0 0;
+      color:#8a6d42;
+      line-height:1.55;
+      font-size:13px;
+      font-weight:1000;
+      text-align:center;
     }
-    .side{ display:grid; gap:8px; align-content:start; }
+
+    .hero-mode-badge{
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      margin-top:12px;
+      min-height:40px;
+      padding:8px 16px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#dff5ff,#f0fbff);
+      border:2px solid var(--line);
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+      color:#5e7180;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .side{
+      display:grid;
+      gap:8px;
+      align-content:start;
+    }
+
     .pill{
-      display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:999px;
-      border:2px solid var(--line); background:#fff; color:#6c6a61; font-size:12px; font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.10); width:max-content; max-width:100%;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:42px;
+      padding:10px 14px;
+      border-radius:20px;
+      border:3px solid var(--line);
+      background:linear-gradient(180deg,#fffef9,#f3fcff);
+      box-shadow:
+        0 10px 18px rgba(86,155,194,.08),
+        inset 0 2px 0 rgba(255,255,255,.85);
+      color:#6e6c63;
+      font-size:12px;
+      font-weight:1000;
+      width:max-content;
+      max-width:100%;
+      pointer-events:auto;
     }
 
     .status-card{
-      align-self:end; background:linear-gradient(180deg,#fffef9,#f7fff4); border:3px solid var(--line);
-      border-radius:24px; box-shadow:var(--shadow); padding:12px 14px; color:var(--muted);
-      font-size:13px; font-weight:900; line-height:1.6; pointer-events:auto; max-width:min(920px,100%);
+      align-self:end;
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      border:4px solid var(--line);
+      border-radius:28px;
+      box-shadow:
+        0 18px 40px rgba(86,155,194,.14),
+        inset 0 2px 0 rgba(255,255,255,.88);
+      padding:14px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.6;
+      pointer-events:auto;
+      max-width:min(920px,100%);
     }
-    .status-head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+
+    .status-head{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
     .status-badge{
-      width:54px; height:54px; border-radius:18px; display:grid; place-items:center;
-      background:#fff; border:2px solid var(--line); box-shadow:0 8px 18px rgba(86,155,194,.10);
-      font-size:28px; flex:0 0 auto;
+      width:62px;
+      height:62px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#e9fbff,#fffdf8);
+      border:3px solid var(--line);
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+      font-size:30px;
+      flex:0 0 auto;
     }
-    .status-headtext{ min-width:220px; flex:1 1 280px; }
-    .status-title{ color:#7a63c7; font-size:14px; font-weight:1000; margin-bottom:2px; }
-    .status-sub{ margin-top:0; color:#8b887f; font-size:12px; line-height:1.55; font-weight:900; }
-    .status-minirow{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+
+    .status-headtext{
+      min-width:220px;
+      flex:1 1 280px;
+    }
+
+    .status-title{
+      color:var(--purple);
+      font-size:16px;
+      font-weight:1000;
+      margin-bottom:2px;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    #engineStatusText{
+      color:#5f5c55;
+      font-size:14px;
+      line-height:1.5;
+      font-weight:1000;
+    }
+
+    .status-sub{
+      margin-top:0;
+      color:#8e887f;
+      font-size:12px;
+      line-height:1.55;
+      font-weight:1000;
+    }
+
+    .status-minirow{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
     .status-mini{
-      display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px;
-      background:#fff; border:2px solid var(--line); color:#6d6a62; font-size:12px; font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:18px;
+      background:linear-gradient(180deg,#fff,#f5fcff);
+      border:2px solid var(--line);
+      color:#6f6c64;
+      font-size:12px;
+      font-weight:1000;
       box-shadow:0 8px 18px rgba(86,155,194,.08);
     }
+
     .status-steps{
-      margin-top:10px; display:grid; gap:6px; padding:12px; border-radius:18px;
-      background:rgba(255,255,255,.65); border:2px dashed var(--line); color:#6f6c65;
-      font-size:12px; line-height:1.6; font-weight:1000;
+      margin-top:10px;
+      display:grid;
+      gap:6px;
+      padding:12px 14px;
+      border-radius:20px;
+      background:rgba(255,255,255,.72);
+      border:2px dashed var(--line);
+      color:#726f67;
+      font-size:12px;
+      line-height:1.65;
+      font-weight:1000;
     }
-    .status-step{ display:flex; gap:8px; align-items:flex-start; }
+
+    .status-step{
+      display:flex;
+      gap:8px;
+      align-items:flex-start;
+    }
+
     .status-tip{
-      margin-top:10px; padding:10px 12px; border-radius:16px; background:#fff; border:2px solid var(--line);
-      color:#7a776f; font-size:12px; line-height:1.6; font-weight:1000;
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:20px;
+      background:linear-gradient(180deg,#fffaf1,#fff);
+      border:3px solid #e6d3b4;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+      color:#7a6757;
+      font-size:12px;
+      line-height:1.6;
+      font-weight:1000;
+      position:relative;
     }
+
+    .status-tip::after{
+      content:"";
+      position:absolute;
+      left:18px;
+      bottom:-12px;
+      width:20px;
+      height:20px;
+      background:#fff9f0;
+      border-right:3px solid #e6d3b4;
+      border-bottom:3px solid #e6d3b4;
+      transform:rotate(35deg);
+      border-bottom-right-radius:6px;
+    }
+
     .status-tip strong{ color:#4d4a42; }
-    .status-actions{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; pointer-events:auto; }
-    .status-btn{
-      appearance:none; border:0; cursor:pointer; border-radius:16px; padding:10px 14px;
-      font-size:13px; font-weight:1000; transition:.12s ease; box-shadow:0 8px 18px rgba(86,155,194,.12);
+
+    .status-actions{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      pointer-events:auto;
     }
+
+    .status-btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      min-height:46px;
+      padding:10px 14px;
+      font-size:14px;
+      font-weight:1000;
+      transition:.12s ease;
+      box-shadow:
+        0 10px 18px rgba(86,155,194,.10),
+        inset 0 2px 0 rgba(255,255,255,.25);
+    }
+
     .status-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
     .status-btn:active{ transform:translateY(0); }
+
     .status-btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
-    .status-btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
+    .status-btn-ghost{
+      background:linear-gradient(180deg,#ffffff,#f4fbff);
+      color:#6d6a62;
+      border:3px solid var(--line);
+    }
+
     .status-card.is-ready{ animation: status-ready-pop .22s ease; }
     @keyframes status-ready-pop{ 0%{ transform:scale(.985); } 100%{ transform:scale(1); } }
+
     .debug{
-      margin-top:8px; padding-top:8px; border-top:1px dashed rgba(191,227,242,.95);
-      white-space:pre-wrap; word-break:break-word; font-size:11px; color:#8a8a82; max-height:140px; overflow:auto;
+      margin-top:8px;
+      padding-top:8px;
+      border-top:1px dashed rgba(191,227,242,.95);
+      white-space:pre-wrap;
+      word-break:break-word;
+      font-size:11px;
+      color:#8a8a82;
+      max-height:140px;
+      overflow:auto;
     }
+
     .error{ color:#b45309; white-space:pre-wrap; word-break:break-word; }
 
     .summary-overlay{
-      position:absolute; inset:0; z-index:30; display:grid; place-items:center;
-      padding:calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-      background:rgba(242,236,255,.72); backdrop-filter:blur(10px); pointer-events:auto;
+      position:absolute;
+      inset:0;
+      z-index:30;
+      display:grid;
+      place-items:center;
+      padding:
+        calc(16px + var(--sat))
+        calc(16px + var(--sar))
+        calc(16px + var(--sab))
+        calc(16px + var(--sal));
+      background:rgba(242,236,255,.72);
+      backdrop-filter:blur(10px);
+      pointer-events:auto;
     }
+
     .summary-overlay[hidden]{ display:none !important; }
+
     .summary-card{
-      width:min(940px,100%); max-height:88dvh; overflow:auto; background:linear-gradient(180deg,#fffef8,#f7fff4);
-      border:3px solid var(--line); border-radius:30px; box-shadow:0 28px 70px rgba(86,155,194,.24); padding:18px; position:relative;
+      width:min(960px,100%);
+      max-height:88dvh;
+      overflow:auto;
+      background:linear-gradient(180deg,#fffef8,#f7fff4);
+      border:4px solid var(--line);
+      border-radius:32px;
+      box-shadow:
+        0 28px 70px rgba(86,155,194,.22),
+        inset 0 2px 0 rgba(255,255,255,.92);
+      padding:18px;
+      position:relative;
     }
-    .summary-kicker{
-      display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:999px;
-      background:#f2ecff; border:2px solid var(--line); color:#7a63c7; font-size:13px; font-weight:1000; margin-bottom:10px;
-    }
+
+    .summary-kicker{ display:none; }
+
     .summary-hero{
-      display:grid; grid-template-columns:96px 1fr; gap:14px; align-items:center;
-      margin-bottom:14px; padding:14px; border-radius:24px; background:#fff;
-      border:2px solid #d8cff8; box-shadow:0 10px 24px rgba(86,155,194,.10);
+      display:grid;
+      grid-template-columns:1fr;
+      justify-items:center;
+      text-align:center;
+      gap:12px;
+      margin-bottom:14px;
+      padding:16px 14px 12px;
+      border-radius:26px;
+      background:linear-gradient(180deg,#eefaff,#fffef8);
+      border:3px solid var(--line);
+      box-shadow:0 10px 24px rgba(86,155,194,.10);
     }
+
     .summary-badge{
-      width:96px; height:96px; border-radius:28px; display:grid; place-items:center;
-      background:linear-gradient(180deg,#f2ecff,#fffdf6); border:3px solid #d8cff8; font-size:42px;
-      box-shadow:0 10px 20px rgba(86,155,194,.10);
+      width:110px;
+      height:110px;
+      border-radius:30px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#fffdf7,#eef8ff);
+      border:4px solid var(--line);
+      font-size:48px;
+      box-shadow:0 10px 22px rgba(86,155,194,.10);
     }
-    .summary-hero-title,.summary-title{ color:#7a63c7; text-shadow:0 2px 0 #fff; font-weight:1000; }
-    .summary-hero-title{ margin:0 0 6px; font-size:clamp(24px,4vw,36px); line-height:1.08; }
-    .summary-hero-sub,.summary-sub{ color:#6d6b63; font-size:14px; line-height:1.7; font-weight:900; }
-    .summary-hero-sub{ margin:0; }
-    .summary-title{ margin:0 0 6px; text-align:center; font-size:clamp(28px,5vw,42px); line-height:1.05; }
-    .summary-sub{ margin:0; text-align:center; }
-    .summary-stars{ display:flex; justify-content:center; gap:10px; margin:12px 0 14px; flex-wrap:wrap; }
-    .summary-star{ font-size:48px; line-height:1; filter:drop-shadow(0 6px 12px rgba(0,0,0,.12)); }
+
+    .summary-hero-title{
+      margin:4px 0 0;
+      font-size:clamp(28px,4.8vw,42px);
+      color:#ffffff;
+      background:linear-gradient(180deg,#6db7df,#4f94c9);
+      border:3px solid #82c8ec;
+      border-radius:999px;
+      padding:10px 24px;
+      text-shadow:none;
+      box-shadow:
+        0 10px 18px rgba(86,155,194,.12),
+        inset 0 2px 0 rgba(255,255,255,.24);
+    }
+
+    .summary-hero-sub{
+      margin:0;
+      color:#7a6f61;
+      font-size:14px;
+      line-height:1.65;
+      font-weight:1000;
+      max-width:680px;
+    }
+
+    .summary-title{ display:none; }
+
+    .summary-sub{
+      margin-top:8px;
+      color:#8b8378;
+      font-size:13px;
+      line-height:1.65;
+      font-weight:1000;
+      text-align:center;
+    }
+
+    .summary-stars{
+      display:flex;
+      justify-content:center;
+      gap:12px;
+      margin:14px 0 12px;
+      flex-wrap:wrap;
+    }
+
+    .summary-star{
+      font-size:54px;
+      line-height:1;
+      filter:drop-shadow(0 6px 10px rgba(255,184,0,.22));
+    }
+
     .summary-star.off{ opacity:.22; filter:none; }
+
     .summary-scorecard{
-      margin:0 auto 14px; width:min(480px,100%); border-radius:24px; background:#fff;
-      border:3px solid #d8cff8; box-shadow:0 10px 22px rgba(86,155,194,.10); padding:16px 14px; text-align:center;
+      margin:0 auto 14px;
+      width:min(520px,100%);
+      border-radius:26px;
+      background:linear-gradient(180deg,#eefaff,#ffffff);
+      border:3px solid var(--line);
+      box-shadow:0 10px 22px rgba(86,155,194,.10);
+      padding:18px 14px;
+      text-align:center;
     }
-    .summary-scorelabel{ color:#9884db; font-size:15px; font-weight:1000; margin-bottom:4px; }
-    .summary-scorevalue{ color:#4d4a42; font-size:clamp(42px,9vw,70px); line-height:1; font-weight:1000; }
-    .summary-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:0; }
+
+    .summary-scorelabel{
+      color:#588fb9;
+      font-size:16px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .summary-scorevalue{
+      color:#3e3b35;
+      font-size:clamp(48px,9vw,76px);
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:0;
+    }
+
     .summary-item{
-      background:#fff; border:2px solid #d8cff8; border-radius:22px; box-shadow:0 8px 18px rgba(86,155,194,.08); padding:14px;
+      background:linear-gradient(180deg,#fff,#f7fcff);
+      border:3px solid #d9eef5;
+      border-radius:22px;
+      box-shadow:0 8px 18px rgba(86,155,194,.06);
+      padding:14px;
     }
-    .summary-label{ color:#9884db; font-size:12px; font-weight:1000; margin-bottom:6px; }
-    .summary-value{ color:#4d4a42; font-size:clamp(20px,3.5vw,32px); font-weight:1000; line-height:1.18; }
-    .summary-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+
+    .summary-label{
+      color:#8aa1b0;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .summary-value{
+      color:#4d4a42;
+      font-size:clamp(21px,3.8vw,34px);
+      font-weight:1000;
+      line-height:1.18;
+    }
+
+    .summary-leaderboard{
+      margin-top:14px;
+      border:3px solid var(--line);
+      border-radius:26px;
+      background:linear-gradient(180deg,#fff,#f7fcff);
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+      padding:14px;
+    }
+
+    .summary-leaderboard[hidden]{ display:none !important; }
+
+    .summary-leaderboard-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
+
+    .summary-leaderboard-title{
+      color:var(--purple);
+      font-size:16px;
+      line-height:1.1;
+      font-weight:1000;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .summary-leaderboard-sub{
+      color:#8b887f;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .summary-rank-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .summary-rank-row{
+      display:grid;
+      grid-template-columns:64px 1.2fr repeat(4,minmax(70px,.7fr));
+      gap:8px;
+      align-items:center;
+      border:2px solid #d8eef5;
+      border-radius:20px;
+      background:linear-gradient(180deg,#fffef9,#f8fffb);
+      box-shadow:0 8px 18px rgba(86,155,194,.06);
+      padding:10px;
+    }
+
+    .summary-rank-row.me{
+      border-color:var(--line2);
+      background:linear-gradient(180deg,#fffef9,#f2ecff);
+    }
+
+    .summary-rank-cell{
+      min-width:0;
+      color:#6d6a62;
+      font-size:12px;
+      line-height:1.45;
+      font-weight:1000;
+    }
+
+    .summary-rank-badge{
+      width:50px;
+      height:50px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#fff8d8,#fffdf2);
+      border:2px solid #f1d47a;
+      color:#886400;
+      font-size:18px;
+      font-weight:1000;
+    }
+
+    .summary-rank-player strong{
+      display:block;
+      color:var(--text);
+      font-size:14px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .summary-rank-player .me-tag{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      margin-top:5px;
+      padding:4px 8px;
+      border-radius:999px;
+      background:var(--purple-soft);
+      color:var(--purple);
+      font-size:11px;
+      font-weight:1000;
+      border:1px solid var(--line2);
+    }
+
+    .summary-rank-statlabel{
+      display:block;
+      color:#9884db;
+      font-size:11px;
+      line-height:1;
+      font-weight:1000;
+      margin-bottom:4px;
+    }
+
+    .summary-rank-statvalue{
+      display:block;
+      color:var(--text);
+      font-size:16px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .summary-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+
     .btn{
-      appearance:none; border:0; cursor:pointer; border-radius:18px; padding:13px 18px;
-      font-weight:1000; font-size:15px; transition:.12s ease; box-shadow:0 10px 20px rgba(86,155,194,.14);
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:20px;
+      min-height:50px;
+      padding:13px 18px;
+      font-weight:1000;
+      font-size:16px;
+      transition:.12s ease;
+      box-shadow:
+        0 12px 20px rgba(86,155,194,.12),
+        inset 0 2px 0 rgba(255,255,255,.22);
     }
+
     .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
     .btn:active{ transform:translateY(0); }
+
     .btn-primary{ background:linear-gradient(180deg,var(--green),var(--green2)); color:#fffef9; }
     .btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
-    .btn-warn{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#6d4e00; }
-    .btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
+    .btn-warn{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#7a5600; }
+    .btn-ghost{
+      background:linear-gradient(180deg,#fff,#f7fcff);
+      color:#6c6a62;
+      border:3px solid var(--line);
+    }
+
     .summary-debug{
-      margin-top:14px; padding-top:10px; border-top:1px dashed #d8cff8; color:#8a887f;
-      font-size:11px; line-height:1.6; font-weight:900; white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto;
+      margin-top:14px;
+      padding-top:10px;
+      border-top:1px dashed var(--line2);
+      color:#8a887f;
+      font-size:11px;
+      line-height:1.6;
+      font-weight:900;
+      white-space:pre-wrap;
+      word-break:break-word;
+      max-height:180px;
+      overflow:auto;
+    }
+
+    .host-control-bar{
+      position:absolute;
+      left:50%;
+      bottom:calc(12px + var(--sab));
+      transform:translateX(-50%);
+      z-index:26;
+      width:min(980px,calc(100vw - 24px));
+      border:4px solid var(--line);
+      border-radius:26px;
+      background:linear-gradient(180deg,rgba(255,254,249,.97),rgba(247,255,244,.97));
+      box-shadow:
+        0 18px 40px rgba(86,155,194,.18),
+        inset 0 2px 0 rgba(255,255,255,.88);
+      padding:12px 14px;
+      pointer-events:auto;
+      backdrop-filter:blur(10px);
+    }
+
+    .host-control-bar[hidden]{ display:none !important; }
+
+    .host-control-title{
+      color:var(--purple);
+      font-size:14px;
+      font-weight:1000;
+      text-shadow:0 2px 0 #fff;
+      margin-bottom:8px;
+    }
+
+    .host-control-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .host-btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      min-height:46px;
+      padding:10px 14px;
+      font-size:14px;
+      font-weight:1000;
+      transition:.12s ease;
+      box-shadow:
+        0 10px 18px rgba(86,155,194,.10),
+        inset 0 2px 0 rgba(255,255,255,.2);
+    }
+
+    .host-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .host-btn:active{ transform:translateY(0); }
+
+    .host-btn-green{ background:linear-gradient(180deg,var(--green),var(--green2)); color:#fffef9; }
+    .host-btn-blue{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
+    .host-btn-warn{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#6d4e00; }
+
+    .host-control-note{
+      margin-top:8px;
+      color:#7b7a72;
+      font-size:12px;
+      line-height:1.55;
+      font-weight:1000;
+    }
+
+    .live-scoreboard{
+      position:absolute;
+      right:12px;
+      top:calc(92px + var(--sat));
+      z-index:25;
+      width:min(360px,calc(100vw - 24px));
+      border:4px solid var(--line);
+      border-radius:26px;
+      background:linear-gradient(180deg,rgba(255,254,249,.96),rgba(247,255,244,.96));
+      box-shadow:
+        0 18px 40px rgba(86,155,194,.16),
+        inset 0 2px 0 rgba(255,255,255,.88);
+      padding:12px;
+      backdrop-filter:blur(10px);
+      pointer-events:auto;
+    }
+
+    .live-scoreboard[hidden]{ display:none !important; }
+
+    .live-scoreboard-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+      flex-wrap:wrap;
+    }
+
+    .live-scoreboard-title{
+      color:var(--purple);
+      font-size:14px;
+      line-height:1.1;
+      font-weight:1000;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .live-scoreboard-sub{
+      color:#8b887f;
+      font-size:11px;
+      line-height:1.4;
+      font-weight:1000;
+    }
+
+    .live-scoreboard-list{
+      display:grid;
+      gap:8px;
+      max-height:min(42dvh,360px);
+      overflow:auto;
+      padding-right:2px;
+    }
+
+    .live-rank-row{
+      display:grid;
+      grid-template-columns:42px 1fr 72px;
+      gap:8px;
+      align-items:center;
+      border:2px solid #d8eef5;
+      border-radius:18px;
+      background:linear-gradient(180deg,#fffef9,#f8fffb);
+      box-shadow:0 8px 18px rgba(86,155,194,.06);
+      padding:8px;
+    }
+
+    .live-rank-row.me{
+      border-color:var(--line2);
+      background:linear-gradient(180deg,#fffef9,#f2ecff);
+    }
+
+    .live-rank-badge{
+      width:32px;
+      height:32px;
+      border-radius:12px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#fff8d8,#fffdf2);
+      border:2px solid #f1d47a;
+      color:#886400;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .live-rank-player{
+      min-width:0;
+      color:#6d6a62;
+      font-size:11px;
+      line-height:1.35;
+      font-weight:1000;
+    }
+
+    .live-rank-player strong{
+      display:block;
+      color:var(--text);
+      font-size:13px;
+      line-height:1.1;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .live-rank-score{
+      text-align:right;
+      color:var(--text);
+      font-size:18px;
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .access-bar{
+      position:absolute;
+      left:12px;
+      bottom:calc(12px + var(--sab));
+      z-index:25;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      pointer-events:auto;
+    }
+
+    .access-btn{
+      appearance:none;
+      border:3px solid var(--line);
+      cursor:pointer;
+      border-radius:999px;
+      min-height:42px;
+      padding:8px 14px;
+      background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(244,251,255,.92));
+      box-shadow:
+        0 8px 18px rgba(86,155,194,.10),
+        inset 0 2px 0 rgba(255,255,255,.85);
+      color:#6d6a62;
+      font-size:12px;
+      font-weight:1000;
+      transition:.12s ease;
+      backdrop-filter:blur(8px);
+    }
+
+    .access-btn:hover{ transform:translateY(-1px); filter:brightness(1.02); }
+    .access-btn:active{ transform:translateY(0); }
+
+    @media (max-width:980px){
+      .summary-rank-row{
+        grid-template-columns:56px 1fr 1fr 1fr;
+      }
+      .summary-rank-row .hide-md{ display:none; }
+
+      .live-scoreboard{
+        left:12px;
+        right:12px;
+        width:auto;
+        top:auto;
+        bottom:calc(78px + var(--sab));
+      }
     }
 
     @media (max-width:780px){
@@ -198,20 +997,62 @@
       .summary-actions .btn,
       .status-actions .status-btn{ flex:1 1 100%; }
     }
+
+    @media (max-width:760px){
+      .access-bar{
+        left:12px;
+        right:12px;
+      }
+      .access-btn{
+        flex:1 1 calc(50% - 8px);
+        justify-content:center;
+      }
+    }
   </style>
 </head>
 <body>
   <div id="app">
     <div id="gameMount"></div>
+
+    <div id="liveScoreboard" class="live-scoreboard" hidden>
+      <div class="live-scoreboard-head">
+        <div class="live-scoreboard-title">📊 คะแนนสดทั้งห้อง</div>
+        <div class="live-scoreboard-sub" id="liveScoreboardSub">กำลังอัปเดต...</div>
+      </div>
+      <div class="live-scoreboard-list" id="liveScoreboardList"></div>
+    </div>
+
+    <div id="accessBar" class="access-bar">
+      <button class="access-btn" id="btnToggleSound" type="button">🔊 เสียง: เปิด</button>
+      <button class="access-btn" id="btnToggleMotion" type="button">🎈 การเคลื่อนไหว: ปกติ</button>
+    </div>
+
+    <div id="hostControlBar" class="host-control-bar" hidden>
+      <div class="host-control-title">👑 HOST CONTROL</div>
+      <div class="host-control-actions">
+        <button class="host-btn host-btn-warn" id="btnHostAbortRound" type="button">ยกเลิกรอบ</button>
+        <button class="host-btn host-btn-blue" id="btnHostReturnLobby" type="button">กลับ Lobby ทั้งห้อง</button>
+        <button class="host-btn host-btn-green" id="btnHostRematchNow" type="button">เริ่มรอบใหม่ทั้งห้อง</button>
+      </div>
+      <div class="host-control-note" id="hostControlNote">เฉพาะ host เท่านั้นที่เห็นแถบนี้</div>
+    </div>
+
     <div class="shell">
       <div class="top">
         <div class="hero-card">
-          <div class="kicker">🤝 GOODJUNK COOP</div>
-          <h1>Team Food Mission!</h1>
-          <p class="sub">
-            ช่วยกันเก็บอาหารดีให้ได้มากที่สุด ทำคะแนนรวมของทีมให้สูง และผ่านภารกิจไปด้วยกัน
-          </p>
+          <div class="kicker">☁️ HeroHealth World</div>
+
+          <div class="logo-wrap">
+            <div class="logo-mascot">🦸</div>
+            <h1 class="hero-logo">
+              <span class="hero-logo-a">Hero</span><span class="hero-logo-b">Health</span>
+            </h1>
+          </div>
+
+          <p class="sub">Learn Health Through Play!</p>
+          <div class="hero-mode-badge">🤝 GoodJunk Coop Mission</div>
         </div>
+
         <div class="side">
           <div class="pill" id="pillRoom">ROOM • -</div>
           <div class="pill" id="pillPlayer">HERO • -</div>
@@ -225,11 +1066,11 @@
 
       <div class="status-card" id="engineStatusCard">
         <div class="status-head">
-          <div class="status-badge" id="engineStatusBadge">🤝</div>
+          <div class="status-badge" id="engineStatusBadge">🤖</div>
           <div class="status-headtext">
-            <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
+            <div class="status-title" id="engineStatusTitle">พร้อมไปช่วยทีมกันไหม?</div>
             <div id="engineStatusText">กำลังโหลด coop engine</div>
-            <div class="status-sub" id="engineStatusSub">เกมจะเริ่มเองเมื่อโหลดพร้อม รอบนี้เน้นช่วยกันเล่นและทำคะแนนรวมของทีมให้ดีที่สุด</div>
+            <div class="status-sub" id="engineStatusSub">เก็บอาหารดี ช่วยเพื่อน และทำคะแนนรวมของทีมให้ดีที่สุด</div>
           </div>
         </div>
 
@@ -240,12 +1081,12 @@
         </div>
 
         <div class="status-steps" id="engineSteps">
-          <div class="status-step"><span>1️⃣</span><span>รอหน้าเกมโหลดให้พร้อมก่อน</span></div>
-          <div class="status-step"><span>2️⃣</span><span>ช่วยกันแตะเก็บอาหารดีให้ได้เยอะ ๆ</span></div>
-          <div class="status-step"><span>3️⃣</span><span>ดูคะแนนรวมของทีมและพยายามทำให้สูงที่สุด</span></div>
+          <div class="status-step"><span>⭐</span><span>แตะเก็บอาหารดีให้ได้มากที่สุด</span></div>
+          <div class="status-step"><span>🛡️</span><span>ช่วยทั้งทีมด้วยพลังพิเศษ</span></div>
+          <div class="status-step"><span>🏆</span><span>พาทีมไปให้ถึงเป้าหมาย</span></div>
         </div>
 
-        <div class="status-tip" id="engineTip"><strong>Tip:</strong> โหมดนี้ไม่ได้แข่งกันเอง แต่ช่วยกันทำคะแนนรวมของทีม</div>
+        <div class="status-tip" id="engineTip"><strong>Bot Tip:</strong> ถ้าเจอพลังพิเศษ ให้รีบเก็บเพื่อช่วยทั้งทีม</div>
 
         <div class="status-actions">
           <button class="status-btn status-btn-copy" id="btnQuickCopyRoom" type="button">คัดลอกห้อง</button>
@@ -263,7 +1104,7 @@
         <div class="summary-hero">
           <div class="summary-badge" id="summaryBadge">🤝</div>
           <div>
-            <h3 class="summary-hero-title" id="summaryHeroTitle">Teamwork Hero!</h3>
+            <h3 class="summary-hero-title" id="summaryHeroTitle">Great Job!</h3>
             <p class="summary-hero-sub" id="summaryHeroSub">เธอและเพื่อนช่วยกันเก็บอาหารดีได้ยอดเยี่ยมมาก</p>
           </div>
         </div>
@@ -280,6 +1121,16 @@
 
         <div class="summary-grid" id="summaryGrid"></div>
 
+        <div class="summary-leaderboard" id="summaryLeaderboard" hidden>
+          <div class="summary-leaderboard-head">
+            <div>
+              <div class="summary-leaderboard-title">อันดับผู้เล่นในห้อง</div>
+              <div class="summary-leaderboard-sub" id="summaryLeaderboardSub">กำลังเตรียมข้อมูล...</div>
+            </div>
+          </div>
+          <div class="summary-rank-list" id="summaryRankList"></div>
+        </div>
+
         <div class="summary-actions">
           <button class="btn btn-primary" id="btnReplay" type="button">เล่นใหม่</button>
           <button class="btn btn-copy" id="btnCopyRoom" type="button">คัดลอกห้อง</button>
@@ -293,59 +1144,70 @@
   </div>
 
   <script src="../js/hha-cloud-logger.js"></script>
+  <script src="../firebase-config.js"></script>
+  <script src="./goodjunk.safe.coop.js?v=20260331-coop-safe-final"></script>
   <script>
     (function(){
       const q = new URLSearchParams(location.search);
       const MODE = 'coop';
       const MODE_LABEL = 'Coop';
+
       const DEFAULT_ENGINE_CANDIDATES = [
         './goodjunk-coop-run.js',
-        './goodjunk-coop-run.safe.js',
         './goodjunk-coop.js',
-        './goodjunk-coop.safe.js',
-        './goodjunk.safe.coop.js',
-
-        './js/goodjunk-coop-run.js',
-        './js/goodjunk-coop-run.safe.js',
-        './js/goodjunk-coop.js',
-        './js/goodjunk-coop.safe.js',
-        './js/goodjunk.safe.coop.js',
-
-        './coop.js',
-        './coop.safe.js',
-        './js/coop.js',
-        './js/coop.safe.js'
+        './goodjunk-coop-run.safe.js',
+        './goodjunk-coop.safe.js'
       ];
 
       function qs(key, fb=''){ return q.get(key) ?? fb; }
       function clean(v){ return String(v || '').trim(); }
-      function dedupe(arr){ const out=[]; const seen=new Set(); for(const item of arr||[]){ const s=clean(item); if(!s||seen.has(s)) continue; seen.add(s); out.push(s);} return out; }
-      function parseList(text){ return String(text||'').split(',').map(s=>clean(s)).filter(Boolean); }
-      function resolveHub(){ try{return qs('hub')||new URL('../hub.html',location.href).toString();}catch{return '../hub.html';} }
-      function safeJson(v){ try{return JSON.stringify(v,null,2);}catch{return '{}';} }
-      function saveText(name,text,type='application/json'){ const blob=new Blob([text],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
-      function buildReplayUrl(){
-        const url = new URL('./goodjunk-coop-lobby.html', location.href);
-
-        [
-          'hub','pid','name','room','roomId','role','diff','time','seed','view','run',
-          'zone','studyId','phase','conditionGroup','sessionOrder','blockLabel',
-          'siteCode','schoolYear','semester','api','log','debug','gameId'
-        ].forEach((k) => {
-          const v = q.get(k);
-          if (v != null && v !== '') url.searchParams.set(k, v);
-        });
-
-        if (!url.searchParams.get('roomId') && runCtx.roomId) {
-          url.searchParams.set('roomId', runCtx.roomId);
+      function dedupe(arr){
+        const out=[]; const seen=new Set();
+        for(const item of arr||[]){
+          const s=clean(item);
+          if(!s || seen.has(s)) continue;
+          seen.add(s);
+          out.push(s);
         }
-
+        return out;
+      }
+      function parseList(text){
+        return String(text||'').split(',').map(s=>clean(s)).filter(Boolean);
+      }
+      function resolveHub(){
+        try { return qs('hub') || new URL('../hub.html', location.href).toString(); }
+        catch { return '../hub.html'; }
+      }
+      function safeJson(v){
+        try { return JSON.stringify(v,null,2); }
+        catch { return '{}'; }
+      }
+      function saveText(name,text,type='application/json'){
+        const blob=new Blob([text],{type});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');
+        a.href=url;
+        a.download=name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+      function buildReplayUrl(){
+        const url=new URL(location.href);
         url.searchParams.set('seed', String(Date.now()));
         return url.toString();
       }
-      function copyText(text){ const t=String(text||'').trim(); if(!t) return Promise.reject(new Error('empty')); return navigator.clipboard.writeText(t); }
+      function copyText(text){
+        const t=String(text||'').trim();
+        if(!t) return Promise.reject(new Error('empty'));
+        return navigator.clipboard.writeText(t);
+      }
+
+      const $ = (id) => document.getElementById(id);
 
       window.HHA_CLOUD_ENDPOINT = clean(qs('api') || window.HHA_CLOUD_ENDPOINT || '');
+
       const runCtx = {
         pid: qs('pid','anon'),
         name: qs('name',''),
@@ -355,45 +1217,145 @@
         mode: MODE,
         diff: qs('diff','normal'),
         time: qs('time','180'),
-        seed: qs('seed',String(Date.now())),
-        startAt:0,
+        seed: qs('seed', String(Date.now())),
+        startAt: Number(qs('startAt','0')) || 0,
         hub: resolveHub(),
         view: qs('view','mobile'),
         run: qs('run','play'),
-        gameId: qs('gameId','goodjunk')
+        gameId: qs('gameId','goodjunk'),
+        spectator: qs('spectator','0') === '1'
       };
+
       window.__GJ_RUN_CTX__ = runCtx;
       window.__GJ_MULTI_RUN_CTX__ = runCtx;
       window.__GJ_COOP_RUN_HAS_SUMMARY_OVERLAY__ = true;
+      window.__GJ_COOP_IS_SPECTATOR__ = runCtx.spectator;
 
-      function deriveHeroAvatarFromName(name){ const text=String(name||'').trim(); if(!text) return clean(qs('heroAvatar')) || '🙂'; const parts=text.split(/\s+/).filter(Boolean); const key=parts[parts.length-1]||parts[0]||''; const byWord={Apple:'🍎',Carrot:'🥕',Bunny:'🐰',Panda:'🐼',Star:'⭐',Berry:'🍓',Tiger:'🐯',Cloud:'☁️',Rocket:'🚀',Kitty:'🐱',Buddy:'🧡',Hero:'🦸'}; return clean(qs('heroAvatar')) || byWord[key] || '🙂';}
-      function readHeroMeta(){ const displayName=String(runCtx.name||runCtx.pid||'Hero').trim()||'Hero'; return { name:displayName, avatar:clean(qs('heroAvatar'))||deriveHeroAvatarFromName(displayName), soft:clean(qs('heroSoft'))||'#eef8ff', border:clean(qs('heroBorder'))||'#bfe3f2', text:clean(qs('heroText'))||'#4d4a42' }; }
+      function deriveHeroAvatarFromName(name){
+        const text = String(name || '').trim();
+        if(!text) return clean(qs('heroAvatar')) || '🙂';
+        const parts = text.split(/\s+/).filter(Boolean);
+        const key = parts[parts.length-1] || parts[0] || '';
+        const byWord = {
+          Apple:'🍎',Carrot:'🥕',Bunny:'🐰',Panda:'🐼',Star:'⭐',
+          Berry:'🍓',Tiger:'🐯',Cloud:'☁️',Rocket:'🚀',Kitty:'🐱',
+          Buddy:'🧡',Hero:'🦸'
+        };
+        return clean(qs('heroAvatar')) || byWord[key] || '🙂';
+      }
+
+      function readHeroMeta(){
+        const displayName = String(runCtx.name || runCtx.pid || 'Hero').trim() || 'Hero';
+        return {
+          name: displayName,
+          avatar: clean(qs('heroAvatar')) || deriveHeroAvatarFromName(displayName),
+          soft: clean(qs('heroSoft')) || '#eef8ff',
+          border: clean(qs('heroBorder')) || '#bfe3f2',
+          text: clean(qs('heroText')) || '#4d4a42'
+        };
+      }
+
       const heroMeta = readHeroMeta();
-      function applyHeroBadgeTheme(el){ if(!el) return; el.textContent=heroMeta.avatar; el.style.borderColor=heroMeta.border; el.style.background=`linear-gradient(180deg,#fffdf7,${heroMeta.soft})`; el.style.color=heroMeta.text; }
-      function applyHeroPillTheme(el,text){ if(!el) return; el.textContent=text; el.style.borderColor=heroMeta.border; el.style.background=heroMeta.soft; el.style.color=heroMeta.text; }
-      function applyHeroIdentity(){ const heroText=`HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`; applyHeroPillTheme($('pillPlayer'),heroText); applyHeroPillTheme($('engineMiniPlayer'),heroText); applyHeroBadgeTheme($('engineStatusBadge')); }
-      function applySummaryIdentity(){ applyHeroBadgeTheme($('summaryBadge')); }
-      function buildHeroIdentityPayload(){ return { heroName:heroMeta.name, heroAvatar:heroMeta.avatar, heroSoft:heroMeta.soft, heroBorder:heroMeta.border, heroText:heroMeta.text, heroDisplay:`${heroMeta.avatar} ${heroMeta.name}`.trim() }; }
-      function enrichSummaryWithHero(summary){ const hero=buildHeroIdentityPayload(); return { ...summary, ...hero, identity:hero }; }
-      function emitEnrichedSummaryEvents(modeKey,enrichedSummary){ try{ window.dispatchEvent(new CustomEvent(`gj:${modeKey}-summary-enriched`,{detail:enrichedSummary})); }catch{} try{ window.dispatchEvent(new CustomEvent('gj:summary-enriched',{detail:enrichedSummary})); }catch{} try{ window.dispatchEvent(new CustomEvent('hha:summary-enriched',{detail:enrichedSummary})); }catch{} }
 
-      const ENGINE_CANDIDATES = dedupe([clean(qs('engine')),...parseList(qs('engineCandidates')),...DEFAULT_ENGINE_CANDIDATES]);
+      function applyHeroBadgeTheme(el){
+        if(!el) return;
+        el.textContent = heroMeta.avatar;
+        el.style.borderColor = heroMeta.border;
+        el.style.background = `linear-gradient(180deg,#fffdf7,${heroMeta.soft})`;
+        el.style.color = heroMeta.text;
+      }
+
+      function applyHeroPillTheme(el,text){
+        if(!el) return;
+        el.textContent = text;
+        el.style.borderColor = heroMeta.border;
+        el.style.background = heroMeta.soft;
+        el.style.color = heroMeta.text;
+      }
+
+      function applyHeroIdentity(){
+        const heroText = `HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`;
+        applyHeroPillTheme($('pillPlayer'), heroText);
+        applyHeroPillTheme($('engineMiniPlayer'), heroText);
+        applyHeroBadgeTheme($('engineStatusBadge'));
+      }
+
+      function applySummaryIdentity(){
+        applyHeroBadgeTheme($('summaryBadge'));
+      }
+
+      function buildHeroIdentityPayload(){
+        return {
+          heroName: heroMeta.name,
+          heroAvatar: heroMeta.avatar,
+          heroSoft: heroMeta.soft,
+          heroBorder: heroMeta.border,
+          heroText: heroMeta.text,
+          heroDisplay: `${heroMeta.avatar} ${heroMeta.name}`.trim()
+        };
+      }
+
+      function enrichSummaryWithHero(summary){
+        const hero = buildHeroIdentityPayload();
+        return { ...summary, ...hero, identity: hero };
+      }
+
+      function emitEnrichedSummaryEvents(modeKey, enrichedSummary){
+        try { window.dispatchEvent(new CustomEvent(`gj:${modeKey}-summary-enriched`, { detail: enrichedSummary })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('gj:summary-enriched', { detail: enrichedSummary })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('hha:summary-enriched', { detail: enrichedSummary })); } catch {}
+      }
+
+      const ENGINE_CANDIDATES = dedupe([
+        clean(qs('engine')),
+        ...parseList(qs('engineCandidates')),
+        ...DEFAULT_ENGINE_CANDIDATES
+      ]);
+
       const SUMMARY_KEY = 'GJ_COOP_LAST_SUMMARY_' + (runCtx.roomId || 'noroom') + '_' + (runCtx.pid || 'anon');
-      const $ = (id) => document.getElementById(id);
 
-      function setMiniInfo(){ if($('engineMiniRoom')) $('engineMiniRoom').textContent=`ROOM • ${runCtx.roomId || '-'}`; if($('engineMiniMode')) $('engineMiniMode').textContent=`MODE • ${MODE.toUpperCase()}`; if($('engineMiniPlayer')) $('engineMiniPlayer').textContent=`HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`; }
+      function setMiniInfo(){
+        if($('engineMiniRoom')) $('engineMiniRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
+        if($('engineMiniMode')) $('engineMiniMode').textContent = `MODE • ${runCtx.spectator ? 'COOP WATCH' : MODE.toUpperCase()}`;
+        if($('engineMiniPlayer')) $('engineMiniPlayer').textContent = `HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`;
+      }
+
       function wireQuickActions(){
-        $('btnQuickCopyRoom')?.addEventListener('click',()=>{ const room=String(runCtx.roomId||'').trim(); if(!room){ if($('engineTip')) $('engineTip').innerHTML='<strong>Tip:</strong> ตอนนี้ยังไม่มีรหัสห้องให้คัดลอก'; return; } navigator.clipboard.writeText(room).then(()=>{ if($('engineTip')) $('engineTip').innerHTML='<strong>คัดลอกแล้ว:</strong> ส่งรหัสห้องนี้ให้เพื่อนได้เลย'; }).catch(()=>{ if($('engineTip')) $('engineTip').innerHTML='<strong>ยังคัดลอกไม่ได้:</strong> ลองคัดลอกจากข้อความ ROOM ด้านบนแทน'; }); });
-        $('btnQuickBackHub')?.addEventListener('click',()=>{ location.href=runCtx.hub; });
+        $('btnQuickCopyRoom')?.addEventListener('click', () => {
+          const room = String(runCtx.roomId || '').trim();
+          if(!room){
+            if($('engineTip')) $('engineTip').innerHTML = '<strong>Tip:</strong> ตอนนี้ยังไม่มีรหัสห้องให้คัดลอก';
+            return;
+          }
+          navigator.clipboard.writeText(room).then(() => {
+            if($('engineTip')) $('engineTip').innerHTML = '<strong>คัดลอกแล้ว:</strong> ส่งรหัสห้องนี้ให้เพื่อนได้เลย';
+          }).catch(() => {
+            if($('engineTip')) $('engineTip').innerHTML = '<strong>ยังคัดลอกไม่ได้:</strong> ลองคัดลอกจาก ROOM ด้านบนแทน';
+          });
+        });
+
+        $('btnQuickBackHub')?.addEventListener('click', () => {
+          location.href = runCtx.hub;
+        });
       }
 
       $('pillRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
-      $('pillRole').textContent = `ROLE • ${runCtx.role || 'player'}`;
+      $('pillRole').textContent = `ROLE • ${runCtx.spectator ? 'spectator' : (runCtx.role || 'player')}`;
       $('pillDiff').textContent = `LEVEL • ${runCtx.diff}`;
       $('pillTime').textContent = `TIME • ${runCtx.time}`;
+
       applyHeroIdentity();
       setMiniInfo();
       wireQuickActions();
+
+      if (runCtx.spectator) {
+        if ($('engineStatusTitle')) $('engineStatusTitle').textContent = 'กำลังเข้าดูรอบนี้…';
+        if ($('engineStatusSub')) $('engineStatusSub').textContent = 'โหมดนี้เป็น spectator ดูคะแนนทีมและเหตุการณ์ร่วมกันได้ แต่จะไม่ส่งคะแนนของตัวเอง';
+        if ($('engineTip')) $('engineTip').innerHTML = '<strong>Spectator:</strong> ดูรอบที่กำลังเล่นอยู่ได้แบบสด ๆ';
+      } else {
+        if ($('engineStatusTitle')) $('engineStatusTitle').textContent = 'พร้อมไปช่วยทีมกันไหม?';
+        if ($('engineStatusSub')) $('engineStatusSub').textContent = 'เก็บอาหารดี ช่วยเพื่อน และทำคะแนนรวมของทีมให้ดีที่สุด';
+      }
 
       $('engineDebugInfo').textContent =
         '[MODE] ' + MODE + '\n' +
@@ -403,55 +1365,112 @@
         '[HERO] ' + heroMeta.avatar + ' ' + heroMeta.name + '\n\n' +
         '[CANDIDATES]\n' + ENGINE_CANDIDATES.join('\n');
 
-      function setStatus(title,text,isError=false){ $('engineStatusTitle').textContent=title; $('engineStatusText').textContent=text; $('engineStatusText').className=isError?'error':''; }
-      function setDebug(text){ $('engineDebugInfo').textContent=text; }
-      function setFriendlyReadyState(src,type){
-        const card=$('engineStatusCard'); if(card) card.classList.add('is-ready');
-        setStatus('พร้อมแล้ว!', `${MODE_LABEL} engine loaded: ${src} (${type})`);
-        if($('engineStatusSub')) $('engineStatusSub').textContent='เข้าเกมสำเร็จแล้ว อีกครู่หน้าช่วยเล่นจะหายไปและเกมจะเริ่มเอง';
-        if($('engineSteps')) $('engineSteps').innerHTML=`<div class="status-step"><span>✅</span><span>โหลดหน้าเกมสำเร็จแล้ว</span></div><div class="status-step"><span>🎮</span><span>เตรียมแตะเก็บอาหารดีเมื่อเกมเริ่ม</span></div><div class="status-step"><span>🌟</span><span>ขอให้สนุกกับรอบนี้นะ</span></div>`;
-        if($('engineTip')) $('engineTip').innerHTML='<strong>พร้อมแล้ว:</strong> อีกครู่หน้าช่วยเล่นนี้จะซ่อนลงอัตโนมัติ';
+      function setStatus(title,text,isError=false){
+        $('engineStatusTitle').textContent = title;
+        $('engineStatusText').textContent = text;
+        $('engineStatusText').className = isError ? 'error' : '';
       }
-      function hideStatusCardSoon(){ const card=$('engineStatusCard'); if(!card) return; setTimeout(()=>{ card.style.display='none'; },1200); }
-      function loadScriptWithType(src,type){ return new Promise((resolve,reject)=>{ const s=document.createElement('script'); if(type==='module') s.type='module'; s.src=new URL(src,location.href).toString(); s.async=true; s.onload=()=>resolve({src,type}); s.onerror=()=>reject(new Error(`โหลด script ไม่สำเร็จ: ${src} [${type}]`)); document.body.appendChild(s); }); }
-      async function tryLoad(src){ try{ setStatus('กำลังโหลดเกม…',`ลองโหลด ${src} (classic)`); return await loadScriptWithType(src,'classic'); } catch(e1){ try{ setStatus('กำลังโหลดเกม…',`ลองโหลด ${src} (module)`); return await loadScriptWithType(src,'module'); } catch(e2){ throw new Error(`${src}\n- classic: ${String(e1&&e1.message?e1.message:e1)}\n- module: ${String(e2&&e2.message?e2.message:e2)}`); } } }
-      async function loadEngine(){
-        if(!ENGINE_CANDIDATES.length){ setStatus('ไม่พบ candidate','ไม่มี candidate engine ให้ลองโหลด',true); return; }
-        const errors=[];
-        for(const src of ENGINE_CANDIDATES){
-          try{
-            const result=await tryLoad(src);
-            window.__GJ_MULTI_ENGINE_INFO__={ mode:MODE, label:MODE_LABEL, src:result.src, type:result.type, loadedAt:Date.now() };
-            setFriendlyReadyState(result.src,result.type);
-            applyHeroIdentity();
-            setDebug('[SUCCESS]\n'+'src: '+result.src+'\n'+'type: '+result.type+'\n'+'room: '+(runCtx.roomId||'-')+'\n'+'player: '+heroMeta.avatar+' '+(runCtx.name||runCtx.pid||'-')+'\n'+'role: '+(runCtx.role||'player'));
-            console.log('[GJ-COOP-RUN] loaded engine',result.src,runCtx);
-            hideStatusCardSoon();
-            return;
-          }catch(err){
-            const msg=String(err&&err.message?err.message:err);
-            errors.push(msg);
-            console.warn('[GJ-COOP-RUN] candidate failed',src,err);
+
+      function setDebug(text){
+        $('engineDebugInfo').textContent = text;
+      }
+
+      function setFriendlyReadyState(src,type){
+        const card = $('engineStatusCard');
+        if(card) card.classList.add('is-ready');
+        setStatus('พร้อมแล้ว!', `${MODE_LABEL} engine loaded: ${src} (${type})`);
+        if($('engineStatusSub')) $('engineStatusSub').textContent = 'เข้าเกมสำเร็จแล้ว อีกครู่หน้าช่วยเล่นจะหายไปและเกมจะเริ่มเอง';
+        if($('engineSteps')){
+          $('engineSteps').innerHTML =
+            `<div class="status-step"><span>✅</span><span>โหลดหน้าเกมสำเร็จแล้ว</span></div>
+             <div class="status-step"><span>🎮</span><span>เตรียมแตะเก็บอาหารดีเมื่อเกมเริ่ม</span></div>
+             <div class="status-step"><span>🌟</span><span>ขอให้สนุกกับรอบนี้นะ</span></div>`;
+        }
+        if($('engineTip')) $('engineTip').innerHTML = '<strong>พร้อมแล้ว:</strong> อีกครู่หน้าช่วยเล่นนี้จะซ่อนลงอัตโนมัติ';
+      }
+
+      function hideStatusCardSoon(){
+        const card = $('engineStatusCard');
+        if(!card) return;
+        setTimeout(() => { card.style.display = 'none'; }, 1200);
+      }
+
+      function loadScriptWithType(src,type){
+        return new Promise((resolve,reject) => {
+          const s = document.createElement('script');
+          if(type === 'module') s.type = 'module';
+          s.src = new URL(src, location.href).toString();
+          s.async = true;
+          s.onload = () => resolve({ src, type });
+          s.onerror = () => reject(new Error(`โหลด script ไม่สำเร็จ: ${src} [${type}]`));
+          document.body.appendChild(s);
+        });
+      }
+
+      async function tryLoad(src){
+        try {
+          setStatus('กำลังโหลดเกม…', `ลองโหลด ${src} (classic)`);
+          return await loadScriptWithType(src, 'classic');
+        } catch (e1) {
+          try {
+            setStatus('กำลังโหลดเกม…', `ลองโหลด ${src} (module)`);
+            return await loadScriptWithType(src, 'module');
+          } catch (e2) {
+            throw new Error(`${src}\n- classic: ${String(e1?.message || e1)}\n- module: ${String(e2?.message || e2)}`);
           }
         }
-        setStatus('ไม่พบไฟล์ engine','หา coop engine ไม่เจอ\nลองแก้ ?engine=... หรือ ?engineCandidates=... ให้ตรงกับไฟล์จริง',true);
-        setDebug('[FAILED CANDIDATES]\n'+ENGINE_CANDIDATES.join('\n')+'\n\n[ERRORS]\n'+errors.join('\n\n'));
+      }
+
+      async function loadEngine(){
+        if(!ENGINE_CANDIDATES.length){
+          setStatus('ไม่พบ candidate', 'ไม่มี candidate engine ให้ลองโหลด', true);
+          return;
+        }
+
+        const errors = [];
+        for(const src of ENGINE_CANDIDATES){
+          try {
+            const result = await tryLoad(src);
+            window.__GJ_MULTI_ENGINE_INFO__ = {
+              mode: MODE,
+              label: MODE_LABEL,
+              src: result.src,
+              type: result.type,
+              loadedAt: Date.now()
+            };
+            setFriendlyReadyState(result.src, result.type);
+            applyHeroIdentity();
+            setDebug(
+              '[SUCCESS]\n' +
+              'src: ' + result.src + '\n' +
+              'type: ' + result.type + '\n' +
+              'room: ' + (runCtx.roomId || '-') + '\n' +
+              'player: ' + heroMeta.avatar + ' ' + (runCtx.name || runCtx.pid || '-') + '\n' +
+              'role: ' + (runCtx.spectator ? 'spectator' : (runCtx.role || 'player'))
+            );
+            console.log('[GJ-COOP-RUN] loaded engine', result.src, runCtx);
+            hideStatusCardSoon();
+            return;
+          } catch (err) {
+            errors.push(String(err?.message || err));
+            console.warn('[GJ-COOP-RUN] candidate failed', src, err);
+          }
+        }
+
+        setStatus('ไม่พบไฟล์ engine', 'หา coop engine ไม่เจอ ลองตรวจชื่อไฟล์จริงใน ?engine=...', true);
+        setDebug('[FAILED CANDIDATES]\n' + ENGINE_CANDIDATES.join('\n') + '\n\n[ERRORS]\n' + errors.join('\n\n'));
       }
 
       function normalizeSummary(detail){
-        const src=(detail&&typeof detail==='object'&&detail.summary&&typeof detail.summary==='object') ? detail.summary : (detail||{});
-        const rank=src.rank ?? src.place ?? src.position ?? src.playerRank ?? src.finalRank ?? '';
-        const score=src.score ?? src.totalScore ?? src.playerScore ?? src.myScore ?? '';
-        const teamScore=src.teamScore ?? src.totalTeamScore ?? src.roomScore ?? src.coopScore ?? '';
-        const teamGoal=src.teamGoal ?? src.goal ?? src.targetScore ?? '';
-        const miss=src.miss ?? src.misses ?? src.totalMiss ?? '';
-        const goodHit=src.goodHit ?? src.hitsGood ?? src.goodHits ?? src.correct ?? '';
-        const junkHit=src.junkHit ?? src.hitsBad ?? src.junkHits ?? src.wrong ?? '';
-        const streak=src.bestStreak ?? src.streak ?? src.comboMax ?? '';
-        const result=src.result ?? src.outcome ?? src.status ?? (teamScore !== '' ? 'จบรอบแล้ว' : 'สรุปผลแล้ว');
-        const reason=src.reason ?? src.finishReason ?? src.endReason ?? '';
-        const players=src.players ?? src.playerCount ?? src.totalPlayers ?? '';
-        const duration=src.duration ?? src.durationSec ?? src.timeUsed ?? '';
+        const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
+          ? detail.summary
+          : (detail || {});
+
+        const playersList =
+          Array.isArray(src.players) ? src.players :
+          Array.isArray(src.playersList) ? src.playersList :
+          Array.isArray(src.raw?.players) ? src.raw.players :
+          [];
 
         return enrichSummaryWithHero({
           mode: MODE,
@@ -462,45 +1481,169 @@
           role: runCtx.role,
           diff: runCtx.diff,
           time: runCtx.time,
-          result,
-          rank,
-          score,
-          teamScore,
-          teamGoal,
-          players,
-          miss,
-          goodHit,
-          junkHit,
-          bestStreak: streak,
-          duration,
-          reason,
+          result: src.result ?? src.outcome ?? src.status ?? 'จบรอบแล้ว',
+          rank: src.rank ?? src.place ?? src.position ?? '',
+          score: src.score ?? src.totalScore ?? src.playerScore ?? src.myScore ?? '',
+          teamScore: src.teamScore ?? src.totalTeamScore ?? src.roomScore ?? src.coopScore ?? '',
+          teamGoal: src.teamGoal ?? src.goal ?? src.targetScore ?? '',
+          players: src.players ?? src.playerCount ?? src.totalPlayers ?? '',
+          playersList,
+          miss: src.miss ?? src.misses ?? src.totalMiss ?? '',
+          goodHit: src.goodHit ?? src.hitsGood ?? src.goodHits ?? src.correct ?? '',
+          junkHit: src.junkHit ?? src.hitsBad ?? src.junkHits ?? src.wrong ?? '',
+          bestStreak: src.bestStreak ?? src.streak ?? src.comboMax ?? '',
+          duration: src.duration ?? src.durationSec ?? src.timeUsed ?? '',
+          reason: src.reason ?? src.finishReason ?? src.endReason ?? '',
+          missionTitle: src.missionTitle ?? '',
+          bossCleared: !!src.bossCleared,
+          teamFeverUsed: !!src.teamFeverUsed,
           raw: src,
           receivedAt: Date.now()
         });
       }
 
-      function addSummaryItem(label,value){ if(value===''||value===null||value===undefined) return ''; return `<div class="summary-item"><div class="summary-label">${label}</div><div class="summary-value">${String(value)}</div></div>`; }
-      function renderSummaryStars(n){ const count=Math.max(0,Math.min(3,Number(n||0))); return [1,2,3].map(i=>`<span class="summary-star ${i<=count?'':'off'}">⭐</span>`).join(''); }
-      function coopStarCount(summary){ if(summary.teamGoal!=='' && summary.teamScore!=='' && Number(summary.teamScore)>=Number(summary.teamGoal)) return 3; if(Number(summary.teamScore||0)>0) return 2; return 1; }
-      function coopHero(summary){
-        if(summary.teamGoal!=='' && summary.teamScore!=='' && Number(summary.teamScore)>=Number(summary.teamGoal)){
-          return { badge:'🏆', heroTitle:'Team Goal Clear!', heroSub:'เธอกับทีมช่วยกันทำเป้าหมายได้สำเร็จแล้ว', title:'Awesome Teamwork!' };
-        }
-        return { badge:'🤝', heroTitle:'Teamwork Hero!', heroSub:'เธอและเพื่อนช่วยกันเก็บอาหารดีได้ยอดเยี่ยมมาก', title:'Great Job!' };
+      function addSummaryItem(label,value){
+        if(value === '' || value == null) return '';
+        return `<div class="summary-item"><div class="summary-label">${label}</div><div class="summary-value">${String(value)}</div></div>`;
       }
-      function summarySubText(summary){ const parts=[]; if(summary.roomId) parts.push('ห้อง '+summary.roomId); if(summary.result) parts.push(summary.result); if(summary.players!=='') parts.push('ผู้เล่น '+summary.players); if(summary.reason) parts.push(summary.reason); return parts.join(' • ') || 'จบรอบแล้ว มาดูผลการช่วยกันเล่นกัน'; }
 
-      let __COOP_RUN_SUMMARY_SHOWN__ = false;
+      function renderSummaryStars(n){
+        const count = Math.max(0, Math.min(3, Number(n || 0)));
+        return [1,2,3].map(i => `<span class="summary-star ${i<=count?'':'off'}">⭐</span>`).join('');
+      }
+
+      function coopStarCount(summary){
+        if(summary.teamGoal !== '' && summary.teamScore !== '' && Number(summary.teamScore) >= Number(summary.teamGoal)) return 3;
+        if(Number(summary.teamScore || 0) > 0) return 2;
+        return 1;
+      }
+
+      function coopHero(summary){
+        if(summary.teamGoal !== '' && summary.teamScore !== '' && Number(summary.teamScore) >= Number(summary.teamGoal)){
+          return {
+            badge:'🏆',
+            heroTitle:'Team Goal Clear!',
+            heroSub:'เธอกับทีมช่วยกันทำเป้าหมายได้สำเร็จแล้ว',
+            title:'Awesome Teamwork!'
+          };
+        }
+        return {
+          badge:'🤝',
+          heroTitle:'Great Job!',
+          heroSub:'วันนี้ช่วยทีมได้เยี่ยมมาก',
+          title:'Great Job!'
+        };
+      }
+
+      function summarySubText(summary){
+        const parts = [];
+        if(summary.roomId) parts.push('ห้อง ' + summary.roomId);
+        if(summary.result) parts.push(summary.result);
+        if(summary.players !== '') parts.push('ผู้เล่น ' + summary.players);
+        if(summary.reason) parts.push(summary.reason);
+        return parts.join(' • ') || 'จบรอบแล้ว มาดูผลการช่วยกันเล่นกัน';
+      }
+
+      function normalizePlayersForLeaderboard(summary){
+        const players =
+          Array.isArray(summary?.raw?.players) ? summary.raw.players :
+          Array.isArray(summary?.playersList) ? summary.playersList :
+          Array.isArray(summary?.summary?.players) ? summary.summary.players :
+          [];
+        return players.map((p, idx) => ({
+          pid: String(p?.pid || p?.id || `p${idx+1}`),
+          name: String(p?.name || p?.nick || p?.displayName || `Player ${idx+1}`),
+          contribution: Number(p?.contribution ?? p?.score ?? 0) || 0,
+          miss: Number(p?.miss ?? 0) || 0,
+          bestStreak: Number(p?.bestStreak ?? p?.streak ?? 0) || 0,
+          helps: Number(p?.helps ?? 0) || 0
+        }));
+      }
+
+      function renderLeaderboard(summary){
+        const board = $('summaryLeaderboard');
+        const list = $('summaryRankList');
+        const sub = $('summaryLeaderboardSub');
+        if(!board || !list || !sub) return;
+
+        const players = normalizePlayersForLeaderboard(summary);
+        if(!players.length){
+          board.hidden = true;
+          list.innerHTML = '';
+          return;
+        }
+
+        board.hidden = false;
+        sub.textContent = `ผู้เล่นทั้งหมด ${players.length} คน`;
+
+        list.innerHTML = players.map((p, idx) => {
+          const me = String(p.pid) === String(runCtx.pid || '');
+          const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`;
+          return `
+            <div class="summary-rank-row ${me ? 'me' : ''}">
+              <div class="summary-rank-cell"><div class="summary-rank-badge">${medal}</div></div>
+              <div class="summary-rank-cell summary-rank-player">
+                <strong>${p.name}</strong>
+                <div>${p.pid}</div>
+                ${me ? '<div class="me-tag">⭐ คุณ</div>' : ''}
+              </div>
+              <div class="summary-rank-cell"><span class="summary-rank-statlabel">Contribution</span><span class="summary-rank-statvalue">${p.contribution}</span></div>
+              <div class="summary-rank-cell"><span class="summary-rank-statlabel">Miss</span><span class="summary-rank-statvalue">${p.miss}</span></div>
+              <div class="summary-rank-cell hide-md"><span class="summary-rank-statlabel">Best Streak</span><span class="summary-rank-statvalue">${p.bestStreak}</span></div>
+              <div class="summary-rank-cell hide-md"><span class="summary-rank-statlabel">Helps</span><span class="summary-rank-statvalue">${p.helps}</span></div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function renderLiveScoreboard(detail){
+        const wrap = $('liveScoreboard');
+        const list = $('liveScoreboardList');
+        const sub = $('liveScoreboardSub');
+        if(!wrap || !list || !sub) return;
+
+        const players =
+          Array.isArray(detail?.players) ? detail.players :
+          Array.isArray(detail?.playersList) ? detail.playersList :
+          [];
+
+        if(!players.length){
+          wrap.hidden = true;
+          list.innerHTML = '';
+          return;
+        }
+
+        const normalized = players.map((p, idx) => ({
+          pid: String(p?.pid || p?.id || `p${idx+1}`),
+          name: String(p?.name || p?.nick || p?.displayName || `Player ${idx+1}`),
+          contribution: Number(p?.contribution ?? p?.score ?? 0) || 0
+        })).sort((a,b)=>b.contribution-a.contribution);
+
+        wrap.hidden = false;
+        sub.textContent = `อัปเดตสด • ผู้เล่น ${normalized.length} คน`;
+
+        list.innerHTML = normalized.map((p, idx) => {
+          const me = String(p.pid) === String(runCtx.pid || '');
+          const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`;
+          return `
+            <div class="live-rank-row ${me ? 'me' : ''}">
+              <div class="live-rank-badge">${medal}</div>
+              <div class="live-rank-player">
+                <strong>${p.name}</strong>
+                <div>${me ? '⭐ คุณ' : p.pid}</div>
+              </div>
+              <div class="live-rank-score">${p.contribution}</div>
+            </div>
+          `;
+        }).join('');
+      }
 
       function showSummary(detail){
-        if (__COOP_RUN_SUMMARY_SHOWN__) return;
-        __COOP_RUN_SUMMARY_SHOWN__ = true;
+        const summary = normalizeSummary(detail);
+        const hero = coopHero(summary);
+        const stars = coopStarCount(summary);
 
-        const summary=normalizeSummary(detail);
-        const hero=coopHero(summary);
-        const stars=coopStarCount(summary);
-
-        try{ localStorage.setItem(SUMMARY_KEY,JSON.stringify(summary)); }catch{}
+        try { localStorage.setItem(SUMMARY_KEY, JSON.stringify(summary)); } catch {}
 
         $('summaryBadge').textContent = hero.badge;
         applySummaryIdentity();
@@ -526,48 +1669,242 @@
           addSummaryItem('ห้อง', summary.roomId || '-') +
           addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-');
 
+        renderLeaderboard(summary);
+
         $('summaryDebug').textContent =
           '[COOP SUMMARY]\n' +
           'hero=' + (summary.heroDisplay || '-') + '\n' +
           'teamScore=' + (summary.teamScore || 0) + '\n' +
           'teamGoal=' + (summary.teamGoal || '-') + '\n' +
-          'players=' + (summary.players || '-') + '\n\n' +
+          'players=' + (summary.players || '-') + '\n' +
+          'mission=' + (summary.missionTitle || '-') + '\n' +
+          'bossCleared=' + (summary.bossCleared ? 'yes' : 'no') + '\n' +
+          'teamFever=' + (summary.teamFeverUsed ? 'yes' : 'no') + '\n\n' +
           safeJson(summary);
 
         $('summaryOverlay').hidden = false;
+        if ($('liveScoreboard')) $('liveScoreboard').hidden = true;
         window.__GJ_COOP_LAST_SUMMARY__ = summary;
         emitEnrichedSummaryEvents('coop', summary);
       }
 
       function hideSummary(){
-        __COOP_RUN_SUMMARY_SHOWN__ = false;
-        $('summaryOverlay').hidden=true;
+        $('summaryOverlay').hidden = true;
+        if ($('liveScoreboardList')?.children?.length) $('liveScoreboard').hidden = false;
       }
-      function handleSummaryEvent(evtName,detail){ console.log('[GJ-COOP-SUMMARY]',evtName,detail); showSummary(detail||{}); }
 
-      $('btnReplay').addEventListener('click',()=>{ location.href=buildReplayUrl(); });
-      $('btnCopyRoom').addEventListener('click',()=>{ copyText(runCtx.roomId||'').then(()=>{ $('summarySub').textContent='คัดลอก room code แล้ว'; }).catch(()=>{ $('summarySub').textContent='คัดลอก room code ไม่สำเร็จ'; }); });
-      $('btnExport').addEventListener('click',()=>{ const payload=window.__GJ_COOP_LAST_SUMMARY__||{}; saveText(`goodjunk-coop-summary-${clean(runCtx.roomId||'room')}-${Date.now()}.json`,safeJson(payload)); });
-      $('btnBackHub').addEventListener('click',()=>{ location.href=runCtx.hub; });
+      function handleSummaryEvent(evtName, detail){
+        console.log('[GJ-COOP-SUMMARY]', evtName, detail);
+        showSummary(detail || {});
+      }
 
-      window.__GJ_SHOW_COOP_SUMMARY__ = showSummary;
-      window.__GJ_HIDE_COOP_SUMMARY__ = hideSummary;
-      window.__GJ_COOP_SUMMARY_BRIDGE__ = { show:showSummary, hide:hideSummary };
-
-      ['gj:coop-summary','gj:summary','gj:match-summary','gj:session-end','hha:summary','hha:session-summary','hha:match-summary'].forEach((eventName)=>{
-        window.addEventListener(eventName,(evt)=>{ handleSummaryEvent(eventName,evt&&evt.detail?evt.detail:{}); });
-      });
-
-      window.addEventListener('message',(evt)=>{
-        const data=evt&&evt.data?evt.data:null;
-        if(!data||typeof data!=='object') return;
-        if(data.type==='gj:coop-summary'||data.type==='gj:summary'||data.type==='hha:summary'){
-          handleSummaryEvent(data.type,data.detail||data.summary||data);
+      $('btnReplay')?.addEventListener('click', async () => {
+        try {
+          if (typeof window.__GJ_COOP_REMATCH__ === 'function') {
+            const ok = await window.__GJ_COOP_REMATCH__();
+            if (ok) {
+              $('summarySub').textContent = 'กำลังเริ่มรอบใหม่ทั้งห้อง...';
+              return;
+            }
+          }
+          location.href = buildReplayUrl();
+        } catch (err) {
+          console.error('[GJ-COOP-RUN] rematch failed:', err);
+          $('summarySub').textContent = 'เริ่มรอบใหม่ไม่สำเร็จ';
         }
       });
 
-      if(qs('showLastSummary')==='1'){
-        try{ const raw=localStorage.getItem(SUMMARY_KEY); if(raw) showSummary(JSON.parse(raw)); }catch{}
+      $('btnCopyRoom')?.addEventListener('click', () => {
+        copyText(runCtx.roomId || '').then(() => {
+          $('summarySub').textContent = 'คัดลอก room code แล้ว';
+        }).catch(() => {
+          $('summarySub').textContent = 'คัดลอก room code ไม่สำเร็จ';
+        });
+      });
+
+      $('btnExport')?.addEventListener('click', () => {
+        const payload = window.__GJ_COOP_LAST_SUMMARY__ || {};
+        saveText(`goodjunk-coop-summary-${clean(runCtx.roomId || 'room')}-${Date.now()}.json`, safeJson(payload));
+      });
+
+      $('btnBackHub')?.addEventListener('click', () => {
+        location.href = runCtx.hub;
+      });
+
+      $('btnHostAbortRound')?.addEventListener('click', async () => {
+        try {
+          if (typeof window.__GJ_COOP_HOST_ABORT__ === 'function') {
+            const ok = await window.__GJ_COOP_HOST_ABORT__();
+            $('hostControlNote').textContent = ok ? 'ยกเลิกรอบแล้ว กำลังพาทุกคนกลับ Lobby...' : 'ยกเลิกรอบไม่สำเร็จ';
+          }
+        } catch (err) {
+          console.error('[GJ-COOP-RUN] host abort failed:', err);
+          $('hostControlNote').textContent = 'ยกเลิกรอบไม่สำเร็จ';
+        }
+      });
+
+      $('btnHostReturnLobby')?.addEventListener('click', async () => {
+        try {
+          if (typeof window.__GJ_COOP_RETURN_LOBBY__ === 'function') {
+            const ok = await window.__GJ_COOP_RETURN_LOBBY__();
+            $('hostControlNote').textContent = ok ? 'กำลังพาทุกคนกลับ Lobby...' : 'กลับ Lobby ไม่สำเร็จ';
+          }
+        } catch (err) {
+          console.error('[GJ-COOP-RUN] return lobby failed:', err);
+          $('hostControlNote').textContent = 'กลับ Lobby ไม่สำเร็จ';
+        }
+      });
+
+      $('btnHostRematchNow')?.addEventListener('click', async () => {
+        try {
+          if (typeof window.__GJ_COOP_REMATCH__ === 'function') {
+            const ok = await window.__GJ_COOP_REMATCH__();
+            $('hostControlNote').textContent = ok ? 'กำลังเริ่มรอบใหม่ทั้งห้อง...' : 'เริ่มรอบใหม่ไม่สำเร็จ';
+          }
+        } catch (err) {
+          console.error('[GJ-COOP-RUN] host rematch direct failed:', err);
+          $('hostControlNote').textContent = 'เริ่มรอบใหม่ไม่สำเร็จ';
+        }
+      });
+
+      window.__GJ_SHOW_COOP_SUMMARY__ = showSummary;
+      window.__GJ_HIDE_COOP_SUMMARY__ = hideSummary;
+      window.__GJ_COOP_SUMMARY_BRIDGE__ = { show: showSummary, hide: hideSummary };
+
+      window.__GJ_COOP_SET_REMATCH_STATE__ = function(info = {}){
+        const btn = $('btnReplay');
+        const sub = $('summarySub');
+        if (!btn) return;
+
+        const isHost = !!info.isHost;
+        const canRematch = !!info.canRematch;
+
+        btn.disabled = !canRematch;
+
+        if (isHost) {
+          btn.textContent = canRematch ? 'เริ่มรอบใหม่ทั้งห้อง' : 'รอผู้เล่นก่อนเริ่มรอบใหม่';
+          if (sub && !$('summaryOverlay').hidden) {
+            sub.textContent = canRematch
+              ? 'Host สามารถเริ่มรอบใหม่ให้ทั้งห้องได้เลย'
+              : 'Host ยังเริ่มรอบใหม่ไม่ได้ เพราะผู้เล่นยังไม่พอ';
+          }
+        } else {
+          btn.textContent = 'รอ Host เริ่มรอบใหม่';
+          if (sub && !$('summaryOverlay').hidden) {
+            sub.textContent = 'รอ Host เริ่มรอบใหม่ ทั้งห้องจะเข้าสู่ countdown พร้อมกัน';
+          }
+        }
+
+        btn.style.opacity = canRematch ? '1' : '.72';
+      };
+
+      window.__GJ_COOP_SET_HOST_CONTROL__ = function(info = {}){
+        const bar = $('hostControlBar');
+        const note = $('hostControlNote');
+        const btnAbort = $('btnHostAbortRound');
+        const btnLobby = $('btnHostReturnLobby');
+        const btnRematch = $('btnHostRematchNow');
+
+        if (!bar || !note || !btnAbort || !btnLobby || !btnRematch) return;
+
+        const isHost = !!info.isHost;
+        const running = !!info.running;
+        const ended = !!info.ended;
+        const canRematch = !!info.canRematch;
+
+        bar.hidden = !isHost;
+        if (!isHost) return;
+
+        btnAbort.style.display = running ? '' : 'none';
+        btnLobby.style.display = '';
+        btnRematch.style.display = ended ? '' : 'none';
+        btnRematch.disabled = !canRematch;
+        btnRematch.style.opacity = canRematch ? '1' : '.72';
+
+        note.textContent = running
+          ? 'Host สามารถยกเลิกรอบนี้ หรือพาทุกคนกลับ Lobby ได้'
+          : ended
+            ? (canRematch ? 'Host เริ่มรอบใหม่ทั้งห้องได้เลย' : 'ผู้เล่นยังไม่พอสำหรับเริ่มรอบใหม่')
+            : 'Host control พร้อมใช้งาน';
+      };
+
+      const ACCESS_KEYS = {
+        sound: 'GJ_COOP_SOUND_ON',
+        motion: 'GJ_COOP_REDUCED_MOTION'
+      };
+
+      function readAccessSettings(){
+        const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const soundOn = localStorage.getItem(ACCESS_KEYS.sound) !== '0';
+        const reducedMotion = localStorage.getItem(ACCESS_KEYS.motion)
+          ? localStorage.getItem(ACCESS_KEYS.motion) === '1'
+          : prefersReduced;
+        return { soundOn, reducedMotion };
+      }
+
+      function writeAccessSettings(next){
+        if (typeof next.soundOn === 'boolean') {
+          localStorage.setItem(ACCESS_KEYS.sound, next.soundOn ? '1' : '0');
+        }
+        if (typeof next.reducedMotion === 'boolean') {
+          localStorage.setItem(ACCESS_KEYS.motion, next.reducedMotion ? '1' : '0');
+        }
+      }
+
+      function renderAccessSettings(){
+        const st = readAccessSettings();
+        const btnSound = $('btnToggleSound');
+        const btnMotion = $('btnToggleMotion');
+
+        if (btnSound) btnSound.textContent = st.soundOn ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด';
+        if (btnMotion) btnMotion.textContent = st.reducedMotion ? '🍃 การเคลื่อนไหว: ลดลง' : '🎈 การเคลื่อนไหว: ปกติ';
+
+        window.__GJ_COOP_SOUND_ON__ = st.soundOn;
+        window.__GJ_COOP_REDUCED_MOTION__ = st.reducedMotion;
+      }
+
+      $('btnToggleSound')?.addEventListener('click', () => {
+        const st = readAccessSettings();
+        writeAccessSettings({ soundOn: !st.soundOn });
+        renderAccessSettings();
+      });
+
+      $('btnToggleMotion')?.addEventListener('click', () => {
+        const st = readAccessSettings();
+        writeAccessSettings({ reducedMotion: !st.reducedMotion });
+        renderAccessSettings();
+      });
+
+      renderAccessSettings();
+
+      ['gj:coop-summary','gj:summary','gj:match-summary','gj:session-end','hha:summary','hha:session-summary','hha:match-summary']
+        .forEach((eventName) => {
+          window.addEventListener(eventName, (evt) => {
+            handleSummaryEvent(eventName, evt?.detail || {});
+          });
+        });
+
+      window.addEventListener('message', (evt) => {
+        const data = evt?.data;
+        if(!data || typeof data !== 'object') return;
+        if(data.type === 'gj:coop-summary' || data.type === 'gj:summary' || data.type === 'hha:summary'){
+          handleSummaryEvent(data.type, data.detail || data.summary || data);
+        }
+      });
+
+      window.addEventListener('coop:update', (evt) => {
+        renderLiveScoreboard(evt?.detail || {});
+      });
+
+      window.addEventListener('coop:players', (evt) => {
+        renderLiveScoreboard({ players: evt?.detail?.players || [] });
+      });
+
+      if(qs('showLastSummary') === '1'){
+        try {
+          const raw = localStorage.getItem(SUMMARY_KEY);
+          if(raw) showSummary(JSON.parse(raw));
+        } catch {}
       }
 
       loadEngine();
