@@ -183,6 +183,7 @@
       border-color:var(--line-strong);
       box-shadow:0 0 0 4px rgba(127,207,255,.18);
     }
+    #inpRoom{ text-transform:uppercase; }
 
     .two{
       display:grid;
@@ -201,6 +202,12 @@
     }
     .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
     .btn:active{ transform:translateY(0); }
+    .btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      transform:none;
+      filter:none;
+    }
     .btn-primary{ background:linear-gradient(180deg,var(--green),var(--green2)); color:#fffef9; }
     .btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
     .btn-violet{ background:linear-gradient(180deg,var(--violet),var(--violet2)); color:#fffef9; }
@@ -352,13 +359,34 @@
         <div class="stack">
           <div class="field-row">
             <div class="label">ชื่อผู้เล่น</div>
-            <input id="inpName" class="input" type="text" maxlength="40" placeholder="เช่น Rocky" />
+            <input
+              id="inpName"
+              class="input"
+              type="text"
+              maxlength="40"
+              inputmode="text"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              placeholder="เช่น Rocky"
+            />
           </div>
 
           <div class="field-row">
             <div class="label">Room Code</div>
             <div class="two">
-              <input id="inpRoom" class="input" type="text" maxlength="24" placeholder="เช่น GJB-AB12CD" />
+              <input
+                id="inpRoom"
+                class="input"
+                type="text"
+                maxlength="24"
+                inputmode="text"
+                autocapitalize="characters"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+                placeholder="เช่น GJB-AB12CD"
+              />
               <button id="btnJoinRoom" class="btn btn-copy" type="button">🚪 เข้าห้อง</button>
             </div>
           </div>
@@ -393,7 +421,7 @@
           <div class="steps" id="stepsBox">
             <div class="step"><span>1️⃣</span><span>ใส่ชื่อผู้เล่น</span></div>
             <div class="step"><span>2️⃣</span><span>สร้างห้องใหม่ หรือใส่ room code แล้วเข้าห้อง</span></div>
-            <div class="step"><span>3️⃣</span><span>รอผู้เล่นครบ แล้ว host กดเริ่ม Battle</span></div>
+            <div class="step"><span>3️⃣</span><span>รอผู้เล่นครบ แล้ว host กด Start Battle</span></div>
           </div>
 
           <div class="share-box">
@@ -490,9 +518,15 @@
       const STATE = {
         hub: resolveHub(),
         roomId: cleanRoom(qs('roomId') || qs('room') || ''),
+        roomDraft: '',
+        roomEditing: false,
+
         uid: '',
         pid: normalizePid(qs('pid') || readLS('GJ_BATTLE_PID') || ''),
         name: cleanText(qs('name') || qs('nick') || readLS('GJ_BATTLE_NAME') || 'Player', 40),
+        nameDraft: '',
+        nameEditing: false,
+
         diff: cleanDiff(qs('diff') || 'normal'),
         timeSec: clampInt(qs('time') || '150', 90, 300, 150),
         role: cleanText(qs('role') || 'player', 20),
@@ -508,7 +542,7 @@
 
         room: { meta:{}, state:{}, players:{} },
         listenersAttached: false,
-        countdownTimer: 0,
+        heartbeatTimer: 0,
         autoRedirected: false
       };
 
@@ -724,15 +758,35 @@
         UI.debugBox.textContent =
           '[LOBBY]\n' +
           'roomId=' + (STATE.roomId || '-') + '\n' +
+          'roomDraft=' + (STATE.roomDraft || '-') + '\n' +
           'uid=' + (STATE.uid || '-') + '\n' +
           'pid=' + (STATE.pid || '-') + '\n' +
           'name=' + (STATE.name || '-') + '\n' +
+          'nameDraft=' + (STATE.nameDraft || '-') + '\n' +
           'diff=' + (STATE.diff || '-') + '\n' +
           'time=' + (STATE.timeSec || '-') + '\n' +
           'status=' + roomStatus() + '\n' +
           'isHost=' + isHost() + '\n' +
           'activePlayers=' + activePlayers().length + '\n' +
-          'autoRedirected=' + STATE.autoRedirected;
+          'autoRedirected=' + STATE.autoRedirected + '\n' +
+          'roomEditing=' + STATE.roomEditing + '\n' +
+          'nameEditing=' + STATE.nameEditing;
+      }
+
+      function syncNameInput(force=false){
+        if (!UI.inpName) return;
+        if (!force && STATE.nameEditing) return;
+
+        const next = cleanText(STATE.nameDraft || STATE.name || 'Player', 40);
+        if (UI.inpName.value !== next) UI.inpName.value = next;
+      }
+
+      function syncRoomInput(force=false){
+        if (!UI.inpRoom) return;
+        if (!force && STATE.roomEditing) return;
+
+        const next = cleanRoom(STATE.roomDraft || STATE.roomId || '');
+        if (UI.inpRoom.value !== next) UI.inpRoom.value = next;
       }
 
       function renderPlayers(){
@@ -782,8 +836,9 @@
         UI.miniDiff.textContent = STATE.diff;
         UI.miniTime.textContent = String(STATE.timeSec);
 
-        UI.inpName.value = STATE.name;
-        UI.inpRoom.value = STATE.roomId;
+        syncNameInput(false);
+        syncRoomInput(false);
+
         UI.selDiff.value = STATE.diff;
         UI.selTime.value = String(STATE.timeSec);
       }
@@ -838,6 +893,8 @@
 
       async function bindRoom(roomId){
         STATE.roomId = cleanRoom(roomId);
+        STATE.roomDraft = STATE.roomId;
+
         if (!STATE.roomId) throw new Error('roomId missing');
 
         STATE.autoRedirected = false;
@@ -868,7 +925,9 @@
       }
 
       async function createRoom(){
-        STATE.name = cleanText(UI.inpName.value || STATE.name || 'Player', 40);
+        STATE.name = cleanText(UI.inpName.value || STATE.nameDraft || STATE.name || 'Player', 40);
+        STATE.nameDraft = STATE.name;
+
         STATE.diff = cleanDiff(UI.selDiff.value || STATE.diff);
         STATE.timeSec = clampInt(UI.selTime.value || STATE.timeSec, 90, 300, 150);
 
@@ -905,10 +964,13 @@
       }
 
       async function joinRoom(){
-        const inputRoom = cleanRoom(UI.inpRoom.value || '');
+        const inputRoom = cleanRoom(UI.inpRoom.value || STATE.roomDraft || '');
         if (!inputRoom) throw new Error('กรุณาใส่ room code');
 
-        STATE.name = cleanText(UI.inpName.value || STATE.name || 'Player', 40);
+        STATE.roomDraft = inputRoom;
+        STATE.name = cleanText(UI.inpName.value || STATE.nameDraft || STATE.name || 'Player', 40);
+        STATE.nameDraft = STATE.name;
+
         STATE.diff = cleanDiff(UI.selDiff.value || STATE.diff);
         STATE.timeSec = clampInt(UI.selTime.value || STATE.timeSec, 90, 300, 150);
 
@@ -1030,6 +1092,7 @@
         STATE.refs = { meta:null, state:null, players:null, self:null };
         STATE.room = { meta:{}, state:{}, players:{} };
         STATE.roomId = '';
+        STATE.roomDraft = '';
         STATE.autoRedirected = false;
         render();
       }
@@ -1058,7 +1121,10 @@
         STATE.autoRedirected = true;
         render();
 
-        const delay = status === 'countdown' ? Math.max(0, ((Number((STATE.room.state || {}).countdownEndsAt || 0) - now()) + 80)) : 80;
+        const delay = status === 'countdown'
+          ? Math.max(0, ((Number((STATE.room.state || {}).countdownEndsAt || 0) - now()) + 80))
+          : 80;
+
         setTimeout(() => {
           location.href = buildRunUrl();
         }, delay);
@@ -1137,9 +1203,47 @@
           setStatus('ออกจากห้องแล้ว');
         });
 
-        UI.inpName.addEventListener('change', () => {
-          STATE.name = cleanText(UI.inpName.value || 'Player', 40);
+        UI.inpName.addEventListener('focus', () => {
+          STATE.nameEditing = true;
+        });
+
+        UI.inpName.addEventListener('input', () => {
+          STATE.nameDraft = cleanText(UI.inpName.value || 'Player', 40);
+        });
+
+        UI.inpName.addEventListener('blur', () => {
+          STATE.nameEditing = false;
+          STATE.nameDraft = cleanText(UI.inpName.value || 'Player', 40);
+          STATE.name = STATE.nameDraft || 'Player';
           writeLS('GJ_BATTLE_NAME', STATE.name);
+          syncNameInput(true);
+          render();
+        });
+
+        UI.inpRoom.addEventListener('focus', () => {
+          STATE.roomEditing = true;
+        });
+
+        UI.inpRoom.addEventListener('input', () => {
+          const start = UI.inpRoom.selectionStart || 0;
+          const cleaned = cleanRoom(UI.inpRoom.value || '');
+          STATE.roomDraft = cleaned;
+
+          if (UI.inpRoom.value !== cleaned){
+            UI.inpRoom.value = cleaned;
+            try{
+              UI.inpRoom.setSelectionRange(
+                Math.min(start, cleaned.length),
+                Math.min(start, cleaned.length)
+              );
+            } catch {}
+          }
+        });
+
+        UI.inpRoom.addEventListener('blur', () => {
+          STATE.roomEditing = false;
+          STATE.roomDraft = cleanRoom(UI.inpRoom.value || '');
+          syncRoomInput(true);
           render();
         });
 
@@ -1155,6 +1259,9 @@
       }
 
       async function boot(){
+        STATE.roomDraft = STATE.roomId;
+        STATE.nameDraft = STATE.name;
+
         render();
         wireEvents();
         setStatus('กำลังเชื่อม Firebase...');
@@ -1170,12 +1277,13 @@
             setStatus('เข้าห้องสำเร็จ');
           } catch (err){
             STATE.roomId = '';
+            STATE.roomDraft = '';
             render();
             setStatus('เปิดลิงก์ห้องไม่สำเร็จ: ' + String(err.message || err));
           }
         }
 
-        setInterval(() => {
+        STATE.heartbeatTimer = setInterval(() => {
           render();
           heartbeat();
         }, 1000);
