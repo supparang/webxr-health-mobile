@@ -1,490 +1,763 @@
-// === /herohealth/vr-goodjunk/goodjunk-race.js ===
-// GoodJunkVR RACE Controller — teacher countdown + shareable startAt + race result submit + restart/reset aware
-// FULL PATCH v20260327-RACE-CONTROLLER-MODEFIX-CORECHECK
 'use strict';
 
+/* =========================================================
+ * /herohealth/vr-goodjunk/goodjunk-race.js
+ * GoodJunk Race Controller
+ * FULL PATCH v20260401-race-controller-final
+ * ========================================================= */
 (function(){
-  const WIN = window;
-  const DOC = document;
+  const W = window;
 
-  const qs = (k, d='') => {
-    try { return (new URL(location.href)).searchParams.get(k) ?? d; }
-    catch(e){ return d; }
+  if (W.__GJ_RACE_CONTROLLER_INSTALLED__) return;
+  W.__GJ_RACE_CONTROLLER_INSTALLED__ = true;
+
+  const ctx = W.__GJ_RUN_CTX__ || W.__GJ_MULTI_RUN_CTX__ || {};
+  const GAME = 'goodjunk';
+  const MODE = 'race';
+  const FIREBASE_WAIT_MS = 12000;
+  const HEARTBEAT_MS = 2500;
+  const SCORE_SYNC_MS = 700;
+
+  const roomId = String(ctx.roomId || ctx.room || '').trim();
+
+  const state = {
+    uid: '',
+    db: null,
+    rootKind: '',
+    refs: null,
+
+    meta: {},
+    roomState: {},
+    match: {},
+    players: {},
+    results: {},
+
+    participantIds: [],
+
+    booted: false,
+    runStarted: false,
+    resultSubmitted: false,
+    finalSummarySent: false,
+
+    heartbeatTimer: 0,
+    scoreSyncTimer: 0,
+    countdownTimer: 0,
+
+    latestBaseSummary: null,
+    offFns: [],
+    debug: []
   };
 
-  const clamp = (v,a,b) => {
-    v = Number(v);
-    if(!Number.isFinite(v)) v = a;
-    return Math.max(a, Math.min(b, v));
-  };
-
-  const clean = (v) => String(v || '').trim();
-
-  function inferRaceMode() {
-    const rawMode = clean(qs('mode', ''));
-    if (rawMode) return rawMode.toLowerCase();
-
-    const path = String(location.pathname || '').toLowerCase();
-    if (path.includes('goodjunk-race')) return 'race';
-
-    return 'race';
-  }
-
-  const mode = inferRaceMode();
-  if (mode !== 'race') return;
-
-  const room = clean(qs('room', qs('roomId', 'NO_ROOM'))) || 'NO_ROOM';
-  const pid  = clean(qs('pid', 'anon')) || 'anon';
-  const nick = clean(qs('nick', qs('name', pid))) || pid;
-  const host = (String(qs('host','0')) === '1');
-
-  const startIn = clamp(qs('startIn', host ? '8' : '0'), 0, 60);
-  let startAt = Number(qs('startAt','')) || 0;
-
-  const RACE_ROOT = `herohealth/goodjunk/race/${room}`;
-  const RESULT_PATH = `${RACE_ROOT}/results`;
-  const PRESENCE_PATH = `${RACE_ROOT}/presence`;
-  const CONTROL_PATH = `${RACE_ROOT}/control`;
-
-  let db = null;
-  let submitted = false;
-  let started = false;
-  let presenceTimer = null;
-  let lastResetAt = 0;
-  let lastRestartAt = 0;
-  let overlayRemoved = false;
-
-  function markShellReady(note) {
-    WIN.__GJ_RACE_ENGINE_READY__ = true;
+  function debugPush(line){
+    state.debug.push(String(line));
+    if (state.debug.length > 40) state.debug.shift();
     try {
-      if (typeof WIN.GJRaceShellReady === 'function') {
-        WIN.GJRaceShellReady({ note: note || 'race-controller-ready' });
+      if (W.__GJ_RACE_SUMMARY_BRIDGE__ && W.__GJ_RACE_SUMMARY_BRIDGE__.debug) {
+        W.__GJ_RACE_SUMMARY_BRIDGE__.debug(state.debug.join('\n'));
       }
     } catch(_) {}
+  }
+
+  function safeDispatch(name, detail){
     try {
-      WIN.GJRaceSafe?.markEngineReady?.({ note: note || 'race-controller-ready' });
+      W.dispatchEvent(new CustomEvent(name, { detail }));
     } catch(_) {}
   }
 
-  function dispatchSummary(detail) {
-    try { WIN.dispatchEvent(new CustomEvent('gj:race-summary', { detail })); } catch(_) {}
-    try { WIN.dispatchEvent(new CustomEvent('gj:summary', { detail })); } catch(_) {}
-    try { WIN.dispatchEvent(new CustomEvent('hha:summary', { detail })); } catch(_) {}
-    try { WIN.postMessage({ type: 'gj:race-summary', detail }, '*'); } catch(_) {}
-    try { WIN.GJRaceSafe?.emitSummary?.(detail); } catch(_) {}
+  function now(){ return Date.now(); }
+
+  function num(v, d=0){
+    v = Number(v);
+    return Number.isFinite(v) ? v : d;
+  }
+
+  function wait(ms){
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function getSafe(){
+    return W.GJRaceSafe || W.RaceSafe || null;
+  }
+
+  function safeShowLoading(msg){
+    const s = getSafe();
+    if (s && typeof s.showLoading === 'function') s.showLoading(msg);
+  }
+
+  function safeShowWarn(msg){
+    const s = getSafe();
+    if (s && typeof s.showWarn === 'function') s.showWarn(msg);
+  }
+
+  function safeShowError(msg){
+    const s = getSafe();
+    if (s && typeof s.showError === 'function') s.showError(msg);
+  }
+
+  function safeClearMessage(){
+    const s = getSafe();
+    if (s && typeof s.clearMessage === 'function') s.clearMessage();
+  }
+
+  function safeSyncBridge(){
+    const s = getSafe();
+    if (!s) return;
+
+    try {
+      if (typeof s.setState === 'function') {
+        s.setState({
+          roomId,
+          mode: MODE,
+          status: String(state.roomState.status || 'waiting'),
+          participants: state.participantIds.slice(),
+          playerCount: Object.keys(state.players || {}).length
+        });
+      }
+    } catch(_) {}
+
+    try {
+      if (typeof s.setRoomState === 'function') {
+        s.setRoomState({
+          roomId,
+          status: String(state.roomState.status || 'waiting'),
+          startAt: num(state.roomState.startAt || state.roomState.countdownEndsAt, 0),
+          participantIds: state.participantIds.slice()
+        });
+      }
+    } catch(_) {}
+
+    try {
+      if (typeof s.setPlayers === 'function') {
+        s.setPlayers(Object.values(state.players || {}));
+      }
+    } catch(_) {}
+
+    try {
+      if (typeof s.syncPlayers === 'function') {
+        s.syncPlayers(Object.values(state.players || {}));
+      }
+    } catch(_) {}
+
+    try {
+      if (typeof s.syncRoom === 'function') {
+        s.syncRoom({
+          meta: state.meta,
+          state: state.roomState,
+          players: state.players,
+          results: state.results
+        });
+      }
+    } catch(_) {}
+  }
+
+  async function waitForFirebaseReady(timeoutMs = FIREBASE_WAIT_MS){
+    if (W.HHA_FIREBASE_READY && W.HHA_FIREBASE_DB) return true;
+
+    return await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('firebase not ready')), timeoutMs);
+
+      W.addEventListener('hha:firebase_ready', (ev) => {
+        clearTimeout(timer);
+        if (ev && ev.detail && ev.detail.ok) resolve(true);
+        else reject(new Error((ev && ev.detail && ev.detail.error) || 'firebase not ready'));
+      }, { once:true });
+    });
+  }
+
+  async function ensureAuth(){
+    await waitForFirebaseReady();
+
+    if (typeof W.HHA_ensureAnonymousAuth === 'function') {
+      const user = await W.HHA_ensureAnonymousAuth();
+      if (user && user.uid) {
+        state.uid = user.uid;
+        return user;
+      }
+    }
+
+    if (!W.firebase || !W.firebase.auth) {
+      throw new Error('firebase auth sdk not loaded');
+    }
+
+    const auth = W.firebase.auth();
+
+    if (auth.currentUser && auth.currentUser.uid) {
+      state.uid = auth.currentUser.uid;
+      return auth.currentUser;
+    }
+
+    await auth.signInAnonymously();
+
+    const user = await new Promise((resolve, reject) => {
+      let done = false;
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        reject(new Error('anonymous auth timeout'));
+      }, 12000);
+
+      const off = auth.onAuthStateChanged((u) => {
+        if (done) return;
+        if (u && u.uid) {
+          done = true;
+          clearTimeout(timer);
+          try { off(); } catch(_) {}
+          resolve(u);
+        }
+      }, (err) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        try { off(); } catch(_) {}
+        reject(err || new Error('auth state failed'));
+      });
+    });
+
+    state.uid = user.uid;
+    return user;
   }
 
   function getDb(){
-    db = WIN.HHA_FIREBASE_DB || null;
-    return db;
+    if (state.db) return state.db;
+    if (W.HHA_FIREBASE_DB) {
+      state.db = W.HHA_FIREBASE_DB;
+      return state.db;
+    }
+    if (typeof W.HHA_ENSURE_FIREBASE_DB === 'function') {
+      state.db = W.HHA_ENSURE_FIREBASE_DB();
+      return state.db;
+    }
+    if (W.firebase && W.firebase.database) {
+      state.db = W.firebase.database();
+      return state.db;
+    }
+    throw new Error('firebase db not ready');
   }
 
-  function dbRef(path){
-    const _db = getDb();
-    if(!_db) return null;
-    return _db.ref(path);
-  }
+  async function resolveRootKind(){
+    const db = getDb();
+    const candidates = ['raceRooms', 'rooms'];
 
-  function hasCoreApi() {
-    return (
-      typeof WIN.__GJ_SET_PAUSED__ === 'function' ||
-      typeof WIN.__GJ_START_NOW__ === 'function' ||
-      typeof WIN.__GJ_GET_SCORE__ === 'function'
-    );
-  }
-
-  function setPaused(v){
-    try{
-      if(typeof WIN.__GJ_SET_PAUSED__ === 'function') {
-        WIN.__GJ_SET_PAUSED__(!!v);
-      }
-    }catch(_){}
-  }
-
-  function removeOverlay() {
-    if (overlayRemoved) return;
-    overlayRemoved = true;
-    try { overlay.remove(); } catch(_) {}
-  }
-
-  function startGameNow(){
-    const hasStartNow = typeof WIN.__GJ_START_NOW__ === 'function';
-
-    try {
-      WIN.__GJ_START_NOW__?.();
-    } catch(err) {
-      console.error('[GJ-RACE] __GJ_START_NOW__ failed', err);
+    for (const kind of candidates) {
+      try {
+        const snap = await db.ref(`hha-battle/${GAME}/${kind}/${roomId}`).once('value');
+        if (snap.exists()) {
+          state.rootKind = kind;
+          debugPush(`root kind resolved: ${kind}`);
+          return kind;
+        }
+      } catch(_) {}
     }
 
-    setPaused(false);
+    state.rootKind = 'raceRooms';
+    debugPush('root kind fallback: raceRooms');
+    return state.rootKind;
+  }
 
-    if (hasStartNow) {
-      markShellReady('start-now');
-      removeOverlay();
+  function attachRefs(){
+    const db = getDb();
+    const rootPath = `hha-battle/${GAME}/${state.rootKind}/${roomId}`;
+    const root = db.ref(rootPath);
+
+    state.refs = {
+      root,
+      meta: root.child('meta'),
+      state: root.child('state'),
+      match: root.child('match'),
+      players: root.child('players'),
+      results: root.child('results'),
+      myPlayer: root.child(`players/${state.uid}`),
+      myResult: root.child(`results/${state.uid}`)
+    };
+  }
+
+  function getCoreScore(){
+    try { return num(typeof W.__GJ_GET_SCORE__ === 'function' ? W.__GJ_GET_SCORE__() : 0, 0); }
+    catch(_) { return 0; }
+  }
+
+  function getMetricsFromCore(){
+    const score = num(typeof W.__GJ_GET_SCORE__ === 'function' ? W.__GJ_GET_SCORE__() : 0, 0);
+    const shots = num(typeof W.__GJ_GET_SHOTS__ === 'function' ? W.__GJ_GET_SHOTS__() : 0, 0);
+    const hits = num(typeof W.__GJ_GET_HITS__ === 'function' ? W.__GJ_GET_HITS__() : 0, 0);
+    const miss = num(typeof W.__GJ_GET_MISS__ === 'function' ? W.__GJ_GET_MISS__() : 0, 0);
+    const goodHit = num(typeof W.__GJ_GET_HITS_GOOD__ === 'function' ? W.__GJ_GET_HITS_GOOD__() : hits, hits);
+    const junkHit = num(typeof W.__GJ_GET_HITS_JUNK__ === 'function' ? W.__GJ_GET_HITS_JUNK__() : Math.max(0, shots - hits - miss), 0);
+    const goodMiss = num(typeof W.__GJ_GET_GOOD_MISS__ === 'function' ? W.__GJ_GET_GOOD_MISS__() : 0, 0);
+    const bestStreak = num(typeof W.__GJ_GET_BEST_STREAK__ === 'function' ? W.__GJ_GET_BEST_STREAK__() : 0, 0);
+    const finishMs = num(typeof W.__GJ_GET_FINISH_MS__ === 'function' ? W.__GJ_GET_FINISH_MS__() : 0, 0);
+    const duration = finishMs > 0 ? Math.round(finishMs / 1000) : Math.max(0, num(ctx.time, 90));
+
+    return {
+      score,
+      shots,
+      hits,
+      miss,
+      goodHit,
+      junkHit,
+      goodMiss,
+      bestStreak,
+      duration
+    };
+  }
+
+  function getParticipantIds(){
+    const fromState = Array.isArray(state.roomState && state.roomState.participantIds)
+      ? state.roomState.participantIds
+      : [];
+    const fromMatch = Array.isArray(state.match && state.match.participantIds)
+      ? state.match.participantIds
+      : [];
+
+    const ids = (fromState.length ? fromState : fromMatch)
+      .map(x => String(x || ''))
+      .filter(Boolean);
+
+    return ids;
+  }
+
+  function amIParticipant(){
+    const ids = state.participantIds.length ? state.participantIds : getParticipantIds();
+    if (!ids.length) return true;
+    return ids.includes(state.uid);
+  }
+
+  function activePlayers(){
+    return Object.values(state.players || {}).filter(Boolean);
+  }
+
+  function startCoreNow(){
+    if (state.runStarted) return;
+    if (!amIParticipant()) {
+      safeShowWarn('รอบนี้คุณไม่ได้อยู่ใน participant ของห้องนี้');
+      debugPush('blocked start: not participant');
       return;
     }
 
-    setStatus('ยังไม่พบ game core', null);
-    if (subEl) subEl.textContent = 'ตรวจไฟล์ core';
-    const debug = [
-      'ยังไม่พบ __GJ_START_NOW__',
-      'ไฟล์นี้เป็น race controller เท่านั้น',
-      'ต้องมี core game โหลดมาก่อน เช่นไฟล์เกมหลักของ GoodJunk',
-      '',
-      'required:',
-      '- __GJ_SET_PAUSED__',
-      '- __GJ_START_NOW__',
-      '- __GJ_GET_SCORE__ / stats getters'
-    ].join('\n');
+    state.runStarted = true;
+    clearInterval(state.countdownTimer);
+    state.countdownTimer = 0;
 
-    if (debugEl) debugEl.textContent = debug;
-    console.warn('[GJ-RACE] core api missing; controller loaded but game core not found');
-  }
+    try {
+      if (typeof W.__GJ_SET_PAUSED__ === 'function') W.__GJ_SET_PAUSED__(false);
+    } catch(_) {}
 
-  function buildLink(startAtMs){
-    const u = new URL(location.href);
-    u.searchParams.set('mode','race');
-    u.searchParams.set('wait','1');
-    u.searchParams.set('startAt', String(Math.round(startAtMs)));
-    u.searchParams.delete('host');
-    u.searchParams.delete('startIn');
-    return u.toString();
-  }
-
-  function refreshLink(){
-    if(startAt > 0) linkEl.value = buildLink(startAt);
-    else linkEl.value = '(ยังไม่มี startAt) กด “สร้าง startAt ใหม่”';
-  }
-
-  function setStatus(s, n){
-    if(statusEl) statusEl.textContent = s;
-    if(countEl) countEl.textContent = (n==null) ? '—' : String(n);
-  }
-
-  async function copyText(txt){
-    try{
-      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-        await navigator.clipboard.writeText(txt);
-      } else {
-        linkEl.focus();
-        linkEl.select();
-        document.execCommand('copy');
+    try {
+      if (typeof W.__GJ_START_NOW__ === 'function') {
+        W.__GJ_START_NOW__();
+      } else if (typeof W.__GJ_BOOT__ === 'function') {
+        W.__GJ_BOOT__();
       }
-      setStatus('คัดลอกแล้ว ✅', null);
-    }catch(e){
-      console.warn('[GJ-RACE] copy failed', e);
+    } catch (err) {
+      console.error('[race-controller] start core failed', err);
+    }
+
+    try {
+      state.refs.myPlayer.update({
+        connected: true,
+        ready: true,
+        phase: 'run',
+        updatedAt: now(),
+        lastSeen: now()
+      });
+    } catch(_) {}
+
+    safeClearMessage();
+    debugPush('core started');
+  }
+
+  function startCountdownLoop(targetAt){
+    clearInterval(state.countdownTimer);
+    state.countdownTimer = setInterval(() => {
+      const leftMs = num(targetAt, 0) - now();
+      const sec = Math.max(0, Math.ceil(leftMs / 1000));
+
+      safeShowLoading(sec > 0 ? `เริ่มแข่งใน ${sec}` : 'GO!');
+
+      if (leftMs <= 0) {
+        clearInterval(state.countdownTimer);
+        state.countdownTimer = 0;
+        startCoreNow();
+      }
+    }, 100);
+  }
+
+  function handleRoomState(){
+    state.participantIds = getParticipantIds();
+    safeSyncBridge();
+
+    const status = String((state.roomState && state.roomState.status) || '');
+    const targetAt = num(state.roomState.startAt || state.roomState.countdownEndsAt || ctx.startAt, 0);
+
+    if (!state.runStarted) {
+      try {
+        if (typeof W.__GJ_SET_PAUSED__ === 'function') W.__GJ_SET_PAUSED__(true);
+      } catch(_) {}
+    }
+
+    if (status === 'waiting') {
+      if (!state.runStarted) {
+        safeShowLoading('กำลังรอ host เริ่มเกม');
+      }
+      return;
+    }
+
+    if (status === 'countdown') {
+      if (!amIParticipant()) {
+        safeShowWarn('รอบนี้ไม่ได้อยู่ใน participant');
+        return;
+      }
+      if (targetAt > 0) {
+        startCountdownLoop(targetAt);
+      } else {
+        safeShowLoading('กำลังเตรียมเริ่มเกม');
+      }
+      return;
+    }
+
+    if (status === 'running' || status === 'playing') {
+      if (!amIParticipant()) {
+        safeShowWarn('รอบนี้ไม่ได้อยู่ใน participant');
+        return;
+      }
+      if (targetAt > now()) {
+        startCountdownLoop(targetAt);
+      } else {
+        startCoreNow();
+      }
+      return;
+    }
+
+    if (status === 'ended' && state.latestBaseSummary && !state.finalSummarySent) {
+      maybeEmitFinalSummary(true);
     }
   }
 
-  function readGameMetrics(){
-    const score = Number(WIN.__GJ_GET_SCORE__?.() ?? 0);
-    const shots = Number(WIN.__GJ_GET_SHOTS__?.() ?? 0);
-    const hits = Number(WIN.__GJ_GET_HITS__?.() ?? 0);
-    const missTotal = Number(WIN.__GJ_GET_MISS__?.() ?? 0);
-    const finishMs = Number(WIN.__GJ_GET_FINISH_MS__?.() ?? 0);
-    const accPct = shots > 0 ? Math.round((hits / shots) * 100) : 0;
-    return { score, shots, hits, missTotal, accPct, finishMs };
+  function subscribeRoom(){
+    const onMeta = (snap) => {
+      state.meta = snap.val() || {};
+      safeSyncBridge();
+    };
+
+    const onState = (snap) => {
+      state.roomState = snap.val() || {};
+      handleRoomState();
+    };
+
+    const onMatch = (snap) => {
+      state.match = snap.val() || {};
+      handleRoomState();
+    };
+
+    const onPlayers = (snap) => {
+      state.players = snap.val() || {};
+      safeSyncBridge();
+    };
+
+    const onResults = async (snap) => {
+      state.results = snap.val() || {};
+      safeSyncBridge();
+
+      if (ctx.host) {
+        await maybeCloseRace();
+      }
+
+      if (state.latestBaseSummary) {
+        maybeEmitFinalSummary(false);
+      }
+    };
+
+    const onError = (err) => {
+      console.error('[race-controller] subscribe failed', err);
+      safeShowError(`เชื่อมห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+      debugPush(`subscribe error: ${String(err && err.message ? err.message : err)}`);
+    };
+
+    state.refs.meta.on('value', onMeta, onError);
+    state.refs.state.on('value', onState, onError);
+    state.refs.match.on('value', onMatch, onError);
+    state.refs.players.on('value', onPlayers, onError);
+    state.refs.results.on('value', onResults, onError);
+
+    state.offFns.push(() => state.refs.meta.off('value', onMeta));
+    state.offFns.push(() => state.refs.state.off('value', onState));
+    state.offFns.push(() => state.refs.match.off('value', onMatch));
+    state.offFns.push(() => state.refs.players.off('value', onPlayers));
+    state.offFns.push(() => state.refs.results.off('value', onResults));
   }
 
-  function publishPresence(state='waiting'){
-    const r = dbRef(`${PRESENCE_PATH}/${pid}`);
-    if(!r) return;
-    const row = { pid, nick, room, state, at: Date.now() };
-    r.set(row);
-    try { r.onDisconnect().remove(); } catch(_){}
+  async function joinPresence(){
+    await state.refs.myPlayer.update({
+      pid: state.uid,
+      nick: String(ctx.name || ctx.nick || 'Player'),
+      connected: true,
+      ready: true,
+      joinedAt: now(),
+      updatedAt: now(),
+      lastSeen: now(),
+      phase: 'lobby',
+      score: 0,
+      contribution: 0
+    });
+
+    try {
+      state.refs.myPlayer.onDisconnect().remove();
+    } catch(_) {}
   }
 
-  function submitRaceResult(reason='finish'){
-    if(submitted) return;
-    submitted = true;
+  function startHeartbeat(){
+    clearInterval(state.heartbeatTimer);
+    state.heartbeatTimer = setInterval(() => {
+      state.refs.myPlayer.update({
+        nick: String(ctx.name || ctx.nick || 'Player'),
+        connected: true,
+        updatedAt: now(),
+        lastSeen: now(),
+        phase: state.resultSubmitted ? 'done' : (state.runStarted ? 'run' : 'lobby')
+      }).catch(()=>{});
+    }, HEARTBEAT_MS);
+  }
 
-    const m = readGameMetrics();
+  function startScoreSync(){
+    clearInterval(state.scoreSyncTimer);
+    state.scoreSyncTimer = setInterval(() => {
+      const metrics = getMetricsFromCore();
+      state.refs.myPlayer.update({
+        connected: true,
+        score: metrics.score,
+        contribution: metrics.score,
+        miss: metrics.miss,
+        streak: metrics.bestStreak,
+        updatedAt: now(),
+        lastSeen: now(),
+        phase: state.resultSubmitted ? 'done' : (state.runStarted ? 'run' : 'lobby')
+      }).catch(()=>{});
+    }, SCORE_SYNC_MS);
+  }
+
+  function stopTimers(){
+    clearInterval(state.heartbeatTimer);
+    clearInterval(state.scoreSyncTimer);
+    clearInterval(state.countdownTimer);
+    state.heartbeatTimer = 0;
+    state.scoreSyncTimer = 0;
+    state.countdownTimer = 0;
+  }
+
+  async function submitResultFromSummary(detail){
+    if (state.resultSubmitted) return;
+
+    const base = Object.assign({}, detail || {});
+    const metrics = getMetricsFromCore();
+
     const payload = {
-      pid,
-      nick,
-      room,
-      mode: 'race',
-      reason,
-      score: Number(m.score || 0),
-      shots: Number(m.shots || 0),
-      hits: Number(m.hits || 0),
-      missTotal: Number(m.missTotal || 0),
-      accPct: Number(m.accPct || 0),
-      finishMs: Number(m.finishMs || 0),
-      at: Date.now(),
+      pid: state.uid,
+      nick: String(ctx.name || ctx.nick || 'Player'),
+      roomId: roomId,
+      reason: String(base.reason || base.finishReason || 'finish'),
+      score: num(base.score, metrics.score),
+      shots: num(base.shots, metrics.shots),
+      hits: num(base.hits, metrics.hits),
+      miss: num(base.miss, metrics.miss),
+      goodHit: num(base.goodHit, metrics.goodHit),
+      junkHit: num(base.junkHit, metrics.junkHit),
+      bestStreak: num(base.bestStreak, metrics.bestStreak),
+      duration: num(base.duration, metrics.duration),
+      at: now(),
       final: true
     };
 
-    const r = dbRef(`${RESULT_PATH}/${pid}`);
-    if(r) r.set(payload);
+    state.resultSubmitted = true;
+    state.latestBaseSummary = Object.assign({}, base, payload);
 
-    dispatchSummary(payload);
-    publishPresence('finished');
-  }
-
-  function writeStartAtToFirebase(ms){
-    const r = dbRef(CONTROL_PATH);
-    if(!r) return;
-    r.update({
-      room,
-      hostPid: pid,
-      hostNick: nick,
-      startAt: Number(ms || 0),
-      updatedAt: Date.now()
-    });
-  }
-
-  function hardReloadForNewRound(){
-    const u = new URL(location.href);
-    u.searchParams.delete('startAt');
-    u.searchParams.set('mode', 'race');
-    location.href = u.toString();
-  }
-
-  function watchControlFromFirebase(){
-    const r = dbRef(CONTROL_PATH);
-    if(!r) return;
-
-    r.on('value', (snap)=>{
-      const j = snap.val() || {};
-
-      const nextStartAt = Number(j.startAt || 0);
-      const resetAt = Number(j.resetAt || 0);
-      const restartAt = Number(j.restartAt || 0);
-
-      if(resetAt > 0 && resetAt !== lastResetAt){
-        lastResetAt = resetAt;
-        submitted = false;
-        started = false;
-        setPaused(true);
-        hardReloadForNewRound();
-        return;
-      }
-
-      if(restartAt > 0 && restartAt !== lastRestartAt){
-        lastRestartAt = restartAt;
-        submitted = false;
-        started = false;
-        setPaused(true);
-        hardReloadForNewRound();
-        return;
-      }
-
-      if(nextStartAt > 0) {
-        startAt = nextStartAt;
-        refreshLink();
-      }
-    });
-  }
-
-  setPaused(true);
-
-  const overlay = DOC.createElement('div');
-  overlay.style.position = 'fixed';
-  overlay.style.inset = '0';
-  overlay.style.zIndex = '300';
-  overlay.style.display = 'flex';
-  overlay.style.alignItems = 'center';
-  overlay.style.justifyContent = 'center';
-  overlay.style.padding = '14px';
-  overlay.style.background = 'rgba(2,6,23,.72)';
-  overlay.style.backdropFilter = 'blur(8px)';
-  overlay.style.webkitBackdropFilter = 'blur(8px)';
-
-  overlay.innerHTML = `
-    <div style="
-      width:min(760px, 100%);
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.78);
-      border-radius:22px;
-      padding:14px 14px;
-      box-shadow:0 26px 90px rgba(0,0,0,.55);
-      color:rgba(229,231,235,.96);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-    ">
-      <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
-        <div style="font:1000 18px/1.2 system-ui;">🏁 RACE — เริ่มพร้อมกัน</div>
-        <div style="opacity:.8; font-weight:900;">mode=race</div>
-      </div>
-
-      <div style="height:10px"></div>
-
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <div style="flex:1; min-width:220px; border:1px solid rgba(148,163,184,.14); background:rgba(148,163,184,.06); border-radius:18px; padding:10px 12px;">
-          <div style="opacity:.85; font-weight:900;">สถานะ</div>
-          <div style="height:6px"></div>
-          <div id="raceStatus" style="font:1000 16px/1.2 system-ui;">รอ start…</div>
-          <div style="height:10px"></div>
-          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <div style="font:1000 56px/1 system-ui;" id="raceCount">—</div>
-            <div style="opacity:.85; font-weight:900;" id="raceSub">วินาที</div>
-          </div>
-        </div>
-
-        <div style="flex:1; min-width:220px; border:1px solid rgba(148,163,184,.14); background:rgba(148,163,184,.06); border-radius:18px; padding:10px 12px;">
-          <div style="opacity:.85; font-weight:900;">ลิงก์เริ่มพร้อมกัน</div>
-          <div style="height:6px"></div>
-          <div style="opacity:.85; font-weight:900; font-size:12px; line-height:1.35;">
-            วิธีใช้: ให้ทุกคนเปิด “ลิงก์เดียวกัน” ที่มี startAt เหมือนกัน แล้วระบบจะนับถอยหลังและเริ่มเอง
-          </div>
-          <div style="height:10px"></div>
-          <input id="raceLink" readonly value="" style="
-            width:100%;
-            border:1px solid rgba(148,163,184,.18);
-            background:rgba(2,6,23,.55);
-            color:rgba(229,231,235,.96);
-            border-radius:14px;
-            padding:10px 12px;
-            font-weight:900;
-          "/>
-          <div style="height:10px"></div>
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button id="btnMake" style="
-              border-radius:16px; border:1px solid rgba(34,197,94,.28);
-              background:rgba(34,197,94,.14); color:rgba(229,231,235,.96);
-              padding:10px 12px; font-weight:1000; cursor:pointer; min-height:42px;
-            ">สร้าง startAt ใหม่</button>
-
-            <button id="btnCopy" style="
-              border-radius:16px; border:1px solid rgba(148,163,184,.22);
-              background:rgba(148,163,184,.10); color:rgba(229,231,235,.96);
-              padding:10px 12px; font-weight:1000; cursor:pointer; min-height:42px;
-            ">คัดลอกลิงก์</button>
-
-            <button id="btnStartNow" style="
-              border-radius:16px; border:1px solid rgba(239,68,68,.28);
-              background:rgba(239,68,68,.14); color:rgba(229,231,235,.96);
-              padding:10px 12px; font-weight:1000; cursor:pointer; min-height:42px;
-            ">เริ่มเดี๋ยวนี้</button>
-          </div>
-        </div>
-      </div>
-
-      <div style="height:10px"></div>
-      <div style="opacity:.75; font-weight:900; font-size:12px;">
-        Tip: เปิดเป็นครูใช้ <b>?mode=race&host=1</b> เพื่อกดสร้างลิงก์ แล้วส่งให้เด็กทุกคนเปิดลิงก์เดียวกัน
-      </div>
-
-      <div id="raceDebug" style="
-        margin-top:12px;
-        padding-top:10px;
-        border-top:1px dashed rgba(148,163,184,.18);
-        opacity:.9;
-        white-space:pre-wrap;
-        word-break:break-word;
-        font-size:12px;
-        line-height:1.5;
-      "></div>
-    </div>
-  `;
-  DOC.body.appendChild(overlay);
-
-  const $ = (id) => overlay.querySelector('#'+id);
-  const statusEl = $('raceStatus');
-  const countEl  = $('raceCount');
-  const subEl    = $('raceSub');
-  const linkEl   = $('raceLink');
-  const btnMake  = $('btnMake');
-  const btnCopy  = $('btnCopy');
-  const btnStartNow = $('btnStartNow');
-  const debugEl = $('raceDebug');
-
-  if (debugEl) {
-    debugEl.textContent =
-      [
-        `[PATCH] v20260327-RACE-CONTROLLER-MODEFIX-CORECHECK`,
-        `[MODE] ${mode}`,
-        `[ROOM] ${room}`,
-        `[PID] ${pid}`,
-        `[NICK] ${nick}`,
-        `[HOST] ${host ? '1' : '0'}`,
-        `[HAS_DB] ${getDb() ? 'yes' : 'no'}`,
-        `[HAS_CORE_API] ${hasCoreApi() ? 'yes' : 'no'}`
-      ].join('\n');
-  }
-
-  btnStartNow.addEventListener('click', ()=>{
-    startAt = 0;
-    writeStartAtToFirebase(0);
-    started = true;
-    publishPresence('playing');
-    startGameNow();
-  });
-
-  btnCopy.addEventListener('click', ()=>{
-    if(startAt <= 0) return;
-    copyText(buildLink(startAt));
-  });
-
-  btnMake.addEventListener('click', ()=>{
-    const lead = clamp(qs('lead', String(startIn || 8)), 3, 20);
-    startAt = Date.now() + lead * 1000;
-    refreshLink();
-    writeStartAtToFirebase(startAt);
-    if(host){
-      copyText(buildLink(startAt));
+    try {
+      await state.refs.myResult.set(payload);
+    } catch (err) {
+      console.error('[race-controller] write result failed', err);
+      debugPush(`result write failed: ${String(err && err.message ? err.message : err)}`);
     }
-  });
 
-  if(host && startAt <= 0){
-    const lead = clamp(String(startIn || 8), 3, 20);
-    startAt = Date.now() + lead * 1000;
+    try {
+      await state.refs.myPlayer.update({
+        connected: true,
+        phase: 'done',
+        score: payload.score,
+        contribution: payload.score,
+        miss: payload.miss,
+        streak: payload.bestStreak,
+        updatedAt: now(),
+        lastSeen: now()
+      });
+    } catch(_) {}
+
+    safeShowLoading('ส่งผลของคุณแล้ว กำลังรอผลครบ');
+    debugPush('my result submitted');
+    maybeEmitFinalSummary(false);
   }
 
-  refreshLink();
+  function buildRankedRows(){
+    const ids = state.participantIds.length
+      ? state.participantIds.slice()
+      : Object.keys(state.results || {});
 
-  if(getDb()){
-    publishPresence('waiting');
-    watchControlFromFirebase();
+    const rows = ids.map((id) => {
+      const r = state.results && state.results[id] ? state.results[id] : null;
+      const p = state.players && state.players[id] ? state.players[id] : null;
 
-    clearInterval(presenceTimer);
-    presenceTimer = setInterval(()=>{
-      publishPresence(started ? 'playing' : 'waiting');
-    }, 1500);
+      return {
+        pid: id,
+        nick: (r && r.nick) || (p && p.nick) || 'player',
+        score: num(r && r.score, num(p && (p.finalScore ?? p.score), 0)),
+        miss: num(r && r.miss, num(p && p.miss, 0)),
+        duration: num(r && r.duration, 999999),
+        final: !!(r && r.final)
+      };
+    }).filter(Boolean);
+
+    rows.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.duration !== b.duration) return a.duration - b.duration;
+      return a.miss - b.miss;
+    });
+
+    return rows;
   }
 
-  function tick(){
-    if(started) return;
+  function maybeEmitFinalSummary(force){
+    if (!state.latestBaseSummary) return;
 
-    if(startAt <= 0){
-      setStatus(host ? 'ครู: พร้อมสร้าง startAt' : 'รอลิงก์ที่มี startAt', null);
-      requestAnimationFrame(tick);
+    const rows = buildRankedRows();
+    if (!rows.length) return;
+
+    const expected = state.participantIds.length || rows.length;
+    const finals = rows.filter(r => r.final).length;
+    const roomEnded = String((state.roomState && state.roomState.status) || '') === 'ended';
+
+    if (!force && !roomEnded && finals < expected) {
       return;
     }
 
-    const msLeft = startAt - Date.now();
-    const sLeft = Math.ceil(msLeft / 1000);
+    const me = rows.find(r => r.pid === state.uid) || rows[0];
+    const rank = Math.max(1, rows.findIndex(r => r.pid === state.uid) + 1);
+    const finalSummary = Object.assign({}, state.latestBaseSummary, {
+      rank,
+      place: rank,
+      players: rows.length,
+      result: rank === 1 ? 'ชนะรอบนี้' : `อันดับ ${rank}`,
+      score: num(me.score, state.latestBaseSummary.score),
+      miss: num(state.latestBaseSummary.miss, 0),
+      controllerFinal: true,
+      standings: rows
+    });
 
-    if(msLeft > 0){
-      setStatus('นับถอยหลัง…', sLeft);
-      if(subEl) subEl.textContent = 'วินาที';
-      requestAnimationFrame(tick);
+    state.finalSummarySent = true;
+    safeDispatch('gj:race-summary', finalSummary);
+    safeDispatch('gj:summary', finalSummary);
+    safeDispatch('hha:summary', finalSummary);
+
+    try {
+      const s = getSafe();
+      if (s && typeof s.setSummary === 'function') {
+        s.setSummary(finalSummary);
+      }
+    } catch(_) {}
+
+    safeClearMessage();
+    debugPush(`final summary emitted rank=${rank}/${rows.length}`);
+  }
+
+  async function maybeCloseRace(){
+    if (!ctx.host) return;
+
+    const ids = state.participantIds.length ? state.participantIds.slice() : [];
+    if (!ids.length) return;
+
+    const finals = ids.filter((id) => {
+      const r = state.results && state.results[id];
+      return !!(r && r.final);
+    });
+
+    if (finals.length >= ids.length) {
+      try {
+        await state.refs.state.update({
+          status: 'ended',
+          updatedAt: now()
+        });
+      } catch(_) {}
+
+      try {
+        await state.refs.match.update({
+          status: 'finished'
+        });
+      } catch(_) {}
+    }
+  }
+
+  function handleSummaryEvent(evt){
+    const detail = evt && evt.detail ? evt.detail : null;
+    if (!detail || typeof detail !== 'object') return;
+    if (detail.controllerFinal) return;
+    if (detail.mode && String(detail.mode) !== MODE) return;
+    submitResultFromSummary(detail);
+  }
+
+  function bindSummaryEvents(){
+    [
+      'gj:race-summary',
+      'gj:summary',
+      'hha:summary'
+    ].forEach((name) => {
+      W.addEventListener(name, handleSummaryEvent);
+      state.offFns.push(() => W.removeEventListener(name, handleSummaryEvent));
+    });
+  }
+
+  async function boot(){
+    if (!roomId) {
+      safeShowError('ไม่พบ roomId ของ race');
       return;
     }
 
-    started = true;
-    setStatus('GO! 🚀', 0);
-    if(subEl) subEl.textContent = '';
-    publishPresence('playing');
-    setTimeout(startGameNow, 60);
+    try {
+      safeShowLoading('กำลังเชื่อมห้อง Race…');
+      debugPush(`boot start room=${roomId}`);
+
+      await ensureAuth();
+      await resolveRootKind();
+      attachRefs();
+      bindSummaryEvents();
+
+      await joinPresence();
+      subscribeRoom();
+      startHeartbeat();
+      startScoreSync();
+
+      if (!ctx.wait && !ctx.startAt) {
+        // quick play fallback
+        safeShowLoading('กำลังเริ่มเกม…');
+        await wait(250);
+        startCoreNow();
+      } else {
+        handleRoomState();
+      }
+
+      state.booted = true;
+      debugPush('boot ok');
+    } catch (err) {
+      console.error('[race-controller] boot failed', err);
+      safeShowError(`เริ่ม race controller ไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+      debugPush(`boot failed: ${String(err && err.message ? err.message : err)}`);
+    }
   }
 
-  requestAnimationFrame(tick);
-  markShellReady('overlay-mounted');
-
-  WIN.addEventListener('hha:end', ()=>{
-    submitRaceResult('finish');
-  });
-
-  WIN.addEventListener('pagehide', ()=>{
-    if(!submitted){
-      try{
-        const m = readGameMetrics();
-        if(Number(m.score || 0) > 0 || Number(m.shots || 0) > 0){
-          submitRaceResult('pagehide');
-        }
-      }catch(_){}
+  W.addEventListener('pagehide', () => {
+    stopTimers();
+    while (state.offFns.length) {
+      const fn = state.offFns.pop();
+      try { fn(); } catch(_) {}
     }
-    try { clearInterval(presenceTimer); } catch(_){}
   });
+
+  debugPush('controller installed');
+  boot();
 })();
