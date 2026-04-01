@@ -1,10 +1,10 @@
 /* /herohealth/vr-goodjunk/goodjunk.safe.duet.js
-   FULL PATCH v20260331-GJ-DUET-RUN-R7
-   - กด rematch แล้ว write vote + กลับ lobby ทันที
-   - cancel onDisconnect ก่อน redirect รีแมตช์
-   - กัน beforeunload/pagehide ยิง phase:left ทับ
-   - detach room listener ก่อนเด้งหน้า
-   - summary overlay mobile/pc กดปุ่มได้ชัดเจน
+   FULL PATCH v20260331-GJ-DUET-RUN-R8
+   - rematch: save pending flag to storage
+   - redirect back to lobby immediately
+   - cancel onDisconnect before rematch redirect
+   - prevent beforeunload/pagehide from writing left during rematch
+   - detach room listener before redirect
 */
 
 (function(){
@@ -61,6 +61,7 @@
   };
 
   const DEBUG = qs('debug', '0') === '1';
+  const PENDING_REMATCH_KEY = 'GJ_DUET_PENDING_REMATCH_V1';
 
   const clamp = (v, a, b) => {
     v = Number(v);
@@ -199,6 +200,33 @@
     return u.toString();
   }
 
+  function makePendingRematchPayload(){
+    return {
+      roomId: STATE.roomId,
+      pid: STATE.pid,
+      name: STATE.name,
+      hub: STATE.hub,
+      diff: STATE.diff,
+      timeSec: STATE.timeSec,
+      view: STATE.view,
+      run: STATE.run,
+      zone: STATE.zone,
+      theme: STATE.theme,
+      ts: Date.now()
+    };
+  }
+
+  function savePendingRematch(){
+    const payload = JSON.stringify(makePendingRematchPayload());
+    try{ localStorage.setItem(PENDING_REMATCH_KEY, payload); }catch{}
+    try{ sessionStorage.setItem(PENDING_REMATCH_KEY, payload); }catch{}
+  }
+
+  function clearPendingRematch(){
+    try{ localStorage.removeItem(PENDING_REMATCH_KEY); }catch{}
+    try{ sessionStorage.removeItem(PENDING_REMATCH_KEY); }catch{}
+  }
+
   async function cancelDisconnectMarker(){
     try{
       if (STATE.meOnDisconnect && typeof STATE.meOnDisconnect.cancel === 'function'){
@@ -218,40 +246,6 @@
       console.warn('[duet.run] detach room listener failed:', err);
     }
     STATE.roomOff = null;
-  }
-
-  async function goLobbyForRematchNow(){
-    if (STATE.rematchRedirected) return;
-
-    STATE.rematchRedirected = true;
-    stopHeartbeat();
-    stopRematchPoll();
-    detachRoomListener();
-
-    await cancelDisconnectMarker();
-
-    try{
-      if (STATE.meRef){
-        await STATE.meRef.update({
-          connected: true,
-          ready: true,
-          phase: 'lobby',
-          lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-        });
-      }
-    }catch(err){
-      console.warn('[duet.run] pre-rematch lobby presence update failed:', err);
-    }
-
-    const nextUrl = buildSameRoomLobbyUrl(true);
-
-    try{ W.location.replace(nextUrl); }catch(_){ W.location.href = nextUrl; }
-    setTimeout(() => {
-      try{ W.location.href = nextUrl; }catch(_){}
-    }, 120);
-    setTimeout(() => {
-      try{ W.location.replace(nextUrl); }catch(_){}
-    }, 320);
   }
 
   function getCurrentParticipantIds(room){
@@ -1014,7 +1008,7 @@
       bestStreak: STATE.bestStreak,
       partnerFinished: !!peer.finished,
       endedAt: new Date().toISOString(),
-      version: 'v20260331-GJ-DUET-RUN-R7'
+      version: 'v20260331-GJ-DUET-RUN-R8'
     };
   }
 
@@ -1185,24 +1179,47 @@
     if (STATE.rematchRedirected) return;
 
     STATE.rematchRequested = true;
+    savePendingRematch();
+
+    stopHeartbeat();
+    stopRematchPoll();
+    detachRoomListener();
+
+    await cancelDisconnectMarker();
 
     try{
-      await STATE.roomRef.child('rematch/' + STATE.uid).set({
+      if (STATE.meRef){
+        await STATE.meRef.update({
+          connected: true,
+          phase: 'lobby',
+          lastSeenAt: firebase.database.ServerValue.TIMESTAMP
+        });
+      }
+    }catch(err){
+      console.warn('[duet.run] set lobby phase before redirect failed:', err);
+    }
+
+    fireAndForget(
+      STATE.roomRef.child('rematch/' + STATE.uid).set({
         uid: STATE.uid,
         pid: STATE.pid,
         name: STATE.name,
         ready: true,
         requestedAt: firebase.database.ServerValue.TIMESTAMP
-      });
+      })
+    );
 
-      await goLobbyForRematchNow();
-    }catch(err){
-      console.error('[duet.run] requestRematch failed:', err);
-      STATE.rematchRequested = false;
-      STATE.rematchRedirected = false;
-      stopRematchPoll();
-      throw err;
-    }
+    const nextUrl = buildSameRoomLobbyUrl(true);
+
+    STATE.rematchRedirected = true;
+
+    try{ W.location.replace(nextUrl); }catch(_){ W.location.href = nextUrl; }
+    setTimeout(() => {
+      try{ W.location.href = nextUrl; }catch(_){}
+    }, 120);
+    setTimeout(() => {
+      try{ W.location.replace(nextUrl); }catch(_){}
+    }, 350);
   }
 
   async function maybeFinalizeRoom(){
@@ -1267,6 +1284,7 @@
     stopHeartbeat();
     stopRematchPoll();
     detachRoomListener();
+    clearPendingRematch();
 
     try{
       if (STATE.meRef){
@@ -1682,7 +1700,7 @@
           (status === 'waiting' || status === 'countdown' || status === 'running') &&
           !STATE.rematchRedirected
         ){
-          fireAndForget(goLobbyForRematchNow());
+          fireAndForget(safeReplace(buildSameRoomLobbyUrl(true)));
           return;
         }
 
