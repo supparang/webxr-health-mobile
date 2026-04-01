@@ -4,17 +4,18 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Redirecting…</title>
-  <meta http-equiv="refresh" content="0; url=./goodjunk-duet-play.html" />
   <script>
     (function () {
-      try{
+      try {
         var target = new URL('./goodjunk-duet-play.html', location.href);
         var src = new URL(location.href);
-        src.searchParams.forEach(function(v, k){
+
+        src.searchParams.forEach(function (v, k) {
           target.searchParams.set(k, v);
         });
+
         location.replace(target.toString());
-      }catch(e){
+      } catch (e) {
         location.href = './goodjunk-duet-play.html' + location.search;
       }
     })();
