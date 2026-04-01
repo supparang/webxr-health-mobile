@@ -334,9 +334,11 @@
       const cleanRoom = (s)=>String(s==null?'':s).toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,24);
       const randSeed = ()=>Math.floor(Math.random()*900000000)+100000000;
       const makeCode = ()=>`${ROOM_PREFIX}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+      const wait = (ms)=>new Promise(resolve => setTimeout(resolve, ms));
 
       const HUB = qs('hub', '../hub.html');
       const LAUNCHER = './goodjunk-multi.html';
+      const ROOM_PATH = (roomId) => `hha-battle/goodjunk/raceRooms/${roomId}`;
 
       const UI = {
         topNotice: document.getElementById('topNotice'),
@@ -375,7 +377,7 @@
         joined: false,
         players: {},
         meta: {},
-        state: { status:'waiting', plannedSec:90, seed:'', roundId:'' },
+        state: { status:'waiting', plannedSec:90, seed:'', roundId:'', participantIds:[] },
         refs: null,
         offFns: [],
         heartbeat: 0,
@@ -430,7 +432,7 @@
             }
           } catch (_) {}
 
-          await new Promise(resolve => setTimeout(resolve, 120));
+          await wait(120);
         }
 
         throw new Error('Firebase ยังไม่พร้อม');
@@ -509,9 +511,47 @@
         return user;
       }
 
+      async function ensureFreshAuthForWrite() {
+        await waitForFirebaseReady();
+        let user = await ensureAnonymousAuth();
+
+        try {
+          if (typeof user.getIdToken === 'function') {
+            await user.getIdToken(true);
+          }
+        } catch (_) {}
+
+        await wait(300);
+
+        if (window.firebase && typeof window.firebase.auth === 'function') {
+          const auth = window.firebase.auth();
+          if (!auth.currentUser || !auth.currentUser.uid) {
+            user = await waitForAuthUser(auth, 12000);
+          } else {
+            user = auth.currentUser;
+          }
+        }
+
+        if (!user || !user.uid) throw new Error('Anonymous auth failed');
+        S.uid = user.uid;
+        return user;
+      }
+
       async function ensureAuth(){
         const user = await ensureAnonymousAuth();
         S.uid = user.uid;
+      }
+
+      async function dbWriteWithRetry(writeFn) {
+        try {
+          return await writeFn();
+        } catch (err) {
+          const msg = String(err && err.message ? err.message : err);
+          if (!/PERMISSION_DENIED/i.test(msg)) throw err;
+          await ensureFreshAuthForWrite();
+          await wait(350);
+          return await writeFn();
+        }
       }
 
       function loadStored(){
@@ -624,7 +664,7 @@
         url.searchParams.set('safe', './goodjunk-race.safe.js');
         url.searchParams.set('core', './goodjunk.safe.race.js');
         url.searchParams.set('controller', './goodjunk-race.js');
-        url.searchParams.set('rv', '20260331-race-run-full');
+        url.searchParams.set('rv', '20260401-race-lobby-fix');
 
         if (sharedStartAt > 0) {
           url.searchParams.set('startAt', String(sharedStartAt));
@@ -721,7 +761,7 @@
         UI.statusBadge.textContent = status.toUpperCase();
         UI.roomSummary.textContent =
           status === 'countdown' ? `กำลังนับถอยหลัง • ${count}/2 players`
-          : status === 'playing' ? `กำลังเข้าเกม • ${count}/2 players`
+          : (status === 'playing' || status === 'running') ? `กำลังเข้าเกม • ${count}/2 players`
           : status === 'ended' ? `รอบก่อนจบแล้ว • ${count}/2 players`
           : `รอผู้เล่น • ${count}/2 players`;
 
@@ -746,7 +786,7 @@
           setTop('กำลังนับถอยหลัง เตรียมเข้าเกม');
           setSide('ทั้งสองฝั่งจะเข้า Race พร้อมกัน');
           setBottom('ห้ามปิดหน้าในช่วงนับถอยหลัง');
-        } else if(status === 'playing'){
+        } else if(status === 'playing' || status === 'running'){
           setTop('กำลังพาเข้าสู่หน้าเล่นจริง');
           setSide('ถ้าไม่เด้งเอง ให้รอสักครู่');
           setBottom('ระบบกำลัง sync ห้องก่อนเข้าเกม');
@@ -794,7 +834,7 @@
         S.joined = false;
         S.players = {};
         S.meta = {};
-        S.state = { status:'waiting', plannedSec:getTime(), seed:'', roundId:'' };
+        S.state = { status:'waiting', plannedSec:getTime(), seed:'', roundId:'', participantIds:[] };
         S.refs = null;
         S.redirecting = false;
       }
@@ -803,7 +843,7 @@
         const nowTs = Date.now();
         const selfRef = S.refs.players.child(S.uid);
 
-        await selfRef.set({
+        await dbWriteWithRetry(() => selfRef.set({
           pid:S.uid,
           nick:getNick(),
           connected:true,
@@ -811,7 +851,7 @@
           joinedAt:nowTs,
           updatedAt:nowTs,
           lastSeen:nowTs
-        });
+        }));
 
         try{ selfRef.onDisconnect().remove(); }catch{}
 
@@ -823,7 +863,7 @@
           S.state = snap.val() || {};
           renderState();
           renderCountdown();
-          if(S.state.status === 'playing'){ goRun(); }
+          if(S.state.status === 'playing' || S.state.status === 'running'){ goRun(); }
         };
         S.refs.state.on('value', stateHandler);
         S.offFns.push(()=>S.refs.state.off('value', stateHandler));
@@ -832,18 +872,25 @@
           S.players = snap.val() || {};
 
           if(isHost() && S.state && S.state.status === 'countdown' && activePlayers().length < 2){
-            await S.refs.state.update({
+            await dbWriteWithRetry(() => S.refs.state.update({
               status:'waiting',
               countdownEndsAt:null,
               startAt:null,
               roundId:'',
+              participantIds:[],
               updatedAt:Date.now()
-            }).catch(()=>{});
+            })).catch(()=>{});
+
+            await dbWriteWithRetry(() => S.refs.match.update({
+              participantIds:[],
+              lockedAt:null,
+              status:'idle'
+            })).catch(()=>{});
           }
 
           const actives = activePlayers();
           if(S.meta && S.meta.hostPid && !actives.find(p=>p.pid === S.meta.hostPid) && actives[0] && actives[0].pid === S.uid){
-            await S.refs.meta.update({ hostPid:S.uid, updatedAt:Date.now() }).catch(()=>{});
+            await dbWriteWithRetry(() => S.refs.meta.update({ hostPid:S.uid, updatedAt:Date.now() })).catch(()=>{});
           }
 
           renderState();
@@ -875,7 +922,7 @@
 
       async function createRoom(){
         try {
-          await ensureAuth();
+          await ensureFreshAuthForWrite();
           saveStored();
 
           cleanupRoom();
@@ -884,43 +931,63 @@
           UI.roomCodeBig.textContent = S.roomId;
 
           const db = ensureFirebaseDb();
-          const root = db.ref(`hha-battle/goodjunk/rooms/${S.roomId}`);
-          S.refs = { root, meta: root.child('meta'), state: root.child('state'), players: root.child('players') };
+          const root = db.ref(ROOM_PATH(S.roomId));
+          S.refs = {
+            root,
+            meta: root.child('meta'),
+            state: root.child('state'),
+            match: root.child('match'),
+            players: root.child('players'),
+            results: root.child('results')
+          };
 
           const nowTs = Date.now();
           const initialSeed = String(getSeed());
-          await S.refs.meta.set({
+
+          await dbWriteWithRetry(() => S.refs.meta.set({
             roomId:S.roomId,
             game:'goodjunk',
             mode:MODE_ID,
             diff:getDiff(),
             seed: initialSeed,
             hostPid:S.uid,
+            minPlayers:2,
+            maxPlayers:2,
             createdAt:nowTs,
             updatedAt:nowTs
-          });
-          await S.refs.state.set({
+          }));
+
+          await dbWriteWithRetry(() => S.refs.state.set({
             status:'waiting',
             plannedSec:getTime(),
             seed: initialSeed,
             roundId:'',
+            participantIds:[],
             createdAt:nowTs,
             updatedAt:nowTs,
             countdownEndsAt:null,
-            startAt:null
-          });
+            startAt:null,
+            startedAt:null
+          }));
+
+          await dbWriteWithRetry(() => S.refs.match.set({
+            participantIds:[],
+            lockedAt:null,
+            status:'idle',
+            race:{ finishedAt:0 }
+          }));
 
           await joinBoundRoom(true);
         } catch (err) {
           console.error('[race-lobby] createRoom failed', err);
           setTop(`สร้างห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
-          setSide('ตรวจ Firebase config / auth / database แล้วลองใหม่');
+          setSide('ตรวจ rules ว่า publish raceRooms แล้ว และ auth พร้อมจริง');
         }
       }
 
       async function joinRoom(){
         try {
-          await ensureAuth();
+          await ensureFreshAuthForWrite();
           saveStored();
 
           cleanupRoom();
@@ -932,10 +999,17 @@
           }
 
           const db = ensureFirebaseDb();
-          const root = db.ref(`hha-battle/goodjunk/rooms/${S.roomId}`);
-          S.refs = { root, meta: root.child('meta'), state: root.child('state'), players: root.child('players') };
+          const root = db.ref(ROOM_PATH(S.roomId));
+          S.refs = {
+            root,
+            meta: root.child('meta'),
+            state: root.child('state'),
+            match: root.child('match'),
+            players: root.child('players'),
+            results: root.child('results')
+          };
 
-          const metaSnap = await S.refs.meta.once('value');
+          const metaSnap = await dbWriteWithRetry(() => S.refs.meta.once('value'));
           if(!metaSnap.exists()){
             setTop('ไม่พบห้องนี้');
             setSide('ตรวจ room code แล้วลองใหม่');
@@ -946,7 +1020,7 @@
         } catch (err) {
           console.error('[race-lobby] joinRoom failed', err);
           setTop(`เข้าห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
-          setSide('ตรวจ Firebase config / auth / database แล้วลองใหม่');
+          setSide('ตรวจ rules ว่า publish raceRooms แล้ว และ auth พร้อมจริง');
         }
       }
 
@@ -967,6 +1041,13 @@
           return;
         }
 
+        const participantIds = active.slice(0, 2).map(p => p.pid).filter(Boolean);
+        if (participantIds.length < 2) {
+          setTop('ยังเริ่มไม่ได้');
+          setSide('participant ยังไม่ครบ 2 คน');
+          return;
+        }
+
         const sharedSeed = String(getSeed());
         const sharedDiff = String(getDiff());
         const sharedTime = Number(getTime());
@@ -976,25 +1057,33 @@
         UI.seedInput.value = sharedSeed;
 
         try {
-          await S.refs.root.child('results').remove();
+          await dbWriteWithRetry(() => S.refs.results.remove());
         } catch (_) {}
 
-        await S.refs.meta.update({
+        await dbWriteWithRetry(() => S.refs.meta.update({
           diff: sharedDiff,
           seed: sharedSeed,
           updatedAt: Date.now()
-        });
+        }));
 
-        await S.refs.state.update({
+        await dbWriteWithRetry(() => S.refs.match.update({
+          participantIds,
+          lockedAt: Date.now(),
+          status:'countdown',
+          race:{ finishedAt:0 }
+        }));
+
+        await dbWriteWithRetry(() => S.refs.state.update({
           status:'countdown',
           plannedSec: sharedTime,
           seed: sharedSeed,
           roundId: sharedRoundId,
+          participantIds,
           countdownEndsAt: sharedStartAt,
           startAt: sharedStartAt,
           startedAt:null,
           updatedAt:Date.now()
-        });
+        }));
       }
 
       function goRun(){
@@ -1081,7 +1170,7 @@
 
           setTop('กำลังเตรียม Firebase…');
           await waitForFirebaseReady();
-          try { await ensureAnonymousAuth(); } catch (err) { console.warn('[race-lobby] auth warmup failed', err); }
+          try { await ensureFreshAuthForWrite(); } catch (err) { console.warn('[race-lobby] auth warmup failed', err); }
           setTop('ใส่ชื่อ แล้วกดสร้างห้องหรือเข้าห้องได้เลย');
 
           await autoJoinIfNeeded();
