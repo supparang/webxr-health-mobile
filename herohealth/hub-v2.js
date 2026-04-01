@@ -16,8 +16,19 @@
       zoneLabel: 'Nutrition',
       emoji: '🍎',
       logo: './assets/logo-system/logos/goodjunk-logo.svg',
-      href: './vr-goodjunk/goodjunk-solo.html?zone=nutrition&game=goodjunk'
+      href: './goodjunk-launcher.html?zone=nutrition&game=goodjunk'
     },
+    goodjunkmulti: {
+      key: 'goodjunkmulti',
+      title: 'GoodJunk Multi',
+      shortTitle: 'GJ Multi',
+      zone: 'nutrition',
+      zoneLabel: 'Nutrition',
+      emoji: '👥',
+      logo: './assets/logo-system/logos/goodjunk-logo.svg',
+      href: './vr-goodjunk/goodjunk-multi.html?zone=nutrition&game=goodjunk'
+    },
+
     plate: {
       key: 'plate',
       title: 'Balanced Plate',
@@ -48,6 +59,7 @@
       logo: './assets/logo-system/logos/hydration-logo.svg',
       href: './hydration-v2.html?zone=nutrition&game=hydration'
     },
+
     brush: {
       key: 'brush',
       title: 'Brush Hero',
@@ -78,6 +90,7 @@
       logo: './assets/logo-system/logos/germ-detective-logo.svg',
       href: './germ-detective.html?zone=hygiene&game=germ'
     },
+
     shadow: {
       key: 'shadow',
       title: 'Shadow Breaker',
@@ -86,7 +99,7 @@
       zoneLabel: 'Fitness',
       emoji: '⚡',
       logo: './assets/logo-system/logos/shadow-breaker-logo.svg',
-      href: './fitness/shadow-breaker.html?zone=fitness&game=shadow'
+      href: './shadow-breaker-vr.html?zone=fitness&game=shadow'
     },
     rhythm: {
       key: 'rhythm',
@@ -96,7 +109,7 @@
       zoneLabel: 'Fitness',
       emoji: '🥊',
       logo: './assets/logo-system/logos/rhythm-boxer-logo.svg',
-      href: './fitness/rhythm-boxer.html?zone=fitness&game=rhythm'
+      href: './rhythm-boxer-vr.html?zone=fitness&game=rhythm'
     },
     jumpduck: {
       key: 'jumpduck',
@@ -106,20 +119,40 @@
       zoneLabel: 'Fitness',
       emoji: '🏃',
       logo: './assets/logo-system/logos/jump-duck-logo.svg',
-      href: './fitness/jump-duck.html?zone=fitness&game=jumpduck'
+      href: './jump-duck-vr.html?zone=fitness&game=jumpduck'
+    },
+    balance: {
+      key: 'balance',
+      title: 'Balance Hold',
+      shortTitle: 'Balance Hold',
+      zone: 'fitness',
+      zoneLabel: 'Fitness',
+      emoji: '🧘',
+      logo: './assets/logo-system/logos/balance-hold-logo.svg',
+      href: './balance-hold-vr.html?zone=fitness&game=balance'
+    },
+    planner: {
+      key: 'planner',
+      title: 'Fitness Planner',
+      shortTitle: 'Planner',
+      zone: 'fitness',
+      zoneLabel: 'Fitness',
+      emoji: '🗓️',
+      logo: './assets/logo-system/logos/fitness-planner-logo.svg',
+      href: './fitness-planner.html?zone=fitness&game=planner'
     }
   };
 
   const ZONE_MAP = {
     hygiene: ['brush', 'bath', 'germ'],
-    nutrition: ['goodjunk', 'plate', 'groups', 'hydration'],
-    fitness: ['shadow', 'rhythm', 'jumpduck']
+    nutrition: ['goodjunk', 'goodjunkmulti', 'plate', 'groups', 'hydration'],
+    fitness: ['shadow', 'rhythm', 'jumpduck', 'balance', 'planner']
   };
 
   const FEATURED = {
     hygiene: 'germ',
     nutrition: 'goodjunk',
-    fitness: 'jumpduck'
+    fitness: 'shadow'
   };
 
   const ZONE_LABELS = {
@@ -135,7 +168,9 @@
     stickerShelf: 'HH_STICKER_SHELF_V2',
     missionState: 'HH_MISSION_STATE_V2',
     lastGameKey: 'HH_LAST_GAME_KEY',
-    lastPlayedAt: 'HH_LAST_PLAYED_AT'
+    lastPlayedAt: 'HH_LAST_PLAYED_AT',
+    todayPlayedCount: 'HH_TODAY_PLAYED_COUNT',
+    todayZoneCount: 'HH_TODAY_ZONE_COUNT'
   };
 
   function readJSON(key, fallback) {
@@ -196,6 +231,7 @@
     const saved = readJSON(STORE.profile, {});
     const name = qs.get('name') || qs.get('nick') || saved.name || 'Rocky';
     const pid = qs.get('pid') || saved.pid || 'anon';
+
     return {
       name,
       pid,
@@ -215,23 +251,32 @@
   function resolveGameKey(input) {
     const raw = String(input || '').trim().toLowerCase();
     if (!raw) return '';
+
     const aliases = {
       platev1: 'plate',
+      platevr: 'plate',
       groupsvr: 'groups',
       hydrationv2: 'hydration',
       hydrationvr: 'hydration',
       brushvr: 'brush',
+      bathvr: 'bath',
       germdetective: 'germ',
       shadowbreaker: 'shadow',
       rhythmboxer: 'rhythm',
-      'jump-duck': 'jumpduck'
+      'jump-duck': 'jumpduck',
+      jumduck: 'jumpduck',
+      balancehold: 'balance',
+      fitnessplanner: 'planner',
+      goodjunkmulti: 'goodjunkmulti'
     };
+
     return GAME_REGISTRY[raw] ? raw : (aliases[raw] || '');
   }
 
   function gameCard(gameKey) {
     const g = GAME_REGISTRY[gameKey];
     if (!g) return '';
+
     const href = withHub(g.href);
 
     return `
@@ -258,11 +303,13 @@
   function renderLibrary() {
     const el = $('#libraryBox');
     if (!el) return;
+
     const order = [
-      'goodjunk', 'plate', 'groups', 'hydration',
+      'goodjunk', 'goodjunkmulti', 'plate', 'groups', 'hydration',
       'brush', 'bath', 'germ',
-      'shadow', 'rhythm', 'jumpduck'
+      'shadow', 'rhythm', 'jumpduck', 'balance', 'planner'
     ];
+
     el.innerHTML = order.map(gameCard).join('');
   }
 
@@ -294,7 +341,9 @@
     }
 
     if (mode === 'recommended') {
-      keys = zone && FEATURED[zone] ? [FEATURED[zone]] : [FEATURED.hygiene, FEATURED.nutrition, FEATURED.fitness];
+      keys = zone && FEATURED[zone]
+        ? [FEATURED[zone]]
+        : [FEATURED.hygiene, FEATURED.nutrition, FEATURED.fitness];
     } else if (mode === 'recent') {
       const recent = resolveGameKey(localStorage.getItem(STORE.lastGameKey));
       keys = recent ? [recent] : [FEATURED.nutrition];
@@ -341,6 +390,17 @@
     return null;
   }
 
+  function getSummaryGameKey(summary) {
+    if (!summary || typeof summary !== 'object') return '';
+    return resolveGameKey(
+      summary.gameKey ||
+      summary.game ||
+      summary.gameId ||
+      summary.key ||
+      summary.slug
+    );
+  }
+
   function updateSummaryBox() {
     const box = $('#summaryBox');
     if (!box) return;
@@ -356,12 +416,12 @@
       return;
     }
 
-    const gameKey = resolveGameKey(s.game || s.gameId || s.key);
+    const gameKey = getSummaryGameKey(s);
     const game = GAME_REGISTRY[gameKey];
     const title = game ? game.title : (s.title || 'ไม่ทราบชื่อเกม');
-    const score = s.score ?? s.points ?? '-';
-    const stars = s.stars ?? s.star ?? '-';
-    const rank = s.rank ?? '-';
+    const score = s.score ?? s.points ?? s.totalScore ?? '-';
+    const stars = s.stars ?? s.star ?? s.totalStars ?? '-';
+    const rank = s.rank ?? s.grade ?? '-';
 
     box.innerHTML = `
       <div class="summary-item">
@@ -397,12 +457,15 @@
 
   function updateTodayStats() {
     const lastKey = resolveGameKey(localStorage.getItem(STORE.lastGameKey));
-    const playedCount = Number(localStorage.getItem('HH_TODAY_PLAYED_COUNT') || 0);
-    const zoneCount = Number(localStorage.getItem('HH_TODAY_ZONE_COUNT') || 0);
+    const playedCount = Number(localStorage.getItem(STORE.todayPlayedCount) || 0);
+    const zoneCount = Number(localStorage.getItem(STORE.todayZoneCount) || 0);
 
     $('#todayPlayedCount').textContent = String(playedCount);
     $('#todayZoneCount').textContent = String(zoneCount);
-    $('#todayLastGame').textContent = lastKey && GAME_REGISTRY[lastKey] ? GAME_REGISTRY[lastKey].title : 'ยังไม่มี';
+    $('#todayLastGame').textContent = lastKey && GAME_REGISTRY[lastKey]
+      ? GAME_REGISTRY[lastKey].title
+      : 'ยังไม่มี';
+
     $('#todayNextGame').textContent = GAME_REGISTRY[FEATURED.nutrition].title;
   }
 
@@ -436,6 +499,7 @@
     const make = (zone, id) => {
       const el = document.getElementById(id);
       if (!el) return;
+
       const keys = ZONE_MAP[zone] || [];
       el.innerHTML = keys.map(k => {
         const g = GAME_REGISTRY[k];
@@ -451,6 +515,7 @@
   function renderStickerShelf() {
     const el = $('#stickerShelf');
     if (!el) return;
+
     const stickers = readJSON(STORE.stickerShelf, ['🌟','🪥','🍎','🏃','🛡️','💧','🥦','⚡']);
     el.innerHTML = stickers.slice(0, 8).map(s => `<div class="sticker">${escapeHtml(s)}</div>`).join('');
   }
@@ -486,7 +551,9 @@
 
     playMap.forEach(([id, key]) => {
       const el = document.getElementById(id);
-      if (el && GAME_REGISTRY[key]) el.href = withHub(GAME_REGISTRY[key].href);
+      if (el && GAME_REGISTRY[key]) {
+        el.href = withHub(GAME_REGISTRY[key].href);
+      }
     });
 
     $('#btnZoneHygiene')?.addEventListener('click', () => {
@@ -517,6 +584,7 @@
   function bindTools() {
     $('#btnSettings')?.addEventListener('click', () => toast('หน้าตั้งค่าจะเชื่อมต่อในขั้นถัดไป'));
     $('#btnRewards')?.addEventListener('click', () => toast('ระบบรางวัลพร้อมเชื่อมต่อกับ badge shelf'));
+
     $('#btnResetTodayMissions')?.addEventListener('click', () => {
       writeJSON(STORE.missionState, {
         items: [
@@ -603,7 +671,7 @@
       writeJSON(STORE.recentByZone, {
         hygiene: 'germ',
         nutrition: 'goodjunk',
-        fitness: 'jumpduck'
+        fitness: 'shadow'
       });
     }
 
