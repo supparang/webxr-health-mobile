@@ -12,27 +12,19 @@
       --sky1:#dff4ff;
       --sky2:#eefbff;
       --sky3:#fff8dd;
-
       --card:#fffdf8;
-      --card2:#f7fff4;
       --line:#bfe3f2;
       --text:#4d4a42;
       --muted:#75736d;
-
       --green:#7ed957;
       --green2:#58c33f;
       --blue:#7fcfff;
       --blue2:#58b7f5;
       --orange:#ffbe55;
-      --orange2:#ff9f1a;
-      --pink:#ff8fc7;
-
       --shadow:0 14px 36px rgba(57,104,132,.14);
       --shadow-lg:0 20px 54px rgba(57,104,132,.18);
       --radius:26px;
-      --radius-sm:18px;
     }
-
     *{ box-sizing:border-box; }
     html,body{ margin:0; padding:0; }
     body{
@@ -43,107 +35,41 @@
         radial-gradient(circle at top left, rgba(255,255,255,.95), transparent 32%),
         linear-gradient(180deg, var(--sky1), var(--sky2) 48%, var(--sky3));
     }
-
     a{ color:inherit; text-decoration:none; }
     button,input,select{ font:inherit; }
 
-    .bg-clouds{
-      position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0;
-    }
-    .cloud{
-      position:absolute;
-      border-radius:999px;
-      background:rgba(255,255,255,.52);
-    }
-    .cloud::before,.cloud::after{
-      content:"";
-      position:absolute;
-      border-radius:inherit;
-      background:inherit;
-    }
-    .cloud.c1{ width:220px; height:68px; top:64px; left:4%; }
-    .cloud.c1::before{ width:88px; height:88px; left:24px; top:-30px; }
-    .cloud.c1::after{ width:112px; height:112px; right:20px; top:-44px; }
-    .cloud.c2{ width:180px; height:56px; top:138px; right:9%; }
-    .cloud.c2::before{ width:82px; height:82px; left:22px; top:-26px; }
-    .cloud.c2::after{ width:92px; height:92px; right:18px; top:-30px; }
-    .cloud.c3{ width:250px; height:72px; top:228px; left:30%; }
-    .cloud.c3::before{ width:92px; height:92px; left:36px; top:-28px; }
-    .cloud.c3::after{ width:118px; height:118px; right:24px; top:-42px; }
-
     .shell{
-      position:relative;
-      z-index:1;
       width:min(1180px, calc(100% - 24px));
       margin:0 auto;
       padding:18px 0 30px;
     }
-
     .topbar{
       display:grid;
       grid-template-columns:auto 1fr auto;
       gap:12px;
       align-items:center;
     }
-
     .icon-btn{
-      width:48px;
-      height:48px;
-      border:none;
-      border-radius:16px;
-      background:#ffffffd9;
-      box-shadow:var(--shadow);
-      cursor:pointer;
-      font-size:1.15rem;
-      transition:transform .16s ease, box-shadow .16s ease;
+      width:48px; height:48px; border:none; border-radius:16px; background:#ffffffd9;
+      box-shadow:var(--shadow); cursor:pointer; font-size:1.15rem;
     }
-    .icon-btn:hover{
-      transform:translateY(-1px);
-      box-shadow:var(--shadow-lg);
-    }
-
     .brand-pill{
-      display:flex;
-      align-items:center;
-      gap:14px;
-      min-width:0;
-      padding:12px 16px;
-      border-radius:999px;
+      display:flex; align-items:center; gap:14px; min-width:0;
+      padding:12px 16px; border-radius:999px;
       background:linear-gradient(180deg, rgba(255,255,255,.97), rgba(255,250,242,.93));
-      border:1px solid rgba(120,190,220,.28);
-      box-shadow:var(--shadow);
+      border:1px solid rgba(120,190,220,.28); box-shadow:var(--shadow);
     }
     .brand-logo{
-      width:58px;
-      height:58px;
-      object-fit:contain;
-      flex:0 0 auto;
+      width:58px; height:58px; object-fit:contain; flex:0 0 auto;
       filter:drop-shadow(0 8px 12px rgba(0,0,0,.10));
     }
     .brand-logo-fallback{
-      width:58px;
-      height:58px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      font-size:30px;
-      background:linear-gradient(135deg,var(--blue),var(--green),var(--orange));
-      box-shadow:var(--shadow);
-      flex:0 0 auto;
+      width:58px; height:58px; border-radius:18px; display:grid; place-items:center;
+      font-size:30px; background:linear-gradient(135deg,var(--blue),var(--green),var(--orange));
+      box-shadow:var(--shadow); flex:0 0 auto;
     }
-    .brand-copy{ min-width:0; }
-    .brand-title{
-      margin:0;
-      line-height:1;
-      font-size:clamp(1.05rem, 2vw, 1.45rem);
-      font-weight:900;
-    }
-    .brand-sub{
-      margin:4px 0 0;
-      font-size:.84rem;
-      color:var(--muted);
-      font-weight:800;
-    }
+    .brand-title{ margin:0; line-height:1; font-size:clamp(1.05rem, 2vw, 1.45rem); font-weight:900; }
+    .brand-sub{ margin:4px 0 0; font-size:.84rem; color:var(--muted); font-weight:800; }
 
     .hero{
       margin-top:14px;
@@ -151,119 +77,54 @@
       grid-template-columns:1.15fr .85fr;
       gap:14px;
     }
-
     .panel{
       background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,252,246,.93));
       border:1px solid rgba(191,227,242,.88);
       border-radius:var(--radius);
       box-shadow:var(--shadow);
     }
-
     .welcome{
       padding:22px;
-      position:relative;
-      overflow:hidden;
       display:grid;
       grid-template-columns:1.08fr .72fr;
       gap:12px;
-    }
-    .welcome::after{
-      content:"";
-      position:absolute;
-      right:-22px;
-      bottom:-22px;
-      width:180px;
-      height:180px;
-      border-radius:50%;
-      background:radial-gradient(circle, rgba(255,214,102,.24), transparent 62%);
+      overflow:hidden;
+      position:relative;
     }
     .hello{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:7px 12px;
-      border-radius:999px;
-      background:#fff5c8;
-      font-weight:900;
-      font-size:.88rem;
+      display:inline-flex; align-items:center; gap:8px; padding:7px 12px;
+      border-radius:999px; background:#fff5c8; font-weight:900; font-size:.88rem;
     }
     .welcome h1{
-      margin:12px 0 8px;
-      font-size:clamp(1.45rem, 2.6vw, 2.05rem);
-      line-height:1.12;
+      margin:12px 0 8px; font-size:clamp(1.45rem, 2.6vw, 2.05rem); line-height:1.12;
     }
-    .welcome p{
-      margin:0;
-      color:var(--muted);
-      font-weight:700;
-    }
+    .welcome p{ margin:0; color:var(--muted); font-weight:700; }
     .hero-note{
-      margin-top:12px;
-      padding:10px 12px;
-      border-radius:16px;
-      background:#f4fbff;
-      border:1px dashed #b8def2;
-      font-weight:800;
+      margin-top:12px; padding:10px 12px; border-radius:16px;
+      background:#f4fbff; border:1px dashed #b8def2; font-weight:800;
     }
     .hero-art{
-      min-height:210px;
-      border-radius:24px;
-      background:
-        radial-gradient(circle at 50% 28%, rgba(255,255,255,.96), rgba(255,255,255,0) 42%),
-        linear-gradient(135deg,#f7fff0,#e4ffd3 46%,#fff7d6);
-      display:grid;
-      place-items:center;
-      font-size:82px;
+      min-height:210px; border-radius:24px;
+      background:linear-gradient(135deg,#f7fff0,#e4ffd3 46%,#fff7d6);
+      display:grid; place-items:center; font-size:82px;
     }
 
-    .profile{
-      padding:18px;
-      display:grid;
-      gap:14px;
-    }
-
+    .profile{ padding:18px; display:grid; gap:14px; }
     .avatar-row{
-      display:grid;
-      grid-template-columns:auto 1fr;
-      gap:14px;
-      align-items:center;
+      display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:center;
     }
-
     .avatar{
-      width:82px;
-      height:82px;
-      border-radius:22px;
+      width:82px; height:82px; border-radius:22px;
       background:linear-gradient(135deg,#fff7cf,#ffd56e);
-      box-shadow:var(--shadow);
-      display:grid;
-      place-items:center;
-      font-size:42px;
+      box-shadow:var(--shadow); display:grid; place-items:center; font-size:42px;
     }
+    .profile h2{ margin:0; font-size:1.2rem; }
+    .profile p{ margin:4px 0 0; color:var(--muted); font-weight:700; }
 
-    .profile h2{
-      margin:0;
-      font-size:1.2rem;
-    }
-    .profile p{
-      margin:4px 0 0;
-      color:var(--muted);
-      font-weight:700;
-    }
-
-    .chips{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-    }
+    .chips{ display:flex; flex-wrap:wrap; gap:10px; }
     .chip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:9px 12px;
-      border-radius:999px;
-      background:#f7fbff;
-      border:1px solid #d5ecf7;
-      font-weight:900;
+      display:inline-flex; align-items:center; gap:8px; padding:9px 12px;
+      border-radius:999px; background:#f7fbff; border:1px solid #d5ecf7; font-weight:900;
     }
 
     .config{
@@ -272,40 +133,14 @@
       grid-template-columns:1fr 1fr 1fr;
       gap:14px;
     }
-
-    .config-card{
-      padding:16px;
-    }
-
-    .section-title{
-      margin:0 0 12px;
-      font-size:1rem;
-    }
-
-    .form-grid{
-      display:grid;
-      gap:10px;
-    }
-
-    .field{
-      display:grid;
-      gap:6px;
-    }
-
-    .field label{
-      font-size:.88rem;
-      font-weight:900;
-    }
-
-    .input,
-    .select{
-      width:100%;
-      border:1px solid #d6eaf6;
-      background:#fff;
-      border-radius:14px;
-      padding:11px 12px;
-      color:var(--text);
-      outline:none;
+    .config-card{ padding:16px; }
+    .section-title{ margin:0 0 12px; font-size:1rem; }
+    .form-grid{ display:grid; gap:10px; }
+    .field{ display:grid; gap:6px; }
+    .field label{ font-size:.88rem; font-weight:900; }
+    .input,.select{
+      width:100%; border:1px solid #d6eaf6; background:#fff;
+      border-radius:14px; padding:11px 12px; color:var(--text); outline:none;
     }
 
     .modes{
@@ -314,93 +149,33 @@
       grid-template-columns:1fr 1fr;
       gap:14px;
     }
-
     .mode-card{
-      padding:18px;
-      position:relative;
-      overflow:hidden;
-      display:grid;
-      gap:12px;
-      min-height:280px;
+      padding:18px; position:relative; display:grid; gap:12px; min-height:280px;
     }
-    .mode-card::after{
-      content:"";
-      position:absolute;
-      right:-20px;
-      bottom:-20px;
-      width:140px;
-      height:140px;
-      border-radius:50%;
-      background:radial-gradient(circle, rgba(255,255,255,.34), transparent 66%);
-      pointer-events:none;
-    }
-    .mode-card.solo{
-      background:linear-gradient(180deg,#fffdf8,#f6fff0);
-    }
-    .mode-card.multi{
-      background:linear-gradient(180deg,#fffdf8,#f3f8ff);
-    }
+    .mode-card.solo{ background:linear-gradient(180deg,#fffdf8,#f6fff0); }
+    .mode-card.multi{ background:linear-gradient(180deg,#fffdf8,#f3f8ff); }
 
     .mode-badge{
-      width:max-content;
-      padding:6px 10px;
-      border-radius:999px;
-      font-size:.78rem;
-      font-weight:900;
-      background:#fff;
-      border:1px solid #dcecf7;
+      width:max-content; padding:6px 10px; border-radius:999px;
+      font-size:.78rem; font-weight:900; background:#fff; border:1px solid #dcecf7;
     }
-
-    .mode-card h3{
-      margin:0;
-      font-size:1.25rem;
-    }
-
-    .mode-card p{
-      margin:0;
-      color:var(--muted);
-      font-weight:700;
-    }
-
+    .mode-card h3{ margin:0; font-size:1.25rem; }
+    .mode-card p{ margin:0; color:var(--muted); font-weight:700; }
     .mode-points{
-      margin:0;
-      padding-left:18px;
-      color:var(--text);
-      font-weight:800;
-      display:grid;
-      gap:6px;
+      margin:0; padding-left:18px; color:var(--text); font-weight:800; display:grid; gap:6px;
     }
-
-    .btn-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:auto;
-    }
-
+    .btn-row{ display:flex; flex-wrap:wrap; gap:10px; margin-top:auto; }
     .btn{
-      border:none;
-      cursor:pointer;
-      transition:transform .16s ease, box-shadow .16s ease;
-      font-weight:900;
+      border:none; cursor:pointer; transition:transform .16s ease, box-shadow .16s ease; font-weight:900;
     }
     .btn:hover{ transform:translateY(-1px); }
-
     .btn.primary{
-      padding:12px 16px;
-      border-radius:16px;
-      background:linear-gradient(180deg,var(--green),var(--green2));
-      color:#fff;
-      box-shadow:0 10px 22px rgba(88,195,63,.22);
+      padding:12px 16px; border-radius:16px; background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#fff; box-shadow:0 10px 22px rgba(88,195,63,.22);
     }
-
     .btn.secondary{
-      padding:12px 16px;
-      border-radius:16px;
-      background:#fff;
-      color:var(--text);
-      border:1px solid #d5ecf7;
-      box-shadow:0 8px 18px rgba(43,88,118,.06);
+      padding:12px 16px; border-radius:16px; background:#fff; color:var(--text);
+      border:1px solid #d5ecf7; box-shadow:0 8px 18px rgba(43,88,118,.06);
     }
 
     .summary{
@@ -409,144 +184,59 @@
       grid-template-columns:1.15fr .85fr;
       gap:14px;
     }
-
-    .summary-card{
-      padding:16px;
-    }
-
+    .summary-card{ padding:16px; }
     .summary-grid{
       display:grid;
       grid-template-columns:repeat(2,1fr);
       gap:10px;
     }
-
     .pill{
-      padding:12px;
-      border-radius:18px;
-      background:#f8fbff;
-      border:1px solid #d8ebf7;
+      padding:12px; border-radius:18px; background:#f8fbff; border:1px solid #d8ebf7;
     }
-    .pill .n{
-      display:block;
-      font-size:1.05rem;
-      font-weight:900;
-    }
-    .pill .t{
-      display:block;
-      margin-top:4px;
-      color:var(--muted);
-      font-weight:800;
-      font-size:.82rem;
-    }
+    .pill .n{ display:block; font-size:1.05rem; font-weight:900; }
+    .pill .t{ display:block; margin-top:4px; color:var(--muted); font-weight:800; font-size:.82rem; }
 
     .route-box{
-      padding:12px;
-      border-radius:18px;
-      background:#f8fbff;
-      border:1px solid #d8ebf7;
-      word-break:break-word;
-      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-      font-size:.85rem;
-      line-height:1.45;
+      padding:12px; border-radius:18px; background:#f8fbff; border:1px solid #d8ebf7;
+      word-break:break-word; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-size:.85rem; line-height:1.45;
     }
-
-    .footer-tools{
-      display:flex;
-      gap:10px;
-      justify-content:flex-end;
-      margin-top:14px;
-    }
-
-    .footer-note{
-      margin:12px 4px 0;
-      text-align:center;
-      color:var(--muted);
-      font-size:.86rem;
-      font-weight:800;
-    }
+    .footer-tools{ display:flex; gap:10px; justify-content:flex-end; margin-top:14px; }
+    .footer-note{ margin:12px 4px 0; text-align:center; color:var(--muted); font-size:.86rem; font-weight:800; }
 
     .toast{
-      position:fixed;
-      left:50%;
-      bottom:18px;
-      transform:translateX(-50%) translateY(18px);
-      min-width:200px;
-      max-width:min(92vw,560px);
-      padding:12px 14px;
-      border-radius:16px;
-      background:rgba(31,41,55,.92);
-      color:#fff;
-      font-weight:900;
-      box-shadow:0 16px 34px rgba(0,0,0,.22);
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .18s ease, transform .18s ease;
-      z-index:30;
+      position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(18px);
+      min-width:200px; max-width:min(92vw,560px); padding:12px 14px; border-radius:16px;
+      background:rgba(31,41,55,.92); color:#fff; font-weight:900;
+      box-shadow:0 16px 34px rgba(0,0,0,.22); opacity:0; pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease; z-index:30;
     }
-    .toast.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(0);
-    }
+    .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
     @media (max-width: 1020px){
-      .hero,
-      .config,
-      .modes,
-      .summary{
-        grid-template-columns:1fr;
-      }
+      .hero,.config,.modes,.summary{ grid-template-columns:1fr; }
     }
-
     @media (max-width: 760px){
-      .shell{
-        width:min(100% - 14px, 1180px);
-      }
-      .welcome{
-        grid-template-columns:1fr;
-      }
-      .summary-grid{
-        grid-template-columns:1fr;
-      }
-      .brand-pill{
-        gap:10px;
-        padding:10px 12px;
-      }
-      .brand-logo,
-      .brand-logo-fallback{
-        width:48px;
-        height:48px;
-      }
-      .icon-btn{
-        width:42px;
-        height:42px;
-        border-radius:14px;
-      }
+      .shell{ width:min(100% - 14px, 1180px); }
+      .welcome{ grid-template-columns:1fr; }
+      .summary-grid{ grid-template-columns:1fr; }
+      .brand-logo,.brand-logo-fallback{ width:48px; height:48px; }
+      .icon-btn{ width:42px; height:42px; border-radius:14px; }
     }
   </style>
 </head>
 <body>
-  <div class="bg-clouds" aria-hidden="true">
-    <div class="cloud c1"></div>
-    <div class="cloud c2"></div>
-    <div class="cloud c3"></div>
-  </div>
-
   <main class="shell">
     <header class="topbar">
       <button id="btnBackHub" class="icon-btn" type="button" aria-label="กลับฮับ">🏠</button>
 
       <div class="brand-pill" aria-label="HeroHealth GoodJunk">
-        <img
-          class="brand-logo"
-          src="./assets/logo-system/logos/goodjunk-logo.svg"
-          alt="GoodJunk Hero"
-          onerror="this.style.display='none';this.nextElementSibling.hidden=false;"
-        />
+        <img class="brand-logo" src="./assets/logo-system/logos/goodjunk-logo.svg" alt="GoodJunk Hero"
+          onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
         <div class="brand-logo-fallback" hidden aria-hidden="true">🍎</div>
-
         <div class="brand-copy">
           <h1 class="brand-title">GoodJunk Hero</h1>
-          <p class="brand-sub">Nutrition Zone • เลือกทางเข้าเล่นที่ต้องการ</p>
+          <p class="brand-sub">Nutrition Zone • launcher → warmup/cooldown flow</p>
         </div>
       </div>
 
@@ -557,16 +247,15 @@
       <section class="panel welcome">
         <div>
           <div class="hello">🍎 โหมดโภชนาการพร้อมแล้ว!</div>
-          <h1>เลือกเข้าเล่นแบบเดี่ยว หรือเข้าโหมดหลายคน</h1>
+          <h1>Solo จะผ่าน Warmup ก่อนเข้าเกม</h1>
           <p>
-            หน้านี้ใช้เป็นจุดเริ่มต้นของ GoodJunk โดยแยกให้ชัดระหว่าง
-            <strong>Solo Phase Boss</strong> และ <strong>Multiplayer</strong>
+            หน้านี้แยกเข้าเล่น 2 ทางคือ <strong>Solo Phase Boss</strong> และ
+            <strong>Multiplayer</strong> โดยฝั่ง Solo จะผ่าน <code>warmup-gate.html?phase=warmup</code> ก่อนเสมอ
           </p>
           <div class="hero-note">
-            แนะนำสำหรับเด็ก: เริ่มจาก Solo Phase Boss ก่อน แล้วค่อยไป Multiplayer
+            Flow ที่ถูกต้อง: launcher → warmup-gate → goodjunk-vr → cooldown-gate → hub
           </div>
         </div>
-
         <div class="hero-art" aria-hidden="true">🍎🥦🍔</div>
       </section>
 
@@ -619,6 +308,7 @@
               <option value="60">60 วินาที</option>
               <option value="90" selected>90 วินาที</option>
               <option value="120">120 วินาที</option>
+              <option value="150">150 วินาที</option>
             </select>
           </div>
         </div>
@@ -646,15 +336,13 @@
       <article class="panel mode-card solo">
         <div class="mode-badge">SOLO</div>
         <h3>Solo Phase Boss</h3>
-        <p>เล่นคนเดียวแบบมี phase progression และบอสท้ายเฟส เหมาะกับ challenge mode</p>
-
+        <p>เล่นคนเดียวแบบมี phase progression และบอสท้ายเฟส โดยเข้าผ่าน warmup gate ก่อนเสมอ</p>
         <ul class="mode-points">
-          <li>เล่นคนเดียว ไม่ต้องใช้ room</li>
-          <li>มี phase + boss fight</li>
-          <li>ใช้เป็นทางเข้า solo หลักของ GoodJunk</li>
-          <li>เหมาะกับเด็กที่อยากเริ่มเล่นเองก่อน</li>
+          <li>launcher → warmup-gate?phase=warmup</li>
+          <li>จากนั้นเข้า goodjunk-vr.html</li>
+          <li>ตอนจบเกมจะไป cooldown gate</li>
+          <li>สุดท้ายกลับ hub</li>
         </ul>
-
         <div class="btn-row">
           <button id="btnEnterSoloBoss" class="btn primary" type="button">🍎 เข้า Solo Phase Boss</button>
           <button id="btnPreviewSoloBoss" class="btn secondary" type="button">ดู route</button>
@@ -665,14 +353,12 @@
         <div class="mode-badge">MULTI</div>
         <h3>GoodJunk Multiplayer</h3>
         <p>รวมทางเข้าโหมด Duet, Battle, Race และ Coop ไว้ในหน้าจอเดียว</p>
-
         <ul class="mode-points">
-          <li>ใช้เป็นทางเข้า multi mode หลัก</li>
-          <li>แยกไป duet / battle / race / coop</li>
-          <li>เหมาะกับเล่นกับเพื่อนในห้องเรียน</li>
-          <li>ส่ง context จาก launcher ไปต่อได้</li>
+          <li>เข้า goodjunk-multi.html</li>
+          <li>เลือก duet / battle / race / coop</li>
+          <li>ส่ง pid / diff / time / seed ต่อได้</li>
+          <li>เหมาะกับเล่นกับเพื่อน</li>
         </ul>
-
         <div class="btn-row">
           <button id="btnEnterMulti" class="btn primary" type="button">👥 เข้า Multiplayer</button>
           <button id="btnPreviewMulti" class="btn secondary" type="button">ดู route</button>
@@ -686,11 +372,11 @@
         <div class="summary-grid">
           <div class="pill">
             <span class="n">Solo</span>
-            <span class="t">goodjunk-launcher → solo phase boss</span>
+            <span class="t">warmup-gate.html?phase=warmup → goodjunk-vr.html</span>
           </div>
           <div class="pill">
             <span class="n">Multiplayer</span>
-            <span class="t">goodjunk-multi → duet / battle / race / coop</span>
+            <span class="t">goodjunk-multi.html</span>
           </div>
           <div class="pill">
             <span class="n" id="selectedModeText">ยังไม่เลือก</span>
@@ -713,9 +399,7 @@
       <button id="btnOpenResolved" class="btn secondary" type="button">🚀 เปิดลิงก์ล่าสุด</button>
     </div>
 
-    <p class="footer-note">
-      HeroHealth • GoodJunk Launcher • child-friendly • nutrition-first
-    </p>
+    <p class="footer-note">HeroHealth • GoodJunk Launcher • warmup/cooldown same gate</p>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -727,7 +411,8 @@
       const $ = (sel, root=document) => root.querySelector(sel);
 
       const ROUTES = {
-        soloBoss: './goodjunk-launcher.html',
+        gate: './warmup-gate.html',
+        soloRun: './goodjunk-vr.html',
         multi: './vr-goodjunk/goodjunk-multi.html'
       };
 
@@ -764,7 +449,6 @@
 
       function getState(){
         const q = qs();
-
         const name = cleanText($('#playerNameInput')?.value || q.get('name') || q.get('nick') || 'Rocky', 24) || 'Rocky';
         const pid = cleanText($('#playerPidInput')?.value || q.get('pid') || 'anon', 32) || 'anon';
         const diff = $('#difficultySelect')?.value || q.get('diff') || 'normal';
@@ -772,35 +456,63 @@
         const seed = cleanText($('#seedInput')?.value || q.get('seed') || nowSeed(), 40) || nowSeed();
         const run = $('#runSelect')?.value || q.get('run') || 'play';
         const hub = hubUrl();
-
         return { name, pid, diff, time, seed, run, hub };
       }
 
       function buildUrl(kind){
         const s = getState();
-        const url = new URL(kind === 'multi' ? ROUTES.multi : ROUTES.soloBoss, location.href);
-
-        url.searchParams.set('zone', 'nutrition');
-        url.searchParams.set('game', 'goodjunk');
-        url.searchParams.set('name', s.name);
-        url.searchParams.set('pid', s.pid);
-        url.searchParams.set('diff', s.diff);
-        url.searchParams.set('time', s.time);
-        url.searchParams.set('seed', s.seed);
-        url.searchParams.set('run', s.run);
-        url.searchParams.set('hub', s.hub);
 
         if (kind === 'multi') {
+          const url = new URL(ROUTES.multi, location.href);
+          url.searchParams.set('zone', 'nutrition');
+          url.searchParams.set('game', 'goodjunk');
+          url.searchParams.set('name', s.name);
+          url.searchParams.set('pid', s.pid);
+          url.searchParams.set('diff', s.diff);
+          url.searchParams.set('time', s.time);
+          url.searchParams.set('seed', s.seed);
+          url.searchParams.set('run', s.run);
+          url.searchParams.set('hub', s.hub);
           url.searchParams.set('entry', 'multi');
           url.searchParams.set('mode', 'multi');
-        } else {
-          url.searchParams.set('entry', 'solo-boss');
-          url.searchParams.set('mode', 'solo');
-          url.searchParams.set('phaseBoss', '1');
-          url.searchParams.set('boss', '1');
+          return url.toString();
         }
 
-        return url.toString();
+        const runUrl = new URL(ROUTES.soloRun, location.href);
+        runUrl.searchParams.set('pid', s.pid);
+        runUrl.searchParams.set('name', s.name);
+        runUrl.searchParams.set('studyId', '');
+        runUrl.searchParams.set('diff', s.diff);
+        runUrl.searchParams.set('time', s.time);
+        runUrl.searchParams.set('seed', s.seed);
+        runUrl.searchParams.set('hub', s.hub);
+        runUrl.searchParams.set('view', 'mobile');
+        runUrl.searchParams.set('run', s.run);
+        runUrl.searchParams.set('zone', 'nutrition');
+        runUrl.searchParams.set('game', 'goodjunk');
+        runUrl.searchParams.set('entry', 'solo-boss');
+        runUrl.searchParams.set('mode', 'solo');
+        runUrl.searchParams.set('phaseBoss', '1');
+        runUrl.searchParams.set('boss', '1');
+
+        const gateUrl = new URL(ROUTES.gate, location.href);
+        gateUrl.searchParams.set('phase', 'warmup');
+        gateUrl.searchParams.set('pid', s.pid);
+        gateUrl.searchParams.set('name', s.name);
+        gateUrl.searchParams.set('game', 'goodjunk');
+        gateUrl.searchParams.set('zone', 'nutrition');
+        gateUrl.searchParams.set('run', s.run);
+        gateUrl.searchParams.set('diff', s.diff);
+        gateUrl.searchParams.set('time', s.time);
+        gateUrl.searchParams.set('seed', s.seed);
+        gateUrl.searchParams.set('hub', s.hub);
+        gateUrl.searchParams.set('entry', 'solo-boss');
+        gateUrl.searchParams.set('mode', 'solo');
+        gateUrl.searchParams.set('phaseBoss', '1');
+        gateUrl.searchParams.set('boss', '1');
+        gateUrl.searchParams.set('next', runUrl.toString());
+
+        return gateUrl.toString();
       }
 
       function updateMiniProfile(){
@@ -823,7 +535,7 @@
         showResolved(
           url,
           kind === 'multi' ? 'GoodJunk Multiplayer' : 'Solo Phase Boss',
-          kind === 'multi' ? 'goodjunk-multi.html' : 'goodjunk-launcher.html'
+          kind === 'multi' ? 'goodjunk-multi.html' : 'warmup-gate.html?phase=warmup → goodjunk-vr.html'
         );
         location.href = url;
       }
@@ -833,7 +545,7 @@
         showResolved(
           url,
           kind === 'multi' ? 'GoodJunk Multiplayer' : 'Solo Phase Boss',
-          kind === 'multi' ? 'goodjunk-multi.html' : 'goodjunk-launcher.html'
+          kind === 'multi' ? 'goodjunk-multi.html' : 'warmup-gate.html?phase=warmup → goodjunk-vr.html'
         );
         toast('สร้าง route แล้ว');
       }
@@ -866,7 +578,6 @@
 
         $('#btnEnterSoloBoss')?.addEventListener('click', () => goToResolved('solo'));
         $('#btnPreviewSoloBoss')?.addEventListener('click', () => previewResolved('solo'));
-
         $('#btnEnterMulti')?.addEventListener('click', () => goToResolved('multi'));
         $('#btnPreviewMulti')?.addEventListener('click', () => previewResolved('multi'));
 
