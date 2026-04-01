@@ -69,14 +69,72 @@
 
     WIN.HHA_ensureAnonymousAuth = async function () {
       const a = WIN.HHA_FIREBASE_AUTH || firebase.auth(app);
-      if (a.currentUser) return a.currentUser;
 
-      const cred = await a.signInAnonymously();
-      return (cred && cred.user) || a.currentUser;
+      function waitForUser(timeoutMs = 8000) {
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('anonymous auth timeout')), timeoutMs);
+          const off = a.onAuthStateChanged((user) => {
+            if (!user) return;
+            clearTimeout(timer);
+            try { off(); } catch(_) {}
+            resolve(user);
+          }, (err) => {
+            clearTimeout(timer);
+            try { off(); } catch(_) {}
+            reject(err || new Error('anonymous auth failed'));
+          });
+        });
+      }
+
+      let user = a.currentUser;
+
+      if (!user) {
+        const cred = await a.signInAnonymously();
+        user = (cred && cred.user) || null;
+      }
+
+      if (!user) {
+        user = await waitForUser();
+      }
+
+      if (!user || !user.uid) {
+        throw new Error('anonymous auth failed');
+      }
+
+      try {
+        await user.getIdToken(true);
+      } catch (_) {}
+
+      await new Promise(resolve => setTimeout(resolve, 250));
+
+      return a.currentUser || user;
+    };
+
+    WIN.HHA_debugFirebase = function () {
+      const appNow = WIN.HHA_FIREBASE_APP || (firebase.apps && firebase.apps.length ? firebase.app() : null);
+      const authNow = WIN.HHA_FIREBASE_AUTH || (typeof firebase.auth === 'function' ? firebase.auth() : null);
+      const dbNow = WIN.HHA_FIREBASE_DB || (typeof firebase.database === 'function' ? firebase.database() : null);
+
+      const out = {
+        ready: !!WIN.HHA_FIREBASE_READY,
+        error: WIN.HHA_FIREBASE_ERROR || '',
+        hasFirebase: !!WIN.firebase,
+        appCount: firebase.apps ? firebase.apps.length : -1,
+        appName: appNow && appNow.name ? appNow.name : '',
+        databaseURL: appNow && appNow.options ? appNow.options.databaseURL : '',
+        authUid: authNow && authNow.currentUser ? authNow.currentUser.uid : '',
+        authIsAnonymous: !!(authNow && authNow.currentUser && authNow.currentUser.isAnonymous),
+        hasDb: !!dbNow
+      };
+
+      console.log('[HHA_debugFirebase]', out);
+      return out;
     };
 
     console.log('[firebase-config] initializeApp ok');
     console.log('[firebase-config] ready =', !!WIN.HHA_FIREBASE_READY);
+    console.log('[firebase-config] databaseURL =', app && app.options ? app.options.databaseURL : '');
+    console.log('[firebase-config] auth uid =', auth && auth.currentUser ? auth.currentUser.uid : '(not-yet)');
 
     emitReady(true, {
       appName: app && app.name ? app.name : '[DEFAULT]'
