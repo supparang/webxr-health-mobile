@@ -7,258 +7,284 @@
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
-
   <style>
     :root{
       --sky1:#dff4ff;
-      --sky2:#bfe8ff;
-      --sky3:#fff7d8;
-      --card:#fffdf6;
-      --card2:#f8fff3;
+      --sky2:#eefbff;
+      --sky3:#fff8dd;
+
+      --card:#fffdf8;
+      --card2:#f7fff4;
       --line:#bfe3f2;
       --text:#4d4a42;
-      --muted:#7b7a72;
+      --muted:#75736d;
 
       --green:#7ed957;
       --green2:#58c33f;
       --blue:#7fcfff;
       --blue2:#58b7f5;
+      --orange:#ffbe55;
+      --orange2:#ff9f1a;
       --pink:#ff8fc7;
-      --pink2:#ffc5e3;
-      --yellow:#ffd45c;
-      --orange:#ffb547;
 
-      --shadow:0 18px 40px rgba(86,155,194,.16);
-
-      --sat:env(safe-area-inset-top,0px);
-      --sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);
-      --sal:env(safe-area-inset-left,0px);
+      --shadow:0 14px 36px rgba(57,104,132,.14);
+      --shadow-lg:0 20px 54px rgba(57,104,132,.18);
+      --radius:26px;
+      --radius-sm:18px;
     }
 
     *{ box-sizing:border-box; }
-
-    html,body{
-      margin:0;
-      min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    html,body{ margin:0; padding:0; }
+    body{
+      min-height:100vh;
+      font-family:ui-rounded, "Nunito", "Fredoka", system-ui, -apple-system, sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
-        radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
+        radial-gradient(circle at top left, rgba(255,255,255,.95), transparent 32%),
+        linear-gradient(180deg, var(--sky1), var(--sky2) 48%, var(--sky3));
     }
 
-    body{ min-height:100dvh; }
+    a{ color:inherit; text-decoration:none; }
+    button,input,select{ font:inherit; }
 
     .bg-clouds{
-      position:fixed;
-      inset:0;
-      overflow:hidden;
-      pointer-events:none;
-      z-index:0;
+      position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0;
     }
-
     .cloud{
       position:absolute;
       border-radius:999px;
-      background:rgba(255,255,255,.7);
-      filter:blur(1px);
-      box-shadow:
-        50px 8px 0 8px rgba(255,255,255,.65),
-        100px 0 0 0 rgba(255,255,255,.75),
-        70px -10px 0 4px rgba(255,255,255,.72);
-      animation:floatCloud linear infinite;
+      background:rgba(255,255,255,.52);
     }
-
-    .cloud.c1{ width:110px; height:34px; left:6%; top:10%; animation-duration:28s; }
-    .cloud.c2{ width:140px; height:40px; left:62%; top:14%; animation-duration:36s; }
-    .cloud.c3{ width:100px; height:30px; left:30%; top:22%; animation-duration:32s; }
-
-    @keyframes floatCloud{
-      from{ transform:translateX(-5vw); }
-      to{ transform:translateX(12vw); }
+    .cloud::before,.cloud::after{
+      content:"";
+      position:absolute;
+      border-radius:inherit;
+      background:inherit;
     }
+    .cloud.c1{ width:220px; height:68px; top:64px; left:4%; }
+    .cloud.c1::before{ width:88px; height:88px; left:24px; top:-30px; }
+    .cloud.c1::after{ width:112px; height:112px; right:20px; top:-44px; }
+    .cloud.c2{ width:180px; height:56px; top:138px; right:9%; }
+    .cloud.c2::before{ width:82px; height:82px; left:22px; top:-26px; }
+    .cloud.c2::after{ width:92px; height:92px; right:18px; top:-30px; }
+    .cloud.c3{ width:250px; height:72px; top:228px; left:30%; }
+    .cloud.c3::before{ width:92px; height:92px; left:36px; top:-28px; }
+    .cloud.c3::after{ width:118px; height:118px; right:24px; top:-42px; }
 
     .shell{
       position:relative;
       z-index:1;
-      max-width:1200px;
+      width:min(1180px, calc(100% - 24px));
       margin:0 auto;
-      padding:
-        calc(16px + var(--sat))
-        calc(16px + var(--sar))
-        calc(22px + var(--sab))
-        calc(16px + var(--sal));
+      padding:18px 0 30px;
+    }
+
+    .topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:12px;
+      align-items:center;
+    }
+
+    .icon-btn{
+      width:48px;
+      height:48px;
+      border:none;
+      border-radius:16px;
+      background:#ffffffd9;
+      box-shadow:var(--shadow);
+      cursor:pointer;
+      font-size:1.15rem;
+      transition:transform .16s ease, box-shadow .16s ease;
+    }
+    .icon-btn:hover{
+      transform:translateY(-1px);
+      box-shadow:var(--shadow-lg);
+    }
+
+    .brand-pill{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      min-width:0;
+      padding:12px 16px;
+      border-radius:999px;
+      background:linear-gradient(180deg, rgba(255,255,255,.97), rgba(255,250,242,.93));
+      border:1px solid rgba(120,190,220,.28);
+      box-shadow:var(--shadow);
+    }
+    .brand-logo{
+      width:58px;
+      height:58px;
+      object-fit:contain;
+      flex:0 0 auto;
+      filter:drop-shadow(0 8px 12px rgba(0,0,0,.10));
+    }
+    .brand-logo-fallback{
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      background:linear-gradient(135deg,var(--blue),var(--green),var(--orange));
+      box-shadow:var(--shadow);
+      flex:0 0 auto;
+    }
+    .brand-copy{ min-width:0; }
+    .brand-title{
+      margin:0;
+      line-height:1;
+      font-size:clamp(1.05rem, 2vw, 1.45rem);
+      font-weight:900;
+    }
+    .brand-sub{
+      margin:4px 0 0;
+      font-size:.84rem;
+      color:var(--muted);
+      font-weight:800;
     }
 
     .hero{
+      margin-top:14px;
       display:grid;
       grid-template-columns:1.15fr .85fr;
       gap:14px;
-      align-items:stretch;
     }
 
-    .hero-card,
-    .card{
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:28px;
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,252,246,.93));
+      border:1px solid rgba(191,227,242,.88);
+      border-radius:var(--radius);
       box-shadow:var(--shadow);
+    }
+
+    .welcome{
+      padding:22px;
       position:relative;
       overflow:hidden;
+      display:grid;
+      grid-template-columns:1.08fr .72fr;
+      gap:12px;
     }
-
-    .hero-card{
-      padding:20px 18px;
-    }
-
-    .hero-card::before{
+    .welcome::after{
       content:"";
       position:absolute;
-      left:-36px; top:-36px;
-      width:140px; height:140px;
-      border-radius:999px;
-      background:rgba(127,207,255,.20);
-      filter:blur(8px);
+      right:-22px;
+      bottom:-22px;
+      width:180px;
+      height:180px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(255,214,102,.24), transparent 62%);
     }
-
-    .hero-card::after{
-      content:"";
-      position:absolute;
-      right:-26px; bottom:-26px;
-      width:120px; height:120px;
-      border-radius:999px;
-      background:rgba(255,212,92,.22);
-      filter:blur(8px);
-    }
-
-    .kicker{
-      position:relative;
-      z-index:1;
+    .hello{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:8px 14px;
+      padding:7px 12px;
       border-radius:999px;
-      background:#eaf8ff;
-      border:2px solid var(--line);
-      color:#5ea8d0;
-      font-size:13px;
-      font-weight:1000;
-      margin-bottom:10px;
+      background:#fff5c8;
+      font-weight:900;
+      font-size:.88rem;
     }
-
-    h1{
-      position:relative;
-      z-index:1;
-      margin:0 0 8px;
-      font-size:clamp(30px,5vw,44px);
-      line-height:1.03;
-      font-weight:1000;
-      color:#67a91c;
-      text-shadow:0 2px 0 #fff;
+    .welcome h1{
+      margin:12px 0 8px;
+      font-size:clamp(1.45rem, 2.6vw, 2.05rem);
+      line-height:1.12;
     }
-
-    .sub{
-      position:relative;
-      z-index:1;
+    .welcome p{
       margin:0;
       color:var(--muted);
-      line-height:1.75;
-      font-size:14px;
-      font-weight:900;
-      max-width:760px;
+      font-weight:700;
     }
-
-    .mini-badges{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
+    .hero-note{
       margin-top:12px;
-      position:relative;
-      z-index:1;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#f4fbff;
+      border:1px dashed #b8def2;
+      font-weight:800;
     }
-
-    .mini-badge{
-      padding:8px 12px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:1000;
-      border:2px solid var(--line);
-      background:#fff;
-      color:#6c6a61;
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-    }
-
-    .boss-preview{
-      padding:18px 16px;
+    .hero-art{
+      min-height:210px;
+      border-radius:24px;
+      background:
+        radial-gradient(circle at 50% 28%, rgba(255,255,255,.96), rgba(255,255,255,0) 42%),
+        linear-gradient(135deg,#f7fff0,#e4ffd3 46%,#fff7d6);
       display:grid;
-      grid-template-columns:92px 1fr;
+      place-items:center;
+      font-size:82px;
+    }
+
+    .profile{
+      padding:18px;
+      display:grid;
+      gap:14px;
+    }
+
+    .avatar-row{
+      display:grid;
+      grid-template-columns:auto 1fr;
       gap:14px;
       align-items:center;
     }
 
-    .boss-icon{
-      width:92px;
-      height:92px;
-      border-radius:24px;
+    .avatar{
+      width:82px;
+      height:82px;
+      border-radius:22px;
+      background:linear-gradient(135deg,#fff7cf,#ffd56e);
+      box-shadow:var(--shadow);
       display:grid;
       place-items:center;
-      font-size:48px;
-      background:linear-gradient(180deg,#fff3de,#ffe0b8);
-      border:3px solid #ffd89b;
-      box-shadow:0 12px 24px rgba(255,181,71,.18);
+      font-size:42px;
     }
 
-    .boss-title{
-      margin:0 0 6px;
-      font-size:24px;
-      font-weight:1000;
-      color:#f59e0b;
-    }
-
-    .boss-sub{
+    .profile h2{
       margin:0;
-      font-size:13px;
+      font-size:1.2rem;
+    }
+    .profile p{
+      margin:4px 0 0;
       color:var(--muted);
-      line-height:1.7;
+      font-weight:700;
+    }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:9px 12px;
+      border-radius:999px;
+      background:#f7fbff;
+      border:1px solid #d5ecf7;
       font-weight:900;
     }
 
-    .grid{
+    .config{
       margin-top:14px;
       display:grid;
-      grid-template-columns:1.05fr .95fr;
+      grid-template-columns:1fr 1fr 1fr;
       gap:14px;
     }
 
-    .card{
+    .config-card{
       padding:16px;
     }
 
-    .card-title{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-size:20px;
-      font-weight:1000;
+    .section-title{
       margin:0 0 12px;
-      color:#4d4a42;
-    }
-
-    .section-sub{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
-      margin:-2px 0 12px;
-      line-height:1.6;
+      font-size:1rem;
     }
 
     .form-grid{
       display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
+      gap:10px;
     }
 
     .field{
@@ -266,264 +292,234 @@
       gap:6px;
     }
 
-    .field.span-2{
-      grid-column:1 / -1;
-    }
-
-    label{
-      font-size:12px;
-      font-weight:1000;
-      color:#6c6a61;
-    }
-
-    input[type="text"],
-    select,
-    textarea{
-      width:100%;
-      min-height:46px;
-      border-radius:16px;
-      border:2px solid var(--line);
-      background:#fff;
-      padding:10px 14px;
-      font-size:15px;
+    .field label{
+      font-size:.88rem;
       font-weight:900;
+    }
+
+    .input,
+    .select{
+      width:100%;
+      border:1px solid #d6eaf6;
+      background:#fff;
+      border-radius:14px;
+      padding:11px 12px;
       color:var(--text);
       outline:none;
-      box-shadow:0 6px 16px rgba(86,155,194,.08);
     }
 
-    textarea{
-      min-height:88px;
-      resize:vertical;
-      font-family:inherit;
-    }
-
-    input:focus, select:focus, textarea:focus{
-      border-color:#86d7ff;
-      box-shadow:0 0 0 4px rgba(127,207,255,.18);
-    }
-
-    .option-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .chip-radio{
-      position:relative;
-    }
-
-    .chip-radio input{
-      position:absolute;
-      inset:0;
-      opacity:0;
-      pointer-events:none;
-    }
-
-    .chip-radio span{
-      min-height:58px;
-      display:grid;
-      place-items:center;
-      text-align:center;
-      padding:10px 12px;
-      border-radius:18px;
-      border:2px solid var(--line);
-      background:#fff;
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-      font-size:14px;
-      font-weight:1000;
-      color:#6c6a61;
-      line-height:1.35;
-      transition:.14s ease;
-    }
-
-    .chip-radio input:checked + span{
-      border-color:#8bd8ff;
-      background:linear-gradient(180deg,#f4fdff,#ebfbff);
-      transform:translateY(-1px);
-      box-shadow:0 12px 24px rgba(86,155,194,.14);
-      color:#4d4a42;
-    }
-
-    .preset-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .preset{
-      appearance:none;
-      border:none;
-      cursor:pointer;
-      border-radius:18px;
-      min-height:64px;
-      padding:10px 12px;
-      background:#fff;
-      border:2px solid var(--line);
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-      font-size:13px;
-      font-weight:1000;
-      color:#6c6a61;
-      line-height:1.35;
-      text-align:center;
-      transition:.14s ease;
-    }
-
-    .preset:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.02);
-    }
-
-    .preset.easy{ background:linear-gradient(180deg,#f6fff1,#ffffff); }
-    .preset.normal{ background:linear-gradient(180deg,#eefbff,#ffffff); }
-    .preset.hard{ background:linear-gradient(180deg,#fff4f1,#ffffff); }
-    .preset.research{ background:linear-gradient(180deg,#fff8ea,#ffffff); }
-
-    .tips{
-      display:grid;
-      gap:10px;
-      margin-top:10px;
-    }
-
-    .tip{
-      border-radius:20px;
-      padding:12px 14px;
-      border:2px dashed var(--line);
-      background:rgba(255,255,255,.64);
-      font-size:13px;
-      font-weight:900;
-      color:#6c6a61;
-      line-height:1.65;
-    }
-
-    .quick-chips{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .quick-chip{
-      min-height:34px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:6px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#6c6a61;
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .footer-bar{
+    .modes{
       margin-top:14px;
       display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+    }
+
+    .mode-card{
+      padding:18px;
+      position:relative;
+      overflow:hidden;
+      display:grid;
       gap:12px;
+      min-height:280px;
+    }
+    .mode-card::after{
+      content:"";
+      position:absolute;
+      right:-20px;
+      bottom:-20px;
+      width:140px;
+      height:140px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(255,255,255,.34), transparent 66%);
+      pointer-events:none;
+    }
+    .mode-card.solo{
+      background:linear-gradient(180deg,#fffdf8,#f6fff0);
+    }
+    .mode-card.multi{
+      background:linear-gradient(180deg,#fffdf8,#f3f8ff);
     }
 
-    .url-box{
-      border-radius:20px;
-      border:2px solid var(--line);
-      background:#fff;
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-      padding:12px 14px;
-      font-size:12px;
+    .mode-badge{
+      width:max-content;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:.78rem;
       font-weight:900;
-      color:#6c6a61;
-      line-height:1.65;
-      word-break:break-word;
-      min-height:58px;
+      background:#fff;
+      border:1px solid #dcecf7;
     }
 
-    .actions{
+    .mode-card h3{
+      margin:0;
+      font-size:1.25rem;
+    }
+
+    .mode-card p{
+      margin:0;
+      color:var(--muted);
+      font-weight:700;
+    }
+
+    .mode-points{
+      margin:0;
+      padding-left:18px;
+      color:var(--text);
+      font-weight:800;
+      display:grid;
+      gap:6px;
+    }
+
+    .btn-row{
       display:flex;
-      gap:10px;
       flex-wrap:wrap;
+      gap:10px;
+      margin-top:auto;
     }
 
     .btn{
-      appearance:none;
       border:none;
       cursor:pointer;
-      border-radius:18px;
-      padding:14px 18px;
-      font-size:15px;
-      font-weight:1000;
-      transition:.14s ease;
-      box-shadow:0 12px 24px rgba(86,155,194,.14);
+      transition:transform .16s ease, box-shadow .16s ease;
+      font-weight:900;
     }
-
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.02); }
-    .btn:active{ transform:translateY(0); }
+    .btn:hover{ transform:translateY(-1px); }
 
     .btn.primary{
+      padding:12px 16px;
+      border-radius:16px;
       background:linear-gradient(180deg,var(--green),var(--green2));
-      color:#133b09;
+      color:#fff;
+      box-shadow:0 10px 22px rgba(88,195,63,.22);
     }
 
     .btn.secondary{
-      background:linear-gradient(180deg,var(--blue),var(--blue2));
-      color:#08374d;
-    }
-
-    .btn.soft{
+      padding:12px 16px;
+      border-radius:16px;
       background:#fff;
-      color:#6c6a61;
-      border:2px solid var(--line);
+      color:var(--text);
+      border:1px solid #d5ecf7;
+      box-shadow:0 8px 18px rgba(43,88,118,.06);
     }
 
-    .btn.warn{
-      background:linear-gradient(180deg,var(--yellow),var(--orange));
-      color:#5a3a00;
+    .summary{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:14px;
     }
 
-    .btn.pink{
-      background:linear-gradient(180deg,var(--pink),var(--pink2));
-      color:#6b214e;
+    .summary-card{
+      padding:16px;
     }
 
-    .note{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.7;
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
     }
 
-    .notice{
-      margin-top:10px;
-      display:none;
+    .pill{
+      padding:12px;
       border-radius:18px;
-      padding:12px 14px;
-      background:#eefbff;
-      border:2px solid var(--line);
-      color:#376882;
-      font-size:13px;
-      line-height:1.6;
+      background:#f8fbff;
+      border:1px solid #d8ebf7;
+    }
+    .pill .n{
+      display:block;
+      font-size:1.05rem;
       font-weight:900;
     }
-
-    .notice.show{
+    .pill .t{
       display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-weight:800;
+      font-size:.82rem;
     }
 
-    @media (max-width:980px){
-      .hero, .grid{
+    .route-box{
+      padding:12px;
+      border-radius:18px;
+      background:#f8fbff;
+      border:1px solid #d8ebf7;
+      word-break:break-word;
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-size:.85rem;
+      line-height:1.45;
+    }
+
+    .footer-tools{
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      margin-top:14px;
+    }
+
+    .footer-note{
+      margin:12px 4px 0;
+      text-align:center;
+      color:var(--muted);
+      font-size:.86rem;
+      font-weight:800;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:18px;
+      transform:translateX(-50%) translateY(18px);
+      min-width:200px;
+      max-width:min(92vw,560px);
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(31,41,55,.92);
+      color:#fff;
+      font-weight:900;
+      box-shadow:0 16px 34px rgba(0,0,0,.22);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+      z-index:30;
+    }
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 1020px){
+      .hero,
+      .config,
+      .modes,
+      .summary{
         grid-template-columns:1fr;
       }
     }
 
-    @media (max-width:760px){
-      .form-grid,
-      .option-grid,
-      .preset-grid{
+    @media (max-width: 760px){
+      .shell{
+        width:min(100% - 14px, 1180px);
+      }
+      .welcome{
         grid-template-columns:1fr;
       }
-
-      .actions .btn{
-        flex:1 1 100%;
+      .summary-grid{
+        grid-template-columns:1fr;
+      }
+      .brand-pill{
+        gap:10px;
+        padding:10px 12px;
+      }
+      .brand-logo,
+      .brand-logo-fallback{
+        width:48px;
+        height:48px;
+      }
+      .icon-btn{
+        width:42px;
+        height:42px;
+        border-radius:14px;
       }
     }
   </style>
@@ -536,513 +532,371 @@
   </div>
 
   <main class="shell">
+    <header class="topbar">
+      <button id="btnBackHub" class="icon-btn" type="button" aria-label="กลับฮับ">🏠</button>
+
+      <div class="brand-pill" aria-label="HeroHealth GoodJunk">
+        <img
+          class="brand-logo"
+          src="./assets/logo-system/logos/goodjunk-logo.svg"
+          alt="GoodJunk Hero"
+          onerror="this.style.display='none';this.nextElementSibling.hidden=false;"
+        />
+        <div class="brand-logo-fallback" hidden aria-hidden="true">🍎</div>
+
+        <div class="brand-copy">
+          <h1 class="brand-title">GoodJunk Hero</h1>
+          <p class="brand-sub">Nutrition Zone • เลือกทางเข้าเล่นที่ต้องการ</p>
+        </div>
+      </div>
+
+      <button id="btnCopyLink" class="icon-btn" type="button" aria-label="คัดลอกลิงก์">🔗</button>
+    </header>
+
     <section class="hero">
-      <div class="hero-card">
-        <div class="kicker">🍎 GOODJUNK LAUNCHER</div>
-        <h1>Solo Phase Boss Adventure</h1>
-        <p class="sub">
-          เตรียมตัวเข้าสู่ GoodJunk Solo Boss ผ่าน <strong>warmup → run → summary → cooldown → hub</strong>
-          เก็บอาหารดี หลีกเลี่ยง junk และเอาชนะ <strong>Junk King</strong> แบบสนุก เร้าใจ และ child-friendly
-        </p>
-
-        <div class="mini-badges">
-          <div class="mini-badge">👦 Child-friendly</div>
-          <div class="mini-badge">🔥 Phase 1 → 2 → Boss</div>
-          <div class="mini-badge">👑 Boss A / B / C / Rage</div>
-          <div class="mini-badge">🧪 Research-ready</div>
-        </div>
-      </div>
-
-      <div class="card boss-preview">
-        <div class="boss-icon">🍔</div>
+      <section class="panel welcome">
         <div>
-          <h2 class="boss-title">Junk King</h2>
-          <p class="boss-sub">
-            อ่าน telegraph ให้ทัน รักษาคอมโบ และโจมตี weak spot ให้แม่น
-            เพื่อผ่านบอสให้ได้
+          <div class="hello">🍎 โหมดโภชนาการพร้อมแล้ว!</div>
+          <h1>เลือกเข้าเล่นแบบเดี่ยว หรือเข้าโหมดหลายคน</h1>
+          <p>
+            หน้านี้ใช้เป็นจุดเริ่มต้นของ GoodJunk โดยแยกให้ชัดระหว่าง
+            <strong>Solo Phase Boss</strong> และ <strong>Multiplayer</strong>
           </p>
+          <div class="hero-note">
+            แนะนำสำหรับเด็ก: เริ่มจาก Solo Phase Boss ก่อน แล้วค่อยไป Multiplayer
+          </div>
         </div>
-      </div>
+
+        <div class="hero-art" aria-hidden="true">🍎🥦🍔</div>
+      </section>
+
+      <aside class="panel profile">
+        <div class="avatar-row">
+          <div class="avatar" aria-hidden="true">🦸</div>
+          <div>
+            <h2 id="playerNameText">Rocky</h2>
+            <p id="playerMetaText">PID: anon • Nutrition Hero</p>
+          </div>
+        </div>
+
+        <div class="chips">
+          <div class="chip">🎯 <span id="gameModeText">GoodJunk Entry</span></div>
+          <div class="chip">⭐ <span id="diffText">normal</span></div>
+          <div class="chip">⏱ <span id="timeText">90s</span></div>
+        </div>
+      </aside>
     </section>
 
-    <section class="grid">
-      <div class="card">
-        <h2 class="card-title">🧒 ข้อมูลผู้เล่น</h2>
-        <div class="section-sub">กรอกสั้น ๆ แล้วเริ่มเล่นได้เลย</div>
-
+    <section class="config">
+      <article class="panel config-card">
+        <h3 class="section-title">👤 ข้อมูลผู้เล่น</h3>
         <div class="form-grid">
           <div class="field">
-            <label for="pidInput">PID</label>
-            <input id="pidInput" type="text" placeholder="anon" />
+            <label for="playerNameInput">ชื่อเล่น</label>
+            <input id="playerNameInput" class="input" type="text" maxlength="24" placeholder="เช่น Rocky" />
           </div>
-
           <div class="field">
-            <label for="nameInput">ชื่อเล่น</label>
-            <input id="nameInput" type="text" placeholder="Hero" />
+            <label for="playerPidInput">PID</label>
+            <input id="playerPidInput" class="input" type="text" maxlength="32" placeholder="เช่น S001" />
           </div>
+        </div>
+      </article>
 
+      <article class="panel config-card">
+        <h3 class="section-title">⚙️ ตั้งค่าการเล่น</h3>
+        <div class="form-grid">
           <div class="field">
-            <label for="studyIdInput">Study ID</label>
-            <input id="studyIdInput" type="text" placeholder="เว้นว่างได้" />
+            <label for="difficultySelect">ความยาก</label>
+            <select id="difficultySelect" class="select">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
           </div>
+          <div class="field">
+            <label for="timeSelect">เวลา</label>
+            <select id="timeSelect" class="select">
+              <option value="60">60 วินาที</option>
+              <option value="90" selected>90 วินาที</option>
+              <option value="120">120 วินาที</option>
+            </select>
+          </div>
+        </div>
+      </article>
 
+      <article class="panel config-card">
+        <h3 class="section-title">🎲 Seed / Run</h3>
+        <div class="form-grid">
           <div class="field">
             <label for="seedInput">Seed</label>
-            <input id="seedInput" type="text" placeholder="สุ่มให้อัตโนมัติ" />
+            <input id="seedInput" class="input" type="text" placeholder="auto" />
           </div>
-
-          <div class="field span-2">
-            <label for="hubInput">Hub URL</label>
-            <input id="hubInput" type="text" />
-          </div>
-        </div>
-
-        <h2 class="card-title" style="margin-top:18px;">⚙️ ตั้งค่ารอบเล่น</h2>
-        <div class="section-sub">เลือกความยาก เวลา มุมมอง และโหมดการใช้งาน</div>
-
-        <div class="field">
-          <label>ระดับความยาก</label>
-          <div class="option-grid">
-            <label class="chip-radio">
-              <input type="radio" name="diff" value="easy" />
-              <span>🌱 Easy<br>อ่านง่าย</span>
-            </label>
-            <label class="chip-radio">
-              <input type="radio" name="diff" value="normal" checked />
-              <span>⚡ Normal<br>สมดุล</span>
-            </label>
-            <label class="chip-radio">
-              <input type="radio" name="diff" value="hard" />
-              <span>🔥 Hard<br>ท้าทาย</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="field" style="margin-top:12px;">
-          <label>เวลา</label>
-          <div class="option-grid">
-            <label class="chip-radio">
-              <input type="radio" name="time" value="120" />
-              <span>⏱ 120 วินาที</span>
-            </label>
-            <label class="chip-radio">
-              <input type="radio" name="time" value="150" checked />
-              <span>⏱ 150 วินาที</span>
-            </label>
-            <label class="chip-radio">
-              <input type="radio" name="time" value="180" />
-              <span>⏱ 180 วินาที</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="field" style="margin-top:12px;">
-          <label>มุมมอง</label>
-          <div class="option-grid">
-            <label class="chip-radio">
-              <input type="radio" name="view" value="mobile" checked />
-              <span>📱 Mobile</span>
-            </label>
-            <label class="chip-radio">
-              <input type="radio" name="view" value="pc" />
-              <span>💻 PC</span>
-            </label>
-            <label class="chip-radio">
-              <input type="radio" name="view" value="cvr" />
-              <span>🥽 Cardboard</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="field" style="margin-top:12px;">
-          <label>โหมดการใช้งาน</label>
-          <div class="option-grid">
-            <label class="chip-radio">
-              <input type="radio" name="run" value="play" checked />
-              <span>🎮 Play</span>
-            </label>
-            <label class="chip-radio">
-              <input type="radio" name="run" value="research" />
-              <span>🧪 Research</span>
-            </label>
-            <label class="chip-radio">
-              <input type="radio" name="run" value="demo" />
-              <span>✨ Demo</span>
-            </label>
-          </div>
-        </div>
-
-        <h2 class="card-title" style="margin-top:18px;">🚀 Preset เร็ว</h2>
-        <div class="section-sub">กดครั้งเดียวเพื่อเซ็ตค่าทั้งชุด</div>
-
-        <div class="preset-grid">
-          <button class="preset easy" id="presetEasy" type="button">🌱 Easy<br>120s / play / mobile</button>
-          <button class="preset normal" id="presetNormal" type="button">⚡ Normal<br>150s / play / mobile</button>
-          <button class="preset hard" id="presetHard" type="button">🔥 Hard<br>180s / play / mobile</button>
-          <button class="preset research" id="presetResearch" type="button">🧪 Research<br>normal / 150s / research</button>
-        </div>
-
-        <h2 class="card-title" style="margin-top:18px;">🧪 Research Params</h2>
-        <div class="section-sub">ถ้าไม่ได้ใช้วิจัย เว้นว่างได้ทั้งหมด</div>
-
-        <div class="form-grid">
           <div class="field">
-            <label for="conditionGroupInput">Condition Group</label>
-            <input id="conditionGroupInput" type="text" placeholder="เช่น A / B / control" />
-          </div>
-
-          <div class="field">
-            <label for="phaseTagInput">Phase Tag</label>
-            <input id="phaseTagInput" type="text" placeholder="เช่น pretest / posttest" />
-          </div>
-
-          <div class="field">
-            <label for="apiInput">API / Logger URL</label>
-            <input id="apiInput" type="text" placeholder="เว้นว่างได้" />
-          </div>
-
-          <div class="field">
-            <label for="studentKeyInput">Student Key</label>
-            <input id="studentKeyInput" type="text" placeholder="เว้นว่างได้" />
-          </div>
-
-          <div class="field">
-            <label for="schoolCodeInput">School Code</label>
-            <input id="schoolCodeInput" type="text" placeholder="เว้นว่างได้" />
-          </div>
-
-          <div class="field">
-            <label for="classRoomInput">Class Room</label>
-            <input id="classRoomInput" type="text" placeholder="เว้นว่างได้" />
-          </div>
-
-          <div class="field">
-            <label for="studentNoInput">Student No</label>
-            <input id="studentNoInput" type="text" placeholder="เว้นว่างได้" />
-          </div>
-
-          <div class="field">
-            <label for="nickNameInput">Nick Name</label>
-            <input id="nickNameInput" type="text" placeholder="เว้นว่างได้" />
+            <label for="runSelect">โหมด</label>
+            <select id="runSelect" class="select">
+              <option value="play" selected>play</option>
+              <option value="research">research</option>
+            </select>
           </div>
         </div>
-
-        <div class="quick-chips">
-          <div class="quick-chip">🎯 gameId = goodjunk</div>
-          <div class="quick-chip">🍎 zone = nutrition</div>
-          <div class="quick-chip">🔥 phase boss route</div>
-          <div class="quick-chip">💾 save preset local</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2 class="card-title">🗺️ Flow การเล่น</h2>
-        <div class="section-sub">ระบบจะพาไปตามลำดับอัตโนมัติ</div>
-
-        <div class="tips">
-          <div class="tip"><strong>Warmup:</strong> วอร์มอัปก่อนเล่น เพื่อเตรียมร่างกายและโฟกัส</div>
-          <div class="tip"><strong>Run:</strong> เข้า <code>/herohealth/goodjunk-vr.html</code> เพื่อเล่น Phase Boss</div>
-          <div class="tip"><strong>Summary:</strong> หลังจบรอบจะมีผลสรุป + export payload</div>
-          <div class="tip"><strong>Cooldown:</strong> ไป cooldown ผ่าน <code>warmup-gate.html?phase=cooldown</code></div>
-          <div class="tip"><strong>Hub:</strong> กลับ HUB เดิมที่ส่งมาใน query หรือค่าที่ตั้งไว้</div>
-        </div>
-
-        <h2 class="card-title" style="margin-top:18px;">🔗 ลิงก์เริ่มเล่น</h2>
-        <div class="section-sub">ปุ่มเริ่มเกมจะพาเข้า warmup-gate ก่อน แล้วค่อยเข้า run page</div>
-
-        <div class="url-box" id="urlPreview">กำลังเตรียมลิงก์…</div>
-
-        <div class="footer-bar">
-          <div class="actions">
-            <button class="btn primary" id="btnStart" type="button">🚀 เริ่มเล่น (Warmup)</button>
-            <button class="btn pink" id="btnDirectRun" type="button">⚡ เข้า Run ตรง</button>
-            <button class="btn secondary" id="btnCopy" type="button">📋 คัดลอกลิงก์</button>
-            <button class="btn warn" id="btnRandomSeed" type="button">🎲 สุ่ม Seed</button>
-            <button class="btn soft" id="btnBackHub" type="button">🏠 กลับ HUB</button>
-          </div>
-
-          <div class="note">
-            launcher นี้จะส่งผู้เล่นเข้า <strong>/herohealth/warmup-gate.html</strong> พร้อม
-            <strong>next=./goodjunk-vr.html</strong> เพื่อให้ flow ไปต่อได้แน่นอน
-          </div>
-
-          <div class="notice" id="noticeBox"></div>
-        </div>
-      </div>
+      </article>
     </section>
+
+    <section class="modes">
+      <article class="panel mode-card solo">
+        <div class="mode-badge">SOLO</div>
+        <h3>Solo Phase Boss</h3>
+        <p>เล่นคนเดียวแบบมี phase progression และบอสท้ายเฟส เหมาะกับ challenge mode</p>
+
+        <ul class="mode-points">
+          <li>เล่นคนเดียว ไม่ต้องใช้ room</li>
+          <li>มี phase + boss fight</li>
+          <li>ใช้เป็นทางเข้า solo หลักของ GoodJunk</li>
+          <li>เหมาะกับเด็กที่อยากเริ่มเล่นเองก่อน</li>
+        </ul>
+
+        <div class="btn-row">
+          <button id="btnEnterSoloBoss" class="btn primary" type="button">🍎 เข้า Solo Phase Boss</button>
+          <button id="btnPreviewSoloBoss" class="btn secondary" type="button">ดู route</button>
+        </div>
+      </article>
+
+      <article class="panel mode-card multi">
+        <div class="mode-badge">MULTI</div>
+        <h3>GoodJunk Multiplayer</h3>
+        <p>รวมทางเข้าโหมด Duet, Battle, Race และ Coop ไว้ในหน้าจอเดียว</p>
+
+        <ul class="mode-points">
+          <li>ใช้เป็นทางเข้า multi mode หลัก</li>
+          <li>แยกไป duet / battle / race / coop</li>
+          <li>เหมาะกับเล่นกับเพื่อนในห้องเรียน</li>
+          <li>ส่ง context จาก launcher ไปต่อได้</li>
+        </ul>
+
+        <div class="btn-row">
+          <button id="btnEnterMulti" class="btn primary" type="button">👥 เข้า Multiplayer</button>
+          <button id="btnPreviewMulti" class="btn secondary" type="button">ดู route</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="summary">
+      <article class="panel summary-card">
+        <h3 class="section-title">📌 สรุปทางเข้า</h3>
+        <div class="summary-grid">
+          <div class="pill">
+            <span class="n">Solo</span>
+            <span class="t">goodjunk-launcher → solo phase boss</span>
+          </div>
+          <div class="pill">
+            <span class="n">Multiplayer</span>
+            <span class="t">goodjunk-multi → duet / battle / race / coop</span>
+          </div>
+          <div class="pill">
+            <span class="n" id="selectedModeText">ยังไม่เลือก</span>
+            <span class="t">selected mode</span>
+          </div>
+          <div class="pill">
+            <span class="n" id="selectedRouteTypeText">route pending</span>
+            <span class="t">resolved target</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel summary-card">
+        <h3 class="section-title">🔗 Resolved Target URL</h3>
+        <div id="resolvedTargetUrl" class="route-box">ยังไม่ได้สร้างลิงก์</div>
+      </article>
+    </section>
+
+    <div class="footer-tools">
+      <button id="btnOpenResolved" class="btn secondary" type="button">🚀 เปิดลิงก์ล่าสุด</button>
+    </div>
+
+    <p class="footer-note">
+      HeroHealth • GoodJunk Launcher • child-friendly • nutrition-first
+    </p>
   </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
     (function(){
-      const q = new URLSearchParams(location.search);
-      const $ = (id) => document.getElementById(id);
+      'use strict';
 
-      const STORAGE_KEY = 'HHA_GJ_LAUNCHER_PROD_V1';
+      const $ = (sel, root=document) => root.querySelector(sel);
 
-      const els = {
-        pid: $('pidInput'),
-        name: $('nameInput'),
-        studyId: $('studyIdInput'),
-        seed: $('seedInput'),
-        hub: $('hubInput'),
-
-        conditionGroup: $('conditionGroupInput'),
-        phaseTag: $('phaseTagInput'),
-        api: $('apiInput'),
-        studentKey: $('studentKeyInput'),
-        schoolCode: $('schoolCodeInput'),
-        classRoom: $('classRoomInput'),
-        studentNo: $('studentNoInput'),
-        nickName: $('nickNameInput'),
-
-        urlPreview: $('urlPreview'),
-        notice: $('noticeBox'),
-
-        btnStart: $('btnStart'),
-        btnDirectRun: $('btnDirectRun'),
-        btnCopy: $('btnCopy'),
-        btnRandomSeed: $('btnRandomSeed'),
-        btnBackHub: $('btnBackHub'),
-
-        presetEasy: $('presetEasy'),
-        presetNormal: $('presetNormal'),
-        presetHard: $('presetHard'),
-        presetResearch: $('presetResearch')
+      const ROUTES = {
+        soloBoss: './goodjunk-launcher.html',
+        multi: './vr-goodjunk/goodjunk-multi.html'
       };
 
-      function showNotice(text) {
-        if (!els.notice) return;
-        els.notice.textContent = text || '';
-        els.notice.classList.toggle('show', !!text);
+      let lastResolvedUrl = '';
+
+      function qs(){
+        return new URLSearchParams(location.search);
       }
 
-      function readRadio(name, fallback) {
-        const checked = document.querySelector('input[name="' + name + '"]:checked');
-        return checked ? checked.value : fallback;
+      function nowSeed(){
+        return String(Date.now());
       }
 
-      function setRadio(name, value) {
-        const el = document.querySelector('input[name="' + name + '"][value="' + value + '"]');
-        if (el) el.checked = true;
+      function cleanText(v, max=32){
+        return String(v == null ? '' : v)
+          .replace(/[^\wก-๙ \-]/g, '')
+          .trim()
+          .slice(0, max);
       }
 
-      function randSeed() {
-        return String(Math.floor(Date.now() + Math.random() * 100000));
+      function toast(msg){
+        const el = $('#toast');
+        if (!el) return;
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => el.classList.remove('show'), 1800);
       }
 
-      function first(...vals) {
-        for (const v of vals) {
-          if (String(v || '').trim()) return String(v).trim();
-        }
-        return '';
+      function hubUrl(){
+        const q = qs();
+        return q.get('hub') || new URL('./hub.html', location.href).href;
       }
 
-      function cleanText(v, max) {
-        return String(v || '').replace(/[<>]/g, '').trim().slice(0, max || 80);
+      function getState(){
+        const q = qs();
+
+        const name = cleanText($('#playerNameInput')?.value || q.get('name') || q.get('nick') || 'Rocky', 24) || 'Rocky';
+        const pid = cleanText($('#playerPidInput')?.value || q.get('pid') || 'anon', 32) || 'anon';
+        const diff = $('#difficultySelect')?.value || q.get('diff') || 'normal';
+        const time = $('#timeSelect')?.value || q.get('time') || '90';
+        const seed = cleanText($('#seedInput')?.value || q.get('seed') || nowSeed(), 40) || nowSeed();
+        const run = $('#runSelect')?.value || q.get('run') || 'play';
+        const hub = hubUrl();
+
+        return { name, pid, diff, time, seed, run, hub };
       }
 
-      function cleanPid(v) {
-        return String(v || 'anon').replace(/[^\w-]/g, '').trim().slice(0, 40) || 'anon';
-      }
+      function buildUrl(kind){
+        const s = getState();
+        const url = new URL(kind === 'multi' ? ROUTES.multi : ROUTES.soloBoss, location.href);
 
-      function defaultHub() {
-        return q.get('hub') || new URL('./hub-v2.html', location.href).toString();
-      }
-
-      function loadSaved() {
-        let saved = {};
-        try {
-          saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {};
-        } catch {}
-
-        els.pid.value = cleanPid(first(q.get('pid'), saved.pid, 'anon'));
-        els.name.value = cleanText(first(q.get('name'), q.get('nickName'), saved.name, 'Hero'), 40);
-        els.studyId.value = cleanText(first(q.get('studyId'), saved.studyId, ''), 60);
-        els.seed.value = cleanText(first(q.get('seed'), saved.seed, randSeed()), 40);
-        els.hub.value = first(q.get('hub'), saved.hub, defaultHub());
-
-        els.conditionGroup.value = cleanText(first(q.get('conditionGroup'), saved.conditionGroup, ''), 40);
-        els.phaseTag.value = cleanText(first(q.get('phase'), saved.phaseTag, ''), 40);
-        els.api.value = cleanText(first(q.get('api'), saved.api, ''), 300);
-        els.studentKey.value = cleanText(first(q.get('studentKey'), saved.studentKey, ''), 80);
-        els.schoolCode.value = cleanText(first(q.get('schoolCode'), saved.schoolCode, ''), 40);
-        els.classRoom.value = cleanText(first(q.get('classRoom'), saved.classRoom, ''), 40);
-        els.studentNo.value = cleanText(first(q.get('studentNo'), saved.studentNo, ''), 40);
-        els.nickName.value = cleanText(first(q.get('nickName'), saved.nickName, ''), 40);
-
-        setRadio('diff', first(q.get('diff'), saved.diff, 'normal'));
-        setRadio('time', first(q.get('time'), saved.time, '150'));
-        setRadio('view', first(q.get('view'), saved.view, 'mobile'));
-        setRadio('run', first(q.get('run'), saved.run, 'play'));
-      }
-
-      function saveState() {
-        const payload = {
-          pid: cleanPid(els.pid.value),
-          name: cleanText(els.name.value, 40),
-          studyId: cleanText(els.studyId.value, 60),
-          seed: cleanText(els.seed.value, 40),
-          hub: cleanText(els.hub.value, 400),
-
-          conditionGroup: cleanText(els.conditionGroup.value, 40),
-          phaseTag: cleanText(els.phaseTag.value, 40),
-          api: cleanText(els.api.value, 300),
-          studentKey: cleanText(els.studentKey.value, 80),
-          schoolCode: cleanText(els.schoolCode.value, 40),
-          classRoom: cleanText(els.classRoom.value, 40),
-          studentNo: cleanText(els.studentNo.value, 40),
-          nickName: cleanText(els.nickName.value, 40),
-
-          diff: readRadio('diff', 'normal'),
-          time: readRadio('time', '150'),
-          view: readRadio('view', 'mobile'),
-          run: readRadio('run', 'play')
-        };
-
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-        } catch {}
-      }
-
-      function fillCommonParams(url) {
-        url.searchParams.set('pid', cleanPid(els.pid.value));
-        url.searchParams.set('name', cleanText(els.name.value || 'Hero', 40));
-        if (cleanText(els.studyId.value, 60)) url.searchParams.set('studyId', cleanText(els.studyId.value, 60));
-
-        url.searchParams.set('diff', readRadio('diff', 'normal'));
-        url.searchParams.set('time', readRadio('time', '150'));
-        url.searchParams.set('seed', cleanText(els.seed.value || randSeed(), 40));
-        url.searchParams.set('hub', cleanText(els.hub.value || defaultHub(), 400));
-        url.searchParams.set('view', readRadio('view', 'mobile'));
-        url.searchParams.set('run', readRadio('run', 'play'));
-
-        url.searchParams.set('gameId', 'goodjunk');
-        url.searchParams.set('game', 'goodjunk');
-        url.searchParams.set('theme', 'goodjunk');
         url.searchParams.set('zone', 'nutrition');
-        url.searchParams.set('cat', 'nutrition');
-        url.searchParams.set('mode', 'solo');
+        url.searchParams.set('game', 'goodjunk');
+        url.searchParams.set('name', s.name);
+        url.searchParams.set('pid', s.pid);
+        url.searchParams.set('diff', s.diff);
+        url.searchParams.set('time', s.time);
+        url.searchParams.set('seed', s.seed);
+        url.searchParams.set('run', s.run);
+        url.searchParams.set('hub', s.hub);
 
-        if (cleanText(els.conditionGroup.value, 40)) url.searchParams.set('conditionGroup', cleanText(els.conditionGroup.value, 40));
-        if (cleanText(els.phaseTag.value, 40)) url.searchParams.set('phase', cleanText(els.phaseTag.value, 40));
-        if (cleanText(els.api.value, 300)) url.searchParams.set('api', cleanText(els.api.value, 300));
-        if (cleanText(els.studentKey.value, 80)) url.searchParams.set('studentKey', cleanText(els.studentKey.value, 80));
-        if (cleanText(els.schoolCode.value, 40)) url.searchParams.set('schoolCode', cleanText(els.schoolCode.value, 40));
-        if (cleanText(els.classRoom.value, 40)) url.searchParams.set('classRoom', cleanText(els.classRoom.value, 40));
-        if (cleanText(els.studentNo.value, 40)) url.searchParams.set('studentNo', cleanText(els.studentNo.value, 40));
-        if (cleanText(els.nickName.value, 40)) url.searchParams.set('nickName', cleanText(els.nickName.value, 40));
+        if (kind === 'multi') {
+          url.searchParams.set('entry', 'multi');
+          url.searchParams.set('mode', 'multi');
+        } else {
+          url.searchParams.set('entry', 'solo-boss');
+          url.searchParams.set('mode', 'solo');
+          url.searchParams.set('phaseBoss', '1');
+          url.searchParams.set('boss', '1');
+        }
 
-        return url;
-      }
-
-      function buildRunUrl() {
-        const url = new URL('./goodjunk-vr.html', location.href);
-        fillCommonParams(url);
         return url.toString();
       }
 
-      function buildWarmupUrl() {
-        const gate = new URL('./warmup-gate.html', location.href);
-        fillCommonParams(gate);
-
-        gate.searchParams.set('phase', 'warmup');
-        gate.searchParams.set('gatePhase', 'warmup');
-        gate.searchParams.set('forcegate', '1');
-        gate.searchParams.set('next', './goodjunk-vr.html');
-
-        return gate.toString();
+      function updateMiniProfile(){
+        const s = getState();
+        $('#playerNameText').textContent = s.name;
+        $('#playerMetaText').textContent = 'PID: ' + s.pid + ' • Nutrition Hero';
+        $('#diffText').textContent = s.diff;
+        $('#timeText').textContent = s.time + 's';
       }
 
-      function renderPreview() {
-        saveState();
-        els.urlPreview.textContent = buildWarmupUrl();
-        showNotice('');
+      function showResolved(url, modeLabel, routeType){
+        lastResolvedUrl = url;
+        $('#resolvedTargetUrl').textContent = url;
+        $('#selectedModeText').textContent = modeLabel;
+        $('#selectedRouteTypeText').textContent = routeType;
       }
 
-      async function copyUrl() {
-        const text = buildWarmupUrl();
-        try {
-          await navigator.clipboard.writeText(text);
-          showNotice('คัดลอกลิงก์เริ่มเล่นแล้ว');
-        } catch {
-          els.urlPreview.textContent = text;
-          showNotice('คัดลอกไม่สำเร็จ แสดงลิงก์ไว้ให้แล้ว');
-        }
+      function goToResolved(kind){
+        const url = buildUrl(kind);
+        showResolved(
+          url,
+          kind === 'multi' ? 'GoodJunk Multiplayer' : 'Solo Phase Boss',
+          kind === 'multi' ? 'goodjunk-multi.html' : 'goodjunk-launcher.html'
+        );
+        location.href = url;
       }
 
-      function goStart() {
-        location.href = buildWarmupUrl();
+      function previewResolved(kind){
+        const url = buildUrl(kind);
+        showResolved(
+          url,
+          kind === 'multi' ? 'GoodJunk Multiplayer' : 'Solo Phase Boss',
+          kind === 'multi' ? 'goodjunk-multi.html' : 'goodjunk-launcher.html'
+        );
+        toast('สร้าง route แล้ว');
       }
 
-      function goDirectRun() {
-        location.href = buildRunUrl();
+      function syncInputsFromQuery(){
+        const q = qs();
+        $('#playerNameInput').value = q.get('name') || q.get('nick') || 'Rocky';
+        $('#playerPidInput').value = q.get('pid') || 'anon';
+        $('#difficultySelect').value = q.get('diff') || 'normal';
+        $('#timeSelect').value = q.get('time') || '90';
+        $('#seedInput').value = q.get('seed') || '';
+        $('#runSelect').value = q.get('run') || 'play';
+        $('#gameModeText').textContent = 'GoodJunk Entry';
       }
 
-      function goHub() {
-        location.href = cleanText(els.hub.value || defaultHub(), 400);
-      }
-
-      function applyPreset(kind) {
-        if (kind === 'easy') {
-          setRadio('diff', 'easy');
-          setRadio('time', '120');
-          setRadio('view', 'mobile');
-          setRadio('run', 'play');
-        } else if (kind === 'normal') {
-          setRadio('diff', 'normal');
-          setRadio('time', '150');
-          setRadio('view', 'mobile');
-          setRadio('run', 'play');
-        } else if (kind === 'hard') {
-          setRadio('diff', 'hard');
-          setRadio('time', '180');
-          setRadio('view', 'mobile');
-          setRadio('run', 'play');
-        } else if (kind === 'research') {
-          setRadio('diff', 'normal');
-          setRadio('time', '150');
-          setRadio('view', 'mobile');
-          setRadio('run', 'research');
-        }
-        renderPreview();
-        showNotice('ใช้ preset ' + kind + ' แล้ว');
-      }
-
-      function bind() {
-        [
-          els.pid, els.name, els.studyId, els.seed, els.hub,
-          els.conditionGroup, els.phaseTag, els.api,
-          els.studentKey, els.schoolCode, els.classRoom,
-          els.studentNo, els.nickName
-        ].forEach((el) => {
-          el.addEventListener('input', renderPreview);
-          el.addEventListener('change', renderPreview);
+      function bind(){
+        $('#btnBackHub')?.addEventListener('click', () => {
+          location.href = hubUrl();
         });
 
-        document.querySelectorAll('input[type="radio"]').forEach((el) => {
-          el.addEventListener('change', renderPreview);
+        $('#btnCopyLink')?.addEventListener('click', async () => {
+          try{
+            const url = lastResolvedUrl || buildUrl('solo');
+            await navigator.clipboard.writeText(url);
+            toast('คัดลอกลิงก์แล้ว');
+          }catch(_){
+            toast('คัดลอกลิงก์ไม่สำเร็จ');
+          }
         });
 
-        els.btnRandomSeed.addEventListener('click', () => {
-          els.seed.value = randSeed();
-          renderPreview();
-          showNotice('สุ่ม seed ใหม่แล้ว');
+        $('#btnEnterSoloBoss')?.addEventListener('click', () => goToResolved('solo'));
+        $('#btnPreviewSoloBoss')?.addEventListener('click', () => previewResolved('solo'));
+
+        $('#btnEnterMulti')?.addEventListener('click', () => goToResolved('multi'));
+        $('#btnPreviewMulti')?.addEventListener('click', () => previewResolved('multi'));
+
+        $('#btnOpenResolved')?.addEventListener('click', () => {
+          if (!lastResolvedUrl) {
+            previewResolved('solo');
+            return;
+          }
+          location.href = lastResolvedUrl;
         });
 
-        els.btnCopy.addEventListener('click', copyUrl);
-        els.btnStart.addEventListener('click', goStart);
-        els.btnDirectRun.addEventListener('click', goDirectRun);
-        els.btnBackHub.addEventListener('click', goHub);
-
-        els.presetEasy.addEventListener('click', () => applyPreset('easy'));
-        els.presetNormal.addEventListener('click', () => applyPreset('normal'));
-        els.presetHard.addEventListener('click', () => applyPreset('hard'));
-        els.presetResearch.addEventListener('click', () => applyPreset('research'));
+        ['#playerNameInput','#playerPidInput','#seedInput','#difficultySelect','#timeSelect','#runSelect']
+          .forEach(sel => {
+            $(sel)?.addEventListener('input', updateMiniProfile);
+            $(sel)?.addEventListener('change', updateMiniProfile);
+          });
       }
 
-      loadSaved();
-      bind();
-      renderPreview();
+      function init(){
+        syncInputsFromQuery();
+        updateMiniProfile();
+        previewResolved('solo');
+        bind();
+      }
+
+      if (document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', init, { once:true });
+      }else{
+        init();
+      }
     })();
   </script>
 </body>
