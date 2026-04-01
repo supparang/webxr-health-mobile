@@ -1,1446 +1,876 @@
-/* /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
-   FULL PATCH v20260331-GJ-DUET-LOBBY-R5
-   - แก้ maxretry ตอน join ห้อง
-   - ไม่ใช้ root transaction สำหรับ join ปกติ
-   - create room เฉพาะตอนห้องยังไม่มี
-   - rematch recovery finished -> waiting แข็งขึ้น
-   - rematch entry auto-ready + auto-start
-   - countdown redirect เข้า run
-*/
+'use strict';
 
+/* =========================================================
+ * /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
+ * GoodJunk Duet Lobby
+ * FULL PATCH v20260331-gjduet-lobby-r6
+ * ========================================================= */
 (function(){
-  'use strict';
-
   const W = window;
   const D = document;
-  const $ = (id) => D.getElementById(id);
 
-  const DEBUG = (() => {
-    try{
-      return new URL(W.location.href).searchParams.get('debug') === '1';
-    }catch{
-      return false;
-    }
-  })();
-
-  const els = {
-    roomCode         : $('roomCode'),
-    playerCount      : $('playerCount'),
-    roomStatus       : $('roomStatus'),
-    hostName         : $('hostName'),
-    playersBox       : $('playersBox'),
-    copyState        : $('copyState'),
-    joinGuard        : $('joinGuard'),
-    inviteLink       : $('inviteLink'),
-    qrBox            : $('qrBox'),
-    countdown        : $('countdown'),
-    btnCopyRoom      : $('btnCopyRoom'),
-    btnCopyInvite    : $('btnCopyInvite'),
-    btnReady         : $('btnReady'),
-    btnUnready       : $('btnUnready'),
-    btnStart         : $('btnStart'),
-    btnBack          : $('btnBack'),
-    hint             : $('hint'),
-    roomInput        : $('roomInput'),
-    btnJoinByCode    : $('btnJoinByCode'),
-    btnUseCurrentRoom: $('btnUseCurrentRoom'),
-    btnNewRoom       : $('btnNewRoom')
+  const qs = (k, d='') => {
+    try { return (new URL(location.href)).searchParams.get(k) ?? d; }
+    catch(_) { return d; }
   };
-
-  const GAME_KEY = 'goodjunk';
-  const MODE_KEY = 'duet';
-  const ROOM_SIZE = 2;
-  const COUNTDOWN_MS = 4000;
-  const STALE_MS = 20000;
-  const HEARTBEAT_MS = 8000;
-
-  const qs = (...keys) => {
-    try{
-      const sp = new URL(W.location.href).searchParams;
-      for (const k of keys){
-        const v = sp.get(k);
-        if (v != null && String(v).trim() !== '') return String(v).trim();
-      }
-    }catch{}
-    return '';
-  };
-
-  const clamp = (v, a, b) => {
+  const num = (v, d=0) => {
     v = Number(v);
-    if (!Number.isFinite(v)) v = a;
-    return Math.max(a, Math.min(b, v));
+    return Number.isFinite(v) ? v : d;
+  };
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, num(v, a)));
+  const clean = (s, max=24) => String(s == null ? '' : s)
+    .replace(/[^a-zA-Z0-9ก-๙ _-]/g, '')
+    .trim()
+    .slice(0, max);
+  const cleanRoom = (s) => String(s == null ? '' : s)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 8);
+
+  const ACTIVE_TTL_MS = 12000;
+  const HEARTBEAT_MS = 2500;
+  const FIREBASE_WAIT_MS = 12000;
+
+  const LOBBY_FILE = './goodjunk-duet-lobby.html';
+  const RUN_FILE = './goodjunk-duet-run.html'; // เปลี่ยนตรงนี้ถ้าชื่อไฟล์ run จริงไม่ตรง
+
+  const UI = {
+    roomCode: D.getElementById('roomCode'),
+    playerCount: D.getElementById('playerCount'),
+    roomStatus: D.getElementById('roomStatus'),
+    hostName: D.getElementById('hostName'),
+    copyState: D.getElementById('copyState'),
+    joinGuard: D.getElementById('joinGuard'),
+    roomInput: D.getElementById('roomInput'),
+    inviteLink: D.getElementById('inviteLink'),
+    hint: D.getElementById('hint'),
+    playersBox: D.getElementById('playersBox'),
+    qrBox: D.getElementById('qrBox'),
+    countdown: D.getElementById('countdown'),
+
+    btnBack: D.getElementById('btnBack'),
+    btnCopyRoom: D.getElementById('btnCopyRoom'),
+    btnCopyInvite: D.getElementById('btnCopyInvite'),
+    btnJoinByCode: D.getElementById('btnJoinByCode'),
+    btnUseCurrentRoom: D.getElementById('btnUseCurrentRoom'),
+    btnNewRoom: D.getElementById('btnNewRoom'),
+    btnReady: D.getElementById('btnReady'),
+    btnUnready: D.getElementById('btnUnready'),
+    btnStart: D.getElementById('btnStart')
   };
 
-  const now = () => Date.now();
-
-  function fireAndForget(p){
-    try{
-      Promise.resolve(p).catch((err) => {
-        console.warn('[duet.lobby] ignored async error:', err);
-      });
-    }catch(err){
-      console.warn('[duet.lobby] fireAndForget failed:', err);
-    }
-  }
-
-  function safeReplace(nextHref){
-    try{
-      W.location.replace(nextHref);
-    }catch(_){
-      W.location.href = nextHref;
-    }
-  }
-
-  function esc(s){
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
-  function normalizeRoomId(raw){
-    return String(raw || '')
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, '')
-      .slice(0, 8);
-  }
-
-  function randomRoomId(){
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let out = '';
-    if (W.crypto && W.crypto.getRandomValues){
-      const arr = new Uint8Array(6);
-      W.crypto.getRandomValues(arr);
-      for (let i = 0; i < arr.length; i++) out += chars[arr[i] % chars.length];
-      return out;
-    }
-    for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
-    return out;
-  }
-
-  function makeDevicePid(){
-    try{
-      const KEY = 'GJ_DEVICE_PID';
-      let pid = localStorage.getItem(KEY);
-      if (!pid){
-        pid = 'p-' + Math.random().toString(36).slice(2, 10);
-        localStorage.setItem(KEY, pid);
-      }
-      return pid;
-    }catch{
-      return 'p-' + Math.random().toString(36).slice(2, 10);
-    }
-  }
-
-  function normalizePid(raw){
-    const v = String(raw || '').trim().replace(/[.#$[\]/]/g, '-');
-    if (!v || v.toLowerCase() === 'anon') return makeDevicePid();
-    return v.slice(0, 80);
-  }
-
-  function cleanDiff(raw){
-    raw = String(raw || 'normal').toLowerCase();
-    return (raw === 'easy' || raw === 'hard') ? raw : 'normal';
-  }
-
-  function roomPath(roomId){
-    return `hha-battle/${GAME_KEY}/duetRooms/${roomId}`;
-  }
-
-  function isProbablyAlive(p){
-    if (!p) return false;
-    const seen = Number(p.lastSeenAt || 0);
-    if (p.connected !== false) return true;
-    return (now() - seen) <= STALE_MS;
-  }
-
-  function activePlayers(room){
-     const src = room && room.players ? room.players : {};
-     return Object.keys(src)
-    .map((id) => Object.assign({ id }, src[id] || {}))
-    .filter((p) => p.phase !== 'left');
-  }
-
-  function readyPlayers(room){
-    return activePlayers(room).filter((p) => !!p.ready);
-  }
-
-  function participantIds(room){
-    const ids = (((room || {}).match || {}).participantIds || []);
-    return Array.isArray(ids) ? ids.filter(Boolean) : [];
-  }
-
-  function getCurrentParticipantIds(room){
-    const ids = participantIds(room);
-    if (ids.length) return ids;
-    const players = activePlayers(room).map((p) => p.id);
-    return players.slice(0, 2);
-  }
-
-  function getRematchInfo(room){
-    const ids = getCurrentParticipantIds(room);
-    const votes = (room && room.rematch) ? room.rematch : {};
-    let count = 0;
-
-    ids.forEach((id) => {
-      if (votes[id] && votes[id].ready) count += 1;
-    });
-
-    return { ids, count, votes };
-  }
-
-  function prunePlayers(players, status){
-    const out = {};
-    const src = players || {};
-    Object.keys(src).forEach((id) => {
-      const p = src[id] || {};
-      const shouldDrop =
-        p.phase === 'left' ||
-        (String(status || 'waiting') === 'waiting' &&
-         p.connected === false &&
-         (now() - Number(p.lastSeenAt || 0) > STALE_MS));
-
-      if (!shouldDrop) out[id] = p;
-    });
-    return out;
-  }
-
-  const STATE = {
-    roomId: normalizeRoomId(qs('room', 'roomCode', 'roomId', 'code')) || randomRoomId(),
-    pid: normalizePid(qs('pid') || ''),
-    name: (() => {
-      const fromQs = qs('name', 'nick', 'playerName');
-      if (fromQs) return fromQs.slice(0, 64);
-      try{
-        return String(localStorage.getItem('HHA_PLAYER_NICK') || 'Player').slice(0, 64);
-      }catch{
-        return 'Player';
-      }
-    })(),
-    hub: qs('hub') || '../hub.html',
-    view: (qs('view') || 'mobile').toLowerCase(),
-    run: (qs('run') || 'play').toLowerCase(),
-    diff: cleanDiff(qs('diff') || 'normal'),
-    time: clamp(qs('time') || 150, 30, 300),
-    seed: String(qs('seed') || now()),
-    zone: qs('zone') || 'nutrition',
-    theme: qs('theme') || 'goodjunk',
-
+  const ctx = {
+    mode: 'duet',
     uid: '',
+    name: clean(qs('name', qs('nick', 'Player')), 24) || 'Player',
+    studyId: qs('studyId', ''),
+    diff: qs('diff', 'normal'),
+    time: String(clamp(qs('time', '90'), 30, 300)),
+    seed: String(qs('seed', String(Date.now()))),
+    hub: qs('hub', '../hub.html'),
+    view: qs('view', 'mobile'),
+    run: qs('run', 'play'),
+    gameId: qs('gameId', 'goodjunk'),
+    zone: qs('zone', 'nutrition'),
+    roomId: cleanRoom(qs('roomId', qs('room', '')))
+  };
+
+  const S = {
     db: null,
-    auth: null,
-    roomRef: null,
-    meRef: null,
-
-    room: null,
+    refs: null,
     joined: false,
-    joinDenied: false,
-    joinDeniedReason: '',
-    heartbeatTimer: 0,
-    countdownTimer: 0,
-    redirected: false,
-    repairingHost: false,
+    redirecting: false,
 
-    rematchEntry: (() => {
+    roomId: ctx.roomId || '',
+    hostId: '',
+    createdAt: 0,
+    updatedAt: 0,
+    state: {
+      status: 'waiting',
+      plannedSec: num(ctx.time, 90),
+      seed: ctx.seed,
+      startAt: null,
+      countdownEndsAt: null
+    },
+    players: {},
+    heartbeat: 0,
+    countdownTick: 0,
+    offFns: []
+  };
+
+  function makeRoomCode(){
+    return Math.random().toString(36).slice(2, 8).toUpperCase();
+  }
+
+  function setCopyState(text, danger=false){
+    if (!UI.copyState) return;
+    UI.copyState.textContent = String(text || '');
+    UI.copyState.style.color = danger ? '#ffd5db' : '#dbeafe';
+  }
+
+  function setHint(text){
+    if (UI.hint) UI.hint.textContent = String(text || '');
+  }
+
+  function showGuard(text=''){
+    if (!UI.joinGuard) return;
+    UI.joinGuard.style.display = text ? 'block' : 'none';
+    UI.joinGuard.textContent = String(text || '');
+  }
+
+  function activePlayers(){
+    const nowTs = Date.now();
+    return Object.values(S.players || {})
+      .filter((p) => {
+        if (!p) return false;
+        if (p.connected === false) return false;
+        const lastSeen = num(p.lastSeenAt, num(p.joinedAt, 0));
+        if (!lastSeen) return true;
+        return (nowTs - lastSeen) <= ACTIVE_TTL_MS;
+      })
+      .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
+  }
+
+  function readyPlayers(){
+    return activePlayers().filter((p) => !!p.ready);
+  }
+
+  function isHost(){
+    return !!ctx.uid && S.hostId === ctx.uid;
+  }
+
+  function mePlayer(){
+    return S.players && ctx.uid ? S.players[ctx.uid] : null;
+  }
+
+  function statusText(){
+    return String((S.state && S.state.status) || 'waiting');
+  }
+
+  function buildInviteUrl(roomId=S.roomId){
+    const url = new URL(LOBBY_FILE, location.href);
+    const src = new URL(location.href);
+
+    src.searchParams.forEach((value, key) => {
+      if (key === 'roomId' || key === 'room' || key === 'autojoin') return;
+      url.searchParams.set(key, value);
+    });
+
+    url.searchParams.set('mode', 'duet');
+    url.searchParams.set('roomId', roomId);
+    url.searchParams.set('room', roomId);
+    url.searchParams.set('hub', ctx.hub);
+    url.searchParams.set('gameId', ctx.gameId);
+    url.searchParams.set('zone', ctx.zone);
+    url.searchParams.set('diff', ctx.diff);
+    url.searchParams.set('time', ctx.time);
+    url.searchParams.set('view', ctx.view);
+    url.searchParams.set('seed', ctx.seed);
+    url.searchParams.set('autojoin', '1');
+    return url.toString();
+  }
+
+  function buildRunUrl(){
+    const url = new URL(RUN_FILE, location.href);
+    const src = new URL(location.href);
+
+    src.searchParams.forEach((value, key) => {
+      if (key === 'roomId' || key === 'room' || key === 'autojoin') return;
+      url.searchParams.set(key, value);
+    });
+
+    const startAt = num(S.state.startAt || S.state.countdownEndsAt, 0);
+
+    url.searchParams.set('mode', 'duet');
+    url.searchParams.set('entry', 'duet-lobby');
+    url.searchParams.set('roomId', S.roomId);
+    url.searchParams.set('room', S.roomId);
+    url.searchParams.set('pid', ctx.uid || 'anon');
+    url.searchParams.set('name', ctx.name);
+    url.searchParams.set('nick', ctx.name);
+    url.searchParams.set('role', isHost() ? 'host' : 'player');
+    url.searchParams.set('host', isHost() ? '1' : '0');
+    url.searchParams.set('wait', '1');
+
+    url.searchParams.set('diff', ctx.diff);
+    url.searchParams.set('time', String(num(S.state.plannedSec, num(ctx.time, 90))));
+    url.searchParams.set('view', ctx.view);
+    url.searchParams.set('seed', String(S.state.seed || ctx.seed));
+    url.searchParams.set('hub', ctx.hub);
+    url.searchParams.set('gameId', ctx.gameId);
+    url.searchParams.set('zone', ctx.zone);
+    url.searchParams.set('autostart', '1');
+
+    if (startAt > 0) {
+      url.searchParams.set('startAt', String(startAt));
+    }
+
+    return url.toString();
+  }
+
+  function updateUrlRoom(roomId){
+    try{
+      const u = new URL(location.href);
+      u.searchParams.set('roomId', roomId);
+      u.searchParams.set('room', roomId);
+      history.replaceState(null, '', u.toString());
+    }catch(_){}
+  }
+
+  async function copyText(text){
+    const value = String(text || '').trim();
+    if (!value) return false;
+
+    try{
+      await navigator.clipboard.writeText(value);
+      return true;
+    }catch(_){
       try{
-        return new URL(W.location.href).searchParams.get('rematch') === '1';
-      }catch{
+        const ta = D.createElement('textarea');
+        ta.value = value;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        D.body.appendChild(ta);
+        ta.select();
+        const ok = D.execCommand('copy');
+        ta.remove();
+        return !!ok;
+      }catch(_2){
         return false;
       }
-    })(),
-    autoReadyDone: false,
-    autoStartAttempted: false,
-    autoStartLocked: false,
-    rematchRecoveryRunning: false
-  };
-
-  let __duetAutoStartTimer = 0;
-
-  try{ localStorage.setItem('HHA_PLAYER_PID', STATE.pid); }catch{}
-  try{ localStorage.setItem('HHA_PLAYER_NICK', STATE.name); }catch{}
-
-  function stopAutoStartTimer(){
-    if (__duetAutoStartTimer){
-      clearTimeout(__duetAutoStartTimer);
-      __duetAutoStartTimer = 0;
     }
   }
 
-  function setCopyState(msg, isBad){
-    if (!els.copyState) return;
-    els.copyState.textContent = msg || '';
-    els.copyState.style.color = isBad ? '#fca5a5' : '';
+  function renderQr(){
+    if (!UI.qrBox) return;
+    const link = buildInviteUrl(S.roomId || ctx.roomId || makeRoomCode());
+
+    if (UI.inviteLink) UI.inviteLink.value = link;
+
+    const img = new Image();
+    img.alt = 'Duet Invite QR';
+    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=' + encodeURIComponent(link);
+
+    UI.qrBox.innerHTML = '';
+    img.onload = () => {
+      UI.qrBox.innerHTML = '';
+      UI.qrBox.appendChild(img);
+    };
+    img.onerror = () => {
+      UI.qrBox.innerHTML = '<div class="qr-empty">สร้าง QR ไม่สำเร็จ<br/>ใช้ Invite Link แทนได้</div>';
+    };
   }
 
-  function setHint(msg, isBad){
-    if (!els.hint) return;
-    els.hint.textContent = msg || '';
-    els.hint.style.color = isBad ? '#fca5a5' : '';
-  }
+  function renderPlayers(){
+    if (!UI.playersBox) return;
 
-  function showJoinGuard(msg){
-    STATE.joinDenied = true;
-    STATE.joinDeniedReason = msg || 'ห้องนี้ยังเข้าไม่ได้';
-    if (els.joinGuard){
-      els.joinGuard.style.display = 'block';
-      els.joinGuard.textContent = STATE.joinDeniedReason;
-    }
-    setHint(STATE.joinDeniedReason, true);
-  }
-
-  function hideJoinGuard(){
-    STATE.joinDenied = false;
-    STATE.joinDeniedReason = '';
-    if (els.joinGuard) els.joinGuard.style.display = 'none';
-  }
-
-  function buildInviteLink(){
-    const u = new URL(W.location.href);
-    u.search = '';
-    u.searchParams.set('room', STATE.roomId);
-    u.searchParams.set('roomId', STATE.roomId);
-    if (STATE.pid) u.searchParams.set('pid', STATE.pid);
-    if (STATE.name){
-      u.searchParams.set('name', STATE.name);
-      u.searchParams.set('nick', STATE.name);
-    }
-    if (STATE.hub) u.searchParams.set('hub', STATE.hub);
-    if (STATE.diff) u.searchParams.set('diff', STATE.diff);
-    if (STATE.time) u.searchParams.set('time', String(STATE.time));
-    if (STATE.view) u.searchParams.set('view', STATE.view);
-    if (STATE.run) u.searchParams.set('run', STATE.run);
-    if (STATE.zone) u.searchParams.set('zone', STATE.zone);
-    if (STATE.theme) u.searchParams.set('theme', STATE.theme);
-    if (DEBUG) u.searchParams.set('debug', '1');
-    return u.toString();
-  }
-
-  function buildLobbyUrlWithRoom(roomId){
-    const u = new URL(W.location.href);
-    const cleanRoom = normalizeRoomId(roomId);
-    u.searchParams.set('room', cleanRoom);
-    u.searchParams.set('roomId', cleanRoom);
-
-    if (STATE.pid) u.searchParams.set('pid', STATE.pid);
-    if (STATE.name){
-      u.searchParams.set('name', STATE.name);
-      u.searchParams.set('nick', STATE.name);
-    }
-    if (STATE.hub) u.searchParams.set('hub', STATE.hub);
-    if (STATE.view) u.searchParams.set('view', STATE.view);
-    if (STATE.run) u.searchParams.set('run', STATE.run);
-    if (STATE.diff) u.searchParams.set('diff', STATE.diff);
-    if (STATE.time) u.searchParams.set('time', String(STATE.time));
-    if (STATE.zone) u.searchParams.set('zone', STATE.zone);
-    if (STATE.theme) u.searchParams.set('theme', STATE.theme);
-    if (DEBUG) u.searchParams.set('debug', '1');
-
-    u.searchParams.set('seed', String(Date.now()));
-    u.searchParams.delete('rematch');
-    return u.toString();
-  }
-
-  function buildRunUrl(room){
-    const u = new URL('./goodjunk-duet-play.html', W.location.href);
-    u.searchParams.set('mode', MODE_KEY);
-    u.searchParams.set('game', GAME_KEY);
-    u.searchParams.set('room', STATE.roomId);
-    u.searchParams.set('roomId', STATE.roomId);
-    u.searchParams.set('pid', STATE.pid);
-    u.searchParams.set('name', STATE.name);
-    u.searchParams.set('nick', STATE.name);
-    u.searchParams.set('diff', String(room.diff || STATE.diff));
-    u.searchParams.set('time', String(room.time || STATE.time));
-    u.searchParams.set('seed', String(room.seed || STATE.seed));
-    u.searchParams.set('hub', String(room.hub || STATE.hub));
-    u.searchParams.set('view', String(room.view || STATE.view));
-    u.searchParams.set('run', String(room.run || STATE.run));
-    u.searchParams.set('zone', String(room.zone || STATE.zone));
-    u.searchParams.set('theme', String(room.theme || STATE.theme));
-    u.searchParams.set('startAt', String(room.startAt || 0));
-    if (DEBUG) u.searchParams.set('debug', '1');
-    return u.toString();
-  }
-
-  function goJoinRoomByCode(raw){
-    const roomId = normalizeRoomId(raw);
-    if (!roomId){
-      setHint('กรุณาใส่ Room Code ก่อน', true);
-      if (els.roomInput) els.roomInput.focus();
+    const list = Object.values(S.players || {}).sort((a,b) => num(a.joinedAt,0) - num(b.joinedAt,0));
+    if (!list.length) {
+      UI.playersBox.innerHTML = `
+        <div class="player">
+          <div style="font-weight:1000;color:#fff;">ยังไม่มีผู้เล่น</div>
+          <div class="waiting" style="margin-top:8px;">waiting</div>
+        </div>
+      `;
       return;
     }
-    safeReplace(buildLobbyUrlWithRoom(roomId));
-  }
 
-  function goCreateNewRoom(){
-    safeReplace(buildLobbyUrlWithRoom(randomRoomId()));
-  }
+    UI.playersBox.innerHTML = list.map((p) => {
+      const isMe = p.id === ctx.uid;
+      const active = activePlayers().some((x) => x.id === p.id);
+      const hostTag = p.id === S.hostId ? ' • host' : '';
+      const meTag = isMe ? ' • คุณ' : '';
 
-  function renderQr(url){
-    if (!els.qrBox) return;
-    if (!url){
-      els.qrBox.innerHTML = '<div class="qr-empty">ยังไม่มีลิงก์</div>';
-      return;
-    }
-    const src = 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=' + encodeURIComponent(url);
-    els.qrBox.innerHTML = `<img alt="QR Invite" src="${src}">`;
-  }
+      let cls = 'waiting';
+      let label = 'ยังไม่พร้อม';
 
-  async function copyText(txt){
-    try{
-      if (navigator.clipboard && navigator.clipboard.writeText){
-        await navigator.clipboard.writeText(txt);
-        return true;
+      if (!active) {
+        cls = 'offline';
+        label = 'offline';
+      } else if (String(p.phase || '') === 'done') {
+        cls = 'ready';
+        label = 'จบรอบแล้ว';
+      } else if (String(p.phase || '') === 'run') {
+        cls = 'ready';
+        label = 'กำลังเล่น';
+      } else if (p.ready) {
+        cls = 'ready';
+        label = 'พร้อมแล้ว';
       }
-    }catch{}
-    try{
-      const ta = D.createElement('textarea');
-      ta.value = txt;
-      ta.setAttribute('readonly', '');
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      D.body.appendChild(ta);
-      ta.select();
-      const ok = D.execCommand('copy');
-      ta.remove();
-      return !!ok;
-    }catch{
-      return false;
-    }
-  }
-
-  function renderPlayers(room){
-    if (!els.playersBox) return;
-
-    const list = activePlayers(room);
-    list.sort((a, b) => {
-      const ah = a.id === (room && room.hostId) ? 1 : 0;
-      const bh = b.id === (room && room.hostId) ? 1 : 0;
-      if (ah !== bh) return bh - ah;
-      const am = a.id === STATE.uid ? 1 : 0;
-      const bm = b.id === STATE.uid ? 1 : 0;
-      if (am !== bm) return bm - am;
-      return String(a.name || '').localeCompare(String(b.name || ''));
-    });
-
-    const cards = list.map((p) => {
-      const isMe = p.id === STATE.uid;
-      const isHost = room && p.id === room.hostId;
-      const online = isProbablyAlive(p);
-      const ready = !!p.ready;
-
-      const badge = ready
-        ? '<span class="ready">พร้อมแล้ว</span>'
-        : (online ? '<span class="waiting">รอพร้อม</span>' : '<span class="offline">offline</span>');
-
-      const meta = [
-        isHost ? 'Host' : '',
-        isMe ? 'You' : '',
-        p.pid ? ('PID: ' + esc(p.pid)) : ''
-      ].filter(Boolean).join(' • ');
 
       return `
         <div class="player ${isMe ? 'me' : ''}">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-            <div style="font-weight:900;font-size:16px;color:#f8fafc;">${esc(p.name || 'Player')}</div>
-            <div>${badge}</div>
+          <div style="font-size:14px;font-weight:1000;color:#fff;">
+            ${escapeHtml(p.name || 'player')}${escapeHtml(hostTag)}${escapeHtml(meTag)}
           </div>
-          <div style="margin-top:6px;color:#cbd5e1;font-size:13px;line-height:1.55;">${esc(meta || 'ผู้เล่น')}</div>
-          <div style="margin-top:8px;color:#94a3b8;font-size:12px;line-height:1.55;">phase: ${esc(p.phase || 'lobby')}</div>
+          <div style="margin-top:8px;">
+            <span class="${cls}">${escapeHtml(label)}</span>
+          </div>
         </div>
       `;
-    });
-
-    while (cards.length < ROOM_SIZE){
-      cards.push(`
-        <div class="player">
-          <div style="font-weight:900;font-size:16px;color:#f8fafc;">รอผู้เล่น...</div>
-          <div style="margin-top:6px;color:#94a3b8;font-size:13px;line-height:1.55;">
-            แชร์ room code หรือลิงก์ให้เพื่อนอีกคน
-          </div>
-        </div>
-      `);
-    }
-
-    els.playersBox.innerHTML = cards.join('');
+    }).join('');
   }
 
-  function updateButtons(room){
-    const me = room && room.players ? room.players[STATE.uid] : null;
-    const players = activePlayers(room);
-    const readyCount = readyPlayers(room).length;
-    const amHost = !!room && room.hostId === STATE.uid;
-    const waitingOnly = !!room && String(room.status || 'waiting') === 'waiting';
-    const fullEnough = players.length === ROOM_SIZE;
+  function escapeHtml(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
 
-    if (els.btnReady) els.btnReady.disabled = !waitingOnly || !me || !!me.ready || STATE.joinDenied;
-    if (els.btnUnready) els.btnUnready.disabled = !waitingOnly || !me || !me.ready || STATE.joinDenied;
-    if (els.btnStart) els.btnStart.disabled = !waitingOnly || !amHost || !fullEnough || readyCount !== ROOM_SIZE || STATE.joinDenied;
+  function renderHeader(){
+    const actives = activePlayers();
+    const ready = readyPlayers();
+    const host = S.players && S.hostId ? S.players[S.hostId] : null;
 
-    if (STATE.joinDenied){
-      setHint(STATE.joinDeniedReason || 'ห้องนี้ยังเข้าไม่ได้', true);
+    if (UI.roomCode) UI.roomCode.textContent = `ROOM: ${S.roomId || '-'}`;
+    if (UI.playerCount) UI.playerCount.textContent = `${actives.length}/2`;
+    if (UI.roomStatus) UI.roomStatus.textContent = statusText();
+    if (UI.hostName) UI.hostName.textContent = host ? (host.name || 'player') : '-';
+    if (UI.roomInput && !UI.roomInput.matches(':focus')) UI.roomInput.value = S.roomId || '';
+
+    renderQr();
+  }
+
+  function renderButtons(){
+    const status = statusText();
+    const me = mePlayer();
+
+    if (UI.btnReady) UI.btnReady.disabled = !S.joined || !me || status !== 'waiting' || !!me.ready;
+    if (UI.btnUnready) UI.btnUnready.disabled = !S.joined || !me || status !== 'waiting' || !me.ready;
+    if (UI.btnStart) UI.btnStart.disabled = !S.joined || !isHost() || readyPlayers().length < 2 || status !== 'waiting';
+  }
+
+  function renderNotice(){
+    const status = statusText();
+    const ready = readyPlayers().length;
+    const actives = activePlayers().length;
+
+    showGuard('');
+
+    if (!S.joined) {
+      setHint('กำลังเชื่อมห้อง Duet...');
+      setCopyState('กำลังเตรียมห้อง...', false);
       return;
     }
 
-    if (!room){
-      setHint(STATE.rematchEntry ? 'กำลังเชื่อมห้องรีแมตช์...' : 'กำลังเชื่อมห้อง...', false);
-      return;
-    }
-
-    const status = String(room.status || 'waiting');
-    const rematchInfo = getRematchInfo(room);
-
-    if (status === 'countdown'){
-      setHint('กำลังนับถอยหลังเพื่อเข้าเกมพร้อมกัน', false);
-      return;
-    }
-
-    if (status === 'running'){
-      setHint('กำลังพาเข้าสู่ GoodJunk Duet Run...', false);
-      return;
-    }
-
-    if (status === 'finished'){
-      if (rematchInfo.count >= ROOM_SIZE){
-        setHint('รีแมตช์ครบแล้ว กำลังเตรียมห้องรอบใหม่...', false);
+    if (status === 'waiting') {
+      if (actives < 2) {
+        setHint('ต้องมีผู้เล่นครบ 2 คนก่อน');
+        setCopyState('ส่ง room code หรือ invite link ให้อีกเครื่องเข้าร่วม', false);
+      } else if (ready < 2) {
+        setHint('ผู้เล่นทั้ง 2 คนต้อง ready ก่อนเริ่ม');
+        setCopyState('ตอนนี้เข้าห้องครบแล้ว รอ ready ให้ครบ', false);
+      } else if (isHost()) {
+        setHint('พร้อมครบทั้ง 2 คนแล้ว Host กดเริ่ม Duet ได้');
+        setCopyState('พร้อมเริ่มเล่นคู่แล้ว', false);
       } else {
-        setHint('รอบก่อนหน้าจบแล้ว รอรีแมตช์หรือสร้างห้องใหม่', false);
+        setHint('พร้อมครบทั้ง 2 คนแล้ว รอ Host กดเริ่ม');
+        setCopyState('รอ Host เริ่มเกม', false);
       }
       return;
     }
 
-    if (STATE.rematchEntry && readyCount === ROOM_SIZE && amHost){
-      setHint('รีแมตช์พร้อมแล้ว กำลังเริ่มอัตโนมัติ...', false);
+    if (status === 'countdown') {
+      setHint('กำลังนับถอยหลัง เตรียมเข้าเกมพร้อมกัน');
+      setCopyState('ห้องถูกล็อกแล้ว กำลังจะเริ่ม Duet', true);
       return;
     }
 
-    if (!amHost){
-      if (readyCount < ROOM_SIZE){
-        setHint('รอให้พร้อมครบ 2 คนก่อน จากนั้น Host จะกดเริ่มได้', false);
-      } else {
-        setHint('พร้อมครบแล้ว รอ Host กดเริ่ม Duet', false);
-      }
+    if (status === 'running') {
+      setHint('กำลังพาเข้าสู่หน้าเล่นจริง');
+      setCopyState('Duet กำลังเริ่มแล้ว', true);
       return;
     }
 
-    if (players.length < ROOM_SIZE){
-      setHint('ยังไม่ครบ 2 คน แชร์ลิงก์หรือ QR ให้เพื่อนเข้ามาอีก 1 คน', false);
+    if (status === 'ended') {
+      setHint('รอบก่อนจบแล้ว สามารถเริ่มรอบใหม่ได้');
+      setCopyState('จบรอบก่อนแล้ว', false);
       return;
-    }
-
-    if (readyCount < ROOM_SIZE){
-      setHint('ต้องมีผู้เล่นพร้อมครบ 2 คนก่อนเริ่ม Duet', false);
-      return;
-    }
-
-    setHint('พร้อมครบ 2/2 แล้ว Host กด “เริ่ม Duet” ได้เลย', false);
-  }
-
-  function stopCountdownLoop(){
-    if (STATE.countdownTimer){
-      clearInterval(STATE.countdownTimer);
-      STATE.countdownTimer = 0;
     }
   }
 
-  async function markRunningIfHost(room){
-    if (!room || !STATE.roomRef) return;
-    if (room.hostId !== STATE.uid) return;
-    if (String(room.status || 'waiting') !== 'countdown') return;
-    if (Number(room.startAt || 0) > now()) return;
+  function renderCountdown(){
+    clearInterval(S.countdownTick);
+    S.countdownTick = 0;
+    if (UI.countdown) UI.countdown.textContent = '';
 
-    try{
-      await STATE.roomRef.update({
-        status: 'running',
-        updatedAt: firebase.database.ServerValue.TIMESTAMP
-      });
-      await STATE.roomRef.child('match/status').set('running');
-    }catch{}
-  }
+    const targetAt = num(S.state.startAt || S.state.countdownEndsAt, 0);
+    if (statusText() !== 'countdown' || !targetAt) return;
 
-  function startCountdownLoop(room){
-    stopCountdownLoop();
+    S.countdownTick = setInterval(async () => {
+      const leftMs = targetAt - Date.now();
+      const sec = Math.max(0, Math.ceil(leftMs / 1000));
+      if (UI.countdown) UI.countdown.textContent = sec > 0 ? String(sec) : 'GO!';
 
-    const ids = participantIds(room);
-    const amParticipant = ids.includes(STATE.uid);
-    const startAt = Number(room.startAt || 0);
+      if (leftMs <= 0) {
+        clearInterval(S.countdownTick);
+        S.countdownTick = 0;
 
-    if (!amParticipant || !startAt){
-      if (els.countdown) els.countdown.textContent = '';
-      return;
-    }
-
-    STATE.countdownTimer = setInterval(async () => {
-      const ms = startAt - now();
-
-      if (ms <= 0){
-        if (els.countdown) els.countdown.textContent = 'GO!';
-        stopCountdownLoop();
-        await markRunningIfHost(room);
-        if (!STATE.redirected){
-          STATE.redirected = true;
-          safeReplace(buildRunUrl(room));
+        if (isHost()) {
+          await S.refs.state.update({
+            status: 'running',
+            updatedAt: Date.now()
+          }).catch(()=>{});
+          await S.refs.match.update({
+            status: 'running'
+          }).catch(()=>{});
         }
-        return;
+
+        goRun();
       }
-
-      if (els.countdown) els.countdown.textContent = String(Math.ceil(ms / 1000));
-    }, 80);
+    }, 100);
   }
 
-  function maybeHandleCountdown(room){
-    if (!room){
-      stopCountdownLoop();
-      if (els.countdown) els.countdown.textContent = '';
-      return;
-    }
+  async function waitForFirebaseReady(timeoutMs = FIREBASE_WAIT_MS){
+    if (W.HHA_FIREBASE_READY && W.HHA_FIREBASE_DB) return true;
 
-    const status = String(room.status || 'waiting');
-    const ids = participantIds(room);
-    const amParticipant = ids.includes(STATE.uid);
+    return await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('firebase not ready')), timeoutMs);
 
-    if ((status === 'countdown' || status === 'running') && amParticipant){
-      if (status === 'running'){
-        if (els.countdown) els.countdown.textContent = 'GO!';
-        if (!STATE.redirected){
-          STATE.redirected = true;
-          setTimeout(() => safeReplace(buildRunUrl(room)), 150);
-        }
-        return;
-      }
-      startCountdownLoop(room);
-      return;
-    }
-
-    stopCountdownLoop();
-    if (els.countdown) els.countdown.textContent = '';
-  }
-
-  async function maybeRepairHost(room){
-    if (STATE.repairingHost || !room) return;
-    if (String(room.status || 'waiting') !== 'waiting') return;
-
-    const host = room.players && room.players[room.hostId] ? room.players[room.hostId] : null;
-    if (host && isProbablyAlive(host) && host.phase !== 'left') return;
-
-    const players = activePlayers(room).filter((p) => isProbablyAlive(p));
-    if (!players.length) return;
-
-    players.sort((a, b) => String(a.id).localeCompare(String(b.id)));
-    const nextHost = players[0];
-    if (!nextHost || nextHost.id !== STATE.uid) return;
-
-    STATE.repairingHost = true;
-    try{
-      await STATE.roomRef.update({
-        hostId: nextHost.id,
-        hostName: nextHost.name || 'Host',
-        updatedAt: firebase.database.ServerValue.TIMESTAMP
-      });
-    }catch{}
-    finally{
-      STATE.repairingHost = false;
-    }
-  }
-
-  function pickRecoveryHost(room){
-    const players = activePlayers(room).filter(Boolean);
-    if (!players.length) return null;
-
-    players.sort((a, b) => {
-      const aLive = isProbablyAlive(a) ? 1 : 0;
-      const bLive = isProbablyAlive(b) ? 1 : 0;
-      if (aLive !== bLive) return bLive - aLive;
-
-      const aMe = a.id === STATE.uid ? 1 : 0;
-      const bMe = b.id === STATE.uid ? 1 : 0;
-      if (aMe !== bMe) return bMe - aMe;
-
-      const aj = Number(a.joinedAt || 0);
-      const bj = Number(b.joinedAt || 0);
-      if (aj !== bj) return aj - bj;
-
-      return String(a.id || '').localeCompare(String(b.id || ''));
+      W.addEventListener('hha:firebase_ready', (ev) => {
+        clearTimeout(timer);
+        if (ev && ev.detail && ev.detail.ok) resolve(true);
+        else reject(new Error((ev && ev.detail && ev.detail.error) || 'firebase not ready'));
+      }, { once:true });
     });
-
-    return players[0] || null;
   }
 
-  async function recoverFinishedRoomForRematch(room){
-    if (!room || !STATE.roomRef || STATE.rematchRecoveryRunning) return false;
+  async function ensureAuth(){
+    await waitForFirebaseReady();
 
-    const status = String(room.status || 'waiting');
-    if (status !== 'finished') return false;
-
-    const info = getRematchInfo(room);
-    if (info.ids.length !== ROOM_SIZE) return false;
-    if (info.count < ROOM_SIZE) return false;
-
-    const host = room.players && room.players[room.hostId] ? room.players[room.hostId] : null;
-    const chosenHost = (host && isProbablyAlive(host)) ? host : pickRecoveryHost(room);
-
-    if (!chosenHost) return false;
-    if (chosenHost.id !== STATE.uid) return false;
-
-    STATE.rematchRecoveryRunning = true;
-
-    try{
-      const t = now();
-      const updates = {
-        status: 'waiting',
-        startAt: 0,
-        updatedAt: firebase.database.ServerValue.TIMESTAMP,
-        seed: String(t),
-        hostId: chosenHost.id,
-        hostName: chosenHost.name || 'Host',
-        rematch: null,
-        'match/status': 'idle',
-        'match/lockedAt': 0,
-        'match/finishedAt': 0,
-        'match/participantIds': null
-      };
-
-      info.ids.forEach((id) => {
-        updates[`players/${id}/ready`] = false;
-        updates[`players/${id}/phase`] = 'lobby';
-        updates[`players/${id}/finished`] = false;
-        updates[`players/${id}/finalScore`] = 0;
-        updates[`players/${id}/miss`] = 0;
-        updates[`players/${id}/streak`] = 0;
-        updates[`players/${id}/finishedAt`] = 0;
-        updates[`players/${id}/connected`] = true;
-        updates[`players/${id}/lastSeenAt`] = firebase.database.ServerValue.TIMESTAMP;
-      });
-
-      await STATE.roomRef.update(updates);
-
-      STATE.autoReadyDone = false;
-      STATE.autoStartAttempted = false;
-      STATE.autoStartLocked = false;
-      stopAutoStartTimer();
-
-      return true;
-    }catch(err){
-      console.error('[duet.lobby] recoverFinishedRoomForRematch failed:', err);
-      return false;
-    }finally{
-      STATE.rematchRecoveryRunning = false;
-    }
-  }
-
-  let __lobbyDebugLastPaint = 0;
-  function ensureLobbyDebugBox(){
-    if (!DEBUG) return null;
-    let el = D.getElementById('duetLobbyDebugBox');
-    if (el) return el;
-
-    el = D.createElement('div');
-    el.id = 'duetLobbyDebugBox';
-    el.style.cssText = [
-      'position:fixed',
-      'left:10px',
-      'right:10px',
-      'bottom:10px',
-      'z-index:9999',
-      'padding:10px 12px',
-      'border-radius:14px',
-      'border:1px solid rgba(244,114,182,.28)',
-      'background:rgba(2,6,23,.92)',
-      'color:#f8fafc',
-      'font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace',
-      'box-shadow:0 18px 40px rgba(0,0,0,.28)',
-      'white-space:pre-wrap',
-      'word-break:break-word',
-      'backdrop-filter:blur(8px)',
-      'max-height:40vh',
-      'overflow:auto'
-    ].join(';');
-
-    D.body.appendChild(el);
-    return el;
-  }
-
-  function renderLobbyDebug(room){
-    if (!DEBUG) return;
-    const t = now();
-    if (t - __lobbyDebugLastPaint < 120) return;
-    __lobbyDebugLastPaint = t;
-
-    const el = ensureLobbyDebugBox();
-    if (!el) return;
-
-    const players = activePlayers(room);
-    const ready = readyPlayers(room);
-    const ids = participantIds(room);
-    const me = room && room.players ? room.players[STATE.uid] : null;
-    const rematchInfo = getRematchInfo(room);
-
-    const lines = [
-      '[DUET LOBBY DEBUG]',
-      `room=${STATE.roomId}`,
-      `uid=${STATE.uid || '-'}`,
-      `pid=${STATE.pid || '-'}`,
-      `name=${STATE.name || '-'}`,
-      `status=${room ? String(room.status || 'waiting') : '-'}`,
-      `host=${room ? String(room.hostId || '-') : '-'}`,
-      `players=${players.length}/${ROOM_SIZE}`,
-      `ready=${ready.length}/${ROOM_SIZE}`,
-      `participantIds=${ids.length ? ids.join(', ') : '-'}`,
-      `rematchCount=${rematchInfo.count}/${ROOM_SIZE}`,
-      `startAt=${room ? Number(room.startAt || 0) : 0}`,
-      `joined=${STATE.joined ? 'yes' : 'no'}`,
-      `joinDenied=${STATE.joinDenied ? 'yes' : 'no'}`,
-      `myReady=${me ? (!!me.ready) : '-'}`,
-      `myPhase=${me ? String(me.phase || '-') : '-'}`,
-      `rematchEntry=${STATE.rematchEntry}`,
-      `autoReadyDone=${STATE.autoReadyDone}`,
-      `autoStartAttempted=${STATE.autoStartAttempted}`,
-      '',
-      '[PLAYERS]'
-    ];
-
-    players.forEach((p, idx) => {
-      lines.push(
-        `${idx + 1}. ${String(p.name || 'Player')} | uid=${p.id} | ready=${!!p.ready} | connected=${p.connected !== false} | phase=${String(p.phase || '-')}`
-      );
-    });
-
-    el.textContent = lines.join('\n');
-  }
-
-  function canAutoStartRematch(room){
-    if (!room) return false;
-    if (!STATE.rematchEntry) return false;
-    if (STATE.joinDenied) return false;
-
-    const status = String(room.status || 'waiting');
-    if (status !== 'waiting') return false;
-
-    const players = activePlayers(room);
-    const ready = readyPlayers(room);
-    const me = room.players ? room.players[STATE.uid] : null;
-    const amHost = room.hostId === STATE.uid;
-
-    if (!amHost) return false;
-    if (!me) return false;
-    if (players.length !== ROOM_SIZE) return false;
-    if (ready.length !== ROOM_SIZE) return false;
-
-    return true;
-  }
-
-  async function maybeAutoReady(room){
-    if (!STATE.rematchEntry) return;
-    if (STATE.autoReadyDone) return;
-    if (!room || !room.players || !room.players[STATE.uid]) return;
-    if (String(room.status || 'waiting') !== 'waiting') return;
-
-    const me = room.players[STATE.uid];
-    if (me.ready){
-      STATE.autoReadyDone = true;
-      return;
+    if (typeof W.HHA_ensureAnonymousAuth !== 'function') {
+      throw new Error('HHA_ensureAnonymousAuth not found');
     }
 
-    STATE.autoReadyDone = true;
+    const user = await W.HHA_ensureAnonymousAuth();
+    if (!user || !user.uid) throw new Error('anonymous auth failed');
 
-    try{
-      await setReady(true);
-      setHint('รีแมตช์รอบใหม่: ตั้งเป็นพร้อมให้อัตโนมัติแล้ว', false);
-    }catch(err){
-      STATE.autoReadyDone = false;
-      setHint('ตั้งพร้อมอัตโนมัติไม่สำเร็จ: ' + (err && err.message ? err.message : 'unknown'), true);
-    }
-  }
-
-  function maybeAutoStartRematch(room){
-    if (!canAutoStartRematch(room)) return;
-    if (STATE.autoStartAttempted || STATE.autoStartLocked) return;
-
-    STATE.autoStartLocked = true;
-    stopAutoStartTimer();
-
-    setHint('พร้อมครบแล้ว กำลังเริ่มรีแมตช์อัตโนมัติ...', false);
-
-    __duetAutoStartTimer = setTimeout(async () => {
-      STATE.autoStartLocked = false;
-      if (STATE.autoStartAttempted) return;
-
-      const latestSnap = await STATE.roomRef.once('value');
-      const latestRoom = latestSnap && latestSnap.val ? latestSnap.val() : null;
-      if (!latestRoom) return;
-
-      const latestStatus = String(latestRoom.status || 'waiting');
-      const latestPlayers = activePlayers(latestRoom);
-      const latestReady = readyPlayers(latestRoom);
-
-      if (latestStatus !== 'waiting') return;
-      if (latestRoom.hostId !== STATE.uid) return;
-      if (latestPlayers.length !== ROOM_SIZE) return;
-      if (latestReady.length !== ROOM_SIZE) return;
-
-      STATE.autoStartAttempted = true;
-
-      try{
-        await startDuet();
-      }catch(err){
-        STATE.autoStartAttempted = false;
-        setHint('เริ่มรีแมตช์อัตโนมัติไม่สำเร็จ: ' + (err && err.message ? err.message : 'unknown'), true);
-      }
-    }, 700);
-  }
-
-  function renderRoom(room){
-    STATE.room = room || null;
-
-    if (els.roomCode) els.roomCode.textContent = `ROOM: ${STATE.roomId}`;
-    if (els.inviteLink) els.inviteLink.value = buildInviteLink();
-    if (els.roomInput && D.activeElement !== els.roomInput){
-      els.roomInput.value = STATE.roomId || '';
-    }
-    renderQr(buildInviteLink());
-
-    if (!room){
-      if (els.playerCount) els.playerCount.textContent = '0/2';
-      if (els.roomStatus) els.roomStatus.textContent = 'waiting';
-      if (els.hostName) els.hostName.textContent = '-';
-      renderPlayers(null);
-      updateButtons(null);
-      renderLobbyDebug(null);
-      return;
-    }
-
-    const players = activePlayers(room);
-    const status = String(room.status || 'waiting');
-    const host = room.players && room.players[room.hostId] ? room.players[room.hostId] : null;
-    const rematchInfo = getRematchInfo(room);
-
-    if (els.playerCount) els.playerCount.textContent = `${players.length}/${ROOM_SIZE}`;
-    if (els.roomStatus) els.roomStatus.textContent = status;
-    if (els.hostName) els.hostName.textContent = host ? (host.name || 'Host') : '-';
-
-    renderPlayers(room);
-    updateButtons(room);
-    maybeRepairHost(room);
-    maybeHandleCountdown(room);
-
-    if (status === 'finished' && rematchInfo.count >= ROOM_SIZE){
-      fireAndForget(recoverFinishedRoomForRematch(room));
-    }
-
-    if (status === 'waiting'){
-      STATE.redirected = false;
-    }
-
-    maybeAutoReady(room);
-    maybeAutoStartRematch(room);
-    renderLobbyDebug(room);
-  }
-
-  async function ensureFirebaseReady(){
-    if (!W.firebase || !firebase.apps || !firebase.apps.length){
-      throw new Error('Firebase ยังไม่ถูก initialize จาก firebase-config.js');
-    }
-    if (typeof firebase.database !== 'function'){
-      throw new Error('firebase-database.js ไม่พร้อม');
-    }
-    if (typeof firebase.auth !== 'function'){
-      throw new Error('ยังไม่ได้โหลด firebase-auth.js');
-    }
-
-    STATE.db = firebase.database();
-    STATE.auth = firebase.auth();
-
-    if (STATE.auth.currentUser){
-      STATE.uid = STATE.auth.currentUser.uid;
-      return STATE.auth.currentUser;
-    }
-
-    const cred = await STATE.auth.signInAnonymously();
-    const user = cred && cred.user ? cred.user : STATE.auth.currentUser;
-    if (!user) throw new Error('Anonymous auth failed');
-    STATE.uid = user.uid;
+    ctx.uid = user.uid;
     return user;
   }
 
-  function freshPlayer(uid){
-    const t = now();
-    return {
-      id: uid,
-      uid: uid,
-      pid: STATE.pid,
-      name: STATE.name,
+  function getDb(){
+    if (S.db) return S.db;
+    if (W.HHA_FIREBASE_DB) {
+      S.db = W.HHA_FIREBASE_DB;
+      return S.db;
+    }
+    if (typeof W.HHA_ENSURE_FIREBASE_DB === 'function') {
+      S.db = W.HHA_ENSURE_FIREBASE_DB();
+      return S.db;
+    }
+    throw new Error('firebase db not ready');
+  }
+
+  function attachRefs(roomId){
+    S.roomId = roomId;
+    const db = getDb();
+    const root = db.ref(`hha-battle/goodjunk/duetRooms/${roomId}`);
+    S.refs = {
+      root,
+      players: root.child('players'),
+      state: root.child('state'),
+      match: root.child('match')
+    };
+    updateUrlRoom(roomId);
+  }
+
+  function cleanupSubs(){
+    clearInterval(S.heartbeat);
+    clearInterval(S.countdownTick);
+    S.heartbeat = 0;
+    S.countdownTick = 0;
+
+    while (S.offFns.length) {
+      const fn = S.offFns.pop();
+      try { fn(); } catch(_) {}
+    }
+
+    S.joined = false;
+    S.players = {};
+    S.hostId = '';
+    S.createdAt = 0;
+    S.updatedAt = 0;
+    S.state = {
+      status: 'waiting',
+      plannedSec: num(ctx.time, 90),
+      seed: ctx.seed,
+      startAt: null,
+      countdownEndsAt: null
+    };
+    S.redirecting = false;
+  }
+
+  async function removeSelfFromCurrentRoom(){
+    if (!S.refs || !ctx.uid) return;
+    try { await S.refs.players.child(ctx.uid).remove(); } catch(_) {}
+    try { await S.refs.players.child(ctx.uid).onDisconnect().cancel(); } catch(_) {}
+  }
+
+  async function createRoomAndJoin(newRoomId){
+    cleanupSubs();
+    attachRefs(newRoomId);
+
+    const nowTs = Date.now();
+    await S.refs.root.update({
+      roomId: newRoomId,
+      game: 'goodjunk',
+      mode: 'duet',
+      hostId: ctx.uid,
+      createdAt: nowTs,
+      updatedAt: nowTs
+    });
+
+    await S.refs.state.update({
+      status: 'waiting',
+      plannedSec: num(ctx.time, 90),
+      seed: ctx.seed,
+      startAt: null,
+      countdownEndsAt: null,
+      updatedAt: nowTs
+    });
+
+    await S.refs.match.update({
+      participantIds: [],
+      lockedAt: null,
+      status: 'idle',
+      race: { finishedAt: 0 }
+    });
+
+    await joinCurrentRoom(true);
+  }
+
+  function getJoinBlockReason(snapshot){
+    if (!snapshot) return '';
+    const state = snapshot.state || {};
+    const players = snapshot.players || {};
+    const active = Object.values(players).filter((p) => {
+      if (!p) return false;
+      if (p.connected === false) return false;
+      return true;
+    });
+
+    if (players[ctx.uid]) return '';
+    if (active.length >= 2) return 'ห้องนี้เต็มแล้ว (Duet เล่นได้ 2 คน)';
+    if (String(state.status || '') === 'countdown') return 'ห้องนี้กำลังนับถอยหลังก่อนเริ่มเกม';
+    if (String(state.status || '') === 'running') return 'ห้องนี้กำลังเล่นอยู่ ไม่สามารถเข้ากลางเกมได้';
+    return '';
+  }
+
+  async function joinCurrentRoom(created=false){
+    const snap = await S.refs.root.once('value');
+    const raw = snap.val() || null;
+
+    if (!raw) {
+      if (!created) {
+        await createRoomAndJoin(S.roomId || makeRoomCode());
+        return;
+      }
+    }
+
+    const blockReason = getJoinBlockReason(raw);
+    if (blockReason) {
+      showGuard(blockReason);
+      setHint(blockReason);
+      return;
+    }
+
+    const selfRef = S.refs.players.child(ctx.uid);
+    const nowTs = Date.now();
+
+    await selfRef.update({
+      id: ctx.uid,
+      name: ctx.name,
       ready: false,
       connected: true,
-      phase: 'lobby',
+      joinedAt: nowTs,
+      lastSeenAt: nowTs,
       finished: false,
       finalScore: 0,
       miss: 0,
       streak: 0,
-      joinedAt: t,
-      lastSeenAt: t,
-      finishedAt: 0
+      phase: 'lobby'
+    });
+
+    try { selfRef.onDisconnect().remove(); } catch(_) {}
+
+    S.joined = true;
+    subscribeRoom();
+
+    setHint(created ? 'สร้างห้องสำเร็จแล้ว' : 'เข้าห้องสำเร็จแล้ว');
+    setCopyState('ส่ง room code หรือ invite link ให้อีกเครื่องเข้าร่วม', false);
+    startHeartbeat();
+  }
+
+  function subscribeRoom(){
+    const onValue = async (snap) => {
+      const raw = snap.val() || {};
+
+      S.hostId = String(raw.hostId || '');
+      S.createdAt = num(raw.createdAt, 0);
+      S.updatedAt = num(raw.updatedAt, 0);
+      S.players = raw.players || {};
+      S.state = Object.assign({
+        status: 'waiting',
+        plannedSec: num(ctx.time, 90),
+        seed: ctx.seed,
+        startAt: null,
+        countdownEndsAt: null
+      }, raw.state || {});
+
+      renderAll();
+
+      const actives = activePlayers();
+
+      if (!actives.some((p) => p.id === S.hostId) && actives.length > 0 && actives[0].id === ctx.uid) {
+        await S.refs.root.update({
+          hostId: ctx.uid,
+          updatedAt: Date.now()
+        }).catch(()=>{});
+      }
+
+      if (statusText() === 'countdown' && actives.length < 2 && isHost()) {
+        await S.refs.state.update({
+          status: 'waiting',
+          startAt: null,
+          countdownEndsAt: null,
+          updatedAt: Date.now()
+        }).catch(()=>{});
+
+        await S.refs.match.update({
+          participantIds: [],
+          lockedAt: null,
+          status: 'idle'
+        }).catch(()=>{});
+      }
+
+      if (statusText() === 'running') {
+        goRun();
+      }
     };
-  }
 
-  function freshRoom(uid){
-    const t = now();
-    const me = freshPlayer(uid);
-    const room = {
-      roomId: STATE.roomId,
-      game: GAME_KEY,
-      mode: MODE_KEY,
-      hostId: uid,
-      hostName: me.name || 'Host',
-      diff: STATE.diff,
-      time: Number(STATE.time),
-      seed: String(STATE.seed),
-      view: STATE.view,
-      hub: STATE.hub,
-      run: STATE.run,
-      zone: STATE.zone,
-      theme: STATE.theme,
-      status: 'waiting',
-      minPlayers: 2,
-      maxPlayers: 2,
-      startAt: 0,
-      createdAt: t,
-      updatedAt: t,
-      match: {
-        participantIds: [],
-        lockedAt: 0,
-        status: 'idle'
-      },
-      players: {}
+    const onError = (err) => {
+      console.error('[goodjunk-duet-lobby] subscribe failed:', err);
+      setHint(`เข้าห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+      setCopyState('ตรวจ firebase auth / rules / path duetRooms แล้วลองใหม่', true);
+      showGuard('permission denied หรือ firebase ยังไม่พร้อม');
     };
-    room.players[uid] = me;
-    return room;
-  }
 
-  async function ensureRoomExistsOrCreate(){
-    const firstSnap = await STATE.roomRef.once('value');
-    const firstRoom = firstSnap && firstSnap.val ? firstSnap.val() : null;
-    if (firstRoom) return firstRoom;
-
-    await new Promise((resolve, reject) => {
-      STATE.roomRef.transaction((current) => {
-        if (current) return current;
-        return freshRoom(STATE.uid);
-      }, (err, committed, postSnap) => {
-        if (err) return reject(err);
-        if (!committed) return reject(new Error('create-room-aborted'));
-        return resolve(postSnap && postSnap.val ? postSnap.val() : null);
-      }, false);
-    });
-
-    const secondSnap = await STATE.roomRef.once('value');
-    return secondSnap && secondSnap.val ? secondSnap.val() : null;
-  }
-
-  async function readJoinableRoom(){
-    const snap = await STATE.roomRef.once('value');
-    const room = snap && snap.val ? snap.val() : null;
-    if (!room) throw new Error('room-not-found-after-create');
-
-    const players = prunePlayers(room.players, room.status || 'waiting');
-    const ids = Object.keys(players || {});
-    const hasMe = !!players[STATE.uid];
-    const status = String(room.status || 'waiting');
-
-    if (!hasMe && ids.length >= ROOM_SIZE){
-      throw new Error('room-full');
-    }
-
-    if (!hasMe && status !== 'waiting' && status !== 'finished'){
-      throw new Error('room-not-joinable');
-    }
-
-    return Object.assign({}, room, { players });
-  }
-
-  async function joinRoom(){
-    STATE.roomRef = STATE.db.ref(roomPath(STATE.roomId));
-    STATE.meRef = STATE.roomRef.child('players/' + STATE.uid);
-
-    await ensureRoomExistsOrCreate();
-    const room = await readJoinableRoom();
-
-    const players = room.players || {};
-    const prev = players[STATE.uid] || {};
-    const status = String(room.status || 'waiting');
-
-    hideJoinGuard();
-
-    const rootUpdates = {};
-
-    if (!room.hostId || !players[room.hostId]){
-      rootUpdates.hostId = STATE.uid;
-      rootUpdates.hostName = STATE.name || 'Host';
-    }
-
-    if (!room.roomId) rootUpdates.roomId = STATE.roomId;
-    if (!room.game) rootUpdates.game = GAME_KEY;
-    if (!room.mode) rootUpdates.mode = MODE_KEY;
-    if (room.minPlayers == null) rootUpdates.minPlayers = 2;
-    if (room.maxPlayers == null) rootUpdates.maxPlayers = 2;
-    if (!room.diff) rootUpdates.diff = STATE.diff;
-    if (!room.time) rootUpdates.time = Number(STATE.time);
-    if (!room.seed) rootUpdates.seed = String(STATE.seed);
-    if (!room.view) rootUpdates.view = STATE.view;
-    if (!room.hub) rootUpdates.hub = STATE.hub;
-    if (!room.run) rootUpdates.run = STATE.run;
-    if (!room.zone) rootUpdates.zone = STATE.zone;
-    if (!room.theme) rootUpdates.theme = STATE.theme;
-    if (!room.match) rootUpdates.match = { participantIds: [], lockedAt: 0, status: 'idle' };
-
-    if (Object.keys(rootUpdates).length){
-      rootUpdates.updatedAt = firebase.database.ServerValue.TIMESTAMP;
-      await STATE.roomRef.update(rootUpdates);
-    }
-
-    try{
-      const od = STATE.meRef.onDisconnect();
-      if (od && typeof od.update === 'function'){
-        fireAndForget(
-          od.update({
-            connected: false,
-            phase: 'left',
-            lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-          })
-        );
-      }
-    }catch(err){
-      console.warn('[duet.lobby] onDisconnect setup ignored:', err);
-    }
-
-    const computedPhase = prev.finished
-      ? 'done'
-      : (status === 'finished' ? (prev.phase || 'done') : 'lobby');
-
-    await STATE.meRef.update({
-      id: STATE.uid,
-      uid: STATE.uid,
-      pid: STATE.pid,
-      name: STATE.name,
-      ready: (typeof prev.ready === 'boolean') ? prev.ready : false,
-      connected: true,
-      phase: computedPhase,
-      finished: !!prev.finished,
-      finalScore: Number(prev.finalScore || 0),
-      miss: Number(prev.miss || 0),
-      streak: Number(prev.streak || 0),
-      joinedAt: prev.joinedAt || firebase.database.ServerValue.TIMESTAMP,
-      lastSeenAt: firebase.database.ServerValue.TIMESTAMP,
-      finishedAt: prev.finishedAt || 0
-    });
-
-    STATE.joined = true;
-  }
-
-  async function setReady(flag){
-    if (!STATE.meRef || STATE.joinDenied) return;
-    await STATE.meRef.update({
-      ready: !!flag,
-      connected: true,
-      phase: 'lobby',
-      lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-    });
-  }
-
-  async function startDuet(){
-    if (!STATE.roomRef || STATE.joinDenied) return;
-
-    await new Promise((resolve, reject) => {
-      STATE.roomRef.transaction((current) => {
-        if (!current) return current;
-
-        current.players = prunePlayers(current.players, current.status || 'waiting');
-
-        if (String(current.status || 'waiting') !== 'waiting') return current;
-        if (current.hostId !== STATE.uid) return current;
-
-        const players = Object.keys(current.players || {})
-          .map((id) => Object.assign({ id }, current.players[id] || {}))
-          .filter((p) => isProbablyAlive(p));
-
-        if (players.length !== ROOM_SIZE) return current;
-
-        const ready = players.filter((p) => !!p.ready);
-        if (ready.length !== ROOM_SIZE) return current;
-
-        const t = now();
-        const startAt = t + COUNTDOWN_MS;
-        const ids = ready.slice(0, ROOM_SIZE).map((p) => p.id);
-
-        ids.forEach((id) => {
-          if (!current.players[id]) return;
-          current.players[id].phase = 'lobby';
-          current.players[id].finished = false;
-          current.players[id].finalScore = 0;
-          current.players[id].miss = 0;
-          current.players[id].streak = 0;
-          current.players[id].finishedAt = 0;
-          current.players[id].lastSeenAt = t;
-        });
-
-        current.status = 'countdown';
-        current.startAt = startAt;
-        current.updatedAt = t;
-        current.match = {
-          participantIds: ids,
-          lockedAt: t,
-          status: 'locked'
-        };
-
-        return current;
-      }, (err, committed, snap) => {
-        if (err) return reject(err);
-
-        const room = snap && snap.val ? snap.val() : null;
-        if (!committed){
-          if (!room) return reject(new Error('start-failed'));
-          const players = activePlayers(room);
-          const ready = readyPlayers(room);
-          if (room.hostId !== STATE.uid) return reject(new Error('not-host'));
-          if (players.length !== ROOM_SIZE) return reject(new Error('need-2-players'));
-          if (ready.length !== ROOM_SIZE) return reject(new Error('need-2-ready'));
-          if (String(room.status || 'waiting') !== 'waiting') return reject(new Error('room-not-waiting'));
-          return reject(new Error('start-aborted'));
-        }
-
-        return resolve(room);
-      }, false);
-    });
-  }
-
-  function attachRoomListener(){
-    STATE.roomRef.on('value', (snap) => {
-      const room = snap.val();
-      renderRoom(room);
-
-      if (!room) return;
-
-      const status = String(room.status || 'waiting');
-      const info = getRematchInfo(room);
-
-      if (STATE.rematchEntry && status === 'waiting'){
-        STATE.redirected = false;
-        STATE.autoStartLocked = false;
-      }
-
-      if (status === 'finished' && info.count >= ROOM_SIZE){
-        fireAndForget(recoverFinishedRoomForRematch(room));
-      }
-    }, (err) => {
-      showJoinGuard('ฟังสถานะห้องไม่ได้: ' + (err && err.message ? err.message : 'unknown'));
-    });
+    S.refs.root.on('value', onValue, onError);
+    S.offFns.push(() => S.refs.root.off('value', onValue));
   }
 
   function startHeartbeat(){
-    stopHeartbeat();
-    if (!STATE.meRef) return;
-
-    STATE.heartbeatTimer = setInterval(() => {
-      STATE.meRef.update({
-        id: STATE.uid,
-        uid: STATE.uid,
-        pid: STATE.pid,
-        name: STATE.name,
+    clearInterval(S.heartbeat);
+    S.heartbeat = setInterval(() => {
+      if (!S.joined) return;
+      S.refs.players.child(ctx.uid).update({
+        name: ctx.name,
         connected: true,
-        phase: 'lobby',
-        lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-      }).catch(() => {});
+        lastSeenAt: Date.now(),
+        phase: statusText() === 'running' ? 'run' : 'lobby'
+      }).catch(()=>{});
     }, HEARTBEAT_MS);
   }
 
-  function stopHeartbeat(){
-    if (STATE.heartbeatTimer){
-      clearInterval(STATE.heartbeatTimer);
-      STATE.heartbeatTimer = 0;
+  async function setReady(flag){
+    if (!S.joined || statusText() !== 'waiting') return;
+
+    await S.refs.players.child(ctx.uid).update({
+      ready: !!flag,
+      connected: true,
+      lastSeenAt: Date.now(),
+      phase: 'lobby'
+    }).catch(()=>{});
+  }
+
+  async function startDuet(){
+    if (!S.joined || !isHost()) return;
+
+    const actives = activePlayers();
+    const ready = readyPlayers();
+
+    if (actives.length < 2) {
+      setHint('ต้องมีผู้เล่นครบ 2 คนก่อน');
+      return;
+    }
+    if (ready.length < 2) {
+      setHint('ผู้เล่นทั้ง 2 คนต้อง ready ก่อนเริ่ม');
+      return;
+    }
+
+    const startAt = Date.now() + 3500;
+    const participantIds = ready.slice(0, 2).map((p) => p.id);
+
+    await S.refs.match.update({
+      participantIds,
+      lockedAt: Date.now(),
+      status: 'countdown',
+      race: { finishedAt: 0 }
+    }).catch(()=>{});
+
+    await S.refs.state.update({
+      status: 'countdown',
+      plannedSec: num(ctx.time, 90),
+      seed: ctx.seed,
+      startAt,
+      countdownEndsAt: startAt,
+      updatedAt: Date.now()
+    }).catch((err) => {
+      console.error('[goodjunk-duet-lobby] startDuet failed:', err);
+      setHint(`เริ่ม Duet ไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+    });
+  }
+
+  function goRun(){
+    if (S.redirecting) return;
+    if (statusText() !== 'running' && statusText() !== 'countdown') return;
+
+    const matchIds = S.refs ? null : null; // กัน lint
+    void matchIds;
+
+    S.redirecting = true;
+    location.href = buildRunUrl();
+  }
+
+  async function joinByCode(){
+    const room = cleanRoom(UI.roomInput && UI.roomInput.value || '');
+    if (!room) {
+      setHint('กรอก Room Code ก่อน');
+      return;
+    }
+
+    try {
+      if (S.joined && S.roomId && S.roomId !== room) {
+        await removeSelfFromCurrentRoom();
+      }
+      cleanupSubs();
+      attachRefs(room);
+      await joinCurrentRoom(false);
+    } catch (err) {
+      console.error('[goodjunk-duet-lobby] joinByCode failed:', err);
+      setHint(`เข้าห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
     }
   }
 
-  function bindUi(){
-    if (els.roomCode) els.roomCode.textContent = `ROOM: ${STATE.roomId}`;
-    if (els.inviteLink) els.inviteLink.value = buildInviteLink();
-    if (els.roomInput) els.roomInput.value = STATE.roomId || '';
-    renderQr(buildInviteLink());
-
-    if (els.btnCopyRoom){
-      els.btnCopyRoom.addEventListener('click', async () => {
-        const ok = await copyText(STATE.roomId);
-        setCopyState(ok ? 'คัดลอก Room Code แล้ว' : 'คัดลอก Room Code ไม่สำเร็จ', !ok);
-      });
+  async function useCurrentRoom(){
+    if (!S.roomId) {
+      setHint('ยังไม่มีห้องปัจจุบัน');
+      return;
     }
+    if (UI.roomInput) UI.roomInput.value = S.roomId;
+  }
 
-    if (els.btnCopyInvite){
-      els.btnCopyInvite.addEventListener('click', async () => {
-        const ok = await copyText(buildInviteLink());
-        setCopyState(ok ? 'คัดลอก Invite Link แล้ว' : 'คัดลอก Invite Link ไม่สำเร็จ', !ok);
-      });
+  async function makeNewRoom(){
+    try {
+      if (S.joined) {
+        await removeSelfFromCurrentRoom();
+      }
+      const room = makeRoomCode();
+      cleanupSubs();
+      attachRefs(room);
+      await createRoomAndJoin(room);
+    } catch (err) {
+      console.error('[goodjunk-duet-lobby] makeNewRoom failed:', err);
+      setHint(`สร้างห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
     }
+  }
 
-    if (els.roomInput){
-      els.roomInput.addEventListener('input', () => {
-        const v = normalizeRoomId(els.roomInput.value);
-        if (els.roomInput.value !== v) els.roomInput.value = v;
-      });
+  async function onBack(){
+    try {
+      if (!S.redirecting && S.joined) {
+        await removeSelfFromCurrentRoom();
+      }
+    } catch(_) {}
+    location.href = ctx.hub || '../hub.html';
+  }
 
-      els.roomInput.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Enter'){
+  function renderAll(){
+    renderHeader();
+    renderPlayers();
+    renderButtons();
+    renderNotice();
+    renderCountdown();
+  }
+
+  function bindUI(){
+    UI.btnBack && UI.btnBack.addEventListener('click', (e) => {
+      e.preventDefault();
+      onBack();
+    });
+
+    UI.btnCopyRoom && UI.btnCopyRoom.addEventListener('click', async () => {
+      const ok = await copyText(S.roomId || '');
+      setCopyState(ok ? `คัดลอก Room Code แล้ว: ${S.roomId}` : 'คัดลอก Room Code ไม่สำเร็จ', !ok);
+    });
+
+    UI.btnCopyInvite && UI.btnCopyInvite.addEventListener('click', async () => {
+      const ok = await copyText(buildInviteUrl(S.roomId || ctx.roomId || makeRoomCode()));
+      setCopyState(ok ? 'คัดลอก Invite Link แล้ว' : 'คัดลอก Invite Link ไม่สำเร็จ', !ok);
+    });
+
+    UI.btnJoinByCode && UI.btnJoinByCode.addEventListener('click', joinByCode);
+    UI.btnUseCurrentRoom && UI.btnUseCurrentRoom.addEventListener('click', useCurrentRoom);
+    UI.btnNewRoom && UI.btnNewRoom.addEventListener('click', makeNewRoom);
+
+    UI.btnReady && UI.btnReady.addEventListener('click', () => setReady(true));
+    UI.btnUnready && UI.btnUnready.addEventListener('click', () => setReady(false));
+    UI.btnStart && UI.btnStart.addEventListener('click', startDuet);
+
+    if (UI.roomInput) {
+      UI.roomInput.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
           ev.preventDefault();
-          goJoinRoomByCode(els.roomInput.value);
+          joinByCode();
         }
-      });
-    }
-
-    if (els.btnJoinByCode){
-      els.btnJoinByCode.addEventListener('click', () => {
-        goJoinRoomByCode(els.roomInput ? els.roomInput.value : '');
-      });
-    }
-
-    if (els.btnUseCurrentRoom){
-      els.btnUseCurrentRoom.addEventListener('click', () => {
-        if (els.roomInput){
-          els.roomInput.value = STATE.roomId || '';
-          els.roomInput.focus();
-          if (els.roomInput.select) els.roomInput.select();
-        }
-        setHint('ใส่ code ห้องปัจจุบันให้แล้ว', false);
-      });
-    }
-
-    if (els.btnNewRoom){
-      els.btnNewRoom.addEventListener('click', () => {
-        goCreateNewRoom();
-      });
-    }
-
-    if (els.btnReady){
-      els.btnReady.addEventListener('click', async () => {
-        try{
-          await setReady(true);
-          STATE.autoReadyDone = true;
-        }catch(err){
-          setHint('กดพร้อมไม่สำเร็จ: ' + (err && err.message ? err.message : 'unknown'), true);
-        }
-      });
-    }
-
-    if (els.btnUnready){
-      els.btnUnready.addEventListener('click', async () => {
-        try{
-          await setReady(false);
-          STATE.autoStartAttempted = false;
-          stopAutoStartTimer();
-        }catch(err){
-          setHint('ยกเลิกพร้อมไม่สำเร็จ: ' + (err && err.message ? err.message : 'unknown'), true);
-        }
-      });
-    }
-
-    if (els.btnStart){
-      els.btnStart.addEventListener('click', async () => {
-        try{
-          await startDuet();
-        }catch(err){
-          const msg = err && err.message ? err.message : 'start-failed';
-          if (msg === 'not-host') setHint('เฉพาะ Host เท่านั้นที่กดเริ่ม Duet ได้', true);
-          else if (msg === 'need-2-players') setHint('Duet ต้องมีผู้เล่นครบ 2 คนก่อน', true);
-          else if (msg === 'need-2-ready') setHint('ต้องมีผู้เล่นพร้อมครบ 2/2 ก่อนเริ่ม', true);
-          else setHint('เริ่ม Duet ไม่สำเร็จ: ' + msg, true);
-        }
-      });
-    }
-
-    if (els.btnBack){
-      els.btnBack.addEventListener('click', () => {
-        safeReplace(STATE.hub || '../hub.html');
       });
     }
 
     W.addEventListener('beforeunload', () => {
-      stopHeartbeat();
-      stopAutoStartTimer();
-      try{
-        if (STATE.meRef){
-          STATE.meRef.update({
-            connected: false,
-            phase: 'left',
-            lastSeenAt: firebase.database.ServerValue.TIMESTAMP
-          }).catch(() => {});
-        }
-      }catch{}
+      if (S.redirecting) return;
+      try {
+        S.refs && ctx.uid && S.refs.players.child(ctx.uid).remove();
+      } catch(_) {}
     });
 
-    W.addEventListener('pagehide', () => {
-      stopHeartbeat();
-      stopAutoStartTimer();
+    D.addEventListener('visibilitychange', () => {
+      if (D.visibilityState === 'visible' && S.joined) {
+        S.refs.players.child(ctx.uid).update({
+          connected: true,
+          lastSeenAt: Date.now()
+        }).catch(()=>{});
+      }
     });
   }
 
-  async function init(){
-    bindUi();
-    renderRoom(null);
-    setCopyState('กำลังเชื่อมห้อง Duet...', false);
+  async function boot(){
+    try {
+      bindUI();
+      renderAll();
 
-    try{
-      await ensureFirebaseReady();
-    }catch(err){
-      showJoinGuard(
-        'Firebase ยังไม่พร้อม: ' +
-        (err && err.message ? err.message : 'unknown') +
-        ' — ต้องใส่ firebase-auth.js ก่อน firebase-config.js'
-      );
-      return;
-    }
+      setHint('กำลังเชื่อม Firebase...');
+      await ensureAuth();
 
-    let lastErr = null;
-
-    for (let i = 0; i < 2; i++){
-      try{
-        await joinRoom();
-        lastErr = null;
-        break;
-      }catch(err){
-        lastErr = err;
-        const msg = err && err.message ? err.message : 'join-failed';
-
-        if (msg === 'maxretry' && i === 0){
-          await new Promise(resolve => setTimeout(resolve, 450));
-          continue;
-        }
-        break;
-      }
-    }
-
-    if (lastErr){
-      const msg = lastErr && lastErr.message ? lastErr.message : 'join-failed';
-
-      if (msg === 'room-full'){
-        showJoinGuard('ห้องนี้เต็มแล้ว (Duet รับได้แค่ 2 คน)');
-      } else if (msg === 'room-not-joinable'){
-        showJoinGuard('ห้องนี้เริ่มเกมไปแล้ว ให้สร้างห้องใหม่สำหรับรอบถัดไป');
-      } else if (msg === 'maxretry'){
-        showJoinGuard('เข้าห้องไม่สำเร็จ: maxretry — ให้รีเฟรช 1 ครั้งแล้วลองใหม่');
-      } else if (msg === 'permission_denied'){
-        showJoinGuard('เข้าห้องไม่สำเร็จ: permission_denied');
+      if (ctx.roomId) {
+        attachRefs(ctx.roomId);
+        await joinCurrentRoom(false);
       } else {
-        showJoinGuard('เข้าห้องไม่สำเร็จ: ' + msg);
+        const room = makeRoomCode();
+        attachRefs(room);
+        await createRoomAndJoin(room);
       }
-      return;
-    }
 
-    try{
-      attachRoomListener();
-      startHeartbeat();
-      setCopyState('ส่ง room code หรือลิงก์นี้ให้เพื่อนอีกคนเข้าร่วมได้', false);
-    }catch(err){
-      showJoinGuard('ฟังสถานะห้องไม่ได้: ' + (err && err.message ? err.message : 'unknown'));
+      renderAll();
+    } catch (err) {
+      console.error('[goodjunk-duet-lobby] boot failed:', err);
+      setHint(`เริ่ม Duet Lobby ไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+      setCopyState('ตรวจ firebase-config.js / auth / duetRooms rules แล้วลองใหม่', true);
+      showGuard('permission denied หรือ firebase ยังไม่พร้อม');
     }
   }
 
-  init();
+  boot();
 })();
