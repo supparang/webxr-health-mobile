@@ -3,7 +3,7 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
  * GoodJunk Duet Lobby
- * FULL PATCH v20260331-gjduet-lobby-r8
+ * FULL PATCH v20260401-gjduet-lobby-r12
  * ========================================================= */
 (function(){
   const W = window;
@@ -100,6 +100,10 @@
     countdownTick: 0,
     offFns: []
   };
+
+  function log(...args){
+    console.log('[gj-duet-lobby]', ...args);
+  }
 
   function makeRoomCode(){
     return Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -506,112 +510,124 @@
     }
   }
 
-  async function goRun(){
-    if (S.redirecting) return;
-    if (statusText() !== 'running' && statusText() !== 'countdown') return;
+  async function waitForFirebaseReady(timeoutMs = FIREBASE_WAIT_MS){
+    const start = Date.now();
 
-    S.redirecting = true;
-    clearPendingRematch();
-    clearRematchQueryFromUrl();
-
-    try{
-      if (S.selfOnDisconnect && typeof S.selfOnDisconnect.cancel === 'function'){
-        await S.selfOnDisconnect.cancel();
-      }
-    }catch(_){}
-
-    try{
-      if (S.refs && S.refs.players && ctx.uid){
-        await S.refs.players.child(ctx.uid).update({
-          connected: true,
-          lastSeenAt: Date.now(),
-          phase: 'run'
-        });
-      }
-    }catch(_){}
-
-    location.href = buildRunUrl();
-  }
-
-  function renderCountdown(){
-    clearInterval(S.countdownTick);
-    S.countdownTick = 0;
-    if (UI.countdown) UI.countdown.textContent = '';
-
-    const targetAt = num(S.state.startAt || S.state.countdownEndsAt, 0);
-    if (statusText() !== 'countdown' || !targetAt) return;
-
-    S.countdownTick = setInterval(async () => {
-      const leftMs = targetAt - Date.now();
-      const sec = Math.max(0, Math.ceil(leftMs / 1000));
-      if (UI.countdown) UI.countdown.textContent = sec > 0 ? String(sec) : 'GO!';
-
-      if (leftMs <= 0) {
-        clearInterval(S.countdownTick);
-        S.countdownTick = 0;
-
-        if (isHost()) {
-          await S.refs.root.update({
-            status: 'running',
-            startAt: targetAt,
-            countdownEndsAt: targetAt,
-            updatedAt: Date.now()
-          }).catch(()=>{});
-          await S.refs.state.update({
-            status: 'running',
-            startAt: targetAt,
-            countdownEndsAt: targetAt,
-            updatedAt: Date.now()
-          }).catch(()=>{});
-          await S.refs.match.update({
-            status: 'running'
-          }).catch(()=>{});
+    while ((Date.now() - start) < timeoutMs){
+      try{
+        if (W.HHA_FIREBASE_READY && W.HHA_FIREBASE_DB) {
+          return true;
         }
 
-        await goRun();
-      }
-    }, 100);
-  }
+        if (W.firebase && firebase.apps && firebase.apps.length) {
+          if (typeof firebase.database === 'function' && typeof firebase.auth === 'function') {
+            try { S.db = firebase.database(); } catch(_) {}
+            return true;
+          }
+        }
 
-  async function waitForFirebaseReady(timeoutMs = FIREBASE_WAIT_MS){
-    if (W.HHA_FIREBASE_READY && W.HHA_FIREBASE_DB) return true;
+        if (typeof W.HHA_ENSURE_FIREBASE_DB === 'function') {
+          const db = W.HHA_ENSURE_FIREBASE_DB();
+          if (db) {
+            S.db = db;
+            return true;
+          }
+        }
+      }catch(_){}
 
-    return await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('firebase not ready')), timeoutMs);
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
 
-      W.addEventListener('hha:firebase_ready', (ev) => {
-        clearTimeout(timer);
-        if (ev && ev.detail && ev.detail.ok) resolve(true);
-        else reject(new Error((ev && ev.detail && ev.detail.error) || 'firebase not ready'));
-      }, { once:true });
-    });
+    throw new Error('firebase not ready');
   }
 
   async function ensureAuth(){
     await waitForFirebaseReady();
 
-    if (typeof W.HHA_ensureAnonymousAuth !== 'function') {
-      throw new Error('HHA_ensureAnonymousAuth not found');
+    if (typeof W.HHA_ensureAnonymousAuth === 'function') {
+      const user = await W.HHA_ensureAnonymousAuth();
+      if (!user || !user.uid) throw new Error('anonymous auth failed');
+      ctx.uid = user.uid;
+      return user;
     }
 
-    const user = await W.HHA_ensureAnonymousAuth();
-    if (!user || !user.uid) throw new Error('anonymous auth failed');
+    if (W.firebase && firebase.apps && firebase.apps.length && typeof firebase.auth === 'function') {
+      const auth = firebase.auth();
+      if (!auth.currentUser) {
+        const cred = await auth.signInAnonymously();
+        const user = (cred && cred.user) || auth.currentUser;
+        if (!user || !user.uid) throw new Error('anonymous auth failed');
+        ctx.uid = user.uid;
+        return user;
+      }
+      ctx.uid = auth.currentUser.uid;
+      return auth.currentUser;
+    }
 
-    ctx.uid = user.uid;
-    return user;
+    throw new Error('anonymous auth unavailable');
   }
 
   function getDb(){
     if (S.db) return S.db;
+
     if (W.HHA_FIREBASE_DB) {
       S.db = W.HHA_FIREBASE_DB;
       return S.db;
     }
+
+    if (W.firebase && firebase.apps && firebase.apps.length && typeof firebase.database === 'function') {
+      S.db = firebase.database();
+      return S.db;
+    }
+
     if (typeof W.HHA_ENSURE_FIREBASE_DB === 'function') {
       S.db = W.HHA_ENSURE_FIREBASE_DB();
       return S.db;
     }
+
     throw new Error('firebase db not ready');
+  }
+
+  function debugFirebaseContext(label){
+    try{
+      const app = W.HHA_FIREBASE_APP || (W.firebase && firebase.apps && firebase.apps.length ? firebase.app() : null);
+      const auth = W.HHA_FIREBASE_AUTH || (W.firebase && typeof firebase.auth === 'function' ? firebase.auth() : null);
+      log(label, {
+        ready: !!W.HHA_FIREBASE_READY,
+        error: W.HHA_FIREBASE_ERROR || '',
+        appCount: W.firebase && firebase.apps ? firebase.apps.length : -1,
+        databaseURL: app && app.options ? app.options.databaseURL : '',
+        uid: auth && auth.currentUser ? auth.currentUser.uid : '',
+        roomId: S.roomId,
+        path: S.refs && S.refs.root ? S.refs.root.toString() : ''
+      });
+    }catch(err){
+      console.warn('[gj-duet-lobby] debugFirebaseContext failed:', err);
+    }
+  }
+
+  async function dbWriteWithRetry(task, label='db-write', tries=2){
+    let lastErr = null;
+
+    for (let i = 0; i < tries; i++){
+      try{
+        return await task();
+      }catch(err){
+        lastErr = err;
+        const msg = String((err && err.message) || err || '');
+        console.warn('[gj-duet-lobby]', label, 'failed try', i + 1, msg);
+
+        try {
+          if (typeof W.HHA_ensureAnonymousAuth === 'function') {
+            await W.HHA_ensureAnonymousAuth();
+          }
+        } catch(_) {}
+
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
+    }
+
+    throw lastErr || new Error(label + ' failed');
   }
 
   function attachRefs(roomId){
@@ -679,7 +695,10 @@
     attachRefs(newRoomId);
 
     const nowTs = Date.now();
-    await S.refs.root.update({
+
+    debugFirebaseContext('before createRoomAndJoin');
+
+    await dbWriteWithRetry(() => S.refs.root.update({
       roomId: newRoomId,
       game: 'goodjunk',
       mode: 'duet',
@@ -691,23 +710,23 @@
       seed: ctx.seed,
       startAt: null,
       countdownEndsAt: null
-    });
+    }), 'root.update(create-room)');
 
-    await S.refs.state.update({
+    await dbWriteWithRetry(() => S.refs.state.update({
       status: 'waiting',
       plannedSec: num(ctx.time, 90),
       seed: ctx.seed,
       startAt: null,
       countdownEndsAt: null,
       updatedAt: nowTs
-    });
+    }), 'state.update(create-room)');
 
-    await S.refs.match.update({
+    await dbWriteWithRetry(() => S.refs.match.update({
       participantIds: [],
       lockedAt: null,
       status: 'idle',
       race: { finishedAt: 0 }
-    });
+    }), 'match.update(create-room)');
 
     await joinCurrentRoom(true);
   }
@@ -747,7 +766,9 @@
     const nowTs = Date.now();
     const prev = raw && raw.players ? raw.players[ctx.uid] : null;
 
-    await selfRef.update({
+    debugFirebaseContext('before joinCurrentRoom self update');
+
+    await dbWriteWithRetry(() => selfRef.update({
       id: ctx.uid,
       name: ctx.name,
       ready: false,
@@ -759,7 +780,7 @@
       miss: 0,
       streak: 0,
       phase: 'lobby'
-    });
+    }), 'players/self.update(join-room)');
 
     try {
       const od = selfRef.onDisconnect();
@@ -783,7 +804,7 @@
   }
 
   async function syncPendingRematchFromLobby(){
-    if (!S.roomRef || !ctx.uid || !S.roomId || !ctx.uid) return;
+    if (!S.refs || !ctx.uid || !S.roomId) return;
     if (S.rematchSynced) return;
 
     const rematchQuery = String(qs('rematch', '0')) === '1';
@@ -840,9 +861,10 @@
 
       const count = getRematchCount(room2);
       const hostAlive = room2.players && room2.players[room2.hostId] ? isProbablyAlivePlayer(room2.players[room2.hostId]) : false;
-      const amHostNow = room2.hostId === ctx.uid || (!hostAlive && activePlayers(room2)[0] && activePlayers(room2)[0].id === ctx.uid);
+      const firstActive = activePlayers(room2)[0];
+      const amHostNow = room2.hostId === ctx.uid || (!hostAlive && firstActive && firstActive.id === ctx.uid);
 
-      if (!hostAlive && activePlayers(room2)[0] && activePlayers(room2)[0].id === ctx.uid) {
+      if (!hostAlive && firstActive && firstActive.id === ctx.uid) {
         await S.refs.root.update({
           hostId: ctx.uid,
           updatedAt: Date.now()
@@ -851,35 +873,33 @@
 
       if (count >= 2 && amHostNow){
         const ids = getCurrentParticipantIds(room2);
-        const updates = {
+        const nextSeed = String(Date.now());
+
+        await S.refs.root.update({
           status: 'waiting',
           plannedSec: num(ctx.time, 90),
-          seed: String(Date.now()),
+          seed: nextSeed,
           startAt: null,
           countdownEndsAt: null,
           updatedAt: Date.now(),
           rematch: null
-        };
+        }).catch(()=>{});
 
-        const stateUpdates = {
+        await S.refs.state.update({
           status: 'waiting',
           plannedSec: num(ctx.time, 90),
-          seed: String(Date.now()),
+          seed: nextSeed,
           startAt: null,
           countdownEndsAt: null,
           updatedAt: Date.now()
-        };
+        }).catch(()=>{});
 
-        const matchUpdates = {
+        await S.refs.match.update({
           participantIds: [],
           lockedAt: null,
           status: 'idle',
           finishedAt: null
-        };
-
-        await S.refs.root.update(updates).catch(()=>{});
-        await S.refs.state.update(stateUpdates).catch(()=>{});
-        await S.refs.match.update(matchUpdates).catch(()=>{});
+        }).catch(()=>{});
 
         for (const id of ids){
           await S.refs.players.child(id).update({
@@ -897,6 +917,73 @@
     }catch(err){
       console.warn('[duet.lobby] syncPendingRematchFromLobby failed:', err);
     }
+  }
+
+  async function goRun(){
+    if (S.redirecting) return;
+    if (statusText() !== 'running' && statusText() !== 'countdown') return;
+
+    S.redirecting = true;
+    clearPendingRematch();
+    clearRematchQueryFromUrl();
+
+    try{
+      if (S.selfOnDisconnect && typeof S.selfOnDisconnect.cancel === 'function'){
+        await S.selfOnDisconnect.cancel();
+      }
+    }catch(_){}
+
+    try{
+      if (S.refs && S.refs.players && ctx.uid){
+        await S.refs.players.child(ctx.uid).update({
+          connected: true,
+          lastSeenAt: Date.now(),
+          phase: 'run'
+        });
+      }
+    }catch(_){}
+
+    location.href = buildRunUrl();
+  }
+
+  function renderCountdown(){
+    clearInterval(S.countdownTick);
+    S.countdownTick = 0;
+    if (UI.countdown) UI.countdown.textContent = '';
+
+    const targetAt = num(S.state.startAt || S.state.countdownEndsAt, 0);
+    if (statusText() !== 'countdown' || !targetAt) return;
+
+    S.countdownTick = setInterval(async () => {
+      const leftMs = targetAt - Date.now();
+      const sec = Math.max(0, Math.ceil(leftMs / 1000));
+      if (UI.countdown) UI.countdown.textContent = sec > 0 ? String(sec) : 'GO!';
+
+      if (leftMs <= 0) {
+        clearInterval(S.countdownTick);
+        S.countdownTick = 0;
+
+        if (isHost()) {
+          await S.refs.root.update({
+            status: 'running',
+            startAt: targetAt,
+            countdownEndsAt: targetAt,
+            updatedAt: Date.now()
+          }).catch(()=>{});
+          await S.refs.state.update({
+            status: 'running',
+            startAt: targetAt,
+            countdownEndsAt: targetAt,
+            updatedAt: Date.now()
+          }).catch(()=>{});
+          await S.refs.match.update({
+            status: 'running'
+          }).catch(()=>{});
+        }
+
+        await goRun();
+      }
+    }, 100);
   }
 
   function subscribeRoom(){
@@ -960,7 +1047,7 @@
     const onError = (err) => {
       console.error('[goodjunk-duet-lobby] subscribe failed:', err);
       setHint(`เข้าห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
-      setCopyState('ตรวจ firebase auth / rules / path duetRooms แล้วลองใหม่', true);
+      setCopyState('ตรวจ firebase-config.js / auth / duetRooms rules แล้วลองใหม่', true);
       showGuard('permission denied หรือ firebase ยังไม่พร้อม');
     };
 
@@ -1079,13 +1166,17 @@
       if (S.joined) {
         await removeSelfFromCurrentRoom();
       }
+
       const room = makeRoomCode();
       cleanupSubs();
       attachRefs(room);
       await createRoomAndJoin(room);
     } catch (err) {
       console.error('[goodjunk-duet-lobby] makeNewRoom failed:', err);
+      debugFirebaseContext('makeNewRoom failed context');
       setHint(`สร้างห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+      setCopyState(`สร้างห้องไม่สำเร็จ: ${err && err.code ? err.code + ': ' : ''}${err && err.message ? err.message : err}`, true);
+      showGuard('permission denied หรือ firebase ยังไม่พร้อม');
     }
   }
 
@@ -1172,6 +1263,9 @@
 
       setHint('กำลังเชื่อม Firebase...');
       await ensureAuth();
+      await new Promise(resolve => setTimeout(resolve, 250));
+
+      debugFirebaseContext('after ensureAuth');
 
       if (ctx.roomId) {
         attachRefs(ctx.roomId);
@@ -1186,9 +1280,21 @@
       renderAll();
     } catch (err) {
       console.error('[goodjunk-duet-lobby] boot failed:', err);
-      setHint(`เริ่ม Duet Lobby ไม่สำเร็จ: ${err && err.message ? err.message : err}`);
-      setCopyState('ตรวจ firebase-config.js / auth / duetRooms rules แล้วลองใหม่', true);
-      showGuard('permission denied หรือ firebase ยังไม่พร้อม');
+      debugFirebaseContext('boot failed context');
+
+      const msg = err && err.message ? err.message : String(err || 'unknown');
+      setHint(`เริ่ม Duet Lobby ไม่สำเร็จ: ${msg}`);
+
+      if (msg.includes('firebase not ready')) {
+        setCopyState('firebase SDK หรือ firebase-config.js ยังไม่พร้อม / โหลดไม่ครบ', true);
+        showGuard('firebase ยังไม่พร้อม: ตรวจ script order และ cache ก่อน');
+      } else if (msg.includes('anonymous auth')) {
+        setCopyState('anonymous auth ใช้งานไม่ได้', true);
+        showGuard('auth ยังไม่พร้อม หรือโดน rules/block ไว้');
+      } else {
+        setCopyState('ตรวจ firebase-config.js / auth / duetRooms rules แล้วลองใหม่', true);
+        showGuard('permission denied หรือ firebase ยังไม่พร้อม');
+      }
     }
   }
 
