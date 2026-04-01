@@ -157,10 +157,10 @@
   }
 
   function activePlayers(room){
-    const src = room && room.players ? room.players : {};
-    return Object.keys(src)
-      .map((id) => Object.assign({ id }, src[id] || {}))
-      .filter((p) => !(p.phase === 'left' && !isProbablyAlive(p)));
+     const src = room && room.players ? room.players : {};
+     return Object.keys(src)
+    .map((id) => Object.assign({ id }, src[id] || {}))
+    .filter((p) => p.phase !== 'left');
   }
 
   function readyPlayers(room){
