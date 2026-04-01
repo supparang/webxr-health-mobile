@@ -10,715 +10,937 @@
   <style>
     :root{
       --sky1:#dff4ff;
-      --sky2:#bfe8ff;
-      --sky3:#fff7d8;
-      --bg:#f4fbff;
+      --sky2:#eefbff;
+      --sky3:#fff8dd;
 
+      --card:#fffdf8;
+      --card2:#f7fff4;
       --line:#bfe3f2;
-      --line-strong:#98d4ec;
+      --text:#4d4a42;
+      --muted:#75736d;
 
-      --text:#334155;
-      --text-strong:#20324d;
-      --muted:#6b7b93;
-
-      --yellow:#ffd37a;
-      --yellow2:#f8aa2b;
-      --blue:#7fcfff;
-      --blue2:#58b7f5;
-      --pink:#ffb3cc;
-      --pink2:#ff7ea8;
       --green:#7ed957;
       --green2:#58c33f;
-      --violet:#b69cff;
-      --violet2:#8b6df5;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --orange:#ffbe55;
+      --orange2:#ff9f1a;
+      --pink:#ff8fc7;
+      --violet:#b39cff;
 
-      --shadow:0 16px 34px rgba(63,114,155,.16);
-      --radius:28px;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
+      --shadow:0 14px 36px rgba(57,104,132,.14);
+      --shadow-lg:0 20px 54px rgba(57,104,132,.18);
+      --radius:26px;
+      --radius-sm:18px;
     }
 
     *{ box-sizing:border-box; }
-    html,body{ margin:0; min-height:100%; }
-
+    html,body{ margin:0; padding:0; }
     body{
-      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+      min-height:100vh;
+      font-family:ui-rounded, "Nunito", "Fredoka", system-ui, -apple-system, sans-serif;
       color:var(--text);
       background:
-        radial-gradient(1100px 560px at 10% -10%, rgba(127,207,255,.42), transparent 60%),
-        radial-gradient(900px 420px at 100% 0%, rgba(255,211,122,.34), transparent 55%),
-        linear-gradient(180deg, var(--sky1), var(--sky2) 44%, var(--bg));
-      padding:calc(10px + var(--sat)) 12px calc(18px + var(--sab));
+        radial-gradient(circle at top left, rgba(255,255,255,.95), transparent 32%),
+        linear-gradient(180deg, var(--sky1), var(--sky2) 48%, var(--sky3));
     }
 
-    .clouds,
-    .clouds::before,
-    .clouds::after{
-      content:"";
-      position:fixed;
-      inset:auto;
-      pointer-events:none;
-      z-index:0;
-      filter:blur(1px);
+    a{ color:inherit; text-decoration:none; }
+    button,input,select{ font:inherit; }
+
+    .bg-clouds{
+      position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0;
     }
-    .clouds{
-      top:88px;
-      left:6%;
-      width:180px;
-      height:56px;
-      background:rgba(255,255,255,.55);
+    .cloud{
+      position:absolute;
       border-radius:999px;
-      box-shadow:0 0 0 14px rgba(255,255,255,.22);
+      background:rgba(255,255,255,.52);
     }
-    .clouds::before{
-      top:-20px;
-      left:18px;
-      width:82px;
-      height:82px;
-      background:rgba(255,255,255,.7);
-      border-radius:50%;
+    .cloud::before,.cloud::after{
+      content:"";
+      position:absolute;
+      border-radius:inherit;
+      background:inherit;
     }
-    .clouds::after{
-      top:-10px;
-      left:84px;
-      width:62px;
-      height:62px;
-      background:rgba(255,255,255,.68);
-      border-radius:50%;
-    }
+    .cloud.c1{ width:220px; height:68px; top:64px; left:4%; }
+    .cloud.c1::before{ width:88px; height:88px; left:24px; top:-30px; }
+    .cloud.c1::after{ width:112px; height:112px; right:20px; top:-44px; }
+    .cloud.c2{ width:180px; height:56px; top:138px; right:9%; }
+    .cloud.c2::before{ width:82px; height:82px; left:22px; top:-26px; }
+    .cloud.c2::after{ width:92px; height:92px; right:18px; top:-30px; }
+    .cloud.c3{ width:250px; height:72px; top:228px; left:30%; }
+    .cloud.c3::before{ width:92px; height:92px; left:36px; top:-28px; }
+    .cloud.c3::after{ width:118px; height:118px; right:24px; top:-42px; }
 
     .shell{
       position:relative;
       z-index:1;
-      width:min(1180px, 100%);
+      width:min(1220px, calc(100% - 24px));
       margin:0 auto;
-      display:grid;
-      gap:14px;
+      padding:18px 0 30px;
     }
 
-    .panel{
-      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,253,246,.94));
-      border:1.5px solid var(--line);
-      border-radius:var(--radius);
+    .topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:12px;
+      align-items:center;
+    }
+
+    .icon-btn{
+      width:48px;
+      height:48px;
+      border:none;
+      border-radius:16px;
+      background:#ffffffd9;
       box-shadow:var(--shadow);
-      overflow:hidden;
+      cursor:pointer;
+      font-size:1.15rem;
+      transition:transform .16s ease, box-shadow .16s ease;
+    }
+    .icon-btn:hover{
+      transform:translateY(-1px);
+      box-shadow:var(--shadow-lg);
     }
 
-    .panel-inner{ padding:18px; }
-
-    .hero{
-      display:grid;
-      grid-template-columns:1.08fr .92fr;
-      gap:14px;
-    }
-
-    .hero-card{
-      min-height:230px;
-      background:
-        radial-gradient(350px 180px at 10% 15%, rgba(127,207,255,.26), transparent 60%),
-        radial-gradient(340px 180px at 90% 12%, rgba(255,211,122,.26), transparent 58%),
-        linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,255,243,.95));
-    }
-
-    .hero-title{
-      display:flex;
-      gap:14px;
-      align-items:flex-start;
-    }
-
-    .hero-badge{
-      width:82px;
-      height:82px;
-      border-radius:24px;
-      display:grid;
-      place-items:center;
-      font-size:40px;
-      background:linear-gradient(180deg, #fff8d8, #dff4ff);
-      border:1.5px solid var(--line-strong);
-      box-shadow:0 12px 24px rgba(109,164,201,.18);
-      flex:0 0 auto;
-    }
-
-    h1,h2,h3,p{ margin:0; }
-
-    .hero h1{
-      font-size:clamp(26px, 4vw, 38px);
-      line-height:1.06;
-      color:var(--text-strong);
-      margin-bottom:8px;
-    }
-
-    .sub{
-      color:var(--muted);
-      line-height:1.6;
-      font-size:15px;
-    }
-
-    .pill-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:14px;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 14px;
-      border-radius:999px;
-      background:rgba(255,255,255,.84);
-      border:1px solid var(--line);
-      color:var(--text-strong);
-      font-weight:800;
-      font-size:13px;
-      box-shadow:0 6px 14px rgba(127,170,200,.08);
-    }
-
-    .notice{
-      display:flex;
-      align-items:flex-start;
-      gap:12px;
-      padding:14px 16px;
-      border-top:1px solid rgba(0,0,0,.04);
-      background:linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.55));
-    }
-
-    .notice-emoji{
-      width:38px;
-      height:38px;
-      border-radius:50%;
-      display:grid;
-      place-items:center;
-      background:#fff;
-      border:1px solid var(--line);
-      flex:0 0 auto;
-      font-size:20px;
-    }
-
-    .notice-text{
-      font-weight:900;
-      color:#38506a;
-      line-height:1.45;
-      font-size:15px;
-    }
-
-    .summary-box{
-      display:grid;
-      gap:12px;
-      border:1.5px dashed var(--line-strong);
-      border-radius:24px;
-      padding:16px;
-      background:linear-gradient(180deg, rgba(223,244,255,.48), rgba(255,255,255,.72));
-      min-height:100%;
-    }
-
-    .summary-title{
+    .brand-pill{
       display:flex;
       align-items:center;
-      justify-content:space-between;
-      gap:12px;
-    }
-
-    .summary-title h2{
-      font-size:20px;
-      color:var(--text-strong);
-    }
-
-    .summary-badge{
-      border-radius:999px;
-      padding:8px 10px;
-      background:#fff;
-      border:1px solid var(--line);
-      font-size:12px;
-      font-weight:900;
-      color:#43617f;
-    }
-
-    .summary-item{
-      background:#fff;
-      border:1.5px solid var(--line);
-      border-radius:18px;
-      padding:12px 14px;
-      display:grid;
-      gap:8px;
-    }
-
-    .summary-k{
-      font-size:12px;
-      font-weight:900;
-      color:var(--muted);
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
-
-    .summary-v{
-      font-size:15px;
-      font-weight:900;
-      color:var(--text-strong);
-      line-height:1.45;
-      word-break:break-word;
-    }
-
-    .grid4{
-      display:grid;
-      grid-template-columns:repeat(4, 1fr);
       gap:14px;
-    }
-
-    .mode-card{
-      border:1.5px solid var(--line);
-      border-radius:24px;
-      background:linear-gradient(180deg, rgba(255,255,255,.94), rgba(248,255,243,.92));
+      min-width:0;
+      padding:12px 16px;
+      border-radius:999px;
+      background:linear-gradient(180deg, rgba(255,255,255,.97), rgba(255,250,242,.93));
+      border:1px solid rgba(120,190,220,.28);
       box-shadow:var(--shadow);
-      padding:16px;
-      display:grid;
-      gap:12px;
-      min-height:260px;
     }
-
-    .mode-top{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
+    .brand-logo{
+      width:58px;
+      height:58px;
+      object-fit:contain;
+      flex:0 0 auto;
+      filter:drop-shadow(0 8px 12px rgba(0,0,0,.10));
     }
-
-    .mode-icon{
+    .brand-logo-fallback{
       width:58px;
       height:58px;
       border-radius:18px;
       display:grid;
       place-items:center;
-      font-size:28px;
-      background:#fff;
-      border:1.5px solid var(--line);
-    }
-
-    .mode-tag{
-      border-radius:999px;
-      padding:8px 10px;
-      background:#fff;
-      border:1px solid var(--line);
-      font-size:12px;
-      font-weight:900;
-      color:#43617f;
-      white-space:nowrap;
-    }
-
-    .mode-title{
-      font-size:22px;
-      font-weight:1000;
-      color:var(--text-strong);
-    }
-
-    .mode-desc{
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.55;
-      min-height:64px;
-    }
-
-    .mini-points{
-      display:grid;
-      gap:8px;
-    }
-
-    .mini-point{
-      display:flex;
-      gap:8px;
-      align-items:flex-start;
-      color:#47607d;
-      font-size:13px;
-      font-weight:700;
-      line-height:1.45;
-    }
-
-    .mini-check{
-      width:20px;
-      height:20px;
-      border-radius:50%;
-      display:grid;
-      place-items:center;
-      font-size:12px;
-      background:#fff;
-      border:1px solid var(--line);
+      font-size:30px;
+      background:linear-gradient(135deg,var(--blue),var(--green),var(--orange));
+      box-shadow:var(--shadow);
       flex:0 0 auto;
-      margin-top:1px;
     }
-
-    .btn{
-      appearance:none;
-      border:none;
-      cursor:pointer;
-      border-radius:18px;
-      padding:13px 16px;
-      font-size:16px;
+    .brand-copy{ min-width:0; }
+    .brand-title{
+      margin:0;
+      line-height:1;
+      font-size:clamp(1.05rem, 2vw, 1.45rem);
       font-weight:900;
-      color:#20324d;
-      box-shadow:0 12px 24px rgba(85,140,175,.14);
-      transition:transform .12s ease;
+    }
+    .brand-sub{
+      margin:4px 0 0;
+      font-size:.84rem;
+      color:var(--muted);
+      font-weight:800;
     }
 
-    .btn:hover{ transform:translateY(-1px); }
-    .btn-primary{ background:linear-gradient(180deg, #ffe28f, #f7b733); }
-    .btn-secondary{ background:linear-gradient(180deg, #d8f2ff, #8fd6ff); }
-    .btn-soft{ background:linear-gradient(180deg, #ffddeb, #ffb8d0); }
-    .btn-green{ background:linear-gradient(180deg, #dff8bf, #7ed957); }
-    .btn-violet{ background:linear-gradient(180deg, #eadfff, #b69cff); }
-    .btn-ghost{
-      background:linear-gradient(180deg, #ffffff, #f6fbff);
-      border:1px solid var(--line);
-    }
-
-    .mode-btn{
-      margin-top:auto;
-      width:100%;
-    }
-
-    .bottom-actions{
+    .hero{
+      margin-top:14px;
       display:grid;
-      grid-template-columns:1fr 1fr;
+      grid-template-columns:1.18fr .82fr;
       gap:14px;
     }
 
-    .footer{
-      text-align:center;
-      color:var(--muted);
-      font-size:13px;
-      padding:4px 0 0;
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,252,246,.93));
+      border:1px solid rgba(191,227,242,.88);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
     }
 
-    @media (max-width: 1100px){
+    .welcome{
+      padding:22px;
+      position:relative;
+      overflow:hidden;
+      display:grid;
+      grid-template-columns:1.08fr .72fr;
+      gap:12px;
+    }
+    .welcome::after{
+      content:"";
+      position:absolute;
+      right:-22px;
+      bottom:-22px;
+      width:180px;
+      height:180px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(255,214,102,.24), transparent 62%);
+    }
+    .hello{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 12px;
+      border-radius:999px;
+      background:#fff5c8;
+      font-weight:900;
+      font-size:.88rem;
+    }
+    .welcome h1{
+      margin:12px 0 8px;
+      font-size:clamp(1.45rem, 2.6vw, 2.05rem);
+      line-height:1.12;
+    }
+    .welcome p{
+      margin:0;
+      color:var(--muted);
+      font-weight:700;
+    }
+    .hero-note{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#f4fbff;
+      border:1px dashed #b8def2;
+      font-weight:800;
+    }
+    .hero-art{
+      min-height:210px;
+      border-radius:24px;
+      background:
+        radial-gradient(circle at 50% 28%, rgba(255,255,255,.96), rgba(255,255,255,0) 42%),
+        linear-gradient(135deg,#eef7ff,#deeeff 46%,#fff7d6);
+      display:grid;
+      place-items:center;
+      font-size:76px;
+    }
+
+    .profile{
+      padding:18px;
+      display:grid;
+      gap:14px;
+    }
+
+    .avatar-row{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:14px;
+      align-items:center;
+    }
+
+    .avatar{
+      width:82px;
+      height:82px;
+      border-radius:22px;
+      background:linear-gradient(135deg,#fff7cf,#ffd56e);
+      box-shadow:var(--shadow);
+      display:grid;
+      place-items:center;
+      font-size:42px;
+    }
+
+    .profile h2{
+      margin:0;
+      font-size:1.2rem;
+    }
+    .profile p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-weight:700;
+    }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:9px 12px;
+      border-radius:999px;
+      background:#f7fbff;
+      border:1px solid #d5ecf7;
+      font-weight:900;
+    }
+
+    .config{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:14px;
+    }
+
+    .config-card{
+      padding:16px;
+    }
+
+    .section-title{
+      margin:0 0 12px;
+      font-size:1rem;
+    }
+
+    .form-grid{
+      display:grid;
+      gap:10px;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:.88rem;
+      font-weight:900;
+    }
+
+    .input,
+    .select{
+      width:100%;
+      border:1px solid #d6eaf6;
+      background:#fff;
+      border-radius:14px;
+      padding:11px 12px;
+      color:var(--text);
+      outline:none;
+    }
+
+    .modes{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:14px;
+    }
+
+    .mode-card{
+      padding:18px;
+      position:relative;
+      overflow:hidden;
+      display:grid;
+      gap:12px;
+      min-height:290px;
+    }
+    .mode-card::after{
+      content:"";
+      position:absolute;
+      right:-20px;
+      bottom:-20px;
+      width:140px;
+      height:140px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(255,255,255,.34), transparent 66%);
+      pointer-events:none;
+    }
+
+    .duet{ background:linear-gradient(180deg,#fffdf8,#fdf1ff); }
+    .battle{ background:linear-gradient(180deg,#fffdf8,#fff0f0); }
+    .race{ background:linear-gradient(180deg,#fffdf8,#eef7ff); }
+    .coop{ background:linear-gradient(180deg,#fffdf8,#f2fff3); }
+
+    .mode-badge{
+      width:max-content;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:.78rem;
+      font-weight:900;
+      background:#fff;
+      border:1px solid #dcecf7;
+    }
+
+    .mode-card h3{
+      margin:0;
+      font-size:1.2rem;
+    }
+
+    .mode-card p{
+      margin:0;
+      color:var(--muted);
+      font-weight:700;
+    }
+
+    .mode-points{
+      margin:0;
+      padding-left:18px;
+      color:var(--text);
+      font-weight:800;
+      display:grid;
+      gap:6px;
+    }
+
+    .btn-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:auto;
+    }
+
+    .btn{
+      border:none;
+      cursor:pointer;
+      transition:transform .16s ease, box-shadow .16s ease;
+      font-weight:900;
+    }
+    .btn:hover{ transform:translateY(-1px); }
+
+    .btn.primary{
+      padding:12px 16px;
+      border-radius:16px;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fff;
+      box-shadow:0 10px 22px rgba(88,183,245,.22);
+    }
+
+    .btn.secondary{
+      padding:12px 16px;
+      border-radius:16px;
+      background:#fff;
+      color:var(--text);
+      border:1px solid #d5ecf7;
+      box-shadow:0 8px 18px rgba(43,88,118,.06);
+    }
+
+    .summary{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:1.12fr .88fr;
+      gap:14px;
+    }
+
+    .summary-card{
+      padding:16px;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+    }
+
+    .pill{
+      padding:12px;
+      border-radius:18px;
+      background:#f8fbff;
+      border:1px solid #d8ebf7;
+    }
+    .pill .n{
+      display:block;
+      font-size:1.02rem;
+      font-weight:900;
+    }
+    .pill .t{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-weight:800;
+      font-size:.82rem;
+    }
+
+    .route-box{
+      padding:12px;
+      border-radius:18px;
+      background:#f8fbff;
+      border:1px solid #d8ebf7;
+      word-break:break-word;
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-size:.85rem;
+      line-height:1.45;
+    }
+
+    .footer-tools{
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      margin-top:14px;
+    }
+
+    .footer-note{
+      margin:12px 4px 0;
+      text-align:center;
+      color:var(--muted);
+      font-size:.86rem;
+      font-weight:800;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:18px;
+      transform:translateX(-50%) translateY(18px);
+      min-width:200px;
+      max-width:min(92vw,560px);
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(31,41,55,.92);
+      color:#fff;
+      font-weight:900;
+      box-shadow:0 16px 34px rgba(0,0,0,.22);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+      z-index:30;
+    }
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 1040px){
       .hero,
-      .grid4,
-      .bottom-actions{
+      .config,
+      .modes,
+      .summary{
         grid-template-columns:1fr;
       }
     }
 
-    @media (max-width: 720px){
-      .panel-inner{ padding:16px; }
-      .hero-title{ flex-direction:column; }
-      .hero-badge{ width:72px; height:72px; }
+    @media (max-width: 760px){
+      .shell{
+        width:min(100% - 14px, 1220px);
+      }
+      .welcome{
+        grid-template-columns:1fr;
+      }
+      .summary-grid{
+        grid-template-columns:1fr;
+      }
+      .brand-pill{
+        gap:10px;
+        padding:10px 12px;
+      }
+      .brand-logo,
+      .brand-logo-fallback{
+        width:48px;
+        height:48px;
+      }
+      .icon-btn{
+        width:42px;
+        height:42px;
+        border-radius:14px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="clouds" aria-hidden="true"></div>
+  <div class="bg-clouds" aria-hidden="true">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+  </div>
 
   <main class="shell">
+    <header class="topbar">
+      <button id="btnBackLauncher" class="icon-btn" type="button" aria-label="กลับ launcher">🍎</button>
+
+      <div class="brand-pill" aria-label="HeroHealth GoodJunk Multiplayer">
+        <img
+          class="brand-logo"
+          src="../assets/logo-system/logos/goodjunk-logo.svg"
+          alt="GoodJunk Multi"
+          onerror="this.style.display='none';this.nextElementSibling.hidden=false;"
+        />
+        <div class="brand-logo-fallback" hidden aria-hidden="true">👥</div>
+
+        <div class="brand-copy">
+          <h1 class="brand-title">GoodJunk Multiplayer</h1>
+          <p class="brand-sub">Duet • Battle • Race • Coop</p>
+        </div>
+      </div>
+
+      <button id="btnCopyLink" class="icon-btn" type="button" aria-label="คัดลอกลิงก์">🔗</button>
+    </header>
+
     <section class="hero">
-      <section class="panel hero-card">
-        <div class="panel-inner">
-          <div class="hero-title">
-            <div class="hero-badge">🕹️</div>
-            <div>
-              <h1>GoodJunk Multiplayer</h1>
-              <p class="sub">
-                หน้านี้ทำหน้าที่เลือกโหมดอย่างเดียว แล้วค่อยพาไป lobby ของแต่ละโหมด
-                เพื่อให้ flow ชัด เข้าใจง่าย และให้ทุกโหมดใช้ UX แบบเดียวกัน
-              </p>
-
-              <div class="pill-row">
-                <div class="pill">🎯 เลือก 4 โหมด</div>
-                <div class="pill">🚪 เข้าหน้า lobby ของโหมดนั้น</div>
-                <div class="pill">📱 ทุกโหมดใช้ room code + QR เหมือนกัน</div>
-              </div>
-            </div>
+      <section class="panel welcome">
+        <div>
+          <div class="hello">👥 ชวนเพื่อนมาเล่นได้เลย!</div>
+          <h1>เลือกโหมดหลายคนของ GoodJunk</h1>
+          <p>
+            หน้านี้เป็นจุดเข้าโหมดหลายคนของ GoodJunk โดยแยกเป็น
+            <strong>Duet</strong>, <strong>Battle</strong>, <strong>Race</strong> และ <strong>Coop</strong>
+          </p>
+          <div class="hero-note">
+            เหมาะกับใช้ในห้องเรียนหรือเล่นกับเพื่อน โดยยังส่งค่า pid / name / diff / time / seed ต่อได้
           </div>
         </div>
 
-        <div class="notice">
-          <div class="notice-emoji">🧑‍🏫</div>
-          <div class="notice-text" id="topNotice">
-            เลือกโหมดก่อน แล้วค่อยไปสร้างห้องหรือเข้าห้องใน lobby ของโหมดนั้น
-          </div>
-        </div>
+        <div class="hero-art" aria-hidden="true">👥🍎🏁</div>
       </section>
 
-      <section class="panel">
-        <div class="panel-inner">
-          <div class="summary-box">
-            <div class="summary-title">
-              <h2>สรุปการส่งต่อ</h2>
-              <div class="summary-badge">LOBBY FLOW</div>
-            </div>
-
-            <div class="summary-item">
-              <div class="summary-k">ชื่อผู้เล่น</div>
-              <div class="summary-v" id="summaryNick">-</div>
-            </div>
-
-            <div class="summary-item">
-              <div class="summary-k">Hub กลับ</div>
-              <div class="summary-v" id="summaryHub">-</div>
-            </div>
-
-            <div class="summary-item">
-              <div class="summary-k">โหมดที่เลือก</div>
-              <div class="summary-v" id="summaryMode">duet</div>
-            </div>
-
-            <div class="summary-item">
-              <div class="summary-k">ปลายทาง</div>
-              <div class="summary-v" id="summaryRoute">./goodjunk-duet-lobby.html</div>
-            </div>
+      <aside class="panel profile">
+        <div class="avatar-row">
+          <div class="avatar" aria-hidden="true">🦸</div>
+          <div>
+            <h2 id="playerNameText">Rocky</h2>
+            <p id="playerMetaText">PID: anon • Multiplayer Ready</p>
           </div>
         </div>
 
-        <div class="notice">
-          <div class="notice-emoji">💡</div>
-          <div class="notice-text" id="autoNotice">
-            ตอนนี้ทุกโหมดจะพาไป lobby ก่อน แล้วค่อยสร้างห้อง / เข้าห้อง / start game จากหน้า lobby
-          </div>
+        <div class="chips">
+          <div class="chip">🎯 <span id="gameModeText">GoodJunk Multi</span></div>
+          <div class="chip">⭐ <span id="diffText">normal</span></div>
+          <div class="chip">⏱ <span id="timeText">90s</span></div>
         </div>
-      </section>
+      </aside>
     </section>
 
-    <section class="grid4">
-      <article class="mode-card">
-        <div class="mode-top">
-          <div class="mode-icon">🤝</div>
-          <div class="mode-tag">เริ่มง่าย</div>
+    <section class="config">
+      <article class="panel config-card">
+        <h3 class="section-title">👤 ข้อมูลผู้เล่น</h3>
+        <div class="form-grid">
+          <div class="field">
+            <label for="playerNameInput">ชื่อเล่น</label>
+            <input id="playerNameInput" class="input" type="text" maxlength="24" placeholder="เช่น Rocky" />
+          </div>
+          <div class="field">
+            <label for="playerPidInput">PID</label>
+            <input id="playerPidInput" class="input" type="text" maxlength="32" placeholder="เช่น S001" />
+          </div>
         </div>
-        <div class="mode-title">Duet</div>
-        <div class="mode-desc">เล่นคู่แบบช่วยกัน เหมาะกับเริ่มต้นที่สุด</div>
-        <div class="mini-points">
-          <div class="mini-point"><div class="mini-check">✓</div><div>ช่วยกันเล่น</div></div>
-          <div class="mini-point"><div class="mini-check">✓</div><div>เข้าใจง่ายที่สุด</div></div>
-          <div class="mini-point"><div class="mini-check">✓</div><div>เหมาะกับเริ่มจากโหมดนี้</div></div>
-        </div>
-        <button class="btn btn-green mode-btn" id="btnDuetLobby" type="button">เข้า Duet Lobby</button>
       </article>
 
-      <article class="mode-card">
-        <div class="mode-top">
-          <div class="mode-icon">🏁</div>
-          <div class="mode-tag">แข่งไว</div>
+      <article class="panel config-card">
+        <h3 class="section-title">⚙️ ตั้งค่าการเล่น</h3>
+        <div class="form-grid">
+          <div class="field">
+            <label for="difficultySelect">ความยาก</label>
+            <select id="difficultySelect" class="select">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="timeSelect">เวลา</label>
+            <select id="timeSelect" class="select">
+              <option value="60">60 วินาที</option>
+              <option value="90" selected>90 วินาที</option>
+              <option value="120">120 วินาที</option>
+            </select>
+          </div>
         </div>
-        <div class="mode-title">Race</div>
-        <div class="mode-desc">แข่งกันว่าใครเร็วกว่า แม่นกว่า และเริ่มพร้อมกัน</div>
-        <div class="mini-points">
-          <div class="mini-point"><div class="mini-check">✓</div><div>แข่งแบบ start พร้อมกัน</div></div>
-          <div class="mini-point"><div class="mini-check">✓</div><div>ใช้ startAt จาก lobby</div></div>
-          <div class="mini-point"><div class="mini-check">✓</div><div>เหมาะกับแข่งจริงจัง</div></div>
-        </div>
-        <button class="btn btn-primary mode-btn" id="btnRaceLobby" type="button">เข้า Race Lobby</button>
       </article>
 
-      <article class="mode-card">
-        <div class="mode-top">
-          <div class="mode-icon">⚔️</div>
-          <div class="mode-tag">ท้าทาย</div>
+      <article class="panel config-card">
+        <h3 class="section-title">🎲 Seed / Run</h3>
+        <div class="form-grid">
+          <div class="field">
+            <label for="seedInput">Seed</label>
+            <input id="seedInput" class="input" type="text" placeholder="auto" />
+          </div>
+          <div class="field">
+            <label for="runSelect">โหมด</label>
+            <select id="runSelect" class="select">
+              <option value="play" selected>play</option>
+              <option value="research">research</option>
+            </select>
+          </div>
         </div>
-        <div class="mode-title">Battle</div>
-        <div class="mode-desc">ชาร์จพลังแล้วโจมตีคู่ต่อสู้แบบเรียลไทม์</div>
-        <div class="mini-points">
-          <div class="mini-point"><div class="mini-check">✓</div><div>มี HP และ charge</div></div>
-          <div class="mini-point"><div class="mini-check">✓</div><div>มีห้องและ QR พร้อม</div></div>
-          <div class="mini-point"><div class="mini-check">✓</div><div>เดือดที่สุดใน 4 โหมด</div></div>
-        </div>
-        <button class="btn btn-soft mode-btn" id="btnBattleLobby" type="button">เข้า Battle Lobby</button>
-      </article>
-
-      <article class="mode-card">
-        <div class="mode-top">
-          <div class="mode-icon">🛟</div>
-          <div class="mode-tag">ทีมเวิร์ก</div>
-        </div>
-        <div class="mode-title">Coop</div>
-        <div class="mode-desc">ช่วยกันผ่านเป้าหมายเดียวกันแบบร่วมมือ</div>
-        <div class="mini-points">
-          <div class="mini-point"><div class="mini-check">✓</div><div>เน้นทำงานเป็นทีม</div></div>
-          <div class="mini-point"><div class="mini-check">✓</div><div>ใช้ UX ห้องแบบเดียวกัน</div></div>
-          <div class="mini-point"><div class="mini-check">✓</div><div>เหมาะกับการฝึกร่วมกัน</div></div>
-        </div>
-        <button class="btn btn-violet mode-btn" id="btnCoopLobby" type="button">เข้า Coop Lobby</button>
       </article>
     </section>
 
-    <section class="bottom-actions">
-      <section class="panel">
-        <div class="panel-inner">
-          <div class="summary-box">
-            <div class="summary-title">
-              <h2>ทางลัด</h2>
-              <div class="summary-badge">SHORTCUT</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-k">Multiplayer Launcher</div>
-              <div class="summary-v">หน้านี้มีไว้เลือกโหมด แล้วค่อยเข้า lobby</div>
-            </div>
-            <button class="btn btn-secondary" id="btnBackLauncher" type="button">↩ กลับ GoodJunk Launcher</button>
-          </div>
+    <section class="modes">
+      <article class="panel mode-card duet">
+        <div class="mode-badge">DUET</div>
+        <h3>Duet Mode</h3>
+        <p>เล่นคู่ 2 คน ช่วยกันหรือแข่งกันแบบเบา ๆ เหมาะกับเริ่มต้น</p>
+        <ul class="mode-points">
+          <li>เหมาะกับ 2 คน</li>
+          <li>เข้า lobby ก่อนเริ่ม</li>
+          <li>เหมาะกับเพื่อนคู่หู</li>
+        </ul>
+        <div class="btn-row">
+          <button class="btn primary" type="button" data-mode-go="duet">🎵 เข้า Duet</button>
+          <button class="btn secondary" type="button" data-mode-preview="duet">ดู route</button>
         </div>
-      </section>
+      </article>
 
-      <section class="panel">
-        <div class="panel-inner">
-          <div class="summary-box">
-            <div class="summary-title">
-              <h2>กลับ HUB</h2>
-              <div class="summary-badge">HUB</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-k">Hub URL</div>
-              <div class="summary-v" id="summaryHub2">-</div>
-            </div>
-            <button class="btn btn-ghost" id="btnBackHub" type="button">🏠 กลับ HUB</button>
-          </div>
+      <article class="panel mode-card battle">
+        <div class="mode-badge">BATTLE</div>
+        <h3>Battle Mode</h3>
+        <p>แข่งกันแบบมีแรงปะทะและเปรียบเทียบคะแนน สนุกและตื่นเต้นขึ้น</p>
+        <ul class="mode-points">
+          <li>เหมาะกับการแข่งขัน</li>
+          <li>มี lobby และ room</li>
+          <li>ใช้ในกิจกรรม classroom battle ได้</li>
+        </ul>
+        <div class="btn-row">
+          <button class="btn primary" type="button" data-mode-go="battle">⚔️ เข้า Battle</button>
+          <button class="btn secondary" type="button" data-mode-preview="battle">ดู route</button>
         </div>
-      </section>
+      </article>
+
+      <article class="panel mode-card race">
+        <div class="mode-badge">RACE</div>
+        <h3>Race Mode</h3>
+        <p>แข่งกันทำคะแนนหรือไปให้ถึงเป้าก่อน เหมาะกับกิจกรรมเร็วและเร้าใจ</p>
+        <ul class="mode-points">
+          <li>แข่งขันแบบ race</li>
+          <li>มี room / start flow</li>
+          <li>เหมาะกับหลายคนในห้อง</li>
+        </ul>
+        <div class="btn-row">
+          <button class="btn primary" type="button" data-mode-go="race">🏁 เข้า Race</button>
+          <button class="btn secondary" type="button" data-mode-preview="race">ดู route</button>
+        </div>
+      </article>
+
+      <article class="panel mode-card coop">
+        <div class="mode-badge">COOP</div>
+        <h3>Coop Mode</h3>
+        <p>ช่วยกันทำเป้าหมายทีมเดียว เหมาะกับการเรียนรู้ร่วมกันมากที่สุด</p>
+        <ul class="mode-points">
+          <li>ทำคะแนนรวมเป็นทีม</li>
+          <li>เหมาะกับการร่วมมือ</li>
+          <li>เหมาะกับห้องเรียนเด็ก</li>
+        </ul>
+        <div class="btn-row">
+          <button class="btn primary" type="button" data-mode-go="coop">🤝 เข้า Coop</button>
+          <button class="btn secondary" type="button" data-mode-preview="coop">ดู route</button>
+        </div>
+      </article>
     </section>
 
-    <div class="footer">HeroHealth • GoodJunk Multiplayer • selector to all lobbies</div>
+    <section class="summary">
+      <article class="panel summary-card">
+        <h3 class="section-title">📌 สรุปโหมดที่เลือก</h3>
+        <div class="summary-grid">
+          <div class="pill">
+            <span class="n" id="selectedModeText">ยังไม่เลือก</span>
+            <span class="t">selected mode</span>
+          </div>
+          <div class="pill">
+            <span class="n" id="selectedRouteTypeText">route pending</span>
+            <span class="t">resolved target</span>
+          </div>
+          <div class="pill">
+            <span class="n">Nutrition Zone</span>
+            <span class="t">GoodJunk multiplayer family</span>
+          </div>
+          <div class="pill">
+            <span class="n">Hub passthrough</span>
+            <span class="t">รองรับ hub / pid / diff / time / seed</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel summary-card">
+        <h3 class="section-title">🔗 Resolved Target URL</h3>
+        <div id="resolvedTargetUrl" class="route-box">ยังไม่ได้สร้างลิงก์</div>
+      </article>
+    </section>
+
+    <div class="footer-tools">
+      <button id="btnOpenResolved" class="btn secondary" type="button">🚀 เปิดลิงก์ล่าสุด</button>
+    </div>
+
+    <p class="footer-note">
+      HeroHealth • GoodJunk Multiplayer • duet / battle / race / coop
+    </p>
   </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
     (function(){
       'use strict';
 
-      const qs = (k, d='') => {
-        try { return new URL(location.href).searchParams.get(k) ?? d; }
-        catch { return d; }
-      };
-
-      const UI = {
-        summaryNick: document.getElementById('summaryNick'),
-        summaryHub: document.getElementById('summaryHub'),
-        summaryHub2: document.getElementById('summaryHub2'),
-        summaryMode: document.getElementById('summaryMode'),
-        summaryRoute: document.getElementById('summaryRoute'),
-        autoNotice: document.getElementById('autoNotice'),
-
-        btnDuetLobby: document.getElementById('btnDuetLobby'),
-        btnRaceLobby: document.getElementById('btnRaceLobby'),
-        btnBattleLobby: document.getElementById('btnBattleLobby'),
-        btnCoopLobby: document.getElementById('btnCoopLobby'),
-        btnBackLauncher: document.getElementById('btnBackLauncher'),
-        btnBackHub: document.getElementById('btnBackHub')
-      };
-
-      const PASS_KEYS = [
-        'pid', 'name', 'nick',
-        'studyId', 'phase', 'conditionGroup', 'sessionOrder',
-        'blockLabel', 'siteCode', 'schoolYear', 'semester',
-        'run', 'diff', 'time', 'view', 'seed',
-        'api', 'log', 'debug',
-        'planDay', 'planSlot', 'grade',
-        'zone', 'game'
-      ];
+      const $ = (sel, root=document) => root.querySelector(sel);
+      const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
       const ROUTES = {
-        launcher: './goodjunk-launcher.html',
         duet: './goodjunk-duet-lobby.html',
-        race: './goodjunk-race-lobby.html',
         battle: './goodjunk-battle-lobby.html',
+        race: './goodjunk-race-lobby.html',
         coop: './goodjunk-coop-lobby.html'
       };
 
-      const MODE_LABELS = {
-        duet: 'duet',
-        race: 'race',
-        battle: 'battle',
-        coop: 'coop'
-      };
+      let lastResolvedUrl = '';
 
-      const MODE_ENTRY = {
-        duet: 'duet',
-        race: 'race',
-        battle: 'battle',
-        coop: 'coop'
-      };
-
-      function buildCanonicalHubUrl() {
-        const hub = qs('hub', '');
-        if (hub) return hub;
-        return new URL('../hub.html', location.href).toString();
+      function qs(){
+        return new URLSearchParams(location.search);
       }
 
-      function buildUrl(route, extraParams){
-        const src = new URL(location.href);
-        const url = new URL(route, location.href);
+      function nowSeed(){
+        return String(Date.now());
+      }
 
-        PASS_KEYS.forEach((key) => {
-          const value = src.searchParams.get(key);
-          if (value != null && value !== '') {
-            url.searchParams.set(key, value);
-          }
-        });
+      function cleanText(v, max=32){
+        return String(v == null ? '' : v)
+          .replace(/[^\wก-๙ \-]/g, '')
+          .trim()
+          .slice(0, max);
+      }
 
-        url.searchParams.set('hub', buildCanonicalHubUrl());
+      function toast(msg){
+        const el = $('#toast');
+        if (!el) return;
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => el.classList.remove('show'), 1800);
+      }
+
+      function hubUrl(){
+        const q = qs();
+        return q.get('hub') || new URL('../hub.html', location.href).href;
+      }
+
+      function launcherUrl(){
+        const q = qs();
+        const u = new URL('../goodjunk-launcher.html', location.href);
+        if (q.get('hub')) u.searchParams.set('hub', q.get('hub'));
+        if (q.get('name')) u.searchParams.set('name', q.get('name'));
+        if (q.get('pid')) u.searchParams.set('pid', q.get('pid'));
+        if (q.get('diff')) u.searchParams.set('diff', q.get('diff'));
+        if (q.get('time')) u.searchParams.set('time', q.get('time'));
+        if (q.get('seed')) u.searchParams.set('seed', q.get('seed'));
+        if (q.get('run')) u.searchParams.set('run', q.get('run'));
+        u.searchParams.set('zone', 'nutrition');
+        u.searchParams.set('game', 'goodjunk');
+        return u.toString();
+      }
+
+      function getState(){
+        const q = qs();
+
+        const name = cleanText($('#playerNameInput')?.value || q.get('name') || q.get('nick') || 'Rocky', 24) || 'Rocky';
+        const pid = cleanText($('#playerPidInput')?.value || q.get('pid') || 'anon', 32) || 'anon';
+        const diff = $('#difficultySelect')?.value || q.get('diff') || 'normal';
+        const time = $('#timeSelect')?.value || q.get('time') || '90';
+        const seed = cleanText($('#seedInput')?.value || q.get('seed') || nowSeed(), 40) || nowSeed();
+        const run = $('#runSelect')?.value || q.get('run') || 'play';
+        const hub = hubUrl();
+
+        return { name, pid, diff, time, seed, run, hub };
+      }
+
+      function buildUrl(mode){
+        const s = getState();
+        const url = new URL(ROUTES[mode], location.href);
+
         url.searchParams.set('zone', 'nutrition');
         url.searchParams.set('game', 'goodjunk');
-
-        Object.entries(extraParams || {}).forEach(([key, value]) => {
-          if (value != null && value !== '') {
-            url.searchParams.set(key, String(value));
-          }
-        });
+        url.searchParams.set('mode', mode);
+        url.searchParams.set('entry', 'multi');
+        url.searchParams.set('name', s.name);
+        url.searchParams.set('pid', s.pid);
+        url.searchParams.set('diff', s.diff);
+        url.searchParams.set('time', s.time);
+        url.searchParams.set('seed', s.seed);
+        url.searchParams.set('run', s.run);
+        url.searchParams.set('hub', s.hub);
 
         return url.toString();
       }
 
-      function go(route, extraParams){
-        location.href = buildUrl(route, extraParams);
+      function updateMiniProfile(){
+        const s = getState();
+        $('#playerNameText').textContent = s.name;
+        $('#playerMetaText').textContent = 'PID: ' + s.pid + ' • Multiplayer Ready';
+        $('#diffText').textContent = s.diff;
+        $('#timeText').textContent = s.time + 's';
       }
 
-      function setSelectedMode(mode){
-        UI.summaryMode.textContent = MODE_LABELS[mode] || 'duet';
-        UI.summaryRoute.textContent = ROUTES[mode] || ROUTES.duet;
+      function labelOf(mode){
+        if (mode === 'duet') return 'Duet Mode';
+        if (mode === 'battle') return 'Battle Mode';
+        if (mode === 'race') return 'Race Mode';
+        if (mode === 'coop') return 'Coop Mode';
+        return 'Unknown Mode';
       }
 
-      function initSummary(){
-        const nick = qs('name', qs('nick', '-')) || '-';
-        const hub = buildCanonicalHubUrl();
+      function fileOf(mode){
+        return ROUTES[mode] ? ROUTES[mode].replace('./','') : 'unknown';
+      }
 
-        UI.summaryNick.textContent = nick;
-        UI.summaryHub.textContent = hub;
-        UI.summaryHub2.textContent = hub;
+      function showResolved(url, mode){
+        lastResolvedUrl = url;
+        $('#resolvedTargetUrl').textContent = url;
+        $('#selectedModeText').textContent = labelOf(mode);
+        $('#selectedRouteTypeText').textContent = fileOf(mode);
+      }
+
+      function goToMode(mode){
+        const url = buildUrl(mode);
+        showResolved(url, mode);
+        location.href = url;
+      }
+
+      function previewMode(mode){
+        const url = buildUrl(mode);
+        showResolved(url, mode);
+        toast('สร้าง route แล้ว');
+      }
+
+      function syncInputsFromQuery(){
+        const q = qs();
+        $('#playerNameInput').value = q.get('name') || q.get('nick') || 'Rocky';
+        $('#playerPidInput').value = q.get('pid') || 'anon';
+        $('#difficultySelect').value = q.get('diff') || 'normal';
+        $('#timeSelect').value = q.get('time') || '90';
+        $('#seedInput').value = q.get('seed') || '';
+        $('#runSelect').value = q.get('run') || 'play';
+        $('#gameModeText').textContent = 'GoodJunk Multi';
       }
 
       function bind(){
-        UI.btnDuetLobby.addEventListener('click', () => {
-          setSelectedMode('duet');
-          go(ROUTES.duet, { mode: 'duet', entry: MODE_ENTRY.duet });
+        $('#btnBackLauncher')?.addEventListener('click', () => {
+          location.href = launcherUrl();
         });
 
-        UI.btnRaceLobby.addEventListener('click', () => {
-          setSelectedMode('race');
-          go(ROUTES.race, { mode: 'race', entry: MODE_ENTRY.race });
+        $('#btnCopyLink')?.addEventListener('click', async () => {
+          try{
+            const url = lastResolvedUrl || buildUrl('duet');
+            await navigator.clipboard.writeText(url);
+            toast('คัดลอกลิงก์แล้ว');
+          }catch(_){
+            toast('คัดลอกลิงก์ไม่สำเร็จ');
+          }
         });
 
-        UI.btnBattleLobby.addEventListener('click', () => {
-          setSelectedMode('battle');
-          go(ROUTES.battle, { mode: 'battle', entry: MODE_ENTRY.battle });
+        $$('[data-mode-go]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            goToMode(btn.getAttribute('data-mode-go'));
+          });
         });
 
-        UI.btnCoopLobby.addEventListener('click', () => {
-          setSelectedMode('coop');
-          go(ROUTES.coop, { mode: 'coop', entry: MODE_ENTRY.coop });
+        $$('[data-mode-preview]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            previewMode(btn.getAttribute('data-mode-preview'));
+          });
         });
 
-        UI.btnBackLauncher.addEventListener('click', () => {
-          go(ROUTES.launcher, { entry: 'multi' });
+        $('#btnOpenResolved')?.addEventListener('click', () => {
+          if (!lastResolvedUrl) {
+            previewMode('duet');
+            return;
+          }
+          location.href = lastResolvedUrl;
         });
 
-        UI.btnBackHub.addEventListener('click', () => {
-          location.href = buildCanonicalHubUrl();
-        });
+        ['#playerNameInput','#playerPidInput','#seedInput','#difficultySelect','#timeSelect','#runSelect']
+          .forEach(sel => {
+            $(sel)?.addEventListener('input', updateMiniProfile);
+            $(sel)?.addEventListener('change', updateMiniProfile);
+          });
       }
 
-      function initSelectedFromQuery(){
-        const mode = String(qs('mode', 'duet') || 'duet').toLowerCase().trim();
-        setSelectedMode(MODE_LABELS[mode] ? mode : 'duet');
+      function init(){
+        syncInputsFromQuery();
+        updateMiniProfile();
+        previewMode('duet');
+        bind();
       }
 
-      initSummary();
-      initSelectedFromQuery();
-      bind();
+      if (document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', init, { once:true });
+      }else{
+        init();
+      }
     })();
   </script>
 </body>
