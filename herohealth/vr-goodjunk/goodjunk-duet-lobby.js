@@ -3,7 +3,11 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
  * GoodJunk Duet Lobby
- * FULL PATCH v20260401-gjduet-lobby-r13
+ * FULL PATCH v20260402-gjduet-lobby-r14
+ * - stable firebase boot
+ * - host fallback / countdown reset
+ * - rematch vote + host reset
+ * - paired with goodjunk.safe.duet.js r10
  * ========================================================= */
 (function(){
   const W = window;
@@ -82,12 +86,12 @@
     joined: false,
     redirecting: false,
     selfOnDisconnect: null,
-    rematchSynced: false,
 
     roomId: ctx.roomId || '',
     hostId: '',
     createdAt: 0,
     updatedAt: 0,
+    room: null,
     state: {
       status: 'waiting',
       plannedSec: num(ctx.time, 90),
@@ -96,9 +100,12 @@
       countdownEndsAt: null
     },
     players: {},
+    rematch: {},
     heartbeat: 0,
     countdownTick: 0,
-    offFns: []
+    offFns: [],
+    rematchSynced: false,
+    rematchResetRunning: false
   };
 
   function log(...args){
@@ -117,68 +124,21 @@
     return Math.random().toString(36).slice(2, 8).toUpperCase();
   }
 
-  function extractStatus(raw){
-    return String(
-      (raw && raw.status) ||
-      (raw && raw.state && raw.state.status) ||
-      'waiting'
-    );
-  }
-
-  function extractPlannedSec(raw){
-    return num(
-      (raw && raw.plannedSec) ||
-      (raw && raw.state && raw.state.plannedSec) ||
-      ctx.time,
-      90
-    );
-  }
-
-  function extractSeed(raw){
-    return String(
-      (raw && raw.seed) ||
-      (raw && raw.state && raw.state.seed) ||
-      ctx.seed
-    );
-  }
-
-  function extractStartAt(raw){
-    const v = num(
-      (raw && raw.startAt) ||
-      (raw && raw.state && raw.state.startAt) ||
-      0,
-      0
-    );
-    return v || null;
-  }
-
-  function extractCountdownEndsAt(raw){
-    const v = num(
-      (raw && raw.countdownEndsAt) ||
-      (raw && raw.state && raw.state.countdownEndsAt) ||
-      0,
-      0
-    );
-    return v || null;
+  function clearPendingRematch(){
+    try { sessionStorage.removeItem(PENDING_REMATCH_KEY); } catch(_) {}
+    try { localStorage.removeItem(PENDING_REMATCH_KEY); } catch(_) {}
   }
 
   function readPendingRematch(){
     try{
-      const raw =
-        sessionStorage.getItem(PENDING_REMATCH_KEY) ||
-        localStorage.getItem(PENDING_REMATCH_KEY);
+      const raw = sessionStorage.getItem(PENDING_REMATCH_KEY) || localStorage.getItem(PENDING_REMATCH_KEY);
       if (!raw) return null;
       const obj = JSON.parse(raw);
       if (!obj || typeof obj !== 'object') return null;
       return obj;
-    }catch{
+    }catch(_){
       return null;
     }
-  }
-
-  function clearPendingRematch(){
-    try{ sessionStorage.removeItem(PENDING_REMATCH_KEY); }catch{}
-    try{ localStorage.removeItem(PENDING_REMATCH_KEY); }catch{}
   }
 
   function clearRematchQueryFromUrl(){
@@ -197,30 +157,6 @@
     return true;
   }
 
-  function getCurrentParticipantIds(room){
-    const ids = (((room || {}).match || {}).participantIds || []).filter(Boolean);
-    if (ids.length) return ids;
-    const players = room && room.players ? Object.keys(room.players) : [];
-    return players.slice(0, 2);
-  }
-
-  function getRematchCount(room){
-    const ids = getCurrentParticipantIds(room);
-    const votes = (room && room.rematch) ? room.rematch : {};
-    let n = 0;
-    ids.forEach((id) => {
-      if (votes[id] && votes[id].ready) n += 1;
-    });
-    return n;
-  }
-
-  function isProbablyAlivePlayer(p){
-    if (!p) return false;
-    const seen = Number(p.lastSeenAt || 0);
-    if (p.connected !== false) return true;
-    return (Date.now() - seen) <= 20000;
-  }
-
   function setCopyState(text, danger=false){
     if (!UI.copyState) return;
     UI.copyState.textContent = String(text || '');
@@ -235,6 +171,28 @@
     if (!UI.joinGuard) return;
     UI.joinGuard.style.display = text ? 'block' : 'none';
     UI.joinGuard.textContent = String(text || '');
+  }
+
+  function extractStatus(raw){
+    return String((raw && raw.state && raw.state.status) || raw?.status || 'waiting');
+  }
+
+  function extractPlannedSec(raw){
+    return num((raw && raw.state && raw.state.plannedSec) || raw?.plannedSec || ctx.time, 90);
+  }
+
+  function extractSeed(raw){
+    return String((raw && raw.state && raw.state.seed) || raw?.seed || ctx.seed);
+  }
+
+  function extractStartAt(raw){
+    const v = num((raw && raw.state && raw.state.startAt) || raw?.startAt || 0, 0);
+    return v || null;
+  }
+
+  function extractCountdownEndsAt(raw){
+    const v = num((raw && raw.state && raw.state.countdownEndsAt) || raw?.countdownEndsAt || 0, 0);
+    return v || null;
   }
 
   function activePlayers(srcRoom){
@@ -257,16 +215,32 @@
     return activePlayers(srcRoom).filter((p) => !!p.ready);
   }
 
-  function isHost(){
-    return !!ctx.uid && S.hostId === ctx.uid;
+  function statusText(){
+    return String((S.state && S.state.status) || 'waiting');
   }
 
   function mePlayer(){
     return S.players && ctx.uid ? S.players[ctx.uid] : null;
   }
 
-  function statusText(){
-    return String((S.state && S.state.status) || 'waiting');
+  function isHost(){
+    return !!ctx.uid && S.hostId === ctx.uid;
+  }
+
+  function getCurrentParticipantIds(room){
+    const raw = (((room || {}).match || {}).participantIds || []).filter(Boolean);
+    if (raw.length) return raw.map(x => String(x));
+    return activePlayers(room).map((p) => String(p.id || '')).filter(Boolean).slice(0, 2);
+  }
+
+  function getRematchCount(room){
+    const ids = getCurrentParticipantIds(room);
+    const votes = (room && room.rematch) ? room.rematch : {};
+    let n = 0;
+    ids.forEach((id) => {
+      if (votes[id] && votes[id].ready) n += 1;
+    });
+    return n;
   }
 
   function buildInviteUrl(roomId=S.roomId){
@@ -313,7 +287,6 @@
     url.searchParams.set('role', isHost() ? 'host' : 'player');
     url.searchParams.set('host', isHost() ? '1' : '0');
     url.searchParams.set('wait', '1');
-
     url.searchParams.set('diff', ctx.diff);
     url.searchParams.set('time', String(num(S.state.plannedSec, num(ctx.time, 90))));
     url.searchParams.set('view', ctx.view);
@@ -322,10 +295,7 @@
     url.searchParams.set('gameId', ctx.gameId);
     url.searchParams.set('zone', ctx.zone);
     url.searchParams.set('autostart', '1');
-
-    if (startAt > 0) {
-      url.searchParams.set('startAt', String(startAt));
-    }
+    if (startAt > 0) url.searchParams.set('startAt', String(startAt));
 
     return url.toString();
   }
@@ -421,9 +391,6 @@
       } else if (p.ready) {
         cls = 'ready';
         label = 'พร้อมแล้ว';
-      } else {
-        cls = 'waiting';
-        label = 'ยังไม่พร้อม';
       }
 
       return `
@@ -475,6 +442,9 @@
     }
 
     if (status === 'waiting') {
+      clearPendingRematch();
+      clearRematchQueryFromUrl();
+
       if (actives < 2) {
         setHint('ต้องมีผู้เล่นครบ 2 คนก่อน');
         setCopyState('ส่ง room code หรือ invite link ให้อีกเครื่องเข้าร่วม', false);
@@ -504,10 +474,51 @@
     }
 
     if (status === 'finished' || status === 'ended') {
-      setHint('รอบก่อนหน้าจบแล้ว รอรีแมตช์หรือสร้างห้องใหม่');
-      setCopyState('จบรอบก่อนแล้ว', false);
+      const rematchCount = getRematchCount(S.room);
+      setHint(`รอบก่อนหน้าจบแล้ว กดรีแมตช์ครบ 2 คน (${rematchCount}/2)`);
+      setCopyState(`รอรีแมตช์ ${rematchCount}/2`, false);
       return;
     }
+  }
+
+  function renderCountdown(){
+    clearInterval(S.countdownTick);
+    S.countdownTick = 0;
+    if (UI.countdown) UI.countdown.textContent = '';
+
+    const targetAt = num(S.state.startAt || S.state.countdownEndsAt, 0);
+    if (statusText() !== 'countdown' || !targetAt) return;
+
+    S.countdownTick = setInterval(async () => {
+      const leftMs = targetAt - Date.now();
+      const sec = Math.max(0, Math.ceil(leftMs / 1000));
+      if (UI.countdown) UI.countdown.textContent = sec > 0 ? String(sec) : 'GO!';
+
+      if (leftMs <= 0) {
+        clearInterval(S.countdownTick);
+        S.countdownTick = 0;
+
+        if (isHost()) {
+          await S.refs.root.update({
+            status: 'running',
+            startAt: targetAt,
+            countdownEndsAt: targetAt,
+            updatedAt: Date.now()
+          }).catch(()=>{});
+          await S.refs.state.update({
+            status: 'running',
+            startAt: targetAt,
+            countdownEndsAt: targetAt,
+            updatedAt: Date.now()
+          }).catch(()=>{});
+          await S.refs.match.update({
+            status: 'running'
+          }).catch(()=>{});
+        }
+
+        goRun();
+      }
+    }, 100);
   }
 
   async function waitForFirebaseReady(timeoutMs = FIREBASE_WAIT_MS){
@@ -567,49 +578,19 @@
 
   function getDb(){
     if (S.db) return S.db;
-
     if (W.HHA_FIREBASE_DB) {
       S.db = W.HHA_FIREBASE_DB;
       return S.db;
     }
-
     if (W.firebase && firebase.apps && firebase.apps.length && typeof firebase.database === 'function') {
       S.db = firebase.database();
       return S.db;
     }
-
     if (typeof W.HHA_ENSURE_FIREBASE_DB === 'function') {
       S.db = W.HHA_ENSURE_FIREBASE_DB();
       return S.db;
     }
-
     throw new Error('firebase db not ready');
-  }
-
-  function firebaseSnapshot(){
-    try{
-      const app = W.HHA_FIREBASE_APP || (W.firebase && firebase.apps && firebase.apps.length ? firebase.app() : null);
-      const auth = W.HHA_FIREBASE_AUTH || (W.firebase && typeof firebase.auth === 'function' ? firebase.auth() : null);
-      return {
-        ready: !!W.HHA_FIREBASE_READY,
-        error: W.HHA_FIREBASE_ERROR || '',
-        appCount: W.firebase && firebase.apps ? firebase.apps.length : -1,
-        databaseURL: app && app.options ? app.options.databaseURL : '',
-        uid: auth && auth.currentUser ? auth.currentUser.uid : '',
-        isAnonymous: !!(auth && auth.currentUser && auth.currentUser.isAnonymous),
-        roomId: S.roomId,
-        rootPath: S.refs && S.refs.root ? S.refs.root.toString() : ''
-      };
-    }catch(err){
-      return { debugError: String(err && err.message || err) };
-    }
-  }
-
-  function reportDebug(label, extra){
-    const snap = firebaseSnapshot();
-    const merged = Object.assign({ label }, snap, extra || {});
-    log(merged);
-    return merged;
   }
 
   async function dbWriteWithRetry(task, label='db-write', tries=2){
@@ -620,140 +601,17 @@
         return await task();
       }catch(err){
         lastErr = err;
-        const msg = String((err && err.message) || err || '');
-        console.warn('[gj-duet-lobby]', label, 'failed try', i + 1, msg);
-
+        console.warn('[gj-duet-lobby]', label, 'failed try', i + 1, err && err.message ? err.message : err);
         try {
           if (typeof W.HHA_ensureAnonymousAuth === 'function') {
             await W.HHA_ensureAnonymousAuth();
           }
         } catch(_) {}
-
         await new Promise(resolve => setTimeout(resolve, 250));
       }
     }
 
     throw lastErr || new Error(label + ' failed');
-  }
-
-  async function probeRoomWrite(roomId){
-    const db = getDb();
-    const auth = (W.HHA_FIREBASE_AUTH || (W.firebase && typeof firebase.auth === 'function' ? firebase.auth() : null));
-    const uid = auth && auth.currentUser ? auth.currentUser.uid : '';
-
-    const out = {
-      ok: false,
-      roomId,
-      uid,
-      databaseURL: firebaseSnapshot().databaseURL,
-      steps: []
-    };
-
-    const pushOk = (step) => out.steps.push({ step, ok: true });
-    const pushErr = (step, err) => out.steps.push({
-      step,
-      ok: false,
-      code: err && err.code ? err.code : '',
-      message: err && err.message ? err.message : String(err || '')
-    });
-
-    const probeRoot = db.ref('hha-battle/goodjunk/rooms/__probe_' + roomId);
-    const duetRoot = db.ref('hha-battle/goodjunk/duetRooms/' + roomId);
-    const selfRef = duetRoot.child('players/' + uid);
-
-    try{
-      await probeRoot.set({
-        by: uid || 'no-auth',
-        at: Date.now(),
-        roomId
-      });
-      pushOk('probe rooms root write');
-      await probeRoot.remove().catch(()=>{});
-    }catch(err){
-      pushErr('probe rooms root write', err);
-      return out;
-    }
-
-    try{
-      await duetRoot.update({
-        roomId,
-        game: 'goodjunk',
-        mode: 'duet',
-        hostId: uid,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        status: 'waiting',
-        plannedSec: 90,
-        seed: String(Date.now()),
-        startAt: null,
-        countdownEndsAt: null
-      });
-      pushOk('duet root update');
-    }catch(err){
-      pushErr('duet root update', err);
-      return out;
-    }
-
-    try{
-      await duetRoot.child('state').update({
-        status: 'waiting',
-        plannedSec: 90,
-        seed: String(Date.now()),
-        startAt: null,
-        countdownEndsAt: null,
-        updatedAt: Date.now()
-      });
-      pushOk('duet state update');
-    }catch(err){
-      pushErr('duet state update', err);
-      return out;
-    }
-
-    try{
-      await duetRoot.child('match').update({
-        participantIds: [],
-        lockedAt: null,
-        status: 'idle',
-        race: { finishedAt: 0 }
-      });
-      pushOk('duet match update');
-    }catch(err){
-      pushErr('duet match update', err);
-      return out;
-    }
-
-    try{
-      await selfRef.update({
-        id: uid,
-        name: ctx.name,
-        ready: false,
-        connected: true,
-        joinedAt: Date.now(),
-        lastSeenAt: Date.now(),
-        finished: false,
-        finalScore: 0,
-        miss: 0,
-        streak: 0,
-        phase: 'lobby'
-      });
-      pushOk('duet player self update');
-    }catch(err){
-      pushErr('duet player self update', err);
-      return out;
-    }
-
-    out.ok = true;
-    return out;
-  }
-
-  function formatProbeResult(probe){
-    if (!probe) return 'probe unavailable';
-    const head = `uid=${probe.uid || '-'} | db=${probe.databaseURL || '-'}`;
-    const steps = (probe.steps || []).map((s) => {
-      if (s.ok) return `✅ ${s.step}`;
-      return `❌ ${s.step} (${s.code || 'ERR'}: ${s.message || ''})`;
-    }).join(' | ');
-    return `${head} | ${steps}`;
   }
 
   function attachRefs(roomId){
@@ -762,9 +620,11 @@
     const root = db.ref(`hha-battle/goodjunk/duetRooms/${roomId}`);
     S.refs = {
       root,
-      players: root.child('players'),
       state: root.child('state'),
-      match: root.child('match')
+      match: root.child('match'),
+      players: root.child('players'),
+      results: root.child('results'),
+      rematch: root.child('rematch')
     };
     updateUrlRoom(roomId);
   }
@@ -782,11 +642,14 @@
 
     S.joined = false;
     S.players = {};
+    S.rematch = {};
+    S.room = null;
     S.hostId = '';
     S.createdAt = 0;
     S.updatedAt = 0;
     S.selfOnDisconnect = null;
     S.rematchSynced = false;
+    S.rematchResetRunning = false;
     S.state = {
       status: 'waiting',
       plannedSec: num(ctx.time, 90),
@@ -821,7 +684,6 @@
     attachRefs(newRoomId);
 
     const nowTs = Date.now();
-    reportDebug('before createRoomAndJoin');
 
     await dbWriteWithRetry(() => S.refs.root.update({
       roomId: newRoomId,
@@ -891,8 +753,6 @@
     const nowTs = Date.now();
     const prev = raw && raw.players ? raw.players[ctx.uid] : null;
 
-    reportDebug('before joinCurrentRoom self update');
-
     await dbWriteWithRetry(() => selfRef.update({
       id: ctx.uid,
       name: ctx.name,
@@ -904,6 +764,7 @@
       finalScore: 0,
       miss: 0,
       streak: 0,
+      score: 0,
       phase: 'lobby'
     }), 'players/self.update(join-room)');
 
@@ -928,48 +789,104 @@
     startHeartbeat();
   }
 
+  async function performHostRematchReset(room){
+    if (!isHost() || S.rematchResetRunning) return;
+    S.rematchResetRunning = true;
+
+    try{
+      const ids = Array.from(new Set([
+        ...getCurrentParticipantIds(room),
+        ...Object.keys((room && room.players) || {})
+      ])).filter(Boolean);
+
+      const nextSeed = String(Date.now());
+      const nowTs = Date.now();
+
+      await S.refs.root.update({
+        status: 'waiting',
+        plannedSec: num(ctx.time, 90),
+        seed: nextSeed,
+        startAt: null,
+        countdownEndsAt: null,
+        updatedAt: nowTs
+      }).catch(()=>{});
+
+      await S.refs.state.update({
+        status: 'waiting',
+        plannedSec: num(ctx.time, 90),
+        seed: nextSeed,
+        startAt: null,
+        countdownEndsAt: null,
+        updatedAt: nowTs
+      }).catch(()=>{});
+
+      await S.refs.match.update({
+        participantIds: [],
+        lockedAt: null,
+        status: 'idle',
+        finishedAt: null
+      }).catch(()=>{});
+
+      await S.refs.results.set(null).catch(()=>{});
+      await S.refs.rematch.set(null).catch(()=>{});
+
+      for (const id of ids){
+        await S.refs.players.child(id).update({
+          ready: false,
+          connected: true,
+          phase: 'lobby',
+          finished: false,
+          finalScore: 0,
+          miss: 0,
+          streak: 0,
+          score: 0,
+          lastSeenAt: nowTs
+        }).catch(()=>{});
+      }
+
+      clearPendingRematch();
+      clearRematchQueryFromUrl();
+      S.rematchSynced = false;
+    } finally {
+      S.rematchResetRunning = false;
+    }
+  }
+
   async function syncPendingRematchFromLobby(){
     if (!S.refs || !ctx.uid || !S.roomId) return;
-    if (S.rematchSynced) return;
 
     const rematchQuery = String(qs('rematch', '0')) === '1';
     const hasPending = hasMatchingPendingRematch(S.roomId, ctx.uid);
 
     if (!rematchQuery && !hasPending) return;
+    if (S.rematchSynced) return;
 
     S.rematchSynced = true;
 
     try{
-      if (S.refs && S.refs.players && ctx.uid){
-        await S.refs.players.child(ctx.uid).update({
-          connected: true,
-          phase: 'lobby',
-          ready: false,
-          lastSeenAt: Date.now()
-        });
-      }
-    }catch(err){
-      console.warn('[duet.lobby] set lobby phase before sync rematch failed:', err);
-    }
-
-    try{
-      const snap = await S.refs.root.once('value');
-      const room = snap && typeof snap.val === 'function' ? snap.val() : null;
+      const current = await S.refs.root.once('value');
+      const room = current.val() || null;
       if (!room) {
         clearPendingRematch();
         clearRematchQueryFromUrl();
         return;
       }
 
-      const status = extractStatus(room);
-
-      if (status === 'waiting') {
+      const st = extractStatus(room);
+      if (st === 'waiting') {
         clearPendingRematch();
         clearRematchQueryFromUrl();
         return;
       }
 
-      await S.refs.root.child('rematch/' + ctx.uid).set({
+      await S.refs.players.child(ctx.uid).update({
+        connected: true,
+        ready: false,
+        phase: 'lobby',
+        lastSeenAt: Date.now()
+      }).catch(()=>{});
+
+      await S.refs.rematch.child(ctx.uid).set({
         uid: ctx.uid,
         pid: ctx.uid,
         name: ctx.name || 'Player',
@@ -977,148 +894,40 @@
         requestedAt: Date.now()
       });
 
-      clearPendingRematch();
-      clearRematchQueryFromUrl();
-
       const snap2 = await S.refs.root.once('value');
-      const room2 = snap2 && typeof snap2.val === 'function' ? snap2.val() : null;
+      const room2 = snap2.val() || null;
       if (!room2) return;
 
       const count = getRematchCount(room2);
-      const hostAlive = room2.players && room2.players[room2.hostId] ? isProbablyAlivePlayer(room2.players[room2.hostId]) : false;
-      const firstActive = activePlayers(room2)[0];
-      const amHostNow = room2.hostId === ctx.uid || (!hostAlive && firstActive && firstActive.id === ctx.uid);
-
-      if (!hostAlive && firstActive && firstActive.id === ctx.uid) {
-        await S.refs.root.update({
-          hostId: ctx.uid,
-          updatedAt: Date.now()
-        }).catch(()=>{});
+      if (count >= 2 && isHost()) {
+        await performHostRematchReset(room2);
       }
 
-      if (count >= 2 && amHostNow){
-        const ids = getCurrentParticipantIds(room2);
-        const nextSeed = String(Date.now());
-
-        await S.refs.root.update({
-          status: 'waiting',
-          plannedSec: num(ctx.time, 90),
-          seed: nextSeed,
-          startAt: null,
-          countdownEndsAt: null,
-          updatedAt: Date.now(),
-          rematch: null
-        }).catch(()=>{});
-
-        await S.refs.state.update({
-          status: 'waiting',
-          plannedSec: num(ctx.time, 90),
-          seed: nextSeed,
-          startAt: null,
-          countdownEndsAt: null,
-          updatedAt: Date.now()
-        }).catch(()=>{});
-
-        await S.refs.match.update({
-          participantIds: [],
-          lockedAt: null,
-          status: 'idle',
-          finishedAt: null
-        }).catch(()=>{});
-
-        for (const id of ids){
-          await S.refs.players.child(id).update({
-            ready: false,
-            phase: 'lobby',
-            finished: false,
-            finalScore: 0,
-            miss: 0,
-            streak: 0,
-            connected: true,
-            lastSeenAt: Date.now()
-          }).catch(()=>{});
-        }
-      }
+      clearPendingRematch();
+      clearRematchQueryFromUrl();
     }catch(err){
-      console.warn('[duet.lobby] syncPendingRematchFromLobby failed:', err);
+      console.warn('[gj-duet-lobby] syncPendingRematchFromLobby failed', err);
+      S.rematchSynced = false;
     }
   }
 
-  async function goRun(){
+  function goRun(){
     if (S.redirecting) return;
     if (statusText() !== 'running' && statusText() !== 'countdown') return;
-
     S.redirecting = true;
-    clearPendingRematch();
-    clearRematchQueryFromUrl();
-
-    try{
-      if (S.selfOnDisconnect && typeof S.selfOnDisconnect.cancel === 'function'){
-        await S.selfOnDisconnect.cancel();
-      }
-    }catch(_){}
-
-    try{
-      if (S.refs && S.refs.players && ctx.uid){
-        await S.refs.players.child(ctx.uid).update({
-          connected: true,
-          lastSeenAt: Date.now(),
-          phase: 'run'
-        });
-      }
-    }catch(_){}
-
     location.href = buildRunUrl();
-  }
-
-  function renderCountdown(){
-    clearInterval(S.countdownTick);
-    S.countdownTick = 0;
-    if (UI.countdown) UI.countdown.textContent = '';
-
-    const targetAt = num(S.state.startAt || S.state.countdownEndsAt, 0);
-    if (statusText() !== 'countdown' || !targetAt) return;
-
-    S.countdownTick = setInterval(async () => {
-      const leftMs = targetAt - Date.now();
-      const sec = Math.max(0, Math.ceil(leftMs / 1000));
-      if (UI.countdown) UI.countdown.textContent = sec > 0 ? String(sec) : 'GO!';
-
-      if (leftMs <= 0) {
-        clearInterval(S.countdownTick);
-        S.countdownTick = 0;
-
-        if (isHost()) {
-          await S.refs.root.update({
-            status: 'running',
-            startAt: targetAt,
-            countdownEndsAt: targetAt,
-            updatedAt: Date.now()
-          }).catch(()=>{});
-          await S.refs.state.update({
-            status: 'running',
-            startAt: targetAt,
-            countdownEndsAt: targetAt,
-            updatedAt: Date.now()
-          }).catch(()=>{});
-          await S.refs.match.update({
-            status: 'running'
-          }).catch(()=>{});
-        }
-
-        await goRun();
-      }
-    }, 100);
   }
 
   function subscribeRoom(){
     const onValue = async (snap) => {
       const raw = snap.val() || {};
 
+      S.room = raw;
       S.hostId = String(raw.hostId || '');
       S.createdAt = num(raw.createdAt, 0);
       S.updatedAt = num(raw.updatedAt, 0);
       S.players = raw.players || {};
+      S.rematch = raw.rematch || {};
       S.state = {
         status: extractStatus(raw),
         plannedSec: extractPlannedSec(raw),
@@ -1127,11 +936,10 @@
         countdownEndsAt: extractCountdownEndsAt(raw)
       };
 
-      renderAll();
+      const actives = activePlayers(raw);
+      const firstActive = actives[0];
 
-      const actives = activePlayers();
-
-      if (!actives.some((p) => p.id === S.hostId) && actives.length > 0 && actives[0].id === ctx.uid) {
+      if (!actives.some((p) => p.id === S.hostId) && firstActive && firstActive.id === ctx.uid) {
         await S.refs.root.update({
           hostId: ctx.uid,
           updatedAt: Date.now()
@@ -1160,12 +968,21 @@
         }).catch(()=>{});
       }
 
+      if ((statusText() === 'finished' || statusText() === 'ended') && isHost()) {
+        const rematchCount = getRematchCount(raw);
+        if (rematchCount >= 2) {
+          await performHostRematchReset(raw);
+        }
+      }
+
+      renderAll();
+
       if (statusText() === 'finished' || statusText() === 'ended') {
         syncPendingRematchFromLobby().catch(()=>{});
       }
 
-      if (statusText() === 'running') {
-        goRun().catch(()=>{});
+      if (statusText() === 'running' || statusText() === 'countdown') {
+        goRun();
       }
     };
 
@@ -1183,7 +1000,7 @@
   function startHeartbeat(){
     clearInterval(S.heartbeat);
     S.heartbeat = setInterval(() => {
-      if (!S.joined) return;
+      if (!S.joined || !S.refs || !ctx.uid) return;
       S.refs.players.child(ctx.uid).update({
         name: ctx.name,
         connected: true,
@@ -1275,7 +1092,7 @@
     }
   }
 
-  async function useCurrentRoom(){
+  function useCurrentRoom(){
     if (!S.roomId) {
       setHint('ยังไม่มีห้องปัจจุบัน');
       return;
@@ -1298,21 +1115,9 @@
       await createRoomAndJoin(room);
     } catch (err) {
       console.error('[goodjunk-duet-lobby] makeNewRoom failed:', err);
-
-      const probeRoom = S.roomId || makeRoomCode();
-      let probe = null;
-      try{
-        probe = await probeRoomWrite(probeRoom);
-      }catch(probeErr){
-        probe = { ok:false, steps:[{ step:'probe internal error', ok:false, message:String(probeErr && probeErr.message || probeErr) }] };
-      }
-
-      const probeText = formatProbeResult(probe);
-      const errMsg = `${err && err.code ? err.code + ': ' : ''}${err && err.message ? err.message : err}`;
-
-      setHint(`สร้างห้องไม่สำเร็จ: ${errMsg}`);
-      setCopyState(`สร้างห้องไม่สำเร็จ: ${errMsg} | ${probeText}`, true);
-      showGuard(`permission denied | ${probeText}`);
+      setHint(`สร้างห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+      setCopyState(`สร้างห้องไม่สำเร็จ: ${err && err.code ? err.code + ': ' : ''}${err && err.message ? err.message : err}`, true);
+      showGuard('permission denied หรือ firebase ยังไม่พร้อม');
     }
   }
 
@@ -1401,8 +1206,6 @@
       await ensureAuth();
       await new Promise(resolve => setTimeout(resolve, 250));
 
-      reportDebug('after ensureAuth');
-
       if (ctx.roomId) {
         attachRefs(ctx.roomId);
         await joinCurrentRoom(false);
@@ -1414,22 +1217,13 @@
 
       await syncPendingRematchFromLobby();
       renderAll();
+      log('boot ok', { roomId: S.roomId, uid: ctx.uid });
     } catch (err) {
       console.error('[goodjunk-duet-lobby] boot failed:', err);
-
       const msg = err && err.message ? err.message : String(err || 'unknown');
       setHint(`เริ่ม Duet Lobby ไม่สำเร็จ: ${msg}`);
-
-      if (msg.includes('firebase not ready')) {
-        setCopyState('firebase SDK หรือ firebase-config.js ยังไม่พร้อม / โหลดไม่ครบ', true);
-        showGuard('firebase ยังไม่พร้อม: ตรวจ script order และ cache ก่อน');
-      } else if (msg.includes('anonymous auth')) {
-        setCopyState('anonymous auth ใช้งานไม่ได้', true);
-        showGuard('auth ยังไม่พร้อม หรือโดน rules/block ไว้');
-      } else {
-        setCopyState('ตรวจ firebase-config.js / auth / duetRooms rules แล้วลองใหม่', true);
-        showGuard('permission denied หรือ firebase ยังไม่พร้อม');
-      }
+      setCopyState('ตรวจ firebase-config.js / auth / duetRooms rules แล้วลองใหม่', true);
+      showGuard('permission denied หรือ firebase ยังไม่พร้อม');
     }
   }
 
