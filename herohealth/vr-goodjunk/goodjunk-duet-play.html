@@ -419,6 +419,7 @@
         radial-gradient(circle at 20% 10%, rgba(255,255,255,.8), transparent 18%),
         radial-gradient(circle at 80% 8%, rgba(255,255,255,.72), transparent 18%),
         linear-gradient(180deg,#aee6ff 0%, #d9f5ff 54%, #fff5cf 100%);
+      overflow:hidden;
     }
 
     #duetGameStage{
@@ -427,6 +428,7 @@
       height:100%;
       min-height:580px;
       overflow:hidden;
+      isolation:isolate;
     }
 
     .stage-cloud{
@@ -436,6 +438,7 @@
       box-shadow:0 8px 18px rgba(0,0,0,.06);
       opacity:.8;
       pointer-events:none;
+      z-index:0;
     }
 
     .stage-cloud.c1{ width:130px;height:42px;left:4%;top:8%; }
@@ -451,6 +454,34 @@
         radial-gradient(circle at 72% 44%, rgba(126,217,87,.28), transparent 18%),
         linear-gradient(180deg,#b3f28f,#88d96b);
       border-top:1px solid rgba(88,195,63,.26);
+      pointer-events:none;
+      z-index:0;
+    }
+
+    #duetGameStage .target{
+      position:absolute;
+      display:grid;
+      place-items:center;
+      border-radius:22px;
+      border:2px solid #fff;
+      box-shadow:0 10px 22px rgba(0,0,0,.12);
+      cursor:pointer;
+      user-select:none;
+      touch-action:manipulation;
+      transform:translateZ(0);
+      z-index:3;
+    }
+
+    #duetGameStage .target.good{
+      background:linear-gradient(180deg,#ffffff,#f1fff1);
+    }
+
+    #duetGameStage .target.junk{
+      background:linear-gradient(180deg,#fff3f3,#ffe1e1);
+    }
+
+    #duetGameStage .target .t-emoji{
+      line-height:1;
       pointer-events:none;
     }
 
@@ -507,6 +538,335 @@
       font-size:15px;
       line-height:1.6;
       font-weight:1000;
+    }
+
+    .duet-result-mount{
+      position:fixed;
+      inset:0;
+      z-index:60;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(255,255,255,.52);
+      backdrop-filter:blur(10px);
+      overflow:auto;
+    }
+
+    .duet-result-card{
+      width:min(980px,100%);
+      max-height:min(92vh,1020px);
+      overflow:auto;
+      border-radius:28px;
+      border:1px solid var(--stroke);
+      background:#fffdf8fa;
+      box-shadow:0 28px 80px rgba(0,0,0,.22);
+      padding:18px;
+      display:grid;
+      gap:14px;
+      position:relative;
+    }
+
+    .duet-result-card.celebrate{
+      box-shadow:0 32px 90px rgba(255,176,71,.24);
+    }
+
+    .duet-summary-kicker{
+      display:inline-flex;
+      align-items:center;
+      min-height:32px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:#f4fbff;
+      color:#658cb1;
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .duet-result-title{
+      font-size:28px;
+      line-height:1.15;
+      font-weight:1100;
+      color:#7a2558;
+    }
+
+    .duet-result-sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .duet-praise,.duet-sum-top-card,.duet-sum-stat,.duet-recap-card{
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:#fff;
+      padding:14px;
+    }
+
+    .duet-praise-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .duet-praise-title{
+      font-size:26px;
+      line-height:1.15;
+      font-weight:1100;
+      color:#7a2558;
+    }
+
+    .duet-praise-sub{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .duet-stars{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .duet-stars.big .duet-star{
+      font-size:26px;
+    }
+
+    .duet-badges{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:10px;
+    }
+
+    .duet-badge{
+      display:inline-flex;
+      align-items:center;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      font-size:13px;
+      font-weight:1000;
+      border:1px solid var(--stroke);
+      background:#fff;
+    }
+
+    .duet-badge.good{ background:#eefcf0; color:#247635; }
+    .duet-badge.pink{ background:#fff2f8; color:#a33268; }
+    .duet-badge.warn{ background:#fff7ea; color:#9a5a00; }
+    .duet-badge.blue{ background:#eef8ff; color:#2d6f94; }
+    .duet-badge.gold{ background:#fff8db; color:#8a6000; }
+
+    .duet-sum-top{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .duet-sum-top-label{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:1000;
+      text-align:center;
+    }
+
+    .duet-sum-top-score{
+      margin-top:8px;
+      text-align:center;
+      font-size:56px;
+      line-height:1;
+      font-weight:1100;
+    }
+
+    .duet-sum-top-score.me{ color:#8a2d66; }
+    .duet-sum-top-score.peer{ color:#236f89; }
+    .duet-sum-top-score.pair{ color:#c85c00; }
+
+    .duet-sum-top-sub{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.7;
+      font-weight:900;
+      text-align:center;
+    }
+
+    .duet-sum-goal-ok{ color:#3a8e2f; font-weight:1100; }
+    .duet-sum-goal-wait{ color:#aa6e00; font-weight:1100; }
+
+    .duet-sum-status.done,
+    .duet-sum-status.wait{
+      display:inline-flex;
+      min-height:26px;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .duet-sum-status.done{
+      background:#eefcf0;
+      color:#247635;
+      border:1px solid #d2f3d7;
+    }
+
+    .duet-sum-status.wait{
+      background:#fff8db;
+      color:#8a6000;
+      border:1px solid #f5e6a6;
+    }
+
+    .duet-sum-stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .duet-sum-stat-k{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:1000;
+      text-align:center;
+    }
+
+    .duet-sum-stat-v{
+      margin-top:8px;
+      color:#245f73;
+      font-size:44px;
+      line-height:1;
+      font-weight:1100;
+      text-align:center;
+    }
+
+    .duet-recap{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .duet-recap-k{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .duet-recap-v{
+      margin-top:8px;
+      color:#234e65;
+      font-size:16px;
+      line-height:1.65;
+      font-weight:1000;
+    }
+
+    .duet-mobile-quick-actions{
+      display:none;
+      gap:8px;
+      margin-bottom:10px;
+    }
+
+    .duet-result-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      position:sticky;
+      bottom:0;
+      padding-top:10px;
+      background:linear-gradient(180deg, rgba(255,253,248,0), rgba(255,253,248,.92) 22%, rgba(255,253,248,1));
+    }
+
+    .duet-result-actions .btn{
+      flex:1 1 180px;
+      min-height:50px;
+    }
+
+    .duet-confetti{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      pointer-events:none;
+      border-radius:28px;
+    }
+
+    .duet-confetti-piece{
+      position:absolute;
+      top:-30px;
+      border-radius:999px;
+      opacity:.92;
+      animation-name:duetConfettiFall;
+      animation-timing-function:linear;
+      animation-iteration-count:1;
+    }
+
+    .duet-confetti-piece.pink{ background:#ff9fca; }
+    .duet-confetti-piece.blue{ background:#7fcfff; }
+    .duet-confetti-piece.green{ background:#7ed957; }
+    .duet-confetti-piece.gold{ background:#ffd45c; }
+    .duet-confetti-piece.violet{ background:#cdb9ff; }
+
+    @keyframes duetConfettiFall{
+      0%{
+        transform:translate3d(0,0,0) rotate(0deg);
+        opacity:0;
+      }
+      10%{
+        opacity:1;
+      }
+      100%{
+        transform:translate3d(var(--dx), 110vh, 0) rotate(var(--rot));
+        opacity:1;
+      }
+    }
+
+    @media (max-width:820px){
+      .duet-sum-top{ grid-template-columns:1fr; }
+      .duet-sum-stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .duet-recap{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width:760px){
+      body{ overflow:auto; }
+      .stage-wrap{ min-height:540px; }
+      .stage-inner, #duetGameStage{ min-height:500px; }
+
+      .duet-result-mount{
+        padding:10px;
+        align-items:flex-end;
+      }
+
+      .duet-result-card{
+        border-radius:22px;
+        padding:12px;
+      }
+
+      .duet-result-title{
+        font-size:22px;
+      }
+
+      .duet-result-sub{
+        font-size:12px;
+      }
+
+      .duet-mobile-quick-actions{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+      }
+
+      .duet-result-actions{
+        display:grid;
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+
+      .duet-result-actions .btn{
+        flex:auto;
+        width:100%;
+      }
     }
   </style>
 </head>
@@ -656,6 +1016,6 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
   <script src="../firebase-config.js?v=20260401-firebase-r12"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260331-gjduet-run-r8"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260402-gjduet-run-r9"></script>
 </body>
 </html>
