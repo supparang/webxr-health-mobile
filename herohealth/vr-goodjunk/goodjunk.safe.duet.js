@@ -3,7 +3,7 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.duet.js
  * GoodJunk Duet Run
- * FULL PATCH v20260331-gjduet-run-r8
+ * FULL PATCH v20260402-gjduet-run-r9
  * ========================================================= */
 (function(){
   const W = window;
@@ -16,7 +16,7 @@
     name: qs.get('name') || qs.get('nick') || 'Player',
     studyId: qs.get('studyId') || '',
     diff: qs.get('diff') || 'normal',
-    time: Number(qs.get('time') || 90),
+    time: Math.max(30, Math.min(300, Number(qs.get('time') || 90) || 90)),
     seed: String(qs.get('seed') || Date.now()),
     hub: qs.get('hub') || '../hub.html',
     view: qs.get('view') || 'mobile',
@@ -105,6 +105,7 @@
 
     ready: false,
     started: false,
+    starting: false,
     ended: false,
     redirecting: false,
 
@@ -142,6 +143,10 @@
     peerResultSeen: false
   };
 
+  function sleep(ms){
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   function hashSeed(str){
     let h = 2166136261 >>> 0;
     const s = String(str || '0');
@@ -172,6 +177,8 @@
   }
 
   function clamp(v, a, b){
+    v = Number(v);
+    if (!Number.isFinite(v)) v = a;
     return Math.max(a, Math.min(b, v));
   }
 
@@ -218,9 +225,11 @@
     if (ui.duetJunkHitValue) ui.duetJunkHitValue.textContent = String(state.junkHit);
     if (ui.duetGoodMissValue) ui.duetGoodMissValue.textContent = String(state.goodMiss);
 
-    const remainSec = state.started ? Math.max(0, (state.deadlineMs - Date.now()) / 1000) : Math.max(0, (state.startAtMs - Date.now()) / 1000);
-    if (ui.duetTimeValue) ui.duetTimeValue.textContent = fmtTime(remainSec);
+    const remainSec = state.started
+      ? Math.max(0, (state.deadlineMs - Date.now()) / 1000)
+      : Math.max(0, (state.startAtMs - Date.now()) / 1000);
 
+    if (ui.duetTimeValue) ui.duetTimeValue.textContent = fmtTime(remainSec);
     updateGoalBars();
   }
 
@@ -237,13 +246,49 @@
     if (ui.duetCountdownText) ui.duetCountdownText.textContent = String(subText || '');
   }
 
-  function resizeStageSafe(){
-    if (!ui.duetGameStage) return { w: 360, h: 580 };
-    const rect = ui.duetGameStage.getBoundingClientRect();
+  function getStageMetrics(stage){
+    if (!stage) return { width: 360, height: 580 };
+    const rect = stage.getBoundingClientRect();
     return {
-      w: Math.max(280, Math.floor(rect.width)),
-      h: Math.max(520, Math.floor(rect.height))
+      width: Math.max(320, Math.floor(rect.width || stage.clientWidth || 0)),
+      height: Math.max(240, Math.floor(rect.height || stage.clientHeight || 0))
     };
+  }
+
+  async function waitStageReady(stage){
+    if (!stage) throw new Error('stage element not found');
+
+    for (let i = 0; i < 40; i++){
+      const m = getStageMetrics(stage);
+      if (m.width >= 320 && m.height >= 240) return m;
+      await sleep(100);
+    }
+
+    throw new Error('stage not ready');
+  }
+
+  function getSpawnRect(stage){
+    const { width, height } = getStageMetrics(stage);
+    const size = clamp(Math.round(Math.min(width, height) * 0.11), conf.sizeMin, conf.sizeMax);
+    const margin = 12;
+
+    const minX = margin;
+    const maxX = Math.max(minX, width - size - margin);
+
+    const minY = 24;
+    const maxY = Math.max(minY, height - size - 150);
+
+    return {
+      x: clamp(rint(minX, maxX), minX, maxX),
+      y: clamp(rint(minY, maxY), minY, maxY),
+      w: size,
+      h: size
+    };
+  }
+
+  function resizeStageSafe(){
+    const m = getStageMetrics(ui.duetGameStage);
+    return { w: m.width, h: m.height };
   }
 
   function clearTargets(){
@@ -253,19 +298,62 @@
     state.targets = [];
   }
 
+  function resetRunState(){
+    state.score = 0;
+    state.miss = 0;
+    state.streak = 0;
+    state.bestStreak = 0;
+    state.goodHit = 0;
+    state.junkHit = 0;
+    state.goodMiss = 0;
+    state.peerLiveScore = 0;
+    state.peerFinalScore = 0;
+    state.lastFrameAt = 0;
+    state.seq = 0;
+    clearTargets();
+  }
+
+  function shouldCountExpireMiss(el){
+    if (!el || !D.body.contains(el)) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width < 40 || r.height < 40) return false;
+    return true;
+  }
+
+  function styleTarget(el, good, size){
+    el.style.position = 'absolute';
+    el.style.left = '0px';
+    el.style.top = '0px';
+    el.style.width = `${size}px`;
+    el.style.height = `${size}px`;
+    el.style.padding = '0';
+    el.style.margin = '0';
+    el.style.display = 'grid';
+    el.style.placeItems = 'center';
+    el.style.borderRadius = '22px';
+    el.style.border = '2px solid #fff';
+    el.style.boxShadow = '0 10px 22px rgba(0,0,0,.12)';
+    el.style.cursor = 'pointer';
+    el.style.userSelect = 'none';
+    el.style.webkitTapHighlightColor = 'transparent';
+    el.style.fontSize = '0';
+    el.style.lineHeight = '1';
+    el.style.transform = 'translateZ(0)';
+    el.style.background = good
+      ? 'linear-gradient(180deg,#ffffff,#f1fff1)'
+      : 'linear-gradient(180deg,#fff3f3,#ffe1e1)';
+    el.style.zIndex = '3';
+  }
+
   function spawnTarget(){
     if (!state.started || state.ended || !ui.duetGameStage) return;
 
-    const stage = resizeStageSafe();
+    const spawn = getSpawnRect(ui.duetGameStage);
     const good = rand() < conf.goodChance;
     const source = good
       ? GOOD_ITEMS[rint(0, GOOD_ITEMS.length - 1)]
       : JUNK_ITEMS[rint(0, JUNK_ITEMS.length - 1)];
 
-    const size = rint(conf.sizeMin, conf.sizeMax);
-    const padding = 12;
-    const x = rint(padding, Math.max(padding, stage.w - size - padding));
-    const y = rint(20, Math.max(24, stage.h - 180 - size));
     const vx = (rand() * 2 - 1) * 18;
     const vy = rint(conf.speedMin, conf.speedMax);
     const lifeMs = conf.lifeMs + rint(-180, 180);
@@ -273,32 +361,42 @@
     const el = D.createElement('button');
     el.type = 'button';
     el.className = `target ${good ? 'good' : 'junk'}`;
-    el.style.width = `${size}px`;
-    el.style.height = `${size}px`;
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    el.innerHTML = `<div class="t-emoji">${source.emoji}</div>`;
+    styleTarget(el, good, spawn.w);
+
+    const emoji = D.createElement('div');
+    emoji.className = 't-emoji';
+    emoji.textContent = source.emoji;
+    emoji.style.fontSize = `${Math.max(28, Math.round(spawn.w * 0.44))}px`;
+    emoji.style.lineHeight = '1';
+    emoji.style.pointerEvents = 'none';
+    el.appendChild(emoji);
 
     const t = {
       id: ++state.seq,
       good,
       item: source,
       el,
-      x,
-      y,
+      x: spawn.x,
+      y: spawn.y,
       vx,
       vy,
+      w: spawn.w,
+      h: spawn.h,
       bornAt: Date.now(),
       dieAt: Date.now() + lifeMs,
       dead: false
     };
 
+    el.style.left = `${t.x}px`;
+    el.style.top = `${t.y}px`;
+
     const onHit = (ev) => {
       ev.preventDefault();
       hitTarget(t);
     };
+
+    el.addEventListener('pointerdown', onHit, { passive:false });
     el.addEventListener('click', onHit, { passive:false });
-    el.addEventListener('touchstart', onHit, { passive:false });
 
     ui.duetGameStage.appendChild(el);
     state.targets.push(t);
@@ -336,10 +434,12 @@
 
   function missGoodTarget(t){
     if (!t || t.dead) return;
+
+    const countable = t.good && shouldCountExpireMiss(t.el);
     removeTarget(t);
     state.targets = state.targets.filter(x => x !== t);
 
-    if (t.good) {
+    if (countable) {
       state.goodMiss += 1;
       state.miss += 1;
       state.streak = 0;
@@ -349,8 +449,7 @@
   }
 
   function frame(nowTs){
-    if (state.ended) return;
-    if (!state.started) return;
+    if (state.ended || !state.started) return;
 
     if (!state.lastFrameAt) state.lastFrameAt = nowTs;
     const dt = Math.min(0.05, (nowTs - state.lastFrameAt) / 1000);
@@ -364,13 +463,23 @@
       t.x += t.vx * dt;
       t.y += t.vy * dt;
 
-      if (t.x < 6) { t.x = 6; t.vx *= -1; }
-      if (t.x > stage.w - t.el.offsetWidth - 6) { t.x = stage.w - t.el.offsetWidth - 6; t.vx *= -1; }
+      const tw = t.el.offsetWidth || t.w;
+      const th = t.el.offsetHeight || t.h;
+
+      if (t.x < 6) {
+        t.x = 6;
+        t.vx *= -1;
+      }
+
+      if (t.x > stage.w - tw - 6) {
+        t.x = stage.w - tw - 6;
+        t.vx *= -1;
+      }
 
       t.el.style.left = `${t.x}px`;
       t.el.style.top = `${t.y}px`;
 
-      if (Date.now() >= t.dieAt || t.y > stage.h - 90) {
+      if (Date.now() >= t.dieAt || t.y > stage.h - th - 90) {
         missGoodTarget(t);
       }
     });
@@ -384,34 +493,50 @@
     state.loopRaf = requestAnimationFrame(frame);
   }
 
-  function startCore(){
-    if (state.started || state.ended) return;
-    state.started = true;
-    state.runStartedAt = Date.now();
-    state.deadlineMs = state.runStartedAt + (ctx.time * 1000);
-    state.lastFrameAt = 0;
-
-    setCountdown(false, '', '');
-    setCoach('เริ่มแล้ว ช่วยกันเก็บอาหารดีให้ถึงเป้าหมายคู่', '🤖 AI Coach');
-    renderHud();
+  async function startCore(){
+    if (state.started || state.ended || state.starting) return;
+    state.starting = true;
 
     try {
-      state.refs.myPlayer.update({
-        ready: true,
-        connected: true,
-        phase: 'run',
-        score: state.score,
-        finalScore: 0,
-        miss: state.miss,
-        streak: state.bestStreak,
-        lastSeenAt: Date.now()
-      });
-    } catch(_) {}
+      await waitStageReady(ui.duetGameStage);
+      resetRunState();
 
-    clearInterval(state.spawnTimer);
-    state.spawnTimer = setInterval(spawnTarget, conf.spawnMs);
+      state.started = true;
+      state.runStartedAt = Date.now();
+      state.deadlineMs = state.runStartedAt + (ctx.time * 1000);
+      state.lastFrameAt = 0;
 
-    state.loopRaf = requestAnimationFrame(frame);
+      setCountdown(false, '', '');
+      setCoach('เริ่มแล้ว ช่วยกันเก็บอาหารดีให้ถึงเป้าหมายคู่', '🤖 AI Coach');
+      renderHud();
+
+      try {
+        state.refs.myPlayer.update({
+          ready: true,
+          connected: true,
+          phase: 'run',
+          score: state.score,
+          finalScore: 0,
+          miss: state.miss,
+          streak: state.bestStreak,
+          lastSeenAt: Date.now()
+        });
+      } catch(_) {}
+
+      clearInterval(state.spawnTimer);
+      spawnTarget();
+      state.spawnTimer = setInterval(() => {
+        if (!state.ended) spawnTarget();
+      }, conf.spawnMs);
+
+      state.loopRaf = requestAnimationFrame(frame);
+    } catch (err) {
+      console.error('[duet-run] startCore failed', err);
+      setCoach(`เริ่มเกมไม่สำเร็จ: ${err && err.message ? err.message : err}`, '⚠️ Error');
+      setCountdown(true, '!', 'stage ยังไม่พร้อม');
+    } finally {
+      state.starting = false;
+    }
   }
 
   async function submitResult(reason){
@@ -761,7 +886,7 @@
 
   function syncFromRoomSnapshot(raw){
     state.room = raw || {};
-    state.roomStatus = String(raw?.state?.status || 'waiting');
+    state.roomStatus = String(raw?.state?.status || raw?.status || 'waiting');
     state.peerLiveScore = getPeerLiveScoreFromRoom();
 
     const matchIds = getParticipantIds();
@@ -900,8 +1025,9 @@
       const raw = snap.val() || {};
       syncFromRoomSnapshot(raw);
 
-      if (!state.started) {
+      if (!state.started && !state.starting) {
         const roomStartAt = Number(raw?.state?.startAt || raw?.state?.countdownEndsAt || ctx.startAt || 0);
+
         if (raw?.state?.status === 'running') {
           state.startAtMs = roomStartAt || Date.now();
           startCore();
@@ -1016,6 +1142,8 @@
       bindUI();
       renderHud();
       state.refs = null;
+
+      await waitStageReady(ui.duetGameStage);
 
       await ensureAuth();
       state.refs = {
