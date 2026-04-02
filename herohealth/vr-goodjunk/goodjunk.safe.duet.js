@@ -3,7 +3,10 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.duet.js
  * GoodJunk Duet Run
- * FULL PATCH v20260402-gjduet-run-r9
+ * FULL PATCH v20260402-gjduet-run-r10
+ * - stage-ready safe start
+ * - synced countdown / deadline by shared startAt
+ * - replay -> rematch handoff to lobby
  * ========================================================= */
 (function(){
   const W = window;
@@ -29,6 +32,8 @@
     wait: qs.get('wait') === '1',
     startAt: Number(qs.get('startAt') || 0)
   };
+
+  const PENDING_REMATCH_KEY = 'GJ_DUET_PENDING_REMATCH_V1';
 
   const $ = (id) => D.getElementById(id);
 
@@ -110,7 +115,6 @@
     redirecting: false,
 
     roomStatus: 'waiting',
-    currentCountdown: 0,
 
     score: 0,
     miss: 0,
@@ -132,7 +136,6 @@
     spawnTimer: 0,
     syncTimer: 0,
     countdownTimer: 0,
-    gameTimer: 0,
 
     targets: [],
     lastFrameAt: 0,
@@ -225,9 +228,12 @@
     if (ui.duetJunkHitValue) ui.duetJunkHitValue.textContent = String(state.junkHit);
     if (ui.duetGoodMissValue) ui.duetGoodMissValue.textContent = String(state.goodMiss);
 
-    const remainSec = state.started
-      ? Math.max(0, (state.deadlineMs - Date.now()) / 1000)
-      : Math.max(0, (state.startAtMs - Date.now()) / 1000);
+    let remainSec = 0;
+    if (state.started) {
+      remainSec = Math.max(0, (state.deadlineMs - Date.now()) / 1000);
+    } else if (state.startAtMs > 0) {
+      remainSec = Math.max(0, (state.startAtMs - Date.now()) / 1000);
+    }
 
     if (ui.duetTimeValue) ui.duetTimeValue.textContent = fmtTime(remainSec);
     updateGoalBars();
@@ -257,13 +263,11 @@
 
   async function waitStageReady(stage){
     if (!stage) throw new Error('stage element not found');
-
     for (let i = 0; i < 40; i++){
       const m = getStageMetrics(stage);
       if (m.width >= 320 && m.height >= 240) return m;
       await sleep(100);
     }
-
     throw new Error('stage not ready');
   }
 
@@ -410,6 +414,7 @@
 
   function hitTarget(t){
     if (!t || t.dead || state.ended || !state.started) return;
+
     removeTarget(t);
     state.targets = state.targets.filter(x => x !== t);
 
@@ -501,10 +506,17 @@
       await waitStageReady(ui.duetGameStage);
       resetRunState();
 
+      const sharedStart = state.startAtMs > 0 ? state.startAtMs : Date.now();
       state.started = true;
-      state.runStartedAt = Date.now();
-      state.deadlineMs = state.runStartedAt + (ctx.time * 1000);
+      state.runStartedAt = sharedStart;
+      state.deadlineMs = sharedStart + (ctx.time * 1000);
       state.lastFrameAt = 0;
+
+      if (Date.now() >= state.deadlineMs) {
+        state.starting = false;
+        endRun('late-start');
+        return;
+      }
 
       setCountdown(false, '', '');
       setCoach('เริ่มแล้ว ช่วยกันเก็บอาหารดีให้ถึงเป้าหมายคู่', '🤖 AI Coach');
@@ -543,7 +555,7 @@
     if (state.myResultSubmitted) return;
     state.myResultSubmitted = true;
 
-    const duration = Math.max(0, Math.round((Date.now() - state.runStartedAt) / 1000));
+    const duration = Math.max(0, Math.round((Date.now() - Math.max(state.runStartedAt || Date.now(), 1)) / 1000));
     const payload = {
       pid: state.uid,
       nick: String(ctx.name || 'Player'),
@@ -576,6 +588,7 @@
         miss: state.miss,
         streak: state.bestStreak,
         score: state.score,
+        ready: false,
         lastSeenAt: Date.now()
       });
     } catch (err) {
@@ -588,14 +601,21 @@
         const results = snap.val() || {};
         const participantIds = getParticipantIds();
         const finals = Object.values(results).filter((r) => participantIds.includes(String(r.pid || '')) && r.final);
+
         if (finals.length >= 2) {
+          await state.refs.root.update({
+            status: 'ended',
+            updatedAt: Date.now()
+          }).catch(()=>{});
+
           await state.refs.state.update({
             status: 'ended',
             updatedAt: Date.now()
-          });
+          }).catch(()=>{});
+
           await state.refs.match.update({
             status: 'finished'
-          });
+          }).catch(()=>{});
         }
       } catch (_) {}
     }
@@ -649,6 +669,17 @@
       p.style.setProperty('--rot', `${Math.round((rand() * 2 - 1) * 720)}deg`);
       mount.appendChild(p);
     }
+  }
+
+  function savePendingRematch(){
+    const payload = {
+      roomId: ctx.roomId,
+      pid: state.uid || ctx.pid || 'anon',
+      requestedAt: Date.now(),
+      name: ctx.name || 'Player'
+    };
+    try { sessionStorage.setItem(PENDING_REMATCH_KEY, JSON.stringify(payload)); } catch(_) {}
+    try { localStorage.setItem(PENDING_REMATCH_KEY, JSON.stringify(payload)); } catch(_) {}
   }
 
   function buildSummaryHtml(){
@@ -770,12 +801,12 @@
         </div>
 
         <div class="duet-mobile-quick-actions">
-          <button class="btn good" data-act="replay">เล่นใหม่</button>
+          <button class="btn good" data-act="replay">รีแมตช์</button>
           <button class="btn ghost" data-act="hub">กลับ Hub</button>
         </div>
 
         <div class="duet-result-actions">
-          <button class="btn good" data-act="replay">เล่นใหม่</button>
+          <button class="btn good" data-act="replay">รีแมตช์</button>
           <button class="btn primary" data-act="copy-room">คัดลอก Room</button>
           <button class="btn ghost" data-act="export">Export JSON</button>
           <button class="btn ghost" data-act="hub">กลับ Hub</button>
@@ -786,25 +817,39 @@
 
   function attachSummaryActions(){
     if (!ui.duetResultMount) return;
+
     ui.duetResultMount.querySelectorAll('[data-act]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const act = btn.getAttribute('data-act');
+
         if (act === 'replay') {
+          state.redirecting = true;
+          savePendingRematch();
+
           const u = new URL('./goodjunk-duet-lobby.html', location.href);
-          ['hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai','room','roomId','zone','gameId']
-            .forEach((k) => {
-              const v = qs.get(k);
-              if (v != null && v !== '') u.searchParams.set(k, v);
-            });
+          [
+            'hub','run','diff','time','studyId','phase','conditionGroup',
+            'view','api','log','debug','ai','room','roomId','zone',
+            'gameId','name','nick','seed'
+          ].forEach((k) => {
+            const v = qs.get(k);
+            if (v != null && v !== '') u.searchParams.set(k, v);
+          });
+
           u.searchParams.set('roomId', ctx.roomId);
           u.searchParams.set('room', ctx.roomId);
           u.searchParams.set('autojoin', '1');
+          u.searchParams.set('rematch', '1');
           location.href = u.toString();
-        } else if (act === 'copy-room') {
+        }
+
+        else if (act === 'copy-room') {
           try {
             await navigator.clipboard.writeText(ctx.roomId || '');
           } catch (_) {}
-        } else if (act === 'export') {
+        }
+
+        else if (act === 'export') {
           const peer = getPeerData();
           const payload = {
             roomId: ctx.roomId,
@@ -831,7 +876,10 @@
           a.click();
           a.remove();
           URL.revokeObjectURL(url);
-        } else if (act === 'hub') {
+        }
+
+        else if (act === 'hub') {
+          state.redirecting = true;
           location.href = ctx.hub || '../hub.html';
         }
       });
@@ -853,12 +901,10 @@
     clearInterval(state.spawnTimer);
     clearInterval(state.syncTimer);
     clearInterval(state.countdownTimer);
-    clearInterval(state.gameTimer);
     state.loopRaf = 0;
     state.spawnTimer = 0;
     state.syncTimer = 0;
     state.countdownTimer = 0;
-    state.gameTimer = 0;
   }
 
   async function endRun(reason){
@@ -896,10 +942,8 @@
 
     renderHud();
 
-    if (state.started && state.peerLiveScore > 0) {
-      if (getPairScore() >= state.pairGoal) {
-        setCoach('คะแนนคู่ถึงเป้าแล้ว เก็บต่อได้อีกเพื่อทำสถิติใหม่', '🤖 AI Coach');
-      }
+    if (state.started && state.peerLiveScore > 0 && getPairScore() >= state.pairGoal) {
+      setCoach('คะแนนคู่ถึงเป้าแล้ว เก็บต่อได้อีกเพื่อทำสถิติใหม่', '🤖 AI Coach');
     }
 
     if (state.roomStatus === 'ended' && !state.summaryShown && state.myResultSubmitted) {
@@ -937,12 +981,14 @@
     }
 
     const auth = W.firebase.auth();
+
     if (auth.currentUser && auth.currentUser.uid) {
       state.uid = auth.currentUser.uid;
       return auth.currentUser;
     }
 
     await auth.signInAnonymously();
+
     const user = await new Promise((resolve, reject) => {
       let done = false;
       const timer = setTimeout(() => {
@@ -994,21 +1040,28 @@
     if (snap.exists()) return;
 
     const nowTs = Date.now();
+    const startAt = ctx.startAt || (Date.now() + 3000);
+
     await state.refs.root.update({
       roomId: ctx.roomId,
       game: 'goodjunk',
       mode: 'duet',
       hostId: state.uid,
       createdAt: nowTs,
-      updatedAt: nowTs
+      updatedAt: nowTs,
+      status: ctx.wait ? 'countdown' : 'running',
+      plannedSec: ctx.time,
+      seed: ctx.seed,
+      startAt,
+      countdownEndsAt: startAt
     });
 
     await state.refs.state.update({
       status: ctx.wait ? 'countdown' : 'running',
       plannedSec: ctx.time,
       seed: ctx.seed,
-      startAt: ctx.startAt || (Date.now() + 3000),
-      countdownEndsAt: ctx.startAt || (Date.now() + 3000),
+      startAt,
+      countdownEndsAt: startAt,
       updatedAt: nowTs
     });
 
@@ -1026,13 +1079,17 @@
       syncFromRoomSnapshot(raw);
 
       if (!state.started && !state.starting) {
-        const roomStartAt = Number(raw?.state?.startAt || raw?.state?.countdownEndsAt || ctx.startAt || 0);
+        const roomStartAt = Number(raw?.state?.startAt || raw?.state?.countdownEndsAt || raw?.startAt || raw?.countdownEndsAt || ctx.startAt || 0);
 
-        if (raw?.state?.status === 'running') {
-          state.startAtMs = roomStartAt || Date.now();
-          startCore();
-        } else if (raw?.state?.status === 'countdown' && roomStartAt) {
+        if (roomStartAt > 0) {
           state.startAtMs = roomStartAt;
+        }
+
+        const st = String(raw?.state?.status || raw?.status || 'waiting');
+
+        if (st === 'running') {
+          startCore();
+        } else if (st === 'countdown' && roomStartAt) {
           startCountdownLoop();
         } else if (!ctx.wait && !state.started) {
           state.startAtMs = Date.now() + 800;
@@ -1059,6 +1116,7 @@
     state.refs.root.on('value', onRoom, (err) => {
       console.error('[duet-run] room subscribe failed', err);
     });
+
     state.refs.results.on('value', onResults, (err) => {
       console.error('[duet-run] result subscribe failed', err);
     });
@@ -1106,8 +1164,8 @@
 
   function startCountdownLoop(){
     if (state.countdownTimer) return;
-    clearInterval(state.countdownTimer);
 
+    clearInterval(state.countdownTimer);
     state.countdownTimer = setInterval(() => {
       const nowTs = Date.now();
       const remainMs = state.startAtMs - nowTs;
@@ -1135,6 +1193,18 @@
         });
       });
     }
+
+    if (ui.btnGoHub) {
+      ui.btnGoHub.addEventListener('click', () => {
+        state.redirecting = true;
+      });
+    }
+
+    if (ui.btnBackLauncher) {
+      ui.btnBackLauncher.addEventListener('click', () => {
+        state.redirecting = true;
+      });
+    }
   }
 
   async function boot(){
@@ -1144,8 +1214,8 @@
       state.refs = null;
 
       await waitStageReady(ui.duetGameStage);
-
       await ensureAuth();
+
       state.refs = {
         root: getDb().ref(`hha-battle/goodjunk/duetRooms/${ctx.roomId}`),
         state: getDb().ref(`hha-battle/goodjunk/duetRooms/${ctx.roomId}/state`),
@@ -1176,6 +1246,7 @@
   }
 
   W.addEventListener('pagehide', () => {
+    if (state.redirecting) return;
     if (!state.ended && state.started) {
       endRun('pagehide');
     }
