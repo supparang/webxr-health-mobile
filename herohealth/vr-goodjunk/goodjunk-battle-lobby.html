@@ -480,7 +480,6 @@
       ];
 
       const q = new URLSearchParams(location.search);
-
       const $ = (id) => document.getElementById(id);
 
       const UI = {
@@ -518,6 +517,7 @@
       const STATE = {
         hub: resolveHub(),
         roomId: cleanRoom(qs('roomId') || qs('room') || ''),
+        isReplayEntry: qs('replay') === '1',
         roomDraft: '',
         roomEditing: false,
 
@@ -717,6 +717,15 @@
         return Math.max(0, Math.ceil((end - now()) / 1000));
       }
 
+      function clearReplayFlagFromAddress(){
+        try{
+          const u = new URL(location.href);
+          if (!u.searchParams.has('replay')) return;
+          u.searchParams.delete('replay');
+          history.replaceState(null, '', u.toString());
+        } catch {}
+      }
+
       function shareLink(){
         if (!STATE.roomId) return '-';
         const u = new URL(location.href);
@@ -728,6 +737,7 @@
         u.searchParams.set('view', STATE.view);
         u.searchParams.set('run', STATE.run);
         u.searchParams.set('hub', STATE.hub);
+        u.searchParams.delete('replay');
         return u.toString();
       }
 
@@ -743,6 +753,8 @@
         u.searchParams.set('mode', 'battle');
         u.searchParams.set('hub', STATE.hub);
         u.searchParams.set('seed', String(Date.now()));
+        u.searchParams.delete('replay');
+        u.searchParams.delete('showLastSummary');
         return u.toString();
       }
 
@@ -770,7 +782,8 @@
           'activePlayers=' + activePlayers().length + '\n' +
           'autoRedirected=' + STATE.autoRedirected + '\n' +
           'roomEditing=' + STATE.roomEditing + '\n' +
-          'nameEditing=' + STATE.nameEditing;
+          'nameEditing=' + STATE.nameEditing + '\n' +
+          'isReplayEntry=' + STATE.isReplayEntry;
       }
 
       function syncNameInput(force=false){
@@ -852,9 +865,15 @@
           setRoomStateBanner('waiting');
           UI.countdownBadge.textContent = '-';
         } else if (status === 'waiting'){
-          setStatus(players >= 2
-            ? 'ผู้เล่นพร้อมแล้ว รอ host กด Start Battle'
-            : `รอผู้เล่นเพิ่มอีก ${Math.max(0, 2 - players)} คน`);
+          if (STATE.isReplayEntry){
+            setStatus(players >= 2
+              ? 'รีเซ็ตห้องแล้ว • พร้อมเริ่มรอบใหม่ ให้ host กด Start Battle'
+              : `รีเซ็ตห้องแล้ว • รอผู้เล่นเพิ่มอีก ${Math.max(0, 2 - players)} คน`);
+          } else {
+            setStatus(players >= 2
+              ? 'ผู้เล่นพร้อมแล้ว รอ host กด Start Battle'
+              : `รอผู้เล่นเพิ่มอีก ${Math.max(0, 2 - players)} คน`);
+          }
           setRoomStateBanner('waiting');
           UI.countdownBadge.textContent = '-';
         } else if (status === 'countdown'){
@@ -921,10 +940,17 @@
           STATE.listenersAttached = true;
         }
 
+        if (STATE.isReplayEntry && roomStatus() === 'waiting') {
+          clearReplayFlagFromAddress();
+        }
+
         render();
       }
 
       async function createRoom(){
+        STATE.isReplayEntry = false;
+        clearReplayFlagFromAddress();
+
         STATE.name = cleanText(UI.inpName.value || STATE.nameDraft || STATE.name || 'Player', 40);
         STATE.nameDraft = STATE.name;
 
@@ -964,6 +990,9 @@
       }
 
       async function joinRoom(){
+        STATE.isReplayEntry = false;
+        clearReplayFlagFromAddress();
+
         const inputRoom = cleanRoom(UI.inpRoom.value || STATE.roomDraft || '');
         if (!inputRoom) throw new Error('กรุณาใส่ room code');
 
@@ -1094,6 +1123,8 @@
         STATE.roomId = '';
         STATE.roomDraft = '';
         STATE.autoRedirected = false;
+        STATE.isReplayEntry = false;
+        clearReplayFlagFromAddress();
         render();
       }
 
@@ -1112,7 +1143,13 @@
 
       async function maybeAutoEnterGame(){
         if (!STATE.roomId || STATE.autoRedirected) return;
+
         const status = roomStatus();
+
+        if (STATE.isReplayEntry && status === 'waiting') {
+          return;
+        }
+
         if (status !== 'countdown' && status !== 'playing') return;
 
         const me = (STATE.room.players || {})[STATE.uid];
@@ -1186,6 +1223,8 @@
         UI.btnStartBattle.addEventListener('click', async () => {
           try{
             await startBattle();
+            STATE.isReplayEntry = false;
+            clearReplayFlagFromAddress();
             setStatus('เริ่ม countdown แล้ว');
           } catch (err){
             setStatus('Start Battle ไม่สำเร็จ: ' + String(err.message || err));
@@ -1195,6 +1234,8 @@
 
         UI.btnEnterNow.addEventListener('click', () => {
           if (!STATE.roomId) return;
+          STATE.isReplayEntry = false;
+          clearReplayFlagFromAddress();
           location.href = buildRunUrl();
         });
 
@@ -1268,13 +1309,22 @@
 
         await ensureFirebaseReady();
 
+        if (STATE.isReplayEntry){
+          setStatus('กำลังเปิดห้องเดิมเพื่อเริ่มรอบใหม่...');
+        } else {
+          setStatus('พร้อมแล้ว สร้างห้องใหม่หรือเข้าห้องได้เลย');
+        }
+
         render();
-        setStatus('พร้อมแล้ว สร้างห้องใหม่หรือเข้าห้องได้เลย');
 
         if (STATE.roomId){
           try{
             await bindRoom(STATE.roomId);
-            setStatus('เข้าห้องสำเร็จ');
+            if (STATE.isReplayEntry){
+              setStatus('รีเซ็ตห้องแล้ว • พร้อมเริ่มรอบใหม่');
+            } else {
+              setStatus('เข้าห้องสำเร็จ');
+            }
           } catch (err){
             STATE.roomId = '';
             STATE.roomDraft = '';
