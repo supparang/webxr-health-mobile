@@ -3,7 +3,7 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
  * GoodJunk Duet Lobby
- * FULL PATCH v20260401-gjduet-lobby-r12
+ * FULL PATCH v20260401-gjduet-lobby-r13
  * ========================================================= */
 (function(){
   const W = window;
@@ -105,16 +105,16 @@
     console.log('[gj-duet-lobby]', ...args);
   }
 
-  function makeRoomCode(){
-    return Math.random().toString(36).slice(2, 8).toUpperCase();
-  }
-
   function escapeHtml(s){
     return String(s == null ? '' : s)
       .replace(/&/g,'&amp;')
       .replace(/</g,'&lt;')
       .replace(/>/g,'&gt;')
       .replace(/"/g,'&quot;');
+  }
+
+  function makeRoomCode(){
+    return Math.random().toString(36).slice(2, 8).toUpperCase();
   }
 
   function extractStatus(raw){
@@ -515,9 +515,7 @@
 
     while ((Date.now() - start) < timeoutMs){
       try{
-        if (W.HHA_FIREBASE_READY && W.HHA_FIREBASE_DB) {
-          return true;
-        }
+        if (W.HHA_FIREBASE_READY && W.HHA_FIREBASE_DB) return true;
 
         if (W.firebase && firebase.apps && firebase.apps.length) {
           if (typeof firebase.database === 'function' && typeof firebase.auth === 'function') {
@@ -588,22 +586,30 @@
     throw new Error('firebase db not ready');
   }
 
-  function debugFirebaseContext(label){
+  function firebaseSnapshot(){
     try{
       const app = W.HHA_FIREBASE_APP || (W.firebase && firebase.apps && firebase.apps.length ? firebase.app() : null);
       const auth = W.HHA_FIREBASE_AUTH || (W.firebase && typeof firebase.auth === 'function' ? firebase.auth() : null);
-      log(label, {
+      return {
         ready: !!W.HHA_FIREBASE_READY,
         error: W.HHA_FIREBASE_ERROR || '',
         appCount: W.firebase && firebase.apps ? firebase.apps.length : -1,
         databaseURL: app && app.options ? app.options.databaseURL : '',
         uid: auth && auth.currentUser ? auth.currentUser.uid : '',
+        isAnonymous: !!(auth && auth.currentUser && auth.currentUser.isAnonymous),
         roomId: S.roomId,
-        path: S.refs && S.refs.root ? S.refs.root.toString() : ''
-      });
+        rootPath: S.refs && S.refs.root ? S.refs.root.toString() : ''
+      };
     }catch(err){
-      console.warn('[gj-duet-lobby] debugFirebaseContext failed:', err);
+      return { debugError: String(err && err.message || err) };
     }
+  }
+
+  function reportDebug(label, extra){
+    const snap = firebaseSnapshot();
+    const merged = Object.assign({ label }, snap, extra || {});
+    log(merged);
+    return merged;
   }
 
   async function dbWriteWithRetry(task, label='db-write', tries=2){
@@ -628,6 +634,126 @@
     }
 
     throw lastErr || new Error(label + ' failed');
+  }
+
+  async function probeRoomWrite(roomId){
+    const db = getDb();
+    const auth = (W.HHA_FIREBASE_AUTH || (W.firebase && typeof firebase.auth === 'function' ? firebase.auth() : null));
+    const uid = auth && auth.currentUser ? auth.currentUser.uid : '';
+
+    const out = {
+      ok: false,
+      roomId,
+      uid,
+      databaseURL: firebaseSnapshot().databaseURL,
+      steps: []
+    };
+
+    const pushOk = (step) => out.steps.push({ step, ok: true });
+    const pushErr = (step, err) => out.steps.push({
+      step,
+      ok: false,
+      code: err && err.code ? err.code : '',
+      message: err && err.message ? err.message : String(err || '')
+    });
+
+    const probeRoot = db.ref('hha-battle/goodjunk/rooms/__probe_' + roomId);
+    const duetRoot = db.ref('hha-battle/goodjunk/duetRooms/' + roomId);
+    const selfRef = duetRoot.child('players/' + uid);
+
+    try{
+      await probeRoot.set({
+        by: uid || 'no-auth',
+        at: Date.now(),
+        roomId
+      });
+      pushOk('probe rooms root write');
+      await probeRoot.remove().catch(()=>{});
+    }catch(err){
+      pushErr('probe rooms root write', err);
+      return out;
+    }
+
+    try{
+      await duetRoot.update({
+        roomId,
+        game: 'goodjunk',
+        mode: 'duet',
+        hostId: uid,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        status: 'waiting',
+        plannedSec: 90,
+        seed: String(Date.now()),
+        startAt: null,
+        countdownEndsAt: null
+      });
+      pushOk('duet root update');
+    }catch(err){
+      pushErr('duet root update', err);
+      return out;
+    }
+
+    try{
+      await duetRoot.child('state').update({
+        status: 'waiting',
+        plannedSec: 90,
+        seed: String(Date.now()),
+        startAt: null,
+        countdownEndsAt: null,
+        updatedAt: Date.now()
+      });
+      pushOk('duet state update');
+    }catch(err){
+      pushErr('duet state update', err);
+      return out;
+    }
+
+    try{
+      await duetRoot.child('match').update({
+        participantIds: [],
+        lockedAt: null,
+        status: 'idle',
+        race: { finishedAt: 0 }
+      });
+      pushOk('duet match update');
+    }catch(err){
+      pushErr('duet match update', err);
+      return out;
+    }
+
+    try{
+      await selfRef.update({
+        id: uid,
+        name: ctx.name,
+        ready: false,
+        connected: true,
+        joinedAt: Date.now(),
+        lastSeenAt: Date.now(),
+        finished: false,
+        finalScore: 0,
+        miss: 0,
+        streak: 0,
+        phase: 'lobby'
+      });
+      pushOk('duet player self update');
+    }catch(err){
+      pushErr('duet player self update', err);
+      return out;
+    }
+
+    out.ok = true;
+    return out;
+  }
+
+  function formatProbeResult(probe){
+    if (!probe) return 'probe unavailable';
+    const head = `uid=${probe.uid || '-'} | db=${probe.databaseURL || '-'}`;
+    const steps = (probe.steps || []).map((s) => {
+      if (s.ok) return `✅ ${s.step}`;
+      return `❌ ${s.step} (${s.code || 'ERR'}: ${s.message || ''})`;
+    }).join(' | ');
+    return `${head} | ${steps}`;
   }
 
   function attachRefs(roomId){
@@ -695,8 +821,7 @@
     attachRefs(newRoomId);
 
     const nowTs = Date.now();
-
-    debugFirebaseContext('before createRoomAndJoin');
+    reportDebug('before createRoomAndJoin');
 
     await dbWriteWithRetry(() => S.refs.root.update({
       roomId: newRoomId,
@@ -766,7 +891,7 @@
     const nowTs = Date.now();
     const prev = raw && raw.players ? raw.players[ctx.uid] : null;
 
-    debugFirebaseContext('before joinCurrentRoom self update');
+    reportDebug('before joinCurrentRoom self update');
 
     await dbWriteWithRetry(() => selfRef.update({
       id: ctx.uid,
@@ -1173,10 +1298,21 @@
       await createRoomAndJoin(room);
     } catch (err) {
       console.error('[goodjunk-duet-lobby] makeNewRoom failed:', err);
-      debugFirebaseContext('makeNewRoom failed context');
-      setHint(`สร้างห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
-      setCopyState(`สร้างห้องไม่สำเร็จ: ${err && err.code ? err.code + ': ' : ''}${err && err.message ? err.message : err}`, true);
-      showGuard('permission denied หรือ firebase ยังไม่พร้อม');
+
+      const probeRoom = S.roomId || makeRoomCode();
+      let probe = null;
+      try{
+        probe = await probeRoomWrite(probeRoom);
+      }catch(probeErr){
+        probe = { ok:false, steps:[{ step:'probe internal error', ok:false, message:String(probeErr && probeErr.message || probeErr) }] };
+      }
+
+      const probeText = formatProbeResult(probe);
+      const errMsg = `${err && err.code ? err.code + ': ' : ''}${err && err.message ? err.message : err}`;
+
+      setHint(`สร้างห้องไม่สำเร็จ: ${errMsg}`);
+      setCopyState(`สร้างห้องไม่สำเร็จ: ${errMsg} | ${probeText}`, true);
+      showGuard(`permission denied | ${probeText}`);
     }
   }
 
@@ -1265,7 +1401,7 @@
       await ensureAuth();
       await new Promise(resolve => setTimeout(resolve, 250));
 
-      debugFirebaseContext('after ensureAuth');
+      reportDebug('after ensureAuth');
 
       if (ctx.roomId) {
         attachRefs(ctx.roomId);
@@ -1280,7 +1416,6 @@
       renderAll();
     } catch (err) {
       console.error('[goodjunk-duet-lobby] boot failed:', err);
-      debugFirebaseContext('boot failed context');
 
       const msg = err && err.message ? err.message : String(err || 'unknown');
       setHint(`เริ่ม Duet Lobby ไม่สำเร็จ: ${msg}`);
