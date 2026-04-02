@@ -79,7 +79,7 @@
       font-size:15px;
       line-height:1.65;
       font-weight:700;
-      max-width:70ch;
+      max-width:72ch;
     }
     .meta{
       display:flex;
@@ -103,6 +103,7 @@
     }
     .field{ grid-column:span 4; display:grid; gap:7px; }
     .field.span6{ grid-column:span 6; }
+    .field.span12{ grid-column:span 12; }
     .label{
       font-size:12px;
       font-weight:950;
@@ -154,13 +155,21 @@
       padding:12px 14px;
       color:#cbd5e1;
       font-size:12px;
-      line-height:1.6;
+      line-height:1.65;
       font-weight:800;
       word-break:break-word;
+      white-space:pre-wrap;
+    }
+    .mini{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:800;
+      line-height:1.6;
     }
     @media (max-width: 880px){
       .field{ grid-column:span 6; }
       .field.span6{ grid-column:span 6; }
+      .field.span12{ grid-column:span 12; }
     }
     @media (max-width: 720px){
       body{
@@ -172,7 +181,7 @@
       }
       .hero,.section{ padding:14px; }
       .grid{ grid-template-columns:1fr; }
-      .field,.field.span6{ grid-column:span 1; }
+      .field,.field.span6,.field.span12{ grid-column:span 1; }
       .actions{ flex-direction:column; align-items:stretch; }
       .leftActions,.rightActions{ width:100%; }
       .leftActions .btn,.rightActions .btn{ flex:1 1 0; }
@@ -186,10 +195,10 @@
       <h1 class="title">Rhythm Boxer Launcher</h1>
       <div class="sub">
         เริ่มผ่าน warmup gate ก่อนเสมอ แล้วค่อยเข้า run page ที่ถูกต้องของเกมนี้ที่
-        <b>/fitness/rhythm-boxer.html</b>
+        <b>/herohealth/fitness/rhythm-boxer.html</b>
       </div>
       <div class="meta">
-        <div class="chip">gameId: rhythm</div>
+        <div class="chip">gameId: rhythmboxer</div>
         <div class="chip">zone: fitness</div>
         <div class="chip">flow: warmup → run → cooldown</div>
       </div>
@@ -234,6 +243,37 @@
           <label class="label" for="hub">Hub URL</label>
           <input class="input" id="hub" value="./hub.html" />
         </div>
+
+        <div class="field">
+          <label class="label" for="runMode">Run Mode</label>
+          <select class="select" id="runMode">
+            <option value="play" selected>play</option>
+            <option value="research">research</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="cdur">Cooldown (sec)</label>
+          <input class="input" id="cdur" type="number" min="10" max="60" step="5" value="20" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="planDay">Plan Day</label>
+          <input class="input" id="planDay" placeholder="เช่น Mon / Day1" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="planSlot">Plan Slot</label>
+          <input class="input" id="planSlot" placeholder="เช่น AM / Slot A" />
+        </div>
+
+        <div class="field span12">
+          <label class="label" for="autoNext">Auto Next</label>
+          <select class="select" id="autoNext">
+            <option value="0" selected>0 = ปิด</option>
+            <option value="1">1 = เปิด</option>
+          </select>
+        </div>
       </div>
 
       <div class="actions">
@@ -248,8 +288,13 @@
         </div>
       </div>
 
+      <div class="mini">
+        หมายเหตุ: launcher นี้จะส่งค่าที่ `rhythm-boxer.js` ใช้จริง เช่น
+        <b>pid, diff, time, seed, hub, run, planDay, planSlot, autoNext</b>
+      </div>
+
       <div class="preview" id="previewText">
-        ระบบจะส่งเข้า warmup-gate.html โดยตั้ง phase=warmup และ next=/fitness/rhythm-boxer.html ...
+        ระบบจะส่งเข้า warmup-gate.html โดยตั้ง phase=warmup และ next=./fitness/rhythm-boxer.html ...
       </div>
     </section>
   </div>
@@ -267,6 +312,11 @@
       const view = byId('view');
       const seed = byId('seed');
       const hub = byId('hub');
+      const runMode = byId('runMode');
+      const cdur = byId('cdur');
+      const planDay = byId('planDay');
+      const planSlot = byId('planSlot');
+      const autoNext = byId('autoNext');
       const previewText = byId('previewText');
 
       function qs(k, d=''){
@@ -282,6 +332,10 @@
         return String(Math.max(45, Math.min(180, Number(time.value || 80))));
       }
 
+      function safeCooldown(){
+        return String(Math.max(10, Math.min(60, Number(cdur.value || 20))));
+      }
+
       function normalizedHub(){
         const raw = (hub.value || './hub.html').trim() || './hub.html';
         try{
@@ -293,26 +347,33 @@
         }
       }
 
-      function buildRunUrl(){
-        const u = new URL('../fitness/rhythm-boxer.html', location.href);
-
+      function setCommonParams(u){
         u.searchParams.set('zone', 'fitness');
         u.searchParams.set('cat', 'fitness');
-        u.searchParams.set('game', 'rhythm');
-        u.searchParams.set('gameId', 'rhythm');
-        u.searchParams.set('theme', 'rhythm');
+        u.searchParams.set('game', 'rhythmboxer');
+        u.searchParams.set('gameId', 'rhythmboxer');
+        u.searchParams.set('theme', 'rhythmboxer');
 
         u.searchParams.set('pid', pid.value.trim() || 'anon');
         u.searchParams.set('view', view.value || 'pc');
-        u.searchParams.set('run', qs('run', 'play'));
+        u.searchParams.set('run', runMode.value || qs('run', 'play'));
         u.searchParams.set('diff', diff.value || 'normal');
         u.searchParams.set('time', safeTime());
         u.searchParams.set('seed', safeSeed());
         u.searchParams.set('hub', normalizedHub());
+        u.searchParams.set('cdur', safeCooldown());
 
+        if(planDay.value.trim()) u.searchParams.set('planDay', planDay.value.trim());
+        if(planSlot.value.trim()) u.searchParams.set('planSlot', planSlot.value.trim());
+        if((autoNext.value || '0') === '1') u.searchParams.set('autoNext', '1');
+      }
+
+      function buildRunUrl(){
+        const u = new URL('./fitness/rhythm-boxer.html', location.href);
+
+        setCommonParams(u);
         u.searchParams.set('gate', '1');
         u.searchParams.set('cooldown', '1');
-        u.searchParams.set('cdur', q.get('cdur') || '20');
 
         return u.toString();
       }
@@ -323,26 +384,18 @@
         gate.searchParams.set('phase', 'warmup');
         gate.searchParams.set('gatePhase', 'warmup');
 
-        gate.searchParams.set('zone', 'fitness');
-        gate.searchParams.set('cat', 'fitness');
-        gate.searchParams.set('game', 'rhythm');
-        gate.searchParams.set('gameId', 'rhythm');
-        gate.searchParams.set('theme', 'rhythm');
-
-        gate.searchParams.set('pid', pid.value.trim() || 'anon');
-        gate.searchParams.set('run', qs('run', 'play'));
-        gate.searchParams.set('diff', diff.value || 'normal');
-        gate.searchParams.set('time', safeTime());
-        gate.searchParams.set('view', view.value || 'pc');
-        gate.searchParams.set('seed', safeSeed());
-        gate.searchParams.set('hub', normalizedHub());
-
+        setCommonParams(gate);
         gate.searchParams.set('next', buildRunUrl());
+
         return gate.toString();
       }
 
-      function renderPreview(label, url){
-        previewText.textContent = `${label}: ${url}`;
+      function renderPreview(){
+        const warmup = buildWarmupUrl();
+        const direct = buildRunUrl();
+        previewText.textContent =
+          `warmup:\n${warmup}\n\n` +
+          `direct-run:\n${direct}`;
       }
 
       function setDefaults(){
@@ -352,12 +405,17 @@
         view.value = qs('view', 'pc');
         seed.value = qs('seed', '');
         hub.value = qs('hub', './hub.html');
-        renderPreview('warmup', buildWarmupUrl());
+        runMode.value = qs('run', 'play');
+        cdur.value = qs('cdur', '20');
+        planDay.value = qs('planDay', '');
+        planSlot.value = qs('planSlot', '');
+        autoNext.value = qs('autoNext', '0');
+        renderPreview();
       }
 
-      [pid, diff, time, view, seed, hub].forEach((el) => {
-        el?.addEventListener('input', () => renderPreview('warmup', buildWarmupUrl()));
-        el?.addEventListener('change', () => renderPreview('warmup', buildWarmupUrl()));
+      [pid, diff, time, view, seed, hub, runMode, cdur, planDay, planSlot, autoNext].forEach((el) => {
+        el?.addEventListener('input', renderPreview);
+        el?.addEventListener('change', renderPreview);
       });
 
       byId('btnFillDemo')?.addEventListener('click', () => {
@@ -365,13 +423,16 @@
         diff.value = 'normal';
         time.value = '80';
         view.value = 'pc';
+        runMode.value = 'play';
+        cdur.value = '20';
+        planDay.value = planDay.value.trim() || '';
+        planSlot.value = planSlot.value.trim() || '';
+        autoNext.value = '0';
         if(!seed.value.trim()) seed.value = String(Date.now());
-        renderPreview('warmup', buildWarmupUrl());
+        renderPreview();
       });
 
-      byId('btnPreviewWarmup')?.addEventListener('click', () => {
-        renderPreview('warmup', buildWarmupUrl());
-      });
+      byId('btnPreviewWarmup')?.addEventListener('click', renderPreview);
 
       byId('btnDirectRun')?.addEventListener('click', () => {
         location.href = buildRunUrl();
@@ -385,7 +446,7 @@
         try{
           window.HHA_BACKHUB?.goHub?.();
           return;
-        }catch{}
+        }catch(_){}
         location.href = normalizedHub();
       });
 
