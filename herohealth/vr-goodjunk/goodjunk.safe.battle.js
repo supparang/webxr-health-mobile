@@ -1,469 +1,346 @@
 (() => {
-  if (window.__GJ_BATTLE_SAFE_LOADED__) return;
-  window.__GJ_BATTLE_SAFE_LOADED__ = true;
+  'use strict';
 
-  const BOOT = window.HHA_BATTLE_BOOT || window.__GJ_BATTLE_BOOT__ || null;
-  const RUN_CTX = window.__GJ_RUN_CTX__ || window.__GJ_MULTI_RUN_CTX__ || window.RUN_CTX || null;
+  const W = window;
+  const D = document;
 
-  let DEBUG = false;
-  try {
-    const u = new URL(location.href);
-    DEBUG =
-      String(u.searchParams.get('debug') || '0') === '1' ||
-      String(u.searchParams.get('battleDebug') || '0') === '1';
-  } catch (_) {}
+  if (W.__GJ_BATTLE_SAFE_LOADED__) return;
+  W.__GJ_BATTLE_SAFE_LOADED__ = true;
 
   const LS_KEYS = {
-    devicePid: 'GJ_DEVICE_PID',
-    selfPidGlobal: 'GJ_BATTLE_SELF_PID',
-    selfNameGlobal: 'GJ_BATTLE_SELF_NAME',
-    selfPidByRoomPrefix: 'GJ_BATTLE_SELF_BY_ROOM:',
-    selfNameByRoomPrefix: 'GJ_BATTLE_SELF_NAME_BY_ROOM:',
-    lastSummaryScoped: 'HHA_LAST_SUMMARY:goodjunk-battle',
-    lastSummaryGlobal: 'HHA_LAST_SUMMARY'
-  };
-
-  const REF = {
-    hud: null,
-    mode: null,
-    room: null,
-    score: null,
-    time: null,
-    miss: null,
-    streak: null,
-    hp: null,
-    hpFill: null,
-    charge: null,
-    chargeFill: null,
-    guard: null,
-    guardFill: null,
-    attackReady: null,
-    guardReady: null,
-    resultMount: null
-  };
-
-  const BRIDGE = {
-    started: false,
-    timer: null,
-    resultShown: false,
-    wrapped: false,
-    summaryEmitted: false
+    lastSummaryGlobal: 'GJ_BATTLE_LAST_SUMMARY_GLOBAL',
+    lastSummaryScoped: 'GJ_BATTLE_LAST_SUMMARY_SCOPED'
   };
 
   const STATE = {
-    pid: '',
-    name: '',
-    roomId: '-',
-
-    score: 0,
-    miss: 0,
-    bestStreak: 0,
-    timeLeftSec: 0,
-
-    hp: 100,
-    maxHp: 100,
-    shield: 0,
-
-    attackCharge: 0,
-    maxAttackCharge: 100,
-    attackReady: false,
-    attacksUsed: 0,
-
-    guardCharge: 0,
-    maxGuardCharge: 100,
-    guardReady: false,
-    guardsUsed: 0,
-    perfectGuardCount: 0,
-    blockedDamage: 0,
-
-    criticalCount: 0,
-    damageDealt: 0,
-    damageTaken: 0,
-    koCount: 0,
-
-    players: [],
-    room: null,
-    roomMeta: null,
-    roomState: null,
-    final: null,
-
+    roomId: '',
     ended: false,
-    endedAt: '',
-    endReason: ''
+    current: {},
+    mountedFallback: false
   };
 
-  function byId(id) { return document.getElementById(id); }
-  function q(sel, root = document) { try { return root.querySelector(sel); } catch (_) { return null; } }
-  function txt(v) { return String(v ?? '').trim(); }
-  function num(v, d = 0) { const n = Number(v); return Number.isFinite(n) ? n : d; }
-  function int(v, d = 0) { return Math.round(num(v, d)); }
+  const BRIDGE = {
+    timer: 0,
+    resultShown: false
+  };
 
-  function esc(s) {
-    return String(s ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
+  function qsGet(key, fb = '') {
+    try { return new URL(location.href).searchParams.get(key) ?? fb; }
+    catch { return fb; }
   }
 
-  function qsGet(k, d = '') {
-    try { return new URL(location.href).searchParams.get(k) ?? d; }
-    catch (_) { return d; }
+  function txt(v, fb = '') {
+    const s = String(v == null ? '' : v).trim();
+    return s || fb;
   }
 
-  function parseNumText(v, d = 0) {
-    const n = Number(String(v || '').replace(/[^\d.-]/g, ''));
-    return Number.isFinite(n) ? n : d;
+  function num(v, fb = 0) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fb;
   }
 
-  function clamp(n, min, max) {
-    return Math.max(min, Math.min(max, n));
+  function int(v, fb = 0) {
+    return Math.round(num(v, fb));
   }
 
-  function pct(n, d) {
-    const den = Math.max(1, num(d, 1));
-    return clamp((num(n, 0) / den) * 100, 0, 100);
-  }
-
-  function readText(key) {
-    try { return txt(localStorage.getItem(key)); }
-    catch (_) { return ''; }
-  }
-
-  function writeText(key, value) {
-    try { localStorage.setItem(key, txt(value)); }
-    catch (_) {}
-  }
-
-  function writeJSON(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); }
-    catch (_) {}
+  function clamp(v, a, b) {
+    return Math.max(a, Math.min(b, num(v, a)));
   }
 
   function nowIso() {
     try { return new Date().toISOString(); }
-    catch (_) { return ''; }
+    catch { return ''; }
   }
 
-  function shortDateTime(iso) {
-    try {
-      const d = new Date(iso);
-      if (Number.isNaN(d.getTime())) return '-';
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const hh = String(d.getHours()).padStart(2, '0');
-      const mi = String(d.getMinutes()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
-    } catch (_) {
-      return '-';
-    }
+  function safeJson(v) {
+    try { return JSON.stringify(v, null, 2); }
+    catch { return '{}'; }
   }
 
-  function fmtClock(sec) {
-    const s = Math.max(0, int(sec, 0));
-    const mm = Math.floor(s / 60);
-    const ss = s % 60;
-    return `${mm}:${String(ss).padStart(2, '0')}`;
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
-  function setText(el, value) {
-    if (el) el.textContent = String(value ?? '');
+  function normalizePid(v) {
+    const s = String(v == null ? '' : v).trim().replace(/[.#$[\]/]/g, '-');
+    if (!s || s.toLowerCase() === 'anon') return '';
+    return s.slice(0, 80);
   }
 
-  function setWidth(el, percent) {
-    if (el) el.style.width = `${clamp(num(percent, 0), 0, 100)}%`;
+  function normalizeRoomId(v) {
+    return String(v == null ? '' : v)
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9_-]/g, '')
+      .slice(0, 24);
   }
 
-  function devicePid() {
-    try {
-      let pid = localStorage.getItem(LS_KEYS.devicePid);
-      if (!pid) {
-        pid = `p-${Math.random().toString(36).slice(2, 10)}`;
-        localStorage.setItem(LS_KEYS.devicePid, pid);
-      }
-      return pid;
-    } catch (_) {
-      return `p-${Math.random().toString(36).slice(2, 10)}`;
-    }
-  }
-
-  function normalizePid(raw) {
-    const v = txt(raw).replace(/[.#$[\]/]/g, '-');
-    if (!v) return '';
-    if (v.toLowerCase() === 'anon') return '';
-    return v.slice(0, 80);
-  }
-
-  function normalizeName(raw) {
-    return txt(raw).replace(/\s+/g, ' ').slice(0, 64);
-  }
-
-  function normalizeRoomId(raw) {
-    return txt(raw).toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
-  }
-
-  function extractRoomIdLike(v) {
-    if (!v) return '';
-    if (typeof v === 'string') return v;
-    if (typeof v === 'object') return v.roomId || v.id || v.meta?.roomId || v.state?.roomId || '';
-    return '';
-  }
-
-  function roomIdCandidates(raw) {
-    const exact = normalizeRoomId(raw);
-    const compact = exact.replace(/[^A-Z0-9]/g, '');
-    const out = [];
-
-    function push(v) {
-      v = normalizeRoomId(v);
-      if (!v) return;
-      if (!out.includes(v)) out.push(v);
-    }
-
-    push(exact);
-    push(compact);
-
-    if (/^GJB[A-Z0-9]{5,8}$/.test(compact)) push(`GJB-${compact.slice(3)}`);
-    if (/^GJB-[A-Z0-9]{5,8}$/.test(exact)) push(exact.replace('-', ''));
-    if (/^GJ[A-Z0-9]{5,10}$/.test(compact)) push(compact);
-
-    return out;
-  }
-
-  function looksLikePlayerRecord(v) {
-    if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
-    return (
-      'pid' in v || 'uid' in v || 'playerId' in v || 'name' in v || 'nick' in v ||
-      'score' in v || 'hp' in v || 'health' in v || 'miss' in v ||
-      'charge' in v || 'attackCharge' in v || 'guardCharge' in v
-    );
-  }
-
-  function looksLikePlayersMap(obj) {
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
-    const entries = Object.entries(obj);
-    if (!entries.length) return false;
-    return entries.some(([, v]) => looksLikePlayerRecord(v));
-  }
-
-  function isSamePlayer(a, b) {
-    if (!a || !b) return false;
-    if (a.key && b.key && a.key === b.key) return true;
-    if (a.pid && b.pid && a.pid === b.pid) return true;
-    if (a.uid && b.uid && a.uid === b.uid) return true;
-    if (a.playerId && b.playerId && a.playerId === b.playerId) return true;
-    return false;
-  }
-
-  function currentRoomId() {
-    const raw = txt(
-      STATE.roomId ||
-      extractRoomIdLike(STATE.room) ||
-      STATE.roomMeta?.roomId ||
-      BOOT?.roomId ||
-      extractRoomIdLike(BOOT?.room) ||
-      RUN_CTX?.roomId ||
-      extractRoomIdLike(RUN_CTX?.room) ||
-      qsGet('roomId') ||
-      qsGet('room') ||
-      extractRoomIdLike(window.__BATTLE_ROOM__) ||
-      extractRoomIdLike(window.battleRoom) ||
-      extractRoomIdLike(window.roomState) ||
-      extractRoomIdLike(window.state?.room) ||
-      extractRoomIdLike(window.gameState?.room)
-    );
-
-    const candidates = roomIdCandidates(raw);
-    return candidates[0] || '-';
+  function byId(id) {
+    return D.getElementById(id);
   }
 
   function getSelfPid() {
     return normalizePid(
-      BOOT?.uid ||
-      BOOT?.playerId ||
-      BOOT?.pid ||
-      RUN_CTX?.uid ||
-      RUN_CTX?.playerId ||
-      RUN_CTX?.pid ||
-      window.RUN_CTX?.pid ||
-      window.RUN_CTX?.playerPid ||
-      window.RUN_CTX?.uid ||
-      window.__GJ_CTX?.pid ||
-      window.__GJ_CTX?.uid ||
-      window.__BATTLE_SELF_PID__ ||
+      (W.__GJ_RUN_CTX__ || {}).pid ||
+      (W.RUN_CTX || {}).pid ||
+      qsGet('pid') ||
+      qsGet('playerId') ||
+      ''
+    );
+  }
+
+  function getSelfUid() {
+    return normalizePid(
+      (W.__GJ_RUN_CTX__ || {}).uid ||
+      (W.RUN_CTX || {}).uid ||
+      (W.state || {}).uid ||
       qsGet('uid') ||
       qsGet('playerId') ||
-      qsGet('pid') ||
-      readText(LS_KEYS.selfPidGlobal) ||
-      devicePid()
+      ''
     );
   }
 
   function getSelfName() {
-    return normalizeName(
-      BOOT?.name ||
-      BOOT?.nick ||
-      RUN_CTX?.name ||
-      RUN_CTX?.nick ||
-      window.RUN_CTX?.name ||
-      window.RUN_CTX?.nick ||
-      window.__GJ_CTX?.name ||
-      window.__BATTLE_SELF_NAME__ ||
+    return txt(
+      (W.__GJ_RUN_CTX__ || {}).name ||
+      (W.RUN_CTX || {}).name ||
       qsGet('name') ||
       qsGet('nick') ||
-      readText(LS_KEYS.selfNameGlobal)
+      'Player'
     );
   }
 
-  function rememberSelfIdentity() {
-    const roomId = currentRoomId();
+  function currentRoomId() {
+    return normalizeRoomId(
+      STATE.roomId ||
+      (W.__GJ_RUN_CTX__ || {}).roomId ||
+      (W.RUN_CTX || {}).roomId ||
+      ((W.state || {}).roomId) ||
+      qsGet('roomId') ||
+      qsGet('room') ||
+      ''
+    );
+  }
+
+  function saveLastSummary(summary) {
+    try {
+      localStorage.setItem(LS_KEYS.lastSummaryGlobal, JSON.stringify(summary));
+    } catch (_) {}
+
+    try {
+      const pid = summary?.pid || getSelfPid() || '';
+      if (pid) {
+        localStorage.setItem(`${LS_KEYS.lastSummaryScoped}:${pid}`, JSON.stringify(summary));
+      }
+    } catch (_) {}
+  }
+
+  function clearReplayCaches(summary) {
+    try {
+      const pid = summary?.pid || getSelfPid() || '';
+      if (pid) {
+        localStorage.removeItem(`${LS_KEYS.lastSummaryScoped}:${pid}`);
+      }
+    } catch (_) {}
+
+    try { localStorage.removeItem(LS_KEYS.lastSummaryGlobal); } catch (_) {}
+    try { delete W.__GJ_BATTLE_LAST_SUMMARY__; } catch (_) {}
+    try { delete W.__GJ_BATTLE_LAST_SESSION_FLUSH__; } catch (_) {}
+    try { delete W.__HHA_BATTLE_EVENT_BUFFER__; } catch (_) {}
+  }
+
+  function buildReplayLobbyUrl(summary) {
+    const roomId = normalizeRoomId(
+      summary?.roomId ||
+      STATE.roomId ||
+      currentRoomId() ||
+      qsGet('roomId') ||
+      qsGet('room')
+    ) || '';
+
+    const u = new URL('./goodjunk-battle-lobby.html', location.href);
+
+    if (roomId) {
+      u.searchParams.set('roomId', roomId);
+      u.searchParams.set('room', roomId);
+    }
+
     const pid = getSelfPid();
     const name = getSelfName();
 
-    if (pid) {
-      window.__BATTLE_SELF_PID__ = pid;
-      writeText(LS_KEYS.selfPidGlobal, pid);
-      if (roomId && roomId !== '-') writeText(`${LS_KEYS.selfPidByRoomPrefix}${roomId}`, pid);
-    }
-
+    if (pid) u.searchParams.set('pid', pid);
     if (name) {
-      window.__BATTLE_SELF_NAME__ = name;
-      writeText(LS_KEYS.selfNameGlobal, name);
-      if (roomId && roomId !== '-') writeText(`${LS_KEYS.selfNameByRoomPrefix}${roomId}`, name);
-    }
-  }
-
-  function gatherKnownSelfPidSet(roomId = '') {
-    const set = new Set();
-    [
-      getSelfPid(),
-      normalizePid(BOOT?.uid),
-      normalizePid(BOOT?.playerId),
-      normalizePid(BOOT?.pid),
-      normalizePid(RUN_CTX?.uid),
-      normalizePid(RUN_CTX?.playerId),
-      normalizePid(RUN_CTX?.pid),
-      normalizePid(qsGet('uid')),
-      normalizePid(qsGet('playerId')),
-      normalizePid(qsGet('pid')),
-      normalizePid(window.RUN_CTX?.pid),
-      normalizePid(window.RUN_CTX?.playerPid),
-      normalizePid(window.RUN_CTX?.uid),
-      normalizePid(window.__GJ_CTX?.pid),
-      normalizePid(window.__GJ_CTX?.uid),
-      normalizePid(readText(LS_KEYS.selfPidGlobal)),
-      normalizePid(devicePid()),
-      roomId ? normalizePid(readText(`${LS_KEYS.selfPidByRoomPrefix}${roomId}`)) : ''
-    ].forEach(v => { if (v) set.add(v); });
-    return set;
-  }
-
-  function gatherKnownSelfNameSet(roomId = '') {
-    const set = new Set();
-    [
-      getSelfName(),
-      normalizeName(BOOT?.name),
-      normalizeName(BOOT?.nick),
-      normalizeName(RUN_CTX?.name),
-      normalizeName(RUN_CTX?.nick),
-      normalizeName(qsGet('name')),
-      normalizeName(qsGet('nick')),
-      normalizeName(window.RUN_CTX?.name),
-      normalizeName(window.RUN_CTX?.nick),
-      normalizeName(window.__GJ_CTX?.name),
-      normalizeName(readText(LS_KEYS.selfNameGlobal)),
-      roomId ? normalizeName(readText(`${LS_KEYS.selfNameByRoomPrefix}${roomId}`)) : ''
-    ].forEach(v => { if (v) set.add(v); });
-    return set;
-  }
-
-  function normalizePlayers(input) {
-    let rows = [];
-
-    if (Array.isArray(input)) {
-      rows = input.map((p, idx) => ({ key: '', value: p || {}, idx }));
-    } else if (input && typeof input === 'object' && input.players && typeof input.players === 'object') {
-      rows = Object.entries(input.players)
-        .filter(([, value]) => looksLikePlayerRecord(value))
-        .map(([key, value], idx) => ({ key, value: value || {}, idx }));
-    } else if (input && typeof input === 'object') {
-      rows = Object.entries(input)
-        .filter(([key, value]) => {
-          if (key === 'meta' || key === 'state' || key === 'match' || key === 'reports' || key === 'rematch' || key === 'final') return false;
-          return looksLikePlayerRecord(value);
-        })
-        .map(([key, value], idx) => ({ key, value: value || {}, idx }));
+      u.searchParams.set('name', name);
+      u.searchParams.set('nick', name);
     }
 
-    return rows.map(({ key, value: p, idx }) => {
-      const pid = normalizePid(p?.pid || p?.playerId || p?.uid || p?.id || key || `p${idx + 1}`);
-      const name = normalizeName(p?.name || p?.nick || p?.playerName || p?.displayName || `Player ${idx + 1}`);
+    const plannedSec =
+      int(summary?.raw?.room?.state?.plannedSec, 0) ||
+      int(qsGet('time'), 150);
 
-      return {
-        key: txt(key),
-        pid,
-        uid: normalizePid(p?.uid || p?.playerId || p?.pid || key || ''),
-        playerId: normalizePid(p?.playerId || p?.uid || p?.pid || key || ''),
-        name,
-        score: int(p?.score, 0),
-        miss: int(p?.miss ?? p?.misses, 0),
-        bestStreak: int(p?.bestStreak ?? p?.comboMax ?? p?.streak, 0),
-        hp: int(p?.hp ?? p?.health, 100),
-        maxHp: Math.max(1, int(p?.maxHp ?? p?.maxHealth, 100)),
-        shield: int(p?.shield, 0),
+    const diff =
+      txt(summary?.raw?.room?.meta?.diff) ||
+      txt(qsGet('diff')) ||
+      'normal';
 
-        attackCharge: int(p?.attackCharge ?? p?.charge, 0),
-        maxAttackCharge: Math.max(1, int(p?.maxAttackCharge ?? p?.maxCharge, 100)),
-        attackReady: !!(p?.attackReady ?? p?.canAttack ?? false),
-        attacksUsed: int(p?.attacksUsed, 0),
+    u.searchParams.set('time', String(plannedSec || 150));
+    u.searchParams.set('diff', diff || 'normal');
+    u.searchParams.set('view', qsGet('view', 'mobile'));
+    u.searchParams.set('run', qsGet('run', 'play'));
+    u.searchParams.set('mode', 'battle');
+    u.searchParams.set('hub', qsGet('hub', '../hub.html'));
+    u.searchParams.set('replay', '1');
+    u.searchParams.delete('showLastSummary');
 
-        guardCharge: int(p?.guardCharge, 0),
-        maxGuardCharge: Math.max(1, int(p?.maxGuardCharge, 100)),
-        guardReady: !!p?.guardReady,
-        guardsUsed: int(p?.guardsUsed, 0),
-        perfectGuardCount: int(p?.perfectGuardCount, 0),
-        blockedDamage: int(p?.blockedDamage, 0),
-
-        criticalCount: int(p?.criticalCount, 0),
-        damageDealt: int(p?.damageDealt, 0),
-        damageTaken: int(p?.damageTaken, 0),
-        koCount: int(p?.koCount ?? p?.kills, 0),
-        alive: (p?.alive != null) ? !!p.alive : int(p?.hp ?? p?.health, 100) > 0,
-        ready: !!p?.ready,
-        isHost: !!p?.isHost,
-        raw: p || {}
-      };
-    }).filter((p) => p.pid || p.uid || p.playerId || p.name);
+    return u.toString();
   }
 
-  function normalizeRoomShape(room) {
-    if (!room || typeof room !== 'object') {
-      return { roomId: currentRoomId(), status: '', meta: null, state: null, players: [], final: null };
-    }
-
-    const meta = room.meta && typeof room.meta === 'object' ? room.meta : null;
-    const state = room.state && typeof room.state === 'object' ? room.state : null;
+  async function resetRoomForReplay(summary) {
+    const firebase = W.firebase;
+    if (!firebase || !firebase.database) return false;
 
     const roomId = normalizeRoomId(
-      extractRoomIdLike(room) ||
-      meta?.roomId ||
+      summary?.roomId ||
+      STATE.roomId ||
+      currentRoomId() ||
       qsGet('roomId') ||
-      qsGet('room') ||
-      currentRoomId()
-    ) || '-';
+      qsGet('room')
+    ) || '';
 
-    const status = txt(state?.status || room.status || room.match?.status || '');
+    if (!roomId) return false;
 
-    let playersSource = [];
-    if (Array.isArray(room.players)) playersSource = room.players;
-    else if (room.players && typeof room.players === 'object') playersSource = room.players;
-    else if (looksLikePlayersMap(room)) playersSource = room;
+    const roomRef = firebase.database().ref(`hha-battle/goodjunk/rooms/${roomId}`);
+    const snap = await roomRef.once('value');
+    if (!snap.exists()) return false;
 
-    const players = normalizePlayers(playersSource);
-    const final = (state && state.final && typeof state.final === 'object') ? state.final : null;
+    const room = snap.val() || {};
+    const t = Date.now();
+    const playersSrc = (room.players && typeof room.players === 'object') ? room.players : {};
+    const nextPlayers = {};
 
-    return { raw: room, roomId, status, meta, state, players, final };
+    Object.keys(playersSrc).forEach((key) => {
+      const p = playersSrc[key] || {};
+      nextPlayers[key] = {
+        ...p,
+        connected: p.connected !== false,
+        ready: true,
+        status: 'waiting',
+
+        score: 0,
+        miss: 0,
+        combo: 0,
+        bestStreak: 0,
+
+        hp: 100,
+        maxHp: 100,
+        shield: 0,
+
+        attackCharge: 0,
+        maxAttackCharge: 100,
+        attackReady: false,
+
+        attacksUsed: 0,
+        guardsUsed: 0,
+        perfectGuardCount: 0,
+        blockedDamage: 0,
+        criticalCount: 0,
+        damageDealt: 0,
+        damageTaken: 0,
+        koCount: 0,
+
+        counterUsed: 0,
+        chargeDrained: 0,
+        junkRainSent: 0,
+        junkRainReceived: 0,
+        drainComboUsed: 0,
+        junkComboUsed: 0,
+        counterBonusUsed: 0,
+
+        telegraphType: '',
+        telegraphUntil: 0,
+
+        lastAttackId: '',
+        lastAttackAt: 0,
+        lastAttackDamage: 0,
+        lastAttackTarget: '',
+
+        updatedAt: t,
+        lastSeen: t
+      };
+    });
+
+    await roomRef.set({
+      meta: {
+        ...(room.meta || {}),
+        updatedAt: t
+      },
+      state: {
+        ...(room.state || {}),
+        status: 'waiting',
+        plannedSec: int(room?.state?.plannedSec, 150) || 150,
+        countdownEndsAt: 0,
+        startedAt: 0,
+        endsAt: 0,
+        endedAt: 0,
+        roundToken: '',
+        phase: 'A',
+        bossEvent: null,
+        finalRageDone: false,
+        director: {
+          id: `dir-balanced-${t}`,
+          mode: 'balanced',
+          updatedAt: t
+        },
+        updatedAt: t
+      },
+      players: nextPlayers
+    });
+
+    return true;
+  }
+
+  function readRoomFromGlobals() {
+    return (
+      W.__BATTLE_ROOM__ ||
+      W.battleRoom ||
+      (W.state || {}).room ||
+      (W.gameState || {}).room ||
+      {}
+    );
+  }
+
+  function normalizePlayers(playersObj) {
+    const out = [];
+    const src = (playersObj && typeof playersObj === 'object') ? playersObj : {};
+
+    Object.keys(src).forEach((key) => {
+      const p = src[key] || {};
+      const uid = normalizePid(p.uid || p.playerId || key);
+      const pid = normalizePid(p.pid || p.playerId || p.uid || key);
+      const hp = num(p.hp, 100);
+      const item = {
+        key,
+        uid,
+        playerId: uid,
+        pid,
+        name: txt(p.name || p.nick || pid || 'Player'),
+        score: num(p.score, 0),
+        miss: num(p.miss, 0),
+        bestStreak: num(p.bestStreak, 0),
+        hp,
+        maxHp: Math.max(1, num(p.maxHp, 100)),
+        koCount: num(p.koCount, 0),
+        alive: hp > 0,
+        raw: p
+      };
+      out.push(item);
+    });
+
+    return out;
   }
 
   function sortBattlePlayers(players) {
@@ -474,745 +351,256 @@
       if (a.miss !== b.miss) return a.miss - b.miss;
       if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
       if (b.koCount !== a.koCount) return b.koCount - a.koCount;
-      return a.name.localeCompare(b.name, 'th');
+      return String(a.name || '').localeCompare(String(b.name || ''), 'th');
     });
   }
 
-  function resolveSelfPlayer(players, roomId = '') {
-    const knownPids = gatherKnownSelfPidSet(roomId);
-    const knownNames = gatherKnownSelfNameSet(roomId);
-
-    let self = players.find(p =>
-      (p.pid && knownPids.has(p.pid)) ||
-      (p.uid && knownPids.has(p.uid)) ||
-      (p.playerId && knownPids.has(p.playerId)) ||
-      (p.key && knownPids.has(normalizePid(p.key)))
-    );
-    if (self) return self;
-
-    const matchedByName = players.filter(p => p.name && knownNames.has(p.name));
-    if (matchedByName.length === 1) return matchedByName[0];
-
-    return null;
-  }
-
-  function bindNodes() {
-    REF.hud = byId('battleHud') || byId('hudBattle') || byId('battleHUD');
-    REF.mode = byId('battleModePill') || byId('battleModeValue');
-    REF.room = byId('battleRoomPill') || byId('battleRoomValue');
-    REF.score = byId('battleScoreValue') || byId('scoreValue');
-    REF.time = byId('battleTimeValue') || byId('timeValue');
-    REF.miss = byId('battleMissValue') || byId('missValue');
-    REF.streak = byId('battleStreakValue') || byId('bestStreakValue');
-
-    REF.hp = byId('battleHpValue') || byId('hpValue');
-    REF.hpFill = byId('battleHpFill') || byId('hpFill');
-
-    REF.charge = byId('battleChargeValue') || byId('attackChargeValue') || byId('chargeValue');
-    REF.chargeFill = byId('battleChargeFill') || byId('attackChargeFill') || byId('chargeFill');
-
-    REF.guard = byId('battleGuardValue') || byId('guardChargeValue');
-    REF.guardFill = byId('battleGuardFill') || byId('guardChargeFill');
-
-    REF.attackReady = byId('battleAttackReady') || byId('attackReadyBadge') || byId('attackReady');
-    REF.guardReady = byId('battleGuardReady') || byId('guardReadyBadge') || byId('guardReady');
-
-    ensureResultMount();
-  }
-
-  function ensureResultMount() {
-    let mount = byId('battleSafeResultMount');
-    if (!mount) {
-      mount = document.createElement('div');
-      mount.id = 'battleSafeResultMount';
-      mount.hidden = true;
-      mount.style.position = 'fixed';
-      mount.style.inset = '0';
-      mount.style.zIndex = '1400';
-      mount.style.alignItems = 'flex-end';
-      mount.style.justifyContent = 'center';
-      mount.style.padding = '12px';
-      mount.style.background = 'rgba(2,6,23,.66)';
-      mount.style.backdropFilter = 'blur(8px)';
-      mount.style.display = 'none';
-      document.body.appendChild(mount);
-    }
-    REF.resultMount = mount;
-    return mount;
-  }
-
-  function recalcState() {
-    STATE.pid = getSelfPid();
-    STATE.name = getSelfName();
-    STATE.roomId = currentRoomId();
-
-    const roomNorm = normalizeRoomShape(STATE.room || {});
-    STATE.final = roomNorm.final || STATE.final || null;
-
-    const finalPlayers = STATE.final && Array.isArray(STATE.final.players)
-      ? normalizePlayers(STATE.final.players)
-      : null;
-
-    const players = finalPlayers && finalPlayers.length
-      ? finalPlayers
-      : normalizePlayers(STATE.players);
-
-    if (players.length) {
-      const sorted = sortBattlePlayers(players);
-      const self = resolveSelfPlayer(sorted, STATE.roomId);
-
-      if (self) {
-        STATE.score = self.score;
-        STATE.miss = self.miss;
-        STATE.bestStreak = self.bestStreak;
-        STATE.hp = self.hp;
-        STATE.maxHp = self.maxHp;
-        STATE.shield = self.shield;
-
-        STATE.attackCharge = self.attackCharge;
-        STATE.maxAttackCharge = self.maxAttackCharge;
-        STATE.attackReady = !!self.attackReady;
-        STATE.attacksUsed = self.attacksUsed;
-
-        STATE.guardCharge = self.guardCharge;
-        STATE.maxGuardCharge = self.maxGuardCharge;
-        STATE.guardReady = !!self.guardReady;
-        STATE.guardsUsed = self.guardsUsed;
-        STATE.perfectGuardCount = self.perfectGuardCount;
-        STATE.blockedDamage = self.blockedDamage;
-
-        STATE.criticalCount = self.criticalCount;
-        STATE.damageDealt = self.damageDealt;
-        STATE.damageTaken = self.damageTaken;
-        STATE.koCount = self.koCount;
-      }
-
-      STATE.players = sorted;
-    } else {
-      STATE.score = int(STATE.score, 0);
-      STATE.miss = int(STATE.miss, 0);
-      STATE.bestStreak = int(STATE.bestStreak, 0);
-
-      STATE.hp = clamp(int(STATE.hp, 100), 0, Math.max(1, int(STATE.maxHp, 100)));
-      STATE.maxHp = Math.max(1, int(STATE.maxHp, 100));
-      STATE.shield = Math.max(0, int(STATE.shield, 0));
-
-      STATE.attackCharge = clamp(int(STATE.attackCharge, 0), 0, Math.max(1, int(STATE.maxAttackCharge, 100)));
-      STATE.maxAttackCharge = Math.max(1, int(STATE.maxAttackCharge, 100));
-      STATE.attackReady = !!STATE.attackReady;
-      STATE.attacksUsed = int(STATE.attacksUsed, 0);
-
-      STATE.guardCharge = clamp(int(STATE.guardCharge, 0), 0, Math.max(1, int(STATE.maxGuardCharge, 100)));
-      STATE.maxGuardCharge = Math.max(1, int(STATE.maxGuardCharge, 100));
-      STATE.guardReady = !!STATE.guardReady;
-      STATE.guardsUsed = int(STATE.guardsUsed, 0);
-      STATE.perfectGuardCount = int(STATE.perfectGuardCount, 0);
-      STATE.blockedDamage = int(STATE.blockedDamage, 0);
-
-      STATE.criticalCount = int(STATE.criticalCount, 0);
-      STATE.damageDealt = int(STATE.damageDealt, 0);
-      STATE.damageTaken = int(STATE.damageTaken, 0);
-      STATE.koCount = int(STATE.koCount, 0);
-      STATE.players = [];
-    }
-
-    window.__BATTLE_STATE__ = STATE;
-    if (STATE.room) window.__BATTLE_ROOM__ = STATE.room;
-  }
-
-  function renderAttackReady() {
-    if (!REF.attackReady) return;
-    REF.attackReady.textContent = STATE.attackReady ? 'ATTACK READY' : 'ATTACK CHARGING';
-    REF.attackReady.style.opacity = STATE.attackReady ? '1' : '.72';
-    REF.attackReady.style.color = STATE.attackReady ? '#fcd34d' : '#cbd5e1';
-    REF.attackReady.style.fontWeight = '1100';
-  }
-
-  function renderGuardReady() {
-    if (!REF.guardReady) return;
-    REF.guardReady.textContent = STATE.guardReady ? 'GUARD READY' : 'GUARD CHARGING';
-    REF.guardReady.style.opacity = STATE.guardReady ? '1' : '.72';
-    REF.guardReady.style.color = STATE.guardReady ? '#c4b5fd' : '#cbd5e1';
-    REF.guardReady.style.fontWeight = '1100';
-  }
-
-  let __runDebugLastPaint = 0;
-  function ensureRunDebugBox(){
-    if (!DEBUG) return null;
-    let el = document.getElementById('battleRunDebugBox');
-    if (el) return el;
-
-    el = document.createElement('div');
-    el.id = 'battleRunDebugBox';
-    el.style.cssText = [
-      'position:fixed','left:10px','right:10px','bottom:10px','z-index:9999',
-      'padding:10px 12px','border-radius:14px',
-      'border:1px solid rgba(191,227,242,.9)','background:rgba(15,23,42,.92)',
-      'color:#f8fafc','font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace',
-      'box-shadow:0 18px 40px rgba(0,0,0,.28)','white-space:pre-wrap',
-      'word-break:break-word','backdrop-filter:blur(8px)','max-height:42vh','overflow:auto'
-    ].join(';');
-
-    document.body.appendChild(el);
-    return el;
+  function mergeState(detail) {
+    STATE.current = Object.assign({}, STATE.current || {}, detail || {});
+    if (detail && detail.roomId) STATE.roomId = normalizeRoomId(detail.roomId);
   }
 
   function buildSummary() {
-    recalcState();
+    const room = readRoomFromGlobals();
+    const roomPlayers = normalizePlayers(room.players || {});
+    const players = sortBattlePlayers(roomPlayers);
 
-    const players = STATE.players && STATE.players.length
-      ? STATE.players
-      : sortBattlePlayers(normalizePlayers(STATE.players));
+    const selfUid = getSelfUid();
+    const selfPid = getSelfPid();
 
-    const self = resolveSelfPlayer(players, STATE.roomId);
-    const selfIndex = self ? players.findIndex((p) => isSamePlayer(p, self)) : -1;
-    const selfRank = selfIndex >= 0 ? selfIndex + 1 : null;
+    let me = players.find((p) => p.uid && p.uid === selfUid);
+    if (!me && selfPid) me = players.find((p) => p.pid === selfPid);
+    if (!me && players.length) me = players[0] || null;
+
+    const rank = me ? (players.findIndex((p) => p.key === me.key) + 1) : '';
+    const opponent = players.find((p) => !me || p.key !== me.key) || null;
+    const result = rank === 1 ? 'win' : (rank ? `อันดับ ${rank}` : 'finished');
 
     return {
-      game: 'goodjunk-battle',
       mode: 'battle',
+      label: 'Battle',
+      game: 'goodjunk-battle',
+      roomId: normalizeRoomId(room?.meta?.roomId || currentRoomId()),
       pid: getSelfPid(),
+      uid: getSelfUid(),
       name: getSelfName(),
-      roomId: STATE.roomId,
-
-      scoreFinal: STATE.score,
-      missTotal: STATE.miss,
-      comboMax: STATE.bestStreak,
-
-      hp: STATE.hp,
-      maxHp: STATE.maxHp,
-
-      attackCharge: STATE.attackCharge,
-      maxAttackCharge: STATE.maxAttackCharge,
-      attackReady: STATE.attackReady,
-      attacksUsed: STATE.attacksUsed,
-
-      guardCharge: STATE.guardCharge,
-      maxGuardCharge: STATE.maxGuardCharge,
-      guardReady: STATE.guardReady,
-      guardsUsed: STATE.guardsUsed,
-      perfectGuardCount: STATE.perfectGuardCount,
-      blockedDamage: STATE.blockedDamage,
-
-      criticalCount: STATE.criticalCount,
-      damageDealt: STATE.damageDealt,
-      damageTaken: STATE.damageTaken,
-      koCount: STATE.koCount,
-
-      players,
-      self,
-      selfRank,
-      selfKnown: !!self,
-      final: STATE.final || null,
-
-      endedAt: STATE.endedAt || nowIso(),
-      endReason: STATE.endReason || (STATE.final && STATE.final.reason) || 'finished',
-      timestampIso: nowIso()
+      rank,
+      score: me ? me.score : num((W.state || {}).score, 0),
+      opponentScore: opponent ? opponent.score : '',
+      players: players.length,
+      miss: me ? me.miss : num((W.state || {}).miss, 0),
+      bestStreak: me ? me.bestStreak : num((W.state || {}).bestStreak, 0),
+      result,
+      reason: txt(STATE.current.endReason || STATE.current.reason || 'finished'),
+      hp: me ? me.hp : num((W.state || {}).hp, 0),
+      maxHp: me ? me.maxHp : Math.max(1, num((W.state || {}).maxHp, 100)),
+      raw: {
+        room,
+        players,
+        state: W.state || {},
+        current: STATE.current || {}
+      },
+      endedAt: nowIso()
     };
-  }
-
-  function renderRunDebug() {
-    if (!DEBUG) return;
-    const t = Date.now();
-    if (t - __runDebugLastPaint < 120) return;
-    __runDebugLastPaint = t;
-
-    const el = ensureRunDebugBox();
-    if (!el) return;
-
-    const summary = buildSummary();
-    const self = summary.self || null;
-    const room = normalizeRoomShape(STATE.room || {});
-    const lines = [
-      '[BATTLE SAFE DEBUG]',
-      `room=${summary.roomId || '-'}`,
-      `pid=${summary.pid || '-'}`,
-      `name=${summary.name || '-'}`,
-      `players=${summary.players.length}`,
-      `selfKnown=${summary.selfKnown}`,
-      `selfRank=${summary.selfRank || '-'}`,
-      `status=${room.status || '-'}`,
-      `score=${summary.scoreFinal}`,
-      `hp=${summary.hp}/${summary.maxHp}`,
-      `attack=${summary.attackCharge}/${summary.maxAttackCharge}`,
-      `guard=${summary.guardCharge}/${summary.maxGuardCharge}`,
-      `attacks=${summary.attacksUsed}`,
-      `guards=${summary.guardsUsed}`,
-      `perfectGuard=${summary.perfectGuardCount}`,
-      `blocked=${summary.blockedDamage}`,
-      `critical=${summary.criticalCount}`,
-      `ko=${summary.koCount}`,
-      `damageDealt=${summary.damageDealt}`,
-      `damageTaken=${summary.damageTaken}`,
-      `frozen=${summary.final ? 'yes' : 'no'}`,
-      `selfPid=${self ? self.pid : '-'}`,
-      `selfUid=${self ? self.uid : '-'}`,
-      `selfKey=${self ? self.key : '-'}`
-    ];
-
-    el.textContent = lines.join('\n');
-  }
-
-  function renderHud() {
-    recalcState();
-
-    setText(REF.mode, 'MODE battle');
-    setText(REF.room, `ROOM ${STATE.roomId}`);
-    setText(REF.score, STATE.score);
-    setText(REF.time, fmtClock(STATE.timeLeftSec));
-    setText(REF.miss, STATE.miss);
-    setText(REF.streak, STATE.bestStreak);
-
-    setText(REF.hp, `${STATE.hp}/${STATE.maxHp}`);
-    setWidth(REF.hpFill, pct(STATE.hp, STATE.maxHp));
-
-    setText(REF.charge, `${STATE.attackCharge}/${STATE.maxAttackCharge}`);
-    setWidth(REF.chargeFill, pct(STATE.attackCharge, STATE.maxAttackCharge));
-
-    setText(REF.guard, `${STATE.guardCharge}/${STATE.maxGuardCharge}`);
-    setWidth(REF.guardFill, pct(STATE.guardCharge, STATE.maxGuardCharge));
-
-    renderAttackReady();
-    renderGuardReady();
-    renderRunDebug();
-  }
-
-  function findExistingResultRoot() {
-    return (
-      q('#battleResultMount:not([hidden])') ||
-      q('#battleResult:not([hidden])') ||
-      q('.battle-result-card') ||
-      q('.battle-result') ||
-      q('[data-battle-result]')
-    );
-  }
-
-  function findResultTbody(root) {
-    return (
-      q('#battleResultTable tbody', root) ||
-      q('.battle-result-table tbody', root) ||
-      q('[data-battle-result-table] tbody', root) ||
-      q('tbody', root)
-    );
-  }
-
-  function findRankBadge(root) {
-    return (
-      q('#battleRankBadge', root) ||
-      q('.battle-rank-badge', root) ||
-      q('[data-battle-rank-badge]', root)
-    );
-  }
-
-  function findResultSubtitle(root) {
-    return (
-      q('.battle-result-sub', root) ||
-      q('[data-battle-result-sub]', root)
-    );
-  }
-
-  function saveLastSummary(summary) {
-    try {
-      writeJSON(`${LS_KEYS.lastSummaryScoped}:${summary.pid}`, summary);
-      writeJSON(LS_KEYS.lastSummaryGlobal, summary);
-    } catch (_) {}
-  }
-
-  function renderRowsHTML(summary) {
-    return summary.players.map((p, idx) => {
-      const isMe = summary.self && isSamePlayer(p, summary.self);
-      return `
-        <tr class="${isMe ? 'me-row' : ''}">
-          <td>
-            <div style="font-weight:1100;line-height:1.1">${esc(p.name || p.pid || `Player ${idx + 1}`)}</div>
-            ${p.pid ? `<div style="margin-top:4px;color:#94a3b8;font-size:12px;font-weight:900">${esc(p.pid)}</div>` : ''}
-            ${isMe ? `<div style="margin-top:6px;color:#fcd34d;font-size:12px;font-weight:1100">• คุณ</div>` : ''}
-            <div style="margin-top:4px;color:${p.alive ? '#86efac' : '#fca5a5'};font-size:12px;font-weight:1100">
-              ${p.alive ? 'ยังยืนอยู่' : 'HP หมดแล้ว'}
-            </div>
-          </td>
-          <td>${p.score}</td>
-          <td>${p.hp}</td>
-          <td>${p.miss}</td>
-          <td>${p.bestStreak}</td>
-          <td>${p.koCount}</td>
-        </tr>
-      `;
-    }).join('');
-  }
-
-  function patchExistingResultDOM(summary) {
-    const root = findExistingResultRoot();
-    if (!root) return false;
-
-    const badge = findRankBadge(root);
-    if (badge) {
-      badge.textContent = summary.selfKnown && summary.selfRank ? `อันดับ #${summary.selfRank}` : 'อันดับ ?';
-      badge.style.opacity = summary.selfKnown && summary.selfRank ? '1' : '.72';
-    }
-
-    const sub = findResultSubtitle(root);
-    if (sub) sub.textContent = `ผลสุดท้าย • ผู้เล่นทั้งหมด ${summary.players.length} คน`;
-
-    const tbody = findResultTbody(root);
-    if (tbody) tbody.innerHTML = renderRowsHTML(summary);
-
-    return true;
-  }
-
-  function mountFallbackResult(summary) {
-    const mount = ensureResultMount();
-    if (!mount) return;
-
-    mount.hidden = false;
-    mount.style.display = 'flex';
-
-    mount.innerHTML = `
-      <div style="
-        width:min(980px,100%);
-        max-height:min(92vh,920px);
-        overflow:auto;
-        border-radius:28px;
-        border:1px solid rgba(148,163,184,.18);
-        background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(2,6,23,.96));
-        color:#f8fafc;
-        box-shadow:0 24px 80px rgba(0,0,0,.42);
-        padding:18px;
-      ">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">
-          <div>
-            <div style="font-size:24px;line-height:1.15;font-weight:1100;">⚔ Battle Result</div>
-            <div style="margin-top:6px;color:#94a3b8;font-size:13px;font-weight:900;line-height:1.45;">
-              ROOM ${esc(summary.roomId)} • ${esc(shortDateTime(summary.endedAt))}
-            </div>
-          </div>
-          <button id="battleSafeCloseBtn" type="button" style="
-            min-width:44px;min-height:44px;padding:8px 12px;border-radius:14px;
-            border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.04);
-            color:#e5e7eb;font-weight:1100;cursor:pointer;">✕</button>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-          <div style="
-            border-radius:22px;border:1px solid rgba(148,163,184,.16);
-            background:rgba(15,23,42,.72);padding:14px;">
-            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">MY BATTLE STATUS</div>
-            <div style="margin-top:8px;font-size:42px;line-height:1;font-weight:1100;color:#f8fafc;">${summary.scoreFinal}</div>
-
-            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px;">
-              <div style="border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.42);padding:10px 12px;">
-                <div style="color:#94a3b8;font-size:12px;font-weight:1000;">HP</div>
-                <div style="margin-top:4px;font-size:22px;line-height:1.1;font-weight:1100;">${summary.hp}/${summary.maxHp}</div>
-              </div>
-              <div style="border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.42);padding:10px 12px;">
-                <div style="color:#94a3b8;font-size:12px;font-weight:1000;">ATTACKS</div>
-                <div style="margin-top:4px;font-size:22px;line-height:1.1;font-weight:1100;">${summary.attacksUsed}</div>
-              </div>
-              <div style="border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.42);padding:10px 12px;">
-                <div style="color:#94a3b8;font-size:12px;font-weight:1000;">GUARDS</div>
-                <div style="margin-top:4px;font-size:22px;line-height:1.1;font-weight:1100;">${summary.guardsUsed}</div>
-              </div>
-            </div>
-          </div>
-
-          <div style="
-            border-radius:22px;border:1px solid rgba(148,163,184,.16);
-            background:rgba(15,23,42,.72);padding:14px;display:flex;flex-direction:column;justify-content:center;gap:12px;">
-            <div style="
-              display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:18px;
-              border:1px solid rgba(245,158,11,.24);background:rgba(245,158,11,.12);
-              color:#fcd34d;font-size:18px;font-weight:1100;width:max-content;">
-              ${summary.selfKnown && summary.selfRank ? `อันดับ #${summary.selfRank}` : 'อันดับ ?'}
-            </div>
-
-            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Critical ${summary.criticalCount}</div>
-            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Perfect Guard ${summary.perfectGuardCount}</div>
-            <div style="color:#cbd5e1;font-size:13px;font-weight:1000;">Blocked ${summary.blockedDamage}</div>
-          </div>
-        </div>
-
-        <div style="
-          border-radius:22px;border:1px solid rgba(148,163,184,.16);
-          background:rgba(15,23,42,.66);padding:12px;">
-          <div style="overflow:auto;-webkit-overflow-scrolling:touch;">
-            <table style="width:100%;min-width:760px;border-collapse:separate;border-spacing:0 8px;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;color:#94a3b8;font-size:12px;font-weight:1000;padding:0 10px 6px;">ผู้เล่น</th>
-                  <th style="text-align:left;color:#94a3b8;font-size:12px;font-weight:1000;padding:0 10px 6px;">คะแนน</th>
-                  <th style="text-align:left;color:#94a3b8;font-size:12px;font-weight:1000;padding:0 10px 6px;">HP</th>
-                  <th style="text-align:left;color:#94a3b8;font-size:12px;font-weight:1000;padding:0 10px 6px;">Miss</th>
-                  <th style="text-align:left;color:#94a3b8;font-size:12px;font-weight:1000;padding:0 10px 6px;">Best Streak</th>
-                  <th style="text-align:left;color:#94a3b8;font-size:12px;font-weight:1000;padding:0 10px 6px;">KO</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${summary.players.map((p) => {
-                  const isMe = summary.self && isSamePlayer(p, summary.self);
-                  const bg = isMe ? 'rgba(30,41,59,.78)' : 'rgba(2,6,23,.42)';
-                  const outline = isMe ? 'outline:1px solid rgba(245,158,11,.26);' : '';
-                  return `
-                    <tr>
-                      <td style="padding:12px 10px;background:${bg};${outline}border-top-left-radius:14px;border-bottom-left-radius:14px;">
-                        <div style="font-weight:1100;line-height:1.1">${esc(p.name || p.pid)}</div>
-                        ${p.pid ? `<div style="margin-top:4px;color:#94a3b8;font-size:12px;font-weight:900">${esc(p.pid)}</div>` : ''}
-                        ${isMe ? `<div style="margin-top:6px;color:#fcd34d;font-size:12px;font-weight:1100">• คุณ</div>` : ''}
-                        <div style="margin-top:4px;color:${p.alive ? '#86efac' : '#fca5a5'};font-size:12px;font-weight:1100">
-                          ${p.alive ? 'ยังยืนอยู่' : 'HP หมดแล้ว'}
-                        </div>
-                      </td>
-                      <td style="padding:12px 10px;background:${bg};${outline}">${p.score}</td>
-                      <td style="padding:12px 10px;background:${bg};${outline}">${p.hp}</td>
-                      <td style="padding:12px 10px;background:${bg};${outline}">${p.miss}</td>
-                      <td style="padding:12px 10px;background:${bg};${outline}">${p.bestStreak}</td>
-                      <td style="padding:12px 10px;background:${bg};${outline}border-top-right-radius:14px;border-bottom-right-radius:14px;">${p.koCount}</td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
-          <button id="battleSafeRematchBtn" type="button" style="
-            min-width:140px;min-height:46px;padding:10px 14px;border-radius:16px;
-            border:1px solid rgba(34,197,94,.28);background:rgba(34,197,94,.14);
-            color:#f8fafc;font-weight:1100;cursor:pointer;">🔁 เล่นใหม่</button>
-
-          <button id="battleSafeHubBtn" type="button" style="
-            min-width:140px;min-height:46px;padding:10px 14px;border-radius:16px;
-            border:1px solid rgba(59,130,246,.28);background:rgba(59,130,246,.14);
-            color:#f8fafc;font-weight:1100;cursor:pointer;">🏠 กลับ HUB</button>
-
-          <button id="battleSafeCloseBtn2" type="button" style="
-            min-width:140px;min-height:46px;padding:10px 14px;border-radius:16px;
-            border:1px solid rgba(167,139,250,.28);background:rgba(167,139,250,.14);
-            color:#f8fafc;font-weight:1100;cursor:pointer;">✅ ปิด</button>
-        </div>
-      </div>
-    `;
-
-    const close = () => {
-      mount.hidden = true;
-      mount.style.display = 'none';
-      mount.innerHTML = '';
-    };
-
-    byId('battleSafeCloseBtn')?.addEventListener('click', close);
-    byId('battleSafeCloseBtn2')?.addEventListener('click', close);
-    byId('battleSafeHubBtn')?.addEventListener('click', () => {
-      location.href = qsGet('hub', '../hub.html');
-    });
-    byId('battleSafeRematchBtn')?.addEventListener('click', () => {
-      const u = new URL(location.href);
-      location.href = u.toString();
-    });
   }
 
   function emitBattleSummary(summary) {
-    if (BRIDGE.summaryEmitted) return;
-    BRIDGE.summaryEmitted = true;
+    try { W.__GJ_BATTLE_LAST_SUMMARY__ = summary; } catch (_) {}
 
-    const others = (summary.players || []).filter((p) => {
-      if (!summary.self) return true;
-      return !isSamePlayer(p, summary.self);
-    });
+    const payload = { summary };
 
-    const opponent = others[0] || null;
-    const resultText =
-      summary.selfRank === 1 ? 'win'
-      : summary.selfRank ? `อันดับ ${summary.selfRank}`
-      : 'finished';
-
-    const detail = {
-      summary: {
-        mode: 'battle',
-        game: 'goodjunk-battle',
-        roomId: summary.roomId,
-        pid: summary.pid,
-        name: summary.name,
-        rank: summary.selfRank ?? '',
-        score: summary.scoreFinal ?? 0,
-        opponentScore: opponent ? opponent.score : '',
-        players: (summary.players || []).length,
-        miss: summary.missTotal ?? 0,
-        bestStreak: summary.comboMax ?? 0,
-        result: resultText,
-        reason: summary.endReason || 'finished',
-        hp: summary.hp,
-        maxHp: summary.maxHp,
-
-        attackCharge: summary.attackCharge,
-        maxAttackCharge: summary.maxAttackCharge,
-        attackReady: summary.attackReady,
-        attacksUsed: summary.attacksUsed,
-
-        guardCharge: summary.guardCharge,
-        maxGuardCharge: summary.maxGuardCharge,
-        guardReady: summary.guardReady,
-        guardsUsed: summary.guardsUsed,
-        perfectGuardCount: summary.perfectGuardCount,
-        blockedDamage: summary.blockedDamage,
-
-        criticalCount: summary.criticalCount,
-        damageDealt: summary.damageDealt,
-        damageTaken: summary.damageTaken,
-        koCount: summary.koCount,
-        raw: summary
-      }
-    };
-
-    const eventNames = [
+    const events = [
       'gj:battle-summary',
       'gj:summary',
       'gj:match-summary',
-      'gj:session-end',
       'hha:summary',
       'hha:session-summary',
       'hha:match-summary'
     ];
 
-    eventNames.forEach((name) => {
-      try { window.dispatchEvent(new CustomEvent(name, { detail })); }
-      catch (err) { console.warn('[battle-safe] emit summary event failed:', name, err); }
+    events.forEach((name) => {
+      try { W.dispatchEvent(new CustomEvent(name, { detail: payload })); } catch (_) {}
     });
 
-    try { window.postMessage({ type: 'gj:battle-summary', detail }, '*'); }
-    catch (err) { console.warn('[battle-safe] postMessage summary failed:', err); }
-
     try {
-      if (typeof window.__GJ_SHOW_BATTLE_SUMMARY__ === 'function') {
-        window.__GJ_SHOW_BATTLE_SUMMARY__(detail);
+      W.postMessage({ type: 'gj:battle-summary', detail: payload }, '*');
+    } catch (_) {}
+  }
+
+  function removeFallbackResult() {
+    const el = byId('battleSafeFallbackOverlay');
+    if (el) el.remove();
+    STATE.mountedFallback = false;
+  }
+
+  function patchExistingResultDOM() {
+    return false;
+  }
+
+  function mountFallbackResult(summary) {
+    removeFallbackResult();
+
+    const overlay = D.createElement('div');
+    overlay.id = 'battleSafeFallbackOverlay';
+    overlay.style.cssText = [
+      'position:fixed',
+      'inset:0',
+      'z-index:9999',
+      'display:grid',
+      'place-items:center',
+      'padding:16px',
+      'background:rgba(255,244,221,.72)',
+      'backdrop-filter:blur(10px)'
+    ].join(';');
+
+    overlay.innerHTML = `
+      <div style="
+        width:min(920px,100%);
+        max-height:88dvh;
+        overflow:auto;
+        background:linear-gradient(180deg,#fffef8,#f7fff4);
+        border:3px solid #bfe3f2;
+        border-radius:30px;
+        box-shadow:0 28px 70px rgba(86,155,194,.24);
+        padding:18px;
+        color:#4d4a42;
+        font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+      ">
+        <div style="
+          display:inline-flex;align-items:center;gap:8px;
+          padding:8px 14px;border-radius:999px;background:#fff4dd;border:2px solid #bfe3f2;
+          color:#b7791f;font-size:13px;font-weight:1000;margin-bottom:10px;
+        ">⚔️ GOODJUNK BATTLE SUMMARY</div>
+
+        <div style="
+          display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:center;
+          margin-bottom:14px;padding:14px;border-radius:24px;background:#fff;
+          border:2px solid #f0ddbc;box-shadow:0 10px 24px rgba(86,155,194,.10);
+        ">
+          <div style="
+            width:96px;height:96px;border-radius:28px;display:grid;place-items:center;
+            background:linear-gradient(180deg,#fff4dd,#fffdf6);border:3px solid #f0ddbc;font-size:42px;
+            box-shadow:0 10px 20px rgba(86,155,194,.10);
+          ">${summary.rank === 1 ? '🏆' : '⚔️'}</div>
+          <div>
+            <h3 style="margin:0 0 6px;font-size:32px;line-height:1.08;color:#b7791f;font-weight:1000;">
+              ${summary.rank === 1 ? 'Battle Winner!' : 'Battle Hero!'}
+            </h3>
+            <p style="margin:0;color:#6d6b63;font-size:14px;line-height:1.7;font-weight:900;">
+              ${escHtml(summary.name || 'Player')} • ${summary.rank === 1 ? 'เธอชนะการปะทะครั้งนี้ได้สุดยอดมาก' : 'จบรอบแล้ว มาดูผลการปะทะกัน'}
+            </p>
+          </div>
+        </div>
+
+        <div style="
+          margin:0 auto 14px;width:min(480px,100%);border-radius:24px;background:#fff;
+          border:3px solid #f0ddbc;box-shadow:0 10px 22px rgba(86,155,194,.10);padding:16px 14px;text-align:center;
+        ">
+          <div style="color:#d09e52;font-size:15px;font-weight:1000;margin-bottom:4px;">Score</div>
+          <div style="color:#4d4a42;font-size:56px;line-height:1;font-weight:1000;">${int(summary.score, 0)}</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+          ${[
+            ['ผลลัพธ์', summary.result],
+            ['อันดับ', summary.rank],
+            ['คะแนนเรา', summary.score],
+            ['คะแนนคู่แข่ง', summary.opponentScore],
+            ['ผู้เล่นทั้งหมด', summary.players],
+            ['Miss', summary.miss],
+            ['Best Streak', summary.bestStreak],
+            ['ห้อง', summary.roomId || '-']
+          ].map(([k, v]) => `
+            <div style="background:#fff;border:2px solid #f0ddbc;border-radius:22px;box-shadow:0 8px 18px rgba(86,155,194,.08);padding:14px;">
+              <div style="color:#d09e52;font-size:12px;font-weight:1000;margin-bottom:6px;">${escHtml(k)}</div>
+              <div style="color:#4d4a42;font-size:28px;font-weight:1000;line-height:1.18;">${escHtml(v == null ? '-' : String(v))}</div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+          <button id="battleSafeRematchBtn" style="
+            appearance:none;border:0;cursor:pointer;border-radius:18px;padding:13px 18px;
+            font-weight:1000;font-size:15px;background:linear-gradient(180deg,#7ed957,#58c33f);color:#fffef9;
+            box-shadow:0 10px 20px rgba(86,155,194,.14);
+          ">เล่นใหม่</button>
+
+          <button id="battleSafeCopyRoomBtn" style="
+            appearance:none;border:0;cursor:pointer;border-radius:18px;padding:13px 18px;
+            font-weight:1000;font-size:15px;background:linear-gradient(180deg,#7fcfff,#58b7f5);color:#fffef9;
+            box-shadow:0 10px 20px rgba(86,155,194,.14);
+          ">คัดลอกห้อง</button>
+
+          <button id="battleSafeExportBtn" style="
+            appearance:none;border:0;cursor:pointer;border-radius:18px;padding:13px 18px;
+            font-weight:1000;font-size:15px;background:linear-gradient(180deg,#ffd45c,#ffb547);color:#6d4e00;
+            box-shadow:0 10px 20px rgba(86,155,194,.14);
+          ">Export JSON</button>
+
+          <button id="battleSafeBackHubBtn" style="
+            appearance:none;cursor:pointer;border-radius:18px;padding:13px 18px;font-weight:1000;font-size:15px;
+            background:#fff;color:#6d6a62;border:2px solid #bfe3f2;box-shadow:0 10px 20px rgba(86,155,194,.14);
+          ">กลับ HUB</button>
+        </div>
+
+        <pre style="
+          margin-top:14px;padding-top:10px;border-top:1px dashed #f0ddbc;color:#8a887f;
+          font-size:11px;line-height:1.6;font-weight:900;white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto;
+        ">${escHtml(safeJson(summary))}</pre>
+      </div>
+    `;
+
+    D.body.appendChild(overlay);
+    STATE.mountedFallback = true;
+
+    byId('battleSafeCopyRoomBtn')?.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(summary.roomId || '');
+      } catch (_) {}
+    });
+
+    byId('battleSafeExportBtn')?.addEventListener('click', () => {
+      try {
+        const blob = new Blob([safeJson(summary)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = D.createElement('a');
+        a.href = url;
+        a.download = `goodjunk-battle-summary-${txt(summary.roomId, 'room')}-${Date.now()}.json`;
+        D.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (_) {}
+    });
+
+    byId('battleSafeBackHubBtn')?.addEventListener('click', () => {
+      location.href = qsGet('hub', '../hub.html');
+    });
+
+    byId('battleSafeRematchBtn')?.addEventListener('click', async () => {
+      const btn = byId('battleSafeRematchBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ กำลังรีเซ็ตห้อง...';
       }
-    } catch (err) {
-      console.warn('[battle-safe] direct summary bridge failed:', err);
+
+      clearReplayCaches(summary);
+
+      try {
+        await resetRoomForReplay(summary);
+      } catch (err) {
+        console.warn('[battle-safe] rematch reset failed:', err);
+      }
+
+      location.href = buildReplayLobbyUrl(summary);
+    });
+  }
+
+  function stopBridge() {
+    if (BRIDGE.timer) {
+      clearInterval(BRIDGE.timer);
+      BRIDGE.timer = 0;
     }
-  }
-
-  function mergeState(patch = {}) {
-    const src = patch || {};
-
-    if (src.room && typeof src.room === 'object') setRoomState(src.room);
-
-    const roomCandidate =
-      typeof src.room === 'string'
-        ? src.room
-        : (src.room && typeof src.room === 'object' ? extractRoomIdLike(src.room) : '');
-
-    STATE.pid = normalizePid(src.pid ?? src.uid ?? src.playerId ?? STATE.pid ?? getSelfPid());
-    STATE.name = normalizeName(src.name ?? src.nick ?? STATE.name ?? getSelfName());
-    STATE.roomId = normalizeRoomId(src.roomId || roomCandidate || STATE.roomId || currentRoomId()) || '-';
-
-    STATE.score = int(src.score ?? src.myScore ?? STATE.score, 0);
-    STATE.miss = int(src.miss ?? src.misses ?? STATE.miss, 0);
-    STATE.bestStreak = int(src.bestStreak ?? src.comboMax ?? src.streak ?? STATE.bestStreak, 0);
-    STATE.timeLeftSec = int(src.timeLeftSec ?? src.timeLeft ?? STATE.timeLeftSec, 0);
-
-    STATE.hp = clamp(int(src.hp ?? src.health ?? STATE.hp, 100), 0, Math.max(1, int(src.maxHp ?? src.maxHealth ?? STATE.maxHp, 100)));
-    STATE.maxHp = Math.max(1, int(src.maxHp ?? src.maxHealth ?? STATE.maxHp, 100));
-    STATE.shield = Math.max(0, int(src.shield ?? STATE.shield, 0));
-
-    STATE.attackCharge = clamp(int(src.attackCharge ?? src.charge ?? STATE.attackCharge, 0), 0, Math.max(1, int(src.maxAttackCharge ?? src.maxCharge ?? STATE.maxAttackCharge, 100)));
-    STATE.maxAttackCharge = Math.max(1, int(src.maxAttackCharge ?? src.maxCharge ?? STATE.maxAttackCharge, 100));
-    STATE.attackReady = !!(src.attackReady ?? src.canAttack ?? STATE.attackReady);
-    STATE.attacksUsed = int(src.attacksUsed ?? STATE.attacksUsed, 0);
-
-    STATE.guardCharge = clamp(int(src.guardCharge ?? STATE.guardCharge, 0), 0, Math.max(1, int(src.maxGuardCharge ?? STATE.maxGuardCharge, 100)));
-    STATE.maxGuardCharge = Math.max(1, int(src.maxGuardCharge ?? STATE.maxGuardCharge, 100));
-    STATE.guardReady = !!(src.guardReady ?? STATE.guardReady);
-    STATE.guardsUsed = int(src.guardsUsed ?? STATE.guardsUsed, 0);
-    STATE.perfectGuardCount = int(src.perfectGuardCount ?? STATE.perfectGuardCount, 0);
-    STATE.blockedDamage = int(src.blockedDamage ?? STATE.blockedDamage, 0);
-
-    STATE.criticalCount = int(src.criticalCount ?? STATE.criticalCount, 0);
-    STATE.damageDealt = int(src.damageDealt ?? STATE.damageDealt, 0);
-    STATE.damageTaken = int(src.damageTaken ?? STATE.damageTaken, 0);
-    STATE.koCount = int(src.koCount ?? src.kills ?? STATE.koCount, 0);
-
-    if (Array.isArray(src.players)) STATE.players = normalizePlayers(src.players);
-    else if (src.players && typeof src.players === 'object') STATE.players = normalizePlayers(src.players);
-
-    if (src.final && typeof src.final === 'object') STATE.final = src.final;
-
-    STATE.ended = !!(src.ended ?? src.finished ?? src.isEnded ?? STATE.ended);
-    STATE.endedAt = txt(src.endedAt ?? src.timestampIso ?? src.finishedAt ?? STATE.endedAt);
-    STATE.endReason = txt(src.endReason ?? src.reason ?? STATE.endReason);
-
-    window.__BATTLE_STATE__ = STATE;
-    if (STATE.room) window.__BATTLE_ROOM__ = STATE.room;
-
-    rememberSelfIdentity();
-    recalcState();
-  }
-
-  function setRoomState(room) {
-    const normalized = normalizeRoomShape(room);
-    STATE.room = normalized.raw;
-    STATE.roomMeta = normalized.meta;
-    STATE.roomState = normalized.state;
-    STATE.roomId = normalized.roomId || STATE.roomId || '-';
-    STATE.players = normalized.players;
-    STATE.final = normalized.final || STATE.final || null;
-    window.__BATTLE_ROOM__ = normalized.raw;
-    rememberSelfIdentity();
-    renderHud();
-  }
-
-  function setPlayers(players) {
-    STATE.players = normalizePlayers(players);
-    rememberSelfIdentity();
-    renderHud();
-  }
-
-  function onJudge(judge = {}) {
-    if (judge.score != null) STATE.score = int(judge.score, STATE.score);
-    if (judge.miss != null) STATE.miss = int(judge.miss, STATE.miss);
-    if (judge.bestStreak != null) STATE.bestStreak = int(judge.bestStreak, STATE.bestStreak);
-    renderHud();
-  }
-
-  function onDamage(detail = {}) {
-    if (detail.hp != null || detail.health != null) STATE.hp = clamp(int(detail.hp ?? detail.health, STATE.hp), 0, STATE.maxHp);
-    if (detail.maxHp != null || detail.maxHealth != null) {
-      STATE.maxHp = Math.max(1, int(detail.maxHp ?? detail.maxHealth, STATE.maxHp));
-      STATE.hp = clamp(STATE.hp, 0, STATE.maxHp);
-    }
-    if (detail.shield != null) STATE.shield = Math.max(0, int(detail.shield, STATE.shield));
-    if (detail.damageTaken != null) STATE.damageTaken = int(detail.damageTaken, STATE.damageTaken);
-    if (detail.damageDealt != null) STATE.damageDealt = int(detail.damageDealt, STATE.damageDealt);
-    if (detail.criticalCount != null) STATE.criticalCount = int(detail.criticalCount, STATE.criticalCount);
-    if (detail.blockedDamage != null) STATE.blockedDamage = int(detail.blockedDamage, STATE.blockedDamage);
-    if (detail.koCount != null || detail.kills != null) STATE.koCount = int(detail.koCount ?? detail.kills, STATE.koCount);
-    renderHud();
-  }
-
-  function onAttackCharge(detail = {}) {
-    if (detail.attackCharge != null || detail.charge != null) {
-      STATE.attackCharge = clamp(int(detail.attackCharge ?? detail.charge, STATE.attackCharge), 0, STATE.maxAttackCharge);
-    }
-    if (detail.maxAttackCharge != null || detail.maxCharge != null) {
-      STATE.maxAttackCharge = Math.max(1, int(detail.maxAttackCharge ?? detail.maxCharge, STATE.maxAttackCharge));
-      STATE.attackCharge = clamp(STATE.attackCharge, 0, STATE.maxAttackCharge);
-    }
-    if (detail.attackReady != null || detail.canAttack != null) STATE.attackReady = !!(detail.attackReady ?? detail.canAttack);
-    else STATE.attackReady = STATE.attackCharge >= STATE.maxAttackCharge;
-
-    if (detail.attacksUsed != null) STATE.attacksUsed = int(detail.attacksUsed, STATE.attacksUsed);
-
-    if (detail.guardCharge != null) STATE.guardCharge = clamp(int(detail.guardCharge, STATE.guardCharge), 0, STATE.maxGuardCharge);
-    if (detail.maxGuardCharge != null) {
-      STATE.maxGuardCharge = Math.max(1, int(detail.maxGuardCharge, STATE.maxGuardCharge));
-      STATE.guardCharge = clamp(STATE.guardCharge, 0, STATE.maxGuardCharge);
-    }
-    if (detail.guardReady != null) STATE.guardReady = !!detail.guardReady;
-    else STATE.guardReady = STATE.guardCharge >= STATE.maxGuardCharge;
-
-    if (detail.guardsUsed != null) STATE.guardsUsed = int(detail.guardsUsed, STATE.guardsUsed);
-    if (detail.perfectGuardCount != null) STATE.perfectGuardCount = int(detail.perfectGuardCount, STATE.perfectGuardCount);
-    if (detail.blockedDamage != null) STATE.blockedDamage = int(detail.blockedDamage, STATE.blockedDamage);
-
-    renderHud();
   }
 
   function finishGame(detail = {}) {
@@ -1220,7 +608,6 @@
 
     mergeState({
       ...detail,
-      final: detail.final || detail.raw?.final || detail.room?.state?.final || STATE.final || null,
       ended: true,
       endedAt: detail.endedAt || detail.timestampIso || nowIso(),
       endReason: detail.endReason || detail.reason || 'finished'
@@ -1232,270 +619,67 @@
     const summary = buildSummary();
     saveLastSummary(summary);
 
-    const patchedExisting = patchExistingResultDOM(summary);
-    if (!patchedExisting) mountFallbackResult(summary);
-
     emitBattleSummary(summary);
 
-    if (BRIDGE.timer) {
-      setTimeout(() => { stopBridge(); }, 1500);
-    }
-  }
+    const hasRunBridgeSummary =
+      typeof W.__GJ_SHOW_BATTLE_SUMMARY__ === 'function' ||
+      !!D.getElementById('summaryOverlay');
 
-  function render() {
-    renderHud();
-    if (BRIDGE.resultShown) patchExistingResultDOM(buildSummary());
-  }
-
-  function getState() {
-    return JSON.parse(JSON.stringify(STATE));
-  }
-
-  function readKnownGlobals() {
-    const candidates = [
-      window.state,
-      window.gameState,
-      window.__BATTLE_STATE__,
-      window.RUN_CTX,
-      window.__GJ_CTX,
-      window.__GJ_RUN_CTX__,
-      window.__GJ_MULTI_RUN_CTX__,
-      BOOT,
-      RUN_CTX
-    ].filter(Boolean);
-
-    for (const src of candidates) {
-      if (src && typeof src === 'object') mergeState(src);
-    }
-
-    const roomCandidates = [
-      window.__BATTLE_ROOM__,
-      window.battleRoom,
-      window.roomState,
-      window.state?.room,
-      window.gameState?.room,
-      window.__GJ_RUN_CTX__?.room,
-      window.__GJ_MULTI_RUN_CTX__?.room,
-      BOOT?.room
-    ].filter(Boolean);
-
-    for (const room of roomCandidates) {
-      if (room && typeof room === 'object') {
-        setRoomState(room);
-        break;
+    if (!hasRunBridgeSummary) {
+      const patchedExisting = patchExistingResultDOM(summary);
+      if (!patchedExisting) {
+        mountFallbackResult(summary);
       }
     }
-  }
 
-  function readLegacyDom() {
-    const score =
-      parseNumText(txt(q('#scoreValue')?.textContent)) ||
-      parseNumText(txt(q('.score-value')?.textContent)) ||
-      parseNumText(txt(q('[data-score]')?.textContent)) ||
-      STATE.score;
-
-    const miss =
-      parseNumText(txt(q('#missValue')?.textContent)) ||
-      parseNumText(txt(q('.miss-value')?.textContent)) ||
-      parseNumText(txt(q('[data-miss]')?.textContent)) ||
-      STATE.miss;
-
-    const bestStreak =
-      parseNumText(txt(q('#bestStreakValue')?.textContent)) ||
-      parseNumText(txt(q('.best-streak-value')?.textContent)) ||
-      parseNumText(txt(q('[data-best-streak]')?.textContent)) ||
-      STATE.bestStreak;
-
-    const hp =
-      parseNumText(txt(q('#hpValue')?.textContent)) ||
-      parseNumText(txt(q('.hp-value')?.textContent)) ||
-      STATE.hp;
-
-    const charge =
-      parseNumText(txt(q('#attackChargeValue')?.textContent)) ||
-      parseNumText(txt(q('#chargeValue')?.textContent)) ||
-      parseNumText(txt(q('.charge-value')?.textContent)) ||
-      STATE.attackCharge;
-
-    const guard =
-      parseNumText(txt(q('#guardChargeValue')?.textContent)) ||
-      parseNumText(txt(q('.guard-charge-value')?.textContent)) ||
-      STATE.guardCharge;
-
-    const timerText =
-      txt(q('#timeValue')?.textContent) ||
-      txt(q('.time-value')?.textContent) ||
-      '';
-
-    let timeLeftSec = STATE.timeLeftSec;
-    if (timerText.includes(':')) {
-      const parts = timerText.split(':').map(v => Number(v || 0));
-      if (parts.length === 2) timeLeftSec = (parts[0] * 60) + parts[1];
-    } else if (timerText) {
-      timeLeftSec = parseNumText(timerText, STATE.timeLeftSec);
-    }
-
-    mergeState({
-      score,
-      miss,
-      bestStreak,
-      hp,
-      attackCharge: charge,
-      attackReady: charge >= STATE.maxAttackCharge,
-      guardCharge: guard,
-      guardReady: guard >= STATE.maxGuardCharge,
-      timeLeftSec
-    });
-  }
-
-  function tickTimeFromEndsAt() {
-    const s = window.state || window.gameState || window.__BATTLE_STATE__ || {};
-    const endsAtMs = num(s.endsAtMs || s.endAtMs || 0, 0);
-    if (endsAtMs > 0 && !STATE.ended) {
-      STATE.timeLeftSec = Math.max(0, Math.ceil((endsAtMs - Date.now()) / 1000));
-    }
-  }
-
-  function bridgeLoop() {
-    try {
-      readKnownGlobals();
-      readLegacyDom();
-      tickTimeFromEndsAt();
-      renderHud();
-
-      const s = window.state || window.gameState || window.__BATTLE_STATE__ || {};
-      const roomShape = normalizeRoomShape(s.room || window.__BATTLE_ROOM__ || {});
-      const roomEnded = ['ended', 'finished'].includes((roomShape.status || '').toLowerCase());
-
-      const ended =
-        !!STATE.ended ||
-        !!s.isEnded ||
-        !!s.ended ||
-        !!s.finished ||
-        !!s.showSummary ||
-        !!s.showResult ||
-        roomEnded ||
-        (num(s.endsAtMs || s.endAtMs || 0, 0) > 0 && Date.now() > num(s.endsAtMs || s.endAtMs || 0, 0) + 300);
-
-      if (ended && !BRIDGE.resultShown) {
-        finishGame({
-          reason: s.reason || roomShape.status || 'finished',
-          final: s.final || roomShape.final || null
-        });
-      }
-
-      if (BRIDGE.resultShown) patchExistingResultDOM(buildSummary());
-    } catch (err) {
-      console.warn('[battle-safe] bridgeLoop error:', err);
-    }
-  }
-
-  function startBridge() {
-    if (BRIDGE.started) return;
-    BRIDGE.started = true;
-    bridgeLoop();
-    BRIDGE.timer = setInterval(bridgeLoop, 120);
-  }
-
-  function stopBridge() {
     if (BRIDGE.timer) {
-      clearInterval(BRIDGE.timer);
-      BRIDGE.timer = null;
+      setTimeout(() => {
+        stopBridge();
+      }, 1500);
     }
   }
 
-  function wrapEndFunction(obj, key) {
-    try {
-      if (!obj || typeof obj[key] !== 'function') return false;
-      if (obj[key].__battleWrapped) return true;
+  function syncFromGlobals() {
+    const room = readRoomFromGlobals();
+    if (room && room.meta && room.meta.roomId) {
+      STATE.roomId = normalizeRoomId(room.meta.roomId);
+    }
 
-      const original = obj[key];
-      const wrapped = function (...args) {
-        const out = original.apply(this, args);
-        try { finishGame({ reason: key, final: window.state?.final || null }); }
-        catch (err) { console.warn(`[battle-safe] wrapped end fn error for ${key}:`, err); }
-        return out;
-      };
-      wrapped.__battleWrapped = true;
-      wrapped.__battleOriginal = original;
-      obj[key] = wrapped;
-      return true;
-    } catch (err) {
-      console.warn(`[battle-safe] wrapEndFunction failed for ${key}:`, err);
-      return false;
+    const gs = W.state || W.gameState || {};
+    if (gs && (gs.finished || gs.ended || gs.isEnded || gs.showSummary)) {
+      finishGame({
+        reason: gs.reason || 'finished',
+        endedAt: nowIso()
+      });
     }
   }
 
-  function installEndHooks() {
-    if (BRIDGE.wrapped) return;
-    BRIDGE.wrapped = true;
-
-    const keys = [
-      'showBattleResult',
-      'openBattleResult',
-      'renderBattleResult',
-      'finishGame',
-      'endGame',
-      'showSummary',
-      'showResult',
-      'openResult'
-    ];
-
-    for (const key of keys) wrapEndFunction(window, key);
-  }
-
-  function installCustomEventHooks() {
-    if (window.__BATTLE_SAFE_EVENTS_BOUND__) return;
-    window.__BATTLE_SAFE_EVENTS_BOUND__ = true;
-
-    const on = (name, fn) => window.addEventListener(name, (ev) => {
-      try { fn(ev?.detail || {}); }
-      catch (err) { console.warn(`[battle-safe] custom event ${name} error:`, err); }
+  function installListeners() {
+    W.addEventListener('battle:finish', (evt) => {
+      finishGame((evt && evt.detail) || {});
     });
 
-    on('battle:update', detail => { mergeState(detail); renderHud(); });
-    on('battle:room', detail => { setRoomState(detail); });
-    on('battle:players', detail => { setPlayers(detail.players || detail); });
-    on('battle:judge', detail => { onJudge(detail); });
-    on('battle:damage', detail => { onDamage(detail); });
-    on('battle:charge', detail => { onAttackCharge(detail); });
-    on('battle:finish', detail => { finishGame(detail.summary || detail); });
-    on('hha:battle:update', detail => { mergeState(detail); renderHud(); });
-    on('hha:battle:finish', detail => { finishGame(detail.summary || detail); });
-  }
-
-  function ensureBoot() {
-    bindNodes();
-    rememberSelfIdentity();
-    installEndHooks();
-    installCustomEventHooks();
-    mergeState({
-      pid: getSelfPid(),
-      name: getSelfName(),
-      roomId: currentRoomId()
+    W.addEventListener('hha:battle:finish', (evt) => {
+      finishGame((evt && evt.detail) || {});
     });
-    renderHud();
-    startBridge();
+
+    W.addEventListener('battle:update', (evt) => {
+      mergeState((evt && evt.detail) || {});
+    });
   }
 
-  const API = {
-    setState(patch) { mergeState(patch); renderHud(); },
-    setRoomState(room) { setRoomState(room); },
-    setPlayers(players) { setPlayers(players); },
-    onJudge(judge) { onJudge(judge); },
-    onDamage(detail) { onDamage(detail); },
-    onAttackCharge(detail) { onAttackCharge(detail); },
-    finishGame(detail) { finishGame(detail); },
-    render() { render(); },
-    getState() { return getState(); }
-  };
+  function initBridge() {
+    installListeners();
 
-  window.BattleSafe = API;
-  window.__BATTLE_STATE__ = STATE;
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ensureBoot, { once: true });
-  } else {
-    ensureBoot();
+    BRIDGE.timer = setInterval(() => {
+      syncFromGlobals();
+    }, 400);
   }
+
+  W.BattleSafe = Object.assign({}, W.BattleSafe || {}, {
+    finishGame,
+    stopBridge
+  });
+
+  initBridge();
 })();
