@@ -3,22 +3,20 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-race.js
  * GoodJunk Race Controller
- * FULL PATCH v20260401-race-controller-final
+ * PATCH v20260402-race-compare-summary
  * ========================================================= */
 (function(){
   const W = window;
-
   if (W.__GJ_RACE_CONTROLLER_INSTALLED__) return;
   W.__GJ_RACE_CONTROLLER_INSTALLED__ = true;
 
   const ctx = W.__GJ_RUN_CTX__ || W.__GJ_MULTI_RUN_CTX__ || {};
   const GAME = 'goodjunk';
   const MODE = 'race';
+  const roomId = String(ctx.roomId || ctx.room || '').trim();
   const FIREBASE_WAIT_MS = 12000;
   const HEARTBEAT_MS = 2500;
   const SCORE_SYNC_MS = 700;
-
-  const roomId = String(ctx.roomId || ctx.room || '').trim();
 
   const state = {
     uid: '',
@@ -33,46 +31,23 @@
     results: {},
 
     participantIds: [],
-
-    booted: false,
     runStarted: false,
     resultSubmitted: false,
     finalSummarySent: false,
+    latestBaseSummary: null,
 
     heartbeatTimer: 0,
     scoreSyncTimer: 0,
     countdownTimer: 0,
-
-    latestBaseSummary: null,
-    offFns: [],
-    debug: []
+    offFns: []
   };
 
-  function debugPush(line){
-    state.debug.push(String(line));
-    if (state.debug.length > 40) state.debug.shift();
-    try {
-      if (W.__GJ_RACE_SUMMARY_BRIDGE__ && W.__GJ_RACE_SUMMARY_BRIDGE__.debug) {
-        W.__GJ_RACE_SUMMARY_BRIDGE__.debug(state.debug.join('\n'));
-      }
-    } catch(_) {}
-  }
+  function now(){ return Date.now(); }
+  function num(v, d=0){ v = Number(v); return Number.isFinite(v) ? v : d; }
+  function wait(ms){ return new Promise(r => setTimeout(r, ms)); }
 
   function safeDispatch(name, detail){
-    try {
-      W.dispatchEvent(new CustomEvent(name, { detail }));
-    } catch(_) {}
-  }
-
-  function now(){ return Date.now(); }
-
-  function num(v, d=0){
-    v = Number(v);
-    return Number.isFinite(v) ? v : d;
-  }
-
-  function wait(ms){
-    return new Promise(resolve => setTimeout(resolve, ms));
+    try { W.dispatchEvent(new CustomEvent(name, { detail })); } catch(_) {}
   }
 
   function getSafe(){
@@ -83,66 +58,27 @@
     const s = getSafe();
     if (s && typeof s.showLoading === 'function') s.showLoading(msg);
   }
-
   function safeShowWarn(msg){
     const s = getSafe();
     if (s && typeof s.showWarn === 'function') s.showWarn(msg);
   }
-
   function safeShowError(msg){
     const s = getSafe();
     if (s && typeof s.showError === 'function') s.showError(msg);
   }
-
   function safeClearMessage(){
     const s = getSafe();
     if (s && typeof s.clearMessage === 'function') s.clearMessage();
   }
-
   function safeSyncBridge(){
     const s = getSafe();
     if (!s) return;
-
-    try {
-      if (typeof s.setState === 'function') {
-        s.setState({
-          roomId,
-          mode: MODE,
-          status: String(state.roomState.status || 'waiting'),
-          participants: state.participantIds.slice(),
-          playerCount: Object.keys(state.players || {}).length
-        });
-      }
-    } catch(_) {}
-
-    try {
-      if (typeof s.setRoomState === 'function') {
-        s.setRoomState({
-          roomId,
-          status: String(state.roomState.status || 'waiting'),
-          startAt: num(state.roomState.startAt || state.roomState.countdownEndsAt, 0),
-          participantIds: state.participantIds.slice()
-        });
-      }
-    } catch(_) {}
-
-    try {
-      if (typeof s.setPlayers === 'function') {
-        s.setPlayers(Object.values(state.players || {}));
-      }
-    } catch(_) {}
-
-    try {
-      if (typeof s.syncPlayers === 'function') {
-        s.syncPlayers(Object.values(state.players || {}));
-      }
-    } catch(_) {}
-
     try {
       if (typeof s.syncRoom === 'function') {
         s.syncRoom({
           meta: state.meta,
           state: state.roomState,
+          match: state.match,
           players: state.players,
           results: state.results
         });
@@ -155,7 +91,6 @@
 
     return await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('firebase not ready')), timeoutMs);
-
       W.addEventListener('hha:firebase_ready', (ev) => {
         clearTimeout(timer);
         if (ev && ev.detail && ev.detail.ok) resolve(true);
@@ -168,10 +103,10 @@
     await waitForFirebaseReady();
 
     if (typeof W.HHA_ensureAnonymousAuth === 'function') {
-      const user = await W.HHA_ensureAnonymousAuth();
-      if (user && user.uid) {
-        state.uid = user.uid;
-        return user;
+      const u = await W.HHA_ensureAnonymousAuth();
+      if (u && u.uid) {
+        state.uid = u.uid;
+        return u;
       }
     }
 
@@ -180,7 +115,6 @@
     }
 
     const auth = W.firebase.auth();
-
     if (auth.currentUser && auth.currentUser.uid) {
       state.uid = auth.currentUser.uid;
       return auth.currentUser;
@@ -243,22 +177,18 @@
         const snap = await db.ref(`hha-battle/${GAME}/${kind}/${roomId}`).once('value');
         if (snap.exists()) {
           state.rootKind = kind;
-          debugPush(`root kind resolved: ${kind}`);
           return kind;
         }
       } catch(_) {}
     }
 
     state.rootKind = 'raceRooms';
-    debugPush('root kind fallback: raceRooms');
     return state.rootKind;
   }
 
   function attachRefs(){
     const db = getDb();
-    const rootPath = `hha-battle/${GAME}/${state.rootKind}/${roomId}`;
-    const root = db.ref(rootPath);
-
+    const root = db.ref(`hha-battle/${GAME}/${state.rootKind}/${roomId}`);
     state.refs = {
       root,
       meta: root.child('meta'),
@@ -269,11 +199,6 @@
       myPlayer: root.child(`players/${state.uid}`),
       myResult: root.child(`results/${state.uid}`)
     };
-  }
-
-  function getCoreScore(){
-    try { return num(typeof W.__GJ_GET_SCORE__ === 'function' ? W.__GJ_GET_SCORE__() : 0, 0); }
-    catch(_) { return 0; }
   }
 
   function getMetricsFromCore(){
@@ -303,17 +228,10 @@
 
   function getParticipantIds(){
     const fromState = Array.isArray(state.roomState && state.roomState.participantIds)
-      ? state.roomState.participantIds
-      : [];
+      ? state.roomState.participantIds : [];
     const fromMatch = Array.isArray(state.match && state.match.participantIds)
-      ? state.match.participantIds
-      : [];
-
-    const ids = (fromState.length ? fromState : fromMatch)
-      .map(x => String(x || ''))
-      .filter(Boolean);
-
-    return ids;
+      ? state.match.participantIds : [];
+    return (fromState.length ? fromState : fromMatch).map(x => String(x || '')).filter(Boolean);
   }
 
   function amIParticipant(){
@@ -322,15 +240,10 @@
     return ids.includes(state.uid);
   }
 
-  function activePlayers(){
-    return Object.values(state.players || {}).filter(Boolean);
-  }
-
   function startCoreNow(){
     if (state.runStarted) return;
     if (!amIParticipant()) {
       safeShowWarn('รอบนี้คุณไม่ได้อยู่ใน participant ของห้องนี้');
-      debugPush('blocked start: not participant');
       return;
     }
 
@@ -363,7 +276,6 @@
     } catch(_) {}
 
     safeClearMessage();
-    debugPush('core started');
   }
 
   function startCountdownLoop(targetAt){
@@ -396,9 +308,7 @@
     }
 
     if (status === 'waiting') {
-      if (!state.runStarted) {
-        safeShowLoading('กำลังรอ host เริ่มเกม');
-      }
+      if (!state.runStarted) safeShowLoading('กำลังรอ host เริ่มเกม');
       return;
     }
 
@@ -407,11 +317,8 @@
         safeShowWarn('รอบนี้ไม่ได้อยู่ใน participant');
         return;
       }
-      if (targetAt > 0) {
-        startCountdownLoop(targetAt);
-      } else {
-        safeShowLoading('กำลังเตรียมเริ่มเกม');
-      }
+      if (targetAt > 0) startCountdownLoop(targetAt);
+      else safeShowLoading('กำลังเตรียมเริ่มเกม');
       return;
     }
 
@@ -420,11 +327,8 @@
         safeShowWarn('รอบนี้ไม่ได้อยู่ใน participant');
         return;
       }
-      if (targetAt > now()) {
-        startCountdownLoop(targetAt);
-      } else {
-        startCoreNow();
-      }
+      if (targetAt > now()) startCountdownLoop(targetAt);
+      else startCoreNow();
       return;
     }
 
@@ -458,7 +362,7 @@
       state.results = snap.val() || {};
       safeSyncBridge();
 
-      if (ctx.host) {
+      if (ctx.host === '1' || ctx.host === 1 || ctx.role === 'host') {
         await maybeCloseRace();
       }
 
@@ -470,7 +374,6 @@
     const onError = (err) => {
       console.error('[race-controller] subscribe failed', err);
       safeShowError(`เชื่อมห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
-      debugPush(`subscribe error: ${String(err && err.message ? err.message : err)}`);
     };
 
     state.refs.meta.on('value', onMeta, onError);
@@ -553,7 +456,7 @@
     const payload = {
       pid: state.uid,
       nick: String(ctx.name || ctx.nick || 'Player'),
-      roomId: roomId,
+      roomId,
       reason: String(base.reason || base.finishReason || 'finish'),
       score: num(base.score, metrics.score),
       shots: num(base.shots, metrics.shots),
@@ -574,7 +477,6 @@
       await state.refs.myResult.set(payload);
     } catch (err) {
       console.error('[race-controller] write result failed', err);
-      debugPush(`result write failed: ${String(err && err.message ? err.message : err)}`);
     }
 
     try {
@@ -590,8 +492,7 @@
       });
     } catch(_) {}
 
-    safeShowLoading('ส่งผลของคุณแล้ว กำลังรอผลครบ');
-    debugPush('my result submitted');
+    safeShowLoading('ส่งผลของคุณแล้ว กำลังรออีกคน');
     maybeEmitFinalSummary(false);
   }
 
@@ -610,6 +511,9 @@
         score: num(r && r.score, num(p && (p.finalScore ?? p.score), 0)),
         miss: num(r && r.miss, num(p && p.miss, 0)),
         duration: num(r && r.duration, 999999),
+        goodHit: num(r && r.goodHit, 0),
+        junkHit: num(r && r.junkHit, 0),
+        bestStreak: num(r && r.bestStreak, 0),
         final: !!(r && r.final)
       };
     }).filter(Boolean);
@@ -637,20 +541,32 @@
       return;
     }
 
-    const me = rows.find(r => r.pid === state.uid) || rows[0];
-    const rank = Math.max(1, rows.findIndex(r => r.pid === state.uid) + 1);
+    const myIndex = rows.findIndex(r => r.pid === state.uid);
+    const rank = myIndex >= 0 ? myIndex + 1 : rows.length;
+    const me = myIndex >= 0 ? rows[myIndex] : rows[0];
+    const opponent = rows.find(r => r.pid !== state.uid) || null;
+
     const finalSummary = Object.assign({}, state.latestBaseSummary, {
       rank,
       place: rank,
       players: rows.length,
       result: rank === 1 ? 'ชนะรอบนี้' : `อันดับ ${rank}`,
-      score: num(me.score, state.latestBaseSummary.score),
-      miss: num(state.latestBaseSummary.miss, 0),
+      score: num(me && me.score, state.latestBaseSummary.score),
+      miss: num(me && me.miss, state.latestBaseSummary.miss),
+      goodHit: num(me && me.goodHit, state.latestBaseSummary.goodHit),
+      junkHit: num(me && me.junkHit, state.latestBaseSummary.junkHit),
+      bestStreak: num(me && me.bestStreak, state.latestBaseSummary.bestStreak),
       controllerFinal: true,
-      standings: rows
+      standings: rows,
+      compare: {
+        me: me || null,
+        opponent: opponent || null,
+        deltaScore: opponent ? num((me && me.score), 0) - num(opponent.score, 0) : 0
+      }
     });
 
     state.finalSummarySent = true;
+
     safeDispatch('gj:race-summary', finalSummary);
     safeDispatch('gj:summary', finalSummary);
     safeDispatch('hha:summary', finalSummary);
@@ -663,12 +579,9 @@
     } catch(_) {}
 
     safeClearMessage();
-    debugPush(`final summary emitted rank=${rank}/${rows.length}`);
   }
 
   async function maybeCloseRace(){
-    if (!ctx.host) return;
-
     const ids = state.participantIds.length ? state.participantIds.slice() : [];
     if (!ids.length) return;
 
@@ -702,11 +615,7 @@
   }
 
   function bindSummaryEvents(){
-    [
-      'gj:race-summary',
-      'gj:summary',
-      'hha:summary'
-    ].forEach((name) => {
+    ['gj:race-summary', 'gj:summary', 'hha:summary'].forEach((name) => {
       W.addEventListener(name, handleSummaryEvent);
       state.offFns.push(() => W.removeEventListener(name, handleSummaryEvent));
     });
@@ -720,7 +629,6 @@
 
     try {
       safeShowLoading('กำลังเชื่อมห้อง Race…');
-      debugPush(`boot start room=${roomId}`);
 
       await ensureAuth();
       await resolveRootKind();
@@ -733,20 +641,15 @@
       startScoreSync();
 
       if (!ctx.wait && !ctx.startAt) {
-        // quick play fallback
         safeShowLoading('กำลังเริ่มเกม…');
         await wait(250);
         startCoreNow();
       } else {
         handleRoomState();
       }
-
-      state.booted = true;
-      debugPush('boot ok');
     } catch (err) {
       console.error('[race-controller] boot failed', err);
       safeShowError(`เริ่ม race controller ไม่สำเร็จ: ${err && err.message ? err.message : err}`);
-      debugPush(`boot failed: ${String(err && err.message ? err.message : err)}`);
     }
   }
 
@@ -758,6 +661,5 @@
     }
   });
 
-  debugPush('controller installed');
   boot();
 })();
