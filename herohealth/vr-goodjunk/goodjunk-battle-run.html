@@ -20,8 +20,6 @@
       --blue2:#58b7f5;
       --yellow:#ffd45c;
       --orange:#ffb547;
-      --violet:#b8a7ff;
-      --violet2:#8b5cf6;
       --shadow:0 18px 40px rgba(86,155,194,.16);
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
@@ -41,554 +39,183 @@
       overflow:hidden;
     }
     body{ min-height:100dvh; }
-
-    #app{
-      position:relative;
-      width:100vw;
-      height:100dvh;
-      overflow:hidden;
-      isolation:isolate;
-    }
-    #gameMount{
-      position:absolute;
-      inset:0;
-      z-index:1;
-      overflow:hidden;
-    }
+    #app{ position:relative; width:100vw; height:100dvh; overflow:hidden; isolation:isolate; }
+    #gameMount{ position:absolute; inset:0; z-index:1; overflow:hidden; }
 
     .shell{
-      position:absolute;
-      inset:0;
-      display:grid;
-      grid-template-rows:auto 1fr auto;
-      gap:12px;
+      position:absolute; inset:0; display:grid; grid-template-rows:auto 1fr auto; gap:12px;
       padding:calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
-      pointer-events:none;
-      z-index:2;
+      pointer-events:none; z-index:2;
     }
-    .top{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:flex-start;
-    }
+    .top{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start; }
     .hero-card{
       max-width:min(780px,100%);
       background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:28px;
-      box-shadow:var(--shadow);
-      padding:18px 16px;
-      position:relative;
-      overflow:hidden;
+      border:3px solid var(--line); border-radius:28px; box-shadow:var(--shadow);
+      padding:18px 16px; position:relative; overflow:hidden;
     }
     .hero-card::before{
-      content:"";
-      position:absolute;
-      left:-36px; top:-36px;
-      width:140px; height:140px;
-      border-radius:999px;
-      background:rgba(255,181,71,.18);
-      filter:blur(8px);
+      content:""; position:absolute; left:-36px; top:-36px; width:140px; height:140px;
+      border-radius:999px; background:rgba(255,181,71,.18); filter:blur(8px);
     }
     .hero-card::after{
-      content:"";
-      position:absolute;
-      right:-26px; bottom:-26px;
-      width:120px; height:120px;
-      border-radius:999px;
-      background:rgba(255,212,92,.24);
-      filter:blur(8px);
+      content:""; position:absolute; right:-26px; bottom:-26px; width:120px; height:120px;
+      border-radius:999px; background:rgba(255,212,92,.24); filter:blur(8px);
     }
     .kicker{
-      position:relative;
-      z-index:1;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:#fff4dd;
-      border:2px solid var(--line);
-      color:#b7791f;
-      font-size:13px;
-      font-weight:1000;
-      margin-bottom:10px;
+      position:relative; z-index:1; display:inline-flex; align-items:center; gap:8px;
+      padding:8px 14px; border-radius:999px; background:#fff4dd; border:2px solid var(--line);
+      color:#b7791f; font-size:13px; font-weight:1000; margin-bottom:10px;
     }
     h1{
-      position:relative;
-      z-index:1;
-      margin:0 0 6px;
-      font-size:clamp(28px,5vw,42px);
-      line-height:1.05;
-      font-weight:1000;
-      color:#b7791f;
-      text-shadow:0 2px 0 #fff;
+      position:relative; z-index:1; margin:0 0 6px; font-size:clamp(28px,5vw,42px);
+      line-height:1.05; font-weight:1000; color:#b7791f; text-shadow:0 2px 0 #fff;
     }
     .sub{
-      position:relative;
-      z-index:1;
-      margin:0;
-      color:var(--muted);
-      line-height:1.7;
-      font-size:14px;
-      font-weight:900;
-      max-width:720px;
+      position:relative; z-index:1; margin:0; color:var(--muted);
+      line-height:1.7; font-size:14px; font-weight:900; max-width:720px;
     }
-
-    .side{
-      display:grid;
-      gap:8px;
-      align-content:start;
-    }
+    .side{ display:grid; gap:8px; align-content:start; }
     .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 14px;
-      border-radius:999px;
-      border:2px solid var(--line);
-      background:#fff;
-      color:#6c6a61;
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-      width:max-content;
-      max-width:100%;
+      display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:999px;
+      border:2px solid var(--line); background:#fff; color:#6c6a61; font-size:12px; font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.10); width:max-content; max-width:100%;
     }
 
     .status-card{
-      align-self:end;
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:24px;
-      box-shadow:var(--shadow);
-      padding:12px 14px;
-      color:var(--muted);
-      font-size:13px;
-      font-weight:900;
-      line-height:1.6;
-      pointer-events:auto;
-      max-width:min(920px,100%);
+      align-self:end; background:linear-gradient(180deg,#fffef9,#f7fff4); border:3px solid var(--line);
+      border-radius:24px; box-shadow:var(--shadow); padding:12px 14px; color:var(--muted);
+      font-size:13px; font-weight:900; line-height:1.6; pointer-events:auto; max-width:min(920px,100%);
     }
-    .status-head{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-    }
+    .status-head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
     .status-badge{
-      width:54px;
-      height:54px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      background:#fff;
-      border:2px solid var(--line);
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-      font-size:28px;
-      flex:0 0 auto;
+      width:54px; height:54px; border-radius:18px; display:grid; place-items:center;
+      background:#fff; border:2px solid var(--line); box-shadow:0 8px 18px rgba(86,155,194,.10);
+      font-size:28px; flex:0 0 auto;
     }
-    .status-headtext{
-      min-width:220px;
-      flex:1 1 280px;
-    }
-    .status-title{
-      color:#b7791f;
-      font-size:14px;
-      font-weight:1000;
-      margin-bottom:2px;
-    }
-    .status-sub{
-      margin-top:0;
-      color:#8b887f;
-      font-size:12px;
-      line-height:1.55;
-      font-weight:900;
-    }
-    .status-minirow{
-      margin-top:10px;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
+    .status-headtext{ min-width:220px; flex:1 1 280px; }
+    .status-title{ color:#b7791f; font-size:14px; font-weight:1000; margin-bottom:2px; }
+    .status-sub{ margin-top:0; color:#8b887f; font-size:12px; line-height:1.55; font-weight:900; }
+    .status-minirow{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
     .status-mini{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#6d6a62;
-      font-size:12px;
-      font-weight:1000;
+      display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px;
+      background:#fff; border:2px solid var(--line); color:#6d6a62; font-size:12px; font-weight:1000;
       box-shadow:0 8px 18px rgba(86,155,194,.08);
     }
     .status-steps{
-      margin-top:10px;
-      display:grid;
-      gap:6px;
-      padding:12px;
-      border-radius:18px;
-      background:rgba(255,255,255,.65);
-      border:2px dashed var(--line);
-      color:#6f6c65;
-      font-size:12px;
-      line-height:1.6;
-      font-weight:1000;
+      margin-top:10px; display:grid; gap:6px; padding:12px; border-radius:18px;
+      background:rgba(255,255,255,.65); border:2px dashed var(--line); color:#6f6c65;
+      font-size:12px; line-height:1.6; font-weight:1000;
     }
-    .status-step{
-      display:flex;
-      gap:8px;
-      align-items:flex-start;
-    }
+    .status-step{ display:flex; gap:8px; align-items:flex-start; }
     .status-tip{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:16px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#7a776f;
-      font-size:12px;
-      line-height:1.6;
-      font-weight:1000;
+      margin-top:10px; padding:10px 12px; border-radius:16px; background:#fff; border:2px solid var(--line);
+      color:#7a776f; font-size:12px; line-height:1.6; font-weight:1000;
     }
     .status-tip strong{ color:#4d4a42; }
-    .status-actions{
-      margin-top:10px;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      pointer-events:auto;
-    }
+    .status-actions{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; pointer-events:auto; }
     .status-btn{
-      appearance:none;
-      border:0;
-      cursor:pointer;
-      border-radius:16px;
-      padding:10px 14px;
-      font-size:13px;
-      font-weight:1000;
-      transition:.12s ease;
-      box-shadow:0 8px 18px rgba(86,155,194,.12);
+      appearance:none; border:0; cursor:pointer; border-radius:16px; padding:10px 14px;
+      font-size:13px; font-weight:1000; transition:.12s ease; box-shadow:0 8px 18px rgba(86,155,194,.12);
     }
     .status-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
     .status-btn:active{ transform:translateY(0); }
     .status-btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
     .status-btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
     .status-card.is-ready{ animation:status-ready-pop .22s ease; }
-    @keyframes status-ready-pop{
-      0%{ transform:scale(.985); }
-      100%{ transform:scale(1); }
-    }
-
+    @keyframes status-ready-pop{ 0%{ transform:scale(.985); } 100%{ transform:scale(1); } }
     .debug{
-      margin-top:8px;
-      padding-top:8px;
-      border-top:1px dashed rgba(191,227,242,.95);
-      white-space:pre-wrap;
-      word-break:break-word;
-      font-size:11px;
-      color:#8a8a82;
-      max-height:140px;
-      overflow:auto;
+      margin-top:8px; padding-top:8px; border-top:1px dashed rgba(191,227,242,.95);
+      white-space:pre-wrap; word-break:break-word; font-size:11px; color:#8a8a82; max-height:140px; overflow:auto;
     }
-    .error{
-      color:#b45309;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
+    .error{ color:#b45309; white-space:pre-wrap; word-break:break-word; }
 
     .summary-overlay{
-      position:absolute;
-      inset:0;
-      z-index:30;
-      display:grid;
-      place-items:center;
+      position:absolute; inset:0; z-index:30; display:grid; place-items:center;
       padding:calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-      background:rgba(255,244,221,.72);
-      backdrop-filter:blur(10px);
-      pointer-events:auto;
+      background:rgba(255,244,221,.72); backdrop-filter:blur(10px); pointer-events:auto;
     }
     .summary-overlay[hidden]{ display:none !important; }
-
     .summary-card{
-      width:min(980px,100%);
-      max-height:88dvh;
-      overflow:auto;
-      background:linear-gradient(180deg,#08112e,#06102a);
-      border:3px solid rgba(134,177,255,.18);
-      border-radius:30px;
-      box-shadow:0 28px 70px rgba(0,0,0,.28);
-      padding:18px;
-      position:relative;
-      color:#f8fbff;
-    }
-
-    .summary-topbar{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:12px;
-      margin-bottom:12px;
+      width:min(940px,100%); max-height:88dvh; overflow:auto; background:linear-gradient(180deg,#fffef8,#f7fff4);
+      border:3px solid var(--line); border-radius:30px; box-shadow:0 28px 70px rgba(86,155,194,.24);
+      padding:18px; position:relative;
     }
     .summary-kicker{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(191,227,242,.18);
-      color:#ffd56a;
-      font-size:13px;
-      font-weight:1000;
-      margin-bottom:10px;
+      display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:999px;
+      background:#fff4dd; border:2px solid var(--line); color:#b7791f; font-size:13px; font-weight:1000; margin-bottom:10px;
     }
-    .summary-roomline{
-      color:#b4c0d6;
-      font-size:14px;
-      font-weight:900;
-      line-height:1.5;
-    }
-    .summary-close{
-      appearance:none;
-      border:1px solid rgba(191,227,242,.18);
-      background:rgba(255,255,255,.04);
-      color:#f4f7fb;
-      border-radius:18px;
-      min-width:52px;
-      min-height:52px;
-      font-size:24px;
-      cursor:pointer;
-    }
-
     .summary-hero{
-      display:grid;
-      grid-template-columns:96px 1fr;
-      gap:14px;
-      align-items:center;
-      margin-bottom:14px;
-      padding:14px;
-      border-radius:24px;
-      background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.03));
-      border:1px solid rgba(191,227,242,.14);
+      display:grid; grid-template-columns:96px 1fr; gap:14px; align-items:center;
+      margin-bottom:14px; padding:14px; border-radius:24px; background:#fff;
+      border:2px solid #f0ddbc; box-shadow:0 10px 24px rgba(86,155,194,.10);
     }
     .summary-badge{
-      width:96px;
-      height:96px;
-      border-radius:28px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#fff4dd,#fffdf6);
-      border:3px solid #f0ddbc;
-      font-size:42px;
-      color:#4d4a42;
-      box-shadow:0 10px 20px rgba(0,0,0,.10);
+      width:96px; height:96px; border-radius:28px; display:grid; place-items:center;
+      background:linear-gradient(180deg,#fff4dd,#fffdf6); border:3px solid #f0ddbc; font-size:42px;
+      box-shadow:0 10px 20px rgba(86,155,194,.10);
     }
-    .summary-hero-title{
-      margin:0 0 6px;
-      font-size:clamp(24px,4vw,36px);
-      line-height:1.08;
-      font-weight:1000;
-      color:#ffffff;
+    .summary-hero-title,.summary-title{ color:#b7791f; text-shadow:0 2px 0 #fff; font-weight:1000; }
+    .summary-hero-title{ margin:0 0 6px; font-size:clamp(24px,4vw,36px); line-height:1.08; }
+    .summary-hero-sub,.summary-sub{ color:#6d6b63; font-size:14px; line-height:1.7; font-weight:900; }
+    .summary-hero-sub{ margin:0; }
+    .summary-title{ margin:0 0 6px; text-align:center; font-size:clamp(28px,5vw,42px); line-height:1.05; }
+    .summary-sub{ margin:0; text-align:center; }
+    .summary-stars{ display:flex; justify-content:center; gap:10px; margin:12px 0 14px; flex-wrap:wrap; }
+    .summary-star{ font-size:48px; line-height:1; filter:drop-shadow(0 6px 12px rgba(0,0,0,.12)); }
+    .summary-star.off{ opacity:.22; filter:none; }
+    .summary-scorecard{
+      margin:0 auto 14px; width:min(480px,100%); border-radius:24px; background:#fff;
+      border:3px solid #f0ddbc; box-shadow:0 10px 22px rgba(86,155,194,.10); padding:16px 14px; text-align:center;
     }
-    .summary-hero-sub{
-      margin:0;
-      color:#c8d6ea;
-      font-size:14px;
-      line-height:1.7;
-      font-weight:900;
+    .summary-scorelabel{ color:#d09e52; font-size:15px; font-weight:1000; margin-bottom:4px; }
+    .summary-scorevalue{ color:#4d4a42; font-size:clamp(42px,9vw,70px); line-height:1; font-weight:1000; }
+    .summary-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:0; }
+    .summary-item{
+      background:#fff; border:2px solid #f0ddbc; border-radius:22px; box-shadow:0 8px 18px rgba(86,155,194,.08); padding:14px;
     }
-
-    .summary-main{
-      display:grid;
-      grid-template-columns:1.15fr .95fr;
-      gap:14px;
-      margin-bottom:14px;
-    }
-    .summary-panel{
-      border-radius:24px;
-      background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
-      border:1px solid rgba(191,227,242,.14);
-      padding:16px;
-    }
-    .summary-panel-title{
-      color:#eaf2ff;
-      font-size:13px;
-      font-weight:1000;
-      margin-bottom:10px;
-      letter-spacing:.02em;
-    }
-    .summary-bigscore{
-      font-size:72px;
-      line-height:1;
-      font-weight:1000;
-      color:#ffffff;
-      margin-bottom:12px;
-    }
-    .summary-chip-rank{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 16px;
-      border-radius:20px;
-      border:1px solid rgba(245,158,11,.28);
-      background:rgba(245,158,11,.14);
-      color:#ffd56a;
-      font-size:18px;
-      font-weight:1000;
-      margin-bottom:12px;
-    }
-    .summary-side-lines{
-      display:grid;
-      gap:10px;
-      color:#d6e3f8;
-      font-size:14px;
-      font-weight:900;
-    }
-
-    .summary-mini-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-    .summary-mini-card{
-      border-radius:18px;
-      border:1px solid rgba(191,227,242,.12);
-      background:rgba(2,8,28,.42);
-      padding:10px 12px;
-      min-width:0;
-    }
-    .summary-mini-label{
-      color:#9db1cf;
-      font-size:12px;
-      font-weight:1000;
-      margin-bottom:6px;
-      line-height:1.2;
-      white-space:normal;
-      word-break:break-word;
-    }
-    .summary-mini-value{
-      color:#ffffff;
-      font-size:20px;
-      line-height:1.1;
-      font-weight:1000;
-      white-space:normal;
-      word-break:break-word;
-    }
-
-    .summary-table-wrap{
-      border-radius:24px;
-      background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
-      border:1px solid rgba(191,227,242,.14);
-      padding:14px;
-      margin-bottom:14px;
-    }
-    .summary-table-title{
-      color:#eaf2ff;
-      font-size:15px;
-      font-weight:1000;
-      margin-bottom:10px;
-    }
-    .summary-playerlist{
-      display:grid;
-      gap:10px;
-      max-height:34dvh;
-      overflow:auto;
-      padding-right:2px;
-    }
-    .summary-playercard{
-      border-radius:18px;
-      border:1px solid rgba(191,227,242,.12);
-      background:rgba(2,8,28,.42);
-      padding:12px 14px;
-    }
-    .summary-playercard.me{
-      outline:1px solid rgba(245,158,11,.34);
-      background:rgba(30,41,59,.78);
-    }
-    .summary-playername{
-      font-size:18px;
-      font-weight:1000;
-      color:#ffffff;
-      line-height:1.15;
-    }
-    .summary-playerpid{
-      margin-top:4px;
-      color:#a8b8d3;
-      font-size:12px;
-      font-weight:900;
-      word-break:break-all;
-    }
-    .summary-playerstate{
-      margin-top:6px;
-      font-size:12px;
-      font-weight:1000;
-    }
-    .summary-playerstate.alive{ color:#86efac; }
-    .summary-playerstate.dead{ color:#fca5a5; }
-    .summary-playerme{
-      margin-top:6px;
-      color:#ffd56a;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .summary-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
+    .summary-label{ color:#d09e52; font-size:12px; font-weight:1000; margin-bottom:6px; }
+    .summary-value{ color:#4d4a42; font-size:clamp(20px,3.5vw,32px); font-weight:1000; line-height:1.18; }
+    .summary-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
     .btn{
-      appearance:none;
-      border:0;
-      cursor:pointer;
-      border-radius:18px;
-      padding:13px 18px;
-      font-weight:1000;
-      font-size:15px;
-      transition:.12s ease;
-      box-shadow:0 10px 20px rgba(0,0,0,.14);
+      appearance:none; border:0; cursor:pointer; border-radius:18px; padding:13px 18px;
+      font-weight:1000; font-size:15px; transition:.12s ease; box-shadow:0 10px 20px rgba(86,155,194,.14);
     }
     .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
     .btn:active{ transform:translateY(0); }
     .btn-primary{ background:linear-gradient(180deg,var(--green),var(--green2)); color:#fffef9; }
     .btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
-    .btn-guard{ background:linear-gradient(180deg,var(--violet),var(--violet2)); color:#fffef9; }
-    .btn-ghost{ background:rgba(255,255,255,.04); color:#eef4ff; border:1px solid rgba(191,227,242,.18); }
-
+    .btn-warn{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#6d4e00; }
+    .btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
     .summary-debug{
-      margin-top:14px;
-      padding-top:10px;
-      border-top:1px dashed rgba(191,227,242,.16);
-      color:#9fb0ca;
-      font-size:11px;
-      line-height:1.6;
-      font-weight:900;
-      white-space:pre-wrap;
-      word-break:break-word;
-      max-height:180px;
-      overflow:auto;
+      margin-top:14px; padding-top:10px; border-top:1px dashed #f0ddbc; color:#8a887f;
+      font-size:11px; line-height:1.6; font-weight:900; white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto;
     }
 
-    @media (max-width:900px){
-      .summary-main{ grid-template-columns:1fr; }
+    #app.live-play .shell{
+      padding:0 !important;
+      pointer-events:none;
     }
+    #app.live-play .top{
+      display:none !important;
+    }
+    #app.live-play .status-card{
+      display:none !important;
+    }
+    #app.live-play .shell > div:nth-child(2){
+      display:none !important;
+    }
+    #app.live-play #gameMount{
+      z-index:10;
+    }
+
     @media (max-width:780px){
       .top{ align-items:stretch; }
       .side{ width:100%; }
       .pill{ width:100%; justify-content:center; }
+      .summary-grid{ grid-template-columns:1fr; }
       .summary-actions .btn,
       .status-actions .status-btn{ flex:1 1 100%; }
-    }
-    @media (max-width:640px){
-      .summary-hero{ grid-template-columns:1fr; }
-      .summary-mini-grid{ grid-template-columns:1fr 1fr; }
-      .summary-bigscore{ font-size:58px; }
     }
   </style>
 </head>
@@ -602,7 +229,7 @@
           <div class="kicker">⚔️ GOODJUNK BATTLE</div>
           <h1>Food Battle!</h1>
           <p class="sub">
-            แตะเก็บอาหารดีให้ไว ระวัง junk ใช้ ATTACK ตอนชาร์จเต็ม และใช้ GUARD กันจังหวะสวนจากคู่แข่ง
+            แตะเก็บอาหารดีให้ไว ระวัง junk และพยายามทำคะแนนให้มากกว่าคู่แข่งในรอบนี้
           </p>
         </div>
 
@@ -652,13 +279,7 @@
 
     <div class="summary-overlay" id="summaryOverlay" hidden>
       <div class="summary-card">
-        <div class="summary-topbar">
-          <div>
-            <div class="summary-kicker">⚔️ GOODJUNK BATTLE SUMMARY</div>
-            <div class="summary-roomline" id="summaryRoomLine">ROOM -</div>
-          </div>
-          <button class="summary-close" id="btnSummaryClose" type="button">✕</button>
-        </div>
+        <div class="summary-kicker">⚔️ GOODJUNK BATTLE SUMMARY</div>
 
         <div class="summary-hero">
           <div class="summary-badge" id="summaryBadge">⚔️</div>
@@ -668,48 +289,23 @@
           </div>
         </div>
 
-        <div class="summary-main">
-          <div class="summary-panel">
-            <div class="summary-panel-title">MY BATTLE STATUS</div>
-            <div class="summary-bigscore" id="summaryScoreValue">0</div>
+        <h2 class="summary-title" id="summaryTitle">Great Job!</h2>
+        <p class="summary-sub" id="summarySub">จบรอบแล้ว มาดูผลการปะทะกัน</p>
 
-            <div class="summary-mini-grid">
-              <div class="summary-mini-card">
-                <div class="summary-mini-label">HP</div>
-                <div class="summary-mini-value" id="sumHp">0/100</div>
-              </div>
-              <div class="summary-mini-card">
-                <div class="summary-mini-label">ATTACKS</div>
-                <div class="summary-mini-value" id="sumAttacks">0</div>
-              </div>
-              <div class="summary-mini-card">
-                <div class="summary-mini-label">GUARDS</div>
-                <div class="summary-mini-value" id="sumGuards">0</div>
-              </div>
-            </div>
-          </div>
+        <div class="summary-stars" id="summaryStars"></div>
 
-          <div class="summary-panel">
-            <div class="summary-chip-rank" id="summaryRankChip">อันดับ ?</div>
-            <div class="summary-side-lines">
-              <div id="sumPhaseLine">Phase B</div>
-              <div id="sumCritical">Critical 0</div>
-              <div id="sumPerfectGuard">Perfect Guard 0</div>
-              <div id="sumBlocked">Blocked 0</div>
-            </div>
-          </div>
+        <div class="summary-scorecard">
+          <div class="summary-scorelabel">Score</div>
+          <div class="summary-scorevalue" id="summaryScoreValue">0</div>
         </div>
 
-        <div class="summary-table-wrap">
-          <div class="summary-table-title">ผู้เล่น</div>
-          <div class="summary-playerlist" id="summaryPlayerList"></div>
-        </div>
+        <div class="summary-grid" id="summaryGrid"></div>
 
         <div class="summary-actions">
-          <button class="btn btn-primary" id="btnReplay" type="button">🔁 เล่นใหม่</button>
-          <button class="btn btn-copy" id="btnCopyRoom" type="button">📋 คัดลอกห้อง</button>
-          <button class="btn btn-guard" id="btnExport" type="button">⬇️ Export JSON</button>
-          <button class="btn btn-ghost" id="btnBackHub" type="button">🏠 กลับ HUB</button>
+          <button class="btn btn-primary" id="btnReplay" type="button">เล่นใหม่</button>
+          <button class="btn btn-copy" id="btnCopyRoom" type="button">คัดลอกห้อง</button>
+          <button class="btn btn-warn" id="btnExport" type="button">Export JSON</button>
+          <button class="btn btn-ghost" id="btnBackHub" type="button">กลับ HUB</button>
         </div>
 
         <div class="summary-debug" id="summaryDebug"></div>
@@ -726,8 +322,8 @@
       const MODE = 'battle';
       const MODE_LABEL = 'Battle';
 
-      const SAFE_LAYER_SRC = './goodjunk.safe.battle.js?v=20260330-battle-safe-r3';
-      const ENGINE_SRC = './goodjunk-battle.safe.js?v=20260330-battle-engine-r3';
+      const SAFE_LAYER_SRC = './goodjunk.safe.battle.js?v=20260402-GOODJUNK-BATTLE-SAFE-RUN';
+      const ENGINE_SRC = './goodjunk-battle.safe.js?v=20260402-GOODJUNK-BATTLE-ENGINE-RUN';
 
       function qs(key, fb=''){ return q.get(key) ?? fb; }
       function clean(v){ return String(v || '').trim(); }
@@ -746,11 +342,11 @@
       }
       function safeJson(v){ try{return JSON.stringify(v,null,2);}catch{return '{}';} }
       function saveText(name,text,type='application/json'){
-        const blob = new Blob([text],{type});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
+        const blob=new Blob([text],{type});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');
+        a.href=url;
+        a.download=name;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -770,26 +366,16 @@
           const full = new URL(src, location.href).toString();
           const found = Array.from(document.scripts).find(s => s.src === full);
           if (found) {
-            if (found.dataset.loaded === '1') return resolve(full);
-            found.addEventListener('load', () => resolve(full), { once:true });
-            found.addEventListener('error', () => reject(new Error('โหลดไม่สำเร็จ: ' + src)), { once:true });
+            resolve(full);
             return;
           }
           const s = document.createElement('script');
           s.src = full;
           s.async = true;
-          s.onload = () => {
-            s.dataset.loaded = '1';
-            resolve(full);
-          };
+          s.onload = () => resolve(full);
           s.onerror = () => reject(new Error('โหลดไม่สำเร็จ: ' + src));
           document.body.appendChild(s);
         });
-      }
-      function buildReplayUrl(){
-        const url = new URL(location.href);
-        url.searchParams.set('seed', String(Date.now()));
-        return url.toString();
       }
 
       const roomId = cleanRoom(qs('roomId') || qs('room') || '');
@@ -805,7 +391,7 @@
         name: playerName,
         nick: playerName,
         studyId: qs('studyId',''),
-        roomId: roomId,
+        roomId,
         room: roomId,
         role: qs('role','player'),
         mode: MODE,
@@ -824,7 +410,7 @@
       window.__GJ_MULTI_RUN_CTX__ = runCtx;
       window.RUN_CTX = Object.assign({}, window.RUN_CTX || {}, runCtx);
       window.HHA_BATTLE_BOOT = Object.assign({}, runCtx, {
-        roomId: roomId,
+        roomId,
         room: roomId,
         pid: playerPid,
         uid: queryUid,
@@ -923,6 +509,14 @@
         setTimeout(() => { card.style.display = 'none'; }, 1200);
       }
 
+      function enterLivePlay(){
+        $('app')?.classList.add('live-play');
+      }
+
+      function exitLivePlay(){
+        $('app')?.classList.remove('live-play');
+      }
+
       function buildHeroIdentityPayload(){
         return {
           heroName: heroMeta.name,
@@ -951,20 +545,13 @@
           : (detail || {});
 
         const rank = src.rank ?? src.place ?? src.position ?? src.playerRank ?? src.finalRank ?? '';
-        const score = src.score ?? src.totalScore ?? src.playerScore ?? src.myScore ?? 0;
+        const score = src.score ?? src.totalScore ?? src.playerScore ?? src.myScore ?? '';
         const opponentScore = src.opponentScore ?? src.enemyScore ?? src.otherScore ?? '';
-        const miss = src.miss ?? src.misses ?? src.totalMiss ?? 0;
-        const streak = src.bestStreak ?? src.streak ?? src.comboMax ?? 0;
+        const miss = src.miss ?? src.misses ?? src.totalMiss ?? '';
+        const streak = src.bestStreak ?? src.streak ?? src.comboMax ?? '';
         const players = src.players ?? src.playerCount ?? src.totalPlayers ?? '';
         const result = src.result ?? src.outcome ?? src.status ?? (rank !== '' ? `อันดับ ${rank}` : 'จบรอบแล้ว');
         const reason = src.reason ?? src.finishReason ?? src.endReason ?? '';
-        const hp = src.hp ?? 0;
-        const maxHp = src.maxHp ?? 100;
-        const attacksUsed = src.attacksUsed ?? 0;
-        const guardsUsed = src.guardsUsed ?? 0;
-        const perfectGuardCount = src.perfectGuardCount ?? 0;
-        const blockedDamage = src.blockedDamage ?? 0;
-        const criticalCount = src.criticalCount ?? 0;
 
         return enrichSummaryWithHero({
           mode: MODE,
@@ -982,84 +569,45 @@
           players,
           miss,
           bestStreak: streak,
-          hp,
-          maxHp,
-          attacksUsed,
-          guardsUsed,
-          perfectGuardCount,
-          blockedDamage,
-          criticalCount,
           reason,
           raw: src,
           receivedAt: Date.now()
         });
       }
 
+      function addSummaryItem(label, value){
+        if (value === '' || value === null || value === undefined) return '';
+        return `<div class="summary-item"><div class="summary-label">${label}</div><div class="summary-value">${String(value)}</div></div>`;
+      }
+
+      function renderSummaryStars(n){
+        const count = Math.max(0, Math.min(3, Number(n || 0)));
+        return [1,2,3].map(i => `<span class="summary-star ${i <= count ? '' : 'off'}">⭐</span>`).join('');
+      }
+
+      function battleStarCount(summary){
+        if (String(summary.rank) === '1') return 3;
+        if (String(summary.rank) === '2') return 2;
+        return 1;
+      }
+
       function battleHero(summary){
         if (String(summary.rank) === '1') {
-          return {
-            badge:'🏆',
-            heroTitle:'Battle Winner!',
-            heroSub:'เธอชนะการปะทะครั้งนี้ได้สุดยอดมาก',
-            title:'You Win!'
-          };
+          return { badge:'🏆', heroTitle:'Battle Winner!', heroSub:'เธอชนะการปะทะครั้งนี้ได้สุดยอดมาก', title:'You Win!' };
         }
         if (String(summary.rank) === '2') {
-          return {
-            badge:'🛡️',
-            heroTitle:'Almost Won!',
-            heroSub:'อีกนิดเดียวก็ชนะแล้ว ลองใหม่ได้เลย',
-            title:'Great Fight!'
-          };
+          return { badge:'🛡️', heroTitle:'Almost Won!', heroSub:'อีกนิดเดียวก็ชนะแล้ว ลองใหม่ได้เลย', title:'Great Fight!' };
         }
-        return {
-          badge:'⚔️',
-          heroTitle:'Battle Hero!',
-          heroSub:'เธอสู้ได้เก่งมากและอ่านจังหวะได้ดี',
-          title:'Nice Try!'
-        };
+        return { badge:'⚔️', heroTitle:'Battle Hero!', heroSub:'เธอสู้ได้เก่งมากและอ่านจังหวะได้ดี', title:'Nice Try!' };
       }
 
       function summarySubText(summary){
         const parts = [];
-        if (summary.roomId) parts.push('ROOM ' + summary.roomId);
+        if (summary.roomId) parts.push('ห้อง ' + summary.roomId);
         if (summary.result) parts.push(summary.result);
         if (summary.players !== '') parts.push('ผู้เล่น ' + summary.players);
         if (summary.reason) parts.push(summary.reason);
         return parts.join(' • ') || 'จบรอบแล้ว มาดูผลการปะทะกัน';
-      }
-
-      function phaseFromSummary(summary){
-        const s = Number(summary.score || 0);
-        if (s >= 180) return 'Phase C';
-        if (s >= 80) return 'Phase B';
-        return 'Phase A';
-      }
-
-      function playerCardHTML(player, mePid, meUid){
-        const isMe =
-          (player.key && player.key === meUid) ||
-          (player.uid && player.uid === meUid) ||
-          (player.pid && player.pid === mePid);
-
-        return `
-          <div class="summary-playercard ${isMe ? 'me' : ''}">
-            <div class="summary-playername">${escapeHtml(player.name || player.pid || '-')}</div>
-            <div class="summary-playerpid">${escapeHtml(player.uid || player.playerId || player.pid || '-')}</div>
-            ${isMe ? '<div class="summary-playerme">• คุณ</div>' : ''}
-            <div class="summary-playerstate ${player.alive ? 'alive' : 'dead'}">
-              ${player.alive ? 'ยังยืนอยู่' : 'HP หมดแล้ว'}
-            </div>
-          </div>
-        `;
-      }
-
-      function escapeHtml(s){
-        return String(s == null ? '' : s)
-          .replace(/&/g,'&amp;')
-          .replace(/</g,'&lt;')
-          .replace(/>/g,'&gt;')
-          .replace(/"/g,'&quot;');
       }
 
       const SUMMARY_KEY = 'GJ_BATTLE_LAST_SUMMARY_' + (roomId || 'noroom') + '_' + (playerPid || 'anon');
@@ -1067,43 +615,37 @@
       function showSummary(detail){
         const summary = normalizeSummary(detail);
         const hero = battleHero(summary);
-        const players = Array.isArray(summary.raw?.raw?.players)
-          ? summary.raw.raw.players
-          : (Array.isArray(summary.raw?.players) ? summary.raw.players : []);
+        const stars = battleStarCount(summary);
 
         try { localStorage.setItem(SUMMARY_KEY, JSON.stringify(summary)); } catch {}
 
-        applySummaryIdentity();
         $('summaryBadge').textContent = hero.badge;
+        applySummaryIdentity();
         $('summaryHeroTitle').textContent = hero.heroTitle;
         $('summaryHeroSub').textContent = `${heroMeta.avatar} ${playerName || playerPid || '-'} • ${hero.heroSub}`;
-        $('summaryRoomLine').textContent = summarySubText(summary);
-
+        $('summaryTitle').textContent = hero.title;
+        $('summarySub').textContent = summarySubText(summary);
+        $('summaryStars').innerHTML = renderSummaryStars(stars);
         $('summaryScoreValue').textContent = String(summary.score ?? 0);
-        $('sumHp').textContent = `${summary.hp ?? 0}/${summary.maxHp ?? 100}`;
-        $('sumAttacks').textContent = String(summary.attacksUsed ?? 0);
-        $('sumGuards').textContent = String(summary.guardsUsed ?? 0);
 
-        $('summaryRankChip').textContent = summary.rank ? `อันดับ #${summary.rank}` : 'อันดับ ?';
-        $('sumPhaseLine').textContent = phaseFromSummary(summary);
-        $('sumCritical').textContent = `Critical ${summary.criticalCount ?? 0}`;
-        $('sumPerfectGuard').textContent = `Perfect Guard ${summary.perfectGuardCount ?? 0}`;
-        $('sumBlocked').textContent = `Blocked ${summary.blockedDamage ?? 0}`;
-
-        $('summaryPlayerList').innerHTML = players.length
-          ? players.map((p) => playerCardHTML(p, playerPid, queryUid)).join('')
-          : '<div class="summary-playercard">ไม่พบข้อมูลผู้เล่น</div>';
+        $('summaryGrid').innerHTML =
+          addSummaryItem('ผลลัพธ์', summary.result) +
+          addSummaryItem('อันดับ', summary.rank) +
+          addSummaryItem('ฮีโร่', summary.heroDisplay) +
+          addSummaryItem('คะแนนเรา', summary.score) +
+          addSummaryItem('คะแนนคู่แข่ง', summary.opponentScore) +
+          addSummaryItem('ผู้เล่นทั้งหมด', summary.players) +
+          addSummaryItem('Miss', summary.miss) +
+          addSummaryItem('Best Streak', summary.bestStreak) +
+          addSummaryItem('ห้อง', summary.roomId || '-') +
+          addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-');
 
         $('summaryDebug').textContent =
           '[BATTLE SUMMARY]\n' +
           'hero=' + (summary.heroDisplay || '-') + '\n' +
           'rank=' + (summary.rank || '-') + '\n' +
           'score=' + (summary.score || 0) + '\n' +
-          'opponent=' + (summary.opponentScore || 0) + '\n' +
-          'guards=' + (summary.guardsUsed || 0) + '\n' +
-          'perfectGuard=' + (summary.perfectGuardCount || 0) + '\n' +
-          'blocked=' + (summary.blockedDamage || 0) + '\n' +
-          'critical=' + (summary.criticalCount || 0) + '\n\n' +
+          'opponent=' + (summary.opponentScore || 0) + '\n\n' +
           safeJson(summary);
 
         $('summaryOverlay').hidden = false;
@@ -1134,15 +676,156 @@
         });
       }
 
-      $('btnReplay').addEventListener('click', () => {
-        location.href = buildReplayUrl();
+      function buildReplayLobbyUrl(){
+        const u = new URL('./goodjunk-battle-lobby.html', location.href);
+
+        if (roomId) {
+          u.searchParams.set('roomId', roomId);
+          u.searchParams.set('room', roomId);
+        }
+
+        if (playerPid) u.searchParams.set('pid', playerPid);
+        if (playerName) {
+          u.searchParams.set('name', playerName);
+          u.searchParams.set('nick', playerName);
+        }
+
+        u.searchParams.set('diff', runCtx.diff || 'normal');
+        u.searchParams.set('time', String(runCtx.time || 150));
+        u.searchParams.set('view', runCtx.view || 'mobile');
+        u.searchParams.set('run', runCtx.run || 'play');
+        u.searchParams.set('mode', 'battle');
+        u.searchParams.set('hub', runCtx.hub || '../hub.html');
+        u.searchParams.set('replay', '1');
+        u.searchParams.delete('showLastSummary');
+
+        return u.toString();
+      }
+
+      function clearBattleSummaryState(){
+        try { delete window.__GJ_BATTLE_LAST_SUMMARY__; } catch {}
+        try { delete window.__GJ_BATTLE_LAST_SESSION_FLUSH__; } catch {}
+        try { delete window.__HHA_BATTLE_EVENT_BUFFER__; } catch {}
+        try { localStorage.removeItem(SUMMARY_KEY); } catch {}
+      }
+
+      async function resetRoomForReplay(){
+        const firebase = window.firebase;
+        if (!firebase || !firebase.database || !roomId) return false;
+
+        const roomRef = firebase.database().ref(`hha-battle/goodjunk/rooms/${roomId}`);
+        const snap = await roomRef.once('value');
+        if (!snap.exists()) return false;
+
+        const room = snap.val() || {};
+        const t = Date.now();
+        const playersSrc = (room.players && typeof room.players === 'object') ? room.players : {};
+        const nextPlayers = {};
+
+        Object.keys(playersSrc).forEach((key) => {
+          const p = playersSrc[key] || {};
+          nextPlayers[key] = {
+            ...p,
+            connected: p.connected !== false,
+            ready: true,
+            status: 'waiting',
+
+            score: 0,
+            miss: 0,
+            combo: 0,
+            bestStreak: 0,
+
+            hp: 100,
+            maxHp: 100,
+            shield: 0,
+
+            attackCharge: 0,
+            maxAttackCharge: 100,
+            attackReady: false,
+
+            attacksUsed: 0,
+            guardsUsed: 0,
+            perfectGuardCount: 0,
+            blockedDamage: 0,
+            criticalCount: 0,
+            damageDealt: 0,
+            damageTaken: 0,
+            koCount: 0,
+
+            counterUsed: 0,
+            chargeDrained: 0,
+            junkRainSent: 0,
+            junkRainReceived: 0,
+            drainComboUsed: 0,
+            junkComboUsed: 0,
+            counterBonusUsed: 0,
+
+            telegraphType: '',
+            telegraphUntil: 0,
+
+            lastAttackId: '',
+            lastAttackAt: 0,
+            lastAttackDamage: 0,
+            lastAttackTarget: '',
+
+            updatedAt: t,
+            lastSeen: t
+          };
+        });
+
+        await roomRef.set({
+          meta: {
+            ...(room.meta || {}),
+            updatedAt: t
+          },
+          state: {
+            ...(room.state || {}),
+            status: 'waiting',
+            plannedSec: Number((room.state || {}).plannedSec || runCtx.time || 150),
+            countdownEndsAt: 0,
+            startedAt: 0,
+            endsAt: 0,
+            endedAt: 0,
+            roundToken: '',
+            phase: 'A',
+            bossEvent: null,
+            finalRageDone: false,
+            director: {
+              id: `dir-balanced-${t}`,
+              mode: 'balanced',
+              updatedAt: t
+            },
+            updatedAt: t
+          },
+          players: nextPlayers
+        });
+
+        return true;
+      }
+
+      $('btnReplay').addEventListener('click', async () => {
+        const btn = $('btnReplay');
+        if (btn){
+          btn.disabled = true;
+          btn.textContent = '⏳ กำลังรีเซ็ตห้อง...';
+        }
+
+        clearBattleSummaryState();
+
+        try{
+          await resetRoomForReplay();
+        } catch (err){
+          console.warn('[GJ-BATTLE-RUN] replay reset failed:', err);
+        }
+
+        location.href = buildReplayLobbyUrl();
       });
 
       $('btnCopyRoom').addEventListener('click', () => {
         copyText(roomId || '').then(() => {
-          $('summaryRoomLine').textContent = 'คัดลอก room code แล้ว';
+          $('summarySub').textContent = 'คัดลอก room code แล้ว';
         }).catch(() => {
-          $('summaryRoomLine').textContent = 'คัดลอก room code ไม่สำเร็จ';
+          $('summarySub').textContent = 'คัดลอก room code ไม่สำเร็จ';
         });
       });
 
@@ -1154,8 +837,6 @@
       $('btnBackHub').addEventListener('click', () => {
         location.href = runCtx.hub;
       });
-
-      $('btnSummaryClose').addEventListener('click', hideSummary);
 
       window.__GJ_SHOW_BATTLE_SUMMARY__ = showSummary;
       window.__GJ_HIDE_BATTLE_SUMMARY__ = hideSummary;
@@ -1183,7 +864,12 @@
         }
       });
 
-      if (qs('showLastSummary') === '1') {
+      if (qs('replay') === '1') {
+        clearBattleSummaryState();
+        hideSummary();
+      }
+
+      if (qs('showLastSummary') === '1' && qs('replay') !== '1') {
         try {
           const raw = localStorage.getItem(SUMMARY_KEY);
           if (raw) showSummary(JSON.parse(raw));
@@ -1191,6 +877,8 @@
       }
 
       async function boot(){
+        hideSummary();
+
         applyHeroIdentity();
         setMiniInfo();
         wireQuickActions();
@@ -1218,6 +906,8 @@
           await loadScript(ENGINE_SRC);
 
           setFriendlyReadyState();
+          enterLivePlay();
+
           setDebug(
             '[SUCCESS]\n' +
             'safe=' + SAFE_LAYER_SRC + '\n' +
@@ -1229,6 +919,7 @@
           hideStatusCardSoon();
         } catch (err) {
           console.error('[GJ-BATTLE-RUN] boot failed', err);
+          exitLivePlay();
           setStatus('โหลด Battle ไม่สำเร็จ', String(err && err.message ? err.message : err), true);
           setDebug(
             '[FAILED]\n' +
