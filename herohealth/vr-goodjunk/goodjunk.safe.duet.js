@@ -343,10 +343,11 @@
     el.style.fontSize = '0';
     el.style.lineHeight = '1';
     el.style.transform = 'translateZ(0)';
+    el.style.zIndex = '10';
+    el.style.pointerEvents = 'auto';
     el.style.background = good
       ? 'linear-gradient(180deg,#ffffff,#f1fff1)'
       : 'linear-gradient(180deg,#fff3f3,#ffe1e1)';
-    el.style.zIndex = '3';
   }
 
   function spawnTarget(){
