@@ -109,50 +109,6 @@
       highContrastTelegraph: false
     },
 
-    fx: {
-      bossHurtMs: 0,
-      rageAuraMs: 0,
-      stormLaneMs: 0,
-      stormLaneX: 0,
-      stormLaneW: 0,
-      phasePulseMs: 0
-    },
-
-    boss: {
-      active: false,
-      hp: 0,
-      maxHp: 0,
-
-      stage: 'A',
-      stageReached: 'A',
-
-      pattern: 'hunt',
-      patternTimeLeft: 0,
-      patternCycleIndex: -1,
-
-      weakId: '',
-      fakeWeakActive: false,
-      fakeWeakDecoyId: '',
-
-      telegraphOn: false,
-      telegraphText: '',
-      telegraphMs: 0,
-
-      stormBurstLeft: 0,
-      stormBurstGapMs: 0,
-      stormWaveCooldown: 0,
-
-      weakRetargetMs: 0,
-      weakRetargetAcc: 0,
-
-      rage: false,
-      rageTriggered: false,
-      rageEnterMs: 0,
-
-      killSequence: false,
-      introShowing: false
-    },
-
     metrics: {
       runStartAt: Date.now(),
       bossEnterAt: 0,
@@ -202,6 +158,43 @@
       mounted: false,
       started: false,
       destroyed: false
+    },
+
+    boss: {
+      active: false,
+      hp: 0,
+      maxHp: 0,
+
+      stage: 'A',
+      stageReached: 'A',
+
+      pattern: 'hunt',
+      patternTimeLeft: 0,
+      patternCycleIndex: -1,
+
+      weakId: '',
+      fakeWeakActive: false,
+      fakeWeakDecoyId: '',
+
+      telegraphOn: false,
+      telegraphText: '',
+      telegraphMs: 0,
+
+      stormBurstLeft: 0,
+      stormBurstGapMs: 0,
+      stormWaveCooldown: 0,
+
+      weakRetargetMs: 0,
+      weakRetargetAcc: 0,
+
+      rage: false,
+      rageTriggered: false,
+      rageEnterMs: 0,
+
+      killSequence: false,
+      introShowing: false,
+
+      lowHpTier: 0
     }
   };
 
@@ -1770,7 +1763,8 @@
       }
 
       .gjsb-coach.reveal,
-      .gjsb-nextHint.reveal{
+      .gjsb-nextHint.reveal,
+      .gjsb-compareBox.reveal{
         opacity:0;
         transform:translateY(8px);
         animation:gjsbTextReveal .46s ease forwards;
@@ -1978,6 +1972,7 @@
       .gjsb-stage.reduced-motion .gjsb-stat.reveal,
       .gjsb-stage.reduced-motion .gjsb-coach.reveal,
       .gjsb-stage.reduced-motion .gjsb-nextHint.reveal,
+      .gjsb-stage.reduced-motion .gjsb-compareBox.reveal,
       .gjsb-stage.reduced-motion .gjsb-actions.celebrate .gjsb-btn,
       .gjsb-stage.reduced-motion .gjsb-btn.replay.pulse,
       .gjsb-stage.reduced-motion .gjsb-btn.cooldown.pulse,
@@ -2382,17 +2377,55 @@
     if (ui.sumConfetti) ui.sumConfetti.innerHTML = '';
   }
 
+  function clearPresentationLayers() {
+    if (!ui) return;
+
+    if (ui.bossIntroCard) ui.bossIntroCard.classList.remove('show');
+    if (ui.patternBanner) ui.patternBanner.classList.remove('show');
+    if (ui.victoryMoment) ui.victoryMoment.classList.remove('show');
+    if (ui.pauseOverlay) ui.pauseOverlay.classList.remove('show');
+
+    const callout = document.getElementById('gjsbBossStageCallout');
+    if (callout) {
+      callout.style.opacity = '0';
+      callout.style.transform = 'translate(-50%,-6px) scale(.98)';
+    }
+  }
+
+  function hardResetBossTransientState() {
+    state.boss.telegraphOn = false;
+    state.boss.telegraphText = '';
+    state.boss.telegraphMs = 0;
+    state.boss.stormBurstLeft = 0;
+    state.boss.stormBurstGapMs = 0;
+    state.boss.stormWaveCooldown = 0;
+    state.boss.weakRetargetAcc = 0;
+    state.boss.weakRetargetMs = 0;
+    state.boss.patternCycleIndex = -1;
+    state.boss.fakeWeakActive = false;
+    state.boss.fakeWeakDecoyId = '';
+    state.boss.weakId = '';
+    state.boss.lowHpTier = 0;
+  }
+
   function beforeNavigationCleanup() {
     clearRuntimeTimers();
     clearStageTransientFx();
+    clearPresentationLayers();
+
     if (ui && ui.pauseOverlay) ui.pauseOverlay.classList.remove('show');
     if (ui && ui.telegraph) ui.telegraph.classList.remove('show');
     if (ui && ui.banner) ui.banner.classList.add('hide');
     if (ui && ui.praise) ui.praise.classList.remove('show');
+    if (ui && ui.summary) ui.summary.classList.remove('show');
+
+    setRageAura(false);
+    state.running = false;
   }
 
   function hardResetRunVisuals() {
     clearStageTransientFx();
+    clearPresentationLayers();
     resetSummaryDom();
 
     state.paused = false;
@@ -2400,6 +2433,9 @@
     state.boss.killSequence = false;
     state.boss.telegraphOn = false;
     state.lastTelegraphAt = 0;
+    state.boss.lowHpTier = 0;
+
+    hardResetBossTransientState();
 
     if (ui && ui.pauseOverlay) ui.pauseOverlay.classList.remove('show');
     if (ui && ui.telegraph) ui.telegraph.classList.remove('show');
@@ -2479,14 +2515,6 @@
   function refreshUtilityButtons() {
     setMuted(state.muted);
     setReducedMotion(state.a11y.reducedMotion);
-  }
-
-  function mobileHudCompact() {
-    const compact =
-      window.innerWidth < 720 &&
-      (state.boss.active || (ui && ui.telegraph && ui.telegraph.classList.contains('show')));
-
-    if (ui && ui.topHud) ui.topHud.classList.toggle('compact', compact);
   }
 
   function pauseGame(reason) {
@@ -2658,6 +2686,89 @@
 
     ui.stage.appendChild(el);
     safeTimeout(() => { try { el.remove(); } catch (_) {} }, 460);
+  }
+
+  function cueRingAt(x, y, kind, size) {
+    if (state.a11y.reducedMotion) return;
+
+    const el = document.createElement('div');
+    el.className = 'gjsb-impact ' + (kind || 'hit');
+
+    const s = size || 72;
+    el.style.width = s + 'px';
+    el.style.height = s + 'px';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.opacity = '.78';
+
+    ui.stage.appendChild(el);
+    safeTimeout(() => { try { el.remove(); } catch (_) {} }, 320);
+  }
+
+  function flashItemCue(item, tone) {
+    if (!item || !item.el) return;
+
+    item.el.style.transition = 'transform .12s ease, filter .12s ease, box-shadow .12s ease';
+    item.el.style.filter =
+      tone === 'danger'
+        ? 'brightness(1.14) saturate(1.18)'
+        : 'brightness(1.10) saturate(1.08)';
+    item.el.style.boxShadow =
+      tone === 'danger'
+        ? '0 0 0 4px rgba(255,120,120,.22), 0 10px 22px rgba(86,155,194,.18)'
+        : '0 0 0 4px rgba(255,224,138,.24), 0 10px 22px rgba(86,155,194,.18)';
+    item.el.style.transform = 'translate(' + item.x + 'px,' + item.y + 'px) scale(1.08)';
+
+    safeTimeout(() => {
+      if (!item || item.dead || !item.el) return;
+      item.el.style.filter = '';
+      item.el.style.boxShadow = '';
+      item.el.style.transform = 'translate(' + item.x + 'px,' + item.y + 'px) scale(1)';
+    }, 120);
+  }
+
+  function queueWeakRetarget(item, cueLabel, delayMs) {
+    if (!item || item.dead) return;
+    if (item.retargetQueued) return;
+
+    item.retargetQueued = true;
+
+    const cx = item.x + item.size / 2;
+    const cy = item.y + item.size / 2;
+
+    flashItemCue(item, cueLabel === 'dash' ? 'danger' : 'hint');
+    cueRingAt(cx, cy, cueLabel === 'dash' ? 'storm' : 'hit', Math.max(56, item.size * 1.02));
+
+    if (cueLabel === 'dash') {
+      fx(cx, cy - 10, 'DASH!', '#b3472d');
+    } else if (cueLabel === 'lane') {
+      fx(cx, cy - 10, 'SHIFT!', '#9d6016');
+    }
+
+    safeTimeout(() => {
+      if (!item || item.dead) return;
+      item.retargetQueued = false;
+      retargetWeak(item);
+    }, delayMs || 160);
+  }
+
+  function warnBeforeFakeCollapse(item) {
+    if (!item || item.dead || !item.el) return;
+
+    flashItemCue(item, 'danger');
+    cueRingAt(
+      item.x + item.size / 2,
+      item.y + item.size / 2,
+      'storm',
+      Math.max(62, item.size * 1.08)
+    );
+    fx(item.x + item.size / 2, item.y - 4, 'FAKE!', '#b3472d');
+  }
+
+  function showStormTelegraphLane(x, size, ms) {
+    const laneX = Math.max(0, x - 12);
+    const laneW = Math.max(56, size + 24);
+    setStormLane(laneX, laneW, ms || 720);
   }
 
   function phaseFlash() {
@@ -2857,16 +2968,369 @@
     }, 760);
   }
 
+  function bossThemeForStage(stageKey) {
+    if (stageKey === 'RAGE' || state.boss.rage) {
+      return {
+        cardBg: 'linear-gradient(180deg,#fff4f2,#ffe8e2)',
+        cardBorder: '#ffb0a2',
+        cardShadow: '0 14px 30px rgba(255,140,110,.24)',
+        iconBg: 'linear-gradient(180deg,#ffe3da,#fff6f2)',
+        iconBorder: '#ffc2b8',
+        stageBg: '#fff0f0',
+        stageBorder: '#ffc6c6',
+        stageColor: '#b3472d',
+        chipBg: '#fff7f0',
+        chipBorder: '#ffd8c8',
+        chipColor: '#b3472d',
+        accent: '#ff8f6b'
+      };
+    }
+
+    if (stageKey === 'A') {
+      return {
+        cardBg: 'linear-gradient(180deg,#fffdf4,#fff7da)',
+        cardBorder: '#ffd45c',
+        cardShadow: '0 12px 24px rgba(255,212,92,.22)',
+        iconBg: 'linear-gradient(180deg,#fff1be,#fffdf4)',
+        iconBorder: '#ffe08a',
+        stageBg: '#fff8dd',
+        stageBorder: '#f3df97',
+        stageColor: '#8a6b00',
+        chipBg: '#fffdf2',
+        chipBorder: '#f3df97',
+        chipColor: '#8a6b00',
+        accent: '#ffd45c'
+      };
+    }
+
+    if (stageKey === 'B') {
+      return {
+        cardBg: 'linear-gradient(180deg,#fff9ef,#fff0d8)',
+        cardBorder: '#ffcb8a',
+        cardShadow: '0 12px 24px rgba(255,181,71,.20)',
+        iconBg: 'linear-gradient(180deg,#ffe8c9,#fff9ef)',
+        iconBorder: '#ffd19b',
+        stageBg: '#fff1da',
+        stageBorder: '#ffd19b',
+        stageColor: '#a35b12',
+        chipBg: '#fff8f0',
+        chipBorder: '#ffd8ae',
+        chipColor: '#a35b12',
+        accent: '#ffb547'
+      };
+    }
+
+    return {
+      cardBg: 'linear-gradient(180deg,#fff4f4,#ffe6e1)',
+      cardBorder: '#ffb5a7',
+      cardShadow: '0 12px 24px rgba(255,143,120,.20)',
+      iconBg: 'linear-gradient(180deg,#ffe0d8,#fff5f2)',
+      iconBorder: '#ffc2b8',
+      stageBg: '#ffe9e5',
+      stageBorder: '#ffc6c6',
+      stageColor: '#b3472d',
+      chipBg: '#fff6f4',
+      chipBorder: '#ffd0c6',
+      chipColor: '#b3472d',
+      accent: '#ff9b7c'
+    };
+  }
+
+  function applyBossStageVisuals(stageKey) {
+    if (!ui || !ui.bossCard) return;
+
+    const key = stageKey || (state.boss.rage ? 'RAGE' : state.boss.stage);
+    const theme = bossThemeForStage(key);
+
+    ui.bossCard.style.background = theme.cardBg;
+    ui.bossCard.style.borderColor = theme.cardBorder;
+    ui.bossCard.style.boxShadow = theme.cardShadow;
+
+    ui.bossIcon.style.background = theme.iconBg;
+    ui.bossIcon.style.borderColor = theme.iconBorder;
+
+    ui.bossStageText.style.background = theme.stageBg;
+    ui.bossStageText.style.borderColor = theme.stageBorder;
+    ui.bossStageText.style.color = theme.stageColor;
+
+    ui.bossPatternChip.style.background = theme.chipBg;
+    ui.bossPatternChip.style.borderColor = theme.chipBorder;
+    ui.bossPatternChip.style.color = theme.chipColor;
+  }
+
+  function showBossStageCallout(title, sub, accent) {
+    if (!ui || !ui.stage) return;
+
+    let el = document.getElementById('gjsbBossStageCallout');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'gjsbBossStageCallout';
+      el.style.cssText = [
+        'position:absolute',
+        'left:50%',
+        'top:118px',
+        'transform:translate(-50%,-8px) scale(.94)',
+        'z-index:44',
+        'min-width:min(88vw,420px)',
+        'max-width:min(90vw,520px)',
+        'padding:12px 16px',
+        'border-radius:20px',
+        'background:linear-gradient(180deg,#fffef8,#ffffff)',
+        'border:3px solid #ffd89b',
+        'box-shadow:0 16px 32px rgba(86,155,194,.18)',
+        'text-align:center',
+        'opacity:0',
+        'pointer-events:none',
+        'transition:opacity .18s ease, transform .18s ease'
+      ].join(';');
+      ui.stage.appendChild(el);
+    }
+
+    el.innerHTML = `
+      <div style="font-size:12px;font-weight:1100;color:#7b7a72;letter-spacing:.08em;">BOSS STAGE SHIFT</div>
+      <div style="margin-top:4px;font-size:26px;line-height:1.05;font-weight:1100;color:${accent || '#c57b00'};">${title}</div>
+      <div style="margin-top:6px;font-size:13px;line-height:1.55;font-weight:1000;color:#6b675f;">${sub}</div>
+    `;
+
+    el.style.borderColor = accent || '#ffd89b';
+    el.style.opacity = '0';
+    el.style.transform = 'translate(-50%,-8px) scale(.94)';
+
+    requestAnimationFrame(() => {
+      el.style.opacity = '1';
+      el.style.transform = 'translate(-50%,0) scale(1)';
+    });
+
+    lockPresentation(760);
+
+    if (showBossStageCallout._t) {
+      try { clearTimeout(showBossStageCallout._t); } catch (_) {}
+      state.runtime.timers.delete(showBossStageCallout._t);
+    }
+
+    showBossStageCallout._t = safeTimeout(() => {
+      el.style.opacity = '0';
+      el.style.transform = 'translate(-50%,-6px) scale(.98)';
+    }, 900);
+  }
+
   function showVictoryMoment() {
     if (!ui.victoryMoment) return;
+
+    const card = ui.victoryMoment.querySelector('.gjsb-victoryCard');
+    const title = ui.victoryMoment.querySelector('.gjsb-victoryTitle');
+    const sub = ui.victoryMoment.querySelector('.gjsb-victorySub');
+    const kicker = ui.victoryMoment.querySelector('.gjsb-victoryKicker');
+
+    if (card) {
+      card.style.borderColor = state.boss.rageTriggered ? '#ffb0a2' : '#ffe08a';
+      card.style.background = state.boss.rageTriggered
+        ? 'linear-gradient(180deg,#fff8f4,#ffe9e2)'
+        : 'linear-gradient(180deg,#fffef5,#fff9df)';
+    }
+
+    if (kicker) {
+      kicker.textContent = state.boss.rageTriggered ? '🔥 RAGE CLEAR' : '🏆 BOSS CLEAR';
+    }
+
+    if (title) {
+      title.textContent = state.boss.rageTriggered ? 'Rage Broken!' : 'Junk King Down!';
+      title.style.color = state.boss.rageTriggered ? '#d46a42' : '#c57b00';
+    }
+
+    if (sub) {
+      sub.textContent = state.boss.rageTriggered
+        ? 'เธอผ่าน Rage Finale และปิดบอสได้สุดยอดมาก'
+        : 'เธอผ่านทุก phase และปิดบอสได้สำเร็จ';
+    }
 
     ui.victoryMoment.classList.remove('show');
     void ui.victoryMoment.offsetWidth;
     ui.victoryMoment.classList.add('show');
 
+    phaseFlash();
+    spawnVictoryBurst();
+
     safeTimeout(() => {
       if (ui.victoryMoment) ui.victoryMoment.classList.remove('show');
-    }, 760);
+    }, 900);
+  }
+
+  function spawnVictoryBurst() {
+    if (!ui || !ui.stage) return;
+
+    const r = stageRect();
+    const cx = r.width * 0.5;
+    const cy = r.height * 0.38;
+
+    for (let i = 0; i < 8; i++) {
+      safeTimeout(() => {
+        const a = (Math.PI * 2 * i) / 8;
+        const dist = 42 + i * 6;
+        const x = cx + Math.cos(a) * dist;
+        const y = cy + Math.sin(a) * dist * 0.75;
+
+        spawnImpact(x, y, 'hit', 92 + i * 6);
+        scorePop(x, y, i % 2 === 0 ? 'WOW!' : 'CLEAR!', 'power', 24);
+      }, i * 45);
+    }
+  }
+
+  function maybeBossLowHpJuice() {
+    if (!state.boss.active || state.ended) return;
+
+    const ratio = state.boss.maxHp > 0 ? state.boss.hp / state.boss.maxHp : 1;
+    let tier = 0;
+
+    if (ratio <= 0.10) tier = 2;
+    else if (ratio <= 0.25) tier = 1;
+
+    const lastTier = Number(state.boss.lowHpTier || 0);
+    if (tier <= lastTier) return;
+
+    state.boss.lowHpTier = tier;
+
+    if (tier === 1) {
+      setBanner('⚠️ Junk King ใกล้พังแล้ว!', 900);
+      showDangerEdge(820);
+      phaseFlash();
+      playSfx('telegraph');
+      showPraise('🔥 Boss HP ต่ำแล้ว!', 760);
+    } else if (tier === 2) {
+      setBanner('💥 Final Hit! ปิดบอสได้เลย!', 1100);
+      showDangerEdge(1100);
+      phaseFlash();
+      stageShake();
+      playSfx('boss-break');
+      showPraise('⚡ ONE MORE HIT!', 900);
+    }
+  }
+
+  function showLastHitFinish(x, y, damage, stageKey) {
+    phaseFlash();
+    stageShake();
+    showDangerEdge(920);
+
+    cueRingAt(x, y, 'hit', 150);
+    spawnImpact(x, y, 'hit', 168);
+    scorePop(x, y, damage >= 3 ? 'FINISH!' : 'LAST HIT!', 'power', damage >= 3 ? 46 : 40);
+
+    safeTimeout(() => {
+      cueRingAt(x + 18, y - 10, 'hit', 128);
+      spawnImpact(x + 18, y - 10, 'hit', 132);
+    }, 60);
+
+    safeTimeout(() => {
+      cueRingAt(x - 22, y + 8, 'storm', 116);
+      spawnImpact(x - 22, y + 8, 'hit', 120);
+    }, 110);
+
+    if (stageKey === 'RAGE') {
+      fx(x, y - 24, 'RAGE BREAK!', '#d46a42');
+    } else if (damage >= 3) {
+      fx(x, y - 24, 'CRITICAL FINISH!', '#c57b00');
+    } else {
+      fx(x, y - 24, 'BOSS DOWN!', '#c57b00');
+    }
+  }
+
+  function itemLooksStuck(item) {
+    if (!item || item.dead) return false;
+
+    const cx = item.x + item.size / 2;
+    const cy = item.y + item.size / 2;
+
+    if (!item._stuckProbe) {
+      item._stuckProbe = { x: cx, y: cy, t: nowMs() };
+      return false;
+    }
+
+    const age = nowMs() - item._stuckProbe.t;
+    if (age < 220) return false;
+
+    const dist = Math.hypot(cx - item._stuckProbe.x, cy - item._stuckProbe.y);
+    item._stuckProbe = { x: cx, y: cy, t: nowMs() };
+
+    return dist < 3.5;
+  }
+
+  function rescueWeakTarget(item, reason) {
+    if (!item || item.dead) return;
+
+    const bias =
+      state.boss.pattern === 'break' ? 'center' :
+      state.boss.stage === 'A' ? 'right-mid' :
+      state.boss.stage === 'B' ? 'center' :
+      'center';
+
+    const pos = randomBossSpawn(item.size, bias);
+
+    item.x = pos.x;
+    item.y = pos.y;
+    item.vx = (rand() < 0.5 ? -1 : 1) * range(80, 160);
+    item.vy = 0;
+    item.retargetQueued = false;
+    item._stuckFrames = 0;
+    item._edgeTrapFrames = 0;
+    item._stuckProbe = { x: item.x + item.size / 2, y: item.y + item.size / 2, t: nowMs() };
+
+    retargetWeak(item);
+    drawItem(item);
+
+    cueRingAt(item.x + item.size / 2, item.y + item.size / 2, 'hit', Math.max(64, item.size * 1.04));
+
+    if (DEBUG) {
+      fx(item.x + item.size / 2, item.y - 8, 'RESCUE', '#2d6f8b');
+      console.log('[GJSB] weak rescue:', reason || 'unknown');
+    }
+  }
+
+  function clampItemIntoBossRect(item) {
+    if (!item || item.dead) return;
+
+    const box = getBossPlayRect(item.size);
+
+    item.x = clamp(item.x, box.left, box.right);
+    item.y = clamp(item.y, box.top, box.bottom);
+
+    if (box.bossBlock) {
+      const b = box.bossBlock;
+      const overlaps =
+        item.x + item.size > b.left &&
+        item.x < b.right &&
+        item.y + item.size > b.top &&
+        item.y < b.bottom;
+
+      if (overlaps) {
+        item.x = Math.min(item.x, b.left - item.size - 4);
+        item.y = Math.max(box.top, Math.min(item.y, box.bottom));
+      }
+    }
+
+    drawItem(item);
+  }
+
+  function normalizeAllActiveItemsAfterResize() {
+    state.items.forEach((item) => {
+      if (!item || item.dead) return;
+
+      if (item.kind === 'weak' || item.kind === 'fakeweak') {
+        clampItemIntoBossRect(item);
+
+        const box = getBossPlayRect(item.size);
+        const escapeLeft = Math.max(110, box.left + 30);
+        const escapeTop = Math.max(140, box.top + 18);
+
+        if (item.x < escapeLeft && item.y < escapeTop) {
+          rescueWeakTarget(item, 'resize-top-left');
+        }
+      } else {
+        const r = stageRect();
+        item.x = clamp(item.x, 8, Math.max(8, r.width - item.size - 8));
+        item.y = clamp(item.y, -item.size - 20, Math.max(12, r.height - item.size - 12));
+        drawItem(item);
+      }
+    });
   }
 
   function drawItem(item) {
@@ -2895,7 +3359,11 @@
       zigAmp: 0,
       zigFreq: 0,
       zigT: 0,
-      dashLeft: 0
+      dashLeft: 0,
+      retargetQueued: false,
+      _stuckFrames: 0,
+      _edgeTrapFrames: 0,
+      _stuckProbe: null
     };
 
     el.addEventListener('pointerdown', function (ev) {
@@ -3382,18 +3850,22 @@
     if (item.x <= box.left) {
       item.x = box.left;
       item.vx = Math.abs(item.vx);
+      item._edgeTrapFrames = (item._edgeTrapFrames || 0) + 1;
     }
     if (item.x >= box.right) {
       item.x = box.right;
       item.vx = -Math.abs(item.vx);
+      item._edgeTrapFrames = (item._edgeTrapFrames || 0) + 1;
     }
     if (item.y <= box.top) {
       item.y = box.top;
       item.vy = Math.abs(item.vy);
+      item._edgeTrapFrames = (item._edgeTrapFrames || 0) + 1;
     }
     if (item.y >= box.bottom) {
       item.y = box.bottom;
       item.vy = -Math.abs(item.vy);
+      item._edgeTrapFrames = (item._edgeTrapFrames || 0) + 1;
     }
 
     if (box.bossBlock) {
@@ -3414,17 +3886,19 @@
 
         if (minPush === pushLeft) {
           item.x = b.left - item.size - 2;
-          item.vx = -Math.abs(item.vx);
+          item.vx = -Math.abs(item.vx || 60);
         } else if (minPush === pushRight) {
           item.x = b.right + 2;
-          item.vx = Math.abs(item.vx);
+          item.vx = Math.abs(item.vx || 60);
         } else if (minPush === pushUp) {
           item.y = b.top - item.size - 2;
-          item.vy = -Math.abs(item.vy);
+          item.vy = -Math.abs(item.vy || 40);
         } else {
           item.y = b.bottom + 2;
-          item.vy = Math.abs(item.vy);
+          item.vy = Math.abs(item.vy || 40);
         }
+
+        item._edgeTrapFrames = (item._edgeTrapFrames || 0) + 2;
       }
     }
 
@@ -3445,7 +3919,8 @@
         item.vx = item.baseVX || item.vx;
 
         if (item.dashLeft <= 0) {
-          retargetWeak(item);
+          item.dashLeft = state.boss.rage ? 260 : 420;
+          queueWeakRetarget(item, 'dash', state.boss.rage ? 90 : 120);
         }
       }
 
@@ -3456,8 +3931,23 @@
         item.x = Math.max(item.x, escapeLeft + range(18, 42));
         item.y = Math.max(item.y, escapeTop + range(16, 38));
 
-        if (item.vx < 0) item.vx = Math.abs(item.vx);
-        if (item.vy < 0) item.vy = Math.abs(item.vy);
+        if (item.vx < 0) item.vx = Math.abs(item.vx || 70);
+        if (item.vy < 0) item.vy = Math.abs(item.vy || 20);
+
+        item._edgeTrapFrames = (item._edgeTrapFrames || 0) + 2;
+      }
+
+      if (itemLooksStuck(item)) {
+        item._stuckFrames = (item._stuckFrames || 0) + 1;
+      } else {
+        item._stuckFrames = 0;
+        item._edgeTrapFrames = Math.max(0, (item._edgeTrapFrames || 0) - 1);
+      }
+
+      if ((item._stuckFrames || 0) >= 5) {
+        rescueWeakTarget(item, 'stuck');
+      } else if ((item._edgeTrapFrames || 0) >= 7) {
+        rescueWeakTarget(item, 'edge-trap');
       }
     }
 
@@ -3570,6 +4060,12 @@
 
     safeTimeout(() => {
       if (state.ended || !state.boss.active) return;
+      if (state.boss.fakeWeakDecoyId !== fake.id) return;
+      warnBeforeFakeCollapse(fake);
+    }, Math.max(80, (state.boss.rage ? 320 : 400) - 120));
+
+    safeTimeout(() => {
+      if (state.ended || !state.boss.active) return;
 
       if (state.boss.fakeWeakDecoyId === fake.id) {
         spawnImpact(
@@ -3650,7 +4146,19 @@
       showDangerEdge(p.telegraphMs + 240);
     }
 
-    setBanner(getPatternLabel(pattern) + ' • ' + getPatternSubtitle(pattern), 1050);
+    setBanner(
+      getPatternLabel(pattern) + ' • ' + getPatternSubtitle(pattern),
+      pattern === 'storm' ? 1150 : 980
+    );
+
+    if (pattern === 'hunt') {
+      showPraise('🎯 อ่านทางเป้า แล้วแตะให้ทัน', 760);
+    } else if (pattern === 'break') {
+      showPraise('💥 ช่วงนี้ตีแรงขึ้น!', 760);
+    } else if (pattern === 'storm') {
+      showPraise('⚠️ หลีก lane พายุให้ทัน', 820);
+    }
+
     showPatternBanner(pattern);
     renderHud();
   }
@@ -3675,10 +4183,26 @@
     state.boss.stage = nextStage;
     state.boss.stageReached = nextStage;
 
+    const theme = bossThemeForStage(nextStage);
+
     phaseFlash();
     stageShake();
     playSfx('phase-up');
     setBanner(getBossStageProfile(nextStage).label, 1200);
+
+    if (nextStage === 'B') {
+      showBossStageCallout(
+        'Stage B • Pressure',
+        'บอสเริ่มกดดันมากขึ้น เป้าจะเปลี่ยน lane เร็วกว่าเดิม',
+        theme.accent
+      );
+    } else if (nextStage === 'C') {
+      showBossStageCallout(
+        'Stage C • Final',
+        'เข้าสู่ช่วงท้ายแล้ว เป้าจะไวขึ้นและ pattern ดุขึ้น',
+        theme.accent
+      );
+    }
 
     beginNextBossPattern(nextStage === 'B' ? 'break' : 'storm');
   }
@@ -3718,6 +4242,10 @@
     state.boss.rageTriggered = false;
     state.boss.fakeWeakActive = false;
     state.boss.fakeWeakDecoyId = '';
+    state.boss.lowHpTier = 0;
+    state.boss.weakId = '';
+    state.boss.killSequence = false;
+    state.boss.telegraphOn = false;
 
     state.metrics.bossEnterAt = Date.now();
     markSplit('bossStartAt');
@@ -3737,6 +4265,7 @@
     playSfx('phase-up');
     setBanner('Boss Phase • Junk King มาแล้ว!', 1600);
     showBossIntroCard();
+    showBossStageCallout('Stage A • Learn', 'เริ่มอ่านจังหวะ weak target ก่อน แล้วค่อยโจมตี', '#ffd45c');
 
     beginNextBossPattern('hunt');
     renderHud();
@@ -3768,6 +4297,12 @@
     showDangerEdge(1800);
     setBanner('🔥 RAGE FINALE! บอสโกรธสุดแล้ว!', 1500);
     showBossIntroCard();
+    showBossStageCallout(
+      'Rage Finale',
+      'พายุถี่ขึ้น เป้าหลอกเพิ่มขึ้น และ weak target จะดุกว่าเดิม',
+      '#ff8f6b'
+    );
+
     setRageAura(true);
     startTelegraph('🔥 Rage Finale! เป้าหลอก + พายุถี่ขึ้น', 720);
 
@@ -3806,7 +4341,7 @@
     state.spawnedStorm += 1;
     state.metrics.stormSpawned += 1;
 
-    setStormLane(Math.max(0, x - 10), size + 20, p.stage === 'C' ? 520 : 680);
+    showStormTelegraphLane(x, size, p.stage === 'C' ? 520 : 680);
 
     const create = () => {
       createItem(
@@ -3859,7 +4394,13 @@
       if (state.boss.weakRetargetAcc >= state.boss.weakRetargetMs) {
         state.boss.weakRetargetAcc = 0;
         const weak = state.boss.weakId ? state.items.get(state.boss.weakId) : null;
-        if (weak) retargetWeak(weak);
+        if (weak) {
+          queueWeakRetarget(
+            weak,
+            weak.moveMode === 'dash' ? 'dash' : 'lane',
+            weak.moveMode === 'dash' ? 110 : 150
+          );
+        }
       }
     }
 
@@ -3899,6 +4440,7 @@
       return;
     }
 
+    const visualStage = state.boss.rage ? 'RAGE' : state.boss.stage;
     const p = getBossStageProfile(state.boss.stage);
 
     ui.bossWrap.classList.add('show');
@@ -3906,13 +4448,18 @@
     ui.bossPatternText.textContent =
       getPatternLabel(state.boss.pattern) + ' • ' + getPatternSubtitle(state.boss.pattern);
 
-    ui.bossStageText.textContent = p.label;
-    ui.bossStageText.className = 'gjsb-boss-stage ' + p.stageClass;
+    ui.bossStageText.textContent = visualStage === 'RAGE'
+      ? 'Rage Finale'
+      : p.label;
+
+    ui.bossStageText.className =
+      'gjsb-boss-stage ' + (visualStage === 'RAGE' ? 'c' : p.stageClass);
+
     ui.bossHpText.textContent = 'HP ' + state.boss.hp + ' / ' + state.boss.maxHp;
     ui.bossHpFill.style.transform =
       'scaleX(' + clamp(state.boss.hp / state.boss.maxHp, 0, 1) + ')';
 
-    ui.bossIcon.textContent = p.icon;
+    ui.bossIcon.textContent = visualStage === 'RAGE' ? '👹' : p.icon;
     ui.bossPatternChip.textContent = getPatternLabel(state.boss.pattern);
     ui.bossPatternChip.className = 'gjsb-patternChip ' + state.boss.pattern;
 
@@ -3920,6 +4467,7 @@
     ui.bossCard.classList.toggle('rage', !!state.boss.rage);
     setRageAura(!!state.boss.rage);
 
+    applyBossStageVisuals(visualStage);
     layoutInnerHud();
   }
 
@@ -3932,7 +4480,7 @@
     ui.streak.textContent = narrow ? ('C • ' + state.streak) : ('Streak • ' + state.streak);
 
     if (state.boss.active) {
-      ui.phase.textContent = narrow ? ('B • ' + state.boss.stage) : ('Boss • ' + state.boss.stage);
+      ui.phase.textContent = narrow ? ('B • ' + (state.boss.rage ? 'R' : state.boss.stage)) : ('Boss • ' + (state.boss.rage ? 'Rage' : state.boss.stage));
     } else {
       ui.phase.textContent = narrow ? ('P • ' + state.phase) : ('Phase • ' + state.phase);
     }
@@ -3951,26 +4499,27 @@
     state.boss.killSequence = true;
     state.running = false;
 
-    phaseFlash();
-    stageShake();
+    const stageKey = state.boss.rage ? 'RAGE' : state.boss.stage;
+
+    showLastHitFinish(x, y, 3, stageKey);
     playSfx('boss-clear');
     setBanner('ชนะแล้ว! Junk King แพ้แล้ว!', 1200);
-
-    fx(x, y, 'WIN!', '#cf8a00');
-    scorePop(x, y, 'BOSS CLEAR!', 'power', 42);
-    spawnImpact(x, y, 'hit', 140);
-    showVictoryMoment();
 
     pushEvent('victory_moment', {
       x: Math.round(x),
       y: Math.round(y),
       score: state.score,
-      miss: state.miss
+      miss: state.miss,
+      stage: stageKey
     });
 
     safeTimeout(() => {
+      showVictoryMoment();
+    }, 120);
+
+    safeTimeout(() => {
       endGame(true);
-    }, 680);
+    }, 760);
   }
 
   function onHit(item) {
@@ -4217,10 +4766,13 @@
         html: `
           <div class="gjsb-compareHead">
             <div class="gjsb-compareTitle">เทียบกับรอบก่อน</div>
-            <div class="gjsb-compareBadge same">ยังไม่มีรอบก่อนหน้า</div>
+            <div class="gjsb-compareBadge same">รอบแรกของชุดนี้</div>
           </div>
-          <div style="margin-top:10px;font-size:13px;line-height:1.6;font-weight:1000;color:#6b675f;">
-            รอบนี้จะถูกเก็บเป็น baseline เพื่อใช้เทียบกับรอบถัดไป
+
+          <div style="margin-top:10px;padding:12px 14px;border-radius:16px;background:#fff;border:2px solid #e3f2f8;">
+            <div style="font-size:13px;line-height:1.65;font-weight:1000;color:#6b675f;">
+              รอบนี้จะถูกเก็บเป็น baseline เพื่อใช้เทียบกับรอบถัดไป
+            </div>
           </div>
         `
       };
@@ -4244,50 +4796,60 @@
 
     let badgeClass = 'same';
     let badgeText = 'ใกล้เคียงรอบก่อน';
+    let badgeIcon = '📘';
 
     if (rankNow > rankPrev || (rankNow === rankPrev && scoreNow > scorePrev && missNow <= missPrev)) {
       badgeClass = 'better';
-      badgeText = 'Beat your last run!';
+      badgeText = 'ดีกว่ารอบก่อน';
+      badgeIcon = '🚀';
     } else if (rankNow < rankPrev || (rankNow === rankPrev && scoreNow < scorePrev && missNow >= missPrev)) {
       badgeClass = 'worse';
-      badgeText = 'ยังแพ้รอบก่อน';
+      badgeText = 'ยังต่ำกว่ารอบก่อน';
+      badgeIcon = '🪜';
     }
+
+    const scoreDelta = compareDeltaText(scoreNow, scorePrev, true);
+    const missDelta = compareDeltaText(missNow, missPrev, false);
+    const streakDelta = compareDeltaText(streakNow, streakPrev, true);
 
     return {
       html: `
         <div class="gjsb-compareHead">
           <div class="gjsb-compareTitle">เทียบกับรอบก่อน</div>
-          <div class="gjsb-compareBadge ${badgeClass}">${badgeText}</div>
+          <div class="gjsb-compareBadge ${badgeClass}">${badgeIcon} ${badgeText}</div>
         </div>
 
-        <div class="gjsb-compareGrid">
-          <div class="gjsb-compareStat">
-            <div class="gjsb-compareK">Score</div>
-            <div class="gjsb-compareV">${scoreNow}</div>
-            <div class="gjsb-compareDelta ${compareDeltaText(scoreNow, scorePrev, true).cls}">
-              ก่อนหน้า ${scorePrev} • ${compareDeltaText(scoreNow, scorePrev, true).text}
-            </div>
+        <div style="margin-top:10px;padding:12px 14px;border-radius:16px;background:linear-gradient(180deg,#fffef8,#ffffff);border:2px solid #e3f2f8;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+            <div class="gjsb-exportChip">เกรดก่อน: ${gradePrev}</div>
+            <div class="gjsb-exportChip">เกรดรอบนี้: ${gradeNow}</div>
           </div>
 
-          <div class="gjsb-compareStat">
-            <div class="gjsb-compareK">Miss</div>
-            <div class="gjsb-compareV">${missNow}</div>
-            <div class="gjsb-compareDelta ${compareDeltaText(missNow, missPrev, false).cls}">
-              ก่อนหน้า ${missPrev} • ${compareDeltaText(missNow, missPrev, false).text}
+          <div class="gjsb-compareGrid">
+            <div class="gjsb-compareStat">
+              <div class="gjsb-compareK">Score</div>
+              <div class="gjsb-compareV">${scoreNow}</div>
+              <div class="gjsb-compareDelta ${scoreDelta.cls}">
+                ก่อนหน้า ${scorePrev} • ${scoreDelta.text}
+              </div>
+            </div>
+
+            <div class="gjsb-compareStat">
+              <div class="gjsb-compareK">Miss</div>
+              <div class="gjsb-compareV">${missNow}</div>
+              <div class="gjsb-compareDelta ${missDelta.cls}">
+                ก่อนหน้า ${missPrev} • ${missDelta.text}
+              </div>
+            </div>
+
+            <div class="gjsb-compareStat">
+              <div class="gjsb-compareK">Best Streak</div>
+              <div class="gjsb-compareV">${streakNow}</div>
+              <div class="gjsb-compareDelta ${streakDelta.cls}">
+                ก่อนหน้า ${streakPrev} • ${streakDelta.text}
+              </div>
             </div>
           </div>
-
-          <div class="gjsb-compareStat">
-            <div class="gjsb-compareK">Best Streak</div>
-            <div class="gjsb-compareV">${streakNow}</div>
-            <div class="gjsb-compareDelta ${compareDeltaText(streakNow, streakPrev, true).cls}">
-              ก่อนหน้า ${streakPrev} • ${compareDeltaText(streakNow, streakPrev, true).text}
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-top:10px;font-size:13px;line-height:1.6;font-weight:1000;color:#6b675f;">
-          เกรดก่อนหน้า: <strong>${gradePrev}</strong> → รอบนี้: <strong>${gradeNow}</strong>
         </div>
       `
     };
@@ -4410,6 +4972,18 @@
       ui.sumCoach.style.setProperty('--delay', (260 + stats.length * 70 + 60) + 'ms');
       void ui.sumCoach.offsetWidth;
       ui.sumCoach.classList.add('reveal');
+    }
+
+    if (bossClear && ui.sumTitle) {
+      ui.sumTitle.textContent = state.boss.rageTriggered
+        ? 'Legendary Rage Clear!'
+        : 'Boss Clear Complete!';
+    }
+
+    if (bossClear && ui.sumSub) {
+      ui.sumSub.textContent = state.boss.rageTriggered
+        ? 'เธอผ่าน Rage Finale และเอาชนะ Junk King ได้แบบสุดมัน'
+        : 'เธอผ่านทุก phase และปิดบอสได้สวยมาก';
     }
 
     if (ui.sumNextHint) {
@@ -4706,6 +5280,7 @@
     window.addEventListener('resize', function () {
       state.a11y.highContrastTelegraph = window.innerWidth < 720;
       layoutInnerHud();
+      normalizeAllActiveItemsAfterResize();
       renderHud();
     }, { passive: true });
 
@@ -4828,6 +5403,8 @@
         updateBossPattern(dt);
       }
 
+      maybeBossLowHpJuice();
+
       const ratio = state.boss.maxHp > 0 ? state.boss.hp / state.boss.maxHp : 1;
       if (!state.boss.rageTriggered && ratio <= 0.15) {
         enterRageFinale();
@@ -4894,6 +5471,11 @@
     if (ui && ui.summaryCard) {
       ui.summaryCard.classList.remove('grade-s', 'grade-a', 'grade-b', 'grade-c');
     }
+
+    state.lastTelegraphAt = 0;
+    state.presentationLockMs = 0;
+    state.hudAwakeMs = 1800;
+    state.praiseMs = 0;
 
     state.running = true;
     state.lastTs = performance.now();
