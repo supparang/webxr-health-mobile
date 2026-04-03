@@ -1,9 +1,9 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260328d-GATE-GOODJUNK-FLOW-FIX
+// FULL PATCH v20260403a-GATE-DAILY-WARMUP-COOLDOWN-BKK-PID-CAT-GAME
 
 import * as GateGames from './gate-games.js?v=20260328c-GATE-GAMES-GOODJUNK-SHADOWBREAKER-COMPAT';
 
-const PATCH = 'v20260328d-GATE-GOODJUNK-FLOW-FIX';
+const PATCH = 'v20260403a-GATE-DAILY-WARMUP-COOLDOWN-BKK-PID-CAT-GAME';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -63,29 +63,53 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function todayStamp() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function dailyKey(game, phase) {
-  return `${STORAGE_NS}:${normalizeGameId(game)}:${phase}:${todayStamp()}`;
-}
-
-function getDailyDone(game, phase) {
+function todayStampBangkok() {
   try {
-    return localStorage.getItem(dailyKey(game, phase)) === '1';
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Bangkok',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(new Date());
+
+    const map = Object.fromEntries(
+      parts
+        .filter(p => p.type !== 'literal')
+        .map(p => [p.type, p.value])
+    );
+
+    return `${map.year}-${map.month}-${map.day}`;
+  } catch {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+}
+
+function dailyKeyFromCtx(ctx, phase = '') {
+  const pid = String(ctx?.pid || 'anon').trim() || 'anon';
+  const cat = String(ctx?.cat || ctx?.zone || 'general').trim().toLowerCase() || 'general';
+  const game = normalizeGameId(ctx?.game || ctx?.gameRaw || '');
+  const p = String(phase || ctx?.phase || 'warmup').trim().toLowerCase() === 'cooldown'
+    ? 'cooldown'
+    : 'warmup';
+
+  return `${STORAGE_NS}:${pid}:${cat}:${game}:${p}:${todayStampBangkok()}`;
+}
+
+function getDailyDone(ctx, phase = '') {
+  try {
+    return localStorage.getItem(dailyKeyFromCtx(ctx, phase)) === '1';
   } catch {
     return false;
   }
 }
 
-function setDailyDone(game, phase, value = true) {
+function setDailyDone(ctx, phase = '', value = true) {
   try {
-    localStorage.setItem(dailyKey(game, phase), value ? '1' : '0');
+    localStorage.setItem(dailyKeyFromCtx(ctx, phase), value ? '1' : '0');
   } catch {}
 }
 
@@ -99,6 +123,80 @@ function saveLastSummary(payload = {}) {
     arr.unshift(item);
     localStorage.setItem(SUMMARY_HISTORY_KEY, JSON.stringify(arr.slice(0, MAX_HISTORY)));
   } catch {}
+}
+
+function pickNumber(...vals) {
+  for (const v of vals) {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function formatPct(v, fallback = '0%') {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return `${n.toFixed(1)}%`;
+}
+
+function readLastSummaryForCtx(ctx) {
+  const keys = [
+    `HHA_LAST_SUMMARY:${normalizeGameId(ctx.game)}:${ctx.pid}`,
+    LAST_SUMMARY_KEY
+  ];
+
+  for (const key of keys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj === 'object') return obj;
+    } catch {}
+  }
+
+  return null;
+}
+
+function applyCooldownSnapshot(refs, ctx) {
+  if (!refs || ctx.phase !== 'cooldown') return;
+
+  const snap = readLastSummaryForCtx(ctx);
+  if (!snap) return;
+
+  const payload = snap && typeof snap.payload === 'object' ? snap.payload : null;
+
+  const score = pickNumber(
+    snap.scoreFinal,
+    snap.score,
+    payload?.scoreFinal,
+    payload?.score
+  );
+
+  const miss = pickNumber(
+    snap.misses,
+    snap.miss,
+    payload?.misses,
+    payload?.miss
+  );
+
+  const acc = pickNumber(
+    snap.accPct,
+    payload?.accPct
+  );
+
+  const time =
+    snap.durationSec ||
+    payload?.durationSec ||
+    ctx.time ||
+    '-';
+
+  applyStats(refs, {
+    time,
+    score: score ?? 0,
+    miss: miss ?? 0,
+    acc: formatPct(acc, '0%')
+  });
 }
 
 function shouldForceGate(ctx) {
@@ -914,46 +1012,19 @@ async function bootPhase(stage, ctx, api) {
 
 function showAlreadyDone(stage, footer, ctx) {
   if (ctx.phase === 'cooldown') {
-    if (isGoodJunkGate(ctx)) {
-      renderInfo(
-        stage,
-        'ทำ cooldown วันนี้แล้ว',
-        'เกมนี้ทำ cooldown ไปแล้วในวันนี้ ระบบจะพาไปหน้าถัดไปทันที'
-      );
-
-      setActions(footer, [
-        {
-          label: 'ไปต่อ',
-          primary: true,
-          onClick: () => {
-            if (trySpecialGateRedirect(ctx, 'cooldown')) return;
-            goHub(ctx);
-          }
-        },
-        { label: 'กลับ HUB', onClick: () => goHub(ctx) }
-      ]);
-
-      setTimeout(() => {
-        if (trySpecialGateRedirect(ctx, 'cooldown')) return;
-        goHub(ctx);
-      }, 180);
-      return;
-    }
-
     renderInfo(
       stage,
       'ทำ cooldown วันนี้แล้ว',
-      'เกมนี้ทำ cooldown ไปแล้วในวันนี้ ระบบจะพาไปหน้าสรุป'
+      'วันนี้ดูสรุป / cooldown ไปแล้ว ระบบจะกลับหน้าหลักทันที'
     );
 
     setActions(footer, [
-      { label: 'ไปหน้าสรุป', primary: true, onClick: () => goSummary(ctx) },
-      { label: 'กลับ HUB', onClick: () => goHub(ctx) }
+      { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
     ]);
 
     setTimeout(() => {
-      goSummary(ctx);
-    }, 450);
+      goHub(ctx);
+    }, 180);
     return;
   }
 
@@ -961,7 +1032,7 @@ function showAlreadyDone(stage, footer, ctx) {
     renderInfo(
       stage,
       'ทำ warmup วันนี้แล้ว',
-      'ระบบจะพาเข้าเกมหลักต่อทันที เพราะกำหนดให้ warmup วันละครั้งต่อเกม'
+      'ระบบจะพาเข้าเกมหลักต่อทันที เพราะ warmup กำหนดให้ทำวันละครั้งต่อคนต่อเกม'
     );
 
     setActions(footer, [
@@ -986,7 +1057,7 @@ function showAlreadyDone(stage, footer, ctx) {
   renderInfo(
     stage,
     'ทำ warmup วันนี้แล้ว',
-    'ระบบจะพาเข้าเกมหลักต่อทันที เพราะกำหนดให้ warmup วันละครั้งต่อเกม'
+    'ระบบจะพาเข้าเกมหลักต่อทันที เพราะ warmup กำหนดให้ทำวันละครั้งต่อคนต่อเกม'
   );
 
   setActions(footer, [
@@ -996,7 +1067,7 @@ function showAlreadyDone(stage, footer, ctx) {
 
   setTimeout(() => {
     goRun(ctx);
-  }, 650);
+  }, 350);
 }
 
 function showInvalidGame(stage, footer, ctx) {
@@ -1030,6 +1101,14 @@ export async function bootGate(root = document.getElementById('gate-app')) {
     miss: 0,
     acc: '0%'
   });
+
+  if (ctx.phase === 'cooldown') {
+    applyCooldownSnapshot(refs, ctx);
+    setHeroSub(
+      refs,
+      'สรุปผลล่าสุดพร้อมแล้ว ตรวจดูได้ในหน้านี้ แล้วค่อยกดกลับหน้าหลัก'
+    );
+  }
 
   if (!ctx.game || !ctx.meta) {
     showInvalidGame(stage, footer, ctx);
@@ -1069,7 +1148,7 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       }
 
       if (payload.markDailyDone !== false) {
-        setDailyDone(ctx.game, ctx.phase, true);
+        setDailyDone(ctx, ctx.phase, true);
       }
 
       const title = payload.title ||
@@ -1077,7 +1156,7 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
       const subtitle = payload.subtitle ||
         (ctx.phase === 'cooldown'
-          ? 'บันทึกผลล่าสุดเรียบร้อย ระบบกำลังพาไปหน้าถัดไป'
+          ? 'บันทึกผลล่าสุดเรียบร้อย ตรวจดูสรุปได้จากหน้านี้ แล้วค่อยกลับหน้าหลัก'
           : 'warmup เสร็จแล้ว ระบบกำลังพาเข้าเกมหลัก');
 
       const extra = linesHtml(payload.lines || []);
@@ -1135,24 +1214,20 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       });
 
       renderInfo(stage, title, subtitle, extra);
+      applyCooldownSnapshot(refs, ctx);
 
       if (resolvedSummaryHref) {
         setActions(footer, [
-          { label: 'ไปหน้าสรุป', primary: true, onClick: () => goSummary(ctx, payload) },
-          { label: 'กลับ HUB', onClick: () => goHub(ctx) }
+          { label: 'ไปหน้าสรุป', onClick: () => goSummary(ctx, payload) },
+          { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
         ]);
-
-        await delay(180);
-        location.href = resolvedSummaryHref;
         return;
       }
 
       setActions(footer, [
-        { label: 'กลับ HUB', primary: true, onClick: () => goHub(ctx) }
+        { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
       ]);
 
-      await delay(250);
-      goHub(ctx);
       return;
     },
 
@@ -1188,7 +1263,7 @@ export async function bootGate(root = document.getElementById('gate-app')) {
     }
   };
 
-  const alreadyDone = !shouldForceGate(ctx) && getDailyDone(ctx.game, ctx.phase);
+  const alreadyDone = !shouldForceGate(ctx) && getDailyDone(ctx, ctx.phase);
   if (alreadyDone) {
     showAlreadyDone(stage, footer, ctx);
     return;
