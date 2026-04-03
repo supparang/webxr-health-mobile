@@ -402,6 +402,8 @@
     }
 
     .stage-head{
+      position:relative;
+      z-index:1;
       padding:14px 16px;
       border-bottom:1px solid var(--stroke);
       color:#7a2558;
@@ -415,20 +417,18 @@
       position:relative;
       flex:1 1 auto;
       min-height:580px;
+      overflow:hidden;
+      isolation:isolate;
       background:
         radial-gradient(circle at 20% 10%, rgba(255,255,255,.8), transparent 18%),
         radial-gradient(circle at 80% 8%, rgba(255,255,255,.72), transparent 18%),
         linear-gradient(180deg,#aee6ff 0%, #d9f5ff 54%, #fff5cf 100%);
-      overflow:hidden;
     }
 
-    #duetGameStage{
-      position:relative;
-      width:100%;
-      height:100%;
-      min-height:580px;
-      overflow:hidden;
-      isolation:isolate;
+    .stage-cloud,
+    .stage-ground{
+      pointer-events:none;
+      user-select:none;
     }
 
     .stage-cloud{
@@ -437,8 +437,7 @@
       border-radius:999px;
       box-shadow:0 8px 18px rgba(0,0,0,.06);
       opacity:.8;
-      pointer-events:none;
-      z-index:0;
+      z-index:1;
     }
 
     .stage-cloud.c1{ width:130px;height:42px;left:4%;top:8%; }
@@ -449,13 +448,21 @@
       position:absolute;
       left:0; right:0; bottom:0;
       height:120px;
+      z-index:1;
       background:
         radial-gradient(circle at 20% 40%, rgba(126,217,87,.34), transparent 18%),
         radial-gradient(circle at 72% 44%, rgba(126,217,87,.28), transparent 18%),
         linear-gradient(180deg,#b3f28f,#88d96b);
       border-top:1px solid rgba(88,195,63,.26);
+    }
+
+    #duetGameStage{
+      position:absolute;
+      inset:0;
+      min-height:580px;
+      overflow:hidden;
+      z-index:3;
       pointer-events:none;
-      z-index:0;
     }
 
     #duetGameStage .target{
@@ -469,7 +476,8 @@
       user-select:none;
       touch-action:manipulation;
       transform:translateZ(0);
-      z-index:3;
+      z-index:10;
+      pointer-events:auto;
     }
 
     #duetGameStage .target.good{
@@ -493,7 +501,7 @@
       justify-content:center;
       background:rgba(255,255,255,.38);
       backdrop-filter:blur(8px);
-      z-index:35;
+      z-index:20;
     }
 
     .countdown-overlay.show{ display:flex; }
@@ -1016,6 +1024,6 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
   <script src="../firebase-config.js?v=20260401-firebase-r12"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260402-gjduet-run-r9"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260402-gjduet-run-r10"></script>
 </body>
 </html>
