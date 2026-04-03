@@ -198,6 +198,13 @@
               <div class="preview-v" id="joinLinkText">-</div>
             </div>
 
+            <div class="preview-box" id="debugBox">
+              <div class="preview-k">debug room path</div>
+              <div class="preview-v" id="debugRoomKind">roomKind: -</div>
+              <div class="preview-v" id="debugRoomPath">path: -</div>
+              <div class="preview-v" id="debugRoomMeta">state: waiting</div>
+            </div>
+
             <div class="countdown" id="countdownBox">3</div>
 
             <div class="action-grid">
@@ -338,7 +345,37 @@
 
       const HUB = qs('hub', '../hub.html');
       const LAUNCHER = './goodjunk-multi.html';
-      const ROOM_PATH = (roomId) => `hha-battle/goodjunk/raceRooms/${roomId}`;
+
+      const ROOM_KINDS = ['raceRooms', 'rooms'];
+
+      function roomPath(kind, roomId) {
+        return `hha-battle/goodjunk/${kind}/${roomId}`;
+      }
+
+      function roomRootRef(db, kind, roomId) {
+        return db.ref(roomPath(kind, roomId));
+      }
+
+      async function detectExistingRoomKind(db, roomId) {
+        for (const kind of ROOM_KINDS) {
+          try {
+            const snap = await db.ref(roomPath(kind, roomId)).child('meta').once('value');
+            if (snap.exists()) return kind;
+          } catch (_) {}
+        }
+        return '';
+      }
+
+      function buildRefs(root) {
+        return {
+          root,
+          meta: root.child('meta'),
+          state: root.child('state'),
+          match: root.child('match'),
+          players: root.child('players'),
+          results: root.child('results')
+        };
+      }
 
       const UI = {
         topNotice: document.getElementById('topNotice'),
@@ -368,12 +405,16 @@
         btnStartGame: document.getElementById('btnStartGame'),
         btnLeaveRoom: document.getElementById('btnLeaveRoom'),
         qrCanvas: document.getElementById('qrCanvas'),
-        playersList: document.getElementById('playersList')
+        playersList: document.getElementById('playersList'),
+        debugRoomKind: document.getElementById('debugRoomKind'),
+        debugRoomPath: document.getElementById('debugRoomPath'),
+        debugRoomMeta: document.getElementById('debugRoomMeta')
       };
 
       const S = {
         uid: '',
         roomId: '',
+        roomKind: '',
         joined: false,
         players: {},
         meta: {},
@@ -608,6 +649,29 @@
         UI.roomCodeBig.textContent = S.roomId;
       }
 
+      function currentRoomPath() {
+        if (!S.roomId || !S.roomKind) return '-';
+        return roomPath(S.roomKind, S.roomId);
+      }
+
+      function renderRoomDebug() {
+        if (UI.debugRoomKind) {
+          UI.debugRoomKind.textContent = `roomKind: ${S.roomKind || '-'}`;
+        }
+
+        if (UI.debugRoomPath) {
+          UI.debugRoomPath.textContent = `path: ${currentRoomPath()}`;
+        }
+
+        if (UI.debugRoomMeta) {
+          const count = activePlayers().length;
+          const status = String((S.state && S.state.status) || 'waiting');
+          const roundId = String((S.state && S.state.roundId) || '-');
+          UI.debugRoomMeta.textContent =
+            `state: ${status} • players: ${count} • roundId: ${roundId}`;
+        }
+      }
+
       function buildLobbyUrl(roomId){
         const url = new URL(LOBBY_FILE, location.href);
         const src = new URL(location.href);
@@ -624,6 +688,9 @@
         url.searchParams.set('seed', String(getSeed()));
         url.searchParams.set('hub', HUB);
         url.searchParams.set('autojoin', '1');
+        if (S.roomKind) {
+          url.searchParams.set('roomKind', S.roomKind);
+        }
         return url.toString();
       }
 
@@ -664,13 +731,16 @@
         url.searchParams.set('safe', './goodjunk-race.safe.js');
         url.searchParams.set('core', './goodjunk.safe.race.js');
         url.searchParams.set('controller', './goodjunk-race.js');
-        url.searchParams.set('rv', '20260401-race-lobby-fix');
+        url.searchParams.set('rv', '20260403-race-full');
 
         if (sharedStartAt > 0) {
           url.searchParams.set('startAt', String(sharedStartAt));
         }
         if (sharedRoundId) {
           url.searchParams.set('roundId', sharedRoundId);
+        }
+        if (S.roomKind) {
+          url.searchParams.set('roomKind', S.roomKind);
         }
 
         return url.toString();
@@ -776,28 +846,29 @@
           if(count >= 2){
             setTop('ครบ 2 คนแล้ว Host กด Start Race ได้เลย');
             setSide('ตอนนี้ห้องพร้อมเริ่มแข่งแล้ว');
-            setBottom('ถ้าคุณเป็น host ให้กด Start Race');
+            setBottom(`debug • ${S.roomKind || '-'} / ${S.roomId || '-'}`);
           } else {
             setTop(`เข้าห้องสำเร็จ • รอผู้เล่นอีก ${Math.max(0, 2-count)} คน`);
             setSide('ส่ง room code หรือให้เพื่อน scan QR เพื่อเข้าห้องเดียวกัน');
-            setBottom('Race ต้องมี 2 คนจึงจะเริ่มได้');
+            setBottom(`debug • ${S.roomKind || '-'} / ${S.roomId || '-'}`);
           }
         } else if(status === 'countdown'){
           setTop('กำลังนับถอยหลัง เตรียมเข้าเกม');
           setSide('ทั้งสองฝั่งจะเข้า Race พร้อมกัน');
-          setBottom('ห้ามปิดหน้าในช่วงนับถอยหลัง');
+          setBottom(`debug • countdown @ ${S.roomKind || '-'} / ${S.roomId || '-'}`);
         } else if(status === 'playing' || status === 'running'){
           setTop('กำลังพาเข้าสู่หน้าเล่นจริง');
           setSide('ถ้าไม่เด้งเอง ให้รอสักครู่');
-          setBottom('ระบบกำลัง sync ห้องก่อนเข้าเกม');
+          setBottom(`debug • running @ ${S.roomKind || '-'} / ${S.roomId || '-'}`);
         } else if(status === 'ended'){
           setTop('รอบก่อนจบแล้ว • กด Start เพื่อเริ่มรอบใหม่');
           setSide('Host สามารถเริ่มรอบใหม่ได้จากห้องเดิม');
-          setBottom('ระบบจะ reset ค่าเมื่อเริ่มรอบใหม่');
+          setBottom(`debug • ended @ ${S.roomKind || '-'} / ${S.roomId || '-'}`);
         }
 
         renderPlayers();
         renderQr();
+        renderRoomDebug();
       }
 
       function renderCountdown(){
@@ -836,7 +907,9 @@
         S.meta = {};
         S.state = { status:'waiting', plannedSec:getTime(), seed:'', roundId:'', participantIds:[] };
         S.refs = null;
+        S.roomKind = '';
         S.redirecting = false;
+        renderRoomDebug();
       }
 
       async function joinBoundRoom(created){
@@ -914,9 +987,11 @@
         if(created){
           setTop('สร้างห้องสำเร็จ');
           setSide('ส่ง room code หรือ QR นี้ให้เพื่อนอีกคน');
+          setBottom(`debug • created at ${S.roomKind}/${S.roomId}`);
         } else {
           setTop('เข้าห้องสำเร็จ');
           setSide('รอ host กด Start Race');
+          setBottom(`debug • joined ${S.roomKind}/${S.roomId}`);
         }
       }
 
@@ -927,19 +1002,14 @@
 
           cleanupRoom();
           S.roomId = makeCode();
+          S.roomKind = 'raceRooms';
           UI.roomInput.value = S.roomId;
           UI.roomCodeBig.textContent = S.roomId;
+          renderRoomDebug();
 
           const db = ensureFirebaseDb();
-          const root = db.ref(ROOM_PATH(S.roomId));
-          S.refs = {
-            root,
-            meta: root.child('meta'),
-            state: root.child('state'),
-            match: root.child('match'),
-            players: root.child('players'),
-            results: root.child('results')
-          };
+          const root = roomRootRef(db, S.roomKind, S.roomId);
+          S.refs = buildRefs(root);
 
           const nowTs = Date.now();
           const initialSeed = String(getSeed());
@@ -953,6 +1023,7 @@
             hostPid:S.uid,
             minPlayers:2,
             maxPlayers:2,
+            roomKind:S.roomKind,
             createdAt:nowTs,
             updatedAt:nowTs
           }));
@@ -981,7 +1052,7 @@
         } catch (err) {
           console.error('[race-lobby] createRoom failed', err);
           setTop(`สร้างห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
-          setSide('ตรวจ rules ว่า publish raceRooms แล้ว และ auth พร้อมจริง');
+          setSide('ตรวจ rules / auth / database path แล้วลองใหม่');
         }
       }
 
@@ -999,28 +1070,24 @@
           }
 
           const db = ensureFirebaseDb();
-          const root = db.ref(ROOM_PATH(S.roomId));
-          S.refs = {
-            root,
-            meta: root.child('meta'),
-            state: root.child('state'),
-            match: root.child('match'),
-            players: root.child('players'),
-            results: root.child('results')
-          };
+          const detectedKind = await detectExistingRoomKind(db, S.roomId);
 
-          const metaSnap = await dbWriteWithRetry(() => S.refs.meta.once('value'));
-          if(!metaSnap.exists()){
+          if(!detectedKind){
             setTop('ไม่พบห้องนี้');
             setSide('ตรวจ room code แล้วลองใหม่');
             return;
           }
 
+          S.roomKind = detectedKind;
+          renderRoomDebug();
+          const root = roomRootRef(db, S.roomKind, S.roomId);
+          S.refs = buildRefs(root);
+
           await joinBoundRoom(false);
         } catch (err) {
           console.error('[race-lobby] joinRoom failed', err);
           setTop(`เข้าห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
-          setSide('ตรวจ rules ว่า publish raceRooms แล้ว และ auth พร้อมจริง');
+          setSide('ตรวจ rules / auth / database path แล้วลองใหม่');
         }
       }
 
@@ -1063,7 +1130,8 @@
         await dbWriteWithRetry(() => S.refs.meta.update({
           diff: sharedDiff,
           seed: sharedSeed,
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
+          roomKind: S.roomKind || 'raceRooms'
         }));
 
         await dbWriteWithRetry(() => S.refs.match.update({
@@ -1144,9 +1212,11 @@
       async function autoJoinIfNeeded(){
         const room = cleanRoom(qs('roomId', qs('room', '')));
         const autojoin = qs('autojoin', '') === '1';
+        const roomKind = clean(qs('roomKind', ''), 24);
         if(!room) return;
 
         UI.roomInput.value = room;
+        if (roomKind) S.roomKind = roomKind;
         ensureRoomCode();
         renderState();
 
@@ -1164,6 +1234,7 @@
           UI.timeSelect.value = String(clamp(qs('time', UI.timeSelect.value || '90'), 60, 150));
           UI.viewSelect.value = qs('view', UI.viewSelect.value || 'mobile') || 'mobile';
           UI.seedInput.value = qs('seed', UI.seedInput.value || '');
+          S.roomKind = clean(qs('roomKind', ''), 24) || '';
           ensureRoomCode();
           bind();
           renderState();
