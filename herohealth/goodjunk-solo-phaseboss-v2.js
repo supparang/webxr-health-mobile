@@ -3254,168 +3254,6 @@
     return dist < 3.5;
   }
 
-  function rescueWeakTarget(item, reason) {
-    if (!item || item.dead) return;
-
-    const bias =
-      state.boss.pattern === 'break' ? 'center' :
-      state.boss.stage === 'A' ? 'right-mid' :
-      state.boss.stage === 'B' ? 'center' :
-      'center';
-
-    const pos = randomBossSpawn(item.size, bias);
-
-    item.x = pos.x;
-    item.y = pos.y;
-    item.vx = (rand() < 0.5 ? -1 : 1) * range(80, 160);
-    item.vy = 0;
-    item.retargetQueued = false;
-    item._stuckFrames = 0;
-    item._edgeTrapFrames = 0;
-    item._stuckProbe = { x: item.x + item.size / 2, y: item.y + item.size / 2, t: nowMs() };
-
-    retargetWeak(item);
-    drawItem(item);
-
-    cueRingAt(item.x + item.size / 2, item.y + item.size / 2, 'hit', Math.max(64, item.size * 1.04));
-
-    if (DEBUG) {
-      fx(item.x + item.size / 2, item.y - 8, 'RESCUE', '#2d6f8b');
-      console.log('[GJSB] weak rescue:', reason || 'unknown');
-    }
-  }
-
-  function clampItemIntoBossRect(item) {
-    if (!item || item.dead) return;
-
-    const box = getBossPlayRect(item.size);
-
-    item.x = clamp(item.x, box.left, box.right);
-    item.y = clamp(item.y, box.top, box.bottom);
-
-    if (box.bossBlock) {
-      const b = box.bossBlock;
-      const overlaps =
-        item.x + item.size > b.left &&
-        item.x < b.right &&
-        item.y + item.size > b.top &&
-        item.y < b.bottom;
-
-      if (overlaps) {
-        item.x = Math.min(item.x, b.left - item.size - 4);
-        item.y = Math.max(box.top, Math.min(item.y, box.bottom));
-      }
-    }
-
-    drawItem(item);
-  }
-
-  function normalizeAllActiveItemsAfterResize() {
-    state.items.forEach((item) => {
-      if (!item || item.dead) return;
-
-      if (item.kind === 'weak' || item.kind === 'fakeweak') {
-        clampItemIntoBossRect(item);
-
-        const box = getBossPlayRect(item.size);
-        const escapeLeft = Math.max(110, box.left + 30);
-        const escapeTop = Math.max(140, box.top + 18);
-
-        if (item.x < escapeLeft && item.y < escapeTop) {
-          rescueWeakTarget(item, 'resize-top-left');
-        }
-      } else {
-        const r = stageRect();
-        item.x = clamp(item.x, 8, Math.max(8, r.width - item.size - 8));
-        item.y = clamp(item.y, -item.size - 20, Math.max(12, r.height - item.size - 12));
-        drawItem(item);
-      }
-    });
-  }
-
-  function drawItem(item) {
-    item.el.style.transform = 'translate(' + item.x + 'px,' + item.y + 'px)';
-  }
-
-  function createItem(kind, emoji, x, y, size, vx, vy, label) {
-    const id = 'it-' + (++state.seq);
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = 'gjsb-item ' + kind;
-    el.style.width = size + 'px';
-    el.style.height = size + 'px';
-    el.innerHTML =
-      '<div class="gjsb-emoji">' + emoji + '</div>' +
-      '<div class="gjsb-tag">' + (label || kind) + '</div>';
-
-    ui.stage.appendChild(el);
-
-    const item = {
-      id, kind, emoji, x, y, size, vx, vy, el, dead: false,
-      targetLaneIndex: 1,
-      targetLaneY: y,
-      moveMode: '',
-      baseVX: vx,
-      zigAmp: 0,
-      zigFreq: 0,
-      zigT: 0,
-      dashLeft: 0,
-      retargetQueued: false,
-      _stuckFrames: 0,
-      _edgeTrapFrames: 0,
-      _stuckProbe: null
-    };
-
-    el.addEventListener('pointerdown', function (ev) {
-      ev.preventDefault();
-      onHit(item);
-    }, { passive: false });
-
-    state.items.set(id, item);
-    drawItem(item);
-    return item;
-  }
-
-  function removeItem(item) {
-    if (!item || item.dead) return;
-    item.dead = true;
-    try { item.el.remove(); } catch (_) {}
-    state.items.delete(item.id);
-
-    if (state.boss.weakId === item.id) state.boss.weakId = '';
-    if (state.boss.fakeWeakDecoyId === item.id) {
-      state.boss.fakeWeakDecoyId = '';
-      state.boss.fakeWeakActive = false;
-    }
-  }
-
-  function clearItems() {
-    state.items.forEach(removeItem);
-    state.items.clear();
-    state.boss.weakId = '';
-    state.boss.fakeWeakDecoyId = '';
-    state.boss.fakeWeakActive = false;
-  }
-
-  function spawnFood(phase) {
-    const r = stageRect();
-    const phase2 = phase === 2;
-    const goodRatio = phase2 ? 0.58 : 0.7;
-    const isGood = rand() < goodRatio;
-    const size = phase2 ? range(52, 78) : range(58, 86);
-    const x = range(10, Math.max(12, r.width - size - 10));
-    const y = -size - range(0, 30);
-    const vx = range(-40, 40);
-    const vy = phase2 ? range(160, 260) : range(110, 180);
-
-    createItem(
-      isGood ? 'good' : 'junk',
-      isGood ? GOOD[Math.floor(rand() * GOOD.length)] : JUNK[Math.floor(rand() * JUNK.length)],
-      x, y, size, vx, vy,
-      isGood ? 'good' : 'junk'
-    );
-  }
-
   function getBossPlayRect(itemSize = 72) {
     const r = stageRect();
 
@@ -3428,14 +3266,17 @@
       ? Math.ceil(hudRect.bottom - r.top)
       : (window.innerWidth < 720 ? 118 : 146);
 
+    const leftPad = window.innerWidth < 720 ? 96 : 118;
+    const rightPad = window.innerWidth < 720 ? 18 : 24;
+
     const top = clamp(
-      hudBottom + 16,
-      window.innerWidth < 720 ? 112 : 140,
-      Math.max(window.innerWidth < 720 ? 160 : 200, r.height * 0.42)
+      hudBottom + (window.innerWidth < 720 ? 26 : 30),
+      window.innerWidth < 720 ? 132 : 150,
+      Math.max(window.innerWidth < 720 ? 188 : 216, r.height * 0.44)
     );
 
-    const left = 20;
-    const right = Math.max(left + 120, r.width - itemSize - 20);
+    const left = leftPad;
+    const right = Math.max(left + 120, r.width - itemSize - rightPad);
     const bottom = Math.max(top + 120, r.height - itemSize - 56);
 
     let bossBlock = null;
@@ -3458,6 +3299,22 @@
       width: r.width,
       height: r.height,
       bossBlock
+    };
+  }
+
+  function getBossHardSafeZone(itemSize = 72) {
+    const box = getBossPlayRect(itemSize);
+
+    const safeLeft = Math.max(box.left + 46, window.innerWidth < 720 ? 118 : 132);
+    const safeTop = Math.max(box.top + 22, window.innerWidth < 720 ? 132 : 148);
+    const safeRight = Math.max(safeLeft + 80, box.right - 10);
+    const safeBottom = Math.max(safeTop + 80, box.bottom - 10);
+
+    return {
+      left: safeLeft,
+      top: safeTop,
+      right: safeRight,
+      bottom: safeBottom
     };
   }
 
@@ -3485,7 +3342,7 @@
         left: 0,
         top: 0,
         right: r.width,
-        bottom: Math.max(0, topHudBottom + 14)
+        bottom: Math.max(0, topHudBottom + 18)
       });
     }
 
@@ -3501,8 +3358,15 @@
     zones.push({
       left: 0,
       top: 0,
-      right: Math.max(120, Math.round(r.width * 0.24)),
-      bottom: Math.max(150, Math.round(r.height * 0.22))
+      right: Math.max(148, Math.round(r.width * 0.28)),
+      bottom: Math.max(176, Math.round(r.height * 0.26))
+    });
+
+    zones.push({
+      left: 0,
+      top: Math.max(0, (hudRect ? Math.ceil(hudRect.bottom - r.top) : 110)),
+      right: Math.max(118, Math.round(r.width * 0.16)),
+      bottom: Math.max(210, Math.round(r.height * 0.36))
     });
 
     return zones;
@@ -3516,56 +3380,6 @@
       bottom: y + itemSize
     };
     return zones.some((z) => rectOverlap(box, z));
-  }
-
-  function pickBossSpawnPoint(itemSize = 72, bias = 'mid') {
-    const box = getBossPlayRect(itemSize);
-    const zones = getBossForbiddenZones(itemSize);
-
-    const left = box.left + 10;
-    const right = Math.max(left + 20, box.right - 10);
-    const top = box.top + 12;
-    const bottom = Math.max(top + 20, box.bottom - 10);
-
-    const width = Math.max(40, right - left);
-    const height = Math.max(40, bottom - top);
-
-    const candidates = [];
-
-    for (let i = 0; i < 36; i++) {
-      let x;
-      let y;
-
-      if (bias === 'right-mid') {
-        x = left + width * range(0.52, 0.88);
-        y = top + height * range(0.22, 0.72);
-      } else if (bias === 'center') {
-        x = left + width * range(0.28, 0.72);
-        y = top + height * range(0.24, 0.74);
-      } else if (bias === 'left-mid') {
-        x = left + width * range(0.18, 0.48);
-        y = top + height * range(0.22, 0.72);
-      } else {
-        x = left + width * range(0.22, 0.82);
-        y = top + height * range(0.22, 0.76);
-      }
-
-      x = Math.round(clamp(x, left, right));
-      y = Math.round(clamp(y, top, bottom));
-
-      if (!isPointBlocked(x, y, itemSize, zones)) {
-        candidates.push({ x, y });
-      }
-    }
-
-    if (candidates.length) {
-      return candidates[Math.floor(rand() * candidates.length)];
-    }
-
-    return {
-      x: Math.round(left + width * 0.56),
-      y: Math.round(top + height * 0.44)
-    };
   }
 
   function getBossLaneCenters(itemSize = 72) {
@@ -3626,21 +3440,26 @@
       box.bottom - 8
     );
 
-    let minX = box.left + 12;
-    let maxX = box.right - 12;
+    const hardLeft = Math.max(box.left + 24, window.innerWidth < 720 ? 126 : 146);
+    const hardRight = Math.max(hardLeft + 60, box.right - 12);
+
+    let minX = hardLeft;
+    let maxX = hardRight;
 
     if (sideBias === 'left') {
-      maxX = box.left + (box.right - box.left) * 0.46;
+      minX = hardLeft;
+      maxX = Math.max(minX + 36, box.left + (box.right - box.left) * 0.52);
     } else if (sideBias === 'right') {
-      minX = box.left + (box.right - box.left) * 0.52;
+      minX = Math.max(hardLeft, box.left + (box.right - box.left) * 0.56);
+      maxX = hardRight;
     } else {
-      minX = box.left + (box.right - box.left) * 0.22;
-      maxX = box.left + (box.right - box.left) * 0.78;
+      minX = Math.max(hardLeft, box.left + (box.right - box.left) * 0.32);
+      maxX = Math.max(minX + 36, box.left + (box.right - box.left) * 0.82);
     }
 
-    for (let i = 0; i < 28; i++) {
+    for (let i = 0; i < 40; i++) {
       const x = Math.round(range(minX, maxX));
-      const y = Math.round(clamp(laneY + range(-16, 16), box.top + 8, box.bottom - 8));
+      const y = Math.round(clamp(laneY + range(-12, 12), box.top + 8, box.bottom - 8));
 
       if (!isPointBlocked(x, y, itemSize, zones)) {
         return { x, y };
@@ -3648,13 +3467,92 @@
     }
 
     return {
-      x: Math.round((minX + maxX) / 2),
-      y: Math.round(laneY)
+      x: Math.round(clamp((minX + maxX) / 2, hardLeft, hardRight)),
+      y: Math.round(clamp(laneY, box.top + 8, box.bottom - 8))
     };
   }
 
   function randomBossSpawn(itemSize, bias) {
-    return pickBossSpawnPoint(itemSize, bias || 'mid');
+    const z = getBossHardSafeZone(itemSize);
+    const lanes = getBossLaneCenters(itemSize);
+
+    let laneIndex = 1;
+    if (bias === 'right' || bias === 'right-mid') laneIndex = rand() < 0.5 ? 1 : 2;
+    else if (bias === 'left' || bias === 'left-mid') laneIndex = rand() < 0.5 ? 0 : 1;
+    else laneIndex = Math.floor(range(0, lanes.length));
+
+    const laneY = clamp(
+      lanes[laneIndex] - itemSize / 2,
+      z.top,
+      z.bottom
+    );
+
+    let minX = Math.max(z.left, window.innerWidth < 720 ? 128 : 148);
+    let maxX = Math.max(minX + 40, z.right - 16);
+
+    if (bias === 'right' || bias === 'right-mid') {
+      minX = Math.max(minX, z.left + (z.right - z.left) * 0.52);
+    } else if (bias === 'left' || bias === 'left-mid') {
+      maxX = Math.max(minX + 40, z.left + (z.right - z.left) * 0.60);
+    } else {
+      minX = Math.max(minX, z.left + (z.right - z.left) * 0.24);
+      maxX = Math.max(minX + 40, z.left + (z.right - z.left) * 0.86);
+    }
+
+    return {
+      x: Math.round(clamp(range(minX, maxX), minX, maxX)),
+      y: Math.round(clamp(laneY + range(-10, 10), z.top, z.bottom))
+    };
+  }
+
+  function isWeakInTopLeftTrap(item) {
+    if (!item || item.dead) return false;
+
+    const z = getBossHardSafeZone(item.size);
+    return item.x < z.left || item.y < z.top;
+  }
+
+  function forceWeakIntoSafeArea(item, reason) {
+    if (!item || item.dead) return;
+
+    const z = getBossHardSafeZone(item.size);
+    const lanes = getBossLaneCenters(item.size);
+
+    let laneIndex = Number.isFinite(item.targetLaneIndex) ? item.targetLaneIndex : 1;
+    laneIndex = clamp(laneIndex, 0, lanes.length - 1);
+
+    const laneY = clamp(
+      lanes[laneIndex] - item.size / 2,
+      z.top,
+      z.bottom
+    );
+
+    const minX = Math.max(z.left, window.innerWidth < 720 ? 126 : 146);
+    const maxX = Math.max(minX + 40, z.right - 18);
+
+    item.x = clamp(range(minX, maxX), minX, maxX);
+    item.y = clamp(laneY + range(-10, 10), z.top, z.bottom);
+
+    if (!Number.isFinite(item.vx) || Math.abs(item.vx) < 40) {
+      item.vx = (rand() < 0.5 ? -1 : 1) * range(80, 150);
+    }
+
+    if (!Number.isFinite(item.vy)) item.vy = 0;
+
+    item._stuckFrames = 0;
+    item._edgeTrapFrames = 0;
+    item.retargetQueued = false;
+    item._stuckProbe = {
+      x: item.x + item.size / 2,
+      y: item.y + item.size / 2,
+      t: nowMs()
+    };
+
+    drawItem(item);
+
+    if (DEBUG) {
+      console.log('[GJSB] forceWeakIntoSafeArea:', reason || 'unknown', item.x, item.y);
+    }
   }
 
   function getBossStageByHp() {
@@ -3788,6 +3686,145 @@
     clearFakeWeakOnly();
   }
 
+  function drawItem(item) {
+    item.el.style.transform = 'translate(' + item.x + 'px,' + item.y + 'px)';
+  }
+
+  function createItem(kind, emoji, x, y, size, vx, vy, label) {
+    const id = 'it-' + (++state.seq);
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'gjsb-item ' + kind;
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    el.innerHTML =
+      '<div class="gjsb-emoji">' + emoji + '</div>' +
+      '<div class="gjsb-tag">' + (label || kind) + '</div>';
+
+    ui.stage.appendChild(el);
+
+    const item = {
+      id, kind, emoji, x, y, size, vx, vy, el, dead: false,
+      targetLaneIndex: 1,
+      targetLaneY: y,
+      moveMode: '',
+      baseVX: vx,
+      zigAmp: 0,
+      zigFreq: 0,
+      zigT: 0,
+      dashLeft: 0,
+      retargetQueued: false,
+      _stuckFrames: 0,
+      _edgeTrapFrames: 0,
+      _stuckProbe: null
+    };
+
+    el.addEventListener('pointerdown', function (ev) {
+      ev.preventDefault();
+      onHit(item);
+    }, { passive: false });
+
+    state.items.set(id, item);
+    drawItem(item);
+    return item;
+  }
+
+  function removeItem(item) {
+    if (!item || item.dead) return;
+    item.dead = true;
+    try { item.el.remove(); } catch (_) {}
+    state.items.delete(item.id);
+
+    if (state.boss.weakId === item.id) state.boss.weakId = '';
+    if (state.boss.fakeWeakDecoyId === item.id) {
+      state.boss.fakeWeakDecoyId = '';
+      state.boss.fakeWeakActive = false;
+    }
+  }
+
+  function clearItems() {
+    state.items.forEach(removeItem);
+    state.items.clear();
+    state.boss.weakId = '';
+    state.boss.fakeWeakDecoyId = '';
+    state.boss.fakeWeakActive = false;
+  }
+
+  function spawnFood(phase) {
+    const r = stageRect();
+    const phase2 = phase === 2;
+    const goodRatio = phase2 ? 0.58 : 0.7;
+    const isGood = rand() < goodRatio;
+    const size = phase2 ? range(52, 78) : range(58, 86);
+    const x = range(10, Math.max(12, r.width - size - 10));
+    const y = -size - range(0, 30);
+    const vx = range(-40, 40);
+    const vy = phase2 ? range(160, 260) : range(110, 180);
+
+    createItem(
+      isGood ? 'good' : 'junk',
+      isGood ? GOOD[Math.floor(rand() * GOOD.length)] : JUNK[Math.floor(rand() * JUNK.length)],
+      x, y, size, vx, vy,
+      isGood ? 'good' : 'junk'
+    );
+  }
+
+  function clampItemIntoBossRect(item) {
+    if (!item || item.dead) return;
+
+    const box = getBossPlayRect(item.size);
+
+    item.x = clamp(item.x, box.left, box.right);
+    item.y = clamp(item.y, box.top, box.bottom);
+
+    if (box.bossBlock) {
+      const b = box.bossBlock;
+      const overlaps =
+        item.x + item.size > b.left &&
+        item.x < b.right &&
+        item.y + item.size > b.top &&
+        item.y < b.bottom;
+
+      if (overlaps) {
+        item.x = Math.min(item.x, b.left - item.size - 4);
+        item.y = Math.max(box.top, Math.min(item.y, box.bottom));
+      }
+    }
+
+    if ((item.kind === 'weak' || item.kind === 'fakeweak') && isWeakInTopLeftTrap(item)) {
+      forceWeakIntoSafeArea(item, 'clamp-fix');
+    }
+
+    drawItem(item);
+  }
+
+  function normalizeAllActiveItemsAfterResize() {
+    state.items.forEach((item) => {
+      if (!item || item.dead) return;
+
+      if (item.kind === 'weak' || item.kind === 'fakeweak') {
+        clampItemIntoBossRect(item);
+
+        const box = getBossPlayRect(item.size);
+        const escapeLeft = Math.max(110, box.left + 30);
+        const escapeTop = Math.max(140, box.top + 18);
+
+        if (item.x < escapeLeft && item.y < escapeTop) {
+          forceWeakIntoSafeArea(item, 'resize-top-left');
+        }
+      } else {
+        const r = stageRect();
+        item.x = clamp(item.x, 8, Math.max(8, r.width - item.size - 8));
+        item.y = clamp(item.y, -item.size - 20, Math.max(12, r.height - item.size - 12));
+        drawItem(item);
+      }
+
+      if ((item.kind === 'weak' || item.kind === 'fakeweak') && isWeakInTopLeftTrap(item)) {
+        forceWeakIntoSafeArea(item, 'resize-post-check');
+      }
+    });
+  }
+
   function retargetWeak(item) {
     const p = getBossStageProfile(state.boss.stage);
     const stageKey = state.boss.rage ? 'RAGE' : state.boss.stage;
@@ -3839,6 +3876,50 @@
     item.vx = item.baseVX;
     item.vy = 0;
     item.dashLeft = state.boss.rage ? range(320, 480) : range(520, 760);
+  }
+
+  function rescueWeakTarget(item, reason) {
+    if (!item || item.dead) return;
+
+    const z = getBossHardSafeZone(item.size);
+    const lanes = getBossLaneCenters(item.size);
+
+    let laneIndex = Number.isFinite(item.targetLaneIndex) ? item.targetLaneIndex : 1;
+    laneIndex = clamp(laneIndex, 0, lanes.length - 1);
+
+    const laneY = clamp(
+      lanes[laneIndex] - item.size / 2,
+      z.top,
+      z.bottom
+    );
+
+    const minX = Math.max(z.left, window.innerWidth < 720 ? 132 : 152);
+    const maxX = Math.max(minX + 40, z.right - 20);
+
+    item.x = clamp(range(minX, maxX), minX, maxX);
+    item.y = clamp(laneY + range(-8, 8), z.top, z.bottom);
+
+    item.vx = (rand() < 0.5 ? -1 : 1) * range(90, 160);
+    item.vy = 0;
+    item.retargetQueued = false;
+    item._stuckFrames = 0;
+    item._edgeTrapFrames = 0;
+    item._stuckProbe = {
+      x: item.x + item.size / 2,
+      y: item.y + item.size / 2,
+      t: nowMs()
+    };
+
+    retargetWeak(item);
+    forceWeakIntoSafeArea(item, reason || 'rescue');
+    drawItem(item);
+
+    cueRingAt(item.x + item.size / 2, item.y + item.size / 2, 'hit', Math.max(64, item.size * 1.04));
+
+    if (DEBUG) {
+      fx(item.x + item.size / 2, item.y - 8, 'RESCUE', '#2d6f8b');
+      console.log('[GJSB] weak rescue:', reason || 'unknown', item.x, item.y);
+    }
   }
 
   function updateWeak(item, dt) {
@@ -3944,7 +4025,9 @@
         item._edgeTrapFrames = Math.max(0, (item._edgeTrapFrames || 0) - 1);
       }
 
-      if ((item._stuckFrames || 0) >= 5) {
+      if (isWeakInTopLeftTrap(item)) {
+        forceWeakIntoSafeArea(item, 'top-left-trap');
+      } else if ((item._stuckFrames || 0) >= 5) {
         rescueWeakTarget(item, 'stuck');
       } else if ((item._edgeTrapFrames || 0) >= 7) {
         rescueWeakTarget(item, 'edge-trap');
@@ -4022,6 +4105,7 @@
 
       item.targetLaneIndex = laneIndex;
       retargetWeak(item);
+      forceWeakIntoSafeArea(item, 'spawn-real');
       state.boss.weakId = item.id;
     };
 
@@ -4052,6 +4136,7 @@
 
     fake.targetLaneIndex = fakeLane;
     retargetWeak(fake);
+    forceWeakIntoSafeArea(fake, 'spawn-fake');
 
     state.boss.fakeWeakActive = true;
     state.boss.fakeWeakDecoyId = fake.id;
