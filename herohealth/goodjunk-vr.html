@@ -493,9 +493,8 @@
       if (btnLauncher) {
         const u = new URL('./goodjunk-launcher.html', location.href);
         [
-          'pid','name','studyId','diff','time','seed','hub','view','run',
-          'gameId','zone','phase','conditionGroup','api','studentKey',
-          'schoolCode','classRoom','studentNo','nickName','log','debug'
+          'pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug',
+          'studentKey','schoolCode','classRoom','studentNo','nickName','name','seed','gameId','zone'
         ].forEach((k) => {
           const v =
             k === 'name' ? runCtx.name :
@@ -511,9 +510,7 @@
             k === 'zone' ? runCtx.zone :
             q.get(k);
 
-          if (v != null && String(v).trim() !== '') {
-            u.searchParams.set(k, v);
-          }
+          if (v != null && v !== '') u.searchParams.set(k, v);
         });
         btnLauncher.href = u.toString();
       }
@@ -580,6 +577,6 @@
     })();
   </script>
 
-  <script src="./goodjunk-solo-phaseboss-v2.js?v=20260401-clean-final"></script>
+  <script src="./goodjunk-solo-phaseboss-v2.js?v=20260403-lane-pack-r1"></script>
 </body>
 </html>
