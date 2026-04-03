@@ -2886,7 +2886,17 @@
 
     ui.stage.appendChild(el);
 
-    const item = { id, kind, emoji, x, y, size, vx, vy, el, dead: false };
+    const item = {
+      id, kind, emoji, x, y, size, vx, vy, el, dead: false,
+      targetLaneIndex: 1,
+      targetLaneY: y,
+      moveMode: '',
+      baseVX: vx,
+      zigAmp: 0,
+      zigFreq: 0,
+      zigT: 0,
+      dashLeft: 0
+    };
 
     el.addEventListener('pointerdown', function (ev) {
       ev.preventDefault();
@@ -2983,33 +2993,200 @@
     };
   }
 
-  function randomBossSpawn(itemSize) {
+  function rectOverlap(a, b) {
+    return !(
+      a.right <= b.left ||
+      a.left >= b.right ||
+      a.bottom <= b.top ||
+      a.top >= b.bottom
+    );
+  }
+
+  function getBossForbiddenZones(itemSize = 72) {
+    const r = stageRect();
+    const zones = [];
+
+    const hudRect = ui.topHud ? ui.topHud.getBoundingClientRect() : null;
+    const bossRect = (state.boss.active && ui.bossWrap && ui.bossWrap.classList.contains('show'))
+      ? ui.bossWrap.getBoundingClientRect()
+      : null;
+
+    if (hudRect) {
+      const topHudBottom = Math.ceil(hudRect.bottom - r.top);
+      zones.push({
+        left: 0,
+        top: 0,
+        right: r.width,
+        bottom: Math.max(0, topHudBottom + 14)
+      });
+    }
+
+    if (bossRect) {
+      zones.push({
+        left: Math.max(0, Math.floor(bossRect.left - r.left - 14)),
+        top: Math.max(0, Math.floor(bossRect.top - r.top - 12)),
+        right: Math.min(r.width, Math.ceil(bossRect.right - r.left + 14)),
+        bottom: Math.min(r.height, Math.ceil(bossRect.bottom - r.top + 12))
+      });
+    }
+
+    zones.push({
+      left: 0,
+      top: 0,
+      right: Math.max(120, Math.round(r.width * 0.24)),
+      bottom: Math.max(150, Math.round(r.height * 0.22))
+    });
+
+    return zones;
+  }
+
+  function isPointBlocked(x, y, itemSize, zones) {
+    const box = {
+      left: x,
+      top: y,
+      right: x + itemSize,
+      bottom: y + itemSize
+    };
+    return zones.some((z) => rectOverlap(box, z));
+  }
+
+  function pickBossSpawnPoint(itemSize = 72, bias = 'mid') {
+    const box = getBossPlayRect(itemSize);
+    const zones = getBossForbiddenZones(itemSize);
+
+    const left = box.left + 10;
+    const right = Math.max(left + 20, box.right - 10);
+    const top = box.top + 12;
+    const bottom = Math.max(top + 20, box.bottom - 10);
+
+    const width = Math.max(40, right - left);
+    const height = Math.max(40, bottom - top);
+
+    const candidates = [];
+
+    for (let i = 0; i < 36; i++) {
+      let x;
+      let y;
+
+      if (bias === 'right-mid') {
+        x = left + width * range(0.52, 0.88);
+        y = top + height * range(0.22, 0.72);
+      } else if (bias === 'center') {
+        x = left + width * range(0.28, 0.72);
+        y = top + height * range(0.24, 0.74);
+      } else if (bias === 'left-mid') {
+        x = left + width * range(0.18, 0.48);
+        y = top + height * range(0.22, 0.72);
+      } else {
+        x = left + width * range(0.22, 0.82);
+        y = top + height * range(0.22, 0.76);
+      }
+
+      x = Math.round(clamp(x, left, right));
+      y = Math.round(clamp(y, top, bottom));
+
+      if (!isPointBlocked(x, y, itemSize, zones)) {
+        candidates.push({ x, y });
+      }
+    }
+
+    if (candidates.length) {
+      return candidates[Math.floor(rand() * candidates.length)];
+    }
+
+    return {
+      x: Math.round(left + width * 0.56),
+      y: Math.round(top + height * 0.44)
+    };
+  }
+
+  function getBossLaneCenters(itemSize = 72) {
     const box = getBossPlayRect(itemSize);
 
-    const minX = box.left + 8;
-    const maxX = Math.max(minX + 10, box.right - 8);
-    const minY = box.top + 8;
-    const maxY = Math.max(minY + 10, box.bottom - 8);
+    const usableTop = box.top + 18;
+    const usableBottom = box.bottom - 18;
+    const span = Math.max(140, usableBottom - usableTop);
 
-    for (let i = 0; i < 24; i++) {
-      const x = range(minX, maxX);
-      const y = range(minY, maxY);
+    return [
+      Math.round(usableTop + span * 0.18),
+      Math.round(usableTop + span * 0.48),
+      Math.round(usableTop + span * 0.78)
+    ];
+  }
 
-      const b = box.bossBlock;
-      if (!b) return { x, y };
+  function nearestBossLaneIndex(y, itemSize = 72) {
+    const lanes = getBossLaneCenters(itemSize);
+    let best = 0;
+    let bestDist = Infinity;
 
-      const overlapsBossCard =
-        x + itemSize > b.left &&
-        x < b.right &&
-        y + itemSize > b.top &&
-        y < b.bottom;
+    for (let i = 0; i < lanes.length; i++) {
+      const d = Math.abs(lanes[i] - (y + itemSize / 2));
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    }
+    return best;
+  }
 
-      if (!overlapsBossCard) {
+  function pickLaneIndexForStage(stage, avoidIndex) {
+    let order;
+
+    if (stage === 'A') {
+      order = [0, 1, 2];
+    } else if (stage === 'B') {
+      order = [0, 2, 1];
+    } else {
+      order = [1, 0, 2];
+    }
+
+    let lane = order[Math.floor(rand() * order.length)];
+    if (lane === avoidIndex) {
+      lane = order[(order.indexOf(lane) + 1) % order.length];
+    }
+    return lane;
+  }
+
+  function randomBossSpawnInLane(itemSize = 72, laneIndex = 1, sideBias = 'center') {
+    const box = getBossPlayRect(itemSize);
+    const zones = getBossForbiddenZones(itemSize);
+
+    const lanes = getBossLaneCenters(itemSize);
+    const laneY = clamp(
+      lanes[laneIndex] - itemSize / 2,
+      box.top + 8,
+      box.bottom - 8
+    );
+
+    let minX = box.left + 12;
+    let maxX = box.right - 12;
+
+    if (sideBias === 'left') {
+      maxX = box.left + (box.right - box.left) * 0.46;
+    } else if (sideBias === 'right') {
+      minX = box.left + (box.right - box.left) * 0.52;
+    } else {
+      minX = box.left + (box.right - box.left) * 0.22;
+      maxX = box.left + (box.right - box.left) * 0.78;
+    }
+
+    for (let i = 0; i < 28; i++) {
+      const x = Math.round(range(minX, maxX));
+      const y = Math.round(clamp(laneY + range(-16, 16), box.top + 8, box.bottom - 8));
+
+      if (!isPointBlocked(x, y, itemSize, zones)) {
         return { x, y };
       }
     }
 
-    return { x: minX, y: minY };
+    return {
+      x: Math.round((minX + maxX) / 2),
+      y: Math.round(laneY)
+    };
+  }
+
+  function randomBossSpawn(itemSize, bias) {
+    return pickBossSpawnPoint(itemSize, bias || 'mid');
   }
 
   function getBossStageByHp() {
@@ -3145,29 +3322,55 @@
 
   function retargetWeak(item) {
     const p = getBossStageProfile(state.boss.stage);
-    const speed = state.boss.pattern === 'break' ? p.weakSpeedBreak : p.weakSpeedHunt;
+    const stageKey = state.boss.rage ? 'RAGE' : state.boss.stage;
+    const currentLane = nearestBossLaneIndex(item.y, item.size);
+    const nextLane =
+      state.boss.pattern === 'break'
+        ? 1
+        : pickLaneIndexForStage(stageKey === 'RAGE' ? 'C' : stageKey, currentLane);
 
-    let vx = range(-speed, speed);
-    let vy = range(-speed, speed);
+    const lanes = getBossLaneCenters(item.size);
+    const targetLaneY = clamp(
+      lanes[nextLane] - item.size / 2,
+      getBossPlayRect(item.size).top + 8,
+      getBossPlayRect(item.size).bottom - 8
+    );
 
-    if (p.huntMode === 'steady') {
-      vx *= 0.82;
-      vy *= 0.82;
-    } else if (p.huntMode === 'pressure') {
-      vx *= 1.0;
-      vy *= 1.0;
-    } else if (p.huntMode === 'aggressive') {
-      vx *= 1.08;
-      vy *= 1.08;
-    } else if (p.huntMode === 'trickster') {
-      vx *= 1.15;
-      vy *= 1.15;
-      if (rand() < 0.22) vx *= -1;
-      if (rand() < 0.22) vy *= -1;
+    item.targetLaneIndex = nextLane;
+    item.targetLaneY = targetLaneY;
+
+    if (state.boss.pattern === 'break') {
+      item.moveMode = 'break';
+      item.baseVX = (rand() < 0.5 ? -1 : 1) * range(p.weakSpeedBreak * 0.26, p.weakSpeedBreak * 0.42);
+      item.vx = item.baseVX;
+      item.vy = 0;
+      return;
     }
 
-    item.vx = Math.abs(vx) < speed * 0.22 ? (vx < 0 ? -speed * 0.35 : speed * 0.35) : vx;
-    item.vy = Math.abs(vy) < speed * 0.22 ? (vy < 0 ? -speed * 0.35 : speed * 0.35) : vy;
+    if (stageKey === 'A') {
+      item.moveMode = 'lane';
+      item.baseVX = (rand() < 0.5 ? -1 : 1) * range(p.weakSpeedHunt * 0.26, p.weakSpeedHunt * 0.40);
+      item.vx = item.baseVX;
+      item.vy = 0;
+      return;
+    }
+
+    if (stageKey === 'B') {
+      item.moveMode = 'zigzag';
+      item.baseVX = (rand() < 0.5 ? -1 : 1) * range(p.weakSpeedHunt * 0.68, p.weakSpeedHunt * 0.96);
+      item.vx = item.baseVX;
+      item.vy = 0;
+      item.zigAmp = range(34, 66);
+      item.zigFreq = range(0.010, 0.018);
+      item.zigT = 0;
+      return;
+    }
+
+    item.moveMode = 'dash';
+    item.baseVX = (rand() < 0.5 ? -1 : 1) * range(p.weakSpeedHunt * 0.88, p.weakSpeedHunt * 1.08);
+    item.vx = item.baseVX;
+    item.vy = 0;
+    item.dashLeft = state.boss.rage ? range(320, 480) : range(520, 760);
   }
 
   function updateWeak(item, dt) {
@@ -3225,6 +3428,39 @@
       }
     }
 
+    if (state.boss.active) {
+      const targetY = Number.isFinite(item.targetLaneY) ? item.targetLaneY : item.y;
+
+      if (item.moveMode === 'lane' || item.moveMode === 'break') {
+        item.y += (targetY - item.y) * Math.min(0.14, dt / 220);
+        item.vx = item.baseVX || item.vx;
+      } else if (item.moveMode === 'zigzag') {
+        item.zigT = (item.zigT || 0) + dt;
+        const waveY = targetY + Math.sin(item.zigT * (item.zigFreq || 0.014)) * (item.zigAmp || 52);
+        item.y += (waveY - item.y) * Math.min(0.18, dt / 180);
+        item.vx = item.baseVX || item.vx;
+      } else if (item.moveMode === 'dash') {
+        item.dashLeft = (item.dashLeft || 0) - dt;
+        item.y += (targetY - item.y) * Math.min(state.boss.rage ? 0.34 : 0.24, dt / 120);
+        item.vx = item.baseVX || item.vx;
+
+        if (item.dashLeft <= 0) {
+          retargetWeak(item);
+        }
+      }
+
+      const escapeLeft = Math.max(110, box.left + 30);
+      const escapeTop = Math.max(140, box.top + 18);
+
+      if (item.x < escapeLeft && item.y < escapeTop) {
+        item.x = Math.max(item.x, escapeLeft + range(18, 42));
+        item.y = Math.max(item.y, escapeTop + range(16, 38));
+
+        if (item.vx < 0) item.vx = Math.abs(item.vx);
+        if (item.vy < 0) item.vy = Math.abs(item.vy);
+      }
+    }
+
     item._trailAcc = (item._trailAcc || 0) + dt;
     if (item.kind === 'weak' && item._trailAcc >= 48) {
       item._trailAcc = 0;
@@ -3259,8 +3495,27 @@
     const size = isBreak ? p.weakSizeBreak : p.weakSizeHunt;
     const speed = isBreak ? p.weakSpeedBreak : p.weakSpeedHunt;
 
+    const stageKey = state.boss.rage ? 'RAGE' : state.boss.stage;
+
     const spawnRealWeak = () => {
-      const pos = randomBossSpawn(size);
+      let laneIndex;
+      let sideBias;
+
+      if (isBreak) {
+        laneIndex = 1;
+        sideBias = 'center';
+      } else if (stageKey === 'A') {
+        laneIndex = pickLaneIndexForStage('A', -1);
+        sideBias = 'right';
+      } else if (stageKey === 'B') {
+        laneIndex = pickLaneIndexForStage('B', -1);
+        sideBias = rand() < 0.5 ? 'left' : 'right';
+      } else {
+        laneIndex = pickLaneIndexForStage('C', -1);
+        sideBias = 'center';
+      }
+
+      const pos = randomBossSpawnInLane(size, laneIndex, sideBias);
 
       const item = createItem(
         'weak',
@@ -3274,6 +3529,9 @@
       );
 
       if (isBreak) item.el.classList.add('break');
+
+      item.targetLaneIndex = laneIndex;
+      retargetWeak(item);
       state.boss.weakId = item.id;
     };
 
@@ -3288,7 +3546,8 @@
     }
 
     const fakeSize = size + 10;
-    const fakePos = randomBossSpawn(fakeSize);
+    const fakeLane = pickLaneIndexForStage('C', -1);
+    const fakePos = randomBossSpawnInLane(fakeSize, fakeLane, 'left');
 
     const fake = createItem(
       'fakeweak',
@@ -3301,6 +3560,9 @@
       'fake'
     );
 
+    fake.targetLaneIndex = fakeLane;
+    retargetWeak(fake);
+
     state.boss.fakeWeakActive = true;
     state.boss.fakeWeakDecoyId = fake.id;
 
@@ -3310,7 +3572,12 @@
       if (state.ended || !state.boss.active) return;
 
       if (state.boss.fakeWeakDecoyId === fake.id) {
-        spawnImpact(fake.x + fake.size / 2, fake.y + fake.size / 2, 'storm', Math.max(68, fake.size));
+        spawnImpact(
+          fake.x + fake.size / 2,
+          fake.y + fake.size / 2,
+          'storm',
+          Math.max(68, fake.size)
+        );
         removeItem(fake);
       }
 
@@ -3635,13 +3902,15 @@
     const p = getBossStageProfile(state.boss.stage);
 
     ui.bossWrap.classList.add('show');
+
     ui.bossPatternText.textContent =
       getPatternLabel(state.boss.pattern) + ' • ' + getPatternSubtitle(state.boss.pattern);
 
     ui.bossStageText.textContent = p.label;
     ui.bossStageText.className = 'gjsb-boss-stage ' + p.stageClass;
     ui.bossHpText.textContent = 'HP ' + state.boss.hp + ' / ' + state.boss.maxHp;
-    ui.bossHpFill.style.transform = 'scaleX(' + clamp(state.boss.hp / state.boss.maxHp, 0, 1) + ')';
+    ui.bossHpFill.style.transform =
+      'scaleX(' + clamp(state.boss.hp / state.boss.maxHp, 0, 1) + ')';
 
     ui.bossIcon.textContent = p.icon;
     ui.bossPatternChip.textContent = getPatternLabel(state.boss.pattern);
@@ -3984,10 +4253,6 @@
       badgeText = 'ยังแพ้รอบก่อน';
     }
 
-    const scoreDelta = compareDeltaText(scoreNow, scorePrev, true);
-    const missDelta = compareDeltaText(missNow, missPrev, false);
-    const streakDelta = compareDeltaText(streakNow, streakPrev, true);
-
     return {
       html: `
         <div class="gjsb-compareHead">
@@ -3999,24 +4264,24 @@
           <div class="gjsb-compareStat">
             <div class="gjsb-compareK">Score</div>
             <div class="gjsb-compareV">${scoreNow}</div>
-            <div class="gjsb-compareDelta ${scoreDelta.cls}">
-              ก่อนหน้า ${scorePrev} • ${scoreDelta.text}
+            <div class="gjsb-compareDelta ${compareDeltaText(scoreNow, scorePrev, true).cls}">
+              ก่อนหน้า ${scorePrev} • ${compareDeltaText(scoreNow, scorePrev, true).text}
             </div>
           </div>
 
           <div class="gjsb-compareStat">
             <div class="gjsb-compareK">Miss</div>
             <div class="gjsb-compareV">${missNow}</div>
-            <div class="gjsb-compareDelta ${missDelta.cls}">
-              ก่อนหน้า ${missPrev} • ${missDelta.text}
+            <div class="gjsb-compareDelta ${compareDeltaText(missNow, missPrev, false).cls}">
+              ก่อนหน้า ${missPrev} • ${compareDeltaText(missNow, missPrev, false).text}
             </div>
           </div>
 
           <div class="gjsb-compareStat">
             <div class="gjsb-compareK">Best Streak</div>
             <div class="gjsb-compareV">${streakNow}</div>
-            <div class="gjsb-compareDelta ${streakDelta.cls}">
-              ก่อนหน้า ${streakPrev} • ${streakDelta.text}
+            <div class="gjsb-compareDelta ${compareDeltaText(streakNow, streakPrev, true).cls}">
+              ก่อนหน้า ${streakPrev} • ${compareDeltaText(streakNow, streakPrev, true).text}
             </div>
           </div>
         </div>
