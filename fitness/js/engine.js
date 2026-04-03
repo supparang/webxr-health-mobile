@@ -1,6 +1,6 @@
 // === /fitness/js/engine.js ===
 // Shadow Breaker Engine
-// FULL PATCH v20260328b-SHADOWBREAKER-FINAL-CLEAN-PRODUCTION
+// FULL PATCH v20260328c-SHADOWBREAKER-FINAL-CLEAN-PRODUCTION-FLOW
 
 (function(){
   'use strict';
@@ -115,7 +115,7 @@
 
   function buildCooldownGateUrl(summary){
     const hubUrl = String(summary?.hub || qs('hub','') || '../herohealth/hub.html');
-    const summaryUrl = `../herohealth/shadow-breaker-summary.html?pid=${encodeURIComponent(summary?.pid || 'anon')}&hub=${encodeURIComponent(hubUrl)}`;
+    const summaryUrl = `../herohealth/shadow-breaker-summary.html?pid=${encodeURIComponent(summary?.pid || 'anon')}&hub=${encodeURIComponent(hubUrl)}&diff=${encodeURIComponent(summary?.diff || 'normal')}&mode=${encodeURIComponent(summary?.mode || 'normal')}`;
 
     const u = new URL('/webxr-health-mobile/herohealth/warmup-gate.html', location.origin);
 
@@ -134,13 +134,46 @@
     u.searchParams.set('gameId', 'shadowbreaker');
     u.searchParams.set('cat', 'fitness');
     u.searchParams.set('theme', 'shadowbreaker');
+    u.searchParams.set('zone', 'fitness');
     u.searchParams.set('pid', String(summary?.pid || qs('pid','anon') || 'anon'));
     u.searchParams.set('hub', hubUrl);
     u.searchParams.set('finalGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
     u.searchParams.set('plannedGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
     u.searchParams.set('cdnext', summaryUrl);
+    u.searchParams.set('forcegate', '1');
 
     return u.toString();
+  }
+
+  function buildReplayLauncherHref(){
+    const hubUrl = String(qs('hub','') || '../herohealth/hub.html');
+    const url = new URL('/webxr-health-mobile/herohealth/shadow-breaker-vr.html', location.origin);
+
+    url.searchParams.set('pid', String(STATE.pid || 'anon'));
+    url.searchParams.set('diff', String(STATE.diff || 'normal'));
+    url.searchParams.set('time', String(Math.round((STATE.totalMs || 70000) / 1000)));
+    url.searchParams.set('mode', String(STATE.mode || 'normal'));
+    url.searchParams.set('view', String(getViewMode() || 'mobile'));
+    url.searchParams.set('hub', hubUrl);
+
+    const studyId = String(qs('studyId','')).trim();
+    const group = String(qs('group','') || DOM.inputGroup?.value || '').trim();
+    const conditionGroup = String(qs('conditionGroup','')).trim();
+
+    if (studyId) url.searchParams.set('studyId', studyId);
+    if (group) url.searchParams.set('group', group);
+    if (conditionGroup) url.searchParams.set('conditionGroup', conditionGroup);
+
+    return url.toString();
+  }
+
+  function goBackHubNow(){
+    const hubUrl = String(qs('hub','') || '../herohealth/hub.html');
+    try{
+      location.href = hubUrl;
+    }catch(_){
+      location.assign(hubUrl);
+    }
   }
 
   const BOSSES = [
@@ -896,7 +929,7 @@
 
     const hubUrl = String(qs('hub','') || '../herohealth/hub.html');
     const teacherUrl = `../herohealth/teacher-panel.html?game=shadowbreaker&pid=${encodeURIComponent(STATE.pid)}`;
-    const summaryUrl = `../herohealth/shadow-breaker-summary.html?pid=${encodeURIComponent(STATE.pid)}&hub=${encodeURIComponent(hubUrl)}`;
+    const summaryUrl = `../herohealth/shadow-breaker-summary.html?pid=${encodeURIComponent(STATE.pid)}&hub=${encodeURIComponent(hubUrl)}&diff=${encodeURIComponent(STATE.diff)}&mode=${encodeURIComponent(STATE.mode)}`;
     const runUrl = `../herohealth/shadow-breaker-vr.html?pid=${encodeURIComponent(STATE.pid)}&diff=${encodeURIComponent(STATE.diff)}&time=${encodeURIComponent(Math.round(STATE.totalMs/1000))}&view=${encodeURIComponent(getViewMode())}&zone=fitness&hub=${encodeURIComponent(hubUrl)}`;
 
     const summaryBase = {
@@ -926,7 +959,8 @@
       note: String(DOM.inputNote?.value || '').trim(),
       end_reason: endReason || 'ended',
       timestampIso: shortIsoNow(),
-      hub: hubUrl
+      hub: hubUrl,
+      view: getViewMode()
     };
 
     const cooldownUrl = buildCooldownGateUrl(summaryBase);
@@ -987,7 +1021,7 @@
   function renderResult(summary){
     if(!summary) return;
 
-    if(DOM.resTime) DOM.resTime.textContent = `${Number(summary.elapsedSec || 0).toFixed(1)} s`;
+    if(DOM.resTime) DOM.resTime.textContent = `${Number(summary.elapsedSec || 0).toFixed(1)} วินาที`;
     if(DOM.resScore) DOM.resScore.textContent = String(summary.scoreFinal || 0);
     if(DOM.resMaxCombo) DOM.resMaxCombo.textContent = String(summary.comboMax || 0);
     if(DOM.resMiss) DOM.resMiss.textContent = String(summary.missTotal || 0);
@@ -1011,6 +1045,51 @@
         DOM.resMessage.textContent = 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อฝึกความแม่นนะ';
       }
     }
+  }
+
+  function showInlineEndOverlay(summary){
+    let box = DOC.getElementById('sb-inline-end-overlay');
+    if (!box) {
+      box = DOC.createElement('div');
+      box.id = 'sb-inline-end-overlay';
+      box.style.position = 'fixed';
+      box.style.inset = '0';
+      box.style.zIndex = '9999';
+      box.style.display = 'grid';
+      box.style.placeItems = 'center';
+      box.style.background = 'rgba(20,30,40,.34)';
+      box.innerHTML = `
+        <div style="width:min(92vw,520px);border-radius:24px;background:linear-gradient(180deg,#fffdf6,#f8fff3);border:1px solid #bfe3f2;box-shadow:0 18px 40px rgba(0,0,0,.18);padding:18px;text-align:center;color:#4d4a42;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans Thai',sans-serif;">
+          <div id="sb-inline-end-icon" style="font-size:2.2rem;">🏅</div>
+          <div style="margin-top:8px;font-size:1.2rem;font-weight:1000;">สรุปรอบนี้</div>
+          <div id="sb-inline-end-msg" style="margin-top:8px;line-height:1.5;font-weight:900;color:#6b6a62;">เก่งมาก</div>
+          <div style="margin-top:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+            <div style="padding:10px;border-radius:16px;background:#fff;border:1px solid #d8eef5;"><div style="font-size:.8rem;color:#7b7a72;font-weight:1000;">คะแนน</div><div id="sb-inline-end-score" style="margin-top:4px;font-size:1.2rem;font-weight:1000;">0</div></div>
+            <div style="padding:10px;border-radius:16px;background:#fff;border:1px solid #d8eef5;"><div style="font-size:.8rem;color:#7b7a72;font-weight:1000;">เกรด</div><div id="sb-inline-end-grade" style="margin-top:4px;font-size:1.2rem;font-weight:1000;">C</div></div>
+            <div style="padding:10px;border-radius:16px;background:#fff;border:1px solid #d8eef5;"><div style="font-size:.8rem;color:#7b7a72;font-weight:1000;">บอสที่ผ่าน</div><div id="sb-inline-end-boss" style="margin-top:4px;font-size:1.2rem;font-weight:1000;">0</div></div>
+            <div style="padding:10px;border-radius:16px;background:#fff;border:1px solid #d8eef5;"><div style="font-size:.8rem;color:#7b7a72;font-weight:1000;">ความแม่นยำ</div><div id="sb-inline-end-acc" style="margin-top:4px;font-size:1.2rem;font-weight:1000;">0%</div></div>
+          </div>
+        </div>
+      `;
+      DOC.body.appendChild(box);
+    }
+
+    const msg =
+      summary.end_reason === 'final_clear'
+        ? 'สุดยอดมาก! ผ่านบอสสุดท้ายแล้ว'
+        : (Number(summary.bossesCleared || 0) >= 1
+            ? 'ผ่านบอสได้แล้ว เก่งมาก!'
+            : 'เริ่มต้นได้ดี ลองอีกครั้งได้นะ');
+
+    const q = (id) => DOC.getElementById(id);
+    q('sb-inline-end-icon').textContent = summary.badge?.icon || '🏅';
+    q('sb-inline-end-msg').textContent = msg;
+    q('sb-inline-end-score').textContent = String(summary.scoreFinal || 0);
+    q('sb-inline-end-grade').textContent = String(summary.grade || 'C');
+    q('sb-inline-end-boss').textContent = String(summary.bossesCleared || 0);
+    q('sb-inline-end-acc').textContent = `${Number(summary.accPct || 0).toFixed(1)}%`;
+
+    return box;
   }
 
   function goToCooldown(summary){
@@ -1040,6 +1119,12 @@
     const summary = computeSummary(reason);
     persistSummary(summary);
     renderResult(summary);
+
+    try{
+      showInlineEndOverlay(summary);
+      setTimeout(()=>goToCooldown(summary), 900);
+      return;
+    }catch(_){}
 
     goToCooldown(summary);
   }
@@ -1104,6 +1189,9 @@
 
   function startGame(mode='normal'){
     if (STATE.isPlaying && !STATE.isEnding) return;
+
+    const oldOverlay = DOC.getElementById('sb-inline-end-overlay');
+    if (oldOverlay) oldOverlay.remove();
 
     setUiMode(mode);
     resetRuntimeOnly();
@@ -1229,10 +1317,16 @@
     DOM.btnBackMenu?.addEventListener('click', gotoMenu);
 
     DOM.btnResultRetry?.addEventListener('click', ()=>{
-      const mode = STATE.mode || 'normal';
-      startGame(mode);
+      try{
+        location.href = buildReplayLauncherHref();
+      }catch(_){
+        location.assign(buildReplayLauncherHref());
+      }
     });
-    DOM.btnResultMenu?.addEventListener('click', gotoMenu);
+
+    DOM.btnResultMenu?.addEventListener('click', ()=>{
+      goBackHubNow();
+    });
 
     DOM.btnDownloadEvents?.addEventListener('click', exportEventsCsv);
     DOM.btnDownloadSession?.addEventListener('click', exportSessionCsv);
