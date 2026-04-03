@@ -3,7 +3,8 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.duet.js
  * GoodJunk Duet Run
- * FULL PATCH v20260402-gjduet-run-r10
+ * FULL PATCH v20260402-gjduet-run-r11
+ * - hard-hide summary overlay before run
  * - stage-ready safe start
  * - synced countdown / deadline by shared startAt
  * - replay -> rematch handoff to lobby
@@ -252,6 +253,25 @@
     if (ui.duetCountdownText) ui.duetCountdownText.textContent = String(subText || '');
   }
 
+  function hardHideSummaryMount(){
+    if (!ui.duetResultMount) return;
+    ui.duetResultMount.hidden = true;
+    ui.duetResultMount.innerHTML = '';
+    ui.duetResultMount.style.display = 'none';
+    ui.duetResultMount.style.pointerEvents = 'none';
+    ui.duetResultMount.style.visibility = 'hidden';
+    ui.duetResultMount.style.opacity = '0';
+  }
+
+  function hardShowSummaryMount(){
+    if (!ui.duetResultMount) return;
+    ui.duetResultMount.hidden = false;
+    ui.duetResultMount.style.display = 'flex';
+    ui.duetResultMount.style.pointerEvents = 'auto';
+    ui.duetResultMount.style.visibility = 'visible';
+    ui.duetResultMount.style.opacity = '1';
+  }
+
   function getStageMetrics(stage){
     if (!stage) return { width: 360, height: 580 };
     const rect = stage.getBoundingClientRect();
@@ -314,6 +334,9 @@
     state.peerFinalScore = 0;
     state.lastFrameAt = 0;
     state.seq = 0;
+    state.summaryShown = false;
+    state.myResultSubmitted = false;
+    state.peerResultSeen = false;
     clearTargets();
   }
 
@@ -504,6 +527,7 @@
     state.starting = true;
 
     try {
+      hardHideSummaryMount();
       await waitStageReady(ui.duetGameStage);
       resetRunState();
 
@@ -889,7 +913,7 @@
 
   function showSummary(){
     if (!ui.duetResultMount) return;
-    ui.duetResultMount.hidden = false;
+    hardShowSummaryMount();
     ui.duetResultMount.innerHTML = buildSummaryHtml();
     attachSummaryActions();
     const card = ui.duetResultMount.querySelector('.duet-result-card');
@@ -949,6 +973,11 @@
 
     if (state.roomStatus === 'ended' && !state.summaryShown && state.myResultSubmitted) {
       showSummary();
+      return;
+    }
+
+    if (state.roomStatus !== 'ended' && !state.summaryShown) {
+      hardHideSummaryMount();
     }
   }
 
@@ -1080,7 +1109,14 @@
       syncFromRoomSnapshot(raw);
 
       if (!state.started && !state.starting) {
-        const roomStartAt = Number(raw?.state?.startAt || raw?.state?.countdownEndsAt || raw?.startAt || raw?.countdownEndsAt || ctx.startAt || 0);
+        const roomStartAt = Number(
+          raw?.state?.startAt ||
+          raw?.state?.countdownEndsAt ||
+          raw?.startAt ||
+          raw?.countdownEndsAt ||
+          ctx.startAt ||
+          0
+        );
 
         if (roomStartAt > 0) {
           state.startAtMs = roomStartAt;
@@ -1211,6 +1247,7 @@
   async function boot(){
     try {
       bindUI();
+      hardHideSummaryMount();
       renderHud();
       state.refs = null;
 
