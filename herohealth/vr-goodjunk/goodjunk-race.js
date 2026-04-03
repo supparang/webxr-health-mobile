@@ -3,7 +3,7 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-race.js
  * GoodJunk Race Controller
- * PATCH v20260402-race-compare-summary
+ * PATCH v20260403-race-controller-debug-full
  * ========================================================= */
 (function(){
   const W = window;
@@ -14,6 +14,7 @@
   const GAME = 'goodjunk';
   const MODE = 'race';
   const roomId = String(ctx.roomId || ctx.room || '').trim();
+  const preferredRoomKind = String(ctx.roomKind || '').trim();
   const FIREBASE_WAIT_MS = 12000;
   const HEARTBEAT_MS = 2500;
   const SCORE_SYNC_MS = 700;
@@ -21,7 +22,7 @@
   const state = {
     uid: '',
     db: null,
-    rootKind: '',
+    rootKind: preferredRoomKind || '',
     refs: null,
 
     meta: {},
@@ -39,12 +40,72 @@
     heartbeatTimer: 0,
     scoreSyncTimer: 0,
     countdownTimer: 0,
-    offFns: []
+    offFns: [],
+
+    debug: {
+      roomKind: '',
+      participantIds: [],
+      resultCount: 0,
+      finalCount: 0,
+      stateStatus: 'waiting',
+      matchStatus: 'idle',
+      lastEmitAt: 0,
+      lastCloseAt: 0,
+      lastSubmitAt: 0
+    }
   };
 
   function now(){ return Date.now(); }
   function num(v, d=0){ v = Number(v); return Number.isFinite(v) ? v : d; }
   function wait(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+  function buildControllerDebug() {
+    const resultKeys = Object.keys(state.results || {});
+    const finalCount = resultKeys.filter((id) => {
+      const r = state.results && state.results[id];
+      return !!(r && r.final);
+    }).length;
+
+    state.debug.roomKind = state.rootKind || '';
+    state.debug.participantIds = (state.participantIds || []).slice();
+    state.debug.resultCount = resultKeys.length;
+    state.debug.finalCount = finalCount;
+    state.debug.stateStatus = String((state.roomState && state.roomState.status) || 'waiting');
+    state.debug.matchStatus = String((state.match && state.match.status) || 'idle');
+
+    return {
+      roomId,
+      roomKind: state.debug.roomKind,
+      participantIds: state.debug.participantIds.slice(),
+      resultCount: state.debug.resultCount,
+      finalCount: state.debug.finalCount,
+      stateStatus: state.debug.stateStatus,
+      matchStatus: state.debug.matchStatus,
+      runStarted: !!state.runStarted,
+      resultSubmitted: !!state.resultSubmitted,
+      finalSummarySent: !!state.finalSummarySent,
+      lastEmitAt: state.debug.lastEmitAt || 0,
+      lastCloseAt: state.debug.lastCloseAt || 0,
+      lastSubmitAt: state.debug.lastSubmitAt || 0
+    };
+  }
+
+  function emitControllerDebug(tag, extra = {}) {
+    const payload = Object.assign({
+      tag,
+      at: now()
+    }, buildControllerDebug(), extra || {});
+
+    try {
+      window.__GJ_RACE_CONTROLLER_DEBUG__ = payload;
+    } catch (_) {}
+
+    try {
+      W.dispatchEvent(new CustomEvent('gj:race-debug', { detail: payload }));
+    } catch (_) {}
+
+    console.log('[race-controller:debug]', payload);
+  }
 
   function safeDispatch(name, detail){
     try { W.dispatchEvent(new CustomEvent(name, { detail })); } catch(_) {}
@@ -168,13 +229,27 @@
     throw new Error('firebase db not ready');
   }
 
+  function roomRootPath(kind) {
+    return `hha-battle/${GAME}/${kind}/${roomId}`;
+  }
+
   async function resolveRootKind(){
     const db = getDb();
+
+    if (state.rootKind) {
+      try {
+        const snap = await db.ref(roomRootPath(state.rootKind)).child('meta').once('value');
+        if (snap.exists()) {
+          return state.rootKind;
+        }
+      } catch (_) {}
+    }
+
     const candidates = ['raceRooms', 'rooms'];
 
     for (const kind of candidates) {
       try {
-        const snap = await db.ref(`hha-battle/${GAME}/${kind}/${roomId}`).once('value');
+        const snap = await db.ref(roomRootPath(kind)).child('meta').once('value');
         if (snap.exists()) {
           state.rootKind = kind;
           return kind;
@@ -182,13 +257,13 @@
       } catch(_) {}
     }
 
-    state.rootKind = 'raceRooms';
+    state.rootKind = preferredRoomKind || 'raceRooms';
     return state.rootKind;
   }
 
   function attachRefs(){
     const db = getDb();
-    const root = db.ref(`hha-battle/${GAME}/${state.rootKind}/${roomId}`);
+    const root = db.ref(roomRootPath(state.rootKind));
     state.refs = {
       root,
       meta: root.child('meta'),
@@ -199,6 +274,7 @@
       myPlayer: root.child(`players/${state.uid}`),
       myResult: root.child(`results/${state.uid}`)
     };
+    emitControllerDebug('attach-refs');
   }
 
   function getMetricsFromCore(){
@@ -244,6 +320,7 @@
     if (state.runStarted) return;
     if (!amIParticipant()) {
       safeShowWarn('รอบนี้คุณไม่ได้อยู่ใน participant ของห้องนี้');
+      emitControllerDebug('not-participant');
       return;
     }
 
@@ -275,6 +352,7 @@
       });
     } catch(_) {}
 
+    emitControllerDebug('start-core');
     safeClearMessage();
   }
 
@@ -296,6 +374,7 @@
 
   function handleRoomState(){
     state.participantIds = getParticipantIds();
+    emitControllerDebug('room-state');
     safeSyncBridge();
 
     const status = String((state.roomState && state.roomState.status) || '');
@@ -340,6 +419,10 @@
   function subscribeRoom(){
     const onMeta = (snap) => {
       state.meta = snap.val() || {};
+      if (state.meta && state.meta.roomKind && !state.rootKind) {
+        state.rootKind = String(state.meta.roomKind || '').trim();
+      }
+      emitControllerDebug('meta-update');
       safeSyncBridge();
     };
 
@@ -350,16 +433,19 @@
 
     const onMatch = (snap) => {
       state.match = snap.val() || {};
+      emitControllerDebug('match-update');
       handleRoomState();
     };
 
     const onPlayers = (snap) => {
       state.players = snap.val() || {};
+      emitControllerDebug('players-update');
       safeSyncBridge();
     };
 
     const onResults = async (snap) => {
       state.results = snap.val() || {};
+      emitControllerDebug('results-update');
       safeSyncBridge();
 
       if (ctx.host === '1' || ctx.host === 1 || ctx.role === 'host') {
@@ -406,6 +492,8 @@
     try {
       state.refs.myPlayer.onDisconnect().remove();
     } catch(_) {}
+
+    emitControllerDebug('join-presence');
   }
 
   function startHeartbeat(){
@@ -472,6 +560,11 @@
 
     state.resultSubmitted = true;
     state.latestBaseSummary = Object.assign({}, base, payload);
+    state.debug.lastSubmitAt = now();
+    emitControllerDebug('submit-result', {
+      submittedScore: payload.score,
+      submittedMiss: payload.miss
+    });
 
     try {
       await state.refs.myResult.set(payload);
@@ -538,6 +631,10 @@
     const roomEnded = String((state.roomState && state.roomState.status) || '') === 'ended';
 
     if (!force && !roomEnded && finals < expected) {
+      emitControllerDebug('emit-blocked', {
+        expectedParticipants: expected,
+        finalsReady: finals
+      });
       return;
     }
 
@@ -562,10 +659,18 @@
         me: me || null,
         opponent: opponent || null,
         deltaScore: opponent ? num((me && me.score), 0) - num(opponent.score, 0) : 0
-      }
+      },
+      controllerDebug: buildControllerDebug()
     });
 
     state.finalSummarySent = true;
+
+    state.debug.lastEmitAt = now();
+    emitControllerDebug('emit-final-summary', {
+      force: !!force,
+      rank,
+      players: rows.length
+    });
 
     safeDispatch('gj:race-summary', finalSummary);
     safeDispatch('gj:summary', finalSummary);
@@ -590,6 +695,11 @@
       return !!(r && r.final);
     });
 
+    emitControllerDebug('close-check', {
+      expectedParticipants: ids.length,
+      finalsReady: finals.length
+    });
+
     if (finals.length >= ids.length) {
       try {
         await state.refs.state.update({
@@ -603,6 +713,12 @@
           status: 'finished'
         });
       } catch(_) {}
+
+      state.debug.lastCloseAt = now();
+      emitControllerDebug('close-race', {
+        expectedParticipants: ids.length,
+        finalsReady: finals.length
+      });
     }
   }
 
@@ -632,6 +748,7 @@
 
       await ensureAuth();
       await resolveRootKind();
+      console.log('[race-controller] using roomKind =', state.rootKind || '(empty)');
       attachRefs();
       bindSummaryEvents();
 
