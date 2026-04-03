@@ -1,6 +1,6 @@
 // === /fitness/js/rhythm-boxer.js ===
 // Rhythm Boxer — FULL CLEAN FINAL
-// PATCH v20260315-RB-CLEAN-FINAL-r3
+// PATCH v20260403a-RB-COOLDOWN-GATE-FLOW
 // ✅ fix parse error / duplicate const
 // ✅ child-friendly
 // ✅ missions + stars + medal + badge
@@ -9,6 +9,7 @@
 // ✅ deterministic pattern generator
 // ✅ research CSV
 // ✅ hub / planner bridge compatible
+// ✅ warmup → run → cooldown gate flow
 
 'use strict';
 
@@ -1516,6 +1517,55 @@
     };
   }
 
+  function buildCooldownUrl(){
+    const gate = new URL('../warmup-gate.html', location.href);
+
+    gate.searchParams.set('phase', 'cooldown');
+    gate.searchParams.set('gatePhase', 'cooldown');
+
+    gate.searchParams.set('zone', ZONE || 'fitness');
+    gate.searchParams.set('cat', CAT || 'fitness');
+    gate.searchParams.set('game', GAME_ID || 'rhythmboxer');
+    gate.searchParams.set('gameId', GAME_ID || 'rhythmboxer');
+    gate.searchParams.set('theme', GAME_ID || 'rhythmboxer');
+
+    gate.searchParams.set('pid', PID || 'anon');
+    gate.searchParams.set('run', RUN || 'play');
+    gate.searchParams.set('diff', DIFF || 'normal');
+    gate.searchParams.set('time', String(TIME_SEC || 80));
+    gate.searchParams.set('seed', String(S.seed || SEED || Date.now()));
+    gate.searchParams.set('view', qs('view', 'pc'));
+    gate.searchParams.set('hub', HUB || '../hub.html');
+
+    const cdur = String(qs('cdur', '20')).trim() || '20';
+    gate.searchParams.set('cdur', cdur);
+
+    if (PLAN_DAY) gate.searchParams.set('planDay', PLAN_DAY);
+    if (PLAN_SLOT) gate.searchParams.set('planSlot', PLAN_SLOT);
+    if (AUTO_NEXT || qbool('autoNext', false)) gate.searchParams.set('autoNext', '1');
+
+    return gate.toString();
+  }
+
+  function goCooldownSummary(delayMs = 550){
+    const href = buildCooldownUrl();
+    setTimeout(() => {
+      location.href = href;
+    }, Math.max(0, Number(delayMs) || 0));
+  }
+
+  function goHubNow(){
+    if(HUB){
+      try{
+        location.href = new URL(HUB, location.href).toString();
+      }catch(_){
+        location.href = HUB;
+      }
+      return;
+    }
+    location.href = '../hub.html';
+  }
+
   function endGame(){
     S.running = false;
 
@@ -1613,6 +1663,7 @@
         missionAcc: payload.missionAcc,
         missionNoMiss: payload.missionNoMiss,
         bossClear: payload.bossClear,
+        durationSec: Number(payload.durationSec),
         timestampIso: nowIso(),
         __extraJson: JSON.stringify(extra)
       };
@@ -1635,20 +1686,37 @@
       tsIso:nowIso()
     });
 
-    const shouldAutoReturn = AUTO_NEXT || (HUB && String(HUB).includes('seq=1'));
+    const shouldGoCooldown =
+      qbool('cooldown', true) ||
+      qs('returnPhase', '') === 'cooldown';
+
+    const shouldAutoReturn =
+      AUTO_NEXT ||
+      (HUB && String(HUB).includes('seq=1'));
+
+    if(shouldGoCooldown){
+      goCooldownSummary(550);
+      return;
+    }
+
     if(shouldAutoReturn && typeof W.HH_END_GAME === 'function'){
       setTimeout(()=>{
         try{
           W.HH_END_GAME('result', {
-            score:payload.score,
-            acc:payload.accPct,
-            miss:payload.miss,
-            rank:payload.rank,
-            stars:payload.stars
+            score: payload.score,
+            acc: payload.accPct,
+            miss: payload.miss,
+            rank: payload.rank,
+            stars: payload.stars
           });
-        }catch(_){}
+        }catch(_){
+          goHubNow();
+        }
       }, 900);
+      return;
     }
+
+    goHubNow();
   }
 
   function tick(){
@@ -1762,10 +1830,16 @@
 
     if(typeof W.HH_END_GAME !== 'function'){
       W.HH_END_GAME = function(){
-        if(HUB){
-          try{ location.href = new URL(HUB, location.href).toString(); }
-          catch{ location.href = HUB; }
+        const shouldGoCooldown =
+          qbool('cooldown', true) ||
+          qs('returnPhase', '') === 'cooldown';
+
+        if(shouldGoCooldown){
+          goCooldownSummary(0);
+          return;
         }
+
+        goHubNow();
       };
     }
 
