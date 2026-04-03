@@ -502,6 +502,7 @@
       background:rgba(255,255,255,.38);
       backdrop-filter:blur(8px);
       z-index:20;
+      pointer-events:none;
     }
 
     .countdown-overlay.show{ display:flex; }
@@ -552,13 +553,26 @@
       position:fixed;
       inset:0;
       z-index:60;
-      display:flex;
       align-items:center;
       justify-content:center;
       padding:18px;
       background:rgba(255,255,255,.52);
       backdrop-filter:blur(10px);
       overflow:auto;
+    }
+
+    .duet-result-mount[hidden]{
+      display:none !important;
+      pointer-events:none !important;
+      opacity:0 !important;
+      visibility:hidden !important;
+    }
+
+    .duet-result-mount:not([hidden]){
+      display:flex !important;
+      pointer-events:auto !important;
+      opacity:1 !important;
+      visibility:visible !important;
     }
 
     .duet-result-card{
@@ -1024,6 +1038,6 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
   <script src="../firebase-config.js?v=20260401-firebase-r12"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260402-gjduet-run-r10"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260402-gjduet-run-r11"></script>
 </body>
 </html>
