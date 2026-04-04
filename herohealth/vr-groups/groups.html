@@ -31,12 +31,15 @@
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
+
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
       overflow:hidden;
     }
+
     body{
       font-family: ui-rounded, "Nunito", "Noto Sans Thai", system-ui, sans-serif;
       color:var(--ink);
@@ -45,10 +48,11 @@
         radial-gradient(650px 420px at 12% 10%, rgba(255,255,255,.45), transparent 62%),
         linear-gradient(180deg,var(--bg1),var(--bg2) 54%,var(--bg3));
     }
+
     .shell{
       height:100dvh;
       display:grid;
-      grid-template-rows:auto auto auto 1fr auto;
+      grid-template-rows:auto auto auto minmax(300px,1fr) auto;
       gap:10px;
       padding:
         calc(10px + var(--sat))
@@ -56,6 +60,7 @@
         calc(10px + var(--sab))
         calc(10px + var(--sal));
     }
+
     .topbar{
       display:flex;
       align-items:center;
@@ -63,6 +68,7 @@
       justify-content:space-between;
       min-width:0;
     }
+
     .brand{
       min-width:0;
       display:flex;
@@ -73,7 +79,9 @@
       background:var(--card);
       border:1px solid var(--line);
       box-shadow:var(--shadow);
+      flex:1 1 auto;
     }
+
     .brandMark{
       width:46px;
       height:46px;
@@ -83,7 +91,9 @@
       font-size:26px;
       background:linear-gradient(180deg,#fff5c8,#ffe27e);
       border:1px solid #ffe8ab;
+      flex:0 0 auto;
     }
+
     .brand h1{
       margin:0;
       font-size:18px;
@@ -93,19 +103,23 @@
       overflow:hidden;
       text-overflow:ellipsis;
     }
+
     .brand p{
       margin:4px 0 0;
       color:var(--muted);
       font-size:11px;
       font-weight:900;
     }
+
     .actions{
       display:flex;
       gap:8px;
       align-items:center;
       flex-wrap:wrap;
       justify-content:flex-end;
+      flex:0 0 auto;
     }
+
     .btn{
       min-height:42px;
       border-radius:16px;
@@ -117,7 +131,9 @@
       font-weight:1000;
       cursor:pointer;
       box-shadow:var(--shadow);
+      white-space:nowrap;
     }
+
     .btn.primary{
       color:#fff;
       border-color:#73c4f1;
@@ -129,9 +145,7 @@
       grid-template-columns: repeat(4,minmax(0,1fr));
       gap:10px;
     }
-    @media (max-width: 760px){
-      .chipRow{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-    }
+
     .chip{
       min-width:0;
       padding:10px 12px;
@@ -140,6 +154,7 @@
       border:1px solid var(--line);
       box-shadow:var(--shadow);
     }
+
     .chipLabel{
       font-size:11px;
       font-weight:1000;
@@ -148,6 +163,7 @@
       text-transform:uppercase;
       letter-spacing:.04em;
     }
+
     .chipValue{
       font-size:18px;
       line-height:1.1;
@@ -167,6 +183,7 @@
       box-shadow:var(--shadow);
       padding:14px 16px;
     }
+
     .goalCard::after{
       content:"";
       position:absolute;
@@ -180,6 +197,7 @@
         linear-gradient(180deg,#fff4a2,#ffd45a);
       opacity:.85;
     }
+
     .goalTop{
       display:flex;
       gap:10px;
@@ -189,6 +207,7 @@
       position:relative;
       z-index:1;
     }
+
     .goalTag{
       display:inline-flex;
       align-items:center;
@@ -201,6 +220,7 @@
       font-weight:1000;
       color:#5f8198;
     }
+
     .goalTitle{
       margin:10px 0 0;
       position:relative;
@@ -209,6 +229,7 @@
       font-weight:1000;
       line-height:1.15;
     }
+
     .goalSub{
       margin:8px 0 0;
       position:relative;
@@ -217,6 +238,7 @@
       font-size:13px;
       font-weight:900;
     }
+
     .coach{
       margin-top:10px;
       position:relative;
@@ -232,11 +254,12 @@
       color:#5e7f95;
       font-size:12px;
       font-weight:1000;
+      max-width:100%;
     }
 
     .stageWrap{
       position:relative;
-      min-height:0;
+      min-height:300px;
       overflow:hidden;
       border-radius:28px;
       background:
@@ -245,6 +268,7 @@
       border:1px solid #d6edf7;
       box-shadow:var(--stage-shadow);
     }
+
     .stage{
       position:absolute;
       inset:0;
@@ -253,6 +277,7 @@
       user-select:none;
       -webkit-user-select:none;
     }
+
     .ground{
       position:absolute;
       left:0;
@@ -266,6 +291,7 @@
       border-top:1px solid rgba(101,176,86,.26);
       pointer-events:none;
     }
+
     .goalProgress{
       position:absolute;
       left:14px;
@@ -280,6 +306,7 @@
       box-shadow:0 8px 18px rgba(132,186,214,.12);
       z-index:2;
     }
+
     .goalFill{
       height:100%;
       width:0%;
@@ -287,6 +314,7 @@
       background:linear-gradient(90deg,#7fd370,#51be56);
       transition:width .18s ease;
     }
+
     .banner{
       position:absolute;
       left:50%;
@@ -306,6 +334,7 @@
       z-index:12;
       white-space:nowrap;
     }
+
     .banner.show{
       opacity:1;
       transform:translateX(-50%) translateY(0);
@@ -332,13 +361,16 @@
       transition:transform .08s ease, opacity .15s ease;
       touch-action:none;
     }
+
     .item:active{ transform:scale(.96); }
     .item.goodGlow{ box-shadow:0 16px 30px rgba(91,197,95,.24); }
     .item.badGlow{ box-shadow:0 16px 30px rgba(255,122,122,.24); }
+
     .itemEmoji{
       font-size:34px;
       line-height:1;
     }
+
     .itemLabel{
       font-size:11px;
       line-height:1.1;
@@ -347,9 +379,11 @@
       padding:0 4px 8px;
       text-align:center;
     }
+
     .itemPulse{
       animation:itemPulse .5s ease;
     }
+
     @keyframes itemPulse{
       0%{ transform:scale(.88); }
       40%{ transform:scale(1.06); }
@@ -364,8 +398,10 @@
       z-index:20;
       animation:popFx .55s ease forwards;
     }
+
     .popFx.good{ color:#4fab41; }
     .popFx.bad{ color:#e35c5c; }
+
     @keyframes popFx{
       0%{ opacity:0; transform:translate(-50%, 6px) scale(.7); }
       20%{ opacity:1; transform:translate(-50%, -10px) scale(1); }
@@ -377,9 +413,7 @@
       grid-template-columns: repeat(4,minmax(0,1fr));
       gap:10px;
     }
-    @media (max-width: 760px){
-      .bottomBar{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-    }
+
     .stat{
       background:var(--card);
       border:1px solid var(--line);
@@ -388,6 +422,7 @@
       padding:10px 12px;
       min-width:0;
     }
+
     .statLabel{
       font-size:11px;
       font-weight:1000;
@@ -396,6 +431,7 @@
       text-transform:uppercase;
       letter-spacing:.04em;
     }
+
     .statValue{
       font-size:18px;
       font-weight:1000;
@@ -415,7 +451,9 @@
       backdrop-filter: blur(6px);
       z-index:40;
     }
+
     .overlay.show{ display:grid; }
+
     .modal{
       width:min(680px, 100%);
       border-radius:30px;
@@ -425,6 +463,7 @@
       padding:22px 20px;
       text-align:center;
     }
+
     .modalBadge{
       width:90px;
       height:90px;
@@ -436,12 +475,14 @@
       border:1px solid #ffe8a2;
       font-size:46px;
     }
+
     .modal h2{
       margin:0;
       font-size:30px;
       line-height:1.08;
       font-weight:1000;
     }
+
     .modal p{
       margin:10px auto 0;
       max-width:520px;
@@ -450,6 +491,7 @@
       color:#607f94;
       font-weight:900;
     }
+
     .modalActions{
       display:flex;
       gap:10px;
@@ -457,6 +499,7 @@
       flex-wrap:wrap;
       margin-top:16px;
     }
+
     .bigBtn{
       min-width:160px;
       min-height:50px;
@@ -468,14 +511,17 @@
       box-shadow:0 12px 26px rgba(105,165,194,.15);
       padding:0 18px;
     }
+
     .bigBtn.primary{
       color:#fff;
       background:linear-gradient(180deg,#80cbff,#57b6ff);
     }
+
     .bigBtn.green{
       color:#fff;
       background:linear-gradient(180deg,#8ad97f,#61c45f);
     }
+
     .bigBtn.ghost{
       color:#5f8197;
       background:#f4fbff;
@@ -489,15 +535,14 @@
       margin-top:14px;
       text-align:left;
     }
-    @media (max-width: 680px){
-      .summaryGrid{ grid-template-columns:1fr; }
-    }
+
     .summaryCard{
       border-radius:20px;
       border:1px solid #d8edf7;
       background:#f8fdff;
       padding:12px 14px;
     }
+
     .summaryCard h3{
       margin:0 0 6px;
       font-size:13px;
@@ -506,17 +551,20 @@
       text-transform:uppercase;
       letter-spacing:.04em;
     }
+
     .summaryCard .big{
       font-size:24px;
       font-weight:1000;
       line-height:1.1;
       color:var(--ink);
     }
+
     .stars{
       margin-top:10px;
       font-size:30px;
       line-height:1;
     }
+
     .grade{
       margin-top:10px;
       display:inline-flex;
@@ -532,6 +580,7 @@
       font-weight:1000;
       color:#5b7b90;
     }
+
     .grade.s{ background:#fff7d9; border-color:#ffe298; color:#9b6700; }
     .grade.a{ background:#f5ffe9; border-color:#cfe8a8; color:#4f842d; }
     .grade.b{ background:#eefaff; border-color:#cae6f6; color:#3b6b87; }
@@ -548,6 +597,7 @@
       pointer-events:none;
       z-index:30;
     }
+
     .crosshair::before,
     .crosshair::after{
       content:"";
@@ -555,6 +605,7 @@
       background:rgba(36,67,90,.84);
       border-radius:999px;
     }
+
     .crosshair::before{
       left:50%;
       top:2px;
@@ -562,6 +613,7 @@
       width:2px;
       transform:translateX(-50%);
     }
+
     .crosshair::after{
       top:50%;
       left:2px;
@@ -569,6 +621,7 @@
       height:2px;
       transform:translateY(-50%);
     }
+
     body.view-cvr .crosshair{ display:block; }
 
     .debugPanel{
@@ -588,13 +641,195 @@
       display:none;
       white-space:pre-wrap;
     }
+
     body.debug .debugPanel{ display:block; }
 
-    @media (max-width: 560px){
-      .brand h1{ font-size:16px; }
-      .goalTitle{ font-size:22px; }
-      .itemEmoji{ font-size:30px; }
-      .itemLabel{ font-size:10px; }
+    @media (max-width: 760px){
+      .shell{
+        grid-template-rows:auto auto auto minmax(250px,1fr) auto;
+        gap:8px;
+        padding:
+          calc(8px + var(--sat))
+          calc(8px + var(--sar))
+          calc(8px + var(--sab))
+          calc(8px + var(--sal));
+      }
+
+      .topbar{
+        align-items:flex-start;
+        gap:8px;
+      }
+
+      .brand{
+        padding:10px 10px;
+        border-radius:18px;
+      }
+
+      .brandMark{
+        width:42px;
+        height:42px;
+        border-radius:14px;
+        font-size:24px;
+      }
+
+      .brand h1{
+        font-size:16px;
+      }
+
+      .brand p{
+        font-size:10px;
+        margin-top:2px;
+      }
+
+      .actions{
+        flex:0 0 124px;
+        display:grid;
+        grid-template-columns:1fr;
+        gap:8px;
+        align-self:stretch;
+      }
+
+      .btn{
+        min-height:36px;
+        border-radius:14px;
+        padding:0 10px;
+        font-size:13px;
+      }
+
+      .chipRow{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+      }
+
+      .chip{
+        padding:8px 10px;
+        border-radius:14px;
+      }
+
+      .chipLabel{
+        font-size:10px;
+        margin-bottom:2px;
+      }
+
+      .chipValue{
+        font-size:16px;
+      }
+
+      .goalCard{
+        padding:12px;
+        border-radius:20px;
+      }
+
+      .goalTag{
+        padding:6px 10px;
+        font-size:11px;
+      }
+
+      .goalTitle{
+        font-size:18px;
+        line-height:1.15;
+        margin-top:8px;
+      }
+
+      .goalSub{
+        font-size:12px;
+        margin-top:6px;
+      }
+
+      .coach{
+        margin-top:8px;
+        min-height:34px;
+        padding:8px 10px;
+        border-radius:14px;
+        font-size:11px;
+      }
+
+      .stageWrap{
+        min-height:250px;
+        border-radius:22px;
+      }
+
+      .goalProgress{
+        left:10px;
+        right:10px;
+        top:10px;
+        height:12px;
+      }
+
+      .banner{
+        top:34px;
+        font-size:11px;
+        padding:8px 12px;
+      }
+
+      .bottomBar{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+      }
+
+      .stat{
+        padding:8px 10px;
+        border-radius:14px;
+      }
+
+      .statLabel{
+        font-size:10px;
+        margin-bottom:2px;
+      }
+
+      .statValue{
+        font-size:16px;
+      }
+
+      .modal{
+        padding:18px 14px;
+        border-radius:24px;
+      }
+
+      .modalBadge{
+        width:76px;
+        height:76px;
+        font-size:38px;
+        border-radius:22px;
+      }
+
+      .modal h2{
+        font-size:24px;
+      }
+
+      .modal p{
+        font-size:13px;
+      }
+
+      .bigBtn{
+        min-width:140px;
+        min-height:46px;
+        border-radius:16px;
+      }
+    }
+
+    @media (max-width: 420px){
+      .goalSub{
+        display:none;
+      }
+
+      .coach{
+        font-size:10px;
+        padding:7px 9px;
+      }
+
+      .actions{
+        flex:0 0 116px;
+      }
+
+      .btn{
+        font-size:12px;
+        padding:0 8px;
+      }
+
+      .stageWrap{
+        min-height:230px;
+      }
     }
   </style>
 </head>
@@ -751,10 +986,8 @@
     </section>
   </main>
 
-  <script src="../vr/vr-ui.js"></script>
-
   <script type="module">
-    const PATCH = 'v20260404-groups-shell-modular-r1';
+    const PATCH = 'v20260404-groups-shell-mobilefix-r1';
 
     const q = new URL(location.href).searchParams;
 
@@ -827,6 +1060,10 @@
       gameId: 'groups',
       zone: 'nutrition',
       cat: 'nutrition',
+      theme: 'groups',
+      cooldown: q.get('cooldown') === '1',
+      returnPhase: q.get('returnPhase') || '',
+      cooldownGateUrl: new URL('../warmup-gate.html', location.href).toString(),
       debug: q.get('debug') === '1'
     };
 
@@ -834,6 +1071,15 @@
 
     if (CTX.debug) document.body.classList.add('debug');
     if (CTX.view === 'cvr' || CTX.view === 'vr') document.body.classList.add('view-cvr');
+    if (CTX.view === 'mobile') document.body.classList.add('view-mobile');
+    if (CTX.view === 'pc') document.body.classList.add('view-pc');
+
+    // ซ่อนปุ่ม recenter ด้านบนใน mobile และใน vr/cvr
+    // mobile: เอาพื้นที่คืนให้ gameplay
+    // vr/cvr: ใช้ recenter จาก vr-ui.js แทน
+    if (ui.btnRecenter && (CTX.view !== 'pc')) {
+      ui.btnRecenter.style.display = 'none';
+    }
 
     try {
       const [
@@ -880,6 +1126,14 @@
 
       window.__GROUPS_CORE__ = core;
       core.boot();
+
+      // โหลด vr-ui เฉพาะ cvr / vr
+      if (CTX.view === 'cvr' || CTX.view === 'vr') {
+        const s = document.createElement('script');
+        s.src = '../vr/vr-ui.js';
+        s.async = true;
+        document.body.appendChild(s);
+      }
 
     } catch (err) {
       console.error('[GroupsSolo] boot failed:', err);
