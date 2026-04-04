@@ -1,9 +1,9 @@
 // === /fitness/js/rhythm-boxer.js ===
 // Rhythm Boxer — FULL CLEAN FINAL
-// PATCH v20260403d-RB-COOLDOWN-GATE-FLOW-NOTE-LONGER-VISIBLE
+// PATCH v20260404a-RB-PC-NORMAL-LONG-VISIBLE
 // ✅ cooldown gate flow
 // ✅ correct path from /fitness/ -> /herohealth/
-// ✅ note travel slower / more readable
+// ✅ PC normal tuned for longer visible fall
 // ✅ note visible earlier from above screen
 // ✅ judge windows wider
 // ✅ child-friendly
@@ -1009,25 +1009,25 @@
     const view = String(qs('view','pc')).toLowerCase();
 
     if(view === 'pc'){
-      if(DIFF === 'hard') return 3200;
-      if(DIFF === 'easy') return 4000;
-      return 3600;
+      if(DIFF === 'hard') return 3600;
+      if(DIFF === 'easy') return 4600;
+      return 4200;
     }
 
     if(view === 'cvr'){
-      if(DIFF === 'hard') return 2800;
-      if(DIFF === 'easy') return 3500;
-      return 3100;
+      if(DIFF === 'hard') return 3000;
+      if(DIFF === 'easy') return 3800;
+      return 3400;
     }
 
     // mobile
-    if(DIFF === 'hard') return 2400;
-    if(DIFF === 'easy') return 3000;
-    return 2700;
+    if(DIFF === 'hard') return 2500;
+    if(DIFF === 'easy') return 3200;
+    return 2850;
   }
 
   function noteSpawnLeadPx(laneH){
-    return Math.max(90, laneH * 0.28);
+    return Math.max(120, laneH * 0.36);
   }
 
   function spawnNotes(schedule){
@@ -1052,10 +1052,10 @@
     const laneRect = lanes[0].getBoundingClientRect();
     const laneH = laneRect.height || 240;
 
-    // ดันเส้นรับขึ้นมานิด ให้เห็นทางตกมากขึ้น
-    const hitY = laneH * 0.78;
+    // ดันเส้นรับขึ้นอีก ให้เห็นช่วงตกยาวกว่าเดิม
+    const hitY = laneH * 0.74;
 
-    // ให้โน้ตเริ่มจากเหนือจอเล็กน้อย
+    // ให้โน้ตเริ่มเหนือจอมากขึ้น
     const spawnLead = noteSpawnLeadPx(laneH);
     const fullPath = hitY + spawnLead;
 
@@ -1066,7 +1066,7 @@
       const dtToHit = note.tHit - tRel;
 
       // spawn ก่อนเข้าจอจริง
-      if(!note.spawned && dtToHit < (travel + 260)){
+      if(!note.spawned && dtToHit < (travel + 320)){
         note.spawned = true;
         note.el = makeNoteEl(note);
       }
@@ -1075,7 +1075,7 @@
         const progress = 1 - (dtToHit / travel);
         const y = (progress * fullPath) - spawnLead;
 
-        const yy = clamp(y, -spawnLead - 48, hitY + 84);
+        const yy = clamp(y, -spawnLead - 56, hitY + 84);
         note.el.style.transform = `translate(-50%, ${yy}px)`;
 
         const win = judgeWindows().good;
