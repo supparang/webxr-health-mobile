@@ -3,185 +3,399 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Plate Adventure</title>
-  <meta name="color-scheme" content="dark" />
-  <meta name="theme-color" content="#10213c" />
-  <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./plate.css" />
+  <title>HeroHealth • Plate Solo</title>
+  <style>
+    :root{
+      --bg:#f7fcff; --card:#ffffff; --line:#dbeaf4; --text:#334155;
+      --sky:#7fcfff; --ok:#6fd18b; --bad:#ffb3b3;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; font-family:system-ui,sans-serif; color:var(--text); background:var(--bg);
+    }
+    .hud{
+      position:sticky; top:0; z-index:10;
+      display:grid; grid-template-columns:repeat(4,1fr); gap:8px;
+      padding:10px; background:rgba(247,252,255,.95); backdrop-filter:blur(8px);
+      border-bottom:1px solid var(--line);
+    }
+    .pill{
+      background:#fff; border:1px solid var(--line); border-radius:16px;
+      padding:10px; text-align:center; font-weight:800;
+    }
+    .wrap{
+      max-width:980px; margin:0 auto; padding:16px;
+    }
+    .board{
+      display:grid; gap:16px;
+      grid-template-columns:1.2fr .8fr;
+    }
+    .plateArea,.trayArea{
+      background:var(--card); border:1px solid var(--line);
+      border-radius:24px; padding:16px; min-height:360px;
+      box-shadow:0 10px 24px rgba(0,0,0,.04);
+    }
+    .plate{
+      width:min(100%,420px); aspect-ratio:1/1; margin:8px auto;
+      border-radius:999px; border:10px solid #eaf4fa; background:
+      conic-gradient(#fff7cc 0 25%, #ffe7ef 25% 50%, #eaffde 50% 75%, #e8f3ff 75% 100%);
+      position:relative;
+    }
+    .tray{
+      display:grid; grid-template-columns:repeat(2,1fr); gap:10px;
+    }
+    .food{
+      min-height:64px; border-radius:16px; border:1px solid var(--line);
+      background:#fff; font-weight:800; cursor:pointer;
+    }
+    .feedback{
+      margin-top:12px; min-height:28px; font-weight:800;
+    }
+    .overlay{
+      position:fixed; inset:0; background:rgba(17,24,39,.38);
+      display:none; align-items:center; justify-content:center; padding:18px;
+    }
+    .overlay.show{ display:flex; }
+    .summary{
+      width:min(92vw,560px); background:#fff; border-radius:28px;
+      border:1px solid var(--line); padding:20px;
+    }
+    .summaryGrid{
+      display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:14px 0;
+    }
+    .sbox{
+      border:1px solid var(--line); border-radius:16px; padding:12px; text-align:center;
+      background:#fbfeff;
+    }
+    .actions{
+      display:grid; gap:10px; margin-top:10px;
+    }
+    .actions button{
+      min-height:48px; border-radius:16px; border:1px solid var(--line);
+      font-size:16px; font-weight:800; cursor:pointer;
+    }
+    .primary{ background:var(--sky); }
+    .secondary{ background:#fff; }
+
+    @media (max-width: 860px){
+      .board{ grid-template-columns:1fr; }
+    }
+  </style>
 </head>
 <body>
-  <main id="app" class="plate-shell">
-    <section class="plate-frame">
-      <header class="topbar">
-        <div class="top-left">
-          <a id="btnBackHubTop" class="icon-btn ghost" href="../hub.html" aria-label="กลับ HUB">🏠</a>
-          <div class="game-id">
-            <div class="game-badge">🍽️</div>
-            <div class="game-copy">
-              <h1>Plate Adventure</h1>
-              <p>จัดจานให้สมดุลแบบเด็กเข้าใจง่าย</p>
-            </div>
-          </div>
-        </div>
+  <div class="hud">
+    <div class="pill">คะแนน<br><span id="hudScore">0</span></div>
+    <div class="pill">เวลา<br><span id="hudTime">90</span></div>
+    <div class="pill">คอมโบ<br><span id="hudStreak">0</span></div>
+    <div class="pill">จานสำเร็จ<br><span id="hudPlates">0</span></div>
+  </div>
 
-        <div class="top-right">
-          <div class="stat-chip"><span>⭐</span><b id="uiStars">0</b></div>
-          <div class="stat-chip"><span>🏆</span><b id="uiScore">0</b></div>
-          <div class="stat-chip"><span>⏱️</span><b id="uiTime">90</b></div>
-        </div>
-      </header>
-
-      <section class="hero-row">
-        <article class="mission-card">
-          <div class="mission-head">
-            <div class="round-pill" id="uiRound">ด่าน 1 / 3</div>
-            <div class="mini-diff" id="uiDiff">Normal</div>
-          </div>
-
-          <h2 id="uiTitle">จัดจานมื้อกลางวัน</h2>
-          <p id="uiSubtitle">เลือกอาหารให้ครบหมู่ แล้วอย่าใส่ของมันมากเกินไป</p>
-
-          <div class="target-grid" id="targetGrid"></div>
-
-          <div class="meter-wrap">
-            <div class="meter-label">
-              <span>สมดุลของจาน</span>
-              <b id="uiBalancePct">0%</b>
-            </div>
-            <div class="meter">
-              <div id="uiBalanceFill" class="meter-fill"></div>
-            </div>
-          </div>
-
-          <div class="coach-box" id="coachBox">
-            โค้ชเชฟบอกว่า: เริ่มจากดูว่าจานนี้ต้องมี <b>ผัก</b> และ <b>ผลไม้</b> เท่าไร แล้วค่อยเลือกทีละชิ้น
-          </div>
-        </article>
-
-        <article class="plate-card">
-          <div class="plate-head">
-            <h3>จานของฉัน</h3>
-            <p>แตะอาหารด้านล่างเพื่อใส่ลงจาน แล้วกดตรวจจาน</p>
-          </div>
-
-          <div class="plate-board" id="plateBoard">
-            <section class="plate-zone zone-carb" data-group="carb">
-              <div class="zone-top">
-                <span class="zone-icon">🍚</span>
-                <div>
-                  <h4>คาร์บ</h4>
-                  <p id="target-carb">เป้าหมาย 0</p>
-                </div>
-              </div>
-              <div class="zone-count" id="count-carb">0</div>
-              <div class="zone-items" id="zone-carb"></div>
-            </section>
-
-            <section class="plate-zone zone-protein" data-group="protein">
-              <div class="zone-top">
-                <span class="zone-icon">🥚</span>
-                <div>
-                  <h4>โปรตีน</h4>
-                  <p id="target-protein">เป้าหมาย 0</p>
-                </div>
-              </div>
-              <div class="zone-count" id="count-protein">0</div>
-              <div class="zone-items" id="zone-protein"></div>
-            </section>
-
-            <section class="plate-zone zone-veg" data-group="veg">
-              <div class="zone-top">
-                <span class="zone-icon">🥦</span>
-                <div>
-                  <h4>ผัก</h4>
-                  <p id="target-veg">เป้าหมาย 0</p>
-                </div>
-              </div>
-              <div class="zone-count" id="count-veg">0</div>
-              <div class="zone-items" id="zone-veg"></div>
-            </section>
-
-            <section class="plate-zone zone-fruit" data-group="fruit">
-              <div class="zone-top">
-                <span class="zone-icon">🍎</span>
-                <div>
-                  <h4>ผลไม้</h4>
-                  <p id="target-fruit">เป้าหมาย 0</p>
-                </div>
-              </div>
-              <div class="zone-count" id="count-fruit">0</div>
-              <div class="zone-items" id="zone-fruit"></div>
-            </section>
-
-            <section class="plate-zone zone-fat" data-group="fat">
-              <div class="zone-top">
-                <span class="zone-icon">🧈</span>
-                <div>
-                  <h4>ไขมัน</h4>
-                  <p id="target-fat">ได้ไม่เกิน 0</p>
-                </div>
-              </div>
-              <div class="zone-count" id="count-fat">0</div>
-              <div class="zone-items" id="zone-fat"></div>
-            </section>
-          </div>
-        </article>
+  <div class="wrap">
+    <div class="board">
+      <section class="plateArea">
+        <h2>จานสุขภาพ</h2>
+        <div class="plate" id="plateBoard"></div>
+        <div class="feedback" id="feedback">เริ่มจัดจานได้เลย</div>
       </section>
 
-      <section class="tray-card">
-        <div class="tray-head">
-          <div>
-            <h3>คลังอาหาร</h3>
-            <p>แตะอาหารที่อยากใส่ลงจาน</p>
-          </div>
-
-          <div class="tabs" id="tabs">
-            <button type="button" class="tab active" data-filter="all">ทั้งหมด</button>
-            <button type="button" class="tab" data-filter="carb">คาร์บ</button>
-            <button type="button" class="tab" data-filter="protein">โปรตีน</button>
-            <button type="button" class="tab" data-filter="veg">ผัก</button>
-            <button type="button" class="tab" data-filter="fruit">ผลไม้</button>
-            <button type="button" class="tab" data-filter="fat">ไขมัน</button>
-            <button type="button" class="tab" data-filter="treat">ตัวลวง</button>
-          </div>
-        </div>
-
-        <div class="food-grid" id="foodGrid"></div>
+      <section class="trayArea">
+        <h2>เลือกอาหาร</h2>
+        <div class="tray" id="foodTray"></div>
       </section>
+    </div>
+  </div>
 
-      <footer class="action-bar">
-        <button id="btnUndo" class="action-btn secondary" type="button">↩️ ลบชิ้นล่าสุด</button>
-        <button id="btnReset" class="action-btn secondary" type="button">🧹 เริ่มด่านใหม่</button>
-        <button id="btnCheck" class="action-btn primary" type="button">✅ ตรวจจาน</button>
-      </footer>
-    </section>
+  <div class="overlay" id="summaryOverlay">
+    <div class="summary">
+      <h2>สรุปผลการเล่น</h2>
 
-    <section id="summaryLayer" class="summary-layer" hidden>
-      <div class="summary-card">
-        <div class="summary-hero">
-          <div class="summary-face">🌟</div>
-          <div>
-            <h2 id="sumTitle">เยี่ยมมาก</h2>
-            <p id="sumText">หนูจัดจานได้ดีมากแล้ว</p>
-          </div>
-        </div>
-
-        <div class="summary-stats">
-          <div class="sum-pill"><span class="n" id="sumScore">0</span><span class="t">Score</span></div>
-          <div class="sum-pill"><span class="n" id="sumStars">0</span><span class="t">Stars</span></div>
-          <div class="sum-pill"><span class="n" id="sumRounds">0</span><span class="t">Rounds</span></div>
-        </div>
-
-        <div id="sumRoundsList" class="summary-list"></div>
-
-        <div class="summary-actions">
-          <button id="btnReplay" class="action-btn primary" type="button">🔁 เล่นอีกครั้ง</button>
-          <a id="btnBackHubSummary" class="action-btn secondary" href="../hub.html">🏠 กลับ HUB</a>
-        </div>
+      <div class="summaryGrid">
+        <div class="sbox">คะแนน<br><strong id="sumScore">0</strong></div>
+        <div class="sbox">ความแม่นยำ<br><strong id="sumAcc">0%</strong></div>
+        <div class="sbox">คอมโบสูงสุด<br><strong id="sumBestStreak">0</strong></div>
+        <div class="sbox">จานสำเร็จ<br><strong id="sumCompleted">0</strong></div>
       </div>
-    </section>
-  </main>
 
-  <script src="./plate.js"></script>
+      <p id="sumInsight">เยี่ยมมาก ลองเล่นอีกครั้งเพื่อทำคะแนนให้สูงขึ้น</p>
+
+      <div class="actions">
+        <button id="btnReplay" class="primary">เล่นอีกครั้ง</button>
+        <button id="btnBackHub" class="secondary">กลับ HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    'use strict';
+
+    function qs(name, fallback=''){
+      try{ return new URL(location.href).searchParams.get(name) ?? fallback; }
+      catch(_){ return fallback; }
+    }
+    function clean(v, d=''){
+      v = String(v ?? '').trim();
+      return v || d;
+    }
+    function num(v, d=0){
+      v = Number(v);
+      return Number.isFinite(v) ? v : d;
+    }
+    function bangkokYmd(){
+      try{
+        const parts = new Intl.DateTimeFormat('en-CA',{
+          timeZone:'Asia/Bangkok', year:'numeric', month:'2-digit', day:'2-digit'
+        }).formatToParts(new Date());
+        const m = {};
+        for(const p of parts) if(p.type !== 'literal') m[p.type] = p.value;
+        return `${m.year}${m.month}${m.day}`;
+      }catch(_){
+        const d = new Date();
+        return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      }
+    }
+    function getCtx(){
+      return {
+        pid: clean(qs('pid'),'anon'),
+        name: clean(qs('name'),''),
+        studyId: clean(qs('studyId'),''),
+        diff: clean(qs('diff'),'normal'),
+        time: num(qs('time'),90),
+        seed: clean(qs('seed'), String(Date.now())),
+        hub: clean(qs('hub'), '/webxr-health-mobile/herohealth/hub.html'),
+        view: clean(qs('view'),'mobile'),
+        run: clean(qs('run'),'play'),
+        zone: clean(qs('zone'),'nutrition'),
+        game: clean(qs('game'),'plate'),
+        mode: clean(qs('mode'),'solo')
+      };
+    }
+    function gateKey(phase, ctx){
+      return `HHA_GATE_${phase.toUpperCase()}_${ctx.pid}_${ctx.game}_${ctx.mode}_${bangkokYmd()}`;
+    }
+    function isGateDone(phase, ctx){
+      try{ return localStorage.getItem(gateKey(phase, ctx)) === '1'; }
+      catch(_){ return false; }
+    }
+    function withPassthrough(path, ctx, extra={}){
+      const u = new URL(path, location.origin);
+      const payload = {
+        pid: ctx.pid,
+        name: ctx.name,
+        studyId: ctx.studyId,
+        diff: ctx.diff,
+        time: String(ctx.time),
+        seed: ctx.seed,
+        hub: ctx.hub,
+        view: ctx.view,
+        run: ctx.run,
+        zone: ctx.zone,
+        game: ctx.game,
+        mode: ctx.mode,
+        ...extra
+      };
+      for(const [k,v] of Object.entries(payload)){
+        if(v !== '' && v != null) u.searchParams.set(k, String(v));
+      }
+      return u.toString();
+    }
+    function safeWrite(key, value){
+      try{ localStorage.setItem(key, JSON.stringify(value)); }catch(_){}
+    }
+
+    const ctx = getCtx();
+    const $score = document.getElementById('hudScore');
+    const $time = document.getElementById('hudTime');
+    const $streak = document.getElementById('hudStreak');
+    const $plates = document.getElementById('hudPlates');
+    const $tray = document.getElementById('foodTray');
+    const $feedback = document.getElementById('feedback');
+    const $overlay = document.getElementById('summaryOverlay');
+
+    const $sumScore = document.getElementById('sumScore');
+    const $sumAcc = document.getElementById('sumAcc');
+    const $sumBest = document.getElementById('sumBestStreak');
+    const $sumComp = document.getElementById('sumCompleted');
+    const $sumInsight = document.getElementById('sumInsight');
+    const $btnReplay = document.getElementById('btnReplay');
+    const $btnBackHub = document.getElementById('btnBackHub');
+
+    const FOOD_POOL = [
+      { id:'rice', label:'ข้าว', correct:true },
+      { id:'fish', label:'ปลา', correct:true },
+      { id:'veg', label:'ผัก', correct:true },
+      { id:'fruit', label:'ผลไม้', correct:true },
+      { id:'cake', label:'เค้ก', correct:false },
+      { id:'soda', label:'น้ำอัดลม', correct:false }
+    ];
+
+    let timer = null;
+    const state = {
+      started:false,
+      finished:false,
+      score:0,
+      timeLeft:ctx.time,
+      streak:0,
+      bestStreak:0,
+      correct:0,
+      wrong:0,
+      completedPlates:0,
+      currentRound:0
+    };
+
+    function updateHud(){
+      $score.textContent = state.score;
+      $time.textContent = state.timeLeft;
+      $streak.textContent = state.streak;
+      $plates.textContent = state.completedPlates;
+    }
+
+    function setFeedback(msg){
+      $feedback.textContent = msg || '';
+    }
+
+    function buildTray(){
+      $tray.innerHTML = '';
+      FOOD_POOL.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = 'food';
+        btn.type = 'button';
+        btn.textContent = item.label;
+        btn.dataset.id = item.id;
+        btn.addEventListener('click', () => placeFood(item));
+        $tray.appendChild(btn);
+      });
+    }
+
+    function placeFood(item){
+      if(state.finished) return;
+
+      if(item.correct){
+        state.score += 10 + Math.min(state.streak, 5);
+        state.correct += 1;
+        state.streak += 1;
+        state.bestStreak = Math.max(state.bestStreak, state.streak);
+        setFeedback(`ถูกต้อง! +${10 + Math.min(state.streak-1, 5)}`);
+      }else{
+        state.score = Math.max(0, state.score - 3);
+        state.wrong += 1;
+        state.streak = 0;
+        setFeedback('ลองอีกครั้ง อันนี้ยังไม่เหมาะกับจานสมดุล');
+      }
+
+      if(state.correct > 0 && state.correct % 4 === 0){
+        state.completedPlates += 1;
+        state.score += 20;
+        setFeedback('เยี่ยม! จัดจานสมดุลสำเร็จ +20');
+      }
+
+      updateHud();
+    }
+
+    function tick(){
+      if(state.finished) return;
+      state.timeLeft -= 1;
+      updateHud();
+
+      if(state.timeLeft <= 0){
+        finishGame();
+      }
+    }
+
+    function startGame(){
+      if(state.started) return;
+      state.started = true;
+      state.finished = false;
+      buildTray();
+      updateHud();
+      setFeedback('เริ่มจัดจานได้เลย');
+      timer = setInterval(tick, 1000);
+    }
+
+    function buildSummaryPayload(){
+      const total = state.correct + state.wrong;
+      const accuracy = total > 0 ? Math.round((state.correct / total) * 100) : 0;
+      return {
+        game: ctx.game,
+        mode: ctx.mode,
+        pid: ctx.pid,
+        diff: ctx.diff,
+        time: ctx.time,
+        seed: ctx.seed,
+        score: state.score,
+        correct: state.correct,
+        wrong: state.wrong,
+        bestStreak: state.bestStreak,
+        completedPlates: state.completedPlates,
+        accuracy,
+        ts: Date.now(),
+        iso: new Date().toISOString()
+      };
+    }
+
+    function saveLastSummary(summary){
+      safeWrite('HHA_LAST_SUMMARY', summary);
+      safeWrite('HHA_LAST_SUMMARY_PLATE', summary);
+    }
+
+    function insightText(summary){
+      if(summary.accuracy >= 85) return 'ยอดเยี่ยมมาก คุณจัดจานได้สมดุลดีมาก';
+      if(summary.accuracy >= 60) return 'ทำได้ดี ลองเล่นอีกครั้งเพื่อเพิ่มความแม่นยำ';
+      return 'ไม่เป็นไร ลองสังเกตหมู่อาหารแล้วเล่นอีกครั้งนะ';
+    }
+
+    function showSummary(summary){
+      $sumScore.textContent = String(summary.score);
+      $sumAcc.textContent = `${summary.accuracy}%`;
+      $sumBest.textContent = String(summary.bestStreak);
+      $sumComp.textContent = String(summary.completedPlates);
+      $sumInsight.textContent = insightText(summary);
+      $overlay.classList.add('show');
+    }
+
+    function finishGame(){
+      if(state.finished) return;
+      state.finished = true;
+      clearInterval(timer);
+      timer = null;
+
+      const summary = buildSummaryPayload();
+      saveLastSummary(summary);
+      showSummary(summary);
+    }
+
+    function replayRun(){
+      const nextSeed = String(Date.now());
+      location.href = withPassthrough(
+        '/webxr-health-mobile/herohealth/plate/plate-vr.html',
+        ctx,
+        { seed: nextSeed }
+      );
+    }
+
+    function backHub(){
+      const cooldownDone = isGateDone('cooldown', ctx);
+
+      if(!cooldownDone){
+        location.href = withPassthrough(
+          '/webxr-health-mobile/herohealth/warmup-gate.html',
+          ctx,
+          {
+            phase: 'cooldown',
+            next: ctx.hub
+          }
+        );
+        return;
+      }
+
+      location.href = ctx.hub || '/webxr-health-mobile/herohealth/hub.html';
+    }
+
+    $btnReplay?.addEventListener('click', replayRun);
+    $btnBackHub?.addEventListener('click', backHub);
+
+    startGame();
+  })();
+  </script>
 </body>
 </html>
