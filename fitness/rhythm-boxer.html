@@ -178,6 +178,293 @@
     .rb-result-check b{
       color:#fff;
     }
+
+    /* === PATCH v20260403a-RB-LAYOUT-DESKTOP === */
+    body{
+      background:
+        radial-gradient(1000px 640px at 20% 0%, rgba(34,211,238,.08), transparent 45%),
+        radial-gradient(900px 600px at 100% 0%, rgba(245,158,11,.06), transparent 40%),
+        linear-gradient(180deg,#050816,#0b1020 100%);
+    }
+
+    #rb-wrap{
+      width:min(1380px,96vw);
+      margin:76px auto 20px;
+    }
+
+    #rb-view-play:not(.hidden){
+      display:grid !important;
+      grid-template-columns:minmax(320px,380px) minmax(0,1fr);
+      grid-template-areas:
+        "head head"
+        "hud field";
+      gap:14px;
+      align-items:start;
+    }
+
+    #rb-view-play .rb-play-header{
+      grid-area:head;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:0;
+    }
+
+    #rb-view-play .rb-hud{
+      grid-area:hud;
+      position:sticky;
+      top:62px;
+      align-self:start;
+      max-height:calc(100vh - 92px);
+      overflow:auto;
+      padding:14px;
+      border-radius:20px;
+      background:linear-gradient(180deg, rgba(7,12,24,.92), rgba(8,15,30,.82));
+      border:1px solid rgba(148,163,184,.14);
+      box-shadow:0 18px 40px rgba(0,0,0,.28);
+    }
+
+    #rb-view-play .rb-field-wrap{
+      grid-area:field;
+      min-width:0;
+    }
+
+    #rb-field{
+      position:relative;
+      min-height:72vh;
+      height:72vh;
+      border-radius:24px;
+      overflow:hidden;
+      padding:14px 14px 18px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(59,130,246,.10), transparent 34%),
+        linear-gradient(180deg, #0a1120 0%, #0d1628 100%);
+      border:1px solid rgba(148,163,184,.10);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.04),
+        0 20px 40px rgba(0,0,0,.26);
+    }
+
+    #rb-lanes{
+      height:100%;
+      gap:12px;
+      align-items:stretch;
+    }
+
+    .rb-lane{
+      position:relative;
+      min-width:0;
+      border-radius:18px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02)),
+        linear-gradient(180deg, rgba(59,130,246,.05), rgba(15,23,42,.12));
+      border:1px solid rgba(255,255,255,.06);
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+      overflow:hidden;
+    }
+
+    .rb-lane::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.05), transparent 22%, transparent 78%, rgba(255,255,255,.03));
+      pointer-events:none;
+    }
+
+    .rb-lane::after{
+      content:"";
+      position:absolute;
+      left:8%;
+      right:8%;
+      bottom:16%;
+      height:6px;
+      border-radius:999px;
+      background:linear-gradient(90deg,#f59e0b,#facc15,#fb923c);
+      box-shadow:
+        0 0 14px rgba(251,191,36,.35),
+        0 0 26px rgba(251,191,36,.18);
+      pointer-events:none;
+    }
+
+    .rb-lane-label{
+      position:absolute;
+      left:50%;
+      bottom:8px;
+      transform:translateX(-50%);
+      z-index:2;
+      font-size:.78rem;
+      font-weight:1000;
+      color:#f8fafc;
+      opacity:.9;
+      text-shadow:0 2px 8px rgba(0,0,0,.55);
+    }
+
+    .rb-note{
+      filter:drop-shadow(0 8px 16px rgba(0,0,0,.38));
+    }
+
+    .rb-note-ico{
+      font-size:clamp(22px, 2vw, 30px);
+    }
+
+    #rb-feedback{
+      position:absolute;
+      left:50%;
+      top:12%;
+      transform:translateX(-50%);
+      z-index:8;
+      min-width:120px;
+      text-align:center;
+      padding:8px 14px;
+      border-radius:999px;
+      font-size:clamp(22px, 2.2vw, 34px);
+      font-weight:1000;
+      letter-spacing:.02em;
+      background:rgba(2,6,23,.44);
+      backdrop-filter:blur(6px);
+      box-shadow:0 8px 24px rgba(0,0,0,.25);
+      pointer-events:none;
+    }
+
+    .rb-howto-inline{
+      margin:10px 0 0;
+      text-align:center;
+      color:#dbeafe;
+      opacity:.92;
+      font-weight:800;
+      line-height:1.55;
+    }
+
+    .rb-hud-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-bottom:8px;
+    }
+
+    .rb-chip{
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:.78rem;
+      font-weight:900;
+      background:rgba(15,23,42,.60);
+      border:1px solid rgba(148,163,184,.16);
+      color:#e5edf9;
+    }
+
+    .rb-chip b{
+      color:#fff;
+    }
+
+    .rb-bars{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+      margin-top:8px;
+    }
+
+    .rb-bar-block{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .rb-bar{
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+    }
+
+    .rb-bar-status{
+      min-width:42px;
+      text-align:right;
+      font-weight:1000;
+    }
+
+    .rb-play-header .rb-btn{
+      white-space:nowrap;
+    }
+
+    .rb-result-grid,
+    .rb-result-reward-grid{
+      width:min(1180px,100%);
+      margin-inline:auto;
+    }
+
+    .rb-result-card{
+      background:linear-gradient(180deg, rgba(7,12,24,.88), rgba(11,18,32,.80));
+      border:1px solid rgba(148,163,184,.14);
+      box-shadow:0 16px 34px rgba(0,0,0,.22);
+    }
+
+    @media (max-width: 1100px){
+      #rb-view-play:not(.hidden){
+        grid-template-columns:1fr;
+        grid-template-areas:
+          "head"
+          "hud"
+          "field";
+      }
+
+      #rb-view-play .rb-hud{
+        position:static;
+        max-height:none;
+      }
+
+      #rb-field{
+        min-height:60vh;
+        height:60vh;
+      }
+    }
+
+    @media (max-width: 720px){
+      #hhHud{
+        top:8px;
+        left:8px;
+        right:8px;
+      }
+
+      .hhPill{
+        max-width:56vw;
+        padding:7px 9px;
+        font-size:12px;
+      }
+
+      .hhBtn{
+        padding:7px 10px;
+      }
+
+      #rb-wrap{
+        width:min(100%,100vw);
+        margin:62px auto 14px;
+      }
+
+      #rb-field{
+        min-height:420px;
+        height:58vh;
+        padding:10px 10px 14px;
+      }
+
+      #rb-lanes{
+        gap:8px;
+      }
+
+      .rb-lane::after{
+        left:6%;
+        right:6%;
+        bottom:15%;
+        height:5px;
+      }
+
+      #rb-feedback{
+        top:15%;
+        font-size:24px;
+        padding:7px 12px;
+      }
+    }
   </style>
 </head>
 
@@ -202,7 +489,7 @@
         <p class="rb-sub">ต่อยมือตามโน้ตให้ตรงจังหวะ · ฝึกสมาธิ ความเร็ว และความแม่นยำ</p>
         <span class="rb-sub-small">เหมาะกับเด็ก: เริ่ม Easy ก่อน แล้วค่อยลองด่านยากขึ้น</span>
       </div>
-      <a href="hub.html" class="rb-back" id="rb-back-link">← กลับ</a>
+      <a href="../herohealth/hub.html" class="rb-back" id="rb-back-link">← กลับ</a>
     </header>
 
     <section class="rb-section rb-grid-2">
@@ -344,7 +631,6 @@
         </div>
       </div>
 
-      <!-- mission HUD -->
       <div id="rb-mission-hud" class="rb-mission-box hidden">
         <div class="rb-mission-title">ภารกิจ 3 ดาว</div>
         <div class="rb-mission-list">
@@ -354,7 +640,6 @@
         </div>
       </div>
 
-      <!-- boss HUD -->
       <div id="rb-boss-hud" class="rb-boss-box hidden">
         <div class="rb-boss-title">
           <span>🔥 Boss Round</span>
@@ -470,13 +755,54 @@
 (function(){
   function qs(k,d=''){ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } }
   function abs(u){ try{ return new URL(u, location.href).toString(); }catch(e){ return String(u||''); } }
+  function qbool(k,d){ return ['1','true','yes','y','on'].includes(String(qs(k, d ? '1' : '0')).toLowerCase()); }
 
   var hub = String(qs('hub','')).trim();
-  var backUrl = hub ? abs(hub) : '';
+  var backUrl = hub ? abs(hub) : abs('../herohealth/hub.html');
+  var useCooldownFlow = qbool('cooldown', true) || (qs('returnPhase','') === 'cooldown');
+
+  function buildCooldownUrl(reason, payload){
+    reason = String(reason || 'end');
+    payload = payload || {};
+
+    var gate = new URL('../herohealth/warmup-gate.html', location.href);
+
+    gate.searchParams.set('phase', 'cooldown');
+    gate.searchParams.set('gatePhase', 'cooldown');
+    gate.searchParams.set('game', 'rhythmboxer');
+    gate.searchParams.set('gameId', 'rhythmboxer');
+    gate.searchParams.set('theme', 'rhythmboxer');
+
+    gate.searchParams.set('zone', qs('zone','fitness'));
+    gate.searchParams.set('cat', qs('cat','fitness'));
+    gate.searchParams.set('pid', qs('pid','anon'));
+    gate.searchParams.set('run', qs('run','play'));
+    gate.searchParams.set('diff', qs('diff','normal'));
+    gate.searchParams.set('time', qs('time','80'));
+    gate.searchParams.set('seed', qs('seed', String(Date.now())));
+    gate.searchParams.set('view', qs('view','pc'));
+    gate.searchParams.set('hub', backUrl);
+    gate.searchParams.set('cdur', qs('cdur','20'));
+
+    var planDay = String(qs('planDay','')).trim();
+    var planSlot = String(qs('planSlot','')).trim();
+    if(planDay) gate.searchParams.set('planDay', planDay);
+    if(planSlot) gate.searchParams.set('planSlot', planSlot);
+    if(qbool('autoNext', false)) gate.searchParams.set('autoNext', '1');
+
+    if(reason) gate.searchParams.set('reason', reason);
+    if(payload.score != null) gate.searchParams.set('score', String(payload.score));
+    if(payload.acc != null) gate.searchParams.set('acc', String(payload.acc));
+    if(payload.miss != null) gate.searchParams.set('miss', String(payload.miss));
+    if(payload.rank != null) gate.searchParams.set('rank', String(payload.rank));
+    if(payload.stars != null) gate.searchParams.set('stars', String(payload.stars));
+
+    return gate.toString();
+  }
 
   var backLink = document.getElementById('rb-back-link');
   if(backLink){
-    backLink.href = backUrl || 'hub.html';
+    backLink.href = backUrl || '../herohealth/hub.html';
     backLink.addEventListener('click', function(e){
       if(backUrl){
         e.preventDefault();
@@ -496,13 +822,18 @@
   if(btnBack){
     btnBack.addEventListener('click', function(){
       if(backUrl) location.href = backUrl;
-      else history.back();
+      else location.href = abs('../herohealth/hub.html');
     });
   }
 
   window.HH_END_GAME = function(reason, payload){
     reason = String(reason||'end');
     payload = payload || {};
+
+    if(useCooldownFlow){
+      location.href = buildCooldownUrl(reason, payload);
+      return;
+    }
 
     if(backUrl){
       try{
@@ -517,11 +848,16 @@
         return;
       }catch(_){}
     }
-    alert('จบเกมแล้ว!');
+
+    location.href = abs('../herohealth/hub.html');
   };
 
   var btnReturn = document.getElementById('rb-btn-return-plan');
   if(btnReturn){
+    if(useCooldownFlow){
+      btnReturn.textContent = '✅ ไปสรุป cooldown';
+    }
+
     btnReturn.addEventListener('click', function(){
       var score = document.getElementById('rb-res-score')?.textContent || '';
       var acc   = document.getElementById('rb-res-acc')?.textContent || '';
@@ -543,7 +879,8 @@
   }
 
   var resView = document.getElementById('rb-view-result');
-  if(resView && autoReturn){
+
+  if(resView && autoReturn && !useCooldownFlow){
     var fired = false;
     var obs = new MutationObserver(function(){
       if(fired) return;
