@@ -1,10 +1,10 @@
 // === /fitness/js/rhythm-boxer.js ===
 // Rhythm Boxer — FULL CLEAN FINAL
-// PATCH v20260403b-RB-COOLDOWN-GATE-FLOW-NOTE-SLOWER
+// PATCH v20260403c-RB-COOLDOWN-GATE-FLOW-NOTE-SLOWEST
 // ✅ cooldown gate flow
 // ✅ correct path from /fitness/ -> /herohealth/
 // ✅ note travel slower / more readable
-// ✅ judge windows slightly wider
+// ✅ judge windows wider
 // ✅ child-friendly
 // ✅ missions + stars + medal + badge
 // ✅ boss round
@@ -944,11 +944,11 @@
   }
 
   function judgeWindows(){
-    const base = (DIFF === 'hard') ? 78 : (DIFF === 'easy' ? 110 : 92);
+    const base = (DIFF === 'hard') ? 88 : (DIFF === 'easy' ? 125 : 102);
     return {
       perfect: base,
-      great: base * 1.60,
-      good: base * 2.55
+      great: base * 1.70,
+      good: base * 2.70
     };
   }
 
@@ -1008,21 +1008,21 @@
     const view = String(qs('view','pc')).toLowerCase();
 
     if(view === 'pc'){
-      if(DIFF === 'hard') return 1600;
-      if(DIFF === 'easy') return 2000;
-      return 1800;
+      if(DIFF === 'hard') return 2300;
+      if(DIFF === 'easy') return 2900;
+      return 2600;
     }
 
     if(view === 'cvr'){
-      if(DIFF === 'hard') return 1500;
-      if(DIFF === 'easy') return 1850;
-      return 1680;
+      if(DIFF === 'hard') return 2050;
+      if(DIFF === 'easy') return 2550;
+      return 2280;
     }
 
     // mobile
-    if(DIFF === 'hard') return 1450;
-    if(DIFF === 'easy') return 1750;
-    return 1600;
+    if(DIFF === 'hard') return 1900;
+    if(DIFF === 'easy') return 2350;
+    return 2100;
   }
 
   function spawnNotes(schedule){
