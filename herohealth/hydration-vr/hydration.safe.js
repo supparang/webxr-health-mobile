@@ -1,10 +1,15 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// FULL PATCH v20260329h-HYDRATION-DUET-FULL
+// FULL PATCH v20260329h-HYDRATION-DUET-FULL-MERGED
 // - HeroHealth UI
 // - mobile readability
 // - storm / boss / final rush drama
 // - duet sync barrier
 // - duet combined summary
+// - solo mobile focus mode
+// - mini HUD
+// - spawn distribution
+// - game feel + juice patch
+// - balance patch
 
 export async function boot() {
   const WIN = window;
@@ -329,6 +334,19 @@ export async function boot() {
   let fpsTimer = 0;
   let fpsValue = '—';
 
+  let hitStopTimer = 0;
+  let comboBurstLevel = 0;
+
+  const missionFxShown = {
+    hit: false,
+    block: false,
+    combo: false
+  };
+
+  let rewardShowerPlayed = false;
+  let lowWaterPulseCd = 0;
+  let rushGlowCd = 0;
+
   let bubbleSeq = 0;
   const bubbles = new Map();
   const eventLog = [];
@@ -393,6 +411,439 @@ export async function boot() {
     if (s === 'pc') return 'PC';
     if (s === 'cvr') return 'Cardboard';
     return 'Mobile';
+  }
+
+  function focusNode(id) {
+    return DOC.getElementById(id);
+  }
+
+  function ensureFocusWrappersReady() {
+    return {
+      topStats: focusNode('hhTopStatsWrap'),
+      mission: focusNode('hhMissionWrap'),
+      coachTop: focusNode('hhCoachTopWrap'),
+      coachBottom: focusNode('hhCoachBottomWrap'),
+      meta: focusNode('hhMetaWrap'),
+      miniHud: focusNode('hydrationSoloMiniHud')
+    };
+  }
+
+  function hasFocusWrappers() {
+    const refs = ensureFocusWrappersReady();
+    return !!(refs.topStats || refs.mission || refs.coachTop || refs.coachBottom || refs.meta);
+  }
+
+  function ensureSoloMobilePlayfieldStyle() {
+    if (!stageEl || !isMobileCompact() || duet.enabled) return;
+    if (DOC.getElementById('hydrationSoloMobilePlayfieldStyle')) return;
+
+    const style = DOC.createElement('style');
+    style.id = 'hydrationSoloMobilePlayfieldStyle';
+    style.textContent = `
+      @media (max-width: 640px){
+        .hydr-page{
+          padding:8px !important;
+          gap:8px !important;
+        }
+
+        #stage.solo-mobile-playfield{
+          min-height: clamp(660px, 82svh, 920px) !important;
+          height: clamp(660px, 82svh, 920px) !important;
+          max-height: none !important;
+          overflow: hidden !important;
+          border-radius: 24px !important;
+        }
+
+        #stage.solo-mobile-playfield .zone-sign{
+          top: 8px !important;
+          left: 8px !important;
+          right: 54px !important;
+          min-height: 34px !important;
+          padding: 6px 10px !important;
+          font-size: 12px !important;
+          line-height: 1.15 !important;
+        }
+
+        #stage.solo-mobile-playfield .boss-face{
+          top: 8px !important;
+          right: 8px !important;
+          transform: scale(.84);
+        }
+
+        #stage.solo-mobile-playfield .bubble{
+          width: 76px !important;
+          height: 76px !important;
+          min-width: 76px !important;
+          min-height: 76px !important;
+          font-size: 26px !important;
+        }
+
+        #stage.solo-mobile-playfield .bubble-shield{
+          width: 78px !important;
+          height: 78px !important;
+          min-width: 78px !important;
+          min-height: 78px !important;
+        }
+
+        #stage.solo-mobile-playfield .bubble-threat{
+          width: 82px !important;
+          height: 82px !important;
+          min-width: 82px !important;
+          min-height: 82px !important;
+          font-size: 28px !important;
+        }
+
+        #stage.solo-mobile-playfield .bubble-bonus{
+          width: 76px !important;
+          height: 76px !important;
+          min-width: 76px !important;
+          min-height: 76px !important;
+          font-size: 26px !important;
+        }
+
+        .stats-grid-kid,
+        .stats-grid,
+        .hud-stats-grid{
+          gap: 6px !important;
+        }
+
+        .stat-card,
+        .hud-card,
+        .kid-stat-card{
+          min-height: 0 !important;
+          padding: 6px 8px !important;
+          border-radius: 14px !important;
+        }
+
+        .stat-card .value,
+        .hud-card .value,
+        .kid-stat-card .value{
+          font-size: 18px !important;
+          line-height: 1 !important;
+        }
+
+        .mission-panel,
+        .mission-card,
+        .kid-mission-card{
+          min-height: 0 !important;
+          padding: 8px 10px !important;
+          border-radius: 16px !important;
+        }
+
+        .hydr-solo-mini-hud{
+          position: fixed;
+          left: 50%;
+          top: max(54px, env(safe-area-inset-top, 0px) + 50px);
+          transform: translateX(-50%);
+          z-index: 1455;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0,1fr));
+          gap: 6px;
+          width: min(92vw, 340px);
+          pointer-events: none;
+        }
+
+        .hydr-solo-mini-chip{
+          min-height: 46px;
+          padding: 6px 8px;
+          border-radius: 16px;
+          background: rgba(12,18,44,.84);
+          border: 1px solid rgba(255,255,255,.14);
+          box-shadow: 0 14px 28px rgba(0,0,0,.20);
+          backdrop-filter: blur(10px);
+          display: grid;
+          place-items: center;
+          text-align: center;
+          color: #fff;
+        }
+
+        .hydr-solo-mini-chip .k{
+          font-size: 10px;
+          line-height: 1.1;
+          font-weight: 900;
+          color: #dbeafe;
+        }
+
+        .hydr-solo-mini-chip .v{
+          font-size: 18px;
+          line-height: 1;
+          font-weight: 1100;
+          margin-top: 2px;
+        }
+
+        .hydr-solo-mini-chip.warn{
+          background: rgba(108,33,33,.86);
+        }
+
+        .hydr-solo-mini-chip.good{
+          background: rgba(19,78,74,.86);
+        }
+
+        .hydr-solo-mini-chip.shield-hot{
+          background: rgba(30,58,138,.88);
+        }
+
+        .hydr-solo-mini-pulse{
+          grid-column: 1 / -1;
+          min-height: 16px;
+          text-align: center;
+          font-size: 11px;
+          line-height: 1.2;
+          font-weight: 1000;
+          color: #fff7c7;
+        }
+
+        body:not(.solo-focus-play) #hydrationSoloMiniHud{
+          display: none !important;
+        }
+
+        body.solo-focus-play .hydr-page{
+          gap: 6px !important;
+        }
+
+        body.solo-focus-play #stage.solo-mobile-playfield{
+          min-height: clamp(660px, 82svh, 920px) !important;
+          height: clamp(660px, 82svh, 920px) !important;
+        }
+
+        body.solo-focus-play [data-hh-focus="hide"]{
+          display: none !important;
+        }
+
+        body.solo-focus-play [data-hh-stage="focus"]{
+          box-shadow:
+            0 20px 44px rgba(0,0,0,.24),
+            0 0 0 1px rgba(255,255,255,.08) inset !important;
+        }
+      }
+    `;
+    DOC.head.appendChild(style);
+  }
+
+  function prioritizeSoloPlayfieldMobile() {
+    if (!stageEl || !isMobileCompact() || duet.enabled) return;
+
+    ensureSoloMobilePlayfieldStyle();
+    stageEl.classList.add('solo-mobile-playfield');
+
+    const refs = ensureFocusWrappersReady();
+
+    if (refs.coachBottom) {
+      refs.coachBottom.style.minHeight = '0';
+      refs.coachBottom.style.padding = '8px 12px';
+      refs.coachBottom.style.borderRadius = '18px';
+      refs.coachBottom.style.margin = '0';
+    }
+
+    if (refs.meta) {
+      refs.meta.style.minHeight = '0';
+      refs.meta.style.padding = '6px 10px';
+      refs.meta.style.borderRadius = '14px';
+      refs.meta.style.margin = '0';
+    }
+
+    if (ui.coachExplain) {
+      ui.coachExplain.style.fontSize = '13px';
+      ui.coachExplain.style.lineHeight = '1.2';
+    }
+
+    if (ui.aiRisk) ui.aiRisk.style.fontSize = '13px';
+    if (ui.aiRiskMini) ui.aiRiskMini.style.fontSize = '13px';
+
+    if (ui.aiHintMini) {
+      ui.aiHintMini.style.fontSize = '13px';
+      ui.aiHintMini.style.lineHeight = '1.2';
+    }
+  }
+
+  function compactStatsGridForSoloMobile() {
+    if (!isMobileCompact() || duet.enabled) return;
+
+    const refs = ensureFocusWrappersReady();
+    if (!refs.topStats) return;
+
+    refs.topStats.style.minHeight = '0';
+    refs.topStats.style.margin = '0';
+    refs.topStats.style.padding = '0';
+
+    const panels = refs.topStats.querySelectorAll('.stat-card, .hud-card, .kid-stat-card, .panel, .card');
+    panels.forEach((panel) => {
+      panel.style.minHeight = '0';
+      panel.style.padding = '6px 8px';
+      panel.style.borderRadius = '14px';
+      panel.style.margin = '0';
+    });
+
+    const grid =
+      refs.topStats.querySelector('.stats-grid-kid, .stats-grid, .hud-stats-grid') ||
+      refs.topStats;
+
+    if (grid) {
+      grid.style.display = 'grid';
+      grid.style.gridTemplateColumns = 'repeat(2, minmax(0,1fr))';
+      grid.style.gap = '6px';
+      grid.style.margin = '0';
+    }
+
+    [
+      ui.score, ui.time, ui.miss, ui.expire, ui.block,
+      ui.grade, ui.water, ui.combo, ui.shield
+    ].filter(Boolean).forEach((el) => {
+      el.style.fontSize = '18px';
+      el.style.lineHeight = '1';
+    });
+
+    if (ui.phase) {
+      ui.phase.style.fontSize = '13px';
+      ui.phase.style.lineHeight = '1.15';
+    }
+  }
+
+  function compactMissionPanelForSoloMobile() {
+    if (!isMobileCompact() || duet.enabled) return;
+
+    const refs = ensureFocusWrappersReady();
+    if (!refs.mission) return;
+
+    refs.mission.style.minHeight = '0';
+    refs.mission.style.padding = '8px 10px';
+    refs.mission.style.borderRadius = '16px';
+    refs.mission.style.margin = '0';
+
+    [
+      ui.missionHitNow, ui.missionHitGoal,
+      ui.missionBlockNow, ui.missionBlockGoal,
+      ui.missionComboNow, ui.missionComboGoal
+    ].filter(Boolean).forEach((el) => {
+      el.style.fontSize = '15px';
+      el.style.lineHeight = '1';
+    });
+  }
+
+  function ensureSoloMiniHud() {
+    if (!stageEl || !isMobileCompact() || duet.enabled) return;
+    const root = DOC.getElementById('hydrationSoloMiniHud');
+    if (root) root.hidden = false;
+  }
+
+  function removeSoloMiniHud() {
+    const root = DOC.getElementById('hydrationSoloMiniHud');
+    if (root) root.hidden = true;
+  }
+
+  function updateSoloMiniHud() {
+    if (!isMobileCompact() || duet.enabled) return;
+    ensureSoloMiniHud();
+
+    const root = DOC.getElementById('hydrationSoloMiniHud');
+    if (!root) return;
+
+    const timeChip = root.querySelector('[data-k="time"]');
+    const waterChip = root.querySelector('[data-k="water"]');
+    const shieldChip = root.querySelector('[data-k="shield"]');
+    const pulse = root.querySelector('[data-k="pulse"]');
+
+    const timeVal = timeChip?.querySelector('.v');
+    const waterVal = waterChip?.querySelector('.v');
+    const shieldVal = shieldChip?.querySelector('.v');
+
+    if (timeVal) timeVal.textContent = formatClock(tLeft);
+    if (waterVal) waterVal.textContent = `${Math.round(waterPct)}%`;
+    if (shieldVal) shieldVal.textContent = String(shield);
+
+    timeChip?.classList.remove('warn', 'good');
+    waterChip?.classList.remove('warn', 'good');
+    shieldChip?.classList.remove('shield-hot');
+
+    if (tLeft <= 10) timeChip?.classList.add('warn');
+    else if (tLeft >= plannedSec * 0.7) timeChip?.classList.add('good');
+
+    if (waterPct < 25) waterChip?.classList.add('warn');
+    else if (waterPct >= 70) waterChip?.classList.add('good');
+
+    if (shield > 0) shieldChip?.classList.add('shield-hot');
+
+    let pulseText = '';
+    if (isThreatLive()) {
+      pulseText = shield > 0 ? '⚡ ใช้โล่บล็อกสายฟ้า!' : '⚡ รีบหาโล่';
+    } else if (currentPhase === 'final' && inFinalRushNow()) {
+      pulseText = '⚡ FINAL RUSH';
+    } else if (waterPct < 25) {
+      pulseText = '💧 รีบเก็บน้ำ';
+    } else if (combo >= 10) {
+      pulseText = '🔥 COMBO HOT';
+    }
+
+    if (pulse) pulse.textContent = pulseText;
+  }
+
+  function wireHydrationFocusSelectors() {
+    if (!isMobileCompact() || duet.enabled) return;
+    if (!hasFocusWrappers()) return;
+
+    const refs = ensureFocusWrappersReady();
+
+    [refs.topStats, refs.mission, refs.coachTop, refs.coachBottom, refs.meta].forEach((el) => {
+      if (el) el.removeAttribute('data-hh-focus');
+    });
+
+    if (refs.topStats) refs.topStats.setAttribute('data-hh-focus', 'hide');
+    if (refs.mission) refs.mission.setAttribute('data-hh-focus', 'hide');
+    if (refs.coachTop) refs.coachTop.setAttribute('data-hh-focus', 'hide');
+    if (refs.coachBottom) refs.coachBottom.setAttribute('data-hh-focus', 'hide');
+    if (refs.meta) refs.meta.setAttribute('data-hh-focus', 'hide');
+
+    if (stageEl) stageEl.setAttribute('data-hh-stage', 'focus');
+  }
+
+  function setSoloFocusPlay(on) {
+    if (!isMobileCompact() || duet.enabled) return;
+
+    ensureSoloMiniHud();
+
+    if (hasFocusWrappers()) {
+      wireHydrationFocusSelectors();
+    }
+
+    if (on) {
+      DOC.body.classList.add('solo-focus-play');
+      updateSoloMiniHud();
+    } else {
+      DOC.body.classList.remove('solo-focus-play');
+    }
+  }
+
+  function refreshSoloFocusPlayState() {
+    if (!isMobileCompact() || duet.enabled) return;
+
+    if (hasFocusWrappers()) {
+      wireHydrationFocusSelectors();
+    }
+
+    const playing =
+      !helpOpen &&
+      !paused &&
+      !ended &&
+      !(ui.end && ui.end.getAttribute('aria-hidden') === 'false') &&
+      !(ui.pauseOverlay && ui.pauseOverlay.getAttribute('aria-hidden') === 'false') &&
+      !(ui.helpOverlay && ui.helpOverlay.getAttribute('aria-hidden') === 'false');
+
+    setSoloFocusPlay(!!playing);
+
+    if (playing) updateSoloMiniHud();
+  }
+
+  function condenseSoloHudMobile() {
+    if (!isMobileCompact() || duet.enabled) return;
+
+    prioritizeSoloPlayfieldMobile();
+
+    if (hasFocusWrappers()) {
+      compactStatsGridForSoloMobile();
+      compactMissionPanelForSoloMobile();
+    }
+
+    refreshSoloFocusPlayState();
   }
 
   function bindKidHudMeta() {
@@ -492,6 +943,8 @@ export async function boot() {
   function showHelp() {
     helpOpen = true;
     if (ui.helpOverlay) ui.helpOverlay.setAttribute('aria-hidden', 'false');
+    refreshSoloFocusPlayState();
+    removeSoloMiniHud();
   }
 
   function hideHelp() {
@@ -499,20 +952,34 @@ export async function boot() {
     if (ui.helpOverlay) ui.helpOverlay.setAttribute('aria-hidden', 'true');
     paused = false;
     lastTick = nowMs();
+
     ensureStarterTargets(true);
     emergencySpawnIfEmpty();
+
+    condenseSoloHudMobile();
+    refreshSoloFocusPlayState();
+    updateSoloMiniHud();
+    rewardShowerPlayed = false;
+
     scheduleLoop();
   }
 
   function showPause() {
     paused = true;
     if (ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden', 'false');
+    refreshSoloFocusPlayState();
+    removeSoloMiniHud();
   }
 
   function hidePause() {
     paused = false;
     if (ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden', 'true');
     lastTick = nowMs();
+
+    condenseSoloHudMobile();
+    refreshSoloFocusPlayState();
+    updateSoloMiniHud();
+
     scheduleLoop();
   }
 
@@ -753,6 +1220,303 @@ export async function boot() {
     }, 220);
   }
 
+  function ensureGameFeelStyle() {
+    if (DOC.getElementById('hydrationGameFeelStyle')) return;
+
+    const style = DOC.createElement('style');
+    style.id = 'hydrationGameFeelStyle';
+    style.textContent = `
+      .hh-stage-goodpulse{ animation: hhStageGoodPulse .22s ease; }
+      .hh-stage-badpulse{ animation: hhStageBadPulse .24s ease; }
+      .hh-stage-bonuspulse{ animation: hhStageBonusPulse .26s ease; }
+      .hh-stage-combopulse{ animation: hhStageComboPulse .30s ease; }
+      .hh-stage-dangerpulse{ animation: hhStageDangerPulse .28s ease; }
+
+      .hh-near-expire{
+        animation: hhNearExpire .18s linear infinite alternate;
+        box-shadow:
+          0 0 0 3px rgba(255,255,255,.22) inset,
+          0 0 18px rgba(255,255,255,.42),
+          0 0 28px rgba(251,191,36,.38) !important;
+      }
+
+      @keyframes hhStageGoodPulse{
+        0%{ filter:none; transform:translateZ(0); }
+        50%{ filter:brightness(1.09) saturate(1.06); transform:scale(1.004); }
+        100%{ filter:none; transform:translateZ(0); }
+      }
+
+      @keyframes hhStageBadPulse{
+        0%{ filter:none; }
+        50%{ filter:brightness(.94) saturate(1.08); }
+        100%{ filter:none; }
+      }
+
+      @keyframes hhStageBonusPulse{
+        0%{ filter:none; }
+        50%{ filter:brightness(1.12) saturate(1.12); }
+        100%{ filter:none; }
+      }
+
+      @keyframes hhStageComboPulse{
+        0%{ filter:none; }
+        50%{ filter:brightness(1.14) saturate(1.15); }
+        100%{ filter:none; }
+      }
+
+      @keyframes hhStageDangerPulse{
+        0%{ filter:none; }
+        50%{ filter:brightness(.92) saturate(1.20); }
+        100%{ filter:none; }
+      }
+
+      @keyframes hhNearExpire{
+        from{ transform:translate(-50%,-50%) scale(1); }
+        to{ transform:translate(-50%,-50%) scale(1.06); }
+      }
+    `;
+    DOC.head.appendChild(style);
+  }
+
+  function setHitStop(ms = 36) {
+    hitStopTimer = Math.max(hitStopTimer, ms / 1000);
+  }
+
+  function stageFeelPulse(kind = 'good') {
+    ensureGameFeelStyle();
+
+    stageEl.classList.remove(
+      'hh-stage-goodpulse',
+      'hh-stage-badpulse',
+      'hh-stage-bonuspulse',
+      'hh-stage-combopulse',
+      'hh-stage-dangerpulse'
+    );
+
+    const cls =
+      kind === 'good' ? 'hh-stage-goodpulse' :
+      kind === 'bad' ? 'hh-stage-badpulse' :
+      kind === 'bonus' ? 'hh-stage-bonuspulse' :
+      kind === 'combo' ? 'hh-stage-combopulse' :
+      'hh-stage-dangerpulse';
+
+    stageEl.classList.add(cls);
+    setTimeout(() => stageEl.classList.remove(cls), 320);
+  }
+
+  function markNearExpireBubble(b) {
+    if (!b || !b.el || b.nearExpireWarned) return;
+    b.nearExpireWarned = true;
+    b.el.classList.add('hh-near-expire');
+  }
+
+  function clearNearExpireBubble(b) {
+    if (!b || !b.el) return;
+    b.el.classList.remove('hh-near-expire');
+  }
+
+  function maybeComboBurst() {
+    const nextLevel =
+      combo >= 15 ? 3 :
+      combo >= 10 ? 2 :
+      combo >= 5 ? 1 :
+      0;
+
+    if (nextLevel <= comboBurstLevel) return;
+    comboBurstLevel = nextLevel;
+
+    stageFeelPulse('combo');
+
+    if (nextLevel === 1) {
+      showCallout('🔥 COMBO เริ่มร้อนแล้ว', 'good');
+      spawnSticker('🔥 x5');
+    } else if (nextLevel === 2) {
+      fxPhaseBanner('🔥 COMBO BURST');
+      showCallout('สุดยอด คอมโบเดือดมาก!', 'good');
+      spawnSticker('⚡ x10');
+    } else {
+      fxPhaseBanner('🌟 SUPER COMBO');
+      showCallout('คอมโบโหดมาก เก่งสุด ๆ!', 'good');
+      spawnSticker('🌟 x15');
+      spawnSticker('🔥 MAX');
+    }
+  }
+
+  function maybeMissionCelebration() {
+    if (!missionFxShown.hit && goodHits >= TUNE.missionHitGood) {
+      missionFxShown.hit = true;
+      showCallout('ภารกิจเก็บน้ำครบแล้ว 💧', 'good');
+      spawnSticker('💧 CLEAR');
+      stageFeelPulse('good');
+    }
+
+    if (!missionFxShown.block && blockCount >= TUNE.missionBlock) {
+      missionFxShown.block = true;
+      showCallout('ภารกิจบล็อกสายฟ้าครบแล้ว 🛡️', 'good');
+      spawnSticker('🛡️ CLEAR');
+      stageFeelPulse('bonus');
+    }
+
+    if (!missionFxShown.combo && bestCombo >= TUNE.missionCombo) {
+      missionFxShown.combo = true;
+      showCallout('ภารกิจคอมโบครบแล้ว ✨', 'good');
+      spawnSticker('✨ CLEAR');
+      stageFeelPulse('combo');
+    }
+  }
+
+  function ensureJuiceStyle() {
+    if (DOC.getElementById('hydrationJuiceStyle')) return;
+
+    const style = DOC.createElement('style');
+    style.id = 'hydrationJuiceStyle';
+    style.textContent = `
+      .hh-bubble-spawn{
+        animation: hhBubbleSpawn .22s ease-out;
+      }
+
+      .hh-hit-particle{
+        position:absolute;
+        z-index:18;
+        pointer-events:none;
+        transform:translate(-50%,-50%);
+        font-size:18px;
+        font-weight:1100;
+        animation: hhHitParticle .55s ease-out forwards;
+        text-shadow:0 3px 12px rgba(0,0,0,.25);
+      }
+
+      .hh-reward-piece{
+        position:absolute;
+        top:-24px;
+        z-index:30;
+        pointer-events:none;
+        font-size:22px;
+        animation: hhRewardFall 1.6s linear forwards;
+        filter: drop-shadow(0 8px 16px rgba(0,0,0,.18));
+      }
+
+      .hh-stage-rushglow{
+        animation: hhStageRushGlow .42s ease-out;
+      }
+
+      .hh-stage-lowwater{
+        animation: hhStageLowWater .32s ease-out;
+      }
+
+      .hh-stage-combohalo{
+        box-shadow:
+          0 0 0 1px rgba(255,255,255,.08) inset,
+          0 0 32px rgba(56,189,248,.14),
+          0 0 80px rgba(250,204,21,.10) !important;
+      }
+
+      @keyframes hhBubbleSpawn{
+        0%{ opacity:0; transform:translate(-50%,-50%) scale(.72); }
+        65%{ opacity:1; transform:translate(-50%,-50%) scale(1.06); }
+        100%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+      }
+
+      @keyframes hhHitParticle{
+        0%{ opacity:0; transform:translate(-50%,-45%) scale(.72); }
+        18%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+        100%{ opacity:0; transform:translate(-50%,-150%) scale(.94); }
+      }
+
+      @keyframes hhRewardFall{
+        0%{ opacity:0; transform:translateY(-10px) rotate(0deg) scale(.7); }
+        12%{ opacity:1; transform:translateY(0) rotate(18deg) scale(1); }
+        100%{ opacity:0; transform:translateY(105vh) rotate(220deg) scale(.94); }
+      }
+
+      @keyframes hhStageRushGlow{
+        0%{ filter:none; }
+        50%{ filter:brightness(1.16) saturate(1.12); }
+        100%{ filter:none; }
+      }
+
+      @keyframes hhStageLowWater{
+        0%{ filter:none; }
+        50%{ filter:brightness(.95) saturate(1.14); }
+        100%{ filter:none; }
+      }
+    `;
+    DOC.head.appendChild(style);
+  }
+
+  function playBubbleSpawn(el) {
+    if (!el) return;
+    ensureJuiceStyle();
+    el.classList.remove('hh-bubble-spawn');
+    void el.offsetWidth;
+    el.classList.add('hh-bubble-spawn');
+  }
+
+  function spawnHitParticles(x, y, icon = '✨', count = 5) {
+    ensureJuiceStyle();
+
+    for (let i = 0; i < count; i += 1) {
+      const p = DOC.createElement('div');
+      p.className = 'hh-hit-particle';
+      p.textContent = i % 2 === 0 ? icon : '✨';
+      p.style.left = `${x + lerp(-16, 16, r01())}px`;
+      p.style.top = `${y + lerp(-10, 10, r01())}px`;
+      p.style.animationDelay = `${(i * 0.03).toFixed(2)}s`;
+      stageEl.appendChild(p);
+
+      setTimeout(() => {
+        try { p.remove(); } catch {}
+      }, 700);
+    }
+  }
+
+  function triggerRushGlow() {
+    ensureJuiceStyle();
+    stageEl.classList.remove('hh-stage-rushglow');
+    void stageEl.offsetWidth;
+    stageEl.classList.add('hh-stage-rushglow');
+    setTimeout(() => stageEl.classList.remove('hh-stage-rushglow'), 460);
+  }
+
+  function triggerLowWaterPulse() {
+    ensureJuiceStyle();
+    stageEl.classList.remove('hh-stage-lowwater');
+    void stageEl.offsetWidth;
+    stageEl.classList.add('hh-stage-lowwater');
+    setTimeout(() => stageEl.classList.remove('hh-stage-lowwater'), 360);
+  }
+
+  function syncComboHalo() {
+    ensureJuiceStyle();
+    stageEl.classList.toggle('hh-stage-combohalo', combo >= 8);
+  }
+
+  function playRewardShower(kind = 'solo') {
+    if (rewardShowerPlayed) return;
+    rewardShowerPlayed = true;
+    ensureJuiceStyle();
+
+    const icons = kind === 'duet'
+      ? ['💧', '⭐', '🤝', '🌊', '✨']
+      : ['💧', '⭐', '🌟', '🛡️', '✨'];
+
+    const count = isMobileCompact() ? 16 : 22;
+
+    for (let i = 0; i < count; i += 1) {
+      const piece = DOC.createElement('div');
+      piece.className = 'hh-reward-piece';
+      piece.textContent = icons[Math.floor(r01() * icons.length)];
+      piece.style.left = `${8 + r01() * 84}%`;
+      piece.style.animationDelay = `${(i * 0.03).toFixed(2)}s`;
+      piece.style.fontSize = `${18 + Math.floor(r01() * 12)}px`;
+      stageEl.appendChild(piece);
+
+      setTimeout(() => {
+        try { piece.remove(); } catch {}
+      }, 1900);
+    }
+  }
+
   function bubbleBadge(kind) {
     if (kind === 'good') return 'GOOD';
     if (kind === 'bad') return 'BAD';
@@ -771,39 +1535,152 @@ export async function boot() {
 
   function laneX(lane = 'C') {
     const rect = stageEl.getBoundingClientRect();
-    const ratio = lane === 'L' ? 0.22 : lane === 'R' ? 0.78 : 0.50;
+    const ratio = lane === 'L' ? 0.18 : lane === 'R' ? 0.82 : 0.50;
     return clamp(rect.width * ratio, 28, Math.max(36, rect.width - 28));
   }
 
   function lightningThreatY() {
     const rect = stageEl.getBoundingClientRect();
-    return clamp(rect.height * (isMobileCompact() ? 0.28 : 0.25), 88, Math.max(130, rect.height - 180));
+    return clamp(
+      rect.height * (isMobileCompact() ? 0.22 : 0.25),
+      78,
+      Math.max(118, rect.height - 180)
+    );
+  }
+
+  const MOBILE_LANE_X = [0.18, 0.50, 0.82];
+
+  function liveBubbleRects() {
+    const out = [];
+    for (const b of bubbles.values()) {
+      if (!b || !b.el || !b.el.isConnected) continue;
+      out.push({
+        x: Number(b.x || 0),
+        y: Number(b.y || 0),
+        kind: String(b.kind || '')
+      });
+    }
+    return out;
+  }
+
+  function chooseSpawnLane(kind = 'good') {
+    if (!isMobileCompact()) return null;
+
+    if (kind === 'shield') return 1;
+
+    if (kind === 'threat') {
+      const r = r01();
+      return r < 0.33 ? 0 : r < 0.66 ? 1 : 2;
+    }
+
+    const live = liveBubbleRects();
+    const laneCounts = [0, 0, 0];
+
+    for (const item of live) {
+      const x = Number(item.x || 0);
+      const w = stageEl.getBoundingClientRect().width || 1;
+      const nx = x / w;
+      let idx = 1;
+      if (nx < 0.34) idx = 0;
+      else if (nx > 0.66) idx = 2;
+      laneCounts[idx] += 1;
+    }
+
+    const minCount = Math.min(...laneCounts);
+    const candidates = laneCounts
+      .map((v, i) => ({ v, i }))
+      .filter((o) => o.v === minCount)
+      .map((o) => o.i);
+
+    return candidates[Math.floor(r01() * candidates.length)] ?? 1;
+  }
+
+  function overlapsExisting(x, y, minDist = 72) {
+    for (const b of bubbles.values()) {
+      if (!b || !b.el || !b.el.isConnected) continue;
+      const dx = Number(b.x || 0) - x;
+      const dy = Number(b.y || 0) - y;
+      if ((dx * dx + dy * dy) < (minDist * minDist)) return true;
+    }
+    return false;
   }
 
   function safeSpawnXY(kind = 'good') {
     const rect = stageEl.getBoundingClientRect();
 
-    const sidePad = clamp(Math.round(rect.width * 0.09), 24, 60);
+    const sidePad = clamp(Math.round(rect.width * 0.08), 22, 52);
+
     const topPad = isMobileCompact()
-      ? clamp(Math.round(rect.height * 0.16), 80, 150)
+      ? clamp(Math.round(rect.height * 0.06), 30, 64)
       : clamp(Math.round(rect.height * 0.18), 90, 170);
 
     const bottomPad = isMobileCompact()
-      ? clamp(Math.round(rect.height * 0.18), 100, 150)
+      ? clamp(Math.round(rect.height * 0.08), 44, 78)
       : clamp(Math.round(rect.height * 0.16), 96, 138);
+
+    let minY = topPad;
+    let maxY = Math.max(topPad + 60, rect.height - bottomPad);
+
+    if (kind === 'shield') {
+      minY = Math.max(topPad, rect.height * 0.10);
+      maxY = Math.min(maxY, rect.height * 0.30);
+    } else if (kind === 'bonus') {
+      minY = Math.max(topPad, rect.height * 0.16);
+      maxY = Math.min(maxY, rect.height * 0.52);
+    } else if (kind === 'threat') {
+      minY = Math.max(topPad, rect.height * 0.18);
+      maxY = Math.min(maxY, rect.height * 0.34);
+    }
+
+    if (isMobileCompact()) {
+      const laneIdx = chooseSpawnLane(kind);
+      const laneRatio = MOBILE_LANE_X[laneIdx] ?? 0.50;
+
+      const laneCenterX = rect.width * laneRatio;
+      const laneHalfWidth =
+        kind === 'shield'
+          ? Math.max(18, rect.width * 0.05)
+          : Math.max(26, rect.width * 0.08);
+
+      const minX = clamp(laneCenterX - laneHalfWidth, sidePad, rect.width - sidePad);
+      const maxX = clamp(laneCenterX + laneHalfWidth, sidePad, rect.width - sidePad);
+
+      let best = null;
+
+      for (let i = 0; i < 8; i += 1) {
+        const x = clamp(lerp(minX, maxX, r01()), sidePad, rect.width - sidePad);
+        const y = clamp(lerp(minY, maxY, r01()), minY, maxY);
+
+        const minDist =
+          kind === 'shield' ? 82 :
+          kind === 'threat' ? 78 :
+          kind === 'bonus' ? 74 :
+          72;
+
+        const hit = overlapsExisting(x, y, minDist);
+        if (!hit) return { x, y };
+
+        if (!best) best = { x, y };
+      }
+
+      return best || {
+        x: clamp(laneCenterX, sidePad, rect.width - sidePad),
+        y: clamp(lerp(minY, maxY, r01()), minY, maxY)
+      };
+    }
 
     const minX = sidePad;
     const maxX = Math.max(sidePad + 30, rect.width - sidePad);
 
-    let minY = topPad;
-    let maxY = Math.max(topPad + 40, rect.height - bottomPad);
-
-    if (kind === 'shield') {
-      minY = Math.max(topPad, rect.height * 0.22);
-      maxY = Math.min(maxY, rect.height * 0.48);
+    let best = null;
+    for (let i = 0; i < 8; i += 1) {
+      const x = clamp(lerp(minX, maxX, r01()), minX, maxX);
+      const y = clamp(lerp(minY, maxY, r01()), minY, maxY);
+      if (!overlapsExisting(x, y, 78)) return { x, y };
+      if (!best) best = { x, y };
     }
 
-    return {
+    return best || {
       x: clamp(lerp(minX, maxX, r01()), minX, maxX),
       y: clamp(lerp(minY, maxY, r01()), minY, maxY)
     };
@@ -851,6 +1728,7 @@ export async function boot() {
     }
 
     layer.appendChild(el);
+    playBubbleSpawn(el);
 
     const item = {
       id,
@@ -877,6 +1755,7 @@ export async function boot() {
   function removeBubble(id) {
     const b = bubbles.get(id);
     if (!b) return;
+    clearNearExpireBubble(b);
     try { b.el.remove(); } catch {}
     bubbles.delete(id);
 
@@ -889,7 +1768,7 @@ export async function boot() {
   function makeStarterBubble(kind, emoji, ttlSec, xr, yr, meta = {}) {
     const rect = stageEl.getBoundingClientRect();
     const x = clamp(rect.width * xr, 40, Math.max(50, rect.width - 40));
-    const y = clamp(rect.height * yr, 110, Math.max(150, rect.height - 130));
+    const y = clamp(rect.height * yr, 90, Math.max(130, rect.height - 110));
     return makeBubble(kind, emoji, ttlSec, { ...meta, x, y });
   }
 
@@ -913,12 +1792,12 @@ export async function boot() {
     if (!force && liveCount >= 2 && hasGood) return;
 
     if (!hasGood) {
-      makeStarterBubble('good', pick(GOOD), Math.max(2.8, TUNE.ttlGood + 0.55), 0.32, 0.58);
-      makeStarterBubble('good', pick(GOOD), Math.max(2.7, TUNE.ttlGood + 0.40), 0.68, 0.48);
+      makeStarterBubble('good', pick(GOOD), Math.max(2.8, TUNE.ttlGood + 0.55), 0.20, 0.60);
+      makeStarterBubble('good', pick(GOOD), Math.max(2.7, TUNE.ttlGood + 0.40), 0.80, 0.48);
     }
 
     if (!hasShieldBubble) {
-      makeStarterBubble('shield', pick(SHLD), 3.1, 0.50, 0.30);
+      makeStarterBubble('shield', pick(SHLD), 3.1, 0.50, 0.22);
     }
 
     showCallout('เริ่มได้เลย 💧', 'good');
@@ -982,6 +1861,9 @@ export async function boot() {
       waterPct = clamp(waterPct + Math.min(12, 4 + lightningPatternRun.total * 2), 0, 100);
       combo += 1;
       bestCombo = Math.max(bestCombo, combo);
+      setHitStop(34);
+      stageFeelPulse('combo');
+      maybeComboBurst();
 
       fxPhaseBanner('⚡ PATTERN CLEAR');
       showCallout(`แพทเทิร์นสำเร็จ +${bonus}`, 'good');
@@ -1013,10 +1895,151 @@ export async function boot() {
       return { good: 0.41, bad: 0.38, shield: 0.12, bonus: 0.09 };
     }
     if (currentPhase === 'final') {
-      if (inFinalRushNow()) return { good: 0.43, bad: 0.35, shield: 0.12, bonus: 0.10 };
-      return { good: 0.47, bad: 0.29, shield: 0.15, bonus: 0.09 };
+      if (inFinalRushNow()) return { good: 0.46, bad: 0.31, shield: 0.11, bonus: 0.12 };
+      return { good: 0.48, bad: 0.27, shield: 0.15, bonus: 0.10 };
     }
     return { good: 0.58, bad: 0.20, shield: 0.14, bonus: 0.08 };
+  }
+
+  function getAdaptiveState() {
+    const lowWater = waterPct < 28;
+    const dangerWater = waterPct < 18;
+    const noShield = shield <= 0;
+    const finalRush = currentPhase === 'final' && inFinalRushNow();
+
+    return {
+      lowWater,
+      dangerWater,
+      noShield,
+      finalRush,
+      protectBias:
+        (lowWater ? 0.08 : 0) +
+        (dangerWater ? 0.06 : 0) +
+        (noShield ? 0.05 : 0),
+
+      rewardBias:
+        (combo >= 8 ? 0.03 : 0) +
+        (finalRush ? 0.04 : 0),
+
+      pressureCut:
+        (dangerWater ? 0.08 : 0) +
+        (lowWater && noShield ? 0.06 : 0)
+    };
+  }
+
+  function normalizeProfile(profile) {
+    const total = profile.good + profile.bad + profile.shield + profile.bonus;
+    if (total <= 0) return { good: 0.55, bad: 0.20, shield: 0.15, bonus: 0.10 };
+    return {
+      good: profile.good / total,
+      bad: profile.bad / total,
+      shield: profile.shield / total,
+      bonus: profile.bonus / total
+    };
+  }
+
+  function getAdaptiveSpawnProfile() {
+    const base = getSpawnProfile();
+    const state = getAdaptiveState();
+
+    const next = {
+      good: base.good + state.protectBias * 0.55 + state.rewardBias * 0.20,
+      bad: base.bad - state.pressureCut,
+      shield: base.shield + state.protectBias * 0.75,
+      bonus: base.bonus + state.rewardBias * 0.55
+    };
+
+    return normalizeProfile(next);
+  }
+
+  function adaptiveTTL(kind, baseTtl) {
+    const state = getAdaptiveState();
+    let ttl = baseTtl;
+
+    if (kind === 'good' && state.lowWater) ttl += 0.18;
+    if (kind === 'good' && state.dangerWater) ttl += 0.16;
+    if (kind === 'shield' && state.noShield) ttl += 0.25;
+    if (kind === 'bonus' && state.finalRush) ttl += 0.10;
+    if (kind === 'bad' && state.dangerWater) ttl += 0.06;
+
+    return ttl;
+  }
+
+  function adaptiveGoodGain() {
+    let add = combo >= 10 ? 16 : 10;
+    let water = 4.5;
+
+    if (currentPhase === 'final') {
+      add += 2;
+      water += 0.5;
+    }
+    if (inFinalRushNow()) {
+      add += 2;
+      water += 0.7;
+    }
+    if (waterPct < 25) {
+      water += 0.8;
+    }
+
+    return { add, water };
+  }
+
+  function adaptiveBonusGain() {
+    let add = combo >= 10 ? 40 : 28;
+    let water = 10;
+    let shieldGain = 1;
+
+    if (currentPhase === 'final') {
+      add += 4;
+      water += 1;
+    }
+    if (inFinalRushNow()) {
+      add += 4;
+      water += 1;
+    }
+
+    return { add, water, shieldGain };
+  }
+
+  function adaptiveBadPenalty() {
+    let scoreLoss = 9;
+    let waterLoss = 8;
+
+    if (waterPct < 22) {
+      waterLoss = 6.5;
+    }
+    if (currentPhase === 'final' && inFinalRushNow()) {
+      scoreLoss += 1;
+    }
+
+    return { scoreLoss, waterLoss };
+  }
+
+  function adaptiveLightningDamage(rate = 1) {
+    let dmg = lightningDamage(rate);
+
+    if (waterPct < 22 && shield <= 0) dmg *= 0.88;
+    if (waterPct < 14) dmg *= 0.90;
+
+    return dmg;
+  }
+
+  function liveCountByKind(kind) {
+    let n = 0;
+    for (const b of bubbles.values()) {
+      if (!b || !b.el || !b.el.isConnected) continue;
+      if (String(b.kind || '') === kind) n += 1;
+    }
+    return n;
+  }
+
+  function shouldForceShieldPity() {
+    if (!isMobileCompact()) return false;
+    if (shield > 0) return false;
+    if (liveCountByKind('shield') > 0) return false;
+    if (waterPct > 24) return false;
+    if (currentPhase === 'final' && inFinalRushNow()) return true;
+    return missBadHit >= 2 || currentPhase === 'boss' || currentPhase === 'storm';
   }
 
   function phaseSpawnMul() {
@@ -1034,14 +2057,20 @@ export async function boot() {
     bubbleWatchdogSec += dt;
     spawnAcc += (TUNE.spawnBase * phaseSpawnMul()) * dt;
 
+    if (shouldForceShieldPity() && r01() < Math.min(1, dt * 2.2)) {
+      makeBubble('shield', pick(SHLD), adaptiveTTL('shield', 3.0));
+    }
+
     while (spawnAcc >= 1) {
       spawnAcc -= 1;
 
-      const profile = getSpawnProfile();
-      const bonusP = clamp(profile.bonus, 0.02, 0.14);
-      const shieldP = clamp(profile.shield + (shield <= 0 ? 0.03 : 0), 0.06, 0.24);
-      const badP = clamp(profile.bad, 0.10, 0.62);
-      const goodP = clamp(1 - bonusP - shieldP - badP, 0.18, 0.72);
+      const profile = getAdaptiveSpawnProfile();
+
+      const bonusP = clamp(profile.bonus, 0.03, 0.18);
+      const shieldP = clamp(profile.shield, 0.08, 0.30);
+      const badP = clamp(profile.bad, 0.08, 0.52);
+      const goodP = clamp(profile.good, 0.20, 0.74);
+
       const total = goodP + badP + shieldP + bonusP;
       const p = r01() * total;
 
@@ -1051,14 +2080,25 @@ export async function boot() {
       else if (p < goodP + badP + shieldP) kind = 'shield';
       else kind = 'bonus';
 
+      if (isMobileCompact()) {
+        const goodLive = liveCountByKind('good');
+        const badLive = liveCountByKind('bad');
+        const shieldLive = liveCountByKind('shield');
+        const bonusLive = liveCountByKind('bonus');
+
+        if (kind === 'shield' && shieldLive >= 1) kind = goodLive <= badLive ? 'good' : 'bonus';
+        if (kind === 'bonus' && bonusLive >= 1) kind = goodLive <= badLive ? 'good' : 'bad';
+        if (kind === 'bad' && badLive >= 2) kind = goodLive < 2 ? 'good' : 'bonus';
+      }
+
       if (kind === 'good') {
-        makeBubble('good', pick(GOOD), TUNE.ttlGood);
+        makeBubble('good', pick(GOOD), adaptiveTTL('good', TUNE.ttlGood));
       } else if (kind === 'bad') {
-        makeBubble('bad', pick(BAD), TUNE.ttlBad);
+        makeBubble('bad', pick(BAD), adaptiveTTL('bad', TUNE.ttlBad));
       } else if (kind === 'shield') {
-        makeBubble('shield', pick(SHLD), 2.9);
+        makeBubble('shield', pick(SHLD), adaptiveTTL('shield', 2.9));
       } else {
-        makeBubble('bonus', pick(BONUS), 2.30);
+        makeBubble('bonus', pick(BONUS), adaptiveTTL('bonus', 2.30));
       }
     }
 
@@ -1072,9 +2112,9 @@ export async function boot() {
   }
 
   function lightningDamage(rate = 1) {
-    if (currentPhase === 'final') return 11.5 * rate;
-    if (currentPhase === 'boss') return 10.5 * rate;
-    return 9.0 * rate;
+    if (currentPhase === 'final') return 10.8 * rate;
+    if (currentPhase === 'boss') return 10.0 * rate;
+    return 8.8 * rate;
   }
 
   function applyLightningStrike(rate = 1, x = null, softBlock = false) {
@@ -1094,6 +2134,8 @@ export async function boot() {
     if (shield > 0 && softBlock) {
       shield -= 1;
       blockCount += 1;
+      setHitStop(28);
+      stageFeelPulse('bonus');
       fxScore(hitX, Math.max(70, rect.height * 0.20), 'AUTO BLOCK');
       spawnSticker('🛡️ BLOCK');
       showCallout('โล่ช่วยไว้ได้ แต่คราวหน้ากดให้ทันนะ', 'good');
@@ -1101,12 +2143,15 @@ export async function boot() {
       return;
     }
 
-    const damage = lightningDamage(rate);
+    const damage = adaptiveLightningDamage(rate);
     waterPct = clamp(waterPct - damage, 0, 100);
     combo = 0;
     missBadHit += 1;
+    setHitStop(58);
+    stageFeelPulse('danger');
 
     fxScore(hitX, Math.max(70, rect.height * 0.20), `-${Math.round(damage)}`);
+    spawnHitParticles(hitX, Math.max(70, rect.height * 0.24), '⚡', 8);
     spawnSticker('⚡ OUCH');
     showCallout('ฟ้าผ่ามาแล้ว รีบเก็บน้ำคืน 💧', 'warn');
 
@@ -1200,6 +2245,10 @@ export async function boot() {
     if (currentPhase === 'storm') perSec = 0.42;
     else if (currentPhase === 'boss') perSec = bossMood === 1 ? 0.50 : bossMood === 2 ? 0.64 : 0.78;
     else if (currentPhase === 'final') perSec = inFinalRushNow() ? 0.90 : 0.68;
+
+    if (waterPct < 25 && shield <= 0) perSec *= 0.76;
+    if (waterPct < 16) perSec *= 0.84;
+    if (combo >= 10 && currentPhase !== 'final') perSec *= 1.05;
 
     if (perSec <= 0) return;
     if (r01() >= perSec * dt) return;
@@ -1591,6 +2640,8 @@ export async function boot() {
 
     addClassIf(ui.missionChipCombo, 'done', bestCombo >= TUNE.missionCombo);
     addClassIf(ui.missionChipCombo, 'hot', bestCombo >= Math.max(1, TUNE.missionCombo - 2) && bestCombo < TUNE.missionCombo);
+
+    maybeMissionCelebration();
   }
 
   function setHUD() {
@@ -1603,6 +2654,7 @@ export async function boot() {
     setText(ui.water, `${Math.round(waterPct)}%`);
     setText(ui.combo, combo);
     setText(ui.shield, shield);
+    if (combo < 5) comboBurstLevel = 0;
     setText(ui.warmDone, 'พร้อม ✨');
     setText(ui.coolDone, cooldownRequired ? 'รอหลังเกม ✨' : 'ไม่ใช้');
 
@@ -1661,6 +2713,13 @@ export async function boot() {
     syncStageMascot();
     syncPhaseDramaDecor();
     syncCompactHudFocus();
+
+    if (isMobileCompact() && !duet.enabled) {
+      ensureSoloMiniHud();
+      updateSoloMiniHud();
+    }
+
+    syncComboHalo();
     stageEl.classList.toggle('has-shield', shield > 0);
 
     const debugOn = ['1', 'true', 'yes', 'on'].includes(String(qs('debug', '0')).toLowerCase());
@@ -1687,7 +2746,18 @@ export async function boot() {
 
   function updateBubbles(now) {
     for (const [id, b] of Array.from(bubbles.entries())) {
-      if (now - b.born < b.ttlMs) continue;
+      const remain = b.ttlMs - (now - b.born);
+
+      if (remain > 0) {
+        if (
+          (b.kind === 'good' || b.kind === 'bonus') &&
+          remain <= 260 &&
+          !b.nearExpireWarned
+        ) {
+          markNearExpireBubble(b);
+        }
+        continue;
+      }
 
       if (b.kind === 'threat') {
         if (b.patternLabel) lightningPatternRun.missed += 1;
@@ -1704,6 +2774,8 @@ export async function boot() {
         missGoodExpired += 1;
         combo = 0;
         logEvent('good_expire', {});
+        showCallout('เกือบได้แล้ว รีบแตะให้ทัน 💧', 'warn');
+        stageFeelPulse('danger');
       }
 
       removeBubble(id);
@@ -1722,6 +2794,9 @@ export async function boot() {
         blockCount += 1;
         combo += 1;
         bestCombo = Math.max(bestCombo, combo);
+        setHitStop(34);
+        stageFeelPulse('bonus');
+        maybeComboBurst();
 
         const add =
           currentPhase === 'final' ? 18 :
@@ -1734,6 +2809,7 @@ export async function boot() {
         pulseStage('threat');
         fxRing(bx, by);
         fxScore(bx, by, 'BLOCK');
+        spawnHitParticles(bx, by, '⚡', 6);
         spawnSticker('⚡ BLOCK');
         spawnSticker('🛡️ NICE');
 
@@ -1772,14 +2848,19 @@ export async function boot() {
     if (b.kind === 'bonus') {
       combo += 1;
       bestCombo = Math.max(bestCombo, combo);
-      score += combo >= 10 ? 40 : 28;
-      waterPct = clamp(waterPct + 10, 0, 100);
-      shield = clamp(shield + 1, 0, 9);
+      const gain = adaptiveBonusGain();
+      score += gain.add;
+      waterPct = clamp(waterPct + gain.water, 0, 100);
+      shield = clamp(shield + gain.shieldGain, 0, 9);
+      setHitStop(42);
+      stageFeelPulse('bonus');
+      maybeComboBurst();
 
       fxBubblePop(b.el, false);
       pulseStage('bonus');
       fxRing(bx, by);
       fxScore(bx, by, 'BONUS');
+      spawnHitParticles(bx, by, '🌟', 7);
       spawnSticker('🎁 BONUS');
       showCallout('โบนัสพิเศษแล้ว 🎁', 'good');
 
@@ -1794,15 +2875,20 @@ export async function boot() {
       bestCombo = Math.max(bestCombo, combo);
       goodHits += 1;
       if (currentPhase === 'final') finalHits += 1;
+      setHitStop(combo >= 10 ? 38 : 28);
+      stageFeelPulse(combo >= 10 ? 'combo' : 'good');
+      maybeComboBurst();
 
-      const add = combo >= 10 ? 16 : 10;
+      const gain = adaptiveGoodGain();
+      const add = gain.add;
       score += add;
-      waterPct = clamp(waterPct + 4.5, 0, 100);
+      waterPct = clamp(waterPct + gain.water, 0, 100);
 
       fxBubblePop(b.el, false);
       pulseStage('good');
       fxRing(bx, by);
       fxScore(bx, by, `+${add}`);
+      spawnHitParticles(bx, by, '💧', combo >= 10 ? 7 : 5);
 
       if (combo === 3) showCallout('ดีมาก เก็บน้ำต่อได้เลย', 'good');
       if (combo === 7) showCallout('คอมโบสวยมาก ✨', 'good');
@@ -1819,11 +2905,15 @@ export async function boot() {
       bestCombo = Math.max(bestCombo, combo);
       shield = clamp(shield + 1, 0, 9);
       score += 6;
+      setHitStop(26);
+      stageFeelPulse('bonus');
+      maybeComboBurst();
 
       fxBubblePop(b.el, false);
       pulseStage('shield');
       fxRing(bx, by);
       fxScore(bx, by, '🛡️');
+      spawnHitParticles(bx, by, '🛡️', 5);
       spawnSticker('🛡️ READY');
       showCallout('ได้โล่แล้ว พร้อมกันสายฟ้า!', 'good');
 
@@ -1833,14 +2923,18 @@ export async function boot() {
       return;
     }
 
+    const penalty = adaptiveBadPenalty();
     combo = 0;
-    score = Math.max(0, score - 9);
-    waterPct = clamp(waterPct - 8, 0, 100);
+    score = Math.max(0, score - penalty.scoreLoss);
+    waterPct = clamp(waterPct - penalty.waterLoss, 0, 100);
     missBadHit += 1;
+    setHitStop(52);
+    stageFeelPulse('bad');
 
     fxBubblePop(b.el, true);
     pulseStage('bad');
-    fxScore(bx, by, '-9');
+    fxScore(bx, by, `-${Math.round(penalty.scoreLoss)}`);
+    spawnHitParticles(bx, by, '💥', 5);
     showCallout('อุ๊ย โดนของไม่ดี', 'warn');
 
     logEvent('bad_hit', { missBadHit, waterPct });
@@ -1850,7 +2944,13 @@ export async function boot() {
   function checkEnd() {
     if (tLeft <= 0) return true;
     if (waterPct <= 0) return true;
-    if (missBadHit >= TUNE.missLimit) return true;
+
+    const effectiveMissLimit =
+      waterPct < 18
+        ? TUNE.missLimit + 1
+        : TUNE.missLimit;
+
+    if (missBadHit >= effectiveMissLimit) return true;
     return false;
   }
 
@@ -1898,11 +2998,33 @@ export async function boot() {
     if (duet.enabled && !duet.started) return;
 
     if (!lastTick) lastTick = t;
-    const dt = clamp((t - lastTick) / 1000, 0, 0.05);
+    const rawDt = clamp((t - lastTick) / 1000, 0, 0.05);
     lastTick = t;
+
+    if (hitStopTimer > 0) {
+      hitStopTimer = Math.max(0, hitStopTimer - rawDt);
+      setHUD();
+      scheduleLoop();
+      return;
+    }
+
+    const dt = rawDt;
 
     tLeft = Math.max(0, tLeft - dt);
     waterPct = clamp(waterPct - dt * 0.16, 0, 100);
+
+    lowWaterPulseCd = Math.max(0, lowWaterPulseCd - dt);
+    rushGlowCd = Math.max(0, rushGlowCd - dt);
+
+    if (waterPct < 25 && lowWaterPulseCd <= 0) {
+      triggerLowWaterPulse();
+      lowWaterPulseCd = 1.1;
+    }
+
+    if (currentPhase === 'final' && inFinalRushNow() && rushGlowCd <= 0) {
+      triggerRushGlow();
+      rushGlowCd = 0.95;
+    }
 
     updatePhaseState();
     updateLightningSystem(dt);
@@ -1970,6 +3092,7 @@ export async function boot() {
       finalHits,
       finalGoal,
       grade: currentGrade(),
+      effectiveMissLimit: waterPct < 18 ? TUNE.missLimit + 1 : TUNE.missLimit,
       ts: new Date().toISOString()
     };
   }
@@ -2107,7 +3230,8 @@ export async function boot() {
       WIN.HHA_FIREBASE_CONFIG,
       WIN.HEROHEALTH_FIREBASE_CONFIG,
       WIN.FIREBASE_CONFIG,
-      WIN.__firebaseConfig
+      WIN.__firebaseConfig,
+      WIN.__HHA_FIREBASE_CONFIG__
     ];
     for (const cfg of list) {
       if (cfg && typeof cfg === 'object' && cfg.apiKey && cfg.projectId) return cfg;
@@ -2117,20 +3241,50 @@ export async function boot() {
 
   async function ensureDuetFirebase() {
     if (!duet.enabled) return;
+
+    if (typeof window.HHA_bootstrapFirebaseCompat === 'function') {
+      window.HHA_bootstrapFirebaseCompat();
+    }
+
     if (typeof firebase === 'undefined') {
-      throw new Error('Firebase SDK not loaded in duet run');
+      throw new Error('Firebase SDK not loaded in duet/co-op run');
+    }
+
+    const cfg =
+      firebaseConfigFromWindow() ||
+      window.HHA_FIREBASE_CONFIG ||
+      window.__HHA_FIREBASE_CONFIG__ ||
+      window.HEROHEALTH_FIREBASE_CONFIG ||
+      window.FIREBASE_CONFIG ||
+      null;
+
+    if (!cfg || !cfg.apiKey || !cfg.projectId) {
+      throw new Error('Missing Firebase config in duet/co-op run');
     }
 
     let app = null;
-    if (firebase.apps && firebase.apps.length) {
-      app = firebase.app();
-    } else {
-      const cfg = firebaseConfigFromWindow();
-      if (!cfg) throw new Error('Missing Firebase config in duet run');
-      app = firebase.initializeApp(cfg);
+    try {
+      app = (firebase.apps && firebase.apps.length)
+        ? firebase.app()
+        : firebase.initializeApp(cfg);
+    } catch (err) {
+      if (firebase.apps && firebase.apps.length) {
+        app = firebase.app();
+      } else {
+        throw err;
+      }
     }
 
     duet.db = firebase.database(app);
+
+    if (typeof window.HHA_ensureAnonymousAuth === 'function') {
+      await window.HHA_ensureAnonymousAuth();
+    } else {
+      const auth = firebase.auth();
+      if (!auth.currentUser) {
+        await auth.signInAnonymously();
+      }
+    }
   }
 
   function duetSortedPlayers(room) {
@@ -2266,8 +3420,12 @@ export async function boot() {
     helpOpen = false;
     lastTick = nowMs();
 
+    DOC.body.classList.remove('solo-focus-play');
+    removeSoloMiniHud();
+
     ensureStarterTargets(true);
     emergencySpawnIfEmpty();
+    rewardShowerPlayed = false;
     scheduleLoop();
   }
 
@@ -2314,6 +3472,7 @@ export async function boot() {
 
     if (ui.duetEndBoard) ui.duetEndBoard.classList.remove('hidden');
     if (ui.end) ui.end.setAttribute('aria-hidden', 'false');
+    playRewardShower('duet');
 
     clearTransientVisuals();
     ended = true;
@@ -2382,6 +3541,9 @@ export async function boot() {
 
     const compact = isMobileCompact();
     setEndDetailExpanded(!compact);
+    refreshSoloFocusPlayState();
+    removeSoloMiniHud();
+    DOC.body.classList.remove('solo-focus-play');
   }
 
   async function commitDuetSummary(reason) {
@@ -2431,6 +3593,9 @@ export async function boot() {
     helpOpen = false;
     paused = true;
     lastTick = 0;
+
+    DOC.body.classList.remove('solo-focus-play');
+    removeSoloMiniHud();
 
     if (ui.helpOverlay) ui.helpOverlay.setAttribute('aria-hidden', 'true');
     showDuetOverlay();
@@ -2487,6 +3652,9 @@ export async function boot() {
     ended = true;
     paused = false;
     clearTransientVisuals();
+    refreshSoloFocusPlayState();
+    DOC.body.classList.remove('solo-focus-play');
+    removeSoloMiniHud();
 
     if (reason === 'final-clear') {
       stageEl.classList.add('final-win');
@@ -2497,6 +3665,7 @@ export async function boot() {
 
     if (ui.duetEndBoard) ui.duetEndBoard.classList.add('hidden');
     if (ui.end) ui.end.setAttribute('aria-hidden', 'false');
+    playRewardShower('solo');
 
     setText(
       ui.endTitle,
@@ -2554,6 +3723,8 @@ export async function boot() {
 
     const compact = isMobileCompact();
     setEndDetailExpanded(!compact);
+    removeSoloMiniHud();
+    DOC.body.classList.remove('solo-focus-play');
   }
 
   async function copyText(text) {
@@ -2576,6 +3747,14 @@ export async function boot() {
 
   WIN.addEventListener('resize', () => {
     try {
+      condenseSoloHudMobile();
+
+      if (hasFocusWrappers()) {
+        wireHydrationFocusSelectors();
+      }
+
+      refreshSoloFocusPlayState();
+
       if (countLiveTargets() <= 0) ensureStarterTargets(true);
     } catch {}
   });
@@ -2625,6 +3804,15 @@ export async function boot() {
   bindKidHudMeta();
   applyStagePhaseVisuals();
   syncPhaseDramaDecor();
+  condenseSoloHudMobile();
+
+  if (hasFocusWrappers()) {
+    wireHydrationFocusSelectors();
+  }
+
+  refreshSoloFocusPlayState();
+  ensureGameFeelStyle();
+  ensureJuiceStyle();
   setHUD();
 
   if (duet.enabled) {
