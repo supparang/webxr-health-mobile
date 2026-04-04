@@ -3,42 +3,51 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Food Groups Launcher</title>
+  <title>HeroHealth • Groups Solo Launcher</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#8fd3ff" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --sky1:#e9f8ff;
-      --sky2:#cbeeff;
-      --sky3:#b9e7ff;
-      --card:#ffffffee;
-      --ink:#24425a;
-      --muted:#62839a;
-      --line:#cde7f4;
-      --shadow:0 16px 40px rgba(81,145,177,.16);
-      --blue:#5ab4ff;
-      --blue2:#7cc9ff;
-      --green:#8ad67f;
-      --yellow:#ffd86e;
-      --pink:#ffb6c8;
-      --violet:#bda7ff;
-      --danger:#ff8d8d;
+      --sky1:#eaf8ff;
+      --sky2:#d2f0ff;
+      --sky3:#b8e5ff;
+      --card:#ffffffef;
+      --ink:#234056;
+      --muted:#648399;
+      --line:#d3e8f3;
+      --shadow:0 18px 40px rgba(90,148,177,.16);
+
+      --blue1:#84ceff;
+      --blue2:#58b7ff;
+
+      --green1:#94de82;
+      --green2:#61c55b;
+
+      --violet1:#c3b0ff;
+      --violet2:#9a79ff;
+
+      --yellow1:#fff4ae;
+      --yellow2:#ffd96a;
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
+
     *{ box-sizing:border-box; }
     html,body{ margin:0; min-height:100%; }
+
     body{
       font-family: ui-rounded, "Nunito", "Noto Sans Thai", system-ui, sans-serif;
       color:var(--ink);
       background:
-        radial-gradient(1200px 700px at 50% -10%, rgba(255,255,255,.9), transparent 60%),
-        radial-gradient(700px 500px at 8% 10%, rgba(255,255,255,.55), transparent 60%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 55%,var(--sky3));
+        radial-gradient(1200px 700px at 50% -10%, rgba(255,255,255,.95), transparent 60%),
+        radial-gradient(700px 500px at 8% 10%, rgba(255,255,255,.50), transparent 60%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 58%,var(--sky3));
     }
+
     .clouds,.clouds::before,.clouds::after{
       content:"";
       position:fixed;
@@ -47,61 +56,77 @@
       z-index:0;
     }
     .clouds{
-      top:36px; left:8%;
-      width:170px; height:48px;
+      top:34px;
+      left:8%;
+      width:180px;
+      height:50px;
       background:#fff8;
       border-radius:999px;
+      box-shadow:
+        260px 26px 0 10px #fff7,
+        580px 8px 0 6px #fff7,
+        860px 46px 0 10px #fff6;
       filter:blur(1px);
-      box-shadow: 260px 30px 0 10px #fff6, 580px 10px 0 4px #fff7, 860px 50px 0 8px #fff5;
     }
+
     .shell{
       position:relative;
       z-index:1;
-      max-width:980px;
+      max-width:1040px;
       margin:0 auto;
       padding:
         calc(18px + var(--sat))
         calc(16px + var(--sar))
-        calc(26px + var(--sab))
+        calc(28px + var(--sab))
         calc(16px + var(--sal));
     }
+
     .topbar{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:10px;
+      gap:12px;
       margin-bottom:14px;
+      flex-wrap:wrap;
     }
+
     .brand{
       display:flex;
       align-items:center;
       gap:12px;
+      padding:12px 14px;
+      border-radius:24px;
       background:var(--card);
       border:1px solid var(--line);
-      border-radius:24px;
-      padding:12px 14px;
       box-shadow:var(--shadow);
     }
-    .brand-badge{
-      width:50px; height:50px; border-radius:18px;
-      display:grid; place-items:center;
-      font-size:28px;
-      background:linear-gradient(180deg,#fff8cf,#ffe07a);
-      border:1px solid #ffeaa8;
-      box-shadow: inset 0 2px 0 rgba(255,255,255,.8);
+
+    .brandMark{
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      background:linear-gradient(180deg,#fff7cb,#ffe27c);
+      border:1px solid #ffe8a6;
+      box-shadow: inset 0 2px 0 rgba(255,255,255,.85);
     }
+
     .brand h1{
       margin:0;
-      font-size:20px;
-      line-height:1.1;
+      font-size:21px;
+      line-height:1.06;
       font-weight:1000;
     }
+
     .brand p{
       margin:4px 0 0;
       font-size:12px;
       color:var(--muted);
       font-weight:900;
     }
+
     .chip{
       display:inline-flex;
       align-items:center;
@@ -116,108 +141,146 @@
       color:var(--muted);
       white-space:nowrap;
     }
-    .hero{
+
+    .layout{
       display:grid;
-      grid-template-columns: 1.25fr .9fr;
+      grid-template-columns: 1.25fr .95fr;
       gap:14px;
     }
-    @media (max-width: 860px){
-      .hero{ grid-template-columns:1fr; }
+
+    @media (max-width: 880px){
+      .layout{ grid-template-columns:1fr; }
     }
+
     .panel{
       background:var(--card);
       border:1px solid var(--line);
       border-radius:28px;
       box-shadow:var(--shadow);
     }
-    .intro{
+
+    .hero{
       padding:18px;
       position:relative;
       overflow:hidden;
-      min-height:290px;
+      min-height:320px;
     }
-    .intro::after{
+
+    .hero::after{
       content:"";
       position:absolute;
-      right:-40px; bottom:-40px;
-      width:180px; height:180px;
+      right:-36px;
+      bottom:-42px;
+      width:190px;
+      height:190px;
       border-radius:50%;
-      background: radial-gradient(circle at 40% 35%, #fff7 0 20%, #ffffff00 70%),
-                  linear-gradient(180deg,#fff2a6,#ffd463);
-      opacity:.8;
+      background:
+        radial-gradient(circle at 40% 35%, #fff8 0 20%, transparent 70%),
+        linear-gradient(180deg,#fff3a3,#ffd460);
+      opacity:.85;
     }
+
     .kicker{
       display:inline-flex;
       align-items:center;
       gap:8px;
       padding:8px 12px;
       border-radius:999px;
-      background:#f0fbff;
-      border:1px solid #d7edf8;
+      background:#f1fbff;
+      border:1px solid #d9eef8;
       font-size:12px;
       font-weight:1000;
-      color:#5f8198;
+      color:#608196;
     }
-    .intro h2{
+
+    .hero h2{
       margin:14px 0 10px;
-      font-size:34px;
-      line-height:1.04;
+      font-size:36px;
+      line-height:1.02;
       font-weight:1000;
-      max-width:560px;
+      max-width:580px;
     }
-    .intro p{
+
+    .hero p{
       margin:0;
       max-width:560px;
       font-size:15px;
-      line-height:1.6;
-      color:#58778d;
+      line-height:1.65;
+      color:#5a798e;
       font-weight:800;
     }
-    .hero-emoji{
+
+    .emojiRow{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      margin-top:16px;
+      margin-top:18px;
     }
-    .hero-emoji span{
-      width:58px; height:58px; border-radius:18px;
-      display:grid; place-items:center;
-      background:#fff;
-      border:1px solid #ddedf6;
-      box-shadow:0 10px 24px rgba(106,161,188,.12);
+
+    .emojiRow span{
+      width:60px;
+      height:60px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
       font-size:30px;
+      background:#fff;
+      border:1px solid #dbeef7;
+      box-shadow:0 10px 24px rgba(108,164,190,.12);
     }
+
+    .howto{
+      margin-top:16px;
+      padding:14px 16px;
+      border-radius:20px;
+      border:1px dashed #d3e8f2;
+      background:#f8fdff;
+      color:#648399;
+      font-size:12px;
+      font-weight:900;
+      line-height:1.75;
+      position:relative;
+      z-index:1;
+    }
+
     .config{
       padding:16px;
       display:flex;
       flex-direction:column;
       gap:14px;
     }
-    .section-title{
+
+    .sectionTitle{
+      margin:0 0 6px;
       font-size:15px;
       font-weight:1000;
-      color:#56748a;
-      margin:0 0 4px;
+      color:#57768c;
     }
+
     .grid{
       display:grid;
       grid-template-columns: repeat(2,minmax(0,1fr));
       gap:12px;
     }
+
     @media (max-width: 560px){
       .grid{ grid-template-columns:1fr; }
     }
+
     .field{
       display:flex;
       flex-direction:column;
       gap:8px;
     }
+
     .field label{
       font-size:13px;
       font-weight:1000;
       color:#5d7d92;
     }
-    .field input,.field select{
+
+    .field input,
+    .field select{
       width:100%;
       min-height:48px;
       border-radius:18px;
@@ -227,89 +290,110 @@
       font:inherit;
       color:var(--ink);
       font-weight:900;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.85);
     }
+
     .mini{
       font-size:12px;
       color:var(--muted);
       font-weight:900;
+      line-height:1.7;
     }
-    .toggle{
+
+    .checkRow{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
+      align-items:center;
     }
-    .toggle button{
-      min-height:44px;
-      border-radius:16px;
-      border:1px solid #d4e7f4;
-      background:#fff;
-      color:#62839a;
-      padding:0 14px;
-      font:inherit;
+
+    .check{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:13px;
       font-weight:1000;
-      cursor:pointer;
-      box-shadow:0 8px 18px rgba(111,170,200,.10);
+      color:#58768d;
     }
-    .toggle button.active{
-      background:linear-gradient(180deg,#7ec9ff,#5db8ff);
-      color:#fff;
-      border-color:#68bdf0;
+
+    .check input{
+      width:18px;
+      height:18px;
     }
-    .actions{
+
+    .modeCards{
       display:grid;
       grid-template-columns: repeat(3,minmax(0,1fr));
       gap:12px;
     }
-    @media (max-width: 680px){
-      .actions{ grid-template-columns:1fr; }
+
+    @media (max-width: 760px){
+      .modeCards{ grid-template-columns:1fr; }
     }
+
     .playBtn{
-      min-height:86px;
+      min-height:94px;
       border-radius:24px;
       border:0;
       cursor:pointer;
       color:#fff;
       font:inherit;
       box-shadow:0 16px 28px rgba(85,145,175,.18);
-      padding:14px;
+      padding:15px;
       text-align:left;
     }
+
     .playBtn b{
       display:block;
-      font-size:20px;
+      font-size:21px;
       font-weight:1000;
       margin-bottom:4px;
     }
+
     .playBtn span{
       display:block;
       font-size:12px;
-      line-height:1.5;
-      opacity:.95;
+      line-height:1.55;
+      opacity:.96;
       font-weight:900;
     }
-    .pc{ background:linear-gradient(180deg,#69c5ff,#46a9ff); }
-    .mobile{ background:linear-gradient(180deg,#8ad97f,#62c45f); }
-    .cvr{ background:linear-gradient(180deg,#b897ff,#9270ff); }
-    .subcard{
+
+    .pc{ background:linear-gradient(180deg,var(--blue1),var(--blue2)); }
+    .mobile{ background:linear-gradient(180deg,var(--green1),var(--green2)); }
+    .cvr{ background:linear-gradient(180deg,var(--violet1),var(--violet2)); }
+
+    .footerBar{
       margin-top:14px;
-      padding:14px 16px;
-      border-radius:20px;
-      border:1px dashed #cfe5f0;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .ghostBtn{
+      min-height:44px;
+      border-radius:16px;
+      border:1px solid #d4e7f4;
+      background:#fff;
+      color:#5f8197;
+      padding:0 14px;
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:0 8px 18px rgba(111,170,200,.10);
+    }
+
+    .status{
+      padding:10px 12px;
+      border-radius:16px;
       background:#f7fdff;
-      color:#67889d;
+      border:1px dashed #d2e7f2;
+      color:#648399;
       font-size:12px;
-      font-weight:900;
-      line-height:1.7;
+      font-weight:1000;
+      line-height:1.6;
     }
-    .row{
-      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-    }
-    .check{
-      display:flex; align-items:center; gap:8px;
-      font-size:13px; font-weight:1000; color:#58768d;
-    }
-    .check input{ width:18px; height:18px; }
   </style>
 </head>
 <body>
@@ -317,26 +401,26 @@
 
   <main class="shell">
     <header class="topbar">
-      <div class="brand" aria-label="Food Groups Launcher">
-        <div class="brand-badge">🥦</div>
+      <div class="brand">
+        <div class="brandMark">🥦</div>
         <div>
           <h1>Food Groups Solo</h1>
-          <p>เล่นเดี่ยวให้สนุกก่อน แล้วค่อยต่อยอดโหมดอื่น</p>
+          <p>Launcher สำหรับ Groups v1 — โฟกัสโหมด Solo ให้แน่นก่อน</p>
         </div>
       </div>
-      <div class="chip">HeroHealth • Groups v1 Solo</div>
+      <div class="chip" id="chipCtx">HeroHealth • Groups Solo</div>
     </header>
 
-    <section class="hero">
-      <section class="panel intro">
+    <section class="layout">
+      <section class="panel hero">
         <div class="kicker">🌟 Child-friendly • Solo first • PC / Mobile / Cardboard</div>
-        <h2>แยกอาหารให้ถูกหมู่<br />เก็บให้ไว เล่นให้มัน</h2>
+        <h2>แยกอาหารให้ถูกหมู่<br>เก็บให้ไว เล่นให้สนุก</h2>
         <p>
-          รอบนี้ทำ Solo ให้แน่นก่อน: มีฝึกสั้นก่อนเล่นจริง, เป้าหมายชัด,
-          สรุปผลครบ, เล่นซ้ำได้ และรองรับ query/hub/view แบบเดียวกับเกมอื่น
+          รอบนี้ทำ Solo ให้ครบ flow ก่อน: launcher → warmup gate → run →
+          summary → กลับ HUB โดยคง query และ context ให้ต่อเนื่อง
         </p>
 
-        <div class="hero-emoji" aria-hidden="true">
+        <div class="emojiRow" aria-hidden="true">
           <span>🥚</span>
           <span>🍚</span>
           <span>🥦</span>
@@ -344,17 +428,18 @@
           <span>🧈</span>
         </div>
 
-        <div class="subcard">
-          Tips:
-          <br />• Easy = ช้ากว่า เป้าค้างนานกว่า
-          <br />• Normal = สมดุลที่สุด
-          <br />• Hard = เร็วขึ้นและตัดสินใจไวขึ้น
+        <div class="howto">
+          วิธีเล่นสั้น ๆ
+          <br>• ดูว่าเป้าหมายคือหมู่ไหน
+          <br>• แตะอาหารให้ถูกหมู่
+          <br>• ทำ streak ต่อเนื่องเพื่อเข้า FEVER
+          <br>• ฝึกก่อน 15 วินาที แล้วค่อยเริ่มรอบจริง
         </div>
       </section>
 
       <section class="panel config">
         <div>
-          <p class="section-title">ข้อมูลผู้เล่น</p>
+          <p class="sectionTitle">ข้อมูลผู้เล่น</p>
           <div class="grid">
             <div class="field">
               <label for="pid">PID</label>
@@ -368,7 +453,7 @@
         </div>
 
         <div>
-          <p class="section-title">การตั้งค่าเกม</p>
+          <p class="sectionTitle">ตั้งค่าเกม</p>
           <div class="grid">
             <div class="field">
               <label for="diff">ระดับความยาก</label>
@@ -403,33 +488,50 @@
         </div>
 
         <div>
-          <p class="section-title">ตัวเลือกเสริม</p>
-          <div class="row">
-            <label class="check"><input id="useGate" type="checkbox" /> ผ่าน warmup gate ก่อน</label>
-            <label class="check"><input id="debug" type="checkbox" /> debug=1</label>
+          <p class="sectionTitle">ตัวเลือก flow</p>
+          <div class="checkRow">
+            <label class="check">
+              <input id="useGate" type="checkbox" />
+              ผ่าน warmup gate ก่อน
+            </label>
+            <label class="check">
+              <input id="useCooldown" type="checkbox" />
+              ส่งค่า cooldown/hub ต่อไปด้วย
+            </label>
+            <label class="check">
+              <input id="debug" type="checkbox" />
+              debug=1
+            </label>
           </div>
           <div class="mini" style="margin-top:8px;">
-            ถ้า gate ของเครื่องคุณพร้อมใช้งานอยู่แล้ว ให้ติ๊ก “ผ่าน warmup gate ก่อน”
+            แนะนำให้เปิด warmup gate ใน flow จริง เพื่อให้ Groups Solo ต่อกับมาตรฐาน HHA ได้เรียบร้อย
           </div>
         </div>
 
         <div>
-          <p class="section-title">เริ่มเล่น</p>
-          <div class="actions">
+          <p class="sectionTitle">เลือกวิธีเข้าเล่น</p>
+          <div class="modeCards">
             <button class="playBtn pc" id="btnPC" type="button">
               <b>🖥️ PC</b>
-              <span>เหมาะกับทดสอบ layout และ gameplay เร็ว ๆ</span>
+              <span>เหมาะกับทดสอบ gameplay, layout และ debug ได้เร็ว</span>
             </button>
 
             <button class="playBtn mobile" id="btnMobile" type="button">
               <b>📱 Mobile</b>
-              <span>เหมาะกับ touch screen และการเล่นจริงบนมือถือ</span>
+              <span>เหมาะกับ touch screen และการเล่นบนมือถือจริง</span>
             </button>
 
             <button class="playBtn cvr" id="btnCVR" type="button">
               <b>🥽 Cardboard</b>
-              <span>เข้าแบบ view=cvr พร้อม crosshair / hha:shoot</span>
+              <span>เข้าแบบ view=cvr พร้อม crosshair และ hha:shoot</span>
             </button>
+          </div>
+        </div>
+
+        <div class="footerBar">
+          <button class="ghostBtn" id="btnBackHub" type="button">🏠 กลับ HUB</button>
+          <div class="status" id="statusLine">
+            พร้อมสร้างลิงก์เข้าเล่น Groups Solo
           </div>
         </div>
       </section>
@@ -440,15 +542,16 @@
     (function(){
       'use strict';
 
+      const STORE_KEY = 'HHA_GROUPS_LAUNCHER_V2';
       const PASS_KEYS = [
         'pid','nick','name','run','view','diff','time','seed',
         'studyId','phase','conditionGroup','sessionOrder','blockLabel',
         'siteCode','schoolYear','semester','log','api','debug','grade',
-        'zone','cat','game','gameId','mode','hub'
+        'zone','cat','game','gameId','mode','hub','theme','sessionNo',
+        'weekNo','classRoom','studentKey','schoolCode','studentNo'
       ];
 
-      const STORE_KEY = 'HHA_GROUPS_LAUNCHER_V1';
-      const qs = new URL(location.href).searchParams;
+      const q = new URL(location.href).searchParams;
 
       const $ = (id) => document.getElementById(id);
 
@@ -460,68 +563,116 @@
         runMode: $('runMode'),
         studyId: $('studyId'),
         useGate: $('useGate'),
+        useCooldown: $('useCooldown'),
         debug: $('debug'),
+
         btnPC: $('btnPC'),
         btnMobile: $('btnMobile'),
-        btnCVR: $('btnCVR')
+        btnCVR: $('btnCVR'),
+        btnBackHub: $('btnBackHub'),
+
+        chipCtx: $('chipCtx'),
+        statusLine: $('statusLine')
       };
 
-      function safeJsonParse(raw, fallback){
+      boot();
+
+      function boot(){
+        fillForm();
+        setChip();
+        bindEvents();
+        setStatus('พร้อมสร้างลิงก์เข้าเล่น Groups Solo');
+      }
+
+      function bindEvents(){
+        el.btnPC.addEventListener('click', () => go('pc'));
+        el.btnMobile.addEventListener('click', () => go('mobile'));
+        el.btnCVR.addEventListener('click', () => go('cvr'));
+        el.btnBackHub.addEventListener('click', goHub);
+
+        ['input','change'].forEach((evt) => {
+          el.pid.addEventListener(evt, remember);
+          el.playerName.addEventListener(evt, remember);
+          el.diff.addEventListener(evt, remember);
+          el.time.addEventListener(evt, remember);
+          el.runMode.addEventListener(evt, remember);
+          el.studyId.addEventListener(evt, remember);
+          el.useGate.addEventListener(evt, remember);
+          el.useCooldown.addEventListener(evt, remember);
+          el.debug.addEventListener(evt, remember);
+        });
+      }
+
+      function fillForm(){
+        const saved = readStore();
+
+        el.pid.value = q.get('pid') || saved.pid || 'anon';
+        el.playerName.value = q.get('name') || q.get('nick') || saved.name || '';
+        el.diff.value = q.get('diff') || saved.diff || 'normal';
+        el.time.value = q.get('time') || saved.time || '80';
+        el.runMode.value = q.get('run') || saved.run || 'play';
+        el.studyId.value = q.get('studyId') || saved.studyId || '';
+
+        el.useGate.checked = q.get('gate') === '1' || saved.useGate !== false;
+        el.useCooldown.checked = q.get('cooldown') === '1' || !!saved.useCooldown;
+        el.debug.checked = q.get('debug') === '1' || !!saved.debug;
+      }
+
+      function setChip(){
+        const hub = defaultHub();
+        let hubLabel = 'hub';
         try{
-          const v = JSON.parse(raw);
-          return v ?? fallback;
-        }catch{
-          return fallback;
-        }
+          const u = new URL(hub, location.href);
+          hubLabel = u.pathname.split('/').filter(Boolean).slice(-1)[0] || 'hub.html';
+        }catch{}
+        el.chipCtx.textContent = `HeroHealth • Groups Solo • ${hubLabel}`;
       }
 
       function readStore(){
         try{
-          return safeJsonParse(localStorage.getItem(STORE_KEY), {});
+          return JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {};
         }catch{
           return {};
         }
       }
 
-      function writeStore(value){
+      function remember(){
+        const payload = {
+          pid: cleanPid(el.pid.value || 'anon'),
+          name: cleanName(el.playerName.value || ''),
+          diff: oneOf(el.diff.value, ['easy','normal','hard'], 'normal'),
+          time: String(clampInt(el.time.value, 80, 30, 180)),
+          run: oneOf(el.runMode.value, ['play','research','demo'], 'play'),
+          studyId: String(el.studyId.value || '').trim(),
+          useGate: !!el.useGate.checked,
+          useCooldown: !!el.useCooldown.checked,
+          debug: !!el.debug.checked
+        };
+
         try{
-          localStorage.setItem(STORE_KEY, JSON.stringify(value));
+          localStorage.setItem(STORE_KEY, JSON.stringify(payload));
         }catch{}
+
+        return payload;
       }
 
       function defaultHub(){
-        return qs.get('hub') || new URL('./hub.html', location.href).toString();
+        return q.get('hub') || new URL('./hub.html', location.href).toString();
       }
 
-      function fillForm(){
-        const saved = readStore();
-        el.pid.value = qs.get('pid') || saved.pid || 'anon';
-        el.playerName.value = qs.get('name') || qs.get('nick') || saved.name || '';
-        el.diff.value = qs.get('diff') || saved.diff || 'normal';
-        el.time.value = qs.get('time') || saved.time || '80';
-        el.runMode.value = qs.get('run') || saved.run || 'play';
-        el.studyId.value = qs.get('studyId') || saved.studyId || '';
-        el.useGate.checked = (qs.get('gate') === '1') || !!saved.useGate;
-        el.debug.checked = qs.get('debug') === '1' || !!saved.debug;
+      function defaultRunUrl(){
+        return new URL('./vr-groups/groups.html', location.href);
       }
 
-      function remember(){
-        writeStore({
-          pid: String(el.pid.value || 'anon').trim() || 'anon',
-          name: String(el.playerName.value || '').trim(),
-          diff: el.diff.value || 'normal',
-          time: el.time.value || '80',
-          run: el.runMode.value || 'play',
-          studyId: String(el.studyId.value || '').trim(),
-          useGate: !!el.useGate.checked,
-          debug: !!el.debug.checked
-        });
+      function defaultGateUrl(){
+        return new URL('./warmup-gate.html', location.href);
       }
 
       function carryQuery(url, extra = {}){
         const u = typeof url === 'string' ? new URL(url, location.href) : url;
+
         PASS_KEYS.forEach((key) => {
-          const v = qs.get(key);
+          const v = q.get(key);
           if (v != null && v !== '' && !u.searchParams.has(key)) {
             u.searchParams.set(key, v);
           }
@@ -536,18 +687,18 @@
       }
 
       function buildRunUrl(viewMode){
-        remember();
+        const saved = remember();
 
-        const pid = String(el.pid.value || 'anon').trim() || 'anon';
-        const name = String(el.playerName.value || '').trim();
-        const diff = el.diff.value || 'normal';
-        const time = el.time.value || '80';
-        const run = el.runMode.value || 'play';
-        const studyId = String(el.studyId.value || '').trim();
+        const pid = cleanPid(saved.pid || 'anon');
+        const name = cleanName(saved.name || '');
+        const diff = saved.diff || 'normal';
+        const time = String(saved.time || '80');
+        const run = saved.run || 'play';
+        const studyId = String(saved.studyId || '');
         const hub = defaultHub();
         const seed = String(Date.now());
 
-        const runUrl = carryQuery(new URL('./vr-groups/groups.html', location.href), {
+        return carryQuery(defaultRunUrl(), {
           pid,
           name,
           diff,
@@ -557,49 +708,92 @@
           seed,
           hub,
           view: viewMode,
-          game: 'groups',
-          gameId: 'groups',
-          zone: 'nutrition',
-          cat: 'nutrition',
           mode: 'solo',
-          debug: el.debug.checked ? '1' : ''
-        });
-
-        if (!el.useGate.checked) return runUrl.toString();
-
-        const gateUrl = carryQuery(new URL('./warmup-gate.html', location.href), {
-          pid,
-          name,
-          diff,
-          time,
-          run,
-          studyId,
-          seed,
-          hub,
-          view: viewMode,
           game: 'groups',
           gameId: 'groups',
-          cat: 'nutrition',
           zone: 'nutrition',
+          cat: 'nutrition',
+          theme: 'groups',
+          gate: saved.useGate ? '1' : '',
+          cooldown: saved.useCooldown ? '1' : '',
+          returnPhase: saved.useCooldown ? 'cooldown' : '',
+          debug: saved.debug ? '1' : ''
+        });
+      }
+
+      function buildEntryUrl(viewMode){
+        const saved = remember();
+        const runUrl = buildRunUrl(viewMode);
+
+        if (!saved.useGate) return runUrl.toString();
+
+        const gateUrl = carryQuery(defaultGateUrl(), {
+          pid: runUrl.searchParams.get('pid') || 'anon',
+          name: runUrl.searchParams.get('name') || '',
+          diff: runUrl.searchParams.get('diff') || 'normal',
+          time: runUrl.searchParams.get('time') || '80',
+          run: runUrl.searchParams.get('run') || 'play',
+          studyId: runUrl.searchParams.get('studyId') || '',
+          seed: runUrl.searchParams.get('seed') || String(Date.now()),
+          hub: runUrl.searchParams.get('hub') || defaultHub(),
+          view: runUrl.searchParams.get('view') || viewMode,
+          game: 'groups',
+          gameId: 'groups',
+          zone: 'nutrition',
+          cat: 'nutrition',
           theme: 'groups',
           phase: 'warmup',
           gatePhase: 'warmup',
+          mode: 'solo',
           next: runUrl.toString(),
-          debug: el.debug.checked ? '1' : ''
+          gate: '1',
+          cooldown: saved.useCooldown ? '1' : '',
+          returnPhase: saved.useCooldown ? 'cooldown' : '',
+          debug: saved.debug ? '1' : ''
         });
 
         return gateUrl.toString();
       }
 
       function go(viewMode){
-        location.href = buildRunUrl(viewMode);
+        const entryUrl = buildEntryUrl(viewMode);
+        setStatus(`กำลังเข้าเล่นแบบ ${viewMode.toUpperCase()}...`);
+        location.href = entryUrl;
       }
 
-      fillForm();
+      function goHub(){
+        location.href = defaultHub();
+      }
 
-      el.btnPC.addEventListener('click', () => go('pc'));
-      el.btnMobile.addEventListener('click', () => go('mobile'));
-      el.btnCVR.addEventListener('click', () => go('cvr'));
+      function setStatus(text){
+        el.statusLine.textContent = String(text || '');
+      }
+
+      function cleanPid(v){
+        return String(v || 'anon')
+          .trim()
+          .replace(/[.#$[\]/]/g, '-')
+          .replace(/\s+/g, '-')
+          .slice(0, 36) || 'anon';
+      }
+
+      function cleanName(v){
+        return String(v || '')
+          .trim()
+          .replace(/\s+/g, ' ')
+          .slice(0, 24);
+      }
+
+      function oneOf(v, list, fallback){
+        const s = String(v || '').trim();
+        return list.includes(s) ? s : fallback;
+      }
+
+      function clampInt(v, fallback, min, max){
+        const n = Number(v);
+        if (!Number.isFinite(n)) return fallback;
+        return Math.max(min, Math.min(max, Math.round(n)));
+      }
     })();
   </script>
 </body>
