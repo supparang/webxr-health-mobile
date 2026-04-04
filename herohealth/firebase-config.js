@@ -1,10 +1,8 @@
-/* /herohealth/firebase-config.js
-   Firebase compat bootstrap - hydration/duet/coop safe
-*/
-(function(){
+// /herohealth/firebase-config.js
+(function () {
   'use strict';
 
-  const config = {
+  const cfg = window.HHA_FIREBASE_CONFIG || {
     apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
     authDomain: "herohealth-d7f8c.firebaseapp.com",
     databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -15,59 +13,44 @@
     measurementId: "G-T5J8DC0BKD"
   };
 
-  // export config เสมอ แม้ SDK ยังไม่โหลด
-  window.HHA_FIREBASE_CONFIG = config;
-  window.__HHA_FIREBASE_CONFIG__ = config;
-  window.HEROHEALTH_FIREBASE_CONFIG = config;
-  window.FIREBASE_CONFIG = config;
   window.HHA_FIREBASE_READY = false;
+  window.HHA_FIREBASE_ERROR = '';
 
-  function ensureHelpers(firebase){
-    window.HHA_getFirebaseApp = function(){
-      return (firebase.apps && firebase.apps.length) ? firebase.app() : null;
-    };
-
-    window.HHA_ensureAnonymousAuth = async function(){
-      const auth = firebase.auth();
-      if (!auth.currentUser) {
-        await auth.signInAnonymously();
-      }
-      return auth.currentUser || null;
-    };
+  if (!window.firebase) {
+    window.HHA_FIREBASE_ERROR = 'Firebase SDK not loaded';
+    console.error('[HHA] Firebase SDK not loaded');
+    return;
   }
 
-  function bootstrap(){
-    if (!window.firebase) {
-      window.HHA_FIREBASE_READY = false;
-      console.warn('[firebase-config] Firebase SDK not ready yet; config exported');
-      return null;
-    }
+  try {
+    const app = firebase.apps && firebase.apps.length
+      ? firebase.app()
+      : firebase.initializeApp(cfg);
 
-    const firebase = window.firebase;
+    const db = firebase.database(app);
+    const auth = firebase.auth(app);
 
-    try {
-      const app = (firebase.apps && firebase.apps.length)
-        ? firebase.app()
-        : firebase.initializeApp(config);
+    window.HHA_FIREBASE_APP = app;
+    window.HHA_FIREBASE_DB = db;
+    window.HHA_FIREBASE_AUTH = auth;
 
-      ensureHelpers(firebase);
-      window.HHA_FIREBASE_READY = true;
-      console.log('[firebase-config] ready = true');
-      return app;
-    } catch (err) {
-      if (firebase.apps && firebase.apps.length) {
-        ensureHelpers(firebase);
+    auth.onAuthStateChanged(async (user) => {
+      try {
+        if (!user) {
+          await auth.signInAnonymously();
+          return;
+        }
+        window.HHA_FIREBASE_USER = user;
+        window.HHA_FIREBASE_UID = user.uid;
         window.HHA_FIREBASE_READY = true;
-        return firebase.app();
+        console.log('[HHA] Firebase ready:', user.uid);
+      } catch (err) {
+        window.HHA_FIREBASE_ERROR = err?.message || String(err);
+        console.error('[HHA] auth ready failed', err);
       }
-      window.HHA_FIREBASE_READY = false;
-      console.error('[firebase-config] init failed:', err);
-      return null;
-    }
+    });
+  } catch (err) {
+    window.HHA_FIREBASE_ERROR = err?.message || String(err);
+    console.error('[HHA] Firebase init failed', err);
   }
-
-  window.HHA_bootstrapFirebaseCompat = bootstrap;
-
-  // ลอง init ทันที ถ้า SDK มาแล้ว
-  bootstrap();
 })();
