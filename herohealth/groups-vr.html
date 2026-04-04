@@ -3,803 +3,603 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Food Groups</title>
-  <meta name="color-scheme" content="dark light" />
-  <meta name="robots" content="noindex" />
+  <title>HeroHealth • Food Groups Launcher</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#8fd3ff" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#0b1324;
-      --bg2:#123055;
-      --bg3:#1d4ed8;
-
-      --panel:rgba(2,6,23,.64);
-      --stroke:rgba(255,255,255,.16);
-
-      --text:#f8fafc;
-      --muted:#dbeafe;
-
-      --green:#22c55e;
-      --yellow:#facc15;
-      --blue:#38bdf8;
-      --violet:#a78bfa;
-      --pink:#f472b6;
-      --orange:#fb923c;
-      --cyan:#22d3ee;
-
-      --shadow:0 18px 55px rgba(0,0,0,.28);
-      --shadow-big:0 24px 80px rgba(0,0,0,.34);
-
+      --sky1:#e9f8ff;
+      --sky2:#cbeeff;
+      --sky3:#b9e7ff;
+      --card:#ffffffee;
+      --ink:#24425a;
+      --muted:#62839a;
+      --line:#cde7f4;
+      --shadow:0 16px 40px rgba(81,145,177,.16);
+      --blue:#5ab4ff;
+      --blue2:#7cc9ff;
+      --green:#8ad67f;
+      --yellow:#ffd86e;
+      --pink:#ffb6c8;
+      --violet:#bda7ff;
+      --danger:#ff8d8d;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
-
     *{ box-sizing:border-box; }
-
-    html,body{
-      min-height:100%;
-      margin:0;
-      color:var(--text);
-      background:
-        radial-gradient(920px 620px at 6% 10%, rgba(34,197,94,.22), transparent 60%),
-        radial-gradient(860px 620px at 100% 0%, rgba(56,189,248,.18), transparent 56%),
-        radial-gradient(760px 520px at 50% 100%, rgba(250,204,21,.12), transparent 58%),
-        linear-gradient(180deg, var(--bg1), var(--bg2) 54%, var(--bg3));
-    }
-
+    html,body{ margin:0; min-height:100%; }
     body{
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
-      line-height:1.4;
-      overflow-x:hidden;
-    }
-
-    button{ font:inherit; }
-    a{ color:inherit; text-decoration:none; }
-
-    .wrap{
-      max-width:1140px;
-      margin:0 auto;
-      padding:
-        calc(14px + var(--sat))
-        calc(14px + var(--sar))
-        calc(24px + var(--sab))
-        calc(14px + var(--sal));
-    }
-
-    .hero,
-    .quickStart,
-    .card,
-    .helpCard{
-      border-radius:30px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      backdrop-filter:blur(12px);
-      box-shadow:var(--shadow-big);
-    }
-
-    .hero{
-      position:relative;
-      overflow:hidden;
-      padding:18px;
+      font-family: ui-rounded, "Nunito", "Noto Sans Thai", system-ui, sans-serif;
+      color:var(--ink);
       background:
-        linear-gradient(135deg, rgba(34,197,94,.16), rgba(250,204,21,.14)),
-        var(--panel);
+        radial-gradient(1200px 700px at 50% -10%, rgba(255,255,255,.9), transparent 60%),
+        radial-gradient(700px 500px at 8% 10%, rgba(255,255,255,.55), transparent 60%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 55%,var(--sky3));
     }
-
-    .hero::before{
+    .clouds,.clouds::before,.clouds::after{
       content:"";
-      position:absolute;
-      right:-70px;
-      bottom:-90px;
-      width:280px;
-      height:280px;
-      border-radius:999px;
-      background:radial-gradient(circle, rgba(250,204,21,.18), transparent 68%);
+      position:fixed;
+      inset:auto;
       pointer-events:none;
+      z-index:0;
     }
-
-    .heroGrid{
-      display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:16px;
+    .clouds{
+      top:36px; left:8%;
+      width:170px; height:48px;
+      background:#fff8;
+      border-radius:999px;
+      filter:blur(1px);
+      box-shadow: 260px 30px 0 10px #fff6, 580px 10px 0 4px #fff7, 860px 50px 0 8px #fff5;
+    }
+    .shell{
       position:relative;
       z-index:1;
+      max-width:980px;
+      margin:0 auto;
+      padding:
+        calc(18px + var(--sat))
+        calc(16px + var(--sar))
+        calc(26px + var(--sab))
+        calc(16px + var(--sal));
     }
-
-    @media (max-width:920px){
-      .heroGrid{ grid-template-columns:1fr; }
-    }
-
-    .heroMain{
-      display:flex;
-      gap:14px;
-      align-items:flex-start;
-    }
-
-    .heroIcon{
-      width:94px;
-      height:94px;
-      border-radius:26px;
-      display:grid;
-      place-items:center;
-      flex:0 0 auto;
-      font-size:46px;
-      border:1px solid rgba(255,255,255,.16);
-      background:
-        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 42%),
-        linear-gradient(135deg, rgba(34,197,94,.24), rgba(250,204,21,.18));
-      box-shadow:0 12px 30px rgba(0,0,0,.20);
-    }
-
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:36px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      color:#ecfccb;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .title{
-      margin:10px 0 0;
-      font-size:clamp(28px,4.4vw,42px);
-      line-height:1.05;
-      font-weight:1100;
-      letter-spacing:-.02em;
-    }
-
-    .sub{
-      margin-top:10px;
-      font-size:15px;
-      font-weight:900;
-      line-height:1.6;
-      color:var(--muted);
-    }
-
-    .heroTips{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .tip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:38px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:#eff6ff;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .heroActions{
-      margin-top:14px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .btn{
-      cursor:pointer;
-      min-height:48px;
-      padding:11px 16px;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.06);
-      color:var(--text);
-      font-weight:1100;
-      box-shadow:0 10px 24px rgba(0,0,0,.16);
-      transition:transform .12s ease, filter .12s ease;
-    }
-
-    .btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.05);
-    }
-
-    .btn.primary{
-      border-color:rgba(34,197,94,.30);
-      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.16));
-    }
-    .btn.cyan{
-      border-color:rgba(34,211,238,.30);
-      background:linear-gradient(180deg, rgba(34,211,238,.22), rgba(34,211,238,.14));
-    }
-    .btn.violet{
-      border-color:rgba(167,139,250,.30);
-      background:linear-gradient(180deg, rgba(167,139,250,.22), rgba(167,139,250,.14));
-    }
-    .btn.ghost{
-      background:rgba(255,255,255,.04);
-      color:#e2e8f0;
-    }
-
-    .sidePanel{
-      display:grid;
-      gap:12px;
-      align-content:start;
-    }
-
-    .statCard,
-    .modeCard,
-    .helpCard{
-      border-radius:22px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(2,6,23,.54);
-      box-shadow:var(--shadow);
-      padding:14px;
-    }
-
-    .statTitle{
-      font-size:12px;
-      font-weight:1000;
-      color:#dbeafe;
-    }
-
-    .statValue{
-      margin-top:6px;
-      font-size:22px;
-      line-height:1;
-      font-weight:1100;
-    }
-
-    .statSub{
-      margin-top:6px;
-      font-size:12px;
-      line-height:1.45;
-      color:#cbd5e1;
-      font-weight:900;
-    }
-
-    .quickStart{
-      margin-top:14px;
-      padding:14px;
-      background:
-        linear-gradient(135deg, rgba(34,197,94,.10), rgba(56,189,248,.10)),
-        rgba(2,6,23,.58);
-    }
-
-    .sectionTitle{
-      font-size:18px;
-      font-weight:1100;
+    .topbar{
       display:flex;
       align-items:center;
-      gap:10px;
-    }
-
-    .sectionSub{
-      margin-top:6px;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.55;
-      font-weight:900;
-    }
-
-    .quickGrid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:12px;
-      margin-top:12px;
-    }
-
-    @media (max-width:900px){
-      .quickGrid{ grid-template-columns:1fr; }
-    }
-
-    .quickBtn{
-      cursor:pointer;
-      border-radius:22px;
-      border:1px solid rgba(255,255,255,.14);
-      min-height:110px;
-      padding:16px;
-      text-align:left;
-      color:var(--text);
-      display:flex;
-      gap:14px;
-      align-items:center;
-      box-shadow:var(--shadow);
-      background:rgba(15,23,42,.52);
-      transition:transform .12s ease, filter .12s ease;
-    }
-
-    .quickBtn:hover{
-      transform:translateY(-2px);
-      filter:brightness(1.04);
-    }
-
-    .quickBtn.easy{ background:linear-gradient(135deg, rgba(34,197,94,.22), rgba(250,204,21,.12)); }
-    .quickBtn.mid{ background:linear-gradient(135deg, rgba(56,189,248,.18), rgba(34,211,238,.14)); }
-    .quickBtn.challenge{ background:linear-gradient(135deg, rgba(244,114,182,.18), rgba(167,139,250,.14)); }
-
-    .quickIcon{
-      width:62px;
-      height:62px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      font-size:32px;
-      flex:0 0 auto;
-      background:rgba(255,255,255,.10);
-      border:1px solid rgba(255,255,255,.14);
-    }
-
-    .quickTitle{
-      font-size:18px;
-      font-weight:1100;
-      line-height:1.15;
-    }
-
-    .quickMeta{
-      margin-top:5px;
-      color:#e0f2fe;
-      font-size:13px;
-      font-weight:900;
-      line-height:1.5;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:14px;
-      margin-top:14px;
-    }
-
-    @media (max-width:980px){
-      .grid{ grid-template-columns:1fr; }
-    }
-
-    .modeGrid{
-      display:grid;
-      gap:12px;
-      margin-top:12px;
-    }
-
-    .modeCard{
-      background:rgba(15,23,42,.46);
-    }
-
-    .modeTop{
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
       justify-content:space-between;
-      flex-wrap:wrap;
+      gap:10px;
+      margin-bottom:14px;
     }
-
-    .modeName{
-      font-size:17px;
-      font-weight:1100;
-      line-height:1.2;
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:24px;
+      padding:12px 14px;
+      box-shadow:var(--shadow);
     }
-
-    .modeDesc{
-      margin-top:6px;
-      color:var(--muted);
+    .brand-badge{
+      width:50px; height:50px; border-radius:18px;
+      display:grid; place-items:center;
+      font-size:28px;
+      background:linear-gradient(180deg,#fff8cf,#ffe07a);
+      border:1px solid #ffeaa8;
+      box-shadow: inset 0 2px 0 rgba(255,255,255,.8);
+    }
+    .brand h1{
+      margin:0;
+      font-size:20px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+    .brand p{
+      margin:4px 0 0;
       font-size:12px;
-      line-height:1.5;
+      color:var(--muted);
       font-weight:900;
     }
-
-    .tag{
+    .chip{
       display:inline-flex;
       align-items:center;
-      min-height:30px;
-      padding:6px 10px;
+      gap:8px;
+      padding:10px 12px;
       border-radius:999px;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.14);
-      font-size:11px;
+      background:var(--card);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      font-size:12px;
       font-weight:1000;
-      color:#eff6ff;
+      color:var(--muted);
       white-space:nowrap;
     }
-
-    .modeActions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:12px;
-    }
-
-    .playBtn{
-      cursor:pointer;
-      min-height:42px;
-      padding:9px 14px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:var(--text);
-      font-weight:1000;
-    }
-
-    .playBtn.primary{
-      border-color:rgba(34,197,94,.30);
-      background:rgba(34,197,94,.16);
-    }
-
-    .steps{
+    .hero{
       display:grid;
-      gap:10px;
-      margin-top:12px;
+      grid-template-columns: 1.25fr .9fr;
+      gap:14px;
     }
-
-    .step{
-      display:grid;
-      grid-template-columns:42px 1fr;
-      gap:10px;
-      align-items:flex-start;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.04);
-      padding:12px;
+    @media (max-width: 860px){
+      .hero{ grid-template-columns:1fr; }
     }
-
-    .stepNo{
-      width:42px;
-      height:42px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      font-size:18px;
-      font-weight:1100;
-      background:rgba(255,255,255,.10);
-      border:1px solid rgba(255,255,255,.14);
+    .panel{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
     }
-
-    .stepTitle{
-      font-size:15px;
-      font-weight:1100;
-      line-height:1.2;
+    .intro{
+      padding:18px;
+      position:relative;
+      overflow:hidden;
+      min-height:290px;
     }
-
-    .stepDesc{
-      margin-top:4px;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.5;
-      font-weight:900;
+    .intro::after{
+      content:"";
+      position:absolute;
+      right:-40px; bottom:-40px;
+      width:180px; height:180px;
+      border-radius:50%;
+      background: radial-gradient(circle at 40% 35%, #fff7 0 20%, #ffffff00 70%),
+                  linear-gradient(180deg,#fff2a6,#ffd463);
+      opacity:.8;
     }
-
-    .helpCard{
-      margin-top:14px;
-      display:none;
-    }
-
-    .helpTitle{
-      font-size:17px;
-      font-weight:1100;
-      line-height:1.2;
-    }
-
-    .helpSub{
-      margin-top:8px;
-      font-size:13px;
-      line-height:1.55;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .helpActions{
-      margin-top:12px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .bottomBar{
-      margin-top:14px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-    }
-
-    .statusPill{
+    .kicker{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      min-height:38px;
       padding:8px 12px;
       border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:#e0f2fe;
+      background:#f0fbff;
+      border:1px solid #d7edf8;
       font-size:12px;
       font-weight:1000;
+      color:#5f8198;
     }
-
-    .hint{
+    .intro h2{
+      margin:14px 0 10px;
+      font-size:34px;
+      line-height:1.04;
+      font-weight:1000;
+      max-width:560px;
+    }
+    .intro p{
+      margin:0;
+      max-width:560px;
+      font-size:15px;
+      line-height:1.6;
+      color:#58778d;
+      font-weight:800;
+    }
+    .hero-emoji{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+    .hero-emoji span{
+      width:58px; height:58px; border-radius:18px;
+      display:grid; place-items:center;
+      background:#fff;
+      border:1px solid #ddedf6;
+      box-shadow:0 10px 24px rgba(106,161,188,.12);
+      font-size:30px;
+    }
+    .config{
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+    .section-title{
+      font-size:15px;
+      font-weight:1000;
+      color:#56748a;
+      margin:0 0 4px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+    @media (max-width: 560px){
+      .grid{ grid-template-columns:1fr; }
+    }
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .field label{
+      font-size:13px;
+      font-weight:1000;
+      color:#5d7d92;
+    }
+    .field input,.field select{
+      width:100%;
+      min-height:48px;
+      border-radius:18px;
+      border:1px solid #d3e8f3;
+      background:#fff;
+      padding:0 14px;
+      font:inherit;
+      color:var(--ink);
+      font-weight:900;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+    }
+    .mini{
       font-size:12px;
       color:var(--muted);
       font-weight:900;
+    }
+    .toggle{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .toggle button{
+      min-height:44px;
+      border-radius:16px;
+      border:1px solid #d4e7f4;
+      background:#fff;
+      color:#62839a;
+      padding:0 14px;
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:0 8px 18px rgba(111,170,200,.10);
+    }
+    .toggle button.active{
+      background:linear-gradient(180deg,#7ec9ff,#5db8ff);
+      color:#fff;
+      border-color:#68bdf0;
+    }
+    .actions{
+      display:grid;
+      grid-template-columns: repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+    @media (max-width: 680px){
+      .actions{ grid-template-columns:1fr; }
+    }
+    .playBtn{
+      min-height:86px;
+      border-radius:24px;
+      border:0;
+      cursor:pointer;
+      color:#fff;
+      font:inherit;
+      box-shadow:0 16px 28px rgba(85,145,175,.18);
+      padding:14px;
+      text-align:left;
+    }
+    .playBtn b{
+      display:block;
+      font-size:20px;
+      font-weight:1000;
+      margin-bottom:4px;
+    }
+    .playBtn span{
+      display:block;
+      font-size:12px;
       line-height:1.5;
+      opacity:.95;
+      font-weight:900;
     }
-
-    @media (prefers-reduced-motion: reduce){
-      *,
-      *::before,
-      *::after{
-        transition:none !important;
-        animation:none !important;
-      }
-      .btn:hover,
-      .quickBtn:hover{
-        transform:none !important;
-      }
+    .pc{ background:linear-gradient(180deg,#69c5ff,#46a9ff); }
+    .mobile{ background:linear-gradient(180deg,#8ad97f,#62c45f); }
+    .cvr{ background:linear-gradient(180deg,#b897ff,#9270ff); }
+    .subcard{
+      margin-top:14px;
+      padding:14px 16px;
+      border-radius:20px;
+      border:1px dashed #cfe5f0;
+      background:#f7fdff;
+      color:#67889d;
+      font-size:12px;
+      font-weight:900;
+      line-height:1.7;
     }
+    .row{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .check{
+      display:flex; align-items:center; gap:8px;
+      font-size:13px; font-weight:1000; color:#58768d;
+    }
+    .check input{ width:18px; height:18px; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <section class="hero">
-      <div class="heroGrid">
+  <div class="clouds" aria-hidden="true"></div>
+
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand" aria-label="Food Groups Launcher">
+        <div class="brand-badge">🥦</div>
         <div>
-          <div class="heroMain">
-            <div class="heroIcon">🥚</div>
-            <div>
-              <div class="badge">🥦 โลกโภชนาการ</div>
-              <h1 class="title">แยกอาหารให้ถูกหมู่<br>แล้วฝึกจำให้เก่งขึ้น</h1>
-              <div class="sub">
-                เกมนี้ช่วยฝึกว่าอาหารแต่ละอย่างอยู่ในหมู่ไหน<br>
-                เริ่มจากแบบง่ายก่อน แล้วค่อยไปด่านที่ท้าทายขึ้นได้เลย
-              </div>
-
-              <div class="heroTips">
-                <span class="tip">🥚 โปรตีน</span>
-                <span class="tip">🍚 คาร์โบไฮเดรต</span>
-                <span class="tip">🥬 ผัก</span>
-                <span class="tip">🍎 ผลไม้</span>
-                <span class="tip">🧈 ไขมัน</span>
-              </div>
-
-              <div class="heroActions">
-                <button class="btn primary" id="btnStartEasy" type="button">▶ เริ่มแบบง่าย</button>
-                <button class="btn cyan" id="btnHow" type="button">📖 วิธีเลือกด่าน</button>
-                <button class="btn ghost" id="btnHub" type="button">🏠 กลับบ้านฮีโร่</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="sidePanel">
-          <div class="statCard">
-            <div class="statTitle">🧑‍🚀 รหัสผู้เล่น</div>
-            <div class="statValue" id="uiPid">anon</div>
-            <div class="statSub">ใช้สำหรับจำความก้าวหน้าในเครื่องนี้</div>
-          </div>
-
-          <div class="statCard">
-            <div class="statTitle">🌟 ด่านแนะนำ</div>
-            <div class="statValue" id="uiRecommend">เริ่มต้น</div>
-            <div class="statSub">เหมาะกับการเล่นครั้งแรกที่สุด</div>
-          </div>
-
-          <div class="statCard">
-            <div class="statTitle">🎯 เป้าหมายวันนี้</div>
-            <div class="statValue">แยกให้ถูก 1 รอบ</div>
-            <div class="statSub">เล่นทีละรอบก็เก่งขึ้นได้</div>
-          </div>
+          <h1>Food Groups Solo</h1>
+          <p>เล่นเดี่ยวให้สนุกก่อน แล้วค่อยต่อยอดโหมดอื่น</p>
         </div>
       </div>
-    </section>
+      <div class="chip">HeroHealth • Groups v1 Solo</div>
+    </header>
 
-    <section class="quickStart">
-      <div class="sectionTitle">🚀 เริ่มเล่นแบบง่าย</div>
-      <div class="sectionSub">ถ้ายังไม่รู้จะเริ่มด่านไหน ให้เลือกจาก 3 ปุ่มนี้ได้เลย</div>
+    <section class="hero">
+      <section class="panel intro">
+        <div class="kicker">🌟 Child-friendly • Solo first • PC / Mobile / Cardboard</div>
+        <h2>แยกอาหารให้ถูกหมู่<br />เก็บให้ไว เล่นให้มัน</h2>
+        <p>
+          รอบนี้ทำ Solo ให้แน่นก่อน: มีฝึกสั้นก่อนเล่นจริง, เป้าหมายชัด,
+          สรุปผลครบ, เล่นซ้ำได้ และรองรับ query/hub/view แบบเดียวกับเกมอื่น
+        </p>
 
-      <div class="quickGrid">
-        <button class="quickBtn easy" id="btnQuickEasy" type="button">
-          <div class="quickIcon">🙂</div>
-          <div>
-            <div class="quickTitle">ด่านเริ่มต้น</div>
-            <div class="quickMeta">เหมาะกับการเล่นครั้งแรก • ของน้อยกว่า อ่านง่ายกว่า</div>
-          </div>
-        </button>
+        <div class="hero-emoji" aria-hidden="true">
+          <span>🥚</span>
+          <span>🍚</span>
+          <span>🥦</span>
+          <span>🍌</span>
+          <span>🧈</span>
+        </div>
 
-        <button class="quickBtn mid" id="btnQuickNormal" type="button">
-          <div class="quickIcon">😎</div>
-          <div>
-            <div class="quickTitle">ด่านปกติ</div>
-            <div class="quickMeta">สนุกกำลังดี • เหมาะกับการเล่นทั่วไป</div>
-          </div>
-        </button>
-
-        <button class="quickBtn challenge" id="btnQuickHard" type="button">
-          <div class="quickIcon">🔥</div>
-          <div>
-            <div class="quickTitle">ด่านท้าทาย</div>
-            <div class="quickMeta">เร็วขึ้น ยากขึ้น เหมาะกับคนที่อยากลองของ</div>
-          </div>
-        </button>
-      </div>
-    </section>
-
-    <div class="grid">
-      <section class="card">
-        <div class="sectionTitle">🎮 เลือกด่านเล่น</div>
-        <div class="sectionSub">เลือกแบบที่เหมาะกับตัวเองก่อนเริ่ม</div>
-
-        <div class="modeGrid">
-          <div class="modeCard">
-            <div class="modeTop">
-              <div>
-                <div class="modeName">🙂 ด่านเริ่มต้น</div>
-                <div class="modeDesc">เหมาะกับการเล่นครั้งแรก ของน้อยกว่าและอ่านง่ายกว่า</div>
-              </div>
-              <span class="tag">ง่าย</span>
-            </div>
-            <div class="modeActions">
-              <button class="playBtn primary" data-diff="easy" type="button">▶ เริ่มด่านนี้</button>
-            </div>
-          </div>
-
-          <div class="modeCard">
-            <div class="modeTop">
-              <div>
-                <div class="modeName">😎 ด่านปกติ</div>
-                <div class="modeDesc">สนุกกำลังดี เหมาะกับการฝึกจริง</div>
-              </div>
-              <span class="tag">ปกติ</span>
-            </div>
-            <div class="modeActions">
-              <button class="playBtn" data-diff="normal" type="button">▶ เริ่มด่านนี้</button>
-            </div>
-          </div>
-
-          <div class="modeCard">
-            <div class="modeTop">
-              <div>
-                <div class="modeName">🔥 ด่านท้าทาย</div>
-                <div class="modeDesc">เร็วขึ้น ยากขึ้น เหมาะกับคนที่เริ่มคล่องแล้ว</div>
-              </div>
-              <span class="tag">ท้าทาย</span>
-            </div>
-            <div class="modeActions">
-              <button class="playBtn" data-diff="hard" type="button">▶ เริ่มด่านนี้</button>
-            </div>
-          </div>
+        <div class="subcard">
+          Tips:
+          <br />• Easy = ช้ากว่า เป้าค้างนานกว่า
+          <br />• Normal = สมดุลที่สุด
+          <br />• Hard = เร็วขึ้นและตัดสินใจไวขึ้น
         </div>
       </section>
 
-      <section class="card">
-        <div class="sectionTitle">📖 ถ้ายังไม่รู้จะเริ่มยังไง</div>
-        <div class="sectionSub">ใช้ลำดับนี้ได้เลย จะเล่นง่ายขึ้นและไม่งง</div>
-
-        <div class="steps">
-          <div class="step">
-            <div class="stepNo">1</div>
-            <div>
-              <div class="stepTitle">เริ่มจาก “ด่านเริ่มต้น”</div>
-              <div class="stepDesc">เหมาะกับการจำหมู่อาหารทีละนิด</div>
+      <section class="panel config">
+        <div>
+          <p class="section-title">ข้อมูลผู้เล่น</p>
+          <div class="grid">
+            <div class="field">
+              <label for="pid">PID</label>
+              <input id="pid" type="text" placeholder="anon" />
             </div>
-          </div>
-
-          <div class="step">
-            <div class="stepNo">2</div>
-            <div>
-              <div class="stepTitle">ถ้าเริ่มคล่องแล้ว ค่อยไป “ด่านปกติ”</div>
-              <div class="stepDesc">จะได้ฝึกจำและแยกหมู่ได้เร็วขึ้น</div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="stepNo">3</div>
-            <div>
-              <div class="stepTitle">ถ้าพร้อมลุย ค่อยลอง “ด่านท้าทาย”</div>
-              <div class="stepDesc">เหมาะกับคนที่อยากลองความไวของตัวเอง</div>
+            <div class="field">
+              <label for="playerName">ชื่อเล่น</label>
+              <input id="playerName" type="text" placeholder="Rocky" />
             </div>
           </div>
         </div>
+
+        <div>
+          <p class="section-title">การตั้งค่าเกม</p>
+          <div class="grid">
+            <div class="field">
+              <label for="diff">ระดับความยาก</label>
+              <select id="diff">
+                <option value="easy">Easy</option>
+                <option value="normal">Normal</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="time">เวลาเล่นจริง</label>
+              <select id="time">
+                <option value="60">60 วินาที</option>
+                <option value="80">80 วินาที</option>
+                <option value="90">90 วินาที</option>
+                <option value="120">120 วินาที</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="runMode">โหมด</label>
+              <select id="runMode">
+                <option value="play">play</option>
+                <option value="research">research</option>
+                <option value="demo">demo</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="studyId">Study ID</label>
+              <input id="studyId" type="text" placeholder="optional" />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p class="section-title">ตัวเลือกเสริม</p>
+          <div class="row">
+            <label class="check"><input id="useGate" type="checkbox" /> ผ่าน warmup gate ก่อน</label>
+            <label class="check"><input id="debug" type="checkbox" /> debug=1</label>
+          </div>
+          <div class="mini" style="margin-top:8px;">
+            ถ้า gate ของเครื่องคุณพร้อมใช้งานอยู่แล้ว ให้ติ๊ก “ผ่าน warmup gate ก่อน”
+          </div>
+        </div>
+
+        <div>
+          <p class="section-title">เริ่มเล่น</p>
+          <div class="actions">
+            <button class="playBtn pc" id="btnPC" type="button">
+              <b>🖥️ PC</b>
+              <span>เหมาะกับทดสอบ layout และ gameplay เร็ว ๆ</span>
+            </button>
+
+            <button class="playBtn mobile" id="btnMobile" type="button">
+              <b>📱 Mobile</b>
+              <span>เหมาะกับ touch screen และการเล่นจริงบนมือถือ</span>
+            </button>
+
+            <button class="playBtn cvr" id="btnCVR" type="button">
+              <b>🥽 Cardboard</b>
+              <span>เข้าแบบ view=cvr พร้อม crosshair / hha:shoot</span>
+            </button>
+          </div>
+        </div>
       </section>
-    </div>
-
-    <section class="helpCard" id="howPanel">
-      <div class="helpTitle">📖 วิธีเลือกด่านแบบสั้นมาก</div>
-      <div class="helpSub">
-        ถ้าเพิ่งเริ่ม → เล่น <b>ด่านเริ่มต้น</b><br>
-        ถ้าเริ่มคล่อง → เล่น <b>ด่านปกติ</b><br>
-        ถ้าอยากลองของ → เล่น <b>ด่านท้าทาย</b>
-      </div>
-      <div class="helpActions">
-        <button class="btn primary" id="btnStartFromHelp" type="button">🟢 เริ่มแบบง่าย</button>
-        <button class="btn ghost" id="btnHideHow" type="button">✖ ปิด</button>
-      </div>
     </section>
-
-    <div class="bottomBar">
-      <span class="statusPill" id="statusLine">พร้อมเริ่มเล่น Food Groups แล้ว</span>
-      <span class="hint">Tip: ถ้าเพิ่งเริ่ม ให้เริ่มจาก “ด่านเริ่มต้น” ก่อน</span>
-    </div>
-  </div>
+  </main>
 
   <script>
     (function(){
       'use strict';
 
-      function qs(k, d=''){
-        try{ return new URL(location.href).searchParams.get(k) ?? d; }
-        catch{ return d; }
+      const PASS_KEYS = [
+        'pid','nick','name','run','view','diff','time','seed',
+        'studyId','phase','conditionGroup','sessionOrder','blockLabel',
+        'siteCode','schoolYear','semester','log','api','debug','grade',
+        'zone','cat','game','gameId','mode','hub'
+      ];
+
+      const STORE_KEY = 'HHA_GROUPS_LAUNCHER_V1';
+      const qs = new URL(location.href).searchParams;
+
+      const $ = (id) => document.getElementById(id);
+
+      const el = {
+        pid: $('pid'),
+        playerName: $('playerName'),
+        diff: $('diff'),
+        time: $('time'),
+        runMode: $('runMode'),
+        studyId: $('studyId'),
+        useGate: $('useGate'),
+        debug: $('debug'),
+        btnPC: $('btnPC'),
+        btnMobile: $('btnMobile'),
+        btnCVR: $('btnCVR')
+      };
+
+      function safeJsonParse(raw, fallback){
+        try{
+          const v = JSON.parse(raw);
+          return v ?? fallback;
+        }catch{
+          return fallback;
+        }
       }
 
-      function safeUrl(raw, fallback){
-        try{ return new URL(raw || fallback, location.href).toString(); }
-        catch{ return new URL(fallback, location.href).toString(); }
+      function readStore(){
+        try{
+          return safeJsonParse(localStorage.getItem(STORE_KEY), {});
+        }catch{
+          return {};
+        }
       }
 
-      const pid  = String(qs('pid','anon')).trim() || 'anon';
-      const run  = String(qs('run','play')).toLowerCase() || 'play';
-      const time = String(qs('time','80')) || '80';
-      const view = String(qs('view','mobile')).toLowerCase() || 'mobile';
-      const hub  = safeUrl(qs('hub','./hub.html'), './hub.html');
-
-      const uiPid = document.getElementById('uiPid');
-      uiPid.textContent = pid;
-
-      function buildGameUrl(diff){
-        const u = new URL('./vr-groups/groups.html', location.href);
-        u.searchParams.set('pid', pid);
-        u.searchParams.set('run', run);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('time', time);
-        u.searchParams.set('view', view);
-        u.searchParams.set('hub', hub);
-        u.searchParams.set('zone', 'nutrition');
-        return u.toString();
+      function writeStore(value){
+        try{
+          localStorage.setItem(STORE_KEY, JSON.stringify(value));
+        }catch{}
       }
 
-      document.getElementById('btnStartEasy').onclick = ()=>{
-        location.href = buildGameUrl('easy');
-      };
+      function defaultHub(){
+        return qs.get('hub') || new URL('./hub.html', location.href).toString();
+      }
 
-      document.getElementById('btnQuickEasy').onclick = ()=>{
-        location.href = buildGameUrl('easy');
-      };
+      function fillForm(){
+        const saved = readStore();
+        el.pid.value = qs.get('pid') || saved.pid || 'anon';
+        el.playerName.value = qs.get('name') || qs.get('nick') || saved.name || '';
+        el.diff.value = qs.get('diff') || saved.diff || 'normal';
+        el.time.value = qs.get('time') || saved.time || '80';
+        el.runMode.value = qs.get('run') || saved.run || 'play';
+        el.studyId.value = qs.get('studyId') || saved.studyId || '';
+        el.useGate.checked = (qs.get('gate') === '1') || !!saved.useGate;
+        el.debug.checked = qs.get('debug') === '1' || !!saved.debug;
+      }
 
-      document.getElementById('btnQuickNormal').onclick = ()=>{
-        location.href = buildGameUrl('normal');
-      };
-
-      document.getElementById('btnQuickHard').onclick = ()=>{
-        location.href = buildGameUrl('hard');
-      };
-
-      document.querySelectorAll('.playBtn[data-diff]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          const diff = String(btn.dataset.diff || 'easy');
-          location.href = buildGameUrl(diff);
+      function remember(){
+        writeStore({
+          pid: String(el.pid.value || 'anon').trim() || 'anon',
+          name: String(el.playerName.value || '').trim(),
+          diff: el.diff.value || 'normal',
+          time: el.time.value || '80',
+          run: el.runMode.value || 'play',
+          studyId: String(el.studyId.value || '').trim(),
+          useGate: !!el.useGate.checked,
+          debug: !!el.debug.checked
         });
-      });
+      }
 
-      const howPanel = document.getElementById('howPanel');
-      document.getElementById('btnHow').onclick = ()=>{
-        howPanel.style.display = 'block';
-        howPanel.scrollIntoView({ behavior:'smooth', block:'start' });
-      };
-      document.getElementById('btnHideHow').onclick = ()=>{
-        howPanel.style.display = 'none';
-      };
-      document.getElementById('btnStartFromHelp').onclick = ()=>{
-        location.href = buildGameUrl('easy');
-      };
+      function carryQuery(url, extra = {}){
+        const u = typeof url === 'string' ? new URL(url, location.href) : url;
+        PASS_KEYS.forEach((key) => {
+          const v = qs.get(key);
+          if (v != null && v !== '' && !u.searchParams.has(key)) {
+            u.searchParams.set(key, v);
+          }
+        });
 
-      document.getElementById('btnHub').onclick = ()=>{
-        location.href = hub;
-      };
+        Object.entries(extra).forEach(([key, value]) => {
+          if (value == null || value === '') u.searchParams.delete(key);
+          else u.searchParams.set(key, String(value));
+        });
+
+        return u;
+      }
+
+      function buildRunUrl(viewMode){
+        remember();
+
+        const pid = String(el.pid.value || 'anon').trim() || 'anon';
+        const name = String(el.playerName.value || '').trim();
+        const diff = el.diff.value || 'normal';
+        const time = el.time.value || '80';
+        const run = el.runMode.value || 'play';
+        const studyId = String(el.studyId.value || '').trim();
+        const hub = defaultHub();
+        const seed = String(Date.now());
+
+        const runUrl = carryQuery(new URL('./vr-groups/groups.html', location.href), {
+          pid,
+          name,
+          diff,
+          time,
+          run,
+          studyId,
+          seed,
+          hub,
+          view: viewMode,
+          game: 'groups',
+          gameId: 'groups',
+          zone: 'nutrition',
+          cat: 'nutrition',
+          mode: 'solo',
+          debug: el.debug.checked ? '1' : ''
+        });
+
+        if (!el.useGate.checked) return runUrl.toString();
+
+        const gateUrl = carryQuery(new URL('./warmup-gate.html', location.href), {
+          pid,
+          name,
+          diff,
+          time,
+          run,
+          studyId,
+          seed,
+          hub,
+          view: viewMode,
+          game: 'groups',
+          gameId: 'groups',
+          cat: 'nutrition',
+          zone: 'nutrition',
+          theme: 'groups',
+          phase: 'warmup',
+          gatePhase: 'warmup',
+          next: runUrl.toString(),
+          debug: el.debug.checked ? '1' : ''
+        });
+
+        return gateUrl.toString();
+      }
+
+      function go(viewMode){
+        location.href = buildRunUrl(viewMode);
+      }
+
+      fillForm();
+
+      el.btnPC.addEventListener('click', () => go('pc'));
+      el.btnMobile.addEventListener('click', () => go('mobile'));
+      el.btnCVR.addEventListener('click', () => go('cvr'));
     })();
   </script>
 </body>
