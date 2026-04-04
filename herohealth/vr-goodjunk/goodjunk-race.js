@@ -3,780 +3,547 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-race.js
  * GoodJunk Race Controller
- * PATCH v20260403-race-controller-debug-full
+ * FULL PATCH v20260404-race-controller-compare-full
  * ========================================================= */
 (function(){
-  const W = window;
-  if (W.__GJ_RACE_CONTROLLER_INSTALLED__) return;
-  W.__GJ_RACE_CONTROLLER_INSTALLED__ = true;
+  var W = window;
+  var D = document;
 
-  const ctx = W.__GJ_RUN_CTX__ || W.__GJ_MULTI_RUN_CTX__ || {};
-  const GAME = 'goodjunk';
-  const MODE = 'race';
-  const roomId = String(ctx.roomId || ctx.room || '').trim();
-  const preferredRoomKind = String(ctx.roomKind || '').trim();
-  const FIREBASE_WAIT_MS = 12000;
-  const HEARTBEAT_MS = 2500;
-  const SCORE_SYNC_MS = 700;
+  function qs(key, fallback) {
+    try {
+      var u = new URL(location.href);
+      var v = u.searchParams.get(key);
+      return v == null ? (fallback || '') : v;
+    } catch (_) {
+      return fallback || '';
+    }
+  }
 
-  const state = {
-    uid: '',
+  function now() {
+    return Date.now();
+  }
+
+  function wait(ms) {
+    return new Promise(function(resolve){ setTimeout(resolve, ms); });
+  }
+
+  function num(v, d) {
+    v = Number(v);
+    return Number.isFinite(v) ? v : (d || 0);
+  }
+
+  function clean(v) {
+    return String(v == null ? '' : v).trim();
+  }
+
+  function dispatch(name, detail) {
+    try {
+      W.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
+    } catch (_) {}
+  }
+
+  function loadExternalScript(src) {
+    return new Promise(function(resolve, reject){
+      var s = D.createElement('script');
+      s.src = src;
+      s.async = false;
+      s.onload = function(){ resolve(src); };
+      s.onerror = function(){ reject(new Error('โหลด script ไม่สำเร็จ: ' + src)); };
+      D.head.appendChild(s);
+    });
+  }
+
+  function cfgVersioned(path) {
+    var u = new URL(path, location.href);
+    u.searchParams.set('v', '20260404-race-controller-compare-full');
+    return u.toString();
+  }
+
+  var ctx = {
+    mode: 'race',
+    pid: qs('pid', 'anon'),
+    name: qs('name', qs('nick', 'Player')),
+    roomId: qs('roomId', qs('room', '')),
+    roomKind: qs('roomKind', ''),
+    role: qs('role', 'player'),
+    diff: qs('diff', 'normal'),
+    time: num(qs('time', '120'), 120),
+    seed: qs('seed', String(now())),
+    startAt: num(qs('startAt', '0'), 0),
+    hub: qs('hub', '../hub.html'),
+    wait: qs('wait', '0'),
+    host: qs('host', '0'),
+    view: qs('view', 'mobile')
+  };
+
+  var S = {
+    appReady: false,
     db: null,
-    rootKind: preferredRoomKind || '',
+    auth: null,
+    uid: '',
+    roomKind: clean(ctx.roomKind),
     refs: null,
-
-    meta: {},
-    roomState: {},
+    state: {},
     match: {},
     players: {},
     results: {},
-
-    participantIds: [],
-    runStarted: false,
+    localSummary: null,
     resultSubmitted: false,
     finalSummarySent: false,
-    latestBaseSummary: null,
-
-    heartbeatTimer: 0,
-    scoreSyncTimer: 0,
-    countdownTimer: 0,
-    offFns: [],
-
-    debug: {
-      roomKind: '',
-      participantIds: [],
-      resultCount: 0,
-      finalCount: 0,
-      stateStatus: 'waiting',
-      matchStatus: 'idle',
-      lastEmitAt: 0,
-      lastCloseAt: 0,
-      lastSubmitAt: 0
-    }
+    fallbackTimer: 0,
+    resultsOff: null,
+    stateOff: null,
+    matchOff: null,
+    playersOff: null,
+    metaOff: null
   };
 
-  function now(){ return Date.now(); }
-  function num(v, d=0){ v = Number(v); return Number.isFinite(v) ? v : d; }
-  function wait(ms){ return new Promise(r => setTimeout(r, ms)); }
+  function debug(tag, extra) {
+    console.log('[GJ-RACE-CTRL]', tag, extra || {});
+    dispatch('gj:race-debug', {
+      tag: tag,
+      roomId: ctx.roomId,
+      roomKind: S.roomKind,
+      stateStatus: S.state && S.state.status,
+      matchStatus: S.match && S.match.status,
+      participantIds: Array.isArray(S.state && S.state.participantIds) ? S.state.participantIds : [],
+      resultCount: Object.keys(S.results || {}).length,
+      runStarted: S.appReady,
+      resultSubmitted: S.resultSubmitted,
+      finalSummarySent: S.finalSummarySent,
+      extra: extra || {}
+    });
+  }
 
-  function buildControllerDebug() {
-    const resultKeys = Object.keys(state.results || {});
-    const finalCount = resultKeys.filter((id) => {
-      const r = state.results && state.results[id];
-      return !!(r && r.final);
-    }).length;
+  function roomPath(kind, roomId) {
+    return 'hha-battle/goodjunk/' + kind + '/' + roomId;
+  }
 
-    state.debug.roomKind = state.rootKind || '';
-    state.debug.participantIds = (state.participantIds || []).slice();
-    state.debug.resultCount = resultKeys.length;
-    state.debug.finalCount = finalCount;
-    state.debug.stateStatus = String((state.roomState && state.roomState.status) || 'waiting');
-    state.debug.matchStatus = String((state.match && state.match.status) || 'idle');
-
+  function buildRefs(root) {
     return {
-      roomId,
-      roomKind: state.debug.roomKind,
-      participantIds: state.debug.participantIds.slice(),
-      resultCount: state.debug.resultCount,
-      finalCount: state.debug.finalCount,
-      stateStatus: state.debug.stateStatus,
-      matchStatus: state.debug.matchStatus,
-      runStarted: !!state.runStarted,
-      resultSubmitted: !!state.resultSubmitted,
-      finalSummarySent: !!state.finalSummarySent,
-      lastEmitAt: state.debug.lastEmitAt || 0,
-      lastCloseAt: state.debug.lastCloseAt || 0,
-      lastSubmitAt: state.debug.lastSubmitAt || 0
-    };
-  }
-
-  function emitControllerDebug(tag, extra = {}) {
-    const payload = Object.assign({
-      tag,
-      at: now()
-    }, buildControllerDebug(), extra || {});
-
-    try {
-      window.__GJ_RACE_CONTROLLER_DEBUG__ = payload;
-    } catch (_) {}
-
-    try {
-      W.dispatchEvent(new CustomEvent('gj:race-debug', { detail: payload }));
-    } catch (_) {}
-
-    console.log('[race-controller:debug]', payload);
-  }
-
-  function safeDispatch(name, detail){
-    try { W.dispatchEvent(new CustomEvent(name, { detail })); } catch(_) {}
-  }
-
-  function getSafe(){
-    return W.GJRaceSafe || W.RaceSafe || null;
-  }
-
-  function safeShowLoading(msg){
-    const s = getSafe();
-    if (s && typeof s.showLoading === 'function') s.showLoading(msg);
-  }
-  function safeShowWarn(msg){
-    const s = getSafe();
-    if (s && typeof s.showWarn === 'function') s.showWarn(msg);
-  }
-  function safeShowError(msg){
-    const s = getSafe();
-    if (s && typeof s.showError === 'function') s.showError(msg);
-  }
-  function safeClearMessage(){
-    const s = getSafe();
-    if (s && typeof s.clearMessage === 'function') s.clearMessage();
-  }
-  function safeSyncBridge(){
-    const s = getSafe();
-    if (!s) return;
-    try {
-      if (typeof s.syncRoom === 'function') {
-        s.syncRoom({
-          meta: state.meta,
-          state: state.roomState,
-          match: state.match,
-          players: state.players,
-          results: state.results
-        });
-      }
-    } catch(_) {}
-  }
-
-  async function waitForFirebaseReady(timeoutMs = FIREBASE_WAIT_MS){
-    if (W.HHA_FIREBASE_READY && W.HHA_FIREBASE_DB) return true;
-
-    return await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('firebase not ready')), timeoutMs);
-      W.addEventListener('hha:firebase_ready', (ev) => {
-        clearTimeout(timer);
-        if (ev && ev.detail && ev.detail.ok) resolve(true);
-        else reject(new Error((ev && ev.detail && ev.detail.error) || 'firebase not ready'));
-      }, { once:true });
-    });
-  }
-
-  async function ensureAuth(){
-    await waitForFirebaseReady();
-
-    if (typeof W.HHA_ensureAnonymousAuth === 'function') {
-      const u = await W.HHA_ensureAnonymousAuth();
-      if (u && u.uid) {
-        state.uid = u.uid;
-        return u;
-      }
-    }
-
-    if (!W.firebase || !W.firebase.auth) {
-      throw new Error('firebase auth sdk not loaded');
-    }
-
-    const auth = W.firebase.auth();
-    if (auth.currentUser && auth.currentUser.uid) {
-      state.uid = auth.currentUser.uid;
-      return auth.currentUser;
-    }
-
-    await auth.signInAnonymously();
-
-    const user = await new Promise((resolve, reject) => {
-      let done = false;
-      const timer = setTimeout(() => {
-        if (done) return;
-        done = true;
-        reject(new Error('anonymous auth timeout'));
-      }, 12000);
-
-      const off = auth.onAuthStateChanged((u) => {
-        if (done) return;
-        if (u && u.uid) {
-          done = true;
-          clearTimeout(timer);
-          try { off(); } catch(_) {}
-          resolve(u);
-        }
-      }, (err) => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        try { off(); } catch(_) {}
-        reject(err || new Error('auth state failed'));
-      });
-    });
-
-    state.uid = user.uid;
-    return user;
-  }
-
-  function getDb(){
-    if (state.db) return state.db;
-    if (W.HHA_FIREBASE_DB) {
-      state.db = W.HHA_FIREBASE_DB;
-      return state.db;
-    }
-    if (typeof W.HHA_ENSURE_FIREBASE_DB === 'function') {
-      state.db = W.HHA_ENSURE_FIREBASE_DB();
-      return state.db;
-    }
-    if (W.firebase && W.firebase.database) {
-      state.db = W.firebase.database();
-      return state.db;
-    }
-    throw new Error('firebase db not ready');
-  }
-
-  function roomRootPath(kind) {
-    return `hha-battle/${GAME}/${kind}/${roomId}`;
-  }
-
-  async function resolveRootKind(){
-    const db = getDb();
-
-    if (state.rootKind) {
-      try {
-        const snap = await db.ref(roomRootPath(state.rootKind)).child('meta').once('value');
-        if (snap.exists()) {
-          return state.rootKind;
-        }
-      } catch (_) {}
-    }
-
-    const candidates = ['raceRooms', 'rooms'];
-
-    for (const kind of candidates) {
-      try {
-        const snap = await db.ref(roomRootPath(kind)).child('meta').once('value');
-        if (snap.exists()) {
-          state.rootKind = kind;
-          return kind;
-        }
-      } catch(_) {}
-    }
-
-    state.rootKind = preferredRoomKind || 'raceRooms';
-    return state.rootKind;
-  }
-
-  function attachRefs(){
-    const db = getDb();
-    const root = db.ref(roomRootPath(state.rootKind));
-    state.refs = {
-      root,
+      root: root,
       meta: root.child('meta'),
       state: root.child('state'),
       match: root.child('match'),
       players: root.child('players'),
-      results: root.child('results'),
-      myPlayer: root.child(`players/${state.uid}`),
-      myResult: root.child(`results/${state.uid}`)
+      results: root.child('results')
     };
-    emitControllerDebug('attach-refs');
   }
 
-  function getMetricsFromCore(){
-    const score = num(typeof W.__GJ_GET_SCORE__ === 'function' ? W.__GJ_GET_SCORE__() : 0, 0);
-    const shots = num(typeof W.__GJ_GET_SHOTS__ === 'function' ? W.__GJ_GET_SHOTS__() : 0, 0);
-    const hits = num(typeof W.__GJ_GET_HITS__ === 'function' ? W.__GJ_GET_HITS__() : 0, 0);
-    const miss = num(typeof W.__GJ_GET_MISS__ === 'function' ? W.__GJ_GET_MISS__() : 0, 0);
-    const goodHit = num(typeof W.__GJ_GET_HITS_GOOD__ === 'function' ? W.__GJ_GET_HITS_GOOD__() : hits, hits);
-    const junkHit = num(typeof W.__GJ_GET_HITS_JUNK__ === 'function' ? W.__GJ_GET_HITS_JUNK__() : Math.max(0, shots - hits - miss), 0);
-    const goodMiss = num(typeof W.__GJ_GET_GOOD_MISS__ === 'function' ? W.__GJ_GET_GOOD_MISS__() : 0, 0);
-    const bestStreak = num(typeof W.__GJ_GET_BEST_STREAK__ === 'function' ? W.__GJ_GET_BEST_STREAK__() : 0, 0);
-    const finishMs = num(typeof W.__GJ_GET_FINISH_MS__ === 'function' ? W.__GJ_GET_FINISH_MS__() : 0, 0);
-    const duration = finishMs > 0 ? Math.round(finishMs / 1000) : Math.max(0, num(ctx.time, 90));
+  async function ensureFirebase() {
+    if (!W.firebase || typeof W.firebase.initializeApp !== 'function') {
+      await loadExternalScript('https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js');
+      await loadExternalScript('https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js');
+      await loadExternalScript('https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js');
+    }
+
+    if (!W.HHA_FIREBASE_CONFIG && !W.firebaseConfig && !W.__firebaseConfig) {
+      await loadExternalScript(cfgVersioned('../firebase-config.js'));
+    }
+
+    var cfg =
+      W.HHA_FIREBASE_CONFIG ||
+      W.firebaseConfig ||
+      W.__firebaseConfig ||
+      W.FIREBASE_CONFIG ||
+      null;
+
+    if (!cfg) {
+      throw new Error('missing firebase config');
+    }
+
+    if (!W.firebase.apps || !W.firebase.apps.length) {
+      W.firebase.initializeApp(cfg);
+    }
+
+    S.db = W.firebase.database();
+    S.auth = W.firebase.auth();
+
+    if (S.auth.currentUser && S.auth.currentUser.uid) {
+      S.uid = S.auth.currentUser.uid;
+      return true;
+    }
+
+    await S.auth.signInAnonymously();
+
+    await new Promise(function(resolve, reject){
+      var done = false;
+      var timer = setTimeout(function(){
+        if (done) return;
+        done = true;
+        reject(new Error('firebase auth timeout'));
+      }, 12000);
+
+      var off = S.auth.onAuthStateChanged(function(user){
+        if (done) return;
+        if (user && user.uid) {
+          done = true;
+          clearTimeout(timer);
+          try { off(); } catch (_) {}
+          S.uid = user.uid;
+          resolve(true);
+        }
+      }, function(err){
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        try { off(); } catch (_) {}
+        reject(err || new Error('firebase auth failed'));
+      });
+    });
+
+    return true;
+  }
+
+  async function detectRoomKind() {
+    var preferred = clean(ctx.roomKind);
+    var order = preferred ? [preferred, 'raceRooms', 'rooms'] : ['raceRooms', 'rooms'];
+    var seen = {};
+
+    for (var i = 0; i < order.length; i++) {
+      var kind = order[i];
+      if (!kind || seen[kind]) continue;
+      seen[kind] = true;
+
+      try {
+        var snap = await S.db.ref(roomPath(kind, ctx.roomId)).child('meta').once('value');
+        if (snap.exists()) {
+          S.roomKind = kind;
+          return kind;
+        }
+      } catch (_) {}
+    }
+
+    S.roomKind = preferred || 'rooms';
+    return S.roomKind;
+  }
+
+  function normalizeIncomingSummary(detail) {
+    var src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
+      ? detail.summary
+      : (detail || {});
 
     return {
-      score,
-      shots,
-      hits,
-      miss,
-      goodHit,
-      junkHit,
-      goodMiss,
-      bestStreak,
-      duration
+      pid: ctx.pid,
+      nick: ctx.name,
+      score: num(src.score || src.totalScore || src.playerScore || src.myScore, 0),
+      miss: num(src.miss || src.misses || src.totalMiss, 0),
+      goodHit: num(src.goodHit || src.hitsGood || src.goodHits || src.correct, 0),
+      junkHit: num(src.junkHit || src.hitsBad || src.junkHits || src.wrong, 0),
+      bestStreak: num(src.bestStreak || src.streak || src.comboMax, 0),
+      duration: num(src.duration || src.durationSec || src.timeUsed, 0),
+      reason: clean(src.reason || src.finishReason || src.endReason || 'finished'),
+      submittedAt: now(),
+      updatedAt: now()
     };
   }
 
-  function getParticipantIds(){
-    const fromState = Array.isArray(state.roomState && state.roomState.participantIds)
-      ? state.roomState.participantIds : [];
-    const fromMatch = Array.isArray(state.match && state.match.participantIds)
-      ? state.match.participantIds : [];
-    return (fromState.length ? fromState : fromMatch).map(x => String(x || '')).filter(Boolean);
-  }
-
-  function amIParticipant(){
-    const ids = state.participantIds.length ? state.participantIds : getParticipantIds();
-    if (!ids.length) return true;
-    return ids.includes(state.uid);
-  }
-
-  function startCoreNow(){
-    if (state.runStarted) return;
-    if (!amIParticipant()) {
-      safeShowWarn('รอบนี้คุณไม่ได้อยู่ใน participant ของห้องนี้');
-      emitControllerDebug('not-participant');
-      return;
-    }
-
-    state.runStarted = true;
-    clearInterval(state.countdownTimer);
-    state.countdownTimer = 0;
-
-    try {
-      if (typeof W.__GJ_SET_PAUSED__ === 'function') W.__GJ_SET_PAUSED__(false);
-    } catch(_) {}
-
-    try {
-      if (typeof W.__GJ_START_NOW__ === 'function') {
-        W.__GJ_START_NOW__();
-      } else if (typeof W.__GJ_BOOT__ === 'function') {
-        W.__GJ_BOOT__();
-      }
-    } catch (err) {
-      console.error('[race-controller] start core failed', err);
-    }
-
-    try {
-      state.refs.myPlayer.update({
-        connected: true,
-        ready: true,
-        phase: 'run',
-        updatedAt: now(),
-        lastSeen: now()
-      });
-    } catch(_) {}
-
-    emitControllerDebug('start-core');
-    safeClearMessage();
-  }
-
-  function startCountdownLoop(targetAt){
-    clearInterval(state.countdownTimer);
-    state.countdownTimer = setInterval(() => {
-      const leftMs = num(targetAt, 0) - now();
-      const sec = Math.max(0, Math.ceil(leftMs / 1000));
-
-      safeShowLoading(sec > 0 ? `เริ่มแข่งใน ${sec}` : 'GO!');
-
-      if (leftMs <= 0) {
-        clearInterval(state.countdownTimer);
-        state.countdownTimer = 0;
-        startCoreNow();
-      }
-    }, 100);
-  }
-
-  function handleRoomState(){
-    state.participantIds = getParticipantIds();
-    emitControllerDebug('room-state');
-    safeSyncBridge();
-
-    const status = String((state.roomState && state.roomState.status) || '');
-    const targetAt = num(state.roomState.startAt || state.roomState.countdownEndsAt || ctx.startAt, 0);
-
-    if (!state.runStarted) {
-      try {
-        if (typeof W.__GJ_SET_PAUSED__ === 'function') W.__GJ_SET_PAUSED__(true);
-      } catch(_) {}
-    }
-
-    if (status === 'waiting') {
-      if (!state.runStarted) safeShowLoading('กำลังรอ host เริ่มเกม');
-      return;
-    }
-
-    if (status === 'countdown') {
-      if (!amIParticipant()) {
-        safeShowWarn('รอบนี้ไม่ได้อยู่ใน participant');
-        return;
-      }
-      if (targetAt > 0) startCountdownLoop(targetAt);
-      else safeShowLoading('กำลังเตรียมเริ่มเกม');
-      return;
-    }
-
-    if (status === 'running' || status === 'playing') {
-      if (!amIParticipant()) {
-        safeShowWarn('รอบนี้ไม่ได้อยู่ใน participant');
-        return;
-      }
-      if (targetAt > now()) startCountdownLoop(targetAt);
-      else startCoreNow();
-      return;
-    }
-
-    if (status === 'ended' && state.latestBaseSummary && !state.finalSummarySent) {
-      maybeEmitFinalSummary(true);
-    }
-  }
-
-  function subscribeRoom(){
-    const onMeta = (snap) => {
-      state.meta = snap.val() || {};
-      if (state.meta && state.meta.roomKind && !state.rootKind) {
-        state.rootKind = String(state.meta.roomKind || '').trim();
-      }
-      emitControllerDebug('meta-update');
-      safeSyncBridge();
-    };
-
-    const onState = (snap) => {
-      state.roomState = snap.val() || {};
-      handleRoomState();
-    };
-
-    const onMatch = (snap) => {
-      state.match = snap.val() || {};
-      emitControllerDebug('match-update');
-      handleRoomState();
-    };
-
-    const onPlayers = (snap) => {
-      state.players = snap.val() || {};
-      emitControllerDebug('players-update');
-      safeSyncBridge();
-    };
-
-    const onResults = async (snap) => {
-      state.results = snap.val() || {};
-      emitControllerDebug('results-update');
-      safeSyncBridge();
-
-      if (ctx.host === '1' || ctx.host === 1 || ctx.role === 'host') {
-        await maybeCloseRace();
-      }
-
-      if (state.latestBaseSummary) {
-        maybeEmitFinalSummary(false);
-      }
-    };
-
-    const onError = (err) => {
-      console.error('[race-controller] subscribe failed', err);
-      safeShowError(`เชื่อมห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
-    };
-
-    state.refs.meta.on('value', onMeta, onError);
-    state.refs.state.on('value', onState, onError);
-    state.refs.match.on('value', onMatch, onError);
-    state.refs.players.on('value', onPlayers, onError);
-    state.refs.results.on('value', onResults, onError);
-
-    state.offFns.push(() => state.refs.meta.off('value', onMeta));
-    state.offFns.push(() => state.refs.state.off('value', onState));
-    state.offFns.push(() => state.refs.match.off('value', onMatch));
-    state.offFns.push(() => state.refs.players.off('value', onPlayers));
-    state.offFns.push(() => state.refs.results.off('value', onResults));
-  }
-
-  async function joinPresence(){
-    await state.refs.myPlayer.update({
-      pid: state.uid,
-      nick: String(ctx.name || ctx.nick || 'Player'),
-      connected: true,
-      ready: true,
-      joinedAt: now(),
-      updatedAt: now(),
-      lastSeen: now(),
-      phase: 'lobby',
-      score: 0,
-      contribution: 0
-    });
-
-    try {
-      state.refs.myPlayer.onDisconnect().remove();
-    } catch(_) {}
-
-    emitControllerDebug('join-presence');
-  }
-
-  function startHeartbeat(){
-    clearInterval(state.heartbeatTimer);
-    state.heartbeatTimer = setInterval(() => {
-      state.refs.myPlayer.update({
-        nick: String(ctx.name || ctx.nick || 'Player'),
-        connected: true,
-        updatedAt: now(),
-        lastSeen: now(),
-        phase: state.resultSubmitted ? 'done' : (state.runStarted ? 'run' : 'lobby')
-      }).catch(()=>{});
-    }, HEARTBEAT_MS);
-  }
-
-  function startScoreSync(){
-    clearInterval(state.scoreSyncTimer);
-    state.scoreSyncTimer = setInterval(() => {
-      const metrics = getMetricsFromCore();
-      state.refs.myPlayer.update({
-        connected: true,
-        score: metrics.score,
-        contribution: metrics.score,
-        miss: metrics.miss,
-        streak: metrics.bestStreak,
-        updatedAt: now(),
-        lastSeen: now(),
-        phase: state.resultSubmitted ? 'done' : (state.runStarted ? 'run' : 'lobby')
-      }).catch(()=>{});
-    }, SCORE_SYNC_MS);
-  }
-
-  function stopTimers(){
-    clearInterval(state.heartbeatTimer);
-    clearInterval(state.scoreSyncTimer);
-    clearInterval(state.countdownTimer);
-    state.heartbeatTimer = 0;
-    state.scoreSyncTimer = 0;
-    state.countdownTimer = 0;
-  }
-
-  async function submitResultFromSummary(detail){
-    if (state.resultSubmitted) return;
-
-    const base = Object.assign({}, detail || {});
-    const metrics = getMetricsFromCore();
-
-    const payload = {
-      pid: state.uid,
-      nick: String(ctx.name || ctx.nick || 'Player'),
-      roomId,
-      reason: String(base.reason || base.finishReason || 'finish'),
-      score: num(base.score, metrics.score),
-      shots: num(base.shots, metrics.shots),
-      hits: num(base.hits, metrics.hits),
-      miss: num(base.miss, metrics.miss),
-      goodHit: num(base.goodHit, metrics.goodHit),
-      junkHit: num(base.junkHit, metrics.junkHit),
-      bestStreak: num(base.bestStreak, metrics.bestStreak),
-      duration: num(base.duration, metrics.duration),
-      at: now(),
-      final: true
-    };
-
-    state.resultSubmitted = true;
-    state.latestBaseSummary = Object.assign({}, base, payload);
-    state.debug.lastSubmitAt = now();
-    emitControllerDebug('submit-result', {
-      submittedScore: payload.score,
-      submittedMiss: payload.miss
-    });
-
-    try {
-      await state.refs.myResult.set(payload);
-    } catch (err) {
-      console.error('[race-controller] write result failed', err);
-    }
-
-    try {
-      await state.refs.myPlayer.update({
-        connected: true,
-        phase: 'done',
-        score: payload.score,
-        contribution: payload.score,
-        miss: payload.miss,
-        streak: payload.bestStreak,
-        updatedAt: now(),
-        lastSeen: now()
-      });
-    } catch(_) {}
-
-    safeShowLoading('ส่งผลของคุณแล้ว กำลังรออีกคน');
-    maybeEmitFinalSummary(false);
-  }
-
-  function buildRankedRows(){
-    const ids = state.participantIds.length
-      ? state.participantIds.slice()
-      : Object.keys(state.results || {});
-
-    const rows = ids.map((id) => {
-      const r = state.results && state.results[id] ? state.results[id] : null;
-      const p = state.players && state.players[id] ? state.players[id] : null;
-
+  function computeStandings(resultsObj) {
+    var rows = Object.keys(resultsObj || {}).map(function(pid){
+      var r = resultsObj[pid] || {};
       return {
-        pid: id,
-        nick: (r && r.nick) || (p && p.nick) || 'player',
-        score: num(r && r.score, num(p && (p.finalScore ?? p.score), 0)),
-        miss: num(r && r.miss, num(p && p.miss, 0)),
-        duration: num(r && r.duration, 999999),
-        goodHit: num(r && r.goodHit, 0),
-        junkHit: num(r && r.junkHit, 0),
-        bestStreak: num(r && r.bestStreak, 0),
-        final: !!(r && r.final)
+        pid: clean(r.pid || pid),
+        nick: clean(r.nick || r.name || pid || 'player'),
+        score: num(r.score, 0),
+        miss: num(r.miss, 0),
+        goodHit: num(r.goodHit, 0),
+        junkHit: num(r.junkHit, 0),
+        bestStreak: num(r.bestStreak, 0),
+        duration: num(r.duration, 0),
+        reason: clean(r.reason || '')
       };
-    }).filter(Boolean);
+    });
 
-    rows.sort((a, b) => {
+    rows.sort(function(a, b){
       if (b.score !== a.score) return b.score - a.score;
-      if (a.duration !== b.duration) return a.duration - b.duration;
-      return a.miss - b.miss;
+      if (a.miss !== b.miss) return a.miss - b.miss;
+      if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
+      return String(a.pid).localeCompare(String(b.pid));
+    });
+
+    rows.forEach(function(r, i){
+      r.rank = i + 1;
     });
 
     return rows;
   }
 
-  function maybeEmitFinalSummary(force){
-    if (!state.latestBaseSummary) return;
+  function buildCompareSummary(standings) {
+    var me = null;
+    var opponent = null;
 
-    const rows = buildRankedRows();
-    if (!rows.length) return;
-
-    const expected = state.participantIds.length || rows.length;
-    const finals = rows.filter(r => r.final).length;
-    const roomEnded = String((state.roomState && state.roomState.status) || '') === 'ended';
-
-    if (!force && !roomEnded && finals < expected) {
-      emitControllerDebug('emit-blocked', {
-        expectedParticipants: expected,
-        finalsReady: finals
-      });
-      return;
+    for (var i = 0; i < standings.length; i++) {
+      var row = standings[i];
+      if (String(row.pid) === String(ctx.pid)) {
+        me = row;
+      }
     }
 
-    const myIndex = rows.findIndex(r => r.pid === state.uid);
-    const rank = myIndex >= 0 ? myIndex + 1 : rows.length;
-    const me = myIndex >= 0 ? rows[myIndex] : rows[0];
-    const opponent = rows.find(r => r.pid !== state.uid) || null;
+    for (var j = 0; j < standings.length; j++) {
+      var row2 = standings[j];
+      if (!me || String(row2.pid) !== String(me.pid)) {
+        opponent = row2;
+        break;
+      }
+    }
 
-    const finalSummary = Object.assign({}, state.latestBaseSummary, {
-      rank,
-      place: rank,
-      players: rows.length,
-      result: rank === 1 ? 'ชนะรอบนี้' : `อันดับ ${rank}`,
-      score: num(me && me.score, state.latestBaseSummary.score),
-      miss: num(me && me.miss, state.latestBaseSummary.miss),
-      goodHit: num(me && me.goodHit, state.latestBaseSummary.goodHit),
-      junkHit: num(me && me.junkHit, state.latestBaseSummary.junkHit),
-      bestStreak: num(me && me.bestStreak, state.latestBaseSummary.bestStreak),
+    var delta = num((me && me.score) || 0, 0) - num((opponent && opponent.score) || 0, 0);
+
+    return {
       controllerFinal: true,
-      standings: rows,
+      roomId: ctx.roomId,
+      pid: ctx.pid,
+      name: ctx.name,
+      role: ctx.role,
+      rank: me ? me.rank : '',
+      score: me ? me.score : 0,
+      players: standings.length,
+      miss: me ? me.miss : 0,
+      goodHit: me ? me.goodHit : 0,
+      junkHit: me ? me.junkHit : 0,
+      bestStreak: me ? me.bestStreak : 0,
+      duration: me ? me.duration : 0,
+      reason: 'compare-ready',
+      result: me && me.rank === 1 ? 'เข้าเส้นชัยเป็นที่ 1' : 'จบรอบแล้ว',
+      standings: standings,
       compare: {
-        me: me || null,
-        opponent: opponent || null,
-        deltaScore: opponent ? num((me && me.score), 0) - num(opponent.score, 0) : 0
-      },
-      controllerDebug: buildControllerDebug()
-    });
-
-    state.finalSummarySent = true;
-
-    state.debug.lastEmitAt = now();
-    emitControllerDebug('emit-final-summary', {
-      force: !!force,
-      rank,
-      players: rows.length
-    });
-
-    safeDispatch('gj:race-summary', finalSummary);
-    safeDispatch('gj:summary', finalSummary);
-    safeDispatch('hha:summary', finalSummary);
-
-    try {
-      const s = getSafe();
-      if (s && typeof s.setSummary === 'function') {
-        s.setSummary(finalSummary);
+        me: me,
+        opponent: opponent,
+        delta: delta
       }
-    } catch(_) {}
-
-    safeClearMessage();
+    };
   }
 
-  async function maybeCloseRace(){
-    const ids = state.participantIds.length ? state.participantIds.slice() : [];
-    if (!ids.length) return;
+  async function submitOwnResult(summary) {
+    if (!S.refs) return;
+    if (!summary) return;
 
-    const finals = ids.filter((id) => {
-      const r = state.results && state.results[id];
-      return !!(r && r.final);
+    S.localSummary = summary;
+
+    await S.refs.results.child(ctx.pid).set({
+      pid: ctx.pid,
+      nick: ctx.name,
+      score: num(summary.score, 0),
+      miss: num(summary.miss, 0),
+      goodHit: num(summary.goodHit, 0),
+      junkHit: num(summary.junkHit, 0),
+      bestStreak: num(summary.bestStreak, 0),
+      duration: num(summary.duration, 0),
+      reason: clean(summary.reason || 'finished'),
+      submittedAt: now(),
+      updatedAt: now()
     });
 
-    emitControllerDebug('close-check', {
-      expectedParticipants: ids.length,
-      finalsReady: finals.length
+    await S.refs.players.child(ctx.pid).update({
+      phase: 'summary',
+      finished: true,
+      finalScore: num(summary.score, 0),
+      score: num(summary.score, 0),
+      miss: num(summary.miss, 0),
+      streak: num(summary.bestStreak, 0),
+      updatedAt: now(),
+      lastSeen: now()
+    }).catch(function(){});
+
+    S.resultSubmitted = true;
+    debug('submitOwnResult', { score: summary.score });
+  }
+
+  async function finalizeRoomIfNeeded(standings) {
+    if (!S.refs) return;
+    if (!Array.isArray(standings) || standings.length < 2) return;
+    if (S.finalSummarySent && String((S.state && S.state.status) || '') === 'ended') return;
+    if (!(String(ctx.host) === '1' || String((S.players[ctx.pid] && S.players[ctx.pid].pid) || '') === String((S.state && S.state.hostPid) || ''))) {
+      if (!(S.state && Array.isArray(S.state.participantIds) && S.state.participantIds[0] === ctx.pid)) {
+        return;
+      }
+    }
+
+    var winner = standings[0] || null;
+    var loser = standings[1] || null;
+
+    await S.refs.match.update({
+      status: 'finished',
+      participantIds: standings.map(function(r){ return r.pid; }),
+      finishedAt: now(),
+      winnerId: winner ? winner.pid : '',
+      loserId: loser ? loser.pid : ''
+    }).catch(function(){});
+
+    await S.refs.state.update({
+      status: 'ended',
+      participantIds: standings.map(function(r){ return r.pid; }),
+      winnerId: winner ? winner.pid : '',
+      loserId: loser ? loser.pid : '',
+      endedAt: now(),
+      updatedAt: now()
+    }).catch(function(){});
+
+    debug('finalizeRoomIfNeeded', {
+      winnerId: winner ? winner.pid : '',
+      loserId: loser ? loser.pid : ''
     });
+  }
 
-    if (finals.length >= ids.length) {
-      try {
-        await state.refs.state.update({
-          status: 'ended',
-          updatedAt: now()
-        });
-      } catch(_) {}
+  function emitFinalCompareSummary(standings) {
+    var summary = buildCompareSummary(standings);
+    S.finalSummarySent = true;
+    dispatch('gj:race-summary', summary);
+    debug('emitFinalCompareSummary', {
+      rank: summary.rank,
+      score: summary.score
+    });
+  }
 
-      try {
-        await state.refs.match.update({
-          status: 'finished'
-        });
-      } catch(_) {}
-
-      state.debug.lastCloseAt = now();
-      emitControllerDebug('close-race', {
-        expectedParticipants: ids.length,
-        finalsReady: finals.length
-      });
+  function maybeClearFallbackTimer() {
+    if (S.fallbackTimer) {
+      clearTimeout(S.fallbackTimer);
+      S.fallbackTimer = 0;
     }
   }
 
-  function handleSummaryEvent(evt){
-    const detail = evt && evt.detail ? evt.detail : null;
-    if (!detail || typeof detail !== 'object') return;
-    if (detail.controllerFinal) return;
-    if (detail.mode && String(detail.mode) !== MODE) return;
-    submitResultFromSummary(detail);
+  function scheduleFallbackSummary() {
+    maybeClearFallbackTimer();
+
+    if (!S.localSummary) return;
+    if (S.finalSummarySent) return;
+
+    S.fallbackTimer = setTimeout(function(){
+      if (S.finalSummarySent) return;
+      var localOnly = {
+        controllerFinal: true,
+        roomId: ctx.roomId,
+        pid: ctx.pid,
+        name: ctx.name,
+        role: ctx.role,
+        rank: '',
+        score: num(S.localSummary.score, 0),
+        players: Object.keys(S.results || {}).length || 1,
+        miss: num(S.localSummary.miss, 0),
+        goodHit: num(S.localSummary.goodHit, 0),
+        junkHit: num(S.localSummary.junkHit, 0),
+        bestStreak: num(S.localSummary.bestStreak, 0),
+        duration: num(S.localSummary.duration, 0),
+        reason: 'fallback-local',
+        result: 'จบรอบแล้ว',
+        standings: computeStandings(S.results || {}),
+        compare: null
+      };
+      S.finalSummarySent = true;
+      dispatch('gj:race-summary', localOnly);
+      debug('fallbackSummary', localOnly);
+    }, 6500);
   }
 
-  function bindSummaryEvents(){
-    ['gj:race-summary', 'gj:summary', 'hha:summary'].forEach((name) => {
-      W.addEventListener(name, handleSummaryEvent);
-      state.offFns.push(() => W.removeEventListener(name, handleSummaryEvent));
-    });
-  }
+  async function onResultsChanged(snap) {
+    S.results = snap.val() || {};
+    var standings = computeStandings(S.results || {});
+    var count = standings.length;
 
-  async function boot(){
-    if (!roomId) {
-      safeShowError('ไม่พบ roomId ของ race');
+    debug('resultsChanged', { count: count });
+
+    if (count >= 2) {
+      maybeClearFallbackTimer();
+      await finalizeRoomIfNeeded(standings);
+      emitFinalCompareSummary(standings);
       return;
     }
 
-    try {
-      safeShowLoading('กำลังเชื่อมห้อง Race…');
-
-      await ensureAuth();
-      await resolveRootKind();
-      console.log('[race-controller] using roomKind =', state.rootKind || '(empty)');
-      attachRefs();
-      bindSummaryEvents();
-
-      await joinPresence();
-      subscribeRoom();
-      startHeartbeat();
-      startScoreSync();
-
-      if (!ctx.wait && !ctx.startAt) {
-        safeShowLoading('กำลังเริ่มเกม…');
-        await wait(250);
-        startCoreNow();
-      } else {
-        handleRoomState();
-      }
-    } catch (err) {
-      console.error('[race-controller] boot failed', err);
-      safeShowError(`เริ่ม race controller ไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+    if (S.resultSubmitted) {
+      scheduleFallbackSummary();
     }
   }
 
-  W.addEventListener('pagehide', () => {
-    stopTimers();
-    while (state.offFns.length) {
-      const fn = state.offFns.pop();
-      try { fn(); } catch(_) {}
-    }
-  });
+  async function onStateChanged(snap) {
+    S.state = snap.val() || {};
+    debug('stateChanged', {
+      status: S.state.status,
+      participantIds: S.state.participantIds || []
+    });
+  }
 
-  boot();
+  async function onMatchChanged(snap) {
+    S.match = snap.val() || {};
+    debug('matchChanged', { status: S.match.status });
+  }
+
+  async function onPlayersChanged(snap) {
+    S.players = snap.val() || {};
+    debug('playersChanged', { count: Object.keys(S.players || {}).length });
+  }
+
+  function bindSummaryCapture() {
+    function handler(evt) {
+      var detail = evt && evt.detail ? evt.detail : null;
+      if (!detail || typeof detail !== 'object') return;
+      if (detail && detail.controllerFinal === true) return;
+
+      var normalized = normalizeIncomingSummary(detail);
+      submitOwnResult(normalized)
+        .then(function(){ return onResultsChanged({ val: function(){ return S.results || {}; } }); })
+        .catch(function(err){ console.error('[GJ-RACE-CTRL] submit summary failed', err); });
+    }
+
+    W.addEventListener('gj:summary', handler);
+    W.addEventListener('hha:summary', handler);
+    W.addEventListener('hha:session-summary', handler);
+  }
+
+  async function initRoomBindings() {
+    if (!ctx.roomId) {
+      debug('no-roomId');
+      return;
+    }
+
+    await detectRoomKind();
+
+    var root = S.db.ref(roomPath(S.roomKind, ctx.roomId));
+    S.refs = buildRefs(root);
+
+    S.refs.state.on('value', onStateChanged);
+    S.refs.match.on('value', onMatchChanged);
+    S.refs.players.on('value', onPlayersChanged);
+    S.refs.results.on('value', function(snap){
+      onResultsChanged(snap).catch(function(err){
+        console.error('[GJ-RACE-CTRL] results watcher failed', err);
+      });
+    });
+
+    await S.refs.players.child(ctx.pid).update({
+      pid: ctx.pid,
+      nick: ctx.name,
+      connected: true,
+      phase: 'run',
+      updatedAt: now(),
+      lastSeen: now()
+    }).catch(function(){});
+
+    try {
+      S.refs.players.child(ctx.pid).onDisconnect().remove();
+    } catch (_) {}
+
+    debug('initRoomBindings', {
+      roomKind: S.roomKind,
+      roomId: ctx.roomId
+    });
+  }
+
+  async function init() {
+    try {
+      await ensureFirebase();
+      await initRoomBindings();
+      bindSummaryCapture();
+      S.appReady = true;
+      debug('ready', {
+        roomId: ctx.roomId,
+        roomKind: S.roomKind,
+        pid: ctx.pid
+      });
+    } catch (err) {
+      console.error('[GJ-RACE-CTRL] init failed', err);
+      debug('init-failed', { message: String(err && err.message ? err.message : err) });
+    }
+  }
+
+  init();
 })();
