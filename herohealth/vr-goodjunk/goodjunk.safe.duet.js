@@ -3,8 +3,11 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.duet.js
  * GoodJunk Duet Run
- * FULL PATCH v20260402-gjduet-run-r11
- * - hard-hide summary overlay before run
+ * FULL PATCH v20260404-gjduet-run-r12
+ * - fix firebase ready wait logic
+ * - support roomCode query param
+ * - guard missing roomId before building refs
+ * - keep summary hard-hidden before run
  * - stage-ready safe start
  * - synced countdown / deadline by shared startAt
  * - replay -> rematch handoff to lobby
@@ -27,7 +30,7 @@
     run: qs.get('run') || 'play',
     gameId: qs.get('gameId') || 'goodjunk',
     zone: qs.get('zone') || 'nutrition',
-    roomId: qs.get('roomId') || qs.get('room') || '',
+    roomId: qs.get('roomId') || qs.get('room') || qs.get('roomCode') || '',
     role: qs.get('role') || 'player',
     host: qs.get('host') === '1',
     wait: qs.get('wait') === '1',
@@ -854,7 +857,7 @@
           const u = new URL('./goodjunk-duet-lobby.html', location.href);
           [
             'hub','run','diff','time','studyId','phase','conditionGroup',
-            'view','api','log','debug','ai','room','roomId','zone',
+            'view','api','log','debug','ai','room','roomId','roomCode','zone',
             'gameId','name','nick','seed'
           ].forEach((k) => {
             const v = qs.get(k);
@@ -863,6 +866,7 @@
 
           u.searchParams.set('roomId', ctx.roomId);
           u.searchParams.set('room', ctx.roomId);
+          u.searchParams.set('roomCode', ctx.roomId);
           u.searchParams.set('autojoin', '1');
           u.searchParams.set('rematch', '1');
           location.href = u.toString();
@@ -982,70 +986,59 @@
   }
 
   async function waitForFirebaseReady(timeoutMs = 12000){
-    if (W.HHA_FIREBASE_READY && W.HHA_FIREBASE_DB) return true;
+    const startedAt = Date.now();
 
-    return await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('firebase not ready')), timeoutMs);
+    while (Date.now() - startedAt < timeoutMs) {
+      if (W.HHA_FIREBASE_READY && W.HHA_FIREBASE_DB && W.HHA_FIREBASE_AUTH) {
+        return true;
+      }
 
-      W.addEventListener('hha:firebase_ready', (ev) => {
-        clearTimeout(timer);
-        if (ev && ev.detail && ev.detail.ok) resolve(true);
-        else reject(new Error((ev && ev.detail && ev.detail.error) || 'firebase not ready'));
-      }, { once:true });
-    });
+      if (W.HHA_FIREBASE_ERROR) {
+        throw new Error(W.HHA_FIREBASE_ERROR);
+      }
+
+      await sleep(120);
+    }
+
+    throw new Error(W.HHA_FIREBASE_ERROR || 'firebase not ready');
   }
 
   async function ensureAuth(){
     await waitForFirebaseReady();
 
-    if (typeof W.HHA_ensureAnonymousAuth === 'function') {
-      const user = await W.HHA_ensureAnonymousAuth();
-      if (user && user.uid) {
-        state.uid = user.uid;
-        return user;
-      }
-    }
+    const auth =
+      W.HHA_FIREBASE_AUTH ||
+      (W.firebase && W.firebase.auth ? W.firebase.auth() : null);
 
-    if (!W.firebase || !W.firebase.auth) {
+    if (!auth) {
       throw new Error('firebase auth sdk not loaded');
     }
-
-    const auth = W.firebase.auth();
 
     if (auth.currentUser && auth.currentUser.uid) {
       state.uid = auth.currentUser.uid;
       return auth.currentUser;
     }
 
-    await auth.signInAnonymously();
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < 12000) {
+      if (auth.currentUser && auth.currentUser.uid) {
+        state.uid = auth.currentUser.uid;
+        return auth.currentUser;
+      }
 
-    const user = await new Promise((resolve, reject) => {
-      let done = false;
-      const timer = setTimeout(() => {
-        if (done) return;
-        done = true;
-        reject(new Error('anonymous auth timeout'));
-      }, 12000);
+      if (W.HHA_FIREBASE_UID) {
+        state.uid = W.HHA_FIREBASE_UID;
+        return auth.currentUser || { uid: W.HHA_FIREBASE_UID };
+      }
 
-      const off = auth.onAuthStateChanged((u) => {
-        if (done) return;
-        if (u && u.uid) {
-          done = true;
-          clearTimeout(timer);
-          try { off(); } catch(_) {}
-          resolve(u);
-        }
-      }, (err) => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        try { off(); } catch(_) {}
-        reject(err || new Error('auth state failed'));
-      });
-    });
+      if (W.HHA_FIREBASE_ERROR) {
+        throw new Error(W.HHA_FIREBASE_ERROR);
+      }
 
-    state.uid = user.uid;
-    return user;
+      await sleep(120);
+    }
+
+    throw new Error('anonymous auth timeout');
   }
 
   function getDb(){
@@ -1254,6 +1247,10 @@
       await waitStageReady(ui.duetGameStage);
       await ensureAuth();
 
+      if (!ctx.roomId) {
+        throw new Error('missing room id');
+      }
+
       state.refs = {
         root: getDb().ref(`hha-battle/goodjunk/duetRooms/${ctx.roomId}`),
         state: getDb().ref(`hha-battle/goodjunk/duetRooms/${ctx.roomId}/state`),
@@ -1279,7 +1276,7 @@
     } catch (err) {
       console.error('[duet-run] boot failed', err);
       setCoach(`เริ่ม duet run ไม่สำเร็จ: ${err && err.message ? err.message : err}`, '⚠️ Error');
-      setCountdown(true, '!', 'firebase หรือ room ยังไม่พร้อม');
+      setCountdown(true, '!', (err && err.message) ? err.message : 'firebase หรือ room ยังไม่พร้อม');
     }
   }
 
