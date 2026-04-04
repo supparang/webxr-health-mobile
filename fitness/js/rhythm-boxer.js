@@ -1,11 +1,11 @@
 // === /fitness/js/rhythm-boxer.js ===
 // Rhythm Boxer — FULL CLEAN FINAL
-// PATCH v20260404b-RB-PC-NORMAL-VERY-LONG-VISIBLE
+// PATCH v20260404c-RB-SMOOTHER-LONG-VISIBLE
+// ✅ smoother animation
+// ✅ beat pulse no longer fires every frame
+// ✅ note still visible long enough
 // ✅ cooldown gate flow
 // ✅ correct path from /fitness/ -> /herohealth/
-// ✅ PC normal tuned for very long visible fall
-// ✅ note visible much earlier from above screen
-// ✅ judge windows wider
 // ✅ child-friendly
 // ✅ missions + stars + medal + badge
 // ✅ boss round
@@ -314,6 +314,8 @@
       lastBossPatternAt:0
     },
 
+    lastBeatBucket:-1,
+
     endReason:'timeup',
     phase:'warmup',
 
@@ -421,6 +423,18 @@
       if(FIELD) FIELD.classList.remove('rb-beat-pulse');
       if(LANES_WRAP) LANES_WRAP.classList.remove('rb-lanes-pulse');
     }, 110);
+  }
+
+  function maybeBeatPulse(now){
+    const track = TRACKS[S.trackKey] || TRACKS.n1;
+    const beatMs = 60000 / (track.bpm || 120);
+    const tRel = Math.max(0, now - S.t0);
+    const bucket = Math.floor(tRel / beatMs);
+
+    if(bucket !== S.lastBeatBucket){
+      S.lastBeatBucket = bucket;
+      beatPulse();
+    }
   }
 
   function coachCallout(text, type='cue'){
@@ -945,11 +959,11 @@
   }
 
   function judgeWindows(){
-    const base = (DIFF === 'hard') ? 108 : (DIFF === 'easy' ? 150 : 124);
+    const base = (DIFF === 'hard') ? 100 : (DIFF === 'easy' ? 138 : 116);
     return {
       perfect: base,
-      great: base * 1.8,
-      good: base * 3.0
+      great: base * 1.75,
+      good: base * 2.9
     };
   }
 
@@ -1009,25 +1023,25 @@
     const view = String(qs('view','pc')).toLowerCase();
 
     if(view === 'pc'){
-      if(DIFF === 'hard') return 4400;
-      if(DIFF === 'easy') return 5600;
-      return 5200;
+      if(DIFF === 'hard') return 3200;
+      if(DIFF === 'easy') return 4300;
+      return 3800;
     }
 
     if(view === 'cvr'){
-      if(DIFF === 'hard') return 3600;
-      if(DIFF === 'easy') return 4600;
-      return 4100;
+      if(DIFF === 'hard') return 2800;
+      if(DIFF === 'easy') return 3600;
+      return 3200;
     }
 
     // mobile
-    if(DIFF === 'hard') return 2900;
-    if(DIFF === 'easy') return 3800;
-    return 3300;
+    if(DIFF === 'hard') return 2300;
+    if(DIFF === 'easy') return 3100;
+    return 2700;
   }
 
   function noteSpawnLeadPx(laneH){
-    return Math.max(180, laneH * 0.52);
+    return Math.max(120, laneH * 0.34);
   }
 
   function spawnNotes(schedule){
@@ -1052,10 +1066,7 @@
     const laneRect = lanes[0].getBoundingClientRect();
     const laneH = laneRect.height || 240;
 
-    // ดันเส้นรับขึ้นสูงกว่าเดิมอีก
-    const hitY = laneH * 0.68;
-
-    // ให้ note เริ่มจากเหนือจอเยอะขึ้นมาก
+    const hitY = laneH * 0.74;
     const spawnLead = noteSpawnLeadPx(laneH);
     const fullPath = hitY + spawnLead;
 
@@ -1065,8 +1076,7 @@
       const tRel = now - S.t0;
       const dtToHit = note.tHit - tRel;
 
-      // spawn ก่อนเข้าจอจริงนานขึ้น
-      if(!note.spawned && dtToHit < (travel + 520)){
+      if(!note.spawned && dtToHit < (travel + 260)){
         note.spawned = true;
         note.el = makeNoteEl(note);
       }
@@ -1075,8 +1085,8 @@
         const progress = 1 - (dtToHit / travel);
         const y = (progress * fullPath) - spawnLead;
 
-        const yy = clamp(y, -spawnLead - 72, hitY + 90);
-        note.el.style.transform = `translate(-50%, ${yy}px)`;
+        const yy = clamp(y, -spawnLead - 48, hitY + 84);
+        note.el.style.transform = `translate3d(-50%, ${yy}px, 0)`;
 
         const win = judgeWindows().good;
         if(dtToHit < -win){
@@ -1345,6 +1355,8 @@
       bossStep:0,
       lastBossPatternAt:0
     };
+
+    S.lastBeatBucket = -1;
 
     S.mission = {
       stars:0,
@@ -1772,7 +1784,7 @@
     }
 
     maybePhaseChange(now);
-    beatPulse();
+    maybeBeatPulse(now);
     bossTick(now);
     drainFever(dt);
     renderNotes(now);
