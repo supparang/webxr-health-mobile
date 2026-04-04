@@ -3,603 +3,199 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Plate Launcher</title>
-  <meta name="color-scheme" content="dark" />
-  <meta name="theme-color" content="#10213c" />
-  <link rel="icon" href="./favicon.ico" />
+  <title>HeroHealth • Plate Solo Launcher</title>
+  <meta name="theme-color" content="#9fe3ff" />
   <style>
-    :root{
-      --bg1:#081426;
-      --bg2:#10213c;
-      --bg3:#17335c;
-      --bg4:#24508d;
-
-      --panel:rgba(12,20,38,.76);
-      --panel-2:rgba(18,31,56,.9);
-      --line:rgba(255,255,255,.12);
-      --line-strong:rgba(255,255,255,.2);
-
-      --text:#f8fbff;
-      --muted:#d7e4ff;
-      --soft:#b8cffc;
-
-      --green:#34d399;
-      --yellow:#fbbf24;
-      --orange:#fb923c;
-      --red:#f87171;
-      --pink:#f472b6;
-      --blue:#60a5fa;
-      --violet:#a78bfa;
-
-      --shadow:0 22px 60px rgba(0,0,0,.34);
-      --radius:26px;
-      --radius-lg:32px;
-      --radius-sm:16px;
-      --safe-top:max(14px, env(safe-area-inset-top));
-      --safe-bottom:max(14px, env(safe-area-inset-bottom));
-    }
-
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; min-height:100%; font-family:ui-rounded, "Noto Sans Thai", system-ui, sans-serif; color:var(--text); }
     body{
-      background:
-        radial-gradient(900px 500px at 10% -10%, rgba(96,165,250,.26), transparent 60%),
-        radial-gradient(700px 420px at 100% 0%, rgba(244,114,182,.16), transparent 58%),
-        linear-gradient(180deg, var(--bg3), var(--bg2) 46%, var(--bg1));
-      min-height:100vh;
+      margin:0; font-family:system-ui,sans-serif;
+      background:linear-gradient(180deg,#eaf8ff,#fffdf2);
+      color:#2f3a45;
     }
-
-    .shell{
-      width:min(1120px, calc(100% - 24px));
-      margin:0 auto;
-      padding:var(--safe-top) 0 var(--safe-bottom);
+    .wrap{
+      max-width:720px; margin:0 auto; padding:24px 16px 40px;
     }
-
-    .hero{
-      position:relative;
-      overflow:hidden;
-      border:1px solid var(--line);
-      border-radius:var(--radius-lg);
-      background:
-        radial-gradient(520px 240px at 12% 10%, rgba(251,191,36,.2), transparent 60%),
-        radial-gradient(440px 220px at 88% 14%, rgba(52,211,153,.16), transparent 60%),
-        linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02)),
-        var(--panel);
-      box-shadow:var(--shadow);
-      padding:24px;
-    }
-
-    .hero::after{
-      content:"";
-      position:absolute;
-      inset:auto -30px -48px auto;
-      width:240px;
-      height:240px;
-      border-radius:50%;
-      background:radial-gradient(circle at 30% 30%, rgba(255,255,255,.22), rgba(255,255,255,.04) 50%, transparent 72%);
-      pointer-events:none;
-    }
-
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
+    .card{
+      background:#fff; border:1px solid #dbeaf4; border-radius:24px;
+      padding:18px; box-shadow:0 10px 24px rgba(0,0,0,.06);
       margin-bottom:16px;
     }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
+    h1{ margin:0 0 8px; font-size:28px; }
+    p{ margin:0 0 10px; line-height:1.45; }
+    .row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    label{ display:block; font-weight:700; margin-bottom:6px; }
+    select,button{
+      width:100%; min-height:48px; border-radius:14px; border:1px solid #cfe3ef;
+      font-size:16px; padding:0 12px;
     }
-
-    .brand-badge{
-      width:56px;
-      height:56px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      font-size:30px;
-      background:linear-gradient(135deg, rgba(251,191,36,.3), rgba(244,114,182,.22));
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:0 10px 24px rgba(0,0,0,.22);
+    button{
+      font-weight:800; cursor:pointer; background:#7fcfff; color:#13324a;
     }
-
-    .brand h1{
-      margin:0;
-      font-size:clamp(26px, 4.2vw, 40px);
-      line-height:1.05;
-      font-weight:900;
-      letter-spacing:.01em;
-    }
-
-    .brand p{
-      margin:4px 0 0;
-      color:var(--muted);
-      font-size:15px;
-      line-height:1.45;
-    }
-
-    .mini-pills{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:40px;
-      padding:0 14px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.14);
-      color:var(--soft);
-      font-weight:800;
-      font-size:14px;
-      box-shadow:0 8px 20px rgba(0,0,0,.16);
-    }
-
-    .hero-grid{
-      display:grid;
-      grid-template-columns:1.2fr .9fr;
-      gap:18px;
-      margin-top:18px;
-    }
-
-    .panel{
-      border:1px solid var(--line);
-      border-radius:28px;
-      background:var(--panel-2);
-      box-shadow:var(--shadow);
-      padding:18px;
-    }
-
-    .title{
-      margin:0 0 10px;
-      font-size:21px;
-      font-weight:900;
-    }
-
-    .sub{
-      margin:0 0 14px;
-      color:var(--muted);
-      line-height:1.55;
-      font-size:15px;
-    }
-
-    .mission{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
-      gap:12px;
-      margin-top:14px;
-    }
-
-    .mission-card{
-      border-radius:22px;
-      padding:14px;
-      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
-      border:1px solid rgba(255,255,255,.12);
-    }
-
-    .mission-card .emoji{
-      font-size:28px;
-      margin-bottom:8px;
-    }
-
-    .mission-card .name{
-      font-weight:900;
-      margin:0 0 6px;
-      font-size:15px;
-    }
-
-    .mission-card .txt{
-      margin:0;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.45;
-    }
-
-    .picker-grid{
-      display:grid;
-      gap:12px;
-    }
-
-    .field{
-      display:grid;
-      gap:8px;
-    }
-
-    .field label{
-      font-size:14px;
-      font-weight:900;
-      color:var(--soft);
-    }
-
-    .seg{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:10px;
-    }
-
-    .seg.two{ grid-template-columns:repeat(2,1fr); }
-
-    .seg button{
-      border:0;
-      min-height:54px;
-      border-radius:18px;
-      padding:10px 12px;
-      font:inherit;
-      font-weight:900;
-      color:var(--text);
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.12);
-      box-shadow:0 10px 20px rgba(0,0,0,.16);
-      cursor:pointer;
-      transition:transform .14s ease, border-color .14s ease, background .14s ease;
-    }
-
-    .seg button.active{
-      background:linear-gradient(180deg, rgba(96,165,250,.24), rgba(96,165,250,.14));
-      border-color:rgba(96,165,250,.55);
-      transform:translateY(-1px);
-    }
-
-    .cta{
-      display:flex;
-      gap:12px;
-      flex-wrap:wrap;
-      margin-top:16px;
-    }
-
-    .btn{
-      appearance:none;
-      border:0;
-      cursor:pointer;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      min-height:54px;
-      padding:0 20px;
-      border-radius:18px;
-      font:inherit;
-      font-weight:900;
-      color:var(--text);
-      box-shadow:0 14px 30px rgba(0,0,0,.22);
-      transition:transform .14s ease, opacity .14s ease, filter .14s ease;
-    }
-
-    .btn:hover{ filter:brightness(1.04); }
-    .btn:active{ transform:translateY(1px) scale(.99); }
-
-    .btn.primary{
-      background:linear-gradient(135deg, var(--green), var(--blue));
-    }
-
-    .btn.secondary{
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.14);
-    }
-
-    .coach{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      border-radius:22px;
-      padding:14px;
-      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
-      border:1px solid rgba(255,255,255,.12);
-      margin-top:14px;
-    }
-
-    .coach-face{
-      width:56px;
-      height:56px;
-      flex:0 0 auto;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      font-size:30px;
-      background:linear-gradient(135deg, rgba(251,191,36,.28), rgba(244,114,182,.18));
-      border:1px solid rgba(255,255,255,.12);
-    }
-
-    .coach p{
-      margin:0;
-      line-height:1.55;
-      color:var(--muted);
-      font-size:15px;
-    }
-
-    .quick-facts{
-      display:grid;
-      grid-template-columns:repeat(3, minmax(0,1fr));
-      gap:10px;
-      margin-top:14px;
-    }
-
-    .fact{
-      border-radius:18px;
-      padding:12px;
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.1);
-      text-align:center;
-    }
-
-    .fact .n{
-      display:block;
-      font-size:26px;
-      font-weight:900;
-      margin-bottom:2px;
-    }
-
-    .fact .t{
-      color:var(--soft);
-      font-size:13px;
-      font-weight:800;
-    }
-
-    .footer-note{
-      text-align:center;
-      color:var(--soft);
-      font-size:13px;
-      margin-top:14px;
-      opacity:.92;
-    }
-
-    @media (max-width: 900px){
-      .hero-grid{ grid-template-columns:1fr; }
-    }
-
-    @media (max-width: 640px){
-      .shell{ width:min(100% - 14px, 100%); }
-      .hero{ padding:16px; border-radius:24px; }
-      .panel{ border-radius:22px; padding:14px; }
-      .mission{ grid-template-columns:1fr; }
-      .quick-facts{ grid-template-columns:1fr; }
-      .seg{ grid-template-columns:1fr; }
-      .seg.two{ grid-template-columns:1fr; }
-      .btn{ width:100%; }
-    }
+    .ghost{ background:#fff; }
+    .tips li{ margin:6px 0; }
+    .actions{ display:grid; grid-template-columns:1fr; gap:12px; }
   </style>
 </head>
 <body>
-  <main class="shell">
-    <section class="hero">
-      <div class="topbar">
-        <div class="brand">
-          <div class="brand-badge">🍽️</div>
-          <div>
-            <h1>Plate Adventure</h1>
-            <p>จัดจานให้สมดุล สนุก เข้าใจง่าย และเป็นเพื่อนกับเด็ก</p>
-          </div>
-        </div>
+  <div class="wrap">
+    <div class="card">
+      <h1>Balanced Plate</h1>
+      <p>จัดอาหารลงจานให้สมดุล เลือกหมู่ให้ถูก และทำคะแนนให้ดีที่สุด</p>
+    </div>
 
-        <div class="mini-pills">
-          <div class="pill">🥦 Nutrition Zone</div>
-          <div class="pill" id="playerPill">👦 Player: anon</div>
-          <div class="pill" id="viewPill">📱 View: mobile</div>
+    <div class="card">
+      <div class="row">
+        <div>
+          <label for="selDiff">ระดับความยาก</label>
+          <select id="selDiff">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div>
+          <label for="selTime">เวลา</label>
+          <select id="selTime">
+            <option value="60">60 วินาที</option>
+            <option value="90" selected>90 วินาที</option>
+            <option value="120">120 วินาที</option>
+          </select>
         </div>
       </div>
+    </div>
 
-      <div class="hero-grid">
-        <section class="panel">
-          <h2 class="title">ภารกิจของเกมนี้</h2>
-          <p class="sub">
-            เกมนี้เน้น <b>จัดจานให้สมดุล</b> เด็กจะเลือกอาหารที่เหมาะ ใส่ให้ครบหมู่ และดูทันทีว่าอะไรยังขาดหรือเกิน
-          </p>
+    <div class="card">
+      <ul class="tips">
+        <li>เลือกอาหารให้ตรงหมู่</li>
+        <li>วางให้ถูกส่วนของจาน</li>
+        <li>ทำคอมโบต่อเนื่องเพื่อรับโบนัส</li>
+      </ul>
+    </div>
 
-          <div class="mission">
-            <article class="mission-card">
-              <div class="emoji">🥗</div>
-              <p class="name">ครบหมู่</p>
-              <p class="txt">มีคาร์บ โปรตีน ผัก ผลไม้ และไขมันอย่างพอดี</p>
-            </article>
-
-            <article class="mission-card">
-              <div class="emoji">✨</div>
-              <p class="name">สมดุล</p>
-              <p class="txt">ไม่ใช่แค่ใส่ถูกหมู่ แต่ต้องมีปริมาณที่เหมาะกับทั้งจาน</p>
-            </article>
-
-            <article class="mission-card">
-              <div class="emoji">🚫</div>
-              <p class="name">หลบตัวลวง</p>
-              <p class="txt">ของทอด ขนมหวาน หรือของมันมากเกินไป จะทำให้จานเสียสมดุล</p>
-            </article>
-
-            <article class="mission-card">
-              <div class="emoji">⭐</div>
-              <p class="name">สะสมดาว</p>
-              <p class="txt">ตรวจจานแต่ละด่าน แล้วเก็บดาวให้มากที่สุด</p>
-            </article>
-          </div>
-
-          <div class="coach">
-            <div class="coach-face">🧑‍🍳</div>
-            <p>
-              โค้ชเชฟบอกว่า: “เลือกอาหารทีละชิ้นก็ได้ ไม่ต้องรีบ ดูให้ครบก่อนว่า
-              จานนี้ยังขาด <b>ผัก</b> หรือ <b>ผลไม้</b> ไหม แล้วค่อยกดตรวจจานนะ”
-            </p>
-          </div>
-
-          <div class="quick-facts">
-            <div class="fact">
-              <span class="n">3–5</span>
-              <span class="t">ด่านต่อรอบ</span>
-            </div>
-            <div class="fact">
-              <span class="n">1–3</span>
-              <span class="t">ดาวต่อด่าน</span>
-            </div>
-            <div class="fact">
-              <span class="n">90s</span>
-              <span class="t">ค่าเวลาเริ่มต้น</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2 class="title">ตั้งค่าก่อนเริ่ม</h2>
-          <p class="sub">เลือกโหมดที่ต้องการ แล้วกดเริ่มเล่นได้เลย</p>
-
-          <div class="picker-grid">
-            <div class="field">
-              <label>ระดับ</label>
-              <div class="seg" id="diffSeg">
-                <button type="button" data-value="easy">😊 Easy</button>
-                <button type="button" data-value="normal" class="active">😎 Normal</button>
-                <button type="button" data-value="hard">🔥 Hard</button>
-              </div>
-            </div>
-
-            <div class="field">
-              <label>เวลา</label>
-              <div class="seg" id="timeSeg">
-                <button type="button" data-value="60">60 วิ</button>
-                <button type="button" data-value="90" class="active">90 วิ</button>
-                <button type="button" data-value="120">120 วิ</button>
-              </div>
-            </div>
-
-            <div class="field">
-              <label>มุมมอง</label>
-              <div class="seg two" id="viewSeg">
-                <button type="button" data-value="mobile" class="active">📱 Mobile</button>
-                <button type="button" data-value="pc">🖥️ PC</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="cta">
-            <button id="btnStart" class="btn primary" type="button">▶️ เริ่มผ่าน Warmup</button>
-            <button id="btnDirect" class="btn secondary" type="button">⚡ เข้าเกมตรง</button>
-            <a id="btnBackHub" class="btn secondary" href="./hub.html">🏠 กลับ HUB</a>
-          </div>
-
-          <p class="footer-note">
-            launcher นี้จะส่งต่อค่า run / diff / time / seed / pid / hub และ context สำคัญไปหน้าเกม
-          </p>
-        </section>
-      </div>
-    </section>
-  </main>
+    <div class="actions">
+      <button id="btnStart">เริ่มเล่น</button>
+      <button id="btnBackHub" class="ghost">กลับ HUB</button>
+    </div>
+  </div>
 
   <script>
-    (function(){
-      'use strict';
+  (function(){
+    'use strict';
 
-      const PASS_KEYS = [
-        'pid','nick','name',
-        'run','view','diff','time','seed',
-        'studyId','phase','conditionGroup','sessionOrder','blockLabel',
-        'siteCode','schoolYear','semester',
-        'log','api','debug',
-        'grade','zone'
-      ];
-
-      const qs = new URLSearchParams(location.search);
-
-      const state = {
-        diff: qs.get('diff') || 'normal',
-        time: String(Number(qs.get('time')) || 90),
-        view: qs.get('view') || 'mobile'
+    function qs(name, fallback=''){
+      try{ return new URL(location.href).searchParams.get(name) ?? fallback; }
+      catch(_){ return fallback; }
+    }
+    function num(v, d=0){
+      v = Number(v);
+      return Number.isFinite(v) ? v : d;
+    }
+    function clean(v, d=''){
+      v = String(v ?? '').trim();
+      return v || d;
+    }
+    function bangkokYmd(){
+      try{
+        const parts = new Intl.DateTimeFormat('en-CA',{
+          timeZone:'Asia/Bangkok', year:'numeric', month:'2-digit', day:'2-digit'
+        }).formatToParts(new Date());
+        const m = {};
+        for(const p of parts) if(p.type !== 'literal') m[p.type] = p.value;
+        return `${m.year}${m.month}${m.day}`;
+      }catch(_){
+        const d = new Date();
+        return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      }
+    }
+    function getCtx(){
+      return {
+        pid: clean(qs('pid'),'anon'),
+        name: clean(qs('name'),''),
+        studyId: clean(qs('studyId'),''),
+        diff: clean(qs('diff'),'normal'),
+        time: num(qs('time'),90),
+        seed: clean(qs('seed'), String(Date.now())),
+        hub: clean(qs('hub'), '/webxr-health-mobile/herohealth/hub.html'),
+        view: clean(qs('view'),'mobile'),
+        run: clean(qs('run'),'play'),
+        zone: clean(qs('zone'),'nutrition'),
+        game: 'plate',
+        mode: 'solo'
       };
+    }
+    function gateKey(phase, ctx){
+      return `HHA_GATE_${phase.toUpperCase()}_${ctx.pid}_${ctx.game}_${ctx.mode}_${bangkokYmd()}`;
+    }
+    function isGateDone(phase, ctx){
+      try{ return localStorage.getItem(gateKey(phase, ctx)) === '1'; }
+      catch(_){ return false; }
+    }
+    function withPassthrough(path, ctx, extra={}){
+      const u = new URL(path, location.origin);
+      const payload = {
+        pid: ctx.pid,
+        name: ctx.name,
+        studyId: ctx.studyId,
+        diff: ctx.diff,
+        time: String(ctx.time),
+        seed: ctx.seed,
+        hub: ctx.hub,
+        view: ctx.view,
+        run: ctx.run,
+        zone: ctx.zone,
+        game: ctx.game,
+        mode: ctx.mode,
+        ...extra
+      };
+      for(const [k,v] of Object.entries(payload)){
+        if(v !== '' && v != null) u.searchParams.set(k, String(v));
+      }
+      return u.toString();
+    }
 
-      const $ = (sel) => document.querySelector(sel);
+    const ctx = getCtx();
+    const $diff = document.getElementById('selDiff');
+    const $time = document.getElementById('selTime');
+    const $start = document.getElementById('btnStart');
+    const $hub = document.getElementById('btnBackHub');
 
-      const player = qs.get('nick') || qs.get('name') || qs.get('pid') || 'anon';
-      $('#playerPill').textContent = `👦 Player: ${player}`;
+    $diff.value = ctx.diff;
+    $time.value = String(ctx.time);
 
-      function bindSeg(id, key){
-        const root = document.getElementById(id);
-        if(!root) return;
-        root.querySelectorAll('button').forEach((btn) => {
-          if(btn.dataset.value === state[key]) btn.classList.add('active');
-          btn.addEventListener('click', () => {
-            root.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
-            btn.classList.add('active');
-            state[key] = btn.dataset.value;
-            if(key === 'view'){
-              $('#viewPill').textContent = `📱 View: ${state.view}`;
-            }
-          });
-        });
+    function buildCtxFromUi(){
+      return {
+        ...ctx,
+        diff: clean($diff.value, 'normal'),
+        time: num($time.value, 90),
+        seed: String(Date.now())
+      };
+    }
+
+    function goStart(){
+      const nextCtx = buildCtxFromUi();
+      const warmupDone = isGateDone('warmup', nextCtx);
+
+      if(!warmupDone){
+        location.href = withPassthrough(
+          '/webxr-health-mobile/herohealth/warmup-gate.html',
+          nextCtx,
+          {
+            phase: 'warmup',
+            next: '/webxr-health-mobile/herohealth/plate/plate-vr.html'
+          }
+        );
+        return;
       }
 
-      bindSeg('diffSeg', 'diff');
-      bindSeg('timeSeg', 'time');
-      bindSeg('viewSeg', 'view');
-      $('#viewPill').textContent = `📱 View: ${state.view}`;
+      location.href = withPassthrough('/webxr-health-mobile/herohealth/plate/plate-vr.html', nextCtx);
+    }
 
-      function carryQuery(url, extra = {}){
-        const u = new URL(url, location.href);
-        PASS_KEYS.forEach((k) => {
-          if(qs.has(k) && !u.searchParams.has(k)) u.searchParams.set(k, qs.get(k));
-        });
-        Object.entries(extra).forEach(([k,v]) => {
-          if(v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v));
-        });
-        return u.toString();
-      }
+    function goHub(){
+      location.href = ctx.hub || '/webxr-health-mobile/herohealth/hub.html';
+    }
 
-      function getHubUrl(){
-        return qs.get('hub') || new URL('./hub.html', location.href).toString();
-      }
-
-      function buildRunUrl(){
-        const seed = qs.get('seed') || String(Date.now());
-        return carryQuery('./plate/plate-vr.html', {
-          diff: state.diff,
-          time: state.time,
-          view: state.view,
-          seed,
-          zone: 'nutrition',
-          game: 'plate',
-          hub: getHubUrl()
-        });
-      }
-
-      function buildWarmupUrl(){
-        const gate = new URL('./warmup-gate.html', location.href);
-        gate.searchParams.set('gatePhase', 'warmup');
-        gate.searchParams.set('phase', 'warmup');
-        gate.searchParams.set('cat', 'nutrition');
-        gate.searchParams.set('theme', 'plate');
-        gate.searchParams.set('game', 'plate');
-        gate.searchParams.set('hub', getHubUrl());
-        gate.searchParams.set('next', buildRunUrl());
-
-        PASS_KEYS.forEach((k) => {
-          if(qs.has(k) && !gate.searchParams.has(k)) gate.searchParams.set(k, qs.get(k));
-        });
-
-        gate.searchParams.set('diff', state.diff);
-        gate.searchParams.set('time', state.time);
-        gate.searchParams.set('view', state.view);
-        gate.searchParams.set('zone', 'nutrition');
-
-        if(!gate.searchParams.has('pid')){
-          gate.searchParams.set('pid', qs.get('pid') || 'anon');
-        }
-        return gate.toString();
-      }
-
-      $('#btnStart').addEventListener('click', () => {
-        location.href = buildWarmupUrl();
-      });
-
-      $('#btnDirect').addEventListener('click', () => {
-        location.href = buildRunUrl();
-      });
-
-      $('#btnBackHub').href = getHubUrl();
-    })();
+    $start?.addEventListener('click', goStart);
+    $hub?.addEventListener('click', goHub);
+  })();
   </script>
 </body>
 </html>
