@@ -3,17 +3,175 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Warmup / Cooldown Gate</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./gate/gate-common.css?v=20260312d" />
+  <title>HeroHealth • Gate</title>
+  <style>
+    body{
+      margin:0; font-family:system-ui,sans-serif;
+      background:linear-gradient(180deg,#f1fbff,#fff8ef);
+      color:#334155;
+      display:grid; min-height:100vh; place-items:center;
+    }
+    .card{
+      width:min(92vw,640px);
+      background:#fff; border:1px solid #d9ebf6; border-radius:28px;
+      padding:24px 18px; box-shadow:0 12px 28px rgba(0,0,0,.08);
+      text-align:center;
+    }
+    h1{ margin:0 0 8px; font-size:30px; }
+    p{ margin:0 0 18px; line-height:1.5; }
+    .mini{
+      width:120px; height:120px; border-radius:999px;
+      margin:18px auto; background:radial-gradient(circle at 30% 30%,#bde9ff,#7fcfff);
+      display:grid; place-items:center; font-weight:900; color:#174b6b;
+      user-select:none;
+    }
+    .sub{ color:#64748b; font-size:14px; }
+    button{
+      width:100%; min-height:50px; border:1px solid #cde2ef;
+      border-radius:16px; background:#7fcfff; color:#163850;
+      font-size:17px; font-weight:800; cursor:pointer;
+    }
+  </style>
 </head>
 <body>
-  <div id="gate-app"></div>
+  <div class="card">
+    <h1 id="title">Warmup</h1>
+    <p id="desc">มาเตรียมตัวก่อนเล่นกัน</p>
 
-  <script type="module">
-    import bootGate from './gate/gate-core.js?v=20260319c-GATE-NEXTKEY-HUB-CANONICAL';
-    bootGate(document.getElementById('gate-app'));
+    <div class="mini" id="miniCircle">3</div>
+    <p class="sub" id="miniHint">แตะปุ่มเมื่อพร้อม</p>
+
+    <button id="btnContinue">เริ่มต่อ</button>
+  </div>
+
+  <script>
+  (function(){
+    'use strict';
+
+    function qs(name, fallback=''){
+      try{ return new URL(location.href).searchParams.get(name) ?? fallback; }
+      catch(_){ return fallback; }
+    }
+    function clean(v, d=''){
+      v = String(v ?? '').trim();
+      return v || d;
+    }
+    function bangkokYmd(){
+      try{
+        const parts = new Intl.DateTimeFormat('en-CA',{
+          timeZone:'Asia/Bangkok', year:'numeric', month:'2-digit', day:'2-digit'
+        }).formatToParts(new Date());
+        const m = {};
+        for(const p of parts) if(p.type !== 'literal') m[p.type] = p.value;
+        return `${m.year}${m.month}${m.day}`;
+      }catch(_){
+        const d = new Date();
+        return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      }
+    }
+    function getCtx(){
+      return {
+        pid: clean(qs('pid'),'anon'),
+        name: clean(qs('name'),''),
+        studyId: clean(qs('studyId'),''),
+        diff: clean(qs('diff'),'normal'),
+        time: clean(qs('time'),'90'),
+        seed: clean(qs('seed'), String(Date.now())),
+        hub: clean(qs('hub'), '/webxr-health-mobile/herohealth/hub.html'),
+        view: clean(qs('view'),'mobile'),
+        run: clean(qs('run'),'play'),
+        zone: clean(qs('zone'),'nutrition'),
+        game: clean(qs('game'),'plate'),
+        mode: clean(qs('mode'),'solo')
+      };
+    }
+    function gateKey(phase, ctx){
+      return `HHA_GATE_${phase.toUpperCase()}_${ctx.pid}_${ctx.game}_${ctx.mode}_${bangkokYmd()}`;
+    }
+    function setGateDone(phase, ctx){
+      try{
+        localStorage.setItem(gateKey(phase, ctx), '1');
+        localStorage.setItem(gateKey(phase, ctx) + '_META', JSON.stringify({
+          ts: Date.now(),
+          iso: new Date().toISOString(),
+          pid: ctx.pid,
+          game: ctx.game,
+          mode: ctx.mode
+        }));
+      }catch(_){}
+    }
+    function withPassthrough(path, ctx, extra={}){
+      const u = new URL(path, location.origin);
+      const payload = {
+        pid: ctx.pid,
+        name: ctx.name,
+        studyId: ctx.studyId,
+        diff: ctx.diff,
+        time: ctx.time,
+        seed: ctx.seed,
+        hub: ctx.hub,
+        view: ctx.view,
+        run: ctx.run,
+        zone: ctx.zone,
+        game: ctx.game,
+        mode: ctx.mode,
+        ...extra
+      };
+      for(const [k,v] of Object.entries(payload)){
+        if(v !== '' && v != null) u.searchParams.set(k, String(v));
+      }
+      return u.toString();
+    }
+    function safeFlushLogs(){
+      try{
+        if(window.HHA_LOGGER && typeof window.HHA_LOGGER.flush === 'function'){
+          window.HHA_LOGGER.flush();
+        }
+      }catch(_){}
+    }
+
+    const ctx = getCtx();
+    const phase = clean(qs('phase'), 'warmup');
+    const next = clean(qs('next'), '/webxr-health-mobile/herohealth/plate/plate-vr.html');
+
+    const $title = document.getElementById('title');
+    const $desc = document.getElementById('desc');
+    const $mini = document.getElementById('miniCircle');
+    const $hint = document.getElementById('miniHint');
+    const $btn = document.getElementById('btnContinue');
+
+    function renderPhase(){
+      if(phase === 'cooldown'){
+        $title.textContent = 'Cooldown';
+        $desc.textContent = 'วันนี้ทำได้ดีมาก พักสั้น ๆ ก่อนกลับ HUB';
+        $mini.textContent = 'พัก';
+        $hint.textContent = 'เมื่อพร้อมแล้วกดกลับ';
+        $btn.textContent = 'กลับ HUB';
+        return;
+      }
+
+      $title.textContent = 'Warmup';
+      $desc.textContent = 'มาเตรียมตัวก่อนเล่นกัน พร้อมจัดจานสุขภาพแล้วไหม';
+      $mini.textContent = 'พร้อม';
+      $hint.textContent = 'กดเพื่อเริ่มเกมหลัก';
+      $btn.textContent = 'เริ่มเกม';
+    }
+
+    function finishGate(){
+      if(phase === 'cooldown'){
+        setGateDone('cooldown', ctx);
+        safeFlushLogs();
+        location.href = ctx.hub || '/webxr-health-mobile/herohealth/hub.html';
+        return;
+      }
+
+      setGateDone('warmup', ctx);
+      location.href = withPassthrough(next, ctx);
+    }
+
+    renderPhase();
+    $btn?.addEventListener('click', finishGate);
+  })();
   </script>
 </body>
 </html>
