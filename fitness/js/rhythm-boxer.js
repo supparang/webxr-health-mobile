@@ -1241,4 +1241,646 @@
   }
 
   // --------------------------------------------------
-  //
+  // inputs
+  // --------------------------------------------------
+  function bindInputs(){
+    if(LANES_WRAP){
+      LANES_WRAP.addEventListener('pointerdown', (e)=>{
+        const laneEl = e.target.closest('.rb-lane');
+        if(!laneEl) return;
+        const lane = Number(laneEl.getAttribute('data-lane'));
+        if(!Number.isFinite(lane)) return;
+        handleTap(lane, 'pointer');
+      });
+    }
+
+    const keyMap = { 'a':0, 's':1, 'd':2, 'j':3, 'k':4 };
+    W.addEventListener('keydown', (e)=>{
+      const k = String(e.key || '').toLowerCase();
+      if(!(k in keyMap)) return;
+      e.preventDefault();
+      handleTap(keyMap[k], 'key');
+    }, {passive:false});
+  }
+
+  // --------------------------------------------------
+  // phase
+  // --------------------------------------------------
+  function phaseOf(now){
+    const dur = Math.max(1, S.tEnd - S.t0);
+    const p = clamp((now - S.t0) / dur, 0, 1);
+    if(p < 0.18) return 'warmup';
+    if(p < 0.48) return 'groove';
+    if(p < 0.78) return 'rush';
+    return 'boss';
+  }
+
+  function maybePhaseChange(now){
+    const phase = phaseOf(now);
+    if(S.phase === phase) return;
+
+    S.phase = phase;
+    if(FIELD) FIELD.setAttribute('data-phase', phase);
+
+    if(phase === 'warmup'){
+      roundBanner('วอร์มอัปก่อนนะ', 'ค่อย ๆ จับจังหวะ', 'warmup');
+    }else if(phase === 'groove'){
+      roundBanner('เริ่มเข้าจังหวะแล้ว!', 'รักษาคอมโบไว้', 'groove');
+    }else if(phase === 'rush'){
+      roundBanner('เร็วขึ้นอีกนิด!', 'มองเส้นแล้วกดให้พอดี', 'rush');
+    }else if(phase === 'boss'){
+      roundBanner('BOSS ROUND!', 'ตีให้แม่นเพื่อลดพลังบอส', 'final');
+      bossStart();
+    }
+  }
+
+  // --------------------------------------------------
+  // lifecycle
+  // --------------------------------------------------
+  function resetStateForRun(){
+    S.running = false;
+    S.t0 = 0;
+    S.tEnd = 0;
+    S.tLast = 0;
+
+    S.score = 0;
+    S.combo = 0;
+    S.maxCombo = 0;
+    S.shots = 0;
+    S.hits = 0;
+    S.perfect = 0;
+    S.great = 0;
+    S.good = 0;
+    S.miss = 0;
+    S.hp = 100;
+    S.shield = 0;
+    S.fever = 0;
+    S.feverOn = false;
+
+    S.offsets = [];
+    S.tapTimes = [];
+    S.blankTaps = 0;
+
+    S.notes = [];
+    S.nextId = 1;
+
+    S.events = [];
+    S.endReason = 'timeup';
+    S.phase = 'warmup';
+
+    S.ai = { fatigue:0, skill:0.5, suggest:'normal', tip:'' };
+    S.aiLastTipAt = 0;
+
+    S.director = {
+      laneBias:[1,1,1,1,1],
+      pressure:0.5,
+      lastAdjustAt:0,
+      skillBand:'mid',
+      fatigueBand:'low',
+      patternSeed:0
+    };
+
+    S.pattern = {
+      current:'basic',
+      bossStep:0,
+      lastBossPatternAt:0
+    };
+
+    S.mission = {
+      stars:0,
+      score1:false,
+      combo1:false,
+      acc1:false,
+      noMiss:false,
+      bossClear:false
+    };
+
+    S.boss = {
+      active:false,
+      hp:0,
+      hpMax:24,
+      windowOn:false,
+      lastSpawnAt:0,
+      introShown:false,
+      clear:false
+    };
+
+    laneEls().forEach(l=>{
+      Array.from(l.querySelectorAll('.rb-note')).forEach(n=>n.remove());
+    });
+
+    if(FIELD){
+      FIELD.classList.remove('is-fever');
+      FIELD.setAttribute('data-phase', 'warmup');
+    }
+
+    if(MISSION_HUD) MISSION_HUD.classList.remove('hidden');
+    if(BOSS_HUD) BOSS_HUD.classList.add('hidden');
+
+    updateMissionHud();
+  }
+
+  function updateHUD(now){
+    const acc = (S.shots > 0) ? (S.hits / S.shots * 100) : 0;
+
+    if(HUD_MODE) HUD_MODE.textContent = (S.mode === 'research' ? 'Research' : 'Normal');
+    if(HUD_TRACK) HUD_TRACK.textContent = TRACKS[S.trackKey].name;
+    if(HUD_SCORE) HUD_SCORE.textContent = String(Math.round(S.score));
+    if(HUD_COMBO) HUD_COMBO.textContent = String(S.combo);
+    if(HUD_ACC) HUD_ACC.textContent = `${acc.toFixed(1)}%`;
+
+    if(HUD_HP) HUD_HP.textContent = String(Math.round(S.hp));
+    if(HUD_SHIELD) HUD_SHIELD.textContent = String(S.shield);
+
+    const t = (now - S.t0) / 1000;
+    if(HUD_TIME) HUD_TIME.textContent = t.toFixed(1);
+
+    if(HUD_PERF) HUD_PERF.textContent = String(S.perfect);
+    if(HUD_GREAT) HUD_GREAT.textContent = String(S.great);
+    if(HUD_GOOD) HUD_GOOD.textContent = String(S.good);
+    if(HUD_MISS) HUD_MISS.textContent = String(S.miss);
+
+    if(FEVER_FILL){
+      FEVER_FILL.style.width = `${clamp(S.fever, 0, 100)}%`;
+      FEVER_FILL.style.opacity = S.feverOn ? '1' : '0.85';
+    }
+    if(FEVER_STATUS){
+      FEVER_STATUS.textContent = S.feverOn ? 'ON' : (S.fever >= 100 ? 'READY' : 'BUILD');
+    }
+
+    const prog = clamp((now - S.t0) / (S.tEnd - S.t0), 0, 1);
+    if(PROG_FILL) PROG_FILL.style.width = `${Math.round(prog*100)}%`;
+    if(PROG_TEXT) PROG_TEXT.textContent = `${Math.round(prog*100)}%`;
+  }
+
+  function startGame(){
+    refreshModeUI();
+    resetStateForRun();
+
+    S.mode = getSelectedMode();
+    S.trackKey = getSelectedTrack();
+    S.seed = SEED;
+    S.rng = rand((SEED|0) ^ (S.trackKey.charCodeAt(0)<<16) ^ (S.trackKey.charCodeAt(1)<<8));
+
+    const schedule = buildSchedule(S.trackKey, TIME_SEC);
+    spawnNotes(schedule);
+
+    showView('play');
+    setFeedback('พร้อม!', 'great');
+
+    mountMissionHud();
+    mountBossHud();
+    updateMissionHud();
+
+    S.running = true;
+    S.t0 = nowMs();
+    S.tLast = S.t0;
+    S.tEnd = S.t0 + TIME_SEC * 1000;
+
+    updateHUD(S.t0);
+    updateAI(S.t0);
+
+    roundBanner('เริ่มเลย!', 'มองเส้นแล้วกดตามจังหวะ', 'warmup');
+
+    logEvent({
+      ...sessionMeta(),
+      kind:'marker',
+      marker:'start',
+      tsIso: nowIso(),
+      durSec: TIME_SEC,
+      bpm: TRACKS[S.trackKey].bpm,
+      density: TRACKS[S.trackKey].density
+    });
+
+    requestAnimationFrame(tick);
+  }
+
+  function stopGame(reason){
+    if(!S.running) return;
+    S.endReason = reason || 'stop';
+    endGame();
+  }
+
+  function computeRank(){
+    const acc = (S.shots > 0) ? (S.hits / S.shots) : 0;
+    const survive = S.hp / 100;
+    const combo = S.maxCombo;
+
+    let score = 0.65*acc + 0.20*survive + 0.15*clamp(combo/80, 0, 1);
+    if(S.mode === 'research') score *= 0.98;
+
+    if(score >= 0.88) return 'S';
+    if(score >= 0.78) return 'A';
+    if(score >= 0.68) return 'B';
+    if(score >= 0.55) return 'C';
+    return 'D';
+  }
+
+  function computeReward(){
+    const rank = computeRank();
+    const acc = (S.shots > 0) ? (S.hits / S.shots) : 0;
+
+    S.mission.noMiss = (S.miss === 0 && S.shots > 0);
+
+    let stars = 0;
+    if(S.mission.score1) stars += 1;
+    if(S.mission.combo1) stars += 1;
+    if(S.mission.acc1) stars += 1;
+
+    if(stars <= 0){
+      if(rank === 'S' || rank === 'A') stars = 2;
+      else stars = 1;
+    }
+
+    let medal = 'bronze';
+    if(stars >= 3) medal = 'gold';
+    else if(stars === 2) medal = 'silver';
+
+    let badge = '-';
+    if(S.mission.bossClear && S.mission.noMiss) badge = 'Boss No-Miss';
+    else if(S.mission.bossClear) badge = 'Boss Clear';
+    else if(S.mission.noMiss) badge = 'No-Miss';
+    else if(S.maxCombo >= 40) badge = 'Combo Hero';
+    else if(acc >= 0.9) badge = 'Timing Star';
+    else if(S.feverOn || S.fever >= 90) badge = 'Fever Kid';
+
+    let label = '';
+    if(stars >= 3) label = 'ได้ 3 ดาว! เยี่ยมมาก!';
+    else if(stars === 2) label = 'ได้ 2 ดาว! เก่งมาก!';
+    else label = 'ได้ 1 ดาว! เริ่มดีมาก!';
+
+    return { stars, medal, badge, label, rank };
+  }
+
+  function makeResultPayload(reward, dur, accPct, offAvg, offStd){
+    return {
+      ...sessionMeta(),
+      kind:'session',
+      endReason:S.endReason,
+      durationSec:dur.toFixed(2),
+      score:Math.round(S.score),
+      maxCombo:S.maxCombo,
+      shots:S.shots,
+      hits:S.hits,
+      accPct:accPct.toFixed(2),
+      perfect:S.perfect,
+      great:S.great,
+      good:S.good,
+      miss:S.miss,
+      hpEnd:Math.round(S.hp),
+      shieldEnd:S.shield,
+      feverEnd:Math.round(S.fever),
+      offsetAbsMeanMs:(offAvg==null ? '' : offAvg.toFixed(2)),
+      offsetAbsStdMs:(offStd==null ? '' : offStd.toFixed(2)),
+      rank:reward.rank,
+      stars:reward.stars,
+      medal:reward.medal,
+      badge:reward.badge,
+      missionScore:S.mission.score1 ? 1 : 0,
+      missionCombo:S.mission.combo1 ? 1 : 0,
+      missionAcc:S.mission.acc1 ? 1 : 0,
+      missionNoMiss:S.mission.noMiss ? 1 : 0,
+      bossClear:S.mission.bossClear ? 1 : 0,
+      bossHpLeft:S.boss.hp,
+      aiSkillBand:S.director.skillBand,
+      aiFatigueBand:S.director.fatigueBand,
+      aiPressure:(S.director.pressure ?? 0).toFixed(3),
+      aiPattern:S.pattern.current || 'basic',
+      tsIsoEnd:nowIso()
+    };
+  }
+
+  function buildCooldownUrl(){
+    const gate = new URL('../herohealth/warmup-gate.html', location.href);
+
+    gate.searchParams.set('phase', 'cooldown');
+    gate.searchParams.set('gatePhase', 'cooldown');
+
+    gate.searchParams.set('zone', ZONE || 'fitness');
+    gate.searchParams.set('cat', CAT || 'fitness');
+    gate.searchParams.set('game', GAME_ID || 'rhythmboxer');
+    gate.searchParams.set('gameId', GAME_ID || 'rhythmboxer');
+    gate.searchParams.set('theme', GAME_ID || 'rhythmboxer');
+
+    gate.searchParams.set('pid', PID || 'anon');
+    gate.searchParams.set('run', RUN || 'play');
+    gate.searchParams.set('diff', DIFF || 'normal');
+    gate.searchParams.set('time', String(TIME_SEC || 80));
+    gate.searchParams.set('seed', String(S.seed || SEED || Date.now()));
+    gate.searchParams.set('view', qs('view', 'pc'));
+    gate.searchParams.set('hub', HUB || '../herohealth/hub.html');
+
+    const cdur = String(qs('cdur', '20')).trim() || '20';
+    gate.searchParams.set('cdur', cdur);
+
+    if (PLAN_DAY) gate.searchParams.set('planDay', PLAN_DAY);
+    if (PLAN_SLOT) gate.searchParams.set('planSlot', PLAN_SLOT);
+    if (AUTO_NEXT || qbool('autoNext', false)) gate.searchParams.set('autoNext', '1');
+
+    return gate.toString();
+  }
+
+  function goCooldownSummary(delayMs = 550){
+    const href = buildCooldownUrl();
+    setTimeout(() => {
+      location.href = href;
+    }, Math.max(0, Number(delayMs) || 0));
+  }
+
+  function goHubNow(){
+    if(HUB){
+      try{
+        location.href = new URL(HUB, location.href).toString();
+      }catch(_){
+        location.href = HUB;
+      }
+      return;
+    }
+    location.href = '../herohealth/hub.html';
+  }
+
+  function endGame(){
+    S.running = false;
+
+    if(S.boss.active){
+      bossEnd(S.boss.hp <= 0);
+    }
+
+    for(const n of S.notes){
+      if(n && n.el) removeNoteEl(n);
+    }
+
+    const endAt = nowMs();
+    const dur = Math.max(0, (endAt - S.t0) / 1000);
+    const accPct = (S.shots > 0) ? (S.hits / S.shots * 100) : 0;
+
+    const off = S.offsets.filter(x=>Number.isFinite(x));
+    const offAbs = off.map(x=>Math.abs(x));
+    const offAvg = mean(offAbs);
+    const offStd = std(offAbs);
+
+    const reward = computeReward();
+
+    showView('result');
+
+    if(RES_MODE) RES_MODE.textContent = (S.mode === 'research' ? 'Research' : 'Normal');
+    if(RES_TRACK) RES_TRACK.textContent = TRACKS[S.trackKey].name;
+    if(RES_END) RES_END.textContent = S.endReason || 'timeup';
+    if(RES_SCORE) RES_SCORE.textContent = String(Math.round(S.score));
+    if(RES_MAXCOMBO) RES_MAXCOMBO.textContent = String(S.maxCombo);
+    if(RES_DETAIL_HIT) RES_DETAIL_HIT.textContent = `${S.perfect} / ${S.great} / ${S.good} / ${S.miss}`;
+    if(RES_ACC) RES_ACC.textContent = `${accPct.toFixed(1)} %`;
+    if(RES_DUR) RES_DUR.textContent = `${dur.toFixed(1)} s`;
+    if(RES_RANK) RES_RANK.textContent = reward.rank;
+    if(RES_OFF_AVG) RES_OFF_AVG.textContent = (offAvg==null ? '-' : `${offAvg.toFixed(1)} ms`);
+    if(RES_OFF_STD) RES_OFF_STD.textContent = (offStd==null ? '-' : `${offStd.toFixed(1)} ms`);
+    if(RES_PART) RES_PART.textContent = (IN_PART && IN_PART.value) ? String(IN_PART.value).trim() : '-';
+
+    if(RES_STARS) RES_STARS.textContent = '⭐'.repeat(Math.max(1, reward.stars || 1));
+    if(RES_MEDAL){
+      RES_MEDAL.textContent =
+        reward.medal === 'gold' ? 'Gold' :
+        reward.medal === 'silver' ? 'Silver' : 'Bronze';
+      RES_MEDAL.className = `rb-reward-medal ${reward.medal || 'bronze'}`;
+    }
+    if(RES_BADGE) RES_BADGE.textContent = reward.badge || '-';
+    if(RES_PRAISE) RES_PRAISE.textContent = reward.label || '';
+
+    if(RES_MISSION_SCORE) RES_MISSION_SCORE.textContent = S.mission.score1 ? '✅' : '—';
+    if(RES_MISSION_COMBO) RES_MISSION_COMBO.textContent = S.mission.combo1 ? '✅' : '—';
+    if(RES_MISSION_ACC) RES_MISSION_ACC.textContent = S.mission.acc1 ? '✅' : '—';
+    if(RES_NOMISS) RES_NOMISS.textContent = S.mission.noMiss ? '✅' : '—';
+    if(RES_BOSSCLEAR) RES_BOSSCLEAR.textContent = S.mission.bossClear ? '✅' : '—';
+
+    if(RES_QUALITY_NOTE){
+      const note = [];
+      if(S.blankTaps > 8) note.push('กดล่วงหน้า/กดรัวค่อนข้างเยอะ');
+      if(S.hp < 45) note.push('ความล้าหรือพลาดค่อนข้างสูง');
+      if(offAvg != null && offAvg > 110) note.push('จังหวะยังไม่คงที่');
+
+      if(S.mode === 'research' && note.length){
+        RES_QUALITY_NOTE.classList.remove('hidden');
+        RES_QUALITY_NOTE.textContent = 'ข้อสังเกตคุณภาพข้อมูล: ' + note.join(' · ');
+      }else{
+        RES_QUALITY_NOTE.classList.add('hidden');
+        RES_QUALITY_NOTE.textContent = '';
+      }
+    }
+
+    const payload = makeResultPayload(reward, dur, accPct, offAvg, offStd);
+    S.sessions.push(payload);
+
+    try{
+      const extra = {
+        url: location.href,
+        zone: ZONE,
+        cat: CAT,
+        game: GAME_ID
+      };
+
+      const hubSummary = {
+        pid: PID,
+        game: 'rhythmboxer',
+        runMode: S.mode,
+        diff: DIFF,
+        scoreFinal: payload.score,
+        accPct: Number(payload.accPct),
+        comboMax: payload.maxCombo,
+        misses: payload.miss,
+        end_reason: payload.endReason,
+        rank: payload.rank,
+        stars: payload.stars,
+        badge: payload.badge,
+        missionScore: payload.missionScore,
+        missionCombo: payload.missionCombo,
+        missionAcc: payload.missionAcc,
+        missionNoMiss: payload.missionNoMiss,
+        bossClear: payload.bossClear,
+        durationSec: Number(payload.durationSec),
+        timestampIso: nowIso(),
+        __extraJson: JSON.stringify(extra)
+      };
+
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(hubSummary));
+      localStorage.setItem(`HHA_LAST_SUMMARY:rhythmboxer:${PID}`, JSON.stringify(hubSummary));
+    }catch(_){}
+
+    logEvent({
+      ...sessionMeta(),
+      kind:'marker',
+      marker:'end',
+      endReason:S.endReason,
+      durationSec:dur.toFixed(2),
+      score:Math.round(S.score),
+      accPct:accPct.toFixed(2),
+      miss:S.miss,
+      stars:reward.stars,
+      rank:reward.rank,
+      tsIso:nowIso()
+    });
+
+    const shouldGoCooldown =
+      qbool('cooldown', true) ||
+      qs('returnPhase', '') === 'cooldown';
+
+    const shouldAutoReturn =
+      AUTO_NEXT ||
+      (HUB && String(HUB).includes('seq=1'));
+
+    if(shouldGoCooldown){
+      goCooldownSummary(550);
+      return;
+    }
+
+    if(shouldAutoReturn && typeof W.HH_END_GAME === 'function'){
+      setTimeout(()=>{
+        try{
+          W.HH_END_GAME('result', {
+            score: payload.score,
+            acc: payload.accPct,
+            miss: payload.miss,
+            rank: payload.rank,
+            stars: payload.stars
+          });
+        }catch(_){
+          goHubNow();
+        }
+      }, 900);
+      return;
+    }
+
+    goHubNow();
+  }
+
+  function tick(){
+    if(!S.running) return;
+
+    const now = nowMs();
+    const dt = now - S.tLast;
+    S.tLast = now;
+
+    if(now >= S.tEnd){
+      S.endReason = 'timeup';
+      endGame();
+      return;
+    }
+
+    if(S.hp <= 0){
+      S.endReason = 'hp0';
+      endGame();
+      return;
+    }
+
+    maybePhaseChange(now);
+    beatPulse();
+    bossTick(now);
+    drainFever(dt);
+    renderNotes(now);
+    updateHUD(now);
+    updateAI(now);
+    updateDirector(now);
+    updateMissionHud();
+
+    requestAnimationFrame(tick);
+  }
+
+  // --------------------------------------------------
+  // download
+  // --------------------------------------------------
+  function downloadEventsCSV(){
+    const rows = S.events.slice();
+    const cols = [
+      'tsIso','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode','zone','cat','game',
+      'kind','marker','tMs','lane','action','source','judge','offsetMs','score','combo','hp','fever','shield',
+      'bpm','density','durSec','endReason','stars','rank'
+    ];
+    downloadText(`rhythm_events_${PID}_${S.trackKey}_${Date.now()}.csv`, toCSV(rows, cols));
+  }
+
+  function downloadSessionsCSV(){
+    const rows = S.sessions.slice();
+    const cols = [
+      'tsIso','tsIsoEnd','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode','zone','cat','game',
+      'endReason','durationSec','score','maxCombo','shots','hits','accPct',
+      'perfect','great','good','miss','hpEnd','shieldEnd','feverEnd',
+      'offsetAbsMeanMs','offsetAbsStdMs','rank','stars','medal','badge',
+      'missionScore','missionCombo','missionAcc','missionNoMiss','bossClear','bossHpLeft',
+      'aiSkillBand','aiFatigueBand','aiPressure','aiPattern'
+    ];
+    downloadText(`rhythm_sessions_${PID}_${S.trackKey}_${Date.now()}.csv`, toCSV(rows, cols));
+  }
+
+  // --------------------------------------------------
+  // boot
+  // --------------------------------------------------
+  function boot(){
+    const modeRadios = D.querySelectorAll('input[name="rb-mode"]');
+    modeRadios.forEach(r => r.addEventListener('change', refreshModeUI));
+
+    if(BTN_START){
+      BTN_START.addEventListener('click', ()=>{
+        refreshModeUI();
+        startGame();
+      });
+    }
+
+    if(BTN_STOP){
+      BTN_STOP.addEventListener('click', ()=>{
+        stopGame('stop');
+      });
+    }
+
+    if(BTN_AGAIN){
+      BTN_AGAIN.addEventListener('click', ()=>{
+        startGame();
+      });
+    }
+
+    if(BTN_BACK_MENU){
+      BTN_BACK_MENU.addEventListener('click', ()=>{
+        showView('menu');
+      });
+    }
+
+    if(BTN_DL_EVENTS){
+      BTN_DL_EVENTS.addEventListener('click', downloadEventsCSV);
+    }
+
+    if(BTN_DL_SESS){
+      BTN_DL_SESS.addEventListener('click', downloadSessionsCSV);
+    }
+
+    bindInputs();
+    refreshModeUI();
+
+    if(RUN === 'research'){
+      const r = D.querySelector('input[name="rb-mode"][value="research"]');
+      if(r) r.checked = true;
+      refreshModeUI();
+      const t = D.querySelector('input[name="rb-track"][value="r1"]');
+      if(t) t.checked = true;
+    }
+
+    if(typeof W.HH_END_GAME !== 'function'){
+      W.HH_END_GAME = function(){
+        const shouldGoCooldown =
+          qbool('cooldown', true) ||
+          qs('returnPhase', '') === 'cooldown';
+
+        if(shouldGoCooldown){
+          goCooldownSummary(0);
+          return;
+        }
+
+        goHubNow();
+      };
+    }
+
+    console.log('[RB] boot OK', {
+      RUN, DIFF, TIME_SEC, PID, HUB, zone:ZONE, cat:CAT, game:GAME_ID
+    });
+  }
+
+  boot();
+
+})();
