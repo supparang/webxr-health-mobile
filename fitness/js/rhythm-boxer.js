@@ -1,7 +1,10 @@
 // === /fitness/js/rhythm-boxer.js ===
 // Rhythm Boxer — FULL CLEAN FINAL
-// PATCH v20260403a-RB-COOLDOWN-GATE-FLOW
-// ✅ fix parse error / duplicate const
+// PATCH v20260403b-RB-COOLDOWN-GATE-FLOW-NOTE-SLOWER
+// ✅ cooldown gate flow
+// ✅ correct path from /fitness/ -> /herohealth/
+// ✅ note travel slower / more readable
+// ✅ judge windows slightly wider
 // ✅ child-friendly
 // ✅ missions + stars + medal + badge
 // ✅ boss round
@@ -9,7 +12,6 @@
 // ✅ deterministic pattern generator
 // ✅ research CSV
 // ✅ hub / planner bridge compatible
-// ✅ warmup → run → cooldown gate flow
 
 'use strict';
 
@@ -206,7 +208,7 @@
           try{ location.href = new URL(HUB, location.href).toString(); }
           catch{ location.href = HUB; }
         }else{
-          history.back();
+          location.href = '../herohealth/hub.html';
         }
       });
     }
@@ -216,6 +218,8 @@
       if(HUB){
         try{ backLink.href = new URL(HUB, location.href).toString(); }
         catch{ backLink.href = HUB; }
+      }else{
+        backLink.href = '../herohealth/hub.html';
       }
       backLink.addEventListener('click', (e)=>{
         if(HUB){
@@ -940,11 +944,11 @@
   }
 
   function judgeWindows(){
-    const base = (DIFF === 'hard') ? 70 : (DIFF === 'easy' ? 95 : 82);
+    const base = (DIFF === 'hard') ? 78 : (DIFF === 'easy' ? 110 : 92);
     return {
       perfect: base,
-      great: base * 1.55,
-      good: base * 2.40
+      great: base * 1.60,
+      good: base * 2.55
     };
   }
 
@@ -1001,9 +1005,24 @@
   }
 
   function noteTravelMs(){
-    if(DIFF === 'hard') return 1050;
-    if(DIFF === 'easy') return 1250;
-    return 1150;
+    const view = String(qs('view','pc')).toLowerCase();
+
+    if(view === 'pc'){
+      if(DIFF === 'hard') return 1600;
+      if(DIFF === 'easy') return 2000;
+      return 1800;
+    }
+
+    if(view === 'cvr'){
+      if(DIFF === 'hard') return 1500;
+      if(DIFF === 'easy') return 1850;
+      return 1680;
+    }
+
+    // mobile
+    if(DIFF === 'hard') return 1450;
+    if(DIFF === 'easy') return 1750;
+    return 1600;
   }
 
   function spawnNotes(schedule){
@@ -1518,7 +1537,7 @@
   }
 
   function buildCooldownUrl(){
-    const gate = new URL('../warmup-gate.html', location.href);
+    const gate = new URL('../herohealth/warmup-gate.html', location.href);
 
     gate.searchParams.set('phase', 'cooldown');
     gate.searchParams.set('gatePhase', 'cooldown');
@@ -1535,7 +1554,7 @@
     gate.searchParams.set('time', String(TIME_SEC || 80));
     gate.searchParams.set('seed', String(S.seed || SEED || Date.now()));
     gate.searchParams.set('view', qs('view', 'pc'));
-    gate.searchParams.set('hub', HUB || '../hub.html');
+    gate.searchParams.set('hub', HUB || '../herohealth/hub.html');
 
     const cdur = String(qs('cdur', '20')).trim() || '20';
     gate.searchParams.set('cdur', cdur);
@@ -1563,7 +1582,7 @@
       }
       return;
     }
-    location.href = '../hub.html';
+    location.href = '../herohealth/hub.html';
   }
 
   function endGame(){
