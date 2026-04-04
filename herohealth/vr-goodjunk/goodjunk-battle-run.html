@@ -11,6 +11,8 @@
       --sky1:#dff4ff;
       --sky2:#bfe8ff;
       --sky3:#fff7d8;
+      --card:#fffdf6;
+      --card2:#f8fff3;
       --line:#bfe3f2;
       --text:#4d4a42;
       --muted:#7b7a72;
@@ -20,12 +22,16 @@
       --blue2:#58b7f5;
       --yellow:#ffd45c;
       --orange:#ffb547;
+      --pink:#ff9fc9;
+      --pink2:#ffcbe0;
+      --violet:#cdb9ff;
       --shadow:0 18px 40px rgba(86,155,194,.16);
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
     }
+
     *{ box-sizing:border-box; }
     html,body{
       margin:0;
@@ -39,174 +45,608 @@
       overflow:hidden;
     }
     body{ min-height:100dvh; }
-    #app{ position:relative; width:100vw; height:100dvh; overflow:hidden; isolation:isolate; }
-    #gameMount{ position:absolute; inset:0; z-index:1; overflow:hidden; }
+
+    #app{
+      position:relative;
+      width:100vw;
+      height:100dvh;
+      overflow:hidden;
+      isolation:isolate;
+    }
+    #gameMount{
+      position:absolute;
+      inset:0;
+      z-index:1;
+      overflow:hidden;
+    }
 
     .shell{
-      position:absolute; inset:0; display:grid; grid-template-rows:auto 1fr auto; gap:12px;
-      padding:calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
-      pointer-events:none; z-index:2;
+      position:absolute;
+      inset:0;
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:12px;
+      padding:
+        calc(12px + var(--sat))
+        calc(12px + var(--sar))
+        calc(12px + var(--sab))
+        calc(12px + var(--sal));
+      pointer-events:none;
+      z-index:2;
     }
-    .top{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start; }
+
+    .top{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+    }
+
     .hero-card{
       max-width:min(780px,100%);
       background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line); border-radius:28px; box-shadow:var(--shadow);
-      padding:18px 16px; position:relative; overflow:hidden;
+      border:3px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      padding:18px 16px;
+      position:relative;
+      overflow:hidden;
     }
     .hero-card::before{
-      content:""; position:absolute; left:-36px; top:-36px; width:140px; height:140px;
-      border-radius:999px; background:rgba(255,181,71,.18); filter:blur(8px);
+      content:"";
+      position:absolute;
+      left:-36px; top:-36px;
+      width:140px; height:140px;
+      border-radius:999px;
+      background:rgba(127,207,255,.20);
+      filter:blur(8px);
     }
     .hero-card::after{
-      content:""; position:absolute; right:-26px; bottom:-26px; width:120px; height:120px;
-      border-radius:999px; background:rgba(255,212,92,.24); filter:blur(8px);
+      content:"";
+      position:absolute;
+      right:-26px; bottom:-26px;
+      width:120px; height:120px;
+      border-radius:999px;
+      background:rgba(255,159,201,.18);
+      filter:blur(8px);
     }
+
     .kicker{
-      position:relative; z-index:1; display:inline-flex; align-items:center; gap:8px;
-      padding:8px 14px; border-radius:999px; background:#fff4dd; border:2px solid var(--line);
-      color:#b7791f; font-size:13px; font-weight:1000; margin-bottom:10px;
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#fff0f6;
+      border:2px solid #ffd4e4;
+      color:#c55a8d;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
     }
+
     h1{
-      position:relative; z-index:1; margin:0 0 6px; font-size:clamp(28px,5vw,42px);
-      line-height:1.05; font-weight:1000; color:#b7791f; text-shadow:0 2px 0 #fff;
+      position:relative;
+      z-index:1;
+      margin:0 0 6px;
+      font-size:clamp(28px,5vw,42px);
+      line-height:1.05;
+      font-weight:1000;
+      color:#bf5c86;
+      text-shadow:0 2px 0 #fff;
     }
+
     .sub{
-      position:relative; z-index:1; margin:0; color:var(--muted);
-      line-height:1.7; font-size:14px; font-weight:900; max-width:720px;
+      position:relative;
+      z-index:1;
+      margin:0;
+      color:var(--muted);
+      line-height:1.7;
+      font-size:14px;
+      font-weight:900;
+      max-width:720px;
     }
-    .side{ display:grid; gap:8px; align-content:start; }
+
+    .side{
+      display:grid;
+      gap:8px;
+      align-content:start;
+    }
+
     .pill{
-      display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:999px;
-      border:2px solid var(--line); background:#fff; color:#6c6a61; font-size:12px; font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.10); width:max-content; max-width:100%;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6c6a61;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+      width:max-content;
+      max-width:100%;
     }
 
     .status-card{
-      align-self:end; background:linear-gradient(180deg,#fffef9,#f7fff4); border:3px solid var(--line);
-      border-radius:24px; box-shadow:var(--shadow); padding:12px 14px; color:var(--muted);
-      font-size:13px; font-weight:900; line-height:1.6; pointer-events:auto; max-width:min(920px,100%);
+      align-self:end;
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      border:3px solid var(--line);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      padding:12px 14px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.6;
+      pointer-events:auto;
+      max-width:min(920px,100%);
     }
-    .status-head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+
+    .status-head{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
     .status-badge{
-      width:54px; height:54px; border-radius:18px; display:grid; place-items:center;
-      background:#fff; border:2px solid var(--line); box-shadow:0 8px 18px rgba(86,155,194,.10);
-      font-size:28px; flex:0 0 auto;
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:0 8px 18px rgba(86,155,194,.10);
+      font-size:28px;
+      flex:0 0 auto;
     }
-    .status-headtext{ min-width:220px; flex:1 1 280px; }
-    .status-title{ color:#b7791f; font-size:14px; font-weight:1000; margin-bottom:2px; }
-    .status-sub{ margin-top:0; color:#8b887f; font-size:12px; line-height:1.55; font-weight:900; }
-    .status-minirow{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+
+    .status-headtext{
+      min-width:220px;
+      flex:1 1 280px;
+    }
+
+    .status-title{
+      color:#bf5c86;
+      font-size:14px;
+      font-weight:1000;
+      margin-bottom:2px;
+    }
+
+    .status-sub{
+      margin-top:0;
+      color:#8b887f;
+      font-size:12px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
+    .status-minirow{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
     .status-mini{
-      display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px;
-      background:#fff; border:2px solid var(--line); color:#6d6a62; font-size:12px; font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      color:#6d6a62;
+      font-size:12px;
+      font-weight:1000;
       box-shadow:0 8px 18px rgba(86,155,194,.08);
     }
+
     .status-steps{
-      margin-top:10px; display:grid; gap:6px; padding:12px; border-radius:18px;
-      background:rgba(255,255,255,.65); border:2px dashed var(--line); color:#6f6c65;
-      font-size:12px; line-height:1.6; font-weight:1000;
+      margin-top:10px;
+      display:grid;
+      gap:6px;
+      padding:12px;
+      border-radius:18px;
+      background:rgba(255,255,255,.65);
+      border:2px dashed var(--line);
+      color:#6f6c65;
+      font-size:12px;
+      line-height:1.6;
+      font-weight:1000;
     }
-    .status-step{ display:flex; gap:8px; align-items:flex-start; }
+
+    .status-step{
+      display:flex;
+      gap:8px;
+      align-items:flex-start;
+    }
+
     .status-tip{
-      margin-top:10px; padding:10px 12px; border-radius:16px; background:#fff; border:2px solid var(--line);
-      color:#7a776f; font-size:12px; line-height:1.6; font-weight:1000;
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+      color:#7a776f;
+      font-size:12px;
+      line-height:1.6;
+      font-weight:1000;
     }
-    .status-tip strong{ color:#4d4a42; }
-    .status-actions{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; pointer-events:auto; }
+
+    .status-tip strong{
+      color:#4d4a42;
+    }
+
+    .status-actions{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      pointer-events:auto;
+    }
+
     .status-btn{
-      appearance:none; border:0; cursor:pointer; border-radius:16px; padding:10px 14px;
-      font-size:13px; font-weight:1000; transition:.12s ease; box-shadow:0 8px 18px rgba(86,155,194,.12);
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:16px;
+      padding:10px 14px;
+      font-size:13px;
+      font-weight:1000;
+      transition:.12s ease;
+      box-shadow:0 8px 18px rgba(86,155,194,.12);
     }
+
     .status-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
     .status-btn:active{ transform:translateY(0); }
-    .status-btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
-    .status-btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
-    .status-card.is-ready{ animation:status-ready-pop .22s ease; }
-    @keyframes status-ready-pop{ 0%{ transform:scale(.985); } 100%{ transform:scale(1); } }
-    .debug{
-      margin-top:8px; padding-top:8px; border-top:1px dashed rgba(191,227,242,.95);
-      white-space:pre-wrap; word-break:break-word; font-size:11px; color:#8a8a82; max-height:140px; overflow:auto;
+
+    .status-btn-copy{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef9;
     }
-    .error{ color:#b45309; white-space:pre-wrap; word-break:break-word; }
+
+    .status-btn-ghost{
+      background:#fff;
+      color:#6d6a62;
+      border:2px solid var(--line);
+    }
+
+    .debug{
+      margin-top:8px;
+      padding-top:8px;
+      border-top:1px dashed rgba(191,227,242,.95);
+      white-space:pre-wrap;
+      word-break:break-word;
+      font-size:11px;
+      color:#8a8a82;
+      max-height:220px;
+      overflow:auto;
+    }
+
+    .error{
+      color:#b45309;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
 
     .summary-overlay{
-      position:absolute; inset:0; z-index:30; display:grid; place-items:center;
-      padding:calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-      background:rgba(255,244,221,.72); backdrop-filter:blur(10px); pointer-events:auto;
+      position:absolute;
+      inset:0;
+      z-index:30;
+      display:grid;
+      place-items:center;
+      padding:
+        calc(16px + var(--sat))
+        calc(16px + var(--sar))
+        calc(16px + var(--sab))
+        calc(16px + var(--sal));
+      background:rgba(223,244,255,.72);
+      backdrop-filter:blur(10px);
+      pointer-events:auto;
     }
-    .summary-overlay[hidden]{ display:none !important; }
+    .summary-overlay[hidden]{
+      display:none !important;
+    }
+
     .summary-card{
-      width:min(940px,100%); max-height:88dvh; overflow:auto; background:linear-gradient(180deg,#fffef8,#f7fff4);
-      border:3px solid var(--line); border-radius:30px; box-shadow:0 28px 70px rgba(86,155,194,.24);
-      padding:18px; position:relative;
+      width:min(940px,100%);
+      max-height:88dvh;
+      overflow:auto;
+      background:linear-gradient(180deg,#fffef8,#f7fff4);
+      border:3px solid var(--line);
+      border-radius:30px;
+      box-shadow:0 28px 70px rgba(86,155,194,.24);
+      padding:18px;
+      position:relative;
     }
+    .summary-card::before{
+      content:"";
+      position:absolute;
+      left:-40px; top:-40px;
+      width:150px; height:150px;
+      border-radius:999px;
+      background:rgba(127,207,255,.18);
+      filter:blur(10px);
+      pointer-events:none;
+    }
+    .summary-card::after{
+      content:"";
+      position:absolute;
+      right:-30px; bottom:-30px;
+      width:130px; height:130px;
+      border-radius:999px;
+      background:rgba(255,159,201,.18);
+      filter:blur(10px);
+      pointer-events:none;
+    }
+
     .summary-kicker{
-      display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:999px;
-      background:#fff4dd; border:2px solid var(--line); color:#b7791f; font-size:13px; font-weight:1000; margin-bottom:10px;
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#fff0f6;
+      border:2px solid #ffd4e4;
+      color:#c55a8d;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
     }
+
     .summary-hero{
-      display:grid; grid-template-columns:96px 1fr; gap:14px; align-items:center;
-      margin-bottom:14px; padding:14px; border-radius:24px; background:#fff;
-      border:2px solid #f0ddbc; box-shadow:0 10px 24px rgba(86,155,194,.10);
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:96px 1fr;
+      gap:14px;
+      align-items:center;
+      margin-bottom:14px;
+      padding:14px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fffdf6,#f6fbff);
+      border:2px solid #cde7f4;
+      box-shadow:0 10px 24px rgba(86,155,194,.10);
     }
+
     .summary-badge{
-      width:96px; height:96px; border-radius:28px; display:grid; place-items:center;
-      background:linear-gradient(180deg,#fff4dd,#fffdf6); border:3px solid #f0ddbc; font-size:42px;
+      width:96px;
+      height:96px;
+      border-radius:28px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#fdf7d8,#f5fbff);
+      border:3px solid #bfe3f2;
+      font-size:42px;
       box-shadow:0 10px 20px rgba(86,155,194,.10);
     }
-    .summary-hero-title,.summary-title{ color:#b7791f; text-shadow:0 2px 0 #fff; font-weight:1000; }
-    .summary-hero-title{ margin:0 0 6px; font-size:clamp(24px,4vw,36px); line-height:1.08; }
-    .summary-hero-sub,.summary-sub{ color:#6d6b63; font-size:14px; line-height:1.7; font-weight:900; }
-    .summary-hero-sub{ margin:0; }
-    .summary-title{ margin:0 0 6px; text-align:center; font-size:clamp(28px,5vw,42px); line-height:1.05; }
-    .summary-sub{ margin:0; text-align:center; }
-    .summary-stars{ display:flex; justify-content:center; gap:10px; margin:12px 0 14px; flex-wrap:wrap; }
-    .summary-star{ font-size:48px; line-height:1; filter:drop-shadow(0 6px 12px rgba(0,0,0,.12)); }
-    .summary-star.off{ opacity:.22; filter:none; }
+
+    .summary-hero-title{
+      margin:0 0 6px;
+      color:#bf5c86;
+      font-size:clamp(24px,4vw,36px);
+      line-height:1.08;
+      font-weight:1000;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .summary-hero-sub{
+      margin:0;
+      color:#6d6b63;
+      font-size:14px;
+      line-height:1.65;
+      font-weight:900;
+    }
+
+    .summary-title{
+      position:relative;
+      z-index:1;
+      margin:0 0 6px;
+      text-align:center;
+      color:#bf5c86;
+      font-size:clamp(28px,5vw,42px);
+      line-height:1.05;
+      font-weight:1000;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .summary-sub{
+      position:relative;
+      z-index:1;
+      margin:0;
+      text-align:center;
+      color:#6d6b63;
+      font-size:14px;
+      line-height:1.7;
+      font-weight:900;
+    }
+
+    .summary-stars{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      margin:12px 0 14px;
+      flex-wrap:wrap;
+    }
+
+    .summary-star{
+      font-size:48px;
+      line-height:1;
+      filter:drop-shadow(0 6px 12px rgba(0,0,0,.12));
+    }
+
+    .summary-star.off{
+      opacity:.22;
+      filter:none;
+    }
+
     .summary-scorecard{
-      margin:0 auto 14px; width:min(480px,100%); border-radius:24px; background:#fff;
-      border:3px solid #f0ddbc; box-shadow:0 10px 22px rgba(86,155,194,.10); padding:16px 14px; text-align:center;
+      margin:0 auto 14px;
+      width:min(480px,100%);
+      border-radius:24px;
+      border:3px solid #cde7f4;
+      background:#fff;
+      box-shadow:0 10px 22px rgba(86,155,194,.10);
+      padding:16px 14px;
+      text-align:center;
     }
-    .summary-scorelabel{ color:#d09e52; font-size:15px; font-weight:1000; margin-bottom:4px; }
-    .summary-scorevalue{ color:#4d4a42; font-size:clamp(42px,9vw,70px); line-height:1; font-weight:1000; }
-    .summary-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:0; }
+
+    .summary-scorelabel{
+      color:#79aeca;
+      font-size:15px;
+      line-height:1.3;
+      font-weight:1000;
+      margin-bottom:4px;
+    }
+
+    .summary-scorevalue{
+      color:#4d4a42;
+      font-size:clamp(42px,9vw,70px);
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:.02em;
+    }
+
+    .summary-comparecard{
+      margin:0 auto 14px;
+      width:min(720px,100%);
+      border-radius:24px;
+      border:3px solid #e9d7b3;
+      background:#fff;
+      box-shadow:0 10px 22px rgba(86,155,194,.10);
+      padding:16px 14px;
+    }
+
+    .summary-compare-head{
+      text-align:center;
+      color:#c48a23;
+      font-size:15px;
+      font-weight:1000;
+      margin-bottom:12px;
+    }
+
+    .summary-compare-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .summary-compare-box{
+      border-radius:18px;
+      border:2px solid #f0dfbd;
+      background:#fffef9;
+      padding:14px 10px;
+      text-align:center;
+    }
+
+    .summary-compare-delta{
+      background:linear-gradient(180deg,#fffdf6,#f7fff4);
+    }
+
+    .summary-compare-label{
+      color:#c48a23;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .summary-compare-name{
+      color:#6d6b63;
+      font-size:14px;
+      line-height:1.5;
+      font-weight:1000;
+      margin-bottom:8px;
+      word-break:break-word;
+    }
+
+    .summary-compare-score{
+      color:#4d4a42;
+      font-size:clamp(24px,4vw,38px);
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .summary-grid{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:0;
+    }
+
     .summary-item{
-      background:#fff; border:2px solid #f0ddbc; border-radius:22px; box-shadow:0 8px 18px rgba(86,155,194,.08); padding:14px;
+      background:#fff;
+      border:2px solid #cde7f4;
+      border-radius:22px;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
+      padding:14px;
     }
-    .summary-label{ color:#d09e52; font-size:12px; font-weight:1000; margin-bottom:6px; }
-    .summary-value{ color:#4d4a42; font-size:clamp(20px,3.5vw,32px); font-weight:1000; line-height:1.18; }
-    .summary-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+
+    .summary-label{
+      color:#79aeca;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:6px;
+      line-height:1.35;
+    }
+
+    .summary-value{
+      color:#4d4a42;
+      font-size:clamp(20px,3.5vw,32px);
+      font-weight:1000;
+      line-height:1.18;
+      word-break:break-word;
+    }
+
+    .summary-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+
     .btn{
-      appearance:none; border:0; cursor:pointer; border-radius:18px; padding:13px 18px;
-      font-weight:1000; font-size:15px; transition:.12s ease; box-shadow:0 10px 20px rgba(86,155,194,.14);
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:13px 18px;
+      font-weight:1000;
+      font-size:15px;
+      transition:.12s ease;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
     }
+
     .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
     .btn:active{ transform:translateY(0); }
+
     .btn-primary{ background:linear-gradient(180deg,var(--green),var(--green2)); color:#fffef9; }
     .btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
     .btn-warn{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#6d4e00; }
     .btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
-    .summary-debug{
-      margin-top:14px; padding-top:10px; border-top:1px dashed #f0ddbc; color:#8a887f;
-      font-size:11px; line-height:1.6; font-weight:900; white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto;
-    }
 
-    #app.live-play .shell{
-      padding:0 !important;
-      pointer-events:none;
-    }
-    #app.live-play .top{
-      display:none !important;
-    }
-    #app.live-play .status-card{
-      display:none !important;
-    }
-    #app.live-play .shell > div:nth-child(2){
-      display:none !important;
-    }
-    #app.live-play #gameMount{
-      z-index:10;
+    .summary-debug{
+      margin-top:14px;
+      padding-top:10px;
+      border-top:1px dashed #cde7f4;
+      color:#8a887f;
+      font-size:11px;
+      line-height:1.6;
+      font-weight:900;
+      white-space:pre-wrap;
+      word-break:break-word;
+      max-height:220px;
+      overflow:auto;
     }
 
     @media (max-width:780px){
@@ -216,6 +656,12 @@
       .summary-grid{ grid-template-columns:1fr; }
       .summary-actions .btn,
       .status-actions .status-btn{ flex:1 1 100%; }
+    }
+
+    @media (max-width:720px){
+      .summary-compare-grid{
+        grid-template-columns:1fr;
+      }
     }
   </style>
 </head>
@@ -229,7 +675,7 @@
           <div class="kicker">⚔️ GOODJUNK BATTLE</div>
           <h1>Food Battle!</h1>
           <p class="sub">
-            แตะเก็บอาหารดีให้ไว ระวัง junk และพยายามทำคะแนนให้มากกว่าคู่แข่งในรอบนี้
+            เก็บอาหารดีให้ไว ทำคะแนนให้มาก และพยายามชนะคู่แข่งในรอบนี้
           </p>
         </div>
 
@@ -238,7 +684,7 @@
           <div class="pill" id="pillPlayer">HERO • -</div>
           <div class="pill" id="pillRole">ROLE • player</div>
           <div class="pill" id="pillDiff">LEVEL • normal</div>
-          <div class="pill" id="pillTime">TIME • 150</div>
+          <div class="pill" id="pillTime">TIME • 120</div>
         </div>
       </div>
 
@@ -249,8 +695,8 @@
           <div class="status-badge" id="engineStatusBadge">⚔️</div>
           <div class="status-headtext">
             <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
-            <div id="engineStatusText">กำลังโหลด battle safe + engine</div>
-            <div class="status-sub" id="engineStatusSub">เกมจะเริ่มเองเมื่อโหลดพร้อม</div>
+            <div id="engineStatusText">กำลังโหลด battle engine</div>
+            <div class="status-sub" id="engineStatusSub">เกมจะเริ่มเองเมื่อโหลดพร้อม ระหว่างเล่นให้ดูคะแนน เวลา และห้องเล่นด้านบน</div>
           </div>
         </div>
 
@@ -261,12 +707,12 @@
         </div>
 
         <div class="status-steps" id="engineSteps">
-          <div class="status-step"><span>1️⃣</span><span>โหลด safe layer ก่อน</span></div>
-          <div class="status-step"><span>2️⃣</span><span>โหลด battle engine จริง</span></div>
-          <div class="status-step"><span>3️⃣</span><span>เชื่อมห้องแล้วเริ่มรอบอัตโนมัติ</span></div>
+          <div class="status-step"><span>1️⃣</span><span>รอให้หน้าเกมโหลดให้พร้อมก่อน</span></div>
+          <div class="status-step"><span>2️⃣</span><span>เมื่อเริ่มแล้ว ให้แตะเก็บอาหารดีให้ไว</span></div>
+          <div class="status-step"><span>3️⃣</span><span>พยายามทำคะแนนให้มากกว่าคู่แข่ง</span></div>
         </div>
 
-        <div class="status-tip" id="engineTip"><strong>Tip:</strong> โหมดนี้ใช้ 2 ไฟล์ร่วมกัน — safe layer + engine</div>
+        <div class="status-tip" id="engineTip"><strong>Tip:</strong> โหมดนี้เน้นความไวและทำคะแนนให้ชนะอีกฝ่าย</div>
 
         <div class="status-actions">
           <button class="status-btn status-btn-copy" id="btnQuickCopyRoom" type="button">คัดลอกห้อง</button>
@@ -285,12 +731,12 @@
           <div class="summary-badge" id="summaryBadge">⚔️</div>
           <div>
             <h3 class="summary-hero-title" id="summaryHeroTitle">Battle Hero!</h3>
-            <p class="summary-hero-sub" id="summaryHeroSub">เธอสู้ได้เก่งมากและอ่านจังหวะได้ดี</p>
+            <p class="summary-hero-sub" id="summaryHeroSub">จบรอบแล้ว มาดูผลการต่อสู้กัน</p>
           </div>
         </div>
 
-        <h2 class="summary-title" id="summaryTitle">Great Job!</h2>
-        <p class="summary-sub" id="summarySub">จบรอบแล้ว มาดูผลการปะทะกัน</p>
+        <h2 class="summary-title" id="summaryTitle">Battle Finished</h2>
+        <p class="summary-sub" id="summarySub">จบรอบแล้ว มาดูผลกัน</p>
 
         <div class="summary-stars" id="summaryStars"></div>
 
@@ -299,10 +745,34 @@
           <div class="summary-scorevalue" id="summaryScoreValue">0</div>
         </div>
 
+        <div class="summary-comparecard" id="summaryCompareCard" hidden>
+          <div class="summary-compare-head">เปรียบเทียบรอบนี้</div>
+
+          <div class="summary-compare-grid">
+            <div class="summary-compare-box">
+              <div class="summary-compare-label">เรา</div>
+              <div class="summary-compare-name" id="summaryMeName">-</div>
+              <div class="summary-compare-score" id="summaryMeScore">0</div>
+            </div>
+
+            <div class="summary-compare-box summary-compare-delta">
+              <div class="summary-compare-label">ส่วนต่างคะแนน</div>
+              <div class="summary-compare-name" id="summaryDeltaText">-</div>
+              <div class="summary-compare-score" id="summaryDeltaScore">0</div>
+            </div>
+
+            <div class="summary-compare-box">
+              <div class="summary-compare-label">คู่แข่ง</div>
+              <div class="summary-compare-name" id="summaryOpponentName">-</div>
+              <div class="summary-compare-score" id="summaryOpponentScore">0</div>
+            </div>
+          </div>
+        </div>
+
         <div class="summary-grid" id="summaryGrid"></div>
 
         <div class="summary-actions">
-          <button class="btn btn-primary" id="btnReplay" type="button">เล่นใหม่</button>
+          <button class="btn btn-primary" id="btnRematch" type="button">เล่นอีกครั้ง</button>
           <button class="btn btn-copy" id="btnCopyRoom" type="button">คัดลอกห้อง</button>
           <button class="btn btn-warn" id="btnExport" type="button">Export JSON</button>
           <button class="btn btn-ghost" id="btnBackHub" type="button">กลับ HUB</button>
@@ -315,623 +785,981 @@
 
   <script src="../js/hha-cloud-logger.js"></script>
   <script>
-    (function(){
-      'use strict';
+  (function(){
+    'use strict';
 
-      const q = new URLSearchParams(location.search);
-      const MODE = 'battle';
-      const MODE_LABEL = 'Battle';
-
-      const SAFE_LAYER_SRC = './goodjunk.safe.battle.js?v=20260402-GOODJUNK-BATTLE-SAFE-RUN';
-      const ENGINE_SRC = './goodjunk-battle.safe.js?v=20260402-GOODJUNK-BATTLE-ENGINE-RUN';
-
-      function qs(key, fb=''){ return q.get(key) ?? fb; }
-      function clean(v){ return String(v || '').trim(); }
-      function cleanText(v, max=64){ return String(v || '').trim().slice(0, max); }
-      function cleanRoom(v){
-        return String(v || '')
-          .trim()
-          .toUpperCase()
-          .replace(/[^A-Z0-9_-]/g,'')
-          .slice(0,24);
+    function qs(key, fb='') {
+      try {
+        return (new URL(location.href)).searchParams.get(key) ?? fb;
+      } catch (_) {
+        return fb;
       }
-      function normalizePid(v){
-        const s = String(v || '').trim().replace(/[.#$[\]/]/g, '-');
-        if (!s || s.toLowerCase() === 'anon') return '';
-        return s.slice(0, 80);
+    }
+
+    function clean(v){ return String(v || '').trim(); }
+    function wait(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+    function dedupe(arr){
+      const out = [];
+      const seen = new Set();
+      for (const item of arr || []) {
+        const s = clean(item);
+        if (!s || seen.has(s)) continue;
+        seen.add(s);
+        out.push(s);
       }
-      function safeJson(v){ try{return JSON.stringify(v,null,2);}catch{return '{}';} }
-      function saveText(name,text,type='application/json'){
-        const blob=new Blob([text],{type});
-        const url=URL.createObjectURL(blob);
-        const a=document.createElement('a');
-        a.href=url;
-        a.download=name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      }
-      function copyText(text){
-        const t = String(text || '').trim();
-        if (!t) return Promise.reject(new Error('empty'));
-        return navigator.clipboard.writeText(t);
-      }
-      function resolveHub(){
-        try { return qs('hub') || new URL('../hub.html', location.href).toString(); }
-        catch { return '../hub.html'; }
-      }
-      function loadScript(src){
-        return new Promise((resolve, reject) => {
-          const full = new URL(src, location.href).toString();
-          const found = Array.from(document.scripts).find(s => s.src === full);
-          if (found) {
-            resolve(full);
-            return;
-          }
-          const s = document.createElement('script');
-          s.src = full;
-          s.async = true;
-          s.onload = () => resolve(full);
-          s.onerror = () => reject(new Error('โหลดไม่สำเร็จ: ' + src));
-          document.body.appendChild(s);
-        });
-      }
+      return out;
+    }
+    function parseList(text){
+      return String(text || '').split(',').map(s => clean(s)).filter(Boolean);
+    }
+    function safeJson(v){
+      try { return JSON.stringify(v, null, 2); }
+      catch (_) { return '{}'; }
+    }
+    function saveText(name, text){
+      const blob = new Blob([text], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+    function resolveHub(){
+      try { return qs('hub') || new URL('../hub.html', location.href).toString(); }
+      catch (_) { return '../hub.html'; }
+    }
 
-      const roomId = cleanRoom(qs('roomId') || qs('room') || '');
-      const queryUid = normalizePid(qs('uid') || qs('playerId') || '');
-      const queryPid = normalizePid(qs('pid') || '');
-      const playerPid = queryPid || queryUid || 'anon';
-      const playerName = cleanText(qs('name') || qs('nick') || 'Player', 40);
+    const MODE = 'battle';
+    const MODE_LABEL = 'Battle';
+    const $ = (id) => document.getElementById(id);
 
-      const runCtx = {
-        pid: playerPid,
-        uid: queryUid,
-        playerId: queryUid,
-        name: playerName,
-        nick: playerName,
-        studyId: qs('studyId',''),
-        roomId,
-        room: roomId,
-        role: qs('role','player'),
-        mode: MODE,
-        diff: qs('diff','normal'),
-        time: qs('time','150'),
-        seed: qs('seed',String(Date.now())),
-        startAt: Number(qs('startAt','0')) || 0,
-        roundToken: qs('roundToken',''),
-        hub: resolveHub(),
-        view: qs('view','mobile'),
-        run: qs('run','play'),
-        gameId: qs('gameId','goodjunk')
-      };
+    const runCtx = {
+      pid: qs('pid', 'anon'),
+      name: qs('name', qs('nick', 'Player')),
+      studyId: qs('studyId', ''),
+      roomId: qs('roomId') || qs('room') || '',
+      roomKind: qs('roomKind', ''),
+      role: qs('role', 'player'),
+      diff: qs('diff', 'normal'),
+      time: qs('time', '120'),
+      seed: qs('seed', String(Date.now())),
+      startAt: Number(qs('startAt', '0')) || 0,
+      hub: resolveHub(),
+      view: qs('view', 'mobile'),
+      run: qs('run', 'play'),
+      gameId: qs('gameId', 'goodjunk'),
+      wait: qs('wait', '0'),
+      host: qs('host', '0')
+    };
 
-      window.__GJ_RUN_CTX__ = runCtx;
-      window.__GJ_MULTI_RUN_CTX__ = runCtx;
-      window.RUN_CTX = Object.assign({}, window.RUN_CTX || {}, runCtx);
-      window.HHA_BATTLE_BOOT = Object.assign({}, runCtx, {
-        roomId,
-        room: roomId,
-        pid: playerPid,
-        uid: queryUid,
-        playerId: queryUid,
-        name: playerName,
-        nick: playerName
-      });
+    window.__GJ_RUN_CTX__ = runCtx;
+    window.__GJ_MULTI_RUN_CTX__ = runCtx;
+    window.__GJ_BATTLE_ENGINE_READY__ = false;
 
-      const $ = (id) => document.getElementById(id);
+    const SAFE_CANDIDATES = dedupe([
+      clean(qs('safe')),
+      ...parseList(qs('safeCandidates')),
+      './goodjunk-battle.safe.js',
+      './goodjunk.safe.battle.js',
+      './js/goodjunk-battle.safe.js',
+      './js/goodjunk.safe.battle.js'
+    ]);
 
-      function deriveHeroAvatarFromName(name){
-        const text = String(name || '').trim();
-        if (!text) return '🙂';
-        const parts = text.split(/\s+/).filter(Boolean);
-        const key = parts[parts.length - 1] || parts[0] || '';
-        const byWord = {
-          Apple:'🍎', Carrot:'🥕', Bunny:'🐰', Panda:'🐼', Star:'⭐',
-          Berry:'🍓', Tiger:'🐯', Cloud:'☁️', Rocket:'🚀', Kitty:'🐱',
-          Buddy:'🧡', Hero:'🦸'
-        };
-        return byWord[key] || '🙂';
-      }
+    const CORE_CANDIDATES = dedupe([
+      clean(qs('core')),
+      ...parseList(qs('coreCandidates')),
+      './goodjunk.safe.battle.js',
+      './goodjunk.safe.js',
+      './goodjunk.js',
+      './js/goodjunk.safe.battle.js',
+      './js/goodjunk.safe.js',
+      './js/goodjunk.js'
+    ]);
 
-      const heroMeta = {
-        name: playerName || 'Hero',
-        avatar: clean(qs('heroAvatar')) || deriveHeroAvatarFromName(playerName),
-        soft: clean(qs('heroSoft')) || '#eef8ff',
-        border: clean(qs('heroBorder')) || '#bfe3f2',
-        text: clean(qs('heroText')) || '#4d4a42'
-      };
+    const CONTROLLER_CANDIDATES = dedupe([
+      clean(qs('controller')),
+      ...parseList(qs('controllerCandidates')),
+      './goodjunk-battle.js',
+      './js/goodjunk-battle.js'
+    ]);
 
-      function applyHeroBadgeTheme(el){
-        if(!el) return;
-        el.textContent = heroMeta.avatar;
-        el.style.borderColor = heroMeta.border;
-        el.style.background = `linear-gradient(180deg,#fffdf7,${heroMeta.soft})`;
-        el.style.color = heroMeta.text;
-      }
+    const WANT_CONTROLLER =
+      qs('forceBattleController', '0') === '1' ||
+      qs('wait', '0') === '1' ||
+      qs('host', '0') === '1' ||
+      Number(qs('startAt', '0')) > 0;
 
-      function applyHeroPillTheme(el,text){
-        if(!el) return;
-        el.textContent = text;
-        el.style.borderColor = heroMeta.border;
-        el.style.background = heroMeta.soft;
-        el.style.color = heroMeta.text;
-      }
-
-      function applyHeroIdentity(){
-        const heroText = `HERO • ${heroMeta.avatar} ${playerName || playerPid || '-'}`;
-        applyHeroPillTheme($('pillPlayer'), heroText);
-        applyHeroPillTheme($('engineMiniPlayer'), heroText);
-        applyHeroBadgeTheme($('engineStatusBadge'));
-      }
-
-      function applySummaryIdentity(){
-        applyHeroBadgeTheme($('summaryBadge'));
-      }
-
-      function setMiniInfo(){
-        $('pillRoom').textContent = `ROOM • ${roomId || '-'}`;
-        $('pillRole').textContent = `ROLE • ${runCtx.role || 'player'}`;
-        $('pillDiff').textContent = `LEVEL • ${runCtx.diff}`;
-        $('pillTime').textContent = `TIME • ${runCtx.time}`;
-
-        $('engineMiniMode').textContent = `MODE • ${MODE.toUpperCase()}`;
-        $('engineMiniRoom').textContent = `ROOM • ${roomId || '-'}`;
-        $('engineMiniPlayer').textContent = `HERO • ${heroMeta.avatar} ${playerName || playerPid || '-'}`;
-      }
-
-      function setStatus(title, text, isError){
-        $('engineStatusTitle').textContent = title;
-        $('engineStatusText').textContent = text;
+    function setStatus(title, text, isError=false) {
+      if ($('engineStatusTitle')) $('engineStatusTitle').textContent = title || '';
+      if ($('engineStatusText')) {
+        $('engineStatusText').textContent = text || '';
         $('engineStatusText').className = isError ? 'error' : '';
       }
+    }
 
-      function setDebug(text){
-        $('engineDebugInfo').textContent = text;
+    function setDebug(text) {
+      if ($('engineDebugInfo')) $('engineDebugInfo').textContent = text || '';
+    }
+
+    function copyText(text){
+      const t = String(text || '').trim();
+      if (!t) return Promise.reject(new Error('empty'));
+
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        return navigator.clipboard.writeText(t);
       }
 
-      function setFriendlyReadyState(){
-        const card = $('engineStatusCard');
-        if (card) card.classList.add('is-ready');
+      return new Promise((resolve, reject) => {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = t;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          const ok = document.execCommand('copy');
+          ta.remove();
+          ok ? resolve() : reject(new Error('copy failed'));
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
 
-        setStatus('พร้อมแล้ว!', 'โหลด safe layer และ engine สำเร็จแล้ว');
-        $('engineStatusSub').textContent = 'ระบบพร้อมเข้าเล่น Battle และสรุปผลด้วย summary overlay';
-        $('engineSteps').innerHTML =
-          '<div class="status-step"><span>✅</span><span>safe layer พร้อมแล้ว</span></div>' +
-          '<div class="status-step"><span>✅</span><span>engine พร้อมแล้ว</span></div>' +
-          '<div class="status-step"><span>🎮</span><span>เกมจะเริ่มตามสถานะห้องทันที</span></div>';
-        $('engineTip').innerHTML = '<strong>พร้อมแล้ว:</strong> รอบนี้ใช้ 2 ไฟล์ร่วมกันเรียบร้อย';
+    function deriveHeroAvatarFromName(name) {
+      const text = String(name || '').trim();
+      if (!text) return '⚔️';
+      const parts = text.split(/\s+/).filter(Boolean);
+      const key = parts[parts.length - 1] || parts[0] || '';
+      const byWord = {
+        Apple:'🍎', Carrot:'🥕', Bunny:'🐰', Panda:'🐼', Star:'⭐', Berry:'🍓',
+        Tiger:'🐯', Cloud:'☁️', Rocket:'🚀', Kitty:'🐱', Buddy:'🧡', Hero:'🦸'
+      };
+      return byWord[key] || '⚔️';
+    }
+
+    function readHeroMeta() {
+      const displayName = String(runCtx.name || runCtx.pid || 'Hero').trim() || 'Hero';
+      return {
+        name: displayName,
+        avatar: clean(qs('heroAvatar')) || deriveHeroAvatarFromName(displayName),
+        soft: clean(qs('heroSoft')) || '#fff0f6',
+        border: clean(qs('heroBorder')) || '#ffd4e4',
+        text: clean(qs('heroText')) || '#4d4a42'
+      };
+    }
+
+    const heroMeta = readHeroMeta();
+
+    function applyPillTheme(el, text) {
+      if (!el) return;
+      el.textContent = text;
+      el.style.borderColor = heroMeta.border;
+      el.style.background = heroMeta.soft;
+      el.style.color = heroMeta.text;
+    }
+
+    function applyIdentity(){
+      const heroText = `HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`;
+      applyPillTheme($('pillRoom'), `ROOM • ${runCtx.roomId || '-'}`);
+      applyPillTheme($('pillPlayer'), heroText);
+      applyPillTheme($('pillRole'), `ROLE • ${runCtx.role || 'player'}`);
+      applyPillTheme($('pillDiff'), `LEVEL • ${runCtx.diff || 'normal'}`);
+      applyPillTheme($('pillTime'), `TIME • ${runCtx.time || '120'}`);
+
+      if ($('engineMiniRoom')) $('engineMiniRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
+      if ($('engineMiniMode')) $('engineMiniMode').textContent = 'MODE • BATTLE';
+      if ($('engineMiniPlayer')) $('engineMiniPlayer').textContent = heroText;
+      if ($('engineStatusBadge')) $('engineStatusBadge').textContent = heroMeta.avatar;
+    }
+
+    function buildBattleLobbyUrl() {
+      const u = new URL('./goodjunk-battle-lobby.html', location.href);
+      const src = new URL(location.href);
+
+      const keepKeys = [
+        'pid','name','nick','studyId','diff','time','seed','hub','view','run',
+        'gameId','zone','game','entry','api','log','debug','roomId','room','roomKind'
+      ];
+
+      keepKeys.forEach((k) => {
+        const v = src.searchParams.get(k);
+        if (v != null && v !== '') u.searchParams.set(k, v);
+      });
+
+      if (!u.searchParams.get('roomId') && runCtx.roomId) {
+        u.searchParams.set('roomId', runCtx.roomId);
+      }
+      if (!u.searchParams.get('room') && runCtx.roomId) {
+        u.searchParams.set('room', runCtx.roomId);
+      }
+      if (!u.searchParams.get('roomKind') && runCtx.roomKind) {
+        u.searchParams.set('roomKind', runCtx.roomKind);
       }
 
-      function hideStatusCardSoon(){
-        const card = $('engineStatusCard');
-        if (!card) return;
-        setTimeout(() => { card.style.display = 'none'; }, 1200);
+      u.searchParams.set('mode', 'battle');
+      u.searchParams.set('autojoin', '1');
+      u.searchParams.set('rematch', '1');
+      u.searchParams.set('seed', String(Date.now()));
+      u.searchParams.delete('wait');
+      u.searchParams.delete('startAt');
+      u.searchParams.delete('lead');
+
+      return u.toString();
+    }
+
+    function installSafeStub() {
+      if (window.GJBattleSafe) return;
+
+      const safe = {
+        state: {},
+        setState(patch) {
+          this.state = Object.assign({}, this.state, patch || {});
+          return this.state;
+        },
+        setSummary(summary){ this.state.summary = summary || null; return this.state.summary; },
+        syncRoom(){},
+        showLoading(msg){ setStatus('กำลังโหลดเกม…', msg || 'กำลังเตรียมเกม'); },
+        showWarn(msg){ setStatus('กำลังรอข้อมูล…', msg || 'กำลังรอข้อมูล'); },
+        showError(msg){ setStatus('เกิดปัญหาในการโหลด', msg || 'โหลดไม่สำเร็จ', true); },
+        clearMessage(){},
+        finishGame(detail){
+          try {
+            window.dispatchEvent(new CustomEvent('gj:battle-summary', { detail: detail || {} }));
+          } catch (_) {}
+        }
+      };
+
+      window.GJBattleSafe = safe;
+      window.BattleSafe = safe;
+    }
+
+    function buildVersionedUrl(src) {
+      const u = new URL(src, location.href);
+      u.searchParams.set('v', '20260404-battle-run-full');
+      return u.toString();
+    }
+
+    function loadScriptWithType(src, type) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        if (type === 'module') s.type = 'module';
+        s.src = buildVersionedUrl(src);
+        s.async = false;
+        s.onload = () => resolve({ src, type });
+        s.onerror = () => reject(new Error(`โหลด script ไม่สำเร็จ: ${src} [${type}]`));
+        document.body.appendChild(s);
+      });
+    }
+
+    async function tryLoad(src) {
+      try {
+        return await loadScriptWithType(src, 'classic');
+      } catch (e1) {
+        try {
+          return await loadScriptWithType(src, 'module');
+        } catch (e2) {
+          throw new Error(
+            `${src}\n- classic: ${String(e1 && e1.message ? e1.message : e1)}\n- module: ${String(e2 && e2.message ? e2.message : e2)}`
+          );
+        }
+      }
+    }
+
+    function coreApiPresent() {
+      return (
+        typeof window.__GJ_START_NOW__ === 'function' ||
+        typeof window.__GJ_GET_SCORE__ === 'function' ||
+        typeof window.__GJ_SET_PAUSED__ === 'function' ||
+        typeof window.__GJ_BOOT__ === 'function'
+      );
+    }
+
+    function getMountSnapshot() {
+      const mount = $('gameMount');
+      return {
+        html: mount ? String(mount.innerHTML || '') : '',
+        childCount: mount && mount.children ? mount.children.length : 0,
+        canvasCount: document.querySelectorAll('#gameMount canvas, body > canvas').length
+      };
+    }
+
+    function mountLooksAlive(before) {
+      const mount = $('gameMount');
+      const htmlChanged = !!(mount && String(mount.innerHTML || '') !== String(before.html || ''));
+      const childChanged = !!(mount && mount.children && mount.children.length > Number(before.childCount || 0));
+      const hasVisualNode = !!document.querySelector('#gameMount canvas, #gameMount svg, #gameMount iframe, #gameMount .game-root, #gameMount .gj-root, #gameMount .target'));
+      const canvasChanged = document.querySelectorAll('#gameMount canvas, body > canvas').length > Number(before.canvasCount || 0);
+      return htmlChanged || childChanged || hasVisualNode || canvasChanged;
+    }
+
+    function invokeKnownBoots() {
+      const ctx = window.__GJ_RUN_CTX__ || window.__GJ_MULTI_RUN_CTX__ || {};
+      const called = [];
+      const seenFns = new Set();
+
+      const namespaces = [
+        ['GJBattleRun', window.GJBattleRun],
+        ['GoodJunkBattleRun', window.GoodJunkBattleRun],
+        ['GoodJunkBattle', window.GoodJunkBattle],
+        ['GoodJunkRun', window.GoodJunkRun],
+        ['GoodJunk', window.GoodJunk],
+        ['GJBattle', window.GJBattle],
+        ['BattleGame', window.BattleGame]
+      ];
+
+      for (const [label, target] of namespaces) {
+        if (!target || typeof target !== 'object') continue;
+        for (const method of ['boot', 'init', 'start']) {
+          const fn = target[method];
+          if (typeof fn !== 'function' || seenFns.has(fn)) continue;
+          seenFns.add(fn);
+          try {
+            fn.call(target, ctx);
+            called.push(`${label}.${method}`);
+          } catch (err) {
+            console.warn('[GJ-BATTLE-RUN] boot call failed:', `${label}.${method}`, err);
+          }
+          break;
+        }
       }
 
-      function enterLivePlay(){
-        $('app')?.classList.add('live-play');
+      const standalones = [
+        ['bootGoodJunkBattle', window.bootGoodJunkBattle],
+        ['initGoodJunkBattle', window.initGoodJunkBattle],
+        ['startGoodJunkBattle', window.startGoodJunkBattle],
+        ['bootGoodJunk', window.bootGoodJunk],
+        ['initGoodJunk', window.initGoodJunk],
+        ['startGoodJunk', window.startGoodJunk],
+        ['__GJ_BOOT__', window.__GJ_BOOT__]
+      ];
+
+      for (const [label, fn] of standalones) {
+        if (typeof fn !== 'function' || seenFns.has(fn)) continue;
+        seenFns.add(fn);
+        try {
+          fn(ctx);
+          called.push(label);
+        } catch (err) {
+          console.warn('[GJ-BATTLE-RUN] boot call failed:', label, err);
+        }
       }
 
-      function exitLivePlay(){
-        $('app')?.classList.remove('live-play');
+      return called;
+    }
+
+    async function probeCoreReady(before, timeoutMs = 2200) {
+      const start = Date.now();
+      while (Date.now() - start < timeoutMs) {
+        if (window.__GJ_BATTLE_ENGINE_READY__ === true) {
+          return { ok: true, note: '__GJ_BATTLE_ENGINE_READY__' };
+        }
+        if (coreApiPresent()) {
+          return { ok: true, note: 'core-api' };
+        }
+        if (mountLooksAlive(before)) {
+          return { ok: true, note: 'mount-active' };
+        }
+        await wait(60);
+      }
+      return { ok: false, note: 'timeout' };
+    }
+
+    let __gjQuickStartDone = false;
+    let __battlePendingLocalSummary = null;
+    let __battleControllerDebug = null;
+
+    function controllerDebugText(){
+      const d = __battleControllerDebug;
+      if (!d) return '[CTRL] -';
+
+      return [
+        `[CTRL] tag=${d.tag || '-'}`,
+        `[CTRL] roomKind=${d.roomKind || '-'}`,
+        `[CTRL] state=${d.stateStatus || '-'}`,
+        `[CTRL] match=${d.matchStatus || '-'}`,
+        `[CTRL] participants=${JSON.stringify(d.participantIds || [])}`,
+        `[CTRL] resultCount=${Number(d.resultCount || 0)}`,
+        `[CTRL] finalCount=${Number(d.finalCount || 0)}`,
+        `[CTRL] runStarted=${!!d.runStarted}`,
+        `[CTRL] resultSubmitted=${!!d.resultSubmitted}`,
+        `[CTRL] finalSummarySent=${!!d.finalSummarySent}`
+      ].join('\n');
+    }
+
+    function refreshControllerDebugPanel() {
+      const base = [
+        `[MODE] ${MODE}`,
+        `[PID] ${runCtx.pid || '-'}`,
+        `[ROOM] ${runCtx.roomId || '-'}`,
+        `[ROOM_KIND] ${runCtx.roomKind || '-'}`,
+        `[WAIT] ${runCtx.wait}`,
+        `[HOST] ${runCtx.host}`,
+        `[USE_CONTROLLER] ${WANT_CONTROLLER ? 'yes' : 'no'}`,
+        controllerDebugText()
+      ].join('\n');
+
+      setDebug(base);
+    }
+
+    function quickStartAttempt(tag, debugRows) {
+      const actions = [];
+
+      try {
+        const bootCalls = invokeKnownBoots();
+        if (bootCalls.length) actions.push(`boots=${bootCalls.join(', ')}`);
+      } catch (err) {
+        console.warn('[GJ-BATTLE-RUN] quick start boot retry failed', err);
       }
 
-      function buildHeroIdentityPayload(){
+      try {
+        if (typeof window.__GJ_SET_PAUSED__ === 'function') {
+          window.__GJ_SET_PAUSED__(false);
+          actions.push('__GJ_SET_PAUSED__(false)');
+        }
+      } catch (_) {}
+
+      try {
+        if (typeof window.__GJ_START_NOW__ === 'function') {
+          window.__GJ_START_NOW__();
+          actions.push('__GJ_START_NOW__()');
+          __gjQuickStartDone = true;
+        }
+      } catch (_) {}
+
+      try {
+        window.dispatchEvent(new CustomEvent('gj:quick-start', {
+          detail: { mode: MODE, roomId: runCtx.roomId, pid: runCtx.pid, tag }
+        }));
+        actions.push('dispatch gj:quick-start');
+      } catch (_) {}
+
+      debugRows.push(`[QUICK START ${tag}] ${actions.join(' | ') || 'no-op'}`);
+      return actions;
+    }
+
+    async function forceQuickStartSequence(debugRows) {
+      if (WANT_CONTROLLER) {
+        debugRows.push('[QUICK START] skipped (controller mode)');
+        return;
+      }
+
+      quickStartAttempt('#1', debugRows);
+      await wait(120);
+      quickStartAttempt('#2', debugRows);
+      await wait(220);
+      quickStartAttempt('#3', debugRows);
+
+      if (__gjQuickStartDone) {
+        debugRows.push('[QUICK START] start signal sent');
+      } else {
+        debugRows.push('[QUICK START] no __GJ_START_NOW__ found');
+      }
+    }
+
+    function isCompareReadySummary(detail) {
+      const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
+        ? detail.summary
+        : (detail || {});
+
+      if (src.controllerFinal === true) return true;
+      if (Array.isArray(src.standings) && src.standings.length >= 2) return true;
+      if (src.compare && typeof src.compare === 'object' && src.compare.me && src.compare.opponent) return true;
+      return false;
+    }
+
+    function shouldDeferLocalBattleSummary(detail) {
+      if (MODE !== 'battle') return false;
+      if (!runCtx.roomId) return false;
+      return !isCompareReadySummary(detail);
+    }
+
+    function normalizeSummary(detail) {
+      const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
+        ? detail.summary
+        : (detail || {});
+
+      return {
+        mode: MODE,
+        label: MODE_LABEL,
+        roomId: runCtx.roomId,
+        pid: runCtx.pid,
+        name: runCtx.name,
+        role: runCtx.role,
+        diff: runCtx.diff,
+        time: runCtx.time,
+        result: src.result ?? src.outcome ?? src.status ?? (src.rank ? `อันดับ ${src.rank}` : 'จบรอบแล้ว'),
+        rank: src.rank ?? src.place ?? src.position ?? src.playerRank ?? src.finalRank ?? '',
+        score: src.score ?? src.totalScore ?? src.playerScore ?? src.myScore ?? 0,
+        players: src.players ?? src.playerCount ?? src.totalPlayers ?? '',
+        miss: src.miss ?? src.misses ?? src.totalMiss ?? 0,
+        goodHit: src.goodHit ?? src.hitsGood ?? src.goodHits ?? src.correct ?? 0,
+        junkHit: src.junkHit ?? src.hitsBad ?? src.junkHits ?? src.wrong ?? 0,
+        bestStreak: src.bestStreak ?? src.streak ?? src.comboMax ?? 0,
+        duration: src.duration ?? src.durationSec ?? src.timeUsed ?? '',
+        reason: src.reason ?? src.finishReason ?? src.endReason ?? '',
+        standings: Array.isArray(src.standings) ? src.standings : [],
+        compare: src.compare && typeof src.compare === 'object' ? src.compare : null,
+        raw: src,
+        receivedAt: Date.now(),
+        heroDisplay: `${heroMeta.avatar} ${heroMeta.name}`.trim()
+      };
+    }
+
+    function normalizeBattleCompare(summary) {
+      const standings = Array.isArray(summary.standings) ? summary.standings : [];
+      if (!standings.length) {
         return {
-          heroName: heroMeta.name,
-          heroAvatar: heroMeta.avatar,
-          heroSoft: heroMeta.soft,
-          heroBorder: heroMeta.border,
-          heroText: heroMeta.text,
-          heroDisplay: `${heroMeta.avatar} ${heroMeta.name}`.trim()
+          me: null,
+          opponent: null,
+          delta: 0
         };
       }
 
-      function enrichSummaryWithHero(summary){
-        const hero = buildHeroIdentityPayload();
-        return Object.assign({}, summary, hero, { identity: hero });
+      const myPid = String(runCtx.pid || '');
+      let me = standings.find(r => String(r.pid || '') === myPid);
+
+      if (!me) {
+        me = standings.find(r => String(r.nick || '') === String(runCtx.name || '')) || standings[0];
       }
 
-      function emitEnrichedSummaryEvents(modeKey, enrichedSummary){
-        try { window.dispatchEvent(new CustomEvent(`gj:${modeKey}-summary-enriched`, { detail: enrichedSummary })); } catch {}
-        try { window.dispatchEvent(new CustomEvent('gj:summary-enriched', { detail: enrichedSummary })); } catch {}
-        try { window.dispatchEvent(new CustomEvent('hha:summary-enriched', { detail: enrichedSummary })); } catch {}
+      const opponent = standings.find(r => String(r.pid || '') !== String((me && me.pid) || '')) || null;
+      const delta = Number((me && me.score) || 0) - Number((opponent && opponent.score) || 0);
+
+      return { me, opponent, delta };
+    }
+
+    function battleHero(summary) {
+      const rank = String(summary.rank || '');
+
+      if (rank === '1') {
+        return {
+          badge: '🏆',
+          heroTitle: 'Battle Champion!',
+          heroSub: 'ชนะรอบนี้ได้ยอดเยี่ยมมาก',
+          title: 'You Win!'
+        };
       }
 
-      function normalizeSummary(detail){
-        const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
-          ? detail.summary
-          : (detail || {});
-
-        const rank = src.rank ?? src.place ?? src.position ?? src.playerRank ?? src.finalRank ?? '';
-        const score = src.score ?? src.totalScore ?? src.playerScore ?? src.myScore ?? '';
-        const opponentScore = src.opponentScore ?? src.enemyScore ?? src.otherScore ?? '';
-        const miss = src.miss ?? src.misses ?? src.totalMiss ?? '';
-        const streak = src.bestStreak ?? src.streak ?? src.comboMax ?? '';
-        const players = src.players ?? src.playerCount ?? src.totalPlayers ?? '';
-        const result = src.result ?? src.outcome ?? src.status ?? (rank !== '' ? `อันดับ ${rank}` : 'จบรอบแล้ว');
-        const reason = src.reason ?? src.finishReason ?? src.endReason ?? '';
-
-        return enrichSummaryWithHero({
-          mode: MODE,
-          label: MODE_LABEL,
-          roomId: roomId,
-          pid: playerPid,
-          name: playerName,
-          role: runCtx.role,
-          diff: runCtx.diff,
-          time: runCtx.time,
-          result,
-          rank,
-          score,
-          opponentScore,
-          players,
-          miss,
-          bestStreak: streak,
-          reason,
-          raw: src,
-          receivedAt: Date.now()
-        });
+      if (rank === '2') {
+        return {
+          badge: '⚔️',
+          heroTitle: 'Almost Won!',
+          heroSub: 'อีกนิดเดียวก็ชนะแล้ว ลองใหม่ได้เลย',
+          title: 'Great Fight!'
+        };
       }
 
-      function addSummaryItem(label, value){
-        if (value === '' || value === null || value === undefined) return '';
-        return `<div class="summary-item"><div class="summary-label">${label}</div><div class="summary-value">${String(value)}</div></div>`;
-      }
+      return {
+        badge: '🛡️',
+        heroTitle: 'Battle Hero!',
+        heroSub: 'สู้ได้ดีมากในรอบนี้',
+        title: 'Battle Finished'
+      };
+    }
 
-      function renderSummaryStars(n){
-        const count = Math.max(0, Math.min(3, Number(n || 0)));
-        return [1,2,3].map(i => `<span class="summary-star ${i <= count ? '' : 'off'}">⭐</span>`).join('');
-      }
+    function renderSummaryStars(rank) {
+      const n = String(rank) === '1' ? 3 : (String(rank) === '2' ? 2 : 1);
+      return [1,2,3].map(i => `<span class="summary-star ${i <= n ? '' : 'off'}">⭐</span>`).join('');
+    }
 
-      function battleStarCount(summary){
-        if (String(summary.rank) === '1') return 3;
-        if (String(summary.rank) === '2') return 2;
-        return 1;
-      }
+    function addSummaryItem(label, value) {
+      if (value === '' || value === null || value === undefined) return '';
+      return `
+        <div class="summary-item">
+          <div class="summary-label">${label}</div>
+          <div class="summary-value">${String(value)}</div>
+        </div>
+      `;
+    }
 
-      function battleHero(summary){
-        if (String(summary.rank) === '1') {
-          return { badge:'🏆', heroTitle:'Battle Winner!', heroSub:'เธอชนะการปะทะครั้งนี้ได้สุดยอดมาก', title:'You Win!' };
+    function buildStandingsHtml(summary) {
+      const rows = Array.isArray(summary.standings) ? summary.standings : [];
+      if (!rows.length) return '';
+
+      return `
+        <div class="summary-item" style="grid-column:1 / -1;">
+          <div class="summary-label">Battle Compare</div>
+          <div style="display:grid;gap:10px;">
+            ${rows.map((r, i) => `
+              <div style="
+                display:flex;justify-content:space-between;gap:10px;align-items:center;
+                padding:12px;border:2px solid #cde7f4;border-radius:16px;background:#fff;">
+                <div style="font-weight:1000;color:#4d4a42;">
+                  #${i+1} ${String(r.nick || r.pid || 'player')}
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;">
+                  <span style="font-weight:1000;color:#79aeca;">Score ${Number(r.score || 0)}</span>
+                  <span style="font-weight:1000;color:#79aeca;">Miss ${Number(r.miss || 0)}</span>
+                  <span style="font-weight:1000;color:#79aeca;">Streak ${Number(r.bestStreak || 0)}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function showSummary(detail) {
+      const summary = normalizeSummary(detail);
+      const hero = battleHero(summary);
+      const battleCompare = normalizeBattleCompare(summary);
+
+      if ($('summaryBadge')) $('summaryBadge').textContent = hero.badge;
+      if ($('summaryHeroTitle')) $('summaryHeroTitle').textContent = hero.heroTitle;
+      if ($('summaryHeroSub')) {
+        $('summaryHeroSub').textContent =
+          `${heroMeta.avatar} ${runCtx.name || runCtx.pid || 'Player'} • ${hero.heroSub}`;
+      }
+      if ($('summaryTitle')) $('summaryTitle').textContent = hero.title;
+      if ($('summarySub')) {
+        $('summarySub').textContent =
+          [
+            runCtx.roomId ? `ห้อง ${runCtx.roomId}` : '',
+            summary.result || '',
+            summary.players ? `ผู้เล่น ${summary.players}` : '',
+            'กด “เล่นอีกครั้ง” เพื่อกลับเข้าห้องเดิม'
+          ].filter(Boolean).join(' • ');
+      }
+      if ($('summaryStars')) $('summaryStars').innerHTML = renderSummaryStars(summary.rank);
+      if ($('summaryScoreValue')) $('summaryScoreValue').textContent = String(summary.score || 0);
+
+      if ($('summaryCompareCard')) {
+        if (battleCompare.me && battleCompare.opponent) {
+          $('summaryCompareCard').hidden = false;
+
+          if ($('summaryMeName')) {
+            $('summaryMeName').textContent =
+              String(battleCompare.me.nick || battleCompare.me.pid || runCtx.name || 'เรา');
+          }
+
+          if ($('summaryMeScore')) {
+            $('summaryMeScore').textContent = String(Number(battleCompare.me.score || 0));
+          }
+
+          if ($('summaryOpponentName')) {
+            $('summaryOpponentName').textContent =
+              String(battleCompare.opponent.nick || battleCompare.opponent.pid || 'คู่แข่ง');
+          }
+
+          if ($('summaryOpponentScore')) {
+            $('summaryOpponentScore').textContent = String(Number(battleCompare.opponent.score || 0));
+          }
+
+          if ($('summaryDeltaScore')) {
+            $('summaryDeltaScore').textContent = String(Math.abs(Number(battleCompare.delta || 0)));
+          }
+
+          if ($('summaryDeltaText')) {
+            if (battleCompare.delta > 0) {
+              $('summaryDeltaText').textContent = 'เรานำอยู่';
+            } else if (battleCompare.delta < 0) {
+              $('summaryDeltaText').textContent = 'ตามอยู่';
+            } else {
+              $('summaryDeltaText').textContent = 'คะแนนเท่ากัน';
+            }
+          }
+        } else {
+          $('summaryCompareCard').hidden = true;
         }
-        if (String(summary.rank) === '2') {
-          return { badge:'🛡️', heroTitle:'Almost Won!', heroSub:'อีกนิดเดียวก็ชนะแล้ว ลองใหม่ได้เลย', title:'Great Fight!' };
-        }
-        return { badge:'⚔️', heroTitle:'Battle Hero!', heroSub:'เธอสู้ได้เก่งมากและอ่านจังหวะได้ดี', title:'Nice Try!' };
       }
 
-      function summarySubText(summary){
-        const parts = [];
-        if (summary.roomId) parts.push('ห้อง ' + summary.roomId);
-        if (summary.result) parts.push(summary.result);
-        if (summary.players !== '') parts.push('ผู้เล่น ' + summary.players);
-        if (summary.reason) parts.push(summary.reason);
-        return parts.join(' • ') || 'จบรอบแล้ว มาดูผลการปะทะกัน';
-      }
-
-      const SUMMARY_KEY = 'GJ_BATTLE_LAST_SUMMARY_' + (roomId || 'noroom') + '_' + (playerPid || 'anon');
-
-      function showSummary(detail){
-        const summary = normalizeSummary(detail);
-        const hero = battleHero(summary);
-        const stars = battleStarCount(summary);
-
-        try { localStorage.setItem(SUMMARY_KEY, JSON.stringify(summary)); } catch {}
-
-        $('summaryBadge').textContent = hero.badge;
-        applySummaryIdentity();
-        $('summaryHeroTitle').textContent = hero.heroTitle;
-        $('summaryHeroSub').textContent = `${heroMeta.avatar} ${playerName || playerPid || '-'} • ${hero.heroSub}`;
-        $('summaryTitle').textContent = hero.title;
-        $('summarySub').textContent = summarySubText(summary);
-        $('summaryStars').innerHTML = renderSummaryStars(stars);
-        $('summaryScoreValue').textContent = String(summary.score ?? 0);
-
+      if ($('summaryGrid')) {
         $('summaryGrid').innerHTML =
-          addSummaryItem('ผลลัพธ์', summary.result) +
-          addSummaryItem('อันดับ', summary.rank) +
-          addSummaryItem('ฮีโร่', summary.heroDisplay) +
-          addSummaryItem('คะแนนเรา', summary.score) +
-          addSummaryItem('คะแนนคู่แข่ง', summary.opponentScore) +
-          addSummaryItem('ผู้เล่นทั้งหมด', summary.players) +
-          addSummaryItem('Miss', summary.miss) +
-          addSummaryItem('Best Streak', summary.bestStreak) +
+          addSummaryItem('อันดับ', summary.rank || '-') +
+          addSummaryItem('ผลลัพธ์', summary.result || '-') +
+          addSummaryItem('ฮีโร่', summary.heroDisplay || '-') +
+          addSummaryItem('คะแนนเรา', summary.score || 0) +
+          addSummaryItem('ผู้เล่นทั้งหมด', summary.players || '-') +
+          addSummaryItem('Good Hit', summary.goodHit || 0) +
+          addSummaryItem('Junk Hit', summary.junkHit || 0) +
+          addSummaryItem('Miss', summary.miss || 0) +
+          addSummaryItem('Best Streak', summary.bestStreak || 0) +
+          addSummaryItem('เวลาใช้', summary.duration || '-') +
           addSummaryItem('ห้อง', summary.roomId || '-') +
-          addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-');
+          addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-') +
+          buildStandingsHtml(summary);
+      }
 
+      if ($('summaryDebug')) {
         $('summaryDebug').textContent =
           '[BATTLE SUMMARY]\n' +
-          'hero=' + (summary.heroDisplay || '-') + '\n' +
           'rank=' + (summary.rank || '-') + '\n' +
           'score=' + (summary.score || 0) + '\n' +
-          'opponent=' + (summary.opponentScore || 0) + '\n\n' +
-          safeJson(summary);
-
-        $('summaryOverlay').hidden = false;
-        window.__GJ_BATTLE_LAST_SUMMARY__ = summary;
-        emitEnrichedSummaryEvents('battle', summary);
+          'players=' + (summary.players || '-') + '\n' +
+          'rematchLobby=' + buildBattleLobbyUrl() + '\n' +
+          'standings=' + JSON.stringify(summary.standings || []) + '\n' +
+          'battleCompare=' + JSON.stringify(battleCompare || {}) + '\n' +
+          'me=' + JSON.stringify((battleCompare && battleCompare.me) || null) + '\n' +
+          'opponent=' + JSON.stringify((battleCompare && battleCompare.opponent) || null) + '\n\n' +
+          controllerDebugText() + '\n\n' +
+          safeJson(summary.raw || summary);
       }
 
-      function hideSummary(){
-        $('summaryOverlay').hidden = true;
-      }
+      if ($('summaryOverlay')) $('summaryOverlay').hidden = false;
+      window.__GJ_BATTLE_LAST_SUMMARY__ = summary;
 
-      function handleSummaryEvent(evtName, detail){
-        console.log('[GJ-BATTLE-SUMMARY]', evtName, detail);
-        showSummary(detail || {});
-      }
+      const card = $('engineStatusCard');
+      if (card) card.style.display = 'none';
+      __battlePendingLocalSummary = null;
+    }
 
-      function wireQuickActions(){
-        $('btnQuickCopyRoom').addEventListener('click', () => {
-          copyText(roomId || '').then(() => {
-            $('engineTip').innerHTML = '<strong>คัดลอกแล้ว:</strong> ส่งรหัสห้องนี้ให้เพื่อนได้เลย';
-          }).catch(() => {
-            $('engineTip').innerHTML = '<strong>ยังคัดลอกไม่ได้:</strong> ลองคัดลอกจากข้อความ ROOM ด้านบนแทน';
-          });
-        });
+    function handleSummaryEvent(evtName, detail) {
+      console.log('[GJ-BATTLE-SUMMARY]', evtName, detail);
 
-        $('btnQuickBackHub').addEventListener('click', () => {
-          location.href = runCtx.hub;
-        });
-      }
-
-      function buildReplayLobbyUrl(){
-        const u = new URL('./goodjunk-battle-lobby.html', location.href);
-
-        if (roomId) {
-          u.searchParams.set('roomId', roomId);
-          u.searchParams.set('room', roomId);
+      if (shouldDeferLocalBattleSummary(detail)) {
+        __battlePendingLocalSummary = detail || {};
+        setStatus('กำลังรอผลเทียบกับอีกคน…', 'ส่งผลของคุณแล้ว กำลังรออีกเครื่องสรุปผล');
+        if ($('engineStatusSub')) {
+          $('engineStatusSub').textContent = 'เมื่อผลของทั้ง 2 คนมาครบ ระบบจะอัปเดตเป็นสรุปอันดับและคะแนนเปรียบเทียบอัตโนมัติ';
         }
-
-        if (playerPid) u.searchParams.set('pid', playerPid);
-        if (playerName) {
-          u.searchParams.set('name', playerName);
-          u.searchParams.set('nick', playerName);
+        if ($('engineTip')) {
+          $('engineTip').innerHTML = '<strong>รอสักครู่:</strong> ระบบกำลังรวมผลของผู้เล่นทั้งห้อง';
         }
-
-        u.searchParams.set('diff', runCtx.diff || 'normal');
-        u.searchParams.set('time', String(runCtx.time || 150));
-        u.searchParams.set('view', runCtx.view || 'mobile');
-        u.searchParams.set('run', runCtx.run || 'play');
-        u.searchParams.set('mode', 'battle');
-        u.searchParams.set('hub', runCtx.hub || '../hub.html');
-        u.searchParams.set('replay', '1');
-        u.searchParams.delete('showLastSummary');
-
-        return u.toString();
+        return;
       }
 
-      function clearBattleSummaryState(){
-        try { delete window.__GJ_BATTLE_LAST_SUMMARY__; } catch {}
-        try { delete window.__GJ_BATTLE_LAST_SESSION_FLUSH__; } catch {}
-        try { delete window.__HHA_BATTLE_EVENT_BUFFER__; } catch {}
-        try { localStorage.removeItem(SUMMARY_KEY); } catch {}
-      }
+      showSummary(detail || {});
+    }
 
-      async function resetRoomForReplay(){
-        const firebase = window.firebase;
-        if (!firebase || !firebase.database || !roomId) return false;
-
-        const roomRef = firebase.database().ref(`hha-battle/goodjunk/rooms/${roomId}`);
-        const snap = await roomRef.once('value');
-        if (!snap.exists()) return false;
-
-        const room = snap.val() || {};
-        const t = Date.now();
-        const playersSrc = (room.players && typeof room.players === 'object') ? room.players : {};
-        const nextPlayers = {};
-
-        Object.keys(playersSrc).forEach((key) => {
-          const p = playersSrc[key] || {};
-          nextPlayers[key] = {
-            ...p,
-            connected: p.connected !== false,
-            ready: true,
-            status: 'waiting',
-
-            score: 0,
-            miss: 0,
-            combo: 0,
-            bestStreak: 0,
-
-            hp: 100,
-            maxHp: 100,
-            shield: 0,
-
-            attackCharge: 0,
-            maxAttackCharge: 100,
-            attackReady: false,
-
-            attacksUsed: 0,
-            guardsUsed: 0,
-            perfectGuardCount: 0,
-            blockedDamage: 0,
-            criticalCount: 0,
-            damageDealt: 0,
-            damageTaken: 0,
-            koCount: 0,
-
-            counterUsed: 0,
-            chargeDrained: 0,
-            junkRainSent: 0,
-            junkRainReceived: 0,
-            drainComboUsed: 0,
-            junkComboUsed: 0,
-            counterBonusUsed: 0,
-
-            telegraphType: '',
-            telegraphUntil: 0,
-
-            lastAttackId: '',
-            lastAttackAt: 0,
-            lastAttackDamage: 0,
-            lastAttackTarget: '',
-
-            updatedAt: t,
-            lastSeen: t
-          };
-        });
-
-        await roomRef.set({
-          meta: {
-            ...(room.meta || {}),
-            updatedAt: t
-          },
-          state: {
-            ...(room.state || {}),
-            status: 'waiting',
-            plannedSec: Number((room.state || {}).plannedSec || runCtx.time || 150),
-            countdownEndsAt: 0,
-            startedAt: 0,
-            endsAt: 0,
-            endedAt: 0,
-            roundToken: '',
-            phase: 'A',
-            bossEvent: null,
-            finalRageDone: false,
-            director: {
-              id: `dir-balanced-${t}`,
-              mode: 'balanced',
-              updatedAt: t
-            },
-            updatedAt: t
-          },
-          players: nextPlayers
-        });
-
-        return true;
-      }
-
-      $('btnReplay').addEventListener('click', async () => {
-        const btn = $('btnReplay');
-        if (btn){
-          btn.disabled = true;
-          btn.textContent = '⏳ กำลังรีเซ็ตห้อง...';
+    function wireActions() {
+      $('btnQuickCopyRoom')?.addEventListener('click', () => {
+        const room = String(runCtx.roomId || '').trim();
+        if (!room) {
+          if ($('engineTip')) $('engineTip').innerHTML = '<strong>Tip:</strong> ตอนนี้ยังไม่มีรหัสห้องให้คัดลอก';
+          return;
         }
-
-        clearBattleSummaryState();
-
-        try{
-          await resetRoomForReplay();
-        } catch (err){
-          console.warn('[GJ-BATTLE-RUN] replay reset failed:', err);
-        }
-
-        location.href = buildReplayLobbyUrl();
-      });
-
-      $('btnCopyRoom').addEventListener('click', () => {
-        copyText(roomId || '').then(() => {
-          $('summarySub').textContent = 'คัดลอก room code แล้ว';
+        copyText(room).then(() => {
+          if ($('engineTip')) $('engineTip').innerHTML = '<strong>คัดลอกแล้ว:</strong> ส่งรหัสห้องนี้ให้เพื่อนได้เลย';
         }).catch(() => {
-          $('summarySub').textContent = 'คัดลอก room code ไม่สำเร็จ';
+          if ($('engineTip')) $('engineTip').innerHTML = '<strong>ยังคัดลอกไม่ได้:</strong> ลองคัดลอกจากข้อความ ROOM ด้านบนแทน';
         });
       });
 
-      $('btnExport').addEventListener('click', () => {
-        const payload = window.__GJ_BATTLE_LAST_SUMMARY__ || {};
-        saveText(`goodjunk-battle-summary-${clean(roomId || 'room')}-${Date.now()}.json`, safeJson(payload));
-      });
-
-      $('btnBackHub').addEventListener('click', () => {
+      $('btnQuickBackHub')?.addEventListener('click', () => {
         location.href = runCtx.hub;
       });
 
-      window.__GJ_SHOW_BATTLE_SUMMARY__ = showSummary;
-      window.__GJ_HIDE_BATTLE_SUMMARY__ = hideSummary;
-      window.__GJ_BATTLE_SUMMARY_BRIDGE__ = { show:showSummary, hide:hideSummary };
-
-      [
-        'gj:battle-summary',
-        'gj:summary',
-        'gj:match-summary',
-        'gj:session-end',
-        'hha:summary',
-        'hha:session-summary',
-        'hha:match-summary'
-      ].forEach((eventName) => {
-        window.addEventListener(eventName, (evt) => {
-          handleSummaryEvent(eventName, evt && evt.detail ? evt.detail : {});
-        });
+      $('btnRematch')?.addEventListener('click', () => {
+        location.href = buildBattleLobbyUrl();
       });
 
-      window.addEventListener('message', (evt) => {
-        const data = evt && evt.data ? evt.data : null;
-        if (!data || typeof data !== 'object') return;
-        if (data.type === 'gj:battle-summary' || data.type === 'gj:summary' || data.type === 'hha:summary') {
-          handleSummaryEvent(data.type, data.detail || data.summary || data);
+      $('btnCopyRoom')?.addEventListener('click', () => {
+        copyText(runCtx.roomId || '')
+          .then(() => { if ($('summarySub')) $('summarySub').textContent = 'คัดลอก room code แล้ว'; })
+          .catch(() => { if ($('summarySub')) $('summarySub').textContent = 'คัดลอก room code ไม่สำเร็จ'; });
+      });
+
+      $('btnExport')?.addEventListener('click', () => {
+        const payload = window.__GJ_BATTLE_LAST_SUMMARY__ || {};
+        saveText(`goodjunk-battle-summary-${clean(runCtx.roomId || 'room')}-${Date.now()}.json`, safeJson(payload));
+      });
+
+      $('btnBackHub')?.addEventListener('click', () => {
+        location.href = runCtx.hub;
+      });
+    }
+
+    function loadOptionalSafeLayer(debugRows) {
+      return (async () => {
+        for (const src of SAFE_CANDIDATES) {
+          try {
+            const loaded = await tryLoad(src);
+            debugRows.push(`[SAFE] ${loaded.src} [${loaded.type}]`);
+            return loaded;
+          } catch (_) {
+            debugRows.push(`[SAFE FAIL] ${src}`);
+          }
         }
-      });
+        debugRows.push('[SAFE] stub only');
+        return null;
+      })();
+    }
 
-      if (qs('replay') === '1') {
-        clearBattleSummaryState();
-        hideSummary();
-      }
-
-      if (qs('showLastSummary') === '1' && qs('replay') !== '1') {
+    async function loadCore(debugRows) {
+      const errors = [];
+      for (const src of CORE_CANDIDATES) {
+        const before = getMountSnapshot();
         try {
-          const raw = localStorage.getItem(SUMMARY_KEY);
-          if (raw) showSummary(JSON.parse(raw));
-        } catch {}
-      }
+          setStatus('กำลังโหลดเกม…', `กำลังโหลด core: ${src}`);
+          const loaded = await tryLoad(src);
+          const bootCalls = invokeKnownBoots();
+          const probe = await probeCoreReady(before, 2200);
 
-      async function boot(){
-        hideSummary();
+          if (!probe.ok) {
+            errors.push(`${src} โหลดได้ แต่ยังไม่พบ core signature`);
+            debugRows.push(`[CORE NOT READY] ${src} [${loaded.type}]`);
+            debugRows.push(`bootCalls=${bootCalls.join(', ') || '-'}`);
+            continue;
+          }
 
-        applyHeroIdentity();
-        setMiniInfo();
-        wireQuickActions();
-
-        setDebug(
-          '[RUN CTX]\n' +
-          'roomId=' + (roomId || '-') + '\n' +
-          'pid=' + (playerPid || '-') + '\n' +
-          'uid=' + (queryUid || '-') + '\n' +
-          'name=' + (playerName || '-') + '\n' +
-          'hub=' + (runCtx.hub || '-') + '\n' +
-          'diff=' + (runCtx.diff || '-') + '\n' +
-          'time=' + (runCtx.time || '-') + '\n' +
-          'seed=' + (runCtx.seed || '-') + '\n\n' +
-          '[LOAD ORDER]\n' +
-          '1) ' + SAFE_LAYER_SRC + '\n' +
-          '2) ' + ENGINE_SRC
-        );
-
-        try {
-          setStatus('กำลังโหลด safe layer…', SAFE_LAYER_SRC);
-          await loadScript(SAFE_LAYER_SRC);
-
-          setStatus('กำลังโหลด battle engine…', ENGINE_SRC);
-          await loadScript(ENGINE_SRC);
-
-          setFriendlyReadyState();
-          enterLivePlay();
-
-          setDebug(
-            '[SUCCESS]\n' +
-            'safe=' + SAFE_LAYER_SRC + '\n' +
-            'engine=' + ENGINE_SRC + '\n' +
-            'room=' + (roomId || '-') + '\n' +
-            'player=' + heroMeta.avatar + ' ' + (playerName || playerPid || '-') + '\n' +
-            'role=' + (runCtx.role || 'player')
-          );
-          hideStatusCardSoon();
+          debugRows.push(`[CORE OK] ${src} [${loaded.type}]`);
+          debugRows.push(`bootCalls=${bootCalls.join(', ') || '-'}`);
+          debugRows.push(`probe=${probe.note}`);
+          return { loaded, bootCalls, probe };
         } catch (err) {
-          console.error('[GJ-BATTLE-RUN] boot failed', err);
-          exitLivePlay();
-          setStatus('โหลด Battle ไม่สำเร็จ', String(err && err.message ? err.message : err), true);
-          setDebug(
-            '[FAILED]\n' +
-            'safe=' + SAFE_LAYER_SRC + '\n' +
-            'engine=' + ENGINE_SRC + '\n\n' +
-            String(err && err.stack ? err.stack : err)
-          );
+          const msg = String(err && err.message ? err.message : err);
+          errors.push(msg);
+          debugRows.push(`[CORE FAIL] ${src}`);
+        }
+      }
+      throw new Error(errors.join('\n\n') || 'โหลด core game ไม่สำเร็จ');
+    }
+
+    async function loadController(debugRows) {
+      if (!WANT_CONTROLLER) {
+        debugRows.push('[CONTROLLER] skipped (quick play mode)');
+        return null;
+      }
+
+      const errors = [];
+      for (const src of CONTROLLER_CANDIDATES) {
+        try {
+          setStatus('กำลังโหลดเกม…', `กำลังโหลด battle controller: ${src}`);
+          const loaded = await tryLoad(src);
+          debugRows.push(`[CONTROLLER OK] ${loaded.src} [${loaded.type}]`);
+          return loaded;
+        } catch (err) {
+          const msg = String(err && err.message ? err.message : err);
+          errors.push(msg);
+          debugRows.push(`[CONTROLLER FAIL] ${src}`);
         }
       }
 
-      boot();
-    })();
+      debugRows.push('[CONTROLLER] failed but core is already loaded');
+      console.warn('[GJ-BATTLE-RUN] controller load failed', errors);
+      return null;
+    }
+
+    function setFriendlyReadyState(note) {
+      setStatus('พร้อมแล้ว!', note || 'โหลดเกมสำเร็จ');
+      if ($('engineStatusSub')) {
+        $('engineStatusSub').textContent = 'เข้าเกมสำเร็จแล้ว อีกครู่หน้าช่วยเล่นจะหายไปและเกมจะเริ่มเอง';
+      }
+
+      const steps = $('engineSteps');
+      if (steps) {
+        steps.innerHTML = `
+          <div class="status-step"><span>✅</span><span>โหลดหน้าเกมสำเร็จแล้ว</span></div>
+          <div class="status-step"><span>⚔️</span><span>เตรียมแข่งเก็บอาหารดีเมื่อเกมเริ่ม</span></div>
+          <div class="status-step"><span>🏆</span><span>พยายามทำคะแนนให้ชนะอีกฝ่าย</span></div>
+        `;
+      }
+
+      if ($('engineTip')) {
+        $('engineTip').innerHTML = '<strong>พร้อมแล้ว:</strong> อีกครู่หน้าช่วยเล่นนี้จะซ่อนลงอัตโนมัติ';
+      }
+    }
+
+    function hideStatusCardSoon() {
+      const card = $('engineStatusCard');
+      if (!card) return;
+      setTimeout(() => { card.style.display = 'none'; }, 1200);
+    }
+
+    applyIdentity();
+    wireActions();
+    installSafeStub();
+    refreshControllerDebugPanel();
+
+    [
+      'gj:battle-summary',
+      'gj:summary',
+      'gj:match-summary',
+      'gj:session-end',
+      'hha:summary',
+      'hha:session-summary',
+      'hha:match-summary'
+    ].forEach((eventName) => {
+      window.addEventListener(eventName, (evt) => {
+        const detail = evt && evt.detail ? evt.detail : {};
+        handleSummaryEvent(eventName, detail);
+      });
+    });
+
+    window.addEventListener('message', (evt) => {
+      const data = evt && evt.data ? evt.data : null;
+      if (!data || typeof data !== 'object') return;
+
+      if (data.type === 'gj:battle-summary' || data.type === 'gj:summary' || data.type === 'hha:summary') {
+        const detail = data.detail || data.summary || data;
+        handleSummaryEvent(data.type, detail);
+      }
+    });
+
+    window.addEventListener('gj:battle-debug', (evt) => {
+      __battleControllerDebug = evt && evt.detail ? evt.detail : null;
+      refreshControllerDebugPanel();
+    });
+
+    window.__GJ_SHOW_BATTLE_SUMMARY__ = showSummary;
+
+    async function loadEngine() {
+      const debugRows = [
+        `[MODE] ${MODE}`,
+        `[PID] ${runCtx.pid || '-'}`,
+        `[ROOM] ${runCtx.roomId || '-'}`,
+        `[ROOM_KIND] ${runCtx.roomKind || '-'}`,
+        `[WAIT] ${runCtx.wait}`,
+        `[HOST] ${runCtx.host}`,
+        `[USE_CONTROLLER] ${WANT_CONTROLLER ? 'yes' : 'no'}`,
+        '',
+        '[CORE CANDIDATES]',
+        ...CORE_CANDIDATES,
+        '',
+        '[CONTROLLER CANDIDATES]',
+        ...CONTROLLER_CANDIDATES
+      ];
+
+      try {
+        await loadOptionalSafeLayer(debugRows);
+        const core = await loadCore(debugRows);
+        const controller = await loadController(debugRows);
+
+        window.__GJ_MULTI_ENGINE_INFO__ = {
+          mode: MODE,
+          label: MODE_LABEL,
+          coreSrc: core.loaded.src,
+          coreType: core.loaded.type,
+          controllerSrc: controller ? controller.src : '',
+          controllerType: controller ? controller.type : '',
+          loadedAt: Date.now(),
+          readyNote: core.probe.note
+        };
+
+        window.__GJ_BATTLE_ENGINE_READY__ = true;
+
+        await forceQuickStartSequence(debugRows);
+
+        setFriendlyReadyState(
+          `core: ${core.loaded.src} (${core.loaded.type})` +
+          (controller ? ` • controller: ${controller.src} (${controller.type})` : ' • quick play')
+        );
+        setDebug(debugRows.join('\n'));
+        refreshControllerDebugPanel();
+        console.log('[GJ-BATTLE-RUN] ready', window.__GJ_MULTI_ENGINE_INFO__);
+        hideStatusCardSoon();
+      } catch (err) {
+        const msg = String(err && err.message ? err.message : err);
+        setStatus(
+          'ไม่พบไฟล์เกมหลัก',
+          'โหลด GoodJunk core game ไม่สำเร็จ\nลองตรวจชื่อไฟล์ core ให้ตรงกับไฟล์จริง',
+          true
+        );
+        debugRows.push('');
+        debugRows.push('[ERROR]');
+        debugRows.push(msg);
+        setDebug(debugRows.join('\n'));
+        console.error('[GJ-BATTLE-RUN] loadEngine failed', err);
+      }
+    }
+
+    loadEngine();
+  })();
   </script>
 </body>
 </html>
