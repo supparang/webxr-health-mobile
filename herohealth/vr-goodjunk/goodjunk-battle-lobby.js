@@ -3,7 +3,7 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-battle-lobby.js
  * GoodJunk Battle Lobby
- * FULL PATCH v20260404-battle-lobby-rematch-full
+ * FULL PATCH v20260404-battle-lobby-rematch-fullfix2
  * ========================================================= */
 (function(){
   const W = window;
@@ -179,6 +179,8 @@
   };
 
   let __battleRematchResetDone = false;
+  let __battleSelfHealBusy = false;
+  let __battleLastHealAt = 0;
 
   const setTop = (m)=> { if (UI.topNotice) UI.topNotice.textContent = m || ''; };
   const setSide = (m)=> { if (UI.sideNotice) UI.sideNotice.textContent = m || ''; };
@@ -640,7 +642,9 @@
 
     if (UI.playerCount) UI.playerCount.textContent = `${count} คน • ready ${readyCount}/2`;
     if (UI.hostName) {
-      const hostPlayer = active.find(p => p.pid === (S.meta && S.meta.hostPid)) || Object.values(S.players || {}).find(p => p.pid === (S.meta && S.meta.hostPid));
+      const hostPlayer =
+        active.find(p => p.pid === (S.meta && S.meta.hostPid)) ||
+        Object.values(S.players || {}).find(p => p.pid === (S.meta && S.meta.hostPid));
       UI.hostName.textContent = hostPlayer ? (hostPlayer.nick || hostPlayer.pid || '-') : '-';
     }
 
@@ -744,6 +748,7 @@
     S.refs = null;
     S.redirecting = false;
     __battleRematchResetDone = false;
+    __battleSelfHealBusy = false;
     renderRoomDebug();
   }
 
@@ -828,6 +833,89 @@
     }
   }
 
+  async function maybeRecoverBrokenCountdown(reason='') {
+    if (!S.refs) return;
+
+    const status = String((S.state && S.state.status) || '');
+    if (status !== 'countdown' && status !== 'playing' && status !== 'running') return;
+
+    const actives = activePlayers();
+    const activeHost = actives.find(p => p.pid === (S.meta && S.meta.hostPid));
+    const iAmFirstActive = !!(actives[0] && actives[0].pid === S.uid);
+    const canAdoptHost = !S.meta.hostPid || !activeHost || isHost() || iAmFirstActive;
+
+    if (actives.length >= 2 && activeHost) return;
+    if (!canAdoptHost) return;
+    if (__battleSelfHealBusy) return;
+
+    const ts = Date.now();
+    if (ts - __battleLastHealAt < 900) return;
+
+    __battleSelfHealBusy = true;
+    __battleLastHealAt = ts;
+
+    try {
+      if ((!S.meta.hostPid || !activeHost) && iAmFirstActive && S.meta.hostPid !== S.uid) {
+        await dbWriteWithRetry(() => S.refs.meta.update({
+          hostPid: S.uid,
+          updatedAt: Date.now()
+        })).catch(()=>{});
+      }
+
+      await dbWriteWithRetry(() => S.refs.match.update({
+        participantIds: [],
+        lockedAt: null,
+        status: 'idle',
+        battle: {
+          winnerId: '',
+          loserId: '',
+          finishedAt: 0
+        }
+      })).catch(()=>{});
+
+      await dbWriteWithRetry(() => S.refs.state.update({
+        status: 'waiting',
+        countdownEndsAt: null,
+        startAt: null,
+        startedAt: null,
+        participantIds: [],
+        winnerId: '',
+        loserId: '',
+        updatedAt: Date.now()
+      })).catch(()=>{});
+
+      const playersSnap = await S.refs.players.once('value').catch(()=>null);
+      const players = (playersSnap && playersSnap.val()) || {};
+      const updates = {};
+      const nowTs = Date.now();
+
+      Object.keys(players).forEach((pid) => {
+        updates[`${pid}/ready`] = false;
+        updates[`${pid}/phase`] = 'lobby';
+        updates[`${pid}/finished`] = false;
+        updates[`${pid}/updatedAt`] = nowTs;
+        updates[`${pid}/lastSeen`] = nowTs;
+      });
+
+      if (Object.keys(updates).length) {
+        await dbWriteWithRetry(() => S.refs.players.update(updates)).catch(()=>{});
+      }
+
+      console.log('[battle-lobby] recovered broken countdown', {
+        reason,
+        roomId: S.roomId,
+        roomKind: S.roomKind,
+        prevStatus: status,
+        activeCount: actives.length,
+        hostPid: S.meta && S.meta.hostPid
+      });
+    } catch (err) {
+      console.error('[battle-lobby] maybeRecoverBrokenCountdown failed', err);
+    } finally {
+      __battleSelfHealBusy = false;
+    }
+  }
+
   async function joinBoundRoom(created){
     const nowTs = now();
     const existing = (S.players && S.players[S.uid]) ? S.players[S.uid] : null;
@@ -853,17 +941,21 @@
 
     try { S.refs.players.child(S.uid).onDisconnect().remove(); } catch {}
 
-    const onMeta = (snap) => {
+    const onMeta = async (snap) => {
       S.meta = snap.val() || {};
       renderState();
+      await maybeRecoverBrokenCountdown('meta');
     };
 
-    const onState = (snap) => {
+    const onState = async (snap) => {
       S.state = snap.val() || {};
       renderState();
       renderCountdown();
+
+      await maybeRecoverBrokenCountdown('state');
+
       const st = String(S.state.status || '');
-      if (st === 'running' || st === 'playing') {
+      if ((st === 'running' || st === 'playing') && activePlayers().length >= 2) {
         goRun();
       }
     };
@@ -876,31 +968,18 @@
     const onPlayers = async (snap) => {
       S.players = snap.val() || {};
 
-      if(isHost() && S.state && S.state.status === 'countdown' && readyPlayers().length < 2){
-        await dbWriteWithRetry(() => S.refs.state.update({
-          status:'waiting',
-          countdownEndsAt:null,
-          startAt:null,
-          roundId:S.state.roundId || '',
-          participantIds:[],
-          updatedAt:Date.now()
-        })).catch(()=>{});
+      const actives = activePlayers();
+      const activeHost = actives.find(p => p.pid === (S.meta && S.meta.hostPid));
 
-        await dbWriteWithRetry(() => S.refs.match.update({
-          participantIds:[],
-          lockedAt:null,
-          status:'idle',
-          battle:{
-            winnerId:'',
-            loserId:'',
-            finishedAt:0
-          }
+      if ((!S.meta.hostPid || !activeHost) && actives[0] && actives[0].pid === S.uid) {
+        await dbWriteWithRetry(() => S.refs.meta.update({
+          hostPid: S.uid,
+          updatedAt: Date.now()
         })).catch(()=>{});
       }
 
-      const actives = activePlayers();
-      if(S.meta && S.meta.hostPid && !actives.find(p=>p.pid === S.meta.hostPid) && actives[0] && actives[0].pid === S.uid){
-        await dbWriteWithRetry(() => S.refs.meta.update({ hostPid:S.uid, updatedAt:Date.now() })).catch(()=>{});
+      if (S.state && S.state.status === 'countdown' && actives.length < 2) {
+        await maybeRecoverBrokenCountdown('players');
       }
 
       renderState();
@@ -946,6 +1025,8 @@
       time: getTime(),
       seed: getBattleSeed()
     }, isHost());
+
+    await maybeRecoverBrokenCountdown('post-join');
 
     if (created) {
       setTop('สร้างห้องสำเร็จ');
