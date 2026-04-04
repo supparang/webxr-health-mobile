@@ -1,6 +1,6 @@
 // /herohealth/vr-groups/groups.solo.core.js
 // Groups Solo Core Engine
-// PATCH v20260404-groups-solo-core-r1
+// PATCH v20260404-groups-solo-core-r2
 
 import {
   GROUPS_CATEGORIES,
@@ -17,10 +17,11 @@ import {
   renderGroupsSummary
 } from './groups.summary.js';
 
-export const GROUPS_PATCH_CORE = 'v20260404-groups-solo-core-r1';
+export const GROUPS_PATCH_CORE = 'v20260404-groups-solo-core-r2';
 
 const FEVER_MS = 6000;
 const PRACTICE_MS = 15000;
+const MAX_REACTION_SAMPLES = 24;
 
 export function createGroupsSoloCore({
   ctx,
@@ -43,37 +44,45 @@ export function createGroupsSoloCore({
   let preset = { ...presetBase };
 
   const state = {
-    phase: 'idle',
+    phase: 'idle', // idle | practice | ready | playing | summary
     running: false,
+    destroyed: false,
+
     practiceUsed: false,
     timeLeftMs: 0,
+
     goalCat: null,
     goalNeed: 0,
     goalDone: 0,
+
     score: 0,
     correct: 0,
     wrong: 0,
     miss: 0,
     streak: 0,
     bestStreak: 0,
+
     feverUntil: 0,
     feverCount: 0,
+
     items: new Map(),
     itemSeq: 0,
+
     loopId: 0,
     lastTs: 0,
     nextSpawnAt: 0,
+
     reactionSamples: [],
     statsByCat: createBlankCategoryStats(),
-    centerShootHintShown: false,
-    destroyed: false
+
+    centerShootHintShown: false
   };
 
   const bound = {
     resize: null,
     pagehide: null,
     beforeunload: null,
-    visibility: null,
+    visibilitychange: null,
     shoot: null,
     btnStartPractice: null,
     btnStartMain: null,
@@ -88,17 +97,12 @@ export function createGroupsSoloCore({
   function boot(){
     if (state.destroyed) return api;
 
-    if (ctx.debug) {
-      window.__GROUPS_SOLO_CORE__ = api;
-    }
-
-    setCtxUi();
     renderer.mount();
-    refreshStageRect();
+    primeUi();
     bindEvents();
     updateHud();
+    setDebug();
 
-    showCoach(getCoachLine('intro', rng) || 'โค้ช: พร้อมแล้ว แตะ “เริ่มฝึกเลย” ได้เลย ✨');
     log('session_start', {
       patch,
       ctx: {
@@ -110,7 +114,9 @@ export function createGroupsSoloCore({
         seed: ctx.seed,
         hub: ctx.hub,
         view: ctx.view,
-        run: ctx.run
+        run: ctx.run,
+        mode: ctx.mode,
+        game: ctx.game
       }
     });
 
@@ -123,19 +129,32 @@ export function createGroupsSoloCore({
     stopLoop();
     clearAllItems();
     flushLogs();
-
     unbindEvents();
     try{ renderer.destroy(); }catch{}
   }
 
+  function primeUi(){
+    setText(ui.ctxLine, `run=${ctx.run} • diff=${ctx.diff} • time=${ctx.timeSec} • view=${ctx.view}`);
+    setText(ui.chipPlayer, ctx.name || ctx.pid || 'anon');
+    setText(ui.phaseTag, 'Practice');
+    setText(ui.goalTag, '🎯 เป้าหมายตอนนี้');
+    setText(ui.goalTitle, 'แตะอาหารให้ถูกหมู่');
+    setText(ui.goalSub, 'ฝึกสั้นก่อน 15 วินาที แล้วค่อยเริ่มรอบจริง');
+    showCoach(getCoachLine('intro', rng) || 'โค้ช: พร้อมแล้วแตะปุ่มเริ่มได้เลย ✨');
+
+    showOverlay(ui.introOverlay);
+    hideOverlay(ui.midOverlay);
+    hideOverlay(ui.summaryOverlay);
+  }
+
   function bindEvents(){
     bound.resize = () => {
-      refreshStageRect();
+      renderer.refreshRect();
       setDebug();
     };
     bound.pagehide = () => flushLogs();
     bound.beforeunload = () => flushLogs();
-    bound.visibility = () => {
+    bound.visibilitychange = () => {
       if (document.hidden) flushLogs();
     };
     bound.shoot = (ev) => onCrosshairShoot(ev);
@@ -143,16 +162,18 @@ export function createGroupsSoloCore({
     window.addEventListener('resize', bound.resize);
     window.addEventListener('pagehide', bound.pagehide, { passive:true });
     window.addEventListener('beforeunload', bound.beforeunload, { passive:true });
-    document.addEventListener('visibilitychange', bound.visibility);
+    document.addEventListener('visibilitychange', bound.visibilitychange);
     window.addEventListener('hha:shoot', bound.shoot);
 
-    bindClick(ui.btnStartPractice, 'btnStartPractice', () => startPractice());
-    bindClick(ui.btnStartMain, 'btnStartMain', () => startMain());
-    bindClick(ui.btnGoHubIntro, 'btnGoHubIntro', () => goHub());
-    bindClick(ui.btnReplayTop, 'btnReplayTop', () => replay());
-    bindClick(ui.btnReplaySummary, 'btnReplaySummary', () => replay());
-    bindClick(ui.btnBackTop, 'btnBackTop', () => goHub());
-    bindClick(ui.btnBackSummary, 'btnBackSummary', () => goHub());
+    bindClick(ui.btnStartPractice, 'btnStartPractice', startPractice);
+    bindClick(ui.btnStartMain, 'btnStartMain', startMain);
+    bindClick(ui.btnGoHubIntro, 'btnGoHubIntro', goHub);
+
+    bindClick(ui.btnReplayTop, 'btnReplayTop', replay);
+    bindClick(ui.btnReplaySummary, 'btnReplaySummary', replay);
+    bindClick(ui.btnBackTop, 'btnBackTop', goHub);
+    bindClick(ui.btnBackSummary, 'btnBackSummary', goHub);
+
     bindClick(ui.btnRecenter, 'btnRecenter', () => {
       renderer.showBanner('รีเซ็ตมุมมองแล้ว 🎯', 1200);
     });
@@ -162,7 +183,7 @@ export function createGroupsSoloCore({
     if (bound.resize) window.removeEventListener('resize', bound.resize);
     if (bound.pagehide) window.removeEventListener('pagehide', bound.pagehide);
     if (bound.beforeunload) window.removeEventListener('beforeunload', bound.beforeunload);
-    if (bound.visibility) document.removeEventListener('visibilitychange', bound.visibility);
+    if (bound.visibilitychange) document.removeEventListener('visibilitychange', bound.visibilitychange);
     if (bound.shoot) window.removeEventListener('hha:shoot', bound.shoot);
 
     unbindClick(ui.btnStartPractice, bound.btnStartPractice);
@@ -186,51 +207,28 @@ export function createGroupsSoloCore({
     el.removeEventListener('click', fn);
   }
 
-  function setCtxUi(){
-    if (ui.ctxLine) {
-      ui.ctxLine.textContent = `run=${ctx.run} • diff=${ctx.diff} • time=${ctx.timeSec} • view=${ctx.view}`;
-    }
-    if (ui.chipPlayer) {
-      ui.chipPlayer.textContent = ctx.name || ctx.pid || 'anon';
-    }
-    if (ui.phaseTag) {
-      ui.phaseTag.textContent = 'Practice';
-    }
-    if (ui.goalTag) {
-      ui.goalTag.textContent = '🎯 เป้าหมายตอนนี้';
-    }
-    if (ui.goalTitle) {
-      ui.goalTitle.textContent = 'แตะอาหารให้ถูกหมู่';
-    }
-    if (ui.goalSub) {
-      ui.goalSub.textContent = 'ฝึกสั้นก่อน 15 วินาที แล้วค่อยเริ่มรอบจริง';
-    }
-  }
-
-  function refreshStageRect(){
-    renderer.refreshRect();
-  }
-
   function startPractice(){
+    if (state.destroyed) return;
+
     stopLoop();
-    resetRun(true);
+    hardResetRun();
 
     state.phase = 'practice';
+    state.running = true;
     state.practiceUsed = true;
     state.timeLeftMs = PRACTICE_MS;
-    state.running = true;
-    state.lastTs = 0;
-    state.nextSpawnAt = 0;
     state.goalNeed = 2;
     state.goalDone = 0;
     state.goalCat = pickCategory();
+    state.lastTs = 0;
+    state.nextSpawnAt = 0;
+    state.centerShootHintShown = false;
 
     hideOverlay(ui.introOverlay);
     hideOverlay(ui.midOverlay);
     hideOverlay(ui.summaryOverlay);
 
     setText(ui.phaseTag, 'Practice');
-    setText(ui.goalSub, 'รอบฝึก 15 วินาที • ยังไม่คิดคะแนนจริง');
     showCoach('โค้ช: แตะอาหารให้ตรงกับหมู่ที่กำหนดนะ 💡');
 
     updateGoalText();
@@ -246,33 +244,37 @@ export function createGroupsSoloCore({
     clearAllItems();
 
     state.phase = 'ready';
+
     setText(ui.phaseTag, 'Ready');
     showOverlay(ui.midOverlay);
     renderer.showBanner('ฝึกเสร็จแล้ว!', 1200);
     showCoach(getCoachLine('ready', rng) || 'โค้ช: เก่งมาก! รอบต่อไปจะนับคะแนนจริงแล้ว 🚀');
 
     log('practice_end');
+    setDebug();
   }
 
   function startMain(){
+    if (state.destroyed) return;
+
     stopLoop();
     clearAllItems();
 
     state.phase = 'playing';
     state.running = true;
     state.timeLeftMs = Number(ctx.timeSec || 80) * 1000;
-    state.lastTs = 0;
-    state.nextSpawnAt = 0;
     state.goalNeed = presetBase.goalNeed;
     state.goalDone = 0;
     state.goalCat = pickCategory();
+    state.lastTs = 0;
+    state.nextSpawnAt = 0;
     state.centerShootHintShown = false;
 
     preset = ai?.adjustSpawn
       ? ai.adjustSpawn({ ...presetBase }, {
           wrong: state.wrong,
-          streak: state.streak,
-          miss: state.miss
+          miss: state.miss,
+          streak: state.streak
         })
       : { ...presetBase };
 
@@ -280,16 +282,21 @@ export function createGroupsSoloCore({
     hideOverlay(ui.summaryOverlay);
 
     setText(ui.phaseTag, 'Main Run');
-    setText(ui.goalSub, 'รอบจริง • เก็บให้ถูกหมู่ เร็วและแม่นที่สุด');
-
-    const aiRoundInfo = ai?.onRoundStart ? ai.onRoundStart({ ctx, state: snapshotState() }) : null;
-    const coachMsg = ai?.coachTip ? ai.coachTip({ wrong: state.wrong, miss: state.miss, streak: state.streak }) : '';
-    showCoach(coachMsg || 'โค้ช: เริ่มรอบจริงแล้ว ลุยเลย! 🌟');
+    showCoach(
+      ai?.coachTip?.({
+        wrong: state.wrong,
+        miss: state.miss,
+        streak: state.streak
+      }) || 'โค้ช: เริ่มรอบจริงแล้ว ลุยเลย! 🌟'
+    );
 
     updateGoalText();
     updateHud();
 
-    log('main_start', { aiRoundInfo });
+    log('main_start', {
+      aiRoundInfo: ai?.onRoundStart ? ai.onRoundStart({ ctx, state: snapshotState() }) : null
+    });
+
     loop(0);
   }
 
@@ -309,7 +316,7 @@ export function createGroupsSoloCore({
       return;
     }
 
-    refreshStageRect();
+    renderer.refreshRect();
 
     if (now >= state.nextSpawnAt){
       spawnItem(now);
@@ -331,25 +338,29 @@ export function createGroupsSoloCore({
   }
 
   function getSpawnEvery(){
-    if (state.phase === 'practice') return Math.round(preset.spawnMs * 1.15);
-    return preset.spawnMs;
+    return state.phase === 'practice'
+      ? Math.round(preset.spawnMs * 1.15)
+      : preset.spawnMs;
   }
 
   function getLifeMs(){
-    if (state.phase === 'practice') return Math.round(preset.lifeMs * 1.16);
-    return preset.lifeMs;
+    return state.phase === 'practice'
+      ? Math.round(preset.lifeMs * 1.16)
+      : preset.lifeMs;
   }
 
   function getMaxItems(){
-    if (state.phase === 'practice') return Math.max(3, preset.maxItems - 1);
-    return preset.maxItems;
+    return state.phase === 'practice'
+      ? Math.max(3, preset.maxItems - 1)
+      : preset.maxItems;
   }
 
   function spawnItem(now){
     if (state.items.size >= getMaxItems()) return;
 
     const data = GROUPS_ITEMS[Math.floor(rng() * GROUPS_ITEMS.length)];
-    const size = Math.round(randRange(
+    const size = Math.round(randRangeWith(
+      rng,
       state.phase === 'practice' ? preset.sizeMax - 2 : preset.sizeMin,
       preset.sizeMax
     ));
@@ -361,13 +372,13 @@ export function createGroupsSoloCore({
       padBottom: 72
     });
 
-    const x = randRange(safe.left, Math.max(safe.left + 1, safe.right - size));
-    const y = -size - randRange(8, 40);
+    const x = randRangeWith(rng, safe.left, Math.max(safe.left + 1, safe.right - size));
+    const y = -size - randRangeWith(rng, 8, 40);
 
     const speedMul = state.phase === 'practice' ? 0.8 : 1;
-    const vx = randRange(-34, 34) * (ctx.view === 'pc' ? 1 : 0.88);
-    const vy = randRange(preset.speedMin, preset.speedMax) * speedMul;
-    const ttl = Math.round(getLifeMs() * randRange(0.92, 1.08));
+    const vx = randRangeWith(rng, -34, 34) * (ctx.view === 'pc' ? 1 : 0.88);
+    const vy = randRangeWith(rng, preset.speedMin, preset.speedMax) * speedMul;
+    const ttl = Math.round(getLifeMs() * randRangeWith(rng, 0.92, 1.08));
 
     const id = `fg-${++state.itemSeq}`;
     const item = {
@@ -426,7 +437,7 @@ export function createGroupsSoloCore({
       }
 
       if (age >= item.ttl || item.y > maxY - 40){
-        const missedTarget = state.goalCat && item.data.group === state.goalCat.id;
+        const missedTarget = !!state.goalCat && item.data.group === state.goalCat.id;
         removeItem(item, missedTarget ? 'miss-target' : 'timeout');
 
         if (missedTarget && state.phase === 'playing'){
@@ -483,7 +494,12 @@ export function createGroupsSoloCore({
         pushReaction(reactionMs);
 
         renderer.setItemGlow(item, 'good');
-        renderer.popFx(item.x + item.size/2, item.y + 16, fever ? `+${scoreGain} FEVER` : `+${scoreGain}`, 'good');
+        renderer.popFx(
+          item.x + item.size / 2,
+          item.y + 16,
+          fever ? `+${scoreGain} FEVER` : `+${scoreGain}`,
+          'good'
+        );
 
         if (state.streak > 0 && state.streak % 5 === 0){
           state.feverUntil = performance.now() + FEVER_MS;
@@ -518,7 +534,7 @@ export function createGroupsSoloCore({
         state.statsByCat[item.data.group].wrong += 1;
 
         renderer.setItemGlow(item, 'bad');
-        renderer.popFx(item.x + item.size/2, item.y + 16, '-4', 'bad');
+        renderer.popFx(item.x + item.size / 2, item.y + 16, '-4', 'bad');
         showCoach(getCoachLine('playWrong', rng) || 'โค้ช: คนละหมู่นะ ลองดูไอคอนกับชื่อหมู่ใหม่อีกที');
       } else {
         showCoach(getCoachLine('practiceWrong', rng) || 'โค้ช: อันนี้ยังไม่ใช่หมู่เป้าหมายนะ');
@@ -540,19 +556,14 @@ export function createGroupsSoloCore({
   }
 
   function nextGoal(){
-    const prev = state.goalCat;
+    const prevId = state.goalCat?.id || '';
     state.goalDone = 0;
+    state.goalCat = pickCategory(prevId);
 
-    let next = pickCategory(prev?.id);
-    if (prev && next.id === prev.id && GROUPS_CATEGORIES.length > 1){
-      next = pickCategory(prev.id);
-    }
-
-    state.goalCat = next;
     updateGoalText();
-    renderer.showBanner(`เป้าหมายใหม่: ${next.short} ${next.name}`, 1300);
-    showCoach(`โค้ช: ต่อไปเก็บ ${next.short} ${next.name} ${next.icon}`);
-    log('goal_change', { targetGroup: next.id });
+    renderer.showBanner(`เป้าหมายใหม่: ${state.goalCat.short} ${state.goalCat.name}`, 1300);
+    showCoach(`โค้ช: ต่อไปเก็บ ${state.goalCat.short} ${state.goalCat.name} ${state.goalCat.icon}`);
+    log('goal_change', { targetGroup: state.goalCat.id });
   }
 
   function pickCategory(avoidId = ''){
@@ -564,6 +575,7 @@ export function createGroupsSoloCore({
 
     setText(ui.goalTitle, `เก็บ ${state.goalCat.short} ${state.goalCat.name} ${state.goalCat.icon}`);
     setText(ui.goalTag, `🎯 ${state.goalCat.short}`);
+    setText(ui.statGoal, `${state.goalDone} / ${state.goalNeed}`);
 
     if (state.phase === 'practice'){
       setText(ui.goalSub, `รอบฝึก • แตะให้ถูกหมู่จำนวน ${state.goalNeed} ชิ้น`);
@@ -571,7 +583,6 @@ export function createGroupsSoloCore({
       setText(ui.goalSub, `รอบจริง • แตะให้ถูกหมู่จำนวน ${state.goalNeed} ชิ้นต่อเป้าหมาย`);
     }
 
-    setText(ui.statGoal, `${state.goalDone} / ${state.goalNeed}`);
     renderer.setGoalProgress(state.goalDone, state.goalNeed);
   }
 
@@ -581,9 +592,11 @@ export function createGroupsSoloCore({
     setText(ui.chipStreak, String(state.streak | 0));
     setText(ui.statAcc, `${Math.round(calcAccuracy())}%`);
     setText(ui.statMiss, String(state.miss | 0));
-    setText(ui.statFever, isFeverOn()
-      ? `${Math.max(1, Math.ceil((state.feverUntil - performance.now()) / 1000))}s`
-      : 'Ready'
+    setText(
+      ui.statFever,
+      isFeverOn()
+        ? `${Math.max(1, Math.ceil((state.feverUntil - performance.now()) / 1000))}s`
+        : 'Ready'
     );
 
     updateGoalText();
@@ -611,6 +624,7 @@ export function createGroupsSoloCore({
     log('summary_view', { summary });
     log('session_end', { summary });
     flushLogs();
+    setDebug();
   }
 
   function replay(){
@@ -642,7 +656,7 @@ export function createGroupsSoloCore({
   function onCrosshairShoot(ev){
     if (!(ctx.view === 'cvr' || ctx.view === 'vr')) return;
 
-    const detail = ev && ev.detail ? ev.detail : {};
+    const detail = ev?.detail || {};
     const x = Number.isFinite(detail.clientX) ? detail.clientX : window.innerWidth / 2;
     const y = Number.isFinite(detail.clientY) ? detail.clientY : window.innerHeight / 2;
 
@@ -673,41 +687,56 @@ export function createGroupsSoloCore({
     state.items.clear();
   }
 
-  function resetRun(keepMetrics = false){
+  function hardResetRun(){
     clearAllItems();
     renderer.hideBanner();
 
-    if (!keepMetrics){
-      state.score = 0;
-      state.correct = 0;
-      state.wrong = 0;
-      state.miss = 0;
-      state.streak = 0;
-      state.bestStreak = 0;
-      state.feverUntil = 0;
-      state.feverCount = 0;
-      state.reactionSamples = [];
-      state.statsByCat = createBlankCategoryStats();
-    }
+    state.phase = 'idle';
+    state.running = false;
+
+    state.practiceUsed = false;
+    state.timeLeftMs = 0;
+
+    state.goalCat = null;
+    state.goalNeed = 0;
+    state.goalDone = 0;
+
+    state.score = 0;
+    state.correct = 0;
+    state.wrong = 0;
+    state.miss = 0;
+    state.streak = 0;
+    state.bestStreak = 0;
+
+    state.feverUntil = 0;
+    state.feverCount = 0;
+
+    state.itemSeq = 0;
+    state.lastTs = 0;
+    state.nextSpawnAt = 0;
+
+    state.reactionSamples = [];
+    state.statsByCat = createBlankCategoryStats();
+    state.centerShootHintShown = false;
+
+    preset = { ...presetBase };
 
     updateHud();
+    setDebug();
   }
 
   function maybeAiCoach(){
-    const msg = ai?.coachTip
-      ? ai.coachTip({
-          wrong: state.wrong,
-          miss: state.miss,
-          streak: state.streak
-        })
-      : '';
-
+    const msg = ai?.coachTip?.({
+      wrong: state.wrong,
+      miss: state.miss,
+      streak: state.streak
+    });
     if (msg) showCoach(msg);
   }
 
   function pushReaction(ms){
-    state.reactionSamples.push(ms);
-    if (state.reactionSamples.length > 24){
+    state.reactionSamples.push(Number(ms || 0));
+    if (state.reactionSamples.length > MAX_REACTION_SAMPLES){
       state.reactionSamples.shift();
     }
   }
@@ -732,26 +761,6 @@ export function createGroupsSoloCore({
 
   function hideOverlay(el){
     if (el) el.classList.remove('show');
-  }
-
-  function setDebug(){
-    if (!ctx.debug || !ui.debugPanel) return;
-
-    const dbgR = renderer.debugInfo();
-    ui.debugPanel.textContent =
-      `PATCH: ${patch}\n` +
-      `phase: ${state.phase}\n` +
-      `view: ${ctx.view}\n` +
-      `timeLeftMs: ${Math.round(state.timeLeftMs)}\n` +
-      `items: ${state.items.size}\n` +
-      `score: ${state.score}\n` +
-      `correct/wrong/miss: ${state.correct}/${state.wrong}/${state.miss}\n` +
-      `goal: ${state.goalCat ? state.goalCat.id : '-'} ${state.goalDone}/${state.goalNeed}\n` +
-      `fever: ${isFeverOn() ? 'on' : 'off'}\n` +
-      `seed: ${ctx.seed}` +
-      `\nrenderer.stage: ${dbgR.stage.width}x${dbgR.stage.height}` +
-      `\nrenderer.safe: L${dbgR.safe.left} R${dbgR.safe.right} T${dbgR.safe.top} B${dbgR.safe.bottom}` +
-      `\nrenderer.items: ${dbgR.activeCount}`;
   }
 
   function snapshotState(){
@@ -780,22 +789,40 @@ export function createGroupsSoloCore({
   }
 
   function flushLogs(){
-    if (!logger?.flush) return null;
-    return logger.flush({
+    return logger?.flush?.({
       final_state: snapshotState()
-    });
+    }) || null;
   }
 
   function log(type, detail = {}){
-    if (!logger?.event) return null;
-    return logger.event(type, detail, {
+    return logger?.event?.(type, detail, {
       phase: state.phase,
       score: state.score,
       correct: state.correct,
       wrong: state.wrong,
       miss: state.miss,
       streak: state.streak
-    });
+    }) || null;
+  }
+
+  function setDebug(){
+    if (!ctx.debug || !ui.debugPanel) return;
+
+    const dbgR = renderer.debugInfo();
+    ui.debugPanel.textContent =
+      `PATCH: ${patch}\n` +
+      `phase: ${state.phase}\n` +
+      `view: ${ctx.view}\n` +
+      `timeLeftMs: ${Math.round(state.timeLeftMs)}\n` +
+      `items: ${state.items.size}\n` +
+      `score: ${state.score}\n` +
+      `correct/wrong/miss: ${state.correct}/${state.wrong}/${state.miss}\n` +
+      `goal: ${state.goalCat ? state.goalCat.id : '-'} ${state.goalDone}/${state.goalNeed}\n` +
+      `fever: ${isFeverOn() ? 'on' : 'off'}\n` +
+      `seed: ${ctx.seed}\n` +
+      `renderer.stage: ${dbgR.stage.width}x${dbgR.stage.height}\n` +
+      `renderer.safe: L${dbgR.safe.left} R${dbgR.safe.right} T${dbgR.safe.top} B${dbgR.safe.bottom}\n` +
+      `renderer.items: ${dbgR.activeCount}`;
   }
 
   const api = {
@@ -837,8 +864,8 @@ function formatTime(ms){
   return `${m}:${s}`;
 }
 
-function randRange(min, max){
-  return min + (Math.random() * 0 + 1) * (max - min);
+function randRangeWith(rng, min, max){
+  return min + (rng() * (max - min));
 }
 
 function hashString(input){
