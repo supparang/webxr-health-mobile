@@ -1,1004 +1,1515 @@
-// === /herohealth/vr-goodjunk/goodjunk-race-lobby.js ===
-// GoodJunk Race Lobby
-// FULL PATCH v20260320-RACE-LOBBY-READY2-MAX5-QR
+'use strict';
 
-const params = new URLSearchParams(location.search);
+/* =========================================================
+ * /herohealth/vr-goodjunk/goodjunk-race-lobby.js
+ * GoodJunk Race Lobby
+ * FULL PATCH v20260404-race-lobby-rematch-heal-full
+ * ========================================================= */
+(function(){
+  var W = window;
+  var D = document;
 
-function makeDevicePid() {
-  try {
-    const KEY = 'GJ_DEVICE_PID';
-    let pid = localStorage.getItem(KEY);
-    if (!pid) {
-      pid = `p-${Math.random().toString(36).slice(2, 10)}`;
-      localStorage.setItem(KEY, pid);
-    }
-    return pid;
-  } catch {
-    return `p-${Math.random().toString(36).slice(2, 10)}`;
-  }
-}
-
-function normalizePid(rawPid) {
-  const v = String(rawPid || '').trim().replace(/[.#$[\]/]/g, '-');
-  if (!v) return makeDevicePid();
-  if (v.toLowerCase() === 'anon') return makeDevicePid();
-  return v;
-}
-
-function normalizeRoomCode(raw) {
-  return String(raw || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
-}
-
-const ctx = {
-  mode: 'race',
-  pid: normalizePid(params.get('pid')),
-  name: params.get('name') || '',
-  studyId: params.get('studyId') || '',
-  diff: params.get('diff') || 'normal',
-  time: params.get('time') || '120',
-  seed: params.get('seed') || String(Date.now()),
-  hub: params.get('hub') || '../hub.html',
-  view: params.get('view') || 'mobile',
-  run: params.get('run') || 'play',
-  gameId: params.get('gameId') || 'goodjunk',
-  roomId: normalizeRoomCode(params.get('roomId') || `GJ${Math.random().toString(36).slice(2, 8).toUpperCase()}`)
-};
-
-const ROOM_PATH = `hha-battle/goodjunk/rooms/${ctx.roomId}`;
-const PRESENCE_HEARTBEAT_MS = 4000;
-const DISCONNECT_PRUNE_MS = 15000;
-
-const $ = (id) => document.getElementById(id);
-
-const els = {
-  roomCode: $('roomCode'),
-  playerCount: $('playerCount'),
-  roomStatus: $('roomStatus'),
-  hostName: $('hostName'),
-  inviteLink: $('inviteLink'),
-  qrBox: $('qrBox'),
-  copyState: $('copyState'),
-  joinGuard: $('joinGuard'),
-  btnCopyRoom: $('btnCopyRoom'),
-  btnCopyInvite: $('btnCopyInvite'),
-  playersBox: $('playersBox'),
-  countdown: $('countdown'),
-  btnReady: $('btnReady'),
-  btnStart: $('btnStart'),
-  btnBack: $('btnBack'),
-  hint: $('hint')
-};
-
-let firebase = null;
-let db = null;
-let roomRef = null;
-let myPlayerRef = null;
-
-let room = null;
-let countdownRAF = 0;
-let countdownRunning = false;
-let countdownStartAt = 0;
-let presenceTimer = 0;
-let subscribed = false;
-let repairBusy = false;
-let hasEnteredRun = false;
-
-function now() { return Date.now(); }
-
-function clone(obj) {
-  try { return structuredClone(obj); }
-  catch { return JSON.parse(JSON.stringify(obj)); }
-}
-
-function escapeHtml(s) {
-  return String(s ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
-
-function getMeName() {
-  const trimmed = String(ctx.name || '').trim();
-  return trimmed || ctx.pid;
-}
-
-function playerLabel(p) {
-  if (p?.name && String(p.name).trim()) return String(p.name).trim();
-  if (p?.id) return String(p.id);
-  return 'player';
-}
-
-function setHint(text) {
-  if (els.hint) els.hint.textContent = text || '';
-}
-
-function setCopyState(text, ok = true) {
-  if (!els.copyState) return;
-  els.copyState.textContent = text || '';
-  els.copyState.style.color = ok ? 'var(--muted)' : '#fbbf24';
-}
-
-function showJoinGuard(msg = '') {
-  if (!els.joinGuard) return;
-  if (!msg) {
-    els.joinGuard.style.display = 'none';
-    els.joinGuard.textContent = '';
-    return;
-  }
-  els.joinGuard.style.display = 'block';
-  els.joinGuard.textContent = msg;
-}
-
-function buildInviteUrl() {
-  const q = new URLSearchParams({
-    name: '',
-    studyId: ctx.studyId,
-    diff: ctx.diff,
-    time: ctx.time,
-    seed: String(Date.now()),
-    hub: ctx.hub,
-    view: ctx.view,
-    run: ctx.run,
-    gameId: ctx.gameId,
-    mode: 'race',
-    roomId: ctx.roomId
-  });
-  return `${location.origin}${location.pathname}?${q.toString()}`;
-}
-
-async function copyText(text) {
-  const value = String(text || '').trim();
-  if (!value) return false;
-  try {
-    await navigator.clipboard.writeText(value);
-    return true;
-  } catch {
+  function qs(k, d) {
     try {
-      const ta = document.createElement('textarea');
-      ta.value = value;
-      ta.setAttribute('readonly', '');
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      const ok = document.execCommand('copy');
-      ta.remove();
-      return !!ok;
-    } catch {
-      return false;
+      var u = new URL(location.href);
+      var v = u.searchParams.get(k);
+      return v == null ? (d || '') : v;
+    } catch (_) {
+      return d || '';
     }
   }
-}
 
-function renderQr(link = '') {
-  if (!els.qrBox) return;
-
-  const value = String(link || '').trim();
-  if (!value) {
-    els.qrBox.innerHTML = '<div class="qr-empty">ยังไม่มีลิงก์</div>';
-    return;
+  function now() {
+    return Date.now();
   }
 
-  const img = new Image();
-  img.alt = 'Race Invite QR';
-  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(value);
-
-  els.qrBox.innerHTML = '';
-  els.qrBox.appendChild(img);
-}
-
-function activePlayers(r = room) {
-  return (r?.players || []).filter((p) => p.connected !== false);
-}
-
-function readyPlayers(r = room) {
-  return activePlayers(r).filter((p) => !!p.ready);
-}
-
-function isHost(r = room) {
-  return !!r && r.hostId === ctx.pid;
-}
-
-function isExistingMember(r, pid = ctx.pid) {
-  return !!r?.players?.some((p) => p.id === pid);
-}
-
-function getJoinBlockReason(r, pid = ctx.pid) {
-  if (!r) return '';
-  const existing = isExistingMember(r, pid);
-  if (existing) return '';
-  if ((activePlayers(r).length || 0) >= (r.maxPlayers || 5)) return 'ห้องนี้เต็มแล้ว';
-  if (r.status === 'countdown') return 'ห้องนี้กำลังนับถอยหลังก่อนเริ่มเกม';
-  if (r.status === 'running') return 'ห้องนี้กำลังเล่นอยู่ ผู้เล่นใหม่เข้ากลางเกมไม่ได้';
-  if (r.status === 'finished') return 'รอบนี้จบแล้ว รอเล่นใหม่หรือสร้างห้องใหม่';
-  return '';
-}
-
-function getMatchParticipantIds(r = room) {
-  const ids = Array.isArray(r?.match?.participantIds) ? r.match.participantIds : [];
-  return ids.map((id) => normalizePid(id)).filter(Boolean);
-}
-
-function amIMatchParticipant(r = room) {
-  const ids = getMatchParticipantIds(r);
-  if (!ids.length) return true;
-  return ids.includes(ctx.pid);
-}
-
-function canStart(r = room) {
-  if (!r) return false;
-  if (r.status !== 'waiting') return false;
-  return readyPlayers(r).length >= (r.minPlayers || 2);
-}
-
-function getPlayersText(r = room) {
-  const total = activePlayers(r).length;
-  const ready = readyPlayers(r).length;
-  const min = r?.minPlayers || 2;
-  return `${total} คน • ready ${ready}/${min}`;
-}
-
-function getStatusText(r = room) {
-  if (!r) return 'waiting';
-  switch (r.status) {
-    case 'countdown': return 'countdown';
-    case 'running': return 'running';
-    case 'finished': return 'finished';
-    default: return 'waiting';
+  function wait(ms) {
+    return new Promise(function(resolve){ setTimeout(resolve, ms); });
   }
-}
 
-function clearMatchState(next) {
-  next.match = {
-    participantIds: [],
-    lockedAt: null,
-    status: 'idle',
-    race: {
-      finishedAt: 0
+  function num(v, d) {
+    v = Number(v);
+    return Number.isFinite(v) ? v : (d || 0);
+  }
+
+  function clamp(v, a, b) {
+    v = num(v, a);
+    if (v < a) return a;
+    if (v > b) return b;
+    return v;
+  }
+
+  function clean(s, max) {
+    return String(s == null ? '' : s)
+      .replace(/[^a-zA-Z0-9ก-๙ _-]/g, '')
+      .trim()
+      .slice(0, max || 24);
+  }
+
+  function cleanRoom(s, max) {
+    return String(s == null ? '' : s)
+      .toUpperCase()
+      .replace(/[^A-Z0-9_-]/g, '')
+      .slice(0, max || 24);
+  }
+
+  function byIds() {
+    for (var i = 0; i < arguments.length; i++) {
+      var el = D.getElementById(arguments[i]);
+      if (el) return el;
     }
+    return null;
+  }
+
+  var MODE_ID = 'race';
+  var ROOM_PREFIX = 'GJR';
+  var RUN_FILE = './goodjunk-race-run.html';
+  var LOBBY_FILE = './goodjunk-race-lobby.html';
+  var STORE_KEY = 'GJ_RACE_LOBBY_V2';
+  var ACTIVE_TTL_MS = 12000;
+  var HEARTBEAT_MS = 2500;
+  var FIREBASE_WAIT_MS = 10000;
+  var ROOM_KINDS = ['raceRooms', 'rooms'];
+  var IS_REMATCH = qs('rematch', '0') === '1';
+
+  var HUB = qs('hub', '../hub.html');
+  var LAUNCHER = './goodjunk-multi.html';
+
+  function roomPath(kind, roomId) {
+    return 'hha-battle/goodjunk/' + kind + '/' + roomId;
+  }
+
+  function roomRootRef(db, kind, roomId) {
+    return db.ref(roomPath(kind, roomId));
+  }
+
+  async function detectExistingRoomKind(db, roomId) {
+    var preferred = clean(qs('roomKind', ''), 24);
+    var order = preferred ? [preferred].concat(ROOM_KINDS.filter(function(k){ return k !== preferred; })) : ROOM_KINDS.slice();
+
+    for (var i = 0; i < order.length; i++) {
+      var kind = order[i];
+      try {
+        var snap = await db.ref(roomPath(kind, roomId)).child('meta').once('value');
+        if (snap.exists()) return kind;
+      } catch (_) {}
+    }
+    return '';
+  }
+
+  function buildRefs(root) {
+    return {
+      root: root,
+      meta: root.child('meta'),
+      state: root.child('state'),
+      match: root.child('match'),
+      players: root.child('players'),
+      results: root.child('results')
+    };
+  }
+
+  function makeCode() {
+    return ROOM_PREFIX + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+  }
+
+  function makeRaceRoundId() {
+    return 'R-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+  }
+
+  function getRaceSeed() {
+    var raw = UI.seedInput && UI.seedInput.value ? String(UI.seedInput.value).trim() : '';
+    return raw || String(Date.now());
+  }
+
+  var UI = {
+    topNotice: byIds('topNotice', 'hintTop'),
+    sideNotice: byIds('sideNotice', 'hintSide'),
+    bottomNotice: byIds('bottomNotice', 'hintBottom'),
+
+    statusBadge: byIds('statusBadge', 'roomStatusBadge'),
+    roomCodeBig: byIds('roomCodeBig', 'roomCode'),
+    roomSummary: byIds('roomSummary', 'roomStatusText'),
+    joinLinkText: byIds('joinLinkText', 'inviteLinkText'),
+    inviteLink: byIds('inviteLink'),
+    countdownBox: byIds('countdownBox', 'countdown', 'countdownLarge'),
+
+    nickInput: byIds('nickInput', 'nameInput', 'playerName'),
+    diffSelect: byIds('diffSelect'),
+    timeSelect: byIds('timeSelect'),
+    viewSelect: byIds('viewSelect'),
+    seedInput: byIds('seedInput'),
+    roomInput: byIds('roomInput'),
+
+    btnCreateTop: byIds('btnCreateTop'),
+    btnJoinTop: byIds('btnJoinTop'),
+    btnLauncher: byIds('btnLauncher'),
+    btnHub: byIds('btnHub', 'btnBack'),
+    btnCreateRoom: byIds('btnCreateRoom', 'btnCreate'),
+    btnJoinRoom: byIds('btnJoinRoom', 'btnJoin'),
+    btnPasteRoom: byIds('btnPasteRoom'),
+    btnShareRoom: byIds('btnShareRoom'),
+    btnRandomRoom: byIds('btnRandomRoom'),
+    btnCopyRoom: byIds('btnCopyRoom'),
+    btnCopyInvite: byIds('btnCopyInvite'),
+    btnStartGame: byIds('btnStartGame', 'btnStart'),
+    btnLeaveRoom: byIds('btnLeaveRoom', 'btnLeave'),
+    btnReady: byIds('btnReady'),
+    btnUnready: byIds('btnUnready'),
+
+    qrCanvas: byIds('qrCanvas'),
+    qrBox: byIds('qrBox'),
+    playersList: byIds('playersList', 'playersBox'),
+
+    playerCount: byIds('playerCount'),
+    hostName: byIds('hostName'),
+    roomStatus: byIds('roomStatus'),
+
+    debugRoomKind: byIds('debugRoomKind'),
+    debugRoomPath: byIds('debugRoomPath'),
+    debugRoomMeta: byIds('debugRoomMeta')
   };
-  return next;
-}
 
-function makeDefaultRoom() {
-  return {
-    roomId: ctx.roomId,
-    hostId: ctx.pid,
-    mode: 'race',
-    minPlayers: 2,
-    maxPlayers: 5,
-    status: 'waiting',
-    startAt: null,
-    createdAt: now(),
-    updatedAt: now(),
-    players: [],
-    match: {
+  var S = {
+    uid: '',
+    roomId: '',
+    roomKind: clean(qs('roomKind', ''), 24) || '',
+    joined: false,
+    players: {},
+    meta: {},
+    state: {
+      status: 'waiting',
+      plannedSec: 90,
+      seed: '',
+      roundId: '',
+      participantIds: []
+    },
+    match: {},
+    refs: null,
+    offFns: [],
+    heartbeat: 0,
+    countdownTick: 0,
+    redirecting: false,
+    firebaseReady: false
+  };
+
+  var __raceRematchResetDone = false;
+  var __raceSelfHealBusy = false;
+  var __raceLastHealAt = 0;
+
+  function setTop(m) {
+    if (UI.topNotice) UI.topNotice.textContent = m || '';
+  }
+
+  function setSide(m) {
+    if (UI.sideNotice) UI.sideNotice.textContent = m || '';
+  }
+
+  function setBottom(m) {
+    if (UI.bottomNotice) UI.bottomNotice.textContent = m || '';
+  }
+
+  function isHost() {
+    return !!S.uid && S.meta && S.meta.hostPid === S.uid;
+  }
+
+  function hasFirebaseCompat() {
+    return !!(
+      W.firebase &&
+      typeof W.firebase.initializeApp === 'function' &&
+      typeof W.firebase.app === 'function' &&
+      typeof W.firebase.database === 'function' &&
+      typeof W.firebase.auth === 'function'
+    );
+  }
+
+  async function waitForFirebaseReady(timeoutMs) {
+    var startedAt = now();
+
+    while (now() - startedAt < (timeoutMs || FIREBASE_WAIT_MS)) {
+      try {
+        if (W.HHA_FIREBASE_DB && hasFirebaseCompat()) {
+          S.firebaseReady = true;
+          return true;
+        }
+
+        if (typeof W.HHA_ENSURE_FIREBASE_DB === 'function') {
+          var db = W.HHA_ENSURE_FIREBASE_DB();
+          if (db && hasFirebaseCompat()) {
+            W.HHA_FIREBASE_DB = db;
+            S.firebaseReady = true;
+            return true;
+          }
+        }
+
+        if (hasFirebaseCompat()) {
+          if ((!W.firebase.apps || !W.firebase.apps.length) && W.HHA_FIREBASE_CONFIG) {
+            W.firebase.initializeApp(W.HHA_FIREBASE_CONFIG);
+          }
+          if (W.firebase.apps && W.firebase.apps.length) {
+            W.HHA_FIREBASE_DB = W.firebase.database();
+            S.firebaseReady = true;
+            return true;
+          }
+        }
+      } catch (_) {}
+
+      await wait(120);
+    }
+
+    throw new Error('Firebase ยังไม่พร้อม');
+  }
+
+  function ensureFirebaseDb() {
+    if (W.HHA_FIREBASE_DB) return W.HHA_FIREBASE_DB;
+
+    if (typeof W.HHA_ENSURE_FIREBASE_DB === 'function') {
+      var db = W.HHA_ENSURE_FIREBASE_DB();
+      if (db) {
+        W.HHA_FIREBASE_DB = db;
+        return db;
+      }
+    }
+
+    if (hasFirebaseCompat()) {
+      if ((!W.firebase.apps || !W.firebase.apps.length) && W.HHA_FIREBASE_CONFIG) {
+        W.firebase.initializeApp(W.HHA_FIREBASE_CONFIG);
+      }
+      if (W.firebase.apps && W.firebase.apps.length) {
+        W.HHA_FIREBASE_DB = W.firebase.database();
+        return W.HHA_FIREBASE_DB;
+      }
+    }
+
+    throw new Error('Firebase DB not ready');
+  }
+
+  function waitForAuthUser(auth, timeoutMs) {
+    return new Promise(function(resolve, reject){
+      var done = false;
+      var off = null;
+
+      function finish(err, user) {
+        if (done) return;
+        done = true;
+        try { if (typeof off === 'function') off(); } catch (_) {}
+        clearTimeout(timer);
+        if (err) reject(err);
+        else resolve(user);
+      }
+
+      var timer = setTimeout(function(){
+        finish(new Error('Firebase Auth ยังไม่พร้อม'));
+      }, timeoutMs || 12000);
+
+      try {
+        off = auth.onAuthStateChanged(function(user){
+          if (user && user.uid) finish(null, user);
+        }, function(err){
+          finish(err || new Error('Auth state error'));
+        });
+      } catch (err) {
+        finish(err);
+      }
+    });
+  }
+
+  async function ensureAnonymousAuth() {
+    await waitForFirebaseReady();
+
+    if (!W.firebase || typeof W.firebase.auth !== 'function') {
+      throw new Error('Firebase Auth SDK ยังไม่พร้อม');
+    }
+
+    var auth = W.firebase.auth();
+
+    if (auth.currentUser && auth.currentUser.uid) {
+      return auth.currentUser;
+    }
+
+    await auth.signInAnonymously();
+    var user = await waitForAuthUser(auth, 12000);
+    if (!user || !user.uid) throw new Error('Firebase Auth ยังไม่พร้อม');
+    return user;
+  }
+
+  async function ensureFreshAuthForWrite() {
+    await waitForFirebaseReady();
+    var user = await ensureAnonymousAuth();
+
+    try {
+      if (typeof user.getIdToken === 'function') {
+        await user.getIdToken(true);
+      }
+    } catch (_) {}
+
+    await wait(300);
+
+    if (W.firebase && typeof W.firebase.auth === 'function') {
+      var auth = W.firebase.auth();
+      if (!auth.currentUser || !auth.currentUser.uid) {
+        user = await waitForAuthUser(auth, 12000);
+      } else {
+        user = auth.currentUser;
+      }
+    }
+
+    if (!user || !user.uid) throw new Error('Anonymous auth failed');
+    S.uid = user.uid;
+    return user;
+  }
+
+  async function dbWriteWithRetry(writeFn) {
+    try {
+      return await writeFn();
+    } catch (err) {
+      var msg = String(err && err.message ? err.message : err);
+      if (!/PERMISSION_DENIED/i.test(msg)) throw err;
+      await ensureFreshAuthForWrite();
+      await wait(350);
+      return await writeFn();
+    }
+  }
+
+  function loadStored() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      var d = JSON.parse(raw);
+      if (d.nick && UI.nickInput) UI.nickInput.value = clean(d.nick, 24);
+      if (d.diff && UI.diffSelect) UI.diffSelect.value = d.diff;
+      if (d.time && UI.timeSelect) UI.timeSelect.value = String(d.time);
+      if (d.view && UI.viewSelect) UI.viewSelect.value = d.view;
+      if (d.seed != null && UI.seedInput) UI.seedInput.value = String(d.seed);
+    } catch (_) {}
+  }
+
+  function saveStored() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        nick: getNick(),
+        diff: getDiff(),
+        time: getTime(),
+        view: getView(),
+        seed: getRaceSeed()
+      }));
+    } catch (_) {}
+  }
+
+  function getNick() {
+    return clean((UI.nickInput && UI.nickInput.value) || qs('name', qs('nick', 'Player')), 24) || 'Player';
+  }
+
+  function getDiff() {
+    return String((UI.diffSelect && UI.diffSelect.value) || qs('diff', 'normal') || 'normal');
+  }
+
+  function getTime() {
+    return clamp((UI.timeSelect && UI.timeSelect.value) || qs('time', '90') || '90', 30, 300);
+  }
+
+  function getView() {
+    return String((UI.viewSelect && UI.viewSelect.value) || qs('view', 'mobile') || 'mobile');
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function isActivePlayer(p, nowTs) {
+    if (!p) return false;
+    if (p.connected === false) return false;
+    var lastSeen = num(p.lastSeen || p.updatedAt || p.joinedAt, 0);
+    if (!lastSeen) return true;
+    return ((nowTs || now()) - lastSeen) <= ACTIVE_TTL_MS;
+  }
+
+  function activePlayers() {
+    var nowTs = now();
+    return Object.values(S.players || {})
+      .filter(function(p){ return isActivePlayer(p, nowTs); })
+      .sort(function(a, b){ return num(a.joinedAt, 0) - num(b.joinedAt, 0); });
+  }
+
+  function readyPlayers() {
+    return activePlayers().filter(function(p){ return !!p.ready; });
+  }
+
+  function ensureRoomCode() {
+    var room = cleanRoom((UI.roomInput && UI.roomInput.value) || qs('roomId', qs('room', S.roomId || '')));
+    S.roomId = room || makeCode();
+    if (UI.roomInput) UI.roomInput.value = S.roomId;
+    if (UI.roomCodeBig) UI.roomCodeBig.textContent = S.roomId;
+  }
+
+  function currentRoomPath() {
+    if (!S.roomId || !S.roomKind) return '-';
+    return roomPath(S.roomKind, S.roomId);
+  }
+
+  function renderRoomDebug() {
+    if (UI.debugRoomKind) UI.debugRoomKind.textContent = 'roomKind: ' + (S.roomKind || '-');
+    if (UI.debugRoomPath) UI.debugRoomPath.textContent = 'path: ' + currentRoomPath();
+    if (UI.debugRoomMeta) {
+      UI.debugRoomMeta.textContent =
+        'state: ' + String((S.state && S.state.status) || 'waiting') +
+        ' • roundId: ' + String((S.state && S.state.roundId) || '-') +
+        ' • rematch: ' + (IS_REMATCH ? 'yes' : 'no');
+    }
+
+    console.log('[race-lobby:debug]', {
+      roomId: S.roomId,
+      roomKind: S.roomKind,
+      status: S.state && S.state.status,
+      roundId: S.state && S.state.roundId,
+      participantIds: (S.state && S.state.participantIds) || [],
+      rematch: IS_REMATCH
+    });
+  }
+
+  function buildLobbyUrl(roomId) {
+    var url = new URL(LOBBY_FILE, location.href);
+    var src = new URL(location.href);
+
+    src.searchParams.forEach(function(value, key){
+      if (key === 'roomId' || key === 'room' || key === 'create') return;
+      url.searchParams.set(key, value);
+    });
+
+    url.searchParams.set('mode', MODE_ID);
+    url.searchParams.set('roomId', roomId);
+    url.searchParams.set('room', roomId);
+    url.searchParams.set('diff', getDiff());
+    url.searchParams.set('time', String(getTime()));
+    url.searchParams.set('view', getView());
+    url.searchParams.set('seed', String(getRaceSeed()));
+    url.searchParams.set('hub', HUB);
+    url.searchParams.set('autojoin', '1');
+    if (S.roomKind) url.searchParams.set('roomKind', S.roomKind);
+    if (IS_REMATCH) url.searchParams.set('rematch', '1');
+    return url.toString();
+  }
+
+  function buildRunUrl(roomId) {
+    var url = new URL(RUN_FILE, location.href);
+    var src = new URL(location.href);
+
+    src.searchParams.forEach(function(value, key){
+      if (key === 'roomId' || key === 'room' || key === 'create' || key === 'autojoin' || key === 'rematch') return;
+      url.searchParams.set(key, value);
+    });
+
+    var sharedStartAt = num(S.state && (S.state.startAt || S.state.countdownEndsAt), 0);
+    var sharedDiff = String((S.meta && S.meta.diff) || getDiff());
+    var sharedTime = String(num(S.state && S.state.plannedSec, getTime()));
+    var sharedSeed = String(
+      (S.state && S.state.seed) ||
+      (S.meta && S.meta.seed) ||
+      getRaceSeed()
+    );
+    var sharedRoundId = String((S.state && S.state.roundId) || '');
+
+    url.searchParams.set('mode', MODE_ID);
+    url.searchParams.set('roomId', roomId);
+    url.searchParams.set('room', roomId);
+    url.searchParams.set('name', getNick());
+    url.searchParams.set('nick', getNick());
+    url.searchParams.set('pid', S.uid || 'anon');
+    url.searchParams.set('role', isHost() ? 'host' : 'player');
+    url.searchParams.set('host', isHost() ? '1' : '0');
+    url.searchParams.set('wait', '1');
+    url.searchParams.set('diff', sharedDiff);
+    url.searchParams.set('time', sharedTime);
+    url.searchParams.set('view', getView());
+    url.searchParams.set('seed', sharedSeed);
+    url.searchParams.set('hub', HUB);
+    url.searchParams.set('autostart', '1');
+    url.searchParams.set('core', './goodjunk.safe.race.js');
+    url.searchParams.set('controller', './goodjunk-race.js');
+
+    if (sharedStartAt > 0) url.searchParams.set('startAt', String(sharedStartAt));
+    if (sharedRoundId) url.searchParams.set('roundId', sharedRoundId);
+    if (S.roomKind) url.searchParams.set('roomKind', S.roomKind);
+
+    return url.toString();
+  }
+
+  async function copyText(t) {
+    var value = String(t || '').trim();
+    if (!value) return false;
+
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch (_) {
+      try {
+        var ta = D.createElement('textarea');
+        ta.value = value;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        D.body.appendChild(ta);
+        ta.select();
+        var ok = D.execCommand('copy');
+        ta.remove();
+        return !!ok;
+      } catch (_) {
+        return false;
+      }
+    }
+  }
+
+  async function shareLink(url) {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'GoodJunk Race Lobby',
+          text: 'มาเข้าห้อง Race นี้ด้วยกัน',
+          url: url
+        });
+        return true;
+      }
+    } catch (_) {}
+    return copyText(url);
+  }
+
+  function renderQr() {
+    var link = buildLobbyUrl(S.roomId || makeCode());
+
+    if (UI.joinLinkText) UI.joinLinkText.textContent = link;
+    if (UI.inviteLink) UI.inviteLink.value = link;
+
+    if (W.QRCode && UI.qrCanvas) {
+      W.QRCode.toCanvas(UI.qrCanvas, link, {
+        width: 220,
+        margin: 1,
+        color: { dark: '#20324d', light: '#ffffff' }
+      }, function(){});
+      return;
+    }
+
+    if (UI.qrBox) {
+      UI.qrBox.innerHTML = '';
+      var img = new Image();
+      img.alt = 'Race Invite QR';
+      img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(link);
+      UI.qrBox.appendChild(img);
+    }
+  }
+
+  function renderPlayers() {
+    var box = UI.playersList;
+    if (!box) return;
+
+    var players = Object.values(S.players || {}).sort(function(a, b){
+      return num(a.joinedAt, 0) - num(b.joinedAt, 0);
+    });
+
+    if (!players.length) {
+      box.innerHTML =
+        '<div class="player">' +
+          '<div class="player-left">' +
+            '<div class="avatar">⌛</div>' +
+            '<div>' +
+              '<div class="name">ยังไม่มีผู้เล่น</div>' +
+              '<div class="mini">สร้างห้องหรือเข้าห้องก่อน</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="badge">WAIT</div>' +
+        '</div>';
+      return;
+    }
+
+    box.innerHTML = players.map(function(p){
+      var active = isActivePlayer(p);
+      var you = p.pid === S.uid;
+      var host = p.pid === (S.meta && S.meta.hostPid);
+      var phase = String(p.phase || 'lobby');
+      var ready = !!p.ready;
+
+      var badge = 'WAIT';
+      if (you) badge = 'YOU';
+      else if (active) badge = 'LIVE';
+      else badge = 'OFFLINE';
+
+      var miniBits = [
+        host ? 'host' : 'guest',
+        active ? 'online' : 'offline',
+        ready ? 'ready' : 'not-ready',
+        phase
+      ];
+
+      return '' +
+        '<div class="player">' +
+          '<div class="player-left">' +
+            '<div class="avatar">' + (host ? '👑' : '🏁') + '</div>' +
+            '<div>' +
+              '<div class="name">' + escapeHtml(p.nick || 'player') + (host ? ' • host' : '') + '</div>' +
+              '<div class="mini">' + escapeHtml(miniBits.join(' • ')) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="badge">' + badge + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function renderState() {
+    ensureRoomCode();
+
+    var active = activePlayers();
+    var ready = readyPlayers();
+    var count = active.length;
+    var readyCount = ready.length;
+    var status = String((S.state && S.state.status) || 'waiting');
+
+    if (UI.statusBadge) UI.statusBadge.textContent = status.toUpperCase();
+    if (UI.roomStatus) UI.roomStatus.textContent = status;
+
+    if (UI.roomSummary) {
+      UI.roomSummary.textContent =
+        status === 'countdown' ? ('กำลังนับถอยหลัง • ' + count + '/2 players') :
+        (status === 'playing' || status === 'running') ? ('กำลังเข้าเกม • ' + count + '/2 players') :
+        status === 'ended' ? ('รอบก่อนจบแล้ว • ' + count + '/2 players') :
+        ('รอผู้เล่น • ' + count + '/2 players • ready ' + readyCount + '/2');
+    }
+
+    if (UI.playerCount) UI.playerCount.textContent = count + ' คน • ready ' + readyCount + '/2';
+
+    if (UI.hostName) {
+      var hostPlayer =
+        active.find(function(p){ return p.pid === (S.meta && S.meta.hostPid); }) ||
+        Object.values(S.players || {}).find(function(p){ return p.pid === (S.meta && S.meta.hostPid); });
+      UI.hostName.textContent = hostPlayer ? (hostPlayer.nick || hostPlayer.pid || '-') : '-';
+    }
+
+    if (UI.btnStartGame) {
+      UI.btnStartGame.disabled = !(S.joined && isHost() && readyCount >= 2 && (status === 'waiting' || status === 'ended'));
+    }
+
+    if (UI.btnLeaveRoom) UI.btnLeaveRoom.disabled = !S.joined;
+
+    if (UI.btnReady) {
+      var self = S.players && S.players[S.uid] ? S.players[S.uid] : null;
+      UI.btnReady.disabled = !S.joined || (status !== 'waiting' && status !== 'ended');
+      UI.btnReady.textContent = self && self.ready ? 'ยกเลิกพร้อม' : 'พร้อมแล้ว';
+    }
+
+    if (UI.btnUnready) {
+      UI.btnUnready.disabled = !S.joined || (status !== 'waiting' && status !== 'ended');
+    }
+
+    if (!S.joined) {
+      setTop('ใส่ชื่อ แล้วกดสร้างห้องหรือเข้าห้องได้เลย');
+      setSide('เมื่อเข้าห้องแล้ว QR, room code และรายชื่อผู้เล่นจะอัปเดตให้ทันที');
+      setBottom('ถ้ายังมีแค่ 1 คน ระบบจะรอผู้เล่นอีก 1 คนก่อนเริ่ม');
+    } else if (status === 'waiting' || status === 'ended') {
+      if (IS_REMATCH) {
+        setTop('กลับเข้าห้องเดิมแล้ว');
+        setSide('รอบใหม่พร้อมแล้ว กดพร้อมทั้ง 2 คนก่อนเริ่ม race');
+        setBottom('debug • rematch @ ' + (S.roomKind || '-') + ' / ' + (S.roomId || '-'));
+      } else if (readyCount >= 2) {
+        setTop('ครบ 2 คนและพร้อมแล้ว Host กด Start Race ได้เลย');
+        setSide('ตอนนี้ห้องพร้อมเริ่ม race แล้ว');
+        setBottom('debug • ' + (S.roomKind || '-') + ' / ' + (S.roomId || '-'));
+      } else {
+        setTop('เข้าห้องสำเร็จ • รอผู้เล่นหรือรอพร้อมเพิ่ม');
+        setSide('ส่ง room code หรือให้เพื่อน scan QR เพื่อเข้าห้องเดียวกัน');
+        setBottom('debug • ' + (S.roomKind || '-') + ' / ' + (S.roomId || '-'));
+      }
+    } else if (status === 'countdown') {
+      setTop('กำลังนับถอยหลัง เตรียมเข้าเกม');
+      setSide('ทั้งสองฝั่งจะเข้า Race พร้อมกัน');
+      setBottom('debug • countdown @ ' + (S.roomKind || '-') + ' / ' + (S.roomId || '-'));
+    } else if (status === 'playing' || status === 'running') {
+      setTop('กำลังพาเข้าสู่หน้าเล่นจริง');
+      setSide('ถ้าไม่เด้งเอง ให้รอสักครู่');
+      setBottom('debug • running @ ' + (S.roomKind || '-') + ' / ' + (S.roomId || '-'));
+    } else {
+      setTop('อยู่ในห้อง Race');
+      setSide('รอการอัปเดตสถานะจาก host');
+      setBottom('debug • ' + status + ' @ ' + (S.roomKind || '-') + ' / ' + (S.roomId || '-'));
+    }
+
+    renderPlayers();
+    renderQr();
+    renderRoomDebug();
+  }
+
+  function renderCountdown() {
+    clearInterval(S.countdownTick);
+    if (UI.countdownBox) UI.countdownBox.classList.remove('show');
+
+    if (!S.joined || !S.state || S.state.status !== 'countdown') return;
+
+    if (UI.countdownBox) UI.countdownBox.classList.add('show');
+
+    S.countdownTick = setInterval(function(){
+      var targetAt = num(S.state.startAt || S.state.countdownEndsAt, 0);
+      var leftMs = targetAt - now();
+      var sec = Math.max(0, Math.ceil(leftMs / 1000));
+
+      if (UI.countdownBox) UI.countdownBox.textContent = sec > 0 ? sec : 'GO!';
+
+      if (leftMs <= 0) {
+        clearInterval(S.countdownTick);
+        goRun();
+      }
+    }, 100);
+  }
+
+  function cleanupRoom() {
+    clearInterval(S.heartbeat);
+    clearInterval(S.countdownTick);
+    S.heartbeat = 0;
+    S.countdownTick = 0;
+
+    while (S.offFns.length) {
+      var fn = S.offFns.pop();
+      try { fn(); } catch (_) {}
+    }
+
+    S.joined = false;
+    S.players = {};
+    S.meta = {};
+    S.match = {};
+    S.state = {
+      status: 'waiting',
+      plannedSec: getTime(),
+      seed: '',
+      roundId: '',
+      participantIds: []
+    };
+    S.refs = null;
+    S.redirecting = false;
+    __raceRematchResetDone = false;
+    __raceSelfHealBusy = false;
+    renderRoomDebug();
+  }
+
+  async function resetRaceRoomForNextRound(refs, ctxLike) {
+    var nowTs = Date.now();
+    var nextRoundId = makeRaceRoundId();
+
+    var playersSnap = await refs.players.once('value');
+    var players = playersSnap.val() || {};
+
+    var nextPlayers = {};
+    Object.keys(players).forEach(function(pid){
+      var p = players[pid] || {};
+      nextPlayers[pid] = {
+        pid: p.pid || pid,
+        nick: p.nick || 'Player',
+        connected: p.connected !== false,
+        ready: false,
+        joinedAt: p.joinedAt || nowTs,
+        updatedAt: nowTs,
+        lastSeen: nowTs,
+        phase: 'lobby',
+        finished: false,
+        finalScore: 0,
+        score: 0,
+        contribution: 0,
+        miss: 0,
+        streak: 0
+      };
+    });
+
+    await refs.results.remove().catch(function(){});
+    await refs.match.set({
       participantIds: [],
       lockedAt: null,
       status: 'idle',
       race: {
+        winnerId: '',
+        loserId: '',
         finishedAt: 0
       }
-    }
-  };
-}
+    });
 
-function sanitizeRoom(r) {
-  const base = makeDefaultRoom();
-  const safe = { ...base, ...(r || {}) };
+    await refs.state.set({
+      status: 'waiting',
+      plannedSec: Number(ctxLike.time || 90),
+      seed: String(ctxLike.seed || Date.now()),
+      roundId: nextRoundId,
+      participantIds: [],
+      countdownEndsAt: null,
+      startAt: null,
+      startedAt: null,
+      winnerId: '',
+      loserId: '',
+      createdAt: nowTs,
+      updatedAt: nowTs
+    });
 
-  if (!Array.isArray(safe.players)) safe.players = [];
-  safe.players = safe.players
-    .filter(Boolean)
-    .map((p) => ({
-      id: normalizePid(p.id || ''),
-      name: String(p.name || '').trim(),
-      ready: !!p.ready,
-      joinedAt: Number(p.joinedAt || now()),
-      lastSeenAt: Number(p.lastSeenAt || now()),
-      finished: !!p.finished,
-      finalScore: Number(p.finalScore || 0),
-      miss: Number(p.miss || 0),
-      streak: Number(p.streak || 0),
-      phase: String(p.phase || 'lobby').trim(),
-      connected: p.connected !== false
-    }))
-    .filter((p) => p.id);
-
-  if (!safe.players.length) {
-    safe.hostId = ctx.pid;
-  } else if (!safe.players.some((p) => p.id === safe.hostId)) {
-    const connected = safe.players.find((p) => p.connected !== false);
-    safe.hostId = connected?.id || safe.players[0].id;
-  }
-
-  safe.minPlayers = Math.max(2, Number(safe.minPlayers || 2));
-  safe.maxPlayers = Math.max(safe.minPlayers, Number(safe.maxPlayers || 5), 5);
-  safe.status = ['waiting', 'countdown', 'running', 'finished'].includes(safe.status)
-    ? safe.status
-    : 'waiting';
-  safe.startAt = safe.startAt ? Number(safe.startAt) : null;
-  safe.updatedAt = now();
-
-  const rawMatch = safe.match && typeof safe.match === 'object' ? safe.match : {};
-  const rawRace = rawMatch.race && typeof rawMatch.race === 'object' ? rawMatch.race : {};
-
-  safe.match = {
-    participantIds: Array.isArray(rawMatch.participantIds)
-      ? rawMatch.participantIds.map((id) => normalizePid(id)).filter(Boolean)
-      : [],
-    lockedAt: rawMatch.lockedAt ? Number(rawMatch.lockedAt) : null,
-    status: ['idle', 'countdown', 'running', 'finished'].includes(rawMatch.status)
-      ? rawMatch.status
-      : 'idle',
-    race: {
-      finishedAt: Number(rawRace.finishedAt || 0)
-    }
-  };
-
-  return safe;
-}
-
-function snapshotToRoom(val) {
-  if (!val) return null;
-  const playersMap = val.players || {};
-  return {
-    ...val,
-    players: Object.keys(playersMap).map((pid) => ({
-      id: pid,
-      ...playersMap[pid]
-    }))
-  };
-}
-
-function roomToFirebase(r) {
-  const out = {
-    roomId: r.roomId,
-    hostId: r.hostId,
-    mode: r.mode,
-    minPlayers: r.minPlayers,
-    maxPlayers: r.maxPlayers,
-    status: r.status,
-    startAt: r.startAt || null,
-    createdAt: r.createdAt || now(),
-    updatedAt: now(),
-    players: {},
-    match: {
-      participantIds: Array.isArray(r.match?.participantIds) ? r.match.participantIds : [],
-      lockedAt: r.match?.lockedAt || null,
-      status: r.match?.status || 'idle',
-      race: {
-        finishedAt: Number(r.match?.race?.finishedAt || 0)
-      }
-    }
-  };
-
-  (r.players || []).forEach((p) => {
-    out.players[p.id] = {
-      name: p.name || '',
-      ready: !!p.ready,
-      joinedAt: Number(p.joinedAt || now()),
-      lastSeenAt: Number(p.lastSeenAt || now()),
-      finished: !!p.finished,
-      finalScore: Number(p.finalScore || 0),
-      miss: Number(p.miss || 0),
-      streak: Number(p.streak || 0),
-      phase: String(p.phase || 'lobby'),
-      connected: p.connected !== false
-    };
-  });
-
-  return out;
-}
-
-function pickNextHostId(r, excludePid = '') {
-  const candidates = (r?.players || [])
-    .filter((p) => p.id !== excludePid)
-    .sort((a, b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
-
-  const connected = candidates.find((p) => p.connected !== false);
-  return connected?.id || candidates[0]?.id || '';
-}
-
-function maybeResetCountdownIfHostMissing(cur) {
-  if (!cur) return cur;
-  const host = cur.players.find((p) => p.id === cur.hostId);
-  if (cur.status === 'countdown' && (!host || host.connected === false)) {
-    cur.status = 'waiting';
-    cur.startAt = null;
-    clearMatchState(cur);
-  }
-  return cur;
-}
-
-function renderPlayers(r = room) {
-  const players = r?.players || [];
-  const participantSet = new Set(getMatchParticipantIds(r));
-  const roundLocked = ['countdown', 'running', 'finished'].includes(r?.status);
-
-  if (!els.playersBox) return;
-
-  els.playersBox.innerHTML = players.map((p) => {
-    const meTag = p.id === ctx.pid ? ' • คุณ' : '';
-    const hostTag = p.id === r.hostId ? ' 👑 host' : '';
-    const inMatchTag = roundLocked && participantSet.size && participantSet.has(p.id) ? ' • participant' : '';
-
-    let phase = 'ยังไม่พร้อม';
-    let cls = 'waiting';
-
-    if (p.phase === 'done') {
-      phase = 'รอบนี้จบแล้ว';
-      cls = 'ready';
-    } else if (p.phase === 'run') {
-      phase = 'กำลังเล่น';
-      cls = 'ready';
-    } else if (p.ready) {
-      phase = 'พร้อมแล้ว';
-      cls = 'ready';
+    if (Object.keys(nextPlayers).length) {
+      await refs.players.set(nextPlayers);
     }
 
-    return `
-      <div class="player">
-        <div><strong>${escapeHtml(playerLabel(p))}</strong>${escapeHtml(meTag)}${escapeHtml(hostTag)}</div>
-        <div class="${cls}">${escapeHtml(phase)}${escapeHtml(inMatchTag)}</div>
-      </div>
-    `;
-  }).join('');
-}
+    await refs.meta.update({
+      updatedAt: nowTs,
+      lastResetAt: nowTs,
+      rematchReady: true
+    });
 
-function renderButtons(r = room) {
-  const me = r?.players?.find((p) => p.id === ctx.pid);
-
-  if (els.btnReady) {
-    els.btnReady.style.display = '';
-    els.btnReady.disabled = !me || me.connected === false || r?.status !== 'waiting';
-    els.btnReady.textContent = me?.ready ? 'ยกเลิกพร้อม' : 'พร้อมแล้ว';
+    return nextRoundId;
   }
 
-  if (els.btnStart) {
-    els.btnStart.disabled = !isHost(r) || !canStart(r);
-    els.btnStart.textContent = isHost(r) ? 'เริ่ม Race' : 'รอ host เริ่ม';
-  }
-}
+  async function maybePrepareRematchRoom(refs, ctxLike, hostFlag) {
+    if (!IS_REMATCH) return;
+    if (!hostFlag) return;
+    if (__raceRematchResetDone) return;
 
-function renderStatus(r = room) {
-  if (els.roomCode) els.roomCode.textContent = r?.roomId || '-';
-  if (els.playerCount) els.playerCount.textContent = getPlayersText(r);
-  if (els.roomStatus) els.roomStatus.textContent = getStatusText(r);
+    __raceRematchResetDone = true;
 
-  const host = r?.players?.find((p) => p.id === r?.hostId);
-  if (els.hostName) els.hostName.textContent = host ? playerLabel(host) : '-';
-
-  const inviteUrl = buildInviteUrl();
-  if (els.inviteLink) els.inviteLink.value = inviteUrl;
-  renderQr(inviteUrl);
-
-  if (!r) {
-    setHint('กำลังสร้างห้อง...');
-    if (els.countdown) els.countdown.textContent = '';
-    return;
-  }
-
-  const blockReason = getJoinBlockReason(r, ctx.pid);
-  showJoinGuard(blockReason);
-
-  if (r.status === 'waiting') {
-    const readyCount = readyPlayers(r).length;
-    const min = r.minPlayers || 2;
-
-    if (readyCount < min) {
-      setHint(`ต้องมีผู้เล่น ready อย่างน้อย ${min} คน`);
-    } else if (isHost(r)) {
-      setHint('มีผู้เล่น ready ครบแล้ว กดเริ่ม Race ได้');
-    } else {
-      setHint('มีผู้เล่น ready ครบแล้ว รอ host กดเริ่ม');
+    try {
+      await resetRaceRoomForNextRound(refs, ctxLike);
+      console.log('[race-lobby] rematch room reset done');
+    } catch (err) {
+      console.error('[race-lobby] rematch room reset failed', err);
     }
-
-    setCopyState('ส่ง room code หรือลิงก์นี้ให้ผู้เล่นคนอื่นเข้าร่วมได้');
-    if (els.countdown) els.countdown.textContent = '';
   }
 
-  if (r.status === 'countdown') {
-    if (amIMatchParticipant(r)) {
-      setHint('กำลังนับถอยหลังก่อนเริ่ม Race');
-    } else {
-      setHint('รอบนี้เริ่มแล้ว แต่คุณไม่ได้อยู่ใน participant');
-    }
-    setCopyState('ห้องถูกล็อกแล้ว กำลังจะเริ่ม Race', false);
-  }
+  async function maybeRecoverBrokenCountdown(reason) {
+    if (!S.refs) return;
 
-  if (r.status === 'running') {
-    if (amIMatchParticipant(r)) {
-      setHint('Race กำลังดำเนินอยู่');
-    } else {
-      setHint('Race กำลังดำเนินอยู่ และคุณไม่ได้อยู่ใน participant ของรอบนี้');
-    }
-    setCopyState('รอบนี้กำลังดำเนินอยู่', false);
-  }
+    var status = String((S.state && S.state.status) || '');
+    if (status !== 'countdown' && status !== 'playing' && status !== 'running') return;
 
-  if (r.status === 'finished') {
-    setHint('รอบนี้จบแล้ว');
-    setCopyState('สามารถกลับ lobby เพื่อเล่นใหม่ได้', false);
-  }
-}
+    var actives = activePlayers();
+    var activeHost = actives.find(function(p){ return p.pid === (S.meta && S.meta.hostPid); });
+    var iAmFirstActive = !!(actives[0] && actives[0].pid === S.uid);
+    var canAdoptHost = !S.meta.hostPid || !activeHost || isHost() || iAmFirstActive;
 
-function render() {
-  room = room ? sanitizeRoom(room) : null;
-  renderStatus(room);
-  renderPlayers(room);
-  renderButtons(room);
-}
+    if (actives.length >= 2 && activeHost) return;
+    if (!canAdoptHost) return;
+    if (__raceSelfHealBusy) return;
 
-function cancelCountdown() {
-  if (countdownRAF) cancelAnimationFrame(countdownRAF);
-  countdownRAF = 0;
-  countdownRunning = false;
-  countdownStartAt = 0;
-}
+    var ts = Date.now();
+    if (ts - __raceLastHealAt < 900) return;
 
-function runCountdown(startAt) {
-  if (!startAt) return;
-  if (countdownRunning && countdownStartAt === startAt) return;
+    __raceSelfHealBusy = true;
+    __raceLastHealAt = ts;
 
-  cancelCountdown();
-  countdownRunning = true;
-  countdownStartAt = startAt;
-
-  const tick = () => {
-    const ms = startAt - now();
-
-    if (ms <= 0) {
-      if (els.countdown) els.countdown.textContent = 'GO!';
-      countdownRunning = false;
-      countdownStartAt = 0;
-
-      if (roomRef) {
-        roomRef.update({
-          status: 'running',
-          updatedAt: now(),
-          'match/status': 'running'
-        }).catch(() => {});
+    try {
+      if ((!S.meta.hostPid || !activeHost) && iAmFirstActive && S.meta.hostPid !== S.uid) {
+        await dbWriteWithRetry(function(){
+          return S.refs.meta.update({
+            hostPid: S.uid,
+            updatedAt: Date.now()
+          });
+        }).catch(function(){});
       }
 
-      window.setTimeout(() => {
-        enterRun(startAt);
-      }, 250);
-      return;
-    }
+      await dbWriteWithRetry(function(){
+        return S.refs.match.update({
+          participantIds: [],
+          lockedAt: null,
+          status: 'idle',
+          race: {
+            winnerId: '',
+            loserId: '',
+            finishedAt: 0
+          }
+        });
+      }).catch(function(){});
 
-    const sec = Math.ceil(ms / 1000);
-    if (els.countdown) els.countdown.textContent = String(sec);
-    countdownRAF = requestAnimationFrame(tick);
-  };
+      await dbWriteWithRetry(function(){
+        return S.refs.state.update({
+          status: 'waiting',
+          countdownEndsAt: null,
+          startAt: null,
+          startedAt: null,
+          participantIds: [],
+          winnerId: '',
+          loserId: '',
+          updatedAt: Date.now()
+        });
+      }).catch(function(){});
 
-  tick();
-}
+      var playersSnap = await S.refs.players.once('value').catch(function(){ return null; });
+      var players = (playersSnap && playersSnap.val()) || {};
+      var updates = {};
+      var nowTs = Date.now();
 
-async function maybeEnterRunFromRoom(r = room) {
-  if (!r) return;
-  if (hasEnteredRun) return;
-  if (r.status !== 'running') return;
+      Object.keys(players).forEach(function(pid){
+        updates[pid + '/ready'] = false;
+        updates[pid + '/phase'] = 'lobby';
+        updates[pid + '/finished'] = false;
+        updates[pid + '/updatedAt'] = nowTs;
+        updates[pid + '/lastSeen'] = nowTs;
+      });
 
-  const me = r.players?.find((p) => p.id === ctx.pid);
-  if (!me) return;
-  if (me.phase === 'done') return;
+      if (Object.keys(updates).length) {
+        await dbWriteWithRetry(function(){
+          return S.refs.players.update(updates);
+        }).catch(function(){});
+      }
 
-  if (!amIMatchParticipant(r)) {
-    setHint('รอบนี้เริ่มแล้ว แต่คุณไม่ได้อยู่ใน participant');
-    return;
-  }
-
-  const effectiveStartAt = Number(r.startAt || now());
-  await enterRun(effectiveStartAt);
-}
-
-function waitForFirebaseReady(timeoutMs = 12000) {
-  return new Promise((resolve) => {
-    if (window.HHA_FIREBASE_READY && window.HHA_FIREBASE_DB) {
-      resolve(true);
-      return;
-    }
-
-    let done = false;
-    const finish = (ok) => {
-      if (done) return;
-      done = true;
-      resolve(!!ok);
-    };
-
-    const timer = setTimeout(() => finish(false), timeoutMs);
-
-    window.addEventListener('hha:firebase_ready', (ev) => {
-      clearTimeout(timer);
-      finish(!!ev?.detail?.ok && !!window.HHA_FIREBASE_DB);
-    }, { once: true });
-  });
-}
-
-async function ensureFirebase() {
-  const ok = await waitForFirebaseReady();
-  if (!ok || !window.HHA_FIREBASE_DB || !window.HHA_FIREBASE) {
-    throw new Error('Firebase not ready');
-  }
-
-  firebase = window.HHA_FIREBASE;
-  db = window.HHA_FIREBASE_DB;
-  roomRef = db.ref(ROOM_PATH);
-  myPlayerRef = roomRef.child('players').child(ctx.pid);
-}
-
-async function ensureRoomExists() {
-  const snap = await roomRef.once('value');
-  const cur = snap.exists() ? sanitizeRoom(snapshotToRoom(snap.val())) : null;
-
-  if (!cur) {
-    const base = makeDefaultRoom();
-    await roomRef.set(roomToFirebase(base));
-    return;
-  }
-
-  await roomRef.set(roomToFirebase(cur));
-}
-
-async function maybeRepairRoomIfNeeded(cur) {
-  if (!cur || repairBusy) return;
-
-  const me = cur.players.find((p) => p.id === ctx.pid);
-  if (!me || me.connected === false) return;
-
-  const next = clone(cur);
-  let changed = false;
-  const ts = now();
-
-  if (next.status === 'waiting' || next.status === 'finished') {
-    const before = next.players.length;
-    next.players = next.players.filter((p) => {
-      if (p.connected !== false) return true;
-      return (ts - Number(p.lastSeenAt || 0)) < DISCONNECT_PRUNE_MS;
-    });
-    if (next.players.length !== before) changed = true;
-  }
-
-  const host = next.players.find((p) => p.id === next.hostId);
-  if (!host || host.connected === false) {
-    const nextHostId = pickNextHostId(next, '');
-    if (next.hostId !== nextHostId) {
-      next.hostId = nextHostId || '';
-      changed = true;
+      console.log('[race-lobby] recovered broken countdown', {
+        reason: reason,
+        roomId: S.roomId,
+        roomKind: S.roomKind,
+        prevStatus: status,
+        activeCount: actives.length,
+        hostPid: S.meta && S.meta.hostPid
+      });
+    } catch (err) {
+      console.error('[race-lobby] maybeRecoverBrokenCountdown failed', err);
+    } finally {
+      __raceSelfHealBusy = false;
     }
   }
 
-  const repaired = maybeResetCountdownIfHostMissing(next);
-  if (repaired.status !== next.status || repaired.startAt !== next.startAt) changed = true;
+  async function joinBoundRoom(created) {
+    var nowTs = now();
+    var existing = (S.players && S.players[S.uid]) ? S.players[S.uid] : null;
 
-  if (repaired.status === 'waiting' && repaired.match?.status !== 'idle') {
-    clearMatchState(repaired);
-    changed = true;
-  }
-
-  if (!repaired.players.length) {
-    repairBusy = true;
-    try { await roomRef.remove(); }
-    finally { repairBusy = false; }
-    return;
-  }
-
-  if (!changed) return;
-
-  repairBusy = true;
-  try { await roomRef.set(roomToFirebase(repaired)); }
-  finally { repairBusy = false; }
-}
-
-function subscribeRoom() {
-  if (subscribed) return;
-  subscribed = true;
-
-  roomRef.on('value', async (snap) => {
-    const raw = snap.val();
-    if (!raw) {
-      room = null;
-      render();
-      setHint('ห้องถูกปิดแล้ว');
-      cancelCountdown();
-      return;
-    }
-
-    room = sanitizeRoom(snapshotToRoom(raw));
-    render();
-
-    if (room.status === 'countdown' && room.startAt) {
-      runCountdown(room.startAt);
-    } else {
-      cancelCountdown();
-    }
-
-    if (room.status === 'running') {
-      await maybeEnterRunFromRoom(room);
-    }
-
-    await maybeRepairRoomIfNeeded(room);
-  });
-}
-
-async function setupOnDisconnect() {
-  if (!myPlayerRef) return;
-  try {
-    await myPlayerRef.onDisconnect().update({
-      connected: false,
-      phase: 'lobby'
-    });
-  } catch {}
-}
-
-async function ensureJoined() {
-  const snap = await roomRef.once('value');
-  const cur = sanitizeRoom(snapshotToRoom(snap.val()) || makeDefaultRoom());
-
-  const existing = cur.players.find((p) => p.id === ctx.pid);
-  const blockReason = getJoinBlockReason(cur, ctx.pid);
-  if (!existing && blockReason) {
-    setHint(blockReason);
-    showJoinGuard(blockReason);
-    return false;
-  }
-
-  const playerPayload = {
-    name: getMeName(),
-    ready: existing?.ready || false,
-    joinedAt: Number(existing?.joinedAt || now()),
-    lastSeenAt: now(),
-    finished: !!existing?.finished,
-    finalScore: Number(existing?.finalScore || 0),
-    miss: Number(existing?.miss || 0),
-    streak: Number(existing?.streak || 0),
-    phase: String(existing?.phase || 'lobby'),
-    connected: true
-  };
-
-  await myPlayerRef.set(playerPayload);
-
-  if (!cur.hostId || !cur.players.some((p) => p.id === cur.hostId && p.connected !== false)) {
-    await roomRef.child('hostId').set(existing?.id || ctx.pid);
-  }
-
-  await roomRef.child('updatedAt').set(now());
-  await setupOnDisconnect();
-  return true;
-}
-
-async function touchPresence() {
-  if (!myPlayerRef) return;
-  try {
-    await myPlayerRef.update({
-      name: getMeName(),
+    var joinedPayload = {
+      pid: S.uid,
+      nick: getNick(),
       connected: true,
-      lastSeenAt: now()
+      ready: false,
+      joinedAt: (existing && existing.joinedAt) || nowTs,
+      updatedAt: nowTs,
+      lastSeen: nowTs,
+      phase: 'lobby',
+      finished: false,
+      finalScore: 0,
+      score: 0,
+      contribution: 0,
+      miss: 0,
+      streak: 0
+    };
+
+    await dbWriteWithRetry(function(){
+      return S.refs.players.child(S.uid).set(joinedPayload);
     });
-    await roomRef.child('updatedAt').set(now());
-  } catch {}
-}
 
-async function updateMe(patch = {}) {
-  if (!myPlayerRef) return;
-  const payload = { ...patch, lastSeenAt: now() };
-  await myPlayerRef.update(payload);
-  await roomRef.child('updatedAt').set(now());
-}
+    try { S.refs.players.child(S.uid).onDisconnect().remove(); } catch (_) {}
 
-function startPresenceHeartbeat() {
-  stopPresenceHeartbeat();
-  presenceTimer = setInterval(() => {
-    touchPresence();
-  }, PRESENCE_HEARTBEAT_MS);
-}
+    var onMeta = async function(snap) {
+      S.meta = snap.val() || {};
+      renderState();
+      await maybeRecoverBrokenCountdown('meta');
+    };
 
-function stopPresenceHeartbeat() {
-  if (presenceTimer) {
-    clearInterval(presenceTimer);
-    presenceTimer = 0;
+    var onState = async function(snap) {
+      S.state = snap.val() || {};
+      renderState();
+      renderCountdown();
+
+      await maybeRecoverBrokenCountdown('state');
+
+      var st = String(S.state.status || '');
+      if ((st === 'running' || st === 'playing') && activePlayers().length >= 2) {
+        goRun();
+      }
+    };
+
+    var onMatch = function(snap) {
+      S.match = snap.val() || {};
+      renderState();
+    };
+
+    var onPlayers = async function(snap) {
+      S.players = snap.val() || {};
+
+      var actives = activePlayers();
+      var activeHost = actives.find(function(p){ return p.pid === (S.meta && S.meta.hostPid); });
+
+      if ((!S.meta.hostPid || !activeHost) && actives[0] && actives[0].pid === S.uid) {
+        await dbWriteWithRetry(function(){
+          return S.refs.meta.update({
+            hostPid: S.uid,
+            updatedAt: Date.now()
+          });
+        }).catch(function(){});
+      }
+
+      if (S.state && S.state.status === 'countdown' && actives.length < 2) {
+        await maybeRecoverBrokenCountdown('players');
+      }
+
+      renderState();
+    };
+
+    var onResults = function(snap) {
+      var results = snap.val() || {};
+      var resultCount = Object.keys(results).length;
+      console.log('[race-lobby:results]', {
+        roomId: S.roomId,
+        roomKind: S.roomKind,
+        resultCount: resultCount
+      });
+    };
+
+    S.refs.meta.on('value', onMeta);
+    S.refs.state.on('value', onState);
+    S.refs.match.on('value', onMatch);
+    S.refs.players.on('value', onPlayers);
+    S.refs.results.on('value', onResults);
+
+    S.offFns.push(function(){ S.refs.meta.off('value', onMeta); });
+    S.offFns.push(function(){ S.refs.state.off('value', onState); });
+    S.offFns.push(function(){ S.refs.match.off('value', onMatch); });
+    S.offFns.push(function(){ S.refs.players.off('value', onPlayers); });
+    S.offFns.push(function(){ S.refs.results.off('value', onResults); });
+
+    S.heartbeat = setInterval(function(){
+      S.refs.players.child(S.uid).update({
+        pid: S.uid,
+        nick: getNick(),
+        connected: true,
+        updatedAt: Date.now(),
+        lastSeen: Date.now(),
+        phase: 'lobby'
+      }).catch(function(){});
+    }, HEARTBEAT_MS);
+
+    S.joined = true;
+    renderState();
+
+    await maybePrepareRematchRoom(S.refs, {
+      time: getTime(),
+      seed: getRaceSeed()
+    }, isHost());
+
+    await maybeRecoverBrokenCountdown('post-join');
+
+    if (created) {
+      setTop('สร้างห้องสำเร็จ');
+      setSide('ส่ง room code หรือ QR นี้ให้เพื่อนอีกคน');
+    } else {
+      setTop('เข้าห้องสำเร็จ');
+      setSide('รอ host กด Start Race');
+    }
   }
-}
 
-async function beginCountdown() {
-  const snap = await roomRef.once('value');
-  const cur = sanitizeRoom(snapshotToRoom(snap.val()) || makeDefaultRoom());
+  async function createRoom() {
+    try {
+      await ensureFreshAuthForWrite();
+      saveStored();
 
-  if (!isHost(cur)) {
-    setHint('เฉพาะ host เท่านั้นที่เริ่มได้');
-    return;
+      cleanupRoom();
+      S.roomId = makeCode();
+      S.roomKind = 'raceRooms';
+
+      if (UI.roomInput) UI.roomInput.value = S.roomId;
+      if (UI.roomCodeBig) UI.roomCodeBig.textContent = S.roomId;
+      renderRoomDebug();
+
+      var db = ensureFirebaseDb();
+      var root = roomRootRef(db, S.roomKind, S.roomId);
+      S.refs = buildRefs(root);
+
+      var nowTs = Date.now();
+      var initialSeed = String(getRaceSeed());
+
+      await dbWriteWithRetry(function(){
+        return S.refs.meta.set({
+          roomId: S.roomId,
+          game: 'goodjunk',
+          mode: MODE_ID,
+          diff: getDiff(),
+          seed: initialSeed,
+          hostPid: S.uid,
+          minPlayers: 2,
+          maxPlayers: 2,
+          roomKind: S.roomKind,
+          createdAt: nowTs,
+          updatedAt: nowTs,
+          rematchReady: false
+        });
+      });
+
+      await dbWriteWithRetry(function(){
+        return S.refs.state.set({
+          status: 'waiting',
+          plannedSec: getTime(),
+          seed: initialSeed,
+          roundId: '',
+          participantIds: [],
+          countdownEndsAt: null,
+          startAt: null,
+          startedAt: null,
+          winnerId: '',
+          loserId: '',
+          createdAt: nowTs,
+          updatedAt: nowTs
+        });
+      });
+
+      await dbWriteWithRetry(function(){
+        return S.refs.match.set({
+          participantIds: [],
+          lockedAt: null,
+          status: 'idle',
+          race: {
+            winnerId: '',
+            loserId: '',
+            finishedAt: 0
+          }
+        });
+      });
+
+      await joinBoundRoom(true);
+    } catch (err) {
+      console.error('[race-lobby] createRoom failed', err);
+      setTop('สร้างห้องไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+      setSide('ตรวจ rules / auth / database path แล้วลองใหม่');
+    }
   }
 
-  const participants = readyPlayers(cur);
-  const participantIds = participants.map((p) => p.id).filter(Boolean);
+  async function joinRoom() {
+    try {
+      await ensureFreshAuthForWrite();
+      saveStored();
 
-  if (participantIds.length < (cur.minPlayers || 2)) {
-    setHint(`ต้องมีผู้เล่น ready อย่างน้อย ${cur.minPlayers || 2} คน`);
-    return;
+      cleanupRoom();
+      S.roomId = cleanRoom((UI.roomInput && UI.roomInput.value) || '');
+      if (!S.roomId) {
+        setTop('ยังไม่มี room code');
+        if (UI.roomInput) UI.roomInput.focus();
+        return;
+      }
+
+      var db = ensureFirebaseDb();
+      var detectedKind = await detectExistingRoomKind(db, S.roomId);
+
+      if (!detectedKind) {
+        setTop('ไม่พบห้องนี้');
+        setSide('ตรวจ room code แล้วลองใหม่');
+        return;
+      }
+
+      S.roomKind = detectedKind;
+      renderRoomDebug();
+
+      var root = roomRootRef(db, S.roomKind, S.roomId);
+      S.refs = buildRefs(root);
+
+      await joinBoundRoom(false);
+    } catch (err) {
+      console.error('[race-lobby] joinRoom failed', err);
+      setTop('เข้าห้องไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+      setSide('ตรวจ rules / auth / database path แล้วลองใหม่');
+    }
   }
 
-  const startAt = now() + 4000;
+  async function leaveRoom() {
+    if (!S.joined || !S.refs) return;
 
-  await roomRef.update({
-    status: 'countdown',
-    startAt,
-    updatedAt: now(),
-    match: {
-      participantIds,
-      lockedAt: now(),
+    try {
+      await S.refs.players.child(S.uid).remove();
+    } catch (_) {}
+
+    try {
+      var playersSnap = await S.refs.players.once('value');
+      var players = playersSnap.val() || {};
+      var ids = Object.keys(players);
+
+      if (!ids.length) {
+        await S.refs.root.remove().catch(function(){});
+      } else {
+        var currentHost = String((S.meta && S.meta.hostPid) || '');
+        if (currentHost === S.uid) {
+          var nextHost = ids[0] || '';
+          if (nextHost) {
+            await S.refs.meta.update({
+              hostPid: nextHost,
+              updatedAt: now()
+            }).catch(function(){});
+          }
+        }
+
+        await S.refs.match.update({
+          participantIds: [],
+          lockedAt: null,
+          status: 'idle',
+          race: {
+            winnerId: '',
+            loserId: '',
+            finishedAt: 0
+          }
+        }).catch(function(){});
+
+        await S.refs.state.update({
+          status: 'waiting',
+          participantIds: [],
+          countdownEndsAt: null,
+          startAt: null,
+          winnerId: '',
+          loserId: '',
+          updatedAt: now()
+        }).catch(function(){});
+      }
+    } catch (_) {}
+
+    cleanupRoom();
+    renderState();
+  }
+
+  async function setReadyFlag(flag) {
+    if (!S.joined || !S.refs) return;
+
+    var status = String((S.state && S.state.status) || 'waiting');
+    if (status !== 'waiting' && status !== 'ended') {
+      setTop('ตอนนี้เปลี่ยนสถานะพร้อมไม่ได้แล้ว');
+      return;
+    }
+
+    try {
+      await S.refs.players.child(S.uid).update({
+        ready: !!flag,
+        connected: true,
+        phase: 'lobby',
+        updatedAt: now(),
+        lastSeen: now()
+      });
+    } catch (err) {
+      console.error('[race-lobby] setReadyFlag failed', err);
+    }
+  }
+
+  async function startGame() {
+    if (!S.joined || !S.refs || !isHost()) return;
+
+    var active = activePlayers();
+    if (active.length < 2) {
+      setTop('ยังเริ่มไม่ได้');
+      setSide('ต้องมีผู้เล่น 2 คนก่อน');
+      return;
+    }
+
+    var ready = readyPlayers();
+    if (ready.length < 2) {
+      setTop('ยังเริ่มไม่ได้');
+      setSide('ต้องพร้อมทั้ง 2 คนก่อน');
+      return;
+    }
+
+    var participantIds = active.slice(0, 2).map(function(p){ return p.pid; }).filter(Boolean);
+    if (participantIds.length < 2) {
+      setTop('ยังเริ่มไม่ได้');
+      setSide('participant ยังไม่ครบ 2 คน');
+      return;
+    }
+
+    var sharedSeed = String(getRaceSeed());
+    var sharedDiff = String(getDiff());
+    var sharedTime = Number(getTime());
+    var sharedStartAt = Date.now() + 3500;
+    var sharedRoundId = makeRaceRoundId();
+
+    try {
+      await S.refs.results.remove();
+    } catch (_) {}
+
+    await S.refs.meta.update({
+      diff: sharedDiff,
+      seed: sharedSeed,
+      updatedAt: Date.now(),
+      rematchReady: false
+    });
+
+    await S.refs.match.set({
+      participantIds: participantIds,
+      lockedAt: Date.now(),
       status: 'countdown',
       race: {
+        winnerId: '',
+        loserId: '',
         finishedAt: 0
       }
+    });
+
+    await S.refs.state.update({
+      status: 'countdown',
+      plannedSec: sharedTime,
+      seed: sharedSeed,
+      roundId: sharedRoundId,
+      participantIds: participantIds,
+      countdownEndsAt: sharedStartAt,
+      startAt: sharedStartAt,
+      startedAt: null,
+      winnerId: '',
+      loserId: '',
+      updatedAt: Date.now()
+    });
+
+    var playersSnap = await S.refs.players.once('value');
+    var players = playersSnap.val() || {};
+    var updates = {};
+    var nowTs = Date.now();
+
+    Object.keys(players).forEach(function(pid){
+      updates[pid + '/ready'] = true;
+      updates[pid + '/phase'] = 'run';
+      updates[pid + '/finished'] = false;
+      updates[pid + '/finalScore'] = 0;
+      updates[pid + '/score'] = 0;
+      updates[pid + '/contribution'] = 0;
+      updates[pid + '/miss'] = 0;
+      updates[pid + '/streak'] = 0;
+      updates[pid + '/updatedAt'] = nowTs;
+      updates[pid + '/lastSeen'] = nowTs;
+    });
+
+    await S.refs.players.update(updates).catch(function(){});
+  }
+
+  function goRun() {
+    if (S.redirecting || !S.roomId) return;
+    S.redirecting = true;
+    location.href = buildRunUrl(S.roomId);
+  }
+
+  async function pasteRoom() {
+    try {
+      var t = await navigator.clipboard.readText();
+      if (UI.roomInput) UI.roomInput.value = cleanRoom(t || '');
+      ensureRoomCode();
+      renderState();
+    } catch (_) {
+      setTop('Paste ไม่สำเร็จ');
     }
-  });
-}
-
-async function enterRun(startAt) {
-  if (hasEnteredRun) return;
-  hasEnteredRun = true;
-
-  try { await myPlayerRef?.onDisconnect().cancel(); } catch {}
-
-  await updateMe({
-    ready: true,
-    phase: 'run',
-    connected: true,
-    lastSeenAt: now()
-  });
-
-  const q = new URLSearchParams({
-    pid: ctx.pid,
-    name: getMeName(),
-    studyId: ctx.studyId,
-    diff: ctx.diff,
-    time: ctx.time,
-    seed: ctx.seed,
-    hub: ctx.hub,
-    view: ctx.view,
-    run: ctx.run,
-    gameId: ctx.gameId,
-    mode: 'race',
-    roomId: ctx.roomId,
-    startAt: String(startAt || now())
-  });
-
-  location.href = `./goodjunk-race-run.html?v=20260320-race-lobby-ready2-max5-qr&${q.toString()}`;
-}
-
-async function leaveRoom() {
-  if (!roomRef || !myPlayerRef) return;
-
-  try { await myPlayerRef.onDisconnect().cancel(); } catch {}
-
-  const snap = await roomRef.once('value');
-  const cur = sanitizeRoom(snapshotToRoom(snap.val()) || makeDefaultRoom());
-
-  const remaining = cur.players.filter((p) => p.id !== ctx.pid);
-  if (!remaining.length) {
-    await roomRef.remove();
-    return;
   }
 
-  const next = clone(cur);
-  next.players = remaining;
-  next.updatedAt = now();
+  function bind() {
+    [UI.nickInput, UI.diffSelect, UI.timeSelect, UI.viewSelect, UI.seedInput, UI.roomInput].forEach(function(el){
+      if (!el) return;
+      el.addEventListener('input', function(){
+        saveStored();
+        ensureRoomCode();
+        renderState();
+      });
+      el.addEventListener('change', function(){
+        saveStored();
+        ensureRoomCode();
+        renderState();
+      });
+    });
 
-  if (!remaining.some((p) => p.id === next.hostId)) {
-    next.hostId = pickNextHostId(next, '');
-  }
+    if (UI.btnCreateTop) UI.btnCreateTop.addEventListener('click', createRoom);
+    if (UI.btnJoinTop) UI.btnJoinTop.addEventListener('click', joinRoom);
+    if (UI.btnCreateRoom) UI.btnCreateRoom.addEventListener('click', createRoom);
+    if (UI.btnJoinRoom) UI.btnJoinRoom.addEventListener('click', joinRoom);
 
-  if (next.status !== 'waiting') {
-    next.status = 'waiting';
-    next.startAt = null;
-    clearMatchState(next);
-    next.players = next.players.map((p) => ({
-      ...p,
-      ready: false,
-      phase: 'lobby'
-    }));
-  } else {
-    clearMatchState(next);
-  }
+    if (UI.btnPasteRoom) UI.btnPasteRoom.addEventListener('click', pasteRoom);
+    if (UI.btnRandomRoom) UI.btnRandomRoom.addEventListener('click', function(){
+      if (UI.roomInput) UI.roomInput.value = makeCode();
+      ensureRoomCode();
+      renderState();
+    });
 
-  await roomRef.set(roomToFirebase(next));
-}
-
-async function onReadyClick() {
-  const me = room?.players?.find((p) => p.id === ctx.pid);
-  if (!me) {
-    setHint('ยังเข้าห้องไม่สำเร็จ');
-    return;
-  }
-
-  if (room?.status !== 'waiting') {
-    setHint('ตอนนี้เปลี่ยนสถานะพร้อมไม่ได้แล้ว');
-    return;
-  }
-
-  const nextReady = !me.ready;
-
-  await updateMe({
-    ready: nextReady,
-    phase: 'lobby',
-    connected: true
-  });
-
-  setHint(nextReady ? 'ตั้งสถานะพร้อมแล้ว' : 'ยกเลิกสถานะพร้อมแล้ว');
-}
-
-async function onStartClick() {
-  await beginCountdown();
-}
-
-async function onBackClick() {
-  try { await leaveRoom(); } catch {}
-  location.href = ctx.hub || '../hub.html';
-}
-
-async function onCopyRoomClick() {
-  const ok = await copyText(ctx.roomId);
-  setCopyState(ok ? `คัดลอก Room Code แล้ว: ${ctx.roomId}` : 'คัดลอก Room Code ไม่สำเร็จ', ok);
-}
-
-async function onCopyInviteClick() {
-  const link = buildInviteUrl();
-  const ok = await copyText(link);
-  setCopyState(ok ? 'คัดลอก Invite Link แล้ว' : 'คัดลอก Invite Link ไม่สำเร็จ', ok);
-}
-
-function bindEvents() {
-  els.btnReady?.addEventListener('click', onReadyClick);
-  els.btnStart?.addEventListener('click', onStartClick);
-  els.btnBack?.addEventListener('click', onBackClick);
-  els.btnCopyRoom?.addEventListener('click', onCopyRoomClick);
-  els.btnCopyInvite?.addEventListener('click', onCopyInviteClick);
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') touchPresence();
-  });
-
-  window.addEventListener('focus', () => {
-    touchPresence();
-  });
-
-  window.addEventListener('beforeunload', () => {
-    stopPresenceHeartbeat();
-  });
-}
-
-async function boot() {
-  try {
-    setHint('กำลังเชื่อม Firebase...');
-    await ensureFirebase();
-
-    setHint('กำลังสร้าง/เชื่อมห้อง...');
-    await ensureRoomExists();
-    subscribeRoom();
-    const joined = await ensureJoined();
-
-    render();
-    bindEvents();
-
-    if (!joined) {
-      if (els.btnReady) els.btnReady.disabled = true;
-      if (els.btnStart) els.btnStart.disabled = true;
-      return;
+    if (UI.btnCopyRoom) {
+      UI.btnCopyRoom.addEventListener('click', async function(){
+        var ok = await copyText(S.roomId || (UI.roomInput && UI.roomInput.value) || '');
+        setTop(ok ? 'คัดลอก room code แล้ว' : 'คัดลอก room code ไม่สำเร็จ');
+      });
     }
 
-    await touchPresence();
-    startPresenceHeartbeat();
+    if (UI.btnCopyInvite) {
+      UI.btnCopyInvite.addEventListener('click', async function(){
+        var ok = await copyText(buildLobbyUrl(S.roomId || cleanRoom((UI.roomInput && UI.roomInput.value) || makeCode())));
+        setTop(ok ? 'คัดลอก invite link แล้ว' : 'คัดลอก invite link ไม่สำเร็จ');
+      });
+    }
 
-    if (room?.status === 'countdown' && room.startAt) runCountdown(room.startAt);
-    if (room?.status === 'running') await maybeEnterRunFromRoom(room);
-  } catch (err) {
-    console.error('[goodjunk-race-lobby] boot failed:', err);
-    setHint(`เชื่อม Firebase ไม่สำเร็จ: ${String(err?.message || err)}`);
-    if (els.btnReady) els.btnReady.disabled = true;
-    if (els.btnStart) els.btnStart.disabled = true;
+    if (UI.btnShareRoom) {
+      UI.btnShareRoom.addEventListener('click', async function(){
+        var ok = await shareLink(buildLobbyUrl(S.roomId || cleanRoom((UI.roomInput && UI.roomInput.value) || makeCode())));
+        setTop(ok ? 'แชร์ลิงก์แล้ว' : 'แชร์ไม่สำเร็จ');
+      });
+    }
+
+    if (UI.btnStartGame) UI.btnStartGame.addEventListener('click', startGame);
+    if (UI.btnLeaveRoom) UI.btnLeaveRoom.addEventListener('click', leaveRoom);
+
+    if (UI.btnReady) {
+      UI.btnReady.addEventListener('click', async function(){
+        var self = S.players && S.players[S.uid] ? S.players[S.uid] : null;
+        await setReadyFlag(!(self && self.ready));
+      });
+    }
+
+    if (UI.btnUnready) {
+      UI.btnUnready.addEventListener('click', function(){
+        setReadyFlag(false);
+      });
+    }
+
+    if (UI.btnLauncher) {
+      UI.btnLauncher.addEventListener('click', function(){
+        location.href = LAUNCHER + (HUB ? ('?hub=' + encodeURIComponent(HUB)) : '');
+      });
+    }
+
+    if (UI.btnHub) {
+      UI.btnHub.addEventListener('click', function(){
+        location.href = HUB || '../hub.html';
+      });
+    }
+
+    W.addEventListener('beforeunload', function(){
+      if (S.redirecting) return;
+      if (S.refs && S.uid) {
+        try { S.refs.players.child(S.uid).remove(); } catch (_) {}
+      }
+    });
   }
-}
 
-boot();
+  async function autoJoinIfNeeded() {
+    var room = cleanRoom(qs('roomId', qs('room', '')));
+    var autojoin = qs('autojoin', '') === '1';
+    var roomKind = clean(qs('roomKind', ''), 24);
+
+    if (!room) return;
+
+    if (UI.roomInput) UI.roomInput.value = room;
+    if (roomKind) S.roomKind = roomKind;
+    ensureRoomCode();
+    renderState();
+
+    if (autojoin) {
+      try {
+        await joinRoom();
+      } catch (err) {
+        setTop('เข้าห้องไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+      }
+    }
+  }
+
+  async function init() {
+    try {
+      loadStored();
+
+      if (UI.nickInput) UI.nickInput.value = clean(qs('name', qs('nick', UI.nickInput.value || '')), 24) || UI.nickInput.value || '';
+      if (UI.diffSelect) UI.diffSelect.value = qs('diff', UI.diffSelect.value || 'normal') || 'normal';
+      if (UI.timeSelect) UI.timeSelect.value = String(clamp(qs('time', UI.timeSelect.value || '90'), 60, 150));
+      if (UI.viewSelect) UI.viewSelect.value = qs('view', UI.viewSelect.value || 'mobile') || 'mobile';
+      if (UI.seedInput) UI.seedInput.value = qs('seed', UI.seedInput.value || '');
+
+      ensureRoomCode();
+      bind();
+      renderState();
+
+      setTop('กำลังเตรียม Firebase…');
+      await waitForFirebaseReady();
+      try { await ensureFreshAuthForWrite(); } catch (err) { console.warn('[race-lobby] auth warmup failed', err); }
+      setTop('ใส่ชื่อ แล้วกดสร้างห้องหรือเข้าห้องได้เลย');
+
+      await autoJoinIfNeeded();
+    } catch (err) {
+      console.error('[race-lobby] init failed', err);
+      setTop('เริ่มหน้า Lobby ไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+      setSide('ตรวจ firebase-config.js และการโหลด Firebase SDK');
+      setBottom('ถ้ายังไม่ได้ ให้ refresh ใหม่อีกครั้ง');
+    }
+  }
+
+  init();
+})();
