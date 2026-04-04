@@ -1,9 +1,8 @@
 // /herohealth/vr-groups/groups.solo.core.js
 // Groups Solo Core Engine
-// PATCH v20260404-groups-solo-core-r2
+// PATCH v20260404-groups-solo-core-r3
 
 import {
-  GROUPS_CATEGORIES,
   GROUPS_ITEMS,
   getDiffPreset,
   createBlankCategoryStats,
@@ -17,7 +16,7 @@ import {
   renderGroupsSummary
 } from './groups.summary.js';
 
-export const GROUPS_PATCH_CORE = 'v20260404-groups-solo-core-r2';
+export const GROUPS_PATCH_CORE = 'v20260404-groups-solo-core-r3';
 
 const FEVER_MS = 6000;
 const PRACTICE_MS = 15000;
@@ -116,7 +115,9 @@ export function createGroupsSoloCore({
         view: ctx.view,
         run: ctx.run,
         mode: ctx.mode,
-        game: ctx.game
+        game: ctx.game,
+        cooldown: !!ctx.cooldown,
+        returnPhase: ctx.returnPhase || ''
       }
     });
 
@@ -142,9 +143,21 @@ export function createGroupsSoloCore({
     setText(ui.goalSub, 'ฝึกสั้นก่อน 15 วินาที แล้วค่อยเริ่มรอบจริง');
     showCoach(getCoachLine('intro', rng) || 'โค้ช: พร้อมแล้วแตะปุ่มเริ่มได้เลย ✨');
 
+    decorateExitButtons();
+
     showOverlay(ui.introOverlay);
     hideOverlay(ui.midOverlay);
     hideOverlay(ui.summaryOverlay);
+  }
+
+  function decorateExitButtons(){
+    if (isCooldownEnabled()){
+      setButtonText(ui.btnBackSummary, '🧘 Cooldown');
+      setButtonText(ui.btnBackTop, '🧘 ออกเกม');
+    } else {
+      setButtonText(ui.btnBackSummary, '🏠 กลับ HUB');
+      setButtonText(ui.btnBackTop, '🏠 HUB');
+    }
   }
 
   function bindEvents(){
@@ -167,12 +180,11 @@ export function createGroupsSoloCore({
 
     bindClick(ui.btnStartPractice, 'btnStartPractice', startPractice);
     bindClick(ui.btnStartMain, 'btnStartMain', startMain);
-    bindClick(ui.btnGoHubIntro, 'btnGoHubIntro', goHub);
-
+    bindClick(ui.btnGoHubIntro, 'btnGoHubIntro', () => goHub('intro'));
     bindClick(ui.btnReplayTop, 'btnReplayTop', replay);
     bindClick(ui.btnReplaySummary, 'btnReplaySummary', replay);
-    bindClick(ui.btnBackTop, 'btnBackTop', goHub);
-    bindClick(ui.btnBackSummary, 'btnBackSummary', goHub);
+    bindClick(ui.btnBackTop, 'btnBackTop', () => goHub('manual_exit'));
+    bindClick(ui.btnBackSummary, 'btnBackSummary', () => goHub('summary_exit'));
 
     bindClick(ui.btnRecenter, 'btnRecenter', () => {
       renderer.showBanner('รีเซ็ตมุมมองแล้ว 🎯', 1200);
@@ -618,6 +630,10 @@ export function createGroupsSoloCore({
     saveGroupsSummary(summary);
     renderGroupsSummary(ui, summary);
 
+    if (isCooldownEnabled()){
+      setButtonText(ui.btnBackSummary, '🧘 ไป Cooldown');
+    }
+
     showOverlay(ui.summaryOverlay);
     showCoach(summary.lead);
 
@@ -641,16 +657,76 @@ export function createGroupsSoloCore({
     location.href = u.toString();
   }
 
-  function goHub(){
-    log('return_hub_click');
+  function goHub(reason = 'manual_exit'){
+    const summary = state.phase === 'summary'
+      ? buildGroupsSummary({
+          ctx,
+          patch,
+          state: snapshotState(),
+          reactionSamples: state.reactionSamples
+        })
+      : null;
+
+    const exitUrl = resolveExitUrl(reason, summary);
+
+    log('return_hub_click', {
+      reason,
+      useCooldown: isCooldownEnabled(),
+      exitUrl
+    });
+
     flushLogs();
 
     if (onBack){
-      onBack();
+      onBack(exitUrl, reason, summary);
       return;
     }
 
-    location.href = ctx.hub;
+    location.href = exitUrl;
+  }
+
+  function isCooldownEnabled(){
+    return !!ctx.cooldown || ctx.returnPhase === 'cooldown';
+  }
+
+  function resolveExitUrl(reason = 'manual_exit', summary = null){
+    if (!isCooldownEnabled()) return ctx.hub;
+
+    const gateUrl = new URL(ctx.cooldownGateUrl || new URL('../warmup-gate.html', location.href).toString(), location.href);
+
+    gateUrl.searchParams.set('pid', ctx.pid || 'anon');
+    gateUrl.searchParams.set('name', ctx.name || '');
+    gateUrl.searchParams.set('studyId', ctx.studyId || '');
+    gateUrl.searchParams.set('diff', ctx.diff || 'normal');
+    gateUrl.searchParams.set('time', String(ctx.timeSec || 80));
+    gateUrl.searchParams.set('seed', String(ctx.seed || Date.now()));
+    gateUrl.searchParams.set('hub', ctx.hub || new URL('../hub.html', location.href).toString());
+    gateUrl.searchParams.set('view', ctx.view || 'mobile');
+    gateUrl.searchParams.set('run', ctx.run || 'play');
+    gateUrl.searchParams.set('game', ctx.game || 'groups');
+    gateUrl.searchParams.set('gameId', ctx.gameId || 'groups');
+    gateUrl.searchParams.set('zone', ctx.zone || 'nutrition');
+    gateUrl.searchParams.set('cat', ctx.cat || 'nutrition');
+    gateUrl.searchParams.set('theme', ctx.theme || 'groups');
+    gateUrl.searchParams.set('mode', ctx.mode || 'solo');
+
+    gateUrl.searchParams.set('phase', 'cooldown');
+    gateUrl.searchParams.set('gatePhase', 'cooldown');
+    gateUrl.searchParams.set('cooldown', '1');
+    gateUrl.searchParams.set('returnPhase', 'cooldown');
+    gateUrl.searchParams.set('next', ctx.hub || new URL('../hub.html', location.href).toString());
+    gateUrl.searchParams.set('exitReason', reason);
+
+    if (ctx.debug) gateUrl.searchParams.set('debug', '1');
+
+    if (summary){
+      gateUrl.searchParams.set('score', String(summary.score || 0));
+      gateUrl.searchParams.set('accuracy', String(summary.accuracy || 0));
+      gateUrl.searchParams.set('bestStreak', String(summary.bestStreak || 0));
+      gateUrl.searchParams.set('grade', String(summary.grade || 'C'));
+    }
+
+    return gateUrl.toString();
   }
 
   function onCrosshairShoot(ev){
@@ -813,6 +889,7 @@ export function createGroupsSoloCore({
       `PATCH: ${patch}\n` +
       `phase: ${state.phase}\n` +
       `view: ${ctx.view}\n` +
+      `cooldown: ${isCooldownEnabled() ? 'on' : 'off'}\n` +
       `timeLeftMs: ${Math.round(state.timeLeftMs)}\n` +
       `items: ${state.items.size}\n` +
       `score: ${state.score}\n` +
@@ -841,6 +918,10 @@ export function createGroupsSoloCore({
 }
 
 function setText(el, text){
+  if (el) el.textContent = String(text ?? '');
+}
+
+function setButtonText(el, text){
   if (el) el.textContent = String(text ?? '');
 }
 
