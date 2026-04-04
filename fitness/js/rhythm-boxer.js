@@ -1,10 +1,10 @@
 // === /fitness/js/rhythm-boxer.js ===
 // Rhythm Boxer — FULL CLEAN FINAL
-// PATCH v20260404a-RB-PC-NORMAL-LONG-VISIBLE
+// PATCH v20260404b-RB-PC-NORMAL-VERY-LONG-VISIBLE
 // ✅ cooldown gate flow
 // ✅ correct path from /fitness/ -> /herohealth/
-// ✅ PC normal tuned for longer visible fall
-// ✅ note visible earlier from above screen
+// ✅ PC normal tuned for very long visible fall
+// ✅ note visible much earlier from above screen
 // ✅ judge windows wider
 // ✅ child-friendly
 // ✅ missions + stars + medal + badge
@@ -945,11 +945,11 @@
   }
 
   function judgeWindows(){
-    const base = (DIFF === 'hard') ? 96 : (DIFF === 'easy' ? 135 : 112);
+    const base = (DIFF === 'hard') ? 108 : (DIFF === 'easy' ? 150 : 124);
     return {
       perfect: base,
-      great: base * 1.75,
-      good: base * 2.85
+      great: base * 1.8,
+      good: base * 3.0
     };
   }
 
@@ -1009,25 +1009,25 @@
     const view = String(qs('view','pc')).toLowerCase();
 
     if(view === 'pc'){
-      if(DIFF === 'hard') return 3600;
-      if(DIFF === 'easy') return 4600;
-      return 4200;
+      if(DIFF === 'hard') return 4400;
+      if(DIFF === 'easy') return 5600;
+      return 5200;
     }
 
     if(view === 'cvr'){
-      if(DIFF === 'hard') return 3000;
-      if(DIFF === 'easy') return 3800;
-      return 3400;
+      if(DIFF === 'hard') return 3600;
+      if(DIFF === 'easy') return 4600;
+      return 4100;
     }
 
     // mobile
-    if(DIFF === 'hard') return 2500;
-    if(DIFF === 'easy') return 3200;
-    return 2850;
+    if(DIFF === 'hard') return 2900;
+    if(DIFF === 'easy') return 3800;
+    return 3300;
   }
 
   function noteSpawnLeadPx(laneH){
-    return Math.max(120, laneH * 0.36);
+    return Math.max(180, laneH * 0.52);
   }
 
   function spawnNotes(schedule){
@@ -1052,10 +1052,10 @@
     const laneRect = lanes[0].getBoundingClientRect();
     const laneH = laneRect.height || 240;
 
-    // ดันเส้นรับขึ้นอีก ให้เห็นช่วงตกยาวกว่าเดิม
-    const hitY = laneH * 0.74;
+    // ดันเส้นรับขึ้นสูงกว่าเดิมอีก
+    const hitY = laneH * 0.68;
 
-    // ให้โน้ตเริ่มเหนือจอมากขึ้น
+    // ให้ note เริ่มจากเหนือจอเยอะขึ้นมาก
     const spawnLead = noteSpawnLeadPx(laneH);
     const fullPath = hitY + spawnLead;
 
@@ -1065,8 +1065,8 @@
       const tRel = now - S.t0;
       const dtToHit = note.tHit - tRel;
 
-      // spawn ก่อนเข้าจอจริง
-      if(!note.spawned && dtToHit < (travel + 320)){
+      // spawn ก่อนเข้าจอจริงนานขึ้น
+      if(!note.spawned && dtToHit < (travel + 520)){
         note.spawned = true;
         note.el = makeNoteEl(note);
       }
@@ -1075,7 +1075,7 @@
         const progress = 1 - (dtToHit / travel);
         const y = (progress * fullPath) - spawnLead;
 
-        const yy = clamp(y, -spawnLead - 56, hitY + 84);
+        const yy = clamp(y, -spawnLead - 72, hitY + 90);
         note.el.style.transform = `translate(-50%, ${yy}px)`;
 
         const win = judgeWindows().good;
