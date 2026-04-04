@@ -7,16 +7,43 @@
   <script>
     (function () {
       try {
-        var target = new URL('./goodjunk-duet-play.html', location.href);
         var src = new URL(location.href);
+        var target = new URL('./goodjunk-duet-play.html', location.href);
 
         src.searchParams.forEach(function (v, k) {
           target.searchParams.set(k, v);
         });
 
+        // normalize common params
+        var room =
+          src.searchParams.get('room') ||
+          src.searchParams.get('roomCode') ||
+          src.searchParams.get('roomId') ||
+          '';
+
+        if (room) {
+          target.searchParams.set('room', room);
+          target.searchParams.set('roomCode', room);
+          target.searchParams.set('roomId', room);
+        }
+
+        if (!target.searchParams.get('mode')) {
+          target.searchParams.set('mode', 'duet');
+        }
+        if (!target.searchParams.get('game')) {
+          target.searchParams.set('game', 'goodjunk');
+        }
+        if (!target.searchParams.get('gameId')) {
+          target.searchParams.set('gameId', 'goodjunk');
+        }
+
+        if (src.hash) {
+          target.hash = src.hash;
+        }
+
         location.replace(target.toString());
       } catch (e) {
-        location.href = './goodjunk-duet-play.html' + location.search;
+        location.href = './goodjunk-duet-play.html' + location.search + location.hash;
       }
     })();
   </script>
