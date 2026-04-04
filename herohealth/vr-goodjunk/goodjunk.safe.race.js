@@ -3,590 +3,762 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.race.js
  * GoodJunk Race Core
- * FULL PATCH v20260404-race-core-playable-full
+ * FULL PATCH v20260404-race-core-runtime-full
  * ========================================================= */
 (function(){
-  if (window.__GJ_RACE_CORE_LOADED__) return;
-  window.__GJ_RACE_CORE_LOADED__ = true;
+  const W = window;
+  const D = document;
 
-  var W = window;
-  var D = document;
+  if (W.__GJ_RACE_CORE_LOADED__) return;
+  W.__GJ_RACE_CORE_LOADED__ = true;
 
-  function qs(key, fallback) {
-    try {
-      var u = new URL(location.href);
-      var v = u.searchParams.get(key);
-      return v == null ? (fallback || '') : v;
-    } catch (_) {
-      return fallback || '';
-    }
-  }
+  const qs = (k, d='') => {
+    try { return new URL(location.href).searchParams.get(k) ?? d; }
+    catch { return d; }
+  };
 
-  function now() {
-    return Date.now();
-  }
-
-  function num(v, d) {
+  const num = (v, d=0) => {
     v = Number(v);
-    return Number.isFinite(v) ? v : (d || 0);
+    return Number.isFinite(v) ? v : d;
+  };
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, num(v, a)));
+  const now = () => Date.now();
+
+  function clean(v, max=120){
+    return String(v == null ? '' : v).trim().slice(0, max);
   }
 
-  function clamp(v, a, b) {
-    v = num(v, a);
-    if (v < a) return a;
-    if (v > b) return b;
-    return v;
+  function byIds(){
+    for (let i = 0; i < arguments.length; i++){
+      const el = D.getElementById(arguments[i]);
+      if (el) return el;
+    }
+    return null;
   }
 
-  function rand(a, b) {
-    return a + Math.random() * (b - a);
+  function emit(name, detail){
+    try { W.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }
+    catch {}
   }
 
-  function pick(arr) {
-    if (!arr || !arr.length) return '';
-    return arr[Math.floor(Math.random() * arr.length)];
+  function xmur3(str){
+    str = String(str || '');
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++){
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return function(){
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= h >>> 16) >>> 0;
+    };
   }
 
-  function clean(v) {
-    return String(v == null ? '' : v).trim();
+  function mulberry32(a){
+    return function(){
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
   }
 
-  function emit(name, detail) {
-    try {
-      W.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
-    } catch (_) {}
+  function raf(fn){
+    return (W.requestAnimationFrame || function(cb){ return setTimeout(() => cb(performance.now()), 16); })(fn);
   }
 
-  var ctx = W.__GJ_RUN_CTX__ || W.__GJ_MULTI_RUN_CTX__ || {
+  function caf(id){
+    return (W.cancelAnimationFrame || clearTimeout)(id);
+  }
+
+  const ctx = {
+    game: 'goodjunk',
+    zone: 'nutrition',
     mode: 'race',
-    pid: qs('pid', 'anon'),
-    name: qs('name', qs('nick', 'Player')),
-    roomId: qs('roomId', qs('room', '')),
-    role: qs('role', 'player'),
-    diff: qs('diff', 'normal'),
-    time: qs('time', '120'),
-    seed: qs('seed', String(now())),
+    pid: clean(qs('pid', 'anon'), 80),
+    uid: clean(qs('uid', ''), 80),
+    name: clean(qs('name', qs('nick', 'Player')), 80),
+    roomId: clean(qs('roomId', qs('room', '')), 40),
+    roomKind: clean(qs('roomKind', ''), 40),
+    role: clean(qs('role', 'player'), 24),
+    diff: clean(qs('diff', 'normal'), 24).toLowerCase(),
+    time: clamp(qs('time', '90'), 30, 300),
+    seed: clean(qs('seed', String(now())), 80),
     startAt: num(qs('startAt', '0'), 0),
-    hub: qs('hub', '../hub.html'),
-    wait: qs('wait', '0'),
-    host: qs('host', '0'),
-    view: qs('view', 'mobile')
+    hub: clean(qs('hub', '../hub.html'), 400),
+    view: clean(qs('view', 'mobile'), 24),
+    host: clean(qs('host', '0'), 8),
+    run: clean(qs('run', 'play'), 24)
   };
 
-  var ROOT = null;
-  var LAYER = null;
-  var HUD = null;
-  var COUNTDOWN = null;
-  var READY = false;
-
-  var GOOD_POOL = ['🍎','🥕','🍉','🍇','🥦','🍌','🥛','🐟','🥚','🍓'];
-  var JUNK_POOL = ['🍟','🍔','🍩','🍰','🍫','🧃','🥤','🍭','🍕','🌭'];
-
-  var CONFIG = {
-    easy:   { spawnMs: 820, lifeMs: 1800, size: 96, junkRate: 0.24, scoreGood: 12, scoreJunk: -8 },
-    normal: { spawnMs: 620, lifeMs: 1450, size: 86, junkRate: 0.30, scoreGood: 10, scoreJunk: -10 },
-    hard:   { spawnMs: 500, lifeMs: 1180, size: 76, junkRate: 0.36, scoreGood: 10, scoreJunk: -12 }
+  const DIFF = {
+    easy:   { spawnEvery: 820, maxTargets: 5, ttl: 2800, speed: 120, goodRatio: 0.80 },
+    normal: { spawnEvery: 670, maxTargets: 6, ttl: 2350, speed: 150, goodRatio: 0.73 },
+    hard:   { spawnEvery: 540, maxTargets: 7, ttl: 2000, speed: 185, goodRatio: 0.66 }
   };
 
-  var GAME = {
+  const GOOD = [
+    { emoji:'🍎', name:'Apple' },
+    { emoji:'🍌', name:'Banana' },
+    { emoji:'🍉', name:'Watermelon' },
+    { emoji:'🥕', name:'Carrot' },
+    { emoji:'🥦', name:'Broccoli' },
+    { emoji:'🍓', name:'Strawberry' },
+    { emoji:'🍇', name:'Grapes' },
+    { emoji:'🥛', name:'Milk' }
+  ];
+
+  const JUNK = [
+    { emoji:'🍩', name:'Donut' },
+    { emoji:'🍟', name:'Fries' },
+    { emoji:'🍭', name:'Lollipop' },
+    { emoji:'🍬', name:'Candy' },
+    { emoji:'🧃', name:'Sweet Drink' },
+    { emoji:'🧁', name:'Cupcake' },
+    { emoji:'🍪', name:'Cookie' }
+  ];
+
+  const UI = {
+    stageWrap: null,
+    stage: null,
+    score: null,
+    time: null,
+    miss: null,
+    streak: null,
+    goodHit: null,
+    junkHit: null,
+    goodMiss: null,
+    roomPill: null,
+    tip: null,
+    goalValue: null,
+    goalFill: null,
+    goalSubFill: null,
+    countdownOverlay: null,
+    countdownNum: null,
+    countdownText: null
+  };
+
+  const G = {
     booted: false,
-    running: false,
-    paused: false,
-    ended: false,
-    raf: 0,
-    startAtMs: 0,
-    durationMs: clamp(num(ctx.time, 120), 30, 300) * 1000,
-    timeLeftMs: clamp(num(ctx.time, 120), 30, 300) * 1000,
-    lastTs: 0,
-    nextSpawnAt: 0,
+    started: false,
+    finished: false,
+    countdownDone: false,
+    cfg: DIFF.normal,
+    rng: null,
+
+    loopId: 0,
+    lastFrameTs: 0,
+    lastSpawnAt: 0,
+
+    seq: 0,
+    targets: [],
+
     score: 0,
+    miss: 0,
     goodHit: 0,
     junkHit: 0,
-    miss: 0,
+    goodMiss: 0,
     streak: 0,
     bestStreak: 0,
-    targets: [],
+
+    roundStartAt: 0,
+    roundEndAt: 0,
     summarySent: false
   };
 
-  function getCfg() {
-    return CONFIG[clean(ctx.diff).toLowerCase()] || CONFIG.normal;
+  let RT = null;
+
+  function initRuntime(){
+    if (!(W.HHARuntimeContract && typeof W.HHARuntimeContract.create === 'function')) {
+      RT = null;
+      return null;
+    }
+
+    RT = W.HHARuntimeContract.create({
+      game: 'goodjunk',
+      zone: 'nutrition',
+      mode: 'race',
+      getCtx: () => ({
+        roomId: ctx.roomId || '',
+        roomKind: ctx.roomKind || '',
+        pid: ctx.pid || '',
+        uid: ctx.uid || '',
+        name: ctx.name || '',
+        role: ctx.role || '',
+        diff: ctx.diff || '',
+        time: Number(ctx.time || 0),
+        seed: String(ctx.seed || ''),
+        view: ctx.view || '',
+        host: String(ctx.host || '0')
+      })
+    });
+
+    return RT;
   }
 
-  function ensureMount() {
-    if (ROOT) return ROOT;
+  function installStyles(){
+    if (D.getElementById('gjRaceCoreStyles')) return;
 
-    var mount = D.getElementById('gameMount') || D.body;
-
-    ROOT = D.createElement('div');
-    ROOT.id = 'gjRaceRoot';
-    ROOT.style.position = 'absolute';
-    ROOT.style.inset = '0';
-    ROOT.style.zIndex = '1';
-    ROOT.style.pointerEvents = 'auto';
-    ROOT.style.overflow = 'hidden';
-    ROOT.style.touchAction = 'manipulation';
-    ROOT.style.userSelect = 'none';
-
-    LAYER = D.createElement('div');
-    LAYER.id = 'gjRaceLayer';
-    LAYER.style.position = 'absolute';
-    LAYER.style.inset = '0';
-    LAYER.style.overflow = 'hidden';
-    LAYER.style.pointerEvents = 'auto';
-
-    HUD = D.createElement('div');
-    HUD.id = 'gjRaceHud';
-    HUD.style.position = 'absolute';
-    HUD.style.left = '12px';
-    HUD.style.bottom = '12px';
-    HUD.style.display = 'flex';
-    HUD.style.flexWrap = 'wrap';
-    HUD.style.gap = '8px';
-    HUD.style.zIndex = '4';
-    HUD.style.pointerEvents = 'none';
-
-    COUNTDOWN = D.createElement('div');
-    COUNTDOWN.id = 'gjRaceCountdown';
-    COUNTDOWN.style.position = 'absolute';
-    COUNTDOWN.style.left = '50%';
-    COUNTDOWN.style.top = '50%';
-    COUNTDOWN.style.transform = 'translate(-50%, -50%)';
-    COUNTDOWN.style.minWidth = '180px';
-    COUNTDOWN.style.padding = '18px 20px';
-    COUNTDOWN.style.borderRadius = '28px';
-    COUNTDOWN.style.border = '3px solid #bfe3f2';
-    COUNTDOWN.style.background = 'rgba(255,253,248,.94)';
-    COUNTDOWN.style.boxShadow = '0 18px 40px rgba(86,155,194,.18)';
-    COUNTDOWN.style.textAlign = 'center';
-    COUNTDOWN.style.fontWeight = '1000';
-    COUNTDOWN.style.color = '#4d4a42';
-    COUNTDOWN.style.zIndex = '5';
-    COUNTDOWN.style.display = 'none';
-    COUNTDOWN.style.pointerEvents = 'none';
-
-    ROOT.appendChild(LAYER);
-    ROOT.appendChild(HUD);
-    ROOT.appendChild(COUNTDOWN);
-    mount.appendChild(ROOT);
-
-    ensureStyle();
-    refreshHud();
-
-    return ROOT;
-  }
-
-  function ensureStyle() {
-    if (D.getElementById('gjRaceCoreStyle')) return;
-
-    var style = D.createElement('style');
-    style.id = 'gjRaceCoreStyle';
-    style.textContent = [
-      '#gjRaceHud .chip{',
-      'display:inline-flex;',
-      'align-items:center;',
-      'justify-content:center;',
-      'min-height:42px;',
-      'padding:10px 14px;',
-      'border-radius:999px;',
-      'border:2px solid #bfe3f2;',
-      'background:#fff;',
-      'color:#5a5850;',
-      'font-size:12px;',
-      'font-weight:1000;',
-      'box-shadow:0 8px 18px rgba(86,155,194,.10);',
-      '}',
-      '.gj-race-target{',
-      'position:absolute;',
-      'display:grid;',
-      'place-items:center;',
-      'border-radius:999px;',
-      'border:4px solid #fff;',
-      'box-shadow:0 12px 24px rgba(86,155,194,.18);',
-      'cursor:pointer;',
-      'transform:translate(-50%,-50%);',
-      'touch-action:manipulation;',
-      'will-change:transform,left,top;',
-      '}',
-      '.gj-race-target.good{',
-      'background:linear-gradient(180deg,#ffffff,#f1fff1);',
-      'box-shadow:0 14px 26px rgba(76,175,80,.18);',
-      '}',
-      '.gj-race-target.junk{',
-      'background:linear-gradient(180deg,#fff4f4,#ffe5e5);',
-      'box-shadow:0 14px 26px rgba(239,68,68,.16);',
-      '}',
-      '.gj-race-target .emoji{',
-      'line-height:1;',
-      'pointer-events:none;',
-      '}',
-      '.gj-race-pop{',
-      'position:absolute;',
-      'transform:translate(-50%,-50%);',
-      'font-weight:1000;',
-      'font-size:22px;',
-      'pointer-events:none;',
-      'z-index:6;',
-      'animation:gjRacePop .55s ease-out forwards;',
-      '}',
-      '.gj-race-pop.good{color:#3f9f2b;}',
-      '.gj-race-pop.bad{color:#d14b4b;}',
-      '@keyframes gjRacePop{',
-      '0%{opacity:0; transform:translate(-50%,-20%) scale(.9);}',
-      '20%{opacity:1; transform:translate(-50%,-50%) scale(1);}',
-      '100%{opacity:0; transform:translate(-50%,-110%) scale(1.05);}',
-      '}'
-    ].join('');
+    const style = D.createElement('style');
+    style.id = 'gjRaceCoreStyles';
+    style.textContent = `
+      #gjRaceField{
+        position:absolute;
+        inset:0;
+        overflow:hidden;
+      }
+      .gjr-target{
+        position:absolute;
+        display:grid;
+        place-items:center;
+        border-radius:20px;
+        border:2px solid #fff;
+        box-shadow:0 12px 24px rgba(0,0,0,.12);
+        cursor:pointer;
+        user-select:none;
+        transform:translateZ(0);
+        min-width:56px;
+        min-height:56px;
+        touch-action:manipulation;
+      }
+      .gjr-target.good{ background:linear-gradient(180deg,#ffffff,#f1fff1); }
+      .gjr-target.junk{ background:linear-gradient(180deg,#fff3f3,#ffe1e1); }
+      .gjr-target .emoji{
+        font-size:clamp(24px,4vw,38px);
+        line-height:1;
+      }
+      .gjr-fx{
+        position:absolute;
+        pointer-events:none;
+        z-index:40;
+        font-size:20px;
+        line-height:1;
+        font-weight:1000;
+        text-shadow:0 1px 0 #fff;
+        animation:gjr-float .48s ease-out forwards;
+      }
+      .gjr-fx.good{ color:#15803d; }
+      .gjr-fx.bad{ color:#b91c1c; }
+      @keyframes gjr-float{
+        0%{ opacity:0; transform:translateY(8px) scale(.9); }
+        15%{ opacity:1; }
+        100%{ opacity:0; transform:translateY(-28px) scale(1.04); }
+      }
+      @media (max-width:640px){
+        .gjr-target{
+          min-width:48px;
+          min-height:48px;
+          border-radius:16px;
+        }
+        .gjr-target .emoji{
+          font-size:clamp(22px,7vw,30px);
+        }
+      }
+    `;
     D.head.appendChild(style);
   }
 
-  function hudChip(label, value) {
-    return '<div class="chip">' + label + ' • ' + value + '</div>';
-  }
+  function ensureStage(){
+    installStyles();
 
-  function refreshHud() {
-    if (!HUD) return;
+    UI.stageWrap = byIds('raceGameStage', 'gameStage', 'gameMount', 'playField');
+    if (!UI.stageWrap) throw new Error('race stage not found');
 
-    HUD.innerHTML =
-      hudChip('SCORE', GAME.score) +
-      hudChip('GOOD', GAME.goodHit) +
-      hudChip('JUNK', GAME.junkHit) +
-      hudChip('MISS', GAME.miss) +
-      hudChip('TIME', Math.max(0, Math.ceil(GAME.timeLeftMs / 1000)));
-  }
-
-  function showCountdown(text, sub) {
-    if (!COUNTDOWN) return;
-    COUNTDOWN.style.display = 'block';
-    COUNTDOWN.innerHTML =
-      '<div style="font-size:14px;color:#79aeca;margin-bottom:8px;">' + String(sub || 'เตรียมพร้อม') + '</div>' +
-      '<div style="font-size:72px;line-height:1;color:#5c9b28;">' + String(text || '3') + '</div>';
-  }
-
-  function hideCountdown() {
-    if (!COUNTDOWN) return;
-    COUNTDOWN.style.display = 'none';
-  }
-
-  function getBounds() {
-    ensureMount();
-    var rect = ROOT.getBoundingClientRect();
-    var w = rect.width;
-    var h = rect.height;
-
-    var left = Math.max(70, Math.min(150, w * 0.12));
-    var right = Math.max(70, Math.min(150, w * 0.12));
-    var top = Math.max(150, Math.min(210, h * 0.20));
-    var bottom = Math.max(120, Math.min(190, h * 0.18));
-
-    return {
-      width: w,
-      height: h,
-      minX: left,
-      maxX: Math.max(left + 20, w - right),
-      minY: top,
-      maxY: Math.max(top + 20, h - bottom)
-    };
-  }
-
-  function makePop(x, y, text, good) {
-    if (!LAYER) return;
-    var p = D.createElement('div');
-    p.className = 'gj-race-pop ' + (good ? 'good' : 'bad');
-    p.textContent = text;
-    p.style.left = x + 'px';
-    p.style.top = y + 'px';
-    LAYER.appendChild(p);
-    setTimeout(function(){
-      if (p && p.parentNode) p.parentNode.removeChild(p);
-    }, 650);
-  }
-
-  function removeTarget(target) {
-    if (!target) return;
-    var idx = GAME.targets.indexOf(target);
-    if (idx >= 0) GAME.targets.splice(idx, 1);
-    if (target.el && target.el.parentNode) {
-      target.el.parentNode.removeChild(target.el);
+    let field = byIds('gjRaceField');
+    if (!field){
+      field = D.createElement('div');
+      field.id = 'gjRaceField';
+      UI.stageWrap.appendChild(field);
     }
+    UI.stage = field;
+
+    UI.score = byIds('raceScoreValue', 'goodjunkScoreValue', 'gameScoreValue');
+    UI.time = byIds('raceTimeValue', 'goodjunkTimeValue', 'gameTimeValue');
+    UI.miss = byIds('raceMissValue', 'goodjunkMissValue', 'gameMissValue');
+    UI.streak = byIds('raceStreakValue', 'goodjunkStreakValue', 'gameStreakValue');
+    UI.goodHit = byIds('raceGoodHitValue', 'goodHitValue');
+    UI.junkHit = byIds('raceJunkHitValue', 'junkHitValue');
+    UI.goodMiss = byIds('raceGoodMissValue', 'goodMissValue');
+    UI.roomPill = byIds('raceRoomPill', 'goodjunkRoomPill');
+    UI.tip = byIds('raceTipText', 'goodjunkTipText');
+    UI.goalValue = byIds('racePairGoalValue', 'raceGoalValue', 'goalValue');
+    UI.goalFill = byIds('racePairGoalFill', 'raceGoalFill', 'goalFill');
+    UI.goalSubFill = byIds('racePairGoalSubFill', 'raceGoalSubFill', 'goalSubFill');
+    UI.countdownOverlay = byIds('raceCountdownOverlay', 'goodjunkCountdownOverlay');
+    UI.countdownNum = byIds('raceCountdownNum', 'goodjunkCountdownNum');
+    UI.countdownText = byIds('raceCountdownText', 'goodjunkCountdownText');
+
+    if (UI.roomPill) UI.roomPill.textContent = ctx.roomId ? `ห้อง ${ctx.roomId}` : 'โหมด Race';
   }
 
-  function scoreGood() {
-    var cfg = getCfg();
-    var bonus = GAME.streak >= 8 ? 4 : (GAME.streak >= 4 ? 2 : 0);
-    var gain = cfg.scoreGood + bonus;
-    GAME.score += gain;
-    GAME.goodHit += 1;
-    GAME.streak += 1;
-    if (GAME.streak > GAME.bestStreak) GAME.bestStreak = GAME.streak;
-    return gain;
-  }
-
-  function hitJunkPenalty() {
-    var cfg = getCfg();
-    GAME.score = Math.max(0, GAME.score + cfg.scoreJunk);
-    GAME.junkHit += 1;
-    GAME.miss += 1;
-    GAME.streak = 0;
-    return cfg.scoreJunk;
-  }
-
-  function missGoodPenalty() {
-    GAME.miss += 1;
-    GAME.streak = 0;
-  }
-
-  function createTarget(kind) {
-    ensureMount();
-    if (!LAYER) return null;
-
-    var cfg = getCfg();
-    var bounds = getBounds();
-    var size = cfg.size + rand(-6, 8);
-    var x = rand(bounds.minX, bounds.maxX);
-    var y = rand(bounds.minY, bounds.maxY);
-    var emoji = kind === 'good' ? pick(GOOD_POOL) : pick(JUNK_POOL);
-
-    var el = D.createElement('button');
-    el.type = 'button';
-    el.className = 'gj-race-target ' + kind;
-    el.style.width = size + 'px';
-    el.style.height = size + 'px';
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-    el.innerHTML = '<span class="emoji" style="font-size:' + Math.max(28, Math.floor(size * 0.42)) + 'px;">' + emoji + '</span>';
-
-    var target = {
-      kind: kind,
-      bornAt: now(),
-      lifeMs: cfg.lifeMs + rand(-180, 180),
-      x: x,
-      y: y,
-      el: el,
-      clicked: false
+  function stageRect(){
+    const r = UI.stage.getBoundingClientRect();
+    return {
+      w: Math.max(320, Math.round(r.width || 960)),
+      h: Math.max(420, Math.round(r.height || 580))
     };
+  }
 
-    el.addEventListener('click', function(ev){
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (!GAME.running || GAME.paused || GAME.ended) return;
-      if (target.clicked) return;
+  function playInsets(){
+    const mobile = W.innerWidth <= 640;
+    return {
+      top: mobile ? 56 : 86,
+      right: mobile ? 10 : 18,
+      bottom: mobile ? 96 : 96,
+      left: mobile ? 10 : 18
+    };
+  }
 
-      target.clicked = true;
+  function playBounds(){
+    const rect = stageRect();
+    const inset = playInsets();
+    return {
+      w: rect.w,
+      h: rect.h,
+      left: inset.left,
+      right: Math.max(inset.left + 150, rect.w - inset.right),
+      top: inset.top,
+      bottom: Math.max(inset.top + 220, rect.h - inset.bottom)
+    };
+  }
 
-      if (kind === 'good') {
-        var gain = scoreGood();
-        makePop(x, y, '+' + gain, true);
+  function timeLeftSec(){
+    if (!G.started) {
+      if (ctx.startAt > now()) return Math.max(0, Math.ceil((ctx.startAt - now()) / 1000));
+      return ctx.time;
+    }
+    return Math.max(0, Math.ceil((G.roundEndAt - now()) / 1000));
+  }
+
+  function currentGoal(){
+    const base = Math.max(180, ctx.time * 4);
+    if (ctx.diff === 'easy') return Math.round(base * 0.85);
+    if (ctx.diff === 'hard') return Math.round(base * 1.15);
+    return Math.round(base);
+  }
+
+  function renderHud(){
+    if (UI.score) UI.score.textContent = String(Math.max(0, Math.round(G.score)));
+    if (UI.time) UI.time.textContent = formatClock(timeLeftSec());
+    if (UI.miss) UI.miss.textContent = String(G.miss);
+    if (UI.streak) UI.streak.textContent = String(G.bestStreak);
+    if (UI.goodHit) UI.goodHit.textContent = String(G.goodHit);
+    if (UI.junkHit) UI.junkHit.textContent = String(G.junkHit);
+    if (UI.goodMiss) UI.goodMiss.textContent = String(G.goodMiss);
+
+    const goal = currentGoal();
+    const pct = Math.max(0, Math.min(100, (G.score / Math.max(1, goal)) * 100));
+    const pct2 = Math.max(0, Math.min(100, ((G.goodHit * 10) / Math.max(1, goal)) * 100));
+
+    if (UI.goalValue) UI.goalValue.textContent = String(goal);
+    if (UI.goalFill) UI.goalFill.style.width = pct.toFixed(1) + '%';
+    if (UI.goalSubFill) UI.goalSubFill.style.width = pct2.toFixed(1) + '%';
+
+    if (UI.tip) {
+      if (!G.started) {
+        UI.tip.textContent = ctx.startAt > now()
+          ? 'กำลังรอเริ่มพร้อมกัน'
+          : 'แตะอาหารดีให้ไวที่สุด';
+      } else if (G.streak >= 8) {
+        UI.tip.textContent = 'สุดยอด! คุณกำลังเร่งสปีดได้ดีมาก';
+      } else if (G.miss >= 6) {
+        UI.tip.textContent = 'ระวังอาหารดีหลุดออกจอมากเกินไป';
       } else {
-        var loss = hitJunkPenalty();
-        makePop(x, y, String(loss), false);
+        UI.tip.textContent = 'แตะอาหารดี หลีกเลี่ยง junk และเร่งคะแนนให้สูงสุด';
       }
+    }
 
-      removeTarget(target);
-      refreshHud();
-      emit('hha:score', {
-        mode: 'race',
-        score: GAME.score,
-        goodHit: GAME.goodHit,
-        junkHit: GAME.junkHit,
-        miss: GAME.miss,
-        streak: GAME.streak,
-        bestStreak: GAME.bestStreak
-      });
+    emit('gj:race-live', {
+      score: G.score,
+      miss: G.miss,
+      goodHit: G.goodHit,
+      junkHit: G.junkHit,
+      goodMiss: G.goodMiss,
+      streak: G.streak,
+      bestStreak: G.bestStreak,
+      timeLeftSec: timeLeftSec()
     });
 
-    LAYER.appendChild(el);
-    GAME.targets.push(target);
-    return target;
+    emit('hha:score', {
+      game: 'goodjunk',
+      mode: 'race',
+      score: G.score
+    });
   }
 
-  function clearTargets() {
-    while (GAME.targets.length) {
-      removeTarget(GAME.targets[0]);
+  function formatClock(sec){
+    sec = Math.max(0, Math.ceil(num(sec, 0)));
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function flash(x, y, text, kind){
+    if (!UI.stage) return;
+    const el = D.createElement('div');
+    el.className = `gjr-fx ${kind || ''}`;
+    el.textContent = text;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    UI.stage.appendChild(el);
+    setTimeout(() => {
+      try { el.remove(); } catch {}
+    }, 520);
+  }
+
+  function removeTarget(t){
+    if (!t || t.dead) return;
+    t.dead = true;
+    try { t.el.remove(); } catch {}
+  }
+
+  function makeTarget(kind){
+    const bounds = playBounds();
+    const mobile = W.innerWidth <= 640;
+    const size = Math.round((mobile ? 48 : 60) + G.rng() * (mobile ? 14 : 24));
+    const usableW = Math.max(150, bounds.right - bounds.left);
+    const x = bounds.left + Math.round((usableW - size) * G.rng());
+    const y = bounds.top - size - Math.round(G.rng() * 16);
+    const speed = G.cfg.speed * (0.92 + G.rng() * 0.4);
+    const ttl = Math.round(G.cfg.ttl * (0.96 + G.rng() * 0.1));
+    const sway = (G.rng() - 0.5) * 34;
+    const bank = kind === 'good' ? GOOD : JUNK;
+    const item = bank[Math.floor(G.rng() * bank.length)];
+
+    const el = D.createElement('button');
+    el.type = 'button';
+    el.className = `gjr-target ${kind}`;
+    el.style.width = `${size}px`;
+    el.style.height = `${size}px`;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.innerHTML = `<span class="emoji">${item.emoji}</span>`;
+    el.setAttribute('aria-label', item.name);
+
+    const t = {
+      id: `t-${++G.seq}`,
+      kind,
+      x, y, size, speed, ttl, sway,
+      bornAt: now(),
+      el,
+      dead: false
+    };
+
+    el.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      hitTarget(t);
+    }, { passive:false });
+
+    UI.stage.appendChild(el);
+    G.targets.push(t);
+  }
+
+  function spawnTarget(){
+    if (!G.started || G.finished) return;
+    if (G.targets.length >= G.cfg.maxTargets) return;
+    const kind = G.rng() < G.cfg.goodRatio ? 'good' : 'junk';
+    makeTarget(kind);
+  }
+
+  function hitTarget(t){
+    if (!t || t.dead || !G.started || G.finished) return;
+
+    removeTarget(t);
+
+    if (t.kind === 'good'){
+      G.streak += 1;
+      G.bestStreak = Math.max(G.bestStreak, G.streak);
+      G.goodHit += 1;
+
+      const bonus = Math.min(12, Math.floor(G.streak / 3) * 2);
+      G.score += 10 + bonus;
+
+      flash(t.x, t.y, `+${10 + bonus}`, 'good');
+    } else {
+      G.junkHit += 1;
+      G.miss += 1;
+      G.streak = 0;
+      G.score = Math.max(0, G.score - 8);
+
+      flash(t.x, t.y, '-8', 'bad');
+    }
+
+    renderHud();
+
+    if (RT) {
+      RT.scoreUpdated({
+        score: G.score,
+        miss: G.miss,
+        goodHit: G.goodHit,
+        junkHit: G.junkHit,
+        bestStreak: G.bestStreak
+      }).catch(() => {});
     }
   }
 
-  function maybeSpawn(ts) {
-    var cfg = getCfg();
-    if (ts < GAME.nextSpawnAt) return;
-    GAME.nextSpawnAt = ts + cfg.spawnMs;
+  function expireTarget(t){
+    removeTarget(t);
 
-    var isJunk = Math.random() < cfg.junkRate;
-    createTarget(isJunk ? 'junk' : 'good');
-  }
+    if (t.kind === 'good'){
+      G.goodMiss += 1;
+      G.miss += 1;
+      G.streak = 0;
+      flash(t.x, t.y, 'MISS', 'bad');
 
-  function expireTargets(ts) {
-    var i;
-    for (i = GAME.targets.length - 1; i >= 0; i--) {
-      var t = GAME.targets[i];
-      if (!t || t.clicked) continue;
-      if (ts - t.bornAt >= t.lifeMs) {
-        if (t.kind === 'good') {
-          missGoodPenalty();
-          makePop(t.x, t.y, 'MISS', false);
-        }
-        removeTarget(t);
+      renderHud();
+
+      if (RT) {
+        RT.scoreUpdated({
+          score: G.score,
+          miss: G.miss,
+          goodHit: G.goodHit,
+          junkHit: G.junkHit,
+          goodMiss: G.goodMiss,
+          bestStreak: G.bestStreak
+        }).catch(() => {});
       }
     }
   }
 
-  function finalizeSummary(reason) {
-    if (GAME.summarySent) return;
-    GAME.summarySent = true;
+  function updateCountdownUi(){
+    if (!UI.countdownOverlay) return;
 
+    const left = Math.max(0, Math.ceil((ctx.startAt - now()) / 1000));
+
+    if (!G.countdownDone && ctx.startAt > now()){
+      UI.countdownOverlay.classList.add('show');
+      if (UI.countdownNum) UI.countdownNum.textContent = String(left || 0);
+      if (UI.countdownText) UI.countdownText.textContent = 'เตรียมตัวแข่ง Race พร้อมกัน';
+    } else {
+      UI.countdownOverlay.classList.remove('show');
+    }
+  }
+
+  function beginPlayNow(){
+    if (G.started || G.finished) return;
+
+    G.started = true;
+    G.roundStartAt = now();
+    G.roundEndAt = G.roundStartAt + ctx.time * 1000;
+    G.lastFrameTs = 0;
+    G.lastSpawnAt = now();
+
+    if (RT) {
+      RT.roundStarted({
+        startAt: G.roundStartAt,
+        endAt: G.roundEndAt
+      }).catch(() => {});
+    }
+
+    renderHud();
+  }
+
+  function finalizeSummary(reason){
+    if (G.summarySent) return;
+    G.summarySent = true;
+    G.finished = true;
+    G.started = false;
+
+    caf(G.loopId);
     clearTargets();
-    GAME.running = false;
-    GAME.ended = true;
-    refreshHud();
 
-    var summary = {
+    const summary = {
+      controllerFinal: false,
+      game: 'goodjunk',
+      zone: 'nutrition',
       mode: 'race',
+      roomId: ctx.roomId,
+      roomKind: ctx.roomKind,
       pid: ctx.pid,
+      uid: ctx.uid,
       name: ctx.name,
-      score: GAME.score,
-      miss: GAME.miss,
-      goodHit: GAME.goodHit,
-      junkHit: GAME.junkHit,
-      bestStreak: GAME.bestStreak,
-      duration: Math.round((GAME.durationMs - GAME.timeLeftMs) / 1000),
-      reason: clean(reason || 'timeup'),
-      result: 'จบรอบแล้ว'
+      role: ctx.role,
+      result: 'finished',
+      rank: 0,
+      score: Math.max(0, Math.round(G.score)),
+      players: 1,
+      miss: G.miss,
+      goodHit: G.goodHit,
+      junkHit: G.junkHit,
+      bestStreak: G.bestStreak,
+      duration: ctx.time,
+      reason: clean(reason || 'timeup', 80),
+      standings: [],
+      compare: null,
+      raw: {
+        goodMiss: G.goodMiss,
+        endedAt: now(),
+        goal: currentGoal()
+      }
     };
 
     try {
       localStorage.setItem('GJ_RACE_LAST_SUMMARY', JSON.stringify(summary));
     } catch (_) {}
 
-    emit('gj:summary', summary);
-    emit('hha:summary', summary);
-    emit('hha:session-summary', summary);
+    if (RT) {
+      RT.summary(summary).catch(() => {});
+    } else {
+      emit('gj:summary', summary);
+      emit('hha:summary', summary);
+      emit('hha:session-summary', summary);
+    }
   }
 
-  function loop(ts) {
-    if (!GAME.booted) return;
+  function clearTargets(){
+    G.targets.forEach(removeTarget);
+    G.targets = [];
+  }
 
-    if (!GAME.lastTs) GAME.lastTs = ts;
-    var dt = ts - GAME.lastTs;
-    GAME.lastTs = ts;
+  function loop(frameTs){
+    updateCountdownUi();
 
-    if (!GAME.running || GAME.paused || GAME.ended) {
-      GAME.raf = W.requestAnimationFrame(loop);
+    if (!G.started && !G.finished){
+      if (ctx.startAt > 0 && now() < ctx.startAt){
+        renderHud();
+        G.loopId = raf(loop);
+        return;
+      }
+
+      G.countdownDone = true;
+      beginPlayNow();
+    }
+
+    if (G.finished){
+      renderHud();
       return;
     }
 
-    GAME.timeLeftMs -= dt;
-    if (GAME.timeLeftMs < 0) GAME.timeLeftMs = 0;
+    const ts = Number(frameTs || performance.now());
+    if (!G.lastFrameTs) G.lastFrameTs = ts;
+    const dt = Math.min(40, ts - G.lastFrameTs) / 1000;
+    G.lastFrameTs = ts;
 
-    maybeSpawn(ts);
-    expireTargets(now());
-    refreshHud();
+    const tNow = now();
 
-    if (GAME.timeLeftMs <= 0) {
+    if (tNow - G.lastSpawnAt >= G.cfg.spawnEvery){
+      G.lastSpawnAt = tNow;
+      spawnTarget();
+    }
+
+    const bounds = playBounds();
+
+    for (let i = G.targets.length - 1; i >= 0; i--){
+      const t = G.targets[i];
+      if (!t || t.dead){
+        G.targets.splice(i, 1);
+        continue;
+      }
+
+      t.y += t.speed * dt;
+      t.x += Math.sin((tNow - t.bornAt) / 240) * t.sway * dt;
+      t.x = Math.max(bounds.left, Math.min(bounds.right - t.size, t.x));
+
+      t.el.style.left = `${t.x.toFixed(1)}px`;
+      t.el.style.top = `${t.y.toFixed(1)}px`;
+
+      const expired = (tNow - t.bornAt > t.ttl) || (t.y > bounds.bottom + 8);
+      if (expired){
+        G.targets.splice(i, 1);
+        expireTarget(t);
+      }
+    }
+
+    if (tNow >= G.roundEndAt){
       finalizeSummary('timeup');
       return;
     }
 
-    GAME.raf = W.requestAnimationFrame(loop);
+    renderHud();
+    G.loopId = raf(loop);
   }
 
-  function beginPlayNow() {
-    if (GAME.running || GAME.ended) return;
-    hideCountdown();
-    GAME.running = true;
-    GAME.paused = false;
-    GAME.startAtMs = now();
-    GAME.lastTs = 0;
-    GAME.nextSpawnAt = 0;
-    refreshHud();
-    emit('gj:race-start', {
-      roomId: ctx.roomId,
-      pid: ctx.pid,
-      name: ctx.name
+  function tryCenterShoot(){
+    if (!UI.stage || !G.targets.length || !G.started || G.finished) return;
+
+    const bounds = playBounds();
+    const cx = bounds.w * 0.5;
+    const cy = bounds.h * 0.48;
+
+    let best = null;
+    let bestDist = Infinity;
+
+    for (let i = 0; i < G.targets.length; i++){
+      const t = G.targets[i];
+      if (!t || t.dead) continue;
+      const tx = t.x + t.size * 0.5;
+      const ty = t.y + t.size * 0.5;
+      const dx = tx - cx;
+      const dy = ty - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < bestDist){
+        bestDist = dist;
+        best = t;
+      }
+    }
+
+    if (best && bestDist <= 120){
+      hitTarget(best);
+    }
+  }
+
+  function bindEvents(){
+    W.addEventListener('hha:shoot', function(){
+      tryCenterShoot();
+    });
+
+    W.addEventListener('keydown', function(ev){
+      if ((ev.code === 'Space' || ev.key === ' ') && !ev.repeat){
+        ev.preventDefault();
+        tryCenterShoot();
+      }
+    });
+
+    D.addEventListener('visibilitychange', function(){
+      if (D.hidden && G.started && !G.finished){
+        renderHud();
+      }
+    });
+
+    W.addEventListener('beforeunload', function(){
+      caf(G.loopId);
     });
   }
 
-  function armCountdown() {
-    var target = num(ctx.startAt, 0);
-    if (!target || target <= now() + 150) {
-      setTimeout(function(){
-        beginPlayNow();
-      }, 700);
-      return;
+  async function boot(){
+    ensureStage();
+    initRuntime();
+
+    G.cfg = DIFF[ctx.diff] || DIFF.normal;
+    G.rng = mulberry32(xmur3(`${ctx.seed}|${ctx.roomId}|${ctx.pid}|${ctx.startAt}`)());
+
+    bindEvents();
+    renderHud();
+
+    if (RT) {
+      await RT.engineReady({}).catch(() => {});
     }
 
-    function tick() {
-      if (GAME.ended || GAME.running) return;
-      var left = target - now();
-      var sec = Math.max(0, Math.ceil(left / 1000));
-      if (left <= 0) {
-        showCountdown('GO!', 'เริ่มแล้ว');
-        setTimeout(function(){
-          beginPlayNow();
-        }, 250);
-        return;
-      }
-      showCountdown(sec, 'เตรียมพร้อม');
-      setTimeout(tick, 100);
-    }
-
-    tick();
+    G.booted = true;
+    G.loopId = raf(loop);
   }
 
-  function boot() {
-    if (GAME.booted) return;
-    GAME.booted = true;
-    ensureMount();
-    refreshHud();
-    GAME.raf = W.requestAnimationFrame(loop);
-    armCountdown();
-  }
+  boot().catch(function(err){
+    console.error('[gj-race-core] boot failed', err);
+    try {
+      ensureStage();
+      if (UI.tip) UI.tip.textContent = 'เข้าเกมไม่สำเร็จ';
+      if (UI.countdownText) UI.countdownText.textContent = String(err && err.message ? err.message : err);
+      if (UI.countdownOverlay) UI.countdownOverlay.classList.add('show');
+    } catch (_) {}
+  });
 
-  function setPaused(flag) {
-    GAME.paused = !!flag;
-    if (!GAME.paused && GAME.running && !GAME.ended) {
-      GAME.lastTs = 0;
-    }
-  }
-
-  function startNow() {
-    if (!GAME.booted) boot();
-    ctx.startAt = 0;
-    beginPlayNow();
-  }
-
-  function getScore() {
-    return GAME.score;
-  }
-
-  function getStats() {
-    return {
-      score: GAME.score,
-      miss: GAME.miss,
-      goodHit: GAME.goodHit,
-      junkHit: GAME.junkHit,
-      streak: GAME.streak,
-      bestStreak: GAME.bestStreak,
-      timeLeftMs: GAME.timeLeftMs,
-      running: GAME.running,
-      paused: GAME.paused,
-      ended: GAME.ended
-    };
-  }
-
-  W.__GJ_BOOT__ = boot;
-  W.__GJ_START_NOW__ = startNow;
-  W.__GJ_SET_PAUSED__ = setPaused;
-  W.__GJ_GET_SCORE__ = getScore;
-  W.__GJ_GET_STATS__ = getStats;
-
-  W.GJRaceRun = {
-    boot: boot,
-    start: startNow,
-    init: boot,
-    getScore: getScore,
-    getStats: getStats,
-    setPaused: setPaused
+  W.__GJ_RACE_CORE__ = {
+    ctx,
+    state: G,
+    finalizeSummary,
+    tryCenterShoot
   };
-
-  boot();
 })();
