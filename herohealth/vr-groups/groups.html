@@ -1,59 +1,1599 @@
-<!-- === /herohealth/vr-groups/groups.html === -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Groups Run Redirect</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth • Food Groups Solo</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#90d6ff" />
   <link rel="icon" href="../favicon.ico" />
   <style>
+    :root{
+      --bg1:#eefaff;
+      --bg2:#d7f2ff;
+      --bg3:#bfe8ff;
+      --card:#ffffffee;
+      --ink:#24435a;
+      --muted:#64859b;
+      --line:#d4ebf6;
+      --blue:#57b6ff;
+      --blue2:#80cbff;
+      --green:#7fd370;
+      --green2:#59bf55;
+      --yellow:#ffd968;
+      --pink:#ffb8ca;
+      --red:#ff9a9a;
+      --violet:#bca7ff;
+      --shadow:0 16px 34px rgba(84,146,177,.16);
+      --stage-shadow:0 20px 50px rgba(92,162,193,.18);
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
     html,body{
       margin:0;
       min-height:100%;
+      overflow:hidden;
+    }
+    body{
+      font-family: ui-rounded, "Nunito", "Noto Sans Thai", system-ui, sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(1000px 560px at 50% -10%, rgba(255,255,255,.92), transparent 58%),
+        radial-gradient(650px 420px at 12% 10%, rgba(255,255,255,.45), transparent 62%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 54%,var(--bg3));
+    }
+    .shell{
+      height:100dvh;
+      display:grid;
+      grid-template-rows:auto auto 1fr auto;
+      gap:10px;
+      padding:
+        calc(10px + var(--sat))
+        calc(10px + var(--sar))
+        calc(10px + var(--sab))
+        calc(10px + var(--sal));
+    }
+    .topbar{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      justify-content:space-between;
+      min-width:0;
+    }
+    .brand{
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:22px;
+      background:var(--card);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+    }
+    .brandMark{
+      width:46px;
+      height:46px;
+      border-radius:16px;
       display:grid;
       place-items:center;
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 28%),
-        linear-gradient(180deg, #172554, #020617 42%, #020617);
-      color:#e5e7eb;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      font-size:26px;
+      background:linear-gradient(180deg,#fff5c8,#ffe27e);
+      border:1px solid #ffe8ab;
     }
-    .card{
-      width:min(560px, calc(100% - 24px));
-      padding:22px;
-      border-radius:24px;
-      background:rgba(15,23,42,.92);
-      border:1px solid rgba(148,163,184,.16);
-      text-align:center;
-      box-shadow:0 18px 48px rgba(0,0,0,.28);
+    .brand h1{
+      margin:0;
+      font-size:18px;
+      line-height:1.05;
+      font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
-    h1{
-      margin:0 0 10px;
-      font-size:clamp(24px, 4vw, 32px);
+    .brand p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+    }
+    .actions{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .btn{
+      min-height:42px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:var(--card);
+      padding:0 14px;
+      color:var(--ink);
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow);
+    }
+    .btn.primary{
+      color:#fff;
+      border-color:#73c4f1;
+      background:linear-gradient(180deg,var(--blue2),var(--blue));
+    }
+    .chipRow{
+      display:grid;
+      grid-template-columns: repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+    @media (max-width: 760px){
+      .chipRow{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    .chip{
+      min-width:0;
+      padding:10px 12px;
+      border-radius:18px;
+      background:var(--card);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+    }
+    .chipLabel{
+      font-size:11px;
+      font-weight:1000;
+      color:var(--muted);
+      margin-bottom:4px;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    .chipValue{
+      font-size:18px;
       line-height:1.1;
+      font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
-    p{
-      margin:0 0 10px;
-      color:#cbd5e1;
-      line-height:1.5;
+
+    .goalCard{
+      position:relative;
+      overflow:hidden;
+      min-width:0;
+      border-radius:24px;
+      background:linear-gradient(180deg,#ffffffee,#f6fcffee);
+      border:1px solid #d8edf7;
+      box-shadow:var(--shadow);
+      padding:14px 16px;
     }
-    a{
-      color:#38bdf8;
-      font-weight:800;
+    .goalCard::after{
+      content:"";
+      position:absolute;
+      right:-28px;
+      top:-30px;
+      width:130px;
+      height:130px;
+      border-radius:50%;
+      background: radial-gradient(circle at 40% 35%, #fff8 0 18%, transparent 70%), linear-gradient(180deg,#fff4a2,#ffd45a);
+      opacity:.85;
+    }
+    .goalTop{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      position:relative;
+      z-index:1;
+    }
+    .goalTag{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#f0fbff;
+      border:1px solid #d9eef8;
+      font-size:12px;
+      font-weight:1000;
+      color:#5f8198;
+    }
+    .goalTitle{
+      margin:10px 0 0;
+      position:relative;
+      z-index:1;
+      font-size:24px;
+      font-weight:1000;
+      line-height:1.15;
+    }
+    .goalSub{
+      margin:8px 0 0;
+      position:relative;
+      z-index:1;
+      color:#5f8198;
+      font-size:13px;
+      font-weight:900;
+    }
+    .coach{
+      margin-top:10px;
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      min-height:42px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:1px dashed #d7eaf4;
+      color:#5e7f95;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .stageWrap{
+      position:relative;
+      min-height:0;
+      overflow:hidden;
+      border-radius:28px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255,255,255,.88), transparent 45%),
+        linear-gradient(180deg,#f8fdff 0%, #effaff 60%, #e6f7ff 100%);
+      border:1px solid #d6edf7;
+      box-shadow:var(--stage-shadow);
+    }
+    .stage{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      touch-action:none;
+      user-select:none;
+      -webkit-user-select:none;
+    }
+    .ground{
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:0;
+      height:56px;
+      background:
+        radial-gradient(circle at 16% 40%, rgba(255,255,255,.55), transparent 18%),
+        radial-gradient(circle at 72% 32%, rgba(255,255,255,.45), transparent 18%),
+        linear-gradient(180deg,#b8ef9f,#8eda72);
+      border-top:1px solid rgba(101,176,86,.26);
+      pointer-events:none;
+    }
+    .goalProgress{
+      position:absolute;
+      left:14px;
+      right:14px;
+      top:12px;
+      height:14px;
+      border-radius:999px;
+      background:#ffffffd9;
+      border:1px solid #d9eef7;
+      overflow:hidden;
+      pointer-events:none;
+      box-shadow:0 8px 18px rgba(132,186,214,.12);
+    }
+    .goalFill{
+      height:100%;
+      width:0%;
+      border-radius:inherit;
+      background:linear-gradient(90deg,#7fd370,#51be56);
+      transition:width .18s ease;
+    }
+    .banner{
+      position:absolute;
+      left:50%;
+      top:42px;
+      transform:translateX(-50%) translateY(-10px);
+      padding:10px 14px;
+      border-radius:999px;
+      background:#ffffffef;
+      border:1px solid #d6ebf6;
+      box-shadow:0 14px 30px rgba(107,167,196,.14);
+      font-size:12px;
+      font-weight:1000;
+      color:#5b7a90;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+      z-index:12;
+      white-space:nowrap;
+    }
+    .banner.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .item{
+      position:absolute;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:2px;
+      border:0;
+      border-radius:22px;
+      background:#fff;
+      border:2px solid #dceef7;
+      box-shadow:0 12px 28px rgba(104,168,198,.16);
+      color:var(--ink);
+      cursor:pointer;
+      font:inherit;
+      padding:0;
+      overflow:hidden;
+      transform:translate3d(0,0,0);
+      transition:transform .08s ease;
+      touch-action:none;
+    }
+    .item:active{ transform:scale(.96); }
+    .item.goodGlow{ box-shadow:0 16px 30px rgba(91,197,95,.24); }
+    .item.badGlow{ box-shadow:0 16px 30px rgba(255,122,122,.24); }
+
+    .itemEmoji{
+      font-size:34px;
+      line-height:1;
+    }
+    .itemLabel{
+      font-size:11px;
+      line-height:1.1;
+      font-weight:1000;
+      color:#5d7d92;
+      padding:0 4px 8px;
+      text-align:center;
+    }
+    .itemPulse{
+      animation:itemPulse .5s ease;
+    }
+    @keyframes itemPulse{
+      0%{ transform:scale(.88); }
+      40%{ transform:scale(1.06); }
+      100%{ transform:scale(1); }
+    }
+    .popFx{
+      position:absolute;
+      font-size:18px;
+      font-weight:1000;
+      pointer-events:none;
+      z-index:20;
+      animation:popFx .55s ease forwards;
+    }
+    .popFx.good{ color:#4fab41; }
+    .popFx.bad{ color:#e35c5c; }
+    @keyframes popFx{
+      0%{ opacity:0; transform:translate(-50%, 6px) scale(.7); }
+      20%{ opacity:1; transform:translate(-50%, -10px) scale(1); }
+      100%{ opacity:0; transform:translate(-50%, -34px) scale(1.06); }
+    }
+
+    .bottomBar{
+      display:grid;
+      grid-template-columns: repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+    @media (max-width: 760px){
+      .bottomBar{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    .stat{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      padding:10px 12px;
+      min-width:0;
+    }
+    .statLabel{
+      font-size:11px;
+      font-weight:1000;
+      color:var(--muted);
+      margin-bottom:4px;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    .statValue{
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .overlay{
+      position:absolute;
+      inset:0;
+      display:none;
+      place-items:center;
+      padding:18px;
+      background:rgba(237,250,255,.58);
+      backdrop-filter: blur(6px);
+      z-index:40;
+    }
+    .overlay.show{ display:grid; }
+    .modal{
+      width:min(680px, 100%);
+      border-radius:30px;
+      background:#fffefa;
+      border:1px solid #d7edf7;
+      box-shadow:0 22px 55px rgba(92,162,193,.22);
+      padding:22px 20px;
+      text-align:center;
+    }
+    .modalBadge{
+      width:90px; height:90px;
+      margin:0 auto 10px;
+      display:grid; place-items:center;
+      border-radius:28px;
+      background:linear-gradient(180deg,#fff6cc,#ffde7c);
+      border:1px solid #ffe8a2;
+      font-size:46px;
+    }
+    .modal h2{
+      margin:0;
+      font-size:30px;
+      line-height:1.08;
+      font-weight:1000;
+    }
+    .modal p{
+      margin:10px auto 0;
+      max-width:520px;
+      font-size:14px;
+      line-height:1.7;
+      color:#607f94;
+      font-weight:900;
+    }
+    .modalActions{
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+    .bigBtn{
+      min-width:160px;
+      min-height:50px;
+      border-radius:18px;
+      border:0;
+      cursor:pointer;
+      font:inherit;
+      font-weight:1000;
+      box-shadow:0 12px 26px rgba(105,165,194,.15);
+      padding:0 18px;
+    }
+    .bigBtn.primary{
+      color:#fff;
+      background:linear-gradient(180deg,#80cbff,#57b6ff);
+    }
+    .bigBtn.green{
+      color:#fff;
+      background:linear-gradient(180deg,#8ad97f,#61c45f);
+    }
+    .bigBtn.ghost{
+      color:#5f8197;
+      background:#f4fbff;
+      border:1px solid #d8edf7;
+    }
+    .summaryGrid{
+      display:grid;
+      grid-template-columns: repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:14px;
+      text-align:left;
+    }
+    @media (max-width: 680px){
+      .summaryGrid{ grid-template-columns:1fr; }
+    }
+    .summaryCard{
+      border-radius:20px;
+      border:1px solid #d8edf7;
+      background:#f8fdff;
+      padding:12px 14px;
+    }
+    .summaryCard h3{
+      margin:0 0 6px;
+      font-size:13px;
+      font-weight:1000;
+      color:#607f95;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    .summaryCard .big{
+      font-size:24px;
+      font-weight:1000;
+      line-height:1.1;
+      color:var(--ink);
+    }
+    .stars{
+      margin-top:10px;
+      font-size:30px;
+      line-height:1;
+    }
+    .grade{
+      margin-top:10px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:120px;
+      min-height:48px;
+      padding:0 18px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid #d9eef7;
+      font-size:24px;
+      font-weight:1000;
+      color:#5b7b90;
+    }
+    .grade.s{ background:#fff7d9; border-color:#ffe298; color:#9b6700; }
+    .grade.a{ background:#f5ffe9; border-color:#cfe8a8; color:#4f842d; }
+    .grade.b{ background:#eefaff; border-color:#cae6f6; color:#3b6b87; }
+    .grade.c{ background:#fff5ef; border-color:#f2d9ca; color:#865c45; }
+
+    .crosshair{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:32px;
+      height:32px;
+      transform:translate(-50%,-50%);
+      display:none;
+      pointer-events:none;
+      z-index:30;
+    }
+    .crosshair::before,
+    .crosshair::after{
+      content:"";
+      position:absolute;
+      background:rgba(36,67,90,.84);
+      border-radius:999px;
+    }
+    .crosshair::before{
+      left:50%; top:2px; bottom:2px; width:2px; transform:translateX(-50%);
+    }
+    .crosshair::after{
+      top:50%; left:2px; right:2px; height:2px; transform:translateY(-50%);
+    }
+    body.view-cvr .crosshair{ display:block; }
+
+    .debugPanel{
+      position:absolute;
+      right:14px;
+      bottom:14px;
+      max-width:min(360px, 90vw);
+      padding:10px 12px;
+      border-radius:16px;
+      background:rgba(255,255,255,.94);
+      border:1px solid #d9edf7;
+      color:#5f7f95;
+      font-size:11px;
+      font-weight:1000;
+      box-shadow:var(--shadow);
+      z-index:25;
+      display:none;
+      white-space:pre-wrap;
+    }
+    body.debug .debugPanel{ display:block; }
+
+    @media (max-width: 560px){
+      .brand h1{ font-size:16px; }
+      .goalTitle{ font-size:22px; }
+      .itemEmoji{ font-size:30px; }
+      .itemLabel{ font-size:10px; }
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>กำลังเปิด Groups Run เวอร์ชันใหม่…</h1>
-    <p>ระบบจะพาไปหน้า Run ใหม่ของเกมนี้โดยอัตโนมัติ</p>
-    <p><a id="goLink" href="../nutrition-groups/groups-run.html">เปิด Groups Run</a></p>
-  </div>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brandMark">🥦</div>
+        <div>
+          <h1>Food Groups Solo</h1>
+          <p id="ctxLine">run=play • diff=normal • time=80 • view=mobile</p>
+        </div>
+      </div>
 
-  <script type="module">
-    import { redirectPreserveAll } from '../shared/nutrition-router.js';
-    redirectPreserveAll('../nutrition-groups/groups-run.html');
+      <div class="actions">
+        <button class="btn" id="btnRecenter" type="button">🎯 Recenter</button>
+        <button class="btn" id="btnReplayTop" type="button">🔁 Replay</button>
+        <button class="btn primary" id="btnBackTop" type="button">🏠 HUB</button>
+      </div>
+    </header>
+
+    <section class="chipRow">
+      <div class="chip">
+        <div class="chipLabel">Player</div>
+        <div class="chipValue" id="chipPlayer">anon</div>
+      </div>
+      <div class="chip">
+        <div class="chipLabel">Time</div>
+        <div class="chipValue" id="chipTime">00:00</div>
+      </div>
+      <div class="chip">
+        <div class="chipLabel">Score</div>
+        <div class="chipValue" id="chipScore">0</div>
+      </div>
+      <div class="chip">
+        <div class="chipLabel">Streak</div>
+        <div class="chipValue" id="chipStreak">0</div>
+      </div>
+    </section>
+
+    <section class="goalCard">
+      <div class="goalTop">
+        <div class="goalTag" id="goalTag">🎯 เป้าหมายตอนนี้</div>
+        <div class="goalTag" id="phaseTag">Practice</div>
+      </div>
+      <div class="goalTitle" id="goalTitle">แตะอาหารให้ถูกหมู่</div>
+      <div class="goalSub" id="goalSub">ฝึกสั้นก่อน 15 วินาที แล้วค่อยเริ่มรอบจริง</div>
+      <div class="coach" id="coachBubble">โค้ช: พร้อมแล้วแตะปุ่มเริ่มได้เลย ✨</div>
+    </section>
+
+    <section class="stageWrap" id="stageWrap">
+      <div class="goalProgress" aria-hidden="true"><div class="goalFill" id="goalFill"></div></div>
+      <div class="banner" id="banner">พร้อมลุย!</div>
+      <div class="crosshair" id="crosshair" aria-hidden="true"></div>
+      <div class="stage" id="stage"></div>
+      <div class="ground" aria-hidden="true"></div>
+
+      <div class="overlay show" id="introOverlay">
+        <div class="modal">
+          <div class="modalBadge">🥕</div>
+          <h2>เริ่มฝึกก่อน 15 วินาที</h2>
+          <p>
+            แตะอาหารที่อยู่ในหมู่ที่กำหนดให้ถูกต้อง
+            ฝึกก่อนสั้น ๆ แล้วค่อยเริ่มรอบจริงคะแนนจริง
+          </p>
+          <div class="modalActions">
+            <button class="bigBtn primary" id="btnStartPractice" type="button">เริ่มฝึกเลย</button>
+            <button class="bigBtn ghost" id="btnGoHubIntro" type="button">กลับ HUB</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="midOverlay">
+        <div class="modal">
+          <div class="modalBadge">🚀</div>
+          <h2>พร้อมเริ่มรอบจริง</h2>
+          <p>
+            ฝึกเสร็จแล้ว รอบต่อไปจะนับคะแนนจริง
+            เป้าหมายจะเปลี่ยนไปเรื่อย ๆ เก็บให้เร็วและแม่นที่สุด
+          </p>
+          <div class="modalActions">
+            <button class="bigBtn green" id="btnStartMain" type="button">เริ่มรอบจริง</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="summaryOverlay">
+        <div class="modal">
+          <div class="modalBadge">🏆</div>
+          <h2>สรุปผล Food Groups Solo</h2>
+          <p id="summaryLead">ยอดเยี่ยมมาก! มาดูผลรอบนี้กัน</p>
+
+          <div class="stars" id="summaryStars">⭐⭐☆</div>
+          <div class="grade" id="summaryGrade">B</div>
+
+          <div class="summaryGrid">
+            <div class="summaryCard">
+              <h3>คะแนนรวม</h3>
+              <div class="big" id="sumScore">0</div>
+            </div>
+            <div class="summaryCard">
+              <h3>Accuracy</h3>
+              <div class="big" id="sumAcc">0%</div>
+            </div>
+            <div class="summaryCard">
+              <h3>Correct / Wrong / Miss</h3>
+              <div class="big" id="sumCwm">0 / 0 / 0</div>
+            </div>
+            <div class="summaryCard">
+              <h3>Best Streak</h3>
+              <div class="big" id="sumStreak">0</div>
+            </div>
+            <div class="summaryCard">
+              <h3>หมู่ที่เด่นที่สุด</h3>
+              <div class="big" id="sumBestCat">-</div>
+            </div>
+            <div class="summaryCard">
+              <h3>หมู่ที่ควรฝึกเพิ่ม</h3>
+              <div class="big" id="sumNeedCat">-</div>
+            </div>
+          </div>
+
+          <div class="modalActions">
+            <button class="bigBtn green" id="btnReplaySummary" type="button">เล่นอีกครั้ง</button>
+            <button class="bigBtn ghost" id="btnBackSummary" type="button">กลับ HUB</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="debugPanel" id="debugPanel"></div>
+    </section>
+
+    <section class="bottomBar">
+      <div class="stat">
+        <div class="statLabel">Goal</div>
+        <div class="statValue" id="statGoal">0 / 0</div>
+      </div>
+      <div class="stat">
+        <div class="statLabel">Accuracy</div>
+        <div class="statValue" id="statAcc">0%</div>
+      </div>
+      <div class="stat">
+        <div class="statLabel">Fever</div>
+        <div class="statValue" id="statFever">Ready</div>
+      </div>
+      <div class="stat">
+        <div class="statLabel">Miss</div>
+        <div class="statValue" id="statMiss">0</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const PATCH = 'v20260404-groups-solo-selfcontained-r1';
+      const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
+      const LAST_GROUPS_SUMMARY_KEY = 'HHA_GROUPS_LAST_SUMMARY';
+      const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
+      const LOG_BUFFER_KEY = 'HHA_GROUPS_LAST_LOG';
+      const FEVER_MS = 6000;
+      const PRACTICE_MS = 15000;
+      const MAX_HISTORY = 40;
+
+      const q = new URL(location.href).searchParams;
+      const $ = (id) => document.getElementById(id);
+
+      const ui = {
+        ctxLine: $('ctxLine'),
+        chipPlayer: $('chipPlayer'),
+        chipTime: $('chipTime'),
+        chipScore: $('chipScore'),
+        chipStreak: $('chipStreak'),
+
+        goalTag: $('goalTag'),
+        phaseTag: $('phaseTag'),
+        goalTitle: $('goalTitle'),
+        goalSub: $('goalSub'),
+        coachBubble: $('coachBubble'),
+        goalFill: $('goalFill'),
+
+        stageWrap: $('stageWrap'),
+        stage: $('stage'),
+        banner: $('banner'),
+        crosshair: $('crosshair'),
+
+        statGoal: $('statGoal'),
+        statAcc: $('statAcc'),
+        statFever: $('statFever'),
+        statMiss: $('statMiss'),
+
+        introOverlay: $('introOverlay'),
+        midOverlay: $('midOverlay'),
+        summaryOverlay: $('summaryOverlay'),
+
+        btnStartPractice: $('btnStartPractice'),
+        btnGoHubIntro: $('btnGoHubIntro'),
+        btnStartMain: $('btnStartMain'),
+
+        btnReplayTop: $('btnReplayTop'),
+        btnReplaySummary: $('btnReplaySummary'),
+        btnBackTop: $('btnBackTop'),
+        btnBackSummary: $('btnBackSummary'),
+        btnRecenter: $('btnRecenter'),
+
+        summaryLead: $('summaryLead'),
+        summaryStars: $('summaryStars'),
+        summaryGrade: $('summaryGrade'),
+        sumScore: $('sumScore'),
+        sumAcc: $('sumAcc'),
+        sumCwm: $('sumCwm'),
+        sumStreak: $('sumStreak'),
+        sumBestCat: $('sumBestCat'),
+        sumNeedCat: $('sumNeedCat'),
+
+        debugPanel: $('debugPanel')
+      };
+
+      const CTX = {
+        pid: cleanPid(q.get('pid') || 'anon'),
+        name: cleanName(q.get('name') || q.get('nick') || 'Rocky'),
+        studyId: String(q.get('studyId') || '').trim(),
+        diff: oneOf(q.get('diff'), ['easy','normal','hard'], 'normal'),
+        timeSec: clampInt(q.get('time'), 80, 30, 180),
+        seed: String(q.get('seed') || Date.now()),
+        hub: q.get('hub') || new URL('../hub.html', location.href).toString(),
+        view: oneOf(q.get('view'), ['pc','mobile','cvr','vr'], 'mobile'),
+        run: oneOf(q.get('run'), ['play','research','demo'], 'play'),
+        mode: 'solo',
+        game: 'groups',
+        gameId: 'groups',
+        zone: 'nutrition',
+        cat: 'nutrition',
+        debug: q.get('debug') === '1'
+      };
+
+      const CATEGORIES = [
+        { id:'g1', short:'หมู่ 1', name:'โปรตีน', icon:'🥚', hint:'เนื้อ นม ไข่ ถั่วเมล็ดแห้ง' },
+        { id:'g2', short:'หมู่ 2', name:'ข้าว-แป้ง', icon:'🍚', hint:'ข้าว แป้ง เผือก มัน น้ำตาล' },
+        { id:'g3', short:'หมู่ 3', name:'ผัก', icon:'🥦', hint:'ผักหลากสี' },
+        { id:'g4', short:'หมู่ 4', name:'ผลไม้', icon:'🍌', hint:'ผลไม้สด' },
+        { id:'g5', short:'หมู่ 5', name:'ไขมัน', icon:'🧈', hint:'ไขมันและน้ำมัน' }
+      ];
+
+      const ITEMS = [
+        { id:'egg',        label:'ไข่',       emoji:'🥚', group:'g1' },
+        { id:'milk',       label:'นม',        emoji:'🥛', group:'g1' },
+        { id:'fish',       label:'ปลา',       emoji:'🐟', group:'g1' },
+        { id:'beans',      label:'ถั่ว',      emoji:'🫘', group:'g1' },
+
+        { id:'rice',       label:'ข้าว',      emoji:'🍚', group:'g2' },
+        { id:'bread',      label:'ขนมปัง',    emoji:'🍞', group:'g2' },
+        { id:'corn',       label:'ข้าวโพด',   emoji:'🌽', group:'g2' },
+        { id:'potato',     label:'มันฝรั่ง',  emoji:'🥔', group:'g2' },
+
+        { id:'broccoli',   label:'บรอกโคลี',  emoji:'🥦', group:'g3' },
+        { id:'carrot',     label:'แครอท',     emoji:'🥕', group:'g3' },
+        { id:'tomato',     label:'มะเขือเทศ', emoji:'🍅', group:'g3' },
+        { id:'cucumber',   label:'แตงกวา',    emoji:'🥒', group:'g3' },
+
+        { id:'banana',     label:'กล้วย',     emoji:'🍌', group:'g4' },
+        { id:'apple',      label:'แอปเปิล',   emoji:'🍎', group:'g4' },
+        { id:'grapes',     label:'องุ่น',     emoji:'🍇', group:'g4' },
+        { id:'watermelon', label:'แตงโม',      emoji:'🍉', group:'g4' },
+
+        { id:'butter',     label:'เนย',       emoji:'🧈', group:'g5' },
+        { id:'oil',        label:'น้ำมัน',     emoji:'🫗', group:'g5' },
+        { id:'coconut',    label:'มะพร้าว',    emoji:'🥥', group:'g5' },
+        { id:'avocado',    label:'อะโวคาโด',   emoji:'🥑', group:'g5' }
+      ];
+
+      const DIFF = {
+        easy:   { spawnMs:900,  lifeMs:4300, maxItems:4, speedMin:20, speedMax:38, goalNeed:2, sizeMin:88, sizeMax:108 },
+        normal: { spawnMs:700,  lifeMs:3400, maxItems:5, speedMin:30, speedMax:56, goalNeed:3, sizeMin:82, sizeMax:102 },
+        hard:   { spawnMs:520,  lifeMs:2800, maxItems:6, speedMin:42, speedMax:76, goalNeed:4, sizeMin:78, sizeMax:98  }
+      };
+
+      const state = {
+        phase: 'idle',
+        running: false,
+        practiceUsed: false,
+        timeLeftMs: 0,
+        goalCat: null,
+        goalNeed: 0,
+        goalDone: 0,
+        score: 0,
+        correct: 0,
+        wrong: 0,
+        miss: 0,
+        streak: 0,
+        bestStreak: 0,
+        feverUntil: 0,
+        feverCount: 0,
+        items: new Map(),
+        itemSeq: 0,
+        loopId: 0,
+        lastTs: 0,
+        nextSpawnAt: 0,
+        spawnRect: { width:0, height:0 },
+        logs: [],
+        lastReactionSamples: [],
+        statsByCat: Object.fromEntries(CATEGORIES.map(c => [c.id, { correct:0, wrong:0, miss:0 }])),
+        centerShootHintShown: false
+      };
+
+      const rng = mulberry32(hashString(CTX.seed));
+      const preset = DIFF[CTX.diff] || DIFF.normal;
+
+      boot();
+
+      function boot(){
+        if (CTX.debug) document.body.classList.add('debug');
+        if (CTX.view === 'cvr' || CTX.view === 'vr') document.body.classList.add('view-cvr');
+
+        ui.ctxLine.textContent = `run=${CTX.run} • diff=${CTX.diff} • time=${CTX.timeSec} • view=${CTX.view}`;
+        ui.chipPlayer.textContent = CTX.name || CTX.pid;
+        ui.phaseTag.textContent = 'Practice';
+        ui.goalTag.textContent = '🎯 เป้าหมายตอนนี้';
+        ui.coachBubble.textContent = 'โค้ช: พร้อมแล้ว แตะ “เริ่มฝึกเลย” ได้เลย ✨';
+
+        bindEvents();
+        refreshStageRect();
+        updateHud();
+        setDebug();
+
+        window.__GROUPS_ENGINE_MOUNTED__ = true;
+        log('session_start', { patch: PATCH, ctx: CTX });
+      }
+
+      function bindEvents(){
+        ui.btnStartPractice.addEventListener('click', startPractice);
+        ui.btnStartMain.addEventListener('click', startMain);
+        ui.btnGoHubIntro.addEventListener('click', goHub);
+
+        ui.btnReplayTop.addEventListener('click', replay);
+        ui.btnReplaySummary.addEventListener('click', replay);
+        ui.btnBackTop.addEventListener('click', goHub);
+        ui.btnBackSummary.addEventListener('click', goHub);
+        ui.btnRecenter.addEventListener('click', showBanner.bind(null, 'รีเซ็ตมุมมองแล้ว 🎯'));
+
+        window.addEventListener('resize', () => {
+          refreshStageRect();
+          setDebug();
+        });
+
+        window.addEventListener('pagehide', flushLogs, { passive:true });
+        window.addEventListener('beforeunload', flushLogs, { passive:true });
+
+        window.addEventListener('hha:shoot', onCrosshairShoot);
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) flushLogs();
+        });
+      }
+
+      function startPractice(){
+        resetRoundVisuals(true);
+        state.phase = 'practice';
+        state.practiceUsed = true;
+        state.timeLeftMs = PRACTICE_MS;
+        state.running = true;
+        state.lastTs = 0;
+        state.nextSpawnAt = 0;
+        state.goalNeed = 2;
+        state.goalDone = 0;
+        state.goalCat = pickCategory();
+        ui.introOverlay.classList.remove('show');
+        ui.midOverlay.classList.remove('show');
+        ui.summaryOverlay.classList.remove('show');
+        ui.phaseTag.textContent = 'Practice';
+        ui.goalSub.textContent = 'รอบฝึก 15 วินาที • ยังไม่คิดคะแนนจริง';
+        showCoach('โค้ช: แตะอาหารให้ตรงกับหมู่ที่กำหนดนะ 💡');
+        updateGoalText();
+        log('practice_start');
+        loop(0);
+      }
+
+      function finishPractice(){
+        state.running = false;
+        clearAllItems();
+        ui.phaseTag.textContent = 'Ready';
+        ui.midOverlay.classList.add('show');
+        showBanner('ฝึกเสร็จแล้ว!');
+        showCoach('โค้ช: เก่งมาก! รอบต่อไปจะนับคะแนนจริงแล้ว 🚀');
+        log('practice_end');
+      }
+
+      function startMain(){
+        resetRoundVisuals(false);
+        state.phase = 'playing';
+        state.running = true;
+        state.timeLeftMs = CTX.timeSec * 1000;
+        state.lastTs = 0;
+        state.nextSpawnAt = 0;
+        state.goalNeed = preset.goalNeed;
+        state.goalDone = 0;
+        state.goalCat = pickCategory();
+        ui.midOverlay.classList.remove('show');
+        ui.summaryOverlay.classList.remove('show');
+        ui.phaseTag.textContent = 'Main Run';
+        ui.goalSub.textContent = 'เก็บให้ถูกหมู่ เร็วและแม่นที่สุด';
+        showCoach('โค้ช: เริ่มรอบจริงแล้ว ลุยเลย! 🌟');
+        updateGoalText();
+        log('main_start');
+        loop(0);
+      }
+
+      function finishGame(){
+        state.running = false;
+        clearAllItems();
+        state.phase = 'summary';
+
+        const summary = buildSummary();
+        saveSummary(summary);
+        renderSummary(summary);
+
+        ui.summaryOverlay.classList.add('show');
+        showCoach(summary.lead);
+        log('session_end', { summary });
+        flushLogs();
+      }
+
+      function replay(){
+        const u = new URL(location.href);
+        u.searchParams.set('seed', String(Date.now()));
+        location.href = u.toString();
+      }
+
+      function goHub(){
+        flushLogs();
+        location.href = CTX.hub;
+      }
+
+      function resetRoundVisuals(keepMetrics){
+        clearAllItems();
+        hideBanner();
+
+        if (!keepMetrics){
+          state.score = 0;
+          state.correct = 0;
+          state.wrong = 0;
+          state.miss = 0;
+          state.streak = 0;
+          state.bestStreak = 0;
+          state.feverUntil = 0;
+          state.feverCount = 0;
+          state.lastReactionSamples = [];
+          state.statsByCat = Object.fromEntries(CATEGORIES.map(c => [c.id, { correct:0, wrong:0, miss:0 }]));
+        }
+
+        updateHud();
+      }
+
+      function loop(ts){
+        if (!state.running) return;
+        if (!state.lastTs) state.lastTs = ts || performance.now();
+
+        const now = ts || performance.now();
+        const dt = Math.min(48, Math.max(0, now - state.lastTs));
+        state.lastTs = now;
+
+        state.timeLeftMs = Math.max(0, state.timeLeftMs - dt);
+
+        if (state.timeLeftMs <= 0){
+          if (state.phase === 'practice') finishPractice();
+          else finishGame();
+          return;
+        }
+
+        refreshStageRect();
+
+        if (now >= state.nextSpawnAt){
+          spawnItem(now);
+          state.nextSpawnAt = now + getSpawnEvery();
+        }
+
+        updateItems(dt, now);
+        updateHud();
+        setDebug();
+
+        state.loopId = requestAnimationFrame(loop);
+      }
+
+      function getSpawnEvery(){
+        return state.phase === 'practice' ? Math.round(preset.spawnMs * 1.15) : preset.spawnMs;
+      }
+
+      function getLifeMs(){
+        return state.phase === 'practice' ? Math.round(preset.lifeMs * 1.16) : preset.lifeMs;
+      }
+
+      function getMaxItems(){
+        return state.phase === 'practice' ? Math.max(3, preset.maxItems - 1) : preset.maxItems;
+      }
+
+      function spawnItem(now){
+        if (state.items.size >= getMaxItems()) return;
+
+        const data = ITEMS[Math.floor(rng() * ITEMS.length)];
+        const size = Math.round(randRange(
+          state.phase === 'practice' ? preset.sizeMax - 2 : preset.sizeMin,
+          preset.sizeMax
+        ));
+
+        const padL = 12;
+        const padR = 12;
+        const padT = 54;
+        const padB = 72;
+        const w = Math.max(280, state.spawnRect.width);
+        const h = Math.max(340, state.spawnRect.height);
+
+        const x = randRange(padL, Math.max(padL + 1, w - size - padR));
+        const y = -size - randRange(8, 40);
+
+        const speedMul = state.phase === 'practice' ? 0.8 : 1;
+        const vx = randRange(-34, 34) * (CTX.view === 'pc' ? 1 : 0.88);
+        const vy = randRange(preset.speedMin, preset.speedMax) * speedMul;
+        const ttl = Math.round(getLifeMs() * randRange(0.92, 1.08));
+
+        const id = `fg-${++state.itemSeq}`;
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.className = 'item itemPulse';
+        el.dataset.id = id;
+        el.style.width = `${size}px`;
+        el.style.height = `${size}px`;
+        el.innerHTML = `
+          <div class="itemEmoji">${data.emoji}</div>
+          <div class="itemLabel">${escapeHtml(data.label)}</div>
+        `;
+
+        const item = {
+          id,
+          data,
+          x,
+          y,
+          vx,
+          vy,
+          size,
+          bornAt: now,
+          ttl,
+          el,
+          dead: false
+        };
+
+        el.addEventListener('pointerdown', (ev) => {
+          ev.preventDefault();
+          hitItem(item.id, performance.now());
+        }, { passive:false });
+
+        ui.stage.appendChild(el);
+        state.items.set(id, item);
+        drawItem(item);
+
+        log('target_spawn', {
+          itemId: id,
+          item: data.id,
+          group: data.group,
+          phase: state.phase
+        });
+      }
+
+      function updateItems(dt, now){
+        const maxX = Math.max(0, state.spawnRect.width);
+        const maxY = Math.max(0, state.spawnRect.height);
+
+        state.items.forEach((item) => {
+          if (item.dead) return;
+
+          item.x += (item.vx * dt) / 1000;
+          item.y += (item.vy * dt) / 1000;
+
+          if (item.x <= 6){
+            item.x = 6;
+            item.vx *= -1;
+          }else if (item.x >= maxX - item.size - 6){
+            item.x = maxX - item.size - 6;
+            item.vx *= -1;
+          }
+
+          const age = now - item.bornAt;
+          const fadeAt = item.ttl * 0.72;
+          if (age > fadeAt){
+            const left = Math.max(0.2, 1 - ((age - fadeAt) / (item.ttl - fadeAt + 1)));
+            item.el.style.opacity = String(left);
+          }
+
+          if (age >= item.ttl || item.y > maxY - 40){
+            const missedTarget = item.data.group === state.goalCat.id;
+            removeItem(item, missedTarget ? 'miss-target' : 'timeout');
+
+            if (missedTarget && state.phase === 'playing'){
+              state.miss += 1;
+              state.streak = 0;
+              state.statsByCat[state.goalCat.id].miss += 1;
+              showCoach('โค้ช: อุ๊ย หลุดเป้าหมายไปแล้ว ลองใหม่อีกครั้งนะ');
+              popFx(Math.max(40, item.x + item.size/2), Math.max(60, Math.min(maxY - 90, item.y)), 'MISS', 'bad');
+              log('target_miss', { itemId: item.id, group: item.data.group });
+            }
+            updateHud();
+            return;
+          }
+
+          drawItem(item);
+        });
+      }
+
+      function hitItem(id, hitTs){
+        const item = state.items.get(id);
+        if (!item || item.dead || state.phase === 'summary' || state.phase === 'idle') return;
+
+        const isMatch = item.data.group === state.goalCat.id;
+        const reactionMs = Math.max(0, Math.round((hitTs || performance.now()) - item.bornAt));
+
+        if (isMatch){
+          if (state.phase === 'playing'){
+            const fever = isFeverOn();
+            const base = 10;
+            const comboBonus = Math.min(8, state.streak);
+            const scoreGain = (fever ? 2 : 1) * (base + comboBonus);
+
+            state.score += scoreGain;
+            state.correct += 1;
+            state.goalDone += 1;
+            state.streak += 1;
+            state.bestStreak = Math.max(state.bestStreak, state.streak);
+            state.statsByCat[item.data.group].correct += 1;
+            state.lastReactionSamples.push(reactionMs);
+            if (state.lastReactionSamples.length > 24) state.lastReactionSamples.shift();
+
+            popFx(item.x + item.size/2, item.y + 16, fever ? `+${scoreGain} FEVER` : `+${scoreGain}`, 'good');
+
+            if (state.streak > 0 && state.streak % 5 === 0){
+              state.feverUntil = performance.now() + FEVER_MS;
+              state.feverCount += 1;
+              showBanner('FEVER!');
+              showCoach('โค้ช: สุดยอด! เข้า FEVER แล้ว คะแนนคูณ 2 🔥');
+              log('fever_start', { streak: state.streak });
+            }else{
+              showCoach(pick([
+                'โค้ช: เยี่ยมมาก! ถูกหมู่แล้ว ✅',
+                'โค้ช: เก่งมาก ไปต่อเลย 🌈',
+                'โค้ช: แม่นมาก! อีกนิดเดียว 💪'
+              ]));
+            }
+
+            if (state.goalDone >= state.goalNeed){
+              nextGoal();
+            }
+          }else{
+            showCoach('โค้ช: ถูกต้องเลย แบบนี้แหละ 💡');
+          }
+
+          log('target_hit_correct', {
+            itemId: item.id,
+            group: item.data.group,
+            reactionMs,
+            phase: state.phase
+          });
+          removeItem(item, 'hit-correct');
+        } else {
+          if (state.phase === 'playing'){
+            state.wrong += 1;
+            state.streak = 0;
+            state.score = Math.max(0, state.score - 4);
+            state.statsByCat[item.data.group].wrong += 1;
+            popFx(item.x + item.size/2, item.y + 16, '-4', 'bad');
+            showCoach('โค้ช: คนละหมู่นะ ลองดูไอคอนกับชื่อหมู่ใหม่อีกที');
+          }else{
+            showCoach('โค้ช: อันนี้ยังไม่ใช่หมู่เป้าหมายนะ');
+          }
+
+          log('target_hit_wrong', {
+            itemId: item.id,
+            group: item.data.group,
+            targetGroup: state.goalCat.id,
+            reactionMs,
+            phase: state.phase
+          });
+          removeItem(item, 'hit-wrong');
+        }
+
+        updateHud();
+      }
+
+      function removeItem(item, reason){
+        if (!item || item.dead) return;
+        item.dead = true;
+        state.items.delete(item.id);
+        try{ item.el.remove(); }catch{}
+        log('target_remove', { itemId: item.id, reason });
+      }
+
+      function clearAllItems(){
+        state.items.forEach((item) => {
+          try{ item.el.remove(); }catch{}
+        });
+        state.items.clear();
+      }
+
+      function drawItem(item){
+        item.el.style.transform = `translate3d(${Math.round(item.x)}px, ${Math.round(item.y)}px, 0)`;
+      }
+
+      function nextGoal(){
+        const prev = state.goalCat;
+        state.goalDone = 0;
+
+        let next = pickCategory();
+        if (prev && next.id === prev.id && CATEGORIES.length > 1){
+          next = pickCategory(prev.id);
+        }
+        state.goalCat = next;
+
+        updateGoalText();
+        showBanner(`เป้าหมายใหม่: ${next.short} ${next.name}`);
+        showCoach(`โค้ช: ต่อไปเก็บ ${next.short} ${next.name} ${next.icon}`);
+        log('goal_change', { targetGroup: next.id });
+      }
+
+      function pickCategory(avoidId){
+        const list = CATEGORIES.filter(c => c.id !== avoidId);
+        return list[Math.floor(rng() * list.length)] || CATEGORIES[0];
+      }
+
+      function updateGoalText(){
+        if (!state.goalCat) return;
+        ui.goalTitle.textContent = `เก็บ ${state.goalCat.short} ${state.goalCat.name} ${state.goalCat.icon}`;
+        ui.goalSub.textContent = state.phase === 'practice'
+          ? `รอบฝึก • แตะให้ถูกหมู่จำนวน ${state.goalNeed} ชิ้น`
+          : `รอบจริง • แตะให้ถูกหมู่จำนวน ${state.goalNeed} ชิ้นต่อเป้าหมาย`;
+        ui.goalTag.textContent = `🎯 ${state.goalCat.short}`;
+        ui.statGoal.textContent = `${state.goalDone} / ${state.goalNeed}`;
+
+        const pct = state.goalNeed > 0 ? (state.goalDone / state.goalNeed) * 100 : 0;
+        ui.goalFill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+      }
+
+      function updateHud(){
+        ui.chipTime.textContent = formatTime(state.timeLeftMs);
+        ui.chipScore.textContent = String(state.score | 0);
+        ui.chipStreak.textContent = String(state.streak | 0);
+        ui.statAcc.textContent = `${Math.round(calcAccuracy())}%`;
+        ui.statMiss.textContent = String(state.miss | 0);
+        ui.statFever.textContent = isFeverOn()
+          ? `${Math.max(1, Math.ceil((state.feverUntil - performance.now()) / 1000))}s`
+          : 'Ready';
+
+        updateGoalText();
+      }
+
+      function calcAccuracy(){
+        const total = state.correct + state.wrong + state.miss;
+        if (!total) return 0;
+        return (state.correct / total) * 100;
+      }
+
+      function calcAvgReaction(){
+        if (!state.lastReactionSamples.length) return 0;
+        const sum = state.lastReactionSamples.reduce((a,b) => a + b, 0);
+        return Math.round(sum / state.lastReactionSamples.length);
+      }
+
+      function isFeverOn(){
+        return performance.now() < state.feverUntil;
+      }
+
+      function renderSummary(summary){
+        ui.sumScore.textContent = String(summary.score);
+        ui.sumAcc.textContent = `${summary.accuracy}%`;
+        ui.sumCwm.textContent = `${summary.correct} / ${summary.wrong} / ${summary.miss}`;
+        ui.sumStreak.textContent = String(summary.bestStreak);
+        ui.sumBestCat.textContent = summary.bestCategory;
+        ui.sumNeedCat.textContent = summary.needCategory;
+        ui.summaryLead.textContent = summary.lead;
+        ui.summaryStars.textContent = summary.stars;
+        ui.summaryGrade.textContent = summary.grade;
+        ui.summaryGrade.className = `grade ${summary.grade.toLowerCase()}`;
+      }
+
+      function buildSummary(){
+        const accuracy = Math.round(calcAccuracy());
+        const avgReaction = calcAvgReaction();
+
+        const statsEntries = CATEGORIES.map((cat) => {
+          const s = state.statsByCat[cat.id] || { correct:0, wrong:0, miss:0 };
+          return {
+            ...cat,
+            correct: s.correct,
+            wrong: s.wrong,
+            miss: s.miss,
+            score: (s.correct * 2) - (s.wrong + s.miss)
+          };
+        });
+
+        const best = [...statsEntries].sort((a,b) => b.score - a.score || b.correct - a.correct)[0] || CATEGORIES[0];
+        const need = [...statsEntries].sort((a,b) => (b.wrong + b.miss) - (a.wrong + a.miss) || a.correct - b.correct)[0] || CATEGORIES[0];
+
+        let grade = 'C';
+        if (accuracy >= 90 && state.score >= 180) grade = 'S';
+        else if (accuracy >= 80 && state.score >= 120) grade = 'A';
+        else if (accuracy >= 65 && state.score >= 70) grade = 'B';
+
+        const stars = grade === 'S' ? '⭐⭐⭐' : grade === 'A' ? '⭐⭐⭐' : grade === 'B' ? '⭐⭐☆' : '⭐☆☆';
+
+        const lead = grade === 'S'
+          ? 'ยอดเยี่ยมมาก! ทั้งเร็วและแม่นสุด ๆ'
+          : grade === 'A'
+          ? 'ดีมากเลย! อีกนิดเดียวก็แตะระดับสูงสุดแล้ว'
+          : grade === 'B'
+          ? 'ทำได้ดีนะ ลองเพิ่มความแม่นอีกนิด'
+          : 'เริ่มได้ดีแล้ว ลองดูหมวดเป้าหมายให้ชัดขึ้นอีกหน่อย';
+
+        return {
+          patch: PATCH,
+          game: 'groups',
+          gameId: 'groups',
+          zone: 'nutrition',
+          mode: 'solo',
+          pid: CTX.pid,
+          heroName: CTX.name,
+          run: CTX.run,
+          difficulty: CTX.diff,
+          view: CTX.view,
+          seed: CTX.seed,
+          studyId: CTX.studyId,
+          score: state.score | 0,
+          correct: state.correct | 0,
+          wrong: state.wrong | 0,
+          miss: state.miss | 0,
+          bestStreak: state.bestStreak | 0,
+          accuracy,
+          avgReactionMs: avgReaction,
+          feverCount: state.feverCount | 0,
+          practiceUsed: !!state.practiceUsed,
+          bestCategory: `${best.short} ${best.name}`,
+          needCategory: `${need.short} ${need.name}`,
+          grade,
+          stars,
+          lead,
+          ts: Date.now(),
+          summaryText: `score=${state.score} acc=${accuracy}% streak=${state.bestStreak}`
+        };
+      }
+
+      function saveSummary(summary){
+        try{
+          localStorage.setItem(LAST_SUMMARY_KEY, JSON.stringify(summary));
+          localStorage.setItem(LAST_GROUPS_SUMMARY_KEY, JSON.stringify(summary));
+
+          const prev = JSON.parse(localStorage.getItem(SUMMARY_HISTORY_KEY) || '[]');
+          const arr = Array.isArray(prev) ? prev : [];
+          arr.unshift(summary);
+          localStorage.setItem(SUMMARY_HISTORY_KEY, JSON.stringify(arr.slice(0, MAX_HISTORY)));
+        }catch{}
+      }
+
+      function log(type, detail = {}){
+        const entry = {
+          event: type,
+          tsMs: Date.now(),
+          tsIso: new Date().toISOString(),
+          pid: CTX.pid,
+          game: CTX.game,
+          zone: CTX.zone,
+          mode: CTX.mode,
+          run: CTX.run,
+          difficulty: CTX.diff,
+          view: CTX.view,
+          seed: CTX.seed,
+          phase: state.phase,
+          score: state.score,
+          correct: state.correct,
+          wrong: state.wrong,
+          miss: state.miss,
+          streak: state.streak,
+          ...detail
+        };
+        state.logs.push(entry);
+      }
+
+      function flushLogs(){
+        try{
+          localStorage.setItem(LOG_BUFFER_KEY, JSON.stringify({
+            patch: PATCH,
+            ctx: CTX,
+            logs: state.logs.slice(-300)
+          }));
+        }catch{}
+      }
+
+      function showCoach(text){
+        ui.coachBubble.textContent = text;
+      }
+
+      function showBanner(text){
+        ui.banner.textContent = text;
+        ui.banner.classList.add('show');
+        clearTimeout(showBanner._t);
+        showBanner._t = setTimeout(hideBanner, 1200);
+      }
+
+      function hideBanner(){
+        ui.banner.classList.remove('show');
+      }
+
+      function popFx(x, y, text, kind){
+        const fx = document.createElement('div');
+        fx.className = `popFx ${kind === 'good' ? 'good' : 'bad'}`;
+        fx.textContent = text;
+        fx.style.left = `${x}px`;
+        fx.style.top = `${y}px`;
+        ui.stage.appendChild(fx);
+        setTimeout(() => { try{ fx.remove(); }catch{} }, 580);
+      }
+
+      function refreshStageRect(){
+        const rect = ui.stage.getBoundingClientRect();
+        state.spawnRect.width = rect.width;
+        state.spawnRect.height = rect.height;
+      }
+
+      function onCrosshairShoot(ev){
+        if (!(CTX.view === 'cvr' || CTX.view === 'vr')) return;
+
+        const detail = ev && ev.detail ? ev.detail : {};
+        const x = Number.isFinite(detail.clientX) ? detail.clientX : window.innerWidth / 2;
+        const y = Number.isFinite(detail.clientY) ? detail.clientY : window.innerHeight / 2;
+
+        const target = document.elementFromPoint(x, y);
+        const itemEl = target && target.closest ? target.closest('.item') : null;
+
+        if (itemEl && itemEl.dataset.id){
+          hitItem(itemEl.dataset.id, performance.now());
+        } else if (!state.centerShootHintShown) {
+          state.centerShootHintShown = true;
+          showCoach('โค้ช: เล็งกากบาทไว้กลางเป้าแล้วค่อยยิงนะ 🎯');
+        }
+      }
+
+      function setDebug(){
+        if (!CTX.debug) return;
+        ui.debugPanel.textContent =
+          `PATCH: ${PATCH}\n` +
+          `phase: ${state.phase}\n` +
+          `view: ${CTX.view}\n` +
+          `timeLeftMs: ${Math.round(state.timeLeftMs)}\n` +
+          `items: ${state.items.size}\n` +
+          `score: ${state.score}\n` +
+          `correct/wrong/miss: ${state.correct}/${state.wrong}/${state.miss}\n` +
+          `goal: ${state.goalCat ? state.goalCat.id : '-'} ${state.goalDone}/${state.goalNeed}\n` +
+          `fever: ${isFeverOn() ? 'on' : 'off'}\n` +
+          `seed: ${CTX.seed}`;
+      }
+
+      function formatTime(ms){
+        const total = Math.max(0, Math.ceil(ms / 1000));
+        const m = String(Math.floor(total / 60)).padStart(2, '0');
+        const s = String(total % 60).padStart(2, '0');
+        return `${m}:${s}`;
+      }
+
+      function cleanPid(v){
+        return String(v || 'anon').trim().replace(/[.#$[\]/]/g, '-').replace(/\s+/g, '-').slice(0, 36) || 'anon';
+      }
+
+      function cleanName(v){
+        return String(v || '').trim().replace(/\s+/g, ' ').slice(0, 24) || 'Rocky';
+      }
+
+      function oneOf(v, list, fallback){
+        return list.includes(String(v || '').trim()) ? String(v).trim() : fallback;
+      }
+
+      function clampInt(v, fallback, min, max){
+        const n = Number(v);
+        if (!Number.isFinite(n)) return fallback;
+        return Math.max(min, Math.min(max, Math.round(n)));
+      }
+
+      function randRange(min, max){
+        return min + (rng() * (max - min));
+      }
+
+      function hashString(input){
+        let h = 2166136261 >>> 0;
+        const str = String(input || '');
+        for (let i = 0; i < str.length; i += 1){
+          h ^= str.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
+      }
+
+      function mulberry32(a){
+        return function(){
+          let t = (a += 0x6D2B79F5);
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function escapeHtml(s){
+        return String(s ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+    })();
   </script>
+
+  <script src="../vr/vr-ui.js"></script>
 </body>
 </html>
