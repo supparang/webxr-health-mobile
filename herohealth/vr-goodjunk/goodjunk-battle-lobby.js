@@ -1,1004 +1,1361 @@
-// === /herohealth/vr-goodjunk/goodjunk-battle-lobby.js ===
-// GoodJunk Battle Lobby
-// FULL PATCH v20260320-BATTLE-LOBBY-READY2-MAX5-QR
+'use strict';
 
-const params = new URLSearchParams(location.search);
+/* =========================================================
+ * /herohealth/vr-goodjunk/goodjunk-battle-lobby.js
+ * GoodJunk Battle Lobby
+ * FULL PATCH v20260404-battle-lobby-rematch-full
+ * ========================================================= */
+(function(){
+  const W = window;
+  const D = document;
 
-function makeDevicePid() {
-  try {
-    const KEY = 'GJ_DEVICE_PID';
-    let pid = localStorage.getItem(KEY);
-    if (!pid) {
-      pid = `p-${Math.random().toString(36).slice(2, 10)}`;
-      localStorage.setItem(KEY, pid);
-    }
-    return pid;
-  } catch {
-    return `p-${Math.random().toString(36).slice(2, 10)}`;
-  }
-}
-
-function normalizePid(rawPid) {
-  const v = String(rawPid || '').trim().replace(/[.#$[\]/]/g, '-');
-  if (!v) return makeDevicePid();
-  if (v.toLowerCase() === 'anon') return makeDevicePid();
-  return v;
-}
-
-function normalizeRoomCode(raw) {
-  return String(raw || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
-}
-
-const ctx = {
-  mode: 'battle',
-  pid: normalizePid(params.get('pid')),
-  name: params.get('name') || '',
-  studyId: params.get('studyId') || '',
-  diff: params.get('diff') || 'normal',
-  time: params.get('time') || '120',
-  seed: params.get('seed') || String(Date.now()),
-  hub: params.get('hub') || '../hub.html',
-  view: params.get('view') || 'mobile',
-  run: params.get('run') || 'play',
-  gameId: params.get('gameId') || 'goodjunk',
-  roomId: normalizeRoomCode(params.get('roomId') || `GJ${Math.random().toString(36).slice(2, 8).toUpperCase()}`)
-};
-
-const ROOM_PATH = `hha-battle/goodjunk/rooms/${ctx.roomId}`;
-const PRESENCE_HEARTBEAT_MS = 4000;
-const DISCONNECT_PRUNE_MS = 15000;
-
-const $ = (id) => document.getElementById(id);
-
-const els = {
-  roomCode: $('roomCode'),
-  playerCount: $('playerCount'),
-  roomStatus: $('roomStatus'),
-  hostName: $('hostName'),
-  inviteLink: $('inviteLink'),
-  qrBox: $('qrBox'),
-  copyState: $('copyState'),
-  joinGuard: $('joinGuard'),
-  btnCopyRoom: $('btnCopyRoom'),
-  btnCopyInvite: $('btnCopyInvite'),
-  playersBox: $('playersBox'),
-  countdown: $('countdown'),
-  btnReady: $('btnReady'),
-  btnStart: $('btnStart'),
-  btnBack: $('btnBack'),
-  hint: $('hint')
-};
-
-let firebase = null;
-let db = null;
-let roomRef = null;
-let myPlayerRef = null;
-
-let room = null;
-let countdownRAF = 0;
-let countdownRunning = false;
-let countdownStartAt = 0;
-let presenceTimer = 0;
-let subscribed = false;
-let repairBusy = false;
-let hasEnteredRun = false;
-
-function now() { return Date.now(); }
-
-function clone(obj) {
-  try { return structuredClone(obj); }
-  catch { return JSON.parse(JSON.stringify(obj)); }
-}
-
-function escapeHtml(s) {
-  return String(s ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
-
-function getMeName() {
-  const trimmed = String(ctx.name || '').trim();
-  return trimmed || ctx.pid;
-}
-
-function playerLabel(p) {
-  if (p?.name && String(p.name).trim()) return String(p.name).trim();
-  if (p?.id) return String(p.id);
-  return 'player';
-}
-
-function setHint(text) {
-  if (els.hint) els.hint.textContent = text || '';
-}
-
-function setCopyState(text, ok = true) {
-  if (!els.copyState) return;
-  els.copyState.textContent = text || '';
-  els.copyState.style.color = ok ? 'var(--muted)' : '#fbbf24';
-}
-
-function showJoinGuard(msg = '') {
-  if (!els.joinGuard) return;
-  if (!msg) {
-    els.joinGuard.style.display = 'none';
-    els.joinGuard.textContent = '';
-    return;
-  }
-  els.joinGuard.style.display = 'block';
-  els.joinGuard.textContent = msg;
-}
-
-function buildInviteUrl() {
-  const q = new URLSearchParams({
-    name: '',
-    studyId: ctx.studyId,
-    diff: ctx.diff,
-    time: ctx.time,
-    seed: String(Date.now()),
-    hub: ctx.hub,
-    view: ctx.view,
-    run: ctx.run,
-    gameId: ctx.gameId,
-    mode: 'battle',
-    roomId: ctx.roomId
-  });
-  return `${location.origin}${location.pathname}?${q.toString()}`;
-}
-
-async function copyText(text) {
-  const value = String(text || '').trim();
-  if (!value) return false;
-  try {
-    await navigator.clipboard.writeText(value);
-    return true;
-  } catch {
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = value;
-      ta.setAttribute('readonly', '');
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      const ok = document.execCommand('copy');
-      ta.remove();
-      return !!ok;
-    } catch {
-      return false;
-    }
-  }
-}
-
-function renderQr(link = '') {
-  if (!els.qrBox) return;
-
-  const value = String(link || '').trim();
-  if (!value) {
-    els.qrBox.innerHTML = '<div class="qr-empty">ยังไม่มีลิงก์</div>';
-    return;
-  }
-
-  const img = new Image();
-  img.alt = 'Battle Invite QR';
-  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(value);
-
-  els.qrBox.innerHTML = '';
-  els.qrBox.appendChild(img);
-}
-
-function activePlayers(r = room) {
-  return (r?.players || []).filter((p) => p.connected !== false);
-}
-
-function readyPlayers(r = room) {
-  return activePlayers(r).filter((p) => !!p.ready);
-}
-
-function isHost(r = room) {
-  return !!r && r.hostId === ctx.pid;
-}
-
-function isExistingMember(r, pid = ctx.pid) {
-  return !!r?.players?.some((p) => p.id === pid);
-}
-
-function getJoinBlockReason(r, pid = ctx.pid) {
-  if (!r) return '';
-  const existing = isExistingMember(r, pid);
-  if (existing) return '';
-  if ((activePlayers(r).length || 0) >= (r.maxPlayers || 5)) return 'ห้องนี้เต็มแล้ว';
-  if (r.status === 'countdown') return 'ห้องนี้กำลังนับถอยหลังก่อนเริ่มเกม';
-  if (r.status === 'running') return 'ห้องนี้กำลังเล่นอยู่ ผู้เล่นใหม่เข้ากลางเกมไม่ได้';
-  if (r.status === 'finished') return 'รอบนี้จบแล้ว รอเล่นใหม่หรือสร้างห้องใหม่';
-  return '';
-}
-
-function getMatchParticipantIds(r = room) {
-  const ids = Array.isArray(r?.match?.participantIds) ? r.match.participantIds : [];
-  return ids.map((id) => normalizePid(id)).filter(Boolean);
-}
-
-function amIMatchParticipant(r = room) {
-  const ids = getMatchParticipantIds(r);
-  if (!ids.length) return true;
-  return ids.includes(ctx.pid);
-}
-
-function canStart(r = room) {
-  if (!r) return false;
-  if (r.status !== 'waiting') return false;
-  return readyPlayers(r).length >= (r.minPlayers || 2);
-}
-
-function getPlayersText(r = room) {
-  const total = activePlayers(r).length;
-  const ready = readyPlayers(r).length;
-  const min = r?.minPlayers || 2;
-  return `${total} คน • ready ${ready}/${min}`;
-}
-
-function getStatusText(r = room) {
-  if (!r) return 'waiting';
-  switch (r.status) {
-    case 'countdown': return 'countdown';
-    case 'running': return 'running';
-    case 'finished': return 'finished';
-    default: return 'waiting';
-  }
-}
-
-function clearMatchState(next) {
-  next.match = {
-    participantIds: [],
-    lockedAt: null,
-    status: 'idle',
-    battle: {
-      finishedAt: 0
-    }
+  const qs = (k, d='') => {
+    try { return (new URL(location.href)).searchParams.get(k) ?? d; }
+    catch { return d; }
   };
-  return next;
-}
 
-function makeDefaultRoom() {
-  return {
-    roomId: ctx.roomId,
-    hostId: ctx.pid,
-    mode: 'battle',
-    minPlayers: 2,
-    maxPlayers: 5,
-    status: 'waiting',
-    startAt: null,
-    createdAt: now(),
-    updatedAt: now(),
-    players: [],
-    match: {
+  const clamp = (v, a, b) => {
+    v = Number(v);
+    if (!Number.isFinite(v)) v = a;
+    return Math.max(a, Math.min(b, v));
+  };
+
+  const num = (v, d=0) => {
+    v = Number(v);
+    return Number.isFinite(v) ? v : d;
+  };
+
+  const clean = (s, max=24) => String(s == null ? '' : s)
+    .replace(/[^a-zA-Z0-9ก-๙ _-]/g, '')
+    .trim()
+    .slice(0, max);
+
+  const cleanRoom = (s, max=24) => String(s == null ? '' : s)
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]/g, '')
+    .slice(0, max);
+
+  const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  const now = () => Date.now();
+
+  function byIds(...ids){
+    for (const id of ids) {
+      const el = D.getElementById(id);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  const MODE_ID = 'battle';
+  const ROOM_PREFIX = 'GJB';
+  const RUN_FILE = './goodjunk-battle-run.html';
+  const LOBBY_FILE = './goodjunk-battle-lobby.html';
+  const STORE_KEY = 'GJ_BATTLE_LOBBY_V2';
+  const ACTIVE_TTL_MS = 12000;
+  const HEARTBEAT_MS = 2500;
+  const FIREBASE_WAIT_MS = 10000;
+  const ROOM_KINDS = ['battleRooms', 'rooms'];
+  const IS_REMATCH = qs('rematch', '0') === '1';
+
+  const HUB = qs('hub', '../hub.html');
+  const LAUNCHER = './goodjunk-multi.html';
+
+  function roomPath(kind, roomId) {
+    return `hha-battle/goodjunk/${kind}/${roomId}`;
+  }
+
+  function roomRootRef(db, kind, roomId) {
+    return db.ref(roomPath(kind, roomId));
+  }
+
+  async function detectExistingRoomKind(db, roomId) {
+    const preferred = clean(qs('roomKind', ''), 24);
+    const order = preferred
+      ? [preferred, ...ROOM_KINDS.filter(k => k !== preferred)]
+      : ROOM_KINDS.slice();
+
+    for (const kind of order) {
+      try {
+        const snap = await db.ref(roomPath(kind, roomId)).child('meta').once('value');
+        if (snap.exists()) return kind;
+      } catch (_) {}
+    }
+    return '';
+  }
+
+  function buildRefs(root) {
+    return {
+      root,
+      meta: root.child('meta'),
+      state: root.child('state'),
+      match: root.child('match'),
+      players: root.child('players'),
+      results: root.child('results')
+    };
+  }
+
+  function makeCode(){
+    return `${ROOM_PREFIX}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+  }
+
+  function makeBattleRoundId() {
+    return `B-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+  }
+
+  function getBattleSeed() {
+    const raw = UI.seedInput && UI.seedInput.value ? String(UI.seedInput.value).trim() : '';
+    return raw || String(Date.now());
+  }
+
+  const UI = {
+    topNotice: byIds('topNotice', 'hintTop'),
+    sideNotice: byIds('sideNotice', 'hintSide'),
+    bottomNotice: byIds('bottomNotice', 'hintBottom'),
+
+    statusBadge: byIds('statusBadge', 'roomStatusBadge'),
+    roomCodeBig: byIds('roomCodeBig', 'roomCode'),
+    roomSummary: byIds('roomSummary', 'roomStatusText'),
+    joinLinkText: byIds('joinLinkText', 'inviteLinkText'),
+    inviteLink: byIds('inviteLink'),
+    countdownBox: byIds('countdownBox', 'countdown', 'countdownLarge'),
+
+    nickInput: byIds('nickInput', 'nameInput', 'playerName'),
+    diffSelect: byIds('diffSelect'),
+    timeSelect: byIds('timeSelect'),
+    viewSelect: byIds('viewSelect'),
+    seedInput: byIds('seedInput'),
+    roomInput: byIds('roomInput'),
+
+    btnCreateTop: byIds('btnCreateTop'),
+    btnJoinTop: byIds('btnJoinTop'),
+    btnLauncher: byIds('btnLauncher'),
+    btnHub: byIds('btnHub', 'btnBack'),
+    btnCreateRoom: byIds('btnCreateRoom', 'btnCreate'),
+    btnJoinRoom: byIds('btnJoinRoom', 'btnJoin'),
+    btnPasteRoom: byIds('btnPasteRoom'),
+    btnShareRoom: byIds('btnShareRoom'),
+    btnRandomRoom: byIds('btnRandomRoom'),
+    btnCopyRoom: byIds('btnCopyRoom'),
+    btnCopyInvite: byIds('btnCopyInvite'),
+    btnStartGame: byIds('btnStartGame', 'btnStart'),
+    btnLeaveRoom: byIds('btnLeaveRoom', 'btnLeave'),
+    btnReady: byIds('btnReady'),
+    btnUnready: byIds('btnUnready'),
+
+    qrCanvas: byIds('qrCanvas'),
+    qrBox: byIds('qrBox'),
+    playersList: byIds('playersList', 'playersBox'),
+
+    playerCount: byIds('playerCount'),
+    hostName: byIds('hostName'),
+    roomStatus: byIds('roomStatus'),
+
+    debugRoomKind: byIds('debugRoomKind'),
+    debugRoomPath: byIds('debugRoomPath'),
+    debugRoomMeta: byIds('debugRoomMeta')
+  };
+
+  const S = {
+    uid: '',
+    roomId: '',
+    roomKind: clean(qs('roomKind', ''), 24) || '',
+    joined: false,
+    players: {},
+    meta: {},
+    state: {
+      status:'waiting',
+      plannedSec:90,
+      seed:'',
+      roundId:'',
+      participantIds:[]
+    },
+    match: {},
+    refs: null,
+    offFns: [],
+    heartbeat: 0,
+    countdownTick: 0,
+    redirecting: false,
+    firebaseReady: false
+  };
+
+  let __battleRematchResetDone = false;
+
+  const setTop = (m)=> { if (UI.topNotice) UI.topNotice.textContent = m || ''; };
+  const setSide = (m)=> { if (UI.sideNotice) UI.sideNotice.textContent = m || ''; };
+  const setBottom = (m)=> { if (UI.bottomNotice) UI.bottomNotice.textContent = m || ''; };
+  const isHost = ()=> !!S.uid && S.meta && S.meta.hostPid === S.uid;
+
+  function hasFirebaseCompat() {
+    return !!(
+      W.firebase &&
+      typeof W.firebase.initializeApp === 'function' &&
+      typeof W.firebase.app === 'function' &&
+      typeof W.firebase.database === 'function' &&
+      typeof W.firebase.auth === 'function'
+    );
+  }
+
+  async function waitForFirebaseReady(timeoutMs = FIREBASE_WAIT_MS) {
+    const startedAt = now();
+
+    while (now() - startedAt < timeoutMs) {
+      try {
+        if (W.HHA_FIREBASE_DB && hasFirebaseCompat()) {
+          S.firebaseReady = true;
+          return true;
+        }
+
+        if (typeof W.HHA_ENSURE_FIREBASE_DB === 'function') {
+          const db = W.HHA_ENSURE_FIREBASE_DB();
+          if (db && hasFirebaseCompat()) {
+            W.HHA_FIREBASE_DB = db;
+            S.firebaseReady = true;
+            return true;
+          }
+        }
+
+        if (hasFirebaseCompat()) {
+          if ((!W.firebase.apps || !W.firebase.apps.length) && W.HHA_FIREBASE_CONFIG) {
+            W.firebase.initializeApp(W.HHA_FIREBASE_CONFIG);
+          }
+          if (W.firebase.apps && W.firebase.apps.length) {
+            W.HHA_FIREBASE_DB = W.firebase.database();
+            S.firebaseReady = true;
+            return true;
+          }
+        }
+      } catch (_) {}
+
+      await wait(120);
+    }
+
+    throw new Error('Firebase ยังไม่พร้อม');
+  }
+
+  function ensureFirebaseDb() {
+    if (W.HHA_FIREBASE_DB) return W.HHA_FIREBASE_DB;
+
+    if (typeof W.HHA_ENSURE_FIREBASE_DB === 'function') {
+      const db = W.HHA_ENSURE_FIREBASE_DB();
+      if (db) {
+        W.HHA_FIREBASE_DB = db;
+        return db;
+      }
+    }
+
+    if (hasFirebaseCompat()) {
+      if ((!W.firebase.apps || !W.firebase.apps.length) && W.HHA_FIREBASE_CONFIG) {
+        W.firebase.initializeApp(W.HHA_FIREBASE_CONFIG);
+      }
+      if (W.firebase.apps && W.firebase.apps.length) {
+        W.HHA_FIREBASE_DB = W.firebase.database();
+        return W.HHA_FIREBASE_DB;
+      }
+    }
+
+    throw new Error('Firebase DB not ready');
+  }
+
+  function waitForAuthUser(auth, timeoutMs = 12000) {
+    return new Promise((resolve, reject) => {
+      let done = false;
+      let off = null;
+
+      const finish = (err, user) => {
+        if (done) return;
+        done = true;
+        try { if (typeof off === 'function') off(); } catch(_) {}
+        clearTimeout(timer);
+        if (err) reject(err);
+        else resolve(user);
+      };
+
+      const timer = setTimeout(() => {
+        finish(new Error('Firebase Auth ยังไม่พร้อม'));
+      }, timeoutMs);
+
+      try {
+        off = auth.onAuthStateChanged((user) => {
+          if (user && user.uid) finish(null, user);
+        }, (err) => {
+          finish(err || new Error('Auth state error'));
+        });
+      } catch (err) {
+        finish(err);
+      }
+    });
+  }
+
+  async function ensureAnonymousAuth() {
+    await waitForFirebaseReady();
+
+    if (!W.firebase || typeof W.firebase.auth !== 'function') {
+      throw new Error('Firebase Auth SDK ยังไม่พร้อม');
+    }
+
+    const auth = W.firebase.auth();
+
+    if (auth.currentUser && auth.currentUser.uid) {
+      return auth.currentUser;
+    }
+
+    await auth.signInAnonymously();
+    const user = await waitForAuthUser(auth, 12000);
+    if (!user || !user.uid) throw new Error('Firebase Auth ยังไม่พร้อม');
+    return user;
+  }
+
+  async function ensureFreshAuthForWrite() {
+    await waitForFirebaseReady();
+    let user = await ensureAnonymousAuth();
+
+    try {
+      if (typeof user.getIdToken === 'function') {
+        await user.getIdToken(true);
+      }
+    } catch (_) {}
+
+    await wait(300);
+
+    if (W.firebase && typeof W.firebase.auth === 'function') {
+      const auth = W.firebase.auth();
+      if (!auth.currentUser || !auth.currentUser.uid) {
+        user = await waitForAuthUser(auth, 12000);
+      } else {
+        user = auth.currentUser;
+      }
+    }
+
+    if (!user || !user.uid) throw new Error('Anonymous auth failed');
+    S.uid = user.uid;
+    return user;
+  }
+
+  async function ensureAuth(){
+    const user = await ensureAnonymousAuth();
+    S.uid = user.uid;
+  }
+
+  async function dbWriteWithRetry(writeFn) {
+    try {
+      return await writeFn();
+    } catch (err) {
+      const msg = String(err && err.message ? err.message : err);
+      if (!/PERMISSION_DENIED/i.test(msg)) throw err;
+      await ensureFreshAuthForWrite();
+      await wait(350);
+      return await writeFn();
+    }
+  }
+
+  function loadStored(){
+    try{
+      const raw = localStorage.getItem(STORE_KEY);
+      if(!raw) return;
+      const d = JSON.parse(raw);
+      if(d.nick && UI.nickInput) UI.nickInput.value = clean(d.nick,24);
+      if(d.diff && UI.diffSelect) UI.diffSelect.value = d.diff;
+      if(d.time && UI.timeSelect) UI.timeSelect.value = String(d.time);
+      if(d.view && UI.viewSelect) UI.viewSelect.value = d.view;
+      if(d.seed != null && UI.seedInput) UI.seedInput.value = String(d.seed);
+    }catch{}
+  }
+
+  function saveStored(){
+    try{
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        nick:getNick(),
+        diff:getDiff(),
+        time:getTime(),
+        view:getView(),
+        seed:getBattleSeed()
+      }));
+    }catch{}
+  }
+
+  const getNick = ()=> clean((UI.nickInput && UI.nickInput.value) || qs('name', qs('nick', 'Player')), 24) || 'Player';
+  const getDiff = ()=> String((UI.diffSelect && UI.diffSelect.value) || qs('diff','normal') || 'normal');
+  const getTime = ()=> clamp((UI.timeSelect && UI.timeSelect.value) || qs('time','90') || '90', 30, 300);
+  const getView = ()=> String((UI.viewSelect && UI.viewSelect.value) || qs('view','mobile') || 'mobile');
+
+  function escapeHtml(s){
+    return String(s==null?'':s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+
+  function isActivePlayer(p, nowTs=now()){
+    if(!p) return false;
+    if(p.connected === false) return false;
+    const lastSeen = num(p.lastSeen || p.updatedAt || p.joinedAt, 0);
+    if(!lastSeen) return true;
+    return (nowTs - lastSeen) <= ACTIVE_TTL_MS;
+  }
+
+  function activePlayers(){
+    const nowTs = now();
+    return Object.values(S.players || {})
+      .filter((p)=>isActivePlayer(p, nowTs))
+      .sort((a,b)=>num(a.joinedAt,0)-num(b.joinedAt,0));
+  }
+
+  function readyPlayers(){
+    return activePlayers().filter(p => !!p.ready);
+  }
+
+  function ensureRoomCode(){
+    const room = cleanRoom((UI.roomInput && UI.roomInput.value) || qs('roomId', qs('room', S.roomId || '')));
+    S.roomId = room || makeCode();
+    if (UI.roomInput) UI.roomInput.value = S.roomId;
+    if (UI.roomCodeBig) UI.roomCodeBig.textContent = S.roomId;
+  }
+
+  function currentRoomPath() {
+    if (!S.roomId || !S.roomKind) return '-';
+    return roomPath(S.roomKind, S.roomId);
+  }
+
+  function renderRoomDebug() {
+    if (UI.debugRoomKind) {
+      UI.debugRoomKind.textContent = `roomKind: ${S.roomKind || '-'}`;
+    }
+
+    if (UI.debugRoomPath) {
+      UI.debugRoomPath.textContent = `path: ${currentRoomPath()}`;
+    }
+
+    if (UI.debugRoomMeta) {
+      UI.debugRoomMeta.textContent =
+        `state: ${String((S.state && S.state.status) || 'waiting')} • roundId: ${String((S.state && S.state.roundId) || '-')} • rematch: ${IS_REMATCH ? 'yes' : 'no'}`;
+    }
+
+    console.log('[battle-lobby:debug]', {
+      roomId: S.roomId,
+      roomKind: S.roomKind,
+      status: S.state?.status,
+      roundId: S.state?.roundId,
+      participantIds: S.state?.participantIds || [],
+      rematch: IS_REMATCH
+    });
+  }
+
+  function buildLobbyUrl(roomId){
+    const url = new URL(LOBBY_FILE, location.href);
+    const src = new URL(location.href);
+
+    src.searchParams.forEach((value,key)=>{
+      if(key === 'roomId' || key === 'room' || key === 'create') return;
+      url.searchParams.set(key, value);
+    });
+
+    url.searchParams.set('mode', MODE_ID);
+    url.searchParams.set('roomId', roomId);
+    url.searchParams.set('room', roomId);
+    url.searchParams.set('diff', getDiff());
+    url.searchParams.set('time', String(getTime()));
+    url.searchParams.set('view', getView());
+    url.searchParams.set('seed', String(getBattleSeed()));
+    url.searchParams.set('hub', HUB);
+    url.searchParams.set('autojoin', '1');
+    if (S.roomKind) url.searchParams.set('roomKind', S.roomKind);
+    if (IS_REMATCH) url.searchParams.set('rematch', '1');
+    return url.toString();
+  }
+
+  function buildRunUrl(roomId){
+    const url = new URL(RUN_FILE, location.href);
+    const src = new URL(location.href);
+
+    src.searchParams.forEach((value,key)=>{
+      if(key === 'roomId' || key === 'room' || key === 'create' || key === 'autojoin' || key === 'rematch') return;
+      url.searchParams.set(key, value);
+    });
+
+    const sharedStartAt = num(S.state && (S.state.startAt || S.state.countdownEndsAt), 0);
+    const sharedDiff = String((S.meta && S.meta.diff) || getDiff());
+    const sharedTime = String(num(S.state && S.state.plannedSec, getTime()));
+    const sharedSeed = String(
+      (S.state && S.state.seed) ||
+      (S.meta && S.meta.seed) ||
+      getBattleSeed()
+    );
+    const sharedRoundId = String((S.state && S.state.roundId) || '');
+
+    url.searchParams.set('mode', MODE_ID);
+    url.searchParams.set('roomId', roomId);
+    url.searchParams.set('room', roomId);
+    url.searchParams.set('name', getNick());
+    url.searchParams.set('nick', getNick());
+    url.searchParams.set('pid', S.uid || 'anon');
+    url.searchParams.set('role', isHost() ? 'host' : 'player');
+    url.searchParams.set('host', isHost() ? '1' : '0');
+    url.searchParams.set('wait', '1');
+    url.searchParams.set('diff', sharedDiff);
+    url.searchParams.set('time', sharedTime);
+    url.searchParams.set('view', getView());
+    url.searchParams.set('seed', sharedSeed);
+    url.searchParams.set('hub', HUB);
+    url.searchParams.set('autostart', '1');
+
+    if (sharedStartAt > 0) url.searchParams.set('startAt', String(sharedStartAt));
+    if (sharedRoundId) url.searchParams.set('roundId', sharedRoundId);
+    if (S.roomKind) url.searchParams.set('roomKind', S.roomKind);
+
+    return url.toString();
+  }
+
+  async function copyText(t){
+    const value = String(t || '').trim();
+    if (!value) return false;
+
+    try{
+      await navigator.clipboard.writeText(value);
+      return true;
+    }catch{
+      try{
+        const ta = D.createElement('textarea');
+        ta.value = value;
+        ta.setAttribute('readonly','');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        D.body.appendChild(ta);
+        ta.select();
+        const ok = D.execCommand('copy');
+        ta.remove();
+        return !!ok;
+      }catch{
+        return false;
+      }
+    }
+  }
+
+  async function shareLink(url){
+    try{
+      if(navigator.share){
+        await navigator.share({ title:'GoodJunk Battle Lobby', text:'มาเข้าห้อง Battle นี้ด้วยกัน', url });
+        return true;
+      }
+    }catch{}
+    return copyText(url);
+  }
+
+  function renderQr(){
+    const link = buildLobbyUrl(S.roomId || makeCode());
+
+    if (UI.joinLinkText) UI.joinLinkText.textContent = link;
+    if (UI.inviteLink) UI.inviteLink.value = link;
+
+    if (W.QRCode && UI.qrCanvas) {
+      W.QRCode.toCanvas(UI.qrCanvas, link, {
+        width:220,
+        margin:1,
+        color:{ dark:'#20324d', light:'#ffffff' }
+      }, function(){});
+      return;
+    }
+
+    if (UI.qrBox) {
+      UI.qrBox.innerHTML = '';
+      const img = new Image();
+      img.alt = 'Battle Invite QR';
+      img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(link);
+      UI.qrBox.appendChild(img);
+    }
+  }
+
+  function renderPlayers(){
+    const box = UI.playersList;
+    if (!box) return;
+
+    const players = Object.values(S.players || {}).sort((a,b)=>num(a.joinedAt,0)-num(b.joinedAt,0));
+
+    if(!players.length){
+      box.innerHTML = `
+        <div class="player">
+          <div class="player-left">
+            <div class="avatar">⌛</div>
+            <div>
+              <div class="name">ยังไม่มีผู้เล่น</div>
+              <div class="mini">สร้างห้องหรือเข้าห้องก่อน</div>
+            </div>
+          </div>
+          <div class="badge">WAIT</div>
+        </div>`;
+      return;
+    }
+
+    box.innerHTML = players.map((p)=>{
+      const active = isActivePlayer(p);
+      const you = p.pid === S.uid;
+      const host = p.pid === (S.meta && S.meta.hostPid);
+      const phase = String(p.phase || 'lobby');
+      const ready = !!p.ready;
+
+      let badge = 'WAIT';
+      if (you) badge = 'YOU';
+      else if (active) badge = 'LIVE';
+      else badge = 'OFFLINE';
+
+      const miniBits = [
+        host ? 'host' : 'guest',
+        active ? 'online' : 'offline',
+        ready ? 'ready' : 'not-ready',
+        phase
+      ];
+
+      return `
+        <div class="player">
+          <div class="player-left">
+            <div class="avatar">${host ? '👑' : '⚔️'}</div>
+            <div>
+              <div class="name">${escapeHtml(p.nick || 'player')} ${host ? '• host' : ''}</div>
+              <div class="mini">${escapeHtml(miniBits.join(' • '))}</div>
+            </div>
+          </div>
+          <div class="badge">${badge}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderState(){
+    ensureRoomCode();
+
+    const active = activePlayers();
+    const ready = readyPlayers();
+    const count = active.length;
+    const readyCount = ready.length;
+    const status = String((S.state && S.state.status) || 'waiting');
+
+    if (UI.statusBadge) UI.statusBadge.textContent = status.toUpperCase();
+    if (UI.roomStatus) UI.roomStatus.textContent = status;
+    if (UI.roomSummary) {
+      UI.roomSummary.textContent =
+        status === 'countdown' ? `กำลังนับถอยหลัง • ${count}/2 players`
+        : (status === 'playing' || status === 'running') ? `กำลังเข้าเกม • ${count}/2 players`
+        : status === 'ended' ? `รอบก่อนจบแล้ว • ${count}/2 players`
+        : `รอผู้เล่น • ${count}/2 players • ready ${readyCount}/2`;
+    }
+
+    if (UI.playerCount) UI.playerCount.textContent = `${count} คน • ready ${readyCount}/2`;
+    if (UI.hostName) {
+      const hostPlayer = active.find(p => p.pid === (S.meta && S.meta.hostPid)) || Object.values(S.players || {}).find(p => p.pid === (S.meta && S.meta.hostPid));
+      UI.hostName.textContent = hostPlayer ? (hostPlayer.nick || hostPlayer.pid || '-') : '-';
+    }
+
+    if (UI.btnStartGame) {
+      UI.btnStartGame.disabled = !(S.joined && isHost() && readyCount >= 2 && (status === 'waiting' || status === 'ended'));
+    }
+
+    if (UI.btnLeaveRoom) UI.btnLeaveRoom.disabled = !S.joined;
+
+    if (UI.btnReady) {
+      const self = S.players && S.players[S.uid] ? S.players[S.uid] : null;
+      UI.btnReady.disabled = !S.joined || (status !== 'waiting' && status !== 'ended');
+      UI.btnReady.textContent = self && self.ready ? 'ยกเลิกพร้อม' : 'พร้อมแล้ว';
+    }
+
+    if (UI.btnUnready) {
+      UI.btnUnready.disabled = !S.joined || (status !== 'waiting' && status !== 'ended');
+    }
+
+    if(!S.joined){
+      setTop('ใส่ชื่อ แล้วกดสร้างห้องหรือเข้าห้องได้เลย');
+      setSide('เมื่อเข้าห้องแล้ว QR, room code และรายชื่อผู้เล่นจะอัปเดตให้ทันที');
+      setBottom('ถ้ายังมีแค่ 1 คน ระบบจะรอผู้เล่นอีก 1 คนก่อนเริ่ม');
+    } else if(status === 'waiting' || status === 'ended'){
+      if (IS_REMATCH) {
+        setTop('กลับเข้าห้องเดิมแล้ว');
+        setSide('รอบใหม่พร้อมแล้ว กดพร้อมทั้ง 2 คนก่อนเริ่ม battle');
+        setBottom(`debug • rematch @ ${S.roomKind || '-'} / ${S.roomId || '-'}`);
+      } else if(readyCount >= 2){
+        setTop('ครบ 2 คนและพร้อมแล้ว Host กด Start Battle ได้เลย');
+        setSide('ตอนนี้ห้องพร้อมเริ่ม battle แล้ว');
+        setBottom(`debug • ${S.roomKind || '-'} / ${S.roomId || '-'}`);
+      } else {
+        setTop(`เข้าห้องสำเร็จ • รอผู้เล่นหรือรอพร้อมเพิ่ม`);
+        setSide('ส่ง room code หรือให้เพื่อน scan QR เพื่อเข้าห้องเดียวกัน');
+        setBottom(`debug • ${S.roomKind || '-'} / ${S.roomId || '-'}`);
+      }
+    } else if(status === 'countdown'){
+      setTop('กำลังนับถอยหลัง เตรียมเข้าเกม');
+      setSide('ทั้งสองฝั่งจะเข้า Battle พร้อมกัน');
+      setBottom(`debug • countdown @ ${S.roomKind || '-'} / ${S.roomId || '-'}`);
+    } else if(status === 'playing' || status === 'running'){
+      setTop('กำลังพาเข้าสู่หน้าเล่นจริง');
+      setSide('ถ้าไม่เด้งเอง ให้รอสักครู่');
+      setBottom(`debug • running @ ${S.roomKind || '-'} / ${S.roomId || '-'}`);
+    } else {
+      setTop('อยู่ในห้อง Battle');
+      setSide('รอการอัปเดตสถานะจาก host');
+      setBottom(`debug • ${status} @ ${S.roomKind || '-'} / ${S.roomId || '-'}`);
+    }
+
+    renderPlayers();
+    renderQr();
+    renderRoomDebug();
+  }
+
+  function renderCountdown(){
+    clearInterval(S.countdownTick);
+    if (UI.countdownBox) UI.countdownBox.classList.remove('show');
+
+    if(!S.joined || !S.state || S.state.status !== 'countdown') return;
+
+    if (UI.countdownBox) UI.countdownBox.classList.add('show');
+
+    S.countdownTick = setInterval(()=>{
+      const targetAt = num(S.state.startAt || S.state.countdownEndsAt, 0);
+      const leftMs = targetAt - now();
+      const sec = Math.max(0, Math.ceil(leftMs / 1000));
+
+      if (UI.countdownBox) UI.countdownBox.textContent = sec > 0 ? sec : 'GO!';
+
+      if(leftMs <= 0){
+        clearInterval(S.countdownTick);
+        goRun();
+      }
+    }, 100);
+  }
+
+  function cleanupRoom(){
+    clearInterval(S.heartbeat);
+    clearInterval(S.countdownTick);
+    S.heartbeat = 0;
+    S.countdownTick = 0;
+
+    while(S.offFns.length){
+      const fn = S.offFns.pop();
+      try{ fn(); }catch{}
+    }
+
+    S.joined = false;
+    S.players = {};
+    S.meta = {};
+    S.match = {};
+    S.state = {
+      status:'waiting',
+      plannedSec:getTime(),
+      seed:'',
+      roundId:'',
+      participantIds:[]
+    };
+    S.refs = null;
+    S.redirecting = false;
+    __battleRematchResetDone = false;
+    renderRoomDebug();
+  }
+
+  async function resetBattleRoomForNextRound(refs, ctxLike) {
+    const nowTs = Date.now();
+    const nextRoundId = makeBattleRoundId();
+
+    const playersSnap = await refs.players.once('value');
+    const players = playersSnap.val() || {};
+
+    const nextPlayers = {};
+    Object.keys(players).forEach((pid) => {
+      const p = players[pid] || {};
+      nextPlayers[pid] = {
+        ...p,
+        ready: false,
+        phase: 'lobby',
+        finished: false,
+        finalScore: 0,
+        score: 0,
+        contribution: 0,
+        miss: 0,
+        streak: 0,
+        updatedAt: nowTs,
+        lastSeen: nowTs,
+        connected: p.connected !== false
+      };
+    });
+
+    await refs.results.remove().catch(() => {});
+    await refs.match.set({
       participantIds: [],
       lockedAt: null,
       status: 'idle',
       battle: {
+        winnerId: '',
+        loserId: '',
         finishedAt: 0
       }
-    }
-  };
-}
-
-function sanitizeRoom(r) {
-  const base = makeDefaultRoom();
-  const safe = { ...base, ...(r || {}) };
-
-  if (!Array.isArray(safe.players)) safe.players = [];
-  safe.players = safe.players
-    .filter(Boolean)
-    .map((p) => ({
-      id: normalizePid(p.id || ''),
-      name: String(p.name || '').trim(),
-      ready: !!p.ready,
-      joinedAt: Number(p.joinedAt || now()),
-      lastSeenAt: Number(p.lastSeenAt || now()),
-      finished: !!p.finished,
-      finalScore: Number(p.finalScore || 0),
-      miss: Number(p.miss || 0),
-      streak: Number(p.streak || 0),
-      phase: String(p.phase || 'lobby').trim(),
-      connected: p.connected !== false
-    }))
-    .filter((p) => p.id);
-
-  if (!safe.players.length) {
-    safe.hostId = ctx.pid;
-  } else if (!safe.players.some((p) => p.id === safe.hostId)) {
-    const connected = safe.players.find((p) => p.connected !== false);
-    safe.hostId = connected?.id || safe.players[0].id;
-  }
-
-  safe.minPlayers = Math.max(2, Number(safe.minPlayers || 2));
-  safe.maxPlayers = Math.max(safe.minPlayers, Number(safe.maxPlayers || 5), 5);
-  safe.status = ['waiting', 'countdown', 'running', 'finished'].includes(safe.status)
-    ? safe.status
-    : 'waiting';
-  safe.startAt = safe.startAt ? Number(safe.startAt) : null;
-  safe.updatedAt = now();
-
-  const rawMatch = safe.match && typeof safe.match === 'object' ? safe.match : {};
-  const rawBattle = rawMatch.battle && typeof rawMatch.battle === 'object' ? rawMatch.battle : {};
-
-  safe.match = {
-    participantIds: Array.isArray(rawMatch.participantIds)
-      ? rawMatch.participantIds.map((id) => normalizePid(id)).filter(Boolean)
-      : [],
-    lockedAt: rawMatch.lockedAt ? Number(rawMatch.lockedAt) : null,
-    status: ['idle', 'countdown', 'running', 'finished'].includes(rawMatch.status)
-      ? rawMatch.status
-      : 'idle',
-    battle: {
-      finishedAt: Number(rawBattle.finishedAt || 0)
-    }
-  };
-
-  return safe;
-}
-
-function snapshotToRoom(val) {
-  if (!val) return null;
-  const playersMap = val.players || {};
-  return {
-    ...val,
-    players: Object.keys(playersMap).map((pid) => ({
-      id: pid,
-      ...playersMap[pid]
-    }))
-  };
-}
-
-function roomToFirebase(r) {
-  const out = {
-    roomId: r.roomId,
-    hostId: r.hostId,
-    mode: r.mode,
-    minPlayers: r.minPlayers,
-    maxPlayers: r.maxPlayers,
-    status: r.status,
-    startAt: r.startAt || null,
-    createdAt: r.createdAt || now(),
-    updatedAt: now(),
-    players: {},
-    match: {
-      participantIds: Array.isArray(r.match?.participantIds) ? r.match.participantIds : [],
-      lockedAt: r.match?.lockedAt || null,
-      status: r.match?.status || 'idle',
-      battle: {
-        finishedAt: Number(r.match?.battle?.finishedAt || 0)
-      }
-    }
-  };
-
-  (r.players || []).forEach((p) => {
-    out.players[p.id] = {
-      name: p.name || '',
-      ready: !!p.ready,
-      joinedAt: Number(p.joinedAt || now()),
-      lastSeenAt: Number(p.lastSeenAt || now()),
-      finished: !!p.finished,
-      finalScore: Number(p.finalScore || 0),
-      miss: Number(p.miss || 0),
-      streak: Number(p.streak || 0),
-      phase: String(p.phase || 'lobby'),
-      connected: p.connected !== false
-    };
-  });
-
-  return out;
-}
-
-function pickNextHostId(r, excludePid = '') {
-  const candidates = (r?.players || [])
-    .filter((p) => p.id !== excludePid)
-    .sort((a, b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
-
-  const connected = candidates.find((p) => p.connected !== false);
-  return connected?.id || candidates[0]?.id || '';
-}
-
-function maybeResetCountdownIfHostMissing(cur) {
-  if (!cur) return cur;
-  const host = cur.players.find((p) => p.id === cur.hostId);
-  if (cur.status === 'countdown' && (!host || host.connected === false)) {
-    cur.status = 'waiting';
-    cur.startAt = null;
-    clearMatchState(cur);
-  }
-  return cur;
-}
-
-function renderPlayers(r = room) {
-  const players = r?.players || [];
-  const participantSet = new Set(getMatchParticipantIds(r));
-  const roundLocked = ['countdown', 'running', 'finished'].includes(r?.status);
-
-  if (!els.playersBox) return;
-
-  els.playersBox.innerHTML = players.map((p) => {
-    const meTag = p.id === ctx.pid ? ' • คุณ' : '';
-    const hostTag = p.id === r.hostId ? ' 👑 host' : '';
-    const inMatchTag = roundLocked && participantSet.size && participantSet.has(p.id) ? ' • participant' : '';
-
-    let phase = 'ยังไม่พร้อม';
-    let cls = 'waiting';
-
-    if (p.phase === 'done') {
-      phase = 'รอบนี้จบแล้ว';
-      cls = 'ready';
-    } else if (p.phase === 'run') {
-      phase = 'กำลังเล่น';
-      cls = 'ready';
-    } else if (p.ready) {
-      phase = 'พร้อมแล้ว';
-      cls = 'ready';
-    }
-
-    return `
-      <div class="player">
-        <div><strong>${escapeHtml(playerLabel(p))}</strong>${escapeHtml(meTag)}${escapeHtml(hostTag)}</div>
-        <div class="${cls}">${escapeHtml(phase)}${escapeHtml(inMatchTag)}</div>
-      </div>
-    `;
-  }).join('');
-}
-
-function renderButtons(r = room) {
-  const me = r?.players?.find((p) => p.id === ctx.pid);
-
-  if (els.btnReady) {
-    els.btnReady.style.display = '';
-    els.btnReady.disabled = !me || me.connected === false || r?.status !== 'waiting';
-    els.btnReady.textContent = me?.ready ? 'ยกเลิกพร้อม' : 'พร้อมแล้ว';
-  }
-
-  if (els.btnStart) {
-    els.btnStart.disabled = !isHost(r) || !canStart(r);
-    els.btnStart.textContent = isHost(r) ? 'เริ่ม Battle' : 'รอ host เริ่ม';
-  }
-}
-
-function renderStatus(r = room) {
-  if (els.roomCode) els.roomCode.textContent = r?.roomId || '-';
-  if (els.playerCount) els.playerCount.textContent = getPlayersText(r);
-  if (els.roomStatus) els.roomStatus.textContent = getStatusText(r);
-
-  const host = r?.players?.find((p) => p.id === r?.hostId);
-  if (els.hostName) els.hostName.textContent = host ? playerLabel(host) : '-';
-
-  const inviteUrl = buildInviteUrl();
-  if (els.inviteLink) els.inviteLink.value = inviteUrl;
-  renderQr(inviteUrl);
-
-  if (!r) {
-    setHint('กำลังสร้างห้อง...');
-    if (els.countdown) els.countdown.textContent = '';
-    return;
-  }
-
-  const blockReason = getJoinBlockReason(r, ctx.pid);
-  showJoinGuard(blockReason);
-
-  if (r.status === 'waiting') {
-    const readyCount = readyPlayers(r).length;
-    const min = r.minPlayers || 2;
-
-    if (readyCount < min) {
-      setHint(`ต้องมีผู้เล่น ready อย่างน้อย ${min} คน`);
-    } else if (isHost(r)) {
-      setHint('มีผู้เล่น ready ครบแล้ว กดเริ่ม Battle ได้');
-    } else {
-      setHint('มีผู้เล่น ready ครบแล้ว รอ host กดเริ่ม');
-    }
-
-    setCopyState('ส่ง room code หรือลิงก์นี้ให้ผู้เล่นคนอื่นเข้าร่วมได้');
-    if (els.countdown) els.countdown.textContent = '';
-  }
-
-  if (r.status === 'countdown') {
-    if (amIMatchParticipant(r)) {
-      setHint('กำลังนับถอยหลังก่อนเริ่ม Battle');
-    } else {
-      setHint('รอบนี้เริ่มแล้ว แต่คุณไม่ได้อยู่ใน participant');
-    }
-    setCopyState('ห้องถูกล็อกแล้ว กำลังจะเริ่ม Battle', false);
-  }
-
-  if (r.status === 'running') {
-    if (amIMatchParticipant(r)) {
-      setHint('Battle กำลังดำเนินอยู่');
-    } else {
-      setHint('Battle กำลังดำเนินอยู่ และคุณไม่ได้อยู่ใน participant ของรอบนี้');
-    }
-    setCopyState('รอบนี้กำลังดำเนินอยู่', false);
-  }
-
-  if (r.status === 'finished') {
-    setHint('รอบนี้จบแล้ว');
-    setCopyState('สามารถกลับ lobby เพื่อเล่นใหม่ได้', false);
-  }
-}
-
-function render() {
-  room = room ? sanitizeRoom(room) : null;
-  renderStatus(room);
-  renderPlayers(room);
-  renderButtons(room);
-}
-
-function cancelCountdown() {
-  if (countdownRAF) cancelAnimationFrame(countdownRAF);
-  countdownRAF = 0;
-  countdownRunning = false;
-  countdownStartAt = 0;
-}
-
-function runCountdown(startAt) {
-  if (!startAt) return;
-  if (countdownRunning && countdownStartAt === startAt) return;
-
-  cancelCountdown();
-  countdownRunning = true;
-  countdownStartAt = startAt;
-
-  const tick = () => {
-    const ms = startAt - now();
-
-    if (ms <= 0) {
-      if (els.countdown) els.countdown.textContent = 'GO!';
-      countdownRunning = false;
-      countdownStartAt = 0;
-
-      if (roomRef) {
-        roomRef.update({
-          status: 'running',
-          updatedAt: now(),
-          'match/status': 'running'
-        }).catch(() => {});
-      }
-
-      window.setTimeout(() => {
-        enterRun(startAt);
-      }, 250);
-      return;
-    }
-
-    const sec = Math.ceil(ms / 1000);
-    if (els.countdown) els.countdown.textContent = String(sec);
-    countdownRAF = requestAnimationFrame(tick);
-  };
-
-  tick();
-}
-
-async function maybeEnterRunFromRoom(r = room) {
-  if (!r) return;
-  if (hasEnteredRun) return;
-  if (r.status !== 'running') return;
-
-  const me = r.players?.find((p) => p.id === ctx.pid);
-  if (!me) return;
-  if (me.phase === 'done') return;
-
-  if (!amIMatchParticipant(r)) {
-    setHint('รอบนี้เริ่มแล้ว แต่คุณไม่ได้อยู่ใน participant');
-    return;
-  }
-
-  const effectiveStartAt = Number(r.startAt || now());
-  await enterRun(effectiveStartAt);
-}
-
-function waitForFirebaseReady(timeoutMs = 12000) {
-  return new Promise((resolve) => {
-    if (window.HHA_FIREBASE_READY && window.HHA_FIREBASE_DB) {
-      resolve(true);
-      return;
-    }
-
-    let done = false;
-    const finish = (ok) => {
-      if (done) return;
-      done = true;
-      resolve(!!ok);
-    };
-
-    const timer = setTimeout(() => finish(false), timeoutMs);
-
-    window.addEventListener('hha:firebase_ready', (ev) => {
-      clearTimeout(timer);
-      finish(!!ev?.detail?.ok && !!window.HHA_FIREBASE_DB);
-    }, { once: true });
-  });
-}
-
-async function ensureFirebase() {
-  const ok = await waitForFirebaseReady();
-  if (!ok || !window.HHA_FIREBASE_DB || !window.HHA_FIREBASE) {
-    throw new Error('Firebase not ready');
-  }
-
-  firebase = window.HHA_FIREBASE;
-  db = window.HHA_FIREBASE_DB;
-  roomRef = db.ref(ROOM_PATH);
-  myPlayerRef = roomRef.child('players').child(ctx.pid);
-}
-
-async function ensureRoomExists() {
-  const snap = await roomRef.once('value');
-  const cur = snap.exists() ? sanitizeRoom(snapshotToRoom(snap.val())) : null;
-
-  if (!cur) {
-    const base = makeDefaultRoom();
-    await roomRef.set(roomToFirebase(base));
-    return;
-  }
-
-  await roomRef.set(roomToFirebase(cur));
-}
-
-async function maybeRepairRoomIfNeeded(cur) {
-  if (!cur || repairBusy) return;
-
-  const me = cur.players.find((p) => p.id === ctx.pid);
-  if (!me || me.connected === false) return;
-
-  const next = clone(cur);
-  let changed = false;
-  const ts = now();
-
-  if (next.status === 'waiting' || next.status === 'finished') {
-    const before = next.players.length;
-    next.players = next.players.filter((p) => {
-      if (p.connected !== false) return true;
-      return (ts - Number(p.lastSeenAt || 0)) < DISCONNECT_PRUNE_MS;
     });
-    if (next.players.length !== before) changed = true;
-  }
 
-  const host = next.players.find((p) => p.id === next.hostId);
-  if (!host || host.connected === false) {
-    const nextHostId = pickNextHostId(next, '');
-    if (next.hostId !== nextHostId) {
-      next.hostId = nextHostId || '';
-      changed = true;
-    }
-  }
-
-  const repaired = maybeResetCountdownIfHostMissing(next);
-  if (repaired.status !== next.status || repaired.startAt !== next.startAt) changed = true;
-
-  if (repaired.status === 'waiting' && repaired.match?.status !== 'idle') {
-    clearMatchState(repaired);
-    changed = true;
-  }
-
-  if (!repaired.players.length) {
-    repairBusy = true;
-    try { await roomRef.remove(); }
-    finally { repairBusy = false; }
-    return;
-  }
-
-  if (!changed) return;
-
-  repairBusy = true;
-  try { await roomRef.set(roomToFirebase(repaired)); }
-  finally { repairBusy = false; }
-}
-
-function subscribeRoom() {
-  if (subscribed) return;
-  subscribed = true;
-
-  roomRef.on('value', async (snap) => {
-    const raw = snap.val();
-    if (!raw) {
-      room = null;
-      render();
-      setHint('ห้องถูกปิดแล้ว');
-      cancelCountdown();
-      return;
-    }
-
-    room = sanitizeRoom(snapshotToRoom(raw));
-    render();
-
-    if (room.status === 'countdown' && room.startAt) {
-      runCountdown(room.startAt);
-    } else {
-      cancelCountdown();
-    }
-
-    if (room.status === 'running') {
-      await maybeEnterRunFromRoom(room);
-    }
-
-    await maybeRepairRoomIfNeeded(room);
-  });
-}
-
-async function setupOnDisconnect() {
-  if (!myPlayerRef) return;
-  try {
-    await myPlayerRef.onDisconnect().update({
-      connected: false,
-      phase: 'lobby'
+    await refs.state.set({
+      status: 'waiting',
+      plannedSec: Number(ctxLike.time || 90),
+      seed: String(ctxLike.seed || Date.now()),
+      roundId: nextRoundId,
+      participantIds: [],
+      countdownEndsAt: null,
+      startAt: null,
+      startedAt: null,
+      winnerId: '',
+      loserId: '',
+      createdAt: nowTs,
+      updatedAt: nowTs
     });
-  } catch {}
-}
 
-async function ensureJoined() {
-  const snap = await roomRef.once('value');
-  const cur = sanitizeRoom(snapshotToRoom(snap.val()) || makeDefaultRoom());
+    if (Object.keys(nextPlayers).length) {
+      await refs.players.set(nextPlayers);
+    }
 
-  const existing = cur.players.find((p) => p.id === ctx.pid);
-  const blockReason = getJoinBlockReason(cur, ctx.pid);
-  if (!existing && blockReason) {
-    setHint(blockReason);
-    showJoinGuard(blockReason);
-    return false;
+    await refs.meta.update({
+      updatedAt: nowTs,
+      lastResetAt: nowTs,
+      rematchReady: true
+    });
+
+    return nextRoundId;
   }
 
-  const playerPayload = {
-    name: getMeName(),
-    ready: existing?.ready || false,
-    joinedAt: Number(existing?.joinedAt || now()),
-    lastSeenAt: now(),
-    finished: !!existing?.finished,
-    finalScore: Number(existing?.finalScore || 0),
-    miss: Number(existing?.miss || 0),
-    streak: Number(existing?.streak || 0),
-    phase: String(existing?.phase || 'lobby'),
-    connected: true
-  };
+  async function maybePrepareRematchRoom(refs, ctxLike, hostFlag) {
+    if (!IS_REMATCH) return;
+    if (!hostFlag) return;
+    if (__battleRematchResetDone) return;
 
-  await myPlayerRef.set(playerPayload);
+    __battleRematchResetDone = true;
 
-  if (!cur.hostId || !cur.players.some((p) => p.id === cur.hostId && p.connected !== false)) {
-    await roomRef.child('hostId').set(existing?.id || ctx.pid);
+    try {
+      await resetBattleRoomForNextRound(refs, ctxLike);
+      console.log('[battle-lobby] rematch room reset done');
+    } catch (err) {
+      console.error('[battle-lobby] rematch room reset failed', err);
+    }
   }
 
-  await roomRef.child('updatedAt').set(now());
-  await setupOnDisconnect();
-  return true;
-}
+  async function joinBoundRoom(created){
+    const nowTs = now();
+    const existing = (S.players && S.players[S.uid]) ? S.players[S.uid] : null;
 
-async function touchPresence() {
-  if (!myPlayerRef) return;
-  try {
-    await myPlayerRef.update({
-      name: getMeName(),
+    const joinedPayload = {
+      pid: S.uid,
+      nick: getNick(),
       connected: true,
-      lastSeenAt: now()
+      ready: false,
+      joinedAt: (existing && existing.joinedAt) || nowTs,
+      updatedAt: nowTs,
+      lastSeen: nowTs,
+      phase: 'lobby',
+      finished: false,
+      finalScore: 0,
+      score: 0,
+      contribution: 0,
+      miss: 0,
+      streak: 0
+    };
+
+    await dbWriteWithRetry(() => S.refs.players.child(S.uid).set(joinedPayload));
+
+    try { S.refs.players.child(S.uid).onDisconnect().remove(); } catch {}
+
+    const onMeta = (snap) => {
+      S.meta = snap.val() || {};
+      renderState();
+    };
+
+    const onState = (snap) => {
+      S.state = snap.val() || {};
+      renderState();
+      renderCountdown();
+      const st = String(S.state.status || '');
+      if (st === 'running' || st === 'playing') {
+        goRun();
+      }
+    };
+
+    const onMatch = (snap) => {
+      S.match = snap.val() || {};
+      renderState();
+    };
+
+    const onPlayers = async (snap) => {
+      S.players = snap.val() || {};
+
+      if(isHost() && S.state && S.state.status === 'countdown' && readyPlayers().length < 2){
+        await dbWriteWithRetry(() => S.refs.state.update({
+          status:'waiting',
+          countdownEndsAt:null,
+          startAt:null,
+          roundId:S.state.roundId || '',
+          participantIds:[],
+          updatedAt:Date.now()
+        })).catch(()=>{});
+
+        await dbWriteWithRetry(() => S.refs.match.update({
+          participantIds:[],
+          lockedAt:null,
+          status:'idle',
+          battle:{
+            winnerId:'',
+            loserId:'',
+            finishedAt:0
+          }
+        })).catch(()=>{});
+      }
+
+      const actives = activePlayers();
+      if(S.meta && S.meta.hostPid && !actives.find(p=>p.pid === S.meta.hostPid) && actives[0] && actives[0].pid === S.uid){
+        await dbWriteWithRetry(() => S.refs.meta.update({ hostPid:S.uid, updatedAt:Date.now() })).catch(()=>{});
+      }
+
+      renderState();
+    };
+
+    const onResults = (snap) => {
+      const results = snap.val() || {};
+      const resultCount = Object.keys(results).length;
+      console.log('[battle-lobby:results]', {
+        roomId: S.roomId,
+        roomKind: S.roomKind,
+        resultCount
+      });
+    };
+
+    S.refs.meta.on('value', onMeta);
+    S.refs.state.on('value', onState);
+    S.refs.match.on('value', onMatch);
+    S.refs.players.on('value', onPlayers);
+    S.refs.results.on('value', onResults);
+
+    S.offFns.push(()=>S.refs.meta.off('value', onMeta));
+    S.offFns.push(()=>S.refs.state.off('value', onState));
+    S.offFns.push(()=>S.refs.match.off('value', onMatch));
+    S.offFns.push(()=>S.refs.players.off('value', onPlayers));
+    S.offFns.push(()=>S.refs.results.off('value', onResults));
+
+    S.heartbeat = setInterval(()=>{
+      S.refs.players.child(S.uid).update({
+        pid:S.uid,
+        nick:getNick(),
+        connected:true,
+        updatedAt:Date.now(),
+        lastSeen:Date.now(),
+        phase: 'lobby'
+      }).catch(()=>{});
+    }, HEARTBEAT_MS);
+
+    S.joined = true;
+    renderState();
+
+    await maybePrepareRematchRoom(S.refs, {
+      time: getTime(),
+      seed: getBattleSeed()
+    }, isHost());
+
+    if (created) {
+      setTop('สร้างห้องสำเร็จ');
+      setSide('ส่ง room code หรือ QR นี้ให้เพื่อนอีกคน');
+    } else {
+      setTop('เข้าห้องสำเร็จ');
+      setSide('รอ host กด Start Battle');
+    }
+  }
+
+  async function createRoom(){
+    try {
+      await ensureFreshAuthForWrite();
+      saveStored();
+
+      cleanupRoom();
+      S.roomId = makeCode();
+      S.roomKind = 'battleRooms';
+
+      if (UI.roomInput) UI.roomInput.value = S.roomId;
+      if (UI.roomCodeBig) UI.roomCodeBig.textContent = S.roomId;
+      renderRoomDebug();
+
+      const db = ensureFirebaseDb();
+      const root = roomRootRef(db, S.roomKind, S.roomId);
+      S.refs = buildRefs(root);
+
+      const nowTs = Date.now();
+      const initialSeed = String(getBattleSeed());
+
+      await dbWriteWithRetry(() => S.refs.meta.set({
+        roomId:S.roomId,
+        game:'goodjunk',
+        mode:MODE_ID,
+        diff:getDiff(),
+        seed: initialSeed,
+        hostPid:S.uid,
+        minPlayers:2,
+        maxPlayers:2,
+        roomKind:S.roomKind,
+        createdAt:nowTs,
+        updatedAt:nowTs,
+        rematchReady:false
+      }));
+
+      await dbWriteWithRetry(() => S.refs.state.set({
+        status:'waiting',
+        plannedSec:getTime(),
+        seed: initialSeed,
+        roundId:'',
+        participantIds:[],
+        countdownEndsAt:null,
+        startAt:null,
+        startedAt:null,
+        winnerId:'',
+        loserId:'',
+        createdAt:nowTs,
+        updatedAt:nowTs
+      }));
+
+      await dbWriteWithRetry(() => S.refs.match.set({
+        participantIds:[],
+        lockedAt:null,
+        status:'idle',
+        battle:{
+          winnerId:'',
+          loserId:'',
+          finishedAt:0
+        }
+      }));
+
+      await joinBoundRoom(true);
+    } catch (err) {
+      console.error('[battle-lobby] createRoom failed', err);
+      setTop(`สร้างห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+      setSide('ตรวจ rules / auth / database path แล้วลองใหม่');
+    }
+  }
+
+  async function joinRoom(){
+    try {
+      await ensureFreshAuthForWrite();
+      saveStored();
+
+      cleanupRoom();
+      S.roomId = cleanRoom((UI.roomInput && UI.roomInput.value) || '');
+      if(!S.roomId){
+        setTop('ยังไม่มี room code');
+        UI.roomInput?.focus();
+        return;
+      }
+
+      const db = ensureFirebaseDb();
+      const detectedKind = await detectExistingRoomKind(db, S.roomId);
+
+      if(!detectedKind){
+        setTop('ไม่พบห้องนี้');
+        setSide('ตรวจ room code แล้วลองใหม่');
+        return;
+      }
+
+      S.roomKind = detectedKind;
+      renderRoomDebug();
+
+      const root = roomRootRef(db, S.roomKind, S.roomId);
+      S.refs = buildRefs(root);
+
+      await joinBoundRoom(false);
+    } catch (err) {
+      console.error('[battle-lobby] joinRoom failed', err);
+      setTop(`เข้าห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+      setSide('ตรวจ rules / auth / database path แล้วลองใหม่');
+    }
+  }
+
+  async function leaveRoom(){
+    if(!S.joined || !S.refs) return;
+
+    try {
+      await S.refs.players.child(S.uid).remove();
+    } catch (_) {}
+
+    try {
+      const playersSnap = await S.refs.players.once('value');
+      const players = playersSnap.val() || {};
+      const ids = Object.keys(players);
+
+      if (!ids.length) {
+        await S.refs.root.remove().catch(()=>{});
+      } else {
+        const currentHost = String((S.meta && S.meta.hostPid) || '');
+        if (currentHost === S.uid) {
+          const nextHost = ids[0] || '';
+          if (nextHost) {
+            await S.refs.meta.update({
+              hostPid: nextHost,
+              updatedAt: now()
+            }).catch(()=>{});
+          }
+        }
+
+        await S.refs.match.update({
+          participantIds:[],
+          lockedAt:null,
+          status:'idle',
+          battle:{
+            winnerId:'',
+            loserId:'',
+            finishedAt:0
+          }
+        }).catch(()=>{});
+
+        await S.refs.state.update({
+          status:'waiting',
+          participantIds:[],
+          countdownEndsAt:null,
+          startAt:null,
+          winnerId:'',
+          loserId:'',
+          updatedAt:now()
+        }).catch(()=>{});
+      }
+    } catch (_) {}
+
+    cleanupRoom();
+    renderState();
+  }
+
+  async function setReadyFlag(flag){
+    if(!S.joined || !S.refs) return;
+
+    const status = String((S.state && S.state.status) || 'waiting');
+    if (status !== 'waiting' && status !== 'ended') {
+      setTop('ตอนนี้เปลี่ยนสถานะพร้อมไม่ได้แล้ว');
+      return;
+    }
+
+    try {
+      await S.refs.players.child(S.uid).update({
+        ready: !!flag,
+        connected: true,
+        phase: 'lobby',
+        updatedAt: now(),
+        lastSeen: now()
+      });
+    } catch (err) {
+      console.error('[battle-lobby] setReadyFlag failed', err);
+    }
+  }
+
+  async function startGame(){
+    if(!S.joined || !S.refs || !isHost()) return;
+
+    const active = activePlayers();
+    if(active.length < 2){
+      setTop('ยังเริ่มไม่ได้');
+      setSide('ต้องมีผู้เล่น 2 คนก่อน');
+      return;
+    }
+
+    const ready = readyPlayers();
+    if (ready.length < 2) {
+      setTop('ยังเริ่มไม่ได้');
+      setSide('ต้องพร้อมทั้ง 2 คนก่อน');
+      return;
+    }
+
+    const participantIds = active.slice(0, 2).map(p => p.pid).filter(Boolean);
+    if (participantIds.length < 2) {
+      setTop('ยังเริ่มไม่ได้');
+      setSide('participant ยังไม่ครบ 2 คน');
+      return;
+    }
+
+    const sharedSeed = String(getBattleSeed());
+    const sharedDiff = String(getDiff());
+    const sharedTime = Number(getTime());
+    const sharedStartAt = Date.now() + 3500;
+    const sharedRoundId = makeBattleRoundId();
+
+    try {
+      await S.refs.results.remove();
+    } catch (_) {}
+
+    await S.refs.meta.update({
+      diff: sharedDiff,
+      seed: sharedSeed,
+      updatedAt: Date.now(),
+      rematchReady: false
     });
-    await roomRef.child('updatedAt').set(now());
-  } catch {}
-}
 
-async function updateMe(patch = {}) {
-  if (!myPlayerRef) return;
-  const payload = { ...patch, lastSeenAt: now() };
-  await myPlayerRef.update(payload);
-  await roomRef.child('updatedAt').set(now());
-}
-
-function startPresenceHeartbeat() {
-  stopPresenceHeartbeat();
-  presenceTimer = setInterval(() => {
-    touchPresence();
-  }, PRESENCE_HEARTBEAT_MS);
-}
-
-function stopPresenceHeartbeat() {
-  if (presenceTimer) {
-    clearInterval(presenceTimer);
-    presenceTimer = 0;
-  }
-}
-
-async function beginCountdown() {
-  const snap = await roomRef.once('value');
-  const cur = sanitizeRoom(snapshotToRoom(snap.val()) || makeDefaultRoom());
-
-  if (!isHost(cur)) {
-    setHint('เฉพาะ host เท่านั้นที่เริ่มได้');
-    return;
-  }
-
-  const participants = readyPlayers(cur);
-  const participantIds = participants.map((p) => p.id).filter(Boolean);
-
-  if (participantIds.length < (cur.minPlayers || 2)) {
-    setHint(`ต้องมีผู้เล่น ready อย่างน้อย ${cur.minPlayers || 2} คน`);
-    return;
-  }
-
-  const startAt = now() + 4000;
-
-  await roomRef.update({
-    status: 'countdown',
-    startAt,
-    updatedAt: now(),
-    match: {
+    await S.refs.match.set({
       participantIds,
-      lockedAt: now(),
+      lockedAt: Date.now(),
       status: 'countdown',
       battle: {
+        winnerId: '',
+        loserId: '',
         finishedAt: 0
       }
+    });
+
+    await S.refs.state.update({
+      status:'countdown',
+      plannedSec: sharedTime,
+      seed: sharedSeed,
+      roundId: sharedRoundId,
+      participantIds,
+      countdownEndsAt: sharedStartAt,
+      startAt: sharedStartAt,
+      startedAt:null,
+      winnerId:'',
+      loserId:'',
+      updatedAt:Date.now()
+    });
+
+    const playersSnap = await S.refs.players.once('value');
+    const players = playersSnap.val() || {};
+    const updates = {};
+    const nowTs = Date.now();
+
+    Object.keys(players).forEach((pid) => {
+      updates[`${pid}/ready`] = true;
+      updates[`${pid}/phase`] = 'run';
+      updates[`${pid}/finished`] = false;
+      updates[`${pid}/finalScore`] = 0;
+      updates[`${pid}/score`] = 0;
+      updates[`${pid}/contribution`] = 0;
+      updates[`${pid}/miss`] = 0;
+      updates[`${pid}/streak`] = 0;
+      updates[`${pid}/updatedAt`] = nowTs;
+      updates[`${pid}/lastSeen`] = nowTs;
+    });
+
+    await S.refs.players.update(updates).catch(()=>{});
+  }
+
+  function goRun(){
+    if(S.redirecting || !S.roomId) return;
+    S.redirecting = true;
+    location.href = buildRunUrl(S.roomId);
+  }
+
+  async function pasteRoom(){
+    try{
+      const t = await navigator.clipboard.readText();
+      if (UI.roomInput) UI.roomInput.value = cleanRoom(t || '');
+      ensureRoomCode();
+      renderState();
+    }catch{
+      setTop('Paste ไม่สำเร็จ');
     }
-  });
-}
-
-async function enterRun(startAt) {
-  if (hasEnteredRun) return;
-  hasEnteredRun = true;
-
-  try { await myPlayerRef?.onDisconnect().cancel(); } catch {}
-
-  await updateMe({
-    ready: true,
-    phase: 'run',
-    connected: true,
-    lastSeenAt: now()
-  });
-
-  const q = new URLSearchParams({
-    pid: ctx.pid,
-    name: getMeName(),
-    studyId: ctx.studyId,
-    diff: ctx.diff,
-    time: ctx.time,
-    seed: ctx.seed,
-    hub: ctx.hub,
-    view: ctx.view,
-    run: ctx.run,
-    gameId: ctx.gameId,
-    mode: 'battle',
-    roomId: ctx.roomId,
-    startAt: String(startAt || now())
-  });
-
-  location.href = `./goodjunk-battle-run.html?v=20260320-battle-lobby-ready2-max5-qr&${q.toString()}`;
-}
-
-async function leaveRoom() {
-  if (!roomRef || !myPlayerRef) return;
-
-  try { await myPlayerRef.onDisconnect().cancel(); } catch {}
-
-  const snap = await roomRef.once('value');
-  const cur = sanitizeRoom(snapshotToRoom(snap.val()) || makeDefaultRoom());
-
-  const remaining = cur.players.filter((p) => p.id !== ctx.pid);
-  if (!remaining.length) {
-    await roomRef.remove();
-    return;
   }
 
-  const next = clone(cur);
-  next.players = remaining;
-  next.updatedAt = now();
+  function bind(){
+    [UI.nickInput,UI.diffSelect,UI.timeSelect,UI.viewSelect,UI.seedInput,UI.roomInput].forEach((el)=>{
+      if (!el) return;
+      el.addEventListener('input', ()=>{ saveStored(); ensureRoomCode(); renderState(); });
+      el.addEventListener('change', ()=>{ saveStored(); ensureRoomCode(); renderState(); });
+    });
 
-  if (!remaining.some((p) => p.id === next.hostId)) {
-    next.hostId = pickNextHostId(next, '');
+    UI.btnCreateTop?.addEventListener('click', createRoom);
+    UI.btnJoinTop?.addEventListener('click', joinRoom);
+    UI.btnCreateRoom?.addEventListener('click', createRoom);
+    UI.btnJoinRoom?.addEventListener('click', joinRoom);
+
+    UI.btnPasteRoom?.addEventListener('click', pasteRoom);
+    UI.btnRandomRoom?.addEventListener('click', ()=>{
+      if (UI.roomInput) UI.roomInput.value = makeCode();
+      ensureRoomCode();
+      renderState();
+    });
+
+    UI.btnCopyRoom?.addEventListener('click', async ()=>{
+      const ok = await copyText(S.roomId || (UI.roomInput && UI.roomInput.value) || '');
+      setTop(ok ? 'คัดลอก room code แล้ว' : 'คัดลอก room code ไม่สำเร็จ');
+    });
+
+    UI.btnCopyInvite?.addEventListener('click', async ()=>{
+      const ok = await copyText(buildLobbyUrl(S.roomId || cleanRoom((UI.roomInput && UI.roomInput.value) || makeCode())));
+      setTop(ok ? 'คัดลอก invite link แล้ว' : 'คัดลอก invite link ไม่สำเร็จ');
+    });
+
+    UI.btnShareRoom?.addEventListener('click', async ()=>{
+      const ok = await shareLink(buildLobbyUrl(S.roomId || cleanRoom((UI.roomInput && UI.roomInput.value) || makeCode())));
+      setTop(ok ? 'แชร์ลิงก์แล้ว' : 'แชร์ไม่สำเร็จ');
+    });
+
+    UI.btnStartGame?.addEventListener('click', startGame);
+    UI.btnLeaveRoom?.addEventListener('click', leaveRoom);
+    UI.btnReady?.addEventListener('click', async ()=>{
+      const self = S.players && S.players[S.uid] ? S.players[S.uid] : null;
+      await setReadyFlag(!(self && self.ready));
+    });
+    UI.btnUnready?.addEventListener('click', ()=> setReadyFlag(false));
+
+    UI.btnLauncher?.addEventListener('click', ()=>{
+      location.href = `${LAUNCHER}${HUB ? `?hub=${encodeURIComponent(HUB)}` : ''}`;
+    });
+
+    UI.btnHub?.addEventListener('click', ()=>{
+      location.href = HUB || '../hub.html';
+    });
+
+    W.addEventListener('beforeunload', ()=>{
+      if(S.redirecting) return;
+      if(S.refs && S.uid){
+        try{ S.refs.players.child(S.uid).remove(); }catch{}
+      }
+    });
   }
 
-  if (next.status !== 'waiting') {
-    next.status = 'waiting';
-    next.startAt = null;
-    clearMatchState(next);
-    next.players = next.players.map((p) => ({
-      ...p,
-      ready: false,
-      phase: 'lobby'
-    }));
-  } else {
-    clearMatchState(next);
-  }
+  async function autoJoinIfNeeded(){
+    const room = cleanRoom(qs('roomId', qs('room', '')));
+    const autojoin = qs('autojoin', '') === '1';
+    const roomKind = clean(qs('roomKind', ''), 24);
 
-  await roomRef.set(roomToFirebase(next));
-}
+    if(!room) return;
 
-async function onReadyClick() {
-  const me = room?.players?.find((p) => p.id === ctx.pid);
-  if (!me) {
-    setHint('ยังเข้าห้องไม่สำเร็จ');
-    return;
-  }
+    if (UI.roomInput) UI.roomInput.value = room;
+    if (roomKind) S.roomKind = roomKind;
+    ensureRoomCode();
+    renderState();
 
-  if (room?.status !== 'waiting') {
-    setHint('ตอนนี้เปลี่ยนสถานะพร้อมไม่ได้แล้ว');
-    return;
-  }
-
-  const nextReady = !me.ready;
-
-  await updateMe({
-    ready: nextReady,
-    phase: 'lobby',
-    connected: true
-  });
-
-  setHint(nextReady ? 'ตั้งสถานะพร้อมแล้ว' : 'ยกเลิกสถานะพร้อมแล้ว');
-}
-
-async function onStartClick() {
-  await beginCountdown();
-}
-
-async function onBackClick() {
-  try { await leaveRoom(); } catch {}
-  location.href = ctx.hub || '../hub.html';
-}
-
-async function onCopyRoomClick() {
-  const ok = await copyText(ctx.roomId);
-  setCopyState(ok ? `คัดลอก Room Code แล้ว: ${ctx.roomId}` : 'คัดลอก Room Code ไม่สำเร็จ', ok);
-}
-
-async function onCopyInviteClick() {
-  const link = buildInviteUrl();
-  const ok = await copyText(link);
-  setCopyState(ok ? 'คัดลอก Invite Link แล้ว' : 'คัดลอก Invite Link ไม่สำเร็จ', ok);
-}
-
-function bindEvents() {
-  els.btnReady?.addEventListener('click', onReadyClick);
-  els.btnStart?.addEventListener('click', onStartClick);
-  els.btnBack?.addEventListener('click', onBackClick);
-  els.btnCopyRoom?.addEventListener('click', onCopyRoomClick);
-  els.btnCopyInvite?.addEventListener('click', onCopyInviteClick);
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') touchPresence();
-  });
-
-  window.addEventListener('focus', () => {
-    touchPresence();
-  });
-
-  window.addEventListener('beforeunload', () => {
-    stopPresenceHeartbeat();
-  });
-}
-
-async function boot() {
-  try {
-    setHint('กำลังเชื่อม Firebase...');
-    await ensureFirebase();
-
-    setHint('กำลังสร้าง/เชื่อมห้อง...');
-    await ensureRoomExists();
-    subscribeRoom();
-    const joined = await ensureJoined();
-
-    render();
-    bindEvents();
-
-    if (!joined) {
-      if (els.btnReady) els.btnReady.disabled = true;
-      if (els.btnStart) els.btnStart.disabled = true;
-      return;
+    if(autojoin){
+      try{
+        await joinRoom();
+      }catch(err){
+        setTop(`เข้าห้องไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+      }
     }
-
-    await touchPresence();
-    startPresenceHeartbeat();
-
-    if (room?.status === 'countdown' && room.startAt) runCountdown(room.startAt);
-    if (room?.status === 'running') await maybeEnterRunFromRoom(room);
-  } catch (err) {
-    console.error('[goodjunk-battle-lobby] boot failed:', err);
-    setHint(`เชื่อม Firebase ไม่สำเร็จ: ${String(err?.message || err)}`);
-    if (els.btnReady) els.btnReady.disabled = true;
-    if (els.btnStart) els.btnStart.disabled = true;
   }
-}
 
-boot();
+  async function init(){
+    try {
+      loadStored();
+
+      if (UI.nickInput) {
+        UI.nickInput.value = clean(qs('name', qs('nick', UI.nickInput.value || '')), 24) || UI.nickInput.value || '';
+      }
+      if (UI.diffSelect) {
+        UI.diffSelect.value = qs('diff', UI.diffSelect.value || 'normal') || 'normal';
+      }
+      if (UI.timeSelect) {
+        UI.timeSelect.value = String(clamp(qs('time', UI.timeSelect.value || '90'), 60, 150));
+      }
+      if (UI.viewSelect) {
+        UI.viewSelect.value = qs('view', UI.viewSelect.value || 'mobile') || 'mobile';
+      }
+      if (UI.seedInput) {
+        UI.seedInput.value = qs('seed', UI.seedInput.value || '');
+      }
+
+      ensureRoomCode();
+      bind();
+      renderState();
+
+      setTop('กำลังเตรียม Firebase…');
+      await waitForFirebaseReady();
+      try { await ensureFreshAuthForWrite(); } catch (err) { console.warn('[battle-lobby] auth warmup failed', err); }
+      setTop('ใส่ชื่อ แล้วกดสร้างห้องหรือเข้าห้องได้เลย');
+
+      await autoJoinIfNeeded();
+    } catch (err) {
+      console.error('[battle-lobby] init failed', err);
+      setTop(`เริ่มหน้า Lobby ไม่สำเร็จ: ${err && err.message ? err.message : err}`);
+      setSide('ตรวจ firebase-config.js และการโหลด Firebase SDK');
+      setBottom('ถ้ายังไม่ได้ ให้ refresh ใหม่อีกครั้ง');
+    }
+  }
+
+  init();
+})();
