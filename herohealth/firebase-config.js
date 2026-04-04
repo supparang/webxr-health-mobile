@@ -13,44 +13,113 @@
     measurementId: "G-T5J8DC0BKD"
   };
 
-  window.HHA_FIREBASE_READY = false;
-  window.HHA_FIREBASE_ERROR = '';
+  const W = window;
 
-  if (!window.firebase) {
-    window.HHA_FIREBASE_ERROR = 'Firebase SDK not loaded';
-    console.error('[HHA] Firebase SDK not loaded');
-    return;
+  W.HHA_FIREBASE_READY = false;
+  W.HHA_FIREBASE_ERROR = '';
+  W.HHA_FIREBASE_STATUS = 'booting';
+  W.HHA_FIREBASE_APP = null;
+  W.HHA_FIREBASE_DB = null;
+  W.HHA_FIREBASE_AUTH = null;
+  W.HHA_FIREBASE_USER = null;
+  W.HHA_FIREBASE_UID = '';
+  W.HHA_FIREBASE_INIT_AT = Date.now();
+
+  let signInStarted = false;
+  let settled = false;
+
+  function setError(err) {
+    const msg = err && err.message ? err.message : String(err || 'Unknown Firebase error');
+    W.HHA_FIREBASE_ERROR = msg;
+    W.HHA_FIREBASE_STATUS = 'error';
+    console.error('[HHA] Firebase error:', err);
+    try {
+      W.dispatchEvent(new CustomEvent('hha:firebase-error', {
+        detail: { message: msg, error: err || null }
+      }));
+    } catch (_) {}
   }
 
-  try {
-    const app = firebase.apps && firebase.apps.length
-      ? firebase.app()
-      : firebase.initializeApp(cfg);
-
-    const db = firebase.database(app);
-    const auth = firebase.auth(app);
-
-    window.HHA_FIREBASE_APP = app;
-    window.HHA_FIREBASE_DB = db;
-    window.HHA_FIREBASE_AUTH = auth;
-
-    auth.onAuthStateChanged(async (user) => {
-      try {
-        if (!user) {
-          await auth.signInAnonymously();
-          return;
+  function setReady(user) {
+    W.HHA_FIREBASE_USER = user || null;
+    W.HHA_FIREBASE_UID = user && user.uid ? user.uid : '';
+    W.HHA_FIREBASE_READY = true;
+    W.HHA_FIREBASE_ERROR = '';
+    W.HHA_FIREBASE_STATUS = 'ready';
+    console.log('[HHA] Firebase ready:', W.HHA_FIREBASE_UID);
+    try {
+      W.dispatchEvent(new CustomEvent('hha:firebase-ready', {
+        detail: {
+          uid: W.HHA_FIREBASE_UID,
+          user: W.HHA_FIREBASE_USER,
+          db: W.HHA_FIREBASE_DB,
+          auth: W.HHA_FIREBASE_AUTH,
+          app: W.HHA_FIREBASE_APP
         }
-        window.HHA_FIREBASE_USER = user;
-        window.HHA_FIREBASE_UID = user.uid;
-        window.HHA_FIREBASE_READY = true;
-        console.log('[HHA] Firebase ready:', user.uid);
-      } catch (err) {
-        window.HHA_FIREBASE_ERROR = err?.message || String(err);
-        console.error('[HHA] auth ready failed', err);
-      }
-    });
-  } catch (err) {
-    window.HHA_FIREBASE_ERROR = err?.message || String(err);
-    console.error('[HHA] Firebase init failed', err);
+      }));
+    } catch (_) {}
   }
+
+  W.HHA_FIREBASE_READY_PROMISE = new Promise((resolve, reject) => {
+    if (!W.firebase) {
+      const err = new Error('Firebase SDK not loaded');
+      setError(err);
+      reject(err);
+      return;
+    }
+
+    try {
+      const app = firebase.apps && firebase.apps.length
+        ? firebase.app()
+        : firebase.initializeApp(cfg);
+
+      const db = firebase.database(app);
+      const auth = firebase.auth(app);
+
+      W.HHA_FIREBASE_APP = app;
+      W.HHA_FIREBASE_DB = db;
+      W.HHA_FIREBASE_AUTH = auth;
+      W.HHA_FIREBASE_STATUS = 'initializing';
+
+      auth.onAuthStateChanged(async (user) => {
+        if (settled && user) return;
+
+        try {
+          if (!user) {
+            if (signInStarted) return;
+            signInStarted = true;
+            W.HHA_FIREBASE_STATUS = 'signing-in';
+            await auth.signInAnonymously();
+            return;
+          }
+
+          settled = true;
+          setReady(user);
+          resolve({
+            app: W.HHA_FIREBASE_APP,
+            db: W.HHA_FIREBASE_DB,
+            auth: W.HHA_FIREBASE_AUTH,
+            user: W.HHA_FIREBASE_USER,
+            uid: W.HHA_FIREBASE_UID
+          });
+        } catch (err) {
+          if (settled) return;
+          settled = true;
+          setError(err);
+          reject(err);
+        }
+      }, (err) => {
+        if (settled) return;
+        settled = true;
+        setError(err);
+        reject(err);
+      });
+
+    } catch (err) {
+      if (settled) return;
+      settled = true;
+      setError(err);
+      reject(err);
+    }
+  });
 })();
