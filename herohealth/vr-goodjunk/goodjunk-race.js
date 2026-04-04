@@ -3,7 +3,7 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-race.js
  * GoodJunk Race Controller
- * FULL PATCH v20260404-race-controller-compare-full
+ * FULL PATCH v20260404-race-controller-compare-cloud-full
  * ========================================================= */
 (function(){
   var W = window;
@@ -55,7 +55,7 @@
 
   function cfgVersioned(path) {
     var u = new URL(path, location.href);
-    u.searchParams.set('v', '20260404-race-controller-compare-full');
+    u.searchParams.set('v', '20260404-race-controller-compare-cloud-full');
     return u.toString();
   }
 
@@ -83,6 +83,7 @@
     uid: '',
     roomKind: clean(ctx.roomKind),
     refs: null,
+    meta: {},
     state: {},
     match: {},
     players: {},
@@ -90,12 +91,7 @@
     localSummary: null,
     resultSubmitted: false,
     finalSummarySent: false,
-    fallbackTimer: 0,
-    resultsOff: null,
-    stateOff: null,
-    matchOff: null,
-    playersOff: null,
-    metaOff: null
+    fallbackTimer: 0
   };
 
   function debug(tag, extra) {
@@ -108,11 +104,127 @@
       matchStatus: S.match && S.match.status,
       participantIds: Array.isArray(S.state && S.state.participantIds) ? S.state.participantIds : [],
       resultCount: Object.keys(S.results || {}).length,
+      finalCount: Array.isArray(S.results ? Object.keys(S.results) : []) ? Object.keys(S.results || {}).length : 0,
       runStarted: S.appReady,
       resultSubmitted: S.resultSubmitted,
       finalSummarySent: S.finalSummarySent,
       extra: extra || {}
     });
+  }
+
+  function getRaceLogger() {
+    return (
+      W.HHACloudLogger ||
+      W.HHA_CLOUD_LOGGER ||
+      W.hhaCloudLogger ||
+      W.__HHA_CLOUD_LOGGER__ ||
+      null
+    );
+  }
+
+  function buildRaceLogBase() {
+    return {
+      game: 'goodjunk',
+      zone: 'nutrition',
+      mode: 'race',
+      roomId: ctx.roomId || '',
+      roomKind: S.roomKind || ctx.roomKind || '',
+      pid: ctx.pid || '',
+      name: ctx.name || '',
+      role: ctx.role || '',
+      diff: ctx.diff || '',
+      time: num(ctx.time, 0),
+      seed: String(ctx.seed || ''),
+      view: ctx.view || '',
+      host: String(ctx.host || '0'),
+      ts: now()
+    };
+  }
+
+  function queueRaceLogFallback(payload) {
+    try {
+      var key = 'HHA_RACE_LOG_QUEUE';
+      var raw = localStorage.getItem(key);
+      var arr = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(arr)) arr = [];
+      arr.push(payload);
+      if (arr.length > 200) arr = arr.slice(arr.length - 200);
+      localStorage.setItem(key, JSON.stringify(arr));
+    } catch (_) {}
+  }
+
+  async function emitRaceCloudLog(eventName, detail) {
+    var payload = Object.assign({}, buildRaceLogBase(), {
+      event: String(eventName || 'race_event')
+    }, detail || {});
+
+    var logger = getRaceLogger();
+
+    try {
+      if (!logger) throw new Error('logger missing');
+
+      if (typeof logger.logEvent === 'function') {
+        await Promise.resolve(logger.logEvent(payload));
+        return true;
+      }
+      if (typeof logger.track === 'function') {
+        await Promise.resolve(logger.track(payload.event, payload));
+        return true;
+      }
+      if (typeof logger.emit === 'function') {
+        await Promise.resolve(logger.emit(payload.event, payload));
+        return true;
+      }
+      if (typeof logger.send === 'function') {
+        await Promise.resolve(logger.send(payload));
+        return true;
+      }
+      if (typeof logger.push === 'function') {
+        await Promise.resolve(logger.push(payload));
+        return true;
+      }
+
+      throw new Error('logger api unsupported');
+    } catch (err) {
+      console.warn('[GJ-RACE-CTRL] cloud log fallback', payload, err);
+      queueRaceLogFallback(payload);
+      return false;
+    }
+  }
+
+  async function flushRaceLogFallbackQueue() {
+    var logger = getRaceLogger();
+    if (!logger) return false;
+
+    try {
+      var key = 'HHA_RACE_LOG_QUEUE';
+      var raw = localStorage.getItem(key);
+      var arr = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(arr) || !arr.length) return true;
+
+      for (var i = 0; i < arr.length; i++) {
+        var payload = arr[i];
+        if (typeof logger.logEvent === 'function') {
+          await Promise.resolve(logger.logEvent(payload));
+        } else if (typeof logger.track === 'function') {
+          await Promise.resolve(logger.track(payload.event, payload));
+        } else if (typeof logger.emit === 'function') {
+          await Promise.resolve(logger.emit(payload.event, payload));
+        } else if (typeof logger.send === 'function') {
+          await Promise.resolve(logger.send(payload));
+        } else if (typeof logger.push === 'function') {
+          await Promise.resolve(logger.push(payload));
+        } else {
+          return false;
+        }
+      }
+
+      localStorage.removeItem(key);
+      return true;
+    } catch (err) {
+      console.warn('[GJ-RACE-CTRL] flush queue failed', err);
+      return false;
+    }
   }
 
   function roomPath(kind, roomId) {
@@ -137,7 +249,7 @@
       await loadExternalScript('https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js');
     }
 
-    if (!W.HHA_FIREBASE_CONFIG && !W.firebaseConfig && !W.__firebaseConfig) {
+    if (!W.HHA_FIREBASE_CONFIG && !W.firebaseConfig && !W.__firebaseConfig && !W.FIREBASE_CONFIG) {
       await loadExternalScript(cfgVersioned('../firebase-config.js'));
     }
 
@@ -273,16 +385,17 @@
     var opponent = null;
 
     for (var i = 0; i < standings.length; i++) {
-      var row = standings[i];
-      if (String(row.pid) === String(ctx.pid)) {
-        me = row;
+      if (String(standings[i].pid) === String(ctx.pid)) {
+        me = standings[i];
+        break;
       }
     }
 
+    if (!me && standings.length) me = standings[0];
+
     for (var j = 0; j < standings.length; j++) {
-      var row2 = standings[j];
-      if (!me || String(row2.pid) !== String(me.pid)) {
-        opponent = row2;
+      if (!me || String(standings[j].pid) !== String(me.pid)) {
+        opponent = standings[j];
         break;
       }
     }
@@ -315,8 +428,7 @@
   }
 
   async function submitOwnResult(summary) {
-    if (!S.refs) return;
-    if (!summary) return;
+    if (!S.refs || !summary) return;
 
     S.localSummary = summary;
 
@@ -346,6 +458,19 @@
     }).catch(function(){});
 
     S.resultSubmitted = true;
+
+    await emitRaceCloudLog('race_result_submitted', {
+      roundId: String((S.state && S.state.roundId) || ''),
+      score: num(summary.score, 0),
+      miss: num(summary.miss, 0),
+      goodHit: num(summary.goodHit, 0),
+      junkHit: num(summary.junkHit, 0),
+      bestStreak: num(summary.bestStreak, 0),
+      duration: num(summary.duration, 0),
+      reason: clean(summary.reason || 'finished'),
+      participantIds: Array.isArray(S.state && S.state.participantIds) ? S.state.participantIds : []
+    });
+
     debug('submitOwnResult', { score: summary.score });
   }
 
@@ -353,10 +478,11 @@
     if (!S.refs) return;
     if (!Array.isArray(standings) || standings.length < 2) return;
     if (S.finalSummarySent && String((S.state && S.state.status) || '') === 'ended') return;
-    if (!(String(ctx.host) === '1' || String((S.players[ctx.pid] && S.players[ctx.pid].pid) || '') === String((S.state && S.state.hostPid) || ''))) {
-      if (!(S.state && Array.isArray(S.state.participantIds) && S.state.participantIds[0] === ctx.pid)) {
-        return;
-      }
+
+    var currentParticipants = Array.isArray(S.state && S.state.participantIds) ? S.state.participantIds : [];
+    var iAmFirstParticipant = currentParticipants.length ? String(currentParticipants[0]) === String(ctx.pid) : false;
+    if (!(String(ctx.host) === '1' || iAmFirstParticipant)) {
+      return;
     }
 
     var winner = standings[0] || null;
@@ -379,15 +505,48 @@
       updatedAt: now()
     }).catch(function(){});
 
+    await emitRaceCloudLog('race_match_finalized', {
+      roundId: String((S.state && S.state.roundId) || ''),
+      winnerId: winner ? winner.pid : '',
+      loserId: loser ? loser.pid : '',
+      participantIds: standings.map(function(r){ return r.pid; }),
+      standings: standings.map(function(r){
+        return {
+          pid: r.pid,
+          nick: r.nick,
+          rank: num(r.rank, 0),
+          score: num(r.score, 0),
+          miss: num(r.miss, 0),
+          goodHit: num(r.goodHit, 0),
+          junkHit: num(r.junkHit, 0),
+          bestStreak: num(r.bestStreak, 0),
+          duration: num(r.duration, 0)
+        };
+      })
+    });
+
     debug('finalizeRoomIfNeeded', {
       winnerId: winner ? winner.pid : '',
       loserId: loser ? loser.pid : ''
     });
   }
 
-  function emitFinalCompareSummary(standings) {
+  async function emitFinalCompareSummary(standings) {
     var summary = buildCompareSummary(standings);
     S.finalSummarySent = true;
+
+    await emitRaceCloudLog('race_compare_summary_sent', {
+      roundId: String((S.state && S.state.roundId) || ''),
+      rank: num(summary.rank, 0),
+      score: num(summary.score, 0),
+      players: num(summary.players, 0),
+      miss: num(summary.miss, 0),
+      goodHit: num(summary.goodHit, 0),
+      junkHit: num(summary.junkHit, 0),
+      bestStreak: num(summary.bestStreak, 0),
+      compare: summary.compare || null
+    });
+
     dispatch('gj:race-summary', summary);
     debug('emitFinalCompareSummary', {
       rank: summary.rank,
@@ -410,6 +569,7 @@
 
     S.fallbackTimer = setTimeout(function(){
       if (S.finalSummarySent) return;
+
       var localOnly = {
         controllerFinal: true,
         roomId: ctx.roomId,
@@ -429,7 +589,22 @@
         standings: computeStandings(S.results || {}),
         compare: null
       };
+
       S.finalSummarySent = true;
+
+      emitRaceCloudLog('race_fallback_summary_sent', {
+        roundId: String((S.state && S.state.roundId) || ''),
+        score: num(localOnly.score, 0),
+        players: num(localOnly.players, 0),
+        miss: num(localOnly.miss, 0),
+        goodHit: num(localOnly.goodHit, 0),
+        junkHit: num(localOnly.junkHit, 0),
+        bestStreak: num(localOnly.bestStreak, 0),
+        reason: clean(localOnly.reason || 'fallback-local')
+      }).catch(function(err){
+        console.warn('[GJ-RACE-CTRL] fallback log failed', err);
+      });
+
       dispatch('gj:race-summary', localOnly);
       debug('fallbackSummary', localOnly);
     }, 6500);
@@ -445,7 +620,7 @@
     if (count >= 2) {
       maybeClearFallbackTimer();
       await finalizeRoomIfNeeded(standings);
-      emitFinalCompareSummary(standings);
+      await emitFinalCompareSummary(standings);
       return;
     }
 
@@ -472,6 +647,15 @@
     debug('playersChanged', { count: Object.keys(S.players || {}).length });
   }
 
+  async function onMetaChanged(snap) {
+    S.meta = snap.val() || {};
+    debug('metaChanged', {
+      hostPid: S.meta.hostPid || '',
+      diff: S.meta.diff || '',
+      seed: S.meta.seed || ''
+    });
+  }
+
   function bindSummaryCapture() {
     function handler(evt) {
       var detail = evt && evt.detail ? evt.detail : null;
@@ -479,9 +663,16 @@
       if (detail && detail.controllerFinal === true) return;
 
       var normalized = normalizeIncomingSummary(detail);
+
       submitOwnResult(normalized)
-        .then(function(){ return onResultsChanged({ val: function(){ return S.results || {}; } }); })
-        .catch(function(err){ console.error('[GJ-RACE-CTRL] submit summary failed', err); });
+        .then(function(){
+          return onResultsChanged({
+            val: function(){ return S.results || {}; }
+          });
+        })
+        .catch(function(err){
+          console.error('[GJ-RACE-CTRL] submit summary failed', err);
+        });
     }
 
     W.addEventListener('gj:summary', handler);
@@ -500,9 +691,30 @@
     var root = S.db.ref(roomPath(S.roomKind, ctx.roomId));
     S.refs = buildRefs(root);
 
-    S.refs.state.on('value', onStateChanged);
-    S.refs.match.on('value', onMatchChanged);
-    S.refs.players.on('value', onPlayersChanged);
+    S.refs.meta.on('value', function(snap){
+      onMetaChanged(snap).catch(function(err){
+        console.error('[GJ-RACE-CTRL] meta watcher failed', err);
+      });
+    });
+
+    S.refs.state.on('value', function(snap){
+      onStateChanged(snap).catch(function(err){
+        console.error('[GJ-RACE-CTRL] state watcher failed', err);
+      });
+    });
+
+    S.refs.match.on('value', function(snap){
+      onMatchChanged(snap).catch(function(err){
+        console.error('[GJ-RACE-CTRL] match watcher failed', err);
+      });
+    });
+
+    S.refs.players.on('value', function(snap){
+      onPlayersChanged(snap).catch(function(err){
+        console.error('[GJ-RACE-CTRL] players watcher failed', err);
+      });
+    });
+
     S.refs.results.on('value', function(snap){
       onResultsChanged(snap).catch(function(err){
         console.error('[GJ-RACE-CTRL] results watcher failed', err);
@@ -531,9 +743,16 @@
   async function init() {
     try {
       await ensureFirebase();
+      await flushRaceLogFallbackQueue().catch(function(){});
       await initRoomBindings();
       bindSummaryCapture();
       S.appReady = true;
+
+      await emitRaceCloudLog('race_controller_ready', {
+        roundId: String((S.state && S.state.roundId) || ''),
+        participantIds: Array.isArray(S.state && S.state.participantIds) ? S.state.participantIds : []
+      });
+
       debug('ready', {
         roomId: ctx.roomId,
         roomKind: S.roomKind,
