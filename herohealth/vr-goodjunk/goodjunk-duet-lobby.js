@@ -3,11 +3,11 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
  * GoodJunk Duet Lobby
- * FULL PATCH v20260402-gjduet-lobby-r14
- * - stable firebase boot
- * - host fallback / countdown reset
- * - rematch vote + host reset
- * - paired with goodjunk.safe.duet.js r10
+ * FULL PATCH v20260404-gjduet-lobby-r15
+ * - align firebase boot with firebase-config.js
+ * - avoid duplicate anonymous sign-in
+ * - send roomCode to run page
+ * - keep rematch / countdown / host fallback logic
  * ========================================================= */
 (function(){
   const W = window;
@@ -77,7 +77,7 @@
     run: qs('run', 'play'),
     gameId: qs('gameId', 'goodjunk'),
     zone: qs('zone', 'nutrition'),
-    roomId: cleanRoom(qs('roomId', qs('room', '')))
+    roomId: cleanRoom(qs('roomId', qs('room', qs('roomCode', ''))))
   };
 
   const S = {
@@ -248,13 +248,14 @@
     const src = new URL(location.href);
 
     src.searchParams.forEach((value, key) => {
-      if (key === 'roomId' || key === 'room' || key === 'autojoin' || key === 'rematch') return;
+      if (key === 'roomId' || key === 'room' || key === 'roomCode' || key === 'autojoin' || key === 'rematch') return;
       url.searchParams.set(key, value);
     });
 
     url.searchParams.set('mode', 'duet');
     url.searchParams.set('roomId', roomId);
     url.searchParams.set('room', roomId);
+    url.searchParams.set('roomCode', roomId);
     url.searchParams.set('hub', ctx.hub);
     url.searchParams.set('gameId', ctx.gameId);
     url.searchParams.set('zone', ctx.zone);
@@ -271,7 +272,7 @@
     const src = new URL(location.href);
 
     src.searchParams.forEach((value, key) => {
-      if (key === 'roomId' || key === 'room' || key === 'autojoin' || key === 'rematch') return;
+      if (key === 'roomId' || key === 'room' || key === 'roomCode' || key === 'autojoin' || key === 'rematch') return;
       url.searchParams.set(key, value);
     });
 
@@ -281,6 +282,7 @@
     url.searchParams.set('entry', 'duet-lobby');
     url.searchParams.set('roomId', S.roomId);
     url.searchParams.set('room', S.roomId);
+    url.searchParams.set('roomCode', S.roomId);
     url.searchParams.set('pid', ctx.uid || 'anon');
     url.searchParams.set('name', ctx.name);
     url.searchParams.set('nick', ctx.name);
@@ -305,6 +307,7 @@
       const u = new URL(location.href);
       u.searchParams.set('roomId', roomId);
       u.searchParams.set('room', roomId);
+      u.searchParams.set('roomCode', roomId);
       history.replaceState(null, '', u.toString());
     }catch(_){}
   }
@@ -522,58 +525,60 @@
   }
 
   async function waitForFirebaseReady(timeoutMs = FIREBASE_WAIT_MS){
-    const start = Date.now();
+    const startedAt = Date.now();
 
-    while ((Date.now() - start) < timeoutMs){
-      try{
-        if (W.HHA_FIREBASE_READY && W.HHA_FIREBASE_DB) return true;
+    while (Date.now() - startedAt < timeoutMs) {
+      if (W.HHA_FIREBASE_READY && W.HHA_FIREBASE_DB && W.HHA_FIREBASE_AUTH) {
+        S.db = W.HHA_FIREBASE_DB || S.db;
+        return true;
+      }
 
-        if (W.firebase && firebase.apps && firebase.apps.length) {
-          if (typeof firebase.database === 'function' && typeof firebase.auth === 'function') {
-            try { S.db = firebase.database(); } catch(_) {}
-            return true;
-          }
-        }
+      if (W.HHA_FIREBASE_ERROR) {
+        throw new Error(W.HHA_FIREBASE_ERROR);
+      }
 
-        if (typeof W.HHA_ENSURE_FIREBASE_DB === 'function') {
-          const db = W.HHA_ENSURE_FIREBASE_DB();
-          if (db) {
-            S.db = db;
-            return true;
-          }
-        }
-      }catch(_){}
-
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 120));
     }
 
-    throw new Error('firebase not ready');
+    throw new Error(W.HHA_FIREBASE_ERROR || 'firebase not ready');
   }
 
   async function ensureAuth(){
     await waitForFirebaseReady();
 
-    if (typeof W.HHA_ensureAnonymousAuth === 'function') {
-      const user = await W.HHA_ensureAnonymousAuth();
-      if (!user || !user.uid) throw new Error('anonymous auth failed');
-      ctx.uid = user.uid;
-      return user;
+    const auth =
+      W.HHA_FIREBASE_AUTH ||
+      (W.firebase && W.firebase.auth ? W.firebase.auth() : null);
+
+    if (!auth) {
+      throw new Error('firebase auth sdk not loaded');
     }
 
-    if (W.firebase && firebase.apps && firebase.apps.length && typeof firebase.auth === 'function') {
-      const auth = firebase.auth();
-      if (!auth.currentUser) {
-        const cred = await auth.signInAnonymously();
-        const user = (cred && cred.user) || auth.currentUser;
-        if (!user || !user.uid) throw new Error('anonymous auth failed');
-        ctx.uid = user.uid;
-        return user;
-      }
+    if (auth.currentUser && auth.currentUser.uid) {
       ctx.uid = auth.currentUser.uid;
       return auth.currentUser;
     }
 
-    throw new Error('anonymous auth unavailable');
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < FIREBASE_WAIT_MS) {
+      if (auth.currentUser && auth.currentUser.uid) {
+        ctx.uid = auth.currentUser.uid;
+        return auth.currentUser;
+      }
+
+      if (W.HHA_FIREBASE_UID) {
+        ctx.uid = W.HHA_FIREBASE_UID;
+        return auth.currentUser || { uid: W.HHA_FIREBASE_UID };
+      }
+
+      if (W.HHA_FIREBASE_ERROR) {
+        throw new Error(W.HHA_FIREBASE_ERROR);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 120));
+    }
+
+    throw new Error('anonymous auth timeout');
   }
 
   function getDb(){
@@ -582,12 +587,8 @@
       S.db = W.HHA_FIREBASE_DB;
       return S.db;
     }
-    if (W.firebase && firebase.apps && firebase.apps.length && typeof firebase.database === 'function') {
-      S.db = firebase.database();
-      return S.db;
-    }
-    if (typeof W.HHA_ENSURE_FIREBASE_DB === 'function') {
-      S.db = W.HHA_ENSURE_FIREBASE_DB();
+    if (W.firebase && W.firebase.database) {
+      S.db = W.firebase.database();
       return S.db;
     }
     throw new Error('firebase db not ready');
@@ -602,11 +603,6 @@
       }catch(err){
         lastErr = err;
         console.warn('[gj-duet-lobby]', label, 'failed try', i + 1, err && err.message ? err.message : err);
-        try {
-          if (typeof W.HHA_ensureAnonymousAuth === 'function') {
-            await W.HHA_ensureAnonymousAuth();
-          }
-        } catch(_) {}
         await new Promise(resolve => setTimeout(resolve, 250));
       }
     }
@@ -1204,7 +1200,10 @@
 
       setHint('กำลังเชื่อม Firebase...');
       await ensureAuth();
-      await new Promise(resolve => setTimeout(resolve, 250));
+
+      if (!ctx.uid) {
+        throw new Error('missing firebase uid');
+      }
 
       if (ctx.roomId) {
         attachRefs(ctx.roomId);
@@ -1223,7 +1222,7 @@
       const msg = err && err.message ? err.message : String(err || 'unknown');
       setHint(`เริ่ม Duet Lobby ไม่สำเร็จ: ${msg}`);
       setCopyState('ตรวจ firebase-config.js / auth / duetRooms rules แล้วลองใหม่', true);
-      showGuard('permission denied หรือ firebase ยังไม่พร้อม');
+      showGuard(msg || 'permission denied หรือ firebase ยังไม่พร้อม');
     }
   }
 
