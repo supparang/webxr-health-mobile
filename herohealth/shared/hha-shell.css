@@ -1,0 +1,225 @@
+/* /herohealth/shared/hha-shell.css */
+:root{
+  --hha-bg1:#eaf9ff;
+  --hha-bg2:#d9f3ff;
+  --hha-card:#ffffff;
+  --hha-line:#cfe6f5;
+  --hha-text:#24415c;
+  --hha-muted:#6f8aa2;
+  --hha-green:#7fd957;
+  --hha-green2:#59bf39;
+  --hha-blue:#62bdf5;
+  --hha-blue2:#409fe0;
+  --hha-yellow:#ffd85f;
+  --hha-orange:#ffb54a;
+  --hha-shadow:0 18px 40px rgba(36,65,92,.14);
+  --hha-shadow-soft:0 10px 22px rgba(36,65,92,.10);
+  --hha-r-xl:28px;
+  --hha-r-lg:22px;
+  --hha-r-md:16px;
+}
+
+.hha-card,
+.brief-card,
+.mission-card,
+.stage-card,
+.stat-card,
+.summary-card,
+.quiz-card{
+  background:rgba(255,255,255,.92);
+  border:1px solid rgba(255,255,255,.92);
+  border-radius:var(--hha-r-lg);
+  box-shadow:var(--hha-shadow-soft);
+}
+
+.hha-pill,
+.brief-pill,
+.score-pill,
+.result-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  background:#fff;
+  color:#486b85;
+  border:1px solid var(--hha-line);
+  border-radius:999px;
+  padding:10px 14px;
+  font-weight:1000;
+  box-shadow:var(--hha-shadow-soft);
+}
+
+.hha-pill.good{ background:#eefbea; color:#4d8445; border-color:#cfe9c3; }
+.hha-pill.warn{ background:#fff4de; color:#94670d; border-color:#f2d38c; }
+.hha-pill.alert{ background:#fff1f1; color:#bf4e5b; border-color:#f1c0c7; }
+
+.hha-btn,
+.big-btn,
+.mini-btn,
+.quiz-option,
+.item-btn,
+.tool-fab,
+.icon-btn{
+  border:1px solid rgba(255,255,255,.86);
+  box-shadow:var(--hha-shadow-soft);
+}
+
+.hha-btn{
+  border-radius:18px;
+  padding:16px 20px;
+  font-weight:1000;
+  font-size:18px;
+  cursor:pointer;
+}
+
+.hha-btn-primary,
+.big-btn.primary{
+  background:linear-gradient(180deg,var(--hha-green),var(--hha-green2));
+  color:#fff;
+}
+
+.hha-btn-soft,
+.big-btn.soft{
+  background:#fff;
+  color:#4d7896;
+  border:1px solid var(--hha-line);
+}
+
+.hha-summary-shell,
+.summary-card{
+  padding:18px;
+  margin-top:14px;
+}
+
+.hha-summary-title,
+.summary-title{
+  margin:0 0 8px;
+  font-size:32px;
+  line-height:1.08;
+}
+
+.hha-summary-stars,
+.summary-stars{
+  font-size:34px;
+  letter-spacing:6px;
+  color:#ffcf47;
+  margin-bottom:8px;
+}
+
+.hha-copy,
+.summary-text,
+.quiz-sub,
+.brief-sub{
+  color:var(--hha-muted);
+  line-height:1.6;
+  font-weight:800;
+}
+
+.hha-pill-wrap,
+.brief-stats{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:16px;
+}
+
+.hha-action-row,
+.summary-actions,
+.quiz-actions,
+.brief-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-top:16px;
+}
+
+.hha-reward-grid,
+.reward-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-top:12px;
+}
+
+.hha-reward-chip,
+.reward-chip{
+  padding:12px;
+  border-radius:18px;
+  background:#fff;
+  border:1px solid #d9ebf6;
+  box-shadow:var(--hha-shadow-soft);
+  text-align:center;
+}
+
+.hha-reward-chip .k,
+.reward-chip .k{
+  display:block;
+  font-size:12px;
+  font-weight:1000;
+  color:#5f86a2;
+  text-transform:uppercase;
+  letter-spacing:.4px;
+  margin-bottom:6px;
+}
+
+.hha-reward-chip .v,
+.reward-chip .v{
+  display:block;
+  font-size:18px;
+  font-weight:1000;
+  color:#355b77;
+}
+
+.hha-reward-badges,
+.reward-badges{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:12px;
+  justify-content:center;
+}
+
+.hha-reward-badge,
+.reward-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 12px;
+  border-radius:999px;
+  background:#fff8df;
+  border:1px solid #efd28a;
+  color:#8a6308;
+  font-size:13px;
+  font-weight:1000;
+  box-shadow:var(--hha-shadow-soft);
+}
+
+.hha-reward-badge.is-new,
+.reward-badge.is-new{
+  background:#eefbea;
+  border-color:#cfe9c3;
+  color:#4d8445;
+}
+
+.hha-section-note{
+  margin-top:10px;
+  color:#5f7d96;
+  line-height:1.6;
+  font-weight:800;
+}
+
+@media (max-width:900px){
+  .hha-reward-grid,
+  .reward-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width:720px){
+  .hha-action-row,
+  .summary-actions,
+  .quiz-actions,
+  .brief-actions{
+    flex-direction:column;
+  }
+}
