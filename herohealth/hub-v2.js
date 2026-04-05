@@ -344,3 +344,223 @@
   window.addEventListener('focus', bootLauncherStorageBridge);
   window.addEventListener('storage', bootLauncherStorageBridge);
 })();
+(function () {
+  'use strict';
+
+  const STORAGE_KEYS = {
+    hygiene: 'HH_HYGIENE_LAST_GAME_V1',
+    nutrition: 'HH_NUTRITION_LAST_GAME_V1',
+    fitness: 'HH_FITNESS_LAST_GAME_V1'
+  };
+
+  const GAME_PATHS = {
+    hygiene: {
+      bath: './bath-vr.html',
+      brush: './brush-vr.html',
+      handwash: './handwash-v2.html',
+      'clean-objects': './clean-objects-kids.html',
+      'mask-cough': './maskcough-v2.html',
+      'germ-detective': './germ-detective.html'
+    },
+    nutrition: {
+      goodjunk: './goodjunk-launcher.html',
+      groups: './groups-vr.html',
+      plate: './plate-vr.html',
+      hydration: './hydration-v2.html'
+    },
+    fitness: {
+      'shadow-breaker': './shadow-breaker-vr.html',
+      'rhythm-boxer': './rhythm-boxer-vr.html',
+      'jump-duck': './jump-duck-vr.html',
+      'balance-hold': './balance-hold-vr.html',
+      'fitness-planner': './fitness-planner.html'
+    }
+  };
+
+  const NEXT_GAME_MAP = {
+    hygiene: {
+      bath: 'brush',
+      brush: 'handwash',
+      handwash: 'clean-objects',
+      'clean-objects': 'mask-cough',
+      'mask-cough': 'germ-detective',
+      'germ-detective': 'bath'
+    },
+    nutrition: {
+      goodjunk: 'groups',
+      groups: 'plate',
+      plate: 'hydration',
+      hydration: 'goodjunk'
+    },
+    fitness: {
+      'shadow-breaker': 'rhythm-boxer',
+      'rhythm-boxer': 'jump-duck',
+      'jump-duck': 'balance-hold',
+      'balance-hold': 'fitness-planner',
+      'fitness-planner': 'shadow-breaker'
+    }
+  };
+
+  const ZONE_FALLBACKS = {
+    hygiene: './hygiene-zone.html',
+    nutrition: './nutrition-zone.html',
+    fitness: './fitness-zone.html'
+  };
+
+  function safeParse(raw, fallback = null) {
+    try { return JSON.parse(raw); } catch (_) { return fallback; }
+  }
+
+  function readSnapshot(zone) {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS[zone]);
+      if (!raw) return null;
+      const data = safeParse(raw, null);
+      if (!data?.gameId || !data?.ts) return null;
+      return {
+        zone,
+        gameId: data.gameId,
+        ts: Number(data.ts) || 0,
+        mode: data.mode || '',
+        time: data.time || ''
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function getAllSnapshots() {
+    return Object.keys(STORAGE_KEYS)
+      .map(readSnapshot)
+      .filter(Boolean)
+      .sort((a, b) => b.ts - a.ts);
+  }
+
+  function getLatestSnapshot() {
+    return getAllSnapshots()[0] || null;
+  }
+
+  function buildBaseSearchParams() {
+    const q = new URLSearchParams(location.search);
+    const out = new URLSearchParams();
+
+    [
+      'pid',
+      'name',
+      'nick',
+      'studyId',
+      'run',
+      'view',
+      'diff',
+      'seed',
+      'debug',
+      'api',
+      'log'
+    ].forEach((k) => {
+      const v = q.get(k);
+      if (v != null && v !== '') out.set(k, v);
+    });
+
+    return out;
+  }
+
+  function buildZoneUrl(zone) {
+    const out = new URL(ZONE_FALLBACKS[zone] || './hub-v2.html', location.href);
+    const params = buildBaseSearchParams();
+
+    params.set('zone', zone);
+    params.set('mode', new URLSearchParams(location.search).get('mode') || 'play');
+    params.set('time', new URLSearchParams(location.search).get('time') || '90');
+    params.set('hub', location.href);
+
+    out.search = params.toString();
+    return out.toString();
+  }
+
+  function buildGameUrl(zone, gameId, mode, time) {
+    const path = GAME_PATHS[zone]?.[gameId];
+    if (!path) return buildZoneUrl(zone);
+
+    const out = new URL(path, location.href);
+    const params = buildBaseSearchParams();
+
+    params.set('zone', zone);
+    params.set('cat', zone);
+    params.set('gameId', gameId);
+    params.set('game', gameId);
+    params.set('mode', mode || new URLSearchParams(location.search).get('mode') || 'play');
+    params.set('time', time || new URLSearchParams(location.search).get('time') || '90');
+    params.set('hub', location.href);
+
+    out.search = params.toString();
+    return out.toString();
+  }
+
+  function buildLatestGameUrl() {
+    const latest = getLatestSnapshot();
+    if (!latest) return buildZoneUrl('nutrition');
+    return buildGameUrl(latest.zone, latest.gameId, latest.mode, latest.time);
+  }
+
+  function buildNextGameUrl() {
+    const latest = getLatestSnapshot();
+    if (!latest) return buildZoneUrl('nutrition');
+
+    const nextGameId = NEXT_GAME_MAP[latest.zone]?.[latest.gameId];
+    if (!nextGameId) return buildZoneUrl(latest.zone);
+
+    return buildGameUrl(latest.zone, nextGameId, latest.mode, latest.time);
+  }
+
+  function replaceButtonHandler(id, handler) {
+    const oldEl = document.getElementById(id);
+    if (!oldEl || !oldEl.parentNode) return null;
+
+    const newEl = oldEl.cloneNode(true);
+    oldEl.parentNode.replaceChild(newEl, oldEl);
+    newEl.addEventListener('click', handler);
+    return newEl;
+  }
+
+  function patchRecentButtons() {
+    replaceButtonHandler('btnResumeNow', function () {
+      location.href = buildLatestGameUrl();
+    });
+
+    replaceButtonHandler('btnQuickRecent', function () {
+      location.href = buildLatestGameUrl();
+    });
+
+    replaceButtonHandler('btnNextInZone', function () {
+      location.href = buildNextGameUrl();
+    });
+  }
+
+  function patchTodayHints() {
+    const latest = getLatestSnapshot();
+    if (!latest) return;
+
+    const todayLastGame = document.getElementById('todayLastGame');
+    const todayNextGame = document.getElementById('todayNextGame');
+    const heroQuickline = document.getElementById('heroQuickline');
+
+    const nextGameId = NEXT_GAME_MAP[latest.zone]?.[latest.gameId] || '';
+    const nextLabel = nextGameId || 'ยังไม่มี';
+
+    if (todayLastGame) todayLastGame.textContent = latest.gameId;
+    if (todayNextGame) todayNextGame.textContent = nextLabel;
+    if (heroQuickline) {
+      heroQuickline.textContent = `ล่าสุดเล่น ${latest.gameId} • แนะนำต่อ ${nextLabel}`;
+    }
+  }
+
+  function bootResumeRealGamePatch() {
+    patchRecentButtons();
+    patchTodayHints();
+  }
+
+  document.addEventListener('DOMContentLoaded', bootResumeRealGamePatch);
+  window.addEventListener('load', bootResumeRealGamePatch);
+  window.addEventListener('focus', bootResumeRealGamePatch);
+  window.addEventListener('storage', bootResumeRealGamePatch);
+})();
