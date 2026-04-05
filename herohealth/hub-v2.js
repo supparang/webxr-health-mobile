@@ -1,333 +1,346 @@
-/* =========================================================
- * HeroHealth Hub v2
- * ZONE-FIRST PATCH
- * append to bottom of /herohealth/hub-v2.js
- * ========================================================= */
 (function () {
   'use strict';
 
-  const W = window;
-  const D = document;
+  const STORAGE_KEYS = {
+    hygiene: 'HH_HYGIENE_LAST_GAME_V1',
+    nutrition: 'HH_NUTRITION_LAST_GAME_V1',
+    fitness: 'HH_FITNESS_LAST_GAME_V1'
+  };
 
-  const PREVIEW_IDS = ['hygPreview', 'nutriPreview', 'fitPreview'];
   const LAST_ZONE_KEY = 'HHA_LAST_ZONE';
   const NEXT_ZONE_KEY = 'HHA_NEXT_ZONE';
   const RECOMMENDED_ZONE_KEY = 'HHA_RECOMMENDED_ZONE';
 
-  W.HH_DISABLE_HUB_ZONE_PREVIEW = true;
-
-  const ZONE_PATHS = {
-    hygiene: './hygiene-zone.html',
-    nutrition: './nutrition-zone.html',
-    fitness: './fitness-zone.html'
+  const ZONE_LABELS = {
+    hygiene: 'Hygiene Zone',
+    nutrition: 'Nutrition Zone',
+    fitness: 'Fitness Zone'
   };
 
-  const PASSTHROUGH_KEYS = [
-    'pid', 'name', 'nickName', 'studyId', 'run', 'diff', 'view', 'time',
-    'seed', 'debug', 'api', 'log', 'studentKey', 'schoolCode', 'classRoom',
-    'studentNo', 'conditionGroup', 'phase', 'gameId', 'game', 'zone'
-  ];
+  const ZONE_EMOJIS = {
+    hygiene: '🫧',
+    nutrition: '🥗',
+    fitness: '🏃'
+  };
 
-  function qsGet(key, fallback = '') {
+  const ZONE_CHIP_CLASSES = {
+    hygiene: 'hh-zone-chip hh-zone-chip--hygiene',
+    nutrition: 'hh-zone-chip hh-zone-chip--nutrition',
+    fitness: 'hh-zone-chip hh-zone-chip--fitness'
+  };
+
+  const DEFAULT_FEATURED = {
+    hygiene: 'germ-detective',
+    nutrition: 'goodjunk',
+    fitness: 'jump-duck'
+  };
+
+  const NEXT_GAME_MAP = {
+    hygiene: {
+      bath: 'brush',
+      brush: 'handwash',
+      handwash: 'clean-objects',
+      'clean-objects': 'mask-cough',
+      'mask-cough': 'germ-detective',
+      'germ-detective': 'bath'
+    },
+    nutrition: {
+      goodjunk: 'groups',
+      groups: 'plate',
+      plate: 'hydration',
+      hydration: 'goodjunk'
+    },
+    fitness: {
+      'shadow-breaker': 'rhythm-boxer',
+      'rhythm-boxer': 'jump-duck',
+      'jump-duck': 'balance-hold',
+      'balance-hold': 'fitness-planner',
+      'fitness-planner': 'shadow-breaker'
+    }
+  };
+
+  const GAME_LABELS = {
+    hygiene: {
+      bath: 'Bath',
+      brush: 'Brush',
+      handwash: 'Handwash',
+      'clean-objects': 'Clean Objects',
+      'mask-cough': 'Mask & Cough',
+      'germ-detective': 'Germ Detective'
+    },
+    nutrition: {
+      goodjunk: 'GoodJunk',
+      groups: 'Food Groups',
+      plate: 'Balanced Plate',
+      hydration: 'Hydration'
+    },
+    fitness: {
+      'shadow-breaker': 'Shadow Breaker',
+      'rhythm-boxer': 'Rhythm Boxer',
+      'jump-duck': 'Jump & Duck',
+      'balance-hold': 'Balance Hold',
+      'fitness-planner': 'Fitness Planner'
+    }
+  };
+
+  const RECENT_IDS = {
+    hygiene: {
+      featured: 'hygFeatured',
+      recentPill: 'hygRecentPill',
+      recentText: 'hygRecentText'
+    },
+    nutrition: {
+      featured: 'nutriFeatured',
+      recentPill: 'nutriRecentPill',
+      recentText: 'nutriRecentText'
+    },
+    fitness: {
+      featured: 'fitFeatured',
+      recentPill: 'fitRecentPill',
+      recentText: 'fitRecentText'
+    }
+  };
+
+  function $(id) {
+    return document.getElementById(id);
+  }
+
+  function safeParse(raw, fallback = null) {
     try {
-      const v = new URL(W.location.href).searchParams.get(key);
-      return v == null || v === '' ? fallback : v;
+      return JSON.parse(raw);
     } catch (_) {
       return fallback;
     }
   }
 
-  function setStore(key, val) {
-    try { localStorage.setItem(key, String(val || '')); } catch (_) {}
+  function setText(id, text) {
+    const el = $(id);
+    if (el) el.textContent = text;
   }
 
-  function getStore(key, fallback = '') {
+  function setHidden(id, hidden) {
+    const el = $(id);
+    if (el) el.hidden = !!hidden;
+  }
+
+  function readZoneSnapshot(zone) {
     try {
-      const v = localStorage.getItem(key);
-      return v == null || v === '' ? fallback : v;
+      const raw = localStorage.getItem(STORAGE_KEYS[zone]);
+      return raw ? safeParse(raw, null) : null;
     } catch (_) {
-      return fallback;
+      return null;
     }
   }
 
-  function isZoneKey(v) {
-    return v === 'hygiene' || v === 'nutrition' || v === 'fitness';
+  function gameLabel(zone, gameId) {
+    return GAME_LABELS[zone]?.[gameId] || gameId || '-';
   }
 
-  function setLastZone(zone) {
-    if (isZoneKey(zone)) setStore(LAST_ZONE_KEY, zone);
+  function nextGameForZone(zone, lastGameId) {
+    return NEXT_GAME_MAP[zone]?.[lastGameId] || DEFAULT_FEATURED[zone];
   }
 
-  function getLastZone() {
-    const z = getStore(LAST_ZONE_KEY, '');
-    return isZoneKey(z) ? z : '';
+  function nextZoneAfter(zone) {
+    if (zone === 'hygiene') return 'nutrition';
+    if (zone === 'nutrition') return 'fitness';
+    return 'hygiene';
   }
 
-  function getNextZone() {
-    const z = getStore(NEXT_ZONE_KEY, '');
-    return isZoneKey(z) ? z : '';
+  function formatDateTimeThai(ts) {
+    if (!ts) return '-';
+    try {
+      return new Date(ts).toLocaleString('th-TH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (_) {
+      return '-';
+    }
   }
 
-  function getRecommendedZone() {
-    const z = getStore(RECOMMENDED_ZONE_KEY, '');
-    return isZoneKey(z) ? z : '';
+  function isToday(ts) {
+    if (!ts) return false;
+    const d = new Date(ts);
+    const n = new Date();
+    return (
+      d.getFullYear() === n.getFullYear() &&
+      d.getMonth() === n.getMonth() &&
+      d.getDate() === n.getDate()
+    );
+  }
+
+  function getAllSnapshots() {
+    return Object.keys(STORAGE_KEYS)
+      .map((zone) => {
+        const snap = readZoneSnapshot(zone);
+        if (!snap?.gameId || !snap?.ts) return null;
+        return {
+          zone,
+          gameId: snap.gameId,
+          ts: Number(snap.ts) || 0,
+          mode: snap.mode || 'play',
+          time: snap.time || '90'
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.ts - a.ts);
+  }
+
+  function syncZonePointersFromSnapshots() {
+    const latest = getAllSnapshots()[0];
+    if (!latest) return;
+
+    const nextZone = nextZoneAfter(latest.zone);
+
+    try { localStorage.setItem(LAST_ZONE_KEY, latest.zone); } catch (_) {}
+    try { localStorage.setItem(NEXT_ZONE_KEY, nextZone); } catch (_) {}
+    try { localStorage.setItem(RECOMMENDED_ZONE_KEY, nextZone); } catch (_) {}
   }
 
   function buildZoneUrl(zone) {
-    const path = ZONE_PATHS[zone] || './hub-v2.html';
-    const u = new URL(path, W.location.href);
+    const map = {
+      hygiene: './hygiene-zone.html',
+      nutrition: './nutrition-zone.html',
+      fitness: './fitness-zone.html'
+    };
 
-    PASSTHROUGH_KEYS.forEach((k) => {
-      const v = qsGet(k, '');
-      if (v) u.searchParams.set(k, v);
+    const base = map[zone] || './hub-v2.html';
+    const q = new URLSearchParams(location.search);
+    const out = new URL(base, location.href);
+
+    [
+      'pid',
+      'name',
+      'nick',
+      'studyId',
+      'mode',
+      'time',
+      'run',
+      'view',
+      'diff',
+      'seed',
+      'debug',
+      'api',
+      'log'
+    ].forEach((k) => {
+      const v = q.get(k);
+      if (v != null && v !== '') out.searchParams.set(k, v);
     });
 
-    const pid = qsGet('pid', 'anon');
-    const name = qsGet('name', qsGet('nickName', 'Hero'));
-    const run = qsGet('run', 'play');
-    const diff = qsGet('diff', 'normal');
-    const view = qsGet('view', 'mobile');
-    const time = qsGet('time', '90');
+    out.searchParams.set('zone', zone);
+    out.searchParams.set('hub', location.href);
 
-    u.searchParams.set('pid', pid);
-    u.searchParams.set('name', name);
-    u.searchParams.set('run', run);
-    u.searchParams.set('diff', diff);
-    u.searchParams.set('view', view);
-    u.searchParams.set('time', time);
-    u.searchParams.set('zone', zone);
-    u.searchParams.set('hub', W.location.href);
-
-    return u.toString();
+    return out.toString();
   }
 
-  function goZone(zone) {
-    if (!isZoneKey(zone)) zone = 'nutrition';
-    setLastZone(zone);
-    W.location.href = buildZoneUrl(zone);
-  }
+  function renderZoneRecentAndFeatured() {
+    Object.keys(RECENT_IDS).forEach((zone) => {
+      const ids = RECENT_IDS[zone];
+      const snap = readZoneSnapshot(zone);
 
-  function hidePreviewElement(el) {
-    if (!el) return;
-    el.innerHTML = '';
-    el.hidden = true;
-    el.setAttribute('aria-hidden', 'true');
-    el.style.display = 'none';
-    el.style.visibility = 'hidden';
-    el.style.pointerEvents = 'none';
-    el.style.height = '0';
-    el.style.minHeight = '0';
-    el.style.margin = '0';
-    el.style.padding = '0';
-    el.style.overflow = 'hidden';
-  }
+      const featuredGameId = nextGameForZone(zone, snap?.gameId || '');
+      setText(ids.featured, gameLabel(zone, featuredGameId));
 
-  function stripZonePreview() {
-    PREVIEW_IDS.forEach((id) => hidePreviewElement(D.getElementById(id)));
-  }
-
-  function installPreviewMutationGuards() {
-    PREVIEW_IDS.forEach((id) => {
-      const el = D.getElementById(id);
-      if (!el || el.__hhPreviewGuardInstalled) return;
-      el.__hhPreviewGuardInstalled = true;
-
-      hidePreviewElement(el);
-
-      const mo = new MutationObserver(() => {
-        if (W.HH_DISABLE_HUB_ZONE_PREVIEW) hidePreviewElement(el);
-      });
-
-      try {
-        mo.observe(el, { childList: true, subtree: true, attributes: true });
-      } catch (_) {}
-    });
-  }
-
-  function patchPreviewRenderFunctions() {
-    const names = [
-      'renderZonePreview',
-      'renderZonePreviews',
-      'renderHygienePreview',
-      'renderNutritionPreview',
-      'renderFitnessPreview',
-      'mountZonePreview',
-      'mountZonePreviews',
-      'updateZonePreview'
-    ];
-
-    names.forEach((name) => {
-      if (typeof W[name] === 'function' && !W[name].__hhNoopPreview) {
-        const noop = function () {
-          stripZonePreview();
-          return null;
-        };
-        noop.__hhNoopPreview = true;
-        W[name] = noop;
+      if (snap?.gameId) {
+        setHidden(ids.recentPill, false);
+        setText(ids.recentText, gameLabel(zone, snap.gameId));
+      } else {
+        setHidden(ids.recentPill, true);
       }
     });
   }
 
-  function bindLinkToZone(id, zone) {
-    const el = D.getElementById(id);
-    if (!el) return;
+  function renderTodayStrip() {
+    const all = getAllSnapshots();
+    const today = all.filter((x) => isToday(x.ts));
+    const latest = all[0] || null;
 
-    const href = buildZoneUrl(zone);
+    setText('todayPlayedCount', String(today.length));
+    setText('todayZoneCount', String(new Set(today.map((x) => x.zone)).size));
 
-    if (el.tagName === 'A') {
-      el.href = href;
-      if (!el.__hhAnchorBound) {
-        el.__hhAnchorBound = true;
-        el.addEventListener('click', function () {
-          setLastZone(zone);
-        });
+    if (latest) {
+      setText('todayLastGame', gameLabel(latest.zone, latest.gameId));
+
+      const nextZone = nextZoneAfter(latest.zone);
+      setText('todayNextGame', ZONE_LABELS[nextZone]);
+
+      const heroQuick = $('heroQuickline');
+      if (heroQuick) {
+        heroQuick.textContent =
+          `ล่าสุดเล่น ${gameLabel(latest.zone, latest.gameId)} • แนะนำต่อ ${ZONE_LABELS[nextZone]}`;
       }
+    } else {
+      setText('todayLastGame', 'ยังไม่มี');
+      setText('todayNextGame', 'ระบบกำลังเลือกให้');
+    }
+  }
+
+  function renderSummaryBox() {
+    const box = $('summaryBox');
+    if (!box) return;
+
+    const all = getAllSnapshots().slice(0, 3);
+
+    if (!all.length) {
+      box.innerHTML = `
+        <div class="summary-item">
+          <strong>ยังไม่มีการเล่นล่าสุด</strong>
+          <small>เข้าเล่นจากแต่ละโซนแล้วข้อมูลล่าสุดจะมาแสดงที่นี่</small>
+        </div>
+      `;
       return;
     }
 
-    if (!el.__hhButtonBound) {
-      el.__hhButtonBound = true;
-      el.addEventListener('click', function () {
-        goZone(zone);
-      });
-    }
+    box.innerHTML = all.map((snap) => `
+      <div class="summary-item">
+        <strong>${ZONE_EMOJIS[snap.zone]} ${ZONE_LABELS[snap.zone]} • ${gameLabel(snap.zone, snap.gameId)}</strong>
+        <small>เล่นเมื่อ ${formatDateTimeThai(snap.ts)} • mode ${snap.mode} • ${snap.time} sec</small>
+      </div>
+    `).join('');
   }
 
-  function bindZoneButtons() {
-    bindLinkToZone('btnPlayHygiene', 'hygiene');
-    bindLinkToZone('btnPlayNutrition', 'nutrition');
-    bindLinkToZone('btnPlayFitness', 'fitness');
+  function renderLibraryBox() {
+    const box = $('libraryBox');
+    if (!box) return;
 
-    bindLinkToZone('btnZoneHygiene', 'hygiene');
-    bindLinkToZone('btnZoneNutrition', 'nutrition');
-    bindLinkToZone('btnZoneFitness', 'fitness');
+    const html = ['hygiene', 'nutrition', 'fitness'].map((zone) => {
+      const snap = readZoneSnapshot(zone);
+      const featuredGameId = nextGameForZone(zone, snap?.gameId || '');
+      const recentLabel = snap?.gameId ? gameLabel(zone, snap.gameId) : 'ยังไม่มีล่าสุด';
+      const featuredLabel = gameLabel(zone, featuredGameId);
+
+      return `
+        <a class="hh-game-card" href="${buildZoneUrl(zone)}">
+          <div class="hh-game-card__logo-fallback" aria-hidden="true">${ZONE_EMOJIS[zone]}</div>
+          <div class="hh-game-card__body">
+            <p class="hh-game-card__title">${ZONE_LABELS[zone]}</p>
+            <p class="hh-game-card__meta">
+              <span class="${ZONE_CHIP_CLASSES[zone]}">แนะนำ: ${featuredLabel}</span>
+            </p>
+            <p class="hh-game-card__meta">
+              <span class="${ZONE_CHIP_CLASSES[zone]}">ล่าสุด: ${recentLabel}</span>
+            </p>
+          </div>
+        </a>
+      `;
+    }).join('');
+
+    box.innerHTML = html;
   }
 
-  function bindQuickButtons() {
-    const btnResumeNow = D.getElementById('btnResumeNow');
-    if (btnResumeNow && !btnResumeNow.__hhBound) {
-      btnResumeNow.__hhBound = true;
-      btnResumeNow.addEventListener('click', function () {
-        goZone(getLastZone() || 'nutrition');
-      });
-    }
-
-    const btnNextInZone = D.getElementById('btnNextInZone');
-    if (btnNextInZone && !btnNextInZone.__hhBound) {
-      btnNextInZone.__hhBound = true;
-      btnNextInZone.addEventListener('click', function () {
-        goZone(getNextZone() || getRecommendedZone() || 'nutrition');
-      });
-    }
-
-    const btnQuickRecommended = D.getElementById('btnQuickRecommended');
-    if (btnQuickRecommended && !btnQuickRecommended.__hhBound) {
-      btnQuickRecommended.__hhBound = true;
-      btnQuickRecommended.addEventListener('click', function () {
-        goZone(getRecommendedZone() || 'nutrition');
-      });
-    }
-
-    const btnQuickRecent = D.getElementById('btnQuickRecent');
-    if (btnQuickRecent && !btnQuickRecent.__hhBound) {
-      btnQuickRecent.__hhBound = true;
-      btnQuickRecent.addEventListener('click', function () {
-        goZone(getLastZone() || 'nutrition');
-      });
-    }
-
-    const btnQuickAllGames = D.getElementById('btnQuickAllGames');
-    if (btnQuickAllGames && !btnQuickAllGames.__hhBound) {
-      btnQuickAllGames.__hhBound = true;
-      btnQuickAllGames.addEventListener('click', function () {
-        goZone(getRecommendedZone() || 'nutrition');
-      });
-    }
+  function bootLauncherStorageBridge() {
+    syncZonePointersFromSnapshots();
+    renderZoneRecentAndFeatured();
+    renderTodayStrip();
+    renderSummaryBox();
+    renderLibraryBox();
   }
 
-  function patchGoodJunkHallCard() {
-    const nutritionUrl = buildZoneUrl('nutrition');
-
-    const a1 = D.getElementById('gjQuickRematchBtn');
-    if (a1) {
-      a1.href = nutritionUrl;
-      if (!a1.__hhBound) {
-        a1.__hhBound = true;
-        a1.addEventListener('click', function () {
-          setLastZone('nutrition');
-        });
-      }
-    }
-
-    const a2 = D.getElementById('gjOpenLauncherBtn');
-    if (a2) {
-      a2.href = nutritionUrl;
-      if (!a2.__hhBound) {
-        a2.__hhBound = true;
-        a2.addEventListener('click', function () {
-          setLastZone('nutrition');
-        });
-      }
-    }
-  }
-
-  function refreshTodayHints() {
-    const lastZone = getLastZone();
-    const nextZone = getNextZone() || getRecommendedZone();
-
-    const todayZoneCount = D.getElementById('todayZoneCount');
-    const todayLastGame = D.getElementById('todayLastGame');
-    const todayNextGame = D.getElementById('todayNextGame');
-
-    if (todayZoneCount && lastZone) {
-      todayZoneCount.textContent = '1';
-    }
-
-    if (todayLastGame && lastZone) {
-      todayLastGame.textContent =
-        lastZone === 'hygiene' ? 'Hygiene Zone' :
-        lastZone === 'nutrition' ? 'Nutrition Zone' :
-        lastZone === 'fitness' ? 'Fitness Zone' :
-        'ยังไม่มี';
-    }
-
-    if (todayNextGame && nextZone) {
-      todayNextGame.textContent =
-        nextZone === 'hygiene' ? 'ไป Hygiene Zone' :
-        nextZone === 'nutrition' ? 'ไป Nutrition Zone' :
-        nextZone === 'fitness' ? 'ไป Fitness Zone' :
-        todayNextGame.textContent;
-    }
-  }
-
-  function bootZoneFirstPatch() {
-    patchPreviewRenderFunctions();
-    stripZonePreview();
-    installPreviewMutationGuards();
-
-    bindZoneButtons();
-    bindQuickButtons();
-    patchGoodJunkHallCard();
-    refreshTodayHints();
-  }
-
-  if (!W.__HH_ZONE_FIRST_PATCH__) {
-    W.__HH_ZONE_FIRST_PATCH__ = true;
-
-    D.addEventListener('DOMContentLoaded', bootZoneFirstPatch);
-    W.addEventListener('load', bootZoneFirstPatch);
-    W.addEventListener('focus', bootZoneFirstPatch);
-
-    D.addEventListener('visibilitychange', function () {
-      if (!D.hidden) bootZoneFirstPatch();
-    });
-
-    safeBootSoon();
-  }
-
-  function safeBootSoon() {
-    setTimeout(bootZoneFirstPatch, 0);
-    setTimeout(bootZoneFirstPatch, 120);
-    setTimeout(bootZoneFirstPatch, 500);
-  }
+  document.addEventListener('DOMContentLoaded', bootLauncherStorageBridge);
+  window.addEventListener('load', bootLauncherStorageBridge);
+  window.addEventListener('focus', bootLauncherStorageBridge);
+  window.addEventListener('storage', bootLauncherStorageBridge);
 })();
