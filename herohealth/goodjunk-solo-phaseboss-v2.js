@@ -87,7 +87,7 @@
       missionTotal: Number(summary.missionTotal ?? state.total ?? 0),
       rewards: Array.isArray(summary.rewards) ? summary.rewards : [],
       coachFeedback: Array.isArray(summary.coachFeedback) ? summary.coachFeedback : [],
-      nextAction: summary.nextAction || '' ,
+      nextAction: summary.nextAction || '',
       metrics: summary.metrics || {}
     };
 
@@ -99,11 +99,24 @@
     try {
       W.dispatchEvent(new CustomEvent('hha:end', { detail: normalized }));
     } catch {}
+
+    try {
+      W.dispatchEvent(new CustomEvent('gj:end', { detail: normalized }));
+    } catch {}
   }
 
   function setScore(nextScore) {
     state.score = Number(nextScore || 0);
     emitScore();
+    try {
+      W.dispatchEvent(new CustomEvent('gj:score', {
+        detail: {
+          score: state.score,
+          miss: state.miss,
+          bestStreak: state.bestStreak
+        }
+      }));
+    } catch {}
   }
 
   function patchScore(delta) {
@@ -124,6 +137,15 @@
     state.done = Number(done || 0);
     state.total = Number(total || 0);
     emitMission();
+
+    try {
+      W.dispatchEvent(new CustomEvent('gj:goal', {
+        detail: {
+          done: state.done,
+          total: state.total
+        }
+      }));
+    } catch {}
   }
 
   function resolveMount(mount) {
@@ -137,14 +159,10 @@
     return root.querySelector('.gj-solo-legacy-root');
   }
 
-  // =========================
-  // ตรงนี้คือจุดเสียบ logic เดิม
-  // =========================
   function bootExistingGameCore(root, ctx) {
     // IMPORTANT:
-    // ย้าย/เรียก init เดิมของ goodjunk-solo-phaseboss-v2.js มาที่นี่
-    // โดยใช้ root เป็น mount target หลัก
-    // และให้ผูก callback ด้านล่างเข้ากับจุดเดิมของเกม
+    // เอา init/gameplay/core เดิมของ goodjunk-solo-phaseboss-v2.js มาเสียบในจุดนี้
+    // แล้วเรียก hooks ด้านล่างเมื่อค่าเปลี่ยนจริง
 
     // ตัวอย่างการ bridge กับ logic เดิม:
     // onGameScoreChange((score) => setScore(score));
@@ -154,7 +172,6 @@
     // onGameEnd((legacySummary) => emitEnd(mapLegacySummary(legacySummary)));
 
     // ===== DEMO PLACEHOLDER =====
-    // ลบท่อนนี้เมื่อเสียบของเดิมจริง
     state.started = true;
     state.total = 10;
     emitMission();
@@ -169,6 +186,9 @@
             <button id="gjMissBtn">+1 Miss</button>
             <button id="gjMissionBtn">+1 Mission</button>
             <button id="gjEndBtn">End Game</button>
+          </div>
+          <div style="margin-top:14px;color:#c7daf8;font-size:14px">
+            pid: ${escapeHtml(ctx?.pid || 'anon')} • diff: ${escapeHtml(ctx?.diff || 'normal')} • time: ${escapeHtml(ctx?.time || 90)}
           </div>
         </div>
       </div>
@@ -264,10 +284,18 @@
     };
   }
 
-  // export ให้ adapter เรียกได้
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = { createGame };
   }
 
   W.createLegacyGoodJunkSolo = createGame;
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
 })();
