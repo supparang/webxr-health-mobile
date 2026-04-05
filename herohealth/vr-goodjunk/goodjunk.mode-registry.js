@@ -12,7 +12,7 @@ export const GOODJUNK_MODE_REGISTRY = {
   race: {
     id: 'race',
     kind: 'race',
-    loader: () => import('./goodjunk-race-engine.js')
+    loader: () => import('./goodjunk.race.loader.js')
   },
   battle: {
     id: 'battle',
