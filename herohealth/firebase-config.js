@@ -1,7 +1,13 @@
-(function (W) {
+/* /herohealth/firebase-config.js
+   Firebase compat bootstrap - FINAL MATCHED
+   For HeroHealth run pages using window.firebase + anonymous auth
+*/
+(function () {
   'use strict';
 
-  const CONFIG = W.HHA_FIREBASE_CONFIG || {
+  const W = window;
+
+  const CONFIG = {
     apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
     authDomain: "herohealth-d7f8c.firebaseapp.com",
     databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -12,161 +18,217 @@
     measurementId: "G-T5J8DC0BKD"
   };
 
-  W.HHA_FIREBASE_CONFIG = CONFIG;
-  W.HEROHEALTH_FIREBASE_CONFIG = CONFIG;
-  W.FIREBASE_CONFIG = CONFIG;
-  W.__firebaseConfig = CONFIG;
+  let authReadyPromise = null;
+  let anonAuthPromise = null;
 
-  W.HHA_FIREBASE_READY = false;
-  W.HHA_FIREBASE_ERROR = '';
-  W.HHA_FIREBASE_APP = null;
-  W.HHA_FIREBASE_DB = null;
-  W.HHA_FIREBASE_AUTH = null;
-  W.HHA_FIREBASE_USER = null;
-  W.HHA_FIREBASE_UID = '';
+  function exposeConfig() {
+    W.HHA_FIREBASE_CONFIG = CONFIG;
+    W.__HHA_FIREBASE_CONFIG__ = CONFIG;
+    W.HEROHEALTH_FIREBASE_CONFIG = CONFIG;
+    W.FIREBASE_CONFIG = CONFIG;
+  }
 
-  let ensureAuthPromise = null;
-  let emittedReady = false;
+  function getFirebase() {
+    return W.firebase || null;
+  }
 
-  function emitReady(ok, error) {
+  function getApp() {
+    const firebase = getFirebase();
+    if (!firebase) return null;
     try {
-      W.dispatchEvent(new CustomEvent('hha:firebase_ready', {
-        detail: { ok: !!ok, error: String(error || '') }
-      }));
+      if (firebase.apps && firebase.apps.length) return firebase.app();
     } catch (_) {}
+    return null;
   }
 
-  function setError(err) {
-    const msg = err && err.message ? err.message : String(err || 'firebase error');
-    W.HHA_FIREBASE_ERROR = msg;
-    console.error('[HHA] Firebase error:', msg);
-    emitReady(false, msg);
-    return msg;
-  }
+  function bootstrapCompat() {
+    exposeConfig();
 
-  function markReady(user) {
-    if (!user || !user.uid) return null;
-
-    W.HHA_FIREBASE_USER = user;
-    W.HHA_FIREBASE_UID = user.uid;
-    W.HHA_FIREBASE_READY = true;
-    W.HHA_FIREBASE_ERROR = '';
-
-    if (!emittedReady) {
-      emittedReady = true;
-      console.log('[HHA] Firebase ready:', user.uid);
-      emitReady(true, '');
+    const firebase = getFirebase();
+    if (!firebase) {
+      W.HHA_FIREBASE_READY = false;
+      console.error('[firebase-config] firebase compat sdk missing');
+      return false;
     }
 
-    return user;
+    try {
+      if (!firebase.apps || !firebase.apps.length) {
+        firebase.initializeApp(CONFIG);
+        console.log('[firebase-config] initializeApp ok');
+      } else {
+        console.log('[firebase-config] reuse existing app');
+      }
+
+      W.HHA_FIREBASE_READY = true;
+      return true;
+    } catch (err) {
+      try {
+        if (firebase.apps && firebase.apps.length) {
+          W.HHA_FIREBASE_READY = true;
+          console.log('[firebase-config] initializeApp already exists, reuse app');
+          return true;
+        }
+      } catch (_) {}
+
+      W.HHA_FIREBASE_READY = false;
+      console.error('[firebase-config] init failed:', err);
+      return false;
+    }
   }
 
-  async function waitForAuthUser(auth, timeoutMs = 15000) {
-    if (auth.currentUser && auth.currentUser.uid) {
-      return auth.currentUser;
-    }
+  function waitForAuthReady(timeoutMs = 10000) {
+    exposeConfig();
 
-    return await new Promise((resolve, reject) => {
-      let done = false;
-      const timer = setTimeout(() => {
-        if (done) return;
-        done = true;
-        reject(new Error('anonymous auth timeout'));
-      }, timeoutMs);
+    if (authReadyPromise) return authReadyPromise;
 
-      const off = auth.onAuthStateChanged((u) => {
-        if (done) return;
-        if (!u || !u.uid) return;
-        done = true;
-        clearTimeout(timer);
-        try { off(); } catch (_) {}
-        resolve(u);
-      }, (err) => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        try { off(); } catch (_) {}
-        reject(err || new Error('auth state failed'));
-      });
+    authReadyPromise = new Promise((resolve, reject) => {
+      const startedAt = Date.now();
+
+      function step() {
+        const firebase = getFirebase();
+        const ok = bootstrapCompat();
+
+        if (!firebase || !ok) {
+          if (Date.now() - startedAt > timeoutMs) {
+            reject(new Error('Firebase compat not ready'));
+            return;
+          }
+          setTimeout(step, 120);
+          return;
+        }
+
+        try {
+          const auth = firebase.auth();
+          let settled = false;
+
+          const unsub = auth.onAuthStateChanged(
+            function (user) {
+              if (settled) return;
+              settled = true;
+              try { unsub && unsub(); } catch (_) {}
+              resolve(user || null);
+            },
+            function (err) {
+              if (settled) return;
+              settled = true;
+              try { unsub && unsub(); } catch (_) {}
+              reject(err);
+            }
+          );
+
+          setTimeout(function () {
+            if (settled) return;
+            settled = true;
+            try { unsub && unsub(); } catch (_) {}
+            resolve(auth.currentUser || null);
+          }, 1200);
+        } catch (err) {
+          reject(err);
+        }
+      }
+
+      step();
     });
+
+    return authReadyPromise;
   }
 
   async function ensureAnonymousAuth() {
-    if (W.HHA_FIREBASE_READY && W.HHA_FIREBASE_UID) {
-      return W.HHA_FIREBASE_USER || { uid: W.HHA_FIREBASE_UID };
-    }
+    exposeConfig();
 
-    const auth = W.HHA_FIREBASE_AUTH;
-    if (!auth) {
-      throw new Error('firebase auth not ready');
-    }
+    if (anonAuthPromise) return anonAuthPromise;
 
-    if (auth.currentUser && auth.currentUser.uid) {
-      return markReady(auth.currentUser);
-    }
+    anonAuthPromise = (async () => {
+      const ok = bootstrapCompat();
+      if (!ok) {
+        throw new Error('Firebase not initialized');
+      }
 
-    if (ensureAuthPromise) return ensureAuthPromise;
+      const firebase = getFirebase();
+      if (!firebase) {
+        throw new Error('Firebase sdk unavailable');
+      }
 
-    ensureAuthPromise = (async () => {
+      const auth = firebase.auth();
+
+      if (auth.currentUser) {
+        return auth.currentUser;
+      }
+
+      await waitForAuthReady().catch(() => null);
+
+      if (auth.currentUser) {
+        return auth.currentUser;
+      }
+
       try {
         await auth.signInAnonymously();
-        const user = await waitForAuthUser(auth, 15000);
-        return markReady(user);
       } catch (err) {
-        setError(err);
+        console.error('[firebase-config] anonymous auth failed:', err);
         throw err;
-      } finally {
-        ensureAuthPromise = null;
       }
+
+      await waitForAuthReady().catch(() => null);
+
+      if (!auth.currentUser) {
+        throw new Error('Anonymous auth finished without currentUser');
+      }
+
+      return auth.currentUser;
     })();
 
-    return ensureAuthPromise;
+    try {
+      return await anonAuthPromise;
+    } finally {
+      anonAuthPromise = null;
+    }
   }
 
-  W.HHA_ensureAnonymousAuth = ensureAnonymousAuth;
+  function getDatabase() {
+    const ok = bootstrapCompat();
+    if (!ok) return null;
 
-  if (!W.firebase) {
-    setError('Firebase SDK not loaded');
-    return;
-  }
-
-  try {
-    const app = (firebase.apps && firebase.apps.length)
-      ? firebase.app()
-      : firebase.initializeApp(CONFIG);
-
-    const db = firebase.database(app);
-    const auth = firebase.auth(app);
-
-    W.HHA_FIREBASE_APP = app;
-    W.HHA_FIREBASE_DB = db;
-    W.HHA_FIREBASE_AUTH = auth;
-
-    auth.onAuthStateChanged((user) => {
-      try {
-        if (user && user.uid) {
-          markReady(user);
-          return;
-        }
-      } catch (err) {
-        setError(err);
-      }
-    }, (err) => {
-      setError(err);
-    });
-
-    setTimeout(() => {
-      if (!W.HHA_FIREBASE_READY) {
-        ensureAnonymousAuth().catch((err) => {
-          setError(err);
-        });
-      }
-    }, 250);
+    const firebase = getFirebase();
+    if (!firebase) return null;
 
     try {
-      console.log('[firebase-config] loaded', CONFIG.projectId);
-    } catch (_) {}
-  } catch (err) {
-    setError(err);
+      return firebase.database();
+    } catch (err) {
+      console.error('[firebase-config] database unavailable:', err);
+      return null;
+    }
   }
-})(window);
+
+  function getAuth() {
+    const ok = bootstrapCompat();
+    if (!ok) return null;
+
+    const firebase = getFirebase();
+    if (!firebase) return null;
+
+    try {
+      return firebase.auth();
+    } catch (err) {
+      console.error('[firebase-config] auth unavailable:', err);
+      return null;
+    }
+  }
+
+  function getAppSafe() {
+    bootstrapCompat();
+    return getApp();
+  }
+
+  exposeConfig();
+
+  W.HHA_bootstrapFirebaseCompat = bootstrapCompat;
+  W.HHA_waitForFirebaseReady = waitForAuthReady;
+  W.HHA_ensureAnonymousAuth = ensureAnonymousAuth;
+  W.HHA_getFirebaseApp = getAppSafe;
+  W.HHA_getFirebaseAuth = getAuth;
+  W.HHA_getFirebaseDatabase = getDatabase;
+
+  bootstrapCompat();
+
+  console.log('[firebase-config] ready =', !!W.HHA_FIREBASE_READY);
+})();
