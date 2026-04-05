@@ -4,11 +4,12 @@
   const W = window;
   const D = document;
 
-  const H = W.__GJ_HNZS_HOOKS__ || null;
-  const HCTX = H?.ctx || W.__GJ_RUN_CTX__ || {};
+  const GLOBAL_HOOKS = W.__GJ_HNZS_HOOKS__ || null;
+  const GLOBAL_CTX = GLOBAL_HOOKS?.ctx || W.__GJ_RUN_CTX__ || {};
 
   const state = {
     mode: 'duet',
+
     score: 0,
     miss: 0,
     bestStreak: 0,
@@ -41,8 +42,12 @@
 
   let mountRoot = null;
   let gameRoot = null;
+  let activeCtx = GLOBAL_CTX || {};
+  let activeHooks = GLOBAL_HOOKS || {};
   let countdownTimer = 0;
   let cpuPartnerTimer = 0;
+  let usingDemoFallback = false;
+  let legacyCoreApi = null;
 
   function safeCall(fn, arg) {
     try {
@@ -50,6 +55,20 @@
     } catch (err) {
       console.warn(err);
     }
+  }
+
+  function getHooks() {
+    return activeHooks || GLOBAL_HOOKS || {};
+  }
+
+  function getCtx() {
+    return activeCtx || GLOBAL_CTX || {};
+  }
+
+  function dispatchWindowEvent(name, detail) {
+    try {
+      W.dispatchEvent(new CustomEvent(name, { detail }));
+    } catch {}
   }
 
   function emitScore(extra = {}) {
@@ -62,18 +81,15 @@
       contribution: state.contribution,
       pairScore: state.pairScore,
       partnerScore: state.partnerScore,
+      partnerContribution: state.partnerContribution,
+      roomId: state.roomId,
+      matchId: state.matchId,
       ...extra
     };
 
-    safeCall(H?.onScore, patch);
-
-    try {
-      W.dispatchEvent(new CustomEvent('hha:score', { detail: patch }));
-    } catch {}
-
-    try {
-      W.dispatchEvent(new CustomEvent('gj:score', { detail: patch }));
-    } catch {}
+    safeCall(getHooks().onScore, patch);
+    dispatchWindowEvent('hha:score', patch);
+    dispatchWindowEvent('gj:score', patch);
   }
 
   function emitMission(extra = {}) {
@@ -81,20 +97,17 @@
       mode: 'duet',
       done: state.done,
       total: state.total,
+      contribution: state.contribution,
       pairScore: state.pairScore,
       pairGoal: state.pairGoal,
+      roomId: state.roomId,
+      matchId: state.matchId,
       ...extra
     };
 
-    safeCall(H?.onMission, patch);
-
-    try {
-      W.dispatchEvent(new CustomEvent('quest:update', { detail: patch }));
-    } catch {}
-
-    try {
-      W.dispatchEvent(new CustomEvent('gj:goal', { detail: patch }));
-    } catch {}
+    safeCall(getHooks().onMission, patch);
+    dispatchWindowEvent('quest:update', patch);
+    dispatchWindowEvent('gj:goal', patch);
   }
 
   function emitMetrics(extra = {}) {
@@ -104,6 +117,8 @@
       miss: state.miss,
       bestStreak: state.bestStreak,
       streak: state.streak,
+      done: state.done,
+      total: state.total,
       contribution: state.contribution,
       pairScore: state.pairScore,
       pairGoal: state.pairGoal,
@@ -111,19 +126,17 @@
       partnerContribution: state.partnerContribution,
       roomId: state.roomId,
       matchId: state.matchId,
+      connected: state.connected,
+      ready: state.ready,
+      partnerReady: state.partnerReady,
       ...extra
     };
 
-    safeCall(H?.onMetrics, patch);
+    safeCall(getHooks().onMetrics, patch);
   }
 
-  function emitEnd(summary = {}) {
-    if (state.ended) return;
-    state.ended = true;
-
-    clearTimers();
-
-    const normalized = {
+  function normalizeEndSummary(summary = {}) {
+    return {
       mode: 'duet',
       success: !!summary.success,
       score: Number(summary.score ?? state.score ?? 0),
@@ -140,7 +153,7 @@
         teamScore: Number(summary.pairScore ?? state.pairScore ?? 0),
         players: [
           {
-            name: HCTX?.name || 'You',
+            name: getCtx()?.name || 'You',
             contribution: Number(state.contribution || 0),
             score: Number(state.score || 0)
           },
@@ -158,26 +171,30 @@
         roomId: state.roomId,
         matchId: state.matchId,
         pairScore: state.pairScore,
-        pairGoal: state.pairGoal
+        pairGoal: state.pairGoal,
+        contribution: state.contribution,
+        partnerContribution: state.partnerContribution
       }
     };
+  }
 
+  function emitEnd(summary = {}) {
+    if (state.ended) return;
+    state.ended = true;
+
+    clearTimers();
+
+    const normalized = normalizeEndSummary(summary);
     state.summary = normalized;
     W.__GJ_LAST_SUMMARY__ = normalized;
 
-    safeCall(H?.onEnd, normalized);
-
-    try {
-      W.dispatchEvent(new CustomEvent('hha:end', { detail: normalized }));
-    } catch {}
-
-    try {
-      W.dispatchEvent(new CustomEvent('gj:end', { detail: normalized }));
-    } catch {}
+    safeCall(getHooks().onEnd, normalized);
+    dispatchWindowEvent('hha:end', normalized);
+    dispatchWindowEvent('gj:end', normalized);
   }
 
   function resolveMount(mount) {
-    return mount || H?.mount || D.getElementById('gameMount') || D.body;
+    return mount || getHooks().mount || D.getElementById('gameMount') || D.body;
   }
 
   function renderShell(root) {
@@ -238,11 +255,12 @@
     emitScore();
   }
 
-  function setRoomState({ roomId, matchId, ready, partnerReady } = {}) {
+  function setRoomState({ roomId, matchId, ready, partnerReady, connected } = {}) {
     if (roomId != null) state.roomId = String(roomId || '');
     if (matchId != null) state.matchId = String(matchId || '');
     if (ready != null) state.ready = !!ready;
     if (partnerReady != null) state.partnerReady = !!partnerReady;
+    if (connected != null) state.connected = !!connected;
     emitMetrics();
   }
 
@@ -284,14 +302,17 @@
   }
 
   function startCpuPartner() {
+    if (!usingDemoFallback) return;
+
     if (cpuPartnerTimer) clearInterval(cpuPartnerTimer);
 
     cpuPartnerTimer = setInterval(() => {
       if (state.paused || state.ended || !state.started) return;
 
+      const diff = getCtx()?.diff;
       const chance =
-        HCTX?.diff === 'hard' ? 0.42 :
-        HCTX?.diff === 'easy' ? 0.72 : 0.58;
+        diff === 'hard' ? 0.42 :
+        diff === 'easy' ? 0.72 : 0.58;
 
       if (Math.random() > chance) return;
 
@@ -306,9 +327,12 @@
     }, 1800);
   }
 
-  function startCountdown() {
+  function startCountdown(onDone) {
     const overlay = gameRoot?.querySelector('[data-role="countdown"]');
-    if (!overlay) return;
+    if (!overlay) {
+      if (typeof onDone === 'function') onDone();
+      return;
+    }
 
     let left = 3;
     overlay.style.display = 'grid';
@@ -316,6 +340,7 @@
 
     countdownTimer = setInterval(() => {
       left -= 1;
+
       if (left > 0) {
         overlay.textContent = String(left);
         return;
@@ -324,13 +349,15 @@
       clearInterval(countdownTimer);
       countdownTimer = 0;
       overlay.textContent = 'GO!';
+
       setTimeout(() => {
         if (overlay) overlay.style.display = 'none';
       }, 450);
 
       state.started = true;
       showStatus('เล่นเป็นคู่แล้ว');
-      startCpuPartner();
+
+      if (typeof onDone === 'function') onDone();
     }, 800);
   }
 
@@ -360,7 +387,7 @@
         teamScore: state.pairScore,
         players: [
           {
-            name: HCTX?.name || 'You',
+            name: getCtx()?.name || 'You',
             contribution: state.contribution,
             score: state.score
           },
@@ -392,7 +419,9 @@
       state.ready = true;
       state.partnerReady = true;
       showStatus('กำลังเริ่มเล่นแบบคู่...');
-      startCountdown();
+      startCountdown(() => {
+        startCpuPartner();
+      });
     });
 
     gameRoot.querySelector('[data-action="score"]')?.addEventListener('click', () => {
@@ -423,22 +452,38 @@
     });
   }
 
-  function bootExistingGameCore(root, ctx) {
-    // IMPORTANT:
-    // เอา gameplay duet เดิมของ goodjunk.safe.duet.js มาเสียบที่นี่
-    // แล้ว hook ค่าเหล่านี้กลับเข้า HNZS:
-    //
-    // setScore(realScore)
-    // setMiss(realMiss)
-    // setBestStreak(realBestStreak)
-    // setMission(done,total)
-    // setContribution(selfContribution)
-    // setPartnerContribution(partnerContribution)
-    // setPartnerScore(partnerScore)
-    // setPairScore(teamScore)
-    // setPairGoal(pairGoal)
-    // setRoomState({ roomId, matchId, ready, partnerReady })
-    // emitEnd(mappedSummary)
+  function findLegacyBootFn() {
+    return (
+      W.createGoodJunkDuetCore ||
+      W.bootGoodJunkDuetCore ||
+      W.__GJ_DUET_CORE_BOOT__ ||
+      null
+    );
+  }
+
+  function buildLegacyBridgeApi() {
+    return {
+      setScore,
+      patchScore,
+      setMiss,
+      setBestStreak,
+      setMission,
+      setContribution,
+      setPartnerContribution,
+      setPartnerScore,
+      setPairScore,
+      setPairGoal,
+      setRoomState,
+      emitEnd,
+      emitMetrics,
+      updateHud,
+      showStatus,
+      getState: () => ({ ...state })
+    };
+  }
+
+  function bootDemoFallback(root, ctx) {
+    usingDemoFallback = true;
 
     state.total = 10;
     state.pairGoal = 10;
@@ -499,22 +544,84 @@
     emitMetrics();
   }
 
+  function bootExistingGameCore(root, ctx, argsHooks) {
+    const legacyBoot = findLegacyBootFn();
+
+    if (typeof legacyBoot === 'function') {
+      usingDemoFallback = false;
+
+      const bridge = buildLegacyBridgeApi();
+
+      const api = legacyBoot({
+        mount: root,
+        root,
+        ctx,
+        hooks: bridge,
+        onScore: (patch = {}) => {
+          if (patch.score != null) setScore(patch.score);
+          if (patch.miss != null) setMiss(patch.miss);
+          if (patch.bestStreak != null) setBestStreak(patch.bestStreak);
+          if (patch.contribution != null) setContribution(patch.contribution);
+          if (patch.partnerScore != null) setPartnerScore(patch.partnerScore);
+          if (patch.partnerContribution != null) setPartnerContribution(patch.partnerContribution);
+          if (patch.pairScore != null) setPairScore(patch.pairScore);
+          updateHud();
+        },
+        onMission: (patch = {}) => {
+          setMission(patch.done, patch.total);
+          if (patch.pairGoal != null) setPairGoal(patch.pairGoal);
+          if (patch.pairScore != null) setPairScore(patch.pairScore);
+          updateHud();
+        },
+        onRoom: (patch = {}) => {
+          setRoomState(patch);
+          updateHud();
+        },
+        onEnd: (summary = {}) => {
+          emitEnd(summary);
+        }
+      });
+
+      if (api && typeof api === 'object') {
+        legacyCoreApi = api;
+      }
+
+      emitMetrics({ source: 'legacy-core' });
+      return;
+    }
+
+    bootDemoFallback(root, ctx, argsHooks);
+  }
+
   function start() {
     state.started = true;
+    if (legacyCoreApi && typeof legacyCoreApi.start === 'function') {
+      legacyCoreApi.start();
+    }
     updateHud();
   }
 
   function pause() {
     state.paused = true;
+    if (legacyCoreApi && typeof legacyCoreApi.pause === 'function') {
+      legacyCoreApi.pause();
+    }
   }
 
   function resume() {
     state.paused = false;
+    if (legacyCoreApi && typeof legacyCoreApi.resume === 'function') {
+      legacyCoreApi.resume();
+    }
   }
 
   function destroy() {
     state.destroyed = true;
     clearTimers();
+
+    if (legacyCoreApi && typeof legacyCoreApi.destroy === 'function') {
+      legacyCoreApi.destroy();
+    }
 
     if (mountRoot && gameRoot && mountRoot.contains(gameRoot)) {
       mountRoot.removeChild(gameRoot);
@@ -522,10 +629,19 @@
   }
 
   function getSummary() {
+    if (legacyCoreApi && typeof legacyCoreApi.getSummary === 'function') {
+      const summary = legacyCoreApi.getSummary();
+      if (summary) return summary;
+    }
     return state.summary || buildSummary();
   }
 
   function getMetrics() {
+    if (legacyCoreApi && typeof legacyCoreApi.getMetrics === 'function') {
+      const metrics = legacyCoreApi.getMetrics();
+      if (metrics) return metrics;
+    }
+
     return {
       mode: 'duet',
       score: state.score,
@@ -536,15 +652,27 @@
       contribution: state.contribution,
       pairScore: state.pairScore,
       pairGoal: state.pairGoal,
+      partnerScore: state.partnerScore,
+      partnerContribution: state.partnerContribution,
       roomId: state.roomId,
       matchId: state.matchId
     };
   }
 
-  async function createGame({ mount, ctx } = {}) {
-    mountRoot = resolveMount(mount);
+  async function createGame(args = {}) {
+    const localCtx = args.ctx || GLOBAL_CTX || {};
+    activeCtx = localCtx;
+
+    activeHooks = {
+      ...(GLOBAL_HOOKS || {}),
+      ...(args || {}),
+      ctx: localCtx,
+      mount: args.mount || args.root || GLOBAL_HOOKS?.mount || null
+    };
+
+    mountRoot = resolveMount(args.mount || args.root);
     gameRoot = renderShell(mountRoot);
-    bootExistingGameCore(gameRoot, ctx || HCTX || {});
+    bootExistingGameCore(gameRoot, localCtx, activeHooks);
 
     return {
       start,
