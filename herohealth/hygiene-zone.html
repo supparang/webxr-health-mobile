@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Hygiene Zone</title>
+  <meta name="color-scheme" content="light" />
+  <link rel="stylesheet" href="./hygiene-zone.css" />
+</head>
+<body>
+  <div class="hz-shell">
+    <header class="hz-topbar">
+      <div class="brand-wrap">
+        <div class="brand-badge">HeroHealth</div>
+        <h1 class="hero-title">Hygiene Zone</h1>
+        <p class="hero-sub">
+          โลกแห่งการดูแลความสะอาดของเด็ก ๆ เลือกเกมแล้วออกผจญภัยกันได้เลย
+        </p>
+      </div>
+
+      <div class="hero-actions">
+        <a id="hubBtn" class="top-btn" href="./hub.html">กลับ HUB</a>
+        <button id="continueBtn" class="top-btn primary" type="button">เล่นล่าสุด</button>
+      </div>
+    </header>
+
+    <section class="hero-panel">
+      <div class="hero-panel-left">
+        <div class="mascot-card">
+          <div class="mascot-face">🫧</div>
+          <div class="mascot-text">
+            <div class="mascot-kicker">พร้อมเล่น!</div>
+            <div id="coachLine" class="mascot-line">เลือกเกมที่อยากเล่น แล้วเริ่มภารกิจได้เลย</div>
+          </div>
+        </div>
+
+        <div class="stats-row">
+          <div class="pill">🧼 6 เกมในโซน Hygiene</div>
+          <div id="playerPill" class="pill">👤 Player: anon</div>
+          <div id="modePill" class="pill">🎮 Mode: play</div>
+        </div>
+      </div>
+
+      <div class="hero-panel-right">
+        <div class="control-card">
+          <div class="control-title">ตั้งค่าก่อนเล่น</div>
+
+          <label class="control-group">
+            <span>โหมด</span>
+            <select id="modeSelect">
+              <option value="play">play</option>
+              <option value="learn">learn</option>
+              <option value="research">research</option>
+            </select>
+          </label>
+
+          <label class="control-group">
+            <span>เวลา</span>
+            <select id="timeSelect">
+              <option value="60">60 วินาที</option>
+              <option value="90" selected>90 วินาที</option>
+              <option value="120">120 วินาที</option>
+              <option value="150">150 วินาที</option>
+            </select>
+          </label>
+
+          <label class="control-group">
+            <span>คำค้นหาเกม</span>
+            <input id="searchInput" type="text" placeholder="เช่น brush, bath, germ" />
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section class="featured-card">
+      <div class="featured-head">
+        <div>
+          <div class="section-kicker">Continue</div>
+          <h2 class="section-title">เกมล่าสุดของหนู</h2>
+        </div>
+      </div>
+
+      <div id="recentArea" class="recent-area">
+        <div class="empty-recent">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>
+      </div>
+    </section>
+
+    <section class="section-block">
+      <div class="section-head">
+        <div>
+          <div class="section-kicker">All Games</div>
+          <h2 class="section-title">เลือกเกมใน Hygiene Zone</h2>
+        </div>
+      </div>
+
+      <div id="gamesGrid" class="games-grid"></div>
+    </section>
+  </div>
+
+  <script type="module" src="./hygiene-zone.js"></script>
+</body>
+</html>
