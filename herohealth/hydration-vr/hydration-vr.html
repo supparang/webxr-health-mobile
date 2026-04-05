@@ -369,36 +369,20 @@
       z-index:0;
     }
 
-    #stage.is-storm{
-      filter:saturate(1.02) brightness(.98);
-    }
-
-    #stage.is-boss{
-      filter:saturate(1.05);
-    }
-
+    #stage.is-storm{ filter:saturate(1.02) brightness(.98); }
+    #stage.is-boss{ filter:saturate(1.05); }
     #stage.is-final{
       box-shadow:0 28px 76px rgba(0,0,0,.30), 0 0 0 1px rgba(255,255,255,.08) inset;
     }
-
     #stage.final-rush{
       box-shadow:
         0 28px 76px rgba(0,0,0,.30),
         0 0 44px rgba(251,191,36,.18),
         0 0 0 1px rgba(255,255,255,.08) inset;
     }
-
-    #stage.compact-danger{
-      outline:2px solid rgba(251,113,133,.20);
-    }
-
-    #stage.compact-threat-live{
-      outline:2px solid rgba(251,191,36,.18);
-    }
-
-    #stage.compact-final-rush{
-      outline:2px solid rgba(250,204,21,.20);
-    }
+    #stage.compact-danger{ outline:2px solid rgba(251,113,133,.20); }
+    #stage.compact-threat-live{ outline:2px solid rgba(251,191,36,.18); }
+    #stage.compact-final-rush{ outline:2px solid rgba(250,204,21,.20); }
 
     #layer{
       position:absolute;
@@ -496,9 +480,7 @@
       letter-spacing:.04em;
     }
 
-    .bubble:active{
-      transform:translate(-50%,-50%) scale(.96);
-    }
+    .bubble:active{ transform:translate(-50%,-50%) scale(.96); }
 
     .bubble-good{
       background:
@@ -562,16 +544,7 @@
       to{ transform:translate(-50%,-50%) scale(1.08); }
     }
 
-    .fx-ring,
-    .fx-score,
-    .sticker,
-    .callout,
-    .storm-flash,
-    .bolt,
-    .phase-cheer-layer,
-    .phase-milestone-chip,
-    .threat-lane-guide,
-    .screen-edge-hint{
+    .fx-ring,.fx-score,.sticker,.callout,.storm-flash,.bolt,.phase-cheer-layer,.phase-milestone-chip,.threat-lane-guide,.screen-edge-hint{
       pointer-events:none;
     }
 
@@ -774,18 +747,9 @@
     }
 
     @keyframes phaseSpark{
-      0%{
-        opacity:0;
-        transform:translate(-50%,-50%) scale(.6);
-      }
-      15%{
-        opacity:1;
-        transform:translate(-50%,-50%) scale(1);
-      }
-      100%{
-        opacity:0;
-        transform:translate(calc(-50% + var(--tx,0px)), calc(-50% + var(--ty,0px))) scale(.9);
-      }
+      0%{ opacity:0; transform:translate(-50%,-50%) scale(.6); }
+      15%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+      100%{ opacity:0; transform:translate(calc(-50% + var(--tx,0px)), calc(-50% + var(--ty,0px))) scale(.9); }
     }
 
     .phase-milestone-chip{
@@ -913,9 +877,7 @@
       color:#1f2937;
     }
 
-    .btn.ghost{
-      background:rgba(255,255,255,.06);
-    }
+    .btn.ghost{ background:rgba(255,255,255,.06); }
 
     .btn.small{
       min-height:38px;
@@ -924,10 +886,7 @@
       font-size:12px;
     }
 
-    .btn.is-hidden,
-    .hidden{
-      display:none !important;
-    }
+    .btn.is-hidden,.hidden{ display:none !important; }
 
     .duet-grid{
       margin-top:16px;
@@ -963,10 +922,7 @@
       font-weight:1100;
     }
 
-    .end-card{
-      display:grid;
-      gap:14px;
-    }
+    .end-card{ display:grid; gap:14px; }
 
     .end-hero{
       display:grid;
@@ -1059,10 +1015,7 @@
       gap:8px;
     }
 
-    .duet-end-board{
-      display:grid;
-      gap:10px;
-    }
+    .duet-end-board{ display:grid; gap:10px; }
 
     .duet-end-grid{
       display:grid;
@@ -1126,10 +1079,7 @@
       .grid-main{
         grid-template-columns:minmax(0,1fr);
       }
-
-      .side-col{
-        order:2;
-      }
+      .side-col{ order:2; }
     }
 
     @media (max-width: 640px){
@@ -1166,6 +1116,36 @@
       }
     }
   </style>
+
+  <script defer src="https://www.gstatic.com/firebasejs/12.11.0/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/12.11.0/firebase-auth-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/12.11.0/firebase-database-compat.js"></script>
+  <script defer src="./firebase-config.js"></script>
+
+  <script>
+    window.HHA_bootstrapFirebaseCompat = function () {
+      try {
+        if (!window.firebase) return false;
+
+        const cfg =
+          window.HHA_FIREBASE_CONFIG ||
+          window.__HHA_FIREBASE_CONFIG__ ||
+          window.HEROHEALTH_FIREBASE_CONFIG ||
+          window.FIREBASE_CONFIG ||
+          null;
+
+        if (!cfg || !cfg.apiKey || !cfg.projectId) return false;
+
+        if (!window.firebase.apps || !window.firebase.apps.length) {
+          window.firebase.initializeApp(cfg);
+        }
+        return true;
+      } catch (err) {
+        console.error('[hydration-vr] bootstrap firebase compat failed:', err);
+        return false;
+      }
+    };
+  </script>
 </head>
 <body>
   <div class="hydr-page">
@@ -1189,42 +1169,15 @@
       <div class="main-col">
         <section id="hhTopStatsWrap" class="panel pad">
           <div class="stats-grid-kid">
-            <div class="stat-card">
-              <div class="label">SCORE</div>
-              <div class="value" id="uiScore">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="label">TIME</div>
-              <div class="value" id="uiTime">00:00</div>
-            </div>
-            <div class="stat-card">
-              <div class="label">MISS</div>
-              <div class="value" id="uiMiss">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="label">EXPIRE</div>
-              <div class="value" id="uiExpire">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="label">BLOCK</div>
-              <div class="value" id="uiBlock">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="label">GRADE</div>
-              <div class="value" id="uiGrade">D</div>
-            </div>
-            <div class="stat-card">
-              <div class="label">WATER</div>
-              <div class="value" id="uiWater">40%</div>
-            </div>
-            <div class="stat-card">
-              <div class="label">COMBO</div>
-              <div class="value" id="uiCombo">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="label">SHIELD</div>
-              <div class="value" id="uiShield">0</div>
-            </div>
+            <div class="stat-card"><div class="label">SCORE</div><div class="value" id="uiScore">0</div></div>
+            <div class="stat-card"><div class="label">TIME</div><div class="value" id="uiTime">00:00</div></div>
+            <div class="stat-card"><div class="label">MISS</div><div class="value" id="uiMiss">0</div></div>
+            <div class="stat-card"><div class="label">EXPIRE</div><div class="value" id="uiExpire">0</div></div>
+            <div class="stat-card"><div class="label">BLOCK</div><div class="value" id="uiBlock">0</div></div>
+            <div class="stat-card"><div class="label">GRADE</div><div class="value" id="uiGrade">D</div></div>
+            <div class="stat-card"><div class="label">WATER</div><div class="value" id="uiWater">40%</div></div>
+            <div class="stat-card"><div class="label">COMBO</div><div class="value" id="uiCombo">0</div></div>
+            <div class="stat-card"><div class="label">SHIELD</div><div class="value" id="uiShield">0</div></div>
           </div>
         </section>
 
@@ -1242,20 +1195,17 @@
         <section id="hhMissionWrap" class="panel pad">
           <div class="mission-card">
             <div class="mission-title">ภารกิจวันนี้</div>
-
             <div class="mission-grid">
               <div class="mission-row">
                 <div>เก็บน้ำดี</div>
                 <div><span id="missionHitNow">0</span> / <span id="missionHitGoal">0</span></div>
                 <div class="mission-chip" id="missionChipHit">MISSION</div>
               </div>
-
               <div class="mission-row">
                 <div>บล็อกสายฟ้า</div>
                 <div><span id="missionBlockNow">0</span> / <span id="missionBlockGoal">0</span></div>
                 <div class="mission-chip" id="missionChipBlock">MISSION</div>
               </div>
-
               <div class="mission-row">
                 <div>คอมโบ</div>
                 <div><span id="missionComboNow">0</span> / <span id="missionComboGoal">0</span></div>
@@ -1278,14 +1228,8 @@
             </div>
 
             <div class="risk-wrap">
-              <div class="mini-note">
-                Phase: <strong id="uiPhase">💧 ช่วงเก็บน้ำ</strong>
-              </div>
-
-              <div class="risk-bar">
-                <div class="risk-fill" id="riskFill"></div>
-              </div>
-
+              <div class="mini-note">Phase: <strong id="uiPhase">💧 ช่วงเก็บน้ำ</strong></div>
+              <div class="risk-bar"><div class="risk-fill" id="riskFill"></div></div>
               <div class="coach-mini-row">
                 <div class="mini-note">Risk <strong id="aiRisk">0.00</strong></div>
                 <div class="mini-note">Risk Mini <strong id="aiRiskMini">0.00</strong></div>
@@ -1310,7 +1254,6 @@
               <div class="meta-item">Cooldown<br><strong id="uiCoolDone">รอหลังเกม ✨</strong></div>
               <div class="meta-item">เสียง<br><button class="btn small ghost" id="btnSfx" type="button">🔊 เสียง</button></div>
             </div>
-
             <div class="overlay-actions" style="margin-top:6px;">
               <button class="btn small ghost" id="btnHelp" type="button">วิธีเล่น</button>
               <button class="btn small ghost" id="btnPause" type="button">พักเกม</button>
@@ -1322,18 +1265,9 @@
   </div>
 
   <div id="hydrationSoloMiniHud" class="hydr-solo-mini-hud" hidden>
-    <div class="hydr-solo-mini-chip" data-k="time">
-      <div class="k">TIME</div>
-      <div class="v">00:00</div>
-    </div>
-    <div class="hydr-solo-mini-chip" data-k="water">
-      <div class="k">WATER</div>
-      <div class="v">0%</div>
-    </div>
-    <div class="hydr-solo-mini-chip" data-k="shield">
-      <div class="k">SHIELD</div>
-      <div class="v">0</div>
-    </div>
+    <div class="hydr-solo-mini-chip" data-k="time"><div class="k">TIME</div><div class="v">00:00</div></div>
+    <div class="hydr-solo-mini-chip" data-k="water"><div class="k">WATER</div><div class="v">0%</div></div>
+    <div class="hydr-solo-mini-chip" data-k="shield"><div class="k">SHIELD</div><div class="v">0</div></div>
     <div class="hydr-solo-mini-pulse" data-k="pulse"></div>
   </div>
 
@@ -1341,14 +1275,12 @@
     <div class="overlay-card">
       <div class="overlay-title">วิธีเล่น Hydration Hero</div>
       <div class="overlay-sub">แตะน้ำดี เก็บโล่ บล็อกสายฟ้า และพยายามรักษาระดับน้ำให้สูงจนจบรอบ</div>
-
       <div class="overlay-grid">
         <div class="mini-note">💧 แตะน้ำดีเพื่อเพิ่มน้ำและคะแนน</div>
         <div class="mini-note">🛡️ เก็บโล่ไว้บล็อกสายฟ้า</div>
         <div class="mini-note">⚡ สายฟ้าจะมาแรงขึ้นช่วงพายุ/บอส/ด่านสุดท้าย</div>
         <div class="mini-note">🌟 โบนัสช่วยเพิ่มน้ำ คะแนน และโล่</div>
       </div>
-
       <div class="overlay-actions">
         <button id="btnHelpStart" class="btn primary" type="button">เริ่มเล่น</button>
       </div>
@@ -1359,7 +1291,6 @@
     <div class="overlay-card">
       <div class="overlay-title">พักเกมชั่วคราว</div>
       <div class="overlay-sub">พร้อมแล้วค่อยกลับไปเล่นต่อ</div>
-
       <div class="overlay-actions">
         <button id="btnResume" class="btn primary" type="button">เล่นต่อ</button>
       </div>
@@ -1396,18 +1327,9 @@
       </div>
 
       <div class="end-stats">
-        <div class="end-stat">
-          <div class="k">SCORE</div>
-          <div class="v" id="endScore">0</div>
-        </div>
-        <div class="end-stat">
-          <div class="k">MISS</div>
-          <div class="v" id="endMiss">0</div>
-        </div>
-        <div class="end-stat">
-          <div class="k">WATER</div>
-          <div class="v" id="endWater">0%</div>
-        </div>
+        <div class="end-stat"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
+        <div class="end-stat"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
+        <div class="end-stat"><div class="k">WATER</div><div class="v" id="endWater">0%</div></div>
       </div>
 
       <div class="end-copy">
@@ -1473,8 +1395,38 @@
   </div>
 
   <script type="module">
-    import { boot } from './hydration.safe.js';
-    boot();
+    async function startHydrationGame() {
+      try {
+        if (typeof window.HHA_bootstrapFirebaseCompat === 'function') {
+          window.HHA_bootstrapFirebaseCompat();
+        }
+
+        const mod = await import('./hydration.safe.js');
+        if (!mod || typeof mod.boot !== 'function') {
+          throw new Error('hydration.safe.js ไม่พบฟังก์ชัน boot()');
+        }
+
+        await mod.boot();
+      } catch (err) {
+        console.error('[hydration-vr] boot failed:', err);
+        const fail = document.createElement('div');
+        fail.style.position = 'fixed';
+        fail.style.left = '12px';
+        fail.style.right = '12px';
+        fail.style.bottom = '12px';
+        fail.style.zIndex = '2000';
+        fail.style.padding = '12px 14px';
+        fail.style.borderRadius = '18px';
+        fail.style.background = 'rgba(127,29,29,.92)';
+        fail.style.border = '1px solid rgba(254,202,202,.28)';
+        fail.style.color = '#fff';
+        fail.style.font = '14px system-ui, sans-serif';
+        fail.textContent = 'เปิดเกมไม่สำเร็จ: ' + (err?.message || err);
+        document.body.appendChild(fail);
+      }
+    }
+
+    window.addEventListener('load', startHydrationGame, { once:true });
   </script>
 </body>
 </html>
