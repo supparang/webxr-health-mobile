@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Groups Coop</title>
+</head>
+<body>
+  <div id="gameMount"></div>
+
+  <script type="module">
+    import { bootNutritionShell } from '../shared/nutrition/nutrition-shell.js';
+    import { createGroupsCoopAdapter } from './groups.coop.js';
+
+    bootNutritionShell({
+      gameId: 'groups',
+      gameTitle: 'Food Groups',
+      mode: 'coop',
+      mountSelector: '#gameMount',
+      adapterFactory: createGroupsCoopAdapter
+    });
+  </script>
+</body>
+</html>
