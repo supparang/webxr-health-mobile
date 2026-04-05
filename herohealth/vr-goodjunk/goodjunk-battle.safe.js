@@ -206,8 +206,6 @@
     loopId: 0
   };
 
-  /* ---------------- utils ---------------- */
-
   function qs(key, fb=''){
     try{
       const v = q.get(key);
@@ -380,8 +378,6 @@
     });
     return out;
   }
-
-  /* ---------------- styles / dom ---------------- */
 
   function injectStyles(){
     if (D.getElementById('gjBattleEngineStyles')) return;
@@ -905,8 +901,6 @@
     UI.attackBtn.addEventListener('pointerdown', revealActionOnTap, { passive:true });
   }
 
-  /* ---------------- UI helpers ---------------- */
-
   function clearBannerAutoHide(){
     if (STATE.bannerHideTimer){
       clearTimeout(STATE.bannerHideTimer);
@@ -1090,8 +1084,6 @@
     peekOpponentStrip(1700);
   }
 
-  /* ---------------- gameplay helpers ---------------- */
-
   function addCharge(delta){
     STATE.attackCharge = clamp(STATE.attackCharge + delta, 0, STATE.maxAttackCharge);
     STATE.attackReady = STATE.attackCharge >= STATE.maxAttackCharge;
@@ -1112,43 +1104,6 @@
     el.style.top = `${y}px`;
     UI.field.appendChild(el);
     setTimeout(() => el.remove(), 520);
-  }
-
-  function removeTarget(t){
-    if (!t || t.dead) return;
-    t.dead = true;
-    try{ t.el.remove(); }catch{}
-  }
-
-  function clearTargets(){
-    for (const t of STATE.targets){
-      try{ t.el.remove(); }catch{}
-    }
-    STATE.targets = [];
-  }
-
-  function playAreaInsets(){
-    const mobile = W.innerWidth <= 640;
-    return {
-      top: mobile ? 56 : 96,
-      right: mobile ? 96 : 18,
-      bottom: mobile ? 82 : 84,
-      left: mobile ? 6 : 8
-    };
-  }
-
-  function playBounds(){
-    const rect = fieldRect();
-    const inset = playAreaInsets();
-
-    return {
-      w: rect.w,
-      h: rect.h,
-      left: inset.left,
-      right: Math.max(inset.left + 150, rect.w - inset.right),
-      top: inset.top,
-      bottom: Math.max(inset.top + 240, rect.h - inset.bottom)
-    };
   }
 
   function guardReady(){
@@ -1450,16 +1405,16 @@
 
     const el = D.createElement('button');
     el.type = 'button';
-    el.className = `gjb-target ${kind}`;
-    el.style.width = `${size}px`;
-    el.style.height = `${size}px`;
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    el.innerHTML = `<span class="emoji">${pick.emoji}</span>`;
+    el.className = \`gjb-target \${kind}\`;
+    el.style.width = \`\${size}px\`;
+    el.style.height = \`\${size}px\`;
+    el.style.left = \`\${x}px\`;
+    el.style.top = \`\${y}px\`;
+    el.innerHTML = \`<span class="emoji">\${pick.emoji}</span>\`;
     el.setAttribute('aria-label', pick.name);
 
     const t = {
-      id: `t-${++STATE.seq}`,
+      id: \`t-\${++STATE.seq}\`,
       kind,
       x, y, size, speed, ttl, sway,
       bornAt: now(),
@@ -1502,7 +1457,7 @@
       addCharge(20);
 
       pulseScore();
-      flashText(t.x, t.y, `+${10 + bonus}`, 'good');
+      flashText(t.x, t.y, \`+\${10 + bonus}\`, 'good');
       showTransientBanner('เก่งมาก! แตะอาหารดีต่อเนื่องเพื่อชาร์จพลังโจมตี', 900, 850);
     } else {
       STATE.junkHit += 1;
@@ -1623,12 +1578,12 @@
       showTransientBanner('🔥 พลิกกลับมานำแล้ว! รักษาจังหวะนี้ไว้', 950, 1100);
     } else if (prevSide === 'self' && nowSide === 'opp'){
       STATE.leadChanges += 1;
-      showAnnouncer(`${(info.opponent.name || 'OPPONENT').toUpperCase()} LEADS!`, 'warn', 950);
-      showTransientBanner(`${info.opponent.name || 'คู่ต่อสู้'} พลิกขึ้นนำแล้ว รีบตอบโต้กลับ`, 950, 1100);
+      showAnnouncer(\`\${(info.opponent.name || 'OPPONENT').toUpperCase()} LEADS!\`, 'warn', 950);
+      showTransientBanner(\`\${info.opponent.name || 'คู่ต่อสู้'} พลิกขึ้นนำแล้ว รีบตอบโต้กลับ\`, 950, 1100);
     } else if ((prevSide === 'none' || prevSide === 'tie') && nowSide === 'self'){
       showAnnouncer('YOU TAKE THE LEAD!', 'skill', 900);
     } else if ((prevSide === 'none' || prevSide === 'tie') && nowSide === 'opp'){
-      showAnnouncer(`${(info.opponent.name || 'OPPONENT').toUpperCase()} TAKES THE LEAD!`, 'warn', 900);
+      showAnnouncer(\`\${(info.opponent.name || 'OPPONENT').toUpperCase()} TAKES THE LEAD!\`, 'warn', 900);
     } else {
       STATE.leadChanges += 1;
     }
@@ -1923,8 +1878,6 @@
     renderOpponents();
     emitLiveEvents();
   }
-
-  /* ---------------- Firebase / room sync ---------------- */
 
   async function ensureFirebase(){
     if (!(W.firebase && W.firebase.apps && W.firebase.database && W.firebase.auth)){
@@ -2598,8 +2551,6 @@
     renderHud();
   }
 
-  /* ---------------- summary / events ---------------- */
-
   function updateGlobals(){
     W.state = W.state || {};
     Object.assign(W.state, {
@@ -2812,8 +2763,6 @@
       opponents: opponentPlayers().length
     });
   }
-
-  /* ---------------- state transitions ---------------- */
 
   function startGameIfReady(){
     if (STATE.finished) return;
@@ -3087,8 +3036,6 @@
 
     STATE.loopId = raf(loop);
   }
-
-  /* ---------------- boot ---------------- */
 
   async function boot(){
     buildDom();
