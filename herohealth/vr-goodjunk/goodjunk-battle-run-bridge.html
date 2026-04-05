@@ -215,11 +215,6 @@
         return Math.max(min, Math.min(max, Math.round(n)));
       }
 
-      function num(v, d=0){
-        v = Number(v);
-        return Number.isFinite(v) ? v : d;
-      }
-
       function readLS(key){
         try{ return localStorage.getItem(key) || ''; }
         catch{ return ''; }
