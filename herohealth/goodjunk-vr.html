@@ -394,7 +394,7 @@
         <div class="brand-icon">🍔</div>
         <div>
           <div class="brand-title">GoodJunk Solo Boss</div>
-          <div class="brand-sub">child-friendly • phase boss • warmup → run → summary → cooldown</div>
+          <div class="brand-sub">child-friendly • phase boss • HNZS shell</div>
         </div>
       </div>
 
@@ -414,7 +414,7 @@
           <h1 class="loading-title">เตรียมลุยกับ Junk King!</h1>
           <p class="loading-sub">
             เก็บอาหารดี หลีกเลี่ยง junk ผ่าน Phase 1 → Phase 2 → Boss
-            แล้วปราบบอสให้ได้
+            แล้วปราบบอสให้ได้ ผ่าน HNZS shell
           </p>
 
           <div class="loading-meta">
@@ -473,10 +473,11 @@
         time: String(numIn(first(q.get('time'), 150), 150, 90, 300)),
         seed: first(q.get('seed'), String(Date.now())),
         hub: defaultHub(),
-        view: cleanEnum(first(q.get('view'), 'mobile'), ['mobile','pc','cvr'], 'mobile'),
+        view: cleanEnum(first(q.get('view'), 'mobile'), ['mobile','pc','cvr','vr'], 'mobile'),
         run: cleanEnum(first(q.get('run'), 'play'), ['play','research','demo'], 'play'),
         gameId: first(q.get('gameId'), q.get('game'), 'goodjunk'),
-        zone: first(q.get('zone'), 'nutrition')
+        zone: first(q.get('zone'), 'nutrition'),
+        mode: 'solo'
       };
 
       window.__GJ_RUN_CTX__ = runCtx;
@@ -494,7 +495,7 @@
         const u = new URL('./goodjunk-launcher.html', location.href);
         [
           'pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug',
-          'studentKey','schoolCode','classRoom','studentNo','nickName','name','seed','gameId','zone'
+          'studentKey','schoolCode','classRoom','studentNo','nickName','name','seed','gameId','zone','mode'
         ].forEach((k) => {
           const v =
             k === 'name' ? runCtx.name :
@@ -508,6 +509,7 @@
             k === 'run' ? runCtx.run :
             k === 'gameId' ? runCtx.gameId :
             k === 'zone' ? runCtx.zone :
+            k === 'mode' ? runCtx.mode :
             q.get(k);
 
           if (v != null && v !== '') u.searchParams.set(k, v);
@@ -534,15 +536,15 @@
       const loading = document.getElementById('loadingScreen');
       const errorBox = document.getElementById('errorBox');
 
-      function hideLoading(){
+      window.__GJ_HIDE_LOADING__ = function(){
         if (loading) loading.classList.add('hidden');
-      }
+      };
 
-      function showError(msg){
+      window.__GJ_SHOW_ERROR__ = function(msg){
         if (!errorBox) return;
         errorBox.textContent = msg;
         errorBox.classList.add('show');
-      }
+      };
 
       let tries = 0;
       const maxTries = 180;
@@ -551,12 +553,12 @@
         tries += 1;
 
         if (window.__GJ_ENGINE_MOUNTED__) {
-          hideLoading();
+          window.__GJ_HIDE_LOADING__();
           return;
         }
 
         if (tries >= maxTries) {
-          showError('โหลดเกมนานกว่าปกติ กรุณาลองรีเฟรชหน้า หรือกลับไป Launcher แล้วเริ่มใหม่อีกครั้ง');
+          window.__GJ_SHOW_ERROR__('โหลดเกมนานกว่าปกติ กรุณาลองรีเฟรชหน้า หรือกลับไป Launcher แล้วเริ่มใหม่อีกครั้ง');
           return;
         }
 
@@ -567,16 +569,79 @@
 
       window.addEventListener('error', function (ev) {
         const msg = ev && ev.message ? ev.message : 'เกิดข้อผิดพลาดระหว่างโหลดเกม';
-        showError(msg);
+        window.__GJ_SHOW_ERROR__(msg);
       });
 
       window.addEventListener('unhandledrejection', function (ev) {
         const reason = ev && ev.reason ? String(ev.reason) : 'เกิดข้อผิดพลาดแบบ promise';
-        showError(reason);
+        window.__GJ_SHOW_ERROR__(reason);
       });
     })();
   </script>
 
-  <script src="./goodjunk-solo-phaseboss-v2.js?v=20260403-top-left-fix-r2"></script>
+  <script type="module">
+    import { bootNutritionShell } from './shared/nutrition/nutrition-shell.js';
+    import { createGoodJunkModeAdapter } from './vr-goodjunk/goodjunk.adapter.js';
+
+    const q = new URLSearchParams(location.search);
+
+    function cleanPid(v){
+      return String(v || 'anon').trim().replace(/[^\w-]/g,'').slice(0,40) || 'anon';
+    }
+
+    function cleanName(v){
+      return String(v || '').trim().replace(/[<>]/g,'').slice(0,40);
+    }
+
+    function cleanEnum(v, allow, fallback){
+      v = String(v || '').trim().toLowerCase();
+      return allow.includes(v) ? v : fallback;
+    }
+
+    function numIn(v, fallback, min, max){
+      v = Number(v);
+      if (!Number.isFinite(v)) return fallback;
+      return Math.max(min, Math.min(max, v));
+    }
+
+    const ctxPatch = {
+      pid: cleanPid(q.get('pid') || 'anon'),
+      name: cleanName(q.get('name') || q.get('nickName') || 'Hero'),
+      studyId: String(q.get('studyId') || ''),
+      diff: cleanEnum(q.get('diff') || 'normal', ['easy','normal','hard'], 'normal'),
+      time: numIn(q.get('time') || 150, 150, 90, 300),
+      seed: String(q.get('seed') || Date.now()),
+      hub: String(q.get('hub') || new URL('./hub-v2.html', location.href).toString()),
+      view: cleanEnum(q.get('view') || 'mobile', ['mobile','pc','cvr','vr'], 'mobile'),
+      run: cleanEnum(q.get('run') || 'play', ['play','research','demo'], 'play'),
+      zone: 'nutrition',
+      cat: 'nutrition',
+      game: 'goodjunk',
+      gameId: 'goodjunk',
+      mode: 'solo'
+    };
+
+    try {
+      await bootNutritionShell({
+        gameId: 'goodjunk',
+        gameTitle: 'GoodJunk Solo Boss',
+        mode: 'solo',
+        mountSelector: '#gameMount',
+        adapterFactory: async (baseCtx, shell) => {
+          const mergedCtx = { ...baseCtx, ...ctxPatch, mode: 'solo' };
+          return createGoodJunkModeAdapter(mergedCtx, shell);
+        },
+        onAfterMount() {
+          window.__GJ_ENGINE_MOUNTED__ = true;
+          if (window.__GJ_HIDE_LOADING__) window.__GJ_HIDE_LOADING__();
+        }
+      });
+    } catch (err) {
+      console.error(err);
+      if (window.__GJ_SHOW_ERROR__) {
+        window.__GJ_SHOW_ERROR__(String(err && err.message ? err.message : err));
+      }
+    }
+  </script>
 </body>
 </html>
