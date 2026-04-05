@@ -5,6 +5,7 @@ createZoneLauncher({
   zoneTitle: 'Fitness Zone',
   zoneLabel: 'Fitness Zone',
   storageKey: 'HH_FITNESS_LAST_GAME_V1',
+  modeParamName: 'run',
   emptySearchText: 'ไม่พบเกมที่ตรงคำค้น ลองพิมพ์ shadow, rhythm, jump, balance หรือ planner',
   games: [
     {
@@ -17,13 +18,22 @@ createZoneLauncher({
       launcherPath: './shadow-breaker-vr.html'
     },
     {
-      id: 'rhythm-boxer',
+      id: 'rhythmboxer',
       title: 'Rhythm Boxer',
       subtitle: 'ต่อยมวยตามจังหวะเพลง สนุกและได้ออกแรง',
       icon: '🥁',
       color: 'c-orange',
       tags: ['rhythm', 'boxer', 'music'],
-      launcherPath: './rhythm-boxer-vr.html'
+      launcherPath: '../fitness/rhythm-boxer.html',
+      fixedParams: {
+        game: 'rhythmboxer',
+        gameId: 'rhythmboxer',
+        theme: 'rhythmboxer',
+        mode: 'solo',
+        gate: '1',
+        cooldown: '1',
+        returnPhase: 'cooldown'
+      }
     },
     {
       id: 'jump-duck',
