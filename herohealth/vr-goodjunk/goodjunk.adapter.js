@@ -5,13 +5,18 @@ import {
   normalizeGoodJunkSummary
 } from './goodjunk.bridge.js';
 
-function pickLegacyEntry(mod) {
+function pickLegacyEntry(mod, mode) {
   return (
     mod?.createGame ||
     mod?.createAdapter ||
     mod?.boot ||
     mod?.mount ||
     mod?.default ||
+    (mode === 'solo' && window.createLegacyGoodJunkSolo) ||
+    (mode === 'duet' && window.createLegacyGoodJunkDuet) ||
+    (mode === 'race' && window.createLegacyGoodJunkRace) ||
+    (mode === 'battle' && window.createLegacyGoodJunkBattle) ||
+    (mode === 'coop' && window.createLegacyGoodJunkCoop) ||
     null
   );
 }
@@ -23,21 +28,21 @@ function hasFn(v) {
 export async function createGoodJunkModeAdapter(ctx, shell) {
   const modeCfg = getGoodJunkModeConfig(ctx.mode || 'solo');
   const legacyCtx = installGoodJunkLegacyGlobals(ctx, shell);
+
   let detachBridge = null;
   let legacyApi = null;
   let rootEl = null;
 
   async function bootLegacy(stage) {
     const mod = await modeCfg.loader();
-    const entry = pickLegacyEntry(mod);
+    const entry = pickLegacyEntry(mod, modeCfg.id);
 
     if (!entry) {
       throw new Error(`GoodJunk legacy entry not found for mode: ${modeCfg.id}`);
     }
 
-    detachBridge = attachGoodJunkWindowEventBridge(shell);
+    detachBridge = attachGoodJunkWindowEventBridge(shell, ctx);
 
-    // รองรับได้ทั้ง function ที่คืน api และ module ที่ mount เอง
     if (hasFn(entry)) {
       const result = await entry({
         mount: stage,
@@ -90,6 +95,7 @@ export async function createGoodJunkModeAdapter(ctx, shell) {
       rootEl.style.minHeight = '100%';
       rootEl.style.position = 'relative';
       stage.appendChild(rootEl);
+
       await bootLegacy(rootEl);
       shell.emit('gj_legacy_booted', { mode: ctx.mode });
     },
