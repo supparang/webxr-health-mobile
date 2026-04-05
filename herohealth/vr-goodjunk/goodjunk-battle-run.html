@@ -772,10 +772,11 @@
         <div class="summary-grid" id="summaryGrid"></div>
 
         <div class="summary-actions">
-          <button class="btn btn-primary" id="btnRematch" type="button">เล่นอีกครั้ง</button>
+          <button class="btn btn-primary" id="btnReplay" type="button">เล่นอีกครั้ง</button>
           <button class="btn btn-copy" id="btnCopyRoom" type="button">คัดลอกห้อง</button>
           <button class="btn btn-warn" id="btnExport" type="button">Export JSON</button>
           <button class="btn btn-ghost" id="btnBackHub" type="button">กลับ HUB</button>
+          <button class="btn btn-ghost" id="btnBackLobby" type="button">กลับ Lobby</button>
         </div>
 
         <div class="summary-debug" id="summaryDebug"></div>
@@ -816,8 +817,8 @@
       try { return JSON.stringify(v, null, 2); }
       catch (_) { return '{}'; }
     }
-    function saveText(name, text){
-      const blob = new Blob([text], { type: 'application/json' });
+    function saveText(name, text, mime='application/json'){
+      const blob = new Blob([text], { type: mime });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -862,19 +863,17 @@
     const SAFE_CANDIDATES = dedupe([
       clean(qs('safe')),
       ...parseList(qs('safeCandidates')),
-      './goodjunk-battle.safe.js',
       './goodjunk.safe.battle.js',
-      './js/goodjunk-battle.safe.js',
       './js/goodjunk.safe.battle.js'
     ]);
 
     const CORE_CANDIDATES = dedupe([
       clean(qs('core')),
       ...parseList(qs('coreCandidates')),
-      './goodjunk.safe.battle.js',
+      './goodjunk-battle.safe.js',
+      './js/goodjunk-battle.safe.js',
       './goodjunk.safe.js',
       './goodjunk.js',
-      './js/goodjunk.safe.battle.js',
       './js/goodjunk.safe.js',
       './js/goodjunk.js'
     ]);
@@ -902,6 +901,25 @@
 
     function setDebug(text) {
       if ($('engineDebugInfo')) $('engineDebugInfo').textContent = text || '';
+    }
+
+    function clearSummaryRestoreFlags(){
+      try{
+        sessionStorage.removeItem('GJ_BATTLE_SHOW_LAST_SUMMARY');
+        localStorage.removeItem('GJ_BATTLE_TEMP_SHOW_LAST_SUMMARY');
+      }catch{}
+
+      try{
+        if (window.state){
+          window.state.showSummary = false;
+          window.state.finished = false;
+          window.state.reason = '';
+        }
+      }catch{}
+    }
+
+    function getCurrentSummary(){
+      return window.__GJ_BATTLE_LAST_SUMMARY__ || null;
     }
 
     function copyText(text){
@@ -977,8 +995,8 @@
       if ($('engineStatusBadge')) $('engineStatusBadge').textContent = heroMeta.avatar;
     }
 
-    function buildBattleLobbyUrl() {
-      const u = new URL('./goodjunk-battle-lobby.html', location.href);
+    function buildBaseUrl(page){
+      const u = new URL(page, location.href);
       const src = new URL(location.href);
 
       const keepKeys = [
@@ -991,25 +1009,59 @@
         if (v != null && v !== '') u.searchParams.set(k, v);
       });
 
-      if (!u.searchParams.get('roomId') && runCtx.roomId) {
-        u.searchParams.set('roomId', runCtx.roomId);
-      }
-      if (!u.searchParams.get('room') && runCtx.roomId) {
-        u.searchParams.set('room', runCtx.roomId);
-      }
-      if (!u.searchParams.get('roomKind') && runCtx.roomKind) {
-        u.searchParams.set('roomKind', runCtx.roomKind);
-      }
+      if (!u.searchParams.get('roomId') && runCtx.roomId) u.searchParams.set('roomId', runCtx.roomId);
+      if (!u.searchParams.get('room') && runCtx.roomId) u.searchParams.set('room', runCtx.roomId);
+      if (!u.searchParams.get('roomKind') && runCtx.roomKind) u.searchParams.set('roomKind', runCtx.roomKind);
 
       u.searchParams.set('mode', 'battle');
-      u.searchParams.set('autojoin', '1');
-      u.searchParams.set('rematch', '1');
-      u.searchParams.set('seed', String(Date.now()));
+      return u;
+    }
+
+    function buildBattleLobbyUrl(opts = {}) {
+      const { autojoin = false, rematch = false } = opts;
+      const u = buildBaseUrl('./goodjunk-battle-lobby.html');
+
+      if (autojoin) u.searchParams.set('autojoin', '1');
+      else u.searchParams.delete('autojoin');
+
+      if (rematch) u.searchParams.set('rematch', '1');
+      else u.searchParams.delete('rematch');
+
       u.searchParams.delete('wait');
       u.searchParams.delete('startAt');
       u.searchParams.delete('lead');
-
       return u.toString();
+    }
+
+    function buildBattleRunBridgeUrl(summary) {
+      const u = new URL('./goodjunk-battle-run-bridge.html', location.href);
+      const roomId = summary?.roomId || runCtx.roomId || '';
+      const pid = summary?.pid || runCtx.pid || 'anon';
+      const name = summary?.name || runCtx.name || 'Player';
+
+      u.searchParams.set('roomId', roomId);
+      u.searchParams.set('pid', pid);
+      u.searchParams.set('name', name);
+      u.searchParams.set('diff', runCtx.diff || 'normal');
+      u.searchParams.set('time', runCtx.time || '120');
+      u.searchParams.set('view', runCtx.view || 'mobile');
+      u.searchParams.set('run', runCtx.run || 'play');
+      u.searchParams.set('hub', runCtx.hub || '../hub.html');
+      u.searchParams.set('roomKind', runCtx.roomKind || '');
+      u.searchParams.set('seed', String(Date.now()));
+      return u.toString();
+    }
+
+    function buildRoomCopyText(summary){
+      const roomId = summary?.roomId || runCtx.roomId || '';
+      const playerName = summary?.name || runCtx.name || runCtx.pid || 'Player';
+      const lobbyUrl = buildBattleLobbyUrl({ autojoin:true, rematch:true });
+
+      return [
+        `ROOM: ${roomId || '-'}`,
+        `PLAYER: ${playerName}`,
+        `LINK: ${lobbyUrl}`
+      ].join('\n');
     }
 
     function installSafeStub() {
@@ -1031,6 +1083,18 @@
           try {
             window.dispatchEvent(new CustomEvent('gj:battle-summary', { detail: detail || {} }));
           } catch (_) {}
+        },
+        exportSummary(summary, kind='json'){
+          const stamp = String(summary?.ts_iso || new Date().toISOString()).replace(/[:.]/g, '-');
+          const filename = `goodjunk-battle-summary-${clean(runCtx.roomId || 'room')}-${stamp}.${kind === 'csv' ? 'csv' : 'json'}`;
+          if (kind === 'csv'){
+            const row = summary || {};
+            const headers = Object.keys(row);
+            const values = headers.map(k => `"${String(row[k] ?? '').replace(/"/g,'""')}"`);
+            saveText(filename, `${headers.join(',')}\n${values.join(',')}\n`, 'text/csv');
+          } else {
+            saveText(filename, safeJson(summary || {}));
+          }
         }
       };
 
@@ -1040,7 +1104,7 @@
 
     function buildVersionedUrl(src) {
       const u = new URL(src, location.href);
-      u.searchParams.set('v', '20260404-battle-run-full');
+      u.searchParams.set('v', '20260405-battle-run-merged');
       return u.toString();
     }
 
@@ -1092,7 +1156,7 @@
       const mount = $('gameMount');
       const htmlChanged = !!(mount && String(mount.innerHTML || '') !== String(before.html || ''));
       const childChanged = !!(mount && mount.children && mount.children.length > Number(before.childCount || 0));
-      const hasVisualNode = !!document.querySelector('#gameMount canvas, #gameMount svg, #gameMount iframe, #gameMount .game-root, #gameMount .gj-root, #gameMount .target'));
+      const hasVisualNode = !!document.querySelector('#gameMount canvas, #gameMount svg, #gameMount iframe, #gameMount .game-root, #gameMount .gj-root, #gameMount .target, #battleEngineRoot');
       const canvasChanged = document.querySelectorAll('#gameMount canvas, body > canvas').length > Number(before.canvasCount || 0);
       return htmlChanged || childChanged || hasVisualNode || canvasChanged;
     }
@@ -1286,9 +1350,9 @@
       return {
         mode: MODE,
         label: MODE_LABEL,
-        roomId: runCtx.roomId,
-        pid: runCtx.pid,
-        name: runCtx.name,
+        roomId: src.roomId ?? runCtx.roomId,
+        pid: src.pid ?? runCtx.pid,
+        name: src.name ?? runCtx.name,
         role: runCtx.role,
         diff: runCtx.diff,
         time: runCtx.time,
@@ -1306,18 +1370,15 @@
         compare: src.compare && typeof src.compare === 'object' ? src.compare : null,
         raw: src,
         receivedAt: Date.now(),
-        heroDisplay: `${heroMeta.avatar} ${heroMeta.name}`.trim()
+        heroDisplay: `${heroMeta.avatar} ${heroMeta.name}`.trim(),
+        ts_iso: src.ts_iso || new Date().toISOString()
       };
     }
 
     function normalizeBattleCompare(summary) {
       const standings = Array.isArray(summary.standings) ? summary.standings : [];
       if (!standings.length) {
-        return {
-          me: null,
-          opponent: null,
-          delta: 0
-        };
+        return { me: null, opponent: null, delta: 0 };
       }
 
       const myPid = String(runCtx.pid || '');
@@ -1404,6 +1465,10 @@
       `;
     }
 
+    function hideSummary() {
+      if ($('summaryOverlay')) $('summaryOverlay').hidden = true;
+    }
+
     function showSummary(detail) {
       const summary = normalizeSummary(detail);
       const hero = battleHero(summary);
@@ -1419,7 +1484,7 @@
       if ($('summarySub')) {
         $('summarySub').textContent =
           [
-            runCtx.roomId ? `ห้อง ${runCtx.roomId}` : '',
+            summary.roomId ? `ห้อง ${summary.roomId}` : '',
             summary.result || '',
             summary.players ? `ผู้เล่น ${summary.players}` : '',
             'กด “เล่นอีกครั้ง” เพื่อกลับเข้าห้องเดิม'
@@ -1491,7 +1556,9 @@
           'rank=' + (summary.rank || '-') + '\n' +
           'score=' + (summary.score || 0) + '\n' +
           'players=' + (summary.players || '-') + '\n' +
-          'rematchLobby=' + buildBattleLobbyUrl() + '\n' +
+          'replayBridge=' + buildBattleRunBridgeUrl(summary) + '\n' +
+          'backLobby=' + buildBattleLobbyUrl() + '\n' +
+          'shareLobby=' + buildBattleLobbyUrl({ autojoin:true, rematch:true }) + '\n' +
           'standings=' + JSON.stringify(summary.standings || []) + '\n' +
           'battleCompare=' + JSON.stringify(battleCompare || {}) + '\n' +
           'me=' + JSON.stringify((battleCompare && battleCompare.me) || null) + '\n' +
@@ -1506,6 +1573,30 @@
       const card = $('engineStatusCard');
       if (card) card.style.display = 'none';
       __battlePendingLocalSummary = null;
+    }
+
+    function exportCurrentSummary(kind='json') {
+      const payload = getCurrentSummary() || {};
+      if (!payload || !Object.keys(payload).length) return false;
+
+      try{
+        if (window.BattleSafe && typeof window.BattleSafe.exportSummary === 'function') {
+          window.BattleSafe.exportSummary(payload, kind);
+          return true;
+        }
+      }catch(err){
+        console.warn('[GJ-BATTLE-RUN] BattleSafe.exportSummary failed', err);
+      }
+
+      const stamp = String(payload.ts_iso || new Date().toISOString()).replace(/[:.]/g, '-');
+      if (kind === 'csv') {
+        const headers = Object.keys(payload);
+        const values = headers.map(k => `"${String(payload[k] ?? '').replace(/"/g,'""')}"`);
+        saveText(`goodjunk-battle-summary-${clean(runCtx.roomId || 'room')}-${stamp}.csv`, `${headers.join(',')}\n${values.join(',')}\n`, 'text/csv');
+      } else {
+        saveText(`goodjunk-battle-summary-${clean(runCtx.roomId || 'room')}-${stamp}.json`, safeJson(payload));
+      }
+      return true;
     }
 
     function handleSummaryEvent(evtName, detail) {
@@ -1526,41 +1617,94 @@
       showSummary(detail || {});
     }
 
+    function maybeRestoreSummaryOnce(){
+      const shouldRestoreByQuery = qs('showLastSummary', '') === '1';
+      let shouldRestoreBySession = false;
+
+      try{
+        shouldRestoreBySession = sessionStorage.getItem('GJ_BATTLE_SHOW_LAST_SUMMARY') === '1';
+      }catch{}
+
+      if (!shouldRestoreByQuery && !shouldRestoreBySession) return;
+
+      let summary = window.__GJ_BATTLE_LAST_SUMMARY__ || null;
+
+      if (!summary && window.BattleSafe && typeof window.BattleSafe.loadLastSummary === 'function'){
+        try{
+          summary = window.BattleSafe.loadLastSummary(runCtx.pid || '');
+        }catch(err){
+          console.warn('[GJ-BATTLE-RUN] restore summary failed', err);
+        }
+      }
+
+      clearSummaryRestoreFlags();
+      if (summary) {
+        setTimeout(() => showSummary({ summary }), 80);
+      }
+    }
+
     function wireActions() {
       $('btnQuickCopyRoom')?.addEventListener('click', () => {
-        const room = String(runCtx.roomId || '').trim();
-        if (!room) {
-          if ($('engineTip')) $('engineTip').innerHTML = '<strong>Tip:</strong> ตอนนี้ยังไม่มีรหัสห้องให้คัดลอก';
-          return;
-        }
-        copyText(room).then(() => {
-          if ($('engineTip')) $('engineTip').innerHTML = '<strong>คัดลอกแล้ว:</strong> ส่งรหัสห้องนี้ให้เพื่อนได้เลย';
+        const text = buildRoomCopyText(getCurrentSummary());
+        copyText(text).then(() => {
+          if ($('engineTip')) $('engineTip').innerHTML = '<strong>คัดลอกแล้ว:</strong> คัดลอก room และลิงก์ห้องเรียบร้อย';
         }).catch(() => {
           if ($('engineTip')) $('engineTip').innerHTML = '<strong>ยังคัดลอกไม่ได้:</strong> ลองคัดลอกจากข้อความ ROOM ด้านบนแทน';
         });
       });
 
       $('btnQuickBackHub')?.addEventListener('click', () => {
+        clearSummaryRestoreFlags();
         location.href = runCtx.hub;
       });
 
-      $('btnRematch')?.addEventListener('click', () => {
-        location.href = buildBattleLobbyUrl();
+      $('btnReplay')?.addEventListener('click', () => {
+        const summary = getCurrentSummary() || {};
+        clearSummaryRestoreFlags();
+        location.href = buildBattleRunBridgeUrl(summary);
       });
 
       $('btnCopyRoom')?.addEventListener('click', () => {
-        copyText(runCtx.roomId || '')
-          .then(() => { if ($('summarySub')) $('summarySub').textContent = 'คัดลอก room code แล้ว'; })
-          .catch(() => { if ($('summarySub')) $('summarySub').textContent = 'คัดลอก room code ไม่สำเร็จ'; });
+        copyText(buildRoomCopyText(getCurrentSummary()))
+          .then(() => { if ($('summarySub')) $('summarySub').textContent = 'คัดลอกข้อมูลห้องแล้ว'; })
+          .catch(() => { if ($('summarySub')) $('summarySub').textContent = 'คัดลอกข้อมูลห้องไม่สำเร็จ'; });
       });
 
       $('btnExport')?.addEventListener('click', () => {
-        const payload = window.__GJ_BATTLE_LAST_SUMMARY__ || {};
-        saveText(`goodjunk-battle-summary-${clean(runCtx.roomId || 'room')}-${Date.now()}.json`, safeJson(payload));
+        const ok = exportCurrentSummary('json');
+        if ($('summarySub')) $('summarySub').textContent = ok ? 'ส่งออกไฟล์แล้ว' : 'ยังไม่มีข้อมูลสำหรับ export';
+      });
+
+      $('btnExport')?.addEventListener('contextmenu', (ev) => {
+        ev.preventDefault();
+        exportCurrentSummary('csv');
       });
 
       $('btnBackHub')?.addEventListener('click', () => {
+        clearSummaryRestoreFlags();
         location.href = runCtx.hub;
+      });
+
+      $('btnBackLobby')?.addEventListener('click', () => {
+        clearSummaryRestoreFlags();
+        location.href = buildBattleLobbyUrl();
+      });
+
+      window.addEventListener('keydown', (ev) => {
+        const overlay = $('summaryOverlay');
+        if (!overlay || overlay.hidden) return;
+
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          hideSummary();
+        }
+
+        if (ev.key === 'r' || ev.key === 'R') {
+          ev.preventDefault();
+          const summary = getCurrentSummary() || {};
+          clearSummaryRestoreFlags();
+          location.href = buildBattleRunBridgeUrl(summary);
+        }
       });
     }
 
@@ -1667,6 +1811,8 @@
     refreshControllerDebugPanel();
 
     [
+      'battle:finish',
+      'hha:battle:finish',
       'gj:battle-summary',
       'gj:summary',
       'gj:match-summary',
@@ -1685,7 +1831,13 @@
       const data = evt && evt.data ? evt.data : null;
       if (!data || typeof data !== 'object') return;
 
-      if (data.type === 'gj:battle-summary' || data.type === 'gj:summary' || data.type === 'hha:summary') {
+      if (
+        data.type === 'gj:battle-summary' ||
+        data.type === 'gj:summary' ||
+        data.type === 'hha:summary' ||
+        data.type === 'battle:finish' ||
+        data.type === 'hha:battle:finish'
+      ) {
         const detail = data.detail || data.summary || data;
         handleSummaryEvent(data.type, detail);
       }
@@ -1697,6 +1849,8 @@
     });
 
     window.__GJ_SHOW_BATTLE_SUMMARY__ = showSummary;
+    window.showSummary = showSummary;
+    window.hideSummary = hideSummary;
 
     async function loadEngine() {
       const debugRows = [
@@ -1707,6 +1861,9 @@
         `[WAIT] ${runCtx.wait}`,
         `[HOST] ${runCtx.host}`,
         `[USE_CONTROLLER] ${WANT_CONTROLLER ? 'yes' : 'no'}`,
+        '',
+        '[SAFE CANDIDATES]',
+        ...SAFE_CANDIDATES,
         '',
         '[CORE CANDIDATES]',
         ...CORE_CANDIDATES,
@@ -1734,6 +1891,7 @@
         window.__GJ_BATTLE_ENGINE_READY__ = true;
 
         await forceQuickStartSequence(debugRows);
+        maybeRestoreSummaryOnce();
 
         setFriendlyReadyState(
           `core: ${core.loaded.src} (${core.loaded.type})` +
