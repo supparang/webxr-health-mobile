@@ -7,7 +7,7 @@ export const GOODJUNK_MODE_REGISTRY = {
   duet: {
     id: 'duet',
     kind: 'duet',
-    loader: () => import('./goodjunk.safe.duet.js')
+    loader: () => import('./goodjunk.duet.loader.js')
   },
   race: {
     id: 'race',
