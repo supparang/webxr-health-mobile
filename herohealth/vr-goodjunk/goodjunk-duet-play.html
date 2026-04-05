@@ -1040,9 +1040,15 @@
   <script src="../firebase-config.js?v=20260401-firebase-r12"></script>
 
   <script>
-    // Inline cloud logger for GoodJunk Duet -> Apps Script
+    // Inline cloud logger for GoodJunk Duet -> Apps Script (sendBeacon only)
     (function(root){
       'use strict';
+
+      if (root.__HHA_DUET_LOGGER_ATTACHED__) {
+        console.log('[HHA LOGGER] already attached');
+        return;
+      }
+      root.__HHA_DUET_LOGGER_ATTACHED__ = true;
 
       function qs(k, d=''){
         try { return new URL(location.href).searchParams.get(k) ?? d; }
@@ -1072,8 +1078,9 @@
         'https://script.google.com/macros/s/AKfycbwQbRZrtLpNrAmr3_0al1u6qjdsDKg-oG2JkQsMN-R0KWJrPdqnx-QPftl1i473YWh3Zw/exec'
       );
 
-      const DEFAULT_GAME_VERSION = 'goodjunk-duet-r13';
+      const DEFAULT_GAME_VERSION = 'goodjunk-duet-r14';
       const DEFAULT_SCHEMA_VERSION = 'v20260403-HHA-RECEIVER-V4';
+      const __HHA_SENT_KEYS__ = new Set();
 
       function buildEnvelope(summary){
         const startMs = Number(summary.startAt || Date.now());
@@ -1254,27 +1261,29 @@
         }
 
         const payload = buildEnvelope(summary);
+        const raw = JSON.stringify(payload);
+        const sid = String(payload?.sheets?.sessions?.[0]?.session_id || '');
+
+        if (sid && __HHA_SENT_KEYS__.has(sid)) {
+          console.log('[HHA LOGGER] duplicate skipped', sid);
+          return;
+        }
+        if (sid) __HHA_SENT_KEYS__.add(sid);
 
         try {
           if (navigator.sendBeacon) {
-            const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-            const ok = navigator.sendBeacon(API, blob);
+            const ok = navigator.sendBeacon(
+              API,
+              new Blob([raw], { type: 'text/plain;charset=UTF-8' })
+            );
             console.log('[HHA LOGGER] sendBeacon', ok, payload);
-            if (ok) return;
+            return;
           }
 
-          const res = await fetch(API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            keepalive: true,
-            mode: 'cors'
-          });
-
-          const text = await res.text().catch(() => '');
-          console.log('[HHA LOGGER] fetch done', res.status, text);
+          console.warn('[HHA LOGGER] sendBeacon unavailable; no fetch fallback used');
         } catch (err) {
           console.error('[HHA LOGGER] post failed', err);
+          if (sid) __HHA_SENT_KEYS__.delete(sid);
         }
       }
 
@@ -1293,6 +1302,6 @@
     })(window);
   </script>
 
-  <script src="./goodjunk.safe.duet.js?v=20260405-gjduet-run-r13"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260405-gjduet-run-r14"></script>
 </body>
 </html>
