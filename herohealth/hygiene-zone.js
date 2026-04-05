@@ -3,11 +3,6 @@ const $ = (sel) => document.querySelector(sel);
 
 const STORAGE_LAST = 'HH_HYGIENE_LAST_GAME_V1';
 
-/*
-  ใช้เกมเดิมที่มีอยู่จริงในโปรเจกต์
-  - ใส่ path จริงของแต่ละเกมลงใน launcherPath
-  - ถ้ายังไม่รู้ path ให้เป็น '' ไปก่อน ระบบจะ disable card นั้น
-*/
 const GAME_REGISTRY = [
   {
     id: 'bath',
@@ -16,7 +11,7 @@ const GAME_REGISTRY = [
     icon: '🛁',
     color: 'c-blue',
     tags: ['bath', 'routine', 'clean body'],
-    launcherPath: '' // TODO: ใส่ path เกมเดิมจริง
+    launcherPath: './bath-vr.html'
   },
   {
     id: 'brush',
@@ -25,7 +20,7 @@ const GAME_REGISTRY = [
     icon: '🪥',
     color: 'c-pink',
     tags: ['brush', 'teeth', 'routine'],
-    launcherPath: '' // TODO: ใส่ path เกมเดิมจริง
+    launcherPath: './brush-vr.html'
   },
   {
     id: 'handwash',
@@ -34,7 +29,7 @@ const GAME_REGISTRY = [
     icon: '🫧',
     color: 'c-green',
     tags: ['handwash', 'soap', 'clean hands'],
-    launcherPath: '' // TODO: ใส่ path เกมเดิมจริง
+    launcherPath: './handwash-v2.html'
   },
   {
     id: 'clean-objects',
@@ -43,7 +38,7 @@ const GAME_REGISTRY = [
     icon: '🧽',
     color: 'c-orange',
     tags: ['clean objects', 'spray', 'wipe'],
-    launcherPath: '' // TODO: ใส่ path เกมเดิมจริง
+    launcherPath: './clean-objects-kids.html'
   },
   {
     id: 'mask-cough',
@@ -52,7 +47,7 @@ const GAME_REGISTRY = [
     icon: '😷',
     color: 'c-purple',
     tags: ['mask', 'cough', 'safe'],
-    launcherPath: '' // TODO: ใส่ path เกมเดิมจริง
+    launcherPath: './maskcough-v2.html'
   },
   {
     id: 'germ-detective',
@@ -61,7 +56,7 @@ const GAME_REGISTRY = [
     icon: '🦠',
     color: 'c-teal',
     tags: ['germ', 'detective', 'investigate'],
-    launcherPath: './germ-detective/germ-detective-vr.html'
+    launcherPath: './germ-detective.html'
   }
 ];
 
@@ -154,7 +149,7 @@ function bindTopBar() {
 
     const game = gameById(last.gameId);
     if (!isGameEnabled(game)) {
-      setCoachLine('เกมล่าสุดยังไม่ได้ใส่ path จริงใน launcher');
+      setCoachLine('เกมล่าสุดยังไม่ได้เปิดใช้งาน');
       return;
     }
 
@@ -199,7 +194,6 @@ function renderRecent() {
         <div class="recent-sub">
           ล่าสุดเล่นเมื่อ ${whenText}<br/>
           mode: ${last.mode || getDefaultMode()} • time: ${last.time || getDefaultTime()} sec
-          ${enabled ? '' : '<br/>เกมนี้ยังไม่ได้ใส่ path จริง'}
         </div>
       </div>
 
@@ -232,7 +226,7 @@ function makeGameCard(game) {
     <article class="game-card ${enabled ? '' : 'is-disabled'}" data-game-card="${game.id}">
       <div class="game-top">
         <div class="game-icon ${game.color}">${game.icon}</div>
-        <div class="game-badge">${enabled ? 'Ready' : 'Path needed'}</div>
+        <div class="game-badge">${enabled ? 'Ready' : 'Disabled'}</div>
       </div>
 
       <div class="game-title">${game.title}</div>
@@ -283,7 +277,7 @@ function renderGames(filter = '') {
 
     grid.querySelector(`[data-play="${game.id}"]`)?.addEventListener('click', () => {
       if (!enabled) {
-        setCoachLine(`ยังไม่ได้ใส่ path จริงของ ${game.title}`);
+        setCoachLine(`เกม ${game.title} ยังไม่พร้อม`);
         return;
       }
       saveLastGame(game.id);
@@ -291,11 +285,7 @@ function renderGames(filter = '') {
     });
 
     grid.querySelector(`[data-preview="${game.id}"]`)?.addEventListener('click', () => {
-      setCoachLine(
-        enabled
-          ? `เลือก ${game.title} แล้ว กด "เข้าเล่น" ได้เลย`
-          : `${game.title} ยังต้องใส่ path เกมเดิมจริงเพิ่ม`
-      );
+      setCoachLine(`เลือก ${game.title} แล้ว กด "เข้าเล่น" ได้เลย`);
     });
   });
 }
@@ -338,11 +328,7 @@ function init() {
   renderGames();
 
   const readyCount = GAME_REGISTRY.filter(isGameEnabled).length;
-  setCoachLine(
-    readyCount > 0
-      ? `ตอนนี้เกมที่เปิดได้แน่ ๆ มี ${readyCount} เกม`
-      : 'ตอนนี้ยังต้องใส่ path เกมเดิมจริงใน registry ก่อน'
-  );
+  setCoachLine(`ตอนนี้เกมใน Hygiene Zone พร้อมเข้าเล่น ${readyCount} เกม`);
 }
 
 init();
