@@ -3,6 +3,11 @@ const $ = (sel) => document.querySelector(sel);
 
 const STORAGE_LAST = 'HH_HYGIENE_LAST_GAME_V1';
 
+/*
+  ใช้เกมเดิมที่มีอยู่จริงในโปรเจกต์
+  - ใส่ path จริงของแต่ละเกมลงใน launcherPath
+  - ถ้ายังไม่รู้ path ให้เป็น '' ไปก่อน ระบบจะ disable card นั้น
+*/
 const GAME_REGISTRY = [
   {
     id: 'bath',
@@ -11,12 +16,7 @@ const GAME_REGISTRY = [
     icon: '🛁',
     color: 'c-blue',
     tags: ['bath', 'routine', 'clean body'],
-    pathCandidates: [
-      './bath-v2/bath.html',
-      './bath-v2/index.html',
-      './bath/bath.html',
-      './bath.html'
-    ]
+    launcherPath: '' // TODO: ใส่ path เกมเดิมจริง
   },
   {
     id: 'brush',
@@ -25,11 +25,7 @@ const GAME_REGISTRY = [
     icon: '🪥',
     color: 'c-pink',
     tags: ['brush', 'teeth', 'routine'],
-    pathCandidates: [
-      './brush-v2/brush.html',
-      './brush/brush.html',
-      './brush.html'
-    ]
+    launcherPath: '' // TODO: ใส่ path เกมเดิมจริง
   },
   {
     id: 'handwash',
@@ -38,11 +34,7 @@ const GAME_REGISTRY = [
     icon: '🫧',
     color: 'c-green',
     tags: ['handwash', 'soap', 'clean hands'],
-    pathCandidates: [
-      './handwash-v2/handwash.html',
-      './handwash/handwash.html',
-      './handwash.html'
-    ]
+    launcherPath: '' // TODO: ใส่ path เกมเดิมจริง
   },
   {
     id: 'clean-objects',
@@ -51,11 +43,7 @@ const GAME_REGISTRY = [
     icon: '🧽',
     color: 'c-orange',
     tags: ['clean objects', 'spray', 'wipe'],
-    pathCandidates: [
-      './clean-objects/clean-objects.html',
-      './clean-objects-v2/clean-objects.html',
-      './clean-objects.html'
-    ]
+    launcherPath: '' // TODO: ใส่ path เกมเดิมจริง
   },
   {
     id: 'mask-cough',
@@ -64,11 +52,7 @@ const GAME_REGISTRY = [
     icon: '😷',
     color: 'c-purple',
     tags: ['mask', 'cough', 'safe'],
-    pathCandidates: [
-      './mask-cough/mask-cough.html',
-      './mask-cough-v2/mask-cough.html',
-      './mask-cough.html'
-    ]
+    launcherPath: '' // TODO: ใส่ path เกมเดิมจริง
   },
   {
     id: 'germ-detective',
@@ -77,14 +61,9 @@ const GAME_REGISTRY = [
     icon: '🦠',
     color: 'c-teal',
     tags: ['germ', 'detective', 'investigate'],
-    pathCandidates: [
-      './germ-detective/germ-detective-vr.html',
-      './germ-detective/germ-detective.html'
-    ]
+    launcherPath: './germ-detective/germ-detective-vr.html'
   }
 ];
-
-const pathProbeCache = new Map();
 
 function getHubUrl() {
   return qs.get('hub') || new URL('./hub.html', location.href).toString();
@@ -111,54 +90,12 @@ function setCoachLine(text) {
   if (el) el.textContent = text;
 }
 
-async function pathExists(candidate) {
-  const abs = new URL(candidate, location.href).toString();
-  if (pathProbeCache.has(abs)) return pathProbeCache.get(abs);
-
-  let ok = false;
-
-  try {
-    const head = await fetch(abs, {
-      method: 'HEAD',
-      cache: 'no-store'
-    });
-    ok = head.ok;
-  } catch (_) {}
-
-  if (!ok) {
-    try {
-      const res = await fetch(abs, {
-        method: 'GET',
-        cache: 'no-store'
-      });
-      ok = res.ok;
-    } catch (_) {
-      ok = false;
-    }
-  }
-
-  pathProbeCache.set(abs, ok);
-  return ok;
-}
-
-async function resolveGamePath(game) {
-  for (const candidate of game.pathCandidates || []) {
-    const ok = await pathExists(candidate);
-    if (ok) return candidate;
-  }
-  return '';
-}
-
-async function resolveAllGamePaths() {
-  for (const game of GAME_REGISTRY) {
-    game.resolvedPath = await resolveGamePath(game);
-    game.enabled = !!game.resolvedPath;
-  }
+function isGameEnabled(game) {
+  return !!(game && game.launcherPath);
 }
 
 function buildGameUrl(game, extra = {}) {
-  const resolved = game.resolvedPath || game.pathCandidates?.[0];
-  const out = new URL(resolved, location.href);
+  const out = new URL(game.launcherPath, location.href);
   const next = new URLSearchParams(location.search);
 
   const modeSelect = $('#modeSelect');
@@ -216,8 +153,8 @@ function bindTopBar() {
     }
 
     const game = gameById(last.gameId);
-    if (!game?.enabled) {
-      setCoachLine('ยังหา path ของเกมล่าสุดไม่เจอ ลองเลือกเกมที่เปิดได้ด้านล่างก่อน');
+    if (!isGameEnabled(game)) {
+      setCoachLine('เกมล่าสุดยังไม่ได้ใส่ path จริงใน launcher');
       return;
     }
 
@@ -241,6 +178,8 @@ function renderRecent() {
     return;
   }
 
+  const enabled = isGameEnabled(game);
+
   const whenText = last?.ts
     ? new Date(last.ts).toLocaleString('th-TH', {
         year: 'numeric',
@@ -252,7 +191,7 @@ function renderRecent() {
     : '-';
 
   area.innerHTML = `
-    <article class="recent-card ${game.enabled ? '' : 'is-disabled'}">
+    <article class="recent-card ${enabled ? '' : 'is-disabled'}">
       <div class="recent-icon ${game.color}">${game.icon}</div>
 
       <div>
@@ -260,19 +199,19 @@ function renderRecent() {
         <div class="recent-sub">
           ล่าสุดเล่นเมื่อ ${whenText}<br/>
           mode: ${last.mode || getDefaultMode()} • time: ${last.time || getDefaultTime()} sec
-          ${game.enabled ? '' : '<br/>ยังหา path จริงของเกมนี้ไม่เจอ'}
+          ${enabled ? '' : '<br/>เกมนี้ยังไม่ได้ใส่ path จริง'}
         </div>
       </div>
 
       <div class="recent-actions">
-        <button class="play-btn ${game.color}" type="button" data-recent-play="${game.id}" ${game.enabled ? '' : 'disabled'}>เล่นต่อ</button>
+        <button class="play-btn ${game.color}" type="button" data-recent-play="${game.id}" ${enabled ? '' : 'disabled'}>เล่นต่อ</button>
         <button class="ghost-btn" type="button" data-recent-open="${game.id}">ดูการ์ดเกม</button>
       </div>
     </article>
   `;
 
   area.querySelector(`[data-recent-play="${game.id}"]`)?.addEventListener('click', () => {
-    if (!game.enabled) return;
+    if (!enabled) return;
     if ($('#modeSelect')) $('#modeSelect').value = last.mode || getDefaultMode();
     if ($('#timeSelect')) $('#timeSelect').value = last.time || getDefaultTime();
     saveLastGame(game.id);
@@ -287,11 +226,13 @@ function renderRecent() {
 }
 
 function makeGameCard(game) {
+  const enabled = isGameEnabled(game);
+
   return `
-    <article class="game-card ${game.enabled ? '' : 'is-disabled'}" data-game-card="${game.id}">
+    <article class="game-card ${enabled ? '' : 'is-disabled'}" data-game-card="${game.id}">
       <div class="game-top">
         <div class="game-icon ${game.color}">${game.icon}</div>
-        <div class="game-badge">${game.enabled ? 'Ready' : 'Path not found'}</div>
+        <div class="game-badge">${enabled ? 'Ready' : 'Path needed'}</div>
       </div>
 
       <div class="game-title">${game.title}</div>
@@ -302,7 +243,7 @@ function makeGameCard(game) {
       </div>
 
       <div class="game-actions">
-        <button class="play-btn ${game.color}" type="button" data-play="${game.id}" ${game.enabled ? '' : 'disabled'}>เข้าเล่น</button>
+        <button class="play-btn ${game.color}" type="button" data-play="${game.id}" ${enabled ? '' : 'disabled'}>เข้าเล่น</button>
         <button class="ghost-btn" type="button" data-preview="${game.id}">เลือกเกมนี้</button>
       </div>
     </article>
@@ -338,9 +279,11 @@ function renderGames(filter = '') {
   grid.innerHTML = list.map(makeGameCard).join('');
 
   list.forEach(game => {
+    const enabled = isGameEnabled(game);
+
     grid.querySelector(`[data-play="${game.id}"]`)?.addEventListener('click', () => {
-      if (!game.enabled) {
-        setCoachLine(`ยังหาไฟล์จริงของ ${game.title} ไม่เจอ`);
+      if (!enabled) {
+        setCoachLine(`ยังไม่ได้ใส่ path จริงของ ${game.title}`);
         return;
       }
       saveLastGame(game.id);
@@ -349,9 +292,9 @@ function renderGames(filter = '') {
 
     grid.querySelector(`[data-preview="${game.id}"]`)?.addEventListener('click', () => {
       setCoachLine(
-        game.enabled
+        enabled
           ? `เลือก ${game.title} แล้ว กด "เข้าเล่น" ได้เลย`
-          : `${game.title} ยังต้องใส่ path จริงเพิ่ม`
+          : `${game.title} ยังต้องใส่ path เกมเดิมจริงเพิ่ม`
       );
     });
   });
@@ -387,23 +330,19 @@ function fillHeaderBits() {
   if (modePill) modePill.textContent = `🎮 Mode: ${getDefaultMode()}`;
 }
 
-async function init() {
+function init() {
   fillHeaderBits();
   bindTopBar();
   bindControls();
-
-  setCoachLine('กำลังตรวจหา path ของเกมจริงในโปรเจกต์...');
-  await resolveAllGamePaths();
-
   renderRecent();
   renderGames();
 
-  const readyCount = GAME_REGISTRY.filter(g => g.enabled).length;
-  if (readyCount > 0) {
-    setCoachLine(`เจอเกมที่เปิดได้ ${readyCount} เกมแล้ว เลือกเล่นได้เลย`);
-  } else {
-    setCoachLine('ยังไม่เจอ path เกมจริงจาก candidate ที่ตั้งไว้ ต้องเติม path ให้ตรง repo อีกนิด');
-  }
+  const readyCount = GAME_REGISTRY.filter(isGameEnabled).length;
+  setCoachLine(
+    readyCount > 0
+      ? `ตอนนี้เกมที่เปิดได้แน่ ๆ มี ${readyCount} เกม`
+      : 'ตอนนี้ยังต้องใส่ path เกมเดิมจริงใน registry ก่อน'
+  );
 }
 
 init();
