@@ -435,7 +435,7 @@
         </div>
 
         <div class="gj-next-plan" id="gjNextPlanBox">
-          <div class="gj-next-plan-title" id="gjNextPlanTitle">Recommended Next Run</div>
+          <div class="gj-next-plan-title" id="gjNextPlanTitle">Recommended Next Zone</div>
           <div class="gj-next-plan-sub" id="gjNextPlanReason">ยังไม่มี snapshot จากรอบล่าสุด</div>
           <div class="gj-next-plan-chips" id="gjNextPlanChips"></div>
         </div>
@@ -446,8 +446,8 @@
         </div>
 
         <div class="gj-archive-actions">
-          <a class="gj-archive-btn play" id="gjQuickRematchBtn" href="./goodjunk-launcher.html">🎮 Quick Rematch</a>
-          <a class="gj-archive-btn soft" id="gjOpenLauncherBtn" href="./goodjunk-launcher.html">🧭 Open Launcher</a>
+          <a class="gj-archive-btn play" id="gjQuickRematchBtn" href="./zone-launcher.html?zone=nutrition">🥗 ไป Nutrition Zone</a>
+          <a class="gj-archive-btn soft" id="gjOpenLauncherBtn" href="./zone-launcher.html?zone=nutrition">🗂️ ดูเกมในโซน</a>
           <button class="gj-archive-btn soft" id="gjClearSnapshotBtn" type="button">🧹 Clear Snapshot</button>
         </div>
       </article>
@@ -490,7 +490,7 @@
           <div class="zone-right">
             <div class="zone-art hygiene" aria-hidden="true"></div>
             <div class="actions">
-              <a id="btnPlayHygiene" class="btn primary" href="#">🫧 เล่นเลย</a>
+              <a id="btnPlayHygiene" class="btn primary" href="./zone-launcher.html?zone=hygiene">🫧 เล่นเลย</a>
               <button id="btnZoneHygiene" class="btn secondary" type="button">ดูเกมในโซน</button>
             </div>
           </div>
@@ -531,7 +531,7 @@
           <div class="zone-right">
             <div class="zone-art nutrition" aria-hidden="true"></div>
             <div class="actions">
-              <a id="btnPlayNutrition" class="btn primary" href="#">🥗 เล่นเลย</a>
+              <a id="btnPlayNutrition" class="btn primary" href="./zone-launcher.html?zone=nutrition">🥗 เล่นเลย</a>
               <button id="btnZoneNutrition" class="btn secondary" type="button">ดูเกมในโซน</button>
             </div>
           </div>
@@ -572,7 +572,7 @@
           <div class="zone-right">
             <div class="zone-art fitness" aria-hidden="true"></div>
             <div class="actions">
-              <a id="btnPlayFitness" class="btn primary" href="#">🏃 เล่นเลย</a>
+              <a id="btnPlayFitness" class="btn primary" href="./zone-launcher.html?zone=fitness">🏃 เล่นเลย</a>
               <button id="btnZoneFitness" class="btn secondary" type="button">ดูเกมในโซน</button>
             </div>
           </div>
@@ -707,35 +707,123 @@
         if (el) el.href = href;
       }
 
-      function makeGoodJunkLauncherUrl(snapshot){
-        const u = new URL('./goodjunk-launcher.html', location.href);
+      function qsGet(k, d=''){
+        try {
+          return new URL(location.href).searchParams.get(k) || d;
+        } catch (_) {
+          return d;
+        }
+      }
 
-        const hero = snapshot?.hero || {};
-        const target = snapshot?.target || {};
-        const nextPlan = snapshot?.nextPlan || {};
-        const rivalry = snapshot?.rivalry || {};
+      function setLastZone(zone){
+        try { localStorage.setItem('HHA_LAST_ZONE', zone); } catch (_) {}
+      }
 
-        if (hero.pid) u.searchParams.set('pid', hero.pid);
-        if (hero.name) u.searchParams.set('name', hero.name);
-        if (hero.diff) u.searchParams.set('diff', hero.diff);
-        if (hero.run) u.searchParams.set('run', hero.run);
+      function buildZoneLauncherUrl(zone){
+        const u = new URL('./zone-launcher.html', location.href);
 
+        const pid = qsGet('pid', 'anon');
+        const name = qsGet('name', qsGet('nickName', 'Hero'));
+        const run = qsGet('run', 'play');
+        const diff = qsGet('diff', 'normal');
+        const view = qsGet('view', 'mobile');
+        const studyId = qsGet('studyId', '');
+
+        u.searchParams.set('zone', zone);
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('name', name);
+        u.searchParams.set('run', run);
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('view', view);
         u.searchParams.set('hub', location.href);
-        u.searchParams.set('zone', 'nutrition');
-        u.searchParams.set('gameId', 'goodjunk');
 
-        if (target.group) u.searchParams.set('archiveTargetGroup', target.group);
-        if (target.key) u.searchParams.set('archiveTargetKey', target.key);
-        if (nextPlan.mode) u.searchParams.set('recommendedMode', nextPlan.mode);
-        if (rivalry.key) u.searchParams.set('rivalArc', rivalry.key);
+        if (studyId) u.searchParams.set('studyId', studyId);
 
         return u.toString();
       }
 
-      function renderGoodJunkHubCard(){
-        const card = document.getElementById('gjArchiveCard');
-        if (!card) return;
+      function goZone(zone){
+        setLastZone(zone);
+        location.href = buildZoneLauncherUrl(zone);
+      }
 
+      function bindZoneButtons(){
+        const hygieneUrl = buildZoneLauncherUrl('hygiene');
+        const nutritionUrl = buildZoneLauncherUrl('nutrition');
+        const fitnessUrl = buildZoneLauncherUrl('fitness');
+
+        setHref('btnPlayHygiene', hygieneUrl);
+        setHref('btnPlayNutrition', nutritionUrl);
+        setHref('btnPlayFitness', fitnessUrl);
+
+        const zoneBtnMap = [
+          ['btnZoneHygiene', 'hygiene'],
+          ['btnZoneNutrition', 'nutrition'],
+          ['btnZoneFitness', 'fitness']
+        ];
+
+        zoneBtnMap.forEach(([id, zone]) => {
+          const el = document.getElementById(id);
+          if (!el || el.__zoneBound) return;
+          el.__zoneBound = true;
+          el.addEventListener('click', function(){
+            goZone(zone);
+          });
+        });
+
+        const playMap = [
+          ['btnPlayHygiene', 'hygiene'],
+          ['btnPlayNutrition', 'nutrition'],
+          ['btnPlayFitness', 'fitness']
+        ];
+
+        playMap.forEach(([id, zone]) => {
+          const el = document.getElementById(id);
+          if (!el || el.__playBound) return;
+          el.__playBound = true;
+          el.addEventListener('click', function(){
+            setLastZone(zone);
+          });
+        });
+
+        const resumeBtn = document.getElementById('btnResumeNow');
+        if (resumeBtn && !resumeBtn.__resumeBound) {
+          resumeBtn.__resumeBound = true;
+          resumeBtn.addEventListener('click', function(){
+            const recentZone = localStorage.getItem('HHA_LAST_ZONE') || 'nutrition';
+            goZone(recentZone);
+          });
+        }
+
+        const nextBtn = document.getElementById('btnNextInZone');
+        if (nextBtn && !nextBtn.__nextBound) {
+          nextBtn.__nextBound = true;
+          nextBtn.addEventListener('click', function(){
+            const nextZone = localStorage.getItem('HHA_NEXT_ZONE') || 'nutrition';
+            goZone(nextZone);
+          });
+        }
+
+        const quickRecommended = document.getElementById('btnQuickRecommended');
+        if (quickRecommended && !quickRecommended.__bound) {
+          quickRecommended.__bound = true;
+          quickRecommended.addEventListener('click', function(){
+            const z = localStorage.getItem('HHA_RECOMMENDED_ZONE') || 'nutrition';
+            goZone(z);
+          });
+        }
+
+        const quickRecent = document.getElementById('btnQuickRecent');
+        if (quickRecent && !quickRecent.__bound) {
+          quickRecent.__bound = true;
+          quickRecent.addEventListener('click', function(){
+            const z = localStorage.getItem('HHA_LAST_ZONE') || 'nutrition';
+            goZone(z);
+          });
+        }
+      }
+
+      function renderGoodJunkHubCard(){
         const snapshot = readGoodJunkHubSnapshot();
 
         const pct = Number(snapshot?.archive?.completionPct || 0);
@@ -745,9 +833,8 @@
         const rivalLabel = String(snapshot?.rivalry?.label || '-');
         const deckTier = String(snapshot?.rivalry?.deckTier || '-');
         const targetLabel = String(snapshot?.target?.label || '-');
-        const nextTitle = String(snapshot?.nextPlan?.title || 'Recommended Next Run');
-        const nextReason = String(snapshot?.nextPlan?.reason || 'ยังไม่มี snapshot จากรอบล่าสุด');
-        const nextChips = Array.isArray(snapshot?.nextPlan?.chips) ? snapshot.nextPlan.chips : [];
+        const nextTitle = 'Open Nutrition Zone';
+        const nextReason = snapshot?.nextPlan?.reason || 'เข้า Nutrition Zone แล้วค่อยเลือกเกมและโหมด';
         const recent = Array.isArray(snapshot?.archive?.recent) ? snapshot.archive.recent : [];
 
         setText('gjArchiveBadge', '📚 ' + hallRank);
@@ -765,9 +852,11 @@
 
         setHtml(
           'gjNextPlanChips',
-          nextChips.length
-            ? nextChips.map((x) => '<span class="gj-chip">' + x + '</span>').join('')
-            : '<span class="gj-chip">standard-rematch</span>'
+          [
+            '<span class="gj-chip">Zone First</span>',
+            '<span class="gj-chip">Then Game</span>',
+            '<span class="gj-chip">Then Mode</span>'
+          ].join('')
         );
 
         setHtml(
@@ -777,26 +866,23 @@
             : '<span class="gj-chip">ยังไม่มี collection ล่าสุด</span>'
         );
 
-        const quickUrl = makeGoodJunkLauncherUrl(snapshot || {});
-        setHref('gjQuickRematchBtn', quickUrl);
-        setHref('gjOpenLauncherBtn', quickUrl);
+        const nutritionZoneUrl = buildZoneLauncherUrl('nutrition');
+        setHref('gjQuickRematchBtn', nutritionZoneUrl);
+        setHref('gjOpenLauncherBtn', nutritionZoneUrl);
 
-        const nutritionPlay = document.getElementById('btnPlayNutrition');
-        if (nutritionPlay) nutritionPlay.href = quickUrl;
-
-        const quickRecommended = document.getElementById('btnQuickRecommended');
-        if (quickRecommended && !quickRecommended.__gjRecommendBound) {
-          quickRecommended.__gjRecommendBound = true;
-          quickRecommended.addEventListener('click', function(){
-            location.href = quickUrl;
+        const rematchBtn = document.getElementById('gjQuickRematchBtn');
+        if (rematchBtn && !rematchBtn.__bound) {
+          rematchBtn.__bound = true;
+          rematchBtn.addEventListener('click', function(){
+            setLastZone('nutrition');
           });
         }
 
-        const quickRecent = document.getElementById('btnQuickRecent');
-        if (quickRecent && !quickRecent.__gjRecentBound) {
-          quickRecent.__gjRecentBound = true;
-          quickRecent.addEventListener('click', function(){
-            location.href = quickUrl;
+        const openBtn = document.getElementById('gjOpenLauncherBtn');
+        if (openBtn && !openBtn.__bound) {
+          openBtn.__bound = true;
+          openBtn.addEventListener('click', function(){
+            setLastZone('nutrition');
           });
         }
 
@@ -836,11 +922,6 @@
           });
         }
 
-        if (snapshot?.nextPlan?.reason) {
-          const nextGame = document.getElementById('todayNextGame');
-          if (nextGame) nextGame.textContent = snapshot.nextPlan.reason;
-        }
-
         if (snapshot?.target?.label) {
           const featured = document.getElementById('nutriFeatured');
           if (featured) featured.textContent = snapshot.target.label;
@@ -852,18 +933,28 @@
           if (recentPill) recentPill.hidden = false;
           if (recentText) recentText.textContent = recent[0].label || '-';
         }
+
+        if (snapshot?.nextPlan?.reason) {
+          const nextGame = document.getElementById('todayNextGame');
+          if (nextGame) nextGame.textContent = 'เข้า Nutrition Zone';
+        }
       }
 
       document.addEventListener('DOMContentLoaded', function(){
+        bindZoneButtons();
         renderGoodJunkHubCard();
       });
 
       window.addEventListener('focus', function(){
+        bindZoneButtons();
         renderGoodJunkHubCard();
       });
 
       document.addEventListener('visibilitychange', function(){
-        if (!document.hidden) renderGoodJunkHubCard();
+        if (!document.hidden) {
+          bindZoneButtons();
+          renderGoodJunkHubCard();
+        }
       });
     })();
   </script>
