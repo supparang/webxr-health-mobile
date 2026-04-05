@@ -1,286 +1,102 @@
-<!-- === /herohealth/nutrition-zone.html === -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Nutrition Zone</title>
-  <link rel="icon" href="./favicon.ico" />
-  <style>
-    :root{
-      --bg-top:#dff4ff;
-      --bg-mid:#eef9ff;
-      --bg-bottom:#fffdf3;
-
-      --panel:#ffffff;
-      --stroke:#bfe7f5;
-      --text:#24425c;
-      --text-strong:#16324a;
-      --muted:#62829a;
-
-      --groups:#55bde6;
-      --groups-strong:#2fa7d8;
-      --plate:#79c96b;
-      --plate-strong:#4caf50;
-
-      --shadow:0 14px 34px rgba(68,149,191,.14);
-      --shadow-soft:0 8px 20px rgba(68,149,191,.10);
-    }
-
-    *{ box-sizing:border-box; }
-
-    html,body{
-      margin:0;
-      min-height:100%;
-      font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(circle at top left, rgba(130,222,255,.50), transparent 26%),
-        radial-gradient(circle at top right, rgba(255,223,130,.30), transparent 24%),
-        linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 42%, var(--bg-bottom) 100%);
-    }
-
-    .page{
-      min-height:100vh;
-      padding:18px 12px 28px;
-    }
-
-    .shell{
-      width:min(1100px, 100%);
-      margin:0 auto;
-    }
-
-    .hero{
-      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(250,254,255,.96));
-      border:2px solid var(--stroke);
-      border-radius:30px;
-      box-shadow:var(--shadow);
-      padding:22px;
-      margin-bottom:16px;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:linear-gradient(180deg, #f0fff0, #dff6e1);
-      border:2px solid #c5e9c8;
-      color:#4a8f40;
-      font-size:13px;
-      font-weight:900;
-      margin-bottom:12px;
-    }
-
-    .title{
-      margin:0 0 8px;
-      font-size:clamp(30px, 5vw, 44px);
-      line-height:1.04;
-      font-weight:900;
-      color:var(--text-strong);
-      letter-spacing:-.02em;
-    }
-
-    .sub{
-      margin:0;
-      color:var(--muted);
-      font-size:17px;
-      line-height:1.6;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
-      gap:14px;
-      margin-bottom:16px;
-    }
-
-    .card{
-      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(250,254,255,.96));
-      border:2px solid var(--stroke);
-      border-radius:30px;
-      box-shadow:var(--shadow);
-      padding:18px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-
-    .card[data-kind="groups"]{
-      border-color:#b9e7f8;
-    }
-
-    .card[data-kind="plate"]{
-      border-color:#c8ebb7;
-    }
-
-    .card-badge{
-      width:58px;
-      height:58px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      font-size:30px;
-      background:linear-gradient(180deg, #ffffff, #f2fbff);
-      box-shadow:var(--shadow-soft);
-    }
-
-    .card-title{
-      margin:0;
-      font-size:28px;
-      font-weight:900;
-      line-height:1.1;
-      color:var(--text-strong);
-    }
-
-    .card-sub{
-      margin:0;
-      color:var(--muted);
-      line-height:1.55;
-      font-size:15px;
-    }
-
-    .bullet{
-      margin:0;
-      padding-left:18px;
-      color:var(--text);
-      line-height:1.6;
-      font-size:14px;
-      font-weight:700;
-    }
-
-    .actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:auto;
-    }
-
-    .btn{
-      border:0;
-      border-radius:20px;
-      cursor:pointer;
-      padding:14px 18px;
-      min-height:54px;
-      font-size:16px;
-      font-weight:900;
-      box-shadow:var(--shadow-soft);
-    }
-
-    .btn-groups{
-      background:linear-gradient(180deg, #6fd2f3, #39b3df);
-      color:#ffffff;
-    }
-
-    .btn-plate{
-      background:linear-gradient(180deg, #8ddb72, #5fc35d);
-      color:#ffffff;
-    }
-
-    .btn-ghost{
-      background:linear-gradient(180deg, #ffffff, #edf9ff);
-      color:var(--text-strong);
-      border:2px solid var(--stroke);
-    }
-
-    .mini{
-      font-size:13px;
-      color:var(--muted);
-      line-height:1.45;
-      background:rgba(230,248,255,.76);
-      border:1.5px solid #ccecf8;
-      border-radius:18px;
-      padding:10px 12px;
-    }
-
-    @media (max-width: 640px){
-      .hero,.card{ border-radius:24px; }
-      .card-title{ font-size:24px; }
-      .actions{ flex-direction:column; }
-      .btn,.btn-groups,.btn-plate,.btn-ghost{ width:100%; }
-    }
-  </style>
+  <meta name="color-scheme" content="light" />
+  <link rel="stylesheet" href="./hygiene-zone.css" />
 </head>
 <body>
-  <main class="page">
-    <div class="shell">
-      <section class="hero">
-        <div class="pill">🥗 Nutrition Zone</div>
-        <h1 class="title">เลือกเกมโภชนาการ</h1>
-        <p class="sub">
-          หนูเลือกได้ 2 เกม
-          <br><strong>Groups</strong> = ฝึกแยกอาหารเป็นหมวด
-          <br><strong>Plate</strong> = ฝึกจัดจานอาหารให้สมดุล
+  <div class="hz-shell">
+    <header class="hz-topbar">
+      <div class="brand-wrap">
+        <div class="brand-badge">HeroHealth</div>
+        <h1 class="hero-title">Nutrition Zone</h1>
+        <p class="hero-sub">
+          โลกแห่งอาหารดี เลือกเกมที่อยากเล่น แล้วเรียนรู้เรื่องโภชนาการอย่างสนุก
         </p>
-      </section>
-
-      <section class="grid">
-        <article class="card" data-kind="groups">
-          <div class="card-badge">🧺</div>
-          <h2 class="card-title">Groups</h2>
-          <p class="card-sub">
-            ฝึกดูว่าอาหารอยู่หมู่ไหน และเลือกสิ่งที่ดีกว่าสำหรับร่างกาย
-          </p>
-          <ul class="bullet">
-            <li>แยกอาหาร 5 หมู่</li>
-            <li>เลือกของที่ดีกว่า</li>
-            <li>เลือกเหตุผลง่าย ๆ</li>
-          </ul>
-          <div class="actions">
-            <button class="btn btn-groups" id="openGroupsBtn" type="button">เข้าเกม Groups</button>
-          </div>
-          <div class="mini">เหมาะกับการฝึก “ดูและแยกหมวด”</div>
-        </article>
-
-        <article class="card" data-kind="plate">
-          <div class="card-badge">🍽️</div>
-          <h2 class="card-title">Plate</h2>
-          <p class="card-sub">
-            ฝึกเลือกอาหารมาจัดเป็น 1 มื้อ แล้วดูว่าจะปรับให้ดีขึ้นได้อย่างไร
-          </p>
-          <ul class="bullet">
-            <li>จัดจานอาหาร</li>
-            <li>ดูว่าจานขาดอะไร</li>
-            <li>สลับให้ดีขึ้น</li>
-          </ul>
-          <div class="actions">
-            <button class="btn btn-plate" id="openPlateBtn" type="button">เข้าเกม Plate</button>
-          </div>
-          <div class="mini">เหมาะกับการฝึก “จัดมื้อให้สมดุล”</div>
-        </article>
-      </section>
-
-      <div class="actions">
-        <button class="btn btn-ghost" id="backHubBtn" type="button">กลับ HUB</button>
       </div>
-    </div>
-  </main>
 
-  <script type="module">
-    import { createCtx } from './shared/nutrition-common.js';
-    import { goExit } from './shared/nutrition-integration.js';
-    import { buildGroupsLauncherUrl, buildPlateLauncherUrl } from './shared/nutrition-entry.js';
+      <div class="hero-actions">
+        <a id="hubBtn" class="top-btn" href="./hub.html">กลับ HUB</a>
+        <button id="continueBtn" class="top-btn primary" type="button">เล่นล่าสุด</button>
+      </div>
+    </header>
 
-    const ctx = createCtx('nutrition-zone');
+    <section class="hero-panel">
+      <div class="hero-panel-left">
+        <div class="mascot-card">
+          <div class="mascot-face">🥗</div>
+          <div class="mascot-text">
+            <div class="mascot-kicker">พร้อมเล่น!</div>
+            <div id="coachLine" class="mascot-line">เลือกเกมโภชนาการที่อยากเล่น แล้วเริ่มได้เลย</div>
+          </div>
+        </div>
 
-    document.getElementById('openGroupsBtn').addEventListener('click', () => {
-      window.location.href = buildGroupsLauncherUrl(ctx, {
-        hub: ctx.hub,
-        returnTo: './nutrition-zone.html'
-      });
-    });
+        <div class="stats-row">
+          <div class="pill">🥗 4 เกมในโซน Nutrition</div>
+          <div id="playerPill" class="pill">👤 Player: anon</div>
+          <div id="modePill" class="pill">🎮 Mode: play</div>
+        </div>
+      </div>
 
-    document.getElementById('openPlateBtn').addEventListener('click', () => {
-      window.location.href = buildPlateLauncherUrl(ctx, {
-        hub: ctx.hub,
-        returnTo: './nutrition-zone.html'
-      });
-    });
+      <div class="hero-panel-right">
+        <div class="control-card">
+          <div class="control-title">ตั้งค่าก่อนเล่น</div>
 
-    document.getElementById('backHubBtn').addEventListener('click', () => {
-      goExit(ctx, './hub.html');
-    });
-  </script>
+          <label class="control-group">
+            <span>โหมด</span>
+            <select id="modeSelect">
+              <option value="play">play</option>
+              <option value="learn">learn</option>
+              <option value="research">research</option>
+            </select>
+          </label>
+
+          <label class="control-group">
+            <span>เวลา</span>
+            <select id="timeSelect">
+              <option value="60">60 วินาที</option>
+              <option value="90" selected>90 วินาที</option>
+              <option value="120">120 วินาที</option>
+              <option value="150">150 วินาที</option>
+            </select>
+          </label>
+
+          <label class="control-group">
+            <span>คำค้นหาเกม</span>
+            <input id="searchInput" type="text" placeholder="เช่น goodjunk, groups, plate, hydration" />
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section class="featured-card">
+      <div class="featured-head">
+        <div>
+          <div class="section-kicker">Continue</div>
+          <h2 class="section-title">เกมล่าสุดของหนู</h2>
+        </div>
+      </div>
+
+      <div id="recentArea" class="recent-area">
+        <div class="empty-recent">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>
+      </div>
+    </section>
+
+    <section class="section-block">
+      <div class="section-head">
+        <div>
+          <div class="section-kicker">All Games</div>
+          <h2 class="section-title">เลือกเกมใน Nutrition Zone</h2>
+        </div>
+      </div>
+
+      <div id="gamesGrid" class="games-grid"></div>
+    </section>
+  </div>
+
+  <script type="module" src="./nutrition-zone.js"></script>
 </body>
 </html>
