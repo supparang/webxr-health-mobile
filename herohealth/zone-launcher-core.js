@@ -4,6 +4,7 @@ export function createZoneLauncher(config) {
 
   const STORAGE_LAST = config.storageKey;
   const GAME_REGISTRY = Array.isArray(config.games) ? config.games : [];
+  const modeParamName = config.modeParamName || 'mode';
 
   function getHubUrl() {
     return qs.get('hub') || new URL('./hub.html', location.href).toString();
@@ -14,7 +15,7 @@ export function createZoneLauncher(config) {
   }
 
   function getDefaultMode() {
-    return qs.get('mode') || 'play';
+    return qs.get(modeParamName) || qs.get('mode') || 'play';
   }
 
   function getDefaultTime() {
@@ -34,21 +35,57 @@ export function createZoneLauncher(config) {
     return !!(game && game.launcherPath);
   }
 
+  function buildBaseParams() {
+    const out = new URLSearchParams();
+
+    [
+      'pid',
+      'name',
+      'nick',
+      'studyId',
+      'view',
+      'diff',
+      'seed',
+      'debug',
+      'api',
+      'log',
+      'cdur',
+      'gate',
+      'cooldown',
+      'returnPhase'
+    ].forEach((k) => {
+      const v = qs.get(k);
+      if (v != null && v !== '') out.set(k, v);
+    });
+
+    return out;
+  }
+
   function buildGameUrl(game, extra = {}) {
     const out = new URL(game.launcherPath, location.href);
-    const next = new URLSearchParams(location.search);
+    const next = buildBaseParams();
 
     const modeSelect = $('#modeSelect');
     const timeSelect = $('#timeSelect');
 
     next.set('zone', config.zoneId);
     next.set('cat', config.zoneId);
-    next.set('gameId', game.id);
-    next.set('game', game.id);
     next.set('hub', getHubUrl());
 
-    if (modeSelect?.value) next.set('mode', modeSelect.value);
+    const fixedParams = game.fixedParams || {};
+    Object.entries(fixedParams).forEach(([k, v]) => {
+      if (v == null) return;
+      next.set(k, String(v));
+    });
+
+    if (!next.has('gameId')) next.set('gameId', game.id);
+    if (!next.has('game')) next.set('game', game.id);
+
     if (timeSelect?.value) next.set('time', timeSelect.value);
+
+    if (modeSelect?.value && !next.has(modeParamName)) {
+      next.set(modeParamName, modeSelect.value);
+    }
 
     Object.entries(extra).forEach(([k, v]) => {
       if (v == null) return;
