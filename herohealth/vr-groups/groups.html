@@ -831,6 +831,183 @@
         min-height:230px;
       }
     }
+
+    /* ===== GROUPS MOBILE COMPACT HUD PATCH ===== */
+    body.compact-mobile .shell{
+      grid-template-rows:
+        auto
+        auto
+        minmax(440px, 1fr);
+      gap:8px;
+    }
+
+    body.compact-mobile .chipRow.compact-chip-row{
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:6px;
+    }
+
+    body.compact-mobile .chip{
+      padding:7px 8px;
+      border-radius:14px;
+    }
+
+    body.compact-mobile .chipLabel{
+      font-size:9px;
+      margin-bottom:2px;
+    }
+
+    body.compact-mobile .chipValue{
+      font-size:13px;
+    }
+
+    body.compact-mobile .goalCard.in-stage-goal{
+      position:absolute;
+      left:10px;
+      right:10px;
+      top:10px;
+      z-index:16;
+      padding:10px 12px;
+      border-radius:18px;
+      background:rgba(255,255,255,.92);
+      backdrop-filter:blur(6px);
+      box-shadow:0 10px 24px rgba(96,154,183,.14);
+    }
+
+    body.compact-mobile .goalCard.in-stage-goal::after{
+      width:96px;
+      height:96px;
+      right:-18px;
+      top:-18px;
+      opacity:.78;
+    }
+
+    body.compact-mobile .goalCard.in-stage-goal .goalTop{
+      gap:8px;
+    }
+
+    body.compact-mobile .goalCard.in-stage-goal .goalTag{
+      padding:5px 9px;
+      font-size:10px;
+    }
+
+    body.compact-mobile .goalCard.in-stage-goal .goalTitle{
+      margin-top:6px;
+      font-size:16px;
+      line-height:1.1;
+    }
+
+    body.compact-mobile .goalCard.in-stage-goal .goalSub{
+      display:none;
+    }
+
+    body.compact-mobile .goalCard.in-stage-goal .coach{
+      margin-top:6px;
+      min-height:30px;
+      padding:7px 9px;
+      border-radius:12px;
+      font-size:10px;
+      line-height:1.4;
+    }
+
+    body.compact-mobile .stageWrap{
+      min-height:440px;
+      border-radius:22px;
+    }
+
+    body.compact-mobile .goalProgress{
+      display:none;
+    }
+
+    body.compact-mobile .banner{
+      top:100px;
+      font-size:11px;
+      padding:8px 12px;
+    }
+
+    body.compact-mobile .bottomBar.in-stage-bottom{
+      position:absolute;
+      left:10px;
+      right:10px;
+      bottom:10px;
+      z-index:16;
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:6px;
+    }
+
+    body.compact-mobile .bottomBar.in-stage-bottom .stat{
+      padding:7px 8px;
+      border-radius:14px;
+      background:rgba(255,255,255,.92);
+      backdrop-filter:blur(6px);
+      box-shadow:0 10px 22px rgba(94,153,182,.12);
+    }
+
+    body.compact-mobile .bottomBar.in-stage-bottom .statLabel{
+      font-size:9px;
+      margin-bottom:2px;
+    }
+
+    body.compact-mobile .bottomBar.in-stage-bottom .statValue{
+      font-size:13px;
+    }
+
+    body.compact-mobile .actions{
+      flex:0 0 108px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:6px;
+    }
+
+    body.compact-mobile .btn{
+      min-height:34px;
+      border-radius:13px;
+      padding:0 8px;
+      font-size:12px;
+    }
+
+    body.compact-mobile .brand{
+      padding:9px 10px;
+      border-radius:18px;
+    }
+
+    body.compact-mobile .brandMark{
+      width:40px;
+      height:40px;
+      border-radius:14px;
+      font-size:22px;
+    }
+
+    body.compact-mobile .brand h1{
+      font-size:15px;
+    }
+
+    body.compact-mobile .brand p{
+      font-size:10px;
+      margin-top:2px;
+    }
+
+    @media (max-width: 420px){
+      body.compact-mobile .shell{
+        grid-template-rows:auto auto minmax(400px, 1fr);
+      }
+
+      body.compact-mobile .chipRow.compact-chip-row{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      body.compact-mobile .bottomBar.in-stage-bottom{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      body.compact-mobile .stageWrap{
+        min-height:400px;
+      }
+
+      body.compact-mobile .goalCard.in-stage-goal .goalTitle{
+        font-size:15px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -987,7 +1164,7 @@
   </main>
 
   <script type="module">
-    const PATCH = 'v20260404-groups-shell-mobilefix-r1';
+    const PATCH = 'v20260404-groups-shell-mobilefix-r2';
 
     const q = new URL(location.href).searchParams;
 
@@ -1069,14 +1246,38 @@
 
     window.__GROUPS_RUN_CTX__ = CTX;
 
+    const goalCardEl = document.querySelector('.goalCard');
+    const chipRowEl = document.querySelector('.chipRow');
+    const bottomBarEl = document.querySelector('.bottomBar');
+
+    const isCompactMobile =
+      CTX.view === 'mobile' &&
+      window.matchMedia('(max-width: 768px)').matches;
+
     if (CTX.debug) document.body.classList.add('debug');
     if (CTX.view === 'cvr' || CTX.view === 'vr') document.body.classList.add('view-cvr');
     if (CTX.view === 'mobile') document.body.classList.add('view-mobile');
     if (CTX.view === 'pc') document.body.classList.add('view-pc');
 
+    if (isCompactMobile) {
+      document.body.classList.add('compact-mobile');
+
+      if (goalCardEl && ui.stageWrap) {
+        goalCardEl.classList.add('in-stage-goal');
+        ui.stageWrap.appendChild(goalCardEl);
+      }
+
+      if (bottomBarEl && ui.stageWrap) {
+        bottomBarEl.classList.add('in-stage-bottom');
+        ui.stageWrap.appendChild(bottomBarEl);
+      }
+
+      if (chipRowEl) {
+        chipRowEl.classList.add('compact-chip-row');
+      }
+    }
+
     // ซ่อนปุ่ม recenter ด้านบนใน mobile และใน vr/cvr
-    // mobile: เอาพื้นที่คืนให้ gameplay
-    // vr/cvr: ใช้ recenter จาก vr-ui.js แทน
     if (ui.btnRecenter && (CTX.view !== 'pc')) {
       ui.btnRecenter.style.display = 'none';
     }
