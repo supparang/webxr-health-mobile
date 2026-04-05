@@ -16,8 +16,6 @@
       --muted:#7b7a72;
       --green:#7ed957;
       --blue:#58b7f5;
-      --warn:#ffb547;
-      --danger:#f97316;
       --shadow:0 18px 40px rgba(86,155,194,.16);
     }
     *{ box-sizing:border-box; }
@@ -163,6 +161,7 @@
         view: cleanText(qs('view') || 'mobile', 24),
         run: cleanText(qs('run') || 'play', 24),
         hub: qs('hub') || '../hub.html',
+        roomKind: cleanText(qs('roomKind') || 'battle', 24) || 'battle',
         seed: cleanText(qs('seed') || String(Date.now()), 120),
 
         db: null,
@@ -184,50 +183,18 @@
       }
 
       function now(){ return Date.now(); }
-
-      function cleanText(v, max=120){
-        return String(v == null ? '' : v).trim().slice(0, max);
-      }
-
-      function cleanPid(v){
-        return String(v == null ? '' : v)
-          .trim()
-          .replace(/[.#$[\]/]/g, '-')
-          .slice(0, 120);
-      }
-
-      function cleanRoom(v){
-        return String(v || '')
-          .trim()
-          .toUpperCase()
-          .replace(/[^A-Z0-9_-]/g, '')
-          .slice(0, 24);
-      }
-
-      function cleanDiff(v){
-        const s = String(v || '').toLowerCase();
-        return (s === 'easy' || s === 'hard') ? s : 'normal';
-      }
-
+      function cleanText(v, max=120){ return String(v == null ? '' : v).trim().slice(0, max); }
+      function cleanPid(v){ return String(v == null ? '' : v).trim().replace(/[.#$[\]/]/g, '-').slice(0, 120); }
+      function cleanRoom(v){ return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24); }
+      function cleanDiff(v){ const s = String(v || '').toLowerCase(); return (s === 'easy' || s === 'hard') ? s : 'normal'; }
       function clampInt(v, min, max, fb){
         const n = Number(v);
         if (!Number.isFinite(n)) return fb;
         return Math.max(min, Math.min(max, Math.round(n)));
       }
+      function readLS(key){ try{ return localStorage.getItem(key) || ''; } catch{ return ''; } }
 
-      function readLS(key){
-        try{ return localStorage.getItem(key) || ''; }
-        catch{ return ''; }
-      }
-
-      function writeLS(key, value){
-        try{ localStorage.setItem(key, String(value ?? '')); }
-        catch{}
-      }
-
-      function setStatus(text){
-        UI.statusBox.textContent = text;
-      }
+      function setStatus(text){ UI.statusBox.textContent = text; }
 
       function setDebug(){
         UI.debugBox.textContent =
@@ -240,24 +207,17 @@
           'time=' + (STATE.timeSec || '-') + '\n' +
           'view=' + (STATE.view || '-') + '\n' +
           'run=' + (STATE.run || '-') + '\n' +
+          'roomKind=' + (STATE.roomKind || '-') + '\n' +
           'roomStatus=' + String((STATE.roomState || {}).status || '-') + '\n' +
           'redirectUrl=' + (STATE.redirectUrl || '-') + '\n' +
-          'autoEntered=' + STATE.autoEntered;
+          'autoEntered=' + STATE.autoEntered + '\n' +
+          'forceBattleController=1';
       }
 
       function clearStaleSummaryState(){
-        try{
-          sessionStorage.removeItem('GJ_BATTLE_SHOW_LAST_SUMMARY');
-        }catch{}
-
-        try{
-          localStorage.removeItem('GJ_BATTLE_TEMP_SHOW_LAST_SUMMARY');
-        }catch{}
-
-        try{
-          delete window.__GJ_BATTLE_LAST_SUMMARY__;
-        }catch{}
-
+        try{ sessionStorage.removeItem('GJ_BATTLE_SHOW_LAST_SUMMARY'); }catch{}
+        try{ localStorage.removeItem('GJ_BATTLE_TEMP_SHOW_LAST_SUMMARY'); }catch{}
+        try{ delete window.__GJ_BATTLE_LAST_SUMMARY__; }catch{}
         try{
           if (window.state){
             window.state.showSummary = false;
@@ -292,9 +252,7 @@
 
       async function ensureFirebaseReady(){
         if (!(window.firebase && window.firebase.apps && window.firebase.database && window.firebase.auth)){
-          for (const src of FIREBASE_SDKS){
-            await loadScript(src);
-          }
+          for (const src of FIREBASE_SDKS) await loadScript(src);
         }
 
         const firebase = window.firebase;
@@ -321,10 +279,7 @@
         if (!user) throw new Error('Anonymous auth failed');
 
         STATE.uid = cleanPid(user.uid || '');
-        if (!STATE.pid) STATE.pid = STATE.uid || ('p-' + Math.random().toString(36).slice(2,10));
-
-        writeLS('GJ_BATTLE_NAME', STATE.name);
-        writeLS('GJ_BATTLE_PID', STATE.pid);
+        if (!STATE.pid) STATE.pid = STATE.uid;
       }
 
       async function loadRoom(){
@@ -350,7 +305,9 @@
         u.searchParams.set('run', STATE.run);
         u.searchParams.set('mode', 'battle');
         u.searchParams.set('hub', STATE.hub);
+        u.searchParams.set('roomKind', STATE.roomKind);
         u.searchParams.set('seed', STATE.seed || String(Date.now()));
+        u.searchParams.set('forceBattleController', '1');
 
         return u.toString();
       }
@@ -365,6 +322,7 @@
         u.searchParams.set('view', STATE.view);
         u.searchParams.set('run', STATE.run);
         u.searchParams.set('hub', STATE.hub);
+        u.searchParams.set('roomKind', STATE.roomKind);
         return u.toString();
       }
 
