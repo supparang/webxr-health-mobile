@@ -10,6 +10,18 @@
   <link rel="stylesheet" href="./hub-v2.css?v=20260331-brand-hub" />
 
   <style>
+    /* ===== Force Zone-First Flow ===== */
+    .zone-preview{
+      display:none !important;
+      visibility:hidden !important;
+      pointer-events:none !important;
+      height:0 !important;
+      min-height:0 !important;
+      margin:0 !important;
+      padding:0 !important;
+      overflow:hidden !important;
+    }
+
     /* ===== GoodJunk Adaptive Hall Card Patch ===== */
     .adaptive-hall-row{
       margin-top:16px;
@@ -435,18 +447,24 @@
         </div>
 
         <div class="gj-next-plan" id="gjNextPlanBox">
-          <div class="gj-next-plan-title" id="gjNextPlanTitle">Recommended Next Run</div>
-          <div class="gj-next-plan-sub" id="gjNextPlanReason">ยังไม่มี snapshot จากรอบล่าสุด</div>
-          <div class="gj-next-plan-chips" id="gjNextPlanChips"></div>
+          <div class="gj-next-plan-title" id="gjNextPlanTitle">Open Nutrition Zone</div>
+          <div class="gj-next-plan-sub" id="gjNextPlanReason">เข้า Nutrition Zone แล้วค่อยเลือกเกมและโหมด</div>
+          <div class="gj-next-plan-chips" id="gjNextPlanChips">
+            <span class="gj-chip">Zone First</span>
+            <span class="gj-chip">Then Game</span>
+            <span class="gj-chip">Then Mode</span>
+          </div>
         </div>
 
         <div class="gj-recent-box">
           <div class="gj-recent-title">Recent Collection</div>
-          <div class="gj-recent-chips" id="gjRecentChips"></div>
+          <div class="gj-recent-chips" id="gjRecentChips">
+            <span class="gj-chip">ยังไม่มี collection ล่าสุด</span>
+          </div>
         </div>
 
         <div class="gj-archive-actions">
-          <a class="gj-archive-btn play" id="gjQuickRematchBtn" href="./nutrition-zone.html">🎮 Quick Rematch</a>
+          <a class="gj-archive-btn play" id="gjQuickRematchBtn" href="./nutrition-zone.html">🎮 Open Nutrition Zone</a>
           <a class="gj-archive-btn soft" id="gjOpenLauncherBtn" href="./nutrition-zone.html">🧭 Open Zone</a>
           <button class="gj-archive-btn soft" id="gjClearSnapshotBtn" type="button">🧹 Clear Snapshot</button>
         </div>
@@ -484,7 +502,7 @@
               <div class="bar"><div id="hygFill" class="fill" style="width:80%"></div></div>
             </div>
 
-            <div id="hygPreview" class="zone-preview"></div>
+            <div id="hygPreview" class="zone-preview" hidden></div>
           </div>
 
           <div class="zone-right">
@@ -525,7 +543,7 @@
               <div class="bar"><div id="nutriFill" class="fill" style="width:60%"></div></div>
             </div>
 
-            <div id="nutriPreview" class="zone-preview"></div>
+            <div id="nutriPreview" class="zone-preview" hidden></div>
           </div>
 
           <div class="zone-right">
@@ -566,7 +584,7 @@
               <div class="bar"><div id="fitFill" class="fill" style="width:40%"></div></div>
             </div>
 
-            <div id="fitPreview" class="zone-preview"></div>
+            <div id="fitPreview" class="zone-preview" hidden></div>
           </div>
 
           <div class="zone-right">
@@ -779,6 +797,16 @@
         location.href = buildZoneUrl(zone);
       }
 
+      function stripZonePreview(){
+        ['hygPreview','nutriPreview','fitPreview'].forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.innerHTML = '';
+          el.hidden = true;
+          el.style.display = 'none';
+        });
+      }
+
       function bindZoneButtons(){
         const hygieneUrl = buildZoneUrl('hygiene');
         const nutritionUrl = buildZoneUrl('nutrition');
@@ -788,13 +816,11 @@
         setHref('btnPlayNutrition', nutritionUrl);
         setHref('btnPlayFitness', fitnessUrl);
 
-        const zoneBtnMap = [
+        [
           ['btnZoneHygiene', 'hygiene'],
           ['btnZoneNutrition', 'nutrition'],
           ['btnZoneFitness', 'fitness']
-        ];
-
-        zoneBtnMap.forEach(([id, zone]) => {
+        ].forEach(([id, zone]) => {
           const el = document.getElementById(id);
           if (!el || el.__zoneBound) return;
           el.__zoneBound = true;
@@ -803,13 +829,11 @@
           });
         });
 
-        const playMap = [
+        [
           ['btnPlayHygiene', 'hygiene'],
           ['btnPlayNutrition', 'nutrition'],
           ['btnPlayFitness', 'fitness']
-        ];
-
-        playMap.forEach(([id, zone]) => {
+        ].forEach(([id, zone]) => {
           const el = document.getElementById(id);
           if (!el || el.__playBound) return;
           el.__playBound = true;
@@ -832,6 +856,33 @@
           nextBtn.__nextBound = true;
           nextBtn.addEventListener('click', function(){
             const z = getNextZone() || getRecommendedZone() || 'nutrition';
+            goZone((z === 'hygiene' || z === 'nutrition' || z === 'fitness') ? z : 'nutrition');
+          });
+        }
+
+        const quickRecommended = document.getElementById('btnQuickRecommended');
+        if (quickRecommended && !quickRecommended.__bound) {
+          quickRecommended.__bound = true;
+          quickRecommended.addEventListener('click', function(){
+            const z = getRecommendedZone() || 'nutrition';
+            goZone((z === 'hygiene' || z === 'nutrition' || z === 'fitness') ? z : 'nutrition');
+          });
+        }
+
+        const quickRecent = document.getElementById('btnQuickRecent');
+        if (quickRecent && !quickRecent.__bound) {
+          quickRecent.__bound = true;
+          quickRecent.addEventListener('click', function(){
+            const z = getLastZone() || 'nutrition';
+            goZone((z === 'hygiene' || z === 'nutrition' || z === 'fitness') ? z : 'nutrition');
+          });
+        }
+
+        const quickAll = document.getElementById('btnQuickAllGames');
+        if (quickAll && !quickAll.__bound) {
+          quickAll.__bound = true;
+          quickAll.addEventListener('click', function(){
+            const z = getRecommendedZone() || 'nutrition';
             goZone((z === 'hygiene' || z === 'nutrition' || z === 'fitness') ? z : 'nutrition');
           });
         }
@@ -900,35 +951,9 @@
           });
         }
 
-        const badge = document.getElementById('gjArchiveBadge');
-        if (badge) {
-          badge.style.background =
-            pct >= 100 ? 'linear-gradient(180deg,#fff4ca,#fffdf4)' :
-            pct >= 85 ? 'linear-gradient(180deg,#ffe8dc,#fff8f4)' :
-            pct >= 65 ? 'linear-gradient(180deg,#eefbff,#ffffff)' :
-            '#eefbff';
-
-          badge.style.borderColor =
-            pct >= 100 ? '#ffe08a' :
-            pct >= 85 ? '#ffb0a2' :
-            '#cdeeff';
-
-          badge.style.color =
-            pct >= 100 ? '#9d6016' :
-            pct >= 85 ? '#b3472d' :
-            '#2d6f8b';
-        }
-
-        const reward = document.getElementById('gjArchiveReward');
-        if (reward && pct >= 85) {
-          reward.style.background = 'linear-gradient(180deg,#fff1e8,#fffaf5)';
-          reward.style.borderColor = '#ffd3c2';
-          reward.style.color = '#b3472d';
-        }
-
         const clearBtn = document.getElementById('gjClearSnapshotBtn');
-        if (clearBtn && !clearBtn.__gjBound) {
-          clearBtn.__gjBound = true;
+        if (clearBtn && !clearBtn.__bound) {
+          clearBtn.__bound = true;
           clearBtn.addEventListener('click', function(){
             clearGoodJunkHubSnapshot();
             renderGoodJunkHubCard();
@@ -980,24 +1005,19 @@
         }
       }
 
-      document.addEventListener('DOMContentLoaded', function(){
+      function bootHubZoneFirstPatch(){
+        stripZonePreview();
         bindZoneButtons();
         renderGoodJunkHubCard();
         refreshTodayHints();
-      });
+      }
 
-      window.addEventListener('focus', function(){
-        bindZoneButtons();
-        renderGoodJunkHubCard();
-        refreshTodayHints();
-      });
+      document.addEventListener('DOMContentLoaded', bootHubZoneFirstPatch);
+      window.addEventListener('load', bootHubZoneFirstPatch);
+      window.addEventListener('focus', bootHubZoneFirstPatch);
 
       document.addEventListener('visibilitychange', function(){
-        if (!document.hidden) {
-          bindZoneButtons();
-          renderGoodJunkHubCard();
-          refreshTodayHints();
-        }
+        if (!document.hidden) bootHubZoneFirstPatch();
       });
     })();
   </script>
