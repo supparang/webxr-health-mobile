@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Fitness Zone</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
+  <link rel="icon" href="./favicon.ico" />
+
+  <style>
+    :root{
+      --sky-1:#dff6ff;
+      --sky-2:#cbeeff;
+      --sky-3:#fff9d8;
+
+      --bg:#f7fcff;
+      --card:#ffffffee;
+      --card-2:#fffdf8;
+      --stroke:#cfe7f6;
+      --stroke-strong:#9ed3f4;
+      --text:#32435a;
+      --muted:#68819b;
+
+      --blue:#74c9ff;
+      --blue-2:#3fa9f5;
+      --pink:#ff94c7;
+      --pink-2:#ff7bb6;
+      --green:#86dc8b;
+      --green-2:#49c866;
+      --yellow:#ffd86a;
+      --yellow-2:#ffbe3c;
+      --purple:#b59bff;
+      --purple-2:#8d74f7;
+
+      --shadow:0 18px 40px rgba(70,120,170,.14);
+      --shadow-soft:0 10px 24px rgba(70,120,170,.10);
+
+      --r-xl:30px;
+      --r-lg:24px;
+      --r-md:18px;
+      --r-sm:14px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; }
+    body{
+      min-height:100vh;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.95), rgba(255,255,255,0) 40%),
+        linear-gradient(180deg,var(--sky-1) 0%, var(--sky-2) 52%, var(--sky-3) 100%);
+      overflow-x:hidden;
+    }
+
+    .bg-bubbles,
+    .bg-bubbles::before,
+    .bg-bubbles::after{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:0;
+    }
+    .bg-bubbles{
+      background:
+        radial-gradient(circle at 12% 18%, rgba(255,255,255,.55) 0 28px, transparent 29px),
+        radial-gradient(circle at 88% 20%, rgba(255,255,255,.45) 0 22px, transparent 23px),
+        radial-gradient(circle at 82% 72%, rgba(255,255,255,.35) 0 34px, transparent 35px),
+        radial-gradient(circle at 15% 78%, rgba(255,255,255,.32) 0 18px, transparent 19px);
+      opacity:.85;
+    }
+    .bg-bubbles::before{
+      background:
+        radial-gradient(circle at 20% 35%, rgba(255,255,255,.22) 0 10px, transparent 11px),
+        radial-gradient(circle at 70% 42%, rgba(255,255,255,.22) 0 14px, transparent 15px),
+        radial-gradient(circle at 58% 15%, rgba(255,255,255,.18) 0 9px, transparent 10px),
+        radial-gradient(circle at 35% 70%, rgba(255,255,255,.18) 0 12px, transparent 13px);
+    }
+
+    .shell{
+      position:relative;
+      z-index:1;
+      width:min(1180px, calc(100% - 24px));
+      margin:0 auto;
+      padding:18px 0 40px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+
+    .brand-badge{
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#fff,#fff7d7);
+      border:3px solid #d7ecf7;
+      box-shadow:var(--shadow-soft);
+      font-size:30px;
+      flex:0 0 auto;
+    }
+
+    .brand-text{
+      min-width:0;
+    }
+
+    .brand-kicker{
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.10em;
+      text-transform:uppercase;
+      color:var(--blue-2);
+    }
+
+    .brand-title{
+      font-size:clamp(24px, 4vw, 36px);
+      line-height:1.05;
+      font-weight:1000;
+      margin-top:2px;
+    }
+
+    .brand-sub{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:700;
+    }
+
+    .top-actions{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      gap:10px;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      min-height:48px;
+      padding:0 18px;
+      border-radius:999px;
+      font-size:15px;
+      font-weight:900;
+      color:var(--text);
+      background:#fff;
+      border:2px solid var(--stroke);
+      box-shadow:var(--shadow-soft);
+      transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-primary{
+      color:#fff;
+      border-color:transparent;
+      background:linear-gradient(180deg,var(--blue),var(--blue-2));
+    }
+
+    .btn-yellow{
+      color:#5a4300;
+      border-color:transparent;
+      background:linear-gradient(180deg,var(--yellow),var(--yellow-2));
+    }
+
+    .hero{
+      position:relative;
+      overflow:hidden;
+      background:linear-gradient(180deg, rgba(255,255,255,.94), rgba(255,252,243,.96));
+      border:3px solid #d8ecf8;
+      border-radius:34px;
+      box-shadow:var(--shadow);
+      padding:24px;
+      margin-bottom:18px;
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-30px;
+      bottom:-34px;
+      width:210px;
+      height:210px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(255,216,106,.35), rgba(255,216,106,0) 70%);
+      pointer-events:none;
+    }
+
+    .hero-grid{
+      display:grid;
+      grid-template-columns:1.3fr .9fr;
+      gap:18px;
+      align-items:center;
+    }
+
+    .pill-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-bottom:14px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:40px;
+      padding:0 14px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid #d7eaf8;
+      font-size:14px;
+      font-weight:900;
+      color:#42637e;
+    }
+
+    .hero-title{
+      font-size:clamp(28px,5vw,44px);
+      line-height:1.06;
+      font-weight:1000;
+      margin:0 0 10px;
+    }
+
+    .hero-desc{
+      margin:0;
+      color:#5e7691;
+      font-size:16px;
+      line-height:1.6;
+      font-weight:700;
+      max-width:62ch;
+    }
+
+    .hero-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      margin-top:18px;
+    }
+
+    .hero-side{
+      display:grid;
+      gap:12px;
+    }
+
+    .mini-panel{
+      background:linear-gradient(180deg,#ffffff,#fffef7);
+      border:2px solid #d7eaf8;
+      border-radius:24px;
+      padding:16px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .mini-title{
+      font-size:14px;
+      font-weight:1000;
+      color:#567089;
+      margin-bottom:8px;
+    }
+
+    .mini-big{
+      font-size:22px;
+      font-weight:1000;
+      line-height:1.2;
+    }
+
+    .mini-sub{
+      margin-top:6px;
+      font-size:13px;
+      color:#6f87a0;
+      font-weight:700;
+      line-height:1.5;
+    }
+
+    .games{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:18px;
+    }
+
+    .card{
+      position:relative;
+      overflow:hidden;
+      background:linear-gradient(180deg,var(--card),var(--card-2));
+      border:3px solid var(--stroke);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      padding:20px;
+      min-height:250px;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .card::before{
+      content:"";
+      position:absolute;
+      right:-18px;
+      top:-18px;
+      width:110px;
+      height:110px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(255,255,255,.85), rgba(255,255,255,0) 70%);
+      pointer-events:none;
+    }
+
+    .card-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .icon{
+      width:72px;
+      height:72px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      background:linear-gradient(180deg,#fff,#f7fbff);
+      border:3px solid #d8ecf8;
+      box-shadow:var(--shadow-soft);
+      flex:0 0 auto;
+    }
+
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:34px;
+      padding:0 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:1000;
+      color:#fff;
+      background:linear-gradient(180deg,var(--purple),var(--purple-2));
+      white-space:nowrap;
+    }
+
+    .card h3{
+      margin:0 0 8px;
+      font-size:28px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .card p{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.65;
+      font-weight:700;
+    }
+
+    .meta-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:14px;
+    }
+
+    .meta{
+      min-height:34px;
+      padding:0 12px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      font-size:12px;
+      font-weight:1000;
+      color:#4d6982;
+      background:#f3fbff;
+      border:2px solid #d7ebf7;
+    }
+
+    .spacer{ flex:1 1 auto; }
+
+    .card-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:16px;
+    }
+
+    .card .play{
+      min-width:146px;
+    }
+
+    .foot{
+      margin-top:18px;
+      display:flex;
+      justify-content:center;
+    }
+
+    .note{
+      max-width:920px;
+      text-align:center;
+      color:#64819d;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:700;
+      background:rgba(255,255,255,.65);
+      border:2px solid #d7ebf7;
+      border-radius:999px;
+      padding:10px 16px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    @media (max-width: 980px){
+      .hero-grid{ grid-template-columns:1fr; }
+      .games{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width: 640px){
+      .shell{ width:min(100% - 14px, 1180px); padding-top:12px; }
+      .topbar{ flex-direction:column; align-items:stretch; }
+      .top-actions{ justify-content:stretch; }
+      .top-actions .btn{ width:100%; }
+      .hero{ padding:18px; border-radius:26px; }
+      .card{ padding:16px; min-height:auto; }
+      .icon{ width:62px; height:62px; font-size:30px; border-radius:18px; }
+      .card h3{ font-size:24px; }
+      .hero-desc{ font-size:15px; }
+      .brand-title{ font-size:28px; }
+      .btn,.play{ width:100%; }
+      .card-actions{ flex-direction:column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-bubbles"></div>
+
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-badge">🏃</div>
+        <div class="brand-text">
+          <div class="brand-kicker">HeroHealth</div>
+          <div class="brand-title">Fitness Zone</div>
+          <div class="brand-sub">ฝึกขยับร่างกายให้แข็งแรง สนุก และท้าทาย</div>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <button class="btn" id="btnBackHub" type="button">⬅️ กลับ HUB</button>
+        <button class="btn btn-primary" id="btnRandom" type="button">🎲 สุ่มเกมให้หนู</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <div class="pill-row">
+            <div class="pill">💪 Fitness Missions</div>
+            <div class="pill">⭐ 5 เกมออกกำลังกาย</div>
+            <div class="pill">🎮 Child-friendly</div>
+          </div>
+
+          <h1 class="hero-title">เลือกเกมออกกำลังกาย แล้วไปลุยกันเลย!</h1>
+          <p class="hero-desc">
+            หน้านี้เป็นทางเข้าเกมใน <strong>Fitness Zone</strong> แบบเดียวกับ Nutrition และ Hygiene
+            เพื่อให้เด็กเลือกเกมได้ง่าย เห็นภาพรวมชัด และกลับ HUB ได้สะดวก
+            พร้อมส่งค่าพื้นฐานการเล่นต่อไปยังหน้าเกมอัตโนมัติ
+          </p>
+
+          <div class="hero-actions">
+            <button class="btn btn-primary" type="button" onclick="goFirstGame()">🚀 เริ่มเกมแรก</button>
+            <button class="btn btn-yellow" type="button" onclick="goPlanner()">🗓️ ไปที่ Fitness Planner</button>
+          </div>
+        </div>
+
+        <aside class="hero-side">
+          <div class="mini-panel">
+            <div class="mini-title">โซนนี้มีอะไรบ้าง</div>
+            <div class="mini-big">Shadow Breaker • Rhythm Boxer • Jump & Duck • Balance Hold • Fitness Planner</div>
+            <div class="mini-sub">มีทั้งเกมเน้นความไว การทรงตัว จังหวะ การเคลื่อนไหว และการวางแผนออกกำลังกาย</div>
+          </div>
+
+          <div class="mini-panel">
+            <div class="mini-title">สถานะค่าพื้นฐานที่ส่งต่อ</div>
+            <div class="mini-big" id="ctxPreview">pid=anon • diff=normal • run=play</div>
+            <div class="mini-sub">ระบบจะพยายามส่ง query params สำคัญจากหน้านี้ต่อไปยังหน้าเกม เช่น pid, name, diff, time, seed, hub, view</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="games" id="gameGrid"></section>
+
+    <div class="foot">
+      <div class="note">
+        หน้า launcher นี้ตั้งใจให้เป็นหน้าศูนย์กลางของ Fitness Zone โดยให้โครง UX ใช้งานสอดคล้องกับ zone launcher อื่นของ HeroHealth
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const GAMES = [
+        {
+          id: 'shadowbreaker',
+          title: 'Shadow Breaker',
+          icon: '🥊',
+          tag: 'Speed & Focus',
+          desc: 'ตีเป้าให้ทัน หลบให้ไว ฝึกการตอบสนองและความแม่นยำ เหมาะกับการเปิดโหมดมันส์ ๆ เป็นเกมแรกของโซน',
+          chips: ['เร็ว', 'โฟกัส', 'แอ็กชัน'],
+          href: './shadow-breaker-vr.html',
+          extra: { zone:'fitness', cat:'fitness', game:'shadowbreaker', gameId:'shadowbreaker', theme:'shadowbreaker' }
+        },
+        {
+          id: 'rhythmboxer',
+          title: 'Rhythm Boxer',
+          icon: '🎵',
+          tag: 'Rhythm Training',
+          desc: 'ต่อยตามจังหวะ สนุกแบบมีเพลง ช่วยเรื่อง timing การสังเกต และการเคลื่อนไหวตามแพทเทิร์น',
+          chips: ['จังหวะ', 'สมาธิ', 'ต่อยตามเพลง'],
+          href: './rhythm-boxer-vr.html',
+          extra: { zone:'fitness', cat:'fitness', game:'rhythmboxer', gameId:'rhythmboxer', theme:'rhythmboxer' }
+        },
+        {
+          id: 'jumpduck',
+          title: 'Jump & Duck',
+          icon: '🦘',
+          tag: 'Move Fast',
+          desc: 'กระโดดและก้มหลบสิ่งกีดขวาง ฝึกการเคลื่อนไหวร่างกายแบบเต็มตัว และเพิ่มความตื่นเต้นระหว่างเล่น',
+          chips: ['กระโดด', 'ก้มหลบ', 'คล่องตัว'],
+          href: './jump-duck-vr.html',
+          extra: { zone:'fitness', cat:'fitness', game:'jumpduck', gameId:'jumpduck', theme:'jumpduck' }
+        },
+        {
+          id: 'balancehold',
+          title: 'Balance Hold',
+          icon: '🧘',
+          tag: 'Balance Skill',
+          desc: 'ฝึกการทรงตัวและควบคุมร่างกาย เหมาะสำหรับเกมที่ช้าลงนิด แต่ใช้สมาธิและความนิ่งมากขึ้น',
+          chips: ['ทรงตัว', 'นิ่ง', 'ควบคุมร่างกาย'],
+          href: './balance-hold-vr.html',
+          extra: { zone:'fitness', cat:'fitness', game:'balancehold', gameId:'balancehold', theme:'balancehold' }
+        },
+        {
+          id: 'fitnessplanner',
+          title: 'Fitness Planner',
+          icon: '📋',
+          tag: 'Plan & Learn',
+          desc: 'วางแผนการออกกำลังกาย เลือกกิจกรรม และเรียนรู้การจัดตารางฝึกให้เหมาะกับตนเองแบบง่าย ๆ',
+          chips: ['วางแผน', 'เรียนรู้', 'ฝึกต่อเนื่อง'],
+          href: './fitness-planner.html',
+          extra: { zone:'fitness', cat:'fitness', game:'fitnessplanner', gameId:'fitnessplanner', theme:'fitnessplanner' }
+        }
+      ];
+
+      const $ = (sel, root=document) => root.querySelector(sel);
+      const gameGrid = $('#gameGrid');
+
+      function qs(key, fallback=''){
+        try{
+          const v = new URL(location.href).searchParams.get(key);
+          return v == null || v === '' ? fallback : v;
+        }catch{
+          return fallback;
+        }
+      }
+
+      function currentParams(){
+        const p = new URLSearchParams(location.search);
+
+        if (!p.get('zone')) p.set('zone', 'fitness');
+        if (!p.get('cat')) p.set('cat', 'fitness');
+        if (!p.get('run')) p.set('run', 'play');
+        if (!p.get('diff')) p.set('diff', 'normal');
+        if (!p.get('pid')) p.set('pid', 'anon');
+        if (!p.get('time')) p.set('time', '80');
+        if (!p.get('seed')) p.set('seed', String(Date.now()));
+
+        return p;
+      }
+
+      function buildUrl(baseHref, extra = {}){
+        const p = currentParams();
+
+        for (const [k, v] of Object.entries(extra || {})) {
+          if (v != null && v !== '') p.set(k, String(v));
+        }
+
+        p.set('hub', location.href);
+
+        return baseHref + '?' + p.toString();
+      }
+
+      function renderCards(){
+        gameGrid.innerHTML = GAMES.map((g, idx) => `
+          <article class="card" data-game="${g.id}">
+            <div class="card-top">
+              <div class="icon">${g.icon}</div>
+              <div class="tag">${g.tag}</div>
+            </div>
+
+            <h3>${g.title}</h3>
+            <p>${g.desc}</p>
+
+            <div class="meta-row">
+              ${g.chips.map(c => `<div class="meta">${c}</div>`).join('')}
+            </div>
+
+            <div class="spacer"></div>
+
+            <div class="card-actions">
+              <a class="btn btn-primary play" href="${buildUrl(g.href, g.extra)}">▶️ เข้าเกม</a>
+              <button class="btn" type="button" data-preview="${idx}">👀 ดูปลายทาง</button>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function previewCtx(){
+        const pid  = qs('pid','anon');
+        const diff = qs('diff','normal');
+        const run  = qs('run','play');
+        const name = qs('name', qs('nick',''));
+        const txt = [ `pid=${pid}`, `diff=${diff}`, `run=${run}` ];
+        if (name) txt.push(`name=${name}`);
+        $('#ctxPreview').textContent = txt.join(' • ');
+      }
+
+      function goHub(){
+        const hub = qs('hub','./hub.html');
+        location.href = hub;
+      }
+
+      function goGameById(id){
+        const game = GAMES.find(g => g.id === id) || GAMES[0];
+        location.href = buildUrl(game.href, game.extra);
+      }
+
+      window.goFirstGame = function(){
+        goGameById('shadowbreaker');
+      };
+
+      window.goPlanner = function(){
+        goGameById('fitnessplanner');
+      };
+
+      $('#btnBackHub').addEventListener('click', goHub);
+
+      $('#btnRandom').addEventListener('click', function(){
+        const pick = GAMES[Math.floor(Math.random() * GAMES.length)];
+        location.href = buildUrl(pick.href, pick.extra);
+      });
+
+      gameGrid.addEventListener('click', function(ev){
+        const btn = ev.target.closest('[data-preview]');
+        if (!btn) return;
+
+        const idx = Number(btn.getAttribute('data-preview'));
+        const game = GAMES[idx];
+        if (!game) return;
+
+        const url = buildUrl(game.href, game.extra);
+        alert(
+          'ปลายทางของเกม:\\n\\n' +
+          game.title + '\\n' +
+          url
+        );
+      });
+
+      renderCards();
+      previewCtx();
+    })();
+  </script>
+</body>
+</html>
