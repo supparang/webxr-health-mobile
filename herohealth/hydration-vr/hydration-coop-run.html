@@ -3,23 +3,22 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Hydration Coop Run Bridge</title>
+  <title>HeroHealth • Hydration Coop</title>
 </head>
 <body>
-<script>
-(function(){
-  const q = new URLSearchParams(location.search);
-  const u = new URL('./hydration-vr.html', location.href);
+  <div id="gameMount"></div>
 
-  q.forEach((value, key) => {
-    u.searchParams.set(key, value);
-  });
+  <script type="module">
+    import { bootNutritionShell } from '../shared/nutrition/nutrition-shell.js';
+    import { createHydrationCoopAdapter } from './hydration.coop.js';
 
-  u.searchParams.set('mode', 'coop');
-  u.searchParams.set('multiplayer', '1');
-
-  location.replace(u.toString());
-})();
-</script>
+    bootNutritionShell({
+      gameId: 'hydration',
+      gameTitle: 'Hydration',
+      mode: 'coop',
+      mountSelector: '#gameMount',
+      adapterFactory: createHydrationCoopAdapter
+    });
+  </script>
 </body>
 </html>
