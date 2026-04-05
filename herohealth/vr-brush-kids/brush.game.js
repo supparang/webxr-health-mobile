@@ -117,7 +117,7 @@ const state = {
   speedLabel: 'ปกติ',
   bossTriggered: false,
   zones: buildZones(),
-  pattern: buildPatternState('horizontal', 'intro', MODE_CONFIG[qs.get('mode')]?.id || 'learn')
+  pattern: buildPatternState('horizontal', 'intro', (MODE_CONFIG[qs.get('mode')] || MODE_CONFIG.learn).id)
 };
 
 const el = {
@@ -459,6 +459,7 @@ function updatePhase() {
     state.bossTriggered = true;
     reviveWeakZones();
     ui.setCoach('fever', randomPick(COACH_LINES.boss));
+
     logger.event('boss_start', {
       timeFromStartMs: Math.round(state.elapsedMs),
       gameId: GAME_ID,
@@ -537,7 +538,14 @@ function handleBrushMove(e) {
     return;
   }
 
-  updateZoneCleaning(zone, speed, patternResult.match, patternResult.cycleCompleted, patternResult.loopCompleted);
+  updateZoneCleaning(
+    zone,
+    speed,
+    patternResult.match,
+    patternResult.cycleCompleted,
+    patternResult.loopCompleted
+  );
+
   state.combo += 1;
   state.comboMax = Math.max(state.comboMax, state.combo);
 
