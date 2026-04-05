@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Groups Solo</title>
+</head>
+<body>
+  <div id="gameMount"></div>
+
+  <script type="module">
+    import { bootNutritionShell } from '../shared/nutrition/nutrition-shell.js';
+    import { createGroupsSoloAdapter } from './groups.solo.js';
+
+    bootNutritionShell({
+      gameId: 'groups',
+      gameTitle: 'Food Groups',
+      mode: 'solo',
+      mountSelector: '#gameMount',
+      adapterFactory: createGroupsSoloAdapter
+    });
+  </script>
+</body>
+</html>
