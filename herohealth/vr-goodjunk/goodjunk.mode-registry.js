@@ -22,7 +22,7 @@ export const GOODJUNK_MODE_REGISTRY = {
   coop: {
     id: 'coop',
     kind: 'coop',
-    loader: () => import('./goodjunk.safe.coop.js')
+    loader: () => import('./goodjunk.coop.loader.js')
   }
 };
 
