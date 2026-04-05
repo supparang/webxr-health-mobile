@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Handwash v3</title>
+  <meta name="color-scheme" content="light" />
+  <link rel="stylesheet" href="../shared/hha-shell.css" />
+  <link rel="stylesheet" href="./handwash.css" />
+</head>
+<body>
+  <div id="handwashApp" class="hw-shell">
+    <header class="hw-topbar">
+      <div class="top-left">
+        <div id="phaseBadge" class="phase-badge">Handwash v3</div>
+        <div id="taskText" class="task-text">เตรียมอุปกรณ์ล้างมือ</div>
+      </div>
+
+      <div class="top-right">
+        <div class="score-pill">⭐ <span id="scoreValue">0</span></div>
+        <div class="score-pill streak">🔥 <span id="comboValue">1</span></div>
+        <div class="score-pill heart">❤️ <span id="livesValue">8</span></div>
+        <button id="helpBtn" class="icon-btn" type="button" title="วิธีเล่น">🔊</button>
+        <button id="homeBtn" class="icon-btn" type="button" title="กลับ HUB">🏠</button>
+      </div>
+    </header>
+
+    <main class="hw-main">
+      <section id="briefCard" class="brief-card"></section>
+
+      <section id="scene" class="scene hidden">
+        <section class="mission-card">
+          <div class="mission-head">
+            <div class="mission-kicker">ภารกิจตอนนี้</div>
+
+            <div class="mission-head-right">
+              <div id="phaseChip" class="phase-chip">Phase 1</div>
+              <div id="directorChip" class="director-chip">AI ปกติ</div>
+              <div id="timerChip" class="timer-chip hidden">
+                ⏱ <span id="timerValue">0</span>
+              </div>
+            </div>
+          </div>
+
+          <h2 id="missionTitle" class="mission-title">เริ่มภารกิจ</h2>
+
+          <div class="progress-track">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+
+          <div class="progress-foot">
+            <div id="phaseProgressText" class="progress-label">0 / 0</div>
+            <div class="streak-track">
+              <div id="streakFill" class="streak-fill"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="stageCard" class="stage-card">
+          <div id="feedbackPop" class="feedback-pop">เยี่ยม!</div>
+
+          <div id="speechBubble" class="speech-bubble">เริ่มเลย! เลือกสบู่ น้ำ และผ้าเช็ดมือก่อนนะ</div>
+          <div id="coachHintChip" class="coach-hint-chip">พร้อมช่วยเสมอ</div>
+          <div class="coach-bot">🧼</div>
+
+          <div class="tool-rail">
+            <button id="toolWater" class="tool-fab" type="button" aria-label="น้ำ">🚿</button>
+            <button id="toolSoap" class="tool-fab" type="button" aria-label="สบู่">🧼</button>
+            <button id="toolTowel" class="tool-fab" type="button" aria-label="ผ้าเช็ดมือ">🧻</button>
+          </div>
+
+          <div class="sink-top"></div>
+          <div class="faucet"></div>
+          <div class="faucet-head"></div>
+
+          <div id="handsWrap" class="hands-wrap">
+            <div class="hand left">
+              <div class="palm"></div>
+              <div class="finger f1"></div>
+              <div class="finger f2"></div>
+              <div class="finger f3"></div>
+              <div class="finger f4"></div>
+            </div>
+
+            <div class="hand right">
+              <div class="palm"></div>
+              <div class="finger f1"></div>
+              <div class="finger f2"></div>
+              <div class="finger f3"></div>
+              <div class="finger f4"></div>
+            </div>
+
+            <div id="hotspotsLayer" class="hotspots-layer"></div>
+            <div id="effectsLayer" class="effects-layer"></div>
+          </div>
+
+          <div class="bubble b1">🫧</div>
+          <div class="bubble b2">✨</div>
+          <div class="bubble b3">💧</div>
+        </section>
+
+        <section class="action-row-mini">
+          <button id="retryBtn" class="mini-btn" type="button">เริ่มรอบใหม่</button>
+          <button id="mistakeBtn" class="mini-btn warn" type="button">พลาดนิดหน่อย</button>
+        </section>
+
+        <section class="stats-grid">
+          <article class="stat-card">
+            <div class="stat-label">ความคืบหน้า</div>
+            <div id="cleanText" class="stat-value">0 / 0</div>
+            <div id="hintText" class="stat-sub">เริ่มเก็บคะแนนกันเลย</div>
+            <div id="comboPill" class="combo-pill">✨ เริ่มต้นได้ดี</div>
+          </article>
+
+          <article class="stat-card">
+            <div class="stat-label">เป้าหมายรอบนี้</div>
+            <div id="goalText" class="stat-value">เตรียมอุปกรณ์ให้ครบ</div>
+            <div id="subGoalText" class="stat-sub">ทำต่อเนื่องจะได้คะแนนเพิ่ม</div>
+          </article>
+
+          <article class="stat-card">
+            <div class="stat-label">ตัวชี้วัด</div>
+            <div class="metric-line">Best combo <strong id="bestComboValue">1</strong></div>
+            <div class="metric-line">Perfect <strong id="perfectValue">0</strong></div>
+            <div class="metric-line">Mode <strong id="modeValue">play</strong></div>
+            <div class="metric-line">Target <strong id="focusValue">-</strong></div>
+          </article>
+        </section>
+      </section>
+
+      <section id="summaryRoot"></section>
+      <section id="quizRoot"></section>
+    </main>
+  </div>
+
+  <script type="module" src="./handwash.js"></script>
+</body>
+</html>
