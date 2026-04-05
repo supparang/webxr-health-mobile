@@ -2,8 +2,8 @@
 
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-battle.js
- * GoodJunk Battle Controller
- * FULL PATCH v20260406-gjb-controller-r1
+ * GoodJunk Battle Controller / Compatibility Layer
+ * FULL PATCH v20260405-battle-controller-runtime-full
  * ========================================================= */
 (function(){
   const W = window;
@@ -12,580 +12,605 @@
   if (W.__GJ_BATTLE_CONTROLLER_LOADED__) return;
   W.__GJ_BATTLE_CONTROLLER_LOADED__ = true;
 
-  const ROOT_PATH = 'hha-battle/goodjunk/rooms';
-  const FIREBASE_SDKS = [
-    'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js',
-    'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js',
-    'https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js',
-    '../firebase-config.js'
-  ];
-
-  const q = new URLSearchParams(location.search);
-
-  const STATE = {
-    pid: cleanPid(qs('pid') || 'anon'),
-    uid: '',
-    name: cleanText(qs('name') || qs('nick') || 'Player', 80),
-    roomId: cleanRoom(qs('roomId') || qs('room') || ''),
-    roomKind: cleanText(qs('roomKind') || 'battle', 24) || 'battle',
-    diff: cleanText(qs('diff') || 'normal', 16) || 'normal',
-    timeSec: clampInt(qs('time') || '120', 60, 300, 120),
-    hub: qs('hub') || '../hub.html',
-    run: cleanText(qs('run') || 'play', 24) || 'play',
-    view: cleanText(qs('view') || 'mobile', 24) || 'mobile',
-    seed: cleanText(qs('seed') || String(Date.now()), 120),
-
-    db: null,
-    auth: null,
-    refs: { room:null, state:null, players:null, final:null, self:null },
-    room: { meta:{}, state:{}, players:{}, final:null },
-
-    lastDebugHash: '',
-    lastEmittedFinalToken: '',
-    localFinishSeen: false,
-    localFinishDetail: null,
-    bootDone: false
+  const qs = (k, d='') => {
+    try { return new URL(location.href).searchParams.get(k) ?? d; }
+    catch { return d; }
   };
 
-  function qs(key, fb=''){
-    try{
-      const v = q.get(key);
-      return v == null || v === '' ? fb : v;
-    }catch{
-      return fb;
-    }
-  }
-
-  function now(){ return Date.now(); }
-
-  function num(v, d=0){
+  const num = (v, d=0) => {
     v = Number(v);
     return Number.isFinite(v) ? v : d;
-  }
+  };
 
-  function clampInt(v, min, max, fb){
-    const n = Number(v);
-    if (!Number.isFinite(n)) return fb;
-    return Math.max(min, Math.min(max, Math.round(n)));
-  }
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, num(v, a)));
+  const now = () => Date.now();
 
-  function cleanText(v, max=120){
+  function clean(v, max=120){
     return String(v == null ? '' : v).trim().slice(0, max);
   }
 
   function cleanPid(v){
-    return String(v == null ? '' : v).trim().replace(/[.#$[\]/]/g, '-').slice(0, 120);
+    return String(v == null ? '' : v).replace(/[.#$[\]/]/g, '-').trim().slice(0, 80);
   }
 
   function cleanRoom(v){
-    return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
+    return String(v == null ? '' : v).toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
   }
 
-  function escapeJson(v){
-    try{ return JSON.stringify(v); }
-    catch{ return ''; }
+  function escapeHtml(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
-  function roomStatus(){
-    return cleanText((STATE.room.state || {}).status || 'waiting', 32) || 'waiting';
+  function emit(name, detail){
+    try { W.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }
+    catch {}
   }
 
-  function roomRoundToken(){
-    return cleanText((STATE.room.state || {}).roundToken || '', 120);
-  }
+  const CTX = {
+    game: 'goodjunk',
+    zone: 'nutrition',
+    mode: 'battle',
+    roomId: cleanRoom(qs('roomId', qs('room', ''))),
+    roomKind: clean(qs('roomKind', ''), 40),
+    pid: cleanPid(qs('pid', 'anon')),
+    uid: cleanPid(qs('uid', '')),
+    name: clean(qs('name', qs('nick', 'Player')), 80),
+    role: clean(qs('role', 'player'), 24),
+    diff: clean(qs('diff', 'normal'), 24).toLowerCase(),
+    time: clamp(qs('time', '90'), 30, 300),
+    seed: clean(qs('seed', String(now())), 80),
+    roundId: clean(qs('roundId', ''), 80),
+    hub: clean(qs('hub', '../hub.html'), 500),
+    view: clean(qs('view', 'mobile'), 24),
+    host: clean(qs('host', '0'), 8)
+  };
 
-  function roomEndsAt(){
-    return num((STATE.room.state || {}).endsAt, 0);
-  }
+  const STORE_LAST = 'HHA_LAST_SUMMARY';
+  const STORE_LAST_BATTLE = 'HHA_LAST_SUMMARY_BATTLE';
+  const STORE_LAST_BATTLE_ROOM = CTX.roomId ? `HHA_LAST_SUMMARY_BATTLE_${CTX.roomId}` : '';
 
-  function roomCountdownEndsAt(){
-    return num((STATE.room.state || {}).countdownEndsAt, 0);
-  }
+  const S = {
+    runtime: null,
+    core: null,
+    lastLive: null,
+    lastSummary: null,
+    lastControllerSummary: null,
+    controllerSummarySent: false,
+    resultWatchBound: false,
+    roomPollTimer: 0,
+    scoreWatchTimer: 0,
+    readyAt: now()
+  };
 
-  function activePlayers(){
-    const t = now();
-    const map = (STATE.room.players && typeof STATE.room.players === 'object') ? STATE.room.players : {};
-    return Object.entries(map)
-      .map(([key, p]) => Object.assign({ key }, p || {}))
-      .filter((p) => {
-        if (p.connected === false) return false;
-        const lastSeen = num(p.lastSeen || p.updatedAt || p.joinedAt, 0);
-        if (!lastSeen) return true;
-        return (t - lastSeen) <= 15000;
-      })
-      .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
-  }
-
-  function hostUid(){
-    return cleanPid((STATE.room.meta || {}).hostUid || '');
-  }
-
-  function isHost(){
-    return !!STATE.uid && STATE.uid === hostUid();
-  }
-
-  function playersForRanking(){
-    const map = (STATE.room.players && typeof STATE.room.players === 'object') ? STATE.room.players : {};
-    return Object.entries(map)
-      .map(([key, p]) => Object.assign({ key }, p || {}))
-      .filter((p) => {
-        const pid = cleanPid(p.pid || p.uid || p.playerId || p.key || '');
-        return !!pid;
-      });
-  }
-
-  function debugDetail(extra){
-    const players = activePlayers();
-    const detail = {
-      tag: 'goodjunk-battle-controller',
-      roomKind: STATE.roomKind,
-      stateStatus: roomStatus(),
-      matchStatus: roomStatus(),
-      participantIds: players.map(p => cleanPid(p.pid || p.uid || p.playerId || p.key || '')),
-      resultCount: players.filter(p => !!p.resultSubmitted).length,
-      finalCount: Array.isArray(STATE.room.final?.standings) ? STATE.room.final.standings.length : 0,
-      runStarted: roomStatus() === 'playing',
-      resultSubmitted: !!((STATE.room.players || {})[STATE.uid] || {}).resultSubmitted,
-      finalSummarySent: !!STATE.room.final,
-      isHost: isHost(),
-      roomId: STATE.roomId,
-      roundToken: roomRoundToken(),
-      ...extra
+  function runtimeCtx(){
+    return {
+      roomId: CTX.roomId || '',
+      roomKind: CTX.roomKind || '',
+      pid: CTX.pid || '',
+      uid: CTX.uid || '',
+      name: CTX.name || '',
+      role: CTX.role || '',
+      diff: CTX.diff || '',
+      time: Number(CTX.time || 0),
+      seed: String(CTX.seed || ''),
+      view: CTX.view || '',
+      host: String(CTX.host || '0')
     };
-    return detail;
   }
 
-  function emitDebug(extra){
-    const detail = debugDetail(extra);
-    const hash = escapeJson(detail);
-    if (hash === STATE.lastDebugHash) return;
-    STATE.lastDebugHash = hash;
-
-    try{
-      W.dispatchEvent(new CustomEvent('gj:battle-debug', { detail }));
-    }catch{}
+  function saveJson(key, value){
+    if (!key) return;
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
   }
 
-  function loadScript(src){
-    return new Promise((resolve, reject) => {
-      const full = new URL(src, location.href).toString();
-      const found = Array.from(document.scripts).find(s => s.src === full);
-      if (found){
-        if (found.dataset.loaded === '1') return resolve(full);
-        found.addEventListener('load', () => resolve(full), { once:true });
-        found.addEventListener('error', () => reject(new Error('load failed: ' + src)), { once:true });
-        return;
-      }
+  function loadJson(key, fallback=null){
+    if (!key) return fallback;
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
 
-      const s = D.createElement('script');
-      s.src = full;
-      s.async = true;
-      s.onload = () => {
-        s.dataset.loaded = '1';
-        resolve(full);
-      };
-      s.onerror = () => reject(new Error('load failed: ' + src));
-      D.head.appendChild(s);
+  function getCore(){
+    if (W.__GJ_BATTLE_CORE__ && typeof W.__GJ_BATTLE_CORE__ === 'object') {
+      return W.__GJ_BATTLE_CORE__;
+    }
+    return null;
+  }
+
+  function currentResultMount(){
+    return D.getElementById('battleResultMount');
+  }
+
+  function normalizeSummary(detail){
+    const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
+      ? detail.summary
+      : (detail || {});
+
+    const standings = Array.isArray(src.standings) ? src.standings.map((r, i) => ({
+      pid: cleanPid(r.pid || ''),
+      nick: clean(r.nick || r.name || r.pid || `player-${i+1}`, 80),
+      rank: num(r.rank, i + 1),
+      score: num(r.score, 0),
+      miss: num(r.miss, 0),
+      goodHit: num(r.goodHit, 0),
+      junkHit: num(r.junkHit, 0),
+      bestStreak: num(r.bestStreak, 0),
+      duration: num(r.duration, CTX.time),
+      hp: num(r.hp, 0),
+      maxHp: num(r.maxHp, 100),
+      attacksUsed: num(r.attacksUsed, 0),
+      damageDealt: num(r.damageDealt, 0),
+      damageTaken: num(r.damageTaken, 0),
+      koCount: num(r.koCount, 0)
+    })) : [];
+
+    const compare = src.compare && typeof src.compare === 'object'
+      ? src.compare
+      : null;
+
+    const me =
+      (compare && compare.me) ||
+      standings.find((r) => String(r.pid || '') === String(CTX.pid || '')) ||
+      null;
+
+    const opponent =
+      (compare && compare.opponent) ||
+      standings.find((r) => String(r.pid || '') !== String(CTX.pid || '')) ||
+      null;
+
+    return {
+      controllerFinal: !!src.controllerFinal,
+      game: src.game || 'goodjunk',
+      zone: src.zone || 'nutrition',
+      mode: src.mode || 'battle',
+      roomId: cleanRoom(src.roomId || CTX.roomId || ''),
+      roomKind: clean(src.roomKind || CTX.roomKind || '', 40),
+      pid: cleanPid(src.pid || CTX.pid || ''),
+      uid: cleanPid(src.uid || CTX.uid || ''),
+      name: clean(src.name || CTX.name || 'Player', 80),
+      role: clean(src.role || CTX.role || 'player', 24),
+      rank: num(src.rank || (me && me.rank) || 0, 0),
+      score: num(src.score || (me && me.score) || 0, 0),
+      players: Math.max(1, num(src.players || standings.length || 1, 1)),
+      miss: num(src.miss || (me && me.miss) || 0, 0),
+      goodHit: num(src.goodHit || (me && me.goodHit) || 0, 0),
+      junkHit: num(src.junkHit || (me && me.junkHit) || 0, 0),
+      bestStreak: num(src.bestStreak || (me && me.bestStreak) || 0, 0),
+      duration: num(src.duration || (me && me.duration) || CTX.time, CTX.time),
+      result: clean(src.result || '', 80) || (num(src.rank || (me && me.rank) || 0, 0) === 1 ? 'win' : 'finished'),
+      reason: clean(src.reason || '', 80) || 'finished',
+      hp: num(src.hp || (me && me.hp) || 0, 0),
+      maxHp: num(src.maxHp || (me && me.maxHp) || 100, 100),
+      attacksUsed: num(src.attacksUsed || (me && me.attacksUsed) || 0, 0),
+      damageDealt: num(src.damageDealt || (me && me.damageDealt) || 0, 0),
+      damageTaken: num(src.damageTaken || (me && me.damageTaken) || 0, 0),
+      koCount: num(src.koCount || (me && me.koCount) || 0, 0),
+      standings,
+      compare: {
+        me: me || null,
+        opponent: opponent || null,
+        delta: num(
+          (compare && compare.delta) != null
+            ? compare.delta
+            : ((me ? me.score : 0) - (opponent ? opponent.score : 0)),
+          0
+        )
+      },
+      raw: src.raw && typeof src.raw === 'object' ? src.raw : {}
+    };
+  }
+
+  function persistSummary(summary){
+    const normalized = normalizeSummary(summary);
+    S.lastSummary = normalized;
+    saveJson(STORE_LAST, normalized);
+    saveJson(STORE_LAST_BATTLE, normalized);
+    if (STORE_LAST_BATTLE_ROOM) saveJson(STORE_LAST_BATTLE_ROOM, normalized);
+    W.__GJ_BATTLE_LAST_SUMMARY__ = normalized;
+    return normalized;
+  }
+
+  function maybeCreateRuntime(){
+    if (S.runtime) return S.runtime;
+    if (!(W.HHARuntimeContract && typeof W.HHARuntimeContract.create === 'function')) return null;
+
+    S.runtime = W.HHARuntimeContract.create({
+      game: 'goodjunk',
+      zone: 'nutrition',
+      mode: 'battle',
+      getCtx: runtimeCtx
     });
+
+    return S.runtime;
   }
 
-  async function ensureFirebase(){
-    if (!(W.firebase && W.firebase.apps && W.firebase.database && W.firebase.auth)){
-      for (const src of FIREBASE_SDKS){
-        await loadScript(src);
-      }
+  async function flushRuntime(){
+    const rt = maybeCreateRuntime();
+    if (!rt) return;
+    try { await rt.flush(); } catch (_) {}
+  }
+
+  async function maybeSendControllerSummary(summary){
+    const normalized = persistSummary(summary);
+    if (normalized.controllerFinal) return normalized;
+    if (S.controllerSummarySent) return normalized;
+
+    S.controllerSummarySent = true;
+    S.lastControllerSummary = Object.assign({}, normalized, { controllerFinal: true });
+
+    emit('gj:controller-summary', S.lastControllerSummary);
+    emit('hha:controller-summary', S.lastControllerSummary);
+
+    const rt = maybeCreateRuntime();
+    if (rt && typeof rt.summary === 'function') {
+      try { await rt.summary(S.lastControllerSummary); } catch (_) {}
     }
 
-    const firebase = W.firebase;
-    const cfg = W.HHA_FIREBASE_CONFIG || W.__HHA_FIREBASE_CONFIG__ || W.firebaseConfig || null;
-
-    if (firebase.apps && !firebase.apps.length){
-      if (!cfg) throw new Error('Firebase config not found');
-      firebase.initializeApp(cfg);
-    }
-
-    STATE.db = firebase.database();
-    STATE.auth = firebase.auth();
-
-    if (typeof W.HHA_ensureAnonymousAuth === 'function'){
-      await W.HHA_ensureAnonymousAuth();
-    } else if (!STATE.auth.currentUser){
-      await STATE.auth.signInAnonymously();
-    }
-
-    const user = STATE.auth.currentUser;
-    if (!user) throw new Error('Anonymous auth failed');
-
-    STATE.uid = cleanPid(user.uid || '');
-    if (!STATE.pid) STATE.pid = STATE.uid;
+    return S.lastControllerSummary;
   }
 
-  async function bindRoom(){
-    if (!STATE.roomId) throw new Error('roomId missing');
-
-    STATE.refs.room = STATE.db.ref(`${ROOT_PATH}/${STATE.roomId}`);
-    STATE.refs.state = STATE.refs.room.child('state');
-    STATE.refs.players = STATE.refs.room.child('players');
-    STATE.refs.final = STATE.refs.room.child('finalSummary');
-    STATE.refs.self = STATE.refs.players.child(STATE.uid);
-
-    const snap = await STATE.refs.room.once('value');
-    if (!snap.exists()) throw new Error('room not found');
-
-    const room = snap.val() || {};
-    STATE.room.meta = room.meta || {};
-    STATE.room.state = room.state || {};
-    STATE.room.players = room.players || {};
-    STATE.room.final = room.finalSummary || null;
-
-    STATE.refs.state.on('value', (s) => {
-      STATE.room.state = s.val() || {};
-      emitDebug();
-      maybeDriveState();
-      maybeEmitFinalSummary();
-    });
-
-    STATE.refs.players.on('value', (s) => {
-      STATE.room.players = s.val() || {};
-      emitDebug();
-      maybeDriveState();
-      maybeFinalizeRound();
-      maybeEmitFinalSummary();
-    });
-
-    STATE.refs.final.on('value', (s) => {
-      STATE.room.final = s.val() || null;
-      emitDebug();
-      maybeEmitFinalSummary();
-    });
+  function readCoreRoomResults(){
+    const core = getCore();
+    if (!core || !core.state || !core.state.room || !core.state.room.results) return {};
+    return core.state.room.results || {};
   }
 
-  async function heartbeat(){
-    if (!STATE.refs.self) return;
-
-    const self = ((STATE.room.players || {})[STATE.uid]) || {};
-    try{
-      await STATE.refs.self.update({
-        connected: true,
-        pid: STATE.pid,
-        uid: STATE.uid,
-        playerId: STATE.uid,
-        name: STATE.name,
-        nick: STATE.name,
-        status: self.status || roomStatus(),
-        updatedAt: now(),
-        lastSeen: now()
-      });
-    }catch{}
-  }
-
-  function createStandings(){
-    const rows = playersForRanking().map((p) => {
-      const uid = cleanPid(p.uid || p.playerId || p.key || '');
-      const pid = cleanPid(p.pid || uid || '');
-      const nick = cleanText(p.name || p.nick || pid || 'Player', 80);
-
+  function computeControllerSummaryFromResults(){
+    const resultsObj = readCoreRoomResults();
+    const rows = Object.keys(resultsObj || {}).map((pid) => {
+      const r = resultsObj[pid] || {};
       return {
-        uid,
-        pid,
-        nick,
-        score: num(p.score, 0),
-        miss: num(p.miss, 0),
-        bestStreak: num(p.bestStreak, 0),
-        hp: num(p.hp, 100),
-        maxHp: Math.max(1, num(p.maxHp, 100)),
-        attacksUsed: num(p.attacksUsed, 0),
-        damageDealt: num(p.damageDealt, 0),
-        damageTaken: num(p.damageTaken, 0),
-        guardsUsed: num(p.guardsUsed, 0),
-        perfectGuardCount: num(p.perfectGuardCount, 0),
-        blockedDamage: num(p.blockedDamage, 0),
-        junkRainSent: num(p.junkRainSent, 0),
-        junkRainReceived: num(p.junkRainReceived, 0),
-        drainUsed: num(p.drainUsed, 0),
-        chargeDrained: num(p.chargeDrained, 0),
-        chargeLostToDrain: num(p.chargeLostToDrain, 0),
-        counterTriggered: num(p.counterTriggered, 0),
-        counterDamageDealt: num(p.counterDamageDealt, 0),
-        counterDamageTaken: num(p.counterDamageTaken, 0),
-        finisherUsed: num(p.finisherUsed, 0),
-        finisherBonusDamage: num(p.finisherBonusDamage, 0),
-        bestAttackCombo: num(p.bestAttackCombo, 0),
-        rageTriggered: !!p.rageTriggered,
-        rageAttackBonusDamage: num(p.rageAttackBonusDamage, 0),
-        rageFinisherUsed: num(p.rageFinisherUsed, 0),
-        rageFinisherBonusDamage: num(p.rageFinisherBonusDamage, 0),
-        leadChanges: num(p.leadChanges, 0),
-        comebackCount: num(p.comebackCount, 0),
-        biggestLead: num(p.biggestLead, 0),
-        biggestDeficit: num(p.biggestDeficit, 0),
-        koByAttack: num(p.koByAttack, 0),
-        koTaken: num(p.koTaken, 0),
-        endedByKo: !!p.endedByKo,
-        resultSubmitted: !!p.resultSubmitted,
-        status: cleanText(p.status || '', 24),
-        joinedAt: num(p.joinedAt, 0),
-        updatedAt: num(p.updatedAt, 0)
+        pid: cleanPid(r.pid || pid),
+        nick: clean(r.nick || r.name || pid || 'player', 80),
+        score: num(r.score, 0),
+        miss: num(r.miss, 0),
+        goodHit: num(r.goodHit, 0),
+        junkHit: num(r.junkHit, 0),
+        bestStreak: num(r.bestStreak, 0),
+        duration: num(r.duration, CTX.time),
+        hp: num(r.hp, 0),
+        maxHp: num(r.maxHp, 100),
+        attacksUsed: num(r.attacksUsed, 0),
+        damageDealt: num(r.damageDealt, 0),
+        damageTaken: num(r.damageTaken, 0),
+        koCount: num(r.koCount, 0)
       };
     });
 
     rows.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
+      if (b.hp !== a.hp) return b.hp - a.hp;
       if (a.miss !== b.miss) return a.miss - b.miss;
       if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
-      if (b.hp !== a.hp) return b.hp - a.hp;
-      return a.joinedAt - b.joinedAt;
+      if (b.koCount !== a.koCount) return b.koCount - a.koCount;
+      return String(a.pid || '').localeCompare(String(b.pid || ''));
     });
 
-    rows.forEach((r, idx) => { r.rank = idx + 1; });
-    return rows;
-  }
+    rows.forEach((r, i) => { r.rank = i + 1; });
 
-  function compareBlockFor(pid, standings){
-    const me = standings.find(r => String(r.pid || '') === String(pid || '')) || standings[0] || null;
-    const opponent = standings.find(r => String(r.pid || '') !== String((me && me.pid) || '')) || null;
-    return { me, opponent };
-  }
+    if (!rows.length) return null;
 
-  function buildSummaryForPid(pid, standings, finalSummary){
-    const compare = compareBlockFor(pid, standings);
-    const me = compare.me || null;
-    const opponent = compare.opponent || null;
+    const me = rows.find((r) => String(r.pid || '') === String(CTX.pid || '')) || rows[0];
+    const opponent = rows.find((r) => String(r.pid || '') !== String(CTX.pid || '')) || null;
 
-    const result =
-      !me ? 'finished' :
-      me.rank === 1 ? 'win' :
-      (standings.length >= 2 ? 'lose' : 'finished');
-
-    return {
+    return normalizeSummary({
       controllerFinal: true,
-      roomId: STATE.roomId,
-      pid: me ? me.pid : pid,
-      name: me ? me.nick : STATE.name,
-      result,
-      rank: me ? me.rank : '',
+      game: 'goodjunk',
+      zone: 'nutrition',
+      mode: 'battle',
+      roomId: CTX.roomId,
+      roomKind: CTX.roomKind,
+      pid: CTX.pid,
+      uid: CTX.uid,
+      name: CTX.name,
+      role: CTX.role,
+      rank: me ? me.rank : 0,
       score: me ? me.score : 0,
-      players: standings.length,
+      players: rows.length,
       miss: me ? me.miss : 0,
-      goodHit: me ? num(me.goodHit, 0) : 0,
-      junkHit: me ? num(me.junkHit, 0) : 0,
+      goodHit: me ? me.goodHit : 0,
+      junkHit: me ? me.junkHit : 0,
       bestStreak: me ? me.bestStreak : 0,
-      duration: STATE.timeSec,
-      compare: { me, opponent },
-      standings,
-      generatedAt: finalSummary.generatedAt,
-      roundToken: finalSummary.roundToken,
-      finalToken: finalSummary.finalToken,
-      raw: {
-        finalSummary,
+      duration: me ? me.duration : CTX.time,
+      result: me && me.rank === 1 ? 'win' : (me && me.rank === 2 ? 'lose' : 'finished'),
+      reason: 'controller-compare',
+      hp: me ? me.hp : 0,
+      maxHp: me ? me.maxHp : 100,
+      attacksUsed: me ? me.attacksUsed : 0,
+      damageDealt: me ? me.damageDealt : 0,
+      damageTaken: me ? me.damageTaken : 0,
+      koCount: me ? me.koCount : 0,
+      standings: rows,
+      compare: {
         me,
-        opponent
+        opponent,
+        delta: (me ? me.score : 0) - (opponent ? opponent.score : 0)
       }
-    };
+    });
   }
 
-  async function maybeHostPromoteCountdown(){
-    if (!isHost()) return;
-    if (roomStatus() !== 'countdown') return;
+  async function maybeUpgradeStoredSummary(){
+    if (S.controllerSummarySent) return;
 
-    const ends = roomCountdownEndsAt();
-    if (!ends) return;
-    if (now() < ends) return;
+    const mount = currentResultMount();
+    const alreadyVisible = mount && mount.hidden === false;
+    const candidate =
+      computeControllerSummaryFromResults() ||
+      loadJson(STORE_LAST_BATTLE_ROOM, null) ||
+      loadJson(STORE_LAST_BATTLE, null) ||
+      loadJson(STORE_LAST, null);
 
-    const t = now();
-    const roundToken = roomRoundToken() || `round-${t}`;
+    if (!candidate) return;
 
-    try{
-      await STATE.refs.state.update({
-        status: 'playing',
-        startedAt: t,
-        endsAt: t + (STATE.timeSec * 1000),
-        countdownEndsAt: 0,
-        roundToken,
-        updatedAt: t
+    const normalized = normalizeSummary(candidate);
+    if (!normalized || !normalized.roomId) return;
+    if (normalized.roomId && CTX.roomId && String(normalized.roomId) !== String(CTX.roomId)) return;
+
+    if (normalized.standings && normalized.standings.length >= 2) {
+      await maybeSendControllerSummary(normalized);
+      if (!alreadyVisible) {
+        emit('hha:summary', S.lastControllerSummary || normalized);
+      }
+    }
+  }
+
+  function patchResultMountDebug(summary){
+    const mount = currentResultMount();
+    if (!mount || mount.hidden) return;
+
+    const shell = mount.firstElementChild;
+    if (!shell) return;
+
+    if (shell.querySelector('[data-battle-controller-debug="1"]')) return;
+
+    const debug = D.createElement('div');
+    debug.setAttribute('data-battle-controller-debug', '1');
+    debug.style.borderRadius = '16px';
+    debug.style.background = '#fff';
+    debug.style.border = '1px dashed #bfe3f2';
+    debug.style.padding = '12px';
+    debug.style.color = '#6b7280';
+    debug.style.fontSize = '12px';
+    debug.style.lineHeight = '1.6';
+    debug.style.whiteSpace = 'pre-wrap';
+    debug.style.wordBreak = 'break-word';
+    debug.textContent =
+      `controllerFinal=${summary && summary.controllerFinal ? 'true' : 'false'}
+roomId=${escapeHtml(CTX.roomId || '-')}
+roomKind=${escapeHtml(CTX.roomKind || '-')}
+reason=${escapeHtml(summary && summary.reason ? summary.reason : '-')}`;
+
+    const actions = shell.querySelector('.btn') ? shell.lastElementChild : null;
+    if (actions && actions.parentNode === shell) {
+      shell.insertBefore(debug, actions);
+    } else {
+      shell.appendChild(debug);
+    }
+  }
+
+  function maybePatchRematchLink(summary){
+    const mount = currentResultMount();
+    if (!mount || mount.hidden) return;
+
+    const existing = D.getElementById('battleControllerRematchBtn');
+    if (existing) return;
+
+    const shell = mount.firstElementChild;
+    if (!shell) return;
+
+    const actions = Array.from(shell.querySelectorAll('a,button')).find((el) => {
+      const t = String(el.textContent || '').toLowerCase();
+      return t.includes('hub') || t.includes('lobby') || t.includes('อีกครั้ง');
+    });
+
+    const actionWrap = actions ? actions.parentElement : null;
+    if (!actionWrap) return;
+
+    const btn = D.createElement('button');
+    btn.id = 'battleControllerRematchBtn';
+    btn.type = 'button';
+    btn.className = 'btn good';
+    btn.textContent = '🔁 รีแมตช์ (controller)';
+    btn.addEventListener('click', () => {
+      const url = new URL('./goodjunk-battle-lobby.html', location.href);
+      const src = new URL(location.href);
+
+      src.searchParams.forEach((value, key) => {
+        if (key === 'autostart') return;
+        url.searchParams.set(key, value);
       });
 
-      if (STATE.refs.final){
-        await STATE.refs.final.remove().catch(() => {});
+      if (CTX.roomId) {
+        url.searchParams.set('roomId', CTX.roomId);
+        url.searchParams.set('room', CTX.roomId);
       }
-    }catch(err){
-      console.warn('[GJ-BATTLE-CTRL] promote countdown failed', err);
-    }
+      if ((summary && summary.roomKind) || CTX.roomKind) {
+        url.searchParams.set('roomKind', (summary && summary.roomKind) || CTX.roomKind);
+      }
+      url.searchParams.set('autojoin', '1');
+      url.searchParams.set('rematch', '1');
+
+      location.href = url.toString();
+    });
+
+    actionWrap.appendChild(btn);
   }
 
-  async function maybeHostEndRound(){
-    if (!isHost()) return;
-    if (roomStatus() !== 'playing') return;
+  function bindSummaryEvents(){
+    ['gj:summary','hha:summary','hha:session-summary'].forEach((eventName) => {
+      W.addEventListener(eventName, async (evt) => {
+        const detail = evt && evt.detail ? evt.detail : null;
+        if (!detail || typeof detail !== 'object') return;
 
-    const endsAt = roomEndsAt();
-    const players = activePlayers();
-    const alive = players.some((p) => num(p.hp, 100) > 0);
+        const normalized = persistSummary(detail);
+        patchResultMountDebug(normalized);
+        maybePatchRematchLink(normalized);
 
-    if ((endsAt && now() >= endsAt) || !alive){
-      try{
-        await STATE.refs.state.update({
-          status: 'ended',
-          updatedAt: now()
-        });
-      }catch(err){
-        console.warn('[GJ-BATTLE-CTRL] end round failed', err);
-      }
-    }
-  }
-
-  async function submitLocalFinish(detail){
-    if (!STATE.refs.self) return;
-    if (STATE.localFinishSeen) return;
-
-    const src = detail && detail.summary ? detail.summary : (detail || {});
-    STATE.localFinishSeen = true;
-    STATE.localFinishDetail = src;
-
-    try{
-      await STATE.refs.self.update({
-        resultSubmitted: true,
-        resultSubmittedAt: now(),
-        status: 'finished',
-        finalRank: src.rank ?? '',
-        finalResult: cleanText(src.result || '', 24),
-        updatedAt: now(),
-        lastSeen: now()
+        if (normalized.standings && normalized.standings.length >= 2 && !normalized.controllerFinal) {
+          await maybeSendControllerSummary(normalized);
+        }
       });
-    }catch(err){
-      console.warn('[GJ-BATTLE-CTRL] submitLocalFinish failed', err);
-    }
+    });
 
-    emitDebug({ localFinishSeen:true });
+    W.addEventListener('battle:update', (evt) => {
+      const detail = evt && evt.detail ? evt.detail : null;
+      if (!detail || typeof detail !== 'object') return;
+      S.lastLive = detail;
+      persistScoreSnapshot(detail);
+    });
+
+    W.addEventListener('hha:score', (evt) => {
+      const detail = evt && evt.detail ? evt.detail : null;
+      if (!detail || typeof detail !== 'object') return;
+      persistScoreSnapshot(detail);
+    });
   }
 
-  function enoughResultsToFinalize(players){
-    if (!players.length) return false;
-    const submitted = players.filter(p => !!p.resultSubmitted).length;
-    const finishedLike = players.filter((p) => {
-      const st = cleanText(p.status || '', 24);
-      return st === 'finished' || st === 'ko' || st === 'left';
-    }).length;
+  function persistScoreSnapshot(detail){
+    const score = num(detail.score, 0);
+    const miss = num(detail.miss, 0);
+    const bestStreak = num(detail.bestStreak, 0);
 
-    return submitted >= 2 || finishedLike >= players.length;
-  }
-
-  async function maybeFinalizeRound(){
-    if (!isHost()) return;
-    if (roomStatus() !== 'ended') return;
-    if (STATE.room.final && STATE.room.final.roundToken === roomRoundToken()) return;
-
-    const rows = createStandings();
-    if (rows.length < 2) return;
-    if (!enoughResultsToFinalize(rows)) return;
-
-    const finalSummary = {
-      controllerFinal: true,
-      roomId: STATE.roomId,
-      roomKind: STATE.roomKind,
-      generatedAt: now(),
-      roundToken: roomRoundToken() || `round-${now()}`,
-      finalToken: `final-${STATE.roomId}-${now()}`,
-      standings: rows
+    const snapshot = {
+      game: 'goodjunk',
+      zone: 'nutrition',
+      mode: 'battle',
+      roomId: CTX.roomId,
+      roomKind: CTX.roomKind,
+      pid: CTX.pid,
+      uid: CTX.uid,
+      name: CTX.name,
+      role: CTX.role,
+      score,
+      miss,
+      bestStreak,
+      updatedAt: now()
     };
 
-    try{
-      await STATE.refs.final.set(finalSummary);
+    saveJson('HHA_BATTLE_LIVE_SNAPSHOT', snapshot);
+    if (CTX.roomId) saveJson(`HHA_BATTLE_LIVE_SNAPSHOT_${CTX.roomId}`, snapshot);
+  }
 
-      const updates = {};
-      rows.forEach((r) => {
-        const uid = r.uid;
-        if (!uid) return;
-        updates[`${uid}/finalRank`] = r.rank;
-        updates[`${uid}/finalResult`] = r.rank === 1 ? 'win' : 'lose';
-        updates[`${uid}/resultSubmitted`] = true;
-        updates[`${uid}/status`] = 'finished';
-        updates[`${uid}/updatedAt`] = now();
-      });
+  function bindResultMountObserver(){
+    if (S.resultWatchBound) return;
+    S.resultWatchBound = true;
 
-      if (Object.keys(updates).length){
-        await STATE.refs.players.update(updates);
+    const mount = currentResultMount();
+    if (!mount) return;
+
+    const mo = new MutationObserver(async () => {
+      if (mount.hidden) return;
+
+      const summary =
+        S.lastControllerSummary ||
+        S.lastSummary ||
+        computeControllerSummaryFromResults() ||
+        loadJson(STORE_LAST_BATTLE_ROOM, null) ||
+        loadJson(STORE_LAST_BATTLE, null) ||
+        loadJson(STORE_LAST, null);
+
+      if (summary) {
+        patchResultMountDebug(normalizeSummary(summary));
+        maybePatchRematchLink(normalizeSummary(summary));
+        await maybeUpgradeStoredSummary();
       }
+    });
 
-      emitDebug({ finalSummarySent:true, finalCount:rows.length });
-    }catch(err){
-      console.warn('[GJ-BATTLE-CTRL] finalize failed', err);
-    }
+    mo.observe(mount, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['hidden']
+    });
   }
 
-  function maybeEmitFinalSummary(){
-    const finalSummary = STATE.room.final;
-    if (!finalSummary || !finalSummary.controllerFinal) return;
+  function startControllerPolling(){
+    clearInterval(S.roomPollTimer);
+    S.roomPollTimer = setInterval(async () => {
+      const core = getCore();
+      if (!core || !core.state) return;
 
-    const finalToken = cleanText(finalSummary.finalToken || '', 120);
-    const finalRoundToken = cleanText(finalSummary.roundToken || '', 120);
-    const roomToken = roomRoundToken();
+      S.core = core;
 
-    if (!finalToken) return;
-    if (roomToken && finalRoundToken && roomToken !== finalRoundToken) return;
-    if (STATE.lastEmittedFinalToken === finalToken) return;
+      try {
+        const room = core.state.room || {};
+        const results = room.results || {};
+        const resultCount = Object.keys(results).length;
 
-    const standings = Array.isArray(finalSummary.standings) ? finalSummary.standings : [];
-    if (!standings.length) return;
+        if (resultCount >= 2) {
+          await maybeUpgradeStoredSummary();
+        }
 
-    const summary = buildSummaryForPid(STATE.pid, standings, finalSummary);
-    STATE.lastEmittedFinalToken = finalToken;
+        const status = String((room.state && room.state.status) || '');
+        if ((status === 'ended' || status === 'finished') && !S.controllerSummarySent) {
+          await maybeUpgradeStoredSummary();
+        }
+      } catch (_) {}
+    }, 600);
 
-    try{
-      W.dispatchEvent(new CustomEvent('gj:battle-summary', { detail:{ summary } }));
-    }catch{}
-
-    try{
-      W.dispatchEvent(new CustomEvent('battle:finish', { detail:{ summary } }));
-    }catch{}
-
-    try{
-      W.dispatchEvent(new CustomEvent('hha:battle:finish', { detail:{ summary } }));
-    }catch{}
-
-    emitDebug({ emittedFinalToken:finalToken });
+    clearInterval(S.scoreWatchTimer);
+    S.scoreWatchTimer = setInterval(() => {
+      const snap = loadJson('HHA_BATTLE_LIVE_SNAPSHOT', null);
+      if (!snap) return;
+      if (snap.roomId && CTX.roomId && String(snap.roomId) !== String(CTX.roomId)) return;
+      if (!S.lastLive) {
+        S.lastLive = snap;
+      }
+    }, 1200);
   }
 
-  function maybeDriveState(){
-    maybeHostPromoteCountdown();
-    maybeHostEndRound();
-  }
-
-  function wireFinishEvents(){
-    const onFinish = (evt) => {
-      const detail = evt && evt.detail ? evt.detail : {};
-      submitLocalFinish(detail);
+  function installLegacyBridge(){
+    const legacy = {
+      getCtx: () => Object.assign({}, runtimeCtx()),
+      getCore: () => getCore(),
+      getLastSummary: () => S.lastControllerSummary || S.lastSummary || loadJson(STORE_LAST_BATTLE_ROOM, null) || loadJson(STORE_LAST_BATTLE, null) || null,
+      forceControllerSummary: async () => {
+        const summary = computeControllerSummaryFromResults();
+        if (!summary) return null;
+        await maybeSendControllerSummary(summary);
+        return S.lastControllerSummary || summary;
+      },
+      persistSummary: (summary) => persistSummary(summary),
+      normalizeSummary: (summary) => normalizeSummary(summary)
     };
 
-    W.addEventListener('battle:finish', onFinish);
-    W.addEventListener('hha:battle:finish', onFinish);
+    W.__GJ_BATTLE_CONTROLLER__ = legacy;
+    W.GJ_BATTLE_CONTROLLER = legacy;
   }
 
-  async function boot(){
-    if (STATE.bootDone) return;
-    STATE.bootDone = true;
+  async function init(){
+    await flushRuntime();
+    maybeCreateRuntime();
+    bindSummaryEvents();
+    bindResultMountObserver();
+    startControllerPolling();
+    installLegacyBridge();
 
-    if (!STATE.roomId){
-      emitDebug({ error:'roomId missing' });
-      return;
+    const cached =
+      loadJson(STORE_LAST_BATTLE_ROOM, null) ||
+      loadJson(STORE_LAST_BATTLE, null) ||
+      loadJson(STORE_LAST, null);
+
+    if (cached) {
+      S.lastSummary = normalizeSummary(cached);
     }
 
-    await ensureFirebase();
-    await bindRoom();
-    wireFinishEvents();
-    emitDebug({ boot:'ok' });
-
-    setInterval(() => {
-      heartbeat();
-      maybeDriveState();
-      emitDebug();
-    }, 2500);
-
-    maybeDriveState();
-    maybeEmitFinalSummary();
+    await maybeUpgradeStoredSummary();
   }
 
-  boot().catch((err) => {
-    console.error('[GJ-BATTLE-CTRL] boot failed', err);
-    emitDebug({ error:String(err && err.message ? err.message : err) });
+  init().catch((err) => {
+    console.warn('[goodjunk-battle-controller] init failed', err);
+  });
+
+  W.addEventListener('beforeunload', () => {
+    clearInterval(S.roomPollTimer);
+    clearInterval(S.scoreWatchTimer);
   });
 })();
