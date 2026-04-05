@@ -1,275 +1,298 @@
-// === /herohealth/nutrition-zone.js ===
-// Nutrition Zone Summary + Cross-game badges (SAFE)
-// Requires: /herohealth/badges.safe.js
+const qs = new URLSearchParams(location.search);
+const $ = (sel) => document.querySelector(sel);
 
-'use strict';
+const STORAGE_LAST = 'HH_NUTRITION_LAST_GAME_V1';
 
-import { getPid, awardBadge, hasBadge, listBadges } from './badges.safe.js';
-
-const ZONE_KEY = 'nutrition';
-
-// Games in Nutrition zone
-const NUTRITION_GAMES = ['goodjunk','groups','plate','hydration'];
-
-// Per-game "milestone" badges used for zone completion
-const MILESTONES = {
-  goodjunk:   ['mini_clear_1','score_80p'],
-  groups:     ['streak_10','score_80p'],
-  plate:      ['mini_clear_1','score_80p'],
-  hydration:  ['score_80p','mini_clear_1'],
-};
-
-function uniq(arr){ return Array.from(new Set(arr)); }
-
-function countIf(arr, fn){
-  let c=0;
-  for(const x of arr) if(fn(x)) c++;
-  return c;
-}
-
-function getScope(){
-  // listBadges() auto chooses pid scope if pid exists else global
-  const pid = getPid();
-  return pid ? 'pid' : 'global';
-}
-
-function getBadgeSet(){
-  // Returns: { [gameKey]: Set(badgeId) }
-  const scope = getScope();
-  const items = listBadges({ scope });
-  const map = {};
-  for(const it of items){
-    const g = it.game;
-    if(!map[g]) map[g] = new Set();
-    map[g].add(it.id);
+const GAME_REGISTRY = [
+  {
+    id: 'goodjunk',
+    title: 'GoodJunk',
+    subtitle: 'แยกอาหารดีและอาหารควรกินน้อยให้ถูกต้อง',
+    icon: '🍎',
+    color: 'c-green',
+    tags: ['goodjunk', 'food', 'healthy choice'],
+    launcherPath: './goodjunk-launcher.html'
+  },
+  {
+    id: 'groups',
+    title: 'Food Groups',
+    subtitle: 'เรียนรู้หมวดอาหารหลัก 5 หมู่ผ่านเกมสนุก',
+    icon: '🍱',
+    color: 'c-orange',
+    tags: ['groups', '5 food groups', 'nutrition'],
+    launcherPath: './groups-vr.html'
+  },
+  {
+    id: 'plate',
+    title: 'Balanced Plate',
+    subtitle: 'จัดจานอาหารให้สมดุลและเหมาะกับสุขภาพ',
+    icon: '🍽️',
+    color: 'c-purple',
+    tags: ['plate', 'balanced plate', 'meal'],
+    launcherPath: './plate-vr.html'
+  },
+  {
+    id: 'hydration',
+    title: 'Hydration',
+    subtitle: 'ดื่มน้ำให้เหมาะสมและเรียนรู้พฤติกรรมการดื่มน้ำ',
+    icon: '💧',
+    color: 'c-blue',
+    tags: ['hydration', 'water', 'drink'],
+    launcherPath: './hydration-v2.html'
   }
-  return map;
+];
+
+function getHubUrl() {
+  return qs.get('hub') || new URL('./hub.html', location.href).toString();
 }
 
-function hasAny(map, game, ids){
-  const s = map[game];
-  if(!s) return false;
-  for(const id of ids) if(s.has(id)) return true;
-  return false;
+function getPlayerName() {
+  return qs.get('name') || qs.get('nick') || qs.get('pid') || 'anon';
 }
 
-function hasOne(map, game, id){
-  const s = map[game];
-  return !!(s && s.has(id));
+function getDefaultMode() {
+  return qs.get('mode') || 'play';
 }
 
-function calcProgress(map){
-  // Per-game status
-  const perGame = {};
-  for(const g of NUTRITION_GAMES){
-    const played = hasOne(map, g, 'first_play') || (map[g] && map[g].size>0);
-    const score80 = hasOne(map, g, 'score_80p');
-    const perfect = hasOne(map, g, 'perfect_run');
-    const milestone = hasAny(map, g, MILESTONES[g] || []);
-    perGame[g] = { played, score80, perfect, milestone };
-  }
-
-  const playedCount = countIf(NUTRITION_GAMES, g => perGame[g].played);
-  const milestoneCount = countIf(NUTRITION_GAMES, g => perGame[g].milestone);
-  const score80Count = countIf(NUTRITION_GAMES, g => perGame[g].score80);
-  const perfectCount = countIf(NUTRITION_GAMES, g => perGame[g].perfect);
-
-  const zoneBadges = {
-    nutrition_starter: playedCount >= 2,
-    nutrition_day_complete: milestoneCount >= 4,
-    nutrition_master: score80Count >= 4,
-    nutrition_perfect_pair: perfectCount >= 2,
-    nutrition_hydrate_plate_combo: (perGame.plate.score80 && perGame.hydration.score80),
-  };
-
-  // optional super badge: all zone badges (1-5)
-  zoneBadges.nutrition_all_badges_earned =
-    zoneBadges.nutrition_starter &&
-    zoneBadges.nutrition_day_complete &&
-    zoneBadges.nutrition_master &&
-    zoneBadges.nutrition_perfect_pair &&
-    zoneBadges.nutrition_hydrate_plate_combo;
-
-  const pct = Math.round((milestoneCount / 4) * 100);
-
-  return {
-    perGame,
-    playedCount,
-    milestoneCount,
-    score80Count,
-    perfectCount,
-    pct,
-    zoneBadges
-  };
+function getDefaultTime() {
+  return qs.get('time') || '90';
 }
 
-function awardZoneBadges(progress){
-  // award via badges.safe.js with ZONE_KEY as gameKey
-  // IMPORTANT: awardBadge is already no-override
-  const metaBase = {
-    scope: getScope(),
-    pid: getPid() || '',
-    playedCount: progress.playedCount,
-    milestoneCount: progress.milestoneCount,
-    score80Count: progress.score80Count,
-    perfectCount: progress.perfectCount,
-  };
-
-  for(const [badgeId, ok] of Object.entries(progress.zoneBadges)){
-    if(!ok) continue;
-    awardBadge(ZONE_KEY, badgeId, metaBase);
-  }
+function gameById(id) {
+  return GAME_REGISTRY.find(g => g.id === id) || null;
 }
 
-function prettyGameName(g){
-  const m = {
-    goodjunk:'GoodJunk',
-    groups:'Food Groups',
-    plate:'Balanced Plate',
-    hydration:'Hydration'
-  };
-  return m[g] || g;
+function setCoachLine(text) {
+  const el = $('#coachLine');
+  if (el) el.textContent = text;
 }
 
-function makeBar(pct){
-  const p = Math.max(0, Math.min(100, Number(pct)||0));
-  return `
-    <div style="border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.30);border-radius:999px;padding:6px;">
-      <div style="height:10px;border-radius:999px;background:rgba(34,197,94,.85);width:${p}%;"></div>
-    </div>
-  `;
+function isGameEnabled(game) {
+  return !!(game && game.launcherPath);
 }
 
-function ensureCard(){
-  let el = document.getElementById('hhNutritionZone');
-  if(el) return el;
+function buildGameUrl(game, extra = {}) {
+  const out = new URL(game.launcherPath, location.href);
+  const next = new URLSearchParams(location.search);
 
-  el = document.createElement('section');
-  el.id = 'hhNutritionZone';
-  el.style.border='1px solid rgba(148,163,184,.18)';
-  el.style.borderRadius='18px';
-  el.style.padding='14px';
-  el.style.background='rgba(2,6,23,.34)';
-  el.style.backdropFilter='blur(10px)';
-  el.style.webkitBackdropFilter='blur(10px)';
-  el.style.boxShadow='0 12px 40px rgba(0,0,0,.22)';
-  el.style.color='rgba(229,231,235,.95)';
-  el.innerHTML = `
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-      <div>
-        <div style="font-weight:950;font-size:15px;">🥗 Nutrition Zone</div>
-        <div id="hhNzSub" style="margin-top:4px;color:rgba(148,163,184,1);font-size:12px;">—</div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
-        <button id="hhNzRefresh" style="border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.35);color:rgba(229,231,235,.95);border-radius:14px;padding:8px 10px;font-weight:950;cursor:pointer;">Refresh</button>
-      </div>
-    </div>
+  const modeSelect = $('#modeSelect');
+  const timeSelect = $('#timeSelect');
 
-    <div style="height:10px"></div>
-    <div id="hhNzBar"></div>
+  next.set('zone', 'nutrition');
+  next.set('cat', 'nutrition');
+  next.set('gameId', game.id);
+  next.set('game', game.id);
+  next.set('hub', getHubUrl());
 
-    <div style="height:10px"></div>
-    <div id="hhNzGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;"></div>
+  if (modeSelect?.value) next.set('mode', modeSelect.value);
+  if (timeSelect?.value) next.set('time', timeSelect.value);
 
-    <div style="height:10px"></div>
-    <div id="hhNzZoneBadges"></div>
-
-    <div style="margin-top:10px;color:rgba(148,163,184,1);font-size:12px;line-height:1.45;">
-      เป้าหมายโซน: ทำ milestone ให้ครบ 4 เกม (goodjunk, groups, plate, hydration)
-    </div>
-  `;
-  return el;
-}
-
-function renderInto(el){
-  const pid = getPid();
-  const scope = getScope();
-
-  const map = getBadgeSet();
-  const prog = calcProgress(map);
-
-  // auto-award zone badges
-  awardZoneBadges(prog);
-
-  const sub = el.querySelector('#hhNzSub');
-  const bar = el.querySelector('#hhNzBar');
-  const grid = el.querySelector('#hhNzGrid');
-  const zb = el.querySelector('#hhNzZoneBadges');
-
-  if(sub){
-    sub.textContent = pid
-      ? `scope: pid=${pid} • progress=${prog.pct}% • milestones=${prog.milestoneCount}/4`
-      : `scope: global • progress=${prog.pct}% • milestones=${prog.milestoneCount}/4 (แนะนำใส่ pid สำหรับงานวิจัย)`;
-  }
-
-  if(bar) bar.innerHTML = makeBar(prog.pct);
-
-  if(grid){
-    grid.innerHTML = '';
-    for(const g of NUTRITION_GAMES){
-      const s = prog.perGame[g];
-      const card = document.createElement('div');
-      card.style.border='1px solid rgba(148,163,184,.16)';
-      card.style.borderRadius='16px';
-      card.style.padding='10px';
-      card.style.background='rgba(2,6,23,.28)';
-
-      const badges = [];
-      badges.push(s.played ? '✅ played' : '⬜ played');
-      badges.push(s.milestone ? '✅ milestone' : '⬜ milestone');
-      badges.push(s.score80 ? '⭐ 80%' : '— 80%');
-      badges.push(s.perfect ? '🏅 perfect' : '— perfect');
-
-      card.innerHTML = `
-        <div style="font-weight:950">${prettyGameName(g)}</div>
-        <div style="margin-top:6px;color:rgba(148,163,184,1);font-size:12px;line-height:1.45;">
-          ${badges.join(' • ')}
-        </div>
-      `;
-      grid.appendChild(card);
-    }
-  }
-
-  if(zb){
-    // show zone badges state from current badge store too (double-check)
-    // We read zone badges from store: hasBadge('nutrition', badgeId)
-    const zoneIds = [
-      'nutrition_starter',
-      'nutrition_day_complete',
-      'nutrition_master',
-      'nutrition_perfect_pair',
-      'nutrition_hydrate_plate_combo',
-      'nutrition_all_badges_earned'
-    ];
-
-    const rows = zoneIds.map(id=>{
-      const got = hasBadge(ZONE_KEY, id);
-      return `
-        <div style="border:1px solid rgba(148,163,184,.16);border-radius:14px;padding:8px 10px;background:rgba(2,6,23,.22);display:flex;justify-content:space-between;gap:10px;">
-          <span style="font-weight:950">${got ? '🎖' : '⬜'} ${id}</span>
-          <span style="color:rgba(148,163,184,1);font-size:12px;">${got ? 'earned' : 'locked'}</span>
-        </div>
-      `;
-    }).join('');
-
-    zb.innerHTML = `
-      <div style="font-weight:950;margin-bottom:8px;">🏆 Zone Badges</div>
-      <div style="display:grid;grid-template-columns:1fr;gap:8px;">${rows}</div>
-    `;
-  }
-
-  // wire refresh
-  el.querySelector('#hhNzRefresh')?.addEventListener('click', ()=>{
-    renderInto(el);
+  Object.entries(extra).forEach(([k, v]) => {
+    if (v == null) return;
+    next.set(k, String(v));
   });
 
-  // also rerender on badge events
-  window.addEventListener('hha:badge', ()=>renderInto(el), { passive:true });
+  out.search = next.toString();
+  return out.toString();
 }
 
-export function mountNutritionZoneSummary(selector){
-  const host = document.querySelector(selector) || document.body;
-  const card = ensureCard();
-  host.appendChild(card);
-  renderInto(card);
+function saveLastGame(gameId) {
+  const payload = {
+    gameId,
+    ts: Date.now(),
+    mode: $('#modeSelect')?.value || getDefaultMode(),
+    time: $('#timeSelect')?.value || getDefaultTime()
+  };
+  try {
+    localStorage.setItem(STORAGE_LAST, JSON.stringify(payload));
+  } catch (_) {}
 }
+
+function loadLastGame() {
+  try {
+    const raw = localStorage.getItem(STORAGE_LAST);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function bindTopBar() {
+  const hubBtn = $('#hubBtn');
+  if (hubBtn) hubBtn.href = getHubUrl();
+
+  const continueBtn = $('#continueBtn');
+  continueBtn?.addEventListener('click', () => {
+    const last = loadLastGame();
+    if (!last?.gameId) {
+      setCoachLine('ยังไม่มีเกมล่าสุด เลือกเกมจากด้านล่างได้เลย');
+      return;
+    }
+
+    const game = gameById(last.gameId);
+    if (!isGameEnabled(game)) {
+      setCoachLine('เกมล่าสุดยังไม่ได้เปิดใช้งาน');
+      return;
+    }
+
+    if ($('#modeSelect')) $('#modeSelect').value = last.mode || getDefaultMode();
+    if ($('#timeSelect')) $('#timeSelect').value = last.time || getDefaultTime();
+
+    saveLastGame(game.id);
+    location.href = buildGameUrl(game);
+  });
+}
+
+function renderRecent() {
+  const area = $('#recentArea');
+  if (!area) return;
+
+  const last = loadLastGame();
+  const game = last?.gameId ? gameById(last.gameId) : null;
+
+  if (!game) {
+    area.innerHTML = `<div class="empty-recent">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>`;
+    return;
+  }
+
+  const whenText = last?.ts
+    ? new Date(last.ts).toLocaleString('th-TH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    : '-';
+
+  area.innerHTML = `
+    <article class="recent-card">
+      <div class="recent-icon ${game.color}">${game.icon}</div>
+
+      <div>
+        <div class="recent-title">${game.title}</div>
+        <div class="recent-sub">
+          ล่าสุดเล่นเมื่อ ${whenText}<br/>
+          mode: ${last.mode || getDefaultMode()} • time: ${last.time || getDefaultTime()} sec
+        </div>
+      </div>
+
+      <div class="recent-actions">
+        <button class="play-btn ${game.color}" type="button" data-recent-play="${game.id}">เล่นต่อ</button>
+        <button class="ghost-btn" type="button" data-recent-open="${game.id}">ดูการ์ดเกม</button>
+      </div>
+    </article>
+  `;
+
+  area.querySelector(`[data-recent-play="${game.id}"]`)?.addEventListener('click', () => {
+    if ($('#modeSelect')) $('#modeSelect').value = last.mode || getDefaultMode();
+    if ($('#timeSelect')) $('#timeSelect').value = last.time || getDefaultTime();
+    saveLastGame(game.id);
+    location.href = buildGameUrl(game);
+  });
+
+  area.querySelector(`[data-recent-open="${game.id}"]`)?.addEventListener('click', () => {
+    const card = document.querySelector(`[data-game-card="${game.id}"]`);
+    card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setCoachLine(`เกมล่าสุดของหนูคือ ${game.title}`);
+  });
+}
+
+function makeGameCard(game) {
+  return `
+    <article class="game-card" data-game-card="${game.id}">
+      <div class="game-top">
+        <div class="game-icon ${game.color}">${game.icon}</div>
+        <div class="game-badge">Nutrition Zone</div>
+      </div>
+
+      <div class="game-title">${game.title}</div>
+      <div class="game-sub">${game.subtitle}</div>
+
+      <div class="game-tags">
+        ${game.tags.map(tag => `<span class="game-tag">${tag}</span>`).join('')}
+      </div>
+
+      <div class="game-actions">
+        <button class="play-btn ${game.color}" type="button" data-play="${game.id}">เข้าเล่น</button>
+        <button class="ghost-btn" type="button" data-preview="${game.id}">เลือกเกมนี้</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderGames(filter = '') {
+  const grid = $('#gamesGrid');
+  if (!grid) return;
+
+  const q = String(filter || '').trim().toLowerCase();
+  const list = !q
+    ? GAME_REGISTRY
+    : GAME_REGISTRY.filter(game => {
+        const hay = [game.id, game.title, game.subtitle, ...(game.tags || [])].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+
+  if (!list.length) {
+    grid.innerHTML = `
+      <div class="empty-recent" style="grid-column:1/-1;">
+        ไม่พบเกมที่ตรงคำค้น ลองพิมพ์ goodjunk, groups, plate หรือ hydration
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = list.map(makeGameCard).join('');
+
+  list.forEach(game => {
+    grid.querySelector(`[data-play="${game.id}"]`)?.addEventListener('click', () => {
+      saveLastGame(game.id);
+      location.href = buildGameUrl(game);
+    });
+
+    grid.querySelector(`[data-preview="${game.id}"]`)?.addEventListener('click', () => {
+      setCoachLine(`เลือก ${game.title} แล้ว กด "เข้าเล่น" ได้เลย`);
+    });
+  });
+}
+
+function bindControls() {
+  const modeSelect = $('#modeSelect');
+  const timeSelect = $('#timeSelect');
+  const searchInput = $('#searchInput');
+
+  if (modeSelect) modeSelect.value = getDefaultMode();
+  if (timeSelect) timeSelect.value = getDefaultTime();
+
+  modeSelect?.addEventListener('change', () => {
+    $('#modePill').textContent = `🎮 Mode: ${modeSelect.value}`;
+    setCoachLine(`ตอนนี้ตั้งโหมดเป็น ${modeSelect.value} แล้ว`);
+  });
+
+  timeSelect?.addEventListener('change', () => {
+    setCoachLine(`เวลาที่เลือกคือ ${timeSelect.value} วินาที`);
+  });
+
+  searchInput?.addEventListener('input', () => {
+    renderGames(searchInput.value);
+  });
+}
+
+function fillHeaderBits() {
+  const playerPill = $('#playerPill');
+  const modePill = $('#modePill');
+
+  if (playerPill) playerPill.textContent = `👤 Player: ${getPlayerName()}`;
+  if (modePill) modePill.textContent = `🎮 Mode: ${getDefaultMode()}`;
+}
+
+function init() {
+  fillHeaderBits();
+  bindTopBar();
+  bindControls();
+  renderRecent();
+  renderGames();
+  setCoachLine(`ตอนนี้เกมใน Nutrition Zone พร้อมเข้าเล่น ${GAME_REGISTRY.length} เกม`);
+}
+
+init();
