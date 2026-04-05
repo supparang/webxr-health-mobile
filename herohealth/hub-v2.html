@@ -1,962 +1,317 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Hub v2</title>
-  <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#9fe3ff" />
-  <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./hub-v2.css?v=20260331-brand-hub" />
+<script>
+  (function(){
+    'use strict';
 
-  <style>
-    /* ===== GoodJunk Adaptive Hall Card Patch ===== */
-    .adaptive-hall-row{
-      margin-top:16px;
-      display:grid;
-      gap:16px;
+    const GJ_HUB_SNAPSHOT_KEY = 'HHA_GJ_HUB_SNAPSHOT';
+
+    function safeJsonParseHub(raw, fallback = null){
+      try { return JSON.parse(raw); } catch (_) { return fallback; }
     }
 
-    .gj-archive-card{
-      border-radius:24px;
-      border:3px solid #d7edf7;
-      background:linear-gradient(180deg,#fffef8,#ffffff);
-      box-shadow:0 18px 36px rgba(86,155,194,.14);
-      padding:16px;
-    }
-
-    .gj-archive-head{
-      display:grid;
-      gap:4px;
-    }
-
-    .gj-archive-kicker{
-      font-size:12px;
-      font-weight:1000;
-      color:#5ea8d0;
-      letter-spacing:.08em;
-    }
-
-    .gj-archive-title{
-      font-size:28px;
-      line-height:1.05;
-      font-weight:1000;
-      color:#67a91c;
-    }
-
-    .gj-archive-sub{
-      font-size:13px;
-      line-height:1.5;
-      color:#7b7a72;
-      font-weight:1000;
-    }
-
-    .gj-archive-top{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:12px;
-    }
-
-    .gj-archive-badge{
-      min-height:36px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:#eefbff;
-      border:2px solid #cdeeff;
-      color:#2d6f8b;
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .gj-archive-reward{
-      min-height:36px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:#fff8db;
-      border:2px solid #ffe08a;
-      color:#9d6016;
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .gj-archive-progress-wrap{
-      margin-top:14px;
-    }
-
-    .gj-archive-progress-label{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      margin-bottom:8px;
-      color:#5a554c;
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .gj-archive-progress{
-      height:14px;
-      border-radius:999px;
-      overflow:hidden;
-      background:#eef4f7;
-      border:2px solid #d7edf7;
-    }
-
-    .gj-archive-progress-fill{
-      height:100%;
-      width:0%;
-      background:linear-gradient(90deg,#7fcfff,#7ed957);
-      transition:width .22s ease;
-    }
-
-    .gj-archive-stats{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .gj-mini-stat{
-      border-radius:18px;
-      background:#fff;
-      border:2px solid #d7edf7;
-      padding:12px;
-    }
-
-    .gj-mini-stat-k{
-      font-size:12px;
-      font-weight:1000;
-      color:#7b7a72;
-    }
-
-    .gj-mini-stat-v{
-      margin-top:6px;
-      font-size:18px;
-      font-weight:1000;
-      color:#4d4a42;
-      line-height:1.2;
-    }
-
-    .gj-next-plan,
-    .gj-recent-box{
-      margin-top:14px;
-      border-radius:18px;
-      background:linear-gradient(180deg,#fffef6,#fff);
-      border:3px solid #d7edf7;
-      padding:12px 14px;
-    }
-
-    .gj-next-plan-title,
-    .gj-recent-title{
-      font-size:14px;
-      font-weight:1000;
-      color:#4d4a42;
-    }
-
-    .gj-next-plan-sub{
-      margin-top:6px;
-      font-size:13px;
-      line-height:1.55;
-      font-weight:1000;
-      color:#6b675f;
-    }
-
-    .gj-next-plan-chips,
-    .gj-recent-chips{
-      margin-top:10px;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .gj-chip{
-      min-height:30px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:6px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid #d7edf7;
-      color:#5d6e7a;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .gj-archive-actions{
-      margin-top:14px;
-      display:grid;
-      gap:10px;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-    }
-
-    .gj-archive-btn{
-      appearance:none;
-      border:none;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:46px;
-      padding:10px 14px;
-      border-radius:16px;
-      font-size:14px;
-      font-weight:1000;
-      cursor:pointer;
-    }
-
-    .gj-archive-btn.play{
-      background:linear-gradient(180deg,#7ed957,#58c33f);
-      color:#173b0b;
-    }
-
-    .gj-archive-btn.soft{
-      background:#fff;
-      color:#6c6a61;
-      border:2px solid #d7edf7;
-    }
-
-    @media (max-width:900px){
-      .gj-archive-stats{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .gj-archive-actions{
-        grid-template-columns:1fr;
+    function readGoodJunkHubSnapshot(){
+      try{
+        const raw = localStorage.getItem(GJ_HUB_SNAPSHOT_KEY);
+        if (!raw) return null;
+        return safeJsonParseHub(raw, null);
+      }catch(_){
+        return null;
       }
     }
 
-    @media (max-width:640px){
-      .gj-archive-stats{
-        grid-template-columns:1fr;
-      }
+    function clearGoodJunkHubSnapshot(){
+      try { localStorage.removeItem(GJ_HUB_SNAPSHOT_KEY); } catch (_) {}
+    }
 
-      .gj-archive-title{
-        font-size:24px;
+    function setText(id, text){
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    }
+
+    function setHtml(id, html){
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = html;
+    }
+
+    function setHref(id, href){
+      const el = document.getElementById(id);
+      if (el) el.href = href;
+    }
+
+    function qsGet(k, d=''){
+      try {
+        return new URL(location.href).searchParams.get(k) || d;
+      } catch (_) {
+        return d;
       }
     }
-  </style>
-</head>
-<body>
-  <div class="bg-clouds" aria-hidden="true">
-    <div class="cloud c1"></div>
-    <div class="cloud c2"></div>
-    <div class="cloud c3"></div>
-  </div>
 
-  <main class="shell">
-    <header class="topbar">
-      <button id="btnSettings" class="icon-btn" type="button" aria-label="ตั้งค่า">⚙️</button>
+    function setLastZone(zone){
+      try { localStorage.setItem('HHA_LAST_ZONE', zone); } catch (_) {}
+    }
 
-      <div class="brand-pill brand-pill--logo" aria-label="HeroHealth">
-        <img
-          class="brand-logo"
-          src="./assets/logo-system/logos/hub-logo.svg"
-          alt="HeroHealth Hub Logo"
-          onerror="this.style.display='none';this.nextElementSibling.hidden=false;"
-        />
-        <div class="brand-logo-fallback" hidden aria-hidden="true">🛡️</div>
+    function buildZoneUrl(zone){
+      const map = {
+        hygiene: './hygiene-zone.html',
+        nutrition: './nutrition-zone.html',
+        fitness: './fitness-zone.html'
+      };
 
-        <div class="brand-copy">
-          <h1 class="brand-title">HeroHealth</h1>
-          <p class="brand-sub">Hygiene • Nutrition • Exercise</p>
-        </div>
-      </div>
+      const base = map[zone] || './hub-v2.html';
+      const u = new URL(base, location.href);
 
-      <button id="btnRewards" class="icon-btn" type="button" aria-label="รางวัล">🏆</button>
-    </header>
+      const pid = qsGet('pid', 'anon');
+      const name = qsGet('name', qsGet('nickName', 'Hero'));
+      const run = qsGet('run', 'play');
+      const diff = qsGet('diff', 'normal');
+      const view = qsGet('view', 'mobile');
+      const time = qsGet('time', '90');
+      const studyId = qsGet('studyId', '');
+      const seed = qsGet('seed', '');
+      const debug = qsGet('debug', '');
 
-    <div id="hhHubBrandMount" class="hh-hub-brand-mount"></div>
+      u.searchParams.set('zone', zone);
+      u.searchParams.set('pid', pid);
+      u.searchParams.set('name', name);
+      u.searchParams.set('run', run);
+      u.searchParams.set('diff', diff);
+      u.searchParams.set('view', view);
+      u.searchParams.set('time', time);
+      u.searchParams.set('hub', location.href);
 
-    <section class="hero">
-      <div class="panel welcome">
-        <div>
-          <div class="hello">🌈 ฮีโร่น้อย พร้อมผจญภัย!</div>
-          <h1>เล่นสนุก แล้วแข็งแรงไปด้วยกัน</h1>
-          <p>
-            เลือกดินแดนที่อยากไป แล้วเก็บดาว เหรียญ และพลังสุขภาพกันเลย
-          </p>
-          <div id="heroQuickline" class="hero-quickline">วันนี้ลองเล่นให้ครบ 3 โซนกันนะ</div>
+      if (studyId) u.searchParams.set('studyId', studyId);
+      if (seed) u.searchParams.set('seed', seed);
+      if (debug) u.searchParams.set('debug', debug);
 
-          <div class="hero-cta-row">
-            <button id="btnQuickRecommended" class="btn secondary small" type="button">🎮 เกมแนะนำ</button>
-            <button id="btnQuickRecent" class="btn secondary small" type="button">🕹️ เล่นล่าสุด</button>
-            <button id="btnQuickAllGames" class="btn secondary small" type="button">🗺️ ทุกเกม</button>
-          </div>
-        </div>
+      return u.toString();
+    }
 
-        <div class="hero-kid" aria-hidden="true"></div>
-      </div>
+    function goZone(zone){
+      setLastZone(zone);
+      location.href = buildZoneUrl(zone);
+    }
 
-      <div class="panel profile-card">
-        <div class="avatar" aria-hidden="true"></div>
+    function bindZoneButtons(){
+      const hygieneUrl = buildZoneUrl('hygiene');
+      const nutritionUrl = buildZoneUrl('nutrition');
 
-        <div class="profile-main">
-          <h2 id="playerName">Rocky</h2>
-          <p class="profile-meta" id="playerMeta">ฮีโร่ประจำวัน • พร้อมผจญภัย</p>
+      setHref('btnPlayHygiene', hygieneUrl);
+      setHref('btnPlayNutrition', nutritionUrl);
 
-          <div class="chips">
-            <div class="chip"><span>⭐</span><span>Lv. <b id="playerLevel">5</b></span></div>
-            <div class="chip gold"><span>🪙</span><span><b id="playerCoins">380</b> Coins</span></div>
-            <div class="chip green"><span>❤️</span><span><b id="playerHearts">8</b> Hearts</span></div>
-          </div>
-        </div>
-
-        <div class="mini-badges">
-          <div class="mini-badge">
-            <span class="n" id="badgeStars">12</span>
-            <span class="t">Stars</span>
-          </div>
-          <div class="mini-badge">
-            <span class="n" id="badgeWins">4</span>
-            <span class="t">Wins</span>
-          </div>
-          <div class="mini-badge">
-            <span class="n" id="badgeStreak">3</span>
-            <span class="t">Streak</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="dashboard-strip">
-      <article class="panel dashboard-card">
-        <h3 class="section-title">📌 สรุปวันนี้</h3>
-        <div class="dash-grid">
-          <div class="dash-pill">
-            <span class="dash-n" id="todayPlayedCount">0</span>
-            <span class="dash-t">เกมวันนี้</span>
-          </div>
-          <div class="dash-pill">
-            <span class="dash-n" id="todayZoneCount">0</span>
-            <span class="dash-t">โซนที่เล่น</span>
-          </div>
-          <div class="dash-pill">
-            <span class="dash-n dash-small" id="todayLastGame">ยังไม่มี</span>
-            <span class="dash-t">ล่าสุด</span>
-          </div>
-          <div class="dash-pill">
-            <span class="dash-n dash-small" id="todayNextGame">ระบบกำลังเลือกให้</span>
-            <span class="dash-t">แนะนำต่อ</span>
-          </div>
-        </div>
-
-        <div class="resume-row">
-          <button id="btnResumeNow" class="btn primary small" type="button">▶️ เล่นต่อทันที</button>
-          <button id="btnNextInZone" class="btn secondary small" type="button">⏭️ เกมถัดไป</button>
-        </div>
-      </article>
-
-      <article class="panel dashboard-card">
-        <div class="section-head">
-          <h3 class="section-title">🎯 ภารกิจต่อเนื่อง</h3>
-          <button id="btnResetTodayMissions" class="btn secondary small" type="button">♻️ รีเซ็ตวันนี้</button>
-        </div>
-
-        <div class="chain-board">
-          <div class="chain-zone">
-            <div class="chain-zone-head">
-              <span>🫧 Hygiene</span>
-              <span id="rewardHygiene" class="reward-chip">ยังไม่ได้รับ</span>
-            </div>
-            <div id="chainHygiene" class="chain-list"></div>
-          </div>
-
-          <div class="chain-zone">
-            <div class="chain-zone-head">
-              <span>🥗 Nutrition</span>
-              <span id="rewardNutrition" class="reward-chip">ยังไม่ได้รับ</span>
-            </div>
-            <div id="chainNutrition" class="chain-list"></div>
-          </div>
-
-          <div class="chain-zone">
-            <div class="chain-zone-head">
-              <span>🏃 Fitness</span>
-              <span id="rewardFitness" class="reward-chip">ยังไม่ได้รับ</span>
-            </div>
-            <div id="chainFitness" class="chain-list"></div>
-          </div>
-        </div>
-      </article>
-
-      <article class="panel dashboard-card">
-        <h3 class="section-title">🏅 Sticker Shelf</h3>
-        <div id="stickerShelf" class="sticker-shelf"></div>
-      </article>
-    </section>
-
-    <section class="adaptive-hall-row">
-      <article class="panel gj-archive-card" id="gjArchiveCard">
-        <div class="gj-archive-head">
-          <div class="gj-archive-kicker">GOODJUNK</div>
-          <div class="gj-archive-title">Hall of Legends</div>
-          <div class="gj-archive-sub">archive progress • rivalry route • next target</div>
-        </div>
-
-        <div class="gj-archive-top">
-          <div class="gj-archive-badge" id="gjArchiveBadge">📚 Rookie</div>
-          <div class="gj-archive-reward" id="gjArchiveReward">ยังไม่มี reward ล่าสุด</div>
-        </div>
-
-        <div class="gj-archive-progress-wrap">
-          <div class="gj-archive-progress-label">
-            <span>Archive Progress</span>
-            <strong id="gjArchivePct">0%</strong>
-          </div>
-          <div class="gj-archive-progress">
-            <div class="gj-archive-progress-fill" id="gjArchiveFill"></div>
-          </div>
-        </div>
-
-        <div class="gj-archive-stats">
-          <div class="gj-mini-stat">
-            <div class="gj-mini-stat-k">Hall Rank</div>
-            <div class="gj-mini-stat-v" id="gjHallRank">Rookie</div>
-          </div>
-
-          <div class="gj-mini-stat">
-            <div class="gj-mini-stat-k">Rival Arc</div>
-            <div class="gj-mini-stat-v" id="gjRivalArc">-</div>
-          </div>
-
-          <div class="gj-mini-stat">
-            <div class="gj-mini-stat-k">Deck</div>
-            <div class="gj-mini-stat-v" id="gjDeckTier">-</div>
-          </div>
-
-          <div class="gj-mini-stat">
-            <div class="gj-mini-stat-k">Target</div>
-            <div class="gj-mini-stat-v" id="gjArchiveTarget">-</div>
-          </div>
-        </div>
-
-        <div class="gj-next-plan" id="gjNextPlanBox">
-          <div class="gj-next-plan-title" id="gjNextPlanTitle">Recommended Next Zone</div>
-          <div class="gj-next-plan-sub" id="gjNextPlanReason">ยังไม่มี snapshot จากรอบล่าสุด</div>
-          <div class="gj-next-plan-chips" id="gjNextPlanChips"></div>
-        </div>
-
-        <div class="gj-recent-box">
-          <div class="gj-recent-title">Recent Collection</div>
-          <div class="gj-recent-chips" id="gjRecentChips"></div>
-        </div>
-
-        <div class="gj-archive-actions">
-          <a class="gj-archive-btn play" id="gjQuickRematchBtn" href="./zone-launcher.html?zone=nutrition">🥗 ไป Nutrition Zone</a>
-          <a class="gj-archive-btn soft" id="gjOpenLauncherBtn" href="./zone-launcher.html?zone=nutrition">🗂️ ดูเกมในโซน</a>
-          <button class="gj-archive-btn soft" id="gjClearSnapshotBtn" type="button">🧹 Clear Snapshot</button>
-        </div>
-      </article>
-    </section>
-
-    <section class="content">
-      <div class="zones">
-        <article id="zoneCard-hygiene" class="zone-card hygiene" data-zone-card="hygiene">
-          <div class="zone-left">
-            <div class="zone-top">
-              <img class="zone-logo" src="./assets/logo-system/logos/brush-logo.svg" alt="Hygiene Zone"
-                   onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
-              <div class="zone-logo-fallback" hidden aria-hidden="true">🫧</div>
-              <div>
-                <h2 class="zone-name">Hygiene Zone</h2>
-                <p class="zone-sub">ล้างมือ แปรงฟัน ป้องกันเชื้อโรค</p>
-                <p class="zone-sub mascot-sub">เพื่อนคู่หู: ฟองฟู่บับเบิล 🫧</p>
-              </div>
-            </div>
-
-            <div class="zone-stats">
-              <div class="pill">🏅 Level <b id="hygLevel">5</b></div>
-              <div class="pill">🎯 เป้าหมายวันนี้: เล่น 1 เกม</div>
-              <div class="pill">⭐ ดาวโซน <b id="hygStars">4/5</b></div>
-              <div class="pill featured-pill">🎮 แนะนำ: <b id="hygFeatured">Germ Detective</b></div>
-              <div class="pill recent-pill" id="hygRecentPill" hidden>🕹️ ล่าสุด: <b id="hygRecentText">-</b></div>
-            </div>
-
-            <div class="zone-progress">
-              <div class="progress-head">
-                <span>ความคืบหน้าโซน</span>
-                <span id="hygProgressText">80%</span>
-              </div>
-              <div class="bar"><div id="hygFill" class="fill" style="width:80%"></div></div>
-            </div>
-
-            <div id="hygPreview" class="zone-preview"></div>
-          </div>
-
-          <div class="zone-right">
-            <div class="zone-art hygiene" aria-hidden="true"></div>
-            <div class="actions">
-              <a id="btnPlayHygiene" class="btn primary" href="./zone-launcher.html?zone=hygiene">🫧 เล่นเลย</a>
-              <button id="btnZoneHygiene" class="btn secondary" type="button">ดูเกมในโซน</button>
-            </div>
-          </div>
-        </article>
-
-        <article id="zoneCard-nutrition" class="zone-card nutrition" data-zone-card="nutrition">
-          <div class="zone-left">
-            <div class="zone-top">
-              <img class="zone-logo" src="./assets/logo-system/logos/goodjunk-logo.svg" alt="Nutrition Zone"
-                   onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
-              <div class="zone-logo-fallback" hidden aria-hidden="true">🥗</div>
-              <div>
-                <h2 class="zone-name">Nutrition Zone</h2>
-                <p class="zone-sub">เลือกอาหารดี กินครบ 5 หมู่</p>
-                <p class="zone-sub mascot-sub">เพื่อนคู่หู: เชฟผักผลไม้ 🥦</p>
-              </div>
-            </div>
-
-            <div class="zone-stats">
-              <div class="pill">🏅 Level <b id="nutriLevel">4</b></div>
-              <div class="pill">🎯 เป้าหมายวันนี้: เก็บ 3 ดาว</div>
-              <div class="pill">⭐ ดาวโซน <b id="nutriStars">3/5</b></div>
-              <div class="pill featured-pill">🎮 แนะนำ: <b id="nutriFeatured">GoodJunk Hero</b></div>
-              <div class="pill recent-pill" id="nutriRecentPill" hidden>🕹️ ล่าสุด: <b id="nutriRecentText">-</b></div>
-            </div>
-
-            <div class="zone-progress">
-              <div class="progress-head">
-                <span>ความคืบหน้าโซน</span>
-                <span id="nutriProgressText">60%</span>
-              </div>
-              <div class="bar"><div id="nutriFill" class="fill" style="width:60%"></div></div>
-            </div>
-
-            <div id="nutriPreview" class="zone-preview"></div>
-          </div>
-
-          <div class="zone-right">
-            <div class="zone-art nutrition" aria-hidden="true"></div>
-            <div class="actions">
-              <a id="btnPlayNutrition" class="btn primary" href="./zone-launcher.html?zone=nutrition">🥗 เล่นเลย</a>
-              <button id="btnZoneNutrition" class="btn secondary" type="button">ดูเกมในโซน</button>
-            </div>
-          </div>
-        </article>
-
-        <article id="zoneCard-fitness" class="zone-card fitness" data-zone-card="fitness">
-          <div class="zone-left">
-            <div class="zone-top">
-              <img class="zone-logo" src="./assets/logo-system/logos/jump-duck-logo.svg" alt="Fitness Zone"
-                   onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
-              <div class="zone-logo-fallback" hidden aria-hidden="true">🏃</div>
-              <div>
-                <h2 class="zone-name">Fitness Zone</h2>
-                <p class="zone-sub">ขยับร่างกายให้แข็งแรง สนุกกับการออกกำลัง</p>
-                <p class="zone-sub mascot-sub">เพื่อนคู่หู: โค้ชสายฟ้า ⚡</p>
-              </div>
-            </div>
-
-            <div class="zone-stats">
-              <div class="pill">🏅 Level <b id="fitLevel">3</b></div>
-              <div class="pill">🎯 เป้าหมายวันนี้: เล่นต่อเนื่อง 2 รอบ</div>
-              <div class="pill">⭐ ดาวโซน <b id="fitStars">2/5</b></div>
-              <div class="pill featured-pill">🎮 แนะนำ: <b id="fitFeatured">Jump Duck</b></div>
-              <div class="pill recent-pill" id="fitRecentPill" hidden>🕹️ ล่าสุด: <b id="fitRecentText">-</b></div>
-            </div>
-
-            <div class="zone-progress">
-              <div class="progress-head">
-                <span>ความคืบหน้าโซน</span>
-                <span id="fitProgressText">40%</span>
-              </div>
-              <div class="bar"><div id="fitFill" class="fill" style="width:40%"></div></div>
-            </div>
-
-            <div id="fitPreview" class="zone-preview"></div>
-          </div>
-
-          <div class="zone-right">
-            <div class="zone-art fitness" aria-hidden="true"></div>
-            <div class="actions">
-              <a id="btnPlayFitness" class="btn primary" href="./zone-launcher.html?zone=fitness">🏃 เล่นเลย</a>
-              <button id="btnZoneFitness" class="btn secondary" type="button">ดูเกมในโซน</button>
-            </div>
-          </div>
-        </article>
-      </div>
-
-      <aside class="side">
-        <section class="panel section">
-          <h3 class="section-title">🌟 ภารกิจฮีโร่วันนี้</h3>
-          <div id="missionList" class="mission-list"></div>
-        </section>
-
-        <section class="panel section">
-          <h3 class="section-title">🎁 ผจญภัยล่าสุด</h3>
-          <div id="summaryBox" class="summary-box"></div>
-        </section>
-
-        <section class="panel section">
-          <h3 class="section-title">🗺️ คลังเกมฮีโร่</h3>
-          <p class="section-note">กดเล่นเกมแนะนำ หรือเลือกทุกเกมทุกโหมดได้เลย</p>
-          <div id="libraryBox" class="library-box"></div>
-        </section>
-      </aside>
-    </section>
-
-    <section id="diagnosticsPanel" class="panel diagnostics" hidden>
-      <div class="diagnostics-head">
-        <h3 class="section-title">🧪 Diagnostics</h3>
-        <div class="diag-actions">
-          <button id="btnCopyDebugSnapshot" class="btn secondary small" type="button">📋 Copy Snapshot</button>
-          <button id="btnCloseDiagnostics" class="btn secondary small" type="button">✖ ปิด</button>
-        </div>
-      </div>
-
-      <div class="diag-grid">
-        <div class="diag-card">
-          <h4>Context</h4>
-          <pre id="diagContext"></pre>
-        </div>
-        <div class="diag-card">
-          <h4>Warmup / Cooldown</h4>
-          <pre id="diagWarmup"></pre>
-        </div>
-        <div class="diag-card">
-          <h4>Last Summary</h4>
-          <pre id="diagLastSummary"></pre>
-        </div>
-        <div class="diag-card">
-          <h4>Recent by Zone</h4>
-          <pre id="diagRecentByZone"></pre>
-        </div>
-        <div class="diag-card diag-card-wide">
-          <h4>Resolved Routes</h4>
-          <pre id="diagResolvedRoutes"></pre>
-        </div>
-        <div class="diag-card diag-card-wide">
-          <h4>Quick Links</h4>
-          <div id="diagQuickLinks" class="diag-links"></div>
-        </div>
-      </div>
-    </section>
-
-    <div class="footer-tools">
-      <button id="btnDiagnostics" class="btn secondary small" type="button">🧪 Diagnostics</button>
-    </div>
-
-    <p class="footer-note">
-      HeroHealth Hub v2 • child-friendly • cute mode • mobile-first
-    </p>
-  </main>
-
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-  <div id="gamePicker" class="modal" aria-hidden="true">
-    <div class="modal-backdrop" data-close-picker></div>
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
-      <div class="modal-head">
-        <h3 id="pickerTitle">เลือกเกม</h3>
-        <button class="modal-close" type="button" data-close-picker aria-label="ปิด">✕</button>
-      </div>
-
-      <p id="pickerSub" class="modal-sub">เลือกเกมที่อยากเล่นได้เลย</p>
-
-      <div class="picker-toolbar">
-        <button id="pickerShowRecommended" class="btn secondary small" type="button">🎮 แนะนำ</button>
-        <button id="pickerShowAllModes" class="btn secondary small" type="button">🗺️ ทุกเกม</button>
-        <button id="pickerShowRecent" class="btn secondary small" type="button">🕹️ ล่าสุด</button>
-      </div>
-
-      <div id="pickerList" class="picker-list"></div>
-    </div>
-  </div>
-
-  <script src="./hub-v2.js?v=20260331-brand-hub"></script>
-
-  <script>
-    (function(){
-      'use strict';
-
-      const GJ_HUB_SNAPSHOT_KEY = 'HHA_GJ_HUB_SNAPSHOT';
-
-      function safeJsonParseHub(raw, fallback = null){
-        try { return JSON.parse(raw); } catch (_) { return fallback; }
+      // ถ้า fitness-zone ยังไม่พร้อม ให้คง route เดิมไว้ก่อน
+      // เปลี่ยนบรรทัดนี้ภายหลังเป็น buildZoneUrl('fitness') ได้เลย
+      const fitFallback = document.getElementById('btnPlayFitness');
+      if (fitFallback && !fitFallback.getAttribute('href')) {
+        fitFallback.href = '#';
       }
 
-      function readGoodJunkHubSnapshot(){
-        try{
-          const raw = localStorage.getItem(GJ_HUB_SNAPSHOT_KEY);
-          if (!raw) return null;
-          return safeJsonParseHub(raw, null);
-        }catch(_){
-          return null;
-        }
-      }
+      const zoneBtnMap = [
+        ['btnZoneHygiene', 'hygiene'],
+        ['btnZoneNutrition', 'nutrition']
+      ];
 
-      function clearGoodJunkHubSnapshot(){
-        try { localStorage.removeItem(GJ_HUB_SNAPSHOT_KEY); } catch (_) {}
-      }
-
-      function setText(id, text){
+      zoneBtnMap.forEach(([id, zone]) => {
         const el = document.getElementById(id);
-        if (el) el.textContent = text;
-      }
-
-      function setHtml(id, html){
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = html;
-      }
-
-      function setHref(id, href){
-        const el = document.getElementById(id);
-        if (el) el.href = href;
-      }
-
-      function qsGet(k, d=''){
-        try {
-          return new URL(location.href).searchParams.get(k) || d;
-        } catch (_) {
-          return d;
-        }
-      }
-
-      function setLastZone(zone){
-        try { localStorage.setItem('HHA_LAST_ZONE', zone); } catch (_) {}
-      }
-
-      function buildZoneLauncherUrl(zone){
-        const u = new URL('./zone-launcher.html', location.href);
-
-        const pid = qsGet('pid', 'anon');
-        const name = qsGet('name', qsGet('nickName', 'Hero'));
-        const run = qsGet('run', 'play');
-        const diff = qsGet('diff', 'normal');
-        const view = qsGet('view', 'mobile');
-        const studyId = qsGet('studyId', '');
-
-        u.searchParams.set('zone', zone);
-        u.searchParams.set('pid', pid);
-        u.searchParams.set('name', name);
-        u.searchParams.set('run', run);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('view', view);
-        u.searchParams.set('hub', location.href);
-
-        if (studyId) u.searchParams.set('studyId', studyId);
-
-        return u.toString();
-      }
-
-      function goZone(zone){
-        setLastZone(zone);
-        location.href = buildZoneLauncherUrl(zone);
-      }
-
-      function bindZoneButtons(){
-        const hygieneUrl = buildZoneLauncherUrl('hygiene');
-        const nutritionUrl = buildZoneLauncherUrl('nutrition');
-        const fitnessUrl = buildZoneLauncherUrl('fitness');
-
-        setHref('btnPlayHygiene', hygieneUrl);
-        setHref('btnPlayNutrition', nutritionUrl);
-        setHref('btnPlayFitness', fitnessUrl);
-
-        const zoneBtnMap = [
-          ['btnZoneHygiene', 'hygiene'],
-          ['btnZoneNutrition', 'nutrition'],
-          ['btnZoneFitness', 'fitness']
-        ];
-
-        zoneBtnMap.forEach(([id, zone]) => {
-          const el = document.getElementById(id);
-          if (!el || el.__zoneBound) return;
-          el.__zoneBound = true;
-          el.addEventListener('click', function(){
-            goZone(zone);
-          });
+        if (!el || el.__zoneBound) return;
+        el.__zoneBound = true;
+        el.addEventListener('click', function(){
+          goZone(zone);
         });
+      });
 
-        const playMap = [
-          ['btnPlayHygiene', 'hygiene'],
-          ['btnPlayNutrition', 'nutrition'],
-          ['btnPlayFitness', 'fitness']
-        ];
+      const playMap = [
+        ['btnPlayHygiene', 'hygiene'],
+        ['btnPlayNutrition', 'nutrition']
+      ];
 
-        playMap.forEach(([id, zone]) => {
-          const el = document.getElementById(id);
-          if (!el || el.__playBound) return;
-          el.__playBound = true;
-          el.addEventListener('click', function(){
-            setLastZone(zone);
-          });
+      playMap.forEach(([id, zone]) => {
+        const el = document.getElementById(id);
+        if (!el || el.__playBound) return;
+        el.__playBound = true;
+        el.addEventListener('click', function(){
+          setLastZone(zone);
         });
+      });
 
-        const resumeBtn = document.getElementById('btnResumeNow');
-        if (resumeBtn && !resumeBtn.__resumeBound) {
-          resumeBtn.__resumeBound = true;
-          resumeBtn.addEventListener('click', function(){
-            const recentZone = localStorage.getItem('HHA_LAST_ZONE') || 'nutrition';
+      const resumeBtn = document.getElementById('btnResumeNow');
+      if (resumeBtn && !resumeBtn.__resumeBound) {
+        resumeBtn.__resumeBound = true;
+        resumeBtn.addEventListener('click', function(){
+          const recentZone = localStorage.getItem('HHA_LAST_ZONE') || 'nutrition';
+          if (recentZone === 'hygiene' || recentZone === 'nutrition') {
             goZone(recentZone);
-          });
-        }
+          } else {
+            goZone('nutrition');
+          }
+        });
+      }
 
-        const nextBtn = document.getElementById('btnNextInZone');
-        if (nextBtn && !nextBtn.__nextBound) {
-          nextBtn.__nextBound = true;
-          nextBtn.addEventListener('click', function(){
-            const nextZone = localStorage.getItem('HHA_NEXT_ZONE') || 'nutrition';
+      const nextBtn = document.getElementById('btnNextInZone');
+      if (nextBtn && !nextBtn.__nextBound) {
+        nextBtn.__nextBound = true;
+        nextBtn.addEventListener('click', function(){
+          const nextZone = localStorage.getItem('HHA_NEXT_ZONE') || 'nutrition';
+          if (nextZone === 'hygiene' || nextZone === 'nutrition') {
             goZone(nextZone);
-          });
-        }
-
-        const quickRecommended = document.getElementById('btnQuickRecommended');
-        if (quickRecommended && !quickRecommended.__bound) {
-          quickRecommended.__bound = true;
-          quickRecommended.addEventListener('click', function(){
-            const z = localStorage.getItem('HHA_RECOMMENDED_ZONE') || 'nutrition';
-            goZone(z);
-          });
-        }
-
-        const quickRecent = document.getElementById('btnQuickRecent');
-        if (quickRecent && !quickRecent.__bound) {
-          quickRecent.__bound = true;
-          quickRecent.addEventListener('click', function(){
-            const z = localStorage.getItem('HHA_LAST_ZONE') || 'nutrition';
-            goZone(z);
-          });
-        }
+          } else {
+            goZone('nutrition');
+          }
+        });
       }
 
-      function renderGoodJunkHubCard(){
-        const snapshot = readGoodJunkHubSnapshot();
-
-        const pct = Number(snapshot?.archive?.completionPct || 0);
-        const hallRank = String(snapshot?.archive?.hallRank || 'Rookie');
-        const rewardTitle = String(snapshot?.reward?.title || 'ยังไม่มี reward ล่าสุด');
-        const rewardBadge = String(snapshot?.reward?.badge || '📚');
-        const rivalLabel = String(snapshot?.rivalry?.label || '-');
-        const deckTier = String(snapshot?.rivalry?.deckTier || '-');
-        const targetLabel = String(snapshot?.target?.label || '-');
-        const nextTitle = 'Open Nutrition Zone';
-        const nextReason = snapshot?.nextPlan?.reason || 'เข้า Nutrition Zone แล้วค่อยเลือกเกมและโหมด';
-        const recent = Array.isArray(snapshot?.archive?.recent) ? snapshot.archive.recent : [];
-
-        setText('gjArchiveBadge', '📚 ' + hallRank);
-        setText('gjArchiveReward', rewardBadge + ' ' + rewardTitle);
-        setText('gjArchivePct', pct + '%');
-        setText('gjHallRank', hallRank);
-        setText('gjRivalArc', rivalLabel);
-        setText('gjDeckTier', deckTier);
-        setText('gjArchiveTarget', targetLabel);
-        setText('gjNextPlanTitle', nextTitle);
-        setText('gjNextPlanReason', nextReason);
-
-        const fill = document.getElementById('gjArchiveFill');
-        if (fill) fill.style.width = pct + '%';
-
-        setHtml(
-          'gjNextPlanChips',
-          [
-            '<span class="gj-chip">Zone First</span>',
-            '<span class="gj-chip">Then Game</span>',
-            '<span class="gj-chip">Then Mode</span>'
-          ].join('')
-        );
-
-        setHtml(
-          'gjRecentChips',
-          recent.length
-            ? recent.slice(0, 8).map((x) => '<span class="gj-chip">' + x.group + ': ' + x.label + '</span>').join('')
-            : '<span class="gj-chip">ยังไม่มี collection ล่าสุด</span>'
-        );
-
-        const nutritionZoneUrl = buildZoneLauncherUrl('nutrition');
-        setHref('gjQuickRematchBtn', nutritionZoneUrl);
-        setHref('gjOpenLauncherBtn', nutritionZoneUrl);
-
-        const rematchBtn = document.getElementById('gjQuickRematchBtn');
-        if (rematchBtn && !rematchBtn.__bound) {
-          rematchBtn.__bound = true;
-          rematchBtn.addEventListener('click', function(){
-            setLastZone('nutrition');
-          });
-        }
-
-        const openBtn = document.getElementById('gjOpenLauncherBtn');
-        if (openBtn && !openBtn.__bound) {
-          openBtn.__bound = true;
-          openBtn.addEventListener('click', function(){
-            setLastZone('nutrition');
-          });
-        }
-
-        const badge = document.getElementById('gjArchiveBadge');
-        if (badge) {
-          badge.style.background =
-            pct >= 100 ? 'linear-gradient(180deg,#fff4ca,#fffdf4)' :
-            pct >= 85 ? 'linear-gradient(180deg,#ffe8dc,#fff8f4)' :
-            pct >= 65 ? 'linear-gradient(180deg,#eefbff,#ffffff)' :
-            '#eefbff';
-
-          badge.style.borderColor =
-            pct >= 100 ? '#ffe08a' :
-            pct >= 85 ? '#ffb0a2' :
-            pct >= 65 ? '#cdeeff' :
-            '#cdeeff';
-
-          badge.style.color =
-            pct >= 100 ? '#9d6016' :
-            pct >= 85 ? '#b3472d' :
-            '#2d6f8b';
-        }
-
-        const reward = document.getElementById('gjArchiveReward');
-        if (reward && pct >= 85) {
-          reward.style.background = 'linear-gradient(180deg,#fff1e8,#fffaf5)';
-          reward.style.borderColor = '#ffd3c2';
-          reward.style.color = '#b3472d';
-        }
-
-        const clearBtn = document.getElementById('gjClearSnapshotBtn');
-        if (clearBtn && !clearBtn.__gjBound) {
-          clearBtn.__gjBound = true;
-          clearBtn.addEventListener('click', function(){
-            clearGoodJunkHubSnapshot();
-            renderGoodJunkHubCard();
-          });
-        }
-
-        if (snapshot?.target?.label) {
-          const featured = document.getElementById('nutriFeatured');
-          if (featured) featured.textContent = snapshot.target.label;
-        }
-
-        if (recent.length) {
-          const recentPill = document.getElementById('nutriRecentPill');
-          const recentText = document.getElementById('nutriRecentText');
-          if (recentPill) recentPill.hidden = false;
-          if (recentText) recentText.textContent = recent[0].label || '-';
-        }
-
-        if (snapshot?.nextPlan?.reason) {
-          const nextGame = document.getElementById('todayNextGame');
-          if (nextGame) nextGame.textContent = 'เข้า Nutrition Zone';
-        }
+      const quickRecommended = document.getElementById('btnQuickRecommended');
+      if (quickRecommended && !quickRecommended.__bound) {
+        quickRecommended.__bound = true;
+        quickRecommended.addEventListener('click', function(){
+          const z = localStorage.getItem('HHA_RECOMMENDED_ZONE') || 'nutrition';
+          if (z === 'hygiene' || z === 'nutrition') {
+            goZone(z);
+          } else {
+            goZone('nutrition');
+          }
+        });
       }
 
-      document.addEventListener('DOMContentLoaded', function(){
-        bindZoneButtons();
-        renderGoodJunkHubCard();
-      });
+      const quickRecent = document.getElementById('btnQuickRecent');
+      if (quickRecent && !quickRecent.__bound) {
+        quickRecent.__bound = true;
+        quickRecent.addEventListener('click', function(){
+          const z = localStorage.getItem('HHA_LAST_ZONE') || 'nutrition';
+          if (z === 'hygiene' || z === 'nutrition') {
+            goZone(z);
+          } else {
+            goZone('nutrition');
+          }
+        });
+      }
+    }
 
-      window.addEventListener('focus', function(){
-        bindZoneButtons();
-        renderGoodJunkHubCard();
-      });
+    function renderGoodJunkHubCard(){
+      const snapshot = readGoodJunkHubSnapshot();
 
-      document.addEventListener('visibilitychange', function(){
-        if (!document.hidden) {
-          bindZoneButtons();
+      const pct = Number(snapshot?.archive?.completionPct || 0);
+      const hallRank = String(snapshot?.archive?.hallRank || 'Rookie');
+      const rewardTitle = String(snapshot?.reward?.title || 'ยังไม่มี reward ล่าสุด');
+      const rewardBadge = String(snapshot?.reward?.badge || '📚');
+      const rivalLabel = String(snapshot?.rivalry?.label || '-');
+      const deckTier = String(snapshot?.rivalry?.deckTier || '-');
+      const targetLabel = String(snapshot?.target?.label || '-');
+      const recent = Array.isArray(snapshot?.archive?.recent) ? snapshot.archive.recent : [];
+
+      setText('gjArchiveBadge', '📚 ' + hallRank);
+      setText('gjArchiveReward', rewardBadge + ' ' + rewardTitle);
+      setText('gjArchivePct', pct + '%');
+      setText('gjHallRank', hallRank);
+      setText('gjRivalArc', rivalLabel);
+      setText('gjDeckTier', deckTier);
+      setText('gjArchiveTarget', targetLabel);
+      setText('gjNextPlanTitle', 'Open Nutrition Zone');
+      setText('gjNextPlanReason', 'เข้า Nutrition Zone แล้วค่อยเลือกเกมและโหมด');
+
+      const fill = document.getElementById('gjArchiveFill');
+      if (fill) fill.style.width = pct + '%';
+
+      setHtml(
+        'gjNextPlanChips',
+        [
+          '<span class="gj-chip">Zone First</span>',
+          '<span class="gj-chip">Then Game</span>',
+          '<span class="gj-chip">Then Mode</span>'
+        ].join('')
+      );
+
+      setHtml(
+        'gjRecentChips',
+        recent.length
+          ? recent.slice(0, 8).map((x) => '<span class="gj-chip">' + x.group + ': ' + x.label + '</span>').join('')
+          : '<span class="gj-chip">ยังไม่มี collection ล่าสุด</span>'
+      );
+
+      const nutritionZoneUrl = buildZoneUrl('nutrition');
+      setHref('gjQuickRematchBtn', nutritionZoneUrl);
+      setHref('gjOpenLauncherBtn', nutritionZoneUrl);
+
+      const rematchBtn = document.getElementById('gjQuickRematchBtn');
+      if (rematchBtn && !rematchBtn.__bound) {
+        rematchBtn.__bound = true;
+        rematchBtn.addEventListener('click', function(){
+          setLastZone('nutrition');
+        });
+      }
+
+      const openBtn = document.getElementById('gjOpenLauncherBtn');
+      if (openBtn && !openBtn.__bound) {
+        openBtn.__bound = true;
+        openBtn.addEventListener('click', function(){
+          setLastZone('nutrition');
+        });
+      }
+
+      const badge = document.getElementById('gjArchiveBadge');
+      if (badge) {
+        badge.style.background =
+          pct >= 100 ? 'linear-gradient(180deg,#fff4ca,#fffdf4)' :
+          pct >= 85 ? 'linear-gradient(180deg,#ffe8dc,#fff8f4)' :
+          pct >= 65 ? 'linear-gradient(180deg,#eefbff,#ffffff)' :
+          '#eefbff';
+
+        badge.style.borderColor =
+          pct >= 100 ? '#ffe08a' :
+          pct >= 85 ? '#ffb0a2' :
+          '#cdeeff';
+
+        badge.style.color =
+          pct >= 100 ? '#9d6016' :
+          pct >= 85 ? '#b3472d' :
+          '#2d6f8b';
+      }
+
+      const reward = document.getElementById('gjArchiveReward');
+      if (reward && pct >= 85) {
+        reward.style.background = 'linear-gradient(180deg,#fff1e8,#fffaf5)';
+        reward.style.borderColor = '#ffd3c2';
+        reward.style.color = '#b3472d';
+      }
+
+      const clearBtn = document.getElementById('gjClearSnapshotBtn');
+      if (clearBtn && !clearBtn.__gjBound) {
+        clearBtn.__gjBound = true;
+        clearBtn.addEventListener('click', function(){
+          clearGoodJunkHubSnapshot();
           renderGoodJunkHubCard();
-        }
-      });
-    })();
-  </script>
-</body>
-</html>
+        });
+      }
+
+      if (snapshot?.target?.label) {
+        const featured = document.getElementById('nutriFeatured');
+        if (featured) featured.textContent = snapshot.target.label;
+      }
+
+      if (recent.length) {
+        const recentPill = document.getElementById('nutriRecentPill');
+        const recentText = document.getElementById('nutriRecentText');
+        if (recentPill) recentPill.hidden = false;
+        if (recentText) recentText.textContent = recent[0].label || '-';
+      }
+
+      const todayNextGame = document.getElementById('todayNextGame');
+      if (todayNextGame) todayNextGame.textContent = 'เข้า Nutrition Zone';
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      bindZoneButtons();
+      renderGoodJunkHubCard();
+    });
+
+    window.addEventListener('focus', function(){
+      bindZoneButtons();
+      renderGoodJunkHubCard();
+    });
+
+    document.addEventListener('visibilitychange', function(){
+      if (!document.hidden) {
+        bindZoneButtons();
+        renderGoodJunkHubCard();
+      }
+    });
+  })();
+</script>
