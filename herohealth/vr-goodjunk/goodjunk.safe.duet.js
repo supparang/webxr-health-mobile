@@ -3,14 +3,14 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.duet.js
  * GoodJunk Duet Run
- * FULL PATCH v20260404-gjduet-run-r12
+ * FULL PATCH v20260405-gjduet-run-r13
  * - fix firebase ready wait logic
  * - support roomCode query param
  * - guard missing roomId before building refs
- * - keep summary hard-hidden before run
- * - stage-ready safe start
+ * - hard-hide summary overlay before run
  * - synced countdown / deadline by shared startAt
  * - replay -> rematch handoff to lobby
+ * - dispatch hha:end for Apps Script cloud logger
  * ========================================================= */
 (function(){
   const W = window;
@@ -936,6 +936,53 @@
     state.countdownTimer = 0;
   }
 
+  function dispatchCloudSummary(reason){
+    try {
+      const peer = getPeerData();
+      const peerScore = Number(peer.peerResult?.score ?? peer.peerPlayer?.finalScore ?? peer.peerPlayer?.score ?? 0);
+
+      W.dispatchEvent(new CustomEvent('hha:end', {
+        detail: {
+          session_id: `sess_${ctx.roomId || 'room'}_${state.uid || ctx.pid || 'anon'}_${state.runStartedAt || Date.now()}`,
+          pid: state.uid || ctx.pid || 'anon',
+          name: ctx.name || 'Player',
+          game: 'goodjunk',
+          game_title: 'GoodJunk Duet',
+          zone: ctx.zone || 'nutrition',
+          mode: 'duet',
+          run: ctx.run || 'play',
+          diff: ctx.diff || 'normal',
+          timeSec: Number(ctx.time || 90),
+          view: ctx.view || 'mobile',
+          seed: String(ctx.seed || ''),
+          roomId: ctx.roomId || '',
+          match_id: ctx.roomId || '',
+          startAt: state.runStartedAt || Date.now(),
+          endAt: Date.now(),
+          durationSec: Math.max(0, Math.round((Date.now() - Math.max(state.runStartedAt || Date.now(), 1)) / 1000)),
+          reason: reason,
+          score: state.score,
+          peerScore: peerScore,
+          pairScore: state.score + peerScore,
+          pairGoal: state.pairGoal,
+          goodHit: state.goodHit,
+          junkHit: state.junkHit,
+          goodMiss: state.goodMiss,
+          miss: state.miss,
+          bestStreak: state.bestStreak,
+          study_id: ctx.studyId || '',
+          condition_group: qs.get('conditionGroup') || '',
+          research_phase: qs.get('phase') || '',
+          app_version: 'herohealth',
+          game_version: 'goodjunk-duet-r13',
+          schema_version: 'v20260403-HHA-RECEIVER-V4'
+        }
+      }));
+    } catch (err) {
+      console.warn('[duet-run] dispatch hha:end failed', err);
+    }
+  }
+
   async function endRun(reason){
     if (state.ended) return;
     state.ended = true;
@@ -946,6 +993,7 @@
     renderHud();
 
     await submitResult(reason);
+    dispatchCloudSummary(reason);
     showSummary();
   }
 
