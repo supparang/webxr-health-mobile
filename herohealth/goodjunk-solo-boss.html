@@ -321,6 +321,10 @@
       line-height:1.6;
       font-weight:900;
       box-shadow:0 12px 24px rgba(0,0,0,.10);
+      white-space:pre-wrap;
+      word-break:break-word;
+      max-height:42vh;
+      overflow:auto;
     }
 
     .error.show{
@@ -519,19 +523,33 @@
         errorBox.classList.add('show');
       }
 
+      window.__GJ_HIDE_LOADING__ = hideLoading;
+      window.__GJ_SHOW_BOOT_ERROR__ = showError;
+
       let tries = 0;
       const maxTries = 180;
 
       const tick = () => {
         tries += 1;
 
-        if (window.__GJ_ENGINE_MOUNTED__) {
+        if (window.__GJ_BOOT_FAIL__) {
+          showError(window.__GJ_BOOT_FAIL__);
+          return;
+        }
+
+        if (
+          window.__GJ_ENGINE_MOUNTED__ ||
+          document.getElementById('gjSoloBossRootClean')
+        ) {
           hideLoading();
           return;
         }
 
         if (tries >= maxTries) {
-          showError('โหลดเกมนานกว่าปกติ กรุณาลองรีเฟรชหน้า หรือกลับไป Launcher แล้วเริ่มใหม่อีกครั้ง');
+          const msg = window.__GJ_SCRIPT_LOADED__
+            ? 'core ถูกโหลดแล้ว แต่ boot เกมไม่สำเร็จ กรุณาเช็ก error ใน goodjunk-solo-phaseboss-v2.js'
+            : 'โหลดเกมนานกว่าปกติ หรือไฟล์ core ยังไม่ถูกโหลด กรุณารีเฟรชหน้า หรือกลับไป Launcher แล้วเริ่มใหม่อีกครั้ง';
+          showError(msg);
           return;
         }
 
@@ -552,6 +570,26 @@
     })();
   </script>
 
-  <script src="./goodjunk-solo-phaseboss-v2.js?v=20260405-route-fix-r1"></script>
+  <script>
+    (function loadBossCore(){
+      const src = './goodjunk-solo-phaseboss-v2.js?v=20260405-route-fix-r3';
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = false;
+
+      s.onload = function () {
+        window.__GJ_SCRIPT_LOADED__ = true;
+      };
+
+      s.onerror = function () {
+        window.__GJ_BOOT_FAIL__ = 'โหลดไฟล์ gameplay core ไม่สำเร็จ: ' + src;
+        if (window.__GJ_SHOW_BOOT_ERROR__) {
+          window.__GJ_SHOW_BOOT_ERROR__(window.__GJ_BOOT_FAIL__);
+        }
+      };
+
+      document.body.appendChild(s);
+    })();
+  </script>
 </body>
 </html>
