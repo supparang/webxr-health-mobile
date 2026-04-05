@@ -1,6 +1,6 @@
 // /herohealth/vr-groups/groups.solo.core.js
 // Groups Solo Core Engine
-// PATCH v20260404-groups-solo-core-r3
+// PATCH v20260404-groups-solo-core-r4
 
 import {
   GROUPS_ITEMS,
@@ -16,7 +16,7 @@ import {
   renderGroupsSummary
 } from './groups.summary.js';
 
-export const GROUPS_PATCH_CORE = 'v20260404-groups-solo-core-r3';
+export const GROUPS_PATCH_CORE = 'v20260404-groups-solo-core-r4';
 
 const FEVER_MS = 6000;
 const PRACTICE_MS = 15000;
@@ -370,18 +370,25 @@ export function createGroupsSoloCore({
   function spawnItem(now){
     if (state.items.size >= getMaxItems()) return;
 
+    const compactMobile =
+      ctx.view === 'mobile' &&
+      window.matchMedia &&
+      window.matchMedia('(max-width: 768px)').matches;
+
+    const mobileSizeBoost = compactMobile ? 8 : 0;
+
     const data = GROUPS_ITEMS[Math.floor(rng() * GROUPS_ITEMS.length)];
     const size = Math.round(randRangeWith(
       rng,
-      state.phase === 'practice' ? preset.sizeMax - 2 : preset.sizeMin,
-      preset.sizeMax
+      (state.phase === 'practice' ? preset.sizeMax - 2 : preset.sizeMin) + mobileSizeBoost,
+      preset.sizeMax + mobileSizeBoost
     ));
 
     const safe = renderer.getSafeSpawnBounds({
       padLeft: 12,
       padRight: 12,
-      padTop: 54,
-      padBottom: 72
+      padTop: compactMobile ? 132 : 54,
+      padBottom: compactMobile ? 92 : 72
     });
 
     const x = randRangeWith(rng, safe.left, Math.max(safe.left + 1, safe.right - size));
@@ -692,7 +699,10 @@ export function createGroupsSoloCore({
   function resolveExitUrl(reason = 'manual_exit', summary = null){
     if (!isCooldownEnabled()) return ctx.hub;
 
-    const gateUrl = new URL(ctx.cooldownGateUrl || new URL('../warmup-gate.html', location.href).toString(), location.href);
+    const gateUrl = new URL(
+      ctx.cooldownGateUrl || new URL('../warmup-gate.html', location.href).toString(),
+      location.href
+    );
 
     gateUrl.searchParams.set('pid', ctx.pid || 'anon');
     gateUrl.searchParams.set('name', ctx.name || '');
