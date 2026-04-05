@@ -3,7 +3,7 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-battle-lobby.js
  * GoodJunk Battle Lobby
- * FULL PATCH v20260404-battle-lobby-rematch-fullfix2
+ * FULL PATCH v20260405-battle-lobby-runtime-full
  * ========================================================= */
 (function(){
   const W = window;
@@ -35,7 +35,7 @@
     .replace(/[^A-Z0-9_-]/g, '')
     .slice(0, max);
 
-  const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const now = () => Date.now();
 
   function byIds(...ids){
@@ -50,7 +50,7 @@
   const ROOM_PREFIX = 'GJB';
   const RUN_FILE = './goodjunk-battle-run.html';
   const LOBBY_FILE = './goodjunk-battle-lobby.html';
-  const STORE_KEY = 'GJ_BATTLE_LOBBY_V2';
+  const STORE_KEY = 'GJ_BATTLE_LOBBY_V3';
   const ACTIVE_TTL_MS = 12000;
   const HEARTBEAT_MS = 2500;
   const FIREBASE_WAIT_MS = 10000;
@@ -71,7 +71,7 @@
   async function detectExistingRoomKind(db, roomId) {
     const preferred = clean(qs('roomKind', ''), 24);
     const order = preferred
-      ? [preferred, ...ROOM_KINDS.filter(k => k !== preferred)]
+      ? [preferred, ...ROOM_KINDS.filter((k) => k !== preferred)]
       : ROOM_KINDS.slice();
 
     for (const kind of order) {
@@ -181,11 +181,44 @@
   let __battleRematchResetDone = false;
   let __battleSelfHealBusy = false;
   let __battleLastHealAt = 0;
+  let RT = null;
 
   const setTop = (m)=> { if (UI.topNotice) UI.topNotice.textContent = m || ''; };
   const setSide = (m)=> { if (UI.sideNotice) UI.sideNotice.textContent = m || ''; };
   const setBottom = (m)=> { if (UI.bottomNotice) UI.bottomNotice.textContent = m || ''; };
   const isHost = ()=> !!S.uid && S.meta && S.meta.hostPid === S.uid;
+
+  function runtimeCtx() {
+    return {
+      roomId: S.roomId || '',
+      roomKind: S.roomKind || '',
+      pid: S.uid || '',
+      uid: S.uid || '',
+      name: getNick(),
+      role: isHost() ? 'host' : 'player',
+      diff: getDiff(),
+      time: Number(getTime()),
+      seed: String(getBattleSeed()),
+      view: getView(),
+      host: isHost() ? '1' : '0'
+    };
+  }
+
+  function initRuntime() {
+    if (!(W.HHARuntimeContract && typeof W.HHARuntimeContract.create === 'function')) {
+      RT = null;
+      return null;
+    }
+
+    RT = W.HHARuntimeContract.create({
+      game: 'goodjunk',
+      zone: 'nutrition',
+      mode: 'battle',
+      getCtx: runtimeCtx
+    });
+
+    return RT;
+  }
 
   function hasFirebaseCompat() {
     return !!(
@@ -331,11 +364,6 @@
     if (!user || !user.uid) throw new Error('Anonymous auth failed');
     S.uid = user.uid;
     return user;
-  }
-
-  async function ensureAuth(){
-    const user = await ensureAnonymousAuth();
-    S.uid = user.uid;
   }
 
   async function dbWriteWithRetry(writeFn) {
@@ -642,9 +670,7 @@
 
     if (UI.playerCount) UI.playerCount.textContent = `${count} คน • ready ${readyCount}/2`;
     if (UI.hostName) {
-      const hostPlayer =
-        active.find(p => p.pid === (S.meta && S.meta.hostPid)) ||
-        Object.values(S.players || {}).find(p => p.pid === (S.meta && S.meta.hostPid));
+      const hostPlayer = active.find((p) => p.pid === (S.meta && S.meta.hostPid)) || Object.values(S.players || {}).find((p) => p.pid === (S.meta && S.meta.hostPid));
       UI.hostName.textContent = hostPlayer ? (hostPlayer.nick || hostPlayer.pid || '-') : '-';
     }
 
@@ -833,14 +859,14 @@
     }
   }
 
-  async function maybeRecoverBrokenCountdown(reason='') {
+  async function maybeRecoverBrokenCountdown(reason) {
     if (!S.refs) return;
 
     const status = String((S.state && S.state.status) || '');
     if (status !== 'countdown' && status !== 'playing' && status !== 'running') return;
 
     const actives = activePlayers();
-    const activeHost = actives.find(p => p.pid === (S.meta && S.meta.hostPid));
+    const activeHost = actives.find((p) => p.pid === (S.meta && S.meta.hostPid));
     const iAmFirstActive = !!(actives[0] && actives[0].pid === S.uid);
     const canAdoptHost = !S.meta.hostPid || !activeHost || isHost() || iAmFirstActive;
 
@@ -859,7 +885,7 @@
         await dbWriteWithRetry(() => S.refs.meta.update({
           hostPid: S.uid,
           updatedAt: Date.now()
-        })).catch(()=>{});
+        })).catch(() => {});
       }
 
       await dbWriteWithRetry(() => S.refs.match.update({
@@ -871,7 +897,7 @@
           loserId: '',
           finishedAt: 0
         }
-      })).catch(()=>{});
+      })).catch(() => {});
 
       await dbWriteWithRetry(() => S.refs.state.update({
         status: 'waiting',
@@ -882,9 +908,9 @@
         winnerId: '',
         loserId: '',
         updatedAt: Date.now()
-      })).catch(()=>{});
+      })).catch(() => {});
 
-      const playersSnap = await S.refs.players.once('value').catch(()=>null);
+      const playersSnap = await S.refs.players.once('value').catch(() => null);
       const players = (playersSnap && playersSnap.val()) || {};
       const updates = {};
       const nowTs = Date.now();
@@ -898,7 +924,7 @@
       });
 
       if (Object.keys(updates).length) {
-        await dbWriteWithRetry(() => S.refs.players.update(updates)).catch(()=>{});
+        await dbWriteWithRetry(() => S.refs.players.update(updates)).catch(() => {});
       }
 
       console.log('[battle-lobby] recovered broken countdown', {
@@ -951,7 +977,6 @@
       S.state = snap.val() || {};
       renderState();
       renderCountdown();
-
       await maybeRecoverBrokenCountdown('state');
 
       const st = String(S.state.status || '');
@@ -969,13 +994,13 @@
       S.players = snap.val() || {};
 
       const actives = activePlayers();
-      const activeHost = actives.find(p => p.pid === (S.meta && S.meta.hostPid));
+      const activeHost = actives.find((p) => p.pid === (S.meta && S.meta.hostPid));
 
       if ((!S.meta.hostPid || !activeHost) && actives[0] && actives[0].pid === S.uid) {
         await dbWriteWithRetry(() => S.refs.meta.update({
           hostPid: S.uid,
           updatedAt: Date.now()
-        })).catch(()=>{});
+        })).catch(() => {});
       }
 
       if (S.state && S.state.status === 'countdown' && actives.length < 2) {
@@ -1031,9 +1056,21 @@
     if (created) {
       setTop('สร้างห้องสำเร็จ');
       setSide('ส่ง room code หรือ QR นี้ให้เพื่อนอีกคน');
+
+      if (RT) {
+        await RT.roomCreated({
+          participantIds: activePlayers().map((p) => p.pid || '')
+        }).catch(() => {});
+      }
     } else {
       setTop('เข้าห้องสำเร็จ');
       setSide('รอ host กด Start Battle');
+
+      if (RT) {
+        await RT.roomJoined({
+          participantIds: activePlayers().map((p) => p.pid || '')
+        }).catch(() => {});
+      }
     }
   }
 
@@ -1145,6 +1182,12 @@
   async function leaveRoom(){
     if(!S.joined || !S.refs) return;
 
+    if (RT) {
+      await RT.roomLeft({
+        participantIds: activePlayers().map((p) => p.pid || '')
+      }).catch(() => {});
+    }
+
     try {
       await S.refs.players.child(S.uid).remove();
     } catch (_) {}
@@ -1234,7 +1277,7 @@
       return;
     }
 
-    const participantIds = active.slice(0, 2).map(p => p.pid).filter(Boolean);
+    const participantIds = active.slice(0, 2).map((p) => p.pid).filter(Boolean);
     if (participantIds.length < 2) {
       setTop('ยังเริ่มไม่ได้');
       setSide('participant ยังไม่ครบ 2 คน');
@@ -1302,6 +1345,14 @@
     });
 
     await S.refs.players.update(updates).catch(()=>{});
+
+    if (RT) {
+      await RT.countdownStarted({
+        roundId: sharedRoundId,
+        startAt: sharedStartAt,
+        participantIds
+      }).catch(() => {});
+    }
   }
 
   function goRun(){
@@ -1427,8 +1478,14 @@
       setTop('กำลังเตรียม Firebase…');
       await waitForFirebaseReady();
       try { await ensureFreshAuthForWrite(); } catch (err) { console.warn('[battle-lobby] auth warmup failed', err); }
-      setTop('ใส่ชื่อ แล้วกดสร้างห้องหรือเข้าห้องได้เลย');
 
+      initRuntime();
+      if (RT) {
+        await RT.flush().catch(() => {});
+        await RT.lobbyReady({}).catch(() => {});
+      }
+
+      setTop('ใส่ชื่อ แล้วกดสร้างห้องหรือเข้าห้องได้เลย');
       await autoJoinIfNeeded();
     } catch (err) {
       console.error('[battle-lobby] init failed', err);
