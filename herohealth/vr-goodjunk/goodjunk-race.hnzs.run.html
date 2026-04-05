@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • GoodJunk Race</title>
+</head>
+<body>
+  <div id="gameMount"></div>
+
+  <script type="module">
+    import { bootNutritionShell } from '../shared/nutrition/nutrition-shell.js';
+    import { createGoodJunkModeAdapter } from './goodjunk.adapter.js';
+
+    bootNutritionShell({
+      gameId: 'goodjunk',
+      gameTitle: 'GoodJunk',
+      mountSelector: '#gameMount',
+      adapterFactory: createGoodJunkModeAdapter
+    });
+  </script>
+</body>
+</html>
