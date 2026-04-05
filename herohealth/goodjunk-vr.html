@@ -3,11 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Solo Boss</title>
-  <meta name="color-scheme" content="light" />
+  <title>HeroHealth • GoodJunk Route Guard</title>
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
-
   <style>
     :root{
       --sky1:#dff4ff;
@@ -16,29 +14,16 @@
       --line:#bfe3f2;
       --text:#4d4a42;
       --muted:#7b7a72;
-
       --green:#7ed957;
       --green2:#58c33f;
       --blue:#7fcfff;
       --blue2:#58b7f5;
-      --pink:#ff8fc7;
-      --pink2:#ffc5e3;
-      --yellow:#ffd45c;
-      --orange:#ffb547;
-
       --shadow:0 18px 40px rgba(86,155,194,.16);
-
-      --sat:env(safe-area-inset-top,0px);
-      --sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);
-      --sal:env(safe-area-inset-left,0px);
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
-      width:100%;
       min-height:100%;
       font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
       color:var(--text);
@@ -50,109 +35,53 @@
 
     body{
       min-height:100dvh;
-      overflow:hidden;
-    }
-
-    .bg-clouds{
-      position:fixed;
-      inset:0;
-      overflow:hidden;
-      pointer-events:none;
-      z-index:0;
-    }
-
-    .cloud{
-      position:absolute;
-      border-radius:999px;
-      background:rgba(255,255,255,.74);
-      filter:blur(1px);
-      box-shadow:
-        50px 8px 0 8px rgba(255,255,255,.66),
-        100px 0 0 0 rgba(255,255,255,.74),
-        70px -10px 0 4px rgba(255,255,255,.70);
-      animation:floatCloud linear infinite;
-    }
-
-    .cloud.c1{ width:110px; height:34px; left:6%; top:9%; animation-duration:28s; }
-    .cloud.c2{ width:140px; height:40px; left:64%; top:13%; animation-duration:36s; }
-    .cloud.c3{ width:100px; height:30px; left:30%; top:22%; animation-duration:32s; }
-
-    @keyframes floatCloud{
-      from{ transform:translateX(-5vw); }
-      to{ transform:translateX(12vw); }
-    }
-
-    .page{
-      position:relative;
-      min-height:100dvh;
-      padding:
-        calc(10px + var(--sat))
-        calc(10px + var(--sar))
-        calc(10px + var(--sab))
-        calc(10px + var(--sal));
-      z-index:1;
-    }
-
-    .topbar{
-      position:relative;
-      z-index:8;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:10px;
-      pointer-events:none;
-    }
-
-    .brand,
-    .actions{
-      pointer-events:auto;
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-height:52px;
-      padding:10px 14px;
-      border-radius:18px;
-      border:2px solid var(--line);
-      background:rgba(255,255,255,.84);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(6px);
-    }
-
-    .brand-icon{
-      width:38px;
-      height:38px;
-      border-radius:14px;
       display:grid;
       place-items:center;
-      background:linear-gradient(180deg,#fff3de,#ffe0b8);
-      border:2px solid #ffd89b;
-      font-size:20px;
+      padding:18px;
     }
 
-    .brand-title{
-      font-size:15px;
-      line-height:1.05;
+    .card{
+      width:min(92vw,560px);
+      border-radius:28px;
+      border:3px solid var(--line);
+      background:linear-gradient(180deg,#fffef9,#f7fff4);
+      box-shadow:var(--shadow);
+      padding:22px 20px;
+      text-align:center;
+    }
+
+    .icon{
+      width:96px;
+      height:96px;
+      margin:0 auto 10px;
+      border-radius:28px;
+      display:grid;
+      place-items:center;
+      font-size:46px;
+      background:linear-gradient(180deg,#fff3de,#ffe0b8);
+      border:3px solid #ffd89b;
+    }
+
+    h1{
+      margin:0;
+      font-size:30px;
+      line-height:1.06;
       font-weight:1000;
       color:#67a91c;
     }
 
-    .brand-sub{
-      margin-top:3px;
-      font-size:12px;
-      line-height:1.2;
+    p{
+      margin:10px 0 0;
+      font-size:14px;
+      line-height:1.7;
       color:var(--muted);
       font-weight:900;
     }
 
     .actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
+      margin-top:16px;
+      display:grid;
+      gap:10px;
     }
 
     .btn{
@@ -163,276 +92,48 @@
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      gap:8px;
-      min-height:44px;
-      padding:10px 14px;
+      min-height:46px;
+      padding:11px 16px;
       border-radius:16px;
-      font-size:14px;
+      font-size:15px;
       font-weight:1000;
       box-shadow:var(--shadow);
-      transition:.14s ease;
-      pointer-events:auto;
       color:inherit;
     }
 
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.02); }
-    .btn:active{ transform:translateY(0); }
+    .btn.primary{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#08374d;
+    }
 
     .btn.hub{
       background:linear-gradient(180deg,var(--green),var(--green2));
       color:#133b09;
     }
-
-    .btn.launcher{
-      background:linear-gradient(180deg,var(--blue),var(--blue2));
-      color:#08374d;
-    }
-
-    .btn.soft{
-      background:rgba(255,255,255,.92);
-      color:#6c6a61;
-      border:2px solid var(--line);
-    }
-
-    .game-shell{
-      position:relative;
-      z-index:1;
-      width:100%;
-      height:calc(100dvh - 84px - var(--sat) - var(--sab));
-      min-height:580px;
-      border-radius:28px;
-      border:3px solid var(--line);
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-
-    #gameMount{
-      position:absolute;
-      inset:0;
-      overflow:hidden;
-      background:
-        radial-gradient(circle at 20% 10%, rgba(255,255,255,.78), transparent 18%),
-        radial-gradient(circle at 80% 10%, rgba(255,255,255,.72), transparent 18%),
-        linear-gradient(180deg,#aee6ff 0%, #d9f5ff 54%, #fff5cf 100%);
-    }
-
-    .loading{
-      position:absolute;
-      inset:0;
-      z-index:20;
-      display:grid;
-      place-items:center;
-      background:
-        radial-gradient(circle at 50% 24%, rgba(255,255,255,.8), transparent 24%),
-        linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,.18));
-      transition:opacity .2s ease, visibility .2s ease;
-    }
-
-    .loading.hidden{
-      opacity:0;
-      visibility:hidden;
-      pointer-events:none;
-    }
-
-    .loading-card{
-      width:min(92vw,500px);
-      border-radius:28px;
-      border:3px solid var(--line);
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      box-shadow:var(--shadow);
-      padding:22px 20px;
-      text-align:center;
-    }
-
-    .loading-badge{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:34px;
-      padding:6px 12px;
-      border-radius:999px;
-      background:#eaf8ff;
-      border:2px solid var(--line);
-      color:#5ea8d0;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .loading-emoji{
-      margin:14px auto 8px;
-      width:94px;
-      height:94px;
-      border-radius:24px;
-      display:grid;
-      place-items:center;
-      font-size:46px;
-      background:linear-gradient(180deg,#fff3de,#ffe0b8);
-      border:3px solid #ffd89b;
-      box-shadow:0 12px 24px rgba(255,181,71,.16);
-    }
-
-    .loading-title{
-      margin:0;
-      font-size:30px;
-      line-height:1.06;
-      font-weight:1000;
-      color:#67a91c;
-    }
-
-    .loading-sub{
-      margin:10px 0 0;
-      font-size:14px;
-      line-height:1.65;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .loading-meta{
-      margin-top:14px;
-      display:flex;
-      gap:8px;
-      justify-content:center;
-      flex-wrap:wrap;
-    }
-
-    .chip{
-      min-height:32px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:6px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#6c6a61;
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-
-    .chip.debug{
-      background:#fff3f3;
-      border-color:#ffd1d1;
-      color:#a74b35;
-      display:none;
-    }
-
-    .chip.debug.show{
-      display:inline-flex;
-    }
-
-    .error{
-      position:absolute;
-      inset:auto 12px 12px 12px;
-      z-index:25;
-      display:none;
-      border-radius:20px;
-      border:2px solid #ffd1d1;
-      background:#fff6f6;
-      color:#9a2d2d;
-      padding:12px 14px;
-      font-size:13px;
-      line-height:1.6;
-      font-weight:900;
-      box-shadow:0 12px 24px rgba(0,0,0,.10);
-    }
-
-    .error.show{
-      display:block;
-    }
-
-    @media (max-width:760px){
-      .topbar{
-        gap:8px;
-      }
-
-      .brand{
-        width:100%;
-      }
-
-      .actions{
-        width:100%;
-      }
-
-      .actions .btn{
-        flex:1 1 0;
-        min-width:0;
-      }
-
-      .game-shell{
-        height:calc(100dvh - 134px - var(--sat) - var(--sab));
-        min-height:520px;
-        border-radius:24px;
-      }
-
-      .loading-card{
-        border-radius:24px;
-        padding:18px 16px;
-      }
-
-      .loading-title{
-        font-size:25px;
-      }
-
-      .loading-sub{
-        font-size:13px;
-      }
-    }
   </style>
 </head>
 <body>
-  <div class="bg-clouds" aria-hidden="true">
-    <div class="cloud c1"></div>
-    <div class="cloud c2"></div>
-    <div class="cloud c3"></div>
-  </div>
+  <div class="card">
+    <div class="icon">🍔</div>
+    <h1>กำลังจัดเส้นทาง GoodJunk</h1>
+    <p id="statusText">
+      กรุณารอสักครู่ ระบบกำลังพาไปหน้าที่ถูกต้อง
+    </p>
 
-  <div class="page">
-    <div class="topbar">
-      <div class="brand">
-        <div class="brand-icon">🍔</div>
-        <div>
-          <div class="brand-title">GoodJunk Solo Boss</div>
-          <div class="brand-sub">child-friendly • phase boss • HNZS shell</div>
-        </div>
-      </div>
-
-      <div class="actions">
-        <a id="btnLauncher" class="btn launcher" href="./goodjunk-launcher.html">🎮 Launcher</a>
-        <a id="btnHub" class="btn hub" href="./hub-v2.html">🏠 Hub</a>
-      </div>
-    </div>
-
-    <div class="game-shell">
-      <div id="gameMount"></div>
-
-      <div id="loadingScreen" class="loading">
-        <div class="loading-card">
-          <div class="loading-badge">GOODJUNK PHASE BOSS</div>
-          <div class="loading-emoji">🍎</div>
-          <h1 class="loading-title">เตรียมลุยกับ Junk King!</h1>
-          <p class="loading-sub">
-            เก็บอาหารดี หลีกเลี่ยง junk ผ่าน Phase 1 → Phase 2 → Boss
-            แล้วปราบบอสให้ได้ ผ่าน HNZS shell
-          </p>
-
-          <div class="loading-meta">
-            <div class="chip" id="metaDiff">diff: normal</div>
-            <div class="chip" id="metaTime">time: 150s</div>
-            <div class="chip" id="metaRun">run: play</div>
-            <div class="chip debug" id="metaDebug">debug: on</div>
-          </div>
-        </div>
-      </div>
-
-      <div id="errorBox" class="error"></div>
+    <div class="actions">
+      <a id="btnLauncher" class="btn primary" href="./goodjunk-launcher.html">🎮 ไป Launcher</a>
+      <a id="btnHub" class="btn hub" href="./hub-v2.html">🏠 กลับ Hub</a>
     </div>
   </div>
 
   <script>
-    (function buildRunContext(){
+    (function(){
+      'use strict';
+
       const q = new URLSearchParams(location.search);
+      const statusText = document.getElementById('statusText');
+      const btnLauncher = document.getElementById('btnLauncher');
+      const btnHub = document.getElementById('btnHub');
 
       function first(){
         for (let i = 0; i < arguments.length; i++) {
@@ -442,206 +143,52 @@
         return '';
       }
 
-      function cleanPid(v){
-        return String(v || 'anon').trim().replace(/[^\w-]/g,'').slice(0,40) || 'anon';
-      }
-
-      function cleanName(v){
-        return String(v || '').trim().replace(/[<>]/g,'').slice(0,40);
-      }
-
-      function cleanEnum(v, allow, fallback){
-        v = String(v || '').trim().toLowerCase();
-        return allow.indexOf(v) >= 0 ? v : fallback;
-      }
-
-      function numIn(v, fallback, min, max){
-        v = Number(v);
-        if (!Number.isFinite(v)) return fallback;
-        return Math.max(min, Math.min(max, v));
-      }
-
-      function defaultHub(){
-        return q.get('hub') || new URL('./hub-v2.html', location.href).toString();
-      }
-
-      const runCtx = {
-        pid: cleanPid(first(q.get('pid'), 'anon')),
-        name: cleanName(first(q.get('name'), q.get('nickName'), 'Hero')),
-        studyId: first(q.get('studyId'), ''),
-        diff: cleanEnum(first(q.get('diff'), 'normal'), ['easy','normal','hard'], 'normal'),
-        time: String(numIn(first(q.get('time'), 150), 150, 90, 300)),
-        seed: first(q.get('seed'), String(Date.now())),
-        hub: defaultHub(),
-        view: cleanEnum(first(q.get('view'), 'mobile'), ['mobile','pc','cvr','vr'], 'mobile'),
-        run: cleanEnum(first(q.get('run'), 'play'), ['play','research','demo'], 'play'),
-        gameId: first(q.get('gameId'), q.get('game'), 'goodjunk'),
-        zone: first(q.get('zone'), 'nutrition'),
-        mode: 'solo'
-      };
-
-      window.__GJ_RUN_CTX__ = runCtx;
-
-      const btnHub = document.getElementById('btnHub');
-      const btnLauncher = document.getElementById('btnLauncher');
-      const metaDiff = document.getElementById('metaDiff');
-      const metaTime = document.getElementById('metaTime');
-      const metaRun = document.getElementById('metaRun');
-      const metaDebug = document.getElementById('metaDebug');
-
-      if (btnHub) btnHub.href = runCtx.hub;
-
-      if (btnLauncher) {
-        const u = new URL('./goodjunk-launcher.html', location.href);
-        [
-          'pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug',
-          'studentKey','schoolCode','classRoom','studentNo','nickName','name','seed','gameId','zone','mode'
-        ].forEach((k) => {
-          const v =
-            k === 'name' ? runCtx.name :
-            k === 'pid' ? runCtx.pid :
-            k === 'studyId' ? runCtx.studyId :
-            k === 'diff' ? runCtx.diff :
-            k === 'time' ? runCtx.time :
-            k === 'seed' ? runCtx.seed :
-            k === 'hub' ? runCtx.hub :
-            k === 'view' ? runCtx.view :
-            k === 'run' ? runCtx.run :
-            k === 'gameId' ? runCtx.gameId :
-            k === 'zone' ? runCtx.zone :
-            k === 'mode' ? runCtx.mode :
-            q.get(k);
-
-          if (v != null && v !== '') u.searchParams.set(k, v);
+      function passTo(url){
+        q.forEach((v, k) => {
+          if (v != null && v !== '') url.searchParams.set(k, v);
         });
-        btnLauncher.href = u.toString();
+        return url;
       }
 
-      if (metaDiff) metaDiff.textContent = 'diff: ' + runCtx.diff;
-      if (metaTime) metaTime.textContent = 'time: ' + runCtx.time + 's';
-      if (metaRun) metaRun.textContent = 'run: ' + runCtx.run;
+      const hub = first(q.get('hub'), new URL('./hub-v2.html', location.href).toString());
+      if (btnHub) btnHub.href = hub;
 
-      if (q.get('debug') === '1' && metaDebug) {
-        metaDebug.classList.add('show');
+      const launcherUrl = passTo(new URL('./goodjunk-launcher.html', location.href)).toString();
+      if (btnLauncher) btnLauncher.href = launcherUrl;
+
+      const entry = String(first(q.get('entry'), '')).toLowerCase();
+      const mode = String(first(q.get('mode'), '')).toLowerCase();
+      const phaseBoss = String(first(q.get('phaseBoss'), '')).toLowerCase();
+      const boss = String(first(q.get('boss'), '')).toLowerCase();
+      const theme = String(first(q.get('theme'), '')).toLowerCase();
+
+      const isSoloBoss =
+        entry === 'solo-boss' ||
+        phaseBoss === '1' ||
+        boss === '1' ||
+        theme === 'phaseboss' ||
+        (mode === 'solo' && (phaseBoss === '1' || boss === '1'));
+
+      if (isSoloBoss) {
+        if (statusText) {
+          statusText.textContent = 'ตรวจพบเส้นทาง Solo Boss — กำลังย้ายไป gameplay core ใหม่';
+        }
+
+        const target = passTo(new URL('./goodjunk-solo-boss.html', location.href));
+        setTimeout(function(){
+          location.replace(target.toString());
+        }, 80);
+        return;
       }
 
-      document.title =
-        'HeroHealth • GoodJunk Solo Boss • ' +
-        runCtx.diff.charAt(0).toUpperCase() + runCtx.diff.slice(1);
+      if (statusText) {
+        statusText.textContent = 'ไม่ใช่เส้นทาง Solo Boss — จะกลับไปหน้า Launcher ให้เลือกโหมด';
+      }
+
+      setTimeout(function(){
+        location.replace(launcherUrl);
+      }, 180);
     })();
-  </script>
-
-  <script>
-    (function loadingAndErrorShell(){
-      const loading = document.getElementById('loadingScreen');
-      const errorBox = document.getElementById('errorBox');
-
-      window.__GJ_HIDE_LOADING__ = function(){
-        if (loading) loading.classList.add('hidden');
-      };
-
-      window.__GJ_SHOW_ERROR__ = function(msg){
-        if (!errorBox) return;
-        errorBox.textContent = msg;
-        errorBox.classList.add('show');
-      };
-
-      let tries = 0;
-      const maxTries = 180;
-
-      const tick = () => {
-        tries += 1;
-
-        if (window.__GJ_ENGINE_MOUNTED__) {
-          window.__GJ_HIDE_LOADING__();
-          return;
-        }
-
-        if (tries >= maxTries) {
-          window.__GJ_SHOW_ERROR__('โหลดเกมนานกว่าปกติ กรุณาลองรีเฟรชหน้า หรือกลับไป Launcher แล้วเริ่มใหม่อีกครั้ง');
-          return;
-        }
-
-        setTimeout(tick, 125);
-      };
-
-      tick();
-
-      window.addEventListener('error', function (ev) {
-        const msg = ev && ev.message ? ev.message : 'เกิดข้อผิดพลาดระหว่างโหลดเกม';
-        window.__GJ_SHOW_ERROR__(msg);
-      });
-
-      window.addEventListener('unhandledrejection', function (ev) {
-        const reason = ev && ev.reason ? String(ev.reason) : 'เกิดข้อผิดพลาดแบบ promise';
-        window.__GJ_SHOW_ERROR__(reason);
-      });
-    })();
-  </script>
-
-  <script type="module">
-    import { bootNutritionShell } from './shared/nutrition/nutrition-shell.js';
-    import { createGoodJunkModeAdapter } from './vr-goodjunk/goodjunk.adapter.js';
-
-    const q = new URLSearchParams(location.search);
-
-    function cleanPid(v){
-      return String(v || 'anon').trim().replace(/[^\w-]/g,'').slice(0,40) || 'anon';
-    }
-
-    function cleanName(v){
-      return String(v || '').trim().replace(/[<>]/g,'').slice(0,40);
-    }
-
-    function cleanEnum(v, allow, fallback){
-      v = String(v || '').trim().toLowerCase();
-      return allow.includes(v) ? v : fallback;
-    }
-
-    function numIn(v, fallback, min, max){
-      v = Number(v);
-      if (!Number.isFinite(v)) return fallback;
-      return Math.max(min, Math.min(max, v));
-    }
-
-    const ctxPatch = {
-      pid: cleanPid(q.get('pid') || 'anon'),
-      name: cleanName(q.get('name') || q.get('nickName') || 'Hero'),
-      studyId: String(q.get('studyId') || ''),
-      diff: cleanEnum(q.get('diff') || 'normal', ['easy','normal','hard'], 'normal'),
-      time: numIn(q.get('time') || 150, 150, 90, 300),
-      seed: String(q.get('seed') || Date.now()),
-      hub: String(q.get('hub') || new URL('./hub-v2.html', location.href).toString()),
-      view: cleanEnum(q.get('view') || 'mobile', ['mobile','pc','cvr','vr'], 'mobile'),
-      run: cleanEnum(q.get('run') || 'play', ['play','research','demo'], 'play'),
-      zone: 'nutrition',
-      cat: 'nutrition',
-      game: 'goodjunk',
-      gameId: 'goodjunk',
-      mode: 'solo'
-    };
-
-    try {
-      await bootNutritionShell({
-        gameId: 'goodjunk',
-        gameTitle: 'GoodJunk Solo Boss',
-        mode: 'solo',
-        mountSelector: '#gameMount',
-        adapterFactory: async (baseCtx, shell) => {
-          const mergedCtx = { ...baseCtx, ...ctxPatch, mode: 'solo' };
-          return createGoodJunkModeAdapter(mergedCtx, shell);
-        },
-        onAfterMount() {
-          window.__GJ_ENGINE_MOUNTED__ = true;
-          if (window.__GJ_HIDE_LOADING__) window.__GJ_HIDE_LOADING__();
-        }
-      });
-    } catch (err) {
-      console.error(err);
-      if (window.__GJ_SHOW_ERROR__) {
-        window.__GJ_SHOW_ERROR__(String(err && err.message ? err.message : err));
-      }
-    }
   </script>
 </body>
 </html>
