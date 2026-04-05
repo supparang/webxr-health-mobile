@@ -1,7 +1,7 @@
 // === /herohealth/vr-clean/clean.kids.ui.js ===
 // Clean Objects — Kids Mode UI
-// 4 PHASES / BOSS UI / CHILD-FRIENDLY
-// PATCH v20260320-CLEAN-KIDS-UI-4PHASE-BOSS-r3
+// FINAL 4 PHASES / BOSS UI / CHILD-FRIENDLY / STABLE TRANSITION
+// PATCH v20260320-CLEAN-KIDS-UI-FINAL-4PHASE-BOSS-r4
 
 'use strict';
 
@@ -895,6 +895,7 @@ export function mountCleanKidsUI(root, opts={}){
 
       const node = el('button', 'kidCard');
       node.type = 'button';
+      node.dataset.id = String(card.id || '');
       node.classList.add(getCardThemeClass(S.phaseNo));
 
       if(chosen) node.classList.add('done','locked');
@@ -920,9 +921,18 @@ export function mountCleanKidsUI(root, opts={}){
       `;
 
       node.addEventListener('click', ()=>{
+        if(node.classList.contains('locked')) return;
         if(!opts.selectCard) return;
+
+        node.classList.add('locked');
+
         const res = opts.selectCard(card.id);
-        if(!res || !res.ok) return;
+        if(!res || !res.ok){
+          node.classList.remove('locked');
+          return;
+        }
+
+        node.classList.add('done');
 
         if(res.isGood || res.isBoss){
           node.classList.add('correct');
@@ -970,7 +980,6 @@ export function mountCleanKidsUI(root, opts={}){
   }
 
   function onState(S){
-    const phaseChanged = Number(S.phaseNo || 0) !== Number(lastPhaseNo || 0);
     lastState = S;
 
     applyThemeClass(S);
@@ -983,10 +992,6 @@ export function mountCleanKidsUI(root, opts={}){
       showTransition(S);
     } else {
       hideTransition();
-    }
-
-    if(phaseChanged && Number(lastPhaseNo) > 0 && !S.waitingNextPhase){
-      setCoach('tip', `เริ่ม ${S.phaseTitle || `ด่าน ${S.phaseNo}`} ได้เลย`);
     }
 
     lastPhaseNo = Number(S.phaseNo || lastPhaseNo || 1);
