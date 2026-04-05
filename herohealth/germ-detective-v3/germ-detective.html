@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Germ Detective v3</title>
+  <meta name="color-scheme" content="light" />
+  <link rel="stylesheet" href="../shared/hha-shell.css" />
+  <link rel="stylesheet" href="./germ-detective.css" />
+</head>
+<body>
+  <div id="gdApp" class="gd-shell">
+    <header class="gd-topbar">
+      <div class="top-left">
+        <div id="phaseBadge" class="phase-badge">Germ Detective v3</div>
+        <div id="taskText" class="task-text">เตรียมอุปกรณ์นักสืบเชื้อโรค</div>
+      </div>
+
+      <div class="top-right">
+        <div class="score-pill">⭐ <span id="scoreValue">0</span></div>
+        <div class="score-pill streak">🔥 <span id="comboValue">1</span></div>
+        <div class="score-pill heart">❤️ <span id="livesValue">8</span></div>
+        <button id="helpBtn" class="icon-btn" type="button" title="วิธีเล่น">🔊</button>
+        <button id="homeBtn" class="icon-btn" type="button" title="กลับ HUB">🏠</button>
+      </div>
+    </header>
+
+    <main class="gd-main">
+      <section id="briefCard" class="brief-card"></section>
+
+      <section id="scene" class="scene hidden">
+        <section class="mission-card">
+          <div class="mission-head">
+            <div class="mission-kicker">ภารกิจตอนนี้</div>
+
+            <div class="mission-head-right">
+              <div id="phaseChip" class="phase-chip">Phase 1</div>
+              <div id="directorChip" class="director-chip">AI ปกติ</div>
+              <div id="timerChip" class="timer-chip hidden">
+                ⏱ <span id="timerValue">0</span>
+              </div>
+            </div>
+          </div>
+
+          <h2 id="missionTitle" class="mission-title">เริ่มภารกิจ</h2>
+
+          <div class="progress-track">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+
+          <div class="progress-foot">
+            <div id="phaseProgressText" class="progress-label">0 / 0</div>
+            <div class="streak-track">
+              <div id="streakFill" class="streak-fill"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="stageCard" class="stage-card">
+          <div id="feedbackPop" class="feedback-pop">เยี่ยม!</div>
+
+          <div id="speechBubble" class="speech-bubble">เริ่มเลย! เลือกแว่นขยาย สเปรย์ และผ้าเช็ดก่อนนะ</div>
+          <div id="coachHintChip" class="coach-hint-chip">พร้อมช่วยเสมอ</div>
+          <div class="coach-bot">🦠</div>
+
+          <div class="tool-rail">
+            <button id="toolLens" class="tool-fab" type="button" aria-label="แว่นขยาย">🔎</button>
+            <button id="toolSpray" class="tool-fab" type="button" aria-label="สเปรย์">🧴</button>
+            <button id="toolCloth" class="tool-fab" type="button" aria-label="ผ้าเช็ด">🧽</button>
+          </div>
+
+          <div class="room-banner">GERM DETECTIVE LAB</div>
+
+          <div class="room-scene">
+            <div class="board">
+              <div class="board-title">Find the Germs!</div>
+            </div>
+
+            <div class="desk">
+              <div class="desk-top"></div>
+              <div class="desk-leg left"></div>
+              <div class="desk-leg right"></div>
+            </div>
+
+            <div class="tablet">
+              <div class="tablet-screen"></div>
+            </div>
+
+            <div class="sink">
+              <div class="sink-bowl"></div>
+              <div class="sink-faucet"></div>
+            </div>
+
+            <div class="door">
+              <div class="door-window"></div>
+              <div class="door-knob"></div>
+            </div>
+
+            <div id="hotspotsLayer" class="hotspots-layer"></div>
+            <div id="effectsLayer" class="effects-layer"></div>
+          </div>
+
+          <div class="sparkle sp1">✨</div>
+          <div class="sparkle sp2">🦠</div>
+          <div class="sparkle sp3">⭐</div>
+        </section>
+
+        <section class="action-row-mini">
+          <button id="retryBtn" class="mini-btn" type="button">เริ่มรอบใหม่</button>
+          <button id="mistakeBtn" class="mini-btn warn" type="button">พลาดนิดหน่อย</button>
+        </section>
+
+        <section class="stats-grid">
+          <article class="stat-card">
+            <div class="stat-label">ความคืบหน้า</div>
+            <div id="cleanText" class="stat-value">0 / 0</div>
+            <div id="hintText" class="stat-sub">เริ่มเก็บคะแนนกันเลย</div>
+            <div id="comboPill" class="combo-pill">✨ เริ่มต้นได้ดี</div>
+          </article>
+
+          <article class="stat-card">
+            <div class="stat-label">เป้าหมายรอบนี้</div>
+            <div id="goalText" class="stat-value">เตรียมอุปกรณ์ให้ครบ</div>
+            <div id="subGoalText" class="stat-sub">ทำต่อเนื่องจะได้คะแนนเพิ่ม</div>
+          </article>
+
+          <article class="stat-card">
+            <div class="stat-label">ตัวชี้วัด</div>
+            <div class="metric-line">Best combo <strong id="bestComboValue">1</strong></div>
+            <div class="metric-line">Perfect <strong id="perfectValue">0</strong></div>
+            <div class="metric-line">Mode <strong id="modeValue">play</strong></div>
+            <div class="metric-line">Target <strong id="focusValue">-</strong></div>
+          </article>
+        </section>
+      </section>
+
+      <section id="summaryRoot"></section>
+      <section id="quizRoot"></section>
+    </main>
+  </div>
+
+  <script type="module" src="./germ-detective.js"></script>
+</body>
+</html>
