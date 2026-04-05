@@ -1,34 +1,63 @@
-(function(){
+(function () {
   'use strict';
 
   const W = window;
   const D = document;
 
-  const H = W.__GJ_HNZS_HOOKS__ || null;
-  const HCTX = H?.ctx || W.__GJ_RUN_CTX__ || {};
+  const GLOBAL_HOOKS = W.__GJ_HNZS_HOOKS__ || null;
+  const GLOBAL_CTX = GLOBAL_HOOKS?.ctx || W.__GJ_RUN_CTX__ || {};
 
   const state = {
+    mode: 'solo',
+
     score: 0,
     miss: 0,
     bestStreak: 0,
     streak: 0,
+
     done: 0,
     total: 0,
+
     ended: false,
     started: false,
     destroyed: false,
+    paused: false,
+
     summary: null
   };
 
   let mountRoot = null;
   let gameRoot = null;
+  let activeCtx = GLOBAL_CTX || {};
+  let activeHooks = GLOBAL_HOOKS || {};
+  let usingDemoFallback = false;
+  let legacyCoreApi = null;
 
   function safeCall(fn, arg) {
-    try { if (typeof fn === 'function') fn(arg); } catch (err) { console.warn(err); }
+    try {
+      if (typeof fn === 'function') fn(arg);
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
+  function getHooks() {
+    return activeHooks || GLOBAL_HOOKS || {};
+  }
+
+  function getCtx() {
+    return activeCtx || GLOBAL_CTX || {};
+  }
+
+  function dispatchWindowEvent(name, detail) {
+    try {
+      W.dispatchEvent(new CustomEvent(name, { detail }));
+    } catch {}
   }
 
   function emitScore(extra = {}) {
     const patch = {
+      mode: 'solo',
       score: state.score,
       miss: state.miss,
       bestStreak: state.bestStreak,
@@ -36,46 +65,43 @@
       ...extra
     };
 
-    safeCall(H?.onScore, patch);
-
-    try {
-      W.dispatchEvent(new CustomEvent('hha:score', { detail: patch }));
-    } catch {}
+    safeCall(getHooks().onScore, patch);
+    dispatchWindowEvent('hha:score', patch);
+    dispatchWindowEvent('gj:score', patch);
   }
 
   function emitMission(extra = {}) {
     const patch = {
+      mode: 'solo',
       done: state.done,
       total: state.total,
       ...extra
     };
 
-    safeCall(H?.onMission, patch);
-
-    try {
-      W.dispatchEvent(new CustomEvent('quest:update', { detail: patch }));
-    } catch {}
+    safeCall(getHooks().onMission, patch);
+    dispatchWindowEvent('quest:update', patch);
+    dispatchWindowEvent('gj:goal', patch);
   }
 
   function emitMetrics(extra = {}) {
     const patch = {
+      mode: 'solo',
       score: state.score,
       miss: state.miss,
       bestStreak: state.bestStreak,
       streak: state.streak,
       done: state.done,
       total: state.total,
+      paused: state.paused,
+      started: state.started,
       ...extra
     };
 
-    safeCall(H?.onMetrics, patch);
+    safeCall(getHooks().onMetrics, patch);
   }
 
-  function emitEnd(summary = {}) {
-    if (state.ended) return;
-    state.ended = true;
-
-    const normalized = {
+  function normalizeEndSummary(summary = {}) {
+    return {
       mode: 'solo',
       success: !!summary.success,
       score: Number(summary.score ?? state.score ?? 0),
@@ -90,33 +116,24 @@
       nextAction: summary.nextAction || '',
       metrics: summary.metrics || {}
     };
+  }
 
+  function emitEnd(summary = {}) {
+    if (state.ended) return;
+    state.ended = true;
+
+    const normalized = normalizeEndSummary(summary);
     state.summary = normalized;
     W.__GJ_LAST_SUMMARY__ = normalized;
 
-    safeCall(H?.onEnd, normalized);
-
-    try {
-      W.dispatchEvent(new CustomEvent('hha:end', { detail: normalized }));
-    } catch {}
-
-    try {
-      W.dispatchEvent(new CustomEvent('gj:end', { detail: normalized }));
-    } catch {}
+    safeCall(getHooks().onEnd, normalized);
+    dispatchWindowEvent('hha:end', normalized);
+    dispatchWindowEvent('gj:end', normalized);
   }
 
   function setScore(nextScore) {
     state.score = Number(nextScore || 0);
     emitScore();
-    try {
-      W.dispatchEvent(new CustomEvent('gj:score', {
-        detail: {
-          score: state.score,
-          miss: state.miss,
-          bestStreak: state.bestStreak
-        }
-      }));
-    } catch {}
   }
 
   function patchScore(delta) {
@@ -137,19 +154,10 @@
     state.done = Number(done || 0);
     state.total = Number(total || 0);
     emitMission();
-
-    try {
-      W.dispatchEvent(new CustomEvent('gj:goal', {
-        detail: {
-          done: state.done,
-          total: state.total
-        }
-      }));
-    } catch {}
   }
 
   function resolveMount(mount) {
-    return mount || H?.mount || D.getElementById('gameMount') || D.body;
+    return mount || getHooks().mount || D.getElementById('gameMount') || D.body;
   }
 
   function renderShell(root) {
@@ -159,19 +167,110 @@
     return root.querySelector('.gj-solo-legacy-root');
   }
 
-  function bootExistingGameCore(root, ctx) {
-    // IMPORTANT:
-    // เอา init/gameplay/core เดิมของ goodjunk-solo-phaseboss-v2.js มาเสียบในจุดนี้
-    // แล้วเรียก hooks ด้านล่างเมื่อค่าเปลี่ยนจริง
+  function showStatus(text) {
+    const el = gameRoot?.querySelector('[data-role="status"]');
+    if (el) el.textContent = String(text || '');
+  }
 
-    // ตัวอย่างการ bridge กับ logic เดิม:
-    // onGameScoreChange((score) => setScore(score));
-    // onMissChange((miss) => setMiss(miss));
-    // onBestStreakChange((best) => setBestStreak(best));
-    // onMissionProgress((done,total) => setMission(done,total));
-    // onGameEnd((legacySummary) => emitEnd(mapLegacySummary(legacySummary)));
+  function updateHud() {
+    const scoreEl = gameRoot?.querySelector('[data-role="score"]');
+    const missionEl = gameRoot?.querySelector('[data-role="mission"]');
+    const streakEl = gameRoot?.querySelector('[data-role="streak"]');
 
-    // ===== DEMO PLACEHOLDER =====
+    if (scoreEl) scoreEl.textContent = `Score ${state.score}`;
+    if (missionEl) missionEl.textContent = `${state.done}/${state.total}`;
+    if (streakEl) streakEl.textContent = `Best ${state.bestStreak}`;
+  }
+
+  function buildSummary() {
+    const accuracy = state.done + state.miss > 0
+      ? Math.round((state.done / (state.done + state.miss)) * 100)
+      : 0;
+
+    const success = state.total > 0 ? state.done >= state.total : false;
+
+    return {
+      mode: 'solo',
+      success,
+      score: state.score,
+      stars: success ? 3 : 1,
+      accuracy,
+      miss: state.miss,
+      bestStreak: state.bestStreak,
+      missionClear: state.done,
+      missionTotal: state.total,
+      rewards: success ? ['boss-clear'] : ['solo-finish'],
+      coachFeedback: success
+        ? ['ผ่าน phase boss ได้ดีมาก', 'แยกของดีและของไม่ดีได้แม่นขึ้นแล้ว']
+        : ['ลองลด miss และรักษา streak ให้นานขึ้น'],
+      nextAction: success
+        ? 'ต่อยอดไปโหมด duet หรือ coop ได้เลย'
+        : 'ลองเล่น phase boss อีกครั้งเพื่อเคลียร์เป้าหมายให้ครบ',
+      metrics: {
+        score: state.score,
+        miss: state.miss,
+        bestStreak: state.bestStreak,
+        missionClear: state.done,
+        missionTotal: state.total
+      }
+    };
+  }
+
+  function bindDemoButtons() {
+    gameRoot.querySelector('#gjScoreBtn')?.addEventListener('click', () => {
+      if (state.ended) return;
+      state.streak += 1;
+      patchScore(100);
+      setBestStreak(state.streak);
+      updateHud();
+    });
+
+    gameRoot.querySelector('#gjMissBtn')?.addEventListener('click', () => {
+      if (state.ended) return;
+      state.streak = 0;
+      setMiss(state.miss + 1);
+      emitScore();
+      updateHud();
+    });
+
+    gameRoot.querySelector('#gjMissionBtn')?.addEventListener('click', () => {
+      if (state.ended) return;
+      setMission(state.done + 1, state.total);
+      updateHud();
+    });
+
+    gameRoot.querySelector('#gjEndBtn')?.addEventListener('click', () => {
+      emitEnd(buildSummary());
+    });
+  }
+
+  function findLegacyBootFn() {
+    return (
+      W.createGoodJunkSoloCore ||
+      W.bootGoodJunkSoloCore ||
+      W.__GJ_SOLO_CORE_BOOT__ ||
+      null
+    );
+  }
+
+  function buildLegacyBridgeApi() {
+    return {
+      setScore,
+      patchScore,
+      setMiss,
+      setBestStreak,
+      setMission,
+      emitEnd,
+      emitMetrics,
+      updateHud,
+      showStatus,
+      getState: () => ({ ...state })
+    };
+  }
+
+  function bootDemoFallback(root, ctx) {
+    usingDemoFallback = true;
+
     state.started = true;
     state.total = 10;
     emitMission();
@@ -181,86 +280,131 @@
         <div style="max-width:760px;width:100%;padding:24px;border-radius:28px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#eef5ff;font-family:system-ui,sans-serif">
           <h2 style="margin:0 0 10px">GoodJunk Solo Legacy Bridge</h2>
           <p style="margin:0 0 18px;color:#d8e6ff">จุดนี้ต้องแทนด้วย gameplay core เดิมของ goodjunk-solo-phaseboss-v2.js โดยตรง</p>
+
+          <div style="display:grid;gap:10px;grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:14px">
+            <div style="padding:12px;border-radius:16px;background:rgba(255,255,255,.06)">
+              <strong style="display:block;margin-bottom:4px">Score</strong>
+              <span data-role="score">Score 0</span>
+            </div>
+            <div style="padding:12px;border-radius:16px;background:rgba(255,255,255,.06)">
+              <strong style="display:block;margin-bottom:4px">Mission</strong>
+              <span data-role="mission">0/0</span>
+            </div>
+            <div style="padding:12px;border-radius:16px;background:rgba(255,255,255,.06)">
+              <strong style="display:block;margin-bottom:4px">Best Streak</strong>
+              <span data-role="streak">Best 0</span>
+            </div>
+          </div>
+
           <div style="display:flex;gap:10px;flex-wrap:wrap">
             <button id="gjScoreBtn">+100 Score</button>
             <button id="gjMissBtn">+1 Miss</button>
             <button id="gjMissionBtn">+1 Mission</button>
             <button id="gjEndBtn">End Game</button>
           </div>
-          <div style="margin-top:14px;color:#c7daf8;font-size:14px">
+
+          <div data-role="status" style="margin-top:14px;color:#c7daf8;font-size:14px">
             pid: ${escapeHtml(ctx?.pid || 'anon')} • diff: ${escapeHtml(ctx?.diff || 'normal')} • time: ${escapeHtml(ctx?.time || 90)}
           </div>
         </div>
       </div>
     `;
 
-    root.querySelector('#gjScoreBtn')?.addEventListener('click', () => {
-      state.streak += 1;
-      patchScore(100);
-      setBestStreak(state.streak);
-    });
+    bindDemoButtons();
+    updateHud();
+  }
 
-    root.querySelector('#gjMissBtn')?.addEventListener('click', () => {
-      state.streak = 0;
-      setMiss(state.miss + 1);
-      emitScore();
-    });
+  function bootExistingGameCore(root, ctx) {
+    const legacyBoot = findLegacyBootFn();
 
-    root.querySelector('#gjMissionBtn')?.addEventListener('click', () => {
-      setMission(state.done + 1, state.total);
-    });
+    if (typeof legacyBoot === 'function') {
+      usingDemoFallback = false;
 
-    root.querySelector('#gjEndBtn')?.addEventListener('click', () => {
-      emitEnd({
-        success: state.done >= state.total,
-        score: state.score,
-        stars: state.done >= state.total ? 3 : 1,
-        accuracy: state.done + state.miss > 0 ? Math.round((state.done / (state.done + state.miss)) * 100) : 0,
-        miss: state.miss,
-        bestStreak: state.bestStreak,
-        missionClear: state.done,
-        missionTotal: state.total,
-        rewards: ['solo-legacy-bridge'],
-        coachFeedback: ['เสียบ gameplay core เดิมเข้าจุดนี้'],
-        nextAction: 'แทน demo buttons ด้วยระบบเกมเดิมทั้งหมด'
+      const bridge = buildLegacyBridgeApi();
+
+      const api = legacyBoot({
+        mount: root,
+        root,
+        ctx,
+        hooks: bridge,
+        onScore: (patch = {}) => {
+          if (patch.score != null) setScore(patch.score);
+          if (patch.miss != null) setMiss(patch.miss);
+          if (patch.bestStreak != null) setBestStreak(patch.bestStreak);
+          if (patch.streak != null) state.streak = Number(patch.streak || 0);
+          updateHud();
+        },
+        onMission: (patch = {}) => {
+          setMission(patch.done, patch.total);
+          updateHud();
+        },
+        onEnd: (summary = {}) => {
+          emitEnd(summary);
+        }
       });
-    });
-    // ===== END DEMO PLACEHOLDER =====
+
+      if (api && typeof api === 'object') {
+        legacyCoreApi = api;
+      }
+
+      emitMetrics({ source: 'legacy-core' });
+      return;
+    }
+
+    bootDemoFallback(root, ctx);
   }
 
   function start() {
     state.started = true;
+    if (legacyCoreApi && typeof legacyCoreApi.start === 'function') {
+      legacyCoreApi.start();
+    }
+    updateHud();
   }
 
   function pause() {
-    // map ไปยังระบบ pause เดิม ถ้ามี
+    state.paused = true;
+    if (legacyCoreApi && typeof legacyCoreApi.pause === 'function') {
+      legacyCoreApi.pause();
+    }
   }
 
   function resume() {
-    // map ไปยังระบบ resume เดิม ถ้ามี
+    state.paused = false;
+    if (legacyCoreApi && typeof legacyCoreApi.resume === 'function') {
+      legacyCoreApi.resume();
+    }
   }
 
   function destroy() {
     state.destroyed = true;
+
+    if (legacyCoreApi && typeof legacyCoreApi.destroy === 'function') {
+      legacyCoreApi.destroy();
+    }
+
     if (mountRoot && gameRoot && mountRoot.contains(gameRoot)) {
       mountRoot.removeChild(gameRoot);
     }
   }
 
   function getSummary() {
-    return state.summary || {
-      mode: 'solo',
-      score: state.score,
-      miss: state.miss,
-      bestStreak: state.bestStreak,
-      missionClear: state.done,
-      missionTotal: state.total,
-      success: false
-    };
+    if (legacyCoreApi && typeof legacyCoreApi.getSummary === 'function') {
+      const summary = legacyCoreApi.getSummary();
+      if (summary) return summary;
+    }
+
+    return state.summary || buildSummary();
   }
 
   function getMetrics() {
+    if (legacyCoreApi && typeof legacyCoreApi.getMetrics === 'function') {
+      const metrics = legacyCoreApi.getMetrics();
+      if (metrics) return metrics;
+    }
+
     return {
+      mode: 'solo',
       score: state.score,
       miss: state.miss,
       bestStreak: state.bestStreak,
@@ -269,10 +413,20 @@
     };
   }
 
-  async function createGame({ mount, ctx } = {}) {
-    mountRoot = resolveMount(mount);
+  async function createGame(args = {}) {
+    const localCtx = args.ctx || GLOBAL_CTX || {};
+    activeCtx = localCtx;
+
+    activeHooks = {
+      ...(GLOBAL_HOOKS || {}),
+      ...(args || {}),
+      ctx: localCtx,
+      mount: args.mount || args.root || GLOBAL_HOOKS?.mount || null
+    };
+
+    mountRoot = resolveMount(args.mount || args.root);
     gameRoot = renderShell(mountRoot);
-    bootExistingGameCore(gameRoot, ctx || HCTX || {});
+    bootExistingGameCore(gameRoot, localCtx);
 
     return {
       start,
