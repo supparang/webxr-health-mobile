@@ -5,679 +5,832 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk Coop Run</title>
   <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="../favicon.ico" />
+
   <style>
     :root{
-      --sky1:#eafcff;
-      --sky2:#c9f1ff;
-      --sky3:#fff7d6;
-      --card:#fffef9;
-      --card2:#f7fff4;
-      --line:#c8e7ef;
+      --sky1:#dff4ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d8;
+      --panel:#fffdf8ee;
+      --panel-2:#ffffffd9;
+      --stroke:#bfe3f2;
       --text:#4d4a42;
-      --muted:#7b7a72;
-      --purple:#7a63c7;
-      --green:#83dc5f;
-      --green2:#57c23f;
-      --blue:#90d9ff;
-      --blue2:#5dbcf4;
-      --yellow:#ffd96d;
-      --orange:#ffb94d;
-      --shadow:0 18px 40px rgba(86,155,194,.16);
-      --sat:env(safe-area-inset-top,0px);
-      --sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);
-      --sal:env(safe-area-inset-left,0px);
+      --muted:#6b7280;
+
+      --pink:#ff8fc7;
+      --pink-2:#ffc5e3;
+      --blue:#7fcfff;
+      --blue-2:#58b7f5;
+      --green:#7ed957;
+      --green-2:#58c33f;
+      --good:#22c55e;
+      --bad:#ef4444;
+      --gold:#f59e0b;
+      --violet:#cdb9ff;
+
+      --shadow:0 18px 40px rgba(0,0,0,.12);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
 
     *{ box-sizing:border-box; }
     html,body{
       margin:0;
       min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans",Arial,sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
-        radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
-      overflow:hidden;
-    }
-    body{ min-height:100dvh; }
-
-    #app{
-      position:relative;
-      width:100vw;
-      height:100dvh;
-      overflow:hidden;
-      isolation:isolate;
-    }
-    #gameMount{
-      position:absolute;
-      inset:0;
-      z-index:1;
-      overflow:hidden;
+        radial-gradient(circle at 10% 0%, rgba(127,207,255,.50), transparent 24%),
+        radial-gradient(circle at 88% 0%, rgba(131,220,95,.28), transparent 26%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 58%, var(--sky3));
     }
 
-    .shell{
-      position:absolute;
-      inset:0;
-      display:grid;
-      grid-template-rows:auto 1fr auto;
+    body{ overflow:hidden; }
+
+    .page{
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
       gap:12px;
       padding:
-        calc(12px + var(--sat))
-        calc(12px + var(--sar))
+        calc(10px + var(--sat))
+        calc(10px + var(--sar))
         calc(12px + var(--sab))
-        calc(12px + var(--sal));
-      pointer-events:none;
-      z-index:2;
+        calc(10px + var(--sal));
     }
 
-    .top{
+    .topbar{
       display:flex;
+      align-items:center;
       justify-content:space-between;
       gap:10px;
       flex-wrap:wrap;
-      align-items:flex-start;
-    }
-
-    .hero-card{
-      max-width:min(780px,100%);
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:28px;
-      box-shadow:var(--shadow);
-      padding:18px 16px;
       position:relative;
-      overflow:hidden;
-    }
-    .hero-card::before{
-      content:"";
-      position:absolute;
-      left:-36px; top:-36px;
-      width:140px; height:140px;
-      border-radius:999px;
-      background:rgba(127,207,255,.20);
-      filter:blur(8px);
-    }
-    .hero-card::after{
-      content:"";
-      position:absolute;
-      right:-26px; bottom:-26px;
-      width:120px; height:120px;
-      border-radius:999px;
-      background:rgba(255,217,109,.20);
-      filter:blur(8px);
+      z-index:40;
     }
 
-    .kicker{
-      position:relative;
-      z-index:1;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:#efe8ff;
-      border:2px solid var(--line);
-      color:var(--purple);
-      font-size:13px;
-      font-weight:1000;
-      margin-bottom:10px;
-    }
-
-    h1{
-      position:relative;
-      z-index:1;
-      margin:0 0 6px;
-      font-size:clamp(28px,5vw,42px);
-      line-height:1.05;
-      font-weight:1000;
-      color:var(--purple);
-      text-shadow:0 2px 0 #fff;
-    }
-
-    .sub{
-      position:relative;
-      z-index:1;
-      margin:0;
-      color:var(--muted);
-      line-height:1.7;
-      font-size:14px;
-      font-weight:900;
-      max-width:720px;
-    }
-
-    .side{
-      display:grid;
-      gap:8px;
-      align-content:start;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 14px;
-      border-radius:999px;
-      border:2px solid var(--line);
-      background:#fff;
-      color:#6c6a61;
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-      width:max-content;
-      max-width:100%;
-    }
-
-    .status-card{
-      align-self:end;
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:24px;
-      box-shadow:var(--shadow);
-      padding:12px 14px;
-      color:var(--muted);
-      font-size:13px;
-      font-weight:900;
-      line-height:1.6;
-      pointer-events:auto;
-      max-width:min(920px,100%);
-    }
-
-    .status-title{
-      color:var(--purple);
-      font-size:14px;
-      font-weight:1000;
-      margin-bottom:4px;
-    }
-
-    .status-text{
-      color:#6f6c65;
-      font-size:13px;
-      line-height:1.7;
-      font-weight:1000;
-    }
-
-    .status-minirow{
-      margin-top:10px;
+    .brand{
       display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .status-mini{
-      display:inline-flex;
       align-items:center;
-      gap:6px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#6d6a62;
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-
-    .debug{
-      margin-top:8px;
-      padding-top:8px;
-      border-top:1px dashed rgba(191,227,242,.95);
-      white-space:pre-wrap;
-      word-break:break-word;
-      font-size:11px;
-      color:#8a8a82;
-      max-height:160px;
-      overflow:auto;
-    }
-
-    .summary-overlay{
-      position:absolute;
-      inset:0;
-      z-index:30;
-      display:grid;
-      place-items:center;
-      padding:
-        calc(16px + var(--sat))
-        calc(16px + var(--sar))
-        calc(16px + var(--sab))
-        calc(16px + var(--sal));
-      background:rgba(223,244,255,.72);
-      backdrop-filter:blur(10px);
-      pointer-events:auto;
-    }
-    .summary-overlay[hidden]{
-      display:none !important;
-    }
-
-    .summary-card{
-      width:min(960px,100%);
-      max-height:88dvh;
-      overflow:auto;
-      background:linear-gradient(180deg,#fffef8,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:30px;
-      box-shadow:0 28px 70px rgba(86,155,194,.24);
-      padding:18px;
-    }
-
-    .summary-kicker{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:#efe8ff;
-      border:2px solid var(--line);
-      color:var(--purple);
-      font-size:13px;
-      font-weight:1000;
-      margin-bottom:10px;
-    }
-
-    .summary-hero{
-      display:grid;
-      grid-template-columns:96px 1fr;
-      gap:14px;
-      align-items:center;
-      margin-bottom:14px;
-      padding:14px;
-      border-radius:24px;
-      background:linear-gradient(180deg,#fffdf6,#f6fbff);
-      border:2px solid #cde7f4;
-      box-shadow:0 10px 24px rgba(86,155,194,.10);
-    }
-
-    .summary-badge{
-      width:96px;
-      height:96px;
-      border-radius:28px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#fdf7d8,#f5fbff);
-      border:3px solid #bfe3f2;
-      font-size:42px;
-      box-shadow:0 10px 20px rgba(86,155,194,.10);
-    }
-
-    .summary-hero-title{
-      margin:0 0 6px;
-      color:var(--purple);
-      font-size:clamp(24px,4vw,36px);
-      line-height:1.08;
-      font-weight:1000;
-      text-shadow:0 2px 0 #fff;
-    }
-
-    .summary-hero-sub{
-      margin:0;
-      color:#6d6b63;
-      font-size:14px;
-      line-height:1.65;
-      font-weight:900;
-    }
-
-    .summary-title{
-      margin:0 0 6px;
-      text-align:center;
-      color:var(--purple);
-      font-size:clamp(28px,5vw,42px);
-      line-height:1.05;
-      font-weight:1000;
-      text-shadow:0 2px 0 #fff;
-    }
-
-    .summary-sub{
-      margin:0;
-      text-align:center;
-      color:#6d6b63;
-      font-size:14px;
-      line-height:1.7;
-      font-weight:900;
-    }
-
-    .summary-stars{
-      display:flex;
-      justify-content:center;
       gap:10px;
-      margin:12px 0 14px;
-      flex-wrap:wrap;
+      padding:10px 12px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:var(--panel-2);
+      box-shadow:var(--shadow);
     }
 
-    .summary-star{
-      font-size:48px;
-      line-height:1;
-      filter:drop-shadow(0 6px 12px rgba(0,0,0,.12));
-    }
-    .summary-star.off{
-      opacity:.22;
-      filter:none;
+    .brand-title{
+      font-size:16px;
+      font-weight:1100;
+      line-height:1.1;
     }
 
-    .summary-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
-      margin-top:0;
-    }
-
-    .summary-item{
-      background:#fff;
-      border:2px solid #cde7f4;
-      border-radius:22px;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-      padding:14px;
-    }
-
-    .summary-label{
-      color:#79aeca;
+    .brand-sub{
+      margin-top:2px;
+      color:var(--muted);
       font-size:12px;
-      font-weight:1000;
-      margin-bottom:6px;
-      line-height:1.35;
+      font-weight:900;
     }
 
-    .summary-value{
-      color:#4d4a42;
-      font-size:clamp(20px,3.5vw,32px);
-      font-weight:1000;
-      line-height:1.18;
-      word-break:break-word;
-    }
-
-    .summary-actions{
+    .top-actions{
       display:flex;
-      gap:10px;
+      gap:8px;
       flex-wrap:wrap;
-      margin-top:16px;
+      align-items:center;
     }
 
     .btn{
       appearance:none;
-      border:0;
-      cursor:pointer;
-      border-radius:18px;
-      padding:13px 18px;
+      border:1px solid var(--stroke);
+      background:#ffffffd8;
+      color:var(--text);
+      border-radius:14px;
+      min-height:42px;
+      padding:10px 12px;
+      font:inherit;
       font-weight:1000;
-      font-size:15px;
-      transition:.12s ease;
-      box-shadow:0 10px 20px rgba(86,155,194,.14);
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      box-shadow:var(--shadow);
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
     }
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
-    .btn:active{ transform:translateY(0); }
 
-    .btn-primary{ background:linear-gradient(180deg,var(--green),var(--green2)); color:#fffef9; }
-    .btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
-    .btn-warn{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#6d4e00; }
-    .btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
+    .btn.primary{
+      background:linear-gradient(180deg,var(--pink),var(--pink-2));
+      color:#6b214e;
+    }
 
-    .summary-debug{
-      margin-top:14px;
-      padding-top:10px;
-      border-top:1px dashed #cde7f4;
-      color:#8a887f;
-      font-size:11px;
+    .btn.good{
+      background:linear-gradient(180deg,var(--green),#a7eb8f);
+      color:#134e1f;
+    }
+
+    .btn.ghost{
+      color:var(--muted);
+      background:#ffffffcc;
+    }
+
+    .run-shell{
+      display:grid;
+      grid-template-columns:minmax(290px,380px) 1fr;
+      gap:12px;
+      min-height:calc(100vh - 96px);
+      align-items:start;
+    }
+
+    @media (max-width:980px){
+      .run-shell{ grid-template-columns:1fr; }
+    }
+
+    .coop-hud{
+      position:relative;
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:var(--shadow);
+      padding:14px;
+      display:grid;
+      gap:12px;
+      z-index:20;
+      transition:max-height .18s ease;
+    }
+
+    .coop-hud-toolbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+    }
+
+    .coop-hud-toggle{
+      min-width:40px;
+      min-height:40px;
+      border-radius:12px;
+      border:1px solid var(--stroke);
+      background:#ffffffd8;
+      color:var(--text);
+      font-size:18px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .coach-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:36px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid #d8f0cc;
+      background:#f2fff1;
+      color:#317245;
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .coop-top{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .coop-pill{
+      display:inline-flex;
+      align-items:center;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:#ffffffcf;
+      color:var(--text);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .coop-score{
+      border-radius:20px;
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg,#f7fff5,#fff);
+      padding:14px;
+      text-align:center;
+    }
+
+    .coop-score-label{
+      font-size:12px;
+      font-weight:1000;
+      color:var(--muted);
+      letter-spacing:.08em;
+    }
+
+    .coop-score-value{
+      margin-top:6px;
+      font-size:40px;
+      line-height:1;
+      font-weight:1100;
+      color:#2f7a38;
+    }
+
+    .coop-stats{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .coop-stat,.coop-mini{
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:#ffffffcc;
+      padding:12px;
+      text-align:center;
+    }
+
+    .coop-stat-k,.coop-mini-k{
+      font-size:12px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+
+    .coop-stat-v{
+      margin-top:6px;
+      font-size:22px;
+      line-height:1;
+      font-weight:1100;
+      color:#244f6d;
+    }
+
+    .coop-panel{
+      border-radius:20px;
+      border:1px solid var(--stroke);
+      background:#ffffffc9;
+      padding:12px;
+      display:grid;
+      gap:12px;
+    }
+
+    .coop-item{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+
+    .coop-item-icon{
+      width:64px;
+      height:64px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:#fff;
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+    }
+
+    .emoji{
+      font-size:34px;
+      line-height:1;
+    }
+
+    .coop-item-title{
+      font-size:16px;
+      font-weight:1100;
+      color:#2f7a38;
+    }
+
+    .coop-item-sub{
+      margin-top:4px;
+      font-size:13px;
       line-height:1.6;
+      color:var(--muted);
       font-weight:900;
-      white-space:pre-wrap;
-      word-break:break-word;
-      max-height:180px;
+    }
+
+    .coop-mini-stats{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .coop-mini-v{
+      margin-top:4px;
+      font-size:20px;
+      line-height:1;
+      font-weight:1100;
+      color:#1f5d73;
+    }
+
+    .coop-tip{
+      border-radius:16px;
+      border:1px dashed var(--stroke);
+      background:#f7fff8;
+      padding:10px 12px;
+      color:#2f7a38;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:1000;
+      min-height:46px;
+    }
+
+    .coop-goal{
+      display:grid;
+      gap:8px;
+    }
+
+    .coop-goal-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+
+    .coop-goal-title{
+      font-size:12px;
+      font-weight:1100;
+      color:var(--muted);
+      letter-spacing:.08em;
+    }
+
+    .coop-goal-value{
+      font-size:18px;
+      line-height:1;
+      font-weight:1100;
+      color:#244f6d;
+    }
+
+    .coop-bar,.coop-bar-sub{
+      height:12px;
+      border-radius:999px;
+      background:rgba(191,227,242,.5);
+      overflow:hidden;
+    }
+
+    .coop-bar-fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--green),#a8ec8f);
+      transition:width .16s linear;
+    }
+
+    .coop-bar-sub-fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--blue),#b9ecff);
+      transition:width .16s linear;
+    }
+
+    .stage-wrap{
+      min-width:0;
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:#ffffffba;
+      box-shadow:var(--shadow);
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      min-height:640px;
+      position:relative;
+    }
+
+    .stage-head{
+      padding:14px 16px;
+      border-bottom:1px solid var(--stroke);
+      color:#2f7a38;
+      font-size:14px;
+      font-weight:1100;
+      letter-spacing:.05em;
+      background:#f7fff8;
+    }
+
+    .stage-inner{
+      position:relative;
+      flex:1 1 auto;
+      min-height:580px;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(255,255,255,.8), transparent 18%),
+        radial-gradient(circle at 80% 8%, rgba(255,255,255,.72), transparent 18%),
+        linear-gradient(180deg,#aee6ff 0%, #d9f5ff 54%, #fff5cf 100%);
+    }
+
+    #gameMount{
+      position:relative;
+      width:100%;
+      height:100%;
+      min-height:580px;
+      overflow:hidden;
+    }
+
+    .stage-cloud{
+      position:absolute;
+      background:#fff;
+      border-radius:999px;
+      box-shadow:0 8px 18px rgba(0,0,0,.06);
+      opacity:.8;
+      pointer-events:none;
+    }
+
+    .stage-cloud.c1{ width:130px;height:42px;left:4%;top:8%; }
+    .stage-cloud.c2{ width:95px;height:34px;left:72%;top:11%; }
+    .stage-cloud.c3{ width:110px;height:36px;left:38%;top:18%; }
+
+    .stage-ground{
+      position:absolute;
+      left:0; right:0; bottom:0;
+      height:120px;
+      background:
+        radial-gradient(circle at 20% 40%, rgba(126,217,87,.34), transparent 18%),
+        radial-gradient(circle at 72% 44%, rgba(126,217,87,.28), transparent 18%),
+        linear-gradient(180deg,#b3f28f,#88d96b);
+      border-top:1px solid rgba(88,195,63,.26);
+      pointer-events:none;
+    }
+
+    .coop-result-mount{
+      position:fixed;
+      inset:0;
+      z-index:99999;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(245,252,255,.96);
       overflow:auto;
     }
 
-    @media (max-width:780px){
-      .top{ align-items:stretch; }
-      .side{ width:100%; }
-      .pill{ width:100%; justify-content:center; }
-      .summary-grid{ grid-template-columns:1fr; }
-      .summary-actions .btn{ flex:1 1 100%; }
+    @media (max-width:760px){
+      body{ overflow:auto; }
+      .coop-result-mount{
+        padding:10px;
+        align-items:flex-end;
+      }
     }
   </style>
 </head>
 <body>
-  <div id="app">
-    <div id="gameMount"></div>
-
-    <div class="shell">
-      <div class="top">
-        <div class="hero-card">
-          <div class="kicker">🤝 GOODJUNK COOP</div>
-          <h1>Team Food Mission!</h1>
-          <p class="sub">
-            ช่วยกันเก็บอาหารดีให้ได้มากที่สุดของทีม รอบนี้ไม่ได้แข่งกันเอง แต่รวมคะแนนของทุกคนเข้าด้วยกัน
-          </p>
-        </div>
-
-        <div class="side">
-          <div class="pill" id="pillRoom">ROOM • -</div>
-          <div class="pill" id="pillPlayer">HERO • -</div>
-          <div class="pill" id="pillRole">ROLE • player</div>
-          <div class="pill" id="pillDiff">LEVEL • normal</div>
-          <div class="pill" id="pillTime">TIME • 120</div>
-          <div class="pill" id="pillTeam">TEAM • 0</div>
+  <div class="page">
+    <div class="topbar">
+      <div class="brand">
+        <div style="font-size:20px;">🤝</div>
+        <div>
+          <div class="brand-title">GoodJunk • Coop Run</div>
+          <div class="brand-sub">ช่วยกันเก็บของดี ทำคะแนนรวมของทีม</div>
         </div>
       </div>
 
-      <div></div>
-
-      <div class="status-card" id="statusCard">
-        <div class="status-title" id="statusTitle">กำลังเตรียม Coop Run…</div>
-        <div class="status-text" id="statusText">กำลังโหลด core game และเชื่อมห้องของทีม</div>
-
-        <div class="status-minirow">
-          <div class="status-mini" id="miniMode">MODE • COOP</div>
-          <div class="status-mini" id="miniRoom">ROOM • -</div>
-          <div class="status-mini" id="miniPlayer">HERO • -</div>
-          <div class="status-mini" id="miniState">STATE • waiting</div>
-        </div>
-
-        <div class="debug" id="debugInfo"></div>
+      <div class="top-actions">
+        <a class="btn ghost" id="btnBackLauncher" href="./goodjunk-multi.html">← Launcher</a>
+        <a class="btn primary" id="btnGoHub" href="../hub.html">🏠 Hub</a>
       </div>
     </div>
 
-    <div class="summary-overlay" id="summaryOverlay" hidden>
-      <div class="summary-card">
-        <div class="summary-kicker">🤝 GOODJUNK COOP SUMMARY</div>
+    <div class="run-shell">
+      <div id="coopHudWrap" class="coop-hud">
+        <div class="coop-hud-toolbar">
+          <div class="coach-badge" id="coopCoachBadge">🤖 AI Coach</div>
+          <button id="coopHudToggle" class="coop-hud-toggle" type="button">⋯</button>
+        </div>
 
-        <div class="summary-hero">
-          <div class="summary-badge" id="summaryBadge">🤝</div>
-          <div>
-            <h3 class="summary-hero-title" id="summaryHeroTitle">Team Hero!</h3>
-            <p class="summary-hero-sub" id="summaryHeroSub">ทีมของเธอช่วยกันเก็บอาหารดีได้ยอดเยี่ยมมาก</p>
+        <div class="coop-top">
+          <div class="coop-pill">COOP</div>
+          <div class="coop-pill" id="coopRoomPill">ห้อง -</div>
+        </div>
+
+        <div class="coop-score">
+          <div class="coop-score-label">TEAM SCORE</div>
+          <div class="coop-score-value" id="coopTeamScoreValue">0</div>
+        </div>
+
+        <div class="coop-stats">
+          <div class="coop-stat">
+            <div class="coop-stat-k">เวลา</div>
+            <div class="coop-stat-v" id="coopTimeValue">0:00</div>
+          </div>
+          <div class="coop-stat">
+            <div class="coop-stat-k">Miss</div>
+            <div class="coop-stat-v" id="coopMissValue">0</div>
+          </div>
+          <div class="coop-stat">
+            <div class="coop-stat-k">Contribution</div>
+            <div class="coop-stat-v" id="coopContributionValue">0</div>
           </div>
         </div>
 
-        <h2 class="summary-title" id="summaryTitle">Great Teamwork!</h2>
-        <p class="summary-sub" id="summarySub">จบรอบแล้ว มาดูผลรวมของทีมกัน</p>
+        <div class="coop-panel">
+          <div class="coop-item">
+            <div class="coop-item-icon" id="coopItemIcon">
+              <div class="emoji" id="coopItemEmoji">🥗</div>
+            </div>
+            <div>
+              <div class="coop-item-title" id="coopItemTitle">เป้าหมายของทีม</div>
+              <div class="coop-item-sub" id="coopItemSub">ช่วยกันเก็บอาหารดีให้มากที่สุด แล้วทำคะแนนรวมให้ถึงเป้าหมาย</div>
+            </div>
+          </div>
 
-        <div class="summary-stars" id="summaryStars"></div>
+          <div class="coop-mini-stats">
+            <div class="coop-mini">
+              <div class="coop-mini-k">Good hit</div>
+              <div class="coop-mini-v" id="coopGoodHitValue">0</div>
+            </div>
+            <div class="coop-mini">
+              <div class="coop-mini-k">Junk hit</div>
+              <div class="coop-mini-v" id="coopJunkHitValue">0</div>
+            </div>
+            <div class="coop-mini">
+              <div class="coop-mini-k">Good missed</div>
+              <div class="coop-mini-v" id="coopGoodMissValue">0</div>
+            </div>
+          </div>
 
-        <div class="summary-grid" id="summaryGrid"></div>
+          <div class="coop-tip" id="coopTipText">กำลังเตรียมเชื่อมห้อง Coop...</div>
 
-        <div class="summary-actions">
-          <button class="btn btn-primary" id="btnReplay" type="button">เล่นใหม่</button>
-          <button class="btn btn-copy" id="btnCopyRoom" type="button">คัดลอกห้อง</button>
-          <button class="btn btn-warn" id="btnExport" type="button">Export JSON</button>
-          <button class="btn btn-ghost" id="btnBackHub" type="button">กลับ HUB</button>
+          <div class="coop-goal">
+            <div class="coop-goal-head">
+              <div class="coop-goal-title">TEAM GOAL</div>
+              <div class="coop-goal-value" id="coopGoalValue">360</div>
+            </div>
+            <div class="coop-bar">
+              <div class="coop-bar-fill" id="coopGoalFill"></div>
+            </div>
+            <div class="coop-bar-sub">
+              <div class="coop-bar-sub-fill" id="coopGoalSubFill"></div>
+            </div>
+          </div>
+
+          <div class="coop-mini-stats">
+            <div class="coop-mini">
+              <div class="coop-mini-k">Players</div>
+              <div class="coop-mini-v" id="coopPlayerCountValue">0</div>
+            </div>
+            <div class="coop-mini">
+              <div class="coop-mini-k">Ready</div>
+              <div class="coop-mini-v" id="coopReadyCountValue">0</div>
+            </div>
+            <div class="coop-mini">
+              <div class="coop-mini-k">Rank / Star</div>
+              <div class="coop-mini-v" id="coopRankValue">-</div>
+            </div>
+          </div>
         </div>
-
-        <div class="summary-debug" id="summaryDebug"></div>
       </div>
+
+      <section class="stage-wrap">
+        <div class="stage-head">COOP GAME STAGE</div>
+        <div class="stage-inner">
+          <div class="stage-cloud c1"></div>
+          <div class="stage-cloud c2"></div>
+          <div class="stage-cloud c3"></div>
+          <div class="stage-ground"></div>
+
+          <div id="gameMount"></div>
+        </div>
+      </section>
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260331-coop-run-fb"></script>
-  <script src="../js/hha-cloud-logger.js"></script>
+  <div id="coopResultMount" class="coop-result-mount" hidden></div>
+
+  <script>
+    (function coopRunShellBoot(){
+      const qs = new URLSearchParams(location.search);
+      const hub = qs.get('hub') || '../hub.html';
+
+      const btnGoHub = document.getElementById('btnGoHub');
+      const btnBackLauncher = document.getElementById('btnBackLauncher');
+
+      if (btnGoHub) btnGoHub.href = hub;
+
+      if (btnBackLauncher) {
+        const u = new URL('./goodjunk-multi.html', location.href);
+        ['pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai','room','roomId','roomKind']
+          .forEach((k) => {
+            const v = qs.get(k);
+            if (v != null && v !== '') u.searchParams.set(k, v);
+          });
+        btnBackLauncher.href = u.toString();
+      }
+    })();
+  </script>
+
+  <script src="../js/hha-cloud-logger-bridge.js"></script>
+  <script src="../js/hha-runtime-contract.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+  <script src="../firebase-config.js?v=20260405-coop-run-full"></script>
+  <script src="./goodjunk.safe.coop.js?v=20260405-coop-core-runtime-full"></script>
+  <script src="./goodjunk-coop.js?v=20260405-coop-controller-runtime-full"></script>
 
   <script>
     (function(){
-      'use strict';
+      const hud = document.getElementById('coopHudWrap');
+      const hudToggle = document.getElementById('coopHudToggle');
 
-      const qs = (k, d='') => {
-        try { return (new URL(location.href)).searchParams.get(k) ?? d; }
-        catch(_) { return d; }
-      };
-
-      const runCtx = {
-        pid: qs('pid', 'anon'),
-        name: qs('name', qs('nick', '')),
-        roomId: qs('roomId', qs('room', '')),
-        role: qs('role', 'player'),
-        diff: qs('diff', 'normal'),
-        time: qs('time', '120'),
-        seed: qs('seed', String(Date.now())),
-        hub: qs('hub', '../hub.html'),
-        view: qs('view', 'mobile'),
-        mode: 'coop',
-        gameId: qs('gameId', 'goodjunk'),
-        zone: qs('zone', 'nutrition'),
-        startAt: Number(qs('startAt', '0')) || 0
-      };
-
-      window.__GJ_RUN_CTX__ = runCtx;
-      window.__GJ_MULTI_RUN_CTX__ = runCtx;
-
-      const $ = (id) => document.getElementById(id);
-
-      function deriveHeroAvatarFromName(name) {
-        const text = String(name || '').trim();
-        if (!text) return '🙂';
-        const parts = text.split(/\s+/).filter(Boolean);
-        const key = parts[parts.length - 1] || parts[0] || '';
-        const byWord = {
-          Apple:'🍎', Carrot:'🥕', Bunny:'🐰', Panda:'🐼', Star:'⭐', Berry:'🍓',
-          Tiger:'🐯', Cloud:'☁️', Rocket:'🚀', Kitty:'🐱', Buddy:'🧡', Hero:'🦸'
-        };
-        return byWord[key] || '🙂';
-      }
-
-      const heroMeta = {
-        name: String(runCtx.name || runCtx.pid || 'Hero').trim() || 'Hero',
-        avatar: deriveHeroAvatarFromName(runCtx.name || runCtx.pid || 'Hero')
-      };
-
-      function applyPill(el, text){
-        if (el) el.textContent = text;
-      }
-
-      applyPill($('pillRoom'), `ROOM • ${runCtx.roomId || '-'}`);
-      applyPill($('pillPlayer'), `HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`);
-      applyPill($('pillRole'), `ROLE • ${runCtx.role || 'player'}`);
-      applyPill($('pillDiff'), `LEVEL • ${runCtx.diff}`);
-      applyPill($('pillTime'), `TIME • ${runCtx.time}`);
-      applyPill($('miniMode'), 'MODE • COOP');
-      applyPill($('miniRoom'), `ROOM • ${runCtx.roomId || '-'}`);
-      applyPill($('miniPlayer'), `HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`);
-
-      window.__GJ_COOP_UI__ = {
-        setStatus(title, text){
-          if ($('statusTitle')) $('statusTitle').textContent = title || '';
-          if ($('statusText')) $('statusText').textContent = text || '';
-        },
-        setStateChip(text){
-          if ($('miniState')) $('miniState').textContent = `STATE • ${text || '-'}`;
-        },
-        setTeamCount(n){
-          if ($('pillTeam')) $('pillTeam').textContent = `TEAM • ${Number(n || 0)}`;
-        },
-        setDebug(text){
-          if ($('debugInfo')) $('debugInfo').textContent = String(text || '');
-        },
-        showSummary(summary){
-          const stars = Math.max(1, Math.min(3, Number(summary.stars || 1)));
-          $('summaryBadge').textContent = '🤝';
-          $('summaryHeroTitle').textContent = 'Team Hero!';
-          $('summaryHeroSub').textContent = `${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'} • ทีมของเธอช่วยกันเก็บอาหารดีได้ยอดเยี่ยมมาก`;
-          $('summaryTitle').textContent = 'Great Teamwork!';
-          $('summarySub').textContent = `ห้อง ${runCtx.roomId || '-'} • ทีม ${summary.teamPlayers || 0} คน • ${summary.reason || 'finish'}`;
-          $('summaryStars').innerHTML = [1,2,3].map(i => `<span class="summary-star ${i <= stars ? '' : 'off'}">⭐</span>`).join('');
-
-          const addItem = (label, value) => {
-            if (value === '' || value === null || value === undefined) return '';
-            return `
-              <div class="summary-item">
-                <div class="summary-label">${label}</div>
-                <div class="summary-value">${String(value)}</div>
-              </div>
-            `;
-          };
-
-          $('summaryGrid').innerHTML =
-            addItem('คะแนนทีม', summary.teamScore) +
-            addItem('คะแนนเรา', summary.myScore) +
-            addItem('Good Hit รวมทีม', summary.teamGood) +
-            addItem('Junk Hit รวมทีม', summary.teamJunk) +
-            addItem('Miss รวมทีม', summary.teamMiss) +
-            addItem('ผู้เล่นในทีม', summary.teamPlayers) +
-            addItem('ฮีโร่', `${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`) +
-            addItem('เวลาใช้', summary.duration);
-
-          $('summaryDebug').textContent = JSON.stringify(summary, null, 2);
-          $('summaryOverlay').hidden = false;
-          window.__GJ_COOP_LAST_SUMMARY__ = summary;
-        }
-      };
-
-      function copyText(text){
-        const t = String(text || '').trim();
-        if (!t) return Promise.reject(new Error('empty'));
-
-        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-          return navigator.clipboard.writeText(t);
-        }
-
-        return new Promise((resolve, reject) => {
-          try {
-            const ta = document.createElement('textarea');
-            ta.value = t;
-            ta.setAttribute('readonly', '');
-            ta.style.position = 'fixed';
-            ta.style.left = '-9999px';
-            document.body.appendChild(ta);
-            ta.select();
-            const ok = document.execCommand('copy');
-            ta.remove();
-            ok ? resolve() : reject(new Error('copy failed'));
-          } catch (err) {
-            reject(err);
+      if (hudToggle && hud) {
+        hudToggle.addEventListener('click', () => {
+          hud.classList.toggle('collapsed');
+          if (hud.classList.contains('collapsed')) {
+            hud.style.maxHeight = '76px';
+            hud.style.overflow = 'hidden';
+          } else {
+            hud.style.maxHeight = '';
+            hud.style.overflow = '';
           }
         });
       }
 
-      function saveText(name, text, type='application/json'){
-        const blob = new Blob([text], { type });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
+      const resultMount = document.getElementById('coopResultMount');
+      const qs = (k, d='') => {
+        try { return new URL(location.href).searchParams.get(k) ?? d; }
+        catch { return d; }
+      };
+
+      const runCtx = {
+        pid: qs('pid', 'anon'),
+        roomId: qs('roomId', qs('room', '')),
+        roomKind: qs('roomKind', ''),
+        hub: qs('hub', '../hub.html')
+      };
+
+      function normalize(detail){
+        const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
+          ? detail.summary
+          : (detail || {});
+
+        return {
+          controllerFinal: !!src.controllerFinal,
+          rank: Number.isFinite(Number(src.rank)) && Number(src.rank) > 0 ? Number(src.rank) : '',
+          score: Number(src.score || 0),
+          teamScore: Number(src.teamScore || src.score || 0),
+          contribution: Number(src.contribution || src.score || 0),
+          players: Number(src.players || 1),
+          miss: Number(src.miss || 0),
+          bestStreak: Number(src.bestStreak || 0),
+          result: src.result || 'จบรอบแล้ว',
+          reason: src.reason || '',
+          standings: Array.isArray(src.standings) ? src.standings : [],
+          raw: src
+        };
       }
 
-      $('btnReplay').addEventListener('click', () => {
-        const u = new URL(location.href);
-        u.searchParams.set('seed', String(Date.now()));
-        location.href = u.toString();
-      });
-      $('btnCopyRoom').addEventListener('click', () => {
-        copyText(runCtx.roomId || '').catch(()=>{});
-      });
-      $('btnExport').addEventListener('click', () => {
-        saveText(`goodjunk-coop-summary-${runCtx.roomId || 'room'}-${Date.now()}.json`, JSON.stringify(window.__GJ_COOP_LAST_SUMMARY__ || {}, null, 2));
-      });
-      $('btnBackHub').addEventListener('click', () => {
-        location.href = runCtx.hub || '../hub.html';
+      function escapeHtml(s){
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function showSummary(detail){
+        if (!resultMount) return;
+
+        const summary = normalize(detail);
+        const standings = Array.isArray(summary.standings) ? summary.standings : [];
+        const me = standings.find((r) => String(r.pid || '') === String(runCtx.pid || '')) || null;
+        const goal = Number((summary.raw && summary.raw.goal) || 0);
+        const metGoal = goal > 0 ? Number(summary.teamScore || 0) >= goal : false;
+
+        const title = metGoal
+          ? 'ยอดเยี่ยม! ทีมของคุณถึงเป้าหมายแล้ว'
+          : (summary.result || 'จบรอบแล้ว');
+
+        const sub = `คะแนนรวมทีม ${Number(summary.teamScore || 0)} • contribution ของเรา ${Number(summary.contribution || summary.score || 0)}`;
+
+        resultMount.hidden = false;
+        resultMount.innerHTML = `
+          <div style="width:min(1100px,100%);max-height:min(92vh,1020px);overflow:auto;border-radius:28px;border:1px solid #bfe3f2;background:#fffdf8;box-shadow:0 28px 80px rgba(0,0,0,.22);padding:18px;display:grid;gap:14px;">
+            <div style="display:grid;gap:8px;">
+              <div style="display:inline-flex;align-items:center;min-height:32px;padding:6px 12px;border-radius:999px;border:1px solid #bfe3f2;background:#f4fbff;color:#658cb1;font-size:12px;font-weight:1100;">COOP SUMMARY</div>
+              <div style="font-size:28px;line-height:1.15;font-weight:1100;color:#2f7a38;">${escapeHtml(title)}</div>
+              <div style="color:#6b7280;font-size:14px;line-height:1.6;font-weight:900;">${escapeHtml(sub)}</div>
+            </div>
+
+            <div style="margin:0 auto 10px;width:min(720px,100%);border-radius:24px;border:3px solid #dff2d1;background:#fff;box-shadow:0 10px 22px rgba(86,155,194,.10);padding:16px 14px;text-align:center;">
+              <div style="color:#4d9b56;font-size:14px;font-weight:1000;margin-bottom:6px;">คะแนนรวมของทีม${goal ? ' / เป้าหมาย' : ''}</div>
+              <div style="color:#4d4a42;font-size:clamp(40px,6vw,60px);line-height:1;font-weight:1000;">${Number(summary.teamScore || 0)}${goal ? ` / ${goal}` : ''}</div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
+              <div style="border-radius:18px;border:2px solid #cde7f4;background:#fff;padding:14px;text-align:center;">
+                <div style="font-size:12px;color:#79aeca;font-weight:1000;margin-bottom:6px;">เรา</div>
+                <div style="font-size:14px;line-height:1.5;color:#6d6b63;font-weight:1000;margin-bottom:8px;word-break:break-word;">${escapeHtml((me && (me.nick || me.pid)) || runCtx.pid || 'เรา')}</div>
+                <div style="font-size:34px;line-height:1;color:#4d4a42;font-weight:1000;">${Number(summary.score || 0)}</div>
+              </div>
+
+              <div style="border-radius:18px;border:2px solid #cde7f4;background:#fff;padding:14px;text-align:center;">
+                <div style="font-size:12px;color:#79aeca;font-weight:1000;margin-bottom:6px;">Contribution</div>
+                <div style="font-size:14px;line-height:1.5;color:#6d6b63;font-weight:1000;margin-bottom:8px;word-break:break-word;">ส่วนที่เราช่วยทีม</div>
+                <div style="font-size:34px;line-height:1;color:#4d4a42;font-weight:1000;">${Number(summary.contribution || summary.score || 0)}</div>
+              </div>
+
+              <div style="border-radius:18px;border:2px solid #cde7f4;background:#fff;padding:14px;text-align:center;">
+                <div style="font-size:12px;color:#79aeca;font-weight:1000;margin-bottom:6px;">ผู้เล่นในรอบ</div>
+                <div style="font-size:14px;line-height:1.5;color:#6d6b63;font-weight:1000;margin-bottom:8px;word-break:break-word;">จำนวนคนที่ช่วยกันเล่น</div>
+                <div style="font-size:34px;line-height:1;color:#4d4a42;font-weight:1000;">${Number(summary.players || 1)}</div>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;">
+              <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
+                <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Rank</div>
+                <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${summary.rank || '-'}</div>
+              </div>
+              <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
+                <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Miss</div>
+                <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${summary.miss || 0}</div>
+              </div>
+              <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
+                <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Best Streak</div>
+                <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${summary.bestStreak || 0}</div>
+              </div>
+              <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
+                <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Team Result</div>
+                <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${metGoal ? 'PASS' : 'END'}</div>
+              </div>
+            </div>
+
+            <div style="display:grid;gap:10px;">
+              ${
+                standings.length
+                  ? standings.map((r, i) => `
+                    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border-radius:16px;border:2px solid #cde7f4;background:#fff;flex-wrap:wrap;">
+                      <div style="display:grid;gap:4px;">
+                        <div style="font-weight:1000;color:#4d4a42;">#${i + 1} ${escapeHtml(r.nick || r.pid || 'player')}</div>
+                        <div style="font-size:12px;color:#79aeca;font-weight:1000;">Score ${Number(r.score || 0)} • Miss ${Number(r.miss || 0)} • Streak ${Number(r.bestStreak || 0)}</div>
+                      </div>
+                      <div style="font-size:12px;color:#79aeca;font-weight:1000;">${String(r.pid || '') === String(runCtx.pid || '') ? 'YOU' : 'TEAM'}</div>
+                    </div>
+                  `).join('')
+                  : `
+                    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border-radius:16px;border:2px solid #cde7f4;background:#fff;flex-wrap:wrap;">
+                      <div style="display:grid;gap:4px;">
+                        <div style="font-weight:1000;color:#4d4a42;">กำลังรอผลทีม</div>
+                        <div style="font-size:12px;color:#79aeca;font-weight:1000;">ถ้าเครื่องอื่นส่งผลช้ากว่า ระบบอาจแสดงผลชั่วคราวก่อน</div>
+                      </div>
+                      <div style="font-size:12px;color:#79aeca;font-weight:1000;">WAIT</div>
+                    </div>
+                  `
+              }
+            </div>
+
+            <div style="border-radius:16px;background:#fff;border:1px dashed #bfe3f2;padding:12px;color:#6b7280;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;">controllerFinal=${summary.controllerFinal ? 'true' : 'false'}
+roomId=${escapeHtml(runCtx.roomId || '-')}
+roomKind=${escapeHtml(runCtx.roomKind || '-')}
+reason=${escapeHtml(summary.reason || '-')}</div>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;position:sticky;bottom:0;padding-top:10px;background:linear-gradient(180deg, rgba(255,253,248,0), rgba(255,253,248,.92) 22%, rgba(255,253,248,1));z-index:30;">
+              <a class="btn ghost" href="./goodjunk-coop-lobby.html?roomId=${encodeURIComponent(runCtx.roomId || '')}&room=${encodeURIComponent(runCtx.roomId || '')}&roomKind=${encodeURIComponent(runCtx.roomKind || '')}&autojoin=1&hub=${encodeURIComponent(runCtx.hub || '../hub.html')}">← กลับ Lobby</a>
+              <a class="btn primary" href="${escapeHtml(runCtx.hub || '../hub.html')}">🏠 กลับ Hub</a>
+              <button class="btn good" id="coopRematchBtn" type="button">🔁 เล่นอีกครั้ง</button>
+            </div>
+          </div>
+        `;
+
+        const rematchBtn = document.getElementById('coopRematchBtn');
+        if (rematchBtn) {
+          rematchBtn.addEventListener('click', () => {
+            const url = new URL('./goodjunk-coop-lobby.html', location.href);
+            const src = new URL(location.href);
+
+            src.searchParams.forEach((value, key) => {
+              if (key === 'autostart') return;
+              url.searchParams.set(key, value);
+            });
+
+            if (runCtx.roomId) {
+              url.searchParams.set('roomId', runCtx.roomId);
+              url.searchParams.set('room', runCtx.roomId);
+            }
+            if (runCtx.roomKind) {
+              url.searchParams.set('roomKind', runCtx.roomKind);
+            }
+            url.searchParams.set('autojoin', '1');
+            url.searchParams.set('rematch', '1');
+
+            location.href = url.toString();
+          });
+        }
+      }
+
+      ['gj:summary','hha:summary','hha:session-summary'].forEach((eventName) => {
+        window.addEventListener(eventName, (evt) => {
+          const detail = evt && evt.detail ? evt.detail : null;
+          if (!detail || typeof detail !== 'object') return;
+          showSummary(detail);
+        });
       });
     })();
   </script>
-
-  <script src="./goodjunk.safe.race.js?v=20260331-coop-core"></script>
-  <script src="./goodjunk-coop-run.js?v=20260331-coop-run-full"></script>
 </body>
 </html>
