@@ -27,9 +27,6 @@
       --violet1:#c3b0ff;
       --violet2:#9a79ff;
 
-      --yellow1:#fff4ae;
-      --yellow2:#ffd96a;
-
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
@@ -48,31 +45,8 @@
         linear-gradient(180deg,var(--sky1),var(--sky2) 58%,var(--sky3));
     }
 
-    .clouds,.clouds::before,.clouds::after{
-      content:"";
-      position:fixed;
-      inset:auto;
-      pointer-events:none;
-      z-index:0;
-    }
-    .clouds{
-      top:34px;
-      left:8%;
-      width:180px;
-      height:50px;
-      background:#fff8;
-      border-radius:999px;
-      box-shadow:
-        260px 26px 0 10px #fff7,
-        580px 8px 0 6px #fff7,
-        860px 46px 0 10px #fff6;
-      filter:blur(1px);
-    }
-
     .shell{
-      position:relative;
-      z-index:1;
-      max-width:1040px;
+      max-width:1000px;
       margin:0 auto;
       padding:
         calc(18px + var(--sat))
@@ -110,7 +84,6 @@
       font-size:30px;
       background:linear-gradient(180deg,#fff7cb,#ffe27c);
       border:1px solid #ffe8a6;
-      box-shadow: inset 0 2px 0 rgba(255,255,255,.85);
     }
 
     .brand h1{
@@ -144,11 +117,11 @@
 
     .layout{
       display:grid;
-      grid-template-columns: 1.25fr .95fr;
+      grid-template-columns:1.2fr .95fr;
       gap:14px;
     }
 
-    @media (max-width: 880px){
+    @media (max-width: 900px){
       .layout{ grid-template-columns:1fr; }
     }
 
@@ -161,9 +134,9 @@
 
     .hero{
       padding:18px;
+      min-height:300px;
       position:relative;
       overflow:hidden;
-      min-height:320px;
     }
 
     .hero::after{
@@ -191,6 +164,8 @@
       font-size:12px;
       font-weight:1000;
       color:#608196;
+      position:relative;
+      z-index:1;
     }
 
     .hero h2{
@@ -199,6 +174,8 @@
       line-height:1.02;
       font-weight:1000;
       max-width:580px;
+      position:relative;
+      z-index:1;
     }
 
     .hero p{
@@ -208,6 +185,8 @@
       line-height:1.65;
       color:#5a798e;
       font-weight:800;
+      position:relative;
+      z-index:1;
     }
 
     .emojiRow{
@@ -215,6 +194,8 @@
       gap:10px;
       flex-wrap:wrap;
       margin-top:18px;
+      position:relative;
+      z-index:1;
     }
 
     .emojiRow span{
@@ -259,7 +240,7 @@
 
     .grid{
       display:grid;
-      grid-template-columns: repeat(2,minmax(0,1fr));
+      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:12px;
     }
 
@@ -290,7 +271,6 @@
       font:inherit;
       color:var(--ink);
       font-weight:900;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.85);
     }
 
     .mini{
@@ -323,7 +303,7 @@
 
     .modeCards{
       display:grid;
-      grid-template-columns: repeat(3,minmax(0,1fr));
+      grid-template-columns:repeat(3,minmax(0,1fr));
       gap:12px;
     }
 
@@ -397,15 +377,13 @@
   </style>
 </head>
 <body>
-  <div class="clouds" aria-hidden="true"></div>
-
   <main class="shell">
     <header class="topbar">
       <div class="brand">
         <div class="brandMark">🥦</div>
         <div>
           <h1>Food Groups Solo</h1>
-          <p>Launcher สำหรับ Groups v1 — โฟกัสโหมด Solo ให้แน่นก่อน</p>
+          <p>Launcher สำหรับ Groups v1 — warmup mini-game ก่อนเข้า main run</p>
         </div>
       </div>
       <div class="chip" id="chipCtx">HeroHealth • Groups Solo</div>
@@ -413,11 +391,11 @@
 
     <section class="layout">
       <section class="panel hero">
-        <div class="kicker">🌟 Child-friendly • Solo first • PC / Mobile / Cardboard</div>
-        <h2>แยกอาหารให้ถูกหมู่<br>เก็บให้ไว เล่นให้สนุก</h2>
+        <div class="kicker">🌟 Child-friendly • Warmup mini-game • Solo first</div>
+        <h2>แยกอาหารให้ถูกหมู่<br>อุ่นเครื่องก่อน แล้วค่อยลุยจริง</h2>
         <p>
-          รอบนี้ทำ Solo ให้ครบ flow ก่อน: launcher → warmup gate → run →
-          summary → กลับ HUB โดยคง query และ context ให้ต่อเนื่อง
+          flow นี้จะพาเข้า warmup mini-game ก่อนทุกครั้ง
+          ผ่านแล้วจึงค่อยเข้าสู่ Groups Solo main run
         </p>
 
         <div class="emojiRow" aria-hidden="true">
@@ -429,11 +407,12 @@
         </div>
 
         <div class="howto">
-          วิธีเล่นสั้น ๆ
-          <br>• ดูว่าเป้าหมายคือหมู่ไหน
-          <br>• แตะอาหารให้ถูกหมู่
-          <br>• ทำ streak ต่อเนื่องเพื่อเข้า FEVER
-          <br>• ฝึกก่อน 15 วินาที แล้วค่อยเริ่มรอบจริง
+          flow:
+          <br>• Launcher
+          <br>• Warmup gate + mini-game
+          <br>• Main run
+          <br>• Summary
+          <br>• Cooldown gate (ถ้าเปิดไว้)
         </div>
       </section>
 
@@ -492,11 +471,11 @@
           <div class="checkRow">
             <label class="check">
               <input id="useGate" type="checkbox" />
-              ผ่าน warmup gate ก่อน
+              warmup gate + mini-game
             </label>
             <label class="check">
               <input id="useCooldown" type="checkbox" />
-              ส่งค่า cooldown/hub ต่อไปด้วย
+              cooldown หลังจบเกม
             </label>
             <label class="check">
               <input id="debug" type="checkbox" />
@@ -504,7 +483,7 @@
             </label>
           </div>
           <div class="mini" style="margin-top:8px;">
-            แนะนำให้เปิด warmup gate ใน flow จริง เพื่อให้ Groups Solo ต่อกับมาตรฐาน HHA ได้เรียบร้อย
+            แนะนำให้เปิด warmup gate ไว้เสมอสำหรับ Groups Solo เพราะ mini-game จะช่วยให้ flow สมบูรณ์กว่าเดิม
           </div>
         </div>
 
@@ -513,26 +492,24 @@
           <div class="modeCards">
             <button class="playBtn pc" id="btnPC" type="button">
               <b>🖥️ PC</b>
-              <span>เหมาะกับทดสอบ gameplay, layout และ debug ได้เร็ว</span>
+              <span>เหมาะกับทดสอบ flow และ layout บนหน้าจอใหญ่</span>
             </button>
 
             <button class="playBtn mobile" id="btnMobile" type="button">
               <b>📱 Mobile</b>
-              <span>เหมาะกับ touch screen และการเล่นบนมือถือจริง</span>
+              <span>เหมาะกับการเล่นจริงบนมือถือ พร้อม mobile HUD compact</span>
             </button>
 
             <button class="playBtn cvr" id="btnCVR" type="button">
               <b>🥽 Cardboard</b>
-              <span>เข้าแบบ view=cvr พร้อม crosshair และ hha:shoot</span>
+              <span>เข้าแบบ view=cvr และค่อยโหลด vr-ui.js ในหน้า run</span>
             </button>
           </div>
         </div>
 
         <div class="footerBar">
           <button class="ghostBtn" id="btnBackHub" type="button">🏠 กลับ HUB</button>
-          <div class="status" id="statusLine">
-            พร้อมสร้างลิงก์เข้าเล่น Groups Solo
-          </div>
+          <div class="status" id="statusLine">พร้อมเข้า warmup mini-game ของ Groups</div>
         </div>
       </section>
     </section>
@@ -542,17 +519,17 @@
     (function(){
       'use strict';
 
-      const STORE_KEY = 'HHA_GROUPS_LAUNCHER_V2';
+      const STORE_KEY = 'HHA_GROUPS_LAUNCHER_V3';
       const PASS_KEYS = [
         'pid','nick','name','run','view','diff','time','seed',
         'studyId','phase','conditionGroup','sessionOrder','blockLabel',
         'siteCode','schoolYear','semester','log','api','debug','grade',
         'zone','cat','game','gameId','mode','hub','theme','sessionNo',
-        'weekNo','classRoom','studentKey','schoolCode','studentNo'
+        'weekNo','classRoom','studentKey','schoolCode','studentNo',
+        'cooldown','returnPhase'
       ];
 
       const q = new URL(location.href).searchParams;
-
       const $ = (id) => document.getElementById(id);
 
       const el = {
@@ -581,7 +558,7 @@
         fillForm();
         setChip();
         bindEvents();
-        setStatus('พร้อมสร้างลิงก์เข้าเล่น Groups Solo');
+        setStatus('พร้อมเข้า warmup mini-game ของ Groups');
       }
 
       function bindEvents(){
@@ -612,7 +589,6 @@
         el.time.value = q.get('time') || saved.time || '80';
         el.runMode.value = q.get('run') || saved.run || 'play';
         el.studyId.value = q.get('studyId') || saved.studyId || '';
-
         el.useGate.checked = q.get('gate') === '1' || saved.useGate !== false;
         el.useCooldown.checked = q.get('cooldown') === '1' || !!saved.useCooldown;
         el.debug.checked = q.get('debug') === '1' || !!saved.debug;
@@ -714,7 +690,6 @@
           zone: 'nutrition',
           cat: 'nutrition',
           theme: 'groups',
-          gate: saved.useGate ? '1' : '',
           cooldown: saved.useCooldown ? '1' : '',
           returnPhase: saved.useCooldown ? 'cooldown' : '',
           debug: saved.debug ? '1' : ''
@@ -737,16 +712,19 @@
           seed: runUrl.searchParams.get('seed') || String(Date.now()),
           hub: runUrl.searchParams.get('hub') || defaultHub(),
           view: runUrl.searchParams.get('view') || viewMode,
+
           game: 'groups',
           gameId: 'groups',
           zone: 'nutrition',
           cat: 'nutrition',
           theme: 'groups',
+          mode: 'solo',
+
           phase: 'warmup',
           gatePhase: 'warmup',
-          mode: 'solo',
-          next: runUrl.toString(),
           gate: '1',
+          next: runUrl.toString(),
+
           cooldown: saved.useCooldown ? '1' : '',
           returnPhase: saved.useCooldown ? 'cooldown' : '',
           debug: saved.debug ? '1' : ''
@@ -757,7 +735,7 @@
 
       function go(viewMode){
         const entryUrl = buildEntryUrl(viewMode);
-        setStatus(`กำลังเข้าเล่นแบบ ${viewMode.toUpperCase()}...`);
+        setStatus(`กำลังเข้า warmup ของ Groups แบบ ${viewMode.toUpperCase()}...`);
         location.href = entryUrl;
       }
 
