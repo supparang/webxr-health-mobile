@@ -408,25 +408,14 @@
     }
 
     @media (max-width:960px){
-      .grid{
-        grid-template-columns:1fr;
-      }
+      .grid{ grid-template-columns:1fr; }
     }
 
     @media (max-width:720px){
-      .room-banner{
-        grid-template-columns:1fr;
-      }
-      .player{
-        grid-template-columns:auto 1fr;
-      }
-      .player-tags{
-        grid-column:1 / -1;
-        justify-content:flex-start;
-      }
-      .action-grid{
-        grid-template-columns:1fr;
-      }
+      .room-banner{ grid-template-columns:1fr; }
+      .player{ grid-template-columns:auto 1fr; }
+      .player-tags{ grid-column:1 / -1; justify-content:flex-start; }
+      .action-grid{ grid-template-columns:1fr; }
     }
   </style>
 </head>
@@ -485,7 +474,7 @@
           <div class="step"><span>1️⃣</span><span>สร้างห้องหรือเข้าห้องเดิม</span></div>
           <div class="step"><span>2️⃣</span><span>ส่งรหัสห้องหรือแชร์ลิงก์ให้คู่แข่ง</span></div>
           <div class="step"><span>3️⃣</span><span>เมื่อครบ 2 คน ให้ host กดเริ่มเกม</span></div>
-          <div class="step"><span>4️⃣</span><span>ระบบจะพาเข้าหน้า run-bridge อัตโนมัติ</span></div>
+          <div class="step"><span>4️⃣</span><span>ระบบจะพาเข้า run-bridge อัตโนมัติ</span></div>
         </div>
 
         <div class="share-box">
@@ -528,7 +517,6 @@
 
       playersList: $('playersList'),
       noticeBox: $('noticeBox'),
-      stepsBox: $('stepsBox'),
       shareText: $('shareText'),
       debugBox: $('debugBox'),
 
@@ -562,8 +550,7 @@
 
       heartbeatId: 0,
       bridgeTimer: 0,
-      bridgeSent: false,
-      listenersAttached: false
+      bridgeSent: false
     };
 
     function qs(key, fb=''){
@@ -576,47 +563,25 @@
     }
 
     function now(){ return Date.now(); }
-
-    function num(v, d=0){
-      v = Number(v);
-      return Number.isFinite(v) ? v : d;
-    }
-
+    function num(v, d=0){ v = Number(v); return Number.isFinite(v) ? v : d; }
     function clampInt(v, min, max, fb){
       const n = Number(v);
       if (!Number.isFinite(n)) return fb;
       return Math.max(min, Math.min(max, Math.round(n)));
     }
-
-    function cleanText(v, max=120){
-      return String(v == null ? '' : v).trim().slice(0, max);
-    }
-
-    function cleanPid(v){
-      return String(v == null ? '' : v).trim().replace(/[.#$[\]/]/g, '-').slice(0, 120);
-    }
-
-    function cleanRoom(v){
-      return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
-    }
-
-    function cleanDiff(v){
-      const s = String(v || '').toLowerCase();
-      return (s === 'easy' || s === 'hard') ? s : 'normal';
-    }
-
-    function readLS(key){
-      try{ return localStorage.getItem(key) || ''; }
-      catch{ return ''; }
-    }
-
-    function writeLS(key, value){
-      try{ localStorage.setItem(key, String(value ?? '')); }
-      catch{}
-    }
-
-    function setNotice(text){
-      if (UI.noticeBox) UI.noticeBox.textContent = String(text || '');
+    function cleanText(v, max=120){ return String(v == null ? '' : v).trim().slice(0, max); }
+    function cleanPid(v){ return String(v == null ? '' : v).trim().replace(/[.#$[\]/]/g, '-').slice(0, 120); }
+    function cleanRoom(v){ return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24); }
+    function cleanDiff(v){ const s = String(v || '').toLowerCase(); return (s === 'easy' || s === 'hard') ? s : 'normal'; }
+    function readLS(key){ try{ return localStorage.getItem(key) || ''; }catch{ return ''; } }
+    function writeLS(key, value){ try{ localStorage.setItem(key, String(value ?? '')); }catch{} }
+    function setNotice(text){ if (UI.noticeBox) UI.noticeBox.textContent = String(text || ''); }
+    function escapeHtml(v){
+      return String(v == null ? '' : v)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
     }
 
     function avatarForName(name){
@@ -632,10 +597,7 @@
       return map[key] || '⚔️';
     }
 
-    function roomStatus(){
-      return String((STATE.room.state || {}).status || 'waiting');
-    }
-
+    function roomStatus(){ return String((STATE.room.state || {}).status || 'waiting'); }
     function countdownLeft(){
       const ends = num((STATE.room.state || {}).countdownEndsAt, 0);
       return Math.max(0, Math.ceil((ends - now()) / 1000));
@@ -655,19 +617,8 @@
         .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
     }
 
-    function selfPlayer(){
-      const map = STATE.room.players || {};
-      return map[STATE.uid] || null;
-    }
-
-    function hostUid(){
-      return cleanPid((STATE.room.meta || {}).hostUid || '');
-    }
-
-    function isHost(){
-      return !!STATE.uid && hostUid() === STATE.uid;
-    }
-
+    function hostUid(){ return cleanPid((STATE.room.meta || {}).hostUid || ''); }
+    function isHost(){ return !!STATE.uid && hostUid() === STATE.uid; }
     function canStartBattle(){
       const players = activePlayers();
       return isHost() && players.length >= 2 && (roomStatus() === 'waiting' || roomStatus() === 'ended');
@@ -676,9 +627,7 @@
     function randomRoomCode(){
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let out = '';
-      for (let i = 0; i < 6; i++){
-        out += chars[Math.floor(Math.random() * chars.length)];
-      }
+      for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
       return out;
     }
 
@@ -729,6 +678,7 @@
       u.searchParams.set('hub', STATE.hub);
       u.searchParams.set('roomKind', STATE.roomKind);
       u.searchParams.set('seed', String(Date.now()));
+      u.searchParams.set('forceBattleController', '1');
       return u.toString();
     }
 
@@ -825,17 +775,10 @@
           `[PLAYERS] ${players.length}`,
           `[AUTOJOIN] ${STATE.autojoin ? '1' : '0'}`,
           `[REMATCH] ${STATE.rematch ? '1' : '0'}`,
-          `[BRIDGE_SENT] ${STATE.bridgeSent ? '1' : '0'}`
+          `[BRIDGE_SENT] ${STATE.bridgeSent ? '1' : '0'}`,
+          `[FORCE_CTRL] 1`
         ].join('\n');
       }
-    }
-
-    function escapeHtml(v){
-      return String(v == null ? '' : v)
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;');
     }
 
     function copyText(text){
@@ -887,9 +830,7 @@
 
     async function ensureFirebase(){
       if (!(window.firebase && window.firebase.apps && window.firebase.database && window.firebase.auth)){
-        for (const src of FIREBASE_SDKS){
-          await loadScript(src);
-        }
+        for (const src of FIREBASE_SDKS) await loadScript(src);
       }
 
       const firebase = window.firebase;
@@ -979,10 +920,6 @@
       };
 
       writeLS('GJ_BATTLE_ROOM', roomId);
-
-      if (!STATE.listenersAttached){
-        STATE.listenersAttached = true;
-      }
 
       STATE.refs.state.on('value', (s) => {
         STATE.room.state = s.val() || {};
@@ -1075,7 +1012,9 @@
 
         koByAttack: 0,
         koTaken: 0,
-        endedByKo: false
+        endedByKo: false,
+        resultSubmitted: false,
+        resultSubmittedAt: 0
       };
 
       await STATE.refs.self.update(payload);
@@ -1151,6 +1090,8 @@
         updates[`${uid}/attackCharge`] = 0;
         updates[`${uid}/maxAttackCharge`] = 100;
         updates[`${uid}/attackReady`] = false;
+        updates[`${uid}/resultSubmitted`] = false;
+        updates[`${uid}/resultSubmittedAt`] = 0;
         updates[`${uid}/connected`] = true;
         updates[`${uid}/ready`] = true;
         updates[`${uid}/status`] = 'countdown';
@@ -1167,6 +1108,8 @@
         roundToken: `round-${t}`,
         updatedAt: t
       });
+
+      await STATE.refs.room.child('finalSummary').remove().catch(() => {});
 
       setNotice('เริ่มนับถอยหลังแล้ว\nระบบจะพาเข้า battle อัตโนมัติ');
       maybeAutoBridge(true);
