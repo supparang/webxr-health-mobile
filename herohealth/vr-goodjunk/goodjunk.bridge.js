@@ -54,7 +54,7 @@ export function installGoodJunkLegacyGlobals(ctx, shell) {
   return cfg;
 }
 
-export function attachGoodJunkWindowEventBridge(shell) {
+export function attachGoodJunkWindowEventBridge(shell, ctx) {
   const listeners = [];
 
   function on(type, handler) {
@@ -78,7 +78,21 @@ export function attachGoodJunkWindowEventBridge(shell) {
   });
 
   on('hha:end', (detail) => {
-    shell.endGame(detail || {});
+    shell.endGame(normalizeGoodJunkSummary(ctx, detail || {}));
+  });
+
+  on('gj:score', (detail) => {
+    if (detail?.score != null) shell.setScore(Number(detail.score || 0));
+    shell.emit('gj_score_event', detail);
+  });
+
+  on('gj:goal', (detail) => {
+    shell.setMission(Number(detail?.done || 0), Number(detail?.total || 0));
+    shell.emit('gj_goal_event', detail);
+  });
+
+  on('gj:end', (detail) => {
+    shell.endGame(normalizeGoodJunkSummary(ctx, detail || {}));
   });
 
   return () => {
@@ -97,35 +111,27 @@ export function normalizeGoodJunkSummary(ctx, raw = {}) {
     gameTitle: 'GoodJunk',
     zone: 'nutrition',
     mode,
-    score: Number(raw.score || 0),
+    score: Number(raw.score || raw.finalScore || 0),
     stars: Number(raw.stars || (success ? 3 : 1)),
     accuracy: Number(raw.accuracy || 0),
-    miss: Number(raw.miss || 0),
-    bestStreak: Number(raw.bestStreak || raw.streakBest || 0),
+    miss: Number(raw.miss || raw.missCount || 0),
+    bestStreak: Number(raw.bestStreak || raw.streakBest || raw.comboBest || 0),
     durationSec: Number(raw.durationSec || ctx.time || 0),
     rank: raw.rank || '',
     success,
-    missionClear: Number(raw.missionClear || raw.done || 0),
-    missionTotal: Number(raw.missionTotal || raw.total || 0),
+    missionClear: Number(raw.missionClear || raw.done || raw.goalDone || 0),
+    missionTotal: Number(raw.missionTotal || raw.total || raw.goalTotal || 0),
     contribution: Number(raw.contribution || 0),
     playerResult: raw.playerResult || null,
-    opponentResult: raw.opponentResult || null,
-    teamResult: raw.teamResult || null,
+    opponentResult: raw.opponentResult || raw.opponent || null,
+    teamResult: raw.teamResult || raw.team || null,
     badges: Array.isArray(raw.badges) ? raw.badges : [],
     rewards: Array.isArray(raw.rewards) ? raw.rewards : [],
     coachFeedback: Array.isArray(raw.coachFeedback) ? raw.coachFeedback : [],
     nextAction: raw.nextAction || '',
-    metrics: raw.metrics || {},
+    metrics: raw.metrics || raw || {},
     research: raw.research || {}
   };
-
-  if (mode === 'battle' && !summary.opponentResult && raw.opponent) {
-    summary.opponentResult = raw.opponent;
-  }
-
-  if ((mode === 'coop' || mode === 'duet') && !summary.teamResult && raw.team) {
-    summary.teamResult = raw.team;
-  }
 
   return summary;
 }
