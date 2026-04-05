@@ -2,8 +2,7 @@ export const GOODJUNK_MODE_REGISTRY = {
   solo: {
     id: 'solo',
     kind: 'solo',
-    // ปรับ path ได้ถ้าของจริงชื่อไฟล์ต่างจากนี้
-    loader: () => import('../goodjunk-solo-phaseboss-v2.js')
+    loader: () => import('./goodjunk.solo.loader.js')
   },
   duet: {
     id: 'duet',
