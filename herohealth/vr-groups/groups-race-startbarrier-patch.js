@@ -378,4 +378,257 @@
     W.setTimeout(() => {
       if (state.overlay) state.overlay.remove();
       state.overlay = null;
-    },
+    }, 700);
+  }
+
+  function forceRelease(msg) {
+    if (state.overlay) {
+      setOverlayText(msg || 'เริ่มเล่นได้', '');
+    }
+    releaseOverlay();
+  }
+
+  function findPlayfield() {
+    const sels = [
+      '#playfield',
+      '#gameArea',
+      '#gameBoard',
+      '#arena',
+      '.playfield',
+      '.game-area',
+      '.game-board',
+      '.arena',
+      '.board'
+    ];
+
+    for (const s of sels) {
+      const el = D.querySelector(s);
+      if (el) return el;
+    }
+    return D.body;
+  }
+
+  function blocker(e) {
+    if (state.released) return;
+    const target = e.target;
+    if (state.overlay && state.overlay.contains(target)) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+  }
+
+  function bindBlockers() {
+    if (state.interceptorsOn) return;
+    state.interceptorsOn = true;
+
+    [
+      'pointerdown',
+      'pointerup',
+      'click',
+      'touchstart',
+      'touchend',
+      'mousedown',
+      'mouseup'
+    ].forEach((evt) => {
+      D.addEventListener(evt, blocker, true);
+    });
+  }
+
+  function unbindBlockers() {
+    if (!state.interceptorsOn) return;
+    state.interceptorsOn = false;
+
+    [
+      'pointerdown',
+      'pointerup',
+      'click',
+      'touchstart',
+      'touchend',
+      'mousedown',
+      'mouseup'
+    ].forEach((evt) => {
+      D.removeEventListener(evt, blocker, true);
+    });
+  }
+
+  function getPlayerId() {
+    try {
+      const saved = localStorage.getItem('HHA_GROUPS_PLAYER_ID');
+      if (saved) return saved;
+    } catch (_) {}
+    return cleanText(qs.get('playerId') || `grp_${Math.random().toString(36).slice(2, 10)}`, 40).toUpperCase();
+  }
+
+  function cleanRoom(v) {
+    return String(v == null ? '' : v)
+      .toUpperCase()
+      .replace(/[^A-Z0-9-]/g, '')
+      .slice(0, 16);
+  }
+
+  function cleanText(v, max = 24) {
+    return String(v == null ? '' : v)
+      .replace(/[^\wก-๙ _-]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, max);
+  }
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, (m) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[m]));
+  }
+
+  function safeErr(err) {
+    return err && err.message ? err.message : String(err || 'Unknown error');
+  }
+
+  function injectStyles() {
+    const style = D.createElement('style');
+    style.id = 'hha-groups-race-startbarrier-style';
+    style.textContent = `
+      .hha-race-barrier{
+        position:fixed;
+        inset:0;
+        z-index:90;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:18px;
+        background:linear-gradient(180deg, rgba(7,24,49,.74), rgba(6,18,36,.82));
+        backdrop-filter:blur(10px);
+        transition:opacity .28s ease, transform .28s ease;
+      }
+
+      .hha-race-barrier.is-off{
+        opacity:0;
+        pointer-events:none;
+      }
+
+      .hha-race-barrier__card{
+        width:min(560px, 100%);
+        border-radius:28px;
+        padding:22px 18px 18px;
+        background:linear-gradient(180deg, rgba(9,28,62,.96), rgba(8,21,46,.96));
+        border:1px solid rgba(122,188,255,.18);
+        box-shadow:0 24px 60px rgba(0,0,0,.35);
+        color:#eef6ff;
+        text-align:center;
+      }
+
+      .hha-race-barrier__eyebrow{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:30px;
+        padding:6px 12px;
+        border-radius:999px;
+        font-size:.82rem;
+        font-weight:900;
+        color:#d7eeff;
+        background:rgba(68,194,255,.12);
+        border:1px solid rgba(68,194,255,.18);
+      }
+
+      .hha-race-barrier__title{
+        margin-top:12px;
+        font-size:1.45rem;
+        line-height:1.15;
+        font-weight:900;
+      }
+
+      .hha-race-barrier__sub{
+        margin-top:8px;
+        color:#b9caea;
+        font-weight:700;
+        line-height:1.45;
+      }
+
+      .hha-race-barrier__count{
+        margin-top:14px;
+        font-size:clamp(3.2rem, 10vw, 5.2rem);
+        line-height:1;
+        font-weight:1000;
+        letter-spacing:.02em;
+        color:#fff5b2;
+        text-shadow:0 10px 24px rgba(255,209,70,.18);
+      }
+
+      .hha-race-barrier__pulse{
+        margin-top:8px;
+        font-size:1.02rem;
+        font-weight:900;
+        color:#aef0c7;
+      }
+
+      .hha-race-barrier__players{
+        margin-top:14px;
+        padding:12px;
+        border-radius:18px;
+        background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.06);
+        text-align:left;
+      }
+
+      .hha-race-barrier__players-top{
+        font-size:.88rem;
+        font-weight:900;
+        color:#dcecff;
+        margin-bottom:8px;
+      }
+
+      .hha-race-barrier__chips{
+        display:flex;
+        flex-wrap:wrap;
+        gap:8px;
+      }
+
+      .hha-race-barrier__chip{
+        display:inline-flex;
+        align-items:center;
+        min-height:28px;
+        padding:6px 10px;
+        border-radius:999px;
+        background:rgba(255,255,255,.06);
+        border:1px solid rgba(255,255,255,.08);
+        color:#e9f3ff;
+        font-size:.8rem;
+        font-weight:800;
+      }
+
+      @media (max-width: 900px){
+        .hha-race-barrier{
+          padding:12px;
+        }
+
+        .hha-race-barrier__card{
+          border-radius:22px;
+          padding:18px 14px 14px;
+        }
+
+        .hha-race-barrier__title{
+          font-size:1.18rem;
+        }
+
+        .hha-race-barrier__sub{
+          font-size:.92rem;
+        }
+
+        .hha-race-barrier__players{
+          padding:10px;
+        }
+
+        .hha-race-barrier__chip{
+          font-size:.75rem;
+        }
+      }
+    `;
+    D.head.appendChild(style);
+  }
+})();
