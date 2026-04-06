@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.analytics.js ===
-// Hydration V2 Teacher / Research Analytics + Multi-PID Comparison
-// PATCH v20260320p-HYDRATION-V2-ANALYTICS-COMPARISON
+// Hydration V2 Teacher / Research Analytics + Multi-PID Comparison + Correlation View
+// PATCH v20260320r-HYDRATION-V2-ANALYTICS-CORRELATION
 
 export function buildTeacherAnalytics({
   payload = null,
@@ -40,13 +40,25 @@ export function buildTeacherAnalytics({
     studyId: scopeStudy
   });
 
-  const recommendation = buildRecommendation(memoryStats, trends, progression, comparison);
+  const correlations = buildCorrelationView({
+    history: scopedHistory,
+    summaryHistory: scopedSummary
+  });
+
+  const recommendation = buildRecommendation(
+    memoryStats,
+    trends,
+    progression,
+    comparison,
+    correlations
+  );
 
   return {
     memoryStats,
     trends,
     progression,
     comparison,
+    correlations,
     recommendation
   };
 }
@@ -329,6 +341,107 @@ function buildMultiPidComparison({
   };
 }
 
+function buildCorrelationView({
+  history = [],
+  summaryHistory = []
+} = {}) {
+  const safeHistory = Array.isArray(history) ? history.filter(Boolean) : [];
+  const safeSummary = Array.isArray(summaryHistory) ? summaryHistory.filter(Boolean) : [];
+
+  const planningVsSocialPairs = safeHistory.map((row) => ({
+    x: Number(row?.planningScore || 0),
+    y: Number(row?.socialScore || 0)
+  }));
+
+  const totalVsKnowledgePairs = safeHistory.map((row) => ({
+    x: Number(row?.knowledgeScore || 0),
+    y: Number(row?.totalScore || 0)
+  }));
+
+  const streakVsTotalPairs = safeSummary.map((row) => ({
+    x: positiveInt(row?.progressionSnapshot?.streakDays),
+    y: Number(row?.totalScore || 0)
+  }));
+
+  const bossClearVsTotalPairs = safeSummary
+    .filter((row) => row?.finalChallengeLabel)
+    .map((row) => ({
+      x: row?.finalChallengeCleared === true ? 1 : 0,
+      y: Number(row?.totalScore || 0)
+    }));
+
+  const adaptiveSupportVsTotalPairs = safeSummary.map((row) => {
+    const hist = Array.isArray(row?.adaptiveHistory) ? row.adaptiveHistory : [];
+    const supportCount = hist.filter((x) => x?.label === 'support').length;
+    return {
+      x: supportCount,
+      y: Number(row?.totalScore || 0)
+    };
+  });
+
+  const rows = [
+    buildCorrelationRow('planning_vs_social', 'Planning vs Social', planningVsSocialPairs),
+    buildCorrelationRow('knowledge_vs_total', 'Knowledge vs Total', totalVsKnowledgePairs),
+    buildCorrelationRow('streak_vs_total', 'Streak vs Total', streakVsTotalPairs),
+    buildCorrelationRow('boss_clear_vs_total', 'Boss Clear vs Total', bossClearVsTotalPairs),
+    buildCorrelationRow('adaptive_support_vs_total', 'Adaptive Support vs Total', adaptiveSupportVsTotalPairs)
+  ];
+
+  return {
+    rows,
+    strongest: [...rows]
+      .filter((row) => row.n >= 3)
+      .sort((a, b) => Math.abs(b.r || 0) - Math.abs(a.r || 0))
+      .slice(0, 3)
+  };
+}
+
+function buildCorrelationRow(id, label, pairs = []) {
+  const filtered = pairs.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  const r = pearson(filtered.map((p) => p.x), filtered.map((p) => p.y));
+
+  return {
+    id,
+    label,
+    n: filtered.length,
+    r: round3(r),
+    interpretation: interpretCorrelation(r)
+  };
+}
+
+function pearson(xs = [], ys = []) {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 3) return 0;
+
+  const xMean = average(xs);
+  const yMean = average(ys);
+
+  let num = 0;
+  let xDen = 0;
+  let yDen = 0;
+
+  for (let i = 0; i < n; i += 1) {
+    const dx = xs[i] - xMean;
+    const dy = ys[i] - yMean;
+    num += dx * dy;
+    xDen += dx * dx;
+    yDen += dy * dy;
+  }
+
+  const den = Math.sqrt(xDen * yDen);
+  if (!Number.isFinite(den) || den === 0) return 0;
+
+  return num / den;
+}
+
+function interpretCorrelation(r = 0) {
+  const abs = Math.abs(Number(r || 0));
+  if (abs >= 0.7) return r > 0 ? 'strong positive' : 'strong negative';
+  if (abs >= 0.4) return r > 0 ? 'moderate positive' : 'moderate negative';
+  if (abs >= 0.2) return r > 0 ? 'weak positive' : 'weak negative';
+  return 'little / none';
+}
+
 function collectWeakFamilyByPid(storage, { studyId = '' } = {}) {
   const pidFamilyAgg = {};
 
@@ -417,7 +530,7 @@ function parseMemoryKey(key = '') {
   };
 }
 
-function buildRecommendation(memoryStats, trends, progression, comparison) {
+function buildRecommendation(memoryStats, trends, progression, comparison, correlations) {
   const weak = memoryStats?.weakFamilies?.[0];
   if (weak && weak.mastery < 55) {
     return `ควรเสริม family "${weak.family}" เพราะ mastery ยังต่ำ (${weak.mastery}%) และมี error สูง`;
@@ -440,6 +553,11 @@ function buildRecommendation(memoryStats, trends, progression, comparison) {
     if (supportRow && supportRow.avgTotal < 90) {
       return `ควรติดตาม PID ${supportRow.pid} เพิ่ม เพราะ avg total ยังต่ำ (${supportRow.avgTotal}) และ weak family คือ ${supportRow.weakFamily || '-'}`;
     }
+  }
+
+  const strongest = correlations?.strongest?.[0];
+  if (strongest && strongest.id === 'planning_vs_social' && strongest.r >= 0.4) {
+    return 'Planning กับ Social มีความสัมพันธ์เชิงบวกพอสมควร อาจใช้กิจกรรมวางแผนเพื่อเสริมด้าน social ต่อได้';
   }
 
   return 'ภาพรวมอยู่ในเกณฑ์ดี สามารถเพิ่มความหลากหลายของ prompt และติดตาม mastery ราย family ต่อได้';
@@ -474,6 +592,11 @@ function percent(num, den) {
 function round1(v) {
   const n = Number(v || 0);
   return Number.isFinite(n) ? Number(n.toFixed(1)) : 0;
+}
+
+function round3(v) {
+  const n = Number(v || 0);
+  return Number.isFinite(n) ? Number(n.toFixed(3)) : 0;
 }
 
 function toMs(value) {
