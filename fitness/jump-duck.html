@@ -821,6 +821,7 @@
     .btn.secondary{
       background:linear-gradient(135deg, #fff, #eefbff);
       border:2px solid rgba(132,189,205,.35);
+      color:var(--ink);
     }
 
     .summary-grid{
@@ -1175,6 +1176,7 @@
 
       <div class="dialog-actions">
         <button class="btn primary" id="btnRestart" type="button">🔁 เล่นอีกครั้ง</button>
+        <button class="btn secondary" id="btnCooldown" type="button">🧘 Cooldown</button>
         <a class="btn secondary" id="btnHubSummary" href="../herohealth/hub-v2.html" style="text-decoration:none;">🏠 กลับ HUB</a>
       </div>
     </div>
@@ -1191,6 +1193,7 @@
     const ctx = {
       pid: qs.get('pid') || 'anon',
       name: qs.get('name') || qs.get('nick') || 'Player',
+      studyId: qs.get('studyId') || '',
       diff: (qs.get('diff') || 'normal').toLowerCase(),
       time: clamp(Number(qs.get('time') || 90), 45, 180),
       seed: String(qs.get('seed') || Date.now()),
@@ -1198,7 +1201,13 @@
       run: qs.get('run') || 'play',
       view: qs.get('view') || 'mobile',
       zone: qs.get('zone') || 'fitness',
+      cat: qs.get('cat') || 'fitness',
       game: qs.get('game') || 'jumpduck',
+      gameId: qs.get('gameId') || 'jumpduck',
+      theme: qs.get('theme') || 'jumpduck',
+      gate: qs.get('gate') || '0',
+      cooldown: qs.get('cooldown') || '1',
+      returnPhase: qs.get('returnPhase') || 'cooldown',
       debug: qs.get('debug') === '1'
     };
 
@@ -1282,6 +1291,7 @@
       btnHubTop: document.getElementById('btnHubTop'),
       btnHubCover: document.getElementById('btnHubCover'),
       btnHubSummary: document.getElementById('btnHubSummary'),
+      btnCooldown: document.getElementById('btnCooldown'),
       cover: document.getElementById('cover'),
       summary: document.getElementById('summary'),
       btnStart: document.getElementById('btnStart'),
@@ -1326,10 +1336,6 @@
       summaryLine: document.getElementById('summaryLine'),
       summaryStars: document.getElementById('summaryStars')
     };
-
-    el.btnHubTop.href = ctx.hub;
-    el.btnHubCover.href = ctx.hub;
-    el.btnHubSummary.href = ctx.hub;
 
     if (ctx.debug) el.debugWrap.style.display = '';
 
@@ -1827,14 +1833,6 @@ remaining=${remainingMs()}`;
       resolveCurrent(result, action, delta);
     }
 
-    function currentAndUpcoming() {
-      const step = state.current || state.schedule[state.pointer] || null;
-      const next = state.current
-        ? (state.schedule[state.pointer + 1] || null)
-        : (state.schedule[state.pointer] || null);
-      return { step, next };
-    }
-
     function renderCue(t) {
       const step = state.current;
       if (!step) {
@@ -1975,6 +1973,70 @@ remaining=${remainingMs()}`;
       }, 3000);
     }
 
+    function copyPassthroughParams(url) {
+      [
+        'studentKey','schoolCode','classRoom','studentNo','nickName',
+        'api','conditionGroup','sessionNo','weekNo','debug'
+      ].forEach((k) => {
+        const v = qs.get(k);
+        if (v != null && v !== '') url.searchParams.set(k, v);
+      });
+    }
+
+    function buildCooldownUrl() {
+      const url = new URL('../herohealth/warmup-gate.html', location.href);
+
+      url.searchParams.set('phase', 'cooldown');
+      url.searchParams.set('pid', ctx.pid);
+      url.searchParams.set('name', ctx.name);
+      if (ctx.studyId) url.searchParams.set('studyId', ctx.studyId);
+
+      url.searchParams.set('zone', ctx.zone);
+      url.searchParams.set('cat', ctx.cat);
+      url.searchParams.set('game', ctx.game);
+      url.searchParams.set('gameId', ctx.gameId);
+      url.searchParams.set('theme', ctx.theme);
+
+      url.searchParams.set('diff', ctx.diff);
+      url.searchParams.set('time', String(ctx.time));
+      url.searchParams.set('seed', ctx.seed);
+      url.searchParams.set('hub', ctx.hub);
+      url.searchParams.set('view', ctx.view);
+      url.searchParams.set('run', ctx.run);
+
+      url.searchParams.set('gate', ctx.gate);
+      url.searchParams.set('cooldown', '1');
+      url.searchParams.set('returnPhase', 'hub');
+      url.searchParams.set('cdur', qs.get('cdur') || '20');
+      url.searchParams.set('next', ctx.hub);
+
+      copyPassthroughParams(url);
+      return url.href;
+    }
+
+    function applyHubLinks() {
+      el.btnHubTop.href = ctx.hub;
+      el.btnHubCover.href = ctx.hub;
+      el.btnHubSummary.href = ctx.hub;
+    }
+
+    function configureSummaryActions() {
+      applyHubLinks();
+
+      if (ctx.cooldown === '1') {
+        el.btnCooldown.style.display = '';
+        el.btnCooldown.textContent = '🧘 Cooldown';
+        el.btnHubSummary.textContent = '🏠 ข้ามไป HUB';
+        el.btnCooldown.onclick = () => {
+          location.href = buildCooldownUrl();
+        };
+      } else {
+        el.btnCooldown.style.display = 'none';
+        el.btnHubSummary.textContent = '🏠 กลับ HUB';
+        el.btnCooldown.onclick = null;
+      }
+    }
+
     function startGame() {
       ensureAudio();
       el.cover.classList.add('hidden');
@@ -2021,6 +2083,7 @@ remaining=${remainingMs()}`;
       const m = metrics();
       const line = coachTipFromMetrics(m);
       const starsText = ['☆ ☆ ☆', '⭐ ☆ ☆', '⭐ ⭐ ☆', '⭐ ⭐ ⭐'][m.stars] || '☆ ☆ ☆';
+      const cooldownUrl = buildCooldownUrl();
 
       el.sumScore.textContent = String(state.score);
       el.sumRhythm.textContent = `${m.rhythm}%`;
@@ -2030,6 +2093,8 @@ remaining=${remainingMs()}`;
       el.sumPosts.textContent = String(state.postsCleared);
       el.summaryLine.textContent = line;
       el.summaryStars.textContent = starsText;
+
+      configureSummaryActions();
       el.summary.classList.remove('hidden');
 
       const summary = {
@@ -2045,6 +2110,8 @@ remaining=${remainingMs()}`;
         landingControl: m.landing,
         bestCombo: state.maxCombo,
         postsCleared: state.postsCleared,
+        cooldownEnabled: ctx.cooldown === '1',
+        cooldownUrl,
         ts_iso: new Date().toISOString(),
         hub: ctx.hub
       };
@@ -2120,6 +2187,7 @@ remaining=${remainingMs()}`;
 
     buildPostBar();
     bindButtons();
+    configureSummaryActions();
     updateHUD();
     renderUpcoming();
   })();
