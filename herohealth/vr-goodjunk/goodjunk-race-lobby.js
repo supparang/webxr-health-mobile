@@ -3,7 +3,10 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-race-lobby.js
  * GoodJunk Race Lobby
- * FULL PATCH v20260406-race-lobby-runtime-full
+ * FULL PATCH v20260406-race-lobby-runtime-full-p2
+ * - stronger rematch / recover / participant locking
+ * - better room-kind detection
+ * - safer host adoption / broken countdown recovery
  * ========================================================= */
 (function(){
   const W = window;
@@ -20,10 +23,6 @@
   const ROOM_KINDS = ['raceRooms', 'rooms'];
   const MIN_PLAYERS = 2;
   const MAX_PLAYERS = 2;
-  const IS_REMATCH = (function(){
-    try { return new URL(location.href).searchParams.get('rematch') === '1'; }
-    catch { return false; }
-  })();
 
   const qs = (k, d='') => {
     try { return (new URL(location.href)).searchParams.get(k) ?? d; }
@@ -56,6 +55,7 @@
 
   const HUB = qs('hub', '../hub.html');
   const LAUNCHER = './goodjunk-multi.html';
+  const IS_REMATCH = qs('rematch', '0') === '1';
 
   const UI = {
     topNotice: D.getElementById('topNotice'),
@@ -217,6 +217,14 @@
   function getSeed(){
     const raw = String((UI.seedInput && UI.seedInput.value) || qs('seed', '') || '').trim();
     return raw || String(Math.floor(Math.random() * 900000000) + 100000000);
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
   }
 
   const setTop = (m) => { if (UI.topNotice) UI.topNotice.textContent = String(m || ''); };
@@ -396,6 +404,7 @@
       if (d.view && UI.viewSelect) UI.viewSelect.value = d.view;
       if (d.seed != null && UI.seedInput) UI.seedInput.value = String(d.seed);
       if (d.roomId && !S.roomId) S.roomId = cleanRoom(d.roomId);
+      if (d.roomKind && !S.roomKind) S.roomKind = clean(d.roomKind, 24);
     } catch (_) {}
   }
 
@@ -421,14 +430,19 @@
     return (nowTs - lastSeen) <= ACTIVE_TTL_MS;
   }
 
+  function playersSorted(){
+    return Object.values(S.players || {})
+      .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
+  }
+
   function activePlayers(){
     const t = now();
-    return Object.values(S.players || {})
+    return playersSorted()
       .filter((p) => isActivePlayer(p, t))
       .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
   }
 
-  function currentParticipantIds(){
+  function participantIdsFromState(){
     const ids =
       Array.isArray(S.state && S.state.participantIds) ? S.state.participantIds :
       Array.isArray(S.match && S.match.participantIds) ? S.match.participantIds :
@@ -436,9 +450,19 @@
     return ids.filter(Boolean);
   }
 
+  function participantPlayers(){
+    const ids = new Set(participantIdsFromState());
+    if (!ids.size) return [];
+    return activePlayers().filter((p) => ids.has(p.pid));
+  }
+
+  function selectedParticipants(){
+    return activePlayers().slice(0, MAX_PLAYERS).map((p) => p.pid).filter(Boolean);
+  }
+
   function selfInParticipants(){
     if (!S.uid) return false;
-    return currentParticipantIds().includes(S.uid);
+    return participantIdsFromState().includes(S.uid);
   }
 
   function ensureRoomCode(){
@@ -506,10 +530,11 @@
     url.searchParams.set('seed', sharedSeed);
     url.searchParams.set('hub', HUB);
     url.searchParams.set('autostart', '1');
-    url.searchParams.set('safe', './goodjunk-race.safe.js');
+    url.searchParams.set('safe', './goodjunk.safe.race.js');
     url.searchParams.set('core', './goodjunk.safe.race.js');
     url.searchParams.set('controller', './goodjunk-race.js');
-    url.searchParams.set('rv', '20260406-race-run-full');
+    url.searchParams.set('rv', '20260406-race-run-full-p2');
+
     if (sharedStartAt > 0) url.searchParams.set('startAt', String(sharedStartAt));
     if (sharedRoundId) url.searchParams.set('roundId', sharedRoundId);
     if (S.roomKind) url.searchParams.set('roomKind', S.roomKind);
@@ -573,7 +598,9 @@
     const box = UI.playersList;
     if (!box) return;
 
-    const players = Object.values(S.players || {}).sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
+    const players = playersSorted();
+    const participants = new Set(participantIdsFromState());
+
     if (!players.length) {
       box.innerHTML = `
         <div class="player">
@@ -594,16 +621,22 @@
       const active = isActivePlayer(p);
       const you = p.pid === S.uid;
       const host = p.pid === (S.meta && S.meta.hostPid);
+      const inRound = participants.has(p.pid);
       const phase = String(p.phase || 'lobby');
-      const badge = you ? 'YOU' : (active ? 'LIVE' : 'OFFLINE');
+
+      let badge = 'WAIT';
+      if (you) badge = 'YOU';
+      else if (inRound) badge = 'IN';
+      else if (active) badge = 'LIVE';
+      else badge = 'OFFLINE';
 
       return `
         <div class="player">
           <div class="player-left">
-            <div class="avatar">${host ? '👑' : '🏁'}</div>
+            <div class="avatar">${host ? '👑' : (inRound ? '🏁' : '🙂')}</div>
             <div>
               <div class="name">${escapeHtml(p.nick || 'player')} ${host ? '• host' : ''}</div>
-              <div class="mini">${host ? 'host' : 'guest'} • ${active ? 'online' : 'offline'} • ${escapeHtml(phase)}</div>
+              <div class="mini">${host ? 'host' : 'guest'} • ${active ? 'online' : 'offline'} • ${inRound ? 'participant' : 'waiting'} • ${escapeHtml(phase)}</div>
             </div>
           </div>
           <div class="badge">${badge}</div>
@@ -623,7 +656,7 @@
     const iAmFirstActive = !!(actives[0] && actives[0].pid === S.uid);
     const canAdoptHost = !S.meta.hostPid || !activeHost || isHost() || iAmFirstActive;
 
-    if (actives.length >= MIN_PLAYERS && activeHost) return;
+    if (status === 'countdown' && actives.length >= MIN_PLAYERS && activeHost) return;
     if (!canAdoptHost) return;
     if (healBusy) return;
 
@@ -679,7 +712,7 @@
         await dbWriteWithRetry(() => S.refs.players.update(updates)).catch(() => {});
       }
 
-      console.log('[race-lobby] recovered broken countdown', {
+      console.log('[race-lobby] recovered broken round', {
         reason,
         roomId: S.roomId,
         roomKind: S.roomKind,
@@ -697,48 +730,41 @@
   function renderState(){
     ensureRoomCode();
 
-    const count = activePlayers().length;
+    const active = activePlayers();
+    const count = active.length;
     const status = String((S.state && S.state.status) || 'waiting');
-    const participantIds = currentParticipantIds();
+    const participantIds = participantIdsFromState();
+    const selected = selectedParticipants();
 
     if (UI.statusBadge) UI.statusBadge.textContent = status.toUpperCase();
     if (UI.roomSummary) {
       UI.roomSummary.textContent =
-        status === 'countdown' ? `กำลังนับถอยหลัง • ${count}/2 players` :
-        (status === 'playing' || status === 'running') ? `กำลังเข้าเกม • ${count}/2 players` :
-        status === 'ended' ? `รอบก่อนจบแล้ว • ${count}/2 players` :
-        `รอผู้เล่น • ${count}/2 players`;
+        status === 'countdown' ? `กำลังนับถอยหลัง • participant ${participantIds.length}/2` :
+        (status === 'playing' || status === 'running') ? `กำลังเข้าเกม • participant ${participantIds.length}/2` :
+        status === 'ended' ? `รอบก่อนจบแล้ว • ผู้เล่นในห้อง ${count}` :
+        `รอผู้เล่น • ผู้เล่นในห้อง ${count} • รอบนี้จะเลือก ${Math.min(MAX_PLAYERS, selected.length)}/2 คนแรก`;
     }
 
     if (UI.btnStartGame) {
-      UI.btnStartGame.disabled = !(S.joined && isHost() && count >= MIN_PLAYERS && (status === 'waiting' || status === 'ended'));
+      UI.btnStartGame.disabled = !(S.joined && isHost() && selected.length >= MIN_PLAYERS && (status === 'waiting' || status === 'ended'));
     }
     if (UI.btnLeaveRoom) {
       UI.btnLeaveRoom.disabled = !S.joined;
     }
-
-    if (UI.hostName) {
-      const hostPlayer =
-        activePlayers().find((p) => p.pid === (S.meta && S.meta.hostPid)) ||
-        Object.values(S.players || {}).find((p) => p.pid === (S.meta && S.meta.hostPid));
-      UI.hostName.textContent = hostPlayer ? (hostPlayer.nick || hostPlayer.pid || '-') : '-';
-    }
-
-    if (UI.playerCount) UI.playerCount.textContent = `${count}/2`;
 
     if (!S.joined) {
       setTop('ใส่ชื่อ แล้วกดสร้างห้องหรือเข้าห้องได้เลย');
       setSide('เมื่อเข้าห้องแล้ว QR, room code และรายชื่อผู้เล่นจะอัปเดตให้ทันที');
       setBottom('ถ้ายังมีแค่ 1 คน ระบบจะรอผู้เล่นอีก 1 คนก่อนเริ่ม');
     } else if (status === 'waiting') {
-      if (count >= MIN_PLAYERS) {
-        setTop('ครบ 2 คนแล้ว Host กด Start Race ได้เลย');
-        setSide('ตอนนี้ห้องพร้อมเริ่มแข่งแล้ว');
-        setBottom(`participant รอบนี้จะเป็นผู้เล่น 2 คนแรกในห้อง`);
+      if (selected.length >= MIN_PLAYERS) {
+        setTop('พร้อมเริ่มแล้ว • Host กด Start Race ได้เลย');
+        setSide(`participant รอบนี้คือผู้เล่น ${Math.min(MAX_PLAYERS, selected.length)} คนแรกที่ online อยู่`);
+        setBottom(selected.length > MAX_PLAYERS ? 'คนที่เข้ามาทีหลังจะรอรอบถัดไป' : 'ตอนนี้ห้องพร้อมเริ่มแล้ว');
       } else {
-        setTop(`เข้าห้องสำเร็จ • รอผู้เล่นอีก ${Math.max(0, MIN_PLAYERS - count)} คน`);
+        setTop(`เข้าห้องสำเร็จ • รอผู้เล่นอีก ${Math.max(0, MIN_PLAYERS - selected.length)} คน`);
         setSide('ส่ง room code หรือให้เพื่อน scan QR เพื่อเข้าห้องเดียวกัน');
-        setBottom('Race ต้องมี 2 คนจึงจะเริ่มได้');
+        setBottom('Race ต้องมีอย่างน้อย 2 คนจึงจะเริ่มได้');
       }
     } else if (status === 'countdown') {
       setTop('กำลังนับถอยหลัง เตรียมเข้าเกม');
@@ -750,7 +776,7 @@
         setSide('ถ้าไม่เด้งเอง ให้รอสักครู่');
       } else {
         setTop('รอบนี้เริ่มแล้ว');
-        setSide('คุณไม่ได้อยู่ใน participant รอบนี้');
+        setSide('คุณไม่ได้อยู่ใน participant รอบนี้ • รอรอบถัดไปได้เลย');
       }
       setBottom('ระบบกำลัง sync ห้องก่อนเข้าเกม');
     } else if (status === 'ended') {
@@ -831,9 +857,9 @@
         finished: false,
         finalScore: 0,
         score: 0,
+        contribution: 0,
         miss: 0,
         streak: 0,
-        contribution: 0,
         updatedAt: nowTs,
         lastSeen: nowTs,
         connected: p.connected !== false
@@ -1238,8 +1264,8 @@
     const nowTs = Date.now();
 
     Object.keys(players).forEach((pid) => {
-      const isInRound = participantIds.includes(pid);
-      updates[`${pid}/phase`] = isInRound ? 'run' : 'lobby';
+      const inRound = participantIds.includes(pid);
+      updates[`${pid}/phase`] = inRound ? 'run' : 'lobby';
       updates[`${pid}/finished`] = false;
       updates[`${pid}/finalScore`] = 0;
       updates[`${pid}/score`] = 0;
@@ -1250,7 +1276,9 @@
       updates[`${pid}/lastSeen`] = nowTs;
     });
 
-    await S.refs.players.update(updates).catch(() => {});
+    if (Object.keys(updates).length) {
+      await S.refs.players.update(updates).catch(() => {});
+    }
 
     if (RT) {
       await RT.countdownStarted({
