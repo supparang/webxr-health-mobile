@@ -370,7 +370,7 @@
         <h1 class="title">เลือกทางเข้า GoodJunk</h1>
         <p class="sub">
           โหมด Solo Boss จะเข้า gameplay core ใหม่โดยตรง
-          และจะไม่ย้อนกลับไปหน้า Legacy Bridge อีก
+          และจะผ่าน warmup ก่อนเข้าเกมจริงเสมอ
         </p>
 
         <div class="meta">
@@ -383,7 +383,7 @@
 
         <div class="note">
           Flow ที่ถูกต้องคือ
-          <b>Launcher → GoodJunk Solo Boss → goodjunk-solo-phaseboss-v2.js</b>
+          <b>Launcher → Warmup → GoodJunk Solo Boss → Summary → Cooldown</b>
         </div>
       </div>
 
@@ -419,7 +419,7 @@
         <div class="mode-icon">👑</div>
         <h2 class="mode-name">Solo Boss</h2>
         <p class="mode-copy">
-          เข้า phase boss ใหม่โดยตรง พร้อม phase 1 → phase 2 → boss → summary → cooldown
+          เข้า phase boss ใหม่โดยตรง พร้อม warmup ก่อนเล่นจริง และ cooldown หลังจบเกม
         </p>
 
         <div class="mode-actions">
@@ -448,151 +448,188 @@
   </div>
 
   <script>
-    (function(){
-      'use strict';
+  (function(){
+    'use strict';
 
-      const q = new URLSearchParams(location.search);
+    const q = new URLSearchParams(location.search);
 
-      function first(){
-        for (let i = 0; i < arguments.length; i++) {
-          const v = arguments[i];
-          if (String(v || '').trim()) return String(v).trim();
-        }
-        return '';
+    function first(){
+      for (let i = 0; i < arguments.length; i++) {
+        const v = arguments[i];
+        if (String(v || '').trim()) return String(v).trim();
       }
+      return '';
+    }
 
-      function cleanPid(v){
-        return String(v || 'anon').trim().replace(/[^\w-]/g,'').slice(0,40) || 'anon';
-      }
+    function cleanPid(v){
+      return String(v || 'anon').trim().replace(/[^\w-]/g,'').slice(0,40) || 'anon';
+    }
 
-      function cleanName(v){
-        return String(v || '').trim().replace(/[<>]/g,'').slice(0,40) || 'Hero';
-      }
+    function cleanName(v){
+      return String(v || '').trim().replace(/[<>]/g,'').slice(0,40) || 'Hero';
+    }
 
-      function cleanEnum(v, allow, fallback){
-        v = String(v || '').trim().toLowerCase();
-        return allow.indexOf(v) >= 0 ? v : fallback;
-      }
+    function cleanEnum(v, allow, fallback){
+      v = String(v || '').trim().toLowerCase();
+      return allow.indexOf(v) >= 0 ? v : fallback;
+    }
 
-      function numIn(v, fallback, min, max){
-        v = Number(v);
-        if (!Number.isFinite(v)) return fallback;
-        return Math.max(min, Math.min(max, v));
-      }
+    function numIn(v, fallback, min, max){
+      v = Number(v);
+      if (!Number.isFinite(v)) return fallback;
+      return Math.max(min, Math.min(max, v));
+    }
 
-      function pass(u, extra){
-        [
-          'pid','name','nickName','studyId','diff','time','seed','hub','view','run',
-          'gameId','game','zone','debug','api','log',
-          'studentKey','schoolCode','classRoom','studentNo','conditionGroup'
-        ].forEach((k) => {
-          const v = q.get(k);
-          if (v != null && v !== '') u.searchParams.set(k, v);
-        });
+    const ctx = {
+      pid: cleanPid(first(q.get('pid'), 'anon')),
+      name: cleanName(first(q.get('name'), q.get('nickName'), 'Hero')),
+      diff: cleanEnum(first(q.get('diff'), 'normal'), ['easy','normal','hard'], 'normal'),
+      time: String(numIn(first(q.get('time'), 150), 150, 90, 300)),
+      seed: first(q.get('seed'), String(Date.now())),
+      run: cleanEnum(first(q.get('run'), 'play'), ['play','research','demo'], 'play'),
+      view: cleanEnum(first(q.get('view'), 'mobile'), ['mobile','pc','cvr'], 'mobile'),
+      hub: first(q.get('hub'), new URL('./hub-v2.html', location.href).toString()),
+      studyId: first(q.get('studyId'), '')
+    };
 
-        if (!u.searchParams.get('pid')) u.searchParams.set('pid', ctx.pid);
-        if (!u.searchParams.get('name')) u.searchParams.set('name', ctx.name);
-        if (!u.searchParams.get('diff')) u.searchParams.set('diff', ctx.diff);
-        if (!u.searchParams.get('time')) u.searchParams.set('time', ctx.time);
-        if (!u.searchParams.get('run')) u.searchParams.set('run', ctx.run);
-        if (!u.searchParams.get('view')) u.searchParams.set('view', ctx.view);
-        if (!u.searchParams.get('hub')) u.searchParams.set('hub', ctx.hub);
-        if (!u.searchParams.get('seed')) u.searchParams.set('seed', ctx.seed);
-        if (!u.searchParams.get('gameId')) u.searchParams.set('gameId', 'goodjunk');
-        if (!u.searchParams.get('zone')) u.searchParams.set('zone', 'nutrition');
+    let navBusy = false;
 
-        if (extra && typeof extra === 'object') {
-          Object.keys(extra).forEach((k) => {
-            const v = extra[k];
-            if (v != null && v !== '') u.searchParams.set(k, v);
-          });
-        }
+    function setBusy(flag){
+      navBusy = !!flag;
+      [
+        document.getElementById('btnSoloBoss'),
+        document.getElementById('btnSoloBossDebug'),
+        document.getElementById('btnMulti')
+      ].filter(Boolean).forEach((btn) => {
+        btn.disabled = navBusy;
+        btn.style.pointerEvents = navBusy ? 'none' : 'auto';
+        btn.style.opacity = navBusy ? '.72' : '1';
+      });
+    }
 
-        return u;
-      }
+    function passCommon(u) {
+      [
+        'pid','name','nickName','studyId','diff','time','seed','hub','view','run',
+        'gameId','game','zone','debug','api','log',
+        'studentKey','schoolCode','classRoom','studentNo','conditionGroup'
+      ].forEach((k) => {
+        const v = q.get(k);
+        if (v != null && v !== '') u.searchParams.set(k, v);
+      });
 
-      const ctx = {
-        pid: cleanPid(first(q.get('pid'), 'anon')),
-        name: cleanName(first(q.get('name'), q.get('nickName'), 'Hero')),
-        diff: cleanEnum(first(q.get('diff'), 'normal'), ['easy','normal','hard'], 'normal'),
-        time: String(numIn(first(q.get('time'), 150), 150, 90, 300)),
-        seed: first(q.get('seed'), String(Date.now())),
-        run: cleanEnum(first(q.get('run'), 'play'), ['play','research','demo'], 'play'),
-        view: cleanEnum(first(q.get('view'), 'mobile'), ['mobile','pc','cvr'], 'mobile'),
-        hub: first(q.get('hub'), new URL('./hub-v2.html', location.href).toString())
-      };
+      if (!u.searchParams.get('pid')) u.searchParams.set('pid', ctx.pid);
+      if (!u.searchParams.get('name')) u.searchParams.set('name', ctx.name);
+      if (!u.searchParams.get('studyId') && ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
+      if (!u.searchParams.get('diff')) u.searchParams.set('diff', ctx.diff);
+      if (!u.searchParams.get('time')) u.searchParams.set('time', ctx.time);
+      if (!u.searchParams.get('run')) u.searchParams.set('run', ctx.run);
+      if (!u.searchParams.get('view')) u.searchParams.set('view', ctx.view);
+      if (!u.searchParams.get('hub')) u.searchParams.set('hub', ctx.hub);
+      if (!u.searchParams.get('seed')) u.searchParams.set('seed', ctx.seed);
+      if (!u.searchParams.get('gameId')) u.searchParams.set('gameId', 'goodjunk');
+      if (!u.searchParams.get('zone')) u.searchParams.set('zone', 'nutrition');
+      return u;
+    }
 
-      const btnHub = document.getElementById('btnHub');
-      const btnRouteGuard = document.getElementById('btnRouteGuard');
+    function buildSoloBossRunUrl(debugOn) {
+      const runUrl = new URL('./goodjunk-solo-boss.html', location.href);
+      passCommon(runUrl);
+      runUrl.searchParams.set('mode', 'solo');
+      runUrl.searchParams.set('entry', 'solo-boss');
+      runUrl.searchParams.set('phaseBoss', '1');
+      runUrl.searchParams.set('boss', '1');
+      runUrl.searchParams.set('theme', 'phaseboss');
+      runUrl.searchParams.set('game', 'goodjunk');
+      runUrl.searchParams.set('cat', 'nutrition');
+      runUrl.searchParams.set('zone', 'nutrition');
+      runUrl.searchParams.set('returnPhase', 'cooldown');
+      runUrl.searchParams.set('cooldown', '1');
+      runUrl.searchParams.set('gate', '1');
+      if (debugOn) runUrl.searchParams.set('debug', '1');
+      return runUrl.toString();
+    }
 
-      if (btnHub) btnHub.href = ctx.hub;
-      if (btnRouteGuard) {
-        btnRouteGuard.href = pass(new URL('./goodjunk-vr.html', location.href)).toString();
-      }
+    function buildWarmupUrl(debugOn) {
+      const warmupUrl = new URL('./warmup-gate.html', location.href);
+      passCommon(warmupUrl);
+      warmupUrl.searchParams.set('phase', 'warmup');
+      warmupUrl.searchParams.set('game', 'goodjunk');
+      warmupUrl.searchParams.set('gameId', 'goodjunk');
+      warmupUrl.searchParams.set('theme', 'goodjunk');
+      warmupUrl.searchParams.set('cat', 'nutrition');
+      warmupUrl.searchParams.set('zone', 'nutrition');
+      warmupUrl.searchParams.set('mode', 'solo');
+      warmupUrl.searchParams.set('entry', 'solo-boss');
+      warmupUrl.searchParams.set('phaseBoss', '1');
+      warmupUrl.searchParams.set('boss', '1');
+      warmupUrl.searchParams.set('forcegate', '1');
+      warmupUrl.searchParams.set('next', buildSoloBossRunUrl(debugOn));
+      if (debugOn) warmupUrl.searchParams.set('debug', '1');
+      return warmupUrl.toString();
+    }
 
-      const metaPid = document.getElementById('metaPid');
-      const metaDiff = document.getElementById('metaDiff');
-      const metaTime = document.getElementById('metaTime');
-      const metaRun = document.getElementById('metaRun');
-      const metaView = document.getElementById('metaView');
+    function goOnce(url){
+      if (navBusy) return;
+      setBusy(true);
+      location.href = url;
+    }
 
-      if (metaPid) metaPid.textContent = 'pid: ' + ctx.pid;
-      if (metaDiff) metaDiff.textContent = 'diff: ' + ctx.diff;
-      if (metaTime) metaTime.textContent = 'time: ' + ctx.time + 's';
-      if (metaRun) metaRun.textContent = 'run: ' + ctx.run;
-      if (metaView) metaView.textContent = 'view: ' + ctx.view;
+    const btnHub = document.getElementById('btnHub');
+    const btnRouteGuard = document.getElementById('btnRouteGuard');
 
-      const statusPlayer = document.getElementById('statusPlayer');
-      const statusPid = document.getElementById('statusPid');
-      const statusHub = document.getElementById('statusHub');
-      const statusSeed = document.getElementById('statusSeed');
+    if (btnHub) btnHub.href = ctx.hub;
+    if (btnRouteGuard) {
+      btnRouteGuard.href = passCommon(new URL('./goodjunk-vr.html', location.href)).toString();
+    }
 
-      if (statusPlayer) statusPlayer.textContent = ctx.name;
-      if (statusPid) statusPid.textContent = ctx.pid;
-      if (statusHub) statusHub.textContent = ctx.hub;
-      if (statusSeed) statusSeed.textContent = ctx.seed;
+    const metaPid = document.getElementById('metaPid');
+    const metaDiff = document.getElementById('metaDiff');
+    const metaTime = document.getElementById('metaTime');
+    const metaRun = document.getElementById('metaRun');
+    const metaView = document.getElementById('metaView');
 
-      const btnSoloBoss = document.getElementById('btnSoloBoss');
-      const btnSoloBossDebug = document.getElementById('btnSoloBossDebug');
-      const btnMulti = document.getElementById('btnMulti');
+    if (metaPid) metaPid.textContent = 'pid: ' + ctx.pid;
+    if (metaDiff) metaDiff.textContent = 'diff: ' + ctx.diff;
+    if (metaTime) metaTime.textContent = 'time: ' + ctx.time + 's';
+    if (metaRun) metaRun.textContent = 'run: ' + ctx.run;
+    if (metaView) metaView.textContent = 'view: ' + ctx.view;
 
-      if (btnSoloBoss) {
-        btnSoloBoss.addEventListener('click', function(){
-          const u = new URL('./goodjunk-solo-boss.html', location.href);
-          location.href = pass(u, {
-            mode: 'solo',
-            entry: 'solo-boss',
-            phaseBoss: '1',
-            boss: '1',
-            theme: 'phaseboss'
-          }).toString();
-        });
-      }
+    const statusPlayer = document.getElementById('statusPlayer');
+    const statusPid = document.getElementById('statusPid');
+    const statusHub = document.getElementById('statusHub');
+    const statusSeed = document.getElementById('statusSeed');
 
-      if (btnSoloBossDebug) {
-        btnSoloBossDebug.addEventListener('click', function(){
-          const u = new URL('./goodjunk-solo-boss.html', location.href);
-          location.href = pass(u, {
-            mode: 'solo',
-            entry: 'solo-boss',
-            phaseBoss: '1',
-            boss: '1',
-            theme: 'phaseboss',
-            debug: '1'
-          }).toString();
-        });
-      }
+    if (statusPlayer) statusPlayer.textContent = ctx.name;
+    if (statusPid) statusPid.textContent = ctx.pid;
+    if (statusHub) statusHub.textContent = ctx.hub;
+    if (statusSeed) statusSeed.textContent = ctx.seed;
 
-      if (btnMulti) {
-        btnMulti.addEventListener('click', function(){
-          const u = new URL('./vr-goodjunk/goodjunk-multi.html', location.href);
-          location.href = pass(u, {
-            gameId: 'goodjunk',
-            zone: 'nutrition'
-          }).toString();
-        });
-      }
-    })();
+    const btnSoloBoss = document.getElementById('btnSoloBoss');
+    const btnSoloBossDebug = document.getElementById('btnSoloBossDebug');
+    const btnMulti = document.getElementById('btnMulti');
+
+    if (btnSoloBoss) {
+      btnSoloBoss.addEventListener('click', function(){
+        goOnce(buildWarmupUrl(false));
+      });
+    }
+
+    if (btnSoloBossDebug) {
+      btnSoloBossDebug.addEventListener('click', function(){
+        goOnce(buildWarmupUrl(true));
+      });
+    }
+
+    if (btnMulti) {
+      btnMulti.addEventListener('click', function(){
+        const u = new URL('./vr-goodjunk/goodjunk-multi.html', location.href);
+        passCommon(u);
+        u.searchParams.set('gameId', 'goodjunk');
+        u.searchParams.set('zone', 'nutrition');
+        goOnce(u.toString());
+      });
+    }
+  })();
   </script>
 </body>
 </html>
