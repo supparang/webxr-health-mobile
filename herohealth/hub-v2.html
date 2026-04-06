@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" 2width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Hub v2</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
@@ -1118,7 +1118,6 @@
 
       const qs = new URLSearchParams(location.search);
 
-      const ORIGIN = location.origin || 'https://supparang.github.io';
       const HUB_SELF = new URL('./hub-v2.html', location.href).toString().split('#')[0];
       const PID = qs.get('pid') || localStorage.getItem('HH_PID') || 'anon';
       const HERO_NAME = qs.get('name') || localStorage.getItem('HH_NAME') || 'Rocky';
