@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.safe.js ===
 // Hydration V2 Main Orchestrator
-// PATCH v20260320b-HYDRATION-V2-PATCH-C-FIXED-HUB-SOCIAL-BREAKDOWN
+// PATCH v20260320c-HYDRATION-V2-DAILY-MISSION-FULL
 //
 // Flow:
 // Intro -> Main Run -> Summary -> Scenarios -> Evaluate -> Create -> Final Summary
@@ -127,6 +127,9 @@ const state = {
   socialMetrics: null,
   socialBreakdown: null,
 
+  dailyMissions: [],
+  missionBonusScore: 0,
+
   combo: 0,
   bestCombo: 0,
 
@@ -151,17 +154,257 @@ let loopPrevTs = 0;
 let nextSpawnAt = 0;
 let toastTimer = 0;
 
+const MISSION_RECENT_LIMIT = 9;
+let missionHudEl = null;
+
 boot();
+
+function buildMissionPool() {
+  return [
+    { id:'good_8', group:'collect', kind:'good_total', label:'💧 เก็บน้ำให้ได้ 8 ครั้ง', target:8, rewardScore:12 },
+    { id:'good_10', group:'collect', kind:'good_total', label:'💧 เก็บน้ำให้ได้ 10 ครั้ง', target:10, rewardScore:14 },
+    { id:'combo_4', group:'collect', kind:'combo_reach', label:'✨ ทำคอมโบให้ถึง 4', target:4, rewardScore:12 },
+    { id:'combo_6', group:'collect', kind:'combo_reach', label:'✨ ทำคอมโบให้ถึง 6', target:6, rewardScore:14 },
+
+    { id:'bad_max_1', group:'control', kind:'bad_max', label:'🛡️ จบรอบโดยแตะหวานไม่เกิน 1 ครั้ง', max:1, rewardScore:14, endCheck:true },
+    { id:'bad_max_0', group:'control', kind:'bad_max', label:'🛡️ จบรอบโดยไม่แตะหวานเลย', max:0, rewardScore:16, endCheck:true },
+    { id:'missed_max_2', group:'control', kind:'missed_max', label:'🎯 พลาดน้ำได้ไม่เกิน 2 ชิ้น', max:2, rewardScore:12, endCheck:true },
+    { id:'missed_max_1', group:'control', kind:'missed_max', label:'🎯 พลาดน้ำได้ไม่เกิน 1 ชิ้น', max:1, rewardScore:14, endCheck:true },
+
+    { id:'reward_1', group:'bonus', kind:'reward_total', label:'🎁 เก็บ reward ให้ได้ 1 ชิ้น', target:1, rewardScore:10 },
+    { id:'reward_2', group:'bonus', kind:'reward_total', label:'🎁 เก็บ reward ให้ได้ 2 ชิ้น', target:2, rewardScore:14 },
+    { id:'score_100', group:'bonus', kind:'score_reach', label:'🏁 ทำคะแนนรอบหลักให้ถึง 100', target:100, rewardScore:12 },
+    { id:'score_140', group:'bonus', kind:'score_reach', label:'🏁 ทำคะแนนรอบหลักให้ถึง 140', target:140, rewardScore:16 }
+  ];
+}
+
+function buildMissionHistoryKey() {
+  const pid = String(state.pid || 'anon').trim() || 'anon';
+  const studyId = String(state.studyId || 'nostudy').trim() || 'nostudy';
+  return `HHA_HYD_V2_MISSION_RECENT:${pid}:${studyId}`;
+}
+
+function readMissionHistory() {
+  try {
+    const raw = localStorage.getItem(buildMissionHistoryKey());
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveMissionHistory(ids = []) {
+  try {
+    const recent = readMissionHistory();
+    const merged = [
+      ...ids.filter(Boolean),
+      ...recent.filter(id => !ids.includes(id))
+    ].slice(0, MISSION_RECENT_LIMIT);
+    localStorage.setItem(buildMissionHistoryKey(), JSON.stringify(merged));
+  } catch (_) {}
+}
+
+function pickRandomFrom(arr) {
+  if (!Array.isArray(arr) || !arr.length) return null;
+  const idx = Math.floor(rng() * arr.length);
+  return arr[idx] || arr[0];
+}
+
+function pickDailyMissions() {
+  const pool = buildMissionPool();
+  const recentSet = new Set(readMissionHistory());
+  const groups = ['collect', 'control', 'bonus'];
+
+  const picked = groups.map(group => {
+    const groupPool = pool.filter(x => x.group === group);
+    const preferred = groupPool.filter(x => !recentSet.has(x.id));
+    const source = preferred.length ? preferred : groupPool;
+    const base = pickRandomFrom(source);
+    return {
+      ...base,
+      done: false,
+      claimed: false,
+      failed: false,
+      liveText: ''
+    };
+  }).filter(Boolean);
+
+  saveMissionHistory(picked.map(x => x.id));
+  return picked;
+}
+
+function ensureMissionHud() {
+  if (missionHudEl) return missionHudEl;
+
+  missionHudEl = document.createElement('div');
+  missionHudEl.id = 'hydrationDailyMissionHud';
+  missionHudEl.style.cssText = [
+    'position:absolute',
+    'right:12px',
+    'top:72px',
+    'z-index:14',
+    'width:min(260px,42vw)',
+    'display:none',
+    'padding:10px',
+    'border-radius:18px',
+    'background:rgba(2,6,23,.84)',
+    'border:1px solid rgba(148,163,184,.18)',
+    'backdrop-filter:blur(10px)',
+    'box-shadow:0 16px 36px rgba(0,0,0,.24)',
+    'color:#eaf6ff',
+    'font:800 12px/1.45 "Noto Sans Thai",system-ui,sans-serif',
+    'pointer-events:none'
+  ].join(';');
+
+  if (refs.stage) refs.stage.appendChild(missionHudEl);
+  return missionHudEl;
+}
+
+function renderMissionHud() {
+  const el = ensureMissionHud();
+  if (!el) return;
+
+  const shouldShow = state.phase === PHASES.RUN && Array.isArray(state.dailyMissions) && state.dailyMissions.length > 0;
+  el.style.display = shouldShow ? 'grid' : 'none';
+  if (!shouldShow) return;
+
+  el.innerHTML = `
+    <div style="font-size:13px;font-weight:1000;margin-bottom:6px;">🎯 Daily Missions</div>
+    <div style="display:grid;gap:6px;">
+      ${state.dailyMissions.map((m) => {
+        const tone = m.claimed
+          ? 'background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.28);color:#dcfce7;'
+          : 'background:rgba(255,255,255,.04);border-color:rgba(148,163,184,.14);color:#eaf6ff;';
+        return `
+          <div style="padding:8px 10px;border:1px solid;border-radius:12px;${tone}">
+            <div>${escapeHtml(m.label)}</div>
+            <div style="font-size:11px;opacity:.88;margin-top:2px;">
+              ${m.claimed ? `สำเร็จแล้ว +${m.rewardScore}` : escapeHtml(m.liveText || 'กำลังทำภารกิจ')}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function missionProgressText(m) {
+  switch (m.kind) {
+    case 'good_total':
+      return `${state.goodCatch}/${m.target}`;
+    case 'combo_reach':
+      return `${state.bestCombo}/${m.target}`;
+    case 'reward_total':
+      return `${state.rewardCount}/${m.target}`;
+    case 'score_reach':
+      return `${Math.round(state.actionScore)}/${m.target}`;
+    case 'bad_max':
+      return `ตอนนี้แตะหวาน ${state.badCatch}/${m.max}`;
+    case 'missed_max':
+      return `ตอนนี้พลาดน้ำ ${state.missedGood}/${m.max}`;
+    default:
+      return 'กำลังทำภารกิจ';
+  }
+}
+
+function missionIsMet(m, finalize = false) {
+  switch (m.kind) {
+    case 'good_total':
+      return state.goodCatch >= m.target;
+    case 'combo_reach':
+      return state.bestCombo >= m.target;
+    case 'reward_total':
+      return state.rewardCount >= m.target;
+    case 'score_reach':
+      return state.actionScore >= m.target;
+    case 'bad_max':
+      return finalize ? state.badCatch <= m.max : false;
+    case 'missed_max':
+      return finalize ? state.missedGood <= m.max : false;
+    default:
+      return false;
+  }
+}
+
+function claimMission(m) {
+  if (!m || m.claimed) return;
+
+  m.done = true;
+  m.claimed = true;
+  m.failed = false;
+
+  state.missionBonusScore += Number(m.rewardScore || 0);
+  state.actionScore += Number(m.rewardScore || 0);
+
+  refs.coachLine.textContent = `Mission สำเร็จ: ${m.label.replace(/^[^\s]+\s*/, '')}`;
+  showToast(`Mission สำเร็จ +${m.rewardScore}`);
+  logEvent('daily_mission_complete', {
+    id: m.id,
+    kind: m.kind,
+    rewardScore: m.rewardScore
+  });
+}
+
+function updateDailyMissions(finalize = false) {
+  if (!Array.isArray(state.dailyMissions)) return;
+
+  state.dailyMissions.forEach((m) => {
+    m.liveText = missionProgressText(m);
+
+    if (m.claimed) return;
+
+    const met = missionIsMet(m, finalize);
+
+    if (met) {
+      claimMission(m);
+    } else if (finalize && m.endCheck) {
+      m.done = false;
+      m.failed = true;
+    }
+  });
+
+  renderMissionHud();
+}
+
+function assignDailyMissions() {
+  state.dailyMissions = pickDailyMissions();
+  state.missionBonusScore = 0;
+  logEvent('daily_missions_assigned', {
+    missions: state.dailyMissions.map(m => ({
+      id: m.id,
+      label: m.label,
+      kind: m.kind
+    }))
+  });
+  renderMissionHud();
+}
+
+function renderMissionSummaryHtml() {
+  if (!Array.isArray(state.dailyMissions) || !state.dailyMissions.length) return '';
+
+  return `
+    <strong>Daily Missions</strong><br/>
+    ${state.dailyMissions.map((m) => {
+      const status = m.claimed ? `สำเร็จ ✅ (+${m.rewardScore})` : 'ยังไม่ผ่าน ✨';
+      return `• ${escapeHtml(m.label)} — ${status}`;
+    }).join('<br/>')}
+    <br/><br/>
+    <strong>Mission Bonus:</strong> +${state.missionBonusScore}
+  `;
+}
 
 function boot() {
   window.__HYDRATION_V2__ = { ctx, state, researchCtx };
 
   setupIntro();
   bindUI();
+  ensureMissionHud();
   recomputeSocial();
   renderHUD();
   renderTeamBox();
   renderStatusRibbon();
+  renderMissionHud();
   logEvent('boot', { ctx, researchCtx });
 }
 
@@ -281,6 +524,9 @@ function startRound() {
   state.socialMetrics = null;
   state.socialBreakdown = null;
 
+  state.dailyMissions = [];
+  state.missionBonusScore = 0;
+
   state.combo = 0;
   state.bestCombo = 0;
 
@@ -308,10 +554,12 @@ function startRound() {
   hideOverlay(refs.evaluateOverlay);
   hideOverlay(refs.createOverlay);
 
+  assignDailyMissions();
   recomputeSocial();
   renderHUD();
   renderTeamBox();
   renderStatusRibbon();
+  renderMissionHud();
   showToast('เริ่มเลย! เก็บน้ำให้ทันนะ');
   logEvent('round_start', snapshotRoundState());
 
@@ -334,9 +582,11 @@ function loop(ts) {
   }
 
   updateItems(dt);
+  updateDailyMissions(false);
   renderHUD();
   renderTeamBox();
   renderStatusRibbon();
+  renderMissionHud();
 
   if (state.remainingMs <= 0) {
     finishRound();
@@ -519,12 +769,14 @@ function finishRound() {
   state.items.forEach(removeItemNode);
   state.items = [];
 
+  updateDailyMissions(true);
   recomputeSocial();
   state.totalScore = computeTotalScore();
 
   renderHUD();
   renderTeamBox();
   renderStatusRibbon();
+  renderMissionHud();
   showMainSummaryOverlay();
   saveSummary('round_end');
   logEvent('round_end', snapshotRoundState());
@@ -581,6 +833,12 @@ function renderContributionBreakdownHtml() {
 }
 
 function showMainSummaryOverlay() {
+  const commonMissionBlock = `
+    <div class="result-box">
+      ${renderMissionSummaryHtml()}
+    </div>
+  `;
+
   const teamBlock = ctx.type === 'team'
     ? `
       <div class="result-box">
@@ -591,6 +849,7 @@ function showMainSummaryOverlay() {
         ${escapeHtml(state.socialMissionNote)}<br/><br/>
         ${renderContributionBreakdownHtml()}
       </div>
+      ${commonMissionBlock}
     `
     : `
       <div class="result-box">
@@ -598,6 +857,7 @@ function showMainSummaryOverlay() {
         ${escapeHtml(state.socialMissionNote)}<br/><br/>
         ${escapeHtml(state.socialSummary)}
       </div>
+      ${commonMissionBlock}
     `;
 
   refs.summaryOverlay.innerHTML = `
@@ -613,7 +873,7 @@ function showMainSummaryOverlay() {
         <div class="summary-card">
           <div class="summary-label">คะแนนรอบหลัก</div>
           <div class="summary-main">${state.actionScore}</div>
-          <div class="summary-sub">คิดจากการเก็บน้ำถูก เลี่ยงหวาน และ reward ที่ได้รับ</div>
+          <div class="summary-sub">คิดจากการเก็บน้ำถูก เลี่ยงหวาน reward และ mission bonus</div>
         </div>
 
         <div class="summary-card">
@@ -629,9 +889,9 @@ function showMainSummaryOverlay() {
         </div>
 
         <div class="summary-card">
-          <div class="summary-label">Rewards ที่ได้</div>
-          <div class="summary-main">${state.rewardCount}</div>
-          <div class="summary-sub">${escapeHtml(state.rewardHistory.join(', ') || 'ยังไม่ได้ reward')}</div>
+          <div class="summary-label">Mission Bonus</div>
+          <div class="summary-main">+${state.missionBonusScore}</div>
+          <div class="summary-sub">โบนัสจาก Daily Missions</div>
         </div>
       </div>
 
@@ -752,6 +1012,7 @@ async function runPostGameLearningFlow() {
   renderHUD();
   renderTeamBox();
   renderStatusRibbon();
+  renderMissionHud();
 }
 
 function showFinalOverlay(evalResult, createResult, researchPayload) {
@@ -773,6 +1034,8 @@ function showFinalOverlay(evalResult, createResult, researchPayload) {
 
       ${renderContributionBreakdownHtml()}<br/><br/>
 
+      ${renderMissionSummaryHtml()}<br/><br/>
+
       <strong>Checklist</strong><br/>
       • เก็บน้ำ 8+: ${checklist.goodCatchOk ? 'ผ่าน ✅' : 'ยังไม่ผ่าน ✨'} (ตอนนี้ ${metrics.goodCatch ?? 0})<br/>
       • Scenarios ถูก 1+: ${checklist.choicesOk ? 'ผ่าน ✅' : 'ยังไม่ผ่าน ✨'} (ตอนนี้ ${metrics.correctChoices ?? 0})<br/>
@@ -780,7 +1043,8 @@ function showFinalOverlay(evalResult, createResult, researchPayload) {
       • Contribution 60%+: ${checklist.contributionOk ? 'ผ่าน ✅' : 'ยังไม่ผ่าน ✨'} (ตอนนี้ ${state.classTankContribution ?? 0}%)<br/>
     `
     : `
-      <strong>Social:</strong> ${escapeHtml(state.socialSummary)}<br/>
+      <strong>Social:</strong> ${escapeHtml(state.socialSummary)}<br/><br/>
+      ${renderMissionSummaryHtml()}<br/>
     `;
 
   refs.summaryOverlay.innerHTML = `
@@ -795,7 +1059,7 @@ function showFinalOverlay(evalResult, createResult, researchPayload) {
         <div class="summary-card">
           <div class="summary-label">Action Score</div>
           <div class="summary-main">${state.actionScore}</div>
-          <div class="summary-sub">เก็บน้ำ, เลี่ยงหวาน, reward ระหว่างเล่น</div>
+          <div class="summary-sub">เก็บน้ำ, เลี่ยงหวาน, reward ระหว่างเล่น และ mission bonus</div>
         </div>
 
         <div class="summary-card">
@@ -977,6 +1241,9 @@ function saveSummary(reason) {
     rewardHistory: state.rewardHistory,
     shieldCount: state.shieldCount,
 
+    missionBonusScore: state.missionBonusScore,
+    dailyMissions: state.dailyMissions,
+
     correctChoices: state.correctChoices,
     wrongChoices: state.wrongChoices,
     scenarioSummary: state.scenarioSummary,
@@ -1030,6 +1297,12 @@ function snapshotRoundState() {
     bestCombo: state.bestCombo,
     rewardCount: state.rewardCount,
     rewardHistory: [...state.rewardHistory],
+    missionBonusScore: state.missionBonusScore,
+    dailyMissions: Array.isArray(state.dailyMissions) ? state.dailyMissions.map(m => ({
+      id: m.id,
+      claimed: !!m.claimed,
+      done: !!m.done
+    })) : [],
     correctChoices: state.correctChoices,
     wrongChoices: state.wrongChoices,
     evaluateChoice: state.evaluateChoice,
