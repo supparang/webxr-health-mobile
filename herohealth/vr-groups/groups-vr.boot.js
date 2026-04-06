@@ -1,144 +1,167 @@
-// === /herohealth/vr-groups/groups-vr.boot.js ===
-// GroupsVR Boot (PATCH B)
-// ✅ Practice 15s auto (unless ?practice=0 or run=practice already)
-// ✅ Preserves ctx passthrough + deterministic seed if provided
-// ✅ No override of view (auto detect stays in your html / vr-ui.js)
-// ✅ Safe: never crash if engine missing
-
-(function(){
+(() => {
   'use strict';
-  const WIN = window;
-  const DOC = document;
 
-  const qs = (k, def=null)=>{
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; }
+  const q = new URLSearchParams(location.search);
+
+  const hubUrl = q.get('hub') || './hub.html';
+
+  const els = {
+    btnContinue: document.getElementById('btnContinue'),
+    btnBackHub: document.getElementById('btnBackHub'),
+    toast: document.getElementById('toast')
   };
 
-  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+  const LAST_MODE_KEY = 'HHA_GROUPS_LAST_MODE';
+  const LAST_URL_KEY = 'HHA_GROUPS_LAST_URL';
 
-  function readCtx(){
-    const run = String(qs('run','play')||'play').toLowerCase();
-    const diff = String(qs('diff','normal')||'normal').toLowerCase();
-    const time = clamp(qs('time', 90), 15, 180);
-    const seed = String(qs('seed','')||'');
-    return {
-      runMode: run,
-      diff,
-      time,
-      seed,
+  const MODE_STATUS = {
+    solo: 'ready',
+    race: 'ready',
+    battle: 'soon',
+    duet: 'soon',
+    coop: 'soon'
+  };
 
-      // passthrough
-      hub: String(qs('hub','')||''),
-      studyId: String(qs('studyId','')||''),
-      phase: String(qs('phase','')||''),
-      conditionGroup: String(qs('conditionGroup','')||''),
-      log: String(qs('log','')||''),
-      view: String(qs('view','')||''),
-      style: String(qs('style','')||''),
-      ai: String(qs('ai','')||'') // optional
-    };
-  }
+  const BASE_PARAMS = buildBaseParams();
 
-  function banner(text){
-    let el = DOC.getElementById('groups-practice-banner');
-    if(!el){
-      el = DOC.createElement('div');
-      el.id = 'groups-practice-banner';
-      el.style.cssText =
-        'position:fixed; z-index:9999; left:50%; top:calc(10px + env(safe-area-inset-top,0px));' +
-        'transform:translateX(-50%); padding:8px 12px; border-radius:999px;' +
-        'background:rgba(2,6,23,.82); border:1px solid rgba(148,163,184,.22);' +
-        'color:#e5e7eb; font:700 13px/1 system-ui; letter-spacing:.2px; '+
-        'pointer-events:none; box-shadow:0 12px 24px rgba(0,0,0,.25)';
-      DOC.body.appendChild(el);
-    }
-    el.textContent = text;
-    el.style.display = 'block';
-    return el;
-  }
+  bindEvents();
 
-  function hideBanner(){
-    const el = DOC.getElementById('groups-practice-banner');
-    if(el) el.style.display = 'none';
-  }
-
-  function getEngine(){
-    try{
-      return WIN.GroupsVR && WIN.GroupsVR.GameEngine;
-    }catch(_){ return null; }
-  }
-
-  function startRun(diff, ctx){
-    const eng = getEngine();
-    if(!eng || typeof eng.start !== 'function'){
-      console.warn('[GroupsVR.boot] Engine missing');
-      return false;
-    }
-    // layer binding
-    try{
-      const layer = DOC.getElementById('playLayer') || DOC.querySelector('#playLayer') || DOC.body;
-      eng.setLayerEl && eng.setLayerEl(layer);
-    }catch(_){}
-
-    return !!eng.start(diff, ctx);
-  }
-
-  // -------- Practice flow --------
-  const base = readCtx();
-  const wantPractice = String(qs('practice','1')) !== '0';
-
-  // If already practice in URL, do not auto-chain.
-  const alreadyPractice = (base.runMode === 'practice');
-
-  let chained = false;
-
-  function onEnd(ev){
-    const d = ev && ev.detail ? ev.detail : null;
-    if(!d) return;
-
-    // If practice finished and we haven't chained yet -> start real run.
-    if(wantPractice && !alreadyPractice && !chained && String(d.runMode||'') === 'practice'){
-      chained = true;
-      hideBanner();
-
-      // Start REAL run (restore original runMode, time)
-      const realCtx = Object.assign({}, base, {
-        runMode: (base.runMode === 'research') ? 'research' : 'play',
-        time: base.time
+  function bindEvents() {
+    document.querySelectorAll('[data-mode="solo"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const view = btn.dataset.view || 'mobile';
+        goSolo(view);
       });
+    });
 
-      // small countdown feel
-      banner('พร้อม! เข้าเกมจริง…');
-      setTimeout(()=>{
-        hideBanner();
-        startRun(base.diff, realCtx);
-      }, 650);
+    document.querySelectorAll('[data-mode="race"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const joinOnly = btn.dataset.action === 'join';
+        goRace(joinOnly);
+      });
+    });
+
+    document.querySelectorAll('[data-soon]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mode = String(btn.dataset.soon || '').trim();
+        showSoonToast(mode);
+      });
+    });
+
+    if (els.btnBackHub) {
+      els.btnBackHub.addEventListener('click', () => {
+        location.href = hubUrl;
+      });
+    }
+
+    if (els.btnContinue) {
+      els.btnContinue.addEventListener('click', continueLastMode);
     }
   }
 
-  WIN.addEventListener('hha:end', onEnd);
+  function buildBaseParams() {
+    const p = new URLSearchParams();
 
-  // Boot now
-  function boot(){
-    if(!wantPractice || alreadyPractice){
-      // direct start
-      startRun(base.diff, base);
+    for (const [k, v] of q.entries()) {
+      p.set(k, v);
+    }
+
+    if (!p.get('pid')) p.set('pid', 'anon');
+    if (!p.get('name')) p.set('name', 'Player');
+    if (!p.get('diff')) p.set('diff', 'normal');
+    if (!p.get('time')) p.set('time', '60');
+    if (!p.get('view')) p.set('view', 'mobile');
+    if (!p.get('run')) p.set('run', 'play');
+    if (!p.get('hub')) p.set('hub', hubUrl);
+
+    p.set('game', 'groups');
+    p.set('gameId', 'groups');
+    p.set('zone', 'nutrition');
+    p.set('cat', 'nutrition');
+    p.set('theme', 'groups');
+
+    return p;
+  }
+
+  function goSolo(view = 'mobile') {
+    if (MODE_STATUS.solo !== 'ready') {
+      showToast('โหมด Solo ยังไม่พร้อมใช้งาน');
       return;
     }
 
-    // Practice first: 15 sec
-    banner('โหมดฝึก 15 วิ: ลองเล็งแล้วแตะยิง 🎯');
-    const practiceCtx = Object.assign({}, base, {
-      runMode: 'practice',
-      time: 15,
-      // keep same seed so it feels consistent, but ok if blank
-    });
-    startRun(base.diff, practiceCtx);
+    const url = buildSoloUrl(view);
+    saveLastMode('solo', url);
+    location.href = url;
   }
 
-  if(DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', boot);
-  }else{
-    boot();
+  function goRace(joinOnly = false) {
+    if (MODE_STATUS.race !== 'ready') {
+      showToast('โหมด Race ยังไม่พร้อมใช้งาน');
+      return;
+    }
+
+    const url = buildRaceLobbyUrl(joinOnly);
+    saveLastMode('race', url);
+    location.href = url;
+  }
+
+  function continueLastMode() {
+    try {
+      const lastUrl = localStorage.getItem(LAST_URL_KEY);
+      const lastMode = localStorage.getItem(LAST_MODE_KEY);
+
+      if (lastUrl && lastMode) {
+        location.href = lastUrl;
+        return;
+      }
+    } catch (_) {}
+
+    showToast('ยังไม่มีโหมดล่าสุด เริ่มจาก Solo หรือ Race ได้เลย');
+  }
+
+  function buildSoloUrl(view = 'mobile') {
+    const p = new URLSearchParams(BASE_PARAMS.toString());
+    p.set('mode', 'solo');
+    p.set('view', view);
+    p.set('seed', String(Date.now()));
+    return `./vr-groups/groups.html?${p.toString()}`;
+  }
+
+  function buildRaceLobbyUrl(joinOnly = false) {
+    const p = new URLSearchParams(BASE_PARAMS.toString());
+    p.set('mode', 'race');
+    p.set('race', '1');
+    p.set('seed', String(Date.now()));
+    if (joinOnly) p.set('join', '1');
+    return `./vr-groups/groups-race-lobby.html?${p.toString()}`;
+  }
+
+  function saveLastMode(mode, url) {
+    try {
+      localStorage.setItem(LAST_MODE_KEY, mode);
+      localStorage.setItem(LAST_URL_KEY, url);
+    } catch (_) {}
+  }
+
+  function showSoonToast(mode) {
+    const map = {
+      battle: 'โหมด Battle กำลังเตรียมเปิดเร็ว ๆ นี้',
+      duet: 'โหมด Duet กำลังเตรียมเปิดเร็ว ๆ นี้',
+      coop: 'โหมด Coop กำลังเตรียมเปิดเร็ว ๆ นี้'
+    };
+
+    showToast(map[mode] || 'โหมดนี้กำลังเตรียมเปิดเร็ว ๆ นี้');
+  }
+
+  function showToast(text) {
+    if (!els.toast) return;
+
+    els.toast.textContent = text;
+    els.toast.classList.add('show');
+
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(() => {
+      els.toast.classList.remove('show');
+    }, 1800);
   }
 })();
