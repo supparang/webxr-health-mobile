@@ -12,14 +12,9 @@
       --sky1:#fff8dd;
       --sky2:#fffef5;
       --sky3:#ecf8ff;
-
       --ink:#33415d;
       --muted:#6c7895;
       --line:#e3ecf7;
-
-      --card:#ffffff;
-      --card2:#fbfdff;
-
       --yellow:#ffd75c;
       --yellow2:#ffbe45;
       --green:#73d46d;
@@ -28,17 +23,14 @@
       --blue2:#58baf6;
       --pink:#ff99c8;
       --pink2:#ff81ba;
-      --orange:#ffb05a;
-      --purple:#9b8cff;
       --danger:#ff6f7e;
-
       --shadow:0 16px 36px rgba(84,116,150,.14);
       --radius:28px;
       --max:1200px;
     }
 
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; padding:0; }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0}
     body{
       min-height:100vh;
       font-family:ui-rounded,"SF Pro Rounded","Nunito","Prompt","Kanit",system-ui,-apple-system,sans-serif;
@@ -49,8 +41,8 @@
       overflow-x:hidden;
     }
 
-    a{ color:inherit; text-decoration:none; }
-    button{ font:inherit; }
+    a{color:inherit;text-decoration:none}
+    button{font:inherit}
 
     .shell{
       width:min(calc(100% - 24px), var(--max));
@@ -74,11 +66,8 @@
     }
 
     .brand-icon{
-      width:58px;
-      height:58px;
-      border-radius:20px;
-      display:grid;
-      place-items:center;
+      width:58px;height:58px;border-radius:20px;
+      display:grid;place-items:center;
       font-size:30px;
       background:linear-gradient(180deg,#fff8d8,#fff);
       border:1px solid #fff0bf;
@@ -95,6 +84,7 @@
       margin:5px 0 0;
       color:var(--muted);
       font-size:14px;
+      line-height:1.35;
     }
 
     .top-actions{
@@ -121,37 +111,31 @@
       transition:.18s transform ease,.18s opacity ease,.18s box-shadow ease;
     }
 
-    .btn:hover{ transform:translateY(-1px); }
-    .btn:active{ transform:translateY(0); }
-
+    .btn:hover{transform:translateY(-1px)}
+    .btn:active{transform:translateY(0)}
     .btn.primary{
       background:linear-gradient(180deg,#ffd969,#ffbf44);
       border-color:transparent;
       color:#fff;
     }
-
     .btn.blue{
       background:linear-gradient(180deg,#83d8ff,#5bbdf7);
       border-color:transparent;
       color:#fff;
     }
-
     .btn.green{
       background:linear-gradient(180deg,#90e67f,#5fcd5b);
       border-color:transparent;
       color:#fff;
     }
-
     .btn.pink{
       background:linear-gradient(180deg,#ffb2d6,#ff8ec4);
       border-color:transparent;
       color:#fff;
     }
-
     .btn.ghost{
       background:#ffffffd8;
     }
-
     .btn[disabled]{
       opacity:.6;
       pointer-events:none;
@@ -160,7 +144,7 @@
 
     .hero{
       display:grid;
-      grid-template-columns:1.1fr .9fr;
+      grid-template-columns:1.08fr .92fr;
       gap:16px;
       margin-bottom:14px;
     }
@@ -208,7 +192,7 @@
       color:var(--muted);
       font-size:16px;
       line-height:1.58;
-      max-width:700px;
+      max-width:720px;
     }
 
     .hero-actions{
@@ -285,7 +269,30 @@
       line-height:1.5;
     }
 
-    .kv b{ color:#354158; }
+    .kv b{color:#354158}
+
+    .route-box{
+      margin-top:12px;
+      border-radius:18px;
+      padding:12px;
+      background:#f7fbff;
+      border:1px solid #e1eef8;
+      white-space:pre-wrap;
+      word-break:break-word;
+      color:#597093;
+      font:700 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
+    }
+
+    .notice{
+      margin-top:12px;
+      padding:14px 16px;
+      border-radius:20px;
+      background:linear-gradient(180deg,#fffef6,#fff);
+      border:1px solid #f3e9c7;
+      color:#5f6f8d;
+      line-height:1.55;
+      font-size:14px;
+    }
 
     .hud{
       display:grid;
@@ -375,7 +382,7 @@
       display:grid;
       gap:4px;
       place-items:center;
-      transition:.18s transform ease,.18s box-shadow ease,.18s outline ease;
+      transition:.18s transform ease,.18s box-shadow ease,.18s outline ease,.18s background ease;
       pointer-events:none;
     }
 
@@ -408,14 +415,14 @@
       font-weight:800;
     }
 
-    .slice-1{ left:50%; top:9%; transform:translateX(-50%); }
-    .slice-2{ right:10%; top:28%; }
-    .slice-3{ right:16%; bottom:13%; }
-    .slice-4{ left:16%; bottom:13%; }
-    .slice-5{ left:10%; top:28%; }
+    .slice-1{left:50%;top:9%;transform:translateX(-50%)}
+    .slice-2{right:10%;top:28%}
+    .slice-3{right:16%;bottom:13%}
+    .slice-4{left:16%;bottom:13%}
+    .slice-5{left:10%;top:28%}
 
-    .slice-1.active{ transform:translateX(-50%) scale(1.06); }
-    .slice-1.done{ transform:translateX(-50%) scale(1.03); }
+    .slice-1.active{transform:translateX(-50%) scale(1.06)}
+    .slice-1.done{transform:translateX(-50%) scale(1.03)}
 
     .plate-center{
       position:absolute;
@@ -478,11 +485,8 @@
     }
 
     .coach-avatar{
-      width:64px;
-      height:64px;
-      border-radius:20px;
-      display:grid;
-      place-items:center;
+      width:64px;height:64px;border-radius:20px;
+      display:grid;place-items:center;
       background:linear-gradient(180deg,#fff8d8,#fff);
       box-shadow:0 12px 24px rgba(255,184,74,.16);
       font-size:32px;
@@ -585,18 +589,6 @@
       line-height:1;
     }
 
-    .route-box{
-      margin-top:12px;
-      border-radius:18px;
-      padding:12px;
-      background:#f7fbff;
-      border:1px solid #e1eef8;
-      white-space:pre-wrap;
-      word-break:break-word;
-      color:#597093;
-      font:700 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
-    }
-
     .options-panel{
       margin-top:16px;
       padding:18px;
@@ -643,24 +635,20 @@
       overflow:hidden;
     }
 
-    .food-btn:hover{ transform:translateY(-2px); }
-
+    .food-btn:hover{transform:translateY(-2px)}
     .food-btn.correct{
       border-color:#9ae6a5;
       box-shadow:0 14px 30px rgba(87,201,102,.18);
       background:linear-gradient(180deg,#f6fff4,#ffffff);
     }
-
     .food-btn.wrong{
       border-color:#ffc1c8;
       box-shadow:0 14px 30px rgba(255,118,131,.16);
       background:linear-gradient(180deg,#fff7f8,#ffffff);
     }
-
     .food-btn.dim{
       opacity:.72;
     }
-
     .food-btn:disabled{
       cursor:default;
       pointer-events:none;
@@ -729,7 +717,6 @@
       transform:translateX(-50%) translateY(0);
     }
 
-    .start-overlay,
     .overlay{
       position:fixed;
       inset:0;
@@ -741,12 +728,8 @@
       z-index:60;
     }
 
-    .start-overlay.show,
-    .overlay.show{
-      display:flex;
-    }
+    .overlay.show{display:flex}
 
-    .dialog,
     .summary{
       width:min(100%, 980px);
       max-height:min(92vh, 980px);
@@ -758,70 +741,6 @@
       padding:22px;
     }
 
-    .dialog h2,
-    .summary-head h2{
-      margin:0;
-      font-size:clamp(28px,4vw,42px);
-      line-height:1;
-    }
-
-    .dialog p,
-    .summary-head p{
-      margin:8px 0 0;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.6;
-    }
-
-    .dialog-grid{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:14px;
-      margin-top:16px;
-    }
-
-    .dialog-card{
-      padding:16px;
-      border-radius:24px;
-      background:#f8fcff;
-      border:1px solid #e2edf8;
-    }
-
-    .dialog-card h3{
-      margin:0 0 10px;
-      font-size:20px;
-    }
-
-    .dialog-list{
-      display:grid;
-      gap:8px;
-    }
-
-    .dialog-list .row{
-      padding:10px 12px;
-      border-radius:16px;
-      background:#fff;
-      border:1px solid #e4edf8;
-      color:#566983;
-      font-size:14px;
-      line-height:1.5;
-      font-weight:800;
-    }
-
-    .dialog-actions,
-    .summary-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:16px;
-    }
-
-    .dialog-actions .btn,
-    .summary-actions .btn{
-      flex:1;
-      min-width:180px;
-    }
-
     .summary-head{
       display:flex;
       align-items:start;
@@ -829,6 +748,19 @@
       gap:12px;
       flex-wrap:wrap;
       margin-bottom:14px;
+    }
+
+    .summary-head h2{
+      margin:0;
+      font-size:clamp(28px,4vw,42px);
+      line-height:1;
+    }
+
+    .summary-head p{
+      margin:8px 0 0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
     }
 
     .rank-pill{
@@ -911,6 +843,18 @@
       line-height:1;
     }
 
+    .summary-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+
+    .summary-actions .btn{
+      flex:1;
+      min-width:180px;
+    }
+
     .footer{
       margin-top:16px;
       display:flex;
@@ -918,27 +862,25 @@
       flex-wrap:wrap;
     }
 
-    .hidden{ display:none !important; }
-
     @media (max-width:1080px){
-      .hero,.arena,.dialog-grid{ grid-template-columns:1fr; }
-      .hud{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .hero,.arena{grid-template-columns:1fr}
+      .hud{grid-template-columns:repeat(3,minmax(0,1fr))}
     }
 
     @media (max-width:760px){
-      .shell{ width:min(calc(100% - 16px), var(--max)); }
-      .hud{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .options-grid{ grid-template-columns:1fr; }
-      .summary-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .group-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .shell{width:min(calc(100% - 16px), var(--max))}
+      .hud{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .options-grid{grid-template-columns:1fr}
+      .summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .group-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .plate-slice{
         width:38%;
         min-height:94px;
         border-radius:22px;
         padding:10px;
       }
-      .plate-center{ inset:23%; padding:15px; }
-      .food-btn{ min-height:164px; }
+      .plate-center{inset:23%;padding:15px}
+      .food-btn{min-height:164px}
     }
   </style>
 </head>
@@ -965,10 +907,10 @@
 
     <section class="hero">
       <div class="panel hero-main">
-        <div class="hero-kicker">🥗 Main game ของ Plate ตามที่ตกลงไว้</div>
+        <div class="hero-kicker">🥗 plate-v1.html = main game ตามที่ตกลงไว้</div>
         <h2>จัดจานให้ครบ 5 หมู่<br />แบบสนุกและท้าทาย</h2>
         <p>
-          เป้าหมายของเกมหลักคือเก็บอาหารให้ครบทั้ง 5 หมู่ทีละจาน
+          เกมหลักของ Plate จะให้เก็บอาหารให้ครบทั้ง 5 หมู่ทีละจาน
           ทำคอมโบให้ยาว เก็บคะแนน และปิดภารกิจให้ครบก่อนหมดเวลา
         </p>
 
@@ -1005,8 +947,10 @@
             <b>Diff</b><span id="ctxDiff">normal</span>
             <b>Time</b><span id="ctxTime">90 sec</span>
           </div>
-
           <div id="routePreview" class="route-box">กำลังสร้าง route…</div>
+          <div class="notice">
+            ถ้ากด <strong>เริ่ม Main Game</strong> แล้ว เกมจะเริ่มทันทีและเลื่อนไปที่กระดานจานอาหารให้เอง
+          </div>
         </div>
       </aside>
     </section>
@@ -1047,25 +991,21 @@
               <span class="name">หมู่ 1<br>โปรตีน</span>
               <span class="count" id="count1">0/1</span>
             </div>
-
             <div class="plate-slice slice-2" id="slice2">
               <span class="emoji">🍚</span>
               <span class="name">หมู่ 2<br>คาร์โบไฮเดรต</span>
               <span class="count" id="count2">0/1</span>
             </div>
-
             <div class="plate-slice slice-3" id="slice3">
               <span class="emoji">🥬</span>
               <span class="name">หมู่ 3<br>ผัก</span>
               <span class="count" id="count3">0/1</span>
             </div>
-
             <div class="plate-slice slice-4" id="slice4">
               <span class="emoji">🍎</span>
               <span class="name">หมู่ 4<br>ผลไม้</span>
               <span class="count" id="count4">0/1</span>
             </div>
-
             <div class="plate-slice slice-5" id="slice5">
               <span class="emoji">🥑</span>
               <span class="name">หมู่ 5<br>ไขมัน</span>
@@ -1073,10 +1013,10 @@
             </div>
 
             <div class="plate-center">
-              <div class="mission-badge" id="missionBadge">ภารกิจหลัก</div>
+              <div class="mission-badge" id="missionBadge">เป้าหมาย 3 จานสมดุล</div>
               <h2 class="target-title" id="targetTitle">กดเริ่ม Main Game</h2>
               <p class="target-desc" id="targetDesc">
-                เมื่อเริ่มแล้ว ให้หาอาหารที่ตรงกับหมู่ที่แสดงตรงกลาง และพยายามเก็บให้ครบทั้ง 5 หมู่ในหนึ่งจาน
+                เมื่อเริ่มแล้ว ให้หาอาหารที่ตรงกับหมู่ตรงกลาง และพยายามเก็บให้ครบทั้ง 5 หมู่ในหนึ่งจาน
               </p>
             </div>
           </div>
@@ -1089,11 +1029,11 @@
             <div class="coach-avatar">🧑‍🍳</div>
             <div>
               <div class="coach-name">Coach Plate</div>
-              <p class="coach-sub">สั้น ชัด เข้าใจง่าย ตามแนว HeroHealth</p>
+              <p class="coach-sub">สั้น ชัด เข้าใจง่าย แบบ child-friendly</p>
             </div>
           </div>
           <div class="coach-line" id="coachLine">
-            พร้อมหรือยัง? เกมหลักจะท้าทายกว่า mini game เพราะต้องจัดจานให้ครบทีละจานก่อนหมดเวลา
+            พร้อมหรือยัง? Main game จะท้าทายกว่า mini game เพราะต้องปิดจานให้ครบหลายจานก่อนหมดเวลา
           </div>
         </div>
 
@@ -1141,10 +1081,10 @@
 
         <div class="diag-card">
           <h3>เกมนี้ต่างจาก Mini Game ยังไง</h3>
-          <div class="dialog-list">
-            <div class="row">Main game ต้องปิด “จานสมดุล” ให้ครบหลายจาน</div>
-            <div class="row">มีภารกิจยาวกว่า คะแนนคอมโบแรงกว่า และกดดันเวลากว่า</div>
-            <div class="row">Mini game คือ quick play สั้นกว่า ใช้ซ้อมก่อนเข้าเกมหลักได้</div>
+          <div class="mission-list">
+            <div class="mission-item"><span>Main game</span><strong>เก็บครบหลายจาน</strong></div>
+            <div class="mission-item"><span>Mini game</span><strong>quick play สั้นกว่า</strong></div>
+            <div class="mission-item"><span>เป้าหมาย</span><strong>ครบ 5 หมู่ให้ไว</strong></div>
           </div>
         </div>
       </aside>
@@ -1166,43 +1106,6 @@
         <a id="backToHubBtn2" class="btn ghost" href="./hub-v2.html">⬅️ กลับ HUB</a>
       </div>
     </section>
-  </div>
-
-  <div id="startOverlay" class="start-overlay show">
-    <div class="dialog">
-      <h2>Plate Main Game</h2>
-      <p>
-        เกมหลักของ Plate จะให้เด็กจัดจานให้ครบ 5 หมู่ทีละจาน
-        ถ้าจัดครบจะได้โบนัสก้อนใหญ่ และถ้าคอมโบดีจะเข้า FEVER x2
-      </p>
-
-      <div class="dialog-grid">
-        <div class="dialog-card">
-          <h3>วิธีเล่น</h3>
-          <div class="dialog-list">
-            <div class="row">1) อ่านหมู่เป้าหมายตรงกลางจาน</div>
-            <div class="row">2) เลือกอาหารที่ตรงหมู่ให้ถูกต้อง</div>
-            <div class="row">3) เก็บให้ครบทั้ง 5 หมู่ = ได้ 1 จานสมดุล</div>
-            <div class="row">4) ทำหลายจานให้ครบก่อนหมดเวลา</div>
-          </div>
-        </div>
-
-        <div class="dialog-card">
-          <h3>โหมดนี้เป็น Main Game</h3>
-          <div class="dialog-list">
-            <div class="row">หน้าไฟล์นี้คือ <strong>plate-v1.html</strong></div>
-            <div class="row">mini game อยู่ที่ <strong>plate/plate-vr.html</strong></div>
-            <div class="row">จบเกมแล้วจะไป summary → cooldown → hub-v2</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="dialog-actions">
-        <button id="startOverlayBtn" class="btn primary" type="button">▶️ เริ่ม Main Game</button>
-        <a id="miniFromOverlayBtn" class="btn blue" href="./plate/plate-vr.html">⚡ ไป Mini Game</a>
-        <a id="hubFromOverlayBtn" class="btn ghost" href="./hub-v2.html">⬅️ กลับ HUB</a>
-      </div>
-    </div>
   </div>
 
   <div id="summaryOverlay" class="overlay">
@@ -1276,7 +1179,6 @@
       'use strict';
 
       const qs = new URLSearchParams(location.search);
-
       const HUB_DEFAULT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
 
       const ctx = {
@@ -1299,9 +1201,9 @@
       const GROUPS = {
         1: { id:1, emoji:'🍗', short:'โปรตีน', name:'หมู่ 1 โปรตีน', desc:'เนื้อ นม ไข่ ถั่วเมล็ดแห้ง' },
         2: { id:2, emoji:'🍚', short:'คาร์โบไฮเดรต', name:'หมู่ 2 คาร์โบไฮเดรต', desc:'ข้าว แป้ง เผือก มัน น้ำตาล' },
-        3: { id:3, emoji:'🥬', short:'ผัก', name:'หมู่ 3 ผัก', desc:'กินผักหลากสีทุกวัน' },
-        4: { id:4, emoji:'🍎', short:'ผลไม้', name:'หมู่ 4 ผลไม้', desc:'ผลไม้สดรสธรรมชาติ' },
-        5: { id:5, emoji:'🥑', short:'ไขมัน', name:'หมู่ 5 ไขมัน', desc:'ไขมันดี ใช้พอดี' }
+        3: { id:3, emoji:'🥬', short:'ผัก', name:'หมู่ 3 ผัก', desc:'ผักหลากสี' },
+        4: { id:4, emoji:'🍎', short:'ผลไม้', name:'หมู่ 4 ผลไม้', desc:'ผลไม้สด' },
+        5: { id:5, emoji:'🥑', short:'ไขมัน', name:'หมู่ 5 ไขมัน', desc:'ไขมันและน้ำมันในปริมาณพอดี' }
       };
 
       const FOODS = [
@@ -1342,9 +1244,9 @@
       ];
 
       const PRESETS = {
-        easy:   { time: 75,  lives: 4, goalPlates: 2, optionCount: 4, baseScore: 14, wrongPenaltySec: 0, wrongLife: 1 },
-        normal: { time: 90,  lives: 3, goalPlates: 3, optionCount: 6, baseScore: 16, wrongPenaltySec: 1, wrongLife: 1 },
-        hard:   { time: 105, lives: 3, goalPlates: 4, optionCount: 6, baseScore: 18, wrongPenaltySec: 2, wrongLife: 1 }
+        easy:   { time:75,  lives:4, goalPlates:2, optionCount:4, baseScore:14, wrongPenaltySec:0, wrongLife:1 },
+        normal: { time:90,  lives:3, goalPlates:3, optionCount:6, baseScore:16, wrongPenaltySec:1, wrongLife:1 },
+        hard:   { time:105, lives:3, goalPlates:4, optionCount:6, baseScore:18, wrongPenaltySec:2, wrongLife:1 }
       };
 
       const preset = PRESETS[ctx.diff] || PRESETS.normal;
@@ -1353,43 +1255,14 @@
       const $ = (sel, root = document) => root.querySelector(sel);
       const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-      function xmur3(str) {
-        let h = 1779033703 ^ str.length;
-        for (let i = 0; i < str.length; i++) {
-          h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-          h = (h << 13) | (h >>> 19);
-        }
-        return function() {
-          h = Math.imul(h ^ (h >>> 16), 2246822507);
-          h = Math.imul(h ^ (h >>> 13), 3266489909);
-          h ^= h >>> 16;
-          return h >>> 0;
-        };
+      function safeOn(id, eventName, handler) {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener(eventName, handler);
       }
 
-      function mulberry32(a) {
-        return function() {
-          let t = a += 0x6D2B79F5;
-          t = Math.imul(t ^ (t >>> 15), t | 1);
-          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-        };
-      }
-
-      const seedFn = xmur3(String(ctx.seed));
-      const rand = mulberry32(seedFn());
-
-      function randomInt(max) {
-        return Math.floor(rand() * max);
-      }
-
-      function shuffle(arr) {
-        const a = arr.slice();
-        for (let i = a.length - 1; i > 0; i--) {
-          const j = randomInt(i + 1);
-          [a[i], a[j]] = [a[j], a[i]];
-        }
-        return a;
+      function setText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
       }
 
       function buildUrl(path, params = {}) {
@@ -1443,33 +1316,72 @@
         });
       }
 
+      function xmur3(str) {
+        let h = 1779033703 ^ str.length;
+        for (let i = 0; i < str.length; i++) {
+          h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+          h = (h << 13) | (h >>> 19);
+        }
+        return function() {
+          h = Math.imul(h ^ (h >>> 16), 2246822507);
+          h = Math.imul(h ^ (h >>> 13), 3266489909);
+          h ^= h >>> 16;
+          return h >>> 0;
+        };
+      }
+
+      function mulberry32(a) {
+        return function() {
+          let t = a += 0x6D2B79F5;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      const seedFn = xmur3(String(ctx.seed));
+      const rand = mulberry32(seedFn());
+
+      function randomInt(max) {
+        return Math.floor(rand() * max);
+      }
+
+      function shuffle(arr) {
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = randomInt(i + 1);
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
       const state = {
-        started: false,
-        paused: false,
-        ended: false,
-        recorded: false,
-        timeLeft: ctx.time,
-        lives: preset.lives,
-        score: 0,
-        streak: 0,
-        bestStreak: 0,
-        correct: 0,
-        wrong: 0,
-        balancedPlates: 0,
-        totalHits: {1:0,2:0,3:0,4:0,5:0},
-        cycleHits: {1:0,2:0,3:0,4:0,5:0},
-        targetGroup: 1,
-        turn: 1,
-        questionStartedAt: 0,
-        currentOptions: [],
-        recentFoodIds: [],
-        feverUntil: 0
+        started:false,
+        paused:false,
+        ended:false,
+        recorded:false,
+        timeLeft:ctx.time,
+        lives:preset.lives,
+        score:0,
+        streak:0,
+        bestStreak:0,
+        correct:0,
+        wrong:0,
+        balancedPlates:0,
+        totalHits:{1:0,2:0,3:0,4:0,5:0},
+        cycleHits:{1:0,2:0,3:0,4:0,5:0},
+        targetGroup:1,
+        turn:1,
+        questionStartedAt:0,
+        currentOptions:[],
+        recentFoodIds:[],
+        feverUntil:0
       };
 
       const coachLines = {
         intro: [
-          'เริ่มจากอ่านหมู่ตรงกลางก่อน แล้วค่อยเลือกอาหารที่ตรงหมู่',
-          'เกมหลักต้องปิดจานให้ครบทั้ง 5 หมู่ ไม่ใช่แค่ตอบทีละข้อ',
+          'อ่านหมู่ตรงกลางก่อน แล้วเลือกอาหารที่อยู่ในหมู่นั้นนะ',
+          'เกมหลักต้องปิดจานให้ครบทั้ง 5 หมู่ทีละจาน',
           'พยายามอย่าตอบผิด จะได้เก็บสตรีคและเข้า FEVER x2'
         ],
         correct: [
@@ -1491,11 +1403,6 @@
           'ไฟลุกแล้ว FEVER x2!',
           'คอมโบสวยมาก คะแนนคูณสองแล้วนะ',
           'ตอบถูกต่อเนื่องสุดยอดเลย ตอนนี้ได้ FEVER'
-        ],
-        win: [
-          'ทำภารกิจหลักครบแล้ว เก่งมาก!',
-          'ปิดเป้าหมายได้ครบก่อนหมดเวลา เยี่ยมเลย',
-          'ฮีโร่โภชนาการตัวจริงมาแล้ว'
         ],
         end: [
           'รอบนี้ทำได้ดีมาก ลองอีกครั้งเพื่อเก็บคะแนนเพิ่มนะ',
@@ -1527,11 +1434,6 @@
         return Math.round((state.correct / total) * 100);
       }
 
-      function setText(id, value) {
-        const el = document.getElementById(id);
-        if (el) el.textContent = value;
-      }
-
       function hydrateContextUi() {
         setText('ctxPid', ctx.pid);
         setText('ctxHub', ctx.hub);
@@ -1545,12 +1447,10 @@
         $('#miniGameBtnTop').href = miniUrl;
         $('#quickMiniBtn').href = miniUrl;
         $('#quickMiniFooterBtn').href = miniUrl;
-        $('#miniFromOverlayBtn').href = miniUrl;
         $('#miniAfterSummaryBtn').href = miniUrl;
 
         $('#backToHubBtn').href = ctx.hub;
         $('#backToHubBtn2').href = ctx.hub;
-        $('#hubFromOverlayBtn').href = ctx.hub;
         $('#summaryHubBtn').href = ctx.hub;
         $('#cooldownBtn').href = buildCooldownUrl();
 
@@ -1580,9 +1480,11 @@ cooldown: ${buildCooldownUrl()}`;
           const slice = $('#slice' + i);
           const count = $('#count' + i);
           const done = state.cycleHits[i] >= 1;
-          slice.classList.toggle('active', i === state.targetGroup && state.started && !state.ended);
-          slice.classList.toggle('done', done);
-          count.textContent = `${state.cycleHits[i]}/1`;
+          if (slice) {
+            slice.classList.toggle('active', i === state.targetGroup && state.started && !state.ended);
+            slice.classList.toggle('done', done);
+          }
+          if (count) count.textContent = `${state.cycleHits[i]}/1`;
         }
       }
 
@@ -1618,8 +1520,7 @@ cooldown: ${buildCooldownUrl()}`;
 
       function chooseTargetGroup() {
         const incomplete = incompleteGroups();
-        if (!incomplete.length) return 1;
-        return incomplete[randomInt(incomplete.length)];
+        return incomplete.length ? incomplete[randomInt(incomplete.length)] : 1;
       }
 
       function buildOptions(targetGroup) {
@@ -1633,8 +1534,13 @@ cooldown: ${buildCooldownUrl()}`;
           usedIds.add(f.id);
           distractors.push(f);
         }
-
         return shuffle([correct, ...distractors]);
+      }
+
+      function setBoardIntro() {
+        setText('missionBadge', `เป้าหมาย ${preset.goalPlates} จานสมดุล`);
+        setText('targetTitle', 'กดเริ่ม Main Game');
+        setText('targetDesc', 'เกมจะเลื่อนไปกระดานให้อัตโนมัติ แล้วเริ่มภารกิจจัดจานครบ 5 หมู่');
       }
 
       function renderTurn() {
@@ -1735,7 +1641,7 @@ cooldown: ${buildCooldownUrl()}`;
             setTimeout(() => {
               completeBalancedPlate();
               state.turn += 1;
-              renderTurn();
+              if (!state.ended) renderTurn();
             }, 520);
             updateHud();
             return;
@@ -1831,11 +1737,8 @@ cooldown: ${buildCooldownUrl()}`;
         saveSummary(summary);
         bumpDailyStats();
 
-        setText('summaryTitle', won
-          ? 'ภารกิจสำเร็จ! Plate Main Game ผ่านแล้ว'
-          : 'สรุปผล Plate Main Game');
-
-        setText('summaryText', won ? pickLine(coachLines.win) : pickLine(coachLines.end));
+        setText('summaryTitle', won ? 'ภารกิจสำเร็จ! Plate Main Game ผ่านแล้ว' : 'สรุปผล Plate Main Game');
+        setText('summaryText', won ? 'ปิดเป้าหมายจานสมดุลครบแล้ว เก่งมาก!' : pickLine(coachLines.end));
         setText('rankPill', rank);
         setText('sumScore', summary.score);
         setText('sumAcc', `${summary.accuracy}%`);
@@ -1855,18 +1758,30 @@ cooldown: ${buildCooldownUrl()}`;
       }
 
       function startGame() {
-        if (state.started || state.ended) return;
+        if (state.ended) return;
+        if (state.started && !state.paused) return;
+
         state.started = true;
         state.paused = false;
-        $('#startOverlay').classList.remove('show');
+
+        const pauseBtn = $('#pauseBtn');
+        if (pauseBtn) pauseBtn.textContent = '⏸️ พักเกม';
+
         setCoach(pickLine(coachLines.intro));
         renderTurn();
+        updateHud();
+
+        const plateBoard = $('#plateBoard');
+        if (plateBoard) {
+          plateBoard.scrollIntoView({ behavior:'smooth', block:'center' });
+        }
       }
 
       function togglePause() {
         if (!state.started || state.ended) return;
         state.paused = !state.paused;
-        $('#pauseBtn').textContent = state.paused ? '▶️ เล่นต่อ' : '⏸️ พักเกม';
+        const btn = $('#pauseBtn');
+        if (btn) btn.textContent = state.paused ? '▶️ เล่นต่อ' : '⏸️ พักเกม';
         setCoach(state.paused ? pickLine(coachLines.pause) : pickLine(coachLines.intro));
 
         $$('.food-btn').forEach(btn => {
@@ -1878,6 +1793,26 @@ cooldown: ${buildCooldownUrl()}`;
         const url = new URL(location.href);
         url.searchParams.set('seed', String(Date.now()));
         location.href = url.toString();
+      }
+
+      function renderIdleOptions() {
+        const grid = $('#optionsGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        for (let i = 0; i < preset.optionCount; i++) {
+          const div = document.createElement('button');
+          div.className = 'food-btn dim';
+          div.type = 'button';
+          div.disabled = true;
+          div.innerHTML = `
+            <span class="food-emoji">🍽️</span>
+            <span class="food-name">รอเริ่มเกม</span>
+            <span class="food-desc">กดปุ่มเริ่ม แล้วตัวเลือกอาหารจะขึ้นตรงนี้</span>
+            <span class="food-group">Plate Main Game</span>
+          `;
+          grid.appendChild(div);
+        }
       }
 
       let lastTick = performance.now();
@@ -1900,40 +1835,20 @@ cooldown: ${buildCooldownUrl()}`;
       }
 
       function bind() {
-        $('#startMainGameBtn').addEventListener('click', startGame);
-        $('#startMainGameBtn2').addEventListener('click', startGame);
-        $('#startOverlayBtn').addEventListener('click', startGame);
-
-        $('#pauseBtn').addEventListener('click', togglePause);
-        $('#restartBtn').addEventListener('click', restartGame);
-        $('#playAgainBtn').addEventListener('click', restartGame);
+        safeOn('startMainGameBtn', 'click', startGame);
+        safeOn('startMainGameBtn2', 'click', startGame);
+        safeOn('pauseBtn', 'click', togglePause);
+        safeOn('restartBtn', 'click', restartGame);
+        safeOn('playAgainBtn', 'click', restartGame);
       }
 
       function boot() {
         hydrateContextUi();
         bind();
         updateHud();
-
-        $('#targetTitle').textContent = 'กดเริ่ม Main Game';
-        $('#targetDesc').textContent = 'Main game นี้ต้องเก็บให้ครบทั้ง 5 หมู่หลายจานก่อนหมดเวลา';
-        $('#missionBadge').textContent = `เป้าหมาย ${preset.goalPlates} จานสมดุล`;
-
-        const grid = $('#optionsGrid');
-        grid.innerHTML = '';
-        for (let i = 0; i < preset.optionCount; i++) {
-          const div = document.createElement('button');
-          div.className = 'food-btn dim';
-          div.type = 'button';
-          div.disabled = true;
-          div.innerHTML = `
-            <span class="food-emoji">🍽️</span>
-            <span class="food-name">รอเริ่มเกม</span>
-            <span class="food-desc">กดปุ่มเริ่ม แล้วตัวเลือกอาหารจะขึ้นตรงนี้</span>
-            <span class="food-group">Plate Main Game</span>
-          `;
-          grid.appendChild(div);
-        }
-
+        setBoardIntro();
+        setCoach('กดเริ่ม Main Game แล้วเกมจะพาไปที่กระดานจานอาหารทันที');
+        renderIdleOptions();
         requestAnimationFrame(tick);
       }
 
