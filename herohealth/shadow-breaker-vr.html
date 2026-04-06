@@ -3,1267 +3,151 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Shadow Breaker Launcher</title>
-  <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#9fe3ff" />
+  <title>HeroHealth • Shadow Breaker Launcher</title>
+  <meta name="theme-color" content="#bfe9ff" />
   <link rel="icon" href="./favicon.ico" />
+  <link rel="stylesheet" href="./fitness-launcher-shared.css?v=20260406a-fitness-launcher-shared" />
+
   <style>
-    :root{
-      --sky1:#dff4ff;
-      --sky2:#eefcff;
-      --sky3:#fff7da;
-
-      --card:#fffdf6;
-      --card2:#f8fff3;
-      --line:#bfe3f2;
-      --line-strong:#98d4ec;
-
-      --text:#4d4a42;
-      --muted:#7b7a72;
-
-      --green:#7ed957;
-      --green2:#58c33f;
-      --blue:#7fcfff;
-      --blue2:#58b7f5;
-      --yellow:#ffd45c;
-      --yellow2:#ffbe3b;
-      --pink:#ffb7d5;
-      --violet:#c6b7ff;
-
-      --shadow:0 18px 40px rgba(111,157,183,.16);
-      --radius:26px;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
-
-    *{ box-sizing:border-box; }
-    html,body{
-      margin:0;
-      min-height:100%;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
+    .sb-stage{
+      position:absolute; inset:0;
       background:
-        radial-gradient(circle at 12% 14%, rgba(127,207,255,.34), transparent 28%),
-        radial-gradient(circle at 88% 10%, rgba(255,220,120,.22), transparent 24%),
-        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 48%, var(--sky3) 100%);
-      color:var(--text);
+        radial-gradient(circle at 50% 20%, rgba(255,255,255,.12), rgba(255,255,255,0) 34%),
+        linear-gradient(180deg, #11253f 0%, #17385a 46%, #234d72 100%);
     }
-    a{ color:inherit; text-decoration:none; }
-    button,input,select{ font:inherit; }
-
-    .bg-clouds{
-      position:fixed;
-      inset:0;
-      overflow:hidden;
-      pointer-events:none;
-      z-index:0;
-    }
-    .cloud{
-      position:absolute;
-      background:rgba(255,255,255,.65);
-      border-radius:999px;
-      filter:blur(1px);
-      box-shadow:0 10px 24px rgba(255,255,255,.22);
-    }
-    .c1{ width:140px; height:44px; left:6%; top:9%; }
-    .c2{ width:190px; height:58px; right:8%; top:13%; }
-    .c3{ width:120px; height:38px; left:18%; bottom:18%; }
-    .c4{ width:170px; height:52px; right:20%; bottom:24%; }
-
-    .wrap{
-      position:relative;
-      z-index:1;
-      max-width:980px;
-      margin:0 auto;
-      padding:
-        calc(14px + var(--sat))
-        calc(14px + var(--sar))
-        calc(18px + var(--sab))
-        calc(14px + var(--sal));
-      min-height:100vh;
-    }
-
-    .topbar{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      margin-bottom:12px;
-      flex-wrap:wrap;
-    }
-
-    .backBtn,
-    .topPill{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:42px;
-      padding:10px 14px;
-      border-radius:16px;
-      background:rgba(255,255,255,.88);
-      border:1px solid var(--line);
-      color:var(--text);
-      box-shadow:var(--shadow);
-      font-weight:1000;
-    }
-
-    .topPill{
-      color:#5f7b88;
-      border-radius:999px;
-    }
-
-    .hero{
+    .sb-floor{
+      position:absolute; left:6%; right:6%; bottom:7%;
+      height:28%;
       border-radius:28px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, var(--card), var(--card2));
-      box-shadow:var(--shadow);
-      padding:18px;
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border:2px solid rgba(160,215,255,.18);
+      box-shadow:inset 0 0 0 10px rgba(255,255,255,.03);
     }
-
-    .kicker{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:34px;
-      padding:6px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:1px solid var(--line);
-      color:#5f7b88;
-      font-size:.82rem;
-      font-weight:1000;
-    }
-
-    h1{
-      margin:12px 0 6px;
-      font-size:clamp(1.8rem, 5vw, 2.8rem);
-      line-height:1.02;
-      color:#4f8f2c;
-    }
-
-    .sub{
-      color:#786c61;
-      line-height:1.55;
-      font-size:1rem;
-      font-weight:800;
-    }
-
-    .row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      margin-top:14px;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:#fff;
-      color:#7b7a72;
-      font-size:.84rem;
-      font-weight:1000;
-      box-shadow:0 8px 16px rgba(111,157,183,.10);
-    }
-    .pill b{ color:#5a4a3f; }
-
-    .hero-grid{
-      display:grid;
-      grid-template-columns:1.08fr .92fr;
-      gap:14px;
-      margin-top:14px;
-    }
-
-    .hero-card{
-      border-radius:24px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,255,243,.96));
-      box-shadow:0 12px 24px rgba(111,157,183,.10);
-      padding:14px;
-    }
-
-    .hero-card-title{
-      font-size:1rem;
-      font-weight:1000;
-      color:#5a4a3f;
-      margin-bottom:8px;
-    }
-
-    .hero-play-list{
-      display:grid;
-      gap:10px;
-    }
-
-    .hero-play-item{
-      display:grid;
-      grid-template-columns:52px 1fr;
-      gap:10px;
-      align-items:center;
-      padding:10px 12px;
-      border-radius:18px;
-      background:#fff;
-      border:1px solid var(--line);
-      box-shadow:0 8px 16px rgba(111,157,183,.08);
-    }
-
-    .hero-play-icon{
-      width:52px;
-      height:52px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      font-size:1.4rem;
-      background:linear-gradient(180deg, #fff8d8, #ffe79b);
-      border:1px solid #f6d97a;
-    }
-
-    .hero-play-text{
-      color:#746d66;
-      line-height:1.45;
-      font-size:.92rem;
-      font-weight:900;
-    }
-
-    .hero-boss-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .hero-boss{
-      border-radius:20px;
-      border:1px solid var(--line);
-      background:#fff;
-      box-shadow:0 8px 16px rgba(111,157,183,.08);
-      padding:12px;
-      text-align:center;
-    }
-
-    .hero-boss-emoji{
-      width:58px;
-      height:58px;
-      margin:0 auto 8px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      font-size:1.6rem;
-      background:linear-gradient(180deg, #dff4ff, #eefcff);
-      border:1px solid #bfe3f2;
-    }
-
-    .hero-boss-name{
-      font-size:.92rem;
-      font-weight:1000;
-      color:#5a4a3f;
-    }
-
-    .hero-boss-desc{
-      margin-top:4px;
-      font-size:.78rem;
-      line-height:1.35;
-      color:#7b7a72;
-      font-weight:800;
-    }
-
-    .launch-tip{
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:linear-gradient(180deg, #fff8d8, #fff1b7);
-      border:1px solid #f6d97a;
-      color:#7a5d00;
-      font-size:.88rem;
-      line-height:1.45;
-      font-weight:1000;
-    }
-
-    .preview-shell{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns:1fr;
-      gap:14px;
-    }
-
-    .preview-card{
-      border-radius:24px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, rgba(255,255,255,.94), rgba(248,255,243,.98));
-      box-shadow:0 14px 28px rgba(111,157,183,.12);
-      padding:14px;
-    }
-
-    .preview-title{
-      font-size:1rem;
-      font-weight:1000;
-      color:#5a4a3f;
-      margin-bottom:10px;
-    }
-
-    .preview-stage{
-      position:relative;
-      min-height:280px;
-      border-radius:26px;
-      overflow:hidden;
-      border:1px solid #bfe3f2;
+    .sb-grid{
+      position:absolute; inset:0;
       background:
-        radial-gradient(circle at 50% 18%, rgba(125,211,252,.18), transparent 32%),
-        linear-gradient(180deg, #f8fcff 0%, #dfefff 40%, #cfe4ff 100%);
-      box-shadow:inset 0 8px 18px rgba(255,255,255,.32);
+        linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+      background-size:32px 32px;
+      opacity:.22;
     }
-
-    .preview-stage::after{
-      content:"";
-      position:absolute;
-      inset:auto 0 0 0;
-      height:42%;
-      background:
-        linear-gradient(180deg, rgba(120,140,190,.08), rgba(100,120,170,.18)),
-        linear-gradient(180deg, #d7deea, #bfc8d9);
-    }
-
-    .preview-boss-name{
-      position:absolute;
-      top:14px;
-      left:50%;
-      transform:translateX(-50%);
-      z-index:2;
-      min-height:36px;
-      padding:8px 14px;
+    .sb-core{
+      position:absolute; left:50%; top:38%;
+      width:110px; height:110px; margin-left:-55px; margin-top:-55px;
       border-radius:999px;
-      background:rgba(255,255,255,.88);
-      border:1px solid #bfe3f2;
-      color:#5a4a3f;
-      font-weight:1000;
-      box-shadow:0 8px 16px rgba(111,157,183,.10);
-    }
-
-    .preview-boss-face{
-      position:absolute;
-      left:50%;
-      top:58px;
-      transform:translateX(-50%);
-      z-index:2;
-      width:84px;
-      height:84px;
-      border-radius:24px;
-      display:grid;
-      place-items:center;
-      font-size:2.2rem;
-      background:linear-gradient(180deg, #fff8d8, #ffe79b);
-      border:1px solid #f6d97a;
-      box-shadow:0 10px 20px rgba(255,190,59,.18);
-    }
-
-    .preview-target{
-      position:absolute;
-      z-index:3;
-      width:84px;
-      height:84px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      font-size:1.8rem;
-      border:3px solid rgba(255,255,255,.92);
+      background:radial-gradient(circle at 35% 35%, #fff6c7, #ffb347 48%, #ff6d5a 78%);
       box-shadow:
-        0 12px 20px rgba(111,157,183,.16),
-        inset 0 8px 16px rgba(255,255,255,.24);
+        0 0 0 14px rgba(255,179,71,.10),
+        0 0 44px rgba(255,126,84,.34);
+      animation:sbPulse 1.8s ease-in-out infinite;
     }
-
-    .preview-target.good{
-      background:radial-gradient(circle at 35% 32%, #f4ffe8, #c8f0b8 56%, #8ddd68 100%);
+    .sb-orb{
+      position:absolute; width:28px; height:28px; border-radius:999px;
+      background:radial-gradient(circle at 30% 30%, #fff, #9fddff);
+      box-shadow:0 0 0 8px rgba(159,221,255,.12), 0 0 18px rgba(159,221,255,.26);
+      animation:sbFloat 2.8s ease-in-out infinite;
     }
-
-    .preview-target.fake{
-      background:radial-gradient(circle at 35% 32%, #ffffff, #eceff4 55%, #cfd6df 100%);
-    }
-
-    .preview-target.warn{
-      background:radial-gradient(circle at 35% 32%, #fff6dc, #ffe09a 55%, #ffbf43 100%);
-    }
-
-    .preview-target.t1{ left:12%; top:46%; }
-    .preview-target.t2{ right:14%; top:42%; }
-    .preview-target.t3{ left:28%; bottom:18%; }
-    .preview-target.t4{ right:24%; bottom:15%; }
-
-    .preview-crosshair{
-      position:absolute;
-      left:50%;
-      top:50%;
-      transform:translate(-50%,-50%);
-      z-index:2;
-      width:34px;
-      height:34px;
-      border-radius:999px;
-      border:3px solid rgba(255,255,255,.96);
-      box-shadow:0 0 0 3px rgba(95,123,136,.12);
-    }
-
-    .preview-crosshair::before,
-    .preview-crosshair::after{
-      content:"";
-      position:absolute;
-      left:50%;
-      top:50%;
-      transform:translate(-50%,-50%);
-      background:#fff;
-      border-radius:999px;
-    }
-    .preview-crosshair::before{ width:16px; height:3px; }
-    .preview-crosshair::after{ width:3px; height:16px; }
-
-    .preview-fever{
-      position:absolute;
-      left:14px;
-      right:14px;
-      bottom:12px;
-      z-index:4;
-      padding:10px 12px;
-      border-radius:18px;
-      background:rgba(255,255,255,.84);
-      border:1px solid #bfe3f2;
-      box-shadow:0 8px 16px rgba(111,157,183,.10);
-    }
-
-    .preview-fever-top{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:center;
-      color:#5a4a3f;
-      font-size:.86rem;
-      font-weight:1000;
-    }
-
-    .preview-fever-bar{
-      margin-top:8px;
-      height:12px;
-      border-radius:999px;
-      overflow:hidden;
-      background:#dcecf5;
-      border:1px solid #c5dfec;
-    }
-
-    .preview-fever-fill{
-      width:66%;
-      height:100%;
-      background:linear-gradient(90deg, #ffd96a, #ffbe3b);
-    }
-
-    .preview-mini-legend{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .preview-legend{
-      display:flex;
-      gap:8px;
-      align-items:center;
-      min-height:44px;
-      padding:10px 12px;
-      border-radius:16px;
-      background:#fff;
-      border:1px solid var(--line);
-      box-shadow:0 8px 16px rgba(111,157,183,.08);
-      color:#746d66;
-      font-size:.84rem;
-      font-weight:900;
-    }
-
-    .preview-dot{
-      width:18px;
-      height:18px;
-      border-radius:999px;
-      flex:0 0 auto;
-      border:2px solid rgba(255,255,255,.92);
-    }
-
-    .preview-dot.good{ background:#8ddd68; }
-    .preview-dot.fake{ background:#cfd6df; }
-    .preview-dot.warn{ background:#ffbf43; }
-
-    .grid{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:12px;
-      margin-top:14px;
-    }
-
-    .card{
+    .sb-o1{ left:26%; top:40%; animation-delay:0s; }
+    .sb-o2{ left:70%; top:26%; animation-delay:.25s; }
+    .sb-o3{ left:62%; top:58%; animation-delay:.5s; }
+    .sb-o4{ left:36%; top:63%; animation-delay:.75s; }
+    .sb-avatar{
+      position:absolute; left:50%; bottom:16%;
+      width:88px; height:128px; transform:translateX(-50%);
       border-radius:24px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, var(--card), var(--card2));
-      box-shadow:var(--shadow);
-      padding:14px;
+      background:rgba(255,255,255,.12);
+      border:3px dashed rgba(214,239,255,.22);
     }
-
-    .cardTitle{
-      font-size:1rem;
-      font-weight:1000;
-      margin-bottom:8px;
-      color:#5a4a3f;
+    .sb-avatar::before{
+      content:"";
+      position:absolute; left:50%; top:10px; transform:translateX(-50%);
+      width:30px; height:30px; border-radius:999px;
+      background:rgba(255,255,255,.18);
     }
-
-    .field{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      margin-top:10px;
+    .sb-avatar::after{
+      content:"";
+      position:absolute; left:50%; top:44px; transform:translateX(-50%);
+      width:16px; height:60px; border-radius:999px;
+      background:rgba(255,255,255,.18);
+      box-shadow:-26px 10px 0 0 rgba(255,255,255,.12), 26px 10px 0 0 rgba(255,255,255,.12);
     }
-
-    .label{
-      font-size:.82rem;
-      color:#6c6a62;
-      font-weight:1000;
+    .sb-chip{
+      position:absolute; top:16px; left:16px;
+      padding:10px 14px; border-radius:999px;
+      background:rgba(255,255,255,.12);
+      color:#eef8ff; font-weight:900;
+      box-shadow:0 8px 18px rgba(0,0,0,.12);
+      backdrop-filter:blur(4px);
     }
-
-    .input, .select{
-      width:100%;
-      min-height:46px;
-      padding:10px 12px;
-      border-radius:16px;
-      border:1px solid var(--line);
-      background:#fff;
-      color:var(--text);
-      outline:none;
-      box-shadow:0 8px 16px rgba(111,157,183,.08);
+    .sb-fever{
+      position:absolute; right:16px; top:16px;
+      padding:10px 14px; border-radius:999px;
+      background:linear-gradient(180deg, #fff2b8, #ffd45c);
+      color:#6b5200; font-weight:1000;
+      box-shadow:0 10px 22px rgba(255,212,92,.22);
+      animation:sbPulseSmall 1.1s ease-in-out infinite;
     }
-    .input:focus, .select:focus{
-      border-color:#7fcfff;
-      box-shadow:0 0 0 3px rgba(127,207,255,.20);
+    .sb-tip{
+      position:absolute; right:16px; bottom:16px;
+      max-width:250px;
+      padding:12px 14px; border-radius:18px;
+      background:rgba(255,255,255,.12);
+      color:#eef8ff; font-weight:800;
+      box-shadow:0 10px 24px rgba(0,0,0,.12);
+      backdrop-filter:blur(4px);
     }
-
-    .viewGrid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-      margin-top:12px;
+    @keyframes sbPulse{
+      0%,100%{ transform:scale(1); }
+      50%{ transform:scale(1.06); }
     }
-
-    .viewCard{
-      position:relative;
-      border-radius:22px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.84);
-      box-shadow:0 12px 24px rgba(111,157,183,.12);
-      padding:14px 12px;
-      cursor:pointer;
-      min-height:120px;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+    @keyframes sbPulseSmall{
+      0%,100%{ transform:scale(1); }
+      50%{ transform:scale(1.08); }
     }
-    .viewCard:hover{ transform:translateY(-1px); }
-    .viewCard.is-active{
-      border-color:#75cf63;
-      background:linear-gradient(180deg, #8fe388, #58c33f);
-      box-shadow:0 16px 28px rgba(88,195,63,.18);
-      color:#fffdf6;
-    }
-
-    .viewCheck{
-      position:absolute;
-      top:10px;
-      right:10px;
-      width:26px;
-      height:26px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      border:1px solid var(--line);
-      background:#fff;
-      color:transparent;
-      font-size:.86rem;
-      font-weight:1000;
-    }
-    .viewCard.is-active .viewCheck{
-      color:#4f8f2c;
-      border-color:#c9efbd;
-      background:#f4ffe8;
-    }
-    .viewEmoji{ font-size:2rem; line-height:1; }
-    .viewTitle{ font-size:.98rem; font-weight:1000; }
-    .viewDesc{ font-size:.82rem; line-height:1.4; color:#7b7a72; font-weight:800; }
-    .viewCard.is-active .viewDesc{ color:#f3fff0; }
-
-    .presetRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:12px;
-    }
-    .presetBtn{
-      min-height:42px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:#fff;
-      color:#5a4a3f;
-      padding:10px 12px;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:0 8px 16px rgba(111,157,183,.10);
-    }
-
-    .actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:14px;
-    }
-
-    .btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:46px;
-      padding:10px 14px;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:#fff;
-      color:var(--text);
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:0 10px 18px rgba(111,157,183,.12);
-    }
-    .btn.primary{
-      background:linear-gradient(180deg, var(--green), var(--green2));
-      border-color:#74c864;
-      color:#fffdf6;
-    }
-    .btn.violet{
-      background:linear-gradient(180deg, #d9d0ff, #b8a8ff);
-      border-color:#b4a2ff;
-      color:#4b3c82;
-    }
-    .btn.good{
-      background:linear-gradient(180deg, #ffd96a, #ffbe3b);
-      border-color:#f4bb39;
-      color:#6a4a00;
-    }
-    .btn.ghost{
-      background:linear-gradient(180deg, #eef9ff, #e3f5ff);
-      color:#5d6a70;
-    }
-
-    .mini{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:16px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.76);
-      color:#7b7a72;
-      font-size:.84rem;
-      font-weight:800;
-      line-height:1.45;
-      word-break:break-word;
-    }
-
-    .debug{
-      margin-top:12px;
-      padding:10px 12px;
-      border-radius:16px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.74);
-      color:#7b7a72;
-      font-size:.82rem;
-      line-height:1.5;
-      word-break:break-word;
-    }
-
-    .list{
-      margin:10px 0 0;
-      padding-left:18px;
-      color:#746d66;
-      line-height:1.55;
-      font-size:.92rem;
-      font-weight:800;
-    }
-
-    code{
-      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-      font-size:.92em;
-      color:#5777a5;
-    }
-
-    @media (max-width:920px){
-      .hero-grid,
-      .grid{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media (max-width:640px){
-      .wrap{
-        padding:
-          calc(10px + var(--sat))
-          calc(10px + var(--sar))
-          calc(14px + var(--sab))
-          calc(10px + var(--sal));
-      }
-      .topbar{
-        align-items:stretch;
-      }
-      .backBtn, .topPill{
-        width:100%;
-      }
-      .actions{ flex-direction:column; }
-      .btn{ width:100%; }
-      .presetRow{ flex-direction:column; }
-      .presetBtn{ width:100%; }
-      .viewGrid{ grid-template-columns:1fr; }
-      .hero-boss-grid{ grid-template-columns:1fr; }
-      .hero-play-item{
-        grid-template-columns:46px 1fr;
-        padding:10px;
-      }
-      .hero-play-icon{
-        width:46px;
-        height:46px;
-        border-radius:14px;
-        font-size:1.2rem;
-      }
-      .preview-stage{
-        min-height:250px;
-        border-radius:22px;
-      }
-      .preview-boss-face{
-        width:70px;
-        height:70px;
-        border-radius:20px;
-        font-size:1.9rem;
-      }
-      .preview-target{
-        width:72px;
-        height:72px;
-        font-size:1.55rem;
-      }
-      .preview-mini-legend{
-        grid-template-columns:1fr;
-      }
+    @keyframes sbFloat{
+      0%,100%{ transform:translateY(0); }
+      50%{ transform:translateY(-14px); }
     }
   </style>
 </head>
-<body>
-  <div class="bg-clouds" aria-hidden="true">
-    <div class="cloud c1"></div>
-    <div class="cloud c2"></div>
-    <div class="cloud c3"></div>
-    <div class="cloud c4"></div>
-  </div>
+<body class="hh-fit-launcher">
+  <div id="hhFitLauncherRoot"></div>
 
-  <div class="wrap">
-    <div class="topbar">
-      <a class="backBtn" id="btnBackHub" href="./hub.html">← กลับหน้าเกมหลัก</a>
-      <div class="topPill">Shadow Breaker • Launcher</div>
-    </div>
-
-    <section class="hero">
-      <div class="kicker">HeroHealth • Exercise Zone</div>
-      <h1>Shadow Breaker Launcher</h1>
-      <div class="sub">
-        ทางเข้าแบบมาตรฐานของเกมนี้คือ
-        <b>Hub → Launcher → Warmup → Game → Cooldown → Summary → Hub</b>
-      </div>
-
-      <div class="row">
-        <span class="pill"><b>Launcher</b>: <span>/herohealth/shadow-breaker-vr.html</span></span>
-        <span class="pill"><b>Warmup</b>: <span>/herohealth/warmup-gate.html</span></span>
-        <span class="pill"><b>Run</b>: <span>/fitness/shadow-breaker.html</span></span>
-      </div>
-
-      <div class="hero-grid">
-        <section class="hero-card">
-          <div class="hero-card-title">เกมนี้เล่นยังไง?</div>
-
-          <div class="hero-play-list">
-            <div class="hero-play-item">
-              <div class="hero-play-icon">🎯</div>
-              <div class="hero-play-text">แตะเป้าดีให้ทันเพื่อเก็บคะแนนและต่อคอมโบ</div>
-            </div>
-
-            <div class="hero-play-item">
-              <div class="hero-play-icon">⚠️</div>
-              <div class="hero-play-text">ระวังเป้าหลอกและจังหวะที่ทำให้พลาด</div>
-            </div>
-
-            <div class="hero-play-item">
-              <div class="hero-play-icon">⚡</div>
-              <div class="hero-play-text">สะสมพลังพิเศษ แล้วใช้ให้ถูกจังหวะเพื่อผ่านบอส</div>
-            </div>
-          </div>
-
-          <div class="launch-tip">
-            เคล็ดลับ: เริ่มจาก <b>Mobile + ปกติ</b> ก่อน จะเล่นง่ายและเข้าใจเกมเร็วที่สุด
-          </div>
-        </section>
-
-        <section class="hero-card">
-          <div class="hero-card-title">บอสตัวอย่างในเกม</div>
-
-          <div class="hero-boss-grid">
-            <div class="hero-boss">
-              <div class="hero-boss-emoji">🥊</div>
-              <div class="hero-boss-name">Bubble Glove</div>
-              <div class="hero-boss-desc">เป้าใหญ่ เริ่มต้นง่าย</div>
-            </div>
-
-            <div class="hero-boss">
-              <div class="hero-boss-emoji">☄️</div>
-              <div class="hero-boss-name">Meteor Punch</div>
-              <div class="hero-boss-desc">เร็วขึ้น ท้าทายขึ้น</div>
-            </div>
-
-            <div class="hero-boss">
-              <div class="hero-boss-emoji">🐉</div>
-              <div class="hero-boss-name">Neon Hydra</div>
-              <div class="hero-boss-desc">หลายจุด ต้องตั้งสมาธิ</div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div class="preview-shell">
-        <section class="preview-card">
-          <div class="preview-title">ตัวอย่างหน้าจอเกม</div>
-
-          <div class="preview-stage" aria-hidden="true">
-            <div class="preview-boss-name">Bubble Glove</div>
-            <div class="preview-boss-face">🥊</div>
-
-            <div class="preview-target good t1">🎯</div>
-            <div class="preview-target fake t2">👀</div>
-            <div class="preview-target good t3">🎯</div>
-            <div class="preview-target warn t4">⚡</div>
-
-            <div class="preview-crosshair"></div>
-
-            <div class="preview-fever">
-              <div class="preview-fever-top">
-                <span>พลังพิเศษ</span>
-                <span>66%</span>
-              </div>
-              <div class="preview-fever-bar">
-                <div class="preview-fever-fill"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="preview-mini-legend">
-            <div class="preview-legend">
-              <span class="preview-dot good"></span>
-              <span>เป้าดี แตะเพื่อเก็บคะแนน</span>
-            </div>
-            <div class="preview-legend">
-              <span class="preview-dot fake"></span>
-              <span>เป้าหลอก ระวังอย่าแตะ</span>
-            </div>
-            <div class="preview-legend">
-              <span class="preview-dot warn"></span>
-              <span>ของพิเศษ ใช้ให้ถูกจังหวะ</span>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div class="grid">
-        <section class="card">
-          <div class="cardTitle">ตั้งค่าก่อนเข้าเล่น</div>
-
-          <div class="field">
-            <label class="label" for="inpPid">PID</label>
-            <input id="inpPid" class="input" placeholder="เช่น anon หรือ S05-001" />
-          </div>
-
-          <div class="field">
-            <label class="label" for="selDiff">ระดับความท้าทาย</label>
-            <select id="selDiff" class="select">
-              <option value="easy">ง่าย</option>
-              <option value="normal" selected>ปกติ</option>
-              <option value="hard">ยาก</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label class="label" for="selTime">เวลาเล่น</label>
-            <select id="selTime" class="select">
-              <option value="60">60 วินาที</option>
-              <option value="70">70 วินาที</option>
-              <option value="80" selected>80 วินาที</option>
-              <option value="90">90 วินาที</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label class="label" for="selMode">โหมด</label>
-            <select id="selMode" class="select">
-              <option value="normal" selected>โหมดเด็ก</option>
-              <option value="research">โหมดครู / วิจัย</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <div class="label">เลือกอุปกรณ์ที่ใช้เล่น</div>
-
-            <div class="viewGrid">
-              <button class="viewCard" id="cardViewPc" type="button" data-view="pc">
-                <div class="viewCheck">✓</div>
-                <div class="viewEmoji">💻</div>
-                <div class="viewTitle">PC</div>
-                <div class="viewDesc">เหมาะกับจอใหญ่และเมาส์</div>
-              </button>
-
-              <button class="viewCard" id="cardViewMobile" type="button" data-view="mobile">
-                <div class="viewCheck">✓</div>
-                <div class="viewEmoji">📱</div>
-                <div class="viewTitle">Mobile</div>
-                <div class="viewDesc">เหมาะกับมือถือ แตะง่ายขึ้น</div>
-              </button>
-
-              <button class="viewCard" id="cardViewCvr" type="button" data-view="cvr">
-                <div class="viewCheck">✓</div>
-                <div class="viewEmoji">🥽</div>
-                <div class="viewTitle">Cardboard VR</div>
-                <div class="viewDesc">ใช้จุดเล็งกลางจอ แล้วแตะเพื่อยิง</div>
-              </button>
-            </div>
-          </div>
-
-          <input id="inpView" type="hidden" value="pc" />
-
-          <div class="presetRow">
-            <button class="presetBtn" id="btnPresetEasy" type="button">😊 เล่นสบาย</button>
-            <button class="presetBtn" id="btnPresetNormal" type="button">😎 เล่นปกติ</button>
-            <button class="presetBtn" id="btnPresetHard" type="button">🔥 ลุยท้าทาย</button>
-          </div>
-
-          <div id="modeExplain" class="mini">
-            โหมดเด็ก: จะส่งเข้าเกมแบบ <b>mode=normal</b>
-          </div>
-
-          <div id="viewExplain" class="mini">
-            ตอนนี้เลือก: <b>PC</b>
-          </div>
-
-          <div id="researchOnlyBox" style="display:none;">
-            <div class="field">
-              <label class="label" for="inpStudyId">Study ID</label>
-              <input id="inpStudyId" class="input" placeholder="เช่น HH-EX-01" />
-            </div>
-
-            <div class="field">
-              <label class="label" for="inpGroup">Group</label>
-              <input id="inpGroup" class="input" placeholder="เช่น control / exp" />
-            </div>
-
-            <div class="field">
-              <label class="label" for="inpCondition">Condition</label>
-              <input id="inpCondition" class="input" placeholder="เช่น SB-child / SB-cvr" />
-            </div>
-          </div>
-
-          <div class="actions">
-            <button class="btn primary" id="btnStartNormal" type="button">▶ เริ่มเล่น</button>
-            <button class="btn violet" id="btnStartHard" type="button">🔥 ลุยแบบท้าทาย</button>
-            <button class="btn good" id="btnStartResearch" type="button">📋 เข้าโหมดครู / วิจัย</button>
-            <a class="btn ghost" id="btnBackHub2" href="./hub.html">← กลับหน้าเกมหลัก</a>
-          </div>
-
-          <div class="mini">
-            ระบบจะพาเข้า <b>warmup</b> ก่อนทุกครั้ง จากนั้นค่อยเข้าเกมจริงอัตโนมัติ
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="cardTitle">สิ่งที่ launcher ตัวนี้แก้แล้ว</div>
-          <ul class="list">
-            <li>ไม่ส่ง path ผิดแบบ <code>fitness/fitness/shadow-breaker.html</code></li>
-            <li>ส่ง <code>next</code> เป็น absolute URL ที่ถูกต้อง</li>
-            <li>เด็กเล่นปกติจะใช้ <code>mode=normal&amp;run=normal</code></li>
-            <li>warmup เสร็จแล้ว run game จะ auto start</li>
-            <li>บังคับเข้า warmup ด้วย <code>forcegate=1</code></li>
-          </ul>
-
-          <div class="debug" id="debugBox">กำลังเตรียมเส้นทางเข้าเกม…</div>
-        </section>
-      </div>
-    </section>
-  </div>
-
+  <script src="./fitness-launcher-shared.js?v=20260406a-fitness-launcher-shared"></script>
   <script>
-    (function(){
-      'use strict';
-
-      const WARMUP_PATH = '/webxr-health-mobile/herohealth/warmup-gate.html';
-      const RUN_PATH = '/webxr-health-mobile/fitness/shadow-breaker.html';
-
-      const $ = (s)=>document.querySelector(s);
-      const qs = (k, d='')=>{
-        try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
-        catch(_){ return d; }
-      };
-
-      const inpPid = $('#inpPid');
-      const selDiff = $('#selDiff');
-      const selTime = $('#selTime');
-      const selMode = $('#selMode');
-      const inpView = $('#inpView');
-      const modeExplain = $('#modeExplain');
-      const viewExplain = $('#viewExplain');
-      const researchOnlyBox = $('#researchOnlyBox');
-      const inpStudyId = $('#inpStudyId');
-      const inpGroup = $('#inpGroup');
-      const inpCondition = $('#inpCondition');
-
-      const cardViewPc = $('#cardViewPc');
-      const cardViewMobile = $('#cardViewMobile');
-      const cardViewCvr = $('#cardViewCvr');
-
-      const btnPresetEasy = $('#btnPresetEasy');
-      const btnPresetNormal = $('#btnPresetNormal');
-      const btnPresetHard = $('#btnPresetHard');
-
-      const btnStartNormal = $('#btnStartNormal');
-      const btnStartHard = $('#btnStartHard');
-      const btnStartResearch = $('#btnStartResearch');
-      const btnBackHub = $('#btnBackHub');
-      const btnBackHub2 = $('#btnBackHub2');
-      const debugBox = $('#debugBox');
-
-      const hubFromQuery = String(qs('hub','')).trim() || './hub.html';
-
-      if (btnBackHub) btnBackHub.href = hubFromQuery;
-      if (btnBackHub2) btnBackHub2.href = hubFromQuery;
-
-      function detectDefaultView(){
-        const qv = String(qs('view','')).toLowerCase();
-        if (qv === 'pc' || qv === 'mobile' || qv === 'cvr') return qv;
-        const ua = navigator.userAgent || '';
-        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-        return isMobile ? 'mobile' : 'pc';
-      }
-
-      if (inpPid)  inpPid.value = String(qs('pid','anon')).trim() || 'anon';
-      if (selDiff) selDiff.value = String(qs('diff','normal')).trim() || 'normal';
-      if (selTime) selTime.value = String(qs('time','80')).trim() || '80';
-      if (selMode) selMode.value = String(qs('mode','normal')).trim() || 'normal';
-      if (inpView) inpView.value = detectDefaultView();
-
-      if (inpStudyId) inpStudyId.value = String(qs('studyId','')).trim();
-      if (inpGroup) inpGroup.value = String(qs('group','')).trim();
-      if (inpCondition) inpCondition.value = String(qs('conditionGroup','')).trim();
-
-      function syncModeUI(){
-        const isResearch = (selMode?.value === 'research');
-        if (modeExplain) {
-          modeExplain.innerHTML = isResearch
-            ? 'โหมดครู / วิจัย: จะส่งเข้าเกมแบบ <b>mode=research</b>'
-            : 'โหมดเด็ก: จะส่งเข้าเกมแบบ <b>mode=normal</b>';
-        }
-        if (researchOnlyBox) researchOnlyBox.style.display = isResearch ? '' : 'none';
-        renderDebug();
-      }
-
-      function syncViewCards(){
-        const view = String(inpView?.value || 'pc');
-        [cardViewPc, cardViewMobile, cardViewCvr].forEach(el => el?.classList.remove('is-active'));
-        if (view === 'pc') cardViewPc?.classList.add('is-active');
-        if (view === 'mobile') cardViewMobile?.classList.add('is-active');
-        if (view === 'cvr') cardViewCvr?.classList.add('is-active');
-
-        if (viewExplain) {
-          if (view === 'pc') {
-            viewExplain.innerHTML = 'ตอนนี้เลือก: <b>PC</b> • เหมาะกับจอใหญ่และเมาส์';
-          } else if (view === 'mobile') {
-            viewExplain.innerHTML = 'ตอนนี้เลือก: <b>Mobile</b> • แตะง่าย เหมาะกับเด็กเริ่มเล่น';
-          } else {
-            viewExplain.innerHTML = 'ตอนนี้เลือก: <b>Cardboard VR</b> • ใช้จุดเล็งกลางจอแล้วแตะเพื่อยิง';
-          }
-        }
-        renderDebug();
-      }
-
-      function setViewMode(view){
-        const v = (view === 'pc' || view === 'mobile' || view === 'cvr') ? view : 'pc';
-        if (inpView) inpView.value = v;
-        syncViewCards();
-      }
-
-      cardViewPc?.addEventListener('click', ()=> setViewMode('pc'));
-      cardViewMobile?.addEventListener('click', ()=> setViewMode('mobile'));
-      cardViewCvr?.addEventListener('click', ()=> setViewMode('cvr'));
-
-      btnPresetEasy?.addEventListener('click', ()=>{
-        if (selDiff) selDiff.value = 'easy';
-        if (selTime) selTime.value = '60';
-        renderDebug();
-      });
-
-      btnPresetNormal?.addEventListener('click', ()=>{
-        if (selDiff) selDiff.value = 'normal';
-        if (selTime) selTime.value = '80';
-        renderDebug();
-      });
-
-      btnPresetHard?.addEventListener('click', ()=>{
-        if (selDiff) selDiff.value = 'hard';
-        if (selTime) selTime.value = '80';
-        renderDebug();
-      });
-
-      selDiff?.addEventListener('change', renderDebug);
-      selTime?.addEventListener('change', renderDebug);
-      inpPid?.addEventListener('input', renderDebug);
-      inpStudyId?.addEventListener('input', renderDebug);
-      inpGroup?.addEventListener('input', renderDebug);
-      inpCondition?.addEventListener('input', renderDebug);
-      selMode?.addEventListener('change', syncModeUI);
-
-      function buildRunUrl(modeOverride){
-        const hubAbs = new URL(hubFromQuery, location.href).toString();
-        const pidVal = (inpPid?.value || 'anon').trim() || 'anon';
-        const diffVal = selDiff?.value || 'normal';
-        const timeVal = selTime?.value || '80';
-        const viewVal = inpView?.value || detectDefaultView();
-        const modeVal = modeOverride || selMode?.value || 'normal';
-        const seedVal = String(Date.now());
-
-        const runUrl = new URL(RUN_PATH, location.origin);
-        runUrl.searchParams.set('pid', pidVal);
-        runUrl.searchParams.set('diff', diffVal);
-        runUrl.searchParams.set('time', timeVal);
-        runUrl.searchParams.set('mode', modeVal);
-        runUrl.searchParams.set('run', modeVal);
-        runUrl.searchParams.set('view', viewVal);
-        runUrl.searchParams.set('zone', 'fitness');
-        runUrl.searchParams.set('hub', hubAbs);
-        runUrl.searchParams.set('game', 'shadowbreaker');
-        runUrl.searchParams.set('cat', 'fitness');
-        runUrl.searchParams.set('theme', 'shadowbreaker');
-        runUrl.searchParams.set('finalGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
-        runUrl.searchParams.set('plannedGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
-        runUrl.searchParams.set('gameId', 'shadowbreaker');
-        runUrl.searchParams.set('seed', seedVal);
-        runUrl.searchParams.set('wgskip', '1');
-
-        if (modeVal === 'research') {
-          if (inpStudyId?.value?.trim()) runUrl.searchParams.set('studyId', inpStudyId.value.trim());
-          if (inpGroup?.value?.trim()) runUrl.searchParams.set('group', inpGroup.value.trim());
-          if (inpCondition?.value?.trim()) runUrl.searchParams.set('conditionGroup', inpCondition.value.trim());
-        }
-
-        return runUrl.toString();
-      }
-
-      function buildWarmupUrl(modeOverride){
-        const hubAbs = new URL(hubFromQuery, location.href).toString();
-        const pidVal = (inpPid?.value || 'anon').trim() || 'anon';
-        const diffVal = selDiff?.value || 'normal';
-        const timeVal = selTime?.value || '80';
-        const viewVal = inpView?.value || detectDefaultView();
-        const modeVal = modeOverride || selMode?.value || 'normal';
-        const seedVal = String(Date.now());
-
-        const nextUrl = new URL(RUN_PATH, location.origin);
-        nextUrl.searchParams.set('pid', pidVal);
-        nextUrl.searchParams.set('diff', diffVal);
-        nextUrl.searchParams.set('time', timeVal);
-        nextUrl.searchParams.set('mode', modeVal);
-        nextUrl.searchParams.set('run', modeVal);
-        nextUrl.searchParams.set('view', viewVal);
-        nextUrl.searchParams.set('zone', 'fitness');
-        nextUrl.searchParams.set('hub', hubAbs);
-        nextUrl.searchParams.set('game', 'shadowbreaker');
-        nextUrl.searchParams.set('cat', 'fitness');
-        nextUrl.searchParams.set('theme', 'shadowbreaker');
-        nextUrl.searchParams.set('finalGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
-        nextUrl.searchParams.set('plannedGame', '/webxr-health-mobile/fitness/shadow-breaker.html');
-        nextUrl.searchParams.set('gameId', 'shadowbreaker');
-        nextUrl.searchParams.set('seed', seedVal);
-        nextUrl.searchParams.set('wgskip', '1');
-
-        if (modeVal === 'research') {
-          if (inpStudyId?.value?.trim()) nextUrl.searchParams.set('studyId', inpStudyId.value.trim());
-          if (inpGroup?.value?.trim()) nextUrl.searchParams.set('group', inpGroup.value.trim());
-          if (inpCondition?.value?.trim()) nextUrl.searchParams.set('conditionGroup', inpCondition.value.trim());
-        }
-
-        const warmupUrl = new URL(WARMUP_PATH, location.origin);
-        warmupUrl.searchParams.set('pid', pidVal);
-        warmupUrl.searchParams.set('run', modeVal);
-        warmupUrl.searchParams.set('mode', modeVal);
-        warmupUrl.searchParams.set('view', viewVal);
-        warmupUrl.searchParams.set('diff', diffVal);
-        warmupUrl.searchParams.set('time', timeVal);
-        warmupUrl.searchParams.set('seed', seedVal);
-        warmupUrl.searchParams.set('zone', 'fitness');
-        warmupUrl.searchParams.set('gatePhase', 'warmup');
-        warmupUrl.searchParams.set('phase', 'warmup');
-        warmupUrl.searchParams.set('cat', 'fitness');
-        warmupUrl.searchParams.set('theme', 'shadowbreaker');
-        warmupUrl.searchParams.set('game', 'shadowbreaker');
-        warmupUrl.searchParams.set('gameId', 'shadowbreaker');
-        warmupUrl.searchParams.set('hub', hubAbs);
-        warmupUrl.searchParams.set('next', nextUrl.toString());
-        warmupUrl.searchParams.set('nextKey', 'HHA_NEXT_URL:shadowbreaker');
-        warmupUrl.searchParams.set('forcegate', '1');
-
-        if (modeVal === 'research') {
-          if (inpStudyId?.value?.trim()) warmupUrl.searchParams.set('studyId', inpStudyId.value.trim());
-          if (inpGroup?.value?.trim()) warmupUrl.searchParams.set('group', inpGroup.value.trim());
-          if (inpCondition?.value?.trim()) warmupUrl.searchParams.set('conditionGroup', inpCondition.value.trim());
-        }
-
-        return warmupUrl.toString();
-      }
-
-      function go(modeOverride){
-        const target = new URL(buildWarmupUrl(modeOverride));
-        target.searchParams.set('_ts', String(Date.now()));
-        console.log('[SB-LAUNCHER] go ->', target.toString());
-        try{ location.href = target.toString(); }
-        catch(_){ location.assign(target.toString()); }
-      }
-
-      function renderDebug(){
-        if (!debugBox) return;
-        const modeVal = selMode?.value || 'normal';
-        debugBox.innerHTML =
-          `<div><b>Warmup target:</b> <code>${buildWarmupUrl(modeVal)}</code></div>` +
-          `<div style="margin-top:8px;"><b>Run target:</b> <code>${buildRunUrl(modeVal)}</code></div>`;
-      }
-
-      btnStartNormal?.addEventListener('click', ()=>{
-        if (selMode) selMode.value = 'normal';
-        syncModeUI();
-        go('normal');
-      });
-
-      btnStartHard?.addEventListener('click', ()=>{
-        if (selMode) selMode.value = 'normal';
-        if (selDiff) selDiff.value = 'hard';
-        syncModeUI();
-        go('normal');
-      });
-
-      btnStartResearch?.addEventListener('click', ()=>{
-        if (selMode) selMode.value = 'research';
-        syncModeUI();
-        go('research');
-      });
-
-      syncModeUI();
-      syncViewCards();
-      renderDebug();
-    })();
+    setupFitnessLauncher({
+      zoneLabel: 'Fitness Zone',
+      title: 'Shadow Breaker',
+      description: 'ตีเป้า หลบแรงกดดัน และผ่าน wave การออกกำลังกายให้ครบ พร้อมบอสช่วงท้าย',
+      badge: 'SHADOW<br>BREAKER',
+      game: 'shadowbreaker',
+      gameId: 'shadowbreaker',
+      mode: 'solo',
+      run: 'play',
+      defaultDiff: 'normal',
+      defaultTime: '90',
+      defaultView: 'mobile',
+      defaultGate: true,
+      defaultCooldown: true,
+      hub: './hub-v2.html',
+      runPage: '../fitness/shadow-breaker.html',
+      warmupPage: './warmup-gate.html',
+      stageHtml: `
+        <div class="sb-stage">
+          <div class="sb-grid"></div>
+          <div class="sb-floor"></div>
+          <div class="sb-chip">Boss Practice Arena</div>
+          <div class="sb-fever">FEVER</div>
+          <div class="sb-core"></div>
+          <div class="sb-orb sb-o1"></div>
+          <div class="sb-orb sb-o2"></div>
+          <div class="sb-orb sb-o3"></div>
+          <div class="sb-orb sb-o4"></div>
+          <div class="sb-avatar"></div>
+          <div class="sb-tip">ตีเป้าให้แม่น รักษาจังหวะ แล้วอย่าปล่อยให้บอสกดดันจนพลาด</div>
+        </div>
+      `
+    });
   </script>
 </body>
 </html>
