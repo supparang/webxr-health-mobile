@@ -534,3 +534,615 @@
       margin-top:8px;
       font-size:14px;
       color:#6d6b63;
+      font-weight:1000;
+      text-align:center;
+      word-break:break-word;
+    }
+
+    .race-top-score{
+      margin-top:10px;
+      font-size:46px;
+      line-height:1;
+      color:#4d4a42;
+      font-weight:1100;
+      text-align:center;
+    }
+
+    .race-stats-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .race-stat-card{
+      text-align:center;
+      border-width:1px;
+      background:#ffffffcc;
+    }
+
+    .race-stat-k{
+      font-size:12px;
+      color:#6b7280;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .race-stat-v{
+      font-size:26px;
+      line-height:1;
+      color:#244f6d;
+      font-weight:1100;
+    }
+
+    .race-standings-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .race-standing-row{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      padding:12px;
+      border-radius:16px;
+      border:2px solid #cde7f4;
+      background:#fff;
+      flex-wrap:wrap;
+    }
+
+    .race-standing-left{
+      display:grid;
+      gap:4px;
+      min-width:0;
+    }
+
+    .race-standing-name{
+      font-weight:1000;
+      color:#4d4a42;
+      word-break:break-word;
+    }
+
+    .race-standing-meta{
+      font-size:12px;
+      color:#79aeca;
+      font-weight:1000;
+      line-height:1.5;
+      word-break:break-word;
+    }
+
+    .race-standing-side{
+      font-size:12px;
+      color:#79aeca;
+      font-weight:1000;
+    }
+
+    .race-debug{
+      border-radius:16px;
+      background:#fff;
+      border:1px dashed #bfe3f2;
+      padding:12px;
+      color:#6b7280;
+      font-size:12px;
+      line-height:1.6;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    .race-result-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      position:sticky;
+      bottom:0;
+      padding-top:10px;
+      background:linear-gradient(180deg, rgba(255,253,248,0), rgba(255,253,248,.92) 22%, rgba(255,253,248,1));
+      z-index:30;
+    }
+
+    .race-result-actions .btn{
+      flex:1 1 180px;
+      min-height:50px;
+    }
+
+    @media (max-width:820px){
+      .race-top-grid{ grid-template-columns:1fr; }
+      .race-stats-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    @media (max-width:760px){
+      body{ overflow:auto; }
+      .race-result-mount{
+        padding:10px;
+        align-items:flex-end;
+      }
+      .race-result-card{
+        border-radius:22px;
+        padding:12px;
+      }
+      .race-result-title{ font-size:22px; }
+      .race-result-sub{ font-size:12px; }
+      .race-result-actions{
+        display:grid;
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+      .race-result-actions .btn{
+        width:100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div class="brand">
+        <div style="font-size:20px;">🏁</div>
+        <div>
+          <div class="brand-title">GoodJunk • Race Run</div>
+          <div class="brand-sub">แข่งกันทำคะแนน ใครถึงเส้นชัยด้วยคะแนนสูงกว่าชนะ</div>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <a class="btn ghost" id="btnBackLauncher" href="./goodjunk-multi.html">← Launcher</a>
+        <a class="btn primary" id="btnGoHub" href="../hub.html">🏠 Hub</a>
+      </div>
+    </div>
+
+    <div class="run-shell">
+      <div id="raceHudWrap" class="race-hud">
+        <div class="race-hud-toolbar">
+          <div class="coach-badge" id="raceCoachBadge">🤖 AI Coach</div>
+          <button id="raceHudToggle" class="race-hud-toggle" type="button">⋯</button>
+        </div>
+
+        <div class="race-top">
+          <div class="race-pill">RACE</div>
+          <div class="race-pill" id="raceRoomPill">ห้อง -</div>
+        </div>
+
+        <div class="race-score">
+          <div class="race-score-label">SCORE</div>
+          <div class="race-score-value" id="raceScoreValue">0</div>
+        </div>
+
+        <div class="race-stats">
+          <div class="race-stat">
+            <div class="race-stat-k">เวลา</div>
+            <div class="race-stat-v" id="raceTimeValue">0:00</div>
+          </div>
+          <div class="race-stat">
+            <div class="race-stat-k">Miss</div>
+            <div class="race-stat-v" id="raceMissValue">0</div>
+          </div>
+          <div class="race-stat">
+            <div class="race-stat-k">Best Streak</div>
+            <div class="race-stat-v" id="raceStreakValue">0</div>
+          </div>
+        </div>
+
+        <div class="race-panel">
+          <div class="race-item">
+            <div class="race-item-icon">
+              <div class="emoji" id="raceItemEmoji">🏁</div>
+            </div>
+            <div>
+              <div class="race-item-title" id="raceItemTitle">เป้าหมายของรอบนี้</div>
+              <div class="race-item-sub" id="raceItemSub">เก็บอาหารดีให้ไวกว่าอีกฝั่ง แล้วทำคะแนนให้ชนะ</div>
+            </div>
+          </div>
+
+          <div class="race-mini-stats">
+            <div class="race-mini">
+              <div class="race-mini-k">Good hit</div>
+              <div class="race-mini-v" id="raceGoodHitValue">0</div>
+            </div>
+            <div class="race-mini">
+              <div class="race-mini-k">Junk hit</div>
+              <div class="race-mini-v" id="raceJunkHitValue">0</div>
+            </div>
+            <div class="race-mini">
+              <div class="race-mini-k">Good missed</div>
+              <div class="race-mini-v" id="raceGoodMissValue">0</div>
+            </div>
+          </div>
+
+          <div class="race-tip" id="raceTipText">กำลังเตรียมเชื่อมห้อง Race...</div>
+
+          <div class="race-goal">
+            <div class="race-goal-head">
+              <div class="race-goal-title">RACE TARGET</div>
+              <div class="race-goal-value" id="raceGoalValue">360</div>
+            </div>
+            <div class="race-bar">
+              <div class="race-bar-fill" id="raceGoalFill"></div>
+            </div>
+            <div class="race-bar-sub">
+              <div class="race-bar-sub-fill" id="raceGoalSubFill"></div>
+            </div>
+          </div>
+
+          <div class="race-mini-stats">
+            <div class="race-mini">
+              <div class="race-mini-k">Rank</div>
+              <div class="race-mini-v" id="raceRankValue">-</div>
+            </div>
+            <div class="race-mini">
+              <div class="race-mini-k">Opponent</div>
+              <div class="race-mini-v" id="raceOpponentScoreValue">-</div>
+            </div>
+            <div class="race-mini">
+              <div class="race-mini-k">Gap</div>
+              <div class="race-mini-v" id="raceGapValue">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section class="stage-wrap">
+        <div class="stage-head">RACE GAME STAGE</div>
+        <div class="stage-inner">
+          <div class="stage-cloud c1"></div>
+          <div class="stage-cloud c2"></div>
+          <div class="stage-cloud c3"></div>
+          <div class="stage-ground"></div>
+          <div id="gameMount"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="raceResultMount" class="race-result-mount" hidden></div>
+
+  <script>
+    (function raceRunShellBoot(){
+      const qs = new URLSearchParams(location.search);
+      const hub = qs.get('hub') || '../hub.html';
+
+      const btnGoHub = document.getElementById('btnGoHub');
+      const btnBackLauncher = document.getElementById('btnBackLauncher');
+
+      if (btnGoHub) btnGoHub.href = hub;
+
+      if (btnBackLauncher) {
+        const u = new URL('./goodjunk-multi.html', location.href);
+        ['pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai','room','roomId','roomKind']
+          .forEach((k) => {
+            const v = qs.get(k);
+            if (v != null && v !== '') u.searchParams.set(k, v);
+          });
+        btnBackLauncher.href = u.toString();
+      }
+    })();
+  </script>
+
+  <script src="../js/hha-cloud-logger-bridge.js"></script>
+  <script src="../js/hha-runtime-contract.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+  <script src="../firebase-config.js?v=20260406-race-run-full-p2"></script>
+  <script src="./goodjunk.safe.race.js?v=20260406-race-core-runtime-full-p2"></script>
+  <script src="./goodjunk-race.js?v=20260406-race-controller-runtime-full-p2"></script>
+
+  <script>
+    (function(){
+      const hud = document.getElementById('raceHudWrap');
+      const hudToggle = document.getElementById('raceHudToggle');
+
+      if (hudToggle && hud) {
+        hudToggle.addEventListener('click', () => {
+          hud.classList.toggle('collapsed');
+          if (hud.classList.contains('collapsed')) {
+            hud.style.maxHeight = '76px';
+            hud.style.overflow = 'hidden';
+          } else {
+            hud.style.maxHeight = '';
+            hud.style.overflow = '';
+          }
+        });
+      }
+
+      const resultMount = document.getElementById('raceResultMount');
+
+      const qs = (k, d='') => {
+        try { return new URL(location.href).searchParams.get(k) ?? d; }
+        catch { return d; }
+      };
+
+      const runCtx = {
+        pid: qs('pid', 'anon'),
+        roomId: qs('roomId', qs('room', '')),
+        roomKind: qs('roomKind', ''),
+        hub: qs('hub', '../hub.html')
+      };
+
+      let lastSummaryHash = '';
+
+      function esc(s){
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function n(v, d=0){
+        v = Number(v);
+        return Number.isFinite(v) ? v : d;
+      }
+
+      function normalizeStanding(r, i){
+        return {
+          pid: String((r && (r.pid || r.playerId)) || ''),
+          nick: String((r && (r.nick || r.name || r.pid)) || `player-${i+1}`),
+          rank: n(r && r.rank, i + 1),
+          score: n(r && r.score, 0),
+          contribution: n(r && (r.contribution != null ? r.contribution : r.score), 0),
+          miss: n(r && r.miss, 0),
+          goodHit: n(r && r.goodHit, 0),
+          junkHit: n(r && r.junkHit, 0),
+          bestStreak: n(r && r.bestStreak, 0),
+          duration: n(r && r.duration, 0)
+        };
+      }
+
+      function sortStandings(rows){
+        rows.sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          if (a.miss !== b.miss) return a.miss - b.miss;
+          if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
+          return String(a.pid || '').localeCompare(String(b.pid || ''));
+        });
+        rows.forEach((r, i) => { r.rank = i + 1; });
+        return rows;
+      }
+
+      function normalize(detail){
+        const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
+          ? detail.summary
+          : (detail || {});
+
+        const standings = Array.isArray(src.standings)
+          ? sortStandings(src.standings.map((r, i) => normalizeStanding(r, i)))
+          : [];
+
+        const me = standings.find((r) => String(r.pid || '') === String(runCtx.pid || '')) || null;
+        const opponent = standings.find((r) => String(r.pid || '') !== String(runCtx.pid || '')) || null;
+        const score = n(src.score != null ? src.score : (me ? me.score : 0), 0);
+        const delta = n(
+          src.compare && src.compare.delta != null
+            ? src.compare.delta
+            : (me && opponent ? me.score - opponent.score : 0),
+          0
+        );
+
+        return {
+          controllerFinal: !!src.controllerFinal,
+          rank: n(src.rank || (me && me.rank) || 0, 0),
+          score,
+          players: Math.max(1, n(src.players || standings.length || 1, 1)),
+          miss: n(src.miss != null ? src.miss : (me ? me.miss : 0), 0),
+          bestStreak: n(src.bestStreak != null ? src.bestStreak : (me ? me.bestStreak : 0), 0),
+          result: src.result || 'จบรอบแล้ว',
+          reason: src.reason || '',
+          roomId: src.roomId || runCtx.roomId || '',
+          roomKind: src.roomKind || runCtx.roomKind || '',
+          standings,
+          compare: {
+            me: me || (src.compare && src.compare.me) || null,
+            opponent: opponent || (src.compare && src.compare.opponent) || null,
+            delta
+          }
+        };
+      }
+
+      function summaryHash(summary){
+        return [
+          String(summary.roomId || ''),
+          String(summary.controllerFinal ? '1' : '0'),
+          String(summary.rank || ''),
+          String(summary.score || ''),
+          String(summary.compare && summary.compare.me ? summary.compare.me.score : ''),
+          String(summary.compare && summary.compare.opponent ? summary.compare.opponent.score : ''),
+          String((summary.standings && summary.standings.length) || 0),
+          String(summary.reason || '')
+        ].join('|');
+      }
+
+      function titleFor(summary){
+        if (summary.rank === 1) return 'เข้าเส้นชัยก่อน! คุณชนะรอบนี้';
+        if (summary.rank === 2) return 'จบรอบแล้ว ได้อันดับ 2';
+        return summary.result || 'จบรอบแล้ว';
+      }
+
+      function subFor(summary){
+        const me = summary.compare && summary.compare.me;
+        const opp = summary.compare && summary.compare.opponent;
+        if (me && opp) {
+          return `เรา ${n(me.score,0)} คะแนน • คู่แข่ง ${n(opp.score,0)} คะแนน`;
+        }
+        return 'ระบบสรุปผลรอบนี้เรียบร้อยแล้ว';
+      }
+
+      function gapLabel(summary){
+        const opp = summary.compare && summary.compare.opponent;
+        const delta = summary.compare ? n(summary.compare.delta, 0) : 0;
+        if (!opp) return 'รอผลอีกฝั่ง';
+        if (delta > 0) return 'เรานำอยู่';
+        if (delta < 0) return 'คู่แข่งนำอยู่';
+        return 'คะแนนเท่ากัน';
+      }
+
+      function standingsHtml(summary){
+        const list = Array.isArray(summary.standings) ? summary.standings : [];
+        if (!list.length) {
+          return `
+            <div class="race-standing-row">
+              <div class="race-standing-left">
+                <div class="race-standing-name">กำลังรอผลอีกฝั่ง</div>
+                <div class="race-standing-meta">ถ้าอีกเครื่องส่งผลช้ากว่า ระบบอาจแสดงผลชั่วคราวก่อน</div>
+              </div>
+              <div class="race-standing-side">WAIT</div>
+            </div>
+          `;
+        }
+
+        return list.map((item, i) => {
+          const side = String(item.pid || '') === String(runCtx.pid || '') ? 'YOU' : 'OPPONENT';
+          return `
+            <div class="race-standing-row" data-race-standing-row="${i}">
+              <div class="race-standing-left">
+                <div class="race-standing-name" data-race-standing-name="${i}">#${i + 1} ${esc(item.nick || item.pid || 'player')}</div>
+                <div class="race-standing-meta" data-race-standing-meta="${i}">Score ${n(item.score,0)} • Miss ${n(item.miss,0)} • Streak ${n(item.bestStreak,0)}</div>
+              </div>
+              <div class="race-standing-side" data-race-standing-side="${i}">${side}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function renderSummary(summary){
+        if (!resultMount) return;
+
+        const me = summary.compare && summary.compare.me;
+        const opp = summary.compare && summary.compare.opponent;
+        const delta = summary.compare ? n(summary.compare.delta, 0) : 0;
+
+        resultMount.hidden = false;
+        resultMount.innerHTML = `
+          <div class="race-result-card" data-race-summary-card="1">
+            <div style="display:grid;gap:8px;">
+              <div class="race-summary-kicker">RACE SUMMARY</div>
+              <div class="race-result-title" data-race-summary-title="1">${esc(titleFor(summary))}</div>
+              <div class="race-result-sub" data-race-summary-sub="1">${esc(subFor(summary))}</div>
+            </div>
+
+            <div class="race-top-grid">
+              <div class="race-top-card" data-race-top-card="me">
+                <div class="race-top-k">เรา</div>
+                <div class="race-top-name" data-race-top-name="me">${esc(me ? (me.nick || me.pid || 'เรา') : 'เรา')}</div>
+                <div class="race-top-score" data-race-top-score="me">${me ? n(me.score,0) : n(summary.score,0)}</div>
+              </div>
+
+              <div class="race-top-card" data-race-top-card="gap">
+                <div class="race-top-k">ส่วนต่างคะแนน</div>
+                <div class="race-top-name" data-race-gap-label="1">${esc(gapLabel(summary))}</div>
+                <div class="race-top-score" data-race-gap-value="1">${opp ? Math.abs(delta) : '-'}</div>
+              </div>
+
+              <div class="race-top-card" data-race-top-card="opponent">
+                <div class="race-top-k">คู่แข่ง</div>
+                <div class="race-top-name" data-race-top-name="opponent">${esc(opp ? (opp.nick || opp.pid || 'คู่แข่ง') : 'ยังไม่พบผลของอีกฝั่ง')}</div>
+                <div class="race-top-score" data-race-top-score="opponent">${opp ? n(opp.score,0) : '-'}</div>
+              </div>
+            </div>
+
+            <div class="race-stats-grid">
+              <div class="race-stat-card">
+                <div class="race-stat-k">Rank</div>
+                <div class="race-stat-v" data-race-stat-rank="1">${summary.rank || '-'}</div>
+              </div>
+              <div class="race-stat-card">
+                <div class="race-stat-k">Players</div>
+                <div class="race-stat-v" data-race-stat-players="1">${summary.players || 1}</div>
+              </div>
+              <div class="race-stat-card">
+                <div class="race-stat-k">Miss</div>
+                <div class="race-stat-v" data-race-stat-miss="1">${summary.miss || 0}</div>
+              </div>
+              <div class="race-stat-card">
+                <div class="race-stat-k">Best Streak</div>
+                <div class="race-stat-v" data-race-stat-streak="1">${summary.bestStreak || 0}</div>
+              </div>
+            </div>
+
+            <div class="race-standings-card">
+              <div class="race-standings-list" data-race-standings-list="1">
+                ${standingsHtml(summary)}
+              </div>
+            </div>
+
+            <div class="race-debug" data-race-controller-debug="1">controllerFinal=${summary.controllerFinal ? 'true' : 'false'}
+roomId=${esc(summary.roomId || '-')}
+roomKind=${esc(summary.roomKind || '-')}
+reason=${esc(summary.reason || '-')}</div>
+
+            <div class="race-result-actions">
+              <a class="btn ghost" id="raceBackLobbyBtn" href="./goodjunk-race-lobby.html?roomId=${encodeURIComponent(runCtx.roomId || '')}&room=${encodeURIComponent(runCtx.roomId || '')}&roomKind=${encodeURIComponent(summary.roomKind || runCtx.roomKind || '')}&autojoin=1&hub=${encodeURIComponent(runCtx.hub || '../hub.html')}">← กลับ Lobby</a>
+              <a class="btn primary" id="raceBackHubBtn" href="${esc(runCtx.hub || '../hub.html')}">🏠 กลับ Hub</a>
+              <button class="btn good" id="raceRematchBtn" type="button">🔁 เล่นอีกครั้ง</button>
+            </div>
+          </div>
+        `;
+
+        const rematchBtn = document.getElementById('raceRematchBtn');
+        if (rematchBtn) {
+          rematchBtn.onclick = () => {
+            const url = new URL('./goodjunk-race-lobby.html', location.href);
+            const src = new URL(location.href);
+
+            src.searchParams.forEach((value, key) => {
+              if (key === 'autostart') return;
+              url.searchParams.set(key, value);
+            });
+
+            if (runCtx.roomId) {
+              url.searchParams.set('roomId', runCtx.roomId);
+              url.searchParams.set('room', runCtx.roomId);
+            }
+            if (summary.roomKind || runCtx.roomKind) {
+              url.searchParams.set('roomKind', summary.roomKind || runCtx.roomKind);
+            }
+            url.searchParams.set('autojoin', '1');
+            url.searchParams.set('rematch', '1');
+
+            location.href = url.toString();
+          };
+        }
+
+        W.__RACE_RUN_LAST_SUMMARY__ = summary;
+      }
+
+      function shouldReplace(oldSummary, nextSummary){
+        if (!oldSummary) return true;
+        if (oldSummary.controllerFinal === false && nextSummary.controllerFinal === true) return true;
+
+        const oldCount = (oldSummary.standings && oldSummary.standings.length) || 0;
+        const nextCount = (nextSummary.standings && nextSummary.standings.length) || 0;
+        if (nextCount > oldCount) return true;
+
+        const oldDeltaKnown = !!(oldSummary.compare && oldSummary.compare.opponent);
+        const nextDeltaKnown = !!(nextSummary.compare && nextSummary.compare.opponent);
+        if (!oldDeltaKnown && nextDeltaKnown) return true;
+
+        return false;
+      }
+
+      function onSummary(detail){
+        if (!detail || typeof detail !== 'object') return;
+        const nextSummary = normalize(detail);
+        const prevSummary = W.__RACE_RUN_LAST_SUMMARY__ || null;
+        const nextHash = summaryHash(nextSummary);
+
+        if (nextHash === lastSummaryHash && !shouldReplace(prevSummary, nextSummary)) return;
+
+        if (!shouldReplace(prevSummary, nextSummary) && lastSummaryHash) return;
+
+        lastSummaryHash = nextHash;
+        renderSummary(nextSummary);
+      }
+
+      ['gj:summary','hha:summary','hha:session-summary'].forEach((eventName) => {
+        W.addEventListener(eventName, (evt) => {
+          const detail = evt && evt.detail ? evt.detail : null;
+          onSummary(detail);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
