@@ -3,7 +3,9 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.duet.js
  * GoodJunk Duet Run
- * FULL PATCH v20260405-duet-run-runtime-full
+ * FULL PATCH v20260406-duet-run-runtime-dualmode
+ * - supports old direct Firebase room schema
+ * - supports new room-engine + herohealth-logger + duet-play-bridge
  * ========================================================= */
 (function(){
   const W = window;
@@ -210,6 +212,7 @@
     match: {},
     players: {},
     results: {},
+    progress: {},
 
     started: false,
     finished: false,
@@ -225,6 +228,7 @@
     syncTimer: 0,
     lastSyncTs: 0,
     fallbackTimer: 0,
+    engineUnwatch: null,
 
     lastFrameTs: 0,
     lastSpawnAt: 0,
@@ -282,6 +286,19 @@
     return !!(W.HHARuntimeContract && typeof W.HHARuntimeContract.create === 'function');
   }
 
+  function hasDuetBridge(){
+    return !!(W.HHA_DUET_BRIDGE && W.HHA_DUET_BRIDGE.ready);
+  }
+
+  async function waitForDuetBridge(timeoutMs = 4000){
+    const started = now();
+    while ((now() - started) < timeoutMs) {
+      if (hasDuetBridge()) return true;
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    }
+    return false;
+  }
+
   function currentGoal(){
     const base = Math.max(260, ctx.time * 8);
     if (ctx.diff === 'easy') return Math.round(base * 0.85);
@@ -294,13 +311,77 @@
     return arr.find((p) => String(p.pid || '') !== String(ctx.pid || '')) || null;
   }
 
+  function progressOfPlayer(p){
+    if (!p) return null;
+
+    if (p.uid && G.progress && G.progress[p.uid]) return G.progress[p.uid];
+
+    const found = Object.keys(G.progress || {}).find((key) => {
+      const row = G.progress[key] || {};
+      return String(row.pid || '') === String(p.pid || '');
+    });
+
+    return found ? G.progress[found] : null;
+  }
+
   function partnerLiveScore(){
     const p = partnerPlayer();
-    return p ? num(p.score, 0) : 0;
+    const pr = progressOfPlayer(p);
+    if (pr) return num(pr.score, 0);
+    return num(p && p.score, 0);
   }
 
   function teamLiveScore(){
     return num(G.score, 0) + partnerLiveScore();
+  }
+
+  function currentBridgeState(){
+    return {
+      score: Math.max(0, Math.round(G.score)),
+      miss: Math.max(0, G.miss),
+      bestStreak: Math.max(0, G.bestStreak),
+      progress: Math.max(0, Math.min(1, ctx.time > 0
+        ? ((ctx.time - timeLeftSec()) / Math.max(1, ctx.time))
+        : 0)),
+      hp: '',
+      lives: ''
+    };
+  }
+
+  function pushBridgeState(){
+    if (!hasDuetBridge()) return;
+
+    const state = currentBridgeState();
+
+    try {
+      if (typeof W.HHA_DUET_PUSH_STATE === 'function') {
+        W.HHA_DUET_PUSH_STATE(state);
+        return;
+      }
+    } catch (_) {}
+
+    try {
+      if (W.HHA_DUET_BRIDGE && typeof W.HHA_DUET_BRIDGE.tick === 'function') {
+        W.HHA_DUET_BRIDGE.tick(state);
+      }
+    } catch (_) {}
+  }
+
+  function pushBridgeEvent(type, detail){
+    if (!hasDuetBridge()) return;
+
+    try {
+      if (typeof W.HHA_DUET_PUSH_EVENT === 'function') {
+        W.HHA_DUET_PUSH_EVENT(type, detail || {});
+        return;
+      }
+    } catch (_) {}
+
+    try {
+      if (W.HHA_DUET_BRIDGE && typeof W.HHA_DUET_BRIDGE.event === 'function') {
+        W.HHA_DUET_BRIDGE.event(type, detail || {});
+      }
+    } catch (_) {}
   }
 
   function renderHud(){
@@ -751,6 +832,19 @@
   }
 
   function scheduleSync(force=false){
+    if (hasDuetBridge()) {
+      if (force) {
+        pushBridgeState();
+        return;
+      }
+      if (G.syncTimer) return;
+      G.syncTimer = setTimeout(() => {
+        G.syncTimer = 0;
+        pushBridgeState();
+      }, 60);
+      return;
+    }
+
     if (!G.refs || !G.refs.players || !G.uid) return;
     if (force) {
       syncSelfNow(true);
@@ -764,6 +858,11 @@
   }
 
   async function syncSelfNow(force){
+    if (hasDuetBridge()) {
+      pushBridgeState();
+      return;
+    }
+
     if (!G.refs || !G.refs.players || !G.uid) return;
     const t = now();
     if (!force && (t - G.lastSyncTs < SYNC_MIN_MS)) return;
@@ -801,6 +900,30 @@
       G.score += 10 + bonus;
 
       flash(t.x, t.y, `+${10 + bonus}`, 'good');
+
+      renderHud();
+      scheduleSync(false);
+
+      pushBridgeEvent('target_hit', {
+        phase: 'run',
+        result: 'correct',
+        score_delta: 10 + bonus,
+        score_total: G.score,
+        streak: G.bestStreak,
+        miss_total: G.miss,
+        progress: Math.max(0, Math.min(1, ((ctx.time - timeLeftSec()) / Math.max(1, ctx.time))))
+      });
+
+      if (RT) {
+        RT.scoreUpdated({
+          score: G.score,
+          teamScore: teamLiveScore(),
+          miss: G.miss,
+          goodHit: G.goodHit,
+          junkHit: G.junkHit,
+          bestStreak: G.bestStreak
+        }).catch(() => {});
+      }
     } else {
       G.junkHit += 1;
       G.miss += 1;
@@ -808,20 +931,30 @@
       G.score = Math.max(0, G.score - 8);
 
       flash(t.x, t.y, '-8', 'bad');
-    }
 
-    renderHud();
-    scheduleSync(false);
+      renderHud();
+      scheduleSync(false);
 
-    if (RT) {
-      RT.scoreUpdated({
-        score: G.score,
-        teamScore: teamLiveScore(),
-        miss: G.miss,
-        goodHit: G.goodHit,
-        junkHit: G.junkHit,
-        bestStreak: G.bestStreak
-      }).catch(() => {});
+      pushBridgeEvent('target_hit', {
+        phase: 'run',
+        result: 'wrong',
+        score_delta: -8,
+        score_total: G.score,
+        streak: G.bestStreak,
+        miss_total: G.miss,
+        progress: Math.max(0, Math.min(1, ((ctx.time - timeLeftSec()) / Math.max(1, ctx.time))))
+      });
+
+      if (RT) {
+        RT.scoreUpdated({
+          score: G.score,
+          teamScore: teamLiveScore(),
+          miss: G.miss,
+          goodHit: G.goodHit,
+          junkHit: G.junkHit,
+          bestStreak: G.bestStreak
+        }).catch(() => {});
+      }
     }
   }
 
@@ -836,6 +969,16 @@
 
       renderHud();
       scheduleSync(false);
+
+      pushBridgeEvent('target_miss', {
+        phase: 'run',
+        result: 'miss',
+        score_delta: 0,
+        score_total: G.score,
+        streak: G.bestStreak,
+        miss_total: G.miss,
+        progress: Math.max(0, Math.min(1, ((ctx.time - timeLeftSec()) / Math.max(1, ctx.time))))
+      });
 
       if (RT) {
         RT.scoreUpdated({
@@ -874,19 +1017,38 @@
   }
 
   function normalizeStandings(resultsObj){
-    const rows = Object.keys(resultsObj || {}).map((pid) => {
-      const r = resultsObj[pid] || {};
+    const rows = Object.keys(resultsObj || {}).map((key) => {
+      const r = resultsObj[key] || {};
+      const p =
+        (G.players && G.players[key]) ||
+        Object.values(G.players || {}).find((pl) =>
+          String(pl.uid || '') === String(key) ||
+          String(pl.pid || '') === String(r.pid || key)
+        ) ||
+        {};
+
+      const pr =
+        (G.progress && G.progress[key]) ||
+        (p.uid && G.progress && G.progress[p.uid]) ||
+        Object.values(G.progress || {}).find((row) =>
+          String(row.pid || '') === String(r.pid || p.pid || key)
+        ) ||
+        {};
+
+      const pid = clean(r.pid || p.pid || key, 80) || 'player';
+      const nick = clean(r.nick || r.name || p.name || p.nick || pid, 80) || 'player';
+
       return {
-        pid: clean(r.pid || pid, 80),
-        nick: clean(r.nick || r.name || pid || 'player', 80),
+        pid,
+        nick,
         rank: 0,
-        score: num(r.score, 0),
-        miss: num(r.miss, 0),
+        score: num(r.score, num(pr.score, 0)),
+        miss: num(r.miss, num(pr.miss, 0)),
         goodHit: num(r.goodHit, 0),
         junkHit: num(r.junkHit, 0),
-        bestStreak: num(r.bestStreak, 0),
-        duration: num(r.duration, 0),
-        contribution: num(r.score, 0)
+        bestStreak: num(r.bestStreak, num(pr.bestStreak, 0)),
+        duration: num(r.duration, ctx.time),
+        contribution: num(r.contribution, num(r.score, num(pr.score, 0)))
       };
     });
 
@@ -1017,12 +1179,14 @@
       G.finalSummarySent = true;
       showResultSummary(summary);
 
-      if (RT) {
-        RT.summary(summary).catch(() => {});
-      } else {
-        emit('gj:summary', summary);
-        emit('hha:summary', summary);
-        emit('hha:session-summary', summary);
+      if (!hasDuetBridge()) {
+        if (RT) {
+          RT.summary(summary).catch(() => {});
+        } else {
+          emit('gj:summary', summary);
+          emit('hha:summary', summary);
+          emit('hha:session-summary', summary);
+        }
       }
     }, 6500);
   }
@@ -1204,6 +1368,57 @@ reason=${escapeHtml(summary.reason || '-')}</div>
     clearTargets();
 
     const summary = buildLocalSummary(reason || 'finished');
+    G.localSummary = summary;
+
+    if (hasDuetBridge()) {
+      try {
+        if (typeof W.HHA_DUET_FINISH === 'function') {
+          await W.HHA_DUET_FINISH({
+            score: Math.max(0, Math.round(G.score)),
+            miss: G.miss,
+            best_streak: G.bestStreak,
+            accuracy: 0,
+            contribution: Math.max(0, Math.round(G.score)),
+            progress: 1,
+            stars: 0,
+            medal: '',
+            outcome: 'clear',
+            finished: true,
+            correct: G.goodHit,
+            wrong: G.junkHit,
+            goodHit: G.goodHit,
+            junkHit: G.junkHit,
+            team_score: teamLiveScore()
+          });
+        } else if (W.HHA_DUET_BRIDGE && typeof W.HHA_DUET_BRIDGE.finish === 'function') {
+          await W.HHA_DUET_BRIDGE.finish({
+            score: Math.max(0, Math.round(G.score)),
+            miss: G.miss,
+            best_streak: G.bestStreak,
+            accuracy: 0,
+            contribution: Math.max(0, Math.round(G.score)),
+            progress: 1,
+            stars: 0,
+            medal: '',
+            outcome: 'clear',
+            finished: true,
+            correct: G.goodHit,
+            wrong: G.junkHit,
+            goodHit: G.goodHit,
+            junkHit: G.junkHit,
+            team_score: teamLiveScore()
+          });
+        }
+        G.resultSubmitted = true;
+      } catch (err) {
+        console.error('[gj-duet] bridge finish failed', err);
+      }
+
+      if (UI.resultMount) UI.resultMount.hidden = true;
+      scheduleFallbackSummary();
+      return;
+    }
+
     await submitOwnResult(summary).catch((err) => {
       console.error('[gj-duet] submitOwnResult failed', err);
     });
@@ -1279,18 +1494,88 @@ reason=${escapeHtml(summary.reason || '-')}</div>
         G.finalSummarySent = true;
         showResultSummary(summary);
 
-        if (RT) {
-          await RT.summary(summary).catch(() => {});
-        } else {
-          emit('gj:summary', summary);
-          emit('hha:summary', summary);
-          emit('hha:session-summary', summary);
+        if (!hasDuetBridge()) {
+          if (RT) {
+            await RT.summary(summary).catch(() => {});
+          } else {
+            emit('gj:summary', summary);
+            emit('hha:summary', summary);
+            emit('hha:session-summary', summary);
+          }
+        }
+      }
+    });
+  }
+
+  function bindEngineRoomWatchers(){
+    if (!W.HHA_ROOM || !ctx.roomId) return;
+
+    if (typeof G.engineUnwatch === 'function') {
+      try { G.engineUnwatch(); } catch (_) {}
+    }
+
+    G.engineUnwatch = W.HHA_ROOM.watchRoom({
+      game: 'goodjunk',
+      mode: 'duet',
+      roomId: ctx.roomId,
+      onValue: async (room) => {
+        room = room || {};
+
+        const meta = room.meta || {};
+        const players = room.players || {};
+        const results = room.results || {};
+        const progress = room.progress || {};
+
+        G.meta = meta;
+        G.players = players;
+        G.results = results;
+        G.progress = progress;
+
+        G.state = {
+          status: String(meta.state || 'waiting'),
+          plannedSec: num(meta.timeSec, ctx.time),
+          seed: String(meta.seed || ctx.seed),
+          roundId: '',
+          participantIds: Object.values(players).map((p) => p.pid || '').filter(Boolean),
+          countdownEndsAt: num(meta.countdownAt, 0),
+          startAt: num(meta.countdownAt, 0),
+          startedAt: num(meta.startedAt, 0),
+          endsAt: num(meta.startedAt, 0) ? (num(meta.startedAt, 0) + num(meta.timeSec, ctx.time) * 1000) : 0,
+          updatedAt: num(meta.updatedAt, 0)
+        };
+
+        if (num(meta.countdownAt, 0) > 0) {
+          ctx.startAt = num(meta.countdownAt, 0);
+        }
+
+        updateCountdownUi();
+        renderHud();
+
+        const status = String(G.state.status || '');
+
+        if (status === 'running' && !G.started) {
+          beginPlayNow();
+        } else if ((status === 'ended' || status === 'aborted') && !G.finished) {
+          await finalizeSummary(status === 'aborted' ? 'room-aborted' : 'room-ended');
+        }
+
+        const resultCount = Object.keys(G.results || {}).length;
+        if (resultCount >= 2 && !G.finalSummarySent) {
+          maybeClearFallbackTimer();
+          const summary = buildFinalSummaryFromResults('pair-finished');
+          G.finalSummarySent = true;
+          showResultSummary(summary);
         }
       }
     });
   }
 
   function bindRoomWatchers(){
+    if (hasDuetBridge()) {
+      bindEngineRoomWatchers();
+      return;
+    }
+
     if (!G.refs) return;
 
     G.refs.meta.on('value', (snap) => {
@@ -1578,6 +1863,9 @@ reason=${escapeHtml(summary.reason || '-')}</div>
       clearInterval(G.heartbeatId);
       clearTimeout(G.syncTimer);
       caf(G.loopId);
+      if (typeof G.engineUnwatch === 'function') {
+        try { G.engineUnwatch(); } catch (_) {}
+      }
     });
   }
 
@@ -1587,6 +1875,43 @@ reason=${escapeHtml(summary.reason || '-')}</div>
     installStyles();
     await ensureRuntimeContract();
     initRuntime();
+
+    G.cfg = DIFF[ctx.diff] || DIFF.normal;
+    G.rng = mulberry32(xmur3(`${ctx.seed}|${ctx.roomId}|${ctx.pid}|${ctx.startAt}|duet`)());
+
+    const bridgeReady = await waitForDuetBridge(4000);
+
+    if (bridgeReady) {
+      const bctx = W.HHA_DUET_BRIDGE && W.HHA_DUET_BRIDGE.ctx ? W.HHA_DUET_BRIDGE.ctx : null;
+
+      if (bctx) {
+        G.uid = cleanPid(bctx.uid || ctx.uid || ctx.pid);
+        ctx.uid = G.uid;
+        ctx.pid = cleanPid(bctx.pid || ctx.pid);
+        ctx.name = clean(bctx.display_name || bctx.name || ctx.name, 80);
+        ctx.roomId = cleanRoom(bctx.room_id || ctx.roomId);
+        ctx.startAt = num(bctx.start_at || ctx.startAt, 0);
+        ctx.diff = clean(bctx.diff || ctx.diff, 24).toLowerCase();
+        ctx.time = clamp(bctx.time_sec || ctx.time, 30, 300);
+        ctx.seed = clean(bctx.seed || ctx.seed, 80);
+        ctx.view = clean(bctx.view || ctx.view, 24);
+        ctx.hub = clean(bctx.hub || ctx.hub, 400);
+        ctx.role = clean(bctx.role || ctx.role, 24);
+      }
+
+      bindRoomWatchers();
+      bindEvents();
+      renderHud();
+      G.loopId = raf(loop);
+
+      if (RT) {
+        await RT.flush().catch(() => {});
+        await RT.engineReady({}).catch(() => {});
+      }
+
+      return;
+    }
+
     await ensureFirebaseReady();
 
     if (RT) {
@@ -1600,9 +1925,6 @@ reason=${escapeHtml(summary.reason || '-')}</div>
     bindRoomWatchers();
     startHeartbeat();
     bindEvents();
-
-    G.cfg = DIFF[ctx.diff] || DIFF.normal;
-    G.rng = mulberry32(xmur3(`${ctx.seed}|${ctx.roomId}|${ctx.pid}|${ctx.startAt}|duet`)());
 
     renderHud();
     G.loopId = raf(loop);
