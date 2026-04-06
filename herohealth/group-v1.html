@@ -1,379 +1,187 @@
-<!-- === /herohealth/group-v1.html ===
-Groups Launcher V1
-FULL PATCH v20260319-GROUP-V1-CANONICAL-WITH-RACE-ONLINE
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Groups Launcher</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>Redirecting to Groups VR…</title>
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --panel:rgba(2,6,23,.80);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --good:#22c55e;
-      --blue:#38bdf8;
-      --warn:#f59e0b;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
+      --sky1:#ecf9ff;
+      --sky2:#d8f2ff;
+      --sky3:#bfe8ff;
+      --card:#ffffffee;
+      --line:#d6edf7;
+      --text:#29485f;
+      --muted:#6d8ea3;
+      --blue:#61bbff;
+      --blue2:#2f95ff;
+      --shadow:0 18px 40px rgba(85,145,176,.18);
     }
 
     *{ box-sizing:border-box; }
+    html,body{ min-height:100%; }
 
-    html,body{
+    body{
       margin:0;
-      min-height:100%;
+      font-family:ui-rounded,"Nunito","Noto Sans Thai",system-ui,sans-serif;
       color:var(--text);
-      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial,sans-serif;
       background:
-        radial-gradient(1200px 700px at 20% 0%, rgba(56,189,248,.14), transparent 50%),
-        radial-gradient(1000px 700px at 80% 10%, rgba(167,139,250,.12), transparent 55%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
-    }
-
-    .wrap{
-      max-width:980px;
-      margin:0 auto;
-      padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(20px + var(--sab)) calc(16px + var(--sal));
-    }
-
-    .hero{
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      border-radius:28px;
-      box-shadow:0 24px 80px rgba(0,0,0,.35);
-      padding:20px;
-    }
-
-    .kicker{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(56,189,248,.24);
-      background:rgba(56,189,248,.12);
-      color:#dbeafe;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    h1{
-      margin:14px 0 8px;
-      font-size:clamp(28px, 5vw, 44px);
-      line-height:1.05;
-    }
-
-    .sub{
-      color:#cbd5e1;
-      font-size:16px;
-      line-height:1.6;
-      max-width:760px;
-    }
-
-    .statusRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:14px;
-    }
-
-    .chip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:9px 12px;
-      border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.45);
-      color:#dbeafe;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .chip.good{
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.14);
-      color:#dcfce7;
-    }
-
-    .chip.warn{
-      border-color:rgba(245,158,11,.28);
-      background:rgba(245,158,11,.14);
-      color:#fef3c7;
-    }
-
-    .grid{
+        radial-gradient(1100px 620px at 50% -10%, rgba(255,255,255,.92), transparent 58%),
+        radial-gradient(680px 420px at 12% 8%, rgba(255,255,255,.48), transparent 62%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 56%,var(--sky3));
       display:grid;
-      grid-template-columns:1.2fr .8fr;
-      gap:14px;
-      margin-top:16px;
-    }
-
-    @media (max-width: 860px){
-      .grid{ grid-template-columns:1fr; }
+      place-items:center;
+      padding:18px;
     }
 
     .card{
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.48);
-      border-radius:22px;
-      padding:16px;
-      box-shadow:0 18px 60px rgba(0,0,0,.24);
+      width:min(620px,100%);
+      border-radius:28px;
+      padding:22px 18px;
+      background:var(--card);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      text-align:center;
     }
 
-    .card h2{
-      margin:0 0 10px;
-      font-size:18px;
-    }
-
-    .miniList{
+    .badge{
+      width:76px;
+      height:76px;
+      margin:0 auto 12px;
+      border-radius:24px;
       display:grid;
-      gap:10px;
-      margin-top:12px;
+      place-items:center;
+      font-size:40px;
+      background:linear-gradient(180deg,#fff3b7,#ffd76f);
+      border:1px solid #ffe39a;
+      box-shadow:0 10px 22px rgba(255,214,111,.20);
     }
 
-    .miniItem{
-      padding:12px 14px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.32);
-      color:#e2e8f0;
-      font-weight:900;
-      line-height:1.5;
+    h1{
+      margin:0;
+      font-size:clamp(1.35rem,3vw,2rem);
+      line-height:1.08;
+      font-weight:1000;
     }
 
-    .actions{
+    p{
+      margin:10px auto 0;
+      max-width:46ch;
+      color:var(--muted);
+      line-height:1.65;
+      font-weight:800;
+    }
+
+    .row{
+      margin-top:16px;
       display:flex;
+      justify-content:center;
       gap:10px;
       flex-wrap:wrap;
-      margin-top:18px;
     }
 
     .btn{
-      appearance:none;
-      cursor:pointer;
-      border:1px solid rgba(148,163,184,.20);
+      min-height:46px;
+      border:none;
       border-radius:18px;
-      min-height:54px;
-      padding:14px 18px;
-      font-size:16px;
+      padding:0 16px;
+      font:inherit;
       font-weight:1000;
+      cursor:pointer;
+      background:#fff;
       color:var(--text);
-      background:rgba(15,23,42,.75);
-      box-shadow:0 14px 30px rgba(0,0,0,.20);
+      border:1px solid var(--line);
+      box-shadow:0 10px 22px rgba(102,160,188,.12);
     }
 
     .btn.primary{
-      color:#052e16;
-      border-color:rgba(34,197,94,.30);
-      background:linear-gradient(180deg,#86efac,#22c55e);
-      box-shadow:0 14px 30px rgba(34,197,94,.24);
+      color:#fff;
+      border:none;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
     }
 
-    .btn.blue{
-      border-color:rgba(56,189,248,.28);
-      background:linear-gradient(180deg, rgba(56,189,248,.18), rgba(15,23,42,.9));
-    }
-
-    .note{
-      margin-top:14px;
+    .hint{
+      margin-top:12px;
+      font-size:.9rem;
       color:var(--muted);
-      font-size:13px;
-      font-weight:900;
-      line-height:1.5;
+      font-weight:800;
     }
 
-    .footer{
-      margin-top:14px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
+    .mono{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#f7fcff;
+      border:1px solid #d8edf7;
+      color:#56788f;
+      font:600 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+      word-break:break-all;
+      text-align:left;
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <section class="hero">
-      <div class="kicker">🍽 NUTRITION ZONE • GROUPS</div>
-      <h1>เกมอาหาร 5 หมู่</h1>
-      <div class="sub">
-        เลือกโหมดที่ต้องการเล่นได้เลย ตอนนี้ Solo จะเข้า Warmup ก่อน แล้วค่อยเข้าเกมหลัก ส่วน Race จะเข้าล็อบบี้ห้องแข่ง 2 คน
-      </div>
+  <main class="card">
+    <div class="badge">🥦</div>
+    <h1>กำลังพาไปหน้า Groups VR</h1>
+    <p>
+      หน้านี้เป็นไฟล์เก่าแล้ว ระบบจะพาไปหน้าเข้าเกมหลักอัตโนมัติ
+      พร้อมส่งพารามิเตอร์เดิมติดไปให้ครบ
+    </p>
 
-      <div class="statusRow">
-        <span class="chip" id="chipPid">PID: anon</span>
-        <span class="chip" id="chipWarmup">🟢 Warmup วันนี้: —</span>
-        <span class="chip" id="chipCooldown">🟡 Cooldown วันนี้: —</span>
-      </div>
+    <div class="row">
+      <button class="btn primary" id="btnGoNow" type="button">ไปตอนนี้</button>
+      <button class="btn" id="btnBackHub" type="button">กลับ HUB</button>
+    </div>
 
-      <div class="grid">
-        <div class="card">
-          <h2>โหมดที่พร้อมใช้งาน</h2>
-          <div class="miniList">
-            <div class="miniItem">Solo: warmup → run → cooldown → summary → hub</div>
-            <div class="miniItem">Race Online: lobby → create/join room → start → race → rematch/hub</div>
-          </div>
-
-          <div class="actions">
-            <button class="btn primary" id="btnStart">เข้า Solo</button>
-            <button class="btn blue" id="btnRace">เข้า Race</button>
-            <button class="btn blue" id="btnHub">กลับ HUB</button>
-          </div>
-
-          <div class="note" id="routeNote">
-            กำลังเตรียมเส้นทางเข้าเกม…
-          </div>
-        </div>
-
-        <div class="card">
-          <h2>ค่าปัจจุบัน</h2>
-          <div class="miniList" id="ctxList"></div>
-          <div class="footer">
-            Launcher นี้จะส่ง Solo ไป warmup-gate และส่ง Race ไป groups-race-lobby.html
-          </div>
-        </div>
-      </div>
-    </section>
-  </div>
+    <div class="hint">ถ้าไม่เด้งอัตโนมัติ ให้กด “ไปตอนนี้”</div>
+    <div class="mono" id="targetUrl">Preparing…</div>
+  </main>
 
   <script>
     (() => {
       'use strict';
 
-      const QS = new URL(location.href).searchParams;
-      const q = (k, d='') => QS.get(k) ?? d;
+      const q = new URLSearchParams(location.search);
+      const target = new URL('./groups-vr.html', location.href);
+      const hub = q.get('hub') || './hub.html';
 
-      const PID  = String(q('pid','anon'));
-      const RUN  = 'solo';
-      const DIFF = String(q('diff','normal'));
-      const TIME = String(q('time','80'));
-      const VIEW = String(q('view','mobile'));
-      const SEED = String(q('seed', Date.now()));
-      const ZONE = String(q('zone','nutrition'));
-      const CAT  = String(q('cat','nutrition'));
-      const HUB  = String(q('hub', new URL('./hub.html', location.href).toString()));
-
-      const chipPid = document.getElementById('chipPid');
-      const chipWarmup = document.getElementById('chipWarmup');
-      const chipCooldown = document.getElementById('chipCooldown');
-      const ctxList = document.getElementById('ctxList');
-      const routeNote = document.getElementById('routeNote');
-      const btnStart = document.getElementById('btnStart');
-      const btnRace = document.getElementById('btnRace');
-      const btnHub = document.getElementById('btnHub');
-
-      function dayKey(){
-        const d = new Date();
-        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      for (const [k, v] of q.entries()) {
+        target.searchParams.set(k, v);
       }
 
-      function updateDailyChips(){
-        const day = dayKey();
-        const warm = localStorage.getItem(`HHA_GROUPS_WARMUP_DONE:${PID}:${day}`) === '1';
-        const cool = localStorage.getItem(`HHA_GROUPS_COOLDOWN_DONE:${PID}:${day}`) === '1';
-
-        chipPid.textContent = `PID: ${PID}`;
-        chipWarmup.textContent = `🟢 Warmup วันนี้: ${warm ? 'เข้าแล้ว' : 'ยังไม่เข้า'}`;
-        chipCooldown.textContent = `🟡 Cooldown วันนี้: ${cool ? 'เข้าแล้ว' : 'ยังไม่เข้า'}`;
-
-        chipWarmup.className = `chip ${warm ? 'good' : 'warn'}`;
-        chipCooldown.className = `chip ${cool ? 'good' : 'warn'}`;
+      target.searchParams.set('from', 'groups-v1');
+      if (!target.searchParams.get('hub')) {
+        target.searchParams.set('hub', hub);
       }
 
-      function buildWarmupUrl(){
-        const next = new URL('./vr-groups/groups-v1.html', location.href);
-        next.searchParams.set('pid', PID);
-        next.searchParams.set('run', RUN);
-        next.searchParams.set('diff', DIFF);
-        next.searchParams.set('time', TIME);
-        next.searchParams.set('seed', SEED);
-        next.searchParams.set('view', VIEW);
-        next.searchParams.set('hub', HUB);
-        next.searchParams.set('zone', ZONE);
-        next.searchParams.set('cat', CAT);
+      const targetUrl = target.toString();
+      const targetBox = document.getElementById('targetUrl');
+      const btnGoNow = document.getElementById('btnGoNow');
+      const btnBackHub = document.getElementById('btnBackHub');
 
-        const gate = new URL('./warmup-gate.html', location.href);
-        gate.searchParams.set('phase', 'warmup');
-        gate.searchParams.set('game', 'groups');
-        gate.searchParams.set('pid', PID);
-        gate.searchParams.set('run', RUN);
-        gate.searchParams.set('diff', DIFF);
-        gate.searchParams.set('time', TIME);
-        gate.searchParams.set('seed', SEED);
-        gate.searchParams.set('view', VIEW);
-        gate.searchParams.set('hub', HUB);
-        gate.searchParams.set('zone', ZONE);
-        gate.searchParams.set('cat', CAT);
-        gate.searchParams.set('next', next.toString());
-        return gate.toString();
+      if (targetBox) targetBox.textContent = targetUrl;
+
+      if (btnGoNow) {
+        btnGoNow.addEventListener('click', () => {
+          location.replace(targetUrl);
+        });
       }
 
-      function buildRaceUrl(){
-        const url = new URL('./vr-groups/groups-race-lobby.html', location.href);
-        url.searchParams.set('pid', PID);
-        url.searchParams.set('diff', DIFF);
-        url.searchParams.set('view', VIEW);
-        url.searchParams.set('hub', HUB);
-        return url.toString();
+      if (btnBackHub) {
+        btnBackHub.addEventListener('click', () => {
+          location.href = hub;
+        });
       }
 
-      function renderCtx(){
-        btnStart.dataset.href = buildWarmupUrl();
-        btnRace.dataset.href = buildRaceUrl();
-
-        routeNote.textContent = 'Solo: group-v1 → warmup-gate → groups-v1 → cooldown → summary → hub • Race: group-v1 → groups-race-lobby';
-        ctxList.innerHTML = `
-          <div class="miniItem">pid = ${PID}</div>
-          <div class="miniItem">diff = ${DIFF}</div>
-          <div class="miniItem">solo time = ${TIME}s</div>
-          <div class="miniItem">race time = 45/60/75s (เลือกใน lobby)</div>
-          <div class="miniItem">view = ${VIEW}</div>
-          <div class="miniItem">seed = ${SEED}</div>
-        `;
-      }
-
-      btnStart.addEventListener('click', (ev)=>{
-        ev.preventDefault();
-        ev.stopPropagation();
-        btnStart.disabled = true;
-        btnStart.textContent = 'กำลังเข้า Warmup...';
-        window.location.assign(btnStart.dataset.href || buildWarmupUrl());
-      });
-
-      btnRace.addEventListener('click', (ev)=>{
-        ev.preventDefault();
-        ev.stopPropagation();
-        btnRace.disabled = true;
-        btnRace.textContent = 'กำลังเข้า Race...';
-        window.location.assign(btnRace.dataset.href || buildRaceUrl());
-      });
-
-      btnHub.addEventListener('click', (ev)=>{
-        ev.preventDefault();
-        ev.stopPropagation();
-        window.location.assign(HUB);
-      });
-
-      updateDailyChips();
-      renderCtx();
-
-      window.addEventListener('focus', ()=>{
-        updateDailyChips();
-        btnStart.disabled = false;
-        btnStart.textContent = 'เข้า Solo';
-        btnRace.disabled = false;
-        btnRace.textContent = 'เข้า Race';
-      });
+      // redirect อัตโนมัติ
+      setTimeout(() => {
+        location.replace(targetUrl);
+      }, 450);
     })();
   </script>
 </body>
