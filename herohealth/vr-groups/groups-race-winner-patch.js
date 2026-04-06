@@ -6,7 +6,7 @@
   const qs = new URLSearchParams(location.search);
 
   const isRace = qs.get('mode') === 'race' || qs.get('race') === '1';
-  const roomCode = cleanRoom(qs.get('roomCode') || '');
+  const roomCode = cleanRoom(qs.get('roomCode') || qs.get('code') || '');
   if (!isRace || !roomCode) return;
 
   const ROOT_PATH = 'hha-battle/groups/raceRooms';
@@ -28,25 +28,29 @@
     summarySeen: false,
     writing: false,
     lastSignature: '',
+    lastWinnerBannerKey: '',
     playerName: cleanText(
       qs.get('name') ||
       qs.get('nickName') ||
       qs.get('nick') ||
       'Player',
       24
-    )
+    ),
+    observer: null
   };
 
   boot();
 
   async function boot() {
     try {
+      injectStyles();
       const fb = await ensureFirebaseCtx();
       state.db = fb.db;
       state.roomRef = state.db.ref(`${ROOT_PATH}/${roomCode}`);
       attachRoom();
       observeSummary();
       setInterval(tickFinalize, 900);
+      setInterval(renderWinnerBanner, 700);
     } catch (err) {
       console.warn('[Groups Race Winner Patch] boot failed:', safeErr(err));
     }
@@ -101,17 +105,23 @@
 
     state.roomListener = (snap) => {
       state.room = snap.val() || null;
+      renderWinnerBanner();
     };
 
     state.roomRef.on('value', state.roomListener);
   }
 
   function observeSummary() {
-    const mo = new MutationObserver(() => {
+    if (state.observer) {
+      try { state.observer.disconnect(); } catch (_) {}
+    }
+
+    state.observer = new MutationObserver(() => {
       if (findVisibleSummary()) state.summarySeen = true;
+      renderWinnerBanner();
     });
 
-    mo.observe(D.body, {
+    state.observer.observe(D.body, {
       childList: true,
       subtree: true,
       attributes: true,
@@ -135,18 +145,20 @@
 
     if (!endedEnough) return;
 
-    const standings = players.sort(comparePlayers).map((p, idx) => ({
-      place: idx + 1,
-      playerId: p.playerId,
-      name: p.name,
-      score: p.score,
-      accuracy: p.accuracy,
-      miss: p.miss,
-      streak: p.streak,
-      finishedAt: p.finishedAt,
-      active: p.active,
-      isHost: p.isHost
-    }));
+    const standings = players
+      .sort(comparePlayers)
+      .map((p, idx) => ({
+        place: idx + 1,
+        playerId: p.playerId,
+        name: p.name,
+        score: p.score,
+        accuracy: p.accuracy,
+        miss: p.miss,
+        streak: p.streak,
+        finishedAt: p.finishedAt,
+        active: p.active,
+        isHost: p.isHost
+      }));
 
     if (!standings.length) return;
 
@@ -201,8 +213,62 @@
     }
   }
 
+  function renderWinnerBanner() {
+    const room = state.room;
+    if (!room || !room.raceLastWinner) return;
+
+    const winner = room.raceLastWinner;
+    const standings = Array.isArray(room.raceLastStandings) ? room.raceLastStandings : [];
+    const myPlace = standings.findIndex((p) => String(p.playerId) === String(state.playerId)) + 1;
+    const isMeWinner = String(winner.playerId || '') === String(state.playerId || '');
+
+    const key = JSON.stringify({
+      winner: [winner.playerId, winner.name, winner.score, winner.accuracy, winner.miss, winner.streak],
+      myPlace
+    });
+
+    if (key === state.lastWinnerBannerKey && D.querySelector('.hha-race-winner-banner')) return;
+    state.lastWinnerBannerKey = key;
+
+    let mount = D.querySelector('.hha-race-winner-banner');
+    if (!mount) {
+      mount = D.createElement('div');
+      mount.className = 'hha-race-winner-banner';
+      D.body.appendChild(mount);
+    }
+
+    mount.innerHTML = `
+      <div class="hha-race-winner-banner__left">
+        <div class="hha-race-winner-banner__icon">${isMeWinner ? '🏆' : '👑'}</div>
+        <div class="hha-race-winner-banner__copy">
+          <div class="hha-race-winner-banner__eyebrow">ผลแข่งล่าสุด</div>
+          <div class="hha-race-winner-banner__title">
+            ${isMeWinner ? 'คุณชนะรอบนี้!' : `ผู้ชนะคือ ${escapeHtml(winner.name || 'Player')}`}
+          </div>
+          <div class="hha-race-winner-banner__sub">
+            SCORE ${num(winner.score)} · ACC ${num(winner.accuracy)}% · MISS ${num(winner.miss)} · STREAK ${num(winner.streak)}
+            ${myPlace ? ` • อันดับคุณ ${myPlace}` : ''}
+          </div>
+        </div>
+      </div>
+      <button type="button" class="hha-race-winner-banner__close" aria-label="ปิด">✕</button>
+    `;
+
+    const closeBtn = mount.querySelector('.hha-race-winner-banner__close');
+    if (closeBtn && !closeBtn.dataset.bound) {
+      closeBtn.dataset.bound = '1';
+      closeBtn.addEventListener('click', () => {
+        mount.classList.add('is-hidden');
+      });
+    }
+
+    mount.classList.remove('is-hidden');
+  }
+
   function findVisibleSummary() {
-    const candidates = D.querySelectorAll('.summary, .summary-card, .result-overlay, .end-overlay, .final-summary, [data-summary], [data-role="summary"]');
+    const candidates = D.querySelectorAll(
+      '.summary, .summary-card, .result-overlay, .end-overlay, .final-summary, [data-summary], [data-role="summary"], #summaryOverlay'
+    );
     for (const el of candidates) {
       const r = el.getBoundingClientRect();
       const s = getComputedStyle(el);
@@ -270,7 +336,116 @@
       .slice(0, max);
   }
 
+  function escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, (m) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[m]));
+  }
+
   function safeErr(err) {
     return err && err.message ? err.message : String(err || 'Unknown error');
+  }
+
+  function injectStyles() {
+    const style = D.createElement('style');
+    style.id = 'hha-groups-race-winner-patch-style';
+    style.textContent = `
+      .hha-race-winner-banner{
+        position:fixed;
+        left:12px;
+        right:12px;
+        top:12px;
+        z-index:70;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        padding:12px 14px;
+        border-radius:20px;
+        background:rgba(255,255,255,.95);
+        border:1px solid rgba(228,197,103,.26);
+        box-shadow:0 16px 36px rgba(80,103,126,.18);
+        backdrop-filter:blur(8px);
+      }
+
+      .hha-race-winner-banner.is-hidden{
+        display:none;
+      }
+
+      .hha-race-winner-banner__left{
+        min-width:0;
+        display:flex;
+        align-items:center;
+        gap:12px;
+      }
+
+      .hha-race-winner-banner__icon{
+        width:52px;
+        height:52px;
+        border-radius:16px;
+        display:grid;
+        place-items:center;
+        font-size:1.65rem;
+        background:linear-gradient(180deg,#fff3bc,#ffe08d);
+        box-shadow:0 8px 18px rgba(201,156,36,.18);
+        flex:0 0 auto;
+      }
+
+      .hha-race-winner-banner__eyebrow{
+        font-size:.76rem;
+        font-weight:900;
+        color:#9a7a18;
+      }
+
+      .hha-race-winner-banner__title{
+        margin-top:2px;
+        font-size:1.02rem;
+        line-height:1.2;
+        font-weight:900;
+        color:#54410a;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+
+      .hha-race-winner-banner__sub{
+        margin-top:3px;
+        color:#6d7f8d;
+        font-size:.8rem;
+        line-height:1.4;
+        font-weight:800;
+      }
+
+      .hha-race-winner-banner__close{
+        appearance:none;
+        border:none;
+        width:40px;
+        height:40px;
+        border-radius:12px;
+        cursor:pointer;
+        background:rgba(124,166,206,.10);
+        color:#5a7388;
+        font-size:1rem;
+        font-weight:900;
+        flex:0 0 auto;
+      }
+
+      @media (max-width: 900px){
+        .hha-race-winner-banner{
+          top:auto;
+          bottom:12px;
+          align-items:flex-start;
+        }
+
+        .hha-race-winner-banner__title{
+          white-space:normal;
+        }
+      }
+    `;
+    D.head.appendChild(style);
   }
 })();
