@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Hydration Hybrid Summary</title>
+  <meta name="theme-color" content="#8fe3ff" />
+  <style>
+    :root{
+      --bg1:#eefaff;
+      --bg2:#dff5ff;
+      --card:#fffffff2;
+      --line:#d4ebf7;
+      --text:#214457;
+      --muted:#6a8697;
+      --blue:#57c8ff;
+      --blue2:#2ea8e8;
+      --green:#81dd8b;
+      --shadow:0 18px 40px rgba(89,151,182,.18);
+      --radius:24px;
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;min-height:100%;
+      font-family:ui-rounded,"Noto Sans Thai",system-ui,-apple-system,sans-serif;
+      color:var(--text);
+      background:linear-gradient(180deg,var(--bg1),var(--bg2));
+    }
+    body{padding:18px}
+    .wrap{max-width:980px;margin:0 auto;display:grid;gap:16px}
+    .card{
+      background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+      box-shadow:var(--shadow)
+    }
+    .hero{padding:22px}
+    .eyebrow{
+      display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:8px 12px;
+      border-radius:999px;background:#f2fbff;border:1px solid #caebfb;color:#2680ad;font-weight:900
+    }
+    h1{margin:10px 0 8px;font-size:32px}
+    p{margin:0;color:var(--muted);line-height:1.6}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .section{padding:18px}
+    .stat{
+      padding:16px;border-radius:20px;background:#f9fdff;border:1px solid var(--line)
+    }
+    .label{font-size:13px;font-weight:900;color:#628399}
+    .value{margin-top:6px;font-size:32px;font-weight:1000}
+    .sub{margin-top:6px;color:var(--muted);font-size:14px;line-height:1.55}
+    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+    .btn{
+      appearance:none;border:none;cursor:pointer;min-height:48px;padding:12px 16px;border-radius:16px;
+      font-size:15px;font-weight:1000
+    }
+    .btn.primary{background:linear-gradient(180deg,var(--blue),var(--blue2));color:#06273a}
+    .btn.good{background:linear-gradient(180deg,#93e79d,#62d473);color:#10361a}
+    .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--text)}
+    @media (max-width:760px){
+      .grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card hero">
+      <div class="eyebrow">🏁 Hydration Hybrid Summary</div>
+      <h1>สรุปรอบเล่นแบบ Hybrid</h1>
+      <p id="lead">รวมผลจาก main game และ mini learning เข้าด้วยกัน</p>
+    </section>
+
+    <section class="grid">
+      <article class="card section">
+        <div class="label">Main Game (70%)</div>
+        <div class="value" id="mainValue">0</div>
+        <div class="sub" id="mainSub">กำลังอ่านข้อมูลจาก hydration-vr</div>
+      </article>
+
+      <article class="card section">
+        <div class="label">Mini Learning (30%)</div>
+        <div class="value" id="miniValue">0</div>
+        <div class="sub" id="miniSub">กำลังอ่านข้อมูลจาก hydration-lite</div>
+      </article>
+
+      <article class="card section">
+        <div class="label">Combined Total</div>
+        <div class="value" id="totalValue">0</div>
+        <div class="sub" id="totalSub">คะแนนรวมจากทั้ง action และการคิดต่อ</div>
+      </article>
+
+      <article class="card section">
+        <div class="label">Bloom Coverage</div>
+        <div class="value" id="bloomValue" style="font-size:22px;line-height:1.4">-</div>
+        <div class="sub" id="bloomSub">main = remember/understand/apply • mini = analyze/evaluate/create</div>
+      </article>
+    </section>
+
+    <section class="card section">
+      <div class="label">Reflection</div>
+      <div class="sub" id="reflectionBox" style="margin-top:8px;color:#305f79;font-size:16px">
+        กำลังสรุปผล...
+      </div>
+
+      <div class="actions">
+        <button class="btn good" id="saveBtn" type="button">บันทึก Hybrid Summary</button>
+        <button class="btn primary" id="cooldownBtn" type="button">ไป Cooldown</button>
+        <button class="btn ghost" id="hubBtn" type="button">กลับ HUB</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function(){
+      const FIXED_HUB_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+      const qs = new URLSearchParams(location.search);
+
+      const refs = {
+        mainValue: document.getElementById('mainValue'),
+        mainSub: document.getElementById('mainSub'),
+        miniValue: document.getElementById('miniValue'),
+        miniSub: document.getElementById('miniSub'),
+        totalValue: document.getElementById('totalValue'),
+        totalSub: document.getElementById('totalSub'),
+        bloomValue: document.getElementById('bloomValue'),
+        bloomSub: document.getElementById('bloomSub'),
+        reflectionBox: document.getElementById('reflectionBox'),
+        saveBtn: document.getElementById('saveBtn'),
+        cooldownBtn: document.getElementById('cooldownBtn'),
+        hubBtn: document.getElementById('hubBtn')
+      };
+
+      const ctx = {
+        runId: qs.get('runId') || '',
+        pid: qs.get('pid') || 'anon',
+        studyId: qs.get('studyId') || 'nostudy',
+        mode: qs.get('mode') || 'play',
+        type: qs.get('type') || 'solo',
+        week: Number(qs.get('week') || 1),
+        session: Number(qs.get('session') || 1),
+        branch: qs.get('branch') || 'scenario-evaluate',
+        hub: qs.get('hub') || FIXED_HUB_URL
+      };
+
+      function readJson(key){
+        try{
+          return JSON.parse(localStorage.getItem(key) || 'null');
+        }catch(_){
+          return null;
+        }
+      }
+
+      const main = readJson(`HHA_HYDRATION_HYBRID_MAIN:${ctx.runId}`) || {};
+      const lite = readJson(`HHA_HYDRATION_HYBRID_LITE:${ctx.runId}`) || {};
+
+      function clamp(v,a,b){
+        v = Number(v);
+        if (!Number.isFinite(v)) v = a;
+        return Math.max(a, Math.min(b, v));
+      }
+
+      function computeHybrid(){
+        const rawMain = clamp(Number(main.mainActionScore || 0), 0, 100);
+        const mainWeighted = Math.round(rawMain * 0.70 * 10) / 10;
+
+        let miniRaw = 0;
+        if (ctx.branch === 'scenario-create') {
+          miniRaw = clamp(Number(lite.scenarioScore || 0), 0, 15) + clamp(Number(lite.createScore || 0), 0, 100) * 0.15;
+        } else {
+          miniRaw = clamp(Number(lite.scenarioScore || 0), 0, 15) + clamp(Number(lite.evaluateScore || 0), 0, 15);
+        }
+        miniRaw = clamp(miniRaw, 0, 30);
+
+        const total = Math.round((mainWeighted + miniRaw) * 10) / 10;
+
+        return {
+          mainWeighted,
+          miniRaw,
+          total,
+          bloom: ctx.branch === 'scenario-create'
+            ? ['Remember','Understand','Apply','Analyze','Create']
+            : ['Remember','Understand','Apply','Analyze','Evaluate']
+        };
+      }
+
+      const result = computeHybrid();
+
+      refs.mainValue.textContent = result.mainWeighted.toFixed(1);
+      refs.mainSub.textContent =
+        `raw action ${Number(main.mainActionScore || 0)} • good ${Number(main.goodCatch || 0)} • bad ${Number(main.badCatch || 0)} • combo ${Number(main.bestCombo || 0)}`;
+
+      refs.miniValue.textContent = result.miniRaw.toFixed(1);
+      refs.miniSub.textContent =
+        ctx.branch === 'scenario-create'
+          ? `scenario ${Number(lite.scenarioScore || 0)} + create ${Number(lite.createScore || 0)}`
+          : `scenario ${Number(lite.scenarioScore || 0)} + evaluate ${Number(lite.evaluateScore || 0)}`;
+
+      refs.totalValue.textContent = result.total.toFixed(1);
+      refs.bloomValue.textContent = result.bloom.join(' • ');
+
+      refs.reflectionBox.textContent =
+        result.total >= 90
+          ? 'เยี่ยมมาก รอบนี้หนูทั้งเล่นเก่งและคิดต่อได้ดีมาก'
+          : result.total >= 75
+            ? 'รอบนี้ทำได้ดีแล้ว ลองเพิ่มความแม่นใน mini learning อีกนิดจะยิ่งดี'
+            : 'รอบนี้ main game เริ่มได้แล้ว รอบหน้าลองโฟกัสทั้งการเก็บน้ำและการคิดสถานการณ์ต่ออีกนิด';
+
+      function buildCombinedPayload(){
+        return {
+          runId: ctx.runId,
+          pid: ctx.pid,
+          studyId: ctx.studyId,
+          mode: ctx.mode,
+          type: ctx.type,
+          weekNo: ctx.week,
+          sessionNo: ctx.session,
+          branch: ctx.branch,
+          savedAt: new Date().toISOString(),
+          main,
+          mini: lite,
+          combined: {
+            actionScore: result.mainWeighted,
+            miniScore: result.miniRaw,
+            totalScore: result.total
+          },
+          bloomCoverage: result.bloom
+        };
+      }
+
+      refs.saveBtn.addEventListener('click', () => {
+        const payload = buildCombinedPayload();
+        localStorage.setItem(
+          `HHA_HYDRATION_HYBRID_SUMMARY:${ctx.runId}`,
+          JSON.stringify(payload)
+        );
+        localStorage.setItem('HHA_HYDRATION_HYBRID_LAST_SUMMARY', JSON.stringify(payload));
+        alert('บันทึก Hybrid Summary แล้ว');
+      });
+
+      refs.cooldownBtn.addEventListener('click', () => {
+        const payload = buildCombinedPayload();
+        localStorage.setItem(
+          `HHA_HYDRATION_HYBRID_SUMMARY:${ctx.runId}`,
+          JSON.stringify(payload)
+        );
+        localStorage.setItem('HHA_HYDRATION_HYBRID_LAST_SUMMARY', JSON.stringify(payload));
+
+        const u = new URL('./warmup-gate.html', location.href);
+        u.searchParams.set('phase', 'cooldown');
+        u.searchParams.set('pid', ctx.pid);
+        u.searchParams.set('studyId', ctx.studyId);
+        u.searchParams.set('zone', 'nutrition');
+        u.searchParams.set('cat', 'nutrition');
+        u.searchParams.set('game', 'hydrationhybrid');
+        u.searchParams.set('gameId', 'hydrationhybrid');
+        u.searchParams.set('theme', 'hydration');
+        u.searchParams.set('run', ctx.mode);
+        u.searchParams.set('mode', ctx.type);
+        u.searchParams.set('week', String(ctx.week));
+        u.searchParams.set('session', String(ctx.session));
+        u.searchParams.set('hub', ctx.hub);
+        location.href = u.toString();
+      });
+
+      refs.hubBtn.addEventListener('click', () => {
+        location.href = ctx.hub;
+      });
+    })();
+  </script>
+</body>
+</html>
