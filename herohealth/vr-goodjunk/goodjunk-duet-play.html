@@ -674,16 +674,56 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-  <script src="../firebase-config.js?v=20260405-duet-run-full"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260405-duet-run-runtime-full"></script>
+  <script src="../firebase-config.js?v=20260406-duet-engine"></script>
+  <script src="../herohealth-logger.js?v=20260406-duet-engine"></script>
+  <script src="../room-engine.js?v=20260406-duet-engine"></script>
+  <script src="./goodjunk-duet-play-bridge.js?v=20260406-duet-engine"></script>
+
+  <script src="./goodjunk.safe.duet.js?v=20260406-duet-run-runtime-dualmode"></script>
 
   <script>
     (function(){
-      const qs = (k, d='') => {
-        try { return new URL(location.href).searchParams.get(k) ?? d; }
-        catch { return d; }
+      function safeCall(fn){
+        try { return fn(); } catch (_) {}
+      }
+
+      async function waitBridgeStart(){
+        if (!window.HHA_DUET_BRIDGE || !window.HHA_DUET_BRIDGE.ready) return;
+        if (window.HHA_DUET_BRIDGE.ctx && (window.HHA_DUET_BRIDGE.ctx.wait || window.HHA_DUET_BRIDGE.ctx.autostart)) {
+          try {
+            await window.HHA_DUET_BRIDGE.waitForStart();
+          } catch (err) {
+            console.error('[duet-run] waitForStart failed', err);
+          }
+        }
+      }
+
+      waitBridgeStart();
+
+      window.HHA_DUET_PUSH_STATE = function(state){
+        if (!window.HHA_DUET_BRIDGE || !window.HHA_DUET_BRIDGE.ready) return;
+        safeCall(() => window.HHA_DUET_BRIDGE.tick(state || {}));
       };
 
+      window.HHA_DUET_PUSH_EVENT = function(type, detail){
+        if (!window.HHA_DUET_BRIDGE || !window.HHA_DUET_BRIDGE.ready) return;
+        safeCall(() => window.HHA_DUET_BRIDGE.event(type || 'game_event', detail || {}));
+      };
+
+      window.HHA_DUET_FINISH = function(summary){
+        if (!window.HHA_DUET_BRIDGE || !window.HHA_DUET_BRIDGE.ready) return;
+        safeCall(() => window.HHA_DUET_BRIDGE.finish(summary || {}));
+      };
+
+      window.HHA_DUET_ABORT = function(reason){
+        if (!window.HHA_DUET_BRIDGE || !window.HHA_DUET_BRIDGE.ready) return;
+        safeCall(() => window.HHA_DUET_BRIDGE.abort(reason || 'abort'));
+      };
+    })();
+  </script>
+
+  <script>
+    (function(){
       const hud = document.getElementById('duetHud');
       const hudToggle = document.getElementById('duetHudToggle');
       const resultMount = document.getElementById('duetResultMount');
