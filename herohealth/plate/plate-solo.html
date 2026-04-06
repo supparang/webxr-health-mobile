@@ -1,7 +1,3 @@
-<!-- === /herohealth/plate/plate-solo.html ===
-Plate Solo — RUN PAGE
-BASELINE for separated mode files
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -20,21 +16,27 @@ BASELINE for separated mode files
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
 
-      --hud-top: calc(var(--sat) + 10px);
-      --hud-bottom: calc(var(--sab) + 12px);
-
-      --panel: rgba(2,6,23,.78);
-      --line: rgba(148,163,184,.18);
+      --panel: rgba(2,6,23,.82);
+      --panel2: rgba(2,6,23,.72);
+      --line: rgba(148,163,184,.16);
       --txt: rgba(229,231,235,.96);
-      --mut: rgba(148,163,184,.95);
+      --mut: rgba(148,163,184,.92);
+
+      --hud-top-h: 112px;
+      --hud-bottom-h: 108px;
       --radius: 18px;
     }
+
     *{ box-sizing:border-box; }
     html,body{
-      margin:0; height:100%; overflow:hidden;
-      background:#020617; color:var(--txt);
+      margin:0;
+      height:100%;
+      overflow:hidden;
+      background:#020617;
+      color:var(--txt);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
     }
+
     body{
       background:
         radial-gradient(1200px 700px at 20% 0%, rgba(14,165,233,.18), transparent 60%),
@@ -42,117 +44,248 @@ BASELINE for separated mode files
         linear-gradient(180deg, #020617, #020b1b);
     }
 
-    #app{ position:fixed; inset:0; overflow:hidden; }
-    #world{ position:absolute; inset:0; z-index:0; pointer-events:none; }
+    #app{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+    }
 
+    #world{
+      position:absolute;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+    }
+
+    /* ===== PLAYFIELD SAFE AREA ===== */
     #plate-layer{
-      position:absolute; inset:0;
+      position:absolute;
+      left:0;
+      right:0;
+      top:calc(var(--sat) + var(--hud-top-h));
+      bottom:calc(var(--sab) + var(--hud-bottom-h));
       z-index:30;
       pointer-events:none;
       overflow:hidden;
-      transform: translateZ(0);
-      will-change: contents;
-      min-width: 1px;
-      min-height: 1px;
+      transform:translateZ(0);
+      will-change:contents;
+      min-width:1px;
+      min-height:1px;
     }
+
     #plate-layer .plateTarget{
       position:absolute;
       display:grid;
       place-items:center;
-      width:56px; height:56px;
+      width:64px;
+      height:64px;
       border-radius:999px;
       background:rgba(15,23,42,.82);
       border:1px solid rgba(255,255,255,.14);
-      box-shadow: 0 8px 20px rgba(2,6,23,.35);
-      font-size: 28px;
+      box-shadow:0 10px 24px rgba(2,6,23,.36);
+      font-size:30px;
       line-height:1;
       user-select:none;
       pointer-events:auto;
       touch-action:manipulation;
-      transition: transform .08s ease, opacity .14s ease, filter .12s ease;
-      transform: translate(-50%,-50%);
+      transition:transform .08s ease, opacity .14s ease, filter .12s ease;
+      transform:translate(-50%,-50%);
     }
+
     #plate-layer .plateTarget[data-kind="shield"]{
-      background: rgba(30,58,138,.55);
-      border-color: rgba(96,165,250,.35);
-      box-shadow: 0 10px 26px rgba(59,130,246,.18);
+      background:rgba(30,58,138,.55);
+      border-color:rgba(96,165,250,.35);
+      box-shadow:0 10px 26px rgba(59,130,246,.18);
     }
-    #plate-layer .plateTarget.hit{ transform: translate(-50%,-50%) scale(.88); opacity:.25; }
-    #plate-layer .plateTarget.expire{ transform: translate(-50%,-50%) scale(.78); opacity:0; }
 
-    .hud{
+    #plate-layer .plateTarget.hit{
+      transform:translate(-50%,-50%) scale(.88);
+      opacity:.25;
+    }
+
+    #plate-layer .plateTarget.expire{
+      transform:translate(-50%,-50%) scale(.78);
+      opacity:0;
+    }
+
+    /* ===== TOP HUD ===== */
+    #hudTop{
       position:absolute;
-      left:max(10px, calc(var(--sal) + 10px));
-      right:max(10px, calc(var(--sar) + 10px));
+      top:calc(var(--sat) + 8px);
+      left:max(8px, calc(var(--sal) + 8px));
+      right:max(8px, calc(var(--sar) + 8px));
       z-index:80;
-      display:grid;
-      gap:8px;
       pointer-events:none;
     }
-    #hudTop{ top:var(--hud-top); }
-    #hudBottom{ bottom:var(--hud-bottom); grid-template-columns:1fr; gap:10px; }
 
-    .row{ display:grid; gap:8px; }
-    .row.cols-4{ grid-template-columns: 1fr 1fr .9fr .9fr; }
-    @media (max-width: 900px){
-      .row.cols-4{ grid-template-columns: 1fr; }
-    }
-
-    .card{
-      background: linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.72));
+    .topCard{
+      background:linear-gradient(180deg, var(--panel), var(--panel2));
       border:1px solid var(--line);
-      border-radius: var(--radius);
-      padding:10px 12px;
-      box-shadow: 0 8px 24px rgba(2,6,23,.22);
-      pointer-events:none;
+      border-radius:20px;
+      box-shadow:0 10px 26px rgba(2,6,23,.24);
+      padding:10px;
     }
-    .card h4{
-      margin:0 0 8px 0;
-      font-size:12px;
+
+    .topRow{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .miniPill{
+      min-height:42px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      background:rgba(15,23,42,.7);
+      border:1px solid rgba(148,163,184,.14);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .miniPill .v{
+      font-size:16px;
+      font-weight:1000;
+      font-variant-numeric:tabular-nums;
+    }
+
+    .missionBar{
+      margin-top:8px;
+      display:grid;
+      gap:6px;
+    }
+
+    .missionLine{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      min-height:38px;
+      padding:0 12px;
+      border-radius:999px;
+      background:rgba(15,23,42,.68);
+      border:1px solid rgba(148,163,184,.14);
+      font-size:13px;
+      font-weight:1000;
+      overflow:hidden;
+    }
+
+    .missionMain{
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      overflow:hidden;
+      white-space:nowrap;
+      text-overflow:ellipsis;
+    }
+
+    .missionMain span:last-child{
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .missionMeta{
+      flex:0 0 auto;
       color:var(--mut);
-      font-weight:900;
-      letter-spacing:.2px;
+      font-size:12px;
+      white-space:nowrap;
     }
-
-    .stats{
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap:8px;
-    }
-    .miniStats{
-      display:grid;
-      grid-template-columns: repeat(6, minmax(0,1fr));
-      gap:8px;
-    }
-    @media (max-width: 900px){
-      .miniStats{ grid-template-columns: repeat(3, minmax(0,1fr)); }
-    }
-
-    .pill{
-      background: rgba(15,23,42,.7);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius: 999px;
-      min-height: 42px;
-      display:flex; align-items:center; justify-content:center;
-      gap:8px; padding: 8px 10px;
-      font-weight:900;
-      font-size: 13px;
-    }
-    .pill .v{ font-size:15px; font-weight:1000; }
 
     .bar{
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(148,163,184,.18);
+      height:10px;
+      border-radius:999px;
+      background:rgba(148,163,184,.18);
       border:1px solid rgba(148,163,184,.14);
       overflow:hidden;
     }
+
     .bar > i{
-      display:block; height:100%; width:0%;
-      background: linear-gradient(90deg, rgba(34,197,94,.9), rgba(167,139,250,.9));
-      transition: width .12s linear;
+      display:block;
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(167,139,250,.9));
+      transition:width .12s linear;
     }
 
+    /* ===== BOTTOM HUD ===== */
+    #hudBottom{
+      position:absolute;
+      left:max(8px, calc(var(--sal) + 8px));
+      right:max(8px, calc(var(--sar) + 8px));
+      bottom:calc(var(--sab) + 10px);
+      z-index:85;
+      display:grid;
+      gap:8px;
+      pointer-events:none;
+    }
+
+    .coachBar{
+      min-height:48px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:18px;
+      background:linear-gradient(180deg, var(--panel), var(--panel2));
+      border:1px solid var(--line);
+      box-shadow:0 10px 26px rgba(2,6,23,.24);
+      font-size:14px;
+      font-weight:900;
+      color:var(--txt);
+      pointer-events:none;
+    }
+
+    .coachBar .label{
+      flex:0 0 auto;
+      font-size:13px;
+      color:var(--mut);
+      font-weight:1000;
+    }
+
+    .coachBar .msg{
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    #controls{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      pointer-events:auto;
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.78);
+      color:var(--txt);
+      border-radius:999px;
+      padding:10px 14px;
+      min-height:44px;
+      font-weight:1000;
+      font-size:14px;
+      cursor:pointer;
+      box-shadow:0 6px 18px rgba(2,6,23,.22);
+    }
+
+    .btn.warn{
+      border-color:rgba(245,158,11,.25);
+      background:linear-gradient(180deg, rgba(120,53,15,.86), rgba(92,45,14,.82));
+    }
+
+    .btn.primary{
+      border-color:rgba(59,130,246,.30);
+      background:linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
+    }
+
+    /* ===== FX ===== */
     .phaseBanner{
       position:absolute;
       top:42%;
@@ -167,15 +300,17 @@ BASELINE for separated mode files
       z-index:120;
       pointer-events:none;
       opacity:0;
-      animation: bannerIn .95s ease forwards;
+      animation:bannerIn .95s ease forwards;
       text-align:center;
       white-space:nowrap;
     }
+
     @keyframes bannerIn{
       0%{ opacity:0; transform:translate(-50%,-50%) scale(.96); }
       20%{ opacity:1; transform:translate(-50%,-50%) scale(1.02); }
       100%{ opacity:0; transform:translate(-50%,-50%) scale(1.03); }
     }
+
     .popScore{
       position:absolute;
       z-index:110;
@@ -183,117 +318,257 @@ BASELINE for separated mode files
       font-weight:1000;
       font-size:16px;
       opacity:0;
-      transform: translate(-50%,-50%) translateY(6px);
-      animation: popUp .55s ease forwards;
-      text-shadow: 0 8px 20px rgba(0,0,0,.35);
+      transform:translate(-50%,-50%) translateY(6px);
+      animation:popUp .55s ease forwards;
+      text-shadow:0 8px 20px rgba(0,0,0,.35);
       white-space:nowrap;
     }
+
     @keyframes popUp{
-      0%{ opacity:0; transform: translate(-50%,-50%) translateY(8px) scale(.98); }
+      0%{ opacity:0; transform:translate(-50%,-50%) translateY(8px) scale(.98); }
       20%{ opacity:1; }
-      100%{ opacity:0; transform: translate(-50%,-50%) translateY(-16px) scale(1.03); }
+      100%{ opacity:0; transform:translate(-50%,-50%) translateY(-16px) scale(1.03); }
     }
 
-    #controls{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
+    /* ===== DRAWER ===== */
+    #plateDrawer{
+      position:absolute;
+      left:max(10px, calc(var(--sal) + 10px));
+      right:max(10px, calc(var(--sar) + 10px));
+      bottom:calc(var(--sab) + 64px);
+      z-index:100;
+      display:none;
       pointer-events:auto;
-    }
-    .btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.78);
-      color:var(--txt);
-      border-radius: 999px;
-      padding:10px 14px;
-      min-height:44px;
-      font-weight:1000;
-      font-size:14px;
-      cursor:pointer;
-      box-shadow: 0 6px 18px rgba(2,6,23,.22);
-    }
-    .btn.warn{
-      border-color: rgba(245,158,11,.25);
-      background: linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
-    }
-    .btn.primary{
-      border-color: rgba(59,130,246,.30);
-      background: linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.94);
+      box-shadow:0 18px 50px rgba(0,0,0,.35);
+      padding:12px;
+      max-height:min(56vh, 460px);
+      overflow:auto;
     }
 
-    #endOverlay{
-      position:absolute; inset:0;
-      z-index:120;
-      display:flex; align-items:center; justify-content:center;
-      padding:16px;
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+    .drawerHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
     }
+
+    .drawerTitle{
+      font-weight:1000;
+      font-size:16px;
+    }
+
+    .drawerGrid{
+      display:grid;
+      gap:12px;
+    }
+
+    .drawerCard{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.56);
+      border-radius:16px;
+      padding:12px;
+    }
+
+    .drawerCard h4{
+      margin:0 0 8px 0;
+      font-size:12px;
+      color:var(--mut);
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+
+    .statsGrid4{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .statsGrid5{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .statsGrid6{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .pill{
+      background:rgba(15,23,42,.7);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:999px;
+      min-height:40px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:8px 10px;
+      font-weight:1000;
+      font-size:12px;
+      text-align:center;
+    }
+
+    .pill .v{
+      font-size:14px;
+      font-weight:1000;
+      font-variant-numeric:tabular-nums;
+    }
+
+    .plateGuide{
+      display:grid;
+      gap:8px;
+    }
+
+    .plateGuide .pill{
+      justify-content:flex-start;
+      border-radius:14px;
+      min-height:38px;
+      padding-inline:12px;
+    }
+
+    /* ===== END OVERLAY ===== */
+    #endOverlay{
+      position:absolute;
+      inset:0;
+      z-index:120;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      background:rgba(0,0,0,.55);
+      backdrop-filter:blur(8px);
+      -webkit-backdrop-filter:blur(8px);
+    }
+
     #endOverlay[aria-hidden="true"]{ display:none; }
 
     .endCard{
       width:min(700px, 94vw);
-      border-radius: 18px;
+      border-radius:18px;
       border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.82);
-      color: rgba(229,231,235,.95);
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      padding: 14px;
+      background:rgba(2,6,23,.82);
+      color:rgba(229,231,235,.95);
+      box-shadow:0 18px 60px rgba(0,0,0,.45);
+      padding:14px;
     }
+
     .endGrid{
       margin-top:10px;
       display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
+      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
     }
+
     .endItem{
       border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.55);
-      border-radius: 14px;
-      padding: 10px 12px;
+      background:rgba(2,6,23,.55);
+      border-radius:14px;
+      padding:10px 12px;
       font-weight:1000;
     }
-    .endItem .k{ font-size:12px; opacity:.82; font-weight:900; }
-    .endItem .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
+
+    .endItem .k{
+      font-size:12px;
+      opacity:.82;
+      font-weight:900;
+    }
+
+    .endItem .v{
+      margin-top:4px;
+      font-size:18px;
+      font-variant-numeric:tabular-nums;
+    }
+
     .endActions{
-      margin-top: 12px;
+      margin-top:12px;
       display:flex;
-      gap: 10px;
+      gap:10px;
       flex-wrap:wrap;
       justify-content:flex-end;
     }
 
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 900px){
+      :root{
+        --hud-top-h: 118px;
+        --hud-bottom-h: 114px;
+      }
+
+      .topRow{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .statsGrid4{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .statsGrid5{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .statsGrid6{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    }
+
     @media (max-width: 640px){
+      :root{
+        --hud-top-h: 124px;
+        --hud-bottom-h: 118px;
+      }
+
       #hudTop{
-        left: max(6px, calc(var(--sal) + 6px));
-        right: max(6px, calc(var(--sar) + 6px));
-        gap: 6px;
+        left:max(6px, calc(var(--sal) + 6px));
+        right:max(6px, calc(var(--sar) + 6px));
       }
-      .card{
-        padding: 8px 10px;
-        border-radius: 14px;
+
+      #hudBottom{
+        left:max(6px, calc(var(--sal) + 6px));
+        right:max(6px, calc(var(--sar) + 6px));
       }
-      .card h4{
-        font-size: 11px;
-        margin-bottom: 6px;
+
+      .topCard{
+        padding:8px;
+        border-radius:16px;
       }
-      .pill{
-        min-height: 36px;
-        padding: 6px 8px;
-        font-size: 11.5px;
-        gap: 6px;
+
+      .miniPill{
+        min-height:38px;
+        padding:6px 8px;
+        font-size:11.5px;
+        gap:6px;
       }
-      .pill .v{ font-size: 13px; }
-      .bar{ height: 8px; }
+
+      .miniPill .v{ font-size:14px; }
+
+      .missionLine{
+        min-height:36px;
+        padding:0 10px;
+        font-size:12px;
+      }
+
+      .missionMeta{ font-size:11px; }
+
+      .coachBar{
+        min-height:42px;
+        padding:8px 10px;
+        border-radius:14px;
+        font-size:12.5px;
+      }
+
+      .coachBar .label{
+        font-size:12px;
+      }
+
       .btn{
-        min-height: 38px;
-        padding: 8px 10px;
-        font-size: 12px;
+        min-height:38px;
+        padding:8px 10px;
+        font-size:12px;
       }
-      .endGrid{ grid-template-columns: 1fr; }
-      .endActions .btn{ flex: 1 1 100%; }
+
+      .endGrid{ grid-template-columns:1fr; }
+      .endActions .btn{ flex:1 1 100%; }
+
+      #plate-layer .plateTarget{
+        width:58px;
+        height:58px;
+        font-size:28px;
+      }
     }
   </style>
 </head>
@@ -303,57 +578,82 @@ BASELINE for separated mode files
     <div id="world" aria-hidden="true"></div>
     <div id="plate-layer" aria-label="plate targets layer"></div>
 
-    <div id="hudTop" class="hud">
-      <div class="row cols-4">
-        <div class="card">
-          <h4>คะแนน / คอมโบ / พลาด</h4>
-          <div class="stats">
-            <div class="pill">🏆 <span id="uiScore" class="v">0</span></div>
-            <div class="pill">🔥 <span id="uiCombo" class="v">0</span> <span style="opacity:.8">(max <span id="uiComboMax">0</span>)</span></div>
-            <div class="pill">💥 <span id="uiMiss" class="v">0</span></div>
-          </div>
+    <!-- ===== LEAN TOP HUD ===== -->
+    <div id="hudTop">
+      <div class="topCard">
+        <div class="topRow">
+          <div class="miniPill">🏆 <span id="uiScore" class="v">0</span></div>
+          <div class="miniPill">⏱️ <span id="uiTime" class="v">0</span>s</div>
+          <div class="miniPill">🍽️ <span id="uiPlateHave" class="v">0</span>/5</div>
+          <div class="miniPill">💥 <span id="uiMiss" class="v">0</span></div>
         </div>
 
-        <div class="card">
-          <h4>ภารกิจตอนนี้</h4>
-          <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
-            🎯 <span id="uiTargetText">—</span>
+        <div class="missionBar">
+          <div class="missionLine">
+            <div class="missionMain">
+              <span>🎯</span>
+              <span id="uiTargetText">—</span>
+            </div>
+            <div class="missionMeta">
+              <span id="uiPhase">WARM</span> • <span id="uiPhaseProg">0/0</span>
+            </div>
           </div>
-          <div style="height:8px"></div>
           <div class="bar"><i id="uiGoalFill"></i></div>
-          <div style="margin-top:6px; font-size:12px; color:var(--mut); font-weight:900;">
-            PHASE: <span id="uiPhase">WARM</span> &nbsp; <span id="uiPhaseProg">0/0</span> &nbsp; ⏱ <span id="uiTime">0</span>s
-          </div>
         </div>
+      </div>
+    </div>
 
-        <div class="card">
-          <h4>สถานะการเล่น</h4>
-          <div class="miniStats">
+    <!-- ===== LEAN BOTTOM HUD ===== -->
+    <div id="hudBottom">
+      <div class="coachBar">
+        <div class="label">🧑‍🏫 Coach</div>
+        <div id="coachMsg" class="msg">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
+      </div>
+
+      <div id="controls">
+        <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
+        <button id="btnRestart" class="btn" type="button">🔄 RESTART</button>
+        <button id="btnPlateDrawer" class="btn" type="button">📊 ดูข้อมูล</button>
+        <button id="btnBackHub" class="btn" type="button">↩ กลับ HUB</button>
+      </div>
+    </div>
+
+    <!-- ===== DRAWER: move secondary info here ===== -->
+    <div id="plateDrawer" aria-hidden="true">
+      <div class="drawerHead">
+        <div class="drawerTitle">🍽 ข้อมูลเกม Plate Solo</div>
+        <button id="btnCloseDrawer" class="btn" type="button" style="min-height:38px;">ปิด</button>
+      </div>
+
+      <div class="drawerGrid">
+        <div class="drawerCard">
+          <h4>สถิติการเล่น</h4>
+          <div class="statsGrid6">
+            <div class="pill">🔥 <span id="uiCombo" class="v">0</span> <span style="opacity:.8">(max <span id="uiComboMax">0</span>)</span></div>
             <div class="pill">🎯 <span id="uiAcc" class="v">0%</span></div>
             <div class="pill">🏅 <span id="uiGrade" class="v">D</span></div>
             <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
             <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
-            <div class="pill">🍽️ <span id="uiPlateHave" class="v">0</span>/5</div>
             <div class="pill">MODE: <span id="uiModeTag" class="v">SOLO</span></div>
           </div>
-          <div style="height:8px"></div>
+          <div style="height:10px"></div>
           <div style="font-weight:1000; margin-bottom:6px;">FEVER</div>
           <div class="bar"><i id="uiFeverFill"></i></div>
         </div>
 
-        <div class="card">
+        <div class="drawerCard">
           <h4>การตั้งค่า</h4>
-          <div class="miniStats" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+          <div class="statsGrid4">
             <div class="pill">PRO: <span id="uiProTag" class="v">OFF</span></div>
-            <button id="btnPlateDrawer" class="btn" type="button" style="pointer-events:auto;min-height:42px;">🍽 ดูจาน</button>
+            <div class="pill">RUN: <span class="v">SOLO</span></div>
+            <div class="pill">HUB: <span class="v">OK</span></div>
+            <div class="pill">VR UI: <span class="v">READY</span></div>
           </div>
         </div>
-      </div>
 
-      <div class="row">
-        <div class="card">
+        <div class="drawerCard">
           <h4>จำนวนที่เก็บได้ (5 หมู่)</h4>
-          <div class="stats" style="grid-template-columns:repeat(5,minmax(0,1fr));">
+          <div class="statsGrid5">
             <div class="pill">🐟 <span id="uiG1" class="v">0</span></div>
             <div class="pill">🍚 <span id="uiG2" class="v">0</span></div>
             <div class="pill">🥦 <span id="uiG3" class="v">0</span></div>
@@ -361,22 +661,17 @@ BASELINE for separated mode files
             <div class="pill">🥑 <span id="uiG5" class="v">0</span></div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <div id="hudBottom" class="hud">
-      <div class="card">
-        <div style="font-weight:1000">🧑‍🏫 Coach</div>
-        <div id="coachMsg" style="margin-top:6px;font-weight:1000">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
-        <div style="font-size:12px;opacity:.85;margin-top:4px;">
-          ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair
+        <div class="drawerCard">
+          <h4>แนวคิดจานสุขภาพ</h4>
+          <div class="plateGuide">
+            <div class="pill">🥬 ผัก 1/2 จาน</div>
+            <div class="pill">🍚 ข้าว/แป้ง 1/4 จาน</div>
+            <div class="pill">🐟 โปรตีน 1/4 จาน</div>
+            <div class="pill">🍎 ผลไม้ เสริมได้พอดี</div>
+            <div class="pill">🥑 ไขมันดี เลือกอย่างพอเหมาะ</div>
+          </div>
         </div>
-      </div>
-
-      <div id="controls">
-        <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
-        <button id="btnRestart" class="btn" type="button">🔄 RESTART</button>
-        <button id="btnBackHub" class="btn" type="button">↩ กลับ HUB</button>
       </div>
     </div>
 
@@ -400,26 +695,6 @@ BASELINE for separated mode files
         </div>
       </div>
     </div>
-
-    <div id="plateDrawer" aria-hidden="true" style="
-      position:absolute; inset:auto 10px calc(var(--sab) + 74px) 10px;
-      z-index:100; display:none; pointer-events:auto;
-      border-radius:18px; border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.92); box-shadow:0 18px 50px rgba(0,0,0,.35);
-      padding:12px;
-    ">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <div style="font-weight:1000">🍽 จานสุขภาพ</div>
-        <button id="btnCloseDrawer" class="btn" type="button" style="min-height:38px;">ปิด</button>
-      </div>
-      <div style="margin-top:10px;display:grid;gap:8px;">
-        <div class="pill" style="justify-content:flex-start;">🥬 ผัก 1/2 จาน</div>
-        <div class="pill" style="justify-content:flex-start;">🍚 ข้าว/แป้ง 1/4 จาน</div>
-        <div class="pill" style="justify-content:flex-start;">🐟 โปรตีน 1/4 จาน</div>
-        <div class="pill" style="justify-content:flex-start;">🍎 ผลไม้ เสริมได้พอดี</div>
-        <div class="pill" style="justify-content:flex-start;">🥑 ไขมันดี เลือกอย่างพอเหมาะ</div>
-      </div>
-    </div>
   </div>
 
   <script type="module">
@@ -429,7 +704,7 @@ BASELINE for separated mode files
     function normalizeHub(raw){
       raw = String(raw || '').trim();
       const DEFAULT = '../hub.html';
-      if(!raw) return DEFAULT;
+      if (!raw) return DEFAULT;
       try{
         const u = new URL(raw, location.href);
         u.pathname = u.pathname
@@ -452,7 +727,7 @@ BASELINE for separated mode files
     const mode = 'solo';
     const hub = normalizeHub(U.searchParams.get('hub'));
 
-    if(view) document.body.setAttribute('data-view', view);
+    if (view) document.body.setAttribute('data-view', view);
 
     const ai = createAIHooks({
       seed: String(seed),
@@ -470,50 +745,59 @@ BASELINE for separated mode files
     const modeTag = document.getElementById('uiModeTag');
 
     let paused = false;
-    function setPauseBtn(){ if(btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE'; }
+    function setPauseBtn(){
+      if (btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE';
+    }
     setPauseBtn();
 
-    if(proTag) proTag.textContent = pro ? 'ON' : 'OFF';
-    if(modeTag) modeTag.textContent = 'SOLO';
+    if (proTag) proTag.textContent = pro ? 'ON' : 'OFF';
+    if (modeTag) modeTag.textContent = 'SOLO';
 
-    btnPause?.addEventListener('click', ()=>{
+    btnPause?.addEventListener('click', () => {
       paused = !paused;
       setPauseBtn();
       window.dispatchEvent(new CustomEvent(paused ? 'hha:pause' : 'hha:resume'));
       try{ window.__PLATE_SET_PAUSED__?.(paused); }catch(e){}
     });
 
-    btnRestart?.addEventListener('click', ()=>{
+    btnRestart?.addEventListener('click', () => {
       try{
         const u = new URL(location.href);
-        if(runMode !== 'research') u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        if (runMode !== 'research') {
+          u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        }
         location.href = u.toString();
-      }catch(e){ location.reload(); }
+      }catch(e){
+        location.reload();
+      }
     });
 
-    btnBackHub?.addEventListener('click', ()=> location.href = hub);
-    document.getElementById('btnBackHub2')?.addEventListener('click', ()=> location.href = hub);
+    btnBackHub?.addEventListener('click', () => location.href = hub);
+    document.getElementById('btnBackHub2')?.addEventListener('click', () => location.href = hub);
 
     const drawer = document.getElementById('plateDrawer');
     const btnDrawer = document.getElementById('btnPlateDrawer');
     const btnCloseDrawer = document.getElementById('btnCloseDrawer');
 
     function openDrawer(){
-      if(!drawer) return;
+      if (!drawer) return;
       drawer.style.display = 'block';
       drawer.setAttribute('aria-hidden', 'false');
     }
     function closeDrawer(){
-      if(!drawer) return;
+      if (!drawer) return;
       drawer.style.display = 'none';
       drawer.setAttribute('aria-hidden', 'true');
     }
+
     btnDrawer?.addEventListener('click', openDrawer);
     btnCloseDrawer?.addEventListener('click', closeDrawer);
 
     bootPlateSolo({
       mount: document.getElementById('plate-layer'),
-      view, run: runMode, diff,
+      view,
+      run: runMode,
+      diff,
       time: Number(U.searchParams.get('time') || 90),
       seed,
       pid: String(U.searchParams.get('pid') || 'anon'),
