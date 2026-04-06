@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Hydration Lite</title>
+  <meta name="theme-color" content="#8fe3ff" />
+  <style>
+    :root{
+      --bg1:#edfaff;
+      --bg2:#daf3ff;
+      --card:#fffffff2;
+      --line:#d4ebf7;
+      --text:#204457;
+      --muted:#68869b;
+      --blue:#57c8ff;
+      --blue2:#2ea8e8;
+      --green:#7dd989;
+      --orange:#ffcc6a;
+      --shadow:0 18px 40px rgba(89,151,182,.18);
+      --radius:24px;
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;min-height:100%;
+      font-family:ui-rounded,"Noto Sans Thai",system-ui,-apple-system,sans-serif;
+      color:var(--text);
+      background:linear-gradient(180deg,var(--bg1),var(--bg2));
+    }
+    body{padding:18px}
+    .wrap{max-width:920px;margin:0 auto;display:grid;gap:16px}
+    .card{
+      background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+      box-shadow:var(--shadow)
+    }
+    .hero{padding:18px 20px}
+    .eyebrow{
+      display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:8px 12px;
+      border-radius:999px;background:#f1fbff;border:1px solid #cdebf8;color:#2680ad;font-weight:900
+    }
+    h1{margin:10px 0 8px;font-size:30px}
+    p{margin:0;color:var(--muted);line-height:1.6}
+    .task{padding:18px}
+    .task h2{margin:0 0 10px;font-size:24px}
+    .stem{
+      padding:16px;border-radius:18px;background:#f8fdff;border:1px solid var(--line);
+      font-size:18px;font-weight:900;line-height:1.5
+    }
+    .options{display:grid;gap:10px;margin-top:14px}
+    .option{
+      border:none;cursor:pointer;text-align:left;min-height:60px;padding:14px 16px;border-radius:18px;
+      background:#fff;border:1px solid var(--line);font:900 16px/1.45 inherit;color:var(--text)
+    }
+    .option:hover{transform:translateY(-1px)}
+    .option.correct{background:#f1fff4;border-color:#9fddae}
+    .option.wrong{background:#fff5f4;border-color:#f1b0a8}
+    .info{
+      margin-top:14px;padding:14px 16px;border-radius:16px;background:#f7fdff;border:1px solid var(--line)
+    }
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    .btn{
+      appearance:none;border:none;cursor:pointer;min-height:48px;padding:12px 16px;border-radius:16px;
+      font-size:15px;font-weight:1000
+    }
+    .btn.primary{background:linear-gradient(180deg,var(--blue),var(--blue2));color:#06273a}
+    .btn.good{background:linear-gradient(180deg,#92e79d,#63d473);color:#10361a}
+    .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--text)}
+    .hide{display:none!important}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card hero">
+      <div class="eyebrow">💧 Hydration Lite • Mini Learning</div>
+      <h1 id="heroTitle">Mini Learning</h1>
+      <p id="heroLead">ตอบสั้น ๆ หลังเล่น main game เพื่อคิดต่อเรื่องการดื่มน้ำ</p>
+    </section>
+
+    <section class="card task">
+      <h2 id="taskTitle">Scenario</h2>
+      <div class="stem" id="taskStem">กำลังโหลด...</div>
+      <div class="options" id="options"></div>
+      <div class="info hide" id="feedbackBox"></div>
+
+      <div class="actions">
+        <button class="btn good hide" id="nextBtn" type="button">ไปต่อ</button>
+        <button class="btn primary hide" id="submitCreateBtn" type="button">บันทึกคำตอบ</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function(){
+      const FIXED_HUB_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+      const qs = new URLSearchParams(location.search);
+
+      const refs = {
+        heroTitle: document.getElementById('heroTitle'),
+        heroLead: document.getElementById('heroLead'),
+        taskTitle: document.getElementById('taskTitle'),
+        taskStem: document.getElementById('taskStem'),
+        options: document.getElementById('options'),
+        feedbackBox: document.getElementById('feedbackBox'),
+        nextBtn: document.getElementById('nextBtn'),
+        submitCreateBtn: document.getElementById('submitCreateBtn')
+      };
+
+      const ctx = {
+        pid: qs.get('pid') || 'anon',
+        studyId: qs.get('studyId') || 'nostudy',
+        mode: qs.get('mode') || 'play',
+        type: qs.get('type') || 'solo',
+        diff: qs.get('diff') || 'normal',
+        week: Number(qs.get('week') || 1),
+        session: Number(qs.get('session') || 1),
+        branch: qs.get('branch') || 'scenario-evaluate',
+        runId: qs.get('runId') || `hyd-${Date.now()}`,
+        hub: qs.get('hub') || FIXED_HUB_URL,
+        hybridSummary: qs.get('hybridSummary') || new URL('../../hydration-hybrid-summary.html', location.href).toString()
+      };
+
+      const state = {
+        phase: 'scenario',
+        result: {
+          runId: ctx.runId,
+          pid: ctx.pid,
+          studyId: ctx.studyId,
+          mode: ctx.mode,
+          type: ctx.type,
+          weekNo: ctx.week,
+          sessionNo: ctx.session,
+          branch: ctx.branch,
+          scenarioScore: 0,
+          evaluateScore: 0,
+          createScore: 0,
+          scenarioFamily: '',
+          evaluateFamily: '',
+          createFamily: '',
+          savedAt: ''
+        }
+      };
+
+      const scenarioBank = [
+        {
+          family:'school_routine',
+          stem:'ตอนเช้าในวันเรียน ถ้าเริ่มคอแห้ง ควรทำอย่างไรดีที่สุด',
+          options:['ดื่มน้ำเปล่าทันที','รอจนกระหายน้ำมากก่อน','เลือกน้ำหวานแทน','ไม่ต้องดื่มอะไร'],
+          correct:0,
+          feedback:'เมื่อเริ่มคอแห้ง ควรจิบน้ำก่อน เพื่อช่วยให้ร่างกายได้รับน้ำอย่างเหมาะสม'
+        },
+        {
+          family:'after_activity',
+          stem:'หลังเรียนพละและมีเหงื่อออก ควรเลือกอะไรเป็นอย่างแรก',
+          options:['ดื่มน้ำเปล่า','ดื่มแต่น้ำหวาน','รออีกนานค่อยดื่ม','กินขนมก่อน'],
+          correct:0,
+          feedback:'หลังใช้แรง ร่างกายควรได้รับน้ำก่อน'
+        },
+        {
+          family:'sweet_drink',
+          stem:'ถ้าเลือกระหว่างน้ำเปล่ากับเครื่องดื่มหวาน อะไรเหมาะกับการดื่มประจำวันมากกว่า',
+          options:['น้ำเปล่า','เครื่องดื่มหวาน','เหมือนกัน','เลือกหวานเสมอ'],
+          correct:0,
+          feedback:'น้ำเปล่าเหมาะกับการดื่มประจำวันมากกว่าเครื่องดื่มหวาน'
+        }
+      ];
+
+      const evaluateBank = [
+        {
+          family:'best_plan',
+          stem:'แผนไหนเหมาะที่สุดสำหรับวันเรียนปกติ',
+          options:['พกน้ำและจิบระหว่างวัน','ดื่มแต่เครื่องดื่มหวาน','ไม่ต้องพกน้ำ','รอเย็นค่อยดื่ม'],
+          correct:0,
+          feedback:'การพกน้ำและจิบเป็นช่วง ๆ เป็นแผนที่ทำได้จริงกว่า'
+        }
+      ];
+
+      const createBank = [
+        {
+          family:'best_plan',
+          title:'เขียนแผนดื่มน้ำสั้น ๆ ของตัวเอง',
+          prompts:[
+            'หนูจะดื่มน้ำตอนไหนของวันเรียน',
+            'หนูจะเตือนตัวเองยังไงไม่ให้ลืม'
+          ]
+        }
+      ];
+
+      function readMainResult(){
+        try{
+          return JSON.parse(localStorage.getItem(`HHA_HYDRATION_HYBRID_MAIN:${ctx.runId}`) || 'null');
+        }catch(_){
+          return null;
+        }
+      }
+
+      function saveLiteResult(){
+        state.result.savedAt = new Date().toISOString();
+        localStorage.setItem(
+          `HHA_HYDRATION_HYBRID_LITE:${ctx.runId}`,
+          JSON.stringify(state.result)
+        );
+      }
+
+      function pickOne(arr){
+        return arr[Math.floor(Math.random()*arr.length)];
+      }
+
+      function showScenario(){
+        state.phase = 'scenario';
+        const item = pickOne(scenarioBank);
+        state.result.scenarioFamily = item.family;
+        refs.heroTitle.textContent = 'Scenario';
+        refs.heroLead.textContent = 'ตอบสถานการณ์สั้น ๆ หลังเล่น main game';
+        refs.taskTitle.textContent = 'Scenario 1/2';
+        refs.taskStem.textContent = item.stem;
+        refs.options.innerHTML = '';
+        refs.feedbackBox.classList.add('hide');
+        refs.nextBtn.classList.add('hide');
+        refs.submitCreateBtn.classList.add('hide');
+
+        item.options.forEach((text, idx) => {
+          const btn = document.createElement('button');
+          btn.className = 'option';
+          btn.type = 'button';
+          btn.textContent = text;
+          btn.addEventListener('click', () => {
+            const correct = idx === item.correct;
+            [...refs.options.children].forEach(el => el.disabled = true);
+            if (correct) {
+              btn.classList.add('correct');
+              state.result.scenarioScore = 15;
+              refs.feedbackBox.textContent = `เยี่ยม! ${item.feedback}`;
+            } else {
+              btn.classList.add('wrong');
+              refs.feedbackBox.textContent = `ยังไม่ใช่ที่สุดนะ ${item.feedback}`;
+            }
+            refs.feedbackBox.classList.remove('hide');
+            refs.nextBtn.classList.remove('hide');
+          });
+          refs.options.appendChild(btn);
+        });
+
+        refs.nextBtn.onclick = () => {
+          if (ctx.branch === 'scenario-create') showCreate();
+          else showEvaluate();
+        };
+      }
+
+      function showEvaluate(){
+        state.phase = 'evaluate';
+        const item = pickOne(evaluateBank);
+        state.result.evaluateFamily = item.family;
+        refs.heroTitle.textContent = 'Evaluate';
+        refs.heroLead.textContent = 'เลือกแผนที่เหมาะที่สุด';
+        refs.taskTitle.textContent = 'Evaluate 2/2';
+        refs.taskStem.textContent = item.stem;
+        refs.options.innerHTML = '';
+        refs.feedbackBox.classList.add('hide');
+        refs.nextBtn.classList.add('hide');
+        refs.submitCreateBtn.classList.add('hide');
+
+        item.options.forEach((text, idx) => {
+          const btn = document.createElement('button');
+          btn.className = 'option';
+          btn.type = 'button';
+          btn.textContent = text;
+          btn.addEventListener('click', () => {
+            const correct = idx === item.correct;
+            [...refs.options.children].forEach(el => el.disabled = true);
+            if (correct) {
+              btn.classList.add('correct');
+              state.result.evaluateScore = 15;
+              refs.feedbackBox.textContent = `เยี่ยม! ${item.feedback}`;
+            } else {
+              btn.classList.add('wrong');
+              refs.feedbackBox.textContent = `ลองคิดใหม่ ${item.feedback}`;
+            }
+            refs.feedbackBox.classList.remove('hide');
+            refs.nextBtn.textContent = 'ไปสรุปรวม';
+            refs.nextBtn.classList.remove('hide');
+          });
+          refs.options.appendChild(btn);
+        });
+
+        refs.nextBtn.onclick = finishLite;
+      }
+
+      function showCreate(){
+        state.phase = 'create';
+        const item = pickOne(createBank);
+        state.result.createFamily = item.family;
+        refs.heroTitle.textContent = 'Create';
+        refs.heroLead.textContent = 'เขียนแผนสั้น ๆ ของตัวเอง';
+        refs.taskTitle.textContent = 'Create 2/2';
+        refs.taskStem.innerHTML = `<strong>${item.title}</strong>`;
+        refs.options.innerHTML = `
+          <div class="info">
+            <div style="font-weight:900;margin-bottom:8px">${item.prompts[0]}</div>
+            <input id="createInput1" type="text" style="width:100%;min-height:44px;padding:10px 12px;border-radius:12px;border:1px solid #d4ebf7" />
+          </div>
+          <div class="info">
+            <div style="font-weight:900;margin-bottom:8px">${item.prompts[1]}</div>
+            <input id="createInput2" type="text" style="width:100%;min-height:44px;padding:10px 12px;border-radius:12px;border:1px solid #d4ebf7" />
+          </div>
+        `;
+        refs.feedbackBox.classList.add('hide');
+        refs.nextBtn.classList.add('hide');
+        refs.submitCreateBtn.classList.remove('hide');
+
+        refs.submitCreateBtn.onclick = () => {
+          const v1 = document.getElementById('createInput1')?.value || '';
+          const v2 = document.getElementById('createInput2')?.value || '';
+          const score = scoreCreate([v1,v2]);
+          state.result.createScore = score;
+          refs.feedbackBox.textContent =
+            score >= 60
+              ? 'ดีมาก แผนนี้เริ่มใช้ได้จริงแล้ว'
+              : 'ลองเพิ่มคำตอบให้ชัดขึ้นเรื่องเวลาและการดื่มน้ำ';
+          refs.feedbackBox.classList.remove('hide');
+          refs.submitCreateBtn.classList.add('hide');
+          refs.nextBtn.textContent = 'ไปสรุปรวม';
+          refs.nextBtn.classList.remove('hide');
+        };
+
+        refs.nextBtn.onclick = finishLite;
+      }
+
+      function scoreCreate(values){
+        const joined = values.join(' ').toLowerCase();
+        let score = 0;
+        if (values.filter(v => String(v || '').trim().length >= 3).length >= 2) score += 30;
+        if (/(น้ำ|ดื่ม|จิบ)/.test(joined)) score += 25;
+        if (/(เช้า|พัก|เที่ยง|บ่าย|หลัง|ก่อน)/.test(joined)) score += 25;
+        if (/(พก|เตือน|ทุกวัน|ช่วง)/.test(joined)) score += 20;
+        return Math.max(0, Math.min(100, score));
+      }
+
+      function finishLite(){
+        saveLiteResult();
+        const u = new URL(ctx.hybridSummary, location.href);
+        u.searchParams.set('runId', ctx.runId);
+        u.searchParams.set('pid', ctx.pid);
+        u.searchParams.set('studyId', ctx.studyId);
+        u.searchParams.set('mode', ctx.mode);
+        u.searchParams.set('type', ctx.type);
+        u.searchParams.set('week', String(ctx.week));
+        u.searchParams.set('session', String(ctx.session));
+        u.searchParams.set('branch', ctx.branch);
+        u.searchParams.set('hub', ctx.hub);
+        location.href = u.toString();
+      }
+
+      if (!readMainResult()) {
+        refs.taskTitle.textContent = 'ไม่พบ main result';
+        refs.taskStem.textContent = 'รอบนี้ยังไม่มีข้อมูลจาก hydration-vr ให้กลับไปเริ่ม flow ใหม่';
+        refs.options.innerHTML = '';
+        refs.feedbackBox.textContent = 'ไม่พบ HHA_HYDRATION_HYBRID_MAIN ของ run นี้';
+        refs.feedbackBox.classList.remove('hide');
+      } else {
+        showScenario();
+      }
+    })();
+  </script>
+</body>
+</html>
