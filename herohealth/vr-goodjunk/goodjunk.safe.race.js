@@ -3,7 +3,9 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.race.js
  * GoodJunk Race Core
- * FULL PATCH v20260406-race-core-runtime-full
+ * FULL PATCH v20260406-race-core-runtime-full-p2
+ * - fix spawn area blocked by top banner / opponent strip
+ * - dynamic safe play bounds
  * ========================================================= */
 (function(){
   const W = window;
@@ -463,26 +465,30 @@
         pointer-events:none;
       }
       #raceBanner{
-        position:absolute; left:50%; top:18px; transform:translateX(-50%);
-        z-index:7; min-width:min(92vw,560px); max-width:min(92vw,660px);
-        border-radius:22px; padding:12px 16px;
+        position:absolute; left:50%; top:12px; transform:translateX(-50%);
+        z-index:7; width:min(92vw,420px); max-width:min(92vw,420px);
+        border-radius:22px; padding:10px 14px;
         border:2px solid #bfe3f2;
         background:rgba(255,255,255,.95);
         box-shadow:0 14px 24px rgba(86,155,194,.16);
-        color:#4d4a42; text-align:center; font-size:14px; line-height:1.6; font-weight:1000;
+        color:#4d4a42; text-align:center; font-size:13px; line-height:1.55; font-weight:1000;
+        pointer-events:none;
       }
       #raceOpponentStrip{
         position:absolute;
-        left:14px;
         right:14px;
         bottom:14px;
         z-index:6;
         display:flex;
         gap:10px;
-        flex-wrap:wrap;
+        flex-wrap:nowrap;
+        justify-content:flex-end;
+        width:min(320px, calc(100% - 28px));
+        pointer-events:none;
       }
       .gjr-opponent-card{
-        min-width:220px;
+        width:100%;
+        min-width:0;
         padding:12px 14px;
         color:#4d4a42;
         background:rgba(255,255,255,.92);
@@ -545,16 +551,17 @@
       }
       @media (max-width:640px){
         #raceBanner{
-          top:8px;
-          min-width:min(94vw,360px);
-          padding:8px 10px;
-          font-size:11px;
+          top:6px;
+          width:min(90vw,300px);
+          max-width:min(90vw,300px);
+          padding:7px 10px;
+          font-size:10px;
           border-radius:12px;
         }
         #raceOpponentStrip{
-          left:6px;
           right:6px;
           bottom:6px;
+          width:min(220px, calc(100% - 12px));
           gap:4px;
         }
         .gjr-opponent-card{
@@ -637,25 +644,51 @@
 
   function playAreaInsets(){
     const mobile = W.innerWidth <= 640;
-    return {
-      top: mobile ? 56 : 96,
-      right: mobile ? 10 : 18,
-      bottom: mobile ? 78 : 92,
-      left: mobile ? 6 : 8
-    };
+
+    let top = mobile ? 70 : 118;
+    let right = mobile ? 8 : 12;
+    let bottom = mobile ? 92 : 106;
+    let left = mobile ? 8 : 12;
+
+    try{
+      const field = ENGINE.field && ENGINE.field.getBoundingClientRect ? ENGINE.field.getBoundingClientRect() : null;
+      const banner = ENGINE.banner && ENGINE.banner.getBoundingClientRect ? ENGINE.banner.getBoundingClientRect() : null;
+      const strip = ENGINE.opponentStrip && ENGINE.opponentStrip.getBoundingClientRect ? ENGINE.opponentStrip.getBoundingClientRect() : null;
+
+      if (field && banner && banner.width > 0 && banner.height > 0) {
+        top = Math.max(
+          top,
+          Math.round((banner.bottom - field.top) + (mobile ? 10 : 14))
+        );
+      }
+
+      if (field && strip && strip.width > 0 && strip.height > 0) {
+        bottom = Math.max(
+          bottom,
+          Math.round((field.bottom - strip.top) + (mobile ? 8 : 12))
+        );
+      }
+    }catch(_){}
+
+    return { top, right, bottom, left };
   }
 
   function playBounds(){
     const rect = fieldRect();
     const inset = playAreaInsets();
 
+    const left = inset.left;
+    const right = Math.max(left + 170, rect.w - inset.right);
+    const top = inset.top;
+    const bottom = Math.max(top + 240, rect.h - inset.bottom);
+
     return {
       w: rect.w,
       h: rect.h,
-      left: inset.left,
-      right: Math.max(inset.left + 180, rect.w - inset.right),
-      top: inset.top,
-      bottom: Math.max(inset.top + 240, rect.h - inset.bottom)
+      left,
+      right,
+      top,
+      bottom
     };
   }
 
