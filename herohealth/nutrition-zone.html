@@ -19,7 +19,7 @@
       </div>
 
       <div class="hero-actions">
-        <a id="hubBtn" class="top-btn" href="./hub.html">กลับ HUB</a>
+        <a id="hubBtn" class="top-btn" href="./hub-v2.html">กลับ HUB</a>
         <button id="continueBtn" class="top-btn primary" type="button">เล่นล่าสุด</button>
       </div>
     </header>
@@ -98,5 +98,351 @@
   </div>
 
   <script type="module" src="./nutrition-zone.js"></script>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+      let navBusy = false;
+
+      const $ = (sel, root = document) => root.querySelector(sel);
+      const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+      function first() {
+        for (let i = 0; i < arguments.length; i++) {
+          const v = arguments[i];
+          if (String(v || '').trim()) return String(v).trim();
+        }
+        return '';
+      }
+
+      function cleanPid(v) {
+        return String(v || 'anon').trim().replace(/[^\w-]/g, '').slice(0, 40) || 'anon';
+      }
+
+      function cleanName(v) {
+        return String(v || '').trim().replace(/[<>]/g, '').slice(0, 40) || 'Hero';
+      }
+
+      function cleanEnum(v, allow, fallback) {
+        v = String(v || '').trim().toLowerCase();
+        return allow.indexOf(v) >= 0 ? v : fallback;
+      }
+
+      function numIn(v, fallback, min, max) {
+        v = Number(v);
+        if (!Number.isFinite(v)) return fallback;
+        return Math.max(min, Math.min(max, v));
+      }
+
+      function readJson(key, fallback = null) {
+        try {
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fallback;
+        } catch (_) {
+          return fallback;
+        }
+      }
+
+      function buildUrl(path, params = {}) {
+        const u = new URL(path, location.href);
+        Object.entries(params).forEach(([k, v]) => {
+          if (v != null && v !== '') u.searchParams.set(k, String(v));
+        });
+        return u.toString();
+      }
+
+      const ctx = {
+        pid: cleanPid(first(qs.get('pid'), localStorage.getItem('HH_PID'), 'anon')),
+        name: cleanName(first(qs.get('name'), qs.get('nickName'), localStorage.getItem('HH_NAME'), 'Hero')),
+        studyId: first(qs.get('studyId'), ''),
+        diff: cleanEnum(first(qs.get('diff'), 'normal'), ['easy', 'normal', 'hard'], 'normal'),
+        time: String(numIn(first(qs.get('time'), 90), 90, 60, 300)),
+        seed: first(qs.get('seed'), String(Date.now())),
+        run: cleanEnum(first(qs.get('run'), 'play'), ['play', 'learn', 'research', 'demo'], 'play'),
+        view: cleanEnum(first(qs.get('view'), 'mobile'), ['mobile', 'pc', 'cvr'], 'mobile'),
+        hub: first(qs.get('hub'), new URL('./hub-v2.html', location.href).toString())
+      };
+
+      localStorage.setItem('HH_PID', ctx.pid);
+      localStorage.setItem('HH_NAME', ctx.name);
+
+      function passCommon(url) {
+        [
+          'pid','name','nickName','studyId','diff','time','seed','hub','view','run',
+          'gameId','game','zone','cat','theme','debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo','conditionGroup'
+        ].forEach((k) => {
+          const v = qs.get(k);
+          if (v != null && v !== '') url.searchParams.set(k, v);
+        });
+
+        if (!url.searchParams.get('pid')) url.searchParams.set('pid', ctx.pid);
+        if (!url.searchParams.get('name')) url.searchParams.set('name', ctx.name);
+        if (!url.searchParams.get('studyId') && ctx.studyId) url.searchParams.set('studyId', ctx.studyId);
+        if (!url.searchParams.get('diff')) url.searchParams.set('diff', ctx.diff);
+        if (!url.searchParams.get('time')) url.searchParams.set('time', ctx.time);
+        if (!url.searchParams.get('run')) url.searchParams.set('run', ctx.run);
+        if (!url.searchParams.get('view')) url.searchParams.set('view', ctx.view);
+        if (!url.searchParams.get('hub')) url.searchParams.set('hub', ctx.hub);
+        if (!url.searchParams.get('seed')) url.searchParams.set('seed', ctx.seed);
+
+        url.searchParams.set('zone', 'nutrition');
+        url.searchParams.set('cat', 'nutrition');
+
+        return url;
+      }
+
+      function buildHubUrl() {
+        return ctx.hub;
+      }
+
+      function buildPlateUrl() {
+        const u = new URL('./plate-v1.html', location.href);
+        passCommon(u);
+        u.searchParams.set('game', 'plate');
+        u.searchParams.set('gameId', 'plate');
+        u.searchParams.set('theme', 'plate');
+        return u.toString();
+      }
+
+      function buildGoodJunkUrl() {
+        const u = new URL('./goodjunk-launcher.html', location.href);
+        passCommon(u);
+        u.searchParams.set('game', 'goodjunk');
+        u.searchParams.set('gameId', 'goodjunk');
+        u.searchParams.set('theme', 'goodjunk');
+        u.searchParams.set('recommendedMode', 'solo-boss');
+        return u.toString();
+      }
+
+      function buildGroupsUrl() {
+        const u = new URL('./groups-v1.html', location.href);
+        passCommon(u);
+        u.searchParams.set('game', 'groups');
+        u.searchParams.set('gameId', 'groups');
+        u.searchParams.set('theme', 'groups');
+        return u.toString();
+      }
+
+      function buildHydrationUrl() {
+        const u = new URL('./hydration-v2.html', location.href);
+        passCommon(u);
+        u.searchParams.set('game', 'hydration');
+        u.searchParams.set('gameId', 'hydration');
+        u.searchParams.set('theme', 'hydration');
+        return u.toString();
+      }
+
+      function safeNavigate(url) {
+        if (navBusy) return;
+        navBusy = true;
+        location.href = url;
+      }
+
+      function patchHeader() {
+        const hubBtn = $('#hubBtn');
+        const continueBtn = $('#continueBtn');
+        const playerPill = $('#playerPill');
+        const modePill = $('#modePill');
+        const coachLine = $('#coachLine');
+        const modeSelect = $('#modeSelect');
+        const timeSelect = $('#timeSelect');
+
+        if (hubBtn) hubBtn.href = buildHubUrl();
+        if (playerPill) playerPill.textContent = '👤 Player: ' + ctx.pid;
+        if (modePill) modePill.textContent = '🎮 Mode: ' + ctx.run;
+        if (coachLine) coachLine.textContent = 'แนะนำตอนนี้: Plate เป็นทางเข้าหลักของ Nutrition Zone';
+
+        if (modeSelect) {
+          const desired = ['play', 'learn', 'research'].includes(ctx.run) ? ctx.run : 'play';
+          modeSelect.value = desired;
+        }
+
+        if (timeSelect) {
+          const found = $$('option', timeSelect).some(opt => opt.value === ctx.time);
+          timeSelect.value = found ? ctx.time : '90';
+        }
+
+        if (continueBtn) {
+          continueBtn.addEventListener('click', () => {
+            const last = findLastNutritionRoute();
+            safeNavigate(last || buildPlateUrl());
+          });
+        }
+      }
+
+      function findLastNutritionRoute() {
+        const summary = readJson('HHA_LAST_SUMMARY', null) || readJson('HHA_LAST_SUMMARY_GLOBAL', null);
+        if (!summary || typeof summary !== 'object') return '';
+
+        const gameId = String(summary.gameId || summary.game || '').toLowerCase();
+        if (gameId.includes('plate')) return buildPlateUrl();
+        if (gameId.includes('goodjunk')) return buildGoodJunkUrl();
+        if (gameId.includes('groups')) return buildGroupsUrl();
+        if (gameId.includes('hydration')) return buildHydrationUrl();
+        return '';
+      }
+
+      function inferRouteFromText(text) {
+        const t = String(text || '').toLowerCase();
+
+        if (t.includes('goodjunk') || t.includes('good junk')) return buildGoodJunkUrl();
+        if (t.includes('plate')) return buildPlateUrl();
+        if (t.includes('group')) return buildGroupsUrl();
+        if (t.includes('hydration') || t.includes('water')) return buildHydrationUrl();
+
+        return '';
+      }
+
+      function patchRecentArea() {
+        const recentArea = $('#recentArea');
+        if (!recentArea) return;
+
+        const existingAction = recentArea.querySelector('a,button');
+        if (existingAction && existingAction.__routePatched) return;
+
+        const lastUrl = findLastNutritionRoute();
+        if (!lastUrl) return;
+
+        const empty = recentArea.querySelector('.empty-recent');
+        if (empty) {
+          empty.innerHTML = `
+            <div style="display:grid;gap:10px;">
+              <div>พบเกมล่าสุดแล้ว กดเล่นต่อได้เลย</div>
+              <a class="top-btn primary" href="${lastUrl}" id="recentPlayLink">▶️ เล่นล่าสุด</a>
+            </div>
+          `;
+          const recentPlayLink = $('#recentPlayLink', recentArea);
+          if (recentPlayLink) {
+            recentPlayLink.__routePatched = true;
+            recentPlayLink.addEventListener('click', (ev) => {
+              if (navBusy) {
+                ev.preventDefault();
+                return;
+              }
+              navBusy = true;
+            });
+          }
+        }
+      }
+
+      function patchAnchor(anchor) {
+        if (!anchor || anchor.__routePatched) return;
+
+        const text = [
+          anchor.textContent,
+          anchor.getAttribute('href'),
+          anchor.getAttribute('data-game'),
+          anchor.getAttribute('data-id'),
+          anchor.getAttribute('aria-label'),
+          anchor.closest('[data-game],[data-id]')?.getAttribute('data-game'),
+          anchor.closest('[data-game],[data-id]')?.getAttribute('data-id'),
+          anchor.closest('[class]')?.className
+        ].filter(Boolean).join(' ');
+
+        const url = inferRouteFromText(text);
+        if (!url) return;
+
+        anchor.href = url;
+        anchor.__routePatched = true;
+
+        anchor.addEventListener('click', (ev) => {
+          if (navBusy) {
+            ev.preventDefault();
+            return;
+          }
+          navBusy = true;
+        });
+      }
+
+      function patchButton(button) {
+        if (!button || button.__routePatched) return;
+
+        const text = [
+          button.textContent,
+          button.getAttribute('data-game'),
+          button.getAttribute('data-id'),
+          button.getAttribute('aria-label'),
+          button.closest('[data-game],[data-id]')?.getAttribute('data-game'),
+          button.closest('[data-game],[data-id]')?.getAttribute('data-id'),
+          button.closest('[class]')?.className
+        ].filter(Boolean).join(' ');
+
+        const url = inferRouteFromText(text);
+        if (!url) return;
+
+        button.__routePatched = true;
+        button.addEventListener('click', () => safeNavigate(url));
+      }
+
+      function patchGamesGrid() {
+        const gamesGrid = $('#gamesGrid');
+        if (!gamesGrid) return;
+
+        $$('a', gamesGrid).forEach(patchAnchor);
+        $$('button', gamesGrid).forEach(patchButton);
+      }
+
+      function patchSearchSync() {
+        const modeSelect = $('#modeSelect');
+        const timeSelect = $('#timeSelect');
+        const searchInput = $('#searchInput');
+
+        if (modeSelect && !modeSelect.__syncBound) {
+          modeSelect.__syncBound = true;
+          modeSelect.addEventListener('change', () => {
+            ctx.run = modeSelect.value || 'play';
+            const modePill = $('#modePill');
+            if (modePill) modePill.textContent = '🎮 Mode: ' + ctx.run;
+            patchRecentArea();
+            patchGamesGrid();
+          });
+        }
+
+        if (timeSelect && !timeSelect.__syncBound) {
+          timeSelect.__syncBound = true;
+          timeSelect.addEventListener('change', () => {
+            ctx.time = timeSelect.value || '90';
+            patchRecentArea();
+            patchGamesGrid();
+          });
+        }
+
+        if (searchInput && !searchInput.__syncBound) {
+          searchInput.__syncBound = true;
+          searchInput.addEventListener('input', () => {
+            patchGamesGrid();
+          });
+        }
+      }
+
+      function patchAll() {
+        patchHeader();
+        patchRecentArea();
+        patchGamesGrid();
+        patchSearchSync();
+      }
+
+      document.addEventListener('DOMContentLoaded', patchAll);
+      window.addEventListener('focus', () => {
+        navBusy = false;
+        patchAll();
+      });
+
+      const observer = new MutationObserver(() => {
+        patchRecentArea();
+        patchGamesGrid();
+      });
+
+      window.addEventListener('DOMContentLoaded', () => {
+        const gamesGrid = $('#gamesGrid');
+        const recentArea = $('#recentArea');
+        if (gamesGrid) observer.observe(gamesGrid, { childList: true, subtree: true });
+        if (recentArea) observer.observe(recentArea, { childList: true, subtree: true });
+      });
+    })();
+  </script>
 </body>
 </html>
