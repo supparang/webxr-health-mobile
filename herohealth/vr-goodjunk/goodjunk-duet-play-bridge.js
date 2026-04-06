@@ -3,14 +3,30 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-duet-play-bridge.js
  * GoodJunk Duet Run Bridge
- * PATCH v20260406-gjduet-play-bridge-r2
- * - reuse existing duet countdown overlay in goodjunk-duet-play.html
- * - connect run page to /herohealth/room-engine.js
- * - connect archive/research log to /herohealth/herohealth-logger.js
+ * FINAL PATCH v20260406-gjduet-play-bridge-final
+ *
+ * Uses:
+ *   - /herohealth/room-engine.js
+ *   - /herohealth/herohealth-logger.js
+ *
+ * Exposes:
+ *   window.HHA_DUET_BRIDGE
+ *   window.HHA_DUET_PUSH_STATE(state)
+ *   window.HHA_DUET_PUSH_EVENT(type, detail)
+ *   window.HHA_DUET_FINISH(summary)
+ *   window.HHA_DUET_ABORT(reason)
  * ========================================================= */
 (function () {
   const W = window;
   const D = document;
+
+  if (W.__GJ_DUET_PLAY_BRIDGE_LOADED__) return;
+  W.__GJ_DUET_PLAY_BRIDGE_LOADED__ = true;
+
+  const HUB_FALLBACK = '../hub.html';
+  const PROGRESS_MIN_MS = 140;
+  const PRESENCE_PING_MS = 1500;
+  const START_POLL_MS = 80;
 
   const S = {
     ready: false,
@@ -22,12 +38,12 @@
     room: null,
     unwatchRoom: null,
     lastProgressAt: 0,
+    lastPresenceAt: 0,
     lastTickState: null,
-    sessionStartedAt: Date.now()
+    startWaitDone: false,
+    sessionStartedAt: Date.now(),
+    presenceTimer: 0
   };
-
-  const PROGRESS_MIN_MS = 150;
-  const HUB_FALLBACK = '../hub.html';
 
   function qs(key, fallback = '') {
     try {
@@ -58,16 +74,16 @@
     return D.getElementById(id);
   }
 
+  function resultMount() {
+    return byId('duetResultMount');
+  }
+
   function overlayEls() {
     return {
       wrap: byId('duetCountdownOverlay'),
       num: byId('duetCountdownNum'),
       text: byId('duetCountdownText')
     };
-  }
-
-  function resultMount() {
-    return byId('duetResultMount');
   }
 
   function getCtx() {
@@ -88,7 +104,7 @@
       room_id: clean(qs('roomId', qs('room', '')), 32),
       match_id: clean(qs('matchId', ''), 48),
       role: clean(qs('role', qs('host', '0') === '1' ? 'host' : 'player'), 24) || 'player',
-      app_version: 'v20260406-gjduet-play-bridge-r2',
+      app_version: 'v20260406-gjduet-play-bridge-final',
       start_at: num(qs('startAt', 0), 0),
       autostart: qs('autostart', '0') === '1',
       wait: qs('wait', '0') === '1'
@@ -104,7 +120,7 @@
     if (!el.wrap) return;
     el.wrap.classList.add('show');
     if (el.num) el.num.textContent = String(value == null ? '' : value);
-    if (el.text) el.text.textContent = String(message || 'เตรียมตัวเก็บของดีให้ถึงเป้าหมายคู่');
+    if (el.text) el.text.textContent = String(message || 'เริ่มพร้อมกันทั้ง 2 เครื่อง');
   }
 
   function hideCountdown() {
@@ -152,8 +168,11 @@
     });
 
     bindRoomWatch();
+    bindBridgeAliases();
     bindSummaryEvents();
+    startPresencePing();
 
+    S.ready = true;
     W.HHA_DUET_BRIDGE = {
       ready: true,
       ctx: S.ctx,
@@ -164,14 +183,34 @@
       abort
     };
 
-    S.ready = true;
-
     if (S.ctx.wait || S.ctx.autostart) {
       await waitForStart();
     } else {
-      hideCountdown();
       S.started = true;
+      hideCountdown();
     }
+  }
+
+  function bindBridgeAliases() {
+    W.HHA_DUET_PUSH_STATE = function (state) {
+      if (!S.ready) return;
+      return tick(state || {});
+    };
+
+    W.HHA_DUET_PUSH_EVENT = function (type, detail) {
+      if (!S.ready) return;
+      return event(type || 'game_event', detail || {});
+    };
+
+    W.HHA_DUET_FINISH = function (summary) {
+      if (!S.ready) return;
+      return finish(summary || {});
+    };
+
+    W.HHA_DUET_ABORT = function (reason) {
+      if (!S.ready) return;
+      return abort(reason || 'abort');
+    };
   }
 
   function bindRoomWatch() {
@@ -185,9 +224,14 @@
       roomId: S.ctx.room_id,
       onValue: async (room) => {
         S.room = room || null;
+
         const meta = room && room.meta ? room.meta : {};
         const players = room && room.players ? Object.values(room.players) : [];
         const results = room && room.results ? room.results : {};
+
+        if (num(meta.countdownAt, 0) > 0) {
+          S.ctx.start_at = num(meta.countdownAt, 0);
+        }
 
         if (meta.state === 'countdown' && num(meta.countdownAt, 0) > 0 && !S.started) {
           const leftMs = num(meta.countdownAt, 0) - now();
@@ -196,15 +240,17 @@
           if (leftMs <= 0) {
             hideCountdown();
             S.started = true;
+            S.startWaitDone = true;
           }
         }
 
         if (meta.state === 'running' && !S.started) {
           hideCountdown();
           S.started = true;
+          S.startWaitDone = true;
         }
 
-        if (meta.state === 'aborted' && !S.finished) {
+        if ((meta.state === 'aborted') && !S.finished) {
           await abort('room_aborted');
           return;
         }
@@ -232,20 +278,43 @@
     });
   }
 
-  async function waitForStart() {
-    const startAt = num(S.ctx.start_at, 0);
+  function startPresencePing() {
+    clearInterval(S.presenceTimer);
+    S.presenceTimer = setInterval(async () => {
+      if (!S.ready || !S.ctx || !S.ctx.room_id || S.finished) return;
+      const t = now();
+      if ((t - S.lastPresenceAt) < PRESENCE_PING_MS) return;
+      S.lastPresenceAt = t;
 
+      try {
+        await W.HHA_ROOM.attachPresence({
+          pid: S.ctx.pid,
+          name: S.ctx.display_name,
+          game: S.ctx.game,
+          mode: S.ctx.mode,
+          roomId: S.ctx.room_id,
+          state: S.started ? 'running' : 'lobby'
+        });
+      } catch (_) {}
+    }, PRESENCE_PING_MS);
+  }
+
+  async function waitForStart() {
+    if (S.startWaitDone) return true;
+
+    const startAt = num(S.ctx.start_at, 0);
     if (startAt > 0 && !S.started) {
       while (now() < startAt && !S.started) {
         const leftMs = startAt - now();
         const sec = Math.max(0, Math.ceil(leftMs / 1000));
         showCountdown(sec > 0 ? sec : 'GO!', 'เริ่มพร้อมกันทั้ง 2 เครื่อง');
-        await new Promise((resolve) => setTimeout(resolve, 80));
+        await new Promise((resolve) => setTimeout(resolve, START_POLL_MS));
       }
     }
 
     hideCountdown();
     S.started = true;
+    S.startWaitDone = true;
     return true;
   }
 
@@ -264,6 +333,7 @@
 
   async function tick(state) {
     if (!S.ready || S.finished) return;
+
     const t = now();
     S.lastTickState = Object.assign({}, state || {});
 
@@ -300,7 +370,7 @@
     const miss = num(finalState.miss, 0);
     const bestStreak = num(finalState.best_streak ?? finalState.bestStreak ?? finalState.streak, 0);
     const accuracy = num(finalState.accuracy, 0);
-    const contribution = num(finalState.contribution, 0);
+    const contribution = num(finalState.contribution, score);
     const progress = Math.max(1, num(finalState.progress, 1));
 
     try {
@@ -403,6 +473,7 @@
     saveLastSummary(sessionRow);
     showResultMount();
     hideCountdown();
+    stopTimers();
     return sessionRow;
   }
 
@@ -422,6 +493,7 @@
     } catch (_) {}
 
     hideCountdown();
+    stopTimers();
 
     const lobby = new URL('./goodjunk-duet-lobby.html', location.href);
     lobby.searchParams.set('mode', 'duet');
@@ -458,10 +530,20 @@
     });
   }
 
+  function stopTimers() {
+    clearInterval(S.presenceTimer);
+    S.presenceTimer = 0;
+    if (typeof S.unwatchRoom === 'function') {
+      try { S.unwatchRoom(); } catch (_) {}
+    }
+    S.unwatchRoom = null;
+  }
+
   W.addEventListener('pagehide', () => {
     try {
       if (S.logger) S.logger.flush('pagehide');
     } catch (_) {}
+    stopTimers();
   });
 
   init().catch((err) => {
