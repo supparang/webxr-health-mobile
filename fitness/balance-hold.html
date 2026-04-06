@@ -2,865 +2,802 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Balance Hold — VR Fitness (DOM)</title>
-  <meta name="color-scheme" content="dark" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"
+  />
+  <title>HeroHealth • Balance Hold</title>
+
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#bfe9ff" />
+  <link rel="icon" href="../herohealth/favicon.ico" />
 
   <style>
     :root{
-      --bg:#050814;
-      --card: rgba(12,16,30,.70);
-      --bd: rgba(255,255,255,.10);
-      --txt: rgba(248,250,252,.95);
-      --mut: rgba(148,163,184,.92);
+      --sky1:#eaf8ff;
+      --sky2:#d7f1ff;
+      --sky3:#fff7dc;
 
-      --good:#22c55e;
-      --good2:#86efac;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --blue:#38bdf8;
-      --violet:#a78bfa;
-      --gold:#fde68a;
+      --card:#fffdf8;
+      --card2:#f9fffd;
+      --line:#bfe3ef;
 
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sat: env(safe-area-inset-top, 0px);
+      --text:#33424f;
+      --muted:#6f8190;
+
+      --blue:#7fcfff;
+      --blue2:#59bdf7;
+      --green:#7ed957;
+      --green2:#52c83a;
+      --yellow:#ffd45c;
+      --orange:#ffb347;
+      --pink:#ff99c8;
+      --purple:#c3a6ff;
+
+      --shadow:0 14px 40px rgba(37, 85, 120, .14);
+      --shadow-soft:0 8px 24px rgba(37, 85, 120, .10);
+
+      --safe-top:max(12px, env(safe-area-inset-top));
+      --safe-right:max(12px, env(safe-area-inset-right));
+      --safe-bottom:max(12px, env(safe-area-inset-bottom));
+      --safe-left:max(12px, env(safe-area-inset-left));
     }
 
     *{ box-sizing:border-box; }
-    html,body{ height:100%; margin:0; }
+    html,body{ margin:0; padding:0; min-height:100%; }
     body{
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color:var(--text);
       background:
-        radial-gradient(900px 700px at 15% 0%, rgba(59,130,246,.18), transparent 60%),
-        radial-gradient(900px 700px at 90% 20%, rgba(34,197,94,.12), transparent 60%),
-        var(--bg);
-      color: var(--txt);
-      overflow-x:hidden;
+        radial-gradient(circle at top, var(--sky3) 0%, var(--sky1) 28%, var(--sky2) 72%, #cdeeff 100%);
+      overflow:hidden;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
     }
 
-    .hidden{ display:none !important; }
-
-    .app{
-      width:min(1040px, 100%);
-      margin:0 auto;
-      padding: calc(12px + var(--sat)) 12px calc(14px + var(--sab));
-      display:grid;
-      gap:12px;
+    .page-bg{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:0;
     }
-
-    .card{
-      border:1px solid var(--bd);
-      background: linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.66));
-      border-radius: 16px;
-      padding: 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    .cloud{
+      position:absolute;
+      border-radius:999px;
+      background:rgba(255,255,255,.68);
+      filter:blur(2px);
+      box-shadow:0 8px 22px rgba(255,255,255,.35);
     }
+    .cloud.c1{ width:150px; height:52px; left:6%; top:8%; }
+    .cloud.c2{ width:120px; height:42px; right:10%; top:12%; }
+    .cloud.c3{ width:180px; height:58px; left:20%; bottom:16%; opacity:.35; }
 
-    h1,h2,h3{ margin:0; }
-    .title{ font-size:1.1rem; font-weight:900; letter-spacing:.2px; }
-    .sub{ margin:.35rem 0 0; color:var(--mut); line-height:1.35; font-size:.92rem; }
-
-    .grid2{
-      display:grid;
-      gap:12px;
-      grid-template-columns: 1fr;
+    .spark{
+      position:absolute;
+      width:16px; height:16px;
+      border-radius:50%;
+      background:rgba(255,255,255,.42);
+      box-shadow:0 0 0 8px rgba(255,255,255,.10);
     }
-    @media (min-width: 820px){
-      .grid2{ grid-template-columns: 1fr 1fr; }
-    }
+    .spark.s1{ left:12%; top:24%; }
+    .spark.s2{ right:18%; top:30%; }
+    .spark.s3{ left:72%; bottom:28%; }
 
-    .field-row{
-      display:grid;
-      grid-template-columns: 120px 1fr;
-      gap:8px;
-      align-items:center;
-      margin-top:10px;
-    }
-    .field-row label{ color:var(--mut); font-size:.9rem; }
-
-    select,input{
-      width:100%;
-      min-height:40px;
-      border-radius: 12px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(2,6,23,.70);
-      color: var(--txt);
-      padding: 8px 10px;
-      font: inherit;
-      outline:none;
-    }
-
-    .btn{
-      appearance:none;
-      border:1px solid rgba(255,255,255,.18);
-      background: rgba(255,255,255,.08);
-      color:#fff;
-      border-radius: 12px;
-      padding: 10px 14px;
-      cursor:pointer;
-      font-weight:700;
-      line-height:1.1;
-    }
-    .btn:hover{ background: rgba(255,255,255,.12); }
-    .btn:active{ transform: translateY(1px); }
-    .btn-primary{ background: rgba(59,130,246,.22); border-color: rgba(59,130,246,.40); }
-    .btn-danger{ background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.40); }
-    .btn-good{ background: rgba(34,197,94,.16); border-color: rgba(34,197,94,.36); }
-    .actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-
-    .hud-panel{
+    #bhGame{
+      position:relative;
+      min-height:100vh;
+      z-index:1;
       display:flex;
       flex-direction:column;
-      gap:8px;
-      padding:10px;
-      border-radius:14px;
-      background: rgba(8,12,24,.62);
-      border:1px solid rgba(255,255,255,.09);
-      backdrop-filter: blur(8px);
-    }
-    .hud-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:center;
+      padding:
+        calc(var(--safe-top) + 10px)
+        calc(var(--safe-right) + 12px)
+        calc(var(--safe-bottom) + 10px)
+        calc(var(--safe-left) + 12px);
+      gap:12px;
     }
 
-    .pill{
-      padding:7px 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.10);
-      font-size:.9rem;
+    /* top bar */
+    #bhTopbar{
+      position:relative;
+      z-index:5;
+      display:grid;
+      grid-template-columns:auto 1fr auto auto auto;
+      gap:10px;
+      align-items:center;
+      width:min(1180px, 100%);
+      margin:0 auto;
+    }
+
+    .hh-chip,
+    .hh-btn{
+      border:0;
+      border-radius:999px;
+      background:rgba(255,255,255,.88);
+      color:var(--text);
+      box-shadow:var(--shadow-soft);
+      min-height:44px;
+    }
+
+    .hh-chip{
+      padding:10px 14px;
+      font-weight:800;
+      letter-spacing:.1px;
+      display:flex;
+      align-items:center;
+      gap:8px;
       white-space:nowrap;
     }
 
-    .hud-stabilitybar{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-width:220px;
-      flex:1;
-      padding:6px 10px;
-      border-radius:999px;
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.10);
-    }
-    .hud-stabilitybar-track{
-      position:relative;
-      height:10px;
-      flex:1;
-      border-radius:999px;
-      overflow:hidden;
-      background:rgba(255,255,255,.10);
-    }
-    .hud-stabilitybar-fill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg, #22c55e, #38bdf8);
-      transition: width .12s linear;
-    }
-    .hud-stabilitybar-label{
-      font-size:.78rem;
-      opacity:.9;
+    .hh-chip.soft{
+      background:rgba(255,255,255,.74);
+      font-weight:700;
     }
 
-    #playArea{
+    .hh-btn{
+      padding:10px 14px;
+      font-weight:800;
+      cursor:pointer;
+      transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .hh-btn:active{ transform:scale(.98); }
+    .hh-btn.primary{
+      background:linear-gradient(180deg, #fff7b9, #ffd45c);
+    }
+    .hh-btn.blue{
+      background:linear-gradient(180deg, #dff5ff, #9fddff);
+    }
+    .hh-btn.pink{
+      background:linear-gradient(180deg, #ffe7f2, #ffbfd9);
+    }
+
+    /* arena card */
+    .arena-wrap{
       position:relative;
-      min-height: 420px;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,.10);
+      z-index:2;
+      width:min(1180px, 100%);
+      margin:0 auto;
+      flex:1;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+      min-height:0;
+    }
+
+    .arena-card{
+      position:relative;
+      min-height:0;
+      border-radius:30px;
       background:
-        radial-gradient(700px 320px at 50% 0%, rgba(59,130,246,.12), transparent 70%),
-        linear-gradient(180deg, rgba(15,23,42,.56), rgba(2,6,23,.72));
+        linear-gradient(180deg, rgba(255,255,255,.92), rgba(246,252,255,.96));
+      box-shadow:var(--shadow);
+      border:2px solid rgba(255,255,255,.75);
+      overflow:hidden;
+    }
+
+    /* in-card top labels */
+    .arena-head{
+      position:absolute;
+      z-index:7;
+      top:14px;
+      left:14px;
+      right:14px;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      pointer-events:none;
+    }
+
+    .arena-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      max-width:100%;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.86);
+      box-shadow:0 10px 24px rgba(55,100,140,.10);
+      font-weight:800;
+      font-size:16px;
+      line-height:1;
+    }
+
+    .arena-badge.small{
+      font-size:14px;
+      font-weight:700;
+      color:var(--muted);
+    }
+
+    /* actual arena */
+    #bhArena{
+      position:relative;
+      width:100%;
+      min-height:clamp(420px, 62vh, 760px);
+      height:100%;
       overflow:hidden;
       touch-action:none;
       user-select:none;
-      transition: box-shadow .16s ease, border-color .16s ease, transform .16s ease;
-    }
-    body.view-mobile #playArea{ min-height: 460px; }
-    body.view-cvr #playArea{ min-height: 520px; }
-
-    #playArea.danger-1{
-      box-shadow: 0 0 0 1px rgba(245,158,11,.12) inset;
-    }
-    #playArea.danger-2{
-      box-shadow:
-        0 0 0 1px rgba(245,158,11,.18) inset,
-        0 0 32px rgba(245,158,11,.10);
-    }
-    #playArea.danger-3{
-      box-shadow:
-        0 0 0 1px rgba(239,68,68,.24) inset,
-        0 0 36px rgba(239,68,68,.16);
-    }
-    #playArea.phase-rush{
-      border-color: rgba(167,139,250,.26);
-      box-shadow:
-        0 0 0 1px rgba(167,139,250,.14) inset,
-        0 0 34px rgba(167,139,250,.12);
-    }
-    #playArea.combo-surge{
-      box-shadow:
-        0 0 0 1px rgba(56,189,248,.16) inset,
-        0 0 34px rgba(56,189,248,.10);
+      background:
+        radial-gradient(circle at 50% 55%, rgba(255,255,255,.98), rgba(238,249,255,.98) 62%, rgba(218,242,255,.98) 100%);
     }
 
-    .safe-zone-overlay{
+    /* floor rhythm mat */
+    .rhythm-mat{
       position:absolute;
       left:50%;
-      top:50%;
-      width:72%;
-      height:28px;
+      top:57%;
+      width:min(86%, 940px);
+      height:min(70%, 540px);
+      transform:translate(-50%,-50%);
+      border-radius:36px;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,.72), rgba(255,255,255,.18) 62%, rgba(255,255,255,0) 100%),
+        linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,255,255,.28));
+      border:3px dashed rgba(121,191,235,.35);
+      box-shadow:inset 0 0 0 16px rgba(255,255,255,.22);
+      pointer-events:none;
+      z-index:0;
+    }
+
+    .lane-ring{
+      position:absolute;
+      left:50%;
+      top:55%;
       transform:translate(-50%,-50%);
       border-radius:999px;
-      background:rgba(255,255,255,.06);
-      border:1px dashed rgba(255,255,255,.18);
       pointer-events:none;
+      z-index:0;
     }
-    .safe-zone-inner{
+    .lane-ring.r1{
+      width:160px; height:160px;
+      border:4px solid rgba(127,207,255,.22);
+    }
+    .lane-ring.r2{
+      width:280px; height:280px;
+      border:4px dashed rgba(255,212,92,.24);
+    }
+    .lane-ring.r3{
+      width:420px; height:420px;
+      border:4px dotted rgba(255,153,200,.18);
+    }
+
+    .post-mark{
       position:absolute;
-      left:50%;
-      top:50%;
-      width:28%;
-      height:16px;
-      transform:translate(-50%,-50%);
+      z-index:0;
+      width:60px; height:60px;
       border-radius:999px;
-      background:rgba(34,197,94,.22);
-      border:1px solid rgba(34,197,94,.45);
-      transition: width .2s ease;
-    }
-
-    #centerPulse{
-      position:absolute;
-      left:50%;
-      top:50%;
-      width:18px;
-      height:18px;
-      border-radius:50%;
-      transform:translate(-50%,-50%);
-      background:rgba(255,255,255,.18);
-      border:1px solid rgba(255,255,255,.35);
-      pointer-events:none;
-      z-index: 2;
-    }
-    #centerPulse.good{
-      background:rgba(34,197,94,.35);
-      border-color:rgba(34,197,94,.65);
-      animation:centerPulseGlow .8s ease-out infinite;
-    }
-    @keyframes centerPulseGlow{
-      0%{ box-shadow:0 0 0 0 rgba(34,197,94,.35); }
-      100%{ box-shadow:0 0 0 12px rgba(34,197,94,0); }
-    }
-
-    #platform-wrap{
-      position:absolute;
-      left:50%;
-      bottom: 120px;
-      width:min(86vw, 560px);
-      height:140px;
-      transform:translateX(-50%);
       display:grid;
       place-items:center;
-      z-index: 3;
+      font-size:24px;
+      color:#4f7592;
+      background:rgba(255,255,255,.70);
+      box-shadow:0 8px 18px rgba(64,120,160,.12);
+      border:2px solid rgba(127,207,255,.28);
       pointer-events:none;
+      transform:translate(-50%,-50%);
     }
-    #platform{
-      width:100%;
-      height:22px;
+    .p1{ left:50%; top:55%; }
+    .p2{ left:32%; top:56%; }
+    .p3{ left:68%; top:56%; }
+    .p4{ left:50%; top:38%; }
+    .p5{ left:38%; top:60%; }
+    .p6{ left:62%; top:44%; }
+
+    #bhTarget,
+    #bhCursor,
+    #bhGhost{
+      position:absolute;
       border-radius:999px;
-      background: linear-gradient(180deg, rgba(226,232,240,.96), rgba(148,163,184,.92));
-      border:1px solid rgba(255,255,255,.22);
-      box-shadow: 0 10px 26px rgba(0,0,0,.28);
-      transform-origin:center center;
-      position:relative;
-      transition: transform .05s linear;
     }
-    #indicator{
-      position:absolute;
+
+    #bhTarget{
+      z-index:2;
       left:50%;
-      top:-22px;
-      width:34px;
-      height:34px;
-      border-radius:50%;
-      transform: translateX(0) translateY(0);
-      background: radial-gradient(circle at 35% 30%, #fff, rgba(59,130,246,.95) 45%, rgba(29,78,216,.95));
-      border:1px solid rgba(255,255,255,.26);
-      box-shadow: 0 14px 28px rgba(0,0,0,.30);
-      z-index: 4;
-      transition: transform .05s linear;
-    }
-
-    #obstacle-layer{
-      position:absolute;
-      inset:0;
-      z-index: 6;
+      top:55%;
+      width:120px;
+      height:120px;
+      margin-left:-60px;
+      margin-top:-60px;
+      border:5px solid var(--blue2);
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,.68), rgba(127,207,255,.16));
+      box-shadow:
+        0 0 0 10px rgba(127,207,255,.08),
+        0 0 38px rgba(127,207,255,.20);
       pointer-events:none;
     }
-    .obstacle{
-      position:absolute;
-      top:8%;
-      transform: translateX(-50%);
-      font-size: 30px;
-      line-height:1;
-      user-select:none;
+
+    #bhCursor{
+      z-index:4;
+      left:50%;
+      top:55%;
+      width:28px;
+      height:28px;
+      margin-left:-14px;
+      margin-top:-14px;
+      background:
+        radial-gradient(circle at 32% 32%, #fff6d9, var(--orange));
+      box-shadow:
+        0 0 0 8px rgba(255,179,71,.20),
+        0 0 18px rgba(255,179,71,.22);
       pointer-events:none;
-      filter: drop-shadow(0 4px 6px rgba(0,0,0,.35));
-      animation: obFall 1.25s linear forwards;
-      opacity:.95;
-    }
-    .obstacle.telegraph{
-      animation: obFallTele 1.25s linear forwards;
-    }
-    .obstacle.avoid{ filter: drop-shadow(0 0 10px rgba(34,197,94,.65)); }
-    .obstacle.hit{  filter: drop-shadow(0 0 10px rgba(239,68,68,.8)); }
-
-    @keyframes obFall{
-      0%   { transform:translateX(-50%) translateY(0) scale(.9); opacity:.65; }
-      20%  { opacity:1; }
-      100% { transform:translateX(-50%) translateY(260px) scale(1.08); opacity:.95; }
-    }
-    @keyframes obFallTele{
-      0%   { transform:translateX(-50%) translateY(0) scale(.8); opacity:.35; }
-      20%  { opacity:1; }
-      100% { transform:translateX(-50%) translateY(260px) scale(1.08); opacity:.95; }
     }
 
-    .fx-float{
-      position:absolute;
-      transform: translate(-50%,-50%);
-      font-weight:900;
-      font-size:.95rem;
+    #bhGhost{
+      z-index:1;
+      left:50%;
+      top:54%;
+      width:108px;
+      height:170px;
+      transform:translate(-50%,-50%);
+      border-radius:26px;
+      background:rgba(255,255,255,.32);
+      border:3px dashed rgba(95,136,165,.24);
       pointer-events:none;
-      user-select:none;
-      animation: fxFloat .8s ease-out forwards;
-      text-shadow: 0 1px 4px rgba(0,0,0,.5);
-      z-index: 10;
-    }
-    .fx-float.good{ color:#86efac; }
-    .fx-float.gold{ color:#fde68a; }
-    .fx-float.bad { color:#fca5a5; }
-    @keyframes fxFloat{
-      0%   { opacity:0; transform:translate(-50%,-40%) scale(.92); }
-      15%  { opacity:1; }
-      100% { opacity:0; transform:translate(-50%,-140%) scale(1.03); }
     }
 
-    .count-pop{
-      animation: countPop .22s ease-out;
-    }
-    @keyframes countPop{
-      0%{ transform:scale(.92); }
-      100%{ transform:scale(1); }
-    }
-
-    .shake-hit{
-      animation:shakeHit .22s linear;
-    }
-    @keyframes shakeHit{
-      0%,100%{ transform:translateX(0); }
-      25%{ transform:translateX(-4px); }
-      50%{ transform:translateX(4px); }
-      75%{ transform:translateX(-3px); }
-    }
-
-    .coach-wrap{
-      display:grid;
-      gap:8px;
-      justify-items:center;
-    }
-    #coachLabel{
-      color:var(--mut);
-      font-size:.92rem;
-      text-align:center;
-      margin:0;
-    }
-    #coachBubble{
-      max-width: min(96vw, 760px);
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(2,6,23,.72);
-      padding: 10px 12px;
-      line-height: 1.35;
-      text-align:center;
-      box-shadow: 0 14px 34px rgba(0,0,0,.28);
-    }
-
-    .play-controls{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top: 10px;
-    }
-
-    #cvrOverlay{
-      position:absolute;
-      inset:0;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      pointer-events:none;
-      z-index: 7;
-    }
-    #cvrOverlay .crosshair{
-      width:26px;
-      height:26px;
-      border-radius:50%;
-      border:2px solid rgba(255,255,255,.9);
-      box-shadow:0 0 0 2px rgba(0,0,0,.25) inset;
-      position:relative;
-    }
-    #cvrOverlay .crosshair::before,
-    #cvrOverlay .crosshair::after{
+    /* simple pose variations */
+    #bhGhost::before,
+    #bhGhost::after{
       content:"";
       position:absolute;
-      left:50%;
-      top:50%;
-      background:rgba(255,255,255,.9);
-      transform:translate(-50%,-50%);
-    }
-    #cvrOverlay .crosshair::before{ width:2px; height:18px; }
-    #cvrOverlay .crosshair::after{ width:18px; height:2px; }
-    #cvrOverlay .cvr-tip{
-      font-size:.78rem;
-      padding:4px 10px;
+      background:rgba(123,168,198,.18);
       border-radius:999px;
-      background:rgba(0,0,0,.35);
-      border:1px solid rgba(255,255,255,.15);
-      color:rgba(248,250,252,.92);
     }
 
-    .overlay{
-      position:fixed;
-      inset:0;
-      z-index: 50;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background: rgba(2,6,23,.62);
-      padding: 16px;
+    #bhGhost[data-ghost="center"]::before{
+      width:34px; height:34px; left:50%; top:12px; transform:translateX(-50%);
     }
-    .overlay-card{
-      width: min(720px, 96vw);
-      border-radius: 18px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(10,14,28,.96);
-      padding: 16px;
-      box-shadow: 0 20px 50px rgba(0,0,0,.45);
+    #bhGhost[data-ghost="center"]::after{
+      width:18px; height:92px; left:50%; top:48px; transform:translateX(-50%);
     }
-    .overlay-actions{
+
+    #bhGhost[data-ghost="left-right"]{
+      transform:translate(-50%,-50%) rotate(-10deg);
+    }
+    #bhGhost[data-ghost="left-right"]::before{
+      width:34px; height:34px; left:46%; top:12px; transform:translateX(-50%);
+    }
+    #bhGhost[data-ghost="left-right"]::after{
+      width:18px; height:92px; left:46%; top:48px; transform:translateX(-50%);
+    }
+
+    #bhGhost[data-ghost="one-leg"]{
+      transform:translate(-50%,-50%) rotate(8deg);
+    }
+    #bhGhost[data-ghost="one-leg"]::before{
+      width:34px; height:34px; left:50%; top:12px; transform:translateX(-50%);
+    }
+    #bhGhost[data-ghost="one-leg"]::after{
+      width:18px; height:82px; left:50%; top:48px; transform:translateX(-50%);
+      box-shadow:20px 66px 0 0 rgba(123,168,198,.18);
+    }
+
+    #bhGhost[data-ghost="forward"]{
+      transform:translate(-50%,-50%) rotate(-6deg) scaleY(1.02);
+    }
+    #bhGhost[data-ghost="forward"]::before{
+      width:34px; height:34px; left:50%; top:12px; transform:translateX(-50%);
+    }
+    #bhGhost[data-ghost="forward"]::after{
+      width:18px; height:104px; left:50%; top:42px; transform:translateX(-50%);
+    }
+
+    #bhGhost[data-ghost="beam"]{
+      transform:translate(-50%,-50%) rotate(14deg);
+    }
+    #bhGhost[data-ghost="beam"]::before{
+      width:34px; height:34px; left:50%; top:12px; transform:translateX(-50%);
+    }
+    #bhGhost[data-ghost="beam"]::after{
+      width:18px; height:86px; left:50%; top:48px; transform:translateX(-50%);
+      box-shadow:-26px 78px 0 -3px rgba(123,168,198,.16);
+    }
+
+    #bhGhost[data-ghost="finale"]{
+      transform:translate(-50%,-50%) rotate(-4deg) scale(1.04);
+      border-color:rgba(255,153,200,.30);
+      background:rgba(255,245,250,.34);
+    }
+    #bhGhost[data-ghost="finale"]::before{
+      width:34px; height:34px; left:50%; top:12px; transform:translateX(-50%);
+      background:rgba(255,153,200,.20);
+    }
+    #bhGhost[data-ghost="finale"]::after{
+      width:18px; height:96px; left:50%; top:48px; transform:translateX(-50%);
+      background:rgba(255,153,200,.18);
+    }
+
+    #bhCue{
+      position:absolute;
+      z-index:6;
+      top:18px;
+      left:50%;
+      transform:translateX(-50%);
+      min-width:min(72vw, 320px);
+      max-width:min(86vw, 520px);
+      padding:10px 16px;
+      text-align:center;
+      border-radius:999px;
+      background:rgba(255,255,255,.92);
+      box-shadow:0 10px 24px rgba(55,100,140,.12);
+      font-size:clamp(15px, 2.2vw, 20px);
+      font-weight:900;
+      letter-spacing:.1px;
+      color:#33526a;
+      pointer-events:none;
+    }
+
+    #bhBeat{
+      position:absolute;
+      z-index:6;
+      right:18px;
+      top:18px;
+      width:28px;
+      height:28px;
+      border-radius:999px;
+      background:radial-gradient(circle at 30% 30%, #f4ffd8, var(--green));
+      box-shadow:
+        0 0 0 8px rgba(126,217,87,.12),
+        0 0 22px rgba(126,217,87,.22);
+      opacity:.28;
+      pointer-events:none;
+    }
+
+    /* bottom info */
+    #bhBottombar{
+      position:relative;
+      z-index:5;
+      width:min(1180px, 100%);
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:1.2fr 1fr;
+      gap:12px;
+      align-items:stretch;
+    }
+
+    .panel{
+      background:rgba(255,255,255,.88);
+      border-radius:22px;
+      box-shadow:var(--shadow-soft);
+      padding:12px 14px;
+      min-height:74px;
+    }
+
+    .panel-title{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:800;
+      margin-bottom:6px;
+    }
+
+    #bhCoach{
+      font-size:18px;
+      font-weight:900;
+      line-height:1.25;
+      color:#36586f;
+    }
+
+    #bhProgress{
       display:flex;
       flex-wrap:wrap;
       gap:8px;
-      justify-content:flex-end;
-      margin-top: 12px;
+      align-items:center;
     }
 
-    .tutorial-list{
-      margin:0;
-      padding-left:18px;
-      display:grid;
-      gap:6px;
-      color:rgba(226,232,240,.92);
-      line-height:1.35;
-    }
-    .checkbox-row{
-      margin-top:10px;
-      display:flex;
-      gap:8px;
-      align-items:flex-start;
-      color:rgba(226,232,240,.92);
-      opacity:.95;
-    }
-
-    .result-hero{
-      display:grid;
-      gap:10px;
-      margin-bottom:12px;
-      padding:12px;
-      border-radius:16px;
-      background: rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.08);
-    }
-    .result-hero-main{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-    }
-    .rank-badge{
-      width:64px;
-      height:64px;
-      border-radius: 16px;
+    .bh-dot{
+      width:36px;
+      height:36px;
+      border-radius:999px;
       display:grid;
       place-items:center;
-      font-size:1.65rem;
       font-weight:900;
-      border:1px solid rgba(255,255,255,.18);
-      background: rgba(255,255,255,.06);
+      font-size:14px;
+      color:#4c6476;
+      background:rgba(255,255,255,.92);
+      box-shadow:inset 0 0 0 2px rgba(127,207,255,.24);
     }
-    .rank-S{ background:rgba(250,204,21,.16); border-color:rgba(250,204,21,.45); color:#fde68a; }
-    .rank-A{ background:rgba(34,197,94,.15); border-color:rgba(34,197,94,.4); color:#86efac; }
-    .rank-B{ background:rgba(56,189,248,.14); border-color:rgba(56,189,248,.38); color:#93c5fd; }
-    .rank-C{ background:rgba(251,191,36,.14); border-color:rgba(251,191,36,.38); color:#fde68a; }
-    .rank-D{ background:rgba(239,68,68,.12); border-color:rgba(239,68,68,.35); color:#fca5a5; }
-    .rank-pop{ animation:rankPop .35s ease-out; }
-    @keyframes rankPop{
-      0%{ transform:scale(.85) rotate(-6deg); opacity:.7; }
-      100%{ transform:scale(1) rotate(0); opacity:1; }
+    .bh-dot.active{
+      background:linear-gradient(180deg, #fff2b8, #ffd45c);
+      color:#785700;
     }
-
-    .hero-insight{
-      margin-top:8px;
-      padding:10px 12px;
-      border-radius: 12px;
-      border:1px solid rgba(255,255,255,.08);
-      background: rgba(255,255,255,.04);
-      color: rgba(226,232,240,.92);
-      line-height:1.35;
+    .bh-dot.done{
+      background:linear-gradient(180deg, #d9ffd0, #7ed957);
+      color:#194d17;
     }
 
-    .result-hero-stats{
+    /* help bubble */
+    .help-card{
+      position:absolute;
+      z-index:10;
+      left:16px;
+      bottom:16px;
+      max-width:min(86vw, 340px);
+      background:rgba(255,255,255,.90);
+      border-radius:20px;
+      padding:12px 14px;
+      box-shadow:0 14px 30px rgba(50,90,120,.12);
+      border:2px solid rgba(255,255,255,.70);
+    }
+    .help-card h3{
+      margin:0 0 6px;
+      font-size:16px;
+    }
+    .help-card p{
+      margin:0;
+      font-size:14px;
+      line-height:1.45;
+      color:var(--muted);
+    }
+
+    /* overlay summary */
+    #bhOverlay{
+      position:fixed;
+      inset:0;
+      z-index:30;
       display:grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap:8px;
+      place-items:center;
+      padding:20px;
+      background:rgba(30,48,66,.34);
     }
-    .stat-card{
-      padding:10px;
-      border-radius: 12px;
-      border:1px solid rgba(255,255,255,.06);
-      background: rgba(255,255,255,.03);
-      display:grid;
-      gap:4px;
-    }
-    .stat-card span{ font-size:.78rem; opacity:.85; }
-    .stat-card strong{ font-size:1rem; }
+    #bhOverlay[hidden]{ display:none; }
 
-    .mini-badges{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-    .mini-badge{
-      padding:7px 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.10);
-      font-size:.82rem;
-    }
-    .mini-badge.good{
-      border-color:rgba(34,197,94,.35);
-      background:rgba(34,197,94,.09);
-    }
-    .mini-badge.warn{
-      border-color:rgba(251,191,36,.35);
-      background:rgba(251,191,36,.08);
+    .bh-summary-card{
+      width:min(94vw, 760px);
+      background:linear-gradient(180deg, #fffef9, #fffaf0);
+      border-radius:28px;
+      padding:20px;
+      box-shadow:0 28px 80px rgba(0,0,0,.20);
+      border:2px solid rgba(255,255,255,.80);
     }
 
-    .result-grid{
-      display:grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap:8px;
+    .bh-summary-card h2{
+      margin:0 0 10px;
+      font-size:clamp(24px, 4vw, 34px);
+      color:#34506a;
     }
-    .result-item{
-      padding:10px 12px;
-      border-radius: 12px;
-      border:1px solid rgba(255,255,255,.06);
-      background: rgba(255,255,255,.03);
-      display:flex;
-      justify-content:space-between;
+
+    .bh-summary-main,
+    .bh-summary-sub{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
       gap:10px;
+      margin:12px 0;
     }
 
-    .result-actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top: 12px;
+    .bh-summary-main > div,
+    .bh-summary-sub > div{
+      background:#fff;
+      border-radius:18px;
+      padding:12px 14px;
+      box-shadow:0 8px 18px rgba(50,90,120,.08);
+      font-weight:800;
+    }
+
+    .bh-summary-list{
+      margin-top:10px;
+      background:#fff;
+      border-radius:20px;
+      padding:10px 14px;
+      box-shadow:0 8px 18px rgba(50,90,120,.08);
+    }
+
+    .bh-sum-head,
+    .bh-sum-row{
+      display:grid;
+      grid-template-columns:1.6fr .6fr .7fr;
+      gap:10px;
+      align-items:center;
+      padding:10px 0;
+    }
+
+    .bh-sum-head{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:900;
+      border-bottom:1px solid rgba(0,0,0,.08);
+    }
+
+    .bh-sum-row{
+      font-weight:800;
+      border-bottom:1px dashed rgba(0,0,0,.07);
+    }
+    .bh-sum-row:last-child{ border-bottom:0; }
+
+    .bh-summary-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:16px;
+    }
+
+    .bh-summary-actions button{
+      min-height:50px;
+      border:0;
+      border-radius:18px;
+      font-size:16px;
+      font-weight:900;
+      cursor:pointer;
+      box-shadow:0 10px 22px rgba(60,100,130,.10);
+    }
+
+    .bh-summary-actions button:first-child{
+      background:linear-gradient(180deg, #fff2b7, #ffd45c);
+      color:#6b4f00;
+    }
+    .bh-summary-actions button:last-child{
+      background:linear-gradient(180deg, #dff5ff, #9fddff);
+      color:#184c6a;
+    }
+
+    /* responsive */
+    @media (max-width: 900px){
+      #bhTopbar{
+        grid-template-columns:1fr 1fr;
+      }
+      #bhTopbar .stretch{
+        grid-column:1 / -1;
+      }
+      #bhBottombar{
+        grid-template-columns:1fr;
+      }
+      .arena-head{
+        grid-template-columns:1fr;
+      }
     }
 
     @media (max-width: 640px){
-      .field-row{ grid-template-columns: 1fr; }
-      #platform-wrap{ bottom: 140px; width:min(92vw, 560px); }
-      .pill{ font-size:.84rem; padding:6px 8px; }
-      .btn{ padding:9px 12px; }
+      #bhGame{
+        gap:10px;
+        padding:
+          calc(var(--safe-top) + 8px)
+          calc(var(--safe-right) + 8px)
+          calc(var(--safe-bottom) + 8px)
+          calc(var(--safe-left) + 8px);
+      }
+
+      #bhTopbar{
+        gap:8px;
+      }
+
+      .hh-chip,
+      .hh-btn{
+        min-height:40px;
+        padding:9px 12px;
+        font-size:14px;
+      }
+
+      .arena-card{
+        border-radius:24px;
+      }
+
+      #bhArena{
+        min-height:58vh;
+      }
+
+      .help-card{
+        left:10px;
+        right:10px;
+        bottom:10px;
+        max-width:none;
+      }
+
+      .bh-summary-main,
+      .bh-summary-sub,
+      .bh-summary-actions{
+        grid-template-columns:1fr;
+      }
     }
   </style>
 </head>
-
 <body>
-  <div class="app">
-
-    <!-- MENU -->
-    <section id="view-menu" class="card">
-      <div>
-        <h1 class="title">⚖️ Balance Hold</h1>
-        <p class="sub">
-          เกมฝึกทรงตัว: ลากซ้าย–ขวาให้แท่นสมดุล อยู่ใน safe zone ให้ได้นาน และหลบ obstacle เพื่อสะสม Score / Combo / Rank
-        </p>
-      </div>
-
-      <div class="grid2" style="margin-top:12px;">
-        <div class="card">
-          <h2 class="title" style="font-size:1rem;">ตั้งค่าเกม</h2>
-
-          <div class="field-row">
-            <label for="difficulty">Difficulty</label>
-            <select id="difficulty">
-              <option value="easy">Easy</option>
-              <option value="normal" selected>Normal</option>
-              <option value="hard">Hard</option>
-            </select>
-          </div>
-
-          <div class="field-row">
-            <label for="sessionDuration">Duration</label>
-            <select id="sessionDuration">
-              <option value="30">30</option>
-              <option value="45">45</option>
-              <option value="60">60</option>
-              <option value="80" selected>80</option>
-              <option value="90">90</option>
-              <option value="120">120</option>
-            </select>
-          </div>
-
-          <div class="field-row">
-            <label for="viewMode">View</label>
-            <select id="viewMode">
-              <option value="pc" selected>PC</option>
-              <option value="mobile">Mobile</option>
-              <option value="cvr">Cardboard / cVR</option>
-            </select>
-          </div>
-
-          <div class="actions">
-            <button type="button" class="btn btn-primary" data-action="start-normal">▶ Start Play</button>
-            <button type="button" class="btn" data-action="goto-research">🧪 Research Mode</button>
-            <button type="button" class="btn" id="btn-menu-back-launcher">⬅ Launcher</button>
-          </div>
-
-          <p class="sub" style="margin-top:10px;">
-            หน้านี้คือ run page จริง ส่วน flow เต็มจะมาจาก launcher และ warmup gate
-          </p>
-        </div>
-
-        <div class="card">
-          <h2 class="title" style="font-size:1rem;">วิธีเล่น</h2>
-          <ul class="sub" style="margin:.5rem 0 0 1.1rem; padding:0;">
-            <li>ลากซ้าย–ขวาในพื้นที่เล่นเพื่อคุมแท่น</li>
-            <li>ให้อยู่ใน safe zone ให้นานที่สุด</li>
-            <li>หลบ obstacle ตอน impact เพื่อเก็บคะแนน</li>
-            <li>คุมใกล้กลางมาก ๆ ตอน impact = Perfect ✨</li>
-            <li>นิ่งเฉยเกินไปจะโดนหักประสิทธิภาพ</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- RESEARCH -->
-    <section id="view-research" class="card hidden">
-      <h2 class="title">🧪 Research Mode</h2>
-      <p class="sub">กรอกข้อมูลผู้เข้าร่วม แล้วกด Start Research</p>
-
-      <div class="field-row">
-        <label for="researchId">Player ID</label>
-        <input id="researchId" type="text" placeholder="เช่น P001" />
-      </div>
-
-      <div class="field-row">
-        <label for="researchGroup">Group</label>
-        <input id="researchGroup" type="text" placeholder="เช่น control / exp" />
-      </div>
-
-      <div class="field-row">
-        <label for="researchPhase">Phase</label>
-        <input id="researchPhase" type="text" placeholder="เช่น pre / post / wk2" />
-      </div>
-
-      <div class="actions">
-        <button type="button" class="btn btn-primary" data-action="start-research">▶ Start Research</button>
-        <button type="button" class="btn" data-action="back-menu">← Back Menu</button>
-      </div>
-    </section>
-
-    <!-- PLAY -->
-    <section id="view-play" class="card hidden">
-      <div class="hud-panel" id="playHud">
-        <div class="hud-row">
-          <div class="pill">Mode: <span id="hud-mode">Play</span></div>
-          <div class="pill">Diff: <span id="hud-diff">normal</span></div>
-          <div class="pill">Dur: <span id="hud-dur">80</span>s</div>
-          <div class="pill">Time: <span id="hud-time">80.0</span></div>
-        </div>
-
-        <div class="hud-row">
-          <div class="pill">Phase: <span id="hud-phase">Main</span></div>
-          <div class="pill">Status: <span id="hud-status">Ready</span></div>
-          <div class="pill">Stability: <span id="hud-stability">0%</span></div>
-          <div class="pill">Obstacles: <span id="hud-obs">0 / 0</span></div>
-          <span id="hud-obstacles" class="hidden" aria-hidden="true">0 / 0</span>
-        </div>
-
-        <div class="hud-row">
-          <div class="pill">Score: <span id="hud-score">0</span></div>
-          <div class="pill">Combo: <span id="hud-combo">0</span></div>
-
-          <div class="hud-stabilitybar" aria-label="stability progress">
-            <div class="hud-stabilitybar-track">
-              <div id="stabilityFill" class="hud-stabilitybar-fill" style="width:0%"></div>
-            </div>
-            <span class="hud-stabilitybar-label">Center Hold</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="coach-wrap" style="margin-top:10px;">
-        <p id="coachLabel">จับ/แตะแล้วเลื่อนไปซ้าย–ขวาเพื่อรักษาสมดุล / Drag left–right to balance</p>
-        <div id="coachBubble" class="hidden">พร้อมทรงตัวแล้วนะ ✨</div>
-      </div>
-
-      <div id="playArea" style="margin-top:10px;">
-        <div id="centerPulse" aria-hidden="true"></div>
-
-        <div class="safe-zone-overlay" aria-hidden="true">
-          <div class="safe-zone-inner"></div>
-        </div>
-
-        <div id="platform-wrap">
-          <div id="platform">
-            <div id="indicator" aria-hidden="true"></div>
-          </div>
-        </div>
-
-        <div id="obstacle-layer" aria-hidden="true"></div>
-
-        <div id="cvrOverlay" class="hidden" aria-hidden="true">
-          <div class="crosshair" aria-hidden="true"></div>
-          <div class="cvr-tip">cVR mode • drag to balance • use recenter if needed</div>
-        </div>
-      </div>
-
-      <div class="play-controls">
-        <button type="button" class="btn" data-action="pause">⏸ Pause</button>
-        <button type="button" class="btn hidden" data-action="resume">▶ Resume</button>
-        <button type="button" class="btn btn-danger" data-action="stop">⛔ Stop</button>
-
-        <button type="button" class="btn" data-action="cvr-recenter">🎯 Recenter</button>
-        <button type="button" class="btn" data-action="cvr-calibrate-left">⬅ Cal L</button>
-        <button type="button" class="btn" data-action="cvr-calibrate-right">Cal R ➡</button>
-        <button type="button" class="btn" data-action="cvr-toggle-strict">
-          cVR Strict: <span id="cvrStrictLabel">OFF</span>
-        </button>
-
-        <button type="button" class="btn" data-action="back-menu">← Menu</button>
-      </div>
-    </section>
-
-    <!-- RESULT -->
-    <section id="view-result" class="card hidden">
-      <h2 class="title">📊 Result</h2>
-      <p class="sub">สรุปผล: Stability / Obstacle / Score / Rank + คำแนะนำ</p>
-
-      <section class="result-hero" style="margin-top:10px;">
-        <div class="result-hero-main">
-          <div id="rankBadge" class="rank-badge rank-D">D</div>
-          <div>
-            <div id="resultHeroSub" class="sub">-</div>
-            <div id="heroInsight" class="hero-insight">-</div>
-          </div>
-        </div>
-
-        <div class="result-hero-stats">
-          <div class="stat-card"><span>Score</span><strong id="res-score">0</strong></div>
-          <div class="stat-card"><span>Rank</span><strong id="res-rank">D</strong></div>
-          <div class="stat-card"><span>Perfect</span><strong id="res-perfect">0</strong></div>
-          <div class="stat-card"><span>Max Combo</span><strong id="res-maxCombo">0</strong></div>
-          <div class="stat-card"><span>Date</span><strong id="res-daily">-</strong></div>
-        </div>
-
-        <div id="heroBadges" class="mini-badges"></div>
-        <div id="heroMissionChips" class="mini-badges"></div>
-      </section>
-
-      <div class="result-grid" style="margin-top:10px;">
-        <div class="result-item">Mode <strong id="res-mode">-</strong></div>
-        <div class="result-item">Difficulty <strong id="res-diff">-</strong></div>
-        <div class="result-item">Duration <strong id="res-dur">-</strong></div>
-        <div class="result-item">End <strong id="res-end">-</strong></div>
-        <div class="result-item">Stability <strong id="res-stability">-</strong></div>
-        <div class="result-item">Mean Tilt <strong id="res-meanTilt">-</strong></div>
-        <div class="result-item">RMS Tilt <strong id="res-rmsTilt">-</strong></div>
-        <div class="result-item">Avoid <strong id="res-avoid">-</strong></div>
-        <div class="result-item">Hit <strong id="res-hit">-</strong></div>
-        <div class="result-item">Avoid Rate <strong id="res-avoidRate">-</strong></div>
-        <div class="result-item">Fatigue <strong id="res-fatigue">-</strong></div>
-        <div class="result-item">Samples <strong id="res-samples">-</strong></div>
-      </div>
-
-      <div class="hero-insight" style="margin-top:10px;">
-        <strong>AI Coach Tip:</strong> <span id="res-aiTip">-</span>
-      </div>
-
-      <div class="result-actions">
-        <button type="button" class="btn btn-primary" data-action="result-play-again">🔁 Play Again</button>
-        <button type="button" class="btn btn-good hidden" id="btn-result-cooldown">🌿 Go Cooldown</button>
-        <button type="button" class="btn" data-action="result-back-hub">🏠 Back HUB</button>
-        <button type="button" class="btn" data-action="export-sessions-csv">⬇ Export Sessions CSV</button>
-        <button type="button" class="btn" data-action="export-release-debug">🧪 Export Debug JSON</button>
-      </div>
-    </section>
-
+  <div class="page-bg" aria-hidden="true">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+    <div class="spark s1"></div>
+    <div class="spark s2"></div>
+    <div class="spark s3"></div>
   </div>
 
-  <!-- Tutorial -->
-  <div id="tutorialOverlay" class="overlay hidden" aria-hidden="true">
-    <div class="overlay-card">
-      <h3>วิธีเล่น Balance Hold</h3>
-      <ol class="tutorial-list">
-        <li>ลากซ้าย–ขวาเพื่อคุมแท่นให้สมดุล</li>
-        <li>อยู่ใน safe zone ให้ได้นานที่สุด</li>
-        <li>หลบ obstacle โดยดึงแท่นกลับเข้ากลางให้ถูกจังหวะ</li>
-        <li>Perfect เกิดเมื่อคุมใกล้กึ่งกลางมาก ๆ ตอน impact</li>
-        <li>ถ้าเปิด Practice จะมี Countdown → Practice → Main</li>
-      </ol>
-      <label class="checkbox-row">
-        <input type="checkbox" id="tutorialDontShowAgain" />
-        <span>ไม่ต้องแสดงอีกครั้งบนอุปกรณ์นี้</span>
-      </label>
-      <div class="overlay-actions">
-        <button type="button" class="btn" data-action="tutorial-skip">Skip</button>
-        <button type="button" class="btn btn-primary" data-action="tutorial-start">Start</button>
+  <div id="bhGame">
+    <!-- TOP BAR -->
+    <div id="bhTopbar">
+      <button id="bhBackBtn" class="hh-btn blue" type="button">← กลับ</button>
+
+      <div id="bhPost" class="hh-chip">Post 1 / 6</div>
+
+      <div id="bhStars" class="hh-chip soft stretch">⭐ 0</div>
+      <div id="bhScore" class="hh-chip soft">0</div>
+
+      <button id="bhHowBtn" class="hh-btn pink" type="button">วิธีเล่น</button>
+    </div>
+
+    <!-- ARENA -->
+    <div class="arena-wrap">
+      <div class="arena-card">
+        <div class="arena-head">
+          <div class="arena-badge">🎵 Balance Hold • 6 Post Circuit</div>
+          <div class="arena-badge small">ลากนิ้วเบา ๆ เพื่อคุมจุดสมดุลให้อยู่ในเป้า</div>
+        </div>
+
+        <div id="bhArena">
+          <div class="rhythm-mat"></div>
+          <div class="lane-ring r1"></div>
+          <div class="lane-ring r2"></div>
+          <div class="lane-ring r3"></div>
+
+          <div class="post-mark p1">1</div>
+          <div class="post-mark p2">2</div>
+          <div class="post-mark p3">3</div>
+          <div class="post-mark p4">4</div>
+          <div class="post-mark p5">5</div>
+          <div class="post-mark p6">6</div>
+
+          <div id="bhTarget" aria-hidden="true"></div>
+          <div id="bhCursor" aria-hidden="true"></div>
+          <div id="bhGhost" data-ghost="center" aria-hidden="true"></div>
+
+          <div id="bhCue">เตรียมตัว</div>
+          <div id="bhBeat" aria-hidden="true"></div>
+
+          <div id="bhHelpCard" class="help-card">
+            <h3>วิธีเล่น</h3>
+            <p>
+              พาจุดสีส้มให้อยู่ในวงเป้า แล้วค้างตามจังหวะ
+              ผ่านให้ครบทั้ง 6 ฐาน เพื่อเก็บดาวและคะแนน
+            </p>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- End Modal -->
-  <div id="endModal" class="overlay hidden" aria-hidden="true">
-    <div class="overlay-card">
-      <div style="display:flex; gap:12px; align-items:center;">
-        <div id="endModalRank" class="rank-badge rank-D">D</div>
-        <div>
-          <h3 style="margin:0;">Session Complete</h3>
-          <p class="sub" style="margin:.25rem 0 0;">Score: <strong id="endModalScore">0</strong></p>
-        </div>
+    <!-- BOTTOM BAR -->
+    <div id="bhBottombar">
+      <div class="panel">
+        <div class="panel-title">Coach</div>
+        <div id="bhCoach">ยืนให้นิ่งในวงเป้าตามจังหวะ</div>
       </div>
 
-      <div id="endModalInsight" class="hero-insight" style="margin-top:12px;">
-        ทำได้ดีมาก! ลองรักษาสมดุลใกล้กึ่งกลางและอ่านจังหวะ obstacle ให้ดีขึ้น
-      </div>
-
-      <div class="overlay-actions">
-        <button type="button" class="btn" data-action="close-end-modal">Close</button>
-        <button type="button" class="btn" data-action="end-retry">Play Again</button>
-        <button type="button" class="btn btn-good hidden" id="btn-end-cooldown">Go Cooldown</button>
-        <button type="button" class="btn btn-primary" data-action="end-back-hub">Back HUB</button>
+      <div class="panel">
+        <div class="panel-title">Progress</div>
+        <div id="bhProgress"></div>
       </div>
     </div>
+
+    <!-- SUMMARY / OVERLAY -->
+    <div id="bhOverlay" hidden></div>
   </div>
 
-  <script src="./js/balance-hold.js?v=20260315-BALANCE-HOLD-FLOW-RESULT-COOLDOWN-FULL"></script>
+  <script>
+    (function(){
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+      const hub = qs.get('hub') || '../herohealth/hub-v2.html';
+
+      const backBtn = document.getElementById('bhBackBtn');
+      const howBtn = document.getElementById('bhHowBtn');
+      const helpCard = document.getElementById('bhHelpCard');
+
+      if (backBtn) {
+        backBtn.addEventListener('click', () => {
+          location.href = hub;
+        });
+      }
+
+      if (howBtn && helpCard) {
+        let open = true;
+        howBtn.addEventListener('click', () => {
+          open = !open;
+          helpCard.style.display = open ? '' : 'none';
+        });
+      }
+    })();
+  </script>
+
+  <script src="./js/balance-hold.js?v=20260406a-balance-6post-core"></script>
 </body>
 </html>
