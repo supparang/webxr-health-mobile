@@ -3,99 +3,128 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Fitness Planner</title>
-  <meta name="theme-color" content="#8bd3ff" />
-  <meta http-equiv="refresh" content="0; url=./fitness-planner/launcher.html" />
+  <title>HeroHealth • Fitness Planner Launcher</title>
+  <meta name="theme-color" content="#bfe9ff" />
+  <link rel="icon" href="./favicon.ico" />
+  <link rel="stylesheet" href="./fitness-launcher-shared.css?v=20260406a-fitness-launcher-shared" />
+
   <style>
-    :root{
-      --bg1:#dff7ff;
-      --bg2:#fff8df;
-      --bg3:#f4fff1;
-      --card:#fffdf8;
-      --line:#cae9f3;
-      --text:#31404a;
-      --muted:#67818e;
-      --blue:#7fcfff;
-      --green:#7ed957;
-      --yellow:#ffd45c;
-      --shadow:0 14px 36px rgba(86,135,160,.14);
-      --radius:26px;
-    }
-    *{ box-sizing:border-box; }
-    html,body{
-      margin:0;
-      padding:0;
-      min-height:100%;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      color:var(--text);
+    .fp-stage{
+      position:absolute; inset:0;
       background:
-        radial-gradient(circle at top left,#fffef8 0%,transparent 26%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 52%,var(--bg3));
+        radial-gradient(circle at 50% 18%, rgba(255,255,255,.16), rgba(255,255,255,0) 34%),
+        linear-gradient(180deg, #f3fbff 0%, #dff3ff 48%, #ccefff 100%);
     }
-    body{
+    .fp-board{
+      position:absolute; left:8%; right:8%; top:14%; bottom:12%;
+      border-radius:26px;
+      background:rgba(255,255,255,.72);
+      box-shadow:
+        0 14px 30px rgba(37,85,120,.10),
+        inset 0 0 0 2px rgba(122,188,225,.18);
+      overflow:hidden;
+    }
+    .fp-grid{
+      position:absolute; inset:16px;
       display:grid;
-      place-items:center;
-      padding:16px;
+      grid-template-columns:repeat(3, 1fr);
+      grid-auto-rows:1fr;
+      gap:12px;
     }
-    .card{
-      width:min(680px,100%);
-      background:linear-gradient(180deg,#fffefb,#fffdfa);
-      border:2px solid var(--line);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      padding:24px;
-      text-align:center;
-    }
-    .logo{
-      width:84px;
-      height:84px;
-      margin:0 auto 14px;
-      border-radius:24px;
-      display:grid;
-      place-items:center;
-      font-size:42px;
-      background:linear-gradient(135deg,var(--blue),var(--yellow));
-      box-shadow:inset 0 2px 0 rgba(255,255,255,.75);
-    }
-    h1{
-      margin:0 0 8px;
-      font-size:clamp(28px,4vw,42px);
-      line-height:1.05;
-    }
-    p{
-      margin:0;
-      color:var(--muted);
-      line-height:1.6;
-      font-weight:700;
-    }
-    .link{
-      display:inline-block;
-      margin-top:16px;
-      padding:12px 16px;
+    .fp-card{
       border-radius:18px;
-      background:linear-gradient(135deg,var(--green),var(--yellow));
-      color:#2d4035;
-      text-decoration:none;
-      font-weight:1000;
+      background:#fff;
+      box-shadow:0 8px 18px rgba(37,85,120,.08);
+      padding:12px;
+      position:relative;
+    }
+    .fp-card .dot{
+      width:14px; height:14px; border-radius:999px;
+      position:absolute; right:12px; top:12px;
+    }
+    .fp-card.c1 .dot{ background:#7ed957; }
+    .fp-card.c2 .dot{ background:#59bdf7; }
+    .fp-card.c3 .dot{ background:#ff99c8; }
+    .fp-card.c4 .dot{ background:#ffd45c; }
+    .fp-card .t{
+      font-size:12px; color:#6f8190; font-weight:800; margin-bottom:8px;
+    }
+    .fp-card .v{
+      font-size:15px; color:#35566e; font-weight:900; line-height:1.35;
+    }
+    .fp-chip{
+      position:absolute; top:16px; left:16px;
+      padding:10px 14px; border-radius:999px;
+      background:linear-gradient(180deg, #fff2b8, #ffd45c);
+      color:#6b5200; font-weight:1000;
+      box-shadow:0 10px 22px rgba(255,212,92,.18);
+      z-index:2;
+    }
+    .fp-coach{
+      position:absolute; right:16px; bottom:16px;
+      max-width:250px;
+      padding:12px 14px; border-radius:18px;
+      background:rgba(255,255,255,.88);
+      color:#4e6a7e; font-weight:800;
+      box-shadow:0 10px 24px rgba(55,100,140,.10);
+      z-index:2;
+    }
+    .fp-sticker{
+      position:absolute; left:18px; bottom:18px;
+      width:64px; height:64px; border-radius:20px;
+      display:grid; place-items:center;
+      background:linear-gradient(180deg, #ffe7f2, #ffbfd9);
+      font-size:30px;
+      box-shadow:0 10px 24px rgba(255,153,200,.18);
+      z-index:2;
+      animation:fpBounce 1.8s ease-in-out infinite;
+    }
+    @keyframes fpBounce{
+      0%,100%{ transform:translateY(0); }
+      50%{ transform:translateY(-6px); }
     }
   </style>
 </head>
-<body>
-  <div class="card">
-    <div class="logo">🗓️</div>
-    <h1>Fitness Planner</h1>
-    <p>กำลังพาไปหน้า Launcher ของเกม…</p>
-    <a class="link" id="fallbackLink" href="./fitness-planner/launcher.html">เข้าเกมตอนนี้</a>
-  </div>
+<body class="hh-fit-launcher">
+  <div id="hhFitLauncherRoot"></div>
 
+  <script src="./fitness-launcher-shared.js?v=20260406a-fitness-launcher-shared"></script>
   <script>
-    (() => {
-      'use strict';
-      const target = new URL('./fitness-planner/launcher.html', location.href);
-      target.search = location.search || '';
-      document.getElementById('fallbackLink').href = target.toString();
-      location.replace(target.toString());
-    })();
+    setupFitnessLauncher({
+      zoneLabel: 'Fitness Zone',
+      title: 'Fitness Planner',
+      description: 'วางแผนกิจกรรมการออกกำลังกายให้เหมาะกับเป้าหมายของเด็ก เลือกกิจกรรม เวลา และลำดับให้สมดุล',
+      badge: 'FITNESS<br>PLANNER',
+      game: 'fitnessplanner',
+      gameId: 'fitnessplanner',
+      mode: 'solo',
+      run: 'play',
+      defaultDiff: 'normal',
+      defaultTime: '90',
+      defaultView: 'mobile',
+      defaultGate: false,
+      defaultCooldown: false,
+      hub: './hub-v2.html',
+      runPage: './fitness-planner.html',
+      warmupPage: './warmup-gate.html',
+      stageHtml: `
+        <div class="fp-stage">
+          <div class="fp-chip">Plan Your Day</div>
+          <div class="fp-board">
+            <div class="fp-grid">
+              <div class="fp-card c1"><div class="dot"></div><div class="t">Morning</div><div class="v">Stretch 10 min</div></div>
+              <div class="fp-card c2"><div class="dot"></div><div class="t">Afternoon</div><div class="v">Jump 15 min</div></div>
+              <div class="fp-card c3"><div class="dot"></div><div class="t">Evening</div><div class="v">Walk + Cooldown</div></div>
+              <div class="fp-card c4"><div class="dot"></div><div class="t">Goal</div><div class="v">Balanced Activity</div></div>
+              <div class="fp-card c1"><div class="dot"></div><div class="t">Energy</div><div class="v">Easy → Active → Calm</div></div>
+              <div class="fp-card c2"><div class="dot"></div><div class="t">Reward</div><div class="v">Healthy Star Plan</div></div>
+            </div>
+          </div>
+          <div class="fp-sticker">🗓️</div>
+          <div class="fp-coach">จัดลำดับกิจกรรมให้พอดี สนุก และเหมาะกับเด็กในแต่ละช่วงเวลา</div>
+        </div>
+      `
+    });
   </script>
 </body>
 </html>
