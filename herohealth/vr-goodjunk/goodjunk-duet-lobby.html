@@ -331,6 +331,10 @@
       background:rgba(17,26,72,.9);
       padding:16px;
       box-shadow:var(--shadow);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
     }
 
     .player.me{
@@ -501,7 +505,7 @@
             <div class="field">
               <div class="label">เข้าห้องด้วย Room Code</div>
               <div class="input-wrap">
-                <input id="roomInput" class="input" type="text" inputmode="latin-prose" autocomplete="off" spellcheck="false" maxlength="8" placeholder="เช่น ATCPSY" />
+                <input id="roomInput" class="input" type="text" inputmode="latin-prose" autocomplete="off" spellcheck="false" maxlength="24" placeholder="เช่น DU_9AB3" />
                 <button class="btn btn-primary" id="btnJoinByCode" type="button">เข้าห้อง</button>
               </div>
               <div class="helper">ถ้ามีคนส่ง code มา ให้พิมพ์ที่นี่แล้วกดเข้าห้องได้เลย</div>
@@ -548,7 +552,9 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-  <script src="../firebase-config.js?v=20260405-firebase-r13"></script>
-  <script src="./goodjunk-duet-lobby.js?v=20260405-gjduet-lobby-r16"></script>
+  <script src="../firebase-config.js?v=20260406-duet-engine"></script>
+  <script src="../herohealth-logger.js?v=20260406-duet-engine"></script>
+  <script src="../room-engine.js?v=20260406-duet-engine"></script>
+  <script src="./goodjunk-duet-lobby.js?v=20260406-gjduet-lobby-engine-r1"></script>
 </body>
 </html>
