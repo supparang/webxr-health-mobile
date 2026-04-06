@@ -169,6 +169,9 @@
       color:inherit;
     }
 
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
+
     .btn.hub{
       background:linear-gradient(180deg,var(--green),var(--green2));
       color:#133b09;
@@ -527,7 +530,7 @@
       window.__GJ_SHOW_BOOT_ERROR__ = showError;
 
       let tries = 0;
-      const maxTries = 180;
+      const maxTries = 220;
 
       const tick = () => {
         tries += 1;
@@ -572,7 +575,7 @@
 
   <script>
     (function loadBossCore(){
-      const src = './goodjunk-solo-phaseboss-v2.js?v=20260405-route-fix-r3';
+      const src = './goodjunk-solo-phaseboss-v2.js?v=20260406-full-fix-r2';
       const s = document.createElement('script');
       s.src = src;
       s.async = false;
