@@ -23,9 +23,15 @@
       --yellow:#ffd45c;
       --orange:#ffb547;
       --shadow:0 18px 40px rgba(86,155,194,.16);
+
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -37,12 +43,49 @@
         linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
     }
 
-    body{ min-height:100dvh; }
+    body{
+      min-height:100dvh;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(20px + var(--sab))
+        calc(14px + var(--sal));
+    }
+
+    .bg-clouds{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      pointer-events:none;
+      z-index:0;
+    }
+
+    .cloud{
+      position:absolute;
+      border-radius:999px;
+      background:rgba(255,255,255,.74);
+      filter:blur(1px);
+      box-shadow:
+        50px 8px 0 8px rgba(255,255,255,.66),
+        100px 0 0 0 rgba(255,255,255,.74),
+        70px -10px 0 4px rgba(255,255,255,.70);
+      animation:floatCloud linear infinite;
+    }
+
+    .cloud.c1{ width:110px; height:34px; left:6%; top:9%; animation-duration:28s; }
+    .cloud.c2{ width:140px; height:40px; left:64%; top:13%; animation-duration:36s; }
+    .cloud.c3{ width:100px; height:30px; left:30%; top:22%; animation-duration:32s; }
+
+    @keyframes floatCloud{
+      from{ transform:translateX(-5vw); }
+      to{ transform:translateX(12vw); }
+    }
 
     .wrap{
+      position:relative;
+      z-index:1;
       max-width:1100px;
       margin:0 auto;
-      padding:18px 14px 28px;
     }
 
     .topbar{
@@ -50,8 +93,8 @@
       align-items:center;
       justify-content:space-between;
       gap:12px;
-      margin-bottom:14px;
       flex-wrap:wrap;
+      margin-bottom:16px;
     }
 
     .brand{
@@ -59,15 +102,16 @@
       align-items:center;
       gap:12px;
       padding:12px 14px;
-      border-radius:20px;
+      border-radius:22px;
       border:2px solid var(--line);
       background:rgba(255,255,255,.88);
       box-shadow:var(--shadow);
+      backdrop-filter:blur(6px);
     }
 
     .brand-icon{
-      width:46px;
-      height:46px;
+      width:48px;
+      height:48px;
       border-radius:16px;
       display:grid;
       place-items:center;
@@ -105,7 +149,11 @@
       font-weight:1000;
       box-shadow:var(--shadow);
       color:inherit;
+      transition:.14s ease;
     }
+
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
 
     .btn.hub{
       background:linear-gradient(180deg,var(--green),var(--green2));
@@ -114,13 +162,13 @@
 
     .hero{
       display:grid;
-      grid-template-columns:1.2fr .8fr;
+      grid-template-columns:1.15fr .85fr;
       gap:16px;
       margin-bottom:16px;
     }
 
     .card{
-      border-radius:26px;
+      border-radius:28px;
       border:3px solid var(--line);
       background:linear-gradient(180deg,#fffef9,#f7fff4);
       box-shadow:var(--shadow);
@@ -128,11 +176,11 @@
     }
 
     .title{
+      margin:0 0 8px;
       font-size:30px;
       line-height:1.04;
       font-weight:1000;
       color:#67a91c;
-      margin:0 0 8px;
     }
 
     .sub{
@@ -162,6 +210,7 @@
       color:#6c6a61;
       font-size:12px;
       font-weight:1000;
+      box-shadow:0 8px 18px rgba(86,155,194,.08);
     }
 
     .grid{
@@ -171,44 +220,46 @@
     }
 
     .mode-card{
-      border-radius:24px;
+      border-radius:26px;
       border:3px solid var(--line);
       background:linear-gradient(180deg,#fffef9,#ffffff);
       box-shadow:var(--shadow);
-      padding:16px;
+      padding:18px;
       display:grid;
       gap:12px;
+      min-height:260px;
     }
 
     .mode-icon{
-      width:68px;
-      height:68px;
-      border-radius:22px;
+      width:72px;
+      height:72px;
+      border-radius:24px;
       display:grid;
       place-items:center;
-      font-size:34px;
+      font-size:36px;
       background:linear-gradient(180deg,#fff3de,#ffe0b8);
       border:3px solid #ffd89b;
     }
 
     .mode-name{
-      font-size:24px;
+      margin:0;
+      font-size:26px;
       line-height:1.05;
       font-weight:1000;
       color:#4d4a42;
-      margin:0;
     }
 
     .mode-copy{
       margin:0;
       font-size:13px;
-      line-height:1.65;
+      line-height:1.7;
       color:var(--muted);
       font-weight:900;
-      min-height:42px;
+      min-height:46px;
     }
 
     .mode-actions{
+      margin-top:auto;
       display:grid;
       gap:10px;
     }
@@ -241,6 +292,39 @@
       font-weight:900;
     }
 
+    .status{
+      display:grid;
+      gap:10px;
+    }
+
+    .status-row{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .status-box{
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      padding:12px;
+    }
+
+    .status-k{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .status-v{
+      margin-top:6px;
+      font-size:18px;
+      color:#4d4a42;
+      font-weight:1000;
+      line-height:1.25;
+      word-break:break-word;
+    }
+
     @media (max-width:860px){
       .hero,
       .grid{
@@ -250,10 +334,24 @@
       .title{
         font-size:26px;
       }
+
+      .status-row{
+        grid-template-columns:1fr;
+      }
+
+      .mode-card{
+        min-height:unset;
+      }
     }
   </style>
 </head>
 <body>
+  <div class="bg-clouds" aria-hidden="true">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+  </div>
+
   <div class="wrap">
     <div class="topbar">
       <div class="brand">
@@ -271,8 +369,8 @@
       <div class="card">
         <h1 class="title">เลือกทางเข้า GoodJunk</h1>
         <p class="sub">
-          โหมด Solo Boss จะต้องเข้า gameplay core ใหม่โดยตรง
-          และต้องไม่ย้อนกลับไปหน้า Legacy Bridge อีก
+          โหมด Solo Boss จะเข้า gameplay core ใหม่โดยตรง
+          และจะไม่ย้อนกลับไปหน้า Legacy Bridge อีก
         </p>
 
         <div class="meta">
@@ -280,16 +378,38 @@
           <div class="chip" id="metaDiff">diff: normal</div>
           <div class="chip" id="metaTime">time: 150s</div>
           <div class="chip" id="metaRun">run: play</div>
+          <div class="chip" id="metaView">view: mobile</div>
+        </div>
+
+        <div class="note">
+          Flow ที่ถูกต้องคือ
+          <b>Launcher → GoodJunk Solo Boss → goodjunk-solo-phaseboss-v2.js</b>
         </div>
       </div>
 
       <div class="card">
-        <h2 class="mode-name" style="color:#67a91c;">Flow ที่ถูกต้อง</h2>
-        <p class="mode-copy" style="min-height:auto;">
-          Launcher → GoodJunk Solo Boss page → goodjunk-solo-phaseboss-v2.js
-        </p>
-        <div class="note" style="margin-top:4px;">
-          ถ้ายังเห็นคำว่า <b>Legacy Bridge</b> แปลว่ายังมี route เก่าค้างอยู่
+        <div class="status">
+          <div class="status-row">
+            <div class="status-box">
+              <div class="status-k">Player</div>
+              <div class="status-v" id="statusPlayer">Hero</div>
+            </div>
+            <div class="status-box">
+              <div class="status-k">PID</div>
+              <div class="status-v" id="statusPid">anon</div>
+            </div>
+          </div>
+
+          <div class="status-row">
+            <div class="status-box">
+              <div class="status-k">Hub Return</div>
+              <div class="status-v" id="statusHub">hub-v2.html</div>
+            </div>
+            <div class="status-box">
+              <div class="status-k">Seed</div>
+              <div class="status-v" id="statusSeed">-</div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -299,8 +419,9 @@
         <div class="mode-icon">👑</div>
         <h2 class="mode-name">Solo Boss</h2>
         <p class="mode-copy">
-          เข้า phase boss ใหม่โดยตรง พร้อม warmup → run → summary → cooldown
+          เข้า phase boss ใหม่โดยตรง พร้อม phase 1 → phase 2 → boss → summary → cooldown
         </p>
+
         <div class="mode-actions">
           <button id="btnSoloBoss" class="btn primary" type="button">🍔 เข้า Solo Boss</button>
           <button id="btnSoloBossDebug" class="btn soft" type="button">🧪 Solo Boss (debug)</button>
@@ -311,17 +432,18 @@
         <div class="mode-icon">🧑‍🤝‍🧑</div>
         <h2 class="mode-name">Multiplayer</h2>
         <p class="mode-copy">
-          เข้าเมนูโหมด duet / race / battle / coop
+          เข้าเมนูโหมด duet / race / battle / coop ของ GoodJunk
         </p>
+
         <div class="mode-actions">
           <button id="btnMulti" class="btn secondary" type="button">🎮 เข้า Multiplayer</button>
+          <a id="btnRouteGuard" class="btn soft" href="./goodjunk-vr.html">🛡️ Route Guard</a>
         </div>
       </article>
     </section>
 
     <div class="note">
-      ตัว launcher นี้ตั้งใจแก้เส้นทางเข้า Solo Boss โดยเฉพาะ
-      เพื่อไม่ให้หลุดไปหน้า HNZS shell / Legacy Bridge อีก
+      ถ้ายังเห็นหน้าเก่า ให้ hard refresh หรือเปลี่ยน version query ของไฟล์ JS/HTML อีกครั้ง
     </div>
   </div>
 
@@ -401,17 +523,34 @@
       };
 
       const btnHub = document.getElementById('btnHub');
+      const btnRouteGuard = document.getElementById('btnRouteGuard');
+
       if (btnHub) btnHub.href = ctx.hub;
+      if (btnRouteGuard) {
+        btnRouteGuard.href = pass(new URL('./goodjunk-vr.html', location.href)).toString();
+      }
 
       const metaPid = document.getElementById('metaPid');
       const metaDiff = document.getElementById('metaDiff');
       const metaTime = document.getElementById('metaTime');
       const metaRun = document.getElementById('metaRun');
+      const metaView = document.getElementById('metaView');
 
       if (metaPid) metaPid.textContent = 'pid: ' + ctx.pid;
       if (metaDiff) metaDiff.textContent = 'diff: ' + ctx.diff;
       if (metaTime) metaTime.textContent = 'time: ' + ctx.time + 's';
       if (metaRun) metaRun.textContent = 'run: ' + ctx.run;
+      if (metaView) metaView.textContent = 'view: ' + ctx.view;
+
+      const statusPlayer = document.getElementById('statusPlayer');
+      const statusPid = document.getElementById('statusPid');
+      const statusHub = document.getElementById('statusHub');
+      const statusSeed = document.getElementById('statusSeed');
+
+      if (statusPlayer) statusPlayer.textContent = ctx.name;
+      if (statusPid) statusPid.textContent = ctx.pid;
+      if (statusHub) statusHub.textContent = ctx.hub;
+      if (statusSeed) statusSeed.textContent = ctx.seed;
 
       const btnSoloBoss = document.getElementById('btnSoloBoss');
       const btnSoloBossDebug = document.getElementById('btnSoloBossDebug');
