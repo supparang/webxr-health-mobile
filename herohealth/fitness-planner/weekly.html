@@ -1,0 +1,1929 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Fitness Planner Weekly</title>
+  <meta name="theme-color" content="#8ad7ff" />
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --bg1:#dff7ff;
+      --bg2:#fff8de;
+      --bg3:#f4fff0;
+      --card:#fffefb;
+      --line:#cde9f3;
+      --text:#32414a;
+      --muted:#67818f;
+      --blue:#7fcfff;
+      --green:#7ed957;
+      --yellow:#ffd45c;
+      --pink:#ff9fcc;
+      --purple:#baa8ff;
+      --danger:#ff9b9b;
+      --shadow:0 12px 34px rgba(77,128,152,.14);
+      --radius:24px;
+      --slotH:116px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      padding:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left,#fffef7 0%,transparent 28%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 50%,var(--bg3));
+    }
+
+    body{ padding:16px; }
+
+    .app{
+      max-width:1400px;
+      margin:0 auto;
+      display:grid;
+      gap:16px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      padding:14px 18px;
+      background:linear-gradient(180deg,#fffefb,#fffdf8);
+      border:2px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+
+    .brand-badge{
+      width:56px;
+      height:56px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      background:linear-gradient(135deg,var(--blue),var(--yellow));
+      box-shadow:inset 0 2px 0 rgba(255,255,255,.72);
+      flex:0 0 auto;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:clamp(24px,3.2vw,36px);
+      line-height:1.05;
+    }
+
+    .brand p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:700;
+    }
+
+    .chips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .chip{
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid #e4eef4;
+      font-size:13px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .screen{
+      display:none;
+      gap:16px;
+    }
+    .screen.active{
+      display:grid;
+    }
+
+    .main-layout{
+      grid-template-columns:1.05fr 1.2fr .85fr;
+      align-items:start;
+    }
+
+    .panel{
+      background:linear-gradient(180deg,#fffefb,#fffdfa);
+      border:2px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:16px;
+      min-width:0;
+    }
+
+    .panel h2,
+    .panel h3,
+    .panel h4{
+      margin:0 0 10px;
+      line-height:1.1;
+    }
+
+    .sub{
+      margin:0 0 12px;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:700;
+      line-height:1.45;
+    }
+
+    .mission-hero{
+      border-radius:22px;
+      padding:14px;
+      background:linear-gradient(135deg,#ebfbff,#fff6d8);
+      border:2px dashed #d0eaf6;
+      display:grid;
+      gap:10px;
+    }
+
+    .mission-title{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-size:21px;
+      font-weight:1000;
+      margin:0;
+    }
+
+    .mission-list{
+      display:grid;
+      gap:8px;
+      list-style:none;
+      margin:0;
+      padding:0;
+    }
+
+    .mission-list li{
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid #e6eff5;
+      font-weight:800;
+    }
+
+    .cards-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .card-item{
+      border:2px solid #e2eef5;
+      border-radius:20px;
+      background:#fff;
+      padding:12px;
+      cursor:pointer;
+      transition:.18s ease;
+      user-select:none;
+      min-height:126px;
+      display:grid;
+      grid-template-rows:auto auto 1fr auto;
+      gap:8px;
+      box-shadow:0 6px 18px rgba(65,121,146,.08);
+    }
+
+    .card-item:hover{
+      transform:translateY(-2px);
+      border-color:#a7dbef;
+    }
+
+    .card-item.selected{
+      outline:4px solid rgba(127,207,255,.30);
+      border-color:#79ceff;
+      transform:translateY(-2px) scale(1.01);
+    }
+
+    .card-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+    }
+
+    .emoji{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      font-size:22px;
+      background:#f3fbff;
+      border:2px solid #deeff7;
+      flex:0 0 auto;
+    }
+
+    .type-tag{
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:1000;
+      background:#fff;
+      border:2px solid #e7edf4;
+      text-transform:uppercase;
+      letter-spacing:.03em;
+      white-space:nowrap;
+    }
+
+    .card-name{
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+      margin:0;
+    }
+
+    .card-desc{
+      margin:0;
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+
+    .meters{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .meter{
+      padding:6px 10px;
+      border-radius:999px;
+      background:#f8fcff;
+      border:2px solid #e6f1f7;
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .day-tabs{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+      margin-bottom:12px;
+    }
+
+    .day-tab{
+      border:2px solid #deecf3;
+      background:#fff;
+      border-radius:18px;
+      padding:12px;
+      cursor:pointer;
+      transition:.18s ease;
+      text-align:left;
+    }
+
+    .day-tab.active{
+      border-color:#7fcfff;
+      background:linear-gradient(180deg,#f0fbff,#fffef7);
+      transform:translateY(-1px);
+    }
+
+    .day-tab.done{
+      box-shadow:inset 0 0 0 2px rgba(126,217,87,.18);
+    }
+
+    .day-tab strong{
+      display:block;
+      font-size:17px;
+      line-height:1.1;
+      margin-bottom:6px;
+    }
+
+    .day-tab span{
+      display:block;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:800;
+      line-height:1.35;
+    }
+
+    .board{
+      display:grid;
+      gap:12px;
+    }
+
+    .slot{
+      min-height:var(--slotH);
+      border-radius:22px;
+      padding:12px;
+      border:3px dashed #cee3ec;
+      background:linear-gradient(180deg,#ffffff,#fdfefc);
+      display:grid;
+      gap:8px;
+      align-items:start;
+      transition:.18s ease;
+    }
+
+    .slot.dragover{
+      border-color:#79ceff;
+      background:linear-gradient(180deg,#eefbff,#fffef8);
+      transform:scale(1.01);
+    }
+
+    .slot-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+    }
+
+    .slot-name{
+      font-size:18px;
+      font-weight:1000;
+      margin:0;
+    }
+
+    .slot-rule{
+      color:var(--muted);
+      font-size:12px;
+      margin:0;
+      font-weight:700;
+    }
+
+    .slot-empty{
+      display:grid;
+      place-items:center;
+      min-height:56px;
+      color:#89a1af;
+      font-weight:900;
+      text-align:center;
+      border-radius:16px;
+      background:#f8fcff;
+    }
+
+    .slot-fill{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      align-items:center;
+      gap:10px;
+      padding:10px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid #e5eef4;
+      box-shadow:0 6px 14px rgba(80,130,150,.07);
+    }
+
+    .slot-fill .mini{
+      width:40px;
+      height:40px;
+      border-radius:12px;
+      display:grid;
+      place-items:center;
+      font-size:24px;
+      background:#f3fbff;
+      border:2px solid #e1eef6;
+    }
+
+    .slot-fill .txt strong{
+      display:block;
+      font-size:16px;
+      line-height:1.1;
+    }
+
+    .slot-fill .txt span{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-top:4px;
+    }
+
+    .coach-card{
+      display:grid;
+      gap:12px;
+    }
+
+    .coach-top{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:12px;
+      align-items:center;
+    }
+
+    .coach-face{
+      width:66px;
+      height:66px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#ffe8f4,#fff7d8);
+      border:2px solid #f1dbe8;
+      font-size:34px;
+    }
+
+    .coach-title{
+      font-size:20px;
+      font-weight:1000;
+      margin:0;
+    }
+
+    .coach-bubble{
+      background:linear-gradient(180deg,#f8fdff,#fff);
+      border:2px solid #e2eff6;
+      border-radius:20px;
+      padding:14px;
+      font-size:15px;
+      line-height:1.45;
+      color:#49606b;
+      font-weight:800;
+    }
+
+    .mini-scores{
+      display:grid;
+      gap:10px;
+    }
+
+    .mini-score{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:10px 12px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid #e6eff5;
+    }
+
+    .mini-bar{
+      height:10px;
+      border-radius:999px;
+      background:#eef6fb;
+      overflow:hidden;
+      position:relative;
+      margin-top:6px;
+    }
+
+    .mini-bar > span{
+      position:absolute;
+      inset:0 auto 0 0;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--blue),var(--green));
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:6px;
+    }
+
+    .ghost-btn,
+    .primary-btn,
+    .danger-btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      font:inherit;
+      font-weight:1000;
+      border-radius:18px;
+      padding:12px 16px;
+      transition:.18s ease;
+    }
+
+    .primary-btn{
+      background:linear-gradient(135deg,var(--green),var(--yellow));
+      color:#2d4035;
+      box-shadow:0 10px 20px rgba(126,217,87,.24);
+    }
+    .primary-btn:hover{ transform:translateY(-1px); }
+
+    .ghost-btn{
+      background:#fff;
+      border:2px solid var(--line);
+      color:var(--text);
+    }
+    .ghost-btn:hover{ transform:translateY(-1px); }
+
+    .danger-btn{
+      background:#fff3f3;
+      border:2px solid #ffd1d1;
+      color:#a04848;
+    }
+
+    .feedback-wrap,
+    .summary-wrap{
+      grid-template-columns:minmax(0,1fr);
+    }
+
+    .score-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .score-card{
+      background:#fff;
+      border:2px solid #e2eef4;
+      border-radius:22px;
+      padding:16px;
+      box-shadow:0 8px 18px rgba(87,132,152,.08);
+      display:grid;
+      gap:10px;
+    }
+
+    .score-card h3{
+      margin:0;
+      font-size:18px;
+    }
+
+    .score-card .num{
+      font-size:34px;
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .score-track{
+      height:12px;
+      border-radius:999px;
+      background:#edf6fb;
+      overflow:hidden;
+    }
+
+    .score-track span{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--yellow),var(--green));
+    }
+
+    .feedback-list{
+      display:grid;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .feedback-item{
+      padding:12px 14px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid #e6eef5;
+      font-weight:800;
+      color:#49606b;
+    }
+
+    .summary-hero{
+      max-width:1040px;
+      margin:0 auto;
+      display:grid;
+      gap:16px;
+      text-align:center;
+    }
+
+    .badge-cloud{
+      display:grid;
+      gap:12px;
+      padding:28px 18px;
+      border-radius:28px;
+      background:linear-gradient(180deg,#fffefc,#fff);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+    }
+
+    .stars{
+      font-size:clamp(30px,4vw,48px);
+      letter-spacing:6px;
+    }
+
+    .badge-name{
+      font-size:clamp(26px,4vw,42px);
+      font-weight:1000;
+      line-height:1.05;
+      margin:0;
+    }
+
+    .summary-line{
+      color:var(--muted);
+      font-weight:800;
+      font-size:16px;
+      margin:0 auto;
+      max-width:800px;
+      line-height:1.5;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .summary-box{
+      text-align:left;
+      padding:14px;
+      border-radius:20px;
+      background:#fff;
+      border:2px solid #e4eef4;
+    }
+
+    .summary-box h4{
+      margin:0 0 8px;
+      font-size:18px;
+    }
+
+    .day-summary{
+      display:grid;
+      gap:10px;
+    }
+
+    .day-summary-item{
+      padding:12px;
+      border-radius:18px;
+      background:#f9fdff;
+      border:2px solid #e6eff5;
+      font-weight:800;
+      line-height:1.55;
+    }
+
+    .tiny{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .muted{
+      color:var(--muted);
+    }
+
+    @media (max-width: 1120px){
+      .main-layout{ grid-template-columns:1fr; }
+      .score-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    @media (max-width: 720px){
+      body{ padding:10px; }
+      .panel{ padding:14px; border-radius:22px; }
+      .cards-grid{ grid-template-columns:1fr; }
+      .score-grid,
+      .summary-grid{ grid-template-columns:1fr; }
+      .day-tabs{ grid-template-columns:1fr; }
+      .topbar{ padding:12px 14px; border-radius:22px; }
+      .brand-badge{ width:48px; height:48px; border-radius:16px; }
+      .actions > *{ flex:1 1 180px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-badge">📅</div>
+        <div>
+          <h1>Fitness Planner Weekly</h1>
+          <p>วางแผน 3 วันให้หลากหลาย สมดุล และปลอดภัย</p>
+        </div>
+      </div>
+      <div class="chips" id="topChips"></div>
+    </header>
+
+    <section class="screen main-layout active" id="screen-main">
+      <section class="panel">
+        <div class="mission-hero">
+          <div class="mission-title">🎯 ภารกิจทั้งสัปดาห์</div>
+          <div class="sub" id="missionIntro">จัดแผนครบ 3 วัน แล้วกด “ประเมินทั้งสัปดาห์”</div>
+          <ul class="mission-list" id="missionList"></ul>
+        </div>
+
+        <div class="panel" style="padding:14px; margin-top:14px;">
+          <h3>เลือกการ์ดกิจกรรม</h3>
+          <p class="sub">แตะการ์ดก่อน แล้วแตะช่องในวันนั้น หรือจะลากวางก็ได้</p>
+          <div class="cards-grid" id="cardsGrid"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>🗓️ แผนรายวัน</h2>
+        <p class="sub">โหมด Weekly ใช้ 3 ช่องต่อวัน: เริ่มเบา → ช่วงหลัก → จบผ่อนคลาย</p>
+
+        <div class="day-tabs" id="dayTabs"></div>
+        <div class="board" id="board"></div>
+
+        <div class="actions">
+          <button class="ghost-btn" id="btnPrevDay">← วันก่อนหน้า</button>
+          <button class="ghost-btn" id="btnNextDay">วันถัดไป →</button>
+          <button class="danger-btn" id="btnClearDay">ล้างวันนี้</button>
+          <button class="ghost-btn" id="btnClearWeek">ล้างทั้งสัปดาห์</button>
+          <button class="primary-btn" id="btnEvaluateWeek">ประเมินทั้งสัปดาห์ ⭐</button>
+        </div>
+      </section>
+
+      <aside class="panel coach-card">
+        <div class="coach-top">
+          <div class="coach-face" id="coachFace">😊</div>
+          <div>
+            <p class="coach-title">Coach Hero</p>
+            <p class="sub" style="margin:4px 0 0;">ช่วยดูภาพรวมทั้ง 3 วัน</p>
+          </div>
+        </div>
+
+        <div class="coach-bubble" id="coachText">
+          เริ่มจัด Day 1 ก่อนนะ ให้มี Warm-up, Main และ Cooldown ครบก่อน
+        </div>
+
+        <div class="mini-scores" id="miniScores"></div>
+
+        <div class="actions">
+          <button class="ghost-btn" id="btnGoHub1">กลับ HUB</button>
+          <button class="ghost-btn" id="btnExportEvents" hidden>Export Events</button>
+        </div>
+      </aside>
+    </section>
+
+    <section class="screen feedback-wrap" id="screen-feedback">
+      <section class="panel" style="max-width:1120px;margin:0 auto;width:100%;">
+        <h2>📋 ผลประเมินแผนรายสัปดาห์</h2>
+        <p class="sub">ดูคะแนนภาพรวมทั้ง 3 วัน แล้วปรับให้สมดุลยิ่งขึ้น</p>
+
+        <div class="score-grid" id="scoreGrid"></div>
+
+        <div class="panel" style="margin-top:14px;padding:14px;">
+          <h3>💡 คำแนะนำจาก Coach</h3>
+          <div class="feedback-list" id="feedbackList"></div>
+        </div>
+
+        <div class="actions" style="margin-top:16px;">
+          <button class="ghost-btn" id="btnRevise">แก้แผนอีกครั้ง</button>
+          <button class="primary-btn" id="btnFinalize">ยืนยันแผนสัปดาห์นี้ ⭐</button>
+          <button class="ghost-btn" id="btnGoHub2">กลับ HUB</button>
+        </div>
+      </section>
+    </section>
+
+    <section class="screen summary-wrap" id="screen-summary">
+      <div class="summary-hero">
+        <div class="badge-cloud">
+          <div class="stars" id="summaryStars">⭐⭐⭐</div>
+          <p class="tiny">WEEKLY FITNESS PLANNER RESULT</p>
+          <h2 class="badge-name" id="summaryBadge">Weekly Coach</h2>
+          <p class="summary-line" id="summaryLine">สัปดาห์นี้มีความสมดุลและหลากหลายขึ้นแล้ว</p>
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-box">
+            <h4>🏅 คะแนนรวม</h4>
+            <div id="summaryOverall" style="font-size:42px;font-weight:1000;">88</div>
+            <div class="tiny">รวมจาก Safety / Variety / Consistency / Recovery</div>
+          </div>
+
+          <div class="summary-box">
+            <h4>🗓️ แผนทั้ง 3 วัน</h4>
+            <div class="day-summary" id="summaryDays"></div>
+          </div>
+
+          <div class="summary-box">
+            <h4>✅ จุดเด่น</h4>
+            <div id="summaryStrengths" class="muted" style="font-weight:800;line-height:1.7;"></div>
+          </div>
+
+          <div class="summary-box">
+            <h4>🔧 ลองพัฒนาอีกนิด</h4>
+            <div id="summaryImprovements" class="muted" style="font-weight:800;line-height:1.7;"></div>
+          </div>
+        </div>
+
+        <div class="actions" style="justify-content:center;">
+          <button class="ghost-btn" id="btnPlayAgain">เล่นอีกครั้ง</button>
+          <button class="primary-btn" id="btnGoHub3">กลับ HUB</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+
+      const ctx = {
+        pid: qs.get('pid') || 'anon',
+        name: qs.get('name') || qs.get('nickName') || qs.get('nick') || 'Hero',
+        run: qs.get('run') || 'play',
+        diff: qs.get('diff') || 'normal',
+        mode: 'weekly',
+        seed: String(qs.get('seed') || Date.now()),
+        hub: qs.get('hub') || '../hub-v2.html',
+        zone: qs.get('zone') || 'fitness',
+        game: qs.get('game') || 'fitnessplanner',
+        gameId: qs.get('gameId') || 'fitnessplanner',
+        view: qs.get('view') || 'mobile',
+        time: Number(qs.get('time') || 90),
+
+        studyId: qs.get('studyId') || '',
+        api: qs.get('api') || '',
+        log: /^(1|true|yes|on)$/i.test(qs.get('log') || ''),
+        debug: /^(1|true|yes|on)$/i.test(qs.get('debug') || ''),
+        sessionId: qs.get('sessionId') || ''
+      };
+
+      const DAYS = [
+        { id:'day1', label:'Day 1' },
+        { id:'day2', label:'Day 2' },
+        { id:'day3', label:'Day 3' }
+      ];
+
+      const SLOT_DEFS = [
+        { id:'warmup',   name:'Warm-up',  rule:'เริ่มด้วยกิจกรรมเบา ๆ' },
+        { id:'main',     name:'Main',     rule:'ช่วงขยับหลักของวันนี้' },
+        { id:'cooldown', name:'Cooldown', rule:'จบแบบผ่อนคลาย' }
+      ];
+
+      const ACTIVITIES = [
+        {
+          id:'stretch-start',
+          name:'Stretch Start',
+          emoji:'🤸',
+          type:'warmup',
+          intensity:1,
+          desc:'ยืดแขน เอียงตัว และหมุนไหล่เบา ๆ เพื่อเตรียมพร้อม'
+        },
+        {
+          id:'slow-march',
+          name:'Slow March',
+          emoji:'🚶',
+          type:'warmup',
+          intensity:1,
+          desc:'เดินยกเข่าเบา ๆ ช่วยปลุกร่างกายให้พร้อม'
+        },
+        {
+          id:'rhythm-boxer',
+          name:'Rhythm Boxer',
+          emoji:'🥊',
+          type:'cardio',
+          intensity:3,
+          desc:'ต่อยซ้าย-ขวาตามจังหวะ สนุกและได้ขยับแขนเร็ว'
+        },
+        {
+          id:'jump-duck',
+          name:'Jump & Duck',
+          emoji:'🦘',
+          type:'cardio',
+          intensity:4,
+          desc:'ย่อ-หลบ-ยืดตัว ฝึกความว่องไว'
+        },
+        {
+          id:'shadow-breaker',
+          name:'Shadow Breaker',
+          emoji:'⚡',
+          type:'coordination',
+          intensity:3,
+          desc:'เอื้อมแตะเป้า ฝึกมือ-ตาและการตอบสนอง'
+        },
+        {
+          id:'reach-twist',
+          name:'Reach & Twist',
+          emoji:'🌀',
+          type:'coordination',
+          intensity:2,
+          desc:'เอื้อมและบิดตัวอย่างนุ่มนวล ให้ร่างกายคล่องขึ้น'
+        },
+        {
+          id:'balance-hold',
+          name:'Balance Hold',
+          emoji:'🧍',
+          type:'balance',
+          intensity:2,
+          desc:'ยืนทรงตัว ฝึกนิ่งและควบคุมท่าทาง'
+        },
+        {
+          id:'step-balance',
+          name:'Step Balance',
+          emoji:'👣',
+          type:'balance',
+          intensity:2,
+          desc:'ก้าวซ้าย-ขวาและหยุดค้างเพื่อฝึกสมดุล'
+        },
+        {
+          id:'calm-breathing',
+          name:'Calm Breathing',
+          emoji:'🌬️',
+          type:'cooldown',
+          intensity:1,
+          desc:'หายใจเข้าออกลึก ๆ ลดความเหนื่อยและช่วยให้ใจสงบ'
+        },
+        {
+          id:'slow-reach',
+          name:'Slow Reach',
+          emoji:'🪷',
+          type:'cooldown',
+          intensity:1,
+          desc:'เอื้อมและเหยียดตัวเบา ๆ ปิดท้ายอย่างสบาย'
+        }
+      ];
+
+      const ACT_BY_ID = Object.fromEntries(ACTIVITIES.map(a => [a.id, a]));
+      const $ = (sel, root = document) => root.querySelector(sel);
+      const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+      const state = {
+        selectedCardId: '',
+        dayIndex: 0,
+        plans: Object.fromEntries(DAYS.map(d => [d.id, {}])),
+        mission: null,
+        lastEvaluation: null,
+        events: []
+      };
+
+      const SESSION_KEY = 'HHA_FP_WEEKLY_ACTIVE_SESSION';
+      const EVENT_QUEUE_KEY = 'HHA_FP_WEEKLY_EVENT_QUEUE';
+      const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Bangkok';
+
+      function nowISO(){
+        return new Date().toISOString();
+      }
+
+      function randId(prefix='fpw'){
+        return `${prefix}_${Math.random().toString(36).slice(2,10)}_${Date.now().toString(36)}`;
+      }
+
+      function localNowParts(d = new Date()){
+        const pad = n => String(n).padStart(2,'0');
+        return {
+          date_local: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,
+          time_local: `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+        };
+      }
+
+      function safeJsonParse(raw, fallback=null){
+        try{ return raw ? JSON.parse(raw) : fallback; }
+        catch(_){ return fallback; }
+      }
+
+      function saveJson(key, val){
+        try{ localStorage.setItem(key, JSON.stringify(val)); }catch(_){}
+      }
+
+      function loadJson(key, fallback=null){
+        try{ return safeJsonParse(localStorage.getItem(key), fallback); }
+        catch(_){ return fallback; }
+      }
+
+      const logger = {
+        enabled: !!ctx.log,
+        api: ctx.api || '',
+        sessionId: ctx.sessionId || randId('fpw_session'),
+        sessionSeq: 0,
+        queue: loadJson(EVENT_QUEUE_KEY, []),
+        flushedCount: 0,
+        startedAtIso: new Date().toISOString(),
+        startedAtMs: Date.now(),
+        lastFlushIso: '',
+        version: 'fitness-planner-weekly-log-v1'
+      };
+
+      function debugPrint(...args){
+        if(!ctx.debug) return;
+        try{ console.log('[FPW-DEBUG]', ...args); }catch(_){}
+      }
+
+      function baseEvent(type, detail = {}){
+        const now = new Date();
+        const lp = localNowParts(now);
+
+        logger.sessionSeq += 1;
+
+        return {
+          event_id: randId('evt'),
+          session_id: logger.sessionId,
+          event_seq: logger.sessionSeq,
+          ts_ms: now.getTime(),
+          ts_iso: now.toISOString(),
+          date_local: lp.date_local,
+          time_local: lp.time_local,
+          server_timezone: LOCAL_TZ,
+
+          pid: ctx.pid,
+          player_name: ctx.name,
+          study_id: ctx.studyId,
+          game: ctx.game,
+          game_id: ctx.gameId,
+          zone: ctx.zone,
+          mode: ctx.mode,
+          run: ctx.run,
+          diff: ctx.diff,
+          view: ctx.view,
+          seed: ctx.seed,
+
+          mission_id: state.mission?.id || '',
+          page: 'fitness-planner-weekly',
+          version: logger.version,
+          ...detail,
+          event: type
+        };
+      }
+
+      function persistLoggerState(){
+        saveJson(SESSION_KEY, {
+          session_id: logger.sessionId,
+          started_at_iso: logger.startedAtIso,
+          last_flush_iso: logger.lastFlushIso,
+          flushed_count: logger.flushedCount,
+          seq: logger.sessionSeq,
+          page: 'fitness-planner-weekly',
+          version: logger.version
+        });
+        saveJson(EVENT_QUEUE_KEY, logger.queue);
+      }
+
+      async function flushEvents(reason='manual'){
+        persistLoggerState();
+
+        if(!logger.enabled){
+          debugPrint('flush skipped; log disabled', reason, logger.queue.length);
+          return { ok:true, skipped:true, count: logger.queue.length };
+        }
+
+        if(!logger.api || !logger.queue.length){
+          debugPrint('flush local only', reason, logger.queue.length, logger.api);
+          return { ok:true, local_only:true, count: logger.queue.length };
+        }
+
+        const payload = {
+          game: ctx.game,
+          game_id: ctx.gameId,
+          zone: ctx.zone,
+          session_id: logger.sessionId,
+          pid: ctx.pid,
+          player_name: ctx.name,
+          study_id: ctx.studyId,
+          run: ctx.run,
+          diff: ctx.diff,
+          mode: ctx.mode,
+          view: ctx.view,
+          seed: ctx.seed,
+          reason,
+          sent_at_iso: new Date().toISOString(),
+          events: logger.queue.slice()
+        };
+
+        try{
+          const body = JSON.stringify(payload);
+
+          if(navigator.sendBeacon && /^(pagehide|beforeunload|visibilityhidden)$/i.test(reason)){
+            const ok = navigator.sendBeacon(logger.api, new Blob([body], { type:'application/json' }));
+            if(ok){
+              logger.flushedCount += logger.queue.length;
+              logger.queue = [];
+              logger.lastFlushIso = new Date().toISOString();
+              persistLoggerState();
+              return { ok:true, beacon:true };
+            }
+          }
+
+          const res = await fetch(logger.api, {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body,
+            keepalive:true
+          });
+
+          if(!res.ok) throw new Error(`HTTP ${res.status}`);
+
+          logger.flushedCount += logger.queue.length;
+          logger.queue = [];
+          logger.lastFlushIso = new Date().toISOString();
+          persistLoggerState();
+          return { ok:true, fetch:true };
+        }catch(err){
+          debugPrint('flush failed', reason, err);
+          return { ok:false, error:String(err) };
+        }
+      }
+
+      function logEvent(type, data = {}){
+        const evt = baseEvent(type, data);
+        state.events.push(evt);
+        logger.queue.push(evt);
+        persistLoggerState();
+
+        if(logger.queue.length >= 12){
+          flushEvents('threshold');
+        }
+
+        debugPrint(type, evt);
+        try{ console.log('[FitnessPlannerWeekly]', type, data); }catch(_){}
+      }
+
+      function exportEventJsonl(){
+        const rows = (logger.queue || []).map(x => JSON.stringify(x)).join('\n');
+        const blob = new Blob([rows], { type:'application/x-ndjson;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `fitness-planner-weekly-events-${logger.sessionId}.jsonl`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      }
+
+      function seededRng(seedStr){
+        let h = 1779033703 ^ seedStr.length;
+        for(let i=0;i<seedStr.length;i++){
+          h = Math.imul(h ^ seedStr.charCodeAt(i), 3432918353);
+          h = h << 13 | h >>> 19;
+        }
+        return function(){
+          h = Math.imul(h ^ (h >>> 16), 2246822507);
+          h = Math.imul(h ^ (h >>> 13), 3266489909);
+          h ^= h >>> 16;
+          return (h >>> 0) / 4294967296;
+        };
+      }
+
+      function average(nums){
+        return nums.length ? nums.reduce((s,v)=>s+v,0) / nums.length : 0;
+      }
+
+      function clamp(v, a, b){
+        v = Number(v);
+        if(!Number.isFinite(v)) v = a;
+        return Math.max(a, Math.min(b, v));
+      }
+
+      function escapeHtml(s){
+        return String(s).replace(/[&<>"']/g, m => ({
+          '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+        }[m]));
+      }
+
+      function goHub(){
+        logEvent('go_hub_click', { hub: ctx.hub });
+        flushEvents('gohub');
+        location.href = ctx.hub;
+      }
+
+      function currentDay(){
+        return DAYS[state.dayIndex];
+      }
+
+      function currentPlan(){
+        return state.plans[currentDay().id];
+      }
+
+      function typeLabel(type){
+        const map = {
+          warmup:'Warm-up',
+          cardio:'Cardio',
+          coordination:'Skill',
+          balance:'Balance',
+          cooldown:'Cooldown'
+        };
+        return map[type] || type;
+      }
+
+      function intensityLabel(n){
+        if(n <= 1) return 'เบา';
+        if(n === 2) return 'กลาง';
+        if(n === 3) return 'ค่อนข้างเร็ว';
+        return 'เร็ว';
+      }
+
+      function buildMission(seed){
+        const rand = seededRng(String(seed) + '::weekly::' + ctx.diff);
+        const focusPool = ['variety','safe','balance','mixed'];
+        const focus = focusPool[Math.floor(rand() * focusPool.length)];
+
+        let maxWeekIntensity = 15;
+        let minUniqueActivities = 5;
+
+        if(ctx.diff === 'easy'){
+          maxWeekIntensity = 14;
+          minUniqueActivities = 4;
+        }else if(ctx.diff === 'hard'){
+          maxWeekIntensity = 17;
+          minUniqueActivities = 6;
+        }
+
+        const intros = {
+          variety:'ช่วยจัด 3 วันให้กิจกรรมไม่ซ้ำกันเกินไป',
+          safe:'ช่วยจัด 3 วันให้เริ่มเบา จบเบา และไม่หนักสะสมเกินไป',
+          balance:'ช่วยจัด 3 วันให้มีช่วงทรงตัวหรือคุมท่าอย่างน้อย 1 วัน',
+          mixed:'ช่วยจัด 3 วันให้สมดุลทั้งสนุก ปลอดภัย และหลากหลาย'
+        };
+
+        const objectives = [
+          'ทุกวันต้องมี Warm-up และ Cooldown',
+          'ทุกวันต้องมีช่วง Main ครบ',
+          `สัปดาห์นี้ควรมีอย่างน้อย ${minUniqueActivities} กิจกรรม`,
+          `พลังรวมทั้งสัปดาห์ไม่ควรเกิน ${maxWeekIntensity}`
+        ];
+
+        if(focus === 'balance'){
+          objectives.push('ควรมี Balance อย่างน้อย 1 วัน');
+        }else if(focus === 'variety'){
+          objectives.push('พยายามอย่าใช้ Main เดิมซ้ำกันติด ๆ');
+        }else if(focus === 'safe'){
+          objectives.push('อย่าให้มีวันหนักติดกันหลายวัน');
+        }else{
+          objectives.push('ควรมีทั้งวันเร็ว วันคุมท่า และวันผ่อนลง');
+        }
+
+        return {
+          id:'weekly-' + seed,
+          focus,
+          intro:intros[focus],
+          objectives,
+          maxWeekIntensity,
+          minUniqueActivities
+        };
+      }
+
+      function setScreen(id){
+        $$('.screen').forEach(el => el.classList.remove('active'));
+        $('#screen-' + id).classList.add('active');
+      }
+
+      function renderTopbar(){
+        $('#topChips').innerHTML = `
+          <span class="chip">👦 ${escapeHtml(ctx.name)}</span>
+          <span class="chip">🎮 ${escapeHtml(ctx.view)}</span>
+          <span class="chip">⚙️ ${escapeHtml(ctx.diff)}</span>
+          <span class="chip">🧩 weekly</span>
+          <span class="chip">🆔 ${escapeHtml(ctx.pid)}</span>
+        `;
+      }
+
+      function renderMission(){
+        $('#missionIntro').textContent = state.mission.intro;
+        $('#missionList').innerHTML = state.mission.objectives
+          .map(x => `<li>${escapeHtml(x)}</li>`)
+          .join('');
+      }
+
+      function renderCards(){
+        $('#cardsGrid').innerHTML = ACTIVITIES.map(act => `
+          <article class="card-item ${state.selectedCardId === act.id ? 'selected' : ''}"
+            data-card-id="${act.id}" draggable="true" aria-label="${escapeHtml(act.name)}">
+            <div class="card-top">
+              <div class="emoji">${act.emoji}</div>
+              <div class="type-tag">${escapeHtml(typeLabel(act.type))}</div>
+            </div>
+            <h4 class="card-name">${escapeHtml(act.name)}</h4>
+            <p class="card-desc">${escapeHtml(act.desc)}</p>
+            <div class="meters">
+              <span class="meter">พลัง ${act.intensity}</span>
+              <span class="meter">${escapeHtml(intensityLabel(act.intensity))}</span>
+            </div>
+          </article>
+        `).join('');
+
+        $$('.card-item').forEach(el => {
+          const id = el.dataset.cardId;
+
+          el.addEventListener('click', () => {
+            state.selectedCardId = (state.selectedCardId === id) ? '' : id;
+            renderCards();
+            updateCoach();
+            logEvent('card_select', { card_id:id, selected: state.selectedCardId === id });
+          });
+
+          el.addEventListener('dragstart', ev => {
+            ev.dataTransfer.setData('text/plain', id);
+            state.selectedCardId = id;
+            renderCards();
+          });
+        });
+      }
+
+      function filledSlotsOfDay(dayId){
+        return SLOT_DEFS.filter(s => !!state.plans[dayId][s.id]).length;
+      }
+
+      function dayComplete(dayId){
+        return filledSlotsOfDay(dayId) === SLOT_DEFS.length;
+      }
+
+      function renderDayTabs(){
+        $('#dayTabs').innerHTML = DAYS.map((day, i) => {
+          const filled = filledSlotsOfDay(day.id);
+          return `
+            <button class="day-tab ${i === state.dayIndex ? 'active' : ''} ${dayComplete(day.id) ? 'done' : ''}"
+              data-day-index="${i}" type="button">
+              <strong>${escapeHtml(day.label)}</strong>
+              <span>${filled}/${SLOT_DEFS.length} ช่อง</span>
+            </button>
+          `;
+        }).join('');
+
+        $$('.day-tab').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.dayIndex = Number(btn.dataset.dayIndex);
+            renderDayTabs();
+            renderBoard();
+            updateCoach();
+            updateMiniScores();
+            logEvent('day_switch', { day_index: state.dayIndex });
+          });
+        });
+      }
+
+      function renderBoard(){
+        const plan = currentPlan();
+
+        $('#board').innerHTML = SLOT_DEFS.map(slot => {
+          const actId = plan[slot.id];
+          const act = actId ? ACT_BY_ID[actId] : null;
+          return `
+            <div class="slot" data-slot-id="${slot.id}">
+              <div class="slot-head">
+                <div>
+                  <p class="slot-name">${escapeHtml(slot.name)}</p>
+                  <p class="slot-rule">${escapeHtml(slot.rule)}</p>
+                </div>
+                ${act ? `<button class="danger-btn" data-clear-slot="${slot.id}" type="button">ลบ</button>` : ''}
+              </div>
+              ${act ? `
+                <div class="slot-fill">
+                  <div class="mini">${act.emoji}</div>
+                  <div class="txt">
+                    <strong>${escapeHtml(act.name)}</strong>
+                    <span>${escapeHtml(act.desc)}</span>
+                  </div>
+                  <div class="type-tag">${escapeHtml(typeLabel(act.type))}</div>
+                </div>
+              ` : `
+                <div class="slot-empty">แตะเพื่อวางการ์ด<br>หรือ drag & drop มาที่นี่</div>
+              `}
+            </div>
+          `;
+        }).join('');
+
+        $$('.slot').forEach(el => {
+          const slotId = el.dataset.slotId;
+
+          el.addEventListener('click', () => {
+            if(!state.selectedCardId) return;
+            placeCard(currentDay().id, slotId, state.selectedCardId);
+          });
+
+          el.addEventListener('dragover', ev => {
+            ev.preventDefault();
+            el.classList.add('dragover');
+          });
+
+          el.addEventListener('dragleave', () => {
+            el.classList.remove('dragover');
+          });
+
+          el.addEventListener('drop', ev => {
+            ev.preventDefault();
+            el.classList.remove('dragover');
+            const id = ev.dataTransfer.getData('text/plain') || state.selectedCardId;
+            if(id) placeCard(currentDay().id, slotId, id);
+          });
+        });
+
+        $$('[data-clear-slot]').forEach(btn => {
+          btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const slotId = btn.dataset.clearSlot;
+            delete state.plans[currentDay().id][slotId];
+            renderBoard();
+            renderDayTabs();
+            updateCoach();
+            updateMiniScores();
+            logEvent('slot_clear', { day_id: currentDay().id, slot_id: slotId });
+          });
+        });
+      }
+
+      function placeCard(dayId, slotId, cardId){
+        if(!ACT_BY_ID[cardId]) return;
+        state.plans[dayId][slotId] = cardId;
+        state.selectedCardId = '';
+        renderCards();
+        renderBoard();
+        renderDayTabs();
+        updateCoach();
+        updateMiniScores();
+        logEvent('slot_place', { day_id:dayId, slot_id:slotId, card_id:cardId });
+      }
+
+      function evaluateDay(plan){
+        const cardsBySlot = Object.fromEntries(SLOT_DEFS.map(slot => [slot.id, ACT_BY_ID[plan[slot.id]] || null]));
+        const cards = SLOT_DEFS.map(slot => cardsBySlot[slot.id]).filter(Boolean);
+
+        const hasWarmup = !!cardsBySlot.warmup && cardsBySlot.warmup.type === 'warmup';
+        const hasCooldown = !!cardsBySlot.cooldown && cardsBySlot.cooldown.type === 'cooldown';
+        const hasMain = !!cardsBySlot.main && !['warmup','cooldown'].includes(cardsBySlot.main.type);
+        const hasBalance = cards.some(a => a.type === 'balance');
+        const totalIntensity = cards.reduce((s,a)=>s+a.intensity, 0);
+
+        let score = 100;
+        if(!hasWarmup) score -= 28;
+        if(!hasMain) score -= 24;
+        if(!hasCooldown) score -= 28;
+        if(totalIntensity > 6) score -= (totalIntensity - 6) * 8;
+
+        score = clamp(Math.round(score), 0, 100);
+
+        return {
+          cardsBySlot,
+          cards,
+          hasWarmup,
+          hasMain,
+          hasCooldown,
+          hasBalance,
+          totalIntensity,
+          score
+        };
+      }
+
+      function evaluateWeek(){
+        const daily = DAYS.map(day => ({
+          day,
+          result: evaluateDay(state.plans[day.id])
+        }));
+
+        const allCards = daily.flatMap(x => x.result.cards);
+        const uniqueActivities = new Set(allCards.map(a => a.id)).size;
+        const uniqueTypes = new Set(allCards.map(a => a.type)).size;
+        const totalWeekIntensity = daily.reduce((s,x)=>s + x.result.totalIntensity, 0);
+        const allComplete = daily.every(x => x.result.cards.length === SLOT_DEFS.length);
+        const allWarmup = daily.every(x => x.result.hasWarmup);
+        const allCooldown = daily.every(x => x.result.hasCooldown);
+        const hasBalanceDay = daily.some(x => x.result.hasBalance);
+
+        let repeatedMainAdjacent = 0;
+        let heavyRun = 0;
+        let currentHeavyRun = 0;
+
+        for(let i=0;i<daily.length;i++){
+          const currMain = daily[i].result.cardsBySlot.main;
+          const prevMain = daily[i-1]?.result.cardsBySlot.main;
+          if(currMain && prevMain && currMain.id === prevMain.id) repeatedMainAdjacent++;
+
+          if(daily[i].result.totalIntensity >= 5){
+            currentHeavyRun++;
+            heavyRun = Math.max(heavyRun, currentHeavyRun);
+          }else{
+            currentHeavyRun = 0;
+          }
+        }
+
+        let safety = Math.round(average(daily.map(x => x.result.score)));
+        if(!allWarmup) safety -= 10;
+        if(!allCooldown) safety -= 10;
+        if(totalWeekIntensity > state.mission.maxWeekIntensity){
+          safety -= (totalWeekIntensity - state.mission.maxWeekIntensity) * 6;
+        }
+        if(heavyRun > 1) safety -= 12;
+        safety = clamp(safety, 0, 100);
+
+        let variety = 25;
+        variety += uniqueActivities * 10;
+        variety += uniqueTypes * 8;
+        variety -= repeatedMainAdjacent * 16;
+        if(uniqueActivities >= state.mission.minUniqueActivities) variety += 8;
+        variety = clamp(Math.round(variety), 0, 100);
+
+        let consistency = 25;
+        consistency += allComplete ? 25 : 0;
+        consistency += daily.filter(x => x.result.hasWarmup).length * 10;
+        consistency += daily.filter(x => x.result.hasCooldown).length * 10;
+        consistency += daily.filter(x => x.result.hasMain).length * 10;
+        consistency = clamp(Math.round(consistency), 0, 100);
+
+        let recovery = 30;
+        recovery += allCooldown ? 24 : 0;
+        recovery += heavyRun <= 1 ? 18 : 6;
+        recovery += totalWeekIntensity <= state.mission.maxWeekIntensity ? 18 : 6;
+        if(state.mission.focus === 'balance') recovery += hasBalanceDay ? 10 : -6;
+        recovery = clamp(Math.round(recovery), 0, 100);
+
+        const overall = Math.round(average([safety, variety, consistency, recovery]));
+
+        const strengths = [];
+        const improvements = [];
+
+        if(allWarmup) strengths.push('ทุกวันเริ่มต้นเบาได้ดี');
+        else improvements.push('พยายามให้ทุกวันเริ่มด้วย Warm-up');
+
+        if(allCooldown) strengths.push('ทุกวันมีช่วงจบผ่อนคลาย');
+        else improvements.push('ควรใส่ Cooldown ให้ครบทุกวัน');
+
+        if(uniqueActivities >= state.mission.minUniqueActivities){
+          strengths.push('ทั้งสัปดาห์มีความหลากหลายของกิจกรรมดี');
+        }else{
+          improvements.push(`เพิ่มความหลากหลายให้ถึงอย่างน้อย ${state.mission.minUniqueActivities} กิจกรรม`);
+        }
+
+        if(repeatedMainAdjacent === 0){
+          strengths.push('ช่วง Main ไม่ซ้ำกันติด ๆ');
+        }else{
+          improvements.push('หลีกเลี่ยงการใช้ Main เดิมติดกันหลายวัน');
+        }
+
+        if(totalWeekIntensity <= state.mission.maxWeekIntensity){
+          strengths.push('พลังรวมทั้งสัปดาห์ไม่หนักเกินเป้าหมาย');
+        }else{
+          improvements.push(`ลดพลังรวมทั้งสัปดาห์ให้ไม่เกิน ${state.mission.maxWeekIntensity}`);
+        }
+
+        if(hasBalanceDay){
+          strengths.push('มีอย่างน้อย 1 วันสำหรับฝึกทรงตัวหรือคุมท่า');
+        }else if(state.mission.focus === 'balance'){
+          improvements.push('ภารกิจนี้อยากให้มี Balance อย่างน้อย 1 วัน');
+        }
+
+        if(!strengths.length){
+          strengths.push('คุณเริ่มมองภาพรวมทั้งสัปดาห์ได้แล้ว');
+        }
+        if(!improvements.length){
+          improvements.push('ยอดเยี่ยมแล้ว ลองเล่นใหม่เพื่อทำคะแนนให้สูงขึ้นอีก');
+        }
+
+        const advice = [];
+        if(overall >= 90){
+          advice.push('สุดยอด! สัปดาห์นี้ดูเป็นแผนที่ทั้งปลอดภัยและหลากหลายมาก');
+        }else if(overall >= 75){
+          advice.push('ดีมากแล้ว อีกนิดเดียวก็จะเป็นแผนระดับโค้ชมือโปร');
+        }else if(overall >= 60){
+          advice.push('เริ่มดีแล้ว ลองลดความซ้ำและเพิ่มสมดุลของทั้งสัปดาห์');
+        }else{
+          advice.push('ลองทำให้ครบทุกวันก่อน โดยเริ่มเบาและจบผ่อนคลายในแต่ละวัน');
+        }
+
+        if(state.mission.focus === 'safe' && heavyRun > 1){
+          advice.push('ภารกิจนี้เน้นปลอดภัย ลองอย่าให้วันหนักเรียงติดกัน');
+        }
+        if(state.mission.focus === 'variety' && repeatedMainAdjacent > 0){
+          advice.push('ภารกิจนี้เน้นความหลากหลาย ลองเปลี่ยน Main ของบางวัน');
+        }
+        if(state.mission.focus === 'balance' && !hasBalanceDay){
+          advice.push('ภารกิจนี้อยากเห็นวันที่มี Balance Hold หรือ Step Balance');
+        }
+
+        const stars = overall >= 95 ? 5
+                    : overall >= 85 ? 4
+                    : overall >= 72 ? 3
+                    : overall >= 58 ? 2
+                    : 1;
+
+        let badge = 'Weekly Starter';
+        if(stars === 5) badge = 'Hero Weekly Coach';
+        else if(stars === 4) badge = 'Smart Weekly Planner';
+        else if(stars === 3) badge = 'Balanced Week Builder';
+        else if(stars === 2) badge = 'Safe Week Starter';
+
+        return {
+          daily,
+          allComplete,
+          uniqueActivities,
+          uniqueTypes,
+          totalWeekIntensity,
+          repeatedMainAdjacent,
+          heavyRun,
+          hasBalanceDay,
+          scores: { safety, variety, consistency, recovery, overall },
+          strengths,
+          improvements,
+          advice,
+          stars,
+          badge
+        };
+      }
+
+      function updateCoach(){
+        const day = currentDay();
+        const filled = filledSlotsOfDay(day.id);
+        const completedDays = DAYS.filter(d => dayComplete(d.id)).length;
+
+        let text = `เริ่มจัด ${day.label} ก่อนนะ ให้มี Warm-up, Main และ Cooldown ครบก่อน`;
+        let face = '😊';
+
+        if(completedDays === DAYS.length){
+          const ev = evaluateWeek();
+          if(ev.scores.overall >= 85){
+            text = 'ทั้ง 3 วันครบแล้ว และดูดีมาก ลองกดประเมินทั้งสัปดาห์ได้เลย';
+            face = '😄';
+          }else{
+            text = 'ทั้ง 3 วันครบแล้ว ลองประเมินทั้งสัปดาห์ แล้วค่อยปรับให้สมดุลขึ้น';
+            face = '🙂';
+          }
+        }else if(filled === 0){
+          text = `${day.label} ยังว่างอยู่ ลองเริ่มด้วยกิจกรรม Warm-up ก่อนนะ`;
+          face = '🙂';
+        }else if(filled < SLOT_DEFS.length){
+          text = `${day.label} วางแล้ว ${filled}/${SLOT_DEFS.length} ช่อง อย่าลืม Main และ Cooldown`;
+          face = '🤔';
+        }else{
+          text = `${day.label} ครบแล้ว เยี่ยมเลย ไปจัดวันถัดไปต่อได้`;
+          face = '😄';
+        }
+
+        $('#coachText').textContent = text;
+        $('#coachFace').textContent = face;
+      }
+
+      function updateMiniScores(){
+        const completedDays = DAYS.filter(d => dayComplete(d.id)).length;
+        const currentDayEval = evaluateDay(currentPlan());
+
+        const allCards = DAYS.flatMap(d =>
+          SLOT_DEFS.map(s => state.plans[d.id][s.id]).filter(Boolean)
+        );
+        const uniqueActivities = new Set(allCards).size;
+        const weekFill = Math.round((allCards.length / (DAYS.length * SLOT_DEFS.length)) * 100);
+
+        const items = [
+          ['Week Progress', weekFill],
+          ['Completed Days', Math.round((completedDays / DAYS.length) * 100)],
+          ['Today Score', currentDayEval.score],
+          ['Variety', clamp(uniqueActivities * 12, 0, 100)]
+        ];
+
+        $('#miniScores').innerHTML = items.map(([label,val]) => `
+          <div class="mini-score">
+            <div>
+              <div style="font-weight:1000;">${label}</div>
+              <div class="mini-bar"><span style="width:${val}%;"></span></div>
+            </div>
+            <div style="font-weight:1000;">${val}</div>
+          </div>
+        `).join('');
+      }
+
+      function renderFeedback(){
+        const ev = state.lastEvaluation || evaluateWeek();
+
+        const scoreItems = [
+          ['🛡️ Safety', ev.scores.safety, 'เริ่มเบา จบเบา และไม่หนักสะสมเกินไปไหม'],
+          ['🎨 Variety', ev.scores.variety, 'ทั้งสัปดาห์มีกิจกรรมหลากหลายพอไหม'],
+          ['📏 Consistency', ev.scores.consistency, 'ทั้ง 3 วันจัดแผนครบและเป็นระบบไหม'],
+          ['🌿 Recovery', ev.scores.recovery, 'มีการผ่อนลงและกระจายความหนักเหมาะสมไหม']
+        ];
+
+        $('#scoreGrid').innerHTML = scoreItems.map(([name,val,desc]) => `
+          <div class="score-card">
+            <h3>${name}</h3>
+            <div class="num">${val}</div>
+            <div class="score-track"><span style="width:${val}%;"></span></div>
+            <div class="muted" style="font-weight:800;line-height:1.45;">${escapeHtml(desc)}</div>
+          </div>
+        `).join('');
+
+        $('#feedbackList').innerHTML = ev.advice
+          .concat(ev.improvements.slice(0, 4))
+          .map(t => `<div class="feedback-item">${escapeHtml(t)}</div>`)
+          .join('');
+      }
+
+      function renderSummary(){
+        const ev = state.lastEvaluation || evaluateWeek();
+        const stars = '⭐'.repeat(ev.stars) + '✩'.repeat(5 - ev.stars);
+
+        $('#summaryStars').textContent = stars;
+        $('#summaryBadge').textContent = ev.badge;
+        $('#summaryOverall').textContent = ev.scores.overall;
+        $('#summaryLine').textContent =
+          ev.scores.overall >= 90 ? 'สัปดาห์นี้ยอดเยี่ยม ทั้งปลอดภัย สมดุล และหลากหลาย'
+          : ev.scores.overall >= 75 ? 'สัปดาห์นี้ดีมากแล้ว เหลืออีกนิดเดียวก็จะสุดยอด'
+          : ev.scores.overall >= 60 ? 'สัปดาห์นี้เริ่มดีแล้ว ลองปรับความซ้ำและสมดุลอีกนิด'
+          : 'ลองใหม่อีกครั้งนะ ให้ครบทุกวันและอย่าลืมจบแบบผ่อนคลาย';
+
+        $('#summaryDays').innerHTML = ev.daily.map(x => {
+          const warmup = x.result.cardsBySlot.warmup?.name || '-';
+          const main = x.result.cardsBySlot.main?.name || '-';
+          const cooldown = x.result.cardsBySlot.cooldown?.name || '-';
+          return `
+            <div class="day-summary-item">
+              <strong>${escapeHtml(x.day.label)}</strong><br>
+              Warm-up: ${escapeHtml(warmup)}<br>
+              Main: ${escapeHtml(main)}<br>
+              Cooldown: ${escapeHtml(cooldown)}
+            </div>
+          `;
+        }).join('');
+
+        $('#summaryStrengths').innerHTML = ev.strengths.map(x => `• ${escapeHtml(x)}`).join('<br>');
+        $('#summaryImprovements').innerHTML = ev.improvements.map(x => `• ${escapeHtml(x)}`).join('<br>');
+      }
+
+      function saveLastSummary(){
+        const ev = state.lastEvaluation || evaluateWeek();
+        const lp = localNowParts(new Date());
+
+        const payload = {
+          game:'fitnessplanner_weekly',
+          game_id: ctx.gameId,
+          zone:'fitness',
+          pid:ctx.pid,
+          name:ctx.name,
+          study_id:ctx.studyId,
+          ts_iso:nowISO(),
+          date_local: lp.date_local,
+          time_local: lp.time_local,
+          timezone: LOCAL_TZ,
+
+          seed:ctx.seed,
+          diff:ctx.diff,
+          mode:'weekly',
+          run:ctx.run,
+          view:ctx.view,
+          session_id: logger.sessionId,
+
+          mission:state.mission,
+          plans:DAYS.map(day => ({
+            day:day.id,
+            slots:SLOT_DEFS.map(slot => ({
+              slot:slot.id,
+              activity: state.plans[day.id][slot.id] || ''
+            }))
+          })),
+          scores:ev.scores,
+          badge:ev.badge,
+          stars:ev.stars,
+          strengths:ev.strengths,
+          improvements:ev.improvements,
+          event_count: state.events.length,
+          flushed_count: logger.flushedCount
+        };
+
+        try{
+          localStorage.setItem('HHA_LAST_SUMMARY_FITNESS_PLANNER_WEEKLY', JSON.stringify(payload));
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+        }catch(_){}
+
+        logEvent('summary_saved', {
+          overall: ev.scores.overall,
+          badge: ev.badge,
+          stars: ev.stars
+        });
+      }
+
+      function finalizeWeek(){
+        state.lastEvaluation = evaluateWeek();
+
+        logEvent('week_finalize', {
+          overall: state.lastEvaluation.scores.overall,
+          safety: state.lastEvaluation.scores.safety,
+          variety: state.lastEvaluation.scores.variety,
+          consistency: state.lastEvaluation.scores.consistency,
+          recovery: state.lastEvaluation.scores.recovery,
+          badge: state.lastEvaluation.badge,
+          stars: state.lastEvaluation.stars,
+          unique_activities: state.lastEvaluation.uniqueActivities,
+          unique_types: state.lastEvaluation.uniqueTypes,
+          total_week_intensity: state.lastEvaluation.totalWeekIntensity
+        });
+
+        saveLastSummary();
+        renderSummary();
+        setScreen('summary');
+        flushEvents('finalize');
+      }
+
+      function canEvaluateWeek(){
+        return DAYS.every(d => dayComplete(d.id));
+      }
+
+      function resetWeek(newMission = true){
+        state.selectedCardId = '';
+        state.dayIndex = 0;
+        state.plans = Object.fromEntries(DAYS.map(d => [d.id, {}]));
+        if(newMission){
+          ctx.seed = String(Date.now());
+          state.mission = buildMission(ctx.seed);
+        }
+        renderMission();
+        renderCards();
+        renderDayTabs();
+        renderBoard();
+        updateCoach();
+        updateMiniScores();
+        setScreen('main');
+      }
+
+      function bindButtons(){
+        $('#btnPrevDay').addEventListener('click', () => {
+          state.dayIndex = Math.max(0, state.dayIndex - 1);
+          renderDayTabs();
+          renderBoard();
+          updateCoach();
+          updateMiniScores();
+        });
+
+        $('#btnNextDay').addEventListener('click', () => {
+          state.dayIndex = Math.min(DAYS.length - 1, state.dayIndex + 1);
+          renderDayTabs();
+          renderBoard();
+          updateCoach();
+          updateMiniScores();
+        });
+
+        $('#btnClearDay').addEventListener('click', () => {
+          state.plans[currentDay().id] = {};
+          renderBoard();
+          renderDayTabs();
+          updateCoach();
+          updateMiniScores();
+          logEvent('day_clear', { day_id: currentDay().id });
+        });
+
+        $('#btnClearWeek').addEventListener('click', () => {
+          state.plans = Object.fromEntries(DAYS.map(d => [d.id, {}]));
+          state.selectedCardId = '';
+          renderCards();
+          renderBoard();
+          renderDayTabs();
+          updateCoach();
+          updateMiniScores();
+          logEvent('week_clear');
+        });
+
+        $('#btnEvaluateWeek').addEventListener('click', () => {
+          if(!canEvaluateWeek()){
+            alert('กรุณาจัดแผนให้ครบทั้ง 3 วันก่อน');
+            return;
+          }
+          state.lastEvaluation = evaluateWeek();
+          renderFeedback();
+          setScreen('feedback');
+          logEvent('week_evaluate', { overall: state.lastEvaluation.scores.overall });
+        });
+
+        $('#btnRevise').addEventListener('click', () => {
+          setScreen('main');
+          logEvent('return_revise');
+        });
+
+        $('#btnFinalize').addEventListener('click', finalizeWeek);
+
+        $('#btnPlayAgain').addEventListener('click', () => {
+          resetWeek(true);
+          logEvent('play_again');
+        });
+
+        $('#btnGoHub1').addEventListener('click', goHub);
+        $('#btnGoHub2').addEventListener('click', goHub);
+        $('#btnGoHub3').addEventListener('click', goHub);
+
+        const btnExportEvents = $('#btnExportEvents');
+        if(btnExportEvents){
+          btnExportEvents.hidden = !ctx.debug;
+          btnExportEvents.addEventListener('click', exportEventJsonl);
+        }
+      }
+
+      function init(){
+        renderTopbar();
+        state.mission = buildMission(ctx.seed);
+        renderMission();
+        renderCards();
+        renderDayTabs();
+        renderBoard();
+        updateCoach();
+        updateMiniScores();
+        bindButtons();
+
+        logEvent('session_start', {
+          seed: ctx.seed,
+          diff: ctx.diff,
+          view: ctx.view,
+          mode: 'weekly',
+          page_loaded: 'weekly'
+        });
+
+        setInterval(() => {
+          if(logger.queue.length){
+            flushEvents('interval');
+          }
+        }, 15000);
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        if(document.visibilityState === 'hidden'){
+          logEvent('visibility_hidden', { queued: logger.queue.length });
+          flushEvents('visibilityhidden');
+        }
+      });
+
+      window.addEventListener('pagehide', () => {
+        logEvent('page_hide', { queued: logger.queue.length });
+        flushEvents('pagehide');
+      });
+
+      window.addEventListener('beforeunload', () => {
+        logEvent('before_unload', { queued: logger.queue.length });
+        flushEvents('beforeunload');
+      });
+
+      init();
+    })();
+  </script>
+</body>
+</html>
