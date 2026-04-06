@@ -1,1324 +1,2128 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Jump-Duck</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="favicon.ico"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • JumpDuck</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#8edcff" />
   <style>
     :root{
-      --bg:#050814;
-      --panel:rgba(2,6,23,.72);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --good:#22c55e;
-      --cyan:#22d3ee;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --violet:#a78bfa;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
+      --sky1:#dff6ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d4;
+      --grass:#dff6d4;
+      --card:#fffdf7;
+      --card2:#f9fff4;
+      --ink:#4f4a43;
+      --muted:#7a766f;
+      --line:#cae6ef;
+      --blue:#76cfff;
+      --blue2:#45b7f5;
+      --green:#7dd957;
+      --green2:#56c43c;
+      --yellow:#ffd45d;
+      --orange:#ffb04f;
+      --pink:#ff97c6;
+      --purple:#b995ff;
+      --danger:#ff7f7f;
+      --shadow:0 14px 34px rgba(77,74,67,.12);
+      --safe-top:env(safe-area-inset-top, 0px);
+      --safe-bottom:env(safe-area-inset-bottom, 0px);
+      --lane-w:min(92vw, 820px);
+      --control-h:108px;
+      --cue-progress:0;
+      --pulse-scale:1;
+      --feedback-scale:.9;
+      --feedback-opacity:0;
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
       min-height:100%;
       background:
-        radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),
-        linear-gradient(180deg,#050814,#0b1226);
-      color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
+        radial-gradient(circle at top, rgba(255,255,255,.6), transparent 36%),
+        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 48%, var(--sky3) 100%);
+      color:var(--ink);
+      font-family: ui-rounded, "SF Pro Rounded", "Nunito", "Trebuchet MS", "Noto Sans Thai", system-ui, sans-serif;
+      overflow-x:hidden;
+      user-select:none;
+      -webkit-user-select:none;
+      -webkit-tap-highlight-color:transparent;
     }
 
-    body{
-      padding: calc(12px + var(--sat)) 12px calc(14px + var(--sab));
+    button{
+      font:inherit;
+      color:inherit;
     }
 
     .app{
-      max-width:1100px;
+      min-height:100dvh;
+      display:flex;
+      flex-direction:column;
+      padding:
+        calc(12px + var(--safe-top))
+        12px
+        calc(12px + var(--safe-bottom))
+        12px;
+      gap:10px;
+    }
+
+    .topbar{
+      width:min(1100px, 100%);
       margin:0 auto;
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
     }
 
-    .hidden{ display:none !important; }
-
-    .card{
-      border-radius:22px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      box-shadow:0 22px 80px rgba(0,0,0,.35);
-      padding:14px;
+    .brand,
+    .mini-chip,
+    .top-actions a,
+    .top-actions button{
+      border:2px solid var(--line);
+      border-radius:999px;
+      background:rgba(255,255,255,.82);
+      box-shadow:var(--shadow);
     }
 
-    .top{
+    .brand{
       display:flex;
       align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-bottom:12px;
+      gap:8px;
+      padding:10px 14px;
+      font-weight:900;
+      white-space:nowrap;
     }
 
-    .title{
-      font-size:24px;
-      font-weight:1100;
+    .brand .icon{
+      width:28px;height:28px;border-radius:50%;
+      display:grid;place-items:center;
+      background:linear-gradient(135deg,var(--blue),var(--pink));
+      color:#fff;
+      font-size:14px;
+      box-shadow:0 6px 14px rgba(0,0,0,.12);
     }
 
-    .sub{
+    .headline{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      padding:0 4px;
+    }
+    .headline .title{
+      font-size:clamp(20px, 4vw, 34px);
+      font-weight:1000;
+      line-height:1;
+    }
+    .headline .sub{
       color:var(--muted);
       font-size:13px;
-      font-weight:900;
+      font-weight:800;
     }
 
-    .btn{
-      cursor:pointer;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(148,163,184,.10);
-      color:var(--text);
-      padding:10px 12px;
-      min-height:44px;
-      font-weight:1100;
-      text-decoration:none;
-      display:inline-flex;
+    .top-actions{
+      display:flex;
+      gap:8px;
       align-items:center;
-      justify-content:center;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+
+    .top-actions a,
+    .top-actions button{
+      text-decoration:none;
+      padding:10px 14px;
+      font-weight:900;
+      cursor:pointer;
+    }
+
+    .top-actions button{
+      border-width:2px;
+    }
+
+    .shell{
+      width:min(1100px, 100%);
+      margin:0 auto;
+      display:grid;
+      grid-template-columns: 280px minmax(0,1fr);
+      gap:12px;
+      align-items:start;
+    }
+
+    .panel, .stage-card{
+      background:rgba(255,255,255,.82);
+      border:2px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .panel{
+      padding:14px;
+      display:grid;
+      gap:12px;
+      position:sticky;
+      top:calc(10px + var(--safe-top));
+    }
+
+    .section{
+      border:2px dashed rgba(132,189,205,.45);
+      border-radius:22px;
+      padding:12px;
+      background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(250,255,249,.9));
+    }
+
+    .section h3{
+      margin:0 0 8px;
+      font-size:14px;
+      letter-spacing:.02em;
+    }
+
+    .hero-metrics{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
       gap:8px;
     }
 
-    .btn.primary{
-      border-color:rgba(59,130,246,.30);
-      background:rgba(59,130,246,.16);
-    }
-
-    .btn.good{
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.14);
-    }
-
-    .btn.warn{
-      border-color:rgba(245,158,11,.28);
-      background:rgba(245,158,11,.14);
-    }
-
-    .btn.ghost{
-      background:transparent;
-      color:var(--muted);
-    }
-
-    .row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .grid2{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
-    }
-
-    .grid3{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    @media (max-width:900px){
-      .grid2,.grid3{ grid-template-columns:1fr; }
-    }
-
-    .field{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
+    .metric{
+      border:2px solid rgba(132,189,205,.35);
+      border-radius:18px;
       padding:10px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(15,23,42,.46);
-      transition:transform .12s ease, border-color .12s ease, background .12s ease;
+      background:var(--card);
+    }
+    .metric .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:900;
+      margin-bottom:2px;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    .metric .v{
+      display:block;
+      font-size:22px;
+      font-weight:1000;
+      line-height:1.1;
     }
 
-    .field:hover{
-      transform:translateY(-1px);
-      border-color:rgba(59,130,246,.24);
+    .phase-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:linear-gradient(135deg, #fff, #f6fffb);
+      border:2px solid rgba(132,189,205,.4);
+      font-weight:1000;
+      font-size:13px;
     }
 
-    .field label{
+    .dot{
+      width:10px;height:10px;border-radius:50%;
+      background:var(--yellow);
+      box-shadow:0 0 0 4px rgba(255,212,93,.25);
+      flex:0 0 auto;
+    }
+
+    .help-grid{
+      display:grid;
+      gap:8px;
+    }
+
+    .help-row{
+      display:grid;
+      grid-template-columns: auto 1fr;
+      gap:8px;
+      align-items:center;
+      font-size:13px;
+      font-weight:800;
+    }
+
+    .kbd{
+      min-width:74px;
+      display:inline-flex;
+      justify-content:center;
+      align-items:center;
+      gap:4px;
+      padding:8px 10px;
+      border-radius:14px;
+      background:linear-gradient(180deg,#fff,#f1fbff);
+      border:2px solid rgba(132,189,205,.35);
+      box-shadow: inset 0 -2px 0 rgba(0,0,0,.04);
       font-size:12px;
       font-weight:1000;
-      color:var(--muted);
     }
 
-    .field input,.field select{
-      width:100%;
-      border-radius:12px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.55);
-      color:var(--text);
-      padding:10px 12px;
-    }
-
-    .hud{
+    .stage-card{
+      padding:14px;
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-      margin:12px 0;
+      gap:12px;
+      overflow:hidden;
+      position:relative;
     }
 
-    @media (max-width:900px){
-      .hud{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .postbar{
+      display:grid;
+      grid-template-columns:repeat(7, minmax(0,1fr));
+      gap:8px;
     }
 
-    .hud-mini{
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      margin-top:10px;
-    }
-
-    @media (max-width:900px){
-      .hud-mini{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-    }
-
-    .hudCard{
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(15,23,42,.46);
-      padding:10px 12px;
-    }
-
-    .hudCard.mini{
-      min-height:72px;
-    }
-
-    .hudK{
-      color:var(--muted);
+    .post{
+      min-height:64px;
+      padding:10px 8px;
+      border-radius:18px;
+      border:2px solid rgba(132,189,205,.28);
+      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(250,255,251,.92));
+      display:grid;
+      place-items:center;
+      text-align:center;
       font-size:11px;
       font-weight:1000;
-    }
-
-    .hudV{
-      margin-top:4px;
-      font-size:18px;
-      font-weight:1100;
-    }
-
-    .miniV{
-      font-size:16px;
-      line-height:1.2;
-    }
-
-    .accent-cyan{ box-shadow: inset 0 0 0 1px rgba(34,211,238,.12); }
-    .accent-warn{ box-shadow: inset 0 0 0 1px rgba(245,158,11,.12); }
-    .accent-red{ box-shadow: inset 0 0 0 1px rgba(239,68,68,.12); }
-    .accent-violet{ box-shadow: inset 0 0 0 1px rgba(167,139,250,.12); }
-
-    .barWrap{
-      display:grid;
-      gap:10px;
-      margin:10px 0 12px;
-    }
-
-    .barLine{
-      display:grid;
-      grid-template-columns:90px 1fr 90px;
-      gap:10px;
-      align-items:center;
-    }
-
-    .barTrack{
-      height:12px;
-      overflow:hidden;
-      border-radius:999px;
-      background:rgba(148,163,184,.14);
-    }
-
-    .barFill{
-      height:100%;
-      width:0%;
-      background:linear-gradient(90deg,#22d3ee,#3b82f6);
-    }
-
-    .barFill.warn{
-      background:linear-gradient(90deg,#f59e0b,#ef4444);
-    }
-
-    .barTxt{
-      text-align:right;
       color:var(--muted);
-      font-weight:1000;
-      font-size:12px;
+      transition:transform .18s ease, background .18s ease, color .18s ease, border-color .18s ease;
+    }
+    .post .num{
+      width:24px;height:24px;border-radius:50%;
+      display:grid;place-items:center;
+      margin-bottom:6px;
+      background:#fff;
+      border:2px solid rgba(132,189,205,.3);
+      color:var(--ink);
+      font-size:11px;
+    }
+    .post.active{
+      transform:translateY(-4px) scale(1.02);
+      background:linear-gradient(180deg, #fffef8, #eefcff);
+      border-color:rgba(69,183,245,.55);
+      color:var(--ink);
+      box-shadow:0 10px 20px rgba(69,183,245,.15);
+    }
+    .post.done{
+      background:linear-gradient(180deg, #f8fff3, #eeffe5);
+      color:var(--ink);
+      border-color:rgba(86,196,60,.52);
+    }
+    .post.done .num{
+      background:var(--green);
+      border-color:rgba(86,196,60,.4);
+      color:#fff;
     }
 
-    .bossWrap{
-      margin:10px 0 12px;
-      padding:10px 12px;
-      border-radius:16px;
-      border:1px solid rgba(239,68,68,.22);
-      background:linear-gradient(180deg, rgba(127,29,29,.15), rgba(69,10,10,.12));
-    }
-
-    .play{
+    .stage{
       position:relative;
+      border-radius:28px;
+      min-height:min(72dvh, 720px);
+      border:2px solid rgba(132,189,205,.28);
       overflow:hidden;
-      border-radius:20px;
-      border:1px solid rgba(148,163,184,.18);
       background:
-        radial-gradient(900px 500px at 50% -10%, rgba(34,211,238,.14), transparent 60%),
-        linear-gradient(180deg, rgba(8,15,35,.82), rgba(2,6,23,.82));
-      min-height:420px;
-      touch-action:manipulation;
-      isolation:isolate;
-      transition:filter .18s ease, box-shadow .18s ease, transform .18s ease;
+        radial-gradient(circle at 50% 20%, rgba(255,255,255,.9), transparent 35%),
+        linear-gradient(180deg, #bfe8ff 0%, #d9f5ff 34%, #f6ffd9 35%, #dff6d4 100%);
     }
 
-    .arena{
-      position:relative;
-      height:420px;
-    }
-
-    .ground{
+    .cloud{
       position:absolute;
-      left:0;
-      right:0;
-      bottom:86px;
-      height:4px;
-      background:linear-gradient(90deg, rgba(34,197,94,0), rgba(34,197,94,.35), rgba(34,197,94,0));
-      box-shadow:0 0 0 1px rgba(34,197,94,.10);
-      z-index:2;
+      border-radius:999px;
+      background:rgba(255,255,255,.85);
+      filter:blur(.4px);
+      box-shadow:0 8px 16px rgba(255,255,255,.35);
+      opacity:.9;
     }
 
-    .hitline{
+    .cloud:before,.cloud:after{
+      content:"";
       position:absolute;
-      left:144px;
-      top:0;
-      bottom:0;
-      width:2px;
-      background:rgba(34,211,238,.75);
-      box-shadow:0 0 0 6px rgba(34,211,238,.10), 0 0 18px rgba(34,211,238,.18);
-      z-index:2;
+      background:inherit;
+      border-radius:inherit;
+      inset:auto;
     }
 
-    .obsLayer{
+    .cloud.c1{ width:140px;height:44px; top:8%; left:8%; animation:float 11s ease-in-out infinite; }
+    .cloud.c1:before{ width:54px;height:54px; left:18px; top:-20px; }
+    .cloud.c1:after{ width:62px;height:62px; right:20px; top:-24px; }
+
+    .cloud.c2{ width:180px;height:50px; top:12%; right:9%; animation:float 13s ease-in-out infinite reverse; }
+    .cloud.c2:before{ width:64px;height:64px; left:20px; top:-24px; }
+    .cloud.c2:after{ width:70px;height:70px; right:22px; top:-28px; }
+
+    @keyframes float{
+      0%,100%{ transform:translateY(0px); }
+      50%{ transform:translateY(-8px); }
+    }
+
+    .track{
+      position:absolute;
+      inset:70px 18px calc(var(--control-h) + 40px) 18px;
+      border-radius:26px;
+      border:2px dashed rgba(132,189,205,.28);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.05), transparent 20%),
+        linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,.05)),
+        linear-gradient(90deg, rgba(255,255,255,.35), rgba(255,255,255,.15));
+      overflow:hidden;
+    }
+
+    .lane-center{
       position:absolute;
       inset:0;
-      z-index:8;
+      display:grid;
+      place-items:center;
+      pointer-events:none;
+    }
+
+    .lane-guide{
+      position:absolute;
+      width:min(400px, 68%);
+      height:100%;
+      left:50%;
+      transform:translateX(-50%);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.18), transparent 24%, transparent 76%, rgba(255,255,255,.12)),
+        linear-gradient(90deg, transparent 0, rgba(255,255,255,.24) 10%, rgba(255,255,255,.08) 50%, rgba(255,255,255,.24) 90%, transparent 100%);
+      border-left:2px dashed rgba(255,255,255,.3);
+      border-right:2px dashed rgba(255,255,255,.3);
+      border-radius:40px;
+      opacity:.9;
+    }
+
+    .floor-mark{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:8%;
+      width:min(400px, 70%);
+      height:110px;
+      border-radius:999px;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,.7), rgba(255,255,255,.25) 45%, rgba(255,255,255,0) 72%);
+      border:2px dashed rgba(69,183,245,.35);
+    }
+
+    .beat-line{
+      position:absolute;
+      left:50%;
+      bottom:16%;
+      transform:translateX(-50%);
+      width:min(420px, 76%);
+      height:16px;
+      border-radius:999px;
+      background:linear-gradient(90deg, rgba(255,255,255,.15), rgba(255,255,255,.95), rgba(255,255,255,.15));
+      box-shadow:0 0 0 7px rgba(118,207,255,.2);
+      overflow:visible;
+    }
+
+    .beat-line::after{
+      content:"";
+      position:absolute;
+      inset:-14px;
+      border-radius:999px;
+      border:3px solid rgba(118,207,255,.35);
+      transform:scale(var(--pulse-scale));
+      opacity:.8;
+      transition:transform .12s ease;
     }
 
     .avatar{
       position:absolute;
-      left:14%;
-      bottom:86px;
-      width:110px;
+      left:50%;
+      bottom:1%;
+      transform:translateX(-50%);
+      width:170px;
       height:150px;
-      transform:translateX(-50%);
-      z-index:10;
       pointer-events:none;
+      filter:drop-shadow(0 12px 16px rgba(0,0,0,.08));
+      transition:transform .12s ease;
     }
 
-    .avatar-shadow{
+    .avatar .head{
       position:absolute;
       left:50%;
-      bottom:0;
+      top:12px;
+      transform:translateX(-50%);
       width:56px;
-      height:12px;
-      transform:translateX(-50%);
-      border-radius:999px;
-      background:rgba(2,6,23,.36);
-      filter:blur(2px);
-      transition:transform .10s ease, opacity .10s ease, width .10s ease;
-    }
-
-    .avatar-body{
-      position:absolute;
-      left:50%;
-      bottom:10px;
-      width:68px;
-      height:126px;
-      transform:translateX(-50%);
-      transition:transform .10s ease;
-    }
-
-    .avatar-head{
-      position:absolute;
-      top:0;
-      left:50%;
-      width:28px;
-      height:28px;
-      transform:translateX(-50%);
+      height:56px;
       border-radius:50%;
-      background:linear-gradient(180deg,#fde68a,#f59e0b);
+      background:#fff0d0;
+      border:3px solid rgba(77,74,67,.12);
+      z-index:2;
     }
 
-    .avatar-torso{
+    .avatar .body{
       position:absolute;
-      top:28px;
       left:50%;
-      width:26px;
-      height:42px;
+      top:58px;
       transform:translateX(-50%);
-      border-radius:14px;
-      background:linear-gradient(180deg,#60a5fa,#2563eb);
+      width:78px;
+      height:58px;
+      border-radius:22px 22px 18px 18px;
+      background:linear-gradient(180deg, #8fd6ff, #55b9f7);
+      border:3px solid rgba(77,74,67,.09);
     }
 
-    .avatar-arm,.avatar-leg{
+    .avatar .arm,
+    .avatar .leg{
       position:absolute;
-      background:linear-gradient(180deg,#cbd5e1,#94a3b8);
+      background:#fff0d0;
       border-radius:999px;
-      transform-origin:top center;
-      transition:transform .10s ease, height .10s ease, top .10s ease;
+      border:3px solid rgba(77,74,67,.09);
+      transform-origin:center top;
     }
-
-    .avatar-arm{
-      top:34px;
-      width:8px;
-      height:34px;
+    .avatar .arm{
+      width:16px;height:54px; top:64px;
     }
-
-    .avatar-arm-left{ left:14px; transform:rotate(18deg); }
-    .avatar-arm-right{ right:14px; transform:rotate(-18deg); }
-
-    .avatar-leg{
-      top:66px;
-      width:9px;
-      height:46px;
+    .avatar .arm.left{ left:36px; transform:rotate(24deg); }
+    .avatar .arm.right{ right:36px; transform:rotate(-24deg); }
+    .avatar .leg{
+      width:18px;height:60px; top:102px;
     }
+    .avatar .leg.left{ left:64px; transform:rotate(10deg); }
+    .avatar .leg.right{ right:64px; transform:rotate(-10deg); }
 
-    .avatar-leg-left{ left:23px; transform:rotate(6deg); }
-    .avatar-leg-right{ right:23px; transform:rotate(-6deg); }
+    .avatar.jump{ transform:translateX(-50%) translateY(-18px) scale(1.02); }
+    .avatar.duck{ transform:translateX(-50%) translateY(10px) scaleY(.88); }
+    .avatar.left{ transform:translateX(calc(-50% - 28px)) translateY(-10px) rotate(-5deg); }
+    .avatar.right{ transform:translateX(calc(-50% + 28px)) translateY(-10px) rotate(5deg); }
+    .avatar.hold{ transform:translateX(-50%) translateY(-5px) scale(1.01); }
 
-    .avatar.avatar-idle .avatar-body{
-      transform:translateX(-50%) translateY(0);
-    }
-
-    .avatar.avatar-jump .avatar-body{
-      transform:translateX(-50%) translateY(-42px);
-    }
-
-    .avatar.avatar-jump .avatar-shadow{
-      transform:translateX(-50%) scale(.82);
-      opacity:.68;
-    }
-
-    .avatar.avatar-jump .avatar-arm-left{ top:30px; transform:rotate(-28deg); }
-    .avatar.avatar-jump .avatar-arm-right{ top:30px; transform:rotate(28deg); }
-    .avatar.avatar-jump .avatar-leg-left{ top:68px; transform:rotate(24deg); }
-    .avatar.avatar-jump .avatar-leg-right{ top:68px; transform:rotate(-24deg); }
-
-    .avatar.avatar-duck .avatar-body{
-      transform:translateX(-50%) translateY(18px) scaleY(.92);
-    }
-
-    .avatar.avatar-duck .avatar-shadow{
-      width:68px;
-      opacity:.92;
-    }
-
-    .avatar.avatar-duck .avatar-head{ top:10px; }
-    .avatar.avatar-duck .avatar-torso{ top:36px; height:32px; }
-    .avatar.avatar-duck .avatar-arm-left{ top:44px; left:18px; height:24px; transform:rotate(72deg); }
-    .avatar.avatar-duck .avatar-arm-right{ top:44px; right:18px; height:24px; transform:rotate(-72deg); }
-    .avatar.avatar-duck .avatar-leg-left{ top:68px; left:22px; height:34px; transform:rotate(72deg); }
-    .avatar.avatar-duck .avatar-leg-right{ top:68px; right:22px; height:34px; transform:rotate(-72deg); }
-
-    .tele{
+    .cue{
       position:absolute;
-      inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      pointer-events:none;
-      opacity:0;
-      z-index:24;
-      transition:opacity .15s ease;
-    }
-
-    .tele.on{ opacity:1; }
-
-    .teleBox{
-      padding:14px 18px;
-      border-radius:18px;
-      background:rgba(2,6,23,.84);
-      border:1px solid rgba(34,211,238,.28);
-      box-shadow:0 0 0 10px rgba(34,211,238,.06), 0 14px 34px rgba(0,0,0,.24);
-      font-size:20px;
-      font-weight:1100;
-    }
-
-    #jd-boss-intro .teleBox{
-      background:linear-gradient(180deg, rgba(127,29,29,.92), rgba(69,10,10,.90));
-      border-color:rgba(248,113,113,.34);
-      box-shadow:0 0 0 10px rgba(239,68,68,.08), 0 18px 42px rgba(0,0,0,.28);
-    }
-
-    .judge{
-      position:absolute;
-      top:72px;
       left:50%;
-      transform:translateX(-50%);
-      z-index:25;
-      padding:10px 14px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.72);
-      font-weight:1100;
-      opacity:0;
+      top:0;
+      transform:
+        translateX(-50%)
+        translateY(calc(var(--cue-progress) * 100%))
+        scale(calc(.82 + (var(--cue-progress) * .26)));
+      width:min(260px, 56vw);
+      min-height:112px;
+      padding:12px;
+      border-radius:28px;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      font-weight:1000;
+      border:3px solid rgba(255,255,255,.82);
+      box-shadow:0 18px 28px rgba(0,0,0,.12);
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(245,252,255,.95));
       pointer-events:none;
-      transition:opacity .12s ease, transform .12s ease;
+      transition:opacity .14s ease;
+    }
+    .cue.hidden{ opacity:0; }
+    .cue .emoji{
+      font-size:38px;
+      line-height:1;
+      margin-bottom:4px;
+    }
+    .cue .label{
+      font-size:22px;
+      line-height:1.1;
+    }
+    .cue .hint{
+      margin-top:6px;
+      font-size:12px;
+      color:var(--muted);
     }
 
-    .judge.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(-4px);
-    }
+    .cue.jump{ background:linear-gradient(180deg, #ffffff, #eef9ff); }
+    .cue.duck{ background:linear-gradient(180deg, #fffef7, #fff6db); }
+    .cue.left_jump,.cue.right_jump{ background:linear-gradient(180deg, #fffaff, #f3eaff); }
+    .cue.hold{ background:linear-gradient(180deg, #fcfff8, #efffe4); }
 
-    .rushBanner{
+    .upcoming{
       position:absolute;
+      right:14px;
       top:14px;
-      left:50%;
-      transform:translateX(-50%);
-      z-index:22;
-      pointer-events:none;
+      width:min(210px, 44vw);
+      padding:12px;
+      border-radius:22px;
+      border:2px solid rgba(132,189,205,.35);
+      background:rgba(255,255,255,.88);
+      box-shadow:var(--shadow);
+      z-index:3;
+    }
+    .upcoming .t{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+      margin-bottom:6px;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+    }
+    .upcoming .main{
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.15;
+    }
+    .upcoming .sub{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:800;
     }
 
-    .rushBanner .rushText{
+    .center-hud{
+      position:absolute;
+      left:50%;
+      top:16px;
+      transform:translateX(-50%);
+      display:grid;
+      justify-items:center;
+      gap:8px;
+      z-index:3;
+      pointer-events:none;
+      width:min(520px, 74vw);
+    }
+
+    .next-big{
       padding:10px 16px;
       border-radius:999px;
-      border:1px solid rgba(245,158,11,.32);
-      background:linear-gradient(180deg, rgba(120,53,15,.88), rgba(69,26,3,.86));
-      color:#fff7ed;
-      font-weight:1100;
-      letter-spacing:.8px;
-      box-shadow:0 0 0 8px rgba(245,158,11,.08);
+      background:rgba(255,255,255,.9);
+      border:2px solid rgba(132,189,205,.36);
+      box-shadow:var(--shadow);
+      font-weight:1000;
+      font-size:18px;
+      text-align:center;
     }
 
-    .actions{
-      display:flex;
-      gap:10px;
-      margin-top:12px;
-      flex-wrap:wrap;
+    .feedback{
+      position:absolute;
+      left:50%;
+      top:44%;
+      transform:translate(-50%,-50%) scale(var(--feedback-scale));
+      opacity:var(--feedback-opacity);
+      min-width:180px;
+      padding:14px 18px;
+      border-radius:24px;
+      text-align:center;
+      font-weight:1000;
+      font-size:28px;
+      line-height:1.1;
+      background:rgba(255,255,255,.96);
+      border:3px solid rgba(255,255,255,.9);
+      box-shadow:0 18px 28px rgba(0,0,0,.12);
+      pointer-events:none;
+      z-index:4;
+      transition:transform .16s ease, opacity .16s ease;
     }
-
-    .actions .btn{
-      flex:1 1 180px;
-    }
-
-    .resultHero{
-      display:grid;
-      grid-template-columns:110px 1fr;
-      gap:14px;
-      padding:14px;
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.18);
-      background:linear-gradient(180deg, rgba(15,23,42,.52), rgba(2,6,23,.56));
-      box-shadow:0 22px 80px rgba(0,0,0,.28);
-      margin-bottom:12px;
-    }
-
-    @media (max-width:800px){
-      .resultHero{ grid-template-columns:1fr; }
-    }
-
-    .resultBadgeWrap{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
-
-    .resultRankBadge{
-      width:92px;
-      height:92px;
-      border-radius:22px;
-      display:grid;
-      place-items:center;
-      font-size:34px;
-      font-weight:1100;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.58);
-      box-shadow:0 12px 30px rgba(0,0,0,.24);
-    }
-
-    .resultRankBadge.rank-s{
-      background:linear-gradient(180deg, rgba(250,204,21,.24), rgba(245,158,11,.16));
-      color:#fde68a;
-    }
-
-    .resultRankBadge.rank-a{
-      background:linear-gradient(180deg, rgba(96,165,250,.22), rgba(37,99,235,.14));
-      color:#bfdbfe;
-    }
-
-    .resultRankBadge.rank-b{
-      background:linear-gradient(180deg, rgba(74,222,128,.22), rgba(21,128,61,.14));
-      color:#bbf7d0;
-    }
-
-    .resultRankBadge.rank-c,
-    .resultRankBadge.rank-d{
-      background:linear-gradient(180deg, rgba(148,163,184,.18), rgba(51,65,85,.18));
-      color:#e2e8f0;
-    }
-
-    .resultHeroBody{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-
-    .resultHeroTop{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-
-    .resultHeroTitle{
-      font-size:22px;
-      font-weight:1100;
-      line-height:1.2;
-    }
-
-    .resultHeroSub{
-      margin-top:4px;
+    .feedback small{
+      display:block;
+      margin-top:5px;
+      font-size:13px;
       color:var(--muted);
-      font-size:12px;
       font-weight:900;
     }
 
-    .resultHeroPills{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:flex-start;
+    .overlay-bottom{
+      position:absolute;
+      left:14px;
+      right:14px;
+      bottom:14px;
+      display:grid;
+      grid-template-columns: minmax(0,1fr) auto;
+      gap:10px;
+      align-items:end;
+      z-index:3;
     }
 
-    .pill{
+    .coach{
+      min-height:92px;
+      padding:12px 14px;
+      border-radius:22px;
+      background:rgba(255,255,255,.9);
+      border:2px solid rgba(132,189,205,.34);
+      box-shadow:var(--shadow);
+      display:grid;
+      align-content:start;
+      gap:5px;
+    }
+    .coach .who{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+    }
+    .coach .line{
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.15;
+    }
+    .coach .mini{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .live-box{
+      display:grid;
+      gap:8px;
+      min-width:min(250px, 42vw);
+    }
+
+    .pill-row{
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+
+    .mini-chip{
+      padding:10px 12px;
+      font-size:12px;
+      font-weight:1000;
       display:inline-flex;
       align-items:center;
-      gap:8px;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.46);
-      color:var(--muted);
-      font-size:12px;
-      font-weight:950;
-      white-space:nowrap;
+      gap:6px;
     }
 
-    .pill b{ color:var(--text); }
-
-    .resultRewardCard{
+    .controls{
       display:grid;
-      grid-template-columns:64px 1fr;
-      gap:12px;
-      align-items:center;
-      padding:12px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.46);
+      gap:10px;
     }
 
-    .resultRewardIcon{
-      width:64px;
-      height:64px;
-      border-radius:18px;
+    .control-grid{
+      display:grid;
+      grid-template-columns:repeat(5, minmax(0,1fr));
+      gap:8px;
+    }
+
+    .action-btn{
+      min-height:78px;
+      border:none;
+      border-radius:24px;
+      cursor:pointer;
+      font-weight:1000;
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(247,253,255,.92));
+      border:2px solid rgba(132,189,205,.35);
+      box-shadow:0 10px 20px rgba(0,0,0,.06);
       display:grid;
       place-items:center;
-      font-size:30px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.38);
+      text-align:center;
+      padding:8px;
     }
-
-    .resultRewardTitle{
-      font-size:18px;
-      font-weight:1100;
+    .action-btn .emoji{
+      font-size:26px;
+      line-height:1;
     }
-
-    .resultRewardSub{
-      margin-top:4px;
+    .action-btn .txt{
+      font-size:15px;
+      line-height:1.05;
+    }
+    .action-btn .key{
+      margin-top:3px;
+      font-size:11px;
       color:var(--muted);
+    }
+    .action-btn:active,
+    .action-btn.active{
+      transform:translateY(2px) scale(.98);
+      box-shadow:0 4px 10px rgba(0,0,0,.06);
+    }
+
+    .footer-note{
+      text-align:center;
       font-size:12px;
-      font-weight:900;
+      color:var(--muted);
+      font-weight:800;
+      padding-bottom:6px;
+    }
+
+    .cover,
+    .summary{
+      position:fixed;
+      inset:0;
+      z-index:20;
+      background:rgba(226,246,255,.78);
+      backdrop-filter: blur(8px);
+      display:grid;
+      place-items:center;
+      padding:18px;
+    }
+    .cover.hidden,
+    .summary.hidden{
+      display:none;
+    }
+
+    .dialog{
+      width:min(760px, 100%);
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,255,251,.96));
+      border:2px solid var(--line);
+      border-radius:32px;
+      box-shadow:0 24px 60px rgba(0,0,0,.14);
+      padding:18px;
+      display:grid;
+      gap:14px;
+    }
+
+    .dialog h1,
+    .dialog h2{
+      margin:0;
+      line-height:1.05;
+      font-size:clamp(26px, 4vw, 42px);
+    }
+    .dialog p{
+      margin:0;
+      color:var(--muted);
+      font-weight:800;
       line-height:1.45;
     }
 
-    .resultHighlights{
+    .feature-grid{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
+      grid-template-columns:repeat(3, minmax(0,1fr));
       gap:10px;
-      margin-bottom:12px;
     }
 
-    @media (max-width:900px){
-      .resultHighlights{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .feature{
+      border-radius:24px;
+      border:2px solid rgba(132,189,205,.35);
+      background:var(--card);
+      padding:14px;
+      display:grid;
+      gap:8px;
     }
-
-    .highlightCard{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.46);
-      padding:12px;
+    .feature .big{
+      font-size:32px;
+      line-height:1;
     }
-
-    .highlightK{
+    .feature strong{
+      font-size:15px;
+      line-height:1.15;
+    }
+    .feature span{
       color:var(--muted);
-      font-size:11px;
-      font-weight:1000;
+      font-size:12px;
+      font-weight:800;
+      line-height:1.35;
     }
 
-    .highlightV{
-      margin-top:6px;
-      font-size:24px;
-      font-weight:1100;
-    }
-
-    .resultGrid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin-top:10px;
-    }
-
-    @media (max-width:800px){
-      .resultGrid{ grid-template-columns:1fr; }
-    }
-
-    .resultItem{
+    .dialog-actions{
       display:flex;
-      justify-content:space-between;
       gap:10px;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(15,23,42,.46);
-      transition:transform .12s ease, border-color .12s ease, background .12s ease;
+      flex-wrap:wrap;
     }
 
-    .resultItem:hover{
-      transform:translateY(-1px);
-      border-color:rgba(59,130,246,.24);
+    .btn{
+      border:none;
+      border-radius:999px;
+      padding:14px 18px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow);
     }
 
-    .statusLine{
-      margin-top:10px;
+    .btn.primary{
+      background:linear-gradient(135deg, var(--green), var(--green2));
+      color:#fff;
+    }
+    .btn.secondary{
+      background:linear-gradient(135deg, #fff, #eefbff);
+      border:2px solid rgba(132,189,205,.35);
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0,1fr));
+      gap:10px;
+    }
+
+    .summary-stat{
+      border-radius:24px;
+      border:2px solid rgba(132,189,205,.35);
+      background:var(--card);
+      padding:16px;
+      text-align:center;
+    }
+    .summary-stat .k{
       color:var(--muted);
       font-size:12px;
       font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    .summary-stat .v{
+      margin-top:4px;
+      font-size:32px;
+      font-weight:1000;
+      line-height:1.05;
     }
 
-    .phase-1{ filter:saturate(1) brightness(1); }
-    .phase-2{ filter:saturate(1.04) brightness(1.02); }
-    .phase-3{ filter:saturate(1.08) brightness(1.03); }
-
-    .final-rush{
-      box-shadow:
-        inset 0 0 0 2px rgba(245,158,11,.20),
-        0 0 34px rgba(245,158,11,.10);
-      animation: jdFinalRushPulse .55s ease-in-out infinite alternate;
+    .stars{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      justify-content:center;
+      font-size:34px;
     }
 
-    .boss-frenzy{
-      box-shadow:
-        inset 0 0 0 2px rgba(239,68,68,.24),
-        0 0 38px rgba(239,68,68,.14);
+    .tiny{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
     }
 
-    @keyframes jdFinalRushPulse{
-      from{ transform:translateZ(0); }
-      to{ transform:translateZ(0) scale(1.002); }
+    .countdown{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      z-index:8;
+      pointer-events:none;
+      font-size:92px;
+      font-weight:1000;
+      color:#fff;
+      text-shadow:0 10px 22px rgba(0,0,0,.18);
+      opacity:0;
+      transition:opacity .18s ease, transform .18s ease;
+    }
+    .countdown.show{
+      opacity:1;
+      transform:scale(1.02);
     }
 
-    .resultHero,
-    .resultHighlights,
-    .resultGrid{
-      animation: jdResultIn .28s ease both;
+    .debug{
+      font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space:pre-wrap;
+      font-size:11px;
+      color:#445;
+      background:rgba(255,255,255,.7);
+      border-radius:18px;
+      border:2px dashed rgba(132,189,205,.3);
+      padding:10px;
     }
 
-    .resultHighlights{ animation-delay:.04s; }
-    .resultGrid{ animation-delay:.08s; }
-
-    @keyframes jdResultIn{
-      from{
-        opacity:0;
-        transform:translateY(8px);
-      }
-      to{
-        opacity:1;
-        transform:translateY(0);
-      }
-    }
-
-    @media (max-width: 768px){
-      body{
-        padding: calc(8px + var(--sat)) 8px calc(10px + var(--sab));
-      }
-
-      .card{
-        padding:10px;
-        border-radius:18px;
-      }
-
-      #view-play.card{
-        padding:8px;
-      }
-
-      #view-play .top{
-        margin-bottom:6px;
-        gap:6px;
-      }
-
-      #view-play .title{
-        font-size:19px;
-        line-height:1.08;
-      }
-
-      #view-play .sub{
-        font-size:10px;
-        line-height:1.2;
-        opacity:.92;
-      }
-
-      #view-play .top .btn{
-        min-height:38px;
-        padding:7px 10px;
-        border-radius:14px;
-        font-size:13px;
-      }
-
-      #view-play .hud:first-of-type .hudCard:nth-child(1),
-      #view-play .hud:first-of-type .hudCard:nth-child(2){
-        display:none;
-      }
-
-      #view-play .hud:first-of-type{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:5px;
-        margin:6px 0 5px;
-      }
-
-      .hud{
-        gap:5px;
-        margin:6px 0 5px;
-      }
-
-      .hudCard{
-        padding:7px 8px;
-        border-radius:12px;
-      }
-
-      .hudCard.mini{
-        min-height:52px;
-        padding:6px 7px;
-      }
-
-      .hudK{
-        font-size:9px;
-        line-height:1.05;
-      }
-
-      .hudV{
-        margin-top:2px;
-        font-size:13px;
-        line-height:1.08;
-      }
-
-      .miniV{
-        font-size:11px;
-        line-height:1.12;
-      }
-
-      .hud-mini{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:5px;
-        margin-top:5px;
-      }
-
-      .hud-rule-desktop{
-        display:none !important;
-      }
-
-      .barWrap{
-        gap:5px;
-        margin:5px 0 7px;
-      }
-
-      .barLine{
-        grid-template-columns:54px 1fr 42px;
-        gap:5px;
-      }
-
-      .barTrack{
-        height:9px;
-      }
-
-      .barTxt{
-        font-size:10px;
-      }
-
-      .bossWrap{
-        margin:5px 0 7px;
-        padding:7px 9px;
-        border-radius:13px;
-      }
-
-      .play{
-        min-height:620px;
-        border-radius:20px;
-      }
-
-      .arena{
-        height:620px;
-      }
-
-      .ground{
-        bottom:104px;
-      }
-
-      .hitline{
-        width:2px;
-        box-shadow:
-          0 0 0 5px rgba(34,211,238,.08),
-          0 0 16px rgba(34,211,238,.15);
-      }
-
-      .avatar{
-        width:78px;
-        height:118px;
-        bottom:104px;
-      }
-
-      .avatar-body{
-        width:52px;
-        height:104px;
-      }
-
-      .avatar-head{
-        width:22px;
-        height:22px;
-      }
-
-      .avatar-torso{
-        top:22px;
-        width:22px;
-        height:34px;
-      }
-
-      .avatar-arm{
-        top:28px;
-        height:26px;
-      }
-
-      .avatar-leg{
-        top:56px;
-        height:38px;
-      }
-
-      .avatar.avatar-jump .avatar-body{
-        transform:translateX(-50%) translateY(-28px);
-      }
-
-      .avatar.avatar-duck .avatar-body{
-        transform:translateX(-50%) translateY(14px) scaleY(.92);
-      }
-
-      .rushBanner{
-        top:8px;
-      }
-
-      .rushBanner .rushText{
-        padding:7px 11px;
-        font-size:13px;
-      }
-
-      .judge{
-        top:52px;
-        font-size:16px;
-        padding:7px 11px;
-      }
-
-      .teleBox{
-        font-size:17px;
-        padding:11px 14px;
-      }
-
-      .actions{
-        display:grid;
-        grid-template-columns:1fr 1fr 1fr;
-        gap:8px;
-        margin-top:8px;
-      }
-
-      .actions .btn{
-        min-height:46px;
-        font-size:15px;
-        padding:8px 10px;
-        border-radius:16px;
-      }
-
-      .resultHero{
+    @media (max-width: 980px){
+      .shell{
         grid-template-columns:1fr;
-        gap:10px;
       }
-
-      .resultHighlights{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
+      .panel{
+        position:relative;
+        top:auto;
       }
+      .stage{
+        min-height:68dvh;
+      }
+    }
 
-      .highlightV{
+    @media (max-width: 760px){
+      .feature-grid,
+      .summary-grid{
+        grid-template-columns:1fr;
+      }
+      .topbar{
+        grid-template-columns:1fr;
+      }
+      .headline{
+        order:-1;
+      }
+      .overlay-bottom{
+        grid-template-columns:1fr;
+      }
+      .pill-row{
+        justify-content:flex-start;
+      }
+      .control-grid{
+        grid-template-columns:repeat(3, minmax(0,1fr));
+      }
+      .action-btn{
+        min-height:74px;
+      }
+      .post{
+        min-height:58px;
+        font-size:10px;
+        padding:8px 6px;
+      }
+      .post .num{
+        width:22px;height:22px;margin-bottom:4px;
+      }
+      .cue{
+        width:min(220px, 62vw);
+      }
+      .cue .label{
         font-size:20px;
       }
-
-      .resultGrid{
-        grid-template-columns:1fr;
-        gap:8px;
+      .next-big{
+        font-size:16px;
       }
-    }
-
-    @media (max-width: 420px){
-      #view-play .title{
-        font-size:18px;
-      }
-
-      #view-play .sub{
-        font-size:10px;
-      }
-
-      #view-play .hud:first-of-type{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
-
-      .hud-mini{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
-
-      .hudV{
-        font-size:12px;
-      }
-
-      .miniV{
-        font-size:10px;
-      }
-
-      .play{
-        min-height:606px;
-      }
-
-      .arena{
-        height:606px;
-      }
-
-      .ground{
-        bottom:102px;
-      }
-
-      .avatar{
-        width:74px;
-        height:112px;
-        bottom:102px;
-      }
-
-      .actions .btn{
-        min-height:44px;
-        font-size:14px;
+      .feedback{
+        font-size:22px;
       }
     }
   </style>
 </head>
 <body>
   <div class="app">
-
-    <section id="view-menu" class="card">
-      <div class="top">
-        <div>
-          <div class="title">⬆️⬇️ Jump-Duck</div>
-          <div class="sub">Fitness Academy Run • อ่าน silhouette ให้ไว • low = jump • high = duck</div>
-        </div>
-        <div class="row">
-          <a class="btn ghost" id="jd-back-hub-menu" href="#">⬅ กลับ Hub</a>
-        </div>
+    <header class="topbar">
+      <div class="brand">
+        <div class="icon">🏃</div>
+        <div>HeroHealth</div>
       </div>
 
-      <div class="grid2">
-        <div class="field">
-          <label for="jd-mode">Mode</label>
-          <select id="jd-mode">
-            <option value="training">training</option>
-            <option value="test">test</option>
-            <option value="research">research</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="jd-diff">Difficulty</label>
-          <select id="jd-diff">
-            <option value="easy">easy</option>
-            <option value="normal" selected>normal</option>
-            <option value="hard">hard</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="jd-duration">Duration (sec)</label>
-          <select id="jd-duration">
-            <option value="45">45</option>
-            <option value="60" selected>60</option>
-            <option value="90">90</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Guide</label>
-          <div class="sub">แตะบน = Jump • แตะล่าง = Duck • ↑/↓ หรือ W/S ก็ได้</div>
-        </div>
+      <div class="headline">
+        <div class="title">JumpDuck</div>
+        <div class="sub">Rhythmic Jump Circuit • เด็กประถม • Jump + Duck + Landing + Beat</div>
       </div>
 
-      <div id="jd-research-block" class="grid3 hidden" style="margin-top:10px;">
-        <div class="field">
-          <label for="jd-participant-id">Participant ID</label>
-          <input id="jd-participant-id" type="text" placeholder="P001"/>
-        </div>
-        <div class="field">
-          <label for="jd-group">Group</label>
-          <input id="jd-group" type="text" placeholder="EXP / CTRL"/>
-        </div>
-        <div class="field">
-          <label for="jd-note">Note</label>
-          <input id="jd-note" type="text" placeholder="optional"/>
-        </div>
+      <div class="top-actions">
+        <button id="btnPause" type="button">⏸ พัก</button>
+        <a id="btnHubTop" href="../herohealth/hub-v2.html">🏠 HUB</a>
       </div>
+    </header>
 
-      <div class="actions">
-        <button class="btn primary" data-action="start" type="button">▶ เริ่มเล่น</button>
-        <button class="btn warn" data-action="tutorial" type="button">🎯 Tutorial</button>
-      </div>
-    </section>
+    <main class="shell">
+      <aside class="panel">
+        <section class="section">
+          <div class="phase-pill"><span class="dot"></span><span id="phaseText">Phase 1 • Learn the Beat</span></div>
+        </section>
 
-    <section id="view-play" class="card hidden">
-      <div class="top">
-        <div>
-          <div class="title">Jump-Duck Run</div>
-          <div class="sub">อ่าน silhouette ให้ชัด • low = jump • high = duck</div>
-        </div>
-        <div class="row">
-          <a class="btn ghost" id="jd-back-hub-play" href="#">⬅ Hub</a>
-        </div>
-      </div>
+        <section class="section">
+          <h3>LIVE SCORE</h3>
+          <div class="hero-metrics">
+            <div class="metric"><span class="k">Score</span><span class="v" id="scoreVal">0</span></div>
+            <div class="metric"><span class="k">Combo</span><span class="v" id="comboVal">0</span></div>
+            <div class="metric"><span class="k">Time</span><span class="v" id="timeVal">90</span></div>
+            <div class="metric"><span class="k">Stars</span><span class="v" id="starsVal">0⭐</span></div>
+          </div>
+        </section>
 
-      <div class="hud">
-        <div class="hudCard"><div class="hudK">Mode</div><div class="hudV" id="hud-mode">training</div></div>
-        <div class="hudCard"><div class="hudK">Diff</div><div class="hudV" id="hud-diff">normal</div></div>
-        <div class="hudCard"><div class="hudK">Time</div><div class="hudV" id="hud-time">60.0</div></div>
-        <div class="hudCard"><div class="hudK">Phase</div><div class="hudV" id="hud-phase">1 • warmup</div></div>
+        <section class="section">
+          <h3>SKILL TRACK</h3>
+          <div class="hero-metrics">
+            <div class="metric"><span class="k">Rhythm</span><span class="v" id="rhythmVal">0%</span></div>
+            <div class="metric"><span class="k">Jump</span><span class="v" id="jumpVal">0%</span></div>
+            <div class="metric"><span class="k">Landing</span><span class="v" id="landingVal">0%</span></div>
+            <div class="metric"><span class="k">Posts</span><span class="v" id="postsVal">0</span></div>
+          </div>
+        </section>
 
-        <div class="hudCard"><div class="hudK">Score</div><div class="hudV" id="hud-score">0</div></div>
-        <div class="hudCard"><div class="hudK">Combo</div><div class="hudV" id="hud-combo">0</div></div>
-        <div class="hudCard"><div class="hudK">Stability</div><div class="hudV" id="hud-stability">100%</div></div>
-        <div class="hudCard"><div class="hudK">Boss HP</div><div class="hudV" id="hud-boss">—</div></div>
-      </div>
+        <section class="section">
+          <h3>HOW TO PLAY</h3>
+          <div class="help-grid">
+            <div class="help-row"><span class="kbd">SPACE / W</span><span>Jump</span></div>
+            <div class="help-row"><span class="kbd">S / ↓</span><span>Duck</span></div>
+            <div class="help-row"><span class="kbd">A</span><span>Left Jump</span></div>
+            <div class="help-row"><span class="kbd">D</span><span>Right Jump</span></div>
+            <div class="help-row"><span class="kbd">H</span><span>Hold Landing</span></div>
+          </div>
+        </section>
 
-      <div class="hud hud-mini">
-        <div class="hudCard mini accent-cyan">
-          <div class="hudK">Pattern</div>
-          <div class="hudV miniV" id="hud-pattern">—</div>
-        </div>
+        <section class="section">
+          <h3>COACH NOTE</h3>
+          <div id="coachSide" class="tiny">ดูการ์ดกลางจอ แล้วกดให้ตรงจังหวะตอน cue ลงถึงเส้นฟ้า</div>
+        </section>
 
-        <div class="hudCard mini accent-warn">
-          <div class="hudK">Rush</div>
-          <div class="hudV miniV" id="hud-rush">—</div>
-        </div>
+        <section class="section" id="debugWrap" style="display:none;">
+          <h3>DEBUG</h3>
+          <div class="debug" id="debugBox">debug</div>
+        </section>
+      </aside>
 
-        <div class="hudCard mini accent-red">
-          <div class="hudK">Boss / Rule</div>
-          <div class="hudV miniV" id="hud-boss-compact">—</div>
-        </div>
+      <section class="stage-card">
+        <div class="postbar" id="postBar"></div>
 
-        <div class="hudCard mini accent-violet hud-rule-desktop">
-          <div class="hudK">Rule</div>
-          <div class="hudV miniV" id="hud-boss-status">—</div>
-        </div>
+        <section class="stage" id="stage">
+          <div class="cloud c1"></div>
+          <div class="cloud c2"></div>
 
-        <div class="hudCard mini accent-red hidden">
-          <div class="hudK">Boss</div>
-          <div class="hudV miniV" id="hud-boss-label">—</div>
-        </div>
-      </div>
-
-      <div class="barWrap">
-        <div class="barLine">
-          <div class="sub">Progress</div>
-          <div class="barTrack"><div class="barFill" id="hud-prog-fill"></div></div>
-          <div class="barTxt" id="hud-prog-text">0%</div>
-        </div>
-
-        <div class="barLine">
-          <div class="sub">Fever</div>
-          <div class="barTrack"><div class="barFill warn" id="hud-fever-fill"></div></div>
-          <div class="barTxt" id="hud-fever-status">Ready</div>
-        </div>
-      </div>
-
-      <div class="bossWrap hidden" id="boss-bar-wrap">
-        <div class="barLine">
-          <div class="sub">Boss HP</div>
-          <div class="barTrack"><div class="barFill warn" id="hud-boss-fill"></div></div>
-          <div class="barTxt" id="hud-boss-status-right">—</div>
-        </div>
-      </div>
-
-      <div class="play" id="jd-play-area">
-        <div class="arena" id="jd-arena">
-          <div class="ground"></div>
-          <div class="hitline" id="jd-hitline"></div>
-
-          <div class="rushBanner hidden" id="jd-rush-banner">
-            <div class="rushText">FINAL RUSH!</div>
+          <div class="center-hud">
+            <div class="next-big" id="nextBig">เตรียมพร้อม!</div>
           </div>
 
-          <div class="tele hidden" id="jd-tele">
-            <div class="teleBox">READY</div>
+          <div class="upcoming">
+            <div class="t">Next Action</div>
+            <div class="main" id="upcomingMain">Jump</div>
+            <div class="sub" id="upcomingSub">ตามจังหวะให้ตรง</div>
           </div>
 
-          <div class="tele hidden" id="jd-boss-intro">
-            <div class="teleBox" id="jd-boss-intro-text">BOSS INCOMING</div>
-          </div>
-
-          <div class="judge" id="jd-judge">READY</div>
-
-          <div class="avatar avatar-idle" id="jd-avatar" aria-label="player avatar">
-            <div class="avatar-shadow"></div>
-            <div class="avatar-body">
-              <div class="avatar-head"></div>
-              <div class="avatar-torso"></div>
-              <div class="avatar-arm avatar-arm-left"></div>
-              <div class="avatar-arm avatar-arm-right"></div>
-              <div class="avatar-leg avatar-leg-left"></div>
-              <div class="avatar-leg avatar-leg-right"></div>
-            </div>
-          </div>
-
-          <div class="obsLayer" id="jd-obstacles"></div>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button class="btn good" id="btn-jump" type="button">⬆ JUMP</button>
-        <button class="btn warn" id="btn-duck" type="button">⬇ DUCK</button>
-        <button class="btn ghost" id="btn-stop-early" type="button">⏹ Stop</button>
-      </div>
-    </section>
-
-    <section id="view-result" class="card hidden">
-      <div class="top">
-        <div>
-          <div class="title">📊 Result Summary</div>
-          <div class="sub">สรุปรอบล่าสุดของ JumpDuck</div>
-        </div>
-        <div class="row">
-          <a class="btn ghost" id="jd-back-hub-result" href="#">⬅ Hub</a>
-        </div>
-      </div>
-
-      <div class="resultHero" id="jd-result-hero">
-        <div class="resultBadgeWrap">
-          <div class="resultRankBadge rank-c" id="jd-rank-badge">C</div>
-        </div>
-
-        <div class="resultHeroBody">
-          <div class="resultHeroTop">
-            <div>
-              <div class="resultHeroTitle" id="jd-result-title">ผ่านด่านฝึกแล้ว!</div>
-              <div class="resultHeroSub" id="jd-result-sub">สรุปรอบล่าสุดของ JumpDuck</div>
+          <div class="track" id="track">
+            <div class="lane-center">
+              <div class="lane-guide"></div>
             </div>
 
-            <div class="resultHeroPills">
-              <span class="pill"><b>Boss</b>: <span id="jd-result-boss">—</span></span>
-              <span class="pill"><b>Pattern</b>: <span id="jd-result-pattern">—</span></span>
-              <span class="pill"><b>Rush</b>: <span id="jd-result-rush">—</span></span>
+            <div class="floor-mark"></div>
+            <div class="beat-line" id="beatLine"></div>
+
+            <div class="cue hidden" id="cueCard">
+              <div>
+                <div class="emoji" id="cueEmoji">⬆️</div>
+                <div class="label" id="cueLabel">Jump</div>
+                <div class="hint" id="cueHint">กดตอนถึงเส้นฟ้า</div>
+              </div>
+            </div>
+
+            <div class="feedback" id="feedbackBox">Perfect!<small>จังหวะดีมาก</small></div>
+
+            <div class="avatar" id="avatar">
+              <div class="head"></div>
+              <div class="body"></div>
+              <div class="arm left"></div>
+              <div class="arm right"></div>
+              <div class="leg left"></div>
+              <div class="leg right"></div>
+            </div>
+
+            <div class="countdown" id="countdown">3</div>
+
+            <div class="overlay-bottom">
+              <div class="coach">
+                <div class="who">Coach Hero</div>
+                <div class="line" id="coachLine">พร้อมแล้ว! ดู cue ตรงกลาง แล้วทำให้ตรงจังหวะนะ</div>
+                <div class="mini" id="coachMini">Perfect = ตรงจังหวะมาก • Good = เกือบพอดี • Oops = ช้า/เร็ว/ผิดท่า</div>
+              </div>
+
+              <div class="live-box">
+                <div class="pill-row">
+                  <div class="mini-chip">🎯 <span id="liveAction">Jump</span></div>
+                  <div class="mini-chip">🛤 <span id="livePost">Post 1 / 7</span></div>
+                  <div class="mini-chip">🔁 <span id="liveLap">Lap 1</span></div>
+                </div>
+                <div class="pill-row">
+                  <div class="mini-chip">🥁 <span id="liveBeat">1000 ms</span></div>
+                  <div class="mini-chip">🎵 <span id="livePhaseShort">Learn</span></div>
+                </div>
+              </div>
             </div>
           </div>
+        </section>
 
-          <div class="resultRewardCard" id="jd-result-reward-card">
-            <div class="resultRewardIcon" id="jd-result-reward-icon">⭐</div>
-            <div class="resultRewardText">
-              <div class="resultRewardTitle" id="jd-result-reward">Keep Training</div>
-              <div class="resultRewardSub" id="jd-result-reward-sub">ฝึกต่ออีกนิด แล้วรอบหน้าจะดีกว่าเดิม</div>
-            </div>
+        <section class="controls">
+          <div class="control-grid">
+            <button class="action-btn" data-action="LEFT_JUMP" type="button">
+              <span class="emoji">↖️</span>
+              <span class="txt">LEFT</span>
+              <span class="key">A</span>
+            </button>
+            <button class="action-btn" data-action="JUMP" type="button">
+              <span class="emoji">⬆️</span>
+              <span class="txt">JUMP</span>
+              <span class="key">SPACE / W</span>
+            </button>
+            <button class="action-btn" data-action="DUCK" type="button">
+              <span class="emoji">⬇️</span>
+              <span class="txt">DUCK</span>
+              <span class="key">S / ↓</span>
+            </button>
+            <button class="action-btn" data-action="RIGHT_JUMP" type="button">
+              <span class="emoji">↗️</span>
+              <span class="txt">RIGHT</span>
+              <span class="key">D</span>
+            </button>
+            <button class="action-btn" data-action="HOLD" type="button" id="holdBtn">
+              <span class="emoji">✋</span>
+              <span class="txt">HOLD</span>
+              <span class="key">H</span>
+            </button>
           </div>
-
-          <div class="resultRewardCard" id="jd-coach-card">
-            <div class="resultRewardIcon" id="jd-coach-icon">🧠</div>
-            <div class="resultRewardText">
-              <div class="resultRewardTitle" id="jd-coach-title">AI Coach</div>
-              <div class="resultRewardSub" id="jd-coach-summary">สรุปคำแนะนำหลังจบเกม</div>
-              <div class="resultRewardSub" id="jd-coach-tip-1" style="margin-top:6px;">—</div>
-              <div class="resultRewardSub" id="jd-coach-tip-2">—</div>
-            </div>
+          <div class="footer-note">
+            เล่นบนคอมใช้คีย์บอร์ดได้ • เล่นบนมือถือกดปุ่มด้านล่างได้ • HOLD ให้กดค้างช่วงลงพื้น
           </div>
-        </div>
-      </div>
-
-      <div class="resultHighlights">
-        <div class="highlightCard">
-          <div class="highlightK">Score</div>
-          <div class="highlightV" id="res-score-big">0</div>
-        </div>
-
-        <div class="highlightCard">
-          <div class="highlightK">Accuracy</div>
-          <div class="highlightV" id="res-acc-big">0%</div>
-        </div>
-
-        <div class="highlightCard">
-          <div class="highlightK">Combo Max</div>
-          <div class="highlightV" id="res-combo-big">0</div>
-        </div>
-
-        <div class="highlightCard">
-          <div class="highlightK">Boss HP End</div>
-          <div class="highlightV" id="res-boss-end-big">—</div>
-        </div>
-      </div>
-
-      <div class="resultGrid">
-        <div class="resultItem"><span>Mode</span><b id="res-mode">-</b></div>
-        <div class="resultItem"><span>Difficulty</span><b id="res-diff">-</b></div>
-        <div class="resultItem"><span>Duration</span><b id="res-duration">-</b></div>
-        <div class="resultItem"><span>Total Obstacles</span><b id="res-total-obs">0</b></div>
-        <div class="resultItem"><span>Hits</span><b id="res-hits">0</b></div>
-        <div class="resultItem"><span>Miss</span><b id="res-miss">0</b></div>
-        <div class="resultItem"><span>Jump Hit</span><b id="res-jump-hit">0</b></div>
-        <div class="resultItem"><span>Duck Hit</span><b id="res-duck-hit">0</b></div>
-        <div class="resultItem"><span>Jump Miss</span><b id="res-jump-miss">0</b></div>
-        <div class="resultItem"><span>Duck Miss</span><b id="res-duck-miss">0</b></div>
-        <div class="resultItem"><span>Accuracy</span><b id="res-acc">0%</b></div>
-        <div class="resultItem"><span>RT Mean</span><b id="res-rt-mean">0</b></div>
-        <div class="resultItem"><span>Stability End</span><b id="res-stability-min">0%</b></div>
-        <div class="resultItem"><span>Score</span><b id="res-score">0</b></div>
-        <div class="resultItem"><span>Rank</span><b id="res-rank">C</b></div>
-        <div class="resultItem"><span>Phase End</span><b id="res-phase-end">-</b></div>
-        <div class="resultItem"><span>Last Pattern</span><b id="res-pattern">-</b></div>
-        <div class="resultItem"><span>Boss Label</span><b id="res-boss-label">-</b></div>
-        <div class="resultItem"><span>Rush State</span><b id="res-rush">-</b></div>
-      </div>
-
-      <div class="actions">
-        <button class="btn primary" data-action="play-again" type="button">🔁 เล่นอีกครั้ง</button>
-        <button class="btn" id="jd-btn-dl-events" type="button">⬇ events.csv</button>
-        <button class="btn" id="jd-btn-dl-sessions" type="button">⬇ sessions.csv</button>
-        <button class="btn" id="jd-btn-dl-teacher" type="button">⬇ teacher-summary.csv</button>
-        <button class="btn good" id="jd-btn-send-log" type="button">☁ ส่งขึ้น Cloud Logger</button>
-        <button class="btn ghost" data-action="back-menu" type="button">🏠 กลับเมนู</button>
-      </div>
-
-      <div class="statusLine" id="jd-log-status"></div>
-    </section>
+        </section>
+      </section>
+    </main>
   </div>
 
-  <script src="./js/jump-duck.js"></script>
+  <div class="cover" id="cover">
+    <div class="dialog">
+      <h1>JumpDuck พร้อมแล้ว!</h1>
+      <p>
+        เกมนี้เป็น <strong>Rhythmic Jump Circuit</strong> สำหรับฝึกกระโดด ย่อ ลงพื้น และคุมจังหวะ
+        ให้ดูการ์ดกลางจอ แล้วกดให้ตรงตอน cue ลงถึงเส้นฟ้า
+      </p>
+
+      <div class="feature-grid">
+        <div class="feature">
+          <div class="big">🥁</div>
+          <strong>Rhythm</strong>
+          <span>ดู cue และทำให้ตรงจังหวะ จะได้ Perfect / Good</span>
+        </div>
+        <div class="feature">
+          <div class="big">🟦</div>
+          <strong>7 Posts</strong>
+          <span>วิ่งผ่าน circuit 7 สถานี ทั้ง jump, duck, single-leg และ hold</span>
+        </div>
+        <div class="feature">
+          <div class="big">⭐</div>
+          <strong>Skill Summary</strong>
+          <span>สรุปผลเป็น Rhythm, Jump, Landing และจำนวน posts ที่ผ่าน</span>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="btn primary" id="btnStart" type="button">▶ เริ่มเล่น</button>
+        <a class="btn secondary" id="btnHubCover" href="../herohealth/hub-v2.html" style="text-decoration:none;">🏠 กลับ HUB</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="summary hidden" id="summary">
+    <div class="dialog">
+      <h2>สรุปผล JumpDuck</h2>
+      <p id="summaryLine">เยี่ยมมาก! หนูตามจังหวะได้ดีขึ้นแล้ว</p>
+
+      <div class="stars" id="summaryStars">⭐ ⭐ ⭐</div>
+
+      <div class="summary-grid">
+        <div class="summary-stat"><div class="k">Score</div><div class="v" id="sumScore">0</div></div>
+        <div class="summary-stat"><div class="k">Rhythm</div><div class="v" id="sumRhythm">0%</div></div>
+        <div class="summary-stat"><div class="k">Jump</div><div class="v" id="sumJump">0%</div></div>
+        <div class="summary-stat"><div class="k">Landing</div><div class="v" id="sumLanding">0%</div></div>
+        <div class="summary-stat"><div class="k">Best Combo</div><div class="v" id="sumCombo">0</div></div>
+        <div class="summary-stat"><div class="k">Posts Cleared</div><div class="v" id="sumPosts">0</div></div>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="btn primary" id="btnRestart" type="button">🔁 เล่นอีกครั้ง</button>
+        <a class="btn secondary" id="btnHubSummary" href="../herohealth/hub-v2.html" style="text-decoration:none;">🏠 กลับ HUB</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    const qs = new URLSearchParams(location.search);
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const nowMs = () => (window.performance && performance.now) ? performance.now() : Date.now();
+
+    const ctx = {
+      pid: qs.get('pid') || 'anon',
+      name: qs.get('name') || qs.get('nick') || 'Player',
+      diff: (qs.get('diff') || 'normal').toLowerCase(),
+      time: clamp(Number(qs.get('time') || 90), 45, 180),
+      seed: String(qs.get('seed') || Date.now()),
+      hub: qs.get('hub') || '../herohealth/hub-v2.html',
+      run: qs.get('run') || 'play',
+      view: qs.get('view') || 'mobile',
+      zone: qs.get('zone') || 'fitness',
+      game: qs.get('game') || 'jumpduck',
+      debug: qs.get('debug') === '1'
+    };
+
+    const PHASES = {
+      1: { label: 'Phase 1 • Learn the Beat', short: 'Learn', coach: 'เริ่มจาก cue ใหญ่ ๆ ก่อน ทำให้ตรงเส้นฟ้านะ' },
+      2: { label: 'Phase 2 • Circuit Run', short: 'Circuit', coach: 'ดีมาก! ตอนนี้เริ่มเป็นสนามฝึกจริงแล้ว' },
+      3: { label: 'Phase 3 • Rhythm Challenge', short: 'Challenge', coach: 'เริ่มมี sequence แล้ว จับจังหวะให้ดี' },
+      4: { label: 'Phase 4 • Final Performance', short: 'Final', coach: 'ด่านท้ายแล้ว! ทำ combo ให้ต่อเนื่อง' }
+    };
+
+    const ACTIONS = {
+      JUMP: {
+        label: 'Jump',
+        th: 'กระโดด',
+        emoji: '⬆️',
+        hint: 'กดตอนถึงเส้นฟ้า',
+        className: 'jump',
+        coach: 'กระโดดให้ตรงจังหวะ'
+      },
+      DUCK: {
+        label: 'Duck',
+        th: 'ย่อ',
+        emoji: '⬇️',
+        hint: 'ย่อตัวเมื่อถึงเส้นฟ้า',
+        className: 'duck',
+        coach: 'ย่อให้ทันตอน cue ลงมา'
+      },
+      LEFT_JUMP: {
+        label: 'Left Jump',
+        th: 'กระโดดซ้าย',
+        emoji: '↖️',
+        hint: 'กระโดดไปทางซ้ายตาม cue',
+        className: 'left_jump',
+        coach: 'ลองใช้แรงไปทางซ้าย'
+      },
+      RIGHT_JUMP: {
+        label: 'Right Jump',
+        th: 'กระโดดขวา',
+        emoji: '↗️',
+        hint: 'กระโดดไปทางขวาตาม cue',
+        className: 'right_jump',
+        coach: 'ลองใช้แรงไปทางขวา'
+      },
+      HOLD: {
+        label: 'Hold',
+        th: 'ค้างนิ่ง',
+        emoji: '✋',
+        hint: 'กดค้างช่วงลงพื้น',
+        className: 'hold',
+        coach: 'ค้างให้นิ่งอีกนิด'
+      }
+    };
+
+    function xmur3(str) {
+      let h = 1779033703 ^ str.length;
+      for (let i = 0; i < str.length; i++) {
+        h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+        h = (h << 13) | (h >>> 19);
+      }
+      return function () {
+        h = Math.imul(h ^ (h >>> 16), 2246822507);
+        h = Math.imul(h ^ (h >>> 13), 3266489909);
+        return (h ^= h >>> 16) >>> 0;
+      };
+    }
+
+    function mulberry32(a) {
+      return function() {
+        let t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    const seedFn = xmur3(ctx.seed);
+    const rng = mulberry32(seedFn());
+
+    const el = {
+      btnPause: document.getElementById('btnPause'),
+      btnHubTop: document.getElementById('btnHubTop'),
+      btnHubCover: document.getElementById('btnHubCover'),
+      btnHubSummary: document.getElementById('btnHubSummary'),
+      cover: document.getElementById('cover'),
+      summary: document.getElementById('summary'),
+      btnStart: document.getElementById('btnStart'),
+      btnRestart: document.getElementById('btnRestart'),
+      phaseText: document.getElementById('phaseText'),
+      scoreVal: document.getElementById('scoreVal'),
+      comboVal: document.getElementById('comboVal'),
+      timeVal: document.getElementById('timeVal'),
+      starsVal: document.getElementById('starsVal'),
+      rhythmVal: document.getElementById('rhythmVal'),
+      jumpVal: document.getElementById('jumpVal'),
+      landingVal: document.getElementById('landingVal'),
+      postsVal: document.getElementById('postsVal'),
+      coachSide: document.getElementById('coachSide'),
+      coachLine: document.getElementById('coachLine'),
+      coachMini: document.getElementById('coachMini'),
+      cueCard: document.getElementById('cueCard'),
+      cueEmoji: document.getElementById('cueEmoji'),
+      cueLabel: document.getElementById('cueLabel'),
+      cueHint: document.getElementById('cueHint'),
+      upcomingMain: document.getElementById('upcomingMain'),
+      upcomingSub: document.getElementById('upcomingSub'),
+      nextBig: document.getElementById('nextBig'),
+      feedbackBox: document.getElementById('feedbackBox'),
+      beatLine: document.getElementById('beatLine'),
+      avatar: document.getElementById('avatar'),
+      liveAction: document.getElementById('liveAction'),
+      livePost: document.getElementById('livePost'),
+      liveLap: document.getElementById('liveLap'),
+      liveBeat: document.getElementById('liveBeat'),
+      livePhaseShort: document.getElementById('livePhaseShort'),
+      countdown: document.getElementById('countdown'),
+      postBar: document.getElementById('postBar'),
+      debugWrap: document.getElementById('debugWrap'),
+      debugBox: document.getElementById('debugBox'),
+      sumScore: document.getElementById('sumScore'),
+      sumRhythm: document.getElementById('sumRhythm'),
+      sumJump: document.getElementById('sumJump'),
+      sumLanding: document.getElementById('sumLanding'),
+      sumCombo: document.getElementById('sumCombo'),
+      sumPosts: document.getElementById('sumPosts'),
+      summaryLine: document.getElementById('summaryLine'),
+      summaryStars: document.getElementById('summaryStars')
+    };
+
+    el.btnHubTop.href = ctx.hub;
+    el.btnHubCover.href = ctx.hub;
+    el.btnHubSummary.href = ctx.hub;
+
+    if (ctx.debug) el.debugWrap.style.display = '';
+
+    const state = {
+      started: false,
+      running: false,
+      paused: false,
+      raf: 0,
+      zeroAt: 0,
+      startLeadMs: 3600,
+      playMs: ctx.time * 1000,
+      schedule: [],
+      pointer: 0,
+      current: null,
+      lastTs: 0,
+      holdActive: false,
+      score: 0,
+      combo: 0,
+      maxCombo: 0,
+      postsCleared: 0,
+      perfect: 0,
+      good: 0,
+      miss: 0,
+      totalJudged: 0,
+      totalJump: 0,
+      goodJump: 0,
+      totalLanding: 0,
+      goodLanding: 0,
+      displayLap: 1,
+      audioReady: false,
+      audioCtx: null,
+      feedbackTimer: 0,
+      coachTimer: 0,
+      lastPulseAt: 0,
+      logger: [],
+      resolvedKeys: new Set(),
+      postOutcome: new Map(),
+      phase: 1
+    };
+
+    const PERFECT_WIN = 140;
+    const GOOD_WIN = 280;
+    const FEEDBACK_MS = 760;
+
+    function getPhaseByProgress(progress) {
+      const p = clamp(progress, 0, 1);
+      if (p < 0.24) return 1;
+      if (p < 0.50) return 2;
+      if (p < 0.78) return 3;
+      return 4;
+    }
+
+    function baseBeatMs(phase) {
+      const map = {
+        easy:   [1180, 1080, 1000, 920],
+        normal: [1040, 960, 880, 820],
+        hard:   [940, 860, 790, 740]
+      };
+      const arr = map[ctx.diff] || map.normal;
+      return arr[phase - 1];
+    }
+
+    function travelMsForPhase(phase) {
+      return baseBeatMs(phase) * (phase >= 3 ? 1.65 : 1.8);
+    }
+
+    function choose(arr) {
+      return arr[Math.floor(rng() * arr.length)];
+    }
+
+    function buildPostDefinition(postId, phase, lap) {
+      const side = ((lap + postId) % 2 === 0) ? 'LEFT_JUMP' : 'RIGHT_JUMP';
+
+      if (phase === 1) {
+        const defs = {
+          1: { name: 'Ready Bounce', steps: ['JUMP'] },
+          2: { name: 'Low Jump', steps: ['JUMP'] },
+          3: { name: 'Duck Gate', steps: ['DUCK'] },
+          4: { name: 'Double Jump', steps: ['JUMP','JUMP'] },
+          5: { name: 'Side Ready', steps: [ctx.diff === 'hard' ? side : 'JUMP'] },
+          6: { name: 'Stick Landing', steps: ['JUMP','HOLD'] },
+          7: { name: 'Finish Combo', steps: ['JUMP','DUCK'] }
+        };
+        return defs[postId];
+      }
+
+      if (phase === 2) {
+        const defs = {
+          1: { name: 'Ready Bounce', steps: ['JUMP','JUMP'] },
+          2: { name: 'Low Jump', steps: ['JUMP'] },
+          3: { name: 'Duck Gate', steps: ['DUCK'] },
+          4: { name: 'Double Jump', steps: ['JUMP','JUMP'] },
+          5: { name: 'Single-Leg', steps: [ctx.diff === 'easy' ? 'JUMP' : side] },
+          6: { name: 'Stick Landing', steps: ['JUMP','HOLD'] },
+          7: { name: 'Finish Combo', steps: ['JUMP','DUCK','JUMP'] }
+        };
+        return defs[postId];
+      }
+
+      if (phase === 3) {
+        const defs = {
+          1: { name: 'Ready Bounce', steps: ['JUMP','JUMP'] },
+          2: { name: 'Low Jump', steps: ['JUMP'] },
+          3: { name: 'Duck Gate', steps: ['DUCK','JUMP'] },
+          4: { name: 'Double Jump', steps: ['JUMP','JUMP'] },
+          5: { name: 'Single-Leg', steps: [side] },
+          6: { name: 'Stick Landing', steps: ['JUMP','HOLD'] },
+          7: { name: 'Finish Combo', steps: ['JUMP','DUCK','JUMP','HOLD'] }
+        };
+        return defs[postId];
+      }
+
+      const otherSide = side === 'LEFT_JUMP' ? 'RIGHT_JUMP' : 'LEFT_JUMP';
+      const defs = {
+        1: { name: 'Ready Bounce', steps: ['JUMP','JUMP'] },
+        2: { name: 'Low Jump', steps: ['JUMP'] },
+        3: { name: 'Duck Gate', steps: ['DUCK','JUMP'] },
+        4: { name: 'Double Jump', steps: ['JUMP','JUMP'] },
+        5: { name: 'Single-Leg', steps: [ctx.diff === 'easy' ? side : choose([side, otherSide])] },
+        6: { name: 'Stick Landing', steps: ['JUMP','HOLD'] },
+        7: { name: 'Final Combo', steps: ctx.diff === 'hard'
+              ? ['JUMP','DUCK',side,'HOLD']
+              : ['JUMP','DUCK','JUMP','HOLD'] }
+      };
+      return defs[postId];
+    }
+
+    function buildSchedule() {
+      const out = [];
+      let dueAt = state.startLeadMs + 800;
+      let lap = 1;
+      let postId = 1;
+      let idx = 1;
+
+      while (dueAt < state.startLeadMs + state.playMs + 600) {
+        const progress = clamp((dueAt - state.startLeadMs) / state.playMs, 0, 1);
+        const phase = getPhaseByProgress(progress);
+        const post = buildPostDefinition(postId, phase, lap);
+        const beat = baseBeatMs(phase);
+        const travel = travelMsForPhase(phase);
+
+        post.steps.forEach((action, stepIndex) => {
+          out.push({
+            id: idx++,
+            action,
+            dueAt,
+            spawnAt: dueAt - travel,
+            phase,
+            lap,
+            postId,
+            postName: post.name,
+            postStep: stepIndex + 1,
+            postLen: post.steps.length,
+            beat
+          });
+          dueAt += beat;
+        });
+
+        postId += 1;
+        if (postId > 7) {
+          postId = 1;
+          lap += 1;
+        }
+      }
+
+      return out;
+    }
+
+    function buildPostBar() {
+      const names = [
+        'Ready Bounce',
+        'Low Jump',
+        'Duck Gate',
+        'Double Jump',
+        'Single-Leg',
+        'Stick Landing',
+        'Finish Combo'
+      ];
+      el.postBar.innerHTML = names.map((name, i) => `
+        <div class="post" data-post="${i + 1}">
+          <div>
+            <div class="num">${i + 1}</div>
+            <div>${name}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updatePostBar(activePost, lap, finalizedPost) {
+      if (lap !== state.displayLap) {
+        state.displayLap = lap;
+        [...el.postBar.children].forEach(node => node.className = 'post');
+      }
+
+      [...el.postBar.children].forEach(node => {
+        const n = Number(node.dataset.post);
+        node.classList.toggle('active', n === activePost);
+      });
+
+      if (finalizedPost) {
+        const node = el.postBar.querySelector(`.post[data-post="${finalizedPost}"]`);
+        if (node) {
+          node.classList.remove('active');
+          node.classList.add('done');
+        }
+      }
+    }
+
+    function metrics() {
+      const weighted = (state.perfect + state.good * 0.72);
+      const rhythm = state.totalJudged ? Math.round((weighted / state.totalJudged) * 100) : 0;
+      const jump = state.totalJump ? Math.round((state.goodJump / state.totalJump) * 100) : 0;
+      const landing = state.totalLanding ? Math.round((state.goodLanding / state.totalLanding) * 100) : 0;
+
+      let stars = 0;
+      if (rhythm >= 60 && jump >= 58) stars = 1;
+      if (rhythm >= 74 && jump >= 70 && landing >= 48) stars = 2;
+      if (rhythm >= 86 && jump >= 82 && landing >= 62) stars = 3;
+
+      return { rhythm, jump, landing, stars };
+    }
+
+    function coachTipFromMetrics(m) {
+      if (m.landing < 45) return 'ครั้งหน้า ลองกด HOLD ช่วงลงพื้นให้นิ่งขึ้นอีกนิด';
+      if (m.jump < 60) return 'กระโดดให้ตรง cue มากขึ้น แล้วคะแนน Jump จะดีขึ้น';
+      if (m.rhythm < 70) return 'ดู cue กลางจอ และกดตอนถึงเส้นฟ้า จะได้ Perfect มากขึ้น';
+      if (m.rhythm >= 86 && m.jump >= 82) return 'เยี่ยมมาก! หนูตามจังหวะและคุมท่าได้ดีแล้ว';
+      return 'ดีมาก! ลองเก็บ combo ให้ยาวขึ้นอีกรอบนะ';
+    }
+
+    function updateHUD() {
+      const m = metrics();
+      el.phaseText.textContent = PHASES[state.phase].label;
+      el.scoreVal.textContent = String(state.score);
+      el.comboVal.textContent = String(state.combo);
+      el.timeVal.textContent = String(Math.max(0, Math.ceil(remainingMs() / 1000)));
+      el.starsVal.textContent = `${m.stars}⭐`;
+      el.rhythmVal.textContent = `${m.rhythm}%`;
+      el.jumpVal.textContent = `${m.jump}%`;
+      el.landingVal.textContent = `${m.landing}%`;
+      el.postsVal.textContent = String(state.postsCleared);
+      el.coachSide.textContent = coachTipFromMetrics(m);
+      el.livePhaseShort.textContent = PHASES[state.phase].short;
+
+      if (ctx.debug) {
+        el.debugBox.textContent =
+`pid=${ctx.pid}
+diff=${ctx.diff}
+time=${ctx.time}
+seed=${ctx.seed}
+pointer=${state.pointer}/${state.schedule.length}
+score=${state.score}
+combo=${state.combo}
+perfect=${state.perfect} good=${state.good} miss=${state.miss}
+holdActive=${state.holdActive}
+phase=${state.phase}
+remaining=${remainingMs()}`;
+      }
+    }
+
+    function remainingMs() {
+      if (!state.started) return state.playMs;
+      const t = nowMs() - state.zeroAt;
+      return clamp(state.startLeadMs + state.playMs - t, 0, state.playMs);
+    }
+
+    function ensureAudio() {
+      if (state.audioReady) return;
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        state.audioCtx = new Ctx();
+        state.audioReady = true;
+      } catch (_) {}
+    }
+
+    function beep(freq = 520, dur = 0.045, gainValue = 0.03) {
+      if (!state.audioReady || !state.audioCtx) return;
+      try {
+        const ctxA = state.audioCtx;
+        const osc = ctxA.createOscillator();
+        const gain = ctxA.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.value = gainValue;
+        osc.connect(gain);
+        gain.connect(ctxA.destination);
+        const t0 = ctxA.currentTime;
+        gain.gain.setValueAtTime(gainValue, t0);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.start(t0);
+        osc.stop(t0 + dur);
+      } catch (_) {}
+    }
+
+    function pulseBeat() {
+      document.documentElement.style.setProperty('--pulse-scale', '1.18');
+      clearTimeout(state.lastPulseAt);
+      state.lastPulseAt = setTimeout(() => {
+        document.documentElement.style.setProperty('--pulse-scale', '1');
+      }, 120);
+    }
+
+    function showFeedback(title, subtitle, tone) {
+      const fb = el.feedbackBox;
+      fb.innerHTML = `${title}<small>${subtitle}</small>`;
+      const toneMap = {
+        perfect: '#eefcff',
+        good: '#fffdf1',
+        miss: '#fff3f3'
+      };
+      fb.style.background = toneMap[tone] || '#fff';
+      document.documentElement.style.setProperty('--feedback-opacity', '1');
+      document.documentElement.style.setProperty('--feedback-scale', '1.02');
+      clearTimeout(state.feedbackTimer);
+      state.feedbackTimer = setTimeout(() => {
+        document.documentElement.style.setProperty('--feedback-opacity', '0');
+        document.documentElement.style.setProperty('--feedback-scale', '.9');
+      }, FEEDBACK_MS);
+    }
+
+    function flashCoach(line, mini = '') {
+      el.coachLine.textContent = line;
+      if (mini) el.coachMini.textContent = mini;
+    }
+
+    function actionVisual(action) {
+      el.avatar.className = 'avatar';
+      if (action === 'JUMP') el.avatar.classList.add('jump');
+      else if (action === 'DUCK') el.avatar.classList.add('duck');
+      else if (action === 'LEFT_JUMP') el.avatar.classList.add('left');
+      else if (action === 'RIGHT_JUMP') el.avatar.classList.add('right');
+      else if (action === 'HOLD') el.avatar.classList.add('hold');
+      setTimeout(() => { el.avatar.className = 'avatar'; }, 180);
+    }
+
+    function logEvent(type, detail = {}) {
+      const t = Date.now();
+      state.logger.push({
+        eventType: type,
+        ts_ms: t,
+        ts_iso: new Date(t).toISOString(),
+        pid: ctx.pid,
+        game: 'jumpduck',
+        zone: ctx.zone,
+        diff: ctx.diff,
+        ...detail
+      });
+    }
+
+    function emitBridge() {
+      window.dispatchEvent(new CustomEvent('hha:score', {
+        detail: { game: 'jumpduck', score: state.score, combo: state.combo }
+      }));
+      window.dispatchEvent(new CustomEvent('quest:update', {
+        detail: { game: 'jumpduck', postsCleared: state.postsCleared, score: state.score }
+      }));
+    }
+
+    function finalizePost(step) {
+      const key = `${step.lap}-${step.postId}`;
+      const info = state.postOutcome.get(key);
+      if (!info) return;
+      const clear = info.successes / Math.max(1, info.total) >= 0.6;
+      if (clear) state.postsCleared += 1;
+      updatePostBar(step.postId, step.lap, step.postId);
+    }
+
+    function judgeTiming(delta) {
+      const ad = Math.abs(delta);
+      if (ad <= PERFECT_WIN) return 'perfect';
+      if (ad <= GOOD_WIN) return 'good';
+      return 'miss';
+    }
+
+    function isJumpType(action) {
+      return action === 'JUMP' || action === 'LEFT_JUMP' || action === 'RIGHT_JUMP';
+    }
+
+    function resolveCurrent(result, triggerAction, delta, reason = '') {
+      const step = state.current;
+      if (!step || step.resolved) return;
+
+      step.resolved = true;
+      step.result = result;
+      state.totalJudged += 1;
+
+      const key = `${step.lap}-${step.postId}`;
+      const info = state.postOutcome.get(key) || { total: 0, successes: 0 };
+      info.total += 1;
+
+      if (isJumpType(step.action)) {
+        state.totalJump += 1;
+      }
+      if (step.action === 'HOLD') {
+        state.totalLanding += 1;
+      }
+
+      if (result === 'perfect' || result === 'good') {
+        info.successes += 1;
+        state.combo += 1;
+        state.maxCombo = Math.max(state.maxCombo, state.combo);
+
+        if (result === 'perfect') {
+          state.perfect += 1;
+          state.score += 3;
+          if (isJumpType(step.action)) state.goodJump += 1;
+          if (step.action === 'HOLD') state.goodLanding += 1;
+          showFeedback('Perfect!', 'จังหวะดีมาก', 'perfect');
+          beep(760, 0.04, 0.045);
+        } else {
+          state.good += 1;
+          state.score += 2;
+          if (isJumpType(step.action)) state.goodJump += 1;
+          if (step.action === 'HOLD') state.goodLanding += 1;
+          showFeedback('Good!', 'เกือบพอดีแล้ว', 'good');
+          beep(620, 0.035, 0.03);
+        }
+
+        if (step.action === 'HOLD') {
+          state.score += 2;
+        }
+      } else {
+        state.miss += 1;
+        state.combo = 0;
+        state.score = Math.max(0, state.score - 1);
+        showFeedback('Oops!', reason || 'ช้า เร็ว หรือผิดท่า', 'miss');
+        beep(280, 0.06, 0.04);
+      }
+
+      state.postOutcome.set(key, info);
+
+      logEvent('judge', {
+        cueType: step.action,
+        cueDueAt: Math.round(step.dueAt),
+        playerAction: triggerAction || '',
+        rtMs: Math.round(delta),
+        judgment: result,
+        phase: step.phase,
+        lap: step.lap,
+        postId: step.postId,
+        reason
+      });
+
+      actionVisual(step.action);
+      flashCoach(
+        result === 'miss'
+          ? (step.action === 'HOLD' ? 'ลองกด HOLD ช่วงลงพื้นอีกนิดนะ' : `ลองใหม่! cue นี้คือ ${ACTIONS[step.action].th}`)
+          : `${ACTIONS[step.action].th} ดีมาก!`,
+        result === 'perfect'
+          ? 'Perfect ได้คะแนนเต็ม'
+          : result === 'good'
+          ? 'Good แล้ว ลองให้ตรงขึ้นอีกนิด'
+          : 'ดู cue แล้วกดตอนถึงเส้นฟ้า'
+      );
+
+      emitBridge();
+
+      if (step.postStep === step.postLen) {
+        finalizePost(step);
+      }
+
+      state.pointer += 1;
+      state.current = null;
+      updateHUD();
+    }
+
+    function onAction(action, isDown) {
+      if (!state.running || state.paused) return;
+      ensureAudio();
+
+      if (action === 'HOLD') {
+        state.holdActive = !!isDown;
+        const holdBtn = document.getElementById('holdBtn');
+        holdBtn.classList.toggle('active', state.holdActive);
+        return;
+      }
+
+      if (!isDown) return;
+
+      const step = state.current;
+      if (!step) return;
+
+      const t = nowMs() - state.zeroAt;
+      const delta = t - step.dueAt;
+
+      if (Math.abs(delta) > GOOD_WIN) return;
+
+      if (action !== step.action) {
+        resolveCurrent('miss', action, delta, 'ผิดท่า');
+        return;
+      }
+
+      const result = judgeTiming(delta);
+      resolveCurrent(result, action, delta);
+    }
+
+    function currentAndUpcoming() {
+      const step = state.current || state.schedule[state.pointer] || null;
+      const next = state.current
+        ? (state.schedule[state.pointer + 1] || null)
+        : (state.schedule[state.pointer] || null);
+      return { step, next };
+    }
+
+    function renderCue(t) {
+      const step = state.current;
+      if (!step) {
+        el.cueCard.classList.add('hidden');
+        return;
+      }
+
+      const action = ACTIONS[step.action];
+      const span = Math.max(1, step.dueAt - step.spawnAt);
+      const progress = clamp((t - step.spawnAt) / span, 0, 1);
+
+      document.documentElement.style.setProperty('--cue-progress', String(progress));
+      el.cueCard.className = `cue ${action.className}`;
+      el.cueCard.classList.remove('hidden');
+      el.cueEmoji.textContent = action.emoji;
+      el.cueLabel.textContent = action.label;
+      el.cueHint.textContent = action.hint;
+      el.liveAction.textContent = action.label;
+      el.livePost.textContent = `Post ${step.postId} / 7`;
+      el.liveLap.textContent = `Lap ${step.lap}`;
+      el.liveBeat.textContent = `${step.beat} ms`;
+
+      if (progress >= 0.82 && progress <= 0.9) {
+        pulseBeat();
+      }
+    }
+
+    function renderUpcoming() {
+      const next = state.current
+        ? state.schedule[state.pointer + 1]
+        : state.schedule[state.pointer];
+
+      if (!next) {
+        el.upcomingMain.textContent = 'Finish!';
+        el.upcomingSub.textContent = 'เตรียมสรุปผล';
+        el.nextBig.textContent = 'กำลังสรุปคะแนน...';
+        return;
+      }
+
+      const action = ACTIONS[next.action];
+      el.upcomingMain.textContent = `${action.emoji} ${action.label}`;
+      el.upcomingSub.textContent = `${next.postName} • ${PHASES[next.phase].short}`;
+      el.nextBig.textContent = `Next: ${action.label}`;
+    }
+
+    function updateCurrentStep(t) {
+      if (state.current) return;
+
+      const next = state.schedule[state.pointer];
+      if (!next) return;
+
+      if (t >= next.spawnAt) {
+        state.current = next;
+        state.phase = next.phase;
+        updatePostBar(next.postId, next.lap);
+        renderUpcoming();
+        beep(520, 0.03, 0.015);
+      }
+    }
+
+    function autoJudge(t) {
+      const step = state.current;
+      if (!step) return;
+
+      if (step.action === 'HOLD' && !step.resolved) {
+        if (state.holdActive) {
+          const delta = t - step.dueAt;
+          if (Math.abs(delta) <= GOOD_WIN) {
+            const result = judgeTiming(delta);
+            resolveCurrent(result, 'HOLD', delta);
+            return;
+          }
+        }
+      }
+
+      if (t > step.dueAt + GOOD_WIN) {
+        resolveCurrent('miss', '', t - step.dueAt, 'ไม่ทันจังหวะ');
+      }
+    }
+
+    function renderClock(t) {
+      const remain = clamp(state.startLeadMs + state.playMs - t, 0, state.playMs);
+      el.timeVal.textContent = String(Math.ceil(remain / 1000));
+    }
+
+    function updateLoop() {
+      const rawT = nowMs() - state.zeroAt;
+
+      if (!state.running) return;
+
+      if (state.paused) {
+        state.raf = requestAnimationFrame(updateLoop);
+        return;
+      }
+
+      renderClock(rawT);
+      updateCurrentStep(rawT);
+      autoJudge(rawT);
+      renderCue(rawT);
+      renderUpcoming();
+
+      if (state.current) {
+        const s = state.current;
+        state.phase = s.phase;
+        el.phaseText.textContent = PHASES[s.phase].label;
+        el.livePhaseShort.textContent = PHASES[s.phase].short;
+        el.coachSide.textContent = PHASES[s.phase].coach;
+      }
+
+      updateHUD();
+
+      if (rawT >= state.startLeadMs + state.playMs && !state.current && state.pointer >= state.schedule.length) {
+        finishGame();
+        return;
+      }
+
+      state.raf = requestAnimationFrame(updateLoop);
+    }
+
+    function countdownStep(n) {
+      el.countdown.textContent = String(n);
+      el.countdown.classList.add('show');
+      beep(n === 1 ? 650 : 520, 0.06, 0.035);
+      setTimeout(() => {
+        el.countdown.classList.remove('show');
+      }, 520);
+    }
+
+    function doCountdown() {
+      countdownStep(3);
+      setTimeout(() => countdownStep(2), 1000);
+      setTimeout(() => countdownStep(1), 2000);
+      setTimeout(() => {
+        el.countdown.textContent = 'GO!';
+        el.countdown.classList.add('show');
+        beep(860, 0.09, 0.05);
+        setTimeout(() => el.countdown.classList.remove('show'), 560);
+      }, 3000);
+    }
+
+    function startGame() {
+      ensureAudio();
+      el.cover.classList.add('hidden');
+      el.summary.classList.add('hidden');
+
+      state.started = true;
+      state.running = true;
+      state.paused = false;
+      state.pointer = 0;
+      state.current = null;
+      state.score = 0;
+      state.combo = 0;
+      state.maxCombo = 0;
+      state.postsCleared = 0;
+      state.perfect = 0;
+      state.good = 0;
+      state.miss = 0;
+      state.totalJudged = 0;
+      state.totalJump = 0;
+      state.goodJump = 0;
+      state.totalLanding = 0;
+      state.goodLanding = 0;
+      state.displayLap = 1;
+      state.logger = [];
+      state.postOutcome.clear();
+      state.phase = 1;
+      state.schedule = buildSchedule();
+      state.zeroAt = nowMs();
+      state.holdActive = false;
+
+      buildPostBar();
+      updateHUD();
+      renderUpcoming();
+      doCountdown();
+      logEvent('session_start', { seed: ctx.seed, diff: ctx.diff, timeSec: ctx.time, run: ctx.run });
+      state.raf = requestAnimationFrame(updateLoop);
+    }
+
+    function finishGame() {
+      state.running = false;
+      cancelAnimationFrame(state.raf);
+      el.cueCard.classList.add('hidden');
+
+      const m = metrics();
+      const line = coachTipFromMetrics(m);
+      const starsText = ['☆ ☆ ☆', '⭐ ☆ ☆', '⭐ ⭐ ☆', '⭐ ⭐ ⭐'][m.stars] || '☆ ☆ ☆';
+
+      el.sumScore.textContent = String(state.score);
+      el.sumRhythm.textContent = `${m.rhythm}%`;
+      el.sumJump.textContent = `${m.jump}%`;
+      el.sumLanding.textContent = `${m.landing}%`;
+      el.sumCombo.textContent = String(state.maxCombo);
+      el.sumPosts.textContent = String(state.postsCleared);
+      el.summaryLine.textContent = line;
+      el.summaryStars.textContent = starsText;
+      el.summary.classList.remove('hidden');
+
+      const summary = {
+        game: 'jumpduck',
+        pid: ctx.pid,
+        seed: ctx.seed,
+        diff: ctx.diff,
+        timeSec: ctx.time,
+        score: state.score,
+        stars: m.stars,
+        rhythmAccuracy: m.rhythm,
+        jumpSuccess: m.jump,
+        landingControl: m.landing,
+        bestCombo: state.maxCombo,
+        postsCleared: state.postsCleared,
+        ts_iso: new Date().toISOString(),
+        hub: ctx.hub
+      };
+
+      try {
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+        localStorage.setItem('HHA_LAST_SUMMARY_JUMPDUCK', JSON.stringify(summary));
+      } catch (_) {}
+
+      logEvent('session_end', summary);
+      emitBridge();
+    }
+
+    function togglePause() {
+      if (!state.running) return;
+      state.paused = !state.paused;
+      el.btnPause.textContent = state.paused ? '▶ เล่นต่อ' : '⏸ พัก';
+      flashCoach(
+        state.paused ? 'เกมหยุดอยู่ กดเล่นต่อเมื่อพร้อม' : 'กลับมาแล้ว! ดู cue แล้วลุยต่อ',
+        state.paused ? 'พักได้ แล้วค่อยเล่นต่อ' : 'จับจังหวะให้ตรงเหมือนเดิม'
+      );
+    }
+
+    function bindButtons() {
+      const btns = document.querySelectorAll('.action-btn');
+
+      btns.forEach(btn => {
+        const action = btn.dataset.action;
+
+        const down = (e) => {
+          e.preventDefault();
+          btn.classList.add('active');
+          onAction(action, true);
+        };
+        const up = (e) => {
+          e.preventDefault();
+          btn.classList.remove('active');
+          if (action === 'HOLD') onAction(action, false);
+        };
+
+        btn.addEventListener('pointerdown', down);
+        btn.addEventListener('pointerup', up);
+        btn.addEventListener('pointercancel', up);
+        btn.addEventListener('pointerleave', up);
+      });
+
+      document.addEventListener('keydown', (e) => {
+        const k = e.key.toLowerCase();
+        if (k === 'p') {
+          togglePause();
+          return;
+        }
+        if ([' ', 'arrowup', 'w', 'arrowdown', 's', 'a', 'd', 'h'].includes(k)) {
+          e.preventDefault();
+        }
+
+        if (k === ' ' || k === 'arrowup' || k === 'w') onAction('JUMP', true);
+        else if (k === 'arrowdown' || k === 's') onAction('DUCK', true);
+        else if (k === 'a') onAction('LEFT_JUMP', true);
+        else if (k === 'd') onAction('RIGHT_JUMP', true);
+        else if (k === 'h') onAction('HOLD', true);
+      });
+
+      document.addEventListener('keyup', (e) => {
+        const k = e.key.toLowerCase();
+        if (k === 'h') onAction('HOLD', false);
+      });
+
+      el.btnPause.addEventListener('click', togglePause);
+      el.btnStart.addEventListener('click', startGame);
+      el.btnRestart.addEventListener('click', startGame);
+    }
+
+    buildPostBar();
+    bindButtons();
+    updateHUD();
+    renderUpcoming();
+  })();
+  </script>
 </body>
 </html>
