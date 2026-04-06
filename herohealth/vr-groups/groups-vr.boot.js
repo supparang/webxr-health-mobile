@@ -1,167 +1,683 @@
-(() => {
-  'use strict';
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Groups VR</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
+  <link rel="icon" href="./favicon.ico" />
 
-  const q = new URLSearchParams(location.search);
+  <style>
+    :root{
+      --sky1:#e9f9ff;
+      --sky2:#d5f1ff;
+      --sky3:#bfe8ff;
 
-  const hubUrl = q.get('hub') || './hub.html';
+      --card:#fffefb;
+      --card2:#f8fdff;
+      --line:#d6edf7;
 
-  const els = {
-    btnContinue: document.getElementById('btnContinue'),
-    btnBackHub: document.getElementById('btnBackHub'),
-    toast: document.getElementById('toast')
-  };
+      --text:#29485f;
+      --muted:#6a8ba0;
 
-  const LAST_MODE_KEY = 'HHA_GROUPS_LAST_MODE';
-  const LAST_URL_KEY = 'HHA_GROUPS_LAST_URL';
+      --blue:#61bbff;
+      --blue2:#2f95ff;
+      --green:#7ed957;
+      --green2:#4fc64c;
+      --yellow:#ffd966;
+      --yellow2:#ffba4a;
+      --pink:#ff9fd0;
+      --pink2:#ff6db2;
+      --violet:#bca7ff;
+      --violet2:#8d74ff;
+      --orange:#ffb168;
+      --orange2:#ff8e47;
 
-  const MODE_STATUS = {
-    solo: 'ready',
-    race: 'ready',
-    battle: 'soon',
-    duet: 'soon',
-    coop: 'soon'
-  };
+      --shadow:0 16px 34px rgba(93,155,185,.16);
+      --shadow-lg:0 22px 48px rgba(75,138,170,.18);
 
-  const BASE_PARAMS = buildBaseParams();
-
-  bindEvents();
-
-  function bindEvents() {
-    document.querySelectorAll('[data-mode="solo"]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const view = btn.dataset.view || 'mobile';
-        goSolo(view);
-      });
-    });
-
-    document.querySelectorAll('[data-mode="race"]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const joinOnly = btn.dataset.action === 'join';
-        goRace(joinOnly);
-      });
-    });
-
-    document.querySelectorAll('[data-soon]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const mode = String(btn.dataset.soon || '').trim();
-        showSoonToast(mode);
-      });
-    });
-
-    if (els.btnBackHub) {
-      els.btnBackHub.addEventListener('click', () => {
-        location.href = hubUrl;
-      });
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
 
-    if (els.btnContinue) {
-      els.btnContinue.addEventListener('click', continueLastMode);
-    }
-  }
+    *{ box-sizing:border-box; }
+    html,body{ min-height:100%; }
 
-  function buildBaseParams() {
-    const p = new URLSearchParams();
-
-    for (const [k, v] of q.entries()) {
-      p.set(k, v);
-    }
-
-    if (!p.get('pid')) p.set('pid', 'anon');
-    if (!p.get('name')) p.set('name', 'Player');
-    if (!p.get('diff')) p.set('diff', 'normal');
-    if (!p.get('time')) p.set('time', '60');
-    if (!p.get('view')) p.set('view', 'mobile');
-    if (!p.get('run')) p.set('run', 'play');
-    if (!p.get('hub')) p.set('hub', hubUrl);
-
-    p.set('game', 'groups');
-    p.set('gameId', 'groups');
-    p.set('zone', 'nutrition');
-    p.set('cat', 'nutrition');
-    p.set('theme', 'groups');
-
-    return p;
-  }
-
-  function goSolo(view = 'mobile') {
-    if (MODE_STATUS.solo !== 'ready') {
-      showToast('โหมด Solo ยังไม่พร้อมใช้งาน');
-      return;
+    body{
+      margin:0;
+      font-family:ui-rounded,"Nunito","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1100px 620px at 50% -10%, rgba(255,255,255,.92), transparent 58%),
+        radial-gradient(680px 420px at 12% 8%, rgba(255,255,255,.48), transparent 62%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 56%,var(--sky3));
     }
 
-    const url = buildSoloUrl(view);
-    saveLastMode('solo', url);
-    location.href = url;
-  }
-
-  function goRace(joinOnly = false) {
-    if (MODE_STATUS.race !== 'ready') {
-      showToast('โหมด Race ยังไม่พร้อมใช้งาน');
-      return;
+    .shell{
+      min-height:100dvh;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+      width:min(1180px,100%);
+      margin:0 auto;
+      display:grid;
+      gap:14px;
     }
 
-    const url = buildRaceLobbyUrl(joinOnly);
-    saveLastMode('race', url);
-    location.href = url;
-  }
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
 
-  function continueLastMode() {
-    try {
-      const lastUrl = localStorage.getItem(LAST_URL_KEY);
-      const lastMode = localStorage.getItem(LAST_MODE_KEY);
+    .brand{
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:12px 14px;
+      background:rgba(255,255,255,.86);
+      border:1px solid var(--line);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(6px);
+      flex:1 1 520px;
+    }
 
-      if (lastUrl && lastMode) {
-        location.href = lastUrl;
-        return;
+    .brandMark{
+      width:56px;
+      height:56px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      background:linear-gradient(180deg,#fff3b7,#ffd76f);
+      border:1px solid #ffe39a;
+      box-shadow:0 10px 22px rgba(255,214,111,.20);
+      flex:0 0 auto;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:clamp(1.3rem,2.3vw,1.9rem);
+      line-height:1.05;
+      font-weight:1000;
+    }
+
+    .brand p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:.95rem;
+      font-weight:800;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      min-height:46px;
+      border:none;
+      border-radius:18px;
+      padding:0 16px;
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      color:var(--text);
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+    }
+
+    .btn.primary{
+      color:#fff;
+      border:none;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+    }
+
+    .hero{
+      position:relative;
+      overflow:hidden;
+      border-radius:30px;
+      background:linear-gradient(180deg,rgba(255,255,255,.88),rgba(248,253,255,.92));
+      border:1px solid var(--line);
+      box-shadow:var(--shadow-lg);
+      padding:18px;
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-40px;
+      top:-36px;
+      width:180px;
+      height:180px;
+      border-radius:50%;
+      background:
+        radial-gradient(circle at 34% 34%, rgba(255,255,255,.65), transparent 26%),
+        linear-gradient(180deg,#fff2ae,#ffd05f);
+      opacity:.78;
+    }
+
+    .heroRow{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+      align-items:center;
+    }
+
+    .hero h2{
+      margin:0 0 8px;
+      font-size:clamp(1.6rem,3vw,2.4rem);
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .hero p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.6;
+      font-weight:800;
+      max-width:62ch;
+    }
+
+    .heroChips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid var(--line);
+      color:#5d7f95;
+      font-size:.86rem;
+      font-weight:1000;
+    }
+
+    .heroPanel{
+      display:grid;
+      gap:10px;
+    }
+
+    .panelCard{
+      border-radius:22px;
+      padding:14px;
+      background:rgba(255,255,255,.84);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+    }
+
+    .panelLabel{
+      color:var(--muted);
+      font-size:.82rem;
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      margin-bottom:4px;
+    }
+
+    .panelValue{
+      font-size:1.2rem;
+      font-weight:1000;
+      line-height:1.2;
+    }
+
+    .modeGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .modeCard{
+      position:relative;
+      overflow:hidden;
+      border-radius:28px;
+      background:linear-gradient(180deg,var(--card),var(--card2));
+      border:1px solid var(--line);
+      box-shadow:var(--shadow-lg);
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .modeCard::before{
+      content:"";
+      position:absolute;
+      right:-28px;
+      top:-30px;
+      width:138px;
+      height:138px;
+      border-radius:50%;
+      opacity:.9;
+      pointer-events:none;
+    }
+
+    .modeCard.solo::before{
+      background:linear-gradient(180deg,#fff4b6,#ffd76d);
+    }
+
+    .modeCard.race::before{
+      background:linear-gradient(180deg,#b8e7ff,#73c7ff);
+    }
+
+    .modeCard.battle::before{
+      background:linear-gradient(180deg,#ffd0c7,#ff9b81);
+    }
+
+    .modeCard.duet::before{
+      background:linear-gradient(180deg,#ffe0f2,#ff9fd0);
+    }
+
+    .modeCard.coop::before{
+      background:linear-gradient(180deg,#e6dbff,#b79cff);
+    }
+
+    .modeTop{
+      position:relative;
+      z-index:1;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+    }
+
+    .modeIcon{
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      background:#fff;
+      border:1px solid rgba(0,0,0,.04);
+      box-shadow:0 10px 22px rgba(120,160,185,.12);
+      flex:0 0 auto;
+    }
+
+    .statusPill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:32px;
+      padding:6px 12px;
+      border-radius:999px;
+      font-size:.82rem;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .statusPill.ready{
+      background:rgba(126,217,87,.14);
+      border:1px solid rgba(126,217,87,.26);
+      color:#45813a;
+    }
+
+    .statusPill.soon{
+      background:rgba(255,185,92,.16);
+      border:1px solid rgba(255,185,92,.26);
+      color:#9a6517;
+    }
+
+    .modeBody{
+      position:relative;
+      z-index:1;
+    }
+
+    .modeTitle{
+      margin:0;
+      font-size:1.35rem;
+      line-height:1.12;
+      font-weight:1000;
+    }
+
+    .modeSub{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:.95rem;
+      line-height:1.55;
+      font-weight:800;
+    }
+
+    .modeMeta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:10px;
+    }
+
+    .modeMeta span{
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid var(--line);
+      font-size:.8rem;
+      font-weight:1000;
+      color:#5e7f94;
+    }
+
+    .modeActions{
+      position:relative;
+      z-index:1;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:auto;
+    }
+
+    .modeBtn{
+      min-height:46px;
+      border:none;
+      border-radius:18px;
+      padding:0 16px;
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow);
+    }
+
+    .modeBtn.play{
+      color:#fff;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+    }
+
+    .modeBtn.alt{
+      color:var(--text);
+      background:#fff;
+      border:1px solid var(--line);
+    }
+
+    .modeBtn.disabled{
+      cursor:not-allowed;
+      color:#8aa0af;
+      background:#eef6fb;
+      border:1px dashed #cfe4ef;
+      box-shadow:none;
+    }
+
+    .footerNote{
+      border-radius:22px;
+      padding:14px 16px;
+      background:rgba(255,255,255,.78);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      color:var(--muted);
+      font-weight:800;
+      line-height:1.6;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:18px;
+      transform:translateX(-50%) translateY(14px);
+      min-width:min(520px,calc(100vw - 28px));
+      max-width:calc(100vw - 28px);
+      padding:12px 14px;
+      border-radius:18px;
+      background:rgba(40,72,95,.94);
+      color:#fff;
+      font-weight:900;
+      text-align:center;
+      box-shadow:0 18px 40px rgba(0,0,0,.22);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+      z-index:30;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 900px){
+      .heroRow,
+      .modeGrid{
+        grid-template-columns:1fr;
       }
-    } catch (_) {}
+    }
 
-    showToast('ยังไม่มีโหมดล่าสุด เริ่มจาก Solo หรือ Race ได้เลย');
-  }
+    @media (max-width: 640px){
+      .shell{
+        padding:
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(14px + var(--sab))
+          calc(10px + var(--sal));
+        gap:10px;
+      }
 
-  function buildSoloUrl(view = 'mobile') {
-    const p = new URLSearchParams(BASE_PARAMS.toString());
-    p.set('mode', 'solo');
-    p.set('view', view);
-    p.set('seed', String(Date.now()));
-    return `./vr-groups/groups.html?${p.toString()}`;
-  }
+      .topbar{
+        align-items:stretch;
+      }
 
-  function buildRaceLobbyUrl(joinOnly = false) {
-    const p = new URLSearchParams(BASE_PARAMS.toString());
-    p.set('mode', 'race');
-    p.set('race', '1');
-    p.set('seed', String(Date.now()));
-    if (joinOnly) p.set('join', '1');
-    return `./vr-groups/groups-race-lobby.html?${p.toString()}`;
-  }
+      .actions{
+        width:100%;
+      }
 
-  function saveLastMode(mode, url) {
-    try {
-      localStorage.setItem(LAST_MODE_KEY, mode);
-      localStorage.setItem(LAST_URL_KEY, url);
-    } catch (_) {}
-  }
+      .actions .btn{
+        flex:1 1 auto;
+      }
 
-  function showSoonToast(mode) {
-    const map = {
-      battle: 'โหมด Battle กำลังเตรียมเปิดเร็ว ๆ นี้',
-      duet: 'โหมด Duet กำลังเตรียมเปิดเร็ว ๆ นี้',
-      coop: 'โหมด Coop กำลังเตรียมเปิดเร็ว ๆ นี้'
-    };
+      .brand{
+        padding:10px 12px;
+        border-radius:20px;
+      }
 
-    showToast(map[mode] || 'โหมดนี้กำลังเตรียมเปิดเร็ว ๆ นี้');
-  }
+      .brandMark{
+        width:50px;
+        height:50px;
+        font-size:26px;
+      }
 
-  function showToast(text) {
-    if (!els.toast) return;
+      .modeCard{
+        padding:14px;
+        border-radius:24px;
+      }
 
-    els.toast.textContent = text;
-    els.toast.classList.add('show');
+      .modeTitle{
+        font-size:1.22rem;
+      }
 
-    clearTimeout(showToast._timer);
-    showToast._timer = setTimeout(() => {
-      els.toast.classList.remove('show');
-    }, 1800);
-  }
-})();
+      .modeActions{
+        flex-direction:column;
+      }
+
+      .modeBtn{
+        width:100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brandMark">🥦</div>
+        <div>
+          <h1>Food Groups</h1>
+          <p>เลือกโหมดที่อยากเล่น แล้วออกลุยกันเลย</p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="btnContinue" type="button">▶ เล่นล่าสุด</button>
+        <button class="btn primary" id="btnBackHub" type="button">🏠 กลับ HUB</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="heroRow">
+        <div>
+          <h2>เกมจัดหมวดอาหารแบบสนุกและเข้าใจง่าย</h2>
+          <p>
+            ฝึกจำอาหารแต่ละหมู่ให้แม่นขึ้น ผ่านโหมดเล่นหลายแบบ
+            ตอนนี้เปิดให้เล่นก่อน 2 โหมดคือ <b>Solo</b> และ <b>Race</b>
+            ส่วน Battle, Duet และ Coop จะค่อย ๆ เปิดเพิ่มทีละโหมด
+          </p>
+
+          <div class="heroChips">
+            <span class="chip">🥇 Solo พร้อมเล่น</span>
+            <span class="chip">🏁 Race พร้อมเล่น</span>
+            <span class="chip">⚔️ Battle เร็ว ๆ นี้</span>
+            <span class="chip">🤝 Duet / Coop เร็ว ๆ นี้</span>
+          </div>
+        </div>
+
+        <div class="heroPanel">
+          <div class="panelCard">
+            <div class="panelLabel">Main Game</div>
+            <div class="panelValue">groups-vr.html</div>
+          </div>
+          <div class="panelCard">
+            <div class="panelLabel">Run Game</div>
+            <div class="panelValue">/herohealth/vr-groups/groups.html</div>
+          </div>
+          <div class="panelCard">
+            <div class="panelLabel">ตอนนี้เปิดจริง</div>
+            <div class="panelValue">Solo • Race</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="modeGrid">
+      <article class="modeCard solo">
+        <div class="modeTop">
+          <div class="modeIcon">🥇</div>
+          <div class="statusPill ready">พร้อมเล่น</div>
+        </div>
+        <div class="modeBody">
+          <h3 class="modeTitle">Solo</h3>
+          <p class="modeSub">
+            เล่นคนเดียว ฝึกจับหมวดอาหารให้ถูกต้อง วัดคะแนน ความแม่นยำ และสตรีค
+          </p>
+          <div class="modeMeta">
+            <span>เล่นคนเดียว</span>
+            <span>ฝึกพื้นฐาน</span>
+            <span>เหมาะเริ่มก่อน</span>
+          </div>
+        </div>
+        <div class="modeActions">
+          <button class="modeBtn play" data-mode="solo" type="button">เล่น Solo</button>
+          <button class="modeBtn alt" data-mode="solo" data-view="mobile" type="button">เล่นบนมือถือ</button>
+        </div>
+      </article>
+
+      <article class="modeCard race">
+        <div class="modeTop">
+          <div class="modeIcon">🏁</div>
+          <div class="statusPill ready">พร้อมเล่น</div>
+        </div>
+        <div class="modeBody">
+          <h3 class="modeTitle">Race</h3>
+          <p class="modeSub">
+            แข่งหลายเครื่อง ใครจัดหมวดได้เร็วและแม่นที่สุดก็ชนะ เหมาะเล่นกับเพื่อน
+          </p>
+          <div class="modeMeta">
+            <span>หลายคน</span>
+            <span>มีห้องแข่ง</span>
+            <span>มีอันดับผู้ชนะ</span>
+          </div>
+        </div>
+        <div class="modeActions">
+          <button class="modeBtn play" data-mode="race" type="button">เข้า Race Lobby</button>
+          <button class="modeBtn alt" data-mode="race" data-action="join" type="button">มีรหัสห้องแล้ว</button>
+        </div>
+      </article>
+
+      <article class="modeCard battle">
+        <div class="modeTop">
+          <div class="modeIcon">⚔️</div>
+          <div class="statusPill soon">เร็ว ๆ นี้</div>
+        </div>
+        <div class="modeBody">
+          <h3 class="modeTitle">Battle</h3>
+          <p class="modeSub">
+            แข่งกันแบบกดดันขึ้นกว่าเดิม เน้นแพ้ชนะชัดเจนและความตื่นเต้นระหว่างเกม
+          </p>
+          <div class="modeMeta">
+            <span>โหมดแข่งขัน</span>
+            <span>กำลังเตรียมเปิด</span>
+          </div>
+        </div>
+        <div class="modeActions">
+          <button class="modeBtn disabled" data-soon="battle" type="button">เร็ว ๆ นี้</button>
+        </div>
+      </article>
+
+      <article class="modeCard duet">
+        <div class="modeTop">
+          <div class="modeIcon">🤝</div>
+          <div class="statusPill soon">เร็ว ๆ นี้</div>
+        </div>
+        <div class="modeBody">
+          <h3 class="modeTitle">Duet</h3>
+          <p class="modeSub">
+            เล่น 2 คนเป็นคู่ ช่วยกันทำเป้าหมายและฝึกความแม่นยำไปพร้อมกัน
+          </p>
+          <div class="modeMeta">
+            <span>2 คน</span>
+            <span>เล่นเป็นคู่</span>
+          </div>
+        </div>
+        <div class="modeActions">
+          <button class="modeBtn disabled" data-soon="duet" type="button">เร็ว ๆ นี้</button>
+        </div>
+      </article>
+
+      <article class="modeCard coop">
+        <div class="modeTop">
+          <div class="modeIcon">🧩</div>
+          <div class="statusPill soon">เร็ว ๆ นี้</div>
+        </div>
+        <div class="modeBody">
+          <h3 class="modeTitle">Coop</h3>
+          <p class="modeSub">
+            เล่นเป็นทีม ช่วยกันทำเป้าหมายรวม เน้นความร่วมมือและความสนุกของทีม
+          </p>
+          <div class="modeMeta">
+            <span>เล่นเป็นทีม</span>
+            <span>เป้าหมายร่วม</span>
+          </div>
+        </div>
+        <div class="modeActions">
+          <button class="modeBtn disabled" data-soon="coop" type="button">เร็ว ๆ นี้</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="footerNote">
+      ตอนนี้หน้า main นี้ตั้งใจทำเป็น <b>launcher กลาง</b> ของเกม Groups โดยเปิดจริงแค่
+      <b>Solo</b> และ <b>Race</b> ก่อน เพื่อให้ flow หลักนิ่งที่สุด แล้วค่อยเปิด Battle, Duet และ Coop ภายหลัง
+    </section>
+  </main>
+
+  <div class="toast" id="toast">โหมดนี้กำลังเตรียมเปิดเร็ว ๆ นี้</div>
+
+  <script src="./groups-vr.boot.js"></script>
+</body>
+</html>
