@@ -3,1921 +3,1169 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Battle</title>
+  <title>HeroHealth • GoodJunk Battle Run</title>
   <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="../favicon.ico" />
+
   <style>
     :root{
       --sky1:#dff4ff;
       --sky2:#bfe8ff;
       --sky3:#fff7d8;
-      --card:#fffdf6;
-      --card2:#f8fff3;
-      --line:#bfe3f2;
+
+      --panel:#fffdf8ee;
+      --panel-2:#ffffffd9;
+      --stroke:#bfe3f2;
       --text:#4d4a42;
-      --muted:#7b7a72;
-      --green:#7ed957;
-      --green2:#58c33f;
+      --muted:#6b7280;
+
+      --pink:#ff8fc7;
+      --pink-2:#ffc5e3;
       --blue:#7fcfff;
-      --blue2:#58b7f5;
-      --yellow:#ffd45c;
-      --orange:#ffb547;
-      --pink:#ff9fc9;
-      --pink2:#ffcbe0;
-      --violet:#cdb9ff;
-      --shadow:0 18px 40px rgba(86,155,194,.16);
-      --sat:env(safe-area-inset-top,0px);
-      --sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);
-      --sal:env(safe-area-inset-left,0px);
+      --blue-2:#58b7f5;
+      --green:#7ed957;
+      --green-2:#58c33f;
+      --gold:#f59e0b;
+      --red:#ef4444;
+
+      --shadow:0 18px 40px rgba(0,0,0,.12);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
 
     *{ box-sizing:border-box; }
     html,body{
       margin:0;
       min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans",Arial,sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 12% 10%, rgba(255,255,255,.92), transparent 18%),
-        radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
-      overflow:hidden;
-    }
-    body{ min-height:100dvh; }
-
-    #app{
-      position:relative;
-      width:100vw;
-      height:100dvh;
-      overflow:hidden;
-      isolation:isolate;
-    }
-    #gameMount{
-      position:absolute;
-      inset:0;
-      z-index:1;
-      overflow:hidden;
+        radial-gradient(circle at 10% 0%, rgba(127,207,255,.50), transparent 24%),
+        radial-gradient(circle at 88% 0%, rgba(255,143,199,.22), transparent 24%),
+        radial-gradient(circle at 74% 12%, rgba(255,212,92,.24), transparent 22%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 58%, var(--sky3));
     }
 
-    .shell{
-      position:absolute;
-      inset:0;
-      display:grid;
-      grid-template-rows:auto 1fr auto;
+    body{ overflow:hidden; }
+
+    .page{
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
       gap:12px;
       padding:
-        calc(12px + var(--sat))
-        calc(12px + var(--sar))
+        calc(10px + var(--sat))
+        calc(10px + var(--sar))
         calc(12px + var(--sab))
-        calc(12px + var(--sal));
-      pointer-events:none;
-      z-index:2;
+        calc(10px + var(--sal));
     }
 
-    .top{
+    .topbar{
       display:flex;
+      align-items:center;
       justify-content:space-between;
       gap:10px;
       flex-wrap:wrap;
-      align-items:flex-start;
+      position:relative;
+      z-index:40;
     }
 
-    .hero-card{
-      max-width:min(780px,100%);
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:28px;
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:var(--panel-2);
       box-shadow:var(--shadow);
-      padding:18px 16px;
+    }
+
+    .brand-title{
+      font-size:16px;
+      font-weight:1100;
+      line-height:1.1;
+    }
+
+    .brand-sub{
+      margin-top:2px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid var(--stroke);
+      background:#ffffffd8;
+      color:var(--text);
+      border-radius:14px;
+      min-height:42px;
+      padding:10px 12px;
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      box-shadow:var(--shadow);
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg,var(--pink),var(--pink-2));
+      color:#6b214e;
+    }
+
+    .btn.good{
+      background:linear-gradient(180deg,var(--green),#a7eb8f);
+      color:#134e1f;
+    }
+
+    .btn.ghost{
+      color:var(--muted);
+      background:#ffffffcc;
+    }
+
+    .run-shell{
+      display:grid;
+      grid-template-columns:minmax(300px,390px) 1fr;
+      gap:12px;
+      min-height:calc(100vh - 96px);
+      align-items:start;
+    }
+
+    @media (max-width:980px){
+      .run-shell{ grid-template-columns:1fr; }
+    }
+
+    .battle-hud{
       position:relative;
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:var(--shadow);
+      padding:14px;
+      display:grid;
+      gap:12px;
+      z-index:20;
+      transition:max-height .18s ease;
+    }
+
+    .battle-hud-toolbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+    }
+
+    .battle-hud-toggle{
+      min-width:40px;
+      min-height:40px;
+      border-radius:12px;
+      border:1px solid var(--stroke);
+      background:#ffffffd8;
+      color:var(--text);
+      font-size:18px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .coach-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:36px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid #ffe0a9;
+      background:#fff8e7;
+      color:#9a6500;
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .battle-top{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .battle-pill{
+      display:inline-flex;
+      align-items:center;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:#ffffffcf;
+      color:var(--text);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .battle-score{
+      border-radius:20px;
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg,#fffaf1,#fff);
+      padding:14px;
+      text-align:center;
+    }
+
+    .battle-score-label{
+      font-size:12px;
+      font-weight:1000;
+      color:var(--muted);
+      letter-spacing:.08em;
+    }
+
+    .battle-score-value{
+      margin-top:6px;
+      font-size:40px;
+      line-height:1;
+      font-weight:1100;
+      color:#9a6500;
+    }
+
+    .battle-stats{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .battle-stat,.battle-mini{
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:#ffffffcc;
+      padding:12px;
+      text-align:center;
+    }
+
+    .battle-stat-k,.battle-mini-k{
+      font-size:12px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+
+    .battle-stat-v{
+      margin-top:6px;
+      font-size:22px;
+      line-height:1;
+      font-weight:1100;
+      color:#244f6d;
+    }
+
+    .battle-panel{
+      border-radius:20px;
+      border:1px solid var(--stroke);
+      background:#ffffffc9;
+      padding:12px;
+      display:grid;
+      gap:12px;
+    }
+
+    .battle-item{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+
+    .battle-item-icon{
+      width:64px;
+      height:64px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:#fff;
+      display:grid;
+      place-items:center;
       overflow:hidden;
     }
-    .hero-card::before{
-      content:"";
-      position:absolute;
-      left:-36px; top:-36px;
-      width:140px; height:140px;
-      border-radius:999px;
-      background:rgba(127,207,255,.20);
-      filter:blur(8px);
-    }
-    .hero-card::after{
-      content:"";
-      position:absolute;
-      right:-26px; bottom:-26px;
-      width:120px; height:120px;
-      border-radius:999px;
-      background:rgba(255,159,201,.18);
-      filter:blur(8px);
+
+    .emoji{
+      font-size:34px;
+      line-height:1;
     }
 
-    .kicker{
-      position:relative;
-      z-index:1;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:#fff0f6;
-      border:2px solid #ffd4e4;
-      color:#c55a8d;
+    .battle-item-title{
+      font-size:16px;
+      font-weight:1100;
+      color:#9a6500;
+    }
+
+    .battle-item-sub{
+      margin-top:4px;
       font-size:13px;
-      font-weight:1000;
-      margin-bottom:10px;
-    }
-
-    h1{
-      position:relative;
-      z-index:1;
-      margin:0 0 6px;
-      font-size:clamp(28px,5vw,42px);
-      line-height:1.05;
-      font-weight:1000;
-      color:#bf5c86;
-      text-shadow:0 2px 0 #fff;
-    }
-
-    .sub{
-      position:relative;
-      z-index:1;
-      margin:0;
+      line-height:1.6;
       color:var(--muted);
-      line-height:1.7;
-      font-size:14px;
-      font-weight:900;
-      max-width:720px;
-    }
-
-    .side{
-      display:grid;
-      gap:8px;
-      align-content:start;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 14px;
-      border-radius:999px;
-      border:2px solid var(--line);
-      background:#fff;
-      color:#6c6a61;
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-      width:max-content;
-      max-width:100%;
-    }
-
-    .status-card{
-      align-self:end;
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:24px;
-      box-shadow:var(--shadow);
-      padding:12px 14px;
-      color:var(--muted);
-      font-size:13px;
-      font-weight:900;
-      line-height:1.6;
-      pointer-events:auto;
-      max-width:min(920px,100%);
-    }
-
-    .status-head{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-
-    .status-badge{
-      width:54px;
-      height:54px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      background:#fff;
-      border:2px solid var(--line);
-      box-shadow:0 8px 18px rgba(86,155,194,.10);
-      font-size:28px;
-      flex:0 0 auto;
-    }
-
-    .status-headtext{
-      min-width:220px;
-      flex:1 1 280px;
-    }
-
-    .status-title{
-      color:#bf5c86;
-      font-size:14px;
-      font-weight:1000;
-      margin-bottom:2px;
-    }
-
-    .status-sub{
-      margin-top:0;
-      color:#8b887f;
-      font-size:12px;
-      line-height:1.55;
       font-weight:900;
     }
 
-    .status-minirow{
-      margin-top:10px;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .status-mini{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#6d6a62;
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-    }
-
-    .status-steps{
-      margin-top:10px;
+    .battle-mini-stats{
       display:grid;
-      gap:6px;
-      padding:12px;
-      border-radius:18px;
-      background:rgba(255,255,255,.65);
-      border:2px dashed var(--line);
-      color:#6f6c65;
-      font-size:12px;
-      line-height:1.6;
-      font-weight:1000;
-    }
-
-    .status-step{
-      display:flex;
-      gap:8px;
-      align-items:flex-start;
-    }
-
-    .status-tip{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:16px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#7a776f;
-      font-size:12px;
-      line-height:1.6;
-      font-weight:1000;
-    }
-
-    .status-tip strong{
-      color:#4d4a42;
-    }
-
-    .status-actions{
-      margin-top:10px;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      pointer-events:auto;
-    }
-
-    .status-btn{
-      appearance:none;
-      border:0;
-      cursor:pointer;
-      border-radius:16px;
-      padding:10px 14px;
-      font-size:13px;
-      font-weight:1000;
-      transition:.12s ease;
-      box-shadow:0 8px 18px rgba(86,155,194,.12);
-    }
-
-    .status-btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
-    .status-btn:active{ transform:translateY(0); }
-
-    .status-btn-copy{
-      background:linear-gradient(180deg,var(--blue),var(--blue2));
-      color:#fffef9;
-    }
-
-    .status-btn-ghost{
-      background:#fff;
-      color:#6d6a62;
-      border:2px solid var(--line);
-    }
-
-    .debug{
-      margin-top:8px;
-      padding-top:8px;
-      border-top:1px dashed rgba(191,227,242,.95);
-      white-space:pre-wrap;
-      word-break:break-word;
-      font-size:11px;
-      color:#8a8a82;
-      max-height:220px;
-      overflow:auto;
-    }
-
-    .error{
-      color:#b45309;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-
-    .summary-overlay{
-      position:absolute;
-      inset:0;
-      z-index:30;
-      display:grid;
-      place-items:center;
-      padding:
-        calc(16px + var(--sat))
-        calc(16px + var(--sar))
-        calc(16px + var(--sab))
-        calc(16px + var(--sal));
-      background:rgba(223,244,255,.72);
-      backdrop-filter:blur(10px);
-      pointer-events:auto;
-    }
-    .summary-overlay[hidden]{
-      display:none !important;
-    }
-
-    .summary-card{
-      width:min(940px,100%);
-      max-height:88dvh;
-      overflow:auto;
-      background:linear-gradient(180deg,#fffef8,#f7fff4);
-      border:3px solid var(--line);
-      border-radius:30px;
-      box-shadow:0 28px 70px rgba(86,155,194,.24);
-      padding:18px;
-      position:relative;
-    }
-    .summary-card::before{
-      content:"";
-      position:absolute;
-      left:-40px; top:-40px;
-      width:150px; height:150px;
-      border-radius:999px;
-      background:rgba(127,207,255,.18);
-      filter:blur(10px);
-      pointer-events:none;
-    }
-    .summary-card::after{
-      content:"";
-      position:absolute;
-      right:-30px; bottom:-30px;
-      width:130px; height:130px;
-      border-radius:999px;
-      background:rgba(255,159,201,.18);
-      filter:blur(10px);
-      pointer-events:none;
-    }
-
-    .summary-kicker{
-      position:relative;
-      z-index:1;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:#fff0f6;
-      border:2px solid #ffd4e4;
-      color:#c55a8d;
-      font-size:13px;
-      font-weight:1000;
-      margin-bottom:10px;
-    }
-
-    .summary-hero{
-      position:relative;
-      z-index:1;
-      display:grid;
-      grid-template-columns:96px 1fr;
-      gap:14px;
-      align-items:center;
-      margin-bottom:14px;
-      padding:14px;
-      border-radius:24px;
-      background:linear-gradient(180deg,#fffdf6,#f6fbff);
-      border:2px solid #cde7f4;
-      box-shadow:0 10px 24px rgba(86,155,194,.10);
-    }
-
-    .summary-badge{
-      width:96px;
-      height:96px;
-      border-radius:28px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#fdf7d8,#f5fbff);
-      border:3px solid #bfe3f2;
-      font-size:42px;
-      box-shadow:0 10px 20px rgba(86,155,194,.10);
-    }
-
-    .summary-hero-title{
-      margin:0 0 6px;
-      color:#bf5c86;
-      font-size:clamp(24px,4vw,36px);
-      line-height:1.08;
-      font-weight:1000;
-      text-shadow:0 2px 0 #fff;
-    }
-
-    .summary-hero-sub{
-      margin:0;
-      color:#6d6b63;
-      font-size:14px;
-      line-height:1.65;
-      font-weight:900;
-    }
-
-    .summary-title{
-      position:relative;
-      z-index:1;
-      margin:0 0 6px;
-      text-align:center;
-      color:#bf5c86;
-      font-size:clamp(28px,5vw,42px);
-      line-height:1.05;
-      font-weight:1000;
-      text-shadow:0 2px 0 #fff;
-    }
-
-    .summary-sub{
-      position:relative;
-      z-index:1;
-      margin:0;
-      text-align:center;
-      color:#6d6b63;
-      font-size:14px;
-      line-height:1.7;
-      font-weight:900;
-    }
-
-    .summary-stars{
-      display:flex;
-      justify-content:center;
+      grid-template-columns:repeat(3,minmax(0,1fr));
       gap:10px;
-      margin:12px 0 14px;
-      flex-wrap:wrap;
     }
 
-    .summary-star{
-      font-size:48px;
+    .battle-mini-v{
+      margin-top:4px;
+      font-size:20px;
       line-height:1;
-      filter:drop-shadow(0 6px 12px rgba(0,0,0,.12));
+      font-weight:1100;
+      color:#1f5d73;
     }
 
-    .summary-star.off{
-      opacity:.22;
-      filter:none;
-    }
-
-    .summary-scorecard{
-      margin:0 auto 14px;
-      width:min(480px,100%);
-      border-radius:24px;
-      border:3px solid #cde7f4;
-      background:#fff;
-      box-shadow:0 10px 22px rgba(86,155,194,.10);
-      padding:16px 14px;
-      text-align:center;
-    }
-
-    .summary-scorelabel{
-      color:#79aeca;
-      font-size:15px;
-      line-height:1.3;
+    .battle-tip{
+      border-radius:16px;
+      border:1px dashed var(--stroke);
+      background:#fffaf1;
+      padding:10px 12px;
+      color:#9a6500;
+      font-size:13px;
+      line-height:1.6;
       font-weight:1000;
-      margin-bottom:4px;
+      min-height:46px;
     }
 
-    .summary-scorevalue{
-      color:#4d4a42;
-      font-size:clamp(42px,9vw,70px);
+    .battle-goal{
+      display:grid;
+      gap:8px;
+    }
+
+    .battle-goal-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+
+    .battle-goal-title{
+      font-size:12px;
+      font-weight:1100;
+      color:var(--muted);
+      letter-spacing:.08em;
+    }
+
+    .battle-goal-value{
+      font-size:18px;
       line-height:1;
-      font-weight:1000;
-      letter-spacing:.02em;
+      font-weight:1100;
+      color:#244f6d;
     }
 
-    .summary-comparecard{
-      margin:0 auto 14px;
-      width:min(720px,100%);
+    .battle-bar,.battle-bar-sub{
+      height:12px;
+      border-radius:999px;
+      background:rgba(191,227,242,.5);
+      overflow:hidden;
+    }
+
+    .battle-bar-fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#ff8fa8,#ffc3cf);
+      transition:width .16s linear;
+    }
+
+    .battle-bar-sub-fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--blue),#b9ecff);
+      transition:width .16s linear;
+    }
+
+    .stage-wrap{
+      min-width:0;
       border-radius:24px;
-      border:3px solid #e9d7b3;
+      border:1px solid var(--stroke);
+      background:#ffffffba;
+      box-shadow:var(--shadow);
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      min-height:640px;
+      position:relative;
+    }
+
+    .stage-head{
+      padding:14px 16px;
+      border-bottom:1px solid var(--stroke);
+      color:#9a6500;
+      font-size:14px;
+      font-weight:1100;
+      letter-spacing:.05em;
+      background:#fffaf1;
+    }
+
+    .stage-inner{
+      position:relative;
+      flex:1 1 auto;
+      min-height:580px;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(255,255,255,.8), transparent 18%),
+        radial-gradient(circle at 80% 8%, rgba(255,255,255,.72), transparent 18%),
+        linear-gradient(180deg,#aee6ff 0%, #d9f5ff 54%, #fff5cf 100%);
+    }
+
+    #gameMount{
+      position:relative;
+      width:100%;
+      height:100%;
+      min-height:580px;
+      overflow:hidden;
+    }
+
+    .stage-cloud{
+      position:absolute;
       background:#fff;
-      box-shadow:0 10px 22px rgba(86,155,194,.10);
-      padding:16px 14px;
+      border-radius:999px;
+      box-shadow:0 8px 18px rgba(0,0,0,.06);
+      opacity:.8;
+      pointer-events:none;
     }
 
-    .summary-compare-head{
-      text-align:center;
-      color:#c48a23;
-      font-size:15px;
-      font-weight:1000;
-      margin-bottom:12px;
+    .stage-cloud.c1{ width:130px;height:42px;left:4%;top:8%; }
+    .stage-cloud.c2{ width:95px;height:34px;left:72%;top:11%; }
+    .stage-cloud.c3{ width:110px;height:36px;left:38%;top:18%; }
+
+    .stage-ground{
+      position:absolute;
+      left:0; right:0; bottom:0;
+      height:120px;
+      background:
+        radial-gradient(circle at 20% 40%, rgba(126,217,87,.34), transparent 18%),
+        radial-gradient(circle at 72% 44%, rgba(126,217,87,.28), transparent 18%),
+        linear-gradient(180deg,#b3f28f,#88d96b);
+      border-top:1px solid rgba(88,195,63,.26);
+      pointer-events:none;
     }
 
-    .summary-compare-grid{
+    .battle-result-mount{
+      position:fixed;
+      inset:0;
+      z-index:99999;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(245,252,255,.96);
+      overflow:auto;
+    }
+
+    .battle-result-card{
+      width:min(1100px,100%);
+      max-height:min(92vh,1020px);
+      overflow:auto;
+      border-radius:28px;
+      border:1px solid var(--stroke);
+      background:#fffdf8;
+      box-shadow:0 28px 80px rgba(0,0,0,.22);
+      padding:18px;
+      display:grid;
+      gap:14px;
+      position:relative;
+    }
+
+    .battle-summary-kicker{
+      display:inline-flex;
+      align-items:center;
+      min-height:32px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:#f4fbff;
+      color:#658cb1;
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .battle-result-title{
+      font-size:28px;
+      line-height:1.15;
+      font-weight:1100;
+      color:#9a6500;
+    }
+
+    .battle-result-sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .battle-top-grid{
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:12px;
     }
 
-    .summary-compare-box{
+    .battle-top-card,
+    .battle-stat-card,
+    .battle-standings-card{
       border-radius:18px;
-      border:2px solid #f0dfbd;
-      background:#fffef9;
-      padding:14px 10px;
-      text-align:center;
-    }
-
-    .summary-compare-delta{
-      background:linear-gradient(180deg,#fffdf6,#f7fff4);
-    }
-
-    .summary-compare-label{
-      color:#c48a23;
-      font-size:12px;
-      font-weight:1000;
-      margin-bottom:6px;
-    }
-
-    .summary-compare-name{
-      color:#6d6b63;
-      font-size:14px;
-      line-height:1.5;
-      font-weight:1000;
-      margin-bottom:8px;
-      word-break:break-word;
-    }
-
-    .summary-compare-score{
-      color:#4d4a42;
-      font-size:clamp(24px,4vw,38px);
-      line-height:1;
-      font-weight:1000;
-    }
-
-    .summary-grid{
-      position:relative;
-      z-index:1;
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
-      margin-top:0;
-    }
-
-    .summary-item{
-      background:#fff;
       border:2px solid #cde7f4;
-      border-radius:22px;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
+      background:#fff;
       padding:14px;
     }
 
-    .summary-label{
-      color:#79aeca;
+    .battle-top-k{
       font-size:12px;
+      color:#79aeca;
       font-weight:1000;
-      margin-bottom:6px;
-      line-height:1.35;
+      text-align:center;
     }
 
-    .summary-value{
-      color:#4d4a42;
-      font-size:clamp(20px,3.5vw,32px);
+    .battle-top-name{
+      margin-top:8px;
+      font-size:14px;
+      color:#6d6b63;
       font-weight:1000;
-      line-height:1.18;
+      text-align:center;
       word-break:break-word;
     }
 
-    .summary-actions{
+    .battle-top-score{
+      margin-top:10px;
+      font-size:46px;
+      line-height:1;
+      color:#4d4a42;
+      font-weight:1100;
+      text-align:center;
+    }
+
+    .battle-stats-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .battle-stat-card{
+      text-align:center;
+      border-width:1px;
+      background:#ffffffcc;
+    }
+
+    .battle-stat-k{
+      font-size:12px;
+      color:#6b7280;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .battle-stat-v{
+      font-size:26px;
+      line-height:1;
+      color:#244f6d;
+      font-weight:1100;
+    }
+
+    .battle-standings-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .battle-standing-row{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      padding:12px;
+      border-radius:16px;
+      border:2px solid #cde7f4;
+      background:#fff;
+      flex-wrap:wrap;
+    }
+
+    .battle-standing-left{
+      display:grid;
+      gap:4px;
+      min-width:0;
+    }
+
+    .battle-standing-name{
+      font-weight:1000;
+      color:#4d4a42;
+      word-break:break-word;
+    }
+
+    .battle-standing-meta{
+      font-size:12px;
+      color:#79aeca;
+      font-weight:1000;
+      line-height:1.5;
+      word-break:break-word;
+    }
+
+    .battle-standing-side{
+      font-size:12px;
+      color:#79aeca;
+      font-weight:1000;
+    }
+
+    .battle-debug{
+      border-radius:16px;
+      background:#fff;
+      border:1px dashed #bfe3f2;
+      padding:12px;
+      color:#6b7280;
+      font-size:12px;
+      line-height:1.6;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    .battle-result-actions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      margin-top:16px;
-    }
-
-    .btn{
-      appearance:none;
-      border:0;
-      cursor:pointer;
-      border-radius:18px;
-      padding:13px 18px;
-      font-weight:1000;
-      font-size:15px;
-      transition:.12s ease;
-      box-shadow:0 10px 20px rgba(86,155,194,.14);
-    }
-
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
-    .btn:active{ transform:translateY(0); }
-
-    .btn-primary{ background:linear-gradient(180deg,var(--green),var(--green2)); color:#fffef9; }
-    .btn-copy{ background:linear-gradient(180deg,var(--blue),var(--blue2)); color:#fffef9; }
-    .btn-warn{ background:linear-gradient(180deg,var(--yellow),var(--orange)); color:#6d4e00; }
-    .btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
-
-    .summary-debug{
-      margin-top:14px;
+      position:sticky;
+      bottom:0;
       padding-top:10px;
-      border-top:1px dashed #cde7f4;
-      color:#8a887f;
-      font-size:11px;
-      line-height:1.6;
-      font-weight:900;
-      white-space:pre-wrap;
-      word-break:break-word;
-      max-height:220px;
-      overflow:auto;
+      background:linear-gradient(180deg, rgba(255,253,248,0), rgba(255,253,248,.92) 22%, rgba(255,253,248,1));
+      z-index:30;
     }
 
-    @media (max-width:780px){
-      .top{ align-items:stretch; }
-      .side{ width:100%; }
-      .pill{ width:100%; justify-content:center; }
-      .summary-grid{ grid-template-columns:1fr; }
-      .summary-actions .btn,
-      .status-actions .status-btn{ flex:1 1 100%; }
+    .battle-result-actions .btn{
+      flex:1 1 180px;
+      min-height:50px;
     }
 
-    @media (max-width:720px){
-      .summary-compare-grid{
+    @media (max-width:820px){
+      .battle-top-grid{ grid-template-columns:1fr; }
+      .battle-stats-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    @media (max-width:760px){
+      body{ overflow:auto; }
+      .battle-result-mount{
+        padding:10px;
+        align-items:flex-end;
+      }
+      .battle-result-card{
+        border-radius:22px;
+        padding:12px;
+      }
+      .battle-result-title{ font-size:22px; }
+      .battle-result-sub{ font-size:12px; }
+      .battle-result-actions{
+        display:grid;
         grid-template-columns:1fr;
+        gap:10px;
+      }
+      .battle-result-actions .btn{
+        width:100%;
       }
     }
   </style>
 </head>
 <body>
-  <div id="app">
-    <div id="gameMount"></div>
-
-    <div class="shell">
-      <div class="top">
-        <div class="hero-card">
-          <div class="kicker">⚔️ GOODJUNK BATTLE</div>
-          <h1>Food Battle!</h1>
-          <p class="sub">
-            เก็บอาหารดีให้ไว ทำคะแนนให้มาก และพยายามชนะคู่แข่งในรอบนี้
-          </p>
-        </div>
-
-        <div class="side">
-          <div class="pill" id="pillRoom">ROOM • -</div>
-          <div class="pill" id="pillPlayer">HERO • -</div>
-          <div class="pill" id="pillRole">ROLE • player</div>
-          <div class="pill" id="pillDiff">LEVEL • normal</div>
-          <div class="pill" id="pillTime">TIME • 120</div>
+  <div class="page">
+    <div class="topbar">
+      <div class="brand">
+        <div style="font-size:20px;">⚔️</div>
+        <div>
+          <div class="brand-title">GoodJunk • Battle Run</div>
+          <div class="brand-sub">แข่งกันเก็บอาหารดี ชาร์จพลัง แล้วโจมตีอีกฝ่ายให้เหนือกว่า</div>
         </div>
       </div>
 
-      <div></div>
-
-      <div class="status-card" id="engineStatusCard">
-        <div class="status-head">
-          <div class="status-badge" id="engineStatusBadge">⚔️</div>
-          <div class="status-headtext">
-            <div class="status-title" id="engineStatusTitle">กำลังเตรียมเกม…</div>
-            <div id="engineStatusText">กำลังโหลด battle engine</div>
-            <div class="status-sub" id="engineStatusSub">เกมจะเริ่มเองเมื่อโหลดพร้อม ระหว่างเล่นให้ดูคะแนน เวลา และห้องเล่นด้านบน</div>
-          </div>
-        </div>
-
-        <div class="status-minirow">
-          <div class="status-mini" id="engineMiniMode">MODE • BATTLE</div>
-          <div class="status-mini" id="engineMiniRoom">ROOM • -</div>
-          <div class="status-mini" id="engineMiniPlayer">HERO • -</div>
-        </div>
-
-        <div class="status-steps" id="engineSteps">
-          <div class="status-step"><span>1️⃣</span><span>รอให้หน้าเกมโหลดให้พร้อมก่อน</span></div>
-          <div class="status-step"><span>2️⃣</span><span>เมื่อเริ่มแล้ว ให้แตะเก็บอาหารดีให้ไว</span></div>
-          <div class="status-step"><span>3️⃣</span><span>พยายามทำคะแนนให้มากกว่าคู่แข่ง</span></div>
-        </div>
-
-        <div class="status-tip" id="engineTip"><strong>Tip:</strong> โหมดนี้เน้นความไวและทำคะแนนให้ชนะอีกฝ่าย</div>
-
-        <div class="status-actions">
-          <button class="status-btn status-btn-copy" id="btnQuickCopyRoom" type="button">คัดลอกห้อง</button>
-          <button class="status-btn status-btn-ghost" id="btnQuickBackHub" type="button">กลับ HUB</button>
-        </div>
-
-        <div class="debug" id="engineDebugInfo"></div>
+      <div class="top-actions">
+        <a class="btn ghost" id="btnBackLauncher" href="./goodjunk-multi.html">← Launcher</a>
+        <a class="btn primary" id="btnGoHub" href="../hub.html">🏠 Hub</a>
       </div>
     </div>
 
-    <div class="summary-overlay" id="summaryOverlay" hidden>
-      <div class="summary-card">
-        <div class="summary-kicker">⚔️ GOODJUNK BATTLE SUMMARY</div>
+    <div class="run-shell">
+      <div id="battleHudWrap" class="battle-hud">
+        <div class="battle-hud-toolbar">
+          <div class="coach-badge" id="battleCoachBadge">🤖 AI Coach</div>
+          <button id="battleHudToggle" class="battle-hud-toggle" type="button">⋯</button>
+        </div>
 
-        <div class="summary-hero">
-          <div class="summary-badge" id="summaryBadge">⚔️</div>
-          <div>
-            <h3 class="summary-hero-title" id="summaryHeroTitle">Battle Hero!</h3>
-            <p class="summary-hero-sub" id="summaryHeroSub">จบรอบแล้ว มาดูผลการต่อสู้กัน</p>
+        <div class="battle-top">
+          <div class="battle-pill">BATTLE</div>
+          <div class="battle-pill" id="battleRoomPill">ห้อง -</div>
+        </div>
+
+        <div class="battle-score">
+          <div class="battle-score-label">SCORE</div>
+          <div class="battle-score-value" id="battleScoreValue">0</div>
+        </div>
+
+        <div class="battle-stats">
+          <div class="battle-stat">
+            <div class="battle-stat-k">เวลา</div>
+            <div class="battle-stat-v" id="battleTimeValue">0:00</div>
+          </div>
+          <div class="battle-stat">
+            <div class="battle-stat-k">Miss</div>
+            <div class="battle-stat-v" id="battleMissValue">0</div>
+          </div>
+          <div class="battle-stat">
+            <div class="battle-stat-k">Best Streak</div>
+            <div class="battle-stat-v" id="battleStreakValue">0</div>
           </div>
         </div>
 
-        <h2 class="summary-title" id="summaryTitle">Battle Finished</h2>
-        <p class="summary-sub" id="summarySub">จบรอบแล้ว มาดูผลกัน</p>
-
-        <div class="summary-stars" id="summaryStars"></div>
-
-        <div class="summary-scorecard">
-          <div class="summary-scorelabel">Score</div>
-          <div class="summary-scorevalue" id="summaryScoreValue">0</div>
-        </div>
-
-        <div class="summary-comparecard" id="summaryCompareCard" hidden>
-          <div class="summary-compare-head">เปรียบเทียบรอบนี้</div>
-
-          <div class="summary-compare-grid">
-            <div class="summary-compare-box">
-              <div class="summary-compare-label">เรา</div>
-              <div class="summary-compare-name" id="summaryMeName">-</div>
-              <div class="summary-compare-score" id="summaryMeScore">0</div>
+        <div class="battle-panel">
+          <div class="battle-item">
+            <div class="battle-item-icon">
+              <div class="emoji" id="battleItemEmoji">⚔️</div>
             </div>
-
-            <div class="summary-compare-box summary-compare-delta">
-              <div class="summary-compare-label">ส่วนต่างคะแนน</div>
-              <div class="summary-compare-name" id="summaryDeltaText">-</div>
-              <div class="summary-compare-score" id="summaryDeltaScore">0</div>
+            <div>
+              <div class="battle-item-title" id="battleItemTitle">เป้าหมายของรอบนี้</div>
+              <div class="battle-item-sub" id="battleItemSub">เก็บของดี ชาร์จพลัง แล้วโจมตีให้ชนะอีกฝ่าย</div>
             </div>
+          </div>
 
-            <div class="summary-compare-box">
-              <div class="summary-compare-label">คู่แข่ง</div>
-              <div class="summary-compare-name" id="summaryOpponentName">-</div>
-              <div class="summary-compare-score" id="summaryOpponentScore">0</div>
+          <div class="battle-mini-stats">
+            <div class="battle-mini">
+              <div class="battle-mini-k">Damage Dealt</div>
+              <div class="battle-mini-v" id="battleDamageDealtValue">0</div>
+            </div>
+            <div class="battle-mini">
+              <div class="battle-mini-k">Damage Taken</div>
+              <div class="battle-mini-v" id="battleDamageTakenValue">0</div>
+            </div>
+            <div class="battle-mini">
+              <div class="battle-mini-k">Attacks Used</div>
+              <div class="battle-mini-v" id="battleAttacksUsedValue">0</div>
+            </div>
+          </div>
+
+          <div class="battle-tip" id="battleTipText">กำลังเตรียมเชื่อมห้อง Battle...</div>
+
+          <div class="battle-goal">
+            <div class="battle-goal-head">
+              <div class="battle-goal-title">BATTLE CONTROL</div>
+              <div class="battle-goal-value" id="battleGoalValue">100</div>
+            </div>
+            <div class="battle-bar">
+              <div class="battle-bar-fill" id="battleGoalFill"></div>
+            </div>
+            <div class="battle-bar-sub">
+              <div class="battle-bar-sub-fill" id="battleGoalSubFill"></div>
+            </div>
+          </div>
+
+          <div class="battle-mini-stats">
+            <div class="battle-mini">
+              <div class="battle-mini-k">Rank</div>
+              <div class="battle-mini-v" id="battleRankValue">-</div>
+            </div>
+            <div class="battle-mini">
+              <div class="battle-mini-k">Opponent</div>
+              <div class="battle-mini-v" id="battleOpponentScoreValue">-</div>
+            </div>
+            <div class="battle-mini">
+              <div class="battle-mini-k">Gap</div>
+              <div class="battle-mini-v" id="battleGapValue">-</div>
             </div>
           </div>
         </div>
-
-        <div class="summary-grid" id="summaryGrid"></div>
-
-        <div class="summary-actions">
-          <button class="btn btn-primary" id="btnReplay" type="button">เล่นอีกครั้ง</button>
-          <button class="btn btn-copy" id="btnCopyRoom" type="button">คัดลอกห้อง</button>
-          <button class="btn btn-warn" id="btnExport" type="button">Export JSON</button>
-          <button class="btn btn-ghost" id="btnBackHub" type="button">กลับ HUB</button>
-          <button class="btn btn-ghost" id="btnBackLobby" type="button">กลับ Lobby</button>
-        </div>
-
-        <div class="summary-debug" id="summaryDebug"></div>
       </div>
+
+      <section class="stage-wrap">
+        <div class="stage-head">BATTLE GAME STAGE</div>
+        <div class="stage-inner">
+          <div class="stage-cloud c1"></div>
+          <div class="stage-cloud c2"></div>
+          <div class="stage-cloud c3"></div>
+          <div class="stage-ground"></div>
+          <div id="gameMount"></div>
+        </div>
+      </section>
     </div>
   </div>
 
-  <script src="../js/hha-cloud-logger.js"></script>
+  <div id="battleResultMount" class="battle-result-mount" hidden></div>
+
   <script>
-  (function(){
-    'use strict';
+    (function battleRunShellBoot(){
+      const qs = new URLSearchParams(location.search);
+      const hub = qs.get('hub') || '../hub.html';
 
-    function qs(key, fb='') {
-      try {
-        return (new URL(location.href)).searchParams.get(key) ?? fb;
-      } catch (_) {
-        return fb;
+      const btnGoHub = document.getElementById('btnGoHub');
+      const btnBackLauncher = document.getElementById('btnBackLauncher');
+
+      if (btnGoHub) btnGoHub.href = hub;
+
+      if (btnBackLauncher) {
+        const u = new URL('./goodjunk-multi.html', location.href);
+        ['pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai','room','roomId','roomKind']
+          .forEach((k) => {
+            const v = qs.get(k);
+            if (v != null && v !== '') u.searchParams.set(k, v);
+          });
+        btnBackLauncher.href = u.toString();
       }
-    }
+    })();
+  </script>
 
-    function clean(v){ return String(v || '').trim(); }
-    function wait(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
-    function dedupe(arr){
-      const out = [];
-      const seen = new Set();
-      for (const item of arr || []) {
-        const s = clean(item);
-        if (!s || seen.has(s)) continue;
-        seen.add(s);
-        out.push(s);
-      }
-      return out;
-    }
-    function parseList(text){
-      return String(text || '').split(',').map(s => clean(s)).filter(Boolean);
-    }
-    function safeJson(v){
-      try { return JSON.stringify(v, null, 2); }
-      catch (_) { return '{}'; }
-    }
-    function saveText(name, text, mime='application/json'){
-      const blob = new Blob([text], { type: mime });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
-    function resolveHub(){
-      try { return qs('hub') || new URL('../hub.html', location.href).toString(); }
-      catch (_) { return '../hub.html'; }
-    }
+  <script src="../js/hha-cloud-logger-bridge.js"></script>
+  <script src="../js/hha-runtime-contract.js"></script>
 
-    const MODE = 'battle';
-    const MODE_LABEL = 'Battle';
-    const $ = (id) => document.getElementById(id);
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-    const runCtx = {
-      pid: qs('pid', 'anon'),
-      name: qs('name', qs('nick', 'Player')),
-      studyId: qs('studyId', ''),
-      roomId: qs('roomId') || qs('room') || '',
-      roomKind: qs('roomKind', ''),
-      role: qs('role', 'player'),
-      diff: qs('diff', 'normal'),
-      time: qs('time', '120'),
-      seed: qs('seed', String(Date.now())),
-      startAt: Number(qs('startAt', '0')) || 0,
-      hub: resolveHub(),
-      view: qs('view', 'mobile'),
-      run: qs('run', 'play'),
-      gameId: qs('gameId', 'goodjunk'),
-      wait: qs('wait', '0'),
-      host: qs('host', '0')
-    };
+  <script src="../firebase-config.js?v=20260406-battle-run-full"></script>
+  <script src="./goodjunk.safe.battle.js?v=20260406-battle-core-runtime-full"></script>
+  <script src="./goodjunk-battle.js?v=20260406-battle-controller-runtime-full"></script>
 
-    window.__GJ_RUN_CTX__ = runCtx;
-    window.__GJ_MULTI_RUN_CTX__ = runCtx;
-    window.__GJ_BATTLE_ENGINE_READY__ = false;
+  <script>
+    (function(){
+      const hud = document.getElementById('battleHudWrap');
+      const hudToggle = document.getElementById('battleHudToggle');
 
-    const SAFE_CANDIDATES = dedupe([
-      clean(qs('safe')),
-      ...parseList(qs('safeCandidates')),
-      './goodjunk.safe.battle.js',
-      './js/goodjunk.safe.battle.js'
-    ]);
-
-    const CORE_CANDIDATES = dedupe([
-      clean(qs('core')),
-      ...parseList(qs('coreCandidates')),
-      './goodjunk-battle.safe.js',
-      './js/goodjunk-battle.safe.js',
-      './goodjunk.safe.js',
-      './goodjunk.js',
-      './js/goodjunk.safe.js',
-      './js/goodjunk.js'
-    ]);
-
-    const CONTROLLER_CANDIDATES = dedupe([
-      clean(qs('controller')),
-      ...parseList(qs('controllerCandidates')),
-      './goodjunk-battle.js',
-      './js/goodjunk-battle.js'
-    ]);
-
-    const WANT_CONTROLLER =
-      qs('forceBattleController', '0') === '1' ||
-      qs('wait', '0') === '1' ||
-      qs('host', '0') === '1' ||
-      Number(qs('startAt', '0')) > 0;
-
-    function setStatus(title, text, isError=false) {
-      if ($('engineStatusTitle')) $('engineStatusTitle').textContent = title || '';
-      if ($('engineStatusText')) {
-        $('engineStatusText').textContent = text || '';
-        $('engineStatusText').className = isError ? 'error' : '';
-      }
-    }
-
-    function setDebug(text) {
-      if ($('engineDebugInfo')) $('engineDebugInfo').textContent = text || '';
-    }
-
-    function clearSummaryRestoreFlags(){
-      try{
-        sessionStorage.removeItem('GJ_BATTLE_SHOW_LAST_SUMMARY');
-        localStorage.removeItem('GJ_BATTLE_TEMP_SHOW_LAST_SUMMARY');
-      }catch{}
-
-      try{
-        if (window.state){
-          window.state.showSummary = false;
-          window.state.finished = false;
-          window.state.reason = '';
-        }
-      }catch{}
-    }
-
-    function getCurrentSummary(){
-      return window.__GJ_BATTLE_LAST_SUMMARY__ || null;
-    }
-
-    function copyText(text){
-      const t = String(text || '').trim();
-      if (!t) return Promise.reject(new Error('empty'));
-
-      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-        return navigator.clipboard.writeText(t);
-      }
-
-      return new Promise((resolve, reject) => {
-        try {
-          const ta = document.createElement('textarea');
-          ta.value = t;
-          ta.setAttribute('readonly', '');
-          ta.style.position = 'fixed';
-          ta.style.left = '-9999px';
-          document.body.appendChild(ta);
-          ta.select();
-          const ok = document.execCommand('copy');
-          ta.remove();
-          ok ? resolve() : reject(new Error('copy failed'));
-        } catch (err) {
-          reject(err);
-        }
-      });
-    }
-
-    function deriveHeroAvatarFromName(name) {
-      const text = String(name || '').trim();
-      if (!text) return '⚔️';
-      const parts = text.split(/\s+/).filter(Boolean);
-      const key = parts[parts.length - 1] || parts[0] || '';
-      const byWord = {
-        Apple:'🍎', Carrot:'🥕', Bunny:'🐰', Panda:'🐼', Star:'⭐', Berry:'🍓',
-        Tiger:'🐯', Cloud:'☁️', Rocket:'🚀', Kitty:'🐱', Buddy:'🧡', Hero:'🦸'
-      };
-      return byWord[key] || '⚔️';
-    }
-
-    function readHeroMeta() {
-      const displayName = String(runCtx.name || runCtx.pid || 'Hero').trim() || 'Hero';
-      return {
-        name: displayName,
-        avatar: clean(qs('heroAvatar')) || deriveHeroAvatarFromName(displayName),
-        soft: clean(qs('heroSoft')) || '#fff0f6',
-        border: clean(qs('heroBorder')) || '#ffd4e4',
-        text: clean(qs('heroText')) || '#4d4a42'
-      };
-    }
-
-    const heroMeta = readHeroMeta();
-
-    function applyPillTheme(el, text) {
-      if (!el) return;
-      el.textContent = text;
-      el.style.borderColor = heroMeta.border;
-      el.style.background = heroMeta.soft;
-      el.style.color = heroMeta.text;
-    }
-
-    function applyIdentity(){
-      const heroText = `HERO • ${heroMeta.avatar} ${runCtx.name || runCtx.pid || '-'}`;
-      applyPillTheme($('pillRoom'), `ROOM • ${runCtx.roomId || '-'}`);
-      applyPillTheme($('pillPlayer'), heroText);
-      applyPillTheme($('pillRole'), `ROLE • ${runCtx.role || 'player'}`);
-      applyPillTheme($('pillDiff'), `LEVEL • ${runCtx.diff || 'normal'}`);
-      applyPillTheme($('pillTime'), `TIME • ${runCtx.time || '120'}`);
-
-      if ($('engineMiniRoom')) $('engineMiniRoom').textContent = `ROOM • ${runCtx.roomId || '-'}`;
-      if ($('engineMiniMode')) $('engineMiniMode').textContent = 'MODE • BATTLE';
-      if ($('engineMiniPlayer')) $('engineMiniPlayer').textContent = heroText;
-      if ($('engineStatusBadge')) $('engineStatusBadge').textContent = heroMeta.avatar;
-    }
-
-    function buildBaseUrl(page){
-      const u = new URL(page, location.href);
-      const src = new URL(location.href);
-
-      const keepKeys = [
-        'pid','name','nick','studyId','diff','time','seed','hub','view','run',
-        'gameId','zone','game','entry','api','log','debug','roomId','room','roomKind'
-      ];
-
-      keepKeys.forEach((k) => {
-        const v = src.searchParams.get(k);
-        if (v != null && v !== '') u.searchParams.set(k, v);
-      });
-
-      if (!u.searchParams.get('roomId') && runCtx.roomId) u.searchParams.set('roomId', runCtx.roomId);
-      if (!u.searchParams.get('room') && runCtx.roomId) u.searchParams.set('room', runCtx.roomId);
-      if (!u.searchParams.get('roomKind') && runCtx.roomKind) u.searchParams.set('roomKind', runCtx.roomKind);
-
-      u.searchParams.set('mode', 'battle');
-      return u;
-    }
-
-    function buildBattleLobbyUrl(opts = {}) {
-      const { autojoin = false, rematch = false } = opts;
-      const u = buildBaseUrl('./goodjunk-battle-lobby.html');
-
-      if (autojoin) u.searchParams.set('autojoin', '1');
-      else u.searchParams.delete('autojoin');
-
-      if (rematch) u.searchParams.set('rematch', '1');
-      else u.searchParams.delete('rematch');
-
-      u.searchParams.delete('wait');
-      u.searchParams.delete('startAt');
-      u.searchParams.delete('lead');
-      return u.toString();
-    }
-
-    function buildBattleRunBridgeUrl(summary) {
-      const u = new URL('./goodjunk-battle-run-bridge.html', location.href);
-      const roomId = summary?.roomId || runCtx.roomId || '';
-      const pid = summary?.pid || runCtx.pid || 'anon';
-      const name = summary?.name || runCtx.name || 'Player';
-
-      u.searchParams.set('roomId', roomId);
-      u.searchParams.set('pid', pid);
-      u.searchParams.set('name', name);
-      u.searchParams.set('diff', runCtx.diff || 'normal');
-      u.searchParams.set('time', runCtx.time || '120');
-      u.searchParams.set('view', runCtx.view || 'mobile');
-      u.searchParams.set('run', runCtx.run || 'play');
-      u.searchParams.set('hub', runCtx.hub || '../hub.html');
-      u.searchParams.set('roomKind', runCtx.roomKind || '');
-      u.searchParams.set('seed', String(Date.now()));
-      return u.toString();
-    }
-
-    function buildRoomCopyText(summary){
-      const roomId = summary?.roomId || runCtx.roomId || '';
-      const playerName = summary?.name || runCtx.name || runCtx.pid || 'Player';
-      const lobbyUrl = buildBattleLobbyUrl({ autojoin:true, rematch:true });
-
-      return [
-        `ROOM: ${roomId || '-'}`,
-        `PLAYER: ${playerName}`,
-        `LINK: ${lobbyUrl}`
-      ].join('\n');
-    }
-
-    function installSafeStub() {
-      if (window.GJBattleSafe) return;
-
-      const safe = {
-        state: {},
-        setState(patch) {
-          this.state = Object.assign({}, this.state, patch || {});
-          return this.state;
-        },
-        setSummary(summary){ this.state.summary = summary || null; return this.state.summary; },
-        syncRoom(){},
-        showLoading(msg){ setStatus('กำลังโหลดเกม…', msg || 'กำลังเตรียมเกม'); },
-        showWarn(msg){ setStatus('กำลังรอข้อมูล…', msg || 'กำลังรอข้อมูล'); },
-        showError(msg){ setStatus('เกิดปัญหาในการโหลด', msg || 'โหลดไม่สำเร็จ', true); },
-        clearMessage(){},
-        finishGame(detail){
-          try {
-            window.dispatchEvent(new CustomEvent('gj:battle-summary', { detail: detail || {} }));
-          } catch (_) {}
-        },
-        exportSummary(summary, kind='json'){
-          const stamp = String(summary?.ts_iso || new Date().toISOString()).replace(/[:.]/g, '-');
-          const filename = `goodjunk-battle-summary-${clean(runCtx.roomId || 'room')}-${stamp}.${kind === 'csv' ? 'csv' : 'json'}`;
-          if (kind === 'csv'){
-            const row = summary || {};
-            const headers = Object.keys(row);
-            const values = headers.map(k => `"${String(row[k] ?? '').replace(/"/g,'""')}"`);
-            saveText(filename, `${headers.join(',')}\n${values.join(',')}\n`, 'text/csv');
+      if (hudToggle && hud) {
+        hudToggle.addEventListener('click', () => {
+          hud.classList.toggle('collapsed');
+          if (hud.classList.contains('collapsed')) {
+            hud.style.maxHeight = '76px';
+            hud.style.overflow = 'hidden';
           } else {
-            saveText(filename, safeJson(summary || {}));
+            hud.style.maxHeight = '';
+            hud.style.overflow = '';
           }
-        }
+        });
+      }
+
+      const resultMount = document.getElementById('battleResultMount');
+
+      const qs = (k, d='') => {
+        try { return new URL(location.href).searchParams.get(k) ?? d; }
+        catch { return d; }
       };
 
-      window.GJBattleSafe = safe;
-      window.BattleSafe = safe;
-    }
-
-    function buildVersionedUrl(src) {
-      const u = new URL(src, location.href);
-      u.searchParams.set('v', '20260405-battle-run-merged');
-      return u.toString();
-    }
-
-    function loadScriptWithType(src, type) {
-      return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        if (type === 'module') s.type = 'module';
-        s.src = buildVersionedUrl(src);
-        s.async = false;
-        s.onload = () => resolve({ src, type });
-        s.onerror = () => reject(new Error(`โหลด script ไม่สำเร็จ: ${src} [${type}]`));
-        document.body.appendChild(s);
-      });
-    }
-
-    async function tryLoad(src) {
-      try {
-        return await loadScriptWithType(src, 'classic');
-      } catch (e1) {
-        try {
-          return await loadScriptWithType(src, 'module');
-        } catch (e2) {
-          throw new Error(
-            `${src}\n- classic: ${String(e1 && e1.message ? e1.message : e1)}\n- module: ${String(e2 && e2.message ? e2.message : e2)}`
-          );
-        }
-      }
-    }
-
-    function coreApiPresent() {
-      return (
-        typeof window.__GJ_START_NOW__ === 'function' ||
-        typeof window.__GJ_GET_SCORE__ === 'function' ||
-        typeof window.__GJ_SET_PAUSED__ === 'function' ||
-        typeof window.__GJ_BOOT__ === 'function'
-      );
-    }
-
-    function getMountSnapshot() {
-      const mount = $('gameMount');
-      return {
-        html: mount ? String(mount.innerHTML || '') : '',
-        childCount: mount && mount.children ? mount.children.length : 0,
-        canvasCount: document.querySelectorAll('#gameMount canvas, body > canvas').length
+      const runCtx = {
+        pid: qs('pid', 'anon'),
+        roomId: qs('roomId', qs('room', '')),
+        roomKind: qs('roomKind', ''),
+        hub: qs('hub', '../hub.html')
       };
-    }
 
-    function mountLooksAlive(before) {
-      const mount = $('gameMount');
-      const htmlChanged = !!(mount && String(mount.innerHTML || '') !== String(before.html || ''));
-      const childChanged = !!(mount && mount.children && mount.children.length > Number(before.childCount || 0));
-      const hasVisualNode = !!document.querySelector('#gameMount canvas, #gameMount svg, #gameMount iframe, #gameMount .game-root, #gameMount .gj-root, #gameMount .target, #battleEngineRoot');
-      const canvasChanged = document.querySelectorAll('#gameMount canvas, body > canvas').length > Number(before.canvasCount || 0);
-      return htmlChanged || childChanged || hasVisualNode || canvasChanged;
-    }
+      let lastSummaryHash = '';
 
-    function invokeKnownBoots() {
-      const ctx = window.__GJ_RUN_CTX__ || window.__GJ_MULTI_RUN_CTX__ || {};
-      const called = [];
-      const seenFns = new Set();
-
-      const namespaces = [
-        ['GJBattleRun', window.GJBattleRun],
-        ['GoodJunkBattleRun', window.GoodJunkBattleRun],
-        ['GoodJunkBattle', window.GoodJunkBattle],
-        ['GoodJunkRun', window.GoodJunkRun],
-        ['GoodJunk', window.GoodJunk],
-        ['GJBattle', window.GJBattle],
-        ['BattleGame', window.BattleGame]
-      ];
-
-      for (const [label, target] of namespaces) {
-        if (!target || typeof target !== 'object') continue;
-        for (const method of ['boot', 'init', 'start']) {
-          const fn = target[method];
-          if (typeof fn !== 'function' || seenFns.has(fn)) continue;
-          seenFns.add(fn);
-          try {
-            fn.call(target, ctx);
-            called.push(`${label}.${method}`);
-          } catch (err) {
-            console.warn('[GJ-BATTLE-RUN] boot call failed:', `${label}.${method}`, err);
-          }
-          break;
-        }
+      function esc(s){
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
       }
 
-      const standalones = [
-        ['bootGoodJunkBattle', window.bootGoodJunkBattle],
-        ['initGoodJunkBattle', window.initGoodJunkBattle],
-        ['startGoodJunkBattle', window.startGoodJunkBattle],
-        ['bootGoodJunk', window.bootGoodJunk],
-        ['initGoodJunk', window.initGoodJunk],
-        ['startGoodJunk', window.startGoodJunk],
-        ['__GJ_BOOT__', window.__GJ_BOOT__]
-      ];
-
-      for (const [label, fn] of standalones) {
-        if (typeof fn !== 'function' || seenFns.has(fn)) continue;
-        seenFns.add(fn);
-        try {
-          fn(ctx);
-          called.push(label);
-        } catch (err) {
-          console.warn('[GJ-BATTLE-RUN] boot call failed:', label, err);
-        }
+      function n(v, d=0){
+        v = Number(v);
+        return Number.isFinite(v) ? v : d;
       }
 
-      return called;
-    }
-
-    async function probeCoreReady(before, timeoutMs = 2200) {
-      const start = Date.now();
-      while (Date.now() - start < timeoutMs) {
-        if (window.__GJ_BATTLE_ENGINE_READY__ === true) {
-          return { ok: true, note: '__GJ_BATTLE_ENGINE_READY__' };
-        }
-        if (coreApiPresent()) {
-          return { ok: true, note: 'core-api' };
-        }
-        if (mountLooksAlive(before)) {
-          return { ok: true, note: 'mount-active' };
-        }
-        await wait(60);
-      }
-      return { ok: false, note: 'timeout' };
-    }
-
-    let __gjQuickStartDone = false;
-    let __battlePendingLocalSummary = null;
-    let __battleControllerDebug = null;
-
-    function controllerDebugText(){
-      const d = __battleControllerDebug;
-      if (!d) return '[CTRL] -';
-
-      return [
-        `[CTRL] tag=${d.tag || '-'}`,
-        `[CTRL] roomKind=${d.roomKind || '-'}`,
-        `[CTRL] state=${d.stateStatus || '-'}`,
-        `[CTRL] match=${d.matchStatus || '-'}`,
-        `[CTRL] participants=${JSON.stringify(d.participantIds || [])}`,
-        `[CTRL] resultCount=${Number(d.resultCount || 0)}`,
-        `[CTRL] finalCount=${Number(d.finalCount || 0)}`,
-        `[CTRL] runStarted=${!!d.runStarted}`,
-        `[CTRL] resultSubmitted=${!!d.resultSubmitted}`,
-        `[CTRL] finalSummarySent=${!!d.finalSummarySent}`
-      ].join('\n');
-    }
-
-    function refreshControllerDebugPanel() {
-      const base = [
-        `[MODE] ${MODE}`,
-        `[PID] ${runCtx.pid || '-'}`,
-        `[ROOM] ${runCtx.roomId || '-'}`,
-        `[ROOM_KIND] ${runCtx.roomKind || '-'}`,
-        `[WAIT] ${runCtx.wait}`,
-        `[HOST] ${runCtx.host}`,
-        `[USE_CONTROLLER] ${WANT_CONTROLLER ? 'yes' : 'no'}`,
-        controllerDebugText()
-      ].join('\n');
-
-      setDebug(base);
-    }
-
-    function quickStartAttempt(tag, debugRows) {
-      const actions = [];
-
-      try {
-        const bootCalls = invokeKnownBoots();
-        if (bootCalls.length) actions.push(`boots=${bootCalls.join(', ')}`);
-      } catch (err) {
-        console.warn('[GJ-BATTLE-RUN] quick start boot retry failed', err);
-      }
-
-      try {
-        if (typeof window.__GJ_SET_PAUSED__ === 'function') {
-          window.__GJ_SET_PAUSED__(false);
-          actions.push('__GJ_SET_PAUSED__(false)');
-        }
-      } catch (_) {}
-
-      try {
-        if (typeof window.__GJ_START_NOW__ === 'function') {
-          window.__GJ_START_NOW__();
-          actions.push('__GJ_START_NOW__()');
-          __gjQuickStartDone = true;
-        }
-      } catch (_) {}
-
-      try {
-        window.dispatchEvent(new CustomEvent('gj:quick-start', {
-          detail: { mode: MODE, roomId: runCtx.roomId, pid: runCtx.pid, tag }
-        }));
-        actions.push('dispatch gj:quick-start');
-      } catch (_) {}
-
-      debugRows.push(`[QUICK START ${tag}] ${actions.join(' | ') || 'no-op'}`);
-      return actions;
-    }
-
-    async function forceQuickStartSequence(debugRows) {
-      if (WANT_CONTROLLER) {
-        debugRows.push('[QUICK START] skipped (controller mode)');
-        return;
-      }
-
-      quickStartAttempt('#1', debugRows);
-      await wait(120);
-      quickStartAttempt('#2', debugRows);
-      await wait(220);
-      quickStartAttempt('#3', debugRows);
-
-      if (__gjQuickStartDone) {
-        debugRows.push('[QUICK START] start signal sent');
-      } else {
-        debugRows.push('[QUICK START] no __GJ_START_NOW__ found');
-      }
-    }
-
-    function isCompareReadySummary(detail) {
-      const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
-        ? detail.summary
-        : (detail || {});
-
-      if (src.controllerFinal === true) return true;
-      if (Array.isArray(src.standings) && src.standings.length >= 2) return true;
-      if (src.compare && typeof src.compare === 'object' && src.compare.me && src.compare.opponent) return true;
-      return false;
-    }
-
-    function shouldDeferLocalBattleSummary(detail) {
-      if (MODE !== 'battle') return false;
-      if (!runCtx.roomId) return false;
-      return !isCompareReadySummary(detail);
-    }
-
-    function normalizeSummary(detail) {
-      const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
-        ? detail.summary
-        : (detail || {});
-
-      return {
-        mode: MODE,
-        label: MODE_LABEL,
-        roomId: src.roomId ?? runCtx.roomId,
-        pid: src.pid ?? runCtx.pid,
-        name: src.name ?? runCtx.name,
-        role: runCtx.role,
-        diff: runCtx.diff,
-        time: runCtx.time,
-        result: src.result ?? src.outcome ?? src.status ?? (src.rank ? `อันดับ ${src.rank}` : 'จบรอบแล้ว'),
-        rank: src.rank ?? src.place ?? src.position ?? src.playerRank ?? src.finalRank ?? '',
-        score: src.score ?? src.totalScore ?? src.playerScore ?? src.myScore ?? 0,
-        players: src.players ?? src.playerCount ?? src.totalPlayers ?? '',
-        miss: src.miss ?? src.misses ?? src.totalMiss ?? 0,
-        goodHit: src.goodHit ?? src.hitsGood ?? src.goodHits ?? src.correct ?? 0,
-        junkHit: src.junkHit ?? src.hitsBad ?? src.junkHits ?? src.wrong ?? 0,
-        bestStreak: src.bestStreak ?? src.streak ?? src.comboMax ?? 0,
-        duration: src.duration ?? src.durationSec ?? src.timeUsed ?? '',
-        reason: src.reason ?? src.finishReason ?? src.endReason ?? '',
-        standings: Array.isArray(src.standings) ? src.standings : [],
-        compare: src.compare && typeof src.compare === 'object' ? src.compare : null,
-        raw: src,
-        receivedAt: Date.now(),
-        heroDisplay: `${heroMeta.avatar} ${heroMeta.name}`.trim(),
-        ts_iso: src.ts_iso || new Date().toISOString()
-      };
-    }
-
-    function normalizeBattleCompare(summary) {
-      const standings = Array.isArray(summary.standings) ? summary.standings : [];
-      if (!standings.length) {
-        return { me: null, opponent: null, delta: 0 };
-      }
-
-      const myPid = String(runCtx.pid || '');
-      let me = standings.find(r => String(r.pid || '') === myPid);
-
-      if (!me) {
-        me = standings.find(r => String(r.nick || '') === String(runCtx.name || '')) || standings[0];
-      }
-
-      const opponent = standings.find(r => String(r.pid || '') !== String((me && me.pid) || '')) || null;
-      const delta = Number((me && me.score) || 0) - Number((opponent && opponent.score) || 0);
-
-      return { me, opponent, delta };
-    }
-
-    function battleHero(summary) {
-      const rank = String(summary.rank || '');
-
-      if (rank === '1') {
+      function normalizeStanding(r, i){
         return {
-          badge: '🏆',
-          heroTitle: 'Battle Champion!',
-          heroSub: 'ชนะรอบนี้ได้ยอดเยี่ยมมาก',
-          title: 'You Win!'
+          pid: String((r && (r.pid || r.playerId)) || ''),
+          nick: String((r && (r.nick || r.name || r.pid)) || `player-${i+1}`),
+          rank: n(r && r.rank, i + 1),
+          score: n(r && r.score, 0),
+          contribution: n(r && (r.contribution != null ? r.contribution : r.score), 0),
+          miss: n(r && r.miss, 0),
+          bestStreak: n(r && r.bestStreak, 0),
+          damageDealt: n(r && r.damageDealt, 0),
+          damageTaken: n(r && r.damageTaken, 0),
+          attacksUsed: n(r && r.attacksUsed, 0),
+          koCount: n(r && r.koCount, 0)
         };
       }
 
-      if (rank === '2') {
+      function sortStandings(rows){
+        rows.sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          if (a.miss !== b.miss) return a.miss - b.miss;
+          if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
+          if (b.damageDealt !== a.damageDealt) return b.damageDealt - a.damageDealt;
+          return String(a.pid || '').localeCompare(String(b.pid || ''));
+        });
+        rows.forEach((r, i) => { r.rank = i + 1; });
+        return rows;
+      }
+
+      function normalize(detail){
+        const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
+          ? detail.summary
+          : (detail || {});
+
+        const standings = Array.isArray(src.standings)
+          ? sortStandings(src.standings.map((r, i) => normalizeStanding(r, i)))
+          : [];
+
+        const me = standings.find((r) => String(r.pid || '') === String(runCtx.pid || '')) || null;
+        const opponent = standings.find((r) => String(r.pid || '') !== String(runCtx.pid || '')) || null;
+        const score = n(src.score != null ? src.score : (me ? me.score : 0), 0);
+        const delta = n(
+          src.compare && src.compare.delta != null
+            ? src.compare.delta
+            : (me && opponent ? me.score - opponent.score : 0),
+          0
+        );
+
         return {
-          badge: '⚔️',
-          heroTitle: 'Almost Won!',
-          heroSub: 'อีกนิดเดียวก็ชนะแล้ว ลองใหม่ได้เลย',
-          title: 'Great Fight!'
+          controllerFinal: !!src.controllerFinal,
+          rank: n(src.rank || (me && me.rank) || 0, 0),
+          score,
+          players: Math.max(1, n(src.players || standings.length || 1, 1)),
+          miss: n(src.miss != null ? src.miss : (me ? me.miss : 0), 0),
+          bestStreak: n(src.bestStreak != null ? src.bestStreak : (me ? me.bestStreak : 0), 0),
+          damageDealt: n(src.damageDealt != null ? src.damageDealt : (me ? me.damageDealt : 0), 0),
+          damageTaken: n(src.damageTaken != null ? src.damageTaken : (me ? me.damageTaken : 0), 0),
+          attacksUsed: n(src.attacksUsed != null ? src.attacksUsed : (me ? me.attacksUsed : 0), 0),
+          result: src.result || 'จบรอบแล้ว',
+          reason: src.reason || '',
+          roomId: src.roomId || runCtx.roomId || '',
+          roomKind: src.roomKind || runCtx.roomKind || '',
+          standings,
+          compare: {
+            me: me || (src.compare && src.compare.me) || null,
+            opponent: opponent || (src.compare && src.compare.opponent) || null,
+            delta
+          }
         };
       }
 
-      return {
-        badge: '🛡️',
-        heroTitle: 'Battle Hero!',
-        heroSub: 'สู้ได้ดีมากในรอบนี้',
-        title: 'Battle Finished'
-      };
-    }
+      function summaryHash(summary){
+        return [
+          String(summary.roomId || ''),
+          String(summary.controllerFinal ? '1' : '0'),
+          String(summary.rank || ''),
+          String(summary.score || ''),
+          String(summary.compare && summary.compare.me ? summary.compare.me.score : ''),
+          String(summary.compare && summary.compare.opponent ? summary.compare.opponent.score : ''),
+          String((summary.standings && summary.standings.length) || 0),
+          String(summary.reason || '')
+        ].join('|');
+      }
 
-    function renderSummaryStars(rank) {
-      const n = String(rank) === '1' ? 3 : (String(rank) === '2' ? 2 : 1);
-      return [1,2,3].map(i => `<span class="summary-star ${i <= n ? '' : 'off'}">⭐</span>`).join('');
-    }
+      function titleFor(summary){
+        if (summary.rank === 1) return 'ชนะศึกนี้! คุณเหนือกว่าอีกฝ่าย';
+        if (summary.rank === 2) return 'จบรอบแล้ว แพ้ไปนิดเดียว';
+        return summary.result || 'จบรอบแล้ว';
+      }
 
-    function addSummaryItem(label, value) {
-      if (value === '' || value === null || value === undefined) return '';
-      return `
-        <div class="summary-item">
-          <div class="summary-label">${label}</div>
-          <div class="summary-value">${String(value)}</div>
-        </div>
-      `;
-    }
+      function subFor(summary){
+        const me = summary.compare && summary.compare.me;
+        const opp = summary.compare && summary.compare.opponent;
+        if (me && opp) {
+          return `เรา ${n(me.score,0)} คะแนน • คู่แข่ง ${n(opp.score,0)} คะแนน`;
+        }
+        return 'ระบบสรุปผลรอบนี้เรียบร้อยแล้ว';
+      }
 
-    function buildStandingsHtml(summary) {
-      const rows = Array.isArray(summary.standings) ? summary.standings : [];
-      if (!rows.length) return '';
+      function gapLabel(summary){
+        const opp = summary.compare && summary.compare.opponent;
+        const delta = summary.compare ? n(summary.compare.delta, 0) : 0;
+        if (!opp) return 'รอผลอีกฝั่ง';
+        if (delta > 0) return 'เรานำอยู่';
+        if (delta < 0) return 'คู่แข่งนำอยู่';
+        return 'คะแนนเท่ากัน';
+      }
 
-      return `
-        <div class="summary-item" style="grid-column:1 / -1;">
-          <div class="summary-label">Battle Compare</div>
-          <div style="display:grid;gap:10px;">
-            ${rows.map((r, i) => `
-              <div style="
-                display:flex;justify-content:space-between;gap:10px;align-items:center;
-                padding:12px;border:2px solid #cde7f4;border-radius:16px;background:#fff;">
-                <div style="font-weight:1000;color:#4d4a42;">
-                  #${i+1} ${String(r.nick || r.pid || 'player')}
-                </div>
-                <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;">
-                  <span style="font-weight:1000;color:#79aeca;">Score ${Number(r.score || 0)}</span>
-                  <span style="font-weight:1000;color:#79aeca;">Miss ${Number(r.miss || 0)}</span>
-                  <span style="font-weight:1000;color:#79aeca;">Streak ${Number(r.bestStreak || 0)}</span>
-                </div>
+      function standingsHtml(summary){
+        const list = Array.isArray(summary.standings) ? summary.standings : [];
+        if (!list.length) {
+          return `
+            <div class="battle-standing-row">
+              <div class="battle-standing-left">
+                <div class="battle-standing-name">กำลังรอผลอีกฝั่ง</div>
+                <div class="battle-standing-meta">ถ้าอีกเครื่องส่งผลช้ากว่า ระบบอาจแสดงผลชั่วคราวก่อน</div>
               </div>
-            `).join('')}
+              <div class="battle-standing-side">WAIT</div>
+            </div>
+          `;
+        }
+
+        return list.map((item, i) => {
+          const side = String(item.pid || '') === String(runCtx.pid || '') ? 'YOU' : 'OPPONENT';
+          return `
+            <div class="battle-standing-row" data-battle-standing-row="${i}">
+              <div class="battle-standing-left">
+                <div class="battle-standing-name" data-battle-standing-name="${i}">#${i + 1} ${esc(item.nick || item.pid || 'player')}</div>
+                <div class="battle-standing-meta" data-battle-standing-meta="${i}">Score ${n(item.score,0)} • Miss ${n(item.miss,0)} • Streak ${n(item.bestStreak,0)} • DMG ${n(item.damageDealt,0)}</div>
+              </div>
+              <div class="battle-standing-side" data-battle-standing-side="${i}">${side}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function renderSummary(summary){
+        if (!resultMount) return;
+
+        const me = summary.compare && summary.compare.me;
+        const opp = summary.compare && summary.compare.opponent;
+        const delta = summary.compare ? n(summary.compare.delta, 0) : 0;
+
+        resultMount.hidden = false;
+        resultMount.innerHTML = `
+          <div class="battle-result-card" data-battle-summary-card="1">
+            <div style="display:grid;gap:8px;">
+              <div class="battle-summary-kicker">BATTLE SUMMARY</div>
+              <div class="battle-result-title" data-battle-summary-title="1">${esc(titleFor(summary))}</div>
+              <div class="battle-result-sub" data-battle-summary-sub="1">${esc(subFor(summary))}</div>
+            </div>
+
+            <div class="battle-top-grid">
+              <div class="battle-top-card" data-battle-top-card="me">
+                <div class="battle-top-k">เรา</div>
+                <div class="battle-top-name" data-battle-top-name="me">${esc(me ? (me.nick || me.pid || 'เรา') : 'เรา')}</div>
+                <div class="battle-top-score" data-battle-top-score="me">${me ? n(me.score,0) : n(summary.score,0)}</div>
+              </div>
+
+              <div class="battle-top-card" data-battle-top-card="gap">
+                <div class="battle-top-k">ส่วนต่างคะแนน</div>
+                <div class="battle-top-name" data-battle-gap-label="1">${esc(gapLabel(summary))}</div>
+                <div class="battle-top-score" data-battle-gap-value="1">${opp ? Math.abs(delta) : '-'}</div>
+              </div>
+
+              <div class="battle-top-card" data-battle-top-card="opponent">
+                <div class="battle-top-k">คู่แข่ง</div>
+                <div class="battle-top-name" data-battle-top-name="opponent">${esc(opp ? (opp.nick || opp.pid || 'คู่แข่ง') : 'ยังไม่พบผลของอีกฝั่ง')}</div>
+                <div class="battle-top-score" data-battle-top-score="opponent">${opp ? n(opp.score,0) : '-'}</div>
+              </div>
+            </div>
+
+            <div class="battle-stats-grid">
+              <div class="battle-stat-card">
+                <div class="battle-stat-k">Rank</div>
+                <div class="battle-stat-v" data-battle-stat-rank="1">${summary.rank || '-'}</div>
+              </div>
+              <div class="battle-stat-card">
+                <div class="battle-stat-k">Players</div>
+                <div class="battle-stat-v" data-battle-stat-players="1">${summary.players || 1}</div>
+              </div>
+              <div class="battle-stat-card">
+                <div class="battle-stat-k">Miss</div>
+                <div class="battle-stat-v" data-battle-stat-miss="1">${summary.miss || 0}</div>
+              </div>
+              <div class="battle-stat-card">
+                <div class="battle-stat-k">Best Streak</div>
+                <div class="battle-stat-v" data-battle-stat-streak="1">${summary.bestStreak || 0}</div>
+              </div>
+            </div>
+
+            <div class="battle-stats-grid">
+              <div class="battle-stat-card">
+                <div class="battle-stat-k">Damage Dealt</div>
+                <div class="battle-stat-v" data-battle-stat-dmgdealt="1">${summary.damageDealt || 0}</div>
+              </div>
+              <div class="battle-stat-card">
+                <div class="battle-stat-k">Damage Taken</div>
+                <div class="battle-stat-v" data-battle-stat-dmgtaken="1">${summary.damageTaken || 0}</div>
+              </div>
+              <div class="battle-stat-card">
+                <div class="battle-stat-k">Attacks Used</div>
+                <div class="battle-stat-v" data-battle-stat-attacks="1">${summary.attacksUsed || 0}</div>
+              </div>
+              <div class="battle-stat-card">
+                <div class="battle-stat-k">Controller</div>
+                <div class="battle-stat-v" data-battle-stat-controller="1">${summary.controllerFinal ? 'FINAL' : 'LOCAL'}</div>
+              </div>
+            </div>
+
+            <div class="battle-standings-card">
+              <div class="battle-standings-list" data-battle-standings-list="1">
+                ${standingsHtml(summary)}
+              </div>
+            </div>
+
+            <div class="battle-debug" data-battle-controller-debug="1">controllerFinal=${summary.controllerFinal ? 'true' : 'false'}
+roomId=${esc(summary.roomId || '-')}
+roomKind=${esc(summary.roomKind || '-')}
+reason=${esc(summary.reason || '-')}</div>
+
+            <div class="battle-result-actions">
+              <a class="btn ghost" id="battleBackLobbyBtn" href="./goodjunk-battle-lobby.html?roomId=${encodeURIComponent(runCtx.roomId || '')}&room=${encodeURIComponent(runCtx.roomId || '')}&roomKind=${encodeURIComponent(summary.roomKind || runCtx.roomKind || '')}&autojoin=1&hub=${encodeURIComponent(runCtx.hub || '../hub.html')}">← กลับ Lobby</a>
+              <a class="btn primary" id="battleBackHubBtn" href="${esc(runCtx.hub || '../hub.html')}">🏠 กลับ Hub</a>
+              <button class="btn good" id="battleRematchBtn" type="button">🔁 เล่นอีกครั้ง</button>
+            </div>
           </div>
-        </div>
-      `;
-    }
+        `;
 
-    function hideSummary() {
-      if ($('summaryOverlay')) $('summaryOverlay').hidden = true;
-    }
+        const rematchBtn = document.getElementById('battleRematchBtn');
+        if (rematchBtn) {
+          rematchBtn.onclick = () => {
+            const url = new URL('./goodjunk-battle-lobby.html', location.href);
+            const src = new URL(location.href);
 
-    function showSummary(detail) {
-      const summary = normalizeSummary(detail);
-      const hero = battleHero(summary);
-      const battleCompare = normalizeBattleCompare(summary);
+            src.searchParams.forEach((value, key) => {
+              if (key === 'autostart') return;
+              url.searchParams.set(key, value);
+            });
 
-      if ($('summaryBadge')) $('summaryBadge').textContent = hero.badge;
-      if ($('summaryHeroTitle')) $('summaryHeroTitle').textContent = hero.heroTitle;
-      if ($('summaryHeroSub')) {
-        $('summaryHeroSub').textContent =
-          `${heroMeta.avatar} ${runCtx.name || runCtx.pid || 'Player'} • ${hero.heroSub}`;
-      }
-      if ($('summaryTitle')) $('summaryTitle').textContent = hero.title;
-      if ($('summarySub')) {
-        $('summarySub').textContent =
-          [
-            summary.roomId ? `ห้อง ${summary.roomId}` : '',
-            summary.result || '',
-            summary.players ? `ผู้เล่น ${summary.players}` : '',
-            'กด “เล่นอีกครั้ง” เพื่อกลับเข้าห้องเดิม'
-          ].filter(Boolean).join(' • ');
-      }
-      if ($('summaryStars')) $('summaryStars').innerHTML = renderSummaryStars(summary.rank);
-      if ($('summaryScoreValue')) $('summaryScoreValue').textContent = String(summary.score || 0);
-
-      if ($('summaryCompareCard')) {
-        if (battleCompare.me && battleCompare.opponent) {
-          $('summaryCompareCard').hidden = false;
-
-          if ($('summaryMeName')) {
-            $('summaryMeName').textContent =
-              String(battleCompare.me.nick || battleCompare.me.pid || runCtx.name || 'เรา');
-          }
-
-          if ($('summaryMeScore')) {
-            $('summaryMeScore').textContent = String(Number(battleCompare.me.score || 0));
-          }
-
-          if ($('summaryOpponentName')) {
-            $('summaryOpponentName').textContent =
-              String(battleCompare.opponent.nick || battleCompare.opponent.pid || 'คู่แข่ง');
-          }
-
-          if ($('summaryOpponentScore')) {
-            $('summaryOpponentScore').textContent = String(Number(battleCompare.opponent.score || 0));
-          }
-
-          if ($('summaryDeltaScore')) {
-            $('summaryDeltaScore').textContent = String(Math.abs(Number(battleCompare.delta || 0)));
-          }
-
-          if ($('summaryDeltaText')) {
-            if (battleCompare.delta > 0) {
-              $('summaryDeltaText').textContent = 'เรานำอยู่';
-            } else if (battleCompare.delta < 0) {
-              $('summaryDeltaText').textContent = 'ตามอยู่';
-            } else {
-              $('summaryDeltaText').textContent = 'คะแนนเท่ากัน';
+            if (runCtx.roomId) {
+              url.searchParams.set('roomId', runCtx.roomId);
+              url.searchParams.set('room', runCtx.roomId);
             }
-          }
-        } else {
-          $('summaryCompareCard').hidden = true;
+            if (summary.roomKind || runCtx.roomKind) {
+              url.searchParams.set('roomKind', summary.roomKind || runCtx.roomKind);
+            }
+            url.searchParams.set('autojoin', '1');
+            url.searchParams.set('rematch', '1');
+
+            location.href = url.toString();
+          };
         }
+
+        W.__BATTLE_RUN_LAST_SUMMARY__ = summary;
       }
 
-      if ($('summaryGrid')) {
-        $('summaryGrid').innerHTML =
-          addSummaryItem('อันดับ', summary.rank || '-') +
-          addSummaryItem('ผลลัพธ์', summary.result || '-') +
-          addSummaryItem('ฮีโร่', summary.heroDisplay || '-') +
-          addSummaryItem('คะแนนเรา', summary.score || 0) +
-          addSummaryItem('ผู้เล่นทั้งหมด', summary.players || '-') +
-          addSummaryItem('Good Hit', summary.goodHit || 0) +
-          addSummaryItem('Junk Hit', summary.junkHit || 0) +
-          addSummaryItem('Miss', summary.miss || 0) +
-          addSummaryItem('Best Streak', summary.bestStreak || 0) +
-          addSummaryItem('เวลาใช้', summary.duration || '-') +
-          addSummaryItem('ห้อง', summary.roomId || '-') +
-          addSummaryItem('ผู้เล่น', summary.name || summary.pid || '-') +
-          buildStandingsHtml(summary);
+      function shouldReplace(oldSummary, nextSummary){
+        if (!oldSummary) return true;
+        if (oldSummary.controllerFinal === false && nextSummary.controllerFinal === true) return true;
+
+        const oldCount = (oldSummary.standings && oldSummary.standings.length) || 0;
+        const nextCount = (nextSummary.standings && nextSummary.standings.length) || 0;
+        if (nextCount > oldCount) return true;
+
+        const oldDeltaKnown = !!(oldSummary.compare && oldSummary.compare.opponent);
+        const nextDeltaKnown = !!(nextSummary.compare && nextSummary.compare.opponent);
+        if (!oldDeltaKnown && nextDeltaKnown) return true;
+
+        return false;
       }
 
-      if ($('summaryDebug')) {
-        $('summaryDebug').textContent =
-          '[BATTLE SUMMARY]\n' +
-          'rank=' + (summary.rank || '-') + '\n' +
-          'score=' + (summary.score || 0) + '\n' +
-          'players=' + (summary.players || '-') + '\n' +
-          'replayBridge=' + buildBattleRunBridgeUrl(summary) + '\n' +
-          'backLobby=' + buildBattleLobbyUrl() + '\n' +
-          'shareLobby=' + buildBattleLobbyUrl({ autojoin:true, rematch:true }) + '\n' +
-          'standings=' + JSON.stringify(summary.standings || []) + '\n' +
-          'battleCompare=' + JSON.stringify(battleCompare || {}) + '\n' +
-          'me=' + JSON.stringify((battleCompare && battleCompare.me) || null) + '\n' +
-          'opponent=' + JSON.stringify((battleCompare && battleCompare.opponent) || null) + '\n\n' +
-          controllerDebugText() + '\n\n' +
-          safeJson(summary.raw || summary);
+      function onSummary(detail){
+        if (!detail || typeof detail !== 'object') return;
+        const nextSummary = normalize(detail);
+        const prevSummary = W.__BATTLE_RUN_LAST_SUMMARY__ || null;
+        const nextHash = summaryHash(nextSummary);
+
+        if (nextHash === lastSummaryHash && !shouldReplace(prevSummary, nextSummary)) return;
+        if (!shouldReplace(prevSummary, nextSummary) && lastSummaryHash) return;
+
+        lastSummaryHash = nextHash;
+        renderSummary(nextSummary);
       }
 
-      if ($('summaryOverlay')) $('summaryOverlay').hidden = false;
-      window.__GJ_BATTLE_LAST_SUMMARY__ = summary;
-
-      const card = $('engineStatusCard');
-      if (card) card.style.display = 'none';
-      __battlePendingLocalSummary = null;
-    }
-
-    function exportCurrentSummary(kind='json') {
-      const payload = getCurrentSummary() || {};
-      if (!payload || !Object.keys(payload).length) return false;
-
-      try{
-        if (window.BattleSafe && typeof window.BattleSafe.exportSummary === 'function') {
-          window.BattleSafe.exportSummary(payload, kind);
-          return true;
-        }
-      }catch(err){
-        console.warn('[GJ-BATTLE-RUN] BattleSafe.exportSummary failed', err);
-      }
-
-      const stamp = String(payload.ts_iso || new Date().toISOString()).replace(/[:.]/g, '-');
-      if (kind === 'csv') {
-        const headers = Object.keys(payload);
-        const values = headers.map(k => `"${String(payload[k] ?? '').replace(/"/g,'""')}"`);
-        saveText(`goodjunk-battle-summary-${clean(runCtx.roomId || 'room')}-${stamp}.csv`, `${headers.join(',')}\n${values.join(',')}\n`, 'text/csv');
-      } else {
-        saveText(`goodjunk-battle-summary-${clean(runCtx.roomId || 'room')}-${stamp}.json`, safeJson(payload));
-      }
-      return true;
-    }
-
-    function handleSummaryEvent(evtName, detail) {
-      console.log('[GJ-BATTLE-SUMMARY]', evtName, detail);
-
-      if (shouldDeferLocalBattleSummary(detail)) {
-        __battlePendingLocalSummary = detail || {};
-        setStatus('กำลังรอผลเทียบกับอีกคน…', 'ส่งผลของคุณแล้ว กำลังรออีกเครื่องสรุปผล');
-        if ($('engineStatusSub')) {
-          $('engineStatusSub').textContent = 'เมื่อผลของทั้ง 2 คนมาครบ ระบบจะอัปเดตเป็นสรุปอันดับและคะแนนเปรียบเทียบอัตโนมัติ';
-        }
-        if ($('engineTip')) {
-          $('engineTip').innerHTML = '<strong>รอสักครู่:</strong> ระบบกำลังรวมผลของผู้เล่นทั้งห้อง';
-        }
-        return;
-      }
-
-      showSummary(detail || {});
-    }
-
-    function maybeRestoreSummaryOnce(){
-      const shouldRestoreByQuery = qs('showLastSummary', '') === '1';
-      let shouldRestoreBySession = false;
-
-      try{
-        shouldRestoreBySession = sessionStorage.getItem('GJ_BATTLE_SHOW_LAST_SUMMARY') === '1';
-      }catch{}
-
-      if (!shouldRestoreByQuery && !shouldRestoreBySession) return;
-
-      let summary = window.__GJ_BATTLE_LAST_SUMMARY__ || null;
-
-      if (!summary && window.BattleSafe && typeof window.BattleSafe.loadLastSummary === 'function'){
-        try{
-          summary = window.BattleSafe.loadLastSummary(runCtx.pid || '');
-        }catch(err){
-          console.warn('[GJ-BATTLE-RUN] restore summary failed', err);
-        }
-      }
-
-      clearSummaryRestoreFlags();
-      if (summary) {
-        setTimeout(() => showSummary({ summary }), 80);
-      }
-    }
-
-    function wireActions() {
-      $('btnQuickCopyRoom')?.addEventListener('click', () => {
-        const text = buildRoomCopyText(getCurrentSummary());
-        copyText(text).then(() => {
-          if ($('engineTip')) $('engineTip').innerHTML = '<strong>คัดลอกแล้ว:</strong> คัดลอก room และลิงก์ห้องเรียบร้อย';
-        }).catch(() => {
-          if ($('engineTip')) $('engineTip').innerHTML = '<strong>ยังคัดลอกไม่ได้:</strong> ลองคัดลอกจากข้อความ ROOM ด้านบนแทน';
+      ['battle:finish','hha:battle:finish','gj:summary','hha:summary','hha:session-summary'].forEach((eventName) => {
+        W.addEventListener(eventName, (evt) => {
+          const detail = evt && evt.detail ? evt.detail : null;
+          onSummary(detail);
         });
       });
-
-      $('btnQuickBackHub')?.addEventListener('click', () => {
-        clearSummaryRestoreFlags();
-        location.href = runCtx.hub;
-      });
-
-      $('btnReplay')?.addEventListener('click', () => {
-        const summary = getCurrentSummary() || {};
-        clearSummaryRestoreFlags();
-        location.href = buildBattleRunBridgeUrl(summary);
-      });
-
-      $('btnCopyRoom')?.addEventListener('click', () => {
-        copyText(buildRoomCopyText(getCurrentSummary()))
-          .then(() => { if ($('summarySub')) $('summarySub').textContent = 'คัดลอกข้อมูลห้องแล้ว'; })
-          .catch(() => { if ($('summarySub')) $('summarySub').textContent = 'คัดลอกข้อมูลห้องไม่สำเร็จ'; });
-      });
-
-      $('btnExport')?.addEventListener('click', () => {
-        const ok = exportCurrentSummary('json');
-        if ($('summarySub')) $('summarySub').textContent = ok ? 'ส่งออกไฟล์แล้ว' : 'ยังไม่มีข้อมูลสำหรับ export';
-      });
-
-      $('btnExport')?.addEventListener('contextmenu', (ev) => {
-        ev.preventDefault();
-        exportCurrentSummary('csv');
-      });
-
-      $('btnBackHub')?.addEventListener('click', () => {
-        clearSummaryRestoreFlags();
-        location.href = runCtx.hub;
-      });
-
-      $('btnBackLobby')?.addEventListener('click', () => {
-        clearSummaryRestoreFlags();
-        location.href = buildBattleLobbyUrl();
-      });
-
-      window.addEventListener('keydown', (ev) => {
-        const overlay = $('summaryOverlay');
-        if (!overlay || overlay.hidden) return;
-
-        if (ev.key === 'Escape') {
-          ev.preventDefault();
-          hideSummary();
-        }
-
-        if (ev.key === 'r' || ev.key === 'R') {
-          ev.preventDefault();
-          const summary = getCurrentSummary() || {};
-          clearSummaryRestoreFlags();
-          location.href = buildBattleRunBridgeUrl(summary);
-        }
-      });
-    }
-
-    function loadOptionalSafeLayer(debugRows) {
-      return (async () => {
-        for (const src of SAFE_CANDIDATES) {
-          try {
-            const loaded = await tryLoad(src);
-            debugRows.push(`[SAFE] ${loaded.src} [${loaded.type}]`);
-            return loaded;
-          } catch (_) {
-            debugRows.push(`[SAFE FAIL] ${src}`);
-          }
-        }
-        debugRows.push('[SAFE] stub only');
-        return null;
-      })();
-    }
-
-    async function loadCore(debugRows) {
-      const errors = [];
-      for (const src of CORE_CANDIDATES) {
-        const before = getMountSnapshot();
-        try {
-          setStatus('กำลังโหลดเกม…', `กำลังโหลด core: ${src}`);
-          const loaded = await tryLoad(src);
-          const bootCalls = invokeKnownBoots();
-          const probe = await probeCoreReady(before, 2200);
-
-          if (!probe.ok) {
-            errors.push(`${src} โหลดได้ แต่ยังไม่พบ core signature`);
-            debugRows.push(`[CORE NOT READY] ${src} [${loaded.type}]`);
-            debugRows.push(`bootCalls=${bootCalls.join(', ') || '-'}`);
-            continue;
-          }
-
-          debugRows.push(`[CORE OK] ${src} [${loaded.type}]`);
-          debugRows.push(`bootCalls=${bootCalls.join(', ') || '-'}`);
-          debugRows.push(`probe=${probe.note}`);
-          return { loaded, bootCalls, probe };
-        } catch (err) {
-          const msg = String(err && err.message ? err.message : err);
-          errors.push(msg);
-          debugRows.push(`[CORE FAIL] ${src}`);
-        }
-      }
-      throw new Error(errors.join('\n\n') || 'โหลด core game ไม่สำเร็จ');
-    }
-
-    async function loadController(debugRows) {
-      if (!WANT_CONTROLLER) {
-        debugRows.push('[CONTROLLER] skipped (quick play mode)');
-        return null;
-      }
-
-      const errors = [];
-      for (const src of CONTROLLER_CANDIDATES) {
-        try {
-          setStatus('กำลังโหลดเกม…', `กำลังโหลด battle controller: ${src}`);
-          const loaded = await tryLoad(src);
-          debugRows.push(`[CONTROLLER OK] ${loaded.src} [${loaded.type}]`);
-          return loaded;
-        } catch (err) {
-          const msg = String(err && err.message ? err.message : err);
-          errors.push(msg);
-          debugRows.push(`[CONTROLLER FAIL] ${src}`);
-        }
-      }
-
-      debugRows.push('[CONTROLLER] failed but core is already loaded');
-      console.warn('[GJ-BATTLE-RUN] controller load failed', errors);
-      return null;
-    }
-
-    function setFriendlyReadyState(note) {
-      setStatus('พร้อมแล้ว!', note || 'โหลดเกมสำเร็จ');
-      if ($('engineStatusSub')) {
-        $('engineStatusSub').textContent = 'เข้าเกมสำเร็จแล้ว อีกครู่หน้าช่วยเล่นจะหายไปและเกมจะเริ่มเอง';
-      }
-
-      const steps = $('engineSteps');
-      if (steps) {
-        steps.innerHTML = `
-          <div class="status-step"><span>✅</span><span>โหลดหน้าเกมสำเร็จแล้ว</span></div>
-          <div class="status-step"><span>⚔️</span><span>เตรียมแข่งเก็บอาหารดีเมื่อเกมเริ่ม</span></div>
-          <div class="status-step"><span>🏆</span><span>พยายามทำคะแนนให้ชนะอีกฝ่าย</span></div>
-        `;
-      }
-
-      if ($('engineTip')) {
-        $('engineTip').innerHTML = '<strong>พร้อมแล้ว:</strong> อีกครู่หน้าช่วยเล่นนี้จะซ่อนลงอัตโนมัติ';
-      }
-    }
-
-    function hideStatusCardSoon() {
-      const card = $('engineStatusCard');
-      if (!card) return;
-      setTimeout(() => { card.style.display = 'none'; }, 1200);
-    }
-
-    applyIdentity();
-    wireActions();
-    installSafeStub();
-    refreshControllerDebugPanel();
-
-    [
-      'battle:finish',
-      'hha:battle:finish',
-      'gj:battle-summary',
-      'gj:summary',
-      'gj:match-summary',
-      'gj:session-end',
-      'hha:summary',
-      'hha:session-summary',
-      'hha:match-summary'
-    ].forEach((eventName) => {
-      window.addEventListener(eventName, (evt) => {
-        const detail = evt && evt.detail ? evt.detail : {};
-        handleSummaryEvent(eventName, detail);
-      });
-    });
-
-    window.addEventListener('message', (evt) => {
-      const data = evt && evt.data ? evt.data : null;
-      if (!data || typeof data !== 'object') return;
-
-      if (
-        data.type === 'gj:battle-summary' ||
-        data.type === 'gj:summary' ||
-        data.type === 'hha:summary' ||
-        data.type === 'battle:finish' ||
-        data.type === 'hha:battle:finish'
-      ) {
-        const detail = data.detail || data.summary || data;
-        handleSummaryEvent(data.type, detail);
-      }
-    });
-
-    window.addEventListener('gj:battle-debug', (evt) => {
-      __battleControllerDebug = evt && evt.detail ? evt.detail : null;
-      refreshControllerDebugPanel();
-    });
-
-    window.__GJ_SHOW_BATTLE_SUMMARY__ = showSummary;
-    window.showSummary = showSummary;
-    window.hideSummary = hideSummary;
-
-    async function loadEngine() {
-      const debugRows = [
-        `[MODE] ${MODE}`,
-        `[PID] ${runCtx.pid || '-'}`,
-        `[ROOM] ${runCtx.roomId || '-'}`,
-        `[ROOM_KIND] ${runCtx.roomKind || '-'}`,
-        `[WAIT] ${runCtx.wait}`,
-        `[HOST] ${runCtx.host}`,
-        `[USE_CONTROLLER] ${WANT_CONTROLLER ? 'yes' : 'no'}`,
-        '',
-        '[SAFE CANDIDATES]',
-        ...SAFE_CANDIDATES,
-        '',
-        '[CORE CANDIDATES]',
-        ...CORE_CANDIDATES,
-        '',
-        '[CONTROLLER CANDIDATES]',
-        ...CONTROLLER_CANDIDATES
-      ];
-
-      try {
-        await loadOptionalSafeLayer(debugRows);
-        const core = await loadCore(debugRows);
-        const controller = await loadController(debugRows);
-
-        window.__GJ_MULTI_ENGINE_INFO__ = {
-          mode: MODE,
-          label: MODE_LABEL,
-          coreSrc: core.loaded.src,
-          coreType: core.loaded.type,
-          controllerSrc: controller ? controller.src : '',
-          controllerType: controller ? controller.type : '',
-          loadedAt: Date.now(),
-          readyNote: core.probe.note
-        };
-
-        window.__GJ_BATTLE_ENGINE_READY__ = true;
-
-        await forceQuickStartSequence(debugRows);
-        maybeRestoreSummaryOnce();
-
-        setFriendlyReadyState(
-          `core: ${core.loaded.src} (${core.loaded.type})` +
-          (controller ? ` • controller: ${controller.src} (${controller.type})` : ' • quick play')
-        );
-        setDebug(debugRows.join('\n'));
-        refreshControllerDebugPanel();
-        console.log('[GJ-BATTLE-RUN] ready', window.__GJ_MULTI_ENGINE_INFO__);
-        hideStatusCardSoon();
-      } catch (err) {
-        const msg = String(err && err.message ? err.message : err);
-        setStatus(
-          'ไม่พบไฟล์เกมหลัก',
-          'โหลด GoodJunk core game ไม่สำเร็จ\nลองตรวจชื่อไฟล์ core ให้ตรงกับไฟล์จริง',
-          true
-        );
-        debugRows.push('');
-        debugRows.push('[ERROR]');
-        debugRows.push(msg);
-        setDebug(debugRows.join('\n'));
-        console.error('[GJ-BATTLE-RUN] loadEngine failed', err);
-      }
-    }
-
-    loadEngine();
-  })();
+    })();
   </script>
 </body>
 </html>
