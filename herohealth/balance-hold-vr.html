@@ -11,28 +11,28 @@
 
   <style>
     :root{
-      --sky1:#e7f8ff;
-      --sky2:#d7f0ff;
-      --sky3:#fff8dc;
+      --sky1:#eaf8ff;
+      --sky2:#d7f1ff;
+      --sky3:#fff7dc;
 
       --card:#fffdf8;
-      --card2:#f8fffd;
-      --line:#cce6f3;
+      --card2:#f9fffd;
+      --line:#bfe3ef;
 
       --text:#33424f;
-      --muted:#708291;
+      --muted:#6f8190;
 
       --blue:#7fcfff;
-      --blue2:#57baf2;
+      --blue2:#59bdf7;
       --green:#7ed957;
-      --green2:#54c53c;
+      --green2:#52c83a;
       --yellow:#ffd45c;
       --orange:#ffb347;
-      --pink:#ff9ecb;
-      --purple:#caa8ff;
+      --pink:#ff99c8;
+      --purple:#c3a6ff;
 
-      --shadow:0 16px 42px rgba(43, 85, 120, .14);
-      --shadow-soft:0 8px 24px rgba(43, 85, 120, .10);
+      --shadow:0 14px 40px rgba(37, 85, 120, .14);
+      --shadow-soft:0 8px 24px rgba(37, 85, 120, .10);
 
       --safe-top:max(12px, env(safe-area-inset-top));
       --safe-right:max(12px, env(safe-area-inset-right));
@@ -43,72 +43,81 @@
     *{ box-sizing:border-box; }
     html,body{ margin:0; padding:0; min-height:100%; }
     body{
-      font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at top, var(--sky3) 0%, var(--sky1) 26%, var(--sky2) 72%, #caecff 100%);
+        radial-gradient(circle at top, var(--sky3) 0%, var(--sky1) 28%, var(--sky2) 72%, #cdeeff 100%);
       min-height:100vh;
       overflow-x:hidden;
     }
 
-    .bg{
+    .page-bg{
       position:fixed;
       inset:0;
       pointer-events:none;
-      z-index:0;
       overflow:hidden;
+      z-index:0;
     }
     .cloud{
       position:absolute;
       border-radius:999px;
-      background:rgba(255,255,255,.72);
+      background:rgba(255,255,255,.68);
       filter:blur(2px);
-      box-shadow:0 10px 24px rgba(255,255,255,.35);
+      box-shadow:0 8px 22px rgba(255,255,255,.35);
     }
-    .cloud.c1{ width:180px; height:56px; left:5%; top:8%; }
-    .cloud.c2{ width:140px; height:48px; right:8%; top:12%; }
-    .cloud.c3{ width:220px; height:64px; left:18%; bottom:10%; opacity:.38; }
+    .cloud.c1{ width:150px; height:52px; left:6%; top:8%; }
+    .cloud.c2{ width:120px; height:42px; right:10%; top:12%; }
+    .cloud.c3{ width:180px; height:58px; left:20%; bottom:16%; opacity:.35; }
 
     .spark{
       position:absolute;
-      width:14px; height:14px;
-      border-radius:999px;
+      width:16px;
+      height:16px;
+      border-radius:50%;
       background:rgba(255,255,255,.42);
       box-shadow:0 0 0 8px rgba(255,255,255,.10);
     }
-    .spark.s1{ left:14%; top:24%; }
-    .spark.s2{ right:20%; top:30%; }
-    .spark.s3{ left:76%; bottom:24%; }
+    .spark.s1{ left:12%; top:24%; }
+    .spark.s2{ right:18%; top:30%; }
+    .spark.s3{ left:72%; bottom:28%; }
 
     .page{
       position:relative;
       z-index:1;
-      width:min(1120px, 100%);
+      width:min(1180px, 100%);
       margin:0 auto;
       padding:
-        calc(var(--safe-top) + 14px)
-        calc(var(--safe-right) + 14px)
-        calc(var(--safe-bottom) + 18px)
-        calc(var(--safe-left) + 14px);
+        calc(var(--safe-top) + 12px)
+        calc(var(--safe-right) + 12px)
+        calc(var(--safe-bottom) + 16px)
+        calc(var(--safe-left) + 12px);
     }
 
     .topbar{
       display:flex;
-      align-items:center;
       justify-content:space-between;
-      gap:12px;
-      margin-bottom:14px;
+      align-items:center;
+      gap:10px;
+      margin-bottom:12px;
     }
 
-    .btn,
-    .chip{
+    .chip,
+    .btn{
       border:0;
       border-radius:999px;
       min-height:44px;
-      padding:10px 16px;
+      padding:10px 14px;
+      box-shadow:var(--shadow-soft);
       font-weight:900;
       letter-spacing:.1px;
-      box-shadow:var(--shadow-soft);
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      background:rgba(255,255,255,.88);
+      white-space:nowrap;
     }
 
     .btn{
@@ -118,24 +127,15 @@
       transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
     }
     .btn:active{ transform:scale(.98); }
-    .btn.blue{ background:linear-gradient(180deg, #def5ff, #9fddff); color:#174c68; }
+    .btn.blue{ background:linear-gradient(180deg, #dff5ff, #9fddff); color:#184c6a; }
     .btn.yellow{ background:linear-gradient(180deg, #fff2b8, #ffd45c); color:#6d5200; }
     .btn.green{ background:linear-gradient(180deg, #dcffd4, #7ed957); color:#1d4f1b; }
-    .btn.pink{ background:linear-gradient(180deg, #ffe7f2, #ffbedb); color:#6f3151; }
-
-    .chip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      background:rgba(255,255,255,.84);
-      color:var(--text);
-      white-space:nowrap;
-    }
+    .btn.pink{ background:linear-gradient(180deg, #ffe7f2, #ffbfd9); color:#6c3150; }
 
     .hero{
       display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:16px;
+      grid-template-columns:1.05fr .95fr;
+      gap:14px;
       align-items:stretch;
     }
 
@@ -147,9 +147,11 @@
       overflow:hidden;
     }
 
-    .hero-main{
-      padding:20px;
-      position:relative;
+    .hero-left{
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
     }
 
     .title-row{
@@ -157,7 +159,6 @@
       align-items:flex-start;
       justify-content:space-between;
       gap:12px;
-      margin-bottom:14px;
     }
 
     .title-wrap h1{
@@ -166,6 +167,7 @@
       line-height:1.02;
       color:#2f526c;
     }
+
     .title-wrap p{
       margin:8px 0 0;
       color:var(--muted);
@@ -188,158 +190,283 @@
 
     .stage{
       position:relative;
-      min-height:320px;
-      border-radius:26px;
+      min-height:380px;
+      border-radius:28px;
       overflow:hidden;
       background:
-        radial-gradient(circle at 50% 40%, rgba(255,255,255,.96), rgba(232,247,255,.96) 56%, rgba(210,238,255,.98) 100%);
+        radial-gradient(circle at 50% 55%, rgba(255,255,255,.98), rgba(238,249,255,.98) 62%, rgba(218,242,255,.98) 100%);
       box-shadow:inset 0 0 0 2px rgba(122,188,225,.22);
+    }
+
+    .stage::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 28%, rgba(255,255,255,.08) 100%);
+      z-index:0;
     }
 
     .mat{
       position:absolute;
-      inset:auto 7% 10% 7%;
-      height:72%;
-      border-radius:28px;
-      border:3px dashed rgba(121,191,235,.34);
+      left:50%;
+      top:57%;
+      width:min(86%, 940px);
+      height:min(70%, 540px);
+      transform:translate(-50%,-50%);
+      border-radius:36px;
       background:
-        radial-gradient(circle at 50% 50%, rgba(255,255,255,.72), rgba(255,255,255,.16) 60%, rgba(255,255,255,0) 100%),
-        linear-gradient(180deg, rgba(255,255,255,.56), rgba(255,255,255,.26));
-      box-shadow:inset 0 0 0 14px rgba(255,255,255,.20);
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,.72), rgba(255,255,255,.18) 62%, rgba(255,255,255,0) 100%),
+        linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,255,255,.28));
+      border:3px dashed rgba(121,191,235,.35);
+      box-shadow:inset 0 0 0 16px rgba(255,255,255,.22);
+      z-index:0;
     }
 
-    .ring{
+    .lane-ring{
       position:absolute;
       left:50%;
-      top:56%;
+      top:55%;
       transform:translate(-50%,-50%);
       border-radius:999px;
       pointer-events:none;
+      z-index:0;
+      animation:lanePulse 2.6s ease-in-out infinite;
     }
-    .ring.r1{ width:150px; height:150px; border:4px solid rgba(127,207,255,.22); }
-    .ring.r2{ width:280px; height:280px; border:4px dashed rgba(255,212,92,.24); }
-    .ring.r3{ width:420px; height:420px; border:4px dotted rgba(255,158,203,.18); }
+    .lane-ring.r1{
+      width:150px; height:150px;
+      border:4px solid rgba(127,207,255,.22);
+      animation-delay:0s;
+    }
+    .lane-ring.r2{
+      width:280px; height:280px;
+      border:4px dashed rgba(255,212,92,.24);
+      animation-delay:.25s;
+    }
+    .lane-ring.r3{
+      width:420px; height:420px;
+      border:4px dotted rgba(255,153,200,.18);
+      animation-delay:.5s;
+    }
+    @keyframes lanePulse{
+      0%,100%{ transform:translate(-50%,-50%) scale(1); opacity:.9; }
+      50%{ transform:translate(-50%,-50%) scale(1.03); opacity:.65; }
+    }
 
     .post{
       position:absolute;
-      width:64px; height:64px;
+      width:60px;
+      height:60px;
       border-radius:999px;
       display:grid;
       place-items:center;
-      font-size:24px;
+      font-size:22px;
       font-weight:900;
-      color:#4b708d;
-      background:rgba(255,255,255,.76);
+      color:#4f7592;
+      background:rgba(255,255,255,.74);
+      box-shadow:0 8px 18px rgba(64,120,160,.12);
       border:2px solid rgba(127,207,255,.28);
-      box-shadow:0 8px 18px rgba(63,115,155,.12);
+      pointer-events:none;
       transform:translate(-50%,-50%);
+      z-index:0;
     }
-    .p1{ left:50%; top:56%; }
+    .p1{ left:50%; top:55%; }
     .p2{ left:32%; top:56%; }
     .p3{ left:68%; top:56%; }
     .p4{ left:50%; top:38%; }
-    .p5{ left:38%; top:62%; }
+    .p5{ left:38%; top:60%; }
     .p6{ left:62%; top:44%; }
 
     .ghost{
       position:absolute;
       left:50%;
-      top:56%;
+      top:54%;
+      width:108px;
+      height:170px;
       transform:translate(-50%,-50%);
-      width:118px;
-      height:176px;
-      border-radius:28px;
-      background:rgba(255,255,255,.34);
-      border:3px dashed rgba(93,138,169,.24);
-      box-shadow:0 12px 24px rgba(80,120,160,.08);
+      border-radius:26px;
+      background:rgba(255,255,255,.32);
+      border:3px dashed rgba(95,136,165,.24);
+      z-index:1;
     }
     .ghost::before,
     .ghost::after{
       content:"";
       position:absolute;
-      border-radius:999px;
       background:rgba(123,168,198,.18);
+      border-radius:999px;
     }
     .ghost::before{
-      width:36px; height:36px; left:50%; top:14px; transform:translateX(-50%);
+      width:34px; height:34px; left:50%; top:12px; transform:translateX(-50%);
     }
     .ghost::after{
-      width:20px; height:92px; left:50%; top:50px; transform:translateX(-50%);
-      box-shadow:-28px 78px 0 -4px rgba(123,168,198,.14), 28px 72px 0 -6px rgba(123,168,198,.10);
+      width:18px; height:92px; left:50%; top:48px; transform:translateX(-50%);
+      box-shadow:-26px 78px 0 -3px rgba(123,168,198,.10), 22px 72px 0 -4px rgba(123,168,198,.14);
     }
 
-    .stage-bubble{
+    .target{
       position:absolute;
-      left:18px;
+      left:50%;
+      top:55%;
+      width:124px;
+      height:124px;
+      margin-left:-62px;
+      margin-top:-62px;
+      border-radius:999px;
+      border:5px solid var(--blue2);
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,.68), rgba(127,207,255,.16));
+      box-shadow:
+        0 0 0 10px rgba(127,207,255,.08),
+        0 0 38px rgba(127,207,255,.20);
+      z-index:2;
+      animation:targetPulse 2.2s ease-in-out infinite;
+    }
+    @keyframes targetPulse{
+      0%,100%{
+        transform:scale(1);
+        box-shadow:
+          0 0 0 10px rgba(127,207,255,.08),
+          0 0 38px rgba(127,207,255,.20);
+      }
+      50%{
+        transform:scale(1.04);
+        box-shadow:
+          0 0 0 16px rgba(127,207,255,.06),
+          0 0 48px rgba(127,207,255,.22);
+      }
+    }
+
+    .cursor{
+      position:absolute;
+      left:50%;
+      top:55%;
+      width:28px;
+      height:28px;
+      margin-left:-14px;
+      margin-top:-14px;
+      border-radius:999px;
+      background:
+        radial-gradient(circle at 32% 32%, #fff6d9, var(--orange));
+      box-shadow:
+        0 0 0 8px rgba(255,179,71,.20),
+        0 0 18px rgba(255,179,71,.22);
+      z-index:4;
+      animation:cursorFloat 2.8s ease-in-out infinite;
+    }
+    @keyframes cursorFloat{
+      0%,100%{ transform:translate(0,0); }
+      25%{ transform:translate(-48px,4px); }
+      50%{ transform:translate(0,-58px); }
+      75%{ transform:translate(54px,6px); }
+    }
+
+    .cue{
+      position:absolute;
+      z-index:6;
       top:18px;
-      max-width:min(86%, 420px);
-      padding:12px 14px;
-      border-radius:20px;
-      background:rgba(255,255,255,.90);
-      box-shadow:0 10px 24px rgba(55,100,140,.10);
-      font-weight:800;
-      color:#395970;
-      line-height:1.45;
+      left:50%;
+      transform:translateX(-50%);
+      min-width:min(72vw, 320px);
+      max-width:min(86vw, 520px);
+      padding:10px 16px;
+      text-align:center;
+      border-radius:999px;
+      background:rgba(255,255,255,.92);
+      box-shadow:0 10px 24px rgba(55,100,140,.12);
+      font-size:clamp(15px, 2.2vw, 20px);
+      font-weight:900;
+      letter-spacing:.1px;
+      color:#33526a;
     }
 
-    .coach-mini{
+    .beat{
       position:absolute;
+      z-index:6;
       right:18px;
+      top:18px;
+      width:28px;
+      height:28px;
+      border-radius:999px;
+      background:radial-gradient(circle at 30% 30%, #f4ffd8, var(--green));
+      box-shadow:
+        0 0 0 8px rgba(126,217,87,.12),
+        0 0 22px rgba(126,217,87,.22);
+      animation:beatPop .8s ease infinite;
+    }
+    @keyframes beatPop{
+      0%,100%{ transform:scale(1); opacity:.36; }
+      40%{ transform:scale(1.2); opacity:.92; }
+    }
+
+    .coach-bubble{
+      position:absolute;
+      right:16px;
       bottom:18px;
       max-width:260px;
       padding:12px 14px;
       border-radius:20px;
-      background:rgba(255,255,255,.90);
-      box-shadow:0 10px 24px rgba(55,100,140,.10);
+      background:rgba(255,255,255,.92);
+      box-shadow:0 10px 24px rgba(55,100,140,.12);
       font-weight:800;
       color:#4e6a7e;
       text-align:left;
+      z-index:7;
     }
 
-    .panel{
-      padding:18px;
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-    }
-
-    .panel h2{
-      margin:0;
-      font-size:22px;
-      color:#34536b;
-    }
-
-    .sub{
-      margin:0;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.5;
-    }
-
-    .info-grid{
+    .coach-mood{
+      position:absolute;
+      right:18px;
+      bottom:92px;
+      width:58px;
+      height:58px;
       display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
+      place-items:center;
+      border-radius:999px;
+      background:linear-gradient(180deg, #fff4bf, #ffd45c);
+      box-shadow:0 10px 24px rgba(55,100,140,.14);
+      font-size:28px;
+      z-index:7;
+      animation:coachBounce 2s ease-in-out infinite;
+    }
+    @keyframes coachBounce{
+      0%,100%{ transform:scale(1); }
+      50%{ transform:scale(1.1); }
+    }
+
+    .hero-bottom{
+      display:grid;
+      grid-template-columns:1fr 1fr;
       gap:10px;
     }
 
-    .info{
+    .mini-card{
       background:rgba(255,255,255,.82);
       border-radius:18px;
       padding:12px 14px;
       box-shadow:var(--shadow-soft);
     }
-    .info .k{
+
+    .mini-title{
       display:block;
       font-size:12px;
       color:var(--muted);
       font-weight:800;
       margin-bottom:4px;
     }
-    .info .v{
+    .mini-value{
       display:block;
       font-size:16px;
       font-weight:900;
       color:#35566e;
+    }
+
+    .hero-right{
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
     }
 
     .section{
@@ -354,6 +481,13 @@
       font-size:14px;
       font-weight:900;
       color:#4a6880;
+    }
+
+    .sub{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.5;
     }
 
     .choice-row{
@@ -418,37 +552,47 @@
       cursor:pointer;
     }
     .toggle input{
-      width:18px; height:18px;
+      width:18px;
+      height:18px;
       accent-color:#57baf2;
+    }
+
+    .flow-grid{
+      display:grid;
+      grid-template-columns:repeat(4, 1fr);
+      gap:8px;
+    }
+
+    .flow-step{
+      background:#fff;
+      border-radius:18px;
+      padding:12px 10px;
+      text-align:center;
+      box-shadow:0 8px 18px rgba(60,100,130,.08);
+    }
+    .flow-step .n{
+      width:30px;
+      height:30px;
+      margin:0 auto 8px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      font-weight:900;
+      font-size:14px;
+      background:linear-gradient(180deg, #fff2b8, #ffd45c);
+      color:#6b5200;
+    }
+    .flow-step .t{
+      font-size:13px;
+      font-weight:900;
+      color:#35566e;
     }
 
     .footer-actions{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:12px;
-      margin-top:4px;
-    }
-
-    .start-box{
-      margin-top:6px;
-      background:linear-gradient(180deg, rgba(255,255,255,.78), rgba(255,255,255,.58));
-      border-radius:22px;
-      padding:14px;
-      box-shadow:inset 0 0 0 1px rgba(140,185,220,.14);
-    }
-
-    .start-title{
-      margin:0 0 8px;
-      font-size:15px;
-      font-weight:900;
-      color:#47657c;
-    }
-
-    .hint{
-      margin:0;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.45;
+      margin-top:2px;
     }
 
     @media (max-width: 960px){
@@ -457,45 +601,27 @@
       }
     }
 
-    @media (max-width: 640px){
-      .page{
-        padding:
-          calc(var(--safe-top) + 10px)
-          calc(var(--safe-right) + 10px)
-          calc(var(--safe-bottom) + 14px)
-          calc(var(--safe-left) + 10px);
-      }
-
+    @media (max-width: 720px){
       .topbar{
         flex-wrap:wrap;
       }
-
       .title-row{
         flex-direction:column;
       }
-
-      .info-grid,
+      .hero-bottom,
       .toggle-row,
-      .footer-actions{
+      .footer-actions,
+      .flow-grid{
         grid-template-columns:1fr;
       }
-
       .stage{
-        min-height:280px;
-      }
-
-      .post{
-        width:56px; height:56px; font-size:20px;
-      }
-
-      .coach-mini{
-        max-width:220px;
+        min-height:320px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="bg" aria-hidden="true">
+  <div class="page-bg" aria-hidden="true">
     <div class="cloud c1"></div>
     <div class="cloud c2"></div>
     <div class="cloud c3"></div>
@@ -511,7 +637,7 @@
     </div>
 
     <section class="hero">
-      <article class="card hero-main">
+      <article class="card hero-left">
         <div class="title-row">
           <div class="title-wrap">
             <h1>Balance Hold</h1>
@@ -526,9 +652,9 @@
 
         <div class="stage">
           <div class="mat"></div>
-          <div class="ring r1"></div>
-          <div class="ring r2"></div>
-          <div class="ring r3"></div>
+          <div class="lane-ring r1"></div>
+          <div class="lane-ring r2"></div>
+          <div class="lane-ring r3"></div>
 
           <div class="post p1">1</div>
           <div class="post p2">2</div>
@@ -538,46 +664,31 @@
           <div class="post p6">6</div>
 
           <div class="ghost" aria-hidden="true"></div>
+          <div class="target" aria-hidden="true"></div>
+          <div class="cursor" aria-hidden="true"></div>
 
-          <div class="stage-bubble">
-            จุดเด่นของเกมนี้คือไม่ใช่ยืนเฉย ๆ แต่ต้อง
-            <strong>เข้าเป้า + ค้าง + เปลี่ยนตำแหน่งตามจังหวะ</strong>
+          <div class="cue">อยู่กลางและค้างไว้</div>
+          <div class="beat" aria-hidden="true"></div>
+
+          <div class="coach-mood" aria-hidden="true">🤩</div>
+          <div class="coach-bubble">
+            Coach Tip: ค่อย ๆ ลากนิ้ว อย่ากระชาก แล้วพาจุดสีส้มให้อยู่ในวงให้นิ่งที่สุด
           </div>
+        </div>
 
-          <div class="coach-mini">
-            Coach Tip: ค่อย ๆ ลากนิ้ว อย่ากระชาก
-            แล้วพาจุดสีส้มให้อยู่ในวงให้นิ่งที่สุด
+        <div class="hero-bottom">
+          <div class="mini-card">
+            <span class="mini-title">Player</span>
+            <span class="mini-value" id="playerName">Player</span>
+          </div>
+          <div class="mini-card">
+            <span class="mini-title">PID</span>
+            <span class="mini-value" id="playerPid">anon</span>
           </div>
         </div>
       </article>
 
-      <aside class="card panel">
-        <div>
-          <h2>ตั้งค่าก่อนเล่น</h2>
-          <p class="sub">
-            เลือกระดับ ความยาวเวลา และรูปแบบการเข้าเล่นให้เหมาะกับเด็ก
-          </p>
-        </div>
-
-        <div class="info-grid">
-          <div class="info">
-            <span class="k">Player</span>
-            <span class="v" id="playerName">Player</span>
-          </div>
-          <div class="info">
-            <span class="k">PID</span>
-            <span class="v" id="playerPid">anon</span>
-          </div>
-          <div class="info">
-            <span class="k">Mode</span>
-            <span class="v">Solo</span>
-          </div>
-          <div class="info">
-            <span class="k">Run Page</span>
-            <span class="v">/fitness/balance-hold.html</span>
-          </div>
-        </div>
-
+      <aside class="card hero-right">
         <div class="section">
           <h3 class="section-title">Difficulty</h3>
           <div class="choice-row" id="diffRow">
@@ -619,10 +730,32 @@
           </div>
         </div>
 
-        <div class="start-box">
-          <h3 class="start-title">พร้อมเริ่มแล้ว</h3>
-          <p class="hint">
-            Flow ที่จะใช้คือ Launcher → Warmup → Balance Hold → Summary → Cooldown → HUB
+        <div class="section">
+          <h3 class="section-title">Flow</h3>
+          <div class="flow-grid">
+            <div class="flow-step">
+              <div class="n">1</div>
+              <div class="t">Launcher</div>
+            </div>
+            <div class="flow-step">
+              <div class="n">2</div>
+              <div class="t">Warmup</div>
+            </div>
+            <div class="flow-step">
+              <div class="n">3</div>
+              <div class="t">6 Posts</div>
+            </div>
+            <div class="flow-step">
+              <div class="n">4</div>
+              <div class="t">Cooldown / HUB</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <p class="sub">
+            ปุ่ม <strong>ลองเล่นทันที</strong> จะเข้าเกมตรงเพื่อทดสอบเร็ว
+            ส่วน <strong>เริ่มตาม Flow</strong> จะผ่าน warmup-gate ก่อนตามมาตรฐาน HeroHealth
           </p>
         </div>
 
