@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.export.js ===
 // Hydration V2 Export-ready Research Bundle / CSV
-// PATCH v20260320o-HYDRATION-V2-EXPORT
+// PATCH v20260320q-HYDRATION-V2-EXPORT-COMPARISON
 
 export function buildResearchExportBundle({
   payload = null,
@@ -10,7 +10,7 @@ export function buildResearchExportBundle({
 } = {}) {
   const meta = {
     exportedAt: new Date().toISOString(),
-    exportVersion: '20260320o',
+    exportVersion: '20260320q',
     scopeType: payload?.scopeType || 'filtered',
     scopeValue: payload?.scopeValue || 'all'
   };
@@ -18,6 +18,9 @@ export function buildResearchExportBundle({
   const records = Array.isArray(payload?.items) ? payload.items : [];
   const familyRows = Array.isArray(analytics?.memoryStats?.familyRows)
     ? analytics.memoryStats.familyRows
+    : [];
+  const comparisonRows = Array.isArray(analytics?.comparison?.rows)
+    ? analytics.comparison.rows
     : [];
 
   const trendRows = [
@@ -73,6 +76,7 @@ export function buildResearchExportBundle({
     analytics,
     records,
     familyRows,
+    comparisonRows,
     trendRows,
     history,
     summaryHistory
@@ -125,6 +129,25 @@ export function buildTrendCsvRows(trendRows = []) {
   return trendRows.map((row) => ({
     metric: row?.metric || '',
     value: row?.value ?? ''
+  }));
+}
+
+export function buildComparisonCsvRows(rows = []) {
+  return rows.map((row) => ({
+    pid: row?.pid || '',
+    studyId: row?.studyId || '',
+    runs: row?.runs ?? 0,
+    avgTotal: row?.avgTotal ?? 0,
+    avgPlanning: row?.avgPlanning ?? 0,
+    avgSocial: row?.avgSocial ?? 0,
+    latestSavedAt: row?.latestSavedAt || '',
+    latestScore: row?.latestScore ?? 0,
+    latestStreak: row?.latestStreak ?? 0,
+    latestTodayRuns: row?.latestTodayRuns ?? 0,
+    latestTotalRuns: row?.latestTotalRuns ?? 0,
+    bossClearRate: row?.bossClearRate ?? 0,
+    weakFamily: row?.weakFamily || '',
+    weakMastery: row?.weakMastery ?? 0
   }));
 }
 
