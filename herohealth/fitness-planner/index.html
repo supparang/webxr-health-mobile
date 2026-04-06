@@ -1,0 +1,1756 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Fitness Planner</title>
+  <meta name="theme-color" content="#7dd3fc" />
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --bg1:#dff7ff;
+      --bg2:#fef9e8;
+      --bg3:#f5fff0;
+      --card:#fffdf8;
+      --card2:#ffffffcc;
+      --line:#cdeaf4;
+      --text:#31404a;
+      --muted:#66808f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --green:#7ed957;
+      --green2:#58c33f;
+      --yellow:#ffd45c;
+      --orange:#ffb347;
+      --pink:#ff9fcc;
+      --purple:#bfa8ff;
+      --danger:#ff8d8d;
+      --shadow:0 12px 36px rgba(71,130,160,.14);
+      --radius:24px;
+      --slotH:120px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif; color:var(--text); background:
+      radial-gradient(circle at top left,#fffef7 0%,transparent 28%),
+      linear-gradient(180deg,var(--bg1),var(--bg2) 50%,var(--bg3));
+      min-height:100%;
+    }
+
+    body{
+      min-height:100vh;
+      padding:16px;
+    }
+
+    .app{
+      max-width:1400px;
+      margin:0 auto;
+      display:grid;
+      gap:16px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:14px 18px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,#ffffffee,#fffdf7e6);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      flex-wrap:wrap;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+
+    .brand-badge{
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,var(--blue),var(--yellow));
+      font-size:28px;
+      box-shadow:inset 0 2px 0 rgba(255,255,255,.7);
+      flex:0 0 auto;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:clamp(22px,2.8vw,34px);
+      line-height:1.05;
+    }
+
+    .brand p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:14px;
+    }
+
+    .chips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .chip{
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      font-weight:700;
+      font-size:13px;
+      white-space:nowrap;
+    }
+
+    .screen{
+      display:none;
+      gap:16px;
+    }
+    .screen.active{
+      display:grid;
+    }
+
+    .plan-layout{
+      grid-template-columns: 1.15fr 1.35fr .9fr;
+      align-items:start;
+    }
+
+    .panel{
+      background:linear-gradient(180deg,#fffefc,#fffdfa);
+      border:2px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:16px;
+      min-width:0;
+    }
+
+    .panel h2,
+    .panel h3{
+      margin:0 0 10px;
+      line-height:1.1;
+    }
+
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+      margin:0 0 12px;
+    }
+
+    .mission{
+      display:grid;
+      gap:10px;
+    }
+
+    .mission-hero{
+      border-radius:22px;
+      padding:14px;
+      background:linear-gradient(135deg,#ebfbff,#fff7da);
+      border:2px dashed #cfeaf7;
+    }
+
+    .mission-title{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-size:20px;
+      font-weight:900;
+      margin:0 0 8px;
+    }
+
+    .mission-list{
+      display:grid;
+      gap:8px;
+      margin:0;
+      padding:0;
+      list-style:none;
+    }
+
+    .mission-list li{
+      background:#fff;
+      border:2px solid #e7f1f6;
+      border-radius:16px;
+      padding:10px 12px;
+      font-weight:700;
+    }
+
+    .legend{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    .legend span{
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:800;
+      background:#fff;
+      border:2px solid #e5eff4;
+    }
+
+    .cards-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .card-item{
+      border:2px solid #e2eef5;
+      border-radius:20px;
+      background:#fff;
+      padding:12px;
+      cursor:pointer;
+      transition:.18s ease;
+      user-select:none;
+      min-height:126px;
+      display:grid;
+      grid-template-rows:auto auto 1fr auto;
+      gap:8px;
+      box-shadow:0 6px 18px rgba(65,121,146,.08);
+    }
+
+    .card-item:hover{
+      transform:translateY(-2px);
+      border-color:#a7dbef;
+    }
+
+    .card-item.selected{
+      outline:4px solid rgba(127,207,255,.32);
+      border-color:#78cfff;
+      transform:translateY(-2px) scale(1.01);
+    }
+
+    .card-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+    }
+
+    .emoji{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      font-size:22px;
+      background:#f4fbff;
+      border:2px solid #deeff7;
+      flex:0 0 auto;
+    }
+
+    .type-tag{
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:900;
+      color:#31404a;
+      background:#fff;
+      border:2px solid #e7edf4;
+      text-transform:uppercase;
+      letter-spacing:.03em;
+    }
+
+    .card-name{
+      font-size:18px;
+      font-weight:900;
+      line-height:1.1;
+      margin:0;
+    }
+
+    .card-desc{
+      margin:0;
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+
+    .meters{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:4px;
+    }
+
+    .meter{
+      font-size:11px;
+      font-weight:900;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#f8fcff;
+      border:2px solid #e6f1f7;
+    }
+
+    .board{
+      display:grid;
+      gap:12px;
+    }
+
+    .slot{
+      min-height:var(--slotH);
+      border-radius:22px;
+      padding:12px;
+      border:3px dashed #cfe3ec;
+      background:linear-gradient(180deg,#ffffff,#fdfefc);
+      display:grid;
+      gap:8px;
+      align-items:start;
+      position:relative;
+      transition:.18s ease;
+    }
+
+    .slot.dragover{
+      border-color:#78cfff;
+      background:linear-gradient(180deg,#f0fbff,#fffef7);
+      transform:scale(1.01);
+    }
+
+    .slot-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+    }
+
+    .slot-name{
+      font-size:18px;
+      font-weight:900;
+      margin:0;
+    }
+
+    .slot-rule{
+      color:var(--muted);
+      font-size:12px;
+      margin:0;
+      font-weight:700;
+    }
+
+    .slot-empty{
+      display:grid;
+      place-items:center;
+      min-height:56px;
+      color:#88a1af;
+      font-weight:800;
+      text-align:center;
+      border-radius:16px;
+      background:#f8fcff;
+    }
+
+    .slot-fill{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      align-items:center;
+      gap:10px;
+      padding:10px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid #e5eef4;
+      box-shadow:0 6px 14px rgba(80,130,150,.07);
+    }
+
+    .slot-fill .mini{
+      font-size:24px;
+      width:40px;
+      height:40px;
+      border-radius:12px;
+      display:grid;
+      place-items:center;
+      background:#f3fbff;
+      border:2px solid #e1eef6;
+    }
+
+    .slot-fill .txt strong{
+      display:block;
+      font-size:16px;
+      line-height:1.1;
+    }
+
+    .slot-fill .txt span{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-top:4px;
+    }
+
+    .ghost-btn,
+    .primary-btn,
+    .danger-btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      font:inherit;
+      font-weight:900;
+      border-radius:18px;
+      padding:12px 16px;
+      transition:.18s ease;
+    }
+
+    .primary-btn{
+      background:linear-gradient(135deg,var(--green),var(--yellow));
+      color:#2d4035;
+      box-shadow:0 10px 20px rgba(126,217,87,.24);
+    }
+    .primary-btn:hover{ transform:translateY(-1px); }
+
+    .ghost-btn{
+      background:#fff;
+      border:2px solid var(--line);
+      color:var(--text);
+    }
+    .ghost-btn:hover{ transform:translateY(-1px); }
+
+    .danger-btn{
+      background:#fff3f3;
+      border:2px solid #ffd1d1;
+      color:#a04848;
+    }
+
+    .coach-card{
+      display:grid;
+      gap:12px;
+    }
+
+    .coach-top{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:12px;
+      align-items:center;
+    }
+
+    .coach-face{
+      width:66px;
+      height:66px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#ffe8f4,#fff7d8);
+      border:2px solid #f1dbe8;
+      font-size:34px;
+    }
+
+    .coach-title{
+      font-size:20px;
+      font-weight:900;
+      margin:0;
+    }
+
+    .coach-bubble{
+      background:linear-gradient(180deg,#f8fdff,#fff);
+      border:2px solid #e2eff6;
+      border-radius:20px;
+      padding:14px;
+      font-size:15px;
+      line-height:1.45;
+      color:#49606b;
+      font-weight:700;
+    }
+
+    .mini-scores{
+      display:grid;
+      gap:10px;
+    }
+
+    .mini-score{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:10px 12px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid #e6eff5;
+    }
+
+    .mini-bar{
+      height:10px;
+      border-radius:999px;
+      background:#eef6fb;
+      overflow:hidden;
+      position:relative;
+      margin-top:6px;
+    }
+
+    .mini-bar > span{
+      position:absolute;
+      inset:0 auto 0 0;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--blue),var(--green));
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:6px;
+    }
+
+    .preview-wrap,
+    .feedback-wrap,
+    .summary-wrap{
+      grid-template-columns:minmax(0,1fr);
+    }
+
+    .preview-box{
+      max-width:860px;
+      margin:0 auto;
+      display:grid;
+      gap:16px;
+      text-align:center;
+    }
+
+    .preview-stage{
+      border-radius:28px;
+      background:linear-gradient(180deg,#fffefb,#ffffff);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      padding:22px;
+      display:grid;
+      gap:14px;
+    }
+
+    .big-emoji{
+      width:110px;
+      height:110px;
+      margin:0 auto;
+      border-radius:30px;
+      display:grid;
+      place-items:center;
+      font-size:54px;
+      background:linear-gradient(135deg,#edfaff,#fff3cf);
+      border:2px solid #dbeff7;
+    }
+
+    .preview-title{
+      margin:0;
+      font-size:clamp(28px,4vw,44px);
+      line-height:1.05;
+    }
+
+    .preview-sub{
+      margin:0;
+      color:var(--muted);
+      font-size:16px;
+      line-height:1.5;
+      max-width:720px;
+      margin-inline:auto;
+    }
+
+    .count-ring{
+      width:130px;
+      height:130px;
+      margin:8px auto 0;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      background:
+        radial-gradient(circle at center,#fff 52%,transparent 53%),
+        conic-gradient(var(--green) 0deg,#e8f4f9 0deg);
+      border:2px solid #e1eef4;
+      box-shadow:inset 0 3px 0 rgba(255,255,255,.9);
+      font-size:34px;
+      font-weight:900;
+    }
+
+    .step-dots{
+      display:flex;
+      justify-content:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .step-dot{
+      width:12px;
+      height:12px;
+      border-radius:50%;
+      background:#dbeaf1;
+      border:2px solid #d4e5ee;
+    }
+    .step-dot.active{
+      background:var(--green);
+      border-color:#a8de94;
+      transform:scale(1.15);
+    }
+    .step-dot.done{
+      background:var(--blue);
+      border-color:#9eddfa;
+    }
+
+    .score-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .score-card{
+      background:#fff;
+      border:2px solid #e2eef4;
+      border-radius:22px;
+      padding:16px;
+      box-shadow:0 8px 18px rgba(87,132,152,.08);
+      display:grid;
+      gap:10px;
+    }
+
+    .score-card h3{
+      margin:0;
+      font-size:18px;
+    }
+
+    .score-card .num{
+      font-size:34px;
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .score-track{
+      height:12px;
+      border-radius:999px;
+      background:#edf6fb;
+      overflow:hidden;
+    }
+
+    .score-track span{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--yellow),var(--green));
+    }
+
+    .feedback-list{
+      display:grid;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .feedback-item{
+      padding:12px 14px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid #e6eef5;
+      font-weight:800;
+      color:#49606b;
+    }
+
+    .summary-hero{
+      max-width:980px;
+      margin:0 auto;
+      display:grid;
+      gap:16px;
+      text-align:center;
+    }
+
+    .badge-cloud{
+      display:grid;
+      gap:12px;
+      padding:28px 18px;
+      border-radius:28px;
+      background:linear-gradient(180deg,#fffefc,#fff);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+    }
+
+    .stars{
+      font-size:clamp(30px,4vw,48px);
+      letter-spacing:6px;
+    }
+
+    .badge-name{
+      font-size:clamp(26px,4vw,42px);
+      font-weight:1000;
+      line-height:1.05;
+      margin:0;
+    }
+
+    .summary-line{
+      color:var(--muted);
+      font-weight:700;
+      font-size:16px;
+      margin:0 auto;
+      max-width:800px;
+      line-height:1.5;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .summary-box{
+      text-align:left;
+      padding:14px;
+      border-radius:20px;
+      background:#fff;
+      border:2px solid #e4eef4;
+    }
+
+    .summary-box h4{
+      margin:0 0 8px;
+      font-size:18px;
+    }
+
+    .tiny{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:700;
+    }
+
+    .muted{
+      color:var(--muted);
+    }
+
+    @media (max-width: 1120px){
+      .plan-layout{ grid-template-columns:1fr; }
+      .score-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    @media (max-width: 720px){
+      body{ padding:10px; }
+      .panel{ padding:14px; border-radius:22px; }
+      .cards-grid{ grid-template-columns:1fr; }
+      .score-grid,
+      .summary-grid{ grid-template-columns:1fr; }
+      .slot{ min-height:110px; }
+      .topbar{ padding:12px 14px; border-radius:22px; }
+      .brand-badge{ width:48px; height:48px; border-radius:16px; }
+      .actions > *{ flex:1 1 180px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-badge">🏃</div>
+        <div>
+          <h1>Fitness Planner</h1>
+          <p>จัดแผนออกกำลังกายให้สนุก สมดุล และปลอดภัย</p>
+        </div>
+      </div>
+      <div class="chips" id="topChips"></div>
+    </header>
+
+    <!-- PLAN -->
+    <section class="screen plan-layout active" id="screen-plan">
+      <section class="panel mission">
+        <div class="mission-hero">
+          <div class="mission-title">🎯 ภารกิจวันนี้</div>
+          <div class="sub" id="missionIntro">จัดแผนให้ครบแล้วกด “ลองแผน”</div>
+          <ul class="mission-list" id="missionList"></ul>
+          <div class="legend">
+            <span>🟢 เริ่มเบา</span>
+            <span>🟠 ขยับเร็ว</span>
+            <span>🔵 ฝึกทรงตัว</span>
+            <span>🟣 จบผ่อนคลาย</span>
+          </div>
+        </div>
+
+        <div class="panel" style="padding:14px;">
+          <h3>เลือกการ์ดกิจกรรม</h3>
+          <p class="sub">แตะการ์ดก่อน แล้วแตะช่องที่ต้องการวาง หรือจะลากวางก็ได้</p>
+          <div class="cards-grid" id="cardsGrid"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>🧩 กระดานวางแผน</h2>
+        <p class="sub">เป้าคือทำให้แผนทั้งสนุก ปลอดภัย และไม่หนักติดกันเกินไป</p>
+        <div class="board" id="board"></div>
+        <div class="actions">
+          <button class="ghost-btn" id="btnClearPlan">ล้างแผน</button>
+          <button class="ghost-btn" id="btnNewMission">สุ่มภารกิจใหม่</button>
+          <button class="primary-btn" id="btnPreview">ลองแผน ▶</button>
+        </div>
+      </section>
+
+      <aside class="panel coach-card">
+        <div class="coach-top">
+          <div class="coach-face" id="coachFace">😊</div>
+          <div>
+            <p class="coach-title">Coach Hero</p>
+            <p class="sub" style="margin:4px 0 0;">ช่วยคิดแผนให้ดีนะ</p>
+          </div>
+        </div>
+
+        <div class="coach-bubble" id="coachText">
+          เริ่มจากเลือกการ์ดให้ครบ 5 ช่องก่อนนะ แล้วเราจะลองแผนด้วยกัน
+        </div>
+
+        <div class="mini-scores" id="miniScores"></div>
+
+        <div class="actions">
+          <button class="ghost-btn" id="btnGoHub1">กลับ HUB</button>
+        </div>
+      </aside>
+    </section>
+
+    <!-- PREVIEW -->
+    <section class="screen preview-wrap" id="screen-preview">
+      <div class="preview-box">
+        <div class="preview-stage">
+          <div class="step-dots" id="stepDots"></div>
+          <div class="big-emoji" id="previewEmoji">🏃</div>
+          <div class="tiny" id="previewSlotName">ช่องกิจกรรม</div>
+          <h2 class="preview-title" id="previewTitle">ชื่อกิจกรรม</h2>
+          <p class="preview-sub" id="previewDesc">คำอธิบายกิจกรรม</p>
+          <div class="count-ring" id="countRing">8</div>
+          <div class="actions" style="justify-content:center;">
+            <button class="ghost-btn" id="btnSkipPreview">ข้ามช่วงนี้</button>
+            <button class="primary-btn" id="btnNextPreview">ต่อไป</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEEDBACK -->
+    <section class="screen feedback-wrap" id="screen-feedback">
+      <section class="panel" style="max-width:1100px;margin:0 auto;width:100%;">
+        <h2>📋 ผลประเมินแผน</h2>
+        <p class="sub">ดูคะแนนแต่ละด้าน แล้วปรับอีกนิดให้เป็นแผนที่เก่งสุด</p>
+
+        <div class="score-grid" id="scoreGrid"></div>
+
+        <div class="panel" style="margin-top:14px;padding:14px;">
+          <h3>💡 คำแนะนำจาก Coach</h3>
+          <div class="feedback-list" id="feedbackList"></div>
+        </div>
+
+        <div class="actions" style="margin-top:16px;">
+          <button class="ghost-btn" id="btnRevise">แก้แผนอีกครั้ง</button>
+          <button class="primary-btn" id="btnFinalize">ยืนยันแผนนี้ ⭐</button>
+          <button class="ghost-btn" id="btnGoHub2">กลับ HUB</button>
+        </div>
+      </section>
+    </section>
+
+    <!-- SUMMARY -->
+    <section class="screen summary-wrap" id="screen-summary">
+      <div class="summary-hero">
+        <div class="badge-cloud">
+          <div class="stars" id="summaryStars">⭐⭐⭐</div>
+          <p class="tiny">FITNESS PLANNER RESULT</p>
+          <h2 class="badge-name" id="summaryBadge">Smart Coach</h2>
+          <p class="summary-line" id="summaryLine">แผนของคุณเริ่มดี จบดี และมีความสมดุลมากขึ้นแล้ว</p>
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-box">
+            <h4>🏅 คะแนนรวม</h4>
+            <div id="summaryOverall" style="font-size:42px;font-weight:1000;">90</div>
+            <div class="tiny">รวมจาก Safety / Balance / Variety / Fun</div>
+          </div>
+
+          <div class="summary-box">
+            <h4>🧠 แผนที่จัดไว้</h4>
+            <div id="summaryPlan" class="muted" style="font-weight:800;line-height:1.7;"></div>
+          </div>
+
+          <div class="summary-box">
+            <h4>✅ จุดเด่น</h4>
+            <div id="summaryStrengths" class="muted" style="font-weight:800;line-height:1.7;"></div>
+          </div>
+
+          <div class="summary-box">
+            <h4>🔧 ลองพัฒนาอีกนิด</h4>
+            <div id="summaryImprovements" class="muted" style="font-weight:800;line-height:1.7;"></div>
+          </div>
+        </div>
+
+        <div class="actions" style="justify-content:center;">
+          <button class="ghost-btn" id="btnPlayAgain">เล่นอีกครั้ง</button>
+          <button class="primary-btn" id="btnGoHub3">กลับ HUB</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+
+      const ctx = {
+        pid: qs.get('pid') || 'anon',
+        name: qs.get('name') || qs.get('nickName') || qs.get('nick') || 'Hero',
+        run: qs.get('run') || 'play',
+        diff: qs.get('diff') || 'normal',
+        seed: String(qs.get('seed') || Date.now()),
+        hub: qs.get('hub') || '../hub-v2.html',
+        zone: qs.get('zone') || 'fitness',
+        game: qs.get('game') || 'fitnessplanner',
+        gameId: qs.get('gameId') || 'fitnessplanner',
+        view: qs.get('view') || 'mobile',
+        time: Number(qs.get('time') || 90)
+      };
+
+      const SLOT_DEFS = [
+        { id:'warmup',  name:'Warm-up',  rule:'เริ่มด้วยกิจกรรมเบา ๆ' },
+        { id:'main1',   name:'Main 1',   rule:'ช่วงขยับหลักช่วงแรก' },
+        { id:'main2',   name:'Main 2',   rule:'ช่วงขยับหลักช่วงสอง' },
+        { id:'balance', name:'Balance',  rule:'ฝึกทรงตัวหรือควบคุมร่างกาย' },
+        { id:'cooldown',name:'Cooldown', rule:'จบแบบผ่อนคลาย' }
+      ];
+
+      const ACTIVITIES = [
+        {
+          id:'stretch-start',
+          name:'Stretch Start',
+          emoji:'🤸',
+          type:'warmup',
+          intensity:1,
+          tags:['warmup','mobility','safe','light'],
+          desc:'ยืดแขน เอียงตัว และหมุนไหล่เบา ๆ เพื่อเตรียมพร้อม',
+          preview:'กางแขน แตะซ้าย-ขวา และหมุนไหล่ช้า ๆ'
+        },
+        {
+          id:'slow-march',
+          name:'Slow March',
+          emoji:'🚶',
+          type:'warmup',
+          intensity:1,
+          tags:['warmup','cardio','light'],
+          desc:'เดินยกเข่าเบา ๆ ช่วยปลุกพลังร่างกาย',
+          preview:'เดินอยู่กับที่ ช้า ๆ แล้วยกเข่าสลับ'
+        },
+        {
+          id:'rhythm-boxer',
+          name:'Rhythm Boxer',
+          emoji:'🥊',
+          type:'cardio',
+          intensity:3,
+          tags:['active','cardio','arms','fun'],
+          desc:'ต่อยซ้าย-ขวาตามจังหวะ สนุกและได้ขยับแขนเร็ว',
+          preview:'ชกซ้าย ชกขวา ตามจังหวะ 1-2'
+        },
+        {
+          id:'jump-duck',
+          name:'Jump & Duck',
+          emoji:'🦘',
+          type:'cardio',
+          intensity:4,
+          tags:['active','agility','legs','heavy','fun'],
+          desc:'ย่อ-หลบ-กระโดดเบา ๆ เพื่อฝึกความว่องไว',
+          preview:'ย่อเล็กน้อย แล้วเหยียดตัวขึ้นสลับจังหวะ'
+        },
+        {
+          id:'shadow-breaker',
+          name:'Shadow Breaker',
+          emoji:'⚡',
+          type:'coordination',
+          intensity:3,
+          tags:['active','coordination','focus','fun'],
+          desc:'ตีเป้าจินตนาการและใช้มือ-ตาประสานกัน',
+          preview:'เอื้อมแตะเป้าซ้าย-ขวา-กลาง ตามเสียงนับ'
+        },
+        {
+          id:'reach-twist',
+          name:'Reach & Twist',
+          emoji:'🌀',
+          type:'coordination',
+          intensity:2,
+          tags:['mobility','coordination','middle'],
+          desc:'เอื้อมและบิดลำตัวอย่างนุ่มนวล ให้ร่างกายคล่องขึ้น',
+          preview:'เอื้อมขึ้น-ลง แล้วบิดตัวช้า ๆ'
+        },
+        {
+          id:'balance-hold',
+          name:'Balance Hold',
+          emoji:'🧍',
+          type:'balance',
+          intensity:2,
+          tags:['balance','control','safe'],
+          desc:'ยืนทรงตัว ฝึกนิ่งและควบคุมท่าทาง',
+          preview:'ยืนทรงตัว ยกแขนกางออก แล้วค้างสั้น ๆ'
+        },
+        {
+          id:'step-balance',
+          name:'Step Balance',
+          emoji:'👣',
+          type:'balance',
+          intensity:2,
+          tags:['balance','legs','control'],
+          desc:'ก้าวซ้าย-ขวาแล้วหยุดค้างเพื่อฝึกสมดุล',
+          preview:'ก้าวซ้ายหนึ่งก้าว กลับมา แล้วก้าวขวา'
+        },
+        {
+          id:'calm-breathing',
+          name:'Calm Breathing',
+          emoji:'🌬️',
+          type:'cooldown',
+          intensity:1,
+          tags:['cooldown','recovery','safe','light'],
+          desc:'หายใจเข้าออกลึก ๆ ลดความเหนื่อยและช่วยให้ใจสงบ',
+          preview:'หายใจเข้าช้า ๆ ยกแขนขึ้น แล้วผ่อนลง'
+        },
+        {
+          id:'slow-reach',
+          name:'Slow Reach',
+          emoji:'🪷',
+          type:'cooldown',
+          intensity:1,
+          tags:['cooldown','mobility','recovery','light'],
+          desc:'เหยียดตัวและเอื้อมเบา ๆ ปิดท้ายอย่างสบาย',
+          preview:'เอื้อมแตะฟ้า แล้วค่อย ๆ วางแขนลง'
+        }
+      ];
+
+      const ACT_BY_ID = Object.fromEntries(ACTIVITIES.map(a => [a.id, a]));
+
+      const $ = (sel, root = document) => root.querySelector(sel);
+      const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+      const state = {
+        mission: null,
+        plan: {},
+        selectedCardId: '',
+        previewOrder: [],
+        previewIndex: 0,
+        previewSecondsLeft: 8,
+        previewTimer: null,
+        lastEvaluation: null,
+        events: []
+      };
+
+      function nowISO(){
+        return new Date().toISOString();
+      }
+
+      function seededRng(seedStr){
+        let h = 1779033703 ^ seedStr.length;
+        for(let i=0;i<seedStr.length;i++){
+          h = Math.imul(h ^ seedStr.charCodeAt(i), 3432918353);
+          h = h << 13 | h >>> 19;
+        }
+        return function(){
+          h = Math.imul(h ^ (h >>> 16), 2246822507);
+          h = Math.imul(h ^ (h >>> 13), 3266489909);
+          h ^= h >>> 16;
+          return (h >>> 0) / 4294967296;
+        };
+      }
+
+      function shuffle(arr, rand){
+        const a = arr.slice();
+        for(let i=a.length-1;i>0;i--){
+          const j = Math.floor(rand() * (i+1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
+      function average(nums){
+        return nums.length ? nums.reduce((s,v)=>s+v,0) / nums.length : 0;
+      }
+
+      function clamp(v, a, b){
+        v = Number(v);
+        if(!Number.isFinite(v)) v = a;
+        return Math.max(a, Math.min(b, v));
+      }
+
+      function escapeHtml(s){
+        return String(s).replace(/[&<>"']/g, m => ({
+          '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+        }[m]));
+      }
+
+      function goHub(){
+        location.href = ctx.hub;
+      }
+
+      function logEvent(type, data = {}){
+        state.events.push({
+          event: type,
+          ts_iso: nowISO(),
+          pid: ctx.pid,
+          game: ctx.game,
+          zone: ctx.zone,
+          run: ctx.run,
+          ...data
+        });
+        try{ console.log('[FitnessPlanner]', type, data); }catch(_){}
+      }
+
+      function buildMission(seed){
+        const rand = seededRng(String(seed) + '::mission::' + ctx.diff);
+        const focusPool = ['balance','cardio','fun','safe','mixed'];
+        const focus = focusPool[Math.floor(rand() * focusPool.length)];
+
+        let maxIntensity = 13;
+        let needVariety = 3;
+        let allowHeavyChain = 1;
+
+        if(ctx.diff === 'easy'){
+          maxIntensity = 12;
+          needVariety = 3;
+          allowHeavyChain = 1;
+        }else if(ctx.diff === 'hard'){
+          maxIntensity = 14;
+          needVariety = 4;
+          allowHeavyChain = 1;
+        }
+
+        const intros = {
+          balance:'ช่วยจัดคลาสที่มีช่วงฝึกทรงตัวให้เด่นขึ้น',
+          cardio:'ช่วยจัดคลาสที่เด็กได้ขยับสนุก แต่ไม่หนักเกินไป',
+          fun:'ช่วยจัดคลาสที่เปลี่ยนจังหวะแล้วน่าเล่น',
+          safe:'ช่วยจัดคลาสที่เริ่มเบาและจบผ่อนคลาย',
+          mixed:'ช่วยจัดคลาสที่สมดุลทั้งสนุก เร็ว และปลอดภัย'
+        };
+
+        const objectives = [
+          'ต้องมี Warm-up ก่อนเริ่ม',
+          'ต้องมี Cooldown ปิดท้าย',
+          'ห้ามใช้กิจกรรมเดิมติดกัน',
+          `คะแนนพลังรวมไม่ควรเกิน ${maxIntensity}`
+        ];
+
+        if(focus === 'balance'){
+          objectives.push('ต้องมีอย่างน้อย 1 กิจกรรมฝึกทรงตัว');
+        }else if(focus === 'cardio'){
+          objectives.push('ควรมีช่วงขยับเร็ว 1–2 ช่วง');
+        }else if(focus === 'fun'){
+          objectives.push(`ควรมีอย่างน้อย ${needVariety} แบบกิจกรรม`);
+        }else if(focus === 'safe'){
+          objectives.push('อย่าให้กิจกรรมหนักติดกัน');
+        }else{
+          objectives.push('ควรมีทั้งช่วงขยับ ช่วงคุมท่า และช่วงพัก');
+        }
+
+        return {
+          id: 'mission-' + seed,
+          focus,
+          intro: intros[focus],
+          objectives,
+          maxIntensity,
+          needVariety,
+          allowHeavyChain
+        };
+      }
+
+      function setScreen(id){
+        $$('.screen').forEach(el => el.classList.remove('active'));
+        $('#screen-' + id).classList.add('active');
+      }
+
+      function renderTopbar(){
+        $('#topChips').innerHTML = `
+          <span class="chip">👦 ${escapeHtml(ctx.name)}</span>
+          <span class="chip">🎮 ${escapeHtml(ctx.view)}</span>
+          <span class="chip">⚙️ ${escapeHtml(ctx.diff)}</span>
+          <span class="chip">🆔 ${escapeHtml(ctx.pid)}</span>
+        `;
+      }
+
+      function renderMission(){
+        $('#missionIntro').textContent = state.mission.intro;
+        $('#missionList').innerHTML = state.mission.objectives
+          .map(x => `<li>${escapeHtml(x)}</li>`)
+          .join('');
+      }
+
+      function typeLabel(type){
+        const map = {
+          warmup:'Warm-up',
+          cardio:'Cardio',
+          coordination:'Skill',
+          balance:'Balance',
+          cooldown:'Cooldown'
+        };
+        return map[type] || type;
+      }
+
+      function intensityLabel(n){
+        if(n <= 1) return 'เบา';
+        if(n === 2) return 'กลาง';
+        if(n === 3) return 'ค่อนข้างเร็ว';
+        return 'เร็ว';
+      }
+
+      function renderCards(){
+        const html = ACTIVITIES.map(act => `
+          <article class="card-item ${state.selectedCardId === act.id ? 'selected' : ''}"
+            data-card-id="${act.id}" draggable="true" aria-label="${escapeHtml(act.name)}">
+            <div class="card-top">
+              <div class="emoji">${act.emoji}</div>
+              <div class="type-tag">${escapeHtml(typeLabel(act.type))}</div>
+            </div>
+            <h4 class="card-name">${escapeHtml(act.name)}</h4>
+            <p class="card-desc">${escapeHtml(act.desc)}</p>
+            <div class="meters">
+              <span class="meter">พลัง ${act.intensity}</span>
+              <span class="meter">${escapeHtml(intensityLabel(act.intensity))}</span>
+            </div>
+          </article>
+        `).join('');
+        $('#cardsGrid').innerHTML = html;
+
+        $$('.card-item').forEach(el => {
+          const id = el.dataset.cardId;
+
+          el.addEventListener('click', () => {
+            state.selectedCardId = (state.selectedCardId === id) ? '' : id;
+            renderCards();
+            updateCoach();
+            logEvent('card_select', { card_id:id, selected: state.selectedCardId === id });
+          });
+
+          el.addEventListener('dragstart', ev => {
+            ev.dataTransfer.setData('text/plain', id);
+            state.selectedCardId = id;
+            renderCards();
+          });
+        });
+      }
+
+      function renderBoard(){
+        $('#board').innerHTML = SLOT_DEFS.map(slot => {
+          const actId = state.plan[slot.id];
+          const act = actId ? ACT_BY_ID[actId] : null;
+          return `
+            <div class="slot" data-slot-id="${slot.id}">
+              <div class="slot-head">
+                <div>
+                  <p class="slot-name">${escapeHtml(slot.name)}</p>
+                  <p class="slot-rule">${escapeHtml(slot.rule)}</p>
+                </div>
+                ${act ? `<button class="danger-btn" data-clear-slot="${slot.id}" type="button">ลบ</button>` : ''}
+              </div>
+              ${act ? `
+                <div class="slot-fill">
+                  <div class="mini">${act.emoji}</div>
+                  <div class="txt">
+                    <strong>${escapeHtml(act.name)}</strong>
+                    <span>${escapeHtml(act.desc)}</span>
+                  </div>
+                  <div class="type-tag">${escapeHtml(typeLabel(act.type))}</div>
+                </div>
+              ` : `
+                <div class="slot-empty">แตะเพื่อวางการ์ด<br>หรือ drag & drop มาที่นี่</div>
+              `}
+            </div>
+          `;
+        }).join('');
+
+        $$('.slot').forEach(el => {
+          const slotId = el.dataset.slotId;
+
+          el.addEventListener('click', () => {
+            if(!state.selectedCardId) return;
+            placeCard(slotId, state.selectedCardId);
+          });
+
+          el.addEventListener('dragover', ev => {
+            ev.preventDefault();
+            el.classList.add('dragover');
+          });
+
+          el.addEventListener('dragleave', () => {
+            el.classList.remove('dragover');
+          });
+
+          el.addEventListener('drop', ev => {
+            ev.preventDefault();
+            el.classList.remove('dragover');
+            const id = ev.dataTransfer.getData('text/plain') || state.selectedCardId;
+            if(id) placeCard(slotId, id);
+          });
+        });
+
+        $$('[data-clear-slot]').forEach(btn => {
+          btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const slotId = btn.dataset.clearSlot;
+            delete state.plan[slotId];
+            logEvent('slot_clear', { slot_id:slotId });
+            renderBoard();
+            updateCoach();
+            updateMiniScores();
+          });
+        });
+      }
+
+      function placeCard(slotId, cardId){
+        if(!ACT_BY_ID[cardId]) return;
+        state.plan[slotId] = cardId;
+        state.selectedCardId = '';
+        renderCards();
+        renderBoard();
+        updateCoach();
+        updateMiniScores();
+        logEvent('slot_place', { slot_id:slotId, card_id:cardId });
+      }
+
+      function getPlanCards(){
+        return SLOT_DEFS.map(slot => {
+          const id = state.plan[slot.id];
+          return id ? ACT_BY_ID[id] : null;
+        }).filter(Boolean);
+      }
+
+      function getFilledCount(){
+        return SLOT_DEFS.filter(s => !!state.plan[s.id]).length;
+      }
+
+      function evaluatePlan(){
+        const cardsBySlot = Object.fromEntries(SLOT_DEFS.map(slot => [slot.id, ACT_BY_ID[state.plan[slot.id]] || null]));
+        const planCards = getPlanCards();
+        const missingCount = SLOT_DEFS.length - planCards.length;
+        const totalIntensity = planCards.reduce((s,a)=>s+a.intensity,0);
+
+        const hasWarmup = !!cardsBySlot.warmup && cardsBySlot.warmup.type === 'warmup';
+        const hasCooldown = !!cardsBySlot.cooldown && cardsBySlot.cooldown.type === 'cooldown';
+        const hasBalance = planCards.some(a => a.type === 'balance');
+        const activeCount = planCards.filter(a => a.intensity >= 3).length;
+        const uniqueTypes = new Set(planCards.map(a => a.type)).size;
+        const uniqueActivities = new Set(planCards.map(a => a.id)).size;
+
+        let repeatedAdjacent = 0;
+        let heavyChain = 0;
+        let currentHeavyRun = 0;
+
+        const ordered = SLOT_DEFS.map(s => ACT_BY_ID[state.plan[s.id]] || null);
+        for(let i=0;i<ordered.length;i++){
+          const curr = ordered[i];
+          const prev = ordered[i-1];
+          if(curr && prev && curr.id === prev.id) repeatedAdjacent++;
+          if(curr && curr.intensity >= 3){
+            currentHeavyRun++;
+            heavyChain = Math.max(heavyChain, currentHeavyRun);
+          }else{
+            currentHeavyRun = 0;
+          }
+        }
+
+        let safety = 100;
+        let balance = 100;
+        let variety = 100;
+        let fun = 100;
+
+        safety -= missingCount * 12;
+        if(!hasWarmup) safety -= 28;
+        if(!hasCooldown) safety -= 28;
+        if(totalIntensity > state.mission.maxIntensity) safety -= (totalIntensity - state.mission.maxIntensity) * 8;
+        if(heavyChain > state.mission.allowHeavyChain + 1) safety -= 18;
+        if(repeatedAdjacent > 0) safety -= repeatedAdjacent * 8;
+
+        balance = 20;
+        balance += hasWarmup ? 18 : 0;
+        balance += hasCooldown ? 18 : 0;
+        balance += hasBalance ? 20 : 0;
+        balance += activeCount >= 1 && activeCount <= 2 ? 18 : 8;
+        balance += uniqueTypes >= 3 ? 18 : uniqueTypes >= 2 ? 12 : 6;
+        if(state.mission.focus === 'balance') balance += hasBalance ? 8 : -8;
+        if(state.mission.focus === 'mixed') balance += uniqueTypes >= 4 ? 8 : 0;
+
+        variety = 25;
+        variety += uniqueActivities * 12;
+        variety += uniqueTypes * 8;
+        variety -= repeatedAdjacent * 14;
+        if(state.mission.focus === 'fun' && uniqueActivities >= state.mission.needVariety) variety += 10;
+
+        fun = 30;
+        fun += uniqueTypes >= 3 ? 18 : 8;
+        fun += activeCount >= 1 ? 16 : 6;
+        fun += hasBalance ? 10 : 0;
+        fun += hasCooldown ? 8 : 0;
+        fun += hasWarmup ? 8 : 0;
+        if(state.mission.focus === 'cardio') fun += activeCount >= 1 ? 10 : -6;
+        if(state.mission.focus === 'safe') fun += safety >= 80 ? 10 : 0;
+        if(state.previewOrder.length === SLOT_DEFS.length) fun += 8;
+
+        safety = clamp(Math.round(safety), 0, 100);
+        balance = clamp(Math.round(balance), 0, 100);
+        variety = clamp(Math.round(variety), 0, 100);
+        fun = clamp(Math.round(fun), 0, 100);
+
+        const overall = Math.round(average([safety,balance,variety,fun]));
+
+        const strengths = [];
+        const improvements = [];
+
+        if(hasWarmup) strengths.push('เริ่มต้นด้วยกิจกรรมเบาได้ดี');
+        else improvements.push('ควรเริ่มด้วย Warm-up ที่เบากว่านี้');
+
+        if(hasCooldown) strengths.push('มีช่วงจบผ่อนคลาย ปลอดภัยขึ้น');
+        else improvements.push('ควรปิดท้ายด้วย Cooldown');
+
+        if(hasBalance) strengths.push('มีช่วงฝึกทรงตัวหรือคุมท่าทาง');
+        else improvements.push('ลองเพิ่มกิจกรรม Balance อย่างน้อย 1 ช่วง');
+
+        if(uniqueActivities >= state.mission.needVariety) strengths.push('แผนมีความหลากหลาย น่าเล่น');
+        else improvements.push('เพิ่มความหลากหลายของกิจกรรมอีกนิด');
+
+        if(activeCount >= 1 && activeCount <= 2) strengths.push('จำนวนช่วงขยับเร็วกำลังดี');
+        else if(activeCount === 0) improvements.push('เพิ่มช่วงขยับหลักอีก 1 ช่วง');
+        else improvements.push('ลดช่วงที่เร็วเกินไปลงเล็กน้อย');
+
+        if(totalIntensity <= state.mission.maxIntensity) strengths.push('พลังรวมไม่หนักเกินเป้าหมาย');
+        else improvements.push(`พลังรวมสูงไป ลองลดลงให้ไม่เกิน ${state.mission.maxIntensity}`);
+
+        if(repeatedAdjacent > 0) improvements.push('อย่าวางกิจกรรมเดิมติดกัน');
+        if(heavyChain > state.mission.allowHeavyChain + 1) improvements.push('กิจกรรมหนักติดกันมากไปนิด');
+
+        if(!strengths.length) strengths.push('คุณเริ่มวางแผนได้แล้ว เดี๋ยวอีกนิดก็เก่งขึ้นมาก');
+        if(!improvements.length) improvements.push('ยอดเยี่ยมแล้ว ลองเล่นใหม่เพื่อทำคะแนนเต็ม');
+
+        const advice = [];
+        if(overall >= 90){
+          advice.push('สุดยอด! แผนนี้ทั้งสมดุล สนุก และปลอดภัยมาก');
+        }else if(overall >= 75){
+          advice.push('ดีมากแล้ว อีกนิดเดียวก็จะเป็นแผนระดับโค้ชมือโปร');
+        }else if(overall >= 60){
+          advice.push('แผนนี้เริ่มดีแล้ว ลองเพิ่มช่วงเริ่มเบาหรือช่วงพักอีกนิด');
+        }else{
+          advice.push('ไม่เป็นไรนะ ลองเริ่มจาก Warm-up และ Cooldown ให้ชัดก่อน');
+        }
+
+        if(state.mission.focus === 'balance' && !hasBalance){
+          advice.push('ภารกิจนี้เน้นทรงตัว ลองใส่ Balance Hold หรือ Step Balance');
+        }
+        if(state.mission.focus === 'cardio' && activeCount === 0){
+          advice.push('ภารกิจนี้อยากให้เด็กได้ขยับเร็วขึ้นอีกนิด');
+        }
+        if(state.mission.focus === 'fun' && uniqueActivities < state.mission.needVariety){
+          advice.push('ลองสลับกิจกรรมให้หลายแบบขึ้น จะสนุกกว่าเดิม');
+        }
+        if(state.mission.focus === 'safe' && (!hasWarmup || !hasCooldown)){
+          advice.push('ภารกิจนี้เน้นปลอดภัย อย่าลืมเริ่มเบาและจบผ่อนคลาย');
+        }
+
+        const stars = overall >= 95 ? 5
+                    : overall >= 85 ? 4
+                    : overall >= 72 ? 3
+                    : overall >= 58 ? 2
+                    : 1;
+
+        let badge = 'Rising Planner';
+        if(stars === 5) badge = 'Hero Planner';
+        else if(stars === 4) badge = 'Smart Coach';
+        else if(stars === 3) badge = 'Balanced Builder';
+        else if(stars === 2) badge = 'Safe Starter';
+
+        return {
+          cardsBySlot,
+          totalIntensity,
+          uniqueTypes,
+          uniqueActivities,
+          activeCount,
+          hasWarmup,
+          hasCooldown,
+          hasBalance,
+          repeatedAdjacent,
+          heavyChain,
+          scores: { safety, balance, variety, fun, overall },
+          strengths,
+          improvements,
+          advice,
+          stars,
+          badge
+        };
+      }
+
+      function updateCoach(){
+        const filled = getFilledCount();
+        const ready = filled === SLOT_DEFS.length;
+        const evalNow = evaluatePlan();
+        state.lastEvaluation = evalNow;
+
+        let text = 'เริ่มจากเลือกการ์ดให้ครบ 5 ช่องก่อนนะ แล้วเราจะลองแผนด้วยกัน';
+        let face = '😊';
+
+        if(!filled){
+          text = 'ยังไม่มีการ์ดเลย ลองเริ่มที่ Warm-up ก่อนนะ';
+          face = '🙂';
+        }else if(filled < SLOT_DEFS.length){
+          text = `ตอนนี้วางแล้ว ${filled}/5 ช่อง ลองเติมให้ครบ แล้วอย่าลืมช่วงจบผ่อนคลายนะ`;
+          face = '🤔';
+        }else if(ready && evalNow.scores.overall >= 85){
+          text = 'ว้าว แผนนี้ดูดีมากแล้ว ลองกด “ลองแผน” เพื่อดูผลจริงได้เลย';
+          face = '😄';
+        }else if(ready && evalNow.scores.overall >= 70){
+          text = 'ดีแล้ว! ลองเพิ่มสมดุลอีกนิด เช่น ช่วงทรงตัวหรือช่วงผ่อนคลาย';
+          face = '🙂';
+        }else if(ready){
+          text = 'แผนครบแล้ว แต่ยังหนักหรือยังไม่สมดุล ลองดูคะแนนด้านขวาได้เลย';
+          face = '🧐';
+        }
+
+        $('#coachText').textContent = text;
+        $('#coachFace').textContent = face;
+      }
+
+      function updateMiniScores(){
+        const evalNow = evaluatePlan();
+        state.lastEvaluation = evalNow;
+        const items = [
+          ['Safety', evalNow.scores.safety],
+          ['Balance', evalNow.scores.balance],
+          ['Variety', evalNow.scores.variety],
+          ['Fun', evalNow.scores.fun]
+        ];
+        $('#miniScores').innerHTML = items.map(([label,val]) => `
+          <div class="mini-score">
+            <div>
+              <div style="font-weight:900;">${label}</div>
+              <div class="mini-bar"><span style="width:${val}%;"></span></div>
+            </div>
+            <div style="font-weight:1000;">${val}</div>
+          </div>
+        `).join('');
+      }
+
+      function canPreview(){
+        return SLOT_DEFS.every(s => !!state.plan[s.id]);
+      }
+
+      function buildPreviewOrder(){
+        return SLOT_DEFS.map(slot => ({
+          slot,
+          act: ACT_BY_ID[state.plan[slot.id]]
+        })).filter(x => !!x.act);
+      }
+
+      function renderPreviewStep(){
+        const item = state.previewOrder[state.previewIndex];
+        if(!item){
+          stopPreviewTimer();
+          state.lastEvaluation = evaluatePlan();
+          renderFeedback();
+          setScreen('feedback');
+          return;
+        }
+
+        $('#previewEmoji').textContent = item.act.emoji;
+        $('#previewSlotName').textContent = item.slot.name;
+        $('#previewTitle').textContent = item.act.name;
+        $('#previewDesc').textContent = item.act.preview + ' • ' + item.act.desc;
+        $('#countRing').textContent = state.previewSecondsLeft;
+        $('#countRing').style.background = `radial-gradient(circle at center,#fff 52%,transparent 53%), conic-gradient(var(--green) ${((8-state.previewSecondsLeft)/8)*360}deg,#e8f4f9 0deg)`;
+
+        $('#stepDots').innerHTML = state.previewOrder.map((_, i) => {
+          let cls = 'step-dot';
+          if(i < state.previewIndex) cls += ' done';
+          else if(i === state.previewIndex) cls += ' active';
+          return `<span class="${cls}"></span>`;
+        }).join('');
+      }
+
+      function stopPreviewTimer(){
+        if(state.previewTimer){
+          clearInterval(state.previewTimer);
+          state.previewTimer = null;
+        }
+      }
+
+      function startPreviewTimer(){
+        stopPreviewTimer();
+        state.previewSecondsLeft = 8;
+        renderPreviewStep();
+        state.previewTimer = setInterval(() => {
+          state.previewSecondsLeft--;
+          if(state.previewSecondsLeft <= 0){
+            nextPreview();
+            return;
+          }
+          renderPreviewStep();
+        }, 1000);
+      }
+
+      function nextPreview(){
+        stopPreviewTimer();
+        logEvent('preview_step_done', { step_index: state.previewIndex });
+        state.previewIndex++;
+        if(state.previewIndex >= state.previewOrder.length){
+          state.previewOrder = buildPreviewOrder();
+          state.lastEvaluation = evaluatePlan();
+          renderFeedback();
+          setScreen('feedback');
+          logEvent('preview_complete', { steps: state.previewOrder.length });
+          return;
+        }
+        startPreviewTimer();
+      }
+
+      function startPreview(){
+        if(!canPreview()){
+          alert('กรุณาวางการ์ดให้ครบ 5 ช่องก่อน');
+          return;
+        }
+        state.previewOrder = buildPreviewOrder();
+        state.previewIndex = 0;
+        state.previewSecondsLeft = 8;
+        setScreen('preview');
+        logEvent('preview_start', { plan_size: state.previewOrder.length });
+        startPreviewTimer();
+      }
+
+      function renderFeedback(){
+        const ev = state.lastEvaluation || evaluatePlan();
+
+        const scoreItems = [
+          ['🛡️ Safety', ev.scores.safety, 'มีเริ่มเบา จบเบา และไม่หนักเกินไปไหม'],
+          ['⚖️ Balance', ev.scores.balance, 'มีทั้งขยับเร็ว คุมท่า และพักอย่างเหมาะสมไหม'],
+          ['🎨 Variety', ev.scores.variety, 'กิจกรรมหลากหลายและไม่ซ้ำเดิมเกินไปไหม'],
+          ['🎉 Fun', ev.scores.fun, 'แผนนี้ดูสนุก น่าเล่น และมีจังหวะเปลี่ยนดีไหม']
+        ];
+
+        $('#scoreGrid').innerHTML = scoreItems.map(([name,val,desc]) => `
+          <div class="score-card">
+            <h3>${name}</h3>
+            <div class="num">${val}</div>
+            <div class="score-track"><span style="width:${val}%;"></span></div>
+            <div class="muted" style="font-weight:800;line-height:1.45;">${escapeHtml(desc)}</div>
+          </div>
+        `).join('');
+
+        $('#feedbackList').innerHTML = ev.advice
+          .concat(ev.improvements.slice(0, 3))
+          .map(t => `<div class="feedback-item">${escapeHtml(t)}</div>`)
+          .join('');
+      }
+
+      function renderSummary(){
+        const ev = state.lastEvaluation || evaluatePlan();
+        const stars = '⭐'.repeat(ev.stars) + '✩'.repeat(5 - ev.stars);
+
+        $('#summaryStars').textContent = stars;
+        $('#summaryBadge').textContent = ev.badge;
+        $('#summaryOverall').textContent = ev.scores.overall;
+        $('#summaryLine').textContent =
+          ev.scores.overall >= 90 ? 'แผนของคุณเยี่ยมมาก ทั้งปลอดภัย สมดุล และน่าเล่น'
+          : ev.scores.overall >= 75 ? 'แผนนี้ดีมากแล้ว เหลืออีกนิดเดียวก็จะสุดยอด'
+          : ev.scores.overall >= 60 ? 'แผนนี้เริ่มดีแล้ว ลองปรับอีกครั้งให้สมดุลมากขึ้น'
+          : 'ลองใหม่อีกครั้งนะ เริ่มด้วยช่วงเบา แล้วจบด้วยช่วงผ่อนคลาย';
+
+        $('#summaryPlan').innerHTML = SLOT_DEFS.map(slot => {
+          const act = ev.cardsBySlot[slot.id];
+          return `<div>${slot.name}: <strong>${escapeHtml(act ? act.name : '-')}</strong></div>`;
+        }).join('');
+
+        $('#summaryStrengths').innerHTML = ev.strengths.map(x => `• ${escapeHtml(x)}`).join('<br>');
+        $('#summaryImprovements').innerHTML = ev.improvements.map(x => `• ${escapeHtml(x)}`).join('<br>');
+      }
+
+      function saveLastSummary(){
+        const ev = state.lastEvaluation || evaluatePlan();
+        const payload = {
+          game:'fitnessplanner',
+          zone:'fitness',
+          pid:ctx.pid,
+          name:ctx.name,
+          ts_iso:nowISO(),
+          seed:ctx.seed,
+          diff:ctx.diff,
+          mission:state.mission,
+          plan: SLOT_DEFS.map(slot => ({
+            slot:slot.id,
+            activity: state.plan[slot.id] || ''
+          })),
+          scores: ev.scores,
+          badge: ev.badge,
+          stars: ev.stars,
+          strengths: ev.strengths,
+          improvements: ev.improvements
+        };
+        try{
+          localStorage.setItem('HHA_LAST_SUMMARY_FITNESS_PLANNER', JSON.stringify(payload));
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+        }catch(_){}
+        logEvent('summary_saved', { overall: ev.scores.overall, badge: ev.badge });
+      }
+
+      function finalizePlan(){
+        state.lastEvaluation = evaluatePlan();
+        saveLastSummary();
+        renderSummary();
+        setScreen('summary');
+        logEvent('plan_finalize', { overall: state.lastEvaluation.scores.overall });
+      }
+
+      function resetPlan(keepMission = true){
+        stopPreviewTimer();
+        state.plan = {};
+        state.selectedCardId = '';
+        state.previewOrder = [];
+        state.previewIndex = 0;
+        state.previewSecondsLeft = 8;
+        if(!keepMission){
+          ctx.seed = String(Date.now());
+          state.mission = buildMission(ctx.seed);
+          renderMission();
+        }
+        renderCards();
+        renderBoard();
+        updateCoach();
+        updateMiniScores();
+        setScreen('plan');
+      }
+
+      function bindButtons(){
+        $('#btnPreview').addEventListener('click', startPreview);
+        $('#btnClearPlan').addEventListener('click', () => {
+          state.plan = {};
+          state.selectedCardId = '';
+          renderCards();
+          renderBoard();
+          updateCoach();
+          updateMiniScores();
+          logEvent('plan_clear');
+        });
+
+        $('#btnNewMission').addEventListener('click', () => {
+          resetPlan(false);
+          logEvent('mission_refresh', { seed: ctx.seed });
+        });
+
+        $('#btnSkipPreview').addEventListener('click', nextPreview);
+        $('#btnNextPreview').addEventListener('click', nextPreview);
+
+        $('#btnRevise').addEventListener('click', () => {
+          setScreen('plan');
+          logEvent('return_revise');
+        });
+
+        $('#btnFinalize').addEventListener('click', finalizePlan);
+
+        $('#btnPlayAgain').addEventListener('click', () => {
+          resetPlan(false);
+          logEvent('play_again');
+        });
+
+        $('#btnGoHub1').addEventListener('click', goHub);
+        $('#btnGoHub2').addEventListener('click', goHub);
+        $('#btnGoHub3').addEventListener('click', goHub);
+      }
+
+      function init(){
+        renderTopbar();
+        state.mission = buildMission(ctx.seed);
+        renderMission();
+        renderCards();
+        renderBoard();
+        updateCoach();
+        updateMiniScores();
+        bindButtons();
+        logEvent('boot', { seed: ctx.seed, diff: ctx.diff, view: ctx.view });
+      }
+
+      window.addEventListener('beforeunload', stopPreviewTimer);
+      init();
+    })();
+  </script>
+</body>
+</html>
