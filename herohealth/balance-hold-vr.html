@@ -1,428 +1,796 @@
-<!-- === /herohealth/balance-hold-vr.html ===
-Balance Hold — LAUNCHER (HeroHealth Root)
-FULL PATCH v20260314-BALANCEHOLD-LAUNCHER-FLOW-LOCKED
-✅ Choose diff/time/view BEFORE entering run
-✅ Start Flow = launcher -> warmup-gate -> game -> result -> cooldown-gate -> hub
-✅ Open RUN only = direct run page (no warmup)
-✅ Pass-through hub/run/diff/time/seed/pid/view/log/api/ai/studyId/phase/conditionGroup/grade
-✅ Uses /herohealth/warmup-gate.html with per-game daily gate
-✅ Game key = balance / category = exercise
-✅ Matches /fitness/balance-hold.html latest flow
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Balance Hold — Launcher</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth • Balance Hold Launcher</title>
+
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#bfe9ff" />
+  <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
-      --bg:#020617;
-      --panel: rgba(2,6,23,.72);
-      --panel2: rgba(15,23,42,.55);
-      --stroke: rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --good:#22c55e;
-      --cyan:#22d3ee;
-      --violet:#a78bfa;
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      --sky1:#e7f8ff;
+      --sky2:#d7f0ff;
+      --sky3:#fff8dc;
+
+      --card:#fffdf8;
+      --card2:#f8fffd;
+      --line:#cce6f3;
+
+      --text:#33424f;
+      --muted:#708291;
+
+      --blue:#7fcfff;
+      --blue2:#57baf2;
+      --green:#7ed957;
+      --green2:#54c53c;
+      --yellow:#ffd45c;
+      --orange:#ffb347;
+      --pink:#ff9ecb;
+      --purple:#caa8ff;
+
+      --shadow:0 16px 42px rgba(43, 85, 120, .14);
+      --shadow-soft:0 8px 24px rgba(43, 85, 120, .10);
+
+      --safe-top:max(12px, env(safe-area-inset-top));
+      --safe-right:max(12px, env(safe-area-inset-right));
+      --safe-bottom:max(12px, env(safe-area-inset-bottom));
+      --safe-left:max(12px, env(safe-area-inset-left));
     }
-    *{box-sizing:border-box}
-    html,body{
-      height:100%;
-      margin:0;
-      background:
-        radial-gradient(1000px 700px at 20% 0%, rgba(59,130,246,.16), transparent 60%),
-        radial-gradient(900px 700px at 90% 20%, rgba(34,197,94,.10), transparent 60%),
-        var(--bg);
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; min-height:100%; }
+    body{
+      font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif
+      background:
+        radial-gradient(circle at top, var(--sky3) 0%, var(--sky1) 26%, var(--sky2) 72%, #caecff 100%);
+      min-height:100vh;
+      overflow-x:hidden;
     }
-    .wrap{
-      min-height:100%;
-      max-width:880px;
+
+    .bg{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:0;
+      overflow:hidden;
+    }
+    .cloud{
+      position:absolute;
+      border-radius:999px;
+      background:rgba(255,255,255,.72);
+      filter:blur(2px);
+      box-shadow:0 10px 24px rgba(255,255,255,.35);
+    }
+    .cloud.c1{ width:180px; height:56px; left:5%; top:8%; }
+    .cloud.c2{ width:140px; height:48px; right:8%; top:12%; }
+    .cloud.c3{ width:220px; height:64px; left:18%; bottom:10%; opacity:.38; }
+
+    .spark{
+      position:absolute;
+      width:14px; height:14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.42);
+      box-shadow:0 0 0 8px rgba(255,255,255,.10);
+    }
+    .spark.s1{ left:14%; top:24%; }
+    .spark.s2{ right:20%; top:30%; }
+    .spark.s3{ left:76%; bottom:24%; }
+
+    .page{
+      position:relative;
+      z-index:1;
+      width:min(1120px, 100%);
       margin:0 auto;
-      padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal))
+      padding:
+        calc(var(--safe-top) + 14px)
+        calc(var(--safe-right) + 14px)
+        calc(var(--safe-bottom) + 18px)
+        calc(var(--safe-left) + 14px);
     }
-    .card{
-      border:1px solid var(--stroke);
-      background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));
-      border-radius:20px;
-      padding:14px;
-      box-shadow:0 14px 50px rgba(0,0,0,.35)
-    }
-    .row{
+
+    .topbar{
       display:flex;
-      gap:10px;
-      flex-wrap:wrap;
       align-items:center;
-      justify-content:space-between
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
     }
-    h1{
-      margin:0;
-      font-size:16px;
-      font-weight:1000
+
+    .btn,
+    .chip{
+      border:0;
+      border-radius:999px;
+      min-height:44px;
+      padding:10px 16px;
+      font-weight:900;
+      letter-spacing:.1px;
+      box-shadow:var(--shadow-soft);
     }
-    p{
-      margin:8px 0 0;
-      color:rgba(229,231,235,.78);
-      font-weight:750;
-      font-size:13px;
-      line-height:1.35
+
+    .btn{
+      cursor:pointer;
+      color:var(--text);
+      background:rgba(255,255,255,.92);
+      transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
     }
-    .grid{
-      margin-top:12px;
+    .btn:active{ transform:scale(.98); }
+    .btn.blue{ background:linear-gradient(180deg, #def5ff, #9fddff); color:#174c68; }
+    .btn.yellow{ background:linear-gradient(180deg, #fff2b8, #ffd45c); color:#6d5200; }
+    .btn.green{ background:linear-gradient(180deg, #dcffd4, #7ed957); color:#1d4f1b; }
+    .btn.pink{ background:linear-gradient(180deg, #ffe7f2, #ffbedb); color:#6f3151; }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      background:rgba(255,255,255,.84);
+      color:var(--text);
+      white-space:nowrap;
+    }
+
+    .hero{
       display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px
+      grid-template-columns:1.15fr .85fr;
+      gap:16px;
+      align-items:stretch;
     }
-    @media (max-width:720px){
-      .grid{grid-template-columns:1fr}
+
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.94), rgba(250,254,255,.94));
+      border:2px solid rgba(255,255,255,.76);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
     }
-    label{
+
+    .hero-main{
+      padding:20px;
+      position:relative;
+    }
+
+    .title-row{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .title-wrap h1{
+      margin:0;
+      font-size:clamp(28px, 5vw, 44px);
+      line-height:1.02;
+      color:#2f526c;
+    }
+    .title-wrap p{
+      margin:8px 0 0;
+      color:var(--muted);
+      font-size:16px;
+      line-height:1.5;
+      max-width:720px;
+    }
+
+    .badge{
+      flex:0 0 auto;
+      min-width:110px;
+      text-align:center;
+      padding:12px 14px;
+      border-radius:24px;
+      background:linear-gradient(180deg, #fff4b9, #ffd45c);
+      color:#6b5300;
+      font-weight:900;
+      box-shadow:0 12px 26px rgba(255,212,92,.28);
+    }
+
+    .stage{
+      position:relative;
+      min-height:320px;
+      border-radius:26px;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 40%, rgba(255,255,255,.96), rgba(232,247,255,.96) 56%, rgba(210,238,255,.98) 100%);
+      box-shadow:inset 0 0 0 2px rgba(122,188,225,.22);
+    }
+
+    .mat{
+      position:absolute;
+      inset:auto 7% 10% 7%;
+      height:72%;
+      border-radius:28px;
+      border:3px dashed rgba(121,191,235,.34);
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,.72), rgba(255,255,255,.16) 60%, rgba(255,255,255,0) 100%),
+        linear-gradient(180deg, rgba(255,255,255,.56), rgba(255,255,255,.26));
+      box-shadow:inset 0 0 0 14px rgba(255,255,255,.20);
+    }
+
+    .ring{
+      position:absolute;
+      left:50%;
+      top:56%;
+      transform:translate(-50%,-50%);
+      border-radius:999px;
+      pointer-events:none;
+    }
+    .ring.r1{ width:150px; height:150px; border:4px solid rgba(127,207,255,.22); }
+    .ring.r2{ width:280px; height:280px; border:4px dashed rgba(255,212,92,.24); }
+    .ring.r3{ width:420px; height:420px; border:4px dotted rgba(255,158,203,.18); }
+
+    .post{
+      position:absolute;
+      width:64px; height:64px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      font-size:24px;
+      font-weight:900;
+      color:#4b708d;
+      background:rgba(255,255,255,.76);
+      border:2px solid rgba(127,207,255,.28);
+      box-shadow:0 8px 18px rgba(63,115,155,.12);
+      transform:translate(-50%,-50%);
+    }
+    .p1{ left:50%; top:56%; }
+    .p2{ left:32%; top:56%; }
+    .p3{ left:68%; top:56%; }
+    .p4{ left:50%; top:38%; }
+    .p5{ left:38%; top:62%; }
+    .p6{ left:62%; top:44%; }
+
+    .ghost{
+      position:absolute;
+      left:50%;
+      top:56%;
+      transform:translate(-50%,-50%);
+      width:118px;
+      height:176px;
+      border-radius:28px;
+      background:rgba(255,255,255,.34);
+      border:3px dashed rgba(93,138,169,.24);
+      box-shadow:0 12px 24px rgba(80,120,160,.08);
+    }
+    .ghost::before,
+    .ghost::after{
+      content:"";
+      position:absolute;
+      border-radius:999px;
+      background:rgba(123,168,198,.18);
+    }
+    .ghost::before{
+      width:36px; height:36px; left:50%; top:14px; transform:translateX(-50%);
+    }
+    .ghost::after{
+      width:20px; height:92px; left:50%; top:50px; transform:translateX(-50%);
+      box-shadow:-28px 78px 0 -4px rgba(123,168,198,.14), 28px 72px 0 -6px rgba(123,168,198,.10);
+    }
+
+    .stage-bubble{
+      position:absolute;
+      left:18px;
+      top:18px;
+      max-width:min(86%, 420px);
+      padding:12px 14px;
+      border-radius:20px;
+      background:rgba(255,255,255,.90);
+      box-shadow:0 10px 24px rgba(55,100,140,.10);
+      font-weight:800;
+      color:#395970;
+      line-height:1.45;
+    }
+
+    .coach-mini{
+      position:absolute;
+      right:18px;
+      bottom:18px;
+      max-width:260px;
+      padding:12px 14px;
+      border-radius:20px;
+      background:rgba(255,255,255,.90);
+      box-shadow:0 10px 24px rgba(55,100,140,.10);
+      font-weight:800;
+      color:#4e6a7e;
+      text-align:left;
+    }
+
+    .panel{
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    .panel h2{
+      margin:0;
+      font-size:22px;
+      color:#34536b;
+    }
+
+    .sub{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.5;
+    }
+
+    .info-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
+
+    .info{
+      background:rgba(255,255,255,.82);
+      border-radius:18px;
+      padding:12px 14px;
+      box-shadow:var(--shadow-soft);
+    }
+    .info .k{
       display:block;
       font-size:12px;
       color:var(--muted);
+      font-weight:800;
+      margin-bottom:4px;
+    }
+    .info .v{
+      display:block;
+      font-size:16px;
       font-weight:900;
-      margin-bottom:6px
+      color:#35566e;
     }
-    select,input{
-      width:100%;
-      min-height:42px;
-      border-radius:14px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);
-      color:var(--text);
-      padding:9px 10px;
-      font:inherit;
-      font-weight:900
+
+    .section{
+      background:rgba(255,255,255,.72);
+      border-radius:22px;
+      padding:14px;
+      box-shadow:inset 0 0 0 1px rgba(150,190,220,.12);
     }
-    .btnrow{
-      margin-top:12px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap
-    }
-    .btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);
-      font-weight:1000;
-      font-size:13px;
-      color:inherit;
-      text-decoration:none;
-      cursor:pointer
-    }
-    .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.16)}
-    .btn.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.14)}
-    .btn.violet{border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.14)}
-    .chiprow{
-      margin-top:10px;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap
-    }
-    .chip{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);
-      border-radius:999px;
-      padding:7px 10px;
-      font-size:12px;
-      font-weight:900;
-      color:rgba(229,231,235,.92)
-    }
-    .chip b{color:#fff}
-    .small{
-      margin-top:10px;
-      font-size:12px;
-      color:var(--muted);
-      font-weight:850
-    }
-    .stack{
-      margin-top:12px;
-      display:grid;
-      gap:10px
-    }
-    .subcard{
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.34);
-      border-radius:16px;
-      padding:12px
-    }
-    .subcard h2{
-      margin:0;
+
+    .section-title{
+      margin:0 0 10px;
       font-size:14px;
-      font-weight:1000
+      font-weight:900;
+      color:#4a6880;
     }
-    .list{
-      margin:8px 0 0;
-      padding-left:18px;
-      color:rgba(229,231,235,.82);
+
+    .choice-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .choice{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      min-height:46px;
+      padding:11px 14px;
+      font-weight:900;
+      font-size:14px;
+      color:#446174;
+      background:#fff;
+      box-shadow:0 8px 18px rgba(60,100,130,.08);
+      transition:transform .15s ease, box-shadow .15s ease, background .15s ease, color .15s ease;
+    }
+    .choice:active{ transform:scale(.98); }
+    .choice.active{
+      color:#18394d;
+      background:linear-gradient(180deg, #e8f8ff, #a8e0ff);
+      box-shadow:0 12px 24px rgba(87,186,242,.18);
+    }
+    .choice.yellow.active{
+      background:linear-gradient(180deg, #fff2b8, #ffd45c);
+      color:#6b5200;
+      box-shadow:0 12px 24px rgba(255,212,92,.22);
+    }
+    .choice.green.active{
+      background:linear-gradient(180deg, #dcffd4, #7ed957);
+      color:#184716;
+      box-shadow:0 12px 24px rgba(126,217,87,.22);
+    }
+    .choice.pink.active{
+      background:linear-gradient(180deg, #ffe8f2, #ffbfd9);
+      color:#6d3150;
+      box-shadow:0 12px 24px rgba(255,158,203,.20);
+    }
+
+    .toggle-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .toggle{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:52px;
+      padding:12px 14px;
+      background:#fff;
+      border-radius:18px;
+      box-shadow:0 8px 18px rgba(60,100,130,.08);
+      font-weight:800;
+      color:#446174;
+      cursor:pointer;
+    }
+    .toggle input{
+      width:18px; height:18px;
+      accent-color:#57baf2;
+    }
+
+    .footer-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:4px;
+    }
+
+    .start-box{
+      margin-top:6px;
+      background:linear-gradient(180deg, rgba(255,255,255,.78), rgba(255,255,255,.58));
+      border-radius:22px;
+      padding:14px;
+      box-shadow:inset 0 0 0 1px rgba(140,185,220,.14);
+    }
+
+    .start-title{
+      margin:0 0 8px;
+      font-size:15px;
+      font-weight:900;
+      color:#47657c;
+    }
+
+    .hint{
+      margin:0;
+      color:var(--muted);
       font-size:13px;
       line-height:1.45;
-      font-weight:750
     }
-    code{
-      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-      font-size:12px
+
+    @media (max-width: 960px){
+      .hero{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width: 640px){
+      .page{
+        padding:
+          calc(var(--safe-top) + 10px)
+          calc(var(--safe-right) + 10px)
+          calc(var(--safe-bottom) + 14px)
+          calc(var(--safe-left) + 10px);
+      }
+
+      .topbar{
+        flex-wrap:wrap;
+      }
+
+      .title-row{
+        flex-direction:column;
+      }
+
+      .info-grid,
+      .toggle-row,
+      .footer-actions{
+        grid-template-columns:1fr;
+      }
+
+      .stage{
+        min-height:280px;
+      }
+
+      .post{
+        width:56px; height:56px; font-size:20px;
+      }
+
+      .coach-mini{
+        max-width:220px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="row">
-        <div>
-          <h1>⚖️ Balance Hold — Launcher</h1>
-          <p>เลือกระดับ / เวลา / มุมมองก่อนเข้าเล่น และเริ่ม flow แบบครบ: warmup → game → result → cooldown → hub</p>
-        </div>
-        <a class="btn" id="backHub" href="./hub.html">🏠 Back HUB</a>
-      </div>
-
-      <div class="chiprow">
-        <div class="chip">pid: <b id="cPid">anon</b></div>
-        <div class="chip">seed: <b id="cSeed">-</b></div>
-        <div class="chip">run: <b id="cRun">play</b></div>
-        <div class="chip">zone: <b>fitness</b></div>
-        <div class="chip">game: <b>balance</b></div>
-      </div>
-
-      <div class="grid">
-        <div>
-          <label for="diff">Difficulty</label>
-          <select id="diff">
-            <option value="easy">Easy</option>
-            <option value="normal" selected>Normal</option>
-            <option value="hard">Hard</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="time">Duration (sec)</label>
-          <select id="time">
-            <option value="45">45</option>
-            <option value="60">60</option>
-            <option value="80" selected>80</option>
-            <option value="90">90</option>
-            <option value="120">120</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="view">View</label>
-          <select id="view">
-            <option value="pc">PC</option>
-            <option value="mobile">Mobile</option>
-            <option value="cvr">Cardboard / cVR</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="btnrow">
-        <button class="btn primary" id="btnStartFlow" type="button">▶ Start Flow</button>
-        <a class="btn cyan" id="btnOpenRun" href="#">🧩 Open RUN only</a>
-        <button class="btn violet" id="btnReseed" type="button">🎲 Reseed</button>
-      </div>
-
-      <div class="stack">
-        <div class="subcard">
-          <h2>Start Flow</h2>
-          <ul class="list">
-            <li>เข้า <code>/herohealth/warmup-gate.html</code></li>
-            <li>ถ้าวันนี้ยังไม่ทำ warmup ของเกมนี้ จะเล่น warmup ก่อน</li>
-            <li>จากนั้นเข้า <code>/fitness/balance-hold.html</code></li>
-            <li>เมื่อจบเกม จะค้างหน้า Result ก่อน</li>
-            <li>กด Go Cooldown แล้วจึงไป cooldown gate</li>
-            <li>สุดท้ายกลับ HUB</li>
-          </ul>
-        </div>
-
-        <div class="subcard">
-          <h2>Open RUN only</h2>
-          <ul class="list">
-            <li>เปิดเกมตรงทันที</li>
-            <li>ไม่ผ่าน warmup gate</li>
-            <li>เหมาะสำหรับ debug / layout test / tuning effect</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="small">
-        RUN page: <code>/fitness/balance-hold.html</code><br/>
-        Warmup gate: <code>/herohealth/warmup-gate.html?cat=exercise&game=balance</code>
-      </div>
-    </div>
+  <div class="bg" aria-hidden="true">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+    <div class="spark s1"></div>
+    <div class="spark s2"></div>
+    <div class="spark s3"></div>
   </div>
 
-<script>
-'use strict';
+  <main class="page">
+    <div class="topbar">
+      <button id="backBtn" class="btn blue" type="button">← กลับ HUB</button>
+      <div class="chip">🎵 Fitness Zone • Balance Hold</div>
+    </div>
 
-function qs(k, d=''){
-  try{ return new URL(location.href).searchParams.get(k) ?? d; }
-  catch(e){ return d; }
-}
-function clamp(v,a,b){
-  v = Number(v);
-  if(!Number.isFinite(v)) v = a;
-  return Math.max(a, Math.min(b, v));
-}
-function nowSeed(){ return String(Date.now()); }
-function setParam(u, k, v){
-  if (v === '' || v == null) u.searchParams.delete(k);
-  else u.searchParams.set(k, String(v));
-}
-function normalizeMaybeEncodedUrl(v){
-  v = String(v ?? '').trim();
-  if(!v || v==='null' || v==='undefined') return '';
-  if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
-    try{ v = decodeURIComponent(v); }catch(e){}
-  }
-  return v.trim();
-}
+    <section class="hero">
+      <article class="card hero-main">
+        <div class="title-row">
+          <div class="title-wrap">
+            <h1>Balance Hold</h1>
+            <p>
+              ฝึกการทรงตัวตามจังหวะผ่าน <strong>6 ฐาน</strong>
+              เด็กจะต้องพาจุดสมดุลให้อยู่ในเป้า ค้างให้ตรงจังหวะ
+              และผ่าน routine ให้ครบทั้งชุด
+            </p>
+          </div>
+          <div class="badge">6 POST<br/>CIRCUIT</div>
+        </div>
 
-const P = {
-  hub: normalizeMaybeEncodedUrl(qs('hub','')),
-  run: String(qs('run','play')).toLowerCase() || 'play',
-  diff: String(qs('diff','normal')).toLowerCase() || 'normal',
-  time: clamp(qs('time','80'), 20, 300),
-  seed: String(qs('seed','') || nowSeed()),
-  pid: String(qs('pid','')).trim() || 'anon',
-  view: String(qs('view','pc')).toLowerCase() || 'pc',
+        <div class="stage">
+          <div class="mat"></div>
+          <div class="ring r1"></div>
+          <div class="ring r2"></div>
+          <div class="ring r3"></div>
 
-  log: String(qs('log','')),
-  api: normalizeMaybeEncodedUrl(qs('api','')),
-  ai: String(qs('ai','')),
-  studyId: String(qs('studyId','')),
-  phase: String(qs('phase','')),
-  conditionGroup: String(qs('conditionGroup','')),
-  grade: String(qs('grade',''))
-};
+          <div class="post p1">1</div>
+          <div class="post p2">2</div>
+          <div class="post p3">3</div>
+          <div class="post p4">4</div>
+          <div class="post p5">5</div>
+          <div class="post p6">6</div>
 
-document.getElementById('cPid').textContent = P.pid;
-document.getElementById('cSeed').textContent = String(P.seed).slice(0,10);
-document.getElementById('cRun').textContent = P.run;
+          <div class="ghost" aria-hidden="true"></div>
 
-const elDiff = document.getElementById('diff');
-const elTime = document.getElementById('time');
-const elView = document.getElementById('view');
+          <div class="stage-bubble">
+            จุดเด่นของเกมนี้คือไม่ใช่ยืนเฉย ๆ แต่ต้อง
+            <strong>เข้าเป้า + ค้าง + เปลี่ยนตำแหน่งตามจังหวะ</strong>
+          </div>
 
-if (['easy','normal','hard'].includes(P.diff)) elDiff.value = P.diff;
-if (P.time) elTime.value = String(P.time);
-if (['pc','mobile','cvr'].includes(P.view)) elView.value = P.view;
+          <div class="coach-mini">
+            Coach Tip: ค่อย ๆ ลากนิ้ว อย่ากระชาก
+            แล้วพาจุดสีส้มให้อยู่ในวงให้นิ่งที่สุด
+          </div>
+        </div>
+      </article>
 
-const backHub = document.getElementById('backHub');
-if (P.hub) backHub.href = P.hub;
+      <aside class="card panel">
+        <div>
+          <h2>ตั้งค่าก่อนเล่น</h2>
+          <p class="sub">
+            เลือกระดับ ความยาวเวลา และรูปแบบการเข้าเล่นให้เหมาะกับเด็ก
+          </p>
+        </div>
 
-function buildHubUrl(){
-  if (P.hub) return P.hub;
+        <div class="info-grid">
+          <div class="info">
+            <span class="k">Player</span>
+            <span class="v" id="playerName">Player</span>
+          </div>
+          <div class="info">
+            <span class="k">PID</span>
+            <span class="v" id="playerPid">anon</span>
+          </div>
+          <div class="info">
+            <span class="k">Mode</span>
+            <span class="v">Solo</span>
+          </div>
+          <div class="info">
+            <span class="k">Run Page</span>
+            <span class="v">/fitness/balance-hold.html</span>
+          </div>
+        </div>
 
-  const u = new URL('./hub.html', location.href);
-  setParam(u, 'run', P.run);
-  setParam(u, 'diff', elDiff.value);
-  setParam(u, 'time', elTime.value);
-  setParam(u, 'seed', P.seed);
-  setParam(u, 'pid', P.pid);
-  setParam(u, 'view', elView.value);
+        <div class="section">
+          <h3 class="section-title">Difficulty</h3>
+          <div class="choice-row" id="diffRow">
+            <button class="choice" data-group="diff" data-value="easy" type="button">ง่าย</button>
+            <button class="choice active" data-group="diff" data-value="normal" type="button">ปกติ</button>
+            <button class="choice yellow" data-group="diff" data-value="hard" type="button">ท้าทาย</button>
+          </div>
+        </div>
 
-  setParam(u, 'log', P.log);
-  setParam(u, 'api', P.api);
-  setParam(u, 'ai', P.ai);
-  setParam(u, 'studyId', P.studyId);
-  setParam(u, 'phase', P.phase);
-  setParam(u, 'conditionGroup', P.conditionGroup);
-  setParam(u, 'grade', P.grade);
+        <div class="section">
+          <h3 class="section-title">เวลาเล่น</h3>
+          <div class="choice-row" id="timeRow">
+            <button class="choice" data-group="time" data-value="60" type="button">60 วิ</button>
+            <button class="choice active green" data-group="time" data-value="90" type="button">90 วิ</button>
+            <button class="choice" data-group="time" data-value="120" type="button">120 วิ</button>
+          </div>
+        </div>
 
-  return u.toString();
-}
+        <div class="section">
+          <h3 class="section-title">View</h3>
+          <div class="choice-row" id="viewRow">
+            <button class="choice active" data-group="view" data-value="mobile" type="button">Mobile</button>
+            <button class="choice" data-group="view" data-value="pc" type="button">PC</button>
+            <button class="choice pink" data-group="view" data-value="cvr" type="button">Cardboard</button>
+          </div>
+        </div>
 
-function buildRunUrl(autostart){
-  const u = new URL('../fitness/balance-hold.html', location.href);
+        <div class="section">
+          <h3 class="section-title">ตัวเลือกการเข้าเกม</h3>
+          <div class="toggle-row">
+            <label class="toggle">
+              <input id="gateChk" type="checkbox" checked />
+              <span>เข้า Warmup Gate ก่อน</span>
+            </label>
+            <label class="toggle">
+              <input id="cooldownChk" type="checkbox" checked />
+              <span>เปิด Cooldown หลังจบเกม</span>
+            </label>
+          </div>
+        </div>
 
-  setParam(u, 'hub', buildHubUrl());
-  setParam(u, 'run', P.run);
-  setParam(u, 'pid', P.pid);
-  setParam(u, 'seed', P.seed);
+        <div class="start-box">
+          <h3 class="start-title">พร้อมเริ่มแล้ว</h3>
+          <p class="hint">
+            Flow ที่จะใช้คือ Launcher → Warmup → Balance Hold → Summary → Cooldown → HUB
+          </p>
+        </div>
 
-  setParam(u, 'diff', elDiff.value);
-  setParam(u, 'time', elTime.value);
-  setParam(u, 'view', elView.value);
+        <div class="footer-actions">
+          <button id="practiceBtn" class="btn pink" type="button">ลองเล่นทันที</button>
+          <button id="startBtn" class="btn yellow" type="button">เริ่มตาม Flow</button>
+        </div>
+      </aside>
+    </section>
+  </main>
 
-  setParam(u, 'log', P.log);
-  setParam(u, 'api', P.api);
-  setParam(u, 'ai', P.ai);
-  setParam(u, 'studyId', P.studyId);
-  setParam(u, 'phase', P.phase);
-  setParam(u, 'conditionGroup', P.conditionGroup);
-  setParam(u, 'grade', P.grade);
+  <script>
+    (() => {
+      'use strict';
 
-  setParam(u, 'autostart', autostart ? '1' : '');
-  return u.toString();
-}
+      const qs = new URLSearchParams(location.search);
 
-function buildWarmupFlowUrl(){
-  const runUrl = buildRunUrl(true);
-  const hubUrl = buildHubUrl();
+      const state = {
+        diff: qs.get('diff') || 'normal',
+        time: qs.get('time') || '90',
+        view: qs.get('view') || 'mobile',
+        gate: qs.get('gate') !== '0',
+        cooldown: qs.get('cooldown') !== '0'
+      };
 
-  const u = new URL('./warmup-gate.html', location.href);
+      const hub = qs.get('hub') || './hub-v2.html';
+      const runPage = '../fitness/balance-hold.html';
+      const warmupPage = './warmup-gate.html';
 
-  setParam(u, 'gatePhase', 'warmup');
-  setParam(u, 'phase', 'warmup');
-  setParam(u, 'cat', 'exercise');
-  setParam(u, 'game', 'balance');
-  setParam(u, 'theme', 'balance');
+      const playerName = qs.get('name') || qs.get('nickName') || qs.get('nick') || 'Player';
+      const playerPid = qs.get('pid') || 'anon';
 
-  setParam(u, 'next', runUrl);
-  setParam(u, 'hub', hubUrl);
+      const elPlayerName = document.getElementById('playerName');
+      const elPlayerPid = document.getElementById('playerPid');
+      const backBtn = document.getElementById('backBtn');
+      const startBtn = document.getElementById('startBtn');
+      const practiceBtn = document.getElementById('practiceBtn');
+      const gateChk = document.getElementById('gateChk');
+      const cooldownChk = document.getElementById('cooldownChk');
 
-  setParam(u, 'run', P.run);
-  setParam(u, 'pid', P.pid);
-  setParam(u, 'seed', P.seed);
+      if (elPlayerName) elPlayerName.textContent = playerName;
+      if (elPlayerPid) elPlayerPid.textContent = playerPid;
+      if (gateChk) gateChk.checked = state.gate;
+      if (cooldownChk) cooldownChk.checked = state.cooldown;
 
-  setParam(u, 'diff', elDiff.value);
-  setParam(u, 'time', elTime.value);
-  setParam(u, 'view', elView.value);
+      function setActive(group, value){
+        document.querySelectorAll(`[data-group="${group}"]`).forEach(btn => {
+          const on = btn.dataset.value === String(value);
+          btn.classList.toggle('active', on);
+        });
+      }
 
-  setParam(u, 'log', P.log);
-  setParam(u, 'api', P.api);
-  setParam(u, 'ai', P.ai);
-  setParam(u, 'studyId', P.studyId);
-  setParam(u, 'conditionGroup', P.conditionGroup);
-  setParam(u, 'grade', P.grade);
+      setActive('diff', state.diff);
+      setActive('time', state.time);
+      setActive('view', state.view);
 
-  setParam(u, 'dur', '20');
-  setParam(u, 'cdur', '15');
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-group]');
+        if (!btn) return;
+        const group = btn.dataset.group;
+        const value = btn.dataset.value;
+        state[group] = value;
+        setActive(group, value);
+      });
 
-  return u.toString();
-}
+      function passthroughKeys() {
+        return [
+          'pid','name','nick','nickName','studyId',
+          'schoolCode','classRoom','studentNo',
+          'api','debug','log','sessionNo','weekNo',
+          'teacher','grade','zone','cat','game','gameId',
+          'run','seed'
+        ];
+      }
 
-document.getElementById('btnStartFlow').addEventListener('click', ()=>{
-  location.href = buildWarmupFlowUrl();
-});
+      function seedValue() {
+        return qs.get('seed') || String(Date.now());
+      }
 
-document.getElementById('btnOpenRun').addEventListener('click', (e)=>{
-  e.preventDefault();
-  location.href = buildRunUrl(false);
-});
+      function buildRunParams() {
+        const p = new URLSearchParams();
 
-document.getElementById('btnReseed').addEventListener('click', ()=>{
-  P.seed = nowSeed();
-  document.getElementById('cSeed').textContent = String(P.seed).slice(0,10);
-  try{
-    const u = new URL(location.href);
-    u.searchParams.set('seed', P.seed);
-    history.replaceState(null,'',u.toString());
-  }catch(e){}
-});
-</script>
+        passthroughKeys().forEach(k => {
+          const v = qs.get(k);
+          if (v != null && v !== '') p.set(k, v);
+        });
+
+        p.set('zone', 'fitness');
+        p.set('cat', 'fitness');
+        p.set('game', 'balancehold');
+        p.set('gameId', 'balancehold');
+        p.set('mode', 'solo');
+        p.set('run', qs.get('run') || 'play');
+        p.set('diff', state.diff);
+        p.set('time', state.time);
+        p.set('view', state.view);
+        p.set('seed', seedValue());
+        p.set('hub', hub);
+
+        if (cooldownChk && cooldownChk.checked) {
+          p.set('cooldown', '1');
+          p.set('returnPhase', 'cooldown');
+          p.set('cdur', qs.get('cdur') || '20');
+        }
+
+        return p;
+      }
+
+      function buildRunUrl() {
+        return `${runPage}?${buildRunParams().toString()}`;
+      }
+
+      function buildWarmupUrl() {
+        const p = new URLSearchParams();
+
+        passthroughKeys().forEach(k => {
+          const v = qs.get(k);
+          if (v != null && v !== '') p.set(k, v);
+        });
+
+        p.set('pid', qs.get('pid') || 'anon');
+        p.set('name', qs.get('name') || qs.get('nickName') || qs.get('nick') || 'Player');
+        p.set('zone', 'fitness');
+        p.set('cat', 'fitness');
+        p.set('game', 'balancehold');
+        p.set('gameId', 'balancehold');
+        p.set('mode', 'solo');
+        p.set('view', state.view);
+        p.set('diff', state.diff);
+        p.set('time', state.time);
+        p.set('run', qs.get('run') || 'play');
+        p.set('seed', seedValue());
+        p.set('hub', hub);
+        p.set('phase', 'warmup');
+        p.set('gate', '1');
+        p.set('next', buildRunUrl());
+
+        if (cooldownChk && cooldownChk.checked) {
+          p.set('cooldown', '1');
+          p.set('returnPhase', 'cooldown');
+          p.set('cdur', qs.get('cdur') || '20');
+        }
+
+        return `${warmupPage}?${p.toString()}`;
+      }
+
+      function goStart(useGate) {
+        location.href = useGate ? buildWarmupUrl() : buildRunUrl();
+      }
+
+      if (backBtn) {
+        backBtn.addEventListener('click', () => {
+          location.href = hub;
+        });
+      }
+
+      if (practiceBtn) {
+        practiceBtn.addEventListener('click', () => {
+          goStart(false);
+        });
+      }
+
+      if (startBtn) {
+        startBtn.addEventListener('click', () => {
+          goStart(!!(gateChk && gateChk.checked));
+        });
+      }
+    })();
+  </script>
 </body>
 </html>
