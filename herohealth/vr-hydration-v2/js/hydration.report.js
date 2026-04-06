@@ -1,8 +1,16 @@
 // === /herohealth/vr-hydration-v2/js/hydration.report.js ===
-// Hydration V2 Mini Report + Teacher Analytics
-// PATCH v20260320n-HYDRATION-V2-REPORT-ANALYTICS
+// Hydration V2 Mini Report + Teacher Analytics + Export Bundle
+// PATCH v20260320o-HYDRATION-V2-REPORT-EXPORT
 
 import { buildTeacherAnalytics } from './hydration.analytics.js';
+import {
+  buildResearchExportBundle,
+  buildRecordsCsvRows,
+  buildFamilyCsvRows,
+  buildTrendCsvRows,
+  toCsv,
+  downloadTextFile
+} from './hydration.export.js';
 
 const refs = {
   reportTitle: document.getElementById('reportTitle'),
@@ -50,6 +58,13 @@ function render(payload, history, summaryHistory) {
     localStorageRef: window.localStorage
   });
 
+  const exportBundle = buildResearchExportBundle({
+    payload,
+    history,
+    summaryHistory,
+    analytics
+  });
+
   refs.reportTitle.textContent =
     scopeType === 'pid'
       ? `Mini Report • PID ${scopeValue}`
@@ -94,8 +109,64 @@ function render(payload, history, summaryHistory) {
     refs.highlightGrid.appendChild(makeInfo(title, body));
   });
 
+  renderExportBar(exportBundle);
   renderTeacherAnalytics(analytics);
   renderTable(items);
+}
+
+function renderExportBar(exportBundle) {
+  const bar = document.createElement('section');
+  bar.style.marginTop = '18px';
+  bar.style.marginBottom = '18px';
+  bar.style.display = 'flex';
+  bar.style.flexWrap = 'wrap';
+  bar.style.gap = '10px';
+
+  bar.innerHTML = `
+    <button type="button" class="btn-export" data-export="json">Export JSON Bundle</button>
+    <button type="button" class="btn-export" data-export="records">Export Records CSV</button>
+    <button type="button" class="btn-export" data-export="family">Export Family CSV</button>
+    <button type="button" class="btn-export" data-export="trends">Export Trends CSV</button>
+  `;
+
+  injectExportButtonStyle();
+
+  bar.querySelector('[data-export="json"]')?.addEventListener('click', () => {
+    downloadTextFile(
+      buildFilename(exportBundle, 'bundle', 'json'),
+      JSON.stringify(exportBundle, null, 2),
+      'application/json;charset=utf-8'
+    );
+  });
+
+  bar.querySelector('[data-export="records"]')?.addEventListener('click', () => {
+    const csv = toCsv(buildRecordsCsvRows(exportBundle.records));
+    downloadTextFile(
+      buildFilename(exportBundle, 'records', 'csv'),
+      csv,
+      'text/csv;charset=utf-8'
+    );
+  });
+
+  bar.querySelector('[data-export="family"]')?.addEventListener('click', () => {
+    const csv = toCsv(buildFamilyCsvRows(exportBundle.familyRows));
+    downloadTextFile(
+      buildFilename(exportBundle, 'family-mastery', 'csv'),
+      csv,
+      'text/csv;charset=utf-8'
+    );
+  });
+
+  bar.querySelector('[data-export="trends"]')?.addEventListener('click', () => {
+    const csv = toCsv(buildTrendCsvRows(exportBundle.trendRows));
+    downloadTextFile(
+      buildFilename(exportBundle, 'trend-summary', 'csv'),
+      csv,
+      'text/csv;charset=utf-8'
+    );
+  });
+
+  refs.tableWrap.parentNode.insertBefore(bar, refs.tableWrap);
 }
 
 function renderTeacherAnalytics(analytics) {
@@ -106,43 +177,44 @@ function renderTeacherAnalytics(analytics) {
 
   const wrapper = document.createElement('section');
   wrapper.style.marginTop = '18px';
+  wrapper.style.display = 'grid';
+  wrapper.style.gap = '12px';
+
   wrapper.innerHTML = `
-    <div style="display:grid;gap:12px;">
+    <div class="info">
+      <div class="info-title">Teacher Analytics Summary</div>
+      <div class="info-body">
+        Trend: ${escapeHtml(String(trends.trendLabel || '-'))} •
+        Avg Total(last5): ${escapeHtml(formatNumber(trends.avgTotal || 0))} •
+        Avg Planning(last5): ${escapeHtml(formatNumber(trends.avgPlanning || 0))} •
+        Avg Social(last5): ${escapeHtml(formatNumber(trends.avgSocial || 0))}
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
       <div class="info">
-        <div class="info-title">Teacher Analytics Summary</div>
+        <div class="info-title">Weak Families</div>
         <div class="info-body">
-          Trend: ${escapeHtml(String(trends.trendLabel || '-'))} •
-          Avg Total(last5): ${escapeHtml(formatNumber(trends.avgTotal || 0))} •
-          Avg Planning(last5): ${escapeHtml(formatNumber(trends.avgPlanning || 0))} •
-          Avg Social(last5): ${escapeHtml(formatNumber(trends.avgSocial || 0))}
+          ${weak.length
+            ? weak.map((row) => `• ${escapeHtml(row.family)} — mastery ${escapeHtml(formatNumber(row.mastery))}%`).join('<br/>')
+            : '-'}
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
-        <div class="info">
-          <div class="info-title">Weak Families</div>
-          <div class="info-body">
-            ${weak.length
-              ? weak.map((row) => `• ${escapeHtml(row.family)} — mastery ${escapeHtml(formatNumber(row.mastery))}%`).join('<br/>')
-              : '-'}
-          </div>
-        </div>
-
-        <div class="info">
-          <div class="info-title">Strong Families</div>
-          <div class="info-body">
-            ${strong.length
-              ? strong.map((row) => `• ${escapeHtml(row.family)} — mastery ${escapeHtml(formatNumber(row.mastery))}%`).join('<br/>')
-              : '-'}
-          </div>
+      <div class="info">
+        <div class="info-title">Strong Families</div>
+        <div class="info-body">
+          ${strong.length
+            ? strong.map((row) => `• ${escapeHtml(row.family)} — mastery ${escapeHtml(formatNumber(row.mastery))}%`).join('<br/>')
+            : '-'}
         </div>
       </div>
+    </div>
 
-      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
-        ${makeInlineInfo('Latest Streak', progression.latestStreak || 0)}
-        ${makeInlineInfo('Latest Today Runs', progression.latestTodayRuns || 0)}
-        ${makeInlineInfo('Adaptive Support Count', progression.adaptiveSupportCount || 0)}
-      </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
+      ${makeInlineInfo('Latest Streak', progression.latestStreak || 0)}
+      ${makeInlineInfo('Latest Today Runs', progression.latestTodayRuns || 0)}
+      ${makeInlineInfo('Adaptive Support Count', progression.adaptiveSupportCount || 0)}
     </div>
   `;
 
@@ -190,6 +262,36 @@ function renderTable(items) {
     </tbody>
   `;
   refs.tableWrap.appendChild(table);
+}
+
+function buildFilename(bundle, suffix, ext) {
+  const scopeType = bundle?.meta?.scopeType || 'filtered';
+  const scopeValue = String(bundle?.meta?.scopeValue || 'all').replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `hydration-v2-${scopeType}-${scopeValue}-${suffix}.${ext}`;
+}
+
+function injectExportButtonStyle() {
+  if (document.getElementById('hydration-export-style')) return;
+
+  const style = document.createElement('style');
+  style.id = 'hydration-export-style';
+  style.textContent = `
+    .btn-export{
+      min-height:40px;
+      padding:10px 14px;
+      border:none;
+      border-radius:999px;
+      background:linear-gradient(180deg,#4cc9ff,#1ca6df);
+      color:#032033;
+      font:900 13px/1 "Noto Sans Thai",system-ui,sans-serif;
+      cursor:pointer;
+      box-shadow:0 8px 18px rgba(0,0,0,.12);
+    }
+    .btn-export:hover{
+      transform:translateY(-1px);
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 function makeCard(label, value, sub) {
