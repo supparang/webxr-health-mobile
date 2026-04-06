@@ -1,6 +1,6 @@
 // === /fitness/js/balance-hold.js ===
-// Balance Hold — 6 Post Circuit + HHA Flow
-// FULL PATCH v20260406b-balance-hold-hha-cooldown
+// Balance Hold — 6 Post Circuit + HHA Flow + Visual FX
+// FULL PATCH v20260406c-balance-visual-full
 
 (() => {
   'use strict';
@@ -9,9 +9,6 @@
   const D = document;
   const $ = (sel, root = D) => root.querySelector(sel);
 
-  // ---------------------------------------------------------
-  // query helpers
-  // ---------------------------------------------------------
   const qs = new URLSearchParams(location.search);
 
   const q = (k, d = '') => {
@@ -74,14 +71,20 @@
   const elProgress = $('#bhProgress');
   const elOverlay = $('#bhOverlay');
 
+  const elFXLayer = $('#bhFXLayer');
+  const elTargetPulse = $('#bhTargetPulse');
+  const elSuccessFlash = $('#bhSuccessFlash');
+  const elRecoverPop = $('#bhRecoverPop');
+  const elPerfectPop = $('#bhPerfectPop');
+  const elCoachMood = $('#bhCoachMood');
+  const elPostBanner = $('#bhPostBanner');
+  const elStarBurst = $('#bhStarBurst');
+
   if (!root || !arena || !elTarget || !elCursor || !elOverlay) {
     console.error('[BalanceHold] Missing required DOM nodes.');
     return;
   }
 
-  // ---------------------------------------------------------
-  // deterministic rng
-  // ---------------------------------------------------------
   function xmur3(str) {
     let h = 1779033703 ^ str.length;
     for (let i = 0; i < str.length; i++) {
@@ -107,9 +110,6 @@
   const seedFn = xmur3(String(ctx.seed));
   const rand = mulberry32(seedFn());
 
-  // ---------------------------------------------------------
-  // session + logging
-  // ---------------------------------------------------------
   const sessionId = [
     ctx.gameId,
     ctx.pid || 'anon',
@@ -210,9 +210,6 @@
     }
   }
 
-  // ---------------------------------------------------------
-  // HHA summary save
-  // ---------------------------------------------------------
   function saveSummaryPayload(payload) {
     try {
       localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
@@ -227,9 +224,6 @@
     } catch (_) {}
   }
 
-  // ---------------------------------------------------------
-  // config
-  // ---------------------------------------------------------
   function diffCfg(diff) {
     if (diff === 'easy') {
       return {
@@ -283,9 +277,6 @@
   const cfg = diffCfg(ctx.diff);
   const dur = durationCfg(ctx.time);
 
-  // ---------------------------------------------------------
-  // arena geometry
-  // ---------------------------------------------------------
   function getArenaRect() {
     return arena.getBoundingClientRect();
   }
@@ -308,9 +299,6 @@
     return { x: w * px, y: h * py };
   }
 
-  // ---------------------------------------------------------
-  // posts
-  // ---------------------------------------------------------
   function makePosts() {
     const c = centerPos();
 
@@ -402,11 +390,8 @@
 
   let posts = makePosts();
 
-  // ---------------------------------------------------------
-  // game state
-  // ---------------------------------------------------------
   const G = {
-    phase: 'intro', // intro | practice | post-enter | post-active | post-clear | summary
+    phase: 'intro',
     startedAt: 0,
     phaseAt: 0,
     postIndex: -1,
@@ -442,6 +427,13 @@
       tx: 0,
       ty: 0,
       pointerId: null
+    },
+
+    fx: {
+      coachMoodTimer: 0,
+      inZoneStableMs: 0,
+      lastPerfectAt: 0,
+      lastRecoverAt: 0
     }
   };
 
@@ -451,9 +443,6 @@
 
   let postMetric = null;
 
-  // ---------------------------------------------------------
-  // helpers
-  // ---------------------------------------------------------
   function setPhase(phase) {
     G.phase = phase;
     G.phaseAt = nowMs();
@@ -482,9 +471,117 @@
     if (elCoach) elCoach.textContent = text || '';
   }
 
+  function setCoachTextMood(text, mood = 'neutral') {
+    setCoach(text);
+    if (elCoach) {
+      elCoach.classList.remove('is-happy', 'is-warn');
+      if (mood === 'happy') elCoach.classList.add('is-happy');
+      if (mood === 'warn') elCoach.classList.add('is-warn');
+    }
+  }
+
   function updateGhost(post) {
     if (!elGhost) return;
     elGhost.setAttribute('data-ghost', post?.ghost || 'center');
+  }
+
+  function kickClass(el, cls) {
+    if (!el) return;
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+  }
+
+  function setCoachMood(mood = 'neutral', emoji = '') {
+    if (!elCoachMood) return;
+    elCoachMood.setAttribute('data-mood', mood);
+
+    if (emoji) {
+      elCoachMood.textContent = emoji;
+    } else {
+      if (mood === 'happy') elCoachMood.textContent = '😄';
+      else if (mood === 'great') elCoachMood.textContent = '🤩';
+      else if (mood === 'warn') elCoachMood.textContent = '😯';
+      else if (mood === 'sad') elCoachMood.textContent = '🥺';
+      else elCoachMood.textContent = '🙂';
+    }
+
+    kickClass(elCoachMood, 'bh-coach-bounce');
+
+    clearTimeout(G.fx.coachMoodTimer);
+    G.fx.coachMoodTimer = setTimeout(() => {
+      if (elCoachMood) {
+        elCoachMood.setAttribute('data-mood', 'neutral');
+        elCoachMood.textContent = '🙂';
+      }
+    }, 900);
+  }
+
+  function flashSuccess() {
+    kickClass(elSuccessFlash, 'bh-flash-on');
+  }
+
+  function pulseTarget() {
+    kickClass(elTargetPulse, 'bh-pulse-on');
+  }
+
+  function showRecoverPop(text = 'Great!') {
+    if (!elRecoverPop) return;
+    elRecoverPop.textContent = text;
+    kickClass(elRecoverPop, 'bh-pop-show');
+  }
+
+  function showPerfectPop(text = 'Perfect!') {
+    if (!elPerfectPop) return;
+    elPerfectPop.textContent = text;
+    kickClass(elPerfectPop, 'bh-pop-show');
+  }
+
+  function showPostBanner(text = 'POST CLEAR!') {
+    if (!elPostBanner) return;
+    elPostBanner.textContent = text;
+    kickClass(elPostBanner, 'bh-banner-show');
+  }
+
+  function starBurstAt(x, y, count = 8) {
+    if (!elStarBurst) return;
+    elStarBurst.innerHTML = '';
+    elStarBurst.classList.add('bh-star-burst-on');
+
+    for (let i = 0; i < count; i++) {
+      const star = D.createElement('div');
+      star.className = 'star';
+      star.style.left = `${x}px`;
+      star.style.top = `${y}px`;
+
+      const ang = (Math.PI * 2 * i) / count;
+      const radius = 42 + i * 6;
+      const tx = Math.cos(ang) * radius;
+      const ty = Math.sin(ang) * radius - 10;
+
+      star.style.setProperty('--tx', `calc(-50% + ${tx}px)`);
+      star.style.setProperty('--ty', `calc(-50% + ${ty}px)`);
+
+      elStarBurst.appendChild(star);
+      requestAnimationFrame(() => {
+        star.classList.add('burst');
+      });
+    }
+
+    setTimeout(() => {
+      if (elStarBurst) {
+        elStarBurst.classList.remove('bh-star-burst-on');
+        elStarBurst.innerHTML = '';
+      }
+    }, 1050);
+  }
+
+  function celebrateAtTarget(multiplier = 1) {
+    const x = G.cursor.x || centerPos().x;
+    const y = G.cursor.y || centerPos().y;
+    pulseTarget();
+    flashSuccess();
+    starBurstAt(x, y, multiplier >= 3 ? 12 : multiplier === 2 ? 10 : 8);
   }
 
   function updateHUD() {
@@ -635,9 +732,6 @@
     return null;
   }
 
-  // ---------------------------------------------------------
-  // input
-  // ---------------------------------------------------------
   function pointerToArena(e) {
     const r = getArenaRect();
     return {
@@ -683,14 +777,12 @@
   W.addEventListener('pointerup', onPointerUp);
   W.addEventListener('pointercancel', onPointerUp);
 
-  // ---------------------------------------------------------
-  // game flow
-  // ---------------------------------------------------------
   function startPractice() {
     setPhase('practice');
     resetCursor();
     setCue('ลองอยู่ในวงกลาง');
-    setCoach('ฝึก 15 วินาที');
+    setCoachMood('neutral', '🙂');
+    setCoachTextMood('ฝึก 15 วินาที', 'neutral');
     placeEl(elTarget, centerPos().x, centerPos().y, cfg.zoneRadius + 8);
     updateGhost({ ghost: 'center' });
     postMetric = null;
@@ -706,6 +798,7 @@
     G.stepHoldMs = 0;
     G.lastInZone = false;
     G.lastDist = 9999;
+    G.fx.inZoneStableMs = 0;
 
     const post = currentPost();
     if (!post) {
@@ -716,7 +809,8 @@
     postMetric = postMetricsBase(post);
     updateGhost(post);
     setCue(post.cue);
-    setCoach(post.coach);
+    setCoachMood('neutral', '🙂');
+    setCoachTextMood(post.coach, 'neutral');
     setPhase('post-enter');
     updateHUD();
 
@@ -772,7 +866,10 @@
 
     setPhase('post-clear');
     setCue('ผ่านด่าน!');
-    setCoach(`เก่งมาก ได้ ${stars} ดาว`);
+    setCoachMood(stars >= 3 ? 'great' : 'happy', stars >= 3 ? '🤩' : '😄');
+    setCoachTextMood(`เก่งมาก ได้ ${stars} ดาว`, 'happy');
+    showPostBanner(stars >= 3 ? 'AMAZING!' : 'POST CLEAR!');
+    celebrateAtTarget(stars);
     updateHUD();
 
     emitWindowEvent('quest:update', {
@@ -896,9 +993,6 @@
     renderSummary(summary);
   }
 
-  // ---------------------------------------------------------
-  // cooldown / routing
-  // ---------------------------------------------------------
   function buildCooldownUrl() {
     const p = new URLSearchParams();
 
@@ -940,9 +1034,6 @@
     }
   }
 
-  // ---------------------------------------------------------
-  // summary UI
-  // ---------------------------------------------------------
   function renderSummary(summary) {
     const rows = summary.posts.map(p => `
       <div class="bh-sum-row">
@@ -988,6 +1079,10 @@
       </div>
     `);
 
+    flashSuccess();
+    setCoachMood('great', '🥳');
+    showPostBanner('BALANCE COMPLETE!');
+
     const retryBtn = $('#bhRetryBtn', elOverlay);
     const nextBtn = $('#bhNextBtn', elOverlay);
 
@@ -1018,9 +1113,6 @@
     });
   }
 
-  // ---------------------------------------------------------
-  // update cursor motion
-  // ---------------------------------------------------------
   function updateCursor(dt) {
     const inputStrength = G.input.active ? 0.22 : 0.10;
 
@@ -1059,6 +1151,49 @@
     }
   }
 
+  function updateVisualState() {
+    const post = currentPost();
+    const target = post ? getActiveTarget(post) : null;
+    if (!target) {
+      elTarget?.classList.remove('is-in-zone', 'is-warning');
+      elCursor?.classList.remove('is-in-zone', 'is-warning');
+      return;
+    }
+
+    const d = dist(G.cursor.x, G.cursor.y, target.x, target.y);
+    const inZone = d <= target.radius;
+    const nearZone = d <= target.radius * 1.28;
+
+    if (elTarget) {
+      elTarget.classList.toggle('is-in-zone', inZone);
+      elTarget.classList.toggle('is-warning', !inZone && nearZone);
+    }
+
+    if (elCursor) {
+      elCursor.classList.toggle('is-in-zone', inZone);
+      elCursor.classList.toggle('is-warning', !inZone && nearZone);
+    }
+
+    if (inZone) {
+      G.fx.inZoneStableMs += 16;
+    } else {
+      G.fx.inZoneStableMs = 0;
+    }
+
+    if (
+      G.phase === 'post-active' &&
+      inZone &&
+      G.fx.inZoneStableMs > 850 &&
+      nowMs() - G.fx.lastPerfectAt > 1600
+    ) {
+      G.fx.lastPerfectAt = nowMs();
+      kickClass(elTarget, 'bh-target-perfect');
+      showPerfectPop('Perfect!');
+      setCoachMood('great', '🤩');
+      setCoachTextMood('นิ่งมาก! เยี่ยมเลย', 'happy');
+    }
+  }
+
   function updatePostLogic(dt) {
     const post = currentPost();
     if (!post || !postMetric) return;
@@ -1081,7 +1216,8 @@
       postMetric.outCount++;
       G.outCount++;
       failSoft();
-      setCoach('กลับเข้าเป้าอีกนิด');
+      setCoachMood('warn', '😯');
+      setCoachTextMood('กลับเข้าเป้าอีกนิด', 'warn');
 
       logEvent('post_out_zone', {
         post_id: post.id,
@@ -1094,7 +1230,12 @@
       postMetric.recoverCount++;
       G.recoverCount++;
       addScore(12, 'recover');
-      setCoach('ดีมาก กลับเข้าเป้าได้แล้ว');
+      G.fx.lastRecoverAt = nowMs();
+
+      showRecoverPop('Recover!');
+      pulseTarget();
+      setCoachMood('happy', '😄');
+      setCoachTextMood('ดีมาก กลับเข้าเป้าได้แล้ว', 'happy');
 
       logEvent('recover', {
         post_id: post.id,
@@ -1183,9 +1324,6 @@
     placeEl(elCursor, G.cursor.x, G.cursor.y, 14);
   }
 
-  // ---------------------------------------------------------
-  // main loop
-  // ---------------------------------------------------------
   let lastTs = nowMs();
 
   function tick() {
@@ -1224,14 +1362,12 @@
     }
 
     renderArena();
+    updateVisualState();
     updateHUD();
 
     W.requestAnimationFrame(tick);
   }
 
-  // ---------------------------------------------------------
-  // lifecycle hardening
-  // ---------------------------------------------------------
   W.addEventListener('beforeunload', () => {
     flushEventBuffer('beforeunload');
   });
@@ -1246,9 +1382,6 @@
     flushEventBuffer('pagehide');
   });
 
-  // ---------------------------------------------------------
-  // boot
-  // ---------------------------------------------------------
   function boot() {
     posts = makePosts();
 
@@ -1260,7 +1393,8 @@
     resetCursor();
     updateHUD();
     setCue('เตรียมตัว');
-    setCoach('ฝึกการทรงตัว 6 ฐาน');
+    setCoachMood('neutral', '🙂');
+    setCoachTextMood('ฝึกการทรงตัว 6 ฐาน', 'neutral');
 
     logEvent('session_start', {
       session_id: sessionId,
