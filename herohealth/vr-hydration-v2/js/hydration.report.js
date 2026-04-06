@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.report.js ===
-// Hydration V2 Mini Report + Teacher Analytics + Export Bundle
-// PATCH v20260320o-HYDRATION-V2-REPORT-EXPORT
+// Hydration V2 Mini Report + Teacher Analytics + Export Bundle + Multi-PID Comparison
+// PATCH v20260320p-HYDRATION-V2-REPORT-COMPARISON
 
 import { buildTeacherAnalytics } from './hydration.analytics.js';
 import {
@@ -111,6 +111,7 @@ function render(payload, history, summaryHistory) {
 
   renderExportBar(exportBundle);
   renderTeacherAnalytics(analytics);
+  renderComparisonSection(analytics.comparison);
   renderTable(items);
 }
 
@@ -219,6 +220,91 @@ function renderTeacherAnalytics(analytics) {
   `;
 
   refs.tableWrap.parentNode.insertBefore(wrapper, refs.tableWrap);
+}
+
+function renderComparisonSection(comparison = {}) {
+  const rows = Array.isArray(comparison?.rows) ? comparison.rows : [];
+  if (rows.length <= 1) return;
+
+  const topRows = Array.isArray(comparison?.topRows) ? comparison.topRows : [];
+  const supportRows = Array.isArray(comparison?.supportRows) ? comparison.supportRows : [];
+
+  const section = document.createElement('section');
+  section.style.marginTop = '18px';
+  section.style.display = 'grid';
+  section.style.gap = '12px';
+
+  section.innerHTML = `
+    <div class="info">
+      <div class="info-title">Multi-PID Comparison</div>
+      <div class="info-body">
+        เปรียบเทียบหลาย PID ใน scope เดียวกันจากคะแนนเฉลี่ย, streak, boss clear rate และ weak family
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+      <div class="info">
+        <div class="info-title">Top PIDs by Avg Total</div>
+        <div class="info-body">
+          ${topRows.length
+            ? topRows.map((row, idx) =>
+              `${idx + 1}. PID ${escapeHtml(row.pid)} — avg total ${escapeHtml(formatNumber(row.avgTotal))} • streak ${escapeHtml(row.latestStreak)}`
+            ).join('<br/>')
+            : '-'}
+        </div>
+      </div>
+
+      <div class="info">
+        <div class="info-title">PIDs Needing Support</div>
+        <div class="info-body">
+          ${supportRows.length
+            ? supportRows.map((row, idx) =>
+              `${idx + 1}. PID ${escapeHtml(row.pid)} — avg total ${escapeHtml(formatNumber(row.avgTotal))} • weak ${escapeHtml(row.weakFamily || '-')}`
+            ).join('<br/>')
+            : '-'}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const tableBox = document.createElement('div');
+  tableBox.className = 'info';
+  tableBox.innerHTML = `
+    <div class="info-title">PID Comparison Table</div>
+    <div class="info-body" style="overflow:auto;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(0,0,0,.08);">PID</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(0,0,0,.08);">Runs</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(0,0,0,.08);">Avg Total</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(0,0,0,.08);">Avg Planning</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(0,0,0,.08);">Avg Social</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(0,0,0,.08);">Streak</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(0,0,0,.08);">Boss %</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid rgba(0,0,0,.08);">Weak Family</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.slice(0, 12).map((row) => `
+            <tr>
+              <td style="padding:8px;border-bottom:1px solid rgba(0,0,0,.06);">${escapeHtml(row.pid)}</td>
+              <td style="padding:8px;border-bottom:1px solid rgba(0,0,0,.06);">${escapeHtml(row.runs)}</td>
+              <td style="padding:8px;border-bottom:1px solid rgba(0,0,0,.06);">${escapeHtml(formatNumber(row.avgTotal))}</td>
+              <td style="padding:8px;border-bottom:1px solid rgba(0,0,0,.06);">${escapeHtml(formatNumber(row.avgPlanning))}</td>
+              <td style="padding:8px;border-bottom:1px solid rgba(0,0,0,.06);">${escapeHtml(formatNumber(row.avgSocial))}</td>
+              <td style="padding:8px;border-bottom:1px solid rgba(0,0,0,.06);">${escapeHtml(row.latestStreak)}</td>
+              <td style="padding:8px;border-bottom:1px solid rgba(0,0,0,.06);">${escapeHtml(formatNumber(row.bossClearRate))}%</td>
+              <td style="padding:8px;border-bottom:1px solid rgba(0,0,0,.06);">${escapeHtml(row.weakFamily || '-')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  section.appendChild(tableBox);
+  refs.tableWrap.parentNode.insertBefore(section, refs.tableWrap);
 }
 
 function renderTable(items) {
