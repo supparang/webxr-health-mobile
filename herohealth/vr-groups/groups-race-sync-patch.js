@@ -6,7 +6,7 @@
   const qs = new URLSearchParams(location.search);
 
   const isRace = qs.get('mode') === 'race' || qs.get('race') === '1';
-  const roomCode = cleanRoom(qs.get('roomCode') || '');
+  const roomCode = cleanRoom(qs.get('roomCode') || qs.get('code') || '');
   if (!isRace || !roomCode) return;
 
   const ROOT_PATH = 'hha-battle/groups/raceRooms';
@@ -38,7 +38,6 @@
     ),
     isHost: qs.get('isHost') === '1',
     room: null,
-    ui: null,
     ended: false,
     lastPayloadHash: '',
     mount: null
@@ -231,6 +230,7 @@
     }
 
     renderBoard(true);
+
     if (state.pushTimer) W.clearInterval(state.pushTimer);
     if (state.endTimer) W.clearInterval(state.endTimer);
   }
@@ -311,7 +311,7 @@
         playerId: String(p.playerId || key),
         name: cleanText(p.name || 'Player', 24),
         presence: String(p.presence || 'lobby'),
-        isHost: !!p.isHost || key === room.ownerPlayerId,
+        isHost: !!p.isHost || key === room?.ownerPlayerId,
         joinedAt: num(p.joinedAt, 0),
         finishedAt: num(p.finishedAt, 0),
         active,
@@ -371,7 +371,7 @@
   }
 
   function detectSummaryVisible() {
-    const candidates = $$('.summary, .summary-card, .result-overlay, .end-overlay, .final-summary, [data-summary], [data-role="summary"]');
+    const candidates = $$('.summary, .summary-card, .result-overlay, .end-overlay, .final-summary, [data-summary], [data-role="summary"], #summaryOverlay');
     return candidates.some((el) => {
       const r = el.getBoundingClientRect();
       const s = getComputedStyle(el);
@@ -422,9 +422,7 @@
       if (!parent) continue;
       const text = cleanInlineText(parent.innerText || '');
       const m = text.match(/(\d+)\s*\/\s*(\d+)/);
-      if (m) {
-        return { done: Number(m[1]), total: Number(m[2]) };
-      }
+      if (m) return { done: Number(m[1]), total: Number(m[2]) };
     }
 
     const m = D.body.innerText.match(/(\d+)\s*\/\s*(\d+)/);
@@ -446,7 +444,7 @@
   }
 
   function readPhaseText() {
-    const cands = $$('.stage-badge, .phase-badge, .mode-badge, .practice-badge, .mission-stage');
+    const cands = $$('.stage-badge, .phase-badge, .mode-badge, .practice-badge, .mission-stage, #phaseTag');
     for (const el of cands) {
       const txt = cleanText(el.textContent || '', 40);
       if (txt) return txt;
@@ -472,7 +470,7 @@
       const card = el.closest('div,section,article') || el.parentElement;
       if (!card) continue;
 
-      const texts = $$( '*', card )
+      const texts = $$('*', card)
         .map((n) => cleanInlineText(n.textContent || ''))
         .filter(Boolean);
 
