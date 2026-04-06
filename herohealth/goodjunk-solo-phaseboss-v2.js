@@ -579,6 +579,8 @@
 
         .gjsb-item{
           position:absolute;
+          left:0;
+          top:0;
           display:grid;
           place-items:center;
           border:none;
@@ -590,6 +592,7 @@
           color:#222;
           user-select:none;
           -webkit-user-select:none;
+          will-change:left,top;
         }
 
         .gjsb-item.good{ background:linear-gradient(180deg,#f7fff1,#ffffff); }
@@ -624,8 +627,14 @@
         }
 
         @keyframes gjsbPulse{
-          0%,100%{ transform:scale(1); }
-          50%{ transform:scale(1.06); }
+          0%,100%{
+            box-shadow:0 10px 22px rgba(86,155,194,.18);
+            filter:brightness(1);
+          }
+          50%{
+            box-shadow:0 0 0 4px rgba(255,224,138,.22), 0 10px 22px rgba(86,155,194,.18);
+            filter:brightness(1.06);
+          }
         }
 
         .gjsb-fx{
@@ -1032,7 +1041,8 @@
     }
 
     function drawItem(item) {
-      item.el.style.transform = 'translate(' + item.x + 'px,' + item.y + 'px)';
+      item.el.style.left = item.x + 'px';
+      item.el.style.top = item.y + 'px';
     }
 
     function createItem(kind, emoji, x, y, size, vx, vy, label) {
@@ -1083,7 +1093,7 @@
     function spawnFood(phase) {
       const r = stageRect();
       const phase2 = phase === 2;
-      const goodRatio = phase2 ? 0.58 : 0.70;
+      const goodRatio = phase2 ? 0.70 : 0.78;
       const isGood = rand() < goodRatio;
       const size = phase2 ? range(52, 78) : range(58, 86);
       const x = range(10, Math.max(12, r.width - size - 10));
@@ -1110,8 +1120,13 @@
         stageKey === 'C' ? 66 :
         58;
 
-      const x = clamp(range(120, r.width - size - 120), 30, r.width - size - 30);
-      const y = clamp(range(140, r.height * 0.54), 120, r.height - size - 140);
+      const minX = Math.max(80, r.width * 0.18);
+      const maxX = Math.max(minX + 30, r.width - size - 80);
+      const minY = Math.max(118, r.height * 0.22);
+      const maxY = Math.max(minY + 30, r.height * 0.54);
+
+      const x = clamp(range(minX, maxX), minX, maxX);
+      const y = clamp(range(minY, maxY), minY, maxY);
 
       const speed =
         stageKey === 'A' ? 110 :
@@ -1131,6 +1146,16 @@
       );
 
       state.boss.weakId = item.id;
+
+      if (DEBUG) {
+        console.log('[GJSB weak spawn]', {
+          x: item.x,
+          y: item.y,
+          size: item.size,
+          stage: state.boss.stage,
+          rage: state.boss.rage
+        });
+      }
     }
 
     function spawnStorm() {
@@ -1314,7 +1339,7 @@
         item.vx = -Math.abs(item.vx);
       }
 
-      const minY = 128;
+      const minY = Math.max(118, r.height * 0.22);
       const maxY = Math.max(minY + 10, r.height - item.size - 160);
       item.y = clamp(item.y, minY, maxY);
 
@@ -1523,6 +1548,10 @@
       u.searchParams.set('view', ctx.view || 'mobile');
       u.searchParams.set('run', ctx.run || 'play');
       u.searchParams.set('forcegate', '1');
+      u.searchParams.set('mode', 'solo');
+      u.searchParams.set('entry', 'solo-boss');
+      u.searchParams.set('phaseBoss', '1');
+      u.searchParams.set('boss', '1');
       if (DEBUG) u.searchParams.set('debug', '1');
       return u.toString();
     }
