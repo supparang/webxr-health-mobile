@@ -18,7 +18,7 @@
   }
 
   function safeJson(x) {
-    try { return JSON.stringify(x); } catch { return '{}'; }
+    try { return JSON.stringify(x); } catch { return '[]'; }
   }
 
   async function postJson(url, body, keepalive) {
@@ -28,15 +28,17 @@
       body: JSON.stringify(body),
       keepalive: !!keepalive
     });
+
     const txt = await res.text();
-    try { return JSON.parse(txt); } catch { return { ok: res.ok, raw: txt }; }
+    try { return JSON.parse(txt); }
+    catch { return { ok: res.ok, raw: txt, status: res.status }; }
   }
 
   class HeroHealthLogger {
     constructor(opts) {
       opts = opts || {};
-      this.endpoint = opts.endpoint || W.HHA_APPS_SCRIPT_URL || '';
-      this.secret = opts.secret || W.HHA_INGEST_SECRET || '';
+      this.endpoint = String(opts.endpoint || W.HHA_APPS_SCRIPT_URL || '').trim();
+      this.secret = String(opts.secret || W.HHA_INGEST_SECRET || '').trim();
       this.flushEvery = Number(opts.flushEvery || 25);
       this.flushMs = Number(opts.flushMs || 8000);
       this.storageKey = opts.storageKey || 'HHA_PENDING_EVENTS';
@@ -45,6 +47,7 @@
       this.queue = [];
       this.timer = null;
       this.appVersion = opts.appVersion || W.HHA_APP_VERSION || 'dev';
+      this.disabledReason = '';
       this.base = Object.assign({
         pid: 'anon',
         uid: '',
@@ -77,6 +80,15 @@
       Object.assign(this.base, patch || {});
     }
 
+    setEndpoint(endpoint) {
+      this.endpoint = String(endpoint || '').trim();
+      return this.endpoint;
+    }
+
+    isEnabled() {
+      return !!this.endpoint;
+    }
+
     startSession(patch) {
       const started = nowMs();
       const base = Object.assign({}, this.base, patch || {});
@@ -105,7 +117,7 @@
         type: 'session_start',
         row: this.session,
         secret: this.secret
-      });
+      }).catch(() => {});
 
       return this.session;
     }
@@ -155,14 +167,22 @@
       this.persistPending_();
 
       if (this.queue.length >= this.flushEvery) {
-        this.flush('size');
+        this.flush('size').catch(() => {});
       }
 
       return row;
     }
 
     async flush(reason) {
-      if (!this.endpoint || !this.queue.length) return { ok: true, skipped: true };
+      if (!this.queue.length) {
+        return { ok: true, skipped: true, reason: 'empty_queue' };
+      }
+
+      if (!this.endpoint) {
+        this.disabledReason = 'missing_endpoint';
+        console.warn('[HeroHealthLogger] missing Apps Script endpoint, skip flush');
+        return { ok: false, skipped: true, error: 'missing_endpoint' };
+      }
 
       const rows = this.queue.slice();
       try {
@@ -172,14 +192,20 @@
           reason: reason || 'manual',
           secret: this.secret
         });
+
         if (out && out.ok) {
           this.queue.splice(0, rows.length);
           this.persistPending_();
         }
+
         return out;
       } catch (err) {
         this.persistPending_();
-        return { ok: false, error: err && err.message ? err.message : String(err) };
+        return {
+          ok: false,
+          skipped: true,
+          error: err && err.message ? err.message : String(err)
+        };
       }
     }
 
@@ -187,7 +213,7 @@
       summary = summary || {};
       if (!this.session) return { ok: false, error: 'no_session' };
 
-      await this.flush('before_end');
+      await this.flush('before_end').catch(() => ({ ok: false, skipped: true }));
 
       const ended = nowMs();
       const row = Object.assign({}, this.session, summary, {
@@ -199,7 +225,11 @@
         type: 'session_end',
         row,
         secret: this.secret
-      });
+      }).catch((err) => ({
+        ok: false,
+        skipped: true,
+        error: err && err.message ? err.message : String(err)
+      }));
 
       this.stopTimer_();
       this.session = null;
@@ -208,12 +238,17 @@
 
     async modeResults(rows) {
       rows = Array.isArray(rows) ? rows : [];
-      if (!rows.length) return { ok: true, skipped: true };
+      if (!rows.length) return { ok: true, skipped: true, reason: 'empty_rows' };
+
       return this.send_({
         type: 'mode_results_batch',
         rows,
         secret: this.secret
-      });
+      }).catch((err) => ({
+        ok: false,
+        skipped: true,
+        error: err && err.message ? err.message : String(err)
+      }));
     }
 
     async roomAudit(action, detail) {
@@ -230,11 +265,16 @@
         ts_ms: nowMs(),
         ts_iso: nowIso()
       };
+
       return this.send_({
         type: 'room_audit_batch',
         rows: [row],
         secret: this.secret
-      });
+      }).catch((err) => ({
+        ok: false,
+        skipped: true,
+        error: err && err.message ? err.message : String(err)
+      }));
     }
 
     async error(err, extra) {
@@ -254,11 +294,16 @@
         ts_ms: nowMs(),
         ts_iso: nowIso()
       };
+
       return this.send_({
         type: 'error_batch',
         rows: [row],
         secret: this.secret
-      });
+      }).catch((sendErr) => ({
+        ok: false,
+        skipped: true,
+        error: sendErr && sendErr.message ? sendErr.message : String(sendErr)
+      }));
     }
 
     async profileUpsert(row) {
@@ -266,7 +311,11 @@
         type: 'profile_upsert',
         row,
         secret: this.secret
-      });
+      }).catch((err) => ({
+        ok: false,
+        skipped: true,
+        error: err && err.message ? err.message : String(err)
+      }));
     }
 
     async dryRun() {
@@ -275,18 +324,39 @@
         rows: [],
         dry_run: true,
         secret: this.secret
-      });
+      }).catch((err) => ({
+        ok: false,
+        skipped: true,
+        error: err && err.message ? err.message : String(err)
+      }));
     }
 
     async send_(body) {
-      if (!this.endpoint) throw new Error('Missing Apps Script endpoint');
-      return postJson(this.endpoint, body, false);
+      if (!this.endpoint) {
+        this.disabledReason = 'missing_endpoint';
+        console.warn('[HeroHealthLogger] missing Apps Script endpoint, skip log:', body && body.type);
+        return { ok: false, skipped: true, error: 'missing_endpoint' };
+      }
+
+      try {
+        const out = await postJson(this.endpoint, body, false);
+        return out && typeof out === 'object'
+          ? out
+          : { ok: true, raw: out };
+      } catch (err) {
+        console.warn('[HeroHealthLogger] send failed:', err && err.message ? err.message : err);
+        return {
+          ok: false,
+          skipped: true,
+          error: err && err.message ? err.message : String(err)
+        };
+      }
     }
 
     startTimer_() {
       this.stopTimer_();
       this.timer = setInterval(() => {
-        this.flush('interval');
+        this.flush('interval').catch(() => {});
       }, this.flushMs);
     }
 
