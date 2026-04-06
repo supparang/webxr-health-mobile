@@ -31,6 +31,10 @@
       border-radius:16px; background:#7fcfff; color:#163850;
       font-size:17px; font-weight:800; cursor:pointer;
     }
+    button[disabled]{
+      opacity:.72;
+      cursor:default;
+    }
   </style>
 </head>
 <body>
@@ -48,14 +52,18 @@
   (function(){
     'use strict';
 
+    let navBusy = false;
+
     function qs(name, fallback=''){
       try{ return new URL(location.href).searchParams.get(name) ?? fallback; }
       catch(_){ return fallback; }
     }
+
     function clean(v, d=''){
       v = String(v ?? '').trim();
       return v || d;
     }
+
     function bangkokYmd(){
       try{
         const parts = new Intl.DateTimeFormat('en-CA',{
@@ -69,25 +77,39 @@
         return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
       }
     }
+
     function getCtx(){
       return {
         pid: clean(qs('pid'),'anon'),
-        name: clean(qs('name'),''),
+        name: clean(qs('name'), clean(qs('nickName'), '')),
         studyId: clean(qs('studyId'),''),
         diff: clean(qs('diff'),'normal'),
         time: clean(qs('time'),'90'),
         seed: clean(qs('seed'), String(Date.now())),
-        hub: clean(qs('hub'), '/webxr-health-mobile/herohealth/hub.html'),
+        hub: clean(qs('hub'), new URL('./hub-v2.html', location.href).toString()),
         view: clean(qs('view'),'mobile'),
         run: clean(qs('run'),'play'),
         zone: clean(qs('zone'),'nutrition'),
+        cat: clean(qs('cat'),'nutrition'),
         game: clean(qs('game'),'plate'),
-        mode: clean(qs('mode'),'solo')
+        gameId: clean(qs('gameId'), clean(qs('game'),'plate')),
+        mode: clean(qs('mode'),'solo'),
+        theme: clean(qs('theme'),''),
+        debug: clean(qs('debug'),''),
+        api: clean(qs('api'),''),
+        log: clean(qs('log'),''),
+        studentKey: clean(qs('studentKey'),''),
+        schoolCode: clean(qs('schoolCode'),''),
+        classRoom: clean(qs('classRoom'),''),
+        studentNo: clean(qs('studentNo'),''),
+        conditionGroup: clean(qs('conditionGroup'),'')
       };
     }
+
     function gateKey(phase, ctx){
       return `HHA_GATE_${phase.toUpperCase()}_${ctx.pid}_${ctx.game}_${ctx.mode}_${bangkokYmd()}`;
     }
+
     function setGateDone(phase, ctx){
       try{
         localStorage.setItem(gateKey(phase, ctx), '1');
@@ -96,12 +118,15 @@
           iso: new Date().toISOString(),
           pid: ctx.pid,
           game: ctx.game,
-          mode: ctx.mode
+          gameId: ctx.gameId,
+          mode: ctx.mode,
+          phase
         }));
       }catch(_){}
     }
+
     function withPassthrough(path, ctx, extra={}){
-      const u = new URL(path, location.origin);
+      const u = new URL(path, location.href);
       const payload = {
         pid: ctx.pid,
         name: ctx.name,
@@ -113,15 +138,28 @@
         view: ctx.view,
         run: ctx.run,
         zone: ctx.zone,
+        cat: ctx.cat,
         game: ctx.game,
+        gameId: ctx.gameId,
         mode: ctx.mode,
+        theme: ctx.theme,
+        debug: ctx.debug,
+        api: ctx.api,
+        log: ctx.log,
+        studentKey: ctx.studentKey,
+        schoolCode: ctx.schoolCode,
+        classRoom: ctx.classRoom,
+        studentNo: ctx.studentNo,
+        conditionGroup: ctx.conditionGroup,
         ...extra
       };
+
       for(const [k,v] of Object.entries(payload)){
         if(v !== '' && v != null) u.searchParams.set(k, String(v));
       }
       return u.toString();
     }
+
     function safeFlushLogs(){
       try{
         if(window.HHA_LOGGER && typeof window.HHA_LOGGER.flush === 'function'){
@@ -130,9 +168,35 @@
       }catch(_){}
     }
 
+    function resolveAfterGateUrl(phase, ctx, next){
+      if(phase === 'warmup' && next) {
+        return withPassthrough(next, ctx);
+      }
+      return ctx.hub || new URL('./hub-v2.html', location.href).toString();
+    }
+
+    function buildLauncherUrl(ctx){
+      const launcherGuess =
+        ctx.game === 'goodjunk' || ctx.gameId === 'goodjunk'
+          ? './goodjunk-launcher.html'
+          : ctx.game === 'plate' || ctx.gameId === 'plate'
+            ? './plate-v1.html'
+            : './hub-v2.html';
+
+      return withPassthrough(launcherGuess, ctx);
+    }
+
+    function goOnce(url){
+      if(navBusy) return;
+      navBusy = true;
+      const btn = document.getElementById('btnContinue');
+      if(btn) btn.disabled = true;
+      location.href = url;
+    }
+
     const ctx = getCtx();
     const phase = clean(qs('phase'), 'warmup');
-    const next = clean(qs('next'), '/webxr-health-mobile/herohealth/plate/plate-vr.html');
+    const next = clean(qs('next'), '');
 
     const $title = document.getElementById('title');
     const $desc = document.getElementById('desc');
@@ -158,16 +222,44 @@
     }
 
     function finishGate(){
+      safeFlushLogs();
+
       if(phase === 'cooldown'){
         setGateDone('cooldown', ctx);
-        safeFlushLogs();
-        location.href = ctx.hub || '/webxr-health-mobile/herohealth/hub.html';
+        goOnce(resolveAfterGateUrl('cooldown', ctx, next));
         return;
       }
 
       setGateDone('warmup', ctx);
-      location.href = withPassthrough(next, ctx);
+      goOnce(resolveAfterGateUrl('warmup', ctx, next));
     }
+
+    window.__resolveAfterGateUrl__ = function(){
+      return resolveAfterGateUrl(phase, ctx, next);
+    };
+
+    window.__goAfterGateDone__ = function(){
+      finishGate();
+    };
+
+    window.__goBackToLauncher__ = function(){
+      goOnce(buildLauncherUrl(ctx));
+    };
+
+    window.addEventListener('pageshow', function(){
+      navBusy = false;
+      if($btn) $btn.disabled = false;
+    });
+
+    window.addEventListener('error', function(){
+      navBusy = false;
+      if($btn) $btn.disabled = false;
+    });
+
+    window.addEventListener('unhandledrejection', function(){
+      navBusy = false;
+      if($btn) $btn.disabled = false;
+    });
 
     renderPhase();
     $btn?.addEventListener('click', finishGate);
