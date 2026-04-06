@@ -6,7 +6,7 @@
   const qs = new URLSearchParams(location.search);
 
   const isRace = qs.get('mode') === 'race' || qs.get('race') === '1';
-  const roomCode = cleanRoom(qs.get('roomCode') || '');
+  const roomCode = cleanRoom(qs.get('roomCode') || qs.get('code') || '');
   if (!isRace || !roomCode) return;
 
   const ROOT_PATH = 'hha-battle/groups/raceRooms';
@@ -263,11 +263,17 @@
           rematchToken: token,
           rematchRequestedAt: now(),
           rematchBy: state.playerId,
+          raceBarrierAt: null,
+          startedAt: null,
+          endedAt: null,
           updatedAt: now()
         };
 
         Object.keys(playersMap).forEach((key) => {
           updates[`players/${key}/presence`] = 'lobby';
+          updates[`players/${key}/readyToRun`] = false;
+          updates[`players/${key}/readyAt`] = null;
+          updates[`players/${key}/releasedAt`] = null;
           updates[`players/${key}/live`] = null;
           updates[`players/${key}/result`] = null;
           updates[`players/${key}/finishedAt`] = null;
@@ -322,7 +328,7 @@
   }
 
   function findVisibleSummary() {
-    const candidates = $$('.summary, .summary-card, .result-overlay, .end-overlay, .final-summary, [data-summary], [data-role="summary"]');
+    const candidates = $$('.summary, .summary-card, .result-overlay, .end-overlay, .final-summary, [data-summary], [data-role="summary"], #summaryOverlay');
     return candidates.find((el) => {
       const r = el.getBoundingClientRect();
       const s = getComputedStyle(el);
