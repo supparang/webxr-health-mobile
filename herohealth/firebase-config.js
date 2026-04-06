@@ -1,6 +1,7 @@
 /* /herohealth/firebase-config.js
    Firebase compat bootstrap - FINAL MATCHED
    For HeroHealth run pages using window.firebase + anonymous auth
+   + expose Apps Script endpoint for HeroHealth logger
 */
 (function () {
   'use strict';
@@ -18,6 +19,14 @@
     measurementId: "G-T5J8DC0BKD"
   };
 
+  // ===== HeroHealth Apps Script ingest =====
+  // ใส่ endpoint จริงของคุณตรงนี้
+  const APPS_SCRIPT_URL =
+    "https://script.google.com/macros/s/AKfycbxkMfe1Bm5RNsK8Se6VH5n7sUuXr0CVJTARZROhx_CbimrpJKKQzvTtzOpKbPGYPtaDVw/exec";
+
+  // ถ้ายังไม่ได้ใช้ secret ให้ปล่อยว่างได้
+  const INGEST_SECRET = "";
+
   let authReadyPromise = null;
   let anonAuthPromise = null;
 
@@ -26,6 +35,10 @@
     W.__HHA_FIREBASE_CONFIG__ = CONFIG;
     W.HEROHEALTH_FIREBASE_CONFIG = CONFIG;
     W.FIREBASE_CONFIG = CONFIG;
+
+    // expose Apps Script endpoint ให้ logger ใช้
+    W.HHA_APPS_SCRIPT_URL = APPS_SCRIPT_URL;
+    W.HHA_INGEST_SECRET = INGEST_SECRET;
   }
 
   function getFirebase() {
@@ -231,4 +244,5 @@
   bootstrapCompat();
 
   console.log('[firebase-config] ready =', !!W.HHA_FIREBASE_READY);
+  console.log('[firebase-config] appsScript =', W.HHA_APPS_SCRIPT_URL || '(missing)');
 })();
