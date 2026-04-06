@@ -1,6 +1,8 @@
 // === /herohealth/vr-hydration-v2/js/hydration.report.js ===
-// Hydration V2 Mini Report
-// PATCH v20260317i-HYDRATION-V2-REPORT
+// Hydration V2 Mini Report + Teacher Analytics
+// PATCH v20260320n-HYDRATION-V2-REPORT-ANALYTICS
+
+import { buildTeacherAnalytics } from './hydration.analytics.js';
 
 const refs = {
   reportTitle: document.getElementById('reportTitle'),
@@ -17,10 +19,12 @@ const refs = {
 boot();
 
 function boot() {
-  refs.backBtn.addEventListener('click', () => history.back());
-  refs.printBtn.addEventListener('click', () => window.print());
+  refs.backBtn?.addEventListener('click', () => history.back());
+  refs.printBtn?.addEventListener('click', () => window.print());
 
   const payload = readJson('HHA_HYDRATION_V2_REPORT_SOURCE', null);
+  const history = readJson('HHA_HYDRATION_V2_RESEARCH_HISTORY', []);
+  const summaryHistory = readJson('HHA_SUMMARY_HISTORY', []);
 
   if (!payload || !Array.isArray(payload.items) || !payload.items.length) {
     refs.reportTitle.textContent = 'ยังไม่มีข้อมูลรายงาน';
@@ -29,15 +33,22 @@ function boot() {
     return;
   }
 
-  render(payload);
+  render(payload, history, summaryHistory);
 }
 
-function render(payload) {
+function render(payload, history, summaryHistory) {
   const items = payload.items || [];
   const summary = payload.summary || {};
   const highlights = payload.highlights || {};
   const scopeType = payload.scopeType || 'filtered';
   const scopeValue = payload.scopeValue || 'all';
+
+  const analytics = buildTeacherAnalytics({
+    payload,
+    history,
+    summaryHistory,
+    localStorageRef: window.localStorage
+  });
 
   refs.reportTitle.textContent =
     scopeType === 'pid'
@@ -56,14 +67,7 @@ function render(payload) {
     ['Avg Total', formatNumber(summary.avgTotal || 0), 'คะแนนรวมเฉลี่ย'],
     ['Pass Rate', `${formatNumber(summary.passRate || 0)}%`, 'อัตราผ่าน team mission']
   ].forEach(([label, value, sub]) => {
-    const el = document.createElement('article');
-    el.className = 'card';
-    el.innerHTML = `
-      <div class="label">${escapeHtml(label)}</div>
-      <div class="value">${escapeHtml(String(value))}</div>
-      <div class="sub">${escapeHtml(sub)}</div>
-    `;
-    refs.statsGrid.appendChild(el);
+    refs.statsGrid.appendChild(makeCard(label, value, sub));
   });
 
   refs.summaryGrid.innerHTML = '';
@@ -83,12 +87,66 @@ function render(payload) {
     ['Best Total', highlights.bestTotal || '-'],
     ['Best Planning', highlights.bestPlanning || '-'],
     ['Best Social', highlights.bestSocial || '-'],
-    ['Recent Trend', highlights.recentTrend || '-']
+    ['Recent Trend', highlights.recentTrend || '-'],
+    ['Teacher Recommendation', analytics.recommendation || '-'],
+    ['Boss Clear Rate', `${formatNumber(analytics.progression?.bossClearRate || 0)}%`]
   ].forEach(([title, body]) => {
     refs.highlightGrid.appendChild(makeInfo(title, body));
   });
 
+  renderTeacherAnalytics(analytics);
   renderTable(items);
+}
+
+function renderTeacherAnalytics(analytics) {
+  const weak = analytics.memoryStats?.weakFamilies || [];
+  const strong = analytics.memoryStats?.strongFamilies || [];
+  const trends = analytics.trends || {};
+  const progression = analytics.progression || {};
+
+  const wrapper = document.createElement('section');
+  wrapper.style.marginTop = '18px';
+  wrapper.innerHTML = `
+    <div style="display:grid;gap:12px;">
+      <div class="info">
+        <div class="info-title">Teacher Analytics Summary</div>
+        <div class="info-body">
+          Trend: ${escapeHtml(String(trends.trendLabel || '-'))} •
+          Avg Total(last5): ${escapeHtml(formatNumber(trends.avgTotal || 0))} •
+          Avg Planning(last5): ${escapeHtml(formatNumber(trends.avgPlanning || 0))} •
+          Avg Social(last5): ${escapeHtml(formatNumber(trends.avgSocial || 0))}
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+        <div class="info">
+          <div class="info-title">Weak Families</div>
+          <div class="info-body">
+            ${weak.length
+              ? weak.map((row) => `• ${escapeHtml(row.family)} — mastery ${escapeHtml(formatNumber(row.mastery))}%`).join('<br/>')
+              : '-'}
+          </div>
+        </div>
+
+        <div class="info">
+          <div class="info-title">Strong Families</div>
+          <div class="info-body">
+            ${strong.length
+              ? strong.map((row) => `• ${escapeHtml(row.family)} — mastery ${escapeHtml(formatNumber(row.mastery))}%`).join('<br/>')
+              : '-'}
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
+        ${makeInlineInfo('Latest Streak', progression.latestStreak || 0)}
+        ${makeInlineInfo('Latest Today Runs', progression.latestTodayRuns || 0)}
+        ${makeInlineInfo('Adaptive Support Count', progression.adaptiveSupportCount || 0)}
+      </div>
+    </div>
+  `;
+
+  refs.tableWrap.parentNode.insertBefore(wrapper, refs.tableWrap);
 }
 
 function renderTable(items) {
@@ -134,6 +192,17 @@ function renderTable(items) {
   refs.tableWrap.appendChild(table);
 }
 
+function makeCard(label, value, sub) {
+  const el = document.createElement('article');
+  el.className = 'card';
+  el.innerHTML = `
+    <div class="label">${escapeHtml(label)}</div>
+    <div class="value">${escapeHtml(String(value))}</div>
+    <div class="sub">${escapeHtml(sub)}</div>
+  `;
+  return el;
+}
+
 function makeInfo(title, body) {
   const el = document.createElement('div');
   el.className = 'info';
@@ -142,6 +211,15 @@ function makeInfo(title, body) {
     <div class="info-body">${escapeHtml(String(body ?? '-'))}</div>
   `;
   return el;
+}
+
+function makeInlineInfo(title, body) {
+  return `
+    <div class="info">
+      <div class="info-title">${escapeHtml(title)}</div>
+      <div class="info-body">${escapeHtml(String(body ?? '-'))}</div>
+    </div>
+  `;
 }
 
 function readJson(key, fallback) {
