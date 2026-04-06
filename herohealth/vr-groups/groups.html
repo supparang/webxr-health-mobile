@@ -1163,8 +1163,14 @@
     </section>
   </main>
 
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js"></script>
+  <script src="../firebase-init.js"></script>
+
   <script type="module">
-    const PATCH = 'v20260404-groups-shell-mobilefix-r2';
+    const PATCH = 'v20260406-groups-shell-race-ready-r1';
 
     const q = new URL(location.href).searchParams;
 
@@ -1222,17 +1228,26 @@
       introDesc: document.getElementById('introDesc')
     };
 
+    const MODE = oneOf(q.get('mode'), ['solo','race'], 'solo');
+    const IS_RACE = MODE === 'race' || q.get('race') === '1';
+
     const CTX = {
       pid: cleanPid(q.get('pid') || 'anon'),
       name: cleanName(q.get('name') || q.get('nick') || 'Rocky'),
       studyId: String(q.get('studyId') || '').trim(),
       diff: oneOf(q.get('diff'), ['easy','normal','hard'], 'normal'),
-      timeSec: clampInt(q.get('time'), 80, 30, 180),
+      timeSec: clampInt(q.get('time') || q.get('timeSec'), 80, 30, 180),
       seed: String(q.get('seed') || Date.now()),
       hub: q.get('hub') || new URL('../hub.html', location.href).toString(),
       view: oneOf(q.get('view'), ['pc','mobile','cvr','vr'], 'mobile'),
       run: oneOf(q.get('run'), ['play','research','demo'], 'play'),
-      mode: 'solo',
+      mode: IS_RACE ? 'race' : 'solo',
+      race: IS_RACE,
+      roomCode: String(q.get('roomCode') || q.get('code') || '').trim().toUpperCase(),
+      isHost: q.get('isHost') === '1',
+      hostPlayerId: String(q.get('hostPlayerId') || ''),
+      hostName: String(q.get('hostName') || ''),
+      players: clampInt(q.get('players'), 1, 1, 8),
       game: 'groups',
       gameId: 'groups',
       zone: 'nutrition',
@@ -1277,10 +1292,54 @@
       }
     }
 
-    // ซ่อนปุ่ม recenter ด้านบนใน mobile และใน vr/cvr
     if (ui.btnRecenter && (CTX.view !== 'pc')) {
       ui.btnRecenter.style.display = 'none';
     }
+
+    function loadClassicScript(src){
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = false;
+        s.onload = () => resolve(src);
+        s.onerror = () => reject(new Error(`load script failed: ${src}`));
+        document.body.appendChild(s);
+      });
+    }
+
+    function applyModeUi(){
+      const brandTitleEl = document.querySelector('.brand h1');
+
+      if (CTX.mode === 'race') {
+        document.title = 'HeroHealth • Food Groups Race';
+        if (brandTitleEl) brandTitleEl.textContent = 'Food Groups Race';
+        if (ui.phaseTag) ui.phaseTag.textContent = 'Race';
+        if (ui.goalTag) ui.goalTag.textContent = '🏁 Multiplayer Race';
+        if (ui.goalTitle) ui.goalTitle.textContent = 'แตะอาหารให้ถูกหมู่ เร็วและแม่นที่สุด';
+        if (ui.goalSub) ui.goalSub.textContent = 'เริ่มพร้อมกันทุกเครื่อง แล้วสรุปอันดับท้ายเกม';
+        if (ui.introTitle) ui.introTitle.textContent = 'กำลังเตรียมแข่งแบบ Race';
+        if (ui.introDesc) {
+          ui.introDesc.textContent =
+            'รอผู้เล่นทุกเครื่องเข้าพร้อมกัน แล้วระบบจะนับถอยหลังเพื่อปล่อยแข่งพร้อมกัน';
+        }
+        if (ui.btnStartPractice) ui.btnStartPractice.style.display = 'none';
+        if (ui.btnStartMain) ui.btnStartMain.style.display = 'none';
+        if (ui.introOverlay) ui.introOverlay.classList.add('show');
+        if (ui.midOverlay) ui.midOverlay.classList.remove('show');
+      } else {
+        document.title = 'HeroHealth • Food Groups Solo';
+        if (brandTitleEl) brandTitleEl.textContent = 'Food Groups Solo';
+      }
+
+      if (ui.ctxLine) {
+        ui.ctxLine.textContent =
+          `run=${CTX.run} • mode=${CTX.mode} • diff=${CTX.diff} • time=${CTX.timeSec} • view=${CTX.view}`;
+      }
+
+      if (ui.chipPlayer) ui.chipPlayer.textContent = CTX.name || CTX.pid;
+    }
+
+    applyModeUi();
 
     try {
       const [
@@ -1321,14 +1380,23 @@
         logger,
         ai,
         options: {
-          patch: PATCH
+          patch: PATCH,
+          mode: CTX.mode
         }
       });
 
       window.__GROUPS_CORE__ = core;
       core.boot();
 
-      // โหลด vr-ui เฉพาะ cvr / vr
+      if (CTX.mode === 'race') {
+        await loadClassicScript('./groups-race-ui-patch.js');
+        await loadClassicScript('./groups-race-sync-patch.js');
+        await loadClassicScript('./groups-race-guard-patch.js');
+        await loadClassicScript('./groups-race-end-patch.js');
+        await loadClassicScript('./groups-race-startbarrier-patch.js');
+        await loadClassicScript('./groups-race-winner-patch.js');
+      }
+
       if (CTX.view === 'cvr' || CTX.view === 'vr') {
         const s = document.createElement('script');
         s.src = '../vr/vr-ui.js';
@@ -1337,7 +1405,7 @@
       }
 
     } catch (err) {
-      console.error('[GroupsSolo] boot failed:', err);
+      console.error('[GroupsRun] boot failed:', err);
       showBootError(err);
     }
 
@@ -1355,13 +1423,16 @@
       }
       if (ui.introDesc) {
         ui.introDesc.textContent =
-          'โหลดโมดูลของ Groups Solo ไม่สำเร็จ กรุณาตรวจ path ไฟล์หรือ syntax error แล้วลองใหม่อีกครั้ง';
+          `โหลดโมดูลของ Groups ${CTX.mode === 'race' ? 'Race' : 'Solo'} ไม่สำเร็จ กรุณาตรวจ path ไฟล์หรือ syntax error แล้วลองใหม่อีกครั้ง`;
       }
       if (ui.coachBubble) {
         ui.coachBubble.textContent = `โค้ช: มีข้อผิดพลาดตอนเปิดเกม — ${msg}`;
       }
       if (ui.debugPanel) {
-        ui.debugPanel.textContent = `BOOT ERROR\nPATCH: ${PATCH}\n${msg}`;
+        ui.debugPanel.textContent = `BOOT ERROR
+PATCH: ${PATCH}
+MODE: ${CTX.mode}
+${msg}`;
       }
 
       if (ui.btnStartPractice) ui.btnStartPractice.disabled = true;
