@@ -2,704 +2,818 @@
 
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-race.js
- * GoodJunk Race Controller
- * FULL PATCH v20260404-race-controller-runtime-full
+ * GoodJunk Race Controller / Compatibility Layer
+ * FULL PATCH v20260406-race-controller-runtime-full-p2
+ * - stronger controller-final upgrade
+ * - better visible summary replacement
+ * - safer me/opponent normalization
  * ========================================================= */
 (function(){
-  var W = window;
-  var D = document;
+  const W = window;
+  const D = document;
 
-  function qs(key, fallback) {
-    try {
-      var u = new URL(location.href);
-      var v = u.searchParams.get(key);
-      return v == null ? (fallback || '') : v;
-    } catch (_) {
-      return fallback || '';
-    }
-  }
+  if (W.__GJ_RACE_CONTROLLER_LOADED__) return;
+  W.__GJ_RACE_CONTROLLER_LOADED__ = true;
 
-  function now() {
-    return Date.now();
-  }
+  const qs = (k, d='') => {
+    try { return new URL(location.href).searchParams.get(k) ?? d; }
+    catch { return d; }
+  };
 
-  function wait(ms) {
-    return new Promise(function(resolve){ setTimeout(resolve, ms); });
-  }
-
-  function num(v, d) {
+  const num = (v, d=0) => {
     v = Number(v);
-    return Number.isFinite(v) ? v : (d || 0);
+    return Number.isFinite(v) ? v : d;
+  };
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, num(v, a)));
+  const now = () => Date.now();
+
+  function clean(v, max=120){
+    return String(v == null ? '' : v).trim().slice(0, max);
   }
 
-  function clean(v, max) {
-    return String(v == null ? '' : v).trim().slice(0, max || 120);
+  function cleanPid(v){
+    return String(v == null ? '' : v).replace(/[.#$[\]/]/g, '-').trim().slice(0, 80);
   }
 
-  function dispatch(name, detail) {
-    try {
-      W.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
-    } catch (_) {}
+  function cleanRoom(v){
+    return String(v == null ? '' : v).toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
   }
 
-  function loadExternalScript(src) {
-    return new Promise(function(resolve, reject){
-      var full = new URL(src, location.href).toString();
-      var existing = Array.from(D.scripts || []).find(function(s){ return s.src === full; });
-
-      if (existing) {
-        if (existing.dataset.loaded === '1') return resolve(full);
-        existing.addEventListener('load', function(){ resolve(full); }, { once:true });
-        existing.addEventListener('error', function(){ reject(new Error('โหลด script ไม่สำเร็จ: ' + src)); }, { once:true });
-        return;
-      }
-
-      var s = D.createElement('script');
-      s.src = full;
-      s.async = true;
-      s.onload = function(){
-        s.dataset.loaded = '1';
-        resolve(full);
-      };
-      s.onerror = function(){
-        reject(new Error('โหลด script ไม่สำเร็จ: ' + src));
-      };
-      D.head.appendChild(s);
-    });
+  function escapeHtml(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
-  function cfgVersioned(path) {
-    var u = new URL(path, location.href);
-    u.searchParams.set('v', '20260404-race-controller-runtime-full');
-    return u.toString();
+  function emit(name, detail){
+    try { W.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }
+    catch {}
   }
 
-  var ctx = {
+  const CTX = {
     game: 'goodjunk',
     zone: 'nutrition',
     mode: 'race',
-    pid: clean(qs('pid', 'anon'), 80),
-    name: clean(qs('name', qs('nick', 'Player')), 80),
-    roomId: clean(qs('roomId', qs('room', '')), 40),
+    roomId: cleanRoom(qs('roomId', qs('room', ''))),
     roomKind: clean(qs('roomKind', ''), 40),
+    pid: cleanPid(qs('pid', 'anon')),
+    uid: cleanPid(qs('uid', '')),
+    name: clean(qs('name', qs('nick', 'Player')), 80),
     role: clean(qs('role', 'player'), 24),
-    diff: clean(qs('diff', 'normal'), 24),
-    time: num(qs('time', '120'), 120),
+    diff: clean(qs('diff', 'normal'), 24).toLowerCase(),
+    time: clamp(qs('time', '90'), 30, 300),
     seed: clean(qs('seed', String(now())), 80),
-    startAt: num(qs('startAt', '0'), 0),
-    hub: clean(qs('hub', '../hub.html'), 400),
-    wait: clean(qs('wait', '0'), 8),
-    host: clean(qs('host', '0'), 8),
-    view: clean(qs('view', 'mobile'), 24)
+    roundId: clean(qs('roundId', ''), 80),
+    hub: clean(qs('hub', '../hub.html'), 500),
+    view: clean(qs('view', 'mobile'), 24),
+    host: clean(qs('host', '0'), 8)
   };
 
-  var S = {
-    appReady: false,
-    db: null,
-    auth: null,
-    uid: '',
-    roomKind: clean(ctx.roomKind, 40),
-    refs: null,
-    meta: {},
-    state: {},
-    match: {},
-    players: {},
-    results: {},
-    localSummary: null,
-    resultSubmitted: false,
-    finalSummarySent: false,
-    fallbackTimer: 0
+  const STORE_LAST = 'HHA_LAST_SUMMARY';
+  const STORE_LAST_RACE = 'HHA_LAST_SUMMARY_RACE';
+  const STORE_LAST_RACE_ROOM = CTX.roomId ? `HHA_LAST_SUMMARY_RACE_${CTX.roomId}` : '';
+  const STORE_LIVE = 'HHA_RACE_LIVE_SNAPSHOT';
+  const STORE_LIVE_ROOM = CTX.roomId ? `HHA_RACE_LIVE_SNAPSHOT_${CTX.roomId}` : '';
+
+  const S = {
+    runtime: null,
+    core: null,
+    lastLive: null,
+    lastSummary: null,
+    lastControllerSummary: null,
+    controllerSummarySent: false,
+    controllerSummaryVersion: 0,
+    resultWatchBound: false,
+    roomPollTimer: 0,
+    liveWatchTimer: 0,
+    visiblePatchTimer: 0,
+    readyAt: now(),
+    lastVisibleSummaryHash: '',
+    mountSeenVisible: false
   };
 
-  var RT = null;
-
-  function debug(tag, extra) {
-    console.log('[GJ-RACE-CTRL]', tag, extra || {});
-    dispatch('gj:race-debug', {
-      tag: tag,
-      roomId: ctx.roomId,
-      roomKind: S.roomKind,
-      stateStatus: S.state && S.state.status,
-      matchStatus: S.match && S.match.status,
-      participantIds: Array.isArray(S.state && S.state.participantIds) ? S.state.participantIds : [],
-      resultCount: Object.keys(S.results || {}).length,
-      finalSummarySent: S.finalSummarySent,
-      extra: extra || {}
-    });
-  }
-
-  async function ensureRuntimeContract() {
-    if (W.HHARuntimeContract && typeof W.HHARuntimeContract.create === 'function') return true;
-
-    try { await loadExternalScript(cfgVersioned('../js/hha-cloud-logger-bridge.js')); } catch (_) {}
-    try { await loadExternalScript(cfgVersioned('../js/hha-runtime-contract.js')); } catch (_) {}
-
-    return !!(W.HHARuntimeContract && typeof W.HHARuntimeContract.create === 'function');
-  }
-
-  function initRuntime() {
-    if (!(W.HHARuntimeContract && typeof W.HHARuntimeContract.create === 'function')) {
-      RT = null;
-      return null;
-    }
-
-    RT = W.HHARuntimeContract.create({
-      game: 'goodjunk',
-      zone: 'nutrition',
-      mode: 'race',
-      getCtx: function(){
-        return {
-          roomId: ctx.roomId || '',
-          roomKind: S.roomKind || ctx.roomKind || '',
-          pid: ctx.pid || '',
-          uid: S.uid || '',
-          name: ctx.name || '',
-          role: ctx.role || '',
-          diff: ctx.diff || '',
-          time: num(ctx.time, 0),
-          seed: String(ctx.seed || ''),
-          view: ctx.view || '',
-          host: String(ctx.host || '0')
-        };
-      }
-    });
-
-    return RT;
-  }
-
-  function roomPath(kind, roomId) {
-    return 'hha-battle/goodjunk/' + kind + '/' + roomId;
-  }
-
-  function buildRefs(root) {
+  function runtimeCtx(){
     return {
-      root: root,
-      meta: root.child('meta'),
-      state: root.child('state'),
-      match: root.child('match'),
-      players: root.child('players'),
-      results: root.child('results')
+      roomId: CTX.roomId || '',
+      roomKind: CTX.roomKind || '',
+      pid: CTX.pid || '',
+      uid: CTX.uid || '',
+      name: CTX.name || '',
+      role: CTX.role || '',
+      diff: CTX.diff || '',
+      time: Number(CTX.time || 0),
+      seed: String(CTX.seed || ''),
+      view: CTX.view || '',
+      host: String(CTX.host || '0')
     };
   }
 
-  async function ensureFirebase() {
-    if (!W.firebase || typeof W.firebase.initializeApp !== 'function') {
-      await loadExternalScript('https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js');
-      await loadExternalScript('https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js');
-      await loadExternalScript('https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js');
-    }
-
-    if (!W.HHA_FIREBASE_CONFIG && !W.firebaseConfig && !W.__firebaseConfig && !W.FIREBASE_CONFIG) {
-      await loadExternalScript(cfgVersioned('../firebase-config.js'));
-    }
-
-    var cfg =
-      W.HHA_FIREBASE_CONFIG ||
-      W.firebaseConfig ||
-      W.__firebaseConfig ||
-      W.FIREBASE_CONFIG ||
-      null;
-
-    if (!cfg) {
-      throw new Error('missing firebase config');
-    }
-
-    if (!W.firebase.apps || !W.firebase.apps.length) {
-      W.firebase.initializeApp(cfg);
-    }
-
-    S.db = W.firebase.database();
-    S.auth = W.firebase.auth();
-
-    if (S.auth.currentUser && S.auth.currentUser.uid) {
-      S.uid = clean(S.auth.currentUser.uid, 80);
-      return true;
-    }
-
-    await S.auth.signInAnonymously();
-
-    await new Promise(function(resolve, reject){
-      var done = false;
-      var timer = setTimeout(function(){
-        if (done) return;
-        done = true;
-        reject(new Error('firebase auth timeout'));
-      }, 12000);
-
-      var off = S.auth.onAuthStateChanged(function(user){
-        if (done) return;
-        if (user && user.uid) {
-          done = true;
-          clearTimeout(timer);
-          try { off(); } catch (_) {}
-          S.uid = clean(user.uid, 80);
-          resolve(true);
-        }
-      }, function(err){
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        try { off(); } catch (_) {}
-        reject(err || new Error('firebase auth failed'));
-      });
-    });
-
-    return true;
+  function saveJson(key, value){
+    if (!key) return;
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
   }
 
-  async function detectRoomKind() {
-    var preferred = clean(ctx.roomKind, 40);
-    var order = preferred ? [preferred, 'raceRooms', 'rooms'] : ['raceRooms', 'rooms'];
-    var seen = {};
-
-    for (var i = 0; i < order.length; i++) {
-      var kind = order[i];
-      if (!kind || seen[kind]) continue;
-      seen[kind] = true;
-
-      try {
-        var snap = await S.db.ref(roomPath(kind, ctx.roomId)).child('meta').once('value');
-        if (snap.exists()) {
-          S.roomKind = kind;
-          return kind;
-        }
-      } catch (_) {}
+  function loadJson(key, fallback=null){
+    if (!key) return fallback;
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (_) {
+      return fallback;
     }
-
-    S.roomKind = preferred || 'rooms';
-    return S.roomKind;
   }
 
-  function normalizeIncomingSummary(detail) {
-    var src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
-      ? detail.summary
-      : (detail || {});
+  function getCore(){
+    if (W.__GJ_RACE_CORE__ && typeof W.__GJ_RACE_CORE__ === 'object') {
+      return W.__GJ_RACE_CORE__;
+    }
+    return null;
+  }
 
+  function currentResultMount(){
+    return D.getElementById('raceResultMount');
+  }
+
+  function normalizeStandingRow(r, i){
     return {
-      pid: ctx.pid,
-      nick: ctx.name,
-      score: num(src.score || src.totalScore || src.playerScore || src.myScore, 0),
-      miss: num(src.miss || src.misses || src.totalMiss, 0),
-      goodHit: num(src.goodHit || src.hitsGood || src.goodHits || src.correct, 0),
-      junkHit: num(src.junkHit || src.hitsBad || src.junkHits || src.wrong, 0),
-      bestStreak: num(src.bestStreak || src.streak || src.comboMax, 0),
-      duration: num(src.duration || src.durationSec || src.timeUsed, 0),
-      reason: clean(src.reason || src.finishReason || src.endReason || 'finished', 80),
-      submittedAt: now(),
-      updatedAt: now()
+      pid: cleanPid(r && (r.pid || r.playerId) || ''),
+      nick: clean(r && (r.nick || r.name || r.pid) || `player-${i+1}`, 80),
+      rank: num(r && r.rank, i + 1),
+      score: num(r && r.score, 0),
+      contribution: num(r && (r.contribution != null ? r.contribution : r.score), 0),
+      miss: num(r && r.miss, 0),
+      goodHit: num(r && r.goodHit, 0),
+      junkHit: num(r && r.junkHit, 0),
+      bestStreak: num(r && r.bestStreak, 0),
+      duration: num(r && r.duration, CTX.time)
     };
   }
 
-  function computeStandings(resultsObj) {
-    var rows = Object.keys(resultsObj || {}).map(function(pid){
-      var r = resultsObj[pid] || {};
-      return {
-        pid: clean(r.pid || pid, 80),
-        nick: clean(r.nick || r.name || pid || 'player', 80),
-        score: num(r.score, 0),
-        miss: num(r.miss, 0),
-        goodHit: num(r.goodHit, 0),
-        junkHit: num(r.junkHit, 0),
-        bestStreak: num(r.bestStreak, 0),
-        duration: num(r.duration, 0),
-        reason: clean(r.reason || '', 80)
-      };
-    });
+  function scoreSort(a, b){
+    if (num(b.score, 0) !== num(a.score, 0)) return num(b.score, 0) - num(a.score, 0);
+    if (num(a.miss, 0) !== num(b.miss, 0)) return num(a.miss, 0) - num(b.miss, 0);
+    if (num(b.bestStreak, 0) !== num(a.bestStreak, 0)) return num(b.bestStreak, 0) - num(a.bestStreak, 0);
+    return String(a.pid || '').localeCompare(String(b.pid || ''));
+  }
 
-    rows.sort(function(a, b){
-      if (b.score !== a.score) return b.score - a.score;
-      if (a.miss !== b.miss) return a.miss - b.miss;
-      if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
-      return String(a.pid).localeCompare(String(b.pid));
-    });
-
-    rows.forEach(function(r, i){
-      r.rank = i + 1;
-    });
-
+  function normalizeStandings(list){
+    const rows = Array.isArray(list) ? list.map((r, i) => normalizeStandingRow(r, i)) : [];
+    rows.sort(scoreSort);
+    rows.forEach((r, i) => { r.rank = i + 1; });
     return rows;
   }
 
-  function buildCompareSummary(standings) {
-    var me = null;
-    var opponent = null;
+  function findMe(standings){
+    return standings.find((r) => String(r.pid || '') === String(CTX.pid || '')) || null;
+  }
 
-    for (var i = 0; i < standings.length; i++) {
-      if (String(standings[i].pid) === String(ctx.pid)) {
-        me = standings[i];
-        break;
-      }
-    }
+  function findOpponent(standings){
+    return standings.find((r) => String(r.pid || '') !== String(CTX.pid || '')) || null;
+  }
 
-    if (!me && standings.length) me = standings[0];
+  function buildSummaryHash(summary){
+    const s = summary || {};
+    const me = (s.compare && s.compare.me) || null;
+    const opp = (s.compare && s.compare.opponent) || null;
+    return [
+      String(s.roomId || ''),
+      String(s.controllerFinal ? '1' : '0'),
+      String(s.rank || ''),
+      String(s.score || ''),
+      String(me && me.score || ''),
+      String(opp && opp.score || ''),
+      String((s.standings && s.standings.length) || 0),
+      String(s.reason || '')
+    ].join('|');
+  }
 
-    for (var j = 0; j < standings.length; j++) {
-      if (!me || String(standings[j].pid) !== String(me.pid)) {
-        opponent = standings[j];
-        break;
-      }
-    }
+  function normalizeSummary(detail){
+    const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
+      ? detail.summary
+      : (detail || {});
 
-    var delta = num((me && me.score) || 0, 0) - num((opponent && opponent.score) || 0, 0);
+    const standings = normalizeStandings(src.standings || []);
+    const me = findMe(standings);
+    const opponent = findOpponent(standings);
+
+    const score = num(src.score != null ? src.score : (me ? me.score : 0), 0);
+    const contribution = num(src.contribution != null ? src.contribution : (me ? me.contribution : score), 0);
+    const delta = num(
+      (src.compare && src.compare.delta) != null
+        ? src.compare.delta
+        : (me && opponent ? (num(me.score,0) - num(opponent.score,0)) : 0),
+      0
+    );
 
     return {
+      controllerFinal: !!src.controllerFinal,
+      game: src.game || 'goodjunk',
+      zone: src.zone || 'nutrition',
+      mode: src.mode || 'race',
+      roomId: cleanRoom(src.roomId || CTX.roomId || ''),
+      roomKind: clean(src.roomKind || CTX.roomKind || '', 40),
+      pid: cleanPid(src.pid || CTX.pid || ''),
+      uid: cleanPid(src.uid || CTX.uid || ''),
+      name: clean(src.name || CTX.name || 'Player', 80),
+      role: clean(src.role || CTX.role || 'player', 24),
+      rank: num(src.rank || (me && me.rank) || 0, 0),
+      score,
+      contribution,
+      players: Math.max(1, num(src.players || standings.length || 1, 1)),
+      miss: num(src.miss || (me && me.miss) || 0, 0),
+      goodHit: num(src.goodHit || (me && me.goodHit) || 0, 0),
+      junkHit: num(src.junkHit || (me && me.junkHit) || 0, 0),
+      bestStreak: num(src.bestStreak || (me && me.bestStreak) || 0, 0),
+      duration: num(src.duration || (me && me.duration) || CTX.time, CTX.time),
+      result: clean(src.result || '', 80) || (delta > 0 ? 'win' : delta < 0 ? 'lose' : 'draw'),
+      reason: clean(src.reason || '', 80) || 'finished',
+      standings,
+      compare: {
+        me,
+        opponent,
+        delta
+      },
+      raw: src.raw && typeof src.raw === 'object' ? src.raw : {}
+    };
+  }
+
+  function persistSummary(summary){
+    const normalized = normalizeSummary(summary);
+    S.lastSummary = normalized;
+    saveJson(STORE_LAST, normalized);
+    saveJson(STORE_LAST_RACE, normalized);
+    if (STORE_LAST_RACE_ROOM) saveJson(STORE_LAST_RACE_ROOM, normalized);
+    W.__GJ_RACE_LAST_SUMMARY__ = normalized;
+    return normalized;
+  }
+
+  function maybeCreateRuntime(){
+    if (S.runtime) return S.runtime;
+    if (!(W.HHARuntimeContract && typeof W.HHARuntimeContract.create === 'function')) return null;
+
+    S.runtime = W.HHARuntimeContract.create({
+      game: 'goodjunk',
+      zone: 'nutrition',
+      mode: 'race',
+      getCtx: runtimeCtx
+    });
+
+    return S.runtime;
+  }
+
+  async function flushRuntime(){
+    const rt = maybeCreateRuntime();
+    if (!rt) return;
+    try { await rt.flush(); } catch (_) {}
+  }
+
+  function shouldUpgradeToControllerFinal(candidate){
+    const normalized = normalizeSummary(candidate);
+    const neededCount = Math.max(2, readCoreParticipants().length || normalized.players || 1);
+    const standingsCount = (normalized.standings && normalized.standings.length) || 0;
+    return standingsCount >= neededCount;
+  }
+
+  async function maybeSendControllerSummary(summary){
+    const normalized = persistSummary(summary);
+
+    if (normalized.controllerFinal) {
+      S.lastControllerSummary = normalized;
+      return normalized;
+    }
+
+    if (S.controllerSummarySent) {
+      return S.lastControllerSummary || normalized;
+    }
+
+    S.controllerSummarySent = true;
+    S.controllerSummaryVersion += 1;
+    S.lastControllerSummary = Object.assign({}, normalized, { controllerFinal: true });
+
+    emit('gj:controller-summary', S.lastControllerSummary);
+    emit('hha:controller-summary', S.lastControllerSummary);
+    emit('gj:summary', S.lastControllerSummary);
+    emit('hha:summary', S.lastControllerSummary);
+    emit('hha:session-summary', S.lastControllerSummary);
+
+    const rt = maybeCreateRuntime();
+    if (rt && typeof rt.summary === 'function') {
+      try { await rt.summary(S.lastControllerSummary); } catch (_) {}
+    }
+
+    forceVisibleSummaryRefresh(S.lastControllerSummary);
+
+    return S.lastControllerSummary;
+  }
+
+  function readCoreRoomResults(){
+    const core = getCore();
+    if (!core || !core.state || !core.state.room || !core.state.room.results) return {};
+    return core.state.room.results || {};
+  }
+
+  function readCoreParticipants(){
+    const core = getCore();
+    if (!core || !core.state || !core.state.room) return [];
+    const room = core.state.room || {};
+    const ids =
+      Array.isArray(room.state && room.state.participantIds) ? room.state.participantIds :
+      Array.isArray(room.match && room.match.participantIds) ? room.match.participantIds :
+      [];
+    return ids.filter(Boolean);
+  }
+
+  function computeControllerSummaryFromResults(){
+    const resultsObj = readCoreRoomResults();
+    const rows = Object.keys(resultsObj || {}).map((pid, i) => normalizeStandingRow(
+      Object.assign({}, resultsObj[pid] || {}, { pid }),
+      i
+    ));
+
+    const standings = normalizeStandings(rows);
+    if (!standings.length) return null;
+
+    const me = findMe(standings) || standings[0];
+    const opponent = findOpponent(standings) || null;
+    const participantIds = readCoreParticipants();
+    const playerCount = Math.max(standings.length, participantIds.length || 0, 1);
+
+    return normalizeSummary({
       controllerFinal: true,
       game: 'goodjunk',
       zone: 'nutrition',
       mode: 'race',
-      roomId: ctx.roomId,
-      roomKind: S.roomKind || ctx.roomKind || '',
-      pid: ctx.pid,
-      name: ctx.name,
-      role: ctx.role,
-      rank: me ? me.rank : '',
+      roomId: CTX.roomId,
+      roomKind: CTX.roomKind,
+      pid: CTX.pid,
+      uid: CTX.uid,
+      name: CTX.name,
+      role: CTX.role,
+      rank: me ? me.rank : 0,
       score: me ? me.score : 0,
-      players: standings.length,
+      contribution: me ? me.contribution : 0,
+      players: playerCount,
       miss: me ? me.miss : 0,
       goodHit: me ? me.goodHit : 0,
       junkHit: me ? me.junkHit : 0,
       bestStreak: me ? me.bestStreak : 0,
-      duration: me ? me.duration : 0,
-      reason: 'compare-ready',
-      result: me && me.rank === 1 ? 'เข้าเส้นชัยเป็นที่ 1' : 'จบรอบแล้ว',
-      standings: standings,
+      duration: me ? me.duration : CTX.time,
+      result: me && me.rank === 1 ? 'win' : (me && me.rank === 2 ? 'lose' : 'draw'),
+      reason: 'controller-compare',
+      standings,
       compare: {
-        me: me,
-        opponent: opponent,
-        delta: delta
+        me,
+        opponent,
+        delta: me && opponent ? (num(me.score,0) - num(opponent.score,0)) : 0
       }
+    });
+  }
+
+  async function maybeUpgradeStoredSummary(){
+    const candidate =
+      computeControllerSummaryFromResults() ||
+      loadJson(STORE_LAST_RACE_ROOM, null) ||
+      loadJson(STORE_LAST_RACE, null) ||
+      loadJson(STORE_LAST, null);
+
+    if (!candidate) return;
+
+    const normalized = normalizeSummary(candidate);
+    if (!normalized || !normalized.roomId) return;
+    if (normalized.roomId && CTX.roomId && String(normalized.roomId) !== String(CTX.roomId)) return;
+
+    if (shouldUpgradeToControllerFinal(normalized)) {
+      await maybeSendControllerSummary(normalized);
+    } else {
+      persistSummary(normalized);
+      maybePatchVisibleSummary(normalized);
+    }
+  }
+
+  function patchResultMountDebug(summary){
+    const mount = currentResultMount();
+    if (!mount || mount.hidden) return;
+
+    const shell = mount.firstElementChild;
+    if (!shell) return;
+
+    const existing = shell.querySelector('[data-race-controller-debug="1"]');
+    const text =
+      `controllerFinal=${summary && summary.controllerFinal ? 'true' : 'false'}
+roomId=${escapeHtml(CTX.roomId || '-')}
+roomKind=${escapeHtml(CTX.roomKind || '-')}
+reason=${escapeHtml(summary && summary.reason ? summary.reason : '-')}`;
+
+    if (existing) {
+      existing.textContent = text;
+      return;
+    }
+
+    const debug = D.createElement('div');
+    debug.setAttribute('data-race-controller-debug', '1');
+    debug.style.borderRadius = '16px';
+    debug.style.background = '#fff';
+    debug.style.border = '1px dashed #bfe3f2';
+    debug.style.padding = '12px';
+    debug.style.color = '#6b7280';
+    debug.style.fontSize = '12px';
+    debug.style.lineHeight = '1.6';
+    debug.style.whiteSpace = 'pre-wrap';
+    debug.style.wordBreak = 'break-word';
+    debug.textContent = text;
+
+    const actions = shell.querySelector('.btn') ? shell.lastElementChild : null;
+    if (actions && actions.parentNode === shell) {
+      shell.insertBefore(debug, actions);
+    } else {
+      shell.appendChild(debug);
+    }
+  }
+
+  function maybePatchRematchLink(summary){
+    const mount = currentResultMount();
+    if (!mount || mount.hidden) return;
+
+    const shell = mount.firstElementChild;
+    if (!shell) return;
+
+    let btn = D.getElementById('raceControllerRematchBtn');
+    if (!btn) {
+      const actions = Array.from(shell.querySelectorAll('a,button')).find((el) => {
+        const t = String(el.textContent || '').toLowerCase();
+        return t.includes('hub') || t.includes('lobby') || t.includes('อีกครั้ง');
+      });
+
+      const actionWrap = actions ? actions.parentElement : null;
+      if (!actionWrap) return;
+
+      btn = D.createElement('button');
+      btn.id = 'raceControllerRematchBtn';
+      btn.type = 'button';
+      btn.className = 'btn good';
+      btn.textContent = '🔁 รีแมตช์ (controller)';
+      actionWrap.appendChild(btn);
+    }
+
+    btn.onclick = () => {
+      const url = new URL('./goodjunk-race-lobby.html', location.href);
+      const src = new URL(location.href);
+
+      src.searchParams.forEach((value, key) => {
+        if (key === 'autostart') return;
+        url.searchParams.set(key, value);
+      });
+
+      if (CTX.roomId) {
+        url.searchParams.set('roomId', CTX.roomId);
+        url.searchParams.set('room', CTX.roomId);
+      }
+      if ((summary && summary.roomKind) || CTX.roomKind) {
+        url.searchParams.set('roomKind', (summary && summary.roomKind) || CTX.roomKind);
+      }
+      url.searchParams.set('autojoin', '1');
+      url.searchParams.set('rematch', '1');
+
+      location.href = url.toString();
     };
   }
 
-  async function submitOwnResult(summary) {
-    if (!S.refs || !summary) return;
+  function patchVisibleSummaryText(summary){
+    const mount = currentResultMount();
+    if (!mount || mount.hidden) return;
 
-    S.localSummary = summary;
+    const shell = mount.firstElementChild;
+    if (!shell) return;
 
-    await S.refs.results.child(ctx.pid).set({
-      pid: ctx.pid,
-      nick: ctx.name,
-      score: num(summary.score, 0),
-      miss: num(summary.miss, 0),
-      goodHit: num(summary.goodHit, 0),
-      junkHit: num(summary.junkHit, 0),
-      bestStreak: num(summary.bestStreak, 0),
-      duration: num(summary.duration, 0),
-      reason: clean(summary.reason || 'finished', 80),
-      submittedAt: now(),
-      updatedAt: now()
+    const titleEl =
+      shell.querySelector('div[style*="font-size:28px"]') ||
+      shell.querySelector('h1,h2,h3');
+
+    const subEl =
+      titleEl && titleEl.nextElementSibling ? titleEl.nextElementSibling : null;
+
+    const me = summary && summary.compare ? summary.compare.me : null;
+    const opp = summary && summary.compare ? summary.compare.opponent : null;
+    const delta = summary && summary.compare ? num(summary.compare.delta, 0) : 0;
+
+    const title =
+      summary && summary.rank === 1 ? 'เข้าเส้นชัยก่อน! คุณชนะรอบนี้' :
+      summary && summary.rank === 2 ? 'จบรอบแล้ว ได้อันดับ 2' :
+      (summary && summary.result ? summary.result : 'จบรอบแล้ว');
+
+    const sub =
+      me && opp
+        ? `เรา ${num(me.score,0)} คะแนน • คู่แข่ง ${num(opp.score,0)} คะแนน`
+        : 'ระบบสรุปผลรอบนี้เรียบร้อยแล้ว';
+
+    if (titleEl) titleEl.textContent = title;
+    if (subEl) subEl.textContent = sub;
+
+    const rankBlock = Array.from(shell.querySelectorAll('div')).find((el) => String(el.textContent || '').trim() === 'Rank');
+    if (rankBlock && rankBlock.parentElement) {
+      const valueEl = rankBlock.parentElement.querySelector('div:last-child');
+      if (valueEl) valueEl.textContent = summary && summary.rank ? String(summary.rank) : '-';
+    }
+
+    const playersBlock = Array.from(shell.querySelectorAll('div')).find((el) => String(el.textContent || '').trim() === 'Players');
+    if (playersBlock && playersBlock.parentElement) {
+      const valueEl = playersBlock.parentElement.querySelector('div:last-child');
+      if (valueEl) valueEl.textContent = String((summary && summary.players) || 1);
+    }
+
+    const missBlock = Array.from(shell.querySelectorAll('div')).find((el) => String(el.textContent || '').trim() === 'Miss');
+    if (missBlock && missBlock.parentElement) {
+      const valueEl = missBlock.parentElement.querySelector('div:last-child');
+      if (valueEl) valueEl.textContent = String((summary && summary.miss) || 0);
+    }
+
+    const streakBlock = Array.from(shell.querySelectorAll('div')).find((el) => {
+      const t = String(el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      return t === 'best streak' || t === 'beststreak';
+    });
+    if (streakBlock && streakBlock.parentElement) {
+      const valueEl = streakBlock.parentElement.querySelector('div:last-child');
+      if (valueEl) valueEl.textContent = String((summary && summary.bestStreak) || 0);
+    }
+
+    const rowBlocks = Array.from(shell.querySelectorAll('div')).filter((el) => {
+      const t = String(el.textContent || '');
+      return /^#\d+\s/.test(t.trim());
     });
 
-    await S.refs.players.child(ctx.pid).update({
-      phase: 'summary',
-      finished: true,
-      finalScore: num(summary.score, 0),
-      score: num(summary.score, 0),
-      miss: num(summary.miss, 0),
-      streak: num(summary.bestStreak, 0),
-      updatedAt: now(),
-      lastSeen: now()
-    }).catch(function(){});
-
-    S.resultSubmitted = true;
-
-    if (RT) {
-      await RT.scoreUpdated({
-        roundId: String((S.state && S.state.roundId) || ''),
-        score: num(summary.score, 0),
-        miss: num(summary.miss, 0),
-        goodHit: num(summary.goodHit, 0),
-        junkHit: num(summary.junkHit, 0),
-        bestStreak: num(summary.bestStreak, 0),
-        duration: num(summary.duration, 0),
-        reason: clean(summary.reason || 'finished', 80)
-      }).catch(function(){});
+    if (rowBlocks.length && summary && Array.isArray(summary.standings) && summary.standings.length) {
+      rowBlocks.forEach((row, i) => {
+        const item = summary.standings[i];
+        if (!item) return;
+        const side = String(item.pid || '') === String(CTX.pid || '') ? 'YOU' : 'OPPONENT';
+        row.innerHTML = `
+          <div style="font-weight:1000;color:#4d4a42;">#${i + 1} ${escapeHtml(item.nick || item.pid || 'player')}</div>
+          <div style="font-size:12px;color:#79aeca;font-weight:1000;">Score ${num(item.score,0)} • Miss ${num(item.miss,0)} • Streak ${num(item.bestStreak,0)}</div>
+          <div style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;color:#79aeca;font-weight:1000;">${side}</div>
+        `;
+        row.style.position = 'relative';
+      });
     }
 
-    debug('submitOwnResult', { score: summary.score });
-  }
-
-  async function finalizeRoomIfNeeded(standings) {
-    if (!S.refs) return;
-    if (!Array.isArray(standings) || standings.length < 2) return;
-    if (S.finalSummarySent && String((S.state && S.state.status) || '') === 'ended') return;
-
-    var currentParticipants = Array.isArray(S.state && S.state.participantIds) ? S.state.participantIds : [];
-    var iAmFirstParticipant = currentParticipants.length ? String(currentParticipants[0]) === String(ctx.pid) : false;
-    if (!(String(ctx.host) === '1' || iAmFirstParticipant)) {
-      return;
-    }
-
-    var winner = standings[0] || null;
-    var loser = standings[1] || null;
-
-    await S.refs.match.update({
-      status: 'finished',
-      participantIds: standings.map(function(r){ return r.pid; }),
-      finishedAt: now(),
-      winnerId: winner ? winner.pid : '',
-      loserId: loser ? loser.pid : ''
-    }).catch(function(){});
-
-    await S.refs.state.update({
-      status: 'ended',
-      participantIds: standings.map(function(r){ return r.pid; }),
-      winnerId: winner ? winner.pid : '',
-      loserId: loser ? loser.pid : '',
-      endedAt: now(),
-      updatedAt: now()
-    }).catch(function(){});
-
-    debug('finalizeRoomIfNeeded', {
-      winnerId: winner ? winner.pid : '',
-      loserId: loser ? loser.pid : ''
+    const allCards = Array.from(shell.querySelectorAll('div'));
+    const meCard = allCards.find((el) => {
+      const t = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+      return t === 'เรา' || t === 'me';
     });
-  }
-
-  async function emitFinalCompareSummary(standings) {
-    var summary = buildCompareSummary(standings);
-    S.finalSummarySent = true;
-
-    if (RT) {
-      await RT.summary(summary).catch(function(){});
-    } else {
-      dispatch('gj:summary', summary);
-      dispatch('hha:summary', summary);
-      dispatch('hha:session-summary', summary);
-    }
-
-    debug('emitFinalCompareSummary', {
-      rank: summary.rank,
-      score: summary.score
+    const gapCard = allCards.find((el) => {
+      const t = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+      return t.includes('ส่วนต่างคะแนน');
     });
-  }
-
-  function maybeClearFallbackTimer() {
-    if (S.fallbackTimer) {
-      clearTimeout(S.fallbackTimer);
-      S.fallbackTimer = 0;
-    }
-  }
-
-  function scheduleFallbackSummary() {
-    maybeClearFallbackTimer();
-
-    if (!S.localSummary) return;
-    if (S.finalSummarySent) return;
-
-    S.fallbackTimer = setTimeout(function(){
-      if (S.finalSummarySent) return;
-
-      var localOnly = {
-        controllerFinal: true,
-        game: 'goodjunk',
-        zone: 'nutrition',
-        mode: 'race',
-        roomId: ctx.roomId,
-        roomKind: S.roomKind || ctx.roomKind || '',
-        pid: ctx.pid,
-        name: ctx.name,
-        role: ctx.role,
-        rank: '',
-        score: num(S.localSummary.score, 0),
-        players: Object.keys(S.results || {}).length || 1,
-        miss: num(S.localSummary.miss, 0),
-        goodHit: num(S.localSummary.goodHit, 0),
-        junkHit: num(S.localSummary.junkHit, 0),
-        bestStreak: num(S.localSummary.bestStreak, 0),
-        duration: num(S.localSummary.duration, 0),
-        reason: 'fallback-local',
-        result: 'จบรอบแล้ว',
-        standings: computeStandings(S.results || {}),
-        compare: null
-      };
-
-      S.finalSummarySent = true;
-
-      if (RT) {
-        RT.summary(localOnly).catch(function(){});
-      } else {
-        dispatch('gj:summary', localOnly);
-        dispatch('hha:summary', localOnly);
-        dispatch('hha:session-summary', localOnly);
-      }
-
-      debug('fallbackSummary', localOnly);
-    }, 6500);
-  }
-
-  async function onResultsChanged(snap) {
-    S.results = snap.val() || {};
-    var standings = computeStandings(S.results || {});
-    var count = standings.length;
-
-    debug('resultsChanged', { count: count });
-
-    if (count >= 2) {
-      maybeClearFallbackTimer();
-      await finalizeRoomIfNeeded(standings);
-      await emitFinalCompareSummary(standings);
-      return;
-    }
-
-    if (S.resultSubmitted) {
-      scheduleFallbackSummary();
-    }
-  }
-
-  async function onStateChanged(snap) {
-    S.state = snap.val() || {};
-    debug('stateChanged', {
-      status: S.state.status,
-      participantIds: S.state.participantIds || []
+    const oppCard = allCards.find((el) => {
+      const t = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+      return t === 'คู่แข่ง' || t === 'opponent';
     });
+
+    if (meCard && meCard.parentElement && summary.compare && summary.compare.me) {
+      const values = meCard.parentElement.querySelectorAll('div');
+      if (values[1]) values[1].textContent = String(summary.compare.me.nick || 'เรา');
+      if (values[2]) values[2].textContent = String(num(summary.compare.me.score, 0));
+    }
+
+    if (gapCard && gapCard.parentElement) {
+      const values = gapCard.parentElement.querySelectorAll('div');
+      if (values[1]) values[1].textContent = !summary.compare || !summary.compare.opponent
+        ? 'รอผลอีกฝั่ง'
+        : delta > 0 ? 'เรานำอยู่'
+        : delta < 0 ? 'คู่แข่งนำอยู่'
+        : 'คะแนนเท่ากัน';
+      if (values[2]) values[2].textContent = !summary.compare || !summary.compare.opponent
+        ? '-'
+        : String(Math.abs(delta));
+    }
+
+    if (oppCard && oppCard.parentElement && summary.compare && summary.compare.opponent) {
+      const values = oppCard.parentElement.querySelectorAll('div');
+      if (values[1]) values[1].textContent = String(summary.compare.opponent.nick || 'คู่แข่ง');
+      if (values[2]) values[2].textContent = String(num(summary.compare.opponent.score, 0));
+    }
   }
 
-  async function onMatchChanged(snap) {
-    S.match = snap.val() || {};
-    debug('matchChanged', { status: S.match.status });
+  function maybePatchVisibleSummary(summary){
+    if (!summary) return;
+    const mount = currentResultMount();
+    if (!mount || mount.hidden) return;
+
+    const hash = buildSummaryHash(summary);
+    if (hash === S.lastVisibleSummaryHash) return;
+
+    S.lastVisibleSummaryHash = hash;
+    patchVisibleSummaryText(summary);
+    patchResultMountDebug(summary);
+    maybePatchRematchLink(summary);
   }
 
-  async function onPlayersChanged(snap) {
-    S.players = snap.val() || {};
-    debug('playersChanged', { count: Object.keys(S.players || {}).length });
+  function forceVisibleSummaryRefresh(summary){
+    S.lastVisibleSummaryHash = '';
+    maybePatchVisibleSummary(summary);
   }
 
-  async function onMetaChanged(snap) {
-    S.meta = snap.val() || {};
-    debug('metaChanged', {
-      hostPid: S.meta.hostPid || '',
-      diff: S.meta.diff || '',
-      seed: S.meta.seed || ''
+  function bindSummaryEvents(){
+    ['gj:summary','hha:summary','hha:session-summary'].forEach((eventName) => {
+      W.addEventListener(eventName, async (evt) => {
+        const detail = evt && evt.detail ? evt.detail : null;
+        if (!detail || typeof detail !== 'object') return;
+
+        const normalized = persistSummary(detail);
+        maybePatchVisibleSummary(normalized);
+
+        if (shouldUpgradeToControllerFinal(normalized) && !normalized.controllerFinal) {
+          await maybeSendControllerSummary(normalized);
+        } else {
+          patchResultMountDebug(normalized);
+          maybePatchRematchLink(normalized);
+        }
+      });
     });
-  }
 
-  function bindSummaryCapture() {
-    function handler(evt) {
-      var detail = evt && evt.detail ? evt.detail : null;
+    W.addEventListener('race:update', (evt) => {
+      const detail = evt && evt.detail ? evt.detail : null;
       if (!detail || typeof detail !== 'object') return;
-      if (detail && detail.controllerFinal === true) return;
+      S.lastLive = detail;
+      persistLiveSnapshot(detail);
+    });
 
-      var normalized = normalizeIncomingSummary(detail);
-
-      submitOwnResult(normalized)
-        .then(function(){
-          return onResultsChanged({
-            val: function(){ return S.results || {}; }
-          });
-        })
-        .catch(function(err){
-          console.error('[GJ-RACE-CTRL] submit summary failed', err);
-        });
-    }
-
-    W.addEventListener('gj:summary', handler);
-    W.addEventListener('hha:summary', handler);
-    W.addEventListener('hha:session-summary', handler);
-
-    W.addEventListener('message', function(evt){
-      var data = evt && evt.data ? evt.data : null;
-      if (!data || typeof data !== 'object') return;
-      if (data.type === 'gj:summary' || data.type === 'hha:summary' || data.type === 'hha:session-summary') {
-        handler({ detail: data.detail || data.summary || data });
-      }
+    W.addEventListener('hha:score', (evt) => {
+      const detail = evt && evt.detail ? evt.detail : null;
+      if (!detail || typeof detail !== 'object') return;
+      persistLiveSnapshot(detail);
     });
   }
 
-  async function initRoomBindings() {
-    if (!ctx.roomId) {
-      debug('no-roomId');
-      return;
-    }
+  function persistLiveSnapshot(detail){
+    const snapshot = {
+      game: 'goodjunk',
+      zone: 'nutrition',
+      mode: 'race',
+      roomId: CTX.roomId,
+      roomKind: CTX.roomKind,
+      pid: CTX.pid,
+      uid: CTX.uid,
+      name: CTX.name,
+      role: CTX.role,
+      score: num(detail.score, 0),
+      contribution: num(detail.contribution != null ? detail.contribution : detail.score, 0),
+      miss: num(detail.miss, 0),
+      bestStreak: num(detail.bestStreak, 0),
+      rank: num(detail.rank, 0),
+      gap: num(detail.gap, 0),
+      updatedAt: now()
+    };
 
-    await detectRoomKind();
+    saveJson(STORE_LIVE, snapshot);
+    if (STORE_LIVE_ROOM) saveJson(STORE_LIVE_ROOM, snapshot);
+  }
 
-    var root = S.db.ref(roomPath(S.roomKind, ctx.roomId));
-    S.refs = buildRefs(root);
+  function bindResultMountObserver(){
+    if (S.resultWatchBound) return;
+    S.resultWatchBound = true;
 
-    S.refs.meta.on('value', function(snap){
-      onMetaChanged(snap).catch(function(err){
-        console.error('[GJ-RACE-CTRL] meta watcher failed', err);
-      });
+    const mount = currentResultMount();
+    if (!mount) return;
+
+    const mo = new MutationObserver(async () => {
+      if (mount.hidden) return;
+
+      S.mountSeenVisible = true;
+
+      const summary =
+        S.lastControllerSummary ||
+        S.lastSummary ||
+        computeControllerSummaryFromResults() ||
+        loadJson(STORE_LAST_RACE_ROOM, null) ||
+        loadJson(STORE_LAST_RACE, null) ||
+        loadJson(STORE_LAST, null);
+
+      if (summary) {
+        const normalized = normalizeSummary(summary);
+        maybePatchVisibleSummary(normalized);
+        await maybeUpgradeStoredSummary();
+      }
     });
 
-    S.refs.state.on('value', function(snap){
-      onStateChanged(snap).catch(function(err){
-        console.error('[GJ-RACE-CTRL] state watcher failed', err);
-      });
-    });
-
-    S.refs.match.on('value', function(snap){
-      onMatchChanged(snap).catch(function(err){
-        console.error('[GJ-RACE-CTRL] match watcher failed', err);
-      });
-    });
-
-    S.refs.players.on('value', function(snap){
-      onPlayersChanged(snap).catch(function(err){
-        console.error('[GJ-RACE-CTRL] players watcher failed', err);
-      });
-    });
-
-    S.refs.results.on('value', function(snap){
-      onResultsChanged(snap).catch(function(err){
-        console.error('[GJ-RACE-CTRL] results watcher failed', err);
-      });
-    });
-
-    await S.refs.players.child(ctx.pid).update({
-      pid: ctx.pid,
-      nick: ctx.name,
-      connected: true,
-      phase: 'run',
-      updatedAt: now(),
-      lastSeen: now()
-    }).catch(function(){});
-
-    try {
-      S.refs.players.child(ctx.pid).onDisconnect().remove();
-    } catch (_) {}
-
-    debug('initRoomBindings', {
-      roomKind: S.roomKind,
-      roomId: ctx.roomId
+    mo.observe(mount, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['hidden']
     });
   }
 
-  async function init() {
-    try {
-      await ensureRuntimeContract();
-      initRuntime();
+  function startControllerPolling(){
+    clearInterval(S.roomPollTimer);
+    S.roomPollTimer = setInterval(async () => {
+      const core = getCore();
+      if (!core || !core.state) return;
 
-      await ensureFirebase();
+      S.core = core;
 
-      if (RT) {
-        await RT.flush().catch(function(){});
+      try {
+        const room = core.state.room || {};
+        const results = room.results || {};
+        const resultCount = Object.keys(results).length;
+        const participantCount = Math.max(2,
+          (Array.isArray(room.state && room.state.participantIds) ? room.state.participantIds.length : 0) ||
+          (Array.isArray(room.match && room.match.participantIds) ? room.match.participantIds.length : 0) ||
+          0
+        );
+
+        if (resultCount >= participantCount) {
+          await maybeUpgradeStoredSummary();
+        }
+
+        const status = String((room.state && room.state.status) || '');
+        if ((status === 'ended' || status === 'finished') && !S.controllerSummarySent) {
+          await maybeUpgradeStoredSummary();
+        }
+      } catch (_) {}
+    }, 650);
+
+    clearInterval(S.liveWatchTimer);
+    S.liveWatchTimer = setInterval(() => {
+      const snap = loadJson(STORE_LIVE_ROOM, null) || loadJson(STORE_LIVE, null);
+      if (!snap) return;
+      if (snap.roomId && CTX.roomId && String(snap.roomId) !== String(CTX.roomId)) return;
+      if (!S.lastLive) S.lastLive = snap;
+    }, 1200);
+
+    clearInterval(S.visiblePatchTimer);
+    S.visiblePatchTimer = setInterval(() => {
+      const mount = currentResultMount();
+      if (!mount || mount.hidden) return;
+
+      const summary =
+        S.lastControllerSummary ||
+        S.lastSummary ||
+        loadJson(STORE_LAST_RACE_ROOM, null) ||
+        loadJson(STORE_LAST_RACE, null) ||
+        loadJson(STORE_LAST, null);
+
+      if (summary) {
+        maybePatchVisibleSummary(normalizeSummary(summary));
       }
-
-      await initRoomBindings();
-      bindSummaryCapture();
-      S.appReady = true;
-
-      if (RT) {
-        await RT.engineReady({
-          roundId: String((S.state && S.state.roundId) || ''),
-          participantIds: Array.isArray(S.state && S.state.participantIds) ? S.state.participantIds : []
-        }).catch(function(){});
-      }
-
-      debug('ready', {
-        roomId: ctx.roomId,
-        roomKind: S.roomKind,
-        pid: ctx.pid
-      });
-    } catch (err) {
-      console.error('[GJ-RACE-CTRL] init failed', err);
-      debug('init-failed', {
-        message: String(err && err.message ? err.message : err)
-      });
-    }
+    }, 700);
   }
 
-  init();
+  function installLegacyBridge(){
+    const legacy = {
+      getCtx: () => Object.assign({}, runtimeCtx()),
+      getCore: () => getCore(),
+      getLastSummary: () =>
+        S.lastControllerSummary ||
+        S.lastSummary ||
+        loadJson(STORE_LAST_RACE_ROOM, null) ||
+        loadJson(STORE_LAST_RACE, null) ||
+        null,
+      forceControllerSummary: async () => {
+        const summary = computeControllerSummaryFromResults();
+        if (!summary) return null;
+        await maybeSendControllerSummary(summary);
+        return S.lastControllerSummary || summary;
+      },
+      persistSummary: (summary) => persistSummary(summary),
+      normalizeSummary: (summary) => normalizeSummary(summary),
+      patchVisibleSummary: (summary) => maybePatchVisibleSummary(normalizeSummary(summary))
+    };
+
+    W.__GJ_RACE_CONTROLLER__ = legacy;
+    W.GJ_RACE_CONTROLLER = legacy;
+  }
+
+  async function init(){
+    await flushRuntime();
+    maybeCreateRuntime();
+    bindSummaryEvents();
+    bindResultMountObserver();
+    startControllerPolling();
+    installLegacyBridge();
+
+    const cached =
+      loadJson(STORE_LAST_RACE_ROOM, null) ||
+      loadJson(STORE_LAST_RACE, null) ||
+      loadJson(STORE_LAST, null);
+
+    if (cached) {
+      S.lastSummary = normalizeSummary(cached);
+    }
+
+    await maybeUpgradeStoredSummary();
+  }
+
+  init().catch((err) => {
+    console.warn('[goodjunk-race-controller] init failed', err);
+  });
+
+  W.addEventListener('beforeunload', () => {
+    clearInterval(S.roomPollTimer);
+    clearInterval(S.liveWatchTimer);
+    clearInterval(S.visiblePatchTimer);
+  });
 })();
