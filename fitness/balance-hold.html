@@ -98,7 +98,6 @@
       gap:12px;
     }
 
-    /* top bar */
     #bhTopbar{
       position:relative;
       z-index:5;
@@ -152,7 +151,6 @@
       background:linear-gradient(180deg, #ffe7f2, #ffbfd9);
     }
 
-    /* arena card */
     .arena-wrap{
       position:relative;
       z-index:2;
@@ -176,7 +174,6 @@
       overflow:hidden;
     }
 
-    /* in-card top labels */
     .arena-head{
       position:absolute;
       z-index:7;
@@ -210,7 +207,6 @@
       color:var(--muted);
     }
 
-    /* actual arena */
     #bhArena{
       position:relative;
       width:100%;
@@ -223,7 +219,6 @@
         radial-gradient(circle at 50% 55%, rgba(255,255,255,.98), rgba(238,249,255,.98) 62%, rgba(218,242,255,.98) 100%);
     }
 
-    /* floor rhythm mat */
     .rhythm-mat{
       position:absolute;
       left:50%;
@@ -307,6 +302,22 @@
         0 0 0 10px rgba(127,207,255,.08),
         0 0 38px rgba(127,207,255,.20);
       pointer-events:none;
+      transition:
+        box-shadow .18s ease,
+        border-color .18s ease,
+        filter .18s ease;
+    }
+    #bhTarget.is-in-zone{
+      border-color:#52c83a;
+      box-shadow:
+        0 0 0 12px rgba(126,217,87,.10),
+        0 0 42px rgba(126,217,87,.22);
+    }
+    #bhTarget.is-warning{
+      border-color:#ffb347;
+      box-shadow:
+        0 0 0 12px rgba(255,179,71,.10),
+        0 0 42px rgba(255,179,71,.22);
     }
 
     #bhCursor{
@@ -323,6 +334,18 @@
         0 0 0 8px rgba(255,179,71,.20),
         0 0 18px rgba(255,179,71,.22);
       pointer-events:none;
+      transition:filter .14s ease, box-shadow .14s ease, transform .10s ease;
+    }
+    #bhCursor.is-in-zone{
+      box-shadow:
+        0 0 0 10px rgba(126,217,87,.18),
+        0 0 18px rgba(126,217,87,.22);
+      filter:brightness(1.05);
+    }
+    #bhCursor.is-warning{
+      box-shadow:
+        0 0 0 10px rgba(255,179,71,.18),
+        0 0 18px rgba(255,179,71,.22);
     }
 
     #bhGhost{
@@ -338,7 +361,6 @@
       pointer-events:none;
     }
 
-    /* simple pose variations */
     #bhGhost::before,
     #bhGhost::after{
       content:"";
@@ -446,7 +468,233 @@
       pointer-events:none;
     }
 
-    /* bottom info */
+    /* =========================
+       VISUAL FX
+       ========================= */
+
+    #bhFXLayer{
+      position:absolute;
+      inset:0;
+      z-index:8;
+      pointer-events:none;
+      overflow:hidden;
+    }
+
+    #bhTargetPulse{
+      position:absolute;
+      left:50%;
+      top:55%;
+      width:150px;
+      height:150px;
+      margin-left:-75px;
+      margin-top:-75px;
+      border-radius:999px;
+      background:
+        radial-gradient(circle, rgba(127,207,255,.18) 0%, rgba(127,207,255,.10) 38%, rgba(127,207,255,0) 72%);
+      opacity:0;
+      transform:scale(.85);
+    }
+
+    #bhSuccessFlash{
+      position:absolute;
+      inset:0;
+      background:
+        radial-gradient(circle at 50% 54%, rgba(255,255,255,.58), rgba(255,255,255,.16) 42%, rgba(255,255,255,0) 72%);
+      opacity:0;
+    }
+
+    .bh-float-text{
+      position:absolute;
+      left:50%;
+      top:42%;
+      transform:translate(-50%, 0) scale(.84);
+      min-width:140px;
+      text-align:center;
+      padding:10px 16px;
+      border-radius:999px;
+      font-size:20px;
+      font-weight:1000;
+      letter-spacing:.2px;
+      opacity:0;
+      box-shadow:0 10px 22px rgba(55,100,140,.14);
+    }
+
+    #bhRecoverPop{
+      color:#21546d;
+      background:linear-gradient(180deg, #e8f8ff, #a8e0ff);
+    }
+
+    #bhPerfectPop{
+      color:#6a4d00;
+      background:linear-gradient(180deg, #fff3b8, #ffd45c);
+    }
+
+    #bhCoachMood{
+      position:absolute;
+      right:18px;
+      bottom:92px;
+      width:58px;
+      height:58px;
+      display:grid;
+      place-items:center;
+      border-radius:999px;
+      background:rgba(255,255,255,.92);
+      box-shadow:0 10px 24px rgba(55,100,140,.14);
+      font-size:28px;
+      font-weight:900;
+      opacity:.96;
+      transform:scale(1);
+      transition:
+        transform .18s ease,
+        filter .18s ease,
+        background .18s ease,
+        opacity .18s ease;
+    }
+
+    #bhCoachMood[data-mood="neutral"]{ background:rgba(255,255,255,.92); }
+    #bhCoachMood[data-mood="happy"]{
+      background:linear-gradient(180deg, #eaffde, #bdf09d);
+      transform:scale(1.08);
+    }
+    #bhCoachMood[data-mood="great"]{
+      background:linear-gradient(180deg, #fff4bf, #ffd45c);
+      transform:scale(1.14);
+    }
+    #bhCoachMood[data-mood="warn"]{
+      background:linear-gradient(180deg, #ffe9cf, #ffc68b);
+      transform:scale(.98);
+    }
+    #bhCoachMood[data-mood="sad"]{
+      background:linear-gradient(180deg, #ffe7ee, #ffc8d9);
+      opacity:.9;
+    }
+
+    #bhPostBanner{
+      position:absolute;
+      left:50%;
+      top:20%;
+      transform:translate(-50%, -10px) scale(.92);
+      padding:12px 18px;
+      border-radius:999px;
+      background:linear-gradient(180deg, #fff6c8, #ffd45c);
+      color:#6e5100;
+      font-size:22px;
+      font-weight:1000;
+      letter-spacing:.4px;
+      box-shadow:0 14px 26px rgba(255,212,92,.24);
+      opacity:0;
+    }
+
+    #bhStarBurst{
+      position:absolute;
+      inset:0;
+      opacity:0;
+    }
+
+    #bhStarBurst .star{
+      position:absolute;
+      width:18px;
+      height:18px;
+      transform:translate(-50%, -50%) rotate(0deg) scale(.7);
+      opacity:0;
+    }
+
+    #bhStarBurst .star::before{
+      content:"⭐";
+      display:block;
+      width:100%;
+      height:100%;
+      font-size:18px;
+      line-height:18px;
+      text-align:center;
+      filter:drop-shadow(0 6px 10px rgba(255,200,80,.25));
+    }
+
+    .bh-target-perfect{
+      animation:bhTargetPerfect .42s ease;
+    }
+    @keyframes bhTargetPerfect{
+      0%   { transform:scale(1); filter:brightness(1); }
+      40%  { transform:scale(1.1); filter:brightness(1.18); }
+      100% { transform:scale(1); filter:brightness(1); }
+    }
+
+    .bh-pulse-on{
+      animation:bhTargetPulseFx .55s ease;
+    }
+    @keyframes bhTargetPulseFx{
+      0%   { opacity:.0; transform:scale(.78); }
+      35%  { opacity:.9; transform:scale(1.06); }
+      100% { opacity:0; transform:scale(1.36); }
+    }
+
+    .bh-flash-on{
+      animation:bhFlashFx .42s ease;
+    }
+    @keyframes bhFlashFx{
+      0%   { opacity:0; }
+      24%  { opacity:.88; }
+      100% { opacity:0; }
+    }
+
+    .bh-pop-show{
+      animation:bhPopFloat .9s ease forwards;
+    }
+    @keyframes bhPopFloat{
+      0%   { opacity:0; transform:translate(-50%, 8px) scale(.76); }
+      20%  { opacity:1; transform:translate(-50%, -6px) scale(1.05); }
+      100% { opacity:0; transform:translate(-50%, -48px) scale(.96); }
+    }
+
+    .bh-banner-show{
+      animation:bhBannerFx 1.05s ease forwards;
+    }
+    @keyframes bhBannerFx{
+      0%   { opacity:0; transform:translate(-50%, -10px) scale(.86); }
+      18%  { opacity:1; transform:translate(-50%, 0) scale(1.02); }
+      100% { opacity:0; transform:translate(-50%, -26px) scale(.98); }
+    }
+
+    .bh-coach-bounce{
+      animation:bhCoachBounce .46s ease;
+    }
+    @keyframes bhCoachBounce{
+      0%   { transform:scale(1); }
+      40%  { transform:scale(1.18); }
+      100% { transform:scale(1); }
+    }
+
+    .bh-star-burst-on{
+      opacity:1 !important;
+    }
+    #bhStarBurst .star.burst{
+      animation:bhStarBurstFx .95s ease forwards;
+    }
+    @keyframes bhStarBurstFx{
+      0%{
+        opacity:0;
+        transform:translate(-50%, -50%) scale(.5) rotate(0deg);
+      }
+      18%{
+        opacity:1;
+        transform:translate(-50%, -50%) scale(1.1) rotate(14deg);
+      }
+      100%{
+        opacity:0;
+        transform:translate(var(--tx), var(--ty)) scale(.9) rotate(120deg);
+      }
+    }
+
+    #bhArena::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 28%, rgba(255,255,255,.08) 100%);
+      z-index:0;
+    }
+
     #bhBottombar{
       position:relative;
       z-index:5;
@@ -478,6 +726,14 @@
       font-weight:900;
       line-height:1.25;
       color:#36586f;
+      transition:transform .16s ease, color .16s ease;
+    }
+    #bhCoach.is-happy{
+      transform:scale(1.02);
+      color:#2f6b2d;
+    }
+    #bhCoach.is-warn{
+      color:#a46315;
     }
 
     #bhProgress{
@@ -508,7 +764,6 @@
       color:#194d17;
     }
 
-    /* help bubble */
     .help-card{
       position:absolute;
       z-index:10;
@@ -532,7 +787,6 @@
       color:var(--muted);
     }
 
-    /* overlay summary */
     #bhOverlay{
       position:fixed;
       inset:0;
@@ -632,7 +886,6 @@
       color:#184c6a;
     }
 
-    /* responsive */
     @media (max-width: 900px){
       #bhTopbar{
         grid-template-columns:1fr 1fr;
@@ -703,7 +956,6 @@
   </div>
 
   <div id="bhGame">
-    <!-- TOP BAR -->
     <div id="bhTopbar">
       <button id="bhBackBtn" class="hh-btn blue" type="button">← กลับ</button>
 
@@ -715,7 +967,6 @@
       <button id="bhHowBtn" class="hh-btn pink" type="button">วิธีเล่น</button>
     </div>
 
-    <!-- ARENA -->
     <div class="arena-wrap">
       <div class="arena-card">
         <div class="arena-head">
@@ -743,6 +994,16 @@
           <div id="bhCue">เตรียมตัว</div>
           <div id="bhBeat" aria-hidden="true"></div>
 
+          <div id="bhFXLayer" aria-hidden="true">
+            <div id="bhTargetPulse"></div>
+            <div id="bhSuccessFlash"></div>
+            <div id="bhRecoverPop" class="bh-float-text">Great!</div>
+            <div id="bhPerfectPop" class="bh-float-text">Perfect!</div>
+            <div id="bhCoachMood" data-mood="neutral">🙂</div>
+            <div id="bhPostBanner">POST CLEAR!</div>
+            <div id="bhStarBurst"></div>
+          </div>
+
           <div id="bhHelpCard" class="help-card">
             <h3>วิธีเล่น</h3>
             <p>
@@ -754,7 +1015,6 @@
       </div>
     </div>
 
-    <!-- BOTTOM BAR -->
     <div id="bhBottombar">
       <div class="panel">
         <div class="panel-title">Coach</div>
@@ -767,7 +1027,6 @@
       </div>
     </div>
 
-    <!-- SUMMARY / OVERLAY -->
     <div id="bhOverlay" hidden></div>
   </div>
 
@@ -798,6 +1057,6 @@
     })();
   </script>
 
-  <script src="./js/balance-hold.js?v=20260406a-balance-6post-core"></script>
+  <script src="./js/balance-hold.js?v=20260406c-balance-visual-full"></script>
 </body>
 </html>
