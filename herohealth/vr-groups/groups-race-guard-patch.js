@@ -24,7 +24,9 @@
       '.game-area',
       '.game-board',
       '.arena',
-      '.board'
+      '.board',
+      '#stage',
+      '.stage'
     ],
     mission: [
       '.mission-card',
@@ -34,14 +36,17 @@
       '.coach-card',
       '.instruction-card',
       '.prompt-card',
-      '.mini-panel'
+      '.mini-panel',
+      '.goalCard'
     ],
     hudCards: [
       '.hud-card',
       '.stat-card',
       '.score-card',
       '.time-card',
-      '.panel-card'
+      '.panel-card',
+      '.chip',
+      '.stat'
     ],
     target: [
       '.target',
@@ -50,6 +55,7 @@
       '.spawn-item',
       '.token',
       '.floating-item',
+      '.item',
       '[data-target]',
       '[data-role="target"]',
       '[data-food]',
@@ -62,7 +68,8 @@
       '.end-overlay',
       '.final-summary',
       '[data-summary]',
-      '[data-role="summary"]'
+      '[data-role="summary"]',
+      '#summaryOverlay'
     ]
   };
 
@@ -77,7 +84,8 @@
     rawMiss: 0,
     shownMiss: 0,
     missNode: null,
-    summaryPatchedAt: 0
+    summaryPatchedAt: '',
+    lastGoodGoalAt: 0
   };
 
   W.__HHA_GROUPS_RACE_GUARD__ = {
@@ -113,6 +121,7 @@
       scanTargets(false);
       guardMissHud();
       patchSummaryMiss();
+      patchGoalIfNeeded();
     }, 180);
   }
 
@@ -139,11 +148,11 @@
 
   function guessPlayfield() {
     const candidates = [
-      ...$$('.playfield, .game-area, .board, .arena'),
+      ...$$('.playfield, .game-area, .board, .arena, .stage, #stage'),
       ...$$('main > section, main > div, .app > section, .app > div')
     ].filter((el) => {
       const r = el.getBoundingClientRect();
-      return r.width > 220 && r.height > 240;
+      return r.width > 220 && r.height > 220;
     });
 
     candidates.sort((a, b) => {
@@ -202,7 +211,7 @@
     const root = state.playfield || D.body;
     state.observer = new MutationObserver((mutations) => {
       let recalc = false;
-      let touchedTargets = [];
+      const touchedTargets = [];
 
       for (const m of mutations) {
         if (m.type === 'childList') {
@@ -396,14 +405,12 @@
     summaries.forEach((box) => {
       if (isHidden(box)) return;
 
-      // กรณีมี label MISS แยกชัด
       const missValue = findValueNearLabelInside(box, ['miss', 'พลาด']);
       if (missValue && missValue.node) {
         missValue.node.textContent = String(corrected);
         missValue.node.dataset.hhaGuardedMiss = '1';
       }
 
-      // กรณีเป็นบรรทัด CORRECT / WRONG / MISS และค่าบรรทัดเดียว 0/0/10
       const textNodes = $$('*', box);
       textNodes.forEach((el) => {
         const txt = cleanInlineText(el.textContent || '');
@@ -421,6 +428,26 @@
     });
 
     state.summaryPatchedAt = stamp;
+  }
+
+  function patchGoalIfNeeded() {
+    const goalNode = $('#statGoal');
+    if (!goalNode) return;
+
+    const txt = cleanInlineText(goalNode.textContent || '');
+    const m = txt.match(/(\d+)\s*\/\s*(\d+)/);
+    if (!m) return;
+
+    const done = Number(m[1]);
+    const total = Number(m[2]);
+    if (Number.isFinite(done) && Number.isFinite(total) && total >= done) {
+      state.lastGoodGoalAt = now();
+      return;
+    }
+
+    if (state.lastGoodGoalAt && (now() - state.lastGoodGoalAt) < 1200) {
+      goalNode.dataset.hhaGoalGuard = '1';
+    }
   }
 
   function findMissValueNode() {
@@ -492,6 +519,10 @@
 
       [data-hha-guarded-triplet="1"]{
         letter-spacing: .01em;
+      }
+
+      [data-hha-goal-guard="1"]{
+        opacity: .96;
       }
     `;
     D.head.appendChild(style);
