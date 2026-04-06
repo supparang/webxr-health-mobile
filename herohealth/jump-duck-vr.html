@@ -6,6 +6,7 @@
   <title>HeroHealth • JumpDuck Launcher</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#8edcff" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
       --sky1:#dff6ff;
@@ -57,7 +58,7 @@
     }
 
     .topbar{
-      width:min(1100px,100%);
+      width:min(1180px,100%);
       margin:0 auto;
       display:grid;
       grid-template-columns:auto 1fr auto;
@@ -125,10 +126,10 @@
     }
 
     .shell{
-      width:min(1100px,100%);
+      width:min(1180px,100%);
       margin:0 auto;
       display:grid;
-      grid-template-columns: 1.15fr .85fr;
+      grid-template-columns: 1.06fr .94fr;
       gap:12px;
       align-items:start;
     }
@@ -144,7 +145,7 @@
     .hero{
       overflow:hidden;
       position:relative;
-      min-height:720px;
+      min-height:760px;
       padding:18px;
       display:grid;
       gap:14px;
@@ -153,28 +154,6 @@
         radial-gradient(circle at 15% 12%, rgba(255,255,255,.92), transparent 18%),
         radial-gradient(circle at 85% 14%, rgba(255,255,255,.75), transparent 16%),
         linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,.08));
-    }
-
-    .hero:before{
-      content:"";
-      position:absolute;
-      left:-40px;
-      bottom:-20px;
-      width:240px;
-      height:240px;
-      background:radial-gradient(circle, rgba(255,255,255,.6), rgba(255,255,255,0) 70%);
-      pointer-events:none;
-    }
-
-    .hero:after{
-      content:"";
-      position:absolute;
-      right:-50px;
-      top:-30px;
-      width:260px;
-      height:260px;
-      background:radial-gradient(circle, rgba(255,255,255,.42), rgba(255,255,255,0) 70%);
-      pointer-events:none;
     }
 
     .hero-badge{
@@ -202,7 +181,7 @@
       font-size:15px;
       font-weight:800;
       line-height:1.5;
-      max-width:680px;
+      max-width:700px;
     }
 
     .preview{
@@ -210,7 +189,7 @@
       border-radius:28px;
       background:
         linear-gradient(180deg,#bfe8ff 0%, #dcf6ff 42%, #eefed9 43%, #dff6d4 100%);
-      min-height:350px;
+      min-height:340px;
       position:relative;
       overflow:hidden;
       display:grid;
@@ -231,7 +210,7 @@
       position:absolute;
       left:50%;
       transform:translateX(-50%);
-      bottom:78px;
+      bottom:74px;
       width:min(420px,72%);
       height:16px;
       border-radius:999px;
@@ -241,7 +220,7 @@
 
     .preview .cue{
       position:absolute;
-      top:40px;
+      top:38px;
       left:50%;
       transform:translateX(-50%);
       width:min(230px,60vw);
@@ -337,6 +316,145 @@
       font-size:12px;
       font-weight:1000;
       box-shadow:var(--shadow);
+    }
+
+    .strip{
+      border-radius:24px;
+      border:2px solid rgba(132,189,205,.35);
+      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(247,255,251,.92));
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .strip-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .strip-title{
+      font-size:16px;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .strip-sub{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .stat-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .stat-pill{
+      border-radius:16px;
+      border:2px solid rgba(132,189,205,.32);
+      background:#fff;
+      padding:10px;
+    }
+
+    .stat-pill .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .stat-pill .v{
+      display:block;
+      margin-top:4px;
+      font-size:18px;
+      font-weight:1000;
+      color:#4d4a42;
+      line-height:1.15;
+    }
+
+    .mode-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .mode-card{
+      border-radius:22px;
+      border:2px solid rgba(132,189,205,.35);
+      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(247,255,251,.92));
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .mode-card .top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+    }
+
+    .mode-card .icon{
+      width:42px;height:42px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#eefbff,#fff);
+      border:2px solid rgba(132,189,205,.35);
+      font-size:22px;
+      flex:0 0 auto;
+    }
+
+    .mode-card .title{
+      font-size:18px;
+      line-height:1.08;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .mode-card .sub{
+      font-size:13px;
+      line-height:1.5;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .mode-card .tags{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .mode-card .tags span{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid rgba(132,189,205,.3);
+      font-size:11px;
+      font-weight:1000;
+      color:#5d6e7a;
+    }
+
+    .mode-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+
+    .mode-actions .btn{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-decoration:none;
     }
 
     .feature-grid{
@@ -481,6 +599,48 @@
       border-color:rgba(69,183,245,.55);
     }
 
+    .recommend-box{
+      border-radius:18px;
+      border:2px solid rgba(132,189,205,.32);
+      background:#fff;
+      padding:12px;
+      display:grid;
+      gap:8px;
+    }
+
+    .recommend-title{
+      font-size:14px;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .recommend-sub{
+      font-size:13px;
+      line-height:1.5;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .recommend-chips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .recommend-chips span{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid rgba(132,189,205,.3);
+      font-size:11px;
+      font-weight:1000;
+      color:#5d6e7a;
+    }
+
     .launch-actions{
       display:grid;
       gap:10px;
@@ -545,7 +705,12 @@
         grid-template-columns:1fr;
       }
       .feature-grid,
-      .grid-3{
+      .grid-3,
+      .stat-grid,
+      .mode-grid{
+        grid-template-columns:1fr;
+      }
+      .mode-actions{
         grid-template-columns:1fr;
       }
     }
@@ -561,10 +726,11 @@
 
       <div class="headline">
         <div class="title">JumpDuck Launcher</div>
-        <div class="sub">Rhythmic Jump Circuit • Fitness Zone • HeroHealth Standard Flow</div>
+        <div class="sub">Rhythmic Jump Circuit • Fitness Zone • Play / Quick / Research / Demo</div>
       </div>
 
       <div class="top-actions">
+        <a id="btnBackFitness" href="./fitness-zone.html">🏃 Fitness Zone</a>
         <a id="btnHubTop" href="./hub-v2.html">🏠 HUB</a>
       </div>
     </header>
@@ -576,7 +742,7 @@
         <h1>JumpDuck</h1>
         <p>
           เกมนี้ฝึก <strong>กระโดด ย่อ คุมจังหวะ และลงพื้นให้นิ่ง</strong> แบบ circuit 7 สถานี
-          ใช้ cue กลางจอช่วยให้เด็กอ่านเกมง่าย และเหมาะกับการเล่นทั้งแบบฝึกจริงและ research run
+          ใช้ cue กลางจอช่วยให้เด็กอ่านเกมง่าย และเหมาะกับทั้งแบบเล่นทั่วไปและ research run
         </p>
 
         <div class="preview">
@@ -606,8 +772,99 @@
           <div class="chip">⬆️ Jump</div>
           <div class="chip">⬇️ Duck</div>
           <div class="chip">✋ Hold Landing</div>
-          <div class="chip">⭐ Summary + HUB Return</div>
+          <div class="chip">⭐ Summary</div>
         </div>
+
+        <section class="strip" id="recentStrip">
+          <div class="strip-head">
+            <div class="strip-title">🕹️ JumpDuck ล่าสุด</div>
+            <div class="strip-sub" id="recentStripSub">ยังไม่มีผลล่าสุด</div>
+          </div>
+
+          <div class="stat-grid">
+            <div class="stat-pill"><span class="k">Stars</span><span class="v" id="recentStars">-</span></div>
+            <div class="stat-pill"><span class="k">Rhythm</span><span class="v" id="recentRhythm">-</span></div>
+            <div class="stat-pill"><span class="k">Landing</span><span class="v" id="recentLanding">-</span></div>
+            <div class="stat-pill"><span class="k">Posts</span><span class="v" id="recentPosts">-</span></div>
+          </div>
+        </section>
+
+        <section class="strip">
+          <div class="strip-head">
+            <div class="strip-title">🎮 เลือกโหมดเล่น</div>
+            <div class="strip-sub">กดปุ่มในแต่ละการ์ดเพื่อ preset และเข้าเล่นได้ทันที</div>
+          </div>
+
+          <div class="mode-grid">
+            <article class="mode-card">
+              <div class="top">
+                <div>
+                  <div class="title">Play Standard</div>
+                  <div class="sub">warmup → game → summary → cooldown</div>
+                </div>
+                <div class="icon">▶</div>
+              </div>
+              <div class="tags">
+                <span>gate on</span><span>cooldown on</span><span>90s</span>
+              </div>
+              <div class="mode-actions">
+                <button class="btn primary" id="modePlayStart" type="button">เริ่มเลย</button>
+                <button class="btn secondary" id="modePlayPreset" type="button">ใช้ค่านี้</button>
+              </div>
+            </article>
+
+            <article class="mode-card">
+              <div class="top">
+                <div>
+                  <div class="title">Quick Play</div>
+                  <div class="sub">เข้าเกมเร็ว ไม่ผ่าน warmup</div>
+                </div>
+                <div class="icon">⚡</div>
+              </div>
+              <div class="tags">
+                <span>gate off</span><span>cooldown on</span><span>เร็ว</span>
+              </div>
+              <div class="mode-actions">
+                <button class="btn primary" id="modeQuickStart" type="button">เริ่มเลย</button>
+                <button class="btn secondary" id="modeQuickPreset" type="button">ใช้ค่านี้</button>
+              </div>
+            </article>
+
+            <article class="mode-card">
+              <div class="top">
+                <div>
+                  <div class="title">Research</div>
+                  <div class="sub">seed / logging / deterministic flow</div>
+                </div>
+                <div class="icon">🧪</div>
+              </div>
+              <div class="tags">
+                <span>run=research</span><span>gate on</span><span>study</span>
+              </div>
+              <div class="mode-actions">
+                <button class="btn primary" id="modeResearchStart" type="button">เริ่มเลย</button>
+                <button class="btn secondary" id="modeResearchPreset" type="button">ใช้ค่านี้</button>
+              </div>
+            </article>
+
+            <article class="mode-card">
+              <div class="top">
+                <div>
+                  <div class="title">Demo 60s</div>
+                  <div class="sub">easy • สั้น • เหมาะสำหรับสาธิต</div>
+                </div>
+                <div class="icon">🎈</div>
+              </div>
+              <div class="tags">
+                <span>60s</span><span>easy</span><span>cooldown off</span>
+              </div>
+              <div class="mode-actions">
+                <button class="btn primary" id="modeDemoStart" type="button">เริ่มเลย</button>
+                <button class="btn secondary" id="modeDemoPreset" type="button">ใช้ค่านี้</button>
+              </div>
+            </article>
+          </div>
+        </section>
 
         <div class="feature-grid">
           <div class="feature">
@@ -642,6 +899,18 @@
           <div class="field">
             <label for="studyId">Study ID</label>
             <input id="studyId" type="text" placeholder="optional" />
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>RECOMMENDED SETTINGS</h3>
+          <div class="recommend-box">
+            <div class="recommend-title" id="recommendTitle">แนะนำค่าเริ่มต้น</div>
+            <div class="recommend-sub" id="recommendSub">ระบบจะเลือกค่าที่เหมาะจากผลล่าสุดให้</div>
+            <div class="recommend-chips" id="recommendChips">
+              <span>Normal</span><span>90s</span><span>Mobile</span>
+            </div>
+            <button id="btnApplyRecommended" class="btn secondary" type="button">✨ ใช้ค่าที่แนะนำ</button>
           </div>
         </section>
 
@@ -715,7 +984,7 @@
 
         <section class="section">
           <h3>FLOW</h3>
-          <p>Start มาตรฐานจะไปตามลำดับ <strong>warmup-gate → jump-duck → summary → hub</strong></p>
+          <p>Start มาตรฐานจะไปตามลำดับ <strong>warmup-gate → jump-duck → summary → cooldown → hub/zone</strong></p>
 
           <div class="grid-2">
             <div class="toggle">
@@ -735,7 +1004,7 @@
             </div>
             <div class="toggle">
               <input id="cooldown-off" name="cooldown" type="radio" value="0" />
-              <label for="cooldown-off">Cooldown OFF<small>จบแล้วกลับ hub</small></label>
+              <label for="cooldown-off">Cooldown OFF<small>จบแล้วกลับ hub/zone</small></label>
             </div>
           </div>
         </section>
@@ -751,15 +1020,15 @@
         <section class="section">
           <h3>LAUNCH</h3>
           <div class="launch-actions">
-            <button id="btnStartStandard" class="btn primary" type="button">▶ Start Standard</button>
-            <button id="btnQuickPlay" class="btn secondary" type="button">⚡ Quick Play</button>
-            <button id="btnDemo" class="btn ghost" type="button">🎈 Demo 60s</button>
+            <button id="btnStartStandard" class="btn primary" type="button">▶ Start with Current Settings</button>
+            <button id="btnQuickPlay" class="btn secondary" type="button">⚡ Quick Play Now</button>
+            <button id="btnUseLastPattern" class="btn ghost" type="button">🕹️ ใช้ค่าจากล่าสุด</button>
           </div>
           <div class="preview-url" id="previewUrl">preview url</div>
         </section>
 
         <div class="footer-note">
-          JumpDuck Launcher จะส่ง query params ให้ครบทั้ง pid / diff / time / seed / hub / run / view / gate / cooldown
+          Launcher นี้จะส่ง query params ให้ครบทั้ง pid / diff / time / seed / hub / run / view / gate / cooldown
         </div>
       </aside>
     </main>
@@ -768,6 +1037,9 @@
   <script>
   (() => {
     'use strict';
+
+    const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
+    const JUMPDUCK_SUMMARY_KEY = 'HHA_LAST_SUMMARY_JUMPDUCK';
 
     const qs = new URLSearchParams(location.search);
     const $ = (id) => document.getElementById(id);
@@ -778,15 +1050,57 @@
       studyId: $('studyId'),
       seed: $('seed'),
       btnHubTop: $('btnHubTop'),
+      btnBackFitness: $('btnBackFitness'),
       btnStartStandard: $('btnStartStandard'),
       btnQuickPlay: $('btnQuickPlay'),
-      btnDemo: $('btnDemo'),
-      previewUrl: $('previewUrl')
+      btnUseLastPattern: $('btnUseLastPattern'),
+      previewUrl: $('previewUrl'),
+      btnApplyRecommended: $('btnApplyRecommended'),
+      recommendTitle: $('recommendTitle'),
+      recommendSub: $('recommendSub'),
+      recommendChips: $('recommendChips'),
+      recentStripSub: $('recentStripSub'),
+      recentStars: $('recentStars'),
+      recentRhythm: $('recentRhythm'),
+      recentLanding: $('recentLanding'),
+      recentPosts: $('recentPosts'),
+      modePlayStart: $('modePlayStart'),
+      modePlayPreset: $('modePlayPreset'),
+      modeQuickStart: $('modeQuickStart'),
+      modeQuickPreset: $('modeQuickPreset'),
+      modeResearchStart: $('modeResearchStart'),
+      modeResearchPreset: $('modeResearchPreset'),
+      modeDemoStart: $('modeDemoStart'),
+      modeDemoPreset: $('modeDemoPreset')
     };
 
     const ABS_HUB = new URL('./hub-v2.html', location.href).href;
+    const ABS_FITNESS = new URL('./fitness-zone.html', location.href).href;
     const ABS_RUN = new URL('../fitness/jump-duck.html', location.href).href;
     const ABS_GATE = new URL('./warmup-gate.html', location.href).href;
+
+    function safeJsonParse(raw, fallback = null) {
+      try { return JSON.parse(raw); } catch (_) { return fallback; }
+    }
+
+    function readJsonKey(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? safeJsonParse(raw, null) : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function readJumpDuckSummary() {
+      const jd = readJsonKey(JUMPDUCK_SUMMARY_KEY);
+      if (jd && String(jd.game || '').toLowerCase() === 'jumpduck') return jd;
+
+      const generic = readJsonKey(LAST_SUMMARY_KEY);
+      if (generic && String(generic.game || '').toLowerCase() === 'jumpduck') return generic;
+
+      return null;
+    }
 
     function readOrDefault(key, fallback) {
       const v = qs.get(key);
@@ -812,9 +1126,16 @@
       return cleanText(els.seed.value, String(Date.now()));
     }
 
+    function buildFitnessBackUrl() {
+      const u = new URL(readOrDefault('hub', ABS_FITNESS), location.href);
+      if (!u.searchParams.get('focus')) u.searchParams.set('focus', 'jumpduck');
+      if (!u.searchParams.get('featured')) u.searchParams.set('featured', 'jumpduck');
+      return u.toString();
+    }
+
     function baseParams() {
       const seed = buildSeed();
-      const hub = readOrDefault('hub', ABS_HUB);
+      const hub = buildFitnessBackUrl();
 
       return {
         pid: cleanText(els.pid.value, 'anon'),
@@ -834,7 +1155,7 @@
     function copyExtraParams(url) {
       const passthroughKeys = [
         'studentKey','schoolCode','classRoom','studentNo','nickName',
-        'api','debug','phase','conditionGroup','sessionNo','weekNo'
+        'api','debug','phase','conditionGroup','sessionNo','weekNo','log'
       ];
 
       passthroughKeys.forEach((k) => {
@@ -843,7 +1164,7 @@
       });
     }
 
-    function buildRunUrl(modeOverride = null) {
+    function buildRunUrl(modeOverride = null, patch = {}) {
       const p = baseParams();
       const url = new URL(ABS_RUN);
 
@@ -857,23 +1178,23 @@
       url.searchParams.set('gameId', 'jumpduck');
       url.searchParams.set('theme', 'jumpduck');
 
-      url.searchParams.set('diff', p.diff);
-      url.searchParams.set('time', p.time);
-      url.searchParams.set('seed', p.seed);
-      url.searchParams.set('hub', p.hub);
-      url.searchParams.set('view', p.view);
-      url.searchParams.set('run', modeOverride || p.run);
+      url.searchParams.set('diff', patch.diff || p.diff);
+      url.searchParams.set('time', patch.time || p.time);
+      url.searchParams.set('seed', patch.seed || p.seed);
+      url.searchParams.set('hub', patch.hub || p.hub);
+      url.searchParams.set('view', patch.view || p.view);
+      url.searchParams.set('run', modeOverride || patch.run || p.run);
 
-      url.searchParams.set('gate', p.gate);
-      url.searchParams.set('cooldown', p.cooldown);
-      url.searchParams.set('returnPhase', p.cooldown === '1' ? 'cooldown' : 'hub');
-      url.searchParams.set('cdur', '20');
+      url.searchParams.set('gate', patch.gate || p.gate);
+      url.searchParams.set('cooldown', patch.cooldown || p.cooldown);
+      url.searchParams.set('returnPhase', (patch.cooldown || p.cooldown) === '1' ? 'cooldown' : 'hub');
+      url.searchParams.set('cdur', patch.cdur || '20');
 
       copyExtraParams(url);
       return url;
     }
 
-    function buildWarmupUrl(runUrl) {
+    function buildWarmupUrl(runUrl, patch = {}) {
       const p = baseParams();
       const url = new URL(ABS_GATE);
 
@@ -888,22 +1209,132 @@
       url.searchParams.set('gameId', 'jumpduck');
       url.searchParams.set('theme', 'jumpduck');
 
-      url.searchParams.set('diff', p.diff);
-      url.searchParams.set('time', p.time);
-      url.searchParams.set('seed', p.seed);
-      url.searchParams.set('hub', p.hub);
-      url.searchParams.set('view', p.view);
-      url.searchParams.set('run', p.run);
+      url.searchParams.set('diff', patch.diff || p.diff);
+      url.searchParams.set('time', patch.time || p.time);
+      url.searchParams.set('seed', patch.seed || p.seed);
+      url.searchParams.set('hub', patch.hub || p.hub);
+      url.searchParams.set('view', patch.view || p.view);
+      url.searchParams.set('run', patch.run || p.run);
 
       url.searchParams.set('gate', '1');
-      url.searchParams.set('cooldown', p.cooldown);
-      url.searchParams.set('returnPhase', p.cooldown === '1' ? 'cooldown' : 'hub');
-      url.searchParams.set('dur', '20');
-      url.searchParams.set('cdur', '20');
+      url.searchParams.set('cooldown', patch.cooldown || p.cooldown);
+      url.searchParams.set('returnPhase', (patch.cooldown || p.cooldown) === '1' ? 'cooldown' : 'hub');
+      url.searchParams.set('dur', patch.dur || '20');
+      url.searchParams.set('cdur', patch.cdur || '20');
       url.searchParams.set('next', runUrl.href);
 
       copyExtraParams(url);
       return url;
+    }
+
+    function recommendFromSummary(summary) {
+      if (!summary) {
+        return {
+          title: 'แนะนำค่าเริ่มต้นสำหรับผู้เล่นใหม่',
+          sub: 'เริ่มแบบสมดุลก่อน แล้วค่อยเพิ่มความยากภายหลัง',
+          diff: 'normal',
+          time: '90',
+          view: readOrDefault('view', 'mobile'),
+          run: 'play',
+          gate: '1',
+          cooldown: '1',
+          chips: ['Normal', '90s', readOrDefault('view', 'mobile'), 'Standard']
+        };
+      }
+
+      const rhythm = Number(summary.rhythmAccuracy || 0);
+      const landing = Number(summary.landingControl || 0);
+      const stars = Number(summary.stars || 0);
+      const posts = Number(summary.postsCleared || 0);
+
+      if (landing < 45) {
+        return {
+          title: 'แนะนำให้ซ้อมลงพื้นให้นิ่งก่อน',
+          sub: 'ใช้ Easy และเวลา 60 วินาที เพื่อฝึก hold landing แบบอ่านง่าย',
+          diff: 'easy',
+          time: '60',
+          view: 'mobile',
+          run: 'play',
+          gate: '1',
+          cooldown: '1',
+          chips: ['Easy', '60s', 'Landing Focus', 'Standard']
+        };
+      }
+
+      if (rhythm >= 86 && stars >= 3 && posts >= 5) {
+        return {
+          title: 'พร้อมอัปเกรดความท้าทายแล้ว',
+          sub: 'ลอง Hard หรือ Research เพื่อเก็บ pattern ที่แน่นขึ้น',
+          diff: 'hard',
+          time: '90',
+          view: 'pc',
+          run: 'research',
+          gate: '1',
+          cooldown: '1',
+          chips: ['Hard', '90s', 'PC', 'Research']
+        };
+      }
+
+      if (rhythm >= 72) {
+        return {
+          title: 'กำลังไปได้ดี',
+          sub: 'แนะนำ Normal 90 วินาที เพื่อเก็บ combo และ rhythm ต่อเนื่อง',
+          diff: 'normal',
+          time: '90',
+          view: 'mobile',
+          run: 'play',
+          gate: '1',
+          cooldown: '1',
+          chips: ['Normal', '90s', 'Combo Focus', 'Standard']
+        };
+      }
+
+      return {
+        title: 'กลับมาซ้อมจังหวะอีกนิด',
+        sub: 'เริ่มที่ Easy 90 วินาที เพื่อจับ cue และ timing ให้แม่นขึ้น',
+        diff: 'easy',
+        time: '90',
+        view: 'mobile',
+        run: 'play',
+        gate: '1',
+        cooldown: '1',
+        chips: ['Easy', '90s', 'Rhythm Focus', 'Standard']
+      };
+    }
+
+    function renderRecent(summary) {
+      if (!summary) {
+        els.recentStripSub.textContent = 'ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย';
+        els.recentStars.textContent = '-';
+        els.recentRhythm.textContent = '-';
+        els.recentLanding.textContent = '-';
+        els.recentPosts.textContent = '-';
+        return;
+      }
+
+      els.recentStripSub.textContent =
+        `Score ${Number(summary.score || 0)} • Jump ${Number(summary.jumpSuccess || 0)}%`;
+
+      els.recentStars.textContent = `${Number(summary.stars || 0)}⭐`;
+      els.recentRhythm.textContent = `${Number(summary.rhythmAccuracy || 0)}%`;
+      els.recentLanding.textContent = `${Number(summary.landingControl || 0)}%`;
+      els.recentPosts.textContent = `${Number(summary.postsCleared || 0)}/7`;
+    }
+
+    function applyRecommendation(rec) {
+      setRadio('diff', rec.diff, 'diff-normal');
+      setRadio('time', rec.time, 'time-90');
+      setRadio('view', rec.view, 'view-mobile');
+      setRadio('run', rec.run, rec.run === 'research' ? 'run-research' : 'run-play');
+      setRadio('gate', rec.gate, rec.gate === '1' ? 'gate-on' : 'gate-off');
+      setRadio('cooldown', rec.cooldown, rec.cooldown === '1' ? 'cooldown-on' : 'cooldown-off');
+      refreshPreview();
+    }
+
+    function renderRecommendation(rec) {
+      els.recommendTitle.textContent = rec.title;
+      els.recommendSub.textContent = rec.sub;
+      els.recommendChips.innerHTML = rec.chips.map((x) => `<span>${x}</span>`).join('');
     }
 
     function refreshPreview() {
@@ -917,29 +1348,68 @@
       location.href = url.href;
     }
 
-    function startStandard() {
+    function launchCurrentSettings() {
       const runUrl = buildRunUrl();
       const gate = readRadio('gate', '1');
       go(gate === '1' ? buildWarmupUrl(runUrl) : runUrl);
     }
 
-    function quickPlay() {
-      const url = buildRunUrl('play');
-      url.searchParams.set('gate', '0');
-      url.searchParams.set('cooldown', readRadio('cooldown', '1'));
-      go(url);
+    function launchMode(mode) {
+      if (mode === 'play') {
+        const runUrl = buildRunUrl('play', { gate: '1', cooldown: '1' });
+        go(buildWarmupUrl(runUrl, { run: 'play', cooldown: '1' }));
+        return;
+      }
+
+      if (mode === 'quick') {
+        go(buildRunUrl('play', { gate: '0', cooldown: '1' }));
+        return;
+      }
+
+      if (mode === 'research') {
+        const runUrl = buildRunUrl('research', { gate: '1', cooldown: '1', run: 'research', view: readRadio('view', 'mobile') });
+        go(buildWarmupUrl(runUrl, { run: 'research', cooldown: '1' }));
+        return;
+      }
+
+      if (mode === 'demo') {
+        go(buildRunUrl('demo', {
+          run: 'demo',
+          diff: 'easy',
+          time: '60',
+          gate: '0',
+          cooldown: '0',
+          view: 'mobile'
+        }));
+      }
     }
 
-    function demoPlay() {
-      const url = buildRunUrl('demo');
-      url.searchParams.set('time', '60');
-      url.searchParams.set('diff', 'easy');
-      url.searchParams.set('gate', '0');
-      url.searchParams.set('cooldown', '0');
-      go(url);
+    function presetMode(mode) {
+      if (mode === 'play') {
+        setRadio('run', 'play', 'run-play');
+        setRadio('gate', '1', 'gate-on');
+        setRadio('cooldown', '1', 'cooldown-on');
+        if (!document.querySelector('input[name="time"]:checked')) setRadio('time', '90', 'time-90');
+      } else if (mode === 'quick') {
+        setRadio('run', 'play', 'run-play');
+        setRadio('gate', '0', 'gate-off');
+        setRadio('cooldown', '1', 'cooldown-on');
+      } else if (mode === 'research') {
+        setRadio('run', 'research', 'run-research');
+        setRadio('gate', '1', 'gate-on');
+        setRadio('cooldown', '1', 'cooldown-on');
+      } else if (mode === 'demo') {
+        setRadio('run', 'play', 'run-play');
+        setRadio('diff', 'easy', 'diff-easy');
+        setRadio('time', '60', 'time-60');
+        setRadio('gate', '0', 'gate-off');
+        setRadio('cooldown', '0', 'cooldown-off');
+        setRadio('view', 'mobile', 'view-mobile');
+      }
+      refreshPreview();
     }
 
-    function bindAll() {
+    function bindAll(summary, rec) {
       [
         els.pid, els.name, els.studyId, els.seed,
         ...document.querySelectorAll('input[type="radio"]')
@@ -948,13 +1418,44 @@
         node.addEventListener('change', refreshPreview);
       });
 
-      els.btnStartStandard.addEventListener('click', startStandard);
-      els.btnQuickPlay.addEventListener('click', quickPlay);
-      els.btnDemo.addEventListener('click', demoPlay);
+      els.btnApplyRecommended.addEventListener('click', () => applyRecommendation(rec));
+      els.btnStartStandard.addEventListener('click', launchCurrentSettings);
+      els.btnQuickPlay.addEventListener('click', () => launchMode('quick'));
+
+      els.btnUseLastPattern.addEventListener('click', () => {
+        if (!summary) {
+          applyRecommendation(rec);
+          return;
+        }
+
+        const fallbackView = readOrDefault('view', 'mobile');
+        setRadio('diff', String(summary.diff || rec.diff || 'normal'), 'diff-normal');
+        setRadio('time', String(summary.timeSec || rec.time || '90'), 'time-90');
+        setRadio('view', fallbackView, 'view-mobile');
+        setRadio('run', rec.run || 'play', rec.run === 'research' ? 'run-research' : 'run-play');
+        setRadio('gate', '1', 'gate-on');
+        setRadio('cooldown', '1', 'cooldown-on');
+        refreshPreview();
+      });
+
+      els.modePlayStart.addEventListener('click', () => launchMode('play'));
+      els.modePlayPreset.addEventListener('click', () => presetMode('play'));
+
+      els.modeQuickStart.addEventListener('click', () => launchMode('quick'));
+      els.modeQuickPreset.addEventListener('click', () => presetMode('quick'));
+
+      els.modeResearchStart.addEventListener('click', () => launchMode('research'));
+      els.modeResearchPreset.addEventListener('click', () => presetMode('research'));
+
+      els.modeDemoStart.addEventListener('click', () => launchMode('demo'));
+      els.modeDemoPreset.addEventListener('click', () => presetMode('demo'));
     }
 
     function init() {
-      els.btnHubTop.href = readOrDefault('hub', ABS_HUB);
+      const hubUrl = readOrDefault('hub', ABS_HUB);
+      const fitnessBackUrl = buildFitnessBackUrl();
+      els.btnHubTop.href = hubUrl;
+      els.btnBackFitness.href = fitnessBackUrl;
 
       els.pid.value = readOrDefault('pid', 'anon');
       els.name.value = readOrDefault('name', readOrDefault('nick', 'Player'));
@@ -968,8 +1469,18 @@
       setRadio('gate', readOrDefault('gate', '1'), 'gate-on');
       setRadio('cooldown', readOrDefault('cooldown', '1'), 'cooldown-on');
 
-      bindAll();
-      refreshPreview();
+      const summary = readJumpDuckSummary();
+      const rec = recommendFromSummary(summary);
+
+      renderRecent(summary);
+      renderRecommendation(rec);
+      bindAll(summary, rec);
+
+      if (!qs.get('diff') && !qs.get('time') && !qs.get('run') && !qs.get('gate')) {
+        applyRecommendation(rec);
+      } else {
+        refreshPreview();
+      }
     }
 
     init();
