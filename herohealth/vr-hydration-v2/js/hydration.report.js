@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.report.js ===
-// Hydration V2 Mini Report + Teacher Analytics + Export Bundle + Multi-PID Comparison
-// PATCH v20260320p-HYDRATION-V2-REPORT-COMPARISON
+// Hydration V2 Mini Report + Teacher Analytics + Export Bundle + Multi-PID Comparison + Cohort Cards
+// PATCH v20260320q-HYDRATION-V2-REPORT-COHORT
 
 import { buildTeacherAnalytics } from './hydration.analytics.js';
 import {
@@ -8,6 +8,7 @@ import {
   buildRecordsCsvRows,
   buildFamilyCsvRows,
   buildTrendCsvRows,
+  buildComparisonCsvRows,
   toCsv,
   downloadTextFile
 } from './hydration.export.js';
@@ -111,6 +112,7 @@ function render(payload, history, summaryHistory) {
 
   renderExportBar(exportBundle);
   renderTeacherAnalytics(analytics);
+  renderCohortSummaryCards(analytics.comparison);
   renderComparisonSection(analytics.comparison);
   renderTable(items);
 }
@@ -128,6 +130,7 @@ function renderExportBar(exportBundle) {
     <button type="button" class="btn-export" data-export="records">Export Records CSV</button>
     <button type="button" class="btn-export" data-export="family">Export Family CSV</button>
     <button type="button" class="btn-export" data-export="trends">Export Trends CSV</button>
+    <button type="button" class="btn-export" data-export="comparison">Export Comparison CSV</button>
   `;
 
   injectExportButtonStyle();
@@ -162,6 +165,15 @@ function renderExportBar(exportBundle) {
     const csv = toCsv(buildTrendCsvRows(exportBundle.trendRows));
     downloadTextFile(
       buildFilename(exportBundle, 'trend-summary', 'csv'),
+      csv,
+      'text/csv;charset=utf-8'
+    );
+  });
+
+  bar.querySelector('[data-export="comparison"]')?.addEventListener('click', () => {
+    const csv = toCsv(buildComparisonCsvRows(exportBundle.comparisonRows));
+    downloadTextFile(
+      buildFilename(exportBundle, 'comparison', 'csv'),
       csv,
       'text/csv;charset=utf-8'
     );
@@ -220,6 +232,40 @@ function renderTeacherAnalytics(analytics) {
   `;
 
   refs.tableWrap.parentNode.insertBefore(wrapper, refs.tableWrap);
+}
+
+function renderCohortSummaryCards(comparison = {}) {
+  const rows = Array.isArray(comparison?.rows) ? comparison.rows : [];
+  if (rows.length <= 1) return;
+
+  const pidCount = rows.length;
+  const avgTotalCohort = average(rows.map(x => Number(x.avgTotal || 0)));
+  const avgStreakCohort = average(rows.map(x => Number(x.latestStreak || 0)));
+  const bestRow = [...rows].sort((a, b) => Number(b.avgTotal || 0) - Number(a.avgTotal || 0))[0] || null;
+  const lowestRow = [...rows].sort((a, b) => Number(a.avgTotal || 0) - Number(b.avgTotal || 0))[0] || null;
+
+  const section = document.createElement('section');
+  section.style.marginTop = '18px';
+  section.style.display = 'grid';
+  section.style.gridTemplateColumns = 'repeat(4,minmax(0,1fr))';
+  section.style.gap = '12px';
+
+  section.innerHTML = `
+    ${makeComparisonCard('PID Count', pidCount, 'จำนวนผู้เล่นใน scope นี้')}
+    ${makeComparisonCard('Cohort Avg Total', formatNumber(avgTotalCohort), 'ค่าเฉลี่ยคะแนนรวมของทั้งกลุ่ม')}
+    ${makeComparisonCard('Cohort Avg Streak', formatNumber(avgStreakCohort), 'ค่าเฉลี่ย streak ล่าสุด')}
+    ${makeComparisonCard(
+      'Best / Lowest',
+      bestRow && lowestRow
+        ? `PID ${escapeHtml(bestRow.pid)} / PID ${escapeHtml(lowestRow.pid)}`
+        : '-',
+      bestRow && lowestRow
+        ? `best ${formatNumber(bestRow.avgTotal)} • lowest ${formatNumber(lowestRow.avgTotal)}`
+        : 'ยังไม่มีข้อมูลพอ'
+    )}
+  `;
+
+  refs.tableWrap.parentNode.insertBefore(section, refs.tableWrap);
 }
 
 function renderComparisonSection(comparison = {}) {
@@ -410,6 +456,16 @@ function makeInlineInfo(title, body) {
   `;
 }
 
+function makeComparisonCard(label, value, sub) {
+  return `
+    <article class="card">
+      <div class="label">${escapeHtml(label)}</div>
+      <div class="value">${typeof value === 'string' ? escapeHtml(value) : escapeHtml(String(value))}</div>
+      <div class="sub">${escapeHtml(sub)}</div>
+    </article>
+  `;
+}
+
 function readJson(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -436,6 +492,12 @@ function formatDate(value) {
 function formatNumber(value) {
   const n = Number(value || 0);
   return Number.isFinite(n) ? n.toFixed(1) : '0.0';
+}
+
+function average(arr = []) {
+  const nums = arr.map(Number).filter(Number.isFinite);
+  if (!nums.length) return 0;
+  return nums.reduce((a, b) => a + b, 0) / nums.length;
 }
 
 function escapeHtml(value) {
