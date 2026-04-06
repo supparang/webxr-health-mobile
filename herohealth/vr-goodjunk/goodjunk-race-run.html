@@ -467,369 +467,70 @@
       overflow:auto;
     }
 
-    @media (max-width:760px){
-      body{ overflow:auto; }
-      .race-result-mount{
-        padding:10px;
-        align-items:flex-end;
-      }
+    .race-result-card{
+      width:min(1100px,100%);
+      max-height:min(92vh,1020px);
+      overflow:auto;
+      border-radius:28px;
+      border:1px solid var(--stroke);
+      background:#fffdf8;
+      box-shadow:0 28px 80px rgba(0,0,0,.22);
+      padding:18px;
+      display:grid;
+      gap:14px;
+      position:relative;
     }
-  </style>
-</head>
-<body>
-  <div class="page">
-    <div class="topbar">
-      <div class="brand">
-        <div style="font-size:20px;">🏁</div>
-        <div>
-          <div class="brand-title">GoodJunk • Race Run</div>
-          <div class="brand-sub">แข่งกันทำคะแนน ใครถึงเส้นชัยด้วยคะแนนสูงกว่าชนะ</div>
-        </div>
-      </div>
 
-      <div class="top-actions">
-        <a class="btn ghost" id="btnBackLauncher" href="./goodjunk-multi.html">← Launcher</a>
-        <a class="btn primary" id="btnGoHub" href="../hub.html">🏠 Hub</a>
-      </div>
-    </div>
+    .race-summary-kicker{
+      display:inline-flex;
+      align-items:center;
+      min-height:32px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:#f4fbff;
+      color:#658cb1;
+      font-size:12px;
+      font-weight:1100;
+    }
 
-    <div class="run-shell">
-      <div id="raceHudWrap" class="race-hud">
-        <div class="race-hud-toolbar">
-          <div class="coach-badge" id="raceCoachBadge">🤖 AI Coach</div>
-          <button id="raceHudToggle" class="race-hud-toggle" type="button">⋯</button>
-        </div>
+    .race-result-title{
+      font-size:28px;
+      line-height:1.15;
+      font-weight:1100;
+      color:#9a6500;
+    }
 
-        <div class="race-top">
-          <div class="race-pill">RACE</div>
-          <div class="race-pill" id="raceRoomPill">ห้อง -</div>
-        </div>
+    .race-result-sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
 
-        <div class="race-score">
-          <div class="race-score-label">SCORE</div>
-          <div class="race-score-value" id="raceScoreValue">0</div>
-        </div>
+    .race-top-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
 
-        <div class="race-stats">
-          <div class="race-stat">
-            <div class="race-stat-k">เวลา</div>
-            <div class="race-stat-v" id="raceTimeValue">0:00</div>
-          </div>
-          <div class="race-stat">
-            <div class="race-stat-k">Miss</div>
-            <div class="race-stat-v" id="raceMissValue">0</div>
-          </div>
-          <div class="race-stat">
-            <div class="race-stat-k">Best Streak</div>
-            <div class="race-stat-v" id="raceStreakValue">0</div>
-          </div>
-        </div>
+    .race-top-card,
+    .race-stat-card,
+    .race-standings-card{
+      border-radius:18px;
+      border:2px solid #cde7f4;
+      background:#fff;
+      padding:14px;
+    }
 
-        <div class="race-panel">
-          <div class="race-item">
-            <div class="race-item-icon" id="raceItemIcon">
-              <div class="emoji" id="raceItemEmoji">🏁</div>
-            </div>
-            <div>
-              <div class="race-item-title" id="raceItemTitle">เป้าหมายของรอบนี้</div>
-              <div class="race-item-sub" id="raceItemSub">เก็บอาหารดีให้ไวกว่าอีกฝั่ง แล้วทำคะแนนให้ชนะ</div>
-            </div>
-          </div>
+    .race-top-k{
+      font-size:12px;
+      color:#79aeca;
+      font-weight:1000;
+      text-align:center;
+    }
 
-          <div class="race-mini-stats">
-            <div class="race-mini">
-              <div class="race-mini-k">Good hit</div>
-              <div class="race-mini-v" id="raceGoodHitValue">0</div>
-            </div>
-            <div class="race-mini">
-              <div class="race-mini-k">Junk hit</div>
-              <div class="race-mini-v" id="raceJunkHitValue">0</div>
-            </div>
-            <div class="race-mini">
-              <div class="race-mini-k">Good missed</div>
-              <div class="race-mini-v" id="raceGoodMissValue">0</div>
-            </div>
-          </div>
-
-          <div class="race-tip" id="raceTipText">กำลังเตรียมเชื่อมห้อง Race...</div>
-
-          <div class="race-goal">
-            <div class="race-goal-head">
-              <div class="race-goal-title">RACE TARGET</div>
-              <div class="race-goal-value" id="raceGoalValue">360</div>
-            </div>
-            <div class="race-bar">
-              <div class="race-bar-fill" id="raceGoalFill"></div>
-            </div>
-            <div class="race-bar-sub">
-              <div class="race-bar-sub-fill" id="raceGoalSubFill"></div>
-            </div>
-          </div>
-
-          <div class="race-mini-stats">
-            <div class="race-mini">
-              <div class="race-mini-k">Rank</div>
-              <div class="race-mini-v" id="raceRankValue">-</div>
-            </div>
-            <div class="race-mini">
-              <div class="race-mini-k">Opponent</div>
-              <div class="race-mini-v" id="raceOpponentScoreValue">-</div>
-            </div>
-            <div class="race-mini">
-              <div class="race-mini-k">Gap</div>
-              <div class="race-mini-v" id="raceGapValue">-</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <section class="stage-wrap">
-        <div class="stage-head">RACE GAME STAGE</div>
-        <div class="stage-inner">
-          <div class="stage-cloud c1"></div>
-          <div class="stage-cloud c2"></div>
-          <div class="stage-cloud c3"></div>
-          <div class="stage-ground"></div>
-
-          <div id="gameMount"></div>
-        </div>
-      </section>
-    </div>
-  </div>
-
-  <div id="raceResultMount" class="race-result-mount" hidden></div>
-
-  <script>
-    (function raceRunShellBoot(){
-      const qs = new URLSearchParams(location.search);
-      const hub = qs.get('hub') || '../hub.html';
-
-      const btnGoHub = document.getElementById('btnGoHub');
-      const btnBackLauncher = document.getElementById('btnBackLauncher');
-
-      if (btnGoHub) btnGoHub.href = hub;
-
-      if (btnBackLauncher) {
-        const u = new URL('./goodjunk-multi.html', location.href);
-        ['pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai','room','roomId','roomKind']
-          .forEach((k) => {
-            const v = qs.get(k);
-            if (v != null && v !== '') u.searchParams.set(k, v);
-          });
-        btnBackLauncher.href = u.toString();
-      }
-    })();
-  </script>
-
-  <script src="../js/hha-cloud-logger-bridge.js"></script>
-  <script src="../js/hha-runtime-contract.js"></script>
-
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-
-  <script src="../firebase-config.js?v=20260406-race-run-full"></script>
-  <script src="./goodjunk.safe.race.js?v=20260406-race-core-runtime-full"></script>
-  <script src="./goodjunk-race.js?v=20260406-race-controller-runtime-full"></script>
-
-  <script>
-    (function(){
-      const hud = document.getElementById('raceHudWrap');
-      const hudToggle = document.getElementById('raceHudToggle');
-
-      if (hudToggle && hud) {
-        hudToggle.addEventListener('click', () => {
-          hud.classList.toggle('collapsed');
-          if (hud.classList.contains('collapsed')) {
-            hud.style.maxHeight = '76px';
-            hud.style.overflow = 'hidden';
-          } else {
-            hud.style.maxHeight = '';
-            hud.style.overflow = '';
-          }
-        });
-      }
-
-      const resultMount = document.getElementById('raceResultMount');
-      const qs = (k, d='') => {
-        try { return new URL(location.href).searchParams.get(k) ?? d; }
-        catch { return d; }
-      };
-
-      const runCtx = {
-        pid: qs('pid', 'anon'),
-        roomId: qs('roomId', qs('room', '')),
-        roomKind: qs('roomKind', ''),
-        hub: qs('hub', '../hub.html')
-      };
-
-      function normalize(detail){
-        const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
-          ? detail.summary
-          : (detail || {});
-
-        return {
-          controllerFinal: !!src.controllerFinal,
-          rank: Number.isFinite(Number(src.rank)) && Number(src.rank) > 0 ? Number(src.rank) : '',
-          score: Number(src.score || 0),
-          players: Number(src.players || 1),
-          miss: Number(src.miss || 0),
-          bestStreak: Number(src.bestStreak || 0),
-          result: src.result || 'จบรอบแล้ว',
-          reason: src.reason || '',
-          standings: Array.isArray(src.standings) ? src.standings : [],
-          raw: src
-        };
-      }
-
-      function escapeHtml(s){
-        return String(s == null ? '' : s)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;');
-      }
-
-      function showSummary(detail){
-        if (!resultMount) return;
-
-        const summary = normalize(detail);
-        const standings = Array.isArray(summary.standings) ? summary.standings : [];
-        const me = standings.find((r) => String(r.pid || '') === String(runCtx.pid || '')) || null;
-        const opponent = standings.find((r) => String(r.pid || '') !== String(runCtx.pid || '')) || null;
-        const delta = Number((me && me.score) || summary.score || 0) - Number((opponent && opponent.score) || 0);
-
-        const title =
-          summary.rank === 1 ? 'เข้าเส้นชัยก่อน! คุณชนะรอบนี้' :
-          summary.rank === 2 ? 'จบรอบแล้ว ได้อันดับ 2' :
-          (summary.result || 'จบรอบแล้ว');
-
-        const sub =
-          opponent
-            ? `เรา ${Number((me && me.score) || summary.score || 0)} คะแนน • คู่แข่ง ${Number(opponent.score || 0)} คะแนน`
-            : 'ระบบสรุปผลรอบนี้เรียบร้อยแล้ว';
-
-        resultMount.hidden = false;
-        resultMount.innerHTML = `
-          <div style="width:min(1100px,100%);max-height:min(92vh,1020px);overflow:auto;border-radius:28px;border:1px solid #bfe3f2;background:#fffdf8;box-shadow:0 28px 80px rgba(0,0,0,.22);padding:18px;display:grid;gap:14px;">
-            <div style="display:grid;gap:8px;">
-              <div style="display:inline-flex;align-items:center;min-height:32px;padding:6px 12px;border-radius:999px;border:1px solid #bfe3f2;background:#f4fbff;color:#658cb1;font-size:12px;font-weight:1100;">RACE SUMMARY</div>
-              <div style="font-size:28px;line-height:1.15;font-weight:1100;color:#9a6500;">${escapeHtml(title)}</div>
-              <div style="color:#6b7280;font-size:14px;line-height:1.6;font-weight:900;">${escapeHtml(sub)}</div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
-              <div style="border-radius:18px;border:2px solid #cde7f4;background:#fff;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#79aeca;font-weight:1000;margin-bottom:6px;">เรา</div>
-                <div style="font-size:14px;line-height:1.5;color:#6d6b63;font-weight:1000;margin-bottom:8px;word-break:break-word;">${escapeHtml((me && (me.nick || me.pid)) || runCtx.pid || 'เรา')}</div>
-                <div style="font-size:34px;line-height:1;color:#4d4a42;font-weight:1000;">${Number((me && me.score) || summary.score || 0)}</div>
-              </div>
-
-              <div style="border-radius:18px;border:2px solid #cde7f4;background:#fff;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#79aeca;font-weight:1000;margin-bottom:6px;">ส่วนต่างคะแนน</div>
-                <div style="font-size:14px;line-height:1.5;color:#6d6b63;font-weight:1000;margin-bottom:8px;word-break:break-word;">
-                  ${opponent ? (delta > 0 ? 'เรานำอยู่' : delta < 0 ? 'คู่แข่งนำอยู่' : 'คะแนนเท่ากัน') : 'รอผลอีกฝั่ง'}
-                </div>
-                <div style="font-size:34px;line-height:1;color:#4d4a42;font-weight:1000;">${opponent ? Math.abs(delta) : '-'}</div>
-              </div>
-
-              <div style="border-radius:18px;border:2px solid #cde7f4;background:#fff;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#79aeca;font-weight:1000;margin-bottom:6px;">คู่แข่ง</div>
-                <div style="font-size:14px;line-height:1.5;color:#6d6b63;font-weight:1000;margin-bottom:8px;word-break:break-word;">${escapeHtml((opponent && (opponent.nick || opponent.pid)) || 'ยังไม่พบผลของอีกฝั่ง')}</div>
-                <div style="font-size:34px;line-height:1;color:#4d4a42;font-weight:1000;">${opponent ? Number(opponent.score || 0) : '-'}</div>
-              </div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;">
-              <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Rank</div>
-                <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${summary.rank || '-'}</div>
-              </div>
-              <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Players</div>
-                <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${summary.players || 1}</div>
-              </div>
-              <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Miss</div>
-                <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${summary.miss || 0}</div>
-              </div>
-              <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Best Streak</div>
-                <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${summary.bestStreak || 0}</div>
-              </div>
-            </div>
-
-            <div style="display:grid;gap:10px;">
-              ${
-                standings.length
-                  ? standings.map((r, i) => `
-                    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border-radius:16px;border:2px solid #cde7f4;background:#fff;flex-wrap:wrap;">
-                      <div style="display:grid;gap:4px;">
-                        <div style="font-weight:1000;color:#4d4a42;">#${i + 1} ${escapeHtml(r.nick || r.pid || 'player')}</div>
-                        <div style="font-size:12px;color:#79aeca;font-weight:1000;">Score ${Number(r.score || 0)} • Miss ${Number(r.miss || 0)} • Streak ${Number(r.bestStreak || 0)}</div>
-                      </div>
-                      <div style="font-size:12px;color:#79aeca;font-weight:1000;">${String(r.pid || '') === String(runCtx.pid || '') ? 'YOU' : 'OPPONENT'}</div>
-                    </div>
-                  `).join('')
-                  : `
-                    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border-radius:16px;border:2px solid #cde7f4;background:#fff;flex-wrap:wrap;">
-                      <div style="display:grid;gap:4px;">
-                        <div style="font-weight:1000;color:#4d4a42;">กำลังรอผลอีกฝั่ง</div>
-                        <div style="font-size:12px;color:#79aeca;font-weight:1000;">ถ้าอีกเครื่องส่งผลช้ากว่า ระบบอาจแสดงผลชั่วคราวก่อน</div>
-                      </div>
-                      <div style="font-size:12px;color:#79aeca;font-weight:1000;">WAIT</div>
-                    </div>
-                  `
-              }
-            </div>
-
-            <div style="border-radius:16px;background:#fff;border:1px dashed #bfe3f2;padding:12px;color:#6b7280;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;">controllerFinal=${summary.controllerFinal ? 'true' : 'false'}
-roomId=${escapeHtml(runCtx.roomId || '-')}
-roomKind=${escapeHtml(runCtx.roomKind || '-')}
-reason=${escapeHtml(summary.reason || '-')}</div>
-
-            <div style="display:flex;gap:10px;flex-wrap:wrap;position:sticky;bottom:0;padding-top:10px;background:linear-gradient(180deg, rgba(255,253,248,0), rgba(255,253,248,.92) 22%, rgba(255,253,248,1));z-index:30;">
-              <a class="btn ghost" href="./goodjunk-race-lobby.html?roomId=${encodeURIComponent(runCtx.roomId || '')}&room=${encodeURIComponent(runCtx.roomId || '')}&roomKind=${encodeURIComponent(runCtx.roomKind || '')}&autojoin=1&hub=${encodeURIComponent(runCtx.hub || '../hub.html')}">← กลับ Lobby</a>
-              <a class="btn primary" href="${escapeHtml(runCtx.hub || '../hub.html')}">🏠 กลับ Hub</a>
-              <button class="btn good" id="raceRematchBtn" type="button">🔁 เล่นอีกครั้ง</button>
-            </div>
-          </div>
-        `;
-
-        const rematchBtn = document.getElementById('raceRematchBtn');
-        if (rematchBtn) {
-          rematchBtn.addEventListener('click', () => {
-            const url = new URL('./goodjunk-race-lobby.html', location.href);
-            const src = new URL(location.href);
-
-            src.searchParams.forEach((value, key) => {
-              if (key === 'autostart') return;
-              url.searchParams.set(key, value);
-            });
-
-            if (runCtx.roomId) {
-              url.searchParams.set('roomId', runCtx.roomId);
-              url.searchParams.set('room', runCtx.roomId);
-            }
-            if (runCtx.roomKind) {
-              url.searchParams.set('roomKind', runCtx.roomKind);
-            }
-            url.searchParams.set('autojoin', '1');
-            url.searchParams.set('rematch', '1');
-
-            location.href = url.toString();
-          });
-        }
-      }
-
-      ['gj:summary','hha:summary','hha:session-summary'].forEach((eventName) => {
-        window.addEventListener(eventName, (evt) => {
-          const detail = evt && evt.detail ? evt.detail : null;
-          if (!detail || typeof detail !== 'object') return;
-          showSummary(detail);
-        });
-      });
-    })();
-  </script>
-</body>
-</html>
+    .race-top-name{
+      margin-top:8px;
+      font-size:14px;
+      color:#6d6b63;
