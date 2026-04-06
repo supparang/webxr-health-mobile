@@ -479,8 +479,8 @@
       if (btnLauncher) {
         const u = new URL('./goodjunk-launcher.html', location.href);
         [
-          'pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug',
-          'studentKey','schoolCode','classRoom','studentNo','nickName','name','seed','gameId','zone'
+          'pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','studentKey',
+          'schoolCode','classRoom','studentNo','nickName','name','seed','gameId','zone','debug','log'
         ].forEach((k) => {
           const v =
             k === 'name' ? runCtx.name :
@@ -522,15 +522,43 @@
 
       function showError(msg){
         if (!errorBox) return;
-        errorBox.textContent = msg;
+
+        const launcherUrl = (function(){
+          const u = new URL('./goodjunk-launcher.html', location.href);
+          const q = new URLSearchParams(location.search);
+          q.forEach((v, k) => u.searchParams.set(k, v));
+          return u.toString();
+        })();
+
+        errorBox.innerHTML = `
+          <div style="font-size:14px;font-weight:1000;margin-bottom:8px;">เกิดปัญหาระหว่างเข้าเกม</div>
+          <div style="white-space:pre-wrap;word-break:break-word;">${String(msg || 'unknown error')}</div>
+          <div style="display:grid;gap:8px;margin-top:12px;">
+            <button id="bossRetryBtn" type="button"
+              style="min-height:42px;border:none;border-radius:14px;background:linear-gradient(180deg,#7fcfff,#58b7f5);color:#08374d;font-weight:1000;cursor:pointer;">
+              🔄 ลองโหลดใหม่
+            </button>
+            <a href="${launcherUrl}"
+              style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;min-height:42px;border-radius:14px;background:#fff;color:#6c6a61;border:2px solid #d7edf7;font-weight:1000;">
+              🎮 กลับ Launcher
+            </a>
+          </div>
+        `;
         errorBox.classList.add('show');
+
+        const retryBtn = document.getElementById('bossRetryBtn');
+        if (retryBtn) {
+          retryBtn.addEventListener('click', function(){
+            location.reload();
+          }, { once: true });
+        }
       }
 
       window.__GJ_HIDE_LOADING__ = hideLoading;
       window.__GJ_SHOW_BOOT_ERROR__ = showError;
 
       let tries = 0;
-      const maxTries = 220;
+      const maxTries = 260;
 
       const tick = () => {
         tries += 1;
@@ -550,13 +578,13 @@
 
         if (tries >= maxTries) {
           const msg = window.__GJ_SCRIPT_LOADED__
-            ? 'core ถูกโหลดแล้ว แต่ boot เกมไม่สำเร็จ กรุณาเช็ก error ใน goodjunk-solo-phaseboss-v2.js'
-            : 'โหลดเกมนานกว่าปกติ หรือไฟล์ core ยังไม่ถูกโหลด กรุณารีเฟรชหน้า หรือกลับไป Launcher แล้วเริ่มใหม่อีกครั้ง';
+            ? 'โหลด core แล้ว แต่ boot เกมไม่สำเร็จ'
+            : 'หน้าเกมโหลดนานเกินไป กรุณาลองใหม่อีกครั้ง';
           showError(msg);
           return;
         }
 
-        setTimeout(tick, 125);
+        setTimeout(tick, 120);
       };
 
       tick();
@@ -575,7 +603,7 @@
 
   <script>
     (function loadBossCore(){
-      const src = './goodjunk-solo-phaseboss-v2.js?v=20260406-full-fix-r2';
+      const src = './goodjunk-solo-phaseboss-v2.js?v=20260406-flow-lock-r1';
       const s = document.createElement('script');
       s.src = src;
       s.async = false;
