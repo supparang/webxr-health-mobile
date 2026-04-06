@@ -5,35 +5,225 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Gate</title>
   <style>
-    body{
-      margin:0; font-family:system-ui,sans-serif;
-      background:linear-gradient(180deg,#f1fbff,#fff8ef);
-      color:#334155;
-      display:grid; min-height:100vh; place-items:center;
+    :root{
+      --bg1:#f1fbff;
+      --bg2:#fff8ef;
+      --card:#ffffff;
+      --line:#d9ebf6;
+      --ink:#334155;
+      --muted:#64748b;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --green:#7ed957;
+      --green2:#58c33f;
+      --yellow:#ffd861;
+      --orange:#ffb44f;
+      --danger:#ff9d8c;
+      --shadow:0 12px 28px rgba(0,0,0,.08);
     }
+
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:system-ui,-apple-system,sans-serif;
+      background:linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--ink);
+      display:grid;
+      place-items:center;
+      padding:16px;
+    }
+
     .card{
-      width:min(92vw,640px);
-      background:#fff; border:1px solid #d9ebf6; border-radius:28px;
-      padding:24px 18px; box-shadow:0 12px 28px rgba(0,0,0,.08);
+      width:min(92vw,680px);
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:28px;
+      padding:24px 18px 18px;
+      box-shadow:var(--shadow);
       text-align:center;
     }
-    h1{ margin:0 0 8px; font-size:30px; }
-    p{ margin:0 0 18px; line-height:1.5; }
+
+    h1{
+      margin:0 0 8px;
+      font-size:30px;
+      line-height:1.05;
+    }
+
+    p{
+      margin:0 0 18px;
+      line-height:1.55;
+    }
+
+    .mini-wrap{
+      display:grid;
+      gap:10px;
+      justify-items:center;
+      margin:16px 0 12px;
+    }
+
     .mini{
-      width:120px; height:120px; border-radius:999px;
-      margin:18px auto; background:radial-gradient(circle at 30% 30%,#bde9ff,#7fcfff);
-      display:grid; place-items:center; font-weight:900; color:#174b6b;
+      width:132px;
+      height:132px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      font-weight:900;
+      color:#174b6b;
       user-select:none;
+      background:radial-gradient(circle at 30% 30%,#bde9ff,#7fcfff);
+      box-shadow:inset 0 0 0 6px rgba(255,255,255,.45), 0 10px 24px rgba(91,157,198,.16);
+      transform:scale(1);
+      transition:
+        transform .08s linear,
+        background .12s linear,
+        box-shadow .12s linear;
     }
-    .sub{ color:#64748b; font-size:14px; }
+
+    .mini.good{
+      background:radial-gradient(circle at 30% 30%,#dff9bf,#7ed957);
+      color:#1d4b12;
+      box-shadow:inset 0 0 0 6px rgba(255,255,255,.45), 0 0 0 10px rgba(126,217,87,.16), 0 10px 24px rgba(91,157,198,.16);
+    }
+
+    .mini.warn{
+      background:radial-gradient(circle at 30% 30%,#ffe5a8,#ffbe4f);
+      color:#724100;
+    }
+
+    .mini.bad{
+      background:radial-gradient(circle at 30% 30%,#ffd5cc,#ff9d8c);
+      color:#7a1f1f;
+    }
+
+    .mini-text{
+      font-size:22px;
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+      margin-bottom:0;
+    }
+
+    .status-row{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+      margin:18px 0 12px;
+    }
+
+    .pill{
+      min-height:56px;
+      display:grid;
+      place-items:center;
+      padding:10px 12px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#f8fcff;
+    }
+
+    .pill .k{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:700;
+      line-height:1.2;
+    }
+
+    .pill .v{
+      margin-top:4px;
+      font-size:20px;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .progress-wrap{
+      margin:14px 0 16px;
+    }
+
+    .progress-label{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom:8px;
+      font-size:13px;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .progress{
+      height:14px;
+      border-radius:999px;
+      overflow:hidden;
+      background:#eef6fb;
+      border:1px solid #dcecf7;
+    }
+
+    .fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,var(--blue),var(--green));
+      transition:width .18s ease;
+    }
+
+    .hint-box{
+      margin:0 0 16px;
+      border-radius:18px;
+      background:#f8fcff;
+      border:1px solid #e2eef8;
+      padding:12px 14px;
+      color:#516176;
+      font-size:14px;
+      line-height:1.55;
+      font-weight:700;
+    }
+
     button{
-      width:100%; min-height:50px; border:1px solid #cde2ef;
-      border-radius:16px; background:#7fcfff; color:#163850;
-      font-size:17px; font-weight:800; cursor:pointer;
+      width:100%;
+      min-height:52px;
+      border:1px solid #cde2ef;
+      border-radius:16px;
+      background:var(--blue);
+      color:#163850;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+      transition:.16s ease;
     }
+
+    button:hover{ transform:translateY(-1px); }
+    button:active{ transform:translateY(0); }
+
     button[disabled]{
-      opacity:.72;
+      opacity:.6;
       cursor:default;
+      transform:none;
+    }
+
+    .ghost-btn{
+      margin-top:10px;
+      background:#fff;
+      color:#516176;
+      border:1px solid #d9ebf6;
+    }
+
+    @media (max-width:620px){
+      .status-row{
+        grid-template-columns:1fr;
+      }
+
+      h1{
+        font-size:26px;
+      }
+
+      .mini{
+        width:120px;
+        height:120px;
+      }
     }
   </style>
 </head>
@@ -42,10 +232,44 @@
     <h1 id="title">Warmup</h1>
     <p id="desc">มาเตรียมตัวก่อนเล่นกัน</p>
 
-    <div class="mini" id="miniCircle">3</div>
-    <p class="sub" id="miniHint">แตะปุ่มเมื่อพร้อม</p>
+    <div class="mini-wrap">
+      <div class="mini" id="miniCircle" aria-live="polite">
+        <div class="mini-text" id="miniText">3</div>
+      </div>
+      <p class="sub" id="miniHint">แตะปุ่มเมื่อพร้อม</p>
+    </div>
 
-    <button id="btnContinue">เริ่มต่อ</button>
+    <div class="status-row">
+      <div class="pill">
+        <div class="k" id="status1k">เป้าหมาย</div>
+        <div class="v" id="status1v">3 ครั้ง</div>
+      </div>
+      <div class="pill">
+        <div class="k" id="status2k">สำเร็จ</div>
+        <div class="v" id="status2v">0</div>
+      </div>
+      <div class="pill">
+        <div class="k" id="status3k">สถานะ</div>
+        <div class="v" id="status3v">พร้อม</div>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span id="progressText">ความคืบหน้า</span>
+        <strong id="progressPct">0%</strong>
+      </div>
+      <div class="progress">
+        <div class="fill" id="progressFill"></div>
+      </div>
+    </div>
+
+    <div class="hint-box" id="hintBox">
+      warmup: แตะวงกลมตอนที่วงกลมเข้า “ช่วงสีเขียว” ให้ครบ 3 ครั้ง
+    </div>
+
+    <button id="btnContinue" disabled>กำลังเตรียมมินิเกม…</button>
+    <button id="btnBackLauncher" class="ghost-btn" type="button">กลับ Launcher</button>
   </div>
 
   <script>
@@ -53,6 +277,7 @@
     'use strict';
 
     let navBusy = false;
+    let rafId = 0;
 
     function qs(name, fallback=''){
       try{ return new URL(location.href).searchParams.get(name) ?? fallback; }
@@ -67,10 +292,15 @@
     function bangkokYmd(){
       try{
         const parts = new Intl.DateTimeFormat('en-CA',{
-          timeZone:'Asia/Bangkok', year:'numeric', month:'2-digit', day:'2-digit'
+          timeZone:'Asia/Bangkok',
+          year:'numeric',
+          month:'2-digit',
+          day:'2-digit'
         }).formatToParts(new Date());
         const m = {};
-        for(const p of parts) if(p.type !== 'literal') m[p.type] = p.value;
+        for(const p of parts){
+          if(p.type !== 'literal') m[p.type] = p.value;
+        }
         return `${m.year}${m.month}${m.day}`;
       }catch(_){
         const d = new Date();
@@ -176,21 +406,25 @@
     }
 
     function buildLauncherUrl(ctx){
-      const launcherGuess =
-        ctx.game === 'goodjunk' || ctx.gameId === 'goodjunk'
-          ? './goodjunk-launcher.html'
-          : ctx.game === 'plate' || ctx.gameId === 'plate'
-            ? './plate-v1.html'
-            : './hub-v2.html';
+      const game = String(ctx.gameId || ctx.game || '').toLowerCase();
 
-      return withPassthrough(launcherGuess, ctx);
+      let launcherPath = './hub-v2.html';
+      if(game.includes('goodjunk')) launcherPath = './goodjunk-launcher.html';
+      else if(game.includes('plate')) launcherPath = './plate-v1.html';
+      else if(game.includes('groups')) launcherPath = './groups-v1.html';
+      else if(game.includes('hydration')) launcherPath = './hydration-v2.html';
+
+      return withPassthrough(launcherPath, ctx);
     }
 
     function goOnce(url){
       if(navBusy) return;
       navBusy = true;
       const btn = document.getElementById('btnContinue');
+      const back = document.getElementById('btnBackLauncher');
       if(btn) btn.disabled = true;
+      if(back) back.disabled = true;
+      safeFlushLogs();
       location.href = url;
     }
 
@@ -201,28 +435,58 @@
     const $title = document.getElementById('title');
     const $desc = document.getElementById('desc');
     const $mini = document.getElementById('miniCircle');
+    const $miniText = document.getElementById('miniText');
     const $hint = document.getElementById('miniHint');
+    const $hintBox = document.getElementById('hintBox');
     const $btn = document.getElementById('btnContinue');
+    const $btnBack = document.getElementById('btnBackLauncher');
 
-    function renderPhase(){
-      if(phase === 'cooldown'){
-        $title.textContent = 'Cooldown';
-        $desc.textContent = 'วันนี้ทำได้ดีมาก พักสั้น ๆ ก่อนกลับ HUB';
-        $mini.textContent = 'พัก';
-        $hint.textContent = 'เมื่อพร้อมแล้วกดกลับ';
-        $btn.textContent = 'กลับ HUB';
-        return;
+    const $status1k = document.getElementById('status1k');
+    const $status1v = document.getElementById('status1v');
+    const $status2k = document.getElementById('status2k');
+    const $status2v = document.getElementById('status2v');
+    const $status3k = document.getElementById('status3k');
+    const $status3v = document.getElementById('status3v');
+
+    const $progressText = document.getElementById('progressText');
+    const $progressPct = document.getElementById('progressPct');
+    const $progressFill = document.getElementById('progressFill');
+
+    const state = {
+      phase,
+      ready:false,
+      warmup:{
+        goal:3,
+        hits:0,
+        misses:0,
+        startTs:0,
+        pulse:0,
+        good:false
+      },
+      cooldown:{
+        cyclesGoal:3,
+        cyclesDone:0,
+        phaseName:'inhale',
+        phaseProgress:0,
+        phaseStartTs:0,
+        finished:false
       }
+    };
 
-      $title.textContent = 'Warmup';
-      $desc.textContent = 'มาเตรียมตัวก่อนเล่นกัน พร้อมจัดจานสุขภาพแล้วไหม';
-      $mini.textContent = 'พร้อม';
-      $hint.textContent = 'กดเพื่อเริ่มเกมหลัก';
-      $btn.textContent = 'เริ่มเกม';
+    function setProgress(ratio){
+      const pct = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+      $progressFill.style.width = pct + '%';
+      $progressPct.textContent = pct + '%';
+    }
+
+    function unlockContinue(label){
+      state.ready = true;
+      $btn.disabled = false;
+      $btn.textContent = label;
     }
 
     function finishGate(){
-      safeFlushLogs();
+      if(!state.ready) return;
 
       if(phase === 'cooldown'){
         setGateDone('cooldown', ctx);
@@ -232,6 +496,182 @@
 
       setGateDone('warmup', ctx);
       goOnce(resolveAfterGateUrl('warmup', ctx, next));
+    }
+
+    function setMiniVisual(scale, mode, text){
+      $mini.style.transform = `scale(${scale})`;
+      $mini.classList.remove('good', 'warn', 'bad');
+      if(mode) $mini.classList.add(mode);
+      $miniText.textContent = text;
+    }
+
+    function runWarmup(){
+      $title.textContent = 'Warmup';
+      $desc.textContent = 'แตะวงกลมตอนเข้าช่วงสีเขียวให้ครบ 3 ครั้ง แล้วค่อยเข้าเกมหลัก';
+      $hint.textContent = 'แตะวงกลมตอนสีเขียว';
+      $hintBox.textContent = 'มินิเกมอุ่นเครื่อง: แตะเมื่อวงกลมโตและเปลี่ยนเป็นสีเขียว ถ้ากดเร็วหรือช้าไปจะยังไม่นับ';
+      $status1k.textContent = 'เป้าหมาย';
+      $status1v.textContent = state.warmup.goal + ' ครั้ง';
+      $status2k.textContent = 'สำเร็จ';
+      $status2v.textContent = '0';
+      $status3k.textContent = 'พลาด';
+      $status3v.textContent = '0';
+      $progressText.textContent = 'Warmup Progress';
+      $btn.textContent = 'ทำ warmup ให้ครบก่อน';
+      $btn.disabled = true;
+
+      state.warmup.startTs = performance.now();
+
+      function frame(ts){
+        if(navBusy) return;
+
+        const elapsed = (ts - state.warmup.startTs) / 1000;
+        const pulse = (Math.sin(elapsed * 3.2) + 1) / 2; // 0..1
+        state.warmup.pulse = pulse;
+
+        const scale = 0.9 + pulse * 0.5;
+        const isGood = pulse >= 0.68 && pulse <= 0.86;
+        const isWarn = pulse >= 0.52 && pulse < 0.68;
+
+        state.warmup.good = isGood;
+
+        if(isGood){
+          setMiniVisual(scale, 'good', 'แตะ!');
+          $hint.textContent = 'ตอนนี้กดได้';
+          $status3k.textContent = 'จังหวะ';
+          $status3v.textContent = 'ดี';
+        }else if(isWarn){
+          setMiniVisual(scale, 'warn', 'เกือบ');
+          $hint.textContent = 'รออีกนิด';
+          $status3k.textContent = 'จังหวะ';
+          $status3v.textContent = 'ใกล้';
+        }else{
+          setMiniVisual(scale, '', 'รอ');
+          $hint.textContent = 'แตะตอนสีเขียว';
+          $status3k.textContent = 'พลาด';
+          $status3v.textContent = String(state.warmup.misses);
+        }
+
+        setProgress(state.warmup.hits / state.warmup.goal);
+        $status2v.textContent = String(state.warmup.hits);
+
+        if(state.warmup.hits >= state.warmup.goal){
+          setMiniVisual(1.18, 'good', 'ผ่าน');
+          $hint.textContent = 'อุ่นเครื่องครบแล้ว';
+          unlockContinue('เริ่มเกม');
+          return;
+        }
+
+        rafId = requestAnimationFrame(frame);
+      }
+
+      $mini.addEventListener('pointerdown', function onTap(ev){
+        ev.preventDefault();
+        if(state.ready) return;
+
+        if(state.warmup.good){
+          state.warmup.hits += 1;
+          $status2v.textContent = String(state.warmup.hits);
+          $hint.textContent = 'เยี่ยม! กดได้ถูกจังหวะ';
+          setMiniVisual(1.12, 'good', 'ดี');
+          if(state.warmup.hits >= state.warmup.goal){
+            cancelAnimationFrame(rafId);
+            setProgress(1);
+            setMiniVisual(1.18, 'good', 'ผ่าน');
+            $hint.textContent = 'อุ่นเครื่องครบแล้ว';
+            unlockContinue('เริ่มเกม');
+          }
+        }else{
+          state.warmup.misses += 1;
+          $status3k.textContent = 'พลาด';
+          $status3v.textContent = String(state.warmup.misses);
+          $hint.textContent = 'ยังไม่ใช่จังหวะ ลองใหม่';
+          setMiniVisual(0.96, 'bad', 'พลาด');
+        }
+      }, { passive:false, once:false });
+
+      rafId = requestAnimationFrame(frame);
+    }
+
+    function runCooldown(){
+      $title.textContent = 'Cooldown';
+      $desc.textContent = 'หายใจตามจังหวะให้ครบ 3 รอบ แล้วค่อยกลับ HUB';
+      $hint.textContent = 'ทำตามจังหวะบนหน้าจอ';
+      $hintBox.textContent = 'มินิเกมผ่อนคลาย: หายใจเข้า → ค้าง → หายใจออก ให้ครบ 3 รอบ เพื่อจบ cooldown อย่างสมบูรณ์';
+      $status1k.textContent = 'เป้าหมาย';
+      $status1v.textContent = state.cooldown.cyclesGoal + ' รอบ';
+      $status2k.textContent = 'สำเร็จ';
+      $status2v.textContent = '0';
+      $status3k.textContent = 'สถานะ';
+      $status3v.textContent = 'เริ่ม';
+      $progressText.textContent = 'Cooldown Progress';
+      $btn.textContent = 'ทำ cooldown ให้ครบก่อน';
+      $btn.disabled = true;
+
+      const phases = [
+        { name:'inhale', label:'เข้า', sub:'หายใจเข้า', dur:2000, from:0.85, to:1.2, cls:'' },
+        { name:'hold', label:'ค้าง', sub:'ค้างไว้', dur:1000, from:1.2, to:1.2, cls:'warn' },
+        { name:'exhale', label:'ออก', sub:'หายใจออก', dur:2600, from:1.2, to:0.9, cls:'good' }
+      ];
+
+      let phaseIndex = 0;
+      let phaseStart = performance.now();
+
+      function setPhase(idx){
+        phaseIndex = idx;
+        phaseStart = performance.now();
+        const ph = phases[phaseIndex];
+        state.cooldown.phaseName = ph.name;
+        $hint.textContent = ph.sub;
+        $status3v.textContent = ph.label;
+      }
+
+      function frame(ts){
+        if(navBusy) return;
+
+        const ph = phases[phaseIndex];
+        const t = Math.min(1, (ts - phaseStart) / ph.dur);
+        const scale = ph.from + (ph.to - ph.from) * t;
+
+        setMiniVisual(scale, ph.cls, ph.label);
+        $miniText.textContent = ph.label;
+        $hint.textContent = ph.sub;
+        $status3v.textContent = ph.label;
+
+        const totalUnits = state.cooldown.cyclesGoal * phases.length;
+        const doneUnits = state.cooldown.cyclesDone * phases.length + phaseIndex + t;
+        setProgress(doneUnits / totalUnits);
+
+        if(t >= 1){
+          if(phaseIndex < phases.length - 1){
+            setPhase(phaseIndex + 1);
+          }else{
+            state.cooldown.cyclesDone += 1;
+            $status2v.textContent = String(state.cooldown.cyclesDone);
+
+            if(state.cooldown.cyclesDone >= state.cooldown.cyclesGoal){
+              state.cooldown.finished = true;
+              setProgress(1);
+              setMiniVisual(1.02, 'good', 'เสร็จ');
+              $hint.textContent = 'cooldown ครบแล้ว กลับ HUB ได้เลย';
+              $status3v.textContent = 'ครบ';
+              unlockContinue('กลับ HUB');
+              return;
+            }
+
+            setPhase(0);
+          }
+        }
+
+        rafId = requestAnimationFrame(frame);
+      }
+
+      setPhase(0);
+      rafId = requestAnimationFrame(frame);
+    }
+
+    function stopLoop(){
+      try{ cancelAnimationFrame(rafId); }catch(_){}
     }
 
     window.__resolveAfterGateUrl__ = function(){
@@ -248,21 +688,33 @@
 
     window.addEventListener('pageshow', function(){
       navBusy = false;
-      if($btn) $btn.disabled = false;
+      if($btn) $btn.disabled = !state.ready;
+      if($btnBack) $btnBack.disabled = false;
     });
 
+    window.addEventListener('beforeunload', stopLoop);
     window.addEventListener('error', function(){
       navBusy = false;
-      if($btn) $btn.disabled = false;
+      if($btn) $btn.disabled = !state.ready;
+      if($btnBack) $btnBack.disabled = false;
     });
 
     window.addEventListener('unhandledrejection', function(){
       navBusy = false;
-      if($btn) $btn.disabled = false;
+      if($btn) $btn.disabled = !state.ready;
+      if($btnBack) $btnBack.disabled = false;
     });
 
-    renderPhase();
-    $btn?.addEventListener('click', finishGate);
+    $btn.addEventListener('click', finishGate);
+    $btnBack.addEventListener('click', function(){
+      goOnce(buildLauncherUrl(ctx));
+    });
+
+    if(phase === 'cooldown'){
+      runCooldown();
+    }else{
+      runWarmup();
+    }
   })();
   </script>
 </body>
