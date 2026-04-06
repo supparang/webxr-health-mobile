@@ -1,441 +1,913 @@
-<!-- === /herohealth/plate-v1.html ===
-PlateV1 Launcher — All Modes
-FINAL PATCH v20260320-PLATE-LAUNCHER-ALL-MODES
-Flow:
-launcher -> warmup-gate -> plate-[mode].html -> summary -> warmup-gate?phase=cooldown -> hub
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Plate Launcher</title>
-  <meta name="color-scheme" content="dark light" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#ffd861" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --text:#e5e7eb;
-      --mut:#94a3b8;
-      --line:rgba(148,163,184,.18);
-      --solo:#22c55e;
-      --duet:#38bdf8;
-      --coop:#a78bfa;
-      --race:#f59e0b;
-      --battle:#ef4444;
+      --sky1:#fff8dd;
+      --sky2:#fffdf4;
+      --sky3:#eef9ff;
+      --ink:#39445c;
+      --muted:#6e7b96;
+      --line:#e8eef7;
+      --card:#ffffff;
+      --card2:#fffef8;
+      --yellow:#ffd75c;
+      --yellow2:#ffbe45;
+      --green:#73d46d;
+      --green2:#54c95b;
+      --blue:#6dcaff;
+      --pink:#ff98c9;
+      --orange:#ffb058;
+      --purple:#a893ff;
+      --shadow:0 16px 36px rgba(86,118,154,.14);
+      --radius:28px;
+      --max:1120px;
     }
-    *{ box-sizing:border-box; }
-    html,body{
-      margin:0;
-      min-height:100%;
-      background:
-        radial-gradient(1200px 760px at 20% 0%, rgba(59,130,246,.16), transparent 60%),
-        radial-gradient(900px 700px at 90% 20%, rgba(167,139,250,.12), transparent 60%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
-      color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-    }
+
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0}
     body{
-      display:grid;
-      place-items:center;
-      padding:16px;
+      min-height:100vh;
+      font-family:ui-rounded,"SF Pro Rounded","Nunito","Prompt","Kanit",system-ui,-apple-system,sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.92), rgba(255,255,255,0) 34%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 55%,var(--sky3));
     }
-    .card{
-      width:min(1080px, 96vw);
-      border:1px solid var(--line);
-      border-radius:24px;
-      background:rgba(2,6,23,.74);
-      box-shadow:0 24px 80px rgba(0,0,0,.34);
-      padding:16px;
+
+    a{color:inherit;text-decoration:none}
+    button{font:inherit}
+
+    .shell{
+      width:min(calc(100% - 24px), var(--max));
+      margin:0 auto;
+      padding:18px 0 48px;
     }
-    .title{
-      font-size:24px;
-      font-weight:1000;
+
+    .topbar{
       display:flex;
       align-items:center;
-      gap:10px;
-    }
-    .sub{
-      margin-top:8px;
-      color:var(--mut);
-      font-size:13px;
-      font-weight:900;
-      line-height:1.55;
-    }
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
+      justify-content:space-between;
       gap:12px;
-      margin-top:14px;
+      flex-wrap:wrap;
+      margin-bottom:16px;
     }
-    @media (max-width:880px){
-      .grid{ grid-template-columns:1fr; }
-    }
-    .modeCard{
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:18px;
-      background:rgba(15,23,42,.48);
-      padding:14px;
-      box-shadow:0 18px 55px rgba(0,0,0,.22);
+
+    .brand{
       display:flex;
-      flex-direction:column;
-      gap:10px;
+      align-items:center;
+      gap:12px;
     }
-    .modeCard h3{
+
+    .brand-icon{
+      width:58px;height:58px;border-radius:20px;
+      display:grid;place-items:center;
+      font-size:30px;
+      background:linear-gradient(180deg,#fff8d7,#fff);
+      box-shadow:var(--shadow);
+      border:1px solid #fff0c0;
+    }
+
+    .brand-text h1{
       margin:0;
-      font-size:18px;
-      font-weight:1000;
+      font-size:clamp(28px,4vw,42px);
+      line-height:1;
+    }
+
+    .brand-text p{
+      margin:5px 0 0;
+      color:var(--muted);
+      font-size:14px;
+    }
+
+    .top-actions{
       display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      min-height:48px;
+      padding:0 18px;
+      border:none;
+      border-radius:999px;
+      cursor:pointer;
+      font-weight:900;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      background:#fff;
+      border:1px solid #e6edf8;
+      box-shadow:var(--shadow);
+      transition:.18s transform ease,.18s opacity ease;
+    }
+
+    .btn:hover{transform:translateY(-1px)}
+    .btn:active{transform:translateY(0)}
+    .btn.primary{
+      color:#fff;
+      border-color:transparent;
+      background:linear-gradient(180deg,#ffd969,#ffbf44);
+    }
+    .btn.green{
+      color:#fff;
+      border-color:transparent;
+      background:linear-gradient(180deg,#8ce47e,#5dcc5a);
+    }
+    .btn.blue{
+      color:#fff;
+      border-color:transparent;
+      background:linear-gradient(180deg,#82d7ff,#5bbef8);
+    }
+    .btn.pink{
+      color:#fff;
+      border-color:transparent;
+      background:linear-gradient(180deg,#ffb0d7,#ff8ec4);
+    }
+    .btn.ghost{
+      background:#ffffffd8;
+    }
+    .btn[aria-disabled="true"]{
+      opacity:.55;
+      cursor:not-allowed;
+      pointer-events:none;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:16px;
+      margin-bottom:18px;
+    }
+
+    .panel{
+      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(255,255,255,.9));
+      border:1px solid rgba(255,255,255,.9);
+      border-radius:32px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .hero-main{
+      position:relative;
+      padding:24px;
+      min-height:265px;
+      background:
+        radial-gradient(circle at 14% 10%, rgba(255,255,255,.92), rgba(255,255,255,0) 28%),
+        radial-gradient(circle at 84% 14%, rgba(255,216,92,.3), rgba(255,216,92,0) 18%),
+        linear-gradient(145deg,#fff8df,#fffef9 55%,#eef9ff);
+    }
+
+    .hero-kicker{
+      display:inline-flex;
       align-items:center;
       gap:8px;
-    }
-    .mut{
-      color:var(--mut);
-      font-size:12.5px;
+      min-height:36px;
+      padding:0 12px;
+      border-radius:999px;
+      background:#ffffffd9;
+      color:#6a7694;
+      font-size:13px;
       font-weight:900;
-      line-height:1.45;
+      box-shadow:0 8px 20px rgba(93,124,160,.12);
     }
+
+    .hero-main h2{
+      margin:16px 0 10px;
+      font-size:clamp(30px,5vw,54px);
+      line-height:.98;
+    }
+
+    .hero-main p{
+      margin:0 0 16px;
+      color:var(--muted);
+      font-size:16px;
+      line-height:1.58;
+      max-width:720px;
+    }
+
+    .hero-bubbles{
+      position:absolute;
+      right:18px;
+      top:18px;
+      display:grid;
+      gap:10px;
+      text-align:right;
+      pointer-events:none;
+    }
+
+    .hero-bubbles span{
+      display:inline-block;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#ffffffd4;
+      color:#6e7fa3;
+      font-size:12px;
+      font-weight:900;
+      box-shadow:0 8px 20px rgba(93,124,160,.12);
+    }
+
+    .hero-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .hero-side{
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    .info-card{
+      border-radius:24px;
+      padding:16px;
+      background:linear-gradient(180deg,#fff,#fbfdff);
+      border:1px solid #e7eff9;
+    }
+
+    .info-card h3{
+      margin:0 0 10px;
+      font-size:22px;
+    }
+
+    .flow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .flow span{
+      min-height:36px;
+      padding:0 12px;
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      background:#f7fbff;
+      border:1px solid #e3eef8;
+      color:#5f7398;
+      font-weight:900;
+      font-size:12px;
+    }
+
+    .kv{
+      display:grid;
+      grid-template-columns:110px 1fr;
+      gap:8px 10px;
+      font-size:14px;
+      color:#5d6f92;
+      line-height:1.5;
+    }
+
+    .kv b{color:#354158}
+
+    .section{
+      margin-top:18px;
+    }
+
+    .section-head{
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+
+    .section-head h3{
+      margin:0;
+      font-size:24px;
+    }
+
+    .section-head p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:14px;
+    }
+
+    .controls{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:14px;
+      margin-bottom:16px;
+    }
+
+    .control-card{
+      padding:16px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fff,#fafdff);
+      border:1px solid #e4eef8;
+      box-shadow:var(--shadow);
+    }
+
+    .control-card h4{
+      margin:0 0 10px;
+      font-size:18px;
+    }
+
     .chips{
       display:flex;
       gap:8px;
       flex-wrap:wrap;
     }
-    .pill{
+
+    .chip{
+      min-height:40px;
+      padding:0 14px;
+      border:none;
+      border-radius:999px;
+      background:#f3f9ff;
+      color:#60749a;
+      border:1px solid #dcecf9;
+      font-weight:900;
+      cursor:pointer;
+      transition:.18s transform ease,.18s box-shadow ease;
+    }
+
+    .chip:hover{transform:translateY(-1px)}
+    .chip.active{
+      color:#fff;
+      border-color:transparent;
+      background:linear-gradient(180deg,#81d8ff,#5dbef8);
+      box-shadow:0 10px 22px rgba(79,173,236,.24);
+    }
+
+    .mode-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:16px;
+    }
+
+    .mode-card{
+      padding:18px;
+      border-radius:28px;
+      background:linear-gradient(180deg,#fff,#fbfeff);
+      border:1px solid #e6eff8;
+      box-shadow:var(--shadow);
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    .mode-top{
+      display:flex;
+      align-items:start;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .mode-title{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .mode-icon{
+      width:56px;height:56px;border-radius:18px;
+      display:grid;place-items:center;
+      font-size:28px;
+      background:#fff9df;
+      box-shadow:inset 0 0 0 1px #fff1bc;
+    }
+
+    .mode-title h4{
+      margin:0;
+      font-size:26px;
+      line-height:1;
+    }
+
+    .mode-title p{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.5;
+    }
+
+    .status{
+      min-height:34px;
+      padding:0 12px;
+      border-radius:999px;
       display:inline-flex;
       align-items:center;
-      gap:6px;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.46);
-      color:var(--mut);
+      background:#eef9ff;
+      color:#60749a;
       font-size:12px;
-      font-weight:1000;
+      font-weight:900;
+      white-space:nowrap;
     }
-    .pill b{ color:var(--text); }
 
-    .btnGrid{
+    .mode-list{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .tag{
+      min-height:34px;
+      padding:0 12px;
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      background:#f8fbff;
+      border:1px solid #e3eef8;
+      color:#5d7095;
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .action-grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
-      margin-top:8px;
-    }
-    @media (max-width:520px){
-      .btnGrid{ grid-template-columns:1fr; }
+      margin-top:auto;
     }
 
-    .btn{
-      cursor:pointer;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(148,163,184,.10);
-      color:var(--text);
-      padding:11px 12px;
-      font-weight:1000;
-      min-height:46px;
-      text-decoration:none;
-      text-align:center;
-    }
-    .btn.solo{ border-color:rgba(34,197,94,.30); background:rgba(34,197,94,.14); }
-    .btn.duet{ border-color:rgba(56,189,248,.30); background:rgba(56,189,248,.14); }
-    .btn.coop{ border-color:rgba(167,139,250,.30); background:rgba(167,139,250,.16); }
-    .btn.race{ border-color:rgba(245,158,11,.30); background:rgba(245,158,11,.14); }
-    .btn.battle{ border-color:rgba(239,68,68,.30); background:rgba(239,68,68,.14); }
-    .btn.ghost{
-      border-color:rgba(148,163,184,.18);
-      background:rgba(148,163,184,.10);
+    .action-grid .btn{
+      min-width:0;
+      width:100%;
     }
 
-    .toolbar{
+    .solo-card{
+      background:
+        radial-gradient(circle at top right, rgba(255,217,105,.18), rgba(255,217,105,0) 20%),
+        linear-gradient(180deg,#fffef7,#ffffff 58%,#f7fdff);
+    }
+
+    .soon-card{
+      background:linear-gradient(180deg,#fff,#fbfcff);
+    }
+
+    .route-box{
+      margin-top:14px;
+      border-radius:20px;
+      padding:14px;
+      background:#f7fbff;
+      border:1px solid #e3eef8;
+    }
+
+    .route-box pre{
+      margin:0;
+      white-space:pre-wrap;
+      word-break:break-word;
+      color:#597093;
+      font:700 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
+    }
+
+    .note{
+      margin-top:16px;
+      padding:16px 18px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fffef5,#fff);
+      border:1px solid #f1e7c7;
+      color:#5a6887;
+      line-height:1.6;
+      font-size:14px;
+    }
+
+    .footer{
+      margin-top:18px;
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      justify-content:space-between;
-      align-items:center;
-      margin-top:14px;
     }
-    code{
-      background:rgba(148,163,184,.10);
-      padding:2px 6px;
-      border-radius:8px;
-      word-break:break-all;
+
+    @media (max-width:980px){
+      .hero,.controls,.mode-grid{grid-template-columns:1fr}
     }
-    .info{
-      margin-top:14px;
-      color:var(--mut);
-      font-size:12px;
-      font-weight:900;
-      line-height:1.55;
-      word-break:break-word;
-    }
-    .soon{
-      opacity:.75;
-      filter:saturate(.8);
+
+    @media (max-width:640px){
+      .shell{width:min(calc(100% - 16px), var(--max));padding-top:14px}
+      .hero-main{padding:20px}
+      .action-grid{grid-template-columns:1fr}
+      .mode-title h4{font-size:23px}
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="title">🍽️ Plate Launcher</div>
-    <div class="sub">
-      เลือกโหมดการเล่นก่อนเข้าเกม Plate<br>
-      Flow: <b>Launcher → Warmup → Run → Summary → Cooldown → Hub</b>
-    </div>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">🍽️</div>
+        <div class="brand-text">
+          <h1>Plate Launcher</h1>
+          <p>Master launcher / main entry ของเกม Plate ใน HeroHealth</p>
+        </div>
+      </div>
 
-    <div class="grid">
-      <section class="modeCard">
-        <h3>🎯 Solo</h3>
-        <div class="mut">
-          ผู้เล่นคนเดียว เล่นตามระดับความยากที่เลือก
-        </div>
-        <div class="chips">
-          <span class="pill"><b>Mode</b>: solo</span>
-          <span class="pill"><b>Status</b>: ready</span>
-          <span class="pill"><b>Diff</b>: easy / normal / hard</span>
-        </div>
-        <div class="btnGrid">
-          <button class="btn solo" id="soloEasy" type="button">Solo Easy</button>
-          <button class="btn solo" id="soloNormal" type="button">Solo Normal</button>
-          <button class="btn solo" id="soloHard" type="button">Solo Hard</button>
-          <button class="btn solo" id="soloHardPro" type="button">Solo Hard PRO</button>
-        </div>
-      </section>
+      <div class="top-actions">
+        <a id="backToHubBtn" class="btn ghost" href="https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html">⬅️ กลับ HUB</a>
+        <button id="copyLauncherBtn" class="btn" type="button">🔗 คัดลอกลิงก์ launcher</button>
+      </div>
+    </header>
 
-      <section class="modeCard">
-        <h3>👫 Duet</h3>
-        <div class="mut">
-          2 คนผลัดกันเล่นแบบเบา ๆ โครงแยกไฟล์ไว้แล้วสำหรับทำต่อ
-        </div>
-        <div class="chips">
-          <span class="pill"><b>Mode</b>: duet</span>
-          <span class="pill"><b>Status</b>: next</span>
-        </div>
-        <div class="btnGrid">
-          <button class="btn duet" id="duetNormal" type="button">Duet Normal</button>
-          <button class="btn duet" id="duetHard" type="button">Duet Hard</button>
-        </div>
-      </section>
+    <section class="hero">
+      <div class="panel hero-main">
+        <div class="hero-kicker">🥗 เลือกโหมดก่อนเข้าเกม Plate</div>
+        <h2>จัดจานให้ครบ 5 หมู่<br />แบบสนุกและชัดเจน</h2>
+        <p>
+          หน้า <strong>plate-v1.html</strong> นี้คือ launcher หลักของ Plate
+          ตามที่ตกลงกันไว้ โดย flow จะเป็น
+          <strong>Launcher → Warmup → Run → Summary → Cooldown → Hub</strong>
+          และทุกลิงก์จะส่งค่า <code>hub</code> กลับไปที่ <code>hub-v2.html</code> ต่อเนื่องเสมอ
+        </p>
 
-      <section class="modeCard">
-        <h3>🤝 Coop</h3>
-        <div class="mut">
-          2 คนช่วยกันเติมจานให้ครบ 5 หมู่ มีคะแนนทีมและคะแนนรายคน
+        <div class="hero-actions">
+          <a id="soloNormalHeroBtn" class="btn primary" href="#">▶️ เริ่ม Solo Normal</a>
+          <a id="quickMiniBtn" class="btn blue" href="#">⚡ Quick Plate Mini Game</a>
         </div>
-        <div class="chips">
-          <span class="pill"><b>Mode</b>: coop</span>
-          <span class="pill"><b>Status</b>: next</span>
-        </div>
-        <div class="btnGrid">
-          <button class="btn coop" id="coopEasy" type="button">Coop Easy</button>
-          <button class="btn coop" id="coopNormal" type="button">Coop Normal</button>
-          <button class="btn coop" id="coopHard" type="button">Coop Hard</button>
-          <button class="btn coop" id="coopHardPro" type="button">Coop Hard PRO</button>
-        </div>
-      </section>
 
-      <section class="modeCard">
-        <h3>🏁 Race</h3>
-        <div class="mut">
-          แข่งกันว่าใครทำภารกิจได้เร็วกว่าหรือได้คะแนนมากกว่า
+        <div class="hero-bubbles" aria-hidden="true">
+          <span>Plate v1 = master launcher</span>
+          <span>plate/plate-vr.html = quick mini game</span>
+          <span>theme = nutrition / plate</span>
         </div>
-        <div class="chips">
-          <span class="pill"><b>Mode</b>: race</span>
-          <span class="pill"><b>Status</b>: next</span>
-        </div>
-        <div class="btnGrid">
-          <button class="btn race" id="raceNormal" type="button">Race Normal</button>
-          <button class="btn race" id="raceHard" type="button">Race Hard</button>
-        </div>
-      </section>
+      </div>
 
-      <section class="modeCard">
-        <h3>⚔️ Battle</h3>
-        <div class="mut">
-          แข่งแบบปะทะกัน มีระบบรบกวนหรือกดดันอีกฝ่าย
+      <aside class="panel hero-side">
+        <div class="info-card">
+          <h3>Flow</h3>
+          <div class="flow">
+            <span>1. Launcher</span>
+            <span>2. Warmup</span>
+            <span>3. Run</span>
+            <span>4. Summary</span>
+            <span>5. Cooldown</span>
+            <span>6. Hub</span>
+          </div>
         </div>
-        <div class="chips">
-          <span class="pill"><b>Mode</b>: battle</span>
-          <span class="pill"><b>Status</b>: next</span>
-        </div>
-        <div class="btnGrid">
-          <button class="btn battle" id="battleNormal" type="button">Battle Normal</button>
-          <button class="btn battle" id="battleHard" type="button">Battle Hard</button>
-        </div>
-      </section>
 
-      <section class="modeCard soon">
-        <h3>🧪 หมายเหตุ</h3>
-        <div class="mut">
-          ตอนนี้ Solo คือโหมดที่เสร็จและทดสอบผ่านแล้ว ส่วน Duet / Coop / Race / Battle ใช้ launcher นี้เป็นทางเข้ากลางสำหรับแยกไฟล์ไปทำต่อ
-        </div>
-        <div class="chips">
-          <span class="pill"><b>Warmup/Cooldown</b>: platev1</span>
-          <span class="pill"><b>Gate</b>: warmup-gate.html</span>
-        </div>
-      </section>
-    </div>
+        <div class="info-card">
+          <h3>Context</h3>
+          <div class="kv">
+            <b>PID</b><span id="ctxPid">anon</span>
+            <b>Hub</b><span id="ctxHub">กำลังโหลด…</span>
+            <b>View</b><span id="ctxView">mobile</span>
+            <b>Duration</b><span id="ctxTime">80 sec</span>
+          </div>
 
-    <div class="toolbar">
-      <div class="mut">Launcher file: <code>/herohealth/plate-v1.html</code></div>
-      <button class="btn ghost" id="back" type="button">🏠 กลับ HUB</button>
-    </div>
+          <div class="route-box">
+            <pre id="routePreview">กำลังสร้าง route…</pre>
+          </div>
+        </div>
+      </aside>
+    </section>
 
-    <div class="info" id="info">กำลังเตรียมลิงก์…</div>
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h3>ตั้งค่าก่อนเล่น</h3>
+          <p>เลือกมุมมอง เวลาเล่น และโหมดย่อยก่อนสร้างลิงก์เข้าเกม</p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="control-card">
+          <h4>View</h4>
+          <div class="chips" id="viewChips">
+            <button class="chip active" type="button" data-view="mobile">📱 Mobile</button>
+            <button class="chip" type="button" data-view="pc">🖥️ PC</button>
+            <button class="chip" type="button" data-view="cvr">🥽 Cardboard</button>
+          </div>
+        </div>
+
+        <div class="control-card">
+          <h4>Duration</h4>
+          <div class="chips" id="timeChips">
+            <button class="chip" type="button" data-time="60">60s</button>
+            <button class="chip active" type="button" data-time="80">80s</button>
+            <button class="chip" type="button" data-time="90">90s</button>
+            <button class="chip" type="button" data-time="100">100s</button>
+          </div>
+        </div>
+
+        <div class="control-card">
+          <h4>Run Type</h4>
+          <div class="chips" id="runChips">
+            <button class="chip active" type="button" data-run="play">🎮 Play</button>
+            <button class="chip" type="button" data-run="research">🧪 Research</button>
+            <button class="chip" type="button" data-run="demo">👀 Demo</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h3>เลือกโหมดการเล่น</h3>
+          <p>Solo เปิดใช้จริง ส่วนโหมดอื่นยังคงเป็นทางเข้ากลางไว้ก่อนตาม launcher เดิม</p>
+        </div>
+      </div>
+
+      <div class="mode-grid">
+        <article class="mode-card solo-card">
+          <div class="mode-top">
+            <div class="mode-title">
+              <div class="mode-icon" aria-hidden="true">🧒</div>
+              <div>
+                <h4>Solo</h4>
+                <p>ผู้เล่นคนเดียว เล่นตามระดับความยากที่เลือก</p>
+              </div>
+            </div>
+            <div class="status">ready</div>
+          </div>
+
+          <div class="mode-list">
+            <span class="tag">Mode: solo</span>
+            <span class="tag">Diff: easy / normal / hard / hard-pro</span>
+            <span class="tag">Warmup + Cooldown</span>
+          </div>
+
+          <div class="action-grid">
+            <a id="soloEasyBtn" class="btn green" href="#">Solo Easy</a>
+            <a id="soloNormalBtn" class="btn primary" href="#">Solo Normal</a>
+            <a id="soloHardBtn" class="btn blue" href="#">Solo Hard</a>
+            <a id="soloProBtn" class="btn pink" href="#">Solo Hard PRO</a>
+          </div>
+        </article>
+
+        <article class="mode-card soon-card">
+          <div class="mode-top">
+            <div class="mode-title">
+              <div class="mode-icon" aria-hidden="true">🤝</div>
+              <div>
+                <h4>Duet</h4>
+                <p>2 คนผลัดกันเล่นแบบเบา ๆ โครง launcher แยกไว้สำหรับทำต่อ</p>
+              </div>
+            </div>
+            <div class="status">next</div>
+          </div>
+
+          <div class="mode-list">
+            <span class="tag">Mode: duet</span>
+            <span class="tag">Status: launcher only</span>
+          </div>
+
+          <div class="action-grid">
+            <span class="btn" aria-disabled="true">Duet Normal</span>
+            <span class="btn" aria-disabled="true">Duet Hard</span>
+          </div>
+        </article>
+
+        <article class="mode-card soon-card">
+          <div class="mode-top">
+            <div class="mode-title">
+              <div class="mode-icon" aria-hidden="true">🫶</div>
+              <div>
+                <h4>Coop</h4>
+                <p>ช่วยกันเติมจานให้ครบ 5 หมู่ มีคะแนนทีมและคะแนนรายคน</p>
+              </div>
+            </div>
+            <div class="status">next</div>
+          </div>
+
+          <div class="mode-list">
+            <span class="tag">Mode: coop</span>
+            <span class="tag">Status: launcher only</span>
+          </div>
+
+          <div class="action-grid">
+            <span class="btn" aria-disabled="true">Coop Easy</span>
+            <span class="btn" aria-disabled="true">Coop Normal</span>
+            <span class="btn" aria-disabled="true">Coop Hard</span>
+            <span class="btn" aria-disabled="true">Coop Hard PRO</span>
+          </div>
+        </article>
+
+        <article class="mode-card soon-card">
+          <div class="mode-top">
+            <div class="mode-title">
+              <div class="mode-icon" aria-hidden="true">🏁</div>
+              <div>
+                <h4>Race & Battle</h4>
+                <p>แข่งกันทำภารกิจให้เร็วกว่า หรือปะทะกันด้วยแรงกดดันฝั่งตรงข้าม</p>
+              </div>
+            </div>
+            <div class="status">next</div>
+          </div>
+
+          <div class="mode-list">
+            <span class="tag">Mode: race / battle</span>
+            <span class="tag">Status: launcher only</span>
+          </div>
+
+          <div class="action-grid">
+            <span class="btn" aria-disabled="true">Race Normal</span>
+            <span class="btn" aria-disabled="true">Race Hard</span>
+            <span class="btn" aria-disabled="true">Battle Normal</span>
+            <span class="btn" aria-disabled="true">Battle Hard</span>
+          </div>
+        </article>
+      </div>
+
+      <div class="note">
+        <strong>หมายเหตุ</strong><br />
+        ตอนนี้ Solo คือโหมดที่เสร็จและใช้จริง ส่วน Duet / Coop / Race / Battle
+        คงไว้เป็นทางเข้ากลางตาม launcher เดิมก่อน
+        โดยลิงก์จาก Hub v2 จะเข้าหน้านี้ก่อนเสมอ และหน้านี้จะเป็นตัวส่งต่อไปยัง warmup-gate
+        และหน้า run ของ Plate
+      </div>
+
+      <div class="footer">
+        <a id="backToHubBtn2" class="btn ghost" href="https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html">⬅️ กลับ HUB</a>
+        <a id="soloNormalFooterBtn" class="btn primary" href="#">▶️ เริ่ม Solo Normal</a>
+        <a id="quickMiniFooterBtn" class="btn blue" href="#">⚡ เปิด Mini Game</a>
+      </div>
+    </section>
   </div>
 
-<script>
-(function(){
-  const U = new URL(location.href);
-  const sp = U.searchParams;
+  <script>
+    (() => {
+      'use strict';
 
-  function normalizeHub(raw){
-    raw = String(raw || '').trim();
-    const DEFAULT = new URL('./hub.html', location.href).toString();
-    if(!raw) return DEFAULT;
-    try{
-      const u = new URL(raw, location.href);
-      u.pathname = u.pathname
-        .replace('/herohealth/vr-plate/hub.html', '/herohealth/hub.html')
-        .replace('/herohealth/plate/hub.html', '/herohealth/hub.html')
-        .replace('/vr-plate/hub.html', '/hub.html')
-        .replace('/plate/hub.html', '/hub.html');
-      return u.toString();
-    }catch(_){
-      return DEFAULT;
-    }
-  }
+      const qs = new URLSearchParams(location.search);
 
-  const hub = normalizeHub(sp.get('hub'));
-  const pid = String(sp.get('pid') || 'anon').trim() || 'anon';
+      const HUB_DEFAULT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
+      const PID = qs.get('pid') || localStorage.getItem('HH_PID') || 'anon';
+      const HUB = qs.get('hub') || HUB_DEFAULT;
 
-  function runPathByMode(mode){
-    switch(String(mode || '').toLowerCase()){
-      case 'solo':   return './plate/plate-solo.html';
-      case 'duet':   return './plate/plate-duet.html';
-      case 'coop':   return './plate/plate-coop.html';
-      case 'race':   return './plate/plate-race.html';
-      case 'battle': return './plate/plate-battle.html';
-      default:       return './plate/plate-solo.html';
-    }
-  }
+      let selectedView = qs.get('view') || localStorage.getItem('PLATE_VIEW') || 'mobile';
+      let selectedTime = qs.get('time') || localStorage.getItem('PLATE_TIME') || '80';
+      let selectedRun  = qs.get('run')  || localStorage.getItem('PLATE_RUN')  || 'play';
 
-  function buildRunUrl(mode, extra){
-    const run = new URL(runPathByMode(mode), location.href);
+      const $ = (sel, root = document) => root.querySelector(sel);
+      const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-    [
-      'hub','run','diff','time','seed','pid','view','log','api','ai','debug',
-      'studyId','phase','conditionGroup',
-      'cooldown','cd','cdnext',
-      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-      'wType','wPct','rank','wCrit','wDmg','wHeal','calm',
-      'mode','pro','zone'
-    ].forEach(k=>{
-      const v = sp.get(k);
-      if(v != null && v !== '') run.searchParams.set(k, v);
-    });
+      const soloDurations = {
+        easy: 60,
+        normal: 80,
+        hard: 90,
+        pro: 100
+      };
 
-    if(!run.searchParams.get('view')) run.searchParams.set('view', 'mobile');
-    if(!run.searchParams.get('run'))  run.searchParams.set('run', 'play');
-    if(!run.searchParams.get('diff')) run.searchParams.set('diff', 'normal');
-    if(!run.searchParams.get('time')) run.searchParams.set('time', '90');
-    if(!run.searchParams.get('seed')) run.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
-    if(!run.searchParams.get('hub'))  run.searchParams.set('hub', hub);
-    if(!run.searchParams.get('pid'))  run.searchParams.set('pid', pid);
-    if(!run.searchParams.get('zone')) run.searchParams.set('zone', 'nutrition');
+      function setText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+      }
 
-    run.searchParams.set('mode', String(mode || 'solo').toLowerCase());
-    run.searchParams.set('game', 'platev1');
-    run.searchParams.set('theme', 'platev1');
+      function activateChip(groupSelector, attrName, value) {
+        $$(groupSelector).forEach(btn => {
+          btn.classList.toggle('active', btn.getAttribute(attrName) === String(value));
+        });
+      }
 
-    if(extra && typeof extra === 'object'){
-      Object.keys(extra).forEach(k=>{
-        const v = extra[k];
-        if(v == null || v === '') run.searchParams.delete(k);
-        else run.searchParams.set(k, String(v));
-      });
-    }
+      function buildUrl(path, params = {}) {
+        const url = new URL(path, location.href);
+        Object.entries(params).forEach(([k, v]) => {
+          if (v != null && v !== '') url.searchParams.set(k, String(v));
+        });
+        return url.toString();
+      }
 
-    if(!run.searchParams.get('cooldown') && !run.searchParams.get('cd')){
-      run.searchParams.set('cooldown', '1');
-    }
+      function buildSharedParams(extra = {}) {
+        return {
+          pid: PID,
+          hub: HUB,
+          zone: 'nutrition',
+          cat: 'nutrition',
+          game: 'plate',
+          gameId: 'plate',
+          theme: 'plate',
+          view: selectedView,
+          run: selectedRun,
+          time: selectedTime,
+          cdur: 20,
+          gate: 1,
+          cooldown: 1,
+          returnPhase: 'cooldown',
+          ...extra
+        };
+      }
 
-    return run;
-  }
+      function buildSoloRoute(diffKey) {
+        const timeByDiff = soloDurations[diffKey] || Number(selectedTime) || 80;
+        const seed = Date.now().toString();
 
-  function buildWarmupUrl(runUrl){
-    const gate = new URL('./warmup-gate.html', location.href);
-    gate.searchParams.set('phase', 'warmup');
-    gate.searchParams.set('gatePhase', 'warmup');
-    gate.searchParams.set('cat', 'nutrition');
-    gate.searchParams.set('theme', 'platev1');
-    gate.searchParams.set('game', 'platev1');
-    gate.searchParams.set('pid', String(runUrl.searchParams.get('pid') || pid));
-    gate.searchParams.set('hub', hub);
-    gate.searchParams.set('next', runUrl.toString());
+        return buildUrl('./warmup-gate.html', buildSharedParams({
+          mode: 'solo',
+          diff: diffKey === 'pro' ? 'hard' : diffKey,
+          variant: diffKey === 'pro' ? 'hard-pro' : '',
+          time: timeByDiff,
+          seed,
+          next: buildUrl('./plate/plate-vr.html', buildSharedParams({
+            mode: 'solo',
+            diff: diffKey === 'pro' ? 'hard' : diffKey,
+            variant: diffKey === 'pro' ? 'hard-pro' : '',
+            time: timeByDiff,
+            seed
+          }))
+        }));
+      }
 
-    [
-      'run','diff','time','seed','view','pid','studyId','phase','conditionGroup',
-      'log','planSeq','planDay','planSlot','planMode','planSlots','planIndex',
-      'autoNext','wType','wPct','rank','wCrit','wDmg','wHeal','calm',
-      'mode','pro','zone','cooldown','cd','game','theme'
-    ].forEach(k=>{
-      const v = runUrl.searchParams.get(k);
-      if(v != null && v !== '') gate.searchParams.set(k, v);
-    });
+      function buildQuickMiniRoute() {
+        const seed = Date.now().toString();
+        return buildUrl('./plate/plate-vr.html', buildSharedParams({
+          mode: 'solo',
+          diff: 'normal',
+          variant: 'mini',
+          mini: 1,
+          time: Number(selectedTime) || 80,
+          seed
+        }));
+      }
 
-    if(!gate.searchParams.get('cooldown') && !gate.searchParams.get('cd')){
-      gate.searchParams.set('cooldown', '1');
-    }
+      function refreshContext() {
+        localStorage.setItem('HH_PID', PID);
+        localStorage.setItem('PLATE_VIEW', selectedView);
+        localStorage.setItem('PLATE_TIME', selectedTime);
+        localStorage.setItem('PLATE_RUN', selectedRun);
 
-    return gate;
-  }
+        setText('ctxPid', PID);
+        setText('ctxHub', HUB);
+        setText('ctxView', selectedView);
+        setText('ctxTime', selectedTime + ' sec');
 
-  function buildLaunchUrl(mode, extra){
-    const runUrl = buildRunUrl(mode, extra);
-    return buildWarmupUrl(runUrl);
-  }
+        const back1 = $('#backToHubBtn');
+        const back2 = $('#backToHubBtn2');
+        if (back1) back1.href = HUB;
+        if (back2) back2.href = HUB;
 
-  const links = {
-    soloEasy:      buildLaunchUrl('solo',   { diff:'easy',   pro:''  }),
-    soloNormal:    buildLaunchUrl('solo',   { diff:'normal', pro:''  }),
-    soloHard:      buildLaunchUrl('solo',   { diff:'hard',   pro:''  }),
-    soloHardPro:   buildLaunchUrl('solo',   { diff:'hard',   pro:'1' }),
+        const soloEasy = buildSoloRoute('easy');
+        const soloNormal = buildSoloRoute('normal');
+        const soloHard = buildSoloRoute('hard');
+        const soloPro = buildSoloRoute('pro');
+        const mini = buildQuickMiniRoute();
 
-    duetNormal:    buildLaunchUrl('duet',   { diff:'normal', pro:''  }),
-    duetHard:      buildLaunchUrl('duet',   { diff:'hard',   pro:''  }),
+        const pairs = [
+          ['#soloEasyBtn', soloEasy],
+          ['#soloNormalBtn', soloNormal],
+          ['#soloHardBtn', soloHard],
+          ['#soloProBtn', soloPro],
+          ['#soloNormalHeroBtn', soloNormal],
+          ['#soloNormalFooterBtn', soloNormal],
+          ['#quickMiniBtn', mini],
+          ['#quickMiniFooterBtn', mini]
+        ];
 
-    coopEasy:      buildLaunchUrl('coop',   { diff:'easy',   pro:''  }),
-    coopNormal:    buildLaunchUrl('coop',   { diff:'normal', pro:''  }),
-    coopHard:      buildLaunchUrl('coop',   { diff:'hard',   pro:''  }),
-    coopHardPro:   buildLaunchUrl('coop',   { diff:'hard',   pro:'1' }),
+        pairs.forEach(([selector, href]) => {
+          const el = $(selector);
+          if (el) el.href = href;
+        });
 
-    raceNormal:    buildLaunchUrl('race',   { diff:'normal', pro:''  }),
-    raceHard:      buildLaunchUrl('race',   { diff:'hard',   pro:''  }),
+        const preview = $('#routePreview');
+        if (preview) {
+          preview.textContent =
+`launcher: ${location.href}
+hub: ${HUB}
+solo-normal: ${soloNormal}
+quick-mini: ${mini}`;
+        }
+      }
 
-    battleNormal:  buildLaunchUrl('battle', { diff:'normal', pro:''  }),
-    battleHard:    buildLaunchUrl('battle', { diff:'hard',   pro:''  })
-  };
+      function bindChipGroup(containerId, attrName, onChange) {
+        const root = document.getElementById(containerId);
+        if (!root) return;
 
-  Object.keys(links).forEach(id=>{
-    const btn = document.getElementById(id);
-    if(btn) btn.onclick = ()=> location.href = links[id].toString();
-  });
+        $$('.chip', root).forEach(btn => {
+          btn.addEventListener('click', () => {
+            const value = btn.getAttribute(attrName);
+            onChange(value);
+            activateChip(`#${containerId} .chip`, attrName, value);
+            refreshContext();
+          });
+        });
+      }
 
-  document.getElementById('back').onclick = ()=> location.href = hub;
+      function bindCopy() {
+        const btn = $('#copyLauncherBtn');
+        if (!btn) return;
 
-  const info = document.getElementById('info');
-  if(info){
-    info.innerHTML =
-      `ตัวอย่างลิงก์ Solo Normal: <code>${links.soloNormal.toString()}</code><br>` +
-      `RUN solo: <code>/herohealth/plate/plate-solo.html</code><br>` +
-      `RUN duet: <code>/herohealth/plate/plate-duet.html</code><br>` +
-      `RUN coop: <code>/herohealth/plate/plate-coop.html</code><br>` +
-      `RUN race: <code>/herohealth/plate/plate-race.html</code><br>` +
-      `RUN battle: <code>/herohealth/plate/plate-battle.html</code><br>` +
-      `game/theme: <code>platev1 / platev1</code>`;
-  }
-})();
-</script>
+        btn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(location.href);
+            btn.textContent = 'คัดลอกแล้ว';
+            setTimeout(() => { btn.textContent = '🔗 คัดลอกลิงก์ launcher'; }, 1400);
+          } catch {
+            btn.textContent = 'คัดลอกไม่สำเร็จ';
+            setTimeout(() => { btn.textContent = '🔗 คัดลอกลิงก์ launcher'; }, 1400);
+          }
+        });
+      }
+
+      activateChip('#viewChips .chip', 'data-view', selectedView);
+      activateChip('#timeChips .chip', 'data-time', selectedTime);
+      activateChip('#runChips .chip', 'data-run', selectedRun);
+
+      bindChipGroup('viewChips', 'data-view', (v) => { selectedView = v || 'mobile'; });
+      bindChipGroup('timeChips', 'data-time', (v) => { selectedTime = v || '80'; });
+      bindChipGroup('runChips', 'data-run', (v) => { selectedRun = v || 'play'; });
+
+      bindCopy();
+      refreshContext();
+    })();
+  </script>
 </body>
 </html>
