@@ -231,6 +231,124 @@
       border:2px solid #d7edf7;
     }
 
+    /* ===== Fitness Planner Hub Card Patch ===== */
+    .fp-hub-card{
+      margin-top:12px;
+      border-radius:22px;
+      border:3px solid #d7edf7;
+      background:linear-gradient(180deg,#fffef8,#ffffff);
+      box-shadow:0 14px 28px rgba(86,155,194,.10);
+      padding:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .fp-hub-head{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:12px;
+      align-items:center;
+    }
+
+    .fp-hub-icon{
+      width:56px;
+      height:56px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      background:linear-gradient(135deg,#7fcfff,#ffd45c);
+      box-shadow:inset 0 2px 0 rgba(255,255,255,.72);
+      border:2px solid #d7edf7;
+    }
+
+    .fp-hub-kicker{
+      font-size:11px;
+      font-weight:1000;
+      letter-spacing:.08em;
+      color:#5ea8d0;
+    }
+
+    .fp-hub-title{
+      font-size:22px;
+      line-height:1.08;
+      font-weight:1000;
+      color:#4d4a42;
+      margin-top:2px;
+    }
+
+    .fp-hub-sub{
+      margin-top:4px;
+      font-size:13px;
+      line-height:1.5;
+      color:#7b7a72;
+      font-weight:1000;
+    }
+
+    .fp-hub-tags{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .fp-tag{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid #d7edf7;
+      color:#5d6e7a;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .fp-hub-actions{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .fp-hub-btn{
+      appearance:none;
+      border:none;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:44px;
+      padding:10px 12px;
+      border-radius:16px;
+      font-size:13px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .fp-hub-btn.play{
+      background:linear-gradient(180deg,#7ed957,#58c33f);
+      color:#173b0b;
+    }
+
+    .fp-hub-btn.soft{
+      background:#fff;
+      color:#6c6a61;
+      border:2px solid #d7edf7;
+    }
+
+    .fp-hub-btn.blue{
+      background:linear-gradient(180deg,#7fcfff,#58b7f5);
+      color:#11374a;
+    }
+
+    .fp-hub-note{
+      font-size:12px;
+      line-height:1.55;
+      color:#7b7a72;
+      font-weight:1000;
+    }
+
     @media (max-width:900px){
       .gj-archive-stats{
         grid-template-columns:repeat(2,minmax(0,1fr));
@@ -238,6 +356,10 @@
 
       .gj-archive-actions{
         grid-template-columns:1fr;
+      }
+
+      .fp-hub-actions{
+        grid-template-columns:repeat(2,minmax(0,1fr));
       }
     }
 
@@ -248,6 +370,14 @@
 
       .gj-archive-title{
         font-size:24px;
+      }
+
+      .fp-hub-actions{
+        grid-template-columns:1fr;
+      }
+
+      .fp-hub-title{
+        font-size:20px;
       }
     }
   </style>
@@ -591,6 +721,7 @@
             <div class="zone-art fitness" aria-hidden="true"></div>
             <div class="actions">
               <a id="btnPlayFitness" class="btn primary" href="./fitness-zone.html">🏃 เล่นเลย</a>
+              <a id="btnFitnessPlanner" class="btn secondary" href="./fitness-planner.html">🗓️ Planner</a>
               <button id="btnZoneFitness" class="btn secondary" type="button">ดูเกมในโซน</button>
             </div>
           </div>
@@ -611,6 +742,38 @@
         <section class="panel section">
           <h3 class="section-title">🗺️ คลังเกมฮีโร่</h3>
           <p class="section-note">กดเล่นเกมแนะนำ หรือเลือกทุกเกมทุกโหมดได้เลย</p>
+
+          <div class="fp-hub-card" id="fitnessPlannerHubCard">
+            <div class="fp-hub-head">
+              <div class="fp-hub-icon">🗓️</div>
+              <div>
+                <div class="fp-hub-kicker">FITNESS PLANNER</div>
+                <div class="fp-hub-title">Build a Safe & Fun Plan</div>
+                <div class="fp-hub-sub">
+                  จัดแผนออกกำลังกายให้สนุก สมดุล และปลอดภัย
+                </div>
+              </div>
+            </div>
+
+            <div class="fp-hub-tags">
+              <span class="fp-tag">⚡ Quick</span>
+              <span class="fp-tag">🏫 Class</span>
+              <span class="fp-tag">📅 Weekly</span>
+              <span class="fp-tag">⭐ Safety / Balance / Variety</span>
+            </div>
+
+            <div class="fp-hub-actions">
+              <a id="btnFPQuick" class="fp-hub-btn blue" href="./fitness-planner/index.html?mode=quick">⚡ Quick</a>
+              <a id="btnFPClass" class="fp-hub-btn play" href="./fitness-planner/index.html?mode=class">🏫 Class</a>
+              <a id="btnFPWeekly" class="fp-hub-btn soft" href="./fitness-planner/weekly.html">📅 Weekly</a>
+              <a id="btnFPLauncher" class="fp-hub-btn soft" href="./fitness-planner.html">🧭 Launcher</a>
+            </div>
+
+            <div class="fp-hub-note">
+              เหมาะเป็นเกมวางแผนในโซน Fitness ก่อนหรือหลังเล่นเกมแอ็กชัน เช่น Jump Duck, Rhythm Boxer, Shadow Breaker และ Balance Hold
+            </div>
+          </div>
+
           <div id="libraryBox" class="library-box"></div>
         </section>
       </aside>
@@ -792,6 +955,54 @@
         return u.toString();
       }
 
+      function buildFitnessPlannerUrl(mode){
+        let base = './fitness-planner.html';
+        if (mode === 'quick' || mode === 'class') {
+          base = './fitness-planner/index.html';
+        } else if (mode === 'weekly') {
+          base = './fitness-planner/weekly.html';
+        }
+
+        const u = new URL(base, location.href);
+
+        const pid = qsGet('pid', 'anon');
+        const name = qsGet('name', qsGet('nickName', 'Hero'));
+        const run = qsGet('run', 'play');
+        const diff = qsGet('diff', 'normal');
+        const view = qsGet('view', 'mobile');
+        const time = qsGet('time', '90');
+        const studyId = qsGet('studyId', '');
+        const seed = String(Date.now());
+        const debug = qsGet('debug', '');
+        const api = qsGet('api', '');
+        const log = qsGet('log', '');
+
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('game', 'fitnessplanner');
+        u.searchParams.set('gameId', 'fitnessplanner');
+        u.searchParams.set('theme', 'fitnessplanner');
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('name', name);
+        u.searchParams.set('run', run);
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('view', view);
+        u.searchParams.set('time', time);
+        u.searchParams.set('hub', location.href);
+        u.searchParams.set('seed', seed);
+
+        if (mode === 'quick' || mode === 'class' || mode === 'weekly') {
+          u.searchParams.set('mode', mode);
+        }
+
+        if (studyId) u.searchParams.set('studyId', studyId);
+        if (debug) u.searchParams.set('debug', debug);
+        if (api) u.searchParams.set('api', api);
+        if (log) u.searchParams.set('log', log);
+
+        return u.toString();
+      }
+
       function goZone(zone){
         setLastZone(zone);
         location.href = buildZoneUrl(zone);
@@ -886,6 +1097,34 @@
             goZone((z === 'hygiene' || z === 'nutrition' || z === 'fitness') ? z : 'nutrition');
           });
         }
+      }
+
+      function bindPlannerButtons(){
+        const plannerLauncher = buildFitnessPlannerUrl('launcher');
+        const plannerQuick = buildFitnessPlannerUrl('quick');
+        const plannerClass = buildFitnessPlannerUrl('class');
+        const plannerWeekly = buildFitnessPlannerUrl('weekly');
+
+        setHref('btnFitnessPlanner', plannerLauncher);
+        setHref('btnFPLauncher', plannerLauncher);
+        setHref('btnFPQuick', plannerQuick);
+        setHref('btnFPClass', plannerClass);
+        setHref('btnFPWeekly', plannerWeekly);
+
+        [
+          'btnFitnessPlanner',
+          'btnFPLauncher',
+          'btnFPQuick',
+          'btnFPClass',
+          'btnFPWeekly'
+        ].forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el || el.__plannerBound) return;
+          el.__plannerBound = true;
+          el.addEventListener('click', function(){
+            setLastZone('fitness');
+          });
+        });
       }
 
       function renderGoodJunkHubCard(){
@@ -1008,6 +1247,7 @@
       function bootHubZoneFirstPatch(){
         stripZonePreview();
         bindZoneButtons();
+        bindPlannerButtons();
         renderGoodJunkHubCard();
         refreshTodayHints();
       }
