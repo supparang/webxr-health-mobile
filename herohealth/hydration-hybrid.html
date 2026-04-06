@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Hydration Hybrid Launcher</title>
+  <meta name="theme-color" content="#8fe3ff" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#eaf9ff;
+      --bg2:#d9f3ff;
+      --bg3:#c5ebff;
+      --card:#ffffffef;
+      --line:#cfe8f4;
+      --text:#1f4257;
+      --muted:#64849b;
+      --blue:#54c4ff;
+      --blue2:#2aa7e8;
+      --green:#75d67f;
+      --yellow:#ffd969;
+      --shadow:0 18px 38px rgba(88,150,182,.18);
+      --radius:24px;
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:ui-rounded,"Noto Sans Thai",system-ui,-apple-system,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(84,196,255,.16), transparent 30%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
+    }
+    body{padding:18px}
+    .wrap{max-width:1180px;margin:0 auto;display:grid;gap:16px}
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+    .hero{
+      padding:24px;
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:18px;
+      align-items:center;
+    }
+    .hero h1{margin:8px 0 10px;font-size:clamp(30px,4vw,46px);line-height:1.06}
+    .eyebrow{
+      display:inline-flex;align-items:center;gap:8px;
+      min-height:38px;padding:8px 14px;border-radius:999px;
+      background:#effaff;border:1px solid #caebfb;font-weight:900;color:#2483b2
+    }
+    .lead{margin:0;color:var(--muted);line-height:1.7;font-size:16px}
+    .pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+    .pill{
+      padding:9px 12px;border-radius:999px;background:#f4fbff;border:1px solid var(--line);
+      font-size:13px;font-weight:900;color:#39718d
+    }
+    .mini-map{
+      padding:16px;border-radius:22px;background:linear-gradient(180deg,#f7fdff,#eefaff);
+      border:1px solid var(--line)
+    }
+    .mini-map h2{margin:0 0 10px;font-size:22px}
+    .flow{
+      display:grid;gap:10px;
+    }
+    .flow-step{
+      padding:12px 14px;border-radius:16px;background:#fff;border:1px solid var(--line);
+      font-weight:800;color:#386b86
+    }
+
+    .form{padding:20px}
+    .form-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:14px}
+    .form-head h2{margin:0;font-size:24px}
+    .form-head p{margin:6px 0 0;color:var(--muted);line-height:1.6}
+    .badge{
+      min-height:38px;padding:9px 12px;border-radius:999px;background:#effaff;
+      border:1px solid #caebfb;font-size:13px;font-weight:900;color:#2483b2;white-space:nowrap
+    }
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .field{display:grid;gap:8px}
+    .field.full{grid-column:1/-1}
+    label{font-size:13px;font-weight:900;color:#2f627d}
+    input,select{
+      min-height:48px;width:100%;padding:12px 14px;border-radius:14px;
+      border:1px solid var(--line);background:#fbfeff;color:var(--text);font:inherit
+    }
+    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+    .btn{
+      appearance:none;border:none;cursor:pointer;min-height:48px;padding:12px 16px;border-radius:16px;
+      font-size:15px;font-weight:1000;transition:transform .15s ease
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .btn.primary{background:linear-gradient(180deg,var(--blue),var(--blue2));color:#06273a}
+    .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--text)}
+    .btn.good{background:linear-gradient(180deg,#8fe89b,#62d173);color:#11351b}
+    .preview,.status{
+      margin-top:14px;padding:14px 16px;border-radius:18px;border:1px dashed var(--line);
+      background:#f8fdff;color:#356b85;line-height:1.65;font-size:14px;word-break:break-word
+    }
+    .status{display:none;border-style:solid}
+    .status.show{display:block}
+    @media (max-width:900px){
+      .hero{grid-template-columns:1fr}
+    }
+    @media (max-width:760px){
+      .grid{grid-template-columns:1fr}
+      .form-head{flex-direction:column}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card hero">
+      <div>
+        <div class="eyebrow">💧 Hydration Hybrid • Main Game + Mini Learning</div>
+        <h1>Hydration แบบ Hybrid<br/>สนุกก่อน แล้วค่อยคิดต่อ</h1>
+        <p class="lead">
+          flow นี้ใช้ <strong>hydration-vr</strong> เป็นเกมหลักสำหรับการเล่นจริง
+          และใช้ <strong>hydration-lite</strong> เป็น mini learning สั้น ๆ หลังเล่น
+          เพื่อให้ได้ทั้งความสนุกและ Bloom ที่ครบขึ้น
+        </p>
+        <div class="pill-row">
+          <span class="pill">Main game = hydration-vr</span>
+          <span class="pill">Mini = scenario + evaluate/create</span>
+          <span class="pill">Summary รวมคะแนน</span>
+          <span class="pill">Research-ready flow</span>
+        </div>
+      </div>
+
+      <div class="mini-map">
+        <h2>Flow</h2>
+        <div class="flow">
+          <div class="flow-step">1) Warmup Gate</div>
+          <div class="flow-step">2) Main Game (hydration-vr)</div>
+          <div class="flow-step">3) Mini Learning (hydration-lite)</div>
+          <div class="flow-step">4) Hybrid Summary</div>
+          <div class="flow-step">5) Cooldown → HUB</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card form">
+      <div class="form-head">
+        <div>
+          <h2>ตั้งค่าก่อนเข้าเล่น</h2>
+          <p>หน้านี้จะ generate runId, branch และส่งค่าทั้งหมดต่อไปยัง flow hybrid</p>
+        </div>
+        <div class="badge" id="flowBadge">HYBRID READY</div>
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label for="pidInput">PID</label>
+          <input id="pidInput" type="text" placeholder="เช่น S001" />
+        </div>
+
+        <div class="field">
+          <label for="studyIdInput">Study ID</label>
+          <input id="studyIdInput" type="text" placeholder="เช่น HYD-2026-A" />
+        </div>
+
+        <div class="field">
+          <label for="modeInput">Mode</label>
+          <select id="modeInput">
+            <option value="play">play</option>
+            <option value="research">research</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="typeInput">Type</label>
+          <select id="typeInput">
+            <option value="solo">solo</option>
+            <option value="team">team</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="diffInput">Difficulty</label>
+          <select id="diffInput">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="timeInput">Main Game Time (sec)</label>
+          <select id="timeInput">
+            <option value="60">60</option>
+            <option value="75">75</option>
+            <option value="90" selected>90</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="weekInput">Week</label>
+          <input id="weekInput" type="number" min="1" step="1" value="1" />
+        </div>
+
+        <div class="field">
+          <label for="sessionInput">Session</label>
+          <input id="sessionInput" type="number" min="1" step="1" value="1" />
+        </div>
+
+        <div class="field">
+          <label for="branchInput">Mini Branch</label>
+          <select id="branchInput">
+            <option value="auto" selected>auto</option>
+            <option value="scenario-evaluate">scenario-evaluate</option>
+            <option value="scenario-create">scenario-create</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="seedInput">Seed</label>
+          <input id="seedInput" type="number" step="1" />
+        </div>
+
+        <div class="field full">
+          <label for="hubInput">Hub URL</label>
+          <input id="hubInput" type="text" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="startBtn" type="button">เริ่ม Hybrid Flow</button>
+        <button class="btn ghost" id="copyUrlBtn" type="button">คัดลอก URL</button>
+        <button class="btn good" id="randomSeedBtn" type="button">สุ่ม Seed ใหม่</button>
+      </div>
+
+      <div class="preview" id="urlPreview">กำลังสร้าง URL...</div>
+      <div class="status" id="statusBox"></div>
+    </section>
+  </div>
+
+  <script>
+    (function(){
+      const FIXED_HUB_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+      const qs = new URLSearchParams(location.search);
+
+      const pidInput = document.getElementById('pidInput');
+      const studyIdInput = document.getElementById('studyIdInput');
+      const modeInput = document.getElementById('modeInput');
+      const typeInput = document.getElementById('typeInput');
+      const diffInput = document.getElementById('diffInput');
+      const timeInput = document.getElementById('timeInput');
+      const weekInput = document.getElementById('weekInput');
+      const sessionInput = document.getElementById('sessionInput');
+      const branchInput = document.getElementById('branchInput');
+      const seedInput = document.getElementById('seedInput');
+      const hubInput = document.getElementById('hubInput');
+
+      const startBtn = document.getElementById('startBtn');
+      const copyUrlBtn = document.getElementById('copyUrlBtn');
+      const randomSeedBtn = document.getElementById('randomSeedBtn');
+      const urlPreview = document.getElementById('urlPreview');
+      const statusBox = document.getElementById('statusBox');
+      const flowBadge = document.getElementById('flowBadge');
+
+      pidInput.value = qs.get('pid') || '';
+      studyIdInput.value = qs.get('studyId') || '';
+      modeInput.value = qs.get('mode') || 'play';
+      typeInput.value = qs.get('type') || 'solo';
+      diffInput.value = qs.get('diff') || 'normal';
+      timeInput.value = qs.get('time') || '90';
+      weekInput.value = qs.get('week') || '1';
+      sessionInput.value = qs.get('session') || '1';
+      branchInput.value = qs.get('branch') || 'auto';
+      seedInput.value = qs.get('seed') || String(Date.now());
+      hubInput.value = FIXED_HUB_URL;
+
+      function safeInt(v, fallback){
+        const n = Number(v);
+        return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+      }
+
+      function deriveBranch() {
+        if (branchInput.value && branchInput.value !== 'auto') return branchInput.value;
+        const sessionNo = safeInt(sessionInput.value, 1);
+        return sessionNo % 2 === 1 ? 'scenario-evaluate' : 'scenario-create';
+      }
+
+      function buildRunId() {
+        return `hyd-${Date.now()}-${Math.floor(Math.random()*100000)}`;
+      }
+
+      function buildWarmupUrl() {
+        const runId = buildRunId();
+        const branch = deriveBranch();
+
+        const mainUrl = new URL('./hydration-vr/hydration-vr.html', location.href);
+        mainUrl.searchParams.set('pid', pidInput.value.trim() || 'anon');
+        mainUrl.searchParams.set('studyId', studyIdInput.value.trim() || 'nostudy');
+        mainUrl.searchParams.set('mode', modeInput.value);
+        mainUrl.searchParams.set('type', typeInput.value);
+        mainUrl.searchParams.set('diff', diffInput.value);
+        mainUrl.searchParams.set('time', String(safeInt(timeInput.value, 90)));
+        mainUrl.searchParams.set('week', String(safeInt(weekInput.value, 1)));
+        mainUrl.searchParams.set('session', String(safeInt(sessionInput.value, 1)));
+        mainUrl.searchParams.set('seed', String(safeInt(seedInput.value, Date.now())));
+        mainUrl.searchParams.set('hub', FIXED_HUB_URL);
+        mainUrl.searchParams.set('runId', runId);
+        mainUrl.searchParams.set('branch', branch);
+        mainUrl.searchParams.set('nextLite', new URL('./vr-hydration-v2/hydration-lite.html', location.href).toString());
+        mainUrl.searchParams.set('hybridSummary', new URL('./hydration-hybrid-summary.html', location.href).toString());
+
+        const warmup = new URL('./warmup-gate.html', location.href);
+        warmup.searchParams.set('phase', 'warmup');
+        warmup.searchParams.set('pid', pidInput.value.trim() || 'anon');
+        warmup.searchParams.set('studyId', studyIdInput.value.trim() || 'nostudy');
+        warmup.searchParams.set('zone', 'nutrition');
+        warmup.searchParams.set('cat', 'nutrition');
+        warmup.searchParams.set('game', 'hydrationhybrid');
+        warmup.searchParams.set('gameId', 'hydrationhybrid');
+        warmup.searchParams.set('theme', 'hydration');
+        warmup.searchParams.set('run', modeInput.value);
+        warmup.searchParams.set('mode', typeInput.value);
+        warmup.searchParams.set('diff', diffInput.value);
+        warmup.searchParams.set('week', String(safeInt(weekInput.value, 1)));
+        warmup.searchParams.set('session', String(safeInt(sessionInput.value, 1)));
+        warmup.searchParams.set('seed', String(safeInt(seedInput.value, Date.now())));
+        warmup.searchParams.set('hub', FIXED_HUB_URL);
+        warmup.searchParams.set('runId', runId);
+        warmup.searchParams.set('branch', branch);
+        warmup.searchParams.set('next', mainUrl.toString());
+
+        return warmup.toString();
+      }
+
+      function updateView(){
+        const branch = deriveBranch();
+        flowBadge.textContent = `HYBRID • ${branch} • W${safeInt(weekInput.value,1)} S${safeInt(sessionInput.value,1)}`;
+        urlPreview.innerHTML = `<strong>Warmup URL</strong><br/>${escapeHtml(buildWarmupUrl())}`;
+      }
+
+      function escapeHtml(v){
+        return String(v ?? '')
+          .replaceAll('&','&amp;')
+          .replaceAll('<','&lt;')
+          .replaceAll('>','&gt;')
+          .replaceAll('"','&quot;');
+      }
+
+      function showStatus(msg){
+        statusBox.textContent = msg;
+        statusBox.classList.add('show');
+      }
+
+      [
+        pidInput, studyIdInput, modeInput, typeInput, diffInput,
+        timeInput, weekInput, sessionInput, branchInput, seedInput, hubInput
+      ].forEach(el => {
+        el.addEventListener('input', updateView);
+        el.addEventListener('change', updateView);
+      });
+
+      randomSeedBtn.addEventListener('click', () => {
+        seedInput.value = String(Date.now());
+        updateView();
+      });
+
+      copyUrlBtn.addEventListener('click', async () => {
+        try{
+          await navigator.clipboard.writeText(buildWarmupUrl());
+          showStatus('คัดลอก URL เรียบร้อยแล้ว');
+        }catch(_){
+          showStatus('คัดลอกไม่สำเร็จ');
+        }
+      });
+
+      startBtn.addEventListener('click', () => {
+        const url = buildWarmupUrl();
+        showStatus('กำลังเริ่ม Hybrid Flow');
+        location.href = url;
+      });
+
+      updateView();
+    })();
+  </script>
+</body>
+</html>
