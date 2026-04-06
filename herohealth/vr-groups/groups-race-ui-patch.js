@@ -23,15 +23,17 @@
       '.game-area',
       '.game-board',
       '.arena',
-      '.board'
+      '.board',
+      '#stage',
+      '.stage'
     ],
     title: [
       '.game-title',
       '.title',
       '.hero-title',
       '.top-title',
-      'h1',
-      '.brand h1'
+      '.brand h1',
+      'h1'
     ],
     subtitle: [
       '.game-subtitle',
@@ -39,7 +41,8 @@
       '.hero-subtitle',
       '.top-subtitle',
       '.meta',
-      '.mode-line'
+      '.mode-line',
+      '#ctxLine'
     ],
     mission: [
       '.mission-card',
@@ -49,28 +52,33 @@
       '.coach-card',
       '.instruction-card',
       '.prompt-card',
-      '.mini-panel'
+      '.mini-panel',
+      '.goalCard'
     ],
     missionStageBadge: [
       '.stage-badge',
       '.phase-badge',
       '.mode-badge',
       '.practice-badge',
-      '.mission-stage'
+      '.mission-stage',
+      '#phaseTag'
     ],
     hudCards: [
       '.hud-card',
       '.stat-card',
       '.score-card',
       '.time-card',
-      '.panel-card'
+      '.panel-card',
+      '.chip',
+      '.stat'
     ],
     summaryTitle: [
       '.summary-title',
       '.result-title',
       '.end-title',
       '.summary-card h2',
-      '.summary h2'
+      '.summary h2',
+      '#summaryOverlay h2'
     ],
     target: [
       '.target',
@@ -79,6 +87,7 @@
       '.spawn-item',
       '.token',
       '.floating-item',
+      '.item',
       '[data-target]',
       '[data-role="target"]',
       '[data-food]',
@@ -116,8 +125,8 @@
       compactMissionCard();
       updateSafeRect();
       relocateAllTargets();
-      if (tries >= 12) clearInterval(timer);
-    }, 800);
+      if (tries >= 16) clearInterval(timer);
+    }, 700);
   }
 
   function onRelayout() {
@@ -145,6 +154,7 @@
   function findCoreNodes() {
     state.playfield = pick(SEL.playfield) || guessPlayfield();
     state.mission = pick(SEL.mission, state.playfield || D) || pick(SEL.mission);
+
     if (state.playfield) {
       state.playfield.classList.add('hha-race-playfield');
     }
@@ -155,11 +165,11 @@
 
   function guessPlayfield() {
     const candidates = [
-      ...$$('.playfield, .game-area, .board, .arena'),
+      ...$$('.playfield, .game-area, .board, .arena, .stage, #stage'),
       ...$$('main > section, main > div, .app > section, .app > div')
     ].filter((el) => {
       const r = el.getBoundingClientRect();
-      return r.width > 220 && r.height > 240;
+      return r.width > 220 && r.height > 220;
     });
 
     candidates.sort((a, b) => {
@@ -182,16 +192,16 @@
 
     if (subtitle) {
       const txt = String(subtitle.textContent || '');
-      if (/run=play/i.test(txt) || /view=/i.test(txt) || /time=/i.test(txt)) {
-        let next = txt
-          .replace(/\bmode=[^•|]+/gi, '')
-          .replace(/\bsolo\b/gi, 'race')
-          .trim();
-        if (!/mode=race/i.test(next)) {
-          next = `mode=race • ${next}`.replace(/^•\s*/, '');
-        }
-        subtitle.textContent = next.replace(/\s{2,}/g, ' ');
+      let next = txt
+        .replace(/\bmode=[^•|]+/gi, '')
+        .replace(/\bsolo\b/gi, 'race')
+        .trim();
+
+      if (!/mode=race/i.test(next)) {
+        next = `mode=race • ${next}`.replace(/^•\s*/, '');
       }
+
+      subtitle.textContent = next.replace(/\s{2,}/g, ' ');
     }
 
     if (summaryTitle && /Solo/i.test(summaryTitle.textContent || '')) {
@@ -200,11 +210,9 @@
 
     pickAll(SEL.missionStageBadge).forEach((el) => {
       const t = (el.textContent || '').trim();
-      if (/Practice/i.test(t)) {
-        el.textContent = 'Race Ready';
-      } else if (/Main Run/i.test(t)) {
-        el.textContent = 'Race Run';
-      }
+      if (/Practice/i.test(t)) el.textContent = 'Race Ready';
+      else if (/Main Run/i.test(t)) el.textContent = 'Race Run';
+      else if (/Solo/i.test(t)) el.textContent = 'Race';
     });
   }
 
@@ -212,13 +220,13 @@
     if (!state.mission) return;
 
     state.mission.classList.add('hha-race-mission');
+
     if (W.innerWidth <= 900) {
       state.mission.classList.add('hha-race-mission-compact');
     } else {
       state.mission.classList.remove('hha-race-mission-compact');
     }
 
-    // ไม่ให้ card ไปบังการแตะเป้า
     state.mission.style.pointerEvents = 'none';
     state.mission.style.zIndex = '4';
 
@@ -233,7 +241,7 @@
           updateSafeRect();
           relocateAllTargets();
         }
-      }, 3600);
+      }, 3400);
     }
 
     pickAll(SEL.hudCards).forEach((el) => el.classList.add('hha-race-hud-card'));
@@ -248,17 +256,18 @@
     const pr = state.playfield.getBoundingClientRect();
     const sidePad = W.innerWidth <= 900 ? 10 : 14;
     const bottomPad = W.innerWidth <= 900 ? 10 : 14;
-
     let topBlock = 8;
 
     if (state.mission) {
       const mr = state.mission.getBoundingClientRect();
       const overlapTop = Math.max(0, mr.bottom - pr.top + 8);
-      const missionIsVisible = mr.width > 40 && mr.height > 40 && !state.mission.classList.contains('hha-race-mission-collapsed');
+      const missionIsVisible =
+        mr.width > 40 &&
+        mr.height > 40 &&
+        !state.mission.classList.contains('hha-race-mission-collapsed');
       if (missionIsVisible) topBlock = Math.max(topBlock, overlapTop);
     }
 
-    // เผื่อ HUD บนสุดที่อาจกินลงมา
     const huds = pickAll(SEL.hudCards);
     huds.forEach((el) => {
       const r = el.getBoundingClientRect();
@@ -406,7 +415,6 @@
       el.dataset.hhaPatched = '1';
     }
 
-    // ถ้าโดน scale/translate แปลก ๆ ให้คง transform เดิมไว้
     if (!el.dataset.hhaTargetSeenAt) {
       el.dataset.hhaTargetSeenAt = String(Date.now());
     }
@@ -423,6 +431,10 @@
       .hha-race-playfield .target-layer,
       .hha-race-playfield .targets,
       .hha-race-playfield .spawn-layer{
+        z-index: 8 !important;
+      }
+
+      .hha-race-playfield .item{
         z-index: 8 !important;
       }
 
@@ -444,7 +456,8 @@
 
       .hha-race-mission-compact h2,
       .hha-race-mission-compact h3,
-      .hha-race-mission-compact .title{
+      .hha-race-mission-compact .title,
+      .hha-race-mission-compact #goalTitle{
         font-size: 1.05rem !important;
         line-height: 1.2 !important;
         margin-bottom: 6px !important;
@@ -453,7 +466,9 @@
       .hha-race-mission-compact p,
       .hha-race-mission-compact .subtitle,
       .hha-race-mission-compact .coach-line,
-      .hha-race-mission-compact .desc{
+      .hha-race-mission-compact .desc,
+      .hha-race-mission-compact #goalSub,
+      .hha-race-mission-compact #coachBubble{
         font-size: .92rem !important;
         line-height: 1.35 !important;
       }
@@ -467,7 +482,8 @@
       .hha-race-mission-collapsed .coach-line,
       .hha-race-mission-collapsed .desc,
       .hha-race-mission-collapsed .hint,
-      .hha-race-mission-collapsed p{
+      .hha-race-mission-collapsed p,
+      .hha-race-mission-collapsed #goalSub{
         display: none !important;
       }
 
@@ -487,12 +503,16 @@
 
         .hha-race-hud-card .label,
         .hha-race-hud-card .k,
-        .hha-race-hud-card .name{
+        .hha-race-hud-card .name,
+        .hha-race-hud-card .chipLabel,
+        .hha-race-hud-card .statLabel{
           font-size: .78rem !important;
         }
 
         .hha-race-hud-card .value,
-        .hha-race-hud-card .v{
+        .hha-race-hud-card .v,
+        .hha-race-hud-card .chipValue,
+        .hha-race-hud-card .statValue{
           font-size: 1.05rem !important;
           line-height: 1.15 !important;
         }
