@@ -6,7 +6,7 @@
   const qs = new URLSearchParams(location.search);
 
   const isRace = qs.get('mode') === 'race' || qs.get('race') === '1';
-  const roomCode = cleanRoom(qs.get('roomCode') || '');
+  const roomCode = cleanRoom(qs.get('roomCode') || qs.get('code') || '');
   if (!isRace || !roomCode) return;
 
   const ROOT_PATH = 'hha-battle/groups/raceRooms';
@@ -68,7 +68,6 @@
       startTicker();
     } catch (err) {
       console.warn('[Groups Race StartBarrier] boot failed:', safeErr(err));
-      // ถ้า Firebase มาไม่ครบ อย่าค้างผู้เล่นไว้
       forceRelease('เชื่อมต่อห้องไม่สำเร็จ เริ่มเล่นต่อได้');
     }
   }
@@ -194,7 +193,6 @@
       barrierAt = base;
     }
 
-    // ถ้ามีคนยังไม่พร้อม และเหลือเวลาน้อยมาก ให้ host ขยายเวลาออกเล็กน้อย
     const msLeft = barrierAt - now();
     const allReady = activePlayers.length >= 2 && readyPlayers.length >= activePlayers.length;
     if (!allReady && msLeft < 1200) {
@@ -398,7 +396,9 @@
       '.game-area',
       '.game-board',
       '.arena',
-      '.board'
+      '.board',
+      '#stage',
+      '.stage'
     ];
 
     for (const s of sels) {
