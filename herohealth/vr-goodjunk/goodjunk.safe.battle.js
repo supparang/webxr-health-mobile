@@ -3,7 +3,11 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.battle.js
  * GoodJunk Battle Core
- * FULL PATCH v20260405-battle-core-runtime-full
+ * FULL PATCH v20260406-battle-core-runtime-full
+ * - battle room sync
+ * - score / hp / attack charge
+ * - remote attack processing
+ * - compare summary + controller handoff friendly
  * ========================================================= */
 (function(){
   const W = window;
@@ -16,6 +20,8 @@
   const ACTIVE_TTL_MS = 15000;
   const SYNC_MIN_MS = 120;
   const FIREBASE_WAIT_MS = 10000;
+  const MIN_PLAYERS = 2;
+  const MAX_PLAYERS = 2;
 
   const qs = (k, d='') => {
     try { return new URL(location.href).searchParams.get(k) ?? d; }
@@ -40,10 +46,7 @@
   }
 
   function cleanRoom(v){
-    return String(v == null ? '' : v)
-      .toUpperCase()
-      .replace(/[^A-Z0-9_-]/g, '')
-      .slice(0, 24);
+    return String(v == null ? '' : v).toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
   }
 
   function escapeHtml(s){
@@ -155,7 +158,7 @@
   const ctx = {
     roomId: cleanRoom(qs('roomId', qs('room', ''))),
     roomKind: clean(qs('roomKind', ''), 40),
-    pid: cleanPid(qs('pid', '')) || 'anon',
+    pid: cleanPid(qs('pid', 'anon')) || 'anon',
     uid: cleanPid(qs('uid', '')),
     name: clean(qs('name', qs('nick', 'Player')), 40),
     role: clean(qs('role', 'player'), 20),
@@ -163,12 +166,11 @@
       const v = String(qs('diff', 'normal')).toLowerCase();
       return (v === 'easy' || v === 'hard') ? v : 'normal';
     })(),
-    timeSec: clamp(qs('time', '150'), 30, 300),
+    timeSec: clamp(qs('time', '90'), 30, 300),
     seed: clean(qs('seed', String(Date.now())), 80),
     roundId: clean(qs('roundId', ''), 80),
-    startAtQuery: num(qs('startAt', '0'), 0),
-    hub: clean(qs('hub', '../hub.html'), 400),
-    view: clean(qs('view', 'mobile'), 20),
+    hub: clean(qs('hub', '../hub.html'), 500),
+    view: clean(qs('view', 'mobile'), 24),
     host: clean(qs('host', '0'), 8)
   };
 
@@ -185,16 +187,28 @@
     itemTitle: byId('battleItemTitle'),
     itemSub: byId('battleItemSub'),
 
-    goodHit: byId('battleGoodHitValue'),
-    junkHit: byId('battleJunkHitValue'),
-    goodMiss: byId('battleGoodMissValue'),
+    damageDealt: byId('battleDamageDealtValue'),
+    damageTaken: byId('battleDamageTakenValue'),
+    attacksUsed: byId('battleAttacksUsedValue'),
 
     tip: byId('battleTipText'),
-    goalValue: byId('battlePairGoalValue'),
-    goalFill: byId('battlePairGoalFill'),
-    goalSubFill: byId('battlePairGoalSubFill'),
+    goalValue: byId('battleGoalValue'),
+    goalFill: byId('battleGoalFill'),
+    goalSubFill: byId('battleGoalSubFill'),
 
-    resultMount: byId('battleResultMount')
+    rankValue: byId('battleRankValue'),
+    opponentScoreValue: byId('battleOpponentScoreValue'),
+    gapValue: byId('battleGapValue')
+  };
+
+  const ENGINE = {
+    root: null,
+    field: null,
+    banner: null,
+    opponentStrip: null,
+    actionDock: null,
+    attackBtn: null,
+    attackReadyBadge: null
   };
 
   const S = {
@@ -218,6 +232,7 @@
     localSummary: null,
     resultSubmitted: false,
     finalSummarySent: false,
+    localKo: false,
 
     cfg: DIFF_CFG.normal,
     rng: null,
@@ -238,6 +253,10 @@
     miss: 0,
     streak: 0,
     bestStreak: 0,
+    goodHit: 0,
+    junkHit: 0,
+    goodMiss: 0,
+
     hp: 100,
     maxHp: 100,
     attackCharge: 0,
@@ -247,32 +266,15 @@
     damageDealt: 0,
     damageTaken: 0,
     koCount: 0,
-    goodHit: 0,
-    junkHit: 0,
-    goodMiss: 0,
 
     lastAttackId: '',
     lastAttackAt: 0,
     lastAttackDamage: 0,
     lastAttackTarget: '',
 
-    lastRoundStartedAt: 0,
     hostEndingBusy: false,
     hostPromoteBusy: false,
     bannerLockUntil: 0
-  };
-
-  const ENGINE = {
-    root: null,
-    field: null,
-    banner: null,
-    attackBtn: null,
-    attackBadge: null,
-    opponentStrip: null,
-    hpValue: null,
-    hpFill: null,
-    chargeValue: null,
-    chargeFill: null
   };
 
   let RT = null;
@@ -336,8 +338,21 @@
     return num((S.room.state || {}).startedAt, 0);
   }
 
+  function currentParticipantIds(){
+    const ids =
+      Array.isArray((S.room.state || {}).participantIds) ? (S.room.state || {}).participantIds :
+      Array.isArray((S.room.match || {}).participantIds) ? (S.room.match || {}).participantIds :
+      [];
+    return ids.filter(Boolean);
+  }
+
   function getSelfKey(){
     return ctx.pid || S.uid || '';
+  }
+
+  function selfInParticipants(){
+    if (!getSelfKey()) return false;
+    return currentParticipantIds().includes(getSelfKey());
   }
 
   function normalizeRoomPlayersMap(obj){
@@ -371,6 +386,11 @@
       .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
   }
 
+  function activeParticipants(){
+    const ids = new Set(currentParticipantIds());
+    return activePlayers().filter((p) => ids.has(p.pid || p.key));
+  }
+
   function selfPlayer(){
     const key = getSelfKey();
     const players = normalizeRoomPlayersMap(S.room.players);
@@ -378,13 +398,11 @@
   }
 
   function opponentPlayers(){
-    const key = getSelfKey();
-    return activePlayers().filter((p) => p.key !== key);
+    return activeParticipants().filter((p) => String(p.pid || p.key) !== String(getSelfKey()));
   }
 
   function topOpponent(){
-    const arr = opponentPlayers();
-    return arr[0] || null;
+    return opponentPlayers()[0] || null;
   }
 
   function isHost(){
@@ -392,11 +410,27 @@
     return !!host && host === getSelfKey();
   }
 
-  function currentGoal(){
-    const base = Math.max(180, ctx.timeSec * 4);
-    if (ctx.diff === 'easy') return Math.round(base * 0.88);
-    if (ctx.diff === 'hard') return Math.round(base * 1.15);
-    return Math.round(base);
+  function computeRankAndGap(){
+    const rows = activeParticipants().map((p) => ({
+      pid: p.pid,
+      score: num(p.score, 0),
+      miss: num(p.miss, 0),
+      bestStreak: num(p.bestStreak || p.streak, 0),
+      damageDealt: num(p.damageDealt, 0)
+    })).sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.miss !== b.miss) return a.miss - b.miss;
+      if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
+      if (b.damageDealt !== a.damageDealt) return b.damageDealt - a.damageDealt;
+      return String(a.pid || '').localeCompare(String(b.pid || ''));
+    });
+
+    const me = rows.find((r) => String(r.pid || '') === String(getSelfKey())) || null;
+    const opp = rows.find((r) => String(r.pid || '') !== String(getSelfKey())) || null;
+    const rank = me ? (rows.findIndex((r) => r.pid === me.pid) + 1) : 0;
+    const gap = me && opp ? (me.score - opp.score) : 0;
+
+    return { rank, gap, opp };
   }
 
   function updateGlobals(){
@@ -459,100 +493,30 @@
         pointer-events:none;
       }
       #battleBanner{
-        position:absolute; left:50%; top:18px; transform:translateX(-50%);
-        z-index:7; min-width:min(92vw,520px); max-width:min(92vw,620px);
-        border-radius:22px; padding:12px 16px;
+        position:absolute; left:50%; top:12px; transform:translateX(-50%);
+        z-index:7; width:min(92vw,420px); max-width:min(92vw,420px);
+        border-radius:22px; padding:10px 14px;
         border:2px solid #bfe3f2;
         background:rgba(255,255,255,.95);
         box-shadow:0 14px 24px rgba(86,155,194,.16);
-        color:#4d4a42; text-align:center; font-size:14px; line-height:1.6; font-weight:1000;
-      }
-      #battleActionDock{
-        position:absolute; right:14px; bottom:86px; z-index:8; pointer-events:auto;
-        display:grid; gap:8px; justify-items:end;
-      }
-      #battleAttackBtn{
-        appearance:none; border:none; cursor:pointer;
-        min-width:146px; min-height:54px; padding:12px 16px;
-        border-radius:18px; font-size:15px; font-weight:1000;
-        color:#fffef9; background:linear-gradient(180deg,#7fcfff,#58b7f5);
-        box-shadow:0 14px 24px rgba(86,155,194,.18);
-        transition:transform .12s ease, opacity .12s ease, filter .12s ease;
-      }
-      #battleAttackBtn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
-      #battleAttackBtn:active{ transform:translateY(0); }
-      #battleAttackBtn:disabled{
-        cursor:not-allowed; opacity:.55; filter:grayscale(.06); transform:none;
-      }
-      #attackReadyBadge{
-        background:rgba(255,255,255,.92);
-        border:2px solid #bfe3f2;
-        border-radius:999px; min-height:36px; padding:7px 12px;
-        box-shadow:0 10px 20px rgba(86,155,194,.12);
-        font-size:12px; font-weight:1000; color:#7b7a72;
-      }
-      #battleOverlayHud{
-        position:absolute;
-        left:14px;
-        right:14px;
-        top:76px;
-        z-index:6;
-        display:grid;
-        gap:10px;
+        color:#4d4a42; text-align:center; font-size:13px; line-height:1.55; font-weight:1000;
         pointer-events:none;
       }
-      .gjb-gaugerow{
-        display:flex;
-        gap:10px;
-        flex-wrap:wrap;
-        align-items:center;
-      }
-      .gjb-gauge{
-        background:rgba(255,255,255,.92);
-        border:2px solid #bfe3f2;
-        border-radius:18px;
-        box-shadow:0 10px 20px rgba(86,155,194,.12);
-        padding:10px 12px;
-        min-width:180px;
-      }
-      .gjb-gauge-head{
-        display:flex;
-        justify-content:space-between;
-        gap:8px;
-        align-items:center;
-        font-size:12px;
-        color:#6d6a62;
-        font-weight:1000;
-      }
-      .gjb-gauge-bar{
-        position:relative;
-        height:12px;
-        margin-top:7px;
-        overflow:hidden;
-        border-radius:999px;
-        background:#e8f6ff;
-      }
-      .gjb-gauge-fill{
-        position:absolute;
-        left:0; top:0; bottom:0;
-        width:0%;
-        border-radius:999px;
-        transition:width .14s linear;
-      }
-      #battleHpFill{ background:linear-gradient(90deg,#7ed957,#58c33f); }
-      #battleChargeFill{ background:linear-gradient(90deg,#7fcfff,#58b7f5); }
       #battleOpponentStrip{
         position:absolute;
         left:14px;
-        right:120px;
         bottom:14px;
-        z-index:5;
+        z-index:6;
         display:flex;
         gap:10px;
-        flex-wrap:wrap;
+        flex-wrap:nowrap;
+        justify-content:flex-start;
+        width:min(320px, calc(100% - 160px));
+        pointer-events:none;
       }
       .gjb-opponent-card{
-        min-width:220px;
+        width:100%;
+        min-width:0;
         padding:12px 14px;
         color:#4d4a42;
         background:rgba(255,255,255,.92);
@@ -575,6 +539,50 @@
         font-size:12px;
         color:#7b7a72;
         font-weight:1000;
+      }
+      #battleActionDock{
+        position:absolute;
+        right:14px;
+        bottom:14px;
+        z-index:8;
+        display:grid;
+        justify-items:end;
+        gap:8px;
+        pointer-events:auto;
+      }
+      #battleAttackReady{
+        background:rgba(255,255,255,.92);
+        border:2px solid #bfe3f2;
+        border-radius:999px;
+        min-height:36px;
+        padding:7px 12px;
+        box-shadow:0 10px 20px rgba(86,155,194,.12);
+        font-size:12px;
+        font-weight:1000;
+        color:#7b7a72;
+      }
+      #battleAttackBtn{
+        appearance:none;
+        border:none;
+        cursor:pointer;
+        min-width:148px;
+        min-height:54px;
+        padding:12px 16px;
+        border-radius:18px;
+        font-size:15px;
+        font-weight:1000;
+        color:#fffef9;
+        background:linear-gradient(180deg,#7fcfff,#58b7f5);
+        box-shadow:0 14px 24px rgba(86,155,194,.18);
+        transition:transform .12s ease, opacity .12s ease, filter .12s ease;
+      }
+      #battleAttackBtn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+      #battleAttackBtn:active{ transform:translateY(0); }
+      #battleAttackBtn:disabled{
+        cursor:not-allowed;
+        opacity:.55;
+        filter:grayscale(.06);
+        transform:none;
       }
       .gjb-target{
         position:absolute;
@@ -616,52 +624,17 @@
       }
       @media (max-width:640px){
         #battleBanner{
-          top:8px;
-          min-width:min(94vw,360px);
-          padding:8px 10px;
-          font-size:11px;
-          border-radius:12px;
-        }
-        #battleOverlayHud{
-          top:60px;
-          left:6px;
-          right:6px;
-          gap:6px;
-        }
-        .gjb-gauge{
-          min-width:0;
-          width:100%;
-          padding:8px 10px;
-          border-radius:12px;
-        }
-        .gjb-gauge-head{
+          top:6px;
+          width:min(90vw,300px);
+          max-width:min(90vw,300px);
+          padding:7px 10px;
           font-size:10px;
-        }
-        .gjb-gauge-bar{
-          height:10px;
-        }
-        #battleActionDock{
-          right:6px;
-          bottom:6px;
-          gap:5px;
-        }
-        #battleAttackBtn{
-          min-width:88px;
-          min-height:34px;
-          padding:5px 6px;
-          font-size:11px;
-          border-radius:10px;
-        }
-        #attackReadyBadge{
-          min-height:22px;
-          padding:3px 6px;
-          font-size:8px;
-          border-radius:999px;
+          border-radius:12px;
         }
         #battleOpponentStrip{
           left:6px;
-          right:98px;
           bottom:6px;
+          width:min(180px, calc(100% - 100px));
           gap:4px;
         }
         .gjb-opponent-card{
@@ -680,6 +653,24 @@
           margin-top:3px;
           font-size:9px;
           line-height:1.3;
+        }
+        #battleActionDock{
+          right:6px;
+          bottom:6px;
+          gap:5px;
+        }
+        #battleAttackReady{
+          min-height:22px;
+          padding:3px 6px;
+          font-size:8px;
+          border-radius:999px;
+        }
+        #battleAttackBtn{
+          min-width:88px;
+          min-height:34px;
+          padding:5px 6px;
+          font-size:11px;
+          border-radius:10px;
         }
         .gjb-target{
           min-width:48px;
@@ -703,39 +694,12 @@
       <div id="battleEngineRoot">
         <div id="battleEngineStage">
           <div id="battleBanner">กำลังเชื่อม GoodJunk Battle…</div>
-
-          <div id="battleOverlayHud">
-            <div class="gjb-gaugerow">
-              <div class="gjb-gauge">
-                <div class="gjb-gauge-head">
-                  <span>HP</span>
-                  <span id="battleHpValue">100/100</span>
-                </div>
-                <div class="gjb-gauge-bar">
-                  <div class="gjb-gauge-fill" id="battleHpFill"></div>
-                </div>
-              </div>
-
-              <div class="gjb-gauge">
-                <div class="gjb-gauge-head">
-                  <span>ATTACK CHARGE</span>
-                  <span id="battleChargeValue">0/100</span>
-                </div>
-                <div class="gjb-gauge-bar">
-                  <div class="gjb-gauge-fill" id="battleChargeFill"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div id="battleField"></div>
-
+          <div id="battleOpponentStrip"></div>
           <div id="battleActionDock">
-            <div id="attackReadyBadge">CHARGING</div>
+            <div id="battleAttackReady">CHARGING</div>
             <button id="battleAttackBtn" type="button" disabled>⚡ ATTACK</button>
           </div>
-
-          <div id="battleOpponentStrip"></div>
         </div>
       </div>
     `;
@@ -743,15 +707,14 @@
     ENGINE.root = byId('battleEngineRoot');
     ENGINE.field = byId('battleField');
     ENGINE.banner = byId('battleBanner');
-    ENGINE.attackBtn = byId('battleAttackBtn');
-    ENGINE.attackBadge = byId('attackReadyBadge');
     ENGINE.opponentStrip = byId('battleOpponentStrip');
-    ENGINE.hpValue = byId('battleHpValue');
-    ENGINE.hpFill = byId('battleHpFill');
-    ENGINE.chargeValue = byId('battleChargeValue');
-    ENGINE.chargeFill = byId('battleChargeFill');
+    ENGINE.actionDock = byId('battleActionDock');
+    ENGINE.attackBtn = byId('battleAttackBtn');
+    ENGINE.attackReadyBadge = byId('battleAttackReady');
 
-    ENGINE.attackBtn.addEventListener('click', useAttack);
+    if (ENGINE.attackBtn) {
+      ENGINE.attackBtn.addEventListener('click', useAttack);
+    }
   }
 
   function setBanner(text, lockMs=0){
@@ -783,25 +746,59 @@
 
   function playAreaInsets(){
     const mobile = W.innerWidth <= 640;
-    return {
-      top: mobile ? 56 : 96,
-      right: mobile ? 96 : 18,
-      bottom: mobile ? 82 : 84,
-      left: mobile ? 6 : 8
-    };
+
+    let top = mobile ? 72 : 118;
+    let right = mobile ? 90 : 170;
+    let bottom = mobile ? 88 : 108;
+    let left = mobile ? 8 : 12;
+
+    try{
+      const field = ENGINE.field && ENGINE.field.getBoundingClientRect ? ENGINE.field.getBoundingClientRect() : null;
+      const banner = ENGINE.banner && ENGINE.banner.getBoundingClientRect ? ENGINE.banner.getBoundingClientRect() : null;
+      const strip = ENGINE.opponentStrip && ENGINE.opponentStrip.getBoundingClientRect ? ENGINE.opponentStrip.getBoundingClientRect() : null;
+      const dock = ENGINE.actionDock && ENGINE.actionDock.getBoundingClientRect ? ENGINE.actionDock.getBoundingClientRect() : null;
+
+      if (field && banner && banner.width > 0 && banner.height > 0) {
+        top = Math.max(
+          top,
+          Math.round((banner.bottom - field.top) + (mobile ? 10 : 14))
+        );
+      }
+
+      if (field && strip && strip.width > 0 && strip.height > 0) {
+        bottom = Math.max(
+          bottom,
+          Math.round((field.bottom - strip.top) + (mobile ? 8 : 12))
+        );
+      }
+
+      if (field && dock && dock.width > 0 && dock.height > 0) {
+        right = Math.max(
+          right,
+          Math.round((field.right - dock.left) + (mobile ? 6 : 10))
+        );
+      }
+    }catch(_){}
+
+    return { top, right, bottom, left };
   }
 
   function playBounds(){
     const rect = fieldRect();
     const inset = playAreaInsets();
 
+    const left = inset.left;
+    const right = Math.max(left + 170, rect.w - inset.right);
+    const top = inset.top;
+    const bottom = Math.max(top + 240, rect.h - inset.bottom);
+
     return {
       w: rect.w,
       h: rect.h,
-      left: inset.left,
-      right: Math.max(inset.left + 150, rect.w - inset.right),
-      top: inset.top,
-      bottom: Math.max(inset.top + 240, rect.h - inset.bottom)
+      left,
+      right,
+      top,
+      bottom
     };
   }
 
@@ -817,66 +814,124 @@
     return S.started ? 0 : ctx.timeSec;
   }
 
+  function renderOpponentStrip(){
+    if (!ENGINE.opponentStrip) return;
+    const opp = topOpponent();
+
+    if (!opp){
+      ENGINE.opponentStrip.innerHTML = `
+        <div class="gjb-opponent-card">
+          <div class="gjb-opponent-top">
+            <div class="gjb-opponent-name">รอคู่ต่อสู้</div>
+            <div>⌛</div>
+          </div>
+          <div class="gjb-opponent-mini">เมื่ออีกฝั่งเข้ามา จะเห็นคะแนนและ HP ที่นี่</div>
+        </div>
+      `;
+      return;
+    }
+
+    const oppHp = Math.max(0, num(opp.hp, 100));
+    const oppMaxHp = Math.max(1, num(opp.maxHp, 100));
+
+    ENGINE.opponentStrip.innerHTML = `
+      <div class="gjb-opponent-card">
+        <div class="gjb-opponent-top">
+          <div class="gjb-opponent-name">${escapeHtml(opp.name || opp.nick || 'Opponent')}</div>
+          <div>${oppHp > 0 ? '⚔️' : '💥'}</div>
+        </div>
+        <div class="gjb-opponent-mini">
+          Score ${num(opp.score, 0)} • HP ${oppHp}/${oppMaxHp} • Miss ${num(opp.miss, 0)}
+        </div>
+      </div>
+    `;
+  }
+
   function renderHud(){
+    const { rank, gap, opp } = computeRankAndGap();
+    const hpPct = Math.max(0, Math.min(100, (S.hp / Math.max(1, S.maxHp)) * 100));
+    const oppHpPct = opp ? Math.max(0, Math.min(100, (num(opp.hp, 100) / Math.max(1, num(opp.maxHp, 100))) * 100)) : 0;
+
     if (UI.roomPill) UI.roomPill.textContent = ctx.roomId ? `ห้อง ${ctx.roomId}` : 'Battle';
     if (UI.score) UI.score.textContent = String(Math.max(0, Math.round(S.score)));
     if (UI.time) UI.time.textContent = formatClock(timeLeftSec());
     if (UI.miss) UI.miss.textContent = String(S.miss);
     if (UI.streak) UI.streak.textContent = String(S.bestStreak);
 
-    if (UI.goodHit) UI.goodHit.textContent = String(S.goodHit);
-    if (UI.junkHit) UI.junkHit.textContent = String(S.junkHit);
-    if (UI.goodMiss) UI.goodMiss.textContent = String(S.goodMiss);
+    if (UI.damageDealt) UI.damageDealt.textContent = String(S.damageDealt);
+    if (UI.damageTaken) UI.damageTaken.textContent = String(S.damageTaken);
+    if (UI.attacksUsed) UI.attacksUsed.textContent = String(S.attacksUsed);
 
-    if (UI.itemEmoji) UI.itemEmoji.textContent = S.attackReady ? '⚡' : '🥗';
-    if (UI.itemTitle) UI.itemTitle.textContent = S.attackReady ? 'พลังโจมตีพร้อมแล้ว' : 'เป้าหมายของรอบนี้';
+    if (UI.itemEmoji) UI.itemEmoji.textContent = S.attackReady ? '⚡' : (rank === 1 ? '🥇' : '⚔️');
+    if (UI.itemTitle) {
+      if (S.localKo) UI.itemTitle.textContent = 'HP หมดแล้ว';
+      else if (S.attackReady) UI.itemTitle.textContent = 'พลังโจมตีพร้อมแล้ว';
+      else if (rank === 1) UI.itemTitle.textContent = 'ตอนนี้คุณนำอยู่';
+      else if (rank === 2) UI.itemTitle.textContent = 'กำลังไล่ตามอยู่';
+      else UI.itemTitle.textContent = 'เป้าหมายของรอบนี้';
+    }
+
     if (UI.itemSub) {
-      UI.itemSub.textContent = S.attackReady
-        ? 'กด ATTACK ตอนนี้เพื่อโจมตีคู่แข่ง'
-        : 'แตะอาหารดี หลีกเลี่ยง junk และทำคะแนนให้สูงกว่าอีกฝั่ง';
-    }
-
-    if (ENGINE.hpValue) ENGINE.hpValue.textContent = `${S.hp}/${S.maxHp}`;
-    if (ENGINE.hpFill) ENGINE.hpFill.style.width = `${((S.hp / Math.max(1, S.maxHp)) * 100).toFixed(1)}%`;
-
-    if (ENGINE.chargeValue) ENGINE.chargeValue.textContent = `${S.attackCharge}/${S.maxAttackCharge}`;
-    if (ENGINE.chargeFill) ENGINE.chargeFill.style.width = `${((S.attackCharge / Math.max(1, S.maxAttackCharge)) * 100).toFixed(1)}%`;
-
-    if (ENGINE.attackBadge) {
-      ENGINE.attackBadge.textContent = S.attackReady ? 'ATTACK READY' : 'CHARGING';
-      ENGINE.attackBadge.style.color = S.attackReady ? '#2563eb' : '#7b7a72';
-      ENGINE.attackBadge.style.borderColor = S.attackReady ? '#7fcfff' : '#bfe3f2';
-    }
-
-    if (ENGINE.attackBtn) {
-      ENGINE.attackBtn.disabled = !(S.started && !S.finished && S.attackReady && !!topOpponent());
-      ENGINE.attackBtn.textContent = S.attackReady ? '⚡ ATTACK' : '⚡ CHARGING';
-    }
-
-    const goal = currentGoal();
-    const pct = Math.max(0, Math.min(100, (S.score / Math.max(1, goal)) * 100));
-    const hpPct = Math.max(0, Math.min(100, (S.hp / Math.max(1, S.maxHp)) * 100));
-
-    if (UI.goalValue) UI.goalValue.textContent = String(goal);
-    if (UI.goalFill) UI.goalFill.style.width = pct.toFixed(1) + '%';
-    if (UI.goalSubFill) UI.goalSubFill.style.width = hpPct.toFixed(1) + '%';
-
-    if (UI.tip) {
-      const opp = topOpponent();
-      if (!S.started && roomStatus() === 'countdown') {
-        UI.tip.textContent = 'กำลังนับถอยหลัง เริ่มพร้อมกันทั้งสองฝั่ง';
-      } else if (!S.started) {
-        UI.tip.textContent = 'รอให้ห้อง Battle เริ่มรอบนี้';
-      } else if (!opp) {
-        UI.tip.textContent = 'รอข้อมูลคู่แข่ง';
+      if (S.localKo) {
+        UI.itemSub.textContent = 'รอระบบสรุปผลของรอบนี้';
+      } else if (!S.started && roomStatus() === 'countdown') {
+        UI.itemSub.textContent = 'กำลังนับถอยหลัง เตรียมสู้พร้อมกัน';
       } else if (S.attackReady) {
-        UI.tip.textContent = `พร้อมโจมตีแล้ว • คู่แข่ง ${opp.name || 'Opponent'} • HP ${num(opp.hp, 100)}/${num(opp.maxHp, 100)}`;
+        UI.itemSub.textContent = 'กด ATTACK เพื่อโจมตีคะแนนและ HP ของอีกฝ่าย';
+      } else if (!opp) {
+        UI.itemSub.textContent = 'รออีกฝั่งเข้ามาแข่ง หรือรอข้อมูลของคู่แข่ง';
+      } else if (gap > 0) {
+        UI.itemSub.textContent = `คุณนำอยู่ ${gap} คะแนน • รักษาจังหวะไว้`;
+      } else if (gap < 0) {
+        UI.itemSub.textContent = `คุณตามอยู่ ${Math.abs(gap)} คะแนน • เร่งชาร์จโจมตี`;
       } else {
-        UI.tip.textContent = `คู่แข่ง ${opp.name || 'Opponent'} • Score ${num(opp.score, 0)} • HP ${num(opp.hp, 100)}/${num(opp.maxHp, 100)}`;
+        UI.itemSub.textContent = 'คะแนนสูสีมาก เก็บให้แม่นแล้วปล่อยโจมตี';
       }
     }
 
-    renderOpponents();
+    if (UI.tip) {
+      if (!S.started && roomStatus() === 'countdown') {
+        UI.tip.textContent = 'เริ่มพร้อมกันทั้งสองฝั่ง เก็บของดีเพื่อชาร์จ ATTACK';
+      } else if (!S.started) {
+        UI.tip.textContent = 'รอให้ห้อง Battle เริ่มรอบนี้';
+      } else if (S.localKo) {
+        UI.tip.textContent = 'HP หมดแล้ว รอสรุปผล';
+      } else if (S.attackReady) {
+        UI.tip.textContent = 'ATTACK READY • กดโจมตีได้เลย';
+      } else if (!opp) {
+        UI.tip.textContent = 'กำลังรอข้อมูลอีกฝั่ง';
+      } else if (gap > 0) {
+        UI.tip.textContent = `ยอดเยี่ยม! ตอนนี้นำ ${gap} คะแนน`;
+      } else if (gap < 0) {
+        UI.tip.textContent = `ตามอยู่ ${Math.abs(gap)} คะแนน • ยังพลิกได้`;
+      } else {
+        UI.tip.textContent = 'คะแนนเท่ากันอยู่ เก็บต่อและชาร์จให้เต็ม';
+      }
+    }
+
+    if (UI.goalValue) UI.goalValue.textContent = `${S.hp}/${S.maxHp}`;
+    if (UI.goalFill) UI.goalFill.style.width = hpPct.toFixed(1) + '%';
+    if (UI.goalSubFill) UI.goalSubFill.style.width = opp ? oppHpPct.toFixed(1) + '%' : '0%';
+
+    if (UI.rankValue) UI.rankValue.textContent = rank ? `#${rank}` : '-';
+    if (UI.opponentScoreValue) UI.opponentScoreValue.textContent = opp ? String(num(opp.score, 0)) : '-';
+    if (UI.gapValue) {
+      if (!opp) UI.gapValue.textContent = '-';
+      else UI.gapValue.textContent = gap > 0 ? `+${gap}` : String(gap);
+    }
+
+    if (ENGINE.attackReadyBadge) {
+      ENGINE.attackReadyBadge.textContent = S.attackReady ? 'ATTACK READY' : `CHARGE ${S.attackCharge}/${S.maxAttackCharge}`;
+      ENGINE.attackReadyBadge.style.color = S.attackReady ? '#2563eb' : '#7b7a72';
+      ENGINE.attackReadyBadge.style.borderColor = S.attackReady ? '#7fcfff' : '#bfe3f2';
+    }
+
+    if (ENGINE.attackBtn) {
+      ENGINE.attackBtn.disabled = !(S.started && !S.finished && !S.localKo && S.attackReady && !!topOpponent());
+      ENGINE.attackBtn.textContent = S.attackReady ? '⚡ ATTACK' : '⚡ CHARGING';
+    }
+
+    renderOpponentStrip();
     updateGlobals();
 
     emit('battle:update', {
@@ -895,9 +950,11 @@
       damageDealt: S.damageDealt,
       damageTaken: S.damageTaken,
       koCount: S.koCount,
-      timeLeftSec: timeLeftSec(),
       players: normalizeRoomPlayersMap(S.room.players),
-      room: S.room
+      room: S.room,
+      timeLeftSec: timeLeftSec(),
+      rank,
+      gap
     });
 
     emit('hha:score', {
@@ -907,45 +964,12 @@
     });
   }
 
-  function renderOpponents(){
-    if (!ENGINE.opponentStrip) return;
-    const opponents = opponentPlayers();
-
-    if (!opponents.length){
-      ENGINE.opponentStrip.innerHTML = `
-        <div class="gjb-opponent-card">
-          <div class="gjb-opponent-top">
-            <div class="gjb-opponent-name">รอคู่ต่อสู้</div>
-            <div>⌛</div>
-          </div>
-          <div class="gjb-opponent-mini">เมื่ออีกฝั่งเข้ามา จะเห็นคะแนนและ HP ที่นี่</div>
-        </div>
-      `;
-      return;
-    }
-
-    ENGINE.opponentStrip.innerHTML = opponents.map((p) => {
-      const alive = num(p.hp, 100) > 0;
-      return `
-        <div class="gjb-opponent-card">
-          <div class="gjb-opponent-top">
-            <div class="gjb-opponent-name">${escapeHtml(p.name || p.nick || 'Opponent')}</div>
-            <div>${alive ? '⚔️' : '💥'}</div>
-          </div>
-          <div class="gjb-opponent-mini">
-            Score ${num(p.score,0)} • HP ${num(p.hp,100)}/${num(p.maxHp,100)} • Miss ${num(p.miss,0)}
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
-
   function makeTarget(kind){
     const bounds = playBounds();
     const mobile = W.innerWidth <= 640;
 
     const size = Math.round((mobile ? 48 : 60) + S.rng() * (mobile ? 14 : 24));
-    const usableW = Math.max(150, bounds.right - bounds.left);
+    const usableW = Math.max(160, bounds.right - bounds.left);
     const x = bounds.left + Math.round((usableW - size) * S.rng());
     const y = bounds.top - size - Math.round(S.rng() * 18);
     const speed = S.cfg.speed * (0.94 + S.rng() * 0.44);
@@ -983,7 +1007,7 @@
   }
 
   function spawnTarget(){
-    if (!S.started || S.finished) return;
+    if (!S.started || S.finished || S.localKo) return;
     if (S.targets.length >= S.cfg.maxTargets) return;
     const kind = S.rng() < S.cfg.goodRatio ? 'good' : 'junk';
     makeTarget(kind);
@@ -992,7 +1016,7 @@
   function removeTarget(t){
     if (!t || t.dead) return;
     t.dead = true;
-    try { t.el.remove(); } catch {}
+    try { t.el.remove(); } catch (_) {}
   }
 
   function addCharge(delta){
@@ -1001,7 +1025,7 @@
   }
 
   function hitTarget(t){
-    if (!t || t.dead || !S.started || S.finished) return;
+    if (!t || t.dead || !S.started || S.finished || S.localKo) return;
     removeTarget(t);
 
     if (t.kind === 'good'){
@@ -1010,11 +1034,12 @@
       S.goodHit += 1;
 
       const bonus = Math.min(12, Math.floor(S.streak / 3) * 2);
-      S.score += 10 + bonus;
+      const gain = 10 + bonus;
+      S.score += gain;
       addCharge(20);
 
-      flashText(t.x, t.y, `+${10 + bonus}`, 'good');
-      setBanner('เก็บอาหารดีต่อเนื่อง ชาร์จพลังโจมตีได้เร็วขึ้น', 900);
+      flashText(t.x, t.y, `+${gain}`, 'good');
+      setBanner('เก่งมาก! เก็บของดีต่อเนื่องเพื่อชาร์จพลังโจมตี', 800);
     } else {
       S.junkHit += 1;
       S.miss += 1;
@@ -1024,7 +1049,7 @@
       addCharge(-10);
 
       flashText(t.x, t.y, '-8', 'bad');
-      setBanner('โดน junk! คะแนนและ HP ลดลง', 900);
+      setBanner('โดน junk แล้ว คะแนนและ HP ลดลง', 800);
       applyLocalDamageCheck();
     }
 
@@ -1040,6 +1065,7 @@
       S.miss += 1;
       S.streak = 0;
       S.hp = Math.max(0, S.hp - 2);
+
       flashText(t.x, t.y, 'MISS', 'bad');
       setBanner('อาหารดีหลุดไปแล้ว ระวังให้มากขึ้นอีกนิด', 800);
       applyLocalDamageCheck();
@@ -1051,9 +1077,10 @@
   function applyLocalDamageCheck(){
     if (S.hp <= 0){
       S.hp = 0;
+      S.localKo = true;
       S.attackCharge = 0;
       S.attackReady = false;
-      setBanner('HP หมดแล้ว รอสรุปรอบนี้…', 1600);
+      setBanner('HP หมดแล้ว! รอสรุปผลของรอบนี้…', 1400);
       renderHud();
       scheduleSync(true);
       maybeHostEndRound();
@@ -1061,12 +1088,12 @@
   }
 
   function useAttack(){
-    if (!S.started || S.finished || !S.attackReady) return;
+    if (!S.started || S.finished || S.localKo || !S.attackReady) return;
     const opp = topOpponent();
     if (!opp) return;
 
     const dmg = S.cfg.atkDamage || 18;
-    const attackId = `atk-${ctx.pid}-${now()}-${Math.random().toString(36).slice(2,6)}`;
+    const attackId = `atk-${getSelfKey()}-${now()}-${Math.random().toString(36).slice(2,6)}`;
 
     S.attacksUsed += 1;
     S.attackCharge = 0;
@@ -1075,10 +1102,10 @@
     S.lastAttackId = attackId;
     S.lastAttackAt = now();
     S.lastAttackDamage = dmg;
-    S.lastAttackTarget = opp.pid || opp.uid || opp.key || '';
+    S.lastAttackTarget = opp.pid || opp.uid || opp.playerId || '';
 
     flashText(fieldRect().w * 0.52, fieldRect().h * 0.42, `⚡-${dmg}`, 'atk');
-    setBanner(`ปล่อย ATTACK ใส่ ${opp.name || 'คู่ต่อสู้'} แล้ว`, 1000);
+    setBanner(`ปล่อย ATTACK ใส่ ${opp.name || 'คู่ต่อสู้'} แล้ว!`, 1000);
 
     renderHud();
     scheduleSync(true);
@@ -1097,7 +1124,7 @@
       if (S.seenAttackIds[key] === attackId) return;
 
       const target = cleanPid(p.lastAttackTarget || '');
-      const selfCandidates = new Set([selfKey, ctx.pid, S.uid].filter(Boolean));
+      const selfCandidates = new Set([selfKey, S.uid, ctx.pid].filter(Boolean));
       if (target && !selfCandidates.has(target)){
         S.seenAttackIds[key] = attackId;
         return;
@@ -1117,12 +1144,12 @@
       }
 
       S.seenAttackIds[key] = attackId;
-      if (!S.started || S.finished) return;
+      if (!S.started || S.finished || S.localKo) return;
 
       S.damageTaken += dmg;
       S.hp = Math.max(0, S.hp - dmg);
       flashText(fieldRect().w * 0.34, fieldRect().h * 0.28, `-${dmg} HP`, 'bad');
-      setBanner(`${p.name || 'คู่ต่อสู้'} ใช้ ATTACK ใส่คุณ`, 1000);
+      setBanner(`${p.name || 'คู่ต่อสู้'} ใช้ ATTACK ใส่คุณ!`, 1000);
       applyLocalDamageCheck();
       renderHud();
       scheduleSync(true);
@@ -1137,11 +1164,94 @@
     }
   }
 
-  function updatePlayersFromRoom(playersValue){
-    S.room.players = normalizeRoomPlayersMap(playersValue);
-    maybeAwardKoFromOpponentState();
-    processRemoteAttacks(S.room.players);
-    renderHud();
+  function scheduleSync(force=false){
+    if (!S.refs || !S.refs.players || !getSelfKey()) return;
+    if (force){
+      syncSelfNow(true);
+      return;
+    }
+    if (S.syncTimer) return;
+    S.syncTimer = setTimeout(() => {
+      S.syncTimer = 0;
+      syncSelfNow(false);
+    }, 60);
+  }
+
+  async function syncSelfNow(force){
+    if (!S.refs || !S.refs.players || !getSelfKey()) return;
+    const t = now();
+    if (!force && (t - S.lastSyncTs < SYNC_MIN_MS)) return;
+    S.lastSyncTs = t;
+
+    const payload = {
+      pid: getSelfKey(),
+      uid: S.uid,
+      playerId: getSelfKey(),
+      name: ctx.name,
+      nick: ctx.name,
+      connected: true,
+      ready: true,
+      status: S.finished ? 'finished' : (S.localKo ? 'ko' : (S.started ? 'playing' : 'waiting')),
+      phase: S.finished ? 'summary' : (S.started ? 'run' : 'lobby'),
+      score: Math.max(0, Math.round(S.score)),
+      contribution: Math.max(0, Math.round(S.score)),
+      miss: Math.max(0, S.miss),
+      streak: Math.max(0, S.bestStreak),
+      bestStreak: Math.max(0, S.bestStreak),
+      hp: Math.max(0, S.hp),
+      maxHp: Math.max(1, S.maxHp),
+      attackCharge: Math.max(0, S.attackCharge),
+      maxAttackCharge: Math.max(1, S.maxAttackCharge),
+      attackReady: !!S.attackReady,
+      attacksUsed: Math.max(0, S.attacksUsed),
+      damageDealt: Math.max(0, S.damageDealt),
+      damageTaken: Math.max(0, S.damageTaken),
+      koCount: Math.max(0, S.koCount),
+      updatedAt: t,
+      lastSeen: t
+    };
+
+    if (S.lastAttackId){
+      payload.lastAttackId = S.lastAttackId;
+      payload.lastAttackAt = S.lastAttackAt;
+      payload.lastAttackDamage = S.lastAttackDamage;
+      payload.lastAttackTarget = S.lastAttackTarget;
+    }
+
+    try {
+      await S.refs.players.child(getSelfKey()).update(payload);
+    } catch (err){
+      console.warn('[gj-battle] syncSelfNow failed:', err);
+    }
+  }
+
+  function timeUp(){
+    const endsAt = currentRoomEndsAt();
+    return endsAt > 0 && now() >= endsAt;
+  }
+
+  function computeLeader(){
+    const participants = activeParticipants().map((p) => ({
+      pid: p.pid,
+      score: num(p.score, 0),
+      hp: num(p.hp, 100),
+      miss: num(p.miss, 0),
+      bestStreak: num(p.bestStreak || p.streak, 0),
+      damageDealt: num(p.damageDealt, 0),
+      alive: num(p.hp, 100) > 0
+    }));
+
+    participants.sort((a, b) => {
+      if (Number(b.alive) !== Number(a.alive)) return Number(b.alive) - Number(a.alive);
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.hp !== a.hp) return b.hp - a.hp;
+      if (a.miss !== b.miss) return a.miss - b.miss;
+      if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
+      if (b.damageDealt !== a.damageDealt) return b.damageDealt - a.damageDealt;
+      return String(a.pid || '').localeCompare(String(b.pid || ''));
+    });
+
+    return participants[0] || null;
   }
 
   async function maybeHostPromoteCountdown(){
@@ -1165,9 +1275,15 @@
         cur.endsAt = startedAt + plannedSec * 1000;
         cur.countdownEndsAt = 0;
         cur.updatedAt = startedAt;
-
+        cur.winnerId = '';
+        cur.bestScore = 0;
         return cur;
       });
+
+      await S.refs.match.update({
+        status: 'playing',
+        startedAt: now()
+      }).catch(() => {});
     } catch (err){
       console.warn('[gj-battle] host promote countdown failed:', err);
     } finally {
@@ -1180,14 +1296,12 @@
     const status = roomStatus();
     if (status !== 'playing') return;
 
-    const endsAt = currentRoomEndsAt();
-    const actives = activePlayers();
-    const anyKo = actives.some((p) => num(p.hp, 100) <= 0);
-    const timeUp = endsAt > 0 && now() >= endsAt;
-    const resultsCount = Object.keys(S.room.results || {}).length;
-    const enoughResults = resultsCount >= 2;
+    const anyKo = activeParticipants().some((p) => num(p.hp, 100) <= 0);
+    const endedByResults = Object.keys(S.room.results || {}).length >= Math.max(MIN_PLAYERS, currentParticipantIds().length || MIN_PLAYERS);
 
-    if (!timeUp && !anyKo && !enoughResults) return;
+    if (!timeUp() && !anyKo && !endedByResults) return;
+
+    const leader = computeLeader();
 
     S.hostEndingBusy = true;
     try{
@@ -1197,8 +1311,17 @@
         cur.status = 'ended';
         cur.endedAt = now();
         cur.updatedAt = now();
+        cur.winnerId = leader ? leader.pid : '';
+        cur.bestScore = leader ? leader.score : 0;
         return cur;
       });
+
+      await S.refs.match.update({
+        status: 'finished',
+        finishedAt: now(),
+        winnerId: leader ? leader.pid : '',
+        bestScore: leader ? leader.score : 0
+      }).catch(() => {});
     } catch (err){
       console.warn('[gj-battle] host end round failed:', err);
     } finally {
@@ -1209,16 +1332,17 @@
   function startGameIfReady(){
     if (S.finished) return;
     if (roomStatus() !== 'playing') return;
+    if (!selfInParticipants()) return;
 
     const startedAt = currentStartedAt();
     const endsAt = currentRoomEndsAt();
     if (!startedAt || !endsAt) return;
 
-    if (S.started && S.lastRoundStartedAt === startedAt) return;
+    if (S.started && currentStartedAt() === startedAt) return;
 
     S.started = true;
     S.finished = false;
-    S.lastRoundStartedAt = startedAt;
+    S.localKo = false;
 
     S.lastFrameTs = 0;
     S.lastSpawnAt = now();
@@ -1231,6 +1355,10 @@
     S.miss = me ? num(me.miss, 0) : 0;
     S.streak = 0;
     S.bestStreak = me ? num(me.bestStreak || me.streak, 0) : 0;
+    S.goodHit = 0;
+    S.junkHit = 0;
+    S.goodMiss = 0;
+
     S.hp = me ? clamp(me.hp, 0, 100) : 100;
     S.maxHp = me ? Math.max(1, num(me.maxHp, 100)) : 100;
     S.attackCharge = me ? clamp(me.attackCharge, 0, 100) : 0;
@@ -1240,9 +1368,7 @@
     S.damageDealt = me ? num(me.damageDealt, 0) : 0;
     S.damageTaken = me ? num(me.damageTaken, 0) : 0;
     S.koCount = me ? num(me.koCount, 0) : 0;
-    S.goodHit = 0;
-    S.junkHit = 0;
-    S.goodMiss = 0;
+
     S.lastAttackId = '';
     S.lastAttackAt = 0;
     S.lastAttackDamage = 0;
@@ -1253,7 +1379,7 @@
     const seedHash = xmur3(`${ctx.seed}|${ctx.roomId}|${ctx.pid}|${startedAt}|battle`)();
     S.rng = mulberry32(seedHash);
 
-    setBanner('เริ่มแล้ว! แตะอาหารดี ชาร์จพลัง แล้วใช้ ATTACK ให้ถูกจังหวะ', 1300);
+    setBanner('เริ่มแล้ว! เก็บของดี ชาร์จพลัง และใช้ ATTACK ให้แม่น', 1300);
     renderHud();
     scheduleSync(true);
 
@@ -1262,104 +1388,38 @@
         roundId: String((S.room.state && S.room.state.roundId) || ctx.roundId || ''),
         startAt: startedAt,
         endAt: endsAt,
-        participantIds: activePlayers().map((p) => p.pid || '')
+        participantIds: currentParticipantIds()
       }).catch(() => {});
     }
   }
 
-  function scheduleSync(force=false){
-    if (!S.refs || !S.refs.players || !ctx.pid) return;
-    if (force){
-      syncSelfNow(true);
-      return;
-    }
-    if (S.syncTimer) return;
-    S.syncTimer = setTimeout(() => {
-      S.syncTimer = 0;
-      syncSelfNow(false);
-    }, 60);
-  }
-
-  async function syncSelfNow(force){
-    if (!S.refs || !S.refs.players || !ctx.pid) return;
-    const t = now();
-    if (!force && (t - S.lastSyncTs < SYNC_MIN_MS)) return;
-    S.lastSyncTs = t;
-
-    const status = S.finished ? 'finished' : (S.started ? 'playing' : 'waiting');
-
-    const payload = {
-      pid: ctx.pid,
-      uid: S.uid,
-      playerId: ctx.pid,
-      name: ctx.name,
-      nick: ctx.name,
-      connected: true,
-      ready: true,
-      status,
-      phase: S.finished ? 'summary' : (S.started ? 'run' : 'lobby'),
-      score: Math.max(0, Math.round(S.score)),
-      miss: Math.max(0, S.miss),
-      combo: Math.max(0, S.streak),
-      bestStreak: Math.max(0, S.bestStreak),
-      hp: Math.max(0, S.hp),
-      maxHp: Math.max(1, S.maxHp),
-      attackCharge: Math.max(0, S.attackCharge),
-      maxAttackCharge: Math.max(1, S.maxAttackCharge),
-      attackReady: !!S.attackReady,
-      attacksUsed: Math.max(0, S.attacksUsed),
-      damageDealt: Math.max(0, S.damageDealt),
-      damageTaken: Math.max(0, S.damageTaken),
-      koCount: Math.max(0, S.koCount),
-      updatedAt: t,
-      lastSeen: t
-    };
-
-    if (S.lastAttackId){
-      payload.lastAttackId = S.lastAttackId;
-      payload.lastAttackAt = S.lastAttackAt;
-      payload.lastAttackDamage = S.lastAttackDamage;
-      payload.lastAttackTarget = S.lastAttackTarget;
-    }
-
-    try {
-      await S.refs.players.child(ctx.pid).update(payload);
-    } catch (err){
-      console.warn('[gj-battle] syncSelfNow failed:', err);
-    }
+  function clearTargets(){
+    S.targets.forEach(removeTarget);
+    S.targets = [];
   }
 
   function computeStandings(resultsObj){
     const rows = Object.keys(resultsObj || {}).map((pid) => {
       const r = resultsObj[pid] || {};
-      const hp = num(r.hp, 100);
       return {
         pid: cleanPid(r.pid || pid),
         nick: clean(r.nick || r.name || pid || 'player', 80),
         score: num(r.score, 0),
+        contribution: num(r.contribution, num(r.score, 0)),
         miss: num(r.miss, 0),
-        goodHit: num(r.goodHit, 0),
-        junkHit: num(r.junkHit, 0),
         bestStreak: num(r.bestStreak, 0),
-        duration: num(r.duration, 0),
-        hp,
-        maxHp: num(r.maxHp, 100),
-        attacksUsed: num(r.attacksUsed, 0),
         damageDealt: num(r.damageDealt, 0),
         damageTaken: num(r.damageTaken, 0),
-        koCount: num(r.koCount, 0),
-        alive: hp > 0,
-        reason: clean(r.reason || '', 80)
+        attacksUsed: num(r.attacksUsed, 0),
+        koCount: num(r.koCount, 0)
       };
     });
 
     rows.sort((a, b) => {
-      if (Number(b.alive) !== Number(a.alive)) return Number(b.alive) - Number(a.alive);
       if (b.score !== a.score) return b.score - a.score;
-      if (b.hp !== a.hp) return b.hp - a.hp;
       if (a.miss !== b.miss) return a.miss - b.miss;
       if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
-      if (b.koCount !== a.koCount) return b.koCount - a.koCount;
+      if (b.damageDealt !== a.damageDealt) return b.damageDealt - a.damageDealt;
       return String(a.pid || '').localeCompare(String(b.pid || ''));
     });
 
@@ -1368,6 +1428,9 @@
   }
 
   function buildLocalSummary(reason){
+    const opp = topOpponent();
+    const leader = computeLeader();
+
     return {
       controllerFinal: false,
       game: 'goodjunk',
@@ -1375,48 +1438,63 @@
       mode: 'battle',
       roomId: ctx.roomId,
       roomKind: S.roomKind || ctx.roomKind || '',
-      pid: ctx.pid,
+      pid: getSelfKey(),
       uid: S.uid || ctx.uid || '',
       name: ctx.name,
       role: ctx.role,
-      rank: 0,
+      rank: leader && String(leader.pid || '') === String(getSelfKey()) ? 1 : 2,
       score: Math.max(0, Math.round(S.score)),
-      players: 1,
+      players: Math.max(1, currentParticipantIds().length || activeParticipants().length || 1),
       miss: S.miss,
-      goodHit: S.goodHit,
-      junkHit: S.junkHit,
       bestStreak: S.bestStreak,
-      duration: ctx.timeSec,
-      result: 'finished',
-      reason: clean(reason || 'timeup', 80),
-      standings: [],
-      compare: null,
-      hp: S.hp,
-      maxHp: S.maxHp,
-      attacksUsed: S.attacksUsed,
       damageDealt: S.damageDealt,
       damageTaken: S.damageTaken,
-      koCount: S.koCount
+      attacksUsed: S.attacksUsed,
+      koCount: S.koCount,
+      result: leader && String(leader.pid || '') === String(getSelfKey()) ? 'win' : 'lose',
+      reason: clean(reason || 'finished', 80),
+      standings: [],
+      compare: {
+        me: {
+          pid: getSelfKey(),
+          nick: ctx.name,
+          score: S.score,
+          miss: S.miss,
+          bestStreak: S.bestStreak,
+          damageDealt: S.damageDealt,
+          damageTaken: S.damageTaken,
+          attacksUsed: S.attacksUsed,
+          koCount: S.koCount
+        },
+        opponent: opp ? {
+          pid: opp.pid,
+          nick: opp.name || opp.nick || opp.pid,
+          score: num(opp.score, 0),
+          miss: num(opp.miss, 0),
+          bestStreak: num(opp.bestStreak || opp.streak, 0),
+          damageDealt: num(opp.damageDealt, 0),
+          damageTaken: num(opp.damageTaken, 0),
+          attacksUsed: num(opp.attacksUsed, 0),
+          koCount: num(opp.koCount, 0)
+        } : null,
+        delta: opp ? (S.score - num(opp.score, 0)) : 0
+      }
     };
   }
 
   function buildFinalSummaryFromResults(reason){
     const standings = computeStandings(S.room.results || {});
-    let me = standings.find((r) => String(r.pid) === String(ctx.pid)) || null;
-    let opponent = standings.find((r) => String(r.pid) !== String(ctx.pid)) || null;
-
-    if (!me && S.localSummary) {
-      me = Object.assign({}, S.localSummary, { rank: 0 });
-    }
+    const me = standings.find((r) => String(r.pid || '') === String(getSelfKey())) || null;
+    const opp = standings.find((r) => String(r.pid || '') !== String(getSelfKey())) || null;
 
     return {
-      controllerFinal: standings.length >= 2,
+      controllerFinal: standings.length >= Math.max(MIN_PLAYERS, currentParticipantIds().length || MIN_PLAYERS),
       game: 'goodjunk',
       zone: 'nutrition',
       mode: 'battle',
       roomId: ctx.roomId,
       roomKind: S.roomKind || ctx.roomKind || '',
-      pid: ctx.pid,
+      pid: getSelfKey(),
       uid: S.uid || ctx.uid || '',
       name: ctx.name,
       role: ctx.role,
@@ -1424,24 +1502,19 @@
       score: me ? num(me.score, 0) : Math.max(0, Math.round(S.score)),
       players: standings.length || 1,
       miss: me ? num(me.miss, 0) : S.miss,
-      goodHit: me ? num(me.goodHit, 0) : S.goodHit,
-      junkHit: me ? num(me.junkHit, 0) : S.junkHit,
       bestStreak: me ? num(me.bestStreak, 0) : S.bestStreak,
-      duration: me ? num(me.duration, ctx.timeSec) : ctx.timeSec,
+      damageDealt: me ? num(me.damageDealt, 0) : S.damageDealt,
+      damageTaken: me ? num(me.damageTaken, 0) : S.damageTaken,
+      attacksUsed: me ? num(me.attacksUsed, 0) : S.attacksUsed,
+      koCount: me ? num(me.koCount, 0) : S.koCount,
       result: me && me.rank === 1 ? 'win' : (me && me.rank === 2 ? 'lose' : 'finished'),
       reason: clean(reason || 'finished', 80),
       standings,
       compare: {
         me,
-        opponent,
-        delta: num((me && me.score) || 0) - num((opponent && opponent.score) || 0)
-      },
-      hp: me ? num(me.hp, 0) : S.hp,
-      maxHp: me ? num(me.maxHp, 100) : S.maxHp,
-      attacksUsed: me ? num(me.attacksUsed, 0) : S.attacksUsed,
-      damageDealt: me ? num(me.damageDealt, 0) : S.damageDealt,
-      damageTaken: me ? num(me.damageTaken, 0) : S.damageTaken,
-      koCount: me ? num(me.koCount, 0) : S.koCount
+        opponent: opp,
+        delta: me && opp ? (num(me.score, 0) - num(opp.score, 0)) : 0
+      }
     };
   }
 
@@ -1450,33 +1523,34 @@
 
     S.localSummary = summary;
 
-    await S.refs.results.child(ctx.pid).set({
-      pid: ctx.pid,
+    await S.refs.results.child(getSelfKey()).set({
+      pid: getSelfKey(),
       nick: ctx.name,
       score: num(summary.score, 0),
+      contribution: num(summary.score, 0),
       miss: num(summary.miss, 0),
-      goodHit: num(summary.goodHit, 0),
-      junkHit: num(summary.junkHit, 0),
       bestStreak: num(summary.bestStreak, 0),
-      duration: num(summary.duration, 0),
-      reason: clean(summary.reason || 'finished', 80),
-      hp: num(summary.hp, 0),
-      maxHp: num(summary.maxHp, 100),
-      attacksUsed: num(summary.attacksUsed, 0),
       damageDealt: num(summary.damageDealt, 0),
       damageTaken: num(summary.damageTaken, 0),
+      attacksUsed: num(summary.attacksUsed, 0),
       koCount: num(summary.koCount, 0),
+      reason: clean(summary.reason || 'finished', 80),
       submittedAt: now(),
       updatedAt: now()
     });
 
-    await S.refs.players.child(ctx.pid).update({
+    await S.refs.players.child(getSelfKey()).update({
       phase: 'summary',
       finished: true,
       finalScore: num(summary.score, 0),
       score: num(summary.score, 0),
+      contribution: num(summary.score, 0),
       miss: num(summary.miss, 0),
       streak: num(summary.bestStreak, 0),
+      damageDealt: num(summary.damageDealt, 0),
+      damageTaken: num(summary.damageTaken, 0),
+      attacksUsed: num(summary.attacksUsed, 0),
+      koCount: num(summary.koCount, 0),
       updatedAt: now(),
       lastSeen: now()
     }).catch(() => {});
@@ -1501,137 +1575,6 @@
     }
   }
 
-  function showResultSummary(summary){
-    if (!UI.resultMount) return;
-
-    const standings = Array.isArray(summary.standings) ? summary.standings : [];
-    const me = summary.compare && summary.compare.me ? summary.compare.me : null;
-    const opponent = summary.compare && summary.compare.opponent ? summary.compare.opponent : null;
-    const delta = summary.compare ? num(summary.compare.delta, 0) : 0;
-
-    const title =
-      summary.rank === 1 ? 'ชนะแล้ว! คุณเป็นผู้ชนะรอบนี้' :
-      summary.rank === 2 ? 'จบรอบแล้ว ได้อันดับ 2' :
-      (summary.result === 'win' ? 'ชนะแล้ว!' : summary.result === 'lose' ? 'แพ้รอบนี้' : 'จบรอบแล้ว');
-
-    const sub =
-      opponent
-        ? `เรา ${num((me && me.score) || summary.score, 0)} คะแนน • คู่แข่ง ${num(opponent.score, 0)} คะแนน`
-        : 'ระบบสรุปผลรอบนี้เรียบร้อยแล้ว';
-
-    UI.resultMount.hidden = false;
-    UI.resultMount.innerHTML = `
-      <div style="width:min(1100px,100%);max-height:min(92vh,1020px);overflow:auto;border-radius:28px;border:1px solid #bfe3f2;background:#fffdf8;box-shadow:0 28px 80px rgba(0,0,0,.22);padding:18px;display:grid;gap:14px;">
-        <div style="display:grid;gap:8px;">
-          <div style="display:inline-flex;align-items:center;min-height:32px;padding:6px 12px;border-radius:999px;border:1px solid #bfe3f2;background:#f4fbff;color:#658cb1;font-size:12px;font-weight:1100;">BATTLE SUMMARY</div>
-          <div style="font-size:28px;line-height:1.15;font-weight:1100;color:#7a2558;">${escapeHtml(title)}</div>
-          <div style="color:#6b7280;font-size:14px;line-height:1.6;font-weight:900;">${escapeHtml(sub)}</div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
-          <div style="border-radius:18px;border:2px solid #cde7f4;background:#fff;padding:14px;text-align:center;">
-            <div style="font-size:12px;color:#79aeca;font-weight:1000;margin-bottom:6px;">เรา</div>
-            <div style="font-size:14px;line-height:1.5;color:#6d6b63;font-weight:1000;margin-bottom:8px;word-break:break-word;">${escapeHtml((me && me.nick) || ctx.name || 'เรา')}</div>
-            <div style="font-size:34px;line-height:1;color:#4d4a42;font-weight:1000;">${num((me && me.score) || summary.score, 0)}</div>
-          </div>
-
-          <div style="border-radius:18px;border:2px solid #cde7f4;background:#fff;padding:14px;text-align:center;">
-            <div style="font-size:12px;color:#79aeca;font-weight:1000;margin-bottom:6px;">ส่วนต่างคะแนน</div>
-            <div style="font-size:14px;line-height:1.5;color:#6d6b63;font-weight:1000;margin-bottom:8px;word-break:break-word;">
-              ${opponent ? (delta > 0 ? 'เรานำอยู่' : delta < 0 ? 'คู่แข่งนำอยู่' : 'คะแนนเท่ากัน') : 'รอผลอีกฝั่ง'}
-            </div>
-            <div style="font-size:34px;line-height:1;color:#4d4a42;font-weight:1000;">${opponent ? Math.abs(delta) : '-'}</div>
-          </div>
-
-          <div style="border-radius:18px;border:2px solid #cde7f4;background:#fff;padding:14px;text-align:center;">
-            <div style="font-size:12px;color:#79aeca;font-weight:1000;margin-bottom:6px;">คู่แข่ง</div>
-            <div style="font-size:14px;line-height:1.5;color:#6d6b63;font-weight:1000;margin-bottom:8px;word-break:break-word;">${escapeHtml((opponent && opponent.nick) || 'ยังไม่พบผลของอีกฝั่ง')}</div>
-            <div style="font-size:34px;line-height:1;color:#4d4a42;font-weight:1000;">${opponent ? num(opponent.score, 0) : '-'}</div>
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;">
-          <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
-            <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Rank</div>
-            <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${summary.rank || '-'}</div>
-          </div>
-          <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
-            <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">HP</div>
-            <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${num(summary.hp, 0)}/${num(summary.maxHp, 100)}</div>
-          </div>
-          <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
-            <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Miss</div>
-            <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${num(summary.miss, 0)}</div>
-          </div>
-          <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
-            <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Best Streak</div>
-            <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${num(summary.bestStreak, 0)}</div>
-          </div>
-        </div>
-
-        <div style="display:grid;gap:10px;">
-          ${
-            standings.length
-              ? standings.map((r, i) => `
-                <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border-radius:16px;border:2px solid #cde7f4;background:#fff;flex-wrap:wrap;">
-                  <div style="display:grid;gap:4px;">
-                    <div style="font-weight:1000;color:#4d4a42;">#${i + 1} ${escapeHtml(r.nick || r.pid || 'player')}</div>
-                    <div style="font-size:12px;color:#79aeca;font-weight:1000;">Score ${num(r.score, 0)} • HP ${num(r.hp, 0)} • Miss ${num(r.miss, 0)} • Streak ${num(r.bestStreak, 0)}</div>
-                  </div>
-                  <div style="font-size:12px;color:#79aeca;font-weight:1000;">${String(r.pid || '') === String(ctx.pid || '') ? 'YOU' : 'OPPONENT'}</div>
-                </div>
-              `).join('')
-              : `
-                <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border-radius:16px;border:2px solid #cde7f4;background:#fff;flex-wrap:wrap;">
-                  <div style="display:grid;gap:4px;">
-                    <div style="font-weight:1000;color:#4d4a42;">กำลังรอผลอีกฝั่ง</div>
-                    <div style="font-size:12px;color:#79aeca;font-weight:1000;">ถ้าอีกเครื่องส่งผลช้ากว่า ระบบจะแสดง fallback summary ชั่วคราว</div>
-                  </div>
-                  <div style="font-size:12px;color:#79aeca;font-weight:1000;">WAIT</div>
-                </div>
-              `
-          }
-        </div>
-
-        <div style="border-radius:16px;background:#fff;border:1px dashed #bfe3f2;padding:12px;color:#6b7280;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;">controllerFinal=${summary.controllerFinal ? 'true' : 'false'}
-roomId=${escapeHtml(ctx.roomId || '-')}
-roomKind=${escapeHtml(S.roomKind || ctx.roomKind || '-')}
-reason=${escapeHtml(summary.reason || '-')}</div>
-
-        <div style="display:flex;gap:10px;flex-wrap:wrap;position:sticky;bottom:0;padding-top:10px;background:linear-gradient(180deg, rgba(255,253,248,0), rgba(255,253,248,.92) 22%, rgba(255,253,248,1));z-index:30;">
-          <a class="btn ghost" href="./goodjunk-battle-lobby.html?roomId=${encodeURIComponent(ctx.roomId || '')}&room=${encodeURIComponent(ctx.roomId || '')}&roomKind=${encodeURIComponent(S.roomKind || ctx.roomKind || '')}&autojoin=1&hub=${encodeURIComponent(ctx.hub || '../hub.html')}">← กลับ Lobby</a>
-          <a class="btn primary" href="${escapeHtml(ctx.hub || '../hub.html')}">🏠 กลับ Hub</a>
-          <button class="btn good" id="battleCoreRematchBtn" type="button">🔁 เล่นอีกครั้ง</button>
-        </div>
-      </div>
-    `;
-
-    const rematchBtn = byId('battleCoreRematchBtn');
-    if (rematchBtn) {
-      rematchBtn.addEventListener('click', () => {
-        const url = new URL('./goodjunk-battle-lobby.html', location.href);
-        const src = new URL(location.href);
-
-        src.searchParams.forEach((value, key) => {
-          if (key === 'autostart') return;
-          url.searchParams.set(key, value);
-        });
-
-        if (ctx.roomId) {
-          url.searchParams.set('roomId', ctx.roomId);
-          url.searchParams.set('room', ctx.roomId);
-        }
-        if (S.roomKind || ctx.roomKind) {
-          url.searchParams.set('roomKind', S.roomKind || ctx.roomKind);
-        }
-        url.searchParams.set('autojoin', '1');
-        url.searchParams.set('rematch', '1');
-
-        location.href = url.toString();
-      });
-    }
-  }
-
   function scheduleFallbackSummary(){
     maybeClearFallbackTimer();
     if (!S.localSummary || S.finalSummarySent) return;
@@ -1640,7 +1583,6 @@ reason=${escapeHtml(summary.reason || '-')}</div>
       if (S.finalSummarySent) return;
       const summary = buildFinalSummaryFromResults('fallback-local');
       S.finalSummarySent = true;
-      showResultSummary(summary);
       emitSummary(summary);
     }, 6500);
   }
@@ -1650,6 +1592,7 @@ reason=${escapeHtml(summary.reason || '-')}</div>
 
     S.finished = true;
     S.started = false;
+
     caf(S.loopId);
     clearTargets();
 
@@ -1658,7 +1601,8 @@ reason=${escapeHtml(summary.reason || '-')}</div>
       console.error('[gj-battle] submitOwnResult failed', err);
     });
 
-    showResultSummary(summary);
+    emit('battle:finish', summary);
+    emit('hha:battle:finish', summary);
     emitSummary(summary);
     scheduleFallbackSummary();
   }
@@ -1668,7 +1612,7 @@ reason=${escapeHtml(summary.reason || '-')}</div>
 
     if (status === 'countdown'){
       const left = Math.max(0, Math.ceil((currentCountdownEndsAt() - now()) / 1000));
-      if (left > 0){
+      if (left > 0) {
         setBanner(`พร้อมแล้ว เริ่มเกมใน ${left}...`);
       } else {
         setBanner('กำลังเริ่มเกม...');
@@ -1684,9 +1628,9 @@ reason=${escapeHtml(summary.reason || '-')}</div>
 
     if (status === 'waiting'){
       const actives = activePlayers().length;
-      setBanner(actives >= 2
+      setBanner(actives >= MIN_PLAYERS
         ? 'รอหัวหน้าห้องกด Start จาก Lobby…'
-        : `รอผู้เล่นเพิ่มอีก ${Math.max(0, 2 - actives)} คน`);
+        : `รอผู้เล่นเพิ่มอีก ${Math.max(0, MIN_PLAYERS - actives)} คน`);
       return;
     }
 
@@ -1746,7 +1690,7 @@ reason=${escapeHtml(summary.reason || '-')}</div>
 
     if (isHost()) maybeHostEndRound();
 
-    if (currentRoomEndsAt() && now() >= currentRoomEndsAt()){
+    if (timeUp()){
       if (isHost()){
         maybeHostEndRound();
       } else if (roomStatus() === 'playing'){
@@ -1759,7 +1703,7 @@ reason=${escapeHtml(summary.reason || '-')}</div>
   }
 
   function tryCenterShoot(){
-    if (!ENGINE.field || !S.targets.length || !S.started || S.finished) return;
+    if (!ENGINE.field || !S.targets.length || !S.started || S.finished || S.localKo) return;
 
     const bounds = playBounds();
     const cx = bounds.w * 0.5;
@@ -1785,17 +1729,6 @@ reason=${escapeHtml(summary.reason || '-')}</div>
     if (best && bestDist <= 120){
       hitTarget(best);
     }
-  }
-
-  function buildRefs(root){
-    return {
-      root,
-      meta: root.child('meta'),
-      state: root.child('state'),
-      match: root.child('match'),
-      players: root.child('players'),
-      results: root.child('results')
-    };
   }
 
   function hasFirebaseCompat() {
@@ -1902,8 +1835,19 @@ reason=${escapeHtml(summary.reason || '-')}</div>
       } catch (_) {}
     }
 
-    S.roomKind = preferred || 'rooms';
+    S.roomKind = preferred || 'battleRooms';
     return S.roomKind;
+  }
+
+  function buildRefs(root){
+    return {
+      root,
+      meta: root.child('meta'),
+      state: root.child('state'),
+      match: root.child('match'),
+      players: root.child('players'),
+      results: root.child('results')
+    };
   }
 
   async function ensureRoomExists(){
@@ -1937,6 +1881,9 @@ reason=${escapeHtml(summary.reason || '-')}</div>
         countdownEndsAt: 0,
         startedAt: 0,
         endsAt: 0,
+        participantIds: [],
+        winnerId: '',
+        bestScore: 0,
         updatedAt: t
       },
       match: {
@@ -1945,7 +1892,7 @@ reason=${escapeHtml(summary.reason || '-')}</div>
         status: 'idle',
         battle: {
           winnerId: '',
-          loserId: '',
+          bestScore: 0,
           finishedAt: 0
         }
       },
@@ -1963,9 +1910,9 @@ reason=${escapeHtml(summary.reason || '-')}</div>
     const existing = (S.room.players || {})[getSelfKey()] || null;
 
     const base = {
-      pid: ctx.pid,
+      pid: getSelfKey(),
       uid: S.uid,
-      playerId: ctx.pid,
+      playerId: getSelfKey(),
       name: ctx.name,
       nick: ctx.name,
       connected: true,
@@ -1973,13 +1920,14 @@ reason=${escapeHtml(summary.reason || '-')}</div>
       status: roomStatus() === 'playing' ? 'playing' : (roomStatus() === 'countdown' ? 'countdown' : 'waiting'),
       phase: roomStatus() === 'playing' ? 'run' : 'lobby',
       score: existing ? num(existing.score, 0) : 0,
+      contribution: existing ? num(existing.contribution, num(existing.score, 0)) : 0,
       miss: existing ? num(existing.miss, 0) : 0,
-      combo: 0,
+      streak: existing ? num(existing.streak || existing.bestStreak, 0) : 0,
       bestStreak: existing ? num(existing.bestStreak || existing.streak, 0) : 0,
       hp: existing ? clamp(existing.hp, 0, 100) : 100,
-      maxHp: 100,
+      maxHp: existing ? Math.max(1, num(existing.maxHp, 100)) : 100,
       attackCharge: existing ? clamp(existing.attackCharge, 0, 100) : 0,
-      maxAttackCharge: 100,
+      maxAttackCharge: existing ? Math.max(1, num(existing.maxAttackCharge, 100)) : 100,
       attackReady: !!(existing && existing.attackReady),
       attacksUsed: existing ? num(existing.attacksUsed, 0) : 0,
       damageDealt: existing ? num(existing.damageDealt, 0) : 0,
@@ -1999,7 +1947,7 @@ reason=${escapeHtml(summary.reason || '-')}</div>
         updatedAt: W.firebase.database.ServerValue.TIMESTAMP,
         lastSeen: W.firebase.database.ServerValue.TIMESTAMP
       });
-    } catch {}
+    } catch (_) {}
   }
 
   function attachRoomListeners(){
@@ -2033,7 +1981,9 @@ reason=${escapeHtml(summary.reason || '-')}</div>
     });
 
     S.refs.players.on('value', (snap) => {
-      updatePlayersFromRoom(snap.val() || {});
+      S.room.players = normalizeRoomPlayersMap(snap.val() || {});
+      maybeAwardKoFromOpponentState();
+      processRemoteAttacks(S.room.players);
       updateGlobals();
 
       const me = selfPlayer();
@@ -2056,38 +2006,39 @@ reason=${escapeHtml(summary.reason || '-')}</div>
         maybeHostPromoteCountdown();
         maybeHostEndRound();
       }
+
+      renderHud();
     });
 
     S.refs.results.on('value', async (snap) => {
       S.room.results = snap.val() || {};
       updateGlobals();
 
+      const participantCount = currentParticipantIds().length || activeParticipants().length || MIN_PLAYERS;
       const count = Object.keys(S.room.results || {}).length;
-      if (count >= 2 && !S.finalSummarySent){
+
+      if (count >= participantCount && !S.finalSummarySent){
         maybeClearFallbackTimer();
         const summary = buildFinalSummaryFromResults('compare-ready');
         S.finalSummarySent = true;
-        showResultSummary(summary);
         emitSummary(summary);
 
         if (isHost()) {
-          const standings = computeStandings(S.room.results || {});
-          const winner = standings[0] || null;
-          const loser = standings[1] || null;
+          const leader = computeStandings(S.room.results || {})[0] || null;
 
           await S.refs.match.update({
             status: 'finished',
             finishedAt: now(),
-            winnerId: winner ? winner.pid : '',
-            loserId: loser ? loser.pid : ''
+            winnerId: leader ? leader.pid : '',
+            bestScore: leader ? leader.score : 0
           }).catch(() => {});
 
           await S.refs.state.update({
             status: 'ended',
             endedAt: now(),
             updatedAt: now(),
-            winnerId: winner ? winner.pid : '',
-            loserId: loser ? loser.pid : ''
+            winnerId: leader ? leader.pid : '',
+            bestScore: leader ? leader.score : 0
           }).catch(() => {});
         }
       }
@@ -2101,7 +2052,7 @@ reason=${escapeHtml(summary.reason || '-')}</div>
 
       S.refs.players.child(getSelfKey()).update({
         connected: true,
-        status: S.finished ? 'finished' : (S.started ? 'playing' : roomStatus() || 'waiting'),
+        status: S.finished ? 'finished' : (S.localKo ? 'ko' : (S.started ? 'playing' : roomStatus() || 'waiting')),
         phase: S.finished ? 'summary' : (S.started ? 'run' : 'lobby'),
         updatedAt: now(),
         lastSeen: now()
@@ -2115,19 +2066,15 @@ reason=${escapeHtml(summary.reason || '-')}</div>
   }
 
   function bindEvents(){
-    if (ENGINE.attackBtn) {
-      ENGINE.attackBtn.addEventListener('click', useAttack);
-    }
+    W.addEventListener('hha:shoot', () => {
+      tryCenterShoot();
+    });
 
     W.addEventListener('keydown', (ev) => {
       if ((ev.code === 'Space' || ev.key === ' ') && !ev.repeat){
         ev.preventDefault();
         useAttack();
       }
-    });
-
-    W.addEventListener('hha:shoot', () => {
-      tryCenterShoot();
     });
 
     W.addEventListener('beforeunload', () => {
@@ -2145,7 +2092,7 @@ reason=${escapeHtml(summary.reason || '-')}</div>
             lastSeen: now()
           }).catch(() => {});
         }
-      } catch {}
+      } catch (_) {}
     });
   }
 
@@ -2198,7 +2145,7 @@ reason=${escapeHtml(summary.reason || '-')}</div>
   }
 
   boot().catch((err) => {
-    console.error('[gj-battle-core] boot failed:', err);
+    console.error('[gj-battle] boot failed:', err);
     try {
       buildDom();
       setBanner('เข้า GoodJunk Battle ไม่สำเร็จ');
@@ -2224,6 +2171,7 @@ reason=${escapeHtml(summary.reason || '-')}</div>
     ctx,
     state: S,
     finalizeSummary,
-    tryCenterShoot
+    tryCenterShoot,
+    useAttack
   };
 })();
