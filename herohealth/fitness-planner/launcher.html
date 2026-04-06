@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Fitness Planner Launcher</title>
+  <meta name="theme-color" content="#8bd3ff" />
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --bg1:#dff7ff;
+      --bg2:#fff8df;
+      --bg3:#f4fff1;
+      --card:#fffdf8;
+      --line:#cae9f3;
+      --text:#31404a;
+      --muted:#67818e;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --green:#7ed957;
+      --yellow:#ffd45c;
+      --pink:#ff9fcc;
+      --purple:#baa8ff;
+      --shadow:0 14px 36px rgba(86,135,160,.14);
+      --radius:26px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      padding:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left,#fffef8 0%,transparent 26%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 52%,var(--bg3));
+    }
+
+    body{ padding:16px; }
+
+    .app{
+      max-width:1180px;
+      margin:0 auto;
+      display:grid;
+      gap:16px;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+      align-items:stretch;
+    }
+
+    .panel{
+      background:linear-gradient(180deg,#fffefb,#fffdfa);
+      border:2px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:18px;
+      min-width:0;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      margin-bottom:10px;
+    }
+
+    .logo{
+      width:64px;
+      height:64px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      background:linear-gradient(135deg,var(--blue),var(--yellow));
+      box-shadow:inset 0 2px 0 rgba(255,255,255,.75);
+      flex:0 0 auto;
+    }
+
+    h1,h2,h3,p{ margin:0; }
+    h1{
+      font-size:clamp(26px,4vw,42px);
+      line-height:1.04;
+    }
+
+    .sub{
+      color:var(--muted);
+      line-height:1.5;
+      margin-top:8px;
+      font-weight:700;
+    }
+
+    .badge-row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .badge{
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid #e5eff4;
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .coach{
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+
+    .coach-face{
+      width:76px;
+      height:76px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#ffeaf4,#fff5d8);
+      border:2px solid #f3dce7;
+      font-size:38px;
+    }
+
+    .bubble{
+      border-radius:22px;
+      background:linear-gradient(180deg,#f7fdff,#fff);
+      border:2px solid #e2eef5;
+      padding:14px;
+      font-weight:800;
+      line-height:1.55;
+      color:#4a626f;
+    }
+
+    .settings{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .field{
+      display:grid;
+      gap:8px;
+    }
+
+    .field label{
+      font-size:13px;
+      font-weight:900;
+      color:#48606d;
+    }
+
+    .field input,
+    .field select{
+      width:100%;
+      appearance:none;
+      border:none;
+      outline:none;
+      border-radius:16px;
+      padding:12px 14px;
+      font:inherit;
+      font-weight:800;
+      color:var(--text);
+      background:#fff;
+      border:2px solid #dcecf3;
+    }
+
+    .modes{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;
+      align-items:stretch;
+    }
+
+    .mode-card{
+      display:grid;
+      gap:12px;
+      padding:16px;
+      border-radius:24px;
+      background:#fff;
+      border:2px solid #e3eef5;
+      box-shadow:0 8px 18px rgba(90,132,150,.08);
+    }
+
+    .mode-card.active{
+      background:linear-gradient(180deg,#fffefb,#fbffff);
+    }
+
+    .mode-card.locked{
+      opacity:.72;
+      filter:saturate(.9);
+    }
+
+    .mode-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .mode-icon{
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      background:linear-gradient(135deg,#eefaff,#fff4d7);
+      border:2px solid #ddeef6;
+    }
+
+    .mode-tag{
+      padding:6px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid #e6eef4;
+      font-size:11px;
+      font-weight:1000;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+      white-space:nowrap;
+    }
+
+    .mode-card h3{
+      font-size:22px;
+      line-height:1.08;
+    }
+
+    .mode-card p{
+      color:var(--muted);
+      font-weight:700;
+      line-height:1.5;
+    }
+
+    .mode-list{
+      display:grid;
+      gap:8px;
+      margin:0;
+      padding:0;
+      list-style:none;
+    }
+
+    .mode-list li{
+      padding:10px 12px;
+      border-radius:16px;
+      background:#f9fdff;
+      border:2px solid #e6eff5;
+      font-weight:800;
+      color:#49606c;
+    }
+
+    .start-btn,
+    .ghost-btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      font:inherit;
+      font-weight:1000;
+      border-radius:18px;
+      padding:14px 16px;
+      transition:.18s ease;
+    }
+
+    .start-btn{
+      background:linear-gradient(135deg,var(--green),var(--yellow));
+      color:#2e4035;
+      box-shadow:0 10px 20px rgba(126,217,87,.24);
+    }
+
+    .start-btn:hover{ transform:translateY(-1px); }
+
+    .ghost-btn{
+      background:#fff;
+      color:var(--text);
+      border:2px solid var(--line);
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .foot{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .tiny{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    @media (max-width: 980px){
+      .hero{ grid-template-columns:1fr; }
+      .settings{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .modes{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width: 640px){
+      body{ padding:10px; }
+      .panel{ padding:14px; border-radius:22px; }
+      .settings{ grid-template-columns:1fr; }
+      .start-btn,.ghost-btn{ width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="hero">
+      <section class="panel">
+        <div class="brand">
+          <div class="logo">🗓️</div>
+          <div>
+            <h1>Fitness Planner</h1>
+            <p class="sub">จัดแผนออกกำลังกายให้สนุก สมดุล และปลอดภัย</p>
+          </div>
+        </div>
+
+        <p class="sub">
+          เกมนี้ไม่ใช่แค่เลือกตาราง แต่เป็นเกม “โค้ชตัวน้อย”
+          ที่ต้องจัดลำดับกิจกรรมให้เหมาะกับร่างกาย เริ่มเบา เล่นสนุก และจบผ่อนคลาย
+        </p>
+
+        <div class="badge-row">
+          <span class="badge">🎯 Mission-based</span>
+          <span class="badge">🧩 Plan → Preview → Feedback</span>
+          <span class="badge">⭐ Safety / Balance / Variety / Fun</span>
+        </div>
+      </section>
+
+      <aside class="panel coach">
+        <div class="coach-face">😊</div>
+        <h2>Coach Hero</h2>
+        <div class="bubble">
+          เลือกโหมดก่อนเลยนะ<br>
+          <strong>Quick Plan</strong> จะเล่นสั้น เข้าใจง่าย<br>
+          <strong>Class Builder</strong> จะครบกว่าและท้าทายกว่า<br>
+          <strong>Weekly Planner</strong> จะมองภาพรวม 3 วัน
+        </div>
+      </aside>
+    </section>
+
+    <section class="panel">
+      <h2>ตั้งค่าก่อนเริ่ม</h2>
+      <p class="sub">ค่าพวกนี้จะถูกส่งไปที่หน้าเกมอัตโนมัติ</p>
+
+      <div class="settings" style="margin-top:12px;">
+        <div class="field">
+          <label for="fName">ชื่อผู้เล่น</label>
+          <input id="fName" type="text" placeholder="Hero" />
+        </div>
+
+        <div class="field">
+          <label for="fPid">PID</label>
+          <input id="fPid" type="text" placeholder="anon" />
+        </div>
+
+        <div class="field">
+          <label for="fDiff">ระดับ</label>
+          <select id="fDiff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="fView">มุมมอง</label>
+          <select id="fView">
+            <option value="mobile" selected>mobile</option>
+            <option value="pc">pc</option>
+            <option value="cvr">cvr</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section class="modes">
+      <article class="mode-card active">
+        <div class="mode-top">
+          <div class="mode-icon">⚡</div>
+          <div class="mode-tag">3 Slots</div>
+        </div>
+        <h3>Quick Plan</h3>
+        <p>เหมาะกับรอบสั้น เรียนรู้โครงสร้าง “เริ่ม → เล่น → จบ” ได้ไว</p>
+        <ul class="mode-list">
+          <li>Warm-up → Main → Cooldown</li>
+          <li>เล่นสั้น เข้าใจง่าย</li>
+          <li>เหมาะกับมือถือและเด็กเริ่มต้น</li>
+        </ul>
+        <button class="start-btn" data-mode="quick">เริ่ม Quick Plan</button>
+      </article>
+
+      <article class="mode-card active">
+        <div class="mode-top">
+          <div class="mode-icon">🏫</div>
+          <div class="mode-tag">5 Slots</div>
+        </div>
+        <h3>Class Builder</h3>
+        <p>โหมดเต็มสำหรับจัดคลาสออกกำลังกายให้สมดุล ทั้งสนุกและปลอดภัย</p>
+        <ul class="mode-list">
+          <li>Warm-up → Main 1 → Main 2 → Balance → Cooldown</li>
+          <li>มีภารกิจชัดและคะแนนครบ 4 ด้าน</li>
+          <li>เหมาะกับโหมดหลักของ HeroHealth</li>
+        </ul>
+        <button class="start-btn" data-mode="class">เริ่ม Class Builder</button>
+      </article>
+
+      <article class="mode-card active">
+        <div class="mode-top">
+          <div class="mode-icon">📅</div>
+          <div class="mode-tag">3 Days</div>
+        </div>
+        <h3>Weekly Planner</h3>
+        <p>วางแผน 3 วันให้มีทั้งวันขยับ วันคุมท่า และวันจบผ่อนคลายอย่างเหมาะสม</p>
+        <ul class="mode-list">
+          <li>จัดแผน 3 วันต่อเนื่อง</li>
+          <li>เน้นความหลากหลายและไม่หนักสะสมเกินไป</li>
+          <li>เหมาะกับการฝึกคิดภาพรวมทั้งสัปดาห์</li>
+        </ul>
+        <button class="start-btn" data-mode="weekly">เริ่ม Weekly Planner</button>
+      </article>
+    </section>
+
+    <section class="panel foot">
+      <div class="tiny">
+        launcher จะส่งค่าไปที่หน้าเกมอัตโนมัติ พร้อม query params เช่น
+        pid / name / diff / view / hub / seed / mode / log / api / debug
+      </div>
+      <div class="row">
+        <button class="ghost-btn" id="btnCanonical">ลิงก์หลักของเกม</button>
+        <button class="ghost-btn" id="btnBackHub">กลับ HUB</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+
+      const $ = (s, root=document) => root.querySelector(s);
+      const $$ = (s, root=document) => Array.from(root.querySelectorAll(s));
+
+      const defaults = {
+        pid: qs.get('pid') || 'anon',
+        name: qs.get('name') || qs.get('nickName') || qs.get('nick') || 'Hero',
+        diff: qs.get('diff') || 'normal',
+        view: qs.get('view') || 'mobile',
+        run: qs.get('run') || 'play',
+        seed: qs.get('seed') || String(Date.now()),
+        hub: qs.get('hub') || '../hub-v2.html',
+        zone: qs.get('zone') || 'fitness',
+        game: qs.get('game') || 'fitnessplanner',
+        gameId: qs.get('gameId') || 'fitnessplanner',
+        time: qs.get('time') || '90',
+        studyId: qs.get('studyId') || '',
+        api: qs.get('api') || '',
+        log: qs.get('log') || '',
+        debug: qs.get('debug') || ''
+      };
+
+      $('#fName').value = defaults.name;
+      $('#fPid').value = defaults.pid;
+      $('#fDiff').value = defaults.diff;
+      $('#fView').value = defaults.view;
+
+      function goHub(){
+        location.href = defaults.hub;
+      }
+
+      function buildCommonParams(mode){
+        const params = new URLSearchParams(location.search);
+        params.set('pid', $('#fPid').value.trim() || 'anon');
+        params.set('name', $('#fName').value.trim() || 'Hero');
+        params.set('diff', $('#fDiff').value);
+        params.set('view', $('#fView').value);
+        params.set('run', defaults.run);
+        params.set('seed', String(Date.now()));
+        params.set('hub', defaults.hub);
+        params.set('zone', defaults.zone);
+        params.set('game', defaults.game);
+        params.set('gameId', defaults.gameId);
+        params.set('time', defaults.time);
+        params.set('mode', mode);
+
+        if (defaults.studyId) params.set('studyId', defaults.studyId);
+        if (defaults.api) params.set('api', defaults.api);
+        if (defaults.log) params.set('log', defaults.log);
+        if (defaults.debug) params.set('debug', defaults.debug);
+
+        return params;
+      }
+
+      function startMode(mode){
+        const page = mode === 'weekly' ? './weekly.html' : './index.html';
+        const url = new URL(page, location.href);
+        url.search = buildCommonParams(mode).toString();
+        location.href = url.toString();
+      }
+
+      $$('[data-mode]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          startMode(btn.dataset.mode);
+        });
+      });
+
+      $('#btnCanonical').addEventListener('click', () => {
+        const url = new URL('../fitness-planner.html', location.href);
+        url.search = buildCommonParams('class').toString();
+        location.href = url.toString();
+      });
+
+      $('#btnBackHub').addEventListener('click', goHub);
+    })();
+  </script>
+</body>
+</html>
