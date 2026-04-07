@@ -32,22 +32,22 @@
   }
 
   const MODE_PRESETS = {
-    learn: { bpm: 96, density: 0.58, banner: 'Learn Mode' },
+    learn:  { bpm: 96,  density: 0.58, banner: 'Learn Mode'  },
     active: { bpm: 112, density: 0.74, banner: 'Active Mode' },
     cardio: { bpm: 120, density: 0.84, banner: 'Cardio Mode' }
   };
 
   const DIFF_PRESETS = {
-    easy: { densityBonus: -0.08, offbeatChance: 0.00, blockDuckBoost: 0.00 },
-    normal: { densityBonus: 0.00, offbeatChance: 0.12, blockDuckBoost: 0.06 },
-    challenge: { densityBonus: 0.08, offbeatChance: 0.24, blockDuckBoost: 0.12 }
+    easy:      { densityBonus: -0.08 },
+    normal:    { densityBonus:  0.00 },
+    challenge: { densityBonus:  0.08 }
   };
 
   const ACTIONS = {
-    jab:   { lane: 0, label: 'Jab',   icon: '👊', key: 'KeyA', alt: 'ArrowLeft' },
+    jab:   { lane: 0, label: 'Jab',   icon: '👊', key: 'KeyA', alt: 'ArrowLeft'  },
     cross: { lane: 1, label: 'Cross', icon: '💥', key: 'KeyL', alt: 'ArrowRight' },
-    block: { lane: 2, label: 'Block', icon: '🛡', key: 'KeyW', alt: 'ArrowUp' },
-    duck:  { lane: 3, label: 'Duck',  icon: '⬇', key: 'KeyS', alt: 'ArrowDown' }
+    block: { lane: 2, label: 'Block', icon: '🛡', key: 'KeyW', alt: 'ArrowUp'    },
+    duck:  { lane: 3, label: 'Duck',  icon: '⬇', key: 'KeyS', alt: 'ArrowDown'  }
   };
 
   const WINDOWS = {
@@ -80,6 +80,7 @@
 
   const modePreset = MODE_PRESETS[params.mode] || MODE_PRESETS.active;
   const diffPreset = DIFF_PRESETS[params.diff] || DIFF_PRESETS.normal;
+
   const density = clamp(modePreset.density + diffPreset.densityBonus, 0.42, 0.94);
   const beatMs = 60000 / params.bpm;
   const totalMs = params.durSec * 1000;
@@ -88,20 +89,156 @@
 
   const seeded = mulberry32(xmur3(`${params.seed}|${params.pid}|${params.mode}|${params.diff}`)());
 
+  const TARGET_MIX = {
+    learn:  { jab: 0.34, cross: 0.34, block: 0.16, duck: 0.16 },
+    active: { jab: 0.32, cross: 0.32, block: 0.18, duck: 0.18 },
+    cardio: { jab: 0.34, cross: 0.34, block: 0.16, duck: 0.16 }
+  };
+
+  function makePattern(label, steps, hint){
+    const maxBeat = Math.max.apply(null, steps.map(s => s.beat));
+    return {
+      label,
+      steps,
+      hint: hint || label,
+      len: maxBeat + 1
+    };
+  }
+
+  const PATTERNS = {
+    warmup: [
+      makePattern('Jab', [{ action:'jab', beat:0 }], 'ตีจังหวะเดียวให้แม่น'),
+      makePattern('Cross', [{ action:'cross', beat:0 }], 'ตีจังหวะเดียวให้แม่น'),
+      makePattern('Block', [{ action:'block', beat:0 }], 'ยกการ์ดให้ตรงจังหวะ'),
+      makePattern('Duck', [{ action:'duck', beat:0 }], 'ก้มหลบให้ตรงจังหวะ'),
+      makePattern('Jab → Cross', [
+        { action:'jab', beat:0 },
+        { action:'cross', beat:1 }
+      ], 'ซ้าย แล้ว ขวา')
+    ],
+
+    basic: [
+      makePattern('Jab → Cross', [
+        { action:'jab', beat:0 },
+        { action:'cross', beat:1 }
+      ], 'ซ้าย แล้ว ขวา'),
+      makePattern('Jab → Jab', [
+        { action:'jab', beat:0 },
+        { action:'jab', beat:1 }
+      ], 'ตีซ้าย 2 ครั้ง'),
+      makePattern('Cross → Block', [
+        { action:'cross', beat:0 },
+        { action:'block', beat:1 }
+      ], 'ตีแล้วกัน'),
+      makePattern('Jab → Duck', [
+        { action:'jab', beat:0 },
+        { action:'duck', beat:1 }
+      ], 'ตีแล้วก้มหลบ')
+    ],
+
+    normal: [
+      makePattern('Jab → Cross', [
+        { action:'jab', beat:0 },
+        { action:'cross', beat:1 }
+      ], 'ซ้าย แล้ว ขวา'),
+      makePattern('Block → Cross', [
+        { action:'block', beat:0 },
+        { action:'cross', beat:1 }
+      ], 'กันก่อนแล้วค่อยตี'),
+      makePattern('Jab → Duck → Cross', [
+        { action:'jab', beat:0 },
+        { action:'duck', beat:1 },
+        { action:'cross', beat:2 }
+      ], 'ตี ก้ม แล้วตี'),
+      makePattern('Jab → Cross → Block', [
+        { action:'jab', beat:0 },
+        { action:'cross', beat:1 },
+        { action:'block', beat:2 }
+      ], 'ตีสองครั้งแล้วกัน'),
+      makePattern('Jab → Cross (เร็ว)', [
+        { action:'jab', beat:0 },
+        { action:'cross', beat:0.5 }
+      ], 'ตีเร็วขึ้นครึ่งจังหวะ')
+    ],
+
+    advanced: [
+      makePattern('Jab → Cross → Duck', [
+        { action:'jab', beat:0 },
+        { action:'cross', beat:1 },
+        { action:'duck', beat:2 }
+      ], 'ตีสองครั้งแล้วก้ม'),
+      makePattern('Block → Jab → Cross', [
+        { action:'block', beat:0 },
+        { action:'jab', beat:1 },
+        { action:'cross', beat:2 }
+      ], 'กันก่อนค่อยสวน'),
+      makePattern('Jab → Cross → Block → Duck', [
+        { action:'jab', beat:0 },
+        { action:'cross', beat:1 },
+        { action:'block', beat:2 },
+        { action:'duck', beat:3 }
+      ], 'ครบทั้งตี กัน และก้ม'),
+      makePattern('Jab → Cross (เร็ว) → Block', [
+        { action:'jab', beat:0 },
+        { action:'cross', beat:0.5 },
+        { action:'block', beat:1.5 }
+      ], 'เร็วขึ้นแล้วกันตอนท้าย'),
+      makePattern('Duck → Jab → Cross', [
+        { action:'duck', beat:0 },
+        { action:'jab', beat:1 },
+        { action:'cross', beat:2 }
+      ], 'เริ่มด้วยหลบแล้วสวน')
+    ],
+
+    finale: [
+      makePattern('Jab → Cross → Block', [
+        { action:'jab', beat:0 },
+        { action:'cross', beat:1 },
+        { action:'block', beat:2 }
+      ], 'คอมโบรอบท้าย'),
+      makePattern('Jab → Duck → Cross → Block', [
+        { action:'jab', beat:0 },
+        { action:'duck', beat:1 },
+        { action:'cross', beat:2 },
+        { action:'block', beat:3 }
+      ], 'ตี ก้ม ตี กัน'),
+      makePattern('Block → Jab → Cross → Duck', [
+        { action:'block', beat:0 },
+        { action:'jab', beat:1 },
+        { action:'cross', beat:2 },
+        { action:'duck', beat:3 }
+      ], 'กันก่อนแล้วเล่นต่อ'),
+      makePattern('Jab → Cross (เร็ว) → Duck', [
+        { action:'jab', beat:0 },
+        { action:'cross', beat:0.5 },
+        { action:'duck', beat:1.5 }
+      ], 'เร็วขึ้นแล้วก้มหลบ')
+    ]
+  };
+
   const els = {
-    shell: $('rbShell'),
     subline: $('subline'),
     scoreValue: $('scoreValue'),
     comboValue: $('comboValue'),
     accValue: $('accValue'),
     timeValue: $('timeValue'),
     coachText: $('coachText'),
+    patternLabel: $('patternLabel'),
+    patternHint: $('patternHint'),
+    roundChip: $('roundChip'),
+    segmentLabel: $('segmentLabel'),
+    segmentHint: $('segmentHint'),
     arena: $('arena'),
     noteLayer: $('noteLayer'),
     hitLine: $('hitLine'),
     phaseBanner: $('phaseBanner'),
     countdownLayer: $('countdownLayer'),
     countdownNum: $('countdownNum'),
+    breathOverlay: $('breathOverlay'),
+    breathAction: $('breathAction'),
+    breathCircle: $('breathCircle'),
+    breathHint: $('breathHint'),
+    breathCount: $('breathCount'),
     feedbackPop: $('feedbackPop'),
     arenaPulse: $('arenaPulse'),
     audioToggle: $('audioToggle'),
@@ -114,6 +251,11 @@
     sumGreat: $('sumGreat'),
     sumGood: $('sumGood'),
     sumMiss: $('sumMiss'),
+    sumJab: $('sumJab'),
+    sumCross: $('sumCross'),
+    sumBlock: $('sumBlock'),
+    sumDuck: $('sumDuck'),
+    sumBalance: $('sumBalance'),
     sumCoach: $('sumCoach'),
     summarySub: $('summarySub'),
     summaryGrade: $('summaryGrade'),
@@ -129,14 +271,12 @@
     `${params.mode.toUpperCase()} • ${params.diff.toUpperCase()} • ${params.bpm} BPM • ${params.durSec}s`;
 
   const inputButtons = Array.from(document.querySelectorAll('.pad-btn'));
-  const laneEls = Array.from(document.querySelectorAll('.lane'));
 
   const state = {
     started: false,
     ended: false,
     startAt: performance.now() + startDelayMs,
     beatIndex: -1,
-    beatFlashUntil: 0,
     score: 0,
     combo: 0,
     maxCombo: 0,
@@ -148,13 +288,16 @@
     good: 0,
     miss: 0,
     actions: { jab: 0, cross: 0, block: 0, duck: 0 },
+    scheduledActions: { jab: 0, cross: 0, block: 0, duck: 0 },
     offsets: [],
     notes: [],
+    segments: [],
     lastCoachAt: 0,
     feedbackHideAt: 0,
-    coachText: 'ฟังจังหวะ แล้วกดตอนโน้ตแตะเส้นล่างนะ',
+    currentPatternId: '',
+    currentSegmentId: '',
+    currentBreathMode: '',
     events: [],
-    sessionSaved: false,
     audioCtx: null
   };
 
@@ -186,43 +329,182 @@
     osc.stop(now + dur + 0.02);
   }
 
-  function weightedChoice(weights){
-    const total = weights.reduce((s, x) => s + x.w, 0);
+  function weightedPick(items){
+    const total = items.reduce((s, x) => s + x.w, 0);
     let r = seeded() * total;
-    for(const item of weights){
+    for(const item of items){
       r -= item.w;
-      if(r <= 0) return item.k;
+      if(r <= 0) return item.v;
     }
-    return weights[weights.length - 1].k;
+    return items[items.length - 1].v;
   }
 
-  function chooseAction(recent, counts){
-    const base = [
-      { k: 'jab', w: 1.25 },
-      { k: 'cross', w: 1.20 },
-      { k: 'block', w: 0.68 + diffPreset.blockDuckBoost },
-      { k: 'duck', w: 0.64 + diffPreset.blockDuckBoost }
+  function patternCounts(pattern){
+    const out = { jab:0, cross:0, block:0, duck:0 };
+    for(const s of pattern.steps){
+      out[s.action] += 1;
+    }
+    return out;
+  }
+
+  function buildSegments(){
+    const blueprint = [
+      {
+        id:'warmup',
+        type:'play',
+        weight:0.16,
+        pool:'warmup',
+        banner:'Warmup',
+        roundLabel:'Round 0 • Warmup',
+        segmentLabel:'Warmup',
+        segmentHint:'ค่อย ๆ จับจังหวะก่อน',
+        coach:'เริ่มเบา ๆ ก่อนนะ จับจังหวะให้แม่น'
+      },
+      {
+        id:'recover1',
+        type:'breath',
+        weight:0.08,
+        banner:'Recovery',
+        roundLabel:'Recovery 1 • Breathing',
+        segmentLabel:'Recovery 1',
+        segmentHint:'หายใจเข้า-ออกตามวง',
+        coach:'พักสั้น ๆ แล้วหายใจตามวง',
+        breathCycleMs: params.mode === 'cardio' ? 2800 : 3200
+      },
+      {
+        id:'round1',
+        type:'play',
+        weight:0.20,
+        pool: params.diff === 'easy' ? 'basic' : 'normal',
+        banner:'Round 1',
+        roundLabel:'Round 1 • Basic Combo',
+        segmentLabel:'Round 1',
+        segmentHint:'เริ่มเล่นเป็นคอมโบแล้ว',
+        coach:'ดู pattern แล้วตีตามลำดับ'
+      },
+      {
+        id:'recover2',
+        type:'breath',
+        weight:0.08,
+        banner:'Recovery',
+        roundLabel:'Recovery 2 • Breathing',
+        segmentLabel:'Recovery 2',
+        segmentHint:'พักไหล่และผ่อนลมหายใจ',
+        coach:'ช้า ๆ ก่อน แล้วค่อยไปต่อ',
+        breathCycleMs: params.mode === 'cardio' ? 2800 : 3200
+      },
+      {
+        id:'round2',
+        type:'play',
+        weight:0.20,
+        pool: params.diff === 'challenge' ? 'advanced' : 'normal',
+        banner:'Round 2',
+        roundLabel:'Round 2 • Boxing Pattern',
+        segmentLabel:'Round 2',
+        segmentHint:'คอมโบยาวขึ้นและมีหลบ/กันมากขึ้น',
+        coach:'คอมโบยาวขึ้นแล้วนะ ดูลำดับให้ดี'
+      },
+      {
+        id:'recover3',
+        type:'breath',
+        weight:0.08,
+        banner:'Recovery',
+        roundLabel:'Recovery 3 • Breathing',
+        segmentLabel:'Recovery 3',
+        segmentHint:'เตรียมตัวก่อนเข้ารอบท้าย',
+        coach:'พักอีกนิด แล้วเตรียมเข้ารอบสุดท้าย',
+        breathCycleMs: params.mode === 'cardio' ? 2700 : 3000
+      },
+      {
+        id:'boss',
+        type:'play',
+        weight:0.13,
+        pool:'finale',
+        banner:'Boss Finale',
+        roundLabel:'Finale • Pattern Test',
+        segmentLabel:'Boss Finale',
+        segmentHint:'รอบท้าย pattern จะเร็วขึ้นนิดหนึ่ง',
+        coach:'รอบสุดท้ายแล้ว ตั้งใจดู pattern ให้ดี'
+      },
+      {
+        id:'cooldown',
+        type:'breath',
+        weight:0.07,
+        banner:'Cooldown',
+        roundLabel:'Cooldown • Breathing',
+        segmentLabel:'Cooldown',
+        segmentHint:'คูลดาวน์และหายใจช้า ๆ',
+        coach:'ดีมาก ตอนนี้คูลดาวน์ช้า ๆ',
+        breathCycleMs: 3600
+      }
     ];
 
-    for(const row of base){
-      if(recent.length >= 2 && recent[recent.length - 1] === row.k && recent[recent.length - 2] === row.k){
-        row.w *= 0.18;
-      }
-      if(counts[row.k] === 0){
-        row.w *= 1.14;
-      }
-    }
-
-    const jabCrossGap = Math.abs((counts.jab || 0) - (counts.cross || 0));
-    if(jabCrossGap > 4){
-      if((counts.jab || 0) < (counts.cross || 0)) base.find(x => x.k === 'jab').w *= 1.2;
-      else base.find(x => x.k === 'cross').w *= 1.2;
-    }
-
-    return weightedChoice(base);
+    let cursor = 0;
+    state.segments = blueprint.map((cfg) => {
+      const duration = cfg.weight * totalMs;
+      const seg = {
+        ...cfg,
+        start: cursor,
+        end: cursor + duration,
+        duration
+      };
+      cursor = seg.end;
+      return seg;
+    });
   }
 
-  function makeNote(id, action, hitTime){
+  function getSegmentAt(elapsed){
+    for(const seg of state.segments){
+      if(elapsed >= seg.start && elapsed < seg.end) return seg;
+    }
+    return state.segments[state.segments.length - 1] || null;
+  }
+
+  function choosePattern(segment, recentLabels, availableMs){
+    const pool = PATTERNS[segment.pool] || PATTERNS.normal;
+    const target = TARGET_MIX[params.mode] || TARGET_MIX.active;
+    const scheduledTotal =
+      state.scheduledActions.jab +
+      state.scheduledActions.cross +
+      state.scheduledActions.block +
+      state.scheduledActions.duck;
+
+    let candidates = pool.filter((pt) => (pt.len * beatMs) <= (availableMs + beatMs * 0.35));
+    if(!candidates.length){
+      const shortest = pool
+        .slice()
+        .sort((a, b) => a.len - b.len)[0];
+      candidates = shortest ? [shortest] : [];
+    }
+    if(!candidates.length) return null;
+
+    const items = candidates.map((pt) => {
+      const cnt = patternCounts(pt);
+      let w = 1;
+
+      for(const action of Object.keys(ACTIONS)){
+        const currentRatio = scheduledTotal > 0 ? (state.scheduledActions[action] / scheduledTotal) : 0;
+        const deficit = target[action] - currentRatio;
+        w += cnt[action] * Math.max(-0.12, deficit * 4.5);
+      }
+
+      if(recentLabels.includes(pt.label)) w *= 0.26;
+      if(segment.id === 'warmup' && pt.len > 2) w *= 0.28;
+      if(segment.id === 'boss' && pt.len >= 3) w *= 1.22;
+      if(segment.id === 'boss' && pt.label.includes('เร็ว')) w *= 1.15;
+      if(params.diff === 'easy' && pt.len >= 4) w *= 0.55;
+      if(params.diff === 'challenge' && pt.len >= 3) w *= 1.08;
+
+      return {
+        v: pt,
+        w: Math.max(0.08, w)
+      };
+    });
+
+    return weightedPick(items);
+  }
+
+  function makeNote(id, action, hitTime, pattern, segment){
     return {
       id,
       action,
@@ -232,44 +514,59 @@
       judged: false,
       result: '',
       offsetMs: null,
-      el: null
+      el: null,
+      patternId: pattern.patternId,
+      patternLabel: pattern.label,
+      patternHint: pattern.hint,
+      patternSeqText: pattern.seqText,
+      segmentId: segment.id
     };
   }
 
   function generateSchedule(){
     const notes = [];
-    const recent = [];
-    const counts = { jab: 0, cross: 0, block: 0, duck: 0 };
+    const recentLabels = [];
     let noteId = 0;
-    let t = 1800;
+    let patternSerial = 0;
 
-    while(t < totalMs - 500){
-      const useNote = seeded() < density;
-      if(useNote){
-        const action = chooseAction(recent, counts);
-        notes.push(makeNote(`n${noteId++}`, action, t));
-        counts[action] += 1;
-        recent.push(action);
-        if(recent.length > 4) recent.shift();
+    for(const segment of state.segments){
+      if(segment.type !== 'play') continue;
 
-        const canOffbeat = (
-          params.diff !== 'easy' &&
-          seeded() < diffPreset.offbeatChance &&
-          (t + beatMs * 0.5) < totalMs - 300
-        );
+      let t = segment.start + travelMs + 140;
+      if(t > segment.end - 280) continue;
 
-        if(canOffbeat){
-          let action2 = chooseAction(recent, counts);
-          if(action2 === action && seeded() < 0.6){
-            action2 = (action === 'jab') ? 'cross' : (action === 'cross' ? 'jab' : (seeded() < 0.5 ? 'jab' : 'cross'));
-          }
-          notes.push(makeNote(`n${noteId++}`, action2, t + beatMs * 0.5));
-          counts[action2] += 1;
-          recent.push(action2);
-          if(recent.length > 4) recent.shift();
+      while(t < segment.end - 260){
+        const available = segment.end - t - 240;
+        const pattern = choosePattern(segment, recentLabels, available);
+        if(!pattern) break;
+
+        const patternId = `p${patternSerial++}`;
+        const seqText = pattern.steps.map(s => ACTIONS[s.action].label).join(' → ');
+
+        for(const step of pattern.steps){
+          const hitTime = t + (step.beat * beatMs);
+          if(hitTime >= segment.end - 220) continue;
+
+          const note = makeNote(`n${noteId++}`, step.action, hitTime, {
+            patternId,
+            label: pattern.label,
+            hint: pattern.hint,
+            seqText
+          }, segment);
+
+          notes.push(note);
+          state.scheduledActions[step.action] += 1;
         }
+
+        recentLabels.push(pattern.label);
+        if(recentLabels.length > 3) recentLabels.shift();
+
+        const gapBeats =
+          segment.id === 'warmup' ? 0.82 :
+          segment.id === 'boss' ? 0.42 : 0.62;
+
+        t += (pattern.len + gapBeats + (1.12 - density) + seeded() * 0.22) * beatMs;
       }
-      t += beatMs;
     }
 
     notes.sort((a, b) => a.hitTime - b.hitTime);
@@ -312,12 +609,10 @@
   }
 
   function setCoach(text){
-    state.coachText = text;
     els.coachText.textContent = text;
   }
 
   function pulseArena(){
-    state.beatFlashUntil = performance.now() + 120;
     els.arenaPulse.classList.add('is-beat');
     setTimeout(() => els.arenaPulse.classList.remove('is-beat'), 120);
   }
@@ -340,8 +635,7 @@
   function updateHUD(elapsed){
     els.scoreValue.textContent = String(Math.round(state.score));
     els.comboValue.textContent = String(state.combo);
-    const acc = computeAccuracyPercent();
-    els.accValue.textContent = `${acc}%`;
+    els.accValue.textContent = `${computeAccuracyPercent()}%`;
     const secLeft = Math.max(0, Math.ceil((totalMs - elapsed) / 1000));
     els.timeValue.textContent = fmtTime(secLeft);
   }
@@ -409,7 +703,7 @@
       state.combo += 1;
       state.score += scoreFor(result, state.combo);
       showFeedback('perfect', 'Perfect!');
-      setCoach('แม่นมาก! กดตรงจังหวะพอดีเลย');
+      setCoach('แม่นมาก! ตรงจังหวะพอดีเลย');
       beep(980, 0.04, 0.028);
     }else if(result === 'great'){
       state.great += 1;
@@ -439,7 +733,9 @@
       offsetMs: Math.round(offset),
       result,
       combo: state.combo,
-      score: Math.round(state.score)
+      score: Math.round(state.score),
+      patternLabel: note.patternLabel,
+      segmentId: note.segmentId
     });
 
     return true;
@@ -469,7 +765,9 @@
       offsetMs: null,
       result: 'miss',
       combo: 0,
-      score: Math.round(state.score)
+      score: Math.round(state.score),
+      patternLabel: note.patternLabel,
+      segmentId: note.segmentId
     });
 
     if(performance.now() - state.lastCoachAt > 500){
@@ -491,8 +789,16 @@
     }
 
     const elapsed = now - state.startAt;
+    const seg = getSegmentAt(elapsed);
+
     pressPad(action);
     flashLane(action);
+
+    if(seg && seg.type === 'breath'){
+      setCoach('ตอนนี้พักหายใจก่อนนะ');
+      showFeedback('good', 'Breathing time');
+      return;
+    }
 
     const note = nearestNote(action, elapsed);
     if(note){
@@ -500,7 +806,7 @@
     }else{
       state.blankTap += 1;
       if(now - state.lastCoachAt > 550){
-        setCoach('ฟังจังหวะก่อนนะ แล้วกดตอนแตะเส้น');
+        setCoach('ลองรอให้โน้ตแตะเส้นก่อนนะ');
         state.lastCoachAt = now;
       }
       showFeedback('miss', 'Wait for the beat');
@@ -540,9 +846,9 @@
     const laneCenterX = (laneWidth * note.lane) + (laneWidth / 2);
 
     const progress = (elapsed - note.spawnTime) / (note.hitTime - note.spawnTime);
-    const clamped = clamp(progress, -0.35, 1.18);
+    const clampedProgress = clamp(progress, -0.35, 1.18);
     const startY = 28;
-    const y = startY + (lineY - startY) * clamped;
+    const y = startY + (lineY - startY) * clampedProgress;
     const scale = 0.88 + clamp(progress, 0, 1) * 0.16;
 
     note.el.style.left = `${laneCenterX}px`;
@@ -567,12 +873,140 @@
     return url.toString();
   }
 
+  function setPlayHudForSegment(seg){
+    els.phaseBanner.textContent = seg.banner;
+    els.roundChip.textContent = seg.roundLabel;
+    els.segmentLabel.textContent = seg.segmentLabel;
+    els.segmentHint.textContent = seg.segmentHint;
+    els.breathOverlay.classList.add('hidden');
+    state.currentBreathMode = '';
+    state.currentPatternId = '';
+    setCoach(seg.coach);
+  }
+
+  function setBreathHudForSegment(seg){
+    els.phaseBanner.textContent = seg.banner;
+    els.roundChip.textContent = seg.roundLabel;
+    els.segmentLabel.textContent = seg.segmentLabel;
+    els.segmentHint.textContent = seg.segmentHint;
+    els.patternLabel.textContent = seg.id === 'cooldown' ? 'Cooldown Breathing' : 'Recovery Breathing';
+    els.patternHint.textContent = 'หายใจตามวง ไม่ต้องกดปุ่ม';
+    els.breathOverlay.classList.remove('hidden');
+    state.currentPatternId = '';
+    setCoach(seg.coach);
+  }
+
+  function onSegmentChange(seg){
+    if(!seg || state.currentSegmentId === seg.id) return;
+    state.currentSegmentId = seg.id;
+    if(seg.type === 'play') setPlayHudForSegment(seg);
+    else setBreathHudForSegment(seg);
+  }
+
+  function updatePatternHud(elapsed, seg){
+    if(!seg || seg.type !== 'play') return;
+
+    const nextNote = state.notes.find((n) =>
+      !n.judged &&
+      n.segmentId === seg.id &&
+      elapsed <= n.hitTime + WINDOWS.good + 40
+    );
+    if(!nextNote) return;
+
+    if(state.currentPatternId !== nextNote.patternId){
+      state.currentPatternId = nextNote.patternId;
+      els.patternLabel.textContent = nextNote.patternSeqText || nextNote.patternLabel;
+      els.patternHint.textContent = nextNote.patternHint || 'ตีตามลำดับที่เห็น';
+    }
+  }
+
+  function updateBreathOverlay(elapsed, seg){
+    if(!seg || seg.type !== 'breath') return;
+
+    const local = elapsed - seg.start;
+    const cycleMs = seg.breathCycleMs || 3200;
+    const phaseMs = local % cycleMs;
+    const inhaleMs = cycleMs * 0.5;
+    const mode = phaseMs < inhaleMs ? 'inhale' : 'exhale';
+    const remainSec = Math.max(0, Math.ceil((seg.end - elapsed) / 1000));
+
+    if(state.currentBreathMode !== mode){
+      state.currentBreathMode = mode;
+      if(mode === 'inhale'){
+        beep(520, 0.04, 0.010);
+      }else{
+        beep(420, 0.04, 0.010);
+      }
+    }
+
+    els.breathAction.textContent = mode === 'inhale' ? 'หายใจเข้า' : 'หายใจออก';
+    els.breathHint.textContent = mode === 'inhale'
+      ? 'ขยายอกช้า ๆ แล้วเตรียมผ่อนลม'
+      : 'ผ่อนลมหายใจออกยาว ๆ';
+    els.breathCircle.className = `breath-circle ${mode}`;
+    els.breathCount.textContent = `${remainSec}s`;
+  }
+
+  function updateCountdown(now){
+    const remain = state.startAt - now;
+    if(remain <= 0){
+      els.countdownLayer.classList.add('hidden');
+      if(!state.started){
+        state.started = true;
+        const firstSeg = state.segments[0];
+        onSegmentChange(firstSeg);
+        ensureAudio();
+        if(state.audioCtx && state.audioCtx.state === 'suspended'){
+          state.audioCtx.resume().catch(() => {});
+        }
+      }
+      return;
+    }
+
+    const sec = Math.ceil(remain / 1000);
+    els.countdownNum.textContent = String(sec);
+    if(sec === 3) els.phaseBanner.textContent = 'Ready';
+    if(sec === 2) els.phaseBanner.textContent = 'Set';
+    if(sec === 1) els.phaseBanner.textContent = 'Go Soon';
+  }
+
+  function computeBalanceText(){
+    const jab = state.actions.jab;
+    const cross = state.actions.cross;
+    const block = state.actions.block;
+    const duck = state.actions.duck;
+
+    const punchTotal = jab + cross;
+    const defendTotal = block + duck;
+
+    let msg1 = 'สมดุลดี';
+    let msg2 = '';
+
+    if(punchTotal > 0){
+      const punchDiff = Math.abs(jab - cross) / punchTotal;
+      if(punchDiff < 0.12) msg1 = 'Jab และ Cross สมดุลดีมาก';
+      else if(jab > cross) msg1 = 'วันนี้ใช้ Jab มากกว่า Cross';
+      else msg1 = 'วันนี้ใช้ Cross มากกว่า Jab';
+    }
+
+    if(defendTotal > 0){
+      const defendDiff = Math.abs(block - duck) / defendTotal;
+      if(defendDiff < 0.18) msg2 = 'Block และ Duck กระจายดี';
+      else if(block > duck) msg2 = 'ใช้ Block มากกว่า Duck';
+      else msg2 = 'ใช้ Duck มากกว่า Block';
+    } else {
+      msg2 = 'รอบหน้าเพิ่ม Block และ Duck อีกนิด';
+    }
+
+    return `${msg1} • ${msg2}`;
+  }
+
   function computeCoachSummary(acc){
-    if(acc >= 90) return 'เยี่ยมมาก! วันนี้จับจังหวะได้แม่นสุด ๆ และคุมเกมได้ดีมาก';
-    if(acc >= 80) return 'ดีมากเลย จังหวะเริ่มนิ่งแล้ว รอบหน้าลองเก็บ Perfect เพิ่มอีกนิด';
-    if(state.miss > Math.max(8, state.totalNotes * 0.18)) return 'ลองฟังเสียงและดูเส้นล่างให้มากขึ้น จะช่วยให้กดตรงจังหวะขึ้น';
-    if(state.blankTap > Math.max(6, state.totalNotes * 0.12)) return 'วันนี้มีการกดเร็วไปนิด ลองรอให้โน้ตแตะเส้นก่อนค่อยกด';
-    return 'ทำได้ดีมาก ลองฝึกต่ออีกนิด แล้ว Accuracy จะสูงขึ้นเรื่อย ๆ';
+    if(acc >= 90) return 'เยี่ยมมาก! วันนี้ทั้งแม่นจังหวะ เล่นคอมโบได้ดี และคุมรอบพักได้สวยมาก';
+    if(acc >= 82) return 'ดีมากเลย คอมโบเริ่มนิ่งแล้ว รอบหน้าลองเก็บ Perfect เพิ่มอีกนิด';
+    if(state.miss > Math.max(8, state.totalNotes * 0.18)) return 'ลองมองลำดับ pattern ให้ชัด แล้วรอให้โน้ตแตะเส้นก่อนกด';
+    if(state.blankTap > Math.max(6, state.totalNotes * 0.12)) return 'วันนี้มีการกดเร็วไปนิด ลองรอจังหวะให้ชัดก่อน จะช่วยให้ pattern ต่อเนื่องขึ้น';
+    return 'ทำได้ดีมาก จังหวะเริ่มนิ่งแล้ว และเล่นเป็น session ได้ต่อเนื่องขึ้นมาก';
   }
 
   function computeGrade(acc){
@@ -596,10 +1030,12 @@
     if(state.ended) return;
     state.ended = true;
     els.phaseBanner.textContent = 'Summary';
+    els.breathOverlay.classList.add('hidden');
 
     const acc = computeAccuracyPercent();
     const coach = computeCoachSummary(acc);
     const grade = computeGrade(acc);
+    const balanceText = computeBalanceText();
 
     const summary = {
       gameId: params.gameId,
@@ -626,6 +1062,7 @@
       duck: state.actions.duck,
       coach,
       grade,
+      balanceText,
       studyId: params.studyId,
       phase: params.phase,
       conditionGroup: params.conditionGroup,
@@ -642,35 +1079,17 @@
     els.sumGreat.textContent = String(summary.great);
     els.sumGood.textContent = String(summary.good);
     els.sumMiss.textContent = String(summary.miss);
+    els.sumJab.textContent = String(summary.jab);
+    els.sumCross.textContent = String(summary.cross);
+    els.sumBlock.textContent = String(summary.block);
+    els.sumDuck.textContent = String(summary.duck);
+    els.sumBalance.textContent = summary.balanceText;
     els.sumCoach.textContent = summary.coach;
     els.summarySub.textContent = `${params.mode.toUpperCase()} • ${params.diff.toUpperCase()} • ${params.bpm} BPM`;
     els.summaryGrade.textContent = grade;
     els.btnReplay.href = buildReplayUrl();
 
     els.summaryOverlay.classList.remove('hidden');
-  }
-
-  function updateCountdown(now){
-    const remain = state.startAt - now;
-    if(remain <= 0){
-      els.countdownLayer.classList.add('hidden');
-      if(!state.started){
-        state.started = true;
-        els.phaseBanner.textContent = modePreset.banner;
-        setCoach('เริ่มแล้ว! ตีตอนโน้ตแตะเส้นล่างนะ');
-        ensureAudio();
-        if(state.audioCtx && state.audioCtx.state === 'suspended'){
-          state.audioCtx.resume().catch(() => {});
-        }
-      }
-      return;
-    }
-
-    const sec = Math.ceil(remain / 1000);
-    els.countdownNum.textContent = String(sec);
-    if(sec === 3) els.phaseBanner.textContent = 'Ready';
-    if(sec === 2) els.phaseBanner.textContent = 'Set';
-    if(sec === 1) els.phaseBanner.textContent = 'Go Soon';
   }
 
   function tick(now){
@@ -684,20 +1103,22 @@
     }
 
     const elapsed = now - state.startAt;
+    const seg = getSegmentAt(elapsed);
+    onSegmentChange(seg);
 
-    const nextBeat = Math.floor(elapsed / beatMs);
-    if(nextBeat > state.beatIndex){
-      state.beatIndex = nextBeat;
-      pulseArena();
-      if(nextBeat >= 0){
-        beep(620, 0.025, 0.013);
+    if(seg && seg.type === 'play'){
+      const nextBeat = Math.floor(elapsed / beatMs);
+      if(nextBeat > state.beatIndex){
+        state.beatIndex = nextBeat;
+        pulseArena();
+        if(nextBeat >= 0){
+          beep(620, 0.025, 0.013);
+        }
       }
     }
 
     for(const note of state.notes){
-      if(note.judged){
-        continue;
-      }
+      if(note.judged) continue;
 
       if(elapsed > note.hitTime + WINDOWS.good){
         registerMiss(note);
@@ -707,6 +1128,13 @@
       if(note.el){
         layoutNote(note, elapsed);
       }
+    }
+
+    if(seg && seg.type === 'breath'){
+      updateBreathOverlay(elapsed, seg);
+    } else {
+      els.breathOverlay.classList.add('hidden');
+      updatePatternHud(elapsed, seg);
     }
 
     updateHUD(elapsed);
@@ -720,10 +1148,17 @@
   }
 
   function boot(){
+    buildSegments();
     buildNotes();
     attachInputs();
     updateHUD(0);
+
     els.phaseBanner.textContent = 'Ready';
+    els.patternLabel.textContent = 'Warmup • Jab';
+    els.patternHint.textContent = 'ค่อย ๆ จับลำดับก่อน';
+    els.roundChip.textContent = 'Round 0 • Warmup';
+    els.segmentLabel.textContent = 'Warmup';
+    els.segmentHint.textContent = 'ค่อย ๆ จับจังหวะก่อน';
     setCoach('ฟังจังหวะ แล้วกดตอนโน้ตแตะเส้นล่างนะ');
 
     if(params.audio){
