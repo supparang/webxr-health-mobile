@@ -2,1061 +2,1639 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"
-  />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Balance Hold</title>
-
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#bfe9ff" />
+  <meta name="theme-color" content="#8be3d1" />
   <link rel="icon" href="../herohealth/favicon.ico" />
-
   <style>
     :root{
-      --sky1:#eaf8ff;
-      --sky2:#d7f1ff;
-      --sky3:#fff7dc;
+      --bg1:#eefdfa;
+      --bg2:#d8f6ef;
+      --bg3:#fff8df;
 
-      --card:#fffdf8;
-      --card2:#f9fffd;
-      --line:#bfe3ef;
+      --card:#ffffff;
+      --card2:#f8fffd;
 
-      --text:#33424f;
-      --muted:#6f8190;
+      --line:#caeee5;
+      --line-strong:#a7dfd0;
 
-      --blue:#7fcfff;
-      --blue2:#59bdf7;
+      --text:#433f3d;
+      --muted:#75706b;
+
+      --teal:#6fe0cc;
+      --teal2:#31bca4;
       --green:#7ed957;
-      --green2:#52c83a;
-      --yellow:#ffd45c;
-      --orange:#ffb347;
-      --pink:#ff99c8;
-      --purple:#c3a6ff;
+      --green2:#53bf35;
+      --blue:#7fcfff;
+      --blue2:#4aaef0;
+      --yellow:#ffd661;
+      --orange:#ffb35b;
+      --pink:#ff9dcf;
+      --pink2:#ff74b3;
+      --red:#ff7a7a;
 
-      --shadow:0 14px 40px rgba(37, 85, 120, .14);
-      --shadow-soft:0 8px 24px rgba(37, 85, 120, .10);
+      --shadow:0 18px 42px rgba(67,63,61,.12);
+      --shadow-soft:0 10px 22px rgba(67,63,61,.08);
 
-      --safe-top:max(12px, env(safe-area-inset-top));
-      --safe-right:max(12px, env(safe-area-inset-right));
-      --safe-bottom:max(12px, env(safe-area-inset-bottom));
-      --safe-left:max(12px, env(safe-area-inset-left));
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
     }
 
     *{ box-sizing:border-box; }
-    html,body{ margin:0; padding:0; min-height:100%; }
+    html,body{ margin:0; padding:0; }
     body{
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(circle at top, var(--sky3) 0%, var(--sky1) 28%, var(--sky2) 72%, #cdeeff 100%);
-      overflow:hidden;
-      touch-action:manipulation;
-      -webkit-tap-highlight-color:transparent;
-    }
-
-    .page-bg{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      overflow:hidden;
-      z-index:0;
-    }
-    .cloud{
-      position:absolute;
-      border-radius:999px;
-      background:rgba(255,255,255,.68);
-      filter:blur(2px);
-      box-shadow:0 8px 22px rgba(255,255,255,.35);
-    }
-    .cloud.c1{ width:150px; height:52px; left:6%; top:8%; }
-    .cloud.c2{ width:120px; height:42px; right:10%; top:12%; }
-    .cloud.c3{ width:180px; height:58px; left:20%; bottom:16%; opacity:.35; }
-
-    .spark{
-      position:absolute;
-      width:16px; height:16px;
-      border-radius:50%;
-      background:rgba(255,255,255,.42);
-      box-shadow:0 0 0 8px rgba(255,255,255,.10);
-    }
-    .spark.s1{ left:12%; top:24%; }
-    .spark.s2{ right:18%; top:30%; }
-    .spark.s3{ left:72%; bottom:28%; }
-
-    #bhGame{
-      position:relative;
       min-height:100vh;
-      z-index:1;
-      display:flex;
-      flex-direction:column;
-      padding:
-        calc(var(--safe-top) + 10px)
-        calc(var(--safe-right) + 12px)
-        calc(var(--safe-bottom) + 10px)
-        calc(var(--safe-left) + 12px);
-      gap:12px;
-    }
-
-    #bhTopbar{
-      position:relative;
-      z-index:5;
-      display:grid;
-      grid-template-columns:auto 1fr auto auto auto;
-      gap:10px;
-      align-items:center;
-      width:min(1180px, 100%);
-      margin:0 auto;
-    }
-
-    .hh-chip,
-    .hh-btn{
-      border:0;
-      border-radius:999px;
-      background:rgba(255,255,255,.88);
+      font-family:ui-rounded,"Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
       color:var(--text);
-      box-shadow:var(--shadow-soft);
-      min-height:44px;
-    }
-
-    .hh-chip{
-      padding:10px 14px;
-      font-weight:800;
-      letter-spacing:.1px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      white-space:nowrap;
-    }
-
-    .hh-chip.soft{
-      background:rgba(255,255,255,.74);
-      font-weight:700;
-    }
-
-    .hh-btn{
-      padding:10px 14px;
-      font-weight:800;
-      cursor:pointer;
-      transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
-    }
-    .hh-btn:active{ transform:scale(.98); }
-    .hh-btn.primary{
-      background:linear-gradient(180deg, #fff7b9, #ffd45c);
-    }
-    .hh-btn.blue{
-      background:linear-gradient(180deg, #dff5ff, #9fddff);
-    }
-    .hh-btn.pink{
-      background:linear-gradient(180deg, #ffe7f2, #ffbfd9);
-    }
-
-    .arena-wrap{
-      position:relative;
-      z-index:2;
-      width:min(1180px, 100%);
-      margin:0 auto;
-      flex:1;
-      display:grid;
-      grid-template-columns:1fr;
-      gap:12px;
-      min-height:0;
-    }
-
-    .arena-card{
-      position:relative;
-      min-height:0;
-      border-radius:30px;
       background:
-        linear-gradient(180deg, rgba(255,255,255,.92), rgba(246,252,255,.96));
-      box-shadow:var(--shadow);
-      border:2px solid rgba(255,255,255,.75);
-      overflow:hidden;
+        radial-gradient(circle at top left, rgba(255,255,255,.92), transparent 30%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 52%,var(--bg3));
     }
 
-    .arena-head{
-      position:absolute;
-      z-index:7;
-      top:14px;
-      left:14px;
-      right:14px;
+    a{ color:inherit; text-decoration:none; }
+    button{ font:inherit; }
+    .hidden{ display:none !important; }
+
+    .app{
+      width:min(1280px, calc(100% - 14px));
+      margin:0 auto;
+      padding:
+        calc(10px + var(--safe-top))
+        0
+        calc(14px + var(--safe-bottom));
       display:grid;
-      grid-template-columns:1fr auto;
-      gap:10px;
-      pointer-events:none;
+      gap:12px;
     }
 
-    .arena-badge{
+    .topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .brand,
+    .top-link{
+      min-height:48px;
       display:inline-flex;
       align-items:center;
-      gap:8px;
-      width:max-content;
-      max-width:100%;
+      gap:10px;
       padding:10px 14px;
       border-radius:999px;
-      background:rgba(255,255,255,.86);
-      box-shadow:0 10px 24px rgba(55,100,140,.10);
-      font-weight:800;
-      font-size:16px;
+      background:rgba(255,255,255,.88);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .brand-icon{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,var(--teal),var(--green));
+      color:#fff;
+      font-size:15px;
+    }
+
+    .headline{
+      min-width:0;
+      padding:0 2px;
+    }
+
+    .headline-title{
+      margin:0;
+      font-size:clamp(22px,4vw,38px);
       line-height:1;
+      font-weight:1000;
     }
 
-    .arena-badge.small{
-      font-size:14px;
-      font-weight:700;
+    .headline-sub{
+      margin:4px 0 0;
       color:var(--muted);
-    }
-
-    #bhArena{
-      position:relative;
-      width:100%;
-      min-height:clamp(420px, 62vh, 760px);
-      height:100%;
-      overflow:hidden;
-      touch-action:none;
-      user-select:none;
-      background:
-        radial-gradient(circle at 50% 55%, rgba(255,255,255,.98), rgba(238,249,255,.98) 62%, rgba(218,242,255,.98) 100%);
-    }
-
-    .rhythm-mat{
-      position:absolute;
-      left:50%;
-      top:57%;
-      width:min(86%, 940px);
-      height:min(70%, 540px);
-      transform:translate(-50%,-50%);
-      border-radius:36px;
-      background:
-        radial-gradient(circle at 50% 50%, rgba(255,255,255,.72), rgba(255,255,255,.18) 62%, rgba(255,255,255,0) 100%),
-        linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,255,255,.28));
-      border:3px dashed rgba(121,191,235,.35);
-      box-shadow:inset 0 0 0 16px rgba(255,255,255,.22);
-      pointer-events:none;
-      z-index:0;
-    }
-
-    .lane-ring{
-      position:absolute;
-      left:50%;
-      top:55%;
-      transform:translate(-50%,-50%);
-      border-radius:999px;
-      pointer-events:none;
-      z-index:0;
-    }
-    .lane-ring.r1{
-      width:160px; height:160px;
-      border:4px solid rgba(127,207,255,.22);
-    }
-    .lane-ring.r2{
-      width:280px; height:280px;
-      border:4px dashed rgba(255,212,92,.24);
-    }
-    .lane-ring.r3{
-      width:420px; height:420px;
-      border:4px dotted rgba(255,153,200,.18);
-    }
-
-    .post-mark{
-      position:absolute;
-      z-index:0;
-      width:60px; height:60px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      font-size:24px;
-      color:#4f7592;
-      background:rgba(255,255,255,.70);
-      box-shadow:0 8px 18px rgba(64,120,160,.12);
-      border:2px solid rgba(127,207,255,.28);
-      pointer-events:none;
-      transform:translate(-50%,-50%);
-    }
-    .p1{ left:50%; top:55%; }
-    .p2{ left:32%; top:56%; }
-    .p3{ left:68%; top:56%; }
-    .p4{ left:50%; top:38%; }
-    .p5{ left:38%; top:60%; }
-    .p6{ left:62%; top:44%; }
-
-    #bhTarget,
-    #bhCursor,
-    #bhGhost{
-      position:absolute;
-      border-radius:999px;
-    }
-
-    #bhTarget{
-      z-index:2;
-      left:50%;
-      top:55%;
-      width:120px;
-      height:120px;
-      margin-left:-60px;
-      margin-top:-60px;
-      border:5px solid var(--blue2);
-      background:
-        radial-gradient(circle at 50% 50%, rgba(255,255,255,.68), rgba(127,207,255,.16));
-      box-shadow:
-        0 0 0 10px rgba(127,207,255,.08),
-        0 0 38px rgba(127,207,255,.20);
-      pointer-events:none;
-      transition:
-        box-shadow .18s ease,
-        border-color .18s ease,
-        filter .18s ease;
-    }
-    #bhTarget.is-in-zone{
-      border-color:#52c83a;
-      box-shadow:
-        0 0 0 12px rgba(126,217,87,.10),
-        0 0 42px rgba(126,217,87,.22);
-    }
-    #bhTarget.is-warning{
-      border-color:#ffb347;
-      box-shadow:
-        0 0 0 12px rgba(255,179,71,.10),
-        0 0 42px rgba(255,179,71,.22);
-    }
-
-    #bhCursor{
-      z-index:4;
-      left:50%;
-      top:55%;
-      width:28px;
-      height:28px;
-      margin-left:-14px;
-      margin-top:-14px;
-      background:
-        radial-gradient(circle at 32% 32%, #fff6d9, var(--orange));
-      box-shadow:
-        0 0 0 8px rgba(255,179,71,.20),
-        0 0 18px rgba(255,179,71,.22);
-      pointer-events:none;
-      transition:filter .14s ease, box-shadow .14s ease, transform .10s ease;
-    }
-    #bhCursor.is-in-zone{
-      box-shadow:
-        0 0 0 10px rgba(126,217,87,.18),
-        0 0 18px rgba(126,217,87,.22);
-      filter:brightness(1.05);
-    }
-    #bhCursor.is-warning{
-      box-shadow:
-        0 0 0 10px rgba(255,179,71,.18),
-        0 0 18px rgba(255,179,71,.22);
-    }
-
-    #bhGhost{
-      z-index:1;
-      left:50%;
-      top:54%;
-      width:108px;
-      height:170px;
-      transform:translate(-50%,-50%);
-      border-radius:26px;
-      background:rgba(255,255,255,.32);
-      border:3px dashed rgba(95,136,165,.24);
-      pointer-events:none;
-    }
-
-    #bhGhost::before,
-    #bhGhost::after{
-      content:"";
-      position:absolute;
-      background:rgba(123,168,198,.18);
-      border-radius:999px;
-    }
-
-    #bhGhost[data-ghost="center"]::before{
-      width:34px; height:34px; left:50%; top:12px; transform:translateX(-50%);
-    }
-    #bhGhost[data-ghost="center"]::after{
-      width:18px; height:92px; left:50%; top:48px; transform:translateX(-50%);
-    }
-
-    #bhGhost[data-ghost="left-right"]{
-      transform:translate(-50%,-50%) rotate(-10deg);
-    }
-    #bhGhost[data-ghost="left-right"]::before{
-      width:34px; height:34px; left:46%; top:12px; transform:translateX(-50%);
-    }
-    #bhGhost[data-ghost="left-right"]::after{
-      width:18px; height:92px; left:46%; top:48px; transform:translateX(-50%);
-    }
-
-    #bhGhost[data-ghost="one-leg"]{
-      transform:translate(-50%,-50%) rotate(8deg);
-    }
-    #bhGhost[data-ghost="one-leg"]::before{
-      width:34px; height:34px; left:50%; top:12px; transform:translateX(-50%);
-    }
-    #bhGhost[data-ghost="one-leg"]::after{
-      width:18px; height:82px; left:50%; top:48px; transform:translateX(-50%);
-      box-shadow:20px 66px 0 0 rgba(123,168,198,.18);
-    }
-
-    #bhGhost[data-ghost="forward"]{
-      transform:translate(-50%,-50%) rotate(-6deg) scaleY(1.02);
-    }
-    #bhGhost[data-ghost="forward"]::before{
-      width:34px; height:34px; left:50%; top:12px; transform:translateX(-50%);
-    }
-    #bhGhost[data-ghost="forward"]::after{
-      width:18px; height:104px; left:50%; top:42px; transform:translateX(-50%);
-    }
-
-    #bhGhost[data-ghost="beam"]{
-      transform:translate(-50%,-50%) rotate(14deg);
-    }
-    #bhGhost[data-ghost="beam"]::before{
-      width:34px; height:34px; left:50%; top:12px; transform:translateX(-50%);
-    }
-    #bhGhost[data-ghost="beam"]::after{
-      width:18px; height:86px; left:50%; top:48px; transform:translateX(-50%);
-      box-shadow:-26px 78px 0 -3px rgba(123,168,198,.16);
-    }
-
-    #bhGhost[data-ghost="finale"]{
-      transform:translate(-50%,-50%) rotate(-4deg) scale(1.04);
-      border-color:rgba(255,153,200,.30);
-      background:rgba(255,245,250,.34);
-    }
-    #bhGhost[data-ghost="finale"]::before{
-      width:34px; height:34px; left:50%; top:12px; transform:translateX(-50%);
-      background:rgba(255,153,200,.20);
-    }
-    #bhGhost[data-ghost="finale"]::after{
-      width:18px; height:96px; left:50%; top:48px; transform:translateX(-50%);
-      background:rgba(255,153,200,.18);
-    }
-
-    #bhCue{
-      position:absolute;
-      z-index:6;
-      top:18px;
-      left:50%;
-      transform:translateX(-50%);
-      min-width:min(72vw, 320px);
-      max-width:min(86vw, 520px);
-      padding:10px 16px;
-      text-align:center;
-      border-radius:999px;
-      background:rgba(255,255,255,.92);
-      box-shadow:0 10px 24px rgba(55,100,140,.12);
-      font-size:clamp(15px, 2.2vw, 20px);
+      font-size:13px;
       font-weight:900;
-      letter-spacing:.1px;
-      color:#33526a;
-      pointer-events:none;
     }
 
-    #bhBeat{
-      position:absolute;
-      z-index:6;
-      right:18px;
-      top:18px;
-      width:28px;
-      height:28px;
-      border-radius:999px;
-      background:radial-gradient(circle at 30% 30%, #f4ffd8, var(--green));
-      box-shadow:
-        0 0 0 8px rgba(126,217,87,.12),
-        0 0 22px rgba(126,217,87,.22);
-      opacity:.28;
-      pointer-events:none;
+    .top-actions{
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
     }
 
-    /* =========================
-       VISUAL FX
-       ========================= */
-
-    #bhFXLayer{
-      position:absolute;
-      inset:0;
-      z-index:8;
-      pointer-events:none;
-      overflow:hidden;
-    }
-
-    #bhTargetPulse{
-      position:absolute;
-      left:50%;
-      top:55%;
-      width:150px;
-      height:150px;
-      margin-left:-75px;
-      margin-top:-75px;
-      border-radius:999px;
-      background:
-        radial-gradient(circle, rgba(127,207,255,.18) 0%, rgba(127,207,255,.10) 38%, rgba(127,207,255,0) 72%);
-      opacity:0;
-      transform:scale(.85);
-    }
-
-    #bhSuccessFlash{
-      position:absolute;
-      inset:0;
-      background:
-        radial-gradient(circle at 50% 54%, rgba(255,255,255,.58), rgba(255,255,255,.16) 42%, rgba(255,255,255,0) 72%);
-      opacity:0;
-    }
-
-    .bh-float-text{
-      position:absolute;
-      left:50%;
-      top:42%;
-      transform:translate(-50%, 0) scale(.84);
-      min-width:140px;
-      text-align:center;
-      padding:10px 16px;
-      border-radius:999px;
-      font-size:20px;
-      font-weight:1000;
-      letter-spacing:.2px;
-      opacity:0;
-      box-shadow:0 10px 22px rgba(55,100,140,.14);
-    }
-
-    #bhRecoverPop{
-      color:#21546d;
-      background:linear-gradient(180deg, #e8f8ff, #a8e0ff);
-    }
-
-    #bhPerfectPop{
-      color:#6a4d00;
-      background:linear-gradient(180deg, #fff3b8, #ffd45c);
-    }
-
-    #bhCoachMood{
-      position:absolute;
-      right:18px;
-      bottom:92px;
-      width:58px;
-      height:58px;
+    .shell{
       display:grid;
-      place-items:center;
-      border-radius:999px;
-      background:rgba(255,255,255,.92);
-      box-shadow:0 10px 24px rgba(55,100,140,.14);
-      font-size:28px;
-      font-weight:900;
-      opacity:.96;
-      transform:scale(1);
-      transition:
-        transform .18s ease,
-        filter .18s ease,
-        background .18s ease,
-        opacity .18s ease;
-    }
-
-    #bhCoachMood[data-mood="neutral"]{ background:rgba(255,255,255,.92); }
-    #bhCoachMood[data-mood="happy"]{
-      background:linear-gradient(180deg, #eaffde, #bdf09d);
-      transform:scale(1.08);
-    }
-    #bhCoachMood[data-mood="great"]{
-      background:linear-gradient(180deg, #fff4bf, #ffd45c);
-      transform:scale(1.14);
-    }
-    #bhCoachMood[data-mood="warn"]{
-      background:linear-gradient(180deg, #ffe9cf, #ffc68b);
-      transform:scale(.98);
-    }
-    #bhCoachMood[data-mood="sad"]{
-      background:linear-gradient(180deg, #ffe7ee, #ffc8d9);
-      opacity:.9;
-    }
-
-    #bhPostBanner{
-      position:absolute;
-      left:50%;
-      top:20%;
-      transform:translate(-50%, -10px) scale(.92);
-      padding:12px 18px;
-      border-radius:999px;
-      background:linear-gradient(180deg, #fff6c8, #ffd45c);
-      color:#6e5100;
-      font-size:22px;
-      font-weight:1000;
-      letter-spacing:.4px;
-      box-shadow:0 14px 26px rgba(255,212,92,.24);
-      opacity:0;
-    }
-
-    #bhStarBurst{
-      position:absolute;
-      inset:0;
-      opacity:0;
-    }
-
-    #bhStarBurst .star{
-      position:absolute;
-      width:18px;
-      height:18px;
-      transform:translate(-50%, -50%) rotate(0deg) scale(.7);
-      opacity:0;
-    }
-
-    #bhStarBurst .star::before{
-      content:"⭐";
-      display:block;
-      width:100%;
-      height:100%;
-      font-size:18px;
-      line-height:18px;
-      text-align:center;
-      filter:drop-shadow(0 6px 10px rgba(255,200,80,.25));
-    }
-
-    .bh-target-perfect{
-      animation:bhTargetPerfect .42s ease;
-    }
-    @keyframes bhTargetPerfect{
-      0%   { transform:scale(1); filter:brightness(1); }
-      40%  { transform:scale(1.1); filter:brightness(1.18); }
-      100% { transform:scale(1); filter:brightness(1); }
-    }
-
-    .bh-pulse-on{
-      animation:bhTargetPulseFx .55s ease;
-    }
-    @keyframes bhTargetPulseFx{
-      0%   { opacity:.0; transform:scale(.78); }
-      35%  { opacity:.9; transform:scale(1.06); }
-      100% { opacity:0; transform:scale(1.36); }
-    }
-
-    .bh-flash-on{
-      animation:bhFlashFx .42s ease;
-    }
-    @keyframes bhFlashFx{
-      0%   { opacity:0; }
-      24%  { opacity:.88; }
-      100% { opacity:0; }
-    }
-
-    .bh-pop-show{
-      animation:bhPopFloat .9s ease forwards;
-    }
-    @keyframes bhPopFloat{
-      0%   { opacity:0; transform:translate(-50%, 8px) scale(.76); }
-      20%  { opacity:1; transform:translate(-50%, -6px) scale(1.05); }
-      100% { opacity:0; transform:translate(-50%, -48px) scale(.96); }
-    }
-
-    .bh-banner-show{
-      animation:bhBannerFx 1.05s ease forwards;
-    }
-    @keyframes bhBannerFx{
-      0%   { opacity:0; transform:translate(-50%, -10px) scale(.86); }
-      18%  { opacity:1; transform:translate(-50%, 0) scale(1.02); }
-      100% { opacity:0; transform:translate(-50%, -26px) scale(.98); }
-    }
-
-    .bh-coach-bounce{
-      animation:bhCoachBounce .46s ease;
-    }
-    @keyframes bhCoachBounce{
-      0%   { transform:scale(1); }
-      40%  { transform:scale(1.18); }
-      100% { transform:scale(1); }
-    }
-
-    .bh-star-burst-on{
-      opacity:1 !important;
-    }
-    #bhStarBurst .star.burst{
-      animation:bhStarBurstFx .95s ease forwards;
-    }
-    @keyframes bhStarBurstFx{
-      0%{
-        opacity:0;
-        transform:translate(-50%, -50%) scale(.5) rotate(0deg);
-      }
-      18%{
-        opacity:1;
-        transform:translate(-50%, -50%) scale(1.1) rotate(14deg);
-      }
-      100%{
-        opacity:0;
-        transform:translate(var(--tx), var(--ty)) scale(.9) rotate(120deg);
-      }
-    }
-
-    #bhArena::after{
-      content:"";
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 28%, rgba(255,255,255,.08) 100%);
-      z-index:0;
-    }
-
-    #bhBottombar{
-      position:relative;
-      z-index:5;
-      width:min(1180px, 100%);
-      margin:0 auto;
-      display:grid;
-      grid-template-columns:1.2fr 1fr;
+      grid-template-columns:1.08fr .92fr;
       gap:12px;
-      align-items:stretch;
+      align-items:start;
     }
 
     .panel{
-      background:rgba(255,255,255,.88);
-      border-radius:22px;
-      box-shadow:var(--shadow-soft);
-      padding:12px 14px;
-      min-height:74px;
+      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,252,246,.92));
+      border:2px solid var(--line);
+      border-radius:30px;
+      box-shadow:var(--shadow);
     }
 
-    .panel-title{
+    .menu-panel{
+      padding:18px;
+      display:grid;
+      gap:14px;
+      min-height:760px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .menu-panel::after{
+      content:"";
+      position:absolute;
+      right:-30px;
+      bottom:-36px;
+      width:240px;
+      height:240px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(111,224,204,.20), transparent 64%);
+      pointer-events:none;
+    }
+
+    .badge{
+      width:max-content;
+      min-height:38px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
       font-size:13px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .hero-title{
+      margin:0;
+      font-size:clamp(34px,5vw,60px);
+      line-height:.92;
+      font-weight:1000;
+    }
+
+    .hero-copy{
+      margin:0;
       color:var(--muted);
-      font-weight:800;
-      margin-bottom:6px;
-    }
-
-    #bhCoach{
-      font-size:18px;
+      font-size:15px;
       font-weight:900;
-      line-height:1.25;
-      color:#36586f;
-      transition:transform .16s ease, color .16s ease;
-    }
-    #bhCoach.is-happy{
-      transform:scale(1.02);
-      color:#2f6b2d;
-    }
-    #bhCoach.is-warn{
-      color:#a46315;
+      line-height:1.55;
+      max-width:720px;
     }
 
-    #bhProgress{
+    .preview{
+      position:relative;
+      min-height:320px;
+      border-radius:28px;
+      border:2px dashed var(--line-strong);
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(255,255,255,.82), transparent 16%),
+        linear-gradient(180deg,#c6f7ed 0%, #dffcf5 48%, #fff1cf 49%, #fff8e6 100%);
+    }
+
+    .preview-floor{
+      position:absolute;
+      left:0; right:0; bottom:0;
+      height:104px;
+      background:linear-gradient(180deg,#fff1cf,#fff8e6);
+      border-top:2px dashed rgba(67,63,61,.10);
+    }
+
+    .preview-balance-line{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:100px;
+      width:min(470px,78%);
+      height:12px;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--teal),#ffffff,var(--teal));
+      box-shadow:0 0 0 8px rgba(111,224,204,.16);
+    }
+
+    .preview-meter{
+      position:absolute;
+      top:34px;
+      left:50%;
+      transform:translateX(-50%);
+      min-width:220px;
+      max-width:min(82%,360px);
+      min-height:104px;
+      padding:12px 14px;
+      border-radius:26px;
+      border:3px solid rgba(255,255,255,.88);
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,252,255,.95));
+      display:grid;
+      place-items:center;
+      text-align:center;
+      box-shadow:0 16px 28px rgba(0,0,0,.12);
+    }
+
+    .preview-meter .emoji{
+      font-size:40px;
+      line-height:1;
+    }
+
+    .preview-meter .label{
+      margin-top:4px;
+      font-size:22px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .preview-meter .hint{
+      margin-top:4px;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .preview-avatar{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:74px;
+      width:180px;
+      height:182px;
+      filter:drop-shadow(0 12px 16px rgba(0,0,0,.12));
+    }
+
+    .preview-avatar .head{
+      position:absolute;
+      left:50%;
+      top:10px;
+      transform:translateX(-50%);
+      width:58px;
+      height:58px;
+      border-radius:50%;
+      background:#ffe0bf;
+      border:3px solid rgba(67,63,61,.1);
+    }
+
+    .preview-avatar .body{
+      position:absolute;
+      left:50%;
+      top:62px;
+      transform:translateX(-50%);
+      width:86px;
+      height:62px;
+      border-radius:24px 24px 18px 18px;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      border:3px solid rgba(67,63,61,.1);
+    }
+
+    .preview-avatar .arm,
+    .preview-avatar .leg{
+      position:absolute;
+      background:#ffe0bf;
+      border-radius:999px;
+      border:3px solid rgba(67,63,61,.08);
+    }
+
+    .preview-avatar .arm{ width:16px; height:60px; top:68px; }
+    .preview-avatar .arm.left{ left:30px; transform:rotate(14deg); }
+    .preview-avatar .arm.right{ right:30px; transform:rotate(-14deg); }
+    .preview-avatar .leg{ width:18px; height:66px; top:112px; }
+    .preview-avatar .leg.left{ left:66px; transform:rotate(5deg); }
+    .preview-avatar .leg.right{ right:66px; transform:rotate(-5deg); }
+
+    .preview-warning{
+      position:absolute;
+      right:30px;
+      top:112px;
+      width:86px;
+      height:86px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-size:38px;
+      background:linear-gradient(180deg,var(--orange),#ff9154);
+      border:3px solid rgba(255,255,255,.24);
+      box-shadow:0 16px 24px rgba(0,0,0,.12);
+    }
+
+    .chips{
       display:flex;
       flex-wrap:wrap;
       gap:8px;
+    }
+
+    .chip{
+      min-height:34px;
+      display:inline-flex;
       align-items:center;
-    }
-
-    .bh-dot{
-      width:36px;
-      height:36px;
+      justify-content:center;
+      padding:8px 12px;
       border-radius:999px;
-      display:grid;
-      place-items:center;
-      font-weight:900;
-      font-size:14px;
-      color:#4c6476;
-      background:rgba(255,255,255,.92);
-      box-shadow:inset 0 0 0 2px rgba(127,207,255,.24);
-    }
-    .bh-dot.active{
-      background:linear-gradient(180deg, #fff2b8, #ffd45c);
-      color:#785700;
-    }
-    .bh-dot.done{
-      background:linear-gradient(180deg, #d9ffd0, #7ed957);
-      color:#194d17;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
     }
 
-    .help-card{
-      position:absolute;
-      z-index:10;
-      left:16px;
-      bottom:16px;
-      max-width:min(86vw, 340px);
-      background:rgba(255,255,255,.90);
-      border-radius:20px;
-      padding:12px 14px;
-      box-shadow:0 14px 30px rgba(50,90,120,.12);
-      border:2px solid rgba(255,255,255,.70);
+    .stats-strip{
+      display:grid;
+      gap:10px;
+      padding:14px;
+      border-radius:24px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,255,253,.94));
     }
-    .help-card h3{
-      margin:0 0 6px;
+
+    .stats-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .stats-head strong{
       font-size:16px;
     }
-    .help-card p{
+
+    .stats-head span{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .stats-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .stat{
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+    }
+
+    .stat .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .stat .v{
+      display:block;
+      margin-top:4px;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .menu-side{
+      padding:16px;
+      display:grid;
+      gap:12px;
+      position:sticky;
+      top:calc(10px + var(--safe-top));
+    }
+
+    .card-block{
+      padding:14px;
+      border-radius:24px;
+      border:2px dashed var(--line-strong);
+      background:linear-gradient(180deg,#fff,#f8fffd);
+      display:grid;
+      gap:10px;
+    }
+
+    .card-block h3{
       margin:0;
       font-size:14px;
-      line-height:1.45;
-      color:var(--muted);
+      letter-spacing:.02em;
     }
 
-    #bhOverlay{
-      position:fixed;
-      inset:0;
-      z-index:30;
+    .card-block p{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .field input{
+      min-height:48px;
+      border-radius:16px;
+      border:2px solid var(--line);
+      background:#fff;
+      padding:10px 12px;
+      outline:none;
+    }
+
+    .field input:focus{
+      border-color:var(--teal2);
+    }
+
+    .grid-2{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .grid-3{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .toggle{
+      position:relative;
+    }
+
+    .toggle input{
+      position:absolute;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .toggle label{
+      min-height:70px;
+      padding:10px;
+      border-radius:20px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,#fff,#f8fffd);
       display:grid;
       place-items:center;
-      padding:20px;
-      background:rgba(30,48,66,.34);
-    }
-    #bhOverlay[hidden]{ display:none; }
-
-    .bh-summary-card{
-      width:min(94vw, 760px);
-      background:linear-gradient(180deg, #fffef9, #fffaf0);
-      border-radius:28px;
-      padding:20px;
-      box-shadow:0 28px 80px rgba(0,0,0,.20);
-      border:2px solid rgba(255,255,255,.80);
+      text-align:center;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
     }
 
-    .bh-summary-card h2{
-      margin:0 0 10px;
-      font-size:clamp(24px, 4vw, 34px);
-      color:#34506a;
+    .toggle label small{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+      line-height:1.25;
     }
 
-    .bh-summary-main,
-    .bh-summary-sub{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0, 1fr));
-      gap:10px;
-      margin:12px 0;
+    .toggle input:checked + label{
+      border-color:var(--teal2);
+      background:linear-gradient(180deg,#fff,#edfcf8);
+      transform:translateY(-2px);
+      box-shadow:0 14px 24px rgba(49,188,164,.14);
     }
 
-    .bh-summary-main > div,
-    .bh-summary-sub > div{
-      background:#fff;
+    .recommend-box{
+      padding:12px;
       border-radius:18px;
-      padding:12px 14px;
-      box-shadow:0 8px 18px rgba(50,90,120,.08);
-      font-weight:800;
-    }
-
-    .bh-summary-list{
-      margin-top:10px;
+      border:2px solid var(--line);
       background:#fff;
-      border-radius:20px;
-      padding:10px 14px;
-      box-shadow:0 8px 18px rgba(50,90,120,.08);
+      display:grid;
+      gap:8px;
     }
 
-    .bh-sum-head,
-    .bh-sum-row{
+    .recommend-title{
+      font-size:14px;
+      font-weight:1000;
+    }
+
+    .recommend-sub{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .recommend-chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .recommend-chips span{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .launch-actions{
       display:grid;
-      grid-template-columns:1.6fr .6fr .7fr;
+      gap:10px;
+    }
+
+    .btn{
+      min-height:52px;
+      border:none;
+      border-radius:999px;
+      padding:12px 16px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      text-decoration:none;
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+    }
+
+    .btn.secondary{
+      background:linear-gradient(135deg,#fff,#edfcf8);
+      border:2px solid var(--line);
+    }
+
+    .btn.ghost{
+      background:linear-gradient(135deg,#fffaf2,#fff2da);
+      border:2px solid rgba(255,179,91,.30);
+    }
+
+    .preview-url{
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-size:11px;
+      line-height:1.45;
+      color:#445;
+      background:rgba(255,255,255,.8);
+      border-radius:16px;
+      border:2px dashed var(--line-strong);
+      padding:10px;
+      word-break:break-all;
+    }
+
+    .play-shell{
+      padding:12px;
+      display:grid;
+      gap:10px;
+      min-height:760px;
+    }
+
+    .play-topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
       gap:10px;
       align-items:center;
-      padding:10px 0;
     }
 
-    .bh-sum-head{
+    .mini-pill{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
       font-size:13px;
+      font-weight:1000;
+    }
+
+    .hud{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .hud-box{
+      min-height:68px;
+      padding:10px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .hud-box .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .hud-box .v{
+      display:block;
+      margin-top:6px;
+      font-size:20px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .arena-shell{
+      position:relative;
+      min-height:520px;
+      border-radius:28px;
+      overflow:hidden;
+      border:2px solid var(--line);
+      background:
+        radial-gradient(circle at 50% 15%, rgba(255,255,255,.16), transparent 14%),
+        linear-gradient(180deg,#d2faf1 0%, #f0fffb 52%, #fff1cf 53%, #fff8e6 100%);
+    }
+
+    #gameMount{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    .overlay-center{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:20;
+      max-width:min(92%,540px);
+      width:100%;
+    }
+
+    .telegraph{
+      top:18px;
+      padding:14px 16px;
+      border-radius:22px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      text-align:center;
+      font-size:18px;
+      font-weight:1000;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease;
+    }
+
+    .telegraph.show{
+      opacity:1;
+    }
+
+    .summary-panel{
+      bottom:20px;
+      padding:16px;
+      border-radius:26px;
+      background:rgba(255,255,255,.98);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      display:none;
+      grid-template-columns:1fr;
+      gap:12px;
+    }
+
+    .summary-panel.show{
+      display:grid;
+    }
+
+    .summary-head{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:12px;
+      align-items:center;
+    }
+
+    .rank-badge{
+      width:86px;
+      height:86px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#fff,#edfcf8);
+      border:3px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:40px;
+      font-weight:1000;
+    }
+
+    .summary-copy h2{
+      margin:0;
+      font-size:28px;
+      line-height:1.08;
+    }
+
+    .summary-copy p{
+      margin:6px 0 0;
       color:var(--muted);
       font-weight:900;
-      border-bottom:1px solid rgba(0,0,0,.08);
+      line-height:1.45;
     }
 
-    .bh-sum-row{
-      font-weight:800;
-      border-bottom:1px dashed rgba(0,0,0,.07);
-    }
-    .bh-sum-row:last-child{ border-bottom:0; }
-
-    .bh-summary-actions{
+    .summary-grid{
       display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
-      margin-top:16px;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
     }
 
-    .bh-summary-actions button{
-      min-height:50px;
-      border:0;
+    .summary-stat{
+      padding:10px 12px;
       border-radius:18px;
-      font-size:16px;
+      background:#fff;
+      border:2px solid var(--line);
+    }
+
+    .summary-stat .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .summary-stat .v{
+      display:block;
+      margin-top:5px;
+      font-size:20px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .summary-actions{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .footer-note{
+      text-align:center;
+      color:var(--muted);
+      font-size:12px;
       font-weight:900;
-      cursor:pointer;
-      box-shadow:0 10px 22px rgba(60,100,130,.10);
     }
 
-    .bh-summary-actions button:first-child{
-      background:linear-gradient(180deg, #fff2b7, #ffd45c);
-      color:#6b4f00;
-    }
-    .bh-summary-actions button:last-child{
-      background:linear-gradient(180deg, #dff5ff, #9fddff);
-      color:#184c6a;
+    @media (max-width:1100px){
+      .shell{ grid-template-columns:1fr; }
+      .menu-side{ position:relative; top:auto; }
     }
 
-    @media (max-width: 900px){
-      #bhTopbar{
-        grid-template-columns:1fr 1fr;
-      }
-      #bhTopbar .stretch{
-        grid-column:1 / -1;
-      }
-      #bhBottombar{
+    @media (max-width:780px){
+      .topbar,
+      .play-topbar{
         grid-template-columns:1fr;
       }
-      .arena-head{
+      .stats-grid,
+      .summary-grid,
+      .summary-actions,
+      .hud,
+      .grid-3{
         grid-template-columns:1fr;
       }
-    }
-
-    @media (max-width: 640px){
-      #bhGame{
-        gap:10px;
-        padding:
-          calc(var(--safe-top) + 8px)
-          calc(var(--safe-right) + 8px)
-          calc(var(--safe-bottom) + 8px)
-          calc(var(--safe-left) + 8px);
-      }
-
-      #bhTopbar{
-        gap:8px;
-      }
-
-      .hh-chip,
-      .hh-btn{
-        min-height:40px;
-        padding:9px 12px;
-        font-size:14px;
-      }
-
-      .arena-card{
-        border-radius:24px;
-      }
-
-      #bhArena{
-        min-height:58vh;
-      }
-
-      .help-card{
-        left:10px;
-        right:10px;
-        bottom:10px;
-        max-width:none;
-      }
-
-      .bh-summary-main,
-      .bh-summary-sub,
-      .bh-summary-actions{
+      .grid-2{
         grid-template-columns:1fr;
       }
     }
   </style>
 </head>
 <body>
-  <div class="page-bg" aria-hidden="true">
-    <div class="cloud c1"></div>
-    <div class="cloud c2"></div>
-    <div class="cloud c3"></div>
-    <div class="spark s1"></div>
-    <div class="spark s2"></div>
-    <div class="spark s3"></div>
-  </div>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">🧍</div>
+        <div>HeroHealth</div>
+      </div>
 
-  <div id="bhGame">
-    <div id="bhTopbar">
-      <button id="bhBackBtn" class="hh-btn blue" type="button">← กลับ</button>
+      <div class="headline">
+        <h1 class="headline-title">Balance Hold</h1>
+        <p class="headline-sub">Balance • Stability • Focus • Endurance • Fitness Zone</p>
+      </div>
 
-      <div id="bhPost" class="hh-chip">Post 1 / 6</div>
+      <div class="top-actions">
+        <a id="btnBackFitnessTop" class="top-link" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnBackHubTop" class="top-link" href="../herohealth/hub-v2.html">🏠 HUB</a>
+      </div>
+    </header>
 
-      <div id="bhStars" class="hh-chip soft stretch">⭐ 0</div>
-      <div id="bhScore" class="hh-chip soft">0</div>
+    <section id="view-menu" class="shell">
+      <section class="panel menu-panel">
+        <div class="badge">✨ child-friendly • balance • stability • summary • warmup+cooldown</div>
 
-      <button id="bhHowBtn" class="hh-btn pink" type="button">วิธีเล่น</button>
-    </div>
+        <h2 class="hero-title">Balance<br>Hold</h2>
 
-    <div class="arena-wrap">
-      <div class="arena-card">
-        <div class="arena-head">
-          <div class="arena-badge">🎵 Balance Hold • 6 Post Circuit</div>
-          <div class="arena-badge small">ลากนิ้วเบา ๆ เพื่อคุมจุดสมดุลให้อยู่ในเป้า</div>
-        </div>
+        <p class="hero-copy">
+          เกมนี้ฝึก <strong>การทรงตัว ความนิ่ง และการคุมแกนลำตัว</strong>
+          เด็กจะต้องรักษาสมดุลให้นานขึ้น รับแรงกดดันทีละช่วง และพยายามผ่านช่วงท้ายให้ได้นิ่งที่สุด
+        </p>
 
-        <div id="bhArena">
-          <div class="rhythm-mat"></div>
-          <div class="lane-ring r1"></div>
-          <div class="lane-ring r2"></div>
-          <div class="lane-ring r3"></div>
+        <div class="preview">
+          <div class="preview-floor"></div>
+          <div class="preview-balance-line"></div>
 
-          <div class="post-mark p1">1</div>
-          <div class="post-mark p2">2</div>
-          <div class="post-mark p3">3</div>
-          <div class="post-mark p4">4</div>
-          <div class="post-mark p5">5</div>
-          <div class="post-mark p6">6</div>
-
-          <div id="bhTarget" aria-hidden="true"></div>
-          <div id="bhCursor" aria-hidden="true"></div>
-          <div id="bhGhost" data-ghost="center" aria-hidden="true"></div>
-
-          <div id="bhCue">เตรียมตัว</div>
-          <div id="bhBeat" aria-hidden="true"></div>
-
-          <div id="bhFXLayer" aria-hidden="true">
-            <div id="bhTargetPulse"></div>
-            <div id="bhSuccessFlash"></div>
-            <div id="bhRecoverPop" class="bh-float-text">Great!</div>
-            <div id="bhPerfectPop" class="bh-float-text">Perfect!</div>
-            <div id="bhCoachMood" data-mood="neutral">🙂</div>
-            <div id="bhPostBanner">POST CLEAR!</div>
-            <div id="bhStarBurst"></div>
+          <div class="preview-meter">
+            <div>
+              <div class="emoji">🧍</div>
+              <div class="label">Hold Steady</div>
+              <div class="hint">รักษาความนิ่งให้อยู่กลางเส้น</div>
+            </div>
           </div>
 
-          <div id="bhHelpCard" class="help-card">
-            <h3>วิธีเล่น</h3>
-            <p>
-              พาจุดสีส้มให้อยู่ในวงเป้า แล้วค้างตามจังหวะ
-              ผ่านให้ครบทั้ง 6 ฐาน เพื่อเก็บดาวและคะแนน
-            </p>
+          <div class="preview-avatar" aria-hidden="true">
+            <div class="head"></div>
+            <div class="body"></div>
+            <div class="arm left"></div>
+            <div class="arm right"></div>
+            <div class="leg left"></div>
+            <div class="leg right"></div>
           </div>
+
+          <div class="preview-warning">⚠️</div>
         </div>
+
+        <div class="chips">
+          <div class="chip">🧍 Balance</div>
+          <div class="chip">💚 Stability</div>
+          <div class="chip">🎯 Focus</div>
+          <div class="chip">⏱️ Hold Time</div>
+          <div class="chip">⭐ Summary</div>
+        </div>
+
+        <section class="stats-strip">
+          <div class="stats-head">
+            <strong>🕹️ ผลล่าสุด</strong>
+            <span id="recentStripSub">ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย</span>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat"><span class="k">Rank</span><span id="recentRank" class="v">-</span></div>
+            <div class="stat"><span class="k">Score</span><span id="recentScore" class="v">-</span></div>
+            <div class="stat"><span class="k">Stability</span><span id="recentStability" class="v">-</span></div>
+            <div class="stat"><span class="k">Miss</span><span id="recentMiss" class="v">-</span></div>
+          </div>
+        </section>
+      </section>
+
+      <aside class="panel menu-side">
+        <section class="card-block">
+          <h3>PLAYER</h3>
+
+          <div class="field">
+            <label for="pid">PID</label>
+            <input id="pid" type="text" placeholder="anon" />
+          </div>
+
+          <div class="field">
+            <label for="name">Name</label>
+            <input id="name" type="text" placeholder="Player" />
+          </div>
+
+          <div class="field">
+            <label for="studyId">Study ID</label>
+            <input id="studyId" type="text" placeholder="optional" />
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>RECOMMENDED SETTINGS</h3>
+
+          <div class="recommend-box">
+            <div id="recommendTitle" class="recommend-title">แนะนำค่าเริ่มต้น</div>
+            <div id="recommendSub" class="recommend-sub">ระบบจะเลือกค่าที่เหมาะจากผลล่าสุดให้</div>
+            <div id="recommendChips" class="recommend-chips">
+              <span>Normal</span><span>90s</span><span>Mobile</span>
+            </div>
+            <button id="btnApplyRecommended" class="btn secondary" type="button">✨ ใช้ค่าที่แนะนำ</button>
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>DIFFICULTY</h3>
+          <div class="grid-3">
+            <div class="toggle">
+              <input id="diff-easy" name="diff" type="radio" value="easy" />
+              <label for="diff-easy">Easy<small>นิ่งง่ายกว่า</small></label>
+            </div>
+            <div class="toggle">
+              <input id="diff-normal" name="diff" type="radio" value="normal" checked />
+              <label for="diff-normal">Normal<small>สมดุลที่สุด</small></label>
+            </div>
+            <div class="toggle">
+              <input id="diff-hard" name="diff" type="radio" value="hard" />
+              <label for="diff-hard">Hard<small>แรงกดดันมากขึ้น</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>TIME</h3>
+          <div class="grid-3">
+            <div class="toggle">
+              <input id="time-60" name="time" type="radio" value="60" />
+              <label for="time-60">60s<small>สั้น</small></label>
+            </div>
+            <div class="toggle">
+              <input id="time-90" name="time" type="radio" value="90" checked />
+              <label for="time-90">90s<small>แนะนำ</small></label>
+            </div>
+            <div class="toggle">
+              <input id="time-120" name="time" type="radio" value="120" />
+              <label for="time-120">120s<small>ยาวขึ้น</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>VIEW</h3>
+          <div class="grid-3">
+            <div class="toggle">
+              <input id="view-mobile" name="view" type="radio" value="mobile" checked />
+              <label for="view-mobile">Mobile<small>ทั่วไป</small></label>
+            </div>
+            <div class="toggle">
+              <input id="view-pc" name="view" type="radio" value="pc" />
+              <label for="view-pc">PC<small>คีย์บอร์ด</small></label>
+            </div>
+            <div class="toggle">
+              <input id="view-cvr" name="view" type="radio" value="cvr" />
+              <label for="view-cvr">cVR<small>เก็บ param</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>RUN MODE</h3>
+          <div class="grid-2">
+            <div class="toggle">
+              <input id="run-play" name="run" type="radio" value="play" checked />
+              <label for="run-play">Play<small>เล่นทั่วไป</small></label>
+            </div>
+            <div class="toggle">
+              <input id="run-research" name="run" type="radio" value="research" />
+              <label for="run-research">Research<small>seed/logging</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>FLOW</h3>
+          <p>โหมดมาตรฐานจะไปตามลำดับ <strong>warmup-gate → balance-hold → summary → cooldown → hub/zone</strong></p>
+
+          <div class="grid-2">
+            <div class="toggle">
+              <input id="gate-on" name="gate" type="radio" value="1" checked />
+              <label for="gate-on">Warmup ON<small>ใช้ gate ก่อนเข้าเกม</small></label>
+            </div>
+            <div class="toggle">
+              <input id="gate-off" name="gate" type="radio" value="0" />
+              <label for="gate-off">Warmup OFF<small>เข้าเกมตรง</small></label>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="toggle">
+              <input id="cooldown-on" name="cooldown" type="radio" value="1" checked />
+              <label for="cooldown-on">Cooldown ON<small>ส่ง param ไว้พร้อม</small></label>
+            </div>
+            <div class="toggle">
+              <input id="cooldown-off" name="cooldown" type="radio" value="0" />
+              <label for="cooldown-off">Cooldown OFF<small>จบแล้วกลับ hub/zone</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>SEED</h3>
+          <div class="field">
+            <label for="seed">Seed</label>
+            <input id="seed" type="text" placeholder="auto" />
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>LAUNCH</h3>
+          <div class="launch-actions">
+            <button id="btnStartStandard" class="btn primary" type="button">▶ Start with Current Settings</button>
+            <button id="btnQuickPlay" class="btn secondary" type="button">⚡ Quick Play Now</button>
+            <button id="btnUseLastPattern" class="btn ghost" type="button">🕹️ ใช้ค่าจากล่าสุด</button>
+          </div>
+          <div id="previewUrl" class="preview-url">preview url</div>
+        </section>
+
+        <div class="footer-note">
+          Launcher นี้ส่งค่า pid / diff / time / seed / hub / run / view / gate / cooldown ให้ครบ
+        </div>
+      </aside>
+    </section>
+
+    <section id="view-play" class="panel play-shell hidden">
+      <div class="play-topbar">
+        <a id="bh-back-fitness-play" class="mini-pill" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
+        <div class="mini-pill">🧍 Balance Hold Run</div>
+        <button id="btn-stop-early" class="mini-pill" type="button">⏹️ Stop</button>
       </div>
+
+      <div class="hud">
+        <div class="hud-box"><span class="k">Mode</span><span id="hud-mode" class="v">play</span></div>
+        <div class="hud-box"><span class="k">Diff</span><span id="hud-diff" class="v">normal</span></div>
+        <div class="hud-box"><span class="k">Time</span><span id="hud-time" class="v">90</span></div>
+        <div class="hud-box"><span class="k">Score</span><span id="hud-score" class="v">0</span></div>
+        <div class="hud-box"><span class="k">Stability</span><span id="hud-stability" class="v">100%</span></div>
+        <div class="hud-box"><span class="k">Pressure</span><span id="hud-pressure" class="v">LOW</span></div>
+      </div>
+
+      <div class="arena-shell">
+        <div id="gameMount"></div>
+
+        <div id="telegraphBox" class="overlay-center telegraph">READY!</div>
+
+        <section id="summaryPanel" class="overlay-center summary-panel">
+          <div class="summary-head">
+            <div id="rankBadge" class="rank-badge">A</div>
+            <div class="summary-copy">
+              <h2 id="summaryTitle">เยี่ยมมาก!</h2>
+              <p id="summarySub">นี่คือผลสรุปรอบล่าสุดของ Balance Hold</p>
+            </div>
+          </div>
+
+          <div class="summary-grid">
+            <div class="summary-stat"><span class="k">Score</span><span id="summaryScore" class="v">0</span></div>
+            <div class="summary-stat"><span class="k">Stability</span><span id="summaryStability" class="v">100%</span></div>
+            <div class="summary-stat"><span class="k">Hold</span><span id="summaryHold" class="v">0s</span></div>
+            <div class="summary-stat"><span class="k">Miss</span><span id="summaryMiss" class="v">0</span></div>
+          </div>
+
+          <div class="summary-actions">
+            <button id="btnPlayAgain" class="btn primary" type="button" data-action="play-again">🔁 เล่นอีกครั้ง</button>
+            <a id="btnBackFitness" class="btn secondary" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
+            <a id="btnBackHub" class="btn ghost" href="../herohealth/hub-v2.html">🏠 HUB</a>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      HeroHealth • Balance Hold • launcher + run shell + bridge-ready
     </div>
-
-    <div id="bhBottombar">
-      <div class="panel">
-        <div class="panel-title">Coach</div>
-        <div id="bhCoach">ยืนให้นิ่งในวงเป้าตามจังหวะ</div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-title">Progress</div>
-        <div id="bhProgress"></div>
-      </div>
-    </div>
-
-    <div id="bhOverlay" hidden></div>
   </div>
 
+  <script src="../herohealth/fitness-zone-bridge.js"></script>
   <script>
-    (function(){
+    (function () {
       'use strict';
 
       const qs = new URLSearchParams(location.search);
-      const hub = qs.get('hub') || '../herohealth/hub-v2.html';
+      const $ = (id) => document.getElementById(id);
 
-      const backBtn = document.getElementById('bhBackBtn');
-      const howBtn = document.getElementById('bhHowBtn');
-      const helpCard = document.getElementById('bhHelpCard');
+      const els = {
+        pid: $('pid'),
+        name: $('name'),
+        studyId: $('studyId'),
+        seed: $('seed'),
 
-      if (backBtn) {
-        backBtn.addEventListener('click', () => {
-          location.href = hub;
+        btnBackFitnessTop: $('btnBackFitnessTop'),
+        btnBackHubTop: $('btnBackHubTop'),
+        btnBackFitness: $('btnBackFitness'),
+        btnBackHub: $('btnBackHub'),
+        btnStartStandard: $('btnStartStandard'),
+        btnQuickPlay: $('btnQuickPlay'),
+        btnUseLastPattern: $('btnUseLastPattern'),
+        btnApplyRecommended: $('btnApplyRecommended'),
+
+        previewUrl: $('previewUrl'),
+        recentStripSub: $('recentStripSub'),
+        recentRank: $('recentRank'),
+        recentScore: $('recentScore'),
+        recentStability: $('recentStability'),
+        recentMiss: $('recentMiss'),
+
+        recommendTitle: $('recommendTitle'),
+        recommendSub: $('recommendSub'),
+        recommendChips: $('recommendChips'),
+
+        viewMenu: $('view-menu'),
+        viewPlay: $('view-play'),
+
+        hudMode: $('hud-mode'),
+        hudDiff: $('hud-diff'),
+        hudTime: $('hud-time'),
+        hudScore: $('hud-score'),
+        hudStability: $('hud-stability'),
+        hudPressure: $('hud-pressure'),
+
+        telegraphBox: $('telegraphBox'),
+        summaryPanel: $('summaryPanel'),
+        summaryTitle: $('summaryTitle'),
+        summarySub: $('summarySub'),
+        summaryScore: $('summaryScore'),
+        summaryStability: $('summaryStability'),
+        summaryHold: $('summaryHold'),
+        summaryMiss: $('summaryMiss'),
+        rankBadge: $('rankBadge'),
+
+        btnPlayAgain: $('btnPlayAgain'),
+        btnStopEarly: $('btn-stop-early'),
+        bhBackFitnessPlay: $('bh-back-fitness-play'),
+
+        gameMount: $('gameMount')
+      };
+
+      const Bridge = window.HHFitnessBridge;
+
+      const ABS_HUB = new URL('../herohealth/hub-v2.html', location.href).href;
+      const ABS_FITNESS = new URL('../herohealth/fitness-zone.html', location.href).href;
+      const ABS_LAUNCHER = new URL('../herohealth/balance-hold-vr.html', location.href).href;
+      const ABS_GATE = new URL('../herohealth/warmup-gate.html', location.href).href;
+
+      let state = {
+        running: false,
+        timerId: 0,
+        left: 0,
+        total: 0,
+        score: 0,
+        miss: 0,
+        stability: 100,
+        minStability: 100,
+        rank: 'B'
+      };
+
+      function q(k, d='') {
+        const v = qs.get(k);
+        return v == null || v === '' ? d : v;
+      }
+
+      function setRadio(name, value) {
+        const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+        if (el) el.checked = true;
+      }
+
+      function readRadio(name, fallback) {
+        const el = document.querySelector(`input[name="${name}"]:checked`);
+        return el ? el.value : fallback;
+      }
+
+      function buildFitnessBackUrl() {
+        const u = new URL(q('hub', ABS_FITNESS), location.href);
+        if (!u.searchParams.get('focus')) u.searchParams.set('focus', 'balance-hold');
+        if (!u.searchParams.get('featured')) u.searchParams.set('featured', 'balance-hold');
+        return u.toString();
+      }
+
+      function buildLauncherUrl() {
+        const u = new URL(ABS_LAUNCHER);
+        [
+          'pid','name','nick','studyId','view','debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo','nickName'
+        ].forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+        u.searchParams.set('game', 'balance-hold');
+        u.searchParams.set('gameId', 'balance-hold');
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('diff', readRadio('diff', q('diff', 'normal')));
+        u.searchParams.set('time', readRadio('time', q('time', '90')));
+        u.searchParams.set('view', readRadio('view', q('view', 'mobile')));
+        u.searchParams.set('run', readRadio('run', q('run', 'play')));
+        u.searchParams.set('gate', readRadio('gate', q('gate', '1')));
+        u.searchParams.set('cooldown', readRadio('cooldown', q('cooldown', '1')));
+        u.searchParams.set('hub', q('hub', ABS_HUB));
+        u.searchParams.set('seed', els.seed.value || String(Date.now()));
+        u.searchParams.set('name', els.name.value || q('name', q('nickName', 'Player')));
+        u.searchParams.set('pid', els.pid.value || q('pid', 'anon'));
+        if (els.studyId.value) u.searchParams.set('studyId', els.studyId.value);
+        return u.toString();
+      }
+
+      function baseRunUrl(patch = {}) {
+        const u = new URL(location.href);
+
+        const pid = els.pid.value || q('pid', 'anon');
+        const name = els.name.value || q('name', q('nickName', 'Player'));
+        const studyId = els.studyId.value || q('studyId', '');
+        const diff = patch.diff || readRadio('diff', q('diff', 'normal'));
+        const time = patch.time || readRadio('time', q('time', '90'));
+        const view = patch.view || readRadio('view', q('view', 'mobile'));
+        const run = patch.run || readRadio('run', q('run', 'play'));
+        const gate = patch.gate ?? readRadio('gate', q('gate', '1'));
+        const cooldown = patch.cooldown ?? readRadio('cooldown', q('cooldown', '1'));
+        const seed = patch.seed || (els.seed.value || q('seed', String(Date.now())));
+        const hub = patch.hub || buildFitnessBackUrl();
+
+        u.search = '';
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('name', name);
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('game', 'balance-hold');
+        u.searchParams.set('gameId', 'balance-hold');
+        u.searchParams.set('theme', 'balancehold');
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('time', String(time));
+        u.searchParams.set('view', view);
+        u.searchParams.set('run', run);
+        u.searchParams.set('gate', String(gate));
+        u.searchParams.set('cooldown', String(cooldown));
+        u.searchParams.set('hub', hub);
+        u.searchParams.set('seed', seed);
+        if (studyId) u.searchParams.set('studyId', studyId);
+
+        [
+          'debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo','nickName'
+        ].forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+
+        return u;
+      }
+
+      function buildWarmupUrl(runUrl, patch = {}) {
+        const u = new URL(ABS_GATE);
+
+        u.searchParams.set('phase', 'warmup');
+        u.searchParams.set('pid', els.pid.value || q('pid', 'anon'));
+        u.searchParams.set('name', els.name.value || q('name', q('nickName', 'Player')));
+        if (els.studyId.value || q('studyId', '')) {
+          u.searchParams.set('studyId', els.studyId.value || q('studyId', ''));
+        }
+
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('game', 'balance-hold');
+        u.searchParams.set('gameId', 'balance-hold');
+        u.searchParams.set('theme', 'balancehold');
+
+        u.searchParams.set('diff', patch.diff || readRadio('diff', q('diff', 'normal')));
+        u.searchParams.set('time', patch.time || readRadio('time', q('time', '90')));
+        u.searchParams.set('seed', patch.seed || (els.seed.value || q('seed', String(Date.now()))));
+        u.searchParams.set('hub', patch.hub || buildFitnessBackUrl());
+        u.searchParams.set('view', patch.view || readRadio('view', q('view', 'mobile')));
+        u.searchParams.set('run', patch.run || readRadio('run', q('run', 'play')));
+
+        u.searchParams.set('gate', '1');
+        u.searchParams.set('cooldown', patch.cooldown ?? readRadio('cooldown', q('cooldown', '1')));
+        u.searchParams.set('returnPhase', (patch.cooldown ?? readRadio('cooldown', q('cooldown', '1'))) === '1' ? 'cooldown' : 'hub');
+        u.searchParams.set('dur', patch.dur || '20');
+        u.searchParams.set('cdur', patch.cdur || '20');
+        u.searchParams.set('next', runUrl.href);
+
+        return u;
+      }
+
+      function setPreview() {
+        els.previewUrl.textContent = buildLauncherUrl();
+      }
+
+      function renderRecent() {
+        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
+        if (!last || String(last.game || '').toLowerCase() !== 'balance-hold') {
+          els.recentStripSub.textContent = 'ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย';
+          els.recentRank.textContent = '-';
+          els.recentScore.textContent = '-';
+          els.recentStability.textContent = '-';
+          els.recentMiss.textContent = '-';
+          return;
+        }
+
+        els.recentStripSub.textContent =
+          `Score ${Number(last.scoreFinal || last.score || 0)} • hold ${Number(last.timeSec || 0)}s`;
+
+        els.recentRank.textContent = String(last.rank || '-');
+        els.recentScore.textContent = String(Number(last.scoreFinal || last.score || 0));
+        els.recentStability.textContent = `${Number(last.stabilityMin || last.stability || 0)}%`;
+        els.recentMiss.textContent = String(Number(last.missTotal || last.miss || 0));
+      }
+
+      function recommendFromSummary() {
+        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
+        if (!last || String(last.game || '').toLowerCase() !== 'balance-hold') {
+          return {
+            title: 'แนะนำค่าเริ่มต้น',
+            sub: 'เริ่มแบบสมดุลก่อน เพื่อฝึกการทรงตัวและคุมแกนให้นิ่ง',
+            diff: 'normal',
+            time: '90',
+            view: q('view', 'mobile'),
+            run: 'play',
+            gate: '1',
+            cooldown: '1',
+            chips: ['Normal','90s',q('view','mobile'),'Standard']
+          };
+        }
+
+        const stability = Number(last.stabilityMin || last.stability || 0);
+        const miss = Number(last.missTotal || last.miss || 0);
+        const rank = String(last.rank || '').toUpperCase();
+
+        if (stability < 45 || miss >= 10) {
+          return {
+            title: 'ลดความยากก่อน',
+            sub: 'ใช้ Easy 60 วินาที เพื่อฝึกคุมความนิ่งและลดแรงกดดัน',
+            diff: 'easy',
+            time: '60',
+            view: 'mobile',
+            run: 'play',
+            gate: '1',
+            cooldown: '1',
+            chips: ['Easy','60s','Stability Focus','Standard']
+          };
+        }
+
+        if ((rank === 'S' || rank === 'A') && stability >= 78 && miss <= 4) {
+          return {
+            title: 'พร้อมอัปเกรดความท้าทายแล้ว',
+            sub: 'ลอง Hard หรือ Research เพื่อเพิ่มแรงกดดันและคุมสมดุลให้นานขึ้น',
+            diff: 'hard',
+            time: '90',
+            view: 'pc',
+            run: 'research',
+            gate: '1',
+            cooldown: '1',
+            chips: ['Hard','90s','PC','Research']
+          };
+        }
+
+        return {
+          title: 'กำลังไปได้ดี',
+          sub: 'แนะนำ Normal 90 วินาที เพื่อยืดเวลาการ hold และรักษาความนิ่งต่อเนื่อง',
+          diff: 'normal',
+          time: '90',
+          view: 'mobile',
+          run: 'play',
+          gate: '1',
+          cooldown: '1',
+          chips: ['Normal','90s','Balance Focus','Standard']
+        };
+      }
+
+      function applyRec(rec) {
+        setRadio('diff', rec.diff);
+        setRadio('time', rec.time);
+        setRadio('view', rec.view);
+        setRadio('run', rec.run === 'research' ? 'research' : 'play');
+        setRadio('gate', rec.gate);
+        setRadio('cooldown', rec.cooldown);
+
+        els.recommendTitle.textContent = rec.title;
+        els.recommendSub.textContent = rec.sub;
+        els.recommendChips.innerHTML = rec.chips.map((x) => `<span>${x}</span>`).join('');
+        setPreview();
+      }
+
+      function showMenu() {
+        els.viewMenu.classList.remove('hidden');
+        els.viewPlay.classList.add('hidden');
+      }
+
+      function showPlay() {
+        els.viewMenu.classList.add('hidden');
+        els.viewPlay.classList.remove('hidden');
+      }
+
+      function showTelegraph(text) {
+        els.telegraphBox.textContent = text;
+        els.telegraphBox.classList.add('show');
+        clearTimeout(els.telegraphBox.__hideTimer);
+        els.telegraphBox.__hideTimer = setTimeout(() => {
+          els.telegraphBox.classList.remove('show');
+        }, 1000);
+      }
+
+      function mountDummyPlayScene() {
+        els.gameMount.innerHTML = `
+          <div style="position:absolute;inset:0;">
+            <div style="position:absolute;left:0;right:0;bottom:0;height:110px;background:linear-gradient(180deg,#fff1cf,#fff8e6);border-top:2px dashed rgba(67,63,61,.10)"></div>
+            <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:102px;width:min(470px,78%);height:12px;border-radius:999px;background:linear-gradient(90deg,#6fe0cc,#ffffff,#6fe0cc);box-shadow:0 0 0 8px rgba(111,224,204,.16)"></div>
+            <div style="position:absolute;right:30px;top:114px;width:86px;height:86px;border-radius:24px;display:grid;place-items:center;color:#fff;font-size:38px;background:linear-gradient(180deg,#ffb35b,#ff9154);border:3px solid rgba(255,255,255,.24);box-shadow:0 16px 24px rgba(0,0,0,.12)">⚠️</div>
+          </div>
+        `;
+      }
+
+      function updateHud() {
+        els.hudMode.textContent = readRadio('run', 'play');
+        els.hudDiff.textContent = readRadio('diff', 'normal');
+        els.hudTime.textContent = `${Math.max(0, state.left)}s`;
+        els.hudScore.textContent = String(state.score);
+        els.hudStability.textContent = `${Math.max(0, Math.round(state.stability))}%`;
+        els.hudPressure.textContent = state.left > 20 ? 'LOW' : (state.left > 8 ? 'MID' : 'HIGH');
+      }
+
+      function computeRank(score, stability, miss) {
+        if (stability >= 88 && miss <= 1 && score >= 220) return 'S';
+        if (stability >= 76 && miss <= 4 && score >= 160) return 'A';
+        if (stability >= 62 && score >= 110) return 'B';
+        if (stability >= 45) return 'C';
+        return 'D';
+      }
+
+      function finishRun(reason = 'summary') {
+        if (!state.running) return;
+        state.running = false;
+        clearInterval(state.timerId);
+
+        state.rank = computeRank(state.score, state.minStability, state.miss);
+
+        els.summaryPanel.classList.add('show');
+        els.summaryTitle.textContent = state.rank === 'S' ? 'นิ่งมาก!' : (state.rank === 'A' ? 'เยี่ยมมาก!' : 'ดีขึ้นอีกแล้ว!');
+        els.summarySub.textContent = 'นี่คือผลสรุปรอบล่าสุดของ Balance Hold';
+        els.summaryScore.textContent = String(state.score);
+        els.summaryStability.textContent = `${Math.max(0, Math.round(state.minStability))}%`;
+        els.summaryHold.textContent = `${Number(readRadio('time', q('time', '90')) || 90) - state.left}s`;
+        els.summaryMiss.textContent = String(state.miss);
+        els.rankBadge.textContent = state.rank;
+
+        Bridge?.markFinish('balance-hold', {
+          scoreFinal: state.score,
+          stabilityMin: Math.max(0, Math.round(state.minStability)),
+          missTotal: state.miss,
+          rank: state.rank,
+          result: reason,
+          timeSec: Number(readRadio('time', q('time', '90')) || 90),
+          snapshotExtra: {
+            href: location.href,
+            hub: q('hub', ABS_HUB)
+          },
+          summaryExtra: {
+            href: location.href,
+            hub: q('hub', ABS_HUB)
+          }
         });
       }
 
-      if (howBtn && helpCard) {
-        let open = true;
-        howBtn.addEventListener('click', () => {
-          open = !open;
-          helpCard.style.display = open ? '' : 'none';
+      function startRun() {
+        state.running = true;
+        state.left = Number(readRadio('time', q('time', '90')) || 90);
+        state.total = state.left;
+        state.score = 0;
+        state.miss = 0;
+        state.stability = 100;
+        state.minStability = 100;
+        state.rank = 'B';
+
+        els.summaryPanel.classList.remove('show');
+        mountDummyPlayScene();
+        showPlay();
+        showTelegraph('READY!');
+
+        Bridge?.markStart('balance-hold', {
+          result: 'playing',
+          href: location.href
         });
+
+        updateHud();
+
+        clearInterval(state.timerId);
+        state.timerId = setInterval(() => {
+          if (!state.running) return;
+
+          state.left -= 1;
+
+          const drift = Math.random();
+          if (drift < 0.16) {
+            state.miss += 1;
+            state.stability -= (Math.random() * 10) + 6;
+          } else {
+            state.score += Math.round(Math.random() * 10) + 8;
+            state.stability -= Math.random() * 2.8;
+            if (Math.random() < 0.22) {
+              state.stability += Math.random() * 2.2;
+            }
+          }
+
+          state.stability = Math.max(0, Math.min(100, state.stability));
+          state.minStability = Math.min(state.minStability, state.stability);
+
+          updateHud();
+
+          if (state.left === 20) showTelegraph('PRESSURE!');
+          if (state.left === 8) showTelegraph('HOLD ON!');
+          if (state.left <= 0) {
+            finishRun('summary');
+          }
+        }, 1000);
+      }
+
+      function launchWithCurrentSettings() {
+        const runUrl = baseRunUrl();
+        const gate = readRadio('gate', q('gate', '1'));
+        location.href = gate === '1'
+          ? buildWarmupUrl(runUrl).href
+          : runUrl.href;
+      }
+
+      function launchQuick() {
+        const runUrl = baseRunUrl({
+          diff: 'easy',
+          time: '60',
+          run: 'play',
+          gate: '0',
+          cooldown: '1',
+          view: 'mobile'
+        });
+        location.href = runUrl.href;
+      }
+
+      function useLastPattern() {
+        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
+        if (!last || String(last.game || '').toLowerCase() !== 'balance-hold') return;
+
+        setRadio('diff', String(last.diff || 'normal'));
+        setRadio('time', String(last.timeSec || '90'));
+        setRadio('view', q('view', 'mobile'));
+        setRadio('run', 'play');
+        setRadio('gate', '1');
+        setRadio('cooldown', '1');
+        setPreview();
+      }
+
+      function initLauncherMode() {
+        els.pid.value = q('pid', 'anon');
+        els.name.value = q('name', q('nickName', 'Player'));
+        els.studyId.value = q('studyId', '');
+        els.seed.value = q('seed', String(Date.now()));
+
+        setRadio('diff', q('diff', 'normal'));
+        setRadio('time', q('time', '90'));
+        setRadio('view', q('view', 'mobile'));
+        setRadio('run', q('run', 'play'));
+        setRadio('gate', q('gate', '1'));
+        setRadio('cooldown', q('cooldown', '1'));
+
+        const fitnessUrl = buildFitnessBackUrl();
+        els.btnBackFitnessTop.href = fitnessUrl;
+        els.btnBackFitness.href = fitnessUrl;
+        els.bhBackFitnessPlay.href = fitnessUrl;
+
+        const hubUrl = q('hub', ABS_HUB);
+        els.btnBackHubTop.href = hubUrl;
+        els.btnBackHub.href = hubUrl;
+
+        const rec = recommendFromSummary();
+        applyRec(rec);
+        renderRecent();
+
+        els.btnApplyRecommended.addEventListener('click', () => applyRec(rec));
+        els.btnStartStandard.addEventListener('click', launchWithCurrentSettings);
+        els.btnQuickPlay.addEventListener('click', launchQuick);
+        els.btnUseLastPattern.addEventListener('click', useLastPattern);
+
+        [
+          ...document.querySelectorAll('input[type="radio"]'),
+          els.pid, els.name, els.studyId, els.seed
+        ].forEach((el) => {
+          if (!el) return;
+          el.addEventListener('input', setPreview);
+          el.addEventListener('change', setPreview);
+        });
+      }
+
+      els.btnPlayAgain?.addEventListener('click', () => {
+        location.href = baseRunUrl({
+          gate: '0',
+          cooldown: readRadio('cooldown', q('cooldown', '1'))
+        }).href;
+      });
+
+      els.btnStopEarly?.addEventListener('click', () => {
+        finishRun('stop-early');
+      });
+
+      if (Bridge) {
+        Bridge.installBasicHooks('balance-hold', {
+          fitnessLinkSelectors: [
+            '#btnBackFitnessTop',
+            '#btnBackFitness',
+            '#bh-back-fitness-play',
+            'a[href*="fitness-zone.html"]'
+          ]
+        });
+      }
+
+      initLauncherMode();
+
+      if (q('game', '') || q('gameId', '') || q('run', '') || q('mode', '')) {
+        startRun();
+      } else {
+        showMenu();
       }
     })();
   </script>
 
-  <script src="./js/balance-hold.js?v=20260406c-balance-visual-full"></script>
+  <script src="./js/balance-hold.js"></script>
 </body>
 </html>
