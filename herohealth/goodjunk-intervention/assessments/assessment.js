@@ -1,6 +1,6 @@
 // === /goodjunk-intervention/assessments/assessment.js ===
 // SHARED FORM SAVE + FLOW ROUTER + CROSS-PAGE FLOW BRIDGE
-// PATCH v20260323a-GJI-ASSESSMENT-FLOW-BRIDGE
+// PATCH v20260407a-GJI-ASSESSMENT-SOLOFIRST
 
 import { buildUrl, pickCtxFromQuery } from '../research/config.js';
 import {
@@ -16,12 +16,44 @@ import {
 } from '../research/flow-bridge.js';
 
 const NEXT_MAP = {
-  'pre-knowledge.html': 'PRE_BEHAVIOR',
+  'pre-knowledge.html': 'GAME',
   'pre-behavior.html': 'GAME',
   'post-knowledge.html': 'POST_BEHAVIOR',
   'post-behavior.html': 'POST_CHOICE',
   'post-choice.html': 'COMPLETION'
 };
+
+const PASSTHROUGH_KEYS = [
+  'pid', 'name', 'studyId',
+  'studentKey', 'nickName',
+  'session', 'sessionId',
+  'condition', 'conditionGroup',
+  'classRoom', 'classroom',
+  'school', 'schoolName',
+  'lang',
+  'mode', 'role',
+  'roomId', 'room',
+  'startAt',
+  'diff', 'time', 'seed',
+  'view', 'run', 'gameId',
+  'hub',
+  'host',
+  'returnUrl'
+];
+
+function pickPassthroughFromUrl() {
+  const q = new URLSearchParams(window.location.search);
+  const out = {};
+
+  for (const key of PASSTHROUGH_KEYS) {
+    const val = q.get(key);
+    if (val != null && String(val).trim() !== '') {
+      out[key] = val;
+    }
+  }
+
+  return out;
+}
 
 function getFilename() {
   return window.location.pathname.split('/').pop() || '';
@@ -105,13 +137,20 @@ function renderCtx() {
     `PID: ${ctx.pid || ctx.studentKey || '-'}`,
     `Study: ${ctx.studyId || '-'}`,
     `Session: ${ctx.session || ctx.sessionId || '-'}`,
-    `Condition: ${ctx.condition || ctx.conditionGroup || '-'}`
+    `Condition: ${ctx.condition || ctx.conditionGroup || '-'}`,
+    `Mode: ${ctx.mode || '-'}`,
+    `Room: ${ctx.roomId || ctx.room || '-'}`
   ].join(' • ');
 }
 
 async function init() {
   const queryCtx = pickCtxFromQuery();
-  mergeCtx(queryCtx);
+  const passthroughCtx = pickPassthroughFromUrl();
+
+  mergeCtx({
+    ...queryCtx,
+    ...passthroughCtx
+  });
 
   const form = document.querySelector('form');
   const filename = getFilename();
@@ -119,7 +158,10 @@ async function init() {
 
   const flow = initFlowBridge({
     pageId,
-    queryCtx,
+    queryCtx: {
+      ...queryCtx,
+      ...passthroughCtx
+    },
     defaultStep: form ? 'filling' : 'reviewing',
     staticFields: {
       formPage: filename
@@ -172,14 +214,18 @@ async function init() {
     });
 
     const ctx = loadCtx();
+    const passthrough = pickPassthroughFromUrl();
     const nextKey = form.dataset.nextKey || NEXT_MAP[filename];
 
     if (nextKey) {
-      const rawNextUrl = buildUrl(nextKey, ctx, false);
-      const nextUrl = appendFlowParams(rawNextUrl, {
+      const mergedCtx = {
         ...ctx,
-        ...queryCtx
-      });
+        ...queryCtx,
+        ...passthrough
+      };
+
+      const rawNextUrl = buildUrl(nextKey, mergedCtx, false);
+      const nextUrl = appendFlowParams(rawNextUrl, mergedCtx);
 
       flow.noteRedirect('form-submit', nextUrl, {
         nextKey,
