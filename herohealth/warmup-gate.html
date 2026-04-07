@@ -24,15 +24,31 @@
   <div id="gate-app"></div>
 
   <script type="module">
-    import bootGate from './gate/gate-core.js?v=20260403a-GATE-DAILY-WARMUP-COOLDOWN-BKK-PID-CAT-GAME';
+    import bootGate from './gate/gate-core.js?v=20260407b-GATE-DAILY-WARMUP-COOLDOWN-HUBV2-CDNEXT-FLOW';
 
     const root = document.getElementById('gate-app');
+
+    function esc(s=''){
+      return String(s)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+    }
 
     function fallbackHubHref(){
       try{
         const q = new URLSearchParams(location.search);
         const raw = (q.get('hub') || '').trim();
-        if (raw) return new URL(raw, location.href).href;
+        if (raw) {
+          const resolved = new URL(raw, location.href).href;
+          if (
+            resolved.includes('/herohealth/hub.html') ||
+            resolved.includes('/herohealth/hub-v2.html')
+          ) {
+            return resolved;
+          }
+        }
       }catch(_){}
       return new URL('./hub-v2.html', location.href).href;
     }
@@ -88,7 +104,7 @@
               border:1px solid rgba(239,68,68,.22);
               color:#fecaca;
               font:600 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
-            ">${String(err?.stack || err || 'Unknown error')}</pre>
+            ">${esc(err?.stack || err || 'Unknown error')}</pre>
 
             <div style="display:flex;gap:10px;flex-wrap:wrap">
               <button id="gateReloadBtn" type="button" style="
