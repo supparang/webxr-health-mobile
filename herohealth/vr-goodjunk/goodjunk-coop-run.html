@@ -13,22 +13,21 @@
       --sky1:#dff4ff;
       --sky2:#bfe8ff;
       --sky3:#fff7d8;
+
       --panel:#fffdf8ee;
       --panel-2:#ffffffd9;
       --stroke:#bfe3f2;
       --text:#4d4a42;
       --muted:#6b7280;
 
-      --pink:#ff8fc7;
-      --pink-2:#ffc5e3;
       --blue:#7fcfff;
       --blue-2:#58b7f5;
       --green:#7ed957;
       --green-2:#58c33f;
-      --good:#22c55e;
-      --bad:#ef4444;
+      --pink:#ff8fc7;
+      --pink-2:#ffc5e3;
       --gold:#f59e0b;
-      --violet:#cdb9ff;
+      --orange:#ffb547;
 
       --shadow:0 18px 40px rgba(0,0,0,.12);
 
@@ -46,7 +45,8 @@
       color:var(--text);
       background:
         radial-gradient(circle at 10% 0%, rgba(127,207,255,.50), transparent 24%),
-        radial-gradient(circle at 88% 0%, rgba(131,220,95,.28), transparent 26%),
+        radial-gradient(circle at 88% 0%, rgba(126,217,87,.22), transparent 24%),
+        radial-gradient(circle at 74% 12%, rgba(255,212,92,.22), transparent 22%),
         linear-gradient(180deg,var(--sky1),var(--sky2) 58%, var(--sky3));
     }
 
@@ -143,7 +143,7 @@
 
     .run-shell{
       display:grid;
-      grid-template-columns:minmax(290px,380px) 1fr;
+      grid-template-columns:minmax(300px,390px) 1fr;
       gap:12px;
       min-height:calc(100vh - 96px);
       align-items:start;
@@ -192,9 +192,9 @@
       min-height:36px;
       padding:6px 12px;
       border-radius:999px;
-      border:1px solid #d8f0cc;
-      background:#f2fff1;
-      color:#317245;
+      border:1px solid #d5f0bf;
+      background:#f4ffe9;
+      color:#4b7b1e;
       font-size:12px;
       font-weight:1100;
     }
@@ -221,7 +221,7 @@
     .coop-score{
       border-radius:20px;
       border:1px solid var(--stroke);
-      background:linear-gradient(180deg,#f7fff5,#fff);
+      background:linear-gradient(180deg,#fffaf1,#fff);
       padding:14px;
       text-align:center;
     }
@@ -238,7 +238,7 @@
       font-size:40px;
       line-height:1;
       font-weight:1100;
-      color:#2f7a38;
+      color:#9a6500;
     }
 
     .coop-stats{
@@ -303,7 +303,7 @@
     .coop-item-title{
       font-size:16px;
       font-weight:1100;
-      color:#2f7a38;
+      color:#9a6500;
     }
 
     .coop-item-sub{
@@ -331,9 +331,9 @@
     .coop-tip{
       border-radius:16px;
       border:1px dashed var(--stroke);
-      background:#f7fff8;
+      background:#fffaf1;
       padding:10px 12px;
-      color:#2f7a38;
+      color:#9a6500;
       font-size:13px;
       line-height:1.6;
       font-weight:1000;
@@ -377,7 +377,7 @@
       height:100%;
       width:0%;
       border-radius:999px;
-      background:linear-gradient(90deg,var(--green),#a8ec8f);
+      background:linear-gradient(90deg,var(--green),#a7eb8f);
       transition:width .16s linear;
     }
 
@@ -405,11 +405,11 @@
     .stage-head{
       padding:14px 16px;
       border-bottom:1px solid var(--stroke);
-      color:#2f7a38;
+      color:#9a6500;
       font-size:14px;
       font-weight:1100;
       letter-spacing:.05em;
-      background:#f7fff8;
+      background:#fffaf1;
     }
 
     .stage-inner{
@@ -467,11 +467,208 @@
       overflow:auto;
     }
 
+    .coop-result-card{
+      width:min(1100px,100%);
+      max-height:min(92vh,1020px);
+      overflow:auto;
+      border-radius:28px;
+      border:1px solid var(--stroke);
+      background:#fffdf8;
+      box-shadow:0 28px 80px rgba(0,0,0,.22);
+      padding:18px;
+      display:grid;
+      gap:14px;
+      position:relative;
+    }
+
+    .coop-summary-kicker{
+      display:inline-flex;
+      align-items:center;
+      min-height:32px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:#f4fbff;
+      color:#658cb1;
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .coop-result-title{
+      font-size:28px;
+      line-height:1.15;
+      font-weight:1100;
+      color:#9a6500;
+    }
+
+    .coop-result-sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .coop-top-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .coop-top-card,
+    .coop-stat-card,
+    .coop-standings-card{
+      border-radius:18px;
+      border:2px solid #cde7f4;
+      background:#fff;
+      padding:14px;
+    }
+
+    .coop-top-k{
+      font-size:12px;
+      color:#79aeca;
+      font-weight:1000;
+      text-align:center;
+    }
+
+    .coop-top-name{
+      margin-top:8px;
+      font-size:14px;
+      color:#6d6b63;
+      font-weight:1000;
+      text-align:center;
+      word-break:break-word;
+    }
+
+    .coop-top-score{
+      margin-top:10px;
+      font-size:46px;
+      line-height:1;
+      color:#4d4a42;
+      font-weight:1100;
+      text-align:center;
+    }
+
+    .coop-stats-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .coop-stat-card{
+      text-align:center;
+      border-width:1px;
+      background:#ffffffcc;
+    }
+
+    .coop-stat-k{
+      font-size:12px;
+      color:#6b7280;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .coop-stat-v{
+      font-size:26px;
+      line-height:1;
+      color:#244f6d;
+      font-weight:1100;
+    }
+
+    .coop-standings-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .coop-standing-row{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      padding:12px;
+      border-radius:16px;
+      border:2px solid #cde7f4;
+      background:#fff;
+      flex-wrap:wrap;
+    }
+
+    .coop-standing-left{
+      display:grid;
+      gap:4px;
+      min-width:0;
+    }
+
+    .coop-standing-name{
+      font-weight:1000;
+      color:#4d4a42;
+      word-break:break-word;
+    }
+
+    .coop-standing-meta{
+      font-size:12px;
+      color:#79aeca;
+      font-weight:1000;
+      line-height:1.5;
+      word-break:break-word;
+    }
+
+    .coop-standing-side{
+      font-size:12px;
+      color:#79aeca;
+      font-weight:1000;
+    }
+
+    .coop-debug{
+      border-radius:16px;
+      background:#fff;
+      border:1px dashed #bfe3f2;
+      padding:12px;
+      color:#6b7280;
+      font-size:12px;
+      line-height:1.6;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    .coop-result-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      position:sticky;
+      bottom:0;
+      padding-top:10px;
+      background:linear-gradient(180deg, rgba(255,253,248,0), rgba(255,253,248,.92) 22%, rgba(255,253,248,1));
+      z-index:30;
+    }
+
+    .coop-result-actions .btn{
+      flex:1 1 180px;
+      min-height:50px;
+    }
+
+    @media (max-width:820px){
+      .coop-top-grid{ grid-template-columns:1fr; }
+      .coop-stats-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
     @media (max-width:760px){
       body{ overflow:auto; }
       .coop-result-mount{
         padding:10px;
         align-items:flex-end;
+      }
+      .coop-result-card{
+        border-radius:22px;
+        padding:12px;
+      }
+      .coop-result-title{ font-size:22px; }
+      .coop-result-sub{ font-size:12px; }
+      .coop-result-actions{
+        display:grid;
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+      .coop-result-actions .btn{
+        width:100%;
       }
     }
   </style>
@@ -483,7 +680,7 @@
         <div style="font-size:20px;">🤝</div>
         <div>
           <div class="brand-title">GoodJunk • Coop Run</div>
-          <div class="brand-sub">ช่วยกันเก็บของดี ทำคะแนนรวมของทีม</div>
+          <div class="brand-sub">ช่วยกันเก็บอาหารดีให้ได้ตามเป้าทีม และดู contribution ของแต่ละคน</div>
         </div>
       </div>
 
@@ -507,7 +704,7 @@
 
         <div class="coop-score">
           <div class="coop-score-label">TEAM SCORE</div>
-          <div class="coop-score-value" id="coopTeamScoreValue">0</div>
+          <div class="coop-score-value" id="coopScoreValue">0</div>
         </div>
 
         <div class="coop-stats">
@@ -520,34 +717,34 @@
             <div class="coop-stat-v" id="coopMissValue">0</div>
           </div>
           <div class="coop-stat">
-            <div class="coop-stat-k">Contribution</div>
-            <div class="coop-stat-v" id="coopContributionValue">0</div>
+            <div class="coop-stat-k">Best Streak</div>
+            <div class="coop-stat-v" id="coopStreakValue">0</div>
           </div>
         </div>
 
         <div class="coop-panel">
           <div class="coop-item">
-            <div class="coop-item-icon" id="coopItemIcon">
-              <div class="emoji" id="coopItemEmoji">🥗</div>
+            <div class="coop-item-icon">
+              <div class="emoji" id="coopItemEmoji">🤝</div>
             </div>
             <div>
-              <div class="coop-item-title" id="coopItemTitle">เป้าหมายของทีม</div>
-              <div class="coop-item-sub" id="coopItemSub">ช่วยกันเก็บอาหารดีให้มากที่สุด แล้วทำคะแนนรวมให้ถึงเป้าหมาย</div>
+              <div class="coop-item-title" id="coopItemTitle">เป้าหมายของรอบนี้</div>
+              <div class="coop-item-sub" id="coopItemSub">ช่วยกันเก็บอาหารดีให้ครบเป้าทีม และลด miss ให้ต่ำที่สุด</div>
             </div>
           </div>
 
           <div class="coop-mini-stats">
             <div class="coop-mini">
-              <div class="coop-mini-k">Good hit</div>
-              <div class="coop-mini-v" id="coopGoodHitValue">0</div>
+              <div class="coop-mini-k">My Score</div>
+              <div class="coop-mini-v" id="coopMyScoreValue">0</div>
             </div>
             <div class="coop-mini">
-              <div class="coop-mini-k">Junk hit</div>
-              <div class="coop-mini-v" id="coopJunkHitValue">0</div>
+              <div class="coop-mini-k">Contribution</div>
+              <div class="coop-mini-v" id="coopContributionValue">0%</div>
             </div>
             <div class="coop-mini">
-              <div class="coop-mini-k">Good missed</div>
-              <div class="coop-mini-v" id="coopGoodMissValue">0</div>
+              <div class="coop-mini-k">Team Goal</div>
+              <div class="coop-mini-v" id="coopGoalTextValue">0</div>
             </div>
           </div>
 
@@ -555,8 +752,8 @@
 
           <div class="coop-goal">
             <div class="coop-goal-head">
-              <div class="coop-goal-title">TEAM GOAL</div>
-              <div class="coop-goal-value" id="coopGoalValue">360</div>
+              <div class="coop-goal-title">TEAM PROGRESS</div>
+              <div class="coop-goal-value" id="coopGoalValue">0 / 0</div>
             </div>
             <div class="coop-bar">
               <div class="coop-bar-fill" id="coopGoalFill"></div>
@@ -569,15 +766,15 @@
           <div class="coop-mini-stats">
             <div class="coop-mini">
               <div class="coop-mini-k">Players</div>
-              <div class="coop-mini-v" id="coopPlayerCountValue">0</div>
+              <div class="coop-mini-v" id="coopPlayersValue">-</div>
             </div>
             <div class="coop-mini">
-              <div class="coop-mini-k">Ready</div>
-              <div class="coop-mini-v" id="coopReadyCountValue">0</div>
-            </div>
-            <div class="coop-mini">
-              <div class="coop-mini-k">Rank / Star</div>
+              <div class="coop-mini-k">Team Rank</div>
               <div class="coop-mini-v" id="coopRankValue">-</div>
+            </div>
+            <div class="coop-mini">
+              <div class="coop-mini-k">Gap</div>
+              <div class="coop-mini-v" id="coopGapValue">-</div>
             </div>
           </div>
         </div>
@@ -590,7 +787,6 @@
           <div class="stage-cloud c2"></div>
           <div class="stage-cloud c3"></div>
           <div class="stage-ground"></div>
-
           <div id="gameMount"></div>
         </div>
       </section>
@@ -628,9 +824,9 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-  <script src="../firebase-config.js?v=20260405-coop-run-full"></script>
-  <script src="./goodjunk.safe.coop.js?v=20260405-coop-core-runtime-full"></script>
-  <script src="./goodjunk-coop.js?v=20260405-coop-controller-runtime-full"></script>
+  <script src="../firebase-config.js?v=20260406-coop-run-full"></script>
+  <script src="./goodjunk.safe.coop.js?v=20260406-coop-core-runtime-full"></script>
+  <script src="./goodjunk-coop.js?v=20260406-coop-controller-runtime-full"></script>
 
   <script>
     (function(){
@@ -651,6 +847,7 @@
       }
 
       const resultMount = document.getElementById('coopResultMount');
+
       const qs = (k, d='') => {
         try { return new URL(location.href).searchParams.get(k) ?? d; }
         catch { return d; }
@@ -663,28 +860,9 @@
         hub: qs('hub', '../hub.html')
       };
 
-      function normalize(detail){
-        const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
-          ? detail.summary
-          : (detail || {});
+      let lastSummaryHash = '';
 
-        return {
-          controllerFinal: !!src.controllerFinal,
-          rank: Number.isFinite(Number(src.rank)) && Number(src.rank) > 0 ? Number(src.rank) : '',
-          score: Number(src.score || 0),
-          teamScore: Number(src.teamScore || src.score || 0),
-          contribution: Number(src.contribution || src.score || 0),
-          players: Number(src.players || 1),
-          miss: Number(src.miss || 0),
-          bestStreak: Number(src.bestStreak || 0),
-          result: src.result || 'จบรอบแล้ว',
-          reason: src.reason || '',
-          standings: Array.isArray(src.standings) ? src.standings : [],
-          raw: src
-        };
-      }
-
-      function escapeHtml(s){
+      function esc(s){
         return String(s == null ? '' : s)
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
@@ -692,106 +870,179 @@
           .replace(/"/g, '&quot;');
       }
 
-      function showSummary(detail){
-        if (!resultMount) return;
+      function n(v, d=0){
+        v = Number(v);
+        return Number.isFinite(v) ? v : d;
+      }
 
-        const summary = normalize(detail);
-        const standings = Array.isArray(summary.standings) ? summary.standings : [];
+      function normalizeStanding(r, i){
+        return {
+          pid: String((r && (r.pid || r.playerId)) || ''),
+          nick: String((r && (r.nick || r.name || r.pid)) || `player-${i+1}`),
+          rank: n(r && r.rank, i + 1),
+          score: n(r && r.score, 0),
+          contribution: n(r && r.contribution, 0),
+          miss: n(r && r.miss, 0),
+          bestStreak: n(r && r.bestStreak, 0)
+        };
+      }
+
+      function sortStandings(rows){
+        rows.sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          if (a.miss !== b.miss) return a.miss - b.miss;
+          if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
+          return String(a.pid || '').localeCompare(String(b.pid || ''));
+        });
+        rows.forEach((r, i) => { r.rank = i + 1; });
+        return rows;
+      }
+
+      function normalize(detail){
+        const src = (detail && typeof detail === 'object' && detail.summary && typeof detail.summary === 'object')
+          ? detail.summary
+          : (detail || {});
+
+        const standings = Array.isArray(src.standings)
+          ? sortStandings(src.standings.map((r, i) => normalizeStanding(r, i)))
+          : [];
+
         const me = standings.find((r) => String(r.pid || '') === String(runCtx.pid || '')) || null;
-        const goal = Number((summary.raw && summary.raw.goal) || 0);
-        const metGoal = goal > 0 ? Number(summary.teamScore || 0) >= goal : false;
+        const teamScore = n(src.teamScore != null ? src.teamScore : src.score, 0);
+        const goal = n(src.goal, 0);
 
-        const title = metGoal
-          ? 'ยอดเยี่ยม! ทีมของคุณถึงเป้าหมายแล้ว'
-          : (summary.result || 'จบรอบแล้ว');
+        return {
+          controllerFinal: !!src.controllerFinal,
+          rank: n(src.rank || 0, 0),
+          score: n(src.score != null ? src.score : (me ? me.score : 0), 0),
+          teamScore,
+          players: Math.max(1, n(src.players || standings.length || 1, 1)),
+          miss: n(src.miss != null ? src.miss : (me ? me.miss : 0), 0),
+          bestStreak: n(src.bestStreak != null ? src.bestStreak : (me ? me.bestStreak : 0), 0),
+          contribution: n(src.contribution != null ? src.contribution : (me ? me.contribution : 0), 0),
+          result: src.result || 'จบรอบแล้ว',
+          reason: src.reason || '',
+          roomId: src.roomId || runCtx.roomId || '',
+          roomKind: src.roomKind || runCtx.roomKind || '',
+          standings,
+          goal
+        };
+      }
 
-        const sub = `คะแนนรวมทีม ${Number(summary.teamScore || 0)} • contribution ของเรา ${Number(summary.contribution || summary.score || 0)}`;
+      function summaryHash(summary){
+        return [
+          String(summary.roomId || ''),
+          String(summary.controllerFinal ? '1' : '0'),
+          String(summary.score || ''),
+          String(summary.teamScore || ''),
+          String(summary.contribution || ''),
+          String((summary.standings && summary.standings.length) || 0),
+          String(summary.reason || '')
+        ].join('|');
+      }
+
+      function titleFor(summary){
+        if (summary.goal > 0 && summary.teamScore >= summary.goal) return 'ทีมทำเป้าสำเร็จแล้ว!';
+        return summary.result || 'จบรอบ Coop แล้ว';
+      }
+
+      function subFor(summary){
+        return `คะแนนทีม ${n(summary.teamScore,0)} • contribution ของคุณ ${n(summary.contribution,0)}%`;
+      }
+
+      function standingsHtml(summary){
+        const list = Array.isArray(summary.standings) ? summary.standings : [];
+        if (!list.length) {
+          return `
+            <div class="coop-standing-row">
+              <div class="coop-standing-left">
+                <div class="coop-standing-name">กำลังรอผลจากเพื่อนร่วมทีม</div>
+                <div class="coop-standing-meta">ถ้าอีกเครื่องส่งผลช้ากว่า ระบบอาจแสดงผลชั่วคราวก่อน</div>
+              </div>
+              <div class="coop-standing-side">WAIT</div>
+            </div>
+          `;
+        }
+
+        return list.map((item, i) => {
+          const side = String(item.pid || '') === String(runCtx.pid || '') ? 'YOU' : 'TEAM';
+          return `
+            <div class="coop-standing-row" data-coop-standing-row="${i}">
+              <div class="coop-standing-left">
+                <div class="coop-standing-name" data-coop-standing-name="${i}">#${i + 1} ${esc(item.nick || item.pid || 'player')}</div>
+                <div class="coop-standing-meta" data-coop-standing-meta="${i}">Score ${n(item.score,0)} • Miss ${n(item.miss,0)} • Streak ${n(item.bestStreak,0)} • Contrib ${n(item.contribution,0)}%</div>
+              </div>
+              <div class="coop-standing-side" data-coop-standing-side="${i}">${side}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function renderSummary(summary){
+        if (!resultMount) return;
 
         resultMount.hidden = false;
         resultMount.innerHTML = `
-          <div style="width:min(1100px,100%);max-height:min(92vh,1020px);overflow:auto;border-radius:28px;border:1px solid #bfe3f2;background:#fffdf8;box-shadow:0 28px 80px rgba(0,0,0,.22);padding:18px;display:grid;gap:14px;">
+          <div class="coop-result-card" data-coop-summary-card="1">
             <div style="display:grid;gap:8px;">
-              <div style="display:inline-flex;align-items:center;min-height:32px;padding:6px 12px;border-radius:999px;border:1px solid #bfe3f2;background:#f4fbff;color:#658cb1;font-size:12px;font-weight:1100;">COOP SUMMARY</div>
-              <div style="font-size:28px;line-height:1.15;font-weight:1100;color:#2f7a38;">${escapeHtml(title)}</div>
-              <div style="color:#6b7280;font-size:14px;line-height:1.6;font-weight:900;">${escapeHtml(sub)}</div>
+              <div class="coop-summary-kicker">COOP SUMMARY</div>
+              <div class="coop-result-title" data-coop-summary-title="1">${esc(titleFor(summary))}</div>
+              <div class="coop-result-sub" data-coop-summary-sub="1">${esc(subFor(summary))}</div>
             </div>
 
-            <div style="margin:0 auto 10px;width:min(720px,100%);border-radius:24px;border:3px solid #dff2d1;background:#fff;box-shadow:0 10px 22px rgba(86,155,194,.10);padding:16px 14px;text-align:center;">
-              <div style="color:#4d9b56;font-size:14px;font-weight:1000;margin-bottom:6px;">คะแนนรวมของทีม${goal ? ' / เป้าหมาย' : ''}</div>
-              <div style="color:#4d4a42;font-size:clamp(40px,6vw,60px);line-height:1;font-weight:1000;">${Number(summary.teamScore || 0)}${goal ? ` / ${goal}` : ''}</div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
-              <div style="border-radius:18px;border:2px solid #cde7f4;background:#fff;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#79aeca;font-weight:1000;margin-bottom:6px;">เรา</div>
-                <div style="font-size:14px;line-height:1.5;color:#6d6b63;font-weight:1000;margin-bottom:8px;word-break:break-word;">${escapeHtml((me && (me.nick || me.pid)) || runCtx.pid || 'เรา')}</div>
-                <div style="font-size:34px;line-height:1;color:#4d4a42;font-weight:1000;">${Number(summary.score || 0)}</div>
+            <div class="coop-top-grid">
+              <div class="coop-top-card" data-coop-top-card="me">
+                <div class="coop-top-k">เรา</div>
+                <div class="coop-top-name" data-coop-top-name="me">${esc((summary.standings.find(s => String(s.pid||'') === String(runCtx.pid||'')) || {}).nick || 'เรา')}</div>
+                <div class="coop-top-score" data-coop-top-score="me">${n(summary.score,0)}</div>
               </div>
 
-              <div style="border-radius:18px;border:2px solid #cde7f4;background:#fff;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#79aeca;font-weight:1000;margin-bottom:6px;">Contribution</div>
-                <div style="font-size:14px;line-height:1.5;color:#6d6b63;font-weight:1000;margin-bottom:8px;word-break:break-word;">ส่วนที่เราช่วยทีม</div>
-                <div style="font-size:34px;line-height:1;color:#4d4a42;font-weight:1000;">${Number(summary.contribution || summary.score || 0)}</div>
+              <div class="coop-top-card" data-coop-top-card="team">
+                <div class="coop-top-k">คะแนนทีม</div>
+                <div class="coop-top-name" data-coop-team-label="1">${summary.goal > 0 ? `เป้าหมาย ${n(summary.goal,0)}` : 'คะแนนรวมของทีม'}</div>
+                <div class="coop-top-score" data-coop-top-score="team">${n(summary.teamScore,0)}</div>
               </div>
 
-              <div style="border-radius:18px;border:2px solid #cde7f4;background:#fff;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#79aeca;font-weight:1000;margin-bottom:6px;">ผู้เล่นในรอบ</div>
-                <div style="font-size:14px;line-height:1.5;color:#6d6b63;font-weight:1000;margin-bottom:8px;word-break:break-word;">จำนวนคนที่ช่วยกันเล่น</div>
-                <div style="font-size:34px;line-height:1;color:#4d4a42;font-weight:1000;">${Number(summary.players || 1)}</div>
+              <div class="coop-top-card" data-coop-top-card="contribution">
+                <div class="coop-top-k">Contribution</div>
+                <div class="coop-top-name" data-coop-top-name="contrib">สัดส่วนที่เราช่วยทีม</div>
+                <div class="coop-top-score" data-coop-top-score="contrib">${n(summary.contribution,0)}%</div>
               </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;">
-              <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Rank</div>
-                <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${summary.rank || '-'}</div>
+            <div class="coop-stats-grid">
+              <div class="coop-stat-card">
+                <div class="coop-stat-k">Players</div>
+                <div class="coop-stat-v" data-coop-stat-players="1">${summary.players || 1}</div>
               </div>
-              <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Miss</div>
-                <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${summary.miss || 0}</div>
+              <div class="coop-stat-card">
+                <div class="coop-stat-k">My Miss</div>
+                <div class="coop-stat-v" data-coop-stat-miss="1">${summary.miss || 0}</div>
               </div>
-              <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Best Streak</div>
-                <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${summary.bestStreak || 0}</div>
+              <div class="coop-stat-card">
+                <div class="coop-stat-k">Best Streak</div>
+                <div class="coop-stat-v" data-coop-stat-streak="1">${summary.bestStreak || 0}</div>
               </div>
-              <div style="border-radius:18px;border:1px solid #bfe3f2;background:#ffffffcc;padding:14px;text-align:center;">
-                <div style="font-size:12px;color:#6b7280;font-weight:1000;margin-bottom:6px;">Team Result</div>
-                <div style="font-size:26px;line-height:1;color:#244f6d;font-weight:1100;">${metGoal ? 'PASS' : 'END'}</div>
+              <div class="coop-stat-card">
+                <div class="coop-stat-k">Controller</div>
+                <div class="coop-stat-v" data-coop-stat-controller="1">${summary.controllerFinal ? 'FINAL' : 'LOCAL'}</div>
               </div>
             </div>
 
-            <div style="display:grid;gap:10px;">
-              ${
-                standings.length
-                  ? standings.map((r, i) => `
-                    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border-radius:16px;border:2px solid #cde7f4;background:#fff;flex-wrap:wrap;">
-                      <div style="display:grid;gap:4px;">
-                        <div style="font-weight:1000;color:#4d4a42;">#${i + 1} ${escapeHtml(r.nick || r.pid || 'player')}</div>
-                        <div style="font-size:12px;color:#79aeca;font-weight:1000;">Score ${Number(r.score || 0)} • Miss ${Number(r.miss || 0)} • Streak ${Number(r.bestStreak || 0)}</div>
-                      </div>
-                      <div style="font-size:12px;color:#79aeca;font-weight:1000;">${String(r.pid || '') === String(runCtx.pid || '') ? 'YOU' : 'TEAM'}</div>
-                    </div>
-                  `).join('')
-                  : `
-                    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border-radius:16px;border:2px solid #cde7f4;background:#fff;flex-wrap:wrap;">
-                      <div style="display:grid;gap:4px;">
-                        <div style="font-weight:1000;color:#4d4a42;">กำลังรอผลทีม</div>
-                        <div style="font-size:12px;color:#79aeca;font-weight:1000;">ถ้าเครื่องอื่นส่งผลช้ากว่า ระบบอาจแสดงผลชั่วคราวก่อน</div>
-                      </div>
-                      <div style="font-size:12px;color:#79aeca;font-weight:1000;">WAIT</div>
-                    </div>
-                  `
-              }
+            <div class="coop-standings-card">
+              <div class="coop-standings-list" data-coop-standings-list="1">
+                ${standingsHtml(summary)}
+              </div>
             </div>
 
-            <div style="border-radius:16px;background:#fff;border:1px dashed #bfe3f2;padding:12px;color:#6b7280;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;">controllerFinal=${summary.controllerFinal ? 'true' : 'false'}
-roomId=${escapeHtml(runCtx.roomId || '-')}
-roomKind=${escapeHtml(runCtx.roomKind || '-')}
-reason=${escapeHtml(summary.reason || '-')}</div>
+            <div class="coop-debug" data-coop-controller-debug="1">controllerFinal=${summary.controllerFinal ? 'true' : 'false'}
+roomId=${esc(summary.roomId || '-')}
+roomKind=${esc(summary.roomKind || '-')}
+reason=${esc(summary.reason || '-')}</div>
 
-            <div style="display:flex;gap:10px;flex-wrap:wrap;position:sticky;bottom:0;padding-top:10px;background:linear-gradient(180deg, rgba(255,253,248,0), rgba(255,253,248,.92) 22%, rgba(255,253,248,1));z-index:30;">
-              <a class="btn ghost" href="./goodjunk-coop-lobby.html?roomId=${encodeURIComponent(runCtx.roomId || '')}&room=${encodeURIComponent(runCtx.roomId || '')}&roomKind=${encodeURIComponent(runCtx.roomKind || '')}&autojoin=1&hub=${encodeURIComponent(runCtx.hub || '../hub.html')}">← กลับ Lobby</a>
-              <a class="btn primary" href="${escapeHtml(runCtx.hub || '../hub.html')}">🏠 กลับ Hub</a>
+            <div class="coop-result-actions">
+              <a class="btn ghost" id="coopBackLobbyBtn" href="./goodjunk-coop-lobby.html?roomId=${encodeURIComponent(runCtx.roomId || '')}&room=${encodeURIComponent(runCtx.roomId || '')}&roomKind=${encodeURIComponent(summary.roomKind || runCtx.roomKind || '')}&autojoin=1&hub=${encodeURIComponent(runCtx.hub || '../hub.html')}">← กลับ Lobby</a>
+              <a class="btn primary" id="coopBackHubBtn" href="${esc(runCtx.hub || '../hub.html')}">🏠 กลับ Hub</a>
               <button class="btn good" id="coopRematchBtn" type="button">🔁 เล่นอีกครั้ง</button>
             </div>
           </div>
@@ -799,7 +1050,7 @@ reason=${escapeHtml(summary.reason || '-')}</div>
 
         const rematchBtn = document.getElementById('coopRematchBtn');
         if (rematchBtn) {
-          rematchBtn.addEventListener('click', () => {
+          rematchBtn.onclick = () => {
             const url = new URL('./goodjunk-coop-lobby.html', location.href);
             const src = new URL(location.href);
 
@@ -812,22 +1063,47 @@ reason=${escapeHtml(summary.reason || '-')}</div>
               url.searchParams.set('roomId', runCtx.roomId);
               url.searchParams.set('room', runCtx.roomId);
             }
-            if (runCtx.roomKind) {
-              url.searchParams.set('roomKind', runCtx.roomKind);
+            if (summary.roomKind || runCtx.roomKind) {
+              url.searchParams.set('roomKind', summary.roomKind || runCtx.roomKind);
             }
             url.searchParams.set('autojoin', '1');
             url.searchParams.set('rematch', '1');
 
             location.href = url.toString();
-          });
+          };
         }
+
+        W.__COOP_RUN_LAST_SUMMARY__ = summary;
       }
 
-      ['gj:summary','hha:summary','hha:session-summary'].forEach((eventName) => {
-        window.addEventListener(eventName, (evt) => {
+      function shouldReplace(oldSummary, nextSummary){
+        if (!oldSummary) return true;
+        if (oldSummary.controllerFinal === false && nextSummary.controllerFinal === true) return true;
+
+        const oldCount = (oldSummary.standings && oldSummary.standings.length) || 0;
+        const nextCount = (nextSummary.standings && nextSummary.standings.length) || 0;
+        if (nextCount > oldCount) return true;
+
+        return false;
+      }
+
+      function onSummary(detail){
+        if (!detail || typeof detail !== 'object') return;
+        const nextSummary = normalize(detail);
+        const prevSummary = W.__COOP_RUN_LAST_SUMMARY__ || null;
+        const nextHash = summaryHash(nextSummary);
+
+        if (nextHash === lastSummaryHash && !shouldReplace(prevSummary, nextSummary)) return;
+        if (!shouldReplace(prevSummary, nextSummary) && lastSummaryHash) return;
+
+        lastSummaryHash = nextHash;
+        renderSummary(nextSummary);
+      }
+
+      ['coop:finish','hha:coop:finish','gj:summary','hha:summary','hha:session-summary'].forEach((eventName) => {
+        W.addEventListener(eventName, (evt) => {
           const detail = evt && evt.detail ? evt.detail : null;
-          if (!detail || typeof detail !== 'object') return;
-          showSummary(detail);
+          onSummary(detail);
         });
       });
     })();
