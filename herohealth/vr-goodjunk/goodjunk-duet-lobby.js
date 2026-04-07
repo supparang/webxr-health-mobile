@@ -3,22 +3,25 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-duet-lobby.js
  * GoodJunk Duet Lobby
- * ENGINE UNIFIED PATCH v20260406-gjduet-lobby-engine-r1
- * Uses:
- *   - /herohealth/room-engine.js
- *   - /herohealth/herohealth-logger.js
+ * FULL PATCH v20260407-gjduet-lobby-debug-full
+ * - uses /herohealth/room-engine.js
+ * - uses /herohealth/herohealth-logger.js
+ * - adds full debug for create/join/ready/start
+ * - prevents stale room restore unless autojoin=1
  * ========================================================= */
 (function () {
   const W = window;
   const D = document;
 
+  if (W.__GJ_DUET_LOBBY_PATCHED__) return;
+  W.__GJ_DUET_LOBBY_PATCHED__ = true;
+
   const MODE_ID = 'duet';
   const RUN_FILE = './goodjunk-duet-play.html';
   const LOBBY_FILE = './goodjunk-duet-lobby.html';
-  const STORE_KEY = 'GJ_DUET_LOBBY_ENGINE_V1';
-  const COUNTDOWN_POLL_MS = 100;
+  const STORE_KEY = 'GJ_DUET_LOBBY_ENGINE_V2';
   const COUNTDOWN_MS = 3500;
-  const HEARTBEAT_UI_MS = 1500;
+  const ROOM_RENDER_TICK_MS = 1200;
   const HUB = qs('hub', '../hub.html');
 
   const UI = {
@@ -60,8 +63,7 @@
     redirecting: false,
     room: null,
     unwatchRoom: null,
-    countdownTick: 0,
-    uiTick: 0
+    renderTick: 0
   };
 
   function qs(key, fallback = '') {
@@ -113,10 +115,6 @@
       .replace(/'/g, '&#39;');
   }
 
-  function wait(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
   function getNick() {
     return clean(qs('name', qs('nick', qs('nickName', 'Player'))), 24) || 'Player';
   }
@@ -141,6 +139,34 @@
     return clean(qs('seed', String(Date.now())), 80) || String(Date.now());
   }
 
+  function roomMeta() {
+    return (S.room && S.room.meta) ? S.room.meta : {};
+  }
+
+  function roomPlayers() {
+    return (S.room && S.room.players) ? S.room.players : {};
+  }
+
+  function roomResults() {
+    return (S.room && S.room.results) ? S.room.results : {};
+  }
+
+  function activePlayers() {
+    return Object.values(roomPlayers() || {}).sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
+  }
+
+  function readyPlayers() {
+    return activePlayers().filter((p) => !!p.ready);
+  }
+
+  function selfPlayer() {
+    return roomPlayers()[S.uid] || null;
+  }
+
+  function isHost() {
+    return !!S.uid && roomMeta().hostUid === S.uid;
+  }
+
   function getCtx() {
     return {
       pid: getPid(),
@@ -159,37 +185,8 @@
       room_id: S.roomId || '',
       match_id: roomMeta().matchId || '',
       role: isHost() ? 'host' : 'player',
-      app_version: 'v20260406-gjduet-lobby-engine-r1'
+      app_version: 'v20260407-gjduet-lobby-debug-full'
     };
-  }
-
-  function roomMeta() {
-    return (S.room && S.room.meta) ? S.room.meta : {};
-  }
-
-  function roomPlayers() {
-    return (S.room && S.room.players) ? S.room.players : {};
-  }
-
-  function roomResults() {
-    return (S.room && S.room.results) ? S.room.results : {};
-  }
-
-  function activePlayers() {
-    return Object.values(roomPlayers())
-      .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
-  }
-
-  function readyPlayers() {
-    return activePlayers().filter((p) => !!p.ready);
-  }
-
-  function selfPlayer() {
-    return roomPlayers()[S.uid] || null;
-  }
-
-  function isHost() {
-    return !!S.uid && roomMeta().hostUid === S.uid;
   }
 
   function setStateText(msg) {
@@ -220,13 +217,25 @@
     } catch (_) {}
   }
 
+  function clearLocalRoom() {
+    try {
+      localStorage.removeItem(STORE_KEY);
+    } catch (_) {}
+  }
+
   function restoreLocalRoom() {
-    if (S.roomId) return;
+    const hasQueryRoom = !!cleanRoom(qs('roomId', qs('room', '')));
+    const autojoin = qs('autojoin', '') === '1';
+
+    if (S.roomId || hasQueryRoom || !autojoin) return;
+
     try {
       const raw = localStorage.getItem(STORE_KEY);
       if (!raw) return;
       const data = JSON.parse(raw);
-      if (data && data.roomId) S.roomId = cleanRoom(data.roomId);
+      if (data && data.roomId) {
+        S.roomId = cleanRoom(data.roomId);
+      }
     } catch (_) {}
   }
 
@@ -361,25 +370,17 @@
   }
 
   function renderCountdown() {
-    clearInterval(S.countdownTick);
-    S.countdownTick = 0;
-
-    if (UI.countdown) UI.countdown.textContent = '';
+    if (!UI.countdown) return;
 
     const meta = roomMeta();
-    if (!S.joined || meta.state !== 'countdown') return;
+    if (!S.joined || meta.state !== 'countdown' || !num(meta.countdownAt, 0)) {
+      UI.countdown.textContent = '';
+      return;
+    }
 
-    S.countdownTick = setInterval(() => {
-      const leftMs = num(meta.countdownAt, 0) - now();
-      const sec = Math.max(0, Math.ceil(leftMs / 1000));
-
-      if (UI.countdown) UI.countdown.textContent = sec > 0 ? String(sec) : 'GO!';
-
-      if (leftMs <= 0) {
-        clearInterval(S.countdownTick);
-        S.countdownTick = 0;
-      }
-    }, COUNTDOWN_POLL_MS);
+    const leftMs = num(meta.countdownAt, 0) - now();
+    const sec = Math.max(0, Math.ceil(leftMs / 1000));
+    UI.countdown.textContent = sec > 0 ? String(sec) : 'GO!';
   }
 
   function renderState() {
@@ -411,25 +412,17 @@
     }
 
     if (UI.btnStart) {
-      UI.btnStart.disabled = !(S.joined && isHost() && ready.length >= 2 && players.length >= 2 && ['lobby', 'waiting', 'ended'].includes(status));
+      UI.btnStart.disabled = !(S.joined && isHost() && players.length >= 2 && ready.length >= 2 && ['lobby', 'waiting', 'ended'].includes(status));
     }
 
     if (!S.joined) {
-      setStateText('สร้างห้องใหม่หรือใส่ code เพื่อเข้าห้อง');
       setHint('ต้องมีผู้เล่นพร้อมครบ 2 คนก่อนเริ่ม Duet');
-      setGuard('');
     } else if (status === 'countdown') {
-      setStateText('กำลังนับถอยหลัง');
-      setHint('ทั้งสองฝั่งจะเข้าเล่นพร้อมกัน');
-      setGuard('');
+      setHint('กำลังนับถอยหลัง ทั้งสองฝั่งจะเข้าเล่นพร้อมกัน');
     } else if (status === 'running') {
-      setStateText('กำลังพาเข้าสู่หน้าเล่นจริง');
-      setHint('ถ้าไม่เด้งเอง ให้รอสักครู่');
-      setGuard('');
+      setHint('กำลังพาเข้าเกม');
     } else {
-      setStateText('เข้าห้องสำเร็จ');
       setHint(`ตอนนี้ ready ${ready.length}/2 • ต้องพร้อมครบทั้ง 2 คนก่อนเริ่ม`);
-      setGuard('');
     }
 
     renderPlayers();
@@ -444,14 +437,22 @@
     S.unwatchRoom = null;
   }
 
+  function stopRenderTick() {
+    if (S.renderTick) clearInterval(S.renderTick);
+    S.renderTick = 0;
+  }
+
+  function startRenderTick() {
+    stopRenderTick();
+    S.renderTick = setInterval(renderState, ROOM_RENDER_TICK_MS);
+  }
+
   function resetRoomState() {
     unbindRoomWatch();
-    clearInterval(S.countdownTick);
-    clearInterval(S.uiTick);
-    S.countdownTick = 0;
-    S.uiTick = 0;
+    stopRenderTick();
     S.joined = false;
     S.room = null;
+    S.redirecting = false;
   }
 
   async function initInfra() {
@@ -461,15 +462,25 @@
     const out = await W.HHA_ROOM.init(W.HHA_FIREBASE_CONFIG || W.FIREBASE_CONFIG);
     S.uid = out && out.uid ? out.uid : '';
 
-    S.logger = new W.HeroHealthLogger({
-      endpoint: W.HHA_APPS_SCRIPT_URL || '',
-      secret: W.HHA_INGEST_SECRET || '',
-      base: getCtx()
-    });
+    const endpoint = String(W.HHA_APPS_SCRIPT_URL || '').trim();
+    const secret = String(W.HHA_INGEST_SECRET || '').trim();
 
-    try {
-      await S.logger.dryRun();
-    } catch (_) {}
+    if (endpoint) {
+      S.logger = new W.HeroHealthLogger({
+        endpoint,
+        secret,
+        base: getCtx()
+      });
+
+      try {
+        await S.logger.dryRun();
+      } catch (err) {
+        console.warn('[duet-lobby] dryRun failed:', err && err.message ? err.message : err);
+      }
+    } else {
+      S.logger = null;
+      console.warn('[duet-lobby] Apps Script endpoint missing -> logger disabled');
+    }
   }
 
   function syncLoggerBase() {
@@ -484,10 +495,18 @@
       game: 'goodjunk',
       mode: MODE_ID,
       roomId,
-      onValue: async (room) => {
+      onValue: (room) => {
         S.room = room || null;
         S.joined = !!room;
         syncLoggerBase();
+
+        console.log('[duet-lobby] room update', {
+          roomId,
+          meta: room && room.meta ? room.meta : null,
+          players: room && room.players ? room.players : null,
+          results: room && room.results ? room.results : null
+        });
+
         renderState();
 
         const meta = roomMeta();
@@ -497,14 +516,12 @@
       }
     });
 
-    S.uiTick = setInterval(renderState, HEARTBEAT_UI_MS);
+    startRenderTick();
   }
 
   async function createRoom() {
     try {
-      S.redirecting = false;
       resetRoomState();
-
       syncLoggerBase();
 
       const room = await W.HHA_ROOM.createRoom({
@@ -521,38 +538,45 @@
         logger: S.logger
       });
 
+      console.log('[duet-lobby] createRoom ok', room);
+
       S.roomId = room.roomId;
       persistLocal();
       syncLoggerBase();
       bindRoom(room.roomId);
-      renderState();
 
       setGuard('');
-      setStateText('สร้างห้อง Duet สำเร็จ');
-      setHint('ส่ง room code หรือ invite link ให้เพื่อนอีกคน');
+      setStateText('สร้างห้องสำเร็จ');
+      setHint('ส่ง room code หรือ invite link ให้เพื่อนอีกคนเข้าห้อง');
+      renderState();
     } catch (err) {
       console.error('[duet-lobby] createRoom failed', err);
       setGuard('สร้างห้องไม่สำเร็จ: ' + (err && err.message ? err.message : err));
       setStateText('สร้างห้องไม่สำเร็จ');
-      try { await S.logger.error(err, { stage: 'createRoom', room_id: S.roomId || '' }); } catch (_) {}
+
+      try {
+        if (S.logger) {
+          await S.logger.error(err, { stage: 'createRoom', room_id: S.roomId || '' });
+        }
+      } catch (_) {}
     }
   }
 
   async function joinRoom() {
     try {
-      S.redirecting = false;
       resetRoomState();
 
       S.roomId = cleanRoom((UI.roomInput && UI.roomInput.value) || S.roomId || '');
       if (!S.roomId) {
         setGuard('ยังไม่มี room code');
+        setStateText('ยังไม่ได้เข้าห้อง');
         if (UI.roomInput) UI.roomInput.focus();
         return;
       }
 
       syncLoggerBase();
 
-      await W.HHA_ROOM.joinRoom({
+      const room = await W.HHA_ROOM.joinRoom({
         game: 'goodjunk',
         mode: MODE_ID,
         roomId: S.roomId,
@@ -561,19 +585,38 @@
         logger: S.logger
       });
 
+      console.log('[duet-lobby] joinRoom ok', room);
+
+      S.roomId = room.roomId;
       persistLocal();
       syncLoggerBase();
       bindRoom(S.roomId);
-      renderState();
 
       setGuard('');
-      setStateText('เข้าห้อง Duet สำเร็จ');
+      setStateText('เข้าห้องสำเร็จ');
       setHint('รอให้พร้อมครบ 2 คนแล้วค่อยเริ่ม');
+      renderState();
     } catch (err) {
       console.error('[duet-lobby] joinRoom failed', err);
-      setGuard('เข้าห้องไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+
+      const msg = err && err.message ? err.message : String(err);
+      S.joined = false;
+      S.room = null;
+
+      if (/Room not found/i.test(msg)) {
+        setGuard('ไม่พบห้องนี้ กรุณาตรวจ room code ให้ตรงกับเครื่องที่สร้างห้อง');
+      } else {
+        setGuard('เข้าห้องไม่สำเร็จ: ' + msg);
+      }
+
       setStateText('เข้าห้องไม่สำเร็จ');
-      try { await S.logger.error(err, { stage: 'joinRoom', room_id: S.roomId || '' }); } catch (_) {}
+      renderState();
+
+      try {
+        if (S.logger) {
+          await S.logger.error(err, { stage: 'joinRoom', room_id: S.roomId || '' });
+        }
+      } catch (_) {}
     }
   }
 
@@ -594,6 +637,7 @@
     }
 
     resetRoomState();
+    clearLocalRoom();
     renderState();
     setStateText('ออกจากห้องแล้ว');
     setHint('สร้างห้องใหม่หรือใส่ code เพื่อเข้าห้องอื่นได้เลย');
@@ -618,26 +662,60 @@
         logger: S.logger
       });
 
+      console.log('[duet-lobby] setReady ok', {
+        roomId: S.roomId,
+        ready: !!flag,
+        uid: S.uid
+      });
+
       setGuard('');
       setHint(flag ? 'คุณพร้อมแล้ว รออีกฝั่งพร้อมครบ' : 'คุณยกเลิกสถานะพร้อมแล้ว');
     } catch (err) {
-      console.error('[duet-lobby] setReadyFlag failed', err);
-      try { await S.logger.error(err, { stage: 'setReadyFlag', room_id: S.roomId || '' }); } catch (_) {}
+      console.error('[duet-lobby] setReady failed', err);
+
+      try {
+        if (S.logger) {
+          await S.logger.error(err, { stage: 'setReadyFlag', room_id: S.roomId || '' });
+        }
+      } catch (_) {}
     }
   }
 
   async function startGame() {
-    if (!S.joined || !S.roomId || !isHost()) return;
-
-    const players = activePlayers();
-    if (players.length < 2) {
-      setGuard('Duet ต้องมีผู้เล่น 2 คนก่อน');
+    if (!S.joined || !S.roomId) {
+      setGuard('ยังไม่ได้เข้าห้อง');
+      setStateText('ยังไม่สามารถเริ่มได้');
       return;
     }
 
+    if (!isHost()) {
+      setGuard('เฉพาะ host เท่านั้นที่กดเริ่ม Duet ได้');
+      setStateText('รอ host เริ่มเกม');
+      return;
+    }
+
+    const players = activePlayers();
     const ready = readyPlayers();
+    const meta = roomMeta();
+
+    console.log('[duet-lobby] startGame click', {
+      roomId: S.roomId,
+      uid: S.uid,
+      isHost: isHost(),
+      players,
+      ready,
+      meta
+    });
+
+    if (players.length < 2) {
+      setGuard('Duet ต้องมีผู้เล่น 2 คนก่อน');
+      setStateText('ยังเริ่มไม่ได้');
+      return;
+    }
+
     if (ready.length < 2) {
       setGuard('Duet ต้องพร้อมครบทั้ง 2 คนก่อน');
+      setStateText('ยังเริ่มไม่ได้');
       return;
     }
 
@@ -646,24 +724,51 @@
       setStateText('กำลังนับถอยหลัง');
       setHint('ทั้งสองฝั่งจะเข้าเล่นพร้อมกัน');
 
-      await W.HHA_ROOM.startMatch({
+      const out = await W.HHA_ROOM.startMatch({
         game: 'goodjunk',
         mode: MODE_ID,
         roomId: S.roomId,
         countdownMs: COUNTDOWN_MS,
         logger: S.logger
       });
+
+      console.log('[duet-lobby] startMatch ok', out);
+
+      if (out && out.matchId) {
+        setStateText('เริ่ม Duet สำเร็จ กำลังพาเข้าเกม');
+      } else {
+        setStateText('ส่งคำสั่งเริ่มเกมแล้ว');
+      }
     } catch (err) {
-      console.error('[duet-lobby] startGame failed', err);
-      setGuard('เริ่ม Duet ไม่สำเร็จ: ' + (err && err.message ? err.message : err));
-      try { await S.logger.error(err, { stage: 'startGame', room_id: S.roomId || '' }); } catch (_) {}
+      console.error('[duet-lobby] startGame failed (full)', err);
+
+      const msg = err && err.message ? err.message : String(err);
+      setGuard('เริ่ม Duet ไม่สำเร็จ: ' + msg);
+      setStateText('เริ่ม Duet ไม่สำเร็จ');
+
+      alert('start duet failed: ' + msg);
+
+      try {
+        if (S.logger) {
+          await S.logger.error(err, {
+            stage: 'startGame',
+            room_id: S.roomId || '',
+            players: players.length,
+            ready: ready.length,
+            meta
+          });
+        }
+      } catch (_) {}
     }
   }
 
   function goRun(roomId, matchId) {
     if (S.redirecting) return;
     S.redirecting = true;
-    location.href = buildRunUrl(roomId, matchId);
+
+    const url = buildRunUrl(roomId, matchId);
+    console.log('[duet-lobby] goRun', url);
+    location.href = url;
   }
 
   async function copyRoomCode() {
@@ -672,7 +777,8 @@
   }
 
   async function copyInviteLink() {
-    const ok = await copyText(buildLobbyUrl(S.roomId || cleanRoom((UI.roomInput && UI.roomInput.value) || '')));
+    const targetRoom = S.roomId || cleanRoom((UI.roomInput && UI.roomInput.value) || '');
+    const ok = await copyText(buildLobbyUrl(targetRoom));
     setStateText(ok ? 'คัดลอก Invite Link แล้ว' : 'คัดลอก Invite Link ไม่สำเร็จ');
   }
 
@@ -736,7 +842,6 @@
     }
 
     W.addEventListener('beforeunload', () => {
-      if (S.redirecting) return;
       try {
         if (S.logger) S.logger.flush('lobby_beforeunload');
       } catch (_) {}
@@ -777,8 +882,11 @@
       console.error('[duet-lobby] init failed', err);
       setGuard('เริ่มหน้า Duet Lobby ไม่สำเร็จ: ' + (err && err.message ? err.message : err));
       setStateText('เปิดหน้าไม่สำเร็จ');
+
       try {
-        if (S.logger) await S.logger.error(err, { stage: 'init' });
+        if (S.logger) {
+          await S.logger.error(err, { stage: 'init' });
+        }
       } catch (_) {}
     }
   }
