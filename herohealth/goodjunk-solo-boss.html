@@ -558,7 +558,7 @@
       window.__GJ_SHOW_BOOT_ERROR__ = showError;
 
       let tries = 0;
-      const maxTries = 260;
+      const maxTries = 60;
 
       const tick = () => {
         tries += 1;
@@ -601,13 +601,14 @@
     })();
   </script>
 
-  <!-- HHA logger boot -->
-  <script src="./firebase-config.js?v=20260407-logfix"></script>
-  <script src="./vr-goodjunk/hha-cloud-logger.js?v=20260407-logfix"></script>
+  <script src="./firebase-config.js?v=20260407-logfix-r4"></script>
+  <script src="./vr-goodjunk/hha-cloud-logger.js?v=20260407-logfix-r4"></script>
 
   <script>
     (function loadBossCore(){
-      const src = './goodjunk-solo-phaseboss-v2.js?v=20260407-logfix';
+      const src = './goodjunk-solo-phaseboss-v2.js?v=20260407-logfix-r4';
+      console.log('[GJSB HTML] loading core:', src);
+
       const s = document.createElement('script');
       s.src = src;
       s.async = false;
@@ -619,6 +620,7 @@
 
       s.onerror = function () {
         window.__GJ_BOOT_FAIL__ = 'โหลดไฟล์ gameplay core ไม่สำเร็จ: ' + src;
+        console.error('[GJSB HTML] core load failed:', src);
         if (window.__GJ_SHOW_BOOT_ERROR__) {
           window.__GJ_SHOW_BOOT_ERROR__(window.__GJ_BOOT_FAIL__);
         }
