@@ -1,9 +1,5 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260328h-HYDRATION-GATE-REGISTRY-FIX
-// เป้าหมาย:
-// 1) ให้ warmup/cooldown gate รู้จัก game=hydration
-// 2) รองรับ alias หลายแบบ เช่น hydration-vr / hydrationhero
-// 3) ถ้าเป็นเกมใหม่ที่ยังไม่ได้ลง registry แบบเต็ม ให้ fallback เข้า generic gate ได้ ไม่ขึ้น "ไม่พบเกมที่ต้องการ"
+// FULL PATCH v20260406a-GATE-REGISTRY-CONVENTION-PHASES
 
 const DEFAULTS = {
   title: '',
@@ -13,25 +9,39 @@ const DEFAULTS = {
   cat: '',
   theme: '',
   runFile: '',
+  runCandidates: [],
   warmupFile: '',
   cooldownFile: '',
-  styleFile: ''
+  styleFile: '',
+  summaryPath: ''
 };
 
 function makeMeta(id, cfg = {}) {
   const base = { ...DEFAULTS, ...cfg };
+  const key = String(id || '').trim().toLowerCase();
+
+  const runCandidates = Array.isArray(base.runCandidates)
+    ? base.runCandidates.filter(Boolean)
+    : [];
+
+  if (!runCandidates.length && base.runFile) {
+    runCandidates.push(base.runFile);
+  }
+
   return {
-    id: String(id || '').trim().toLowerCase(),
-    title: base.title || prettyTitle(id),
-    label: base.label || base.title || prettyTitle(id),
+    id: key,
+    title: base.title || prettyTitle(key),
+    label: base.label || base.title || prettyTitle(key),
     emoji: base.emoji || '🎮',
-    zone: base.zone || inferZoneFromId(id),
-    cat: base.cat || inferZoneFromId(id),
-    theme: base.theme || String(id || '').trim().toLowerCase(),
-    runFile: base.runFile || '',
+    zone: base.zone || inferZoneFromId(key),
+    cat: base.cat || inferZoneFromId(key),
+    theme: base.theme || key,
+    runFile: base.runFile || runCandidates[0] || '',
+    runCandidates,
     warmupFile: base.warmupFile || '',
     cooldownFile: base.cooldownFile || '',
-    styleFile: base.styleFile || ''
+    styleFile: base.styleFile || '',
+    summaryPath: base.summaryPath || ''
   };
 }
 
@@ -68,10 +78,62 @@ function inferZoneFromId(id = '') {
     k.includes('germ') ||
     k.includes('bath') ||
     k.includes('hygiene') ||
-    k.includes('handwash')
+    k.includes('handwash') ||
+    k.includes('mask') ||
+    k.includes('cough')
   ) return 'hygiene';
 
   return '';
+}
+
+function compactId(id = '') {
+  return String(id || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/--+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function defaultPhaseFile(gameId = '', phase = 'warmup') {
+  const key = compactId(gameId);
+  const p = String(phase || 'warmup').trim().toLowerCase() === 'cooldown'
+    ? 'cooldown'
+    : 'warmup';
+  if (!key) return '';
+  return `./games/${key}/${p}.js`;
+}
+
+function defaultStyleFile(gameId = '') {
+  const key = compactId(gameId);
+  if (!key) return '';
+  return `./games/${key}/style.css`;
+}
+
+function inferLooseMeta(id = '') {
+  const key = compactId(id);
+  if (!key) return null;
+
+  const zone = inferZoneFromId(key);
+
+  return makeMeta(key, {
+    title: prettyTitle(key),
+    label: prettyTitle(key),
+    emoji:
+      zone === 'nutrition' ? '🍎' :
+      zone === 'fitness' ? '🏃' :
+      zone === 'hygiene' ? '🧼' :
+      '🎮',
+    zone,
+    cat: zone,
+    theme: key,
+    runFile: '',
+    runCandidates: [],
+    warmupFile: '',
+    cooldownFile: '',
+    styleFile: ''
+  });
 }
 
 export const GAME_REGISTRY = {
@@ -84,9 +146,11 @@ export const GAME_REGISTRY = {
     cat: 'nutrition',
     theme: 'hydration',
     runFile: '../hydration-vr/hydration-vr.html',
-    warmupFile: '',
-    cooldownFile: '',
-    styleFile: '../hydration-vr/hydration-vr.css'
+    runCandidates: [
+      '../hydration-vr/hydration-vr.html',
+      '../vr-hydration-v2/index.html',
+      '../hydration-v2.html'
+    ]
   }),
 
   goodjunk: makeMeta('goodjunk', {
@@ -96,7 +160,15 @@ export const GAME_REGISTRY = {
     zone: 'nutrition',
     cat: 'nutrition',
     theme: 'goodjunk',
-    runFile: '../goodjunk-vr.html'
+    runFile: '../goodjunk-vr.html',
+    runCandidates: [
+      '../goodjunk-vr.html',
+      '../goodjunk-solo-boss.html',
+      '../goodjunk-launcher.html'
+    ],
+    warmupFile: './games/goodjunk/warmup.js',
+    cooldownFile: './games/goodjunk/cooldown.js',
+    styleFile: './games/goodjunk/style.css'
   }),
 
   plate: makeMeta('plate', {
@@ -106,7 +178,11 @@ export const GAME_REGISTRY = {
     zone: 'nutrition',
     cat: 'nutrition',
     theme: 'plate',
-    runFile: '../plate/plate-vr.html'
+    runFile: '../plate/plate-vr.html',
+    runCandidates: [
+      '../plate/plate-vr.html',
+      '../plate-v1.html'
+    ]
   }),
 
   groups: makeMeta('groups', {
@@ -116,7 +192,11 @@ export const GAME_REGISTRY = {
     zone: 'nutrition',
     cat: 'nutrition',
     theme: 'groups',
-    runFile: '../vr-groups/groups.html'
+    runFile: '../vr-groups/groups.html',
+    runCandidates: [
+      '../vr-groups/groups.html',
+      '../groups-v1.html'
+    ]
   }),
 
   // Hygiene
@@ -127,7 +207,11 @@ export const GAME_REGISTRY = {
     zone: 'hygiene',
     cat: 'hygiene',
     theme: 'brush',
-    runFile: '../brush-vr.html'
+    runFile: '../brush-vr.html',
+    runCandidates: [
+      '../brush-vr.html',
+      '../brush-vr-kids.html'
+    ]
   }),
 
   'germ-detective': makeMeta('germ-detective', {
@@ -137,7 +221,11 @@ export const GAME_REGISTRY = {
     zone: 'hygiene',
     cat: 'hygiene',
     theme: 'germ-detective',
-    runFile: '../germ-detective.html'
+    runFile: '../germ-detective.html',
+    runCandidates: [
+      '../germ-detective.html',
+      '../germ-detective-v2.html'
+    ]
   }),
 
   bath: makeMeta('bath', {
@@ -148,6 +236,26 @@ export const GAME_REGISTRY = {
     cat: 'hygiene',
     theme: 'bath',
     runFile: '../bath.html'
+  }),
+
+  maskcough: makeMeta('maskcough', {
+    title: 'Mask & Cough',
+    label: 'Mask & Cough',
+    emoji: '😷',
+    zone: 'hygiene',
+    cat: 'hygiene',
+    theme: 'maskcough',
+    runFile: '../maskcough-v2.html'
+  }),
+
+  handwash: makeMeta('handwash', {
+    title: 'Handwash',
+    label: 'Handwash',
+    emoji: '🧼',
+    zone: 'hygiene',
+    cat: 'hygiene',
+    theme: 'handwash',
+    runFile: '../handwash-vr.html'
   }),
 
   // Fitness
@@ -210,12 +318,14 @@ const GAME_ALIAS = {
   hydrationhero: 'hydration',
   'hydration-hero': 'hydration',
   hydrationv1: 'hydration',
+  hydrationv2: 'hydration',
 
   // goodjunk
   goodjunk: 'goodjunk',
   'goodjunk-vr': 'goodjunk',
   goodjunkvr: 'goodjunk',
   goodjunkv1: 'goodjunk',
+  'goodjunk-solo-boss': 'goodjunk',
 
   // plate
   plate: 'plate',
@@ -230,13 +340,15 @@ const GAME_ALIAS = {
   foodgroups: 'groups',
   'food-groups': 'groups',
 
-  // brush / hygiene
+  // hygiene
   brush: 'brush',
   brushvr: 'brush',
   'brush-vr': 'brush',
-  hygiene: 'brush',
-  handwash: 'brush',
-  handwashvr: 'brush',
+  'brush-vr-kids': 'brush',
+
+  handwash: 'handwash',
+  handwashvr: 'handwash',
+  'handwash-vr': 'handwash',
 
   'germ-detective': 'germ-detective',
   germdetective: 'germ-detective',
@@ -245,6 +357,9 @@ const GAME_ALIAS = {
   bath: 'bath',
   bathhero: 'bath',
   bathvr: 'bath',
+
+  maskcough: 'maskcough',
+  'mask-cough': 'maskcough',
 
   // fitness
   'shadow-breaker': 'shadow-breaker',
@@ -263,38 +378,6 @@ const GAME_ALIAS = {
   'fitness-planner': 'fitness-planner',
   fitnessplanner: 'fitness-planner'
 };
-
-function compactId(id = '') {
-  return String(id || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/--+/g, '-');
-}
-
-function inferLooseMeta(id = '') {
-  const key = compactId(id);
-  if (!key) return null;
-
-  return makeMeta(key, {
-    title: prettyTitle(key),
-    label: prettyTitle(key),
-    emoji: inferZoneFromId(key) === 'nutrition'
-      ? '🍎'
-      : inferZoneFromId(key) === 'fitness'
-        ? '🏃'
-        : inferZoneFromId(key) === 'hygiene'
-          ? '🧼'
-          : '🎮',
-    zone: inferZoneFromId(key),
-    cat: inferZoneFromId(key),
-    theme: key,
-    runFile: '',
-    warmupFile: '',
-    cooldownFile: '',
-    styleFile: ''
-  });
-}
 
 export function normalizeGameId(id = '') {
   const raw = String(id || '').trim().toLowerCase();
@@ -318,21 +401,39 @@ export function getPhaseFile(id = '', gatePhase = 'warmup') {
   const meta = getGameMeta(id);
   if (!meta) return '';
 
-  const phase = String(gatePhase || 'warmup').trim().toLowerCase();
+  const phase = String(gatePhase || 'warmup').trim().toLowerCase() === 'cooldown'
+    ? 'cooldown'
+    : 'warmup';
 
-  if (phase === 'warmup') return meta.warmupFile || '';
-  if (phase === 'cooldown') return meta.cooldownFile || '';
-  return meta.runFile || '';
+  if (phase === 'warmup') {
+    return meta.warmupFile || defaultPhaseFile(meta.id, 'warmup');
+  }
+
+  if (phase === 'cooldown') {
+    return meta.cooldownFile || defaultPhaseFile(meta.id, 'cooldown');
+  }
+
+  return '';
 }
 
 export function getGameStyleFile(id = '') {
   const meta = getGameMeta(id);
-  return meta?.styleFile || '';
+  if (!meta) return '';
+  return meta.styleFile || defaultStyleFile(meta.id);
 }
 
 export function getRunFile(id = '') {
   const meta = getGameMeta(id);
   return meta?.runFile || '';
+}
+
+export function getRunCandidates(id = '') {
+  const meta = getGameMeta(id);
+  if (!meta) return [];
+  if (Array.isArray(meta.runCandidates) && meta.runCandidates.length) {
+    return meta.runCandidates.filter(Boolean);
+  }
+  return meta.runFile ? [meta.runFile] : [];
 }
 
 export function listGameIds() {
@@ -347,5 +448,6 @@ export default {
   getPhaseFile,
   getGameStyleFile,
   getRunFile,
+  getRunCandidates,
   listGameIds
 };
