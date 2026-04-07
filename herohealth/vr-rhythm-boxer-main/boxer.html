@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Rhythm Boxer Main</title>
   <link rel="icon" href="../favicon.ico" />
+  <script type="module" src="../vr/vr-ui.js?v=20260307b"></script>
   <link rel="stylesheet" href="./boxer.css" />
 </head>
 <body>
@@ -12,19 +13,50 @@
     <header class="rb-topbar">
       <div class="rb-brand">
         <div class="rb-brand-badge">🥊</div>
-        <div>
+        <div class="rb-brand-copy">
           <h1>Rhythm Boxer</h1>
-          <p id="subline">Main-ready base</p>
+          <p id="subline">Main-ready build</p>
         </div>
       </div>
       <a id="btnBackHubTop" class="icon-link" href="../hub.html">🏠 HUB</a>
     </header>
 
+    <section class="bridge-strip" id="bridgeStrip">
+      <div class="bridge-pill">
+        <span class="bridge-label">PID</span>
+        <strong id="bridgePid">anon</strong>
+      </div>
+      <div class="bridge-pill">
+        <span class="bridge-label">Plan Day</span>
+        <strong id="bridgePlanDay">—</strong>
+      </div>
+      <div class="bridge-pill">
+        <span class="bridge-label">Plan Slot</span>
+        <strong id="bridgePlanSlot">—</strong>
+      </div>
+      <div class="bridge-pill">
+        <span class="bridge-label">Study</span>
+        <strong id="bridgeStudyId">—</strong>
+      </div>
+    </section>
+
     <section class="rb-hud">
-      <div class="hud-card"><span>Score</span><strong id="scoreValue">0</strong></div>
-      <div class="hud-card"><span>Combo</span><strong id="comboValue">0</strong></div>
-      <div class="hud-card"><span>Accuracy</span><strong id="accValue">0%</strong></div>
-      <div class="hud-card"><span>Time</span><strong id="timeValue">00:00</strong></div>
+      <div class="hud-card">
+        <span>Score</span>
+        <strong id="scoreValue">0</strong>
+      </div>
+      <div class="hud-card">
+        <span>Combo</span>
+        <strong id="comboValue">0</strong>
+      </div>
+      <div class="hud-card">
+        <span>Accuracy</span>
+        <strong id="accValue">0%</strong>
+      </div>
+      <div class="hud-card">
+        <span>Time</span>
+        <strong id="timeValue">00:00</strong>
+      </div>
     </section>
 
     <section class="coach-row">
@@ -37,10 +69,60 @@
       </div>
     </section>
 
+    <section class="ai-strip" id="aiStrip">
+      <div class="ai-pill">
+        <span class="ai-label">AI Fatigue</span>
+        <strong id="aiFatigue">0%</strong>
+      </div>
+      <div class="ai-pill">
+        <span class="ai-label">AI Skill</span>
+        <strong id="aiSkill">50%</strong>
+      </div>
+      <div class="ai-pill">
+        <span class="ai-label">AI Suggest</span>
+        <strong id="aiSuggest">normal</strong>
+      </div>
+      <div class="ai-pill ai-pill-tip hidden" id="aiTipWrap">
+        <span class="ai-label">AI Tip</span>
+        <strong id="aiTip">—</strong>
+      </div>
+    </section>
+
+    <section class="mission-strip" id="missionStrip">
+      <div class="mission-mini" id="playMissionScore"><span>Score</span><strong>⭐</strong></div>
+      <div class="mission-mini" id="playMissionCombo"><span>Combo</span><strong>⭐</strong></div>
+      <div class="mission-mini" id="playMissionAcc"><span>Accuracy</span><strong>⭐</strong></div>
+      <div class="mission-mini" id="playMissionNoMiss"><span>No Miss</span><strong>—</strong></div>
+      <div class="mission-mini" id="playMissionBoss"><span>Boss</span><strong>—</strong></div>
+    </section>
+
+    <section class="play-status-strip" id="playStatusStrip">
+      <div class="play-stat">
+        <span class="play-stat-label">Fever</span>
+        <div class="play-meter">
+          <div id="feverFill" class="play-meter-fill"></div>
+        </div>
+        <strong id="feverText">0%</strong>
+      </div>
+
+      <div class="play-stat">
+        <span class="play-stat-label">Shield</span>
+        <strong id="shieldText">0</strong>
+      </div>
+
+      <div class="play-stat hidden" id="bossStat">
+        <span class="play-stat-label">Boss HP</span>
+        <div class="play-meter boss">
+          <div id="bossFill" class="play-meter-fill boss"></div>
+        </div>
+        <strong id="bossText">24/24</strong>
+      </div>
+    </section>
+
     <section class="arena-wrap">
       <div class="phase-banner" id="phaseBanner">Ready</div>
 
-      <div class="arena" id="arena">
+      <div class="arena" id="arena" aria-label="Rhythm Boxer play area">
         <div class="lane-grid">
           <div class="lane lane-jab" data-action="jab"></div>
           <div class="lane lane-cross" data-action="cross"></div>
@@ -50,11 +132,11 @@
 
         <div class="hit-line" id="hitLine"></div>
 
-        <div class="lane-hit-row" id="laneHitRow">
-          <button class="lane-hit" data-action="jab" type="button"></button>
-          <button class="lane-hit" data-action="cross" type="button"></button>
-          <button class="lane-hit" data-action="block" type="button"></button>
-          <button class="lane-hit" data-action="duck" type="button"></button>
+        <div class="lane-hit-row" id="laneHitRow" aria-label="แตะ lane ตอนโน้ตถึงเส้น">
+          <button class="lane-hit" data-action="jab" type="button" aria-label="Tap Jab lane"></button>
+          <button class="lane-hit" data-action="cross" type="button" aria-label="Tap Cross lane"></button>
+          <button class="lane-hit" data-action="block" type="button" aria-label="Tap Block lane"></button>
+          <button class="lane-hit" data-action="duck" type="button" aria-label="Tap Duck lane"></button>
         </div>
 
         <div class="note-layer" id="noteLayer"></div>
@@ -66,10 +148,75 @@
           </div>
         </div>
 
+        <div class="feedback-pop" id="feedbackPop"></div>
+      </div>
+
+      <div class="cvr-stage hidden" id="cvrStage">
+        <div class="cvr-eye" id="cvrEyeL">
+          <div class="cvr-lane-grid">
+            <div class="cvr-lane lane-jab" data-action="jab"></div>
+            <div class="cvr-lane lane-cross" data-action="cross"></div>
+            <div class="cvr-lane lane-block" data-action="block"></div>
+            <div class="cvr-lane lane-duck" data-action="duck"></div>
+          </div>
+          <div class="cvr-hit-line" id="cvrHitLineL"></div>
+          <div class="cvr-note-layer" id="cvrNoteLayerL"></div>
+        </div>
+
+        <div class="cvr-eye" id="cvrEyeR">
+          <div class="cvr-lane-grid">
+            <div class="cvr-lane lane-jab" data-action="jab"></div>
+            <div class="cvr-lane lane-cross" data-action="cross"></div>
+            <div class="cvr-lane lane-block" data-action="block"></div>
+            <div class="cvr-lane lane-duck" data-action="duck"></div>
+          </div>
+          <div class="cvr-hit-line" id="cvrHitLineR"></div>
+          <div class="cvr-note-layer" id="cvrNoteLayerR"></div>
+        </div>
+
+        <div class="cvr-countdown-layer hidden" id="cvrCountdownLayer">
+          <div class="countdown-card">
+            <div class="countdown-mini">เตรียมตัว</div>
+            <div id="cvrCountdownNum" class="countdown-num">3</div>
+          </div>
+        </div>
+
+        <div class="cvr-feedback-pop" id="cvrFeedbackPop"></div>
         <div class="cvr-crosshair hidden" id="cvrCrosshair"></div>
         <div class="cvr-focus-label hidden" id="cvrFocusLabel">JAB</div>
 
-        <div class="feedback-pop" id="feedbackPop"></div>
+        <div class="cvr-permission-overlay hidden" id="cvrPermissionOverlay">
+          <div class="cvr-card">
+            <div class="cvr-card-mini">Cardboard Setup</div>
+            <div class="cvr-card-title">เปิด Motion Sensor</div>
+            <div class="cvr-card-text">
+              อนุญาต motion sensor เพื่อให้เล็ง lane ด้วยการหันศีรษะได้แม่นขึ้น
+            </div>
+            <div class="cvr-card-actions">
+              <button id="btnCvrAllowMotion" class="cvr-btn cvr-btn-main" type="button">อนุญาต Motion</button>
+              <button id="btnCvrDemoMode" class="cvr-btn cvr-btn-soft" type="button">ใช้โหมด Demo / Touch</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="cvr-calib-overlay hidden" id="cvrCalibOverlay">
+          <div class="cvr-card">
+            <div class="cvr-card-mini">Calibration</div>
+            <div class="cvr-card-title">มองตรงกลางก่อนเริ่ม</div>
+            <div id="cvrCalibText" class="cvr-card-text">
+              มองตรงกลางให้สบาย แล้วกดเริ่ม calibration
+            </div>
+
+            <div class="cvr-calib-gauge">
+              <div id="cvrCalibGaugeFill" class="cvr-calib-gauge-fill"></div>
+            </div>
+
+            <div class="cvr-card-actions">
+              <button id="btnCvrCalibStart" class="cvr-btn cvr-btn-main" type="button">เริ่ม Calibration</button>
+              <button id="btnCvrRecenterNow" class="cvr-btn cvr-btn-soft" type="button">Recenter</button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -80,16 +227,85 @@
 
   <div class="summary-overlay hidden" id="summaryOverlay">
     <div class="summary-card">
-      <h2>สรุปผล</h2>
+      <h2>สรุปผล Rhythm Boxer</h2>
+
       <div class="summary-grid">
-        <div class="sum-box"><span>Score</span><strong id="sumScore">0</strong></div>
-        <div class="sum-box"><span>Accuracy</span><strong id="sumAcc">0%</strong></div>
-        <div class="sum-box"><span>Max Combo</span><strong id="sumCombo">0</strong></div>
-        <div class="sum-box"><span>Grade</span><strong id="summaryGrade">B</strong></div>
+        <div class="sum-box">
+          <span>Score</span>
+          <strong id="sumScore">0</strong>
+        </div>
+        <div class="sum-box">
+          <span>Accuracy</span>
+          <strong id="sumAcc">0%</strong>
+        </div>
+        <div class="sum-box">
+          <span>Max Combo</span>
+          <strong id="sumCombo">0</strong>
+        </div>
+        <div class="sum-box">
+          <span>Grade</span>
+          <strong id="summaryGrade">B</strong>
+        </div>
       </div>
+
+      <div class="reward-grid">
+        <div class="reward-box">
+          <span>⭐ Stars</span>
+          <strong id="sumStars">⭐</strong>
+        </div>
+        <div class="reward-box">
+          <span>🏅 Medal</span>
+          <strong id="sumMedal">Bronze</strong>
+        </div>
+        <div class="reward-box">
+          <span>🎖 Badge</span>
+          <strong id="sumBadge">-</strong>
+        </div>
+      </div>
+
+      <div class="mission-grid">
+        <div class="mission-chip"><span>Score</span><strong id="sumMissionScore">—</strong></div>
+        <div class="mission-chip"><span>Combo</span><strong id="sumMissionCombo">—</strong></div>
+        <div class="mission-chip"><span>Accuracy</span><strong id="sumMissionAcc">—</strong></div>
+        <div class="mission-chip"><span>No Miss</span><strong id="sumMissionNoMiss">—</strong></div>
+        <div class="mission-chip"><span>Boss Clear</span><strong id="sumBossClear">—</strong></div>
+      </div>
+
+      <div class="teacher-panel hidden" id="teacherPanel">
+        <div class="teacher-panel-title">Teacher / Research Review</div>
+
+        <div class="teacher-grid">
+          <div class="teacher-box">
+            <span>Data Quality</span>
+            <strong id="teacherQuality">Good</strong>
+          </div>
+          <div class="teacher-box">
+            <span>Blank Tap Rate</span>
+            <strong id="teacherBlankRate">0%</strong>
+          </div>
+          <div class="teacher-box">
+            <span>Offset Mean</span>
+            <strong id="teacherOffsetMean">-</strong>
+          </div>
+          <div class="teacher-box">
+            <span>Offset Std</span>
+            <strong id="teacherOffsetStd">-</strong>
+          </div>
+        </div>
+
+        <div class="teacher-note-box">
+          <div class="teacher-note-title">Review Note</div>
+          <div id="teacherNote" class="teacher-note-body">—</div>
+        </div>
+      </div>
+
       <div class="summary-actions">
         <a id="btnReplay" class="sum-btn sum-btn-main" href="./boxer.html">🔁 เล่นอีกครั้ง</a>
         <a id="btnBackHubBottom" class="sum-btn sum-btn-soft" href="../hub.html">🏠 กลับ HUB</a>
+        <a id="btnCooldown" class="sum-btn sum-btn-soft hidden" href="../warmup-gate.html">🫁 Cooldown</a>
+        <button id="btnDlEvents" class="sum-btn sum-btn-soft hidden" type="button">⬇ Events CSV</button>
+        <button id="btnDlSessions" class="sum-btn sum-btn-soft hidden" type="button">⬇ Sessions CSV</button>
+        <button id="btnDlJson" class="sum-btn sum-btn-soft hidden" type="button">⬇ Summary JSON</button>
       </div>
     </div>
   </div>
