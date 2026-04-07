@@ -1,6 +1,6 @@
 // === /goodjunk-intervention/assessments/assessment.js ===
 // SHARED FORM SAVE + FLOW ROUTER + CROSS-PAGE FLOW BRIDGE
-// PATCH v20260407a-GJI-ASSESSMENT-SOLOFIRST
+// PATCH v20260407b-GJI-ASSESSMENT-FLOW-MODES
 
 import { buildUrl, pickCtxFromQuery } from '../research/config.js';
 import {
@@ -14,14 +14,6 @@ import {
   initFlowBridge,
   appendFlowParams
 } from '../research/flow-bridge.js';
-
-const NEXT_MAP = {
-  'pre-knowledge.html': 'GAME',
-  'pre-behavior.html': 'GAME',
-  'post-knowledge.html': 'POST_BEHAVIOR',
-  'post-behavior.html': 'POST_CHOICE',
-  'post-choice.html': 'COMPLETION'
-};
 
 const PASSTHROUGH_KEYS = [
   'pid', 'name', 'studyId',
@@ -38,7 +30,8 @@ const PASSTHROUGH_KEYS = [
   'view', 'run', 'gameId',
   'hub',
   'host',
-  'returnUrl'
+  'returnUrl',
+  'flow'
 ];
 
 function pickPassthroughFromUrl() {
@@ -64,6 +57,39 @@ function getPageId(filename) {
     .replace(/\.html$/i, '')
     .trim()
     .toLowerCase();
+}
+
+function getFlowMode() {
+  const q = new URLSearchParams(window.location.search);
+  const flow = String(q.get('flow') || '').trim().toLowerCase();
+  if (flow === 'full') return 'full';
+  return 'fast';
+}
+
+function resolveNextKey(filename, form) {
+  const explicit = form?.dataset?.nextKey;
+  if (explicit) return explicit;
+
+  const flowMode = getFlowMode();
+
+  const FAST_MAP = {
+    'pre-knowledge.html': 'GAME',
+    'pre-behavior.html': 'GAME',
+    'post-knowledge.html': 'POST_BEHAVIOR',
+    'post-behavior.html': 'POST_CHOICE',
+    'post-choice.html': 'COMPLETION'
+  };
+
+  const FULL_MAP = {
+    'pre-knowledge.html': 'PRE_BEHAVIOR',
+    'pre-behavior.html': 'GAME',
+    'post-knowledge.html': 'POST_BEHAVIOR',
+    'post-behavior.html': 'POST_CHOICE',
+    'post-choice.html': 'COMPLETION'
+  };
+
+  const map = flowMode === 'full' ? FULL_MAP : FAST_MAP;
+  return map[filename];
 }
 
 function getNextLabel(nextKey) {
@@ -138,8 +164,7 @@ function renderCtx() {
     `Study: ${ctx.studyId || '-'}`,
     `Session: ${ctx.session || ctx.sessionId || '-'}`,
     `Condition: ${ctx.condition || ctx.conditionGroup || '-'}`,
-    `Mode: ${ctx.mode || '-'}`,
-    `Room: ${ctx.roomId || ctx.room || '-'}`
+    `Flow: ${getFlowMode()}`
   ].join(' • ');
 }
 
@@ -164,7 +189,8 @@ async function init() {
     },
     defaultStep: form ? 'filling' : 'reviewing',
     staticFields: {
-      formPage: filename
+      formPage: filename,
+      flowMode: getFlowMode()
     }
   });
 
@@ -215,13 +241,14 @@ async function init() {
 
     const ctx = loadCtx();
     const passthrough = pickPassthroughFromUrl();
-    const nextKey = form.dataset.nextKey || NEXT_MAP[filename];
+    const nextKey = resolveNextKey(filename, form);
 
     if (nextKey) {
       const mergedCtx = {
         ...ctx,
         ...queryCtx,
-        ...passthrough
+        ...passthrough,
+        flow: getFlowMode()
       };
 
       const rawNextUrl = buildUrl(nextKey, mergedCtx, false);
@@ -231,14 +258,16 @@ async function init() {
         nextKey,
         nextLabel: getNextLabel(nextKey),
         nextPath: nextUrl,
-        answerCount: Object.keys(answers || {}).length
+        answerCount: Object.keys(answers || {}).length,
+        flowMode: getFlowMode()
       });
 
       flow.complete('form-submitted', {
         nextKey,
         nextLabel: getNextLabel(nextKey),
         nextPath: nextUrl,
-        answerCount: Object.keys(answers || {}).length
+        answerCount: Object.keys(answers || {}).length,
+        flowMode: getFlowMode()
       });
 
       window.location.href = nextUrl;
@@ -246,7 +275,8 @@ async function init() {
     }
 
     flow.complete('form-submitted-no-next', {
-      answerCount: Object.keys(answers || {}).length
+      answerCount: Object.keys(answers || {}).length,
+      flowMode: getFlowMode()
     });
   });
 
