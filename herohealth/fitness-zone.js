@@ -6,83 +6,76 @@ const LAST_ZONE_KEY = 'HHA_LAST_ZONE';
 const NEXT_ZONE_KEY = 'HHA_NEXT_ZONE';
 const RECOMMENDED_ZONE_KEY = 'HHA_RECOMMENDED_ZONE';
 
-const GAME_LIBRARY = [
+const GAMES = [
   {
     id: 'shadow-breaker',
     title: 'Shadow Breaker',
     emoji: '🥊',
-    colorClass: 'c-purple',
     badge: 'Reaction',
-    desc: 'ตีเงาให้ทัน หลบ จับจังหวะ และเก็บคอมโบต่อเนื่อง',
+    desc: 'ตีเป้าให้ทัน เก็บ accuracy และคอมโบ พร้อมสู้ช่วง boss',
     tags: ['reaction', 'timing', 'boss'],
-    basePath: './shadow-breaker-vr.html',
-    defaultDiff: 'normal',
-    defaultTime: '90',
-    featured: true
+    launcherPath: './shadow-breaker-vr.html',
+    quickDiff: 'easy',
+    quickTime: '60',
+    colorClass: 'c-purple'
   },
   {
     id: 'rhythm-boxer',
     title: 'Rhythm Boxer',
     emoji: '🥁',
-    colorClass: 'c-pink',
     badge: 'Rhythm',
-    desc: 'ต่อยตามจังหวะเพลง เก็บ streak และฝึก timing แบบสนุก',
+    desc: 'ต่อยตาม beat ให้แม่น เก็บ streak และอ่าน pattern ให้ทัน',
     tags: ['rhythm', 'combo', 'music'],
-    basePath: './rhythm-boxer-vr.html',
-    defaultDiff: 'normal',
-    defaultTime: '90'
+    launcherPath: './rhythm-boxer-vr.html',
+    quickDiff: 'easy',
+    quickTime: '60',
+    colorClass: 'c-pink'
   },
   {
     id: 'jump-duck',
     title: 'Jump & Duck',
     emoji: '🏃',
-    colorClass: 'c-orange',
     badge: 'Launcher',
-    desc: 'ฝึกกระโดด ย่อ และอ่าน cue ให้แม่น เริ่มผ่าน launcher ก่อนเข้าเกม',
+    desc: 'ฝึกกระโดด ย่อ และอ่าน cue ให้แม่น ก่อนเข้าเกมผ่าน launcher',
     tags: ['jump', 'duck', 'launcher'],
-    basePath: './jump-duck-vr.html',
-    defaultDiff: 'normal',
-    defaultTime: '90'
+    launcherPath: './jump-duck-vr.html',
+    quickDiff: 'easy',
+    quickTime: '60',
+    colorClass: 'c-orange'
   },
   {
     id: 'balance-hold',
     title: 'Balance Hold',
     emoji: '🧍',
-    colorClass: 'c-teal',
     badge: 'Balance',
-    desc: 'คุมสมดุลร่างกายให้นิ่ง รับแรงกดดันและผ่านด่านให้ได้',
+    desc: 'ฝึกทรงตัว คุมแกนลำตัว และผ่านแรงกดดันให้ได้นานที่สุด',
     tags: ['balance', 'stability', 'focus'],
-    basePath: './balance-hold-vr.html',
-    defaultDiff: 'normal',
-    defaultTime: '90'
+    launcherPath: './balance-hold-vr.html',
+    quickDiff: 'easy',
+    quickTime: '60',
+    colorClass: 'c-teal'
   },
   {
     id: 'fitness-planner',
     title: 'Fitness Planner',
     emoji: '📋',
-    colorClass: 'c-green',
     badge: 'Planner',
-    desc: 'วางแผนกิจกรรมการออกกำลังกาย เลือกภารกิจและเป้าหมายประจำวัน',
+    desc: 'วางแผนกิจกรรมประจำวัน เลือก checklist แล้วค่อยลุยทีละข้อ',
     tags: ['plan', 'goal', 'habit'],
-    basePath: './fitness-planner.html',
-    defaultDiff: 'normal',
-    defaultTime: '90'
+    launcherPath: './fitness-planner.html',
+    quickDiff: 'normal',
+    quickTime: '90',
+    colorClass: 'c-green'
   }
 ];
 
-const LABELS = {
-  'shadow-breaker': 'Shadow Breaker',
-  'rhythm-boxer': 'Rhythm Boxer',
-  'jump-duck': 'Jump & Duck',
-  'balance-hold': 'Balance Hold',
-  'fitness-planner': 'Fitness Planner'
-};
+const GAME_MAP = Object.fromEntries(GAMES.map((g) => [g.id, g]));
 
 function $(id) {
   return document.getElementById(id);
 }
 
-function q(k, d = '') {
+function qs(k, d = '') {
   try {
     const v = new URL(location.href).searchParams.get(k);
     return v == null || v === '' ? d : v;
@@ -99,7 +92,7 @@ function safeParse(raw, fallback = null) {
   }
 }
 
-function readSnapshot() {
+function readFitnessSnapshot() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.fitness);
     return raw ? safeParse(raw, null) : null;
@@ -108,169 +101,160 @@ function readSnapshot() {
   }
 }
 
-function writeZonePointers() {
+function setZonePointers() {
   try { localStorage.setItem(LAST_ZONE_KEY, 'fitness'); } catch (_) {}
   try { localStorage.setItem(NEXT_ZONE_KEY, 'hygiene'); } catch (_) {}
   try { localStorage.setItem(RECOMMENDED_ZONE_KEY, 'fitness'); } catch (_) {}
 }
 
-function gameLabel(gameId) {
-  return LABELS[gameId] || gameId || '-';
+function gameTitle(gameId) {
+  return GAME_MAP[gameId]?.title || gameId || '-';
 }
 
-function currentModeValue() {
-  return $('modeSelect')?.value || q('mode', 'play');
+function currentMode() {
+  return $('modeSelect')?.value || qs('mode', 'play');
 }
 
-function currentTimeValue() {
-  return $('timeSelect')?.value || q('time', '90');
+function currentTime() {
+  return $('timeSelect')?.value || qs('time', '90');
 }
 
-function currentRunValue() {
-  const mode = currentModeValue();
-  if (mode === 'research') return 'research';
-  return q('run', 'play') || 'play';
+function currentRun() {
+  const mode = currentMode();
+  return mode === 'research' ? 'research' : (qs('run', 'play') || 'play');
 }
 
-function currentDiffValue() {
-  const mode = currentModeValue();
+function currentDiff() {
+  const mode = currentMode();
   if (mode === 'learn') return 'easy';
-  return q('diff', 'normal') || 'normal';
+  return qs('diff', 'normal') || 'normal';
 }
 
-function currentViewValue() {
-  return q('view', 'mobile') || 'mobile';
+function currentView() {
+  return qs('view', 'mobile') || 'mobile';
 }
 
-function buildHubUrl() {
-  const base = new URL('./fitness-zone.html', location.href);
+function currentHubUrl() {
+  return qs('hub', './hub-v2.html');
+}
 
-  const passthroughKeys = [
-    'pid', 'name', 'nick', 'studyId',
-    'view', 'debug', 'api', 'log',
+function buildFitnessZoneUrl() {
+  const u = new URL('./fitness-zone.html', location.href);
+
+  [
+    'pid', 'name', 'nick', 'studyId', 'view', 'debug', 'api', 'log',
     'studentKey', 'schoolCode', 'classRoom', 'studentNo', 'nickName'
-  ];
-
-  passthroughKeys.forEach((k) => {
-    const v = q(k, '');
-    if (v) base.searchParams.set(k, v);
+  ].forEach((k) => {
+    const v = qs(k, '');
+    if (v) u.searchParams.set(k, v);
   });
 
-  base.searchParams.set('zone', 'fitness');
-  base.searchParams.set('mode', currentModeValue());
-  base.searchParams.set('time', currentTimeValue());
-  base.searchParams.set('run', currentRunValue());
-  return base.toString();
+  u.searchParams.set('zone', 'fitness');
+  u.searchParams.set('mode', currentMode());
+  u.searchParams.set('time', currentTime());
+  u.searchParams.set('run', currentRun());
+  u.searchParams.set('hub', currentHubUrl());
+  return u.toString();
 }
 
-function buildGameUrl(game, patch = {}) {
-  const url = new URL(game.basePath, location.href);
+function buildLauncherUrl(game, patch = {}) {
+  const g = typeof game === 'string' ? GAME_MAP[game] : game;
+  if (!g) return './fitness-zone.html';
 
-  const pid = q('pid', 'anon');
-  const name = q('name', q('nickName', 'Player'));
-  const studyId = q('studyId', '');
-  const view = patch.view || currentViewValue();
-  const mode = patch.mode || currentModeValue();
-  const run = patch.run || (mode === 'research' ? 'research' : currentRunValue());
-  const diff = patch.diff || currentDiffValue() || game.defaultDiff || 'normal';
-  const time = patch.time || currentTimeValue() || game.defaultTime || '90';
-  const seed = patch.seed || q('seed', String(Date.now()));
-  const hub = patch.hub || buildHubUrl();
+  const u = new URL(g.launcherPath, location.href);
 
-  url.searchParams.set('zone', 'fitness');
-  url.searchParams.set('cat', 'fitness');
-  url.searchParams.set('game', game.id);
-  url.searchParams.set('gameId', game.id);
-  url.searchParams.set('pid', pid);
-  url.searchParams.set('name', name);
-  url.searchParams.set('mode', mode);
-  url.searchParams.set('run', run);
-  url.searchParams.set('view', view);
-  url.searchParams.set('diff', diff);
-  url.searchParams.set('time', time);
-  url.searchParams.set('seed', seed);
-  url.searchParams.set('hub', hub);
+  const pid = qs('pid', 'anon');
+  const name = qs('name', qs('nickName', 'Player'));
+  const studyId = qs('studyId', '');
+  const diff = patch.diff || currentDiff();
+  const time = patch.time || currentTime();
+  const view = patch.view || currentView();
+  const run = patch.run || currentRun();
+  const gate = patch.gate ?? '1';
+  const cooldown = patch.cooldown ?? '1';
+  const seed = patch.seed || qs('seed', String(Date.now()));
+  const hub = patch.hub || buildFitnessZoneUrl();
 
-  if (studyId) url.searchParams.set('studyId', studyId);
+  u.searchParams.set('pid', pid);
+  u.searchParams.set('name', name);
+  u.searchParams.set('zone', 'fitness');
+  u.searchParams.set('game', g.id);
+  u.searchParams.set('gameId', g.id);
+  u.searchParams.set('diff', diff);
+  u.searchParams.set('time', String(time));
+  u.searchParams.set('view', view);
+  u.searchParams.set('run', run);
+  u.searchParams.set('mode', patch.mode || currentMode());
+  u.searchParams.set('gate', String(gate));
+  u.searchParams.set('cooldown', String(cooldown));
+  u.searchParams.set('seed', seed);
+  u.searchParams.set('hub', hub);
+
+  if (studyId) u.searchParams.set('studyId', studyId);
 
   [
     'debug', 'api', 'log',
     'studentKey', 'schoolCode', 'classRoom', 'studentNo', 'nickName'
   ].forEach((k) => {
-    const v = q(k, '');
-    if (v) url.searchParams.set(k, v);
+    const v = qs(k, '');
+    if (v) u.searchParams.set(k, v);
   });
 
-  return url.toString();
+  return u.toString();
 }
 
-function buildContinueUrl(snapshot) {
-  if (!snapshot?.gameId) {
-    const fallbackGame = GAME_LIBRARY.find((g) => g.id === 'jump-duck') || GAME_LIBRARY[0];
-    return buildGameUrl(fallbackGame);
-  }
+function featuredGame(snapshot) {
+  if (!snapshot?.gameId) return GAME_MAP['jump-duck'];
 
-  const game = GAME_LIBRARY.find((g) => g.id === snapshot.gameId);
-  if (!game) {
-    const fallbackGame = GAME_LIBRARY.find((g) => g.id === 'jump-duck') || GAME_LIBRARY[0];
-    return buildGameUrl(fallbackGame);
-  }
+  const map = {
+    'shadow-breaker': 'rhythm-boxer',
+    'rhythm-boxer': 'jump-duck',
+    'jump-duck': 'balance-hold',
+    'balance-hold': 'fitness-planner',
+    'fitness-planner': 'shadow-breaker'
+  };
 
-  return buildGameUrl(game, {
-    mode: snapshot.mode || currentModeValue(),
-    run: snapshot.run || currentRunValue(),
-    diff: snapshot.diff || currentDiffValue(),
-    time: String(snapshot.time || currentTimeValue()),
-    view: snapshot.view || currentViewValue(),
-    seed: snapshot.seed || q('seed', String(Date.now()))
-  });
+  return GAME_MAP[map[snapshot.gameId] || 'jump-duck'];
 }
 
-function coachLineFromSnapshot(snapshot) {
-  if (!snapshot?.gameId) return 'เลือกเกมออกกำลังกายที่อยากเล่น แล้วเริ่มได้เลย';
-
-  const title = gameLabel(snapshot.gameId);
-  const score = Number(snapshot.score || 0);
-  const streak = Number(snapshot.bestStreak || snapshot.combo || 0);
-
-  return `ล่าสุดเล่น ${title} • score ${score} • best streak ${streak}`;
-}
-
-function recommendedGame(snapshot) {
-  if (!snapshot?.gameId) {
-    return GAME_LIBRARY.find((g) => g.id === 'jump-duck') || GAME_LIBRARY[0];
+function continueGame(snapshot) {
+  if (!snapshot?.gameId || !GAME_MAP[snapshot.gameId]) {
+    return GAME_MAP['jump-duck'];
   }
-
-  if (snapshot.gameId === 'shadow-breaker') {
-    return GAME_LIBRARY.find((g) => g.id === 'rhythm-boxer');
-  }
-  if (snapshot.gameId === 'rhythm-boxer') {
-    return GAME_LIBRARY.find((g) => g.id === 'jump-duck');
-  }
-  if (snapshot.gameId === 'jump-duck') {
-    return GAME_LIBRARY.find((g) => g.id === 'balance-hold');
-  }
-  if (snapshot.gameId === 'balance-hold') {
-    return GAME_LIBRARY.find((g) => g.id === 'fitness-planner');
-  }
-  return GAME_LIBRARY.find((g) => g.id === 'jump-duck') || GAME_LIBRARY[0];
+  return GAME_MAP[snapshot.gameId];
 }
 
 function renderHeader(snapshot) {
-  $('playerPill').textContent = `👤 Player: ${q('pid', 'anon')}`;
-  $('modePill').textContent = `🎮 Mode: ${currentModeValue()}`;
+  $('playerPill').textContent = `👤 Player: ${qs('pid', 'anon')}`;
+  $('modePill').textContent = `🎮 Mode: ${currentMode()}`;
 
   const coach = $('coachLine');
-  if (coach) coach.textContent = coachLineFromSnapshot(snapshot);
+  if (!snapshot?.gameId) {
+    coach.textContent = 'เลือกเกมออกกำลังกายที่อยากเล่น แล้วเริ่มได้เลย';
+  } else {
+    const score = Number(snapshot.score || snapshot.scoreFinal || 0);
+    const title = gameTitle(snapshot.gameId);
+    coach.textContent = `ล่าสุดเล่น ${title} • score ${score}`;
+  }
 
   const hubBtn = $('hubBtn');
-  if (hubBtn) hubBtn.href = q('hub', './hub-v2.html');
+  if (hubBtn) hubBtn.href = currentHubUrl();
 
   const continueBtn = $('continueBtn');
   if (continueBtn) {
     continueBtn.onclick = () => {
-      writeZonePointers();
-      location.href = buildContinueUrl(snapshot);
+      setZonePointers();
+      const g = continueGame(snapshot);
+      location.href = buildLauncherUrl(g, {
+        diff: snapshot?.diff || currentDiff(),
+        time: snapshot?.time || currentTime(),
+        run: snapshot?.run || currentRun(),
+        view: snapshot?.view || currentView(),
+        mode: snapshot?.mode || currentMode(),
+        seed: snapshot?.seed || qs('seed', String(Date.now())),
+        gate: '1',
+        cooldown: '1'
+      });
     };
   }
 }
@@ -279,21 +263,39 @@ function renderRecent(snapshot) {
   const box = $('recentArea');
   if (!box) return;
 
-  if (!snapshot?.gameId) {
+  if (!snapshot?.gameId || !GAME_MAP[snapshot.gameId]) {
     box.innerHTML = `<div class="empty-recent">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>`;
     return;
   }
 
-  const title = gameLabel(snapshot.gameId);
-  const game = GAME_LIBRARY.find((g) => g.id === snapshot.gameId);
-  const href = buildContinueUrl(snapshot);
+  const game = GAME_MAP[snapshot.gameId];
+  const href = buildLauncherUrl(game, {
+    diff: snapshot.diff || currentDiff(),
+    time: snapshot.time || currentTime(),
+    run: snapshot.run || currentRun(),
+    view: snapshot.view || currentView(),
+    mode: snapshot.mode || currentMode(),
+    seed: snapshot.seed || qs('seed', String(Date.now())),
+    gate: '1',
+    cooldown: '1'
+  });
+
+  const quickHref = buildLauncherUrl(game, {
+    diff: game.quickDiff,
+    time: game.quickTime,
+    run: 'play',
+    view: 'mobile',
+    mode: 'play',
+    gate: '0',
+    cooldown: '1'
+  });
 
   box.innerHTML = `
     <article class="recent-card">
-      <div class="recent-icon ${game?.colorClass || 'c-blue'}">${game?.emoji || '🏃'}</div>
+      <div class="recent-icon ${game.colorClass}">${game.emoji}</div>
 
       <div>
-        <div class="recent-title">${title}</div>
+        <div class="recent-title">${game.title}</div>
         <div class="recent-sub">
           ล่าสุดเล่นแบบ ${snapshot.mode || snapshot.run || 'play'}
           • ${snapshot.time || '90'} วินาที
@@ -302,8 +304,57 @@ function renderRecent(snapshot) {
       </div>
 
       <div class="recent-actions">
-        <a class="play-btn ${game?.colorClass || 'c-blue'}" href="${href}">▶ เล่นต่อ</a>
-        <a class="ghost-btn" href="${buildGameUrl(game || recommendedGame(snapshot), { time: '60', diff: 'easy' })}">⚡ เล่นสั้น</a>
+        <a class="play-btn ${game.colorClass}" href="${href}" data-zone-link="${game.id}">▶ เล่นต่อ</a>
+        <a class="ghost-btn" href="${quickHref}" data-zone-link="${game.id}">⚡ quick</a>
+      </div>
+    </article>
+  `;
+}
+
+function renderFeatured(snapshot) {
+  const box = $('featuredArea');
+  if (!box) return;
+
+  const game = featuredGame(snapshot);
+  if (!game) {
+    box.innerHTML = `<div class="empty-recent">ระบบกำลังเลือกเกมแนะนำให้</div>`;
+    return;
+  }
+
+  const href = buildLauncherUrl(game, {
+    diff: currentDiff(),
+    time: currentTime(),
+    run: currentRun(),
+    view: currentView(),
+    mode: currentMode(),
+    gate: '1',
+    cooldown: '1'
+  });
+
+  const quickHref = buildLauncherUrl(game, {
+    diff: game.quickDiff,
+    time: game.quickTime,
+    run: 'play',
+    view: 'mobile',
+    mode: 'play',
+    gate: '0',
+    cooldown: '1'
+  });
+
+  box.innerHTML = `
+    <article class="recent-card">
+      <div class="recent-icon ${game.colorClass}">${game.emoji}</div>
+
+      <div>
+        <div class="recent-title">${game.title}</div>
+        <div class="recent-sub">
+          เกมแนะนำตอนนี้ • ${game.desc}
+        </div>
+      </div>
+
+      <div class="recent-actions">
+        <a class="play-btn ${game.colorClass}" href="${href}" data-zone-link="${game.id}">🎮 เริ่มเล่น</a>
+        <a class="ghost-btn" href="${quickHref}" data-zone-link="${game.id}">⚡ quick</a>
       </div>
     </article>
   `;
@@ -321,29 +372,44 @@ function matchesSearch(game, keyword) {
   ].join(' ').toLowerCase().includes(k);
 }
 
-function renderGames(snapshot) {
+function renderGamesGrid(snapshot) {
   const grid = $('gamesGrid');
   if (!grid) return;
 
   const keyword = ($('searchInput')?.value || '').trim();
-  const recommended = recommendedGame(snapshot);
+  const featured = featuredGame(snapshot);
 
-  const html = GAME_LIBRARY
+  const html = GAMES
     .filter((game) => matchesSearch(game, keyword))
     .map((game) => {
       const isRecent = snapshot?.gameId === game.id;
-      const isRecommended = recommended?.id === game.id;
-      const startHref = buildGameUrl(game);
-      const quickHref = buildGameUrl(game, {
-        diff: game.id === 'fitness-planner' ? 'normal' : 'easy',
-        time: '60'
+      const isFeatured = featured?.id === game.id;
+
+      const startHref = buildLauncherUrl(game, {
+        diff: currentDiff(),
+        time: currentTime(),
+        run: currentRun(),
+        view: currentView(),
+        mode: currentMode(),
+        gate: '1',
+        cooldown: '1'
+      });
+
+      const quickHref = buildLauncherUrl(game, {
+        diff: game.quickDiff,
+        time: game.quickTime,
+        run: 'play',
+        view: 'mobile',
+        mode: 'play',
+        gate: '0',
+        cooldown: '1'
       });
 
       return `
         <article class="game-card">
           <div class="game-top">
             <div class="game-icon ${game.colorClass}">${game.emoji}</div>
-            <div class="game-badge">${isRecent ? 'ล่าสุด' : (isRecommended ? 'แนะนำ' : game.badge)}</div>
+            <div class="game-badge">${isRecent ? 'ล่าสุด' : (isFeatured ? 'แนะนำ' : game.badge)}</div>
           </div>
 
           <div class="game-title">${game.title}</div>
@@ -351,12 +417,13 @@ function renderGames(snapshot) {
 
           <div class="game-tags">
             ${(game.tags || []).map((tag) => `<span class="game-tag">${tag}</span>`).join('')}
-            ${game.id === 'jump-duck' ? '<span class="game-tag">warmup+cooldown</span>' : ''}
+            <span class="game-tag">warmup</span>
+            <span class="game-tag">cooldown</span>
           </div>
 
           <div class="game-actions">
-            <a class="play-btn ${game.colorClass}" href="${startHref}" data-game-link="${game.id}">▶ เริ่มเล่น</a>
-            <a class="ghost-btn" href="${quickHref}" data-game-quick="${game.id}">⚡ quick</a>
+            <a class="play-btn ${game.colorClass}" href="${startHref}" data-zone-link="${game.id}">▶ เริ่มเล่น</a>
+            <a class="ghost-btn" href="${quickHref}" data-zone-link="${game.id}">⚡ quick</a>
           </div>
         </article>
       `;
@@ -365,51 +432,42 @@ function renderGames(snapshot) {
 
   grid.innerHTML = html || `<div class="empty-recent">ไม่พบเกมที่ตรงกับคำค้นหา ลองพิมพ์คำอื่นดู</div>`;
 
-  grid.querySelectorAll('[data-game-link]').forEach((el) => {
+  grid.querySelectorAll('[data-zone-link]').forEach((el) => {
     el.addEventListener('click', () => {
-      writeZonePointers();
-    });
-  });
-
-  grid.querySelectorAll('[data-game-quick]').forEach((el) => {
-    el.addEventListener('click', () => {
-      writeZonePointers();
+      setZonePointers();
     });
   });
 }
 
 function bindControls(snapshot) {
   $('modeSelect')?.addEventListener('change', () => {
-    $('modePill').textContent = `🎮 Mode: ${currentModeValue()}`;
+    $('modePill').textContent = `🎮 Mode: ${currentMode()}`;
     renderRecent(snapshot);
-    renderGames(snapshot);
+    renderFeatured(snapshot);
+    renderGamesGrid(snapshot);
   });
 
   $('timeSelect')?.addEventListener('change', () => {
     renderRecent(snapshot);
-    renderGames(snapshot);
+    renderFeatured(snapshot);
+    renderGamesGrid(snapshot);
   });
 
   $('searchInput')?.addEventListener('input', () => {
-    renderGames(snapshot);
+    renderGamesGrid(snapshot);
   });
 }
 
-function syncTopLinks() {
-  const hubBtn = $('hubBtn');
-  if (hubBtn) hubBtn.href = q('hub', './hub-v2.html');
-}
+function boot() {
+  setZonePointers();
 
-function bootFitnessZone() {
-  writeZonePointers();
-  syncTopLinks();
-
-  const snapshot = readSnapshot();
+  const snapshot = readFitnessSnapshot();
 
   renderHeader(snapshot);
   renderRecent(snapshot);
-  renderGames(snapshot);
+  renderFeatured(snapshot);
+  renderGamesGrid(snapshot);
   bindControls(snapshot);
 }
 
-bootFitnessZone();
+boot();
