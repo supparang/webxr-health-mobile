@@ -68,12 +68,13 @@
         <div class="pattern-title">Pattern ตอนนี้</div>
         <div id="patternLabel" class="pattern-main">Warmup • Jab</div>
         <div id="patternHint" class="pattern-sub">ตีตามลำดับที่เห็น</div>
+        <div id="roundChip" class="round-chip">Round 0 • Warmup</div>
       </div>
 
       <div class="pattern-card">
-        <div class="pattern-title">Round</div>
-        <div id="roundLabel" class="pattern-main small">Round 0 • Warmup</div>
-        <div class="pattern-sub">ค่อย ๆ จับจังหวะก่อน</div>
+        <div class="pattern-title">ช่วงตอนนี้</div>
+        <div id="segmentLabel" class="pattern-main small">Warmup</div>
+        <div id="segmentHint" class="pattern-sub">ค่อย ๆ จับจังหวะก่อน</div>
       </div>
     </section>
 
@@ -106,6 +107,16 @@
             <div class="countdown-mini">เตรียมตัว</div>
             <div id="countdownNum" class="countdown-num">3</div>
             <div class="countdown-hint">กดให้ตรงตอนโน้ตถึงเส้น</div>
+          </div>
+        </div>
+
+        <div class="breath-overlay hidden" id="breathOverlay" aria-live="polite">
+          <div class="breath-card">
+            <div class="breath-mini">Recovery Breathing</div>
+            <div id="breathAction" class="breath-action">หายใจเข้า</div>
+            <div class="breath-circle inhale" id="breathCircle"></div>
+            <div id="breathHint" class="breath-hint">ขยายอกช้า ๆ แล้วผ่อนออก</div>
+            <div id="breathCount" class="breath-count">5s</div>
           </div>
         </div>
 
