@@ -1,6 +1,6 @@
 // /herohealth/vr-groups/groups.solo.core.js
 // Groups Solo Core Engine
-// PATCH v20260406-groups-solo-core-safe-fun-r5
+// PATCH v20260405-groups-solo-core-hudfix-r1
 
 import {
   GROUPS_ITEMS,
@@ -16,7 +16,7 @@ import {
   renderGroupsSummary
 } from './groups.summary.js';
 
-export const GROUPS_PATCH_CORE = 'v20260406-groups-solo-core-safe-fun-r5';
+export const GROUPS_PATCH_CORE = 'v20260405-groups-solo-core-hudfix-r1';
 
 const FEVER_MS = 6000;
 const PRACTICE_MS = 15000;
@@ -43,7 +43,7 @@ export function createGroupsSoloCore({
   let preset = { ...presetBase };
 
   const state = {
-    phase: 'idle', // idle | practice | ready | playing | summary
+    phase: 'idle',
     running: false,
     destroyed: false,
 
@@ -97,9 +97,6 @@ export function createGroupsSoloCore({
     if (state.destroyed) return api;
 
     renderer.mount();
-    renderer.refreshRect?.();
-    renderer.reconcileSafeTargets?.();
-
     primeUi();
     bindEvents();
     updateHud();
@@ -165,8 +162,7 @@ export function createGroupsSoloCore({
 
   function bindEvents(){
     bound.resize = () => {
-      renderer.refreshRect?.();
-      renderer.reconcileSafeTargets?.();
+      renderer.refreshRect();
       setDebug();
     };
     bound.pagehide = () => flushLogs();
@@ -249,8 +245,6 @@ export function createGroupsSoloCore({
 
     updateGoalText();
     updateHud();
-    renderer.refreshRect?.();
-    renderer.reconcileSafeTargets?.();
 
     log('practice_start');
     loop(0);
@@ -310,8 +304,6 @@ export function createGroupsSoloCore({
 
     updateGoalText();
     updateHud();
-    renderer.refreshRect?.();
-    renderer.reconcileSafeTargets?.();
 
     log('main_start', {
       aiRoundInfo: ai?.onRoundStart ? ai.onRoundStart({ ctx, state: snapshotState() }) : null
@@ -336,7 +328,7 @@ export function createGroupsSoloCore({
       return;
     }
 
-    renderer.refreshRect?.();
+    renderer.refreshRect();
 
     if (now >= state.nextSpawnAt){
       spawnItem(now);
@@ -375,15 +367,34 @@ export function createGroupsSoloCore({
       : preset.maxItems;
   }
 
+  function getCompactHudMetrics(){
+    const compactMobile =
+      ctx.view === 'mobile' &&
+      document.body.classList.contains('compact-mobile');
+
+    if (!compactMobile) {
+      return {
+        compactMobile: false,
+        topHudH: 0,
+        bottomHudH: 0
+      };
+    }
+
+    const topHudEl = ui.goalTitle ? ui.goalTitle.closest('.goalCard') : null;
+    const bottomHudEl = ui.statGoal ? ui.statGoal.closest('.bottomBar') : null;
+
+    return {
+      compactMobile: true,
+      topHudH: topHudEl ? topHudEl.offsetHeight : 104,
+      bottomHudH: bottomHudEl ? bottomHudEl.offsetHeight : 84
+    };
+  }
+
   function spawnItem(now){
     if (state.items.size >= getMaxItems()) return;
 
-    const compactMobile =
-      ctx.view === 'mobile' &&
-      window.matchMedia &&
-      window.matchMedia('(max-width: 768px)').matches;
-
-    const mobileSizeBoost = compactMobile ? 8 : 0;
+    const hud = getCompactHudMetrics();
+    const mobileSizeBoost = hud.compactMobile ? 6 : 0;
 
     const data = GROUPS_ITEMS[Math.floor(rng() * GROUPS_ITEMS.length)];
     const size = Math.round(randRangeWith(
@@ -391,6 +402,19 @@ export function createGroupsSoloCore({
       (state.phase === 'practice' ? preset.sizeMax - 2 : preset.sizeMin) + mobileSizeBoost,
       preset.sizeMax + mobileSizeBoost
     ));
+
+    const safe = renderer.getSafeSpawnBounds({
+      padLeft: 12,
+      padRight: 12,
+      padTop: hud.compactMobile ? Math.max(110, hud.topHudH + 16) : 54,
+      padBottom: hud.compactMobile ? Math.max(88, hud.bottomHudH + 14) : 72
+    });
+
+    const x = randRangeWith(rng, safe.left, Math.max(safe.left + 1, safe.right - size));
+
+    const y = hud.compactMobile
+      ? randRangeWith(rng, safe.padTop + 6, Math.max(safe.padTop + 8, safe.padTop + 28))
+      : (-size - randRangeWith(rng, 8, 40));
 
     const speedMul = state.phase === 'practice' ? 0.8 : 1;
     const vx = randRangeWith(rng, -34, 34) * (ctx.view === 'pc' ? 1 : 0.88);
@@ -401,8 +425,8 @@ export function createGroupsSoloCore({
     const item = {
       id,
       data,
-      x: 0,
-      y: 0,
+      x,
+      y,
       vx,
       vy,
       size,
@@ -412,29 +436,31 @@ export function createGroupsSoloCore({
       el: null
     };
 
-    placeItemAtSafeSpawn(item, renderer);
-
     renderer.addItem(item, (itemId, hitTs) => {
       hitItem(itemId, hitTs);
     });
 
     state.items.set(id, item);
-    keepItemInsideSafeArea(item, renderer);
     renderer.drawItem(item);
 
     log('target_spawn', {
       itemId: id,
       item: data.id,
       group: data.group,
-      phase: state.phase
+      phase: state.phase,
+      compactMobile: hud.compactMobile
     });
   }
 
   function updateItems(dt, now){
     const rect = renderer.getStageRect();
-    const safe = renderer.getSafeSpawnBounds();
     const maxX = Math.max(0, rect.width);
     const maxY = Math.max(0, rect.height);
+
+    const hud = getCompactHudMetrics();
+    const removeY = hud.compactMobile
+      ? maxY - Math.max(56, hud.bottomHudH + 8)
+      : maxY - 40;
 
     state.items.forEach((item) => {
       if (!item || item.dead) return;
@@ -457,7 +483,7 @@ export function createGroupsSoloCore({
         renderer.setItemOpacity(item, left);
       }
 
-      if (age >= item.ttl || item.y > maxY - 40){
+      if (age >= item.ttl || item.y > removeY){
         const missedTarget = !!state.goalCat && item.data.group === state.goalCat.id;
         removeItem(item, missedTarget ? 'miss-target' : 'timeout');
 
@@ -466,15 +492,10 @@ export function createGroupsSoloCore({
           state.streak = 0;
           state.statsByCat[state.goalCat.id].miss += 1;
 
-          renderer.flashStage?.('bad');
-          renderer.showBanner?.('ลองอีกครั้ง!', 700);
-
           showCoach(getCoachLine('miss', rng) || 'โค้ช: อุ๊ย หลุดเป้าหมายไปแล้ว ลองใหม่อีกครั้งนะ');
-          setCoachTone('alert');
-
           renderer.popFx(
             Math.max(40, item.x + item.size / 2),
-            Math.max(60, Math.min(safe.bottom - 10, item.y)),
+            Math.max(60, Math.min(removeY - 20, item.y)),
             'MISS',
             'bad'
           );
@@ -492,7 +513,6 @@ export function createGroupsSoloCore({
         return;
       }
 
-      keepItemInsideSafeArea(item, renderer);
       renderer.drawItem(item);
     });
   }
@@ -509,7 +529,7 @@ export function createGroupsSoloCore({
       if (state.phase === 'playing'){
         const fever = isFeverOn();
         const base = 10;
-        const comboBonus = state.streak >= 8 ? 4 : state.streak >= 5 ? 2 : state.streak >= 3 ? 1 : 0;
+        const comboBonus = Math.min(8, state.streak);
         const scoreGain = (fever ? 2 : 1) * (base + comboBonus);
 
         state.score += scoreGain;
@@ -521,12 +541,10 @@ export function createGroupsSoloCore({
         pushReaction(reactionMs);
 
         renderer.setItemGlow(item, 'good');
-        renderer.flashStage?.('good');
-        renderer.showComboBurst?.(state.streak);
         renderer.popFx(
           item.x + item.size / 2,
           item.y + 16,
-          fever ? `⭐+${scoreGain}` : (state.streak >= 3 ? `⭐+${scoreGain}` : `+${scoreGain}`),
+          fever ? `+${scoreGain} FEVER` : `+${scoreGain}`,
           'good'
         );
 
@@ -535,33 +553,16 @@ export function createGroupsSoloCore({
           state.feverCount += 1;
           renderer.showBanner('FEVER!', 1200);
           showCoach(getCoachLine('fever', rng) || 'โค้ช: สุดยอด! เข้า FEVER แล้ว คะแนนคูณ 2 🔥');
-          setCoachTone('happy');
           log('fever_start', { streak: state.streak });
-        } else if (state.streak >= 8) {
-          renderer.showBanner('SUPER COMBO!', 900);
-          showCoach('โค้ช: สุดยอด! ตอบต่อเนื่องร้อนแรงมาก 🔥');
-          setCoachTone('happy');
-        } else if (state.streak >= 5) {
-          renderer.showBanner('NICE COMBO!', 850);
-          showCoach('โค้ช: เก่งมาก! ตอนนี้กำลังติดคอมโบ ⭐');
-          setCoachTone('happy');
-        } else if (state.streak >= 3) {
-          renderer.showBanner('เยี่ยม!', 700);
-          showCoach('โค้ช: ดีมาก! อีกนิดจะเข้า Fever แล้ว');
-          setCoachTone('happy');
         } else {
           showCoach(getCoachLine('playGood', rng) || 'โค้ช: เยี่ยมมาก! ถูกหมู่แล้ว ✅');
-          setCoachTone('happy');
         }
 
         if (state.goalDone >= state.goalNeed){
           nextGoal();
         }
       } else {
-        renderer.flashStage?.('good');
-        renderer.showComboBurst?.(state.streak + 1);
         showCoach(getCoachLine('practiceGood', rng) || 'โค้ช: ถูกต้องเลย แบบนี้แหละ 💡');
-        setCoachTone('happy');
       }
 
       log('target_hit_correct', {
@@ -580,16 +581,10 @@ export function createGroupsSoloCore({
         state.statsByCat[item.data.group].wrong += 1;
 
         renderer.setItemGlow(item, 'bad');
-        renderer.flashStage?.('bad');
-        renderer.showBanner?.('ลองอีกครั้ง!', 700);
         renderer.popFx(item.x + item.size / 2, item.y + 16, '-4', 'bad');
         showCoach(getCoachLine('playWrong', rng) || 'โค้ช: คนละหมู่นะ ลองดูไอคอนกับชื่อหมู่ใหม่อีกที');
-        setCoachTone('alert');
       } else {
-        renderer.flashStage?.('bad');
-        renderer.showBanner?.('อุ๊ย!', 650);
         showCoach(getCoachLine('practiceWrong', rng) || 'โค้ช: อันนี้ยังไม่ใช่หมู่เป้าหมายนะ');
-        setCoachTone('alert');
       }
 
       log('target_hit_wrong', {
@@ -615,7 +610,6 @@ export function createGroupsSoloCore({
     updateGoalText();
     renderer.showBanner(`เป้าหมายใหม่: ${state.goalCat.short} ${state.goalCat.name}`, 1300);
     showCoach(`โค้ช: ต่อไปเก็บ ${state.goalCat.short} ${state.goalCat.name} ${state.goalCat.icon}`);
-    setCoachTone('happy');
     log('goal_change', { targetGroup: state.goalCat.id });
   }
 
@@ -642,17 +636,16 @@ export function createGroupsSoloCore({
   function updateHud(){
     setText(ui.chipTime, formatTime(state.timeLeftMs));
     setText(ui.chipScore, String(state.score | 0));
-    setText(ui.chipStreak, state.streak >= 2 ? `x${state.streak | 0}` : String(state.streak | 0));
+    setText(ui.chipStreak, String(state.streak | 0));
     setText(ui.statAcc, `${Math.round(calcAccuracy())}%`);
     setText(ui.statMiss, String(state.miss | 0));
     setText(
       ui.statFever,
       isFeverOn()
         ? `${Math.max(1, Math.ceil((state.feverUntil - performance.now()) / 1000))}s`
-        : getFeverLabel(state.streak)
+        : 'Ready'
     );
 
-    updateFunHud(ui, state.streak, isFeverOn());
     updateGoalText();
   }
 
@@ -672,23 +665,12 @@ export function createGroupsSoloCore({
     saveGroupsSummary(summary);
     renderGroupsSummary(ui, summary);
 
-    if (ui?.summaryLead) {
-      if (state.bestStreak >= 8) {
-        ui.summaryLead.textContent = 'สุดยอดมาก! หนูทำคอมโบได้ยาวเลย';
-      } else if (state.bestStreak >= 5) {
-        ui.summaryLead.textContent = 'เก่งมาก! รอบนี้เล่นได้ต่อเนื่องดีมาก';
-      } else {
-        ui.summaryLead.textContent = 'ดีมาก ลองเล่นอีกครั้งเพื่อทำคอมโบให้ยาวขึ้นนะ';
-      }
-    }
-
     if (isCooldownEnabled()){
       setButtonText(ui.btnBackSummary, '🧘 ไป Cooldown');
     }
 
     showOverlay(ui.summaryOverlay);
     showCoach(summary.lead);
-    setCoachTone('happy');
 
     log('summary_view', { summary });
     log('session_end', { summary });
@@ -799,7 +781,6 @@ export function createGroupsSoloCore({
     } else if (!state.centerShootHintShown) {
       state.centerShootHintShown = true;
       showCoach('โค้ช: เล็งกากบาทไว้กลางเป้าแล้วค่อยยิงนะ 🎯');
-      setCoachTone('alert');
     }
   }
 
@@ -864,10 +845,7 @@ export function createGroupsSoloCore({
       miss: state.miss,
       streak: state.streak
     });
-    if (msg) {
-      showCoach(msg);
-      setCoachTone(state.streak >= 3 ? 'happy' : 'alert');
-    }
+    if (msg) showCoach(msg);
   }
 
   function pushReaction(ms){
@@ -889,13 +867,6 @@ export function createGroupsSoloCore({
 
   function showCoach(text){
     setText(ui.coachBubble, text || '');
-  }
-
-  function setCoachTone(kind = ''){
-    if (!ui?.coachBubble) return;
-    ui.coachBubble.classList.remove('happy', 'alert');
-    if (kind === 'happy') ui.coachBubble.classList.add('happy');
-    if (kind === 'alert') ui.coachBubble.classList.add('alert');
   }
 
   function showOverlay(el){
@@ -1016,56 +987,6 @@ function randRangeWith(rng, min, max){
   return min + (rng() * (max - min));
 }
 
-function getFeverLabel(streak = 0){
-  if (streak >= 8) return 'SUPER!';
-  if (streak >= 5) return 'HOT!';
-  if (streak >= 3) return 'WARM!';
-  return 'Ready';
-}
-
-function updateFunHud(ui, streak = 0, feverOn = false){
-  if (!ui) return;
-
-  const feverBox = ui.statFever?.closest('.stat');
-  if (feverBox) {
-    if (feverOn || streak >= 5) feverBox.classList.add('feverHot');
-    else feverBox.classList.remove('feverHot');
-  }
-
-  if (ui.goalTag) {
-    if (feverOn || streak >= 5) ui.goalTag.classList.add('feverMode');
-    else ui.goalTag.classList.remove('feverMode');
-  }
-}
-
-function getItemSize(item){
-  return Math.max(44, Math.round(num(item?.size, 72)));
-}
-
-function placeItemAtSafeSpawn(item, renderer){
-  if (!item || !renderer?.getSpawnPoint) return item;
-  const pos = renderer.getSpawnPoint(getItemSize(item));
-  item.x = pos.x;
-  item.y = pos.y;
-  return item;
-}
-
-function keepItemInsideSafeArea(item, renderer){
-  if (!item || !renderer?.getSafeSpawnBounds) return item;
-
-  const safe = renderer.getSafeSpawnBounds();
-  const size = getItemSize(item);
-
-  const minX = safe.left;
-  const maxX = Math.max(minX, safe.right - size);
-  const minY = safe.top;
-  const maxY = Math.max(minY, safe.bottom - size);
-
-  item.x = clamp(num(item.x, 0), minX, maxX);
-  item.y = clamp(num(item.y, 0), minY, maxY);
-  return item;
-}
-
 function hashString(input){
   let h = 2166136261 >>> 0;
   const str = String(input || '');
@@ -1083,13 +1004,4 @@ function mulberry32(a){
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-function clamp(v, min, max){
-  return Math.max(min, Math.min(max, v));
-}
-
-function num(v, fallback = 0){
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
 }
