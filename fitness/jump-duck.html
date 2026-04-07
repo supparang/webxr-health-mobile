@@ -29,8 +29,6 @@
       --shadow:0 14px 34px rgba(77,74,67,.12);
       --safe-top:env(safe-area-inset-top, 0px);
       --safe-bottom:env(safe-area-inset-bottom, 0px);
-      --lane-w:min(92vw, 820px);
-      --control-h:108px;
       --cue-progress:0;
       --pulse-scale:1;
       --feedback-scale:.9;
@@ -52,10 +50,7 @@
       -webkit-tap-highlight-color:transparent;
     }
 
-    button{
-      font:inherit;
-      color:inherit;
-    }
+    button{ font:inherit; color:inherit; }
 
     .app{
       min-height:100dvh;
@@ -140,9 +135,7 @@
       cursor:pointer;
     }
 
-    .top-actions button{
-      border-width:2px;
-    }
+    .top-actions button{ border-width:2px; }
 
     .shell{
       width:min(1100px, 100%);
@@ -322,6 +315,29 @@
       background:
         radial-gradient(circle at 50% 20%, rgba(255,255,255,.9), transparent 35%),
         linear-gradient(180deg, #bfe8ff 0%, #d9f5ff 34%, #f6ffd9 35%, #dff6d4 100%);
+      transition:box-shadow .2s ease;
+    }
+
+    .stage.boss-cinematic{
+      box-shadow:
+        inset 0 0 0 3px rgba(255,176,79,.28),
+        0 20px 40px rgba(255,176,79,.16);
+    }
+
+    .stage.boss-cinematic::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(255,230,160,.26), transparent 28%),
+        radial-gradient(circle at 50% 85%, rgba(255,180,79,.12), transparent 26%);
+      animation:bossPulse 1.15s ease-in-out infinite;
+    }
+
+    @keyframes bossPulse{
+      0%,100%{ opacity:.72; }
+      50%{ opacity:1; }
     }
 
     .cloud{
@@ -332,19 +348,15 @@
       box-shadow:0 8px 16px rgba(255,255,255,.35);
       opacity:.9;
     }
-
     .cloud:before,.cloud:after{
       content:"";
       position:absolute;
       background:inherit;
       border-radius:inherit;
-      inset:auto;
     }
-
     .cloud.c1{ width:140px;height:44px; top:8%; left:8%; animation:float 11s ease-in-out infinite; }
     .cloud.c1:before{ width:54px;height:54px; left:18px; top:-20px; }
     .cloud.c1:after{ width:62px;height:62px; right:20px; top:-24px; }
-
     .cloud.c2{ width:180px;height:50px; top:12%; right:9%; animation:float 13s ease-in-out infinite reverse; }
     .cloud.c2:before{ width:64px;height:64px; left:20px; top:-24px; }
     .cloud.c2:after{ width:70px;height:70px; right:22px; top:-28px; }
@@ -356,7 +368,7 @@
 
     .track{
       position:absolute;
-      inset:70px 18px calc(var(--control-h) + 40px) 18px;
+      inset:70px 18px calc(108px + 40px) 18px;
       border-radius:26px;
       border:2px dashed rgba(132,189,205,.28);
       background:
@@ -471,14 +483,10 @@
       border:3px solid rgba(77,74,67,.09);
       transform-origin:center top;
     }
-    .avatar .arm{
-      width:16px;height:54px; top:64px;
-    }
+    .avatar .arm{ width:16px;height:54px; top:64px; }
     .avatar .arm.left{ left:36px; transform:rotate(24deg); }
     .avatar .arm.right{ right:36px; transform:rotate(-24deg); }
-    .avatar .leg{
-      width:18px;height:60px; top:102px;
-    }
+    .avatar .leg{ width:18px;height:60px; top:102px; }
     .avatar .leg.left{ left:64px; transform:rotate(10deg); }
     .avatar .leg.right{ right:64px; transform:rotate(-10deg); }
 
@@ -530,6 +538,14 @@
     .cue.duck{ background:linear-gradient(180deg, #fffef7, #fff6db); }
     .cue.left_jump,.cue.right_jump{ background:linear-gradient(180deg, #fffaff, #f3eaff); }
     .cue.hold{ background:linear-gradient(180deg, #fcfff8, #efffe4); }
+
+    .cue.final-approach{
+      box-shadow:
+        0 18px 28px rgba(0,0,0,.12),
+        0 0 0 6px rgba(255,212,93,.18);
+    }
+
+    .cue.final-approach .label{ color:#9d6016; }
 
     .upcoming{
       position:absolute;
@@ -587,6 +603,23 @@
       text-align:center;
     }
 
+    .phase-banner{
+      padding:8px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.92);
+      border:2px solid rgba(132,189,205,.35);
+      box-shadow:var(--shadow);
+      font-size:13px;
+      font-weight:1000;
+      color:var(--ink);
+    }
+
+    .phase-banner.is-final{
+      background:linear-gradient(180deg,#fff8dd,#fff);
+      border-color:rgba(255,176,79,.45);
+      color:#9d6016;
+    }
+
     .feedback{
       position:absolute;
       left:50%;
@@ -613,6 +646,106 @@
       font-size:13px;
       color:var(--muted);
       font-weight:900;
+    }
+
+    .landing-flash{
+      position:absolute;
+      left:50%;
+      bottom:10%;
+      transform:translateX(-50%) scale(.7);
+      width:min(360px,66%);
+      height:90px;
+      border-radius:999px;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,.95), rgba(255,255,255,.35) 45%, rgba(255,255,255,0) 72%);
+      opacity:0;
+      pointer-events:none;
+      z-index:3;
+    }
+    .landing-flash.show{ animation:landingFlash .34s ease-out forwards; }
+
+    @keyframes landingFlash{
+      0%{ opacity:.95; transform:translateX(-50%) scale(.75); }
+      100%{ opacity:0; transform:translateX(-50%) scale(1.2); }
+    }
+
+    .combo-burst{
+      position:absolute;
+      left:50%;
+      top:34%;
+      transform:translate(-50%,-50%) scale(.76);
+      opacity:0;
+      pointer-events:none;
+      z-index:5;
+      min-width:200px;
+      padding:12px 18px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#fff8dd,#fff);
+      border:3px solid rgba(255,176,79,.35);
+      box-shadow:0 18px 28px rgba(255,176,79,.16);
+      text-align:center;
+      font-size:24px;
+      font-weight:1000;
+      color:#9d6016;
+    }
+    .combo-burst small{
+      display:block;
+      margin-top:4px;
+      font-size:12px;
+      color:#7b7a72;
+      font-weight:1000;
+    }
+    .combo-burst.show{ animation:comboBurst .58s ease-out forwards; }
+
+    @keyframes comboBurst{
+      0%{ opacity:0; transform:translate(-50%,-50%) scale(.76); }
+      15%{ opacity:1; transform:translate(-50%,-50%) scale(1.02); }
+      100%{ opacity:0; transform:translate(-50%,-52%) scale(1.08); }
+    }
+
+    .tutorial-panel{
+      position:absolute;
+      left:14px;
+      top:14px;
+      z-index:4;
+      width:min(280px, 48vw);
+      border-radius:22px;
+      border:2px solid rgba(132,189,205,.35);
+      background:rgba(255,255,255,.92);
+      box-shadow:var(--shadow);
+      padding:12px;
+      display:grid;
+      gap:8px;
+    }
+    .tutorial-panel.hidden{ display:none; }
+    .tutorial-title{
+      font-size:14px;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+    .tutorial-sub{
+      font-size:12px;
+      line-height:1.45;
+      color:#7b7a72;
+      font-weight:900;
+    }
+    .tutorial-steps{
+      display:grid;
+      gap:6px;
+    }
+    .tutorial-step{
+      border-radius:14px;
+      border:2px solid rgba(132,189,205,.28);
+      background:#fff;
+      padding:8px 10px;
+      font-size:12px;
+      font-weight:1000;
+      color:#5d6e7a;
+    }
+    .tutorial-step.active{
+      border-color:rgba(69,183,245,.5);
+      background:linear-gradient(180deg,#ffffff,#eef9ff);
+      color:#2d6f8b;
     }
 
     .overlay-bottom{
@@ -677,6 +810,19 @@
       align-items:center;
       gap:6px;
     }
+
+    button.mini-chip{
+      appearance:none;
+      cursor:pointer;
+    }
+
+    .mini-chip.is-boss{
+      background:#fff8db;
+      border-color:#ffe08a;
+      color:#9d6016;
+    }
+
+    .mini-chip.is-muted{ opacity:.72; }
 
     .controls{
       display:grid;
@@ -805,6 +951,12 @@
       flex-wrap:wrap;
     }
 
+    .summary-export-row{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
     .btn{
       border:none;
       border-radius:999px;
@@ -859,12 +1011,6 @@
       font-size:34px;
     }
 
-    .tiny{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:800;
-    }
-
     .countdown{
       position:absolute;
       inset:0;
@@ -895,6 +1041,92 @@
       padding:10px;
     }
 
+    .teacher-panel{
+      position:fixed;
+      right:14px;
+      bottom:14px;
+      z-index:18;
+      width:min(420px, 92vw);
+      border-radius:24px;
+      border:2px solid rgba(132,189,205,.35);
+      background:rgba(255,255,255,.96);
+      box-shadow:0 24px 60px rgba(0,0,0,.16);
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+    .teacher-panel.hidden{ display:none; }
+
+    .teacher-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .teacher-title{
+      font-size:16px;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .teacher-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+    .teacher-card{
+      border-radius:16px;
+      border:2px solid rgba(132,189,205,.28);
+      background:#fff;
+      padding:10px;
+    }
+    .teacher-k{
+      font-size:11px;
+      color:#7b7a72;
+      font-weight:1000;
+    }
+    .teacher-v{
+      margin-top:4px;
+      font-size:17px;
+      color:#4d4a42;
+      font-weight:1000;
+    }
+
+    .teacher-actions{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+    .teacher-actions .btn{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .teacher-log{
+      max-height:180px;
+      overflow:auto;
+      border-radius:16px;
+      border:2px dashed rgba(132,189,205,.3);
+      background:rgba(255,255,255,.72);
+      padding:10px;
+      font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size:11px;
+      line-height:1.4;
+      color:#445;
+      white-space:pre-wrap;
+    }
+
+    .teacher-fab{
+      position:fixed;
+      right:14px;
+      bottom:14px;
+      z-index:17;
+    }
+    .teacher-fab.hidden{ display:none; }
+
     @media (max-width: 980px){
       .shell{
         grid-template-columns:1fr;
@@ -910,27 +1142,20 @@
 
     @media (max-width: 760px){
       .feature-grid,
-      .summary-grid{
+      .summary-grid,
+      .summary-export-row,
+      .teacher-grid,
+      .teacher-actions{
         grid-template-columns:1fr;
       }
       .topbar{
         grid-template-columns:1fr;
       }
-      .headline{
-        order:-1;
-      }
-      .overlay-bottom{
-        grid-template-columns:1fr;
-      }
-      .pill-row{
-        justify-content:flex-start;
-      }
-      .control-grid{
-        grid-template-columns:repeat(3, minmax(0,1fr));
-      }
-      .action-btn{
-        min-height:74px;
-      }
+      .headline{ order:-1; }
+      .overlay-bottom{ grid-template-columns:1fr; }
+      .pill-row{ justify-content:flex-start; }
+      .control-grid{ grid-template-columns:repeat(3, minmax(0,1fr)); }
+      .action-btn{ min-height:74px; }
       .post{
         min-height:58px;
         font-size:10px;
@@ -939,18 +1164,11 @@
       .post .num{
         width:22px;height:22px;margin-bottom:4px;
       }
-      .cue{
-        width:min(220px, 62vw);
-      }
-      .cue .label{
-        font-size:20px;
-      }
-      .next-big{
-        font-size:16px;
-      }
-      .feedback{
-        font-size:22px;
-      }
+      .cue{ width:min(220px, 62vw); }
+      .cue .label{ font-size:20px; }
+      .next-big{ font-size:16px; }
+      .feedback{ font-size:22px; }
+      .tutorial-panel{ width:min(300px, 74vw); }
     }
   </style>
 </head>
@@ -1030,6 +1248,17 @@
 
           <div class="center-hud">
             <div class="next-big" id="nextBig">เตรียมพร้อม!</div>
+            <div class="phase-banner" id="phaseBanner">Phase 1 • Learn the Beat</div>
+          </div>
+
+          <div class="tutorial-panel hidden" id="tutorialPanel">
+            <div class="tutorial-title">🎓 Mini Tutorial</div>
+            <div class="tutorial-sub" id="tutorialSub">ลองตาม cue ทีละขั้นแบบสั้น ๆ ก่อนเริ่มจริง</div>
+            <div class="tutorial-steps" id="tutorialSteps">
+              <div class="tutorial-step" data-tutorial-step="0">1) Jump</div>
+              <div class="tutorial-step" data-tutorial-step="1">2) Duck</div>
+              <div class="tutorial-step" data-tutorial-step="2">3) Hold Landing</div>
+            </div>
           </div>
 
           <div class="upcoming">
@@ -1055,6 +1284,8 @@
             </div>
 
             <div class="feedback" id="feedbackBox">Perfect!<small>จังหวะดีมาก</small></div>
+            <div class="landing-flash" id="landingFlash"></div>
+            <div class="combo-burst" id="comboBurst">Combo!<small>Great timing</small></div>
 
             <div class="avatar" id="avatar">
               <div class="head"></div>
@@ -1083,6 +1314,9 @@
                 <div class="pill-row">
                   <div class="mini-chip">🥁 <span id="liveBeat">1000 ms</span></div>
                   <div class="mini-chip">🎵 <span id="livePhaseShort">Learn</span></div>
+                  <div class="mini-chip" id="aiChip">🤖 Balanced</div>
+                  <div class="mini-chip is-boss" id="bossChip" hidden>👑 Final Combo</div>
+                  <button class="mini-chip" id="audioToggle" type="button">🔊 Beat ON</button>
                 </div>
               </div>
             </div>
@@ -1174,12 +1408,42 @@
         <div class="summary-stat"><div class="k">Posts Cleared</div><div class="v" id="sumPosts">0</div></div>
       </div>
 
+      <div class="summary-export-row">
+        <button class="btn secondary" id="btnExportEventsCsv" type="button">📄 Export Events CSV</button>
+        <button class="btn secondary" id="btnExportSummaryJson" type="button">🧾 Export Summary JSON</button>
+      </div>
+
       <div class="dialog-actions">
         <button class="btn primary" id="btnRestart" type="button">🔁 เล่นอีกครั้ง</button>
         <button class="btn secondary" id="btnCooldown" type="button">🧘 Cooldown</button>
         <a class="btn secondary" id="btnHubSummary" href="../herohealth/hub-v2.html" style="text-decoration:none;">🏠 กลับ HUB</a>
       </div>
     </div>
+  </div>
+
+  <button class="btn secondary teacher-fab" id="teacherFab" type="button">🧪 Teacher</button>
+
+  <div class="teacher-panel hidden" id="teacherPanel">
+    <div class="teacher-head">
+      <div class="teacher-title">Teacher / Research Panel</div>
+      <button class="btn secondary" id="teacherClose" type="button">ปิด</button>
+    </div>
+
+    <div class="teacher-grid">
+      <div class="teacher-card"><div class="teacher-k">Session</div><div class="teacher-v" id="teacherSession">-</div></div>
+      <div class="teacher-card"><div class="teacher-k">Events</div><div class="teacher-v" id="teacherEvents">0</div></div>
+      <div class="teacher-card"><div class="teacher-k">Adaptive</div><div class="teacher-v" id="teacherAdaptive">0</div></div>
+      <div class="teacher-card"><div class="teacher-k">Pattern</div><div class="teacher-v" id="teacherPattern">-</div></div>
+      <div class="teacher-card"><div class="teacher-k">Score</div><div class="teacher-v" id="teacherScore">0</div></div>
+      <div class="teacher-card"><div class="teacher-k">Stars</div><div class="teacher-v" id="teacherStars">0⭐</div></div>
+    </div>
+
+    <div class="teacher-actions">
+      <button class="btn secondary" id="btnExportEventsCsvTeacher" type="button">📄 Export Events CSV</button>
+      <button class="btn secondary" id="btnExportSummaryJsonTeacher" type="button">🧾 Export Summary JSON</button>
+    </div>
+
+    <div class="teacher-log" id="teacherLog">No data yet.</div>
   </div>
 
   <script>
@@ -1215,51 +1479,30 @@
       1: { label: 'Phase 1 • Learn the Beat', short: 'Learn', coach: 'เริ่มจาก cue ใหญ่ ๆ ก่อน ทำให้ตรงเส้นฟ้านะ' },
       2: { label: 'Phase 2 • Circuit Run', short: 'Circuit', coach: 'ดีมาก! ตอนนี้เริ่มเป็นสนามฝึกจริงแล้ว' },
       3: { label: 'Phase 3 • Rhythm Challenge', short: 'Challenge', coach: 'เริ่มมี sequence แล้ว จับจังหวะให้ดี' },
-      4: { label: 'Phase 4 • Final Performance', short: 'Final', coach: 'ด่านท้ายแล้ว! ทำ combo ให้ต่อเนื่อง' }
+      4: { label: 'Phase 4 • Final Boss Combo', short: 'Boss', coach: 'ด่านท้ายแล้ว! ผ่าน Final Combo ให้ได้' }
     };
 
     const ACTIONS = {
-      JUMP: {
-        label: 'Jump',
-        th: 'กระโดด',
-        emoji: '⬆️',
-        hint: 'กดตอนถึงเส้นฟ้า',
-        className: 'jump',
-        coach: 'กระโดดให้ตรงจังหวะ'
-      },
-      DUCK: {
-        label: 'Duck',
-        th: 'ย่อ',
-        emoji: '⬇️',
-        hint: 'ย่อตัวเมื่อถึงเส้นฟ้า',
-        className: 'duck',
-        coach: 'ย่อให้ทันตอน cue ลงมา'
-      },
-      LEFT_JUMP: {
-        label: 'Left Jump',
-        th: 'กระโดดซ้าย',
-        emoji: '↖️',
-        hint: 'กระโดดไปทางซ้ายตาม cue',
-        className: 'left_jump',
-        coach: 'ลองใช้แรงไปทางซ้าย'
-      },
-      RIGHT_JUMP: {
-        label: 'Right Jump',
-        th: 'กระโดดขวา',
-        emoji: '↗️',
-        hint: 'กระโดดไปทางขวาตาม cue',
-        className: 'right_jump',
-        coach: 'ลองใช้แรงไปทางขวา'
-      },
-      HOLD: {
-        label: 'Hold',
-        th: 'ค้างนิ่ง',
-        emoji: '✋',
-        hint: 'กดค้างช่วงลงพื้น',
-        className: 'hold',
-        coach: 'ค้างให้นิ่งอีกนิด'
-      }
+      JUMP: { label: 'Jump', th: 'กระโดด', emoji: '⬆️', hint: 'กดตอนถึงเส้นฟ้า', className: 'jump' },
+      DUCK: { label: 'Duck', th: 'ย่อ', emoji: '⬇️', hint: 'ย่อตัวเมื่อถึงเส้นฟ้า', className: 'duck' },
+      LEFT_JUMP: { label: 'Left Jump', th: 'กระโดดซ้าย', emoji: '↖️', hint: 'กระโดดไปทางซ้ายตาม cue', className: 'left_jump' },
+      RIGHT_JUMP: { label: 'Right Jump', th: 'กระโดดขวา', emoji: '↗️', hint: 'กระโดดไปทางขวาตาม cue', className: 'right_jump' },
+      HOLD: { label: 'Hold', th: 'ค้างนิ่ง', emoji: '✋', hint: 'กดค้างช่วงลงพื้น', className: 'hold' }
     };
+
+    const AI_CONFIG = {
+      enabled: true,
+      playAdaptive: ctx.run !== 'research',
+      coachCooldownMs: 4200,
+      minAdaptive: -2,
+      maxAdaptive: 2
+    };
+
+    const TUTORIAL_FLOW = [
+      { action: 'JUMP', label: '1) Jump', sub: 'กด Jump ให้ตรง cue' },
+      { action: 'DUCK', label: '2) Duck', sub: 'ลองย่อตาม cue' },
+      { action: 'HOLD', label: '3) Hold Landing', sub: 'ลงพื้นแล้วกด HOLD ค้างนิดหนึ่ง' }
+    ];
 
     function xmur3(str) {
       let h = 1779033703 ^ str.length;
@@ -1297,6 +1540,7 @@
       btnStart: document.getElementById('btnStart'),
       btnRestart: document.getElementById('btnRestart'),
       phaseText: document.getElementById('phaseText'),
+      phaseBanner: document.getElementById('phaseBanner'),
       scoreVal: document.getElementById('scoreVal'),
       comboVal: document.getElementById('comboVal'),
       timeVal: document.getElementById('timeVal'),
@@ -1316,13 +1560,19 @@
       upcomingSub: document.getElementById('upcomingSub'),
       nextBig: document.getElementById('nextBig'),
       feedbackBox: document.getElementById('feedbackBox'),
+      landingFlash: document.getElementById('landingFlash'),
+      comboBurst: document.getElementById('comboBurst'),
       beatLine: document.getElementById('beatLine'),
       avatar: document.getElementById('avatar'),
+      stage: document.getElementById('stage'),
       liveAction: document.getElementById('liveAction'),
       livePost: document.getElementById('livePost'),
       liveLap: document.getElementById('liveLap'),
       liveBeat: document.getElementById('liveBeat'),
       livePhaseShort: document.getElementById('livePhaseShort'),
+      aiChip: document.getElementById('aiChip'),
+      bossChip: document.getElementById('bossChip'),
+      audioToggle: document.getElementById('audioToggle'),
       countdown: document.getElementById('countdown'),
       postBar: document.getElementById('postBar'),
       debugWrap: document.getElementById('debugWrap'),
@@ -1334,7 +1584,24 @@
       sumCombo: document.getElementById('sumCombo'),
       sumPosts: document.getElementById('sumPosts'),
       summaryLine: document.getElementById('summaryLine'),
-      summaryStars: document.getElementById('summaryStars')
+      summaryStars: document.getElementById('summaryStars'),
+      btnExportEventsCsv: document.getElementById('btnExportEventsCsv'),
+      btnExportSummaryJson: document.getElementById('btnExportSummaryJson'),
+      tutorialPanel: document.getElementById('tutorialPanel'),
+      tutorialSub: document.getElementById('tutorialSub'),
+      tutorialSteps: document.getElementById('tutorialSteps'),
+      teacherFab: document.getElementById('teacherFab'),
+      teacherPanel: document.getElementById('teacherPanel'),
+      teacherClose: document.getElementById('teacherClose'),
+      teacherSession: document.getElementById('teacherSession'),
+      teacherEvents: document.getElementById('teacherEvents'),
+      teacherAdaptive: document.getElementById('teacherAdaptive'),
+      teacherPattern: document.getElementById('teacherPattern'),
+      teacherScore: document.getElementById('teacherScore'),
+      teacherStars: document.getElementById('teacherStars'),
+      teacherLog: document.getElementById('teacherLog'),
+      btnExportEventsCsvTeacher: document.getElementById('btnExportEventsCsvTeacher'),
+      btnExportSummaryJsonTeacher: document.getElementById('btnExportSummaryJsonTeacher')
     };
 
     if (ctx.debug) el.debugWrap.style.display = '';
@@ -1350,7 +1617,6 @@
       schedule: [],
       pointer: 0,
       current: null,
-      lastTs: 0,
       holdActive: false,
       score: 0,
       combo: 0,
@@ -1367,18 +1633,104 @@
       displayLap: 1,
       audioReady: false,
       audioCtx: null,
+      audioMuted: false,
+      musicGainNode: null,
+      musicOscA: null,
+      musicOscB: null,
+      musicRunning: false,
       feedbackTimer: 0,
-      coachTimer: 0,
       lastPulseAt: 0,
       logger: [],
-      resolvedKeys: new Set(),
       postOutcome: new Map(),
-      phase: 1
+      phase: 1,
+      sessionId: '',
+      eventSeq: 0,
+      phaseBossEntered: false,
+      adaptiveLevel: 0,
+      missStreak: 0,
+      successStreak: 0,
+      aiTipLastAt: 0,
+      aiTipLastKey: '',
+      aiDirectorEvents: 0,
+      lastPatternName: '',
+      landingFlashTimer: 0,
+      comboBurstTimer: 0,
+      lastSummaryPayload: null,
+      tutorialActive: false,
+      tutorialIndex: 0,
+      tutorialDone: false,
+      tutorialTimeout: 0
     };
 
-    const PERFECT_WIN = 140;
-    const GOOD_WIN = 280;
     const FEEDBACK_MS = 760;
+
+    function makeSessionId() {
+      return ['jd', String(ctx.pid || 'anon'), String(ctx.seed || Date.now()), Date.now().toString(36)].join('-');
+    }
+
+    function getBangkokLocalParts(dateObj = new Date()) {
+      try {
+        const fmt = new Intl.DateTimeFormat('sv-SE', {
+          timeZone: 'Asia/Bangkok',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+        const parts = fmt.formatToParts(dateObj);
+        const map = {};
+        parts.forEach((p) => { if (p.type !== 'literal') map[p.type] = p.value; });
+        return {
+          date_local: `${map.year}-${map.month}-${map.day}`,
+          time_local: `${map.hour}:${map.minute}:${map.second}`
+        };
+      } catch (_) {
+        return { date_local: '', time_local: '' };
+      }
+    }
+
+    function logEvent(type, detail = {}) {
+      const now = new Date();
+      const local = getBangkokLocalParts(now);
+      state.eventSeq += 1;
+
+      state.logger.push({
+        event_id: `${state.sessionId || 'jd'}-${state.eventSeq}`,
+        session_id: state.sessionId || '',
+        event_seq: state.eventSeq,
+        event_type: type,
+        ts_ms: now.getTime(),
+        ts_iso: now.toISOString(),
+        date_local: local.date_local,
+        time_local: local.time_local,
+        timezone: 'Asia/Bangkok',
+        pid: ctx.pid,
+        name: ctx.name,
+        studyId: ctx.studyId,
+        game: 'jumpduck',
+        zone: ctx.zone,
+        cat: ctx.cat,
+        mode: ctx.run,
+        diff: ctx.diff,
+        view: ctx.view,
+        seed: ctx.seed,
+        adaptive_level: state.adaptiveLevel || 0,
+        pattern_profile: state.lastPatternName || '',
+        ...detail
+      });
+    }
+
+    function emitBridge() {
+      window.dispatchEvent(new CustomEvent('hha:score', {
+        detail: { game: 'jumpduck', score: state.score, combo: state.combo }
+      }));
+      window.dispatchEvent(new CustomEvent('quest:update', {
+        detail: { game: 'jumpduck', postsCleared: state.postsCleared, score: state.score }
+      }));
+    }
 
     function getPhaseByProgress(progress) {
       const p = clamp(progress, 0, 1);
@@ -1404,6 +1756,359 @@
 
     function choose(arr) {
       return arr[Math.floor(rng() * arr.length)];
+    }
+
+    function seededIndex(key, len) {
+      const seedLocal = xmur3(`${ctx.seed}|${key}`)();
+      return len > 0 ? (seedLocal % len) : 0;
+    }
+
+    function seededChoice(key, arr) {
+      return arr[seededIndex(key, arr.length)];
+    }
+
+    function getFinalBossPattern(lap) {
+      const patterns = [
+        { name: 'classic', steps: ['JUMP','DUCK','JUMP','HOLD'] },
+        { name: 'left-stick', steps: ['JUMP','DUCK','LEFT_JUMP','HOLD'] },
+        { name: 'right-stick', steps: ['JUMP','DUCK','RIGHT_JUMP','HOLD'] },
+        { name: 'switch-legs', steps: ['LEFT_JUMP','DUCK','RIGHT_JUMP','HOLD'] },
+        { name: 'double-hop', steps: ['JUMP','JUMP','DUCK','HOLD'] }
+      ];
+      return seededChoice(`boss-${ctx.diff}-${lap}`, patterns);
+    }
+
+    function aiModeLabel() {
+      if (ctx.run === 'research') return '🤖 Research';
+      if (state.adaptiveLevel < 0) return `🤖 Assist ${Math.abs(state.adaptiveLevel)}`;
+      if (state.adaptiveLevel > 0) return `🤖 Challenge ${state.adaptiveLevel}`;
+      return '🤖 Balanced';
+    }
+
+    function updateAiChip() {
+      if (!el.aiChip) return;
+      el.aiChip.textContent = aiModeLabel();
+    }
+
+    function ensureAudio() {
+      if (state.audioReady) return;
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        state.audioCtx = new Ctx();
+        state.audioReady = true;
+      } catch (_) {}
+    }
+
+    function beep(freq = 520, dur = 0.045, gainValue = 0.03, type = 'sine') {
+      if (state.audioMuted || !state.audioReady || !state.audioCtx) return;
+      try {
+        const ctxA = state.audioCtx;
+        const osc = ctxA.createOscillator();
+        const gain = ctxA.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.value = gainValue;
+        osc.connect(gain);
+        gain.connect(ctxA.destination);
+        const t0 = ctxA.currentTime;
+        gain.gain.setValueAtTime(gainValue, t0);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.start(t0);
+        osc.stop(t0 + dur);
+      } catch (_) {}
+    }
+
+    function playBeatPulse(phase) {
+      const base =
+        phase >= 4 ? 680 :
+        phase === 3 ? 620 :
+        phase === 2 ? 570 : 530;
+
+      beep(base, 0.028, 0.018, 'triangle');
+      if (phase >= 4) beep(base * 1.5, 0.018, 0.010, 'sine');
+    }
+
+    function playJudgeTone(kind) {
+      if (kind === 'perfect') {
+        beep(760, 0.035, 0.045, 'triangle');
+        beep(980, 0.028, 0.018, 'sine');
+      } else if (kind === 'good') {
+        beep(620, 0.032, 0.03, 'triangle');
+      } else if (kind === 'boss') {
+        beep(720, 0.04, 0.04, 'triangle');
+        beep(920, 0.03, 0.02, 'triangle');
+        beep(1160, 0.03, 0.016, 'sine');
+      } else if (kind === 'miss') {
+        beep(280, 0.06, 0.04, 'sawtooth');
+      }
+    }
+
+    function startMusicLoop() {
+      if (state.audioMuted || !state.audioReady || !state.audioCtx || state.musicRunning) return;
+      try {
+        const ctxA = state.audioCtx;
+        const gain = ctxA.createGain();
+        gain.gain.value = 0.012;
+        const oscA = ctxA.createOscillator();
+        const oscB = ctxA.createOscillator();
+        oscA.type = 'triangle';
+        oscB.type = 'sine';
+        oscA.frequency.value = 220;
+        oscB.frequency.value = 330;
+        oscA.connect(gain);
+        oscB.connect(gain);
+        gain.connect(ctxA.destination);
+        oscA.start();
+        oscB.start();
+        state.musicGainNode = gain;
+        state.musicOscA = oscA;
+        state.musicOscB = oscB;
+        state.musicRunning = true;
+      } catch (_) {}
+    }
+
+    function stopMusicLoop() {
+      try {
+        if (state.musicOscA) state.musicOscA.stop();
+        if (state.musicOscB) state.musicOscB.stop();
+      } catch (_) {}
+      state.musicOscA = null;
+      state.musicOscB = null;
+      state.musicGainNode = null;
+      state.musicRunning = false;
+    }
+
+    function updateMusicLoop() {
+      if (state.audioMuted) {
+        stopMusicLoop();
+        return;
+      }
+      ensureAudio();
+      if (!state.musicRunning) startMusicLoop();
+      if (!state.musicRunning || !state.musicOscA || !state.musicOscB) return;
+
+      const phase = state.phase || 1;
+      const comboBoost = Math.min(40, state.combo * 2);
+      const baseA = phase === 4 ? 246.94 : phase === 3 ? 233.08 : phase === 2 ? 220 : 196;
+      const baseB = phase === 4 ? 369.99 : phase === 3 ? 349.23 : phase === 2 ? 329.63 : 293.66;
+
+      state.musicOscA.frequency.setValueAtTime(baseA + comboBoost, state.audioCtx.currentTime);
+      state.musicOscB.frequency.setValueAtTime(baseB + comboBoost * 0.5, state.audioCtx.currentTime);
+
+      if (state.musicGainNode) {
+        const gainTarget = phase === 4 ? 0.018 : 0.012;
+        state.musicGainNode.gain.setValueAtTime(gainTarget, state.audioCtx.currentTime);
+      }
+    }
+
+    function pulseBeat() {
+      document.documentElement.style.setProperty('--pulse-scale', '1.18');
+      if (state.current) playBeatPulse(state.current.phase);
+      clearTimeout(state.lastPulseAt);
+      state.lastPulseAt = setTimeout(() => {
+        document.documentElement.style.setProperty('--pulse-scale', '1');
+      }, 120);
+    }
+
+    function showFeedback(title, subtitle, tone) {
+      const fb = el.feedbackBox;
+      fb.innerHTML = `${title}<small>${subtitle}</small>`;
+      const toneMap = {
+        perfect: '#eefcff',
+        good: '#fffdf1',
+        miss: '#fff3f3'
+      };
+      fb.style.background = toneMap[tone] || '#fff';
+      document.documentElement.style.setProperty('--feedback-opacity', '1');
+      document.documentElement.style.setProperty('--feedback-scale', '1.02');
+      clearTimeout(state.feedbackTimer);
+      state.feedbackTimer = setTimeout(() => {
+        document.documentElement.style.setProperty('--feedback-opacity', '0');
+        document.documentElement.style.setProperty('--feedback-scale', '.9');
+      }, FEEDBACK_MS);
+    }
+
+    function flashCoach(line, mini = '') {
+      el.coachLine.textContent = line;
+      if (mini) el.coachMini.textContent = mini;
+    }
+
+    function actionVisual(action) {
+      el.avatar.className = 'avatar';
+      if (action === 'JUMP') el.avatar.classList.add('jump');
+      else if (action === 'DUCK') el.avatar.classList.add('duck');
+      else if (action === 'LEFT_JUMP') el.avatar.classList.add('left');
+      else if (action === 'RIGHT_JUMP') el.avatar.classList.add('right');
+      else if (action === 'HOLD') el.avatar.classList.add('hold');
+      setTimeout(() => { el.avatar.className = 'avatar'; }, 180);
+    }
+
+    function triggerLandingFlash(kind = 'normal') {
+      if (!el.landingFlash) return;
+      el.landingFlash.classList.remove('show');
+      void el.landingFlash.offsetWidth;
+      if (kind === 'perfect') {
+        el.landingFlash.style.filter = 'drop-shadow(0 0 12px rgba(255,255,255,.55))';
+      } else if (kind === 'boss') {
+        el.landingFlash.style.filter = 'drop-shadow(0 0 16px rgba(255,196,79,.6))';
+      } else {
+        el.landingFlash.style.filter = 'none';
+      }
+      el.landingFlash.classList.add('show');
+    }
+
+    function triggerComboBurst(title, sub = '') {
+      if (!el.comboBurst) return;
+      el.comboBurst.innerHTML = `${title}${sub ? `<small>${sub}</small>` : ''}`;
+      el.comboBurst.classList.remove('show');
+      void el.comboBurst.offsetWidth;
+      el.comboBurst.classList.add('show');
+    }
+
+    function setBossCinematic(on) {
+      if (!el.stage) return;
+      el.stage.classList.toggle('boss-cinematic', !!on);
+    }
+
+    function maybeComboCelebration() {
+      if (state.combo > 0 && state.combo % 5 === 0) {
+        triggerComboBurst(`x${state.combo} Combo!`, 'ต่อเนื่องดีมาก');
+      }
+    }
+
+    function toCsvValue(v) {
+      if (v == null) return '';
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }
+
+    function rowsToCsv(rows, columns) {
+      const head = columns.join(',');
+      const body = rows.map((row) => columns.map((c) => toCsvValue(row[c])).join(',')).join('\n');
+      return `${head}\n${body}`;
+    }
+
+    function downloadTextFile(filename, text, mime = 'text/plain;charset=utf-8') {
+      const blob = new Blob([text], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 800);
+    }
+
+    function exportEventsCsv() {
+      const rows = Array.isArray(state.logger) ? state.logger : [];
+      const columns = [
+        'event_id','session_id','event_seq','event_type',
+        'ts_ms','ts_iso','date_local','time_local','timezone',
+        'pid','name','studyId',
+        'game','zone','cat','mode','diff','view','seed',
+        'cueType','cueDueAt','playerAction','rtMs','judgment',
+        'phase','lap','postId','reason',
+        'adaptive_level','pattern_profile','patternName','director_reason','ai_tip','ai_line','ai_mini'
+      ];
+      const csv = rowsToCsv(rows, columns);
+      downloadTextFile(`jumpduck-events-${state.sessionId || 'session'}.csv`, csv, 'text/csv;charset=utf-8');
+    }
+
+    function exportSummaryJson() {
+      const payload = state.lastSummaryPayload || {};
+      downloadTextFile(
+        `jumpduck-summary-${payload.sessionId || state.sessionId || 'session'}.json`,
+        JSON.stringify(payload, null, 2),
+        'application/json;charset=utf-8'
+      );
+    }
+
+    function explainableCoachTip(step, result, delta, reason) {
+      if (!step) return null;
+
+      if (reason === 'ผิดท่า') {
+        return { key: `wrong-${step.action}`, line: `cue นี้คือ ${ACTIONS[step.action].th}`, mini: 'มองสัญลักษณ์กลางจอก่อนกด' };
+      }
+      if (step.action === 'HOLD' && result === 'miss') {
+        return { key: 'hold-miss', line: 'ลงพื้นแล้วกด HOLD ค้างอีกนิด', mini: 'จะช่วยเพิ่ม Landing Control' };
+      }
+      if (delta < -110) {
+        return { key: 'too-early', line: 'เร็วไปนิด รอให้ cue ใกล้เส้นฟ้า', mini: 'จังหวะยังมาไม่ถึง' };
+      }
+      if (delta > 110) {
+        return { key: 'too-late', line: 'ช้าไปนิด กดเร็วขึ้นอีกนิด', mini: 'ดู cue ลงถึงเส้นแล้วค่อยกด' };
+      }
+      if (result === 'perfect' && state.combo > 0 && state.combo % 5 === 0) {
+        return { key: `combo-${state.combo}`, line: `สุดยอด x${state.combo} combo`, mini: 'จังหวะคงที่มาก' };
+      }
+      if (result === 'good') {
+        return { key: 'good-adjust', line: 'ดีแล้ว ลองให้ตรงขึ้นอีกนิด', mini: 'ใกล้ Perfect แล้ว' };
+      }
+      return null;
+    }
+
+    function maybeCoachFromAI(step, result, delta, reason) {
+      const tip = explainableCoachTip(step, result, delta, reason);
+      if (!tip) return;
+      const t = Date.now();
+      if (t - state.aiTipLastAt < AI_CONFIG.coachCooldownMs && tip.key === state.aiTipLastKey) return;
+      state.aiTipLastAt = t;
+      state.aiTipLastKey = tip.key;
+      flashCoach(tip.line, tip.mini);
+      logEvent('ai_tip', {
+        ai_tip: tip.key,
+        ai_line: tip.line,
+        ai_mini: tip.mini,
+        phase: step.phase,
+        lap: step.lap,
+        postId: step.postId
+      });
+    }
+
+    function directorAfterJudge(step, result, delta, reason) {
+      if (!AI_CONFIG.enabled || !step) return;
+
+      if (result === 'miss') {
+        state.missStreak += 1;
+        state.successStreak = 0;
+      } else {
+        state.successStreak += 1;
+        state.missStreak = 0;
+      }
+
+      let next = state.adaptiveLevel;
+      let directorReason = '';
+
+      if (AI_CONFIG.playAdaptive) {
+        if (state.missStreak >= 3 && next > AI_CONFIG.minAdaptive) {
+          next -= 1;
+          directorReason = 'miss_streak';
+          state.missStreak = 0;
+        } else if (state.successStreak >= 5 && next < AI_CONFIG.maxAdaptive) {
+          next += 1;
+          directorReason = 'success_streak';
+          state.successStreak = 0;
+        }
+      }
+
+      if (next !== state.adaptiveLevel) {
+        const prev = state.adaptiveLevel;
+        state.adaptiveLevel = next;
+        state.aiDirectorEvents += 1;
+        updateAiChip();
+        logEvent('director_adjust', {
+          prev_adaptive: prev,
+          next_adaptive: next,
+          director_reason: directorReason,
+          phase: step.phase,
+          lap: step.lap,
+          postId: step.postId
+        });
+      }
+
+      maybeCoachFromAI(step, result, delta, reason);
     }
 
     function buildPostDefinition(postId, phase, lap) {
@@ -1448,17 +2153,19 @@
         return defs[postId];
       }
 
+      if (postId === 7) {
+        const boss = getFinalBossPattern(lap);
+        return { name: 'Final Combo', steps: boss.steps, patternName: boss.name };
+      }
+
       const otherSide = side === 'LEFT_JUMP' ? 'RIGHT_JUMP' : 'LEFT_JUMP';
       const defs = {
         1: { name: 'Ready Bounce', steps: ['JUMP','JUMP'] },
         2: { name: 'Low Jump', steps: ['JUMP'] },
         3: { name: 'Duck Gate', steps: ['DUCK','JUMP'] },
         4: { name: 'Double Jump', steps: ['JUMP','JUMP'] },
-        5: { name: 'Single-Leg', steps: [ctx.diff === 'easy' ? side : choose([side, otherSide])] },
-        6: { name: 'Stick Landing', steps: ['JUMP','HOLD'] },
-        7: { name: 'Final Combo', steps: ctx.diff === 'hard'
-              ? ['JUMP','DUCK',side,'HOLD']
-              : ['JUMP','DUCK','JUMP','HOLD'] }
+        5: { name: 'Single-Leg', steps: [ctx.diff === 'easy' ? side : seededChoice(`phase4-leg-${lap}`, [side, otherSide])] },
+        6: { name: 'Stick Landing', steps: ['JUMP','HOLD'] }
       };
       return defs[postId];
     }
@@ -1487,6 +2194,7 @@
             lap,
             postId,
             postName: post.name,
+            patternName: post.patternName || '',
             postStep: stepIndex + 1,
             postLen: post.steps.length,
             beat
@@ -1529,12 +2237,10 @@
         state.displayLap = lap;
         [...el.postBar.children].forEach(node => node.className = 'post');
       }
-
       [...el.postBar.children].forEach(node => {
         const n = Number(node.dataset.post);
         node.classList.toggle('active', n === activePost);
       });
-
       if (finalizedPost) {
         const node = el.postBar.querySelector(`.post[data-post="${finalizedPost}"]`);
         if (node) {
@@ -1566,6 +2272,55 @@
       return 'ดีมาก! ลองเก็บ combo ให้ยาวขึ้นอีกรอบนะ';
     }
 
+    function updatePhaseBossUI(step = null) {
+      const s = step || state.current || state.schedule[state.pointer] || null;
+      const phase = s?.phase || state.phase || 1;
+
+      if (el.phaseBanner) {
+        el.phaseBanner.textContent = PHASES[phase].label;
+        el.phaseBanner.classList.toggle('is-final', phase === 4);
+      }
+
+      const finalOn = !!s && s.phase === 4 && s.postId === 7;
+      if (el.bossChip) {
+        el.bossChip.hidden = !finalOn;
+        if (finalOn) {
+          const suffix = s.patternName ? ` • ${s.patternName}` : '';
+          el.bossChip.textContent = `👑 Final Combo ${s.postStep}/${s.postLen}${suffix}`;
+        }
+      }
+    }
+
+    function updateTeacherPanel(summary = null) {
+      const payload = summary || state.lastSummaryPayload || {};
+      if (el.teacherSession) el.teacherSession.textContent = payload.sessionId || state.sessionId || '-';
+      if (el.teacherEvents) el.teacherEvents.textContent = String((state.logger || []).length);
+      if (el.teacherAdaptive) el.teacherAdaptive.textContent = String(state.adaptiveLevel || 0);
+      if (el.teacherPattern) el.teacherPattern.textContent = state.lastPatternName || payload.lastPatternName || '-';
+      if (el.teacherScore) el.teacherScore.textContent = String(payload.score || state.score || 0);
+      if (el.teacherStars) el.teacherStars.textContent = `${Number(payload.stars || 0)}⭐`;
+
+      if (el.teacherLog) {
+        const recent = (state.logger || []).slice(-8);
+        el.teacherLog.textContent = recent.length
+          ? recent.map((r) => `${r.event_seq}. ${r.event_type} | phase=${r.phase ?? '-'} | post=${r.postId ?? '-'} | judge=${r.judgment ?? '-'} | ai=${r.adaptive_level ?? 0}`).join('\n')
+          : 'No data yet.';
+      }
+    }
+
+    function openTeacherPanel() {
+      if (!el.teacherPanel) return;
+      el.teacherPanel.classList.remove('hidden');
+      if (el.teacherFab) el.teacherFab.classList.add('hidden');
+      updateTeacherPanel();
+    }
+
+    function closeTeacherPanel() {
+      if (!el.teacherPanel) return;
+      el.teacherPanel.classList.add('hidden');
+      if (el.teacherFab) el.teacherFab.classList.remove('hidden');
+    }
+
     function updateHUD() {
       const m = metrics();
       el.phaseText.textContent = PHASES[state.phase].label;
@@ -1579,6 +2334,8 @@
       el.postsVal.textContent = String(state.postsCleared);
       el.coachSide.textContent = coachTipFromMetrics(m);
       el.livePhaseShort.textContent = PHASES[state.phase].short;
+      updatePhaseBossUI();
+      updateAiChip();
 
       if (ctx.debug) {
         el.debugBox.textContent =
@@ -1592,6 +2349,7 @@ combo=${state.combo}
 perfect=${state.perfect} good=${state.good} miss=${state.miss}
 holdActive=${state.holdActive}
 phase=${state.phase}
+adaptive=${state.adaptiveLevel}
 remaining=${remainingMs()}`;
       }
     }
@@ -1602,117 +2360,164 @@ remaining=${remainingMs()}`;
       return clamp(state.startLeadMs + state.playMs - t, 0, state.playMs);
     }
 
-    function ensureAudio() {
-      if (state.audioReady) return;
-      try {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) return;
-        state.audioCtx = new Ctx();
-        state.audioReady = true;
-      } catch (_) {}
-    }
-
-    function beep(freq = 520, dur = 0.045, gainValue = 0.03) {
-      if (!state.audioReady || !state.audioCtx) return;
-      try {
-        const ctxA = state.audioCtx;
-        const osc = ctxA.createOscillator();
-        const gain = ctxA.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        gain.gain.value = gainValue;
-        osc.connect(gain);
-        gain.connect(ctxA.destination);
-        const t0 = ctxA.currentTime;
-        gain.gain.setValueAtTime(gainValue, t0);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-        osc.start(t0);
-        osc.stop(t0 + dur);
-      } catch (_) {}
-    }
-
-    function pulseBeat() {
-      document.documentElement.style.setProperty('--pulse-scale', '1.18');
-      clearTimeout(state.lastPulseAt);
-      state.lastPulseAt = setTimeout(() => {
-        document.documentElement.style.setProperty('--pulse-scale', '1');
-      }, 120);
-    }
-
-    function showFeedback(title, subtitle, tone) {
-      const fb = el.feedbackBox;
-      fb.innerHTML = `${title}<small>${subtitle}</small>`;
-      const toneMap = {
-        perfect: '#eefcff',
-        good: '#fffdf1',
-        miss: '#fff3f3'
-      };
-      fb.style.background = toneMap[tone] || '#fff';
-      document.documentElement.style.setProperty('--feedback-opacity', '1');
-      document.documentElement.style.setProperty('--feedback-scale', '1.02');
-      clearTimeout(state.feedbackTimer);
-      state.feedbackTimer = setTimeout(() => {
-        document.documentElement.style.setProperty('--feedback-opacity', '0');
-        document.documentElement.style.setProperty('--feedback-scale', '.9');
-      }, FEEDBACK_MS);
-    }
-
-    function flashCoach(line, mini = '') {
-      el.coachLine.textContent = line;
-      if (mini) el.coachMini.textContent = mini;
-    }
-
-    function actionVisual(action) {
-      el.avatar.className = 'avatar';
-      if (action === 'JUMP') el.avatar.classList.add('jump');
-      else if (action === 'DUCK') el.avatar.classList.add('duck');
-      else if (action === 'LEFT_JUMP') el.avatar.classList.add('left');
-      else if (action === 'RIGHT_JUMP') el.avatar.classList.add('right');
-      else if (action === 'HOLD') el.avatar.classList.add('hold');
-      setTimeout(() => { el.avatar.className = 'avatar'; }, 180);
-    }
-
-    function logEvent(type, detail = {}) {
-      const t = Date.now();
-      state.logger.push({
-        eventType: type,
-        ts_ms: t,
-        ts_iso: new Date(t).toISOString(),
-        pid: ctx.pid,
-        game: 'jumpduck',
-        zone: ctx.zone,
-        diff: ctx.diff,
-        ...detail
+    function copyPassthroughParams(url) {
+      [
+        'studentKey','schoolCode','classRoom','studentNo','nickName',
+        'api','conditionGroup','sessionNo','weekNo','debug'
+      ].forEach((k) => {
+        const v = qs.get(k);
+        if (v != null && v !== '') url.searchParams.set(k, v);
       });
     }
 
-    function emitBridge() {
-      window.dispatchEvent(new CustomEvent('hha:score', {
-        detail: { game: 'jumpduck', score: state.score, combo: state.combo }
-      }));
-      window.dispatchEvent(new CustomEvent('quest:update', {
-        detail: { game: 'jumpduck', postsCleared: state.postsCleared, score: state.score }
-      }));
+    function buildCooldownUrl() {
+      const url = new URL('../herohealth/warmup-gate.html', location.href);
+      url.searchParams.set('phase', 'cooldown');
+      url.searchParams.set('pid', ctx.pid);
+      url.searchParams.set('name', ctx.name);
+      if (ctx.studyId) url.searchParams.set('studyId', ctx.studyId);
+
+      url.searchParams.set('zone', ctx.zone);
+      url.searchParams.set('cat', ctx.cat);
+      url.searchParams.set('game', ctx.game);
+      url.searchParams.set('gameId', ctx.gameId);
+      url.searchParams.set('theme', ctx.theme);
+      url.searchParams.set('diff', ctx.diff);
+      url.searchParams.set('time', String(ctx.time));
+      url.searchParams.set('seed', ctx.seed);
+      url.searchParams.set('hub', ctx.hub);
+      url.searchParams.set('view', ctx.view);
+      url.searchParams.set('run', ctx.run);
+      url.searchParams.set('gate', ctx.gate);
+      url.searchParams.set('cooldown', '1');
+      url.searchParams.set('returnPhase', 'hub');
+      url.searchParams.set('cdur', qs.get('cdur') || '20');
+      url.searchParams.set('next', ctx.hub);
+      copyPassthroughParams(url);
+      return url.href;
+    }
+
+    function applyHubLinks() {
+      el.btnHubTop.href = ctx.hub;
+      el.btnHubCover.href = ctx.hub;
+      el.btnHubSummary.href = ctx.hub;
+    }
+
+    function configureSummaryActions() {
+      applyHubLinks();
+      if (ctx.cooldown === '1') {
+        el.btnCooldown.style.display = '';
+        el.btnCooldown.textContent = '🧘 Cooldown';
+        el.btnHubSummary.textContent = '🏠 ข้ามไป HUB';
+        el.btnCooldown.onclick = () => { location.href = buildCooldownUrl(); };
+      } else {
+        el.btnCooldown.style.display = 'none';
+        el.btnHubSummary.textContent = '🏠 กลับ HUB';
+        el.btnCooldown.onclick = null;
+      }
+    }
+
+    function timingWindows(step) {
+      const base =
+        ctx.diff === 'easy'
+          ? { perfect: 170, good: 320 }
+          : ctx.diff === 'hard'
+          ? { perfect: 120, good: 250 }
+          : { perfect: 145, good: 285 };
+
+      if (!step) return base;
+
+      let perfect = base.perfect;
+      let good = base.good;
+
+      if (step.phase === 1) {
+        perfect += 20;
+        good += 35;
+      }
+
+      if (step.phase === 4) {
+        perfect = Math.max(115, perfect - 5);
+        good = Math.max(235, good - 10);
+      }
+
+      if (step.action === 'HOLD') {
+        perfect += 12;
+        good += 18;
+      }
+
+      const ease = -state.adaptiveLevel;
+      perfect += ease * 18;
+      good += ease * 28;
+
+      return { perfect, good };
+    }
+
+    function judgeTiming(delta, step) {
+      const win = timingWindows(step);
+      const ad = Math.abs(delta);
+      if (ad <= win.perfect) return 'perfect';
+      if (ad <= win.good) return 'good';
+      return 'miss';
+    }
+
+    function scoreDeltaFor(step, result) {
+      if (!step) return 0;
+      const isBoss = step.phase === 4 && step.postId === 7;
+      const isHold = step.action === 'HOLD';
+      const isSingleLeg = step.action === 'LEFT_JUMP' || step.action === 'RIGHT_JUMP';
+
+      if (result === 'perfect') {
+        let s = 3;
+        if (isHold) s += 1;
+        if (isSingleLeg) s += 1;
+        if (isBoss) s += 2;
+        return s;
+      }
+      if (result === 'good') {
+        let s = 2;
+        if (isHold) s += 1;
+        if (isBoss) s += 1;
+        return s;
+      }
+      return -1;
+    }
+
+    function isJumpType(action) {
+      return action === 'JUMP' || action === 'LEFT_JUMP' || action === 'RIGHT_JUMP';
     }
 
     function finalizePost(step) {
       const key = `${step.lap}-${step.postId}`;
       const info = state.postOutcome.get(key);
       if (!info) return;
+
       const clear = info.successes / Math.max(1, info.total) >= 0.6;
-      if (clear) state.postsCleared += 1;
+      if (clear) {
+        state.postsCleared += 1;
+
+        if (step.phase === 4 && step.postId === 7) {
+          state.score += 8;
+          state.combo += 1;
+          state.maxCombo = Math.max(state.maxCombo, state.combo);
+          showFeedback('Boss Clear!', 'ผ่าน Final Combo แล้ว', 'perfect');
+          playJudgeTone('boss');
+          triggerLandingFlash('boss');
+          triggerComboBurst('Boss Clear!', 'ผ่าน Final Combo สำเร็จ');
+          setBossCinematic(false);
+
+          logEvent('boss_clear', {
+            lap: step.lap,
+            postId: step.postId,
+            postName: step.postName,
+            phase: step.phase,
+            bonusScore: 8
+          });
+        }
+      } else if (step.phase === 4 && step.postId === 7) {
+        setBossCinematic(false);
+      }
+
       updatePostBar(step.postId, step.lap, step.postId);
-    }
-
-    function judgeTiming(delta) {
-      const ad = Math.abs(delta);
-      if (ad <= PERFECT_WIN) return 'perfect';
-      if (ad <= GOOD_WIN) return 'good';
-      return 'miss';
-    }
-
-    function isJumpType(action) {
-      return action === 'JUMP' || action === 'LEFT_JUMP' || action === 'RIGHT_JUMP';
     }
 
     function resolveCurrent(result, triggerAction, delta, reason = '') {
@@ -1727,12 +2532,8 @@ remaining=${remainingMs()}`;
       const info = state.postOutcome.get(key) || { total: 0, successes: 0 };
       info.total += 1;
 
-      if (isJumpType(step.action)) {
-        state.totalJump += 1;
-      }
-      if (step.action === 'HOLD') {
-        state.totalLanding += 1;
-      }
+      if (isJumpType(step.action)) state.totalJump += 1;
+      if (step.action === 'HOLD') state.totalLanding += 1;
 
       if (result === 'perfect' || result === 'good') {
         info.successes += 1;
@@ -1741,29 +2542,32 @@ remaining=${remainingMs()}`;
 
         if (result === 'perfect') {
           state.perfect += 1;
-          state.score += 3;
+          state.score += scoreDeltaFor(step, 'perfect');
           if (isJumpType(step.action)) state.goodJump += 1;
           if (step.action === 'HOLD') state.goodLanding += 1;
           showFeedback('Perfect!', 'จังหวะดีมาก', 'perfect');
-          beep(760, 0.04, 0.045);
+          playJudgeTone('perfect');
+          if (step.action === 'HOLD') triggerLandingFlash('perfect');
+          maybeComboCelebration();
         } else {
           state.good += 1;
-          state.score += 2;
+          state.score += scoreDeltaFor(step, 'good');
           if (isJumpType(step.action)) state.goodJump += 1;
           if (step.action === 'HOLD') state.goodLanding += 1;
           showFeedback('Good!', 'เกือบพอดีแล้ว', 'good');
-          beep(620, 0.035, 0.03);
-        }
-
-        if (step.action === 'HOLD') {
-          state.score += 2;
+          playJudgeTone('good');
+          if (step.action === 'HOLD') triggerLandingFlash('normal');
+          maybeComboCelebration();
         }
       } else {
         state.miss += 1;
         state.combo = 0;
-        state.score = Math.max(0, state.score - 1);
+        state.score = Math.max(0, state.score + scoreDeltaFor(step, 'miss'));
         showFeedback('Oops!', reason || 'ช้า เร็ว หรือผิดท่า', 'miss');
-        beep(280, 0.06, 0.04);
+        playJudgeTone('miss');
+        if (step.phase === 4 && step.postId === 7) {
+          triggerComboBurst('Oops!', 'Final Combo หลุด');
+        }
       }
 
       state.postOutcome.set(key, info);
@@ -1777,8 +2581,11 @@ remaining=${remainingMs()}`;
         phase: step.phase,
         lap: step.lap,
         postId: step.postId,
-        reason
+        reason,
+        patternName: step.patternName || ''
       });
+
+      directorAfterJudge(step, result, delta, reason);
 
       actionVisual(step.action);
       flashCoach(
@@ -1794,16 +2601,67 @@ remaining=${remainingMs()}`;
 
       emitBridge();
 
-      if (step.postStep === step.postLen) {
-        finalizePost(step);
-      }
+      if (step.postStep === step.postLen) finalizePost(step);
 
       state.pointer += 1;
       state.current = null;
       updateHUD();
     }
 
+    function renderTutorialUI() {
+      if (!el.tutorialPanel || !el.tutorialSteps) return;
+      el.tutorialPanel.classList.toggle('hidden', !state.tutorialActive);
+      const flow = TUTORIAL_FLOW[state.tutorialIndex] || null;
+      if (flow && el.tutorialSub) el.tutorialSub.textContent = flow.sub;
+      el.tutorialSteps.querySelectorAll('[data-tutorial-step]').forEach((node) => {
+        const idx = Number(node.getAttribute('data-tutorial-step'));
+        node.classList.toggle('active', idx === state.tutorialIndex);
+      });
+    }
+
+    function finishMiniTutorial() {
+      clearTimeout(state.tutorialTimeout);
+      state.tutorialActive = false;
+      state.tutorialDone = true;
+      renderTutorialUI();
+      triggerComboBurst('Tutorial Clear!', 'พร้อมเริ่มเล่นจริง');
+      flashCoach('พร้อมแล้ว! เริ่มเกมจริงกันเลย', 'จับ cue ให้ตรงเหมือนตอนซ้อม');
+      startCountdownThenRun();
+    }
+
+    function startMiniTutorial() {
+      state.tutorialActive = true;
+      state.tutorialIndex = 0;
+      renderTutorialUI();
+      flashCoach('มาลองทีละขั้นก่อนเริ่มจริง', 'Jump → Duck → Hold');
+      clearTimeout(state.tutorialTimeout);
+      state.tutorialTimeout = setTimeout(() => {
+        finishMiniTutorial();
+      }, 15000);
+    }
+
+    function advanceMiniTutorial(action) {
+      if (!state.tutorialActive) return;
+      const flow = TUTORIAL_FLOW[state.tutorialIndex];
+      if (!flow) return;
+      if (action !== flow.action) return;
+
+      state.tutorialIndex += 1;
+      if (state.tutorialIndex >= TUTORIAL_FLOW.length) {
+        finishMiniTutorial();
+        return;
+      }
+      renderTutorialUI();
+      const next = TUTORIAL_FLOW[state.tutorialIndex];
+      if (next) flashCoach(`ดีมาก! ต่อไป ${ACTIONS[next.action].th}`, next.sub);
+    }
+
     function onAction(action, isDown) {
+      if (state.tutorialActive) {
+        if (isDown) advanceMiniTutorial(action);
+        return;
+      }
+
       if (!state.running || state.paused) return;
       ensureAudio();
 
@@ -1821,15 +2679,17 @@ remaining=${remainingMs()}`;
 
       const t = nowMs() - state.zeroAt;
       const delta = t - step.dueAt;
+      const win = timingWindows(step);
 
-      if (Math.abs(delta) > GOOD_WIN) return;
+      if (Math.abs(delta) > win.good) return;
 
       if (action !== step.action) {
+        if (delta < -90) return;
         resolveCurrent('miss', action, delta, 'ผิดท่า');
         return;
       }
 
-      const result = judgeTiming(delta);
+      const result = judgeTiming(delta, step);
       resolveCurrent(result, action, delta);
     }
 
@@ -1846,32 +2706,32 @@ remaining=${remainingMs()}`;
 
       document.documentElement.style.setProperty('--cue-progress', String(progress));
       el.cueCard.className = `cue ${action.className}`;
+      if (step.phase === 4 && step.postId === 7) el.cueCard.classList.add('final-approach');
       el.cueCard.classList.remove('hidden');
+
       el.cueEmoji.textContent = action.emoji;
       el.cueLabel.textContent = action.label;
-      el.cueHint.textContent = action.hint;
+      el.cueHint.textContent =
+        step.phase === 4 && step.postId === 7
+          ? 'Final Combo • กดให้แม่น'
+          : action.hint;
+
       el.liveAction.textContent = action.label;
       el.livePost.textContent = `Post ${step.postId} / 7`;
       el.liveLap.textContent = `Lap ${step.lap}`;
       el.liveBeat.textContent = `${step.beat} ms`;
 
-      if (progress >= 0.82 && progress <= 0.9) {
-        pulseBeat();
-      }
+      if (progress >= 0.78 && progress <= 0.92) pulseBeat();
     }
 
     function renderUpcoming() {
-      const next = state.current
-        ? state.schedule[state.pointer + 1]
-        : state.schedule[state.pointer];
-
+      const next = state.current ? state.schedule[state.pointer + 1] : state.schedule[state.pointer];
       if (!next) {
         el.upcomingMain.textContent = 'Finish!';
         el.upcomingSub.textContent = 'เตรียมสรุปผล';
         el.nextBig.textContent = 'กำลังสรุปคะแนน...';
         return;
       }
-
       const action = ACTIONS[next.action];
       el.upcomingMain.textContent = `${action.emoji} ${action.label}`;
       el.upcomingSub.textContent = `${next.postName} • ${PHASES[next.phase].short}`;
@@ -1880,35 +2740,49 @@ remaining=${remainingMs()}`;
 
     function updateCurrentStep(t) {
       if (state.current) return;
-
       const next = state.schedule[state.pointer];
       if (!next) return;
 
       if (t >= next.spawnAt) {
         state.current = next;
         state.phase = next.phase;
+        state.lastPatternName = next.patternName || '';
         updatePostBar(next.postId, next.lap);
         renderUpcoming();
+        updatePhaseBossUI(next);
         beep(520, 0.03, 0.015);
+
+        if (next.phase === 4 && next.postId === 7 && !state.phaseBossEntered) {
+          state.phaseBossEntered = true;
+          setBossCinematic(true);
+          triggerComboBurst('Final Combo!', 'ด่านท้ายแล้ว');
+          logEvent('boss_enter', {
+            phase: next.phase,
+            lap: next.lap,
+            postId: next.postId,
+            postName: next.postName
+          });
+        }
       }
     }
 
     function autoJudge(t) {
       const step = state.current;
       if (!step) return;
+      const win = timingWindows(step);
 
       if (step.action === 'HOLD' && !step.resolved) {
         if (state.holdActive) {
           const delta = t - step.dueAt;
-          if (Math.abs(delta) <= GOOD_WIN) {
-            const result = judgeTiming(delta);
+          if (Math.abs(delta) <= win.good) {
+            const result = judgeTiming(delta, step);
             resolveCurrent(result, 'HOLD', delta);
             return;
           }
         }
       }
 
-      if (t > step.dueAt + GOOD_WIN) {
+      if (t > step.dueAt + win.good) {
         resolveCurrent('miss', '', t - step.dueAt, 'ไม่ทันจังหวะ');
       }
     }
@@ -1919,9 +2793,8 @@ remaining=${remainingMs()}`;
     }
 
     function updateLoop() {
-      const rawT = nowMs() - state.zeroAt;
-
       if (!state.running) return;
+      const rawT = nowMs() - state.zeroAt;
 
       if (state.paused) {
         state.raf = requestAnimationFrame(updateLoop);
@@ -1943,6 +2816,8 @@ remaining=${remainingMs()}`;
       }
 
       updateHUD();
+      updateMusicLoop();
+      updateTeacherPanel();
 
       if (rawT >= state.startLeadMs + state.playMs && !state.current && state.pointer >= state.schedule.length) {
         finishGame();
@@ -1956,9 +2831,7 @@ remaining=${remainingMs()}`;
       el.countdown.textContent = String(n);
       el.countdown.classList.add('show');
       beep(n === 1 ? 650 : 520, 0.06, 0.035);
-      setTimeout(() => {
-        el.countdown.classList.remove('show');
-      }, 520);
+      setTimeout(() => el.countdown.classList.remove('show'), 520);
     }
 
     function doCountdown() {
@@ -1973,68 +2846,20 @@ remaining=${remainingMs()}`;
       }, 3000);
     }
 
-    function copyPassthroughParams(url) {
-      [
-        'studentKey','schoolCode','classRoom','studentNo','nickName',
-        'api','conditionGroup','sessionNo','weekNo','debug'
-      ].forEach((k) => {
-        const v = qs.get(k);
-        if (v != null && v !== '') url.searchParams.set(k, v);
-      });
-    }
-
-    function buildCooldownUrl() {
-      const url = new URL('../herohealth/warmup-gate.html', location.href);
-
-      url.searchParams.set('phase', 'cooldown');
-      url.searchParams.set('pid', ctx.pid);
-      url.searchParams.set('name', ctx.name);
-      if (ctx.studyId) url.searchParams.set('studyId', ctx.studyId);
-
-      url.searchParams.set('zone', ctx.zone);
-      url.searchParams.set('cat', ctx.cat);
-      url.searchParams.set('game', ctx.game);
-      url.searchParams.set('gameId', ctx.gameId);
-      url.searchParams.set('theme', ctx.theme);
-
-      url.searchParams.set('diff', ctx.diff);
-      url.searchParams.set('time', String(ctx.time));
-      url.searchParams.set('seed', ctx.seed);
-      url.searchParams.set('hub', ctx.hub);
-      url.searchParams.set('view', ctx.view);
-      url.searchParams.set('run', ctx.run);
-
-      url.searchParams.set('gate', ctx.gate);
-      url.searchParams.set('cooldown', '1');
-      url.searchParams.set('returnPhase', 'hub');
-      url.searchParams.set('cdur', qs.get('cdur') || '20');
-      url.searchParams.set('next', ctx.hub);
-
-      copyPassthroughParams(url);
-      return url.href;
-    }
-
-    function applyHubLinks() {
-      el.btnHubTop.href = ctx.hub;
-      el.btnHubCover.href = ctx.hub;
-      el.btnHubSummary.href = ctx.hub;
-    }
-
-    function configureSummaryActions() {
-      applyHubLinks();
-
-      if (ctx.cooldown === '1') {
-        el.btnCooldown.style.display = '';
-        el.btnCooldown.textContent = '🧘 Cooldown';
-        el.btnHubSummary.textContent = '🏠 ข้ามไป HUB';
-        el.btnCooldown.onclick = () => {
-          location.href = buildCooldownUrl();
-        };
-      } else {
-        el.btnCooldown.style.display = 'none';
-        el.btnHubSummary.textContent = '🏠 กลับ HUB';
-        el.btnCooldown.onclick = null;
-      }
+    function startCountdownThenRun() {
+      doCountdown();
+      setTimeout(() => {
+        state.started = true;
+        state.running = true;
+        state.zeroAt = nowMs();
+        logEvent('session_start', {
+          seed: ctx.seed,
+          diff: ctx.diff,
+          timeSec: ctx.time,
+          run: ctx.run
+        });
+        state.raf = requestAnimationFrame(updateLoop);
+      }, 3200);
     }
 
     function startGame() {
@@ -2042,8 +2867,8 @@ remaining=${remainingMs()}`;
       el.cover.classList.add('hidden');
       el.summary.classList.add('hidden');
 
-      state.started = true;
-      state.running = true;
+      state.started = false;
+      state.running = false;
       state.paused = false;
       state.pointer = 0;
       state.current = null;
@@ -2064,24 +2889,48 @@ remaining=${remainingMs()}`;
       state.postOutcome.clear();
       state.phase = 1;
       state.schedule = buildSchedule();
-      state.zeroAt = nowMs();
       state.holdActive = false;
-
+      state.sessionId = makeSessionId();
+      state.eventSeq = 0;
+      state.phaseBossEntered = false;
+      state.adaptiveLevel = 0;
+      state.missStreak = 0;
+      state.successStreak = 0;
+      state.aiTipLastAt = 0;
+      state.aiTipLastKey = '';
+      state.aiDirectorEvents = 0;
+      state.lastPatternName = '';
+      state.lastSummaryPayload = null;
+      state.tutorialActive = false;
+      state.tutorialIndex = 0;
+      renderTutorialUI();
+      updateAiChip();
       buildPostBar();
       updateHUD();
       renderUpcoming();
-      doCountdown();
-      logEvent('session_start', { seed: ctx.seed, diff: ctx.diff, timeSec: ctx.time, run: ctx.run });
-      state.raf = requestAnimationFrame(updateLoop);
+
+      if (!state.tutorialDone && ctx.run !== 'research') {
+        startMiniTutorial();
+      } else {
+        startCountdownThenRun();
+      }
     }
 
     function finishGame() {
       state.running = false;
       cancelAnimationFrame(state.raf);
       el.cueCard.classList.add('hidden');
+      setBossCinematic(false);
+      stopMusicLoop();
 
       const m = metrics();
-      const line = coachTipFromMetrics(m);
+      const line =
+        state.phaseBossEntered && state.postsCleared > 0
+          ? (m.stars >= 3
+              ? 'เยี่ยมมาก! ผ่าน Final Combo และเก็บดาวได้สวย'
+              : 'ผ่านด่านท้ายแล้ว ลองเก็บ Rhythm ให้แม่นขึ้นอีกนิด')
+          : coachTipFromMetrics(m);
+
       const starsText = ['☆ ☆ ☆', '⭐ ☆ ☆', '⭐ ⭐ ☆', '⭐ ⭐ ⭐'][m.stars] || '☆ ☆ ☆';
       const cooldownUrl = buildCooldownUrl();
 
@@ -2112,9 +2961,24 @@ remaining=${remainingMs()}`;
         postsCleared: state.postsCleared,
         cooldownEnabled: ctx.cooldown === '1',
         cooldownUrl,
+        sessionId: state.sessionId,
+        eventCount: state.logger.length,
+        perfectCount: state.perfect,
+        goodCount: state.good,
+        missCount: state.miss,
+        view: ctx.view,
+        run: ctx.run,
+        cat: ctx.cat,
+        aiAdaptiveLevel: state.adaptiveLevel,
+        aiDirectorEvents: state.aiDirectorEvents,
+        aiMode: ctx.run === 'research' ? 'deterministic' : 'adaptive-play',
+        lastPatternName: state.lastPatternName || '',
         ts_iso: new Date().toISOString(),
         hub: ctx.hub
       };
+
+      state.lastSummaryPayload = summary;
+      updateTeacherPanel(summary);
 
       try {
         localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
@@ -2122,17 +2986,38 @@ remaining=${remainingMs()}`;
       } catch (_) {}
 
       logEvent('session_end', summary);
+
+      try {
+        localStorage.setItem('HHA_LAST_EVENTS_JUMPDUCK', JSON.stringify(state.logger));
+        const exportColumns = [
+          'event_id','session_id','event_seq','event_type',
+          'ts_ms','ts_iso','date_local','time_local','timezone',
+          'pid','name','studyId',
+          'game','zone','cat','mode','diff','view','seed',
+          'cueType','cueDueAt','playerAction','rtMs','judgment',
+          'phase','lap','postId','reason',
+          'adaptive_level','pattern_profile','patternName','director_reason','ai_tip','ai_line','ai_mini'
+        ];
+        localStorage.setItem('HHA_LAST_EVENTS_JUMPDUCK_CSV', rowsToCsv(state.logger, exportColumns));
+      } catch (_) {}
+
       emitBridge();
     }
 
     function togglePause() {
       if (!state.running) return;
       state.paused = !state.paused;
+      if (state.paused) stopMusicLoop();
+      else updateMusicLoop();
       el.btnPause.textContent = state.paused ? '▶ เล่นต่อ' : '⏸ พัก';
       flashCoach(
         state.paused ? 'เกมหยุดอยู่ กดเล่นต่อเมื่อพร้อม' : 'กลับมาแล้ว! ดู cue แล้วลุยต่อ',
         state.paused ? 'พักได้ แล้วค่อยเล่นต่อ' : 'จับจังหวะให้ตรงเหมือนเดิม'
       );
+    }
+
+    function renderRecentPanel() {
+      // no-op in consolidated game page
     }
 
     function bindButtons() {
@@ -2164,10 +3049,7 @@ remaining=${remainingMs()}`;
           togglePause();
           return;
         }
-        if ([' ', 'arrowup', 'w', 'arrowdown', 's', 'a', 'd', 'h'].includes(k)) {
-          e.preventDefault();
-        }
-
+        if ([' ', 'arrowup', 'w', 'arrowdown', 's', 'a', 'd', 'h'].includes(k)) e.preventDefault();
         if (k === ' ' || k === 'arrowup' || k === 'w') onAction('JUMP', true);
         else if (k === 'arrowdown' || k === 's') onAction('DUCK', true);
         else if (k === 'a') onAction('LEFT_JUMP', true);
@@ -2183,13 +3065,59 @@ remaining=${remainingMs()}`;
       el.btnPause.addEventListener('click', togglePause);
       el.btnStart.addEventListener('click', startGame);
       el.btnRestart.addEventListener('click', startGame);
+
+      if (el.audioToggle && !el.audioToggle.__bound) {
+        el.audioToggle.__bound = true;
+        el.audioToggle.addEventListener('click', function () {
+          state.audioMuted = !state.audioMuted;
+          el.audioToggle.textContent = state.audioMuted ? '🔇 Beat OFF' : '🔊 Beat ON';
+          el.audioToggle.classList.toggle('is-muted', state.audioMuted);
+          if (state.audioMuted) stopMusicLoop();
+          else {
+            ensureAudio();
+            updateMusicLoop();
+          }
+        });
+      }
+
+      if (el.btnExportEventsCsv && !el.btnExportEventsCsv.__bound) {
+        el.btnExportEventsCsv.__bound = true;
+        el.btnExportEventsCsv.addEventListener('click', exportEventsCsv);
+      }
+
+      if (el.btnExportSummaryJson && !el.btnExportSummaryJson.__bound) {
+        el.btnExportSummaryJson.__bound = true;
+        el.btnExportSummaryJson.addEventListener('click', exportSummaryJson);
+      }
+
+      if (el.teacherFab && !el.teacherFab.__bound) {
+        el.teacherFab.__bound = true;
+        el.teacherFab.addEventListener('click', openTeacherPanel);
+      }
+
+      if (el.teacherClose && !el.teacherClose.__bound) {
+        el.teacherClose.__bound = true;
+        el.teacherClose.addEventListener('click', closeTeacherPanel);
+      }
+
+      if (el.btnExportEventsCsvTeacher && !el.btnExportEventsCsvTeacher.__bound) {
+        el.btnExportEventsCsvTeacher.__bound = true;
+        el.btnExportEventsCsvTeacher.addEventListener('click', exportEventsCsv);
+      }
+
+      if (el.btnExportSummaryJsonTeacher && !el.btnExportSummaryJsonTeacher.__bound) {
+        el.btnExportSummaryJsonTeacher.__bound = true;
+        el.btnExportSummaryJsonTeacher.addEventListener('click', exportSummaryJson);
+      }
     }
 
+    applyHubLinks();
     buildPostBar();
     bindButtons();
     configureSummaryActions();
     updateHUD();
     renderUpcoming();
+    updateTeacherPanel();
   })();
   </script>
 </body>
