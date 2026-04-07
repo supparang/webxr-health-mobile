@@ -7,35 +7,59 @@
   let _db = null;
 
   function now() { return Date.now(); }
-  function svNow() { return firebase.database.ServerValue.TIMESTAMP; }
 
   function makeId(prefix) {
-    return (prefix || 'ID') + '_' + Math.random().toString(36).slice(2, 6).toUpperCase() + Date.now().toString(36).slice(-4).toUpperCase();
+    return (prefix || 'ID') + '_' +
+      Math.random().toString(36).slice(2, 6).toUpperCase() +
+      Date.now().toString(36).slice(-4).toUpperCase();
+  }
+
+  function getFirebase() {
+    return W.firebase || null;
+  }
+
+  async function ensureAnonAuth() {
+    const fb = getFirebase();
+    if (!fb) throw new Error('Firebase compat SDK not loaded');
+
+    if (fb.auth().currentUser) return fb.auth().currentUser;
+
+    if (typeof W.HHA_ensureAnonymousAuth === 'function') {
+      const user = await W.HHA_ensureAnonymousAuth();
+      if (user) return user;
+    }
+
+    await fb.auth().signInAnonymously();
+    if (!fb.auth().currentUser) throw new Error('Anonymous auth failed');
+    return fb.auth().currentUser;
   }
 
   H.init = async function init(firebaseConfig) {
-    if (!W.firebase) throw new Error('Firebase compat SDK not loaded');
+    const fb = getFirebase();
+    if (!fb) throw new Error('Firebase compat SDK not loaded');
 
     if (!_app) {
-      if (!firebase.apps.length) {
-        _app = firebase.initializeApp(firebaseConfig || W.HHA_FIREBASE_CONFIG || W.FIREBASE_CONFIG);
+      const cfg = firebaseConfig || W.HHA_FIREBASE_CONFIG || W.FIREBASE_CONFIG;
+      if (!cfg) throw new Error('Missing Firebase config');
+
+      if (!fb.apps || !fb.apps.length) {
+        _app = fb.initializeApp(cfg);
       } else {
-        _app = firebase.app();
+        _app = fb.app();
       }
-      _auth = firebase.auth();
-      _db = firebase.database();
+
+      _auth = fb.auth();
+      _db = fb.database();
     }
 
-    if (!_auth.currentUser) {
-      await _auth.signInAnonymously();
-    }
+    await ensureAnonAuth();
 
     return {
       app: _app,
       auth: _auth,
       db: _db,
-      uid: _auth.currentUser.uid,
-      user: _auth.currentUser
+      uid: _auth.currentUser ? _auth.currentUser.uid : '',
+      user: _auth.currentUser || null
     };
   };
 
@@ -51,8 +75,8 @@
   H.attachPresence = async function attachPresence(ctx) {
     await H.init();
     ctx = ctx || {};
-    const uid = H.uid();
 
+    const uid = H.uid();
     const path = 'presence/' + uid;
     const ref = H.ref(path);
 
@@ -68,15 +92,17 @@
 
     await ref.set(payload);
 
-    ref.onDisconnect().set({
-      uid,
-      pid: ctx.pid || 'anon',
-      state: 'offline',
-      roomId: '',
-      game: ctx.game || '',
-      mode: ctx.mode || '',
-      updatedAt: now()
-    });
+    try {
+      ref.onDisconnect().set({
+        uid,
+        pid: ctx.pid || 'anon',
+        state: 'offline',
+        roomId: '',
+        game: ctx.game || '',
+        mode: ctx.mode || '',
+        updatedAt: getFirebase().database.ServerValue.TIMESTAMP
+      });
+    } catch (_) {}
 
     const playerRef = H.ref('players/' + uid);
     await playerRef.update({
@@ -144,19 +170,34 @@
     const updates = {};
     updates[base + '/meta'] = meta;
     updates[base + '/players/' + uid] = player;
-    updates[base + '/progress/' + uid] = { updatedAt: now(), progress: 0, score: 0, miss: 0, bestStreak: 0 };
+    updates[base + '/progress/' + uid] = {
+      uid,
+      pid: opts.pid || 'anon',
+      updatedAt: now(),
+      progress: 0,
+      score: 0,
+      miss: 0,
+      bestStreak: 0
+    };
     updates[base + '/rematchVotes/' + uid] = false;
 
     await H.ref('/').update(updates);
 
-    H.ref(base + '/players/' + uid).onDisconnect().remove();
-    H.ref(base + '/progress/' + uid).onDisconnect().remove();
-    H.ref(base + '/rematchVotes/' + uid).onDisconnect().remove();
+    try {
+      H.ref(base + '/players/' + uid).onDisconnect().remove();
+      H.ref(base + '/progress/' + uid).onDisconnect().remove();
+      H.ref(base + '/rematchVotes/' + uid).onDisconnect().remove();
+    } catch (_) {}
 
     if (opts.logger) {
       opts.logger.base.room_id = roomId;
       await opts.logger.roomAudit('room_create', {
-        room_id: roomId, game, mode, actor_uid: uid, actor_pid: opts.pid || 'anon', meta
+        room_id: roomId,
+        game,
+        mode,
+        actor_uid: uid,
+        actor_pid: opts.pid || 'anon',
+        meta
       });
     }
 
@@ -208,15 +249,24 @@
 
     const updates = {};
     updates[base + '/players/' + uid] = player;
-    updates[base + '/progress/' + uid] = { updatedAt: now(), progress: 0, score: 0, miss: 0, bestStreak: 0 };
+    updates[base + '/progress/' + uid] = {
+      uid,
+      pid: opts.pid || 'anon',
+      updatedAt: now(),
+      progress: 0,
+      score: 0,
+      miss: 0,
+      bestStreak: 0
+    };
     updates[base + '/rematchVotes/' + uid] = false;
-    updates[base + '/meta/updatedAt'] = now();
 
     await H.ref('/').update(updates);
 
-    H.ref(base + '/players/' + uid).onDisconnect().remove();
-    H.ref(base + '/progress/' + uid).onDisconnect().remove();
-    H.ref(base + '/rematchVotes/' + uid).onDisconnect().remove();
+    try {
+      H.ref(base + '/players/' + uid).onDisconnect().remove();
+      H.ref(base + '/progress/' + uid).onDisconnect().remove();
+      H.ref(base + '/rematchVotes/' + uid).onDisconnect().remove();
+    } catch (_) {}
 
     await H.attachPresence({
       pid: opts.pid || 'anon',
@@ -230,7 +280,11 @@
     if (opts.logger) {
       opts.logger.base.room_id = roomId;
       await opts.logger.roomAudit('room_join', {
-        room_id: roomId, game, mode, actor_uid: uid, actor_pid: opts.pid || 'anon'
+        room_id: roomId,
+        game,
+        mode,
+        actor_uid: uid,
+        actor_pid: opts.pid || 'anon'
       });
     }
 
@@ -240,6 +294,7 @@
   H.setReady = async function setReady(opts) {
     await H.init();
     opts = opts || {};
+
     const uid = H.uid();
     const base = H.roomBase(opts.game, opts.mode, opts.roomId);
 
@@ -248,11 +303,13 @@
       lastPingAt: now()
     });
 
-    await H.ref(base + '/meta/updatedAt').set(now());
-
     if (opts.logger) {
       await opts.logger.roomAudit('ready_' + (!!opts.ready), {
-        room_id: opts.roomId, game: opts.game, mode: opts.mode, actor_uid: uid, actor_pid: opts.pid || ''
+        room_id: opts.roomId,
+        game: opts.game,
+        mode: opts.mode,
+        actor_uid: uid,
+        actor_pid: opts.pid || ''
       });
     }
 
@@ -262,24 +319,30 @@
   H.startMatch = async function startMatch(opts) {
     await H.init();
     opts = opts || {};
+
     const uid = H.uid();
     const base = H.roomBase(opts.game, opts.mode, opts.roomId);
 
     const metaSnap = await H.ref(base + '/meta').once('value');
     if (!metaSnap.exists()) throw new Error('Room not found');
+
     const meta = metaSnap.val();
     if (meta.hostUid !== uid) throw new Error('Only host can start');
 
     const playersSnap = await H.ref(base + '/players').once('value');
     const players = playersSnap.val() || {};
-    const allReady = Object.keys(players).length > 0 && Object.values(players).every(p => !!p.ready);
+
+    const allReady = Object.keys(players).length > 0 &&
+      Object.values(players).every((p) => !!p.ready);
+
     if (!allReady) throw new Error('Not all players ready');
 
     const matchId = makeId('M');
+    const countdownMs = Number(opts.countdownMs || 3000);
 
     const updates = {};
     updates[base + '/meta/state'] = 'countdown';
-    updates[base + '/meta/countdownAt'] = now() + Number(opts.countdownMs || 3000);
+    updates[base + '/meta/countdownAt'] = now() + countdownMs;
     updates[base + '/meta/matchId'] = matchId;
     updates[base + '/meta/updatedAt'] = now();
 
@@ -298,7 +361,7 @@
       endedAt: ''
     };
 
-    Object.keys(players).forEach(playerUid => {
+    Object.keys(players).forEach((playerUid) => {
       const p = players[playerUid];
       updates[H.matchBase(opts.game, opts.mode, matchId) + '/players/' + playerUid] = {
         uid: playerUid,
@@ -321,11 +384,15 @@
           updatedAt: now()
         });
       } catch (_) {}
-    }, Number(opts.countdownMs || 3000));
+    }, countdownMs);
 
     if (opts.logger) {
       await opts.logger.roomAudit('match_start', {
-        room_id: opts.roomId, match_id: matchId, game: opts.game, mode: opts.mode, actor_uid: uid
+        room_id: opts.roomId,
+        match_id: matchId,
+        game: opts.game,
+        mode: opts.mode,
+        actor_uid: uid
       });
     }
 
@@ -335,11 +402,14 @@
   H.updateProgress = async function updateProgress(opts) {
     await H.init();
     opts = opts || {};
+
     const uid = H.uid();
     const base = H.roomBase(opts.game, opts.mode, opts.roomId);
     const matchId = opts.matchId || '';
 
     const progressRow = {
+      uid,
+      pid: opts.pid || '',
       updatedAt: now(),
       progress: Number(opts.progress || 0),
       score: Number(opts.score || 0),
@@ -352,7 +422,6 @@
     const updates = {};
     updates[base + '/progress/' + uid] = progressRow;
     updates[base + '/players/' + uid + '/lastPingAt'] = now();
-    updates[base + '/meta/updatedAt'] = now();
 
     if (matchId) {
       updates[H.matchBase(opts.game, opts.mode, matchId) + '/players/' + uid] = {
@@ -373,6 +442,7 @@
   H.submitResult = async function submitResult(opts) {
     await H.init();
     opts = opts || {};
+
     const uid = H.uid();
     const base = H.roomBase(opts.game, opts.mode, opts.roomId);
 
@@ -391,7 +461,6 @@
 
     const updates = {};
     updates[base + '/results/' + uid] = row;
-    updates[base + '/meta/updatedAt'] = now();
 
     if (opts.matchId) {
       updates[H.matchBase(opts.game, opts.mode, opts.matchId) + '/players/' + uid] = {
@@ -406,13 +475,13 @@
     }
 
     await H.ref('/').update(updates);
-
     return row;
   };
 
   H.finishMatch = async function finishMatch(opts) {
     await H.init();
     opts = opts || {};
+
     const uid = H.uid();
     const matchBase = H.matchBase(opts.game, opts.mode, opts.matchId);
     const roomBase = H.roomBase(opts.game, opts.mode, opts.roomId);
@@ -438,18 +507,18 @@
   H.voteRematch = async function voteRematch(opts) {
     await H.init();
     opts = opts || {};
+
     const uid = H.uid();
     const base = H.roomBase(opts.game, opts.mode, opts.roomId);
 
     await H.ref(base + '/rematchVotes/' + uid).set(!!opts.vote);
-    await H.ref(base + '/meta/updatedAt').set(now());
-
     return { ok: true };
   };
 
   H.leaveRoom = async function leaveRoom(opts) {
     await H.init();
     opts = opts || {};
+
     const uid = H.uid();
     const base = H.roomBase(opts.game, opts.mode, opts.roomId);
 
@@ -463,15 +532,15 @@
     updates[base + '/progress/' + uid] = null;
     updates[base + '/results/' + uid] = null;
     updates[base + '/rematchVotes/' + uid] = null;
-    updates[base + '/meta/updatedAt'] = now();
 
-    const remaining = Object.keys(players).filter(k => k !== uid);
+    const remaining = Object.keys(players).filter((k) => k !== uid);
 
     if (meta.hostUid === uid) {
       if (!remaining.length) {
         updates[base] = null;
       } else {
         updates[base + '/meta/state'] = 'aborted';
+        updates[base + '/meta/updatedAt'] = now();
       }
     }
 
@@ -488,7 +557,11 @@
 
     if (opts.logger) {
       await opts.logger.roomAudit('room_leave', {
-        room_id: opts.roomId, game: opts.game, mode: opts.mode, actor_uid: uid, actor_pid: opts.pid || ''
+        room_id: opts.roomId,
+        game: opts.game,
+        mode: opts.mode,
+        actor_uid: uid,
+        actor_pid: opts.pid || ''
       });
     }
 
@@ -500,11 +573,12 @@
     const base = H.roomBase(opts.game, opts.mode, opts.roomId);
     const ref = H.ref(base);
 
-    const handler = snap => {
+    const handler = (snap) => {
       if (opts.onValue) opts.onValue(snap.val() || null, snap);
     };
 
     ref.on('value', handler);
+
     return function unwatch() {
       ref.off('value', handler);
     };
@@ -516,9 +590,9 @@
       .orderByChild('meta/state')
       .equalTo('lobby');
 
-    const handler = snap => {
+    const handler = (snap) => {
       const out = [];
-      snap.forEach(child => {
+      snap.forEach((child) => {
         const val = child.val() || {};
         out.push({
           roomId: child.key,
@@ -526,10 +600,12 @@
           players: val.players || {}
         });
       });
+
       if (opts.onValue) opts.onValue(out, snap);
     };
 
     ref.on('value', handler);
+
     return function unwatch() {
       ref.off('value', handler);
     };
