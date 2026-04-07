@@ -8,65 +8,188 @@
   <link rel="icon" href="../favicon.ico" />
   <style>
     :root{
-      --sky1:#dff4ff; --sky2:#bfe8ff; --sky3:#fff7d8;
-      --card:#fffdf6; --line:#bfe3f2; --text:#4d4a42; --muted:#7b7a72;
-      --blue:#7fcfff; --orange:#ffb454; --green:#7ed957; --purple:#caa4ff; --yellow:#ffe66f;
+      --sky1:#dff4ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d8;
+      --card:#fffdf6;
+      --line:#bfe3f2;
+      --text:#4d4a42;
+      --muted:#7b7a72;
+      --blue:#7fcfff;
+      --orange:#ffb454;
+      --green:#7ed957;
+      --purple:#caa4ff;
+      --yellow:#ffe66f;
       --shadow:0 18px 40px rgba(73,119,152,.18);
+      --shadow-soft:0 10px 24px rgba(73,119,152,.12);
     }
-    *{box-sizing:border-box}
+
+    *{ box-sizing:border-box; }
+
     body{
-      margin:0; min-height:100svh; font-family:ui-rounded,system-ui,sans-serif; color:var(--text);
+      margin:0;
+      min-height:100svh;
+      font-family:ui-rounded,system-ui,sans-serif;
+      color:var(--text);
       background:
         radial-gradient(circle at 15% 18%, rgba(255,255,255,.92) 0 10%, transparent 11%),
         radial-gradient(circle at 84% 16%, rgba(255,255,255,.74) 0 8%, transparent 9%),
         linear-gradient(180deg,var(--sky1),var(--sky2) 52%,var(--sky3));
     }
-    .shell{max-width:1080px;margin:0 auto;padding:22px 16px 32px}
-    .hero{
-      display:grid;grid-template-columns:1.05fr .95fr;gap:16px
+
+    .shell{
+      max-width:1080px;
+      margin:0 auto;
+      padding:22px 16px 32px;
     }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.05fr .95fr;
+      gap:16px;
+    }
+
     .panel{
       background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,252,244,.98));
-      border:2px solid rgba(191,227,242,.95);border-radius:28px;padding:18px;box-shadow:var(--shadow)
+      border:2px solid rgba(191,227,242,.95);
+      border-radius:28px;
+      padding:18px;
+      box-shadow:var(--shadow);
     }
-    .brand{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      margin-bottom:12px;
+    }
+
     .badge{
-      width:60px;height:60px;border-radius:18px;display:grid;place-items:center;font-size:28px;
-      background:linear-gradient(180deg,#fffdf8,#e8fff6);border:2px solid rgba(127,207,255,.7)
+      width:60px;
+      height:60px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      background:linear-gradient(180deg,#fffdf8,#e8fff6);
+      border:2px solid rgba(127,207,255,.7);
+      box-shadow:var(--shadow-soft);
     }
-    h1{margin:0;font-size:clamp(28px,4vw,40px);line-height:1}
-    .sub{margin:6px 0 0;color:var(--muted);font-weight:800}
-    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+
+    h1{
+      margin:0;
+      font-size:clamp(28px,4vw,40px);
+      line-height:1;
+    }
+
+    .sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+
     .mode{
-      border:2px solid rgba(191,227,242,.95);border-radius:22px;padding:14px;background:#fff;cursor:pointer
+      border:2px solid rgba(191,227,242,.95);
+      border-radius:22px;
+      padding:14px;
+      background:#fff;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
     }
-    .mode input{display:none}
-    .mode strong{display:block;font-size:18px}
-    .mode small{display:block;color:var(--muted);margin-top:6px;line-height:1.35}
+
+    .mode input{ display:none; }
+
+    .mode strong{
+      display:block;
+      font-size:18px;
+      line-height:1.1;
+    }
+
+    .mode small{
+      display:block;
+      color:var(--muted);
+      margin-top:6px;
+      line-height:1.35;
+      font-weight:800;
+    }
+
     .mode.active{
       border-color:rgba(255,207,69,.6);
       background:linear-gradient(180deg,#fffdf2,#fff2bd);
     }
-    .form{display:grid;gap:12px}
-    .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-    label{display:grid;gap:6px;font-weight:900;font-size:13px;color:#566670}
+
+    .form{
+      display:grid;
+      gap:12px;
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    label{
+      display:grid;
+      gap:6px;
+      font-weight:900;
+      font-size:13px;
+      color:#566670;
+    }
+
     input,select{
-      width:100%;padding:14px;border-radius:16px;border:2px solid rgba(191,227,242,.95);
-      background:#fffdf8;font:inherit;font-weight:800;color:var(--text)
+      width:100%;
+      padding:14px;
+      border-radius:16px;
+      border:2px solid rgba(191,227,242,.95);
+      background:#fffdf8;
+      font:inherit;
+      font-weight:800;
+      color:var(--text);
     }
-    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+
+    .actions{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
     .btn{
-      appearance:none;border:0;border-radius:18px;padding:14px 18px;font:inherit;font-weight:900;cursor:pointer;
-      box-shadow:var(--shadow)
+      appearance:none;
+      border:0;
+      border-radius:18px;
+      padding:14px 18px;
+      font:inherit;
+      font-weight:900;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
     }
-    .btn-main{background:linear-gradient(180deg,#ffe66f,#ffcf45);color:#174059}
-    .btn-soft{background:linear-gradient(180deg,#cffff0,#b1f0d1);color:#1d5a44}
+
+    .btn-main{
+      background:linear-gradient(180deg,#ffe66f,#ffcf45);
+      color:#174059;
+    }
+
+    .btn-soft{
+      background:linear-gradient(180deg,#cffff0,#b1f0d1);
+      color:#1d5a44;
+    }
+
     @media (max-width:900px){
-      .hero{grid-template-columns:1fr}
-      .grid{grid-template-columns:1fr}
+      .hero{ grid-template-columns:1fr; }
+      .grid{ grid-template-columns:1fr; }
     }
+
     @media (max-width:560px){
-      .row{grid-template-columns:1fr}
+      .row{ grid-template-columns:1fr; }
     }
   </style>
 </head>
@@ -78,11 +201,11 @@
           <div class="badge">🥊</div>
           <div>
             <h1>Rhythm Boxer Main</h1>
-            <p class="sub">Main game base • PC / Mobile / cVR</p>
+            <p class="sub">Main game • PC / Mobile / Cardboard cVR</p>
           </div>
         </div>
 
-        <p><strong>แกนหลัก:</strong> เกมเดียว 3 โหมด ใช้ schedule / scoring / missions / summary / logger ร่วมกัน</p>
+        <p><strong>มาตรฐาน:</strong> เกมเดียว 3 โหมด ใช้ timing / scoring / missions / summary / logger ร่วมกัน</p>
 
         <div class="grid" id="viewModes">
           <label class="mode active" data-view="pc">
@@ -100,7 +223,7 @@
           <label class="mode" data-view="cvr">
             <input type="radio" name="viewMode" value="cvr" />
             <strong>Cardboard / cVR</strong>
-            <small>Crosshair + lane focus + tap/trigger</small>
+            <small>Crosshair + head focus + trigger</small>
           </label>
         </div>
       </div>
@@ -124,6 +247,7 @@
                 <option value="cardio">Cardio</option>
               </select>
             </label>
+
             <label>Difficulty
               <select id="diff">
                 <option value="easy">Easy</option>
@@ -141,6 +265,7 @@
                 <option value="180">180 sec</option>
               </select>
             </label>
+
             <label>BPM
               <select id="bpm">
                 <option value="96">96</option>
@@ -189,15 +314,30 @@
       form.addEventListener('submit', (ev) => {
         ev.preventDefault();
         const url = new URL('./boxer.html', location.href);
-        url.searchParams.set('pid', document.getElementById('pid').value.trim() || 'anon');
-        url.searchParams.set('nick', document.getElementById('nick').value.trim());
-        url.searchParams.set('mode', document.getElementById('mode').value);
-        url.searchParams.set('diff', document.getElementById('diff').value);
-        url.searchParams.set('dur', document.getElementById('dur').value);
-        url.searchParams.set('bpm', document.getElementById('bpm').value);
-        url.searchParams.set('view', currentView());
-        url.searchParams.set('seed', seed);
-        url.searchParams.set('hub', qs.get('hub') || '../hub.html');
+
+        const setIf = (key, value) => {
+          if(value != null && String(value).trim() !== '') url.searchParams.set(key, value);
+        };
+
+        setIf('pid', document.getElementById('pid').value.trim() || 'anon');
+        setIf('nick', document.getElementById('nick').value.trim());
+        setIf('mode', document.getElementById('mode').value);
+        setIf('diff', document.getElementById('diff').value);
+        setIf('dur', document.getElementById('dur').value);
+        setIf('bpm', document.getElementById('bpm').value);
+        setIf('view', currentView());
+        setIf('seed', seed);
+
+        // passthrough context
+        [
+          'hub','run','zone','cat','planDay','planSlot','studyId',
+          'classRoom','classroom','studentNo','schoolCode','teacher',
+          'teacherMode','export','exportMode','autoNext','cdur'
+        ].forEach((k) => {
+          const v = qs.get(k);
+          if(v != null && v !== '') url.searchParams.set(k, v);
+        });
+
         location.href = url.toString();
       });
     })();
