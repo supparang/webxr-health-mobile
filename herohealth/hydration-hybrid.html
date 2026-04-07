@@ -406,7 +406,8 @@
 
   <script>
     (function(){
-      const FIXED_HUB_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+      const FIXED_HUB_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
+      const GATE_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html';
       const qs = new URLSearchParams(location.search);
 
       const pidInput = document.getElementById('pidInput');
@@ -475,7 +476,7 @@
         mainUrl.searchParams.set('nextLite', new URL('./vr-hydration-v2/hydration-lite.html', location.href).toString());
         mainUrl.searchParams.set('hybridSummary', new URL('./hydration-hybrid-summary.html', location.href).toString());
 
-        const warmup = new URL('./warmup-gate.html', location.href);
+        const warmup = new URL(GATE_URL);
         warmup.searchParams.set('phase', 'warmup');
         warmup.searchParams.set('pid', pidInput.value.trim() || 'anon');
         warmup.searchParams.set('studyId', studyIdInput.value.trim() || 'nostudy');
