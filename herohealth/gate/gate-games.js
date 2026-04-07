@@ -1,5 +1,5 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260406b-GATE-REGISTRY-SUMMARY-PHASE-CONVENTION
+// FULL PATCH v20260407c-GATE-REGISTRY-SUMMARY-PHASE-CONVENTION-COMPAT
 
 const DEFAULTS = {
   title: '',
@@ -13,7 +13,10 @@ const DEFAULTS = {
   warmupFile: '',
   cooldownFile: '',
   styleFile: '',
-  summaryPath: ''
+  summaryPath: '',
+  warmupTitle: '',
+  cooldownTitle: '',
+  defaults: null
 };
 
 function prettyTitle(id = '') {
@@ -94,6 +97,24 @@ function makeMeta(id, cfg = {}) {
     runCandidates.push(base.runFile);
   }
 
+  const summaryPath = base.summaryPath || '';
+  const warmupTitle = base.warmupTitle || `${base.label || base.title || prettyTitle(key)} Warmup`;
+  const cooldownTitle = base.cooldownTitle || `${base.label || base.title || prettyTitle(key)} Cooldown`;
+
+  const defaults =
+    base.defaults && typeof base.defaults === 'object'
+      ? {
+          ...base.defaults,
+          summaryPath: base.defaults.summaryPath || summaryPath,
+          warmupTitle: base.defaults.warmupTitle || warmupTitle,
+          cooldownTitle: base.defaults.cooldownTitle || cooldownTitle
+        }
+      : {
+          summaryPath,
+          warmupTitle,
+          cooldownTitle
+        };
+
   return {
     id: key,
     title: base.title || prettyTitle(key),
@@ -102,12 +123,18 @@ function makeMeta(id, cfg = {}) {
     zone: base.zone || inferZoneFromId(key),
     cat: base.cat || inferZoneFromId(key),
     theme: base.theme || key,
+
     runFile: base.runFile || runCandidates[0] || '',
     runCandidates,
+
     warmupFile: base.warmupFile || '',
     cooldownFile: base.cooldownFile || '',
     styleFile: base.styleFile || '',
-    summaryPath: base.summaryPath || ''
+
+    summaryPath,
+    warmupTitle,
+    cooldownTitle,
+    defaults
   };
 }
 
@@ -154,7 +181,9 @@ export const GAME_REGISTRY = {
       '../hydration-v2.html',
       '../vr-hydration-v2/index.html'
     ],
-    summaryPath: '../hydration-v2.html'
+    summaryPath: '../hydration-v2.html',
+    warmupTitle: 'Hydration Warmup',
+    cooldownTitle: 'Hydration Cooldown'
   }),
 
   goodjunk: makeMeta('goodjunk', {
@@ -164,16 +193,22 @@ export const GAME_REGISTRY = {
     zone: 'nutrition',
     cat: 'nutrition',
     theme: 'goodjunk',
-    runFile: '../goodjunk-vr.html',
+    runFile: '../goodjunk-solo-boss.html',
     runCandidates: [
-      '../goodjunk-vr.html',
       '../goodjunk-solo-boss.html',
-      '../goodjunk-launcher.html'
+      '../goodjunk-vr.html',
+      '../goodjunk-launcher.html',
+      '../vr-goodjunk/goodjunk-duet-play.html',
+      '../vr-goodjunk/goodjunk-battle.html',
+      '../vr-goodjunk/goodjunk-race.html',
+      '../vr-goodjunk/goodjunk-coop.html'
     ],
     warmupFile: './games/goodjunk/warmup.js',
     cooldownFile: './games/goodjunk/cooldown.js',
     styleFile: './games/goodjunk/style.css',
-    summaryPath: '../goodjunk-launcher.html'
+    summaryPath: '../goodjunk-launcher.html',
+    warmupTitle: 'GoodJunk Warmup',
+    cooldownTitle: 'GoodJunk Cooldown'
   }),
 
   plate: makeMeta('plate', {
@@ -189,7 +224,9 @@ export const GAME_REGISTRY = {
       '../plate-v1.html',
       '../plate-vr.html'
     ],
-    summaryPath: '../plate-v1.html'
+    summaryPath: '../plate-v1.html',
+    warmupTitle: 'Plate Warmup',
+    cooldownTitle: 'Plate Cooldown'
   }),
 
   groups: makeMeta('groups', {
@@ -205,7 +242,9 @@ export const GAME_REGISTRY = {
       '../groups-v1.html',
       '../groups-vr.html'
     ],
-    summaryPath: '../groups-v1.html'
+    summaryPath: '../groups-v1.html',
+    warmupTitle: 'Groups Warmup',
+    cooldownTitle: 'Groups Cooldown'
   }),
 
   // =========================
@@ -223,7 +262,9 @@ export const GAME_REGISTRY = {
       '../brush-vr.html',
       '../brush-vr-kids.html'
     ],
-    summaryPath: '../hygiene-zone.html'
+    summaryPath: '../hygiene-zone.html',
+    warmupTitle: 'Brush Warmup',
+    cooldownTitle: 'Brush Cooldown'
   }),
 
   handwash: makeMeta('handwash', {
@@ -238,7 +279,9 @@ export const GAME_REGISTRY = {
       '../handwash-vr.html',
       '../vr-handwash/handwash-vr.html'
     ],
-    summaryPath: '../hygiene-zone.html'
+    summaryPath: '../hygiene-zone.html',
+    warmupTitle: 'Handwash Warmup',
+    cooldownTitle: 'Handwash Cooldown'
   }),
 
   'germ-detective': makeMeta('germ-detective', {
@@ -254,7 +297,9 @@ export const GAME_REGISTRY = {
       '../germ-detective-v2.html',
       '../germ-detective/germ-detective-vr.html'
     ],
-    summaryPath: '../hygiene-zone.html'
+    summaryPath: '../hygiene-zone.html',
+    warmupTitle: 'Germ Detective Warmup',
+    cooldownTitle: 'Germ Detective Cooldown'
   }),
 
   bath: makeMeta('bath', {
@@ -265,7 +310,12 @@ export const GAME_REGISTRY = {
     cat: 'hygiene',
     theme: 'bath',
     runFile: '../bath.html',
-    summaryPath: '../hygiene-zone.html'
+    runCandidates: [
+      '../bath.html'
+    ],
+    summaryPath: '../hygiene-zone.html',
+    warmupTitle: 'Bath Warmup',
+    cooldownTitle: 'Bath Cooldown'
   }),
 
   maskcough: makeMeta('maskcough', {
@@ -280,7 +330,9 @@ export const GAME_REGISTRY = {
       '../maskcough-v2.html',
       '../vr-maskcough/maskcough-v2.html'
     ],
-    summaryPath: '../hygiene-zone.html'
+    summaryPath: '../hygiene-zone.html',
+    warmupTitle: 'Mask & Cough Warmup',
+    cooldownTitle: 'Mask & Cough Cooldown'
   }),
 
   // =========================
@@ -298,7 +350,9 @@ export const GAME_REGISTRY = {
       '../fitness/shadow-breaker.html',
       '../shadow-breaker-vr.html'
     ],
-    summaryPath: '../fitness-zone.html'
+    summaryPath: '../fitness-zone.html',
+    warmupTitle: 'Shadow Breaker Warmup',
+    cooldownTitle: 'Shadow Breaker Cooldown'
   }),
 
   'jump-duck': makeMeta('jump-duck', {
@@ -313,7 +367,9 @@ export const GAME_REGISTRY = {
       '../jump-duck-vr.html',
       '../fitness/jump-duck.html'
     ],
-    summaryPath: '../fitness-zone.html'
+    summaryPath: '../fitness-zone.html',
+    warmupTitle: 'Jump Duck Warmup',
+    cooldownTitle: 'Jump Duck Cooldown'
   }),
 
   'balance-hold': makeMeta('balance-hold', {
@@ -328,7 +384,9 @@ export const GAME_REGISTRY = {
       '../balance-hold.html',
       '../fitness/balance-hold.html'
     ],
-    summaryPath: '../fitness-zone.html'
+    summaryPath: '../fitness-zone.html',
+    warmupTitle: 'Balance Hold Warmup',
+    cooldownTitle: 'Balance Hold Cooldown'
   }),
 
   'rhythm-boxer': makeMeta('rhythm-boxer', {
@@ -343,7 +401,9 @@ export const GAME_REGISTRY = {
       '../fitness/rhythm-boxer.html',
       '../rhythm-boxer-vr.html'
     ],
-    summaryPath: '../fitness-zone.html'
+    summaryPath: '../fitness-zone.html',
+    warmupTitle: 'Rhythm Boxer Warmup',
+    cooldownTitle: 'Rhythm Boxer Cooldown'
   }),
 
   'fitness-planner': makeMeta('fitness-planner', {
@@ -358,7 +418,9 @@ export const GAME_REGISTRY = {
       '../fitness-planner/index.html',
       '../fitness-planner.html'
     ],
-    summaryPath: '../fitness-zone.html'
+    summaryPath: '../fitness-zone.html',
+    warmupTitle: 'Fitness Planner Warmup',
+    cooldownTitle: 'Fitness Planner Cooldown'
   })
 };
 
@@ -378,7 +440,10 @@ const GAME_ALIAS = {
   goodjunkvr: 'goodjunk',
   goodjunkv1: 'goodjunk',
   'goodjunk-solo-boss': 'goodjunk',
+  'goodjunk-launcher': 'goodjunk',
   goodjunkboss: 'goodjunk',
+  phaseboss: 'goodjunk',
+  'phase-boss': 'goodjunk',
 
   // plate
   plate: 'plate',
@@ -491,7 +556,7 @@ export function getRunCandidates(id = '') {
 
 export function getSummaryPath(id = '') {
   const meta = getGameMeta(id);
-  return meta?.summaryPath || '';
+  return meta?.summaryPath || meta?.defaults?.summaryPath || '';
 }
 
 export function listGameIds() {
