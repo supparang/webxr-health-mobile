@@ -3,253 +3,779 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Intervention • Completion</title>
-  <link rel="stylesheet" href="./assessment.css" />
+  <title>GoodJunk • Completion</title>
+  <meta name="color-scheme" content="light" />
   <style>
-    .summary-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
-      margin-top:12px;
+    :root{
+      --sky1:#dff6ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d6;
+      --card:#fffef8;
+      --line:#c9e8f4;
+      --text:#4d4a42;
+      --muted:#7d7a73;
+      --green:#7ed957;
+      --green2:#59c53f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --violet:#cdb9ff;
+      --pink:#ff9fcb;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
     }
 
-    .summary-card{
-      border:1px solid rgba(148,163,184,.14);
-      border-radius:16px;
-      background:rgba(2,6,23,.42);
-      padding:14px;
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+    body{
+      min-height:100dvh;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.94), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.76), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 56%, var(--sky3));
     }
 
-    .summary-label{
-      color:#94a3b8;
-      font-size:12px;
-      font-weight:900;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
-
-    .summary-value{
-      margin-top:6px;
-      color:#e5e7eb;
-      font-size:24px;
-      font-weight:1000;
-      line-height:1.1;
-    }
-
-    .summary-sub{
-      margin-top:6px;
-      color:#cbd5e1;
-      font-size:13px;
-      line-height:1.5;
-    }
-
-    .code-box{
-      margin-top:12px;
+    .page{
+      width:min(1040px,100%);
+      margin:0 auto;
       padding:16px;
-      border-radius:18px;
-      border:1px solid rgba(34,197,94,.24);
-      background:rgba(34,197,94,.10);
-      color:#dcfce7;
-      text-align:center;
-    }
-
-    .code-label{
-      font-size:12px;
-      font-weight:900;
-      text-transform:uppercase;
-      letter-spacing:.08em;
-      opacity:.9;
-    }
-
-    .code-value{
-      margin-top:8px;
-      font-size:28px;
-      font-weight:1000;
-      word-break:break-word;
-    }
-
-    .next-grid{
+      padding-top:calc(16px + env(safe-area-inset-top,0px));
+      padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
       display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
-      margin-top:12px;
+      gap:16px;
     }
 
-    .next-card{
-      border:1px solid rgba(148,163,184,.14);
-      border-radius:16px;
-      background:rgba(2,6,23,.42);
-      padding:14px;
+    .hero{
+      background:linear-gradient(180deg,#fffef8,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+      padding:20px 18px;
+      position:relative;
+      overflow:hidden;
     }
 
-    .next-title{
-      color:#e5e7eb;
-      font-size:15px;
-      font-weight:1000;
-      margin-bottom:6px;
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-30px;
+      top:-30px;
+      width:130px;
+      height:130px;
+      border-radius:999px;
+      background:rgba(127,207,255,.18);
+      filter:blur(8px);
     }
 
-    .next-sub{
-      color:#cbd5e1;
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-24px;
+      bottom:-24px;
+      width:120px;
+      height:120px;
+      border-radius:999px;
+      background:rgba(255,212,92,.18);
+      filter:blur(8px);
+    }
+
+    .kicker{
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#eef8ff;
+      border:2px solid var(--line);
+      color:#58a8d2;
       font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    h1{
+      position:relative;
+      z-index:1;
+      margin:0 0 8px;
+      font-size:clamp(32px,5vw,48px);
+      line-height:1.05;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .lead{
+      position:relative;
+      z-index:1;
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      font-weight:900;
+      max-width:780px;
+    }
+
+    .ctx{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:2px dashed var(--line);
+      background:rgba(255,255,255,.72);
+      color:#6f6b64;
+      font-size:13px;
+      font-weight:900;
       line-height:1.55;
     }
 
-    @media (max-width:760px){
-      .summary-grid,
-      .next-grid{
+    .grid{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:16px;
+    }
+
+    .card{
+      background:linear-gradient(180deg,#fffef9,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:26px;
+      box-shadow:var(--shadow);
+      padding:16px;
+    }
+
+    .card-title{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-bottom:12px;
+      font-size:22px;
+      line-height:1.2;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .badge{
+      width:42px;
+      height:42px;
+      flex:0 0 auto;
+      display:grid;
+      place-items:center;
+      border-radius:14px;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef8;
+      font-size:20px;
+      box-shadow:0 8px 16px rgba(88,183,245,.20);
+    }
+
+    .score-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .score-item{
+      border:2px solid var(--line);
+      border-radius:20px;
+      background:#fff;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+      padding:14px;
+    }
+
+    .score-label{
+      color:#8a867f;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:6px;
+      line-height:1.4;
+    }
+
+    .score-value{
+      color:var(--text);
+      font-size:clamp(22px,3.6vw,34px);
+      font-weight:1000;
+      line-height:1.1;
+      word-break:break-word;
+    }
+
+    .list{
+      display:grid;
+      gap:10px;
+    }
+
+    .list-item{
+      border:2px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+      padding:12px 14px;
+    }
+
+    .list-k{
+      color:#8a867f;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:4px;
+      line-height:1.4;
+    }
+
+    .list-v{
+      color:var(--text);
+      font-size:17px;
+      font-weight:1000;
+      line-height:1.45;
+    }
+
+    .pill-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6f6b64;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+    }
+
+    .empty{
+      color:#8a867f;
+      font-size:14px;
+      font-weight:900;
+      line-height:1.6;
+      border:2px dashed var(--line);
+      border-radius:18px;
+      padding:14px;
+      background:rgba(255,255,255,.6);
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:14px 18px;
+      font-size:16px;
+      font-weight:1000;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
+      transition:.12s ease;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-main{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#fffef8;
+    }
+
+    .btn-blue{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef8;
+    }
+
+    .btn-violet{
+      background:linear-gradient(180deg,var(--violet),#ab8fff);
+      color:#fffef8;
+    }
+
+    .btn-warn{
+      background:linear-gradient(180deg,var(--yellow),var(--orange));
+      color:#6d4e00;
+    }
+
+    .btn-ghost{
+      background:#fff;
+      color:#6f6a62;
+      border:2px solid var(--line);
+    }
+
+    .footer-note{
+      color:#7f7b74;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.6;
+    }
+
+    @media (max-width:860px){
+      .grid{
         grid-template-columns:1fr;
       }
+    }
+
+    @media (max-width:720px){
+      .page{ padding:12px; }
+      .score-grid{ grid-template-columns:1fr 1fr; }
+      .actions .btn{ flex:1 1 100%; }
+    }
+
+    @media (max-width:520px){
+      .score-grid{ grid-template-columns:1fr; }
     }
   </style>
 </head>
 <body>
   <main class="page">
-    <section class="card">
-      <div class="badge">Completion • GoodJunk Intervention</div>
-      <h1>เสร็จสิ้นกิจกรรมรอบนี้แล้ว</h1>
-      <p class="sub">
-        หน้านี้สรุปสถานะโดยรวมของรอบที่เล่น และให้รหัส completion สำหรับใช้ยืนยันว่าจบรอบนี้แล้ว
+    <section class="hero">
+      <div class="kicker">🏆 COMPLETION</div>
+      <h1>เก่งมาก ทำครบแล้ว</h1>
+      <p class="lead">
+        หน้านี้จะสรุปผลจากเกม GoodJunk และคำตอบหลังเล่นทั้งหมดไว้ในที่เดียว
       </p>
+      <div class="ctx" id="ctxBox">กำลังโหลดข้อมูล…</div>
+    </section>
 
-      <div class="ctx" id="ctxBox">กำลังโหลด...</div>
-
-      <section class="block">
-        <h2>ผลสรุปเบื้องต้น</h2>
-        <div class="summary-grid">
-          <div class="summary-card">
-            <div class="summary-label">Study</div>
-            <div class="summary-value" id="vStudy">-</div>
-            <div class="summary-sub">รหัสการทดลองของรอบนี้</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Student</div>
-            <div class="summary-value" id="vStudent">-</div>
-            <div class="summary-sub">ข้อมูลผู้เรียนที่ใช้ในรอบนี้</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Session</div>
-            <div class="summary-value" id="vSession">-</div>
-            <div class="summary-sub">รหัส session ปัจจุบัน</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Condition</div>
-            <div class="summary-value" id="vCondition">-</div>
-            <div class="summary-sub">กลุ่มการทดลองของรอบนี้</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Score</div>
-            <div class="summary-value" id="vScore">-</div>
-            <div class="summary-sub">คะแนนรวมจากเกม GoodJunk</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Grade</div>
-            <div class="summary-value" id="vGrade">-</div>
-            <div class="summary-sub">คุณภาพการเล่นรอบนี้</div>
-          </div>
+    <section class="grid">
+      <section class="card">
+        <div class="card-title">
+          <div class="badge">🎮</div>
+          <div>สรุปผลจากเกม</div>
         </div>
 
-        <div class="code-box">
-          <div class="code-label">Completion Code</div>
-          <div class="code-value" id="completionCode">กำลังสร้าง...</div>
-        </div>
+        <div class="score-grid" id="gameSummaryGrid"></div>
       </section>
 
-      <section class="block">
-        <h2>สิ่งที่ทำต่อได้</h2>
-        <div class="next-grid">
-          <div class="next-card">
-            <div class="next-title">Parent Questionnaire / Summary</div>
-            <div class="next-sub">
-              ใช้สำหรับส่งต่อให้ผู้ปกครองตอบหรือดูสรุปผลของกิจกรรม
-            </div>
-          </div>
-
-          <div class="next-card">
-            <div class="next-title">Follow-up</div>
-            <div class="next-sub">
-              ใช้ติดตามผลระยะสั้นหรือรายสัปดาห์ว่าพฤติกรรมการเลือกของว่างเปลี่ยนไปอย่างไร
-            </div>
-          </div>
+      <section class="card">
+        <div class="card-title">
+          <div class="badge">🌟</div>
+          <div>ภาพรวมรอบนี้</div>
         </div>
+
+        <div class="pill-row" id="quickPills"></div>
+      </section>
+    </section>
+
+    <section class="grid">
+      <section class="card">
+        <div class="card-title">
+          <div class="badge">🧠</div>
+          <div>สิ่งที่คิดและตัดสินใจ</div>
+        </div>
+        <div class="list" id="reflectionList"></div>
       </section>
 
-      <div class="footer">
-        <button type="button" class="btn btn-ghost" id="btnTeacherPanel">Teacher Panel</button>
-        <button type="button" class="btn btn-ghost" id="btnStudentLauncher">Student Launcher</button>
-        <button type="button" class="btn btn-primary" id="btnParentSummary">Parent Summary</button>
-        <button type="button" class="btn btn-primary" id="btnShortFollowup">Short Follow-up</button>
+      <section class="card">
+        <div class="card-title">
+          <div class="badge">✅</div>
+          <div>สิ่งที่อยากทำต่อ</div>
+        </div>
+        <div class="list" id="planList"></div>
+      </section>
+    </section>
+
+    <section class="card">
+      <div class="card-title">
+        <div class="badge">🗂️</div>
+        <div>ปุ่มใช้งานต่อ</div>
+      </div>
+
+      <div class="actions">
+        <a class="btn btn-main" id="btnPlayAgain" href="#">เล่นอีกครั้ง</a>
+        <a class="btn btn-blue" id="btnParent" href="#">Parent Summary</a>
+        <button class="btn btn-warn" id="btnExport" type="button">Export JSON</button>
+        <a class="btn btn-ghost" id="btnHub" href="#">กลับ HUB</a>
       </div>
     </section>
+
+    <div class="footer-note">
+      หน้านี้จะดึงข้อมูลจากผลเกม + แบบประเมินหลังเล่น ถ้ายังไม่มีข้อมูลบางส่วน ระบบจะโชว์เฉพาะที่หาเจอ
+    </div>
   </main>
 
   <script type="module">
-    import { buildUrl, pickCtxFromQuery, withDefaultCtx } from '../research/config.js';
-    import { KEYS, loadCtx, loadJSON, mergeCtx, saveCtx, markCompleted } from '../research/localstore.js';
+    import { loadCtx, loadAssessment } from '../research/localstore.js';
 
-    function $(id){ return document.getElementById(id); }
+    const GJI_GAME_SUMMARY_KEY = 'GJI_GAME_SUMMARY';
+    const GJI_CTX_KEY = 'GJI_CTX';
 
-    function makeCompletionCode(ctx, gameSummary) {
-      const study = String(ctx.studyId || 'GJI').replace(/\s+/g, '').slice(0, 12);
-      const pid = String(ctx.pid || ctx.studentKey || 'anon').replace(/\s+/g, '').slice(0, 12);
-      const session = String(ctx.session || ctx.sessionId || 's').replace(/\s+/g, '').slice(0, 12);
-      const score = String(gameSummary?.score ?? 0);
-      return `${study}-${pid}-${session}-${score}`;
+    function qs(key, fb=''){
+      const q = new URLSearchParams(location.search);
+      return q.get(key) ?? fb;
     }
 
-    mergeCtx(pickCtxFromQuery());
+    function escapeHtml(s){
+      return String(s ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+    }
 
-    const ctx = withDefaultCtx(loadCtx());
-    saveCtx(ctx);
+    function readJson(key, fb = null){
+      try{
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fb;
+      }catch{
+        return fb;
+      }
+    }
 
-    const gameSummary = loadJSON(KEYS.GAME_SUMMARY, {}) || {};
-    const code = makeCompletionCode(ctx, gameSummary);
+    function getCtx(){
+      const a = loadCtx?.() || {};
+      const b = readJson(GJI_CTX_KEY, {}) || {};
+      return { ...b, ...a };
+    }
 
-    markCompleted({
-      code,
-      score: Number(gameSummary.score ?? 0),
-      grade: String(gameSummary.grade ?? ''),
-      pid: ctx.pid || ctx.studentKey || '',
-      studyId: ctx.studyId || '',
-      session: ctx.session || ctx.sessionId || '',
-      condition: ctx.condition || ctx.conditionGroup || ''
-    });
+    function bloomKey(ctx){
+      const pid = ctx.pid || ctx.studentKey || 'anon';
+      const sessionId = ctx.sessionId || ctx.session || 'default';
+      return `GJI_GAME_BLOOM:${pid}:${sessionId}`;
+    }
 
-    $('ctxBox').textContent = [
-      `PID: ${ctx.pid || '-'}`,
-      `Study: ${ctx.studyId || '-'}`,
-      `Session: ${ctx.session || '-'}`,
-      `Condition: ${ctx.condition || '-'}`,
-    ].join(' • ');
+    function readBloom(ctx){
+      return readJson(bloomKey(ctx), {}) || {};
+    }
 
-    $('vStudy').textContent = ctx.studyId || '-';
-    $('vStudent').textContent = ctx.nickName || ctx.studentKey || ctx.pid || '-';
-    $('vSession').textContent = ctx.session || ctx.sessionId || '-';
-    $('vCondition').textContent = ctx.condition || ctx.conditionGroup || '-';
-    $('vScore').textContent = String(gameSummary.score ?? '-');
-    $('vGrade').textContent = String(gameSummary.grade ?? '-');
-    $('completionCode').textContent = code;
+    function readAnswers(file){
+      try{
+        return loadAssessment(file, {})?.answers || {};
+      }catch{
+        return {};
+      }
+    }
 
-    $('btnTeacherPanel').addEventListener('click', () => {
-      location.href = buildUrl('../launcher/teacher-panel.html', ctx, false);
-    });
+    function gradeLabel(v){
+      return v || '-';
+    }
 
-    $('btnStudentLauncher').addEventListener('click', () => {
-      location.href = buildUrl('STUDENT_LAUNCHER', ctx, false);
-    });
+    function bossLabel(summary){
+      if (summary?.bossCleared) return 'Boss Clear';
+      if (summary?.phaseReached) return String(summary.phaseReached);
+      return '-';
+    }
 
-    $('btnParentSummary').addEventListener('click', () => {
-      location.href = buildUrl('PARENT_SUMMARY', ctx, false);
-    });
+    function yesNo(v){
+      return v ? 'ใช่' : 'ไม่ใช่';
+    }
 
-    $('btnShortFollowup').addEventListener('click', () => {
-      location.href = buildUrl('SHORT_FOLLOWUP', ctx, false);
-    });
+    function formatChoicePlan(v){
+      const map = {
+        fruit_daily: 'กินผลไม้เพิ่มขึ้น',
+        drink_water: 'ดื่มน้ำเปล่ามากขึ้น',
+        reduce_soda: 'ลดน้ำอัดลม',
+        reduce_snack: 'ลด junk food'
+      };
+      return map[v] || '-';
+    }
+
+    function formatChoiceSupport(v){
+      const map = {
+        self: 'เตือนตัวเอง',
+        parent: 'ให้ผู้ปกครองช่วย',
+        teacher: 'ให้ครูช่วยเตือน'
+      };
+      return map[v] || '-';
+    }
+
+    function formatEvalChoice(v){
+      const map = {
+        setA: 'เลือกชุด A: โดนัท + น้ำอัดลม',
+        setB: 'เลือกชุด B: กล้วย + นม'
+      };
+      return map[v] || '-';
+    }
+
+    function formatEvalReason(v){
+      const map = {
+        less_sugar: 'เพราะน้ำตาลน้อยกว่า',
+        better_energy: 'เพราะให้พลังงานที่ดีกว่า',
+        more_nutrients: 'เพราะมีสารอาหารมากกว่า'
+      };
+      return map[v] || '-';
+    }
+
+    function formatCreateItem(v){
+      const map = {
+        apple: '🍎 แอปเปิล',
+        banana: '🍌 กล้วย',
+        watermelon: '🍉 แตงโม',
+        carrot: '🥕 แครอท',
+        broccoli: '🥦 บรอกโคลี',
+        salad: '🥗 สลัด',
+        milk: '🥛 นม',
+        water: '💧 น้ำเปล่า'
+      };
+      return map[v] || '-';
+    }
+
+    function formatPreQ1(v){
+      const map = {
+        donut_soda: 'โดนัท + น้ำอัดลม',
+        banana_milk: 'กล้วย + นม'
+      };
+      return map[v] || '-';
+    }
+
+    function formatPreQ2(v){
+      const map = {
+        broccoli: 'บรอกโคลี',
+        cupcake: 'คัพเค้ก'
+      };
+      return map[v] || '-';
+    }
+
+    function formatPreQ3(v){
+      const map = {
+        water: 'น้ำเปล่า',
+        soda: 'น้ำอัดลม'
+      };
+      return map[v] || '-';
+    }
+
+    function formatBehaviorScale(v){
+      const map = {
+        '1': 'ระดับ 1',
+        '2': 'ระดับ 2',
+        '3': 'ระดับ 3',
+        '4': 'ระดับ 4'
+      };
+      return map[String(v)] || '-';
+    }
+
+    function gameSummaryHtml(summary){
+      if (!summary) {
+        return `<div class="empty">ยังไม่พบข้อมูลสรุปจากเกม</div>`;
+      }
+
+      const accuracyPct = Number.isFinite(Number(summary.accuracy))
+        ? `${Math.round(Number(summary.accuracy) * 100)}%`
+        : '-';
+
+      const items = [
+        ['คะแนน', summary.score ?? '-'],
+        ['Grade', gradeLabel(summary.grade)],
+        ['Good hit', summary.goodHit ?? '-'],
+        ['Junk hit', summary.junkHit ?? '-'],
+        ['Miss', summary.miss ?? '-'],
+        ['Best Combo', summary.comboBest ?? '-'],
+        ['Phase', bossLabel(summary)],
+        ['Boss Clear', yesNo(summary.bossCleared)]
+      ];
+
+      return items.map(([k,v]) => `
+        <div class="score-item">
+          <div class="score-label">${escapeHtml(k)}</div>
+          <div class="score-value">${escapeHtml(String(v))}</div>
+        </div>
+      `).join('') + `
+        <div class="score-item">
+          <div class="score-label">Accuracy</div>
+          <div class="score-value">${escapeHtml(accuracyPct)}</div>
+        </div>
+        <div class="score-item">
+          <div class="score-label">Fruit / Veg / Drink</div>
+          <div class="score-value">${escapeHtml(`${summary.fruitHit ?? 0} / ${summary.vegHit ?? 0} / ${summary.drinkHit ?? 0}`)}</div>
+        </div>
+      `;
+    }
+
+    function quickPillsHtml(ctx, summary){
+      const pills = [
+        `👤 ${ctx.nickName || ctx.name || ctx.pid || ctx.studentKey || '-'}`,
+        `🧪 ${ctx.studyId || '-'}`,
+        `🕒 ${ctx.sessionId || ctx.session || '-'}`,
+        `🎯 ${summary?.diff || ctx.diff || '-'}`,
+        `📱 ${summary?.view || ctx.view || '-'}`,
+        `🎮 ${summary?.mode || ctx.mode || '-'}`
+      ];
+
+      return pills.map(v => `<div class="pill">${escapeHtml(v)}</div>`).join('');
+    }
+
+    function listItem(label, value){
+      return `
+        <div class="list-item">
+          <div class="list-k">${escapeHtml(label)}</div>
+          <div class="list-v">${escapeHtml(value || '-')}</div>
+        </div>
+      `;
+    }
+
+    function reflectionHtml(pre, post, behavior, bloom){
+      const html = [
+        listItem('Pre-Knowledge ข้อ 1', formatPreQ1(pre.q1)),
+        listItem('Pre-Knowledge ข้อ 2', formatPreQ2(pre.q2)),
+        listItem('Pre-Knowledge ข้อ 3', formatPreQ3(pre.q3)),
+        listItem('Post-Knowledge ข้อ 1', formatPreQ1(post.q1_post)),
+        listItem('Post-Knowledge ข้อ 2', formatPreQ3(post.q2_post)),
+        listItem('Post-Knowledge Reflection', post.reflection_post || '-'),
+        listItem('Evaluate: เลือกอะไร', formatEvalChoice(bloom.evaluateChoice)),
+        listItem('Evaluate: เหตุผล', formatEvalReason(bloom.evaluateReason)),
+        listItem('Create: ผลไม้', formatCreateItem(bloom.createFruit)),
+        listItem('Create: ผัก', formatCreateItem(bloom.createVeg)),
+        listItem('Create: เครื่องดื่ม', formatCreateItem(bloom.createDrink))
+      ];
+
+      return html.join('');
+    }
+
+    function planHtml(behavior, choice){
+      const html = [
+        listItem('อยากเลือกอาหารดีมากขึ้น', formatBehaviorScale(behavior.b1)),
+        listItem('คิดว่าจะลด junk food ได้แค่ไหน', formatBehaviorScale(behavior.b2)),
+        listItem('พรุ่งนี้อยากลองเปลี่ยนอะไร', behavior.b3_reflection || '-'),
+        listItem('สิ่งที่อยากเริ่มทำ', formatChoicePlan(choice.choice_plan)),
+        listItem('คนที่อยากให้ช่วยเตือน', formatChoiceSupport(choice.choice_support))
+      ];
+
+      return html.join('');
+    }
+
+    function buildCommonQuery(ctx){
+      const q = new URLSearchParams();
+
+      const entries = {
+        pid: ctx.pid || ctx.studentKey || '',
+        name: ctx.name || ctx.nickName || '',
+        studentKey: ctx.studentKey || ctx.pid || '',
+        nickName: ctx.nickName || ctx.name || '',
+        studyId: ctx.studyId || '',
+        session: ctx.session || ctx.sessionId || '',
+        sessionId: ctx.sessionId || ctx.session || '',
+        condition: ctx.condition || ctx.conditionGroup || '',
+        conditionGroup: ctx.conditionGroup || ctx.condition || '',
+        classRoom: ctx.classRoom || ctx.classroom || '',
+        classroom: ctx.classroom || ctx.classRoom || '',
+        schoolName: ctx.schoolName || ctx.school || '',
+        school: ctx.school || ctx.schoolName || '',
+        diff: ctx.diff || '',
+        time: ctx.time || '',
+        view: ctx.view || '',
+        run: ctx.run || '',
+        gameId: ctx.gameId || 'goodjunk',
+        mode: ctx.mode || '',
+        role: ctx.role || '',
+        roomId: ctx.roomId || ctx.room || '',
+        startAt: ctx.startAt || '',
+        hub: ctx.hub || '../hub.html',
+        lang: ctx.lang || 'th'
+      };
+
+      Object.entries(entries).forEach(([k,v]) => {
+        if (String(v || '').trim() !== '') q.set(k, String(v));
+      });
+
+      return q.toString();
+    }
+
+    function initButtons(ctx, summary, bloom){
+      const query = buildCommonQuery({
+        ...ctx,
+        diff: summary?.diff || ctx.diff,
+        view: summary?.view || ctx.view,
+        mode: summary?.mode || ctx.mode
+      });
+
+      const btnPlayAgain = document.getElementById('btnPlayAgain');
+      const btnParent = document.getElementById('btnParent');
+      const btnHub = document.getElementById('btnHub');
+      const btnExport = document.getElementById('btnExport');
+
+      if (btnPlayAgain) {
+        btnPlayAgain.href = `../game/goodjunk-vr.html?${query}`;
+      }
+
+      if (btnParent) {
+        btnParent.href = `../parent/parent-summary.html?${query}`;
+      }
+
+      if (btnHub) {
+        btnHub.href = ctx.hub || '../hub.html';
+      }
+
+      if (btnExport) {
+        btnExport.addEventListener('click', () => {
+          const payload = {
+            exportedAt: new Date().toISOString(),
+            ctx,
+            summary,
+            bloom,
+            assessments: {
+              preKnowledge: readAnswers('pre-knowledge.html'),
+              postKnowledge: readAnswers('post-knowledge.html'),
+              postBehavior: readAnswers('post-behavior.html'),
+              postChoice: readAnswers('post-choice.html')
+            }
+          };
+
+          const blob = new Blob([JSON.stringify(payload, null, 2)], {
+            type: 'application/json;charset=utf-8'
+          });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `goodjunk-completion-${ctx.pid || ctx.studentKey || 'student'}-${Date.now()}.json`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        });
+      }
+    }
+
+    function render(){
+      const ctx = getCtx();
+      const summary = readJson(GJI_GAME_SUMMARY_KEY, null);
+      const bloom = readBloom(ctx);
+      const pre = readAnswers('pre-knowledge.html');
+      const post = readAnswers('post-knowledge.html');
+      const behavior = readAnswers('post-behavior.html');
+      const choice = readAnswers('post-choice.html');
+
+      const ctxBox = document.getElementById('ctxBox');
+      const gameSummaryGrid = document.getElementById('gameSummaryGrid');
+      const quickPills = document.getElementById('quickPills');
+      const reflectionList = document.getElementById('reflectionList');
+      const planList = document.getElementById('planList');
+
+      if (ctxBox) {
+        ctxBox.textContent = [
+          `PID: ${ctx.pid || ctx.studentKey || '-'}`,
+          `Study: ${ctx.studyId || '-'}`,
+          `Session: ${ctx.sessionId || ctx.session || '-'}`,
+          `Condition: ${ctx.condition || ctx.conditionGroup || '-'}`,
+          `Mode: ${summary?.mode || ctx.mode || '-'}`
+        ].join(' • ');
+      }
+
+      if (gameSummaryGrid) {
+        gameSummaryGrid.innerHTML = gameSummaryHtml(summary);
+      }
+
+      if (quickPills) {
+        quickPills.innerHTML = quickPillsHtml(ctx, summary);
+      }
+
+      if (reflectionList) {
+        reflectionList.innerHTML = reflectionHtml(pre, post, behavior, bloom);
+      }
+
+      if (planList) {
+        planList.innerHTML = planHtml(behavior, choice);
+      }
+
+      initButtons(ctx, summary, bloom);
+    }
+
+    render();
   </script>
 </body>
 </html>
