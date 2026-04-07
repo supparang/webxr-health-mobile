@@ -241,7 +241,7 @@
       pid: opts.pid || 'anon',
       name: opts.name || '',
       ready: false,
-      role: 'peer',
+      role: 'guest',
       lane,
       joinedAt: now(),
       lastPingAt: now()
@@ -332,21 +332,24 @@
     const playersSnap = await H.ref(base + '/players').once('value');
     const players = playersSnap.val() || {};
 
-    const allReady = Object.keys(players).length > 0 &&
-      Object.values(players).every((p) => !!p.ready);
-
+    const playerKeys = Object.keys(players);
+    const allReady = playerKeys.length > 0 && playerKeys.every((k) => !!players[k].ready);
     if (!allReady) throw new Error('Not all players ready');
 
     const matchId = makeId('M');
     const countdownMs = Number(opts.countdownMs || 3000);
+    const matchBase = H.matchBase(opts.game, opts.mode, matchId);
 
     const updates = {};
+
+    // host-only room meta
     updates[base + '/meta/state'] = 'countdown';
     updates[base + '/meta/countdownAt'] = now() + countdownMs;
     updates[base + '/meta/matchId'] = matchId;
     updates[base + '/meta/updatedAt'] = now();
 
-    updates[H.matchBase(opts.game, opts.mode, matchId) + '/meta'] = {
+    // host-only match meta
+    updates[matchBase + '/meta'] = {
       matchId,
       roomId: opts.roomId,
       game: opts.game,
@@ -361,18 +364,10 @@
       endedAt: ''
     };
 
-    Object.keys(players).forEach((playerUid) => {
-      const p = players[playerUid];
-      updates[H.matchBase(opts.game, opts.mode, matchId) + '/players/' + playerUid] = {
-        uid: playerUid,
-        pid: p.pid || '',
-        score: 0,
-        miss: 0,
-        bestStreak: 0,
-        progress: 0,
-        updatedAt: now()
-      };
-    });
+    // IMPORTANT:
+    // อย่า seed matches/.../players ของทุก uid ที่นี่
+    // เพราะ rules อนุญาตให้เจ้าของ uid เขียน row ของตัวเองเท่านั้น
+    // ให้แต่ละ client ไปสร้าง row ตัวเองผ่าน updateProgress/submitResult ตอน run
 
     await H.ref('/').update(updates);
 
