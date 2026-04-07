@@ -716,7 +716,7 @@
     }
   </style>
 </head>
-<body>
+<body data-game-id="jump-duck">
   <div class="app">
     <header class="topbar">
       <div class="brand">
@@ -1034,12 +1034,15 @@
     </main>
   </div>
 
+  <script src="./fitness-lastgame-bridge.js"></script>
   <script>
   (() => {
     'use strict';
 
     const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
     const JUMPDUCK_SUMMARY_KEY = 'HHA_LAST_SUMMARY_JUMPDUCK';
+    const FITNESS_LAST_GAME_KEY = 'HH_FITNESS_LAST_GAME_V1';
+    const LAST_ZONE_KEY = 'HHA_LAST_ZONE';
 
     const qs = new URLSearchParams(location.search);
     const $ = (id) => document.getElementById(id);
@@ -1131,6 +1134,62 @@
       if (!u.searchParams.get('focus')) u.searchParams.set('focus', 'jumpduck');
       if (!u.searchParams.get('featured')) u.searchParams.set('featured', 'jumpduck');
       return u.toString();
+    }
+
+    function currentSnapshotBase() {
+      return {
+        zone: 'fitness',
+        gameId: 'jump-duck',
+        game: 'jump-duck',
+        title: 'JumpDuck Launcher',
+        pid: cleanText(els.pid?.value, readOrDefault('pid', 'anon')),
+        name: cleanText(els.name?.value, readOrDefault('name', readOrDefault('nick', 'Player'))),
+        studyId: cleanText(els.studyId?.value, readOrDefault('studyId', '')),
+        diff: readRadio('diff', 'normal'),
+        time: readRadio('time', '90'),
+        view: readRadio('view', 'mobile'),
+        run: readRadio('run', 'play'),
+        gate: readRadio('gate', '1'),
+        cooldown: readRadio('cooldown', '1'),
+        seed: buildSeed(),
+        href: location.href,
+        path: location.pathname
+      };
+    }
+
+    function writeFallbackSnapshot(eventName, extra = {}) {
+      try {
+        const payload = {
+          ...currentSnapshotBase(),
+          event: eventName,
+          ts: Date.now(),
+          ...extra
+        };
+        localStorage.setItem(FITNESS_LAST_GAME_KEY, JSON.stringify(payload));
+        localStorage.setItem(LAST_ZONE_KEY, 'fitness');
+      } catch (_) {}
+    }
+
+    function writeLauncherSnapshot(eventName, extra = {}) {
+      const payload = {
+        ...currentSnapshotBase(),
+        event: eventName,
+        ...extra
+      };
+
+      try {
+        localStorage.setItem(LAST_ZONE_KEY, 'fitness');
+      } catch (_) {}
+
+      try {
+        if (window.HH_FITNESS_LASTGAME?.writeSnapshot) {
+          window.HH_FITNESS_LASTGAME.writeSnapshot(payload);
+        } else {
+          writeFallbackSnapshot(eventName, extra);
+        }
+      } catch (_) {
+        writeFallbackSnapshot(eventName, extra);
+      }
     }
 
     function baseParams() {
@@ -1344,43 +1403,72 @@
       els.previewUrl.textContent = launchUrl.href;
     }
 
-    function go(url) {
+    function go(url, eventName = 'launcher_nav', extra = {}) {
+      writeLauncherSnapshot(eventName, {
+        target: url.href,
+        ...extra
+      });
       location.href = url.href;
     }
 
     function launchCurrentSettings() {
       const runUrl = buildRunUrl();
       const gate = readRadio('gate', '1');
-      go(gate === '1' ? buildWarmupUrl(runUrl) : runUrl);
+
+      go(
+        gate === '1' ? buildWarmupUrl(runUrl) : runUrl,
+        'launcher_start_standard',
+        {
+          mode: readRadio('run', 'play'),
+          gate,
+          cooldown: readRadio('cooldown', '1')
+        }
+      );
     }
 
     function launchMode(mode) {
       if (mode === 'play') {
         const runUrl = buildRunUrl('play', { gate: '1', cooldown: '1' });
-        go(buildWarmupUrl(runUrl, { run: 'play', cooldown: '1' }));
+        go(
+          buildWarmupUrl(runUrl, { run: 'play', cooldown: '1' }),
+          'launcher_play_start',
+          { mode: 'play', gate: '1', cooldown: '1' }
+        );
         return;
       }
 
       if (mode === 'quick') {
-        go(buildRunUrl('play', { gate: '0', cooldown: '1' }));
+        go(
+          buildRunUrl('play', { gate: '0', cooldown: '1' }),
+          'launcher_quick_start',
+          { mode: 'play', gate: '0', cooldown: '1' }
+        );
         return;
       }
 
       if (mode === 'research') {
         const runUrl = buildRunUrl('research', { gate: '1', cooldown: '1', run: 'research', view: readRadio('view', 'mobile') });
-        go(buildWarmupUrl(runUrl, { run: 'research', cooldown: '1' }));
+        go(
+          buildWarmupUrl(runUrl, { run: 'research', cooldown: '1' }),
+          'launcher_research_start',
+          { mode: 'research', gate: '1', cooldown: '1' }
+        );
         return;
       }
 
       if (mode === 'demo') {
-        go(buildRunUrl('demo', {
-          run: 'demo',
-          diff: 'easy',
-          time: '60',
-          gate: '0',
-          cooldown: '0',
-          view: 'mobile'
-        }));
+        go(
+          buildRunUrl('demo', {
+            run: 'demo',
+            diff: 'easy',
+            time: '60',
+            gate: '0',
+            cooldown: '0',
+            view: 'mobile'
+          }),
+          'launcher_demo_start',
+          { mode: 'demo', gate: '0', cooldown: '0', diff: 'easy', time: '60' }
+        );
       }
     }
 
@@ -1409,6 +1497,20 @@
       refreshPreview();
     }
 
+    function bindTopNav() {
+      els.btnHubTop.addEventListener('click', () => {
+        writeLauncherSnapshot('launcher_go_hub', {
+          target: els.btnHubTop.href
+        });
+      });
+
+      els.btnBackFitness.addEventListener('click', () => {
+        writeLauncherSnapshot('launcher_go_fitness_zone', {
+          target: els.btnBackFitness.href
+        });
+      });
+    }
+
     function bindAll(summary, rec) {
       [
         els.pid, els.name, els.studyId, els.seed,
@@ -1418,13 +1520,24 @@
         node.addEventListener('change', refreshPreview);
       });
 
-      els.btnApplyRecommended.addEventListener('click', () => applyRecommendation(rec));
+      els.btnApplyRecommended.addEventListener('click', () => {
+        applyRecommendation(rec);
+        writeLauncherSnapshot('launcher_apply_recommended', {
+          recommendedDiff: rec.diff,
+          recommendedTime: rec.time,
+          recommendedRun: rec.run
+        });
+      });
+
       els.btnStartStandard.addEventListener('click', launchCurrentSettings);
       els.btnQuickPlay.addEventListener('click', () => launchMode('quick'));
 
       els.btnUseLastPattern.addEventListener('click', () => {
         if (!summary) {
           applyRecommendation(rec);
+          writeLauncherSnapshot('launcher_use_last_fallback', {
+            fallback: true
+          });
           return;
         }
 
@@ -1436,19 +1549,35 @@
         setRadio('gate', '1', 'gate-on');
         setRadio('cooldown', '1', 'cooldown-on');
         refreshPreview();
+
+        writeLauncherSnapshot('launcher_use_last_pattern', {
+          source: 'summary'
+        });
       });
 
       els.modePlayStart.addEventListener('click', () => launchMode('play'));
-      els.modePlayPreset.addEventListener('click', () => presetMode('play'));
+      els.modePlayPreset.addEventListener('click', () => {
+        presetMode('play');
+        writeLauncherSnapshot('launcher_preset_play');
+      });
 
       els.modeQuickStart.addEventListener('click', () => launchMode('quick'));
-      els.modeQuickPreset.addEventListener('click', () => presetMode('quick'));
+      els.modeQuickPreset.addEventListener('click', () => {
+        presetMode('quick');
+        writeLauncherSnapshot('launcher_preset_quick');
+      });
 
       els.modeResearchStart.addEventListener('click', () => launchMode('research'));
-      els.modeResearchPreset.addEventListener('click', () => presetMode('research'));
+      els.modeResearchPreset.addEventListener('click', () => {
+        presetMode('research');
+        writeLauncherSnapshot('launcher_preset_research');
+      });
 
       els.modeDemoStart.addEventListener('click', () => launchMode('demo'));
-      els.modeDemoPreset.addEventListener('click', () => presetMode('demo'));
+      els.modeDemoPreset.addEventListener('click', () => {
+        presetMode('demo');
+        writeLauncherSnapshot('launcher_preset_demo');
+      });
     }
 
     function init() {
@@ -1474,7 +1603,10 @@
 
       renderRecent(summary);
       renderRecommendation(rec);
+      bindTopNav();
       bindAll(summary, rec);
+
+      writeLauncherSnapshot('launcher_open');
 
       if (!qs.get('diff') && !qs.get('time') && !qs.get('run') && !qs.get('gate')) {
         applyRecommendation(rec);
