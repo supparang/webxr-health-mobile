@@ -105,7 +105,7 @@
       items: new Map(),
 
       research: {
-        sessionId: 'gjsb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+        sessionId: 'gjsb-' + Date.now() + '-' + ((Date.now() ^ ((performance.now() * 1000) | 0)) >>> 0).toString(36),
         events: []
       },
 
@@ -173,6 +173,7 @@
     };
 
     let ui = null;
+    let __gateUrlToolsPromise = null;
 
     function dlog() {
       if (!DEBUG) return;
@@ -760,6 +761,13 @@
       if (stageKey === 'C') return 'อ่านช่องปลอดภัยก่อน';
       if (stageKey === 'RAGE') return 'โผล่ไวมาก ตีต่อเนื่อง';
       return 'เป้าทองใหญ่ แตะให้ทัน';
+    }
+
+    function getGateUrlTools() {
+      if (!__gateUrlToolsPromise) {
+        __gateUrlToolsPromise = import('./gate/gate-url.js');
+      }
+      return __gateUrlToolsPromise;
     }
 
     function injectStyle() {
@@ -3089,9 +3097,9 @@
       item.y = clamp(item.y, minY, maxY);
 
       if (item.bossPattern === 'burst') {
-        if (Math.random() < 0.55) spawnWeakTrail(item);
+        if (runRand() < 0.55) spawnWeakTrail(item);
       } else if (item.bossPattern === 'pressure') {
-        if (Math.random() < 0.24) spawnWeakTrail(item);
+        if (runRand() < 0.24) spawnWeakTrail(item);
       }
 
       drawItem(item);
@@ -3344,52 +3352,73 @@
       window.HHA_LAST_BOSS_PAYLOAD = payload;
     }
 
-    function buildReplayUrl() {
-      const u = new URL('./goodjunk-solo-boss.html', location.href);
-      u.searchParams.set('pid', ctx.pid || 'anon');
-      u.searchParams.set('name', ctx.name || 'Hero');
-      if (ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
-      u.searchParams.set('mode', 'solo');
-      u.searchParams.set('entry', 'solo-boss');
-      u.searchParams.set('phaseBoss', '1');
-      u.searchParams.set('boss', '1');
-      u.searchParams.set('theme', 'phaseboss');
-      u.searchParams.set('diff', diffKey);
-      u.searchParams.set('time', String(Math.round(state.timeTotal / 1000)));
-      u.searchParams.set('seed', String(Date.now() + Math.floor(Math.random() * 10000)));
-      u.searchParams.set('hub', ctx.hub || new URL('./hub-v2.html', location.href).toString());
-      u.searchParams.set('view', ctx.view || 'mobile');
-      u.searchParams.set('run', ctx.run || 'play');
-      u.searchParams.set('gameId', ctx.gameId || 'goodjunk');
-      u.searchParams.set('zone', ctx.zone || 'nutrition');
-      if (DEBUG) u.searchParams.set('debug', '1');
-      return u.toString();
+    async function buildReplayUrl() {
+      const mod = await getGateUrlTools();
+      const gateCtx = mod.readCtxFromUrl(location.href);
+
+      return mod.buildWarmupGateUrl(
+        {
+          ...gateCtx,
+          pid: ctx.pid || gateCtx.pid || 'anon',
+          name: ctx.name || gateCtx.name || 'Hero',
+          studyId: ctx.studyId || gateCtx.studyId || '',
+          diff: diffKey,
+          time: String(Math.round(state.timeTotal / 1000)),
+          seed: String(Date.now() + Math.floor(runRand() * 10000)),
+          hub: ctx.hub || gateCtx.hub || new URL('./hub-v2.html', location.href).toString(),
+          view: ctx.view || gateCtx.view || 'mobile',
+          run: ctx.run || gateCtx.run || 'play',
+          game: 'goodjunk',
+          gameId: 'goodjunk',
+          theme: 'goodjunk',
+          cat: 'nutrition',
+          zone: 'nutrition',
+          mode: 'solo'
+        },
+        './goodjunk-solo-boss.html',
+        {
+          entry: 'solo-boss',
+          phaseBoss: '1',
+          boss: '1',
+          recommendedMode: 'solo-boss',
+          debug: DEBUG ? '1' : ''
+        }
+      );
     }
 
-    function buildCooldownUrl() {
-      const u = new URL('./warmup-gate.html', location.href);
-      u.searchParams.set('phase', 'cooldown');
-      u.searchParams.set('game', 'goodjunk');
-      u.searchParams.set('gameId', 'goodjunk');
-      u.searchParams.set('theme', 'goodjunk');
-      u.searchParams.set('cat', 'nutrition');
-      u.searchParams.set('zone', 'nutrition');
-      u.searchParams.set('pid', ctx.pid || 'anon');
-      u.searchParams.set('name', ctx.name || 'Hero');
-      if (ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
-      u.searchParams.set('diff', diffKey);
-      u.searchParams.set('time', String(Math.round(state.timeTotal / 1000)));
-      u.searchParams.set('seed', ctx.seed || String(Date.now()));
-      u.searchParams.set('hub', ctx.hub || new URL('./hub-v2.html', location.href).toString());
-      u.searchParams.set('view', ctx.view || 'mobile');
-      u.searchParams.set('run', ctx.run || 'play');
-      u.searchParams.set('forcegate', '1');
-      u.searchParams.set('mode', 'solo');
-      u.searchParams.set('entry', 'solo-boss');
-      u.searchParams.set('phaseBoss', '1');
-      u.searchParams.set('boss', '1');
-      if (DEBUG) u.searchParams.set('debug', '1');
-      return u.toString();
+    async function buildCooldownUrl(extra = {}) {
+      const mod = await getGateUrlTools();
+      const gateCtx = mod.readCtxFromUrl(location.href);
+
+      return mod.buildCooldownGateUrl(
+        {
+          ...gateCtx,
+          pid: ctx.pid || gateCtx.pid || 'anon',
+          name: ctx.name || gateCtx.name || 'Hero',
+          studyId: ctx.studyId || gateCtx.studyId || '',
+          diff: diffKey,
+          time: String(Math.round(state.timeTotal / 1000)),
+          seed: String(ctx.seed || gateCtx.seed || Date.now()),
+          hub: ctx.hub || gateCtx.hub || new URL('./hub-v2.html', location.href).toString(),
+          view: ctx.view || gateCtx.view || 'mobile',
+          run: ctx.run || gateCtx.run || 'play',
+          game: 'goodjunk',
+          gameId: 'goodjunk',
+          theme: 'goodjunk',
+          cat: 'nutrition',
+          zone: 'nutrition',
+          mode: 'solo'
+        },
+        {
+          cdnext: './goodjunk-launcher.html',
+          entry: 'solo-boss',
+          phaseBoss: '1',
+          boss: '1',
+          forcegate: '1',
+          debug: DEBUG ? '1' : '',
+          ...extra
+        }
+      );
     }
 
     function clearTransientUi() {
@@ -3473,53 +3502,119 @@
       try { cancelAnimationFrame(state.raf); } catch (_) {}
     }
 
-    function safeNavigate(url) {
+    async function safeNavigateAsync(urlOrFactory, fallbackUrl) {
       if (state.uiLock.navBusy) return;
+
       setNavBusy(true);
       beforeNavigationCleanup();
-      location.href = url;
+
+      let href = '';
+
+      try {
+        href =
+          typeof urlOrFactory === 'function'
+            ? await urlOrFactory()
+            : await Promise.resolve(urlOrFactory);
+      } catch (err) {
+        console.error('[GJSB] async navigation build failed', err);
+      }
+
+      if (!href) {
+        href = fallbackUrl || ctx.hub || new URL('./hub-v2.html', location.href).toString();
+      }
+
+      location.href = href;
+    }
+
+    function safeNavigate(url) {
+      safeNavigateAsync(url, ctx.hub || new URL('./hub-v2.html', location.href).toString());
+    }
+
+    async function finishBossRunViaCooldown(extra = {}) {
+      const payload = window.HHA_LAST_BOSS_PAYLOAD || null;
+
+      if (payload) {
+        try {
+          saveResearchPayload(payload);
+        } catch (_) {}
+      }
+
+      safeNavigateAsync(
+        () => buildCooldownUrl(extra),
+        new URL('./goodjunk-launcher.html', location.href).toString()
+      );
     }
 
     function bindButtons() {
-      ui.btnReplay.addEventListener('click', function () {
-        safeNavigate(buildReplayUrl());
-      });
+      if (ui.btnReplay && !ui.btnReplay.__bound) {
+        ui.btnReplay.__bound = true;
+        ui.btnReplay.addEventListener('click', function () {
+          safeNavigateAsync(
+            () => buildReplayUrl(),
+            new URL('./goodjunk-launcher.html', location.href).toString()
+          );
+        });
+      }
 
-      ui.btnCooldown.addEventListener('click', function () {
-        safeNavigate(buildCooldownUrl());
-      });
+      if (ui.btnCooldown && !ui.btnCooldown.__bound) {
+        ui.btnCooldown.__bound = true;
+        ui.btnCooldown.addEventListener('click', function () {
+          safeNavigateAsync(
+            () => buildCooldownUrl(),
+            new URL('./goodjunk-launcher.html', location.href).toString()
+          );
+        });
+      }
 
-      ui.btnCopyJson.addEventListener('click', async function () {
-        const payload = window.HHA_LAST_BOSS_PAYLOAD || null;
-        if (!payload) {
-          ui.sumExportBox.textContent = 'ยังไม่มี payload ให้คัดลอก';
-          return;
-        }
-        const ok = await safeCopyText(JSON.stringify(payload, null, 2));
-        ui.sumExportBox.innerHTML = ok ? '<strong>คัดลอก JSON แล้ว</strong>' : '<strong>คัดลอกไม่สำเร็จ</strong>';
-      });
+      if (ui.btnCopyJson && !ui.btnCopyJson.__bound) {
+        ui.btnCopyJson.__bound = true;
+        ui.btnCopyJson.addEventListener('click', async function () {
+          const payload = window.HHA_LAST_BOSS_PAYLOAD || null;
+          if (!payload) {
+            ui.sumExportBox.textContent = 'ยังไม่มี payload ให้คัดลอก';
+            return;
+          }
+          const ok = await safeCopyText(JSON.stringify(payload, null, 2));
+          ui.sumExportBox.innerHTML = ok ? '<strong>คัดลอก JSON แล้ว</strong>' : '<strong>คัดลอกไม่สำเร็จ</strong>';
+        });
+      }
 
-      ui.btnHub.addEventListener('click', function () {
-        safeNavigate(ctx.hub || new URL('./hub-v2.html', location.href).toString());
-      });
+      if (ui.btnHub && !ui.btnHub.__bound) {
+        ui.btnHub.__bound = true;
+        ui.btnHub.addEventListener('click', function () {
+          safeNavigate(ctx.hub || new URL('./hub-v2.html', location.href).toString());
+        });
+      }
 
-      ui.btnPause.addEventListener('click', function () {
-        if (state.paused) resumeGame();
-        else pauseGame('manual');
-      });
+      if (ui.btnPause && !ui.btnPause.__bound) {
+        ui.btnPause.__bound = true;
+        ui.btnPause.addEventListener('click', function () {
+          if (state.paused) resumeGame();
+          else pauseGame('manual');
+        });
+      }
 
-      ui.btnMute.addEventListener('click', function () {
-        state.muted = !state.muted;
-        renderHud();
-      });
+      if (ui.btnMute && !ui.btnMute.__bound) {
+        ui.btnMute.__bound = true;
+        ui.btnMute.addEventListener('click', function () {
+          state.muted = !state.muted;
+          renderHud();
+        });
+      }
 
-      ui.btnResume.addEventListener('click', function () {
-        resumeGame();
-      });
+      if (ui.btnResume && !ui.btnResume.__bound) {
+        ui.btnResume.__bound = true;
+        ui.btnResume.addEventListener('click', function () {
+          resumeGame();
+        });
+      }
 
-      ui.btnPauseHub.addEventListener('click', function () {
-        safeNavigate(ctx.hub || new URL('./hub-v2.html', location.href).toString());
-      });
+      if (ui.btnPauseHub && !ui.btnPauseHub.__bound) {
+        ui.btnPauseHub.__bound = true;
+        ui.btnPauseHub.addEventListener('click', function () {
+          safeNavigate(ctx.hub || new URL('./hub-v2.html', location.href).toString());
+        });
+      }
 
       if (ui.btnTutorialGo && !ui.btnTutorialGo.__bound) {
         ui.btnTutorialGo.__bound = true;
@@ -3531,39 +3626,43 @@
         ui.btnTutorialSkip.addEventListener('click', hideTutorialOverlay);
       }
 
-      document.addEventListener('visibilitychange', function () {
-        if (document.hidden && !state.ended && !(ui && ui.summary && ui.summary.classList.contains('show'))) {
-          pauseGame('hidden');
-        }
-      });
+      if (!bindButtons.__globalBound) {
+        bindButtons.__globalBound = true;
 
-      window.addEventListener('blur', function () {
-        if (!state.ended) pauseGame('hidden');
-      });
+        document.addEventListener('visibilitychange', function () {
+          if (document.hidden && !state.ended && !(ui && ui.summary && ui.summary.classList.contains('show'))) {
+            pauseGame('hidden');
+          }
+        });
 
-      window.addEventListener('resize', function () {
-        renderHud();
-      }, { passive: true });
+        window.addEventListener('blur', function () {
+          if (!state.ended) pauseGame('hidden');
+        });
 
-      window.addEventListener('keydown', function (ev) {
-        if (state.ended) return;
-
-        if (ev.key === 'p' || ev.key === 'P') {
-          ev.preventDefault();
-          if (state.paused) resumeGame();
-          else pauseGame('manual');
-        }
-
-        if (ev.key === 'm' || ev.key === 'M') {
-          ev.preventDefault();
-          state.muted = !state.muted;
+        window.addEventListener('resize', function () {
           renderHud();
-        }
-      });
+        }, { passive: true });
 
-      window.addEventListener('beforeunload', function () {
-        beforeNavigationCleanup();
-      });
+        window.addEventListener('keydown', function (ev) {
+          if (state.ended) return;
+
+          if (ev.key === 'p' || ev.key === 'P') {
+            ev.preventDefault();
+            if (state.paused) resumeGame();
+            else pauseGame('manual');
+          }
+
+          if (ev.key === 'm' || ev.key === 'M') {
+            ev.preventDefault();
+            state.muted = !state.muted;
+            renderHud();
+          }
+        });
+
+        window.addEventListener('beforeunload', function () {
+          beforeNavigationCleanup();
+        });
+      }
     }
 
     function endGame(bossClear) {
@@ -3689,7 +3788,9 @@
         sessionId: ${payload.sessionId}<br>
         events: ${payload.events.length}<br>
         grade: ${payload.outcome.grade}<br>
-        bossClear: ${payload.outcome.bossClear ? 'yes' : 'no'}
+        bossClear: ${payload.outcome.bossClear ? 'yes' : 'no'}<br>
+        replayFlow: warmup-gate → boss run<br>
+        finishFlow: cooldown-gate → launcher
       `;
 
       if (ui && ui.btnReplay) {
@@ -3737,6 +3838,9 @@
       clearArenaPressure();
       ui.pauseOverlay.classList.remove('show');
       ui.summary.classList.add('show');
+
+      ui.btnReplay.textContent = bossClear ? '🔥 เล่นใหม่ผ่าน Warmup' : '🔁 ลองใหม่ผ่าน Warmup';
+      ui.btnCooldown.textContent = '🧊 ไป Cooldown';
 
       safeTimeout(() => {
         if (ui && ui.summaryCard) {
@@ -3882,6 +3986,12 @@
 
       dlog('engine started');
     }
+
+    window.HHGoodJunkPhaseBossGate = {
+      buildReplayUrl,
+      buildCooldownUrl,
+      finishBossRunViaCooldown
+    };
 
     injectStyle();
     ui = buildUI();
