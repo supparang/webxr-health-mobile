@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Rhythm Boxer Main</title>
+  <link rel="icon" href="../favicon.ico" />
+  <link rel="stylesheet" href="./boxer.css" />
+</head>
+<body>
+  <main class="rb-shell">
+    <header class="rb-topbar">
+      <div class="rb-brand">
+        <div class="rb-brand-badge">🥊</div>
+        <div>
+          <h1>Rhythm Boxer</h1>
+          <p id="subline">Main-ready base</p>
+        </div>
+      </div>
+      <a id="btnBackHubTop" class="icon-link" href="../hub.html">🏠 HUB</a>
+    </header>
+
+    <section class="rb-hud">
+      <div class="hud-card"><span>Score</span><strong id="scoreValue">0</strong></div>
+      <div class="hud-card"><span>Combo</span><strong id="comboValue">0</strong></div>
+      <div class="hud-card"><span>Accuracy</span><strong id="accValue">0%</strong></div>
+      <div class="hud-card"><span>Time</span><strong id="timeValue">00:00</strong></div>
+    </section>
+
+    <section class="coach-row">
+      <div class="coach-card">
+        <div class="coach-avatar">🎵</div>
+        <div>
+          <div class="coach-title">Coach</div>
+          <div id="coachText" class="coach-text">เริ่มได้เลย</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="arena-wrap">
+      <div class="phase-banner" id="phaseBanner">Ready</div>
+
+      <div class="arena" id="arena">
+        <div class="lane-grid">
+          <div class="lane lane-jab" data-action="jab"></div>
+          <div class="lane lane-cross" data-action="cross"></div>
+          <div class="lane lane-block" data-action="block"></div>
+          <div class="lane lane-duck" data-action="duck"></div>
+        </div>
+
+        <div class="hit-line" id="hitLine"></div>
+
+        <div class="lane-hit-row" id="laneHitRow">
+          <button class="lane-hit" data-action="jab" type="button"></button>
+          <button class="lane-hit" data-action="cross" type="button"></button>
+          <button class="lane-hit" data-action="block" type="button"></button>
+          <button class="lane-hit" data-action="duck" type="button"></button>
+        </div>
+
+        <div class="note-layer" id="noteLayer"></div>
+
+        <div class="countdown-layer" id="countdownLayer">
+          <div class="countdown-card">
+            <div class="countdown-mini">เตรียมตัว</div>
+            <div id="countdownNum" class="countdown-num">3</div>
+          </div>
+        </div>
+
+        <div class="cvr-crosshair hidden" id="cvrCrosshair"></div>
+        <div class="cvr-focus-label hidden" id="cvrFocusLabel">JAB</div>
+
+        <div class="feedback-pop" id="feedbackPop"></div>
+      </div>
+    </section>
+
+    <section class="pc-hint" id="pcHint">
+      A = Jab · L = Cross · W = Block · S = Duck
+    </section>
+  </main>
+
+  <div class="summary-overlay hidden" id="summaryOverlay">
+    <div class="summary-card">
+      <h2>สรุปผล</h2>
+      <div class="summary-grid">
+        <div class="sum-box"><span>Score</span><strong id="sumScore">0</strong></div>
+        <div class="sum-box"><span>Accuracy</span><strong id="sumAcc">0%</strong></div>
+        <div class="sum-box"><span>Max Combo</span><strong id="sumCombo">0</strong></div>
+        <div class="sum-box"><span>Grade</span><strong id="summaryGrade">B</strong></div>
+      </div>
+      <div class="summary-actions">
+        <a id="btnReplay" class="sum-btn sum-btn-main" href="./boxer.html">🔁 เล่นอีกครั้ง</a>
+        <a id="btnBackHubBottom" class="sum-btn sum-btn-soft" href="../hub.html">🏠 กลับ HUB</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="./boxer.js"></script>
+</body>
+</html>
