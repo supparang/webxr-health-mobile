@@ -1,705 +1,415 @@
-const HUB_URL_DEFAULT = './hub-v2.html';
+const STORAGE_KEYS = {
+  fitness: 'HH_FITNESS_LAST_GAME_V1'
+};
+
 const LAST_ZONE_KEY = 'HHA_LAST_ZONE';
-const LAST_PICK_KEY = 'HHA_FITNESS_LAST_PICK';
-const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
-const LAST_SUMMARY_FP_KEY = 'HHA_LAST_SUMMARY_FITNESS_PLANNER';
-const LAST_SUMMARY_FPW_KEY = 'HHA_LAST_SUMMARY_FITNESS_PLANNER_WEEKLY';
+const NEXT_ZONE_KEY = 'HHA_NEXT_ZONE';
+const RECOMMENDED_ZONE_KEY = 'HHA_RECOMMENDED_ZONE';
 
-const $ = (sel, root = document) => root.querySelector(sel);
+const GAME_LIBRARY = [
+  {
+    id: 'shadow-breaker',
+    title: 'Shadow Breaker',
+    emoji: '🥊',
+    colorClass: 'c-purple',
+    badge: 'Reaction',
+    desc: 'ตีเงาให้ทัน หลบ จับจังหวะ และเก็บคอมโบต่อเนื่อง',
+    tags: ['reaction', 'timing', 'boss'],
+    basePath: './shadow-breaker-vr.html',
+    defaultDiff: 'normal',
+    defaultTime: '90',
+    featured: true
+  },
+  {
+    id: 'rhythm-boxer',
+    title: 'Rhythm Boxer',
+    emoji: '🥁',
+    colorClass: 'c-pink',
+    badge: 'Rhythm',
+    desc: 'ต่อยตามจังหวะเพลง เก็บ streak และฝึก timing แบบสนุก',
+    tags: ['rhythm', 'combo', 'music'],
+    basePath: './rhythm-boxer-vr.html',
+    defaultDiff: 'normal',
+    defaultTime: '90'
+  },
+  {
+    id: 'jump-duck',
+    title: 'Jump & Duck',
+    emoji: '🏃',
+    colorClass: 'c-orange',
+    badge: 'Launcher',
+    desc: 'ฝึกกระโดด ย่อ และอ่าน cue ให้แม่น เริ่มผ่าน launcher ก่อนเข้าเกม',
+    tags: ['jump', 'duck', 'launcher'],
+    basePath: './jump-duck-vr.html',
+    defaultDiff: 'normal',
+    defaultTime: '90'
+  },
+  {
+    id: 'balance-hold',
+    title: 'Balance Hold',
+    emoji: '🧍',
+    colorClass: 'c-teal',
+    badge: 'Balance',
+    desc: 'คุมสมดุลร่างกายให้นิ่ง รับแรงกดดันและผ่านด่านให้ได้',
+    tags: ['balance', 'stability', 'focus'],
+    basePath: './balance-hold-vr.html',
+    defaultDiff: 'normal',
+    defaultTime: '90'
+  },
+  {
+    id: 'fitness-planner',
+    title: 'Fitness Planner',
+    emoji: '📋',
+    colorClass: 'c-green',
+    badge: 'Planner',
+    desc: 'วางแผนกิจกรรมการออกกำลังกาย เลือกภารกิจและเป้าหมายประจำวัน',
+    tags: ['plan', 'goal', 'habit'],
+    basePath: './fitness-planner.html',
+    defaultDiff: 'normal',
+    defaultTime: '90'
+  }
+];
 
-function safeJsonParse(raw, fallback = null) {
-  try { return raw ? JSON.parse(raw) : fallback; }
-  catch (_) { return fallback; }
+const LABELS = {
+  'shadow-breaker': 'Shadow Breaker',
+  'rhythm-boxer': 'Rhythm Boxer',
+  'jump-duck': 'Jump & Duck',
+  'balance-hold': 'Balance Hold',
+  'fitness-planner': 'Fitness Planner'
+};
+
+function $(id) {
+  return document.getElementById(id);
 }
 
-function readJson(key, fallback = null) {
-  try { return safeJsonParse(localStorage.getItem(key), fallback); }
-  catch (_) { return fallback; }
-}
-
-function writeJson(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
-}
-
-function qsGet(k, d = '') {
+function q(k, d = '') {
   try {
-    return new URL(location.href).searchParams.get(k) || d;
+    const v = new URL(location.href).searchParams.get(k);
+    return v == null || v === '' ? d : v;
   } catch (_) {
     return d;
   }
 }
 
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function injectZoneStyles() {
-  if (document.getElementById('fitnessZonePatchStyles')) return;
-
-  const style = document.createElement('style');
-  style.id = 'fitnessZonePatchStyles';
-  style.textContent = `
-    .games-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:16px;
-    }
-
-    .fz-game-card{
-      border-radius:24px;
-      border:3px solid #d7edf7;
-      background:linear-gradient(180deg,#fffef8,#ffffff);
-      box-shadow:0 18px 36px rgba(86,155,194,.12);
-      padding:16px;
-      display:grid;
-      gap:12px;
-    }
-
-    .fz-game-head{
-      display:grid;
-      grid-template-columns:auto 1fr;
-      gap:14px;
-      align-items:center;
-    }
-
-    .fz-game-icon{
-      width:64px;
-      height:64px;
-      border-radius:20px;
-      display:grid;
-      place-items:center;
-      font-size:32px;
-      background:linear-gradient(135deg,#7fcfff,#ffd45c);
-      border:2px solid #d7edf7;
-      box-shadow:inset 0 2px 0 rgba(255,255,255,.72);
-    }
-
-    .fz-game-kicker{
-      font-size:12px;
-      font-weight:1000;
-      letter-spacing:.08em;
-      color:#5ea8d0;
-    }
-
-    .fz-game-title{
-      margin:2px 0 0;
-      font-size:24px;
-      line-height:1.06;
-      font-weight:1000;
-      color:#4d4a42;
-    }
-
-    .fz-game-desc{
-      margin:6px 0 0;
-      font-size:13px;
-      line-height:1.55;
-      color:#7b7a72;
-      font-weight:1000;
-    }
-
-    .fz-tags{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .fz-tag{
-      min-height:30px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:6px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid #d7edf7;
-      color:#5d6e7a;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .fz-actions{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .fz-actions.fz-actions-4{
-      grid-template-columns:repeat(4,minmax(0,1fr));
-    }
-
-    .fz-btn{
-      appearance:none;
-      border:none;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:44px;
-      padding:10px 12px;
-      border-radius:16px;
-      font-size:13px;
-      font-weight:1000;
-      cursor:pointer;
-    }
-
-    .fz-btn.play{
-      background:linear-gradient(180deg,#7ed957,#58c33f);
-      color:#173b0b;
-    }
-
-    .fz-btn.blue{
-      background:linear-gradient(180deg,#7fcfff,#58b7f5);
-      color:#11374a;
-    }
-
-    .fz-btn.soft{
-      background:#fff;
-      color:#6c6a61;
-      border:2px solid #d7edf7;
-    }
-
-    .fz-note{
-      font-size:12px;
-      line-height:1.55;
-      color:#7b7a72;
-      font-weight:1000;
-    }
-
-    .recent-card{
-      border-radius:22px;
-      border:3px solid #d7edf7;
-      background:linear-gradient(180deg,#fffef8,#ffffff);
-      box-shadow:0 14px 30px rgba(86,155,194,.12);
-      padding:14px;
-      display:grid;
-      gap:12px;
-    }
-
-    .recent-card-head{
-      display:grid;
-      grid-template-columns:auto 1fr;
-      gap:12px;
-      align-items:center;
-    }
-
-    .recent-card-icon{
-      width:56px;
-      height:56px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      font-size:28px;
-      background:linear-gradient(135deg,#7fcfff,#ffd45c);
-      border:2px solid #d7edf7;
-    }
-
-    .recent-card-title{
-      font-size:22px;
-      line-height:1.08;
-      font-weight:1000;
-      color:#4d4a42;
-      margin:0;
-    }
-
-    .recent-card-sub{
-      margin:4px 0 0;
-      font-size:13px;
-      line-height:1.5;
-      color:#7b7a72;
-      font-weight:1000;
-    }
-
-    .recent-card-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .recent-chip-row{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .recent-chip{
-      min-height:30px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:6px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid #d7edf7;
-      color:#5d6e7a;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .empty-recent{
-      border-radius:18px;
-      border:2px dashed #d7edf7;
-      background:#fff;
-      padding:16px;
-      color:#7b7a72;
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    @media (max-width: 900px){
-      .games-grid{
-        grid-template-columns:1fr;
-      }
-      .fz-actions.fz-actions-4{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-    }
-
-    @media (max-width: 640px){
-      .fz-actions,
-      .fz-actions.fz-actions-4{
-        grid-template-columns:1fr;
-      }
-      .fz-game-title{
-        font-size:22px;
-      }
-    }
-  `;
-  document.head.appendChild(style);
-}
-
-const state = {
-  pid: qsGet('pid', 'anon'),
-  name: qsGet('name', qsGet('nickName', 'Hero')),
-  run: qsGet('run', 'play'),
-  diff: qsGet('diff', 'normal'),
-  view: qsGet('view', 'mobile'),
-  time: qsGet('time', '90'),
-  studyId: qsGet('studyId', ''),
-  api: qsGet('api', ''),
-  log: qsGet('log', ''),
-  debug: qsGet('debug', ''),
-  hub: qsGet('hub', HUB_URL_DEFAULT),
-  search: '',
-  games: []
-};
-
-function setLastZone(zone) {
-  try { localStorage.setItem(LAST_ZONE_KEY, zone); } catch (_) {}
-}
-
-function buildCommonParams() {
-  const params = new URLSearchParams();
-  params.set('pid', state.pid);
-  params.set('name', state.name);
-  params.set('run', state.run);
-  params.set('diff', state.diff);
-  params.set('view', state.view);
-  params.set('time', state.time);
-  params.set('hub', location.href);
-  params.set('seed', String(Date.now()));
-  params.set('zone', 'fitness');
-  params.set('cat', 'fitness');
-
-  if (state.studyId) params.set('studyId', state.studyId);
-  if (state.api) params.set('api', state.api);
-  if (state.log) params.set('log', state.log);
-  if (state.debug) params.set('debug', state.debug);
-
-  return params;
-}
-
-function buildActionGameUrl(def) {
-  const url = new URL(def.path, location.href);
-  const params = buildCommonParams();
-
-  params.set('game', def.id);
-  params.set('gameId', def.id);
-  params.set('theme', def.id);
-
-  url.search = params.toString();
-  return url.toString();
-}
-
-function buildPlannerUrl(mode) {
-  let base = './fitness-planner.html';
-  if (mode === 'quick' || mode === 'class') base = './fitness-planner/index.html';
-  if (mode === 'weekly') base = './fitness-planner/weekly.html';
-
-  const url = new URL(base, location.href);
-  const params = buildCommonParams();
-
-  params.set('game', 'fitnessplanner');
-  params.set('gameId', 'fitnessplanner');
-  params.set('theme', 'fitnessplanner');
-
-  if (mode === 'quick' || mode === 'class' || mode === 'weekly') {
-    params.set('mode', mode);
+function safeParse(raw, fallback = null) {
+  try {
+    return JSON.parse(raw);
+  } catch (_) {
+    return fallback;
   }
-
-  url.search = params.toString();
-  return url.toString();
 }
 
-function rememberLastPick(pick) {
-  writeJson(LAST_PICK_KEY, {
-    ...pick,
-    ts_iso: nowIso(),
-    pid: state.pid,
-    run: state.run,
-    diff: state.diff,
-    view: state.view,
-    time: state.time,
-    zone: 'fitness'
-  });
-  setLastZone('fitness');
-}
-
-function getPlannerRecentSummary() {
-  const weekly = readJson(LAST_SUMMARY_FPW_KEY, null);
-  if (weekly && weekly.zone === 'fitness') return weekly;
-
-  const planner = readJson(LAST_SUMMARY_FP_KEY, null);
-  if (planner && planner.zone === 'fitness') return planner;
-
-  const generic = readJson(LAST_SUMMARY_KEY, null);
-  if (generic && generic.zone === 'fitness' && /fitnessplanner/.test(String(generic.game || ''))) return generic;
-
-  return null;
-}
-
-function normalizeRecent() {
-  const plannerSummary = getPlannerRecentSummary();
-  if (plannerSummary) {
-    const weekly = plannerSummary.game === 'fitnessplanner_weekly' || plannerSummary.mode === 'weekly';
-    const mode = weekly ? 'weekly' : (plannerSummary.mode === 'quick' ? 'quick' : 'class');
-    return {
-      source: 'summary',
-      id: weekly ? 'fitnessplanner_weekly' : 'fitnessplanner',
-      title: weekly ? 'Fitness Planner • Weekly' : `Fitness Planner • ${mode === 'quick' ? 'Quick' : 'Class'}`,
-      subtitle: `คะแนนล่าสุด ${plannerSummary.scores?.overall ?? '-'} • ${plannerSummary.badge || 'Planner'}`,
-      emoji: '🗓️',
-      url: buildPlannerUrl(mode),
-      chips: [
-        `Mode: ${mode}`,
-        `Score: ${plannerSummary.scores?.overall ?? '-'}`,
-        `Badge: ${plannerSummary.badge || '-'}`
-      ]
-    };
+function readSnapshot() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.fitness);
+    return raw ? safeParse(raw, null) : null;
+  } catch (_) {
+    return null;
   }
-
-  const pick = readJson(LAST_PICK_KEY, null);
-  if (pick && pick.zone === 'fitness') {
-    return {
-      source: 'pick',
-      id: pick.id,
-      title: pick.title,
-      subtitle: pick.subtitle || 'เปิดเล่นต่อจากเกมล่าสุด',
-      emoji: pick.emoji || '🏃',
-      url: pick.url,
-      chips: [
-        `Run: ${pick.run || state.run}`,
-        `Time: ${pick.time || state.time}`,
-        `Diff: ${pick.diff || state.diff}`
-      ]
-    };
-  }
-
-  return null;
 }
 
-function setCoachLine(text) {
-  const el = $('#coachLine');
-  if (el) el.textContent = text;
+function writeZonePointers() {
+  try { localStorage.setItem(LAST_ZONE_KEY, 'fitness'); } catch (_) {}
+  try { localStorage.setItem(NEXT_ZONE_KEY, 'hygiene'); } catch (_) {}
+  try { localStorage.setItem(RECOMMENDED_ZONE_KEY, 'fitness'); } catch (_) {}
 }
 
-function buildGameDefs() {
-  return [
-    {
-      id: 'shadowbreaker',
-      title: 'Shadow Breaker',
-      emoji: '⚡',
-      kicker: 'FITNESS ACTION',
-      desc: 'ตีเป้า หลบจังหวะ และออกแรงแบบสนุกเร้าใจ',
-      tags: ['action', 'coordination', 'focus'],
-      path: './shadow-breaker-vr.html',
-      featured: false
-    },
-    {
-      id: 'rhythmboxer',
-      title: 'Rhythm Boxer',
-      emoji: '🥊',
-      kicker: 'FITNESS ACTION',
-      desc: 'ต่อยตามจังหวะ ฝึกความแม่น ความเร็ว และจังหวะร่างกาย',
-      tags: ['rhythm', 'boxing', 'cardio'],
-      path: './rhythm-boxer-vr.html',
-      featured: false
-    },
-    {
-      id: 'jumpduck',
-      title: 'Jump Duck',
-      emoji: '🦘',
-      kicker: 'FITNESS ACTION',
-      desc: 'กระโดด หลบ และเคลื่อนไหวให้ไวแบบสนุกมาก',
-      tags: ['jump', 'duck', 'agility'],
-      path: './jump-duck-vr.html',
-      featured: true
-    },
-    {
-      id: 'balancehold',
-      title: 'Balance Hold',
-      emoji: '🧍',
-      kicker: 'FITNESS ACTION',
-      desc: 'ฝึกทรงตัว คุมท่าทาง และนิ่งอย่างมีสมาธิ',
-      tags: ['balance', 'control', 'stability'],
-      path: './balance-hold-vr.html',
-      featured: false
-    },
-    {
-      id: 'fitnessplanner',
-      title: 'Fitness Planner',
-      emoji: '🗓️',
-      kicker: 'FITNESS PLANNER',
-      desc: 'วางแผนการออกกำลังกายให้สนุก สมดุล และปลอดภัย',
-      tags: ['planner', 'weekly', 'safety', 'balance'],
-      planner: true,
-      featured: false
-    }
+function gameLabel(gameId) {
+  return LABELS[gameId] || gameId || '-';
+}
+
+function currentModeValue() {
+  return $('modeSelect')?.value || q('mode', 'play');
+}
+
+function currentTimeValue() {
+  return $('timeSelect')?.value || q('time', '90');
+}
+
+function currentRunValue() {
+  const mode = currentModeValue();
+  if (mode === 'research') return 'research';
+  return q('run', 'play') || 'play';
+}
+
+function currentDiffValue() {
+  const mode = currentModeValue();
+  if (mode === 'learn') return 'easy';
+  return q('diff', 'normal') || 'normal';
+}
+
+function currentViewValue() {
+  return q('view', 'mobile') || 'mobile';
+}
+
+function buildHubUrl() {
+  const base = new URL('./fitness-zone.html', location.href);
+
+  const passthroughKeys = [
+    'pid', 'name', 'nick', 'studyId',
+    'view', 'debug', 'api', 'log',
+    'studentKey', 'schoolCode', 'classRoom', 'studentNo', 'nickName'
   ];
+
+  passthroughKeys.forEach((k) => {
+    const v = q(k, '');
+    if (v) base.searchParams.set(k, v);
+  });
+
+  base.searchParams.set('zone', 'fitness');
+  base.searchParams.set('mode', currentModeValue());
+  base.searchParams.set('time', currentTimeValue());
+  base.searchParams.set('run', currentRunValue());
+  return base.toString();
 }
 
-function passesSearch(def) {
-  if (!state.search) return true;
-  const q = state.search.trim().toLowerCase();
-  const hay = [
-    def.id,
-    def.title,
-    def.desc,
-    def.kicker,
-    ...(def.tags || [])
-  ].join(' ').toLowerCase();
-  return hay.includes(q);
+function buildGameUrl(game, patch = {}) {
+  const url = new URL(game.basePath, location.href);
+
+  const pid = q('pid', 'anon');
+  const name = q('name', q('nickName', 'Player'));
+  const studyId = q('studyId', '');
+  const view = patch.view || currentViewValue();
+  const mode = patch.mode || currentModeValue();
+  const run = patch.run || (mode === 'research' ? 'research' : currentRunValue());
+  const diff = patch.diff || currentDiffValue() || game.defaultDiff || 'normal';
+  const time = patch.time || currentTimeValue() || game.defaultTime || '90';
+  const seed = patch.seed || q('seed', String(Date.now()));
+  const hub = patch.hub || buildHubUrl();
+
+  url.searchParams.set('zone', 'fitness');
+  url.searchParams.set('cat', 'fitness');
+  url.searchParams.set('game', game.id);
+  url.searchParams.set('gameId', game.id);
+  url.searchParams.set('pid', pid);
+  url.searchParams.set('name', name);
+  url.searchParams.set('mode', mode);
+  url.searchParams.set('run', run);
+  url.searchParams.set('view', view);
+  url.searchParams.set('diff', diff);
+  url.searchParams.set('time', time);
+  url.searchParams.set('seed', seed);
+  url.searchParams.set('hub', hub);
+
+  if (studyId) url.searchParams.set('studyId', studyId);
+
+  [
+    'debug', 'api', 'log',
+    'studentKey', 'schoolCode', 'classRoom', 'studentNo', 'nickName'
+  ].forEach((k) => {
+    const v = q(k, '');
+    if (v) url.searchParams.set(k, v);
+  });
+
+  return url.toString();
 }
 
-function renderRecentArea() {
-  const area = $('#recentArea');
-  const continueBtn = $('#continueBtn');
-  const recent = normalizeRecent();
+function buildContinueUrl(snapshot) {
+  if (!snapshot?.gameId) {
+    const fallbackGame = GAME_LIBRARY.find((g) => g.id === 'jump-duck') || GAME_LIBRARY[0];
+    return buildGameUrl(fallbackGame);
+  }
 
-  if (!area) return;
+  const game = GAME_LIBRARY.find((g) => g.id === snapshot.gameId);
+  if (!game) {
+    const fallbackGame = GAME_LIBRARY.find((g) => g.id === 'jump-duck') || GAME_LIBRARY[0];
+    return buildGameUrl(fallbackGame);
+  }
 
-  if (!recent) {
-    area.innerHTML = `<div class="empty-recent">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>`;
-    if (continueBtn) {
-      continueBtn.disabled = false;
-      continueBtn.textContent = 'เล่นล่าสุด';
-      continueBtn.onclick = () => {
-        const featured = state.games.find(g => g.featured) || state.games[0];
-        if (!featured) return;
-        const url = featured.planner ? buildPlannerUrl('class') : buildActionGameUrl(featured);
-        rememberLastPick({
-          id: featured.id,
-          title: featured.title,
-          subtitle: featured.desc,
-          emoji: featured.emoji,
-          url
-        });
-        location.href = url;
-      };
-    }
-    setCoachLine('เลือกเกมออกกำลังกายที่อยากเล่น แล้วเริ่มได้เลย');
+  return buildGameUrl(game, {
+    mode: snapshot.mode || currentModeValue(),
+    run: snapshot.run || currentRunValue(),
+    diff: snapshot.diff || currentDiffValue(),
+    time: String(snapshot.time || currentTimeValue()),
+    view: snapshot.view || currentViewValue(),
+    seed: snapshot.seed || q('seed', String(Date.now()))
+  });
+}
+
+function coachLineFromSnapshot(snapshot) {
+  if (!snapshot?.gameId) return 'เลือกเกมออกกำลังกายที่อยากเล่น แล้วเริ่มได้เลย';
+
+  const title = gameLabel(snapshot.gameId);
+  const score = Number(snapshot.score || 0);
+  const streak = Number(snapshot.bestStreak || snapshot.combo || 0);
+
+  return `ล่าสุดเล่น ${title} • score ${score} • best streak ${streak}`;
+}
+
+function recommendedGame(snapshot) {
+  if (!snapshot?.gameId) {
+    return GAME_LIBRARY.find((g) => g.id === 'jump-duck') || GAME_LIBRARY[0];
+  }
+
+  if (snapshot.gameId === 'shadow-breaker') {
+    return GAME_LIBRARY.find((g) => g.id === 'rhythm-boxer');
+  }
+  if (snapshot.gameId === 'rhythm-boxer') {
+    return GAME_LIBRARY.find((g) => g.id === 'jump-duck');
+  }
+  if (snapshot.gameId === 'jump-duck') {
+    return GAME_LIBRARY.find((g) => g.id === 'balance-hold');
+  }
+  if (snapshot.gameId === 'balance-hold') {
+    return GAME_LIBRARY.find((g) => g.id === 'fitness-planner');
+  }
+  return GAME_LIBRARY.find((g) => g.id === 'jump-duck') || GAME_LIBRARY[0];
+}
+
+function renderHeader(snapshot) {
+  $('playerPill').textContent = `👤 Player: ${q('pid', 'anon')}`;
+  $('modePill').textContent = `🎮 Mode: ${currentModeValue()}`;
+
+  const coach = $('coachLine');
+  if (coach) coach.textContent = coachLineFromSnapshot(snapshot);
+
+  const hubBtn = $('hubBtn');
+  if (hubBtn) hubBtn.href = q('hub', './hub-v2.html');
+
+  const continueBtn = $('continueBtn');
+  if (continueBtn) {
+    continueBtn.onclick = () => {
+      writeZonePointers();
+      location.href = buildContinueUrl(snapshot);
+    };
+  }
+}
+
+function renderRecent(snapshot) {
+  const box = $('recentArea');
+  if (!box) return;
+
+  if (!snapshot?.gameId) {
+    box.innerHTML = `<div class="empty-recent">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>`;
     return;
   }
 
-  area.innerHTML = `
-    <div class="recent-card">
-      <div class="recent-card-head">
-        <div class="recent-card-icon">${recent.emoji}</div>
-        <div>
-          <h3 class="recent-card-title">${recent.title}</h3>
-          <p class="recent-card-sub">${recent.subtitle}</p>
+  const title = gameLabel(snapshot.gameId);
+  const game = GAME_LIBRARY.find((g) => g.id === snapshot.gameId);
+  const href = buildContinueUrl(snapshot);
+
+  box.innerHTML = `
+    <article class="recent-card">
+      <div class="recent-icon ${game?.colorClass || 'c-blue'}">${game?.emoji || '🏃'}</div>
+
+      <div>
+        <div class="recent-title">${title}</div>
+        <div class="recent-sub">
+          ล่าสุดเล่นแบบ ${snapshot.mode || snapshot.run || 'play'}
+          • ${snapshot.time || '90'} วินาที
+          • diff ${snapshot.diff || 'normal'}
         </div>
       </div>
 
-      <div class="recent-chip-row">
-        ${(recent.chips || []).map(c => `<span class="recent-chip">${c}</span>`).join('')}
+      <div class="recent-actions">
+        <a class="play-btn ${game?.colorClass || 'c-blue'}" href="${href}">▶ เล่นต่อ</a>
+        <a class="ghost-btn" href="${buildGameUrl(game || recommendedGame(snapshot), { time: '60', diff: 'easy' })}">⚡ เล่นสั้น</a>
       </div>
-
-      <div class="recent-card-actions">
-        <a class="fz-btn play" id="recentPlayBtn" href="${recent.url}">▶️ เล่นต่อ</a>
-      </div>
-    </div>
+    </article>
   `;
-
-  const recentPlayBtn = $('#recentPlayBtn');
-  if (recentPlayBtn) {
-    recentPlayBtn.addEventListener('click', () => setLastZone('fitness'));
-  }
-
-  if (continueBtn) {
-    continueBtn.disabled = false;
-    continueBtn.textContent = 'เล่นล่าสุด';
-    continueBtn.onclick = () => {
-      setLastZone('fitness');
-      location.href = recent.url;
-    };
-  }
-
-  setCoachLine(`ล่าสุดหนูเล่น ${recent.title} อยู่ ลองเล่นต่อได้เลย`);
 }
 
-function renderGamesGrid() {
-  const grid = $('#gamesGrid');
+function matchesSearch(game, keyword) {
+  if (!keyword) return true;
+  const k = keyword.toLowerCase().trim();
+
+  return [
+    game.id,
+    game.title,
+    game.desc,
+    ...(game.tags || [])
+  ].join(' ').toLowerCase().includes(k);
+}
+
+function renderGames(snapshot) {
+  const grid = $('gamesGrid');
   if (!grid) return;
 
-  const list = state.games.filter(passesSearch);
+  const keyword = ($('searchInput')?.value || '').trim();
+  const recommended = recommendedGame(snapshot);
 
-  if (!list.length) {
-    grid.innerHTML = `
-      <div class="empty-recent">ไม่เจอเกมที่ตรงกับคำค้นหา ลองพิมพ์คำว่า jump, rhythm, balance หรือ planner</div>
-    `;
-    setCoachLine('ไม่เจอเกมตามคำค้นหา ลองพิมพ์คำที่สั้นลงอีกนิด');
-    return;
-  }
-
-  grid.innerHTML = list.map(def => {
-    if (def.planner) {
-      const quickUrl = buildPlannerUrl('quick');
-      const classUrl = buildPlannerUrl('class');
-      const weeklyUrl = buildPlannerUrl('weekly');
-      const launcherUrl = buildPlannerUrl('launcher');
+  const html = GAME_LIBRARY
+    .filter((game) => matchesSearch(game, keyword))
+    .map((game) => {
+      const isRecent = snapshot?.gameId === game.id;
+      const isRecommended = recommended?.id === game.id;
+      const startHref = buildGameUrl(game);
+      const quickHref = buildGameUrl(game, {
+        diff: game.id === 'fitness-planner' ? 'normal' : 'easy',
+        time: '60'
+      });
 
       return `
-        <article class="fz-game-card" data-game-id="${def.id}">
-          <div class="fz-game-head">
-            <div class="fz-game-icon">${def.emoji}</div>
-            <div>
-              <div class="fz-game-kicker">${def.kicker}</div>
-              <div class="fz-game-title">${def.title}</div>
-              <p class="fz-game-desc">${def.desc}</p>
-            </div>
+        <article class="game-card">
+          <div class="game-top">
+            <div class="game-icon ${game.colorClass}">${game.emoji}</div>
+            <div class="game-badge">${isRecent ? 'ล่าสุด' : (isRecommended ? 'แนะนำ' : game.badge)}</div>
           </div>
 
-          <div class="fz-tags">
-            ${def.tags.map(tag => `<span class="fz-tag">${tag}</span>`).join('')}
+          <div class="game-title">${game.title}</div>
+          <div class="game-sub">${game.desc}</div>
+
+          <div class="game-tags">
+            ${(game.tags || []).map((tag) => `<span class="game-tag">${tag}</span>`).join('')}
+            ${game.id === 'jump-duck' ? '<span class="game-tag">warmup+cooldown</span>' : ''}
           </div>
 
-          <div class="fz-actions fz-actions-4">
-            <a class="fz-btn blue" data-pick-id="${def.id}" data-pick-title="${def.title} • Quick" data-pick-emoji="${def.emoji}" href="${quickUrl}">⚡ Quick</a>
-            <a class="fz-btn play" data-pick-id="${def.id}" data-pick-title="${def.title} • Class" data-pick-emoji="${def.emoji}" href="${classUrl}">🏫 Class</a>
-            <a class="fz-btn soft" data-pick-id="${def.id}" data-pick-title="${def.title} • Weekly" data-pick-emoji="${def.emoji}" href="${weeklyUrl}">📅 Weekly</a>
-            <a class="fz-btn soft" data-pick-id="${def.id}" data-pick-title="${def.title} • Launcher" data-pick-emoji="${def.emoji}" href="${launcherUrl}">🧭 Launcher</a>
-          </div>
-
-          <div class="fz-note">
-            เกมนี้เหมาะใช้ก่อนหรือหลังเล่นเกมแอ็กชัน เพื่อฝึกคิดลำดับกิจกรรมให้ปลอดภัยและสมดุล
+          <div class="game-actions">
+            <a class="play-btn ${game.colorClass}" href="${startHref}" data-game-link="${game.id}">▶ เริ่มเล่น</a>
+            <a class="ghost-btn" href="${quickHref}" data-game-quick="${game.id}">⚡ quick</a>
           </div>
         </article>
       `;
-    }
+    })
+    .join('');
 
-    const url = buildActionGameUrl(def);
-    return `
-      <article class="fz-game-card" data-game-id="${def.id}">
-        <div class="fz-game-head">
-          <div class="fz-game-icon">${def.emoji}</div>
-          <div>
-            <div class="fz-game-kicker">${def.kicker}</div>
-            <div class="fz-game-title">${def.title}</div>
-            <p class="fz-game-desc">${def.desc}</p>
-          </div>
-        </div>
+  grid.innerHTML = html || `<div class="empty-recent">ไม่พบเกมที่ตรงกับคำค้นหา ลองพิมพ์คำอื่นดู</div>`;
 
-        <div class="fz-tags">
-          ${def.tags.map(tag => `<span class="fz-tag">${tag}</span>`).join('')}
-        </div>
-
-        <div class="fz-actions">
-          <a class="fz-btn play" data-pick-id="${def.id}" data-pick-title="${def.title}" data-pick-emoji="${def.emoji}" href="${url}">🎮 เล่นเลย</a>
-          <button class="fz-btn soft" type="button" data-feature-info="${def.id}">ℹ️ ดูแนวเกม</button>
-        </div>
-
-        <div class="fz-note">
-          ${def.featured ? 'เกมแนะนำของโซนนี้ เหมาะเริ่มเล่นก่อน' : 'เลือกเล่นได้ทันทีตามเวลาที่ตั้งไว้ด้านบน'}
-        </div>
-      </article>
-    `;
-  }).join('');
-
-  grid.querySelectorAll('[data-pick-id]').forEach(el => {
+  grid.querySelectorAll('[data-game-link]').forEach((el) => {
     el.addEventListener('click', () => {
-      const title = el.getAttribute('data-pick-title') || 'Fitness Game';
-      const emoji = el.getAttribute('data-pick-emoji') || '🏃';
-      rememberLastPick({
-        id: el.getAttribute('data-pick-id') || 'fitness',
-        title,
-        subtitle: 'เปิดเล่นจาก Fitness Zone',
-        emoji,
-        url: el.href
-      });
+      writeZonePointers();
     });
   });
 
-  grid.querySelectorAll('[data-feature-info]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.getAttribute('data-feature-info');
-      const def = state.games.find(g => g.id === id);
-      if (!def) return;
-      setCoachLine(`${def.title}: ${def.desc}`);
+  grid.querySelectorAll('[data-game-quick]').forEach((el) => {
+    el.addEventListener('click', () => {
+      writeZonePointers();
     });
   });
-
-  if (!state.search) {
-    const featured = state.games.find(g => g.featured);
-    if (featured) {
-      setCoachLine(`เกมแนะนำตอนนี้คือ ${featured.title} — ${featured.desc}`);
-    }
-  }
 }
 
-function bindControls() {
-  const modeSelect = $('#modeSelect');
-  const timeSelect = $('#timeSelect');
-  const searchInput = $('#searchInput');
-  const hubBtn = $('#hubBtn');
+function bindControls(snapshot) {
+  $('modeSelect')?.addEventListener('change', () => {
+    $('modePill').textContent = `🎮 Mode: ${currentModeValue()}`;
+    renderRecent(snapshot);
+    renderGames(snapshot);
+  });
 
-  if (hubBtn) {
-    hubBtn.href = state.hub || HUB_URL_DEFAULT;
-  }
+  $('timeSelect')?.addEventListener('change', () => {
+    renderRecent(snapshot);
+    renderGames(snapshot);
+  });
 
-  if (modeSelect) {
-    modeSelect.value = state.run;
-    modeSelect.addEventListener('change', () => {
-      state.run = modeSelect.value;
-      const modePill = $('#modePill');
-      if (modePill) modePill.textContent = '🎮 Mode: ' + state.run;
-      renderGamesGrid();
-      renderRecentArea();
-    });
-  }
-
-  if (timeSelect) {
-    timeSelect.value = state.time;
-    timeSelect.addEventListener('change', () => {
-      state.time = timeSelect.value;
-      renderGamesGrid();
-      renderRecentArea();
-    });
-  }
-
-  if (searchInput) {
-    searchInput.addEventListener('input', () => {
-      state.search = searchInput.value.trim().toLowerCase();
-      renderGamesGrid();
-    });
-  }
+  $('searchInput')?.addEventListener('input', () => {
+    renderGames(snapshot);
+  });
 }
 
-function boot() {
-  injectZoneStyles();
-  state.games = buildGameDefs();
-  bindControls();
-  renderRecentArea();
-  renderGamesGrid();
+function syncTopLinks() {
+  const hubBtn = $('hubBtn');
+  if (hubBtn) hubBtn.href = q('hub', './hub-v2.html');
 }
 
-boot();
+function bootFitnessZone() {
+  writeZonePointers();
+  syncTopLinks();
+
+  const snapshot = readSnapshot();
+
+  renderHeader(snapshot);
+  renderRecent(snapshot);
+  renderGames(snapshot);
+  bindControls(snapshot);
+}
+
+bootFitnessZone();
