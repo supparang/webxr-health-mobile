@@ -3,195 +3,363 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Intervention • Post-Behavior</title>
-  <link rel="stylesheet" href="./assessment.css" />
+  <title>GoodJunk • Post-Behavior</title>
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --sky1:#dff6ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d6;
+      --card:#fffef8;
+      --line:#c9e8f4;
+      --text:#4d4a42;
+      --muted:#7d7a73;
+      --green:#7ed957;
+      --green2:#59c53f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --pink:#ff9fcb;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+    body{
+      min-height:100dvh;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.94), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.76), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 56%, var(--sky3));
+    }
+
+    .page{
+      width:min(980px, 100%);
+      margin:0 auto;
+      padding:16px;
+      padding-top:calc(16px + env(safe-area-inset-top,0px));
+      padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
+    }
+
+    .hero{
+      background:linear-gradient(180deg,#fffef8,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+      padding:20px 18px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-30px;
+      top:-30px;
+      width:130px;
+      height:130px;
+      border-radius:999px;
+      background:rgba(127,207,255,.18);
+      filter:blur(8px);
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-24px;
+      bottom:-24px;
+      width:120px;
+      height:120px;
+      border-radius:999px;
+      background:rgba(255,212,92,.18);
+      filter:blur(8px);
+    }
+
+    .kicker{
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#eaf8ff;
+      border:2px solid var(--line);
+      color:#58a8d2;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    h1{
+      position:relative;
+      z-index:1;
+      margin:0 0 8px;
+      font-size:clamp(30px,5vw,44px);
+      line-height:1.06;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .lead{
+      position:relative;
+      z-index:1;
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      font-weight:900;
+      max-width:760px;
+    }
+
+    .ctx{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:2px dashed var(--line);
+      background:rgba(255,255,255,.72);
+      color:#6f6b64;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.55;
+    }
+
+    form{
+      display:grid;
+      gap:14px;
+      margin-top:16px;
+    }
+
+    .q-card{
+      background:linear-gradient(180deg,#fffef9,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:26px;
+      box-shadow:var(--shadow);
+      padding:16px;
+    }
+
+    .q-title{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      margin-bottom:12px;
+    }
+
+    .q-no{
+      flex:0 0 auto;
+      width:40px;
+      height:40px;
+      display:grid;
+      place-items:center;
+      border-radius:14px;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef8;
+      font-weight:1000;
+      font-size:18px;
+      box-shadow:0 8px 16px rgba(88,183,245,.20);
+    }
+
+    .q-text{
+      font-size:20px;
+      line-height:1.35;
+      font-weight:1000;
+      color:var(--text);
+      padding-top:3px;
+    }
+
+    .scale{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin-top:8px;
+    }
+
+    .scale label{
+      cursor:pointer;
+    }
+
+    .scale input{
+      position:absolute;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .scale-box{
+      height:100%;
+      min-height:92px;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:12px;
+      border-radius:20px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+      font-size:16px;
+      line-height:1.35;
+      font-weight:1000;
+      transition:.14s ease;
+    }
+
+    .scale input:checked + .scale-box{
+      border-color:#8ad95d;
+      background:linear-gradient(180deg,#f8fff1,#f2ffe7);
+      transform:translateY(-1px);
+    }
+
+    textarea{
+      width:100%;
+      min-height:120px;
+      resize:vertical;
+      border-radius:18px;
+      border:2px solid var(--line);
+      padding:14px;
+      font:inherit;
+      color:var(--text);
+      background:#fff;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:4px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:14px 18px;
+      font-size:16px;
+      font-weight:1000;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
+      transition:.12s ease;
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-main{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#fffef8;
+    }
+
+    .btn-back{
+      background:#fff;
+      color:#6f6a62;
+      border:2px solid var(--line);
+    }
+
+    .helper{
+      color:#7f7b74;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.6;
+      margin-top:2px;
+    }
+
+    @media (max-width:720px){
+      .page{ padding:12px; }
+      .q-text{ font-size:18px; }
+      .scale{ grid-template-columns:1fr 1fr; }
+      .actions .btn{ flex:1 1 100%; }
+    }
+  </style>
 </head>
 <body>
   <main class="page">
-    <section class="card">
-      <div class="badge">Posttest • Post-Behavior</div>
-      <h1>แบบประเมินพฤติกรรมหลังเล่น</h1>
-      <p class="sub">
-        หลังจากเล่นเกมแล้ว ลองตอบว่าตอนนี้หนูอยากเลือกอะไรและอยากเปลี่ยนพฤติกรรมแบบไหน
+    <section class="hero">
+      <div class="kicker">🌱 POST-BEHAVIOR</div>
+      <h1>หลังเล่นเกม เรารู้สึกยังไงบ้าง</h1>
+      <p class="lead">
+        เลือกคำตอบที่ตรงกับตัวเองที่สุด แล้วคิดต่อว่าอยากเปลี่ยนพฤติกรรมอะไรบ้าง
       </p>
-
-      <div class="ctx" id="ctxBox">กำลังโหลด...</div>
-
-      <form class="form">
-        <section class="block">
-          <h2>1) ถ้าหิวหลังเลิกเรียนตอนนี้ หนูอยากเลือกอะไร</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="pb1_afterSchoolSnack" value="fruit" required />
-              ผลไม้
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb1_afterSchoolSnack" value="healthySnack" required />
-              ของว่างที่ดีกว่า
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb1_afterSchoolSnack" value="junk" required />
-              ขนมหรือของทอด
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb1_afterSchoolSnack" value="notSure" required />
-              ยังไม่แน่ใจ
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>2) ถ้าจะเลือกเครื่องดื่มตอนนี้ หนูอยากดื่มอะไร</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="pb2_afterGameDrink" value="water" required />
-              น้ำเปล่า
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb2_afterGameDrink" value="milk" required />
-              นมจืด
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb2_afterGameDrink" value="sweetDrink" required />
-              น้ำหวาน / น้ำอัดลม
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb2_afterGameDrink" value="notSure" required />
-              ยังไม่แน่ใจ
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>3) ตอนนี้หนูอยากกินผลไม้มากขึ้นไหม</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="pb3_moreFruitIntent" value="yes" required />
-              อยากมากขึ้น
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb3_moreFruitIntent" value="somewhat" required />
-              อยากบ้าง
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb3_moreFruitIntent" value="notMuch" required />
-              ยังไม่ค่อยอยาก
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb3_moreFruitIntent" value="no" required />
-              ไม่อยาก
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>4) ตอนนี้หนูอยากลด junk food ลงไหม</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="pb4_reduceJunkIntent" value="yes" required />
-              อยากมาก
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb4_reduceJunkIntent" value="somewhat" required />
-              อยากบ้าง
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb4_reduceJunkIntent" value="notMuch" required />
-              ยังไม่ค่อยอยาก
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb4_reduceJunkIntent" value="no" required />
-              ไม่อยาก
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>5) ถ้าไปซื้อของที่ร้านตอนนี้ หนูจะเลือกอะไร</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="pb5_shopChoice" value="fruitMilk" required />
-              ผลไม้หรือนมจืด
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb5_shopChoice" value="mixed" required />
-              แล้วแต่วัน
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb5_shopChoice" value="junk" required />
-              ขนมหวาน / ของทอด
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb5_shopChoice" value="notSure" required />
-              ยังไม่แน่ใจ
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>6) ถ้าต้องเลือกตอนนี้ทันที หนูจะเลือกทางไหนดีต่อสุขภาพมากกว่า</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="pb6_nowChoice" value="healthy" required />
-              เลือกของที่ดีกว่า
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb6_nowChoice" value="junk" required />
-              เลือก junk เหมือนเดิม
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb6_nowChoice" value="mixed" required />
-              บางครั้งก็เลือกได้
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb6_nowChoice" value="notSure" required />
-              ยังไม่แน่ใจ
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>7) หนูอยากเล่าเรื่องนี้ให้ผู้ปกครองหรือคนที่บ้านฟังไหม</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="pb7_talkToParent" value="yes" required />
-              อยากเล่า
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb7_talkToParent" value="somewhat" required />
-              อาจจะเล่า
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb7_talkToParent" value="notMuch" required />
-              ยังไม่ค่อยอยากเล่า
-            </label>
-            <label class="choice">
-              <input type="radio" name="pb7_talkToParent" value="no" required />
-              ไม่อยากเล่า
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>8) หลังจบกิจกรรมนี้ หนูตั้งใจจะเปลี่ยนอะไร 1 อย่าง</h2>
-          <label class="inline">
-            <span class="note">ตอบสั้น ๆ ได้เลย</span>
-            <textarea
-              name="pb8_changePlan"
-              placeholder="เช่น จะดื่มน้ำเปล่าแทนน้ำหวาน หรือจะลดขนมหวาน"
-              required
-            ></textarea>
-          </label>
-        </section>
-
-        <div class="footer">
-          <button type="button" class="btn btn-ghost" data-action="back">ย้อนกลับ</button>
-          <button type="submit" class="btn btn-primary">บันทึกและไป Post-Choice</button>
-        </div>
-      </form>
+      <div class="ctx" id="ctxBox">กำลังโหลดข้อมูล…</div>
     </section>
+
+    <form data-next-key="POST_CHOICE">
+      <section class="q-card">
+        <div class="q-title">
+          <div class="q-no">1</div>
+          <div class="q-text">หลังเล่นเกม วันนี้เราคิดว่า “อยากเลือกอาหารดีมากขึ้น” แค่ไหน</div>
+        </div>
+
+        <div class="scale">
+          <label>
+            <input type="radio" name="b1" value="1" required />
+            <div class="scale-box">ยังไม่ค่อยอยาก</div>
+          </label>
+          <label>
+            <input type="radio" name="b1" value="2" required />
+            <div class="scale-box">อยากนิดหน่อย</div>
+          </label>
+          <label>
+            <input type="radio" name="b1" value="3" required />
+            <div class="scale-box">อยากมากขึ้น</div>
+          </label>
+          <label>
+            <input type="radio" name="b1" value="4" required />
+            <div class="scale-box">อยากมากที่สุด</div>
+          </label>
+        </div>
+      </section>
+
+      <section class="q-card">
+        <div class="q-title">
+          <div class="q-no">2</div>
+          <div class="q-text">วันนี้เราคิดว่า “จะลด junk food” ได้มากแค่ไหน</div>
+        </div>
+
+        <div class="scale">
+          <label>
+            <input type="radio" name="b2" value="1" required />
+            <div class="scale-box">ยากมาก</div>
+          </label>
+          <label>
+            <input type="radio" name="b2" value="2" required />
+            <div class="scale-box">พอทำได้บ้าง</div>
+          </label>
+          <label>
+            <input type="radio" name="b2" value="3" required />
+            <div class="scale-box">น่าจะทำได้</div>
+          </label>
+          <label>
+            <input type="radio" name="b2" value="4" required />
+            <div class="scale-box">ทำได้แน่นอน</div>
+          </label>
+        </div>
+      </section>
+
+      <section class="q-card">
+        <div class="q-title">
+          <div class="q-no">3</div>
+          <div class="q-text">พรุ่งนี้เราอยากลองเปลี่ยนอะไร 1 อย่าง</div>
+        </div>
+
+        <textarea
+          name="b3_reflection"
+          placeholder="เช่น จะพกผลไม้ไปโรงเรียน หรือจะลดน้ำอัดลม"
+          required
+        ></textarea>
+      </section>
+
+      <div class="actions">
+        <button class="btn btn-main" type="submit">ไปข้อสุดท้าย</button>
+        <button class="btn btn-back" type="button" data-action="back">ย้อนกลับ</button>
+      </div>
+
+      <div class="helper">
+        ตอบครบแล้วระบบจะพาไปหน้าถัดไปอัตโนมัติ
+      </div>
+    </form>
   </main>
 
-  <script type="module" src="./assessment.js?v=20260319b-postb"></script>
+  <script type="module" src="./assessment.js"></script>
 </body>
 </html>
