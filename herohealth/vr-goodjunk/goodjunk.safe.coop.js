@@ -3,7 +3,11 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.coop.js
  * GoodJunk Coop Core
- * FULL PATCH v20260405-coop-core-runtime-full
+ * FULL PATCH v20260406-coop-core-runtime-full
+ * - coop room sync
+ * - team score / personal contribution
+ * - team goal progress
+ * - compare summary + controller handoff friendly
  * ========================================================= */
 (function(){
   const W = window;
@@ -146,9 +150,9 @@
   ];
 
   const DIFF_CFG = {
-    easy:   { spawnEvery: 860, maxTargets: 5, ttl: 3200, speed: 112, goodRatio: 0.80 },
-    normal: { spawnEvery: 710, maxTargets: 6, ttl: 2750, speed: 145, goodRatio: 0.74 },
-    hard:   { spawnEvery: 560, maxTargets: 7, ttl: 2300, speed: 178, goodRatio: 0.68 }
+    easy:   { spawnEvery: 880, maxTargets: 5, ttl: 3200, speed: 108, goodRatio: 0.80, goalFactor: 3.3 },
+    normal: { spawnEvery: 710, maxTargets: 6, ttl: 2720, speed: 140, goodRatio: 0.73, goalFactor: 3.8 },
+    hard:   { spawnEvery: 580, maxTargets: 7, ttl: 2350, speed: 176, goodRatio: 0.67, goalFactor: 4.4 }
   };
 
   const ctx = {
@@ -167,37 +171,41 @@
     roundId: clean(qs('roundId', ''), 80),
     hub: clean(qs('hub', '../hub.html'), 500),
     view: clean(qs('view', 'mobile'), 24),
-    host: clean(qs('host', '0'), 8),
-    spectate: qs('spectate', '0') === '1'
+    host: clean(qs('host', '0'), 8)
   };
 
   const UI = {
     mount: byId('gameMount'),
 
     roomPill: byId('coopRoomPill'),
-    teamScore: byId('coopTeamScoreValue'),
+    score: byId('coopScoreValue'),
     time: byId('coopTimeValue'),
     miss: byId('coopMissValue'),
-    contribution: byId('coopContributionValue'),
+    streak: byId('coopStreakValue'),
 
     itemEmoji: byId('coopItemEmoji'),
     itemTitle: byId('coopItemTitle'),
     itemSub: byId('coopItemSub'),
 
-    goodHit: byId('coopGoodHitValue'),
-    junkHit: byId('coopJunkHitValue'),
-    goodMiss: byId('coopGoodMissValue'),
+    myScore: byId('coopMyScoreValue'),
+    contribution: byId('coopContributionValue'),
+    goalText: byId('coopGoalTextValue'),
 
     tip: byId('coopTipText'),
     goalValue: byId('coopGoalValue'),
     goalFill: byId('coopGoalFill'),
     goalSubFill: byId('coopGoalSubFill'),
 
-    playerCount: byId('coopPlayerCountValue'),
-    readyCount: byId('coopReadyCountValue'),
+    playersValue: byId('coopPlayersValue'),
     rankValue: byId('coopRankValue'),
+    gapValue: byId('coopGapValue')
+  };
 
-    resultMount: byId('coopResultMount')
+  const ENGINE = {
+    root: null,
+    field: null,
+    banner: null,
+    teamStrip: null
   };
 
   const S = {
@@ -243,22 +251,13 @@
     goodHit: 0,
     junkHit: 0,
     goodMiss: 0,
-    contribution: 0,
 
     teamScore: 0,
-    teamGoal: 360,
+    goal: 0,
 
     hostEndingBusy: false,
     hostPromoteBusy: false,
-    hostTeamSyncBusy: false,
     bannerLockUntil: 0
-  };
-
-  const ENGINE = {
-    root: null,
-    field: null,
-    banner: null,
-    teamStrip: null
   };
 
   let RT = null;
@@ -381,25 +380,39 @@
     return players[key] || null;
   }
 
-  function isHost(){
-    const host = cleanPid((S.room.meta || {}).hostPid || '');
-    return !!host && host === getSelfKey();
+  function computeGoalFromContext(){
+    const cfg = DIFF_CFG[ctx.diff] || DIFF_CFG.normal;
+    const players = Math.max(MIN_PLAYERS, currentParticipantIds().length || activeParticipants().length || MIN_PLAYERS);
+    return Math.round(ctx.timeSec * cfg.goalFactor * players);
   }
 
-  function currentGoal(){
-    const participantCount = Math.max(MIN_PLAYERS, activeParticipants().length || currentParticipantIds().length || MIN_PLAYERS);
-    const base = participantCount * ctx.timeSec * 3.4;
-    if (ctx.diff === 'easy') return Math.round(base * 0.9);
-    if (ctx.diff === 'hard') return Math.round(base * 1.12);
-    return Math.round(base);
-  }
-
-  function currentTeamScoreFromPlayers(){
+  function computeTeamScore(){
     return activeParticipants().reduce((sum, p) => sum + num(p.score, 0), 0);
   }
 
-  function currentReadyCount(){
-    return activePlayers().filter((p) => !!p.ready).length;
+  function computeContribution(score, teamScore){
+    if (!teamScore || teamScore <= 0) return 0;
+    return Math.max(0, Math.min(100, Math.round((num(score, 0) / Math.max(1, teamScore)) * 100)));
+  }
+
+  function computePersonalRank(){
+    const rows = activeParticipants().map((p) => ({
+      pid: p.pid,
+      score: num(p.score, 0),
+      miss: num(p.miss, 0),
+      bestStreak: num(p.bestStreak || p.streak, 0)
+    })).sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.miss !== b.miss) return a.miss - b.miss;
+      return b.bestStreak - a.bestStreak;
+    });
+
+    const me = rows.find((r) => String(r.pid || '') === String(getSelfKey())) || null;
+    return me ? (rows.findIndex((r) => r.pid === me.pid) + 1) : 0;
+  }
+
+  function computeGapToGoal(teamScore, goal){
+    return Math.max(0, num(goal, 0) - num(teamScore, 0));
   }
 
   function updateGlobals(){
@@ -412,11 +425,11 @@
       uid: S.uid,
       playerId: ctx.pid,
       score: S.score,
-      teamScore: S.teamScore,
-      teamGoal: S.teamGoal,
-      contribution: S.contribution,
       miss: S.miss,
       bestStreak: S.bestStreak,
+      teamScore: S.teamScore,
+      contribution: computeContribution(S.score, S.teamScore),
+      goal: S.goal,
       timeLeftSec: timeLeftSec(),
       started: S.started,
       finished: S.finished,
@@ -456,13 +469,14 @@
         pointer-events:none;
       }
       #coopBanner{
-        position:absolute; left:50%; top:18px; transform:translateX(-50%);
-        z-index:7; min-width:min(92vw,560px); max-width:min(92vw,660px);
-        border-radius:22px; padding:12px 16px;
+        position:absolute; left:50%; top:12px; transform:translateX(-50%);
+        z-index:7; width:min(92vw,440px); max-width:min(92vw,440px);
+        border-radius:22px; padding:10px 14px;
         border:2px solid #bfe3f2;
         background:rgba(255,255,255,.95);
         box-shadow:0 14px 24px rgba(86,155,194,.16);
-        color:#4d4a42; text-align:center; font-size:14px; line-height:1.6; font-weight:1000;
+        color:#4d4a42; text-align:center; font-size:13px; line-height:1.55; font-weight:1000;
+        pointer-events:none;
       }
       #coopTeamStrip{
         position:absolute;
@@ -473,9 +487,11 @@
         display:flex;
         gap:10px;
         flex-wrap:wrap;
+        justify-content:flex-start;
+        pointer-events:none;
       }
-      .gjc-teammate-card{
-        min-width:190px;
+      .gjc-team-card{
+        min-width:220px;
         padding:12px 14px;
         color:#4d4a42;
         background:rgba(255,255,255,.92);
@@ -483,17 +499,17 @@
         border-radius:18px;
         box-shadow:0 10px 20px rgba(86,155,194,.12);
       }
-      .gjc-teammate-top{
+      .gjc-team-top{
         display:flex;
         justify-content:space-between;
         gap:8px;
         align-items:center;
       }
-      .gjc-teammate-name{
+      .gjc-team-name{
         font-size:15px;
         font-weight:1000;
       }
-      .gjc-teammate-mini{
+      .gjc-team-mini{
         margin-top:7px;
         font-size:12px;
         color:#7b7a72;
@@ -538,10 +554,11 @@
       }
       @media (max-width:640px){
         #coopBanner{
-          top:8px;
-          min-width:min(94vw,360px);
-          padding:8px 10px;
-          font-size:11px;
+          top:6px;
+          width:min(90vw,300px);
+          max-width:min(90vw,300px);
+          padding:7px 10px;
+          font-size:10px;
           border-radius:12px;
         }
         #coopTeamStrip{
@@ -550,19 +567,19 @@
           bottom:6px;
           gap:4px;
         }
-        .gjc-teammate-card{
+        .gjc-team-card{
+          min-width:unset;
           width:100%;
-          min-width:0;
           padding:6px 8px;
           border-radius:10px;
         }
-        .gjc-teammate-name{
+        .gjc-team-name{
           font-size:11px;
           white-space:nowrap;
           overflow:hidden;
           text-overflow:ellipsis;
         }
-        .gjc-teammate-mini{
+        .gjc-team-mini{
           margin-top:3px;
           font-size:9px;
           line-height:1.3;
@@ -630,25 +647,51 @@
 
   function playAreaInsets(){
     const mobile = W.innerWidth <= 640;
-    return {
-      top: mobile ? 56 : 96,
-      right: mobile ? 10 : 18,
-      bottom: mobile ? 78 : 92,
-      left: mobile ? 6 : 8
-    };
+
+    let top = mobile ? 72 : 118;
+    let right = mobile ? 8 : 12;
+    let bottom = mobile ? 98 : 116;
+    let left = mobile ? 8 : 12;
+
+    try{
+      const field = ENGINE.field && ENGINE.field.getBoundingClientRect ? ENGINE.field.getBoundingClientRect() : null;
+      const banner = ENGINE.banner && ENGINE.banner.getBoundingClientRect ? ENGINE.banner.getBoundingClientRect() : null;
+      const strip = ENGINE.teamStrip && ENGINE.teamStrip.getBoundingClientRect ? ENGINE.teamStrip.getBoundingClientRect() : null;
+
+      if (field && banner && banner.width > 0 && banner.height > 0) {
+        top = Math.max(
+          top,
+          Math.round((banner.bottom - field.top) + (mobile ? 10 : 14))
+        );
+      }
+
+      if (field && strip && strip.width > 0 && strip.height > 0) {
+        bottom = Math.max(
+          bottom,
+          Math.round((field.bottom - strip.top) + (mobile ? 8 : 12))
+        );
+      }
+    }catch(_){}
+
+    return { top, right, bottom, left };
   }
 
   function playBounds(){
     const rect = fieldRect();
     const inset = playAreaInsets();
 
+    const left = inset.left;
+    const right = Math.max(left + 170, rect.w - inset.right);
+    const top = inset.top;
+    const bottom = Math.max(top + 240, rect.h - inset.bottom);
+
     return {
       w: rect.w,
       h: rect.h,
-      left: inset.left,
-      right: Math.max(inset.left + 180, rect.w - inset.right),
-      top: inset.top,
-      bottom: Math.max(inset.top + 240, rect.h - inset.bottom)
+      left,
+      right,
+      top,
+      bottom
     };
   }
 
@@ -666,31 +709,33 @@
 
   function renderTeamStrip(){
     if (!ENGINE.teamStrip) return;
-    const participants = activeParticipants();
 
-    if (!participants.length){
+    const members = activeParticipants();
+    if (!members.length){
       ENGINE.teamStrip.innerHTML = `
-        <div class="gjc-teammate-card">
-          <div class="gjc-teammate-top">
-            <div class="gjc-teammate-name">รอเพื่อนร่วมทีม</div>
+        <div class="gjc-team-card">
+          <div class="gjc-team-top">
+            <div class="gjc-team-name">รอเพื่อนร่วมทีม</div>
             <div>⌛</div>
           </div>
-          <div class="gjc-teammate-mini">เมื่อเพื่อนเข้าร่วม จะเห็นคะแนนแต่ละคนที่นี่</div>
+          <div class="gjc-team-mini">เมื่ออีกฝั่งเข้ามา จะเห็น contribution ของเพื่อนที่นี่</div>
         </div>
       `;
       return;
     }
 
-    ENGINE.teamStrip.innerHTML = participants.map((p) => {
-      const me = String(p.pid || '') === String(getSelfKey());
+    ENGINE.teamStrip.innerHTML = members.map((p) => {
+      const mine = String(p.pid || '') === String(getSelfKey());
+      const score = num(p.score, 0);
+      const contribution = computeContribution(score, S.teamScore);
       return `
-        <div class="gjc-teammate-card">
-          <div class="gjc-teammate-top">
-            <div class="gjc-teammate-name">${escapeHtml(p.name || p.nick || 'Player')}${me ? ' • YOU' : ''}</div>
-            <div>${me ? '⭐' : '🤝'}</div>
+        <div class="gjc-team-card">
+          <div class="gjc-team-top">
+            <div class="gjc-team-name">${escapeHtml(p.name || p.nick || 'Player')}${mine ? ' • YOU' : ''}</div>
+            <div>${mine ? '⭐' : '🤝'}</div>
           </div>
-          <div class="gjc-teammate-mini">
-            Score ${num(p.score, 0)} • Miss ${num(p.miss, 0)} • Contribution ${num(p.contribution, num(p.score, 0))}
+          <div class="gjc-team-mini">
+            Score ${score} • Miss ${num(p.miss, 0)} • Contrib ${contribution}%
           </div>
         </div>
       `;
@@ -698,71 +743,66 @@
   }
 
   function renderHud(){
-    S.teamScore = currentTeamScoreFromPlayers();
-    S.teamGoal = currentGoal();
+    const players = Math.max(1, currentParticipantIds().length || activeParticipants().length || 1);
+    const teamScore = computeTeamScore();
+    const goal = S.goal || computeGoalFromContext();
+    const myContribution = computeContribution(S.score, teamScore);
+    const myRank = computePersonalRank();
+    const gap = computeGapToGoal(teamScore, goal);
+    const goalPct = Math.max(0, Math.min(100, (teamScore / Math.max(1, goal)) * 100));
+    const mePct = Math.max(0, Math.min(100, (S.score / Math.max(1, goal)) * 100));
 
-    const participants = activeParticipants();
-    const readyCount = currentReadyCount();
-    const myRank = (() => {
-      const rows = participants.map((p) => ({
-        pid: p.pid,
-        score: num(p.score, 0),
-        miss: num(p.miss, 0),
-        bestStreak: num(p.bestStreak || p.streak, 0)
-      })).sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        if (a.miss !== b.miss) return a.miss - b.miss;
-        return b.bestStreak - a.bestStreak;
-      });
-      const idx = rows.findIndex((r) => String(r.pid || '') === String(getSelfKey()));
-      return idx >= 0 ? idx + 1 : 0;
-    })();
+    S.teamScore = teamScore;
+    S.goal = goal;
 
     if (UI.roomPill) UI.roomPill.textContent = ctx.roomId ? `ห้อง ${ctx.roomId}` : 'Coop';
-    if (UI.teamScore) UI.teamScore.textContent = String(Math.max(0, Math.round(S.teamScore)));
+    if (UI.score) UI.score.textContent = String(Math.max(0, Math.round(teamScore)));
     if (UI.time) UI.time.textContent = formatClock(timeLeftSec());
     if (UI.miss) UI.miss.textContent = String(S.miss);
-    if (UI.contribution) UI.contribution.textContent = String(Math.max(0, Math.round(S.contribution)));
+    if (UI.streak) UI.streak.textContent = String(S.bestStreak);
 
-    if (UI.goodHit) UI.goodHit.textContent = String(S.goodHit);
-    if (UI.junkHit) UI.junkHit.textContent = String(S.junkHit);
-    if (UI.goodMiss) UI.goodMiss.textContent = String(S.goodMiss);
+    if (UI.myScore) UI.myScore.textContent = String(Math.max(0, Math.round(S.score)));
+    if (UI.contribution) UI.contribution.textContent = `${myContribution}%`;
+    if (UI.goalText) UI.goalText.textContent = String(goal);
 
-    if (UI.itemEmoji) UI.itemEmoji.textContent = '🤝';
-    if (UI.itemTitle) UI.itemTitle.textContent = 'เป้าหมายของทีม';
+    if (UI.itemEmoji) UI.itemEmoji.textContent = teamScore >= goal ? '🏆' : '🤝';
+    if (UI.itemTitle) {
+      if (!S.started && roomStatus() === 'countdown') UI.itemTitle.textContent = 'ทีมกำลังนับถอยหลัง';
+      else if (teamScore >= goal) UI.itemTitle.textContent = 'ทีมทำเป้าสำเร็จแล้ว';
+      else UI.itemTitle.textContent = 'เป้าหมายของรอบนี้';
+    }
+
     if (UI.itemSub) {
-      UI.itemSub.textContent = S.started
-        ? `ตอนนี้ทีมมี ${participants.length} คน • ช่วยกันเก็บอาหารดีให้ถึงเป้าหมาย`
-        : 'ช่วยกันเก็บอาหารดีให้มากที่สุด แล้วทำคะแนนรวมของทีมให้สูง';
-    }
-
-    if (UI.goalValue) UI.goalValue.textContent = String(S.teamGoal);
-    if (UI.goalFill) {
-      const pct = Math.max(0, Math.min(100, (S.teamScore / Math.max(1, S.teamGoal)) * 100));
-      UI.goalFill.style.width = pct.toFixed(1) + '%';
-    }
-    if (UI.goalSubFill) {
-      const subPct = Math.max(0, Math.min(100, (S.contribution / Math.max(1, S.teamGoal)) * 100));
-      UI.goalSubFill.style.width = subPct.toFixed(1) + '%';
-    }
-
-    if (UI.playerCount) UI.playerCount.textContent = String(participants.length || currentParticipantIds().length || 0);
-    if (UI.readyCount) UI.readyCount.textContent = String(readyCount);
-    if (UI.rankValue) UI.rankValue.textContent = myRank ? `#${myRank}` : '-';
-
-    if (UI.tip) {
-      if (ctx.spectate) {
-        UI.tip.textContent = 'โหมดดูรอบนี้แบบ spectate';
-      } else if (!S.started && roomStatus() === 'countdown') {
-        UI.tip.textContent = 'กำลังนับถอยหลัง เริ่มพร้อมกันทั้งทีม';
-      } else if (!S.started) {
-        UI.tip.textContent = 'รอให้ห้อง Coop เริ่มรอบนี้';
-      } else if (S.teamScore >= S.teamGoal) {
-        UI.tip.textContent = 'คะแนนรวมของทีมถึงเป้าหมายแล้ว รักษาระดับไว้ให้จบรอบ';
+      if (!S.started && roomStatus() === 'countdown') {
+        UI.itemSub.textContent = 'กำลังนับถอยหลัง เตรียมเริ่มพร้อมกัน';
+      } else if (teamScore >= goal) {
+        UI.itemSub.textContent = 'ยอดเยี่ยม! ทีมของคุณถึงเป้าหมายแล้ว';
+      } else if (gap > 0) {
+        UI.itemSub.textContent = `ทีมยังขาดอีก ${gap} คะแนนเพื่อถึงเป้าหมาย`;
       } else {
-        UI.tip.textContent = `คะแนนรวมทีม ${S.teamScore}/${S.teamGoal} • contribution ของเรา ${S.contribution}`;
+        UI.itemSub.textContent = 'ช่วยกันเก็บอาหารดีให้ต่อเนื่อง';
       }
     }
+
+    if (UI.tip) {
+      if (!S.started && roomStatus() === 'countdown') {
+        UI.tip.textContent = 'เริ่มพร้อมกันทั้งทีม เก็บของดีแล้วลด miss ให้ต่ำ';
+      } else if (!S.started) {
+        UI.tip.textContent = 'รอให้ห้อง Coop เริ่มรอบนี้';
+      } else if (teamScore >= goal) {
+        UI.tip.textContent = 'ทีมถึงเป้าหมายแล้ว เก็บเพิ่มเพื่อทำคะแนนสวยขึ้น';
+      } else {
+        UI.tip.textContent = `ตอนนี้ทีมมี ${teamScore} / ${goal} คะแนน`;
+      }
+    }
+
+    if (UI.goalValue) UI.goalValue.textContent = `${teamScore} / ${goal}`;
+    if (UI.goalFill) UI.goalFill.style.width = goalPct.toFixed(1) + '%';
+    if (UI.goalSubFill) UI.goalSubFill.style.width = mePct.toFixed(1) + '%';
+
+    if (UI.playersValue) UI.playersValue.textContent = String(players);
+    if (UI.rankValue) UI.rankValue.textContent = myRank ? `#${myRank}` : '-';
+    if (UI.gapValue) UI.gapValue.textContent = gap > 0 ? String(gap) : '0';
 
     renderTeamStrip();
     updateGlobals();
@@ -772,22 +812,54 @@
       pid: ctx.pid,
       uid: S.uid,
       score: S.score,
-      teamScore: S.teamScore,
-      teamGoal: S.teamGoal,
-      contribution: S.contribution,
       miss: S.miss,
       bestStreak: S.bestStreak,
-      players: normalizeRoomPlayersMap(S.room.players),
+      contribution: myContribution,
+      teamScore,
+      goal,
+      players,
       room: S.room,
-      timeLeftSec: timeLeftSec()
+      timeLeftSec: timeLeftSec(),
+      rank: myRank,
+      gap
     });
 
     emit('hha:score', {
       game: 'goodjunk',
       mode: 'coop',
       score: S.score,
-      teamScore: S.teamScore
+      teamScore
     });
+
+    if (W.CoopSafe && typeof W.CoopSafe.setState === 'function'){
+      try {
+        W.CoopSafe.setState({
+          score: S.score,
+          teamScore,
+          goal,
+          miss: S.miss,
+          bestStreak: S.bestStreak,
+          players
+        });
+      } catch (_) {}
+    }
+
+    if (W.CoopSafe && typeof W.CoopSafe.setPlayers === 'function'){
+      try {
+        W.CoopSafe.setPlayers(activeParticipants());
+      } catch (_) {}
+    }
+
+    if (W.CoopSafe && typeof W.CoopSafe.setTeamProgress === 'function'){
+      try {
+        W.CoopSafe.setTeamProgress({
+          teamScore,
+          goal,
+          contribution: myContribution,
+          players
+        });
+      } catch (_) {}
+    }
   }
 
   function makeTarget(kind){
@@ -833,7 +905,7 @@
   }
 
   function spawnTarget(){
-    if (!S.started || S.finished || ctx.spectate) return;
+    if (!S.started || S.finished) return;
     if (S.targets.length >= S.cfg.maxTargets) return;
     const kind = S.rng() < S.cfg.goodRatio ? 'good' : 'junk';
     makeTarget(kind);
@@ -846,7 +918,7 @@
   }
 
   function hitTarget(t){
-    if (!t || t.dead || !S.started || S.finished || ctx.spectate) return;
+    if (!t || t.dead || !S.started || S.finished) return;
     removeTarget(t);
 
     if (t.kind === 'good'){
@@ -854,26 +926,34 @@
       S.bestStreak = Math.max(S.bestStreak, S.streak);
       S.goodHit += 1;
 
-      const bonus = Math.min(10, Math.floor(S.streak / 4) * 2);
+      const bonus = Math.min(12, Math.floor(S.streak / 3) * 2);
       const gain = 10 + bonus;
       S.score += gain;
-      S.contribution += gain;
 
       flashText(t.x, t.y, `+${gain}`, 'good');
-      setBanner('ดีมาก! ช่วยทีมเก็บของดีต่อเนื่อง', 800);
+      setBanner('เยี่ยม! คะแนนของคุณช่วยทีมเพิ่มขึ้น', 800);
     } else {
       S.junkHit += 1;
       S.miss += 1;
       S.streak = 0;
-      S.score = Math.max(0, S.score - 6);
-      S.contribution = Math.max(0, S.contribution - 4);
+      S.score = Math.max(0, S.score - 8);
 
-      flashText(t.x, t.y, '-6', 'bad');
+      flashText(t.x, t.y, '-8', 'bad');
       setBanner('โดน junk แล้ว ระวังเป้าต่อไป', 800);
     }
 
     renderHud();
     scheduleSync(false);
+
+    if (W.CoopSafe && typeof W.CoopSafe.onJudge === 'function'){
+      try {
+        W.CoopSafe.onJudge({
+          score: S.score,
+          miss: S.miss,
+          bestStreak: S.bestStreak
+        });
+      } catch (_) {}
+    }
   }
 
   function expireTarget(t){
@@ -883,16 +963,15 @@
       S.goodMiss += 1;
       S.miss += 1;
       S.streak = 0;
-      S.contribution = Math.max(0, S.contribution - 1);
       flashText(t.x, t.y, 'MISS', 'bad');
-      setBanner('อาหารดีหลุดไปแล้ว ช่วยกันเก็บให้ไวขึ้น', 800);
+      setBanner('อาหารดีหลุดไปแล้ว เร่งให้ไวขึ้นอีกนิด', 800);
       renderHud();
       scheduleSync(false);
     }
   }
 
   function scheduleSync(force=false){
-    if (!S.refs || !S.refs.players || !getSelfKey() || ctx.spectate) return;
+    if (!S.refs || !S.refs.players || !getSelfKey()) return;
     if (force){
       syncSelfNow(true);
       return;
@@ -905,10 +984,13 @@
   }
 
   async function syncSelfNow(force){
-    if (!S.refs || !S.refs.players || !getSelfKey() || ctx.spectate) return;
+    if (!S.refs || !S.refs.players || !getSelfKey()) return;
     const t = now();
     if (!force && (t - S.lastSyncTs < SYNC_MIN_MS)) return;
     S.lastSyncTs = t;
+
+    const teamScore = computeTeamScore();
+    const contribution = computeContribution(S.score, teamScore);
 
     const payload = {
       pid: getSelfKey(),
@@ -921,7 +1003,7 @@
       status: S.finished ? 'finished' : (S.started ? 'playing' : 'waiting'),
       phase: S.finished ? 'summary' : (S.started ? 'run' : 'lobby'),
       score: Math.max(0, Math.round(S.score)),
-      contribution: Math.max(0, Math.round(S.contribution)),
+      contribution,
       miss: Math.max(0, S.miss),
       streak: Math.max(0, S.bestStreak),
       bestStreak: Math.max(0, S.bestStreak),
@@ -936,12 +1018,19 @@
     }
   }
 
+  function timeUp(){
+    const endsAt = currentRoomEndsAt();
+    return endsAt > 0 && now() >= endsAt;
+  }
+
   async function maybeHostPromoteCountdown(){
     if (!isHost() || !S.refs || !S.refs.state || S.hostPromoteBusy) return;
     if (roomStatus() !== 'countdown') return;
 
     const countdownEndsAt = currentCountdownEndsAt();
     if (!countdownEndsAt || now() < countdownEndsAt) return;
+
+    const goal = computeGoalFromContext();
 
     S.hostPromoteBusy = true;
     try{
@@ -957,30 +1046,20 @@
         cur.endsAt = startedAt + plannedSec * 1000;
         cur.countdownEndsAt = 0;
         cur.updatedAt = startedAt;
+        cur.goal = goal;
         cur.teamScore = 0;
-
+        cur.bestScore = 0;
         return cur;
       });
+
+      await S.refs.match.update({
+        status: 'playing',
+        startedAt: now()
+      }).catch(() => {});
     } catch (err){
       console.warn('[gj-coop] host promote countdown failed:', err);
     } finally {
       S.hostPromoteBusy = false;
-    }
-  }
-
-  async function maybeHostSyncTeamScore(){
-    if (!isHost() || !S.refs || !S.refs.state || S.hostTeamSyncBusy) return;
-    if (roomStatus() !== 'playing') return;
-
-    S.hostTeamSyncBusy = true;
-    try{
-      const teamScore = currentTeamScoreFromPlayers();
-      await S.refs.state.update({
-        teamScore,
-        updatedAt: now()
-      }).catch(() => {});
-    } finally {
-      S.hostTeamSyncBusy = false;
     }
   }
 
@@ -989,14 +1068,12 @@
     const status = roomStatus();
     if (status !== 'playing') return;
 
-    const endsAt = currentRoomEndsAt();
-    const timeUp = endsAt > 0 && now() >= endsAt;
+    const teamScore = computeTeamScore();
+    const goal = S.goal || computeGoalFromContext();
+    const endedByResults = Object.keys(S.room.results || {}).length >= Math.max(MIN_PLAYERS, currentParticipantIds().length || MIN_PLAYERS);
+    const goalReached = teamScore >= goal;
 
-    const participantCount = currentParticipantIds().length || activeParticipants().length;
-    const resultCount = Object.keys(S.room.results || {}).length;
-    const enoughResults = participantCount >= MIN_PLAYERS && resultCount >= participantCount;
-
-    if (!timeUp && !enoughResults) return;
+    if (!timeUp() && !goalReached && !endedByResults) return;
 
     S.hostEndingBusy = true;
     try{
@@ -1006,9 +1083,17 @@
         cur.status = 'ended';
         cur.endedAt = now();
         cur.updatedAt = now();
-        cur.teamScore = currentTeamScoreFromPlayers();
+        cur.teamScore = teamScore;
+        cur.goal = goal;
+        cur.bestScore = teamScore;
         return cur;
       });
+
+      await S.refs.match.update({
+        status: 'finished',
+        finishedAt: now(),
+        bestScore: teamScore
+      }).catch(() => {});
     } catch (err){
       console.warn('[gj-coop] host end round failed:', err);
     } finally {
@@ -1019,7 +1104,7 @@
   function startGameIfReady(){
     if (S.finished) return;
     if (roomStatus() !== 'playing') return;
-    if (!ctx.spectate && !selfInParticipants()) return;
+    if (!selfInParticipants()) return;
 
     const startedAt = currentStartedAt();
     const endsAt = currentRoomEndsAt();
@@ -1043,16 +1128,14 @@
     S.goodHit = 0;
     S.junkHit = 0;
     S.goodMiss = 0;
-    S.contribution = me ? num(me.contribution, num(me.score, 0)) : 0;
-    S.teamScore = currentTeamScoreFromPlayers();
-    S.teamGoal = currentGoal();
 
     S.cfg = DIFF_CFG[ctx.diff] || DIFF_CFG.normal;
+    S.goal = num((S.room.state && S.room.state.goal), computeGoalFromContext());
 
     const seedHash = xmur3(`${ctx.seed}|${ctx.roomId}|${ctx.pid}|${startedAt}|coop`)();
     S.rng = mulberry32(seedHash);
 
-    setBanner(ctx.spectate ? 'เริ่มดูรอบ Coop แล้ว' : 'เริ่มแล้ว! ช่วยทีมเก็บอาหารดีให้ถึงเป้าหมาย', 1300);
+    setBanner('เริ่มแล้ว! ช่วยกันเก็บของดีให้ถึงเป้าทีม', 1300);
     renderHud();
     scheduleSync(true);
 
@@ -1078,17 +1161,13 @@
         pid: cleanPid(r.pid || pid),
         nick: clean(r.nick || r.name || pid || 'player', 80),
         score: num(r.score, 0),
-        contribution: num(r.contribution, num(r.score, 0)),
+        contribution: num(r.contribution, 0),
         miss: num(r.miss, 0),
-        goodHit: num(r.goodHit, 0),
-        junkHit: num(r.junkHit, 0),
-        bestStreak: num(r.bestStreak, 0),
-        duration: num(r.duration, ctx.timeSec)
+        bestStreak: num(r.bestStreak, 0)
       };
     });
 
     rows.sort((a, b) => {
-      if (b.contribution !== a.contribution) return b.contribution - a.contribution;
       if (b.score !== a.score) return b.score - a.score;
       if (a.miss !== b.miss) return a.miss - b.miss;
       if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
@@ -1100,6 +1179,19 @@
   }
 
   function buildLocalSummary(reason){
+    const standings = activeParticipants().map((p) => ({
+      pid: p.pid,
+      nick: p.name || p.nick || p.pid,
+      score: num(p.score, 0),
+      contribution: computeContribution(num(p.score, 0), S.teamScore),
+      miss: num(p.miss, 0),
+      bestStreak: num(p.bestStreak || p.streak, 0)
+    })).sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.miss !== b.miss) return a.miss - b.miss;
+      return b.bestStreak - a.bestStreak;
+    }).map((r, i) => Object.assign(r, { rank: i + 1 }));
+
     return {
       controllerFinal: false,
       game: 'goodjunk',
@@ -1111,20 +1203,17 @@
       uid: S.uid || ctx.uid || '',
       name: ctx.name,
       role: ctx.role,
-      rank: 0,
+      rank: computePersonalRank(),
       score: Math.max(0, Math.round(S.score)),
-      teamScore: Math.max(0, Math.round(S.teamScore)),
-      contribution: Math.max(0, Math.round(S.contribution)),
-      goal: Math.max(0, Math.round(S.teamGoal)),
+      teamScore: S.teamScore,
       players: Math.max(1, currentParticipantIds().length || activeParticipants().length || 1),
       miss: S.miss,
-      goodHit: S.goodHit,
-      junkHit: S.junkHit,
       bestStreak: S.bestStreak,
-      duration: ctx.timeSec,
-      result: S.teamScore >= S.teamGoal ? 'goal-reached' : 'finished',
-      reason: clean(reason || 'timeup', 80),
-      standings: []
+      contribution: computeContribution(S.score, S.teamScore),
+      goal: S.goal,
+      result: S.teamScore >= S.goal ? 'goal-complete' : 'finished',
+      reason: clean(reason || 'finished', 80),
+      standings
     };
   }
 
@@ -1132,6 +1221,7 @@
     const standings = computeStandings(S.room.results || {});
     const me = standings.find((r) => String(r.pid || '') === String(getSelfKey())) || null;
     const teamScore = standings.reduce((sum, r) => sum + num(r.score, 0), 0);
+    const goal = num((S.room.state && S.room.state.goal), S.goal || computeGoalFromContext());
 
     return {
       controllerFinal: standings.length >= Math.max(MIN_PLAYERS, currentParticipantIds().length || MIN_PLAYERS),
@@ -1147,26 +1237,19 @@
       rank: me ? num(me.rank, 0) : 0,
       score: me ? num(me.score, 0) : Math.max(0, Math.round(S.score)),
       teamScore,
-      contribution: me ? num(me.contribution, 0) : Math.max(0, Math.round(S.contribution)),
-      goal: Math.max(0, Math.round(S.teamGoal)),
       players: standings.length || 1,
       miss: me ? num(me.miss, 0) : S.miss,
-      goodHit: me ? num(me.goodHit, 0) : S.goodHit,
-      junkHit: me ? num(me.junkHit, 0) : S.junkHit,
       bestStreak: me ? num(me.bestStreak, 0) : S.bestStreak,
-      duration: me ? num(me.duration, ctx.timeSec) : ctx.timeSec,
-      result: teamScore >= S.teamGoal ? 'goal-reached' : 'finished',
+      contribution: me ? num(me.contribution, 0) : computeContribution(S.score, teamScore),
+      goal,
+      result: teamScore >= goal ? 'goal-complete' : 'finished',
       reason: clean(reason || 'finished', 80),
-      standings,
-      raw: {
-        goal: S.teamGoal,
-        teamScore
-      }
+      standings
     };
   }
 
   async function submitOwnResult(summary){
-    if (!S.refs || !summary || ctx.spectate) return;
+    if (!S.refs || !summary) return;
 
     S.localSummary = summary;
 
@@ -1174,12 +1257,9 @@
       pid: getSelfKey(),
       nick: ctx.name,
       score: num(summary.score, 0),
-      contribution: num(summary.contribution, num(summary.score, 0)),
+      contribution: num(summary.contribution, 0),
       miss: num(summary.miss, 0),
-      goodHit: num(summary.goodHit, 0),
-      junkHit: num(summary.junkHit, 0),
       bestStreak: num(summary.bestStreak, 0),
-      duration: num(summary.duration, 0),
       reason: clean(summary.reason || 'finished', 80),
       submittedAt: now(),
       updatedAt: now()
@@ -1190,7 +1270,7 @@
       finished: true,
       finalScore: num(summary.score, 0),
       score: num(summary.score, 0),
-      contribution: num(summary.contribution, num(summary.score, 0)),
+      contribution: num(summary.contribution, 0),
       miss: num(summary.miss, 0),
       streak: num(summary.bestStreak, 0),
       updatedAt: now(),
@@ -1217,12 +1297,6 @@
     }
   }
 
-  function showResultSummary(summary){
-    if (!UI.resultMount) return;
-    UI.resultMount.hidden = false;
-    emitSummary(summary);
-  }
-
   function scheduleFallbackSummary(){
     maybeClearFallbackTimer();
     if (!S.localSummary || S.finalSummarySent) return;
@@ -1231,7 +1305,7 @@
       if (S.finalSummarySent) return;
       const summary = buildFinalSummaryFromResults('fallback-local');
       S.finalSummarySent = true;
-      showResultSummary(summary);
+      emitSummary(summary);
     }, 6500);
   }
 
@@ -1249,7 +1323,14 @@
       console.error('[gj-coop] submitOwnResult failed', err);
     });
 
-    showResultSummary(summary);
+    emit('coop:finish', summary);
+    emit('hha:coop:finish', summary);
+    emitSummary(summary);
+
+    if (W.CoopSafe && typeof W.CoopSafe.finishGame === 'function'){
+      try { W.CoopSafe.finishGame(summary); } catch (_) {}
+    }
+
     scheduleFallbackSummary();
   }
 
@@ -1281,7 +1362,7 @@
     }
 
     if (status === 'ended' || status === 'finished'){
-      if (!S.finished && !ctx.spectate) finalizeSummary('room-ended');
+      if (!S.finished) finalizeSummary('room-ended');
       return;
     }
 
@@ -1289,7 +1370,7 @@
   }
 
   function loop(frameTs){
-    if (S.finished && !ctx.spectate) return;
+    if (S.finished) return;
 
     renderWaitingStates();
 
@@ -1306,7 +1387,7 @@
 
     const tNow = now();
 
-    if (!ctx.spectate && tNow - S.lastSpawnAt >= S.cfg.spawnEvery){
+    if (tNow - S.lastSpawnAt >= S.cfg.spawnEvery){
       S.lastSpawnAt = tNow;
       spawnTarget();
     }
@@ -1334,14 +1415,10 @@
       }
     }
 
-    if (isHost()) {
-      maybeHostSyncTeamScore();
-      maybeHostEndRound();
-    }
+    if (isHost()) maybeHostEndRound();
 
-    if (currentRoomEndsAt() && now() >= currentRoomEndsAt()){
+    if (timeUp()){
       if (isHost()){
-        maybeHostSyncTeamScore();
         maybeHostEndRound();
       } else if (roomStatus() === 'playing'){
         setBanner('หมดเวลาแล้ว รอหัวหน้าห้องปิดรอบ…', 1200);
@@ -1353,7 +1430,7 @@
   }
 
   function tryCenterShoot(){
-    if (!ENGINE.field || !S.targets.length || !S.started || S.finished || ctx.spectate) return;
+    if (!ENGINE.field || !S.targets.length || !S.started || S.finished) return;
 
     const bounds = playBounds();
     const cx = bounds.w * 0.5;
@@ -1379,17 +1456,6 @@
     if (best && bestDist <= 120){
       hitTarget(best);
     }
-  }
-
-  function buildRefs(root){
-    return {
-      root,
-      meta: root.child('meta'),
-      state: root.child('state'),
-      match: root.child('match'),
-      players: root.child('players'),
-      results: root.child('results')
-    };
   }
 
   function hasFirebaseCompat() {
@@ -1496,8 +1562,19 @@
       } catch (_) {}
     }
 
-    S.roomKind = preferred || 'rooms';
+    S.roomKind = preferred || 'coopRooms';
     return S.roomKind;
+  }
+
+  function buildRefs(root){
+    return {
+      root,
+      meta: root.child('meta'),
+      state: root.child('state'),
+      match: root.child('match'),
+      players: root.child('players'),
+      results: root.child('results')
+    };
   }
 
   async function ensureRoomExists(){
@@ -1532,7 +1609,9 @@
         startedAt: 0,
         endsAt: 0,
         participantIds: [],
+        goal: 0,
         teamScore: 0,
+        bestScore: 0,
         updatedAt: t
       },
       match: {
@@ -1540,8 +1619,9 @@
         lockedAt: null,
         status: 'idle',
         coop: {
-          finishedAt: 0,
-          teamScore: 0
+          teamScore: 0,
+          goal: 0,
+          finishedAt: 0
         }
       },
       players: {},
@@ -1554,8 +1634,6 @@
   }
 
   async function ensureSelfPlayerInRoom(){
-    if (ctx.spectate) return;
-
     const t = now();
     const existing = (S.room.players || {})[getSelfKey()] || null;
 
@@ -1570,9 +1648,8 @@
       status: roomStatus() === 'playing' ? 'playing' : (roomStatus() === 'countdown' ? 'countdown' : 'waiting'),
       phase: roomStatus() === 'playing' ? 'run' : 'lobby',
       score: existing ? num(existing.score, 0) : 0,
-      contribution: existing ? num(existing.contribution, num(existing.score, 0)) : 0,
+      contribution: existing ? num(existing.contribution, 0) : 0,
       miss: existing ? num(existing.miss, 0) : 0,
-      combo: 0,
       streak: existing ? num(existing.streak || existing.bestStreak, 0) : 0,
       bestStreak: existing ? num(existing.bestStreak || existing.streak, 0) : 0,
       joinedAt: existing ? num(existing.joinedAt, t) : t,
@@ -1609,7 +1686,7 @@
         if (isHost()) maybeHostPromoteCountdown();
       } else if (status === 'playing'){
         startGameIfReady();
-      } else if ((status === 'ended' || status === 'finished') && !S.finished && !ctx.spectate){
+      } else if ((status === 'ended' || status === 'finished') && !S.finished){
         finalizeSummary('room-state-ended');
       } else if (status === 'waiting' && !S.started && !S.finished){
         setBanner('รอหัวหน้าห้องเริ่มรอบ Coop…');
@@ -1629,13 +1706,12 @@
       const me = selfPlayer();
       if (me && !S.started && !S.finished){
         S.score = num(me.score, 0);
-        S.contribution = num(me.contribution, num(me.score, 0));
         S.miss = num(me.miss, 0);
         S.bestStreak = num(me.bestStreak || me.streak, 0);
       }
 
       if (isHost()) {
-        maybeHostSyncTeamScore();
+        maybeHostPromoteCountdown();
         maybeHostEndRound();
       }
 
@@ -1653,22 +1729,25 @@
         maybeClearFallbackTimer();
         const summary = buildFinalSummaryFromResults('compare-ready');
         S.finalSummarySent = true;
-        showResultSummary(summary);
+        emitSummary(summary);
 
         if (isHost()) {
-          const teamScore = summary.teamScore || 0;
+          const teamScore = (summary.standings || []).reduce((sum, r) => sum + num(r.score, 0), 0);
 
           await S.refs.match.update({
             status: 'finished',
             finishedAt: now(),
-            teamScore
+            bestScore: teamScore,
+            goal: summary.goal
           }).catch(() => {});
 
           await S.refs.state.update({
             status: 'ended',
             endedAt: now(),
             updatedAt: now(),
-            teamScore
+            teamScore,
+            bestScore: teamScore,
+            goal: summary.goal
           }).catch(() => {});
         }
       }
@@ -1678,20 +1757,21 @@
   function startHeartbeat(){
     clearInterval(S.heartbeatId);
     S.heartbeatId = setInterval(() => {
-      if (!S.refs) return;
+      if (!S.refs || !S.refs.players) return;
 
-      if (!ctx.spectate && S.refs.players) {
-        S.refs.players.child(getSelfKey()).update({
-          connected: true,
-          status: S.finished ? 'finished' : (S.started ? 'playing' : roomStatus() || 'waiting'),
-          phase: S.finished ? 'summary' : (S.started ? 'run' : 'lobby'),
-          updatedAt: now(),
-          lastSeen: now()
-        }).catch(() => {});
-      }
+      const teamScore = computeTeamScore();
+      const contribution = computeContribution(S.score, teamScore);
+
+      S.refs.players.child(getSelfKey()).update({
+        connected: true,
+        status: S.finished ? 'finished' : (S.started ? 'playing' : roomStatus() || 'waiting'),
+        phase: S.finished ? 'summary' : (S.started ? 'run' : 'lobby'),
+        contribution,
+        updatedAt: now(),
+        lastSeen: now()
+      }).catch(() => {});
 
       if (isHost()) {
-        maybeHostSyncTeamScore();
         maybeHostPromoteCountdown();
         maybeHostEndRound();
       }
@@ -1710,7 +1790,7 @@
       caf(S.loopId);
 
       try{
-        if (!ctx.spectate && S.refs && S.refs.players){
+        if (S.refs && S.refs.players){
           S.refs.players.child(getSelfKey()).update({
             connected: false,
             status: S.finished ? 'finished' : 'left',
@@ -1753,6 +1833,10 @@
       S.rng = mulberry32(seedHash);
     }
 
+    if (W.CoopSafe && typeof W.CoopSafe.setRoomState === 'function'){
+      try { W.CoopSafe.setRoomState(S.room); } catch (_) {}
+    }
+
     const status = roomStatus();
     if (status === 'playing'){
       startGameIfReady();
@@ -1760,7 +1844,7 @@
       setBanner('กำลังนับถอยหลังก่อนเริ่ม Coop…');
       if (isHost()) maybeHostPromoteCountdown();
     } else {
-      setBanner(ctx.spectate ? 'เชื่อมห้องสำเร็จ • spectate mode' : 'เชื่อมห้องสำเร็จ รอสถานะเล่นจาก Lobby…');
+      setBanner('เชื่อมห้องสำเร็จ รอสถานะเล่นจาก Lobby…');
     }
 
     renderHud();
@@ -1771,19 +1855,19 @@
   }
 
   boot().catch((err) => {
-    console.error('[gj-coop-core] boot failed:', err);
+    console.error('[gj-coop] boot failed:', err);
     try {
       buildDom();
       setBanner('เข้า GoodJunk Coop ไม่สำเร็จ');
       if (ENGINE.teamStrip){
         ENGINE.teamStrip.innerHTML = `
-          <div class="gjc-teammate-card" style="min-width:320px;">
-            <div class="gjc-teammate-top">
-              <div class="gjc-teammate-name">เกิดปัญหาระหว่างเชื่อมเกม</div>
+          <div class="gjc-team-card" style="min-width:320px;">
+            <div class="gjc-team-top">
+              <div class="gjc-team-name">เกิดปัญหาระหว่างเชื่อมเกม</div>
               <div>⚠️</div>
             </div>
-            <div class="gjc-teammate-mini">${escapeHtml(String(err && err.message ? err.message : err))}</div>
-            <div class="gjc-teammate-mini" style="margin-top:10px;">
+            <div class="gjc-team-mini">${escapeHtml(String(err && err.message ? err.message : err))}</div>
+            <div class="gjc-team-mini" style="margin-top:10px;">
               ลองกลับไปที่ Lobby แล้วเข้ารอบใหม่อีกครั้ง
             </div>
           </div>
