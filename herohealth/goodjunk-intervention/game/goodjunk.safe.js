@@ -44,6 +44,7 @@ const RUN_CTX = window.__GJ_RUN_CTX__ || {
     ''
   ),
   mode: (__qs.get('mode') || 'solo').toLowerCase(),
+  role: (__qs.get('role') || (__qs.get('host') === '1' ? 'host' : 'player')).toLowerCase(),
   diff: __qs.get('diff') || 'easy',
   time: __qs.get('time') || '80',
   seed: __qs.get('seed') || String(Date.now()),
@@ -75,6 +76,7 @@ const GJ_NAME = String(
   GJ_PID
 ).trim();
 const GJ_MODE = (RUN_CTX.mode || 'solo').toLowerCase();
+const GJ_ROLE = String(RUN_CTX.role || 'player').trim().toLowerCase();
 const GJ_ROOM_ID = __normalizeRoomId(RUN_CTX.roomId || '');
 const GJ_START_AT = Number(RUN_CTX.startAt || 0) || 0;
 const GJ_HUB = RUN_CTX.hub || '../../hub.html';
@@ -103,6 +105,7 @@ const GJ_MISS_GRACE_MS = 2500;
 const GJI_CTX_KEY = 'GJI_CTX';
 const GJI_GAME_SUMMARY_KEY = 'GJI_GAME_SUMMARY';
 const GJI_GAME_EVENTS_KEY = 'GJI_GAME_EVENTS';
+const GJI_GAME_BLOOM_KEY = 'GJI_GAME_BLOOM';
 
 let __gjRaceBooted = false;
 let __gjRaceRAF = 0;
@@ -115,6 +118,7 @@ let __gjRaceLastSummarySig = '';
 let __gjSoloSummary = null;
 let __gjSoloSummaryBound = false;
 let __gjRaceRoomListenerBound = false;
+let __gjBloomData = null;
 
 let __gjFbReady = false;
 let __gjRaceDb = null;
@@ -150,6 +154,33 @@ const DIFF_PRESET = {
   hard:   { spawnMs: 720,  goodRatio: 0.60, speedMin: 112, speedMax: 190, targetSizeMin: 58, targetSizeMax: 82 }
 };
 
+const SOLO_PHASE_PRESET = {
+  easy: {
+    p1: { spawnMs: 980, goodRatio: 0.78, speedMin: 68, speedMax: 112, targetSizeMin: 72, targetSizeMax: 96 },
+    p2: { spawnMs: 820, goodRatio: 0.68, speedMin: 84, speedMax: 132, targetSizeMin: 66, targetSizeMax: 90 }
+  },
+  normal: {
+    p1: { spawnMs: 860, goodRatio: 0.72, speedMin: 84, speedMax: 128, targetSizeMin: 68, targetSizeMax: 92 },
+    p2: { spawnMs: 700, goodRatio: 0.60, speedMin: 102, speedMax: 156, targetSizeMin: 62, targetSizeMax: 86 }
+  },
+  hard: {
+    p1: { spawnMs: 760, goodRatio: 0.66, speedMin: 98, speedMax: 144, targetSizeMin: 64, targetSizeMax: 88 },
+    p2: { spawnMs: 600, goodRatio: 0.54, speedMin: 118, speedMax: 182, targetSizeMin: 58, targetSizeMax: 80 }
+  }
+};
+
+const SOLO_PHASE_GOALS = {
+  easy:   { 1: 50,  2: 120 },
+  normal: { 1: 65,  2: 150 },
+  hard:   { 1: 80,  2: 185 }
+};
+
+const SOLO_BOSS_PRESET = {
+  easy:   { hp: 9,  stormMs: 1040, weakSpeed: 118, weakMoveMs: 1380, weakSize: 92, clearBonus: 44 },
+  normal: { hp: 13, stormMs: 860,  weakSpeed: 152, weakMoveMs: 1120, weakSize: 80, clearBonus: 52 },
+  hard:   { hp: 17, stormMs: 680,  weakSpeed: 190, weakMoveMs: 920,  weakSize: 68, clearBonus: 60 }
+};
+
 const state = {
   mode: GJ_MODE === 'race' ? 'race' : 'solo',
   diff: DIFF_PRESET[RUN_CTX.diff] ? RUN_CTX.diff : 'easy',
@@ -167,6 +198,27 @@ const state = {
   fruitHit: 0,
   vegHit: 0,
   drinkHit: 0,
+  powerHits: 0,
+  phase: 1,
+  bossStuns: 0,
+  boss: {
+    active: false,
+    maxHp: 0,
+    hp: 0,
+    enrage: false,
+    stormAccum: 0,
+    weakTick: 0,
+    weakspotId: '',
+    weakSpeed: 0,
+    weakSize: 0,
+    weakMoveMs: 0,
+    patternIndex: 0,
+    patternLabel: 'Target Hunt',
+    patternTimeLeft: 0,
+    nextPatternIndex: -1,
+    telegraphMs: 0,
+    stunMs: 0
+  },
   running: false,
   ended: false,
   startTs: 0,
@@ -188,6 +240,8 @@ const ui = {
   timer: null,
   miss: null,
   grade: null,
+  phasePill: null,
+  bossPill: null,
   hint: null,
   progress: null,
   stats: null,
@@ -205,7 +259,7 @@ const ui = {
 
 const rng = createSeededRng(RUN_CTX.seed || Date.now());
 
-console.log('[goodjunk.safe] LIVE BUILD = 20260319a');
+console.log('[goodjunk.safe] LIVE BUILD = 20260407a-phaseboss');
 
 persistInterventionCtx();
 boot();
@@ -320,7 +374,7 @@ function injectGameplayStyle() {
     .gj-legend strong{color:#e5e7eb}
     .gj-solo-overlay{position:fixed;inset:0;z-index:10010;display:grid;place-items:center;padding:calc(16px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px));background:rgba(2,6,23,.82);backdrop-filter:blur(10px)}
     .gj-solo-overlay[hidden]{display:none!important}
-    .gj-solo-card{width:min(94vw,560px);max-height:88vh;overflow:auto;background:rgba(15,23,42,.96);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:20px 18px 18px;color:#e5e7eb;box-shadow:0 28px 64px rgba(0,0,0,.35)}
+    .gj-solo-card{width:min(94vw,760px);max-height:88vh;overflow:auto;background:rgba(15,23,42,.96);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:20px 18px 18px;color:#e5e7eb;box-shadow:0 28px 64px rgba(0,0,0,.35)}
     .gj-solo-kicker{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.25);color:#7dd3fc;font-weight:900;font-size:13px;margin-bottom:12px}
     .gj-solo-title{margin:0 0 8px;font-size:30px;line-height:1.1}
     .gj-solo-sub{margin:0;color:#94a3b8;font-size:14px;line-height:1.6}
@@ -335,6 +389,7 @@ function injectGameplayStyle() {
       .gj-emoji{font-size:28px}
       .gj-solo-title{font-size:26px}
       .gj-solo-actions .btn{flex:1 1 calc(50% - 10px)}
+      .gj-solo-list{grid-template-columns:1fr}
     }
   `;
   document.head.appendChild(style);
@@ -355,6 +410,8 @@ function buildGameplayShell() {
             <div class="gj-chip"><span>Score</span><strong id="gjScore">0</strong></div>
             <div class="gj-chip"><span>Time</span><strong id="gjTimer">0</strong></div>
             <div class="gj-chip"><span>Miss</span><strong id="gjMiss">0</strong></div>
+            <div class="gj-chip"><span>Phase</span><strong id="gjPhase">P1</strong></div>
+            <div class="gj-chip"><span>Boss</span><strong id="gjBoss">-</strong></div>
             <div class="gj-chip"><span>Grade</span><strong id="gjGrade">D</strong></div>
           </div>
         </header>
@@ -409,6 +466,8 @@ function buildGameplayShell() {
   ui.timer = document.getElementById('gjTimer');
   ui.miss = document.getElementById('gjMiss');
   ui.grade = document.getElementById('gjGrade');
+  ui.phasePill = document.getElementById('gjPhase');
+  ui.bossPill = document.getElementById('gjBoss');
   ui.hint = document.getElementById('gjHintText');
   ui.progress = document.getElementById('gjProgressBar');
   ui.stats = document.getElementById('gjStatsText');
@@ -432,12 +491,21 @@ function bindGameplayShell() {
   __gjSoloSummaryBound = true;
 
   ui.soloBtnPostK?.addEventListener('click', () => {
+    const check = validateBloomReflection();
+    if (!check.ok) {
+      ui.soloSub.textContent = check.message;
+      return;
+    }
+
     persistInterventionCtx();
+    persistBloomReflection('completed');
+    ui.soloSub.textContent = 'บันทึก Reflection แล้ว กำลังไป Post-Knowledge';
     location.href = buildPageUrl('../assessments/post-knowledge.html');
   });
 
   ui.soloBtnParent?.addEventListener('click', () => {
     persistInterventionCtx();
+    persistBloomReflection('draft');
     location.href = buildPageUrl('../parent/parent-summary.html');
   });
 
@@ -481,6 +549,323 @@ function randRange(min, max){ return min + (max - min) * rand(); }
 function clampInt(value, min, max){ return Math.max(min, Math.min(max, Math.floor(value))); }
 function pick(arr){ return arr[Math.floor(rand() * arr.length)]; }
 
+function isSoloPhaseBossMode() {
+  return !isRaceMode();
+}
+
+function getSoloPhasePreset() {
+  const table = SOLO_PHASE_PRESET[state.diff] || SOLO_PHASE_PRESET.easy;
+  return state.phase === 1 ? table.p1 : table.p2;
+}
+
+function getSoloPhaseGoal(phase) {
+  const table = SOLO_PHASE_GOALS[state.diff] || SOLO_PHASE_GOALS.easy;
+  return table[phase] || 9999;
+}
+
+function getBossBase() {
+  return SOLO_BOSS_PRESET[state.diff] || SOLO_BOSS_PRESET.easy;
+}
+
+function resetBossState() {
+  const boss = getBossBase();
+  state.boss.active = false;
+  state.boss.maxHp = boss.hp;
+  state.boss.hp = boss.hp;
+  state.boss.enrage = false;
+  state.boss.stormAccum = 0;
+  state.boss.weakTick = 0;
+  state.boss.weakspotId = '';
+  state.boss.weakSpeed = boss.weakSpeed;
+  state.boss.weakSize = boss.weakSize;
+  state.boss.weakMoveMs = boss.weakMoveMs;
+  state.boss.patternIndex = 0;
+  state.boss.patternLabel = 'Target Hunt';
+  state.boss.patternTimeLeft = 0;
+  state.boss.nextPatternIndex = -1;
+  state.boss.telegraphMs = 0;
+  state.boss.stunMs = 0;
+}
+
+function clearTargets() {
+  state.targets.forEach((target) => {
+    try { target.el.remove(); } catch {}
+  });
+  state.targets.clear();
+  state.boss.weakspotId = '';
+}
+
+function setCenterTip(message, ms = 1400) {
+  if (!ui.centerTip) return;
+  ui.centerTip.textContent = message;
+  ui.centerTip.classList.remove('hide');
+  if (ms > 0) {
+    setTimeout(() => ui.centerTip?.classList.add('hide'), ms);
+  }
+}
+
+function enterSoloPhase2() {
+  state.phase = 2;
+  clearTargets();
+  state.lastSpawnAccum = 0;
+  setCenterTip(`Phase 2 • เก็บให้ถึง ${getSoloPhaseGoal(2)} คะแนน`, 1600);
+  updateHint('เข้าสู่ Phase 2 แล้ว • ของ junk จะมาไวขึ้น');
+}
+
+function enterBossPhase() {
+  state.phase = 3;
+  state.boss.active = true;
+  clearTargets();
+  state.lastSpawnAccum = 0;
+  resetBossState();
+  state.boss.active = true;
+  applyBossPattern(0);
+  setCenterTip('Boss Phase • ปราบ Junk Boss ด้วยการแตะดาว!', 1800);
+  updateHint('หาเป้าดาวสีทอง แล้วแตะให้โดนเพื่อโจมตีบอส');
+}
+
+function getWeakspot() {
+  return state.boss.weakspotId ? state.targets.get(state.boss.weakspotId) : null;
+}
+
+function getBossPatternName(index) {
+  if (index === 1) return 'Junk Storm';
+  if (index === 2) return 'Armor Break';
+  return 'Target Hunt';
+}
+
+function getBossPatternSpec() {
+  const base = getBossBase();
+
+  if (state.boss.patternIndex === 1) {
+    return {
+      label: 'Junk Storm',
+      hint: 'หลบ junk ก่อน แล้วค่อยกลับมาตีดาว',
+      stormMs: Math.max(260, base.stormMs - 180),
+      weakSpeed: base.weakSpeed + 24,
+      weakSize: Math.max(54, base.weakSize - 8),
+      weakMoveMs: Math.max(760, base.weakMoveMs - 160),
+      damage: 1
+    };
+  }
+
+  if (state.boss.patternIndex === 2) {
+    return {
+      label: 'Armor Break',
+      hint: 'ดาวใหญ่ขึ้นแล้ว ตีโดนแรง x2',
+      stormMs: base.stormMs + 120,
+      weakSpeed: Math.max(90, base.weakSpeed - 22),
+      weakSize: base.weakSize + 18,
+      weakMoveMs: base.weakMoveMs + 200,
+      damage: 2
+    };
+  }
+
+  return {
+    label: 'Target Hunt',
+    hint: 'มองหาดาวที่กำลังเคลื่อนที่แล้วแตะให้แม่น',
+    stormMs: base.stormMs,
+    weakSpeed: base.weakSpeed,
+    weakSize: base.weakSize,
+    weakMoveMs: base.weakMoveMs,
+    damage: 1
+  };
+}
+
+function syncWeakspotStyle(target) {
+  if (!target) return;
+  target.size = state.boss.weakSize;
+  target.el.style.width = `${target.size}px`;
+  target.el.style.height = `${target.size}px`;
+  target.el.style.borderColor = 'rgba(250,204,21,.62)';
+  target.el.style.boxShadow = '0 0 0 6px rgba(250,204,21,.18), 0 14px 28px rgba(0,0,0,.18)';
+  drawTarget(target);
+}
+
+function spawnBossWeakspot() {
+  refreshStageRect();
+
+  const size = state.boss.weakSize;
+  const x = randRange(14, Math.max(16, state.rect.width - size - 14));
+  const y = randRange(92, Math.max(100, state.rect.height - size - 24));
+  const id = `t-${++state.targetSeq}`;
+
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'gj-target weakspot';
+  el.style.width = `${size}px`;
+  el.style.height = `${size}px`;
+  el.style.borderColor = 'rgba(250,204,21,.62)';
+  el.style.boxShadow = '0 0 0 6px rgba(250,204,21,.18), 0 14px 28px rgba(0,0,0,.18)';
+  el.style.background = 'radial-gradient(circle at 30% 25%, rgba(255,255,255,.34), transparent 26%), linear-gradient(180deg, rgba(250,204,21,.42), rgba(245,158,11,.24)), rgba(15,23,42,.92)';
+  el.innerHTML = `
+    <div class="gj-emoji">⭐</div>
+    <div class="gj-type">boss</div>
+  `;
+
+  const vxBase = randRange(-state.boss.weakSpeed, state.boss.weakSpeed);
+  const vyBase = randRange(-state.boss.weakSpeed, state.boss.weakSpeed);
+
+  const target = {
+    id,
+    el,
+    type: 'weakspot',
+    label: 'weakspot',
+    x,
+    y,
+    size,
+    speed: 0,
+    drift: 0,
+    vx: Math.abs(vxBase) < 70 ? (vxBase < 0 ? -70 : 70) : vxBase,
+    vy: Math.abs(vyBase) < 70 ? (vyBase < 0 ? -70 : 70) : vyBase,
+    dead: false
+  };
+
+  el.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    hitTarget(id);
+  }, { passive: false });
+
+  ui.layer?.appendChild(el);
+  state.targets.set(id, target);
+  state.boss.weakspotId = id;
+  drawTarget(target);
+}
+
+function spawnBossJunk() {
+  const boss = getBossBase();
+  spawnTarget({
+    spawnMs: 0,
+    goodRatio: 0,
+    speedMin: state.boss.enrage ? boss.weakSpeed + 80 : boss.weakSpeed + 46,
+    speedMax: state.boss.enrage ? boss.weakSpeed + 130 : boss.weakSpeed + 90,
+    targetSizeMin: 46,
+    targetSizeMax: 66
+  }, pick(JUNK_ITEMS), 'storm');
+}
+
+function moveWeakspot(target, dt) {
+  target.x += (target.vx * dt) / 1000;
+  target.y += (target.vy * dt) / 1000;
+
+  const minY = 92;
+  if (target.x <= 8) {
+    target.x = 8;
+    target.vx *= -1;
+  }
+  if (target.x + target.size >= state.rect.width - 8) {
+    target.x = state.rect.width - target.size - 8;
+    target.vx *= -1;
+  }
+  if (target.y <= minY) {
+    target.y = minY;
+    target.vy *= -1;
+  }
+  if (target.y + target.size >= state.rect.height - 8) {
+    target.y = state.rect.height - target.size - 8;
+    target.vy *= -1;
+  }
+
+  drawTarget(target);
+}
+
+function applyBossPattern(index) {
+  state.boss.patternIndex = index;
+  state.boss.patternLabel = getBossPatternName(index);
+  state.boss.nextPatternIndex = -1;
+  state.boss.telegraphMs = 0;
+
+  const spec = getBossPatternSpec();
+  state.boss.patternTimeLeft = index === 1 ? 4200 : (index === 2 ? 3400 : 4700);
+  state.boss.stormAccum = 0;
+  state.boss.weakTick = 0;
+  state.boss.weakSpeed = spec.weakSpeed;
+  state.boss.weakSize = spec.weakSize;
+  state.boss.weakMoveMs = spec.weakMoveMs;
+
+  const weak = getWeakspot();
+  if (weak) syncWeakspotStyle(weak);
+
+  updateHint(spec.hint);
+}
+
+function queueNextBossPattern() {
+  state.boss.nextPatternIndex = (state.boss.patternIndex + 1) % 3;
+  state.boss.telegraphMs = 800;
+  setCenterTip(`เตรียมท่า ${getBossPatternName(state.boss.nextPatternIndex)}`, 760);
+}
+
+function updateBossPhase(dt) {
+  const bossBase = getBossBase();
+
+  if (state.boss.hp <= Math.ceil(state.boss.maxHp / 2) && !state.boss.enrage) {
+    state.boss.enrage = true;
+    setCenterTip('Boss โกรธแล้ว! ระวัง junk ให้ดี', 1200);
+  }
+
+  if (state.boss.stunMs > 0) {
+    state.boss.stunMs -= dt;
+    if (state.boss.stunMs < 0) state.boss.stunMs = 0;
+    return;
+  }
+
+  if (state.boss.telegraphMs > 0) {
+    state.boss.telegraphMs -= dt;
+    if (state.boss.telegraphMs <= 0 && state.boss.nextPatternIndex >= 0) {
+      applyBossPattern(state.boss.nextPatternIndex);
+    }
+    return;
+  }
+
+  state.boss.patternTimeLeft -= dt;
+  if (state.boss.patternTimeLeft <= 0) {
+    queueNextBossPattern();
+    return;
+  }
+
+  const spec = getBossPatternSpec();
+
+  state.boss.stormAccum += dt;
+  state.boss.weakTick += dt;
+
+  while (state.boss.stormAccum >= spec.stormMs) {
+    state.boss.stormAccum -= spec.stormMs;
+    spawnBossJunk();
+  }
+
+  const weak = getWeakspot();
+  if (!weak) {
+    spawnBossWeakspot();
+  } else {
+    moveWeakspot(weak, dt);
+  }
+
+  if (state.boss.weakTick >= spec.weakMoveMs) {
+    state.boss.weakTick = 0;
+    const current = getWeakspot();
+    if (current) {
+      const nextVX = randRange(-state.boss.weakSpeed, state.boss.weakSpeed);
+      const nextVY = randRange(-state.boss.weakSpeed, state.boss.weakSpeed);
+      current.vx = Math.abs(nextVX) < 70 ? (nextVX < 0 ? -70 : 70) : nextVX;
+      current.vy = Math.abs(nextVY) < 70 ? (nextVY < 0 ? -70 : 70) : nextVY;
+      syncWeakspotStyle(current);
+    }
+  }
+}
+
+function checkSoloPhaseProgress() {
+  if (!isSoloPhaseBossMode() || state.ended || state.boss.active) return;
+
+  if (state.phase === 1 && state.score >= getSoloPhaseGoal(1)) {
+    enterSoloPhase2();
+    return;
+  }
+
+  if (state.phase === 2 && state.score >= getSoloPhaseGoal(2)) {
+    enterBossPhase();
+  }
+}
+
 function startGame() {
   if (state.running || state.ended) return;
 
@@ -498,6 +883,11 @@ function startGame() {
   state.fruitHit = 0;
   state.vegHit = 0;
   state.drinkHit = 0;
+  state.powerHits = 0;
+  state.phase = 1;
+  state.bossStuns = 0;
+  resetBossState();
+
   state.running = true;
   state.ended = false;
   __gjLocalRunActive = true;
@@ -510,12 +900,12 @@ function startGame() {
   state.eventLog = [];
 
   if (ui.layer) ui.layer.innerHTML = '';
-  if (ui.centerTip) {
-    ui.centerTip.classList.remove('hide');
-    ui.centerTip.textContent = state.mode === 'race'
-      ? 'เริ่มพร้อมกันแล้ว • เก็บอาหารดีให้ได้คะแนนสูงสุด'
-      : 'ช่วงแรกยังไม่คิด Miss • เริ่มจากของดีช้า ๆ ก่อน';
-    setTimeout(() => ui.centerTip?.classList.add('hide'), 1800);
+
+  if (isRaceMode()) {
+    setCenterTip('เริ่มพร้อมกันแล้ว • เก็บอาหารดีให้ได้คะแนนสูงสุด', 1800);
+  } else {
+    setCenterTip(`Phase 1 • เก็บให้ถึง ${getSoloPhaseGoal(1)} คะแนน`, 1800);
+    updateHint('เริ่มจากเก็บอาหารดีให้ต่อเนื่อง แล้วค่อยไป Phase 2 และ Boss');
   }
 
   hideRaceResultOverlay();
@@ -525,7 +915,8 @@ function startGame() {
     sessionId: GJ_SESSION,
     conditionGroup: GJ_CONDITION,
     diff: state.diff,
-    view: RUN_CTX.view || 'mobile'
+    view: RUN_CTX.view || 'mobile',
+    mode: state.mode
   });
 
   renderHud();
@@ -549,27 +940,48 @@ function loop(ts) {
 
   updateSpawner(dt);
   updateTargets(dt);
-  renderHud();
 
+  if (!isRaceMode()) {
+    checkSoloPhaseProgress();
+  }
+
+  renderHud();
   state.frameRaf = requestAnimationFrame(loop);
 }
 
 function updateSpawner(dt) {
-  const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.easy;
+  if (isRaceMode()) {
+    const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.easy;
+    state.lastSpawnAccum += dt;
+
+    while (state.lastSpawnAccum >= preset.spawnMs) {
+      state.lastSpawnAccum -= preset.spawnMs;
+      spawnTarget(preset);
+    }
+    return;
+  }
+
+  if (state.boss.active) {
+    updateBossPhase(dt);
+    return;
+  }
+
+  const preset = getSoloPhasePreset();
   state.lastSpawnAccum += dt;
 
   while (state.lastSpawnAccum >= preset.spawnMs) {
     state.lastSpawnAccum -= preset.spawnMs;
-    spawnTarget();
+    spawnTarget(preset);
   }
 }
 
-function spawnTarget() {
+function spawnTarget(presetOverride = null, itemOverride = null, forcedType = '') {
   refreshStageRect();
 
-  const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.easy;
-  const isGood = rand() < preset.goodRatio;
-  const item = pick(isGood ? GOOD_ITEMS : JUNK_ITEMS);
+  const preset = presetOverride || (isRaceMode() ? (DIFF_PRESET[state.diff] || DIFF_PRESET.easy) : getSoloPhasePreset());
+  const isGood = forcedType ? forcedType === 'good' : rand() < preset.goodRatio;
+  const type = forcedType || (isGood ? 'good' : 'junk');
+  const item = itemOverride || pick(isGood ? GOOD_ITEMS : JUNK_ITEMS);
 
   const size = randRange(preset.targetSizeMin, preset.targetSizeMax);
   const x = randRange(10, Math.max(12, state.rect.width - size - 10));
@@ -580,15 +992,15 @@ function spawnTarget() {
 
   const el = document.createElement('button');
   el.type = 'button';
-  el.className = `gj-target ${isGood ? 'good' : 'junk'}`;
+  el.className = `gj-target ${type === 'good' ? 'good' : 'junk'}`;
   el.style.width = `${size}px`;
   el.style.height = `${size}px`;
   el.innerHTML = `
     <div class="gj-emoji">${item.emoji}</div>
-    <div class="gj-type">${isGood ? 'good' : 'junk'}</div>
+    <div class="gj-type">${type === 'storm' ? 'storm' : (type === 'good' ? 'good' : 'junk')}</div>
   `;
 
-  const target = { id, el, type: isGood ? 'good' : 'junk', label: item.label, x, y, size, speed, drift, dead: false };
+  const target = { id, el, type, label: item.label, x, y, size, speed, drift, dead: false };
 
   el.addEventListener('pointerdown', (ev) => {
     ev.preventDefault();
@@ -598,7 +1010,7 @@ function spawnTarget() {
   ui.layer?.appendChild(el);
   state.targets.set(id, target);
 
-  if (isGood) state.spawnedGood += 1;
+  if (type === 'good') state.spawnedGood += 1;
   else state.spawnedJunk += 1;
 
   drawTarget(target);
@@ -614,6 +1026,7 @@ function updateTargets(dt) {
 
   state.targets.forEach((target) => {
     if (target.dead) return;
+    if (target.type === 'weakspot') return;
 
     target.y += (target.speed * dt) / 1000;
     target.x += (target.drift * dt) / 1000;
@@ -641,6 +1054,46 @@ function hitTarget(id) {
   const target = state.targets.get(id);
   if (!target || target.dead) return;
 
+  const cx = target.x + target.size / 2;
+  const cy = target.y + target.size / 2;
+
+  if (target.type === 'weakspot') {
+    const spec = getBossPatternSpec();
+    const damage = spec.damage || 1;
+
+    state.powerHits += 1;
+    state.streak += 1;
+    state.bestStreak = Math.max(state.bestStreak, state.streak);
+    state.score += damage >= 2 ? 24 : 16;
+    state.boss.hp = Math.max(0, state.boss.hp - damage);
+    state.boss.stunMs = damage >= 2 ? 620 : 240;
+    state.bossStuns += 1;
+
+    createFx(cx, cy, damage >= 2 ? 'CRUSH!' : 'POWER!', '#fde68a');
+    updateHint(state.boss.hp > 0 ? 'โดนแล้ว! รีบตามจังหวะต่อ' : 'ชนะ Junk Boss แล้ว!');
+    logGameEvent('hit-boss', {
+      damage,
+      bossHp: state.boss.hp,
+      score: state.score,
+      combo: state.streak
+    });
+
+    removeTarget(id);
+    renderHud();
+
+    if (state.boss.hp <= 0) {
+      state.score += getBossBase().clearBonus;
+      state.running = false;
+      cancelAnimationFrame(state.frameRaf);
+      state.frameRaf = 0;
+      setCenterTip('Boss Clear! 🎉', 900);
+      setTimeout(() => endGame('boss-clear'), 380);
+      return;
+    }
+
+    return;
+  }
+
   if (target.type === 'good') {
     state.hitsGood += 1;
     state.streak += 1;
@@ -651,7 +1104,7 @@ function hitTarget(id) {
     const comboBonus = Math.min(12, Math.floor(state.streak / 3) * 2);
     const gain = 10 + comboBonus;
     state.score += gain;
-    createFx(target.x + target.size / 2, target.y + target.size / 2, `+${gain}`, '#86efac');
+    createFx(cx, cy, `+${gain}`, '#86efac');
     updateHint('เยี่ยมมาก! เก็บของดีต่อไป');
     logGameEvent('hit-good', {
       item: target.label,
@@ -663,10 +1116,10 @@ function hitTarget(id) {
     state.hitsBad += 1;
     state.miss += 1;
     state.streak = 0;
-    state.score = Math.max(0, state.score - 8);
-    createFx(target.x + target.size / 2, target.y + target.size / 2, 'MISS', '#fda4af');
-    updateHint('ระวัง junk! แตะของดีแทน');
-    logGameEvent('hit-junk', {
+    state.score = Math.max(0, state.score - (target.type === 'storm' ? 10 : 8));
+    createFx(cx, cy, target.type === 'storm' ? 'STORM!' : 'MISS', '#fda4af');
+    updateHint(target.type === 'storm' ? 'พายุ junk มาแล้ว! รอจังหวะตีดาว' : 'ระวัง junk! แตะของดีแทน');
+    logGameEvent(target.type === 'storm' ? 'hit-storm' : 'hit-junk', {
       item: target.label,
       label: target.label,
       score: state.score,
@@ -742,6 +1195,9 @@ function removeTarget(id) {
   target.dead = true;
   target.el.remove();
   state.targets.delete(id);
+  if (target.type === 'weakspot' && state.boss.weakspotId === id) {
+    state.boss.weakspotId = '';
+  }
 }
 
 function createFx(x, y, text, color) {
@@ -765,6 +1221,28 @@ function renderHud() {
   if (ui.timer) ui.timer.textContent = formatSeconds(state.timeLeftMs);
   if (ui.miss) ui.miss.textContent = String(state.miss);
   if (ui.grade) ui.grade.textContent = computeGrade();
+
+  if (ui.phasePill) {
+    if (isRaceMode()) {
+      ui.phasePill.textContent = 'RACE';
+    } else if (state.phase === 3) {
+      ui.phasePill.textContent = 'BOSS';
+    } else {
+      ui.phasePill.textContent = `P${state.phase}`;
+    }
+  }
+
+  if (ui.bossPill) {
+    if (isRaceMode()) {
+      ui.bossPill.textContent = GJ_ROOM_ID || '-';
+    } else if (state.phase === 1) {
+      ui.bossPill.textContent = `${state.score}/${getSoloPhaseGoal(1)}`;
+    } else if (state.phase === 2) {
+      ui.bossPill.textContent = `${state.score}/${getSoloPhaseGoal(2)}`;
+    } else {
+      ui.bossPill.textContent = `${state.boss.hp}/${state.boss.maxHp}`;
+    }
+  }
 
   if (ui.progress) {
     const ratio = state.totalMs > 0 ? state.timeLeftMs / state.totalMs : 0;
@@ -812,6 +1290,9 @@ function computeAccuracy() {
 
 function computeGrade() {
   const accuracy = computeAccuracy();
+  const bossCleared = !isRaceMode() && state.phase === 3 && state.boss.hp <= 0;
+
+  if (bossCleared && accuracy >= 0.72 && state.miss <= 6) return 'A';
   if (state.score >= 140 && accuracy >= 0.85 && state.miss <= 3) return 'A';
   if (state.score >= 90 && accuracy >= 0.72 && state.miss <= 5) return 'B';
   if (state.score >= 45 && accuracy >= 0.58) return 'C';
@@ -819,9 +1300,16 @@ function computeGrade() {
 }
 
 function computeStageReached() {
-  if (state.hitsGood >= 18) return 'SMART';
-  if (state.hitsGood >= 10) return 'STABLE';
-  return 'WARM';
+  if (isRaceMode()) {
+    if (state.hitsGood >= 18) return 'SMART';
+    if (state.hitsGood >= 10) return 'STABLE';
+    return 'WARM';
+  }
+
+  if (state.phase === 3 && state.boss.hp <= 0) return 'BOSS_CLEAR';
+  if (state.phase === 3) return 'BOSS';
+  if (state.phase === 2) return 'PHASE2';
+  return 'PHASE1';
 }
 
 function buildGameSummaryCore(reason = 'finished') {
@@ -832,7 +1320,7 @@ function buildGameSummaryCore(reason = 'finished') {
   const junkAvoided = Math.max(0, state.spawnedJunk - state.hitsBad);
 
   return {
-    version: '20260319a-goodjunk-intervention',
+    version: '20260407a-goodjunk-intervention-phaseboss',
     savedAt: new Date().toISOString(),
     gameId: GJ_GAME_ID,
     source: 'goodjunk-safe',
@@ -871,7 +1359,11 @@ function buildGameSummaryCore(reason = 'finished') {
     grade,
     accuracy,
     stageReached: computeStageReached(),
-    bossCleared: false,
+    phaseReached: computeStageReached(),
+    bossCleared: !isRaceMode() && state.phase === 3 && state.boss.hp <= 0,
+    bossHpRemaining: !isRaceMode() ? Number(state.boss.hp || 0) : null,
+    bossStuns: !isRaceMode() ? Number(state.bossStuns || 0) : 0,
+    powerHits: !isRaceMode() ? Number(state.powerHits || 0) : 0,
     totalSec,
     elapsedSec
   };
@@ -915,8 +1407,11 @@ function persistInterventionCtx() {
       schoolName: RUN_CTX.schoolName || RUN_CTX.school || '',
       diff: RUN_CTX.diff || state.diff,
       view: RUN_CTX.view || 'mobile',
-      mode: RUN_CTX.run || 'play',
+      mode: GJ_MODE,
+      role: GJ_ROLE,
       run: RUN_CTX.run || 'play',
+      roomId: GJ_ROOM_ID || '',
+      startAt: getEffectiveRaceStartAt() || 0,
       time: RUN_CTX.time || '80',
       lang: RUN_CTX.lang || 'th',
       hub: GJ_HUB
@@ -957,6 +1452,180 @@ function persistInterventionGameArtifacts(summary) {
   } catch {}
 }
 
+function getBloomStorageKey() {
+  return `${GJI_GAME_BLOOM_KEY}:${GJ_PID}:${GJ_SESSION || 'default'}`;
+}
+
+function getDefaultBloomReflection() {
+  return {
+    evaluateChoice: '',
+    evaluateReason: '',
+    createFruit: '',
+    createVeg: '',
+    createDrink: '',
+    savedAt: '',
+    pid: GJ_PID,
+    sessionId: GJ_SESSION,
+    studyId: RUN_CTX.studyId || ''
+  };
+}
+
+function loadBloomReflection() {
+  try {
+    const raw = localStorage.getItem(getBloomStorageKey());
+    const parsed = raw ? JSON.parse(raw) : {};
+    return { ...getDefaultBloomReflection(), ...(parsed || {}) };
+  } catch {
+    return getDefaultBloomReflection();
+  }
+}
+
+function checkedAttr(current, value) {
+  return String(current || '') === String(value) ? 'checked' : '';
+}
+
+function selectedAttr(current, value) {
+  return String(current || '') === String(value) ? 'selected' : '';
+}
+
+function readBloomReflectionFromDom() {
+  const evalChoice = document.querySelector('input[name="gj_eval_choice"]:checked')?.value || '';
+  const evalReason = document.querySelector('select[name="gj_eval_reason"]')?.value || '';
+  const createFruit = document.querySelector('input[name="gj_create_fruit"]:checked')?.value || '';
+  const createVeg = document.querySelector('input[name="gj_create_veg"]:checked')?.value || '';
+  const createDrink = document.querySelector('input[name="gj_create_drink"]:checked')?.value || '';
+
+  return {
+    evaluateChoice: evalChoice,
+    evaluateReason: evalReason,
+    createFruit,
+    createVeg,
+    createDrink
+  };
+}
+
+function attachBloomToStoredArtifacts(bloom) {
+  try {
+    const raw = localStorage.getItem(GJI_GAME_SUMMARY_KEY);
+    const summary = raw ? JSON.parse(raw) : {};
+    summary.bloom = bloom;
+    localStorage.setItem(GJI_GAME_SUMMARY_KEY, JSON.stringify(summary));
+  } catch {}
+}
+
+function persistBloomReflection(mode = 'draft') {
+  const next = {
+    ...loadBloomReflection(),
+    ...readBloomReflectionFromDom(),
+    savedMode: mode,
+    savedAt: new Date().toISOString(),
+    pid: GJ_PID,
+    sessionId: GJ_SESSION,
+    studyId: RUN_CTX.studyId || ''
+  };
+
+  try {
+    localStorage.setItem(getBloomStorageKey(), JSON.stringify(next));
+  } catch {}
+
+  __gjBloomData = next;
+  attachBloomToStoredArtifacts(next);
+  return next;
+}
+
+function validateBloomReflection() {
+  const data = readBloomReflectionFromDom();
+
+  if (!data.evaluateChoice) {
+    return { ok: false, message: 'เลือกคำตอบในส่วน “คิดและตัดสินใจ” ก่อน' };
+  }
+
+  if (!data.evaluateReason) {
+    return { ok: false, message: 'เลือกเหตุผลในส่วน “คิดและตัดสินใจ” ก่อน' };
+  }
+
+  if (!data.createFruit || !data.createVeg || !data.createDrink) {
+    return { ok: false, message: 'จัดชุดอาหารว่างให้ครบ 3 ส่วนก่อน' };
+  }
+
+  return { ok: true, data };
+}
+
+function renderBloomReflection(summary) {
+  const saved = loadBloomReflection();
+
+  const accuracyPct = Math.round(computeAccuracy() * 100);
+  const grade = computeGrade();
+
+  ui.soloBody.innerHTML = `
+    <div class="gj-solo-item"><div class="label">คะแนน</div><div class="value">${summary.score}</div></div>
+    <div class="gj-solo-item"><div class="label">Miss</div><div class="value">${summary.miss}</div></div>
+    <div class="gj-solo-item"><div class="label">Best Streak</div><div class="value">${summary.bestStreak}</div></div>
+    <div class="gj-solo-item"><div class="label">Good hit</div><div class="value">${summary.hitsGood}</div></div>
+    <div class="gj-solo-item"><div class="label">Junk hit</div><div class="value">${summary.hitsBad}</div></div>
+    <div class="gj-solo-item"><div class="label">Good missed</div><div class="value">${summary.missedGood}</div></div>
+    <div class="gj-solo-item"><div class="label">Phase</div><div class="value">${escapeHtml(summary.phaseReached || '-')}</div></div>
+    <div class="gj-solo-item"><div class="label">Power Hit</div><div class="value">${summary.powerHits || 0}</div></div>
+    <div class="gj-solo-item"><div class="label">Boss Stuns</div><div class="value">${summary.bossStuns || 0}</div></div>
+    <div class="gj-solo-item"><div class="label">Grade</div><div class="value">${grade}</div></div>
+    <div class="gj-solo-item"><div class="label">Accuracy</div><div class="value">${accuracyPct}%</div></div>
+    <div class="gj-solo-item"><div class="label">Boss Clear</div><div class="value">${summary.bossCleared ? 'YES' : 'NO'}</div></div>
+
+    <div style="grid-column:1/-1;border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:14px;background:rgba(2,6,23,.45);margin-top:6px;">
+      <div style="font-size:18px;font-weight:900;margin-bottom:8px;">คิดและตัดสินใจ (Evaluate)</div>
+      <div style="color:#94a3b8;font-size:14px;line-height:1.6;margin-bottom:10px;">
+        หลังเลิกเรียน ถ้าจะเลือกของว่าง 1 ชุด ชุดไหนดีกว่ากัน
+      </div>
+
+      <label style="display:block;padding:10px 12px;border:1px solid rgba(148,163,184,.18);border-radius:12px;margin-bottom:8px;cursor:pointer;">
+        <input type="radio" name="gj_eval_choice" value="setA" ${checkedAttr(saved.evaluateChoice, 'setA')} />
+        ชุด A: 🍩 โดนัท + 🥤 น้ำอัดลม
+      </label>
+
+      <label style="display:block;padding:10px 12px;border:1px solid rgba(148,163,184,.18);border-radius:12px;margin-bottom:10px;cursor:pointer;">
+        <input type="radio" name="gj_eval_choice" value="setB" ${checkedAttr(saved.evaluateChoice, 'setB')} />
+        ชุด B: 🍌 กล้วย + 🥛 นม
+      </label>
+
+      <select name="gj_eval_reason" style="width:100%;padding:10px 12px;border-radius:12px;border:1px solid rgba(148,163,184,.18);background:rgba(15,23,42,.88);color:#e5e7eb;">
+        <option value="">-- เลือกเหตุผล --</option>
+        <option value="less_sugar" ${selectedAttr(saved.evaluateReason, 'less_sugar')}>น้ำตาลน้อยกว่า</option>
+        <option value="better_energy" ${selectedAttr(saved.evaluateReason, 'better_energy')}>ให้พลังงานที่ดีกว่า</option>
+        <option value="more_nutrients" ${selectedAttr(saved.evaluateReason, 'more_nutrients')}>มีประโยชน์และสารอาหารมากกว่า</option>
+      </select>
+    </div>
+
+    <div style="grid-column:1/-1;border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:14px;background:rgba(2,6,23,.45);margin-top:6px;">
+      <div style="font-size:18px;font-weight:900;margin-bottom:8px;">สร้างชุดอาหารว่าง (Create)</div>
+      <div style="color:#94a3b8;font-size:14px;line-height:1.6;margin-bottom:10px;">
+        เลือก 1 ผลไม้ + 1 ผัก + 1 เครื่องดื่ม เพื่อจัดชุดอาหารว่างสุขภาพ
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <div style="font-weight:800;margin-bottom:6px;">ผลไม้</div>
+        <label style="display:inline-block;margin-right:12px;"><input type="radio" name="gj_create_fruit" value="apple" ${checkedAttr(saved.createFruit, 'apple')} /> 🍎 แอปเปิล</label>
+        <label style="display:inline-block;margin-right:12px;"><input type="radio" name="gj_create_fruit" value="banana" ${checkedAttr(saved.createFruit, 'banana')} /> 🍌 กล้วย</label>
+        <label style="display:inline-block;"><input type="radio" name="gj_create_fruit" value="watermelon" ${checkedAttr(saved.createFruit, 'watermelon')} /> 🍉 แตงโม</label>
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <div style="font-weight:800;margin-bottom:6px;">ผัก</div>
+        <label style="display:inline-block;margin-right:12px;"><input type="radio" name="gj_create_veg" value="carrot" ${checkedAttr(saved.createVeg, 'carrot')} /> 🥕 แครอท</label>
+        <label style="display:inline-block;margin-right:12px;"><input type="radio" name="gj_create_veg" value="broccoli" ${checkedAttr(saved.createVeg, 'broccoli')} /> 🥦 บรอกโคลี</label>
+        <label style="display:inline-block;"><input type="radio" name="gj_create_veg" value="salad" ${checkedAttr(saved.createVeg, 'salad')} /> 🥗 สลัด</label>
+      </div>
+
+      <div>
+        <div style="font-weight:800;margin-bottom:6px;">เครื่องดื่ม</div>
+        <label style="display:inline-block;margin-right:12px;"><input type="radio" name="gj_create_drink" value="milk" ${checkedAttr(saved.createDrink, 'milk')} /> 🥛 นม</label>
+        <label style="display:inline-block;"><input type="radio" name="gj_create_drink" value="water" ${checkedAttr(saved.createDrink, 'water')} /> 💧 น้ำเปล่า</label>
+      </div>
+    </div>
+  `;
+
+  if (ui.soloBtnPostK) ui.soloBtnPostK.textContent = 'บันทึกและไป Post-Knowledge';
+}
+
 function buildPageUrl(relPath) {
   const q = new URLSearchParams({
     pid: GJ_PID,
@@ -970,12 +1639,15 @@ function buildPageUrl(relPath) {
     session: RUN_CTX.session || RUN_CTX.sessionId || '',
     sessionId: RUN_CTX.sessionId || RUN_CTX.session || '',
     lang: RUN_CTX.lang || 'th',
-    mode: RUN_CTX.run || 'play',
+    mode: GJ_MODE,
+    role: GJ_ROLE,
     diff: RUN_CTX.diff || 'easy',
     view: RUN_CTX.view || 'mobile',
     time: RUN_CTX.time || '80',
     run: RUN_CTX.run || 'play',
     hub: GJ_HUB,
+    roomId: GJ_ROOM_ID || '',
+    startAt: String(getEffectiveRaceStartAt() || 0),
     classRoom: RUN_CTX.classRoom || RUN_CTX.classroom || '',
     classroom: RUN_CTX.classroom || RUN_CTX.classRoom || '',
     schoolName: RUN_CTX.schoolName || RUN_CTX.school || '',
@@ -1046,7 +1718,7 @@ function endGame(reason = 'finished') {
     return;
   }
 
-  showSoloSummary(finalStats);
+  showSoloSummary(interventionSummary);
 }
 
 function showSoloSummary(summary) {
@@ -1056,28 +1728,22 @@ function showSoloSummary(summary) {
   if (!ui.soloOverlay || !ui.soloBody) return;
 
   const grade = computeGrade();
-  const accuracyPct = Math.round(computeAccuracy() * 100);
 
-  ui.soloTitle.textContent = grade === 'A' ? 'ยอดเยี่ยมมาก!' : 'สรุปผลการเล่น';
-  ui.soloSub.textContent = 'ขั้นถัดไปแนะนำให้ทำ Post-Knowledge ต่อก่อน แล้วค่อยไปหน้าถัดไป';
+  ui.soloTitle.textContent = __gjSoloSummary.bossCleared
+    ? 'ชนะ Junk Boss แล้ว!'
+    : (grade === 'A' ? 'ยอดเยี่ยมมาก!' : 'สรุปผลการเล่น');
 
-  ui.soloBody.innerHTML = `
-    <div class="gj-solo-item"><div class="label">คะแนน</div><div class="value">${__gjSoloSummary.score}</div></div>
-    <div class="gj-solo-item"><div class="label">Miss</div><div class="value">${__gjSoloSummary.miss}</div></div>
-    <div class="gj-solo-item"><div class="label">Best Streak</div><div class="value">${__gjSoloSummary.bestStreak}</div></div>
-    <div class="gj-solo-item"><div class="label">Good hit</div><div class="value">${__gjSoloSummary.hitsGood}</div></div>
-    <div class="gj-solo-item"><div class="label">Junk hit</div><div class="value">${__gjSoloSummary.hitsBad}</div></div>
-    <div class="gj-solo-item"><div class="label">Good missed</div><div class="value">${__gjSoloSummary.missedGood}</div></div>
-    <div class="gj-solo-item"><div class="label">Grade</div><div class="value">${grade}</div></div>
-    <div class="gj-solo-item"><div class="label">Accuracy</div><div class="value">${accuracyPct}%</div></div>
-  `;
+  ui.soloSub.textContent = __gjSoloSummary.bossCleared
+    ? 'ผ่านครบทั้ง Phase 1 • Phase 2 • Boss แล้ว'
+    : 'ดูผลเกม แล้วทำกิจกรรมสั้น ๆ ต่อเพื่อสรุปความเข้าใจ';
 
+  renderBloomReflection(__gjSoloSummary);
   ui.soloOverlay.hidden = false;
 }
 
 function buildSoloSummaryPayload(summary) {
   return {
-    version: '20260319a-goodjunk-solo-summary',
+    version: '20260407a-goodjunk-solo-phaseboss',
     source: 'goodjunk-solo',
     gameId: GJ_GAME_ID,
     mode: 'solo',
@@ -1088,7 +1754,7 @@ function buildSoloSummaryPayload(summary) {
     view: RUN_CTX.view || 'mobile',
     run: RUN_CTX.run || 'play',
     seed: RUN_CTX.seed || '',
-    finishType: 'normal',
+    finishType: summary.bossCleared ? 'boss-clear' : 'normal',
     dnfReason: '',
     rank: null,
     roomId: '',
@@ -1097,10 +1763,15 @@ function buildSoloSummaryPayload(summary) {
     raceStatusFinal: 'solo',
     score: Number(summary.score || 0),
     miss: Number(summary.miss || 0),
-    bestStreak: Number(summary.bestStreak || 0),
-    hitsGood: Number(summary.hitsGood || 0),
-    hitsBad: Number(summary.hitsBad || 0),
-    missedGood: Number(summary.missedGood || 0),
+    bestStreak: Number(summary.comboBest || summary.bestStreak || 0),
+    hitsGood: Number(summary.goodHit || summary.hitsGood || 0),
+    hitsBad: Number(summary.junkHit || summary.hitsBad || 0),
+    missedGood: Number(state.missedGood || 0),
+    phaseReached: summary.phaseReached || computeStageReached(),
+    bossCleared: !!summary.bossCleared,
+    bossHpRemaining: Number(summary.bossHpRemaining || 0),
+    bossStuns: Number(summary.bossStuns || 0),
+    powerHits: Number(summary.powerHits || 0),
     updatedAt: Date.now()
   };
 }
@@ -1762,7 +2433,7 @@ function buildRaceLobbyUrl() {
     studyId: RUN_CTX.studyId || '',
     diff: RUN_CTX.diff || 'easy',
     time: RUN_CTX.time || '80',
-    seed: String(Date.now()),
+    seed: String(Date.now())),
     hub: GJ_HUB,
     view: RUN_CTX.view || 'mobile',
     run: RUN_CTX.run || 'play',
@@ -2249,7 +2920,8 @@ function buildReplayUrl() {
     view: RUN_CTX.view || 'mobile',
     run: RUN_CTX.run || 'play',
     gameId: GJ_GAME_ID,
-    mode: state.mode,
+    mode: GJ_MODE,
+    role: GJ_ROLE,
 
     session: RUN_CTX.session || RUN_CTX.sessionId || '',
     sessionId: RUN_CTX.sessionId || RUN_CTX.session || '',
@@ -2268,5 +2940,5 @@ function buildReplayUrl() {
     }
   }
 
-  return `./goodjunk-vr.html?v=20260319a-mobile-safe&${q.toString()}`;
+  return `./goodjunk-vr.html?v=20260407a-phaseboss&${q.toString()}`;
 }
