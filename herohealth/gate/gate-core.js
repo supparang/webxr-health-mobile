@@ -1,9 +1,9 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260403a-GATE-DAILY-WARMUP-COOLDOWN-BKK-PID-CAT-GAME
+// FULL PATCH v20260407b-GATE-DAILY-WARMUP-COOLDOWN-HUBV2-CDNEXT-FLOW
 
-import * as GateGames from './gate-games.js?v=20260328c-GATE-GAMES-GOODJUNK-SHADOWBREAKER-COMPAT';
+import * as GateGames from './gate-games.js?v=20260407b-GATE-GAMES-COMPAT';
 
-const PATCH = 'v20260403a-GATE-DAILY-WARMUP-COOLDOWN-BKK-PID-CAT-GAME';
+const PATCH = 'v20260407b-GATE-DAILY-WARMUP-COOLDOWN-HUBV2-CDNEXT-FLOW';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -245,14 +245,15 @@ function readCtx() {
     seed: params.get('seed') || String(Date.now()),
     view: params.get('view') || 'mobile',
 
-    hub: params.get('hub') || new URL('../hub.html', import.meta.url).href,
+    hub: params.get('hub') || new URL('../hub-v2.html', import.meta.url).href,
     cat: params.get('cat') || meta?.cat || '',
     zone: params.get('zone') || params.get('cat') || meta?.cat || '',
     scene: params.get('scene') || '',
     wgskip: params.get('wgskip') || '',
     autostart: params.get('autostart') || '',
     next: params.get('next') || '',
-    nextKey: params.get('nextKey') || ''
+    nextKey: params.get('nextKey') || '',
+    cdnext: params.get('cdnext') || ''
   };
 }
 
@@ -624,6 +625,9 @@ function buildRunParams(ctx) {
   p.delete('gatePhase');
   p.delete('next');
   p.delete('nextKey');
+  p.delete('cdnext');
+  p.delete('forcegate');
+  p.delete('resetGate');
 
   p.set('game', ctx.game);
   p.set('gameId', ctx.game);
@@ -713,48 +717,60 @@ async function resolveRunHref(ctx) {
   return fallback.href;
 }
 
+function looksLikeHeroHealthHub(href = '') {
+  const s = String(href || '').toLowerCase();
+  return (
+    s.includes('/herohealth/hub.html') ||
+    s.includes('/herohealth/hub-v2.html')
+  );
+}
+
 function resolveHubHref(ctx) {
-  const canonical = new URL('../hub.html', import.meta.url).href;
+  const fallbackV2 = new URL('../hub-v2.html', import.meta.url).href;
+  const fallbackClassic = new URL('../hub.html', import.meta.url).href;
   const raw = String(ctx.hub || '').trim();
 
   try {
-    if (!raw) return canonical;
-
-    if (
-      raw === '/hub.html' ||
-      raw === '//hub.html' ||
-      raw === 'hub.html' ||
-      raw === './hub.html' ||
-      raw === '../hub.html'
-    ) {
-      return canonical;
-    }
+    if (!raw) return fallbackV2;
 
     const resolved = new URL(raw, location.href).href;
+    if (looksLikeHeroHealthHub(resolved)) return resolved;
 
-    if (!resolved.includes('/herohealth/hub.html')) {
-      return canonical;
-    }
-
-    return resolved;
+    return raw.toLowerCase().includes('hub.html') ? fallbackClassic : fallbackV2;
   } catch {
-    return canonical;
+    return fallbackV2;
   }
 }
 
-function resolveSummaryHref(ctx, payload = {}) {
+function classifyCompletionHref(href = '') {
+  const s = String(href || '').toLowerCase();
+
+  if (!href) return { kind: '', label: '' };
+  if (looksLikeHeroHealthHub(s)) return { kind: 'hub', label: 'กลับหน้าหลัก' };
+  if (s.includes('launcher')) return { kind: 'launcher', label: 'กลับหน้าเลือกเกม' };
+  if (s.includes('summary')) return { kind: 'summary', label: 'ไปหน้าสรุป' };
+  return { kind: 'next', label: 'ไปต่อ' };
+}
+
+function resolveCompletionTarget(ctx, payload = {}) {
   const fromPayload = resolveAbsoluteUrl(String(payload?.summaryHref || '').trim());
   if (fromPayload) {
-    console.log('[GATE] resolveSummaryHref via payload', fromPayload);
-    return fromPayload;
+    console.log('[GATE] resolveCompletionTarget via payload', fromPayload);
+    return {
+      href: fromPayload,
+      ...classifyCompletionHref(fromPayload)
+    };
   }
 
-  const rawCdNext = String(ctx.params.get('cdnext') || '').trim();
+  const rawCdNext = String(ctx.params.get('cdnext') || ctx.cdnext || '').trim();
   if (rawCdNext) {
     const href = resolveAbsoluteUrl(rawCdNext);
     if (href) {
-      console.log('[GATE] resolveSummaryHref via cdnext', href);
-      return href;
+      console.log('[GATE] resolveCompletionTarget via cdnext', href);
+      return {
+        href,
+        ...classifyCompletionHref(href)
+      };
     }
   }
 
@@ -766,11 +782,14 @@ function resolveSummaryHref(ctx, payload = {}) {
     const hubHref = resolveHubHref(ctx);
     if (hubHref) url.searchParams.set('hub', hubHref);
 
-    console.log('[GATE] resolveSummaryHref via meta summary', url.href);
-    return url.href;
+    console.log('[GATE] resolveCompletionTarget via meta summary', url.href);
+    return {
+      href: url.href,
+      ...classifyCompletionHref(url.href)
+    };
   }
 
-  return '';
+  return { href: '', kind: '', label: '' };
 }
 
 async function goRun(ctx) {
@@ -799,21 +818,24 @@ function goHub(ctx) {
   location.href = href;
 }
 
-function goSummary(ctx, payload = {}) {
-  const href = resolveSummaryHref(ctx, payload);
-  console.log('[GATE] goSummary ->', href, {
+function goCompletion(ctx, payload = {}) {
+  const target = resolveCompletionTarget(ctx, payload);
+
+  console.log('[GATE] goCompletion ->', target.href, {
     game: ctx.game,
     phase: ctx.phase,
+    kind: target.kind,
     payloadSummaryHref: payload?.summaryHref || '',
-    cdnext: ctx.params.get('cdnext') || '',
+    cdnext: ctx.params.get('cdnext') || ctx.cdnext || '',
     search: location.search
   });
 
-  if (!href) {
-    toast('ไม่พบ summary page ของเกมนี้');
+  if (!target.href) {
+    toast('ไม่พบหน้าถัดไปของเกมนี้');
     return;
   }
-  location.href = href;
+
+  location.href = target.href;
 }
 
 function isGoodJunkGate(ctx) {
@@ -1002,7 +1024,7 @@ async function bootPhase(stage, ctx, api) {
     setActions(api.footer, [
       { label: 'กลับ HUB', onClick: () => goHub(ctx) },
       {
-        label: ctx.phase === 'cooldown' ? 'ไปหน้าสรุป' : 'เข้าเกมหลัก',
+        label: ctx.phase === 'cooldown' ? 'ไปต่อ' : 'เข้าเกมหลัก',
         primary: true,
         onClick: () => api.complete({ source: 'error-skip' })
       }
@@ -1012,6 +1034,26 @@ async function bootPhase(stage, ctx, api) {
 
 function showAlreadyDone(stage, footer, ctx) {
   if (ctx.phase === 'cooldown') {
+    const target = resolveCompletionTarget(ctx, {});
+
+    if (target.href && target.kind !== 'hub') {
+      renderInfo(
+        stage,
+        'ทำ cooldown วันนี้แล้ว',
+        'วันนี้ดู cooldown แล้ว ระบบจะพาไปหน้าถัดไปตาม flow เดิม'
+      );
+
+      setActions(footer, [
+        { label: target.label || 'ไปต่อ', primary: true, onClick: () => goCompletion(ctx, {}) },
+        { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
+      ]);
+
+      setTimeout(() => {
+        goCompletion(ctx, {});
+      }, 180);
+      return;
+    }
+
     renderInfo(
       stage,
       'ทำ cooldown วันนี้แล้ว',
@@ -1106,7 +1148,7 @@ export async function bootGate(root = document.getElementById('gate-app')) {
     applyCooldownSnapshot(refs, ctx);
     setHeroSub(
       refs,
-      'สรุปผลล่าสุดพร้อมแล้ว ตรวจดูได้ในหน้านี้ แล้วค่อยกดกลับหน้าหลัก'
+      'สรุปผลล่าสุดพร้อมแล้ว ตรวจดูได้ในหน้านี้ แล้วค่อยกดไปหน้าถัดไปหรือกลับหน้าหลัก'
     );
   }
 
@@ -1156,7 +1198,7 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
       const subtitle = payload.subtitle ||
         (ctx.phase === 'cooldown'
-          ? 'บันทึกผลล่าสุดเรียบร้อย ตรวจดูสรุปได้จากหน้านี้ แล้วค่อยกลับหน้าหลัก'
+          ? 'บันทึกผลล่าสุดเรียบร้อย ตรวจดูสรุปได้จากหน้านี้ แล้วค่อยไปหน้าถัดไป'
           : 'warmup เสร็จแล้ว ระบบกำลังพาเข้าเกมหลัก');
 
       const extra = linesHtml(payload.lines || []);
@@ -1189,14 +1231,14 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       console.log('[GATE] cooldown complete', {
         game: ctx.game,
         phase: ctx.phase,
-        cdnext: ctx.params.get('cdnext') || '',
+        cdnext: ctx.params.get('cdnext') || ctx.cdnext || '',
         payloadSummaryHref: payload?.summaryHref || '',
         specialRedirected
       });
 
       if (specialRedirected) return;
 
-      const resolvedSummaryHref = resolveSummaryHref(ctx, payload);
+      const completionTarget = resolveCompletionTarget(ctx, payload);
 
       saveLastSummary({
         source: 'gate-core',
@@ -1210,15 +1252,23 @@ export async function bootGate(root = document.getElementById('gate-app')) {
         view: ctx.view,
         patch: PATCH,
         payload,
-        summaryHref: resolvedSummaryHref
+        completionHref: completionTarget.href,
+        completionKind: completionTarget.kind
       });
 
       renderInfo(stage, title, subtitle, extra);
       applyCooldownSnapshot(refs, ctx);
 
-      if (resolvedSummaryHref) {
+      if (completionTarget.href && completionTarget.kind === 'hub') {
         setActions(footer, [
-          { label: 'ไปหน้าสรุป', onClick: () => goSummary(ctx, payload) },
+          { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
+        ]);
+        return;
+      }
+
+      if (completionTarget.href) {
+        setActions(footer, [
+          { label: completionTarget.label || 'ไปต่อ', onClick: () => goCompletion(ctx, payload) },
           { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
         ]);
         return;
@@ -1243,7 +1293,7 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       setActions(footer, [
         { label: 'กลับ HUB', onClick: () => goHub(ctx) },
         {
-          label: ctx.phase === 'cooldown' ? 'ไปหน้าสรุป' : 'เข้าเกมหลัก',
+          label: ctx.phase === 'cooldown' ? 'ไปต่อ' : 'เข้าเกมหลัก',
           primary: true,
           onClick: () => api.complete({ source: 'fail-skip' })
         }
@@ -1258,8 +1308,8 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       return goHub(ctx);
     },
 
-    goSummary(payload = {}) {
-      return goSummary(ctx, payload);
+    goCompletion(payload = {}) {
+      return goCompletion(ctx, payload);
     }
   };
 
