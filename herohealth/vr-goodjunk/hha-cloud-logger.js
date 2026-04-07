@@ -1,10 +1,3 @@
-/* === /herohealth/vr-goodjunk/hha-cloud-logger.js ===
-   PATCH: debug-friendly Apps Script logger for GoodJunk
-   - force endpoint from window.HHA_APPS_SCRIPT_URL
-   - disable sendBeacon during debug
-   - verbose console logs
-   - guard against duplicate flush
-*/
 (function(root){
   'use strict';
 
@@ -46,7 +39,6 @@
     console.error('[HHA LOGGER]', ...arguments);
   }
 
-  // DEBUG: do not allow ?api= override for now
   const API = String(root.HHA_APPS_SCRIPT_URL || '').trim();
 
   const DEFAULT_GAME_VERSION = 'goodjunk-duet-r12';
