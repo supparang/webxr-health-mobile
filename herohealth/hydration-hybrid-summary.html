@@ -19,44 +19,168 @@
       --shadow:0 18px 40px rgba(89,151,182,.18);
       --radius:24px;
     }
+
     *{box-sizing:border-box}
+
     html,body{
-      margin:0;min-height:100%;
+      margin:0;
+      min-height:100%;
       font-family:ui-rounded,"Noto Sans Thai",system-ui,-apple-system,sans-serif;
       color:var(--text);
       background:linear-gradient(180deg,var(--bg1),var(--bg2));
     }
+
     body{padding:18px}
-    .wrap{max-width:980px;margin:0 auto;display:grid;gap:16px}
+
+    .wrap{
+      max-width:980px;
+      margin:0 auto;
+      display:grid;
+      gap:16px;
+    }
+
     .card{
-      background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-      box-shadow:var(--shadow)
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
     }
+
     .hero{padding:22px}
+
     .eyebrow{
-      display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:8px 12px;
-      border-radius:999px;background:#f2fbff;border:1px solid #caebfb;color:#2680ad;font-weight:900
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:36px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#f2fbff;
+      border:1px solid #caebfb;
+      color:#2680ad;
+      font-weight:900;
     }
-    h1{margin:10px 0 8px;font-size:32px}
-    p{margin:0;color:var(--muted);line-height:1.6}
-    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+
+    h1{
+      margin:10px 0 8px;
+      font-size:32px;
+    }
+
+    p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.6;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
     .section{padding:18px}
-    .stat{
-      padding:16px;border-radius:20px;background:#f9fdff;border:1px solid var(--line)
+
+    .label{
+      font-size:13px;
+      font-weight:900;
+      color:#628399;
     }
-    .label{font-size:13px;font-weight:900;color:#628399}
-    .value{margin-top:6px;font-size:32px;font-weight:1000}
-    .sub{margin-top:6px;color:var(--muted);font-size:14px;line-height:1.55}
-    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+
+    .value{
+      margin-top:6px;
+      font-size:32px;
+      font-weight:1000;
+    }
+
+    .sub{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.55;
+    }
+
+    .reflection{
+      margin-top:10px;
+      padding:14px 16px;
+      border-radius:18px;
+      background:#f8fdff;
+      border:1px solid var(--line);
+      color:#305f79;
+      font-size:16px;
+      line-height:1.7;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:16px;
+    }
+
     .btn{
-      appearance:none;border:none;cursor:pointer;min-height:48px;padding:12px 16px;border-radius:16px;
-      font-size:15px;font-weight:1000
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      min-height:48px;
+      padding:12px 16px;
+      border-radius:16px;
+      font-size:15px;
+      font-weight:1000;
+      transition:transform .12s ease, opacity .12s ease;
     }
-    .btn.primary{background:linear-gradient(180deg,var(--blue),var(--blue2));color:#06273a}
-    .btn.good{background:linear-gradient(180deg,#93e79d,#62d473);color:#10361a}
-    .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--text)}
+
+    .btn:hover{
+      transform:translateY(-1px);
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#06273a;
+    }
+
+    .btn.good{
+      background:linear-gradient(180deg,#93e79d,#62d473);
+      color:#10361a;
+    }
+
+    .btn.ghost{
+      background:#fff;
+      border:1px solid var(--line);
+      color:var(--text);
+    }
+
+    .mini-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:14px;
+    }
+
+    .mini-card{
+      padding:14px;
+      border-radius:18px;
+      background:#f9fdff;
+      border:1px solid var(--line);
+    }
+
+    .mini-title{
+      font-size:13px;
+      font-weight:900;
+      color:#5b7f94;
+      margin-bottom:6px;
+    }
+
+    .mini-body{
+      color:#2b5a74;
+      line-height:1.6;
+      font-size:14px;
+    }
+
     @media (max-width:760px){
-      .grid{grid-template-columns:1fr}
+      .grid,
+      .mini-grid{
+        grid-template-columns:1fr;
+      }
     }
   </style>
 </head>
@@ -96,8 +220,17 @@
 
     <section class="card section">
       <div class="label">Reflection</div>
-      <div class="sub" id="reflectionBox" style="margin-top:8px;color:#305f79;font-size:16px">
-        กำลังสรุปผล...
+      <div class="reflection" id="reflectionBox">กำลังสรุปผล...</div>
+
+      <div class="mini-grid">
+        <div class="mini-card">
+          <div class="mini-title">Main Detail</div>
+          <div class="mini-body" id="mainDetail">-</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-title">Mini Detail</div>
+          <div class="mini-body" id="miniDetail">-</div>
+        </div>
       </div>
 
       <div class="actions">
@@ -110,10 +243,12 @@
 
   <script>
     (function(){
-      const FIXED_HUB_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+      const FIXED_HUB_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
+      const GATE_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html';
       const qs = new URLSearchParams(location.search);
 
       const refs = {
+        lead: document.getElementById('lead'),
         mainValue: document.getElementById('mainValue'),
         mainSub: document.getElementById('mainSub'),
         miniValue: document.getElementById('miniValue'),
@@ -123,6 +258,8 @@
         bloomValue: document.getElementById('bloomValue'),
         bloomSub: document.getElementById('bloomSub'),
         reflectionBox: document.getElementById('reflectionBox'),
+        mainDetail: document.getElementById('mainDetail'),
+        miniDetail: document.getElementById('miniDetail'),
         saveBtn: document.getElementById('saveBtn'),
         cooldownBtn: document.getElementById('cooldownBtn'),
         hubBtn: document.getElementById('hubBtn')
@@ -148,30 +285,42 @@
         }
       }
 
-      const main = readJson(`HHA_HYDRATION_HYBRID_MAIN:${ctx.runId}`) || {};
-      const lite = readJson(`HHA_HYDRATION_HYBRID_LITE:${ctx.runId}`) || {};
+      function safeNum(v, fallback = 0){
+        const n = Number(v);
+        return Number.isFinite(n) ? n : fallback;
+      }
 
-      function clamp(v,a,b){
+      function clamp(v, a, b){
         v = Number(v);
         if (!Number.isFinite(v)) v = a;
         return Math.max(a, Math.min(b, v));
       }
 
+      const main = readJson(`HHA_HYDRATION_HYBRID_MAIN:${ctx.runId}`) || {};
+      const lite = readJson(`HHA_HYDRATION_HYBRID_LITE:${ctx.runId}`) || {};
+
+      refs.lead.textContent = `PID ${ctx.pid} • Week ${ctx.week} • Session ${ctx.session} • ${ctx.branch}`;
+
       function computeHybrid(){
-        const rawMain = clamp(Number(main.mainActionScore || 0), 0, 100);
+        const rawMain = clamp(safeNum(main.mainActionScore, 0), 0, 100);
         const mainWeighted = Math.round(rawMain * 0.70 * 10) / 10;
 
         let miniRaw = 0;
         if (ctx.branch === 'scenario-create') {
-          miniRaw = clamp(Number(lite.scenarioScore || 0), 0, 15) + clamp(Number(lite.createScore || 0), 0, 100) * 0.15;
+          miniRaw =
+            clamp(safeNum(lite.scenarioScore, 0), 0, 15) +
+            (clamp(safeNum(lite.createScore, 0), 0, 100) * 0.15);
         } else {
-          miniRaw = clamp(Number(lite.scenarioScore || 0), 0, 15) + clamp(Number(lite.evaluateScore || 0), 0, 15);
+          miniRaw =
+            clamp(safeNum(lite.scenarioScore, 0), 0, 15) +
+            clamp(safeNum(lite.evaluateScore, 0), 0, 15);
         }
-        miniRaw = clamp(miniRaw, 0, 30);
 
+        miniRaw = Math.round(clamp(miniRaw, 0, 30) * 10) / 10;
         const total = Math.round((mainWeighted + miniRaw) * 10) / 10;
 
         return {
+          rawMain,
           mainWeighted,
           miniRaw,
           total,
@@ -185,16 +334,24 @@
 
       refs.mainValue.textContent = result.mainWeighted.toFixed(1);
       refs.mainSub.textContent =
-        `raw action ${Number(main.mainActionScore || 0)} • good ${Number(main.goodCatch || 0)} • bad ${Number(main.badCatch || 0)} • combo ${Number(main.bestCombo || 0)}`;
+        `raw action ${safeNum(main.mainActionScore, 0)} • good ${safeNum(main.goodCatch, 0)} • bad ${safeNum(main.badCatch, 0)} • combo ${safeNum(main.bestCombo, 0)}`;
 
       refs.miniValue.textContent = result.miniRaw.toFixed(1);
       refs.miniSub.textContent =
         ctx.branch === 'scenario-create'
-          ? `scenario ${Number(lite.scenarioScore || 0)} + create ${Number(lite.createScore || 0)}`
-          : `scenario ${Number(lite.scenarioScore || 0)} + evaluate ${Number(lite.evaluateScore || 0)}`;
+          ? `scenario ${safeNum(lite.scenarioScore, 0)} + create ${safeNum(lite.createScore, 0)}`
+          : `scenario ${safeNum(lite.scenarioScore, 0)} + evaluate ${safeNum(lite.evaluateScore, 0)}`;
 
       refs.totalValue.textContent = result.total.toFixed(1);
       refs.bloomValue.textContent = result.bloom.join(' • ');
+
+      refs.mainDetail.textContent =
+        `เก็บน้ำ ${safeNum(main.goodCatch, 0)} ครั้ง • แตะผิด ${safeNum(main.badCatch, 0)} ครั้ง • พลาด ${safeNum(main.missedGood, 0)} ครั้ง • คอมโบสูงสุด ${safeNum(main.bestCombo, 0)} • reward ${safeNum(main.rewardCount, 0)} ชิ้น`;
+
+      refs.miniDetail.textContent =
+        ctx.branch === 'scenario-create'
+          ? `Scenario family: ${lite.scenarioFamily || '-'} • Create family: ${lite.createFamily || '-'} • Scenario ${safeNum(lite.scenarioScore, 0)} • Create ${safeNum(lite.createScore, 0)}`
+          : `Scenario family: ${lite.scenarioFamily || '-'} • Evaluate family: ${lite.evaluateFamily || '-'} • Scenario ${safeNum(lite.scenarioScore, 0)} • Evaluate ${safeNum(lite.evaluateScore, 0)}`;
 
       refs.reflectionBox.textContent =
         result.total >= 90
@@ -217,6 +374,7 @@
           main,
           mini: lite,
           combined: {
+            rawMainScore: result.rawMain,
             actionScore: result.mainWeighted,
             miniScore: result.miniRaw,
             totalScore: result.total
@@ -225,25 +383,28 @@
         };
       }
 
-      refs.saveBtn.addEventListener('click', () => {
+      function saveSummaryPayload(){
         const payload = buildCombinedPayload();
         localStorage.setItem(
           `HHA_HYDRATION_HYBRID_SUMMARY:${ctx.runId}`,
           JSON.stringify(payload)
         );
-        localStorage.setItem('HHA_HYDRATION_HYBRID_LAST_SUMMARY', JSON.stringify(payload));
+        localStorage.setItem(
+          'HHA_HYDRATION_HYBRID_LAST_SUMMARY',
+          JSON.stringify(payload)
+        );
+        return payload;
+      }
+
+      refs.saveBtn.addEventListener('click', () => {
+        saveSummaryPayload();
         alert('บันทึก Hybrid Summary แล้ว');
       });
 
       refs.cooldownBtn.addEventListener('click', () => {
-        const payload = buildCombinedPayload();
-        localStorage.setItem(
-          `HHA_HYDRATION_HYBRID_SUMMARY:${ctx.runId}`,
-          JSON.stringify(payload)
-        );
-        localStorage.setItem('HHA_HYDRATION_HYBRID_LAST_SUMMARY', JSON.stringify(payload));
+        saveSummaryPayload();
 
-        const u = new URL('./warmup-gate.html', location.href);
+        const u = new URL(GATE_URL);
         u.searchParams.set('phase', 'cooldown');
         u.searchParams.set('pid', ctx.pid);
         u.searchParams.set('studyId', ctx.studyId);
@@ -256,12 +417,13 @@
         u.searchParams.set('mode', ctx.type);
         u.searchParams.set('week', String(ctx.week));
         u.searchParams.set('session', String(ctx.session));
-        u.searchParams.set('hub', ctx.hub);
+        u.searchParams.set('hub', ctx.hub || FIXED_HUB_URL);
         location.href = u.toString();
       });
 
       refs.hubBtn.addEventListener('click', () => {
-        location.href = ctx.hub;
+        saveSummaryPayload();
+        location.href = ctx.hub || FIXED_HUB_URL;
       });
     })();
   </script>
