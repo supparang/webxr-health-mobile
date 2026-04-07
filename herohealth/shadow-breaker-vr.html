@@ -4,150 +4,1490 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Shadow Breaker Launcher</title>
-  <meta name="theme-color" content="#bfe9ff" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#b8b7ff" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./fitness-launcher-shared.css?v=20260406a-fitness-launcher-shared" />
-
   <style>
-    .sb-stage{
-      position:absolute; inset:0;
+    :root{
+      --sky1:#f1efff;
+      --sky2:#ddd9ff;
+      --sky3:#fff6de;
+      --card:#fffefb;
+      --card2:#faf9ff;
+      --ink:#4f4a43;
+      --muted:#7a766f;
+      --line:#dddaf8;
+      --purple:#b79aff;
+      --purple2:#8f76f0;
+      --blue:#7fcfff;
+      --blue2:#4aaef0;
+      --pink:#ff9bc9;
+      --pink2:#ff72af;
+      --green:#7ed957;
+      --green2:#53bf35;
+      --yellow:#ffd661;
+      --orange:#ffb35b;
+      --shadow:0 16px 34px rgba(77,74,67,.12);
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:ui-rounded,"SF Pro Rounded","Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--ink);
       background:
-        radial-gradient(circle at 50% 20%, rgba(255,255,255,.12), rgba(255,255,255,0) 34%),
-        linear-gradient(180deg, #11253f 0%, #17385a 46%, #234d72 100%);
+        radial-gradient(circle at top, rgba(255,255,255,.72), transparent 36%),
+        linear-gradient(180deg,var(--sky1) 0%, var(--sky2) 52%, var(--sky3) 100%);
     }
-    .sb-floor{
-      position:absolute; left:6%; right:6%; bottom:7%;
-      height:28%;
-      border-radius:28px;
-      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
-      border:2px solid rgba(160,215,255,.18);
-      box-shadow:inset 0 0 0 10px rgba(255,255,255,.03);
+
+    a{ color:inherit; text-decoration:none; }
+    button,input{ font:inherit; color:inherit; }
+
+    .app{
+      min-height:100dvh;
+      padding:
+        calc(12px + var(--safe-top))
+        12px
+        calc(18px + var(--safe-bottom))
+        12px;
+      display:grid;
+      gap:12px;
     }
-    .sb-grid{
-      position:absolute; inset:0;
-      background:
-        linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
-      background-size:32px 32px;
-      opacity:.22;
+
+    .topbar{
+      width:min(1180px,100%);
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
     }
-    .sb-core{
-      position:absolute; left:50%; top:38%;
-      width:110px; height:110px; margin-left:-55px; margin-top:-55px;
+
+    .brand,
+    .top-actions a{
+      border:2px solid var(--line);
       border-radius:999px;
-      background:radial-gradient(circle at 35% 35%, #fff6c7, #ffb347 48%, #ff6d5a 78%);
-      box-shadow:
-        0 0 0 14px rgba(255,179,71,.10),
-        0 0 44px rgba(255,126,84,.34);
-      animation:sbPulse 1.8s ease-in-out infinite;
+      background:rgba(255,255,255,.86);
+      box-shadow:var(--shadow);
+      color:inherit;
     }
-    .sb-orb{
-      position:absolute; width:28px; height:28px; border-radius:999px;
-      background:radial-gradient(circle at 30% 30%, #fff, #9fddff);
-      box-shadow:0 0 0 8px rgba(159,221,255,.12), 0 0 18px rgba(159,221,255,.26);
-      animation:sbFloat 2.8s ease-in-out infinite;
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 14px;
+      font-weight:1000;
+      white-space:nowrap;
     }
-    .sb-o1{ left:26%; top:40%; animation-delay:0s; }
-    .sb-o2{ left:70%; top:26%; animation-delay:.25s; }
-    .sb-o3{ left:62%; top:58%; animation-delay:.5s; }
-    .sb-o4{ left:36%; top:63%; animation-delay:.75s; }
-    .sb-avatar{
-      position:absolute; left:50%; bottom:16%;
-      width:88px; height:128px; transform:translateX(-50%);
+
+    .brand .icon{
+      width:28px;height:28px;border-radius:50%;
+      display:grid;place-items:center;
+      background:linear-gradient(135deg,var(--purple),var(--pink));
+      color:#fff;
+      font-size:14px;
+    }
+
+    .headline{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      padding:0 4px;
+    }
+
+    .headline .title{
+      font-size:clamp(22px,4vw,36px);
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .headline .sub{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+
+    .top-actions a{
+      padding:10px 14px;
+      font-weight:1000;
+    }
+
+    .shell{
+      width:min(1180px,100%);
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:1.06fr .94fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    .card{
+      background:rgba(255,255,255,.86);
+      border:2px solid var(--line);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
+    }
+
+    .hero{
+      overflow:hidden;
+      position:relative;
+      min-height:760px;
+      padding:18px;
+      display:grid;
+      gap:14px;
+      align-content:start;
+      background:
+        radial-gradient(circle at 15% 12%, rgba(255,255,255,.92), transparent 18%),
+        radial-gradient(circle at 85% 14%, rgba(255,255,255,.72), transparent 16%),
+        linear-gradient(180deg, rgba(255,255,255,.30), rgba(255,255,255,.08));
+    }
+
+    .hero-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.92);
+      border:2px solid rgba(143,118,240,.20);
+      font-size:13px;
+      font-weight:1000;
+      width:max-content;
+    }
+
+    .hero h1{
+      margin:0;
+      font-size:clamp(34px,5vw,58px);
+      line-height:.95;
+    }
+
+    .hero p{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      font-weight:800;
+      line-height:1.5;
+      max-width:700px;
+    }
+
+    .preview{
+      border:2px dashed rgba(143,118,240,.26);
+      border-radius:28px;
+      background:
+        radial-gradient(circle at 50% 20%, rgba(255,255,255,.75), transparent 18%),
+        linear-gradient(180deg,#1a1436 0%, #30255d 48%, #f4d17f 49%, #fff3d1 100%);
+      min-height:340px;
+      position:relative;
+      overflow:hidden;
+      display:grid;
+      place-items:center;
+    }
+
+    .preview .arena{
+      position:absolute;
+      inset:26px 18px 44px 18px;
+      border-radius:26px;
+      border:2px dashed rgba(255,255,255,.16);
+    }
+
+    .preview .hitline{
+      position:absolute;
+      left:118px;
+      top:30px;
+      bottom:56px;
+      width:6px;
+      border-radius:999px;
+      background:linear-gradient(180deg,var(--yellow),var(--orange));
+      box-shadow:0 0 0 8px rgba(255,214,97,.16);
+    }
+
+    .preview .boss{
+      position:absolute;
+      right:32px;
+      top:76px;
+      width:92px;
+      height:92px;
+      border-radius:26px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-size:42px;
+      background:linear-gradient(180deg,var(--pink),var(--pink2));
+      box-shadow:0 18px 28px rgba(0,0,0,.18);
+      border:3px solid rgba(255,255,255,.25);
+    }
+
+    .preview .cue{
+      position:absolute;
+      top:34px;
+      left:50%;
+      transform:translateX(-50%);
+      width:min(250px,66vw);
+      min-height:104px;
+      border-radius:26px;
+      border:3px solid rgba(255,255,255,.88);
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(246,252,255,.95));
+      display:grid;
+      place-items:center;
+      text-align:center;
+      box-shadow:0 16px 28px rgba(0,0,0,.12);
+      font-weight:1000;
+      padding:10px 14px;
+    }
+
+    .preview .cue .emoji{
+      font-size:40px;
+      line-height:1;
+    }
+
+    .preview .cue .label{
+      font-size:22px;
+      margin-top:4px;
+      line-height:1.1;
+    }
+
+    .preview .cue .hint{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:5px;
+    }
+
+    .avatar{
+      position:absolute;
+      left:110px;
+      bottom:56px;
+      width:176px;
+      height:168px;
+      filter:drop-shadow(0 12px 16px rgba(0,0,0,.16));
+    }
+
+    .avatar .head{
+      position:absolute;
+      left:50%;
+      top:10px;
+      transform:translateX(-50%);
+      width:58px;
+      height:58px;
+      border-radius:50%;
+      background:#ffe0bf;
+      border:3px solid rgba(77,74,67,.1);
+      z-index:2;
+    }
+
+    .avatar .body{
+      position:absolute;
+      left:50%;
+      top:60px;
+      transform:translateX(-50%);
+      width:84px;
+      height:60px;
+      border-radius:24px 24px 18px 18px;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      border:3px solid rgba(77,74,67,.1);
+    }
+
+    .avatar .arm,
+    .avatar .leg{
+      position:absolute;
+      background:#ffe0bf;
+      border-radius:999px;
+      border:3px solid rgba(77,74,67,.08);
+    }
+
+    .avatar .arm{ width:16px;height:56px; top:66px; }
+    .avatar .arm.left{ left:36px; transform:rotate(28deg); }
+    .avatar .arm.right{ right:36px; transform:rotate(-28deg); }
+    .avatar .leg{ width:18px;height:62px; top:110px; }
+    .avatar .leg.left{ left:64px; transform:rotate(10deg); }
+    .avatar .leg.right{ right:64px; transform:rotate(-10deg); }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .chip{
+      padding:10px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.9);
+      border:2px solid rgba(143,118,240,.18);
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:var(--shadow);
+    }
+
+    .strip{
       border-radius:24px;
-      background:rgba(255,255,255,.12);
-      border:3px dashed rgba(214,239,255,.22);
+      border:2px solid rgba(143,118,240,.20);
+      background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(247,255,251,.94));
+      padding:14px;
+      display:grid;
+      gap:10px;
     }
-    .sb-avatar::before{
-      content:"";
-      position:absolute; left:50%; top:10px; transform:translateX(-50%);
-      width:30px; height:30px; border-radius:999px;
-      background:rgba(255,255,255,.18);
+
+    .strip-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
     }
-    .sb-avatar::after{
-      content:"";
-      position:absolute; left:50%; top:44px; transform:translateX(-50%);
-      width:16px; height:60px; border-radius:999px;
-      background:rgba(255,255,255,.18);
-      box-shadow:-26px 10px 0 0 rgba(255,255,255,.12), 26px 10px 0 0 rgba(255,255,255,.12);
+
+    .strip-title{
+      font-size:16px;
+      font-weight:1000;
+      color:#4d4a42;
     }
-    .sb-chip{
-      position:absolute; top:16px; left:16px;
-      padding:10px 14px; border-radius:999px;
-      background:rgba(255,255,255,.12);
-      color:#eef8ff; font-weight:900;
-      box-shadow:0 8px 18px rgba(0,0,0,.12);
-      backdrop-filter:blur(4px);
+
+    .strip-sub{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
     }
-    .sb-fever{
-      position:absolute; right:16px; top:16px;
-      padding:10px 14px; border-radius:999px;
-      background:linear-gradient(180deg, #fff2b8, #ffd45c);
-      color:#6b5200; font-weight:1000;
-      box-shadow:0 10px 22px rgba(255,212,92,.22);
-      animation:sbPulseSmall 1.1s ease-in-out infinite;
+
+    .stat-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
     }
-    .sb-tip{
-      position:absolute; right:16px; bottom:16px;
-      max-width:250px;
-      padding:12px 14px; border-radius:18px;
-      background:rgba(255,255,255,.12);
-      color:#eef8ff; font-weight:800;
-      box-shadow:0 10px 24px rgba(0,0,0,.12);
-      backdrop-filter:blur(4px);
+
+    .stat-pill{
+      border-radius:16px;
+      border:2px solid rgba(143,118,240,.16);
+      background:#fff;
+      padding:10px;
     }
-    @keyframes sbPulse{
-      0%,100%{ transform:scale(1); }
-      50%{ transform:scale(1.06); }
+
+    .stat-pill .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
     }
-    @keyframes sbPulseSmall{
-      0%,100%{ transform:scale(1); }
-      50%{ transform:scale(1.08); }
+
+    .stat-pill .v{
+      display:block;
+      margin-top:4px;
+      font-size:18px;
+      font-weight:1000;
+      color:#4d4a42;
+      line-height:1.15;
     }
-    @keyframes sbFloat{
-      0%,100%{ transform:translateY(0); }
-      50%{ transform:translateY(-14px); }
+
+    .mode-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .mode-card{
+      border-radius:22px;
+      border:2px solid rgba(143,118,240,.20);
+      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(247,255,251,.92));
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .mode-card .top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+    }
+
+    .mode-card .icon{
+      width:42px;height:42px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#f2eeff,#fff);
+      border:2px solid rgba(143,118,240,.22);
+      font-size:22px;
+      flex:0 0 auto;
+    }
+
+    .mode-card .title{
+      font-size:18px;
+      line-height:1.08;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .mode-card .sub{
+      font-size:13px;
+      line-height:1.5;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .mode-card .tags{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .mode-card .tags span{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid rgba(143,118,240,.16);
+      font-size:11px;
+      font-weight:1000;
+      color:#5d6e7a;
+    }
+
+    .mode-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+
+    .mode-actions .btn{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-decoration:none;
+    }
+
+    .feature-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .feature{
+      border-radius:24px;
+      border:2px solid rgba(143,118,240,.20);
+      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(247,255,251,.92));
+      padding:14px;
+      display:grid;
+      gap:8px;
+    }
+
+    .feature .big{
+      font-size:30px;
+      line-height:1;
+    }
+
+    .feature strong{
+      font-size:15px;
+      line-height:1.15;
+    }
+
+    .feature span{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:800;
+      line-height:1.4;
+    }
+
+    .side{
+      padding:16px;
+      display:grid;
+      gap:12px;
+      position:sticky;
+      top:calc(10px + var(--safe-top));
+    }
+
+    .section{
+      border-radius:24px;
+      border:2px dashed rgba(143,118,240,.20);
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(249,255,246,.92));
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .section h3{
+      margin:0;
+      font-size:14px;
+      letter-spacing:.02em;
+    }
+
+    .section p{
+      margin:0;
+      font-size:13px;
+      color:var(--muted);
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .grid-2{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .grid-3{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .toggle{
+      position:relative;
+    }
+
+    .toggle input{
+      position:absolute;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .toggle label{
+      display:grid;
+      place-items:center;
+      min-height:68px;
+      padding:10px;
+      border-radius:20px;
+      border:2px solid rgba(143,118,240,.18);
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(244,252,255,.9));
+      font-weight:1000;
+      cursor:pointer;
+      text-align:center;
+      box-shadow:0 10px 18px rgba(0,0,0,.05);
+    }
+
+    .toggle label small{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+      line-height:1.25;
+    }
+
+    .toggle input:checked + label{
+      border-color:rgba(143,118,240,.42);
+      background:linear-gradient(180deg, #ffffff, #f3f0ff);
+      transform:translateY(-2px);
+      box-shadow:0 14px 24px rgba(143,118,240,.12);
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .field input{
+      width:100%;
+      min-height:48px;
+      border-radius:16px;
+      border:2px solid rgba(143,118,240,.18);
+      padding:10px 12px;
+      background:#fff;
+      outline:none;
+    }
+
+    .field input:focus{
+      border-color:rgba(143,118,240,.42);
+    }
+
+    .recommend-box{
+      border-radius:18px;
+      border:2px solid rgba(143,118,240,.18);
+      background:#fff;
+      padding:12px;
+      display:grid;
+      gap:8px;
+    }
+
+    .recommend-title{
+      font-size:14px;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .recommend-sub{
+      font-size:13px;
+      line-height:1.5;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .recommend-chips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .recommend-chips span{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid rgba(143,118,240,.16);
+      font-size:11px;
+      font-weight:1000;
+      color:#5d6e7a;
+    }
+
+    .launch-actions{
+      display:grid;
+      gap:10px;
+    }
+
+    .btn{
+      border:none;
+      border-radius:999px;
+      min-height:52px;
+      padding:12px 16px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow);
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg, var(--green), var(--green2));
+      color:#fff;
+    }
+
+    .btn.secondary{
+      background:linear-gradient(135deg, #fff, #f3f0ff);
+      border:2px solid rgba(143,118,240,.18);
+    }
+
+    .btn.ghost{
+      background:linear-gradient(135deg, #fffaf2, #fff2da);
+      border:2px solid rgba(255,176,79,.28);
+    }
+
+    .preview-url{
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-size:11px;
+      line-height:1.45;
+      color:#445;
+      background:rgba(255,255,255,.76);
+      border-radius:16px;
+      border:2px dashed rgba(143,118,240,.14);
+      padding:10px;
+      word-break:break-all;
+    }
+
+    .footer-note{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+      text-align:center;
+    }
+
+    @media (max-width: 980px){
+      .shell{ grid-template-columns:1fr; }
+      .side{ position:relative; top:auto; }
+    }
+
+    @media (max-width: 760px){
+      .topbar{ grid-template-columns:1fr; }
+      .feature-grid,
+      .grid-3,
+      .stat-grid,
+      .mode-grid{ grid-template-columns:1fr; }
+      .mode-actions{ grid-template-columns:1fr; }
     }
   </style>
 </head>
-<body class="hh-fit-launcher">
-  <div id="hhFitLauncherRoot"></div>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="icon">🥊</div>
+        <div>HeroHealth</div>
+      </div>
 
-  <script src="./fitness-launcher-shared.js?v=20260406a-fitness-launcher-shared"></script>
-  <script>
-    setupFitnessLauncher({
-      zoneLabel: 'Fitness Zone',
-      title: 'Shadow Breaker',
-      description: 'ตีเป้า หลบแรงกดดัน และผ่าน wave การออกกำลังกายให้ครบ พร้อมบอสช่วงท้าย',
-      badge: 'SHADOW<br>BREAKER',
-      game: 'shadowbreaker',
-      gameId: 'shadowbreaker',
-      mode: 'solo',
-      run: 'play',
-      defaultDiff: 'normal',
-      defaultTime: '90',
-      defaultView: 'mobile',
-      defaultGate: true,
-      defaultCooldown: true,
-      hub: './hub-v2.html',
-      runPage: '../fitness/shadow-breaker.html',
-      warmupPage: './warmup-gate.html',
-      stageHtml: `
-        <div class="sb-stage">
-          <div class="sb-grid"></div>
-          <div class="sb-floor"></div>
-          <div class="sb-chip">Boss Practice Arena</div>
-          <div class="sb-fever">FEVER</div>
-          <div class="sb-core"></div>
-          <div class="sb-orb sb-o1"></div>
-          <div class="sb-orb sb-o2"></div>
-          <div class="sb-orb sb-o3"></div>
-          <div class="sb-orb sb-o4"></div>
-          <div class="sb-avatar"></div>
-          <div class="sb-tip">ตีเป้าให้แม่น รักษาจังหวะ แล้วอย่าปล่อยให้บอสกดดันจนพลาด</div>
+      <div class="headline">
+        <div class="title">Shadow Breaker Launcher</div>
+        <div class="sub">Reaction • Timing • Boss • Play / Quick / Research / Demo</div>
+      </div>
+
+      <div class="top-actions">
+        <a id="btnBackFitness" href="./fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnHubTop" href="./hub-v2.html">🏠 HUB</a>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="card hero">
+        <div class="hero-badge">✨ Child-friendly • Reaction • Target • Boss • Combo</div>
+
+        <h1>Shadow Breaker</h1>
+        <p>
+          เกมนี้ฝึก <strong>การตอบสนอง ความแม่น และการอ่านเป้าหมายให้เร็ว</strong>
+          เด็กจะต้องตีเงาให้ถูกจังหวะ เก็บคอมโบ และผ่านช่วง boss แบบสนุกและเร้าใจ
+        </p>
+
+        <div class="preview">
+          <div class="arena"></div>
+          <div class="hitline"></div>
+
+          <div class="cue">
+            <div>
+              <div class="emoji">🎯</div>
+              <div class="label">Hit the Shadow</div>
+              <div class="hint">ตีเป้าให้ทันก่อนหลุดเส้น</div>
+            </div>
+          </div>
+
+          <div class="boss">👾</div>
+
+          <div class="avatar">
+            <div class="head"></div>
+            <div class="body"></div>
+            <div class="arm left"></div>
+            <div class="arm right"></div>
+            <div class="leg left"></div>
+            <div class="leg right"></div>
+          </div>
         </div>
-      `
-    });
+
+        <div class="chips">
+          <div class="chip">🎯 Accuracy</div>
+          <div class="chip">⚡ Reaction</div>
+          <div class="chip">🔥 Combo</div>
+          <div class="chip">👾 Boss</div>
+          <div class="chip">⭐ Summary</div>
+        </div>
+
+        <section class="strip" id="recentStrip">
+          <div class="strip-head">
+            <div class="strip-title">🕹️ Shadow Breaker ล่าสุด</div>
+            <div class="strip-sub" id="recentStripSub">ยังไม่มีผลล่าสุด</div>
+          </div>
+
+          <div class="stat-grid">
+            <div class="stat-pill"><span class="k">Rank</span><span class="v" id="recentRank">-</span></div>
+            <div class="stat-pill"><span class="k">Score</span><span class="v" id="recentScore">-</span></div>
+            <div class="stat-pill"><span class="k">Accuracy</span><span class="v" id="recentAcc">-</span></div>
+            <div class="stat-pill"><span class="k">Combo</span><span class="v" id="recentCombo">-</span></div>
+          </div>
+        </section>
+
+        <section class="strip">
+          <div class="strip-head">
+            <div class="strip-title">🎮 เลือกโหมดเล่น</div>
+            <div class="strip-sub">กดปุ่มในแต่ละการ์ดเพื่อ preset และเข้าเล่นทันที</div>
+          </div>
+
+          <div class="mode-grid">
+            <article class="mode-card">
+              <div class="top">
+                <div>
+                  <div class="title">Play Standard</div>
+                  <div class="sub">warmup → game → summary → cooldown</div>
+                </div>
+                <div class="icon">▶</div>
+              </div>
+              <div class="tags">
+                <span>gate on</span><span>cooldown on</span><span>90s</span>
+              </div>
+              <div class="mode-actions">
+                <button class="btn primary" id="modePlayStart" type="button">เริ่มเลย</button>
+                <button class="btn secondary" id="modePlayPreset" type="button">ใช้ค่านี้</button>
+              </div>
+            </article>
+
+            <article class="mode-card">
+              <div class="top">
+                <div>
+                  <div class="title">Quick Play</div>
+                  <div class="sub">เข้าเกมเร็ว ไม่ผ่าน warmup</div>
+                </div>
+                <div class="icon">⚡</div>
+              </div>
+              <div class="tags">
+                <span>gate off</span><span>cooldown on</span><span>เร็ว</span>
+              </div>
+              <div class="mode-actions">
+                <button class="btn primary" id="modeQuickStart" type="button">เริ่มเลย</button>
+                <button class="btn secondary" id="modeQuickPreset" type="button">ใช้ค่านี้</button>
+              </div>
+            </article>
+
+            <article class="mode-card">
+              <div class="top">
+                <div>
+                  <div class="title">Research</div>
+                  <div class="sub">seed / logging / deterministic flow</div>
+                </div>
+                <div class="icon">🧪</div>
+              </div>
+              <div class="tags">
+                <span>run=research</span><span>gate on</span><span>study</span>
+              </div>
+              <div class="mode-actions">
+                <button class="btn primary" id="modeResearchStart" type="button">เริ่มเลย</button>
+                <button class="btn secondary" id="modeResearchPreset" type="button">ใช้ค่านี้</button>
+              </div>
+            </article>
+
+            <article class="mode-card">
+              <div class="top">
+                <div>
+                  <div class="title">Demo 60s</div>
+                  <div class="sub">easy • สั้น • เหมาะสำหรับสาธิต</div>
+                </div>
+                <div class="icon">🎈</div>
+              </div>
+              <div class="tags">
+                <span>60s</span><span>easy</span><span>cooldown off</span>
+              </div>
+              <div class="mode-actions">
+                <button class="btn primary" id="modeDemoStart" type="button">เริ่มเลย</button>
+                <button class="btn secondary" id="modeDemoPreset" type="button">ใช้ค่านี้</button>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <div class="feature-grid">
+          <div class="feature">
+            <div class="big">🎯</div>
+            <strong>อ่านเป้าไว</strong>
+            <span>ฝึกมองเป้าและตอบสนองให้เร็วขึ้นแบบเป็นธรรมชาติ</span>
+          </div>
+          <div class="feature">
+            <div class="big">🔥</div>
+            <strong>เก็บคอมโบ</strong>
+            <span>ตีต่อเนื่องให้ได้และรักษาจังหวะให้แม่นยำ</span>
+          </div>
+          <div class="feature">
+            <div class="big">👾</div>
+            <strong>ผ่านบอส</strong>
+            <span>ใช้สมาธิและความแม่นจัดการช่วง boss ให้สำเร็จ</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card side">
+        <section class="section">
+          <h3>PLAYER</h3>
+          <div class="field">
+            <label for="pid">PID</label>
+            <input id="pid" type="text" placeholder="anon" />
+          </div>
+          <div class="field">
+            <label for="name">Name</label>
+            <input id="name" type="text" placeholder="Player" />
+          </div>
+          <div class="field">
+            <label for="studyId">Study ID</label>
+            <input id="studyId" type="text" placeholder="optional" />
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>RECOMMENDED SETTINGS</h3>
+          <div class="recommend-box">
+            <div class="recommend-title" id="recommendTitle">แนะนำค่าเริ่มต้น</div>
+            <div class="recommend-sub" id="recommendSub">ระบบจะเลือกค่าที่เหมาะจากผลล่าสุดให้</div>
+            <div class="recommend-chips" id="recommendChips">
+              <span>Normal</span><span>90s</span><span>Mobile</span>
+            </div>
+            <button id="btnApplyRecommended" class="btn secondary" type="button">✨ ใช้ค่าที่แนะนำ</button>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>DIFFICULTY</h3>
+          <div class="grid-3">
+            <div class="toggle">
+              <input id="diff-easy" name="diff" type="radio" value="easy" />
+              <label for="diff-easy">Easy<small>เป้าอ่านง่าย</small></label>
+            </div>
+            <div class="toggle">
+              <input id="diff-normal" name="diff" type="radio" value="normal" checked />
+              <label for="diff-normal">Normal<small>สมดุลที่สุด</small></label>
+            </div>
+            <div class="toggle">
+              <input id="diff-hard" name="diff" type="radio" value="hard" />
+              <label for="diff-hard">Hard<small>เร็วและแน่นขึ้น</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>TIME</h3>
+          <div class="grid-3">
+            <div class="toggle">
+              <input id="time-60" name="time" type="radio" value="60" />
+              <label for="time-60">60s<small>สั้น กระชับ</small></label>
+            </div>
+            <div class="toggle">
+              <input id="time-90" name="time" type="radio" value="90" checked />
+              <label for="time-90">90s<small>แนะนำ</small></label>
+            </div>
+            <div class="toggle">
+              <input id="time-120" name="time" type="radio" value="120" />
+              <label for="time-120">120s<small>ยาวขึ้น</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>VIEW</h3>
+          <div class="grid-3">
+            <div class="toggle">
+              <input id="view-mobile" name="view" type="radio" value="mobile" checked />
+              <label for="view-mobile">Mobile<small>เล่นทั่วไป</small></label>
+            </div>
+            <div class="toggle">
+              <input id="view-pc" name="view" type="radio" value="pc" />
+              <label for="view-pc">PC<small>คีย์บอร์ด</small></label>
+            </div>
+            <div class="toggle">
+              <input id="view-cvr" name="view" type="radio" value="cvr" />
+              <label for="view-cvr">cVR<small>เก็บ param ไว้ก่อน</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>RUN MODE</h3>
+          <div class="grid-2">
+            <div class="toggle">
+              <input id="run-play" name="run" type="radio" value="play" checked />
+              <label for="run-play">Play<small>เล่นทั่วไป</small></label>
+            </div>
+            <div class="toggle">
+              <input id="run-research" name="run" type="radio" value="research" />
+              <label for="run-research">Research<small>เน้น seed / logging</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>FLOW</h3>
+          <p>Start มาตรฐานจะไปตามลำดับ <strong>warmup-gate → shadow-breaker → summary → cooldown → hub/zone</strong></p>
+
+          <div class="grid-2">
+            <div class="toggle">
+              <input id="gate-on" name="gate" type="radio" value="1" checked />
+              <label for="gate-on">Warmup ON<small>ใช้ gate ก่อนเข้าเกม</small></label>
+            </div>
+            <div class="toggle">
+              <input id="gate-off" name="gate" type="radio" value="0" />
+              <label for="gate-off">Warmup OFF<small>เข้าเกมตรง</small></label>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="toggle">
+              <input id="cooldown-on" name="cooldown" type="radio" value="1" checked />
+              <label for="cooldown-on">Cooldown ON<small>ส่ง param ไว้พร้อม</small></label>
+            </div>
+            <div class="toggle">
+              <input id="cooldown-off" name="cooldown" type="radio" value="0" />
+              <label for="cooldown-off">Cooldown OFF<small>จบแล้วกลับ hub/zone</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>SEED</h3>
+          <div class="field">
+            <label for="seed">Seed</label>
+            <input id="seed" type="text" placeholder="auto" />
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>LAUNCH</h3>
+          <div class="launch-actions">
+            <button id="btnStartStandard" class="btn primary" type="button">▶ Start with Current Settings</button>
+            <button id="btnQuickPlay" class="btn secondary" type="button">⚡ Quick Play Now</button>
+            <button id="btnUseLastPattern" class="btn ghost" type="button">🕹️ ใช้ค่าจากล่าสุด</button>
+          </div>
+          <div class="preview-url" id="previewUrl">preview url</div>
+        </section>
+
+        <div class="footer-note">
+          Launcher นี้จะส่ง query params ให้ครบทั้ง pid / diff / time / seed / hub / run / view / gate / cooldown
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
+    const SHADOW_SUMMARY_KEY = 'HHA_LAST_SUMMARY_SHADOWBREAKER';
+
+    const qs = new URLSearchParams(location.search);
+    const $ = (id) => document.getElementById(id);
+
+    const els = {
+      pid: $('pid'),
+      name: $('name'),
+      studyId: $('studyId'),
+      seed: $('seed'),
+      btnHubTop: $('btnHubTop'),
+      btnBackFitness: $('btnBackFitness'),
+      btnStartStandard: $('btnStartStandard'),
+      btnQuickPlay: $('btnQuickPlay'),
+      btnUseLastPattern: $('btnUseLastPattern'),
+      previewUrl: $('previewUrl'),
+      btnApplyRecommended: $('btnApplyRecommended'),
+      recommendTitle: $('recommendTitle'),
+      recommendSub: $('recommendSub'),
+      recommendChips: $('recommendChips'),
+      recentStripSub: $('recentStripSub'),
+      recentRank: $('recentRank'),
+      recentScore: $('recentScore'),
+      recentAcc: $('recentAcc'),
+      recentCombo: $('recentCombo'),
+      modePlayStart: $('modePlayStart'),
+      modePlayPreset: $('modePlayPreset'),
+      modeQuickStart: $('modeQuickStart'),
+      modeQuickPreset: $('modeQuickPreset'),
+      modeResearchStart: $('modeResearchStart'),
+      modeResearchPreset: $('modeResearchPreset'),
+      modeDemoStart: $('modeDemoStart'),
+      modeDemoPreset: $('modeDemoPreset')
+    };
+
+    const ABS_HUB = new URL('./hub-v2.html', location.href).href;
+    const ABS_FITNESS = new URL('./fitness-zone.html', location.href).href;
+    const ABS_RUN = new URL('../fitness/shadow-breaker.html', location.href).href;
+    const ABS_GATE = new URL('./warmup-gate.html', location.href).href;
+
+    function safeJsonParse(raw, fallback = null) {
+      try { return JSON.parse(raw); } catch (_) { return fallback; }
+    }
+
+    function readJsonKey(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? safeJsonParse(raw, null) : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function readShadowSummary() {
+      const sb = readJsonKey(SHADOW_SUMMARY_KEY);
+      if (sb && String(sb.game || '').toLowerCase().includes('shadow')) return sb;
+
+      const generic = readJsonKey(LAST_SUMMARY_KEY);
+      if (generic && String(generic.game || '').toLowerCase().includes('shadow')) return generic;
+
+      return null;
+    }
+
+    function readOrDefault(key, fallback) {
+      const v = qs.get(key);
+      return (v == null || v === '') ? fallback : v;
+    }
+
+    function readRadio(name, fallback) {
+      const node = document.querySelector(`input[name="${name}"]:checked`);
+      return node ? node.value : fallback;
+    }
+
+    function setRadio(name, value, fallbackId) {
+      const target = document.querySelector(`input[name="${name}"][value="${value}"]`);
+      if (target) target.checked = true;
+      else if (fallbackId) $(fallbackId).checked = true;
+    }
+
+    function cleanText(v, fallback='') {
+      return String(v || '').trim() || fallback;
+    }
+
+    function buildSeed() {
+      return cleanText(els.seed.value, String(Date.now()));
+    }
+
+    function buildFitnessBackUrl() {
+      const u = new URL(readOrDefault('hub', ABS_FITNESS), location.href);
+      if (!u.searchParams.get('focus')) u.searchParams.set('focus', 'shadow-breaker');
+      if (!u.searchParams.get('featured')) u.searchParams.set('featured', 'shadow-breaker');
+      return u.toString();
+    }
+
+    function baseParams() {
+      const seed = buildSeed();
+      const hub = buildFitnessBackUrl();
+
+      return {
+        pid: cleanText(els.pid.value, 'anon'),
+        name: cleanText(els.name.value, 'Player'),
+        studyId: cleanText(els.studyId.value, ''),
+        diff: readRadio('diff', 'normal'),
+        time: readRadio('time', '90'),
+        view: readRadio('view', 'mobile'),
+        run: readRadio('run', 'play'),
+        gate: readRadio('gate', '1'),
+        cooldown: readRadio('cooldown', '1'),
+        seed,
+        hub
+      };
+    }
+
+    function copyExtraParams(url) {
+      const passthroughKeys = [
+        'studentKey','schoolCode','classRoom','studentNo','nickName',
+        'api','debug','phase','conditionGroup','sessionNo','weekNo','log'
+      ];
+
+      passthroughKeys.forEach((k) => {
+        const v = qs.get(k);
+        if (v != null && v !== '') url.searchParams.set(k, v);
+      });
+    }
+
+    function buildRunUrl(modeOverride = null, patch = {}) {
+      const p = baseParams();
+      const url = new URL(ABS_RUN);
+
+      url.searchParams.set('pid', p.pid);
+      url.searchParams.set('name', p.name);
+      if (p.studyId) url.searchParams.set('studyId', p.studyId);
+
+      url.searchParams.set('zone', 'fitness');
+      url.searchParams.set('cat', 'fitness');
+      url.searchParams.set('game', 'shadow-breaker');
+      url.searchParams.set('gameId', 'shadow-breaker');
+      url.searchParams.set('theme', 'shadowbreaker');
+
+      url.searchParams.set('diff', patch.diff || p.diff);
+      url.searchParams.set('time', patch.time || p.time);
+      url.searchParams.set('seed', patch.seed || p.seed);
+      url.searchParams.set('hub', patch.hub || p.hub);
+      url.searchParams.set('view', patch.view || p.view);
+      url.searchParams.set('run', modeOverride || patch.run || p.run);
+
+      url.searchParams.set('gate', patch.gate || p.gate);
+      url.searchParams.set('cooldown', patch.cooldown || p.cooldown);
+      url.searchParams.set('returnPhase', (patch.cooldown || p.cooldown) === '1' ? 'cooldown' : 'hub');
+      url.searchParams.set('cdur', patch.cdur || '20');
+
+      copyExtraParams(url);
+      return url;
+    }
+
+    function buildWarmupUrl(runUrl, patch = {}) {
+      const p = baseParams();
+      const url = new URL(ABS_GATE);
+
+      url.searchParams.set('phase', 'warmup');
+      url.searchParams.set('pid', p.pid);
+      url.searchParams.set('name', p.name);
+      if (p.studyId) url.searchParams.set('studyId', p.studyId);
+
+      url.searchParams.set('zone', 'fitness');
+      url.searchParams.set('cat', 'fitness');
+      url.searchParams.set('game', 'shadow-breaker');
+      url.searchParams.set('gameId', 'shadow-breaker');
+      url.searchParams.set('theme', 'shadowbreaker');
+
+      url.searchParams.set('diff', patch.diff || p.diff);
+      url.searchParams.set('time', patch.time || p.time);
+      url.searchParams.set('seed', patch.seed || p.seed);
+      url.searchParams.set('hub', patch.hub || p.hub);
+      url.searchParams.set('view', patch.view || p.view);
+      url.searchParams.set('run', patch.run || p.run);
+
+      url.searchParams.set('gate', '1');
+      url.searchParams.set('cooldown', patch.cooldown || p.cooldown);
+      url.searchParams.set('returnPhase', (patch.cooldown || p.cooldown) === '1' ? 'cooldown' : 'hub');
+      url.searchParams.set('dur', patch.dur || '20');
+      url.searchParams.set('cdur', patch.cdur || '20');
+      url.searchParams.set('next', runUrl.href);
+
+      copyExtraParams(url);
+      return url;
+    }
+
+    function recommendFromSummary(summary) {
+      if (!summary) {
+        return {
+          title: 'แนะนำค่าเริ่มต้นสำหรับผู้เล่นใหม่',
+          sub: 'เริ่มแบบสมดุลก่อน เพื่อฝึกตีเป้า อ่านจังหวะ และรักษาความแม่น',
+          diff: 'normal',
+          time: '90',
+          view: readOrDefault('view', 'mobile'),
+          run: 'play',
+          gate: '1',
+          cooldown: '1',
+          chips: ['Normal', '90s', readOrDefault('view', 'mobile'), 'Standard']
+        };
+      }
+
+      const score = Number(summary.scoreFinal || summary.score || 0);
+      const rank = String(summary.rank || '').toUpperCase();
+      const acc = Number(summary.accPct || summary.accuracy || 0);
+      const combo = Number(summary.maxCombo || summary.combo || 0);
+      const miss = Number(summary.miss || summary.missTotal || 0);
+
+      if (acc < 50 || miss >= 10) {
+        return {
+          title: 'แนะนำให้ผ่อนความยากก่อน',
+          sub: 'ใช้ Easy และเวลา 60 วินาที เพื่อฝึกอ่านเป้าและกดให้ทันแบบไม่กดดันเกินไป',
+          diff: 'easy',
+          time: '60',
+          view: 'mobile',
+          run: 'play',
+          gate: '1',
+          cooldown: '1',
+          chips: ['Easy', '60s', 'Accuracy Focus', 'Standard']
+        };
+      }
+
+      if ((rank === 'S' || rank === 'A') && acc >= 84 && combo >= 10) {
+        return {
+          title: 'พร้อมอัปเกรดความท้าทายแล้ว',
+          sub: 'ลอง Hard หรือ Research เพื่อเจอเป้าแน่นขึ้นและทดสอบ reaction จริงจัง',
+          diff: 'hard',
+          time: '90',
+          view: 'pc',
+          run: 'research',
+          gate: '1',
+          cooldown: '1',
+          chips: ['Hard', '90s', 'PC', 'Research']
+        };
+      }
+
+      if (acc >= 68) {
+        return {
+          title: 'กำลังไปได้ดี',
+          sub: 'แนะนำ Normal 90 วินาที เพื่อเก็บ accuracy และ combo ให้ต่อเนื่องขึ้น',
+          diff: 'normal',
+          time: '90',
+          view: 'mobile',
+          run: 'play',
+          gate: '1',
+          cooldown: '1',
+          chips: ['Normal', '90s', 'Combo Focus', 'Standard']
+        };
+      }
+
+      return {
+        title: 'กลับมาซ้อมจังหวะอีกนิด',
+        sub: 'เริ่มที่ Easy 90 วินาที เพื่ออ่าน target และตีให้แม่นขึ้นทีละขั้น',
+        diff: 'easy',
+        time: '90',
+        view: 'mobile',
+        run: 'play',
+        gate: '1',
+        cooldown: '1',
+        chips: ['Easy', '90s', 'Reaction Focus', 'Standard']
+      };
+    }
+
+    function renderRecent(summary) {
+      if (!summary) {
+        els.recentStripSub.textContent = 'ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย';
+        els.recentRank.textContent = '-';
+        els.recentScore.textContent = '-';
+        els.recentAcc.textContent = '-';
+        els.recentCombo.textContent = '-';
+        return;
+      }
+
+      els.recentStripSub.textContent =
+        `Score ${Number(summary.scoreFinal || summary.score || 0)} • miss ${Number(summary.miss || summary.missTotal || 0)}`;
+
+      els.recentRank.textContent = String(summary.rank || '-');
+      els.recentScore.textContent = String(Number(summary.scoreFinal || summary.score || 0));
+      els.recentAcc.textContent = `${Number(summary.accPct || summary.accuracy || 0)}%`;
+      els.recentCombo.textContent = String(Number(summary.maxCombo || summary.combo || 0));
+    }
+
+    function applyRecommendation(rec) {
+      setRadio('diff', rec.diff, 'diff-normal');
+      setRadio('time', rec.time, 'time-90');
+      setRadio('view', rec.view, 'view-mobile');
+      setRadio('run', rec.run, rec.run === 'research' ? 'run-research' : 'run-play');
+      setRadio('gate', rec.gate, rec.gate === '1' ? 'gate-on' : 'gate-off');
+      setRadio('cooldown', rec.cooldown, rec.cooldown === '1' ? 'cooldown-on' : 'cooldown-off');
+      refreshPreview();
+    }
+
+    function renderRecommendation(rec) {
+      els.recommendTitle.textContent = rec.title;
+      els.recommendSub.textContent = rec.sub;
+      els.recommendChips.innerHTML = rec.chips.map((x) => `<span>${x}</span>`).join('');
+    }
+
+    function refreshPreview() {
+      const gate = readRadio('gate', '1');
+      const runUrl = buildRunUrl();
+      const launchUrl = gate === '1' ? buildWarmupUrl(runUrl) : runUrl;
+      els.previewUrl.textContent = launchUrl.href;
+    }
+
+    function go(url) {
+      location.href = url.href;
+    }
+
+    function launchCurrentSettings() {
+      const runUrl = buildRunUrl();
+      const gate = readRadio('gate', '1');
+      go(gate === '1' ? buildWarmupUrl(runUrl) : runUrl);
+    }
+
+    function launchMode(mode) {
+      if (mode === 'play') {
+        const runUrl = buildRunUrl('play', { gate: '1', cooldown: '1' });
+        go(buildWarmupUrl(runUrl, { run: 'play', cooldown: '1' }));
+        return;
+      }
+
+      if (mode === 'quick') {
+        go(buildRunUrl('play', { gate: '0', cooldown: '1' }));
+        return;
+      }
+
+      if (mode === 'research') {
+        const runUrl = buildRunUrl('research', { gate: '1', cooldown: '1', run: 'research', view: readRadio('view', 'mobile') });
+        go(buildWarmupUrl(runUrl, { run: 'research', cooldown: '1' }));
+        return;
+      }
+
+      if (mode === 'demo') {
+        go(buildRunUrl('demo', {
+          run: 'demo',
+          diff: 'easy',
+          time: '60',
+          gate: '0',
+          cooldown: '0',
+          view: 'mobile'
+        }));
+      }
+    }
+
+    function presetMode(mode) {
+      if (mode === 'play') {
+        setRadio('run', 'play', 'run-play');
+        setRadio('gate', '1', 'gate-on');
+        setRadio('cooldown', '1', 'cooldown-on');
+      } else if (mode === 'quick') {
+        setRadio('run', 'play', 'run-play');
+        setRadio('gate', '0', 'gate-off');
+        setRadio('cooldown', '1', 'cooldown-on');
+      } else if (mode === 'research') {
+        setRadio('run', 'research', 'run-research');
+        setRadio('gate', '1', 'gate-on');
+        setRadio('cooldown', '1', 'cooldown-on');
+      } else if (mode === 'demo') {
+        setRadio('run', 'play', 'run-play');
+        setRadio('diff', 'easy', 'diff-easy');
+        setRadio('time', '60', 'time-60');
+        setRadio('gate', '0', 'gate-off');
+        setRadio('cooldown', '0', 'cooldown-off');
+        setRadio('view', 'mobile', 'view-mobile');
+      }
+      refreshPreview();
+    }
+
+    function bindAll(summary, rec) {
+      [
+        els.pid, els.name, els.studyId, els.seed,
+        ...document.querySelectorAll('input[type="radio"]')
+      ].forEach((node) => {
+        node.addEventListener('input', refreshPreview);
+        node.addEventListener('change', refreshPreview);
+      });
+
+      els.btnApplyRecommended.addEventListener('click', () => applyRecommendation(rec));
+      els.btnStartStandard.addEventListener('click', launchCurrentSettings);
+      els.btnQuickPlay.addEventListener('click', () => launchMode('quick'));
+
+      els.btnUseLastPattern.addEventListener('click', () => {
+        if (!summary) {
+          applyRecommendation(rec);
+          return;
+        }
+
+        const fallbackView = readOrDefault('view', 'mobile');
+        setRadio('diff', String(summary.diff || rec.diff || 'normal'), 'diff-normal');
+        setRadio('time', String(summary.timeSec || summary.durationSec || rec.time || '90'), 'time-90');
+        setRadio('view', fallbackView, 'view-mobile');
+        setRadio('run', rec.run || 'play', rec.run === 'research' ? 'run-research' : 'run-play');
+        setRadio('gate', '1', 'gate-on');
+        setRadio('cooldown', '1', 'cooldown-on');
+        refreshPreview();
+      });
+
+      els.modePlayStart.addEventListener('click', () => launchMode('play'));
+      els.modePlayPreset.addEventListener('click', () => presetMode('play'));
+
+      els.modeQuickStart.addEventListener('click', () => launchMode('quick'));
+      els.modeQuickPreset.addEventListener('click', () => presetMode('quick'));
+
+      els.modeResearchStart.addEventListener('click', () => launchMode('research'));
+      els.modeResearchPreset.addEventListener('click', () => presetMode('research'));
+
+      els.modeDemoStart.addEventListener('click', () => launchMode('demo'));
+      els.modeDemoPreset.addEventListener('click', () => presetMode('demo'));
+    }
+
+    function init() {
+      const hubUrl = readOrDefault('hub', ABS_HUB);
+      const fitnessBackUrl = buildFitnessBackUrl();
+      els.btnHubTop.href = hubUrl;
+      els.btnBackFitness.href = fitnessBackUrl;
+
+      els.pid.value = readOrDefault('pid', 'anon');
+      els.name.value = readOrDefault('name', readOrDefault('nick', 'Player'));
+      els.studyId.value = readOrDefault('studyId', '');
+      els.seed.value = readOrDefault('seed', String(Date.now()));
+
+      setRadio('diff', readOrDefault('diff', 'normal'), 'diff-normal');
+      setRadio('time', readOrDefault('time', '90'), 'time-90');
+      setRadio('view', readOrDefault('view', 'mobile'), 'view-mobile');
+      setRadio('run', readOrDefault('run', 'play'), 'run-play');
+      setRadio('gate', readOrDefault('gate', '1'), 'gate-on');
+      setRadio('cooldown', readOrDefault('cooldown', '1'), 'cooldown-on');
+
+      const summary = readShadowSummary();
+      const rec = recommendFromSummary(summary);
+
+      renderRecent(summary);
+      renderRecommendation(rec);
+      bindAll(summary, rec);
+
+      if (!qs.get('diff') && !qs.get('time') && !qs.get('run') && !qs.get('gate')) {
+        applyRecommendation(rec);
+      } else {
+        refreshPreview();
+      }
+    }
+
+    init();
+  })();
   </script>
 </body>
 </html>
