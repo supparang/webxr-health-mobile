@@ -63,6 +63,20 @@
       </label>
     </section>
 
+    <section class="pattern-row">
+      <div class="pattern-card pattern-card-main">
+        <div class="pattern-title">Pattern ตอนนี้</div>
+        <div id="patternLabel" class="pattern-main">Warmup • Jab</div>
+        <div id="patternHint" class="pattern-sub">ตีตามลำดับที่เห็น</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pattern-title">Round</div>
+        <div id="roundLabel" class="pattern-main small">Round 0 • Warmup</div>
+        <div class="pattern-sub">ค่อย ๆ จับจังหวะก่อน</div>
+      </div>
+    </section>
+
     <section class="arena-wrap">
       <div class="phase-banner" id="phaseBanner">Ready</div>
 
@@ -181,6 +195,30 @@
           <span>Miss</span>
           <strong id="sumMiss">0</strong>
         </div>
+      </div>
+
+      <div class="action-grid">
+        <div class="action-box action-jab">
+          <span>👊 Jab</span>
+          <strong id="sumJab">0</strong>
+        </div>
+        <div class="action-box action-cross">
+          <span>💥 Cross</span>
+          <strong id="sumCross">0</strong>
+        </div>
+        <div class="action-box action-block">
+          <span>🛡 Block</span>
+          <strong id="sumBlock">0</strong>
+        </div>
+        <div class="action-box action-duck">
+          <span>⬇ Duck</span>
+          <strong id="sumDuck">0</strong>
+        </div>
+      </div>
+
+      <div class="balance-box">
+        <div class="balance-title">Action Balance</div>
+        <div id="sumBalance" class="balance-body">สมดุลดีมาก</div>
       </div>
 
       <div class="coach-summary">
