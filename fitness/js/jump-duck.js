@@ -3038,6 +3038,20 @@
 
     saveLastSummary(summary);
 
+    try {
+      window.HH_FITNESS_LASTGAME?.writeSnapshot({
+        event: 'summary_ready',
+        zone: 'fitness',
+        gameId: 'jump-duck',
+        game: 'jump-duck',
+        score: Number(s.score || 0),
+        miss: Number(s.miss || 0),
+        bestStreak: Number(s.maxCombo || 0),
+        rank: rank || '',
+        result: endReason || 'end'
+      });
+    } catch (_) {}
+
     hhFitnessSummaryEnd({
       mode: s.mode,
       diff: s.diff,
