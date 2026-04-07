@@ -1,906 +1,1633 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>VR Fitness — Rhythm Boxer</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="favicon.ico"/>
-  <link rel="stylesheet" href="css/rhythm-boxer.css"/>
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Rhythm Boxer</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#ffacd1" />
+  <link rel="icon" href="../herohealth/favicon.ico" />
   <style>
-    #hhHud{
-      position:fixed; left:10px; right:10px; top:10px; z-index:9999;
-      display:flex; gap:8px; align-items:center; justify-content:space-between;
-      pointer-events:none;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-    }
-    .hhPill{
-      pointer-events:auto;
-      border:1px solid rgba(255,255,255,.18);
-      background:rgba(0,0,0,.55);
-      color:#e8eefc;
-      padding:8px 10px;
-      border-radius:999px;
-      font-weight:900;
-      backdrop-filter:blur(6px);
-      max-width:70vw;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-    }
-    .hhBtn{
-      pointer-events:auto;
-      border:1px solid rgba(255,255,255,.18);
-      background:rgba(255,255,255,.08);
-      color:#e8eefc;
-      padding:8px 12px;
-      border-radius:14px;
-      font-weight:1000;
-      cursor:pointer;
-    }
-    .hhTiny{ opacity:.85; font-weight:800; }
+    :root{
+      --bg1:#fff1f8;
+      --bg2:#ffe0f0;
+      --bg3:#fff8de;
 
-    .rb-mission-box{
-      margin-top:10px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.38);
-      border-radius:14px;
-      padding:10px;
-    }
-    .rb-mission-title{
-      font-size:.82rem;
-      font-weight:900;
-      color:#dbeafe;
-      margin-bottom:8px;
-    }
-    .rb-mission-list{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-    .rb-mission-item{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.50);
-      color:#cbd5e1;
-      font-size:.76rem;
-      font-weight:800;
-    }
-    .rb-mission-item.done{
-      color:#ecfccb;
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.14);
+      --card:#ffffff;
+      --card2:#fff8fc;
+
+      --line:#f2d6e6;
+      --line-strong:#f0bdd7;
+
+      --text:#433f3d;
+      --muted:#75706b;
+
+      --pink:#ff9dcf;
+      --pink2:#ff74b3;
+      --purple:#b899ff;
+      --purple2:#8f76f0;
+      --blue:#7fcfff;
+      --blue2:#4aaef0;
+      --green:#7ed957;
+      --green2:#53bf35;
+      --yellow:#ffd661;
+      --orange:#ffb35b;
+      --red:#ff7a7a;
+
+      --shadow:0 18px 42px rgba(67,63,61,.12);
+      --shadow-soft:0 10px 22px rgba(67,63,61,.08);
+
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
     }
 
-    .rb-boss-box{
-      margin-top:10px;
-      border:1px solid rgba(251,113,133,.22);
-      background:rgba(127,29,29,.18);
-      border-radius:14px;
-      padding:10px;
-    }
-    .rb-boss-title{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      font-size:.82rem;
-      font-weight:1000;
-      color:#fecdd3;
-      margin-bottom:8px;
-    }
-    .rb-boss-bar{
-      height:12px;
-      border-radius:999px;
-      overflow:hidden;
-      border:1px solid rgba(251,113,133,.18);
-      background:rgba(2,6,23,.55);
-    }
-    .rb-boss-fill{
-      width:0%;
-      height:100%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#fb7185,#f59e0b,#facc15);
-      transition:width .15s linear;
-    }
-
-    .rb-result-reward-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
-      margin-top:12px;
-    }
-    @media (max-width:820px){
-      .rb-result-reward-grid{ grid-template-columns:1fr; }
-    }
-
-    .rb-result-badge-row{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-      margin-top:10px;
-    }
-
-    .rb-result-pill{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.46);
-      color:#e5e7eb;
-      font-size:.8rem;
-      font-weight:900;
-    }
-
-    .rb-result-praise{
-      margin-top:12px;
-      padding:12px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(255,255,255,.04);
-      color:#f8fafc;
-      font-size:.86rem;
-      font-weight:900;
-      line-height:1.45;
-    }
-
-    .rb-result-mission-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin-top:10px;
-    }
-    @media (max-width:640px){
-      .rb-result-mission-grid{ grid-template-columns:1fr; }
-    }
-
-    .rb-result-check{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.34);
-      font-size:.84rem;
-      font-weight:900;
-      color:#dbeafe;
-    }
-    .rb-result-check b{
-      color:#fff;
-    }
-
-    /* === PATCH v20260403a-RB-LAYOUT-DESKTOP === */
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; }
     body{
+      min-height:100vh;
+      font-family:ui-rounded,"Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
       background:
-        radial-gradient(1000px 640px at 20% 0%, rgba(34,211,238,.08), transparent 45%),
-        radial-gradient(900px 600px at 100% 0%, rgba(245,158,11,.06), transparent 40%),
-        linear-gradient(180deg,#050816,#0b1020 100%);
+        radial-gradient(circle at top left, rgba(255,255,255,.92), transparent 30%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 52%,var(--bg3));
     }
 
-    #rb-wrap{
-      width:min(1380px,96vw);
-      margin:76px auto 20px;
-    }
+    a{ color:inherit; text-decoration:none; }
+    button{ font:inherit; }
+    .hidden{ display:none !important; }
 
-    #rb-view-play:not(.hidden){
-      display:grid !important;
-      grid-template-columns:minmax(320px,380px) minmax(0,1fr);
-      grid-template-areas:
-        "head head"
-        "hud field";
-      gap:14px;
-      align-items:start;
-    }
-
-    #rb-view-play .rb-play-header{
-      grid-area:head;
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:0;
-    }
-
-    #rb-view-play .rb-hud{
-      grid-area:hud;
-      position:sticky;
-      top:62px;
-      align-self:start;
-      max-height:calc(100vh - 92px);
-      overflow:auto;
-      padding:14px;
-      border-radius:20px;
-      background:linear-gradient(180deg, rgba(7,12,24,.92), rgba(8,15,30,.82));
-      border:1px solid rgba(148,163,184,.14);
-      box-shadow:0 18px 40px rgba(0,0,0,.28);
-    }
-
-    #rb-view-play .rb-field-wrap{
-      grid-area:field;
-      min-width:0;
-    }
-
-    #rb-field{
-      position:relative;
-      min-height:72vh;
-      height:72vh;
-      border-radius:24px;
-      overflow:hidden;
-      padding:14px 14px 18px;
-      background:
-        radial-gradient(circle at 50% 0%, rgba(59,130,246,.10), transparent 34%),
-        linear-gradient(180deg, #0a1120 0%, #0d1628 100%);
-      border:1px solid rgba(148,163,184,.10);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,.04),
-        0 20px 40px rgba(0,0,0,.26);
-    }
-
-    #rb-lanes{
-      height:100%;
-      gap:12px;
-      align-items:stretch;
-    }
-
-    .rb-lane{
-      position:relative;
-      min-width:0;
-      border-radius:18px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02)),
-        linear-gradient(180deg, rgba(59,130,246,.05), rgba(15,23,42,.12));
-      border:1px solid rgba(255,255,255,.06);
-      box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
-      overflow:hidden;
-    }
-
-    .rb-lane::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.05), transparent 22%, transparent 78%, rgba(255,255,255,.03));
-      pointer-events:none;
-    }
-
-    .rb-lane::after{
-      content:"";
-      position:absolute;
-      left:8%;
-      right:8%;
-      bottom:16%;
-      height:6px;
-      border-radius:999px;
-      background:linear-gradient(90deg,#f59e0b,#facc15,#fb923c);
-      box-shadow:
-        0 0 14px rgba(251,191,36,.35),
-        0 0 26px rgba(251,191,36,.18);
-      pointer-events:none;
-    }
-
-    .rb-lane-label{
-      position:absolute;
-      left:50%;
-      bottom:8px;
-      transform:translateX(-50%);
-      z-index:2;
-      font-size:.78rem;
-      font-weight:1000;
-      color:#f8fafc;
-      opacity:.9;
-      text-shadow:0 2px 8px rgba(0,0,0,.55);
-    }
-
-    .rb-note{
-      filter:drop-shadow(0 8px 16px rgba(0,0,0,.38));
-    }
-
-    .rb-note-ico{
-      font-size:clamp(22px, 2vw, 30px);
-    }
-
-    #rb-feedback{
-      position:absolute;
-      left:50%;
-      top:12%;
-      transform:translateX(-50%);
-      z-index:8;
-      min-width:120px;
-      text-align:center;
-      padding:8px 14px;
-      border-radius:999px;
-      font-size:clamp(22px, 2.2vw, 34px);
-      font-weight:1000;
-      letter-spacing:.02em;
-      background:rgba(2,6,23,.44);
-      backdrop-filter:blur(6px);
-      box-shadow:0 8px 24px rgba(0,0,0,.25);
-      pointer-events:none;
-    }
-
-    .rb-howto-inline{
-      margin:10px 0 0;
-      text-align:center;
-      color:#dbeafe;
-      opacity:.92;
-      font-weight:800;
-      line-height:1.55;
-    }
-
-    .rb-hud-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-bottom:8px;
-    }
-
-    .rb-chip{
-      padding:8px 10px;
-      border-radius:999px;
-      font-size:.78rem;
-      font-weight:900;
-      background:rgba(15,23,42,.60);
-      border:1px solid rgba(148,163,184,.16);
-      color:#e5edf9;
-    }
-
-    .rb-chip b{
-      color:#fff;
-    }
-
-    .rb-bars{
+    .app{
+      width:min(1280px, calc(100% - 14px));
+      margin:0 auto;
+      padding:
+        calc(10px + var(--safe-top))
+        0
+        calc(14px + var(--safe-bottom));
       display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
-      margin-top:8px;
+      gap:12px;
     }
 
-    .rb-bar-block{
+    .topbar{
       display:grid;
       grid-template-columns:auto 1fr auto;
       gap:10px;
       align-items:center;
     }
 
-    .rb-bar{
-      height:12px;
+    .brand,
+    .top-link{
+      min-height:48px;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 14px;
       border-radius:999px;
-      overflow:hidden;
-    }
-
-    .rb-bar-status{
-      min-width:42px;
-      text-align:right;
+      background:rgba(255,255,255,.88);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
       font-weight:1000;
     }
 
-    .rb-play-header .rb-btn{
-      white-space:nowrap;
+    .brand-icon{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,var(--pink),var(--purple));
+      color:#fff;
+      font-size:15px;
     }
 
-    .rb-result-grid,
-    .rb-result-reward-grid{
-      width:min(1180px,100%);
-      margin-inline:auto;
+    .headline{
+      min-width:0;
+      padding:0 2px;
     }
 
-    .rb-result-card{
-      background:linear-gradient(180deg, rgba(7,12,24,.88), rgba(11,18,32,.80));
-      border:1px solid rgba(148,163,184,.14);
-      box-shadow:0 16px 34px rgba(0,0,0,.22);
+    .headline-title{
+      margin:0;
+      font-size:clamp(22px,4vw,38px);
+      line-height:1;
+      font-weight:1000;
     }
 
-    @media (max-width: 1100px){
-      #rb-view-play:not(.hidden){
+    .headline-sub{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+
+    .shell{
+      display:grid;
+      grid-template-columns:1.08fr .92fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,252,246,.92));
+      border:2px solid var(--line);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+    }
+
+    .menu-panel{
+      padding:18px;
+      display:grid;
+      gap:14px;
+      min-height:760px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .menu-panel::after{
+      content:"";
+      position:absolute;
+      right:-30px;
+      bottom:-36px;
+      width:240px;
+      height:240px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(255,157,207,.20), transparent 64%);
+      pointer-events:none;
+    }
+
+    .badge{
+      width:max-content;
+      min-height:38px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .hero-title{
+      margin:0;
+      font-size:clamp(34px,5vw,60px);
+      line-height:.92;
+      font-weight:1000;
+    }
+
+    .hero-copy{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      font-weight:900;
+      line-height:1.55;
+      max-width:720px;
+    }
+
+    .preview{
+      position:relative;
+      min-height:320px;
+      border-radius:28px;
+      border:2px dashed var(--line-strong);
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(255,255,255,.82), transparent 16%),
+        linear-gradient(180deg,#261236 0%, #4d235f 56%, #ffd694 57%, #fff2d2 100%);
+    }
+
+    .preview-arena{
+      position:absolute;
+      inset:20px 18px 42px 18px;
+      border-radius:24px;
+      border:2px dashed rgba(255,255,255,.14);
+    }
+
+    .preview-hitline{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:82px;
+      width:min(430px,72%);
+      height:14px;
+      border-radius:999px;
+      background:linear-gradient(90deg,rgba(255,255,255,.24),rgba(255,255,255,.96),rgba(255,255,255,.24));
+      box-shadow:0 0 0 8px rgba(255,157,207,.16);
+    }
+
+    .preview-note{
+      position:absolute;
+      right:96px;
+      top:116px;
+      width:78px;
+      height:78px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-size:36px;
+      background:linear-gradient(180deg,var(--pink),var(--pink2));
+      border:3px solid rgba(255,255,255,.24);
+      box-shadow:0 16px 24px rgba(0,0,0,.16);
+    }
+
+    .preview-cue{
+      position:absolute;
+      left:50%;
+      top:34px;
+      transform:translateX(-50%);
+      min-width:220px;
+      max-width:min(82%,360px);
+      min-height:104px;
+      padding:12px 14px;
+      border-radius:26px;
+      border:3px solid rgba(255,255,255,.88);
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,252,255,.95));
+      display:grid;
+      place-items:center;
+      text-align:center;
+      box-shadow:0 16px 28px rgba(0,0,0,.12);
+    }
+
+    .preview-cue .emoji{
+      font-size:40px;
+      line-height:1;
+    }
+
+    .preview-cue .label{
+      margin-top:4px;
+      font-size:22px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .preview-cue .hint{
+      margin-top:4px;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .preview-avatar{
+      position:absolute;
+      left:110px;
+      bottom:54px;
+      width:180px;
+      height:170px;
+      filter:drop-shadow(0 12px 16px rgba(0,0,0,.15));
+    }
+
+    .preview-avatar .head{
+      position:absolute;
+      left:50%;
+      top:10px;
+      transform:translateX(-50%);
+      width:58px;
+      height:58px;
+      border-radius:50%;
+      background:#ffe0bf;
+      border:3px solid rgba(67,63,61,.1);
+    }
+
+    .preview-avatar .body{
+      position:absolute;
+      left:50%;
+      top:60px;
+      transform:translateX(-50%);
+      width:84px;
+      height:60px;
+      border-radius:24px 24px 18px 18px;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      border:3px solid rgba(67,63,61,.1);
+    }
+
+    .preview-avatar .arm,
+    .preview-avatar .leg{
+      position:absolute;
+      background:#ffe0bf;
+      border-radius:999px;
+      border:3px solid rgba(67,63,61,.08);
+    }
+
+    .preview-avatar .arm{ width:16px; height:56px; top:66px; }
+    .preview-avatar .arm.left{ left:34px; transform:rotate(38deg); }
+    .preview-avatar .arm.right{ right:34px; transform:rotate(-38deg); }
+    .preview-avatar .leg{ width:18px; height:62px; top:110px; }
+    .preview-avatar .leg.left{ left:64px; transform:rotate(10deg); }
+    .preview-avatar .leg.right{ right:64px; transform:rotate(-10deg); }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .chip{
+      min-height:34px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .stats-strip{
+      display:grid;
+      gap:10px;
+      padding:14px;
+      border-radius:24px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(255,248,252,.94));
+    }
+
+    .stats-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .stats-head strong{
+      font-size:16px;
+    }
+
+    .stats-head span{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .stats-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .stat{
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+    }
+
+    .stat .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .stat .v{
+      display:block;
+      margin-top:4px;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .menu-side{
+      padding:16px;
+      display:grid;
+      gap:12px;
+      position:sticky;
+      top:calc(10px + var(--safe-top));
+    }
+
+    .card-block{
+      padding:14px;
+      border-radius:24px;
+      border:2px dashed var(--line-strong);
+      background:linear-gradient(180deg,#fff,#fff9fc);
+      display:grid;
+      gap:10px;
+    }
+
+    .card-block h3{
+      margin:0;
+      font-size:14px;
+      letter-spacing:.02em;
+    }
+
+    .card-block p{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .field input{
+      min-height:48px;
+      border-radius:16px;
+      border:2px solid var(--line);
+      background:#fff;
+      padding:10px 12px;
+      outline:none;
+    }
+
+    .field input:focus{
+      border-color:var(--pink2);
+    }
+
+    .grid-2{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .grid-3{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .toggle{
+      position:relative;
+    }
+
+    .toggle input{
+      position:absolute;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .toggle label{
+      min-height:70px;
+      padding:10px;
+      border-radius:20px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,#fff,#fff8fc);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .toggle label small{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+      line-height:1.25;
+    }
+
+    .toggle input:checked + label{
+      border-color:var(--pink2);
+      background:linear-gradient(180deg,#fff,#ffeef7);
+      transform:translateY(-2px);
+      box-shadow:0 14px 24px rgba(255,116,179,.14);
+    }
+
+    .recommend-box{
+      padding:12px;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
+      display:grid;
+      gap:8px;
+    }
+
+    .recommend-title{
+      font-size:14px;
+      font-weight:1000;
+    }
+
+    .recommend-sub{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .recommend-chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .recommend-chips span{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .launch-actions{
+      display:grid;
+      gap:10px;
+    }
+
+    .btn{
+      min-height:52px;
+      border:none;
+      border-radius:999px;
+      padding:12px 16px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      text-decoration:none;
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+    }
+
+    .btn.secondary{
+      background:linear-gradient(135deg,#fff,#ffeef7);
+      border:2px solid var(--line);
+    }
+
+    .btn.ghost{
+      background:linear-gradient(135deg,#fffaf2,#fff2da);
+      border:2px solid rgba(255,179,91,.30);
+    }
+
+    .preview-url{
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-size:11px;
+      line-height:1.45;
+      color:#445;
+      background:rgba(255,255,255,.8);
+      border-radius:16px;
+      border:2px dashed var(--line-strong);
+      padding:10px;
+      word-break:break-all;
+    }
+
+    .play-shell{
+      padding:12px;
+      display:grid;
+      gap:10px;
+      min-height:760px;
+    }
+
+    .play-topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .mini-pill{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .hud{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .hud-box{
+      min-height:68px;
+      padding:10px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .hud-box .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .hud-box .v{
+      display:block;
+      margin-top:6px;
+      font-size:20px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .arena-shell{
+      position:relative;
+      min-height:520px;
+      border-radius:28px;
+      overflow:hidden;
+      border:2px solid var(--line);
+      background:
+        radial-gradient(circle at 50% 15%, rgba(255,255,255,.16), transparent 14%),
+        linear-gradient(180deg,#261236 0%, #4d235f 54%, #ffd694 55%, #fff2d2 100%);
+    }
+
+    #gameMount{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    .overlay-center{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:20;
+      max-width:min(92%,540px);
+      width:100%;
+    }
+
+    .telegraph{
+      top:18px;
+      padding:14px 16px;
+      border-radius:22px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      text-align:center;
+      font-size:18px;
+      font-weight:1000;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease;
+    }
+
+    .telegraph.show{
+      opacity:1;
+    }
+
+    .summary-panel{
+      bottom:20px;
+      padding:16px;
+      border-radius:26px;
+      background:rgba(255,255,255,.98);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      display:none;
+      grid-template-columns:1fr;
+      gap:12px;
+    }
+
+    .summary-panel.show{
+      display:grid;
+    }
+
+    .summary-head{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:12px;
+      align-items:center;
+    }
+
+    .rank-badge{
+      width:86px;
+      height:86px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#fff,#ffeef7);
+      border:3px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:40px;
+      font-weight:1000;
+    }
+
+    .summary-copy h2{
+      margin:0;
+      font-size:28px;
+      line-height:1.08;
+    }
+
+    .summary-copy p{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .summary-stat{
+      padding:10px 12px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+    }
+
+    .summary-stat .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .summary-stat .v{
+      display:block;
+      margin-top:5px;
+      font-size:20px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .summary-actions{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .footer-note{
+      text-align:center;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    @media (max-width:1100px){
+      .shell{ grid-template-columns:1fr; }
+      .menu-side{ position:relative; top:auto; }
+    }
+
+    @media (max-width:780px){
+      .topbar,
+      .play-topbar{
         grid-template-columns:1fr;
-        grid-template-areas:
-          "head"
-          "hud"
-          "field";
       }
-
-      #rb-view-play .rb-hud{
-        position:static;
-        max-height:none;
+      .stats-grid,
+      .summary-grid,
+      .summary-actions,
+      .hud,
+      .grid-3{
+        grid-template-columns:1fr;
       }
-
-      #rb-field{
-        min-height:60vh;
-        height:60vh;
-      }
-    }
-
-    @media (max-width: 720px){
-      #hhHud{
-        top:8px;
-        left:8px;
-        right:8px;
-      }
-
-      .hhPill{
-        max-width:56vw;
-        padding:7px 9px;
-        font-size:12px;
-      }
-
-      .hhBtn{
-        padding:7px 10px;
-      }
-
-      #rb-wrap{
-        width:min(100%,100vw);
-        margin:62px auto 14px;
-      }
-
-      #rb-field{
-        min-height:420px;
-        height:58vh;
-        padding:10px 10px 14px;
-      }
-
-      #rb-lanes{
-        gap:8px;
-      }
-
-      .rb-lane::after{
-        left:6%;
-        right:6%;
-        bottom:15%;
-        height:5px;
-      }
-
-      #rb-feedback{
-        top:15%;
-        font-size:24px;
-        padding:7px 12px;
+      .grid-2{
+        grid-template-columns:1fr;
       }
     }
   </style>
 </head>
-
 <body>
-<div id="hhHud" aria-hidden="false">
-  <div class="hhPill">
-    Rhythm 🥊
-    <span class="hhTiny">· day <b id="hhDay">—</b> · slot <b id="hhSlot">—</b></span>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">🥁</div>
+        <div>HeroHealth</div>
+      </div>
+
+      <div class="headline">
+        <h1 class="headline-title">Rhythm Boxer</h1>
+        <p class="headline-sub">Rhythm • Timing • Combo • Beat • Fitness Zone</p>
+      </div>
+
+      <div class="top-actions">
+        <a id="btnBackFitnessTop" class="top-link" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnBackHubTop" class="top-link" href="../herohealth/hub-v2.html">🏠 HUB</a>
+      </div>
+    </header>
+
+    <section id="view-menu" class="shell">
+      <section class="panel menu-panel">
+        <div class="badge">✨ child-friendly • rhythm • beat • summary • warmup+cooldown</div>
+
+        <h2 class="hero-title">Rhythm<br>Boxer</h2>
+
+        <p class="hero-copy">
+          เกมนี้ฝึก <strong>การจับจังหวะ ตีตาม beat และรักษาคอมโบ</strong>
+          เด็กจะได้ฝึก timing แบบสนุก มีโน้ตชัด เข้าใจง่าย และค่อย ๆ เล่นจนผ่านช่วง boss ได้
+        </p>
+
+        <div class="preview">
+          <div class="preview-arena"></div>
+          <div class="preview-hitline"></div>
+          <div class="preview-note">♪</div>
+
+          <div class="preview-cue">
+            <div>
+              <div class="emoji">🥊</div>
+              <div class="label">Punch on Beat</div>
+              <div class="hint">ต่อยตามจังหวะเมื่อโน้ตถึงเส้น</div>
+            </div>
+          </div>
+
+          <div class="preview-avatar" aria-hidden="true">
+            <div class="head"></div>
+            <div class="body"></div>
+            <div class="arm left"></div>
+            <div class="arm right"></div>
+            <div class="leg left"></div>
+            <div class="leg right"></div>
+          </div>
+        </div>
+
+        <div class="chips">
+          <div class="chip">🥁 Rhythm</div>
+          <div class="chip">🎯 Timing</div>
+          <div class="chip">🔥 Combo</div>
+          <div class="chip">🎵 Beat</div>
+          <div class="chip">⭐ Summary</div>
+        </div>
+
+        <section class="stats-strip">
+          <div class="stats-head">
+            <strong>🕹️ ผลล่าสุด</strong>
+            <span id="recentStripSub">ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย</span>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat"><span class="k">Rank</span><span id="recentRank" class="v">-</span></div>
+            <div class="stat"><span class="k">Score</span><span id="recentScore" class="v">-</span></div>
+            <div class="stat"><span class="k">Accuracy</span><span id="recentAcc" class="v">-</span></div>
+            <div class="stat"><span class="k">Combo</span><span id="recentCombo" class="v">-</span></div>
+          </div>
+        </section>
+      </section>
+
+      <aside class="panel menu-side">
+        <section class="card-block">
+          <h3>PLAYER</h3>
+
+          <div class="field">
+            <label for="pid">PID</label>
+            <input id="pid" type="text" placeholder="anon" />
+          </div>
+
+          <div class="field">
+            <label for="name">Name</label>
+            <input id="name" type="text" placeholder="Player" />
+          </div>
+
+          <div class="field">
+            <label for="studyId">Study ID</label>
+            <input id="studyId" type="text" placeholder="optional" />
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>RECOMMENDED SETTINGS</h3>
+
+          <div class="recommend-box">
+            <div id="recommendTitle" class="recommend-title">แนะนำค่าเริ่มต้น</div>
+            <div id="recommendSub" class="recommend-sub">ระบบจะเลือกค่าที่เหมาะจากผลล่าสุดให้</div>
+            <div id="recommendChips" class="recommend-chips">
+              <span>Normal</span><span>90s</span><span>Mobile</span>
+            </div>
+            <button id="btnApplyRecommended" class="btn secondary" type="button">✨ ใช้ค่าที่แนะนำ</button>
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>DIFFICULTY</h3>
+          <div class="grid-3">
+            <div class="toggle">
+              <input id="diff-easy" name="diff" type="radio" value="easy" />
+              <label for="diff-easy">Easy<small>โน้ตอ่านง่าย</small></label>
+            </div>
+            <div class="toggle">
+              <input id="diff-normal" name="diff" type="radio" value="normal" checked />
+              <label for="diff-normal">Normal<small>สมดุลที่สุด</small></label>
+            </div>
+            <div class="toggle">
+              <input id="diff-hard" name="diff" type="radio" value="hard" />
+              <label for="diff-hard">Hard<small>จังหวะแน่นขึ้น</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>TIME</h3>
+          <div class="grid-3">
+            <div class="toggle">
+              <input id="time-60" name="time" type="radio" value="60" />
+              <label for="time-60">60s<small>สั้น</small></label>
+            </div>
+            <div class="toggle">
+              <input id="time-90" name="time" type="radio" value="90" checked />
+              <label for="time-90">90s<small>แนะนำ</small></label>
+            </div>
+            <div class="toggle">
+              <input id="time-120" name="time" type="radio" value="120" />
+              <label for="time-120">120s<small>ยาวขึ้น</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>VIEW</h3>
+          <div class="grid-3">
+            <div class="toggle">
+              <input id="view-mobile" name="view" type="radio" value="mobile" checked />
+              <label for="view-mobile">Mobile<small>ทั่วไป</small></label>
+            </div>
+            <div class="toggle">
+              <input id="view-pc" name="view" type="radio" value="pc" />
+              <label for="view-pc">PC<small>คีย์บอร์ด</small></label>
+            </div>
+            <div class="toggle">
+              <input id="view-cvr" name="view" type="radio" value="cvr" />
+              <label for="view-cvr">cVR<small>เก็บ param</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>RUN MODE</h3>
+          <div class="grid-2">
+            <div class="toggle">
+              <input id="run-play" name="run" type="radio" value="play" checked />
+              <label for="run-play">Play<small>เล่นทั่วไป</small></label>
+            </div>
+            <div class="toggle">
+              <input id="run-research" name="run" type="radio" value="research" />
+              <label for="run-research">Research<small>seed/logging</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>FLOW</h3>
+          <p>โหมดมาตรฐานจะไปตามลำดับ <strong>warmup-gate → rhythm-boxer → summary → cooldown → hub/zone</strong></p>
+
+          <div class="grid-2">
+            <div class="toggle">
+              <input id="gate-on" name="gate" type="radio" value="1" checked />
+              <label for="gate-on">Warmup ON<small>ใช้ gate ก่อนเข้าเกม</small></label>
+            </div>
+            <div class="toggle">
+              <input id="gate-off" name="gate" type="radio" value="0" />
+              <label for="gate-off">Warmup OFF<small>เข้าเกมตรง</small></label>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="toggle">
+              <input id="cooldown-on" name="cooldown" type="radio" value="1" checked />
+              <label for="cooldown-on">Cooldown ON<small>ส่ง param ไว้พร้อม</small></label>
+            </div>
+            <div class="toggle">
+              <input id="cooldown-off" name="cooldown" type="radio" value="0" />
+              <label for="cooldown-off">Cooldown OFF<small>จบแล้วกลับ hub/zone</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>SEED</h3>
+          <div class="field">
+            <label for="seed">Seed</label>
+            <input id="seed" type="text" placeholder="auto" />
+          </div>
+        </section>
+
+        <section class="card-block">
+          <h3>LAUNCH</h3>
+          <div class="launch-actions">
+            <button id="btnStartStandard" class="btn primary" type="button">▶ Start with Current Settings</button>
+            <button id="btnQuickPlay" class="btn secondary" type="button">⚡ Quick Play Now</button>
+            <button id="btnUseLastPattern" class="btn ghost" type="button">🕹️ ใช้ค่าจากล่าสุด</button>
+          </div>
+          <div id="previewUrl" class="preview-url">preview url</div>
+        </section>
+
+        <div class="footer-note">
+          Launcher นี้ส่งค่า pid / diff / time / seed / hub / run / view / gate / cooldown ให้ครบ
+        </div>
+      </aside>
+    </section>
+
+    <section id="view-play" class="panel play-shell hidden">
+      <div class="play-topbar">
+        <a id="rb-back-fitness-play" class="mini-pill" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
+        <div class="mini-pill">🥁 Rhythm Boxer Run</div>
+        <button id="btn-stop-early" class="mini-pill" type="button">⏹️ Stop</button>
+      </div>
+
+      <div class="hud">
+        <div class="hud-box"><span class="k">Mode</span><span id="hud-mode" class="v">play</span></div>
+        <div class="hud-box"><span class="k">Diff</span><span id="hud-diff" class="v">normal</span></div>
+        <div class="hud-box"><span class="k">Time</span><span id="hud-time" class="v">90</span></div>
+        <div class="hud-box"><span class="k">Score</span><span id="hud-score" class="v">0</span></div>
+        <div class="hud-box"><span class="k">Combo</span><span id="hud-combo" class="v">0</span></div>
+        <div class="hud-box"><span class="k">Boss</span><span id="hud-boss" class="v">—</span></div>
+      </div>
+
+      <div class="arena-shell">
+        <div id="gameMount"></div>
+
+        <div id="telegraphBox" class="overlay-center telegraph">READY!</div>
+
+        <section id="summaryPanel" class="overlay-center summary-panel">
+          <div class="summary-head">
+            <div id="rankBadge" class="rank-badge">A</div>
+            <div class="summary-copy">
+              <h2 id="summaryTitle">เยี่ยมมาก!</h2>
+              <p id="summarySub">นี่คือผลสรุปรอบล่าสุดของ Rhythm Boxer</p>
+            </div>
+          </div>
+
+          <div class="summary-grid">
+            <div class="summary-stat"><span class="k">Score</span><span id="summaryScore" class="v">0</span></div>
+            <div class="summary-stat"><span class="k">Accuracy</span><span id="summaryAcc" class="v">0%</span></div>
+            <div class="summary-stat"><span class="k">Combo</span><span id="summaryCombo" class="v">0</span></div>
+            <div class="summary-stat"><span class="k">Miss</span><span id="summaryMiss" class="v">0</span></div>
+          </div>
+
+          <div class="summary-actions">
+            <button id="btnPlayAgain" class="btn primary" type="button" data-action="play-again">🔁 เล่นอีกครั้ง</button>
+            <a id="btnBackFitness" class="btn secondary" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
+            <a id="btnBackHub" class="btn ghost" href="../herohealth/hub-v2.html">🏠 HUB</a>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      HeroHealth • Rhythm Boxer • launcher + run shell + bridge-ready
+    </div>
   </div>
-  <button class="hhBtn" id="hhBack" type="button">⬅ กลับ</button>
-</div>
 
-<div id="rb-wrap" data-diff="normal">
-  <div id="rb-flash"></div>
+  <script src="../herohealth/fitness-zone-bridge.js"></script>
+  <script>
+    (function () {
+      'use strict';
 
-  <!-- ================= MENU ================= -->
-  <main id="rb-view-menu" class="rb-view">
-    <header class="rb-header">
-      <div class="rb-head-main">
-        <span class="rb-pill">VR Fitness · Rhythm</span>
-        <h1 class="rb-title">Rhythm Boxer</h1>
-        <p class="rb-sub">ต่อยมือตามโน้ตให้ตรงจังหวะ · ฝึกสมาธิ ความเร็ว และความแม่นยำ</p>
-        <span class="rb-sub-small">เหมาะกับเด็ก: เริ่ม Easy ก่อน แล้วค่อยลองด่านยากขึ้น</span>
-      </div>
-      <a href="../herohealth/hub.html" class="rb-back" id="rb-back-link">← กลับ</a>
-    </header>
+      const qs = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
 
-    <section class="rb-section rb-grid-2">
-      <div class="rb-research-box">
-        <h2 class="rb-section-title">โหมดการเล่น</h2>
+      const els = {
+        pid: $('pid'),
+        name: $('name'),
+        studyId: $('studyId'),
+        seed: $('seed'),
 
-        <div class="rb-mode-toggle" role="radiogroup" aria-label="mode">
-          <label class="rb-mode-btn">
-            <input type="radio" name="rb-mode" value="normal" checked/>
-            <span>Normal</span>
-          </label>
-          <label class="rb-mode-btn">
-            <input type="radio" name="rb-mode" value="research"/>
-            <span>Research</span>
-          </label>
-        </div>
+        btnBackFitnessTop: $('btnBackFitnessTop'),
+        btnBackHubTop: $('btnBackHubTop'),
+        btnBackFitness: $('btnBackFitness'),
+        btnBackHub: $('btnBackHub'),
+        btnStartStandard: $('btnStartStandard'),
+        btnQuickPlay: $('btnQuickPlay'),
+        btnUseLastPattern: $('btnUseLastPattern'),
+        btnApplyRecommended: $('btnApplyRecommended'),
 
-        <p id="rb-mode-desc" class="rb-mode-desc">Normal: เล่นสนุก ฝึกจังหวะ และเก็บดาว</p>
+        previewUrl: $('previewUrl'),
+        recentStripSub: $('recentStripSub'),
+        recentRank: $('recentRank'),
+        recentScore: $('recentScore'),
+        recentAcc: $('recentAcc'),
+        recentCombo: $('recentCombo'),
 
-        <div id="rb-research-fields" class="rb-section hidden">
-          <h3 class="rb-section-subtitle">ข้อมูลสำหรับงานวิจัย</h3>
+        recommendTitle: $('recommendTitle'),
+        recommendSub: $('recommendSub'),
+        recommendChips: $('recommendChips'),
 
-          <div class="rb-field">
-            <label for="rb-participant">Participant ID</label>
-            <input id="rb-participant" type="text" placeholder="เช่น P001"/>
-          </div>
-          <div class="rb-field">
-            <label for="rb-group">กลุ่ม / เงื่อนไข</label>
-            <input id="rb-group" type="text" placeholder="เช่น Control / VR"/>
-          </div>
-          <div class="rb-field">
-            <label for="rb-note">โน้ตเพิ่มเติม</label>
-            <input id="rb-note" type="text" placeholder="เช่น ก่อนฝึก / หลังฝึก"/>
-          </div>
+        viewMenu: $('view-menu'),
+        viewPlay: $('view-play'),
 
-          <p class="rb-hint-inline">โหมด Research จะเปิดการดาวน์โหลด Event CSV และ Session CSV</p>
-        </div>
-      </div>
+        hudMode: $('hud-mode'),
+        hudDiff: $('hud-diff'),
+        hudTime: $('hud-time'),
+        hudScore: $('hud-score'),
+        hudCombo: $('hud-combo'),
+        hudBoss: $('hud-boss'),
 
-      <div class="rb-research-box">
-        <h2 class="rb-section-title">เพลง / ระดับ</h2>
-        <p id="rb-track-mode-label" class="rb-section-subtitle">โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก</p>
+        telegraphBox: $('telegraphBox'),
+        summaryPanel: $('summaryPanel'),
+        summaryTitle: $('summaryTitle'),
+        summarySub: $('summarySub'),
+        summaryScore: $('summaryScore'),
+        summaryAcc: $('summaryAcc'),
+        summaryCombo: $('summaryCombo'),
+        summaryMiss: $('summaryMiss'),
+        rankBadge: $('rankBadge'),
 
-        <div id="rb-track-options" class="rb-section">
-          <label class="rb-mode-btn" data-mode="normal">
-            <input type="radio" name="rb-track" value="n1" checked/>
-            <span>Warm-up Groove · ง่าย · 100 BPM</span>
-          </label>
-          <label class="rb-mode-btn" data-mode="normal">
-            <input type="radio" name="rb-track" value="n2"/>
-            <span>Focus Combo · ปกติ · 120 BPM</span>
-          </label>
-          <label class="rb-mode-btn" data-mode="normal">
-            <input type="radio" name="rb-track" value="n3"/>
-            <span>Speed Rush · ยาก · 140 BPM</span>
-          </label>
-          <label class="rb-mode-btn" data-mode="research">
-            <input type="radio" name="rb-track" value="r1"/>
-            <span>Research Track 120 · ทดลอง · 120 BPM</span>
-          </label>
-        </div>
+        btnPlayAgain: $('btnPlayAgain'),
+        btnStopEarly: $('btn-stop-early'),
+        rbBackFitnessPlay: $('rb-back-fitness-play'),
 
-        <div class="rb-hint-block">
-          <p class="rb-hint-title">วิธีเล่นแบบสั้น ๆ</p>
-          <ul class="rb-hint-list">
-            <li>รอให้หัวโน้ตลงมาถึงเส้นสีเหลืองแล้วค่อยกด</li>
-            <li>Perfect / Great / Good จะได้คะแนน คอมโบ และ FEVER</li>
-            <li>ถ้ากดมั่วจะโดน MISS และเสียคะแนนเล็กน้อย</li>
-            <li>มีภารกิจ 3 ดาว และมี Boss Round ช่วงท้าย</li>
-            <li>คีย์บอร์ด (PC): A S D J K</li>
-          </ul>
-        </div>
+        gameMount: $('gameMount')
+      };
 
-        <div class="rb-section">
-          <button id="rb-btn-start" class="rb-btn rb-btn-primary">▶ เริ่มเล่น Rhythm Boxer</button>
-        </div>
-      </div>
-    </section>
-  </main>
+      const Bridge = window.HHFitnessBridge;
 
-  <!-- ================= PLAY ================= -->
-  <main id="rb-view-play" class="rb-view hidden">
-    <header class="rb-play-header">
-      <div>
-        <h1 class="rb-title-sm">Rhythm Boxer · Play</h1>
-        <p class="rb-sub-sm">มองเส้นสีเหลืองด้านล่างแล้วกดให้ตรงจังหวะ</p>
-      </div>
-      <button id="rb-btn-stop" class="rb-btn rb-btn-ghost">⏹ หยุดก่อนเวลา</button>
-    </header>
+      const ABS_HUB = new URL('../herohealth/hub-v2.html', location.href).href;
+      const ABS_FITNESS = new URL('../herohealth/fitness-zone.html', location.href).href;
+      const ABS_LAUNCHER = new URL('../herohealth/rhythm-boxer-vr.html', location.href).href;
+      const ABS_GATE = new URL('../herohealth/warmup-gate.html', location.href).href;
 
-    <section class="rb-research-box rb-hud">
-      <div class="rb-hud-row">
-        <span class="rb-chip">Mode: <b id="rb-hud-mode">Normal</b></span>
-        <span class="rb-chip">Track: <b id="rb-hud-track">Warm-up Groove</b></span>
-      </div>
+      let state = {
+        running: false,
+        timerId: 0,
+        left: 0,
+        score: 0,
+        combo: 0,
+        miss: 0,
+        acc: 0,
+        rank: 'B'
+      };
 
-      <div class="rb-hud-row">
-        <span class="rb-chip">Score: <b id="rb-hud-score">0</b></span>
-        <span class="rb-chip">Combo: <b id="rb-hud-combo">0</b></span>
-        <span class="rb-chip">Acc: <b id="rb-hud-acc">0.0%</b></span>
-      </div>
-
-      <div class="rb-hud-row rb-hud-row-ai">
-        <span class="rb-chip rb-chip-ai">AI Fatigue: <b id="rb-hud-ai-fatigue">0%</b></span>
-        <span class="rb-chip rb-chip-ai">AI Skill: <b id="rb-hud-ai-skill">50%</b></span>
-        <span class="rb-chip rb-chip-ai">Suggest: <b id="rb-hud-ai-suggest">normal</b></span>
-      </div>
-
-      <div class="rb-hud-row rb-hud-row-ai">
-        <span class="rb-chip rb-chip-ai rb-chip-tip">
-          <span class="rb-chip-tip-label">Coach:</span>
-          <b id="rb-hud-ai-tip" class="hidden"></b>
-        </span>
-      </div>
-
-      <div class="rb-hud-row">
-        <span class="rb-chip">HP: <b id="rb-hud-hp">100</b></span>
-        <span class="rb-chip">Shield: <b id="rb-hud-shield">0</b></span>
-        <span class="rb-chip">Time: <b id="rb-hud-time">0.0</b></span>
-      </div>
-
-      <div class="rb-hud-row">
-        <span class="rb-chip">Perfect: <b id="rb-hud-perfect">0</b></span>
-        <span class="rb-chip">Great: <b id="rb-hud-great">0</b></span>
-        <span class="rb-chip">Good: <b id="rb-hud-good">0</b></span>
-        <span class="rb-chip">Miss: <b id="rb-hud-miss">0</b></span>
-      </div>
-
-      <div class="rb-bars">
-        <div class="rb-bar-block">
-          <span class="rb-bar-label">FEVER</span>
-          <div class="rb-bar"><div id="rb-fever-fill" class="rb-bar-fill rb-bar-fever"></div></div>
-          <span id="rb-fever-status" class="rb-bar-status">BUILD</span>
-        </div>
-        <div class="rb-bar-block">
-          <span class="rb-bar-label">PROG</span>
-          <div class="rb-bar"><div id="rb-progress-fill" class="rb-bar-fill rb-bar-progress"></div></div>
-          <span id="rb-progress-text" class="rb-bar-status">0%</span>
-        </div>
-      </div>
-
-      <div id="rb-mission-hud" class="rb-mission-box hidden">
-        <div class="rb-mission-title">ภารกิจ 3 ดาว</div>
-        <div class="rb-mission-list">
-          <div class="rb-mission-item" id="rb-mission-score">⭐ ทำคะแนน 2500</div>
-          <div class="rb-mission-item" id="rb-mission-combo">⭐ คอมโบถึง 20</div>
-          <div class="rb-mission-item" id="rb-mission-acc">⭐ Accuracy ถึง 85%</div>
-        </div>
-      </div>
-
-      <div id="rb-boss-hud" class="rb-boss-box hidden">
-        <div class="rb-boss-title">
-          <span>🔥 Boss Round</span>
-          <span id="rb-boss-text">BOSS HP 0/0</span>
-        </div>
-        <div class="rb-boss-bar">
-          <div id="rb-boss-fill" class="rb-boss-fill"></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="rb-field-wrap">
-      <div id="rb-field" data-phase="warmup">
-        <div id="rb-feedback" class="rb-feedback">พร้อม!</div>
-
-        <div class="rb-lanes" id="rb-lanes">
-          <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L2</div></div>
-          <div class="rb-lane" data-lane="1"><div class="rb-lane-label">L1</div></div>
-          <div class="rb-lane" data-lane="2"><div class="rb-lane-label">C</div></div>
-          <div class="rb-lane" data-lane="3"><div class="rb-lane-label">R1</div></div>
-          <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
-        </div>
-      </div>
-
-      <p class="rb-howto-inline">
-        แตะเลนให้ “หัวโน้ต” ลงถึงเส้นสีเหลืองแล้วค่อยกด · ถ้ากดตรงจะได้คะแนนและคอมโบ
-      </p>
-    </section>
-
-    <audio id="rb-audio" preload="auto"></audio>
-  </main>
-
-  <!-- ================= RESULT ================= -->
-  <main id="rb-view-result" class="rb-view hidden">
-    <header class="rb-header">
-      <div class="rb-head-main">
-        <span class="rb-pill">Result</span>
-        <h1 class="rb-title">สรุปผล · Rhythm Boxer</h1>
-        <p class="rb-sub">ดูผลการเล่น ดาวรางวัล และข้อมูลสำหรับครู/งานวิจัย</p>
-      </div>
-    </header>
-
-    <section class="rb-result-grid">
-      <div class="rb-result-card">
-        <h2 class="rb-result-title">Overview</h2>
-        <div class="rb-result-row"><span>Mode</span><b id="rb-res-mode">-</b></div>
-        <div class="rb-result-row"><span>Track</span><b id="rb-res-track">-</b></div>
-        <div class="rb-result-row"><span>End reason</span><b id="rb-res-endreason">-</b></div>
-        <div class="rb-result-row"><span>Score</span><b id="rb-res-score">0</b></div>
-        <div class="rb-result-row"><span>Max Combo</span><b id="rb-res-maxcombo">0</b></div>
-        <div class="rb-result-row"><span>Hit P/G/Gd/Miss</span><b id="rb-res-detail-hit">0 / 0 / 0 / 0</b></div>
-        <div class="rb-result-row"><span>Accuracy</span><b id="rb-res-acc">0.0 %</b></div>
-        <div class="rb-result-row"><span>Duration</span><b id="rb-res-duration">0.0 s</b></div>
-        <div class="rb-result-row"><span>Rank</span><b id="rb-res-rank">-</b></div>
-      </div>
-
-      <div class="rb-result-card">
-        <h2 class="rb-result-title">Timing / Research</h2>
-        <div class="rb-result-row"><span>Offset mean</span><b id="rb-res-offset-avg">-</b></div>
-        <div class="rb-result-row"><span>Offset std</span><b id="rb-res-offset-std">-</b></div>
-        <div class="rb-result-row"><span>Participant</span><b id="rb-res-participant">-</b></div>
-      </div>
-    </section>
-
-    <section class="rb-result-reward-grid">
-      <div class="rb-result-card rb-reward-pack">
-        <h2 class="rb-result-title">Reward</h2>
-        <div class="rb-reward-stars" id="rb-res-stars">⭐</div>
-        <div id="rb-res-medal" class="rb-reward-medal bronze">Bronze</div>
-
-        <div class="rb-result-badge-row">
-          <span class="rb-result-pill">Badge: <b id="rb-res-badge">-</b></span>
-        </div>
-
-        <div class="rb-result-praise" id="rb-res-praise">เริ่มต้นได้ดีมาก!</div>
-      </div>
-
-      <div class="rb-result-card">
-        <h2 class="rb-result-title">Mission Clear</h2>
-        <div class="rb-result-mission-grid">
-          <div class="rb-result-check"><span>คะแนน 2500</span><b id="rb-res-mission-score">—</b></div>
-          <div class="rb-result-check"><span>คอมโบ 20</span><b id="rb-res-mission-combo">—</b></div>
-          <div class="rb-result-check"><span>Acc 85%</span><b id="rb-res-mission-acc">—</b></div>
-          <div class="rb-result-check"><span>No-Miss</span><b id="rb-res-nomiss">—</b></div>
-          <div class="rb-result-check"><span>Boss Clear</span><b id="rb-res-bossclear">—</b></div>
-        </div>
-      </div>
-    </section>
-
-    <p id="rb-res-quality-note" class="rb-quality-note hidden"></p>
-
-    <section class="rb-section rb-btn-row">
-      <button id="rb-btn-again" class="rb-btn rb-btn-primary">🔁 เล่นเพลงเดิมอีกครั้ง</button>
-      <button id="rb-btn-back-menu" class="rb-btn">⬅ กลับหน้าเลือกโหมด</button>
-      <button id="rb-btn-return-plan" class="rb-btn rb-btn-ghost">✅ กลับตามแผน</button>
-    </section>
-
-    <section class="rb-research-box rb-section">
-      <h2 class="rb-section-title-sm">ดาวน์โหลด CSV สำหรับงานวิจัย</h2>
-      <p class="rb-hint-inline">Event CSV = การกดแต่ละครั้ง · Session CSV = สรุปผลต่อรอบ</p>
-      <div class="rb-btn-row">
-        <button id="rb-btn-dl-events" class="rb-btn rb-btn-sm">⬇ Event CSV</button>
-        <button id="rb-btn-dl-sessions" class="rb-btn rb-btn-sm">⬇ Session CSV</button>
-      </div>
-    </section>
-  </main>
-</div>
-
-<script src="js/rhythm-engine.js"></script>
-<script src="js/rhythm-boxer.js"></script>
-
-<script>
-(function(){
-  function qs(k,d=''){ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } }
-  function abs(u){ try{ return new URL(u, location.href).toString(); }catch(e){ return String(u||''); } }
-  function qbool(k,d){ return ['1','true','yes','y','on'].includes(String(qs(k, d ? '1' : '0')).toLowerCase()); }
-
-  var hub = String(qs('hub','')).trim();
-  var backUrl = hub ? abs(hub) : abs('../herohealth/hub.html');
-  var useCooldownFlow = qbool('cooldown', true) || (qs('returnPhase','') === 'cooldown');
-
-  function buildCooldownUrl(reason, payload){
-    reason = String(reason || 'end');
-    payload = payload || {};
-
-    var gate = new URL('../herohealth/warmup-gate.html', location.href);
-
-    gate.searchParams.set('phase', 'cooldown');
-    gate.searchParams.set('gatePhase', 'cooldown');
-    gate.searchParams.set('game', 'rhythmboxer');
-    gate.searchParams.set('gameId', 'rhythmboxer');
-    gate.searchParams.set('theme', 'rhythmboxer');
-
-    gate.searchParams.set('zone', qs('zone','fitness'));
-    gate.searchParams.set('cat', qs('cat','fitness'));
-    gate.searchParams.set('pid', qs('pid','anon'));
-    gate.searchParams.set('run', qs('run','play'));
-    gate.searchParams.set('diff', qs('diff','normal'));
-    gate.searchParams.set('time', qs('time','80'));
-    gate.searchParams.set('seed', qs('seed', String(Date.now())));
-    gate.searchParams.set('view', qs('view','pc'));
-    gate.searchParams.set('hub', backUrl);
-    gate.searchParams.set('cdur', qs('cdur','20'));
-
-    var planDay = String(qs('planDay','')).trim();
-    var planSlot = String(qs('planSlot','')).trim();
-    if(planDay) gate.searchParams.set('planDay', planDay);
-    if(planSlot) gate.searchParams.set('planSlot', planSlot);
-    if(qbool('autoNext', false)) gate.searchParams.set('autoNext', '1');
-
-    if(reason) gate.searchParams.set('reason', reason);
-    if(payload.score != null) gate.searchParams.set('score', String(payload.score));
-    if(payload.acc != null) gate.searchParams.set('acc', String(payload.acc));
-    if(payload.miss != null) gate.searchParams.set('miss', String(payload.miss));
-    if(payload.rank != null) gate.searchParams.set('rank', String(payload.rank));
-    if(payload.stars != null) gate.searchParams.set('stars', String(payload.stars));
-
-    return gate.toString();
-  }
-
-  var backLink = document.getElementById('rb-back-link');
-  if(backLink){
-    backLink.href = backUrl || '../herohealth/hub.html';
-    backLink.addEventListener('click', function(e){
-      if(backUrl){
-        e.preventDefault();
-        location.href = backUrl;
+      function q(k, d='') {
+        const v = qs.get(k);
+        return v == null || v === '' ? d : v;
       }
-    }, {passive:false});
-  }
 
-  var day = qs('planDay','—');
-  var slot = qs('planSlot','—');
-  var elDay = document.getElementById('hhDay');
-  var elSlot = document.getElementById('hhSlot');
-  if(elDay) elDay.textContent = day;
-  if(elSlot) elSlot.textContent = slot;
-
-  var btnBack = document.getElementById('hhBack');
-  if(btnBack){
-    btnBack.addEventListener('click', function(){
-      if(backUrl) location.href = backUrl;
-      else location.href = abs('../herohealth/hub.html');
-    });
-  }
-
-  window.HH_END_GAME = function(reason, payload){
-    reason = String(reason||'end');
-    payload = payload || {};
-
-    if(useCooldownFlow){
-      location.href = buildCooldownUrl(reason, payload);
-      return;
-    }
-
-    if(backUrl){
-      try{
-        var u = new URL(backUrl);
-        u.searchParams.set('reason', reason);
-        if(payload.score!=null) u.searchParams.set('score', String(payload.score));
-        if(payload.acc!=null) u.searchParams.set('acc', String(payload.acc));
-        if(payload.miss!=null) u.searchParams.set('miss', String(payload.miss));
-        if(payload.rank!=null) u.searchParams.set('rank', String(payload.rank));
-        if(payload.stars!=null) u.searchParams.set('stars', String(payload.stars));
-        location.href = u.toString();
-        return;
-      }catch(_){}
-    }
-
-    location.href = abs('../herohealth/hub.html');
-  };
-
-  var btnReturn = document.getElementById('rb-btn-return-plan');
-  if(btnReturn){
-    if(useCooldownFlow){
-      btnReturn.textContent = '✅ ไปสรุป cooldown';
-    }
-
-    btnReturn.addEventListener('click', function(){
-      var score = document.getElementById('rb-res-score')?.textContent || '';
-      var acc   = document.getElementById('rb-res-acc')?.textContent || '';
-      var miss  = document.getElementById('rb-hud-miss')?.textContent || '';
-      var rank  = document.getElementById('rb-res-rank')?.textContent || '';
-      var stars = document.getElementById('rb-res-stars')?.textContent || '';
-      window.HH_END_GAME('result', { score:score, acc:acc, miss:miss, rank:rank, stars:stars });
-    });
-  }
-
-  var autoReturn = false;
-  if(backUrl){
-    autoReturn = (backUrl.indexOf('seq=1') >= 0) || (backUrl.indexOf('fitness-planner') >= 0) || (qs('autoNext','0') === '1');
-  }
-
-  function isHidden(el){
-    if(!el) return true;
-    return el.classList.contains('hidden') || el.hasAttribute('hidden');
-  }
-
-  var resView = document.getElementById('rb-view-result');
-
-  if(resView && autoReturn && !useCooldownFlow){
-    var fired = false;
-    var obs = new MutationObserver(function(){
-      if(fired) return;
-      if(!isHidden(resView)){
-        fired = true;
-        setTimeout(function(){
-          var strictSeq = (backUrl.indexOf('seq=1') >= 0) || (qs('autoNext','0') === '1');
-          if(!strictSeq) return;
-          var score = document.getElementById('rb-res-score')?.textContent || '';
-          var acc   = document.getElementById('rb-res-acc')?.textContent || '';
-          var miss  = document.getElementById('rb-hud-miss')?.textContent || '';
-          var rank  = document.getElementById('rb-res-rank')?.textContent || '';
-          var stars = document.getElementById('rb-res-stars')?.textContent || '';
-          window.HH_END_GAME('auto', { score:score, acc:acc, miss:miss, rank:rank, stars:stars });
-        }, 900);
+      function setRadio(name, value) {
+        const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+        if (el) el.checked = true;
       }
-    });
-    obs.observe(resView, { attributes:true, attributeFilter:['class','hidden'] });
-  }
-})();
-</script>
+
+      function readRadio(name, fallback) {
+        const el = document.querySelector(`input[name="${name}"]:checked`);
+        return el ? el.value : fallback;
+      }
+
+      function buildFitnessBackUrl() {
+        const u = new URL(q('hub', ABS_FITNESS), location.href);
+        if (!u.searchParams.get('focus')) u.searchParams.set('focus', 'rhythm-boxer');
+        if (!u.searchParams.get('featured')) u.searchParams.set('featured', 'rhythm-boxer');
+        return u.toString();
+      }
+
+      function buildLauncherUrl() {
+        const u = new URL(ABS_LAUNCHER);
+        [
+          'pid','name','nick','studyId','view','debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo','nickName'
+        ].forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+        u.searchParams.set('game', 'rhythm-boxer');
+        u.searchParams.set('gameId', 'rhythm-boxer');
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('diff', readRadio('diff', q('diff', 'normal')));
+        u.searchParams.set('time', readRadio('time', q('time', '90')));
+        u.searchParams.set('view', readRadio('view', q('view', 'mobile')));
+        u.searchParams.set('run', readRadio('run', q('run', 'play')));
+        u.searchParams.set('gate', readRadio('gate', q('gate', '1')));
+        u.searchParams.set('cooldown', readRadio('cooldown', q('cooldown', '1')));
+        u.searchParams.set('hub', q('hub', ABS_HUB));
+        u.searchParams.set('seed', els.seed.value || String(Date.now()));
+        u.searchParams.set('name', els.name.value || q('name', q('nickName', 'Player')));
+        u.searchParams.set('pid', els.pid.value || q('pid', 'anon'));
+        if (els.studyId.value) u.searchParams.set('studyId', els.studyId.value);
+        return u.toString();
+      }
+
+      function baseRunUrl(patch = {}) {
+        const u = new URL(location.href);
+
+        const pid = els.pid.value || q('pid', 'anon');
+        const name = els.name.value || q('name', q('nickName', 'Player'));
+        const studyId = els.studyId.value || q('studyId', '');
+        const diff = patch.diff || readRadio('diff', q('diff', 'normal'));
+        const time = patch.time || readRadio('time', q('time', '90'));
+        const view = patch.view || readRadio('view', q('view', 'mobile'));
+        const run = patch.run || readRadio('run', q('run', 'play'));
+        const gate = patch.gate ?? readRadio('gate', q('gate', '1'));
+        const cooldown = patch.cooldown ?? readRadio('cooldown', q('cooldown', '1'));
+        const seed = patch.seed || (els.seed.value || q('seed', String(Date.now())));
+        const hub = patch.hub || buildFitnessBackUrl();
+
+        u.search = '';
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('name', name);
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('game', 'rhythm-boxer');
+        u.searchParams.set('gameId', 'rhythm-boxer');
+        u.searchParams.set('theme', 'rhythmboxer');
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('time', String(time));
+        u.searchParams.set('view', view);
+        u.searchParams.set('run', run);
+        u.searchParams.set('gate', String(gate));
+        u.searchParams.set('cooldown', String(cooldown));
+        u.searchParams.set('hub', hub);
+        u.searchParams.set('seed', seed);
+        if (studyId) u.searchParams.set('studyId', studyId);
+
+        [
+          'debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo','nickName'
+        ].forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+
+        return u;
+      }
+
+      function buildWarmupUrl(runUrl, patch = {}) {
+        const u = new URL(ABS_GATE);
+
+        u.searchParams.set('phase', 'warmup');
+        u.searchParams.set('pid', els.pid.value || q('pid', 'anon'));
+        u.searchParams.set('name', els.name.value || q('name', q('nickName', 'Player')));
+        if (els.studyId.value || q('studyId', '')) {
+          u.searchParams.set('studyId', els.studyId.value || q('studyId', ''));
+        }
+
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('game', 'rhythm-boxer');
+        u.searchParams.set('gameId', 'rhythm-boxer');
+        u.searchParams.set('theme', 'rhythmboxer');
+
+        u.searchParams.set('diff', patch.diff || readRadio('diff', q('diff', 'normal')));
+        u.searchParams.set('time', patch.time || readRadio('time', q('time', '90')));
+        u.searchParams.set('seed', patch.seed || (els.seed.value || q('seed', String(Date.now()))));
+        u.searchParams.set('hub', patch.hub || buildFitnessBackUrl());
+        u.searchParams.set('view', patch.view || readRadio('view', q('view', 'mobile')));
+        u.searchParams.set('run', patch.run || readRadio('run', q('run', 'play')));
+
+        u.searchParams.set('gate', '1');
+        u.searchParams.set('cooldown', patch.cooldown ?? readRadio('cooldown', q('cooldown', '1')));
+        u.searchParams.set('returnPhase', (patch.cooldown ?? readRadio('cooldown', q('cooldown', '1'))) === '1' ? 'cooldown' : 'hub');
+        u.searchParams.set('dur', patch.dur || '20');
+        u.searchParams.set('cdur', patch.cdur || '20');
+        u.searchParams.set('next', runUrl.href);
+
+        return u;
+      }
+
+      function setPreview() {
+        els.previewUrl.textContent = buildLauncherUrl();
+      }
+
+      function renderRecent() {
+        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
+        if (!last || String(last.game || '').toLowerCase() !== 'rhythm-boxer') {
+          els.recentStripSub.textContent = 'ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย';
+          els.recentRank.textContent = '-';
+          els.recentScore.textContent = '-';
+          els.recentAcc.textContent = '-';
+          els.recentCombo.textContent = '-';
+          return;
+        }
+
+        els.recentStripSub.textContent =
+          `Score ${Number(last.scoreFinal || last.score || 0)} • miss ${Number(last.missTotal || last.miss || 0)}`;
+
+        els.recentRank.textContent = String(last.rank || '-');
+        els.recentScore.textContent = String(Number(last.scoreFinal || last.score || 0));
+        els.recentAcc.textContent = `${Number(last.accPct || last.accuracy || 0)}%`;
+        els.recentCombo.textContent = String(Number(last.maxCombo || last.combo || 0));
+      }
+
+      function recommendFromSummary() {
+        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
+        if (!last || String(last.game || '').toLowerCase() !== 'rhythm-boxer') {
+          return {
+            title: 'แนะนำค่าเริ่มต้น',
+            sub: 'เริ่มแบบสมดุลก่อน เพื่อฝึกฟัง beat และกดให้ตรงจังหวะ',
+            diff: 'normal',
+            time: '90',
+            view: q('view', 'mobile'),
+            run: 'play',
+            gate: '1',
+            cooldown: '1',
+            chips: ['Normal','90s',q('view','mobile'),'Standard']
+          };
+        }
+
+        const acc = Number(last.accPct || last.accuracy || 0);
+        const combo = Number(last.maxCombo || last.combo || 0);
+        const miss = Number(last.missTotal || last.miss || 0);
+        const rank = String(last.rank || '').toUpperCase();
+
+        if (acc < 50 || miss >= 10) {
+          return {
+            title: 'ลดความยากก่อน',
+            sub: 'ใช้ Easy 60 วินาที เพื่อจับ beat และลดความกดดันของโน้ต',
+            diff: 'easy',
+            time: '60',
+            view: 'mobile',
+            run: 'play',
+            gate: '1',
+            cooldown: '1',
+            chips: ['Easy','60s','Beat Focus','Standard']
+          };
+        }
+
+        if ((rank === 'S' || rank === 'A') && acc >= 84 && combo >= 12) {
+          return {
+            title: 'พร้อมอัปเกรดความท้าทายแล้ว',
+            sub: 'ลอง Hard หรือ Research เพื่อเจอ pattern แน่นขึ้นและเก็บ combo ยาวกว่าเดิม',
+            diff: 'hard',
+            time: '90',
+            view: 'pc',
+            run: 'research',
+            gate: '1',
+            cooldown: '1',
+            chips: ['Hard','90s','PC','Research']
+          };
+        }
+
+        return {
+          title: 'กำลังไปได้ดี',
+          sub: 'แนะนำ Normal 90 วินาที เพื่อดัน timing และรักษา combo ให้ต่อเนื่องขึ้น',
+          diff: 'normal',
+          time: '90',
+          view: 'mobile',
+          run: 'play',
+          gate: '1',
+          cooldown: '1',
+          chips: ['Normal','90s','Combo Focus','Standard']
+        };
+      }
+
+      function applyRec(rec) {
+        setRadio('diff', rec.diff);
+        setRadio('time', rec.time);
+        setRadio('view', rec.view);
+        setRadio('run', rec.run === 'research' ? 'research' : 'play');
+        setRadio('gate', rec.gate);
+        setRadio('cooldown', rec.cooldown);
+
+        els.recommendTitle.textContent = rec.title;
+        els.recommendSub.textContent = rec.sub;
+        els.recommendChips.innerHTML = rec.chips.map((x) => `<span>${x}</span>`).join('');
+        setPreview();
+      }
+
+      function showMenu() {
+        els.viewMenu.classList.remove('hidden');
+        els.viewPlay.classList.add('hidden');
+      }
+
+      function showPlay() {
+        els.viewMenu.classList.add('hidden');
+        els.viewPlay.classList.remove('hidden');
+      }
+
+      function showTelegraph(text) {
+        els.telegraphBox.textContent = text;
+        els.telegraphBox.classList.add('show');
+        clearTimeout(els.telegraphBox.__hideTimer);
+        els.telegraphBox.__hideTimer = setTimeout(() => {
+          els.telegraphBox.classList.remove('show');
+        }, 1000);
+      }
+
+      function mountDummyPlayScene() {
+        els.gameMount.innerHTML = `
+          <div style="position:absolute;inset:0;">
+            <div style="position:absolute;inset:24px 18px 42px 18px;border-radius:24px;border:2px dashed rgba(255,255,255,.14)"></div>
+            <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:82px;width:min(430px,72%);height:14px;border-radius:999px;background:linear-gradient(90deg,rgba(255,255,255,.24),rgba(255,255,255,.96),rgba(255,255,255,.24));box-shadow:0 0 0 8px rgba(255,157,207,.16)"></div>
+            <div style="position:absolute;right:98px;top:118px;width:78px;height:78px;border-radius:22px;display:grid;place-items:center;color:#fff;font-size:36px;background:linear-gradient(180deg,#ff9dcf,#ff74b3);border:3px solid rgba(255,255,255,.24);box-shadow:0 16px 24px rgba(0,0,0,.16)">♪</div>
+          </div>
+        `;
+      }
+
+      function updateHud() {
+        els.hudMode.textContent = readRadio('run', 'play');
+        els.hudDiff.textContent = readRadio('diff', 'normal');
+        els.hudTime.textContent = `${Math.max(0, state.left)}s`;
+        els.hudScore.textContent = String(state.score);
+        els.hudCombo.textContent = String(state.combo);
+        els.hudBoss.textContent = state.left > 18 ? 'READY' : (state.left > 0 ? 'FINAL' : 'END');
+      }
+
+      function computeRank(score, acc, miss) {
+        if (acc >= 93 && miss <= 1 && score >= 240) return 'S';
+        if (acc >= 84 && miss <= 4 && score >= 170) return 'A';
+        if (acc >= 70 && score >= 120) return 'B';
+        if (acc >= 52) return 'C';
+        return 'D';
+      }
+
+      function finishRun(reason = 'summary') {
+        if (!state.running) return;
+        state.running = false;
+        clearInterval(state.timerId);
+
+        state.acc = Math.max(35, Math.min(98, Math.round((state.score / Math.max(1, state.score + (state.miss * 9))) * 100)));
+        state.rank = computeRank(state.score, state.acc, state.miss);
+
+        els.summaryPanel.classList.add('show');
+        els.summaryTitle.textContent = state.rank === 'S' ? 'สุดยอดมาก!' : (state.rank === 'A' ? 'เยี่ยมมาก!' : 'เก่งขึ้นอีกแล้ว!');
+        els.summarySub.textContent = 'นี่คือผลสรุปรอบล่าสุดของ Rhythm Boxer';
+        els.summaryScore.textContent = String(state.score);
+        els.summaryAcc.textContent = `${state.acc}%`;
+        els.summaryCombo.textContent = String(state.combo);
+        els.summaryMiss.textContent = String(state.miss);
+        els.rankBadge.textContent = state.rank;
+
+        Bridge?.markFinish('rhythm-boxer', {
+          scoreFinal: state.score,
+          accPct: state.acc,
+          maxCombo: state.combo,
+          missTotal: state.miss,
+          rank: state.rank,
+          result: reason,
+          timeSec: Number(readRadio('time', q('time', '90')) || 90),
+          snapshotExtra: {
+            href: location.href,
+            hub: q('hub', ABS_HUB)
+          },
+          summaryExtra: {
+            href: location.href,
+            hub: q('hub', ABS_HUB)
+          }
+        });
+      }
+
+      function startRun() {
+        state.running = true;
+        state.left = Number(readRadio('time', q('time', '90')) || 90);
+        state.score = 0;
+        state.combo = 0;
+        state.miss = 0;
+        state.acc = 0;
+        state.rank = 'B';
+
+        els.summaryPanel.classList.remove('show');
+        mountDummyPlayScene();
+        showPlay();
+        showTelegraph('READY!');
+
+        Bridge?.markStart('rhythm-boxer', {
+          result: 'playing',
+          href: location.href
+        });
+
+        updateHud();
+
+        clearInterval(state.timerId);
+        state.timerId = setInterval(() => {
+          if (!state.running) return;
+
+          state.left -= 1;
+
+          const gain = Math.round(Math.random() * 16) + 10;
+          const missRoll = Math.random();
+
+          if (missRoll < 0.16) {
+            state.miss += 1;
+            state.combo = Math.max(0, state.combo - 2);
+          } else {
+            state.score += gain;
+            state.combo += 1;
+          }
+
+          updateHud();
+
+          if (state.left === 18) showTelegraph('FINAL ROUND!');
+          if (state.left <= 0) {
+            finishRun('summary');
+          }
+        }, 1000);
+      }
+
+      function launchWithCurrentSettings() {
+        const runUrl = baseRunUrl();
+        const gate = readRadio('gate', q('gate', '1'));
+        location.href = gate === '1'
+          ? buildWarmupUrl(runUrl).href
+          : runUrl.href;
+      }
+
+      function launchQuick() {
+        const runUrl = baseRunUrl({
+          diff: 'easy',
+          time: '60',
+          run: 'play',
+          gate: '0',
+          cooldown: '1',
+          view: 'mobile'
+        });
+        location.href = runUrl.href;
+      }
+
+      function useLastPattern() {
+        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
+        if (!last || String(last.game || '').toLowerCase() !== 'rhythm-boxer') return;
+
+        setRadio('diff', String(last.diff || 'normal'));
+        setRadio('time', String(last.timeSec || '90'));
+        setRadio('view', q('view', 'mobile'));
+        setRadio('run', 'play');
+        setRadio('gate', '1');
+        setRadio('cooldown', '1');
+        setPreview();
+      }
+
+      function initLauncherMode() {
+        els.pid.value = q('pid', 'anon');
+        els.name.value = q('name', q('nickName', 'Player'));
+        els.studyId.value = q('studyId', '');
+        els.seed.value = q('seed', String(Date.now()));
+
+        setRadio('diff', q('diff', 'normal'));
+        setRadio('time', q('time', '90'));
+        setRadio('view', q('view', 'mobile'));
+        setRadio('run', q('run', 'play'));
+        setRadio('gate', q('gate', '1'));
+        setRadio('cooldown', q('cooldown', '1'));
+
+        const fitnessUrl = buildFitnessBackUrl();
+        els.btnBackFitnessTop.href = fitnessUrl;
+        els.btnBackFitness.href = fitnessUrl;
+        els.rbBackFitnessPlay.href = fitnessUrl;
+
+        const hubUrl = q('hub', ABS_HUB);
+        els.btnBackHubTop.href = hubUrl;
+        els.btnBackHub.href = hubUrl;
+
+        const rec = recommendFromSummary();
+        applyRec(rec);
+        renderRecent();
+
+        els.btnApplyRecommended.addEventListener('click', () => applyRec(rec));
+        els.btnStartStandard.addEventListener('click', launchWithCurrentSettings);
+        els.btnQuickPlay.addEventListener('click', launchQuick);
+        els.btnUseLastPattern.addEventListener('click', useLastPattern);
+
+        [
+          ...document.querySelectorAll('input[type="radio"]'),
+          els.pid, els.name, els.studyId, els.seed
+        ].forEach((el) => {
+          if (!el) return;
+          el.addEventListener('input', setPreview);
+          el.addEventListener('change', setPreview);
+        });
+      }
+
+      els.btnPlayAgain?.addEventListener('click', () => {
+        location.href = baseRunUrl({
+          gate: '0',
+          cooldown: readRadio('cooldown', q('cooldown', '1'))
+        }).href;
+      });
+
+      els.btnStopEarly?.addEventListener('click', () => {
+        finishRun('stop-early');
+      });
+
+      if (Bridge) {
+        Bridge.installBasicHooks('rhythm-boxer', {
+          fitnessLinkSelectors: [
+            '#btnBackFitnessTop',
+            '#btnBackFitness',
+            '#rb-back-fitness-play',
+            'a[href*="fitness-zone.html"]'
+          ]
+        });
+      }
+
+      initLauncherMode();
+
+      if (q('game', '') || q('gameId', '') || q('run', '') || q('mode', '')) {
+        startRun();
+      } else {
+        showMenu();
+      }
+    })();
+  </script>
+
+  <script src="./js/rhythm-boxer.js"></script>
 </body>
 </html>
