@@ -7,187 +7,7 @@
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./hygiene-zone.css" />
-
-  <style>
-    .planner-spotlight{
-      margin-top:18px;
-      border-radius:24px;
-      border:3px solid #d7edf7;
-      background:linear-gradient(180deg,#fffef8,#ffffff);
-      box-shadow:0 18px 36px rgba(86,155,194,.14);
-      padding:16px;
-      display:grid;
-      gap:14px;
-    }
-
-    .planner-head{
-      display:grid;
-      grid-template-columns:auto 1fr;
-      gap:14px;
-      align-items:center;
-    }
-
-    .planner-icon{
-      width:68px;
-      height:68px;
-      border-radius:22px;
-      display:grid;
-      place-items:center;
-      font-size:34px;
-      background:linear-gradient(135deg,#7fcfff,#ffd45c);
-      border:2px solid #d7edf7;
-      box-shadow:inset 0 2px 0 rgba(255,255,255,.72);
-    }
-
-    .planner-kicker{
-      font-size:12px;
-      font-weight:1000;
-      letter-spacing:.08em;
-      color:#5ea8d0;
-    }
-
-    .planner-title{
-      margin:2px 0 0;
-      font-size:28px;
-      line-height:1.06;
-      font-weight:1000;
-      color:#4d4a42;
-    }
-
-    .planner-sub{
-      margin:6px 0 0;
-      font-size:13px;
-      line-height:1.55;
-      color:#7b7a72;
-      font-weight:1000;
-    }
-
-    .planner-tags{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .planner-tag{
-      min-height:30px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:6px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid #d7edf7;
-      color:#5d6e7a;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .planner-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .planner-btn{
-      appearance:none;
-      border:none;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:46px;
-      padding:10px 14px;
-      border-radius:16px;
-      font-size:14px;
-      font-weight:1000;
-      cursor:pointer;
-    }
-
-    .planner-btn.play{
-      background:linear-gradient(180deg,#7ed957,#58c33f);
-      color:#173b0b;
-    }
-
-    .planner-btn.blue{
-      background:linear-gradient(180deg,#7fcfff,#58b7f5);
-      color:#11374a;
-    }
-
-    .planner-btn.soft{
-      background:#fff;
-      color:#6c6a61;
-      border:2px solid #d7edf7;
-    }
-
-    .planner-note{
-      font-size:12px;
-      line-height:1.6;
-      color:#7b7a72;
-      font-weight:1000;
-    }
-
-    .planner-mini{
-      margin-top:10px;
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .planner-mini-card{
-      border-radius:18px;
-      background:#fff;
-      border:2px solid #d7edf7;
-      padding:12px;
-    }
-
-    .planner-mini-k{
-      font-size:12px;
-      font-weight:1000;
-      color:#7b7a72;
-    }
-
-    .planner-mini-v{
-      margin-top:6px;
-      font-size:18px;
-      font-weight:1000;
-      color:#4d4a42;
-      line-height:1.25;
-    }
-
-    .planner-inline-link{
-      text-decoration:none;
-      color:inherit;
-    }
-
-    .planner-inline-link:hover{
-      transform:translateY(-1px);
-    }
-
-    @media (max-width: 900px){
-      .planner-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .planner-mini{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media (max-width: 640px){
-      .planner-head{
-        grid-template-columns:1fr;
-      }
-
-      .planner-title{
-        font-size:24px;
-      }
-
-      .planner-grid{
-        grid-template-columns:1fr;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="./hygiene-zone.css?v=20260407-fitnessplanner-clean" />
 </head>
 <body>
   <div class="hz-shell">
@@ -354,12 +174,8 @@
 
       function buildPlannerUrl(mode){
         let base = './fitness-planner.html';
-
-        if(mode === 'quick' || mode === 'class'){
-          base = './fitness-planner/index.html';
-        }else if(mode === 'weekly'){
-          base = './fitness-planner/weekly.html';
-        }
+        if(mode === 'quick' || mode === 'class') base = './fitness-planner/index.html';
+        if(mode === 'weekly') base = './fitness-planner/weekly.html';
 
         const u = new URL(base, location.href);
 
@@ -449,6 +265,6 @@
     })();
   </script>
 
-  <script type="module" src="./fitness-zone.js"></script>
+  <script type="module" src="./fitness-zone.js?v=20260407-fitnessplanner-clean"></script>
 </body>
 </html>
