@@ -1,105 +1,743 @@
-// === /goodjunk-intervention/parent/parent-summary.js ===
-// Parent summary page flow bridge
-// PATCH v20260323a-GJI-PARENT-SUMMARY-FLOW
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk • Parent Summary</title>
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --sky1:#e4f7ff;
+      --sky2:#c9ecff;
+      --sky3:#fff8de;
+      --card:#fffef8;
+      --line:#cbe8f3;
+      --text:#4d4a42;
+      --muted:#7c7972;
+      --green:#7ed957;
+      --green2:#59c53f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --violet:#cdb9ff;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
+    }
 
-import { initFlowBridge, appendFlowParams } from '../research/flow-bridge.js';
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
 
-function qs(name) {
-  return new URLSearchParams(location.search).get(name) || '';
-}
+    body{
+      min-height:100dvh;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.94), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.78), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 56%, var(--sky3));
+    }
 
-function findHubUrl() {
-  return (
-    document.querySelector('[data-hub]')?.getAttribute('data-hub') ||
-    qs('hub') ||
-    '../../hub.html'
-  );
-}
+    .page{
+      width:min(1080px,100%);
+      margin:0 auto;
+      padding:16px;
+      padding-top:calc(16px + env(safe-area-inset-top,0px));
+      padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
+      display:grid;
+      gap:16px;
+    }
 
-function bindLink(btn, flow, label, targetUrl, reason) {
-  if (!btn) return;
+    .hero{
+      background:linear-gradient(180deg,#fffef8,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+      padding:20px 18px;
+      position:relative;
+      overflow:hidden;
+    }
 
-  btn.addEventListener('click', (ev) => {
-    ev.preventDefault();
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-30px;
+      top:-30px;
+      width:130px;
+      height:130px;
+      border-radius:999px;
+      background:rgba(127,207,255,.18);
+      filter:blur(8px);
+    }
 
-    const nextUrl = appendFlowParams(targetUrl, flow.ctx);
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-24px;
+      bottom:-24px;
+      width:120px;
+      height:120px;
+      border-radius:999px;
+      background:rgba(205,185,255,.18);
+      filter:blur(8px);
+    }
 
-    flow.noteRedirect(reason, nextUrl, {
-      nextLabel: label,
-      nextPath: nextUrl
-    });
+    .kicker{
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#eef7ff;
+      border:2px solid var(--line);
+      color:#5da8d0;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
 
-    flow.complete(reason, {
-      nextLabel: label,
-      nextPath: nextUrl
-    });
+    h1{
+      position:relative;
+      z-index:1;
+      margin:0 0 8px;
+      font-size:clamp(30px,5vw,46px);
+      line-height:1.05;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
+    }
 
-    location.href = nextUrl;
-  });
-}
+    .lead{
+      position:relative;
+      z-index:1;
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      font-weight:900;
+      max-width:820px;
+    }
 
-async function init() {
-  const flow = initFlowBridge({
-    pageId: 'parent-summary',
-    defaultStep: 'reviewing'
-  });
+    .ctx{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:2px dashed var(--line);
+      background:rgba(255,255,255,.72);
+      color:#6f6b64;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.55;
+    }
 
-  await flow.start();
+    .grid{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+    }
 
-  flow.setStep('reviewing', {
-    reviewStartedAt: new Date().toISOString()
-  });
+    .card{
+      background:linear-gradient(180deg,#fffef9,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:26px;
+      box-shadow:var(--shadow);
+      padding:16px;
+    }
 
-  const hubBtn =
-    document.querySelector('[data-action="hub"]') ||
-    document.querySelector('[data-role="hub"]');
+    .card-title{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-bottom:12px;
+      font-size:22px;
+      line-height:1.2;
+      font-weight:1000;
+      color:var(--text);
+    }
 
-  const finishBtn =
-    document.querySelector('[data-action="finish"]') ||
-    document.querySelector('[data-role="finish"]');
+    .badge{
+      width:42px;
+      height:42px;
+      flex:0 0 auto;
+      display:grid;
+      place-items:center;
+      border-radius:14px;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef8;
+      font-size:20px;
+      box-shadow:0 8px 16px rgba(88,183,245,.20);
+    }
 
-  const printBtn =
-    document.querySelector('[data-action="print"]') ||
-    document.querySelector('[data-role="print"]');
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
 
-  const restartBtn =
-    document.querySelector('[data-action="restart"]') ||
-    document.querySelector('[data-role="restart"]');
+    .item{
+      border:2px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+      padding:12px 14px;
+    }
 
-  bindLink(hubBtn, flow, 'กลับ HUB', findHubUrl(), 'parent-summary-hub');
+    .item-k{
+      color:#8a867f;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:4px;
+      line-height:1.4;
+    }
 
-  if (finishBtn) {
-    const finishUrl = finishBtn.getAttribute('data-next') || findHubUrl();
-    bindLink(finishBtn, flow, 'Finish', finishUrl, 'parent-summary-finish');
-  }
+    .item-v{
+      color:var(--text);
+      font-size:clamp(18px,3vw,28px);
+      font-weight:1000;
+      line-height:1.2;
+      word-break:break-word;
+    }
 
-  if (restartBtn) {
-    const restartUrl =
-      restartBtn.getAttribute('data-next') ||
-      '../game/goodjunk-vr.html';
+    .list{
+      display:grid;
+      gap:10px;
+    }
 
-    bindLink(restartBtn, flow, 'Restart Game', restartUrl, 'parent-summary-restart');
-  }
+    .list-item{
+      border:2px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+      padding:12px 14px;
+    }
 
-  if (printBtn) {
-    printBtn.addEventListener('click', () => {
-      flow.persist({
-        flowStep: 'reviewing',
-        printClickedAt: new Date().toISOString()
+    .list-k{
+      color:#8a867f;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:4px;
+      line-height:1.4;
+    }
+
+    .list-v{
+      color:var(--text);
+      font-size:16px;
+      font-weight:1000;
+      line-height:1.55;
+    }
+
+    .note-box{
+      border:2px dashed var(--line);
+      border-radius:20px;
+      background:rgba(255,255,255,.68);
+      padding:14px;
+      color:#6f6b64;
+      font-size:14px;
+      line-height:1.7;
+      font-weight:900;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:14px 18px;
+      font-size:16px;
+      font-weight:1000;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
+      transition:.12s ease;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-main{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#fffef8;
+    }
+
+    .btn-blue{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef8;
+    }
+
+    .btn-violet{
+      background:linear-gradient(180deg,var(--violet),#aa8fff);
+      color:#fffef8;
+    }
+
+    .btn-warn{
+      background:linear-gradient(180deg,var(--yellow),var(--orange));
+      color:#6d4e00;
+    }
+
+    .btn-ghost{
+      background:#fff;
+      color:#6f6a62;
+      border:2px solid var(--line);
+    }
+
+    .empty{
+      color:#8a867f;
+      font-size:14px;
+      font-weight:900;
+      line-height:1.6;
+      border:2px dashed var(--line);
+      border-radius:18px;
+      padding:14px;
+      background:rgba(255,255,255,.6);
+    }
+
+    @media (max-width:900px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width:640px){
+      .page{ padding:12px; }
+      .summary-grid{ grid-template-columns:1fr; }
+      .actions .btn{ flex:1 1 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="kicker">👨‍👩‍👧 PARENT SUMMARY</div>
+      <h1>สรุปผลสำหรับผู้ปกครอง</h1>
+      <p class="lead">
+        หน้านี้สรุปผลการเล่น GoodJunk และสิ่งที่เด็กเลือกหลังเล่น เพื่อใช้พูดคุยต่อที่บ้านได้ง่ายขึ้น
+      </p>
+      <div class="ctx" id="ctxBox">กำลังโหลดข้อมูล…</div>
+    </section>
+
+    <section class="grid">
+      <section class="card">
+        <div class="card-title">
+          <div class="badge">🎮</div>
+          <div>ผลจากเกม</div>
+        </div>
+        <div class="summary-grid" id="gameGrid"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">
+          <div class="badge">📝</div>
+          <div>ข้อสรุปสั้น ๆ</div>
+        </div>
+        <div class="note-box" id="headlineNote">กำลังวิเคราะห์ข้อมูล…</div>
+      </section>
+    </section>
+
+    <section class="grid">
+      <section class="card">
+        <div class="card-title">
+          <div class="badge">🧠</div>
+          <div>สิ่งที่เด็กเข้าใจและเลือกตอบ</div>
+        </div>
+        <div class="list" id="knowledgeList"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">
+          <div class="badge">🌱</div>
+          <div>พฤติกรรมที่อยากเริ่มทำ</div>
+        </div>
+        <div class="list" id="behaviorList"></div>
+      </section>
+    </section>
+
+    <section class="card">
+      <div class="card-title">
+        <div class="badge">💬</div>
+        <div>คำแนะนำสำหรับผู้ปกครอง</div>
+      </div>
+      <div class="list" id="adviceList"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">
+        <div class="badge">🗂️</div>
+        <div>ปุ่มใช้งานต่อ</div>
+      </div>
+
+      <div class="actions">
+        <a class="btn btn-main" id="btnPlayAgain" href="#">เล่นอีกครั้ง</a>
+        <a class="btn btn-blue" id="btnCompletion" href="#">ดู Completion</a>
+        <button class="btn btn-warn" id="btnExport" type="button">Export JSON</button>
+        <a class="btn btn-ghost" id="btnHub" href="#">กลับ HUB</a>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { loadCtx, loadAssessment } from '../research/localstore.js';
+
+    const GJI_CTX_KEY = 'GJI_CTX';
+    const GJI_GAME_SUMMARY_KEY = 'GJI_GAME_SUMMARY';
+
+    function readJson(key, fb = null){
+      try{
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fb;
+      }catch{
+        return fb;
+      }
+    }
+
+    function getCtx(){
+      const a = loadCtx?.() || {};
+      const b = readJson(GJI_CTX_KEY, {}) || {};
+      return { ...b, ...a };
+    }
+
+    function bloomKey(ctx){
+      const pid = ctx.pid || ctx.studentKey || 'anon';
+      const sessionId = ctx.sessionId || ctx.session || 'default';
+      return `GJI_GAME_BLOOM:${pid}:${sessionId}`;
+    }
+
+    function readBloom(ctx){
+      return readJson(bloomKey(ctx), {}) || {};
+    }
+
+    function readAnswers(file){
+      try{
+        return loadAssessment(file, {})?.answers || {};
+      }catch{
+        return {};
+      }
+    }
+
+    function escapeHtml(s){
+      return String(s ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+    }
+
+    function listItem(label, value){
+      return `
+        <div class="list-item">
+          <div class="list-k">${escapeHtml(label)}</div>
+          <div class="list-v">${escapeHtml(value || '-')}</div>
+        </div>
+      `;
+    }
+
+    function formatChoicePlan(v){
+      const map = {
+        fruit_daily: 'เด็กอยากเริ่มกินผลไม้เพิ่มขึ้น',
+        drink_water: 'เด็กอยากดื่มน้ำเปล่ามากขึ้น',
+        reduce_soda: 'เด็กอยากลดน้ำอัดลม',
+        reduce_snack: 'เด็กอยากลด junk food'
+      };
+      return map[v] || '-';
+    }
+
+    function formatChoiceSupport(v){
+      const map = {
+        self: 'เด็กอยากเตือนตัวเอง',
+        parent: 'เด็กอยากให้ผู้ปกครองช่วยเตือน',
+        teacher: 'เด็กอยากให้ครูช่วยเตือน'
+      };
+      return map[v] || '-';
+    }
+
+    function formatEvalChoice(v){
+      const map = {
+        setA: 'เลือกโดนัท + น้ำอัดลม',
+        setB: 'เลือกกล้วย + นม'
+      };
+      return map[v] || '-';
+    }
+
+    function formatEvalReason(v){
+      const map = {
+        less_sugar: 'เพราะน้ำตาลน้อยกว่า',
+        better_energy: 'เพราะให้พลังงานที่ดีกว่า',
+        more_nutrients: 'เพราะมีประโยชน์และสารอาหารมากกว่า'
+      };
+      return map[v] || '-';
+    }
+
+    function formatCreateItem(v){
+      const map = {
+        apple: 'แอปเปิล',
+        banana: 'กล้วย',
+        watermelon: 'แตงโม',
+        carrot: 'แครอท',
+        broccoli: 'บรอกโคลี',
+        salad: 'สลัด',
+        milk: 'นม',
+        water: 'น้ำเปล่า'
+      };
+      return map[v] || '-';
+    }
+
+    function bossLabel(summary){
+      if (summary?.bossCleared) return 'ผ่าน boss แล้ว';
+      if (summary?.phaseReached) return String(summary.phaseReached);
+      return '-';
+    }
+
+    function accuracyPct(summary){
+      const n = Number(summary?.accuracy);
+      if (!Number.isFinite(n)) return '-';
+      return `${Math.round(n * 100)}%`;
+    }
+
+    function buildCommonQuery(ctx, summary){
+      const q = new URLSearchParams();
+      const entries = {
+        pid: ctx.pid || ctx.studentKey || '',
+        name: ctx.name || ctx.nickName || '',
+        studentKey: ctx.studentKey || ctx.pid || '',
+        nickName: ctx.nickName || ctx.name || '',
+        studyId: ctx.studyId || '',
+        session: ctx.session || ctx.sessionId || '',
+        sessionId: ctx.sessionId || ctx.session || '',
+        condition: ctx.condition || ctx.conditionGroup || '',
+        conditionGroup: ctx.conditionGroup || ctx.condition || '',
+        classRoom: ctx.classRoom || ctx.classroom || '',
+        classroom: ctx.classroom || ctx.classRoom || '',
+        schoolName: ctx.schoolName || ctx.school || '',
+        school: ctx.school || ctx.schoolName || '',
+        diff: summary?.diff || ctx.diff || '',
+        time: ctx.time || '',
+        view: summary?.view || ctx.view || '',
+        run: ctx.run || '',
+        gameId: summary?.gameId || ctx.gameId || 'goodjunk',
+        mode: summary?.mode || ctx.mode || '',
+        role: ctx.role || '',
+        roomId: ctx.roomId || ctx.room || '',
+        startAt: ctx.startAt || '',
+        hub: ctx.hub || '../hub.html',
+        lang: ctx.lang || 'th'
+      };
+
+      Object.entries(entries).forEach(([k,v]) => {
+        if (String(v || '').trim() !== '') q.set(k, String(v));
       });
-      flow.pushEvent('parent-summary-print', {
-        pageId: 'parent-summary'
-      }).catch(() => {});
-      window.print();
-    });
-  }
 
-  window.addEventListener('beforeprint', () => {
-    flow.persist({
-      flowStep: 'reviewing',
-      beforePrintAt: new Date().toISOString()
-    });
-  });
-}
+      return q.toString();
+    }
 
-document.addEventListener('DOMContentLoaded', init);
+    function renderGame(summary){
+      const box = document.getElementById('gameGrid');
+      if (!box) return;
+
+      if (!summary) {
+        box.innerHTML = `<div class="empty">ยังไม่พบข้อมูลเกม</div>`;
+        return;
+      }
+
+      const items = [
+        ['คะแนน', summary.score ?? '-'],
+        ['Grade', summary.grade ?? '-'],
+        ['Good hit', summary.goodHit ?? '-'],
+        ['Junk hit', summary.junkHit ?? '-'],
+        ['Miss', summary.miss ?? '-'],
+        ['Combo สูงสุด', summary.comboBest ?? '-'],
+        ['Accuracy', accuracyPct(summary)],
+        ['Phase / Boss', bossLabel(summary)]
+      ];
+
+      box.innerHTML = items.map(([k,v]) => `
+        <div class="item">
+          <div class="item-k">${escapeHtml(k)}</div>
+          <div class="item-v">${escapeHtml(String(v))}</div>
+        </div>
+      `).join('');
+    }
+
+    function buildHeadline(summary, choice, bloom){
+      if (!summary) {
+        return 'ยังไม่พบข้อมูลผลเกมในเครื่องนี้';
+      }
+
+      const strongGame = summary.bossCleared || Number(summary.score || 0) >= 90;
+      const healthyChoice =
+        bloom?.evaluateChoice === 'setB' ||
+        choice?.choice_plan === 'fruit_daily' ||
+        choice?.choice_plan === 'drink_water';
+
+      if (strongGame && healthyChoice) {
+        return 'เด็กทำผลงานในเกมได้ดี และมีแนวโน้มเลือกทางเลือกที่ดีต่อสุขภาพมากขึ้น เหมาะกับการต่อยอดเป็นกิจวัตรเล็ก ๆ ที่บ้าน';
+      }
+
+      if (healthyChoice) {
+        return 'แม้คะแนนเกมอาจยังไม่สูงมาก แต่เด็กเริ่มสะท้อนความคิดไปในทางเลือกอาหารที่ดีขึ้นแล้ว การสนับสนุนที่บ้านจะช่วยให้พฤติกรรมค่อย ๆ ชัดขึ้น';
+      }
+
+      return 'เด็กยังอยู่ในช่วงเริ่มต้นของการเรียนรู้เรื่องการเลือกอาหาร ควรใช้การพูดคุยสั้น ๆ และการชวนเลือกของว่างง่าย ๆ ร่วมกันที่บ้าน';
+    }
+
+    function renderKnowledge(pre, post, bloom){
+      const box = document.getElementById('knowledgeList');
+      if (!box) return;
+
+      box.innerHTML = [
+        listItem('Pre-Knowledge ข้อ 1', pre.q1 || '-'),
+        listItem('Post-Knowledge ข้อ 1', post.q1_post || '-'),
+        listItem('Evaluate: เด็กเลือก', formatEvalChoice(bloom.evaluateChoice)),
+        listItem('เหตุผลที่เลือก', formatEvalReason(bloom.evaluateReason)),
+        listItem('Create: ผลไม้', formatCreateItem(bloom.createFruit)),
+        listItem('Create: ผัก', formatCreateItem(bloom.createVeg)),
+        listItem('Create: เครื่องดื่ม', formatCreateItem(bloom.createDrink)),
+        listItem('Reflection หลังเล่น', post.reflection_post || '-')
+      ].join('');
+    }
+
+    function renderBehavior(behavior, choice){
+      const box = document.getElementById('behaviorList');
+      if (!box) return;
+
+      box.innerHTML = [
+        listItem('สิ่งที่เด็กอยากเริ่มทำ', formatChoicePlan(choice.choice_plan)),
+        listItem('คนที่เด็กอยากให้ช่วย', formatChoiceSupport(choice.choice_support)),
+        listItem('สิ่งที่อยากลองเปลี่ยนพรุ่งนี้', behavior.b3_reflection || '-')
+      ].join('');
+    }
+
+    function buildAdvice(summary, choice, bloom){
+      const advice = [];
+
+      if (choice?.choice_support === 'parent') {
+        advice.push('ชวนเด็กเลือกของว่างร่วมกันสัปดาห์ละ 2–3 ครั้ง เพื่อให้การตัดสินใจเรื่องอาหารดีเกิดซ้ำแบบไม่กดดัน');
+      } else {
+        advice.push('ใช้คำถามสั้น ๆ เช่น “วันนี้อยากเลือกผลไม้หรือขนมหวาน” เพื่อกระตุ้นให้เด็กคิดและเลือกเอง');
+      }
+
+      if (choice?.choice_plan === 'drink_water') {
+        advice.push('เตรียมน้ำเปล่าให้หยิบง่ายในช่วงหลังกลับจากโรงเรียน และลดการวางน้ำอัดลมให้เห็นบ่อย');
+      }
+
+      if (choice?.choice_plan === 'fruit_daily') {
+        advice.push('หั่นผลไม้ชิ้นเล็กหรือจัดเป็นกล่องพร้อมกิน จะช่วยให้เด็กเลือกผลไม้ได้ง่ายขึ้น');
+      }
+
+      if (choice?.choice_plan === 'reduce_soda' || choice?.choice_plan === 'reduce_snack') {
+        advice.push('ไม่จำเป็นต้องงดทันทีทั้งหมด แต่ลดความถี่ทีละน้อยจะเหมาะกับเด็ก ป.5 มากกว่า');
+      }
+
+      if (bloom?.evaluateChoice === 'setB') {
+        advice.push('เด็กเริ่มมองเห็นความต่างระหว่างของว่างที่ดีกับ junk food แล้ว ควรเสริมแรงด้วยคำชมที่ชัดเจน');
+      } else {
+        advice.push('ลองใช้ตัวอย่างจริงที่บ้าน เช่น วางผลไม้คู่กับขนม แล้วชวนคุยว่าอะไรทำให้ร่างกายสดชื่นกว่า');
+      }
+
+      if (summary?.bossCleared) {
+        advice.push('ผลเกมดีมาก สามารถใช้เกมเป็นตัวเริ่มบทสนทนาเชิงบวก เช่น “หนูชนะ boss เพราะเลือกของดีเก่งขึ้น”');
+      } else {
+        advice.push('แม้ยังไม่ผ่าน boss ก็ยังใช้ผลเกมสะท้อนการเรียนรู้ได้ โดยเน้นความพยายามและการเลือกที่ดีขึ้นทีละน้อย');
+      }
+
+      return advice.slice(0, 5);
+    }
+
+    function renderAdvice(summary, choice, bloom){
+      const box = document.getElementById('adviceList');
+      if (!box) return;
+
+      const advice = buildAdvice(summary, choice, bloom);
+      box.innerHTML = advice.map((v, i) => listItem(`ข้อแนะนำ ${i + 1}`, v)).join('');
+    }
+
+    function initButtons(ctx, summary, bloom, assessments){
+      const query = buildCommonQuery(ctx, summary);
+
+      const btnPlayAgain = document.getElementById('btnPlayAgain');
+      const btnCompletion = document.getElementById('btnCompletion');
+      const btnHub = document.getElementById('btnHub');
+      const btnExport = document.getElementById('btnExport');
+
+      if (btnPlayAgain) {
+        btnPlayAgain.href = `../game/goodjunk-vr.html?${query}`;
+      }
+
+      if (btnCompletion) {
+        btnCompletion.href = `../assessments/completion.html?${query}`;
+      }
+
+      if (btnHub) {
+        btnHub.href = ctx.hub || '../hub.html';
+      }
+
+      if (btnExport) {
+        btnExport.addEventListener('click', () => {
+          const payload = {
+            exportedAt: new Date().toISOString(),
+            ctx,
+            summary,
+            bloom,
+            assessments
+          };
+
+          const blob = new Blob([JSON.stringify(payload, null, 2)], {
+            type: 'application/json;charset=utf-8'
+          });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `goodjunk-parent-summary-${ctx.pid || ctx.studentKey || 'student'}-${Date.now()}.json`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        });
+      }
+    }
+
+    function render(){
+      const ctx = getCtx();
+      const summary = readJson(GJI_GAME_SUMMARY_KEY, null);
+      const bloom = readBloom(ctx);
+
+      const assessments = {
+        preKnowledge: readAnswers('pre-knowledge.html'),
+        postKnowledge: readAnswers('post-knowledge.html'),
+        postBehavior: readAnswers('post-behavior.html'),
+        postChoice: readAnswers('post-choice.html')
+      };
+
+      const ctxBox = document.getElementById('ctxBox');
+      const headlineNote = document.getElementById('headlineNote');
+
+      if (ctxBox) {
+        ctxBox.textContent = [
+          `PID: ${ctx.pid || ctx.studentKey || '-'}`,
+          `Study: ${ctx.studyId || '-'}`,
+          `Session: ${ctx.sessionId || ctx.session || '-'}`,
+          `Condition: ${ctx.condition || ctx.conditionGroup || '-'}`,
+          `Mode: ${summary?.mode || ctx.mode || '-'}`
+        ].join(' • ');
+      }
+
+      renderGame(summary);
+      renderKnowledge(assessments.preKnowledge, assessments.postKnowledge, bloom);
+      renderBehavior(assessments.postBehavior, assessments.postChoice);
+      renderAdvice(summary, assessments.postChoice, bloom);
+
+      if (headlineNote) {
+        headlineNote.textContent = buildHeadline(summary, assessments.postChoice, bloom);
+      }
+
+      initButtons(ctx, summary, bloom, assessments);
+    }
+
+    render();
+  </script>
+</body>
+</html>
