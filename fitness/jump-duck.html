@@ -1163,7 +1163,7 @@
 
           <div class="meter-wrap">
             <div class="meter-card">
-              <div class="meter-head"><span>Progress</span><span id="prog-text-wrap"><strong id="progTextAlias" class="hidden"></strong><span id="hud-prog-text">0%</span></span></div>
+              <div class="meter-head"><span>Progress</span><span id="hud-prog-text">0%</span></div>
               <div class="meter"><div id="hud-prog-fill"></div></div>
             </div>
 
@@ -1221,10 +1221,8 @@
             <div class="summary-grid">
               <div class="mini-row"><span>Pattern</span><span id="hud-pattern">—</span></div>
               <div class="mini-row"><span>Rush</span><span id="hud-rush">—</span></div>
-              <div class="mini-row"><span>Boss Label</span><span id="hud-boss-label-box"><span id="hud-boss-label-hidden" class="hidden"></span><span id="hud-boss-label-proxy">—</span></span></div>
               <div class="mini-row"><span>Boss Status</span><span id="hud-boss-status">—</span></div>
               <div class="mini-row"><span>Compact</span><span id="hud-boss-compact">—</span></div>
-              <div class="mini-row"><span>View</span><span id="hud-view-proxy">mobile / pc</span></div>
             </div>
           </div>
 
@@ -1300,7 +1298,7 @@
 
           <div class="footer-actions">
             <button class="btn primary" data-action="play-again" type="button">🔁 Play Again</button>
-            <button class="btn secondary" data-action="back-menu" type="button">🧭 Back Menu</button>
+            <button class="btn secondary" data-action="back-menu" type="button">🧘 Cooldown & Exit</button>
             <a class="btn ghost" id="jd-result-hub-link" href="../herohealth/hub-v2.html">🏠 HUB</a>
           </div>
         </section>
@@ -1331,6 +1329,7 @@
 
   <script src="../herohealth/fitness-lastgame-bridge.js"></script>
   <script src="./js/jump-duck.js"></script>
+
   <script>
     (() => {
       'use strict';
@@ -1364,23 +1363,8 @@
         ].forEach((id) => {
           const el = document.getElementById(id);
           if (!el) return;
-
-          if (id.includes('fitness')) {
-            el.href = hub;
-          } else if (id.includes('hub')) {
-            el.href = hub;
-          }
+          el.href = hub;
         });
-      }
-
-      function syncBossProxy() {
-        const src = document.getElementById('hud-boss-label');
-        const dst = document.getElementById('hud-boss-label-proxy');
-        if (!src || !dst) return;
-        const update = () => { dst.textContent = src.textContent || '—'; };
-        update();
-        const mo = new MutationObserver(update);
-        mo.observe(src, { childList: true, characterData: true, subtree: true });
       }
 
       function watchResultView() {
@@ -1401,9 +1385,131 @@
       }
 
       syncNavLinks();
-      syncBossProxy();
       watchResultView();
       mirrorJumpDuckSummary();
+    })();
+  </script>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const ABS_GATE = new URL('../herohealth/warmup-gate.html', location.href).href;
+      const resultView = document.getElementById('view-result');
+
+      function q(k, d='') {
+        try {
+          const v = new URL(location.href).searchParams.get(k);
+          return (v == null || v === '') ? d : v;
+        } catch (_) {
+          return d;
+        }
+      }
+
+      function isCooldownOn() {
+        return String(q('cooldown', '1')) === '1';
+      }
+
+      function isResultVisible() {
+        return !!(resultView && !resultView.classList.contains('hidden'));
+      }
+
+      function buildCooldownUrl(target = 'hub') {
+        const hub = q('hub', '../herohealth/fitness-zone.html');
+        const u = new URL(ABS_GATE);
+
+        [
+          'pid','name','studyId',
+          'zone','cat','game','gameId','theme',
+          'diff','time','seed','view','run',
+          'api','debug','log',
+          'studentKey','schoolCode','classRoom','studentNo','nickName',
+          'phase','conditionGroup','sessionNo','weekNo'
+        ].forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+
+        u.searchParams.set('phase', 'cooldown');
+        u.searchParams.set('gate', '1');
+        u.searchParams.set('cooldown', '1');
+        u.searchParams.set('returnPhase', 'hub');
+        u.searchParams.set('cdur', q('cdur', '20'));
+        u.searchParams.set('hub', hub);
+        u.searchParams.set('next', hub);
+        u.searchParams.set('target', target);
+
+        return u.toString();
+      }
+
+      function goCooldown(target = 'hub') {
+        try {
+          window.HH_FITNESS_LASTGAME?.writeSnapshot({
+            event: 'go_cooldown',
+            zone: 'fitness',
+            gameId: 'jump-duck',
+            game: 'jump-duck',
+            target,
+            result: isResultVisible() ? 'summary' : 'leave'
+          });
+        } catch (_) {}
+
+        location.href = buildCooldownUrl(target);
+      }
+
+      function bindResultExitLink(id, target = 'hub') {
+        const el = document.getElementById(id);
+        if (!el || el.__jdCooldownBound) return;
+        el.__jdCooldownBound = true;
+
+        el.addEventListener('click', (ev) => {
+          if (!isCooldownOn()) return;
+          if (!isResultVisible()) return;
+          ev.preventDefault();
+          goCooldown(target);
+        });
+      }
+
+      function patchBackMenuButton() {
+        const btn = document.querySelector('#view-result [data-action="back-menu"]');
+        if (!btn || btn.__jdCooldownBound) return;
+        btn.__jdCooldownBound = true;
+
+        btn.addEventListener('click', (ev) => {
+          if (!isCooldownOn()) return;
+          if (!isResultVisible()) return;
+          ev.preventDefault();
+          goCooldown('menu');
+        });
+      }
+
+      function patchPlayAgainButton() {
+        const btn = document.querySelector('#view-result [data-action="play-again"]');
+        if (!btn || btn.__jdReplayBound) return;
+        btn.__jdReplayBound = true;
+
+        btn.addEventListener('click', () => {
+          try {
+            window.HH_FITNESS_LASTGAME?.writeSnapshot({
+              event: 'rematch',
+              zone: 'fitness',
+              gameId: 'jump-duck',
+              game: 'jump-duck'
+            });
+          } catch (_) {}
+        });
+      }
+
+      function bootCooldownExitPatch() {
+        bindResultExitLink('jd-result-hub-link', 'hub');
+        bindResultExitLink('jd-result-fitness-link', 'fitness-zone');
+        bindResultExitLink('jd-result-hub-link-2', 'hub');
+        patchBackMenuButton();
+        patchPlayAgainButton();
+      }
+
+      document.addEventListener('DOMContentLoaded', bootCooldownExitPatch);
+      window.addEventListener('load', bootCooldownExitPatch);
     })();
   </script>
 </body>
