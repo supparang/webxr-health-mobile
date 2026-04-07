@@ -3,128 +3,1374 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Fitness Planner Launcher</title>
-  <meta name="theme-color" content="#bfe9ff" />
+  <title>HeroHealth • Fitness Planner</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#8fe3c1" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./fitness-launcher-shared.css?v=20260406a-fitness-launcher-shared" />
-
   <style>
-    .fp-stage{
-      position:absolute; inset:0;
+    :root{
+      --bg1:#ecfff8;
+      --bg2:#dff9f2;
+      --bg3:#fffbea;
+
+      --card:#fffefb;
+      --card2:#f7fffc;
+
+      --line:#cfeee5;
+      --line-strong:#a9dfd0;
+
+      --text:#3f4b46;
+      --muted:#73827c;
+
+      --green:#7ed957;
+      --green2:#53bf35;
+      --teal:#5dd7c3;
+      --teal2:#30b8a2;
+      --blue:#7fcfff;
+      --blue2:#55b7f5;
+      --yellow:#ffd966;
+      --orange:#ffb55e;
+      --pink:#ff9ecb;
+      --purple:#b999ff;
+
+      --shadow:0 16px 36px rgba(69,111,96,.12);
+      --shadow-soft:0 10px 22px rgba(69,111,96,.08);
+
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+    }
+
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{
+      min-height:100vh;
+      font-family:ui-rounded,"Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
       background:
-        radial-gradient(circle at 50% 18%, rgba(255,255,255,.16), rgba(255,255,255,0) 34%),
-        linear-gradient(180deg, #f3fbff 0%, #dff3ff 48%, #ccefff 100%);
+        radial-gradient(circle at top left, rgba(255,255,255,.9), transparent 36%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 52%,var(--bg3));
     }
-    .fp-board{
-      position:absolute; left:8%; right:8%; top:14%; bottom:12%;
-      border-radius:26px;
-      background:rgba(255,255,255,.72);
-      box-shadow:
-        0 14px 30px rgba(37,85,120,.10),
-        inset 0 0 0 2px rgba(122,188,225,.18);
-      overflow:hidden;
-    }
-    .fp-grid{
-      position:absolute; inset:16px;
+
+    a{color:inherit;text-decoration:none}
+    button,input,select{font:inherit}
+
+    .app{
+      width:min(1220px, calc(100% - 16px));
+      margin:0 auto;
+      padding:
+        calc(12px + var(--safe-top))
+        0
+        calc(20px + var(--safe-bottom));
       display:grid;
-      grid-template-columns:repeat(3, 1fr);
-      grid-auto-rows:1fr;
       gap:12px;
     }
-    .fp-card{
-      border-radius:18px;
+
+    .topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .pill-link,
+    .brand{
+      min-height:48px;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.88);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-weight:1000;
+    }
+
+    .brand-icon{
+      width:32px;height:32px;border-radius:50%;
+      display:grid;place-items:center;
+      color:#fff;
+      background:linear-gradient(135deg,var(--teal),var(--green));
+      font-size:16px;
+    }
+
+    .headline{
+      min-width:0;
+      padding:0 4px;
+    }
+
+    .headline h1{
+      margin:0;
+      font-size:clamp(24px,4vw,38px);
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .headline p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .shell{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    .card{
+      background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,254,248,.92));
+      border:2px solid var(--line);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+    }
+
+    .hero{
+      padding:18px;
+      display:grid;
+      gap:14px;
+      overflow:hidden;
+      position:relative;
+      min-height:760px;
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-30px;
+      bottom:-30px;
+      width:220px;
+      height:220px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(126,217,87,.18), transparent 64%);
+      pointer-events:none;
+    }
+
+    .hero-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      min-height:38px;
+      padding:8px 14px;
+      border-radius:999px;
       background:#fff;
-      box-shadow:0 8px 18px rgba(37,85,120,.08);
-      padding:12px;
+      border:2px solid var(--line);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .hero h2{
+      margin:0;
+      font-size:clamp(34px,5vw,58px);
+      line-height:.94;
+      font-weight:1000;
+    }
+
+    .hero p{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      font-weight:900;
+      line-height:1.55;
+      max-width:720px;
+    }
+
+    .hero-stage{
+      min-height:320px;
+      border-radius:28px;
+      border:2px dashed var(--line-strong);
+      background:
+        radial-gradient(circle at 15% 18%, rgba(255,255,255,.95), transparent 18%),
+        linear-gradient(180deg,#dffaf2 0%, #eafcff 44%, #fff8da 100%);
+      position:relative;
+      overflow:hidden;
+      display:grid;
+      place-items:center;
+    }
+
+    .hero-stage .mat{
+      position:absolute;
+      left:50%;
+      bottom:34px;
+      transform:translateX(-50%);
+      width:min(420px,78%);
+      height:28px;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--teal),var(--green));
+      box-shadow:0 0 0 8px rgba(93,215,195,.14);
+    }
+
+    .hero-stage .bubble{
+      position:absolute;
+      top:32px;
+      left:50%;
+      transform:translateX(-50%);
+      min-width:220px;
+      max-width:min(84%,420px);
+      padding:14px 16px;
+      border-radius:24px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      text-align:center;
+      font-weight:1000;
+    }
+
+    .hero-stage .bubble .big{
+      font-size:22px;
+      line-height:1.1;
+    }
+
+    .hero-stage .bubble .small{
+      margin-top:6px;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .hero-kid{
+      position:absolute;
+      left:50%;
+      bottom:54px;
+      transform:translateX(-50%);
+      width:180px;
+      height:160px;
+      filter:drop-shadow(0 10px 16px rgba(0,0,0,.08));
+    }
+
+    .hero-kid .head{
+      position:absolute;
+      left:50%;
+      top:8px;
+      transform:translateX(-50%);
+      width:62px;height:62px;border-radius:50%;
+      background:#ffe0bf;
+      border:3px solid rgba(63,75,70,.1);
+    }
+
+    .hero-kid .body{
+      position:absolute;
+      left:50%;
+      top:62px;
+      transform:translateX(-50%);
+      width:88px;height:62px;
+      border-radius:24px 24px 18px 18px;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      border:3px solid rgba(63,75,70,.1);
+    }
+
+    .hero-kid .arm,
+    .hero-kid .leg{
+      position:absolute;
+      background:#ffe0bf;
+      border-radius:999px;
+      border:3px solid rgba(63,75,70,.08);
+    }
+
+    .hero-kid .arm{width:16px;height:58px;top:66px}
+    .hero-kid .arm.left{left:34px;transform:rotate(20deg)}
+    .hero-kid .arm.right{right:34px;transform:rotate(-20deg)}
+    .hero-kid .leg{width:18px;height:60px;top:112px}
+    .hero-kid .leg.left{left:66px;transform:rotate(10deg)}
+    .hero-kid .leg.right{right:66px;transform:rotate(-10deg)}
+
+    .chips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .chip{
+      min-height:34px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:7px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .side{
+      padding:16px;
+      display:grid;
+      gap:12px;
+      position:sticky;
+      top:calc(10px + var(--safe-top));
+    }
+
+    .section{
+      border-radius:24px;
+      border:2px dashed var(--line-strong);
+      background:linear-gradient(180deg,#fff,#f8fffd);
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .section h3{
+      margin:0;
+      font-size:14px;
+      letter-spacing:.02em;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .field input,
+    .field select{
+      width:100%;
+      min-height:48px;
+      border-radius:16px;
+      border:2px solid var(--line);
+      padding:10px 12px;
+      background:#fff;
+      outline:none;
+    }
+
+    .field input:focus,
+    .field select:focus{
+      border-color:var(--teal2);
+    }
+
+    .grid-2{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .grid-3{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .toggle{
       position:relative;
     }
-    .fp-card .dot{
-      width:14px; height:14px; border-radius:999px;
-      position:absolute; right:12px; top:12px;
+
+    .toggle input{
+      position:absolute;
+      opacity:0;
+      pointer-events:none;
     }
-    .fp-card.c1 .dot{ background:#7ed957; }
-    .fp-card.c2 .dot{ background:#59bdf7; }
-    .fp-card.c3 .dot{ background:#ff99c8; }
-    .fp-card.c4 .dot{ background:#ffd45c; }
-    .fp-card .t{
-      font-size:12px; color:#6f8190; font-weight:800; margin-bottom:8px;
+
+    .toggle label{
+      display:grid;
+      place-items:center;
+      min-height:72px;
+      padding:10px;
+      border-radius:20px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,#fff,#f7fffc);
+      font-weight:1000;
+      cursor:pointer;
+      text-align:center;
+      box-shadow:var(--shadow-soft);
     }
-    .fp-card .v{
-      font-size:15px; color:#35566e; font-weight:900; line-height:1.35;
+
+    .toggle label small{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+      line-height:1.3;
     }
-    .fp-chip{
-      position:absolute; top:16px; left:16px;
-      padding:10px 14px; border-radius:999px;
-      background:linear-gradient(180deg, #fff2b8, #ffd45c);
-      color:#6b5200; font-weight:1000;
-      box-shadow:0 10px 22px rgba(255,212,92,.18);
-      z-index:2;
+
+    .toggle input:checked + label{
+      border-color:var(--teal2);
+      background:linear-gradient(180deg,#ffffff,#eefdfa);
+      transform:translateY(-2px);
     }
-    .fp-coach{
-      position:absolute; right:16px; bottom:16px;
-      max-width:250px;
-      padding:12px 14px; border-radius:18px;
-      background:rgba(255,255,255,.88);
-      color:#4e6a7e; font-weight:800;
-      box-shadow:0 10px 24px rgba(55,100,140,.10);
-      z-index:2;
+
+    .planner-board{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:12px;
     }
-    .fp-sticker{
-      position:absolute; left:18px; bottom:18px;
-      width:64px; height:64px; border-radius:20px;
-      display:grid; place-items:center;
-      background:linear-gradient(180deg, #ffe7f2, #ffbfd9);
-      font-size:30px;
-      box-shadow:0 10px 24px rgba(255,153,200,.18);
-      z-index:2;
-      animation:fpBounce 1.8s ease-in-out infinite;
+
+    .planner-card{
+      padding:16px;
+      display:grid;
+      gap:12px;
     }
-    @keyframes fpBounce{
-      0%,100%{ transform:translateY(0); }
-      50%{ transform:translateY(-6px); }
+
+    .planner-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .planner-title{
+      font-size:20px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .planner-sub{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .plan-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .plan-box{
+      border-radius:22px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,#fff,#f8fffd);
+      padding:14px;
+      display:grid;
+      gap:8px;
+    }
+
+    .plan-box .icon{
+      width:52px;height:52px;border-radius:18px;
+      display:grid;place-items:center;
+      color:#fff;
+      font-size:26px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .c-green{background:linear-gradient(180deg,var(--green),var(--green2))}
+    .c-teal{background:linear-gradient(180deg,var(--teal),var(--teal2))}
+    .c-blue{background:linear-gradient(180deg,var(--blue),var(--blue2))}
+    .c-yellow{background:linear-gradient(180deg,var(--yellow),var(--orange))}
+    .c-pink{background:linear-gradient(180deg,var(--pink),#ff74b3)}
+    .c-purple{background:linear-gradient(180deg,var(--purple),#8d6eff)}
+
+    .plan-box strong{
+      font-size:16px;
+      line-height:1.15;
+    }
+
+    .plan-box span{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .plan-box button{
+      min-height:42px;
+      border:none;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .summary-strip{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .summary-pill{
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
+      padding:10px 12px;
+    }
+
+    .summary-pill .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .summary-pill .v{
+      display:block;
+      margin-top:5px;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .task-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .task-item{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:12px;
+      align-items:center;
+      padding:12px;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:#fff;
+    }
+
+    .task-item input[type="checkbox"]{
+      width:22px;height:22px;
+      accent-color:#31b7a2;
+    }
+
+    .task-item .title{
+      font-size:15px;
+      font-weight:1000;
+      line-height:1.2;
+    }
+
+    .task-item .meta{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.35;
+    }
+
+    .task-item .badge{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#eefdfa;
+      border:2px solid var(--line);
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .cta-row{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .btn{
+      min-height:52px;
+      border:none;
+      border-radius:999px;
+      padding:12px 16px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      text-decoration:none;
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+    }
+
+    .btn.secondary{
+      background:linear-gradient(135deg,#fff,#eefdfa);
+      border:2px solid var(--line);
+    }
+
+    .btn.ghost{
+      background:linear-gradient(135deg,#fffdf0,#fff5cf);
+      border:2px solid rgba(255,185,94,.35);
+    }
+
+    .result-panel{
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .result-head{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:12px;
+      align-items:center;
+    }
+
+    .result-badge{
+      width:92px;height:92px;border-radius:26px;
+      display:grid;place-items:center;
+      background:linear-gradient(135deg,#fff,#eefdfa);
+      border:3px solid var(--line);
+      font-size:42px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .result-copy h2{
+      margin:0;
+      font-size:28px;
+      line-height:1.08;
+    }
+
+    .result-copy p{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .quote{
+      padding:14px;
+      border-radius:22px;
+      border:2px dashed var(--line-strong);
+      background:linear-gradient(180deg,#fff,#f8fffd);
+      color:var(--text);
+      font-weight:1000;
+      line-height:1.5;
+    }
+
+    .footer-note{
+      text-align:center;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .hidden{display:none !important}
+
+    @media (max-width:1024px){
+      .shell,
+      .planner-board{
+        grid-template-columns:1fr;
+      }
+      .side{
+        position:relative;
+        top:auto;
+      }
+    }
+
+    @media (max-width:760px){
+      .topbar{
+        grid-template-columns:1fr;
+      }
+      .grid-3,
+      .summary-strip,
+      .cta-row,
+      .plan-grid{
+        grid-template-columns:1fr;
+      }
+      .grid-2{
+        grid-template-columns:1fr;
+      }
+      .hero{
+        min-height:auto;
+      }
     }
   </style>
 </head>
-<body class="hh-fit-launcher">
-  <div id="hhFitLauncherRoot"></div>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">📋</div>
+        <div>HeroHealth</div>
+      </div>
 
-  <script src="./fitness-launcher-shared.js?v=20260406a-fitness-launcher-shared"></script>
-  <script>
-    setupFitnessLauncher({
-      zoneLabel: 'Fitness Zone',
-      title: 'Fitness Planner',
-      description: 'วางแผนกิจกรรมการออกกำลังกายให้เหมาะกับเป้าหมายของเด็ก เลือกกิจกรรม เวลา และลำดับให้สมดุล',
-      badge: 'FITNESS<br>PLANNER',
-      game: 'fitnessplanner',
-      gameId: 'fitnessplanner',
-      mode: 'solo',
-      run: 'play',
-      defaultDiff: 'normal',
-      defaultTime: '90',
-      defaultView: 'mobile',
-      defaultGate: false,
-      defaultCooldown: false,
-      hub: './hub-v2.html',
-      runPage: './fitness-planner.html',
-      warmupPage: './warmup-gate.html',
-      stageHtml: `
-        <div class="fp-stage">
-          <div class="fp-chip">Plan Your Day</div>
-          <div class="fp-board">
-            <div class="fp-grid">
-              <div class="fp-card c1"><div class="dot"></div><div class="t">Morning</div><div class="v">Stretch 10 min</div></div>
-              <div class="fp-card c2"><div class="dot"></div><div class="t">Afternoon</div><div class="v">Jump 15 min</div></div>
-              <div class="fp-card c3"><div class="dot"></div><div class="t">Evening</div><div class="v">Walk + Cooldown</div></div>
-              <div class="fp-card c4"><div class="dot"></div><div class="t">Goal</div><div class="v">Balanced Activity</div></div>
-              <div class="fp-card c1"><div class="dot"></div><div class="t">Energy</div><div class="v">Easy → Active → Calm</div></div>
-              <div class="fp-card c2"><div class="dot"></div><div class="t">Reward</div><div class="v">Healthy Star Plan</div></div>
+      <div class="headline">
+        <h1>Fitness Planner</h1>
+        <p>วางแผนกิจกรรมออกกำลังกายประจำวันแบบเข้าใจง่าย สนุก และทำได้จริง</p>
+      </div>
+
+      <div class="top-actions">
+        <a id="btnBackFitness" class="pill-link" href="./fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnBackHub" class="pill-link" href="./hub-v2.html">🏠 HUB</a>
+      </div>
+    </header>
+
+    <section id="view-planner" class="shell">
+      <section class="card hero">
+        <div class="hero-badge">✨ child-friendly • plan • goal • checklist • summary</div>
+
+        <h2>วันนี้หนูจะ<br>ขยับร่างกายแบบไหนดี?</h2>
+        <p>
+          เลือกเป้าหมายของวันนี้ ตั้งเวลา ความเข้ม และภารกิจที่อยากทำ
+          จากนั้นกดเริ่มแผน แล้วค่อยติ๊กทำสำเร็จทีละข้อเพื่อเก็บดาวและสร้างวินัย
+        </p>
+
+        <div class="hero-stage">
+          <div class="bubble">
+            <div class="big">🎯 วางแผนก่อนเล่น</div>
+            <div class="small">เลือกภารกิจให้เหมาะกับพลังของวันนี้</div>
+          </div>
+          <div class="mat"></div>
+
+          <div class="hero-kid" aria-hidden="true">
+            <div class="head"></div>
+            <div class="body"></div>
+            <div class="arm left"></div>
+            <div class="arm right"></div>
+            <div class="leg left"></div>
+            <div class="leg right"></div>
+          </div>
+        </div>
+
+        <div class="chips">
+          <div class="chip">🎯 Goal</div>
+          <div class="chip">⏱️ Time</div>
+          <div class="chip">💪 Intensity</div>
+          <div class="chip">✅ Checklist</div>
+          <div class="chip">⭐ Summary</div>
+        </div>
+      </section>
+
+      <aside class="card side">
+        <section class="section">
+          <h3>PLAYER</h3>
+          <div class="field">
+            <label for="fp-pid">PID</label>
+            <input id="fp-pid" type="text" placeholder="anon" />
+          </div>
+          <div class="field">
+            <label for="fp-name">Name</label>
+            <input id="fp-name" type="text" placeholder="Player" />
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>GOAL</h3>
+          <div class="grid-3">
+            <div class="toggle">
+              <input id="goal-fun" name="goal" type="radio" value="fun" checked />
+              <label for="goal-fun">Fun<small>เล่นให้สนุก</small></label>
+            </div>
+            <div class="toggle">
+              <input id="goal-energy" name="goal" type="radio" value="energy" />
+              <label for="goal-energy">Energy<small>เพิ่มพลัง</small></label>
+            </div>
+            <div class="toggle">
+              <input id="goal-focus" name="goal" type="radio" value="focus" />
+              <label for="goal-focus">Focus<small>คุมวินัย</small></label>
             </div>
           </div>
-          <div class="fp-sticker">🗓️</div>
-          <div class="fp-coach">จัดลำดับกิจกรรมให้พอดี สนุก และเหมาะกับเด็กในแต่ละช่วงเวลา</div>
+        </section>
+
+        <section class="section">
+          <h3>TIME</h3>
+          <div class="grid-3">
+            <div class="toggle">
+              <input id="time-10" name="time" type="radio" value="10" />
+              <label for="time-10">10 นาที<small>สั้น</small></label>
+            </div>
+            <div class="toggle">
+              <input id="time-15" name="time" type="radio" value="15" checked />
+              <label for="time-15">15 นาที<small>แนะนำ</small></label>
+            </div>
+            <div class="toggle">
+              <input id="time-20" name="time" type="radio" value="20" />
+              <label for="time-20">20 นาที<small>เต็มรอบ</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>INTENSITY</h3>
+          <div class="grid-3">
+            <div class="toggle">
+              <input id="int-easy" name="intensity" type="radio" value="easy" checked />
+              <label for="int-easy">Easy<small>เบา ๆ</small></label>
+            </div>
+            <div class="toggle">
+              <input id="int-normal" name="intensity" type="radio" value="normal" />
+              <label for="int-normal">Normal<small>พอดี</small></label>
+            </div>
+            <div class="toggle">
+              <input id="int-active" name="intensity" type="radio" value="active" />
+              <label for="int-active">Active<small>ท้าทาย</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>PLAN MODE</h3>
+          <div class="grid-2">
+            <div class="toggle">
+              <input id="mode-solo" name="planmode" type="radio" value="solo" checked />
+              <label for="mode-solo">Solo<small>ทำคนเดียว</small></label>
+            </div>
+            <div class="toggle">
+              <input id="mode-family" name="planmode" type="radio" value="family" />
+              <label for="mode-family">Family<small>ชวนคนที่บ้าน</small></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>START</h3>
+          <div class="cta-row">
+            <button id="btnBuildPlan" class="btn primary" type="button">✨ สร้างแผน</button>
+            <button id="btnQuickPlan" class="btn secondary" type="button">⚡ แผนเร็ว</button>
+            <button id="btnResetPlan" class="btn ghost" type="button">🧹 ล้างค่า</button>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <section id="plannerBoard" class="planner-board hidden">
+      <section class="card planner-card">
+        <div class="planner-head">
+          <div>
+            <div class="planner-title">แผนของหนูวันนี้</div>
+            <div class="planner-sub" id="planSubtitle">ระบบกำลังสร้างแผนที่เหมาะกับวันนี้</div>
+          </div>
+          <div class="chip" id="planModeChip">Fun • 15 นาที</div>
         </div>
-      `
-    });
+
+        <div class="summary-strip">
+          <div class="summary-pill"><span class="k">Goal</span><span id="sumGoal" class="v">Fun</span></div>
+          <div class="summary-pill"><span class="k">Time</span><span id="sumTime" class="v">15 นาที</span></div>
+          <div class="summary-pill"><span class="k">Intensity</span><span id="sumIntensity" class="v">Easy</span></div>
+          <div class="summary-pill"><span class="k">Stars</span><span id="sumStars" class="v">0⭐</span></div>
+        </div>
+
+        <div class="plan-grid" id="planGrid"></div>
+      </section>
+
+      <aside class="card planner-card">
+        <div class="planner-head">
+          <div>
+            <div class="planner-title">Checklist</div>
+            <div class="planner-sub">ทำเสร็จแล้วค่อยติ๊ก เพื่อดูความสำเร็จของแผน</div>
+          </div>
+        </div>
+
+        <div id="taskList" class="task-list"></div>
+
+        <div class="cta-row">
+          <button id="btnAutoComplete" class="btn secondary" type="button">✅ ติ๊กตัวอย่าง</button>
+          <button id="btnFinishPlan" class="btn primary" type="button">🏁 จบแผนวันนี้</button>
+          <button id="btnBackEdit" class="btn ghost" type="button">↩ กลับไปแก้</button>
+        </div>
+      </aside>
+    </section>
+
+    <section id="resultPanel" class="card result-panel hidden">
+      <div class="result-head">
+        <div class="result-badge" id="resultBadge">⭐</div>
+        <div class="result-copy">
+          <h2 id="resultTitle">เก่งมาก!</h2>
+          <p id="resultSub">วันนี้หนูทำแผนการออกกำลังกายเสร็จแล้ว</p>
+        </div>
+      </div>
+
+      <div class="summary-strip">
+        <div class="summary-pill"><span class="k">Completed</span><span id="resCompleted" class="v">0/0</span></div>
+        <div class="summary-pill"><span class="k">Stars</span><span id="resStars" class="v">0⭐</span></div>
+        <div class="summary-pill"><span class="k">Plan</span><span id="resPlan" class="v">Fun</span></div>
+        <div class="summary-pill"><span class="k">Energy</span><span id="resEnergy" class="v">ดี</span></div>
+      </div>
+
+      <div id="resultQuote" class="quote">
+        วางแผนเป็น ทำได้จริง และดูแลสุขภาพตัวเองเก่งขึ้นทุกวัน
+      </div>
+
+      <div class="cta-row">
+        <button id="btnPlanAgain" class="btn primary" type="button">🔁 วางแผนใหม่</button>
+        <a id="btnGoFitnessZone" class="btn secondary" href="./fitness-zone.html">🏃 กลับ Fitness Zone</a>
+        <a id="btnGoHub" class="btn ghost" href="./hub-v2.html">🏠 กลับ HUB</a>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      HeroHealth Fitness Planner • child-friendly • daily habit • summary-ready
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const FITNESS_LAST_KEY = 'HH_FITNESS_LAST_GAME_V1';
+      const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
+      const LAST_ZONE_KEY = 'HHA_LAST_ZONE';
+      const NEXT_ZONE_KEY = 'HHA_NEXT_ZONE';
+      const RECOMMENDED_ZONE_KEY = 'HHA_RECOMMENDED_ZONE';
+
+      const qs = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
+
+      const PLAN_LIBRARY = {
+        fun: [
+          { icon:'🤸', color:'c-pink', title:'Jump & Smile', desc:'กระโดดเบา ๆ 20 ครั้ง พร้อมยิ้มกว้าง', task:'กระโดดครบ 20 ครั้ง', badge:'fun' },
+          { icon:'🕺', color:'c-purple', title:'Dance Move', desc:'เต้นตามจังหวะเพลง 2 นาที', task:'เต้นครบ 2 นาที', badge:'rhythm' },
+          { icon:'🙆', color:'c-teal', title:'Stretch Star', desc:'ยืดแขน ขา หลัง แบบสบาย ๆ', task:'ยืดตัวครบทุกท่า', badge:'stretch' },
+          { icon:'🚶', color:'c-green', title:'Happy Walk', desc:'เดินรอบห้องหรือสนามแบบไม่รีบ', task:'เดินครบเวลาที่กำหนด', badge:'walk' }
+        ],
+        energy: [
+          { icon:'🏃', color:'c-orange', title:'Fast Steps', desc:'วิ่งอยู่กับที่แบบมีจังหวะ', task:'วิ่งครบ 1 นาที 3 รอบ', badge:'cardio' },
+          { icon:'💪', color:'c-green', title:'Power Squat', desc:'ย่อ-ลุกช้า ๆ แบบคุมท่า', task:'ทำ squat ครบ 12 ครั้ง', badge:'power' },
+          { icon:'🦵', color:'c-blue', title:'Knee Lift', desc:'ยกเข่าสลับซ้ายขวา', task:'ยกเข่าครบ 30 ครั้ง', badge:'legs' },
+          { icon:'⚡', color:'c-pink', title:'Quick Combo', desc:'กระโดด + แตะมือ + หมุนตัว', task:'ทำ combo ครบ 3 เซต', badge:'combo' }
+        ],
+        focus: [
+          { icon:'🧘', color:'c-teal', title:'Balance Calm', desc:'ยืนทรงตัวนิ่ง ๆ พร้อมหายใจลึก', task:'ทรงตัวครบ 30 วินาที', badge:'balance' },
+          { icon:'🎯', color:'c-yellow', title:'Target Steps', desc:'ก้าวตามลำดับ 1-2-3-4 อย่างมีวินัย', task:'ก้าวครบทุกลำดับ', badge:'focus' },
+          { icon:'📏', color:'c-blue', title:'Form Check', desc:'คุมท่ายืน หลังตรง ไหล่ผ่อนคลาย', task:'รักษาท่าถูกต้องครบเวลา', badge:'form' },
+          { icon:'🌈', color:'c-purple', title:'Cool Breathing', desc:'หายใจเข้าออกช้า ๆ แล้วผ่อนร่างกาย', task:'หายใจครบ 5 รอบใหญ่', badge:'calm' }
+        ]
+      };
+
+      let currentPlan = null;
+
+      function q(k, d='') {
+        const v = qs.get(k);
+        return v == null || v === '' ? d : v;
+      }
+
+      function safeParse(raw, fallback = null) {
+        try { return JSON.parse(raw); } catch (_) { return fallback; }
+      }
+
+      function saveJson(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+      }
+
+      function setZonePointers() {
+        try { localStorage.setItem(LAST_ZONE_KEY, 'fitness'); } catch (_) {}
+        try { localStorage.setItem(NEXT_ZONE_KEY, 'hygiene'); } catch (_) {}
+        try { localStorage.setItem(RECOMMENDED_ZONE_KEY, 'fitness'); } catch (_) {}
+      }
+
+      function selected(name, fallback='') {
+        const el = document.querySelector(`input[name="${name}"]:checked`);
+        return el ? el.value : fallback;
+      }
+
+      function setRadio(name, value) {
+        const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+        if (el) el.checked = true;
+      }
+
+      function playerName() {
+        return $('fp-name').value.trim() || q('name', q('nickName', 'Player'));
+      }
+
+      function pidValue() {
+        return $('fp-pid').value.trim() || q('pid', 'anon');
+      }
+
+      function timeValue() {
+        return selected('time', '15');
+      }
+
+      function goalValue() {
+        return selected('goal', 'fun');
+      }
+
+      function intensityValue() {
+        return selected('intensity', 'easy');
+      }
+
+      function modeValue() {
+        return selected('planmode', 'solo');
+      }
+
+      function titleCase(v) {
+        const map = {
+          fun:'Fun',
+          energy:'Energy',
+          focus:'Focus',
+          easy:'Easy',
+          normal:'Normal',
+          active:'Active',
+          solo:'Solo',
+          family:'Family'
+        };
+        return map[v] || v || '-';
+      }
+
+      function hubUrl() {
+        return q('hub', './hub-v2.html');
+      }
+
+      function fitnessZoneUrl() {
+        const u = new URL('./fitness-zone.html', location.href);
+        [
+          'pid','name','nick','studyId','view','debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo','nickName'
+        ].forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('featured', 'fitness-planner');
+        u.searchParams.set('focus', 'fitness-planner');
+        return u.toString();
+      }
+
+      function plannerSummaryText(goal, intensity, planMode) {
+        if (goal === 'fun') {
+          return planMode === 'family'
+            ? 'วันนี้เน้นสนุกและชวนคนในบ้านขยับร่างกายไปด้วยกัน'
+            : 'วันนี้เน้นสนุก ขยับตัวเบา ๆ และยิ้มไปด้วย';
+        }
+        if (goal === 'energy') {
+          return intensity === 'active'
+            ? 'วันนี้เป็นแผนเพิ่มพลังแบบท้าทาย เตรียมตัวลุยได้เลย'
+            : 'วันนี้เน้นเพิ่มพลังแบบพอดี ๆ ให้ร่างกายตื่นตัว';
+        }
+        return 'วันนี้เน้นคุมวินัย ทรงตัว และทำตามแผนให้ครบอย่างตั้งใจ';
+      }
+
+      function starFromCompletion(done, total, intensity) {
+        const ratio = total ? done / total : 0;
+        let stars = 1;
+        if (ratio >= 0.5) stars = 2;
+        if (ratio >= 0.75) stars = 3;
+        if (ratio >= 1) stars = intensity === 'active' ? 5 : 4;
+        return stars;
+      }
+
+      function buildPlan(goal, intensity, planMode, minutes) {
+        const source = PLAN_LIBRARY[goal] || PLAN_LIBRARY.fun;
+        const pool = [...source];
+
+        if (intensity === 'easy') pool.splice(3, 1);
+        if (goal === 'focus') {
+          return {
+            tasks: pool.slice(0, 3),
+            subtitle: plannerSummaryText(goal, intensity, planMode),
+            energyText: 'นิ่งและมีสมาธิ'
+          };
+        }
+
+        if (minutes === '10') {
+          return {
+            tasks: pool.slice(0, 2),
+            subtitle: plannerSummaryText(goal, intensity, planMode),
+            energyText: 'เบาและสบาย'
+          };
+        }
+
+        if (minutes === '15') {
+          return {
+            tasks: pool.slice(0, 3),
+            subtitle: plannerSummaryText(goal, intensity, planMode),
+            energyText: intensity === 'easy' ? 'พอดีและสม่ำเสมอ' : 'สดใสและกระฉับกระเฉง'
+          };
+        }
+
+        return {
+          tasks: pool.slice(0, 4),
+          subtitle: plannerSummaryText(goal, intensity, planMode),
+          energyText: intensity === 'active' ? 'พลังเต็มมาก' : 'ทำได้ครบและต่อเนื่อง'
+        };
+      }
+
+      function renderPlanCards(tasks) {
+        $('planGrid').innerHTML = tasks.map((task) => `
+          <article class="plan-box">
+            <div class="icon ${task.color}">${task.icon}</div>
+            <strong>${task.title}</strong>
+            <span>${task.desc}</span>
+            <button type="button">ภารกิจ: ${task.badge}</button>
+          </article>
+        `).join('');
+      }
+
+      function renderTaskList(tasks) {
+        $('taskList').innerHTML = tasks.map((task, index) => `
+          <label class="task-item">
+            <input type="checkbox" data-task-index="${index}" />
+            <div>
+              <div class="title">${task.title}</div>
+              <div class="meta">${task.task}</div>
+            </div>
+            <div class="badge">${task.badge}</div>
+          </label>
+        `).join('');
+      }
+
+      function refreshLiveStars() {
+        if (!currentPlan) return;
+        const checks = [...document.querySelectorAll('[data-task-index]')];
+        const done = checks.filter((x) => x.checked).length;
+        const stars = starFromCompletion(done, currentPlan.tasks.length, currentPlan.intensity);
+        $('sumStars').textContent = `${stars}⭐`;
+      }
+
+      function openPlannerBoard() {
+        $('plannerBoard').classList.remove('hidden');
+        $('resultPanel').classList.add('hidden');
+      }
+
+      function closePlannerBoard() {
+        $('plannerBoard').classList.add('hidden');
+      }
+
+      function buildAndRenderPlan(quick = false) {
+        setZonePointers();
+
+        if (quick) {
+          setRadio('goal', 'fun');
+          setRadio('time', '10');
+          setRadio('intensity', 'easy');
+          setRadio('planmode', 'solo');
+        }
+
+        const goal = goalValue();
+        const intensity = intensityValue();
+        const planMode = modeValue();
+        const minutes = timeValue();
+
+        const built = buildPlan(goal, intensity, planMode, minutes);
+
+        currentPlan = {
+          goal,
+          intensity,
+          planMode,
+          minutes,
+          tasks: built.tasks,
+          subtitle: built.subtitle,
+          energyText: built.energyText,
+          startedAt: Date.now()
+        };
+
+        $('planSubtitle').textContent = built.subtitle;
+        $('planModeChip').textContent = `${titleCase(goal)} • ${minutes} นาที • ${titleCase(intensity)}`;
+        $('sumGoal').textContent = titleCase(goal);
+        $('sumTime').textContent = `${minutes} นาที`;
+        $('sumIntensity').textContent = titleCase(intensity);
+        $('sumStars').textContent = '0⭐';
+
+        renderPlanCards(built.tasks);
+        renderTaskList(built.tasks);
+        openPlannerBoard();
+
+        document.querySelectorAll('[data-task-index]').forEach((el) => {
+          el.addEventListener('change', refreshLiveStars);
+        });
+
+        writeFitnessSnapshot('planner_start', {
+          score: 0,
+          combo: 0,
+          bestStreak: 0,
+          miss: 0,
+          result: 'planning',
+          mode: planMode,
+          diff: intensity,
+          time: minutes
+        });
+      }
+
+      function currentCompletion() {
+        const checks = [...document.querySelectorAll('[data-task-index]')];
+        const done = checks.filter((x) => x.checked).length;
+        return {
+          done,
+          total: checks.length
+        };
+      }
+
+      function resultTitleByStars(stars) {
+        if (stars >= 5) return 'สุดยอดมาก!';
+        if (stars >= 4) return 'เก่งมาก!';
+        if (stars >= 3) return 'ดีมาก!';
+        if (stars >= 2) return 'เริ่มดีแล้ว!';
+        return 'ลองอีกนิดนะ!';
+      }
+
+      function resultBadgeByStars(stars) {
+        if (stars >= 5) return '🏆';
+        if (stars >= 4) return '🌟';
+        if (stars >= 3) return '⭐';
+        if (stars >= 2) return '💚';
+        return '🙂';
+      }
+
+      function resultQuoteText(stars, goal) {
+        if (stars >= 5) return 'วันนี้หนูวางแผนได้เก่งมาก ทำครบ แถมมีวินัยสุด ๆ';
+        if (stars >= 4) return 'แผนวันนี้สำเร็จเยี่ยมมาก รักษาความสม่ำเสมอแบบนี้ต่อไปนะ';
+        if (stars >= 3) return goal === 'focus'
+          ? 'หนูคุมตัวเองได้ดีมากขึ้นทุกวัน'
+          : 'การขยับร่างกายทีละนิด ทำให้เก่งขึ้นทุกวัน';
+        return 'เริ่มต้นได้แล้ว วันต่อไปลองทำให้ครบมากขึ้นอีกนิดนะ';
+      }
+
+      function writeFitnessSnapshot(eventName, extra = {}) {
+        const payload = {
+          zone: 'fitness',
+          gameId: 'fitness-planner',
+          game: 'fitness-planner',
+          title: 'Fitness Planner',
+          pid: pidValue(),
+          name: playerName(),
+          mode: modeValue(),
+          run: 'play',
+          diff: intensityValue(),
+          view: q('view', 'mobile'),
+          time: timeValue(),
+          ts: Date.now(),
+          href: location.href,
+          path: location.pathname,
+          event: eventName,
+          ...extra
+        };
+
+        saveJson(FITNESS_LAST_KEY, payload);
+        try { localStorage.setItem(LAST_ZONE_KEY, 'fitness'); } catch (_) {}
+      }
+
+      function saveFinalSummary(stars, done, total) {
+        const summary = {
+          game: 'fitness-planner',
+          pid: pidValue(),
+          title: 'Fitness Planner',
+          goal: currentPlan.goal,
+          intensity: currentPlan.intensity,
+          mode: currentPlan.planMode,
+          timeSec: Number(currentPlan.minutes) * 60,
+          score: done * 25,
+          stars,
+          completedTasks: done,
+          totalTasks: total,
+          energyText: currentPlan.energyText,
+          result: 'summary',
+          timestampIso: new Date().toISOString()
+        };
+
+        saveJson(LAST_SUMMARY_KEY, summary);
+        return summary;
+      }
+
+      function finishPlan() {
+        if (!currentPlan) return;
+
+        const { done, total } = currentCompletion();
+        const stars = starFromCompletion(done, total, currentPlan.intensity);
+
+        $('resultBadge').textContent = resultBadgeByStars(stars);
+        $('resultTitle').textContent = resultTitleByStars(stars);
+        $('resultSub').textContent = `${playerName()} ทำแผนสำเร็จ ${done}/${total} ภารกิจ`;
+        $('resCompleted').textContent = `${done}/${total}`;
+        $('resStars').textContent = `${stars}⭐`;
+        $('resPlan').textContent = `${titleCase(currentPlan.goal)} • ${currentPlan.minutes} นาที`;
+        $('resEnergy').textContent = currentPlan.energyText;
+        $('resultQuote').textContent = resultQuoteText(stars, currentPlan.goal);
+
+        saveFinalSummary(stars, done, total);
+        writeFitnessSnapshot('planner_finish', {
+          score: done * 25,
+          combo: done,
+          bestStreak: done,
+          miss: Math.max(0, total - done),
+          result: 'summary',
+          stars,
+          completedTasks: done,
+          totalTasks: total,
+          mode: currentPlan.planMode,
+          diff: currentPlan.intensity,
+          time: currentPlan.minutes
+        });
+
+        $('resultPanel').classList.remove('hidden');
+        closePlannerBoard();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      function autoCompleteSome() {
+        const checks = [...document.querySelectorAll('[data-task-index]')];
+        checks.forEach((el, i) => {
+          el.checked = i < Math.max(1, Math.ceil(checks.length * 0.66));
+        });
+        refreshLiveStars();
+      }
+
+      function resetPlanner() {
+        currentPlan = null;
+        $('plannerBoard').classList.add('hidden');
+        $('resultPanel').classList.add('hidden');
+        $('sumStars').textContent = '0⭐';
+      }
+
+      function bind() {
+        $('btnBuildPlan').addEventListener('click', () => buildAndRenderPlan(false));
+        $('btnQuickPlan').addEventListener('click', () => buildAndRenderPlan(true));
+        $('btnResetPlan').addEventListener('click', resetPlanner);
+
+        $('btnAutoComplete').addEventListener('click', autoCompleteSome);
+        $('btnFinishPlan').addEventListener('click', finishPlan);
+        $('btnBackEdit').addEventListener('click', () => {
+          $('plannerBoard').classList.add('hidden');
+        });
+
+        $('btnPlanAgain').addEventListener('click', () => {
+          resetPlanner();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        $('btnGoFitnessZone').addEventListener('click', () => {
+          writeFitnessSnapshot('go_fitness_zone', { result: 'leave' });
+        });
+
+        $('btnGoHub').addEventListener('click', () => {
+          writeFitnessSnapshot('go_hub', { result: 'leave' });
+        });
+
+        $('btnBackFitness').addEventListener('click', () => {
+          writeFitnessSnapshot('go_fitness_zone_top', { result: 'leave' });
+        });
+
+        $('btnBackHub').addEventListener('click', () => {
+          writeFitnessSnapshot('go_hub_top', { result: 'leave' });
+        });
+      }
+
+      function init() {
+        setZonePointers();
+
+        $('fp-pid').value = q('pid', 'anon');
+        $('fp-name').value = q('name', q('nickName', 'Player'));
+
+        $('btnBackHub').href = hubUrl();
+        $('btnGoHub').href = hubUrl();
+
+        const fz = fitnessZoneUrl();
+        $('btnBackFitness').href = fz;
+        $('btnGoFitnessZone').href = fz;
+
+        bind();
+
+        writeFitnessSnapshot('planner_open', {
+          score: 0,
+          combo: 0,
+          bestStreak: 0,
+          miss: 0,
+          result: 'idle'
+        });
+      }
+
+      init();
+    })();
   </script>
 </body>
 </html>
