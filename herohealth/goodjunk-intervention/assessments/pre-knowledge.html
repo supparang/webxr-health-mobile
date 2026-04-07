@@ -3,161 +3,374 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Intervention • Pre-Knowledge</title>
-  <link rel="stylesheet" href="./assessment.css" />
+  <title>GoodJunk • Pre-Knowledge</title>
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --sky1:#dff6ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d6;
+      --card:#fffef8;
+      --line:#c9e8f4;
+      --text:#4d4a42;
+      --muted:#7d7a73;
+      --green:#7ed957;
+      --green2:#59c53f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --pink:#ff9fcb;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+    body{
+      min-height:100dvh;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.94), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.76), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 56%, var(--sky3));
+    }
+
+    .page{
+      width:min(980px, 100%);
+      margin:0 auto;
+      padding:16px;
+      padding-top:calc(16px + env(safe-area-inset-top,0px));
+      padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
+    }
+
+    .hero{
+      background:linear-gradient(180deg,#fffef8,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+      padding:20px 18px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-30px;
+      top:-30px;
+      width:130px;
+      height:130px;
+      border-radius:999px;
+      background:rgba(127,207,255,.18);
+      filter:blur(8px);
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-24px;
+      bottom:-24px;
+      width:120px;
+      height:120px;
+      border-radius:999px;
+      background:rgba(255,212,92,.18);
+      filter:blur(8px);
+    }
+
+    .kicker{
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#eaf8ff;
+      border:2px solid var(--line);
+      color:#58a8d2;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    h1{
+      position:relative;
+      z-index:1;
+      margin:0 0 8px;
+      font-size:clamp(30px,5vw,44px);
+      line-height:1.06;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .lead{
+      position:relative;
+      z-index:1;
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      font-weight:900;
+      max-width:760px;
+    }
+
+    .ctx{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:2px dashed var(--line);
+      background:rgba(255,255,255,.72);
+      color:#6f6b64;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.55;
+    }
+
+    form{
+      display:grid;
+      gap:14px;
+      margin-top:16px;
+    }
+
+    .q-card{
+      background:linear-gradient(180deg,#fffef9,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:26px;
+      box-shadow:var(--shadow);
+      padding:16px;
+    }
+
+    .q-title{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      margin-bottom:12px;
+    }
+
+    .q-no{
+      flex:0 0 auto;
+      width:40px;
+      height:40px;
+      display:grid;
+      place-items:center;
+      border-radius:14px;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef8;
+      font-weight:1000;
+      font-size:18px;
+      box-shadow:0 8px 16px rgba(88,183,245,.20);
+    }
+
+    .q-text{
+      font-size:20px;
+      line-height:1.35;
+      font-weight:1000;
+      color:var(--text);
+      padding-top:3px;
+    }
+
+    .choices{
+      display:grid;
+      gap:10px;
+      margin-top:8px;
+    }
+
+    .choice{
+      display:block;
+      cursor:pointer;
+    }
+
+    .choice input{
+      position:absolute;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .choice-box{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      padding:14px;
+      border-radius:20px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+      transition:.14s ease;
+    }
+
+    .choice input:checked + .choice-box{
+      border-color:#8ad95d;
+      background:linear-gradient(180deg,#f8fff1,#f2ffe7);
+      transform:translateY(-1px);
+    }
+
+    .emoji{
+      flex:0 0 auto;
+      width:52px;
+      height:52px;
+      display:grid;
+      place-items:center;
+      border-radius:16px;
+      background:linear-gradient(180deg,#eefaff,#fff7da);
+      border:2px solid var(--line);
+      font-size:28px;
+    }
+
+    .choice-text{
+      font-size:18px;
+      line-height:1.35;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:4px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:14px 18px;
+      font-size:16px;
+      font-weight:1000;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
+      transition:.12s ease;
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-main{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#fffef8;
+    }
+
+    .btn-back{
+      background:#fff;
+      color:#6f6a62;
+      border:2px solid var(--line);
+    }
+
+    .helper{
+      color:#7f7b74;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.6;
+      margin-top:2px;
+    }
+
+    @media (max-width:720px){
+      .page{ padding:12px; }
+      .q-text{ font-size:18px; }
+      .choice-text{ font-size:17px; }
+      .actions .btn{ flex:1 1 100%; }
+    }
+  </style>
 </head>
 <body>
   <main class="page">
-    <section class="card">
-      <div class="badge">Pretest • Pre-Knowledge</div>
-      <h1>แบบประเมินความรู้ก่อนเล่น</h1>
-      <p class="sub">
-        ตอบตามที่หนูคิดก่อนเริ่มเล่นเกม ยังไม่ต้องกังวลว่าจะถูกหรือผิด
+    <section class="hero">
+      <div class="kicker">🧠 PRE-KNOWLEDGE</div>
+      <h1>ก่อนเล่นเกม ตอบสั้น ๆ กันก่อน</h1>
+      <p class="lead">
+        เลือกคำตอบที่คิดว่า “ดีกว่า” สำหรับสุขภาพ แล้วค่อยเข้าเกม GoodJunk กันเลย
       </p>
-
-      <div class="ctx" id="ctxBox">กำลังโหลด...</div>
-
-      <form class="form">
-        <section class="block">
-          <h2>1) ถ้ากระหายน้ำ เครื่องดื่มอะไรเหมาะที่สุด</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="q1_drink_best" value="water" data-correct="1" required />
-              น้ำเปล่า
-            </label>
-            <label class="choice">
-              <input type="radio" name="q1_drink_best" value="soda" />
-              น้ำอัดลม
-            </label>
-            <label class="choice">
-              <input type="radio" name="q1_drink_best" value="candyDrink" />
-              น้ำหวาน
-            </label>
-            <label class="choice">
-              <input type="radio" name="q1_drink_best" value="notSure" />
-              ยังไม่แน่ใจ
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>2) ของว่างข้อใดดีกว่าต่อสุขภาพ</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="q2_best_snack" value="fruit" data-correct="1" required />
-              ผลไม้
-            </label>
-            <label class="choice">
-              <input type="radio" name="q2_best_snack" value="fries" />
-              มันฝรั่งทอด
-            </label>
-            <label class="choice">
-              <input type="radio" name="q2_best_snack" value="donut" />
-              โดนัท
-            </label>
-            <label class="choice">
-              <input type="radio" name="q2_best_snack" value="candy" />
-              ลูกอม
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>3) ข้อใดเป็นอาหารที่ควรเลือกบ่อยกว่า</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="q3_choose_often" value="vegetable" data-correct="1" required />
-              ผักและผลไม้
-            </label>
-            <label class="choice">
-              <input type="radio" name="q3_choose_often" value="junk" />
-              ขนมหวานและของทอด
-            </label>
-            <label class="choice">
-              <input type="radio" name="q3_choose_often" value="soda" />
-              น้ำอัดลม
-            </label>
-            <label class="choice">
-              <input type="radio" name="q3_choose_often" value="notSure" />
-              ยังไม่แน่ใจ
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>4) ถ้ากิน junk food บ่อยเกินไป จะเป็นอย่างไร</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="q4_junk_effect" value="unhealthy" data-correct="1" required />
-              อาจไม่ดีต่อสุขภาพ
-            </label>
-            <label class="choice">
-              <input type="radio" name="q4_junk_effect" value="alwaysStrong" />
-              ยิ่งแข็งแรงขึ้นแน่นอน
-            </label>
-            <label class="choice">
-              <input type="radio" name="q4_junk_effect" value="noEffect" />
-              ไม่มีผลอะไรเลย
-            </label>
-            <label class="choice">
-              <input type="radio" name="q4_junk_effect" value="notSure" />
-              ยังไม่แน่ใจ
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>5) ถ้าจะเลือกของว่างหลังเลิกเรียน ข้อใดดีกว่า</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="q5_after_school" value="milkFruit" data-correct="1" required />
-              นมจืดหรือผลไม้
-            </label>
-            <label class="choice">
-              <input type="radio" name="q5_after_school" value="burgerSoda" />
-              เบอร์เกอร์กับน้ำอัดลม
-            </label>
-            <label class="choice">
-              <input type="radio" name="q5_after_school" value="friesCandy" />
-              ของทอดกับลูกอม
-            </label>
-            <label class="choice">
-              <input type="radio" name="q5_after_school" value="notSure" />
-              ยังไม่แน่ใจ
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>6) ข้อใดเป็นทางเลือกที่ควรลดลง</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="q6_reduce" value="sweetDrink" data-correct="1" required />
-              น้ำหวานและน้ำอัดลม
-            </label>
-            <label class="choice">
-              <input type="radio" name="q6_reduce" value="water" />
-              น้ำเปล่า
-            </label>
-            <label class="choice">
-              <input type="radio" name="q6_reduce" value="fruit" />
-              ผลไม้
-            </label>
-            <label class="choice">
-              <input type="radio" name="q6_reduce" value="vegetable" />
-              ผัก
-            </label>
-          </div>
-        </section>
-
-        <div class="footer">
-          <button type="button" class="btn btn-ghost" data-action="back">ย้อนกลับ</button>
-          <button type="submit" class="btn btn-primary">บันทึกและไป Pre-Behavior</button>
-        </div>
-      </form>
+      <div class="ctx" id="ctxBox">กำลังโหลดข้อมูล…</div>
     </section>
+
+    <form data-next-key="GAME">
+      <section class="q-card">
+        <div class="q-title">
+          <div class="q-no">1</div>
+          <div class="q-text">ถ้าจะเลือกของว่างที่ดีต่อสุขภาพ ควรเลือกข้อไหนมากกว่า</div>
+        </div>
+
+        <div class="choices">
+          <label class="choice">
+            <input type="radio" name="q1" value="donut_soda" required />
+            <div class="choice-box">
+              <div class="emoji">🍩</div>
+              <div class="choice-text">โดนัท + น้ำอัดลม</div>
+            </div>
+          </label>
+
+          <label class="choice">
+            <input type="radio" name="q1" value="banana_milk" required />
+            <div class="choice-box">
+              <div class="emoji">🍌</div>
+              <div class="choice-text">กล้วย + นม</div>
+            </div>
+          </label>
+        </div>
+      </section>
+
+      <section class="q-card">
+        <div class="q-title">
+          <div class="q-no">2</div>
+          <div class="q-text">ข้อไหนเป็นผัก</div>
+        </div>
+
+        <div class="choices">
+          <label class="choice">
+            <input type="radio" name="q2" value="broccoli" required />
+            <div class="choice-box">
+              <div class="emoji">🥦</div>
+              <div class="choice-text">บรอกโคลี</div>
+            </div>
+          </label>
+
+          <label class="choice">
+            <input type="radio" name="q2" value="cupcake" required />
+            <div class="choice-box">
+              <div class="emoji">🧁</div>
+              <div class="choice-text">คัพเค้ก</div>
+            </div>
+          </label>
+        </div>
+      </section>
+
+      <section class="q-card">
+        <div class="q-title">
+          <div class="q-no">3</div>
+          <div class="q-text">ถ้ากระหายน้ำ ควรเลือกอะไรดีกว่ากัน</div>
+        </div>
+
+        <div class="choices">
+          <label class="choice">
+            <input type="radio" name="q3" value="water" required />
+            <div class="choice-box">
+              <div class="emoji">💧</div>
+              <div class="choice-text">น้ำเปล่า</div>
+            </div>
+          </label>
+
+          <label class="choice">
+            <input type="radio" name="q3" value="soda" required />
+            <div class="choice-box">
+              <div class="emoji">🥤</div>
+              <div class="choice-text">น้ำอัดลม</div>
+            </div>
+          </label>
+        </div>
+      </section>
+
+      <div class="actions">
+        <button class="btn btn-main" type="submit">เริ่มเล่นเกมเลย</button>
+        <button class="btn btn-back" type="button" data-action="back">ย้อนกลับ</button>
+      </div>
+
+      <div class="helper">
+        ใช้เวลาไม่นาน ตอบครบแล้วระบบจะพาเข้าเกมอัตโนมัติ
+      </div>
+    </form>
   </main>
 
-  <script type="module" src="./assessment.js?v=20260319b-prek"></script>
+  <script type="module" src="./assessment.js"></script>
 </body>
 </html>
