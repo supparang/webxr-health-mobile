@@ -22,11 +22,11 @@ function pick(obj, key, fallback = '') {
 }
 
 export function getCanonicalHub(baseHref = location.href) {
-  return new URL('../hub-v2.html', baseHref).href;
+  return new URL('./hub-v2.html', baseHref).href;
 }
 
 export function getCanonicalGate(baseHref = location.href) {
-  return new URL('../warmup-gate.html', baseHref).href;
+  return new URL('./warmup-gate.html', baseHref).href;
 }
 
 export function readCtxFromUrl(urlLike = location.href) {
@@ -42,8 +42,8 @@ export function readCtxFromUrl(urlLike = location.href) {
   const game = normalizeGameIdLoose(gameRaw);
 
   return {
-    pid: clean(q.get('pid'), 'anon'),
-    name: clean(q.get('name'), clean(q.get('nickName'), '')),
+    pid: clean(q.get('pid'), localStorage.getItem('HH_PID') || 'anon'),
+    name: clean(q.get('name'), clean(q.get('nickName'), localStorage.getItem('HH_NAME') || '')),
     studyId: clean(q.get('studyId'), ''),
     roomId: clean(q.get('roomId'), ''),
     diff: clean(q.get('diff'), 'normal'),
@@ -71,6 +71,10 @@ export function readCtxFromUrl(urlLike = location.href) {
 }
 
 export function buildPassthroughParams(ctx = {}, extra = {}) {
+  const game = normalizeGameIdLoose(
+    pick(ctx, 'game', pick(ctx, 'gameId', pick(ctx, 'theme', '')))
+  );
+
   const payload = {
     pid: pick(ctx, 'pid', 'anon'),
     name: pick(ctx, 'name', ''),
@@ -86,9 +90,9 @@ export function buildPassthroughParams(ctx = {}, extra = {}) {
     cat: pick(ctx, 'cat', pick(ctx, 'zone', '')),
     scene: pick(ctx, 'scene', ''),
     mode: pick(ctx, 'mode', 'solo'),
-    game: normalizeGameIdLoose(pick(ctx, 'game', pick(ctx, 'gameId', pick(ctx, 'theme', '')))),
-    gameId: normalizeGameIdLoose(pick(ctx, 'gameId', pick(ctx, 'game', pick(ctx, 'theme', '')))),
-    theme: pick(ctx, 'theme', normalizeGameIdLoose(pick(ctx, 'game', pick(ctx, 'gameId', '')))),
+    game,
+    gameId: normalizeGameIdLoose(pick(ctx, 'gameId', game)),
+    theme: pick(ctx, 'theme', game),
     debug: pick(ctx, 'debug', ''),
     api: pick(ctx, 'api', ''),
     log: pick(ctx, 'log', ''),
