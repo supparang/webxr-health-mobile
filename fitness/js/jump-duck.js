@@ -129,6 +129,59 @@
   let state = null;
   let rafId = 0;
 
+  /* ===== HeroHealth Fitness Recent Bridge ===== */
+  function hhFitnessBaseSnapshot() {
+    const s = state;
+    const durationSec = s && s.duration ? Math.round(Number(s.duration || 0) / 1000) : Number(HHA_CTX.duration || HHA_CTX.time || 60);
+    return {
+      zone: 'fitness',
+      gameId: 'jump-duck',
+      game: 'jump-duck',
+      pid: String(HHA_CTX.pid || 'anon'),
+      name: String(qs('name', qs('nickName', 'Hero')) || 'Hero'),
+      studyId: String(HHA_CTX.studyId || ''),
+      run: String(HHA_CTX.run || 'play'),
+      mode: String(s?.mode || HHA_CTX.mode || 'training'),
+      diff: String(s?.diff || HHA_CTX.diff || 'normal'),
+      view: String(HHA_CTX.view || 'mobile'),
+      time: String(durationSec),
+      score: Number(s?.score || 0),
+      miss: Number(s?.miss || 0),
+      combo: Number(s?.combo || 0),
+      bestStreak: Number(s?.maxCombo || 0),
+      stability: Number(s?.stability || 0),
+      result: String(s?.ended ? 'summary' : (s?.running ? 'running' : 'idle')),
+      href: location.href,
+      path: location.pathname
+    };
+  }
+
+  function hhFitnessMark(eventName, extra = {}) {
+    try {
+      window.HH_FITNESS_LASTGAME?.writeSnapshot({
+        ...hhFitnessBaseSnapshot(),
+        event: eventName,
+        ...extra
+      });
+    } catch (_) {}
+  }
+
+  function hhFitnessSessionStart(extra = {}) {
+    hhFitnessMark('session_start', extra);
+  }
+
+  function hhFitnessSummaryEnd(extra = {}) {
+    hhFitnessMark('summary_end', extra);
+  }
+
+  function hhFitnessRematch(extra = {}) {
+    hhFitnessMark('rematch', extra);
+  }
+
+  function hhFitnessGoHub(extra = {}) {
+    hhFitnessMark('go_hub', extra);
+  }
+
   const JD_VISUALS = {
     low: [
       { key: 'low-hurdle', label: 'JUMP', cls: 'low-hurdle' },
@@ -372,7 +425,20 @@
     const hub = HHA_CTX.hub || '#';
     ['jd-back-hub-menu', 'jd-back-hub-play', 'jd-back-hub-result'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.href = hub;
+      if (el) {
+        el.href = hub;
+        if (!el.__hhFitnessHubBound) {
+          el.__hhFitnessHubBound = true;
+          el.addEventListener('click', () => {
+            hhFitnessGoHub({
+              score: Number(state?.score || 0),
+              miss: Number(state?.miss || 0),
+              bestStreak: Number(state?.maxCombo || 0),
+              result: state?.ended ? 'summary' : (state?.running ? 'in-progress' : 'menu')
+            });
+          });
+        }
+      }
     });
   }
 
@@ -2832,6 +2898,18 @@
       durationSec: Number((state.duration / 1000).toFixed(2))
     });
 
+    hhFitnessSessionStart({
+      mode: state.mode,
+      diff: state.diff,
+      time: String(Math.round((state.duration || 0) / 1000)),
+      score: Number(state.score || 0),
+      miss: Number(state.miss || 0),
+      combo: Number(state.combo || 0),
+      bestStreak: Number(state.maxCombo || 0),
+      stability: Number(state.stability || 100),
+      result: 'start'
+    });
+
     rafId = requestAnimationFrame(jdTick);
   }
 
@@ -2959,6 +3037,21 @@
     };
 
     saveLastSummary(summary);
+
+    hhFitnessSummaryEnd({
+      mode: s.mode,
+      diff: s.diff,
+      time: String(Math.round((s.duration || 0) / 1000)),
+      score: Number(s.score || 0),
+      miss: Number(s.miss || 0),
+      combo: Number(s.combo || 0),
+      bestStreak: Number(s.maxCombo || 0),
+      stability: Number(s.stability || 0),
+      rank: rank || '',
+      accPct: Number(accPct.toFixed(2)),
+      bossDown: !!bossDown,
+      result: endReason || 'end'
+    });
 
     if (resMode) resMode.textContent = s.mode || '-';
     if (resDiff) resDiff.textContent = s.diff || '-';
@@ -3128,6 +3221,13 @@
     });
 
     document.querySelector('[data-action="play-again"]')?.addEventListener('click', () => {
+      hhFitnessRematch({
+        score: Number(state?.score || 0),
+        miss: Number(state?.miss || 0),
+        bestStreak: Number(state?.maxCombo || 0),
+        result: 'rematch'
+      });
+
       stopLoop();
       clearRunTimers(state);
       resetTransientUI();
@@ -3170,6 +3270,19 @@
     window.addEventListener('resize', () => {
       if (!state) return;
       jdApplyResponsiveLayout(state);
+    });
+
+    window.addEventListener('pagehide', () => {
+      if (!state) return;
+      if (state.finished) return;
+      if (state.finishing) return;
+
+      hhFitnessGoHub({
+        score: Number(state?.score || 0),
+        miss: Number(state?.miss || 0),
+        bestStreak: Number(state?.maxCombo || 0),
+        result: state?.running ? 'pagehide' : 'leave'
+      });
     });
 
     btnDlEvents?.addEventListener('click', () => {
