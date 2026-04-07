@@ -3,1504 +3,4011 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Plate Run</title>
+  <title>HeroHealth • Balanced Plate</title>
+  <meta name="theme-color" content="#9fe3ff" />
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#ffd861" />
-  <link rel="icon" href="../favicon.ico" />
   <style>
     :root{
-      --sky1:#fff8dd;
-      --sky2:#fffef5;
-      --sky3:#ecf8ff;
-      --ink:#33415d;
-      --muted:#6c7895;
-      --line:#e3ecf7;
+      --bg:#f7fcff;
       --card:#ffffff;
-      --card2:#fbfdff;
-      --yellow:#ffd75c;
-      --yellow2:#ffbe45;
-      --green:#6fd56f;
-      --green2:#52c65b;
-      --blue:#71cbff;
-      --blue2:#58baf6;
-      --pink:#ff99c8;
-      --pink2:#ff81ba;
-      --orange:#ffb05a;
-      --purple:#9b8cff;
-      --shadow:0 16px 36px rgba(84,116,150,.14);
-      --radius:28px;
-      --danger:#ff6f7e;
+      --line:#dbeaf4;
+      --text:#334155;
+      --muted:#6d7d8b;
+
+      --sky:#7fcfff;
+      --sky-2:#eef8ff;
+      --gold:#ffd45f;
+      --gold-2:#fff8eb;
+      --ok:#6fd18b;
+      --ok-bg:#f1fff4;
+      --bad:#ffb3b3;
+      --bad-bg:#fff4f4;
+
+      --g1:#ffe7ef;
+      --g2:#fff4cc;
+      --g3:#e6f8df;
+      --g4:#e7f1ff;
+      --g5:#fff0d9;
+
+      --shadow:0 12px 28px rgba(0,0,0,.06);
+      --shadow-lg:0 24px 60px rgba(0,0,0,.18);
+      --radius:26px;
+      --radius-md:20px;
+      --radius-sm:16px;
     }
 
-    *{box-sizing:border-box}
-    html,body{margin:0;padding:0}
+    *{ box-sizing:border-box; }
+    html{ -webkit-tap-highlight-color:transparent; }
     body{
-      min-height:100vh;
-      font-family:ui-rounded,"SF Pro Rounded","Nunito","Prompt","Kanit",system-ui,-apple-system,sans-serif;
-      color:var(--ink);
-      background:
-        radial-gradient(circle at top left, rgba(255,255,255,.94), rgba(255,255,255,0) 32%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 56%,var(--sky3));
-      overflow-x:hidden;
-    }
-
-    a{color:inherit;text-decoration:none}
-    button{font:inherit}
-
-    .shell{
-      width:min(calc(100% - 24px), 1180px);
-      margin:0 auto;
-      padding:16px 0 32px;
-    }
-
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-      margin-bottom:14px;
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
-    }
-
-    .brand-icon{
-      width:56px;height:56px;border-radius:20px;
-      display:grid;place-items:center;
-      background:linear-gradient(180deg,#fff8d8,#fff);
-      box-shadow:var(--shadow);
-      border:1px solid #fff0bf;
-      font-size:30px;
-    }
-
-    .brand-text h1{
       margin:0;
-      font-size:clamp(26px,4vw,40px);
-      line-height:1;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 8% 8%, rgba(255,233,168,.38), transparent 20%),
+        radial-gradient(circle at 92% 10%, rgba(127,207,255,.28), transparent 20%),
+        linear-gradient(180deg,#f7fcff,#fffef9);
     }
-
-    .brand-text p{
-      margin:5px 0 0;
-      color:var(--muted);
-      font-size:14px;
-    }
-
-    .top-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .btn{
-      min-height:46px;
-      padding:0 16px;
-      border:none;
-      border-radius:999px;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      font-weight:900;
-      background:#fff;
-      color:var(--ink);
-      border:1px solid #e1ecf7;
-      box-shadow:var(--shadow);
-      transition:.18s transform ease,.18s opacity ease;
-    }
-
-    .btn:hover{transform:translateY(-1px)}
-    .btn:active{transform:translateY(0)}
-    .btn.primary{
-      background:linear-gradient(180deg,#ffd969,#ffbf44);
-      border-color:transparent;
-      color:#fff;
-    }
-    .btn.blue{
-      background:linear-gradient(180deg,#83d8ff,#5bbdf7);
-      border-color:transparent;
-      color:#fff;
-    }
-    .btn.green{
-      background:linear-gradient(180deg,#90e67f,#5fcd5b);
-      border-color:transparent;
-      color:#fff;
-    }
-    .btn.pink{
-      background:linear-gradient(180deg,#ffb2d6,#ff8ec4);
-      border-color:transparent;
-      color:#fff;
+    body.guide-open,
+    body.reward-open{
+      overflow:hidden;
     }
 
     .hud{
+      position:sticky;
+      top:0;
+      z-index:15;
       display:grid;
-      grid-template-columns:repeat(6,minmax(0,1fr));
-      gap:12px;
-      margin-bottom:14px;
-    }
-
-    .hud-card{
-      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(255,255,255,.9));
-      border:1px solid rgba(255,255,255,.92);
-      border-radius:24px;
-      box-shadow:var(--shadow);
-      padding:14px 16px;
-    }
-
-    .hud-card .label{
-      display:block;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      margin-bottom:6px;
-    }
-
-    .hud-card .value{
-      display:flex;
-      align-items:center;
+      grid-template-columns:repeat(4,1fr);
       gap:8px;
-      font-size:24px;
-      font-weight:900;
-      line-height:1;
+      padding:10px;
+      background:rgba(247,252,255,.95);
+      backdrop-filter:blur(8px);
+      border-bottom:1px solid var(--line);
     }
-
-    .arena{
-      display:grid;
-      grid-template-columns:1.12fr .88fr;
-      gap:16px;
-      align-items:start;
-    }
-
-    .panel{
-      background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(255,255,255,.9));
-      border:1px solid rgba(255,255,255,.93);
-      border-radius:32px;
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-
-    .board-panel{
-      padding:20px;
-      min-height:560px;
-      background:
-        radial-gradient(circle at 14% 10%, rgba(255,255,255,.95), rgba(255,255,255,0) 28%),
-        radial-gradient(circle at 85% 12%, rgba(255,217,92,.28), rgba(255,217,92,0) 18%),
-        linear-gradient(145deg,#fff8df,#fffef8 58%,#eef9ff);
-    }
-
-    .plate-wrap{
-      display:grid;
-      place-items:center;
-      min-height:500px;
-    }
-
-    .plate-board{
-      position:relative;
-      width:min(100%, 640px);
-      aspect-ratio:1/1;
-      border-radius:50%;
-      background:
-        conic-gradient(
-          #ffe9b0 0deg 72deg,
-          #ffd9a7 72deg 144deg,
-          #bff0bf 144deg 216deg,
-          #ffc5df 216deg 288deg,
-          #cdeaff 288deg 360deg
-        );
-      padding:24px;
-      box-shadow:
-        inset 0 0 0 16px rgba(255,255,255,.78),
-        inset 0 0 0 34px rgba(255,255,255,.58),
-        0 24px 42px rgba(88,120,160,.18);
-    }
-
-    .plate-slice{
-      position:absolute;
-      width:34%;
-      min-height:108px;
-      border:none;
-      border-radius:26px;
-      padding:12px;
+    .pill{
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:10px;
       text-align:center;
-      background:rgba(255,255,255,.9);
-      color:var(--ink);
-      box-shadow:0 12px 24px rgba(88,120,160,.12);
-      border:1px solid rgba(255,255,255,.92);
-      display:grid;
-      gap:4px;
-      place-items:center;
-      transition:.18s transform ease,.18s box-shadow ease,.18s opacity ease;
-      pointer-events:none;
-    }
-
-    .plate-slice.active{
-      transform:scale(1.05);
-      box-shadow:0 18px 30px rgba(255,174,73,.24);
-      outline:4px solid rgba(255,190,69,.55);
-    }
-
-    .plate-slice .emoji{
-      font-size:28px;
-      line-height:1;
-    }
-
-    .plate-slice .name{
-      font-size:14px;
-      font-weight:900;
-      line-height:1.1;
-    }
-
-    .plate-slice .count{
-      font-size:12px;
-      color:var(--muted);
       font-weight:800;
+      transition:transform .16s ease, box-shadow .16s ease;
+      box-shadow:0 4px 10px rgba(0,0,0,.03);
+    }
+    .pill.bump{
+      transform:translateY(-2px) scale(1.03);
+      box-shadow:0 10px 18px rgba(0,0,0,.08);
     }
 
-    .slice-1{left:50%;top:9%;transform:translateX(-50%)}
-    .slice-2{right:10%;top:28%}
-    .slice-3{right:16%;bottom:13%}
-    .slice-4{left:16%;bottom:13%}
-    .slice-5{left:10%;top:28%}
-
-    .slice-1.active{transform:translateX(-50%) scale(1.06)}
-    .slice-2.active,.slice-3.active,.slice-4.active,.slice-5.active{transform:scale(1.06)}
-
-    .plate-center{
-      position:absolute;
-      inset:21%;
-      border-radius:50%;
-      background:linear-gradient(180deg,#fffef7,#ffffff);
+    .heroBar{
       display:grid;
-      place-items:center;
-      text-align:center;
-      padding:20px;
-      box-shadow:inset 0 0 0 1px #f6ebc9;
+      grid-template-columns:1.25fr .8fr .8fr .9fr;
+      gap:10px;
+      max-width:980px;
+      margin:12px auto 14px;
+      padding:0 16px;
+      animation:softFadeUp .35s ease;
     }
-
-    .mission-badge{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:34px;
-      padding:0 12px;
-      border-radius:999px;
-      background:#fff7d8;
-      color:#7d651e;
-      font-size:12px;
-      font-weight:900;
-      margin-bottom:10px;
-    }
-
-    .target-title{
-      margin:0 0 8px;
-      font-size:clamp(22px,3.5vw,34px);
-      line-height:1.04;
-    }
-
-    .target-desc{
-      margin:0;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.55;
-      max-width:260px;
-    }
-
-    .side-panel{
-      padding:18px;
-      display:grid;
-      gap:14px;
-    }
-
-    .coach-card,.mission-card,.progress-card{
-      border-radius:24px;
-      padding:16px;
-      background:linear-gradient(180deg,#fff,#fbfdff);
-      border:1px solid #e3edf8;
-    }
-
-    .coach-top{
+    .heroChip{
       display:flex;
       align-items:center;
-      gap:12px;
-      margin-bottom:12px;
+      gap:10px;
+      background:linear-gradient(180deg,#ffffff,#f6fbff);
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:12px 14px;
+      box-shadow:0 8px 20px rgba(0,0,0,.05);
     }
-
-    .coach-avatar{
-      width:64px;height:64px;border-radius:20px;
-      display:grid;place-items:center;
-      background:linear-gradient(180deg,#fff8d8,#fff);
-      box-shadow:0 12px 24px rgba(255,184,74,.16);
-      font-size:32px;
+    .heroChip-main{
+      align-items:flex-start;
     }
-
-    .coach-name{
-      font-size:22px;
-      font-weight:900;
-      line-height:1;
-      margin:0 0 6px;
-    }
-
-    .coach-sub{
-      margin:0;
-      color:var(--muted);
-      font-size:13px;
-    }
-
-    .coach-line{
-      font-size:16px;
-      line-height:1.6;
-      color:#465775;
-      min-height:76px;
-    }
-
-    .mission-card h3,
-    .progress-card h3{
-      margin:0 0 10px;
-      font-size:20px;
-    }
-
-    .mission-list{
+    .heroIcon{
+      width:46px;
+      height:46px;
+      border-radius:999px;
       display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#ffe9a8,#ffd86b);
+      font-size:24px;
+      flex:0 0 auto;
+    }
+    .heroTitle{
+      font-size:18px;
+      font-weight:900;
+      color:#284255;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .heroSub{
+      font-size:13px;
+      color:var(--muted);
+      margin-top:2px;
+      word-break:break-word;
+    }
+    .chipLabel{
+      font-size:12px;
+      color:var(--muted);
+      display:block;
+    }
+    .a11yRow{
+      display:flex;
       gap:8px;
+      flex-wrap:wrap;
+    }
+    .audioBtn{
+      min-height:38px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-weight:900;
+      color:#2f4b5f;
+      padding:0 12px;
+      cursor:pointer;
     }
 
-    .mission-item{
+    .dailyQuest{
+      max-width:980px;
+      margin:0 auto 14px;
+      padding:0 16px;
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:18px;
-      background:#f7fbff;
-      border:1px solid #e3eef8;
-      font-size:14px;
-      color:#50627f;
-      font-weight:800;
+      gap:12px;
+      animation:softFadeUp .35s ease;
     }
-
-    .mission-item strong{
-      color:var(--ink);
-      font-size:15px;
+    .dailyQuest-left{
+      flex:1 1 auto;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      background:linear-gradient(180deg,#fffaf0,#fffdf7);
+      border:1px solid #f1dfb3;
+      border-radius:20px;
+      padding:12px 14px;
+      box-shadow:0 8px 18px rgba(0,0,0,.04);
     }
-
-    .bar{
-      width:100%;
-      height:14px;
+    .dailyQuestBadge{
+      width:42px;
+      height:42px;
       border-radius:999px;
-      background:#edf4fb;
-      overflow:hidden;
-      border:1px solid #e0ecf8;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#ffe49c,#ffd15f);
+      font-size:22px;
+      flex:0 0 auto;
+    }
+    .dailyQuestTitle{
+      font-size:14px;
+      font-weight:900;
+      color:#8d6118;
+    }
+    .dailyQuestDesc{
+      font-size:13px;
+      color:#7a6a49;
+    }
+    .dailyQuestRight{
+      min-width:78px;
+      text-align:center;
+      background:#fff;
+      border:1px solid #f1dfb3;
+      border-radius:16px;
+      padding:10px 12px;
+      font-size:18px;
+      color:#8d6118;
+      box-shadow:0 6px 14px rgba(0,0,0,.04);
+      font-weight:900;
     }
 
-    .bar > i{
-      display:block;
+    .wrap{
+      max-width:980px;
+      margin:0 auto;
+      padding:16px;
+    }
+    .board{
+      display:grid;
+      gap:16px;
+      grid-template-columns:1.15fr .85fr;
+    }
+
+    .plateArea,.trayArea,.selectedBar,.stickerShelf{
+      animation:softFadeUp .35s ease;
+    }
+
+    .plateArea,.trayArea{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:24px;
+      padding:16px;
+      min-height:360px;
+      box-shadow:var(--shadow);
+    }
+
+    h2{
+      margin:0 0 8px;
+      font-size:22px;
+      color:#284255;
+    }
+
+    .missionCard{
+      margin:10px 0 14px;
+      padding:12px 14px;
+      background:linear-gradient(180deg,#fffdf6,#fffaf0);
+      border:1px solid #f1dfb3;
+      border-radius:18px;
+    }
+    .missionTop{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      font-weight:900;
+      color:#8a6120;
+      margin-bottom:8px;
+    }
+    .missionBar{
+      height:12px;
+      background:#f5ead0;
+      border-radius:999px;
+      overflow:hidden;
+    }
+    .missionFill{
       height:100%;
       width:0%;
       border-radius:999px;
-      background:linear-gradient(90deg,#ffd55b,#ffb245);
-      transition:width .22s ease;
+      background:linear-gradient(90deg,#ffd76a,#ffb347);
+      transition:width .18s ease;
     }
 
-    .mini-stats{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .mini-stat{
-      padding:12px;
-      border-radius:18px;
-      background:#f7fbff;
-      border:1px solid #e3eef8;
-    }
-
-    .mini-stat span{
-      display:block;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      margin-bottom:5px;
-    }
-
-    .mini-stat strong{
-      display:block;
-      font-size:21px;
-      line-height:1;
-    }
-
-    .options-panel{
-      margin-top:16px;
-      padding:18px;
-    }
-
-    .options-head{
-      display:flex;
-      align-items:end;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-bottom:12px;
-    }
-
-    .options-head h3{
-      margin:0;
-      font-size:24px;
-    }
-
-    .options-head p{
-      margin:4px 0 0;
-      color:var(--muted);
-      font-size:14px;
-    }
-
-    .options-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:14px;
-    }
-
-    .food-btn{
-      min-height:170px;
-      border:none;
-      border-radius:26px;
-      background:linear-gradient(180deg,#fff,#fbfdff);
-      border:1px solid #e4eef8;
-      box-shadow:var(--shadow);
-      padding:16px;
-      text-align:left;
-      cursor:pointer;
-      transition:.18s transform ease,.18s box-shadow ease,.18s border-color ease;
+    .plate{
+      width:min(100%,420px);
+      aspect-ratio:1/1;
+      margin:8px auto;
+      border-radius:999px;
+      border:10px solid #eaf4fa;
+      background:#ffffff;
       position:relative;
       overflow:hidden;
     }
-
-    .food-btn:hover{transform:translateY(-2px)}
-    .food-btn:disabled{
-      cursor:default;
-      opacity:.86;
-    }
-
-    .food-btn.correct{
-      border-color:#9ae6a5;
-      box-shadow:0 14px 30px rgba(87,201,102,.18);
-      background:linear-gradient(180deg,#f6fff4,#ffffff);
-    }
-
-    .food-btn.wrong{
-      border-color:#ffc1c8;
-      box-shadow:0 14px 30px rgba(255,118,131,.16);
-      background:linear-gradient(180deg,#fff7f8,#ffffff);
-    }
-
-    .food-emoji{
-      font-size:44px;
-      line-height:1;
-      margin-bottom:10px;
-      display:block;
-    }
-
-    .food-name{
-      display:block;
-      font-size:24px;
+    .zone{
+      position:absolute;
+      border:none;
+      cursor:pointer;
       font-weight:900;
-      line-height:1.05;
-      margin-bottom:8px;
+      color:#334155;
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.75);
+      transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
+      touch-action:manipulation;
+      overflow:hidden;
     }
-
-    .food-desc{
-      display:block;
-      color:var(--muted);
+    .zone span{
+      background:rgba(255,255,255,.76);
+      padding:4px 8px;
+      border-radius:999px;
       font-size:14px;
-      line-height:1.5;
-      margin-bottom:12px;
     }
+    .zone:hover{ filter:brightness(1.03); }
+    .zone:active{ transform:scale(.98); }
 
-    .food-group{
-      display:inline-flex;
-      align-items:center;
-      min-height:32px;
-      padding:0 10px;
+    .zone-g2{ left:8%; top:8%; width:42%; height:42%; border-radius:999px 0 0 0; background:var(--g2); }
+    .zone-g1{ right:8%; top:8%; width:42%; height:42%; border-radius:0 999px 0 0; background:var(--g1); }
+    .zone-g3{ left:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 0 999px; background:var(--g3); }
+    .zone-g4{ right:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 999px 0; background:var(--g4); }
+    .zone-g5{
+      left:50%; top:50%;
+      width:26%; height:26%;
+      transform:translate(-50%,-50%);
       border-radius:999px;
-      background:#eff7ff;
-      color:#5e7297;
-      font-size:12px;
-      font-weight:900;
+      background:var(--g5);
+      display:grid; place-items:center;
     }
 
-    .flash{
-      animation:flashPulse .5s ease;
-    }
-
-    .fever{
-      position:fixed;
+    .zone::before{
+      content:"";
+      position:absolute;
+      inset:auto;
+      width:0;
+      height:0;
+      border-radius:999px;
+      background:rgba(255,255,255,.26);
       left:50%;
-      top:18px;
-      transform:translateX(-50%);
-      min-height:44px;
-      padding:0 18px;
+      top:50%;
+      transform:translate(-50%,-50%);
+      pointer-events:none;
+    }
+    .zone.tapFlash::before{ animation:zoneTapFlash .28s ease; }
+    @keyframes zoneTapFlash{
+      0%{ width:8px; height:8px; opacity:.9; }
+      100%{ width:160px; height:160px; opacity:0; }
+    }
+
+    .zone.active{
+      outline:4px solid var(--sky);
+      transform:scale(1.02);
+    }
+    .zone.hasItem::after{
+      content:"✓";
+      position:absolute;
+      right:10px;
+      bottom:10px;
+      width:28px; height:28px;
       border-radius:999px;
+      display:grid; place-items:center;
+      background:#ffffffd9;
+      color:#2b7a47;
+      font-weight:900;
+      box-shadow:0 4px 10px rgba(0,0,0,.08);
+    }
+    .zone.correctFlash{ animation:zoneOk .35s ease; }
+    .zone.wrongFlash{ animation:zoneBad .35s ease; }
+    @keyframes zoneOk{
+      0%{ box-shadow:0 0 0 0 rgba(111,209,139,.55); }
+      100%{ box-shadow:0 0 0 18px rgba(111,209,139,0); }
+    }
+    @keyframes zoneBad{
+      0%{ box-shadow:0 0 0 0 rgba(255,179,179,.6); }
+      100%{ box-shadow:0 0 0 18px rgba(255,179,179,0); }
+    }
+
+    .feedback{
+      margin-top:12px;
+      min-height:28px;
+      font-weight:800;
+      color:#345468;
+      transition:opacity .18s ease, transform .18s ease;
+    }
+    .feedback.pop{
+      opacity:1;
+      transform:translateY(-1px);
+    }
+
+    .trayArea{ align-self:start; }
+    .tray{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+      align-content:start;
+    }
+    .trayToggle{
+      display:none;
+      width:100%;
+      min-height:42px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:#f7fbff;
+      color:#315065;
+      font-weight:900;
+      margin-bottom:10px;
+    }
+
+    .food{
+      min-height:84px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg,#ffffff,#f8fcff);
+      cursor:pointer;
+      padding:10px;
       display:flex;
       align-items:center;
-      justify-content:center;
-      font-weight:900;
-      letter-spacing:.02em;
-      background:linear-gradient(180deg,#ffbbd8,#ff8fc4);
-      color:#fff;
-      box-shadow:0 16px 30px rgba(255,112,177,.28);
-      opacity:0;
+      gap:10px;
+      text-align:left;
+      box-shadow:0 6px 14px rgba(0,0,0,.04);
+      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+      touch-action:manipulation;
+      transform-origin:center;
+    }
+    .food:hover{
+      transform:translateY(-1px);
+      box-shadow:0 10px 18px rgba(0,0,0,.06);
+    }
+    .food:active{ transform:scale(.985); }
+    .food.selected{
+      outline:none;
+      border-color:var(--sky);
+      box-shadow:0 0 0 3px rgba(127,207,255,.25);
+      background:#eef8ff;
+      animation:foodPick .16s ease;
+    }
+    @keyframes foodPick{
+      0%{ transform:scale(.98); }
+      100%{ transform:scale(1); }
+    }
+    .food.used{
+      opacity:.45;
       pointer-events:none;
-      z-index:30;
-      transition:.18s opacity ease,.18s transform ease;
+      filter:saturate(.65);
+    }
+    .foodEmoji{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:#f3f9ff;
+      font-size:24px;
+      flex:0 0 auto;
+    }
+    .foodMeta{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .foodName{
+      font-weight:900;
+      color:#284255;
+      line-height:1.15;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .foodTag{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      width:max-content;
+      max-width:100%;
+      padding:4px 8px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:800;
+      color:#4f6170;
+      background:#f5f9fc;
+      border:1px solid var(--line);
+    }
+    .foodTag.g1{ background:#fff0f5; }
+    .foodTag.g2{ background:#fff8dd; }
+    .foodTag.g3{ background:#edfbe7; }
+    .foodTag.g4{ background:#eef5ff; }
+    .foodTag.g5{ background:#fff3e6; }
+    .foodTag.x{ background:#fff1f1; color:#9b4a4a; }
+
+    .emptyTrayState{
+      grid-column:1 / -1;
+      padding:18px;
+      text-align:center;
+      border:1px dashed var(--line);
+      border-radius:18px;
+      background:#fbfeff;
+    }
+    .emptyTrayIcon{
+      font-size:28px;
+      margin-bottom:6px;
+    }
+    .emptyTrayTitle{
+      font-weight:900;
+      color:#2d4859;
+      margin-bottom:4px;
+    }
+    .emptyTrayText{
+      font-size:13px;
+      color:#738291;
     }
 
-    .fever.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(0);
+    .selectedBar{
+      position:sticky;
+      bottom:10px;
+      z-index:14;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:16px;
+      padding:12px 14px;
+      border-radius:20px;
+      background:rgba(255,255,255,.96);
+      border:1px solid var(--line);
+      box-shadow:0 14px 30px rgba(0,0,0,.08);
+      backdrop-filter:blur(8px);
+    }
+    .selectedBar-left{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+    .selectedEmoji{
+      width:44px;
+      height:44px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:#eef8ff;
+      font-size:24px;
+      flex:0 0 auto;
+    }
+    .selectedTitle{
+      font-weight:900;
+      color:#284255;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .selectedHint{
+      font-size:13px;
+      color:var(--muted);
+      word-break:break-word;
+    }
+    .selectedClear{
+      min-width:92px;
+      min-height:42px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:#fff7f7;
+      font-weight:800;
+      touch-action:manipulation;
+      cursor:pointer;
+    }
+
+    .stickerShelf{
+      margin-top:14px;
+      padding:14px;
+      border-radius:22px;
+      background:linear-gradient(180deg,#ffffff,#fbfeff);
+      border:1px solid var(--line);
+      box-shadow:0 8px 20px rgba(0,0,0,.04);
+    }
+    .stickerShelfTitle{
+      font-weight:900;
+      color:#284255;
+      margin-bottom:10px;
+    }
+    .stickerList{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .sticker{
+      min-width:90px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#f8fcff;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .stickerIcon{
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:#fff;
+      font-size:18px;
+      box-shadow:0 4px 10px rgba(0,0,0,.05);
+    }
+    .stickerText{
+      font-size:12px;
+      font-weight:800;
+      color:#4a6070;
+      line-height:1.15;
+    }
+
+    .toastLayer{
+      position:fixed;
+      left:50%;
+      bottom:94px;
+      transform:translateX(-50%);
+      z-index:30;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      pointer-events:none;
+    }
+    .toast{
+      min-width:220px;
+      max-width:min(90vw,440px);
+      padding:12px 16px;
+      border-radius:16px;
+      background:#ffffff;
+      border:1px solid var(--line);
+      box-shadow:0 12px 24px rgba(0,0,0,.10);
+      font-weight:900;
+      color:#284255;
+      animation:toastIn .22s ease, toastOut .22s ease 1.8s forwards;
+      transform-origin:center bottom;
+    }
+    .toast.ok{ background:var(--ok-bg); border-color:#bdecc7; }
+    .toast.bad{ background:var(--bad-bg); border-color:#ffd0d0; }
+    .toast.info{ background:#f4fbff; border-color:#cfe8f8; }
+    @keyframes toastIn{
+      from{ opacity:0; transform:translateY(12px) scale(.96); }
+      to{ opacity:1; transform:translateY(0) scale(1); }
+    }
+    @keyframes toastOut{
+      to{ opacity:0; transform:translateY(-6px) scale(.98); }
     }
 
     .overlay{
       position:fixed;
       inset:0;
-      background:rgba(35,49,76,.38);
+      background:rgba(17,24,39,.38);
       display:none;
       align-items:center;
       justify-content:center;
-      padding:16px;
-      z-index:40;
+      padding:18px;
+      z-index:50;
     }
-
-    .overlay.show{display:flex}
+    .overlay.show{ display:flex; }
 
     .summary{
-      width:min(100%, 980px);
-      max-height:min(92vh, 980px);
-      overflow:auto;
-      border-radius:32px;
-      background:linear-gradient(180deg,#fff,#fbfdff);
-      border:1px solid rgba(255,255,255,.95);
-      box-shadow:0 26px 60px rgba(24,40,68,.28);
-      padding:22px;
+      width:min(92vw,560px);
+      background:#fff;
+      border-radius:28px;
+      border:1px solid var(--line);
+      padding:20px;
+      animation:summaryPop .24s ease;
+    }
+    @keyframes summaryPop{
+      from{ opacity:0; transform:translateY(10px) scale(.97); }
+      to{ opacity:1; transform:translateY(0) scale(1); }
+    }
+    .summaryHero{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      margin:8px 0 14px;
+      padding:12px 14px;
+      border-radius:20px;
+      background:linear-gradient(180deg,#fffaf0,#fffdf8);
+      border:1px solid #f3dfb2;
+    }
+    .summaryBadge{
+      width:58px; height:58px;
+      border-radius:999px;
+      display:grid; place-items:center;
+      background:linear-gradient(180deg,#ffe49c,#ffd05e);
+      font-size:30px;
+      animation:badgeFloat 2.3s ease-in-out infinite;
+    }
+    @keyframes badgeFloat{
+      0%,100%{ transform:translateY(0); }
+      50%{ transform:translateY(-4px); }
+    }
+    .summaryRank{
+      font-size:18px;
+      font-weight:900;
+      color:#8d6118;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .summaryStars{
+      font-size:18px;
+      letter-spacing:2px;
+    }
+    .summaryGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin:14px 0;
+    }
+    .sbox{
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:12px;
+      text-align:center;
+      background:#fbfeff;
+    }
+    .summaryRewardBox{
+      margin-top:10px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:linear-gradient(180deg,#fffdf6,#fff9ef);
+      border:1px solid #f2dfb3;
+      color:#8d6118;
+      font-weight:800;
+    }
+    .summaryLatestReward{
+      margin-top:8px;
+      font-size:13px;
+      font-weight:800;
+      color:#7a6a4c;
+      word-break:break-word;
+    }
+    .actions{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+    .actions button{
+      min-height:48px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      font-size:16px;
+      font-weight:800;
+      cursor:pointer;
+    }
+    .primary{ background:var(--sky); }
+    .secondary{ background:#fff; }
+    .summaryNextRow{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:12px;
+    }
+    .nextCard{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      padding:12px;
+      border-radius:18px;
+      background:#f9fcff;
+      border:1px solid var(--line);
+    }
+    .nextIcon{
+      width:38px;
+      height:38px;
+      border-radius:12px;
+      display:grid;
+      place-items:center;
+      background:#eef8ff;
+      font-size:20px;
+      flex:0 0 auto;
+    }
+    .nextTitle{
+      font-weight:900;
+      color:#2d4859;
+      margin-bottom:4px;
+    }
+    .nextText{
+      font-size:13px;
+      color:#6d7d8b;
+      word-break:break-word;
     }
 
-    .summary-head{
+    .pauseOverlay{
+      position:fixed;
+      inset:0;
+      z-index:85;
+      background:rgba(15,23,42,.36);
+      display:grid;
+      place-items:center;
+      padding:18px;
+      backdrop-filter:blur(8px);
+    }
+    .pauseCard{
+      width:min(92vw,420px);
+      border-radius:28px;
+      background:linear-gradient(180deg,#fffef8,#f9fcff);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow-lg);
+      padding:20px 18px;
+      text-align:center;
+    }
+    .pauseBadge{
+      width:70px;
+      height:70px;
+      margin:0 auto 10px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#ffe7a1,#ffd45f);
+      font-size:34px;
+    }
+    .pauseCard h2{ margin:0 0 6px; color:#284255; }
+    .pauseCard p{ margin:0 0 14px; color:#6c7c89; }
+    .pauseActions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+    .pauseBtn{
+      min-height:48px;
+      border:none;
+      border-radius:16px;
+      background:#fff;
+      border:1px solid var(--line);
+      font-size:16px;
+      font-weight:900;
+      color:#2f4f63;
+      cursor:pointer;
+    }
+    .pauseBtn.primary{
+      background:var(--sky);
+      color:#17384f;
+    }
+
+    .guideOverlay{
+      position:fixed;
+      inset:0;
+      z-index:80;
+      background:rgba(15,23,42,.42);
+      display:grid;
+      place-items:center;
+      padding:18px;
+      backdrop-filter:blur(8px);
+    }
+    .guideCard{
+      width:min(92vw,680px);
+      background:linear-gradient(180deg,#fffef9,#f9fcff);
+      border:1px solid var(--line);
+      border-radius:28px;
+      padding:18px;
+      box-shadow:var(--shadow-lg);
+      animation:guidePop .24s ease;
+    }
+    @keyframes guidePop{
+      from{ opacity:0; transform:translateY(12px) scale(.97); }
+      to{ opacity:1; transform:translateY(0) scale(1); }
+    }
+    .guideHead{
       display:flex;
-      align-items:start;
-      justify-content:space-between;
       gap:12px;
-      flex-wrap:wrap;
+      align-items:flex-start;
       margin-bottom:14px;
     }
-
-    .summary-head h2{
+    .guideBadge{
+      width:56px;
+      height:56px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#ffe8a2,#ffd561);
+      font-size:30px;
+      flex:0 0 auto;
+    }
+    .guideTitle{
+      margin:0 0 4px;
+      font-size:24px;
+      color:#284255;
+    }
+    .guideSub{
       margin:0;
-      font-size:clamp(28px,4vw,42px);
-      line-height:1;
-    }
-
-    .summary-head p{
-      margin:8px 0 0;
       color:var(--muted);
-      font-size:14px;
-      line-height:1.6;
+      word-break:break-word;
+    }
+    .guideDemo{
+      margin:12px 0 14px;
+      padding:14px;
+      border-radius:22px;
+      background:linear-gradient(180deg,#fffdf6,#f7fbff);
+      border:1px solid var(--line);
+    }
+    .guideDemoPlate{
+      width:min(100%,240px);
+      aspect-ratio:1/1;
+      margin:0 auto 12px;
+      border-radius:999px;
+      position:relative;
+      border:8px solid #eaf4fa;
+      background:#fff;
+      overflow:hidden;
+    }
+    .guideDemoZone{
+      position:absolute;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      transition:transform .2s ease, filter .2s ease, opacity .2s ease;
+    }
+    .guideDemoZone.z-g2{ left:8%; top:8%; width:42%; height:42%; background:var(--g2); border-radius:999px 0 0 0; }
+    .guideDemoZone.z-g1{ right:8%; top:8%; width:42%; height:42%; background:var(--g1); border-radius:0 999px 0 0; }
+    .guideDemoZone.z-g3{ left:8%; bottom:8%; width:42%; height:42%; background:var(--g3); border-radius:0 0 0 999px; }
+    .guideDemoZone.z-g4{ right:8%; bottom:8%; width:42%; height:42%; background:var(--g4); border-radius:0 0 999px 0; }
+    .guideDemoZone.z-g5{
+      left:50%; top:50%;
+      width:26%; height:26%;
+      transform:translate(-50%,-50%);
+      background:var(--g5);
+      border-radius:999px;
+    }
+    .guideDemoText{ text-align:center; }
+    .guideDemoStep{
+      font-size:12px;
+      font-weight:900;
+      color:#8a6120;
+      margin-bottom:4px;
+    }
+    .guideDemoTitle{
+      font-size:18px;
+      font-weight:900;
+      color:#284255;
+      margin-bottom:4px;
+    }
+    .guideDemoDesc{
+      font-size:13px;
+      color:var(--muted);
+    }
+    .guideDemoDots{
+      display:flex;
+      justify-content:center;
+      gap:8px;
+      margin-top:12px;
+    }
+    .guideDot{
+      width:12px;
+      height:12px;
+      border:none;
+      border-radius:999px;
+      background:#d6e7f1;
+      cursor:pointer;
+    }
+    .guideDot.active{
+      background:var(--sky);
+      box-shadow:0 0 0 3px rgba(127,207,255,.18);
+    }
+    .guideDemo.step-0 .guideDemoZone{
+      opacity:.55;
+      transform:scale(.92);
+    }
+    .guideDemo.step-0 .guideDemoZone.z-g2{
+      opacity:1;
+      transform:scale(1.05);
+      filter:drop-shadow(0 6px 10px rgba(0,0,0,.08));
+    }
+    .guideDemo.step-1 .guideDemoZone{
+      opacity:1;
+    }
+    .guideDemo.step-1 .guideDemoZone.z-g3,
+    .guideDemo.step-1 .guideDemoZone.z-g4{
+      transform:scale(1.05);
+      filter:drop-shadow(0 6px 10px rgba(0,0,0,.08));
+    }
+    .guideDemo.step-2 .guideDemoZone{
+      opacity:1;
+      transform:scale(1.02);
+    }
+    .guideSteps{
+      display:grid;
+      gap:10px;
+      margin:12px 0 14px;
+    }
+    .guideStep{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      padding:12px;
+      border-radius:18px;
+      background:#fff;
+      border:1px solid var(--line);
+    }
+    .guideStepIcon{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:#f4fbff;
+      font-size:22px;
+      flex:0 0 auto;
+    }
+    .guideStepTitle{
+      font-weight:900;
+      color:#2d4859;
+      margin-bottom:4px;
+    }
+    .guideStepText{
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.4;
+    }
+    .guideTips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-bottom:14px;
+    }
+    .guideTip{
+      padding:8px 10px;
+      border-radius:999px;
+      background:#f8fcff;
+      border:1px solid var(--line);
+      font-size:13px;
+      font-weight:800;
+      color:#476072;
+    }
+    .guideActions{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .guideCheck{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      color:#61727f;
+      font-size:13px;
+      font-weight:700;
+    }
+    .guideStartBtn{
+      min-width:160px;
+      min-height:48px;
+      border:none;
+      border-radius:16px;
+      background:var(--sky);
+      color:#17384f;
+      font-size:16px;
+      font-weight:900;
+      cursor:pointer;
     }
 
-    .rank-pill{
-      min-height:44px;
-      padding:0 16px;
+    .rewardPopupOverlay{
+      position:fixed;
+      inset:0;
+      z-index:90;
+      background:rgba(15,23,42,.34);
+      display:grid;
+      place-items:center;
+      padding:18px;
+      backdrop-filter:blur(8px);
+    }
+    .rewardPopupCard{
+      width:min(92vw,420px);
+      border-radius:28px;
+      background:linear-gradient(180deg,#fffef7,#fff9ec);
+      border:1px solid #f0ddb0;
+      box-shadow:var(--shadow-lg);
+      padding:22px 18px 18px;
+      text-align:center;
+      animation:rewardPopupIn .22s ease;
+    }
+    @keyframes rewardPopupIn{
+      from{ opacity:0; transform:translateY(10px) scale(.97); }
+      to{ opacity:1; transform:translateY(0) scale(1); }
+    }
+    .rewardPopupBadge{
+      width:82px;
+      height:82px;
+      margin:0 auto 12px;
       border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#ffe7a1,#ffd35e);
+      font-size:42px;
+      box-shadow:0 10px 24px rgba(255,206,84,.25);
+    }
+    .rewardPopupTitle{
+      font-size:24px;
+      font-weight:900;
+      color:#875d18;
+      margin-bottom:6px;
+    }
+    .rewardPopupDesc{
+      font-size:15px;
+      line-height:1.45;
+      color:#6f6245;
+      margin-bottom:10px;
+    }
+    .rewardPopupMeta{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      background:linear-gradient(180deg,#ffe38a,#ffbf43);
-      color:#fff;
-      font-size:18px;
+      min-height:36px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid #f0ddb0;
+      color:#8d6118;
       font-weight:900;
-      box-shadow:0 12px 26px rgba(255,181,67,.24);
+      margin-bottom:14px;
+    }
+    .rewardPopupBtn{
+      width:100%;
+      min-height:48px;
+      border:none;
+      border-radius:16px;
+      background:var(--sky);
+      color:#17384f;
+      font-size:16px;
+      font-weight:900;
+      cursor:pointer;
     }
 
-    .summary-grid{
+    .celebrateLayer{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:60;
+    }
+    .confetti{
+      position:absolute;
+      top:-10vh;
+      font-size:24px;
+      animation:confettiDrop linear forwards;
+      will-change:transform, opacity;
+    }
+    @keyframes confettiDrop{
+      0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+      100%{ transform:translateY(115vh) rotate(360deg); opacity:0; }
+    }
+
+    .flowOverlay{
+      position:fixed;
+      inset:0;
+      z-index:70;
+      background:rgba(15,23,42,.42);
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
+      place-items:center;
+      padding:18px;
+      backdrop-filter:blur(8px);
+    }
+    .flowCard{
+      width:min(92vw,920px);
+      background:linear-gradient(180deg,#fffef9,#f9fcff);
+      border:1px solid var(--line);
+      border-radius:28px;
+      padding:18px;
+      box-shadow:var(--shadow-lg);
+      animation:guidePop .22s ease;
+    }
+    .flowHead{
+      display:flex;
+      align-items:flex-start;
       gap:12px;
       margin-bottom:14px;
     }
-
-    .summary-card{
-      padding:16px;
-      border-radius:22px;
-      background:#f8fcff;
-      border:1px solid #e2edf8;
-    }
-
-    .summary-card span{
-      display:block;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      margin-bottom:6px;
-    }
-
-    .summary-card strong{
-      display:block;
-      font-size:30px;
-      line-height:1;
-    }
-
-    .group-grid{
+    .flowBadge{
+      width:56px;
+      height:56px;
+      border-radius:18px;
       display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:10px;
-      margin-bottom:14px;
+      place-items:center;
+      background:linear-gradient(180deg,#ffe8a2,#ffd561);
+      font-size:28px;
+      flex:0 0 auto;
     }
-
-    .group-box{
-      padding:12px;
-      border-radius:20px;
-      background:#fff;
-      border:1px solid #e6eef8;
-      text-align:center;
-    }
-
-    .group-box .emoji{
-      display:block;
-      font-size:26px;
-      margin-bottom:6px;
-    }
-
-    .group-box .name{
-      display:block;
-      font-size:12px;
-      font-weight:900;
-      color:#5b6d90;
-      line-height:1.2;
-      min-height:30px;
-      margin-bottom:6px;
-    }
-
-    .group-box .num{
-      display:block;
+    .flowTitle{
       font-size:24px;
       font-weight:900;
-      line-height:1;
+      color:#284255;
+      margin:0 0 4px;
+    }
+    .flowSub{
+      color:var(--muted);
+      margin:0;
     }
 
-    .summary-actions{
+    /* Evaluate */
+    .evalChoices{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:14px;
+      margin:14px 0;
+    }
+    .evalChoice{
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:22px;
+      padding:12px;
+      cursor:pointer;
+      transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+      box-shadow:0 8px 18px rgba(0,0,0,.04);
+      text-align:center;
+    }
+    .evalChoice:hover{
+      transform:translateY(-2px);
+      box-shadow:0 12px 20px rgba(0,0,0,.06);
+    }
+    .evalChoice.selected{
+      border-color:var(--sky);
+      box-shadow:0 0 0 4px rgba(127,207,255,.18);
+      transform:translateY(-2px);
+    }
+    .evalChoice.correct{
+      border-color:#a9dfb6;
+      background:var(--ok-bg);
+    }
+    .evalChoice.wrong{
+      border-color:#ffcfcf;
+      background:var(--bad-bg);
+    }
+    .evalPlate{
+      width:min(100%,160px);
+      aspect-ratio:1/1;
+      margin:0 auto 10px;
+      border-radius:999px;
+      position:relative;
+      border:7px solid #eaf4fa;
+      background:#fff;
+      overflow:hidden;
+    }
+    .evalZone{
+      position:absolute;
+      display:grid;
+      place-items:center;
+      font-size:20px;
+    }
+    .evalZone.z-g2{ left:8%; top:8%; width:42%; height:42%; background:var(--g2); border-radius:999px 0 0 0; }
+    .evalZone.z-g1{ right:8%; top:8%; width:42%; height:42%; background:var(--g1); border-radius:0 999px 0 0; }
+    .evalZone.z-g3{ left:8%; bottom:8%; width:42%; height:42%; background:var(--g3); border-radius:0 0 0 999px; }
+    .evalZone.z-g4{ right:8%; bottom:8%; width:42%; height:42%; background:var(--g4); border-radius:0 0 999px 0; }
+    .evalZone.z-g5{
+      left:50%; top:50%;
+      width:26%; height:26%;
+      transform:translate(-50%,-50%);
+      background:var(--g5);
+      border-radius:999px;
+      font-size:18px;
+    }
+    .evalLabel{
+      font-weight:900;
+      color:#2d4859;
+      font-size:16px;
+    }
+    .flowHint{
+      color:#5c7383;
+      font-size:14px;
+      font-weight:800;
+      text-align:center;
+      margin-bottom:12px;
+    }
+    .flowActions{
       display:flex;
+      justify-content:center;
       gap:10px;
       flex-wrap:wrap;
-      margin-top:8px;
+      margin-top:12px;
+    }
+    .flowBtn{
+      min-height:48px;
+      min-width:150px;
+      padding:0 14px;
+      border:none;
+      border-radius:16px;
+      font-size:16px;
+      font-weight:900;
+      cursor:pointer;
+      border:1px solid var(--line);
+      background:#fff;
+      color:#2f4f63;
+    }
+    .flowBtn.primary{
+      background:var(--sky);
+      color:#17384f;
+    }
+    .flowBtn:disabled{
+      opacity:.6;
+      cursor:not-allowed;
+    }
+    .flowFeedback{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:#f8fcff;
+      border:1px solid var(--line);
+      color:#476072;
+      font-weight:800;
+      min-height:52px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+    }
+    .flowFeedback.ok{
+      background:var(--ok-bg);
+      border-color:#bdecc7;
+      color:#2b6c43;
+    }
+    .flowFeedback.bad{
+      background:var(--bad-bg);
+      border-color:#ffd0d0;
+      color:#a35555;
     }
 
-    .summary-actions .btn{
-      flex:1;
-      min-width:180px;
+    /* Create */
+    .createTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .createProgressWrap{
+      flex:1 1 auto;
+      max-width:320px;
+    }
+    .createProgressText{
+      font-size:13px;
+      font-weight:900;
+      color:#8a6120;
+      margin-bottom:6px;
+      text-align:right;
+    }
+    .createProgressBar{
+      height:12px;
+      background:#f5ead0;
+      border-radius:999px;
+      overflow:hidden;
+    }
+    .createProgressFill{
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#ffd76a,#ffb347);
+      transition:width .18s ease;
+    }
+    .createLayout{
+      display:grid;
+      grid-template-columns:1fr .95fr;
+      gap:16px;
+      margin-top:12px;
+    }
+    .createBoard,.createTrayWrap{
+      border:1px solid var(--line);
+      border-radius:22px;
+      padding:14px;
+      background:#fff;
+      box-shadow:0 8px 18px rgba(0,0,0,.04);
+    }
+    .createPlate{
+      width:min(100%,360px);
+      aspect-ratio:1/1;
+      margin:8px auto;
+      border-radius:999px;
+      border:9px solid #eaf4fa;
+      background:#fff;
+      position:relative;
+      overflow:hidden;
+    }
+    .createZone{
+      position:absolute;
+      border:none;
+      cursor:pointer;
+      font-weight:900;
+      color:#334155;
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.75);
+      transition:transform .15s ease, box-shadow .15s ease;
+      overflow:hidden;
+    }
+    .createZone .zoneInner{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      padding:8px;
+      text-align:center;
+      font-size:13px;
+      font-weight:900;
+      color:#2f4f63;
+    }
+    .createZone.hasItem .zoneInner{
+      gap:4px;
+      align-content:center;
+    }
+    .zoneItemEmoji{ font-size:22px; }
+    .zoneItemText{ font-size:12px; background:rgba(255,255,255,.8); padding:3px 6px; border-radius:999px; }
+    .zonePlaceholder{ background:rgba(255,255,255,.8); padding:4px 8px; border-radius:999px; }
+
+    .createZone.z-g2{ left:8%; top:8%; width:42%; height:42%; border-radius:999px 0 0 0; background:var(--g2); }
+    .createZone.z-g1{ right:8%; top:8%; width:42%; height:42%; border-radius:0 999px 0 0; background:var(--g1); }
+    .createZone.z-g3{ left:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 0 999px; background:var(--g3); }
+    .createZone.z-g4{ right:8%; bottom:8%; width:42%; height:42%; border-radius:0 0 999px 0; background:var(--g4); }
+    .createZone.z-g5{
+      left:50%; top:50%;
+      width:26%; height:26%;
+      transform:translate(-50%,-50%);
+      border-radius:999px;
+      background:var(--g5);
+    }
+    .createZone.active{
+      outline:4px solid var(--sky);
+      transform:scale(1.02);
     }
 
-    .hidden{display:none !important}
-
-    @keyframes flashPulse{
-      0%{transform:scale(1)}
-      50%{transform:scale(1.03)}
-      100%{transform:scale(1)}
+    .createTray{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+    }
+    .createResult{
+      margin-top:14px;
+      padding:14px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#f8fcff;
+      color:#476072;
+      font-weight:800;
+      display:none;
+    }
+    .createResult.show{ display:block; }
+    .createResult.great{
+      background:linear-gradient(180deg,#fffef5,#f5fff4);
+      border-color:#d9efc8;
+      color:#527c26;
+    }
+    .createResult.good{
+      background:#f4fbff;
+      border-color:#cfe8f8;
+      color:#3e6f8a;
+    }
+    .createResult.retry{
+      background:#fff8f2;
+      border-color:#ffd8b5;
+      color:#9a5b2b;
     }
 
-    @media (max-width:1080px){
-      .arena{grid-template-columns:1fr}
-      .hud{grid-template-columns:repeat(3,minmax(0,1fr))}
+    /* Responsive */
+    .playShell{
+      animation:softFadeUp .35s ease;
+    }
+    @keyframes softFadeUp{
+      from{ opacity:0; transform:translateY(10px); }
+      to{ opacity:1; transform:translateY(0); }
     }
 
-    @media (max-width:760px){
-      .shell{width:min(calc(100% - 16px), 1180px)}
-      .hud{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .options-grid{grid-template-columns:1fr}
-      .summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .group-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .plate-slice{
-        width:38%;
-        min-height:92px;
-        border-radius:22px;
-        padding:10px;
+    @media (max-width: 960px){
+      .heroBar{
+        grid-template-columns:1fr 1fr;
       }
-      .plate-center{inset:23%; padding:14px}
-      .target-desc{font-size:13px}
-      .food-btn{min-height:156px}
+      .createLayout{
+        grid-template-columns:1fr;
+      }
+    }
+    @media (max-width: 860px){
+      .hud{ grid-template-columns:repeat(2,1fr); }
+      .heroBar{ grid-template-columns:1fr; }
+      .wrap{ padding:12px; }
+      .board{ grid-template-columns:1fr; }
+      .plateArea,.trayArea{
+        min-height:auto;
+        border-radius:20px;
+        padding:14px;
+      }
+      .plate{ width:min(100%,360px); }
+      .evalChoices{
+        grid-template-columns:1fr;
+      }
+    }
+    @media (max-width: 640px){
+      body.mobile-compact .hud{
+        position:sticky;
+        top:0;
+        gap:6px;
+        padding:8px;
+      }
+      body.mobile-compact .pill{
+        border-radius:14px;
+        padding:8px;
+        font-size:14px;
+      }
+      body.mobile-compact .heroBar{
+        padding:0 12px;
+        margin:10px auto 12px;
+      }
+      body.mobile-compact .dailyQuest{
+        padding:0 12px;
+        margin:0 auto 12px;
+        flex-direction:column;
+        align-items:stretch;
+      }
+      body.mobile-compact .dailyQuestRight{ width:100%; }
+      body.mobile-compact .board{ gap:12px; }
+      body.mobile-compact .plateArea{ order:1; }
+      body.mobile-compact .trayArea{
+        order:2;
+        position:sticky;
+        bottom:82px;
+        z-index:12;
+        background:rgba(255,255,255,.98);
+        backdrop-filter:blur(10px);
+        box-shadow:0 14px 28px rgba(0,0,0,.08);
+      }
+      body.mobile-compact .trayToggle{ display:block; }
+      body.mobile-compact .trayArea.collapsed .tray{ display:none; }
+      body.mobile-compact .trayArea.collapsed{ padding-bottom:10px; }
+      body.mobile-compact .tray{
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+        max-height:42vh;
+        overflow:auto;
+        padding-right:2px;
+      }
+      body.mobile-compact .food{
+        min-height:74px;
+        padding:8px;
+        gap:8px;
+      }
+      body.mobile-compact .foodEmoji{
+        width:38px; height:38px; font-size:21px;
+      }
+      body.mobile-compact .selectedBar{
+        bottom:8px;
+        padding:10px 12px;
+        gap:10px;
+        border-radius:18px;
+        flex-direction:column;
+        align-items:stretch;
+      }
+      body.mobile-compact .toastLayer{ bottom:132px; }
+      body.mobile-compact .summaryGrid{ grid-template-columns:1fr 1fr; }
+      body.mobile-compact .summary{
+        padding:16px;
+        border-radius:24px;
+      }
+      body.mobile-compact .guideCard{
+        padding:16px;
+        border-radius:24px;
+      }
+      body.mobile-compact .guideTitle{ font-size:21px; }
+      body.mobile-compact .guideActions{
+        flex-direction:column;
+        align-items:stretch;
+      }
+      body.mobile-compact .guideStartBtn{ width:100%; }
+      body.mobile-compact .summaryNextRow,
+      body.mobile-compact .pauseActions{
+        grid-template-columns:1fr;
+      }
+      body.mobile-compact .flowCard{
+        padding:16px;
+        border-radius:24px;
+      }
+      body.mobile-compact .flowActions{
+        flex-direction:column;
+      }
+      body.mobile-compact .flowBtn{
+        width:100%;
+      }
+      body.mobile-compact .createTray{
+        grid-template-columns:1fr 1fr;
+      }
+    }
+
+    body.hh-large-text{
+      font-size:18px;
+    }
+    body.hh-large-text .heroTitle,
+    body.hh-large-text .summaryRank,
+    body.hh-large-text .guideTitle,
+    body.hh-large-text .flowTitle{
+      font-size:1.1em;
+    }
+    body.hh-large-text .foodName,
+    body.hh-large-text .selectedTitle,
+    body.hh-large-text .nextTitle{
+      font-size:1.03em;
+    }
+    body.hh-large-text .guideStepText,
+    body.hh-large-text .selectedHint,
+    body.hh-large-text .heroSub,
+    body.hh-large-text .guideSub,
+    body.hh-large-text .flowSub{
+      font-size:1em;
+    }
+
+    body.hh-high-contrast{
+      --bg:#ffffff;
+      --card:#ffffff;
+      --line:#92a9b8;
+      --text:#10202d;
+    }
+    body.hh-high-contrast .plateArea,
+    body.hh-high-contrast .trayArea,
+    body.hh-high-contrast .heroChip,
+    body.hh-high-contrast .selectedBar,
+    body.hh-high-contrast .summary,
+    body.hh-high-contrast .guideCard,
+    body.hh-high-contrast .dailyQuest-left,
+    body.hh-high-contrast .stickerShelf,
+    body.hh-high-contrast .flowCard{
+      border-width:2px;
+      box-shadow:none;
+    }
+    body.hh-high-contrast .food.selected,
+    body.hh-high-contrast .zone.active,
+    body.hh-high-contrast .choiceChip.active{
+      box-shadow:0 0 0 4px rgba(28,106,168,.22);
+    }
+
+    button:disabled{
+      opacity:.6;
+      cursor:not-allowed;
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *,*::before,*::after{
+        animation:none !important;
+        transition:none !important;
+        scroll-behavior:auto !important;
+      }
     }
   </style>
 </head>
 <body>
-  <div id="feverBanner" class="fever">FEVER x2 🔥</div>
-
-  <div class="shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-icon">🍽️</div>
-        <div class="brand-text">
-          <h1>Plate Run</h1>
-          <p>จัดจานให้ครบ 5 หมู่ • child-friendly • quick play</p>
-        </div>
-      </div>
-
-      <div class="top-actions">
-        <a id="backHubBtn" class="btn" href="../hub-v2.html">⬅️ HUB</a>
-        <button id="pauseBtn" class="btn" type="button">⏸️ พักเกม</button>
-        <button id="restartBtn" class="btn primary" type="button">🔄 เริ่มใหม่</button>
-      </div>
-    </header>
-
-    <section class="hud">
-      <div class="hud-card">
-        <span class="label">คะแนน</span>
-        <div class="value">⭐ <span id="scoreValue">0</span></div>
-      </div>
-      <div class="hud-card">
-        <span class="label">เวลา</span>
-        <div class="value">⏱️ <span id="timeValue">80</span></div>
-      </div>
-      <div class="hud-card">
-        <span class="label">หัวใจ</span>
-        <div class="value">❤️ <span id="livesValue">3</span></div>
-      </div>
-      <div class="hud-card">
-        <span class="label">สตรีค</span>
-        <div class="value">⚡ <span id="streakValue">0</span></div>
-      </div>
-      <div class="hud-card">
-        <span class="label">จัดจานครบ</span>
-        <div class="value">🥗 <span id="platesValue">0</span></div>
-      </div>
-      <div class="hud-card">
-        <span class="label">ความแม่นยำ</span>
-        <div class="value">🎯 <span id="accValue">0%</span></div>
-      </div>
-    </section>
-
-    <section class="arena">
-      <div class="panel board-panel">
-        <div class="plate-wrap">
-          <div class="plate-board flash" id="plateBoard">
-            <div class="plate-slice slice-1" id="slice1">
-              <span class="emoji">🍗</span>
-              <span class="name">หมู่ 1<br>โปรตีน</span>
-              <span class="count" id="count1">0 ชิ้น</span>
-            </div>
-
-            <div class="plate-slice slice-2" id="slice2">
-              <span class="emoji">🍚</span>
-              <span class="name">หมู่ 2<br>คาร์โบไฮเดรต</span>
-              <span class="count" id="count2">0 ชิ้น</span>
-            </div>
-
-            <div class="plate-slice slice-3" id="slice3">
-              <span class="emoji">🥬</span>
-              <span class="name">หมู่ 3<br>ผัก</span>
-              <span class="count" id="count3">0 ชิ้น</span>
-            </div>
-
-            <div class="plate-slice slice-4" id="slice4">
-              <span class="emoji">🍎</span>
-              <span class="name">หมู่ 4<br>ผลไม้</span>
-              <span class="count" id="count4">0 ชิ้น</span>
-            </div>
-
-            <div class="plate-slice slice-5" id="slice5">
-              <span class="emoji">🥑</span>
-              <span class="name">หมู่ 5<br>ไขมัน</span>
-              <span class="count" id="count5">0 ชิ้น</span>
-            </div>
-
-            <div class="plate-center">
-              <div class="mission-badge" id="missionBadge">ภารกิจรอบนี้</div>
-              <h2 class="target-title" id="targetTitle">กำลังเตรียม...</h2>
-              <p class="target-desc" id="targetDesc">เลือกอาหารที่ตรงกับหมู่ที่กำหนดให้ได้มากที่สุด</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <aside class="panel side-panel">
-        <div class="coach-card">
-          <div class="coach-top">
-            <div class="coach-avatar">🧑‍🍳</div>
-            <div>
-              <div class="coach-name">Coach Plate</div>
-              <p class="coach-sub">แนะนำสั้น ๆ เข้าใจง่ายสำหรับเด็ก</p>
-            </div>
-          </div>
-          <div class="coach-line" id="coachLine">
-            จัดจานให้ครบ 5 หมู่กันเลย! อ่านโจทย์ตรงกลาง แล้วเลือกอาหารที่ตรงหมู่ให้ไวที่สุด
-          </div>
-        </div>
-
-        <div class="mission-card">
-          <h3>ภารกิจ</h3>
-          <div class="mission-list">
-            <div class="mission-item">
-              <span>รอบปัจจุบัน</span>
-              <strong id="turnValue">1</strong>
-            </div>
-            <div class="mission-item">
-              <span>เป้าหมายคะแนน</span>
-              <strong id="goalValue">220</strong>
-            </div>
-            <div class="mission-item">
-              <span>สถานะพลัง</span>
-              <strong id="feverState">ปกติ</strong>
-            </div>
-          </div>
-        </div>
-
-        <div class="progress-card">
-          <h3>ความคืบหน้า</h3>
-          <div class="bar"><i id="goalBar"></i></div>
-
-          <div class="mini-stats">
-            <div class="mini-stat">
-              <span>ตอบถูก</span>
-              <strong id="correctValue">0</strong>
-            </div>
-            <div class="mini-stat">
-              <span>ตอบผิด</span>
-              <strong id="wrongValue">0</strong>
-            </div>
-            <div class="mini-stat">
-              <span>สตรีคสูงสุด</span>
-              <strong id="bestStreakValue">0</strong>
-            </div>
-            <div class="mini-stat">
-              <span>Seed</span>
-              <strong id="seedValue">-</strong>
-            </div>
-          </div>
-        </div>
-      </aside>
-    </section>
-
-    <section class="panel options-panel">
-      <div class="options-head">
-        <div>
-          <h3>เลือกอาหารให้ตรงหมู่</h3>
-          <p>แตะหรือคลิกการ์ดที่ถูกต้อง ถ้าจัดครบ 5 หมู่จะได้โบนัสเพิ่ม</p>
-        </div>
-      </div>
-
-      <div id="optionsGrid" class="options-grid"></div>
-    </section>
+  <div class="hud">
+    <div class="pill">คะแนน<br><span id="hudScore">0</span></div>
+    <div class="pill">เวลา<br><span id="hudTime">90</span></div>
+    <div class="pill">คอมโบ<br><span id="hudStreak">0</span></div>
+    <div class="pill">จานสำเร็จ<br><span id="hudPlates">0</span></div>
   </div>
 
-  <div id="summaryOverlay" class="overlay">
-    <div class="summary">
-      <div class="summary-head">
+  <div class="heroBar">
+    <div class="heroChip heroChip-main">
+      <div class="heroIcon">🍽️</div>
+      <div>
+        <div class="heroTitle">Balanced Plate</div>
+        <div class="heroSub" id="heroSub">จัดอาหารให้ครบ 5 หมู่</div>
+      </div>
+    </div>
+
+    <div class="heroChip">
+      <span class="chipLabel">รอบ</span>
+      <strong id="hudRound">1</strong>
+    </div>
+
+    <div class="heroChip">
+      <span class="chipLabel">เป้าหมาย</span>
+      <strong id="hudGoal">5 หมู่</strong>
+    </div>
+
+    <div class="heroChip">
+      <span class="chipLabel">เสียง</span>
+      <button id="btnAudioToggle" class="audioBtn" type="button">🔊 เปิด</button>
+    </div>
+  </div>
+
+  <div class="dailyQuest" id="dailyQuest">
+    <div class="dailyQuest-left">
+      <div class="dailyQuestBadge">🎯</div>
+      <div>
+        <div class="dailyQuestTitle" id="dailyQuestTitle">ภารกิจวันนี้</div>
+        <div class="dailyQuestDesc" id="dailyQuestDesc">จัดจานสมดุลให้สำเร็จ 3 จาน</div>
+      </div>
+    </div>
+    <div class="dailyQuestRight">
+      <strong id="dailyQuestCount">0/3</strong>
+    </div>
+  </div>
+
+  <div class="wrap playShell">
+    <div class="board">
+      <section class="plateArea">
+        <h2>จานสุขภาพ</h2>
+
+        <div class="missionCard">
+          <div class="missionTop">
+            <strong id="missionTitle">ภารกิจรอบนี้</strong>
+            <span id="missionCount">0/5</span>
+          </div>
+          <div class="missionBar">
+            <div class="missionFill" id="missionFill"></div>
+          </div>
+        </div>
+
+        <div class="plate" id="plateBoard">
+          <button class="zone zone-g2" data-zone="g2" aria-label="หมู่ 2 คาร์โบไฮเดรต"><span>คาร์บ</span></button>
+          <button class="zone zone-g1" data-zone="g1" aria-label="หมู่ 1 โปรตีน"><span>โปรตีน</span></button>
+          <button class="zone zone-g3" data-zone="g3" aria-label="หมู่ 3 ผัก"><span>ผัก</span></button>
+          <button class="zone zone-g4" data-zone="g4" aria-label="หมู่ 4 ผลไม้"><span>ผลไม้</span></button>
+          <button class="zone zone-g5" data-zone="g5" aria-label="หมู่ 5 ไขมัน"><span>ไขมัน</span></button>
+        </div>
+
+        <div class="feedback" id="feedback">มาจัดจานสุขภาพกัน</div>
+      </section>
+
+      <section class="trayArea">
+        <h2>เลือกอาหาร</h2>
+        <button class="trayToggle" id="trayToggle" type="button" aria-expanded="true">ซ่อนถาดอาหาร</button>
+        <div class="tray" id="foodTray"></div>
+      </section>
+    </div>
+
+    <div class="selectedBar" id="selectedBar">
+      <div class="selectedBar-left">
+        <div class="selectedEmoji" id="selectedEmoji">🍽️</div>
         <div>
-          <h2 id="summaryTitle">สรุปผล Plate</h2>
-          <p id="summaryText">ยอดเยี่ยม! มาดูผลงานรอบนี้กัน</p>
-        </div>
-        <div id="rankPill" class="rank-pill">A</div>
-      </div>
-
-      <div class="summary-grid">
-        <div class="summary-card">
-          <span>คะแนนรวม</span>
-          <strong id="sumScore">0</strong>
-        </div>
-        <div class="summary-card">
-          <span>ความแม่นยำ</span>
-          <strong id="sumAcc">0%</strong>
-        </div>
-        <div class="summary-card">
-          <span>จัดจานครบ</span>
-          <strong id="sumPlates">0</strong>
-        </div>
-        <div class="summary-card">
-          <span>สตรีคสูงสุด</span>
-          <strong id="sumBest">0</strong>
+          <div class="selectedTitle">ยังไม่ได้เลือกอาหาร</div>
+          <div class="selectedHint" id="selectedHint">แตะอาหารจากถาด แล้วค่อยแตะส่วนของจาน</div>
         </div>
       </div>
+      <button class="selectedClear" id="btnClearPick" type="button">ยกเลิก</button>
+    </div>
 
-      <div class="group-grid">
-        <div class="group-box">
-          <span class="emoji">🍗</span>
-          <span class="name">หมู่ 1 โปรตีน</span>
-          <span class="num" id="sumG1">0</span>
-        </div>
-        <div class="group-box">
-          <span class="emoji">🍚</span>
-          <span class="name">หมู่ 2 คาร์โบไฮเดรต</span>
-          <span class="num" id="sumG2">0</span>
-        </div>
-        <div class="group-box">
-          <span class="emoji">🥬</span>
-          <span class="name">หมู่ 3 ผัก</span>
-          <span class="num" id="sumG3">0</span>
-        </div>
-        <div class="group-box">
-          <span class="emoji">🍎</span>
-          <span class="name">หมู่ 4 ผลไม้</span>
-          <span class="num" id="sumG4">0</span>
-        </div>
-        <div class="group-box">
-          <span class="emoji">🥑</span>
-          <span class="name">หมู่ 5 ไขมัน</span>
-          <span class="num" id="sumG5">0</span>
+    <div class="stickerShelf">
+      <div class="stickerShelfTitle">สติกเกอร์วันนี้</div>
+      <div class="stickerList" id="stickerList"></div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="overlay" id="summaryOverlay">
+    <div class="summary">
+      <h2 id="summaryHeading">วันนี้ทำได้ดีมาก</h2>
+
+      <div class="summaryHero">
+        <div class="summaryBadge" id="summaryBadge">🌟</div>
+        <div>
+          <div class="summaryRank" id="summaryRank">Healthy Plate Hero</div>
+          <div class="summaryStars" id="summaryStars">⭐️⭐️⭐️</div>
         </div>
       </div>
 
-      <div class="summary-actions">
-        <button id="playAgainBtn" class="btn primary" type="button">🔄 เล่นอีกครั้ง</button>
-        <a id="cooldownBtn" class="btn blue" href="../warmup-gate.html">🫧 คูลดาวน์ก่อนกลับ HUB</a>
-        <a id="summaryHubBtn" class="btn green" href="../hub-v2.html">🏠 กลับ HUB</a>
+      <div class="summaryGrid">
+        <div class="sbox">คะแนน<br><strong id="sumScore">0</strong></div>
+        <div class="sbox">ความแม่นยำ<br><strong id="sumAcc">0%</strong></div>
+        <div class="sbox">คอมโบสูงสุด<br><strong id="sumBestStreak">0</strong></div>
+        <div class="sbox">จานสำเร็จ<br><strong id="sumCompleted">0</strong></div>
+        <div class="sbox">พลาดบ่อย<br><strong id="sumMistake">-</strong></div>
+      </div>
+
+      <p id="sumInsight">เยี่ยมมาก ลองเล่นอีกครั้งเพื่อทำคะแนนให้สูงขึ้น</p>
+
+      <div class="summaryRewardBox" id="summaryRewardBox"></div>
+      <div class="summaryLatestReward" id="summaryLatestReward">รางวัลล่าสุด: ยังไม่มี</div>
+
+      <div class="summaryNextRow">
+        <div class="nextCard">
+          <div class="nextIcon">🎯</div>
+          <div>
+            <div class="nextTitle">ลองเป้าหมายต่อไป</div>
+            <div class="nextText" id="nextGoalText">ทำ Perfect Plate ให้ได้</div>
+          </div>
+        </div>
+        <div class="nextCard">
+          <div class="nextIcon">🎁</div>
+          <div>
+            <div class="nextTitle">สติกเกอร์วันนี้</div>
+            <div class="nextText" id="nextStickerText">สะสมได้อีก 1 ชิ้น</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btnReplay" class="primary">เล่นอีกครั้ง</button>
+        <button id="btnEvaluate" class="secondary">ลองคิดอีกนิด</button>
+        <button id="btnBackHub" class="secondary">กลับ HUB</button>
       </div>
     </div>
   </div>
 
+  <!-- Evaluate Overlay -->
+  <div class="flowOverlay" id="evaluateOverlay" hidden>
+    <div class="flowCard">
+      <div class="flowHead">
+        <div class="flowBadge">🌟</div>
+        <div>
+          <h2 class="flowTitle">ลองคิดอีกนิด</h2>
+          <p class="flowSub">เลือกจานที่สมดุลที่สุด</p>
+        </div>
+      </div>
+
+      <div class="evalChoices" id="evalChoices"></div>
+      <div class="flowHint">เลือก 1 คำตอบ</div>
+
+      <div class="flowActions">
+        <button type="button" class="flowBtn primary" id="btnEvalSubmit" disabled>ยืนยันคำตอบ</button>
+        <button type="button" class="flowBtn" id="btnEvalSkip">ข้ามไปก่อน</button>
+      </div>
+
+      <div class="flowFeedback" id="evalFeedback">เลือกจานที่คิดว่าสมดุลที่สุด</div>
+
+      <div class="flowActions" id="evalNextActions" hidden>
+        <button type="button" class="flowBtn primary" id="btnEvalNext">สร้างจานของฉัน</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Overlay -->
+  <div class="flowOverlay" id="createOverlay" hidden>
+    <div class="flowCard">
+      <div class="flowHead">
+        <div class="flowBadge">🍽️</div>
+        <div>
+          <h2 class="flowTitle">สร้างจานของคุณเอง</h2>
+          <p class="flowSub">เลือกอาหารให้ครบ 5 หมู่</p>
+        </div>
+      </div>
+
+      <div class="createTop">
+        <div class="flowHint" style="margin:0;text-align:left;">เลือกอาหารแล้วแตะส่วนของจาน</div>
+        <div class="createProgressWrap">
+          <div class="createProgressText" id="createProgressText">0/5 หมู่</div>
+          <div class="createProgressBar"><div class="createProgressFill" id="createProgressFill"></div></div>
+        </div>
+      </div>
+
+      <div class="createLayout">
+        <div class="createBoard">
+          <div class="createPlate" id="createPlateBoard">
+            <button class="createZone z-g2" data-zone="g2" aria-label="หมู่ 2">
+              <div class="zoneInner"><span class="zonePlaceholder">คาร์บ</span></div>
+            </button>
+            <button class="createZone z-g1" data-zone="g1" aria-label="หมู่ 1">
+              <div class="zoneInner"><span class="zonePlaceholder">โปรตีน</span></div>
+            </button>
+            <button class="createZone z-g3" data-zone="g3" aria-label="หมู่ 3">
+              <div class="zoneInner"><span class="zonePlaceholder">ผัก</span></div>
+            </button>
+            <button class="createZone z-g4" data-zone="g4" aria-label="หมู่ 4">
+              <div class="zoneInner"><span class="zonePlaceholder">ผลไม้</span></div>
+            </button>
+            <button class="createZone z-g5" data-zone="g5" aria-label="หมู่ 5">
+              <div class="zoneInner"><span class="zonePlaceholder">ไขมัน</span></div>
+            </button>
+          </div>
+        </div>
+
+        <div class="createTrayWrap">
+          <div class="createTray" id="createTray"></div>
+        </div>
+      </div>
+
+      <div class="flowActions">
+        <button type="button" class="flowBtn primary" id="btnCreateSubmit">ตรวจจานของฉัน</button>
+        <button type="button" class="flowBtn" id="btnCreateReset">เริ่มใหม่</button>
+      </div>
+
+      <div class="createResult" id="createResult"></div>
+
+      <div class="flowActions" id="createEndActions" hidden>
+        <button type="button" class="flowBtn primary" id="btnCreateReplay">เล่นอีกครั้ง</button>
+        <button type="button" class="flowBtn" id="btnCreateBackHub">กลับ HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pause -->
+  <div class="pauseOverlay" id="pauseOverlay" hidden>
+    <div class="pauseCard">
+      <div class="pauseBadge">⏸️</div>
+      <h2 id="pauseTitle">หยุดเกมชั่วคราว</h2>
+      <p id="pauseText">พักก่อน แล้วค่อยเล่นต่อได้</p>
+      <div class="pauseActions">
+        <button type="button" class="pauseBtn primary" id="btnResumeGame">เล่นต่อ</button>
+        <button type="button" class="pauseBtn" id="btnRestartGame">เริ่มใหม่</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Guide -->
+  <div class="guideOverlay" id="guideOverlay" hidden>
+    <div class="guideCard">
+      <div class="guideHead">
+        <div class="guideBadge">🍽️</div>
+        <div>
+          <h2 class="guideTitle">พร้อมจัดจานสุขภาพไหม</h2>
+          <p class="guideSub">เล่นง่ายมาก แค่ 3 ขั้น</p>
+        </div>
+      </div>
+
+      <div class="guideDemo" id="guideDemo">
+        <div class="guideDemoPlate">
+          <div class="guideDemoZone z-g2">🍚</div>
+          <div class="guideDemoZone z-g1">🐟</div>
+          <div class="guideDemoZone z-g3">🥬</div>
+          <div class="guideDemoZone z-g4">🍌</div>
+          <div class="guideDemoZone z-g5">🫗</div>
+        </div>
+        <div class="guideDemoText">
+          <div class="guideDemoStep" id="guideDemoStep">ขั้นที่ 1</div>
+          <div class="guideDemoTitle" id="guideDemoTitle">เลือกอาหารจากถาด</div>
+          <div class="guideDemoDesc" id="guideDemoDesc">แตะการ์ดอาหารที่อยากวางลงจาน</div>
+        </div>
+        <div class="guideDemoDots" id="guideDemoDots">
+          <button type="button" class="guideDot active" data-guide-step="0" aria-label="ดูขั้นที่ 1"></button>
+          <button type="button" class="guideDot" data-guide-step="1" aria-label="ดูขั้นที่ 2"></button>
+          <button type="button" class="guideDot" data-guide-step="2" aria-label="ดูขั้นที่ 3"></button>
+        </div>
+      </div>
+
+      <div class="guideSteps">
+        <div class="guideStep">
+          <div class="guideStepIcon">1️⃣</div>
+          <div>
+            <div class="guideStepTitle">เลือกอาหาร</div>
+            <div class="guideStepText">แตะอาหารจากถาดด้านขวาหรือด้านล่าง</div>
+          </div>
+        </div>
+        <div class="guideStep">
+          <div class="guideStepIcon">2️⃣</div>
+          <div>
+            <div class="guideStepTitle">ดูหมู่ให้ถูก</div>
+            <div class="guideStepText">สังเกตว่าอาหารควรอยู่ส่วนไหนของจาน</div>
+          </div>
+        </div>
+        <div class="guideStep">
+          <div class="guideStepIcon">3️⃣</div>
+          <div>
+            <div class="guideStepTitle">วางให้ครบ 5 หมู่</div>
+            <div class="guideStepText">ครบจานแล้วจะได้โบนัส และถ้าถูกหมดจะได้ Perfect Plate</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="guideTips">
+        <div class="guideTip">✨ วางถูก = ได้คะแนน</div>
+        <div class="guideTip">🌟 ครบจาน = ได้โบนัส</div>
+        <div class="guideTip">🎁 เล่นต่อ = ได้สติกเกอร์</div>
+      </div>
+
+      <div class="guideActions">
+        <label class="guideCheck">
+          <input type="checkbox" id="guideDontShowToday" />
+          <span>วันนี้ไม่ต้องแสดงอีก</span>
+        </label>
+        <button type="button" class="guideStartBtn" id="guideStartBtn">เริ่มจัดจาน</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reward Popup -->
+  <div class="rewardPopupOverlay" id="rewardPopupOverlay" hidden>
+    <div class="rewardPopupCard">
+      <div class="rewardPopupBadge" id="rewardPopupBadge">🎁</div>
+      <div class="rewardPopupTitle" id="rewardPopupTitle">ได้รางวัลใหม่</div>
+      <div class="rewardPopupDesc" id="rewardPopupDesc">คุณปลดล็อกสติกเกอร์แล้ว</div>
+      <div class="rewardPopupMeta" id="rewardPopupMeta">สะสมต่อได้อีก</div>
+      <button type="button" class="rewardPopupBtn" id="rewardPopupBtn">เยี่ยมเลย</button>
+    </div>
+  </div>
+
+  <div class="toastLayer" id="toastLayer" aria-live="polite"></div>
+  <div class="celebrateLayer" id="celebrateLayer" aria-hidden="true"></div>
+
   <script>
-    (() => {
-      'use strict';
+  (function(){
+    'use strict';
 
-      const qs = new URLSearchParams(location.search);
-
-      const HUB_DEFAULT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
-      const ctx = {
-        pid: qs.get('pid') || 'anon',
-        hub: qs.get('hub') || HUB_DEFAULT,
-        zone: qs.get('zone') || 'nutrition',
-        cat: qs.get('cat') || 'nutrition',
-        game: qs.get('game') || 'plate',
-        gameId: qs.get('gameId') || 'plate',
-        theme: qs.get('theme') || 'plate',
-        mode: qs.get('mode') || 'solo',
-        diff: qs.get('diff') || 'normal',
-        variant: qs.get('variant') || '',
-        view: qs.get('view') || 'mobile',
-        run: qs.get('run') || 'play',
-        time: Number(qs.get('time') || 80),
-        seed: qs.get('seed') || String(Date.now())
+    /* ---------------------------------
+      Helpers
+    --------------------------------- */
+    function qs(name, fallback=''){
+      try{ return new URL(location.href).searchParams.get(name) ?? fallback; }
+      catch(_){ return fallback; }
+    }
+    function clean(v, d=''){
+      v = String(v ?? '').trim();
+      return v || d;
+    }
+    function num(v, d=0){
+      v = Number(v);
+      return Number.isFinite(v) ? v : d;
+    }
+    function bangkokYmd(){
+      try{
+        const parts = new Intl.DateTimeFormat('en-CA',{
+          timeZone:'Asia/Bangkok',
+          year:'numeric',
+          month:'2-digit',
+          day:'2-digit'
+        }).formatToParts(new Date());
+        const m = {};
+        for(const p of parts) if(p.type !== 'literal') m[p.type] = p.value;
+        return `${m.year}${m.month}${m.day}`;
+      }catch(_){
+        const d = new Date();
+        return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      }
+    }
+    function safeReadJson(key, fallback=null){
+      try{
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      }catch(_){
+        return fallback;
+      }
+    }
+    function safeWriteJson(key, val){
+      try{ localStorage.setItem(key, JSON.stringify(val)); }catch(_){}
+    }
+    function withPassthrough(path, ctx, extra={}){
+      const u = new URL(path, location.origin);
+      const payload = {
+        pid: ctx.pid,
+        name: ctx.name,
+        studyId: ctx.studyId,
+        diff: ctx.diff,
+        time: String(ctx.time),
+        seed: ctx.seed,
+        hub: ctx.hub,
+        view: ctx.view,
+        run: ctx.run,
+        zone: ctx.zone,
+        game: ctx.game,
+        mode: ctx.mode,
+        ...extra
       };
+      for(const [k,v] of Object.entries(payload)){
+        if(v !== '' && v != null) u.searchParams.set(k, String(v));
+      }
+      return u.toString();
+    }
+    function gateKey(phase, ctx){
+      return `HHA_GATE_${phase.toUpperCase()}_${ctx.pid}_${ctx.game}_${ctx.mode}_${bangkokYmd()}`;
+    }
+    function isGateDone(phase, ctx){
+      try{ return localStorage.getItem(gateKey(phase, ctx)) === '1'; }
+      catch(_){ return false; }
+    }
+    function nowMs(){
+      return (window.performance && performance.now) ? performance.now() : Date.now();
+    }
 
-      const GROUPS = {
-        1: { id:1, emoji:'🍗', short:'โปรตีน', name:'หมู่ 1 โปรตีน', desc:'เนื้อ นม ไข่ ถั่วเมล็ดแห้ง' },
-        2: { id:2, emoji:'🍚', short:'คาร์โบไฮเดรต', name:'หมู่ 2 คาร์โบไฮเดรต', desc:'ข้าว แป้ง เผือก มัน น้ำตาล' },
-        3: { id:3, emoji:'🥬', short:'ผัก', name:'หมู่ 3 ผัก', desc:'กินผักหลากสีทุกวัน' },
-        4: { id:4, emoji:'🍎', short:'ผลไม้', name:'หมู่ 4 ผลไม้', desc:'ผลไม้สดรสธรรมชาติ' },
-        5: { id:5, emoji:'🥑', short:'ไขมัน', name:'หมู่ 5 ไขมัน', desc:'น้ำมันและไขมันที่พอดี' }
+    function makeRng(seedStr){
+      let h = 1779033703 ^ String(seedStr).length;
+      for(let i=0;i<String(seedStr).length;i++){
+        h = Math.imul(h ^ String(seedStr).charCodeAt(i), 3432918353);
+        h = (h << 13) | (h >>> 19);
+      }
+      return function(){
+        h = Math.imul(h ^ (h >>> 16), 2246822507);
+        h = Math.imul(h ^ (h >>> 13), 3266489909);
+        h ^= h >>> 16;
+        return (h >>> 0) / 4294967296;
       };
+    }
+    function shuffle(arr, rng){
+      const a = arr.slice();
+      for(let i=a.length-1;i>0;i--){
+        const j = Math.floor(rng() * (i+1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
 
-      const FOODS = [
-        { id:'egg', emoji:'🥚', name:'ไข่', group:1, desc:'ช่วยเสริมโปรตีนให้ร่างกาย' },
-        { id:'milk', emoji:'🥛', name:'นม', group:1, desc:'มีโปรตีนและแคลเซียม' },
-        { id:'fish', emoji:'🐟', name:'ปลา', group:1, desc:'โปรตีนย่อยง่าย' },
-        { id:'tofu', emoji:'🧈', name:'เต้าหู้', group:1, desc:'โปรตีนจากถั่วเหลือง' },
-        { id:'beans', emoji:'🫘', name:'ถั่วเมล็ดแห้ง', group:1, desc:'โปรตีนจากพืช' },
+    function getCtx(){
+      return {
+        pid: clean(qs('pid'),'anon'),
+        name: clean(qs('name'),''),
+        studyId: clean(qs('studyId'),''),
+        diff: clean(qs('diff'),'normal'),
+        time: num(qs('time'),90),
+        seed: clean(qs('seed'), String(Date.now())),
+        hub: clean(qs('hub'), '/webxr-health-mobile/herohealth/hub.html'),
+        view: clean(qs('view'),'mobile'),
+        run: clean(qs('run'),'play'),
+        zone: clean(qs('zone'),'nutrition'),
+        game: clean(qs('game'),'plate'),
+        mode: clean(qs('mode'),'solo')
+      };
+    }
 
-        { id:'rice', emoji:'🍚', name:'ข้าวสวย', group:2, desc:'ให้พลังงานหลักของร่างกาย' },
-        { id:'bread', emoji:'🍞', name:'ขนมปัง', group:2, desc:'คาร์โบไฮเดรตพร้อมพลังงาน' },
-        { id:'corn', emoji:'🌽', name:'ข้าวโพด', group:2, desc:'ให้พลังงานและอิ่มท้อง' },
-        { id:'potato', emoji:'🥔', name:'มันฝรั่ง', group:2, desc:'อยู่ในกลุ่มแป้งและหัวพืช' },
-        { id:'noodle', emoji:'🍜', name:'เส้นก๋วยเตี๋ยว', group:2, desc:'กลุ่มแป้งที่ให้พลังงาน' },
+    const ctx = getCtx();
+    let rng = makeRng(ctx.seed);
 
-        { id:'broccoli', emoji:'🥦', name:'บรอกโคลี', group:3, desc:'ผักสีเขียวมีประโยชน์' },
-        { id:'carrot', emoji:'🥕', name:'แครอต', group:3, desc:'ผักสีส้มสดใส' },
-        { id:'cucumber', emoji:'🥒', name:'แตงกวา', group:3, desc:'ผักกรอบกินง่าย' },
-        { id:'tomato', emoji:'🍅', name:'มะเขือเทศ', group:3, desc:'ผักสีแดงรสสดชื่น' },
-        { id:'lettuce', emoji:'🥬', name:'ผักกาดหอม', group:3, desc:'ผักใบเขียวกินกับหลายเมนู' },
+    /* ---------------------------------
+      Data
+    --------------------------------- */
+    const FOOD_GROUPS = {
+      g1: { id:'g1', name:'หมู่ 1 โปรตีน', short:'โปรตีน', color:'#ffe7ef' },
+      g2: { id:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', short:'คาร์บ', color:'#fff4cc' },
+      g3: { id:'g3', name:'หมู่ 3 ผัก', short:'ผัก', color:'#e6f8df' },
+      g4: { id:'g4', name:'หมู่ 4 ผลไม้', short:'ผลไม้', color:'#e7f1ff' },
+      g5: { id:'g5', name:'หมู่ 5 ไขมัน', short:'ไขมัน', color:'#fff0d9' }
+    };
 
-        { id:'apple', emoji:'🍎', name:'แอปเปิล', group:4, desc:'ผลไม้กรอบหวานธรรมชาติ' },
-        { id:'banana', emoji:'🍌', name:'กล้วย', group:4, desc:'ผลไม้พกง่ายกินสะดวก' },
-        { id:'watermelon', emoji:'🍉', name:'แตงโม', group:4, desc:'ผลไม้ฉ่ำน้ำสดชื่น' },
-        { id:'orange', emoji:'🍊', name:'ส้ม', group:4, desc:'ผลไม้รสเปรี้ยวอมหวาน' },
-        { id:'grape', emoji:'🍇', name:'องุ่น', group:4, desc:'ผลไม้ลูกเล็กกินสนุก' },
+    const FOOD_DB = [
+      { id:'rice', label:'ข้าว', group:'g2' },
+      { id:'brownRice', label:'ข้าวกล้อง', group:'g2' },
+      { id:'bread', label:'ขนมปัง', group:'g2' },
+      { id:'noodle', label:'เส้นก๋วยเตี๋ยว', group:'g2' },
+      { id:'corn', label:'ข้าวโพด', group:'g2' },
+      { id:'potato', label:'มันฝรั่ง', group:'g2' },
 
-        { id:'avocado', emoji:'🥑', name:'อะโวคาโด', group:5, desc:'มีไขมันดีในปริมาณเหมาะสม' },
-        { id:'oil', emoji:'🫒', name:'น้ำมันพืช', group:5, desc:'ไขมันที่ใช้ปรุงอาหาร' },
-        { id:'butter', emoji:'🧈', name:'เนย', group:5, desc:'ไขมัน ใช้แต่น้อยพอดี' },
-        { id:'coconut', emoji:'🥥', name:'มะพร้าว', group:5, desc:'มีไขมันจากพืช' },
-        { id:'peanut', emoji:'🥜', name:'ถั่วลิสง', group:5, desc:'มีไขมันและพลังงาน' }
+      { id:'fish', label:'ปลา', group:'g1' },
+      { id:'egg', label:'ไข่', group:'g1' },
+      { id:'chicken', label:'ไก่', group:'g1' },
+      { id:'milk', label:'นม', group:'g1' },
+      { id:'bean', label:'ถั่ว', group:'g1' },
+      { id:'tofu', label:'เต้าหู้', group:'g1' },
+
+      { id:'kale', label:'คะน้า', group:'g3' },
+      { id:'carrot', label:'แครอท', group:'g3' },
+      { id:'cucumber', label:'แตงกวา', group:'g3' },
+      { id:'cabbage', label:'กะหล่ำปลี', group:'g3' },
+      { id:'pumpkin', label:'ฟักทอง', group:'g3' },
+      { id:'morningGlory', label:'ผักบุ้ง', group:'g3' },
+
+      { id:'banana', label:'กล้วย', group:'g4' },
+      { id:'orange', label:'ส้ม', group:'g4' },
+      { id:'watermelon', label:'แตงโม', group:'g4' },
+      { id:'papaya', label:'มะละกอ', group:'g4' },
+      { id:'apple', label:'แอปเปิล', group:'g4' },
+      { id:'guava', label:'ฝรั่ง', group:'g4' },
+
+      { id:'butter', label:'เนย', group:'g5' },
+      { id:'oil', label:'น้ำมันพืช', group:'g5' },
+      { id:'coconutMilk', label:'กะทิ', group:'g5' },
+      { id:'sesame', label:'งา', group:'g5' },
+
+      { id:'soda', label:'น้ำอัดลม', group:'x' },
+      { id:'candy', label:'ลูกอม', group:'x' },
+      { id:'cake', label:'เค้ก', group:'x' },
+      { id:'chips', label:'มันฝรั่งทอด', group:'x' },
+      { id:'donut', label:'โดนัท', group:'x' },
+      { id:'bubbleTea', label:'ชานมไข่มุก', group:'x' }
+    ];
+
+    const FOOD_EMOJI = {
+      rice:'🍚', brownRice:'🍚', bread:'🍞', noodle:'🍜', corn:'🌽', potato:'🥔',
+      fish:'🐟', egg:'🥚', chicken:'🍗', milk:'🥛', bean:'🫘', tofu:'⬜',
+      kale:'🥬', carrot:'🥕', cucumber:'🥒', cabbage:'🥗', pumpkin:'🎃', morningGlory:'🥬',
+      banana:'🍌', orange:'🍊', watermelon:'🍉', papaya:'🥭', apple:'🍎', guava:'🍐',
+      butter:'🧈', oil:'🫗', coconutMilk:'🥥', sesame:'⚪',
+      soda:'🥤', candy:'🍬', cake:'🍰', chips:'🍟', donut:'🍩', bubbleTea:'🧋'
+    };
+
+    const STICKERS = {
+      first_plate: { icon:'🍽️', text:'จานแรกของวัน' },
+      perfect_plate: { icon:'🌟', text:'Perfect Plate' },
+      three_plates: { icon:'🏅', text:'ครบ 3 จาน' },
+      focus_kid: { icon:'💡', text:'ตั้งใจมาก' }
+    };
+
+    const DAILY_GOAL = 3;
+
+    const GUIDE_DEMO_STEPS = [
+      { step:'ขั้นที่ 1', title:'เลือกอาหารจากถาด', desc:'แตะการ์ดอาหารที่อยากวางลงจาน' },
+      { step:'ขั้นที่ 2', title:'ดูให้ตรงหมู่', desc:'สังเกตว่าส่วนไหนของจานเหมาะกับอาหารนั้น' },
+      { step:'ขั้นที่ 3', title:'วางให้ครบ 5 หมู่', desc:'ครบจานแล้วจะได้โบนัส และถ้าถูกหมดจะได้ Perfect Plate' }
+    ];
+
+    /* ---------------------------------
+      DOM
+    --------------------------------- */
+    const $score = document.getElementById('hudScore');
+    const $time = document.getElementById('hudTime');
+    const $streak = document.getElementById('hudStreak');
+    const $plates = document.getElementById('hudPlates');
+    const $tray = document.getElementById('foodTray');
+    const $feedback = document.getElementById('feedback');
+    const $overlay = document.getElementById('summaryOverlay');
+
+    const $sumScore = document.getElementById('sumScore');
+    const $sumAcc = document.getElementById('sumAcc');
+    const $sumBest = document.getElementById('sumBestStreak');
+    const $sumComp = document.getElementById('sumCompleted');
+    const $sumInsight = document.getElementById('sumInsight');
+    const $sumMistake = document.getElementById('sumMistake');
+
+    const $btnReplay = document.getElementById('btnReplay');
+    const $btnEvaluate = document.getElementById('btnEvaluate');
+    const $btnBackHub = document.getElementById('btnBackHub');
+
+    const $selectedBar = document.getElementById('selectedBar');
+    const $selectedEmoji = document.getElementById('selectedEmoji');
+    const $selectedHint = document.getElementById('selectedHint');
+    const $btnClearPick = document.getElementById('btnClearPick');
+
+    const $toastLayer = document.getElementById('toastLayer');
+    const $celebrateLayer = document.getElementById('celebrateLayer');
+
+    const $missionCount = document.getElementById('missionCount');
+    const $missionFill = document.getElementById('missionFill');
+    const $hudRound = document.getElementById('hudRound');
+    const $hudGoal = document.getElementById('hudGoal');
+
+    const $summaryRank = document.getElementById('summaryRank');
+    const $summaryStars = document.getElementById('summaryStars');
+    const $summaryBadge = document.getElementById('summaryBadge');
+    const $summaryRewardBox = document.getElementById('summaryRewardBox');
+    const $summaryLatestReward = document.getElementById('summaryLatestReward');
+    const $summaryHeading = document.getElementById('summaryHeading');
+    const $nextGoalText = document.getElementById('nextGoalText');
+    const $nextStickerText = document.getElementById('nextStickerText');
+
+    const $trayArea = document.querySelector('.trayArea');
+    const $trayToggle = document.getElementById('trayToggle');
+
+    const $dailyQuestTitle = document.getElementById('dailyQuestTitle');
+    const $dailyQuestDesc = document.getElementById('dailyQuestDesc');
+    const $dailyQuestCount = document.getElementById('dailyQuestCount');
+
+    const $stickerList = document.getElementById('stickerList');
+
+    const $guideOverlay = document.getElementById('guideOverlay');
+    const $guideStartBtn = document.getElementById('guideStartBtn');
+    const $guideDontShowToday = document.getElementById('guideDontShowToday');
+    const $guideDemo = document.getElementById('guideDemo');
+    const $guideDemoStep = document.getElementById('guideDemoStep');
+    const $guideDemoTitle = document.getElementById('guideDemoTitle');
+    const $guideDemoDesc = document.getElementById('guideDemoDesc');
+
+    const $rewardPopupOverlay = document.getElementById('rewardPopupOverlay');
+    const $rewardPopupBadge = document.getElementById('rewardPopupBadge');
+    const $rewardPopupTitle = document.getElementById('rewardPopupTitle');
+    const $rewardPopupDesc = document.getElementById('rewardPopupDesc');
+    const $rewardPopupMeta = document.getElementById('rewardPopupMeta');
+    const $rewardPopupBtn = document.getElementById('rewardPopupBtn');
+
+    const $btnAudioToggle = document.getElementById('btnAudioToggle');
+
+    const $btnResumeGame = document.getElementById('btnResumeGame');
+    const $btnRestartGame = document.getElementById('btnRestartGame');
+
+    const $evaluateOverlay = document.getElementById('evaluateOverlay');
+    const $evalChoices = document.getElementById('evalChoices');
+    const $btnEvalSubmit = document.getElementById('btnEvalSubmit');
+    const $btnEvalSkip = document.getElementById('btnEvalSkip');
+    const $evalFeedback = document.getElementById('evalFeedback');
+    const $btnEvalNext = document.getElementById('btnEvalNext');
+    const $evalNextActions = document.getElementById('evalNextActions');
+
+    const $createOverlay = document.getElementById('createOverlay');
+    const $createProgressText = document.getElementById('createProgressText');
+    const $createProgressFill = document.getElementById('createProgressFill');
+    const $createTray = document.getElementById('createTray');
+    const $createResult = document.getElementById('createResult');
+    const $btnCreateSubmit = document.getElementById('btnCreateSubmit');
+    const $btnCreateReset = document.getElementById('btnCreateReset');
+    const $btnCreateReplay = document.getElementById('btnCreateReplay');
+    const $btnCreateBackHub = document.getElementById('btnCreateBackHub');
+    const $createEndActions = document.getElementById('createEndActions');
+
+    /* ---------------------------------
+      State
+    --------------------------------- */
+    const state = {
+      started:false,
+      finished:false,
+      paused:false,
+      hiddenPaused:false,
+      destroyed:false,
+
+      score:0,
+      timeLeft:ctx.time,
+      streak:0,
+      bestStreak:0,
+      correct:0,
+      wrong:0,
+      completedPlates:0,
+      currentRound:0,
+
+      selectedFoodId:null,
+      roundTargetGroups:[],
+      roundFoods:[],
+      placedByZone:{},
+      mistakeByGroup:{ g1:0, g2:0, g3:0, g4:0, g5:0 },
+
+      roundsStarted:0,
+      roundsCompleted:0,
+      perfectPlates:0,
+
+      timeStartedMs:0,
+      timeToFirstCorrectMs:null,
+      timeToFirstPlateMs:null,
+
+      perGroupCorrect:{ g1:0, g2:0, g3:0, g4:0, g5:0 },
+      perGroupWrong:{ g1:0, g2:0, g3:0, g4:0, g5:0 },
+
+      replayClicked:0,
+      backHubClicked:0,
+      summaryShown:0,
+
+      zoneBound:false,
+      rafId:0,
+      gameDeadlineMs:0,
+      lastSecondShown:ctx.time,
+      roundAdvanceTimer:0,
+      inputLockUntil:0,
+      runToken:0,
+
+      recentFoodIds:[],
+      recentRoundSig:[]
+    };
+
+    const evaluateState = {
+      questionId:'',
+      selectedChoice:'',
+      correctChoice:'',
+      answered:false,
+      isCorrect:false,
+      choices:[]
+    };
+
+    const createState = {
+      selectedFoodId:null,
+      placedByZone:{},
+      hasSubmitted:false,
+      resultLevel:'',
+      missingGroups:[],
+      distractorCount:0,
+      trayFoods:[]
+    };
+
+    let leavingPage = false;
+
+    /* ---------------------------------
+      Audio
+    --------------------------------- */
+    let audioUnlocked = false;
+    let audioCtx = null;
+    let audioMuted = false;
+
+    function ensureAudio(){
+      if(audioMuted) return null;
+      try{
+        if(!audioCtx){
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if(!AC) return null;
+          audioCtx = new AC();
+        }
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        return audioCtx;
+      }catch(_){
+        return null;
+      }
+    }
+    function unlockAudio(){
+      const ac = ensureAudio();
+      if(ac) audioUnlocked = true;
+    }
+    function playTone(freq=440, dur=0.08, type='sine', gainValue=0.025){
+      if(audioMuted) return;
+      const ac = ensureAudio();
+      if(!ac || !audioUnlocked) return;
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.value = 0.0001;
+      osc.connect(gain);
+      gain.connect(ac.destination);
+      const now = ac.currentTime;
+      gain.gain.linearRampToValueAtTime(gainValue, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.start(now);
+      osc.stop(now + dur + 0.02);
+    }
+    function playSfx(kind){
+      if(audioMuted) return;
+      if(kind === 'pick'){
+        playTone(520, 0.05, 'triangle', 0.018); return;
+      }
+      if(kind === 'ok'){
+        playTone(660, 0.06, 'sine', 0.02);
+        setTimeout(() => playTone(820, 0.07, 'sine', 0.018), 45);
+        return;
+      }
+      if(kind === 'bad'){
+        playTone(240, 0.08, 'sawtooth', 0.015); return;
+      }
+      if(kind === 'plate'){
+        playTone(520, 0.06, 'triangle', 0.02);
+        setTimeout(() => playTone(700, 0.06, 'triangle', 0.018), 55);
+        setTimeout(() => playTone(880, 0.09, 'triangle', 0.018), 110);
+        return;
+      }
+      if(kind === 'perfect'){
+        playTone(660, 0.06, 'triangle', 0.02);
+        setTimeout(() => playTone(880, 0.06, 'triangle', 0.018), 55);
+        setTimeout(() => playTone(1040, 0.12, 'triangle', 0.018), 120);
+        return;
+      }
+      if(kind === 'summary'){
+        playTone(500, 0.05, 'sine', 0.014);
+        setTimeout(() => playTone(650, 0.06, 'sine', 0.014), 45);
+      }
+    }
+    function syncAudioBtn(){
+      if($btnAudioToggle) $btnAudioToggle.textContent = audioMuted ? '🔈 ปิด' : '🔊 เปิด';
+    }
+    $btnAudioToggle?.addEventListener('click', () => {
+      audioMuted = !audioMuted;
+      syncAudioBtn();
+      if(!audioMuted){
+        unlockAudio();
+        playSfx('pick');
+      }
+    });
+    ['pointerdown','touchstart','keydown'].forEach(evt => {
+      window.addEventListener(evt, unlockAudio, { once:true, passive:true });
+    });
+    syncAudioBtn();
+
+    /* ---------------------------------
+      Accessibility
+    --------------------------------- */
+    function a11yKey(name){
+      return `PLATE_A11Y_${name}_${ctx.pid}`;
+    }
+    function syncA11yButtons(){
+      const largeText = document.body.classList.contains('hh-large-text');
+      const highContrast = document.body.classList.contains('hh-high-contrast');
+      if(document.getElementById('btnTextSize')) document.getElementById('btnTextSize').textContent = largeText ? 'A+ ใหญ่' : 'A+ ปกติ';
+      if(document.getElementById('btnContrast')) document.getElementById('btnContrast').textContent = highContrast ? '🎨 ชัด' : '🎨 ปกติ';
+    }
+    function loadA11yPrefs(){
+      try{
+        const largeText = localStorage.getItem(a11yKey('large_text')) === '1';
+        const highContrast = localStorage.getItem(a11yKey('high_contrast')) === '1';
+        document.body.classList.toggle('hh-large-text', largeText);
+        document.body.classList.toggle('hh-high-contrast', highContrast);
+      }catch(_){}
+      syncA11yButtons();
+    }
+    loadA11yPrefs();
+
+    /* ---------------------------------
+      UI Helpers
+    --------------------------------- */
+    function isMobileCompact(){
+      return window.matchMedia('(max-width: 640px)').matches;
+    }
+    function syncCompactMode(){
+      document.body.classList.toggle('mobile-compact', isMobileCompact());
+    }
+    function bumpHud(el){
+      if(!el) return;
+      el.classList.remove('bump');
+      void el.offsetWidth;
+      el.classList.add('bump');
+      setTimeout(() => el.classList.remove('bump'), 180);
+    }
+    function popFeedback(){
+      if(!$feedback) return;
+      $feedback.classList.remove('pop');
+      void $feedback.offsetWidth;
+      $feedback.classList.add('pop');
+      setTimeout(() => $feedback.classList.remove('pop'), 180);
+    }
+    function setFeedback(msg){
+      $feedback.textContent = msg || '';
+      popFeedback();
+    }
+    function pushToast(message, type='info'){
+      if(!$toastLayer) return;
+      const el = document.createElement('div');
+      el.className = `toast ${type}`;
+      el.textContent = message;
+      $toastLayer.appendChild(el);
+      setTimeout(() => el.remove(), 2100);
+    }
+    function celebrate(kind='good'){
+      if(!$celebrateLayer) return;
+      const icons = kind === 'perfect' ? ['⭐️','🌟','🏆','✨','💛'] : ['✨','⭐️','🍽️','🎉'];
+      const count = kind === 'perfect' ? 18 : 10;
+      for(let i=0;i<count;i++){
+        const el = document.createElement('div');
+        el.className = 'confetti';
+        el.textContent = icons[Math.floor(Math.random() * icons.length)];
+        el.style.left = `${Math.random() * 100}%`;
+        el.style.animationDuration = `${2 + Math.random() * 1.4}s`;
+        el.style.animationDelay = `${Math.random() * 0.18}s`;
+        $celebrateLayer.appendChild(el);
+        setTimeout(() => el.remove(), 3600);
+      }
+    }
+    function zoneTap(zoneEl){
+      if(!zoneEl) return;
+      zoneEl.classList.remove('tapFlash');
+      void zoneEl.offsetWidth;
+      zoneEl.classList.add('tapFlash');
+    }
+    function renderSelectedBar(){
+      const food = state.roundFoods.find(x => x.id === state.selectedFoodId);
+      const titleEl = $selectedBar?.querySelector('.selectedTitle');
+      if(!food){
+        if($selectedEmoji) $selectedEmoji.textContent = '🍽️';
+        if(titleEl) titleEl.textContent = 'ยังไม่ได้เลือกอาหาร';
+        if($selectedHint) $selectedHint.textContent = 'แตะอาหารจากถาด แล้วค่อยแตะส่วนของจาน';
+        return;
+      }
+      if($selectedEmoji) $selectedEmoji.textContent = FOOD_EMOJI[food.id] || '🍎';
+      if(titleEl) titleEl.textContent = `เลือก: ${food.label}`;
+      if($selectedHint){
+        $selectedHint.textContent = food.group === 'x'
+          ? 'ลองคิดดูว่าอาหารนี้เหมาะกับจานสุขภาพไหม'
+          : `แตะส่วน "${FOOD_GROUPS[food.group].short}" ถ้าคิดว่าถูก`;
+      }
+    }
+    function updateMissionUi(){
+      const placed = Object.keys(state.placedByZone).length;
+      const need = state.roundTargetGroups.length || 5;
+      const pct = Math.max(0, Math.min(100, (placed / need) * 100));
+      if($missionCount) $missionCount.textContent = `${placed}/${need}`;
+      if($missionFill) $missionFill.style.width = `${pct}%`;
+      if($hudRound) $hudRound.textContent = String(state.currentRound || 1);
+      if($hudGoal) $hudGoal.textContent = `${need} หมู่`;
+    }
+    function refreshZoneUi(){
+      document.querySelectorAll('.zone').forEach(zone => {
+        const zoneId = zone.dataset.zone;
+        zone.classList.toggle('hasItem', !!state.placedByZone[zoneId]);
+      });
+    }
+    function clearZoneMarks(){
+      [...document.querySelectorAll('.zone')].forEach(z => {
+        z.classList.remove('active','correctFlash','wrongFlash');
+      });
+    }
+    function flashZone(zoneEl, ok){
+      zoneEl.classList.remove('correctFlash','wrongFlash');
+      void zoneEl.offsetWidth;
+      zoneEl.classList.add(ok ? 'correctFlash' : 'wrongFlash');
+    }
+    function autoOpenTrayOnPick(){
+      if(isMobileCompact() && $trayArea?.classList.contains('collapsed')){
+        $trayArea.classList.remove('collapsed');
+        syncTrayToggleLabel();
+      }
+    }
+    function autoCloseTrayAfterPlace(){
+      if(isMobileCompact() && $trayArea && !state.finished){
+        $trayArea.classList.add('collapsed');
+        syncTrayToggleLabel();
+      }
+    }
+    function syncTrayToggleLabel(){
+      if(!$trayToggle || !$trayArea) return;
+      const collapsed = $trayArea.classList.contains('collapsed');
+      $trayToggle.textContent = collapsed ? 'แสดงถาดอาหาร' : 'ซ่อนถาดอาหาร';
+      $trayToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
+    function toggleTray(){
+      if(!$trayArea) return;
+      $trayArea.classList.toggle('collapsed');
+      syncTrayToggleLabel();
+    }
+    $trayToggle?.addEventListener('click', toggleTray);
+
+    function resetUiForFreshRun(){
+      $overlay.classList.remove('show');
+      setFeedback('มาจัดจานสุขภาพกัน');
+      $sumScore.textContent = '0';
+      $sumAcc.textContent = '0%';
+      $sumBest.textContent = '0';
+      $sumComp.textContent = '0';
+      if($sumMistake) $sumMistake.textContent = '-';
+      leavingPage = false;
+      if($btnReplay) $btnReplay.disabled = false;
+      if($btnBackHub) $btnBackHub.disabled = false;
+      if($btnEvaluate) $btnEvaluate.disabled = false;
+      if($btnResumeGame) $btnResumeGame.disabled = false;
+      if($btnRestartGame) $btnRestartGame.disabled = false;
+      renderSelectedBar();
+      updateMissionUi();
+      renderStickerShelf();
+    }
+
+    function getSummaryTier(summary){
+      if(summary.accuracy >= 95 && (summary.perfectPlates || 0) >= 1){
+        return { rank:'Healthy Plate Master', stars:3, badge:'🏆' };
+      }
+      if(summary.accuracy >= 85){
+        return { rank:'Healthy Plate Hero', stars:3, badge:'🌟' };
+      }
+      if(summary.accuracy >= 70){
+        return { rank:'Balanced Meal Star', stars:2, badge:'💛' };
+      }
+      return { rank:'Plate Explorer', stars:1, badge:'🍽️' };
+    }
+    function renderSummaryTier(summary){
+      const tier = getSummaryTier(summary);
+      if($summaryRank) $summaryRank.textContent = tier.rank;
+      if($summaryBadge) $summaryBadge.textContent = tier.badge;
+      if($summaryStars){
+        $summaryStars.textContent = `${tier.stars >= 1 ? '⭐️' : '☆'}${tier.stars >= 2 ? '⭐️' : '☆'}${tier.stars >= 3 ? '⭐️' : '☆'}`;
+      }
+    }
+
+    /* ---------------------------------
+      Daily / Stickers
+    --------------------------------- */
+    function dayKeyBase(){
+      return `PLATE_DAILY_${ctx.pid}_${bangkokYmd()}`;
+    }
+    function readDailyProgress(){
+      return safeReadJson(dayKeyBase(), {
+        completedPlates:0,
+        perfectPlates:0,
+        stickers:[],
+        questDone:0,
+        firstPlayShown:0
+      });
+    }
+    function writeDailyProgress(data){
+      safeWriteJson(dayKeyBase(), data);
+    }
+    function updateDailyQuestUi(){
+      const daily = readDailyProgress();
+      if($dailyQuestTitle) $dailyQuestTitle.textContent = daily.questDone ? 'ภารกิจวันนี้สำเร็จแล้ว' : 'ภารกิจวันนี้';
+      if($dailyQuestDesc) $dailyQuestDesc.textContent = daily.questDone
+        ? 'ยอดเยี่ยมมาก กลับมาเล่นเพิ่มได้อีกนะ'
+        : `จัดจานสมดุลให้สำเร็จ ${DAILY_GOAL} จาน`;
+      if($dailyQuestCount) $dailyQuestCount.textContent = `${Math.min(daily.completedPlates || 0, DAILY_GOAL)}/${DAILY_GOAL}`;
+    }
+
+    function renderStickerShelf(){
+      if(!$stickerList) return;
+      const daily = readDailyProgress();
+      const list = Array.isArray(daily.stickers) ? daily.stickers : [];
+      $stickerList.innerHTML = '';
+      if(!list.length){
+        $stickerList.innerHTML = `
+          <div class="sticker">
+            <div class="stickerIcon">✨</div>
+            <div class="stickerText">เล่นให้สำเร็จเพื่อสะสมสติกเกอร์</div>
+          </div>
+        `;
+        return;
+      }
+      list.forEach(key => {
+        const s = STICKERS[key];
+        if(!s) return;
+        const el = document.createElement('div');
+        el.className = 'sticker';
+        el.innerHTML = `<div class="stickerIcon">${s.icon}</div><div class="stickerText">${s.text}</div>`;
+        $stickerList.appendChild(el);
+      });
+    }
+
+    /* ---------------------------------
+      Reward Popup Queue
+    --------------------------------- */
+    const rewardQueue = [];
+    let rewardShowing = false;
+
+    function openRewardPopup(item){
+      if(!$rewardPopupOverlay) return;
+      rewardShowing = true;
+      $rewardPopupBadge.textContent = item.icon || '🎁';
+      $rewardPopupTitle.textContent = item.title || 'ได้รางวัลใหม่';
+      $rewardPopupDesc.textContent = item.desc || 'เยี่ยมมาก';
+      $rewardPopupMeta.textContent = item.meta || 'เล่นต่อได้อีก';
+      $rewardPopupBtn.textContent = item.cta || 'เยี่ยมเลย';
+      $rewardPopupOverlay.hidden = false;
+      document.body.classList.add('reward-open');
+      celebrate(item.kind === 'quest' ? 'perfect' : 'good');
+      playSfx('summary');
+      setTimeout(() => {
+        if($rewardPopupBtn && typeof $rewardPopupBtn.focus === 'function') $rewardPopupBtn.focus();
+      }, 30);
+    }
+    function closeRewardPopup(){
+      if(!$rewardPopupOverlay) return;
+      $rewardPopupOverlay.hidden = true;
+      document.body.classList.remove('reward-open');
+      rewardShowing = false;
+      setTimeout(drainRewardQueue, 80);
+    }
+    function enqueueRewardPopup(item){
+      rewardQueue.push(item);
+      drainRewardQueue();
+    }
+    function drainRewardQueue(){
+      if(rewardShowing) return;
+      const next = rewardQueue.shift();
+      if(!next) return;
+      openRewardPopup(next);
+    }
+    $rewardPopupBtn?.addEventListener('click', closeRewardPopup);
+    $rewardPopupOverlay?.addEventListener('click', (e) => {
+      if(e.target === $rewardPopupOverlay) closeRewardPopup();
+    });
+
+    function grantSticker(key){
+      const daily = readDailyProgress();
+      daily.stickers = Array.isArray(daily.stickers) ? daily.stickers : [];
+      if(daily.stickers.includes(key)) return false;
+      daily.stickers.push(key);
+      writeDailyProgress(daily);
+      renderStickerShelf();
+      const s = STICKERS[key];
+      if(s){
+        pushToast(`ได้สติกเกอร์: ${s.text}`, 'ok');
+        enqueueRewardPopup({
+          kind:'sticker',
+          icon:s.icon || '🎁',
+          title:'ได้สติกเกอร์ใหม่',
+          desc:s.text,
+          meta:`วันนี้สะสมแล้ว ${daily.stickers.length} ชิ้น`,
+          cta:'รับเลย'
+        });
+      }
+      return true;
+    }
+
+    function renderSummaryRewards(){
+      const daily = readDailyProgress();
+      const count = Array.isArray(daily.stickers) ? daily.stickers.length : 0;
+      if($summaryRewardBox){
+        $summaryRewardBox.textContent = count > 0
+          ? `วันนี้สะสมสติกเกอร์แล้ว ${count} ชิ้น`
+          : 'เล่นต่ออีกนิดเพื่อสะสมสติกเกอร์ของวันนี้';
+      }
+    }
+    function renderLatestReward(){
+      const daily = readDailyProgress();
+      const list = Array.isArray(daily.stickers) ? daily.stickers : [];
+      const lastKey = list[list.length - 1];
+      if(!$summaryLatestReward) return;
+      if(!lastKey || !STICKERS[lastKey]){
+        $summaryLatestReward.textContent = 'รางวัลล่าสุด: ยังไม่มี';
+        return;
+      }
+      $summaryLatestReward.textContent = `รางวัลล่าสุด: ${STICKERS[lastKey].text}`;
+    }
+    function renderNextStickerHint(){
+      if(!$nextStickerText) return;
+      const daily = readDailyProgress();
+      const count = Array.isArray(daily.stickers) ? daily.stickers.length : 0;
+      if(count === 0){
+        $nextStickerText.textContent = 'เล่นต่ออีกนิดเพื่อปลดล็อกชิ้นแรก'; return;
+      }
+      if(count < 4){
+        $nextStickerText.textContent = `วันนี้สะสมแล้ว ${count} ชิ้น ยังเก็บได้อีก`; return;
+      }
+      $nextStickerText.textContent = 'เก่งมาก วันนี้เก็บได้หลายชิ้นแล้ว';
+    }
+
+    /* ---------------------------------
+      Guide
+    --------------------------------- */
+    let guideDemoIndex = 0;
+    let guideDemoTimer = null;
+    function guideDayKey(){
+      return `PLATE_GUIDE_SEEN_${ctx.pid}_${bangkokYmd()}`;
+    }
+    function shouldShowGuide(){
+      try{ return localStorage.getItem(guideDayKey()) !== '1'; }
+      catch(_){ return true; }
+    }
+    function markGuideSeen(){
+      try{ localStorage.setItem(guideDayKey(), '1'); }catch(_){}
+    }
+    function renderGuideDemo(index){
+      guideDemoIndex = index % GUIDE_DEMO_STEPS.length;
+      const item = GUIDE_DEMO_STEPS[guideDemoIndex];
+      if($guideDemoStep) $guideDemoStep.textContent = item.step;
+      if($guideDemoTitle) $guideDemoTitle.textContent = item.title;
+      if($guideDemoDesc) $guideDemoDesc.textContent = item.desc;
+      if($guideDemo){
+        $guideDemo.classList.remove('step-0','step-1','step-2');
+        $guideDemo.classList.add(`step-${guideDemoIndex}`);
+      }
+      document.querySelectorAll('.guideDot').forEach((dot, i) => {
+        dot.classList.toggle('active', i === guideDemoIndex);
+      });
+    }
+    function startGuideDemoLoop(){
+      stopGuideDemoLoop();
+      renderGuideDemo(0);
+      guideDemoTimer = setInterval(() => {
+        renderGuideDemo((guideDemoIndex + 1) % GUIDE_DEMO_STEPS.length);
+      }, 2200);
+    }
+    function stopGuideDemoLoop(){
+      if(guideDemoTimer){
+        clearInterval(guideDemoTimer);
+        guideDemoTimer = null;
+      }
+    }
+    document.querySelectorAll('.guideDot').forEach(dot => {
+      dot.addEventListener('click', () => {
+        const idx = Number(dot.dataset.guideStep || 0);
+        renderGuideDemo(idx);
+        startGuideDemoLoop();
+      });
+    });
+    function showGuide(){
+      if(!$guideOverlay) return;
+      $guideOverlay.hidden = false;
+      document.body.classList.add('guide-open');
+      startGuideDemoLoop();
+      setTimeout(() => {
+        if($guideStartBtn && typeof $guideStartBtn.focus === 'function') $guideStartBtn.focus();
+      }, 30);
+    }
+    function hideGuide(){
+      if(!$guideOverlay) return;
+      $guideOverlay.hidden = true;
+      document.body.classList.remove('guide-open');
+      stopGuideDemoLoop();
+    }
+    function completeGuide(){
+      if($guideDontShowToday?.checked) markGuideSeen();
+      hideGuide();
+      reallyStartGame();
+    }
+    function maybeShowGuideThenStart(){
+      if(shouldShowGuide()){
+        showGuide();
+        return;
+      }
+      reallyStartGame();
+    }
+    $guideStartBtn?.addEventListener('click', completeGuide);
+
+    /* ---------------------------------
+      Production Guards
+    --------------------------------- */
+    function isOverlayBlocking(){
+      const guideOpen = $guideOverlay && !$guideOverlay.hidden;
+      const rewardOpen = $rewardPopupOverlay && !$rewardPopupOverlay.hidden;
+      const pauseOpen = document.getElementById('pauseOverlay') && !document.getElementById('pauseOverlay').hidden;
+      const summaryOpen = $overlay && $overlay.classList.contains('show');
+      const evalOpen = $evaluateOverlay && !$evaluateOverlay.hidden;
+      const createOpen = $createOverlay && !$createOverlay.hidden;
+      return !!(guideOpen || rewardOpen || pauseOpen || summaryOpen || evalOpen || createOpen);
+    }
+    function inputLocked(){
+      return nowMs() < state.inputLockUntil;
+    }
+    function lockInput(ms=140){
+      state.inputLockUntil = nowMs() + ms;
+    }
+    function lockLeaveButtons(){
+      leavingPage = true;
+      if($btnReplay) $btnReplay.disabled = true;
+      if($btnBackHub) $btnBackHub.disabled = true;
+      if($btnEvaluate) $btnEvaluate.disabled = true;
+      if($btnResumeGame) $btnResumeGame.disabled = true;
+      if($btnRestartGame) $btnRestartGame.disabled = true;
+    }
+
+    /* ---------------------------------
+      Game Logic
+    --------------------------------- */
+    function getDifficultyConfig(diff, roundNo=1){
+      const r = Math.max(1, roundNo);
+      if(diff === 'easy'){
+        return {
+          useGroups: r <= 2 ? ['g2','g1','g3','g4'] : ['g2','g1','g3','g4','g5'],
+          distractorCount: r <= 2 ? 0 : 1,
+          scoreCorrect: 12,
+          scoreWrong: 2,
+          plateBonus: 24,
+          perfectBonus: 20,
+          comboCap: 4
+        };
+      }
+      if(diff === 'hard'){
+        return {
+          useGroups: ['g2','g1','g3','g4','g5'],
+          distractorCount: r <= 2 ? 2 : 3,
+          scoreCorrect: 10,
+          scoreWrong: 5,
+          plateBonus: 20,
+          perfectBonus: 28,
+          comboCap: 6
+        };
+      }
+      return {
+        useGroups: ['g2','g1','g3','g4','g5'],
+        distractorCount: r <= 2 ? 1 : 2,
+        scoreCorrect: 11,
+        scoreWrong: 4,
+        plateBonus: 22,
+        perfectBonus: 24,
+        comboCap: 5
+      };
+    }
+
+    function pickFoodsByGroupAvoidRecent(group, count, rng){
+      const pool = FOOD_DB.filter(x => x.group === group);
+      const fresh = pool.filter(x => !state.recentFoodIds.includes(x.id));
+      const source = fresh.length >= count ? fresh : pool;
+      return shuffle(source, rng).slice(0, count);
+    }
+    function pushRecentFoods(items){
+      const ids = items.map(x => x.id);
+      state.recentFoodIds = [...state.recentFoodIds, ...ids].slice(-12);
+    }
+    function roundSignature(groups, foods){
+      return `${groups.join('-')}|${foods.map(x => x.id).sort().join(',')}`;
+    }
+    function seenRecentRound(sig){
+      return state.recentRoundSig.includes(sig);
+    }
+    function pushRecentRound(sig){
+      state.recentRoundSig = [...state.recentRoundSig, sig].slice(-6);
+    }
+
+    function updateHud(){
+      $score.textContent = state.score;
+      $time.textContent = state.timeLeft;
+      $streak.textContent = state.streak;
+      $plates.textContent = state.completedPlates;
+    }
+
+    function isFoodUsed(foodId){
+      return Object.values(state.placedByZone).some(v => v && v.foodId === foodId);
+    }
+
+    function getFoodTagText(item){
+      if(item.group === 'x') return 'ลองคิดดู';
+      if(ctx.diff === 'easy') return 'อาหารสุขภาพ';
+      if(ctx.diff === 'normal') return 'เลือกให้ถูกส่วน';
+      return 'ท้าทาย';
+    }
+    function getFoodTagClass(item){
+      if(item.group === 'x') return 'x';
+      if(ctx.diff === 'easy') return 'g' + String(item.group).replace('g','');
+      return '';
+    }
+
+    function buildTray(){
+      $tray.innerHTML = '';
+
+      state.roundFoods.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = 'food';
+        btn.type = 'button';
+        btn.dataset.id = item.id;
+
+        const emoji = FOOD_EMOJI[item.id] || '🍎';
+        const tagText = getFoodTagText(item);
+        const tagCls = getFoodTagClass(item);
+
+        btn.innerHTML = `
+          <div class="foodEmoji">${emoji}</div>
+          <div class="foodMeta">
+            <div class="foodName">${item.label}</div>
+            <div class="foodTag ${tagCls}">${tagText}</div>
+          </div>
+        `;
+
+        if(ctx.diff === 'easy' && item.group !== 'x' && FOOD_GROUPS[item.group]){
+          btn.style.background = `linear-gradient(180deg,#ffffff,${FOOD_GROUPS[item.group].color})`;
+        }else{
+          btn.style.background = 'linear-gradient(180deg,#ffffff,#f8fcff)';
+        }
+
+        btn.addEventListener('click', () => selectFood(item.id));
+        $tray.appendChild(btn);
+      });
+
+      if(!$tray.children.length){
+        $tray.innerHTML = `
+          <div class="emptyTrayState">
+            <div class="emptyTrayIcon">🍽️</div>
+            <div class="emptyTrayTitle">กำลังเตรียมอาหารรอบใหม่</div>
+            <div class="emptyTrayText">แตะเริ่มรอบอีกครั้งได้เลย</div>
+          </div>
+        `;
+      }
+
+      syncFoodUi();
+      renderSelectedBar();
+    }
+
+    function syncFoodUi(){
+      [...$tray.querySelectorAll('.food')].forEach(btn => {
+        const id = btn.dataset.id;
+        btn.classList.toggle('selected', id === state.selectedFoodId);
+        btn.classList.toggle('used', isFoodUsed(id));
+      });
+    }
+
+    function selectFood(foodId){
+      if(state.finished || state.paused || inputLocked()) return;
+      if(isOverlayBlocking()) return;
+      lockInput(90);
+
+      const food = state.roundFoods.find(x => x.id === foodId);
+      if(!food || isFoodUsed(foodId)) return;
+
+      state.selectedFoodId = foodId;
+      syncFoodUi();
+      renderSelectedBar();
+      autoOpenTrayOnPick();
+      playSfx('pick');
+
+      if(food.group === 'x'){
+        setFeedback(`เลือก "${food.label}" แล้ว ลองหาว่าเหมาะกับจานไหม`);
+        pushToast(`เลือก ${food.label} แล้ว`, 'info');
+      }else{
+        setFeedback(`เลือก "${food.label}" แล้ว — ตอนนี้กดส่วน "${FOOD_GROUPS[food.group].short}" ถ้าคิดว่าถูก`);
+        pushToast(`เลือก ${food.label} แล้ว`, 'info');
+      }
+    }
+
+    function goodMsg(food, zoneId, bonus){
+      const zoneName = FOOD_GROUPS[zoneId]?.short || 'หมู่นี้';
+      const pool = [
+        `เยี่ยมมาก! ${food.label} อยู่หมู่ ${zoneName} +${bonus}`,
+        `ถูกต้อง! ${food.label} วางได้ดีมาก +${bonus}`,
+        `เก่งมาก! เลือก ${food.label} ได้ตรงหมู่ +${bonus}`
       ];
-
-      const PRESETS = {
-        easy:   { time: 60, lives: 4, goal: 180, wrongPenalty: 0, baseScore: 12 },
-        normal: { time: 80, lives: 3, goal: 220, wrongPenalty: 1, baseScore: 14 },
-        hard:   { time: 90, lives: 3, goal: 300, wrongPenalty: 2, baseScore: 16 }
-      };
-
-      const preset = PRESETS[ctx.diff] || PRESETS.normal;
-      if (!Number.isFinite(ctx.time) || ctx.time <= 0) ctx.time = preset.time;
-
-      const $ = (sel, root = document) => root.querySelector(sel);
-      const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-
-      function xmur3(str) {
-        let h = 1779033703 ^ str.length;
-        for (let i = 0; i < str.length; i++) {
-          h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-          h = (h << 13) | (h >>> 19);
-        }
-        return function() {
-          h = Math.imul(h ^ (h >>> 16), 2246822507);
-          h = Math.imul(h ^ (h >>> 13), 3266489909);
-          h ^= h >>> 16;
-          return h >>> 0;
-        };
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+    function wrongMsg(food){
+      if(food.group === 'x'){
+        const pool = [
+          `${food.label} ยังไม่เหมาะกับจานสุขภาพรอบนี้`,
+          `ลองใหม่อีกนิด ${food.label} ไม่ใช่คำตอบของรอบนี้`,
+          `${food.label} ยังไม่ใช่อาหารหลัก 5 หมู่สำหรับโจทย์นี้`
+        ];
+        return pool[Math.floor(Math.random() * pool.length)];
       }
+      const correctZone = FOOD_GROUPS[food.group]?.short || 'หมู่อื่น';
+      const pool = [
+        `ยังไม่ถูก ${food.label} ควรอยู่หมู่ ${correctZone}`,
+        `ลองใหม่อีกนิด ${food.label} ยังไม่อยู่ส่วนนี้`,
+        `${food.label} ควรไปที่หมู่ ${correctZone}`
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
 
-      function mulberry32(a) {
-        return function() {
-          let t = a += 0x6D2B79F5;
-          t = Math.imul(t ^ (t >>> 15), t | 1);
-          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-        };
-      }
+    function judgePlacement(food, zoneId){
+      if(food.group === 'x') return false;
+      return food.group === zoneId;
+    }
 
-      const seedFn = xmur3(String(ctx.seed));
-      const rand = mulberry32(seedFn());
-
-      function randomInt(max) {
-        return Math.floor(rand() * max);
-      }
-
-      function sampleOne(arr, filterFn = null) {
-        const pool = filterFn ? arr.filter(filterFn) : arr.slice();
-        return pool[randomInt(pool.length)];
-      }
-
-      function shuffle(arr) {
-        const a = arr.slice();
-        for (let i = a.length - 1; i > 0; i--) {
-          const j = randomInt(i + 1);
-          [a[i], a[j]] = [a[j], a[i]];
-        }
-        return a;
-      }
-
-      function buildUrl(path, params = {}) {
-        const url = new URL(path, location.href);
-        Object.entries(params).forEach(([k, v]) => {
-          if (v != null && v !== '') url.searchParams.set(k, String(v));
+    function bindZones(){
+      if(state.zoneBound) return;
+      state.zoneBound = true;
+      [...document.querySelectorAll('.zone')].forEach(zone => {
+        zone.addEventListener('click', () => {
+          const zoneId = zone.dataset.zone;
+          placeSelectedFood(zoneId, zone);
         });
-        return url.toString();
+      });
+    }
+
+    function placeSelectedFood(zoneId, zoneEl){
+      if(state.finished || state.paused || inputLocked()) return;
+      if(isOverlayBlocking()) return;
+      lockInput(120);
+
+      zoneTap(zoneEl);
+
+      if(!state.selectedFoodId){
+        setFeedback('เลือกอาหารจากถาดก่อนนะ');
+        pushToast('เลือกอาหารจากถาดก่อนนะ', 'info');
+        return;
+      }
+      if(state.placedByZone[zoneId]){
+        setFeedback('ส่วนนี้มีอาหารแล้ว ลองเลือกส่วนอื่น');
+        pushToast('ส่วนนี้มีอาหารแล้ว', 'info');
+        return;
       }
 
-      const state = {
-        startedAt: Date.now(),
-        timeLeft: ctx.time,
-        lives: preset.lives,
-        score: 0,
-        correct: 0,
-        wrong: 0,
-        streak: 0,
-        bestStreak: 0,
-        completedPlates: 0,
-        targetGroup: 1,
-        currentOptions: [],
-        turn: 1,
-        ended: false,
-        paused: false,
-        feverUntil: 0,
-        recorded: false,
-        groupHits: {1:0,2:0,3:0,4:0,5:0},
-        recentFoodIds: []
-      };
+      const food = state.roundFoods.find(x => x.id === state.selectedFoodId);
+      if(!food) return;
 
-      const coachLines = {
-        start: [
-          'อ่านโจทย์กลางจาน แล้วเลือกอาหารที่อยู่ในหมู่นั้นนะ',
-          'จัดจานให้สมดุล ถ้าครบ 5 หมู่จะได้โบนัสเพิ่มทันที',
-          'กดให้ไว แต่ต้องถูกด้วยนะฮีโร่ตัวน้อย'
-        ],
-        correct: [
-          'ถูกต้อง! ใส่จานต่อได้เลย',
-          'เยี่ยมมาก เลือกได้ตรงหมู่พอดี',
-          'ใช่เลย แบบนี้จานสมดุลขึ้นแล้ว'
-        ],
-        wrong: [
-          'เกือบถูกแล้ว ลองดูชื่อหมู่ตรงกลางอีกครั้งนะ',
-          'ไม่เป็นไร อ่านโจทย์ช้า ๆ แล้วลองใหม่',
-          'ฮึบอีกนิด! จำไว้ว่าหมู่ 3 คือผักนะ'
-        ],
-        fever: [
-          'ไฟลุกแล้ว! FEVER x2 ไปเลย!',
-          'สตรีคดีมาก คะแนนคูณสองแล้วนะ',
-          'สุดยอด! ตอนนี้ตอบถูกติดกันแรงมาก'
-        ],
-        fullPlate: [
-          'จัดจานครบ 5 หมู่แล้ว ได้โบนัสพิเศษ!',
-          'สมดุลมาก! จานนี้ครบทั้ง 5 หมู่เลย',
-          'ฮีโร่โภชนาการมาแล้ว จานครบสมบูรณ์'
-        ],
-        end: [
-          'รอบนี้ทำได้ดีมาก ลองอีกครั้งเพื่อเก็บดาวเพิ่มนะ',
-          'เก่งมาก ดูสรุปแล้วกลับไปลุยเกมถัดไปได้เลย',
-          'พร้อมแล้วค่อยลองใหม่ ทำลายสถิติของตัวเองได้แน่'
-        ],
-        pause: [
-          'พักได้หายใจลึก ๆ แล้วค่อยกลับมาลุยต่อ',
-          'พักก่อนก็ได้ พอพร้อมแล้วค่อยเล่นต่อ'
-        ]
-      };
+      const isCorrect = judgePlacement(food, zoneId);
+      state.placedByZone[zoneId] = { foodId: food.id, group: food.group, ok:isCorrect };
 
-      function pickLine(list) {
-        return list[randomInt(list.length)];
-      }
+      const cfg = getDifficultyConfig(ctx.diff, state.currentRound);
 
-      function setCoach(text) {
-        const el = $('#coachLine');
-        if (el) el.textContent = text;
-      }
+      if(isCorrect){
+        const bonus = cfg.scoreCorrect + Math.min(state.streak, cfg.comboCap);
+        state.score += bonus;
+        state.correct += 1;
+        state.streak += 1;
+        state.bestStreak = Math.max(state.bestStreak, state.streak);
 
-      function isFever() {
-        return Date.now() < state.feverUntil;
-      }
-
-      function getAccuracy() {
-        const total = state.correct + state.wrong;
-        if (!total) return 0;
-        return Math.round((state.correct / total) * 100);
-      }
-
-      function pickTargetGroup() {
-        const values = Object.values(state.groupHits);
-        const min = Math.min(...values);
-        const least = Object.keys(state.groupHits)
-          .map(Number)
-          .filter(k => state.groupHits[k] === min);
-        return least[randomInt(least.length)];
-      }
-
-      function pickFoodByGroup(groupId) {
-        const list = FOODS.filter(f => f.group === groupId && !state.recentFoodIds.includes(f.id));
-        const pool = list.length ? list : FOODS.filter(f => f.group === groupId);
-        const chosen = pool[randomInt(pool.length)];
-        state.recentFoodIds.push(chosen.id);
-        if (state.recentFoodIds.length > 6) state.recentFoodIds.shift();
-        return chosen;
-      }
-
-      function generateTurn() {
-        if (state.ended) return;
-
-        state.targetGroup = pickTargetGroup();
-
-        const correctFood = pickFoodByGroup(state.targetGroup);
-        const otherGroups = shuffle([1,2,3,4,5].filter(g => g !== state.targetGroup)).slice(0, 2);
-        const distractors = otherGroups.map(g => pickFoodByGroup(g));
-        state.currentOptions = shuffle([correctFood, ...distractors]);
-
-        renderTurn();
-      }
-
-      function renderTurn() {
-        const group = GROUPS[state.targetGroup];
-        $('#targetTitle').textContent = `หาอาหาร${group.name}`;
-        $('#targetDesc').textContent = group.desc;
-        $('#missionBadge').textContent = `ภารกิจรอบที่ ${state.turn}`;
-
-        for (let i = 1; i <= 5; i++) {
-          const slice = $('#slice' + i);
-          const count = $('#count' + i);
-          if (slice) slice.classList.toggle('active', i === state.targetGroup);
-          if (count) count.textContent = `${state.groupHits[i]} ชิ้น`;
+        if(state.timeToFirstCorrectMs == null){
+          state.timeToFirstCorrectMs = Date.now() - state.timeStartedMs;
+        }
+        if(state.perGroupCorrect[zoneId] != null){
+          state.perGroupCorrect[zoneId] += 1;
         }
 
-        const grid = $('#optionsGrid');
-        grid.innerHTML = '';
+        flashZone(zoneEl, true);
+        setFeedback(goodMsg(food, zoneId, bonus));
+        pushToast('เยี่ยมมาก! ถูกหมู่แล้ว', 'ok');
+        playSfx('ok');
+        bumpHud(document.getElementById('hudScore')?.closest('.pill'));
+        bumpHud(document.getElementById('hudStreak')?.closest('.pill'));
+      }else{
+        state.score = Math.max(0, state.score - cfg.scoreWrong);
+        state.wrong += 1;
+        state.streak = 0;
 
-        state.currentOptions.forEach(food => {
-          const btn = document.createElement('button');
-          btn.className = 'food-btn';
-          btn.type = 'button';
-          btn.innerHTML = `
-            <span class="food-emoji">${food.emoji}</span>
-            <span class="food-name">${food.name}</span>
-            <span class="food-desc">${food.desc}</span>
-            <span class="food-group">${GROUPS[food.group].name}</span>
-          `;
-          btn.addEventListener('click', () => handlePick(food, btn));
-          grid.appendChild(btn);
+        if(FOOD_GROUPS[zoneId]) state.mistakeByGroup[zoneId] += 1;
+        if(state.perGroupWrong[zoneId] != null) state.perGroupWrong[zoneId] += 1;
+
+        flashZone(zoneEl, false);
+        setFeedback(wrongMsg(food));
+        pushToast('ลองอีกครั้งนิดเดียว', 'bad');
+        playSfx('bad');
+        bumpHud(document.getElementById('hudScore')?.closest('.pill'));
+      }
+
+      state.selectedFoodId = null;
+      syncFoodUi();
+      renderSelectedBar();
+      refreshZoneUi();
+      updateMissionUi();
+      updateHud();
+      autoCloseTrayAfterPlace();
+      checkRoundComplete();
+    }
+
+    function nextRound(){
+      clearTimeout(state.roundAdvanceTimer);
+      state.roundAdvanceTimer = 0;
+
+      state.currentRound += 1;
+      state.roundsStarted += 1;
+      state.selectedFoodId = null;
+      state.placedByZone = {};
+
+      const cfg = getDifficultyConfig(ctx.diff, state.currentRound);
+      let builtFoods = [];
+      let sig = '';
+      let tries = 0;
+
+      while(tries < 8){
+        tries += 1;
+        const foods = [];
+        cfg.useGroups.forEach(g => {
+          const item = pickFoodsByGroupAvoidRecent(g, 1, rng)[0];
+          if(item) foods.push(item);
         });
 
-        updateHud();
-      }
+        const distractorSource = FOOD_DB.filter(x => x.group === 'x');
+        const freshDistractors = distractorSource.filter(x => !state.recentFoodIds.includes(x.id));
+        const distractors = shuffle((freshDistractors.length ? freshDistractors : distractorSource), rng).slice(0, cfg.distractorCount);
 
-      function addScore(amount) {
-        state.score += amount;
-      }
+        const roundFoods = shuffle([...foods, ...distractors], rng);
+        const nextSig = roundSignature(cfg.useGroups, roundFoods);
 
-      function updateHud() {
-        $('#scoreValue').textContent = state.score;
-        $('#timeValue').textContent = Math.max(0, Math.ceil(state.timeLeft));
-        $('#livesValue').textContent = state.lives;
-        $('#streakValue').textContent = state.streak;
-        $('#platesValue').textContent = state.completedPlates;
-        $('#accValue').textContent = `${getAccuracy()}%`;
-        $('#correctValue').textContent = state.correct;
-        $('#wrongValue').textContent = state.wrong;
-        $('#bestStreakValue').textContent = state.bestStreak;
-        $('#turnValue').textContent = state.turn;
-        $('#goalValue').textContent = preset.goal;
-        $('#seedValue').textContent = String(ctx.seed).slice(-6);
-
-        const goalPct = Math.max(0, Math.min(100, Math.round((state.score / preset.goal) * 100)));
-        $('#goalBar').style.width = `${goalPct}%`;
-
-        const feverState = isFever() ? 'FEVER x2' : 'ปกติ';
-        $('#feverState').textContent = feverState;
-
-        $('#backHubBtn').href = ctx.hub;
-      }
-
-      function celebrateFever() {
-        state.feverUntil = Date.now() + 6000;
-        $('#feverBanner').classList.add('show');
-        setCoach(pickLine(coachLines.fever));
-        setTimeout(() => {
-          $('#feverBanner').classList.remove('show');
-        }, 1100);
-      }
-
-      function maybeCompletePlate() {
-        const min = Math.min(...Object.values(state.groupHits));
-        if (min > state.completedPlates) {
-          state.completedPlates = min;
-          addScore(isFever() ? 90 : 60);
-          setCoach(pickLine(coachLines.fullPlate));
-          $('#plateBoard').classList.remove('flash');
-          void $('#plateBoard').offsetWidth;
-          $('#plateBoard').classList.add('flash');
+        if(!seenRecentRound(nextSig) || tries >= 8){
+          builtFoods = roundFoods;
+          sig = nextSig;
+          break;
         }
       }
 
-      function handlePick(food, buttonEl) {
-        if (state.ended || state.paused) return;
+      state.roundTargetGroups = cfg.useGroups.slice();
+      state.roundFoods = builtFoods;
 
-        const buttons = $$('.food-btn');
-        buttons.forEach(btn => btn.disabled = true);
-
-        const correct = food.group === state.targetGroup;
-
-        if (correct) {
-          state.correct += 1;
-          state.streak += 1;
-          state.bestStreak = Math.max(state.bestStreak, state.streak);
-          state.groupHits[state.targetGroup] += 1;
-
-          if (state.streak > 0 && state.streak % 5 === 0) {
-            celebrateFever();
-          }
-
-          const base = preset.baseScore;
-          const streakBonus = Math.min(12, Math.floor(state.streak / 2) * 2);
-          const feverMulti = isFever() ? 2 : 1;
-
-          addScore((base + streakBonus) * feverMulti);
-          buttonEl.classList.add('correct');
-          setCoach(pickLine(coachLines.correct));
-          maybeCompletePlate();
-        } else {
-          state.wrong += 1;
-          state.streak = 0;
-          state.lives -= 1;
-          if (preset.wrongPenalty) {
-            state.timeLeft = Math.max(0, state.timeLeft - preset.wrongPenalty);
-          }
-          buttonEl.classList.add('wrong');
-          const correctBtn = buttons.find(btn => {
-            const label = btn.querySelector('.food-group');
-            return label && label.textContent === GROUPS[state.targetGroup].name;
-          });
-          if (correctBtn) correctBtn.classList.add('correct');
-          setCoach(pickLine(coachLines.wrong));
-        }
-
-        updateHud();
-
-        if (state.lives <= 0 || state.timeLeft <= 0) {
-          setTimeout(endGame, 420);
-          return;
-        }
-
-        state.turn += 1;
-        setTimeout(generateTurn, 520);
+      if(!builtFoods.length || !state.roundTargetGroups.length){
+        builtFoods = shuffle(FOOD_DB.filter(x => x.group !== 'x'), rng).slice(0, 4);
+        state.roundTargetGroups = ['g2','g1','g3','g4'];
+        state.roundFoods = builtFoods;
       }
 
-      function getRank(score, acc) {
-        if (score >= preset.goal * 1.25 && acc >= 88) return 'S';
-        if (score >= preset.goal && acc >= 80) return 'A';
-        if (score >= preset.goal * 0.8 && acc >= 70) return 'B';
-        if (score >= preset.goal * 0.6 && acc >= 60) return 'C';
-        return 'D';
+      pushRecentFoods(builtFoods);
+      pushRecentRound(sig);
+
+      buildTray();
+      clearZoneMarks();
+      refreshZoneUi();
+      updateMissionUi();
+      renderSelectedBar();
+      setFeedback(`รอบที่ ${state.currentRound}: จัดให้ครบ ${state.roundTargetGroups.length} หมู่`);
+
+      if(isMobileCompact() && $trayArea){
+        $trayArea.classList.remove('collapsed');
+        syncTrayToggleLabel();
+      }
+    }
+
+    function checkRoundComplete(){
+      const placedCount = Object.keys(state.placedByZone).length;
+      const needCount = state.roundTargetGroups.length;
+      if(placedCount < needCount) return;
+
+      const cfg = getDifficultyConfig(ctx.diff, state.currentRound);
+      const entries = Object.values(state.placedByZone);
+      const correctPlaced = entries.filter(x => x.ok).length;
+      const allPerfect = correctPlaced === needCount;
+
+      state.roundsCompleted += 1;
+      state.completedPlates += 1;
+      state.score += cfg.plateBonus;
+
+      if(state.timeToFirstPlateMs == null){
+        state.timeToFirstPlateMs = Date.now() - state.timeStartedMs;
       }
 
-      function saveSummary(summary) {
-        try {
-          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-          localStorage.setItem('HHA_LAST_SUMMARY_PLATE', JSON.stringify(summary));
-          localStorage.setItem('herohealth:lastSummary', JSON.stringify(summary));
-        } catch {}
+      if(allPerfect){
+        state.perfectPlates += 1;
+        state.score += cfg.perfectBonus;
+        setFeedback(`Perfect Plate! +${cfg.plateBonus + cfg.perfectBonus}`);
+        pushToast('Perfect Plate! สุดยอดมาก', 'ok');
+        playSfx('perfect');
+        celebrate('perfect');
+      }else{
+        setFeedback(`สำเร็จ! ได้จานสมดุล +${cfg.plateBonus}`);
+        pushToast('สำเร็จ! ได้จานสมดุล 1 จาน', 'ok');
+        playSfx('plate');
+        celebrate('good');
       }
 
-      function bumpDailyStats() {
-        if (state.recorded) return;
-        state.recorded = true;
+      const daily = readDailyProgress();
+      daily.completedPlates += 1;
+      if(allPerfect) daily.perfectPlates += 1;
 
-        try {
-          const now = new Date();
-          const dateKey = now.toISOString().slice(0, 10);
-          const gamesKey = 'HH_GAMES_' + dateKey;
-          const zonesKey = 'HH_ZONES_PLAYED_' + dateKey;
-          const zoneCountKey = 'HH_ZONES_' + dateKey;
-
-          const currentGames = Number(localStorage.getItem(gamesKey) || '0');
-          localStorage.setItem(gamesKey, String(currentGames + 1));
-
-          const zones = JSON.parse(localStorage.getItem(zonesKey) || '[]');
-          if (!zones.includes(ctx.zone)) zones.push(ctx.zone);
-          localStorage.setItem(zonesKey, JSON.stringify(zones));
-          localStorage.setItem(zoneCountKey, String(zones.length));
-        } catch {}
-      }
-
-      function buildCooldownUrl() {
-        return buildUrl('../warmup-gate.html', {
-          pid: ctx.pid,
-          hub: ctx.hub,
-          zone: ctx.zone,
-          cat: ctx.cat,
-          game: ctx.game,
-          gameId: ctx.gameId,
-          theme: ctx.theme,
-          phase: 'cooldown',
-          mode: 'cooldown',
-          view: ctx.view,
-          run: ctx.run,
-          diff: ctx.diff,
-          time: ctx.time,
-          seed: ctx.seed,
-          cooldown: 1,
-          returnPhase: 'cooldown',
-          cdur: 20,
-          next: ctx.hub
+      if(!daily.questDone && daily.completedPlates >= DAILY_GOAL){
+        daily.questDone = 1;
+        pushToast('ทำภารกิจวันนี้สำเร็จแล้ว! 🎉', 'ok');
+        enqueueRewardPopup({
+          kind:'quest',
+          icon:'🏆',
+          title:'ภารกิจวันนี้สำเร็จ',
+          desc:'คุณจัดจานสมดุลครบเป้าหมายของวันนี้แล้ว',
+          meta:`ครบ ${DAILY_GOAL} จานแล้ว`,
+          cta:'สุดยอด'
         });
       }
 
-      function endGame() {
-        if (state.ended) return;
-        state.ended = true;
+      writeDailyProgress(daily);
+      updateDailyQuestUi();
 
-        const acc = getAccuracy();
-        const rank = getRank(state.score, acc);
+      const dailyNow = readDailyProgress();
+      if(dailyNow.completedPlates >= 1) grantSticker('first_plate');
+      if(allPerfect) grantSticker('perfect_plate');
+      if(dailyNow.completedPlates >= 3) grantSticker('three_plates');
+      if(state.bestStreak >= 5) grantSticker('focus_kid');
 
-        const summary = {
-          game: 'plate',
-          gameId: 'plate',
-          gameTitle: 'Plate',
-          zone: ctx.zone,
-          mode: ctx.mode,
-          diff: ctx.diff,
-          pid: ctx.pid,
-          run: ctx.run,
-          view: ctx.view,
-          seed: ctx.seed,
-          score: state.score,
-          accuracy: acc,
-          correct: state.correct,
-          wrong: state.wrong,
-          bestStreak: state.bestStreak,
-          completedPlates: state.completedPlates,
-          livesLeft: state.lives,
-          durationSec: ctx.time,
-          rank,
-          groups: { ...state.groupHits },
-          finishedAt: new Date().toISOString()
-        };
+      updateHud();
+      bumpHud(document.getElementById('hudPlates')?.closest('.pill'));
 
-        saveSummary(summary);
-        bumpDailyStats();
+      state.roundAdvanceTimer = setTimeout(() => {
+        if(!state.finished && !state.destroyed){
+          nextRound();
+        }
+      }, 900);
+    }
 
-        $('#summaryTitle').textContent = rank === 'S'
-          ? 'สุดยอดมาก! จัดจานเก่งมาก'
-          : rank === 'A'
-            ? 'เยี่ยมเลย! จานสมดุลมากขึ้นแล้ว'
-            : rank === 'B'
-              ? 'ดีมาก ลองอีกนิดจะได้ระดับสูงขึ้น'
-              : rank === 'C'
-                ? 'เริ่มจับทางได้แล้ว ลองอีกครั้งนะ'
-                : 'ไม่เป็นไร เริ่มใหม่แล้วจะเก่งขึ้นแน่';
-
-        $('#summaryText').textContent = pickLine(coachLines.end);
-        $('#rankPill').textContent = rank;
-        $('#sumScore').textContent = summary.score;
-        $('#sumAcc').textContent = `${summary.accuracy}%`;
-        $('#sumPlates').textContent = summary.completedPlates;
-        $('#sumBest').textContent = summary.bestStreak;
-        $('#sumG1').textContent = summary.groups[1];
-        $('#sumG2').textContent = summary.groups[2];
-        $('#sumG3').textContent = summary.groups[3];
-        $('#sumG4').textContent = summary.groups[4];
-        $('#sumG5').textContent = summary.groups[5];
-
-        $('#summaryHubBtn').href = ctx.hub;
-        $('#cooldownBtn').href = buildCooldownUrl();
-        $('#summaryOverlay').classList.add('show');
+    /* ---------------------------------
+      Timer / Pause
+    --------------------------------- */
+    function cancelRafLoop(){
+      if(state.rafId){
+        cancelAnimationFrame(state.rafId);
+        state.rafId = 0;
       }
+    }
+    function startRafLoop(){
+      cancelRafLoop();
+      const token = ++state.runToken;
 
-      function togglePause() {
-        if (state.ended) return;
-        state.paused = !state.paused;
-        const btn = $('#pauseBtn');
-        if (btn) btn.textContent = state.paused ? '▶️ เล่นต่อ' : '⏸️ พักเกม';
-        setCoach(state.paused ? pickLine(coachLines.pause) : pickLine(coachLines.start));
-      }
+      function frame(){
+        if(state.destroyed || state.finished || state.paused || token !== state.runToken) return;
+        const remainMs = Math.max(0, state.gameDeadlineMs - nowMs());
+        const nextSec = Math.ceil(remainMs / 1000);
 
-      function restartGame() {
-        const url = new URL(location.href);
-        url.searchParams.set('seed', String(Date.now()));
-        location.href = url.toString();
-      }
+        if(nextSec !== state.lastSecondShown){
+          state.lastSecondShown = nextSec;
+          state.timeLeft = nextSec;
+          updateHud();
 
-      let lastTick = performance.now();
-
-      function tick(now) {
-        const dt = (now - lastTick) / 1000;
-        lastTick = now;
-
-        if (!state.paused && !state.ended) {
-          state.timeLeft -= dt;
-          if (state.timeLeft <= 0) {
-            state.timeLeft = 0;
-            updateHud();
-            endGame();
+          if(nextSec <= 0){
+            finishGame();
             return;
           }
-          updateHud();
         }
 
-        requestAnimationFrame(tick);
+        state.rafId = requestAnimationFrame(frame);
+      }
+      state.rafId = requestAnimationFrame(frame);
+    }
+    function startGameClock(){
+      state.gameDeadlineMs = nowMs() + (ctx.time * 1000);
+      state.lastSecondShown = ctx.time;
+      state.timeLeft = ctx.time;
+      updateHud();
+      startRafLoop();
+    }
+    function pauseGame(reason='pause'){
+      if(state.finished || state.paused) return;
+      state.paused = true;
+      cancelRafLoop();
+
+      const remainMs = Math.max(0, state.gameDeadlineMs - nowMs());
+      state.timeLeft = Math.max(0, Math.ceil(remainMs / 1000));
+
+      const $pauseTitle = document.getElementById('pauseTitle');
+      const $pauseText = document.getElementById('pauseText');
+      if($pauseTitle){
+        $pauseTitle.textContent = reason === 'hidden' ? 'เกมหยุดอัตโนมัติ' : 'หยุดเกมชั่วคราว';
+      }
+      if($pauseText){
+        $pauseText.textContent = reason === 'hidden'
+          ? 'ระบบหยุดเวลาไว้ให้แล้ว กลับมาเมื่อพร้อม'
+          : 'พักก่อน แล้วค่อยเล่นต่อได้';
       }
 
-      function bind() {
-        $('#restartBtn').addEventListener('click', restartGame);
-        $('#playAgainBtn').addEventListener('click', restartGame);
-        $('#pauseBtn').addEventListener('click', togglePause);
-        $('#backHubBtn').href = ctx.hub;
+      const $pauseOverlay = document.getElementById('pauseOverlay');
+      if($pauseOverlay) $pauseOverlay.hidden = false;
+
+      setTimeout(() => {
+        if($btnResumeGame && typeof $btnResumeGame.focus === 'function') $btnResumeGame.focus();
+      }, 30);
+    }
+    function resumeGame(){
+      if(state.finished || !state.paused) return;
+      const remainMs = Math.max(0, state.timeLeft * 1000);
+      state.gameDeadlineMs = nowMs() + remainMs;
+      state.paused = false;
+      const $pauseOverlay = document.getElementById('pauseOverlay');
+      if($pauseOverlay) $pauseOverlay.hidden = true;
+      startRafLoop();
+    }
+
+    /* ---------------------------------
+      Summary
+    --------------------------------- */
+    function findMostMistakeGroup(map){
+      let bestKey = null, bestVal = -1;
+      Object.entries(map).forEach(([k,v]) => {
+        if(v > bestVal){ bestKey = k; bestVal = v; }
+      });
+      return bestVal > 0 ? bestKey : null;
+    }
+
+    function buildSummaryPayload(){
+      const total = state.correct + state.wrong;
+      const accuracy = total > 0 ? Math.round((state.correct / total) * 100) : 0;
+      const mostMistakeGroup = findMostMistakeGroup(state.mistakeByGroup);
+      const timeSpentSec = Math.max(0, Math.round((Date.now() - state.timeStartedMs) / 1000));
+      return {
+        game: ctx.game,
+        mode: ctx.mode,
+        pid: ctx.pid,
+        diff: ctx.diff,
+        time: ctx.time,
+        seed: ctx.seed,
+        score: state.score,
+        correct: state.correct,
+        wrong: state.wrong,
+        bestStreak: state.bestStreak,
+        completedPlates: state.completedPlates,
+        perfectPlates: state.perfectPlates,
+        accuracy,
+        mostMistakeGroup,
+        roundsStarted: state.roundsStarted,
+        roundsCompleted: state.roundsCompleted,
+        timeSpentSec,
+        timeLeft: state.timeLeft,
+        timeToFirstCorrectMs: state.timeToFirstCorrectMs,
+        timeToFirstPlateMs: state.timeToFirstPlateMs,
+        perGroupCorrect: { ...state.perGroupCorrect },
+        perGroupWrong: { ...state.perGroupWrong },
+        mistakeByGroup: { ...state.mistakeByGroup },
+        summaryShown: state.summaryShown ? 1 : 0,
+        replayClicked: state.replayClicked ? 1 : 0,
+        backHubClicked: state.backHubClicked ? 1 : 0,
+        ts: Date.now(),
+        iso: new Date().toISOString()
+      };
+    }
+
+    function saveLastSummary(summary){
+      const payload = {
+        game: ctx.game,
+        zone: ctx.zone,
+        mode: ctx.mode,
+        pid: ctx.pid,
+        difficulty: ctx.diff,
+        view_mode: ctx.view,
+        run: ctx.run,
+        seed: ctx.seed,
+        summary,
+        saved_at_ms: Date.now(),
+        saved_at_iso: new Date().toISOString()
+      };
+      safeWriteJson('HHA_LAST_SUMMARY', payload);
+      safeWriteJson('HHA_LAST_SUMMARY_PLATE', payload);
+    }
+
+    function insightText(summary){
+      const g = summary.mostMistakeGroup ? FOOD_GROUPS[summary.mostMistakeGroup] : null;
+      if(summary.accuracy >= 95 && (summary.perfectPlates || 0) >= 1){
+        return 'ยอดเยี่ยมมาก คุณจัดจานได้แม่นและสมดุลมากจริง ๆ';
+      }
+      if(summary.accuracy >= 85){
+        return g
+          ? `ทำได้ดีมาก ลองทบทวนหมู่ "${g.short}" อีกนิดเพื่อให้แม่นขึ้นกว่าเดิม`
+          : 'ทำได้ดีมาก ลองเล่นอีกครั้งเพื่อเก็บ Perfect Plate เพิ่มขึ้น';
+      }
+      if(summary.accuracy >= 70){
+        return g
+          ? `เริ่มคล่องแล้ว แต่ยังสับสนหมู่ "${g.short}" เล็กน้อย`
+          : 'เริ่มทำได้ดีแล้ว ลองสังเกตแต่ละหมู่ให้มากขึ้นอีกนิด';
+      }
+      return g
+        ? `ไม่เป็นไร ลองจำว่าอาหารหมู่ "${g.short}" ควรอยู่ตรงไหน แล้วค่อยเล่นอีกครั้ง`
+        : 'ไม่เป็นไร ลองสังเกตชื่ออาหารและส่วนของจานให้มากขึ้น แล้วค่อยลองอีกครั้งนะ';
+    }
+
+    function renderNextGoal(summary){
+      if(!$nextGoalText) return;
+      if(summary.accuracy < 75){
+        $nextGoalText.textContent = 'ลองเพิ่มความแม่นยำให้เกิน 75%';
+        return;
+      }
+      if((summary.perfectPlates || 0) < 1){
+        $nextGoalText.textContent = 'ลองทำ Perfect Plate ให้ได้อย่างน้อย 1 ครั้ง';
+        return;
+      }
+      if((summary.completedPlates || 0) < 3){
+        $nextGoalText.textContent = 'ลองจัดจานให้ครบ 3 จานในรอบเดียว';
+        return;
+      }
+      $nextGoalText.textContent = 'ยอดเยี่ยมมาก ลองท้าทายโหมดยากขึ้น';
+    }
+
+    function showSummary(summary){
+      if(state.summaryShown) return;
+      state.summaryShown = 1;
+
+      $sumScore.textContent = String(summary.score);
+      $sumAcc.textContent = `${summary.accuracy}%`;
+      $sumBest.textContent = String(summary.bestStreak);
+      $sumComp.textContent = String(summary.completedPlates);
+      if($sumMistake){
+        $sumMistake.textContent = summary.mostMistakeGroup ? FOOD_GROUPS[summary.mostMistakeGroup].short : '-';
       }
 
-      function init() {
-        $('#seedValue').textContent = String(ctx.seed).slice(-6);
-        $('#goalValue').textContent = preset.goal;
-        setCoach(pickLine(coachLines.start));
-        bind();
-        updateHud();
-        generateTurn();
-        requestAnimationFrame(tick);
+      renderSummaryTier(summary);
+      renderSummaryRewards();
+      renderLatestReward();
+      renderNextGoal(summary);
+      renderNextStickerHint();
+
+      if($summaryHeading){
+        if(summary.accuracy >= 95){
+          $summaryHeading.textContent = 'สุดยอดมากวันนี้';
+        }else if(summary.accuracy >= 80){
+          $summaryHeading.textContent = 'วันนี้ทำได้ดีมาก';
+        }else{
+          $summaryHeading.textContent = 'เก่งมากที่พยายาม';
+        }
       }
 
-      init();
-    })();
+      if($btnReplay){
+        if(summary.accuracy >= 90){
+          $btnReplay.textContent = 'เล่นอีกครั้ง ทำลายสถิติ';
+        }else if(summary.accuracy >= 70){
+          $btnReplay.textContent = 'ลองอีกครั้ง';
+        }else{
+          $btnReplay.textContent = 'ลองใหม่อีกนิด';
+        }
+      }
+
+      $sumInsight.textContent = insightText(summary);
+      $overlay.classList.add('show');
+
+      if($trayArea){
+        $trayArea.classList.add('collapsed');
+        syncTrayToggleLabel();
+      }
+
+      celebrate(summary.accuracy >= 90 ? 'perfect' : 'good');
+      playSfx('summary');
+      setTimeout(() => {
+        if($btnReplay && typeof $btnReplay.focus === 'function') $btnReplay.focus();
+      }, 30);
+    }
+
+    function finishGame(){
+      if(state.finished) return;
+      state.finished = true;
+      cancelRafLoop();
+      clearTimeout(state.roundAdvanceTimer);
+      state.roundAdvanceTimer = 0;
+
+      const summary = buildSummaryPayload();
+      saveLastSummary(summary);
+
+      function openSummarySafely(){
+        if(rewardShowing || rewardQueue.length){
+          setTimeout(openSummarySafely, 120);
+          return;
+        }
+        showSummary(summary);
+      }
+      openSummarySafely();
+    }
+
+    /* ---------------------------------
+      Evaluate Overlay
+    --------------------------------- */
+    const EVAL_TEMPLATES = [
+      {
+        id:'eval_1',
+        correct:'A',
+        explainCorrect:'ถูกต้อง! จาน A สมดุลที่สุด เพราะครบ 5 หมู่',
+        explainWrong:'จาน A ดีกว่า เพราะอีกจานยังขาดผักหรือมีของหวานแทนอาหารหลัก',
+        choices:{
+          A:{ g2:'🍚', g1:'🐟', g3:'🥬', g4:'🍌', g5:'🧈' },
+          B:{ g2:'🍚', g1:'🐟', g3:'',    g4:'🍌', g5:'🧈' },
+          C:{ g2:'🍚', g1:'🐟', g3:'🥬', g4:'🍰', g5:'🧈' }
+        }
+      },
+      {
+        id:'eval_2',
+        correct:'B',
+        explainCorrect:'เยี่ยมมาก! จาน B เหมาะที่สุด เพราะมีอาหารหลักครบและไม่มีตัวลวง',
+        explainWrong:'ลองดูอีกนิด จาน B ดีกว่า เพราะอีกจานมีน้ำอัดลมหรือขาดผลไม้',
+        choices:{
+          A:{ g2:'🍚', g1:'🐟', g3:'🥬', g4:'🥤', g5:'🧈' },
+          B:{ g2:'🍚', g1:'🥚', g3:'🥕', g4:'🍎', g5:'🫗' },
+          C:{ g2:'🍚', g1:'🐟', g3:'🥬', g4:'',    g5:'🧈' }
+        }
+      },
+      {
+        id:'eval_3',
+        correct:'C',
+        explainCorrect:'ถูกต้อง! จาน C สมดุลที่สุด เพราะอาหารอยู่หมู่เหมาะสมกว่า',
+        explainWrong:'จาน C ดีกว่า เพราะอีกจานมีอาหารวางไม่เหมาะหรือสมดุลน้อยกว่า',
+        choices:{
+          A:{ g2:'🍚', g1:'🍌', g3:'🥬', g4:'🐟', g5:'🧈' },
+          B:{ g2:'🍗', g1:'🐟', g3:'',    g4:'🍎', g5:'🫗' },
+          C:{ g2:'🍞', g1:'🥛', g3:'🥬', g4:'🍊', g5:'🫗' }
+        }
+      }
+    ];
+
+    function pickEvaluateTemplate(){
+      const idx = Math.floor(rng() * EVAL_TEMPLATES.length);
+      return EVAL_TEMPLATES[idx];
+    }
+
+    function renderEvalPlate(choiceKey, foods){
+      return `
+        <div class="evalChoice" data-choice="${choiceKey}">
+          <div class="evalPlate">
+            <div class="evalZone z-g2">${foods.g2 || ''}</div>
+            <div class="evalZone z-g1">${foods.g1 || ''}</div>
+            <div class="evalZone z-g3">${foods.g3 || ''}</div>
+            <div class="evalZone z-g4">${foods.g4 || ''}</div>
+            <div class="evalZone z-g5">${foods.g5 || ''}</div>
+          </div>
+          <div class="evalLabel">จาน ${choiceKey}</div>
+        </div>
+      `;
+    }
+
+    function openEvaluate(){
+      const tpl = pickEvaluateTemplate();
+      evaluateState.questionId = tpl.id;
+      evaluateState.selectedChoice = '';
+      evaluateState.correctChoice = tpl.correct;
+      evaluateState.answered = false;
+      evaluateState.isCorrect = false;
+      evaluateState.choices = tpl.choices;
+
+      $evalChoices.innerHTML = ['A','B','C'].map(k => renderEvalPlate(k, tpl.choices[k])).join('');
+      $evalFeedback.textContent = 'เลือกจานที่คิดว่าสมดุลที่สุด';
+      $evalFeedback.className = 'flowFeedback';
+      $btnEvalSubmit.disabled = true;
+      $evalNextActions.hidden = true;
+      $evaluateOverlay.hidden = false;
+      $overlay.classList.remove('show');
+
+      $evalChoices.querySelectorAll('.evalChoice').forEach(card => {
+        card.addEventListener('click', () => {
+          if(evaluateState.answered) return;
+          evaluateState.selectedChoice = card.dataset.choice;
+          $evalChoices.querySelectorAll('.evalChoice').forEach(x => x.classList.remove('selected'));
+          card.classList.add('selected');
+          $btnEvalSubmit.disabled = false;
+        });
+      });
+
+      setTimeout(() => {
+        if($btnEvalSubmit && typeof $btnEvalSubmit.focus === 'function') $btnEvalSubmit.focus();
+      }, 30);
+    }
+
+    function submitEvaluate(){
+      if(!evaluateState.selectedChoice || evaluateState.answered) return;
+      evaluateState.answered = true;
+      evaluateState.isCorrect = evaluateState.selectedChoice === evaluateState.correctChoice;
+
+      const tpl = EVAL_TEMPLATES.find(x => x.id === evaluateState.questionId);
+      $evalChoices.querySelectorAll('.evalChoice').forEach(card => {
+        const k = card.dataset.choice;
+        if(k === evaluateState.correctChoice) card.classList.add('correct');
+        if(k === evaluateState.selectedChoice && k !== evaluateState.correctChoice) card.classList.add('wrong');
+      });
+
+      if(evaluateState.isCorrect){
+        $evalFeedback.textContent = tpl.explainCorrect;
+        $evalFeedback.className = 'flowFeedback ok';
+        pushToast('ถูกต้อง! คิดได้ดีมาก', 'ok');
+        playSfx('ok');
+      }else{
+        $evalFeedback.textContent = tpl.explainWrong;
+        $evalFeedback.className = 'flowFeedback bad';
+        pushToast('ลองคิดอีกนิด แล้วไปต่อกัน', 'bad');
+      }
+
+      $btnEvalSubmit.hidden = true;
+      $btnEvalSkip.hidden = true;
+      $evalNextActions.hidden = false;
+    }
+
+    function closeEvaluate(){
+      $evaluateOverlay.hidden = true;
+    }
+
+    $btnEvaluate?.addEventListener('click', openEvaluate);
+    $btnEvalSubmit?.addEventListener('click', submitEvaluate);
+    $btnEvalSkip?.addEventListener('click', () => {
+      closeEvaluate();
+      openCreate();
+    });
+    $btnEvalNext?.addEventListener('click', () => {
+      closeEvaluate();
+      openCreate();
+    });
+
+    /* ---------------------------------
+      Create Overlay
+    --------------------------------- */
+    function getCreateFoods(){
+      const base = [];
+      ['g2','g1','g3','g4','g5'].forEach(g => {
+        const item = shuffle(FOOD_DB.filter(x => x.group === g), rng)[0];
+        if(item) base.push(item);
+      });
+      const distractors = shuffle(FOOD_DB.filter(x => x.group === 'x'), rng).slice(0, 2);
+      return shuffle([...base, ...distractors, ...shuffle(FOOD_DB.filter(x => x.group !== 'x'), rng).slice(0, 3)], rng).slice(0, 10);
+    }
+
+    function renderCreateTray(){
+      $createTray.innerHTML = '';
+      createState.trayFoods.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = 'food';
+        btn.type = 'button';
+        btn.dataset.id = item.id;
+
+        const emoji = FOOD_EMOJI[item.id] || '🍎';
+        btn.innerHTML = `
+          <div class="foodEmoji">${emoji}</div>
+          <div class="foodMeta">
+            <div class="foodName">${item.label}</div>
+            <div class="foodTag ${item.group === 'x' ? 'x' : ''}">${item.group === 'x' ? 'ลองคิดดู' : 'เลือกให้เหมาะ'}</div>
+          </div>
+        `;
+        btn.addEventListener('click', () => {
+          if(createState.hasSubmitted) return;
+          createState.selectedFoodId = item.id;
+          [...$createTray.querySelectorAll('.food')].forEach(x => x.classList.remove('selected'));
+          btn.classList.add('selected');
+          pushToast(`เลือก ${item.label} แล้ว`, 'info');
+          playSfx('pick');
+        });
+        $createTray.appendChild(btn);
+      });
+    }
+
+    function renderCreateZones(){
+      document.querySelectorAll('.createZone').forEach(zone => {
+        const z = zone.dataset.zone;
+        const placed = createState.placedByZone[z];
+        zone.classList.toggle('hasItem', !!placed);
+        const inner = zone.querySelector('.zoneInner');
+
+        if(placed){
+          inner.innerHTML = `
+            <div class="zoneItemEmoji">${FOOD_EMOJI[placed.food.id] || '🍎'}</div>
+            <div class="zoneItemText">${placed.food.label}</div>
+          `;
+        }else{
+          inner.innerHTML = `<span class="zonePlaceholder">${FOOD_GROUPS[z].short}</span>`;
+        }
+      });
+      const filled = Object.keys(createState.placedByZone).length;
+      const pct = (filled / 5) * 100;
+      $createProgressText.textContent = `${filled}/5 หมู่`;
+      $createProgressFill.style.width = `${pct}%`;
+    }
+
+    function bindCreateZones(){
+      document.querySelectorAll('.createZone').forEach(zone => {
+        zone.addEventListener('click', () => {
+          if(createState.hasSubmitted) return;
+          const z = zone.dataset.zone;
+          if(!createState.selectedFoodId){
+            pushToast('เลือกอาหารจากถาดก่อนนะ', 'info');
+            return;
+          }
+          const food = createState.trayFoods.find(x => x.id === createState.selectedFoodId);
+          if(!food) return;
+          createState.placedByZone[z] = { food };
+          createState.selectedFoodId = null;
+          [...$createTray.querySelectorAll('.food')].forEach(x => x.classList.remove('selected'));
+          renderCreateZones();
+          pushToast(`วาง ${food.label} แล้ว`, 'ok');
+          playSfx(food.group === z ? 'ok' : 'pick');
+        });
+      });
+    }
+
+    function evaluateCreatePlate(){
+      const zoneKeys = ['g2','g1','g3','g4','g5'];
+      const missingGroups = zoneKeys.filter(z => !createState.placedByZone[z]);
+      let distractorCount = 0;
+      let wrongPlaced = 0;
+
+      zoneKeys.forEach(z => {
+        const placed = createState.placedByZone[z];
+        if(!placed) return;
+        if(placed.food.group === 'x') distractorCount += 1;
+        if(placed.food.group !== z) wrongPlaced += 1;
+      });
+
+      createState.missingGroups = missingGroups.slice();
+      createState.distractorCount = distractorCount;
+
+      let resultLevel = 'retry';
+      if(!missingGroups.length && distractorCount === 0 && wrongPlaced === 0){
+        resultLevel = 'great';
+      }else if(missingGroups.length <= 1 && distractorCount <= 1){
+        resultLevel = 'good';
+      }
+      createState.resultLevel = resultLevel;
+      createState.hasSubmitted = true;
+
+      const goodBits = [];
+      const fixBits = [];
+
+      if(!missingGroups.length) goodBits.push('ครบ 5 หมู่แล้ว');
+      else fixBits.push(`ยังขาด ${missingGroups.map(g => FOOD_GROUPS[g].short).join(', ')}`);
+
+      if(distractorCount === 0) goodBits.push('ไม่มีอาหารตัวลวง');
+      else fixBits.push('ยังมีอาหารที่ไม่เหมาะกับจานสุขภาพ');
+
+      if(resultLevel === 'great'){
+        $createResult.className = 'createResult show great';
+        $createResult.innerHTML = `
+          <strong>ยอดเยี่ยมมาก</strong><br>
+          คุณสร้างจานสุขภาพได้ครบและสมดุล<br><br>
+          ทำได้ดี: ${goodBits.join(' • ')}
+        `;
+        pushToast('สร้างจานได้ยอดเยี่ยมมาก', 'ok');
+        celebrate('perfect');
+        playSfx('perfect');
+      }else if(resultLevel === 'good'){
+        $createResult.className = 'createResult show good';
+        $createResult.innerHTML = `
+          <strong>ทำได้ดีมาก</strong><br>
+          เหลืออีกนิด จานนี้เกือบสมดุลแล้ว<br><br>
+          ควรปรับ: ${fixBits.join(' • ')}
+        `;
+        pushToast('เกือบสมบูรณ์แล้ว', 'ok');
+        celebrate('good');
+        playSfx('plate');
+      }else{
+        $createResult.className = 'createResult show retry';
+        $createResult.innerHTML = `
+          <strong>ลองใหม่อีกนิดนะ</strong><br>
+          จานนี้ยังต้องปรับอีกเล็กน้อย<br><br>
+          ควรปรับ: ${fixBits.join(' • ')}
+        `;
+        pushToast('ลองเติมหมู่ที่ขาดอีกนิด', 'bad');
+      }
+
+      $createEndActions.hidden = false;
+    }
+
+    function openCreate(){
+      createState.selectedFoodId = null;
+      createState.placedByZone = {};
+      createState.hasSubmitted = false;
+      createState.resultLevel = '';
+      createState.missingGroups = [];
+      createState.distractorCount = 0;
+      createState.trayFoods = getCreateFoods();
+
+      $createResult.className = 'createResult';
+      $createResult.innerHTML = '';
+      $createEndActions.hidden = true;
+
+      renderCreateTray();
+      renderCreateZones();
+
+      $createOverlay.hidden = false;
+      setTimeout(() => {
+        if($btnCreateSubmit && typeof $btnCreateSubmit.focus === 'function') $btnCreateSubmit.focus();
+      }, 30);
+    }
+
+    function closeCreate(){
+      $createOverlay.hidden = true;
+    }
+
+    $btnCreateSubmit?.addEventListener('click', evaluateCreatePlate);
+    $btnCreateReset?.addEventListener('click', openCreate);
+    $btnCreateReplay?.addEventListener('click', async () => {
+      closeCreate();
+      await replayRun();
+    });
+    $btnCreateBackHub?.addEventListener('click', async () => {
+      closeCreate();
+      await backHub();
+    });
+    bindCreateZones();
+
+    /* ---------------------------------
+      Flow actions
+    --------------------------------- */
+    function cancelRerouteTimers(){
+      clearTimeout(state.roundAdvanceTimer);
+      state.roundAdvanceTimer = 0;
+    }
+
+    function cleanupBeforeLeave(){
+      cancelRafLoop();
+      cancelRerouteTimers();
+      state.destroyed = true;
+      try{ document.body.classList.remove('show-summary'); }catch(_){}
+      try{ if(document.getElementById('pauseOverlay')) document.getElementById('pauseOverlay').hidden = true; }catch(_){}
+    }
+
+    async function replayRun(){
+      if(leavingPage) return;
+      lockLeaveButtons();
+      state.replayClicked = 1;
+      cleanupBeforeLeave();
+
+      const nextSeed = String(Date.now());
+      location.href = withPassthrough('/webxr-health-mobile/herohealth/plate/plate-vr.html', ctx, { seed: nextSeed });
+    }
+
+    async function backHub(){
+      if(leavingPage) return;
+      lockLeaveButtons();
+      state.backHubClicked = 1;
+      cleanupBeforeLeave();
+
+      const cooldownDone = isGateDone('cooldown', ctx);
+      if(!cooldownDone){
+        location.href = withPassthrough('/webxr-health-mobile/herohealth/warmup-gate.html', ctx, {
+          phase:'cooldown',
+          next:ctx.hub
+        });
+        return;
+      }
+      location.href = ctx.hub || '/webxr-health-mobile/herohealth/hub.html';
+    }
+
+    $btnReplay?.addEventListener('click', replayRun);
+    $btnBackHub?.addEventListener('click', backHub);
+
+    $btnResumeGame?.addEventListener('click', () => {
+      unlockAudio();
+      resumeGame();
+    });
+
+    $btnRestartGame?.addEventListener('click', async () => {
+      if(leavingPage) return;
+      lockLeaveButtons();
+      cleanupBeforeLeave();
+      const nextSeed = String(Date.now());
+      location.href = withPassthrough('/webxr-health-mobile/herohealth/plate/plate-vr.html', ctx, { seed: nextSeed });
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if(state.finished || !state.started) return;
+      if(document.hidden){
+        state.hiddenPaused = true;
+        pauseGame('hidden');
+        return;
+      }
+      if(state.hiddenPaused){
+        state.hiddenPaused = false;
+      }
+    });
+
+    /* ---------------------------------
+      Start / Reset
+    --------------------------------- */
+    function resetRunState(){
+      cancelRafLoop();
+      clearTimeout(state.roundAdvanceTimer);
+      state.roundAdvanceTimer = 0;
+
+      state.started = false;
+      state.finished = false;
+      state.paused = false;
+      state.hiddenPaused = false;
+      state.destroyed = false;
+
+      state.score = 0;
+      state.timeLeft = ctx.time;
+      state.streak = 0;
+      state.bestStreak = 0;
+      state.correct = 0;
+      state.wrong = 0;
+      state.completedPlates = 0;
+      state.currentRound = 0;
+
+      state.selectedFoodId = null;
+      state.roundTargetGroups = [];
+      state.roundFoods = [];
+      state.placedByZone = {};
+      state.mistakeByGroup = { g1:0, g2:0, g3:0, g4:0, g5:0 };
+
+      state.roundsStarted = 0;
+      state.roundsCompleted = 0;
+      state.perfectPlates = 0;
+
+      state.timeStartedMs = 0;
+      state.timeToFirstCorrectMs = null;
+      state.timeToFirstPlateMs = null;
+
+      state.perGroupCorrect = { g1:0, g2:0, g3:0, g4:0, g5:0 };
+      state.perGroupWrong = { g1:0, g2:0, g3:0, g4:0, g5:0 };
+
+      state.replayClicked = 0;
+      state.backHubClicked = 0;
+      state.summaryShown = 0;
+
+      state.gameDeadlineMs = 0;
+      state.lastSecondShown = ctx.time;
+      state.inputLockUntil = 0;
+      state.runToken += 1;
+
+      state.recentFoodIds = [];
+      state.recentRoundSig = [];
+
+      rng = makeRng(ctx.seed);
+
+      $tray.innerHTML = '';
+      updateHud();
+      resetUiForFreshRun();
+      refreshZoneUi();
+      updateMissionUi();
+      renderSelectedBar();
+
+      if(document.getElementById('pauseOverlay')) document.getElementById('pauseOverlay').hidden = true;
+      $evaluateOverlay.hidden = true;
+      $createOverlay.hidden = true;
+    }
+
+    function reallyStartGame(){
+      if(state.started) return;
+
+      resetRunState();
+      state.started = true;
+      state.finished = false;
+
+      updateDailyQuestUi();
+      renderStickerShelf();
+
+      const dailyBoot = readDailyProgress();
+      if(!dailyBoot.firstPlayShown){
+        dailyBoot.firstPlayShown = 1;
+        writeDailyProgress(dailyBoot);
+        enqueueRewardPopup({
+          kind:'hello',
+          icon:'🌞',
+          title:'ยินดีต้อนรับวันนี้',
+          desc:'มาเริ่มสะสมสติกเกอร์และทำภารกิจประจำวันกัน',
+          meta:'เป้าหมายวันนี้: 3 จาน',
+          cta:'เริ่มเลย'
+        });
+      }
+
+      state.timeStartedMs = Date.now();
+      bindZones();
+      nextRound();
+      startGameClock();
+
+      if(isMobileCompact() && $trayArea){
+        $trayArea.classList.remove('collapsed');
+        syncTrayToggleLabel();
+      }
+    }
+
+    function startGame(){
+      maybeShowGuideThenStart();
+    }
+
+    /* ---------------------------------
+      Summary -> Evaluate/Create buttons
+    --------------------------------- */
+    $btnEvaluate?.addEventListener('click', openEvaluate);
+
+    /* ---------------------------------
+      Misc UI bindings
+    --------------------------------- */
+    $btnClearPick?.addEventListener('click', () => {
+      state.selectedFoodId = null;
+      syncFoodUi();
+      renderSelectedBar();
+      setFeedback('ยกเลิกการเลือกแล้ว');
+      pushToast('ยกเลิกการเลือกแล้ว', 'info');
+    });
+
+    window.addEventListener('resize', () => {
+      syncCompactMode();
+      syncTrayToggleLabel();
+    });
+
+    /* ---------------------------------
+      Boot
+    --------------------------------- */
+    syncCompactMode();
+    syncTrayToggleLabel();
+    renderSelectedBar();
+    updateMissionUi();
+    updateDailyQuestUi();
+    renderStickerShelf();
+    startGame();
+
+  })();
   </script>
 </body>
 </html>
