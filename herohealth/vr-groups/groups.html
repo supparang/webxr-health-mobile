@@ -331,7 +331,7 @@
       opacity:0;
       pointer-events:none;
       transition:opacity .18s ease, transform .18s ease;
-      z-index:12;
+      z-index:18;
       white-space:nowrap;
     }
 
@@ -360,6 +360,7 @@
       transform:translate3d(0,0,0);
       transition:transform .08s ease, opacity .15s ease;
       touch-action:none;
+      z-index:8;
     }
 
     .item:active{ transform:scale(.96); }
@@ -832,12 +833,9 @@
       }
     }
 
-    /* ===== GROUPS MOBILE COMPACT HUD PATCH ===== */
+    /* ===== GROUPS MOBILE HUD FIX v2 ===== */
     body.compact-mobile .shell{
-      grid-template-rows:
-        auto
-        auto
-        minmax(440px, 1fr);
+      grid-template-rows:auto auto minmax(440px, 1fr);
       gap:8px;
     }
 
@@ -863,37 +861,51 @@
     body.compact-mobile .goalCard.in-stage-goal{
       position:absolute;
       left:10px;
-      right:10px;
       top:10px;
+      right:auto;
+      width:min(72%, 280px);
       z-index:16;
-      padding:10px 12px;
+      padding:8px 10px;
       border-radius:18px;
-      background:rgba(255,255,255,.92);
+      background:rgba(255,255,255,.90);
       backdrop-filter:blur(6px);
-      box-shadow:0 10px 24px rgba(96,154,183,.14);
+      box-shadow:0 10px 22px rgba(96,154,183,.12);
+      pointer-events:none;
     }
 
     body.compact-mobile .goalCard.in-stage-goal::after{
-      width:96px;
-      height:96px;
-      right:-18px;
-      top:-18px;
-      opacity:.78;
+      width:82px;
+      height:82px;
+      right:-14px;
+      top:-14px;
+      opacity:.72;
     }
 
     body.compact-mobile .goalCard.in-stage-goal .goalTop{
-      gap:8px;
+      position:relative;
+      justify-content:flex-start;
+      gap:6px;
+      min-height:26px;
+    }
+
+    body.compact-mobile .goalCard.in-stage-goal #phaseTag{
+      position:absolute;
+      top:0;
+      right:0;
+      padding:4px 8px;
+      font-size:10px;
     }
 
     body.compact-mobile .goalCard.in-stage-goal .goalTag{
-      padding:5px 9px;
+      padding:4px 8px;
       font-size:10px;
     }
 
     body.compact-mobile .goalCard.in-stage-goal .goalTitle{
-      margin-top:6px;
-      font-size:16px;
-      line-height:1.1;
+      margin-top:4px;
+      font-size:15px;
+      line-height:1.08;
+      padding-right:74px;
     }
 
     body.compact-mobile .goalCard.in-stage-goal .goalSub{
@@ -901,17 +913,17 @@
     }
 
     body.compact-mobile .goalCard.in-stage-goal .coach{
-      margin-top:6px;
-      min-height:30px;
-      padding:7px 9px;
+      margin-top:5px;
+      min-height:0;
+      padding:6px 8px;
       border-radius:12px;
-      font-size:10px;
-      line-height:1.4;
-    }
-
-    body.compact-mobile .stageWrap{
-      min-height:440px;
-      border-radius:22px;
+      font-size:9.5px;
+      line-height:1.3;
+      display:block;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      pointer-events:none;
     }
 
     body.compact-mobile .goalProgress{
@@ -919,37 +931,39 @@
     }
 
     body.compact-mobile .banner{
-      top:100px;
+      top:86px;
       font-size:11px;
       padding:8px 12px;
+      z-index:18;
     }
 
     body.compact-mobile .bottomBar.in-stage-bottom{
       position:absolute;
-      left:10px;
-      right:10px;
-      bottom:10px;
+      left:8px;
+      right:8px;
+      bottom:8px;
       z-index:16;
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
       gap:6px;
+      pointer-events:none;
     }
 
     body.compact-mobile .bottomBar.in-stage-bottom .stat{
-      padding:7px 8px;
+      padding:6px 8px;
       border-radius:14px;
-      background:rgba(255,255,255,.92);
+      background:rgba(255,255,255,.88);
       backdrop-filter:blur(6px);
-      box-shadow:0 10px 22px rgba(94,153,182,.12);
+      box-shadow:0 8px 18px rgba(94,153,182,.10);
     }
 
     body.compact-mobile .bottomBar.in-stage-bottom .statLabel{
       font-size:9px;
-      margin-bottom:2px;
+      margin-bottom:1px;
     }
 
     body.compact-mobile .bottomBar.in-stage-bottom .statValue{
-      font-size:13px;
+      font-size:12px;
     }
 
     body.compact-mobile .actions{
@@ -1001,11 +1015,21 @@
       }
 
       body.compact-mobile .stageWrap{
-        min-height:400px;
+        min-height:480px;
+      }
+
+      body.compact-mobile .goalCard.in-stage-goal{
+        width:min(82%, 300px);
+        padding:7px 9px;
       }
 
       body.compact-mobile .goalCard.in-stage-goal .goalTitle{
-        font-size:15px;
+        font-size:14px;
+        padding-right:68px;
+      }
+
+      body.compact-mobile .bottomBar.in-stage-bottom .statValue{
+        font-size:13px;
       }
     }
   </style>
@@ -1074,7 +1098,7 @@
           <h2 id="introTitle">เริ่มฝึกก่อน 15 วินาที</h2>
           <p id="introDesc">
             แตะอาหารที่อยู่ในหมู่ที่กำหนดให้ถูกต้อง
-            ฝึกก่อนสั้น ๆ แล้วค่อยเริ่มรอบจริงคะแนนจริง
+            ฝึกสั้นก่อน แล้วค่อยเริ่มรอบจริงคะแนนจริง
           </p>
           <div class="modalActions">
             <button class="bigBtn primary" id="btnStartPractice" type="button">เริ่มฝึกเลย</button>
@@ -1163,14 +1187,8 @@
     </section>
   </main>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js"></script>
-  <script src="../firebase-init.js"></script>
-
   <script type="module">
-    const PATCH = 'v20260406-groups-shell-race-ready-r1';
+    const PATCH = 'v20260405-groups-shell-hudfix-r1';
 
     const q = new URL(location.href).searchParams;
 
@@ -1228,26 +1246,17 @@
       introDesc: document.getElementById('introDesc')
     };
 
-    const MODE = oneOf(q.get('mode'), ['solo','race'], 'solo');
-    const IS_RACE = MODE === 'race' || q.get('race') === '1';
-
     const CTX = {
       pid: cleanPid(q.get('pid') || 'anon'),
       name: cleanName(q.get('name') || q.get('nick') || 'Rocky'),
       studyId: String(q.get('studyId') || '').trim(),
       diff: oneOf(q.get('diff'), ['easy','normal','hard'], 'normal'),
-      timeSec: clampInt(q.get('time') || q.get('timeSec'), 80, 30, 180),
+      timeSec: clampInt(q.get('time'), 80, 30, 180),
       seed: String(q.get('seed') || Date.now()),
       hub: q.get('hub') || new URL('../hub.html', location.href).toString(),
       view: oneOf(q.get('view'), ['pc','mobile','cvr','vr'], 'mobile'),
       run: oneOf(q.get('run'), ['play','research','demo'], 'play'),
-      mode: IS_RACE ? 'race' : 'solo',
-      race: IS_RACE,
-      roomCode: String(q.get('roomCode') || q.get('code') || '').trim().toUpperCase(),
-      isHost: q.get('isHost') === '1',
-      hostPlayerId: String(q.get('hostPlayerId') || ''),
-      hostName: String(q.get('hostName') || ''),
-      players: clampInt(q.get('players'), 1, 1, 8),
+      mode: 'solo',
       game: 'groups',
       gameId: 'groups',
       zone: 'nutrition',
@@ -1296,51 +1305,6 @@
       ui.btnRecenter.style.display = 'none';
     }
 
-    function loadClassicScript(src){
-      return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.async = false;
-        s.onload = () => resolve(src);
-        s.onerror = () => reject(new Error(`load script failed: ${src}`));
-        document.body.appendChild(s);
-      });
-    }
-
-    function applyModeUi(){
-      const brandTitleEl = document.querySelector('.brand h1');
-
-      if (CTX.mode === 'race') {
-        document.title = 'HeroHealth • Food Groups Race';
-        if (brandTitleEl) brandTitleEl.textContent = 'Food Groups Race';
-        if (ui.phaseTag) ui.phaseTag.textContent = 'Race';
-        if (ui.goalTag) ui.goalTag.textContent = '🏁 Multiplayer Race';
-        if (ui.goalTitle) ui.goalTitle.textContent = 'แตะอาหารให้ถูกหมู่ เร็วและแม่นที่สุด';
-        if (ui.goalSub) ui.goalSub.textContent = 'เริ่มพร้อมกันทุกเครื่อง แล้วสรุปอันดับท้ายเกม';
-        if (ui.introTitle) ui.introTitle.textContent = 'กำลังเตรียมแข่งแบบ Race';
-        if (ui.introDesc) {
-          ui.introDesc.textContent =
-            'รอผู้เล่นทุกเครื่องเข้าพร้อมกัน แล้วระบบจะนับถอยหลังเพื่อปล่อยแข่งพร้อมกัน';
-        }
-        if (ui.btnStartPractice) ui.btnStartPractice.style.display = 'none';
-        if (ui.btnStartMain) ui.btnStartMain.style.display = 'none';
-        if (ui.introOverlay) ui.introOverlay.classList.add('show');
-        if (ui.midOverlay) ui.midOverlay.classList.remove('show');
-      } else {
-        document.title = 'HeroHealth • Food Groups Solo';
-        if (brandTitleEl) brandTitleEl.textContent = 'Food Groups Solo';
-      }
-
-      if (ui.ctxLine) {
-        ui.ctxLine.textContent =
-          `run=${CTX.run} • mode=${CTX.mode} • diff=${CTX.diff} • time=${CTX.timeSec} • view=${CTX.view}`;
-      }
-
-      if (ui.chipPlayer) ui.chipPlayer.textContent = CTX.name || CTX.pid;
-    }
-
-    applyModeUi();
-
     try {
       const [
         { createGroupsLogger },
@@ -1380,22 +1344,12 @@
         logger,
         ai,
         options: {
-          patch: PATCH,
-          mode: CTX.mode
+          patch: PATCH
         }
       });
 
       window.__GROUPS_CORE__ = core;
       core.boot();
-
-      if (CTX.mode === 'race') {
-        await loadClassicScript('./groups-race-ui-patch.js');
-        await loadClassicScript('./groups-race-sync-patch.js');
-        await loadClassicScript('./groups-race-guard-patch.js');
-        await loadClassicScript('./groups-race-end-patch.js');
-        await loadClassicScript('./groups-race-startbarrier-patch.js');
-        await loadClassicScript('./groups-race-winner-patch.js');
-      }
 
       if (CTX.view === 'cvr' || CTX.view === 'vr') {
         const s = document.createElement('script');
@@ -1405,7 +1359,7 @@
       }
 
     } catch (err) {
-      console.error('[GroupsRun] boot failed:', err);
+      console.error('[GroupsSolo] boot failed:', err);
       showBootError(err);
     }
 
@@ -1423,16 +1377,13 @@
       }
       if (ui.introDesc) {
         ui.introDesc.textContent =
-          `โหลดโมดูลของ Groups ${CTX.mode === 'race' ? 'Race' : 'Solo'} ไม่สำเร็จ กรุณาตรวจ path ไฟล์หรือ syntax error แล้วลองใหม่อีกครั้ง`;
+          'โหลดโมดูลของ Groups Solo ไม่สำเร็จ กรุณาตรวจ path ไฟล์หรือ syntax error แล้วลองใหม่อีกครั้ง';
       }
       if (ui.coachBubble) {
         ui.coachBubble.textContent = `โค้ช: มีข้อผิดพลาดตอนเปิดเกม — ${msg}`;
       }
       if (ui.debugPanel) {
-        ui.debugPanel.textContent = `BOOT ERROR
-PATCH: ${PATCH}
-MODE: ${CTX.mode}
-${msg}`;
+        ui.debugPanel.textContent = `BOOT ERROR\nPATCH: ${PATCH}\n${msg}`;
       }
 
       if (ui.btnStartPractice) ui.btnStartPractice.disabled = true;
