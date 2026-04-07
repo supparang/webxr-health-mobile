@@ -22,7 +22,9 @@
       --shadow:0 18px 38px rgba(88,150,182,.18);
       --radius:24px;
     }
-    *{box-sizing:border-box}
+
+    *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -32,83 +34,246 @@
         radial-gradient(circle at top left, rgba(84,196,255,.16), transparent 30%),
         linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
     }
-    body{padding:18px}
-    .wrap{max-width:1180px;margin:0 auto;display:grid;gap:16px}
+
+    body{ padding:18px; }
+
+    .wrap{
+      max-width:1180px;
+      margin:0 auto;
+      display:grid;
+      gap:16px;
+    }
+
     .card{
       background:var(--card);
       border:1px solid var(--line);
       border-radius:var(--radius);
       box-shadow:var(--shadow);
     }
+
     .hero{
       padding:24px;
       display:grid;
-      grid-template-columns:1.1fr .9fr;
+      grid-template-columns:1.08fr .92fr;
       gap:18px;
       align-items:center;
     }
-    .hero h1{margin:8px 0 10px;font-size:clamp(30px,4vw,46px);line-height:1.06}
-    .eyebrow{
-      display:inline-flex;align-items:center;gap:8px;
-      min-height:38px;padding:8px 14px;border-radius:999px;
-      background:#effaff;border:1px solid #caebfb;font-weight:900;color:#2483b2
-    }
-    .lead{margin:0;color:var(--muted);line-height:1.7;font-size:16px}
-    .pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
-    .pill{
-      padding:9px 12px;border-radius:999px;background:#f4fbff;border:1px solid var(--line);
-      font-size:13px;font-weight:900;color:#39718d
-    }
-    .mini-map{
-      padding:16px;border-radius:22px;background:linear-gradient(180deg,#f7fdff,#eefaff);
-      border:1px solid var(--line)
-    }
-    .mini-map h2{margin:0 0 10px;font-size:22px}
-    .flow{
-      display:grid;gap:10px;
-    }
-    .flow-step{
-      padding:12px 14px;border-radius:16px;background:#fff;border:1px solid var(--line);
-      font-weight:800;color:#386b86
+
+    .hero h1{
+      margin:8px 0 10px;
+      font-size:clamp(30px,4vw,46px);
+      line-height:1.06;
     }
 
-    .form{padding:20px}
-    .form-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:14px}
-    .form-head h2{margin:0;font-size:24px}
-    .form-head p{margin:6px 0 0;color:var(--muted);line-height:1.6}
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#effaff;
+      border:1px solid #caebfb;
+      font-weight:900;
+      color:#2483b2;
+    }
+
+    .lead{
+      margin:0;
+      color:var(--muted);
+      line-height:1.7;
+      font-size:16px;
+    }
+
+    .pill-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:16px;
+    }
+
+    .pill{
+      padding:9px 12px;
+      border-radius:999px;
+      background:#f4fbff;
+      border:1px solid var(--line);
+      font-size:13px;
+      font-weight:900;
+      color:#39718d;
+    }
+
+    .mini-map{
+      padding:16px;
+      border-radius:22px;
+      background:linear-gradient(180deg,#f7fdff,#eefaff);
+      border:1px solid var(--line);
+    }
+
+    .mini-map h2{
+      margin:0 0 10px;
+      font-size:22px;
+    }
+
+    .flow{
+      display:grid;
+      gap:10px;
+    }
+
+    .flow-step{
+      padding:12px 14px;
+      border-radius:16px;
+      background:#fff;
+      border:1px solid var(--line);
+      font-weight:800;
+      color:#386b86;
+    }
+
+    .form{
+      padding:20px;
+    }
+
+    .form-head{
+      display:flex;
+      justify-content:space-between;
+      gap:14px;
+      align-items:flex-start;
+      margin-bottom:14px;
+    }
+
+    .form-head h2{
+      margin:0;
+      font-size:24px;
+    }
+
+    .form-head p{
+      margin:6px 0 0;
+      color:var(--muted);
+      line-height:1.6;
+    }
+
     .badge{
-      min-height:38px;padding:9px 12px;border-radius:999px;background:#effaff;
-      border:1px solid #caebfb;font-size:13px;font-weight:900;color:#2483b2;white-space:nowrap
+      min-height:38px;
+      padding:9px 12px;
+      border-radius:999px;
+      background:#effaff;
+      border:1px solid #caebfb;
+      font-size:13px;
+      font-weight:900;
+      color:#2483b2;
+      white-space:nowrap;
     }
-    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-    .field{display:grid;gap:8px}
-    .field.full{grid-column:1/-1}
-    label{font-size:13px;font-weight:900;color:#2f627d}
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .field{
+      display:grid;
+      gap:8px;
+    }
+
+    .field.full{
+      grid-column:1 / -1;
+    }
+
+    label{
+      font-size:13px;
+      font-weight:900;
+      color:#2f627d;
+    }
+
     input,select{
-      min-height:48px;width:100%;padding:12px 14px;border-radius:14px;
-      border:1px solid var(--line);background:#fbfeff;color:var(--text);font:inherit
+      min-height:48px;
+      width:100%;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:#fbfeff;
+      color:var(--text);
+      font:inherit;
+      outline:none;
     }
-    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+
+    input::placeholder{
+      color:#8aa7bb;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:18px;
+    }
+
     .btn{
-      appearance:none;border:none;cursor:pointer;min-height:48px;padding:12px 16px;border-radius:16px;
-      font-size:15px;font-weight:1000;transition:transform .15s ease
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      min-height:48px;
+      padding:12px 16px;
+      border-radius:16px;
+      font-size:15px;
+      font-weight:1000;
+      transition:transform .15s ease, opacity .15s ease;
     }
-    .btn:hover{transform:translateY(-1px)}
-    .btn.primary{background:linear-gradient(180deg,var(--blue),var(--blue2));color:#06273a}
-    .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--text)}
-    .btn.good{background:linear-gradient(180deg,#8fe89b,#62d173);color:#11351b}
-    .preview,.status{
-      margin-top:14px;padding:14px 16px;border-radius:18px;border:1px dashed var(--line);
-      background:#f8fdff;color:#356b85;line-height:1.65;font-size:14px;word-break:break-word
+
+    .btn:hover{
+      transform:translateY(-1px);
     }
-    .status{display:none;border-style:solid}
-    .status.show{display:block}
+
+    .btn.primary{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#06273a;
+    }
+
+    .btn.ghost{
+      background:#fff;
+      border:1px solid var(--line);
+      color:var(--text);
+    }
+
+    .btn.good{
+      background:linear-gradient(180deg,#8fe89b,#62d173);
+      color:#11351b;
+    }
+
+    .preview,
+    .status{
+      margin-top:14px;
+      padding:14px 16px;
+      border-radius:18px;
+      border:1px dashed var(--line);
+      background:#f8fdff;
+      color:#356b85;
+      line-height:1.65;
+      font-size:14px;
+      word-break:break-word;
+    }
+
+    .status{
+      display:none;
+      border-style:solid;
+    }
+
+    .status.show{
+      display:block;
+    }
+
     @media (max-width:900px){
-      .hero{grid-template-columns:1fr}
+      .hero{
+        grid-template-columns:1fr;
+      }
     }
+
     @media (max-width:760px){
-      .grid{grid-template-columns:1fr}
-      .form-head{flex-direction:column}
+      .grid{
+        grid-template-columns:1fr;
+      }
+      .form-head{
+        flex-direction:column;
+      }
     }
   </style>
 </head>
@@ -123,6 +288,7 @@
           และใช้ <strong>hydration-lite</strong> เป็น mini learning สั้น ๆ หลังเล่น
           เพื่อให้ได้ทั้งความสนุกและ Bloom ที่ครบขึ้น
         </p>
+
         <div class="pill-row">
           <span class="pill">Main game = hydration-vr</span>
           <span class="pill">Mini = scenario + evaluate/create</span>
@@ -286,7 +452,7 @@
       }
 
       function buildRunId() {
-        return `hyd-${Date.now()}-${Math.floor(Math.random()*100000)}`;
+        return `hyd-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
       }
 
       function buildWarmupUrl() {
@@ -332,7 +498,7 @@
         return warmup.toString();
       }
 
-      function updateView(){
+      function updateView() {
         const branch = deriveBranch();
         flowBadge.textContent = `HYBRID • ${branch} • W${safeInt(weekInput.value,1)} S${safeInt(sessionInput.value,1)}`;
         urlPreview.innerHTML = `<strong>Warmup URL</strong><br/>${escapeHtml(buildWarmupUrl())}`;
@@ -340,10 +506,10 @@
 
       function escapeHtml(v){
         return String(v ?? '')
-          .replaceAll('&','&amp;')
-          .replaceAll('<','&lt;')
-          .replaceAll('>','&gt;')
-          .replaceAll('"','&quot;');
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;');
       }
 
       function showStatus(msg){
@@ -374,9 +540,8 @@
       });
 
       startBtn.addEventListener('click', () => {
-        const url = buildWarmupUrl();
         showStatus('กำลังเริ่ม Hybrid Flow');
-        location.href = url;
+        location.href = buildWarmupUrl();
       });
 
       updateView();
