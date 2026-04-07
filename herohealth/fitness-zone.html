@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Fitness Zone</title>
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#9fe3ff" />
+  <meta name="theme-color" content="#a9ecdb" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./hygiene-zone.css?v=20260407-fitnessplanner-clean" />
+  <link rel="stylesheet" href="./hygiene-zone.css" />
 </head>
 <body>
   <div class="hz-shell">
@@ -37,7 +37,7 @@
         </div>
 
         <div class="stats-row">
-          <div class="pill">🏃 5 เกมแอ็กชัน + 1 Planner</div>
+          <div class="pill">🏃 5 เกมในโซน Fitness</div>
           <div id="playerPill" class="pill">👤 Player: anon</div>
           <div id="modePill" class="pill">🎮 Mode: play</div>
         </div>
@@ -87,58 +87,16 @@
       </div>
     </section>
 
-    <section class="planner-spotlight" id="plannerSpotlight">
-      <div class="planner-head">
-        <div class="planner-icon">🗓️</div>
+    <section class="section-block">
+      <div class="section-head">
         <div>
-          <div class="planner-kicker">FITNESS PLANNER</div>
-          <h2 class="planner-title">Build a Safe & Fun Plan</h2>
-          <p class="planner-sub">
-            วางแผนการออกกำลังกายให้สนุก สมดุล และปลอดภัย
-            ใช้ได้ทั้งแบบรอบสั้น คลาสเต็ม และภาพรวมรายสัปดาห์
-          </p>
+          <div class="section-kicker">Featured</div>
+          <h2 class="section-title">เกมแนะนำวันนี้</h2>
         </div>
       </div>
 
-      <div class="planner-tags">
-        <span class="planner-tag">⚡ Quick Plan</span>
-        <span class="planner-tag">🏫 Class Builder</span>
-        <span class="planner-tag">📅 Weekly Planner</span>
-        <span class="planner-tag">⭐ Safety / Balance / Variety</span>
-      </div>
-
-      <div class="planner-mini">
-        <a class="planner-inline-link" id="plannerMiniQuick" href="./fitness-planner/index.html?mode=quick">
-          <div class="planner-mini-card">
-            <div class="planner-mini-k">Quick</div>
-            <div class="planner-mini-v">เริ่ม → เล่น → จบ</div>
-          </div>
-        </a>
-
-        <a class="planner-inline-link" id="plannerMiniClass" href="./fitness-planner/index.html?mode=class">
-          <div class="planner-mini-card">
-            <div class="planner-mini-k">Class</div>
-            <div class="planner-mini-v">Warm-up → Main → Balance → Cooldown</div>
-          </div>
-        </a>
-
-        <a class="planner-inline-link" id="plannerMiniWeekly" href="./fitness-planner/weekly.html">
-          <div class="planner-mini-card">
-            <div class="planner-mini-k">Weekly</div>
-            <div class="planner-mini-v">จัดแผน 3 วันแบบไม่หนักสะสมเกินไป</div>
-          </div>
-        </a>
-      </div>
-
-      <div class="planner-grid">
-        <a id="plannerQuickBtn" class="planner-btn blue" href="./fitness-planner/index.html?mode=quick">⚡ Quick</a>
-        <a id="plannerClassBtn" class="planner-btn play" href="./fitness-planner/index.html?mode=class">🏫 Class</a>
-        <a id="plannerWeeklyBtn" class="planner-btn soft" href="./fitness-planner/weekly.html">📅 Weekly</a>
-        <a id="plannerLauncherBtn" class="planner-btn soft" href="./fitness-planner.html">🧭 Launcher</a>
-      </div>
-
-      <div class="planner-note">
-        แนะนำให้ใช้ Planner ก่อนหรือหลังเล่นเกมแอ็กชันในโซนนี้ เช่น Shadow Breaker, Rhythm Boxer, Jump Duck, Balance Hold และ Fitness Planner จะช่วยให้เด็กเห็นภาพว่าแต่ละกิจกรรมควรเรียงอย่างไรจึงจะเหมาะสม
+      <div id="featuredArea" class="recent-area">
+        <div class="empty-recent">ระบบกำลังเลือกเกมแนะนำให้</div>
       </div>
     </section>
 
@@ -154,117 +112,6 @@
     </section>
   </div>
 
-  <script>
-    (() => {
-      'use strict';
-
-      const LAST_ZONE_KEY = 'HHA_LAST_ZONE';
-
-      function qsGet(k, d=''){
-        try{
-          return new URL(location.href).searchParams.get(k) || d;
-        }catch(_){
-          return d;
-        }
-      }
-
-      function setLastZone(zone){
-        try{ localStorage.setItem(LAST_ZONE_KEY, zone); }catch(_){}
-      }
-
-      function buildPlannerUrl(mode){
-        let base = './fitness-planner.html';
-        if(mode === 'quick' || mode === 'class') base = './fitness-planner/index.html';
-        if(mode === 'weekly') base = './fitness-planner/weekly.html';
-
-        const u = new URL(base, location.href);
-
-        const pid = qsGet('pid', 'anon');
-        const name = qsGet('name', qsGet('nickName', 'Hero'));
-        const run = qsGet('run', 'play');
-        const diff = qsGet('diff', 'normal');
-        const view = qsGet('view', 'mobile');
-        const time = qsGet('time', '90');
-        const studyId = qsGet('studyId', '');
-        const debug = qsGet('debug', '');
-        const api = qsGet('api', '');
-        const log = qsGet('log', '');
-        const seed = String(Date.now());
-
-        u.searchParams.set('zone', 'fitness');
-        u.searchParams.set('cat', 'fitness');
-        u.searchParams.set('game', 'fitnessplanner');
-        u.searchParams.set('gameId', 'fitnessplanner');
-        u.searchParams.set('theme', 'fitnessplanner');
-        u.searchParams.set('pid', pid);
-        u.searchParams.set('name', name);
-        u.searchParams.set('run', run);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('view', view);
-        u.searchParams.set('time', time);
-        u.searchParams.set('hub', qsGet('hub', './hub-v2.html'));
-        u.searchParams.set('seed', seed);
-
-        if(mode === 'quick' || mode === 'class' || mode === 'weekly'){
-          u.searchParams.set('mode', mode);
-        }
-
-        if(studyId) u.searchParams.set('studyId', studyId);
-        if(debug) u.searchParams.set('debug', debug);
-        if(api) u.searchParams.set('api', api);
-        if(log) u.searchParams.set('log', log);
-
-        return u.toString();
-      }
-
-      function applyPlannerLinks(){
-        const links = {
-          plannerQuickBtn: buildPlannerUrl('quick'),
-          plannerClassBtn: buildPlannerUrl('class'),
-          plannerWeeklyBtn: buildPlannerUrl('weekly'),
-          plannerLauncherBtn: buildPlannerUrl('launcher'),
-          plannerMiniQuick: buildPlannerUrl('quick'),
-          plannerMiniClass: buildPlannerUrl('class'),
-          plannerMiniWeekly: buildPlannerUrl('weekly')
-        };
-
-        Object.entries(links).forEach(([id, href]) => {
-          const el = document.getElementById(id);
-          if(!el) return;
-          el.href = href;
-          if(el.__plannerBound) return;
-          el.__plannerBound = true;
-          el.addEventListener('click', () => setLastZone('fitness'));
-        });
-      }
-
-      function applyTopbarLinks(){
-        const hubBtn = document.getElementById('hubBtn');
-        if(hubBtn){
-          hubBtn.href = qsGet('hub', './hub-v2.html');
-        }
-
-        const playerPill = document.getElementById('playerPill');
-        if(playerPill){
-          playerPill.textContent = '👤 Player: ' + qsGet('pid', 'anon');
-        }
-
-        const modePill = document.getElementById('modePill');
-        if(modePill){
-          modePill.textContent = '🎮 Mode: ' + qsGet('run', 'play');
-        }
-      }
-
-      function bootPlannerPatch(){
-        applyTopbarLinks();
-        applyPlannerLinks();
-      }
-
-      document.addEventListener('DOMContentLoaded', bootPlannerPatch);
-      window.addEventListener('focus', bootPlannerPatch);
-    })();
-  </script>
-
-  <script type="module" src="./fitness-zone.js?v=20260407-fitnessplanner-clean"></script>
+  <script type="module" src="./fitness-zone.js"></script>
 </body>
 </html>
