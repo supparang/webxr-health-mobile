@@ -3,126 +3,405 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Intervention • Post-Choice</title>
-  <link rel="stylesheet" href="./assessment.css" />
+  <title>GoodJunk • Post-Choice</title>
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --sky1:#dff6ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d6;
+      --card:#fffef8;
+      --line:#c9e8f4;
+      --text:#4d4a42;
+      --muted:#7d7a73;
+      --green:#7ed957;
+      --green2:#59c53f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+    body{
+      min-height:100dvh;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.94), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.76), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 56%, var(--sky3));
+    }
+
+    .page{
+      width:min(980px, 100%);
+      margin:0 auto;
+      padding:16px;
+      padding-top:calc(16px + env(safe-area-inset-top,0px));
+      padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
+    }
+
+    .hero{
+      background:linear-gradient(180deg,#fffef8,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+      padding:20px 18px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-30px;
+      top:-30px;
+      width:130px;
+      height:130px;
+      border-radius:999px;
+      background:rgba(127,207,255,.18);
+      filter:blur(8px);
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-24px;
+      bottom:-24px;
+      width:120px;
+      height:120px;
+      border-radius:999px;
+      background:rgba(255,212,92,.18);
+      filter:blur(8px);
+    }
+
+    .kicker{
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#eaf8ff;
+      border:2px solid var(--line);
+      color:#58a8d2;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    h1{
+      position:relative;
+      z-index:1;
+      margin:0 0 8px;
+      font-size:clamp(30px,5vw,44px);
+      line-height:1.06;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .lead{
+      position:relative;
+      z-index:1;
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      font-weight:900;
+      max-width:760px;
+    }
+
+    .ctx{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:2px dashed var(--line);
+      background:rgba(255,255,255,.72);
+      color:#6f6b64;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.55;
+    }
+
+    form{
+      display:grid;
+      gap:14px;
+      margin-top:16px;
+    }
+
+    .q-card{
+      background:linear-gradient(180deg,#fffef9,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:26px;
+      box-shadow:var(--shadow);
+      padding:16px;
+    }
+
+    .q-title{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      margin-bottom:12px;
+    }
+
+    .q-no{
+      flex:0 0 auto;
+      width:40px;
+      height:40px;
+      display:grid;
+      place-items:center;
+      border-radius:14px;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef8;
+      font-weight:1000;
+      font-size:18px;
+      box-shadow:0 8px 16px rgba(88,183,245,.20);
+    }
+
+    .q-text{
+      font-size:20px;
+      line-height:1.35;
+      font-weight:1000;
+      color:var(--text);
+      padding-top:3px;
+    }
+
+    .choices{
+      display:grid;
+      gap:10px;
+      margin-top:8px;
+    }
+
+    .choice{
+      display:block;
+      cursor:pointer;
+    }
+
+    .choice input{
+      position:absolute;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .choice-box{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      padding:14px;
+      border-radius:20px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+      transition:.14s ease;
+    }
+
+    .choice input:checked + .choice-box{
+      border-color:#8ad95d;
+      background:linear-gradient(180deg,#f8fff1,#f2ffe7);
+      transform:translateY(-1px);
+    }
+
+    .emoji{
+      flex:0 0 auto;
+      width:56px;
+      height:56px;
+      display:grid;
+      place-items:center;
+      border-radius:16px;
+      background:linear-gradient(180deg,#eefaff,#fff7da);
+      border:2px solid var(--line);
+      font-size:30px;
+    }
+
+    .choice-copy{
+      display:grid;
+      gap:2px;
+    }
+
+    .choice-title{
+      font-size:18px;
+      line-height:1.35;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .choice-sub{
+      font-size:13px;
+      line-height:1.5;
+      font-weight:900;
+      color:var(--muted);
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:4px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:14px 18px;
+      font-size:16px;
+      font-weight:1000;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
+      transition:.12s ease;
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-main{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#fffef8;
+    }
+
+    .btn-back{
+      background:#fff;
+      color:#6f6a62;
+      border:2px solid var(--line);
+    }
+
+    .helper{
+      color:#7f7b74;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.6;
+      margin-top:2px;
+    }
+
+    @media (max-width:720px){
+      .page{ padding:12px; }
+      .q-text{ font-size:18px; }
+      .choice-title{ font-size:17px; }
+      .actions .btn{ flex:1 1 100%; }
+    }
+  </style>
 </head>
 <body>
   <main class="page">
-    <section class="card">
-      <div class="badge">Posttest • Post-Choice</div>
-      <h1>เลือกสิ่งที่หนูจะทำหลังจบกิจกรรม</h1>
-      <p class="sub">
-        หน้านี้ใช้ดูว่า หลังเล่นเกมแล้ว หนูจะเลือกของว่างและเครื่องดื่มแบบไหน
-        พร้อมเหตุผลและความมั่นใจของตัวเอง
+    <section class="hero">
+      <div class="kicker">✅ POST-CHOICE</div>
+      <h1>เลือกสิ่งที่อยากทำจริง</h1>
+      <p class="lead">
+        เลือก 1 อย่างที่เราคิดว่า “เริ่มทำได้จริง” หลังจากเล่น GoodJunk
       </p>
-
-      <div class="ctx" id="ctxBox">กำลังโหลด...</div>
-
-      <form class="form" data-next-key="COMPLETION">
-        <section class="block">
-          <h2>1) ถ้าหิวหลังเลิกเรียน หนูจะเลือกของว่างอะไร</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="snackChoice" value="fruit" required />
-              ผลไม้
-            </label>
-            <label class="choice">
-              <input type="radio" name="snackChoice" value="healthySnack" required />
-              ของว่างที่ดีกว่า เช่น นมจืด / สลัด / อาหารที่มีประโยชน์
-            </label>
-            <label class="choice">
-              <input type="radio" name="snackChoice" value="junk" required />
-              ขนมหวาน / ของทอด / junk food
-            </label>
-            <label class="choice">
-              <input type="radio" name="snackChoice" value="notSure" required />
-              ยังไม่แน่ใจ
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>2) ถ้ากระหายน้ำ หนูจะเลือกดื่มอะไร</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="drinkChoice" value="water" required />
-              น้ำเปล่า
-            </label>
-            <label class="choice">
-              <input type="radio" name="drinkChoice" value="milk" required />
-              นมจืด
-            </label>
-            <label class="choice">
-              <input type="radio" name="drinkChoice" value="sweetDrink" required />
-              น้ำหวาน / น้ำอัดลม
-            </label>
-            <label class="choice">
-              <input type="radio" name="drinkChoice" value="notSure" required />
-              ยังไม่แน่ใจ
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>3) เหตุผลที่หนูเลือกแบบนั้นคืออะไร</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="reason" value="healthier" required />
-              เพราะดีต่อสุขภาพมากกว่า
-            </label>
-            <label class="choice">
-              <input type="radio" name="reason" value="lessSugar" required />
-              เพราะหวานน้อยกว่า / น้ำตาลน้อยกว่า
-            </label>
-            <label class="choice">
-              <input type="radio" name="reason" value="gameLearned" required />
-              เพราะเกมช่วยให้จำได้ว่าอะไรดีกว่า
-            </label>
-            <label class="choice">
-              <input type="radio" name="reason" value="notSure" required />
-              ยังอธิบายไม่ค่อยได้
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>4) หนูมั่นใจแค่ไหนว่าครั้งหน้าจะเลือกแบบนี้จริง</h2>
-          <div class="choice-grid">
-            <label class="choice">
-              <input type="radio" name="confidence" value="high" required />
-              มั่นใจมาก
-            </label>
-            <label class="choice">
-              <input type="radio" name="confidence" value="medium" required />
-              มั่นใจปานกลาง
-            </label>
-            <label class="choice">
-              <input type="radio" name="confidence" value="low" required />
-              ยังไม่ค่อยมั่นใจ
-            </label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>5) ถ้าจะนำสิ่งที่เรียนรู้ไปใช้จริง หนูจะทำอะไร 1 อย่าง</h2>
-          <label class="inline">
-            <span class="note">ตอบสั้น ๆ ได้เลย</span>
-            <textarea
-              name="transferText"
-              placeholder="เช่น จะกินผลไม้แทนขนมหวาน หรือจะดื่มน้ำเปล่าแทนน้ำอัดลม"
-              required
-            ></textarea>
-          </label>
-        </section>
-
-        <div class="footer">
-          <button type="button" class="btn btn-ghost" data-action="back">ย้อนกลับ</button>
-          <button type="submit" class="btn btn-primary">บันทึกและไป Completion</button>
-        </div>
-      </form>
+      <div class="ctx" id="ctxBox">กำลังโหลดข้อมูล…</div>
     </section>
+
+    <form data-next-key="COMPLETION">
+      <section class="q-card">
+        <div class="q-title">
+          <div class="q-no">1</div>
+          <div class="q-text">สัปดาห์นี้เราอยากเริ่มจากข้อไหนมากที่สุด</div>
+        </div>
+
+        <div class="choices">
+          <label class="choice">
+            <input type="radio" name="choice_plan" value="fruit_daily" required />
+            <div class="choice-box">
+              <div class="emoji">🍎</div>
+              <div class="choice-copy">
+                <div class="choice-title">กินผลไม้เพิ่มขึ้น</div>
+                <div class="choice-sub">เช่น กินผลไม้วันละ 1 ครั้ง</div>
+              </div>
+            </div>
+          </label>
+
+          <label class="choice">
+            <input type="radio" name="choice_plan" value="drink_water" required />
+            <div class="choice-box">
+              <div class="emoji">💧</div>
+              <div class="choice-copy">
+                <div class="choice-title">ดื่มน้ำเปล่ามากขึ้น</div>
+                <div class="choice-sub">เช่น เลือกน้ำเปล่าแทนน้ำอัดลม</div>
+              </div>
+            </div>
+          </label>
+
+          <label class="choice">
+            <input type="radio" name="choice_plan" value="reduce_soda" required />
+            <div class="choice-box">
+              <div class="emoji">🥤</div>
+              <div class="choice-copy">
+                <div class="choice-title">ลดน้ำอัดลม</div>
+                <div class="choice-sub">เช่น ดื่มให้น้อยลงจากเดิม</div>
+              </div>
+            </div>
+          </label>
+
+          <label class="choice">
+            <input type="radio" name="choice_plan" value="reduce_snack" required />
+            <div class="choice-box">
+              <div class="emoji">🍟</div>
+              <div class="choice-copy">
+                <div class="choice-title">ลด junk food</div>
+                <div class="choice-sub">เช่น ลดขนมทอด หวาน มัน เค็ม</div>
+              </div>
+            </div>
+          </label>
+        </div>
+      </section>
+
+      <section class="q-card">
+        <div class="q-title">
+          <div class="q-no">2</div>
+          <div class="q-text">เราอยากให้ใครช่วยเตือนหรือช่วยเลือกอาหารดีให้บ้าง</div>
+        </div>
+
+        <div class="choices">
+          <label class="choice">
+            <input type="radio" name="choice_support" value="self" required />
+            <div class="choice-box">
+              <div class="emoji">🙂</div>
+              <div class="choice-copy">
+                <div class="choice-title">เตือนตัวเอง</div>
+                <div class="choice-sub">ลองตั้งใจทำเองก่อน</div>
+              </div>
+            </div>
+          </label>
+
+          <label class="choice">
+            <input type="radio" name="choice_support" value="parent" required />
+            <div class="choice-box">
+              <div class="emoji">👨‍👩‍👧</div>
+              <div class="choice-copy">
+                <div class="choice-title">ให้ผู้ปกครองช่วย</div>
+                <div class="choice-sub">ช่วยเลือกของว่างหรือเตือนเวลาไปซื้อ</div>
+              </div>
+            </div>
+          </label>
+
+          <label class="choice">
+            <input type="radio" name="choice_support" value="teacher" required />
+            <div class="choice-box">
+              <div class="emoji">👩‍🏫</div>
+              <div class="choice-copy">
+                <div class="choice-title">ให้ครูช่วยเตือน</div>
+                <div class="choice-sub">ช่วยเตือนเวลาอยู่ที่โรงเรียน</div>
+              </div>
+            </div>
+          </label>
+        </div>
+      </section>
+
+      <div class="actions">
+        <button class="btn btn-main" type="submit">เสร็จสิ้น</button>
+        <button class="btn btn-back" type="button" data-action="back">ย้อนกลับ</button>
+      </div>
+
+      <div class="helper">
+        เลือกให้ครบแล้วระบบจะพาไปหน้าสรุปขั้นสุดท้าย
+      </div>
+    </form>
   </main>
 
-  <script type="module" src="./assessment.js?v=20260319a-postchoice"></script>
+  <script type="module" src="./assessment.js"></script>
 </body>
 </html>
