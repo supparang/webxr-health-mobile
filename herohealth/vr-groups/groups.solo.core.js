@@ -1,6 +1,6 @@
 // /herohealth/vr-groups/groups.solo.core.js
 // Groups Solo Core Engine
-// PATCH v20260405-groups-solo-core-hudfix-r1
+// PATCH v20260405-groups-solo-core-summaryscroll-r1
 
 import {
   GROUPS_ITEMS,
@@ -16,7 +16,7 @@ import {
   renderGroupsSummary
 } from './groups.summary.js';
 
-export const GROUPS_PATCH_CORE = 'v20260405-groups-solo-core-hudfix-r1';
+export const GROUPS_PATCH_CORE = 'v20260405-groups-solo-core-summaryscroll-r1';
 
 const FEVER_MS = 6000;
 const PRACTICE_MS = 15000;
@@ -97,6 +97,7 @@ export function createGroupsSoloCore({
     if (state.destroyed) return api;
 
     renderer.mount();
+    setSummaryOpen(false);
     primeUi();
     bindEvents();
     updateHud();
@@ -130,8 +131,13 @@ export function createGroupsSoloCore({
     stopLoop();
     clearAllItems();
     flushLogs();
+    setSummaryOpen(false);
     unbindEvents();
     try{ renderer.destroy(); }catch{}
+  }
+
+  function setSummaryOpen(open){
+    document.body.classList.toggle('groups-summary-open', !!open);
   }
 
   function primeUi(){
@@ -223,6 +229,7 @@ export function createGroupsSoloCore({
     if (state.destroyed) return;
 
     stopLoop();
+    setSummaryOpen(false);
     hardResetRun();
 
     state.phase = 'practice';
@@ -270,6 +277,7 @@ export function createGroupsSoloCore({
     if (state.destroyed) return;
 
     stopLoop();
+    setSummaryOpen(false);
     clearAllItems();
 
     state.phase = 'playing';
@@ -669,6 +677,7 @@ export function createGroupsSoloCore({
       setButtonText(ui.btnBackSummary, '🧘 ไป Cooldown');
     }
 
+    setSummaryOpen(true);
     showOverlay(ui.summaryOverlay);
     showCoach(summary.lead);
 
@@ -681,6 +690,7 @@ export function createGroupsSoloCore({
   function replay(){
     log('replay_click');
     flushLogs();
+    setSummaryOpen(false);
 
     if (onReplay){
       onReplay();
@@ -711,6 +721,7 @@ export function createGroupsSoloCore({
     });
 
     flushLogs();
+    setSummaryOpen(false);
 
     if (onBack){
       onBack(exitUrl, reason, summary);
@@ -835,6 +846,7 @@ export function createGroupsSoloCore({
 
     preset = { ...presetBase };
 
+    setSummaryOpen(false);
     updateHud();
     setDebug();
   }
