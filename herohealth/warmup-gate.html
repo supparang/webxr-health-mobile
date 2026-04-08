@@ -24,37 +24,43 @@
   <div id="gate-app"></div>
 
   <script type="module">
-    import bootGate from './gate/gate-core.js?v=20260407b-GATE-DAILY-WARMUP-COOLDOWN-HUBV2-CDNEXT-FLOW';
+    import bootGate from './gate/gate-core.js?v=20260406b-GATE-REGISTRY-SUMMARY-PHASE-CONVENTION';
 
     const root = document.getElementById('gate-app');
 
-    function esc(s=''){
-      return String(s)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;');
+    function qs(name, fallback = ''){
+      try{
+        return new URL(location.href).searchParams.get(name) ?? fallback;
+      }catch(_){
+        return fallback;
+      }
     }
 
-    function fallbackHubHref(){
+    function fallbackReturnHref(){
       try{
-        const q = new URLSearchParams(location.search);
-        const raw = (q.get('hub') || '').trim();
-        if (raw) {
-          const resolved = new URL(raw, location.href).href;
-          if (
-            resolved.includes('/herohealth/hub.html') ||
-            resolved.includes('/herohealth/hub-v2.html')
-          ) {
-            return resolved;
-          }
+        const launcher = String(qs('launcher', '')).trim();
+        if (launcher) return new URL(launcher, location.href).href;
+      }catch(_){}
+
+      try{
+        const hub = String(qs('hub', '')).trim();
+        if (hub) return new URL(hub, location.href).href;
+      }catch(_){}
+
+      try{
+        const game = String(qs('game', qs('gameId', qs('theme', '')))).trim().toLowerCase();
+        if (game === 'goodjunk') {
+          return new URL('./goodjunk-launcher.html', location.href).href;
         }
       }catch(_){}
-      return new URL('./hub-v2.html', location.href).href;
+
+      return new URL('./hub.html', location.href).href;
     }
 
     function renderBootError(err){
       if (!root) return;
+
+      const message = String(err?.stack || err || 'Unknown error');
 
       root.innerHTML = `
         <div style="
@@ -104,7 +110,7 @@
               border:1px solid rgba(239,68,68,.22);
               color:#fecaca;
               font:600 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
-            ">${esc(err?.stack || err || 'Unknown error')}</pre>
+            ">${message}</pre>
 
             <div style="display:flex;gap:10px;flex-wrap:wrap">
               <button id="gateReloadBtn" type="button" style="
@@ -132,7 +138,7 @@
                 min-width:170px;
                 background:rgba(15,23,42,.85);
                 color:#e5e7eb;
-              ">กลับ HUB</button>
+              ">กลับหน้าเดิม</button>
             </div>
           </div>
         </div>
@@ -143,7 +149,7 @@
       });
 
       document.getElementById('gateBackBtn')?.addEventListener('click', () => {
-        location.href = fallbackHubHref();
+        location.href = fallbackReturnHref();
       });
     }
 
