@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>HeroHealth • Germ Detective</title>
+
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#07111f;
+      --panel:rgba(8,22,42,.82);
+      --panel-soft:rgba(10,28,54,.72);
+      --stroke:rgba(140,221,255,.28);
+      --text:#eefaff;
+      --muted:#b7dfff;
+      --cyan:#56e8ff;
+      --blue:#5aa8ff;
+      --green:#6eea8b;
+      --yellow:#ffd85e;
+      --red:#ff6b78;
+      --pink:#ff8de1;
+      --shadow:0 16px 40px rgba(0,0,0,.35);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      background:#020817;
+      font-family: "Kanit", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      touch-action:none;
+    }
+
+    #ui{
+      position:absolute;
+      inset:0;
+      z-index:20;
+      pointer-events:none;
+    }
+
+    .topbar{
+      position:absolute;
+      top:12px;
+      left:12px;
+      right:12px;
+      display:grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap:10px;
+      align-items:start;
+    }
+
+    .panel{
+      background:var(--panel);
+      border:2px solid var(--stroke);
+      border-radius:20px;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+      color:var(--text);
+    }
+
+    .hud-card{
+      padding:12px 14px;
+      min-height:86px;
+    }
+
+    .hud-title{
+      font-size:.9rem;
+      color:var(--muted);
+      margin-bottom:4px;
+      font-weight:700;
+      letter-spacing:.02em;
+    }
+
+    .hud-value{
+      font-size:1.1rem;
+      font-weight:800;
+      line-height:1.15;
+    }
+
+    .center-card{
+      text-align:center;
+      padding:12px 16px;
+      min-width:220px;
+    }
+
+    .timer{
+      font-size:1.9rem;
+      font-weight:900;
+      line-height:1;
+      color:#fff;
+      letter-spacing:.04em;
+    }
+
+    .score{
+      margin-top:6px;
+      font-size:1rem;
+      font-weight:800;
+      color:var(--yellow);
+    }
+
+    .hp-wrap{
+      width:100%;
+      height:12px;
+      background:rgba(255,255,255,.12);
+      border-radius:999px;
+      overflow:hidden;
+      margin-top:8px;
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .hp-fill{
+      height:100%;
+      width:100%;
+      background:linear-gradient(90deg,#62ff90,#aaff7d);
+      transition:width .25s ease, background .25s ease;
+    }
+
+    .mission-wrap{
+      position:absolute;
+      left:12px;
+      right:12px;
+      bottom:14px;
+      display:flex;
+      justify-content:center;
+    }
+
+    .mission{
+      max-width:min(920px,96vw);
+      padding:14px 18px;
+      text-align:center;
+      font-size:1rem;
+      font-weight:700;
+      color:var(--text);
+    }
+
+    .phase-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:rgba(86,232,255,.12);
+      border:1px solid rgba(86,232,255,.28);
+      color:var(--cyan);
+      font-size:.92rem;
+      font-weight:900;
+      margin-bottom:8px;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+    }
+
+    .overlay{
+      position:absolute;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      pointer-events:auto;
+      background:rgba(2,10,24,.55);
+      backdrop-filter: blur(8px);
+    }
+
+    .card{
+      width:min(760px,95vw);
+      background:linear-gradient(180deg, rgba(10,28,54,.96), rgba(7,18,36,.96));
+      border:2px solid var(--stroke);
+      border-radius:28px;
+      box-shadow:0 25px 60px rgba(0,0,0,.45);
+      color:var(--text);
+      padding:22px 22px 20px;
+    }
+
+    .start-title,
+    .summary-title{
+      font-size:clamp(1.8rem,4vw,3rem);
+      margin:0 0 8px;
+      font-weight:900;
+      line-height:1.05;
+    }
+
+    .start-sub,
+    .summary-sub{
+      color:var(--muted);
+      font-size:1.02rem;
+      line-height:1.55;
+      margin:0 0 16px;
+    }
+
+    .tips{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:12px;
+      margin:16px 0 18px;
+    }
+
+    .tip{
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.05);
+      border-radius:18px;
+      padding:14px 14px 12px;
+    }
+
+    .tip strong{
+      display:block;
+      margin-bottom:4px;
+      font-size:1rem;
+    }
+
+    .tip span{
+      color:var(--muted);
+      font-size:.95rem;
+      line-height:1.45;
+    }
+
+    .row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      align-items:center;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:16px;
+      padding:14px 18px;
+      font-size:1rem;
+      font-weight:900;
+      cursor:pointer;
+      transition:transform .12s ease, opacity .12s ease, box-shadow .12s ease;
+      box-shadow:0 10px 25px rgba(0,0,0,.22);
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(1px) scale(.99); }
+
+    .btn-primary{
+      background:linear-gradient(180deg,#61edff,#2dcfff);
+      color:#042339;
+    }
+
+    .btn-secondary{
+      background:linear-gradient(180deg,#9ec8ff,#79a8ff);
+      color:#051b3d;
+    }
+
+    .btn-ghost{
+      background:rgba(255,255,255,.08);
+      color:#fff;
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .btn-action{
+      width:100%;
+      text-align:left;
+      background:linear-gradient(180deg, rgba(255,255,255,.11), rgba(255,255,255,.06));
+      color:#fff;
+      border:1px solid rgba(255,255,255,.12);
+      padding:14px 16px;
+      font-size:1rem;
+      line-height:1.35;
+    }
+
+    .action-list{
+      display:grid;
+      gap:10px;
+      margin-top:14px;
+      margin-bottom:14px;
+    }
+
+    .inspect-head{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      margin-bottom:8px;
+    }
+
+    .case-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:.92rem;
+      font-weight:900;
+      background:rgba(255,216,94,.14);
+      color:var(--yellow);
+      border:1px solid rgba(255,216,94,.28);
+    }
+
+    .inspect-title{
+      font-size:1.6rem;
+      font-weight:900;
+      margin:0 0 8px;
+    }
+
+    .inspect-body,
+    .feedback{
+      color:var(--muted);
+      line-height:1.55;
+      font-size:1rem;
+    }
+
+    .feedback{
+      margin-top:14px;
+      padding:14px 16px;
+      border-radius:18px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+    }
+
+    .feedback.good{
+      color:#d7ffea;
+      background:rgba(110,234,139,.12);
+      border-color:rgba(110,234,139,.28);
+    }
+
+    .feedback.bad{
+      color:#ffe0e4;
+      background:rgba(255,107,120,.12);
+      border-color:rgba(255,107,120,.28);
+    }
+
+    .combo{
+      position:absolute;
+      left:50%;
+      bottom:108px;
+      transform:translateX(-50%);
+      padding:10px 18px;
+      border-radius:999px;
+      background:rgba(255,216,94,.14);
+      color:var(--yellow);
+      font-size:1.35rem;
+      font-weight:900;
+      text-shadow:0 0 14px rgba(255,216,94,.35);
+      border:1px solid rgba(255,216,94,.25);
+      display:none;
+    }
+
+    .damage{
+      position:absolute;
+      inset:0;
+      display:none;
+      background:radial-gradient(circle, rgba(255,255,255,0) 36%, rgba(255,92,120,.20) 100%);
+      pointer-events:none;
+    }
+
+    .warn{
+      position:absolute;
+      top:98px;
+      left:50%;
+      transform:translateX(-50%);
+      background:rgba(255,92,120,.14);
+      color:#ffdce2;
+      border:1px solid rgba(255,92,120,.32);
+      border-radius:999px;
+      padding:10px 16px;
+      font-weight:900;
+      display:none;
+      text-align:center;
+      box-shadow:0 10px 30px rgba(0,0,0,.25);
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+      gap:12px;
+      margin:16px 0 18px;
+    }
+
+    .stat{
+      border-radius:18px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.12);
+      padding:14px;
+      text-align:center;
+    }
+
+    .stat .k{
+      display:block;
+      font-size:.88rem;
+      color:var(--muted);
+      margin-bottom:6px;
+      font-weight:700;
+    }
+
+    .stat .v{
+      display:block;
+      font-size:1.5rem;
+      font-weight:900;
+      color:#fff;
+    }
+
+    .stars{
+      font-size:2rem;
+      letter-spacing:.15em;
+      margin:8px 0 10px;
+    }
+
+    .small{
+      color:var(--muted);
+      font-size:.94rem;
+      line-height:1.5;
+    }
+
+    #inspect-overlay .card{
+      width:min(700px,95vw);
+    }
+
+    @media (max-width: 860px){
+      .topbar{
+        grid-template-columns:1fr;
+      }
+      .center-card{
+        order:-1;
+      }
+      .warn{
+        top:170px;
+        max-width:92vw;
+      }
+      .combo{
+        bottom:118px;
+        font-size:1.15rem;
+      }
+      .mission{
+        font-size:.95rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="ui">
+    <div id="damage-overlay" class="damage"></div>
+    <div id="warning-banner" class="warn">รีบหน่อย! เชื้อกำลังแพร่กระจาย</div>
+    <div id="combo-badge" class="combo">COMBO x2</div>
+
+    <div class="topbar">
+      <div class="panel hud-card">
+        <div class="hud-title">พลังป้องกัน</div>
+        <div class="hud-value"><span id="hp-text">100</span>%</div>
+        <div class="hp-wrap">
+          <div id="hp-fill" class="hp-fill"></div>
+        </div>
+      </div>
+
+      <div class="panel center-card">
+        <div id="phase-badge" class="phase-badge">SEARCH</div>
+        <div id="timer-text" class="timer">01:30</div>
+        <div id="score-text" class="score">SCORE 0000</div>
+      </div>
+
+      <div class="panel hud-card" style="text-align:right;">
+        <div class="hud-title">ภารกิจ</div>
+        <div class="hud-value"><span id="solved-text">0</span>/<span id="total-text">6</span> เคส</div>
+        <div style="margin-top:8px; font-size:.98rem; color:var(--muted); font-weight:800;">
+          Rank: <span id="rank-text" style="color:#fff;">Rookie</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mission-wrap">
+      <div class="panel mission">
+        <div id="mission-text">มองหาจุดเสี่ยงในห้อง แล้วจ้องค้างหรือแตะที่จุดเรืองแสงเพื่อเริ่มสืบสวน</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="start-overlay" class="overlay" style="display:flex;">
+    <div class="card">
+      <h1 class="start-title">🦠 Germ Detective</h1>
+      <p class="start-sub">
+        ภารกิจของเราไม่ใช่แค่ “กำจัดเชื้อ” แต่ต้อง “หาให้เจอ วิเคราะห์ให้ถูก และเลือกวิธีจัดการให้เหมาะ”
+        เด็กจะได้ฝึกสังเกตจุดเสี่ยง สุขอนามัย และการตัดสินใจอย่างง่ายในเกมเดียว
+      </p>
+
+      <div class="tips">
+        <div class="tip">
+          <strong>1) Search</strong>
+          <span>มองหาจุดเรืองแสงในฉาก แล้วจ้องค้างหรือแตะเพื่อเปิดเคส</span>
+        </div>
+        <div class="tip">
+          <strong>2) Investigate</strong>
+          <span>อ่านเบาะแส แล้วเลือกวิธีจัดการที่เหมาะที่สุด</span>
+        </div>
+        <div class="tip">
+          <strong>3) Clean</strong>
+          <span>กลับเข้าฉาก แล้วจ้องค้าง/แตะจุดปนเปื้อนเพื่อทำความสะอาด</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="start-btn" class="btn btn-primary">เริ่มภารกิจ</button>
+        <button id="how-btn" class="btn btn-ghost">โหมดนี้เล่นยังไง?</button>
+      </div>
+
+      <p id="how-note" class="small" style="margin-top:14px; display:none;">
+        มือถือ/คอม: ลากเพื่อมองไปรอบ ๆ แล้วจ้องค้างที่เป้าหรือแตะเป้าได้เลย<br>
+        Cardboard VR: กด Enter VR แล้วใช้จุดเล็งกลางจอจ้องค้างที่เป้า
+      </p>
+    </div>
+  </div>
+
+  <div id="inspect-overlay" class="overlay">
+    <div class="card">
+      <div class="inspect-head">
+        <div class="case-chip" id="case-chip">CASE</div>
+      </div>
+      <h2 class="inspect-title" id="inspect-title">ตรวจพบความเสี่ยง</h2>
+      <div class="inspect-body" id="inspect-body"></div>
+      <div class="action-list" id="action-list"></div>
+      <div id="inspect-feedback" class="feedback" style="display:none;"></div>
+      <div class="row" id="inspect-footer" style="margin-top:14px; display:none;">
+        <button id="continue-btn" class="btn btn-secondary">ไปทำความสะอาด</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="summary-overlay" class="overlay">
+    <div class="card">
+      <h1 id="summary-title" class="summary-title">Mission Clear!</h1>
+      <p id="summary-sub" class="summary-sub">คุณสืบสวนและจัดการความเสี่ยงได้ยอดเยี่ยม</p>
+
+      <div id="stars" class="stars">⭐ ⭐ ⭐</div>
+
+      <div class="summary-grid">
+        <div class="stat">
+          <span class="k">คะแนน</span>
+          <span class="v" id="sum-score">0</span>
+        </div>
+        <div class="stat">
+          <span class="k">เคสสำเร็จ</span>
+          <span class="v" id="sum-solved">0/0</span>
+        </div>
+        <div class="stat">
+          <span class="k">พลังคงเหลือ</span>
+          <span class="v" id="sum-hp">0%</span>
+        </div>
+        <div class="stat">
+          <span class="k">จัดอันดับ</span>
+          <span class="v" id="sum-rank">Rookie</span>
+        </div>
+      </div>
+
+      <p id="summary-tip" class="small"></p>
+
+      <div class="row" style="margin-top:18px;">
+        <button class="btn btn-primary" onclick="location.reload()">เล่นอีกครั้ง</button>
+        <button id="hub-btn" class="btn btn-ghost" style="display:none;">กลับหน้า HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <a-scene
+    background="color: #08111f"
+    renderer="antialias: true; colorManagement: true"
+    vr-mode-ui="enabled: true"
+  >
+    <a-assets></a-assets>
+
+    <!-- Room -->
+    <a-entity id="room-root">
+      <a-plane rotation="-90 0 0" width="12" height="12" color="#203447"></a-plane>
+
+      <a-plane position="0 2 -5.6" width="12" height="4.5" color="#203a50"></a-plane>
+      <a-plane position="-5.8 2 0" rotation="0 90 0" width="11.2" height="4.5" color="#1d3447"></a-plane>
+      <a-plane position="5.8 2 0" rotation="0 -90 0" width="11.2" height="4.5" color="#1d3447"></a-plane>
+
+      <a-box position="0 0.45 -1.9" width="4.8" height="0.9" depth="1.8" color="#354f63"></a-box>
+      <a-box position="0 0.92 -1.9" width="5.0" height="0.08" depth="1.95" color="#ddefff"></a-box>
+
+      <a-box position="-3.6 1.05 -3.9" width="1.2" height="2.1" depth="1.1" color="#7da2c8"></a-box>
+      <a-box position="3.6 0.6 -3.6" width="1.7" height="1.2" depth="1.1" color="#7d9fb0"></a-box>
+      <a-box position="3.6 1.24 -3.6" width="1.82" height="0.08" depth="1.18" color="#ebf5ff"></a-box>
+
+      <a-cylinder position="-1.45 0.97 -1.55" radius="0.24" height="0.05" color="#a5b6c8"></a-cylinder>
+      <a-cylinder position="-1.95 0.97 -1.55" radius="0.24" height="0.05" color="#a5b6c8"></a-cylinder>
+      <a-box position="-1.7 0.88 -1.55" width="0.75" height="0.1" depth="0.48" color="#4f6d80"></a-box>
+
+      <a-box position="0 2.15 -5.55" width="2.2" height="1.2" depth="0.03" color="#9fd7ff"></a-box>
+      <a-plane position="0 2.15 -5.53" width="2.0" height="1.0" color="#c8efff" opacity="0.55"></a-plane>
+
+      <a-box position="0 0.2 3.4" width="2.8" height="0.4" depth="2.0" color="#6e88a0"></a-box>
+      <a-box position="0 0.75 3.4" width="2.5" height="0.7" depth="1.7" color="#8fa8be"></a-box>
+    </a-entity>
+
+    <!-- Lights -->
+    <a-entity light="type: ambient; intensity: 0.95; color: #bfdfff"></a-entity>
+    <a-entity light="type: point; intensity: 1.15; color: #ffffff; distance: 18" position="0 4 0"></a-entity>
+    <a-entity light="type: point; intensity: 0.45; color: #7ad9ff; distance: 12" position="0 2 -4"></a-entity>
+
+    <!-- Cases -->
+    <a-entity id="cases-root"></a-entity>
+
+    <!-- Camera / Controls -->
+    <a-entity id="rig" position="0 0 2.4">
+      <a-camera position="0 1.6 0" look-controls="touchEnabled: true">
+        <a-entity
+          id="cursor"
+          cursor="fuse: true; fuseTimeout: 750"
+          position="0 0 -1"
+          geometry="primitive: ring; radiusInner: 0.014; radiusOuter: 0.024"
+          material="color: #56e8ff; shader: flat; opacity: 0.95"
+          raycaster="objects: .clickable"
+          animation__pulse="property: scale; dir: alternate; dur: 700; loop: true; to: 1.12 1.12 1.12"
+        ></a-entity>
+      </a-camera>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    (() => {
+      const hubUrl = (() => {
+        try { return new URL(location.href).searchParams.get('hub') || ''; }
+        catch (_) { return ''; }
+      })();
+
+      const CASES = [
+        {
+          id: 'raw-meat',
+          label: 'เคส 1',
+          title: 'น้ำจากเนื้อดิบหยดบนเคาน์เตอร์',
+          clue: 'ตรวจพบคราบจากเนื้อดิบใกล้พื้นที่เตรียมอาหาร ถ้าปล่อยไว้ เชื้ออาจปนเปื้อนอาหารพร้อมกินได้',
+          question: 'ควรทำอย่างไรเป็นอันดับแรก?',
+          options: [
+            'เช็ดและทำความสะอาดพื้นผิวทันที พร้อมแยกของดิบออกจากของสุก',
+            'เป่าคราบให้แห้ง แล้วใช้พื้นที่ต่อได้เลย',
+            'เอาของหวานมาวางทับคราบไว้ก่อน'
+          ],
+          answer: 0,
+          explain: 'ถูกต้อง! พื้นผิวที่สัมผัสของดิบควรแยกและทำความสะอาดทันทีเพื่อลดการปนเปื้อนข้าม',
+          tip: 'ของดิบกับของสุกควรแยกพื้นที่เสมอ',
+          color: '#ff6b78',
+          icon: 'box',
+          pos: [-0.5, 1.02, -1.55]
+        },
+        {
+          id: 'sneeze',
+          label: 'เคส 2',
+          title: 'พบละอองจามบนโต๊ะอาหาร',
+          clue: 'มีละอองกระจายใกล้พื้นที่รับประทานอาหาร ถ้าปล่อยไว้อาจแพร่เชื้อผ่านพื้นผิวได้',
+          question: 'วิธีจัดการที่เหมาะที่สุดคืออะไร?',
+          options: [
+            'ปล่อยไว้ก่อน เดี๋ยวเชื้อหายเอง',
+            'เช็ดทำความสะอาดพื้นผิว และย้ำการปิดปากปิดจมูกเวลาไอหรือจาม',
+            'เอาพัดลมเป่าให้ละอองปลิวออกไป'
+          ],
+          answer: 1,
+          explain: 'ดีมาก! ต้องทำความสะอาดพื้นผิวและป้องกันการแพร่กระจายของละออง',
+          tip: 'ไอหรือจามควรปิดปากปิดจมูก และล้างมือหลังจากนั้น',
+          color: '#ffd85e',
+          icon: 'sphere',
+          pos: [0.9, 1.02, -1.4]
+        },
+        {
+          id: 'mold-fruit',
+          label: 'เคส 3',
+          title: 'ผลไม้เริ่มขึ้นรา',
+          clue: 'ตรวจพบผลไม้มีราขึ้นอยู่บนโต๊ะ หากกินต่ออาจเสี่ยงต่อสุขภาพ',
+          question: 'ควรทำอย่างไร?',
+          options: [
+            'ตัดส่วนที่เป็นราออกนิดเดียวแล้วกินต่อ',
+            'เก็บไว้ก่อน เผื่อพรุ่งนี้ดีขึ้น',
+            'แยกทิ้งและทำความสะอาดบริเวณใกล้เคียง'
+          ],
+          answer: 2,
+          explain: 'ถูกต้อง! อาหารที่ขึ้นราควรแยกทิ้ง และพื้นที่รอบ ๆ ควรได้รับการทำความสะอาด',
+          tip: 'อาหารเสียไม่ควรเก็บไว้ปะปนกับอาหารดี',
+          color: '#c76cff',
+          icon: 'dodecahedron',
+          pos: [0.15, 1.02, 3.25]
+        },
+        {
+          id: 'dirty-sink',
+          label: 'เคส 4',
+          title: 'อ่างล้างจานมีคราบสะสม',
+          clue: 'บริเวณอ่างล้างจานมีคราบและความชื้นสะสม ซึ่งเป็นแหล่งที่เชื้อชอบ',
+          question: 'ควรแก้ยังไงดีที่สุด?',
+          options: [
+            'ทำความสะอาดอ่างและบริเวณเปียกให้แห้งสม่ำเสมอ',
+            'เปิดน้ำทิ้งไว้ตลอดเวลา',
+            'เอาจานสะอาดมาวางทับคราบ'
+          ],
+          answer: 0,
+          explain: 'เยี่ยม! พื้นที่ชื้นควรได้รับการทำความสะอาดและลดความชื้นสะสม',
+          tip: 'แฉะและอับชื้น = จุดเสี่ยงของเชื้อ',
+          color: '#56e8ff',
+          icon: 'octahedron',
+          pos: [-1.72, 1.08, -1.55]
+        },
+        {
+          id: 'shared-cup',
+          label: 'เคส 5',
+          title: 'แก้วน้ำใช้ร่วมกัน',
+          clue: 'พบการใช้แก้วน้ำร่วมกันหลายคน เสี่ยงต่อการส่งผ่านเชื้อทางน้ำลาย',
+          question: 'วิธีที่เหมาะสมคืออะไร?',
+          options: [
+            'ใช้แก้วร่วมกันได้ถ้าดูสะอาด',
+            'แยกแก้วของแต่ละคนและล้างให้สะอาด',
+            'ดื่มเร็ว ๆ ก่อนเชื้อทันขึ้น'
+          ],
+          answer: 1,
+          explain: 'ใช่เลย! ควรแยกของใช้ส่วนตัว โดยเฉพาะแก้วน้ำ ช้อน และหลอด',
+          tip: 'ของใช้ส่วนตัวไม่ควรใช้ร่วมกัน',
+          color: '#6eea8b',
+          icon: 'cylinder',
+          pos: [3.55, 1.35, -3.58]
+        },
+        {
+          id: 'unwashed-hands',
+          label: 'เคส 6',
+          title: 'มือสกปรกกำลังจะหยิบอาหาร',
+          clue: 'ตรวจพบความเสี่ยงจากการหยิบอาหารด้วยมือที่ยังไม่ได้ล้าง',
+          question: 'ควรทำอย่างไร?',
+          options: [
+            'รีบหยิบก่อนแล้วค่อยล้างทีหลัง',
+            'ล้างมือให้สะอาดก่อนสัมผัสอาหาร',
+            'ใช้ปลายเล็บคีบแทนการล้างมือ'
+          ],
+          answer: 1,
+          explain: 'ถูกต้อง! การล้างมือก่อนจับอาหารช่วยลดโอกาสที่เชื้อจะเข้าสู่ร่างกาย',
+          tip: 'ล้างมือก่อนกิน ก่อนจับอาหาร และหลังไอจาม',
+          color: '#ff9a44',
+          icon: 'icosahedron',
+          pos: [1.55, 1.02, -1.9]
+        }
+      ];
+
+      const state = {
+        started: false,
+        isActive: false,
+        phase: 'search',
+        hp: 100,
+        score: 0,
+        timeLeft: 90,
+        solved: 0,
+        total: CASES.length,
+        combo: 0,
+        currentCaseIndex: null,
+        correctCount: 0,
+        wrongCount: 0,
+        warningLock: false,
+        caseSolvedMap: new Map()
+      };
+
+      const el = {
+        hpText: document.getElementById('hp-text'),
+        hpFill: document.getElementById('hp-fill'),
+        timerText: document.getElementById('timer-text'),
+        scoreText: document.getElementById('score-text'),
+        solvedText: document.getElementById('solved-text'),
+        totalText: document.getElementById('total-text'),
+        rankText: document.getElementById('rank-text'),
+        missionText: document.getElementById('mission-text'),
+        phaseBadge: document.getElementById('phase-badge'),
+        startOverlay: document.getElementById('start-overlay'),
+        inspectOverlay: document.getElementById('inspect-overlay'),
+        summaryOverlay: document.getElementById('summary-overlay'),
+        inspectTitle: document.getElementById('inspect-title'),
+        inspectBody: document.getElementById('inspect-body'),
+        actionList: document.getElementById('action-list'),
+        inspectFeedback: document.getElementById('inspect-feedback'),
+        inspectFooter: document.getElementById('inspect-footer'),
+        continueBtn: document.getElementById('continue-btn'),
+        caseChip: document.getElementById('case-chip'),
+        comboBadge: document.getElementById('combo-badge'),
+        damageOverlay: document.getElementById('damage-overlay'),
+        warningBanner: document.getElementById('warning-banner'),
+        summaryTitle: document.getElementById('summary-title'),
+        summarySub: document.getElementById('summary-sub'),
+        stars: document.getElementById('stars'),
+        sumScore: document.getElementById('sum-score'),
+        sumSolved: document.getElementById('sum-solved'),
+        sumHp: document.getElementById('sum-hp'),
+        sumRank: document.getElementById('sum-rank'),
+        summaryTip: document.getElementById('summary-tip'),
+        hubBtn: document.getElementById('hub-btn'),
+        howBtn: document.getElementById('how-btn'),
+        howNote: document.getElementById('how-note')
+      };
+
+      const casesRoot = document.getElementById('cases-root');
+      const caseNodes = new Map();
+
+      function make(tag, attrs = {}) {
+        const node = document.createElement(tag);
+        Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, v));
+        return node;
+      }
+
+      function rankFromScore(score) {
+        if (score >= 1600) return 'Master';
+        if (score >= 1200) return 'Expert';
+        if (score >= 800) return 'Scout';
+        return 'Rookie';
+      }
+
+      function phaseText(phase) {
+        switch (phase) {
+          case 'search': return 'SEARCH';
+          case 'investigate': return 'INVESTIGATE';
+          case 'clean': return 'CLEAN';
+          default: return 'REPORT';
+        }
+      }
+
+      function starsFromPerformance() {
+        if (state.solved === state.total && state.hp >= 70 && state.wrongCount <= 1) return 3;
+        if (state.solved >= Math.ceil(state.total * 0.7) && state.hp >= 35) return 2;
+        return 1;
+      }
+
+      function setPhase(phase, mission) {
+        state.phase = phase;
+        el.phaseBadge.textContent = phaseText(phase);
+        el.missionText.textContent = mission;
+      }
+
+      function updateHUD() {
+        state.hp = Math.max(0, Math.min(100, state.hp));
+
+        el.hpText.textContent = state.hp;
+        el.hpFill.style.width = `${state.hp}%`;
+        el.scoreText.textContent = `SCORE ${String(state.score).padStart(4, '0')}`;
+        el.solvedText.textContent = state.solved;
+        el.totalText.textContent = state.total;
+        el.rankText.textContent = rankFromScore(state.score);
+
+        const min = Math.floor(state.timeLeft / 60);
+        const sec = state.timeLeft % 60;
+        el.timerText.textContent = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+
+        if (state.timeLeft <= 10) {
+          el.timerText.style.color = '#ff8a96';
+        } else {
+          el.timerText.style.color = '#ffffff';
+        }
+
+        if (state.hp < 30) {
+          el.hpFill.style.background = 'linear-gradient(90deg,#ff5f71,#ff8478)';
+        } else if (state.hp < 60) {
+          el.hpFill.style.background = 'linear-gradient(90deg,#ffd35c,#ffba5f)';
+        } else {
+          el.hpFill.style.background = 'linear-gradient(90deg,#62ff90,#aaff7d)';
+        }
+      }
+
+      function flashDamage(message = 'ระวัง! เชื้อกำลังแพร่เพิ่ม') {
+        el.damageOverlay.style.display = 'block';
+        el.damageOverlay.style.opacity = '1';
+        el.warningBanner.textContent = message;
+        el.warningBanner.style.display = 'block';
+
+        clearTimeout(flashDamage._t1);
+        clearTimeout(flashDamage._t2);
+
+        flashDamage._t1 = setTimeout(() => {
+          el.damageOverlay.style.opacity = '0';
+        }, 260);
+
+        flashDamage._t2 = setTimeout(() => {
+          el.damageOverlay.style.display = 'none';
+          el.warningBanner.style.display = 'none';
+        }, 850);
+      }
+
+      function showCombo() {
+        if (state.combo <= 1) return;
+        el.comboBadge.textContent = `COMBO x${state.combo}`;
+        el.comboBadge.style.display = 'block';
+        clearTimeout(showCombo._timer);
+        showCombo._timer = setTimeout(() => {
+          el.comboBadge.style.display = 'none';
+        }, 1100);
+      }
+
+      function takeDamage(amount, message) {
+        if (!state.isActive) return;
+        state.hp -= amount;
+        state.combo = 0;
+        updateHUD();
+        flashDamage(message);
+        if (state.hp <= 0) endGame(false);
+      }
+
+      function buildIcon(shape, color) {
+        switch (shape) {
+          case 'sphere':
+            return make('a-sphere', {
+              radius: '0.11',
+              color,
+              material: `emissive: ${color}; emissiveIntensity: 0.55`
+            });
+          case 'box':
+            return make('a-box', {
+              width: '0.18',
+              height: '0.18',
+              depth: '0.18',
+              color,
+              material: `emissive: ${color}; emissiveIntensity: 0.55`
+            });
+          case 'cylinder':
+            return make('a-cylinder', {
+              radius: '0.095',
+              height: '0.18',
+              color,
+              material: `emissive: ${color}; emissiveIntensity: 0.55`
+            });
+          case 'icosahedron':
+            return make('a-icosahedron', {
+              radius: '0.12',
+              color,
+              material: `emissive: ${color}; emissiveIntensity: 0.55`
+            });
+          case 'octahedron':
+            return make('a-octahedron', {
+              radius: '0.12',
+              color,
+              material: `emissive: ${color}; emissiveIntensity: 0.55`
+            });
+          case 'dodecahedron':
+            return make('a-dodecahedron', {
+              radius: '0.12',
+              color,
+              material: `emissive: ${color}; emissiveIntensity: 0.55`
+            });
+          default:
+            return make('a-sphere', {
+              radius: '0.11',
+              color,
+              material: `emissive: ${color}; emissiveIntensity: 0.55`
+            });
+        }
+      }
+
+      function createContamination(color) {
+        const root = make('a-entity', { visible: 'false', position: '0 0.18 0' });
+
+        const core = make('a-sphere', {
+          radius: '0.1',
+          color,
+          material: `emissive: ${color}; emissiveIntensity: 0.75; opacity: 0.98`
+        });
+        const orb1 = make('a-sphere', {
+          radius: '0.055',
+          position: '0.14 0.05 0.03',
+          color,
+          material: `emissive: ${color}; emissiveIntensity: 0.45; opacity: 0.96`
+        });
+        const orb2 = make('a-sphere', {
+          radius: '0.045',
+          position: '-0.13 0.02 -0.05',
+          color,
+          material: `emissive: ${color}; emissiveIntensity: 0.45; opacity: 0.96`
+        });
+        const ring = make('a-ring', {
+          radiusInner: '0.16',
+          radiusOuter: '0.21',
+          color: '#ff5f71',
+          rotation: '-90 0 0',
+          position: '0 -0.12 0',
+          material: 'shader: flat; opacity: 0.95'
+        });
+
+        root.appendChild(core);
+        root.appendChild(orb1);
+        root.appendChild(orb2);
+        root.appendChild(ring);
+        return root;
+      }
+
+      function bindHoverFX(node) {
+        node.addEventListener('mouseenter', () => {
+          if (!state.isActive) return;
+          node.setAttribute('animation__hover', 'property: scale; to: 1.12 1.12 1.12; dur: 140; easing: easeOutQuad');
+        });
+        node.addEventListener('mouseleave', () => {
+          node.setAttribute('animation__hoverback', 'property: scale; to: 1 1 1; dur: 120; easing: easeOutQuad');
+        });
+      }
+
+      function createCaseNode(caseData, index) {
+        const [x, y, z] = caseData.pos;
+
+        const group = make('a-entity', {
+          position: `${x} ${y} ${z}`,
+          animation__float: `property: position; dir: alternate; dur: ${900 + index * 80}; loop: true; to: ${x} ${y + 0.05} ${z}`
+        });
+
+        const marker = make('a-cylinder', {
+          class: 'clickable',
+          radius: '0.12',
+          height: '0.04',
+          color: caseData.color,
+          material: `emissive: ${caseData.color}; emissiveIntensity: 0.55; opacity: 0.96`,
+          animation__pulse: 'property: scale; dir: alternate; dur: 720; loop: true; to: 1.08 1.08 1.08'
+        });
+
+        const ring = make('a-ring', {
+          radiusInner: '0.17',
+          radiusOuter: '0.205',
+          rotation: '-90 0 0',
+          position: '0 -0.02 0',
+          color: '#ffffff',
+          material: 'shader: flat; opacity: 0.85'
+        });
+
+        const iconWrap = make('a-entity', { position: '0 0.18 0' });
+        const icon = buildIcon(caseData.icon, caseData.color);
+        iconWrap.appendChild(icon);
+
+        const label = make('a-text', {
+          value: caseData.label,
+          align: 'center',
+          color: '#ffffff',
+          width: '2.8',
+          position: '0 0.38 0'
+        });
+
+        const contamination = createContamination(caseData.color);
+        contamination.setAttribute('class', 'clickable');
+        contamination.addEventListener('click', () => handleClean(index));
+        bindHoverFX(contamination);
+
+        marker.addEventListener('click', () => openInvestigation(index));
+        bindHoverFX(marker);
+
+        group.appendChild(marker);
+        group.appendChild(ring);
+        group.appendChild(iconWrap);
+        group.appendChild(label);
+        group.appendChild(contamination);
+
+        casesRoot.appendChild(group);
+
+        caseNodes.set(index, {
+          group,
+          marker,
+          contamination,
+          label,
+          solved: false
+        });
+      }
+
+      function buildCases() {
+        CASES.forEach((item, index) => {
+          state.caseSolvedMap.set(index, false);
+          createCaseNode(item, index);
+        });
+      }
+
+      function openInvestigation(index) {
+        if (!state.isActive) return;
+        if (state.phase !== 'search') return;
+        if (state.caseSolvedMap.get(index)) return;
+
+        state.currentCaseIndex = index;
+        const c = CASES[index];
+
+        setPhase('investigate', 'อ่านเบาะแส แล้วเลือกวิธีจัดการที่เหมาะที่สุด');
+        el.caseChip.textContent = c.label;
+        el.inspectTitle.textContent = c.title;
+        el.inspectBody.innerHTML = `
+          <strong style="display:block; color:#fff; margin-bottom:8px;">เบาะแส</strong>
+          ${c.clue}
+          <br><br>
+          <strong style="display:block; color:#fff; margin-bottom:8px;">คำถาม</strong>
+          ${c.question}
+        `;
+
+        el.actionList.innerHTML = '';
+        el.inspectFeedback.style.display = 'none';
+        el.inspectFeedback.className = 'feedback';
+        el.inspectFooter.style.display = 'none';
+
+        c.options.forEach((option, optionIndex) => {
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-action';
+          btn.textContent = `${optionIndex + 1}) ${option}`;
+          btn.addEventListener('click', () => answerCase(index, optionIndex));
+          el.actionList.appendChild(btn);
+        });
+
+        el.inspectOverlay.style.display = 'flex';
+      }
+
+      function answerCase(caseIndex, optionIndex) {
+        if (!state.isActive) return;
+        if (state.phase !== 'investigate') return;
+        if (state.currentCaseIndex !== caseIndex) return;
+
+        const c = CASES[caseIndex];
+        const isCorrect = optionIndex === c.answer;
+
+        el.actionList.innerHTML = '';
+
+        if (isCorrect) {
+          state.correctCount += 1;
+          state.score += 120;
+          el.inspectFeedback.className = 'feedback good';
+          el.inspectFeedback.innerHTML = `<strong>ตอบถูก!</strong><br>${c.explain}<br><br>💡 ${c.tip}`;
+        } else {
+          state.wrongCount += 1;
+          state.combo = 0;
+          state.hp -= 10;
+          el.inspectFeedback.className = 'feedback bad';
+          el.inspectFeedback.innerHTML = `<strong>เกือบถูกแล้ว</strong><br>คำตอบที่เหมาะกว่าคือ <strong>${c.options[c.answer]}</strong><br><br>${c.explain}<br><br>💡 ${c.tip}`;
+          flashDamage('เลือกวิธีไม่เหมาะ เชื้อยังมีโอกาสแพร่ต่อ');
+        }
+
+        updateHUD();
+        el.inspectFeedback.style.display = 'block';
+        el.inspectFooter.style.display = 'flex';
+
+        el.continueBtn.onclick = () => {
+          el.inspectOverlay.style.display = 'none';
+          beginCleanPhase(caseIndex);
+        };
+
+        if (state.hp <= 0) {
+          endGame(false);
+        }
+      }
+
+      function beginCleanPhase(caseIndex) {
+        if (!state.isActive) return;
+        if (state.caseSolvedMap.get(caseIndex)) return;
+
+        const c = CASES[caseIndex];
+        const node = caseNodes.get(caseIndex);
+
+        setPhase('clean', `กำจัดจุดปนเปื้อนของเคสนี้: ${c.title}`);
+        node.marker.setAttribute('visible', 'false');
+        node.label.setAttribute('visible', 'false');
+        node.contamination.setAttribute('visible', 'true');
+        node.contamination.setAttribute('animation__pulse', 'property: scale; dir: alternate; dur: 420; loop: true; to: 1.16 1.16 1.16');
+      }
+
+      function handleClean(caseIndex) {
+        if (!state.isActive) return;
+        if (state.phase !== 'clean') return;
+        if (state.currentCaseIndex !== caseIndex) return;
+        if (state.caseSolvedMap.get(caseIndex)) return;
+
+        const node = caseNodes.get(caseIndex);
+        const bonus = 140 + (state.combo * 30);
+
+        state.caseSolvedMap.set(caseIndex, true);
+        state.solved += 1;
+        state.score += bonus;
+        state.combo += 1;
+        state.hp = Math.min(100, state.hp + 4);
+
+        node.contamination.setAttribute('animation__clean', 'property: scale; to: 0.01 0.01 0.01; dur: 220; easing: easeInBack');
+        node.group.setAttribute('animation__finish', 'property: rotation; to: 0 8 0; dur: 160');
+
+        updateHUD();
+        showCombo();
+
+        setTimeout(() => {
+          node.group.setAttribute('visible', 'false');
+        }, 260);
+
+        state.currentCaseIndex = null;
+
+        if (state.solved >= state.total) {
+          setTimeout(() => endGame(true), 360);
+          return;
+        }
+
+        setTimeout(() => {
+          setPhase('search', 'มองหาจุดเสี่ยงถัดไป แล้วจ้องค้างหรือแตะที่จุดเรืองแสง');
+        }, 260);
+      }
+
+      function randomHazardTick() {
+        if (!state.isActive) return;
+        if (state.phase !== 'search') return;
+        const remaining = state.total - state.solved;
+        if (remaining <= 0) return;
+
+        const chance = Math.min(0.18 + (remaining * 0.05), 0.48);
+        if (Math.random() < chance) {
+          takeDamage(4, 'รีบสืบสวนต่อ เชื้อกำลังสะสมในพื้นที่');
+        }
+      }
+
+      function endGame(win) {
+        if (!state.isActive) return;
+        state.isActive = false;
+        setPhase('report', 'สรุปผลภารกิจ');
+
+        const rank = rankFromScore(state.score);
+        const stars = starsFromPerformance();
+        el.summaryTitle.textContent = win ? 'Mission Clear!' : 'Mission Incomplete';
+        el.summaryTitle.style.color = win ? '#83ffb0' : '#ff8a96';
+        el.summarySub.textContent = win
+          ? 'คุณจัดการความเสี่ยงได้ครบทุกเคส'
+          : 'ยังมีจุดเสี่ยงที่ต้องฝึกสังเกตและจัดการอีกนิด';
+
+        el.stars.textContent = stars === 3 ? '⭐ ⭐ ⭐' : stars === 2 ? '⭐ ⭐' : '⭐';
+        el.sumScore.textContent = state.score;
+        el.sumSolved.textContent = `${state.solved}/${state.total}`;
+        el.sumHp.textContent = `${state.hp}%`;
+        el.sumRank.textContent = rank;
+
+        if (win) {
+          el.summaryTip.textContent =
+            'จุดเด่นของรอบนี้คือคุณสังเกตความเสี่ยงและลงมือจัดการได้ดี ลองเล่นอีกรอบเพื่อเก็บ 3 ดาวด้วยการตอบถูกมากขึ้นและรักษาพลังไว้ให้สูง';
+        } else {
+          el.summaryTip.textContent =
+            'เคล็ดลับรอบหน้า: รีบเปิดเคสที่เรืองแสงก่อน อย่าปล่อยเวลา และอ่านเบาะแสให้ครบก่อนเลือกวิธีจัดการ';
+        }
+
+        el.summaryOverlay.style.display = 'flex';
+      }
+
+      function tickTimer() {
+        if (!state.isActive) return;
+        state.timeLeft -= 1;
+        updateHUD();
+        if (state.timeLeft <= 0) {
+          endGame(false);
+        }
+      }
+
+      function startGame() {
+        state.started = true;
+        state.isActive = true;
+        state.hp = 100;
+        state.score = 0;
+        state.timeLeft = 90;
+        state.solved = 0;
+        state.combo = 0;
+        state.currentCaseIndex = null;
+        state.correctCount = 0;
+        state.wrongCount = 0;
+
+        setPhase('search', 'มองหาจุดเสี่ยงในห้อง แล้วจ้องค้างหรือแตะที่จุดเรืองแสงเพื่อเริ่มสืบสวน');
+        updateHUD();
+        el.startOverlay.style.display = 'none';
+      }
+
+      document.getElementById('start-btn').addEventListener('click', startGame);
+
+      el.howBtn.addEventListener('click', () => {
+        el.howNote.style.display = el.howNote.style.display === 'none' ? 'block' : 'none';
+      });
+
+      if (hubUrl) {
+        el.hubBtn.style.display = 'inline-flex';
+        el.hubBtn.addEventListener('click', () => {
+          location.href = hubUrl;
+        });
+      }
+
+      buildCases();
+      updateHUD();
+
+      setInterval(tickTimer, 1000);
+      setInterval(randomHazardTick, 3400);
+    })();
+  </script>
+</body>
+</html>
