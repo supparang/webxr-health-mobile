@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Fitness Zone</title>
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#a9ecdb" />
-  <link rel="icon" href="./favicon.ico" />
   <link rel="stylesheet" href="./hygiene-zone.css" />
 </head>
 <body>
@@ -16,13 +14,13 @@
         <div class="brand-badge">HeroHealth</div>
         <h1 class="hero-title">Fitness Zone</h1>
         <p class="hero-sub">
-          โลกแห่งการขยับร่างกาย เลือกเกมออกกำลังกายที่อยากเล่น แล้วลุยกันเลย
+          โลกแห่งการขยับร่างกาย เลือกเกมที่อยากเล่น แล้วออกกำลังกายอย่างสนุก แข็งแรง และปลอดภัย
         </p>
       </div>
 
       <div class="hero-actions">
         <a id="hubBtn" class="top-btn" href="./hub-v2.html">กลับ HUB</a>
-        <button id="continueBtn" class="top-btn primary" type="button">เล่นล่าสุด</button>
+        <button id="continueBtn" class="top-btn primary" type="button">เล่นต่อ</button>
       </div>
     </header>
 
@@ -32,14 +30,16 @@
           <div class="mascot-face">🏃</div>
           <div class="mascot-text">
             <div class="mascot-kicker">พร้อมเล่น!</div>
-            <div id="coachLine" class="mascot-line">เลือกเกมออกกำลังกายที่อยากเล่น แล้วเริ่มได้เลย</div>
+            <div id="coachLine" class="mascot-line">
+              เริ่มจากเกมที่ขยับง่ายก่อน แล้วค่อยไปเกมเร็วหรือเกมที่ต้องใช้สมาธิมากขึ้นนะ
+            </div>
           </div>
         </div>
 
         <div class="stats-row">
-          <div class="pill">🏃 5 เกมในโซน Fitness</div>
-          <div id="playerPill" class="pill">👤 Player: anon</div>
-          <div id="modePill" class="pill">🎮 Mode: play</div>
+          <div class="pill">🏃 มี 5 เกมในโซน Fitness</div>
+          <div id="playerPill" class="pill">👤 ฮีโร่: Hero</div>
+          <div id="modePill" class="pill">🎮 ตอนนี้: เล่นสนุก</div>
         </div>
       </div>
 
@@ -50,9 +50,9 @@
           <label class="control-group">
             <span>โหมด</span>
             <select id="modeSelect">
-              <option value="play">play</option>
-              <option value="learn">learn</option>
-              <option value="research">research</option>
+              <option value="play">เล่นสนุก</option>
+              <option value="learn">ฝึกเรียนรู้</option>
+              <option value="research">โหมดครู</option>
             </select>
           </label>
 
@@ -62,15 +62,39 @@
               <option value="60">60 วินาที</option>
               <option value="90" selected>90 วินาที</option>
               <option value="120">120 วินาที</option>
-              <option value="150">150 วินาที</option>
             </select>
           </label>
 
-          <label class="control-group">
-            <span>คำค้นหาเกม</span>
-            <input id="searchInput" type="text" placeholder="เช่น shadow, rhythm, jump, balance, planner" />
-          </label>
+          <div class="control-group">
+            <span>เลือกแบบที่อยากเล่น</span>
+            <div id="filterRow" class="filter-row">
+              <button class="filter-chip active" type="button" data-filter="all">ทั้งหมด</button>
+              <button class="filter-chip" type="button" data-filter="easy">เริ่มง่าย</button>
+              <button class="filter-chip" type="button" data-filter="quick">เล่นสั้น</button>
+              <button class="filter-chip" type="button" data-filter="fun">สนุกท้าทาย</button>
+            </div>
+          </div>
         </div>
+      </div>
+    </section>
+
+    <section class="featured-game-card" id="featuredGameCard">
+      <div class="featured-game-left">
+        <div class="featured-kicker">แนะนำวันนี้</div>
+        <h2 id="featuredTitle" class="featured-title">Jump &amp; Duck</h2>
+        <p id="featuredSub" class="featured-sub">
+          กระโดดและก้มหลบตามจังหวะ เหมาะสำหรับเริ่มเล่นใน Fitness Zone
+        </p>
+
+        <div id="featuredTags" class="featured-tags">
+          <span class="featured-tag">เริ่มง่าย</span>
+          <span class="featured-tag">ขยับตัว</span>
+          <span class="featured-tag">รีแอ็กชัน</span>
+        </div>
+      </div>
+
+      <div class="featured-game-right">
+        <a id="featuredPlayBtn" class="top-btn primary" href="./jump-duck-vr.html">▶️ เริ่มเกมแนะนำ</a>
       </div>
     </section>
 
@@ -90,25 +114,38 @@
     <section class="section-block">
       <div class="section-head">
         <div>
-          <div class="section-kicker">Featured</div>
-          <h2 class="section-title">เกมแนะนำวันนี้</h2>
-        </div>
-      </div>
-
-      <div id="featuredArea" class="recent-area">
-        <div class="empty-recent">ระบบกำลังเลือกเกมแนะนำให้</div>
-      </div>
-    </section>
-
-    <section class="section-block">
-      <div class="section-head">
-        <div>
           <div class="section-kicker">All Games</div>
           <h2 class="section-title">เลือกเกมใน Fitness Zone</h2>
         </div>
       </div>
 
       <div id="gamesGrid" class="games-grid"></div>
+    </section>
+
+    <section class="zone-progress-card">
+      <div class="section-head">
+        <div>
+          <div class="section-kicker">Progress</div>
+          <h2 class="section-title">ความคืบหน้า Fitness Zone</h2>
+        </div>
+      </div>
+
+      <div class="zone-progress-grid">
+        <div class="progress-pill">
+          <div class="progress-n" id="zonePlayedCount">0/5</div>
+          <div class="progress-t">เกมที่เคยเล่น</div>
+        </div>
+
+        <div class="progress-pill">
+          <div class="progress-n" id="zoneStarsCount">0/5</div>
+          <div class="progress-t">ดาวโซน</div>
+        </div>
+
+        <div class="progress-pill">
+          <div class="progress-n" id="zoneTodayCount">0</div>
+          <div class="progress-t">เกมวันนี้</div>
+        </div>
+      </div>
     </section>
   </div>
 
