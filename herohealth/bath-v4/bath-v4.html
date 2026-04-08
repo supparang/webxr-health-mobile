@@ -1,0 +1,1094 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Bath v4</title>
+
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-particle-system-component@1.1.3/dist/aframe-particle-system-component.min.js"></script>
+
+  <style>
+    :root{
+      --sky1:#dff7ff;
+      --sky2:#b8ebff;
+      --ink:#16465f;
+      --ink2:#3a6d84;
+      --panel:rgba(255,255,255,.9);
+      --panel2:rgba(255,255,255,.97);
+      --line:#c8ecff;
+      --good:#1bb86f;
+      --warn:#ff9a42;
+      --bad:#ff6684;
+      --boss:#7b3d2e;
+      --gold:#ffd75b;
+      --cyan:#00d9ff;
+      --shadow:0 16px 40px rgba(22,70,95,.18);
+      --radius:24px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:linear-gradient(180deg,var(--sky1),var(--sky2));
+      color:var(--ink);
+    }
+
+    #ui{
+      position:fixed;
+      inset:0;
+      z-index:20;
+      pointer-events:none;
+    }
+
+    .topbar{
+      position:absolute;
+      top:10px;
+      left:10px;
+      right:10px;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:start;
+    }
+
+    .hud{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .chip{
+      min-width:108px;
+      padding:10px 13px;
+      border-radius:18px;
+      background:var(--panel);
+      border:3px solid rgba(255,255,255,.95);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(8px);
+    }
+    .chip .k{
+      display:block;
+      font-size:11px;
+      color:var(--ink2);
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.4px;
+      margin-bottom:3px;
+    }
+    .chip .v{
+      display:block;
+      font-size:24px;
+      line-height:1;
+      font-weight:1000;
+      color:var(--ink);
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      pointer-events:auto;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:18px;
+      padding:11px 16px;
+      background:var(--panel2);
+      color:var(--ink);
+      font-weight:1000;
+      font-size:14px;
+      cursor:pointer;
+      text-decoration:none;
+      border:3px solid rgba(255,255,255,.98);
+      box-shadow:var(--shadow);
+    }
+    .btn.primary{ background:#fff5c8; }
+    .btn.good{ background:#d8ffe8; }
+    .btn.warn{ background:#ffe5d8; }
+
+    .mission-wrap{
+      position:absolute;
+      top:96px;
+      left:10px;
+      right:10px;
+      max-width:540px;
+    }
+
+    .mission-card{
+      background:var(--panel);
+      border:3px solid rgba(255,255,255,.96);
+      border-radius:20px;
+      box-shadow:var(--shadow);
+      padding:12px 12px 10px;
+    }
+
+    .mission-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      font-size:13px;
+      font-weight:1000;
+      color:var(--ink2);
+      margin-bottom:8px;
+    }
+
+    .bar{
+      width:100%;
+      height:18px;
+      background:#eaf8ff;
+      border-radius:999px;
+      overflow:hidden;
+      border:2px solid #c7eaff;
+    }
+
+    .bar > i{
+      display:block;
+      width:0%;
+      height:100%;
+      border-radius:999px;
+      transition:width .18s ease;
+    }
+
+    #cleanBar{
+      background:linear-gradient(90deg,#27d6ff,#49f0b7);
+    }
+
+    #dangerBar{
+      background:linear-gradient(90deg,#ffc857,#ff6d73);
+    }
+
+    .subbar{
+      margin-top:10px;
+    }
+
+    .subbar .label{
+      display:flex;
+      justify-content:space-between;
+      font-size:12px;
+      font-weight:900;
+      color:var(--ink2);
+      margin-bottom:6px;
+    }
+
+    .center-msg{
+      position:absolute;
+      left:50%;
+      top:24%;
+      transform:translateX(-50%) scale(.92);
+      max-width:min(92vw,780px);
+      padding:14px 22px;
+      border-radius:999px;
+      text-align:center;
+      background:rgba(15,53,75,.84);
+      color:#fff;
+      font-size:clamp(20px,4vw,42px);
+      font-weight:1000;
+      letter-spacing:.3px;
+      opacity:0;
+      transition:opacity .18s ease, transform .18s ease;
+      box-shadow:0 20px 50px rgba(0,0,0,.22);
+    }
+
+    .center-msg.show{
+      opacity:1;
+      transform:translateX(-50%) scale(1);
+    }
+
+    .helper{
+      position:absolute;
+      left:50%;
+      bottom:14px;
+      transform:translateX(-50%);
+      background:rgba(255,255,255,.9);
+      border:2px solid rgba(255,255,255,.96);
+      color:var(--ink2);
+      font-size:13px;
+      font-weight:900;
+      padding:10px 16px;
+      border-radius:999px;
+      box-shadow:var(--shadow);
+      max-width:92vw;
+      text-align:center;
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:30;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      background:rgba(19,66,89,.35);
+      backdrop-filter:blur(6px);
+    }
+
+    .hidden{ display:none !important; }
+
+    .card{
+      width:min(95vw,820px);
+      border-radius:30px;
+      background:linear-gradient(180deg,rgba(255,255,255,.99),rgba(245,252,255,.98));
+      border:4px solid rgba(255,255,255,.98);
+      box-shadow:0 30px 80px rgba(14,52,70,.22);
+      padding:22px;
+      color:var(--ink);
+      pointer-events:auto;
+    }
+
+    .card h1,.card h2{
+      margin:0 0 8px;
+      line-height:1.08;
+    }
+
+    .card .sub{
+      margin:0 0 14px;
+      color:var(--ink2);
+      font-weight:700;
+      line-height:1.5;
+    }
+
+    .mini-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+      gap:10px;
+      margin:12px 0 16px;
+    }
+
+    .mini{
+      background:#f1fbff;
+      border:2px solid #d4f2ff;
+      border-radius:18px;
+      padding:12px;
+      color:var(--ink2);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .sum-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin:14px 0 16px;
+    }
+
+    .sum-box{
+      background:#f1fbff;
+      border:2px solid #d4f2ff;
+      border-radius:18px;
+      padding:14px;
+    }
+
+    .sum-box .k{
+      display:block;
+      font-size:12px;
+      color:var(--ink2);
+      font-weight:900;
+      text-transform:uppercase;
+      margin-bottom:4px;
+    }
+
+    .sum-box .v{
+      display:block;
+      font-size:28px;
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .stars{
+      font-size:34px;
+      letter-spacing:4px;
+      margin:4px 0 10px;
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    @media (max-width:640px){
+      .topbar{ top:8px; left:8px; right:8px; }
+      .chip{ min-width:92px; padding:9px 10px; }
+      .chip .v{ font-size:20px; }
+      .mission-wrap{ top:140px; left:8px; right:8px; }
+      .helper{ bottom:10px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <div class="topbar">
+      <div class="hud">
+        <div class="chip">
+          <span class="k">เวลา</span>
+          <span class="v"><span id="timer">50</span>s</span>
+        </div>
+        <div class="chip">
+          <span class="k">ความสะอาด</span>
+          <span class="v"><span id="clean">0</span>%</span>
+        </div>
+        <div class="chip">
+          <span class="k">คอมโบ</span>
+          <span class="v">x<span id="combo">0</span></span>
+        </div>
+        <div class="chip">
+          <span class="k">คะแนน</span>
+          <span class="v" id="score">0</span>
+        </div>
+        <div class="chip">
+          <span class="k">เฟส</span>
+          <span class="v" id="phaseText">1/3</span>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <a id="hubBtn" class="btn" href="./hub-v2.html">กลับ HUB</a>
+        <button id="restartBtnTop" class="btn warn">เริ่มใหม่</button>
+      </div>
+    </div>
+
+    <div class="mission-wrap">
+      <div class="mission-card">
+        <div class="mission-head">
+          <span id="missionText">ภารกิจ: ล้างคราบให้ครบ 100%</span>
+          <span id="modeText">MODE</span>
+        </div>
+
+        <div class="bar">
+          <i id="cleanBar"></i>
+        </div>
+
+        <div class="subbar">
+          <div class="label">
+            <span>แรงกดดันจากคราบ</span>
+            <span><span id="danger">0</span>%</span>
+          </div>
+          <div class="bar">
+            <i id="dangerBar"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="centerMsg" class="center-msg">SUPER SOAP!</div>
+
+    <div id="helperText" class="helper">
+      PC: คลิกที่คราบ • Mobile / Cardboard: เล็งค้างที่คราบ • คอมโบสูงจะเข้า FEVER
+    </div>
+  </div>
+
+  <div id="startOverlay" class="overlay">
+    <div class="card">
+      <h1>🛁 HeroHealth Bath v4</h1>
+      <p class="sub">
+        เกมอาบน้ำเวอร์ชันนี้มี 3 เฟส, ระบบ FEVER, คราบเหนียว, คราบบอส และ summary แบบเกมจริงมากขึ้น
+      </p>
+
+      <div class="mini-grid">
+        <div class="mini">🫧 คราบธรรมดา ล้างง่าย ได้ความสะอาดพื้นฐาน</div>
+        <div class="mini">🧼 คราบเหนียว ได้โบนัสมากกว่า แต่หายช้ากว่า</div>
+        <div class="mini">👾 คราบบอส โผล่เป็นช่วง ๆ ล้างได้โบนัสใหญ่</div>
+        <div class="mini">🔥 คอมโบถึงเกณฑ์จะเข้า FEVER ได้คะแนนคูณ</div>
+      </div>
+
+      <div class="row">
+        <button id="startBtn" class="btn primary">เริ่มอาบน้ำ</button>
+        <a id="hubBtnStart" class="btn" href="./hub-v2.html">กลับ HUB</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="summaryOverlay" class="overlay hidden">
+    <div class="card">
+      <h2 id="sumTitle">สะอาดเอี่ยม!</h2>
+      <div id="sumStars" class="stars">⭐️⭐️⭐️</div>
+      <p id="sumSub" class="sub">วันนี้อาบน้ำเก่งมาก</p>
+
+      <div class="sum-grid">
+        <div class="sum-box">
+          <span class="k">ความสะอาด</span>
+          <span class="v"><span id="sumClean">0</span>%</span>
+        </div>
+        <div class="sum-box">
+          <span class="k">คะแนนรวม</span>
+          <span class="v" id="sumScore">0</span>
+        </div>
+        <div class="sum-box">
+          <span class="k">ยิงโดน</span>
+          <span class="v" id="sumHits">0</span>
+        </div>
+        <div class="sum-box">
+          <span class="k">พลาด</span>
+          <span class="v" id="sumMiss">0</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="replayBtn" class="btn good">เล่นอีกครั้ง</button>
+        <a id="hubBtnSummary" class="btn" href="./hub-v2.html">กลับ HUB</a>
+      </div>
+    </div>
+  </div>
+
+  <a-scene
+    background="color: #dff7ff"
+    renderer="colorManagement: true; antialias: true"
+    raycaster="objects: .clickable"
+  >
+    <a-assets></a-assets>
+
+    <a-entity id="world">
+      <!-- floor -->
+      <a-plane position="0 0 -4" rotation="-90 0 0" width="16" height="16" color="#eefcff"></a-plane>
+
+      <!-- bath tub -->
+      <a-box position="0 0.45 -4.1" width="6.6" height="0.9" depth="3.5" color="#ffffff"></a-box>
+      <a-box position="0 0.94 -5.8" width="6.8" height="1.1" depth="0.18" color="#ffffff"></a-box>
+      <a-box position="-3.35 0.94 -4.1" width="0.18" height="1.1" depth="3.7" color="#ffffff"></a-box>
+      <a-box position="3.35 0.94 -4.1" width="0.18" height="1.1" depth="3.7" color="#ffffff"></a-box>
+
+      <!-- water -->
+      <a-box position="0 0.7 -4.1" width="6.0" height="0.18" depth="3.0" color="#9de9ff" opacity="0.88"></a-box>
+
+      <!-- bathroom walls -->
+      <a-box position="0 2.8 -7" width="14" height="6" depth="0.15" color="#f4fdff"></a-box>
+      <a-box position="-7 2.8 -3.8" width="0.15" height="6" depth="7.5" color="#f6fdff"></a-box>
+      <a-box position="7 2.8 -3.8" width="0.15" height="6" depth="7.5" color="#f6fdff"></a-box>
+      <a-box position="0 5.8 -3.8" width="14" height="0.15" depth="7.5" color="#eefbff"></a-box>
+
+      <!-- bubbles -->
+      <a-sphere position="-1.9 1.0 -3.2" radius="0.16" color="#fff" opacity="0.92"></a-sphere>
+      <a-sphere position="-1.6 1.12 -3.05" radius="0.10" color="#fff" opacity="0.92"></a-sphere>
+      <a-sphere position="2.1 1.04 -3.25" radius="0.18" color="#fff" opacity="0.92"></a-sphere>
+      <a-sphere position="2.38 1.17 -3.08" radius="0.11" color="#fff" opacity="0.92"></a-sphere>
+
+      <!-- duck -->
+      <a-sphere position="1.8 1.03 -4.4" radius="0.16" color="#ffd54f"></a-sphere>
+      <a-sphere position="1.93 1.14 -4.32" radius="0.1" color="#ffd54f"></a-sphere>
+      <a-cone position="2.02 1.13 -4.25" radius-bottom="0.045" radius-top="0.01" height="0.06" rotation="0 0 90" color="#ff9842"></a-cone>
+
+      <a-entity id="targetLayer"></a-entity>
+      <a-entity id="fxLayer"></a-entity>
+    </a-entity>
+
+    <a-light type="ambient" color="#ffffff" intensity="0.9"></a-light>
+    <a-light type="directional" color="#fff1d0" intensity="0.75" position="1 4 2"></a-light>
+    <a-light type="point" color="#6fe7ff" intensity="1.2" position="0 3 -3"></a-light>
+
+    <a-sky color="#dff7ff"></a-sky>
+
+    <!-- mouse cursor -->
+    <a-entity id="mouseCursor"
+      cursor="rayOrigin: mouse"
+      raycaster="objects: .clickable">
+    </a-entity>
+
+    <a-entity id="rig" position="0 1.6 0">
+      <a-entity camera look-controls>
+        <!-- gaze cursor -->
+        <a-entity id="gazeCursor"
+          position="0 0 -1"
+          visible="false"
+          cursor="fuse: true; fuseTimeout: 420"
+          raycaster="objects: .clickable"
+          geometry="primitive: ring; radiusInner: 0.015; radiusOuter: 0.026"
+          material="color: #00d9ff; shader: flat; opacity: 0.95">
+          <a-entity geometry="primitive: plane; width: 0.046; height: 0.002"
+                    material="color: #00d9ff; shader: flat"
+                    position="0 0 0.001"></a-entity>
+          <a-entity geometry="primitive: plane; width: 0.002; height: 0.046"
+                    material="color: #00d9ff; shader: flat"
+                    position="0 0 0.001"></a-entity>
+        </a-entity>
+
+        <!-- soap bottle -->
+        <a-cylinder position="0.33 -0.40 -0.72" radius="0.05" height="0.3" color="#58d8ff"></a-cylinder>
+        <a-sphere position="0.33 -0.22 -0.72" radius="0.06" color="#ffffff"></a-sphere>
+      </a-entity>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+
+      const VIEW = (qs.get('view') || (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 'mobile' : 'pc')).toLowerCase();
+      const DIFF = (qs.get('diff') || 'normal').toLowerCase();
+      const HUB  = qs.get('hub') || './hub-v2.html';
+
+      const PRESETS = {
+        easy: {
+          baseTime: 60,
+          spawnEvery: 850,
+          maxTargets: 3,
+          targetLife: 2200,
+          feverAt: 7,
+          feverMs: 6500,
+          hitSmall: 6,
+          hitSticky: 10,
+          hitBoss: 18,
+          missSmall: 5,
+          missSticky: 7,
+          missBoss: 10
+        },
+        normal: {
+          baseTime: 50,
+          spawnEvery: 700,
+          maxTargets: 4,
+          targetLife: 1800,
+          feverAt: 8,
+          feverMs: 6000,
+          hitSmall: 5,
+          hitSticky: 9,
+          hitBoss: 16,
+          missSmall: 6,
+          missSticky: 8,
+          missBoss: 11
+        },
+        hard: {
+          baseTime: 42,
+          spawnEvery: 580,
+          maxTargets: 5,
+          targetLife: 1500,
+          feverAt: 9,
+          feverMs: 5500,
+          hitSmall: 4,
+          hitSticky: 8,
+          hitBoss: 14,
+          missSmall: 7,
+          missSticky: 10,
+          missBoss: 13
+        }
+      };
+
+      const preset = PRESETS[DIFF] || PRESETS.normal;
+      const timeParam = parseInt(qs.get('time') || '', 10);
+
+      const cfg = {
+        ...preset,
+        startTime: Number.isFinite(timeParam) && timeParam > 0 ? timeParam : preset.baseTime
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      const ui = {
+        timer: $('timer'),
+        clean: $('clean'),
+        combo: $('combo'),
+        score: $('score'),
+        phaseText: $('phaseText'),
+        danger: $('danger'),
+        cleanBar: $('cleanBar'),
+        dangerBar: $('dangerBar'),
+        missionText: $('missionText'),
+        modeText: $('modeText'),
+        helperText: $('helperText'),
+        centerMsg: $('centerMsg'),
+
+        startOverlay: $('startOverlay'),
+        summaryOverlay: $('summaryOverlay'),
+        startBtn: $('startBtn'),
+        replayBtn: $('replayBtn'),
+        restartBtnTop: $('restartBtnTop'),
+
+        sumTitle: $('sumTitle'),
+        sumSub: $('sumSub'),
+        sumStars: $('sumStars'),
+        sumClean: $('sumClean'),
+        sumScore: $('sumScore'),
+        sumHits: $('sumHits'),
+        sumMiss: $('sumMiss'),
+
+        hubBtn: $('hubBtn'),
+        hubBtnStart: $('hubBtnStart'),
+        hubBtnSummary: $('hubBtnSummary'),
+      };
+
+      ui.hubBtn.href = HUB;
+      ui.hubBtnStart.href = HUB;
+      ui.hubBtnSummary.href = HUB;
+      ui.modeText.textContent = `${VIEW.toUpperCase()} • ${DIFF.toUpperCase()}`;
+
+      const targetLayer = $('targetLayer');
+      const fxLayer = $('fxLayer');
+      const gazeCursor = $('gazeCursor');
+
+      function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+      function rand(min, max){ return Math.random() * (max - min) + min; }
+
+      function showMsg(text, ms = 700){
+        ui.centerMsg.textContent = text;
+        ui.centerMsg.classList.add('show');
+        clearTimeout(showMsg._timer);
+        showMsg._timer = setTimeout(() => {
+          ui.centerMsg.classList.remove('show');
+        }, ms);
+      }
+
+      function burstFx(pos, colorA = '#ffffff', colorB = '#90ebff'){
+        const fx = document.createElement('a-entity');
+        fx.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+        fx.setAttribute(
+          'particle-system',
+          `preset: dust; color: ${colorA}, ${colorB}; particleCount: 42; size: 0.18; maxAge: 0.45; velocityValue: 0 1.05 0`
+        );
+        fxLayer.appendChild(fx);
+        setTimeout(() => fx.parentNode && fx.parentNode.removeChild(fx), 520);
+      }
+
+      function getSpawnPos(){
+        const lane = Math.floor(rand(0, 3));
+        const laneZ = [-5.2, -4.2, -3.2][lane];
+        return {
+          x: rand(-2.7, 2.7),
+          y: rand(0.95, 2.8),
+          z: laneZ + rand(-0.25, 0.25)
+        };
+      }
+
+      function configureView(){
+        if (VIEW === 'pc') {
+          gazeCursor.setAttribute('visible', 'false');
+          ui.helperText.textContent = 'PC: คลิกที่คราบ • คอมโบสูงจะเข้า FEVER • รีบเก็บคราบบอส';
+        } else if (VIEW === 'cvr') {
+          gazeCursor.setAttribute('visible', 'true');
+          ui.helperText.textContent = 'Cardboard: เล็งค้างที่คราบ • คอมโบสูงจะเข้า FEVER • รีบเก็บคราบบอส';
+        } else {
+          gazeCursor.setAttribute('visible', 'true');
+          ui.helperText.textContent = 'Mobile: เล็งค้างที่คราบ • คอมโบสูงจะเข้า FEVER • รีบเก็บคราบบอส';
+        }
+      }
+
+      class BathGameV4 {
+        constructor(){
+          this.running = false;
+          this.ended = false;
+
+          this.clean = 0;
+          this.danger = 0;
+          this.combo = 0;
+          this.score = 0;
+          this.time = cfg.startTime;
+          this.hits = 0;
+          this.miss = 0;
+
+          this.phase = 1;
+          this.inFever = false;
+          this.feverUntil = 0;
+          this.nextTargetId = 0;
+          this.targets = new Map();
+
+          this.tickTimer = null;
+          this.spawnTimer = null;
+          this.phase2BossDone = false;
+          this.phase3BossDone = false;
+        }
+
+        reset(){
+          this.stopLoops();
+          this.clearTargets();
+
+          this.running = true;
+          this.ended = false;
+
+          this.clean = 0;
+          this.danger = 0;
+          this.combo = 0;
+          this.score = 0;
+          this.time = cfg.startTime;
+          this.hits = 0;
+          this.miss = 0;
+
+          this.phase = 1;
+          this.inFever = false;
+          this.feverUntil = 0;
+          this.phase2BossDone = false;
+          this.phase3BossDone = false;
+
+          this.render();
+        }
+
+        start(){
+          this.reset();
+          ui.startOverlay.classList.add('hidden');
+          ui.summaryOverlay.classList.add('hidden');
+
+          this.spawnInitial();
+
+          this.tickTimer = setInterval(() => {
+            if (!this.running || this.ended) return;
+
+            this.time = Math.max(0, this.time - 1);
+
+            if (this.inFever && Date.now() >= this.feverUntil) {
+              this.inFever = false;
+              showMsg('😊 FEVER จบแล้ว', 520);
+            }
+
+            this.updatePhase();
+
+            if (this.time <= 0) {
+              this.finish(this.clean >= 100 && this.danger < 100);
+              return;
+            }
+
+            if (this.danger >= 100) {
+              this.finish(false);
+              return;
+            }
+
+            this.render();
+          }, 1000);
+
+          this.spawnTimer = setInterval(() => {
+            if (!this.running || this.ended) return;
+
+            const limit = this.inFever ? Math.max(2, cfg.maxTargets - 1) : cfg.maxTargets;
+            if (this.targets.size >= limit) return;
+
+            const kind = this.pickKind();
+            this.spawnTarget(kind);
+          }, cfg.spawnEvery);
+        }
+
+        stopLoops(){
+          clearInterval(this.tickTimer);
+          clearInterval(this.spawnTimer);
+          this.tickTimer = null;
+          this.spawnTimer = null;
+        }
+
+        clearTargets(){
+          for (const item of this.targets.values()) {
+            clearTimeout(item.expireTimer);
+            if (item.el && item.el.parentNode) item.el.parentNode.removeChild(item.el);
+          }
+          this.targets.clear();
+        }
+
+        spawnInitial(){
+          this.spawnTarget('dirt');
+          this.spawnTarget('dirt');
+          if (cfg.maxTargets >= 4) this.spawnTarget('sticky');
+        }
+
+        updatePhase(){
+          if (this.clean >= 70) this.phase = 3;
+          else if (this.clean >= 35) this.phase = 2;
+          else this.phase = 1;
+
+          ui.phaseText.textContent = `${this.phase}/3`;
+
+          if (this.phase === 1) {
+            ui.missionText.textContent = 'ภารกิจ: เริ่มล้างคราบพื้นฐาน';
+          } else if (this.phase === 2) {
+            ui.missionText.textContent = 'ภารกิจ: เก็บคราบเหนียวและเตรียมบอส';
+            if (!this.phase2BossDone) {
+              this.phase2BossDone = true;
+              this.spawnBossWave('phase2');
+            }
+          } else {
+            ui.missionText.textContent = 'ภารกิจ: ปิดท้ายด้วยคราบบอสให้สะอาดครบ 100%';
+            if (!this.phase3BossDone) {
+              this.phase3BossDone = true;
+              this.spawnBossWave('phase3');
+            }
+          }
+        }
+
+        pickKind(){
+          const roll = Math.random();
+          if (this.phase === 1) {
+            return roll < 0.78 ? 'dirt' : 'sticky';
+          }
+          if (this.phase === 2) {
+            return roll < 0.58 ? 'dirt' : (roll < 0.9 ? 'sticky' : 'dirt');
+          }
+          return roll < 0.48 ? 'dirt' : 'sticky';
+        }
+
+        spawnBossWave(tag){
+          showMsg(tag === 'phase2' ? '👾 คราบบอสมาแล้ว!' : '💥 บอสสุดท้ายมาแล้ว!', 800);
+          this.spawnTarget('boss');
+          if (this.phase === 3) this.spawnTarget('boss');
+        }
+
+        spawnTarget(kind){
+          if (!this.running || this.ended) return;
+
+          const id = `bath_target_${++this.nextTargetId}`;
+          const pos = getSpawnPos();
+
+          const el = document.createElement('a-entity');
+          el.classList.add('clickable');
+          el.dataset.id = id;
+          el.dataset.kind = kind;
+          el.setAttribute('position', `${pos.x.toFixed(2)} ${pos.y.toFixed(2)} ${pos.z.toFixed(2)}`);
+
+          let life = cfg.targetLife;
+          if (kind === 'dirt') {
+            const r = rand(0.22, 0.32);
+            el.setAttribute('geometry', `primitive: sphere; radius: ${r.toFixed(2)}; segmentsWidth: 16; segmentsHeight: 12`);
+            el.setAttribute('material', 'color: #5d392b; emissive: #32170f; emissiveIntensity: 0.22; roughness: 1');
+            el.setAttribute('animation__pulse', 'property: scale; dir: alternate; dur: 540; loop: true; to: 1.06 1.06 1.06; easing: easeInOutSine');
+          } else if (kind === 'sticky') {
+            const r = rand(0.28, 0.38);
+            el.setAttribute('geometry', `primitive: sphere; radius: ${r.toFixed(2)}; segmentsWidth: 18; segmentsHeight: 14`);
+            el.setAttribute('material', 'color: #8d582f; emissive: #542d14; emissiveIntensity: 0.38; roughness: 0.95');
+            el.setAttribute('animation__pulse', 'property: scale; dir: alternate; dur: 420; loop: true; to: 1.1 1.1 1.1; easing: easeInOutSine');
+            life += 280;
+          } else {
+            el.setAttribute('geometry', 'primitive: sphere; radius: 0.56; segmentsWidth: 20; segmentsHeight: 16');
+            el.setAttribute('material', 'color: #6e3328; emissive: #40130c; emissiveIntensity: 0.52; roughness: 0.92');
+            el.setAttribute('animation__pulse', 'property: scale; dir: alternate; dur: 320; loop: true; to: 1.13 1.13 1.13; easing: easeInOutSine');
+            el.setAttribute('animation__spin', 'property: rotation; to: 0 360 0; dur: 1600; easing: linear; loop: true');
+            life += 420;
+          }
+
+          const bubbleCount = kind === 'boss' ? 7 : (kind === 'sticky' ? 5 : 3);
+          for (let i = 0; i < bubbleCount; i++) {
+            const b = document.createElement('a-sphere');
+            b.setAttribute('position', `${rand(-0.36,0.36).toFixed(2)} ${rand(-0.36,0.36).toFixed(2)} ${rand(-0.2,0.2).toFixed(2)}`);
+            b.setAttribute('radius', (kind === 'boss' ? rand(0.04,0.08) : rand(0.03,0.05)).toFixed(3));
+            b.setAttribute('color', '#ffffff');
+            b.setAttribute('opacity', '0.92');
+            el.appendChild(b);
+          }
+
+          const expireTimer = setTimeout(() => this.onMiss(id), life);
+
+          el.addEventListener('click', () => this.onHit(id));
+
+          this.targets.set(id, { id, kind, pos, el, expireTimer });
+          targetLayer.appendChild(el);
+        }
+
+        enterFever(){
+          this.inFever = true;
+          this.feverUntil = Date.now() + cfg.feverMs;
+          this.time += 2;
+          showMsg('🔥 FEVER MODE!', 850);
+        }
+
+        onHit(id){
+          if (!this.running || this.ended) return;
+          const t = this.targets.get(id);
+          if (!t) return;
+
+          clearTimeout(t.expireTimer);
+          this.targets.delete(id);
+          if (t.el.parentNode) t.el.parentNode.removeChild(t.el);
+
+          this.combo += 1;
+          this.hits += 1;
+
+          let cleanGain = 0;
+          let dangerDown = 0;
+          let scoreGain = 0;
+          let fxA = '#ffffff';
+          let fxB = '#87efff';
+
+          if (t.kind === 'dirt') {
+            cleanGain = cfg.hitSmall;
+            dangerDown = 3;
+            scoreGain = 45;
+          } else if (t.kind === 'sticky') {
+            cleanGain = cfg.hitSticky;
+            dangerDown = 5;
+            scoreGain = 95;
+            fxA = '#fff7c8';
+            fxB = '#7cedff';
+          } else {
+            cleanGain = cfg.hitBoss;
+            dangerDown = 10;
+            scoreGain = 180;
+            this.time += 2;
+            fxA = '#ffe082';
+            fxB = '#ffffff';
+          }
+
+          if (this.inFever) {
+            scoreGain *= 2;
+            cleanGain += 1;
+          }
+
+          scoreGain += Math.min(this.combo, 12) * 6;
+
+          this.clean = clamp(this.clean + cleanGain, 0, 100);
+          this.danger = clamp(this.danger - dangerDown, 0, 100);
+          this.score += scoreGain;
+
+          burstFx(t.pos, fxA, fxB);
+
+          if (!this.inFever && this.combo >= cfg.feverAt) {
+            this.enterFever();
+          } else if (t.kind === 'boss') {
+            showMsg('💥 BOSS CLEAN!', 700);
+          } else if (this.combo >= 10) {
+            showMsg('🌟 ULTRA SOAP COMBO!', 700);
+          } else if (this.combo >= 6) {
+            showMsg('✨ SUPER SOAP!', 620);
+          }
+
+          this.updatePhase();
+          this.render();
+
+          if (this.clean >= 100 && this.danger < 100) {
+            this.finish(true);
+            return;
+          }
+
+          const spawnAfterHit = this.inFever ? 1 : 2;
+          for (let i = 0; i < spawnAfterHit; i++) {
+            if (this.targets.size < cfg.maxTargets) {
+              this.spawnTarget(this.pickKind());
+            }
+          }
+        }
+
+        onMiss(id){
+          if (!this.running || this.ended) return;
+          const t = this.targets.get(id);
+          if (!t) return;
+
+          clearTimeout(t.expireTimer);
+          this.targets.delete(id);
+          if (t.el.parentNode) t.el.parentNode.removeChild(t.el);
+
+          this.combo = 0;
+          this.miss += 1;
+          this.inFever = false;
+
+          let cleanLoss = 0;
+          let dangerUp = 0;
+
+          if (t.kind === 'dirt') {
+            cleanLoss = cfg.missSmall;
+            dangerUp = 8;
+          } else if (t.kind === 'sticky') {
+            cleanLoss = cfg.missSticky;
+            dangerUp = 12;
+          } else {
+            cleanLoss = cfg.missBoss;
+            dangerUp = 20;
+          }
+
+          this.clean = clamp(this.clean - cleanLoss, 0, 100);
+          this.danger = clamp(this.danger + dangerUp, 0, 100);
+
+          burstFx(t.pos, '#8d5f48', '#5b3428');
+
+          if (t.kind === 'boss') showMsg('😵 บอสหลุดไปแล้ว!', 650);
+          else if (t.kind === 'sticky') showMsg('😅 คราบเหนียวกลับมา!', 580);
+          else showMsg('😬 ยังล้างไม่ทัน!', 520);
+
+          this.updatePhase();
+          this.render();
+
+          if (this.danger >= 100) {
+            this.finish(false);
+            return;
+          }
+
+          if (this.targets.size < cfg.maxTargets) {
+            this.spawnTarget(this.pickKind());
+          }
+        }
+
+        render(){
+          ui.timer.textContent = this.time;
+          ui.clean.textContent = Math.floor(this.clean);
+          ui.combo.textContent = this.combo;
+          ui.score.textContent = this.score;
+          ui.danger.textContent = Math.floor(this.danger);
+          ui.cleanBar.style.width = `${clamp(this.clean, 0, 100)}%`;
+          ui.dangerBar.style.width = `${clamp(this.danger, 0, 100)}%`;
+
+          if (this.inFever) {
+            ui.missionText.textContent = 'FEVER! ล้างต่อเนื่องให้ได้คะแนนคูณ';
+          }
+        }
+
+        getStars(){
+          if (this.clean >= 100 && this.miss <= 4 && this.danger < 55) return 3;
+          if (this.clean >= 85 && this.danger < 75) return 2;
+          if (this.clean >= 60) return 1;
+          return 0;
+        }
+
+        finish(win){
+          if (this.ended) return;
+
+          this.ended = true;
+          this.running = false;
+          this.stopLoops();
+          this.clearTargets();
+
+          const stars = this.getStars();
+          const starText = '⭐️'.repeat(stars) + '☆'.repeat(3 - stars);
+
+          ui.sumClean.textContent = Math.floor(this.clean);
+          ui.sumScore.textContent = this.score;
+          ui.sumHits.textContent = this.hits;
+          ui.sumMiss.textContent = this.miss;
+          ui.sumStars.textContent = starText;
+
+          if (win) {
+            ui.sumTitle.textContent = '🛁 สะอาดเอี่ยมเลย!';
+            ui.sumSub.textContent = 'อาบน้ำครบทุกเฟสแล้ว เก่งมาก';
+          } else if (this.clean >= 70) {
+            ui.sumTitle.textContent = '🙂 เกือบสะอาดครบแล้ว';
+            ui.sumSub.textContent = 'อีกนิดเดียวจะได้ 100% ลองเก็บคอมโบและรีบบอส';
+          } else {
+            ui.sumTitle.textContent = '😅 ยังมีคราบอยู่นิดหน่อย';
+            ui.sumSub.textContent = 'รอบหน้าลองเก็บคราบเหนียวให้ไว และอย่าให้ danger สูง';
+          }
+
+          const summary = {
+            game: 'bath-v4',
+            clean: Math.floor(this.clean),
+            score: this.score,
+            hits: this.hits,
+            miss: this.miss,
+            stars,
+            timeLeft: this.time,
+            diff: DIFF,
+            view: VIEW,
+            at: new Date().toISOString()
+          };
+          try {
+            localStorage.setItem('HHA_LAST_SUMMARY_BATH', JSON.stringify(summary));
+          } catch (_) {}
+
+          ui.summaryOverlay.classList.remove('hidden');
+        }
+      }
+
+      configureView();
+
+      const game = new BathGameV4();
+      window.__bathV4 = game;
+
+      ui.startBtn.addEventListener('click', () => game.start());
+      ui.replayBtn.addEventListener('click', () => game.start());
+      ui.restartBtnTop.addEventListener('click', () => game.start());
+
+      game.render();
+    })();
+  </script>
+</body>
+</html>
