@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Bath v5 Main Game</title>
+
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+
+  <style>
+    :root{
+      --sky1:#dff7ff;
+      --sky2:#b8ebff;
+      --ink:#18465e;
+      --ink2:#477287;
+      --panel:rgba(255,255,255,.92);
+      --panel2:rgba(255,255,255,.98);
+      --line:#cdeeff;
+      --good:#18b86f;
+      --warn:#ff9b42;
+      --bad:#ff6380;
+      --gold:#ffd95a;
+      --cyan:#00d9ff;
+      --shadow:0 16px 40px rgba(24,70,94,.16);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:linear-gradient(180deg,var(--sky1),var(--sky2));
+      color:var(--ink);
+    }
+
+    #ui{
+      position:fixed;
+      inset:0;
+      z-index:20;
+      pointer-events:none;
+    }
+
+    .topbar{
+      position:absolute;
+      top:10px;
+      left:10px;
+      right:10px;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:start;
+    }
+
+    .hud{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .chip{
+      min-width:100px;
+      padding:10px 12px;
+      border-radius:18px;
+      background:var(--panel);
+      border:3px solid rgba(255,255,255,.95);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(8px);
+    }
+    .chip .k{
+      display:block;
+      font-size:11px;
+      color:var(--ink2);
+      font-weight:900;
+      text-transform:uppercase;
+      margin-bottom:3px;
+    }
+    .chip .v{
+      display:block;
+      font-size:23px;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      pointer-events:auto;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:18px;
+      padding:11px 16px;
+      background:var(--panel2);
+      color:var(--ink);
+      font-weight:1000;
+      font-size:14px;
+      cursor:pointer;
+      text-decoration:none;
+      border:3px solid rgba(255,255,255,.98);
+      box-shadow:var(--shadow);
+    }
+    .btn.primary{ background:#fff6ca; }
+    .btn.good{ background:#dbffea; }
+    .btn.warn{ background:#ffe4d8; }
+
+    .task-wrap{
+      position:absolute;
+      top:96px;
+      left:10px;
+      right:10px;
+      max-width:700px;
+    }
+
+    .task-card{
+      background:var(--panel);
+      border:3px solid rgba(255,255,255,.96);
+      border-radius:22px;
+      box-shadow:var(--shadow);
+      padding:12px;
+    }
+
+    .task-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom:8px;
+      font-size:13px;
+      font-weight:1000;
+      color:var(--ink2);
+    }
+
+    .task-title{
+      font-size:22px;
+      font-weight:1000;
+      color:var(--ink);
+      margin-bottom:8px;
+      line-height:1.2;
+    }
+
+    .bar{
+      width:100%;
+      height:18px;
+      background:#eaf8ff;
+      border-radius:999px;
+      overflow:hidden;
+      border:2px solid #c9ebff;
+    }
+
+    .bar > i{
+      display:block;
+      width:0%;
+      height:100%;
+      border-radius:999px;
+      transition:width .18s ease;
+      background:linear-gradient(90deg,#27d7ff,#4aefb8);
+    }
+
+    .task-sub{
+      margin-top:8px;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      font-size:13px;
+      font-weight:900;
+      color:var(--ink2);
+      flex-wrap:wrap;
+    }
+
+    .center-msg{
+      position:absolute;
+      left:50%;
+      top:26%;
+      transform:translateX(-50%) scale(.92);
+      max-width:min(92vw,780px);
+      padding:14px 22px;
+      border-radius:999px;
+      text-align:center;
+      background:rgba(16,55,77,.84);
+      color:#fff;
+      font-size:clamp(20px,4vw,40px);
+      font-weight:1000;
+      letter-spacing:.3px;
+      opacity:0;
+      transition:opacity .16s ease, transform .16s ease;
+      box-shadow:0 18px 50px rgba(0,0,0,.22);
+    }
+    .center-msg.show{
+      opacity:1;
+      transform:translateX(-50%) scale(1);
+    }
+
+    .helper{
+      position:absolute;
+      left:50%;
+      bottom:14px;
+      transform:translateX(-50%);
+      background:rgba(255,255,255,.9);
+      border:2px solid rgba(255,255,255,.98);
+      color:var(--ink2);
+      font-size:13px;
+      font-weight:900;
+      padding:10px 16px;
+      border-radius:999px;
+      box-shadow:var(--shadow);
+      max-width:92vw;
+      text-align:center;
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:30;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      background:rgba(18,67,90,.34);
+      backdrop-filter:blur(6px);
+    }
+    .hidden{ display:none !important; }
+
+    .card{
+      width:min(95vw,840px);
+      border-radius:30px;
+      background:linear-gradient(180deg,rgba(255,255,255,.99),rgba(244,252,255,.98));
+      border:4px solid rgba(255,255,255,.98);
+      box-shadow:0 30px 80px rgba(14,52,70,.22);
+      padding:22px;
+      color:var(--ink);
+      pointer-events:auto;
+    }
+
+    .card h1,.card h2{
+      margin:0 0 8px;
+      line-height:1.08;
+    }
+
+    .card .sub{
+      margin:0 0 14px;
+      color:var(--ink2);
+      font-weight:700;
+      line-height:1.5;
+    }
+
+    .mini-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+      gap:10px;
+      margin:12px 0 16px;
+    }
+
+    .mini{
+      background:#f1fbff;
+      border:2px solid #d5f2ff;
+      border-radius:18px;
+      padding:12px;
+      color:var(--ink2);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .sum-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin:14px 0 16px;
+    }
+
+    .sum-box{
+      background:#f1fbff;
+      border:2px solid #d5f2ff;
+      border-radius:18px;
+      padding:14px;
+    }
+
+    .sum-box .k{
+      display:block;
+      font-size:12px;
+      color:var(--ink2);
+      font-weight:900;
+      text-transform:uppercase;
+      margin-bottom:4px;
+    }
+
+    .sum-box .v{
+      display:block;
+      font-size:28px;
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .stars{
+      font-size:34px;
+      letter-spacing:4px;
+      margin:4px 0 10px;
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    @media (max-width:640px){
+      .topbar{ top:8px; left:8px; right:8px; }
+      .chip{ min-width:88px; padding:9px 10px; }
+      .chip .v{ font-size:19px; }
+      .task-wrap{ top:140px; left:8px; right:8px; }
+      .helper{ bottom:10px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <div class="topbar">
+      <div class="hud">
+        <div class="chip">
+          <span class="k">เวลา</span>
+          <span class="v"><span id="timer">70</span>s</span>
+        </div>
+        <div class="chip">
+          <span class="k">คะแนน</span>
+          <span class="v" id="score">0</span>
+        </div>
+        <div class="chip">
+          <span class="k">คอมโบ</span>
+          <span class="v">x<span id="combo">0</span></span>
+        </div>
+        <div class="chip">
+          <span class="k">โซน</span>
+          <span class="v"><span id="stepNow">1</span>/<span id="stepAll">7</span></span>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <a id="hubBtn" class="btn" href="./hub-v2.html">กลับ HUB</a>
+        <button id="restartBtnTop" class="btn warn">เริ่มใหม่</button>
+      </div>
+    </div>
+
+    <div class="task-wrap">
+      <div class="task-card">
+        <div class="task-head">
+          <span id="modeText">MODE</span>
+          <span id="remainText">เหลือ 0 คราบ</span>
+        </div>
+        <div id="taskTitle" class="task-title">ตอนนี้: ล้างศีรษะ</div>
+        <div class="bar">
+          <i id="zoneBar"></i>
+        </div>
+        <div class="task-sub">
+          <span id="taskHint">เล็งหรือคลิกที่คราบบนส่วนที่เรืองแสง</span>
+          <span id="cleanedText">ล้างแล้ว 0/0</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="centerMsg" class="center-msg">เริ่มอาบน้ำกัน!</div>
+
+    <div id="helperText" class="helper">
+      PC: คลิกที่คราบ • Mobile / Cardboard: เล็งค้างที่คราบ • เกมจะบอกชัดว่าต้องล้างส่วนไหน
+    </div>
+  </div>
+
+  <div id="startOverlay" class="overlay">
+    <div class="card">
+      <h1>🛁 Bath v5 • Main Game</h1>
+      <p class="sub">
+        เวอร์ชันนี้เป็นเกมหลักของ Bath เพราะผู้เล่นจะล้างร่างกายทีละส่วนอย่างชัดเจน
+        เห็นว่าตอนนี้กำลังล้างหัว อก แขน ท้อง หรือขา ไม่ใช่ยิงเป้าลอย ๆ
+      </p>
+
+      <div class="mini-grid">
+        <div class="mini">1) ดูคำสั่งด้านบนว่า ตอนนี้ต้องล้างส่วนไหน</div>
+        <div class="mini">2) โซนที่ต้องล้างจะมีวงเรืองแสงและลูกศรชี้</div>
+        <div class="mini">3) คราบจะเกิดบนส่วนนั้นจริง ๆ</div>
+        <div class="mini">4) ล้างครบแล้ว เกมจะพาไปโซนถัดไปอัตโนมัติ</div>
+      </div>
+
+      <div class="row">
+        <button id="startBtn" class="btn primary">เริ่มอาบน้ำ</button>
+        <a id="hubBtnStart" class="btn" href="./hub-v2.html">กลับ HUB</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="summaryOverlay" class="overlay hidden">
+    <div class="card">
+      <h2 id="sumTitle">อาบน้ำเสร็จแล้ว!</h2>
+      <div id="sumStars" class="stars">⭐️⭐️⭐️</div>
+      <p id="sumSub" class="sub">วันนี้ล้างตัวได้ครบทุกส่วนเลย</p>
+
+      <div class="sum-grid">
+        <div class="sum-box">
+          <span class="k">คะแนนรวม</span>
+          <span class="v" id="sumScore">0</span>
+        </div>
+        <div class="sum-box">
+          <span class="k">ยิงโดน</span>
+          <span class="v" id="sumHits">0</span>
+        </div>
+        <div class="sum-box">
+          <span class="k">พลาด</span>
+          <span class="v" id="sumMiss">0</span>
+        </div>
+        <div class="sum-box">
+          <span class="k">เวลาเหลือ</span>
+          <span class="v"><span id="sumTime">0</span>s</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="replayBtn" class="btn good">เล่นอีกครั้ง</button>
+        <a id="hubBtnSummary" class="btn" href="./hub-v2.html">กลับ HUB</a>
+      </div>
+    </div>
+  </div>
+
+  <a-scene
+    background="color: #dff7ff"
+    renderer="colorManagement: true; antialias: true"
+    raycaster="objects: .clickable"
+  >
+    <a-assets></a-assets>
+
+    <a-entity id="world">
+      <a-plane position="0 0 -4" rotation="-90 0 0" width="16" height="16" color="#eefcff"></a-plane>
+
+      <!-- bathtub open front -->
+      <a-box position="0 0.12 -4.1" width="6.6" height="0.22" depth="3.5" color="#ffffff"></a-box>
+      <a-box position="0 0.88 -5.78" width="6.8" height="1.18" depth="0.16" color="#ffffff"></a-box>
+      <a-box position="-3.32 0.88 -4.1" width="0.16" height="1.18" depth="3.52" color="#ffffff"></a-box>
+      <a-box position="3.32 0.88 -4.1" width="0.16" height="1.18" depth="3.52" color="#ffffff"></a-box>
+      <a-box position="0 0.38 -2.42" width="6.55" height="0.26" depth="0.14" color="#ffffff" opacity="0.96"></a-box>
+      <a-box position="0 0.42 -4.1" width="6.0" height="0.14" depth="3.0" color="#9de9ff" opacity="0.72"></a-box>
+
+      <!-- bathroom -->
+      <a-box position="0 2.8 -7" width="14" height="6" depth="0.15" color="#f4fdff"></a-box>
+      <a-box position="-7 2.8 -3.8" width="0.15" height="6" depth="7.5" color="#f6fdff"></a-box>
+      <a-box position="7 2.8 -3.8" width="0.15" height="6" depth="7.5" color="#f6fdff"></a-box>
+      <a-box position="0 5.8 -3.8" width="14" height="0.15" depth="7.5" color="#eefbff"></a-box>
+
+      <!-- cute avatar -->
+      <a-entity id="avatarRoot" position="0 0.18 -4.2">
+        <a-entity id="avatarBob"
+          animation="property: position; from: 0 0 0; to: 0 0.04 0; dir: alternate; dur: 1350; loop: true; easing: easeInOutSine">
+
+          <!-- legs -->
+          <a-cylinder id="part-leftLeg" position="-0.28 0.58 0" radius="0.18" height="1.2" color="#ffd7b3"></a-cylinder>
+          <a-cylinder id="part-rightLeg" position="0.28 0.58 0" radius="0.18" height="1.2" color="#ffd7b3"></a-cylinder>
+
+          <!-- belly + chest -->
+          <a-box id="part-belly" position="0 1.22 0" width="1.05" height="0.58" depth="0.42" color="#ffd7b3"></a-box>
+          <a-box id="part-chest" position="0 1.72 0" width="1.18" height="0.72" depth="0.46" color="#ffd7b3"></a-box>
+
+          <!-- arms with cute pose -->
+          <a-entity id="leftArmRig" position="-0.88 1.72 0" rotation="0 0 25"
+            animation="property: rotation; from: 0 0 22; to: 0 0 32; dir: alternate; dur: 900; loop: true; easing: easeInOutSine">
+            <a-cylinder id="part-leftArm" position="0 -0.32 0" radius="0.13" height="0.95" color="#ffd7b3"></a-cylinder>
+          </a-entity>
+
+          <a-entity id="rightArmRig" position="0.88 1.72 0" rotation="0 0 -38"
+            animation="property: rotation; from: 0 0 -34; to: 0 0 -46; dir: alternate; dur: 880; loop: true; easing: easeInOutSine">
+            <a-cylinder id="part-rightArm" position="0 -0.32 0" radius="0.13" height="0.95" color="#ffd7b3"></a-cylinder>
+          </a-entity>
+
+          <!-- head -->
+          <a-entity id="headRig" position="0 2.42 0"
+            animation="property: rotation; from: 0 0 5; to: 0 0 -5; dir: alternate; dur: 1400; loop: true; easing: easeInOutSine">
+            <a-sphere id="part-head" position="0 0 0" radius="0.42" color="#ffd7b3"></a-sphere>
+
+            <!-- hair -->
+            <a-sphere position="0 0.12 -0.03" radius="0.44" color="#5d3b2d" scale="1 0.72 1"></a-sphere>
+            <a-sphere position="0 0.18 0.15" radius="0.26" color="#5d3b2d" scale="1 0.55 0.8"></a-sphere>
+
+            <!-- face -->
+            <a-sphere position="-0.12 0.07 0.38" radius="0.03" color="#2e4350"></a-sphere>
+            <a-sphere position="0.12 0.07 0.38" radius="0.03" color="#2e4350"></a-sphere>
+            <a-sphere position="-0.17 0.12 0.37" radius="0.018" color="#ffd0d9"></a-sphere>
+            <a-sphere position="0.17 0.12 0.37" radius="0.018" color="#ffd0d9"></a-sphere>
+            <a-ring position="0 -0.07 0.39" radius-inner="0.1" radius-outer="0.13" theta-start="205" theta-length="130" color="#ff8f7d"></a-ring>
+          </a-entity>
+
+          <!-- foam around body -->
+          <a-sphere position="-0.65 1.08 0.24" radius="0.12" color="#fff" opacity="0.9"></a-sphere>
+          <a-sphere position="-0.47 1.2 0.2" radius="0.08" color="#fff" opacity="0.9"></a-sphere>
+          <a-sphere position="0.58 1.12 0.22" radius="0.13" color="#fff" opacity="0.9"></a-sphere>
+          <a-sphere position="0.76 1.24 0.18" radius="0.08" color="#fff" opacity="0.9"></a-sphere>
+          <a-sphere position="0.02 1.9 0.25" radius="0.09" color="#fff" opacity="0.9"></a-sphere>
+        </a-entity>
+      </a-entity>
+
+      <!-- zone marker + arrow -->
+      <a-entity id="zoneMarker"></a-entity>
+      <a-entity id="zoneArrow"></a-entity>
+
+      <!-- dirt -->
+      <a-entity id="targetLayer"></a-entity>
+
+      <!-- manual bubble fx layer -->
+      <a-entity id="fxLayer"></a-entity>
+
+      <!-- duck -->
+      <a-sphere position="1.95 1.0 -4.45" radius="0.16" color="#ffd54f"></a-sphere>
+      <a-sphere position="2.08 1.11 -4.37" radius="0.1" color="#ffd54f"></a-sphere>
+      <a-cone position="2.16 1.1 -4.3" radius-bottom="0.045" radius-top="0.01" height="0.06" rotation="0 0 90" color="#ff9842"></a-cone>
+    </a-entity>
+
+    <a-light type="ambient" color="#ffffff" intensity="0.9"></a-light>
+    <a-light type="directional" color="#fff1cf" intensity="0.75" position="1 4 2"></a-light>
+    <a-light type="point" color="#6fe7ff" intensity="1.15" position="0 3 -3"></a-light>
+    <a-sky color="#dff7ff"></a-sky>
+
+    <a-entity id="mouseCursor" cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
+
+    <a-entity id="rig" position="0 1.6 0">
+      <a-entity camera look-controls>
+        <a-entity id="gazeCursor"
+          position="0 0 -1"
+          visible="false"
+          cursor="fuse: true; fuseTimeout: 420"
+          raycaster="objects: .clickable"
+          geometry="primitive: ring; radiusInner: 0.015; radiusOuter: 0.026"
+          material="color: #00d9ff; shader: flat; opacity: 0.95">
+          <a-entity geometry="primitive: plane; width: 0.046; height: 0.002"
+                    material="color: #00d9ff; shader: flat"
+                    position="0 0 0.001"></a-entity>
+          <a-entity geometry="primitive: plane; width: 0.002; height: 0.046"
+                    material="color: #00d9ff; shader: flat"
+                    position="0 0 0.001"></a-entity>
+        </a-entity>
+
+        <!-- soap bottle -->
+        <a-cylinder position="0.33 -0.40 -0.72" radius="0.05" height="0.3" color="#58d8ff"></a-cylinder>
+        <a-sphere position="0.33 -0.22 -0.72" radius="0.06" color="#ffffff"></a-sphere>
+      </a-entity>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+
+      const VIEW = (qs.get('view') || (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 'mobile' : 'pc')).toLowerCase();
+      const DIFF = (qs.get('diff') || 'normal').toLowerCase();
+      const HUB  = qs.get('hub') || './hub-v2.html';
+
+      const PRESETS = {
+        easy:   { startTime: 80, dirtPerZone: 3, dirtLife: 4200, spawnDelay: 180, zoneBonus: 40 },
+        normal: { startTime: 68, dirtPerZone: 4, dirtLife: 3200, spawnDelay: 160, zoneBonus: 60 },
+        hard:   { startTime: 58, dirtPerZone: 5, dirtLife: 2500, spawnDelay: 140, zoneBonus: 80 }
+      };
+      const cfg = PRESETS[DIFF] || PRESETS.normal;
+
+      const ZONES = [
+        {
+          key:'head',
+          label:'ศีรษะ',
+          marker:{ geo:'sphere', radius:0.58, position:'0 2.62 -4.02', rotation:'0 0 0' },
+          arrow:{ x:0, y:3.35, z:-4.02 },
+          base:{ x:0, y:2.60, z:-3.82 },
+          spread:{ x:0.24, y:0.18, z:0.02 }
+        },
+        {
+          key:'chest',
+          label:'อก',
+          marker:{ geo:'box', width:1.45, height:0.95, depth:0.2, position:'0 1.90 -3.92', rotation:'0 0 0' },
+          arrow:{ x:0, y:2.65, z:-3.92 },
+          base:{ x:0, y:1.90, z:-3.82 },
+          spread:{ x:0.42, y:0.24, z:0.02 }
+        },
+        {
+          key:'leftArm',
+          label:'แขนซ้าย',
+          marker:{ geo:'box', width:0.62, height:1.18, depth:0.2, position:'-1.00 1.66 -3.88', rotation:'0 0 18' },
+          arrow:{ x:-1.00, y:2.48, z:-3.88 },
+          base:{ x:-1.00, y:1.66, z:-3.82 },
+          spread:{ x:0.16, y:0.34, z:0.02 }
+        },
+        {
+          key:'rightArm',
+          label:'แขนขวา',
+          marker:{ geo:'box', width:0.62, height:1.18, depth:0.2, position:'1.00 1.66 -3.88', rotation:'0 0 -28' },
+          arrow:{ x:1.00, y:2.48, z:-3.88 },
+          base:{ x:1.00, y:1.66, z:-3.82 },
+          spread:{ x:0.16, y:0.34, z:0.02 }
+        },
+        {
+          key:'belly',
+          label:'ท้อง',
+          marker:{ geo:'box', width:1.28, height:0.78, depth:0.2, position:'0 1.40 -3.92', rotation:'0 0 0' },
+          arrow:{ x:0, y:2.14, z:-3.92 },
+          base:{ x:0, y:1.40, z:-3.82 },
+          spread:{ x:0.36, y:0.18, z:0.02 }
+        },
+        {
+          key:'leftLeg',
+          label:'ขาซ้าย',
+          marker:{ geo:'box', width:0.62, height:1.34, depth:0.2, position:'-0.28 0.90 -3.72', rotation:'0 0 0' },
+          arrow:{ x:-0.28, y:1.86, z:-3.72 },
+          base:{ x:-0.28, y:0.90, z:-3.76 },
+          spread:{ x:0.14, y:0.42, z:0.02 }
+        },
+        {
+          key:'rightLeg',
+          label:'ขาขวา',
+          marker:{ geo:'box', width:0.62, height:1.34, depth:0.2, position:'0.28 0.90 -3.72', rotation:'0 0 0' },
+          arrow:{ x:0.28, y:1.86, z:-3.72 },
+          base:{ x:0.28, y:0.90, z:-3.76 },
+          spread:{ x:0.14, y:0.42, z:0.02 }
+        }
+      ];
+
+      const $ = (id) => document.getElementById(id);
+
+      const ui = {
+        timer:$('timer'),
+        score:$('score'),
+        combo:$('combo'),
+        stepNow:$('stepNow'),
+        stepAll:$('stepAll'),
+        taskTitle:$('taskTitle'),
+        modeText:$('modeText'),
+        remainText:$('remainText'),
+        cleanedText:$('cleanedText'),
+        zoneBar:$('zoneBar'),
+        taskHint:$('taskHint'),
+        centerMsg:$('centerMsg'),
+
+        startOverlay:$('startOverlay'),
+        summaryOverlay:$('summaryOverlay'),
+        startBtn:$('startBtn'),
+        replayBtn:$('replayBtn'),
+        restartBtnTop:$('restartBtnTop'),
+
+        sumTitle:$('sumTitle'),
+        sumSub:$('sumSub'),
+        sumStars:$('sumStars'),
+        sumScore:$('sumScore'),
+        sumHits:$('sumHits'),
+        sumMiss:$('sumMiss'),
+        sumTime:$('sumTime'),
+
+        hubBtn:$('hubBtn'),
+        hubBtnStart:$('hubBtnStart'),
+        hubBtnSummary:$('hubBtnSummary'),
+      };
+
+      ui.stepAll.textContent = ZONES.length;
+      ui.modeText.textContent = `${VIEW.toUpperCase()} • ${DIFF.toUpperCase()}`;
+      ui.hubBtn.href = HUB;
+      ui.hubBtnStart.href = HUB;
+      ui.hubBtnSummary.href = HUB;
+
+      const targetLayer = $('targetLayer');
+      const fxLayer = $('fxLayer');
+      const zoneMarker = $('zoneMarker');
+      const zoneArrow = $('zoneArrow');
+      const gazeCursor = $('gazeCursor');
+
+      function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+      function rand(min, max){ return Math.random() * (max - min) + min; }
+
+      function showMsg(text, ms = 700){
+        ui.centerMsg.textContent = text;
+        ui.centerMsg.classList.add('show');
+        clearTimeout(showMsg._timer);
+        showMsg._timer = setTimeout(() => ui.centerMsg.classList.remove('show'), ms);
+      }
+
+      function addBubbleBurst(pos){
+        for (let i = 0; i < 8; i++) {
+          const b = document.createElement('a-sphere');
+          const dx = rand(-0.12, 0.12);
+          const dy = rand(0.04, 0.18);
+          const dz = rand(-0.03, 0.03);
+          const size = rand(0.025, 0.05);
+
+          b.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+          b.setAttribute('radius', size.toFixed(3));
+          b.setAttribute('color', '#ffffff');
+          b.setAttribute('opacity', '0.95');
+          b.setAttribute('animation__move',
+            `property: position; to: ${(pos.x+dx).toFixed(2)} ${(pos.y+dy).toFixed(2)} ${(pos.z+dz).toFixed(2)}; dur: 380; easing: easeOutQuad`);
+          b.setAttribute('animation__fade',
+            'property: material.opacity; from: 0.95; to: 0; dur: 380; easing: easeOutQuad');
+
+          fxLayer.appendChild(b);
+          setTimeout(() => b.parentNode && b.parentNode.removeChild(b), 420);
+        }
+      }
+
+      function configureView(){
+        if (VIEW === 'pc') gazeCursor.setAttribute('visible', 'false');
+        else gazeCursor.setAttribute('visible', 'true');
+      }
+
+      class BathV5Main {
+        constructor(){
+          this.running = false;
+          this.ended = false;
+
+          this.time = cfg.startTime;
+          this.score = 0;
+          this.combo = 0;
+          this.hits = 0;
+          this.miss = 0;
+
+          this.zoneIndex = 0;
+          this.zoneNeed = cfg.dirtPerZone;
+          this.zoneDone = 0;
+
+          this.activeTarget = null;
+          this.tickTimer = null;
+        }
+
+        start(){
+          this.stop();
+          this.resetState();
+
+          ui.startOverlay.classList.add('hidden');
+          ui.summaryOverlay.classList.add('hidden');
+
+          this.running = true;
+          this.renderZone();
+          this.spawnTarget();
+
+          this.tickTimer = setInterval(() => {
+            if (!this.running || this.ended) return;
+            this.time = Math.max(0, this.time - 1);
+            this.renderHud();
+
+            if (this.time <= 0) this.finish(false);
+          }, 1000);
+        }
+
+        stop(){
+          clearInterval(this.tickTimer);
+          this.tickTimer = null;
+          this.clearTarget();
+        }
+
+        resetState(){
+          this.running = false;
+          this.ended = false;
+          this.time = cfg.startTime;
+          this.score = 0;
+          this.combo = 0;
+          this.hits = 0;
+          this.miss = 0;
+          this.zoneIndex = 0;
+          this.zoneNeed = cfg.dirtPerZone;
+          this.zoneDone = 0;
+          this.activeTarget = null;
+          this.renderHud();
+        }
+
+        currentZone(){
+          return ZONES[this.zoneIndex];
+        }
+
+        renderHud(){
+          ui.timer.textContent = this.time;
+          ui.score.textContent = this.score;
+          ui.combo.textContent = this.combo;
+          ui.stepNow.textContent = this.zoneIndex + 1;
+        }
+
+        renderZone(){
+          const zone = this.currentZone();
+          if (!zone) return;
+
+          const remain = Math.max(0, this.zoneNeed - this.zoneDone);
+          const pct = this.zoneNeed > 0 ? (this.zoneDone / this.zoneNeed) * 100 : 0;
+
+          ui.taskTitle.textContent = `ตอนนี้: ล้าง${zone.label}`;
+          ui.remainText.textContent = `เหลือ ${remain} คราบ`;
+          ui.cleanedText.textContent = `ล้างแล้ว ${this.zoneDone}/${this.zoneNeed}`;
+          ui.zoneBar.style.width = `${pct}%`;
+          ui.taskHint.textContent = `เล็งหรือคลิกที่คราบบน${zone.label}`;
+
+          this.renderMarker(zone);
+          this.renderHud();
+        }
+
+        renderMarker(zone){
+          zoneMarker.innerHTML = '';
+          zoneArrow.innerHTML = '';
+
+          const marker = document.createElement('a-entity');
+          marker.setAttribute('position', zone.marker.position);
+          marker.setAttribute('rotation', zone.marker.rotation || '0 0 0');
+
+          if (zone.marker.geo === 'sphere') {
+            marker.setAttribute('geometry', `primitive: sphere; radius: ${zone.marker.radius}`);
+          } else {
+            marker.setAttribute('geometry',
+              `primitive: box; width: ${zone.marker.width}; height: ${zone.marker.height}; depth: ${zone.marker.depth}`);
+          }
+
+          marker.setAttribute('material', 'color: #ffe76f; opacity: 0.22; transparent: true; emissive: #ffd84f; emissiveIntensity: 0.45');
+          marker.setAttribute('animation__pulse', 'property: scale; dir: alternate; dur: 520; loop: true; to: 1.08 1.08 1.08; easing: easeInOutSine');
+          zoneMarker.appendChild(marker);
+
+          const arrow = document.createElement('a-cone');
+          arrow.setAttribute('position', `${zone.arrow.x} ${zone.arrow.y} ${zone.arrow.z}`);
+          arrow.setAttribute('radius-bottom', '0.09');
+          arrow.setAttribute('radius-top', '0.01');
+          arrow.setAttribute('height', '0.24');
+          arrow.setAttribute('rotation', '180 0 0');
+          arrow.setAttribute('color', '#ffcf3f');
+          arrow.setAttribute('animation__bob',
+            `property: position; from: ${zone.arrow.x} ${zone.arrow.y} ${zone.arrow.z}; to: ${zone.arrow.x} ${(zone.arrow.y - 0.12).toFixed(2)} ${zone.arrow.z}; dir: alternate; dur: 500; loop: true; easing: easeInOutSine`);
+          zoneArrow.appendChild(arrow);
+        }
+
+        clearTarget(){
+          if (!this.activeTarget) return;
+          clearTimeout(this.activeTarget.expireTimer);
+          if (this.activeTarget.el && this.activeTarget.el.parentNode) {
+            this.activeTarget.el.parentNode.removeChild(this.activeTarget.el);
+          }
+          this.activeTarget = null;
+        }
+
+        spawnTarget(){
+          if (!this.running || this.ended) return;
+          this.clearTarget();
+
+          const zone = this.currentZone();
+          const pos = {
+            x: zone.base.x + rand(-zone.spread.x, zone.spread.x),
+            y: zone.base.y + rand(-zone.spread.y, zone.spread.y),
+            z: zone.base.z + rand(-zone.spread.z, zone.spread.z)
+          };
+
+          const dirt = document.createElement('a-entity');
+          dirt.classList.add('clickable');
+          dirt.setAttribute('position', `${pos.x.toFixed(2)} ${pos.y.toFixed(2)} ${pos.z.toFixed(2)}`);
+          dirt.setAttribute('geometry', `primitive: sphere; radius: ${rand(0.12,0.18).toFixed(2)}; segmentsWidth: 14; segmentsHeight: 10`);
+          dirt.setAttribute('material', 'color: #6b422e; emissive: #35180e; emissiveIntensity: 0.25; roughness: 1');
+          dirt.setAttribute('animation__pulse', 'property: scale; dir: alternate; dur: 420; loop: true; to: 1.08 1.08 1.08; easing: easeInOutSine');
+
+          for (let i = 0; i < 3; i++) {
+            const bubble = document.createElement('a-sphere');
+            bubble.setAttribute('position', `${rand(-0.18,0.18).toFixed(2)} ${rand(-0.18,0.18).toFixed(2)} ${rand(-0.05,0.05).toFixed(2)}`);
+            bubble.setAttribute('radius', rand(0.02,0.04).toFixed(3));
+            bubble.setAttribute('color', '#ffffff');
+            bubble.setAttribute('opacity', '0.9');
+            dirt.appendChild(bubble);
+          }
+
+          const expireTimer = setTimeout(() => this.onMiss(pos), cfg.dirtLife);
+          dirt.addEventListener('click', () => this.onHit(pos));
+
+          targetLayer.appendChild(dirt);
+          this.activeTarget = { el:dirt, expireTimer, pos };
+        }
+
+        onHit(pos){
+          if (!this.running || this.ended || !this.activeTarget) return;
+
+          this.clearTarget();
+
+          this.combo += 1;
+          this.hits += 1;
+          this.zoneDone += 1;
+          this.score += 50 + Math.min(this.combo, 10) * 8;
+
+          addBubbleBurst(pos);
+
+          const remain = this.zoneNeed - this.zoneDone;
+
+          if (remain > 0) {
+            showMsg(`🫧 ดีมาก! เหลืออีก ${remain} คราบ`, 520);
+            this.renderZone();
+            setTimeout(() => this.spawnTarget(), cfg.spawnDelay);
+            return;
+          }
+
+          this.score += cfg.zoneBonus;
+          this.time += 2;
+          showMsg(`✅ ล้าง${this.currentZone().label}เสร็จแล้ว!`, 850);
+
+          this.zoneIndex += 1;
+          this.zoneDone = 0;
+
+          if (this.zoneIndex >= ZONES.length) {
+            this.finish(true);
+            return;
+          }
+
+          this.renderZone();
+          setTimeout(() => this.spawnTarget(), 520);
+        }
+
+        onMiss(pos){
+          if (!this.running || this.ended || !this.activeTarget) return;
+
+          this.clearTarget();
+
+          this.combo = 0;
+          this.miss += 1;
+          this.time = Math.max(0, this.time - 2);
+
+          addBubbleBurst(pos);
+          showMsg('😅 ยังล้างไม่ทัน ลองใหม่', 520);
+
+          this.renderHud();
+
+          if (this.time <= 0) {
+            this.finish(false);
+            return;
+          }
+
+          setTimeout(() => this.spawnTarget(), cfg.spawnDelay);
+        }
+
+        getStars(){
+          if (this.zoneIndex >= ZONES.length && this.miss <= 3) return 3;
+          if (this.zoneIndex >= ZONES.length || this.zoneIndex >= ZONES.length - 1) return 2;
+          if (this.zoneIndex >= Math.floor(ZONES.length / 2)) return 1;
+          return 0;
+        }
+
+        finish(win){
+          if (this.ended) return;
+
+          this.ended = true;
+          this.running = false;
+          this.stop();
+
+          const stars = this.getStars();
+          ui.sumStars.textContent = '⭐️'.repeat(stars) + '☆'.repeat(3 - stars);
+          ui.sumScore.textContent = this.score;
+          ui.sumHits.textContent = this.hits;
+          ui.sumMiss.textContent = this.miss;
+          ui.sumTime.textContent = this.time;
+
+          if (win) {
+            ui.sumTitle.textContent = '🛁 อาบน้ำครบทุกส่วนแล้ว!';
+            ui.sumSub.textContent = 'หัว อก แขน ท้อง ขา สะอาดครบเลย เก่งมาก';
+          } else {
+            ui.sumTitle.textContent = '🙂 เกือบครบแล้ว';
+            ui.sumSub.textContent = `ไปได้ถึงโซนที่ ${Math.min(this.zoneIndex + 1, ZONES.length)} แล้ว ลองอีกรอบได้เลย`;
+          }
+
+          try {
+            localStorage.setItem('HHA_LAST_SUMMARY_BATH', JSON.stringify({
+              game:'bath-v5-main',
+              score:this.score,
+              hits:this.hits,
+              miss:this.miss,
+              timeLeft:this.time,
+              zoneReached:this.zoneIndex,
+              stars,
+              diff:DIFF,
+              view:VIEW,
+              at:new Date().toISOString()
+            }));
+          } catch (_) {}
+
+          ui.summaryOverlay.classList.remove('hidden');
+        }
+      }
+
+      configureView();
+
+      const game = new BathV5Main();
+      window.__bathV5Main = game;
+
+      ui.startBtn.addEventListener('click', () => game.start());
+      ui.replayBtn.addEventListener('click', () => game.start());
+      ui.restartBtnTop.addEventListener('click', () => game.start());
+
+      game.renderHud();
+      game.renderZone();
+    })();
+  </script>
+</body>
+</html>
