@@ -816,14 +816,14 @@
         <h1>GoodJunk</h1>
         <div class="hero-sub">
           เลือกเส้นทางที่อยากเล่นได้เลย<br>
-          เริ่มจากด่านที่เหมาะที่สุด แล้วลุยต่อได้ทันที
+          เริ่มจาก flow ที่เหมาะที่สุด แล้วลุยต่อได้ทันที
         </div>
         <div class="speech" id="speechText">
           สวัสดีฮีโร่! ถ้ายังไม่แน่ใจว่าจะเริ่มตรงไหน ให้เริ่มที่ <b>Solo Boss</b> ก่อนนะ ✨
         </div>
         <div class="hero-tips">
           <div class="hero-tip">👦 เด็ก: กดปุ่มใหญ่แล้วเล่นได้เลย</div>
-          <div class="hero-tip">🧩 Solo จะเข้า flow warmup → boss → cooldown อัตโนมัติ</div>
+          <div class="hero-tip">🧩 Solo ใช้ flow warmup → boss → cooldown → launcher</div>
         </div>
       </div>
     </section>
@@ -937,7 +937,7 @@
           </div>
           <div class="mode-hint">เหมาะสำหรับ 1 ต่อ 1 และเล่น rematch ต่อได้</div>
           <div class="mode-status">
-            <span class="mini-chip" id="statusBattleWarm">กำลังตรวจสอบ...</span>
+            <span class="mini-chip" id="statusBattleWarm">แชร์ warmup กับ flow เดียวกัน</span>
             <span class="mini-chip info">พร้อมเล่น</span>
           </div>
           <button class="mode-button battle" id="btnBattle" type="button">เล่น Battle</button>
@@ -1113,15 +1113,7 @@
 
       function isWarmupDoneToday(pid){
         try{
-          const keyNew = gateDoneKey('warmup', pid, 'nutrition', 'goodjunk');
-          if (localStorage.getItem(keyNew) === '1') return true;
-
-          const day = bangkokDateKey();
-          const legacyKeys = [
-            `HHA_WARMUP_DONE:nutrition:goodjunk:${pid}:${day}`,
-            `HHA_WARMUP_DONE:nutrition:${pid}:${day}`
-          ];
-          return legacyKeys.some(k => localStorage.getItem(k) === '1');
+          return localStorage.getItem(gateDoneKey('warmup', pid, 'nutrition', 'goodjunk')) === '1';
         }catch(_){
           return false;
         }
@@ -1142,20 +1134,12 @@
 
           studyId: clean(qs('studyId','')),
           conditionGroup: clean(qs('conditionGroup','')),
-          phase: clean(qs('phase','')),
           log: clean(qs('log','')),
           ai: clean(qs('ai','')),
           pro: clean(qs('pro','')),
           research: clean(qs('research','')),
           seed: clean(qs('seed','')),
           run: clean(qs('run','play')),
-          planSeq: clean(qs('planSeq','')),
-          planDay: clean(qs('planDay','')),
-          planSlot: clean(qs('planSlot','')),
-          planMode: clean(qs('planMode','')),
-          planSlots: clean(qs('planSlots','')),
-          planIndex: clean(qs('planIndex','')),
-          cdnext: clean(qs('cdnext','')),
           debug: qs('debug','') === '1' ? '1' : ''
         };
       }
@@ -1173,20 +1157,12 @@
           sbAnon: p.sbAnon,
           studyId: p.studyId,
           conditionGroup: p.conditionGroup,
-          phase: p.phase,
           log: p.log,
           ai: p.ai,
           pro: p.pro,
           research: p.research,
           seed: p.seed,
           run: p.run,
-          planSeq: p.planSeq,
-          planDay: p.planDay,
-          planSlot: p.planSlot,
-          planMode: p.planMode,
-          planSlots: p.planSlots,
-          planIndex: p.planIndex,
-          cdnext: p.cdnext,
           debug: p.debug
         });
       }
@@ -1195,6 +1171,7 @@
         return buildUrl('./goodjunk-solo-boss.html', {
           pid: p.pid,
           name: p.nick,
+          nick: p.nick,
           studyId: p.studyId,
           diff: p.diff,
           time: p.time,
@@ -1234,24 +1211,18 @@
           time: p.time,
           view: p.view,
           hub: p.hubRoot,
+          hubRoot: p.hubRoot,
+          launcher: buildLauncherSelfUrl(p),
           sbUrl: p.sbUrl,
           sbAnon: p.sbAnon,
           studyId: p.studyId,
           conditionGroup: p.conditionGroup,
-          phase: p.phase,
           log: p.log,
           ai: p.ai,
           pro: p.pro,
           research: p.research,
           seed: p.seed,
           run: p.run,
-          planSeq: p.planSeq,
-          planDay: p.planDay,
-          planSlot: p.planSlot,
-          planMode: p.planMode,
-          planSlots: p.planSlots,
-          planIndex: p.planIndex,
-          cdnext: p.cdnext,
           debug: p.debug
         });
       }
@@ -1274,14 +1245,17 @@
           view: p.view,
           run: p.run,
           seed: p.seed || String(Date.now()),
+
           hub: buildLauncherSelfUrl(p),
           hubRoot: p.hubRoot,
           launcher: buildLauncherSelfUrl(p),
+
           next: nextRun,
           room: mode === 'solo' ? '' : p.room,
           entry: mode === 'solo' ? 'solo-boss' : '',
           phaseBoss: mode === 'solo' ? '1' : '',
           boss: mode === 'solo' ? '1' : '',
+
           conditionGroup: p.conditionGroup,
           log: p.log,
           ai: p.ai,
@@ -1375,7 +1349,7 @@
         const text = done ? 'วอร์มอัปแล้ว' : 'ต้องวอร์มก่อน';
         const tone = done ? 'good' : 'warn';
         setChip('statusSoloWarm', text, tone);
-        setChip('statusBattleWarm', text, tone);
+        setChip('statusBattleWarm', 'ใช้ flow เดียวกัน', 'info');
       }
 
       function renderLastMode(){
@@ -1470,8 +1444,8 @@
         };
 
         $('btnBackHub').onclick = ()=>{
-          const hub = clean($('hub')?.value, './hub.html');
-          location.href = buildUrl(hub, {});
+          const hubRoot = clean($('hub')?.value, './hub.html');
+          location.href = buildUrl(hubRoot, {});
         };
 
         $('btnStartNode').onclick = ()=>{
@@ -1501,7 +1475,8 @@
             room: p.room,
             nick: p.nick,
             sbUrl: p.sbUrl,
-            sbAnon: p.sbAnon
+            sbAnon: p.sbAnon,
+            hub: p.hubRoot
           });
         };
 
