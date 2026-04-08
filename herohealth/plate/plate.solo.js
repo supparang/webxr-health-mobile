@@ -1411,3 +1411,80 @@ function boot(ctx) {
   S.rng = makeRng(S.ctx.seed);
 
   S.running = true;
+  S.paused = false;
+  S.ended = false;
+  S.phaseIndex = 0;
+  S.phase = 'warm';
+
+  S.score = 0;
+  S.combo = 0;
+  S.comboMax = 0;
+  S.hits = 0;
+  S.wrong = 0;
+  S.miss = 0;
+  S.shots = 0;
+
+  S.fever = 0;
+  S.feverOn = false;
+  S.feverTimer = 0;
+  S.shield = 0;
+
+  resetCounts();
+  S.plateHave = 0;
+
+  const total = Math.max(30, Number(S.ctx.time || 90));
+  const warm = Math.max(12, Math.round(total * 0.34));
+  const trick = Math.max(10, Math.round(total * 0.33));
+  const boss = Math.max(8, total - warm - trick);
+  S.phaseDurations = [warm, trick, boss];
+  S.totalTimeLeft = total;
+  S.targets.clear();
+  S.nextId = 1;
+  S.spawnAcc = 0;
+
+  S.toastKey = '';
+  S.toastAt = 0;
+
+  wirePauseButtons();
+  wireEndButtons();
+
+  setOverlayHidden('pauseOverlay', true);
+  setOverlayHidden('endOverlay', true);
+  setObjectiveToastHidden(true);
+
+  const drawer = DOC.getElementById('plateDrawer');
+  if (drawer) {
+    drawer.setAttribute('aria-hidden', 'true');
+    drawer.style.display = 'none';
+  }
+
+  WIN.__PLATE_SET_PAUSED__ = function (on) {
+    S.paused = !!on;
+    if (!S.paused) {
+      S.lastTick = performance.now();
+      setOverlayHidden('pauseOverlay', true);
+    } else if (!S.ended) {
+      syncPauseOverlay();
+      setObjectiveToastHidden(true);
+    }
+  };
+
+  applyPhaseTheme();
+  setPhase(0);
+  updateHud();
+  primeStartTargets();
+
+  setText('uiModeTag', 'SOLO');
+  setText('uiProTag', S.ctx.pro ? 'ON' : 'OFF');
+
+  const miniBtn = DOC.getElementById('btnMiniAfterEnd');
+  if (miniBtn) miniBtn.href = buildMiniGameUrl();
+
+  S.lastTick = performance.now();
+  S.raf = requestAnimationFrame(loop);
+}
+
+WIN.PlateSolo = WIN.PlateSolo || {};
+WIN.PlateSolo.boot = boot;
+
+export { boot };
