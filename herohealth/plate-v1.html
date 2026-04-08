@@ -36,6 +36,11 @@
     }
 
     *{ box-sizing:border-box; }
+
+    [hidden]{
+      display:none !important;
+    }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -53,6 +58,30 @@
         max(16px, env(safe-area-inset-right))
         max(18px, env(safe-area-inset-bottom))
         max(16px, env(safe-area-inset-left));
+    }
+
+    body.modal-open-fix{
+      overflow:auto !important;
+      touch-action:auto !important;
+    }
+
+    .reward-modal[hidden],
+    .reward-backdrop[hidden],
+    .popup-reward[hidden],
+    .popup-backdrop[hidden],
+    .hh-modal[hidden],
+    .hh-backdrop[hidden]{
+      display:none !important;
+      opacity:0 !important;
+      visibility:hidden !important;
+      pointer-events:none !important;
+    }
+
+    .reward-modal:not(.show):not(.open):not(.active),
+    .reward-backdrop:not(.show):not(.open):not(.active),
+    .popup-reward:not(.show):not(.open):not(.active),
+    .popup-backdrop:not(.show):not(.open):not(.active){
+      pointer-events:none !important;
     }
 
     .shell{
@@ -159,18 +188,21 @@
     }
 
     .btn:hover{ transform:translateY(-1px); }
+
     .btn.primary{
       color:#fff;
       border-color:transparent;
       background:linear-gradient(180deg, var(--blue2), #3598ea);
       box-shadow:0 12px 24px rgba(88,183,245,.24);
     }
+
     .btn.success{
       color:#fff;
       border-color:transparent;
       background:linear-gradient(180deg, var(--green), var(--green2));
       box-shadow:0 12px 24px rgba(88,195,63,.22);
     }
+
     .btn.warn{
       color:#7b4c00;
       background:linear-gradient(180deg, #fff3bf, #ffe395);
@@ -604,8 +636,8 @@
           <div class="miniPanel">
             <div class="steps">
               <div class="step"><div class="stepNum">1</div><div>Hub v2 เรียกมาที่ <strong>plate-v1.html</strong></div></div>
-              <div class="step"><div class="stepNum">2</div><div>เลือก <strong>Main Game</strong> เพื่อเข้า Plate Solo ตัวหลัก</div></div>
-              <div class="step"><div class="stepNum">3</div><div>เลือก <strong>Mini Game</strong> เมื่อต้องการรอบเล่นสั้น</div></div>
+              <div class="step"><div class="stepNum">2</div><div>เลือก <strong>Main Game</strong> เพื่อเข้า warmup ก่อน แล้วไป Plate Solo ตัวหลัก</div></div>
+              <div class="step"><div class="stepNum">3</div><div>เลือก <strong>Mini Game</strong> เพื่อเข้า <strong>plate-vr.html</strong> ตรง ๆ</div></div>
               <div class="step"><div class="stepNum">4</div><div>ทุกทางส่ง <code>hub=...hub-v2.html</code> กลับได้ถูก</div></div>
             </div>
           </div>
@@ -638,6 +670,7 @@
       const HUB_DEFAULT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
       const MAIN_RUN_URL = './plate/plate-solo.html';
       const MINI_RUN_URL = './plate/plate-vr.html';
+      const WARMUP_URL   = './warmup-gate.html';
 
       function q(name, fallback = '') {
         const v = U.searchParams.get(name);
@@ -659,7 +692,7 @@
         }
       }
 
-      const ctx = {
+      const CTX = {
         pid: q('pid', 'anon'),
         name: q('name', ''),
         studyId: q('studyId', ''),
@@ -681,27 +714,68 @@
         if (el) el.textContent = String(value ?? '');
       }
 
+      function hardCloseRewardPopup() {
+        const selectors = [
+          '#rewardModal',
+          '#rewardBackdrop',
+          '#popupReward',
+          '#popupBackdrop',
+          '.reward-modal',
+          '.reward-backdrop',
+          '.popup-reward',
+          '.popup-backdrop',
+          '.hh-modal',
+          '.hh-backdrop',
+          '[data-reward-modal]',
+          '[data-reward-backdrop]',
+          '[role="dialog"]'
+        ];
+
+        selectors.forEach(sel => {
+          document.querySelectorAll(sel).forEach(el => {
+            el.classList.remove('show', 'open', 'active', 'is-open', 'visible');
+            el.setAttribute('hidden', '');
+            el.setAttribute('aria-hidden', 'true');
+            el.style.display = 'none';
+            el.style.opacity = '0';
+            el.style.visibility = 'hidden';
+            el.style.pointerEvents = 'none';
+          });
+        });
+
+        document.body.classList.remove('modal-open', 'dialog-open', 'reward-open');
+        document.body.classList.add('modal-open-fix');
+        document.body.style.overflow = 'auto';
+        document.body.style.pointerEvents = 'auto';
+      }
+
+      function forceGo(url) {
+        hardCloseRewardPopup();
+        setTimeout(() => {
+          location.href = url;
+        }, 30);
+      }
+
       function buildRunUrl(basePath, patch = {}) {
         const url = new URL(basePath, location.href);
 
         const params = {
-          pid: ctx.pid,
-          name: ctx.name,
-          studyId: ctx.studyId,
-          hub: ctx.hub,
-          view: ctx.view,
-          run: ctx.run,
-          diff: ctx.diff,
-          time: ctx.time,
-          seed: ctx.seed,
-          pro: ctx.pro,
-          cooldown: ctx.cooldown,
+          pid: CTX.pid,
+          name: CTX.name,
+          studyId: CTX.studyId,
+          hub: CTX.hub,
+          view: CTX.view,
+          run: CTX.run,
+          diff: CTX.diff,
+          time: CTX.time,
+          seed: String(Date.now()),
+          pro: CTX.pro,
+          cooldown: CTX.cooldown,
           zone: 'nutrition',
           cat: 'nutrition',
           game: 'plate',
           gameId: 'plate',
           theme: 'plate',
-          mode: 'solo',
           ...patch
         };
 
@@ -710,7 +784,43 @@
           url.searchParams.set(k, String(v));
         });
 
-        if (ctx.debug === '1') {
+        if (CTX.debug === '1') {
+          url.searchParams.set('debug', '1');
+        }
+
+        return url.toString();
+      }
+
+      function buildWarmupUrl(nextUrl, patch = {}) {
+        const url = new URL(WARMUP_URL, location.href);
+
+        const params = {
+          phase: 'warmup',
+          gatePhase: 'warmup',
+          pid: CTX.pid,
+          name: CTX.name,
+          studyId: CTX.studyId,
+          hub: CTX.hub,
+          view: CTX.view,
+          run: CTX.run,
+          diff: CTX.diff,
+          time: CTX.time,
+          seed: String(Date.now()),
+          zone: 'nutrition',
+          cat: 'nutrition',
+          game: 'plate',
+          gameId: 'plate',
+          theme: 'plate',
+          next: nextUrl,
+          ...patch
+        };
+
+        Object.entries(params).forEach(([k, v]) => {
+          if (v == null || v === '') return;
+          url.searchParams.set(k, String(v));
+        });
+
+        if (CTX.debug === '1') {
           url.searchParams.set('debug', '1');
         }
 
@@ -724,36 +834,38 @@
       }
 
       function goMain(extra = {}){
-        const url = buildRunUrl(MAIN_RUN_URL, {
-          seed: ctx.run === 'research' ? ctx.seed : String(Date.now()),
+        const runUrl = buildRunUrl(MAIN_RUN_URL, {
+          mode: 'solo',
           ...extra
         });
 
+        const warmupUrl = buildWarmupUrl(runUrl);
+
         saveLastLaunch({
           kind: 'main',
-          url,
+          url: warmupUrl,
+          next: runUrl,
           ts: Date.now()
         });
 
-        location.href = url;
+        forceGo(warmupUrl);
       }
 
       function goMini(extra = {}){
-        const url = buildRunUrl(MINI_RUN_URL, {
-          time: extra.time || '60',
-          mini: '1',
+        const runUrl = buildRunUrl(MINI_RUN_URL, {
           mode: 'mini',
-          seed: ctx.run === 'research' ? ctx.seed : String(Date.now()),
+          mini: '1',
+          time: extra.time || '60',
           ...extra
         });
 
         saveLastLaunch({
           kind: 'mini',
-          url,
+          url: runUrl,
           ts: Date.now()
         });
 
-        location.href = url;
+        forceGo(runUrl);
       }
 
       function goContinue(){
@@ -770,50 +882,53 @@
             return;
           }
 
-          location.href = String(last.url);
+          forceGo(String(last.url));
         }catch(_){
           goMain();
         }
       }
 
-      function copyText(text){
+      async function copyText(text){
         if (navigator.clipboard?.writeText) {
-          return navigator.clipboard.writeText(text);
+          await navigator.clipboard.writeText(text);
         }
-        return Promise.reject(new Error('clipboard unavailable'));
       }
 
       function refreshUi(){
-        setText('chipPid', ctx.pid);
-        setText('chipView', ctx.view);
-        setText('chipRun', ctx.run);
-        setText('chipDiff', ctx.diff);
-        setText('chipHub', ctx.hub.includes('hub-v2') ? 'hub-v2' : ctx.hub);
+        setText('chipPid', CTX.pid);
+        setText('chipView', CTX.view);
+        setText('chipRun', CTX.run);
+        setText('chipDiff', CTX.diff);
+        setText('chipHub', CTX.hub.includes('hub-v2') ? 'hub-v2' : CTX.hub);
 
-        setText('kvPid', ctx.pid);
-        setText('kvHub', ctx.hub);
-        setText('kvView', ctx.view);
-        setText('kvRun', ctx.run);
-        setText('kvDiff', ctx.diff);
-        setText('kvTime', ctx.time);
+        setText('kvPid', CTX.pid);
+        setText('kvHub', CTX.hub);
+        setText('kvView', CTX.view);
+        setText('kvRun', CTX.run);
+        setText('kvDiff', CTX.diff);
+        setText('kvTime', CTX.time);
 
         const hubBtn = $('hubBtn');
-        if (hubBtn) hubBtn.href = ctx.hub;
+        if (hubBtn) hubBtn.href = CTX.hub;
 
-        if (ctx.debug === '1') {
+        if (CTX.debug === '1') {
           document.body.classList.add('debug');
-          const mainUrl = buildRunUrl(MAIN_RUN_URL);
+          const mainUrl = buildRunUrl(MAIN_RUN_URL, { mode:'solo' });
+          const mainWarmupUrl = buildWarmupUrl(mainUrl);
           const miniUrl = buildRunUrl(MINI_RUN_URL, { mini:'1', mode:'mini', time:'60' });
           const box = $('debugBox');
           if (box) {
             box.textContent =
 `CTX
-${JSON.stringify(ctx, null, 2)}
+${JSON.stringify(CTX, null, 2)}
 
-MAIN
+MAIN RUN
 ${mainUrl}
 
-MINI
+MAIN WARMUP
+${mainWarmupUrl}
+
+MINI RUN
 ${miniUrl}`;
           }
         }
@@ -832,13 +947,31 @@ ${miniUrl}`;
 
       $('copyMainLinkBtn')?.addEventListener('click', async () => {
         try{
-          await copyText(buildRunUrl(MAIN_RUN_URL));
+          await copyText(buildWarmupUrl(buildRunUrl(MAIN_RUN_URL, { mode:'solo' })));
           $('copyMainLinkBtn').textContent = '✅ คัดลอกแล้ว';
           setTimeout(() => {
             $('copyMainLinkBtn').textContent = '🔗 คัดลอกลิงก์ Main Game';
           }, 1200);
         }catch(_){}
       });
+
+      document.addEventListener('click', (ev) => {
+        const t = ev.target.closest('button, a');
+        if (!t) return;
+
+        const txt = (t.textContent || '').trim();
+        if (
+          txt.includes('เยี่ยมเลย') ||
+          txt.includes('ตกลง') ||
+          txt.includes('ปิด') ||
+          txt.includes('โอเค')
+        ) {
+          setTimeout(hardCloseRewardPopup, 0);
+        }
+      }, true);
+
+      window.addEventListener('pageshow', hardCloseRewardPopup);
+      window.addEventListener('load', hardCloseRewardPopup);
 
       refreshUi();
     })();
