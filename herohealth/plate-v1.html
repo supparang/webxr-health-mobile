@@ -3,633 +3,629 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Plate</title>
+  <title>HeroHealth • Plate v1 Launcher</title>
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#ffd861" />
+  <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
-      --sky1:#fff8dd;
-      --sky2:#fffef5;
-      --sky3:#ecf8ff;
-      --ink:#33415d;
-      --muted:#6c7895;
-      --line:#e3ecf7;
-      --yellow:#ffd75c;
-      --yellow2:#ffbe45;
-      --green:#73d46d;
-      --green2:#54c95b;
-      --blue:#71cbff;
-      --blue2:#58baf6;
-      --pink:#ff99c8;
-      --purple:#9b8cff;
-      --shadow:0 16px 36px rgba(84,116,150,.14);
-      --max:1180px;
+      --sky1:#dff4ff;
+      --sky2:#eefbff;
+      --sky3:#fff9df;
+
+      --card:#fffdf7;
+      --card2:#f9fff6;
+      --card3:#fff8fb;
+
+      --line:#cfe7f3;
+      --text:#4d4a42;
+      --muted:#7a7a72;
+
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --green:#7ed957;
+      --green2:#58c33f;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --pink:#ff9fcb;
+      --purple:#b99cff;
+
+      --shadow:0 16px 36px rgba(59,130,246,.10);
+      --radius:24px;
     }
 
-    *{box-sizing:border-box}
-    html,body{margin:0;padding:0}
-    body{
-      min-height:100vh;
-      font-family:ui-rounded,"SF Pro Rounded","Nunito","Prompt","Kanit",system-ui,-apple-system,sans-serif;
-      color:var(--ink);
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      color:var(--text);
       background:
-        radial-gradient(circle at top left, rgba(255,255,255,.94), rgba(255,255,255,0) 32%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 56%,var(--sky3));
+        radial-gradient(1200px 700px at 10% -10%, rgba(127,207,255,.38), transparent 55%),
+        radial-gradient(900px 620px at 100% 0%, rgba(255,212,92,.22), transparent 50%),
+        linear-gradient(180deg, var(--sky1), var(--sky2) 45%, var(--sky3));
     }
 
-    a{color:inherit;text-decoration:none}
-    button{font:inherit}
+    body{
+      padding:
+        max(16px, env(safe-area-inset-top))
+        max(16px, env(safe-area-inset-right))
+        max(18px, env(safe-area-inset-bottom))
+        max(16px, env(safe-area-inset-left));
+    }
 
     .shell{
-      width:min(calc(100% - 24px), var(--max));
+      max-width:1100px;
       margin:0 auto;
-      padding:18px 0 36px;
+      display:grid;
+      gap:18px;
     }
 
-    .topbar{
+    .hero{
+      position:relative;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.72);
+      border-radius:32px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.88), rgba(255,255,255,.72));
+      box-shadow:var(--shadow);
+      padding:22px;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      inset:auto -40px -40px auto;
+      width:220px;
+      height:220px;
+      border-radius:999px;
+      background:radial-gradient(circle, rgba(127,207,255,.28), transparent 70%);
+      pointer-events:none;
+    }
+
+    .heroTop{
       display:flex;
-      align-items:center;
       justify-content:space-between;
-      gap:12px;
+      align-items:flex-start;
+      gap:14px;
       flex-wrap:wrap;
-      margin-bottom:14px;
     }
 
     .brand{
-      display:flex;
+      display:grid;
+      gap:8px;
+      min-width:0;
+    }
+
+    .badge{
+      display:inline-flex;
       align-items:center;
-      gap:12px;
+      gap:8px;
+      min-height:34px;
+      width:max-content;
+      padding:0 14px;
+      border-radius:999px;
+      background:linear-gradient(180deg, #ffffff, #f8fdff);
+      border:1px solid var(--line);
+      font-size:12px;
+      font-weight:1000;
+      color:#4b6f86;
+      box-shadow:0 8px 18px rgba(127,207,255,.12);
     }
 
-    .brand-icon{
-      width:58px;height:58px;border-radius:20px;
-      display:grid;place-items:center;
-      font-size:30px;
-      background:linear-gradient(180deg,#fff8d8,#fff);
-      border:1px solid #fff0bf;
-      box-shadow:var(--shadow);
-    }
-
-    .brand-text h1{
+    h1{
       margin:0;
-      font-size:clamp(28px,4vw,42px);
-      line-height:1;
+      font-size:clamp(28px, 5vw, 42px);
+      line-height:1.05;
+      font-weight:1000;
+      letter-spacing:-.02em;
     }
 
-    .brand-text p{
-      margin:5px 0 0;
+    .sub{
+      margin:0;
+      max-width:760px;
       color:var(--muted);
-      font-size:14px;
-      line-height:1.35;
+      font-size:15px;
+      line-height:1.65;
+      font-weight:700;
     }
 
-    .top-actions{
+    .heroActions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
     }
 
     .btn{
-      min-height:46px;
-      padding:0 16px;
+      appearance:none;
       border:none;
-      border-radius:999px;
+      text-decoration:none;
       cursor:pointer;
       display:inline-flex;
       align-items:center;
       justify-content:center;
       gap:8px;
-      font-weight:900;
+      min-height:48px;
+      padding:0 16px;
+      border-radius:999px;
+      font-size:14px;
+      font-weight:1000;
+      color:var(--text);
       background:#fff;
-      color:var(--ink);
-      border:1px solid #e1ecf7;
-      box-shadow:var(--shadow);
-      transition:.18s transform ease,.18s opacity ease;
+      border:1px solid var(--line);
+      box-shadow:0 10px 22px rgba(59,130,246,.10);
+      transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
     }
 
-    .btn:hover{transform:translateY(-1px)}
-    .btn:active{transform:translateY(0)}
+    .btn:hover{ transform:translateY(-1px); }
     .btn.primary{
-      background:linear-gradient(180deg,#ffd969,#ffbf44);
-      border-color:transparent;
       color:#fff;
-    }
-    .btn.green{
-      background:linear-gradient(180deg,#90e67f,#5fcd5b);
       border-color:transparent;
-      color:#fff;
+      background:linear-gradient(180deg, var(--blue2), #3598ea);
+      box-shadow:0 12px 24px rgba(88,183,245,.24);
     }
-    .btn.blue{
-      background:linear-gradient(180deg,#83d8ff,#5bbdf7);
+    .btn.success{
+      color:#fff;
       border-color:transparent;
-      color:#fff;
+      background:linear-gradient(180deg, var(--green), var(--green2));
+      box-shadow:0 12px 24px rgba(88,195,63,.22);
     }
-    .btn.pink{
-      background:linear-gradient(180deg,#ffb2d6,#ff8ec4);
-      border-color:transparent;
-      color:#fff;
-    }
-    .btn.ghost{
-      background:#ffffffd8;
+    .btn.warn{
+      color:#7b4c00;
+      background:linear-gradient(180deg, #fff3bf, #ffe395);
+      border-color:#f4d878;
     }
 
-    .hero{
-      display:grid;
-      grid-template-columns:1.08fr .92fr;
-      gap:16px;
-      margin-bottom:16px;
-    }
-
-    .panel{
-      background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(255,255,255,.9));
-      border:1px solid rgba(255,255,255,.94);
-      border-radius:32px;
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-
-    .hero-main{
-      position:relative;
-      padding:24px;
-      min-height:260px;
-      background:
-        radial-gradient(circle at 14% 10%, rgba(255,255,255,.95), rgba(255,255,255,0) 28%),
-        radial-gradient(circle at 84% 14%, rgba(255,217,92,.3), rgba(255,217,92,0) 18%),
-        linear-gradient(145deg,#fff8df,#fffef8 58%,#eef9ff);
-    }
-
-    .hero-kicker{
-      display:inline-flex;
-      align-items:center;
-      min-height:36px;
-      padding:0 12px;
-      border-radius:999px;
-      background:#ffffffdc;
-      color:#6a7694;
-      font-size:13px;
-      font-weight:900;
-      box-shadow:0 8px 20px rgba(93,124,160,.12);
-    }
-
-    .hero-main h2{
-      margin:16px 0 10px;
-      font-size:clamp(30px,5vw,54px);
-      line-height:.98;
-    }
-
-    .hero-main p{
-      margin:0 0 14px;
-      color:var(--muted);
-      font-size:16px;
-      line-height:1.58;
-      max-width:720px;
-    }
-
-    .hero-actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
+    .chips{
       margin-top:14px;
-    }
-
-    .hero-bubbles{
-      position:absolute;
-      right:18px;
-      top:18px;
-      display:grid;
-      gap:10px;
-      text-align:right;
-      pointer-events:none;
-    }
-
-    .hero-bubbles span{
-      display:inline-block;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#ffffffd4;
-      color:#6e7fa3;
-      font-size:12px;
-      font-weight:900;
-      box-shadow:0 8px 20px rgba(93,124,160,.12);
-    }
-
-    .hero-side{
-      padding:18px;
-      display:grid;
-      gap:14px;
-    }
-
-    .info-card{
-      border-radius:24px;
-      padding:16px;
-      background:linear-gradient(180deg,#fff,#fbfdff);
-      border:1px solid #e3edf8;
-    }
-
-    .info-card h3{
-      margin:0 0 10px;
-      font-size:22px;
-    }
-
-    .flow{
       display:flex;
       flex-wrap:wrap;
       gap:8px;
     }
 
-    .flow span{
+    .chip{
       min-height:34px;
-      padding:0 12px;
       display:inline-flex;
       align-items:center;
+      gap:8px;
+      padding:0 12px;
       border-radius:999px;
-      background:#f7fbff;
-      border:1px solid #e3eef8;
-      color:#5f7398;
-      font-weight:900;
+      background:rgba(255,255,255,.78);
+      border:1px solid var(--line);
       font-size:12px;
+      font-weight:1000;
+      color:#5d7485;
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:18px;
+    }
+
+    .panel{
+      border:1px solid rgba(255,255,255,.72);
+      border-radius:28px;
+      background:linear-gradient(180deg, rgba(255,255,255,.90), rgba(255,255,255,.76));
+      box-shadow:var(--shadow);
+      padding:18px;
+    }
+
+    .panel h2{
+      margin:0 0 12px 0;
+      font-size:20px;
+      line-height:1.15;
+      font-weight:1000;
+    }
+
+    .panel p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.65;
+      font-weight:700;
+    }
+
+    .cards{
+      display:grid;
+      gap:14px;
+    }
+
+    .modeCard{
+      position:relative;
+      overflow:hidden;
+      display:grid;
+      gap:12px;
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.95), rgba(248,253,255,.88));
+      padding:16px;
+      box-shadow:0 12px 22px rgba(59,130,246,.08);
+    }
+
+    .modeCard.main{
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.96), rgba(242,252,255,.90));
+    }
+
+    .modeCard.mini{
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,250,240,.90));
+    }
+
+    .modeCard::after{
+      content:"";
+      position:absolute;
+      right:-26px;
+      bottom:-26px;
+      width:120px;
+      height:120px;
+      border-radius:999px;
+      opacity:.5;
+      pointer-events:none;
+      background:radial-gradient(circle, rgba(127,207,255,.25), transparent 68%);
+    }
+
+    .modeHead{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .modeTag{
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:0 12px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:1000;
+      letter-spacing:.06em;
+      border:1px solid var(--line);
+      background:#fff;
+      color:#557082;
+    }
+
+    .modeTitle{
+      margin:0;
+      font-size:22px;
+      font-weight:1000;
+      line-height:1.08;
+    }
+
+    .modeSub{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:700;
+    }
+
+    .featureList{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:8px;
+    }
+
+    .feature{
+      min-height:40px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:16px;
+      background:rgba(255,255,255,.78);
+      border:1px solid #dcecf5;
+      font-size:13px;
+      font-weight:900;
+      color:#5a7080;
+    }
+
+    .modeActions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .sideGrid{
+      display:grid;
+      gap:14px;
+    }
+
+    .miniPanel{
+      border:1px solid var(--line);
+      border-radius:22px;
+      background:rgba(255,255,255,.80);
+      padding:14px;
+    }
+
+    .miniPanel h3{
+      margin:0 0 10px 0;
+      font-size:16px;
+      font-weight:1000;
     }
 
     .kv{
       display:grid;
-      grid-template-columns:120px 1fr;
-      gap:8px 10px;
-      font-size:14px;
-      color:#5d6f92;
-      line-height:1.5;
-    }
-
-    .kv b{color:#354158}
-
-    .route-box{
-      margin-top:12px;
-      border-radius:18px;
-      padding:12px;
-      background:#f7fbff;
-      border:1px solid #e1eef8;
-      white-space:pre-wrap;
-      word-break:break-word;
-      color:#597093;
-      font:700 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
-    }
-
-    .mode-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:16px;
-    }
-
-    .mode-card{
-      padding:18px;
-      border-radius:28px;
-      background:linear-gradient(180deg,#fff,#fbfeff);
-      border:1px solid #e6eff8;
-      box-shadow:var(--shadow);
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-      min-height:255px;
-    }
-
-    .mode-top{
-      display:flex;
-      align-items:start;
-      justify-content:space-between;
-      gap:10px;
-    }
-
-    .mode-title{
-      display:flex;
-      align-items:center;
-      gap:12px;
-    }
-
-    .mode-icon{
-      width:56px;height:56px;border-radius:18px;
-      display:grid;place-items:center;
-      font-size:28px;
-      background:#fff9df;
-      box-shadow:inset 0 0 0 1px #fff1bc;
-    }
-
-    .mode-title h4{
-      margin:0;
-      font-size:26px;
-      line-height:1;
-    }
-
-    .mode-title p{
-      margin:6px 0 0;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.45;
-    }
-
-    .status{
-      min-height:34px;
-      padding:0 12px;
-      border-radius:999px;
-      display:inline-flex;
-      align-items:center;
-      background:#eef9ff;
-      color:#60749a;
-      font-size:12px;
-      font-weight:900;
-      white-space:nowrap;
-    }
-
-    .mode-tags{
-      display:flex;
-      flex-wrap:wrap;
+      grid-template-columns:repeat(2, minmax(0,1fr));
       gap:8px;
     }
 
-    .tag{
-      min-height:34px;
-      padding:0 12px;
-      display:inline-flex;
-      align-items:center;
-      border-radius:999px;
-      background:#f8fbff;
-      border:1px solid #e3eef8;
-      color:#5d7095;
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .mode-card p.desc{
-      margin:0;
-      color:var(--muted);
-      line-height:1.55;
-      font-size:14px;
-      flex:1;
-    }
-
-    .mode-actions{
+    .kvItem{
+      min-height:44px;
       display:grid;
-      grid-template-columns:1fr 1fr;
+      align-content:center;
+      gap:2px;
+      padding:8px 10px;
+      border-radius:16px;
+      background:rgba(255,255,255,.86);
+      border:1px solid #dcecf5;
+    }
+
+    .kvItem .k{
+      font-size:11px;
+      color:#7a8a96;
+      font-weight:1000;
+      letter-spacing:.04em;
+    }
+
+    .kvItem .v{
+      font-size:14px;
+      color:#4c5963;
+      font-weight:1000;
+      word-break:break-word;
+    }
+
+    .steps{
+      display:grid;
+      gap:8px;
+    }
+
+    .step{
+      min-height:46px;
+      display:flex;
+      align-items:center;
       gap:10px;
-      margin-top:auto;
+      padding:10px 12px;
+      border-radius:16px;
+      background:rgba(255,255,255,.86);
+      border:1px solid #dcecf5;
+      font-size:13px;
+      line-height:1.45;
+      font-weight:900;
+      color:#586d7c;
     }
 
-    .mode-actions .btn{
-      width:100%;
-      min-width:0;
+    .stepNum{
+      flex:0 0 auto;
+      width:28px;
+      height:28px;
+      display:grid;
+      place-items:center;
+      border-radius:999px;
+      background:linear-gradient(180deg, #bde8ff, #97d6ff);
+      color:#2a668b;
+      font-size:12px;
+      font-weight:1000;
     }
 
-    .solo-card{
-      background:
-        radial-gradient(circle at top right, rgba(255,217,105,.18), rgba(255,217,105,0) 20%),
-        linear-gradient(180deg,#fffef7,#ffffff 58%,#f7fdff);
+    .footerBar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+      border:1px solid rgba(255,255,255,.72);
+      border-radius:24px;
+      background:linear-gradient(180deg, rgba(255,255,255,.86), rgba(255,255,255,.72));
+      box-shadow:var(--shadow);
+      padding:14px 16px;
     }
 
-    .mini-card{
-      background:
-        radial-gradient(circle at top right, rgba(113,203,255,.14), rgba(113,203,255,0) 18%),
-        linear-gradient(180deg,#f8fdff,#ffffff 58%,#f8fdff);
+    .footerText{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+      font-weight:700;
     }
 
-    @media (max-width:1080px){
-      .hero,.mode-grid{grid-template-columns:1fr}
+    .debug{
+      display:none;
+      margin-top:8px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#0f172a;
+      color:#cbd5e1;
+      font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+      white-space:pre-wrap;
+      overflow:auto;
     }
 
-    @media (max-width:760px){
-      .shell{width:min(calc(100% - 16px), var(--max))}
-      .mode-actions{grid-template-columns:1fr}
+    body.debug .debug{ display:block; }
+
+    @media (max-width: 960px){
+      .layout{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width: 760px){
+      .hero{ padding:16px; border-radius:26px; }
+      .panel{ padding:14px; border-radius:24px; }
+      .featureList{ grid-template-columns:1fr; }
+      .kv{ grid-template-columns:1fr; }
+      .footerBar{ align-items:flex-start; }
+      .heroActions,
+      .modeActions{ width:100%; }
+      .heroActions .btn,
+      .modeActions .btn,
+      .footerBar .btn{
+        flex:1 1 100%;
+      }
     }
   </style>
 </head>
 <body>
   <div class="shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-icon">🍽️</div>
-        <div class="brand-text">
-          <h1>Plate</h1>
-          <p>เลือกโหมดของเกม Plate • solo / duet / battle / race / coop • mini game แยกต่างหาก</p>
+    <section class="hero">
+      <div class="heroTop">
+        <div class="brand">
+          <div class="badge">🍽 HeroHealth • Plate v1 Launcher</div>
+          <h1>Plate v1</h1>
+          <p class="sub">
+            หน้าเข้าเกมหลักของ Plate ตามที่ตกลงไว้ โดยแยกชัดว่า
+            <strong>Main Game</strong> ใช้สำหรับรอบเล่นหลัก และ
+            <strong>Mini Game</strong> ใช้สำหรับรอบสั้นหรือเล่นต่อแบบเร็ว
+          </p>
+        </div>
+
+        <div class="heroActions">
+          <a id="hubBtn" class="btn" href="./hub-v2.html">🏠 กลับ HUB</a>
+          <button id="continueBtn" class="btn primary" type="button">▶️ เล่นล่าสุด</button>
         </div>
       </div>
 
-      <div class="top-actions">
-        <a id="backHubBtn" class="btn ghost" href="./hub-v2.html">⬅️ กลับ HUB</a>
-        <a id="soloQuickBtn" class="btn primary" href="./plate/plate-solo.html">▶️ เข้า Solo</a>
+      <div class="chips">
+        <div class="chip">PID: <span id="chipPid">anon</span></div>
+        <div class="chip">VIEW: <span id="chipView">mobile</span></div>
+        <div class="chip">RUN: <span id="chipRun">play</span></div>
+        <div class="chip">DIFF: <span id="chipDiff">normal</span></div>
+        <div class="chip">HUB: <span id="chipHub">hub-v2</span></div>
       </div>
-    </header>
+    </section>
 
-    <section class="hero">
-      <div class="panel hero-main">
-        <div class="hero-kicker">Plate มี 5 โหมด + mini game</div>
-        <h2>เลือกวิธีเล่น<br />แล้วไปจัดจานกัน</h2>
+    <section class="layout">
+      <div class="panel">
+        <h2>เลือกทางเข้าเล่น</h2>
         <p>
-          Solo คือโหมดหลักที่พร้อมใช้ก่อนในตอนนี้
-          ส่วน duet, battle, race, coop เปิดช่องไว้ตาม architecture ของ Plate
-          และ mini game อยู่แยกที่ <strong>plate-vr.html</strong>
+          ใช้หน้าตัวนี้เป็น launcher หลักจาก Hub v2 แล้วค่อยแยกไปยัง
+          main game หรือ mini game ตามวัตถุประสงค์ของการเล่น
         </p>
 
-        <div class="hero-actions">
-          <a id="soloHeroBtn" class="btn primary" href="./plate/plate-solo.html">▶️ Main Game: Solo</a>
-          <a id="miniHeroBtn" class="btn blue" href="./plate/plate-vr.html">⚡ Mini Game</a>
-        </div>
+        <div style="height:14px"></div>
 
-        <div class="hero-bubbles" aria-hidden="true">
-          <span>solo = main game run</span>
-          <span>duet / battle / race / coop = แยกไฟล์ run</span>
-          <span>plate-vr.html = mini game</span>
+        <div class="cards">
+          <article class="modeCard main">
+            <div class="modeHead">
+              <div>
+                <div class="modeTag">MAIN GAME</div>
+                <div style="height:8px"></div>
+                <h3 class="modeTitle">Plate Solo Main</h3>
+              </div>
+              <div class="modeTag">/herohealth/plate/plate-solo.html</div>
+            </div>
+
+            <p class="modeSub">
+              โหมดหลักของเกม Plate Solo ที่มี phase, boss path, lock-on, telegraph,
+              objective toast, pause overlay และ end summary ครบกว่า
+            </p>
+
+            <div class="featureList">
+              <div class="feature">🎯 main learning loop</div>
+              <div class="feature">👑 boss path ครบ 5 หมู่</div>
+              <div class="feature">⚡ fever / reward / bonus</div>
+              <div class="feature">📊 summary แบบ HeroHealth</div>
+            </div>
+
+            <div class="modeActions">
+              <button id="playMainBtn" class="btn success" type="button">🚀 เข้า Main Game</button>
+              <button id="playMainEasyBtn" class="btn" type="button">🙂 Easy</button>
+              <button id="playMainNormalBtn" class="btn" type="button">⭐ Normal</button>
+              <button id="playMainHardBtn" class="btn" type="button">🔥 Hard</button>
+            </div>
+          </article>
+
+          <article class="modeCard mini">
+            <div class="modeHead">
+              <div>
+                <div class="modeTag">MINI GAME</div>
+                <div style="height:8px"></div>
+                <h3 class="modeTitle">Quick Plate VR / Mini</h3>
+              </div>
+              <div class="modeTag">/herohealth/plate/plate-vr.html</div>
+            </div>
+
+            <p class="modeSub">
+              รอบสั้น เล่นเร็ว เข้าไว เหมาะสำหรับ warmup / เล่นซ้ำ / ใช้เป็น quick activity
+            </p>
+
+            <div class="featureList">
+              <div class="feature">⚡ เล่นสั้นกว่า</div>
+              <div class="feature">📱 เข้าไวจากมือถือ</div>
+              <div class="feature">🎮 เหมาะเป็น mini game</div>
+              <div class="feature">🔁 เล่นต่อจาก summary ได้</div>
+            </div>
+
+            <div class="modeActions">
+              <button id="playMiniBtn" class="btn warn" type="button">⚡ เข้า Mini Game</button>
+              <button id="playMini60Btn" class="btn" type="button">60s</button>
+              <button id="playMini90Btn" class="btn" type="button">90s</button>
+            </div>
+          </article>
         </div>
       </div>
 
-      <aside class="panel hero-side">
-        <div class="info-card">
-          <h3>Flow</h3>
-          <div class="flow">
-            <span>Hub v2</span>
-            <span>Plate v1</span>
-            <span>เลือกโหมด</span>
-            <span>Run</span>
-            <span>Summary</span>
-            <span>Cooldown</span>
-            <span>Hub v2</span>
+      <aside class="sideGrid">
+        <section class="panel">
+          <h2>ค่าที่จะส่งต่อ</h2>
+          <div class="miniPanel">
+            <div class="kv">
+              <div class="kvItem">
+                <div class="k">pid</div>
+                <div id="kvPid" class="v">anon</div>
+              </div>
+              <div class="kvItem">
+                <div class="k">hub</div>
+                <div id="kvHub" class="v">./hub-v2.html</div>
+              </div>
+              <div class="kvItem">
+                <div class="k">view</div>
+                <div id="kvView" class="v">mobile</div>
+              </div>
+              <div class="kvItem">
+                <div class="k">run</div>
+                <div id="kvRun" class="v">play</div>
+              </div>
+              <div class="kvItem">
+                <div class="k">diff</div>
+                <div id="kvDiff" class="v">normal</div>
+              </div>
+              <div class="kvItem">
+                <div class="k">time</div>
+                <div id="kvTime" class="v">90</div>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div class="info-card">
-          <h3>Context</h3>
-          <div class="kv">
-            <b>PID</b><span id="ctxPid">anon</span>
-            <b>Hub</b><span id="ctxHub">-</span>
-            <b>View</b><span id="ctxView">mobile</span>
-            <b>Run</b><span id="ctxRun">play</span>
-            <b>Diff</b><span id="ctxDiff">normal</span>
+        <section class="panel">
+          <h2>การใช้ตาม flow</h2>
+          <div class="miniPanel">
+            <div class="steps">
+              <div class="step"><div class="stepNum">1</div><div>Hub v2 เรียกมาที่ <strong>plate-v1.html</strong></div></div>
+              <div class="step"><div class="stepNum">2</div><div>เลือก <strong>Main Game</strong> เพื่อเข้า Plate Solo ตัวหลัก</div></div>
+              <div class="step"><div class="stepNum">3</div><div>เลือก <strong>Mini Game</strong> เมื่อต้องการรอบเล่นสั้น</div></div>
+              <div class="step"><div class="stepNum">4</div><div>ทุกทางส่ง <code>hub=...hub-v2.html</code> กลับได้ถูก</div></div>
+            </div>
           </div>
-          <div id="routePreview" class="route-box">กำลังสร้าง route…</div>
-        </div>
+        </section>
+
+        <section class="panel">
+          <h2>debug</h2>
+          <div class="miniPanel">
+            <p>เปิด <code>&debug=1</code> เพื่อดูค่าที่ launcher จะส่งต่อ</p>
+            <div id="debugBox" class="debug"></div>
+          </div>
+        </section>
       </aside>
     </section>
 
-    <section class="mode-grid">
-      <article class="mode-card solo-card">
-        <div class="mode-top">
-          <div class="mode-title">
-            <div class="mode-icon">🧒</div>
-            <div>
-              <h4>Solo</h4>
-              <p>โหมดหลักของ Plate</p>
-            </div>
-          </div>
-          <div class="status">ready</div>
-        </div>
-
-        <div class="mode-tags">
-          <span class="tag">main game</span>
-          <span class="tag">single player</span>
-          <span class="tag">plate-solo.html</span>
-        </div>
-
-        <p class="desc">
-          จัดจานให้ครบ 5 หมู่ ทำ mission หลายช่วง เก็บคะแนน คอมโบ และผ่าน summary ก่อนกลับ HUB
-        </p>
-
-        <div class="mode-actions">
-          <a id="soloModeBtn" class="btn primary" href="./plate/plate-solo.html">เข้า Solo</a>
-          <a id="soloMiniBtn" class="btn blue" href="./plate/plate-vr.html">ซ้อมด้วย Mini</a>
-        </div>
-      </article>
-
-      <article class="mode-card">
-        <div class="mode-top">
-          <div class="mode-title">
-            <div class="mode-icon">🤝</div>
-            <div>
-              <h4>Duet</h4>
-              <p>เล่นคู่ 2 คน</p>
-            </div>
-          </div>
-          <div class="status">next</div>
-        </div>
-
-        <div class="mode-tags">
-          <span class="tag">2 players</span>
-          <span class="tag">plate-duet.html</span>
-        </div>
-
-        <p class="desc">
-          ช่วยกันจัดจานหรือผลัดกันเก็บเป้าแบบคู่ เหมาะกับกิจกรรมจับคู่เรียนรู้
-        </p>
-
-        <div class="mode-actions">
-          <a id="duetBtn" class="btn green" href="./plate/plate-duet.html">เข้า Duet</a>
-          <a id="duetMiniBtn" class="btn blue" href="./plate/plate-vr.html">ซ้อมก่อน</a>
-        </div>
-      </article>
-
-      <article class="mode-card">
-        <div class="mode-top">
-          <div class="mode-title">
-            <div class="mode-icon">⚔️</div>
-            <div>
-              <h4>Battle</h4>
-              <p>แข่งปะทะกัน</p>
-            </div>
-          </div>
-          <div class="status">next</div>
-        </div>
-
-        <div class="mode-tags">
-          <span class="tag">versus</span>
-          <span class="tag">plate-battle.html</span>
-        </div>
-
-        <p class="desc">
-          แข่งกันจัดจานให้ได้คะแนนมากกว่าอีกฝั่ง มี pressure และจังหวะเกมดุดันกว่า solo
-        </p>
-
-        <div class="mode-actions">
-          <a id="battleBtn" class="btn green" href="./plate/plate-battle.html">เข้า Battle</a>
-          <a id="battleMiniBtn" class="btn blue" href="./plate/plate-vr.html">ซ้อมก่อน</a>
-        </div>
-      </article>
-
-      <article class="mode-card">
-        <div class="mode-top">
-          <div class="mode-title">
-            <div class="mode-icon">🏁</div>
-            <div>
-              <h4>Race</h4>
-              <p>แข่งความเร็ว</p>
-            </div>
-          </div>
-          <div class="status">next</div>
-        </div>
-
-        <div class="mode-tags">
-          <span class="tag">speed</span>
-          <span class="tag">plate-race.html</span>
-        </div>
-
-        <p class="desc">
-          ใครปิดภารกิจจัดจานได้ไวกว่าเป็นผู้ชนะ เน้นความเร็วและความแม่นยำพร้อมกัน
-        </p>
-
-        <div class="mode-actions">
-          <a id="raceBtn" class="btn green" href="./plate/plate-race.html">เข้า Race</a>
-          <a id="raceMiniBtn" class="btn blue" href="./plate/plate-vr.html">ซ้อมก่อน</a>
-        </div>
-      </article>
-
-      <article class="mode-card">
-        <div class="mode-top">
-          <div class="mode-title">
-            <div class="mode-icon">🫶</div>
-            <div>
-              <h4>Coop</h4>
-              <p>ช่วยกันทำภารกิจ</p>
-            </div>
-          </div>
-          <div class="status">next</div>
-        </div>
-
-        <div class="mode-tags">
-          <span class="tag">teamplay</span>
-          <span class="tag">plate-coop.html</span>
-        </div>
-
-        <p class="desc">
-          เล่นเป็นทีม ช่วยกันเก็บอาหารให้สมดุลครบทั้งจาน เน้น teamwork มากกว่าแข่งกัน
-        </p>
-
-        <div class="mode-actions">
-          <a id="coopBtn" class="btn green" href="./plate/plate-coop.html">เข้า Coop</a>
-          <a id="coopMiniBtn" class="btn blue" href="./plate/plate-vr.html">ซ้อมก่อน</a>
-        </div>
-      </article>
-
-      <article class="mode-card mini-card">
-        <div class="mode-top">
-          <div class="mode-title">
-            <div class="mode-icon">⚡</div>
-            <div>
-              <h4>Mini Game</h4>
-              <p>quick play</p>
-            </div>
-          </div>
-          <div class="status">ready</div>
-        </div>
-
-        <div class="mode-tags">
-          <span class="tag">quick play</span>
-          <span class="tag">plate-vr.html</span>
-        </div>
-
-        <p class="desc">
-          เกมสั้นสำหรับซ้อมแยกหมู่หรือเล่นเร็ว ๆ ก่อนเข้าโหมดหลัก
-        </p>
-
-        <div class="mode-actions">
-          <a id="miniModeBtn" class="btn blue" href="./plate/plate-vr.html">เข้า Mini Game</a>
-          <a id="miniBackSoloBtn" class="btn primary" href="./plate/plate-solo.html">ไป Solo ต่อ</a>
-        </div>
-      </article>
+    <section class="footerBar">
+      <div class="footerText">
+        Plate v1 = <strong>master launcher</strong> • Main Game = <strong>plate/plate-solo.html</strong> • Mini Game = <strong>plate/plate-vr.html</strong>
+      </div>
+      <button id="copyMainLinkBtn" class="btn" type="button">🔗 คัดลอกลิงก์ Main Game</button>
     </section>
   </div>
 
@@ -637,103 +633,214 @@
     (() => {
       'use strict';
 
-      const qs = new URLSearchParams(location.search);
+      const U = new URL(location.href);
+
       const HUB_DEFAULT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
+      const MAIN_RUN_URL = './plate/plate-solo.html';
+      const MINI_RUN_URL = './plate/plate-vr.html';
 
-      const ctx = {
-        pid: qs.get('pid') || localStorage.getItem('HH_PID') || 'anon',
-        hub: qs.get('hub') || HUB_DEFAULT,
-        zone: qs.get('zone') || 'nutrition',
-        cat: qs.get('cat') || 'nutrition',
-        game: qs.get('game') || 'plate',
-        gameId: qs.get('gameId') || 'plate',
-        theme: qs.get('theme') || 'plate',
-        view: qs.get('view') || 'mobile',
-        run: qs.get('run') || 'play',
-        diff: qs.get('diff') || 'normal',
-        time: Number(qs.get('time') || 90),
-        seed: qs.get('seed') || String(Date.now())
-      };
-
-      localStorage.setItem('HH_PID', ctx.pid);
-
-      function setText(id, value) {
-        const el = document.getElementById(id);
-        if (el) el.textContent = value;
+      function q(name, fallback = '') {
+        const v = U.searchParams.get(name);
+        return v == null || v === '' ? fallback : v;
       }
 
-      function buildUrl(path, extra = {}) {
-        const url = new URL(path, location.href);
-        const merged = {
+      function normalizeHub(raw){
+        raw = String(raw || '').trim();
+        if (!raw) return HUB_DEFAULT;
+        try{
+          const u = new URL(raw, location.href);
+          u.pathname = u.pathname
+            .replace('/herohealth/hub.html', '/herohealth/hub-v2.html')
+            .replace('/herohealth/plate/hub.html', '/herohealth/hub-v2.html')
+            .replace('/herohealth/vr-plate/hub.html', '/herohealth/hub-v2.html');
+          return u.toString();
+        }catch(_){
+          return HUB_DEFAULT;
+        }
+      }
+
+      const ctx = {
+        pid: q('pid', 'anon'),
+        name: q('name', ''),
+        studyId: q('studyId', ''),
+        view: q('view', 'mobile').toLowerCase(),
+        run: q('run', 'play').toLowerCase(),
+        diff: q('diff', 'normal').toLowerCase(),
+        time: q('time', '90'),
+        seed: q('seed', String(Date.now())),
+        pro: q('pro', '0'),
+        cooldown: q('cooldown', q('cd', '0')),
+        hub: normalizeHub(q('hub', HUB_DEFAULT)),
+        debug: q('debug', '0')
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      function setText(id, value){
+        const el = $(id);
+        if (el) el.textContent = String(value ?? '');
+      }
+
+      function buildRunUrl(basePath, patch = {}) {
+        const url = new URL(basePath, location.href);
+
+        const params = {
           pid: ctx.pid,
+          name: ctx.name,
+          studyId: ctx.studyId,
           hub: ctx.hub,
-          zone: ctx.zone,
-          cat: ctx.cat,
-          game: ctx.game,
-          gameId: ctx.gameId,
-          theme: ctx.theme,
           view: ctx.view,
           run: ctx.run,
           diff: ctx.diff,
           time: ctx.time,
           seed: ctx.seed,
-          ...extra
+          pro: ctx.pro,
+          cooldown: ctx.cooldown,
+          zone: 'nutrition',
+          cat: 'nutrition',
+          game: 'plate',
+          gameId: 'plate',
+          theme: 'plate',
+          mode: 'solo',
+          ...patch
         };
 
-        Object.entries(merged).forEach(([k, v]) => {
-          if (v != null && v !== '') url.searchParams.set(k, String(v));
+        Object.entries(params).forEach(([k, v]) => {
+          if (v == null || v === '') return;
+          url.searchParams.set(k, String(v));
         });
+
+        if (ctx.debug === '1') {
+          url.searchParams.set('debug', '1');
+        }
 
         return url.toString();
       }
 
-      function setHref(id, href) {
-        const el = document.getElementById(id);
-        if (el) el.href = href;
+      function saveLastLaunch(data){
+        try{
+          localStorage.setItem('HHA_LAST_PLATE_LAUNCH', JSON.stringify(data));
+        }catch(_){}
       }
 
-      const soloUrl   = buildUrl('./plate/plate-solo.html',   { mode:'solo' });
-      const duetUrl   = buildUrl('./plate/plate-duet.html',   { mode:'duet' });
-      const battleUrl = buildUrl('./plate/plate-battle.html', { mode:'battle' });
-      const raceUrl   = buildUrl('./plate/plate-race.html',   { mode:'race' });
-      const coopUrl   = buildUrl('./plate/plate-coop.html',   { mode:'coop' });
-      const miniUrl   = buildUrl('./plate/plate-vr.html',     { mode:'mini', mini:1, variant:'mini', time:60, seed:Date.now() });
+      function goMain(extra = {}){
+        const url = buildRunUrl(MAIN_RUN_URL, {
+          seed: ctx.run === 'research' ? ctx.seed : String(Date.now()),
+          ...extra
+        });
 
-      setText('ctxPid', ctx.pid);
-      setText('ctxHub', ctx.hub);
-      setText('ctxView', ctx.view);
-      setText('ctxRun', ctx.run);
-      setText('ctxDiff', ctx.diff);
+        saveLastLaunch({
+          kind: 'main',
+          url,
+          ts: Date.now()
+        });
 
-      setHref('backHubBtn', ctx.hub);
+        location.href = url;
+      }
 
-      [
-        ['soloQuickBtn', soloUrl],
-        ['soloHeroBtn', soloUrl],
-        ['soloModeBtn', soloUrl],
-        ['miniHeroBtn', miniUrl],
-        ['soloMiniBtn', miniUrl],
-        ['duetBtn', duetUrl],
-        ['duetMiniBtn', miniUrl],
-        ['battleBtn', battleUrl],
-        ['battleMiniBtn', miniUrl],
-        ['raceBtn', raceUrl],
-        ['raceMiniBtn', miniUrl],
-        ['coopBtn', coopUrl],
-        ['coopMiniBtn', miniUrl],
-        ['miniModeBtn', miniUrl],
-        ['miniBackSoloBtn', soloUrl]
-      ].forEach(([id, href]) => setHref(id, href));
+      function goMini(extra = {}){
+        const url = buildRunUrl(MINI_RUN_URL, {
+          time: extra.time || '60',
+          mini: '1',
+          mode: 'mini',
+          seed: ctx.run === 'research' ? ctx.seed : String(Date.now()),
+          ...extra
+        });
 
-      const preview =
-`solo   -> ${soloUrl}
-duet   -> ${duetUrl}
-battle -> ${battleUrl}
-race   -> ${raceUrl}
-coop   -> ${coopUrl}
-mini   -> ${miniUrl}`;
+        saveLastLaunch({
+          kind: 'mini',
+          url,
+          ts: Date.now()
+        });
 
-      setText('routePreview', preview);
+        location.href = url;
+      }
+
+      function goContinue(){
+        try{
+          const raw = localStorage.getItem('HHA_LAST_PLATE_LAUNCH');
+          if (!raw) {
+            goMain();
+            return;
+          }
+
+          const last = JSON.parse(raw || '{}');
+          if (!last || !last.url) {
+            goMain();
+            return;
+          }
+
+          location.href = String(last.url);
+        }catch(_){
+          goMain();
+        }
+      }
+
+      function copyText(text){
+        if (navigator.clipboard?.writeText) {
+          return navigator.clipboard.writeText(text);
+        }
+        return Promise.reject(new Error('clipboard unavailable'));
+      }
+
+      function refreshUi(){
+        setText('chipPid', ctx.pid);
+        setText('chipView', ctx.view);
+        setText('chipRun', ctx.run);
+        setText('chipDiff', ctx.diff);
+        setText('chipHub', ctx.hub.includes('hub-v2') ? 'hub-v2' : ctx.hub);
+
+        setText('kvPid', ctx.pid);
+        setText('kvHub', ctx.hub);
+        setText('kvView', ctx.view);
+        setText('kvRun', ctx.run);
+        setText('kvDiff', ctx.diff);
+        setText('kvTime', ctx.time);
+
+        const hubBtn = $('hubBtn');
+        if (hubBtn) hubBtn.href = ctx.hub;
+
+        if (ctx.debug === '1') {
+          document.body.classList.add('debug');
+          const mainUrl = buildRunUrl(MAIN_RUN_URL);
+          const miniUrl = buildRunUrl(MINI_RUN_URL, { mini:'1', mode:'mini', time:'60' });
+          const box = $('debugBox');
+          if (box) {
+            box.textContent =
+`CTX
+${JSON.stringify(ctx, null, 2)}
+
+MAIN
+${mainUrl}
+
+MINI
+${miniUrl}`;
+          }
+        }
+      }
+
+      $('playMainBtn')?.addEventListener('click', () => goMain());
+      $('playMainEasyBtn')?.addEventListener('click', () => goMain({ diff:'easy' }));
+      $('playMainNormalBtn')?.addEventListener('click', () => goMain({ diff:'normal' }));
+      $('playMainHardBtn')?.addEventListener('click', () => goMain({ diff:'hard' }));
+
+      $('playMiniBtn')?.addEventListener('click', () => goMini({ time:'60' }));
+      $('playMini60Btn')?.addEventListener('click', () => goMini({ time:'60' }));
+      $('playMini90Btn')?.addEventListener('click', () => goMini({ time:'90' }));
+
+      $('continueBtn')?.addEventListener('click', goContinue);
+
+      $('copyMainLinkBtn')?.addEventListener('click', async () => {
+        try{
+          await copyText(buildRunUrl(MAIN_RUN_URL));
+          $('copyMainLinkBtn').textContent = '✅ คัดลอกแล้ว';
+          setTimeout(() => {
+            $('copyMainLinkBtn').textContent = '🔗 คัดลอกลิงก์ Main Game';
+          }, 1200);
+        }catch(_){}
+      });
+
+      refreshUi();
     })();
   </script>
 </body>
