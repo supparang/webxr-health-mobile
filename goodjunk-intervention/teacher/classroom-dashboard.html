@@ -1,0 +1,1012 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk • Classroom Dashboard</title>
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --sky1:#dff6ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d6;
+      --line:#c9e8f4;
+      --text:#4d4a42;
+      --muted:#7d7a73;
+      --green:#7ed957;
+      --green2:#59c53f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --violet:#cdb9ff;
+      --pink:#ff9fcb;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
+      --danger:#ff8fa3;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+
+    body{
+      min-height:100dvh;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.94), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.76), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 56%, var(--sky3));
+    }
+
+    .page{
+      width:min(1280px,100%);
+      margin:0 auto;
+      padding:16px;
+      padding-top:calc(16px + env(safe-area-inset-top,0px));
+      padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
+      display:grid;
+      gap:16px;
+    }
+
+    .hero{
+      background:linear-gradient(180deg,#fffef8,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+      padding:20px 18px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-30px;
+      top:-30px;
+      width:130px;
+      height:130px;
+      border-radius:999px;
+      background:rgba(127,207,255,.18);
+      filter:blur(8px);
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-24px;
+      bottom:-24px;
+      width:120px;
+      height:120px;
+      border-radius:999px;
+      background:rgba(255,212,92,.18);
+      filter:blur(8px);
+    }
+
+    .kicker{
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#eef8ff;
+      border:2px solid var(--line);
+      color:#5aa8d1;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    h1{
+      position:relative;
+      z-index:1;
+      margin:0 0 8px;
+      font-size:clamp(30px,5vw,48px);
+      line-height:1.05;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .lead{
+      position:relative;
+      z-index:1;
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      font-weight:900;
+      max-width:900px;
+    }
+
+    .ctx{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:2px dashed var(--line);
+      background:rgba(255,255,255,.72);
+      color:#6f6b64;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.55;
+      position:relative;
+      z-index:1;
+    }
+
+    .pill-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+      position:relative;
+      z-index:1;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6f6b64;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+    }
+
+    .grid{
+      display:grid;
+      gap:16px;
+    }
+
+    .grid-2{
+      grid-template-columns:1.1fr .9fr;
+    }
+
+    .grid-4{
+      grid-template-columns:repeat(4,minmax(0,1fr));
+    }
+
+    .card{
+      background:linear-gradient(180deg,#fffef9,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:26px;
+      box-shadow:var(--shadow);
+      padding:16px;
+    }
+
+    .card-title{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-bottom:12px;
+      font-size:22px;
+      line-height:1.2;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .badge{
+      width:42px;
+      height:42px;
+      flex:0 0 auto;
+      display:grid;
+      place-items:center;
+      border-radius:14px;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef8;
+      font-size:20px;
+      box-shadow:0 8px 16px rgba(88,183,245,.20);
+    }
+
+    .stat{
+      border:2px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+      padding:12px 14px;
+    }
+
+    .stat-k{
+      color:#8a867f;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:4px;
+      line-height:1.4;
+    }
+
+    .stat-v{
+      color:var(--text);
+      font-size:clamp(20px,3vw,30px);
+      font-weight:1000;
+      line-height:1.15;
+      word-break:break-word;
+    }
+
+    .filters{
+      display:grid;
+      grid-template-columns:2fr 1fr 1fr 1fr 1fr;
+      gap:10px;
+    }
+
+    input, select{
+      width:100%;
+      min-height:46px;
+      border-radius:16px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      padding:12px 14px;
+      font:inherit;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:14px 18px;
+      font-size:15px;
+      font-weight:1000;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
+      transition:.12s ease;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-main{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#fffef8;
+    }
+
+    .btn-blue{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef8;
+    }
+
+    .btn-violet{
+      background:linear-gradient(180deg,var(--violet),#aa8fff);
+      color:#fffef8;
+    }
+
+    .btn-warn{
+      background:linear-gradient(180deg,var(--yellow),var(--orange));
+      color:#6d4e00;
+    }
+
+    .btn-ghost{
+      background:#fff;
+      color:#6f6a62;
+      border:2px solid var(--line);
+    }
+
+    .btn-danger{
+      background:linear-gradient(180deg,#ffb3c0,var(--danger));
+      color:#7b2435;
+    }
+
+    .table-wrap{
+      overflow:auto;
+      border:2px dashed var(--line);
+      border-radius:20px;
+      background:rgba(255,255,255,.66);
+      padding:10px;
+    }
+
+    table{
+      width:100%;
+      min-width:1060px;
+      border-collapse:separate;
+      border-spacing:0 10px;
+    }
+
+    th{
+      text-align:left;
+      color:#8a867f;
+      font-size:12px;
+      font-weight:1000;
+      padding:0 10px 6px;
+      line-height:1.4;
+    }
+
+    td{
+      vertical-align:top;
+      background:#fff;
+      border-top:2px solid var(--line);
+      border-bottom:2px solid var(--line);
+      padding:12px 10px;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.55;
+    }
+
+    td:first-child{
+      border-left:2px solid var(--line);
+      border-top-left-radius:16px;
+      border-bottom-left-radius:16px;
+    }
+
+    td:last-child{
+      border-right:2px solid var(--line);
+      border-top-right-radius:16px;
+      border-bottom-right-radius:16px;
+    }
+
+    .mini-pills{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+    }
+
+    .mini-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fdfefe;
+      color:#6f6b64;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .preview{
+      border:2px dashed var(--line);
+      border-radius:20px;
+      background:rgba(255,255,255,.68);
+      padding:14px;
+      color:#6f6b64;
+      font-size:13px;
+      line-height:1.7;
+      font-weight:900;
+      white-space:pre-wrap;
+      word-break:break-word;
+      max-height:380px;
+      overflow:auto;
+    }
+
+    .empty{
+      border:2px dashed var(--line);
+      border-radius:20px;
+      background:rgba(255,255,255,.68);
+      padding:16px;
+      color:#7d7a73;
+      font-size:14px;
+      line-height:1.7;
+      font-weight:900;
+    }
+
+    .nowrap{ white-space:nowrap; }
+
+    @media (max-width:1100px){
+      .grid-2{ grid-template-columns:1fr; }
+      .grid-4{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .filters{ grid-template-columns:1fr 1fr; }
+    }
+
+    @media (max-width:680px){
+      .page{ padding:12px; }
+      .grid-4{ grid-template-columns:1fr; }
+      .filters{ grid-template-columns:1fr; }
+      .actions .btn{ flex:1 1 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="kicker">🏫 CLASSROOM DASHBOARD</div>
+      <h1>ดูหลายคนในหน้าเดียว</h1>
+      <p class="lead">
+        หน้านี้รวมข้อมูล GoodJunk intervention ที่เก็บอยู่ใน browser เครื่องนี้
+        เพื่อใช้ดูภาพรวมของนักเรียนหลายคน ค้นหา กรอง และ export ได้ในหน้าเดียว
+      </p>
+      <div class="ctx" id="ctxBox">กำลังสแกนข้อมูลจาก localStorage…</div>
+      <div class="pill-row" id="topPills"></div>
+    </section>
+
+    <section class="grid grid-4">
+      <div class="card">
+        <div class="card-title"><div class="badge">👥</div><div>จำนวนนักเรียน</div></div>
+        <div class="stat"><div class="stat-k">students</div><div class="stat-v" id="statStudents">0</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="badge">✅</div><div>จบ flow แล้ว</div></div>
+        <div class="stat"><div class="stat-k">completed</div><div class="stat-v" id="statCompleted">0</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="badge">🎮</div><div>เล่นเกมแล้ว</div></div>
+        <div class="stat"><div class="stat-k">has game summary</div><div class="stat-v" id="statPlayed">0</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="badge">📈</div><div>ค่าเฉลี่ยคะแนน</div></div>
+        <div class="stat"><div class="stat-k">average score</div><div class="stat-v" id="statAvgScore">0</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-title"><div class="badge">🔎</div><div>ค้นหาและกรอง</div></div>
+
+      <div class="filters">
+        <input id="searchInput" type="text" placeholder="ค้นหาจากชื่อ / PID / Study / Session / ห้องเรียน" />
+        <select id="flowFilter">
+          <option value="">flow ทั้งหมด</option>
+          <option value="fast">fast</option>
+          <option value="full">full</option>
+        </select>
+        <select id="gradeFilter">
+          <option value="">grade ทั้งหมด</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+        </select>
+        <select id="conditionFilter">
+          <option value="">condition ทั้งหมด</option>
+        </select>
+        <select id="classFilter">
+          <option value="">ห้องเรียนทั้งหมด</option>
+        </select>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-main" id="btnRefresh" type="button">รีเฟรช</button>
+        <button class="btn btn-blue" id="btnExportFiltered" type="button">Export filtered JSON</button>
+        <button class="btn btn-violet" id="btnExportAll" type="button">Export all JSON</button>
+        <button class="btn btn-danger" id="btnClearDemo" type="button">ล้าง cache dashboard</button>
+        <a class="btn btn-ghost" id="btnHub" href="../hub.html">กลับ HUB</a>
+      </div>
+    </section>
+
+    <section class="grid grid-2">
+      <section class="card">
+        <div class="card-title"><div class="badge">📋</div><div>รายชื่อนักเรียน</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Study / Session</th>
+                <th>Flow</th>
+                <th>Game</th>
+                <th>Behavior</th>
+                <th>Choice</th>
+                <th>Open</th>
+              </tr>
+            </thead>
+            <tbody id="studentRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-title"><div class="badge">🧾</div><div>รายละเอียด record ที่เลือก</div></div>
+        <div class="preview" id="detailPreview">เลือกนักเรียนจากตารางเพื่อดูรายละเอียด</div>
+      </section>
+    </section>
+
+    <section class="card">
+      <div class="card-title"><div class="badge">🗂️</div><div>Debug / dataset preview</div></div>
+      <div class="preview" id="datasetPreview">กำลังโหลด…</div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { loadAssessment, loadCtx } from '../research/localstore.js';
+
+    const GJI_CTX_KEY = 'GJI_CTX';
+    const GJI_GAME_SUMMARY_KEY = 'GJI_GAME_SUMMARY';
+
+    function readJson(key, fb = null){
+      try{
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fb;
+      }catch{
+        return fb;
+      }
+    }
+
+    function clean(v){
+      return String(v ?? '').trim();
+    }
+
+    function escapeHtml(s){
+      return String(s ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+    }
+
+    function saveText(name, text, type='application/json'){
+      const blob = new Blob([text], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function getGlobalCtx(){
+      const a = loadCtx?.() || {};
+      const b = readJson(GJI_CTX_KEY, {}) || {};
+      return { ...b, ...a };
+    }
+
+    function safeLoadAssessment(file){
+      try{
+        return loadAssessment(file, {}) || {};
+      }catch{
+        return {};
+      }
+    }
+
+    function compareScale(pre, post){
+      const a = Number(pre || 0);
+      const b = Number(post || 0);
+      if (!a || !b) return 'ไม่มีข้อมูล';
+      if (b > a) return 'ดีขึ้น';
+      if (b < a) return 'ลดลง';
+      return 'คงเดิม';
+    }
+
+    function behaviorScale(v){
+      const map = {
+        '1': 'ระดับ 1',
+        '2': 'ระดับ 2',
+        '3': 'ระดับ 3',
+        '4': 'ระดับ 4'
+      };
+      return map[String(v)] || '-';
+    }
+
+    function planText(v){
+      const map = {
+        fruit_daily: 'กินผลไม้เพิ่ม',
+        drink_water: 'ดื่มน้ำมากขึ้น',
+        reduce_soda: 'ลดน้ำอัดลม',
+        reduce_snack: 'ลด junk food'
+      };
+      return map[v] || '-';
+    }
+
+    function supportText(v){
+      const map = {
+        self: 'เตือนตัวเอง',
+        parent: 'ให้ผู้ปกครองช่วย',
+        teacher: 'ให้ครูช่วย'
+      };
+      return map[v] || '-';
+    }
+
+    function flowText(v){
+      return String(v || '').toLowerCase() === 'full' ? 'full' : 'fast';
+    }
+
+    function buildCommonQuery(ctx, summary){
+      const q = new URLSearchParams();
+      const entries = {
+        pid: ctx.pid || ctx.studentKey || '',
+        name: ctx.name || ctx.nickName || '',
+        studentKey: ctx.studentKey || ctx.pid || '',
+        nickName: ctx.nickName || ctx.name || '',
+        studyId: ctx.studyId || '',
+        session: ctx.session || ctx.sessionId || '',
+        sessionId: ctx.sessionId || ctx.session || '',
+        condition: ctx.condition || ctx.conditionGroup || '',
+        conditionGroup: ctx.conditionGroup || ctx.condition || '',
+        classRoom: ctx.classRoom || ctx.classroom || '',
+        classroom: ctx.classroom || ctx.classRoom || '',
+        schoolName: ctx.schoolName || ctx.school || '',
+        school: ctx.school || ctx.schoolName || '',
+        diff: summary?.diff || ctx.diff || '',
+        time: ctx.time || '',
+        view: summary?.view || ctx.view || '',
+        run: ctx.run || '',
+        gameId: summary?.gameId || ctx.gameId || 'goodjunk',
+        mode: summary?.mode || ctx.mode || '',
+        hub: ctx.hub || '../hub.html',
+        lang: ctx.lang || 'th',
+        flow: ctx.flow || 'fast',
+        autoNext: ctx.autoNext || '0'
+      };
+
+      Object.entries(entries).forEach(([k,v]) => {
+        if (clean(v) !== '') q.set(k, String(v));
+      });
+
+      return q.toString();
+    }
+
+    function extractPidFromKey(key){
+      const match = String(key).match(/^GJI_RECORD_V1:(.+)$/);
+      return match ? match[1] : '';
+    }
+
+    function buildRecordFromLegacyStorage(){
+      const ctx = getGlobalCtx();
+      const summary = readJson(GJI_GAME_SUMMARY_KEY, null);
+      const preKnowledge = safeLoadAssessment('pre-knowledge.html')?.answers || {};
+      const preBehavior = safeLoadAssessment('pre-behavior.html')?.answers || {};
+      const postKnowledge = safeLoadAssessment('post-knowledge.html')?.answers || {};
+      const postBehavior = safeLoadAssessment('post-behavior.html')?.answers || {};
+      const postChoice = safeLoadAssessment('post-choice.html')?.answers || {};
+
+      const pid = ctx.pid || ctx.studentKey || '';
+      if (!pid) return null;
+
+      return {
+        pid,
+        ctx,
+        summary,
+        assessments: {
+          preKnowledge,
+          preBehavior,
+          postKnowledge,
+          postBehavior,
+          postChoice
+        },
+        updatedAt: Date.now(),
+        source: 'legacy-local'
+      };
+    }
+
+    function scanDataset(){
+      const records = [];
+      const seen = new Set();
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+
+        if (key.startsWith('GJI_RECORD_V1:')) {
+          const pid = extractPidFromKey(key);
+          const record = readJson(key, null);
+          if (record && pid) {
+            records.push(record);
+            seen.add(pid);
+          }
+        }
+      }
+
+      const legacy = buildRecordFromLegacyStorage();
+      if (legacy && !seen.has(legacy.pid)) {
+        records.push(legacy);
+      }
+
+      return normalizeRecords(records);
+    }
+
+    function normalizeRecords(records){
+      return (Array.isArray(records) ? records : [])
+        .map((r) => {
+          const ctx = r?.ctx || {};
+          const summary = r?.summary || null;
+          const a = r?.assessments || {};
+          const pid = ctx.pid || ctx.studentKey || r?.pid || '';
+
+          return {
+            id: pid || `rec-${Math.random().toString(36).slice(2,8)}`,
+            pid,
+            name: ctx.name || ctx.nickName || ctx.studentKey || pid || '-',
+            studentKey: ctx.studentKey || ctx.pid || pid || '-',
+            studyId: ctx.studyId || '-',
+            sessionId: ctx.sessionId || ctx.session || '-',
+            condition: ctx.condition || ctx.conditionGroup || '-',
+            classRoom: ctx.classRoom || ctx.classroom || '-',
+            schoolName: ctx.schoolName || ctx.school || '-',
+            flow: flowText(ctx.flow),
+            autoNext: String(ctx.autoNext || '') === '1' ? '1' : '0',
+            grade: summary?.grade || '-',
+            score: Number(summary?.score || 0),
+            accuracy: Number.isFinite(Number(summary?.accuracy)) ? Number(summary.accuracy) : null,
+            played: !!summary,
+            completed: !!(a.postChoice && Object.keys(a.postChoice).length),
+            gameMode: summary?.mode || ctx.mode || '-',
+            diff: summary?.diff || ctx.diff || '-',
+            view: summary?.view || ctx.view || '-',
+            preBehavior1: a.preBehavior?.pb1 || '',
+            preBehavior2: a.preBehavior?.pb2 || '',
+            postBehavior1: a.postBehavior?.b1 || '',
+            postBehavior2: a.postBehavior?.b2 || '',
+            behaviorShift1: flowText(ctx.flow) === 'full'
+              ? compareScale(a.preBehavior?.pb1, a.postBehavior?.b1)
+              : 'ไม่มี pre-behavior',
+            behaviorShift2: flowText(ctx.flow) === 'full'
+              ? compareScale(a.preBehavior?.pb2, a.postBehavior?.b2)
+              : 'ไม่มี pre-behavior',
+            choicePlan: a.postChoice?.choice_plan || '',
+            choiceSupport: a.postChoice?.choice_support || '',
+            raw: r
+          };
+        })
+        .sort((a,b) => {
+          if (a.studyId !== b.studyId) return String(a.studyId).localeCompare(String(b.studyId), 'th');
+          if (a.classRoom !== b.classRoom) return String(a.classRoom).localeCompare(String(b.classRoom), 'th');
+          return String(a.name).localeCompare(String(b.name), 'th');
+        });
+    }
+
+    let DATASET = [];
+    let FILTERED = [];
+    let SELECTED_ID = '';
+
+    function setCtxText(dataset){
+      const studies = [...new Set(dataset.map(x => x.studyId).filter(v => clean(v) && v !== '-'))];
+      const classes = [...new Set(dataset.map(x => x.classRoom).filter(v => clean(v) && v !== '-'))];
+
+      document.getElementById('ctxBox').textContent = [
+        `Records: ${dataset.length}`,
+        `Studies: ${studies.length || 0}`,
+        `Classes: ${classes.length || 0}`,
+        `Source: localStorage`
+      ].join(' • ');
+
+      document.getElementById('topPills').innerHTML = [
+        `🧪 ${studies.length || 0} studies`,
+        `🏫 ${classes.length || 0} classes`,
+        `⚡/🛤️ ${dataset.filter(x => x.flow === 'fast').length} fast / ${dataset.filter(x => x.flow === 'full').length} full`
+      ].map(v => `<div class="pill">${escapeHtml(v)}</div>`).join('');
+    }
+
+    function setSummaryStats(dataset){
+      const students = dataset.length;
+      const completed = dataset.filter(x => x.completed).length;
+      const played = dataset.filter(x => x.played).length;
+      const scored = dataset.filter(x => Number.isFinite(x.score));
+      const avgScore = scored.length
+        ? Math.round(scored.reduce((sum, x) => sum + Number(x.score || 0), 0) / scored.length)
+        : 0;
+
+      document.getElementById('statStudents').textContent = String(students);
+      document.getElementById('statCompleted').textContent = String(completed);
+      document.getElementById('statPlayed').textContent = String(played);
+      document.getElementById('statAvgScore').textContent = String(avgScore);
+    }
+
+    function fillFilterOptions(dataset){
+      const conditionFilter = document.getElementById('conditionFilter');
+      const classFilter = document.getElementById('classFilter');
+
+      const conditions = [...new Set(dataset.map(x => x.condition).filter(v => clean(v) && v !== '-'))];
+      const classes = [...new Set(dataset.map(x => x.classRoom).filter(v => clean(v) && v !== '-'))];
+
+      conditionFilter.innerHTML =
+        `<option value="">condition ทั้งหมด</option>` +
+        conditions.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+
+      classFilter.innerHTML =
+        `<option value="">ห้องเรียนทั้งหมด</option>` +
+        classes.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+    }
+
+    function applyFilters(){
+      const search = clean(document.getElementById('searchInput').value).toLowerCase();
+      const flow = clean(document.getElementById('flowFilter').value).toLowerCase();
+      const grade = clean(document.getElementById('gradeFilter').value).toUpperCase();
+      const condition = clean(document.getElementById('conditionFilter').value);
+      const classRoom = clean(document.getElementById('classFilter').value);
+
+      FILTERED = DATASET.filter((row) => {
+        const searchable = [
+          row.name,
+          row.pid,
+          row.studentKey,
+          row.studyId,
+          row.sessionId,
+          row.condition,
+          row.classRoom,
+          row.schoolName
+        ].join(' ').toLowerCase();
+
+        if (search && !searchable.includes(search)) return false;
+        if (flow && row.flow !== flow) return false;
+        if (grade && String(row.grade || '').toUpperCase() !== grade) return false;
+        if (condition && row.condition !== condition) return false;
+        if (classRoom && row.classRoom !== classRoom) return false;
+
+        return true;
+      });
+
+      renderRows(FILTERED);
+      renderPreview(FILTERED);
+      if (!FILTERED.find(x => x.id === SELECTED_ID)) {
+        SELECTED_ID = FILTERED[0]?.id || '';
+      }
+      renderDetail();
+    }
+
+    function renderRows(rows){
+      const tbody = document.getElementById('studentRows');
+
+      if (!rows.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7">
+              <div class="empty">ไม่พบข้อมูลที่ตรงกับ filter ปัจจุบัน</div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = rows.map((row) => {
+        const selected = row.id === SELECTED_ID;
+        const query = buildCommonQuery(row.raw?.ctx || {}, row.raw?.summary || null);
+        const teacherHref = `./teacher-summary.html?${query}`;
+
+        return `
+          <tr data-row-id="${escapeHtml(row.id)}" ${selected ? 'style="outline:3px solid rgba(127,207,255,.5);"' : ''}>
+            <td>
+              <div><strong>${escapeHtml(row.name)}</strong></div>
+              <div class="nowrap" style="margin-top:4px;color:#7d7a73;font-size:12px;">PID: ${escapeHtml(row.pid || '-')}</div>
+              <div class="nowrap" style="margin-top:4px;color:#7d7a73;font-size:12px;">Class: ${escapeHtml(row.classRoom || '-')}</div>
+            </td>
+            <td>
+              <div>${escapeHtml(row.studyId || '-')}</div>
+              <div style="margin-top:4px;color:#7d7a73;font-size:12px;">Session: ${escapeHtml(row.sessionId || '-')}</div>
+              <div style="margin-top:4px;color:#7d7a73;font-size:12px;">Condition: ${escapeHtml(row.condition || '-')}</div>
+            </td>
+            <td>
+              <div class="mini-pills">
+                <span class="mini-pill">${escapeHtml(row.flow)}</span>
+                <span class="mini-pill">${row.autoNext === '1' ? 'auto' : 'manual'}</span>
+              </div>
+            </td>
+            <td>
+              <div><strong>Score:</strong> ${escapeHtml(String(row.score || 0))}</div>
+              <div style="margin-top:4px;"><strong>Grade:</strong> ${escapeHtml(row.grade || '-')}</div>
+              <div style="margin-top:4px;"><strong>View:</strong> ${escapeHtml(row.view || '-')}</div>
+            </td>
+            <td>
+              <div><strong>Q1:</strong> ${escapeHtml(row.behaviorShift1 || '-')}</div>
+              <div style="margin-top:4px;"><strong>Q2:</strong> ${escapeHtml(row.behaviorShift2 || '-')}</div>
+            </td>
+            <td>
+              <div><strong>Plan:</strong> ${escapeHtml(planText(row.choicePlan))}</div>
+              <div style="margin-top:4px;"><strong>Support:</strong> ${escapeHtml(supportText(row.choiceSupport))}</div>
+            </td>
+            <td>
+              <div class="actions" style="margin-top:0;">
+                <button class="btn btn-blue open-detail-btn" type="button" data-id="${escapeHtml(row.id)}">ดู</button>
+                <a class="btn btn-ghost" href="${teacherHref}">เปิดหน้า</a>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      tbody.querySelectorAll('.open-detail-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          SELECTED_ID = btn.getAttribute('data-id') || '';
+          renderRows(FILTERED);
+          renderDetail();
+        });
+      });
+    }
+
+    function renderDetail(){
+      const box = document.getElementById('detailPreview');
+      const row = FILTERED.find(x => x.id === SELECTED_ID);
+
+      if (!row) {
+        box.textContent = 'เลือกนักเรียนจากตารางเพื่อดูรายละเอียด';
+        return;
+      }
+
+      box.textContent = JSON.stringify(row.raw, null, 2);
+    }
+
+    function renderPreview(rows){
+      const box = document.getElementById('datasetPreview');
+      box.textContent = JSON.stringify({
+        total: DATASET.length,
+        filtered: rows.length,
+        sample: rows.slice(0, 5).map((x) => ({
+          id: x.id,
+          name: x.name,
+          studyId: x.studyId,
+          sessionId: x.sessionId,
+          flow: x.flow,
+          score: x.score,
+          grade: x.grade,
+          behaviorShift1: x.behaviorShift1,
+          choicePlan: x.choicePlan
+        }))
+      }, null, 2);
+    }
+
+    function refreshAll(){
+      DATASET = scanDataset();
+      FILTERED = [...DATASET];
+      SELECTED_ID = DATASET[0]?.id || '';
+
+      setCtxText(DATASET);
+      setSummaryStats(DATASET);
+      fillFilterOptions(DATASET);
+      applyFilters();
+    }
+
+    function exportFiltered(){
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        count: FILTERED.length,
+        records: FILTERED.map(x => x.raw)
+      };
+      saveText(`goodjunk-classroom-filtered-${Date.now()}.json`, JSON.stringify(payload, null, 2));
+    }
+
+    function exportAll(){
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        count: DATASET.length,
+        records: DATASET.map(x => x.raw)
+      };
+      saveText(`goodjunk-classroom-all-${Date.now()}.json`, JSON.stringify(payload, null, 2));
+    }
+
+    function clearDemoCache(){
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        if (
+          key.startsWith('GJI_RECORD_V1:') ||
+          key === GJI_CTX_KEY ||
+          key === GJI_GAME_SUMMARY_KEY
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+
+      keysToRemove.forEach((key) => {
+        try { localStorage.removeItem(key); } catch {}
+      });
+
+      refreshAll();
+    }
+
+    function bind(){
+      document.getElementById('searchInput').addEventListener('input', applyFilters);
+      document.getElementById('flowFilter').addEventListener('change', applyFilters);
+      document.getElementById('gradeFilter').addEventListener('change', applyFilters);
+      document.getElementById('conditionFilter').addEventListener('change', applyFilters);
+      document.getElementById('classFilter').addEventListener('change', applyFilters);
+
+      document.getElementById('btnRefresh').addEventListener('click', refreshAll);
+      document.getElementById('btnExportFiltered').addEventListener('click', exportFiltered);
+      document.getElementById('btnExportAll').addEventListener('click', exportAll);
+      document.getElementById('btnClearDemo').addEventListener('click', clearDemoCache);
+
+      const ctx = getGlobalCtx();
+      document.getElementById('btnHub').href = ctx.hub || '../hub.html';
+    }
+
+    bind();
+    refreshAll();
+  </script>
+</body>
+</html>
