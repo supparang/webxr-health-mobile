@@ -4,243 +4,265 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk Solo Boss</title>
-  <meta name="color-scheme" content="dark light" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#071120;
-      --bg2:#0f172a;
-      --bg3:#13315c;
-      --text:#eef6ff;
-      --muted:#bfd7ef;
-      --panel:rgba(2,6,23,.72);
-      --stroke:rgba(255,255,255,.14);
-      --good:#7ed957;
+      --sky1:#dff4ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d8;
+
+      --text:#4d4a42;
+      --muted:#6f6b63;
+      --line:#cfe6f8;
+
+      --card:#ffffff;
+      --card2:#f8fcff;
+
+      --green:#7ed957;
       --blue:#7fcfff;
-      --warn:#ffd45c;
-      --danger:#ff8b7d;
-      --shadow:0 24px 72px rgba(0,0,0,.34);
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --pink:#ff9fc7;
+
+      --shadow:0 18px 40px rgba(60,120,170,.16);
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
       background:
-        radial-gradient(900px 520px at 15% 10%, rgba(127,207,255,.18), transparent 58%),
-        radial-gradient(800px 520px at 90% 0%, rgba(255,212,92,.14), transparent 58%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 54%,var(--bg3));
+        radial-gradient(circle at top left, rgba(255,255,255,.95), rgba(255,255,255,0) 36%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 48%,var(--sky3));
+      font-family:ui-rounded,"SF Pro Rounded","Nunito","Prompt","Kanit",system-ui,-apple-system,sans-serif;
       color:var(--text);
-      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
     }
 
     body{
       overflow:hidden;
     }
 
+    #app,
     #gameMount{
       position:fixed;
       inset:0;
       overflow:hidden;
     }
 
-    .boot-overlay{
+    .boot-layer{
       position:fixed;
       inset:0;
       z-index:999;
       display:grid;
       place-items:center;
-      padding:
-        calc(16px + var(--sat))
-        calc(16px + var(--sar))
-        calc(16px + var(--sab))
-        calc(16px + var(--sal));
+      padding:16px;
       background:
-        radial-gradient(680px 360px at 18% 12%, rgba(56,189,248,.14), transparent 58%),
-        radial-gradient(640px 360px at 82% 8%, rgba(250,204,21,.12), transparent 58%),
-        linear-gradient(180deg,#071120,#0f172a 58%,#13315c);
+        radial-gradient(circle at top, rgba(255,255,255,.42), rgba(255,255,255,0) 34%),
+        linear-gradient(180deg, rgba(223,244,255,.92), rgba(191,232,255,.94) 48%, rgba(255,247,216,.96));
+      transition:opacity .25s ease, visibility .25s ease;
+    }
+
+    .boot-layer.hide{
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
     }
 
     .boot-card{
-      width:min(92vw,760px);
-      border-radius:30px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      backdrop-filter:blur(12px);
+      width:min(92vw, 560px);
+      border-radius:28px;
+      background:linear-gradient(180deg,#fff,#f9fdff);
+      border:1px solid rgba(255,255,255,.92);
       box-shadow:var(--shadow);
-      padding:24px 20px;
+      padding:22px 20px;
       text-align:center;
-      position:relative;
-      overflow:hidden;
-    }
-
-    .boot-card::before{
-      content:"";
-      position:absolute;
-      width:180px;
-      height:180px;
-      left:-44px;
-      top:-44px;
-      border-radius:999px;
-      background:rgba(127,207,255,.16);
-      filter:blur(12px);
-      pointer-events:none;
-    }
-
-    .boot-card::after{
-      content:"";
-      position:absolute;
-      width:180px;
-      height:180px;
-      right:-44px;
-      bottom:-44px;
-      border-radius:999px;
-      background:rgba(255,212,92,.14);
-      filter:blur(12px);
-      pointer-events:none;
-    }
-
-    .boot-inner{
-      position:relative;
-      z-index:1;
+      color:var(--text);
     }
 
     .boot-badge{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:38px;
+      min-height:36px;
       padding:8px 14px;
       border-radius:999px;
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.06);
-      color:#e0f2fe;
+      background:#eff9ff;
+      border:1px solid #d8edf9;
+      color:#55728f;
       font-size:12px;
       font-weight:1000;
     }
 
-    .boot-hero{
-      margin:16px auto 0;
-      width:108px;
-      height:108px;
-      border-radius:30px;
+    .boot-emoji{
+      margin:14px auto 0;
+      width:92px;
+      height:92px;
+      border-radius:28px;
       display:grid;
       place-items:center;
-      font-size:54px;
-      background:
-        radial-gradient(circle at 30% 30%, rgba(255,255,255,.22), transparent 40%),
-        linear-gradient(135deg, rgba(34,197,94,.22), rgba(56,189,248,.20));
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:0 16px 34px rgba(0,0,0,.20);
-      animation: floaty 3.2s ease-in-out infinite;
+      font-size:46px;
+      background:linear-gradient(180deg,#fff8d8,#fff);
+      border:1px solid #ffe9aa;
+      box-shadow:0 12px 26px rgba(255,190,73,.18);
+      animation: floaty 2.8s ease-in-out infinite;
     }
 
     .boot-title{
-      margin:16px 0 0;
-      font-size:clamp(32px,4.8vw,54px);
+      margin:14px 0 0;
+      font-size:clamp(28px,4vw,38px);
       line-height:1.02;
       font-weight:1000;
-      letter-spacing:-.02em;
     }
 
     .boot-sub{
-      margin-top:10px;
+      margin:10px 0 0;
       color:var(--muted);
-      font-size:16px;
+      font-size:15px;
       line-height:1.65;
       font-weight:900;
     }
 
-    .boot-status{
-      margin-top:16px;
-      display:grid;
-      gap:10px;
+    .boot-tips{
+      margin-top:14px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      justify-content:center;
     }
 
-    .boot-pill{
-      min-height:46px;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:#eef6ff;
-      display:flex;
+    .boot-tip{
+      display:inline-flex;
       align-items:center;
-      justify-content:center;
-      text-align:center;
-      padding:10px 12px;
-      font-size:14px;
-      line-height:1.55;
+      min-height:34px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid #dbeef8;
+      background:#f7fcff;
+      color:#5d7594;
+      font-size:12px;
       font-weight:1000;
     }
 
-    .boot-spinner{
-      margin:14px auto 0;
-      width:52px;
-      height:52px;
+    .boot-progress{
+      width:min(300px, 100%);
+      height:12px;
+      margin:16px auto 0;
       border-radius:999px;
-      border:4px solid rgba(255,255,255,.16);
-      border-top-color:#7fcfff;
-      animation: spin 1s linear infinite;
+      background:#edf7fc;
+      border:1px solid #d9edf7;
+      overflow:hidden;
     }
 
-    .boot-actions{
+    .boot-progress > span{
+      display:block;
+      width:42%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--blue),var(--green),var(--yellow));
+      animation: loadingBar 1.2s ease-in-out infinite alternate;
+    }
+
+    .debug-chip{
+      position:fixed;
+      right:10px;
+      top:10px;
+      z-index:1001;
+      min-height:32px;
+      padding:7px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.86);
+      border:1px solid #d6eaf7;
+      color:#556f8c;
+      font-size:11px;
+      font-weight:1000;
+      box-shadow:0 8px 20px rgba(60,120,170,.10);
+      display:none;
+    }
+
+    .debug-chip.show{ display:inline-flex; }
+
+    .boot-error{
+      position:fixed;
+      inset:0;
+      z-index:1000;
+      display:none;
+      place-items:center;
+      padding:16px;
+      background:rgba(27,39,61,.34);
+      backdrop-filter:blur(6px);
+    }
+
+    .boot-error.show{ display:grid; }
+
+    .boot-error-card{
+      width:min(92vw, 760px);
+      border-radius:28px;
+      background:linear-gradient(180deg,#fff,#fbfdff);
+      border:1px solid rgba(255,255,255,.94);
+      box-shadow:0 20px 56px rgba(22,40,70,.26);
+      padding:22px;
+      color:var(--text);
+    }
+
+    .boot-error-title{
+      margin:0 0 10px;
+      font-size:30px;
+      line-height:1.06;
+      font-weight:1000;
+    }
+
+    .boot-error-sub{
+      margin:0 0 14px;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.65;
+      font-weight:900;
+    }
+
+    .boot-error-pre{
+      margin:0;
+      max-height:260px;
+      overflow:auto;
+      white-space:pre-wrap;
+      word-break:break-word;
+      padding:14px;
+      border-radius:18px;
+      background:#fff6f6;
+      border:1px solid #ffd9d9;
+      color:#9b3b3b;
+      font:600 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
+    }
+
+    .boot-error-actions{
       margin-top:16px;
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      justify-content:center;
     }
 
     .boot-btn{
-      min-height:50px;
+      min-height:48px;
+      border:none;
       border-radius:18px;
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.06);
-      color:#fff;
+      padding:12px 16px;
       font-size:15px;
       font-weight:1000;
       cursor:pointer;
-      padding:12px 16px;
-      box-shadow:0 10px 24px rgba(0,0,0,.16);
+      box-shadow:0 10px 24px rgba(60,120,170,.12);
     }
 
     .boot-btn.primary{
-      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.14));
-      border-color:rgba(34,197,94,.34);
+      background:linear-gradient(180deg,#7fcfff,#58b7f5);
+      color:#073a52;
     }
 
-    .boot-btn.info{
-      background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14));
-      border-color:rgba(56,189,248,.34);
-    }
-
-    .boot-debug{
-      margin-top:16px;
-      text-align:left;
-      white-space:pre-wrap;
-      word-break:break-word;
-      overflow:auto;
-      max-height:240px;
-      padding:14px;
-      border-radius:18px;
-      background:rgba(127,29,29,.28);
-      border:1px solid rgba(239,68,68,.22);
-      color:#fecaca;
-      font:600 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
-      display:none;
-    }
-
-    .boot-debug.show{
-      display:block;
-    }
-
-    @keyframes spin{
-      to{ transform:rotate(360deg); }
+    .boot-btn.soft{
+      background:#fff;
+      color:#6a6962;
+      border:1px solid #d8eaf5;
     }
 
     @keyframes floaty{
@@ -248,48 +270,59 @@
       50%{ transform:translateY(-6px); }
     }
 
-    @media (max-width:640px){
-      .boot-card{ border-radius:24px; padding:20px 16px; }
-      .boot-hero{ width:92px; height:92px; font-size:46px; }
-      .boot-title{ font-size:34px; }
+    @keyframes loadingBar{
+      0%{ transform:translateX(-12%) scaleX(.88); }
+      100%{ transform:translateX(22%) scaleX(1.08); }
     }
 
-    @media (prefers-reduced-motion: reduce){
-      *,
-      *::before,
-      *::after{
-        animation:none !important;
-        transition:none !important;
+    @media (max-width:640px){
+      .boot-card,
+      .boot-error-card{
+        border-radius:24px;
+        padding:18px;
       }
     }
   </style>
 </head>
 <body>
-  <div id="gameMount"></div>
+  <div id="app">
+    <div id="gameMount"></div>
+  </div>
 
-  <div id="bootOverlay" class="boot-overlay">
+  <div id="debugChip" class="debug-chip">debug=1</div>
+
+  <div id="bootLayer" class="boot-layer">
     <div class="boot-card">
-      <div class="boot-inner">
-        <div class="boot-badge">HeroHealth • GoodJunk Solo Boss</div>
-        <div class="boot-hero">🍔⚔️</div>
-        <h1 class="boot-title">กำลังเตรียมด่านบอส</h1>
-        <div class="boot-sub" id="bootSub">
-          ระบบกำลังตรวจ warmup ของวันนี้ และเตรียมเข้าสู่ด่านบอสให้พร้อม
-        </div>
+      <div class="boot-badge">HeroHealth • GoodJunk Solo Boss</div>
+      <div class="boot-emoji">👑</div>
+      <h1 class="boot-title">กำลังเข้าโหมดบอส</h1>
+      <p class="boot-sub">
+        เตรียมตัวสู้กับ Junk King<br>
+        ถ้า warmup วันนี้เสร็จแล้ว ระบบจะเข้า boss ต่อทันที
+      </p>
 
-        <div class="boot-status">
-          <div class="boot-pill" id="bootStatusLine">กำลังโหลด…</div>
-        </div>
+      <div class="boot-tips">
+        <div class="boot-tip">🥦 เก็บอาหารดี</div>
+        <div class="boot-tip">🍟 อย่าโดน junk</div>
+        <div class="boot-tip">🎯 ตีเป้าบอสให้ทัน</div>
+      </div>
 
-        <div class="boot-spinner" id="bootSpinner"></div>
+      <div class="boot-progress"><span></span></div>
+    </div>
+  </div>
 
-        <div class="boot-actions" id="bootActions" style="display:none">
-          <button class="boot-btn primary" id="btnRetry" type="button">ลองใหม่</button>
-          <button class="boot-btn info" id="btnLauncher" type="button">กลับ Launcher</button>
-          <button class="boot-btn" id="btnHub" type="button">กลับ HUB</button>
-        </div>
+  <div id="bootError" class="boot-error">
+    <div class="boot-error-card">
+      <h2 class="boot-error-title">โหลดหน้า Boss ไม่สำเร็จ</h2>
+      <p class="boot-error-sub">
+        ระบบเปิดเกมไม่สำเร็จ ลองรีเฟรช หรือกลับไปที่ launcher ได้เลย
+      </p>
+      <pre id="bootErrorText" class="boot-error-pre">Unknown error</pre>
 
-        <pre id="bootDebug" class="boot-debug"></pre>
+      <div class="boot-error-actions">
+        <button id="btnReload" class="boot-btn primary" type="button">ลองใหม่</button>
+        <button id="btnBackLauncher" class="boot-btn soft" type="button">กลับ Launcher</button>
+        <button id="btnBackHubRoot" class="boot-btn soft" type="button">กลับ HUB</button>
       </div>
     </div>
   </div>
@@ -298,32 +331,19 @@
     (() => {
       'use strict';
 
-      const q = new URLSearchParams(location.search);
-      const DEBUG = q.get('debug') === '1';
+      const qs = (k, d='') => {
+        try { return new URL(location.href).searchParams.get(k) ?? d; }
+        catch (_) { return d; }
+      };
 
-      const $ = (id) => document.getElementById(id);
-
-      function clean(v, d=''){
+      const clean = (v, d='') => {
         const s = String(v ?? '').trim();
         return s || d;
-      }
+      };
 
-      function bangkokDateKey(){
-        try{
-          const parts = new Intl.DateTimeFormat('en-CA', {
-            timeZone:'Asia/Bangkok',
-            year:'numeric',
-            month:'2-digit',
-            day:'2-digit'
-          }).formatToParts(new Date());
-          const m = {};
-          parts.forEach(p => { if (p.type !== 'literal') m[p.type] = p.value; });
-          return `${m.year}-${m.month}-${m.day}`;
-        }catch(_){
-          const d = new Date();
-          return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        }
-      }
+      const DEBUG = qs('debug','') === '1';
+      const debugChip = document.getElementById('debugChip');
+      if (DEBUG && debugChip) debugChip.classList.add('show');
 
       function buildUrl(path, extra = {}){
         const u = new URL(path, location.href);
@@ -335,188 +355,149 @@
         return u.toString();
       }
 
-      function readGateDone(pid){
-        try{
-          const day = bangkokDateKey();
-          const key = `HHA_GATE_DONE_V1:${pid}:nutrition:goodjunk:warmup:${day}`;
-          return localStorage.getItem(key) === '1';
-        }catch(_){
-          return false;
-        }
+      function fallbackHubRoot(){
+        return buildUrl('./hub.html', {});
       }
 
-      function buildHubRootUrl(){
-        return clean(
-          q.get('hubRoot'),
-          q.get('hub'),
-          new URL('./hub.html', location.href).toString()
-        );
-      }
-
-      function buildLauncherUrl(hubRoot){
-        if (q.get('launcher')) {
-          try { return new URL(q.get('launcher'), location.href).toString(); }
-          catch(_) {}
-        }
-
+      function buildLauncherFallback(){
         return buildUrl('./goodjunk-launcher.html', {
-          pid: clean(q.get('pid'), 'anon'),
-          nick: clean(q.get('name'), q.get('nick'), 'Hero'),
-          diff: clean(q.get('diff'), 'normal'),
-          time: clean(q.get('time'), '80'),
-          view: clean(q.get('view'), 'mobile'),
-          run: clean(q.get('run'), 'play'),
-          hub: hubRoot,
-          studyId: clean(q.get('studyId'), ''),
-          conditionGroup: clean(q.get('conditionGroup'), ''),
-          sbUrl: clean(q.get('sbUrl'), ''),
-          sbAnon: clean(q.get('sbAnon'), ''),
+          pid: clean(qs('pid'), 'anon'),
+          nick: clean(qs('name') || qs('nick'), 'Hero'),
+          diff: clean(qs('diff'), 'normal'),
+          time: clean(qs('time'), '80'),
+          view: clean(qs('view'), 'mobile'),
+          hub: clean(qs('hubRoot') || qs('hub'), './hub.html'),
+          studyId: clean(qs('studyId')),
+          conditionGroup: clean(qs('conditionGroup')),
+          seed: clean(qs('seed')),
+          run: clean(qs('run'), 'play'),
           debug: DEBUG ? '1' : ''
         });
       }
 
-      const hubRoot = buildHubRootUrl();
-      const launcherUrl = buildLauncherUrl(hubRoot);
+      const hubRoot = (() => {
+        const raw = clean(qs('hubRoot') || qs('hub'));
+        if (!raw) return fallbackHubRoot();
+        try { return new URL(raw, location.href).toString(); }
+        catch (_) { return fallbackHubRoot(); }
+      })();
 
-      const ctx = {
-        pid: clean(q.get('pid'), 'anon'),
-        name: clean(q.get('name'), q.get('nick'), q.get('nickName'), 'Hero'),
-        studyId: clean(q.get('studyId'), ''),
-        diff: clean(q.get('diff'), 'normal'),
-        time: clean(q.get('time'), '80'),
-        seed: clean(q.get('seed'), String(Date.now())),
-        view: clean(q.get('view'), 'mobile'),
-        run: clean(q.get('run'), 'play'),
-        gameId: clean(q.get('gameId'), 'goodjunk'),
-        zone: clean(q.get('zone'), 'nutrition'),
+      const launcherUrl = (() => {
+        const raw = clean(qs('launcher'));
+        if (!raw) return buildLauncherFallback();
+        try { return new URL(raw, location.href).toString(); }
+        catch (_) { return buildLauncherFallback(); }
+      })();
+
+      const runCtx = {
+        pid: clean(qs('pid'), 'anon'),
+        name: clean(qs('name') || qs('nick'), 'Hero'),
+        studyId: clean(qs('studyId')),
+        diff: clean(qs('diff'), 'normal'),
+        time: clean(qs('time'), '80'),
+        seed: clean(qs('seed'), String(Date.now())),
+        view: clean(qs('view'), 'mobile'),
+        run: clean(qs('run'), 'play'),
+
+        gameId: 'goodjunk',
+        zone: 'nutrition',
         mode: 'solo',
         entry: 'solo-boss',
         phaseBoss: '1',
         boss: '1',
         theme: 'phaseboss',
+
+        // สำคัญ:
+        // - hub ใช้เป็นปลายทาง cooldown => ให้ชี้ launcher
+        // - hubRoot เก็บ root hub จริง
+        // - launcher เก็บ launcher จริงไว้ด้วย
+        hub: launcherUrl,
         hubRoot,
         launcher: launcherUrl,
-        hub: launcherUrl
+
+        log: clean(qs('log')),
+        ai: clean(qs('ai')),
+        pro: clean(qs('pro')),
+        research: clean(qs('research')),
+        conditionGroup: clean(qs('conditionGroup'))
       };
 
-      function setStatus(text){
-        const el = $('bootStatusLine');
-        if (el) el.textContent = text;
-      }
+      window.__GJ_RUN_CTX__ = runCtx;
 
-      function showError(err){
-        const spinner = $('bootSpinner');
-        const actions = $('bootActions');
-        const debug = $('bootDebug');
-        const sub = $('bootSub');
+      const bootLayer = document.getElementById('bootLayer');
+      const bootError = document.getElementById('bootError');
+      const bootErrorText = document.getElementById('bootErrorText');
 
-        if (spinner) spinner.style.display = 'none';
-        if (actions) actions.style.display = 'flex';
-        if (sub) sub.textContent = 'โหลดด่านบอสไม่สำเร็จ ลองใหม่หรือกลับไปหน้า launcher ได้เลย';
+      window.__GJ_HIDE_LOADING__ = function(){
+        if (bootLayer) bootLayer.classList.add('hide');
+      };
 
-        setStatus('โหลดไม่สำเร็จ');
-
-        if (debug) {
-          debug.textContent = String(err?.stack || err || 'Unknown error');
-          debug.classList.add('show');
+      window.__GJ_SHOW_BOOT_ERROR__ = function(err){
+        if (bootLayer) bootLayer.classList.add('hide');
+        if (bootErrorText) {
+          bootErrorText.textContent = String(err || 'Unknown error');
         }
+        if (bootError) {
+          bootError.classList.add('show');
+        }
+      };
+
+      document.getElementById('btnReload')?.addEventListener('click', () => {
+        location.reload();
+      });
+
+      document.getElementById('btnBackLauncher')?.addEventListener('click', () => {
+        location.href = launcherUrl;
+      });
+
+      document.getElementById('btnBackHubRoot')?.addEventListener('click', () => {
+        location.href = hubRoot;
+      });
+
+      // บังคับให้ปุ่ม "กลับ HUB" ใน summary / pause overlay กลับ root hub จริง
+      document.addEventListener('click', (ev) => {
+        const btn = ev.target && ev.target.closest
+          ? ev.target.closest('#btnHub, #btnPauseHub')
+          : null;
+
+        if (!btn) return;
+
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.stopImmediatePropagation?.();
+        location.href = hubRoot;
+      }, true);
+
+      // timeout เผื่อไฟล์ JS ไม่ mount
+      const bootTimeout = setTimeout(() => {
+        if (!window.__GJ_ENGINE_MOUNTED__) {
+          window.__GJ_SHOW_BOOT_ERROR__('Engine mount timeout: goodjunk-solo-phaseboss-v2.js did not finish booting.');
+        }
+      }, 8000);
+
+      function clearBootTimeout(){
+        clearTimeout(bootTimeout);
       }
 
-      function hideBoot(){
-        const overlay = $('bootOverlay');
-        if (overlay) overlay.style.display = 'none';
-      }
+      const script = document.createElement('script');
+      script.src = './goodjunk-solo-phaseboss-v2.js?v=20260406c-SOLO-BOSS-WRAPPER-LAUNCHER-HUBROOT';
+      script.async = true;
 
-      function buildSelfRunUrlWithWgskip(){
-        return buildUrl('./goodjunk-solo-boss.html', {
-          pid: ctx.pid,
-          name: ctx.name,
-          studyId: ctx.studyId,
-          diff: ctx.diff,
-          time: ctx.time,
-          seed: ctx.seed,
-          view: ctx.view,
-          run: ctx.run,
-          gameId: ctx.gameId,
-          zone: ctx.zone,
-          hubRoot: ctx.hubRoot,
-          launcher: ctx.launcher,
-          hub: ctx.hubRoot,
-          wgskip: '1',
-          entry: ctx.entry,
-          phaseBoss: ctx.phaseBoss,
-          boss: ctx.boss,
-          theme: ctx.theme,
-          debug: DEBUG ? '1' : ''
-        });
-      }
-
-      function buildWarmupUrl(nextUrl){
-        return buildUrl('./warmup-gate.html', {
-          phase: 'warmup',
-          gatePhase: 'warmup',
-          mode: 'solo',
-          cat: 'nutrition',
-          zone: 'nutrition',
-          game: 'goodjunk',
-          gameId: 'goodjunk',
-          theme: 'goodjunk',
-          pid: ctx.pid,
-          name: ctx.name,
-          studyId: ctx.studyId,
-          diff: ctx.diff,
-          time: ctx.time,
-          view: ctx.view,
-          run: ctx.run,
-          seed: ctx.seed,
-          hub: ctx.launcher,
-          hubRoot: ctx.hubRoot,
-          launcher: ctx.launcher,
-          next: nextUrl,
-          entry: ctx.entry,
-          phaseBoss: ctx.phaseBoss,
-          boss: ctx.boss,
-          debug: DEBUG ? '1' : ''
-        });
-      }
-
-      function markLastMode(){
-        try{
-          localStorage.setItem(`GJ_LAST_MODE:${ctx.pid}`, 'solo');
-          localStorage.setItem(`GJ_LAST_RUN_URL:${ctx.pid}`, buildSelfRunUrlWithWgskip());
-        }catch(_){}
-      }
-
-      window.__GJ_RUN_CTX__ = ctx;
-      window.__GJ_HIDE_LOADING__ = hideBoot;
-      window.__GJ_SHOW_BOOT_ERROR__ = showError;
-
-      $('btnRetry')?.addEventListener('click', () => location.reload());
-      $('btnLauncher')?.addEventListener('click', () => { location.href = ctx.launcher; });
-      $('btnHub')?.addEventListener('click', () => { location.href = ctx.hubRoot; });
-
-      try{
-        if (!clean(q.get('wgskip'))) {
-          setStatus('กำลังตรวจ warmup ของวันนี้…');
-
-          if (!readGateDone(ctx.pid)) {
-            setStatus('ยังไม่ได้ warmup วันนี้ กำลังพาไป warmup…');
-            location.replace(buildWarmupUrl(buildSelfRunUrlWithWgskip()));
-            return;
+      script.onload = () => {
+        // ให้ตัว engine เรียก __GJ_HIDE_LOADING__ เองเมื่อ mount สำเร็จ
+        setTimeout(() => {
+          if (window.__GJ_ENGINE_MOUNTED__) {
+            clearBootTimeout();
           }
-        }
+        }, 200);
+      };
 
-        markLastMode();
-        setStatus('warmup พร้อมแล้ว กำลังโหลดด่านบอส…');
+      script.onerror = () => {
+        clearBootTimeout();
+        window.__GJ_SHOW_BOOT_ERROR__('Failed to load script: ./goodjunk-solo-phaseboss-v2.js');
+      };
 
-        const script = document.createElement('script');
-        script.src = './goodjunk-solo-phaseboss-v2.js?v=20260407-goodjunk-boss-flow';
-        script.defer = true;
-        script.onerror = () => showError('โหลดไฟล์ goodjunk-solo-phaseboss-v2.js ไม่สำเร็จ');
-        document.body.appendChild(script);
-      }catch(err){
-        showError(err);
-      }
+      document.body.appendChild(script);
     })();
   </script>
 </body>
