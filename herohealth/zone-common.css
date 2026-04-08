@@ -1,0 +1,730 @@
+/* =========================================
+   HeroHealth Zone Common CSS
+   shared by: Nutrition / Hygiene / Fitness
+   PATCH v20260408-zone-common
+   ========================================= */
+
+:root{
+  --zone-bg1:#eef9ff;
+  --zone-bg2:#fffef7;
+  --zone-card:#ffffff;
+  --zone-card-soft:#fffef8;
+  --zone-line:#d7edf7;
+  --zone-line-strong:#bfe2f1;
+  --zone-text:#4d4a42;
+  --zone-muted:#6f6a62;
+
+  --zone-blue:#7fcfff;
+  --zone-blue2:#58b7f5;
+  --zone-green:#7ed957;
+  --zone-green2:#58c33f;
+  --zone-yellow:#ffd45c;
+  --zone-yellow2:#ffbd42;
+  --zone-pink:#ffc7dd;
+
+  --zone-shadow:0 14px 28px rgba(86,155,194,.10);
+  --zone-shadow-soft:0 10px 20px rgba(86,155,194,.08);
+
+  --zone-radius-xl:24px;
+  --zone-radius-lg:20px;
+  --zone-radius-md:16px;
+  --zone-radius-pill:999px;
+
+  --zone-max:1180px;
+}
+
+*{ box-sizing:border-box; }
+
+html,body{
+  margin:0;
+  padding:0;
+  color:var(--zone-text);
+  background:
+    radial-gradient(circle at top right, rgba(255,244,188,.45), transparent 28%),
+    radial-gradient(circle at top left, rgba(127,207,255,.22), transparent 24%),
+    linear-gradient(180deg, var(--zone-bg1), var(--zone-bg2));
+  font-family: ui-rounded, "Nunito", "Trebuchet MS", "Noto Sans Thai", system-ui, sans-serif;
+}
+
+body{ min-height:100vh; }
+
+a,button,select,input{
+  font:inherit;
+}
+
+.hz-shell{
+  width:min(var(--zone-max), calc(100% - 24px));
+  margin:0 auto;
+  padding:18px 0 28px;
+}
+
+/* =========================
+   TOPBAR
+   ========================= */
+
+.hz-topbar{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:16px;
+  align-items:start;
+  margin-bottom:16px;
+}
+
+.brand-wrap{
+  display:grid;
+  gap:6px;
+}
+
+.brand-badge{
+  width:max-content;
+  min-height:30px;
+  padding:6px 12px;
+  border-radius:var(--zone-radius-pill);
+  background:#ffffff;
+  border:2px solid var(--zone-line);
+  color:#4e84a7;
+  font-size:12px;
+  font-weight:1000;
+  letter-spacing:.05em;
+  box-shadow:var(--zone-shadow-soft);
+}
+
+.hero-title{
+  margin:0;
+  font-size:clamp(30px, 5vw, 42px);
+  line-height:1.04;
+  font-weight:1000;
+  color:var(--zone-text);
+}
+
+.hero-sub{
+  margin:0;
+  max-width:760px;
+  font-size:15px;
+  line-height:1.65;
+  color:var(--zone-muted);
+  font-weight:900;
+}
+
+.hero-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+/* =========================
+   BUTTONS
+   ========================= */
+
+.top-btn,
+.nutri-play-btn{
+  appearance:none;
+  border:none;
+  text-decoration:none;
+  cursor:pointer;
+  transition:transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+}
+
+.top-btn:hover,
+.nutri-play-btn:hover,
+.filter-chip:hover{
+  transform:translateY(-1px);
+}
+
+.top-btn{
+  min-height:44px;
+  padding:10px 16px;
+  border-radius:var(--zone-radius-md);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
+  border:2px solid var(--zone-line);
+  color:#596773;
+  font-size:14px;
+  font-weight:1000;
+  box-shadow:var(--zone-shadow-soft);
+}
+
+.top-btn.primary,
+.nutri-play-btn{
+  background:linear-gradient(180deg, var(--zone-green), var(--zone-green2));
+  border:2px solid var(--zone-green2);
+  color:#173b0b;
+}
+
+.nutri-play-btn{
+  min-height:44px;
+  padding:10px 16px;
+  border-radius:var(--zone-radius-md);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:15px;
+  font-weight:1000;
+  box-shadow:0 10px 18px rgba(88,195,63,.18);
+}
+
+/* =========================
+   LAYOUT BLOCKS
+   ========================= */
+
+.hero-panel{
+  display:grid;
+  grid-template-columns:1.2fr .8fr;
+  gap:16px;
+  margin-bottom:18px;
+}
+
+.hero-panel-left,
+.hero-panel-right{
+  min-width:0;
+}
+
+.mascot-card,
+.control-card,
+.featured-card,
+.section-block,
+.zone-progress-card,
+.featured-game-card{
+  background:linear-gradient(180deg, var(--zone-card-soft), var(--zone-card));
+  border:3px solid var(--zone-line);
+  border-radius:var(--zone-radius-xl);
+  box-shadow:var(--zone-shadow);
+}
+
+.featured-card,
+.section-block,
+.zone-progress-card{
+  padding:18px;
+  margin-bottom:18px;
+}
+
+/* =========================
+   MASCOT / HERO PANEL
+   ========================= */
+
+.mascot-card{
+  display:grid;
+  grid-template-columns:92px 1fr;
+  gap:14px;
+  align-items:center;
+  padding:16px;
+}
+
+.mascot-face{
+  width:92px;
+  height:92px;
+  border-radius:26px;
+  display:grid;
+  place-items:center;
+  font-size:46px;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.92), rgba(255,255,255,0) 40%),
+    linear-gradient(180deg,#effff0,#fff8e7);
+  border:3px solid var(--zone-line);
+  box-shadow:0 10px 18px rgba(86,155,194,.08);
+}
+
+.mascot-text{
+  display:grid;
+  gap:4px;
+}
+
+.mascot-kicker{
+  font-size:12px;
+  font-weight:1000;
+  color:#5ea8d0;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.mascot-line{
+  font-size:16px;
+  line-height:1.55;
+  color:#5f5b54;
+  font-weight:1000;
+}
+
+.stats-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:12px;
+}
+
+.pill{
+  min-height:38px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:8px 12px;
+  border-radius:var(--zone-radius-pill);
+  background:#fff;
+  border:2px solid var(--zone-line);
+  color:#5d6f7a;
+  font-size:13px;
+  font-weight:1000;
+  box-shadow:var(--zone-shadow-soft);
+}
+
+/* =========================
+   CONTROL CARD
+   ========================= */
+
+.control-card{
+  padding:16px;
+  display:grid;
+  gap:12px;
+  height:100%;
+}
+
+.control-title{
+  font-size:20px;
+  line-height:1.1;
+  font-weight:1000;
+  color:var(--zone-text);
+}
+
+.control-group{
+  display:grid;
+  gap:8px;
+}
+
+.control-group > span{
+  font-size:13px;
+  color:var(--zone-muted);
+  font-weight:1000;
+}
+
+.control-group select,
+.control-group input{
+  width:100%;
+  min-height:46px;
+  border-radius:var(--zone-radius-md);
+  border:2px solid var(--zone-line);
+  background:#fff;
+  padding:10px 12px;
+  color:var(--zone-text);
+  font-size:14px;
+  font-weight:900;
+  outline:none;
+}
+
+.control-group select:focus,
+.control-group input:focus{
+  border-color:#94d4f4;
+  box-shadow:0 0 0 4px rgba(127,207,255,.12);
+}
+
+/* =========================
+   FILTERS
+   ========================= */
+
+.filter-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:2px;
+}
+
+.filter-chip{
+  appearance:none;
+  min-height:38px;
+  padding:8px 12px;
+  border-radius:var(--zone-radius-pill);
+  background:#fff;
+  border:2px solid var(--zone-line);
+  color:#566673;
+  font-size:13px;
+  font-weight:1000;
+  cursor:pointer;
+  transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.filter-chip.active{
+  background:linear-gradient(180deg, var(--zone-green), var(--zone-green2));
+  border-color:var(--zone-green2);
+  color:#173b0b;
+  box-shadow:0 10px 18px rgba(88,195,63,.14);
+}
+
+/* =========================
+   FEATURED GAME
+   ========================= */
+
+.featured-game-card{
+  margin-bottom:18px;
+  padding:18px;
+  display:grid;
+  grid-template-columns:1.35fr auto;
+  gap:16px;
+  align-items:center;
+}
+
+.featured-game-left{
+  min-width:0;
+}
+
+.featured-kicker,
+.section-kicker,
+.nutri-game-kicker{
+  font-size:12px;
+  font-weight:1000;
+  color:#5ea8d0;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.featured-title{
+  margin:6px 0 4px;
+  font-size:clamp(28px,4vw,34px);
+  line-height:1.06;
+  color:var(--zone-text);
+  font-weight:1000;
+}
+
+.featured-sub{
+  margin:0;
+  font-size:15px;
+  line-height:1.65;
+  color:#6b675f;
+  font-weight:900;
+}
+
+.featured-tags,
+.nutri-game-tags,
+.game-chip-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.featured-tag,
+.nutri-tag,
+.game-chip{
+  min-height:28px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:5px 10px;
+  border-radius:var(--zone-radius-pill);
+  background:#fff;
+  border:2px solid var(--zone-line);
+  color:#61717b;
+  font-size:11px;
+  font-weight:1000;
+}
+
+.featured-game-right{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+}
+
+/* =========================
+   SECTIONS
+   ========================= */
+
+.featured-head,
+.section-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+
+.section-title{
+  margin:4px 0 0;
+  font-size:26px;
+  line-height:1.08;
+  color:var(--zone-text);
+  font-weight:1000;
+}
+
+/* =========================
+   RECENT
+   ========================= */
+
+.recent-area{
+  display:grid;
+  gap:12px;
+}
+
+.empty-recent{
+  padding:16px;
+  border-radius:var(--zone-radius-lg);
+  background:#fff;
+  border:2px dashed var(--zone-line-strong);
+  color:#716c64;
+  font-size:14px;
+  line-height:1.6;
+  font-weight:900;
+}
+
+.recent-card{
+  display:grid;
+  gap:10px;
+  padding:14px;
+  border-radius:var(--zone-radius-lg);
+  border:3px solid var(--zone-line);
+  background:linear-gradient(180deg,#fffef7,#ffffff);
+  box-shadow:var(--zone-shadow-soft);
+}
+
+.recent-card--soft{
+  background:linear-gradient(180deg,#fffef7,#ffffff);
+}
+
+.recent-card-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.recent-card-title{
+  font-size:22px;
+  line-height:1.08;
+  font-weight:1000;
+  color:var(--zone-text);
+}
+
+.recent-card-sub{
+  font-size:13px;
+  line-height:1.55;
+  color:#6b675f;
+  font-weight:900;
+}
+
+.recent-badge{
+  min-height:30px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:6px 10px;
+  border-radius:var(--zone-radius-pill);
+  background:#eefbff;
+  border:2px solid #cdeeff;
+  color:#2d6f8b;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.recent-card-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.recent-play-btn{
+  text-decoration:none;
+}
+
+/* =========================
+   GRID / GAME CARDS
+   ========================= */
+
+.games-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+
+.nutri-game-card{
+  display:grid;
+  gap:12px;
+  padding:16px;
+  border-radius:var(--zone-radius-xl);
+  border:3px solid var(--zone-line);
+  background:linear-gradient(180deg,#fffef8,#ffffff);
+  box-shadow:0 12px 24px rgba(86,155,194,.10);
+  transition:transform .18s ease, box-shadow .18s ease;
+}
+
+.nutri-game-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 16px 28px rgba(86,155,194,.14);
+}
+
+.nutri-game-top{
+  display:grid;
+  grid-template-columns:72px 1fr;
+  gap:12px;
+  align-items:start;
+}
+
+.nutri-game-icon{
+  width:72px;
+  height:72px;
+  border-radius:22px;
+  display:grid;
+  place-items:center;
+  font-size:34px;
+  background:#f6fcff;
+  border:2px solid var(--zone-line);
+}
+
+.nutri-game-title{
+  margin:4px 0;
+  font-size:24px;
+  line-height:1.08;
+  color:var(--zone-text);
+  font-weight:1000;
+}
+
+.nutri-game-sub{
+  margin:0;
+  font-size:14px;
+  line-height:1.5;
+  color:#5f5b54;
+  font-weight:900;
+}
+
+.nutri-game-desc{
+  margin:0;
+  font-size:13px;
+  line-height:1.6;
+  color:#716c64;
+  font-weight:900;
+}
+
+.nutri-game-actions{
+  display:flex;
+  justify-content:flex-start;
+}
+
+/* shared accent presets */
+.nutri-game-card.plate .nutri-game-icon{
+  background:linear-gradient(180deg,#fff5dd,#fffdf7);
+}
+.nutri-game-card.goodjunk .nutri-game-icon{
+  background:linear-gradient(180deg,#eaffea,#fffef7);
+}
+.nutri-game-card.groups .nutri-game-icon{
+  background:linear-gradient(180deg,#eef7ff,#fffef7);
+}
+.nutri-game-card.hydration .nutri-game-icon{
+  background:linear-gradient(180deg,#ecf9ff,#fffef7);
+}
+
+/* =========================
+   PROGRESS
+   ========================= */
+
+.zone-progress-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+
+.progress-pill{
+  background:#fff;
+  border:2px solid var(--zone-line);
+  border-radius:var(--zone-radius-lg);
+  padding:14px;
+  box-shadow:var(--zone-shadow-soft);
+}
+
+.progress-n{
+  font-size:24px;
+  line-height:1.1;
+  font-weight:1000;
+  color:var(--zone-text);
+}
+
+.progress-t{
+  margin-top:6px;
+  font-size:13px;
+  color:#7b7a72;
+  font-weight:1000;
+}
+
+/* =========================
+   ACCESSIBILITY
+   ========================= */
+
+@media (prefers-reduced-motion: reduce){
+  .top-btn,
+  .nutri-play-btn,
+  .filter-chip,
+  .nutri-game-card{
+    transition:none;
+  }
+}
+
+/* =========================
+   RESPONSIVE
+   ========================= */
+
+@media (max-width:980px){
+  .hero-panel{
+    grid-template-columns:1fr;
+  }
+
+  .games-grid{
+    grid-template-columns:1fr;
+  }
+
+  .featured-game-card{
+    grid-template-columns:1fr;
+  }
+
+  .featured-game-right{
+    justify-content:flex-start;
+  }
+}
+
+@media (max-width:680px){
+  .hz-shell{
+    width:min(100% - 16px, 100%);
+    padding-top:14px;
+    padding-bottom:20px;
+  }
+
+  .hz-topbar{
+    grid-template-columns:1fr;
+  }
+
+  .hero-actions{
+    justify-content:flex-start;
+  }
+
+  .mascot-card{
+    grid-template-columns:70px 1fr;
+    padding:14px;
+  }
+
+  .mascot-face{
+    width:70px;
+    height:70px;
+    font-size:34px;
+    border-radius:20px;
+  }
+
+  .section-title{
+    font-size:22px;
+  }
+
+  .nutri-game-top{
+    grid-template-columns:60px 1fr;
+  }
+
+  .nutri-game-icon{
+    width:60px;
+    height:60px;
+    font-size:28px;
+  }
+
+  .nutri-game-title{
+    font-size:22px;
+  }
+
+  .zone-progress-grid{
+    grid-template-columns:1fr;
+  }
+}
