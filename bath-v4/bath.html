@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Bath Battle</title>
+
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-particle-system-component@1.1.3/dist/aframe-particle-system-component.min.js"></script>
+
+  <style>
+    :root{
+      --bg1:#dff7ff;
+      --bg2:#b9eaff;
+      --ink:#18415a;
+      --ink2:#2c6486;
+      --panel:rgba(255,255,255,.88);
+      --panelStrong:rgba(255,255,255,.96);
+      --line:#8fd5ff;
+      --good:#18b66b;
+      --warn:#ff8b3d;
+      --bad:#ff5f7a;
+      --gold:#ffd45a;
+      --cyan:#00d7ff;
+      --shadow:0 10px 30px rgba(23,88,123,.16);
+      --radius:22px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--ink);
+    }
+
+    #ui{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:20;
+    }
+
+    .topbar{
+      position:absolute;
+      top:10px;
+      left:10px;
+      right:10px;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:start;
+    }
+
+    .hud{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .chip{
+      min-width:110px;
+      padding:10px 14px;
+      border-radius:18px;
+      background:var(--panel);
+      border:3px solid rgba(255,255,255,.85);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(8px);
+    }
+
+    .chip .label{
+      display:block;
+      font-size:12px;
+      font-weight:800;
+      color:var(--ink2);
+      letter-spacing:.4px;
+      text-transform:uppercase;
+      margin-bottom:2px;
+    }
+
+    .chip .value{
+      display:block;
+      font-size:24px;
+      font-weight:900;
+      line-height:1;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      pointer-events:auto;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:18px;
+      padding:12px 16px;
+      background:var(--panelStrong);
+      color:var(--ink);
+      font-weight:900;
+      font-size:14px;
+      cursor:pointer;
+      text-decoration:none;
+      box-shadow:var(--shadow);
+      border:3px solid rgba(255,255,255,.9);
+    }
+    .btn.primary{ background:#fff7cc; }
+    .btn.good{ background:#d7ffe8; }
+    .btn.warn{ background:#ffe4d6; }
+
+    .progress-wrap{
+      position:absolute;
+      top:94px;
+      left:10px;
+      right:10px;
+      max-width:460px;
+      pointer-events:none;
+    }
+
+    .progress-card{
+      background:var(--panel);
+      border-radius:18px;
+      padding:10px 12px;
+      border:3px solid rgba(255,255,255,.85);
+      box-shadow:var(--shadow);
+    }
+
+    .progress-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      font-weight:900;
+      color:var(--ink2);
+      margin-bottom:8px;
+      font-size:13px;
+    }
+
+    .bar{
+      width:100%;
+      height:18px;
+      background:#e6f7ff;
+      border-radius:999px;
+      overflow:hidden;
+      border:2px solid #b9eaff;
+    }
+
+    .bar > i{
+      display:block;
+      width:0%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#27d4ff,#4cf3bc);
+      transition:width .18s ease;
+    }
+
+    .center-msg{
+      position:absolute;
+      left:50%;
+      top:26%;
+      transform:translateX(-50%) scale(.92);
+      padding:14px 22px;
+      border-radius:999px;
+      background:rgba(17,51,74,.84);
+      color:#fff;
+      font-weight:1000;
+      font-size:clamp(20px,4vw,42px);
+      letter-spacing:.5px;
+      box-shadow:0 12px 40px rgba(0,0,0,.25);
+      opacity:0;
+      transition:opacity .16s ease, transform .16s ease;
+      text-align:center;
+      max-width:min(90vw,760px);
+    }
+    .center-msg.show{
+      opacity:1;
+      transform:translateX(-50%) scale(1);
+    }
+
+    .bottom-help{
+      position:absolute;
+      left:50%;
+      bottom:14px;
+      transform:translateX(-50%);
+      padding:10px 16px;
+      border-radius:999px;
+      background:rgba(255,255,255,.88);
+      color:var(--ink2);
+      font-weight:800;
+      font-size:13px;
+      border:2px solid rgba(255,255,255,.9);
+      box-shadow:var(--shadow);
+      text-align:center;
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      background:rgba(20,52,75,.38);
+      backdrop-filter:blur(5px);
+      z-index:30;
+    }
+
+    .hidden{ display:none !important; }
+
+    .card{
+      width:min(94vw,760px);
+      background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(244,252,255,.96));
+      border:4px solid rgba(255,255,255,.94);
+      border-radius:28px;
+      box-shadow:0 30px 80px rgba(14,53,79,.24);
+      padding:20px;
+      color:var(--ink);
+      pointer-events:auto;
+    }
+
+    .card h1,.card h2{
+      margin:0 0 8px;
+      line-height:1.1;
+    }
+
+    .card .sub{
+      margin:0 0 14px;
+      color:var(--ink2);
+      font-weight:700;
+      line-height:1.45;
+    }
+
+    .howto{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+      gap:10px;
+      margin:14px 0 16px;
+    }
+
+    .howto .mini{
+      background:#f2fbff;
+      border:2px solid #d5f2ff;
+      border-radius:18px;
+      padding:12px;
+      font-weight:800;
+      color:var(--ink2);
+    }
+
+    .stat-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin:14px 0 16px;
+    }
+
+    .stat-box{
+      background:#f2fbff;
+      border:2px solid #d5f2ff;
+      border-radius:18px;
+      padding:14px;
+    }
+
+    .stat-box .k{
+      display:block;
+      color:var(--ink2);
+      font-size:12px;
+      font-weight:800;
+      text-transform:uppercase;
+      margin-bottom:4px;
+    }
+
+    .stat-box .v{
+      display:block;
+      font-size:28px;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .stars{
+      font-size:34px;
+      letter-spacing:4px;
+      margin:4px 0 10px;
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    @media (max-width:640px){
+      .topbar{top:8px;left:8px;right:8px}
+      .chip{min-width:92px;padding:9px 11px}
+      .chip .value{font-size:20px}
+      .progress-wrap{top:140px;left:8px;right:8px}
+      .bottom-help{max-width:92vw}
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <div class="topbar">
+      <div class="hud">
+        <div class="chip">
+          <span class="label">เวลา</span>
+          <span class="value"><span id="timer">45</span>s</span>
+        </div>
+        <div class="chip">
+          <span class="label">ความสะอาด</span>
+          <span class="value"><span id="clean">0</span>%</span>
+        </div>
+        <div class="chip">
+          <span class="label">คอมโบ</span>
+          <span class="value">x<span id="combo">0</span></span>
+        </div>
+        <div class="chip">
+          <span class="label">คะแนน</span>
+          <span class="value" id="score">0</span>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <a id="hubBtn" class="btn" href="./hub-v2.html">กลับ HUB</a>
+        <button id="restartTopBtn" class="btn warn">เริ่มใหม่</button>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-card">
+        <div class="progress-head">
+          <span>ภารกิจ: ล้างคราบให้สะอาดครบ 100%</span>
+          <span id="modeText">MODE</span>
+        </div>
+        <div class="bar"><i id="cleanBar"></i></div>
+      </div>
+    </div>
+
+    <div id="comboMsg" class="center-msg">SUPER SOAP!</div>
+
+    <div id="helpText" class="bottom-help">
+      PC: คลิกที่คราบ • Mobile/cVR: เล็งค้างที่เป้า • ยิงคราบบอสได้โบนัสเยอะ
+    </div>
+  </div>
+
+  <div id="startOverlay" class="overlay">
+    <div class="card">
+      <h1>🛁 Bath Battle</h1>
+      <p class="sub">
+        ล้างคราบสกปรกให้สะอาดก่อนหมดเวลา ยิ่งคอมโบต่อเนื่อง ยิ่งได้คะแนนและโบนัสเวลา
+      </p>
+
+      <div class="howto">
+        <div class="mini">🫧 คราบเล็ก = +ความสะอาดปกติ</div>
+        <div class="mini">👾 คราบบอส = +เยอะกว่า +เวลาเพิ่ม</div>
+        <div class="mini">⚠️ ปล่อยคราบไว้นาน = ความสะอาดลด + คอมโบหาย</div>
+      </div>
+
+      <div class="row">
+        <button id="startBtn" class="btn primary">เริ่มอาบน้ำเลย</button>
+        <a id="hubBtnStart" class="btn" href="./hub-v2.html">กลับ HUB</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="summaryOverlay" class="overlay hidden">
+    <div class="card">
+      <h2 id="summaryTitle">ยอดเยี่ยม!</h2>
+      <div id="summaryStars" class="stars">⭐️⭐️⭐️</div>
+      <p id="summarySub" class="sub">วันนี้ตัวสะอาดสดใสสุด ๆ</p>
+
+      <div class="stat-grid">
+        <div class="stat-box">
+          <span class="k">ความสะอาดสุดท้าย</span>
+          <span class="v"><span id="sumClean">0</span>%</span>
+        </div>
+        <div class="stat-box">
+          <span class="k">คะแนนรวม</span>
+          <span class="v" id="sumScore">0</span>
+        </div>
+        <div class="stat-box">
+          <span class="k">ยิงโดน</span>
+          <span class="v" id="sumHits">0</span>
+        </div>
+        <div class="stat-box">
+          <span class="k">พลาด</span>
+          <span class="v" id="sumMiss">0</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="replayBtn" class="btn good">เล่นอีกครั้ง</button>
+        <a id="hubBtnSummary" class="btn" href="./hub-v2.html">กลับ HUB</a>
+      </div>
+    </div>
+  </div>
+
+  <a-scene
+    background="color: #d7f6ff"
+    renderer="colorManagement: true; antialias: true"
+    raycaster="objects: .clickable"
+  >
+    <a-assets></a-assets>
+
+    <a-entity id="world">
+      <!-- ห้องน้ำ / อ่าง -->
+      <a-plane position="0 0 -3.8" rotation="-90 0 0" width="14" height="14" color="#f6fcff"></a-plane>
+
+      <a-box position="0 0.45 -6.6" width="12" height="1" depth="0.35" color="#ffffff"></a-box>
+      <a-box position="-5.9 0.45 -3.8" width="0.35" height="1" depth="5.6" color="#ffffff"></a-box>
+      <a-box position="5.9 0.45 -3.8" width="0.35" height="1" depth="5.6" color="#ffffff"></a-box>
+
+      <a-box position="0 2.8 -7" width="14" height="6" depth="0.2" color="#f2fdff"></a-box>
+      <a-box position="-6.9 2.8 -3.8" width="0.2" height="6" depth="6.5" color="#f4fdff"></a-box>
+      <a-box position="6.9 2.8 -3.8" width="0.2" height="6" depth="6.5" color="#f4fdff"></a-box>
+      <a-box position="0 5.8 -3.8" width="14" height="0.2" depth="6.5" color="#ecfbff"></a-box>
+
+      <!-- โฟมตกแต่ง -->
+      <a-sphere position="-2.4 0.5 -3.3" radius="0.28" color="#ffffff" opacity="0.92"></a-sphere>
+      <a-sphere position="-2.0 0.62 -3.0" radius="0.18" color="#ffffff" opacity="0.92"></a-sphere>
+      <a-sphere position="2.2 0.55 -3.2" radius="0.24" color="#ffffff" opacity="0.92"></a-sphere>
+      <a-sphere position="2.55 0.72 -2.95" radius="0.15" color="#ffffff" opacity="0.92"></a-sphere>
+
+      <!-- เป้าจะถูกสร้างในนี่ -->
+      <a-entity id="targetLayer"></a-entity>
+      <a-entity id="fxLayer"></a-entity>
+    </a-entity>
+
+    <a-light type="ambient" color="#ffffff" intensity="0.85"></a-light>
+    <a-light type="directional" color="#fff4d8" intensity="0.7" position="1 4 2"></a-light>
+    <a-light type="point" color="#7ae8ff" intensity="1.2" position="0 3 -3"></a-light>
+
+    <a-sky color="#dff7ff"></a-sky>
+
+    <!-- mouse cursor for PC -->
+    <a-entity
+      id="mouseCursor"
+      cursor="rayOrigin: mouse"
+      raycaster="objects: .clickable"
+    ></a-entity>
+
+    <a-entity id="rig" position="0 1.6 0">
+      <a-entity camera look-controls>
+        <!-- gaze cursor for mobile / cVR -->
+        <a-entity
+          id="gazeCursor"
+          position="0 0 -1"
+          visible="false"
+          cursor="fuse: true; fuseTimeout: 420"
+          raycaster="objects: .clickable"
+          geometry="primitive: ring; radiusInner: 0.015; radiusOuter: 0.026"
+          material="color: #00d7ff; shader: flat; opacity: 0.95"
+        >
+          <a-entity geometry="primitive: plane; width: 0.045; height: 0.002"
+                    material="color: #00d7ff; shader: flat"
+                    position="0 0 0.001"></a-entity>
+          <a-entity geometry="primitive: plane; width: 0.002; height: 0.045"
+                    material="color: #00d7ff; shader: flat"
+                    position="0 0 0.001"></a-entity>
+        </a-entity>
+
+        <!-- ขวดสบู่ / แปรงฟอง -->
+        <a-cylinder position="0.3 -0.42 -0.75" radius="0.045" height="0.3" color="#57d8ff"></a-cylinder>
+        <a-sphere position="0.3 -0.23 -0.75" radius="0.055" color="#ffffff"></a-sphere>
+      </a-entity>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+
+      const VIEW = (qs.get('view') || ((/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) ? 'mobile' : 'pc')).toLowerCase();
+      const DIFF = (qs.get('diff') || 'normal').toLowerCase();
+      const HUB  = qs.get('hub') || './hub-v2.html';
+
+      const PRESETS = {
+        easy:   { baseTime: 55, spawnEvery: 900, maxTargets: 2, targetLife: 2300, hitSmall: 7,  hitBoss: 18, missSmall: 5, missBoss: 8,  bossAt: 55, bossChance: 0.12, timePenalty: 0 },
+        normal: { baseTime: 45, spawnEvery: 760, maxTargets: 3, targetLife: 1800, hitSmall: 6,  hitBoss: 16, missSmall: 7, missBoss: 10, bossAt: 50, bossChance: 0.17, timePenalty: 1 },
+        hard:   { baseTime: 38, spawnEvery: 620, maxTargets: 4, targetLife: 1450, hitSmall: 5,  hitBoss: 14, missSmall: 9, missBoss: 12, bossAt: 45, bossChance: 0.22, timePenalty: 1 }
+      };
+
+      const cfgBase = PRESETS[DIFF] || PRESETS.normal;
+      const timeFromQs = parseInt(qs.get('time') || '', 10);
+      const cfg = {
+        ...cfgBase,
+        startTime: Number.isFinite(timeFromQs) && timeFromQs > 0 ? timeFromQs : cfgBase.baseTime
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      const ui = {
+        timer: $('timer'),
+        clean: $('clean'),
+        combo: $('combo'),
+        score: $('score'),
+        cleanBar: $('cleanBar'),
+        comboMsg: $('comboMsg'),
+        helpText: $('helpText'),
+        modeText: $('modeText'),
+
+        startOverlay: $('startOverlay'),
+        summaryOverlay: $('summaryOverlay'),
+
+        startBtn: $('startBtn'),
+        replayBtn: $('replayBtn'),
+        restartTopBtn: $('restartTopBtn'),
+
+        summaryTitle: $('summaryTitle'),
+        summaryStars: $('summaryStars'),
+        summarySub: $('summarySub'),
+        sumClean: $('sumClean'),
+        sumScore: $('sumScore'),
+        sumHits: $('sumHits'),
+        sumMiss: $('sumMiss'),
+
+        hubBtn: $('hubBtn'),
+        hubBtnStart: $('hubBtnStart'),
+        hubBtnSummary: $('hubBtnSummary'),
+      };
+
+      ui.hubBtn.href = HUB;
+      ui.hubBtnStart.href = HUB;
+      ui.hubBtnSummary.href = HUB;
+      ui.modeText.textContent = `${VIEW.toUpperCase()} • ${DIFF.toUpperCase()}`;
+
+      const scene = document.querySelector('a-scene');
+      const targetLayer = document.getElementById('targetLayer');
+      const fxLayer = document.getElementById('fxLayer');
+      const gazeCursor = document.getElementById('gazeCursor');
+      const mouseCursor = document.getElementById('mouseCursor');
+
+      function configureViewMode(){
+        const modeText =
+          VIEW === 'pc' ? 'PC: คลิกที่คราบ'
+          : VIEW === 'cvr' ? 'Cardboard: เล็งค้างที่คราบ'
+          : 'Mobile: เล็งค้างที่คราบ';
+
+        ui.helpText.textContent = `${modeText} • คราบบอสให้คะแนนและโบนัสเวลาเยอะ`;
+
+        if (VIEW === 'pc') {
+          gazeCursor.setAttribute('visible', 'false');
+          mouseCursor.setAttribute('cursor', 'rayOrigin: mouse');
+        } else {
+          gazeCursor.setAttribute('visible', 'true');
+          mouseCursor.setAttribute('cursor', 'rayOrigin: mouse');
+        }
+      }
+
+      function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+      function rand(min, max){ return Math.random() * (max - min) + min; }
+      function choose(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+      function randomFrontPos(isBoss = false){
+        const x = rand(-2.9, 2.9);
+        const y = rand(0.75, 2.9);
+        const z = rand(-5.2, -2.2);
+        return { x, y, z, str: `${x.toFixed(2)} ${y.toFixed(2)} ${z.toFixed(2)}` };
+      }
+
+      function showCenterMessage(text, ms = 700){
+        ui.comboMsg.textContent = text;
+        ui.comboMsg.classList.add('show');
+        clearTimeout(showCenterMessage._t);
+        showCenterMessage._t = setTimeout(() => {
+          ui.comboMsg.classList.remove('show');
+        }, ms);
+      }
+
+      function burstFx(pos, color = '#ffffff'){
+        const puff = document.createElement('a-entity');
+        puff.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+        puff.setAttribute(
+          'particle-system',
+          `preset: dust; color: ${color}, #ffffff; particleCount: 40; size: 0.22; maxAge: 0.45; velocityValue: 0 0.9 0`
+        );
+        fxLayer.appendChild(puff);
+        setTimeout(() => puff.parentNode && puff.parentNode.removeChild(puff), 520);
+      }
+
+      class BathBattle {
+        constructor(){
+          this.active = false;
+          this.ended = false;
+
+          this.clean = 0;
+          this.time = cfg.startTime;
+          this.combo = 0;
+          this.score = 0;
+          this.hits = 0;
+          this.miss = 0;
+          this.spawnId = 0;
+          this.tickTimer = null;
+          this.spawnTimer = null;
+          this.targets = new Map();
+        }
+
+        resetState(){
+          this.stopLoops();
+          this.clearTargets();
+
+          this.active = true;
+          this.ended = false;
+          this.clean = 0;
+          this.time = cfg.startTime;
+          this.combo = 0;
+          this.score = 0;
+          this.hits = 0;
+          this.miss = 0;
+          this.renderHud();
+        }
+
+        start(){
+          this.resetState();
+          ui.startOverlay.classList.add('hidden');
+          ui.summaryOverlay.classList.add('hidden');
+
+          // เริ่มด้วยเป้า 2 ลูก
+          this.trySpawn();
+          this.trySpawn();
+
+          this.tickTimer = setInterval(() => {
+            if (!this.active || this.ended) return;
+            this.time = Math.max(0, this.time - 1);
+            this.renderHud();
+            if (this.time <= 0) {
+              this.finish(this.clean >= 100);
+            }
+          }, 1000);
+
+          this.spawnTimer = setInterval(() => {
+            if (!this.active || this.ended) return;
+            this.trySpawn();
+          }, cfg.spawnEvery);
+        }
+
+        stopLoops(){
+          clearInterval(this.tickTimer);
+          clearInterval(this.spawnTimer);
+          this.tickTimer = null;
+          this.spawnTimer = null;
+        }
+
+        clearTargets(){
+          for (const item of this.targets.values()) {
+            clearTimeout(item.expireTimer);
+            if (item.el && item.el.parentNode) item.el.parentNode.removeChild(item.el);
+          }
+          this.targets.clear();
+        }
+
+        renderHud(){
+          ui.timer.textContent = this.time;
+          ui.clean.textContent = Math.floor(this.clean);
+          ui.combo.textContent = this.combo;
+          ui.score.textContent = this.score;
+          ui.cleanBar.style.width = `${clamp(this.clean, 0, 100)}%`;
+        }
+
+        trySpawn(forceBoss = false){
+          if (!this.active || this.ended) return;
+          if (this.targets.size >= cfg.maxTargets) return;
+          this.spawnTarget(forceBoss);
+        }
+
+        spawnTarget(forceBoss = false){
+          const isBoss = forceBoss || (this.clean >= cfg.bossAt && Math.random() < cfg.bossChance);
+          const id = `t_${++this.spawnId}`;
+          const pos = randomFrontPos(isBoss);
+
+          const target = document.createElement('a-entity');
+          target.dataset.id = id;
+          target.dataset.kind = isBoss ? 'boss' : 'dirt';
+          target.setAttribute('class', 'clickable');
+          target.setAttribute('position', pos.str);
+
+          if (isBoss) {
+            target.setAttribute('geometry', 'primitive: sphere; radius: 0.58; segmentsWidth: 18; segmentsHeight: 12');
+            target.setAttribute('material', 'color: #7a3b26; emissive: #41170e; emissiveIntensity: 0.55; roughness: 0.9');
+            target.setAttribute('animation__pulse', 'property: scale; dir: alternate; dur: 380; loop: true; to: 1.1 1.1 1.1; easing: easeInOutSine');
+            target.setAttribute('animation__spin', 'property: rotation; to: 0 360 0; loop: true; dur: 1800; easing: linear');
+          } else {
+            const radius = rand(0.24, 0.34).toFixed(2);
+            target.setAttribute('geometry', `primitive: sphere; radius: ${radius}; segmentsWidth: 16; segmentsHeight: 10`);
+            target.setAttribute('material', 'color: #5a3628; emissive: #2d160f; emissiveIntensity: 0.25; roughness: 1');
+            target.setAttribute('animation__float', `property: position; dir: alternate; dur: ${Math.floor(rand(420, 720))}; loop: true; to: ${pos.x.toFixed(2)} ${(pos.y + rand(0.08,0.18)).toFixed(2)} ${pos.z.toFixed(2)}; easing: easeInOutSine`);
+            target.setAttribute('animation__pulse', 'property: scale; dir: alternate; dur: 520; loop: true; to: 1.06 1.06 1.06; easing: easeInOutSine');
+          }
+
+          // ฟองสบู่เล็ก ๆ ล้อมคราบ
+          const bubbleCount = isBoss ? 6 : 3;
+          for (let i = 0; i < bubbleCount; i++) {
+            const b = document.createElement('a-sphere');
+            const bx = rand(-0.35, 0.35).toFixed(2);
+            const by = rand(-0.35, 0.35).toFixed(2);
+            const bz = rand(-0.22, 0.22).toFixed(2);
+            const br = isBoss ? rand(0.05, 0.08) : rand(0.03, 0.05);
+            b.setAttribute('position', `${bx} ${by} ${bz}`);
+            b.setAttribute('radius', br.toFixed(3));
+            b.setAttribute('color', '#ffffff');
+            b.setAttribute('opacity', '0.9');
+            target.appendChild(b);
+          }
+
+          const expireMs = isBoss ? cfg.targetLife + 300 : cfg.targetLife;
+          const expireTimer = setTimeout(() => {
+            this.missTarget(id);
+          }, expireMs);
+
+          target.addEventListener('click', () => {
+            this.hitTarget(id);
+          });
+
+          this.targets.set(id, { id, el: target, isBoss, expireTimer, pos });
+          targetLayer.appendChild(target);
+
+          if (isBoss) {
+            showCenterMessage('👾 คราบบอสมาแล้ว!', 650);
+          }
+        }
+
+        hitTarget(id){
+          if (!this.active || this.ended) return;
+          const item = this.targets.get(id);
+          if (!item) return;
+
+          clearTimeout(item.expireTimer);
+          this.targets.delete(id);
+
+          if (item.el.parentNode) item.el.parentNode.removeChild(item.el);
+
+          const gainClean = item.isBoss ? cfg.hitBoss : cfg.hitSmall;
+          const gainScore = item.isBoss ? 160 : 55 + Math.min(this.combo, 10) * 6;
+
+          this.clean = clamp(this.clean + gainClean, 0, 100);
+          this.combo += 1;
+          this.hits += 1;
+          this.score += gainScore;
+
+          if (item.isBoss) this.time += 2;
+          else if (this.combo > 0 && this.combo % 5 === 0) this.time += 1;
+
+          burstFx(item.pos, item.isBoss ? '#ffd66b' : '#82ecff');
+
+          if (this.combo >= 8) showCenterMessage('🌟 MEGA SOAP COMBO!', 700);
+          else if (this.combo >= 5) showCenterMessage('✨ SUPER SOAP!', 600);
+          else if (item.isBoss) showCenterMessage('💥 BOSS CLEAN!', 600);
+
+          this.renderHud();
+
+          if (this.clean >= 100) {
+            this.finish(true);
+            return;
+          }
+
+          if (this.targets.size < cfg.maxTargets) {
+            this.trySpawn();
+          }
+        }
+
+        missTarget(id){
+          if (!this.active || this.ended) return;
+          const item = this.targets.get(id);
+          if (!item) return;
+
+          clearTimeout(item.expireTimer);
+          this.targets.delete(id);
+
+          if (item.el.parentNode) item.el.parentNode.removeChild(item.el);
+
+          this.combo = 0;
+          this.miss += 1;
+          this.clean = clamp(
+            this.clean - (item.isBoss ? cfg.missBoss : cfg.missSmall),
+            0,
+            100
+          );
+
+          if (cfg.timePenalty > 0) {
+            this.time = Math.max(0, this.time - cfg.timePenalty);
+          }
+
+          burstFx(item.pos, '#8b5a46');
+          showCenterMessage(item.isBoss ? '😵 บอสหลุดไปแล้ว!' : '😅 คราบกลับมา!', 520);
+          this.renderHud();
+
+          if (this.time <= 0) {
+            this.finish(false);
+            return;
+          }
+
+          this.trySpawn();
+        }
+
+        getStars(){
+          if (this.clean >= 100 && this.miss <= 4) return 3;
+          if (this.clean >= 85) return 2;
+          if (this.clean >= 60) return 1;
+          return 0;
+        }
+
+        finish(win){
+          if (this.ended) return;
+
+          this.ended = true;
+          this.active = false;
+          this.stopLoops();
+          this.clearTargets();
+
+          const stars = this.getStars();
+          const starText = '⭐️'.repeat(stars) + '☆'.repeat(3 - stars);
+
+          ui.sumClean.textContent = Math.floor(this.clean);
+          ui.sumScore.textContent = this.score;
+          ui.sumHits.textContent = this.hits;
+          ui.sumMiss.textContent = this.miss;
+          ui.summaryStars.textContent = starText;
+
+          if (win) {
+            ui.summaryTitle.textContent = '🛁 สะอาดเอี่ยมเลย!';
+            ui.summarySub.textContent = 'อาบน้ำเก่งมาก วันนี้ตัวหอมฟองฟูสุด ๆ';
+          } else if (this.clean >= 70) {
+            ui.summaryTitle.textContent = '🙂 เกือบสะอาดครบแล้ว';
+            ui.summarySub.textContent = 'อีกนิดเดียวจะใสปิ๊ง ลองอีกครั้งเพื่อทำ 100%';
+          } else {
+            ui.summaryTitle.textContent = '😅 ยังมีคราบอยู่นิดหน่อย';
+            ui.summarySub.textContent = 'รอบหน้าลองเก็บคอมโบและรีบยิงคราบบอสดูนะ';
+          }
+
+          ui.summaryOverlay.classList.remove('hidden');
+        }
+      }
+
+      configureViewMode();
+
+      const game = new BathBattle();
+      window.__bathGame = game;
+
+      ui.startBtn.addEventListener('click', () => game.start());
+      ui.replayBtn.addEventListener('click', () => game.start());
+      ui.restartTopBtn.addEventListener('click', () => game.start());
+
+      game.renderHud();
+    })();
+  </script>
+</body>
+</html>
