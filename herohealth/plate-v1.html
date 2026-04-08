@@ -3,978 +3,1713 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Plate v1 Launcher</title>
-  <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#9fe3ff" />
-  <link rel="icon" href="./favicon.ico" />
+  <title>HeroHealth — Plate VR Mini</title>
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+
+  <script type="module" src="../vr/vr-ui.js?v=20260307b"></script>
 
   <style>
     :root{
-      --sky1:#dff4ff;
-      --sky2:#eefbff;
-      --sky3:#fff9df;
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
 
-      --card:#fffdf7;
-      --card2:#f9fff6;
-      --card3:#fff8fb;
+      --hud-top-h: 96px;
+      --hud-bottom-h: 116px;
 
-      --line:#cfe7f3;
-      --text:#4d4a42;
-      --muted:#7a7a72;
+      --txt: rgba(248,250,252,.96);
+      --mut: rgba(148,163,184,.92);
+      --line: rgba(148,163,184,.16);
+      --panel: rgba(2,6,23,.82);
+      --panel2: rgba(2,6,23,.74);
 
-      --blue:#7fcfff;
-      --blue2:#58b7f5;
-      --green:#7ed957;
-      --green2:#58c33f;
-      --yellow:#ffd45c;
-      --orange:#ffb547;
-      --pink:#ff9fcb;
-      --purple:#b99cff;
-
-      --shadow:0 16px 36px rgba(59,130,246,.10);
-      --radius:24px;
+      --phase-glow: rgba(59,130,246,.16);
+      --phase-target-bg: rgba(15,23,42,.82);
+      --phase-target-ring: rgba(255,255,255,.14);
     }
 
     *{ box-sizing:border-box; }
 
-    [hidden]{
-      display:none !important;
-    }
-
     html,body{
       margin:0;
-      min-height:100%;
+      height:100%;
+      overflow:hidden;
+      background:#020617;
+      color:var(--txt);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(1200px 700px at 10% -10%, rgba(127,207,255,.38), transparent 55%),
-        radial-gradient(900px 620px at 100% 0%, rgba(255,212,92,.22), transparent 50%),
-        linear-gradient(180deg, var(--sky1), var(--sky2) 45%, var(--sky3));
     }
 
     body{
-      padding:
-        max(16px, env(safe-area-inset-top))
-        max(16px, env(safe-area-inset-right))
-        max(18px, env(safe-area-inset-bottom))
-        max(16px, env(safe-area-inset-left));
-    }
-
-    body.modal-open-fix{
-      overflow:auto !important;
-      touch-action:auto !important;
-    }
-
-    .reward-modal[hidden],
-    .reward-backdrop[hidden],
-    .popup-reward[hidden],
-    .popup-backdrop[hidden],
-    .hh-modal[hidden],
-    .hh-backdrop[hidden]{
-      display:none !important;
-      opacity:0 !important;
-      visibility:hidden !important;
-      pointer-events:none !important;
-    }
-
-    .reward-modal:not(.show):not(.open):not(.active),
-    .reward-backdrop:not(.show):not(.open):not(.active),
-    .popup-reward:not(.show):not(.open):not(.active),
-    .popup-backdrop:not(.show):not(.open):not(.active){
-      pointer-events:none !important;
-    }
-
-    .shell{
-      max-width:1100px;
-      margin:0 auto;
-      display:grid;
-      gap:18px;
-    }
-
-    .hero{
-      position:relative;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,.72);
-      border-radius:32px;
       background:
-        linear-gradient(180deg, rgba(255,255,255,.88), rgba(255,255,255,.72));
-      box-shadow:var(--shadow);
-      padding:22px;
+        radial-gradient(1200px 720px at 15% 0%, rgba(56,189,248,.18), transparent 58%),
+        radial-gradient(820px 620px at 95% 15%, rgba(251,191,36,.12), transparent 55%),
+        linear-gradient(180deg, #020617 0%, #08111f 100%);
     }
 
-    .hero::before{
-      content:"";
+    body[data-tone="focus"]{
+      --phase-glow: rgba(34,197,94,.18);
+      --phase-target-bg: rgba(9,31,23,.82);
+      --phase-target-ring: rgba(74,222,128,.26);
+    }
+
+    body[data-tone="rush"]{
+      --phase-glow: rgba(249,115,22,.18);
+      --phase-target-bg: rgba(46,21,13,.82);
+      --phase-target-ring: rgba(251,146,60,.28);
+    }
+
+    body[data-tone="fever"]{
+      --phase-glow: rgba(244,114,182,.22);
+      --phase-target-bg: rgba(42,16,44,.82);
+      --phase-target-ring: rgba(244,114,182,.30);
+    }
+
+    #app{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+    }
+
+    #world{
       position:absolute;
-      inset:auto -40px -40px auto;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+      overflow:hidden;
+    }
+
+    .orb,
+    .ring,
+    .grid,
+    .bgGlow{
+      position:absolute;
+      transition:opacity .25s ease, transform .25s ease, filter .25s ease;
+    }
+
+    .bgGlow{
+      inset:0;
+      background:
+        radial-gradient(920px 520px at 16% 8%, rgba(125,211,252,.16), transparent 64%),
+        radial-gradient(860px 520px at 88% 18%, rgba(134,239,172,.12), transparent 62%),
+        linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,11,27,.98));
+    }
+
+    .grid{
+      inset:8% 6% 10% 6%;
+      border-radius:28px;
+      background:
+        linear-gradient(to right, transparent 0%, transparent 24.5%, rgba(255,255,255,.05) 24.5%, rgba(255,255,255,.05) 25%, transparent 25%, transparent 49.5%, rgba(255,255,255,.05) 49.5%, rgba(255,255,255,.05) 50%, transparent 50%, transparent 74.5%, rgba(255,255,255,.05) 74.5%, rgba(255,255,255,.05) 75%, transparent 75%, transparent 100%),
+        linear-gradient(to bottom, transparent 0%, transparent 24.5%, rgba(255,255,255,.05) 24.5%, rgba(255,255,255,.05) 25%, transparent 25%, transparent 49.5%, rgba(255,255,255,.05) 49.5%, rgba(255,255,255,.05) 50%, transparent 50%, transparent 74.5%, rgba(255,255,255,.05) 74.5%, rgba(255,255,255,.05) 75%, transparent 75%, transparent 100%);
+      opacity:.30;
+      mask-image: radial-gradient(circle at center, rgba(0,0,0,.96), rgba(0,0,0,.38) 72%, transparent 100%);
+      -webkit-mask-image: radial-gradient(circle at center, rgba(0,0,0,.96), rgba(0,0,0,.38) 72%, transparent 100%);
+    }
+
+    .ring{
+      inset:16% 18%;
+      border-radius:999px;
+      border:2px solid rgba(255,255,255,.10);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.03) inset, 0 0 40px rgba(255,255,255,.04);
+      opacity:.40;
+      animation: ringFloat 8s ease-in-out infinite;
+    }
+
+    .orb{
+      inset:auto;
+      width:180px;
+      height:180px;
+      border-radius:999px;
+      filter:blur(14px);
+      opacity:.18;
+      mix-blend-mode:screen;
+    }
+
+    .orb.a{
+      left:-20px;
+      top:18%;
+      background:radial-gradient(circle at center, rgba(125,211,252,.32), transparent 68%);
+      animation: orbA 9s ease-in-out infinite;
+    }
+
+    .orb.b{
+      right:-34px;
+      top:30%;
+      background:radial-gradient(circle at center, rgba(134,239,172,.24), transparent 68%);
+      animation: orbB 11s ease-in-out infinite;
+    }
+
+    .orb.c{
+      left:38%;
+      bottom:-26px;
       width:220px;
       height:220px;
-      border-radius:999px;
-      background:radial-gradient(circle, rgba(127,207,255,.28), transparent 70%);
-      pointer-events:none;
+      background:radial-gradient(circle at center, rgba(196,181,253,.18), transparent 70%);
+      animation: orbC 10s ease-in-out infinite;
     }
 
-    .heroTop{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:14px;
-      flex-wrap:wrap;
+    @keyframes ringFloat{
+      0%{ transform:scale(1) rotate(0deg); opacity:.34; }
+      50%{ transform:scale(1.02) rotate(1.2deg); opacity:.46; }
+      100%{ transform:scale(1) rotate(0deg); opacity:.34; }
+    }
+    @keyframes orbA{
+      0%{ transform:translate3d(0,0,0) scale(1); }
+      50%{ transform:translate3d(26px,-12px,0) scale(1.06); }
+      100%{ transform:translate3d(0,0,0) scale(1); }
+    }
+    @keyframes orbB{
+      0%{ transform:translate3d(0,0,0) scale(1); }
+      50%{ transform:translate3d(-22px,18px,0) scale(1.08); }
+      100%{ transform:translate3d(0,0,0) scale(1); }
+    }
+    @keyframes orbC{
+      0%{ transform:translate3d(0,0,0) scale(1); }
+      50%{ transform:translate3d(0,-16px,0) scale(1.04); }
+      100%{ transform:translate3d(0,0,0) scale(1); }
     }
 
-    .brand{
-      display:grid;
-      gap:8px;
-      min-width:0;
-    }
-
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:34px;
-      width:max-content;
-      padding:0 14px;
-      border-radius:999px;
-      background:linear-gradient(180deg, #ffffff, #f8fdff);
-      border:1px solid var(--line);
-      font-size:12px;
-      font-weight:1000;
-      color:#4b6f86;
-      box-shadow:0 8px 18px rgba(127,207,255,.12);
-    }
-
-    h1{
-      margin:0;
-      font-size:clamp(28px, 5vw, 42px);
-      line-height:1.05;
-      font-weight:1000;
-      letter-spacing:-.02em;
-    }
-
-    .sub{
-      margin:0;
-      max-width:760px;
-      color:var(--muted);
-      font-size:15px;
-      line-height:1.65;
-      font-weight:700;
-    }
-
-    .heroActions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .btn{
-      appearance:none;
-      border:none;
-      text-decoration:none;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      min-height:48px;
-      padding:0 16px;
-      border-radius:999px;
-      font-size:14px;
-      font-weight:1000;
-      color:var(--text);
-      background:#fff;
-      border:1px solid var(--line);
-      box-shadow:0 10px 22px rgba(59,130,246,.10);
-      transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
-    }
-
-    .btn:hover{ transform:translateY(-1px); }
-
-    .btn.primary{
-      color:#fff;
-      border-color:transparent;
-      background:linear-gradient(180deg, var(--blue2), #3598ea);
-      box-shadow:0 12px 24px rgba(88,183,245,.24);
-    }
-
-    .btn.success{
-      color:#fff;
-      border-color:transparent;
-      background:linear-gradient(180deg, var(--green), var(--green2));
-      box-shadow:0 12px 24px rgba(88,195,63,.22);
-    }
-
-    .btn.warn{
-      color:#7b4c00;
-      background:linear-gradient(180deg, #fff3bf, #ffe395);
-      border-color:#f4d878;
-    }
-
-    .chips{
-      margin-top:14px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-
-    .chip{
-      min-height:34px;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:0 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.78);
-      border:1px solid var(--line);
-      font-size:12px;
-      font-weight:1000;
-      color:#5d7485;
-    }
-
-    .layout{
-      display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:18px;
-    }
-
-    .panel{
-      border:1px solid rgba(255,255,255,.72);
-      border-radius:28px;
-      background:linear-gradient(180deg, rgba(255,255,255,.90), rgba(255,255,255,.76));
-      box-shadow:var(--shadow);
-      padding:18px;
-    }
-
-    .panel h2{
-      margin:0 0 12px 0;
-      font-size:20px;
-      line-height:1.15;
-      font-weight:1000;
-    }
-
-    .panel p{
-      margin:0;
-      color:var(--muted);
-      line-height:1.65;
-      font-weight:700;
-    }
-
-    .cards{
-      display:grid;
-      gap:14px;
-    }
-
-    .modeCard{
-      position:relative;
-      overflow:hidden;
-      display:grid;
-      gap:12px;
-      border:1px solid var(--line);
-      border-radius:24px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.95), rgba(248,253,255,.88));
-      padding:16px;
-      box-shadow:0 12px 22px rgba(59,130,246,.08);
-    }
-
-    .modeCard.main{
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.96), rgba(242,252,255,.90));
-    }
-
-    .modeCard.mini{
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,250,240,.90));
-    }
-
-    .modeCard::after{
-      content:"";
+    #fxLayer{
       position:absolute;
-      right:-26px;
-      bottom:-26px;
+      inset:0;
+      z-index:70;
+      pointer-events:none;
+      overflow:hidden;
+    }
+
+    .fxPulse{
+      position:absolute;
       width:120px;
       height:120px;
       border-radius:999px;
-      opacity:.5;
+      border:2px solid rgba(255,255,255,.32);
+      transform:translate(-50%,-50%) scale(.55);
+      opacity:0;
+      animation: fxPulse .48s ease forwards;
       pointer-events:none;
-      background:radial-gradient(circle, rgba(127,207,255,.25), transparent 68%);
+      box-shadow:0 0 18px rgba(255,255,255,.12);
     }
 
-    .modeHead{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:10px;
-      flex-wrap:wrap;
+    .fxPulse.good{
+      border-color:rgba(74,222,128,.55);
+      box-shadow:0 0 20px rgba(74,222,128,.18);
     }
 
-    .modeTag{
-      display:inline-flex;
-      align-items:center;
-      min-height:30px;
-      padding:0 12px;
-      border-radius:999px;
-      font-size:11px;
+    .fxPulse.bad{
+      border-color:rgba(248,113,113,.50);
+      box-shadow:0 0 20px rgba(248,113,113,.16);
+    }
+
+    .fxPulse.fever{
+      border-color:rgba(244,114,182,.56);
+      box-shadow:0 0 24px rgba(244,114,182,.20);
+    }
+
+    @keyframes fxPulse{
+      0%{ opacity:0; transform:translate(-50%,-50%) scale(.55); }
+      20%{ opacity:.88; }
+      100%{ opacity:0; transform:translate(-50%,-50%) scale(1.18); }
+    }
+
+    .phaseBanner{
+      position:absolute;
+      top:42%;
+      left:50%;
+      transform:translate(-50%,-50%);
+      font-size:28px;
       font-weight:1000;
-      letter-spacing:.06em;
-      border:1px solid var(--line);
-      background:#fff;
-      color:#557082;
+      background:rgba(0,0,0,.68);
+      padding:14px 24px;
+      border-radius:20px;
+      border:1px solid rgba(148,163,184,.25);
+      z-index:120;
+      pointer-events:none;
+      opacity:0;
+      animation: bannerIn .95s ease forwards;
+      text-align:center;
+      white-space:nowrap;
     }
 
-    .modeTitle{
-      margin:0;
-      font-size:22px;
+    @keyframes bannerIn{
+      0%{ opacity:0; transform:translate(-50%,-50%) scale(.96); }
+      20%{ opacity:1; transform:translate(-50%,-50%) scale(1.02); }
+      100%{ opacity:0; transform:translate(-50%,-50%) scale(1.03); }
+    }
+
+    .popScore{
+      position:absolute;
+      z-index:110;
+      pointer-events:none;
       font-weight:1000;
-      line-height:1.08;
+      font-size:16px;
+      opacity:0;
+      transform:translate(-50%,-50%) translateY(6px);
+      animation: popUp .55s ease forwards;
+      text-shadow:0 8px 20px rgba(0,0,0,.35);
+      white-space:nowrap;
     }
 
-    .modeSub{
-      margin:0;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.6;
-      font-weight:700;
+    @keyframes popUp{
+      0%{ opacity:0; transform:translate(-50%,-50%) translateY(8px) scale(.98); }
+      20%{ opacity:1; }
+      100%{ opacity:0; transform:translate(-50%,-50%) translateY(-16px) scale(1.03); }
     }
 
-    .featureList{
+    #playfield{
+      position:absolute;
+      inset:var(--hud-top-h) 0 var(--hud-bottom-h) 0;
+      z-index:30;
+      pointer-events:none;
+      overflow:hidden;
+    }
+
+    #playfield .target{
+      position:absolute;
       display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
-      gap:8px;
+      place-items:center;
+      width:62px;
+      height:62px;
+      border-radius:999px;
+      background:var(--phase-target-bg);
+      border:1px solid var(--phase-target-ring);
+      box-shadow:
+        0 10px 24px rgba(2,6,23,.36),
+        0 0 0 1px rgba(255,255,255,.03) inset,
+        0 0 18px var(--phase-glow);
+      font-size:29px;
+      line-height:1;
+      user-select:none;
+      pointer-events:auto;
+      touch-action:manipulation;
+      transition:transform .08s ease, opacity .14s ease, filter .12s ease;
+      transform:translate(-50%,-50%);
     }
 
-    .feature{
+    #playfield .target.hit{
+      transform:translate(-50%,-50%) scale(.88);
+      opacity:.25;
+    }
+
+    #playfield .target.expire{
+      transform:translate(-50%,-50%) scale(.78);
+      opacity:0;
+    }
+
+    #playfield .target[data-kind="shield"]{
+      background:linear-gradient(180deg, rgba(30,58,138,.72), rgba(30,41,59,.84));
+      border-color:rgba(96,165,250,.38);
+      box-shadow:0 10px 26px rgba(59,130,246,.18), 0 0 18px rgba(96,165,250,.12);
+    }
+
+    #playfield .target[data-match="1"]{
+      border-color:rgba(251,191,36,.44);
+      box-shadow:
+        0 10px 26px rgba(2,6,23,.36),
+        0 0 0 2px rgba(251,191,36,.16),
+        0 0 22px rgba(251,191,36,.14),
+        0 0 42px rgba(249,115,22,.08);
+    }
+
+    #hudTop{
+      position:absolute;
+      top:calc(var(--sat) + 6px);
+      left:max(6px, calc(var(--sal) + 6px));
+      right:max(6px, calc(var(--sar) + 6px));
+      z-index:80;
+      pointer-events:none;
+    }
+
+    .topCard{
+      background:linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.76));
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:16px;
+      box-shadow:0 8px 22px rgba(2,6,23,.24), 0 0 18px var(--phase-glow);
+      padding:8px 10px;
+    }
+
+    .topMain{
+      display:grid;
+      grid-template-columns:auto auto auto auto 1fr;
+      gap:6px;
+      align-items:center;
+    }
+
+    .miniPill{
+      min-height:34px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      padding:0 10px;
+      border-radius:999px;
+      background:rgba(15,23,42,.68);
+      border:1px solid rgba(148,163,184,.12);
+      font-size:12px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .miniPill .v{
+      font-size:14px;
+      font-weight:1000;
+      font-variant-numeric:tabular-nums;
+    }
+
+    .missionLine{
+      min-width:0;
+      min-height:34px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:0 10px;
+      border-radius:999px;
+      background:linear-gradient(180deg, rgba(15,23,42,.68), rgba(15,23,42,.66));
+      border:1px solid rgba(148,163,184,.12);
+      overflow:hidden;
+    }
+
+    .missionMain{
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      overflow:hidden;
+      font-size:12px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .missionMain span:last-child{
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .missionMeta{
+      flex:0 0 auto;
+      font-size:11px;
+      color:var(--mut);
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .goalThin,
+    .bar{
+      margin-top:6px;
+      height:7px;
+      border-radius:999px;
+      background:rgba(148,163,184,.18);
+      border:1px solid rgba(148,163,184,.12);
+      overflow:hidden;
+    }
+
+    .goalThin > i,
+    .bar > i{
+      display:block;
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(167,139,250,.9));
+      transition:width .12s linear;
+    }
+
+    #hudBottom{
+      position:absolute;
+      left:max(8px, calc(var(--sal) + 8px));
+      right:max(8px, calc(var(--sar) + 8px));
+      bottom:calc(var(--sab) + 10px);
+      z-index:85;
+      display:grid;
+      gap:8px;
+      pointer-events:none;
+    }
+
+    .coachBar{
       min-height:40px;
       display:flex;
       align-items:center;
       gap:8px;
-      padding:8px 12px;
-      border-radius:16px;
-      background:rgba(255,255,255,.78);
-      border:1px solid #dcecf5;
-      font-size:13px;
-      font-weight:900;
-      color:#5a7080;
-    }
-
-    .modeActions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .sideGrid{
-      display:grid;
-      gap:14px;
-    }
-
-    .miniPanel{
-      border:1px solid var(--line);
-      border-radius:22px;
-      background:rgba(255,255,255,.80);
-      padding:14px;
-    }
-
-    .miniPanel h3{
-      margin:0 0 10px 0;
-      font-size:16px;
-      font-weight:1000;
-    }
-
-    .kv{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
-      gap:8px;
-    }
-
-    .kvItem{
-      min-height:44px;
-      display:grid;
-      align-content:center;
-      gap:2px;
       padding:8px 10px;
-      border-radius:16px;
-      background:rgba(255,255,255,.86);
-      border:1px solid #dcecf5;
+      border-radius:14px;
+      background:linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.76));
+      border:1px solid rgba(148,163,184,.14);
+      box-shadow:0 8px 22px rgba(2,6,23,.24), 0 0 18px var(--phase-glow);
+      font-size:12.5px;
+      font-weight:900;
+      color:var(--txt);
+      pointer-events:none;
     }
 
-    .kvItem .k{
-      font-size:11px;
-      color:#7a8a96;
+    .coachBar .label{
+      flex:0 0 auto;
+      font-size:11.5px;
+      color:var(--mut);
       font-weight:1000;
-      letter-spacing:.04em;
     }
 
-    .kvItem .v{
-      font-size:14px;
-      color:#4c5963;
+    .coachBar .msg{
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    #controls{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      pointer-events:auto;
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.78);
+      color:var(--txt);
+      border-radius:999px;
+      padding:8px 12px;
+      min-height:38px;
       font-weight:1000;
-      word-break:break-word;
-    }
-
-    .steps{
-      display:grid;
+      font-size:12px;
+      cursor:pointer;
+      box-shadow:0 6px 18px rgba(2,6,23,.22);
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
       gap:8px;
     }
 
-    .step{
-      min-height:46px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:16px;
-      background:rgba(255,255,255,.86);
-      border:1px solid #dcecf5;
-      font-size:13px;
-      line-height:1.45;
-      font-weight:900;
-      color:#586d7c;
+    .btn.warn{
+      border-color:rgba(245,158,11,.25);
+      background:linear-gradient(180deg, rgba(120,53,15,.86), rgba(92,45,14,.82));
     }
 
-    .stepNum{
-      flex:0 0 auto;
-      width:28px;
-      height:28px;
-      display:grid;
-      place-items:center;
-      border-radius:999px;
-      background:linear-gradient(180deg, #bde8ff, #97d6ff);
-      color:#2a668b;
-      font-size:12px;
-      font-weight:1000;
+    .btn.primary{
+      border-color:rgba(59,130,246,.30);
+      background:linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
     }
 
-    .footerBar{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-      border:1px solid rgba(255,255,255,.72);
-      border-radius:24px;
-      background:linear-gradient(180deg, rgba(255,255,255,.86), rgba(255,255,255,.72));
-      box-shadow:var(--shadow);
-      padding:14px 16px;
-    }
-
-    .footerText{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.6;
-      font-weight:700;
-    }
-
-    .debug{
+    #drawer{
+      position:absolute;
+      left:max(10px, calc(var(--sal) + 10px));
+      right:max(10px, calc(var(--sar) + 10px));
+      bottom:calc(var(--sab) + 64px);
+      z-index:100;
       display:none;
-      margin-top:8px;
-      padding:10px 12px;
-      border-radius:16px;
-      background:#0f172a;
-      color:#cbd5e1;
-      font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
-      white-space:pre-wrap;
+      pointer-events:auto;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.94);
+      box-shadow:0 18px 50px rgba(0,0,0,.35);
+      padding:12px;
+      max-height:min(56vh, 460px);
       overflow:auto;
     }
 
-    body.debug .debug{ display:block; }
-
-    @media (max-width: 960px){
-      .layout{ grid-template-columns:1fr; }
+    .drawerHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
     }
 
-    @media (max-width: 760px){
-      .hero{ padding:16px; border-radius:26px; }
-      .panel{ padding:14px; border-radius:24px; }
-      .featureList{ grid-template-columns:1fr; }
-      .kv{ grid-template-columns:1fr; }
-      .footerBar{ align-items:flex-start; }
-      .heroActions,
-      .modeActions{ width:100%; }
-      .heroActions .btn,
-      .modeActions .btn,
-      .footerBar .btn{
+    .drawerTitle{
+      font-weight:1000;
+      font-size:16px;
+    }
+
+    .drawerGrid{
+      display:grid;
+      gap:12px;
+    }
+
+    .drawerCard{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.56);
+      border-radius:16px;
+      padding:12px;
+    }
+
+    .drawerCard h4{
+      margin:0 0 8px 0;
+      font-size:12px;
+      color:var(--mut);
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+
+    .statsGrid4{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+    .statsGrid5{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
+
+    .pill{
+      background:rgba(15,23,42,.7);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:999px;
+      min-height:40px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:8px 10px;
+      font-weight:1000;
+      font-size:12px;
+      text-align:center;
+    }
+
+    .pill .v{
+      font-size:14px;
+      font-weight:1000;
+      font-variant-numeric:tabular-nums;
+    }
+
+    .plateGuide{
+      display:grid;
+      gap:8px;
+    }
+
+    .plateGuide .pill{
+      justify-content:flex-start;
+      border-radius:14px;
+      min-height:38px;
+      padding-inline:12px;
+    }
+
+    #endOverlay{
+      position:absolute;
+      inset:0;
+      z-index:120;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      background:rgba(0,0,0,.55);
+      backdrop-filter:blur(8px);
+      -webkit-backdrop-filter:blur(8px);
+    }
+
+    #endOverlay[aria-hidden="true"]{
+      display:none;
+    }
+
+    .endCard{
+      width:min(860px, 95vw);
+      border-radius:22px;
+      padding:16px;
+      background:linear-gradient(180deg, rgba(2,6,23,.90), rgba(2,6,23,.82));
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow:0 18px 60px rgba(0,0,0,.45), 0 0 28px rgba(255,255,255,.03);
+    }
+
+    .endHead{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+
+    .endBadge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:28px;
+      padding:0 12px;
+      border-radius:999px;
+      background:rgba(251,191,36,.12);
+      border:1px solid rgba(251,191,36,.22);
+      color:rgba(255,236,179,.96);
+      font-size:11px;
+      font-weight:1000;
+      letter-spacing:.12em;
+    }
+
+    .endGradeWrap{
+      min-width:110px;
+      display:grid;
+      place-items:center;
+      text-align:center;
+    }
+
+    .endGrade{
+      width:86px;
+      height:86px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      font-size:36px;
+      font-weight:1000;
+      color:#fff;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(255,255,255,.18), transparent 30%),
+        linear-gradient(180deg, rgba(251,191,36,.95), rgba(249,115,22,.88));
+      box-shadow:0 12px 28px rgba(249,115,22,.22), 0 0 0 2px rgba(255,255,255,.04) inset;
+    }
+
+    .endGradeLabel{
+      margin-top:6px;
+      font-size:11px;
+      font-weight:1000;
+      color:rgba(203,213,225,.88);
+      letter-spacing:.10em;
+    }
+
+    .endTopStats{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .endStat{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.72);
+      padding:12px;
+    }
+
+    .endStat.hot{
+      background:linear-gradient(180deg, rgba(249,115,22,.16), rgba(15,23,42,.76));
+      border-color:rgba(251,146,60,.20);
+    }
+
+    .endStat .k{
+      font-size:11px;
+      color:rgba(148,163,184,.90);
+      font-weight:1000;
+      letter-spacing:.06em;
+    }
+
+    .endStat .v{
+      margin-top:6px;
+      font-size:28px;
+      font-weight:1000;
+      font-variant-numeric:tabular-nums;
+      line-height:1;
+    }
+
+    .endGrid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .endPanel{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.56);
+      padding:12px;
+    }
+
+    .endPanel h4{
+      margin:0 0 10px 0;
+      font-size:12px;
+      font-weight:1000;
+      color:rgba(148,163,184,.92);
+      letter-spacing:.05em;
+    }
+
+    .countGrid{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .countItem{
+      min-height:44px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      padding:0 8px;
+      border-radius:999px;
+      background:rgba(15,23,42,.72);
+      border:1px solid rgba(148,163,184,.12);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .countItem strong{
+      font-size:15px;
+      font-variant-numeric:tabular-nums;
+    }
+
+    .endActions{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    @media (max-width: 900px){
+      .statsGrid4{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .statsGrid5{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .endTopStats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .endGrid{ grid-template-columns:1fr; }
+      .countGrid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    }
+
+    @media (max-width: 640px){
+      :root{
+        --hud-top-h: 108px;
+        --hud-bottom-h: 118px;
+      }
+
+      .topMain{
+        grid-template-columns:repeat(4,minmax(0,1fr));
+      }
+
+      .miniPill{
+        min-height:30px;
+        padding:0 8px;
+        font-size:10.5px;
+      }
+
+      .miniPill .v{
+        font-size:12px;
+      }
+
+      .missionLine{
+        min-height:30px;
+        padding:0 8px;
+      }
+
+      #playfield .target{
+        width:56px;
+        height:56px;
+        font-size:27px;
+      }
+
+      .countGrid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+
+      .endActions .btn{
         flex:1 1 100%;
+      }
+
+      .objectiveToastCard{
+        min-width:calc(100vw - 28px);
+        padding:12px;
+      }
+
+      .objectiveToastTitle{
+        font-size:clamp(18px, 6vw, 24px);
       }
     }
   </style>
 </head>
-<body>
-  <div class="shell">
-    <section class="hero">
-      <div class="heroTop">
-        <div class="brand">
-          <div class="badge">🍽 HeroHealth • Plate v1 Launcher</div>
-          <h1>Plate v1</h1>
-          <p class="sub">
-            หน้าเข้าเกมหลักของ Plate ตามที่ตกลงไว้ โดยแยกชัดว่า
-            <strong>Main Game</strong> ใช้สำหรับรอบเล่นหลัก และ
-            <strong>Mini Game</strong> ใช้สำหรับรอบสั้นหรือเล่นต่อแบบเร็ว
-          </p>
-        </div>
+<body data-tone="focus">
+  <div id="app">
+    <div id="world" aria-hidden="true">
+      <div class="bgGlow"></div>
+      <div class="grid"></div>
+      <div class="ring"></div>
+      <div class="orb a"></div>
+      <div class="orb b"></div>
+      <div class="orb c"></div>
+    </div>
 
-        <div class="heroActions">
-          <a id="hubBtn" class="btn" href="./hub-v2.html">🏠 กลับ HUB</a>
-          <button id="continueBtn" class="btn primary" type="button">▶️ เล่นล่าสุด</button>
-        </div>
-      </div>
+    <div id="fxLayer" aria-hidden="true"></div>
 
-      <div class="chips">
-        <div class="chip">PID: <span id="chipPid">anon</span></div>
-        <div class="chip">VIEW: <span id="chipView">mobile</span></div>
-        <div class="chip">RUN: <span id="chipRun">play</span></div>
-        <div class="chip">DIFF: <span id="chipDiff">normal</span></div>
-        <div class="chip">HUB: <span id="chipHub">hub-v2</span></div>
-      </div>
-    </section>
+    <div id="playfield" aria-label="mini game targets"></div>
 
-    <section class="layout">
-      <div class="panel">
-        <h2>เลือกทางเข้าเล่น</h2>
-        <p>
-          ใช้หน้าตัวนี้เป็น launcher หลักจาก Hub v2 แล้วค่อยแยกไปยัง
-          main game หรือ mini game ตามวัตถุประสงค์ของการเล่น
-        </p>
+    <div id="hudTop">
+      <div class="topCard">
+        <div class="topMain">
+          <div class="miniPill">🏆 <span id="uiScore" class="v">0</span></div>
+          <div class="miniPill">⏱️ <span id="uiTime" class="v">0</span>s</div>
+          <div class="miniPill">🍽️ <span id="uiPlate" class="v">0</span>/5</div>
+          <div class="miniPill">💥 <span id="uiMiss" class="v">0</span></div>
 
-        <div style="height:14px"></div>
-
-        <div class="cards">
-          <article class="modeCard main">
-            <div class="modeHead">
-              <div>
-                <div class="modeTag">MAIN GAME</div>
-                <div style="height:8px"></div>
-                <h3 class="modeTitle">Plate Solo Main</h3>
-              </div>
-              <div class="modeTag">/herohealth/plate/plate-solo.html</div>
+          <div class="missionLine">
+            <div class="missionMain">
+              <span>🎯</span>
+              <span id="uiTargetText">เก็บหมู่เป้าหมาย</span>
             </div>
-
-            <p class="modeSub">
-              โหมดหลักของเกม Plate Solo ที่มี phase, boss path, lock-on, telegraph,
-              objective toast, pause overlay และ end summary ครบกว่า
-            </p>
-
-            <div class="featureList">
-              <div class="feature">🎯 main learning loop</div>
-              <div class="feature">👑 boss path ครบ 5 หมู่</div>
-              <div class="feature">⚡ fever / reward / bonus</div>
-              <div class="feature">📊 summary แบบ HeroHealth</div>
-            </div>
-
-            <div class="modeActions">
-              <button id="playMainBtn" class="btn success" type="button">🚀 เข้า Main Game</button>
-              <button id="playMainEasyBtn" class="btn" type="button">🙂 Easy</button>
-              <button id="playMainNormalBtn" class="btn" type="button">⭐ Normal</button>
-              <button id="playMainHardBtn" class="btn" type="button">🔥 Hard</button>
-            </div>
-          </article>
-
-          <article class="modeCard mini">
-            <div class="modeHead">
-              <div>
-                <div class="modeTag">MINI GAME</div>
-                <div style="height:8px"></div>
-                <h3 class="modeTitle">Quick Plate VR / Mini</h3>
-              </div>
-              <div class="modeTag">/herohealth/plate/plate-vr.html</div>
-            </div>
-
-            <p class="modeSub">
-              รอบสั้น เล่นเร็ว เข้าไว เหมาะสำหรับ warmup / เล่นซ้ำ / ใช้เป็น quick activity
-            </p>
-
-            <div class="featureList">
-              <div class="feature">⚡ เล่นสั้นกว่า</div>
-              <div class="feature">📱 เข้าไวจากมือถือ</div>
-              <div class="feature">🎮 เหมาะเป็น mini game</div>
-              <div class="feature">🔁 เล่นต่อจาก summary ได้</div>
-            </div>
-
-            <div class="modeActions">
-              <button id="playMiniBtn" class="btn warn" type="button">⚡ เข้า Mini Game</button>
-              <button id="playMini60Btn" class="btn" type="button">60s</button>
-              <button id="playMini90Btn" class="btn" type="button">90s</button>
-            </div>
-          </article>
-        </div>
-      </div>
-
-      <aside class="sideGrid">
-        <section class="panel">
-          <h2>ค่าที่จะส่งต่อ</h2>
-          <div class="miniPanel">
-            <div class="kv">
-              <div class="kvItem">
-                <div class="k">pid</div>
-                <div id="kvPid" class="v">anon</div>
-              </div>
-              <div class="kvItem">
-                <div class="k">hub</div>
-                <div id="kvHub" class="v">./hub-v2.html</div>
-              </div>
-              <div class="kvItem">
-                <div class="k">view</div>
-                <div id="kvView" class="v">mobile</div>
-              </div>
-              <div class="kvItem">
-                <div class="k">run</div>
-                <div id="kvRun" class="v">play</div>
-              </div>
-              <div class="kvItem">
-                <div class="k">diff</div>
-                <div id="kvDiff" class="v">normal</div>
-              </div>
-              <div class="kvItem">
-                <div class="k">time</div>
-                <div id="kvTime" class="v">90</div>
-              </div>
+            <div class="missionMeta">
+              <span id="uiPhase">MINI</span> • <span id="uiAcc">0%</span>
             </div>
           </div>
-        </section>
+        </div>
 
-        <section class="panel">
-          <h2>การใช้ตาม flow</h2>
-          <div class="miniPanel">
-            <div class="steps">
-              <div class="step"><div class="stepNum">1</div><div>Hub v2 เรียกมาที่ <strong>plate-v1.html</strong></div></div>
-              <div class="step"><div class="stepNum">2</div><div>เลือก <strong>Main Game</strong> เพื่อเข้า warmup ก่อน แล้วไป Plate Solo ตัวหลัก</div></div>
-              <div class="step"><div class="stepNum">3</div><div>เลือก <strong>Mini Game</strong> เพื่อเข้า <strong>plate-vr.html</strong> ตรง ๆ</div></div>
-              <div class="step"><div class="stepNum">4</div><div>ทุกทางส่ง <code>hub=...hub-v2.html</code> กลับได้ถูก</div></div>
+        <div class="goalThin"><i id="uiGoalFill"></i></div>
+      </div>
+    </div>
+
+    <div id="hudBottom">
+      <div class="coachBar">
+        <div class="label">🧑‍🏫 Coach</div>
+        <div id="coachMsg" class="msg">เก็บอาหารให้ตรงหมู่ แล้วเติมให้ครบ 5 หมู่แบบไว ๆ</div>
+      </div>
+
+      <div id="controls">
+        <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
+        <button id="btnRestart" class="btn" type="button">🔄 RESTART</button>
+        <button id="btnDrawer" class="btn" type="button">📊 ดูข้อมูล</button>
+        <button id="btnBackHub" class="btn" type="button">↩ กลับ HUB</button>
+      </div>
+    </div>
+
+    <div id="drawer" aria-hidden="true">
+      <div class="drawerHead">
+        <div class="drawerTitle">⚡ Quick Plate Mini</div>
+        <button id="btnCloseDrawer" class="btn" type="button">ปิด</button>
+      </div>
+
+      <div class="drawerGrid">
+        <div class="drawerCard">
+          <h4>สถานะการเล่น</h4>
+          <div class="statsGrid4">
+            <div class="pill">🔥 <span id="uiCombo" class="v">0</span></div>
+            <div class="pill">🏅 <span id="uiGrade" class="v">D</span></div>
+            <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
+            <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
+          </div>
+          <div class="bar"><i id="uiFeverFill"></i></div>
+        </div>
+
+        <div class="drawerCard">
+          <h4>เก็บได้แล้ว</h4>
+          <div class="statsGrid5">
+            <div class="pill">🐟 <span id="uiG1" class="v">0</span></div>
+            <div class="pill">🍚 <span id="uiG2" class="v">0</span></div>
+            <div class="pill">🥦 <span id="uiG3" class="v">0</span></div>
+            <div class="pill">🍎 <span id="uiG4" class="v">0</span></div>
+            <div class="pill">🥑 <span id="uiG5" class="v">0</span></div>
+          </div>
+        </div>
+
+        <div class="drawerCard">
+          <h4>แนวคิดจานสุขภาพ</h4>
+          <div class="plateGuide">
+            <div class="pill">🥬 ผัก 1/2 จาน</div>
+            <div class="pill">🍚 ข้าว/แป้ง 1/4 จาน</div>
+            <div class="pill">🐟 โปรตีน 1/4 จาน</div>
+            <div class="pill">🍎 ผลไม้ เสริมได้พอดี</div>
+            <div class="pill">🥑 ไขมันดี เลือกอย่างพอเหมาะ</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="endOverlay" aria-hidden="true">
+      <div class="endCard">
+        <div class="endHead">
+          <div>
+            <div class="endBadge" id="endBadge">QUICK PLATE</div>
+            <div style="height:6px"></div>
+            <div style="font-weight:1000;font-size:22px;line-height:1.05" id="endTitle">จบเกม</div>
+            <div style="margin-top:6px;font-size:12px;opacity:.92;word-break:break-word" id="endSub">—</div>
+          </div>
+
+          <div class="endGradeWrap">
+            <div class="endGrade" id="endGrade">A</div>
+            <div class="endGradeLabel">GRADE</div>
+          </div>
+        </div>
+
+        <div class="endTopStats">
+          <div class="endStat hot">
+            <div class="k">SCORE</div>
+            <div class="v" id="endScore">0</div>
+          </div>
+          <div class="endStat">
+            <div class="k">OK</div>
+            <div class="v" id="endOk">0</div>
+          </div>
+          <div class="endStat">
+            <div class="k">WRONG</div>
+            <div class="v" id="endWrong">0</div>
+          </div>
+          <div class="endStat">
+            <div class="k">PLATE</div>
+            <div class="v"><span id="endPlate">0</span>/5</div>
+          </div>
+        </div>
+
+        <div class="endGrid">
+          <div class="endPanel">
+            <h4>ครบ 5 หมู่</h4>
+            <div class="countGrid">
+              <div class="countItem">🐟 <strong id="endG1">0</strong></div>
+              <div class="countItem">🍚 <strong id="endG2">0</strong></div>
+              <div class="countItem">🥦 <strong id="endG3">0</strong></div>
+              <div class="countItem">🍎 <strong id="endG4">0</strong></div>
+              <div class="countItem">🥑 <strong id="endG5">0</strong></div>
             </div>
           </div>
-        </section>
 
-        <section class="panel">
-          <h2>debug</h2>
-          <div class="miniPanel">
-            <p>เปิด <code>&debug=1</code> เพื่อดูค่าที่ launcher จะส่งต่อ</p>
-            <div id="debugBox" class="debug"></div>
+          <div class="endPanel">
+            <h4>โค้ชแนะนำ</h4>
+            <div id="endCoachTip" style="font-size:13px;line-height:1.6;color:rgba(226,232,240,.94);font-weight:900">
+              ลองเล่นอีกครั้งเพื่อเติมจานให้ครบเร็วขึ้น และรักษาคอมโบให้นานขึ้น
+            </div>
           </div>
-        </section>
-      </aside>
-    </section>
+        </div>
 
-    <section class="footerBar">
-      <div class="footerText">
-        Plate v1 = <strong>master launcher</strong> • Main Game = <strong>plate/plate-solo.html</strong> • Mini Game = <strong>plate/plate-vr.html</strong>
+        <div class="endActions">
+          <button id="btnReplay" class="btn primary" type="button">🔄 เล่นอีกครั้ง</button>
+          <a id="btnMainAfterEnd" class="btn" href="./plate-solo.html">🍽 Main Game</a>
+          <button id="btnCopy" class="btn" type="button">Copy Summary</button>
+          <button id="btnBackHub2" class="btn primary" type="button">Back HUB</button>
+        </div>
       </div>
-      <button id="copyMainLinkBtn" class="btn" type="button">🔗 คัดลอกลิงก์ Main Game</button>
-    </section>
+    </div>
   </div>
 
-  <script>
-    (() => {
-      'use strict';
+  <script type="module">
+    const GROUPS = [
+      { id:1, key:'protein', label:'โปรตีน', icon:'🐟', good:['🐟','🥚','🍗','🫘'] },
+      { id:2, key:'carb',    label:'ข้าว/แป้ง', icon:'🍚', good:['🍚','🍞','🥔','🍠'] },
+      { id:3, key:'veg',     label:'ผัก', icon:'🥦', good:['🥦','🥬','🥕','🥒'] },
+      { id:4, key:'fruit',   label:'ผลไม้', icon:'🍎', good:['🍎','🍌','🍉','🍇'] },
+      { id:5, key:'fat',     label:'ไขมันดี', icon:'🥑', good:['🥑','🥜','🫒','🥥'] }
+    ];
+    const WRONG_POOL = ['🍩','🥤','🍟','🧁','🍭','🍔','🍫'];
 
-      const U = new URL(location.href);
-
-      const HUB_DEFAULT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
-      const MAIN_RUN_URL = './plate/plate-solo.html';
-      const MINI_RUN_URL = './plate/plate-vr.html';
-      const WARMUP_URL   = './warmup-gate.html';
-
-      function q(name, fallback = '') {
-        const v = U.searchParams.get(name);
+    function q(name, fallback=''){
+      try{
+        const v = new URL(location.href).searchParams.get(name);
         return v == null || v === '' ? fallback : v;
+      }catch(_){
+        return fallback;
+      }
+    }
+
+    function normalizeHub(raw){
+      raw = String(raw || '').trim();
+      const DEFAULT = '../hub-v2.html';
+      if (!raw) return DEFAULT;
+      try{
+        const u = new URL(raw, location.href);
+        u.pathname = u.pathname
+          .replace('/herohealth/vr-plate/hub.html', '/herohealth/hub-v2.html')
+          .replace('/herohealth/plate/hub.html', '/herohealth/hub-v2.html')
+          .replace('/herohealth/hub.html', '/herohealth/hub-v2.html');
+        return u.toString();
+      }catch(_){
+        return DEFAULT;
+      }
+    }
+
+    function xmur3(str) {
+      str = String(str || '');
+      let h = 1779033703 ^ str.length;
+      for (let i = 0; i < str.length; i += 1) {
+        h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+        h = (h << 13) | (h >>> 19);
+      }
+      return function () {
+        h = Math.imul(h ^ (h >>> 16), 2246822507);
+        h = Math.imul(h ^ (h >>> 13), 3266489909);
+        return (h ^ (h >>> 16)) >>> 0;
+      };
+    }
+
+    function sfc32(a, b, c, d) {
+      return function () {
+        a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+        let t = (a + b) | 0;
+        a = b ^ (b >>> 9);
+        b = (c + (c << 3)) | 0;
+        c = (c << 21) | (c >>> 11);
+        d = (d + 1) | 0;
+        t = (t + d) | 0;
+        c = (c + t) | 0;
+        return (t >>> 0) / 4294967296;
+      };
+    }
+
+    function makeRng(seedStr) {
+      const s = xmur3(String(seedStr || '0'));
+      return sfc32(s(), s(), s(), s());
+    }
+
+    const ctx = {
+      pid: q('pid', 'anon'),
+      view: q('view', 'mobile').toLowerCase(),
+      run: q('run', 'play').toLowerCase(),
+      diff: q('diff', 'normal').toLowerCase(),
+      time: Math.max(30, Number(q('time', '60')) || 60),
+      seed: q('seed', String(Date.now())),
+      hub: normalizeHub(q('hub', '../hub-v2.html')),
+      mini: q('mini', '1') === '1'
+    };
+
+    const rng = makeRng(ctx.seed);
+
+    const state = {
+      running: true,
+      paused: false,
+      ended: false,
+      raf: 0,
+      lastTick: 0,
+      spawnAcc: 0,
+      nextId: 1,
+
+      score: 0,
+      hits: 0,
+      wrong: 0,
+      miss: 0,
+      combo: 0,
+      comboMax: 0,
+
+      fever: 0,
+      feverOn: false,
+      feverTimer: 0,
+      shield: 0,
+
+      targetGroup: GROUPS[0],
+      groupRotateTimer: 8,
+      totalTime: ctx.time,
+      timeLeft: ctx.time,
+
+      counts: {1:0,2:0,3:0,4:0,5:0},
+      plateHave: 0,
+
+      targets: new Map()
+    };
+
+    const playfield = document.getElementById('playfield');
+    const drawer = document.getElementById('drawer');
+    const endOverlay = document.getElementById('endOverlay');
+
+    function clamp(v, a, b){
+      const n = Number(v);
+      if (!Number.isFinite(n)) return a;
+      return Math.max(a, Math.min(b, n));
+    }
+
+    function rand(min, max){
+      return min + (rng() * (max - min));
+    }
+
+    function pick(arr){
+      return arr[(rng() * arr.length) | 0];
+    }
+
+    function nowMs(){
+      return (performance && performance.now) ? performance.now() : Date.now();
+    }
+
+    function setText(id, text){
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(text ?? '');
+    }
+
+    function setWidth(id, pct){
+      const el = document.getElementById(id);
+      if (el) el.style.width = `${clamp(pct, 0, 100)}%`;
+    }
+
+    function showBanner(text){
+      const d = document.createElement('div');
+      d.className = 'phaseBanner';
+      d.textContent = String(text || '');
+      document.getElementById('app')?.appendChild(d);
+      setTimeout(() => {
+        try { d.remove(); } catch {}
+      }, 900);
+    }
+
+    function showPop(x, y, text){
+      try{
+        const d = document.createElement('div');
+        d.className = 'popScore';
+        d.textContent = text;
+        d.style.left = `${x}px`;
+        d.style.top = `${y}px`;
+        playfield.appendChild(d);
+        setTimeout(() => {
+          try { d.remove(); } catch {}
+        }, 560);
+      }catch(_){}
+    }
+
+    function fxPulseAt(x, y, kind = 'good'){
+      const layer = document.getElementById('fxLayer');
+      if (!layer) return;
+      const el = document.createElement('div');
+      el.className = `fxPulse ${kind}`;
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      layer.appendChild(el);
+      setTimeout(() => {
+        try { el.remove(); } catch {}
+      }, 520);
+    }
+
+    function plateCountDistinct(){
+      let n = 0;
+      for (let i = 1; i <= 5; i += 1) {
+        if ((state.counts[i] || 0) > 0) n += 1;
+      }
+      return n;
+    }
+
+    function accuracyPct(){
+      const total = state.hits + state.wrong + state.miss;
+      return total > 0 ? Math.round((state.hits / total) * 100) : 0;
+    }
+
+    function gradeOf(acc){
+      if (acc >= 90) return 'S';
+      if (acc >= 75) return 'A';
+      if (acc >= 60) return 'B';
+      if (acc >= 40) return 'C';
+      return 'D';
+    }
+
+    function currentTone(){
+      if (state.feverOn) return 'fever';
+      if (state.timeLeft <= Math.max(10, state.totalTime * 0.22)) return 'rush';
+      return 'focus';
+    }
+
+    function updateTone(){
+      document.body.dataset.tone = currentTone();
+    }
+
+    function setCoach(kind = 'start'){
+      let text = 'เก็บอาหารให้ตรงหมู่ แล้วเติมให้ครบ 5 หมู่แบบไว ๆ';
+
+      if (kind === 'good') text = 'เยี่ยมมาก! ถูกหมู่แล้ว';
+      else if (kind === 'wrong') text = 'ลองดูใหม่อีกนิดนะ';
+      else if (kind === 'miss') text = 'ไม่เป็นไร ยังทันอยู่';
+      else if (kind === 'shield') text = 'ได้โล่แล้ว! กันพลาดได้ 1 ครั้ง';
+      else if (kind === 'fever') text = 'Fever มาแล้ว! รีบเก็บแต้ม';
+      else if (kind === 'rotate') text = `เป้าหมายใหม่: ${state.targetGroup.icon} ${state.targetGroup.label}`;
+      else if (kind === 'done') text = 'จบรอบแล้ว ลองดูผลสรุปได้เลย';
+
+      setText('coachMsg', text);
+    }
+
+    function safeRect(){
+      const w = Math.max(1, playfield.clientWidth || 1);
+      const h = Math.max(1, playfield.clientHeight || 1);
+      const isMobile = ctx.view === 'mobile';
+
+      const padX = isMobile ? 24 : 18;
+      const padTop = isMobile ? 16 : 14;
+      const padBottom = isMobile ? 22 : 18;
+
+      return {
+        left: padX,
+        right: Math.max(padX + 1, w - padX),
+        top: padTop,
+        bottom: Math.max(padTop + 1, h - padBottom),
+        width: Math.max(1, w - padX * 2),
+        height: Math.max(1, h - padTop - padBottom)
+      };
+    }
+
+    function chooseTargetInfo(){
+      const targetCorrectP = ctx.diff === 'hard' ? 0.62 : (ctx.diff === 'easy' ? 0.82 : 0.72);
+      const isCorrect = rng() < targetCorrectP;
+
+      if (isCorrect) {
+        return {
+          groupId: state.targetGroup.id,
+          label: state.targetGroup.label,
+          emoji: pick(state.targetGroup.good),
+          good: true
+        };
       }
 
-      function normalizeHub(raw){
-        raw = String(raw || '').trim();
-        if (!raw) return HUB_DEFAULT;
-        try{
-          const u = new URL(raw, location.href);
-          u.pathname = u.pathname
-            .replace('/herohealth/hub.html', '/herohealth/hub-v2.html')
-            .replace('/herohealth/plate/hub.html', '/herohealth/hub-v2.html')
-            .replace('/herohealth/vr-plate/hub.html', '/herohealth/hub-v2.html');
-          return u.toString();
-        }catch(_){
-          return HUB_DEFAULT;
-        }
+      if (rng() < 0.36) {
+        return {
+          groupId: 0,
+          label: 'ตัวหลอก',
+          emoji: pick(WRONG_POOL),
+          good: false
+        };
       }
 
-      const CTX = {
-        pid: q('pid', 'anon'),
-        name: q('name', ''),
-        studyId: q('studyId', ''),
-        view: q('view', 'mobile').toLowerCase(),
-        run: q('run', 'play').toLowerCase(),
-        diff: q('diff', 'normal').toLowerCase(),
-        time: q('time', '90'),
-        seed: q('seed', String(Date.now())),
-        pro: q('pro', '0'),
-        cooldown: q('cooldown', q('cd', '0')),
-        hub: normalizeHub(q('hub', HUB_DEFAULT)),
-        debug: q('debug', '0')
+      const other = pick(GROUPS.filter(g => g.id !== state.targetGroup.id));
+      return {
+        groupId: other.id,
+        label: other.label,
+        emoji: pick(other.good),
+        good: false
+      };
+    }
+
+    function createTarget(point = null){
+      if (state.ended) return;
+      if (drawer.getAttribute('aria-hidden') === 'false') return;
+      if (endOverlay.getAttribute('aria-hidden') === 'false') return;
+
+      const safe = safeRect();
+      const info = chooseTargetInfo();
+      const id = String(state.nextId++);
+      const size = Math.round(rand(ctx.view === 'mobile' ? 52 : 56, ctx.view === 'mobile' ? 68 : 74));
+
+      const x = point?.x != null
+        ? clamp(point.x, safe.left + size * 0.6, safe.right - size * 0.6)
+        : rand(safe.left + size * 0.6, safe.right - size * 0.6);
+
+      const y = point?.y != null
+        ? clamp(point.y, safe.top + size * 0.6, safe.bottom - size * 0.6)
+        : rand(safe.top + size * 0.6, safe.top + Math.min(safe.height * 0.34, 160));
+
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'target';
+      el.dataset.id = id;
+      el.dataset.group = String(info.groupId || 0);
+      el.textContent = info.emoji;
+
+      let kind = 'food';
+      if (info.good && rng() < 0.08) {
+        kind = 'shield';
+        el.dataset.kind = 'shield';
+      }
+
+      const matched = !!info.good && Number(info.groupId) === Number(state.targetGroup.id);
+      el.dataset.match = matched ? '1' : '0';
+
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.width = `${size}px`;
+      el.style.height = `${size}px`;
+      el.style.fontSize = `${Math.round(size * 0.48)}px`;
+
+      const speedScale = ctx.diff === 'hard' ? 1.16 : (ctx.diff === 'easy' ? 0.92 : 1);
+      const t = {
+        id,
+        el,
+        x,
+        y,
+        size,
+        born: nowMs(),
+        ttlMs: Math.round((ctx.diff === 'hard' ? 2500 : ctx.diff === 'easy' ? 3400 : 2900) * (state.feverOn ? 0.92 : 1)),
+        good: info.good,
+        groupId: info.groupId,
+        label: info.label,
+        emoji: info.emoji,
+        kind,
+        vx: rand(-20, 20),
+        vy: rand(46, 80) * speedScale
       };
 
-      const $ = (id) => document.getElementById(id);
+      playfield.appendChild(el);
+      state.targets.set(id, t);
 
-      function setText(id, value){
-        const el = $(id);
-        if (el) el.textContent = String(value ?? '');
-      }
+      el.addEventListener('pointerdown', onHit, { passive:true });
+    }
 
-      function hardCloseRewardPopup() {
-        const selectors = [
-          '#rewardModal',
-          '#rewardBackdrop',
-          '#popupReward',
-          '#popupBackdrop',
-          '.reward-modal',
-          '.reward-backdrop',
-          '.popup-reward',
-          '.popup-backdrop',
-          '.hh-modal',
-          '.hh-backdrop',
-          '[data-reward-modal]',
-          '[data-reward-backdrop]',
-          '[role="dialog"]'
-        ];
-
-        selectors.forEach(sel => {
-          document.querySelectorAll(sel).forEach(el => {
-            el.classList.remove('show', 'open', 'active', 'is-open', 'visible');
-            el.setAttribute('hidden', '');
-            el.setAttribute('aria-hidden', 'true');
-            el.style.display = 'none';
-            el.style.opacity = '0';
-            el.style.visibility = 'hidden';
-            el.style.pointerEvents = 'none';
-          });
+    function primeStartTargets(){
+      const safe = safeRect();
+      const count = ctx.view === 'mobile' ? 2 : 3;
+      for (let i = 0; i < count; i += 1) {
+        createTarget({
+          x: safe.left + safe.width * (0.32 + i * 0.18),
+          y: safe.top + 84 + (i * 24)
         });
-
-        document.body.classList.remove('modal-open', 'dialog-open', 'reward-open');
-        document.body.classList.add('modal-open-fix');
-        document.body.style.overflow = 'auto';
-        document.body.style.pointerEvents = 'auto';
       }
+    }
 
-      function forceGo(url) {
-        hardCloseRewardPopup();
+    function removeTarget(t, mode = 'expire'){
+      if (!t || !t.el) return;
+      state.targets.delete(t.id);
+      try{
+        t.el.classList.add(mode === 'hit' ? 'hit' : 'expire');
+        t.el.removeEventListener('pointerdown', onHit);
         setTimeout(() => {
-          location.href = url;
-        }, 30);
+          try { t.el.remove(); } catch {}
+        }, 140);
+      }catch(_){
+        try { t.el.remove(); } catch {}
       }
+    }
 
-      function buildRunUrl(basePath, patch = {}) {
-        const url = new URL(basePath, location.href);
+    function clearTargets(){
+      for (const t of state.targets.values()) {
+        try {
+          t.el.removeEventListener('pointerdown', onHit);
+          t.el.remove();
+        } catch {}
+      }
+      state.targets.clear();
+    }
 
-        const params = {
-          pid: CTX.pid,
-          name: CTX.name,
-          studyId: CTX.studyId,
-          hub: CTX.hub,
-          view: CTX.view,
-          run: CTX.run,
-          diff: CTX.diff,
-          time: CTX.time,
-          seed: String(Date.now()),
-          pro: CTX.pro,
-          cooldown: CTX.cooldown,
-          zone: 'nutrition',
-          cat: 'nutrition',
-          game: 'plate',
-          gameId: 'plate',
-          theme: 'plate',
-          ...patch
-        };
+    function rotateTargetGroup(){
+      const pool = GROUPS.filter(g => g.id !== state.targetGroup.id);
+      state.targetGroup = pick(pool);
+      setCoach('rotate');
+      showBanner(`NEW TARGET • ${state.targetGroup.icon} ${state.targetGroup.label}`);
+      updateHud();
+    }
 
-        Object.entries(params).forEach(([k, v]) => {
-          if (v == null || v === '') return;
-          url.searchParams.set(k, String(v));
-        });
+    function maybeStartFever(x, y){
+      if (state.fever >= 100 && !state.feverOn) {
+        state.feverOn = true;
+        state.feverTimer = 6;
+        updateTone();
+        setCoach('fever');
+        showBanner('FEVER!');
+        fxPulseAt(x, y, 'fever');
+      }
+    }
 
-        if (CTX.debug === '1') {
-          url.searchParams.set('debug', '1');
+    function onHit(ev){
+      if (!state.running || state.paused || state.ended) return;
+      const el = ev.currentTarget;
+      const id = String(el.dataset.id || '');
+      const t = state.targets.get(id);
+      if (!t) return;
+
+      const matched = !!t.good && Number(t.groupId) === Number(state.targetGroup.id);
+
+      if (matched) {
+        state.hits += 1;
+        state.combo += 1;
+        state.comboMax = Math.max(state.comboMax, state.combo);
+
+        let add = 10 + Math.min(8, state.combo);
+        if (state.feverOn) add += 4;
+        state.score += add;
+        state.fever = clamp(state.fever + 14, 0, 100);
+
+        if (t.kind === 'shield') {
+          state.shield = Math.min(3, state.shield + 1);
+          setCoach('shield');
+        } else {
+          setCoach('good');
         }
 
-        return url.toString();
-      }
-
-      function buildWarmupUrl(nextUrl, patch = {}) {
-        const url = new URL(WARMUP_URL, location.href);
-
-        const params = {
-          phase: 'warmup',
-          gatePhase: 'warmup',
-          pid: CTX.pid,
-          name: CTX.name,
-          studyId: CTX.studyId,
-          hub: CTX.hub,
-          view: CTX.view,
-          run: CTX.run,
-          diff: CTX.diff,
-          time: CTX.time,
-          seed: String(Date.now()),
-          zone: 'nutrition',
-          cat: 'nutrition',
-          game: 'plate',
-          gameId: 'plate',
-          theme: 'plate',
-          next: nextUrl,
-          ...patch
-        };
-
-        Object.entries(params).forEach(([k, v]) => {
-          if (v == null || v === '') return;
-          url.searchParams.set(k, String(v));
-        });
-
-        if (CTX.debug === '1') {
-          url.searchParams.set('debug', '1');
-        }
-
-        return url.toString();
-      }
-
-      function saveLastLaunch(data){
-        try{
-          localStorage.setItem('HHA_LAST_PLATE_LAUNCH', JSON.stringify(data));
-        }catch(_){}
-      }
-
-      function goMain(extra = {}){
-        const runUrl = buildRunUrl(MAIN_RUN_URL, {
-          mode: 'solo',
-          ...extra
-        });
-
-        const warmupUrl = buildWarmupUrl(runUrl);
-
-        saveLastLaunch({
-          kind: 'main',
-          url: warmupUrl,
-          next: runUrl,
-          ts: Date.now()
-        });
-
-        forceGo(warmupUrl);
-      }
-
-      function goMini(extra = {}){
-        const runUrl = buildRunUrl(MINI_RUN_URL, {
-          mode: 'mini',
-          mini: '1',
-          time: extra.time || '60',
-          ...extra
-        });
-
-        saveLastLaunch({
-          kind: 'mini',
-          url: runUrl,
-          ts: Date.now()
-        });
-
-        forceGo(runUrl);
-      }
-
-      function goContinue(){
-        try{
-          const raw = localStorage.getItem('HHA_LAST_PLATE_LAUNCH');
-          if (!raw) {
-            goMain();
-            return;
+        if (Number(t.groupId) >= 1 && Number(t.groupId) <= 5) {
+          state.counts[t.groupId] = (state.counts[t.groupId] || 0) + 1;
+          const before = state.plateHave;
+          state.plateHave = plateCountDistinct();
+          if (before < 5 && state.plateHave === 5) {
+            state.score += 30;
+            showPop(t.x, t.y, 'ครบ 5 หมู่! +30');
           }
+        }
 
-          const last = JSON.parse(raw || '{}');
-          if (!last || !last.url) {
-            goMain();
-            return;
+        maybeStartFever(t.x, t.y);
+        fxPulseAt(t.x, t.y, state.feverOn ? 'fever' : 'good');
+        showPop(t.x, t.y, `+${add}`);
+
+        if (state.hits > 0 && state.hits % 4 === 0) {
+          rotateTargetGroup();
+        }
+
+        removeTarget(t, 'hit');
+      } else {
+        state.wrong += 1;
+        state.combo = 0;
+
+        if (state.shield > 0) {
+          state.shield -= 1;
+        } else {
+          state.miss += 1;
+          state.score = Math.max(0, state.score - (ctx.diff === 'hard' ? 6 : 4));
+        }
+
+        setCoach('wrong');
+        fxPulseAt(t.x, t.y, 'bad');
+        removeTarget(t, 'hit');
+      }
+
+      updateHud();
+    }
+
+    function updateTargets(dt){
+      const safe = safeRect();
+
+      for (const t of Array.from(state.targets.values())) {
+        t.x += t.vx * dt;
+        t.y += t.vy * dt;
+
+        const half = Math.max(18, t.size * 0.5);
+
+        if (t.x <= safe.left + half) {
+          t.x = safe.left + half;
+          t.vx *= -1;
+        } else if (t.x >= safe.right - half) {
+          t.x = safe.right - half;
+          t.vx *= -1;
+        }
+
+        if (t.el) {
+          t.el.style.left = `${t.x}px`;
+          t.el.style.top = `${t.y}px`;
+        }
+
+        if ((nowMs() - t.born) >= t.ttlMs || t.y >= safe.bottom - (half * 0.2)) {
+          const wasTarget = !!t.good && Number(t.groupId) === Number(state.targetGroup.id);
+          if (wasTarget) {
+            if (state.shield > 0) {
+              state.shield -= 1;
+            } else {
+              state.miss += 1;
+              state.combo = 0;
+            }
+            setCoach('miss');
+            fxPulseAt(t.x, t.y, 'bad');
           }
-
-          forceGo(String(last.url));
-        }catch(_){
-          goMain();
+          removeTarget(t, 'expire');
         }
       }
 
-      async function copyText(text){
+      const cap = ctx.view === 'mobile' ? 4 : 5;
+      const spawnPerSec = ctx.diff === 'hard' ? 1.22 : (ctx.diff === 'easy' ? 0.90 : 1.04);
+
+      state.spawnAcc += spawnPerSec * dt;
+      while (state.spawnAcc >= 1) {
+        state.spawnAcc -= 1;
+        if (state.targets.size < cap) {
+          createTarget();
+        }
+      }
+    }
+
+    function updateFever(dt){
+      if (!state.feverOn) return;
+      state.feverTimer -= dt;
+      if (state.feverTimer <= 0) {
+        state.feverOn = false;
+        state.fever = 0;
+        updateTone();
+      }
+    }
+
+    function updateHud(){
+      setText('uiScore', state.score);
+      setText('uiTime', Math.ceil(Math.max(0, state.timeLeft)));
+      setText('uiPlate', state.plateHave);
+      setText('uiMiss', state.miss);
+      setText('uiCombo', state.combo);
+      setText('uiGrade', gradeOf(accuracyPct()));
+      setText('uiAcc', `${accuracyPct()}%`);
+      setText('uiFever', `${Math.round(state.fever)}%`);
+      setText('uiShield', state.shield);
+      setText('uiTargetText', `เก็บ ${state.targetGroup.icon} ${state.targetGroup.label}`);
+
+      const progressPct = Math.round((state.plateHave / 5) * 100);
+      setWidth('uiGoalFill', progressPct);
+      setWidth('uiFeverFill', state.fever);
+
+      for (let i = 1; i <= 5; i += 1) {
+        setText(`uiG${i}`, state.counts[i] || 0);
+      }
+    }
+
+    function saveSummary(sum){
+      try{
+        localStorage.setItem(`HHA_LAST_SUMMARY:plate-mini:${ctx.pid}`, JSON.stringify(sum));
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({ ...sum, game: 'plate-mini' }));
+      }catch(_){}
+    }
+
+    function buildSummary(){
+      return {
+        game: 'plate-mini',
+        mode: 'mini',
+        scoreFinal: state.score,
+        grade: gradeOf(accuracyPct()),
+        accPct: accuracyPct(),
+        ok: state.hits,
+        wrong: state.wrong,
+        miss: state.miss,
+        comboMax: state.comboMax,
+        plateHave: state.plateHave,
+        counts: { ...state.counts },
+        diff: ctx.diff,
+        view: ctx.view,
+        seed: ctx.seed,
+        pid: ctx.pid
+      };
+    }
+
+    function renderEnd(sum){
+      setText('endTitle', 'จบ Mini Game แล้ว 🎉');
+      setText('endSub', `mode=mini • diff=${ctx.diff} • view=${ctx.view}`);
+      setText('endGrade', sum.grade);
+      setText('endScore', sum.scoreFinal);
+      setText('endOk', sum.ok);
+      setText('endWrong', sum.wrong);
+      setText('endPlate', sum.plateHave);
+      setText('endBadge', sum.grade === 'S' ? 'QUICK PLATE STAR' : 'QUICK PLATE');
+      setText('endCoachTip',
+        sum.plateHave < 5
+          ? 'ครั้งหน้าลองรีบเก็บให้ครบ 5 หมู่เร็วขึ้น แล้วค่อยเพิ่มคอมโบ'
+          : 'ยอดเยี่ยม! รอบหน้าลองรักษาคอมโบให้นานขึ้นเพื่อดันเกรดให้สูงกว่าเดิม'
+      );
+
+      setText('endG1', sum.counts[1] || 0);
+      setText('endG2', sum.counts[2] || 0);
+      setText('endG3', sum.counts[3] || 0);
+      setText('endG4', sum.counts[4] || 0);
+      setText('endG5', sum.counts[5] || 0);
+
+      const mainUrl = new URL('./plate-solo.html', location.href);
+      mainUrl.searchParams.set('pid', ctx.pid);
+      mainUrl.searchParams.set('hub', ctx.hub);
+      mainUrl.searchParams.set('view', ctx.view);
+      mainUrl.searchParams.set('run', ctx.run);
+      mainUrl.searchParams.set('diff', ctx.diff);
+      mainUrl.searchParams.set('time', '90');
+      mainUrl.searchParams.set('seed', String(Date.now()));
+      document.getElementById('btnMainAfterEnd').href = mainUrl.toString();
+
+      endOverlay.setAttribute('aria-hidden', 'false');
+    }
+
+    function endGame(reason = 'time'){
+      if (state.ended) return;
+      state.ended = true;
+      state.running = false;
+      try { cancelAnimationFrame(state.raf); } catch {}
+      clearTargets();
+      setCoach('done');
+
+      const sum = buildSummary();
+      sum.reason = reason;
+      saveSummary(sum);
+      renderEnd(sum);
+    }
+
+    function loop(ts){
+      if (!state.running) return;
+
+      if (state.paused || endOverlay.getAttribute('aria-hidden') === 'false') {
+        state.lastTick = ts;
+        state.raf = requestAnimationFrame(loop);
+        return;
+      }
+
+      const dt = Math.min(0.05, Math.max(0.001, (ts - state.lastTick) / 1000));
+      state.lastTick = ts;
+
+      state.timeLeft = Math.max(0, state.timeLeft - dt);
+      state.groupRotateTimer = Math.max(0, state.groupRotateTimer - dt);
+
+      if (state.groupRotateTimer <= 0) {
+        rotateTargetGroup();
+        state.groupRotateTimer = 8;
+      }
+
+      updateFever(dt);
+      updateTargets(dt);
+      updateHud();
+
+      if (state.timeLeft <= 0) {
+        endGame('time');
+        return;
+      }
+
+      state.raf = requestAnimationFrame(loop);
+    }
+
+    function openDrawer(){
+      drawer.style.display = 'block';
+      drawer.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeDrawer(){
+      drawer.style.display = 'none';
+      drawer.setAttribute('aria-hidden', 'true');
+    }
+
+    function tryCrosshairShoot(){
+      if (ctx.view !== 'cvr' && ctx.view !== 'vr') return;
+
+      const x = window.innerWidth / 2;
+      const y = window.innerHeight / 2;
+      const rect = playfield.getBoundingClientRect();
+
+      const localX = x - rect.left;
+      const localY = y - rect.top;
+
+      for (const t of state.targets.values()) {
+        const dx = localX - t.x;
+        const dy = localY - t.y;
+        const r = t.size * 0.5;
+        if ((dx * dx) + (dy * dy) <= (r * r)) {
+          t.el?.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true }));
+          return;
+        }
+      }
+    }
+
+    document.getElementById('btnPause')?.addEventListener('click', () => {
+      state.paused = !state.paused;
+      document.getElementById('btnPause').textContent = state.paused ? '▶️ RESUME' : '⏸️ PAUSE';
+    });
+
+    document.getElementById('btnRestart')?.addEventListener('click', () => {
+      try{
+        const u = new URL(location.href);
+        if (ctx.run !== 'research') u.searchParams.set('seed', String(Date.now()));
+        location.href = u.toString();
+      }catch(_){
+        location.reload();
+      }
+    });
+
+    document.getElementById('btnDrawer')?.addEventListener('click', () => {
+      const open = drawer.getAttribute('aria-hidden') === 'false';
+      if (open) closeDrawer();
+      else openDrawer();
+    });
+
+    document.getElementById('btnCloseDrawer')?.addEventListener('click', closeDrawer);
+    document.getElementById('btnBackHub')?.addEventListener('click', () => location.href = ctx.hub);
+    document.getElementById('btnBackHub2')?.addEventListener('click', () => location.href = ctx.hub);
+
+    document.getElementById('btnReplay')?.addEventListener('click', () => {
+      try{
+        const u = new URL(location.href);
+        if (ctx.run !== 'research') u.searchParams.set('seed', String(Date.now()));
+        location.href = u.toString();
+      }catch(_){
+        location.reload();
+      }
+    });
+
+    document.getElementById('btnCopy')?.addEventListener('click', async () => {
+      const sum = buildSummary();
+      const text =
+`Quick Plate Mini Summary
+score=${sum.scoreFinal}
+grade=${sum.grade}
+ok=${sum.ok}
+wrong=${sum.wrong}
+miss=${sum.miss}
+acc=${sum.accPct}%
+comboMax=${sum.comboMax}
+plateHave=${sum.plateHave}/5
+diff=${sum.diff}`;
+      try{
         if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(text);
         }
-      }
+      }catch(_){}
+    });
 
-      function refreshUi(){
-        setText('chipPid', CTX.pid);
-        setText('chipView', CTX.view);
-        setText('chipRun', CTX.run);
-        setText('chipDiff', CTX.diff);
-        setText('chipHub', CTX.hub.includes('hub-v2') ? 'hub-v2' : CTX.hub);
+    window.addEventListener('hha:shoot', () => {
+      tryCrosshairShoot();
+    });
 
-        setText('kvPid', CTX.pid);
-        setText('kvHub', CTX.hub);
-        setText('kvView', CTX.view);
-        setText('kvRun', CTX.run);
-        setText('kvDiff', CTX.diff);
-        setText('kvTime', CTX.time);
+    document.body.dataset.tone = 'focus';
+    closeDrawer();
+    endOverlay.setAttribute('aria-hidden', 'true');
 
-        const hubBtn = $('hubBtn');
-        if (hubBtn) hubBtn.href = CTX.hub;
+    state.targetGroup = pick(GROUPS);
+    setCoach('start');
+    updateHud();
+    showBanner('QUICK PLATE!');
+    primeStartTargets();
 
-        if (CTX.debug === '1') {
-          document.body.classList.add('debug');
-          const mainUrl = buildRunUrl(MAIN_RUN_URL, { mode:'solo' });
-          const mainWarmupUrl = buildWarmupUrl(mainUrl);
-          const miniUrl = buildRunUrl(MINI_RUN_URL, { mini:'1', mode:'mini', time:'60' });
-          const box = $('debugBox');
-          if (box) {
-            box.textContent =
-`CTX
-${JSON.stringify(CTX, null, 2)}
-
-MAIN RUN
-${mainUrl}
-
-MAIN WARMUP
-${mainWarmupUrl}
-
-MINI RUN
-${miniUrl}`;
-          }
-        }
-      }
-
-      $('playMainBtn')?.addEventListener('click', () => goMain());
-      $('playMainEasyBtn')?.addEventListener('click', () => goMain({ diff:'easy' }));
-      $('playMainNormalBtn')?.addEventListener('click', () => goMain({ diff:'normal' }));
-      $('playMainHardBtn')?.addEventListener('click', () => goMain({ diff:'hard' }));
-
-      $('playMiniBtn')?.addEventListener('click', () => goMini({ time:'60' }));
-      $('playMini60Btn')?.addEventListener('click', () => goMini({ time:'60' }));
-      $('playMini90Btn')?.addEventListener('click', () => goMini({ time:'90' }));
-
-      $('continueBtn')?.addEventListener('click', goContinue);
-
-      $('copyMainLinkBtn')?.addEventListener('click', async () => {
-        try{
-          await copyText(buildWarmupUrl(buildRunUrl(MAIN_RUN_URL, { mode:'solo' })));
-          $('copyMainLinkBtn').textContent = '✅ คัดลอกแล้ว';
-          setTimeout(() => {
-            $('copyMainLinkBtn').textContent = '🔗 คัดลอกลิงก์ Main Game';
-          }, 1200);
-        }catch(_){}
-      });
-
-      document.addEventListener('click', (ev) => {
-        const t = ev.target.closest('button, a');
-        if (!t) return;
-
-        const txt = (t.textContent || '').trim();
-        if (
-          txt.includes('เยี่ยมเลย') ||
-          txt.includes('ตกลง') ||
-          txt.includes('ปิด') ||
-          txt.includes('โอเค')
-        ) {
-          setTimeout(hardCloseRewardPopup, 0);
-        }
-      }, true);
-
-      window.addEventListener('pageshow', hardCloseRewardPopup);
-      window.addEventListener('load', hardCloseRewardPopup);
-
-      refreshUi();
-    })();
+    state.lastTick = performance.now();
+    state.raf = requestAnimationFrame(loop);
   </script>
 </body>
 </html>
