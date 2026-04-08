@@ -27,10 +27,12 @@
     import bootGate from './gate/gate-core.js?v=20260407b-GATE-DAILY-WARMUP-COOLDOWN-HUBV2-CDNEXT-FLOW';
 
     const root = document.getElementById('gate-app');
+    const PATCH = '20260408-gate-next-clean-fix';
 
     function qs(name, fallback=''){
       try{
-        return new URL(location.href).searchParams.get(name) ?? fallback;
+        const v = new URL(location.href).searchParams.get(name);
+        return v == null || v === '' ? fallback : v;
       }catch(_){
         return fallback;
       }
@@ -52,7 +54,7 @@
     function fallbackHubHref(){
       return safeAbsUrl(
         qs('hubRoot', qs('hub', '')),
-        new URL('./hub.html', location.href).href
+        new URL('./hub-v2.html', location.href).href
       );
     }
 
@@ -67,6 +69,76 @@
       return safeAbsUrl(qs('next', ''), '');
     }
 
+    function preferredNextHref(){
+      const phase = phaseValue();
+
+      if (phase === 'warmup') {
+        return fallbackNextHref() || fallbackHubHref();
+      }
+
+      return fallbackLauncherHref() || fallbackNextHref() || fallbackHubHref();
+    }
+
+    function cleanFlowUrl(rawHref){
+      const phase = phaseValue();
+      const fallback = fallbackHubHref();
+
+      let u;
+      try{
+        u = new URL(rawHref || fallback, location.href);
+      }catch(_){
+        return fallback;
+      }
+
+      [
+        'phase',
+        'gatePhase',
+        'returnPhase',
+        'cooldown',
+        'cd',
+        'gate',
+        'next',
+        'launcher',
+        'cdnext'
+      ].forEach((key) => u.searchParams.delete(key));
+
+      const currentMode = String(u.searchParams.get('mode') || '').toLowerCase();
+      if (currentMode === 'warmup' || currentMode === 'cooldown') {
+        u.searchParams.delete('mode');
+      }
+
+      const keep = {
+        pid: qs('pid', 'anon'),
+        name: qs('name', ''),
+        studyId: qs('studyId', ''),
+        view: qs('view', 'mobile'),
+        run: qs('run', 'play'),
+        diff: qs('diff', 'normal'),
+        time: qs('time', '90'),
+        seed: qs('seed', String(Date.now())),
+        hub: qs('hub', fallbackHubHref()),
+        zone: qs('zone', 'nutrition'),
+        cat: qs('cat', 'nutrition'),
+        game: qs('game', 'plate'),
+        gameId: qs('gameId', qs('game', 'plate')),
+        theme: qs('theme', qs('game', 'plate'))
+      };
+
+      Object.entries(keep).forEach(([k, v]) => {
+        if (v != null && v !== '') {
+          u.searchParams.set(k, String(v));
+        }
+      });
+
+      u.searchParams.set('gate', '1');
+
+      if (phase === 'cooldown') {
+        u.searchParams.set('cooldownDone', '1');
+      }
+
+      return u.toString();
+    }
+
     function resolvePrimaryFallbackAction(){
       const phase = phaseValue();
 
@@ -75,7 +147,7 @@
         if (nextHref) {
           return {
             label: 'เข้าเกมหลัก',
-            href: nextHref
+            href: cleanFlowUrl(nextHref)
           };
         }
 
@@ -89,7 +161,7 @@
       if (launcherHref) {
         return {
           label: 'กลับ Launcher',
-          href: launcherHref
+          href: cleanFlowUrl(launcherHref)
         };
       }
 
@@ -97,6 +169,116 @@
         label: 'กลับหน้าหลัก',
         href: fallbackHubHref()
       };
+    }
+
+    function goNextFromGate(){
+      const target = cleanFlowUrl(preferredNextHref());
+      console.log(`[HeroHealth Gate][${PATCH}] phase=${phaseValue()} ->`, target);
+      location.replace(target);
+    }
+
+    function bindOneClick(el){
+      if (!el || el.__gatePatchedBound) return;
+      el.__gatePatchedBound = true;
+
+      el.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        goNextFromGate();
+      }, true);
+    }
+
+    function bindFinishButtons(){
+      const selectors = [
+        '#btnContinue',
+        '#btnNext',
+        '#btnGoNext',
+        '#btnStartGame',
+        '#btnFinish',
+        '#continueBtn',
+        '#nextBtn',
+        '#startBtn',
+        '#finishBtn',
+        '.btn-next',
+        '.btn-continue',
+        '.btn-start',
+        '.btn-finish',
+        '[data-next]',
+        '[data-action="continue"]',
+        '[data-action="next"]',
+        '[data-action="finish"]',
+        '[data-role="gate-next"]'
+      ];
+
+      selectors.forEach((sel) => {
+        document.querySelectorAll(sel).forEach(bindOneClick);
+      });
+    }
+
+    function looksLikeFinishLabel(text){
+      const value = String(text || '').trim().toLowerCase();
+      if (!value) return false;
+
+      return [
+        'ไปต่อ',
+        'เริ่มเกม',
+        'เล่นต่อ',
+        'ต่อเลย',
+        'continue',
+        'next',
+        'เข้าเกมหลัก',
+        'เริ่มเลย',
+        'start game',
+        'finish',
+        'done',
+        'เสร็จแล้ว',
+        'กลับ launcher'
+      ].some(token => value.includes(token));
+    }
+
+    function bindFinishTextButtons(){
+      document.addEventListener('click', (ev) => {
+        const t = ev.target.closest('button, a');
+        if (!t) return;
+        if (!looksLikeFinishLabel(t.textContent || '')) return;
+
+        ev.preventDefault();
+        ev.stopPropagation();
+        goNextFromGate();
+      }, true);
+    }
+
+    function bindCustomEvents(){
+      window.goNextFromGate = goNextFromGate;
+      window.goNextFromWarmup = goNextFromGate;
+      window.finishWarmupAndContinue = goNextFromGate;
+      window.goNextFromCooldown = goNextFromGate;
+      window.finishCooldownAndContinue = goNextFromGate;
+
+      [
+        'hha:warmup-complete',
+        'hha:cooldown-complete',
+        'herohealth:gate-complete',
+        'gate:complete',
+        'gate:next'
+      ].forEach((eventName) => {
+        window.addEventListener(eventName, () => {
+          goNextFromGate();
+        });
+      });
+    }
+
+    function watchRootForButtons(){
+      if (!root || typeof MutationObserver === 'undefined') return;
+
+      const mo = new MutationObserver(() => {
+        bindFinishButtons();
+      });
+
+      mo.observe(root, {
+        childList: true,
+        subtree: true
+      });
     }
 
     function renderBootError(err){
@@ -141,7 +323,7 @@
               text-transform:uppercase;
               color:#93c5fd;
               margin-bottom:8px;
-            ">HeroHealth Gate • ${phase}</div>
+            ">HeroHealth Gate • ${phase} • ${PATCH}</div>
 
             <h1 style="margin:0 0 10px;font-size:30px;line-height:1.05;">
               Gate load failed
@@ -223,7 +405,17 @@
       });
     }
 
-    bootGate(root).catch((err) => {
+    bindFinishButtons();
+    bindFinishTextButtons();
+    bindCustomEvents();
+    watchRootForButtons();
+
+    bootGate(root).then(() => {
+      bindFinishButtons();
+      setTimeout(bindFinishButtons, 250);
+      setTimeout(bindFinishButtons, 700);
+      setTimeout(bindFinishButtons, 1400);
+    }).catch((err) => {
       console.error('[warmup-gate] boot failed:', err);
       renderBootError(err);
     });
