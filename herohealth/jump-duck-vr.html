@@ -716,7 +716,7 @@
     }
   </style>
 </head>
-<body data-game-id="jump-duck">
+<body>
   <div class="app">
     <header class="topbar">
       <div class="brand">
@@ -741,7 +741,7 @@
 
         <h1>JumpDuck</h1>
         <p>
-          เกมนี้ฝึก <strong>กระโดด ย่อ คุมจังหวะ และลงพื้นให้นิ่ง</strong> แบบ circuit 7 สถานี
+          เกมนี้ฝึก <strong>กระโดด ย่อ คุมจังหวะ และลงพื้นให้นิ่ง</strong> แบบ circuit
           ใช้ cue กลางจอช่วยให้เด็กอ่านเกมง่าย และเหมาะกับทั้งแบบเล่นทั่วไปและ research run
         </p>
 
@@ -768,7 +768,7 @@
 
         <div class="chips">
           <div class="chip">🥁 Rhythm Accuracy</div>
-          <div class="chip">🟦 7 Posts Circuit</div>
+          <div class="chip">🟦 Circuit</div>
           <div class="chip">⬆️ Jump</div>
           <div class="chip">⬇️ Duck</div>
           <div class="chip">✋ Hold Landing</div>
@@ -782,7 +782,7 @@
           </div>
 
           <div class="stat-grid">
-            <div class="stat-pill"><span class="k">Stars</span><span class="v" id="recentStars">-</span></div>
+            <div class="stat-pill"><span class="k">Rank</span><span class="v" id="recentRank">-</span></div>
             <div class="stat-pill"><span class="k">Rhythm</span><span class="v" id="recentRhythm">-</span></div>
             <div class="stat-pill"><span class="k">Landing</span><span class="v" id="recentLanding">-</span></div>
             <div class="stat-pill"><span class="k">Posts</span><span class="v" id="recentPosts">-</span></div>
@@ -875,7 +875,7 @@
           <div class="feature">
             <div class="big">🧩</div>
             <strong>เป็นระบบ</strong>
-            <span>แบ่ง phase ชัดและจัดเป็น 7-post circuit ตามแนวคิดงานวิจัย</span>
+            <span>แบ่ง phase ชัดและจัดเป็น circuit ตามแนวคิดงานวิจัย</span>
           </div>
           <div class="feature">
             <div class="big">📊</div>
@@ -1034,15 +1034,13 @@
     </main>
   </div>
 
-  <script src="./fitness-lastgame-bridge.js"></script>
+  <script src="./fitness-zone-bridge.js"></script>
   <script>
   (() => {
     'use strict';
 
+    const Bridge = window.HHFitnessBridge;
     const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
-    const JUMPDUCK_SUMMARY_KEY = 'HHA_LAST_SUMMARY_JUMPDUCK';
-    const FITNESS_LAST_GAME_KEY = 'HH_FITNESS_LAST_GAME_V1';
-    const LAST_ZONE_KEY = 'HHA_LAST_ZONE';
 
     const qs = new URLSearchParams(location.search);
     const $ = (id) => document.getElementById(id);
@@ -1063,7 +1061,7 @@
       recommendSub: $('recommendSub'),
       recommendChips: $('recommendChips'),
       recentStripSub: $('recentStripSub'),
-      recentStars: $('recentStars'),
+      recentRank: $('recentRank'),
       recentRhythm: $('recentRhythm'),
       recentLanding: $('recentLanding'),
       recentPosts: $('recentPosts'),
@@ -1086,23 +1084,16 @@
       try { return JSON.parse(raw); } catch (_) { return fallback; }
     }
 
-    function readJsonKey(key) {
+    function readSummary() {
       try {
-        const raw = localStorage.getItem(key);
-        return raw ? safeJsonParse(raw, null) : null;
+        const raw = localStorage.getItem(LAST_SUMMARY_KEY);
+        const data = raw ? safeJsonParse(raw, null) : null;
+        if (!data) return null;
+        const g = String(data.game || data.gameId || '').toLowerCase();
+        return (g === 'jumpduck' || g === 'jump-duck') ? data : null;
       } catch (_) {
         return null;
       }
-    }
-
-    function readJumpDuckSummary() {
-      const jd = readJsonKey(JUMPDUCK_SUMMARY_KEY);
-      if (jd && String(jd.game || '').toLowerCase() === 'jumpduck') return jd;
-
-      const generic = readJsonKey(LAST_SUMMARY_KEY);
-      if (generic && String(generic.game || '').toLowerCase() === 'jumpduck') return generic;
-
-      return null;
     }
 
     function readOrDefault(key, fallback) {
@@ -1130,66 +1121,11 @@
     }
 
     function buildFitnessBackUrl() {
-      const u = new URL(readOrDefault('hub', ABS_FITNESS), location.href);
-      if (!u.searchParams.get('focus')) u.searchParams.set('focus', 'jumpduck');
-      if (!u.searchParams.get('featured')) u.searchParams.set('featured', 'jumpduck');
+      const base = Bridge?.buildFitnessZoneUrl ? Bridge.buildFitnessZoneUrl() : readOrDefault('hub', ABS_FITNESS);
+      const u = new URL(base, location.href);
+      if (!u.searchParams.get('focus')) u.searchParams.set('focus', 'jump-duck');
+      if (!u.searchParams.get('featured')) u.searchParams.set('featured', 'jump-duck');
       return u.toString();
-    }
-
-    function currentSnapshotBase() {
-      return {
-        zone: 'fitness',
-        gameId: 'jump-duck',
-        game: 'jump-duck',
-        title: 'JumpDuck Launcher',
-        pid: cleanText(els.pid?.value, readOrDefault('pid', 'anon')),
-        name: cleanText(els.name?.value, readOrDefault('name', readOrDefault('nick', 'Player'))),
-        studyId: cleanText(els.studyId?.value, readOrDefault('studyId', '')),
-        diff: readRadio('diff', 'normal'),
-        time: readRadio('time', '90'),
-        view: readRadio('view', 'mobile'),
-        run: readRadio('run', 'play'),
-        gate: readRadio('gate', '1'),
-        cooldown: readRadio('cooldown', '1'),
-        seed: buildSeed(),
-        href: location.href,
-        path: location.pathname
-      };
-    }
-
-    function writeFallbackSnapshot(eventName, extra = {}) {
-      try {
-        const payload = {
-          ...currentSnapshotBase(),
-          event: eventName,
-          ts: Date.now(),
-          ...extra
-        };
-        localStorage.setItem(FITNESS_LAST_GAME_KEY, JSON.stringify(payload));
-        localStorage.setItem(LAST_ZONE_KEY, 'fitness');
-      } catch (_) {}
-    }
-
-    function writeLauncherSnapshot(eventName, extra = {}) {
-      const payload = {
-        ...currentSnapshotBase(),
-        event: eventName,
-        ...extra
-      };
-
-      try {
-        localStorage.setItem(LAST_ZONE_KEY, 'fitness');
-      } catch (_) {}
-
-      try {
-        if (window.HH_FITNESS_LASTGAME?.writeSnapshot) {
-          window.HH_FITNESS_LASTGAME.writeSnapshot(payload);
-        } else {
-          writeFallbackSnapshot(eventName, extra);
-        }
-      } catch (_) {
-        writeFallbackSnapshot(eventName, extra);
-      }
     }
 
     function baseParams() {
@@ -1233,16 +1169,18 @@
 
       url.searchParams.set('zone', 'fitness');
       url.searchParams.set('cat', 'fitness');
-      url.searchParams.set('game', 'jumpduck');
-      url.searchParams.set('gameId', 'jumpduck');
+      url.searchParams.set('gameId', 'jump-duck');
+      url.searchParams.set('game', 'jump-duck');
       url.searchParams.set('theme', 'jumpduck');
 
       url.searchParams.set('diff', patch.diff || p.diff);
       url.searchParams.set('time', patch.time || p.time);
+      url.searchParams.set('duration', patch.time || p.time);
       url.searchParams.set('seed', patch.seed || p.seed);
       url.searchParams.set('hub', patch.hub || p.hub);
       url.searchParams.set('view', patch.view || p.view);
       url.searchParams.set('run', modeOverride || patch.run || p.run);
+      url.searchParams.set('mode', patch.mode || modeOverride || patch.run || p.run);
 
       url.searchParams.set('gate', patch.gate || p.gate);
       url.searchParams.set('cooldown', patch.cooldown || p.cooldown);
@@ -1264,8 +1202,8 @@
 
       url.searchParams.set('zone', 'fitness');
       url.searchParams.set('cat', 'fitness');
-      url.searchParams.set('game', 'jumpduck');
-      url.searchParams.set('gameId', 'jumpduck');
+      url.searchParams.set('game', 'jump-duck');
+      url.searchParams.set('gameId', 'jump-duck');
       url.searchParams.set('theme', 'jumpduck');
 
       url.searchParams.set('diff', patch.diff || p.diff);
@@ -1274,6 +1212,7 @@
       url.searchParams.set('hub', patch.hub || p.hub);
       url.searchParams.set('view', patch.view || p.view);
       url.searchParams.set('run', patch.run || p.run);
+      url.searchParams.set('mode', patch.mode || patch.run || p.run);
 
       url.searchParams.set('gate', '1');
       url.searchParams.set('cooldown', patch.cooldown || p.cooldown);
@@ -1301,12 +1240,12 @@
         };
       }
 
-      const rhythm = Number(summary.rhythmAccuracy || 0);
+      const rhythm = Number(summary.rhythmAccuracy || summary.accPct || 0);
       const landing = Number(summary.landingControl || 0);
-      const stars = Number(summary.stars || 0);
       const posts = Number(summary.postsCleared || 0);
+      const rank = String(summary.rank || '').toUpperCase();
 
-      if (landing < 45) {
+      if (landing && landing < 45) {
         return {
           title: 'แนะนำให้ซ้อมลงพื้นให้นิ่งก่อน',
           sub: 'ใช้ Easy และเวลา 60 วินาที เพื่อฝึก hold landing แบบอ่านง่าย',
@@ -1320,7 +1259,7 @@
         };
       }
 
-      if (rhythm >= 86 && stars >= 3 && posts >= 5) {
+      if ((rank === 'S' || rank === 'A') && rhythm >= 84 && posts >= 5) {
         return {
           title: 'พร้อมอัปเกรดความท้าทายแล้ว',
           sub: 'ลอง Hard หรือ Research เพื่อเก็บ pattern ที่แน่นขึ้น',
@@ -1334,7 +1273,7 @@
         };
       }
 
-      if (rhythm >= 72) {
+      if (rhythm >= 70) {
         return {
           title: 'กำลังไปได้ดี',
           sub: 'แนะนำ Normal 90 วินาที เพื่อเก็บ combo และ rhythm ต่อเนื่อง',
@@ -1364,7 +1303,7 @@
     function renderRecent(summary) {
       if (!summary) {
         els.recentStripSub.textContent = 'ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย';
-        els.recentStars.textContent = '-';
+        els.recentRank.textContent = '-';
         els.recentRhythm.textContent = '-';
         els.recentLanding.textContent = '-';
         els.recentPosts.textContent = '-';
@@ -1372,12 +1311,12 @@
       }
 
       els.recentStripSub.textContent =
-        `Score ${Number(summary.score || 0)} • Jump ${Number(summary.jumpSuccess || 0)}%`;
+        `Score ${Number(summary.scoreFinal || summary.score || 0)} • miss ${Number(summary.missTotal || summary.miss || 0)}`;
 
-      els.recentStars.textContent = `${Number(summary.stars || 0)}⭐`;
-      els.recentRhythm.textContent = `${Number(summary.rhythmAccuracy || 0)}%`;
+      els.recentRank.textContent = String(summary.rank || '-');
+      els.recentRhythm.textContent = `${Number(summary.rhythmAccuracy || summary.accPct || 0)}%`;
       els.recentLanding.textContent = `${Number(summary.landingControl || 0)}%`;
-      els.recentPosts.textContent = `${Number(summary.postsCleared || 0)}/7`;
+      els.recentPosts.textContent = `${Number(summary.postsCleared || 0)}`;
     }
 
     function applyRecommendation(rec) {
@@ -1403,72 +1342,44 @@
       els.previewUrl.textContent = launchUrl.href;
     }
 
-    function go(url, eventName = 'launcher_nav', extra = {}) {
-      writeLauncherSnapshot(eventName, {
-        target: url.href,
-        ...extra
-      });
+    function go(url) {
       location.href = url.href;
     }
 
     function launchCurrentSettings() {
       const runUrl = buildRunUrl();
       const gate = readRadio('gate', '1');
-
-      go(
-        gate === '1' ? buildWarmupUrl(runUrl) : runUrl,
-        'launcher_start_standard',
-        {
-          mode: readRadio('run', 'play'),
-          gate,
-          cooldown: readRadio('cooldown', '1')
-        }
-      );
+      go(gate === '1' ? buildWarmupUrl(runUrl) : runUrl);
     }
 
     function launchMode(mode) {
       if (mode === 'play') {
-        const runUrl = buildRunUrl('play', { gate: '1', cooldown: '1' });
-        go(
-          buildWarmupUrl(runUrl, { run: 'play', cooldown: '1' }),
-          'launcher_play_start',
-          { mode: 'play', gate: '1', cooldown: '1' }
-        );
+        const runUrl = buildRunUrl('play', { gate: '1', cooldown: '1', mode:'play' });
+        go(buildWarmupUrl(runUrl, { run: 'play', cooldown: '1', mode:'play' }));
         return;
       }
 
       if (mode === 'quick') {
-        go(
-          buildRunUrl('play', { gate: '0', cooldown: '1' }),
-          'launcher_quick_start',
-          { mode: 'play', gate: '0', cooldown: '1' }
-        );
+        go(buildRunUrl('play', { gate: '0', cooldown: '1', mode:'play' }));
         return;
       }
 
       if (mode === 'research') {
-        const runUrl = buildRunUrl('research', { gate: '1', cooldown: '1', run: 'research', view: readRadio('view', 'mobile') });
-        go(
-          buildWarmupUrl(runUrl, { run: 'research', cooldown: '1' }),
-          'launcher_research_start',
-          { mode: 'research', gate: '1', cooldown: '1' }
-        );
+        const runUrl = buildRunUrl('research', { gate: '1', cooldown: '1', run: 'research', mode:'research', view: readRadio('view', 'mobile') });
+        go(buildWarmupUrl(runUrl, { run: 'research', cooldown: '1', mode:'research' }));
         return;
       }
 
       if (mode === 'demo') {
-        go(
-          buildRunUrl('demo', {
-            run: 'demo',
-            diff: 'easy',
-            time: '60',
-            gate: '0',
-            cooldown: '0',
-            view: 'mobile'
-          }),
-          'launcher_demo_start',
-          { mode: 'demo', gate: '0', cooldown: '0', diff: 'easy', time: '60' }
-        );
+        go(buildRunUrl('demo', {
+          run: 'demo',
+          mode: 'demo',
+          diff: 'easy',
+          time: '60',
+          gate: '0',
+          cooldown: '0',
+          view: 'mobile'
+        }));
       }
     }
 
@@ -1477,7 +1388,6 @@
         setRadio('run', 'play', 'run-play');
         setRadio('gate', '1', 'gate-on');
         setRadio('cooldown', '1', 'cooldown-on');
-        if (!document.querySelector('input[name="time"]:checked')) setRadio('time', '90', 'time-90');
       } else if (mode === 'quick') {
         setRadio('run', 'play', 'run-play');
         setRadio('gate', '0', 'gate-off');
@@ -1497,20 +1407,6 @@
       refreshPreview();
     }
 
-    function bindTopNav() {
-      els.btnHubTop.addEventListener('click', () => {
-        writeLauncherSnapshot('launcher_go_hub', {
-          target: els.btnHubTop.href
-        });
-      });
-
-      els.btnBackFitness.addEventListener('click', () => {
-        writeLauncherSnapshot('launcher_go_fitness_zone', {
-          target: els.btnBackFitness.href
-        });
-      });
-    }
-
     function bindAll(summary, rec) {
       [
         els.pid, els.name, els.studyId, els.seed,
@@ -1520,24 +1416,13 @@
         node.addEventListener('change', refreshPreview);
       });
 
-      els.btnApplyRecommended.addEventListener('click', () => {
-        applyRecommendation(rec);
-        writeLauncherSnapshot('launcher_apply_recommended', {
-          recommendedDiff: rec.diff,
-          recommendedTime: rec.time,
-          recommendedRun: rec.run
-        });
-      });
-
+      els.btnApplyRecommended.addEventListener('click', () => applyRecommendation(rec));
       els.btnStartStandard.addEventListener('click', launchCurrentSettings);
       els.btnQuickPlay.addEventListener('click', () => launchMode('quick'));
 
       els.btnUseLastPattern.addEventListener('click', () => {
         if (!summary) {
           applyRecommendation(rec);
-          writeLauncherSnapshot('launcher_use_last_fallback', {
-            fallback: true
-          });
           return;
         }
 
@@ -1545,39 +1430,23 @@
         setRadio('diff', String(summary.diff || rec.diff || 'normal'), 'diff-normal');
         setRadio('time', String(summary.timeSec || rec.time || '90'), 'time-90');
         setRadio('view', fallbackView, 'view-mobile');
-        setRadio('run', rec.run || 'play', rec.run === 'research' ? 'run-research' : 'run-play');
+        setRadio('run', rec.run || 'play', (rec.run === 'research' ? 'run-research' : 'run-play'));
         setRadio('gate', '1', 'gate-on');
         setRadio('cooldown', '1', 'cooldown-on');
         refreshPreview();
-
-        writeLauncherSnapshot('launcher_use_last_pattern', {
-          source: 'summary'
-        });
       });
 
       els.modePlayStart.addEventListener('click', () => launchMode('play'));
-      els.modePlayPreset.addEventListener('click', () => {
-        presetMode('play');
-        writeLauncherSnapshot('launcher_preset_play');
-      });
+      els.modePlayPreset.addEventListener('click', () => presetMode('play'));
 
       els.modeQuickStart.addEventListener('click', () => launchMode('quick'));
-      els.modeQuickPreset.addEventListener('click', () => {
-        presetMode('quick');
-        writeLauncherSnapshot('launcher_preset_quick');
-      });
+      els.modeQuickPreset.addEventListener('click', () => presetMode('quick'));
 
       els.modeResearchStart.addEventListener('click', () => launchMode('research'));
-      els.modeResearchPreset.addEventListener('click', () => {
-        presetMode('research');
-        writeLauncherSnapshot('launcher_preset_research');
-      });
+      els.modeResearchPreset.addEventListener('click', () => presetMode('research'));
 
       els.modeDemoStart.addEventListener('click', () => launchMode('demo'));
-      els.modeDemoPreset.addEventListener('click', () => {
-        presetMode('demo');
-        writeLauncherSnapshot('launcher_preset_demo');
-      });
+      els.modeDemoPreset.addEventListener('click', () => presetMode('demo'));
     }
 
     function init() {
@@ -1598,15 +1467,17 @@
       setRadio('gate', readOrDefault('gate', '1'), 'gate-on');
       setRadio('cooldown', readOrDefault('cooldown', '1'), 'cooldown-on');
 
-      const summary = readJumpDuckSummary();
+      Bridge?.markOpen('jump-duck', {
+        result: 'launcher-open',
+        href: location.href
+      });
+
+      const summary = readSummary();
       const rec = recommendFromSummary(summary);
 
       renderRecent(summary);
       renderRecommendation(rec);
-      bindTopNav();
       bindAll(summary, rec);
-
-      writeLauncherSnapshot('launcher_open');
 
       if (!qs.get('diff') && !qs.get('time') && !qs.get('run') && !qs.get('gate')) {
         applyRecommendation(rec);
