@@ -9,58 +9,60 @@
   <link rel="icon" href="../herohealth/favicon.ico" />
   <style>
     :root{
-      --sky1:#dff6ff;
-      --sky2:#bfe8ff;
-      --sky3:#fff7d4;
-      --card:#fffdf7;
-      --card2:#f7fff6;
-      --ink:#4f4a43;
-      --muted:#7a766f;
-      --line:#cae6ef;
-      --blue:#76cfff;
-      --blue2:#45b7f5;
-      --green:#7dd957;
-      --green2:#56c43c;
+      --bg1:#dff6ff;
+      --bg2:#c9eeff;
+      --bg3:#fff7d6;
+
+      --card:#ffffff;
+      --card2:#f8fdff;
+
+      --line:#c9e7f2;
+      --line-strong:#a9d9ec;
+
+      --text:#47433f;
+      --muted:#726d67;
+
+      --blue:#7fcfff;
+      --blue2:#4fb5f3;
+      --green:#7ed957;
+      --green2:#53bf35;
       --yellow:#ffd45d;
-      --orange:#ffb04f;
-      --pink:#ff97c6;
-      --purple:#b995ff;
+      --orange:#ffb14d;
+      --pink:#ff9ccf;
+      --pink2:#ff74b3;
+      --purple:#b496ff;
+      --purple2:#8f76f0;
       --red:#ff7d7d;
-      --shadow:0 16px 34px rgba(77,74,67,.12);
-      --shadow-soft:0 10px 22px rgba(77,74,67,.08);
+
+      --shadow:0 18px 42px rgba(71,67,63,.12);
+      --shadow-soft:0 10px 22px rgba(71,67,63,.08);
+
       --safe-top:env(safe-area-inset-top,0px);
       --safe-bottom:env(safe-area-inset-bottom,0px);
     }
 
     *{ box-sizing:border-box; }
-    html,body{
-      margin:0;
-      min-height:100%;
-      font-family:ui-rounded,"SF Pro Rounded","Nunito","Trebuchet MS","Noto Sans Thai",system-ui,sans-serif;
-      color:var(--ink);
-      background:
-        radial-gradient(circle at top, rgba(255,255,255,.65), transparent 34%),
-        linear-gradient(180deg,var(--sky1) 0%, var(--sky2) 48%, var(--sky3) 100%);
-    }
-
+    html,body{ margin:0; padding:0; }
     body{
-      padding:
-        calc(12px + var(--safe-top))
-        12px
-        calc(18px + var(--safe-bottom))
-        12px;
+      min-height:100vh;
+      font-family:ui-rounded,"Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.9), transparent 32%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 52%,var(--bg3));
     }
 
-    button,input,select,a{
-      font:inherit;
-      color:inherit;
-    }
-
+    a{ color:inherit; text-decoration:none; }
+    button,input,select,textarea{ font:inherit; }
     .hidden{ display:none !important; }
 
     .app{
-      width:min(1240px,100%);
+      width:min(1280px, calc(100% - 14px));
       margin:0 auto;
+      padding:
+        calc(10px + var(--safe-top))
+        0
+        calc(14px + var(--safe-bottom));
       display:grid;
       gap:12px;
     }
@@ -73,136 +75,132 @@
     }
 
     .brand,
-    .nav-links a{
-      border:2px solid var(--line);
-      border-radius:999px;
-      background:rgba(255,255,255,.86);
-      box-shadow:var(--shadow-soft);
-      text-decoration:none;
-      color:inherit;
-    }
-
-    .brand{
-      display:flex;
+    .top-link,
+    .mini-pill{
+      min-height:48px;
+      display:inline-flex;
       align-items:center;
-      gap:8px;
+      gap:10px;
       padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.9);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
       font-weight:1000;
-      white-space:nowrap;
     }
 
-    .brand .icon{
-      width:28px;height:28px;border-radius:50%;
-      display:grid;place-items:center;
+    .brand-icon{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
       background:linear-gradient(135deg,var(--blue),var(--pink));
       color:#fff;
-      font-size:14px;
+      font-size:15px;
     }
 
     .headline{
       min-width:0;
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-      padding:0 4px;
+      padding:0 2px;
     }
 
-    .headline .title{
-      font-size:clamp(22px,4vw,34px);
-      font-weight:1000;
+    .headline-title{
+      margin:0;
+      font-size:clamp(22px,4vw,38px);
       line-height:1;
+      font-weight:1000;
     }
 
-    .headline .sub{
-      font-size:13px;
+    .headline-sub{
+      margin:4px 0 0;
       color:var(--muted);
+      font-size:13px;
       font-weight:900;
     }
 
-    .nav-links{
+    .top-actions{
       display:flex;
       gap:8px;
       justify-content:flex-end;
       flex-wrap:wrap;
     }
 
-    .nav-links a{
-      padding:10px 14px;
-      font-weight:1000;
-    }
-
-    .view{
-      display:grid;
-      gap:12px;
-    }
-
     .shell{
       display:grid;
-      grid-template-columns:1.04fr .96fr;
+      grid-template-columns:1.06fr .94fr;
       gap:12px;
       align-items:start;
     }
 
-    .card{
-      background:rgba(255,255,255,.84);
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,252,246,.92));
       border:2px solid var(--line);
       border-radius:30px;
       box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
     }
 
-    .menu-hero{
-      overflow:hidden;
-      position:relative;
-      min-height:760px;
+    .menu-panel{
       padding:18px;
       display:grid;
       gap:14px;
-      align-content:start;
-      background:
-        radial-gradient(circle at 15% 12%, rgba(255,255,255,.92), transparent 18%),
-        radial-gradient(circle at 85% 14%, rgba(255,255,255,.75), transparent 16%),
-        linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,.08));
+      min-height:760px;
+      position:relative;
+      overflow:hidden;
     }
 
-    .hero-badge{
+    .menu-panel::after{
+      content:"";
+      position:absolute;
+      right:-30px;
+      bottom:-36px;
+      width:240px;
+      height:240px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(127,207,255,.20), transparent 64%);
+      pointer-events:none;
+    }
+
+    .menu-badge{
+      width:max-content;
+      min-height:38px;
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:10px 14px;
+      padding:8px 14px;
       border-radius:999px;
-      background:rgba(255,255,255,.92);
-      border:2px solid rgba(132,189,205,.35);
+      background:#fff;
+      border:2px solid var(--line);
       font-size:13px;
       font-weight:1000;
-      width:max-content;
+      box-shadow:var(--shadow-soft);
     }
 
-    .menu-hero h1{
+    .hero-title{
       margin:0;
-      font-size:clamp(34px,5vw,58px);
-      line-height:.95;
+      font-size:clamp(34px,5vw,60px);
+      line-height:.92;
+      font-weight:1000;
     }
 
-    .menu-hero p{
+    .hero-copy{
       margin:0;
       color:var(--muted);
       font-size:15px;
-      font-weight:800;
-      line-height:1.5;
+      font-weight:900;
+      line-height:1.55;
       max-width:720px;
     }
 
     .preview{
-      border:2px dashed rgba(132,189,205,.36);
+      position:relative;
+      min-height:340px;
       border-radius:28px;
+      border:2px dashed var(--line-strong);
+      overflow:hidden;
       background:
         linear-gradient(180deg,#bfe8ff 0%, #dcf6ff 42%, #eefed9 43%, #dff6d4 100%);
-      min-height:320px;
-      position:relative;
-      overflow:hidden;
-      display:grid;
-      place-items:center;
     }
 
     .preview .lane{
@@ -211,7 +209,7 @@
       border-radius:26px;
       border:2px dashed rgba(255,255,255,.45);
       background:
-        linear-gradient(180deg, rgba(255,255,255,.25), rgba(255,255,255,.1)),
+        linear-gradient(180deg, rgba(255,255,255,.25), rgba(255,255,255,.08)),
         linear-gradient(90deg, rgba(255,255,255,.25), rgba(255,255,255,.08));
     }
 
@@ -220,10 +218,10 @@
       left:50%;
       transform:translateX(-50%);
       bottom:74px;
-      width:min(420px,72%);
+      width:min(430px,72%);
       height:16px;
       border-radius:999px;
-      background:linear-gradient(90deg, rgba(255,255,255,.25), rgba(255,255,255,.95), rgba(255,255,255,.25));
+      background:linear-gradient(90deg, rgba(255,255,255,.24), rgba(255,255,255,.96), rgba(255,255,255,.24));
       box-shadow:0 0 0 7px rgba(118,207,255,.22);
     }
 
@@ -232,8 +230,8 @@
       top:38px;
       left:50%;
       transform:translateX(-50%);
-      width:min(230px,60vw);
-      min-height:100px;
+      width:min(240px,60vw);
+      min-height:104px;
       border-radius:26px;
       border:3px solid rgba(255,255,255,.85);
       background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(245,252,255,.95));
@@ -261,7 +259,7 @@
       margin-top:5px;
     }
 
-    .hero-avatar{
+    .preview-avatar{
       position:absolute;
       left:50%;
       bottom:4px;
@@ -271,7 +269,7 @@
       filter:drop-shadow(0 12px 16px rgba(0,0,0,.08));
     }
 
-    .hero-avatar .head{
+    .preview-avatar .head{
       position:absolute;
       left:50%;
       top:12px;
@@ -284,7 +282,7 @@
       z-index:2;
     }
 
-    .hero-avatar .body{
+    .preview-avatar .body{
       position:absolute;
       left:50%;
       top:58px;
@@ -296,20 +294,20 @@
       border:3px solid rgba(77,74,67,.09);
     }
 
-    .hero-avatar .arm,
-    .hero-avatar .leg{
+    .preview-avatar .arm,
+    .preview-avatar .leg{
       position:absolute;
       background:#fff0d0;
       border-radius:999px;
       border:3px solid rgba(77,74,67,.09);
     }
 
-    .hero-avatar .arm{ width:16px;height:54px; top:64px; }
-    .hero-avatar .arm.left{ left:36px; transform:rotate(24deg); }
-    .hero-avatar .arm.right{ right:36px; transform:rotate(-24deg); }
-    .hero-avatar .leg{ width:18px;height:60px; top:102px; }
-    .hero-avatar .leg.left{ left:64px; transform:rotate(10deg); }
-    .hero-avatar .leg.right{ right:64px; transform:rotate(-10deg); }
+    .preview-avatar .arm{ width:16px;height:54px; top:64px; }
+    .preview-avatar .arm.left{ left:36px; transform:rotate(24deg); }
+    .preview-avatar .arm.right{ right:36px; transform:rotate(-24deg); }
+    .preview-avatar .leg{ width:18px;height:60px; top:102px; }
+    .preview-avatar .leg.left{ left:64px; transform:rotate(10deg); }
+    .preview-avatar .leg.right{ right:64px; transform:rotate(-10deg); }
 
     .chips{
       display:flex;
@@ -318,38 +316,104 @@
     }
 
     .chip{
-      padding:10px 12px;
+      min-height:34px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:8px 12px;
       border-radius:999px;
-      background:rgba(255,255,255,.88);
-      border:2px solid rgba(132,189,205,.32);
+      background:#fff;
+      border:2px solid var(--line);
       font-size:12px;
       font-weight:1000;
       box-shadow:var(--shadow-soft);
     }
 
-    .section{
+    .menu-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .stats-strip{
+      display:grid;
+      gap:10px;
+      padding:14px;
+      border-radius:24px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(247,255,251,.94));
+    }
+
+    .stats-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .stats-head strong{
+      font-size:16px;
+    }
+
+    .stats-head span{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .stats-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .stat{
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+    }
+
+    .stat .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .stat .v{
+      display:block;
+      margin-top:4px;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .side{
       padding:16px;
       display:grid;
       gap:12px;
+      position:sticky;
+      top:calc(10px + var(--safe-top));
     }
 
-    .section-box{
+    .section{
       border-radius:24px;
-      border:2px dashed rgba(132,189,205,.36);
+      border:2px dashed var(--line-strong);
       background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(249,255,246,.92));
       padding:14px;
       display:grid;
       gap:10px;
     }
 
-    .section-box h3,
     .section h3{
       margin:0;
       font-size:14px;
       letter-spacing:.02em;
     }
 
-    .section-box p{
+    .section p{
       margin:0;
       font-size:13px;
       color:var(--muted);
@@ -367,35 +431,6 @@
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:8px;
-    }
-
-    .field{
-      display:grid;
-      gap:6px;
-    }
-
-    .field label{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:1000;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
-
-    .field input,
-    .field select{
-      width:100%;
-      min-height:48px;
-      border-radius:16px;
-      border:2px solid rgba(132,189,205,.32);
-      padding:10px 12px;
-      background:#fff;
-      outline:none;
-    }
-
-    .field input:focus,
-    .field select:focus{
-      border-color:rgba(69,183,245,.55);
     }
 
     .toggle{
@@ -438,473 +473,72 @@
       box-shadow:0 14px 24px rgba(69,183,245,.14);
     }
 
-    .cta-row{
+    .field{
       display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
+      gap:6px;
     }
 
-    .btn{
-      border:none;
-      border-radius:999px;
-      min-height:52px;
-      padding:12px 16px;
+    .field label{
+      font-size:12px;
+      color:var(--muted);
       font-weight:1000;
-      cursor:pointer;
-      box-shadow:var(--shadow-soft);
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
+      text-transform:uppercase;
+      letter-spacing:.04em;
     }
 
-    .btn.primary{
-      background:linear-gradient(135deg, var(--green), var(--green2));
-      color:#fff;
-    }
-
-    .btn.secondary{
-      background:linear-gradient(135deg, #fff, #eefbff);
-      border:2px solid rgba(132,189,205,.32);
-    }
-
-    .btn.ghost{
-      background:linear-gradient(135deg, #fffaf2, #fff2da);
-      border:2px solid rgba(255,176,79,.28);
-    }
-
-    .tag-row{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .tag{
-      min-height:30px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:6px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid rgba(132,189,205,.3);
-      font-size:11px;
-      font-weight:1000;
-      color:#5d6e7a;
-    }
-
-    .stats-mini{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .stat-pill{
+    .field input,
+    .field select,
+    .field textarea{
+      width:100%;
+      min-height:48px;
       border-radius:16px;
       border:2px solid rgba(132,189,205,.32);
-      background:#fff;
-      padding:10px;
-    }
-
-    .stat-pill .k{
-      display:block;
-      font-size:11px;
-      color:var(--muted);
-      font-weight:1000;
-    }
-
-    .stat-pill .v{
-      display:block;
-      margin-top:4px;
-      font-size:18px;
-      font-weight:1000;
-      color:#4d4a42;
-      line-height:1.15;
-    }
-
-    .play-shell{
-      display:grid;
-      grid-template-columns:1.2fr .8fr;
-      gap:12px;
-      align-items:start;
-    }
-
-    .play-card{
-      padding:16px;
-      display:grid;
-      gap:12px;
-    }
-
-    .hud-top{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .hud-pill{
-      border-radius:18px;
-      background:#fff;
-      border:2px solid rgba(132,189,205,.28);
       padding:10px 12px;
+      background:#fff;
+      outline:none;
     }
 
-    .hud-pill .k{
-      display:block;
-      font-size:11px;
-      color:var(--muted);
-      font-weight:1000;
+    .field textarea{
+      min-height:84px;
+      resize:vertical;
     }
 
-    .hud-pill .v{
-      display:block;
-      margin-top:4px;
-      font-size:17px;
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus{
+      border-color:rgba(69,183,245,.55);
+    }
+
+    .recommend-box{
+      border-radius:18px;
+      border:2px solid rgba(132,189,205,.32);
+      background:#fff;
+      padding:12px;
+      display:grid;
+      gap:8px;
+    }
+
+    .recommend-title{
+      font-size:14px;
       font-weight:1000;
       color:#4d4a42;
-      line-height:1.1;
     }
 
-    .meter-wrap{
-      display:grid;
-      gap:10px;
-    }
-
-    .meter-card{
-      border-radius:20px;
-      background:#fff;
-      border:2px solid rgba(132,189,205,.28);
-      padding:12px;
-      display:grid;
-      gap:8px;
-    }
-
-    .meter-head{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
+    .recommend-sub{
       font-size:13px;
-      font-weight:1000;
-    }
-
-    .meter{
-      height:16px;
-      border-radius:999px;
-      overflow:hidden;
-      background:#edf7fd;
-      border:2px solid #d7eaf6;
-    }
-
-    .meter > div{
-      height:100%;
-      border-radius:inherit;
-      width:0%;
-      transition:width .16s linear;
-    }
-
-    #hud-prog-fill{
-      background:linear-gradient(90deg,var(--blue2),var(--green2));
-    }
-
-    #hud-fever-fill{
-      background:linear-gradient(90deg,var(--orange),var(--pink));
-    }
-
-    #hud-boss-fill{
-      background:linear-gradient(90deg,#ff8d8d,#ff5a5a);
-    }
-
-    #jd-play-area{
-      position:relative;
-      overflow:hidden;
-      min-height:520px;
-      border-radius:28px;
-      border:2px solid rgba(132,189,205,.35);
-      background:
-        linear-gradient(180deg,#bfe8ff 0%, #dcf6ff 50%, #eefed9 51%, #dff6d4 100%);
-    }
-
-    #jd-play-area::before{
-      content:"";
-      position:absolute;
-      inset:18px 18px 26px 18px;
-      border-radius:28px;
-      border:2px dashed rgba(255,255,255,.40);
-      pointer-events:none;
-    }
-
-    #jd-arena{
-      position:relative;
-      min-height:520px;
-      overflow:hidden;
-    }
-
-    #jd-hitline{
-      position:absolute;
-      top:26px;
-      bottom:34px;
-      width:10px;
-      border-radius:999px;
-      background:linear-gradient(180deg,rgba(255,255,255,.4),rgba(255,255,255,.95),rgba(255,255,255,.4));
-      box-shadow:0 0 0 7px rgba(118,207,255,.22);
-      z-index:6;
-      pointer-events:none;
-    }
-
-    #jd-obstacles{
-      position:absolute;
-      inset:0;
-      overflow:hidden;
-      z-index:8;
-      pointer-events:none;
-    }
-
-    #jd-avatar{
-      position:absolute;
-      left:12%;
-      bottom:44px;
-      width:110px;
-      height:140px;
-      z-index:10;
-      transition:transform .16s ease;
-      filter:drop-shadow(0 10px 14px rgba(0,0,0,.10));
-    }
-
-    #jd-avatar .head{
-      position:absolute;
-      left:50%;
-      top:6px;
-      transform:translateX(-50%);
-      width:42px;
-      height:42px;
-      border-radius:50%;
-      background:#fff0d0;
-      border:3px solid rgba(77,74,67,.12);
-      z-index:2;
-    }
-
-    #jd-avatar .body{
-      position:absolute;
-      left:50%;
-      top:42px;
-      transform:translateX(-50%);
-      width:64px;
-      height:54px;
-      border-radius:20px 20px 16px 16px;
-      background:linear-gradient(180deg,#8fd6ff,#55b9f7);
-      border:3px solid rgba(77,74,67,.09);
-    }
-
-    #jd-avatar .arm,
-    #jd-avatar .leg{
-      position:absolute;
-      background:#fff0d0;
-      border-radius:999px;
-      border:3px solid rgba(77,74,67,.09);
-    }
-
-    #jd-avatar .arm{ width:14px;height:48px; top:48px; }
-    #jd-avatar .arm.left{ left:20px; transform:rotate(26deg); }
-    #jd-avatar .arm.right{ right:20px; transform:rotate(-26deg); }
-    #jd-avatar .leg{ width:16px;height:52px; top:88px; }
-    #jd-avatar .leg.left{ left:38px; transform:rotate(10deg); }
-    #jd-avatar .leg.right{ right:38px; transform:rotate(-10deg); }
-
-    #jd-avatar.avatar-idle{ transform:translateY(0); }
-    #jd-avatar.avatar-jump{ transform:translateY(-42px) scale(1.02); }
-    #jd-avatar.avatar-duck{ transform:translateY(8px) scaleX(1.06) scaleY(.9); }
-
-    #jd-tele,
-    #jd-boss-intro,
-    #jd-judge,
-    #jd-rush-banner{
-      position:absolute;
-      left:50%;
-      transform:translateX(-50%);
-      z-index:30;
-      pointer-events:none;
-    }
-
-    #jd-tele{
-      top:16px;
-    }
-
-    .teleBox{
-      min-height:44px;
-      padding:10px 16px;
-      border-radius:999px;
-      background:rgba(255,255,255,.96);
-      border:2px solid rgba(132,189,205,.35);
-      box-shadow:var(--shadow-soft);
-      font-weight:1000;
-      text-align:center;
-    }
-
-    #jd-boss-intro{
-      top:78px;
-    }
-
-    #jd-boss-intro-text{
-      min-height:48px;
-      padding:12px 18px;
-      border-radius:18px;
-      background:linear-gradient(135deg,#fff0f0,#fff8f8);
-      border:2px solid rgba(255,125,125,.28);
-      box-shadow:var(--shadow-soft);
-      font-weight:1000;
-      text-align:center;
-    }
-
-    #jd-judge{
-      top:146px;
-      min-height:44px;
-      padding:10px 16px;
-      border-radius:999px;
-      background:rgba(31,41,55,.88);
-      color:#fff;
-      font-weight:1000;
-      opacity:0;
-      transition:opacity .14s ease, transform .14s ease;
-    }
-
-    #jd-judge.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(-2px);
-    }
-
-    #jd-rush-banner{
-      top:208px;
-    }
-
-    .rushText{
-      min-height:44px;
-      padding:10px 16px;
-      border-radius:999px;
-      background:linear-gradient(135deg,#fff4d8,#ffd88a);
-      border:2px solid rgba(255,176,79,.28);
-      box-shadow:var(--shadow-soft);
-      font-weight:1000;
-    }
-
-    .play-controls{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    }
-
-    .stop-row{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
-    }
-
-    .play-note{
-      font-size:13px;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.45;
-    }
-
-    .result-shell{
-      display:grid;
-      grid-template-columns:1.08fr .92fr;
-      gap:12px;
-      align-items:start;
-    }
-
-    .result-card{
-      padding:16px;
-      display:grid;
-      gap:12px;
-    }
-
-    .rank-hero{
-      display:grid;
-      grid-template-columns:auto 1fr;
-      gap:12px;
-      align-items:center;
-    }
-
-    #jd-rank-badge{
-      width:96px;
-      height:96px;
-      border-radius:28px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(135deg,#fff,#eef8ff);
-      border:3px solid rgba(132,189,205,.32);
-      font-size:42px;
-      font-weight:1000;
-      box-shadow:var(--shadow-soft);
-    }
-
-    .rank-s{ color:#ff9c00; }
-    .rank-a{ color:#16a34a; }
-    .rank-b{ color:#2563eb; }
-    .rank-c{ color:#7c3aed; }
-    .rank-d{ color:#ef4444; }
-
-    .result-copy h2{
-      margin:0;
-      font-size:28px;
-      line-height:1.08;
-    }
-
-    .result-copy p{
-      margin:6px 0 0;
-      color:var(--muted);
-      font-weight:900;
       line-height:1.5;
-    }
-
-    .result-highlight{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .big-stat{
-      border-radius:18px;
-      border:2px solid rgba(132,189,205,.32);
-      background:#fff;
-      padding:12px;
-    }
-
-    .big-stat .k{
-      display:block;
-      font-size:11px;
       color:var(--muted);
-      font-weight:1000;
+      font-weight:900;
     }
 
-    .big-stat .v{
-      display:block;
-      margin-top:6px;
-      font-size:24px;
-      font-weight:1000;
-      line-height:1.05;
-    }
-
-    .coach-box{
-      border-radius:24px;
-      border:2px solid rgba(132,189,205,.32);
-      background:linear-gradient(180deg,#ffffff,#f8fdff);
-      padding:14px;
-      display:grid;
-      gap:10px;
-    }
-
-    .coach-head{
+    .recommend-chips{
       display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
+      gap:8px;
       flex-wrap:wrap;
     }
 
-    .coach-chip{
-      min-height:30px;
+    .recommend-chips span{
+      min-height:28px;
       display:inline-flex;
       align-items:center;
       justify-content:center;
@@ -917,143 +551,797 @@
       color:#5d6e7a;
     }
 
-    .tip{
+    .btn{
+      border:none;
+      border-radius:999px;
+      min-height:50px;
+      padding:12px 16px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      text-decoration:none;
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+    }
+
+    .btn.secondary{
+      background:linear-gradient(135deg,#fff,#eefbff);
+      border:2px solid rgba(132,189,205,.32);
+      color:var(--text);
+    }
+
+    .btn.ghost{
+      background:linear-gradient(135deg,#fffaf2,#fff2da);
+      border:2px solid rgba(255,176,79,.28);
+      color:var(--text);
+    }
+
+    .play-shell,
+    .result-shell{
+      padding:12px;
+      display:grid;
+      gap:10px;
+      min-height:760px;
+    }
+
+    .play-topbar,
+    .result-topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .hud{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .hud-box{
+      min-height:68px;
+      padding:10px;
       border-radius:18px;
       background:#fff;
-      border:2px solid rgba(132,189,205,.28);
-      padding:12px;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .hud-box .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .hud-box .v{
+      display:block;
+      margin-top:6px;
+      font-size:19px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .meter-row{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:8px;
+    }
+
+    .meter-card{
+      padding:10px 12px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      gap:8px;
+    }
+
+    .meter-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      font-size:12px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+
+    .bar{
+      height:14px;
+      border-radius:999px;
+      overflow:hidden;
+      background:#edf7fb;
+      border:2px solid var(--line);
+    }
+
+    .fill{
+      height:100%;
+      width:0%;
+      border-radius:inherit;
+      transition:width .18s ease;
+    }
+
+    #hud-prog-fill{ background:linear-gradient(90deg,var(--blue2),var(--green2)); }
+    #fever-fill{ background:linear-gradient(90deg,var(--pink2),var(--orange)); }
+    #hud-boss-fill{ background:linear-gradient(90deg,var(--red),var(--orange)); }
+
+    .arena-shell{
+      position:relative;
+      min-height:520px;
+      border-radius:28px;
+      overflow:hidden;
+      border:2px solid var(--line);
+      background:
+        linear-gradient(180deg,#bfe8ff 0%, #dcf6ff 42%, #eefed9 43%, #dff6d4 100%);
+    }
+
+    #jd-play-area{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    #jd-arena{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    #jd-hitline{
+      position:absolute;
+      top:0;
+      bottom:0;
+      width:4px;
+      background:linear-gradient(180deg,transparent, rgba(255,255,255,.96), transparent);
+      box-shadow:0 0 0 8px rgba(127,207,255,.12);
+      z-index:8;
+      left:144px;
+    }
+
+    #jd-obstacles{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      z-index:9;
+    }
+
+    #jd-avatar{
+      position:absolute;
+      left:13.5%;
+      bottom:42px;
+      width:140px;
+      height:150px;
+      transform:translateX(-50%);
+      z-index:10;
+      filter:drop-shadow(0 10px 14px rgba(0,0,0,.10));
+    }
+
+    #jd-avatar .head{
+      position:absolute;
+      left:50%;
+      top:4px;
+      transform:translateX(-50%);
+      width:54px;
+      height:54px;
+      border-radius:50%;
+      background:#fff0d0;
+      border:3px solid rgba(77,74,67,.12);
+      z-index:2;
+    }
+
+    #jd-avatar .body{
+      position:absolute;
+      left:50%;
+      top:48px;
+      transform:translateX(-50%);
+      width:76px;
+      height:58px;
+      border-radius:22px 22px 18px 18px;
+      background:linear-gradient(180deg,#8fd6ff,#55b9f7);
+      border:3px solid rgba(77,74,67,.09);
+    }
+
+    #jd-avatar .arm,
+    #jd-avatar .leg{
+      position:absolute;
+      background:#fff0d0;
+      border-radius:999px;
+      border:3px solid rgba(77,74,67,.09);
+    }
+
+    #jd-avatar .arm{ width:14px;height:50px; top:54px; }
+    #jd-avatar .arm.left{ left:28px; transform:rotate(22deg); }
+    #jd-avatar .arm.right{ right:28px; transform:rotate(-22deg); }
+    #jd-avatar .leg{ width:16px;height:58px; top:94px; }
+    #jd-avatar .leg.left{ left:52px; transform:rotate(8deg); }
+    #jd-avatar .leg.right{ right:52px; transform:rotate(-8deg); }
+
+    #jd-avatar.avatar-jump{
+      animation:jdJump .18s ease forwards;
+    }
+
+    #jd-avatar.avatar-duck{
+      transform:translateX(-50%) scale(.95,.82);
+      bottom:26px;
+    }
+
+    #jd-avatar.avatar-idle{
+      transform:translateX(-50%);
+      bottom:42px;
+    }
+
+    @keyframes jdJump{
+      0%{ transform:translateX(-50%) translateY(0); }
+      50%{ transform:translateX(-50%) translateY(-28px); }
+      100%{ transform:translateX(-50%) translateY(0); }
+    }
+
+    .arena-floor{
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:0;
+      height:110px;
+      background:linear-gradient(180deg,#eefed9,#dff6d4);
+      border-top:2px dashed rgba(77,74,67,.10);
+      z-index:2;
+    }
+
+    .overlay-center{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:20;
+      max-width:min(92%,540px);
+      width:100%;
+    }
+
+    #jd-tele{
+      top:18px;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease;
+    }
+
+    #jd-tele.on{
+      opacity:1;
+    }
+
+    .teleBox{
+      padding:14px 16px;
+      border-radius:22px;
+      background:rgba(255,255,255,.96);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      text-align:center;
+      font-size:18px;
+      font-weight:1000;
+    }
+
+    #jd-boss-intro{
+      top:88px;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease;
+    }
+
+    #jd-boss-intro.on{
+      opacity:1;
+    }
+
+    .bossIntroBox{
+      padding:14px 16px;
+      border-radius:22px;
+      background:linear-gradient(135deg,#fff,#fff2f2);
+      border:2px solid rgba(255,125,125,.25);
+      box-shadow:var(--shadow-soft);
+      text-align:center;
+      font-size:18px;
+      font-weight:1000;
+    }
+
+    #jd-judge{
+      position:absolute;
+      right:16px;
+      top:18px;
+      min-height:44px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.94);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-weight:1000;
+      z-index:20;
+      opacity:0;
+      transform:translateY(-6px);
+      transition:opacity .18s ease, transform .18s ease;
+    }
+
+    #jd-judge.show{
+      opacity:1;
+      transform:translateY(0);
+    }
+
+    #jd-rush-banner{
+      top:auto;
+      bottom:126px;
+      opacity:1;
+      pointer-events:none;
+    }
+
+    .rushBox{
+      padding:12px 14px;
+      border-radius:22px;
+      background:linear-gradient(135deg,#fff7d7,#ffe6b0);
+      border:2px solid rgba(255,176,79,.30);
+      box-shadow:var(--shadow-soft);
+      text-align:center;
+      font-size:18px;
+      font-weight:1000;
+    }
+
+    .controls-row{
+      display:grid;
+      grid-template-columns:1fr 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .action-btn{
+      min-height:56px;
+      border:none;
+      border-radius:20px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+      background:#fff;
+      border:2px solid var(--line);
+    }
+
+    .action-btn.jump{
+      background:linear-gradient(135deg,var(--blue),var(--blue2));
+      color:#fff;
+      border:none;
+    }
+
+    .action-btn.duck{
+      background:linear-gradient(135deg,var(--pink),var(--pink2));
+      color:#fff;
+      border:none;
+    }
+
+    .coach-strip{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:8px;
+    }
+
+    .coach-mini{
+      padding:10px 12px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .coach-mini .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .coach-mini .v{
+      display:block;
+      margin-top:4px;
+      font-size:16px;
+      font-weight:1000;
+      line-height:1.15;
+    }
+
+    .result-grid{
+      display:grid;
+      grid-template-columns:1fr .94fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    .result-main,
+    .result-side{
+      display:grid;
+      gap:10px;
+      min-width:0;
+    }
+
+    .summary-hero{
+      padding:16px;
+      border-radius:26px;
+      background:linear-gradient(180deg,#fff,#fff8fb);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      gap:12px;
+    }
+
+    .summary-head{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:12px;
+      align-items:center;
+    }
+
+    #jd-rank-badge{
+      width:86px;
+      height:86px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#fff,#eef9ff);
+      border:3px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:40px;
+      font-weight:1000;
+    }
+
+    #jd-rank-badge.rank-s{ background:linear-gradient(135deg,#fff7d7,#ffe9aa); }
+    #jd-rank-badge.rank-a{ background:linear-gradient(135deg,#eef9ff,#dff5ff); }
+    #jd-rank-badge.rank-b{ background:linear-gradient(135deg,#edfceb,#dbf6d2); }
+    #jd-rank-badge.rank-c{ background:linear-gradient(135deg,#fff8ea,#fff0cf); }
+    #jd-rank-badge.rank-d{ background:linear-gradient(135deg,#fff1f1,#ffe0e0); }
+
+    .summary-copy h2{
+      margin:0;
+      font-size:30px;
+      line-height:1.08;
+    }
+
+    .summary-copy p{
+      margin:6px 0 0;
+      color:var(--muted);
       font-weight:900;
       line-height:1.45;
     }
 
-    .summary-grid{
+    .big-stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .big-stat{
+      padding:12px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .big-stat .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .big-stat .v{
+      display:block;
+      margin-top:5px;
+      font-size:20px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .detail-card{
+      padding:14px;
+      border-radius:22px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      gap:10px;
+    }
+
+    .detail-card h3{
+      margin:0;
+      font-size:16px;
+    }
+
+    .coach-list{
+      display:grid;
+      gap:8px;
+    }
+
+    .coach-tip{
+      min-height:44px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#f8fdff;
+      border:2px solid var(--line);
+      font-weight:1000;
+      line-height:1.35;
+    }
+
+    .table-grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:8px;
     }
 
-    .mini-row{
-      border-radius:16px;
-      border:2px solid rgba(132,189,205,.28);
-      background:#fff;
+    .table-item{
       padding:10px 12px;
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      font-size:13px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+    }
+
+    .table-item .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
       font-weight:1000;
     }
 
-    .mini-row span:last-child{
-      color:#4d4a42;
+    .table-item .v{
+      display:block;
+      margin-top:5px;
+      font-size:17px;
+      font-weight:1000;
+      line-height:1.1;
     }
 
-    .footer-actions{
+    .result-actions{
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:10px;
     }
 
-    .export-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .status-line{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
-      min-height:18px;
-    }
-
-    @media (max-width:1080px){
+    @media (max-width:1100px){
       .shell,
-      .play-shell,
-      .result-shell{
+      .result-grid{
         grid-template-columns:1fr;
+      }
+      .side{
+        position:relative;
+        top:auto;
       }
     }
 
-    @media (max-width:760px){
-      .topbar{
+    @media (max-width:780px){
+      .topbar,
+      .play-topbar,
+      .result-topbar{
         grid-template-columns:1fr;
       }
-
       .grid-3,
-      .stats-mini,
-      .hud-top,
-      .result-highlight,
-      .footer-actions,
-      .export-grid{
-        grid-template-columns:1fr;
-      }
-
       .grid-2,
-      .summary-grid,
-      .cta-row,
-      .play-controls{
+      .stats-grid,
+      .hud,
+      .meter-row,
+      .coach-strip,
+      .big-stats,
+      .table-grid,
+      .result-actions{
         grid-template-columns:1fr;
       }
-
-      #jd-play-area{
-        min-height:460px;
-      }
-
-      #jd-arena{
-        min-height:460px;
-      }
-
-      #jd-avatar{
-        width:96px;
-        height:124px;
+      .controls-row{
+        grid-template-columns:1fr;
       }
     }
   </style>
 </head>
-<body data-game-id="jump-duck">
+<body>
   <div class="app">
     <header class="topbar">
       <div class="brand">
-        <div class="icon">🏃</div>
+        <div class="brand-icon">🏃</div>
         <div>HeroHealth</div>
       </div>
 
       <div class="headline">
-        <div class="title">JumpDuck</div>
-        <div class="sub">Jump • Duck • Rhythm • Boss • Final Rush</div>
+        <h1 class="headline-title">JumpDuck</h1>
+        <p class="headline-sub">Rhythmic Jump Circuit • Fitness Zone • Run Page</p>
       </div>
 
-      <nav class="nav-links">
-        <a id="jd-back-hub-menu" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
-        <a id="jd-back-hub-play" class="hidden" href="../herohealth/fitness-zone.html">🏠 HUB</a>
-        <a id="jd-back-hub-result" class="hidden" href="../herohealth/fitness-zone.html">🏠 HUB</a>
-      </nav>
+      <div class="top-actions">
+        <a id="jd-back-hub-menu" class="top-link" href="../herohealth/hub-v2.html">🏠 HUB</a>
+        <a id="jd-back-hub-play" class="top-link hidden" href="../herohealth/hub-v2.html">🏠 HUB</a>
+        <a id="jd-back-hub-result" class="top-link hidden" href="../herohealth/hub-v2.html">🏠 HUB</a>
+      </div>
     </header>
 
-    <section id="view-menu" class="view">
-      <div class="shell">
-        <section class="card menu-hero">
-          <div class="hero-badge">✨ Child-friendly • Rhythm • Jump • Duck • Landing</div>
+    <section id="view-menu" class="shell">
+      <section class="panel menu-panel">
+        <div class="menu-badge">✨ child-friendly • rhythm • jump • duck • summary</div>
 
-          <h1>JumpDuck</h1>
-          <p>
-            ฝึก <strong>กระโดด ย่อ คุมจังหวะ และลงพื้นให้นิ่ง</strong> แบบ circuit
-            มี boss, final rush และสรุปผลพร้อมคำแนะนำหลังจบเกม
-          </p>
+        <h2 class="hero-title">JumpDuck<br>Run</h2>
 
-          <div class="preview">
-            <div class="lane"></div>
-            <div class="cue">
-              <div>
-                <div class="emoji">⬆️</div>
-                <div class="label">Jump</div>
-                <div class="hint">low = jump • high = duck</div>
-              </div>
+        <p class="hero-copy">
+          ฝึกอ่านจังหวะ <strong>low = jump / high = duck</strong> ให้แม่น
+          รักษาคอมโบ อ่านแพทเทิร์น และผ่านช่วง boss/final rush ให้ได้
+        </p>
+
+        <div class="preview">
+          <div class="lane"></div>
+          <div class="cue">
+            <div>
+              <div class="emoji">⬆️</div>
+              <div class="label">Jump</div>
+              <div class="hint">low obstacle = jump</div>
             </div>
-            <div class="beat"></div>
+          </div>
+          <div class="beat"></div>
 
-            <div class="hero-avatar" aria-hidden="true">
+          <div class="preview-avatar" aria-hidden="true">
+            <div class="head"></div>
+            <div class="body"></div>
+            <div class="arm left"></div>
+            <div class="arm right"></div>
+            <div class="leg left"></div>
+            <div class="leg right"></div>
+          </div>
+        </div>
+
+        <div class="chips">
+          <div class="chip">🥁 Rhythm</div>
+          <div class="chip">⬆️ Jump</div>
+          <div class="chip">⬇️ Duck</div>
+          <div class="chip">🔥 Combo</div>
+          <div class="chip">👾 Boss</div>
+          <div class="chip">⭐ Summary</div>
+        </div>
+
+        <div class="menu-actions">
+          <button class="btn primary" data-action="start" type="button">▶ Start</button>
+          <button class="btn secondary" data-action="tutorial" type="button">🎓 Tutorial 30s</button>
+        </div>
+
+        <section class="stats-strip">
+          <div class="stats-head">
+            <strong>🕹️ JumpDuck ล่าสุด</strong>
+            <span id="recentLauncherSummary">ระบบจะดึงจาก HHA_LAST_SUMMARY</span>
+          </div>
+          <div class="stats-grid">
+            <div class="stat"><span class="k">Mode</span><span id="launcherMode" class="v">training</span></div>
+            <div class="stat"><span class="k">Diff</span><span id="launcherDiff" class="v">normal</span></div>
+            <div class="stat"><span class="k">Duration</span><span id="launcherDur" class="v">60s</span></div>
+            <div class="stat"><span class="k">Player</span><span id="launcherPid" class="v">anon</span></div>
+          </div>
+        </section>
+      </section>
+
+      <aside class="panel side">
+        <section class="section">
+          <h3>SESSION</h3>
+
+          <div class="grid-3">
+            <div class="field">
+              <label for="jd-mode">Mode</label>
+              <select id="jd-mode">
+                <option value="training">training</option>
+                <option value="play">play</option>
+                <option value="test">test</option>
+                <option value="research">research</option>
+                <option value="demo">demo</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="jd-diff">Difficulty</label>
+              <select id="jd-diff">
+                <option value="easy">easy</option>
+                <option value="normal" selected>normal</option>
+                <option value="hard">hard</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="jd-duration">Duration</label>
+              <select id="jd-duration">
+                <option value="30">30s</option>
+                <option value="60" selected>60s</option>
+                <option value="90">90s</option>
+                <option value="120">120s</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section id="jd-research-block" class="section hidden">
+          <h3>RESEARCH</h3>
+
+          <div class="field">
+            <label for="jd-participant-id">Participant ID</label>
+            <input id="jd-participant-id" type="text" placeholder="anon" />
+          </div>
+
+          <div class="field">
+            <label for="jd-group">Group</label>
+            <input id="jd-group" type="text" placeholder="A / B / control" />
+          </div>
+
+          <div class="field">
+            <label for="jd-note">Note</label>
+            <textarea id="jd-note" placeholder="optional note"></textarea>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3>RUN HELP</h3>
+          <p>แตะบนจอหรือกด <strong>↑ / W</strong> เพื่อ jump และแตะล่างจอหรือกด <strong>↓ / S</strong> เพื่อ duck</p>
+          <p>หน้า run นี้จะถูก normalize ให้ Fitness Zone อ่านค่า <strong>snapshot + summary</strong> ต่อได้ทันที</p>
+        </section>
+      </aside>
+    </section>
+
+    <section id="view-play" class="panel play-shell hidden">
+      <div class="play-topbar">
+        <a id="jd-back-fitness-play" class="mini-pill" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
+        <div class="mini-pill">🏃 JumpDuck Run</div>
+        <button id="btn-stop-early" class="mini-pill" type="button">⏹️ Stop Early</button>
+      </div>
+
+      <div class="hud">
+        <div class="hud-box"><span class="k">Mode</span><span id="hud-mode" class="v">training</span></div>
+        <div class="hud-box"><span class="k">Diff</span><span id="hud-diff" class="v">normal</span></div>
+        <div class="hud-box"><span class="k">Time</span><span id="hud-time" class="v">60.0</span></div>
+        <div class="hud-box"><span class="k">Phase</span><span id="hud-phase" class="v">1 • warmup</span></div>
+        <div class="hud-box"><span class="k">Score</span><span id="hud-score" class="v">0</span></div>
+        <div class="hud-box"><span class="k">Combo</span><span id="hud-combo" class="v">0</span></div>
+      </div>
+
+      <div class="coach-strip">
+        <div class="coach-mini"><span class="k">Stability</span><span id="hud-stability" class="v">100%</span></div>
+        <div class="coach-mini"><span class="k">Boss</span><span id="hud-boss" class="v">—</span></div>
+        <div class="coach-mini"><span class="k">Pattern</span><span id="hud-pattern" class="v">—</span></div>
+      </div>
+
+      <div class="meter-row">
+        <div class="meter-card">
+          <div class="meter-head"><span>Progress</span><strong id="hud-prog-text">0%</strong></div>
+          <div class="bar"><div id="hud-prog-fill" class="fill"></div></div>
+        </div>
+        <div class="meter-card">
+          <div class="meter-head"><span>Fever</span><strong id="fever-status">Ready</strong></div>
+          <div class="bar"><div id="fever-fill" class="fill"></div></div>
+        </div>
+        <div id="boss-bar-wrap" class="meter-card hidden">
+          <div class="meter-head"><span id="hud-boss-label">—</span><strong id="hud-boss-status-right">—</strong></div>
+          <div class="bar"><div id="hud-boss-fill" class="fill"></div></div>
+        </div>
+      </div>
+
+      <div class="meter-row">
+        <div class="meter-card">
+          <div class="meter-head"><span>Rush</span><strong id="hud-rush">—</strong></div>
+          <div class="v" id="hud-boss-status" style="font-size:15px;font-weight:1000;">—</div>
+        </div>
+        <div class="meter-card">
+          <div class="meter-head"><span>Boss Compact</span><strong id="hud-boss-compact">—</strong></div>
+          <div class="v" id="hud-boss-label-mini" style="font-size:15px;font-weight:1000;">JumpDuck</div>
+        </div>
+        <div class="meter-card">
+          <div class="meter-head"><span>Session</span><strong id="hud-session-view">mobile</strong></div>
+          <div class="v" style="font-size:15px;font-weight:1000;">Low = Jump / High = Duck</div>
+        </div>
+      </div>
+
+      <div class="arena-shell">
+        <div id="jd-play-area">
+          <div id="jd-arena">
+            <div id="jd-hitline"></div>
+            <div class="arena-floor"></div>
+            <div id="jd-obstacles"></div>
+
+            <div id="jd-avatar" class="avatar-idle" aria-hidden="true">
               <div class="head"></div>
               <div class="body"></div>
               <div class="arm left"></div>
@@ -1061,455 +1349,428 @@
               <div class="leg left"></div>
               <div class="leg right"></div>
             </div>
-          </div>
 
-          <div class="chips">
-            <div class="chip">🎯 Rhythm Accuracy</div>
-            <div class="chip">⬆️ Jump</div>
-            <div class="chip">⬇️ Duck</div>
-            <div class="chip">🔥 Fever</div>
-            <div class="chip">👾 Boss</div>
-            <div class="chip">⭐ Summary</div>
-          </div>
-        </section>
-
-        <aside class="card section">
-          <div class="section-box">
-            <h3>MODE</h3>
-            <div class="field">
-              <label for="jd-mode">Game Mode</label>
-              <select id="jd-mode">
-                <option value="training" selected>training</option>
-                <option value="test">test</option>
-                <option value="research">research</option>
-              </select>
+            <div id="jd-tele" class="overlay-center hidden">
+              <div class="teleBox">READY!</div>
             </div>
-          </div>
 
-          <div class="section-box">
-            <h3>SETTINGS</h3>
-            <div class="grid-2">
-              <div class="field">
-                <label for="jd-diff">Difficulty</label>
-                <select id="jd-diff">
-                  <option value="easy">easy</option>
-                  <option value="normal" selected>normal</option>
-                  <option value="hard">hard</option>
-                </select>
-              </div>
-
-              <div class="field">
-                <label for="jd-duration">Duration</label>
-                <select id="jd-duration">
-                  <option value="30">30s</option>
-                  <option value="60" selected>60s</option>
-                  <option value="90">90s</option>
-                  <option value="120">120s</option>
-                </select>
+            <div id="jd-boss-intro" class="overlay-center hidden">
+              <div class="bossIntroBox">
+                <span id="jd-boss-intro-text">Boss incoming</span>
               </div>
             </div>
-          </div>
 
-          <div id="jd-research-block" class="section-box hidden">
-            <h3>RESEARCH</h3>
-            <div class="grid-2">
-              <div class="field">
-                <label for="jd-participant-id">Participant ID</label>
-                <input id="jd-participant-id" type="text" placeholder="anon" />
-              </div>
-              <div class="field">
-                <label for="jd-group">Group</label>
-                <input id="jd-group" type="text" placeholder="control / exp" />
-              </div>
+            <div id="jd-rush-banner" class="overlay-center hidden">
+              <div class="rushBox"><span class="rushText">FINAL RUSH!</span></div>
             </div>
-            <div class="field">
-              <label for="jd-note">Note</label>
-              <input id="jd-note" type="text" placeholder="optional note" />
-            </div>
-          </div>
 
-          <div class="section-box">
-            <h3>START</h3>
-            <div class="cta-row">
-              <button class="btn primary" data-action="start" type="button">▶ Start</button>
-              <button class="btn secondary" data-action="tutorial" type="button">🧭 Tutorial</button>
-            </div>
-            <div class="tag-row">
-              <span class="tag">low = jump</span>
-              <span class="tag">high = duck</span>
-              <span class="tag">boss at late phase</span>
-            </div>
+            <div id="jd-judge">GOOD!</div>
           </div>
-        </aside>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <button id="btn-jump" class="action-btn jump" type="button">⬆️ JUMP</button>
+        <button id="btn-duck" class="action-btn duck" type="button">⬇️ DUCK</button>
+        <a id="jd-back-hub-play-inline" class="btn secondary" href="../herohealth/hub-v2.html">🏠 HUB</a>
       </div>
     </section>
 
-    <section id="view-play" class="view hidden">
-      <div class="play-shell">
-        <section class="card play-card">
-          <div class="hud-top">
-            <div class="hud-pill"><span class="k">Mode</span><span id="hud-mode" class="v">training</span></div>
-            <div class="hud-pill"><span class="k">Diff</span><span id="hud-diff" class="v">normal</span></div>
-            <div class="hud-pill"><span class="k">Time</span><span id="hud-time" class="v">60.0</span></div>
-            <div class="hud-pill"><span class="k">Phase</span><span id="hud-phase" class="v">1 • warmup</span></div>
-          </div>
-
-          <div class="hud-top">
-            <div class="hud-pill"><span class="k">Score</span><span id="hud-score" class="v">0</span></div>
-            <div class="hud-pill"><span class="k">Combo</span><span id="hud-combo" class="v">0</span></div>
-            <div class="hud-pill"><span class="k">Stability</span><span id="hud-stability" class="v">100%</span></div>
-            <div class="hud-pill"><span class="k">Boss</span><span id="hud-boss" class="v">—</span></div>
-          </div>
-
-          <div class="meter-wrap">
-            <div class="meter-card">
-              <div class="meter-head"><span>Progress</span><span id="hud-prog-text">0%</span></div>
-              <div class="meter"><div id="hud-prog-fill"></div></div>
-            </div>
-
-            <div class="meter-card">
-              <div class="meter-head"><span>Fever</span><span id="hud-fever-status">Ready</span></div>
-              <div class="meter"><div id="hud-fever-fill"></div></div>
-            </div>
-
-            <div id="boss-bar-wrap" class="meter-card hidden">
-              <div class="meter-head">
-                <span id="hud-boss-label">—</span>
-                <span id="hud-boss-status-right">—</span>
-              </div>
-              <div class="meter"><div id="hud-boss-fill"></div></div>
-            </div>
-          </div>
-
-          <div id="jd-play-area">
-            <div id="jd-arena">
-              <div id="jd-hitline"></div>
-              <div id="jd-obstacles"></div>
-
-              <div id="jd-avatar" class="avatar-idle" aria-hidden="true">
-                <div class="head"></div>
-                <div class="body"></div>
-                <div class="arm left"></div>
-                <div class="arm right"></div>
-                <div class="leg left"></div>
-                <div class="leg right"></div>
-              </div>
-
-              <div id="jd-tele" class="hidden"><div class="teleBox">READY</div></div>
-              <div id="jd-boss-intro" class="hidden"><div id="jd-boss-intro-text">Boss Incoming</div></div>
-              <div id="jd-judge">READY!</div>
-              <div id="jd-rush-banner" class="hidden"><div class="rushText">FINAL RUSH!</div></div>
-            </div>
-          </div>
-
-          <div class="play-controls">
-            <button id="btn-jump" class="btn primary" type="button">⬆️ JUMP</button>
-            <button id="btn-duck" class="btn secondary" type="button">⬇️ DUCK</button>
-          </div>
-
-          <div class="stop-row">
-            <button id="btn-stop-early" class="btn ghost" type="button">⏹ Stop Early</button>
-            <div class="play-note">
-              แตะบนจอ = jump • แตะล่างจอ = duck • บน PC ใช้ลูกศรขึ้น/ลง หรือ W/S
-            </div>
-          </div>
-        </section>
-
-        <aside class="card section">
-          <div class="section-box">
-            <h3>LIVE INFO</h3>
-            <div class="summary-grid">
-              <div class="mini-row"><span>Pattern</span><span id="hud-pattern">—</span></div>
-              <div class="mini-row"><span>Rush</span><span id="hud-rush">—</span></div>
-              <div class="mini-row"><span>Boss Status</span><span id="hud-boss-status">—</span></div>
-              <div class="mini-row"><span>Compact</span><span id="hud-boss-compact">—</span></div>
-            </div>
-          </div>
-
-          <div class="section-box">
-            <h3>NAVIGATION</h3>
-            <div class="cta-row">
-              <a class="btn secondary" href="../herohealth/fitness-zone.html" id="jd-play-fitness-link">🏃 Fitness Zone</a>
-              <a class="btn ghost" href="../herohealth/hub-v2.html" id="jd-play-hub-link">🏠 HUB</a>
-            </div>
-          </div>
-        </aside>
+    <section id="view-result" class="panel result-shell hidden">
+      <div class="result-topbar">
+        <a id="jd-back-fitness-result" class="mini-pill" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
+        <div class="mini-pill">⭐ JumpDuck Summary</div>
+        <button class="mini-pill" data-action="back-menu" type="button">↩ กลับหน้าเริ่ม</button>
       </div>
-    </section>
 
-    <section id="view-result" class="view hidden">
-      <div class="result-shell">
-        <section class="card result-card">
-          <div class="rank-hero">
-            <div id="jd-rank-badge" class="rank-c">C</div>
-            <div class="result-copy">
-              <h2 id="jd-result-title">ผ่านด่านฝึกแล้ว!</h2>
-              <p id="jd-result-sub">สรุปรอบล่าสุดของ JumpDuck</p>
-            </div>
-          </div>
-
-          <div class="result-highlight">
-            <div class="big-stat"><span class="k">Score</span><span id="res-score-big" class="v">0</span></div>
-            <div class="big-stat"><span class="k">Accuracy</span><span id="res-acc-big" class="v">0%</span></div>
-            <div class="big-stat"><span class="k">Max Combo</span><span id="res-combo-big" class="v">0</span></div>
-            <div class="big-stat"><span class="k">Boss End</span><span id="res-boss-end-big" class="v">—</span></div>
-          </div>
-
-          <div class="summary-grid">
-            <div class="mini-row"><span>Mode</span><span id="res-mode">-</span></div>
-            <div class="mini-row"><span>Diff</span><span id="res-diff">-</span></div>
-            <div class="mini-row"><span>Duration</span><span id="res-duration">-</span></div>
-            <div class="mini-row"><span>Total Obstacles</span><span id="res-total-obs">0</span></div>
-            <div class="mini-row"><span>Hits</span><span id="res-hits">0</span></div>
-            <div class="mini-row"><span>Miss</span><span id="res-miss">0</span></div>
-            <div class="mini-row"><span>Jump Hit</span><span id="res-jump-hit">0</span></div>
-            <div class="mini-row"><span>Duck Hit</span><span id="res-duck-hit">0</span></div>
-            <div class="mini-row"><span>Jump Miss</span><span id="res-jump-miss">0</span></div>
-            <div class="mini-row"><span>Duck Miss</span><span id="res-duck-miss">0</span></div>
-            <div class="mini-row"><span>Accuracy</span><span id="res-acc">0%</span></div>
-            <div class="mini-row"><span>RT Mean</span><span id="res-rt-mean">0</span></div>
-            <div class="mini-row"><span>Stability Min</span><span id="res-stability-min">0%</span></div>
-            <div class="mini-row"><span>Score</span><span id="res-score">0</span></div>
-            <div class="mini-row"><span>Rank</span><span id="res-rank">C</span></div>
-            <div class="mini-row"><span>Phase End</span><span id="res-phase-end">-</span></div>
-            <div class="mini-row"><span>Pattern</span><span id="res-pattern">-</span></div>
-            <div class="mini-row"><span>Boss</span><span id="res-boss-label">-</span></div>
-            <div class="mini-row"><span>Rush</span><span id="res-rush">-</span></div>
-          </div>
-
-          <div class="summary-grid">
-            <div class="mini-row"><span>Result Boss</span><span id="jd-result-boss">—</span></div>
-            <div class="mini-row"><span>Result Pattern</span><span id="jd-result-pattern">—</span></div>
-            <div class="mini-row"><span>Result Rush</span><span id="jd-result-rush">—</span></div>
-            <div class="mini-row"><span>Reward</span><span id="jd-result-reward">Keep Training</span></div>
-          </div>
-
-          <div class="coach-box">
-            <div class="coach-head">
-              <h3 id="jd-coach-title">AI Coach</h3>
-              <span class="coach-chip" id="jd-result-reward-icon">⭐</span>
+      <div class="result-grid">
+        <div class="result-main">
+          <section class="summary-hero">
+            <div class="summary-head">
+              <div id="jd-rank-badge" class="rank-c">C</div>
+              <div class="summary-copy">
+                <h2 id="jd-result-title">ผ่านด่านฝึกแล้ว!</h2>
+                <p id="jd-result-sub">สรุปรอบล่าสุดของ JumpDuck</p>
+              </div>
             </div>
 
-            <div id="jd-coach-summary" class="tip">สรุปคำแนะนำหลังจบเกม</div>
-            <div id="jd-coach-tip-1" class="tip">—</div>
-            <div id="jd-coach-tip-2" class="tip">—</div>
-            <div id="jd-result-reward-sub" class="tip">ฝึกต่ออีกนิด แล้วรอบหน้าจะดีกว่าเดิม</div>
-          </div>
+            <div class="big-stats">
+              <div class="big-stat"><span class="k">Score</span><span id="res-score-big" class="v">0</span></div>
+              <div class="big-stat"><span class="k">Accuracy</span><span id="res-acc-big" class="v">0%</span></div>
+              <div class="big-stat"><span class="k">Max Combo</span><span id="res-combo-big" class="v">0</span></div>
+              <div class="big-stat"><span class="k">Boss End</span><span id="res-boss-end-big" class="v">—</span></div>
+            </div>
 
-          <div class="footer-actions">
-            <button class="btn primary" data-action="play-again" type="button">🔁 Play Again</button>
-            <button class="btn secondary" data-action="back-menu" type="button">🧘 Cooldown & Exit</button>
-            <a class="btn ghost" id="jd-result-hub-link" href="../herohealth/hub-v2.html">🏠 HUB</a>
-          </div>
-        </section>
+            <div class="detail-card">
+              <h3>Reward</h3>
+              <div class="coach-list">
+                <div class="coach-tip"><span id="jd-result-reward-icon">⭐</span> <span id="jd-result-reward">Keep Training</span></div>
+                <div class="coach-tip" id="jd-result-reward-sub">ฝึกต่ออีกนิด แล้วรอบหน้าจะดีกว่าเดิม</div>
+              </div>
+            </div>
 
-        <aside class="card section">
-          <div class="section-box">
-            <h3>EXPORT</h3>
-            <div class="export-grid">
+            <div class="result-actions">
+              <button class="btn primary" data-action="play-again" type="button">🔁 เล่นอีกครั้ง</button>
+              <a id="jd-back-hub-result-inline" class="btn secondary" href="../herohealth/hub-v2.html">🏠 HUB</a>
+              <a id="jd-back-fitness-final" class="btn ghost" href="../herohealth/fitness-zone.html">🏃 Fitness Zone</a>
+            </div>
+          </section>
+
+          <section class="detail-card">
+            <h3>Performance</h3>
+            <div class="table-grid">
+              <div class="table-item"><span class="k">Mode</span><span id="res-mode" class="v">-</span></div>
+              <div class="table-item"><span class="k">Diff</span><span id="res-diff" class="v">-</span></div>
+              <div class="table-item"><span class="k">Duration</span><span id="res-duration" class="v">-</span></div>
+              <div class="table-item"><span class="k">Total Obstacles</span><span id="res-total-obs" class="v">0</span></div>
+              <div class="table-item"><span class="k">Hits</span><span id="res-hits" class="v">0</span></div>
+              <div class="table-item"><span class="k">Miss</span><span id="res-miss" class="v">0</span></div>
+              <div class="table-item"><span class="k">Jump Hit</span><span id="res-jump-hit" class="v">0</span></div>
+              <div class="table-item"><span class="k">Duck Hit</span><span id="res-duck-hit" class="v">0</span></div>
+              <div class="table-item"><span class="k">Jump Miss</span><span id="res-jump-miss" class="v">0</span></div>
+              <div class="table-item"><span class="k">Duck Miss</span><span id="res-duck-miss" class="v">0</span></div>
+              <div class="table-item"><span class="k">Accuracy</span><span id="res-acc" class="v">0%</span></div>
+              <div class="table-item"><span class="k">RT Mean</span><span id="res-rt-mean" class="v">0</span></div>
+              <div class="table-item"><span class="k">Stability Min</span><span id="res-stability-min" class="v">0%</span></div>
+              <div class="table-item"><span class="k">Score</span><span id="res-score" class="v">0</span></div>
+              <div class="table-item"><span class="k">Rank</span><span id="res-rank" class="v">C</span></div>
+              <div class="table-item"><span class="k">Phase End</span><span id="res-phase-end" class="v">-</span></div>
+              <div class="table-item"><span class="k">Pattern</span><span id="res-pattern" class="v">-</span></div>
+              <div class="table-item"><span class="k">Boss</span><span id="res-boss-label" class="v">-</span></div>
+              <div class="table-item"><span class="k">Rush</span><span id="res-rush" class="v">-</span></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="result-side">
+          <section class="detail-card">
+            <h3>AI Coach</h3>
+            <div class="coach-list">
+              <div class="coach-tip"><strong id="jd-coach-title">AI Coach</strong></div>
+              <div class="coach-tip" id="jd-coach-summary">สรุปคำแนะนำหลังจบเกม</div>
+              <div class="coach-tip" id="jd-coach-tip-1">—</div>
+              <div class="coach-tip" id="jd-coach-tip-2">—</div>
+            </div>
+          </section>
+
+          <section class="detail-card">
+            <h3>Boss / Pattern</h3>
+            <div class="table-grid">
+              <div class="table-item"><span class="k">Boss</span><span id="jd-result-boss" class="v">—</span></div>
+              <div class="table-item"><span class="k">Pattern</span><span id="jd-result-pattern" class="v">—</span></div>
+              <div class="table-item"><span class="k">Rush</span><span id="jd-result-rush" class="v">—</span></div>
+              <div class="table-item"><span class="k">Log Status</span><span id="jd-log-status" class="v">-</span></div>
+            </div>
+          </section>
+
+          <section class="detail-card">
+            <h3>Export</h3>
+            <div class="result-actions">
               <button id="jd-btn-dl-events" class="btn secondary" type="button">📄 events.csv</button>
               <button id="jd-btn-dl-sessions" class="btn secondary" type="button">📄 sessions.csv</button>
               <button id="jd-btn-dl-teacher" class="btn secondary" type="button">📄 teacher.csv</button>
-              <button id="jd-btn-send-log" class="btn ghost" type="button">☁️ send log</button>
             </div>
-            <div id="jd-log-status" class="status-line"></div>
-          </div>
-
-          <div class="section-box">
-            <h3>NAVIGATION</h3>
-            <div class="cta-row">
-              <a class="btn secondary" href="../herohealth/fitness-zone.html" id="jd-result-fitness-link">🏃 Fitness Zone</a>
-              <a class="btn ghost" href="../herohealth/hub-v2.html" id="jd-result-hub-link-2">🏠 HUB</a>
-            </div>
-          </div>
-        </aside>
+            <button id="jd-btn-send-log" class="btn ghost" type="button">☁️ Send Log</button>
+          </section>
+        </div>
       </div>
     </section>
   </div>
 
-  <script src="../herohealth/fitness-lastgame-bridge.js"></script>
+  <script src="../herohealth/fitness-zone-bridge.js"></script>
   <script src="./js/jump-duck.js"></script>
-
   <script>
-    (() => {
+    (function () {
       'use strict';
 
-      const JD_SPECIFIC_KEY = 'HHA_LAST_SUMMARY_JUMPDUCK';
+      const Bridge = window.HHFitnessBridge;
+      const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
+      const RAW_KEY = 'HHA_LAST_SUMMARY_JUMDUCK_RAW';
 
-      function mirrorJumpDuckSummary() {
-        try {
-          const raw = localStorage.getItem('HHA_LAST_SUMMARY');
-          if (!raw) return;
-          const data = JSON.parse(raw);
-          if (!data) return;
-          if (String(data.game || '').toLowerCase() !== 'jumpduck') return;
-          localStorage.setItem(JD_SPECIFIC_KEY, JSON.stringify(data));
-        } catch (_) {}
+      const qs = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
+
+      const ABS_HUB = new URL('../herohealth/hub-v2.html', location.href).href;
+      const ABS_FITNESS = new URL('../herohealth/fitness-zone.html', location.href).href;
+
+      const ui = {
+        launcherMode: $('launcherMode'),
+        launcherDiff: $('launcherDiff'),
+        launcherDur: $('launcherDur'),
+        launcherPid: $('launcherPid'),
+        recentLauncherSummary: $('recentLauncherSummary'),
+
+        jdBackHubMenu: $('jd-back-hub-menu'),
+        jdBackHubPlayInline: $('jd-back-hub-play-inline'),
+        jdBackHubResultInline: $('jd-back-hub-result-inline'),
+        jdBackFitnessPlay: $('jd-back-fitness-play'),
+        jdBackFitnessResult: $('jd-back-fitness-result'),
+        jdBackFitnessFinal: $('jd-back-fitness-final'),
+
+        viewMenu: $('view-menu'),
+        viewPlay: $('view-play'),
+        viewResult: $('view-result'),
+        summaryTitle: $('jd-result-title'),
+        rankBadge: $('jd-rank-badge')
+      };
+
+      let lastSyncedToken = '';
+
+      function q(key, fallback='') {
+        const v = qs.get(key);
+        return v == null || v === '' ? fallback : v;
       }
 
-      function syncNavLinks() {
-        const qs = new URLSearchParams(location.search);
-        const hub = qs.get('hub') || '../herohealth/fitness-zone.html';
-
-        [
-          'jd-back-hub-menu',
-          'jd-back-hub-play',
-          'jd-back-hub-result',
-          'jd-play-fitness-link',
-          'jd-play-hub-link',
-          'jd-result-hub-link',
-          'jd-result-fitness-link',
-          'jd-result-hub-link-2'
-        ].forEach((id) => {
-          const el = document.getElementById(id);
-          if (!el) return;
-          el.href = hub;
-        });
-      }
-
-      function watchResultView() {
-        const resultView = document.getElementById('view-result');
-        if (!resultView) return;
-
-        const update = () => {
-          if (!resultView.classList.contains('hidden')) {
-            mirrorJumpDuckSummary();
-          }
-        };
-
-        update();
-        const mo = new MutationObserver(update);
-        mo.observe(resultView, { attributes: true, attributeFilter: ['class', 'hidden'] });
-
-        window.addEventListener('pagehide', mirrorJumpDuckSummary);
-      }
-
-      syncNavLinks();
-      watchResultView();
-      mirrorJumpDuckSummary();
-    })();
-  </script>
-
-  <script>
-    (() => {
-      'use strict';
-
-      const ABS_GATE = new URL('../herohealth/warmup-gate.html', location.href).href;
-      const resultView = document.getElementById('view-result');
-
-      function q(k, d='') {
-        try {
-          const v = new URL(location.href).searchParams.get(k);
-          return (v == null || v === '') ? d : v;
-        } catch (_) {
-          return d;
-        }
-      }
-
-      function isCooldownOn() {
-        return String(q('cooldown', '1')) === '1';
-      }
-
-      function isResultVisible() {
-        return !!(resultView && !resultView.classList.contains('hidden'));
-      }
-
-      function buildCooldownUrl(target = 'hub') {
-        const hub = q('hub', '../herohealth/fitness-zone.html');
-        const u = new URL(ABS_GATE);
-
-        [
-          'pid','name','studyId',
-          'zone','cat','game','gameId','theme',
-          'diff','time','seed','view','run',
-          'api','debug','log',
-          'studentKey','schoolCode','classRoom','studentNo','nickName',
-          'phase','conditionGroup','sessionNo','weekNo'
-        ].forEach((k) => {
-          const v = q(k, '');
-          if (v) u.searchParams.set(k, v);
-        });
-
-        u.searchParams.set('phase', 'cooldown');
-        u.searchParams.set('gate', '1');
-        u.searchParams.set('cooldown', '1');
-        u.searchParams.set('returnPhase', 'hub');
-        u.searchParams.set('cdur', q('cdur', '20'));
-        u.searchParams.set('hub', hub);
-        u.searchParams.set('next', hub);
-        u.searchParams.set('target', target);
-
+      function buildFitnessBackUrl() {
+        const base = Bridge?.buildFitnessZoneUrl ? Bridge.buildFitnessZoneUrl() : q('hub', ABS_FITNESS);
+        const u = new URL(base, location.href);
+        if (!u.searchParams.get('focus')) u.searchParams.set('focus', 'jump-duck');
+        if (!u.searchParams.get('featured')) u.searchParams.set('featured', 'jump-duck');
         return u.toString();
       }
 
-      function goCooldown(target = 'hub') {
+      function safeJsonParse(raw, fallback = null) {
+        try { return JSON.parse(raw); } catch (_) { return fallback; }
+      }
+
+      function readSummary() {
         try {
-          window.HH_FITNESS_LASTGAME?.writeSnapshot({
-            event: 'go_cooldown',
-            zone: 'fitness',
-            gameId: 'jump-duck',
-            game: 'jump-duck',
-            target,
-            result: isResultVisible() ? 'summary' : 'leave'
-          });
+          const raw = localStorage.getItem(LAST_SUMMARY_KEY);
+          return raw ? safeJsonParse(raw, null) : null;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function normalizeJumpDuckSummary(raw) {
+        if (!raw) return null;
+
+        const sf = raw.sessionFeatures || {};
+        const analysis = raw.analysis || {};
+
+        const scoreFinal = Number(raw.scoreFinal || sf.scoreFinal || raw.score || 0);
+        const accPct = Number(raw.accPct || sf.accPct || raw.rhythmAccuracy || 0);
+        const missTotal = Number(raw.missTotal || sf.totalMiss || raw.miss || 0);
+        const maxCombo = Number(raw.comboMax || sf.maxCombo || raw.maxCombo || 0);
+        const rank = String(raw.rank || sf.rank || 'C');
+        const timeSec = Number(raw.timeSec || sf.durationSec || q('time', '60') || 60);
+
+        const jumpHit = Number(sf.jumpHit || raw.jumpHit || 0);
+        const duckHit = Number(sf.duckHit || raw.duckHit || 0);
+        const totalHit = Number(sf.totalHit || raw.hit || 0);
+        const totalObs = Number(sf.totalObstacles || raw.totalObstacles || 0);
+
+        const landingControl = Math.max(0, Math.min(100, Math.round(100 - (missTotal * 8))));
+        const postsCleared = Math.max(0, Math.min(7, Math.round((totalHit || totalObs || 0) / 4)));
+
+        return {
+          game: 'jump-duck',
+          gameId: 'jump-duck',
+          zone: 'fitness',
+          theme: 'jumpduck',
+          pid: String(raw.pid || sf.pid || q('pid', 'anon')),
+          diff: String(raw.diff || sf.diff || q('diff', 'normal')),
+          run: String(raw.run || q('run', 'play')),
+          mode: String(raw.mode || sf.mode || q('mode', q('run', 'play'))),
+          scoreFinal,
+          score: scoreFinal,
+          accPct,
+          rhythmAccuracy: accPct,
+          landingControl,
+          postsCleared,
+          rank,
+          missTotal,
+          miss: missTotal,
+          comboMax: maxCombo,
+          maxCombo,
+          jumpHit,
+          duckHit,
+          totalObstacles: totalObs,
+          timeSec,
+          timestampIso: raw.timestampIso || sf.timestampIso || new Date().toISOString(),
+          bossLabel: String(raw.bossLabel || sf.bossLabel || raw.bossVariant || ''),
+          bossVariant: String(raw.bossVariant || sf.bossKey || ''),
+          rush: !!(raw.rush || raw.finalRush || sf.rushSurviveAwarded),
+          pattern: String(raw.pattern || raw.lastPattern || ''),
+          analysis,
+          sessionFeatures: sf,
+          coach: raw.coach || {}
+        };
+      }
+
+      function syncLauncherMeta() {
+        if (ui.launcherMode) ui.launcherMode.textContent = q('mode', q('run', 'training'));
+        if (ui.launcherDiff) ui.launcherDiff.textContent = q('diff', 'normal');
+        if (ui.launcherDur) ui.launcherDur.textContent = `${q('duration', q('time', '60'))}s`;
+        if (ui.launcherPid) ui.launcherPid.textContent = q('pid', 'anon');
+      }
+
+      function syncBackLinks() {
+        const hubUrl = q('hub', ABS_HUB);
+        const fitnessUrl = buildFitnessBackUrl();
+
+        [
+          ui.jdBackHubMenu,
+          ui.jdBackHubPlayInline,
+          ui.jdBackHubResultInline
+        ].forEach((el) => {
+          if (el) el.href = hubUrl;
+        });
+
+        [
+          ui.jdBackFitnessPlay,
+          ui.jdBackFitnessResult,
+          ui.jdBackFitnessFinal
+        ].forEach((el) => {
+          if (el) el.href = fitnessUrl;
+        });
+      }
+
+      function syncSummaryToBridge() {
+        const raw = readSummary();
+        const normalized = normalizeJumpDuckSummary(raw);
+        if (!normalized) return;
+
+        const token = [
+          normalized.timestampIso,
+          normalized.scoreFinal,
+          normalized.rank,
+          normalized.missTotal,
+          normalized.maxCombo
+        ].join('|');
+
+        if (token === lastSyncedToken) return;
+        lastSyncedToken = token;
+
+        try {
+          localStorage.setItem(RAW_KEY, JSON.stringify(raw));
+          localStorage.setItem(LAST_SUMMARY_KEY, JSON.stringify(normalized));
         } catch (_) {}
 
-        location.href = buildCooldownUrl(target);
-      }
-
-      function bindResultExitLink(id, target = 'hub') {
-        const el = document.getElementById(id);
-        if (!el || el.__jdCooldownBound) return;
-        el.__jdCooldownBound = true;
-
-        el.addEventListener('click', (ev) => {
-          if (!isCooldownOn()) return;
-          if (!isResultVisible()) return;
-          ev.preventDefault();
-          goCooldown(target);
+        Bridge?.markFinish('jump-duck', {
+          scoreFinal: normalized.scoreFinal,
+          accPct: normalized.accPct,
+          maxCombo: normalized.maxCombo,
+          missTotal: normalized.missTotal,
+          rank: normalized.rank,
+          result: 'summary',
+          timeSec: normalized.timeSec,
+          snapshotExtra: {
+            href: location.href,
+            hub: q('hub', ABS_HUB),
+            rhythmAccuracy: normalized.rhythmAccuracy,
+            landingControl: normalized.landingControl,
+            postsCleared: normalized.postsCleared,
+            bossLabel: normalized.bossLabel
+          },
+          summaryExtra: {
+            href: location.href,
+            hub: q('hub', ABS_HUB),
+            rhythmAccuracy: normalized.rhythmAccuracy,
+            landingControl: normalized.landingControl,
+            postsCleared: normalized.postsCleared,
+            bossLabel: normalized.bossLabel
+          }
         });
+
+        if (ui.recentLauncherSummary) {
+          ui.recentLauncherSummary.textContent =
+            `ล่าสุด ${normalized.rank} • rhythm ${normalized.rhythmAccuracy}% • posts ${normalized.postsCleared}`;
+        }
       }
 
-      function patchBackMenuButton() {
-        const btn = document.querySelector('#view-result [data-action="back-menu"]');
-        if (!btn || btn.__jdCooldownBound) return;
-        btn.__jdCooldownBound = true;
+      function maybeAutoStart() {
+        const hasRunIntent =
+          qs.has('game') || qs.has('gameId') || qs.has('run') || qs.has('mode');
 
-        btn.addEventListener('click', (ev) => {
-          if (!isCooldownOn()) return;
-          if (!isResultVisible()) return;
-          ev.preventDefault();
-          goCooldown('menu');
+        if (!hasRunIntent) return;
+
+        const startBtn = document.querySelector('[data-action="start"]');
+        if (!startBtn) return;
+
+        setTimeout(() => {
+          Bridge?.markOpen('jump-duck', {
+            result: 'run-open',
+            href: location.href
+          });
+
+          Bridge?.markStart('jump-duck', {
+            result: 'playing',
+            href: location.href
+          });
+
+          startBtn.click();
+        }, 80);
+      }
+
+      function bindBridgeGuards() {
+        document.querySelector('[data-action="start"]')?.addEventListener('click', () => {
+          Bridge?.markStart('jump-duck', {
+            result: 'playing',
+            href: location.href
+          });
         });
-      }
 
-      function patchPlayAgainButton() {
-        const btn = document.querySelector('#view-result [data-action="play-again"]');
-        if (!btn || btn.__jdReplayBound) return;
-        btn.__jdReplayBound = true;
-
-        btn.addEventListener('click', () => {
-          try {
-            window.HH_FITNESS_LASTGAME?.writeSnapshot({
-              event: 'rematch',
-              zone: 'fitness',
-              gameId: 'jump-duck',
-              game: 'jump-duck'
-            });
-          } catch (_) {}
+        document.querySelector('[data-action="tutorial"]')?.addEventListener('click', () => {
+          Bridge?.markStart('jump-duck', {
+            result: 'tutorial',
+            href: location.href
+          });
         });
+
+        const stopBtn = $('btn-stop-early');
+        stopBtn?.addEventListener('click', () => {
+          setTimeout(syncSummaryToBridge, 120);
+        });
+
+        window.addEventListener('focus', syncSummaryToBridge);
+        window.addEventListener('storage', syncSummaryToBridge);
       }
 
-      function bootCooldownExitPatch() {
-        bindResultExitLink('jd-result-hub-link', 'hub');
-        bindResultExitLink('jd-result-fitness-link', 'fitness-zone');
-        bindResultExitLink('jd-result-hub-link-2', 'hub');
-        patchBackMenuButton();
-        patchPlayAgainButton();
+      function watchResultView() {
+        const observer = new MutationObserver(() => {
+          const isVisible = ui.viewResult && !ui.viewResult.classList.contains('hidden');
+          if (isVisible) {
+            setTimeout(syncSummaryToBridge, 60);
+          }
+        });
+
+        if (ui.viewResult) {
+          observer.observe(ui.viewResult, {
+            attributes: true,
+            attributeFilter: ['class']
+          });
+        }
+
+        setInterval(() => {
+          const isVisible = ui.viewResult && !ui.viewResult.classList.contains('hidden');
+          if (isVisible) syncSummaryToBridge();
+        }, 800);
       }
 
-      document.addEventListener('DOMContentLoaded', bootCooldownExitPatch);
-      window.addEventListener('load', bootCooldownExitPatch);
+      function init() {
+        syncLauncherMeta();
+        syncBackLinks();
+        bindBridgeGuards();
+        watchResultView();
+
+        Bridge?.installBasicHooks('jump-duck', {
+          fitnessLinkSelectors: [
+            '#jd-back-fitness-play',
+            '#jd-back-fitness-result',
+            '#jd-back-fitness-final',
+            'a[href*="fitness-zone.html"]'
+          ]
+        });
+
+        syncSummaryToBridge();
+        maybeAutoStart();
+
+        const hudSession = $('hud-session-view');
+        if (hudSession) hudSession.textContent = q('view', 'mobile');
+      }
+
+      init();
     })();
   </script>
 </body>
