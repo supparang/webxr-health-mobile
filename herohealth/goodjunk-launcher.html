@@ -816,14 +816,14 @@
         <h1>GoodJunk</h1>
         <div class="hero-sub">
           เลือกเส้นทางที่อยากเล่นได้เลย<br>
-          กดปุ่มใหญ่ แล้วเริ่มผจญภัย
+          เริ่มจากด่านที่เหมาะที่สุด แล้วลุยต่อได้ทันที
         </div>
         <div class="speech" id="speechText">
-          สวัสดีฮีโร่! ถ้ายังไม่แน่ใจว่าจะเริ่มตรงไหน ให้เริ่มที่ <b>ด่านฝึกเดี่ยว</b> ก่อนนะ ✨
+          สวัสดีฮีโร่! ถ้ายังไม่แน่ใจว่าจะเริ่มตรงไหน ให้เริ่มที่ <b>Solo Boss</b> ก่อนนะ ✨
         </div>
         <div class="hero-tips">
           <div class="hero-tip">👦 เด็ก: กดปุ่มใหญ่แล้วเล่นได้เลย</div>
-          <div class="hero-tip">👩‍🏫 ครู: ตั้งค่าเพิ่มด้านล่างได้</div>
+          <div class="hero-tip">🧩 Solo จะเข้า flow warmup → boss → cooldown อัตโนมัติ</div>
         </div>
       </div>
     </section>
@@ -857,7 +857,7 @@
         <div class="status-card">
           <div class="status-label">สถานะห้อง</div>
           <div class="status-value" id="roomStatusText">Room ปกติ</div>
-          <div class="status-sub" id="roomStatusSub">เหมาะกับ Solo</div>
+          <div class="status-sub" id="roomStatusSub">เหมาะกับ Solo Boss</div>
         </div>
       </div>
     </section>
@@ -867,8 +867,8 @@
       <div class="adventure-sub">เริ่มจากจุดเริ่มต้น แล้วเลือกด่านที่อยากเล่น</div>
 
       <div class="recommend-box">
-        <span class="recommend-badge" id="recommendedBadge">⭐ แนะนำตอนนี้: ด่านฝึกเดี่ยว</span>
-        <span class="recommend-text" id="recommendedText">เหมาะที่สุดสำหรับเริ่มเล่นครั้งแรก</span>
+        <span class="recommend-badge" id="recommendedBadge">⭐ แนะนำตอนนี้: Solo Boss</span>
+        <span class="recommend-text" id="recommendedText">เหมาะที่สุดสำหรับเริ่มเล่น flow ใหม่</span>
       </div>
 
       <div class="path-grid">
@@ -896,17 +896,17 @@
           <div class="corner-chip recommend">⭐ แนะนำ</div>
           <div class="corner-chip recent">⏪ ล่าสุด</div>
           <div class="mode-top">
-            <div class="mode-icon">🥦</div>
+            <div class="mode-icon">👑</div>
             <div class="mode-label">ด่าน 1</div>
-            <div class="mode-title">ฝึกเดี่ยว</div>
-            <div class="mode-sub">เล่นคนเดียว ฝึกเลือกอาหารดี และทำคะแนนของตัวเอง</div>
+            <div class="mode-title">Solo Boss</div>
+            <div class="mode-sub">เข้า warmup ก่อน แล้วไปสู้บอสเดี่ยว จบแล้วค่อย cooldown</div>
           </div>
-          <div class="mode-hint">เริ่มง่ายที่สุด • เหมาะสำหรับฝึกก่อนลงด่านอื่น</div>
+          <div class="mode-hint">flow ใหม่ครบ • เหมาะสำหรับเริ่มเล่นครั้งแรก</div>
           <div class="mode-status">
             <span class="mini-chip" id="statusSoloWarm">กำลังตรวจสอบ...</span>
             <span class="mini-chip info">พร้อมเล่น</span>
           </div>
-          <button class="mode-button solo" id="btnSolo" type="button">เล่น Solo</button>
+          <button class="mode-button solo" id="btnSolo" type="button">เล่น Solo Boss</button>
         </article>
 
         <article class="mode-card race" id="cardRace">
@@ -1002,6 +1002,7 @@
             <option value="60">60s</option>
             <option value="80" selected>80s</option>
             <option value="100">100s</option>
+            <option value="120">120s</option>
           </select>
         </div>
 
@@ -1016,7 +1017,7 @@
 
         <div class="field">
           <label for="hub">Hub</label>
-          <input id="hub" placeholder="./hub-v2.html" />
+          <input id="hub" placeholder="./hub.html" />
         </div>
 
         <div class="field">
@@ -1043,504 +1044,490 @@
   </div>
 
   <script>
-    const $ = (id) => document.getElementById(id);
-
-    const qs = (k, d='') => {
-      try { return new URL(location.href).searchParams.get(k) ?? d; }
-      catch (_) { return d; }
-    };
-
-    const STORAGE = {
-      lastModePrefix: 'GJ_LAST_MODE:',
-      lastRunUrlPrefix: 'GJ_LAST_RUN_URL:',
-      gateNs: 'HHA_GATE_DONE_V1'
-    };
-
-    const MODE_LABELS = {
-      solo: 'Solo',
-      race: 'Race',
-      battle: 'Battle',
-      coop: 'Co-op'
-    };
-
-    const CARD_IDS = {
-      solo: 'cardSolo',
-      race: 'cardRace',
-      battle: 'cardBattle',
-      coop: 'cardCoop'
-    };
-
-    function clean(v, fallback=''){
-      const s = String(v ?? '').trim();
-      return s || fallback;
-    }
-
-    function buildUrl(path, extra = {}){
-      const u = new URL(path, location.href);
-      Object.entries(extra).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== '') {
-          u.searchParams.set(k, String(v));
-        }
-      });
-      return u.toString();
-    }
-
-    function bangkokDateKey(){
-      try{
-        const parts = new Intl.DateTimeFormat('en-CA', {
-          timeZone:'Asia/Bangkok',
-          year:'numeric',
-          month:'2-digit',
-          day:'2-digit'
-        }).formatToParts(new Date());
-
-        const map = {};
-        for(const p of parts){
-          if(p.type !== 'literal') map[p.type] = p.value;
-        }
-        return `${map.year}-${map.month}-${map.day}`;
-      }catch(_){
-        const d = new Date();
-        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      }
-    }
-
-    function gateWarmupKey(pid){
-      return `${STORAGE.gateNs}:${pid}:nutrition:goodjunk:warmup:${bangkokDateKey()}`;
-    }
-
-    function isLegacyWarmupDoneToday(pid){
-      try{
-        const day = bangkokDateKey();
-        return (
-          localStorage.getItem(`HHA_WARMUP_DONE:nutrition:goodjunk:${pid}:${day}`) === '1' ||
-          localStorage.getItem(`HHA_WARMUP_DONE:nutrition:${pid}:${day}`) === '1'
-        );
-      }catch(_){
-        return false;
-      }
-    }
-
-    function isWarmupDoneToday(pid){
-      try{
-        if (localStorage.getItem(gateWarmupKey(pid)) === '1') return true;
-      }catch(_){}
-      return isLegacyWarmupDoneToday(pid);
-    }
-
-    function getModeConfig(mode = ''){
-      const m = clean(mode, 'solo').toLowerCase();
-
-      if(m === 'race'){
-        return {
-          mode: 'race',
-          label: 'Race',
-          path: './vr-goodjunk/goodjunk-race.html',
-          entry: 'race',
-          extra: {}
-        };
-      }
-
-      if(m === 'battle'){
-        return {
-          mode: 'battle',
-          label: 'Battle',
-          path: './vr-goodjunk/goodjunk-battle.html',
-          entry: 'battle',
-          extra: {}
-        };
-      }
-
-      if(m === 'coop'){
-        return {
-          mode: 'coop',
-          label: 'Co-op',
-          path: './vr-goodjunk/goodjunk-coop.html',
-          entry: 'coop',
-          extra: {}
-        };
-      }
-
-      return {
-        mode: 'solo',
-        label: 'Solo',
-        path: './goodjunk-solo-boss.html',
-        entry: 'solo-boss',
-        extra: {
-          phaseBoss: '1',
-          boss: '1'
-        }
-      };
-    }
-
-    function getCommonParams(){
-      return {
-        pid: clean($('pid')?.value, 'anon'),
-        nick: clean($('nick')?.value, 'Player'),
-        diff: clean($('diff')?.value, 'normal'),
-        time: clean($('time')?.value, '80'),
-        view: clean($('view')?.value, 'mobile'),
-        hub: clean($('hub')?.value, './hub-v2.html'),
-        sbUrl: clean($('sbUrl')?.value, qs('sbUrl','')),
-        sbAnon: clean($('sbAnon')?.value, qs('sbAnon','')),
-        room: clean($('room')?.value, 'GJ-ROOM1'),
-
-        studyId: clean(qs('studyId','')),
-        conditionGroup: clean(qs('conditionGroup','')),
-        phase: clean(qs('phase','')),
-        log: clean(qs('log','')),
-        ai: clean(qs('ai','')),
-        pro: clean(qs('pro','')),
-        research: clean(qs('research','')),
-        seed: clean(qs('seed','')) || String(Date.now()),
-        run: clean(qs('run','play')),
-        planSeq: clean(qs('planSeq','')),
-        planDay: clean(qs('planDay','')),
-        planSlot: clean(qs('planSlot','')),
-        planMode: clean(qs('planMode','')),
-        planSlots: clean(qs('planSlots','')),
-        planIndex: clean(qs('planIndex','')),
-        cdnext: clean(qs('cdnext',''))
-      };
-    }
-
-    function buildRunUrl(mode, p){
-      const cfg = getModeConfig(mode);
-
-      return buildUrl(cfg.path, {
-        mode: cfg.mode,
-        entry: cfg.entry,
-        room: cfg.mode === 'solo' ? undefined : p.room,
-
-        pid: p.pid,
-        name: p.nick,
-        nick: p.nick,
-
-        diff: p.diff,
-        time: p.time,
-        view: p.view,
-        hub: p.hub,
-
-        sbUrl: p.sbUrl,
-        sbAnon: p.sbAnon,
-
-        studyId: p.studyId,
-        conditionGroup: p.conditionGroup,
-        phase: p.phase,
-        log: p.log,
-        ai: p.ai,
-        pro: p.pro,
-        research: p.research,
-        seed: p.seed,
-        run: p.run,
-
-        planSeq: p.planSeq,
-        planDay: p.planDay,
-        planSlot: p.planSlot,
-        planMode: p.planMode,
-        planSlots: p.planSlots,
-        planIndex: p.planIndex,
-        cdnext: p.cdnext,
-
-        cat: 'nutrition',
-        zone: 'nutrition',
-        game: 'goodjunk',
-        gameId: 'goodjunk',
-        theme: 'goodjunk',
-
-        ...cfg.extra
-      });
-    }
-
-    function buildWarmupUrl(nextRun, p, mode){
-      const cfg = getModeConfig(mode);
-
-      return buildUrl('./warmup-gate.html', {
-        phase: 'warmup',
-        gatePhase: 'warmup',
-
-        mode: cfg.mode,
-        entry: cfg.entry,
-
-        cat: 'nutrition',
-        zone: 'nutrition',
-        game: 'goodjunk',
-        gameId: 'goodjunk',
-        theme: 'goodjunk',
-
-        pid: p.pid,
-        name: p.nick,
-        studyId: p.studyId,
-
-        diff: p.diff,
-        time: p.time,
-        view: p.view,
-        hub: p.hub,
-
-        next: nextRun,
-
-        conditionGroup: p.conditionGroup,
-        log: p.log,
-        ai: p.ai,
-        pro: p.pro,
-        research: p.research,
-        seed: p.seed,
-        run: p.run,
-
-        planSeq: p.planSeq,
-        planDay: p.planDay,
-        planSlot: p.planSlot,
-        planMode: p.planMode,
-        planSlots: p.planSlots,
-        planIndex: p.planIndex,
-        cdnext: p.cdnext,
-
-        room: cfg.mode === 'solo' ? undefined : p.room,
-
-        ...cfg.extra
-      });
-    }
-
-    function saveLastMode(pid, mode, finalUrl){
-      try{
-        localStorage.setItem(`${STORAGE.lastModePrefix}${pid}`, String(mode));
-        localStorage.setItem(`${STORAGE.lastRunUrlPrefix}${pid}`, String(finalUrl));
-      }catch(_){}
-    }
-
-    function loadLastMode(pid){
-      try{
-        return localStorage.getItem(`${STORAGE.lastModePrefix}${pid}`) || '';
-      }catch(_){
-        return '';
-      }
-    }
-
-    function loadLastRunUrl(pid){
-      try{
-        return localStorage.getItem(`${STORAGE.lastRunUrlPrefix}${pid}`) || '';
-      }catch(_){
-        return '';
-      }
-    }
-
-    function getRecommendedMode(){
-      const room = clean($('room')?.value || qs('room',''));
-      return (room && room !== 'GJ-ROOM1') ? 'race' : 'solo';
-    }
-
-    function setCardState(mode, { recommended = false, recent = false } = {}){
-      const cardId = CARD_IDS[mode];
-      if (!cardId) return;
-      const card = $(cardId);
-      if (!card) return;
-      card.classList.toggle('recommended', recommended);
-      card.classList.toggle('recent', recent);
-    }
-
-    function resetCardFlags(){
-      ['cardStart','cardSolo','cardRace','cardBattle','cardCoop'].forEach(id => {
-        const el = $(id);
-        if (!el) return;
-        el.classList.remove('recommended', 'recent');
-      });
-    }
-
-    function setChip(id, text, tone){
-      const el = $(id);
-      if (!el) return;
-      el.textContent = text;
-      el.className = `mini-chip ${tone || ''}`.trim();
-    }
-
-    function renderRecommendation(){
-      const rec = getRecommendedMode();
-
-      resetCardFlags();
-      $('cardStart')?.classList.add('recommended');
-      setCardState(rec, { recommended: true });
-
-      if(rec === 'race'){
-        $('recommendedBadge').textContent = '⭐ แนะนำตอนนี้: ด่านแข่งเร็ว';
-        $('recommendedText').textContent = 'เหมาะเมื่อมี room และอยากเริ่มพร้อมกันหลายคน';
-        $('speechText').innerHTML = 'วันนี้มีห้องให้เล่นแล้วนะ! เริ่มที่ <b>ด่านแข่งเร็ว</b> ได้เลย 🏁';
-        $('btnStartRecommended').textContent = '▶ เริ่มด่านแข่งเร็ว';
-      }else{
-        $('recommendedBadge').textContent = '⭐ แนะนำตอนนี้: ด่านฝึกเดี่ยว';
-        $('recommendedText').textContent = 'เหมาะที่สุดสำหรับเริ่มเล่นครั้งแรก';
-        $('speechText').innerHTML = 'สวัสดีฮีโร่! ถ้ายังไม่แน่ใจว่าจะเริ่มตรงไหน ให้เริ่มที่ <b>ด่านฝึกเดี่ยว</b> ก่อนนะ ✨';
-        $('btnStartRecommended').textContent = '▶ เริ่มด่านฝึกเดี่ยว';
-      }
-    }
-
-    function renderWarmupStatus(){
-      const pid = clean($('pid')?.value, 'anon');
-      const done = isWarmupDoneToday(pid);
-
-      $('warmupStatusText').textContent = done ? 'วอร์มอัปแล้ว ✅' : 'ยังไม่วอร์มอัป';
-      $('warmupStatusSub').textContent = done
-        ? 'เข้าเกมได้เลย ระบบไม่พาไปวอร์มอัปซ้ำวันนี้'
-        : 'เมื่อกดเล่น ระบบจะพาไปวอร์มอัปก่อน';
-
-      const text = done ? 'วอร์มอัปแล้ว' : 'ต้องวอร์มอัปก่อน';
-      const tone = done ? 'good' : 'warn';
-      setChip('statusSoloWarm', text, tone);
-      setChip('statusBattleWarm', text, tone);
-    }
-
-    function renderLastMode(){
-      const pid = clean($('pid')?.value, 'anon');
-      const lastMode = loadLastMode(pid);
-
-      ['solo','race','battle','coop'].forEach(mode => setCardState(mode, { recent:false }));
-
-      if(!lastMode){
-        $('lastModeText').textContent = 'ยังไม่มี';
-        $('lastModeSub').textContent = 'เล่นสักรอบ แล้วระบบจะจำให้';
-        $('btnStartLast').textContent = '⏪ เล่นล่าสุดอีกครั้ง';
-        return;
-      }
-
-      const label = MODE_LABELS[lastMode] || lastMode;
-      $('lastModeText').textContent = label;
-      $('lastModeSub').textContent = 'กด “เล่นล่าสุดอีกครั้ง” เพื่อเข้าโหมดเดิมได้เลย';
-      $('btnStartLast').textContent = `⏪ เล่น ${label} อีกครั้ง`;
-      setCardState(lastMode, { recent:true });
-    }
-
-    function renderRoomStatus(){
-      const room = clean($('room')?.value || qs('room',''), 'GJ-ROOM1');
-      const usingDefaultRoom = room === 'GJ-ROOM1';
-
-      if(usingDefaultRoom){
-        $('roomStatusText').textContent = 'Room ปกติ';
-        $('roomStatusSub').textContent = 'เหมาะกับ Solo';
-        setChip('statusRaceRoom', 'ยังไม่ได้ตั้ง room', 'warn');
-        setChip('statusCoopRoom', 'ยังไม่ได้ตั้ง room', 'warn');
-      }else{
-        $('roomStatusText').textContent = room;
-        $('roomStatusSub').textContent = 'มี room แล้ว • เหมาะกับ Race / Team';
-        setChip('statusRaceRoom', `room: ${room}`, 'good');
-        setChip('statusCoopRoom', `room: ${room}`, 'good');
-      }
-    }
-
-    function renderAll(){
-      renderRecommendation();
-      renderWarmupStatus();
-      renderLastMode();
-      renderRoomStatus();
-    }
-
-    function goWithDailyWarmup(mode){
-      const p = getCommonParams();
-      const cfg = getModeConfig(mode);
-      const nextRun = buildRunUrl(cfg.mode, p);
-
-      saveLastMode(p.pid, cfg.mode, nextRun);
-
-      if(isWarmupDoneToday(p.pid)){
-        location.href = nextRun;
-        return;
-      }
-
-      location.href = buildWarmupUrl(nextRun, p, cfg.mode);
-    }
-
-    function goLastRun(){
-      const p = getCommonParams();
-      const lastMode = loadLastMode(p.pid);
-      const lastRunUrl = loadLastRunUrl(p.pid);
-
-      if(!lastMode || !lastRunUrl){
-        goWithDailyWarmup(getRecommendedMode());
-        return;
-      }
-
-      if(isWarmupDoneToday(p.pid)){
-        location.href = lastRunUrl;
-        return;
-      }
-
-      location.href = buildWarmupUrl(lastRunUrl, p, lastMode);
-    }
-
-    function bindEvents(){
-      $('btnToggleTeacher').onclick = ()=>{
-        $('teacherForm')?.classList.toggle('show');
+    (() => {
+      'use strict';
+
+      const $ = (id) => document.getElementById(id);
+      const qs = (k, d='') => {
+        try { return new URL(location.href).searchParams.get(k) ?? d; }
+        catch (_) { return d; }
       };
 
-      $('btnStartRecommended').onclick = ()=>{
-        goWithDailyWarmup(getRecommendedMode());
+      const STORAGE = {
+        lastModePrefix: 'GJ_LAST_MODE:',
+        lastRunUrlPrefix: 'GJ_LAST_RUN_URL:'
       };
 
-      $('btnStartLast').onclick = ()=>{
-        goLastRun();
+      const MODE_LABELS = {
+        solo: 'Solo Boss',
+        race: 'Race',
+        battle: 'Battle',
+        coop: 'Co-op'
       };
 
-      $('btnBackHub').onclick = ()=>{
-        const hub = clean($('hub')?.value, './hub-v2.html');
-        location.href = buildUrl(hub, {});
+      const CARD_IDS = {
+        solo: 'cardSolo',
+        race: 'cardRace',
+        battle: 'cardBattle',
+        coop: 'cardCoop'
       };
 
-      $('btnStartNode').onclick = ()=>{
-        goWithDailyWarmup(getRecommendedMode());
-      };
+      function clean(v, fallback=''){
+        const s = String(v ?? '').trim();
+        return s || fallback;
+      }
 
-      $('btnSolo').onclick = ()=> goWithDailyWarmup('solo');
-      $('btnRace').onclick = ()=> goWithDailyWarmup('race');
-      $('btnBattle').onclick = ()=> goWithDailyWarmup('battle');
-      $('btnCoop').onclick = ()=> goWithDailyWarmup('coop');
-
-      $('btnBoard').onclick = ()=>{
-        const p = getCommonParams();
-        location.href = buildUrl('./goodjunk-board.html', {
-          room: p.room,
-          mode: 'race',
-          hub: p.hub
+      function buildUrl(path, extra = {}){
+        const u = new URL(path, location.href);
+        Object.entries(extra).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== '') {
+            u.searchParams.set(k, String(v));
+          }
         });
-      };
+        return u.toString();
+      }
 
-      $('btnTeacher').onclick = ()=>{
-        const p = getCommonParams();
-        location.href = buildUrl('./goodjunk-teacher.html', {
-          hub: p.hub
-        });
-      };
+      function bangkokDateKey(){
+        try{
+          const parts = new Intl.DateTimeFormat('en-CA',{
+            timeZone:'Asia/Bangkok',
+            year:'numeric',
+            month:'2-digit',
+            day:'2-digit'
+          }).formatToParts(new Date());
+          const m = {};
+          for (const p of parts) {
+            if (p.type !== 'literal') m[p.type] = p.value;
+          }
+          return `${m.year}-${m.month}-${m.day}`;
+        }catch(_){
+          const d = new Date();
+          return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+      }
 
-      $('btnMultiLobby').onclick = ()=>{
-        const p = getCommonParams();
-        location.href = buildUrl('./vr-goodjunk/goodjunk-multi.html', {
-          room: p.room,
+      function gateDoneKey(phase, pid, cat='nutrition', game='goodjunk'){
+        const p = String(phase || 'warmup').toLowerCase() === 'cooldown' ? 'cooldown' : 'warmup';
+        return `HHA_GATE_DONE_V1:${pid}:${cat}:${game}:${p}:${bangkokDateKey()}`;
+      }
+
+      function isWarmupDoneToday(pid){
+        try{
+          const keyNew = gateDoneKey('warmup', pid, 'nutrition', 'goodjunk');
+          if (localStorage.getItem(keyNew) === '1') return true;
+
+          const day = bangkokDateKey();
+          const legacyKeys = [
+            `HHA_WARMUP_DONE:nutrition:goodjunk:${pid}:${day}`,
+            `HHA_WARMUP_DONE:nutrition:${pid}:${day}`
+          ];
+          return legacyKeys.some(k => localStorage.getItem(k) === '1');
+        }catch(_){
+          return false;
+        }
+      }
+
+      function getCommonParams(){
+        return {
+          pid: clean($('pid')?.value, 'anon'),
+          nick: clean($('nick')?.value, 'Player'),
+          diff: clean($('diff')?.value, 'normal'),
+          time: clean($('time')?.value, '80'),
+          view: clean($('view')?.value, 'mobile'),
+          hubRoot: clean($('hub')?.value, './hub.html'),
+          sbUrl: clean($('sbUrl')?.value, qs('sbUrl','')),
+          sbAnon: clean($('sbAnon')?.value, qs('sbAnon','')),
+
+          room: clean($('room')?.value, 'GJ-ROOM1'),
+
+          studyId: clean(qs('studyId','')),
+          conditionGroup: clean(qs('conditionGroup','')),
+          phase: clean(qs('phase','')),
+          log: clean(qs('log','')),
+          ai: clean(qs('ai','')),
+          pro: clean(qs('pro','')),
+          research: clean(qs('research','')),
+          seed: clean(qs('seed','')),
+          run: clean(qs('run','play')),
+          planSeq: clean(qs('planSeq','')),
+          planDay: clean(qs('planDay','')),
+          planSlot: clean(qs('planSlot','')),
+          planMode: clean(qs('planMode','')),
+          planSlots: clean(qs('planSlots','')),
+          planIndex: clean(qs('planIndex','')),
+          cdnext: clean(qs('cdnext','')),
+          debug: qs('debug','') === '1' ? '1' : ''
+        };
+      }
+
+      function buildLauncherSelfUrl(p){
+        return buildUrl('./goodjunk-launcher.html', {
+          pid: p.pid,
           nick: p.nick,
+          room: p.room,
+          diff: p.diff,
+          time: p.time,
+          view: p.view,
+          hub: p.hubRoot,
           sbUrl: p.sbUrl,
           sbAnon: p.sbAnon,
-          hub: p.hub
+          studyId: p.studyId,
+          conditionGroup: p.conditionGroup,
+          phase: p.phase,
+          log: p.log,
+          ai: p.ai,
+          pro: p.pro,
+          research: p.research,
+          seed: p.seed,
+          run: p.run,
+          planSeq: p.planSeq,
+          planDay: p.planDay,
+          planSlot: p.planSlot,
+          planMode: p.planMode,
+          planSlots: p.planSlots,
+          planIndex: p.planIndex,
+          cdnext: p.cdnext,
+          debug: p.debug
         });
-      };
+      }
 
-      ['room','diff','time','view','pid'].forEach(id=>{
-        $(id)?.addEventListener('change', renderAll);
-        $(id)?.addEventListener('input', renderAll);
-      });
-    }
+      function buildSoloBossUrl(p, extra = {}){
+        return buildUrl('./goodjunk-solo-boss.html', {
+          pid: p.pid,
+          name: p.nick,
+          studyId: p.studyId,
+          diff: p.diff,
+          time: p.time,
+          seed: p.seed || String(Date.now()),
+          view: p.view,
+          run: p.run,
+          gameId: 'goodjunk',
+          zone: 'nutrition',
+          mode: 'solo',
+          entry: 'solo-boss',
+          phaseBoss: '1',
+          boss: '1',
+          theme: 'phaseboss',
+          hub: p.hubRoot,
+          hubRoot: p.hubRoot,
+          launcher: buildLauncherSelfUrl(p),
+          log: p.log,
+          ai: p.ai,
+          pro: p.pro,
+          research: p.research,
+          conditionGroup: p.conditionGroup,
+          ...extra
+        });
+      }
 
-    function hydrateInputs(){
-      $('nick').value   = qs('nick', qs('name',''));
-      $('pid').value    = qs('pid','anon');
-      $('room').value   = qs('room','GJ-ROOM1');
-      $('hub').value    = qs('hub','./hub-v2.html');
-      $('sbUrl').value  = qs('sbUrl','');
-      $('sbAnon').value = qs('sbAnon','');
+      function buildModeRunUrl(mode, p){
+        if (mode === 'solo') {
+          return buildSoloBossUrl(p, { wgskip: '1' });
+        }
 
-      if(qs('diff','')) $('diff').value = qs('diff','normal');
-      if(qs('time','')) $('time').value = qs('time','80');
-      if(qs('view','')) $('view').value = qs('view','mobile');
-    }
+        return buildUrl('./vr-goodjunk/goodjunk-vr.html', {
+          mode,
+          room: mode === 'solo' ? undefined : p.room,
+          pid: p.pid,
+          nick: p.nick,
+          diff: p.diff,
+          time: p.time,
+          view: p.view,
+          hub: p.hubRoot,
+          sbUrl: p.sbUrl,
+          sbAnon: p.sbAnon,
+          studyId: p.studyId,
+          conditionGroup: p.conditionGroup,
+          phase: p.phase,
+          log: p.log,
+          ai: p.ai,
+          pro: p.pro,
+          research: p.research,
+          seed: p.seed,
+          run: p.run,
+          planSeq: p.planSeq,
+          planDay: p.planDay,
+          planSlot: p.planSlot,
+          planMode: p.planMode,
+          planSlots: p.planSlots,
+          planIndex: p.planIndex,
+          cdnext: p.cdnext,
+          debug: p.debug
+        });
+      }
 
-    hydrateInputs();
-    bindEvents();
-    renderAll();
+      function buildWarmupUrl(nextRun, p, mode='solo'){
+        return buildUrl('./warmup-gate.html', {
+          phase: 'warmup',
+          gatePhase: 'warmup',
+          mode: mode,
+          cat: 'nutrition',
+          zone: 'nutrition',
+          game: 'goodjunk',
+          gameId: 'goodjunk',
+          theme: 'goodjunk',
+          pid: p.pid,
+          name: p.nick,
+          studyId: p.studyId,
+          diff: p.diff,
+          time: p.time,
+          view: p.view,
+          run: p.run,
+          seed: p.seed || String(Date.now()),
+          hub: buildLauncherSelfUrl(p),
+          hubRoot: p.hubRoot,
+          launcher: buildLauncherSelfUrl(p),
+          next: nextRun,
+          room: mode === 'solo' ? '' : p.room,
+          entry: mode === 'solo' ? 'solo-boss' : '',
+          phaseBoss: mode === 'solo' ? '1' : '',
+          boss: mode === 'solo' ? '1' : '',
+          conditionGroup: p.conditionGroup,
+          log: p.log,
+          ai: p.ai,
+          pro: p.pro,
+          research: p.research,
+          debug: p.debug
+        });
+      }
+
+      function saveLastMode(pid, mode, finalUrl){
+        try{
+          localStorage.setItem(`${STORAGE.lastModePrefix}${pid}`, String(mode));
+          localStorage.setItem(`${STORAGE.lastRunUrlPrefix}${pid}`, String(finalUrl));
+        }catch(_){}
+      }
+
+      function loadLastMode(pid){
+        try{
+          return localStorage.getItem(`${STORAGE.lastModePrefix}${pid}`) || '';
+        }catch(_){
+          return '';
+        }
+      }
+
+      function loadLastRunUrl(pid){
+        try{
+          return localStorage.getItem(`${STORAGE.lastRunUrlPrefix}${pid}`) || '';
+        }catch(_){
+          return '';
+        }
+      }
+
+      function getRecommendedMode(){
+        const room = clean($('room')?.value || qs('room',''));
+        return (room && room !== 'GJ-ROOM1') ? 'race' : 'solo';
+      }
+
+      function setCardState(mode, { recommended = false, recent = false } = {}){
+        const cardId = CARD_IDS[mode];
+        if (!cardId) return;
+        const card = $(cardId);
+        if (!card) return;
+        card.classList.toggle('recommended', recommended);
+        card.classList.toggle('recent', recent);
+      }
+
+      function resetCardFlags(){
+        ['cardStart','cardSolo','cardRace','cardBattle','cardCoop'].forEach(id => {
+          const el = $(id);
+          if (!el) return;
+          el.classList.remove('recommended', 'recent');
+        });
+      }
+
+      function setChip(id, text, tone){
+        const el = $(id);
+        if (!el) return;
+        el.textContent = text;
+        el.className = `mini-chip ${tone || ''}`.trim();
+      }
+
+      function renderRecommendation(){
+        const rec = getRecommendedMode();
+
+        resetCardFlags();
+        $('cardStart')?.classList.add('recommended');
+        setCardState(rec, { recommended: true });
+
+        if(rec === 'race'){
+          $('recommendedBadge').textContent = '⭐ แนะนำตอนนี้: ด่านแข่งเร็ว';
+          $('recommendedText').textContent = 'เหมาะเมื่อมี room และอยากเริ่มพร้อมกันหลายคน';
+          $('speechText').innerHTML = 'วันนี้มีห้องให้เล่นแล้วนะ! เริ่มที่ <b>ด่านแข่งเร็ว</b> ได้เลย 🏁';
+          $('btnStartRecommended').textContent = '▶ เริ่มด่านแข่งเร็ว';
+        }else{
+          $('recommendedBadge').textContent = '⭐ แนะนำตอนนี้: Solo Boss';
+          $('recommendedText').textContent = 'เหมาะที่สุดสำหรับเริ่มเล่น flow ใหม่';
+          $('speechText').innerHTML = 'สวัสดีฮีโร่! ถ้ายังไม่แน่ใจว่าจะเริ่มตรงไหน ให้เริ่มที่ <b>Solo Boss</b> ก่อนนะ ✨';
+          $('btnStartRecommended').textContent = '▶ เริ่ม Solo Boss';
+        }
+      }
+
+      function renderWarmupStatus(){
+        const pid = clean($('pid')?.value, 'anon');
+        const done = isWarmupDoneToday(pid);
+
+        $('warmupStatusText').textContent = done ? 'วอร์มอัปแล้ว ✅' : 'ยังไม่วอร์มอัป';
+        $('warmupStatusSub').textContent = done
+          ? 'เข้าเกมได้เลย ระบบไม่พาไป warmup ซ้ำวันนี้'
+          : 'เมื่อกดเล่น ระบบจะพาไป warmup ก่อน';
+
+        const text = done ? 'วอร์มอัปแล้ว' : 'ต้องวอร์มก่อน';
+        const tone = done ? 'good' : 'warn';
+        setChip('statusSoloWarm', text, tone);
+        setChip('statusBattleWarm', text, tone);
+      }
+
+      function renderLastMode(){
+        const pid = clean($('pid')?.value, 'anon');
+        const lastMode = loadLastMode(pid);
+
+        ['solo','race','battle','coop'].forEach(mode => setCardState(mode, { recent:false }));
+
+        if(!lastMode){
+          $('lastModeText').textContent = 'ยังไม่มี';
+          $('lastModeSub').textContent = 'เล่นสักรอบ แล้วระบบจะจำให้';
+          $('btnStartLast').textContent = '⏪ เล่นล่าสุดอีกครั้ง';
+          return;
+        }
+
+        const label = MODE_LABELS[lastMode] || lastMode;
+        $('lastModeText').textContent = label;
+        $('lastModeSub').textContent = 'กด “เล่นล่าสุดอีกครั้ง” เพื่อเข้าโหมดเดิมได้เลย';
+        $('btnStartLast').textContent = `⏪ เล่น ${label} อีกครั้ง`;
+        setCardState(lastMode, { recent:true });
+      }
+
+      function renderRoomStatus(){
+        const room = clean($('room')?.value || qs('room',''), 'GJ-ROOM1');
+        const usingDefaultRoom = room === 'GJ-ROOM1';
+
+        if(usingDefaultRoom){
+          $('roomStatusText').textContent = 'Room ปกติ';
+          $('roomStatusSub').textContent = 'เหมาะกับ Solo Boss';
+          setChip('statusRaceRoom', 'ยังไม่ได้ตั้ง room', 'warn');
+          setChip('statusCoopRoom', 'ยังไม่ได้ตั้ง room', 'warn');
+        }else{
+          $('roomStatusText').textContent = room;
+          $('roomStatusSub').textContent = 'มี room แล้ว • เหมาะกับ Race / Team';
+          setChip('statusRaceRoom', `room: ${room}`, 'good');
+          setChip('statusCoopRoom', `room: ${room}`, 'good');
+        }
+      }
+
+      function renderAll(){
+        renderRecommendation();
+        renderWarmupStatus();
+        renderLastMode();
+        renderRoomStatus();
+      }
+
+      function goWithDailyWarmup(mode){
+        const p = getCommonParams();
+        const targetUrl = buildModeRunUrl(mode, p);
+
+        saveLastMode(p.pid, mode, targetUrl);
+
+        if(isWarmupDoneToday(p.pid)){
+          location.href = targetUrl;
+          return;
+        }
+
+        location.href = buildWarmupUrl(targetUrl, p, mode);
+      }
+
+      function goLastRun(){
+        const p = getCommonParams();
+        const lastMode = loadLastMode(p.pid);
+        const lastRunUrl = loadLastRunUrl(p.pid);
+
+        if(lastRunUrl){
+          saveLastMode(p.pid, lastMode || getRecommendedMode(), lastRunUrl);
+
+          if(isWarmupDoneToday(p.pid)){
+            location.href = lastRunUrl;
+            return;
+          }
+
+          location.href = buildWarmupUrl(lastRunUrl, p, lastMode || 'solo');
+          return;
+        }
+
+        goWithDailyWarmup(lastMode || getRecommendedMode());
+      }
+
+      function bindEvents(){
+        $('btnToggleTeacher').onclick = ()=>{
+          $('teacherForm').classList.toggle('show');
+        };
+
+        $('btnStartRecommended').onclick = ()=>{
+          goWithDailyWarmup(getRecommendedMode());
+        };
+
+        $('btnStartLast').onclick = ()=>{
+          goLastRun();
+        };
+
+        $('btnBackHub').onclick = ()=>{
+          const hub = clean($('hub')?.value, './hub.html');
+          location.href = buildUrl(hub, {});
+        };
+
+        $('btnStartNode').onclick = ()=>{
+          goWithDailyWarmup(getRecommendedMode());
+        };
+
+        $('btnSolo').onclick = ()=> goWithDailyWarmup('solo');
+        $('btnRace').onclick = ()=> goWithDailyWarmup('race');
+        $('btnBattle').onclick = ()=> goWithDailyWarmup('battle');
+        $('btnCoop').onclick = ()=> goWithDailyWarmup('coop');
+
+        $('btnBoard').onclick = ()=>{
+          const p = getCommonParams();
+          location.href = buildUrl('./goodjunk-board.html', {
+            room: p.room,
+            mode: 'race'
+          });
+        };
+
+        $('btnTeacher').onclick = ()=>{
+          location.href = buildUrl('./goodjunk-teacher.html', {});
+        };
+
+        $('btnMultiLobby').onclick = ()=>{
+          const p = getCommonParams();
+          location.href = buildUrl('./vr-goodjunk/goodjunk-multi.html', {
+            room: p.room,
+            nick: p.nick,
+            sbUrl: p.sbUrl,
+            sbAnon: p.sbAnon
+          });
+        };
+
+        ['room','diff','time','view','pid'].forEach(id=>{
+          $(id)?.addEventListener('change', renderAll);
+          $(id)?.addEventListener('input', renderAll);
+        });
+      }
+
+      function hydrateInputs(){
+        $('nick').value   = qs('nick', qs('name',''));
+        $('pid').value    = qs('pid','anon');
+        $('room').value   = qs('room','GJ-ROOM1');
+        $('hub').value    = qs('hubRoot', qs('hub','./hub.html'));
+        $('sbUrl').value  = qs('sbUrl','');
+        $('sbAnon').value = qs('sbAnon','');
+
+        if(qs('diff','')) $('diff').value = qs('diff','normal');
+        if(qs('time','')) $('time').value = qs('time','80');
+        if(qs('view','')) $('view').value = qs('view','mobile');
+      }
+
+      hydrateInputs();
+      bindEvents();
+      renderAll();
+    })();
   </script>
 </body>
 </html>
