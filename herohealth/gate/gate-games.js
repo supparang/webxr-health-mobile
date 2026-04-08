@@ -1,5 +1,7 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260408a-GATE-REGISTRY-GOODJUNK-BOSS-LAUNCHER-FINAL
+// FULL PATCH v20260408b-GJ-SOLOBOSS-FLOW-FINAL
+
+const PATCH = 'v20260408b-GJ-SOLOBOSS-FLOW-FINAL';
 
 const DEFAULTS = {
   title: '',
@@ -94,6 +96,8 @@ function makeMeta(id, cfg = {}) {
     runCandidates.push(base.runFile);
   }
 
+  const summaryPath = base.summaryPath || '';
+
   return {
     id: key,
     title: base.title || prettyTitle(key),
@@ -107,7 +111,10 @@ function makeMeta(id, cfg = {}) {
     warmupFile: base.warmupFile || '',
     cooldownFile: base.cooldownFile || '',
     styleFile: base.styleFile || '',
-    summaryPath: base.summaryPath || ''
+    summaryPath,
+    defaults: {
+      summaryPath
+    }
   };
 }
 
@@ -158,8 +165,8 @@ export const GAME_REGISTRY = {
   }),
 
   goodjunk: makeMeta('goodjunk', {
-    title: 'GoodJunk Solo Boss',
-    label: 'GoodJunk',
+    title: 'GoodJunk VR',
+    label: 'GoodJunk VR',
     emoji: '🍎',
     zone: 'nutrition',
     cat: 'nutrition',
@@ -265,6 +272,11 @@ export const GAME_REGISTRY = {
     cat: 'hygiene',
     theme: 'bath',
     runFile: '../bath.html',
+    runCandidates: [
+      '../bath.html',
+      '../bath-vr.html',
+      '../vr-bath/bath.html'
+    ],
     summaryPath: '../hygiene-zone.html'
   }),
 
@@ -378,11 +390,9 @@ const GAME_ALIAS = {
   goodjunkvr: 'goodjunk',
   goodjunkv1: 'goodjunk',
   'goodjunk-solo-boss': 'goodjunk',
-  'solo-boss': 'goodjunk',
-  phaseboss: 'goodjunk',
-  'phase-boss': 'goodjunk',
   goodjunkboss: 'goodjunk',
-  'goodjunk-launcher': 'goodjunk',
+  phaseboss: 'goodjunk',
+  'solo-boss': 'goodjunk',
 
   // plate
   plate: 'plate',
@@ -495,14 +505,17 @@ export function getRunCandidates(id = '') {
 
 export function getSummaryPath(id = '') {
   const meta = getGameMeta(id);
-  return meta?.summaryPath || '';
+  return meta?.summaryPath || meta?.defaults?.summaryPath || '';
 }
 
 export function listGameIds() {
   return Object.keys(GAME_REGISTRY);
 }
 
+export { PATCH };
+
 export default {
+  PATCH,
   GAME_REGISTRY,
   normalizeGameId,
   getGameMeta,
