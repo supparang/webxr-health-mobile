@@ -4,629 +4,519 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk Solo Boss</title>
-  <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#9fe3ff" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#0f172a" />
   <link rel="icon" href="./favicon.ico" />
-
   <style>
     :root{
-      --sky1:#dff4ff;
-      --sky2:#bfe8ff;
-      --sky3:#fff7d8;
-      --line:#bfe3f2;
-      --text:#4d4a42;
-      --muted:#7b7a72;
-      --green:#7ed957;
-      --green2:#58c33f;
+      --bg1:#071120;
+      --bg2:#0f172a;
+      --bg3:#13315c;
+      --text:#eef6ff;
+      --muted:#bfd7ef;
+      --panel:rgba(2,6,23,.72);
+      --stroke:rgba(255,255,255,.14);
+      --good:#7ed957;
       --blue:#7fcfff;
-      --blue2:#58b7f5;
-      --shadow:0 18px 40px rgba(86,155,194,.16);
-      --sat:env(safe-area-inset-top,0px);
-      --sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);
-      --sal:env(safe-area-inset-left,0px);
+      --warn:#ffd45c;
+      --danger:#ff8b7d;
+      --shadow:0 24px 72px rgba(0,0,0,.34);
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
-      width:100%;
       min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-      color:var(--text);
       background:
-        radial-gradient(circle at 12% 8%, rgba(255,255,255,.84), transparent 18%),
-        radial-gradient(circle at 86% 10%, rgba(255,255,255,.72), transparent 18%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 54%, var(--sky3));
+        radial-gradient(900px 520px at 15% 10%, rgba(127,207,255,.18), transparent 58%),
+        radial-gradient(800px 520px at 90% 0%, rgba(255,212,92,.14), transparent 58%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 54%,var(--bg3));
+      color:var(--text);
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
     }
 
     body{
-      min-height:100dvh;
-      overflow:hidden;
-    }
-
-    .bg-clouds{
-      position:fixed;
-      inset:0;
-      overflow:hidden;
-      pointer-events:none;
-      z-index:0;
-    }
-
-    .cloud{
-      position:absolute;
-      border-radius:999px;
-      background:rgba(255,255,255,.74);
-      filter:blur(1px);
-      box-shadow:
-        50px 8px 0 8px rgba(255,255,255,.66),
-        100px 0 0 0 rgba(255,255,255,.74),
-        70px -10px 0 4px rgba(255,255,255,.70);
-      animation:floatCloud linear infinite;
-    }
-
-    .cloud.c1{ width:110px; height:34px; left:6%; top:9%; animation-duration:28s; }
-    .cloud.c2{ width:140px; height:40px; left:64%; top:13%; animation-duration:36s; }
-    .cloud.c3{ width:100px; height:30px; left:30%; top:22%; animation-duration:32s; }
-
-    @keyframes floatCloud{
-      from{ transform:translateX(-5vw); }
-      to{ transform:translateX(12vw); }
-    }
-
-    .page{
-      position:relative;
-      min-height:100dvh;
-      padding:
-        calc(10px + var(--sat))
-        calc(10px + var(--sar))
-        calc(10px + var(--sab))
-        calc(10px + var(--sal));
-      z-index:1;
-    }
-
-    .topbar{
-      position:relative;
-      z-index:8;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:10px;
-      pointer-events:none;
-      flex-wrap:wrap;
-    }
-
-    .brand,
-    .actions{
-      pointer-events:auto;
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-height:52px;
-      padding:10px 14px;
-      border-radius:18px;
-      border:2px solid var(--line);
-      background:rgba(255,255,255,.84);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(6px);
-    }
-
-    .brand-icon{
-      width:38px;
-      height:38px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#fff3de,#ffe0b8);
-      border:2px solid #ffd89b;
-      font-size:20px;
-    }
-
-    .brand-title{
-      font-size:15px;
-      line-height:1.05;
-      font-weight:1000;
-      color:#67a91c;
-    }
-
-    .brand-sub{
-      margin-top:3px;
-      font-size:12px;
-      line-height:1.2;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-
-    .btn{
-      appearance:none;
-      border:none;
-      cursor:pointer;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      min-height:44px;
-      padding:10px 14px;
-      border-radius:16px;
-      font-size:14px;
-      font-weight:1000;
-      box-shadow:var(--shadow);
-      transition:.14s ease;
-      pointer-events:auto;
-      color:inherit;
-    }
-
-    .btn:hover{ transform:translateY(-1px); }
-    .btn:active{ transform:translateY(0); }
-
-    .btn.hub{
-      background:linear-gradient(180deg,var(--green),var(--green2));
-      color:#133b09;
-    }
-
-    .btn.launcher{
-      background:linear-gradient(180deg,var(--blue),var(--blue2));
-      color:#08374d;
-    }
-
-    .game-shell{
-      position:relative;
-      z-index:1;
-      width:100%;
-      height:calc(100dvh - 84px - var(--sat) - var(--sab));
-      min-height:580px;
-      border-radius:28px;
-      border:3px solid var(--line);
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      box-shadow:var(--shadow);
       overflow:hidden;
     }
 
     #gameMount{
-      position:absolute;
+      position:fixed;
       inset:0;
       overflow:hidden;
-      background:
-        radial-gradient(circle at 20% 10%, rgba(255,255,255,.78), transparent 18%),
-        radial-gradient(circle at 80% 10%, rgba(255,255,255,.72), transparent 18%),
-        linear-gradient(180deg,#aee6ff 0%, #d9f5ff 54%, #fff5cf 100%);
     }
 
-    .loading{
-      position:absolute;
+    .boot-overlay{
+      position:fixed;
       inset:0;
-      z-index:20;
+      z-index:999;
       display:grid;
       place-items:center;
+      padding:
+        calc(16px + var(--sat))
+        calc(16px + var(--sar))
+        calc(16px + var(--sab))
+        calc(16px + var(--sal));
       background:
-        radial-gradient(circle at 50% 24%, rgba(255,255,255,.8), transparent 24%),
-        linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,.18));
-      transition:opacity .2s ease, visibility .2s ease;
+        radial-gradient(680px 360px at 18% 12%, rgba(56,189,248,.14), transparent 58%),
+        radial-gradient(640px 360px at 82% 8%, rgba(250,204,21,.12), transparent 58%),
+        linear-gradient(180deg,#071120,#0f172a 58%,#13315c);
     }
 
-    .loading.hidden{
-      opacity:0;
-      visibility:hidden;
+    .boot-card{
+      width:min(92vw,760px);
+      border-radius:30px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      backdrop-filter:blur(12px);
+      box-shadow:var(--shadow);
+      padding:24px 20px;
+      text-align:center;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .boot-card::before{
+      content:"";
+      position:absolute;
+      width:180px;
+      height:180px;
+      left:-44px;
+      top:-44px;
+      border-radius:999px;
+      background:rgba(127,207,255,.16);
+      filter:blur(12px);
       pointer-events:none;
     }
 
-    .loading-card{
-      width:min(92vw,500px);
-      border-radius:28px;
-      border:3px solid var(--line);
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      box-shadow:var(--shadow);
-      padding:22px 20px;
-      text-align:center;
+    .boot-card::after{
+      content:"";
+      position:absolute;
+      width:180px;
+      height:180px;
+      right:-44px;
+      bottom:-44px;
+      border-radius:999px;
+      background:rgba(255,212,92,.14);
+      filter:blur(12px);
+      pointer-events:none;
     }
 
-    .loading-badge{
+    .boot-inner{
+      position:relative;
+      z-index:1;
+    }
+
+    .boot-badge{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:34px;
-      padding:6px 12px;
+      min-height:38px;
+      padding:8px 14px;
       border-radius:999px;
-      background:#eaf8ff;
-      border:2px solid var(--line);
-      color:#5ea8d0;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.06);
+      color:#e0f2fe;
       font-size:12px;
       font-weight:1000;
     }
 
-    .loading-emoji{
-      margin:14px auto 8px;
-      width:94px;
-      height:94px;
-      border-radius:24px;
+    .boot-hero{
+      margin:16px auto 0;
+      width:108px;
+      height:108px;
+      border-radius:30px;
       display:grid;
       place-items:center;
-      font-size:46px;
-      background:linear-gradient(180deg,#fff3de,#ffe0b8);
-      border:3px solid #ffd89b;
-      box-shadow:0 12px 24px rgba(255,181,71,.16);
+      font-size:54px;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.22), transparent 40%),
+        linear-gradient(135deg, rgba(34,197,94,.22), rgba(56,189,248,.20));
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 16px 34px rgba(0,0,0,.20);
+      animation: floaty 3.2s ease-in-out infinite;
     }
 
-    .loading-title{
-      margin:0;
-      font-size:30px;
-      line-height:1.06;
+    .boot-title{
+      margin:16px 0 0;
+      font-size:clamp(32px,4.8vw,54px);
+      line-height:1.02;
       font-weight:1000;
-      color:#67a91c;
+      letter-spacing:-.02em;
     }
 
-    .loading-sub{
-      margin:10px 0 0;
-      font-size:14px;
-      line-height:1.65;
+    .boot-sub{
+      margin-top:10px;
       color:var(--muted);
+      font-size:16px;
+      line-height:1.65;
       font-weight:900;
     }
 
-    .loading-meta{
-      margin-top:14px;
-      display:flex;
-      gap:8px;
-      justify-content:center;
-      flex-wrap:wrap;
+    .boot-status{
+      margin-top:16px;
+      display:grid;
+      gap:10px;
     }
 
-    .chip{
-      min-height:32px;
-      display:inline-flex;
+    .boot-pill{
+      min-height:46px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#eef6ff;
+      display:flex;
       align-items:center;
       justify-content:center;
-      padding:6px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#6c6a61;
-      font-size:12px;
+      text-align:center;
+      padding:10px 12px;
+      font-size:14px;
+      line-height:1.55;
       font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
     }
 
-    .chip.debug{
-      background:#fff3f3;
-      border-color:#ffd1d1;
-      color:#a74b35;
-      display:none;
+    .boot-spinner{
+      margin:14px auto 0;
+      width:52px;
+      height:52px;
+      border-radius:999px;
+      border:4px solid rgba(255,255,255,.16);
+      border-top-color:#7fcfff;
+      animation: spin 1s linear infinite;
     }
 
-    .chip.debug.show{
-      display:inline-flex;
+    .boot-actions{
+      margin-top:16px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
     }
 
-    .error{
-      position:absolute;
-      inset:auto 12px 12px 12px;
-      z-index:25;
-      display:none;
-      border-radius:20px;
-      border:2px solid #ffd1d1;
-      background:#fff6f6;
-      color:#9a2d2d;
-      padding:12px 14px;
-      font-size:13px;
-      line-height:1.6;
-      font-weight:900;
-      box-shadow:0 12px 24px rgba(0,0,0,.10);
+    .boot-btn{
+      min-height:50px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      font-size:15px;
+      font-weight:1000;
+      cursor:pointer;
+      padding:12px 16px;
+      box-shadow:0 10px 24px rgba(0,0,0,.16);
+    }
+
+    .boot-btn.primary{
+      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.14));
+      border-color:rgba(34,197,94,.34);
+    }
+
+    .boot-btn.info{
+      background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14));
+      border-color:rgba(56,189,248,.34);
+    }
+
+    .boot-debug{
+      margin-top:16px;
+      text-align:left;
       white-space:pre-wrap;
       word-break:break-word;
-      max-height:42vh;
       overflow:auto;
+      max-height:240px;
+      padding:14px;
+      border-radius:18px;
+      background:rgba(127,29,29,.28);
+      border:1px solid rgba(239,68,68,.22);
+      color:#fecaca;
+      font:600 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
+      display:none;
     }
 
-    .error.show{
+    .boot-debug.show{
       display:block;
     }
 
-    @media (max-width:760px){
-      .actions{
-        width:100%;
-      }
+    @keyframes spin{
+      to{ transform:rotate(360deg); }
+    }
 
-      .actions .btn{
-        flex:1 1 0;
-        min-width:0;
-      }
+    @keyframes floaty{
+      0%,100%{ transform:translateY(0); }
+      50%{ transform:translateY(-6px); }
+    }
 
-      .game-shell{
-        height:calc(100dvh - 134px - var(--sat) - var(--sab));
-        min-height:520px;
-        border-radius:24px;
-      }
+    @media (max-width:640px){
+      .boot-card{ border-radius:24px; padding:20px 16px; }
+      .boot-hero{ width:92px; height:92px; font-size:46px; }
+      .boot-title{ font-size:34px; }
+    }
 
-      .loading-card{
-        border-radius:24px;
-        padding:18px 16px;
-      }
-
-      .loading-title{
-        font-size:25px;
-      }
-
-      .loading-sub{
-        font-size:13px;
+    @media (prefers-reduced-motion: reduce){
+      *,
+      *::before,
+      *::after{
+        animation:none !important;
+        transition:none !important;
       }
     }
   </style>
 </head>
 <body>
-  <div class="bg-clouds" aria-hidden="true">
-    <div class="cloud c1"></div>
-    <div class="cloud c2"></div>
-    <div class="cloud c3"></div>
-  </div>
+  <div id="gameMount"></div>
 
-  <div class="page">
-    <div class="topbar">
-      <div class="brand">
-        <div class="brand-icon">🍔</div>
-        <div>
-          <div class="brand-title">GoodJunk Solo Boss</div>
-          <div class="brand-sub">child-friendly • phase boss • warmup → run → summary → cooldown</div>
+  <div id="bootOverlay" class="boot-overlay">
+    <div class="boot-card">
+      <div class="boot-inner">
+        <div class="boot-badge">HeroHealth • GoodJunk Solo Boss</div>
+        <div class="boot-hero">🍔⚔️</div>
+        <h1 class="boot-title">กำลังเตรียมด่านบอส</h1>
+        <div class="boot-sub" id="bootSub">
+          ระบบกำลังตรวจ warmup ของวันนี้ และเตรียมเข้าสู่ด่านบอสให้พร้อม
         </div>
-      </div>
 
-      <div class="actions">
-        <a id="btnLauncher" class="btn launcher" href="./goodjunk-launcher.html">🎮 Launcher</a>
-        <a id="btnHub" class="btn hub" href="./hub-v2.html">🏠 Hub</a>
-      </div>
-    </div>
-
-    <div class="game-shell">
-      <div id="gameMount"></div>
-
-      <div id="loadingScreen" class="loading">
-        <div class="loading-card">
-          <div class="loading-badge">GOODJUNK PHASE BOSS</div>
-          <div class="loading-emoji">🍎</div>
-          <h1 class="loading-title">เตรียมลุยกับ Junk King!</h1>
-          <p class="loading-sub">
-            เก็บอาหารดี หลีกเลี่ยง junk ผ่าน Phase 1 → Phase 2 → Boss
-            แล้วปราบบอสให้ได้
-          </p>
-
-          <div class="loading-meta">
-            <div class="chip" id="metaDiff">diff: normal</div>
-            <div class="chip" id="metaTime">time: 150s</div>
-            <div class="chip" id="metaRun">run: play</div>
-            <div class="chip debug" id="metaDebug">debug: on</div>
-          </div>
+        <div class="boot-status">
+          <div class="boot-pill" id="bootStatusLine">กำลังโหลด…</div>
         </div>
-      </div>
 
-      <div id="errorBox" class="error"></div>
+        <div class="boot-spinner" id="bootSpinner"></div>
+
+        <div class="boot-actions" id="bootActions" style="display:none">
+          <button class="boot-btn primary" id="btnRetry" type="button">ลองใหม่</button>
+          <button class="boot-btn info" id="btnLauncher" type="button">กลับ Launcher</button>
+          <button class="boot-btn" id="btnHub" type="button">กลับ HUB</button>
+        </div>
+
+        <pre id="bootDebug" class="boot-debug"></pre>
+      </div>
     </div>
   </div>
 
   <script>
-    (function buildRunContext(){
+    (() => {
+      'use strict';
+
       const q = new URLSearchParams(location.search);
+      const DEBUG = q.get('debug') === '1';
 
-      function first(){
-        for (let i = 0; i < arguments.length; i++) {
-          const v = arguments[i];
-          if (String(v || '').trim()) return String(v).trim();
+      const $ = (id) => document.getElementById(id);
+
+      function clean(v, d=''){
+        const s = String(v ?? '').trim();
+        return s || d;
+      }
+
+      function bangkokDateKey(){
+        try{
+          const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone:'Asia/Bangkok',
+            year:'numeric',
+            month:'2-digit',
+            day:'2-digit'
+          }).formatToParts(new Date());
+          const m = {};
+          parts.forEach(p => { if (p.type !== 'literal') m[p.type] = p.value; });
+          return `${m.year}-${m.month}-${m.day}`;
+        }catch(_){
+          const d = new Date();
+          return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         }
-        return '';
       }
 
-      function cleanPid(v){
-        return String(v || 'anon').trim().replace(/[^\w-]/g,'').slice(0,40) || 'anon';
+      function buildUrl(path, extra = {}){
+        const u = new URL(path, location.href);
+        Object.entries(extra).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== '') {
+            u.searchParams.set(k, String(v));
+          }
+        });
+        return u.toString();
       }
 
-      function cleanName(v){
-        return String(v || '').trim().replace(/[<>]/g,'').slice(0,40);
+      function readGateDone(pid){
+        try{
+          const day = bangkokDateKey();
+          const key = `HHA_GATE_DONE_V1:${pid}:nutrition:goodjunk:warmup:${day}`;
+          return localStorage.getItem(key) === '1';
+        }catch(_){
+          return false;
+        }
       }
 
-      function cleanEnum(v, allow, fallback){
-        v = String(v || '').trim().toLowerCase();
-        return allow.indexOf(v) >= 0 ? v : fallback;
+      function buildHubRootUrl(){
+        return clean(
+          q.get('hubRoot'),
+          q.get('hub'),
+          new URL('./hub.html', location.href).toString()
+        );
       }
 
-      function numIn(v, fallback, min, max){
-        v = Number(v);
-        if (!Number.isFinite(v)) return fallback;
-        return Math.max(min, Math.min(max, v));
+      function buildLauncherUrl(hubRoot){
+        if (q.get('launcher')) {
+          try { return new URL(q.get('launcher'), location.href).toString(); }
+          catch(_) {}
+        }
+
+        return buildUrl('./goodjunk-launcher.html', {
+          pid: clean(q.get('pid'), 'anon'),
+          nick: clean(q.get('name'), q.get('nick'), 'Hero'),
+          diff: clean(q.get('diff'), 'normal'),
+          time: clean(q.get('time'), '80'),
+          view: clean(q.get('view'), 'mobile'),
+          run: clean(q.get('run'), 'play'),
+          hub: hubRoot,
+          studyId: clean(q.get('studyId'), ''),
+          conditionGroup: clean(q.get('conditionGroup'), ''),
+          sbUrl: clean(q.get('sbUrl'), ''),
+          sbAnon: clean(q.get('sbAnon'), ''),
+          debug: DEBUG ? '1' : ''
+        });
       }
 
-      function defaultHub(){
-        return q.get('hub') || new URL('./hub-v2.html', location.href).toString();
-      }
+      const hubRoot = buildHubRootUrl();
+      const launcherUrl = buildLauncherUrl(hubRoot);
 
-      const runCtx = {
-        pid: cleanPid(first(q.get('pid'), 'anon')),
-        name: cleanName(first(q.get('name'), q.get('nickName'), 'Hero')),
-        studyId: first(q.get('studyId'), ''),
-        diff: cleanEnum(first(q.get('diff'), 'normal'), ['easy','normal','hard'], 'normal'),
-        time: String(numIn(first(q.get('time'), 150), 150, 90, 300)),
-        seed: first(q.get('seed'), String(Date.now())),
-        hub: defaultHub(),
-        view: cleanEnum(first(q.get('view'), 'mobile'), ['mobile','pc','cvr'], 'mobile'),
-        run: cleanEnum(first(q.get('run'), 'play'), ['play','research','demo'], 'play'),
-        gameId: first(q.get('gameId'), q.get('game'), 'goodjunk'),
-        zone: first(q.get('zone'), 'nutrition'),
-        entry: first(q.get('entry'), 'solo-boss'),
-        mode: first(q.get('mode'), 'solo')
+      const ctx = {
+        pid: clean(q.get('pid'), 'anon'),
+        name: clean(q.get('name'), q.get('nick'), q.get('nickName'), 'Hero'),
+        studyId: clean(q.get('studyId'), ''),
+        diff: clean(q.get('diff'), 'normal'),
+        time: clean(q.get('time'), '80'),
+        seed: clean(q.get('seed'), String(Date.now())),
+        view: clean(q.get('view'), 'mobile'),
+        run: clean(q.get('run'), 'play'),
+        gameId: clean(q.get('gameId'), 'goodjunk'),
+        zone: clean(q.get('zone'), 'nutrition'),
+        mode: 'solo',
+        entry: 'solo-boss',
+        phaseBoss: '1',
+        boss: '1',
+        theme: 'phaseboss',
+        hubRoot,
+        launcher: launcherUrl,
+        hub: launcherUrl
       };
 
-      window.__GJ_RUN_CTX__ = runCtx;
-
-      const btnHub = document.getElementById('btnHub');
-      const btnLauncher = document.getElementById('btnLauncher');
-      const metaDiff = document.getElementById('metaDiff');
-      const metaTime = document.getElementById('metaTime');
-      const metaRun = document.getElementById('metaRun');
-      const metaDebug = document.getElementById('metaDebug');
-
-      if (btnHub) btnHub.href = runCtx.hub;
-
-      if (btnLauncher) {
-        const u = new URL('./goodjunk-launcher.html', location.href);
-        [
-          'pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','studentKey',
-          'schoolCode','classRoom','studentNo','nickName','name','seed','gameId','zone','debug','log'
-        ].forEach((k) => {
-          const v =
-            k === 'name' ? runCtx.name :
-            k === 'pid' ? runCtx.pid :
-            k === 'studyId' ? runCtx.studyId :
-            k === 'diff' ? runCtx.diff :
-            k === 'time' ? runCtx.time :
-            k === 'seed' ? runCtx.seed :
-            k === 'hub' ? runCtx.hub :
-            k === 'view' ? runCtx.view :
-            k === 'run' ? runCtx.run :
-            k === 'gameId' ? runCtx.gameId :
-            k === 'zone' ? runCtx.zone :
-            q.get(k);
-
-          if (v != null && v !== '') u.searchParams.set(k, v);
-        });
-        btnLauncher.href = u.toString();
+      function setStatus(text){
+        const el = $('bootStatusLine');
+        if (el) el.textContent = text;
       }
 
-      if (metaDiff) metaDiff.textContent = 'diff: ' + runCtx.diff;
-      if (metaTime) metaTime.textContent = 'time: ' + runCtx.time + 's';
-      if (metaRun) metaRun.textContent = 'run: ' + runCtx.run;
+      function showError(err){
+        const spinner = $('bootSpinner');
+        const actions = $('bootActions');
+        const debug = $('bootDebug');
+        const sub = $('bootSub');
 
-      if (q.get('debug') === '1' && metaDebug) {
-        metaDebug.classList.add('show');
-      }
-    })();
-  </script>
+        if (spinner) spinner.style.display = 'none';
+        if (actions) actions.style.display = 'flex';
+        if (sub) sub.textContent = 'โหลดด่านบอสไม่สำเร็จ ลองใหม่หรือกลับไปหน้า launcher ได้เลย';
 
-  <script>
-    (function loadingAndErrorShell(){
-      const loading = document.getElementById('loadingScreen');
-      const errorBox = document.getElementById('errorBox');
+        setStatus('โหลดไม่สำเร็จ');
 
-      function hideLoading(){
-        if (loading) loading.classList.add('hidden');
-      }
-
-      function showError(msg){
-        if (!errorBox) return;
-
-        const launcherUrl = (function(){
-          const u = new URL('./goodjunk-launcher.html', location.href);
-          const q = new URLSearchParams(location.search);
-          q.forEach((v, k) => u.searchParams.set(k, v));
-          return u.toString();
-        })();
-
-        errorBox.innerHTML = `
-          <div style="font-size:14px;font-weight:1000;margin-bottom:8px;">เกิดปัญหาระหว่างเข้าเกม</div>
-          <div style="white-space:pre-wrap;word-break:break-word;">${String(msg || 'unknown error')}</div>
-          <div style="display:grid;gap:8px;margin-top:12px;">
-            <button id="bossRetryBtn" type="button"
-              style="min-height:42px;border:none;border-radius:14px;background:linear-gradient(180deg,#7fcfff,#58b7f5);color:#08374d;font-weight:1000;cursor:pointer;">
-              🔄 ลองโหลดใหม่
-            </button>
-            <a href="${launcherUrl}"
-              style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;min-height:42px;border-radius:14px;background:#fff;color:#6c6a61;border:2px solid #d7edf7;font-weight:1000;">
-              🎮 กลับ Launcher
-            </a>
-          </div>
-        `;
-        errorBox.classList.add('show');
-
-        const retryBtn = document.getElementById('bossRetryBtn');
-        if (retryBtn) {
-          retryBtn.addEventListener('click', function(){
-            location.reload();
-          }, { once: true });
+        if (debug) {
+          debug.textContent = String(err?.stack || err || 'Unknown error');
+          debug.classList.add('show');
         }
       }
 
-      window.__GJ_HIDE_LOADING__ = hideLoading;
+      function hideBoot(){
+        const overlay = $('bootOverlay');
+        if (overlay) overlay.style.display = 'none';
+      }
+
+      function buildSelfRunUrlWithWgskip(){
+        return buildUrl('./goodjunk-solo-boss.html', {
+          pid: ctx.pid,
+          name: ctx.name,
+          studyId: ctx.studyId,
+          diff: ctx.diff,
+          time: ctx.time,
+          seed: ctx.seed,
+          view: ctx.view,
+          run: ctx.run,
+          gameId: ctx.gameId,
+          zone: ctx.zone,
+          hubRoot: ctx.hubRoot,
+          launcher: ctx.launcher,
+          hub: ctx.hubRoot,
+          wgskip: '1',
+          entry: ctx.entry,
+          phaseBoss: ctx.phaseBoss,
+          boss: ctx.boss,
+          theme: ctx.theme,
+          debug: DEBUG ? '1' : ''
+        });
+      }
+
+      function buildWarmupUrl(nextUrl){
+        return buildUrl('./warmup-gate.html', {
+          phase: 'warmup',
+          gatePhase: 'warmup',
+          mode: 'solo',
+          cat: 'nutrition',
+          zone: 'nutrition',
+          game: 'goodjunk',
+          gameId: 'goodjunk',
+          theme: 'goodjunk',
+          pid: ctx.pid,
+          name: ctx.name,
+          studyId: ctx.studyId,
+          diff: ctx.diff,
+          time: ctx.time,
+          view: ctx.view,
+          run: ctx.run,
+          seed: ctx.seed,
+          hub: ctx.launcher,
+          hubRoot: ctx.hubRoot,
+          launcher: ctx.launcher,
+          next: nextUrl,
+          entry: ctx.entry,
+          phaseBoss: ctx.phaseBoss,
+          boss: ctx.boss,
+          debug: DEBUG ? '1' : ''
+        });
+      }
+
+      function markLastMode(){
+        try{
+          localStorage.setItem(`GJ_LAST_MODE:${ctx.pid}`, 'solo');
+          localStorage.setItem(`GJ_LAST_RUN_URL:${ctx.pid}`, buildSelfRunUrlWithWgskip());
+        }catch(_){}
+      }
+
+      window.__GJ_RUN_CTX__ = ctx;
+      window.__GJ_HIDE_LOADING__ = hideBoot;
       window.__GJ_SHOW_BOOT_ERROR__ = showError;
 
-      let tries = 0;
-      const maxTries = 60;
+      $('btnRetry')?.addEventListener('click', () => location.reload());
+      $('btnLauncher')?.addEventListener('click', () => { location.href = ctx.launcher; });
+      $('btnHub')?.addEventListener('click', () => { location.href = ctx.hubRoot; });
 
-      const tick = () => {
-        tries += 1;
+      try{
+        if (!clean(q.get('wgskip'))) {
+          setStatus('กำลังตรวจ warmup ของวันนี้…');
 
-        if (window.__GJ_BOOT_FAIL__) {
-          showError(window.__GJ_BOOT_FAIL__);
-          return;
+          if (!readGateDone(ctx.pid)) {
+            setStatus('ยังไม่ได้ warmup วันนี้ กำลังพาไป warmup…');
+            location.replace(buildWarmupUrl(buildSelfRunUrlWithWgskip()));
+            return;
+          }
         }
 
-        if (
-          window.__GJ_ENGINE_MOUNTED__ ||
-          document.getElementById('gjSoloBossRootClean')
-        ) {
-          hideLoading();
-          return;
-        }
+        markLastMode();
+        setStatus('warmup พร้อมแล้ว กำลังโหลดด่านบอส…');
 
-        if (tries >= maxTries) {
-          const msg = window.__GJ_SCRIPT_LOADED__
-            ? 'โหลด core แล้ว แต่ boot เกมไม่สำเร็จ'
-            : 'หน้าเกมโหลดนานเกินไป กรุณาลองใหม่อีกครั้ง';
-          showError(msg);
-          return;
-        }
-
-        setTimeout(tick, 120);
-      };
-
-      tick();
-
-      window.addEventListener('error', function (ev) {
-        const msg = ev && ev.message ? ev.message : 'เกิดข้อผิดพลาดระหว่างโหลดเกม';
-        showError(msg);
-      });
-
-      window.addEventListener('unhandledrejection', function (ev) {
-        const reason = ev && ev.reason ? String(ev.reason) : 'เกิดข้อผิดพลาดแบบ promise';
-        showError(reason);
-      });
-    })();
-  </script>
-
-  <script src="./firebase-config.js?v=20260407-logfix-r4"></script>
-  <script src="./vr-goodjunk/hha-cloud-logger.js?v=20260407-logfix-r4"></script>
-
-  <script>
-    (function loadBossCore(){
-      const src = './goodjunk-solo-phaseboss-v2.js?v=20260407-logfix-r4';
-      console.log('[GJSB HTML] loading core:', src);
-
-      const s = document.createElement('script');
-      s.src = src;
-      s.async = false;
-
-      s.onload = function () {
-        window.__GJ_SCRIPT_LOADED__ = true;
-        console.log('[GJSB HTML] core loaded:', src);
-      };
-
-      s.onerror = function () {
-        window.__GJ_BOOT_FAIL__ = 'โหลดไฟล์ gameplay core ไม่สำเร็จ: ' + src;
-        console.error('[GJSB HTML] core load failed:', src);
-        if (window.__GJ_SHOW_BOOT_ERROR__) {
-          window.__GJ_SHOW_BOOT_ERROR__(window.__GJ_BOOT_FAIL__);
-        }
-      };
-
-      document.body.appendChild(s);
+        const script = document.createElement('script');
+        script.src = './goodjunk-solo-phaseboss-v2.js?v=20260407-goodjunk-boss-flow';
+        script.defer = true;
+        script.onerror = () => showError('โหลดไฟล์ goodjunk-solo-phaseboss-v2.js ไม่สำเร็จ');
+        document.body.appendChild(script);
+      }catch(err){
+        showError(err);
+      }
     })();
   </script>
 </body>
