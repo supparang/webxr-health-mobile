@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Bath v5 Main Game</title>
+  <title>HeroHealth • Bath Main Game</title>
 
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
@@ -13,8 +13,8 @@
       --sky2:#b8ebff;
       --ink:#18465e;
       --ink2:#477287;
-      --panel:rgba(255,255,255,.94);
-      --panel2:rgba(255,255,255,.98);
+      --panel:rgba(255,255,255,.95);
+      --panel2:rgba(255,255,255,.99);
       --line:#cdeeff;
       --good:#18b86f;
       --warn:#ff9b42;
@@ -125,7 +125,7 @@
       top:82px;
       left:8px;
       right:8px;
-      max-width:560px;
+      max-width:620px;
     }
 
     .task-card{
@@ -145,6 +145,7 @@
       font-size:12px;
       font-weight:1000;
       color:var(--ink2);
+      flex-wrap:wrap;
     }
 
     .task-title{
@@ -241,7 +242,7 @@
     .hidden{ display:none !important; }
 
     .card{
-      width:min(95vw,820px);
+      width:min(95vw,860px);
       border-radius:30px;
       background:linear-gradient(180deg,rgba(255,255,255,.99),rgba(244,252,255,.98));
       border:4px solid rgba(255,255,255,.98);
@@ -343,7 +344,7 @@
       <div class="hud">
         <div class="chip">
           <span class="k">เวลา</span>
-          <span class="v"><span id="timer">70</span>s</span>
+          <span class="v"><span id="timer">72</span>s</span>
         </div>
         <div class="chip">
           <span class="k">คะแนน</span>
@@ -352,6 +353,10 @@
         <div class="chip">
           <span class="k">คอมโบ</span>
           <span class="v">x<span id="combo">0</span></span>
+        </div>
+        <div class="chip">
+          <span class="k">ขั้น</span>
+          <span class="v"><span id="phaseNow">1</span>/4</span>
         </div>
         <div class="chip">
           <span class="k">โซน</span>
@@ -368,16 +373,17 @@
     <div class="task-wrap">
       <div class="task-card">
         <div class="task-head">
-          <span id="modeText">MODE</span>
-          <span id="remainText">เหลือ 4 คราบ</span>
+          <span id="modeText">MOBILE • NORMAL</span>
+          <span id="toolText">อุปกรณ์: ฝักบัว</span>
         </div>
-        <div id="taskTitle" class="task-title">ตอนนี้: ล้างศีรษะ</div>
+        <div id="taskTitle" class="task-title">ตอนนี้: ทำตัวให้เปียกที่ศีรษะ</div>
         <div class="bar">
           <i id="zoneBar"></i>
         </div>
         <div class="task-sub">
-          <span id="taskHint">แตะคราบบนศีรษะให้ครบ</span>
-          <span id="cleanedText">ล้างแล้ว 0/4</span>
+          <span id="taskHint">แตะจุดบนศีรษะให้เปียกครบ</span>
+          <span id="cleanedText">ทำแล้ว 0/4</span>
+          <span id="remainText">เหลือ 4 จุด</span>
         </div>
       </div>
     </div>
@@ -385,7 +391,7 @@
     <div id="centerMsg" class="center-msg">เริ่มอาบน้ำกัน!</div>
 
     <div id="helperText" class="helper">
-      PC: คลิกคราบ • Mobile/Cardboard: เล็งค้างที่คราบ • เกมจะบอกชัดว่าต้องล้างส่วนไหน
+      PC/Mobile: แตะคราบ • Cardboard: เล็งค้างที่คราบ • เกมจะบอกชัดว่าต้องทำส่วนไหน
     </div>
   </div>
 
@@ -393,15 +399,16 @@
     <div class="card">
       <h1>🛁 Bath Main Game</h1>
       <p class="sub">
-        เวอร์ชันนี้แก้ให้เห็นร่างกายครบ โดยเฉพาะขาและเท้า
-        และล้างทีละส่วนแบบชัดเจน ไม่ต้องเดาเองแล้ว
+        ตอนนี้เกมเล่นเป็น flow จริงแล้ว:
+        ทำตัวให้เปียก → ฟอกสบู่ → ล้างฟอง → เช็ดให้แห้ง
+        โดยทำทีละส่วนให้ชัดก่อนจะไปส่วนถัดไป
       </p>
 
       <div class="mini-grid">
-        <div class="mini">1) ดูว่าตอนนี้เกมให้ล้างส่วนไหน</div>
+        <div class="mini">1) ดูว่าตอนนี้เป็นขั้นอะไร และต้องทำที่ส่วนไหน</div>
         <div class="mini">2) คราบจะขึ้นบนส่วนนั้นจริง ๆ</div>
-        <div class="mini">3) แตะหรือเล็งค้างที่คราบให้ครบ</div>
-        <div class="mini">4) ผ่านแล้วเกมจะพาไปส่วนถัดไปอัตโนมัติ</div>
+        <div class="mini">3) แตะคราบให้ครบทีละจุด</div>
+        <div class="mini">4) ครบทุกส่วนแล้วเกมจะไปขั้นถัดไปให้อัตโนมัติ</div>
       </div>
 
       <div class="row">
@@ -415,7 +422,7 @@
     <div class="card">
       <h2 id="sumTitle">อาบน้ำเสร็จแล้ว!</h2>
       <div id="sumStars" class="stars">⭐️⭐️⭐️</div>
-      <p id="sumSub" class="sub">วันนี้ล้างตัวได้ครบทุกส่วนเลย</p>
+      <p id="sumSub" class="sub">วันนี้ทำได้ครบทุกขั้นตอนเลย</p>
 
       <div class="sum-grid">
         <div class="sum-box">
@@ -423,7 +430,7 @@
           <span class="v" id="sumScore">0</span>
         </div>
         <div class="sum-box">
-          <span class="k">ยิงโดน</span>
+          <span class="k">แตะโดน</span>
           <span class="v" id="sumHits">0</span>
         </div>
         <div class="sum-box">
@@ -475,8 +482,8 @@
           animation="property: position; from: 0 0 0; to: 0 0.03 0; dir: alternate; dur: 1450; loop: true; easing: easeInOutSine">
 
           <!-- legs -->
-          <a-cylinder id="part-leftLeg"  position="-0.22 0.54 0.06" radius="0.12" height="0.95" color="#ffd7b3"></a-cylinder>
-          <a-cylinder id="part-rightLeg" position="0.22 0.54 0.06" radius="0.12" height="0.95" color="#ffd7b3"></a-cylinder>
+          <a-cylinder position="-0.22 0.54 0.06" radius="0.12" height="0.95" color="#ffd7b3"></a-cylinder>
+          <a-cylinder position="0.22 0.54 0.06" radius="0.12" height="0.95" color="#ffd7b3"></a-cylinder>
 
           <!-- feet -->
           <a-sphere position="-0.22 0.03 0.14" radius="0.12" color="#ffffff"></a-sphere>
@@ -486,25 +493,25 @@
           <a-box position="0 1.02 0.08" width="0.84" height="0.28" depth="0.30" color="#67c8ef"></a-box>
 
           <!-- belly -->
-          <a-box id="part-belly" position="0 1.28 0.04" width="0.86" height="0.42" depth="0.30" color="#8fdcff"></a-box>
+          <a-box position="0 1.28 0.04" width="0.86" height="0.42" depth="0.30" color="#8fdcff"></a-box>
 
           <!-- chest -->
-          <a-box id="part-chest" position="0 1.70 0.04" width="0.98" height="0.60" depth="0.34" color="#8fdcff"></a-box>
+          <a-box position="0 1.70 0.04" width="0.98" height="0.60" depth="0.34" color="#8fdcff"></a-box>
 
           <!-- arms -->
-          <a-entity id="leftArmRig" position="-0.78 1.72 0.02" rotation="0 0 78">
-            <a-cylinder id="part-leftArm" position="0 -0.34 0" radius="0.09" height="1.00" color="#ffd7b3"></a-cylinder>
+          <a-entity position="-0.78 1.72 0.02" rotation="0 0 78">
+            <a-cylinder position="0 -0.34 0" radius="0.09" height="1.00" color="#ffd7b3"></a-cylinder>
             <a-sphere position="0 -0.82 0.04" radius="0.10" color="#ffffff"></a-sphere>
           </a-entity>
 
-          <a-entity id="rightArmRig" position="0.78 1.72 0.02" rotation="0 0 -78">
-            <a-cylinder id="part-rightArm" position="0 -0.34 0" radius="0.09" height="1.00" color="#ffd7b3"></a-cylinder>
+          <a-entity position="0.78 1.72 0.02" rotation="0 0 -78">
+            <a-cylinder position="0 -0.34 0" radius="0.09" height="1.00" color="#ffd7b3"></a-cylinder>
             <a-sphere position="0 -0.82 0.04" radius="0.10" color="#ffffff"></a-sphere>
           </a-entity>
 
           <!-- head -->
-          <a-entity id="headRig" position="0 2.44 0.04">
-            <a-sphere id="part-head" position="0 0 0" radius="0.40" color="#ffd7b3"></a-sphere>
+          <a-entity position="0 2.44 0.04">
+            <a-sphere position="0 0 0" radius="0.40" color="#ffd7b3"></a-sphere>
             <a-sphere position="0 0.14 -0.02" radius="0.42" color="#6a4638" scale="1 0.70 1"></a-sphere>
             <a-sphere position="0 0.20 0.12" radius="0.22" color="#6a4638" scale="1 0.45 0.80"></a-sphere>
 
@@ -524,10 +531,10 @@
       <a-entity id="zoneMarker"></a-entity>
       <a-entity id="zoneArrow"></a-entity>
 
-      <!-- dirt layer -->
+      <!-- target layer -->
       <a-entity id="targetLayer"></a-entity>
 
-      <!-- bubble fx layer -->
+      <!-- fx -->
       <a-entity id="fxLayer"></a-entity>
     </a-entity>
 
@@ -536,12 +543,10 @@
     <a-light type="point" color="#6fe7ff" intensity="1.10" position="0 3 -3"></a-light>
     <a-sky color="#dff7ff"></a-sky>
 
-    <!-- PC mouse -->
     <a-entity id="mouseCursor" cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
 
     <a-entity id="rig" position="0 1.56 0.35">
       <a-entity id="cameraHolder" camera look-controls="enabled: false">
-        <!-- mobile/cvr gaze -->
         <a-entity id="gazeCursor"
           position="0 0 -1"
           visible="false"
@@ -574,11 +579,50 @@
       const SEED = qs.get('seed') || String(Date.now());
 
       const PRESETS = {
-        easy:   { startTime: 85, spotLife: 4200, spawnDelay: 220, zoneBonus: 28 },
-        normal: { startTime: 72, spotLife: 3200, spawnDelay: 180, zoneBonus: 36 },
-        hard:   { startTime: 60, spotLife: 2500, spawnDelay: 150, zoneBonus: 44 }
+        easy:   { startTime: 92, spotLife: 4200, spawnDelay: 220, zoneBonus: 24, missPenalty: 1 },
+        normal: { startTime: 78, spotLife: 3200, spawnDelay: 180, zoneBonus: 30, missPenalty: 1 },
+        hard:   { startTime: 64, spotLife: 2500, spawnDelay: 150, zoneBonus: 36, missPenalty: 2 }
       };
       const cfg = PRESETS[DIFF] || PRESETS.normal;
+
+      const PHASES = [
+        {
+          id:'WET',
+          label:'ทำตัวให้เปียก',
+          tool:'ฝักบัว',
+          color:'#36c7ff',
+          score:34,
+          zoneBonus:24,
+          startMsg:'💧 เริ่มจากทำตัวให้เปียกก่อน'
+        },
+        {
+          id:'SOAP',
+          label:'ฟอกสบู่',
+          tool:'สบู่',
+          color:'#ff8ec7',
+          score:42,
+          zoneBonus:30,
+          startMsg:'🧼 ต่อไปฟอกสบู่ให้ทั่ว'
+        },
+        {
+          id:'RINSE',
+          label:'ล้างฟอง',
+          tool:'ฝักบัว',
+          color:'#ffffff',
+          score:38,
+          zoneBonus:28,
+          startMsg:'🚿 ล้างฟองออกให้หมด'
+        },
+        {
+          id:'DRY',
+          label:'เช็ดให้แห้ง',
+          tool:'ผ้าขนหนู',
+          color:'#ffd76c',
+          score:46,
+          zoneBonus:34,
+          startMsg:'🧻 ขั้นสุดท้าย เช็ดให้แห้ง'
+        }
+      ];
 
       const ZONES = [
         {
@@ -587,10 +631,10 @@
           marker:{ geo:'sphere', radius:0.52, position:'0 2.66 -4.54', rotation:'0 0 0' },
           arrow:{ x:0, y:3.30, z:-4.54 },
           spots:[
-            { id:'head1', x:0,    y:2.78, z:-4.18 },
-            { id:'head2', x:-0.12,y:2.60, z:-4.18 },
-            { id:'head3', x:0.12, y:2.60, z:-4.18 },
-            { id:'head4', x:0,    y:2.40, z:-4.18 }
+            { id:'head1', x:0,     y:2.78, z:-4.18 },
+            { id:'head2', x:-0.12, y:2.60, z:-4.18 },
+            { id:'head3', x:0.12,  y:2.60, z:-4.18 },
+            { id:'head4', x:0,     y:2.40, z:-4.18 }
           ]
         },
         {
@@ -673,10 +717,12 @@
         timer:$('timer'),
         score:$('score'),
         combo:$('combo'),
+        phaseNow:$('phaseNow'),
         stepNow:$('stepNow'),
         stepAll:$('stepAll'),
         taskTitle:$('taskTitle'),
         modeText:$('modeText'),
+        toolText:$('toolText'),
         remainText:$('remainText'),
         cleanedText:$('cleanedText'),
         zoneBar:$('zoneBar'),
@@ -715,8 +761,6 @@
       const gazeCursor = $('gazeCursor');
       const cameraHolder = $('cameraHolder');
 
-      function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
-
       function showMsg(text, ms = 700){
         ui.centerMsg.textContent = text;
         ui.centerMsg.classList.add('show');
@@ -724,7 +768,7 @@
         showMsg._timer = setTimeout(() => ui.centerMsg.classList.remove('show'), ms);
       }
 
-      function addBubbleBurst(pos){
+      function addBubbleBurst(pos, color = '#ffffff'){
         for (let i = 0; i < 8; i++) {
           const b = document.createElement('a-sphere');
           const dx = (Math.random() * 0.24) - 0.12;
@@ -734,7 +778,7 @@
 
           b.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
           b.setAttribute('radius', size.toFixed(3));
-          b.setAttribute('color', '#ffffff');
+          b.setAttribute('color', color);
           b.setAttribute('opacity', '0.95');
           b.setAttribute(
             'animation__move',
@@ -758,7 +802,7 @@
           gazeCursor.setAttribute('visible', 'true');
           cameraHolder.setAttribute('look-controls', 'enabled: true');
         } else {
-          gazeCursor.setAttribute('visible', 'true');
+          gazeCursor.setAttribute('visible', 'false');
           cameraHolder.setAttribute('look-controls', 'enabled: false');
         }
       }
@@ -774,11 +818,16 @@
           this.hits = 0;
           this.miss = 0;
 
+          this.phaseIndex = 0;
           this.zoneIndex = 0;
           this.zoneDone = 0;
 
           this.activeTarget = null;
           this.tickTimer = null;
+        }
+
+        currentPhase(){
+          return PHASES[this.phaseIndex] || null;
         }
 
         currentZone(){
@@ -799,6 +848,7 @@
           this.combo = 0;
           this.hits = 0;
           this.miss = 0;
+          this.phaseIndex = 0;
           this.zoneIndex = 0;
           this.zoneDone = 0;
           this.renderHud();
@@ -811,6 +861,7 @@
           ui.startOverlay.classList.add('hidden');
           ui.summaryOverlay.classList.add('hidden');
 
+          showMsg(this.currentPhase().startMsg, 900);
           this.renderZone();
           this.spawnTarget();
 
@@ -841,31 +892,14 @@
         }
 
         renderHud(){
+          const phase = this.currentPhase();
           ui.timer.textContent = this.time;
           ui.score.textContent = this.score;
           ui.combo.textContent = this.combo;
+          ui.phaseNow.textContent = this.phaseIndex + 1;
           ui.stepNow.textContent = Math.min(this.zoneIndex + 1, ZONES.length);
           ui.modeText.textContent = `${VIEW.toUpperCase()} • ${DIFF.toUpperCase()}`;
-        }
-
-        renderZone(){
-          const zone = this.currentZone();
-          if (!zone) {
-            this.clearMarkers();
-            return;
-          }
-
-          const total = zone.spots.length;
-          const remain = Math.max(0, total - this.zoneDone);
-
-          ui.taskTitle.textContent = `ตอนนี้: ล้าง${zone.label}`;
-          ui.remainText.textContent = `เหลือ ${remain} คราบ`;
-          ui.cleanedText.textContent = `ล้างแล้ว ${this.zoneDone}/${total}`;
-          ui.zoneBar.style.width = `${(this.zoneDone / total) * 100}%`;
-          ui.taskHint.textContent = `แตะคราบบน${zone.label}ให้ครบ`;
-
-          this.renderMarker(zone);
-          this.renderHud();
+          ui.toolText.textContent = `อุปกรณ์: ${phase ? phase.tool : '-'}`;
         }
 
         clearMarkers(){
@@ -913,6 +947,32 @@
           zoneArrow.appendChild(arrow);
         }
 
+        renderZone(){
+          const zone = this.currentZone();
+          const phase = this.currentPhase();
+
+          if (!zone || !phase) {
+            this.clearMarkers();
+            return;
+          }
+
+          const total = zone.spots.length;
+          const remain = Math.max(0, total - this.zoneDone);
+
+          ui.taskTitle.textContent = `ตอนนี้: ${phase.label}ที่${zone.label}`;
+          ui.remainText.textContent = `เหลือ ${remain} จุด`;
+          ui.cleanedText.textContent = `ทำแล้ว ${this.zoneDone}/${total}`;
+          ui.zoneBar.style.width = `${(this.zoneDone / total) * 100}%`;
+
+          if (phase.id === 'WET') ui.taskHint.textContent = `แตะจุดบน${zone.label}ให้เปียกครบ`;
+          if (phase.id === 'SOAP') ui.taskHint.textContent = `แตะจุดบน${zone.label}เพื่อฟอกสบู่`;
+          if (phase.id === 'RINSE') ui.taskHint.textContent = `ล้างฟองบน${zone.label}ให้หมด`;
+          if (phase.id === 'DRY') ui.taskHint.textContent = `เช็ด${zone.label}ให้แห้งครบ`;
+
+          this.renderMarker(zone);
+          this.renderHud();
+        }
+
         currentSpot(){
           const zone = this.currentZone();
           if (!zone) return null;
@@ -925,7 +985,8 @@
 
           const zone = this.currentZone();
           const spot = this.currentSpot();
-          if (!zone || !spot) return;
+          const phase = this.currentPhase();
+          if (!zone || !spot || !phase) return;
 
           const pos = { x: spot.x, y: spot.y, z: spot.z };
           const root = document.createElement('a-entity');
@@ -935,25 +996,36 @@
           hit.classList.add('clickable');
           hit.classList.add('target-hit-glow');
           hit.setAttribute('radius', '0.28');
-          hit.setAttribute('color', '#7fe3ff');
-          hit.setAttribute('opacity', '0.22');
+          hit.setAttribute('color', phase.id === 'RINSE' ? '#6fdcff' : phase.color);
+          hit.setAttribute('opacity', '0.24');
           hit.setAttribute('transparent', 'true');
 
-          const dirt = document.createElement('a-sphere');
-          dirt.setAttribute('radius', '0.11');
-          dirt.setAttribute('color', '#6b422e');
+          const core = document.createElement('a-sphere');
+          core.setAttribute('radius', phase.id === 'SOAP' ? '0.12' : '0.10');
+          core.setAttribute('color', phase.id === 'RINSE' ? '#ffffff' : phase.color);
 
           const ring = document.createElement('a-ring');
           ring.setAttribute('radius-inner', '0.17');
           ring.setAttribute('radius-outer', '0.21');
           ring.setAttribute('rotation', '-90 0 0');
           ring.setAttribute('position', '0 0 0');
-          ring.setAttribute('color', '#ffffff');
+          ring.setAttribute('color', phase.id === 'SOAP' ? '#ffffff' : '#ffffff');
           ring.setAttribute('opacity', '0.86');
 
           root.appendChild(hit);
-          root.appendChild(dirt);
+          root.appendChild(core);
           root.appendChild(ring);
+
+          if (phase.id === 'SOAP' || phase.id === 'RINSE') {
+            for (let i = 0; i < 3; i++) {
+              const bubble = document.createElement('a-sphere');
+              bubble.setAttribute('position', `${(Math.random()*0.18-0.09).toFixed(2)} ${(Math.random()*0.18-0.09).toFixed(2)} ${(Math.random()*0.06-0.03).toFixed(2)}`);
+              bubble.setAttribute('radius', (0.03 + Math.random()*0.02).toFixed(3));
+              bubble.setAttribute('color', '#ffffff');
+              bubble.setAttribute('opacity', '0.92');
+              root.appendChild(bubble);
+            }
+          }
 
           const expireTimer = setTimeout(() => this.onMiss(pos), cfg.spotLife);
           hit.addEventListener('click', () => this.onHit(pos));
@@ -962,55 +1034,95 @@
           this.activeTarget = { el:root, expireTimer, pos };
         }
 
+        nextPhase(){
+          this.phaseIndex += 1;
+          this.zoneIndex = 0;
+          this.zoneDone = 0;
+
+          if (this.phaseIndex >= PHASES.length) {
+            this.finish(true);
+            return;
+          }
+
+          const phase = this.currentPhase();
+          showMsg(phase.startMsg, 900);
+          this.renderZone();
+          setTimeout(() => this.spawnTarget(), 400);
+        }
+
         onHit(pos){
           if (!this.running || this.ended || !this.activeTarget) return;
 
+          const phase = this.currentPhase();
+          const zone = this.currentZone();
           this.clearTarget();
 
           this.combo += 1;
           this.hits += 1;
           this.zoneDone += 1;
-          this.score += 50 + Math.min(this.combo, 10) * 8;
+          this.score += phase.score + Math.min(this.combo, 10) * 6;
 
-          addBubbleBurst(pos);
+          let hitMsg = 'ดีมาก!';
+          let fxColor = '#ffffff';
+
+          if (phase.id === 'WET') {
+            hitMsg = '💧 เปียกแล้ว 1 จุด';
+            fxColor = '#9de9ff';
+          } else if (phase.id === 'SOAP') {
+            hitMsg = '🧼 ฟอกสบู่แล้ว 1 จุด';
+            fxColor = '#ffd7ef';
+          } else if (phase.id === 'RINSE') {
+            hitMsg = '🚿 ล้างฟองแล้ว 1 จุด';
+            fxColor = '#ffffff';
+          } else if (phase.id === 'DRY') {
+            hitMsg = '🧻 เช็ดแห้งแล้ว 1 จุด';
+            fxColor = '#ffe39b';
+          }
+
+          addBubbleBurst(pos, fxColor);
 
           const total = this.zoneNeed();
           const remain = Math.max(0, total - this.zoneDone);
 
           if (remain > 0) {
-            showMsg(`💧 ดีมาก! เหลืออีก ${remain} จุด`, 500);
+            showMsg(`${hitMsg} • เหลืออีก ${remain} จุด`, 520);
             this.renderZone();
             setTimeout(() => this.spawnTarget(), cfg.spawnDelay);
             return;
           }
 
-          this.score += cfg.zoneBonus;
+          this.score += phase.zoneBonus;
           this.time += 2;
-          showMsg(`✅ ล้าง${this.currentZone().label}เสร็จแล้ว!`, 900);
+          showMsg(`✅ ${phase.label}${zone.label}เสร็จแล้ว!`, 900);
 
           this.zoneIndex += 1;
           this.zoneDone = 0;
 
           if (this.zoneIndex >= ZONES.length) {
-            this.finish(true);
+            this.nextPhase();
             return;
           }
 
           this.renderZone();
-          setTimeout(() => this.spawnTarget(), 520);
+          setTimeout(() => this.spawnTarget(), 420);
         }
 
         onMiss(pos){
           if (!this.running || this.ended || !this.activeTarget) return;
 
+          const phase = this.currentPhase();
           this.clearTarget();
 
           this.combo = 0;
           this.miss += 1;
-          this.time = Math.max(0, this.time - 1);
+          this.time = Math.max(0, this.time - cfg.missPenalty);
 
-          addBubbleBurst(pos);
-          showMsg('😅 ยังไม่โดนจุดนี้ ลองอีกครั้ง', 520);
+          addBubbleBurst(pos, '#f2d0c9');
+
+          if (phase.id === 'WET') showMsg('😅 ยังไม่โดนจุดที่ต้องทำให้เปียก', 520);
+          if (phase.id === 'SOAP') showMsg('😅 ยังไม่โดนจุดที่ต้องฟอกสบู่', 520);
+          if (phase.id === 'RINSE') showMsg('😅 ยังล้างฟองไม่โดนจุดนี้', 520);
+          if (phase.id === 'DRY') showMsg('😅 ยังเช็ดไม่โดนจุดนี้', 520);
 
           if (this.time <= 0) {
             this.finish(false);
@@ -1023,9 +1135,11 @@
         }
 
         getStars(){
-          if (this.zoneIndex >= ZONES.length && this.miss <= 3) return 3;
-          if (this.zoneIndex >= ZONES.length || this.zoneIndex >= ZONES.length - 1) return 2;
-          if (this.zoneIndex >= Math.floor(ZONES.length / 2)) return 1;
+          const completedPhases = this.phaseIndex + (this.ended ? 0 : 1);
+
+          if (this.phaseIndex >= PHASES.length && this.miss <= 5) return 3;
+          if (completedPhases >= 3) return 2;
+          if (completedPhases >= 2) return 1;
           return 0;
         }
 
@@ -1045,15 +1159,15 @@
           ui.sumTime.textContent = this.time;
 
           if (win) {
-            ui.sumTitle.textContent = '🛁 อาบน้ำครบทุกส่วนแล้ว!';
-            ui.sumSub.textContent = 'ศีรษะ อก แขน ท้อง และขา สะอาดครบแล้ว เก่งมาก';
+            ui.sumTitle.textContent = '🛁 อาบน้ำครบทุกขั้นแล้ว!';
+            ui.sumSub.textContent = 'ทำตัวให้เปียก ฟอกสบู่ ล้างฟอง และเช็ดให้แห้งครบแล้ว เก่งมาก';
           } else {
             ui.sumTitle.textContent = '🙂 เกือบครบแล้ว';
-            ui.sumSub.textContent = `ไปได้ถึงโซนที่ ${Math.min(this.zoneIndex + 1, ZONES.length)} แล้ว ลองอีกรอบได้เลย`;
+            ui.sumSub.textContent = `ไปได้ถึงขั้น ${Math.min(this.phaseIndex + 1, PHASES.length)} แล้ว ลองอีกรอบได้เลย`;
           }
 
           const payload = {
-            game:'bath-v5-main-stable',
+            game:'bath-main-flow-v2',
             pid:PID,
             run:RUN,
             diff:DIFF,
@@ -1063,6 +1177,7 @@
             hits:this.hits,
             miss:this.miss,
             timeLeft:this.time,
+            phaseReached:this.phaseIndex,
             zoneReached:this.zoneIndex,
             stars,
             at:new Date().toISOString()
