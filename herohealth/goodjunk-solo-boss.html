@@ -9,43 +9,42 @@
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --sky1:#dff4ff;
-      --sky2:#bfe8ff;
-      --sky3:#fff7d8;
-
-      --text:#4d4a42;
-      --muted:#6f6b63;
-      --line:#cfe6f8;
-
-      --card:#ffffff;
-      --card2:#f8fcff;
-
+      --bg1:#dff6ff;
+      --bg2:#bfe8ff;
+      --bg3:#fff7d4;
+      --ink:#4f4a43;
+      --muted:#7a766f;
+      --line:#cae6ef;
+      --blue:#76cfff;
+      --blue2:#58b7f5;
       --green:#7ed957;
-      --blue:#7fcfff;
-      --yellow:#ffd45c;
-      --orange:#ffb547;
-      --pink:#ff9fc7;
-
-      --shadow:0 18px 40px rgba(60,120,170,.16);
+      --green2:#58c33f;
+      --yellow:#ffd861;
+      --card:#fffdf7;
+      --shadow:0 14px 34px rgba(59,120,170,.16);
+      --radius:24px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
       min-height:100%;
       background:
-        radial-gradient(circle at top left, rgba(255,255,255,.95), rgba(255,255,255,0) 36%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 48%,var(--sky3));
+        radial-gradient(circle at top left, rgba(255,255,255,.95), rgba(255,255,255,0) 38%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
+      color:var(--ink);
       font-family:ui-rounded,"SF Pro Rounded","Nunito","Prompt","Kanit",system-ui,-apple-system,sans-serif;
-      color:var(--text);
     }
 
     body{
       overflow:hidden;
+      touch-action:manipulation;
     }
 
-    #app,
     #gameMount{
       position:fixed;
       inset:0;
@@ -55,31 +54,28 @@
     .boot-layer{
       position:fixed;
       inset:0;
-      z-index:999;
+      z-index:200;
       display:grid;
       place-items:center;
-      padding:16px;
+      padding:
+        calc(16px + var(--sat))
+        calc(16px + var(--sar))
+        calc(16px + var(--sab))
+        calc(16px + var(--sal));
       background:
-        radial-gradient(circle at top, rgba(255,255,255,.42), rgba(255,255,255,0) 34%),
-        linear-gradient(180deg, rgba(223,244,255,.92), rgba(191,232,255,.94) 48%, rgba(255,247,216,.96));
-      transition:opacity .25s ease, visibility .25s ease;
-    }
-
-    .boot-layer.hide{
-      opacity:0;
-      visibility:hidden;
-      pointer-events:none;
+        radial-gradient(circle at top left, rgba(255,255,255,.95), rgba(255,255,255,0) 38%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
     }
 
     .boot-card{
-      width:min(92vw, 560px);
-      border-radius:28px;
-      background:linear-gradient(180deg,#fff,#f9fdff);
-      border:1px solid rgba(255,255,255,.92);
+      width:min(92vw,720px);
+      border-radius:30px;
+      background:linear-gradient(180deg,#fff,#f8fdff);
+      border:1px solid #d7edf7;
       box-shadow:var(--shadow);
-      padding:22px 20px;
+      padding:22px 18px;
       text-align:center;
-      color:var(--text);
+      color:var(--ink);
     }
 
     .boot-badge{
@@ -89,261 +85,183 @@
       min-height:36px;
       padding:8px 14px;
       border-radius:999px;
-      background:#eff9ff;
-      border:1px solid #d8edf9;
-      color:#55728f;
+      background:#eefbff;
+      border:1px solid #d7edf7;
+      color:#5e7b9a;
       font-size:12px;
       font-weight:1000;
     }
 
-    .boot-emoji{
+    .boot-icon{
+      width:96px;
+      height:96px;
       margin:14px auto 0;
-      width:92px;
-      height:92px;
       border-radius:28px;
       display:grid;
       place-items:center;
-      font-size:46px;
-      background:linear-gradient(180deg,#fff8d8,#fff);
-      border:1px solid #ffe9aa;
-      box-shadow:0 12px 26px rgba(255,190,73,.18);
-      animation: floaty 2.8s ease-in-out infinite;
+      font-size:48px;
+      background:linear-gradient(180deg,#fff8d6,#fff);
+      box-shadow:inset 0 0 0 1px #ffecc0, 0 10px 24px rgba(255,185,70,.18);
     }
 
     .boot-title{
       margin:14px 0 0;
-      font-size:clamp(28px,4vw,38px);
-      line-height:1.02;
+      font-size:clamp(26px,4vw,38px);
+      line-height:1.05;
       font-weight:1000;
+      color:#67a91c;
     }
 
     .boot-sub{
-      margin:10px 0 0;
+      margin:10px auto 0;
+      max-width:620px;
       color:var(--muted);
       font-size:15px;
-      line-height:1.65;
+      line-height:1.6;
       font-weight:900;
     }
 
-    .boot-tips{
+    .boot-route{
       margin-top:14px;
       display:flex;
-      flex-wrap:wrap;
       gap:8px;
+      flex-wrap:wrap;
       justify-content:center;
     }
 
-    .boot-tip{
+    .boot-chip{
       display:inline-flex;
       align-items:center;
+      justify-content:center;
       min-height:34px;
-      padding:8px 12px;
+      padding:7px 12px;
       border-radius:999px;
-      border:1px solid #dbeef8;
       background:#f7fcff;
-      color:#5d7594;
+      border:1px solid #e2f1fb;
+      color:#5f7094;
       font-size:12px;
       font-weight:1000;
     }
 
-    .boot-progress{
-      width:min(300px, 100%);
-      height:12px;
-      margin:16px auto 0;
-      border-radius:999px;
-      background:#edf7fc;
-      border:1px solid #d9edf7;
-      overflow:hidden;
-    }
-
-    .boot-progress > span{
-      display:block;
-      width:42%;
-      height:100%;
-      border-radius:999px;
-      background:linear-gradient(90deg,var(--blue),var(--green),var(--yellow));
-      animation: loadingBar 1.2s ease-in-out infinite alternate;
-    }
-
-    .debug-chip{
-      position:fixed;
-      right:10px;
-      top:10px;
-      z-index:1001;
-      min-height:32px;
-      padding:7px 10px;
-      border-radius:999px;
-      background:rgba(255,255,255,.86);
-      border:1px solid #d6eaf7;
-      color:#556f8c;
-      font-size:11px;
-      font-weight:1000;
-      box-shadow:0 8px 20px rgba(60,120,170,.10);
-      display:none;
-    }
-
-    .debug-chip.show{ display:inline-flex; }
-
-    .boot-error{
-      position:fixed;
-      inset:0;
-      z-index:1000;
-      display:none;
-      place-items:center;
-      padding:16px;
-      background:rgba(27,39,61,.34);
-      backdrop-filter:blur(6px);
-    }
-
-    .boot-error.show{ display:grid; }
-
-    .boot-error-card{
-      width:min(92vw, 760px);
-      border-radius:28px;
-      background:linear-gradient(180deg,#fff,#fbfdff);
-      border:1px solid rgba(255,255,255,.94);
-      box-shadow:0 20px 56px rgba(22,40,70,.26);
-      padding:22px;
-      color:var(--text);
-    }
-
-    .boot-error-title{
-      margin:0 0 10px;
-      font-size:30px;
-      line-height:1.06;
-      font-weight:1000;
-    }
-
-    .boot-error-sub{
-      margin:0 0 14px;
-      color:var(--muted);
-      font-size:15px;
-      line-height:1.65;
-      font-weight:900;
-    }
-
-    .boot-error-pre{
-      margin:0;
-      max-height:260px;
-      overflow:auto;
-      white-space:pre-wrap;
-      word-break:break-word;
-      padding:14px;
-      border-radius:18px;
-      background:#fff6f6;
-      border:1px solid #ffd9d9;
-      color:#9b3b3b;
-      font:600 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
-    }
-
-    .boot-error-actions{
+    .boot-actions{
       margin-top:16px;
       display:flex;
       gap:10px;
       flex-wrap:wrap;
+      justify-content:center;
     }
 
     .boot-btn{
-      min-height:48px;
-      border:none;
+      appearance:none;
+      border:0;
       border-radius:18px;
-      padding:12px 16px;
+      min-height:50px;
+      padding:12px 18px;
       font-size:15px;
       font-weight:1000;
       cursor:pointer;
-      box-shadow:0 10px 24px rgba(60,120,170,.12);
+      box-shadow:0 10px 20px rgba(86,155,194,.12);
     }
 
     .boot-btn.primary{
-      background:linear-gradient(180deg,#7fcfff,#58b7f5);
-      color:#073a52;
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#173b0b;
     }
 
-    .boot-btn.soft{
+    .boot-btn.secondary{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#08374d;
+    }
+
+    .boot-btn.ghost{
       background:#fff;
-      color:#6a6962;
-      border:1px solid #d8eaf5;
+      color:#6c6a61;
+      border:2px solid #d7edf7;
     }
 
-    @keyframes floaty{
-      0%,100%{ transform:translateY(0); }
-      50%{ transform:translateY(-6px); }
+    .boot-error{
+      margin-top:14px;
+      text-align:left;
+      white-space:pre-wrap;
+      word-break:break-word;
+      overflow:auto;
+      max-height:34vh;
+      border-radius:18px;
+      background:#fff7f7;
+      border:1px solid #ffd2d2;
+      color:#b3472d;
+      padding:12px 14px;
+      font:700 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
+      display:none;
     }
 
-    @keyframes loadingBar{
-      0%{ transform:translateX(-12%) scaleX(.88); }
-      100%{ transform:translateX(22%) scaleX(1.08); }
+    .boot-error.show{
+      display:block;
     }
 
     @media (max-width:640px){
-      .boot-card,
-      .boot-error-card{
+      .boot-card{
         border-radius:24px;
-        padding:18px;
+        padding:18px 14px;
+      }
+      .boot-icon{
+        width:82px;
+        height:82px;
+        font-size:40px;
+      }
+      .boot-actions{
+        flex-direction:column;
+      }
+      .boot-btn{
+        width:100%;
       }
     }
   </style>
 </head>
 <body>
-  <div id="app">
-    <div id="gameMount"></div>
-  </div>
-
-  <div id="debugChip" class="debug-chip">debug=1</div>
+  <div id="gameMount"></div>
 
   <div id="bootLayer" class="boot-layer">
     <div class="boot-card">
       <div class="boot-badge">HeroHealth • GoodJunk Solo Boss</div>
-      <div class="boot-emoji">👑</div>
-      <h1 class="boot-title">กำลังเข้าโหมดบอส</h1>
-      <p class="boot-sub">
-        เตรียมตัวสู้กับ Junk King<br>
-        ถ้า warmup วันนี้เสร็จแล้ว ระบบจะเข้า boss ต่อทันที
-      </p>
-
-      <div class="boot-tips">
-        <div class="boot-tip">🥦 เก็บอาหารดี</div>
-        <div class="boot-tip">🍟 อย่าโดน junk</div>
-        <div class="boot-tip">🎯 ตีเป้าบอสให้ทัน</div>
+      <div class="boot-icon">👑</div>
+      <h1 class="boot-title">กำลังเข้า Boss</h1>
+      <div class="boot-sub" id="bootSub">
+        ระบบกำลังเตรียม flow แบบเต็ม<br>
+        warmup → boss → cooldown → launcher
       </div>
 
-      <div class="boot-progress"><span></span></div>
-    </div>
-  </div>
-
-  <div id="bootError" class="boot-error">
-    <div class="boot-error-card">
-      <h2 class="boot-error-title">โหลดหน้า Boss ไม่สำเร็จ</h2>
-      <p class="boot-error-sub">
-        ระบบเปิดเกมไม่สำเร็จ ลองรีเฟรช หรือกลับไปที่ launcher ได้เลย
-      </p>
-      <pre id="bootErrorText" class="boot-error-pre">Unknown error</pre>
-
-      <div class="boot-error-actions">
-        <button id="btnReload" class="boot-btn primary" type="button">ลองใหม่</button>
-        <button id="btnBackLauncher" class="boot-btn soft" type="button">กลับ Launcher</button>
-        <button id="btnBackHubRoot" class="boot-btn soft" type="button">กลับ HUB</button>
+      <div class="boot-route">
+        <div class="boot-chip" id="chipDiff">diff: normal</div>
+        <div class="boot-chip" id="chipTime">time: 80s</div>
+        <div class="boot-chip" id="chipView">view: mobile</div>
       </div>
+
+      <div class="boot-actions">
+        <button id="bootReloadBtn" class="boot-btn secondary" type="button">ลองใหม่</button>
+        <button id="bootLauncherBtn" class="boot-btn primary" type="button">กลับ Launcher</button>
+        <button id="bootHubBtn" class="boot-btn ghost" type="button">กลับหน้าหลัก</button>
+      </div>
+
+      <pre id="bootErrorBox" class="boot-error"></pre>
     </div>
   </div>
 
   <script>
-    (() => {
+    (function () {
       'use strict';
 
-      const qs = (k, d='') => {
-        try { return new URL(location.href).searchParams.get(k) ?? d; }
-        catch (_) { return d; }
-      };
+      const q = new URLSearchParams(location.search);
 
-      const clean = (v, d='') => {
+      function qs(name, fallback=''){
+        try { return q.get(name) ?? fallback; }
+        catch (_) { return fallback; }
+      }
+
+      function clean(v, fallback=''){
         const s = String(v ?? '').trim();
-        return s || d;
-      };
-
-      const DEBUG = qs('debug','') === '1';
-      const debugChip = document.getElementById('debugChip');
-      if (DEBUG && debugChip) debugChip.classList.add('show');
+        return s || fallback;
+      }
 
       function buildUrl(path, extra = {}){
         const u = new URL(path, location.href);
@@ -355,150 +273,139 @@
         return u.toString();
       }
 
-      function fallbackHubRoot(){
-        return buildUrl('./hub.html', {});
+      function safeAbsUrl(raw, fallback=''){
+        const value = String(raw || '').trim();
+        try{
+          if (value) return new URL(value, location.href).toString();
+        }catch(_){}
+        return String(fallback || '');
       }
 
-      function buildLauncherFallback(){
+      function buildHubRootUrl(){
+        return safeAbsUrl(
+          qs('hubRoot', qs('hub', '')),
+          new URL('./hub.html', location.href).toString()
+        );
+      }
+
+      function buildLauncherFallbackUrl(){
         return buildUrl('./goodjunk-launcher.html', {
-          pid: clean(qs('pid'), 'anon'),
-          nick: clean(qs('name') || qs('nick'), 'Hero'),
-          diff: clean(qs('diff'), 'normal'),
-          time: clean(qs('time'), '80'),
-          view: clean(qs('view'), 'mobile'),
-          hub: clean(qs('hubRoot') || qs('hub'), './hub.html'),
-          studyId: clean(qs('studyId')),
-          conditionGroup: clean(qs('conditionGroup')),
-          seed: clean(qs('seed')),
-          run: clean(qs('run'), 'play'),
-          debug: DEBUG ? '1' : ''
+          pid: clean(qs('pid','anon'), 'anon'),
+          nick: clean(qs('nick', qs('name','Hero')), 'Hero'),
+          diff: clean(qs('diff','normal'), 'normal'),
+          time: clean(qs('time','80'), '80'),
+          view: clean(qs('view','mobile'), 'mobile'),
+          hub: buildHubRootUrl(),
+          studyId: clean(qs('studyId','')),
+          conditionGroup: clean(qs('conditionGroup','')),
+          log: clean(qs('log','')),
+          ai: clean(qs('ai','')),
+          pro: clean(qs('pro','')),
+          research: clean(qs('research','')),
+          seed: clean(qs('seed','')),
+          run: clean(qs('run','play')),
+          debug: qs('debug','') === '1' ? '1' : ''
         });
       }
 
-      const hubRoot = (() => {
-        const raw = clean(qs('hubRoot') || qs('hub'));
-        if (!raw) return fallbackHubRoot();
-        try { return new URL(raw, location.href).toString(); }
-        catch (_) { return fallbackHubRoot(); }
-      })();
+      const HUB_ROOT_URL = buildHubRootUrl();
+      const LAUNCHER_URL = safeAbsUrl(
+        qs('launcher',''),
+        buildLauncherFallbackUrl()
+      );
 
-      const launcherUrl = (() => {
-        const raw = clean(qs('launcher'));
-        if (!raw) return buildLauncherFallback();
-        try { return new URL(raw, location.href).toString(); }
-        catch (_) { return buildLauncherFallback(); }
-      })();
-
-      const runCtx = {
-        pid: clean(qs('pid'), 'anon'),
-        name: clean(qs('name') || qs('nick'), 'Hero'),
-        studyId: clean(qs('studyId')),
-        diff: clean(qs('diff'), 'normal'),
-        time: clean(qs('time'), '80'),
-        seed: clean(qs('seed'), String(Date.now())),
-        view: clean(qs('view'), 'mobile'),
-        run: clean(qs('run'), 'play'),
-
-        gameId: 'goodjunk',
-        zone: 'nutrition',
-        mode: 'solo',
-        entry: 'solo-boss',
-        phaseBoss: '1',
-        boss: '1',
-        theme: 'phaseboss',
-
-        // สำคัญ:
-        // - hub ใช้เป็นปลายทาง cooldown => ให้ชี้ launcher
-        // - hubRoot เก็บ root hub จริง
-        // - launcher เก็บ launcher จริงไว้ด้วย
-        hub: launcherUrl,
-        hubRoot,
-        launcher: launcherUrl,
-
-        log: clean(qs('log')),
-        ai: clean(qs('ai')),
-        pro: clean(qs('pro')),
-        research: clean(qs('research')),
-        conditionGroup: clean(qs('conditionGroup'))
+      const ctx = {
+        pid: clean(qs('pid','anon'), 'anon'),
+        name: clean(qs('name', qs('nick','Hero')), 'Hero'),
+        nick: clean(qs('nick', qs('name','Hero')), 'Hero'),
+        studyId: clean(qs('studyId','')),
+        diff: clean(qs('diff','normal'), 'normal'),
+        time: clean(qs('time','150'), '150'),
+        seed: clean(qs('seed', String(Date.now())), String(Date.now())),
+        hub: clean(qs('hub', LAUNCHER_URL), LAUNCHER_URL),
+        hubRoot: HUB_ROOT_URL,
+        launcher: LAUNCHER_URL,
+        cdnext: clean(qs('cdnext', LAUNCHER_URL), LAUNCHER_URL),
+        view: clean(qs('view','mobile'), 'mobile'),
+        run: clean(qs('run','play'), 'play'),
+        gameId: clean(qs('gameId','goodjunk'), 'goodjunk'),
+        zone: clean(qs('zone','nutrition'), 'nutrition'),
+        roomId: clean(qs('roomId','')),
+        conditionGroup: clean(qs('conditionGroup','')),
+        log: clean(qs('log','')),
+        ai: clean(qs('ai','')),
+        pro: clean(qs('pro','')),
+        research: clean(qs('research','')),
+        debug: qs('debug','') === '1'
       };
 
-      window.__GJ_RUN_CTX__ = runCtx;
+      window.__GJ_RUN_CTX__ = ctx;
 
       const bootLayer = document.getElementById('bootLayer');
-      const bootError = document.getElementById('bootError');
-      const bootErrorText = document.getElementById('bootErrorText');
+      const bootSub = document.getElementById('bootSub');
+      const chipDiff = document.getElementById('chipDiff');
+      const chipTime = document.getElementById('chipTime');
+      const chipView = document.getElementById('chipView');
+      const bootErrorBox = document.getElementById('bootErrorBox');
 
-      window.__GJ_HIDE_LOADING__ = function(){
-        if (bootLayer) bootLayer.classList.add('hide');
-      };
+      chipDiff.textContent = `diff: ${ctx.diff}`;
+      chipTime.textContent = `time: ${ctx.time}s`;
+      chipView.textContent = `view: ${ctx.view}`;
 
-      window.__GJ_SHOW_BOOT_ERROR__ = function(err){
-        if (bootLayer) bootLayer.classList.add('hide');
-        if (bootErrorText) {
-          bootErrorText.textContent = String(err || 'Unknown error');
-        }
-        if (bootError) {
-          bootError.classList.add('show');
-        }
-      };
-
-      document.getElementById('btnReload')?.addEventListener('click', () => {
+      document.getElementById('bootReloadBtn')?.addEventListener('click', () => {
         location.reload();
       });
 
-      document.getElementById('btnBackLauncher')?.addEventListener('click', () => {
-        location.href = launcherUrl;
+      document.getElementById('bootLauncherBtn')?.addEventListener('click', () => {
+        location.href = LAUNCHER_URL;
       });
 
-      document.getElementById('btnBackHubRoot')?.addEventListener('click', () => {
-        location.href = hubRoot;
+      document.getElementById('bootHubBtn')?.addEventListener('click', () => {
+        location.href = HUB_ROOT_URL;
       });
 
-      // บังคับให้ปุ่ม "กลับ HUB" ใน summary / pause overlay กลับ root hub จริง
-      document.addEventListener('click', (ev) => {
-        const btn = ev.target && ev.target.closest
-          ? ev.target.closest('#btnHub, #btnPauseHub')
-          : null;
+      window.__GJ_HIDE_LOADING__ = function () {
+        if (bootLayer) bootLayer.style.display = 'none';
+      };
 
-        if (!btn) return;
-
-        ev.preventDefault();
-        ev.stopPropagation();
-        ev.stopImmediatePropagation?.();
-        location.href = hubRoot;
-      }, true);
-
-      // timeout เผื่อไฟล์ JS ไม่ mount
-      const bootTimeout = setTimeout(() => {
-        if (!window.__GJ_ENGINE_MOUNTED__) {
-          window.__GJ_SHOW_BOOT_ERROR__('Engine mount timeout: goodjunk-solo-phaseboss-v2.js did not finish booting.');
+      window.__GJ_SHOW_BOOT_ERROR__ = function (err) {
+        if (bootLayer) bootLayer.style.display = 'grid';
+        if (bootSub) {
+          bootSub.innerHTML =
+            'เกิดปัญหาระหว่างโหลดหน้า Boss<br>' +
+            'แต่ยังกลับ Launcher หรือหน้าหลักได้';
         }
-      }, 8000);
+        if (bootErrorBox) {
+          bootErrorBox.textContent = String(err || 'Unknown boot error');
+          bootErrorBox.classList.add('show');
+        }
+      };
 
-      function clearBootTimeout(){
-        clearTimeout(bootTimeout);
+      window.addEventListener('error', function (ev) {
+        const msg = ev?.error?.stack || ev?.message || 'Unknown runtime error';
+        window.__GJ_SHOW_BOOT_ERROR__(msg);
+      });
+
+      window.addEventListener('unhandledrejection', function (ev) {
+        const reason = ev?.reason?.stack || ev?.reason || 'Unhandled promise rejection';
+        window.__GJ_SHOW_BOOT_ERROR__(reason);
+      });
+
+      if (ctx.debug) {
+        console.log('[GJ SOLO BOSS SHELL]', {
+          hub: ctx.hub,
+          hubRoot: ctx.hubRoot,
+          launcher: ctx.launcher,
+          cdnext: ctx.cdnext,
+          seed: ctx.seed,
+          diff: ctx.diff,
+          time: ctx.time,
+          view: ctx.view
+        });
       }
-
-      const script = document.createElement('script');
-      script.src = './goodjunk-solo-phaseboss-v2.js?v=20260406c-SOLO-BOSS-WRAPPER-LAUNCHER-HUBROOT';
-      script.async = true;
-
-      script.onload = () => {
-        // ให้ตัว engine เรียก __GJ_HIDE_LOADING__ เองเมื่อ mount สำเร็จ
-        setTimeout(() => {
-          if (window.__GJ_ENGINE_MOUNTED__) {
-            clearBootTimeout();
-          }
-        }, 200);
-      };
-
-      script.onerror = () => {
-        clearBootTimeout();
-        window.__GJ_SHOW_BOOT_ERROR__('Failed to load script: ./goodjunk-solo-phaseboss-v2.js');
-      };
-
-      document.body.appendChild(script);
     })();
   </script>
+
+  <script src="./goodjunk-solo-phaseboss-v2.js?v=20260408a-GJSB-FLOW-HUBROOT-LAUNCHER-FINAL"></script>
 </body>
 </html>
