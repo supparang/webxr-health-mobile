@@ -5,17 +5,16 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Nutrition Zone</title>
   <meta name="color-scheme" content="light" />
-  <link rel="stylesheet" href="./hygiene-zone.css" />
+  <link rel="stylesheet" href="./zone-common.css?v=20260408a" />
+  <link rel="stylesheet" href="./zone-theme.css?v=20260408a" />
 </head>
-<body>
+<body class="zone-nutrition">
   <div class="hz-shell">
     <header class="hz-topbar">
       <div class="brand-wrap">
         <div class="brand-badge">HeroHealth</div>
         <h1 class="hero-title">Nutrition Zone</h1>
-        <p class="hero-sub">
-          โลกแห่งอาหารดี เลือกเกมที่อยากเล่น แล้วเรียนรู้เรื่องโภชนาการอย่างสนุก
-        </p>
+        <p class="hero-sub">โลกแห่งอาหารดี เลือกเกมที่อยากเล่น แล้วเรียนรู้เรื่องโภชนาการอย่างสนุก</p>
       </div>
 
       <div class="hero-actions">
@@ -24,13 +23,34 @@
       </div>
     </header>
 
+    <section class="zone-banner" aria-hidden="true">
+      <div class="zone-banner-card">
+        <div class="zone-banner-copy">
+          <div class="zone-banner-kicker">Nutrition Adventure</div>
+          <div class="zone-banner-title">กินดี เล่นสนุก แข็งแรงไปด้วยกัน</div>
+          <div class="zone-banner-sub">ผัก ผลไม้ น้ำ และจานอาหารครบหมู่รออยู่ในด่านนี้</div>
+        </div>
+
+        <div class="zone-banner-art nutrition-art">
+          <div class="art-sun"></div>
+          <div class="art-cloud c1"></div>
+          <div class="art-cloud c2"></div>
+          <div class="art-plate"></div>
+          <div class="art-food apple">🍎</div>
+          <div class="art-food carrot">🥕</div>
+          <div class="art-food broccoli">🥦</div>
+          <div class="art-food water">💧</div>
+        </div>
+      </div>
+    </section>
+
     <section class="hero-panel">
       <div class="hero-panel-left">
         <div class="mascot-card">
           <div class="mascot-face">🥗</div>
           <div class="mascot-text">
             <div class="mascot-kicker">พร้อมเล่น!</div>
-            <div id="coachLine" class="mascot-line">เลือกเกมที่อยากเล่น แล้วเริ่มได้เลย</div>
+            <div id="coachLine" class="mascot-line">ลองเริ่มจาก Plate ก่อน แล้วค่อยไปเกมที่ท้าทายขึ้นนะ</div>
           </div>
         </div>
 
@@ -60,7 +80,6 @@
               <option value="60">60 วินาที</option>
               <option value="90" selected>90 วินาที</option>
               <option value="120">120 วินาที</option>
-              <option value="150">150 วินาที</option>
             </select>
           </label>
 
@@ -77,24 +96,66 @@
       </div>
     </section>
 
+    <section class="zone-quick-actions" id="zoneQuickActions">
+      <div class="zone-quick-head">
+        <div>
+          <div class="section-kicker">Quick Start</div>
+          <h2 class="section-title">เริ่มเล่นแบบเร็ว</h2>
+        </div>
+      </div>
+      <div class="zone-quick-row" id="zoneQuickRow"></div>
+    </section>
+
     <section class="featured-game-card" id="featuredGameCard">
       <div class="featured-game-left">
         <div class="featured-kicker">แนะนำวันนี้</div>
         <h2 id="featuredTitle" class="featured-title">Plate</h2>
-        <p id="featuredSub" class="featured-sub">
-          ฝึกเลือกอาหารครบ 5 หมู่แบบเข้าใจง่าย เหมาะสำหรับเริ่มเล่นใน Nutrition Zone
-        </p>
-
-        <div id="featuredTags" class="featured-tags">
-          <span class="featured-tag">เริ่มง่าย</span>
-          <span class="featured-tag">90 วินาที</span>
-          <span class="featured-tag">โภชนาการ</span>
-        </div>
+        <p id="featuredSub" class="featured-sub">ฝึกเลือกอาหารครบ 5 หมู่แบบเข้าใจง่าย เหมาะสำหรับเริ่มเล่นใน Nutrition Zone</p>
+        <div id="featuredTags" class="featured-tags"></div>
       </div>
-
       <div class="featured-game-right">
         <a id="featuredPlayBtn" class="top-btn primary" href="./plate-v1.html">▶️ เริ่มเกมแนะนำ</a>
       </div>
+    </section>
+
+    <section class="zone-reward-strip" id="zoneRewardStrip">
+      <div class="zone-reward-head">
+        <div>
+          <div class="section-kicker">Rewards</div>
+          <h2 class="section-title">ของรางวัลและเป้าหมายวันนี้</h2>
+        </div>
+      </div>
+
+      <div class="zone-reward-grid">
+        <div class="reward-panel">
+          <div class="reward-panel-title">สติกเกอร์ล่าสุด</div>
+          <div class="reward-big" id="rewardLastSticker">🌟</div>
+          <div class="reward-sub" id="rewardLastStickerText">เริ่มเล่นเพื่อรับสติกเกอร์แรก</div>
+        </div>
+
+        <div class="reward-panel">
+          <div class="reward-panel-title">เหรียญประจำโซน</div>
+          <div class="reward-big" id="rewardBadgeEmoji">🥉</div>
+          <div class="reward-sub" id="rewardBadgeText">Rookie</div>
+        </div>
+
+        <div class="reward-panel">
+          <div class="reward-panel-title">เป้าหมายวันนี้</div>
+          <div class="reward-goal" id="rewardGoalText">เล่นอีก 1 เกมเพื่อเริ่มสะสมรางวัล</div>
+          <div class="reward-chip-row" id="rewardChipRow"><span class="reward-chip">เริ่มต้น</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="zone-mission-strip" id="zoneMissionStrip">
+      <div class="zone-mission-head">
+        <div>
+          <div class="section-kicker">Missions</div>
+          <h2 class="section-title">ภารกิจสั้น ๆ วันนี้</h2>
+        </div>
+        <a id="missionActionBtn" class="top-btn primary" href="#">▶️ ไปภารกิจถัดไป</a>
+      </div>
+      <div class="zone-mission-grid" id="zoneMissionGrid"></div>
     </section>
 
     <section class="featured-card">
@@ -104,7 +165,6 @@
           <h2 class="section-title">เกมล่าสุดของหนู</h2>
         </div>
       </div>
-
       <div id="recentArea" class="recent-area">
         <div class="empty-recent">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>
       </div>
@@ -117,7 +177,6 @@
           <h2 class="section-title">เลือกเกมใน Nutrition Zone</h2>
         </div>
       </div>
-
       <div id="gamesGrid" class="games-grid"></div>
     </section>
 
@@ -128,18 +187,15 @@
           <h2 class="section-title">ความคืบหน้า Nutrition Zone</h2>
         </div>
       </div>
-
       <div class="zone-progress-grid">
         <div class="progress-pill">
           <div class="progress-n" id="zonePlayedCount">0/4</div>
           <div class="progress-t">เกมที่เคยเล่น</div>
         </div>
-
         <div class="progress-pill">
           <div class="progress-n" id="zoneStarsCount">0/5</div>
           <div class="progress-t">ดาวโซน</div>
         </div>
-
         <div class="progress-pill">
           <div class="progress-n" id="zoneTodayCount">0</div>
           <div class="progress-t">เกมวันนี้</div>
@@ -148,650 +204,6 @@
     </section>
   </div>
 
-  <script type="module" src="./nutrition-zone.js"></script>
-
-  <script>
-    (() => {
-      'use strict';
-
-      const qs = new URLSearchParams(location.search);
-      let navBusy = false;
-
-      const $ = (sel, root = document) => root.querySelector(sel);
-      const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-
-      function first() {
-        for (let i = 0; i < arguments.length; i++) {
-          const v = arguments[i];
-          if (String(v || '').trim()) return String(v).trim();
-        }
-        return '';
-      }
-
-      function cleanPid(v) {
-        return String(v || 'anon').trim().replace(/[^\w-]/g, '').slice(0, 40) || 'anon';
-      }
-
-      function cleanName(v) {
-        return String(v || '').trim().replace(/[<>]/g, '').slice(0, 40) || 'Hero';
-      }
-
-      function cleanEnum(v, allow, fallback) {
-        v = String(v || '').trim().toLowerCase();
-        return allow.indexOf(v) >= 0 ? v : fallback;
-      }
-
-      function numIn(v, fallback, min, max) {
-        v = Number(v);
-        if (!Number.isFinite(v)) return fallback;
-        return Math.max(min, Math.min(max, v));
-      }
-
-      function readJson(key, fallback = null) {
-        try {
-          const raw = localStorage.getItem(key);
-          return raw ? JSON.parse(raw) : fallback;
-        } catch (_) {
-          return fallback;
-        }
-      }
-
-      function buildUrl(path, params = {}) {
-        const u = new URL(path, location.href);
-        Object.entries(params).forEach(([k, v]) => {
-          if (v != null && v !== '') u.searchParams.set(k, String(v));
-        });
-        return u.toString();
-      }
-
-      const ctx = {
-        pid: cleanPid(first(qs.get('pid'), localStorage.getItem('HH_PID'), 'anon')),
-        name: cleanName(first(qs.get('name'), qs.get('nickName'), localStorage.getItem('HH_NAME'), 'Hero')),
-        studyId: first(qs.get('studyId'), ''),
-        diff: cleanEnum(first(qs.get('diff'), 'normal'), ['easy', 'normal', 'hard'], 'normal'),
-        time: String(numIn(first(qs.get('time'), 90), 90, 60, 300)),
-        seed: first(qs.get('seed'), String(Date.now())),
-        run: cleanEnum(first(qs.get('run'), 'play'), ['play', 'learn', 'research', 'demo'], 'play'),
-        view: cleanEnum(first(qs.get('view'), 'mobile'), ['mobile', 'pc', 'cvr'], 'mobile'),
-        hub: first(qs.get('hub'), new URL('./hub-v2.html', location.href).toString())
-      };
-
-      localStorage.setItem('HH_PID', ctx.pid);
-      localStorage.setItem('HH_NAME', ctx.name);
-
-      const GAME_META = {
-        plate: {
-          title: 'Plate',
-          sub: 'ฝึกเลือกอาหารครบ 5 หมู่แบบเข้าใจง่าย',
-          tags: ['เริ่มง่าย', '90 วินาที', 'โภชนาการ'],
-          filters: ['all', 'easy']
-        },
-        goodjunk: {
-          title: 'GoodJunk',
-          sub: 'แยกอาหารดีและอาหารที่ควรลด แบบสนุกและท้าทาย',
-          tags: ['สนุกท้าทาย', 'เร็ว', 'ตัดสินใจไว'],
-          filters: ['all', 'fun', 'quick']
-        },
-        groups: {
-          title: 'Groups',
-          sub: 'จัดหมวดอาหารให้ถูก ฝึกจำและฝึกแยกประเภท',
-          tags: ['ฝึกจำ', 'เรียนรู้', 'เริ่มง่าย'],
-          filters: ['all', 'easy']
-        },
-        hydration: {
-          title: 'Hydration',
-          sub: 'เรียนรู้เรื่องการดื่มน้ำและการดูแลร่างกาย',
-          tags: ['เล่นสั้น', 'สุขภาพ', 'เรียนรู้'],
-          filters: ['all', 'quick']
-        }
-      };
-
-      const NUTRI_RECENT_KEY = 'HHA_NUTRITION_RECENT';
-      const NUTRI_PLAYED_KEY = 'HHA_NUTRITION_PLAYED';
-      const NUTRI_DAILY_KEY = 'HHA_NUTRITION_DAILY';
-
-      function isDebugMode() {
-        return qs.get('debug') === '1';
-      }
-
-      function thaiModeLabel(mode) {
-        const map = {
-          play: 'เล่นสนุก',
-          learn: 'ฝึกเรียนรู้',
-          research: 'โหมดครู',
-          demo: 'สาธิต'
-        };
-        return map[String(mode || '').toLowerCase()] || 'เล่นสนุก';
-      }
-
-      function getGameMeta(key) {
-        return GAME_META[String(key || '').toLowerCase()] || null;
-      }
-
-      function passCommon(url) {
-        [
-          'pid','name','nickName','studyId','diff','time','seed','hub','view','run',
-          'gameId','game','zone','cat','theme','debug','api','log',
-          'studentKey','schoolCode','classRoom','studentNo','conditionGroup',
-          'sessionNo','weekNo','teacher','grade'
-        ].forEach((k) => {
-          const v = qs.get(k);
-          if (v != null && v !== '') url.searchParams.set(k, v);
-        });
-
-        if (!url.searchParams.get('pid')) url.searchParams.set('pid', ctx.pid);
-        if (!url.searchParams.get('name')) url.searchParams.set('name', ctx.name);
-        if (!url.searchParams.get('studyId') && ctx.studyId) url.searchParams.set('studyId', ctx.studyId);
-        if (!url.searchParams.get('diff')) url.searchParams.set('diff', ctx.diff);
-        if (!url.searchParams.get('time')) url.searchParams.set('time', ctx.time);
-        if (!url.searchParams.get('run')) url.searchParams.set('run', ctx.run);
-        if (!url.searchParams.get('view')) url.searchParams.set('view', ctx.view);
-        if (!url.searchParams.get('hub')) url.searchParams.set('hub', ctx.hub);
-        if (!url.searchParams.get('seed')) url.searchParams.set('seed', ctx.seed);
-
-        url.searchParams.set('zone', 'nutrition');
-        url.searchParams.set('cat', 'nutrition');
-        return url;
-      }
-
-      function buildHubUrl() {
-        return ctx.hub;
-      }
-
-      function buildPlateUrl() {
-        const u = new URL('./plate-v1.html', location.href);
-        passCommon(u);
-        u.searchParams.set('game', 'plate');
-        u.searchParams.set('gameId', 'plate');
-        u.searchParams.set('theme', 'plate');
-        return u.toString();
-      }
-
-      function buildGoodJunkUrl() {
-        const u = new URL('./goodjunk-launcher.html', location.href);
-        passCommon(u);
-        u.searchParams.set('game', 'goodjunk');
-        u.searchParams.set('gameId', 'goodjunk');
-        u.searchParams.set('theme', 'goodjunk');
-        u.searchParams.set('recommendedMode', 'solo-boss');
-        return u.toString();
-      }
-
-      function buildGroupsUrl() {
-        const u = new URL('./groups-v1.html', location.href);
-        passCommon(u);
-        u.searchParams.set('game', 'groups');
-        u.searchParams.set('gameId', 'groups');
-        u.searchParams.set('theme', 'groups');
-        return u.toString();
-      }
-
-      function buildHydrationUrl() {
-        const u = new URL('./hydration-v2.html', location.href);
-        passCommon(u);
-        u.searchParams.set('game', 'hydration');
-        u.searchParams.set('gameId', 'hydration');
-        u.searchParams.set('theme', 'hydration');
-        return u.toString();
-      }
-
-      function getGameUrl(key) {
-        key = String(key || '').toLowerCase();
-        if (key === 'plate') return buildPlateUrl();
-        if (key === 'goodjunk') return buildGoodJunkUrl();
-        if (key === 'groups') return buildGroupsUrl();
-        if (key === 'hydration') return buildHydrationUrl();
-        return '';
-      }
-
-      function safeNavigate(url) {
-        if (navBusy) return;
-        navBusy = true;
-        location.href = url;
-      }
-
-      function inferGameKeyFromText(text) {
-        const t = String(text || '').toLowerCase();
-        if (t.includes('goodjunk') || t.includes('good junk')) return 'goodjunk';
-        if (t.includes('plate')) return 'plate';
-        if (t.includes('group')) return 'groups';
-        if (t.includes('hydration') || t.includes('water')) return 'hydration';
-        return '';
-      }
-
-      function inferGameKeyFromSummary(summary) {
-        if (!summary || typeof summary !== 'object') return '';
-        const t = JSON.stringify(summary).toLowerCase();
-        return inferGameKeyFromText(t);
-      }
-
-      function readNutritionRecent() {
-        return readJson(NUTRI_RECENT_KEY, null);
-      }
-
-      function writeNutritionRecent(data) {
-        try {
-          localStorage.setItem(NUTRI_RECENT_KEY, JSON.stringify(data || null));
-        } catch (_) {}
-      }
-
-      function readNutritionPlayed() {
-        const list = readJson(NUTRI_PLAYED_KEY, []);
-        return Array.isArray(list) ? list.filter(Boolean) : [];
-      }
-
-      function writeNutritionPlayed(list) {
-        try {
-          localStorage.setItem(NUTRI_PLAYED_KEY, JSON.stringify(Array.from(new Set(list || []))));
-        } catch (_) {}
-      }
-
-      function todayStamp() {
-        const d = new Date();
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-      }
-
-      function readNutritionDaily() {
-        return readJson(NUTRI_DAILY_KEY, {});
-      }
-
-      function bumpNutritionToday(key) {
-        const all = readNutritionDaily();
-        const t = todayStamp();
-        const row = all[t] || { count: 0, lastKey: '' };
-        row.count += 1;
-        row.lastKey = key || row.lastKey || '';
-        all[t] = row;
-        try {
-          localStorage.setItem(NUTRI_DAILY_KEY, JSON.stringify(all));
-        } catch (_) {}
-      }
-
-      function readNutritionTodayCount() {
-        const all = readNutritionDaily();
-        return Number(all[todayStamp()]?.count || 0);
-      }
-
-      function rememberNutritionGame(key) {
-        const meta = getGameMeta(key);
-        if (!meta) return;
-
-        writeNutritionRecent({
-          key,
-          title: meta.title,
-          sub: meta.sub,
-          at: Date.now()
-        });
-
-        const played = readNutritionPlayed();
-        if (!played.includes(key)) {
-          played.push(key);
-          writeNutritionPlayed(played);
-        }
-
-        bumpNutritionToday(key);
-      }
-
-      function pickFeaturedGameKey() {
-        const played = readNutritionPlayed();
-        if (!played.includes('plate')) return 'plate';
-        if (!played.includes('groups')) return 'groups';
-        if (!played.includes('hydration')) return 'hydration';
-        return 'goodjunk';
-      }
-
-      function findLastNutritionRoute() {
-        const recent = readNutritionRecent();
-        if (recent?.key) {
-          const url = getGameUrl(recent.key);
-          if (url) return url;
-        }
-
-        const summary = readJson('HHA_LAST_SUMMARY', null) || readJson('HHA_LAST_SUMMARY_GLOBAL', null);
-        const key = inferGameKeyFromSummary(summary);
-        if (key) return getGameUrl(key);
-
-        return '';
-      }
-
-      function patchHeader() {
-        const hubBtn = $('#hubBtn');
-        const continueBtn = $('#continueBtn');
-        const playerPill = $('#playerPill');
-        const modePill = $('#modePill');
-        const coachLine = $('#coachLine');
-        const modeSelect = $('#modeSelect');
-        const timeSelect = $('#timeSelect');
-
-        if (hubBtn) hubBtn.href = buildHubUrl();
-        if (playerPill) playerPill.textContent = '👤 ฮีโร่: ' + ctx.name;
-        if (modePill) modePill.textContent = '🎮 ตอนนี้: ' + thaiModeLabel(ctx.run);
-
-        if (modeSelect) {
-          Array.from(modeSelect.options).forEach((opt) => {
-            if (opt.value === 'play') opt.textContent = 'เล่นสนุก';
-            if (opt.value === 'learn') opt.textContent = 'ฝึกเรียนรู้';
-            if (opt.value === 'research') opt.textContent = 'โหมดครู';
-          });
-
-          if (!isDebugMode()) {
-            const researchOpt = modeSelect.querySelector('option[value="research"]');
-            if (researchOpt) researchOpt.remove();
-            if (ctx.run === 'research') ctx.run = 'play';
-          }
-
-          const desired = ['play', 'learn'].includes(ctx.run) ? ctx.run : 'play';
-          modeSelect.value = desired;
-        }
-
-        if (timeSelect) {
-          const allowed = ['60', '90', '120'];
-          Array.from(timeSelect.options).forEach((opt) => {
-            if (!allowed.includes(opt.value)) opt.remove();
-          });
-          timeSelect.value = allowed.includes(ctx.time) ? ctx.time : '90';
-        }
-
-        if (coachLine) {
-          const featured = getGameMeta(pickFeaturedGameKey()) || getGameMeta('plate');
-          coachLine.textContent = `แนะนำตอนนี้: ${featured.title} — ${featured.sub}`;
-        }
-
-        if (continueBtn && !continueBtn.__boundChild) {
-          continueBtn.__boundChild = true;
-          continueBtn.addEventListener('click', () => {
-            const url = findLastNutritionRoute() || buildPlateUrl();
-            const key = inferGameKeyFromText(url);
-            if (key) rememberNutritionGame(key);
-            safeNavigate(url);
-          });
-        }
-
-        if (continueBtn) {
-          continueBtn.textContent = findLastNutritionRoute() ? 'เล่นต่อ' : 'เริ่มเกมแนะนำ';
-        }
-      }
-
-      function patchRecentArea() {
-        const recentArea = $('#recentArea');
-        if (!recentArea) return;
-
-        const recent = readNutritionRecent();
-        const summary = readJson('HHA_LAST_SUMMARY', null) || readJson('HHA_LAST_SUMMARY_GLOBAL', null);
-
-        let key = recent?.key || inferGameKeyFromSummary(summary) || '';
-        if (!key) {
-          const starterBtn = recentArea.querySelector('[data-game="plate"]');
-          if (starterBtn && !starterBtn.__starterBound) {
-            starterBtn.__starterBound = true;
-            starterBtn.addEventListener('click', (ev) => {
-              ev.preventDefault();
-              rememberNutritionGame('plate');
-              safeNavigate(buildPlateUrl());
-            });
-          }
-          return;
-        }
-
-        const meta = getGameMeta(key);
-        if (!meta) return;
-
-        const url = getGameUrl(key);
-        recentArea.innerHTML = `
-          <div class="recent-card">
-            <div class="recent-card-head">
-              <div>
-                <div class="recent-card-title">${meta.title}</div>
-                <div class="recent-card-sub">${meta.sub}</div>
-              </div>
-              <div class="recent-badge">ล่าสุด</div>
-            </div>
-
-            <div class="game-chip-row">
-              ${meta.tags.map(tag => `<span class="game-chip">${tag}</span>`).join('')}
-            </div>
-
-            <div class="recent-card-actions">
-              <a class="top-btn primary recent-play-btn" href="${url}" id="recentPlayLink">▶️ เล่นต่อ</a>
-            </div>
-          </div>
-        `;
-
-        const recentPlayLink = $('#recentPlayLink', recentArea);
-        if (recentPlayLink && !recentPlayLink.__routePatched) {
-          recentPlayLink.__routePatched = true;
-          recentPlayLink.addEventListener('click', (ev) => {
-            if (navBusy) {
-              ev.preventDefault();
-              return;
-            }
-            rememberNutritionGame(key);
-            navBusy = true;
-          });
-        }
-      }
-
-      function patchAnchor(anchor) {
-        if (!anchor || anchor.__routePatched) return;
-
-        const text = [
-          anchor.textContent,
-          anchor.getAttribute('href'),
-          anchor.getAttribute('data-game'),
-          anchor.getAttribute('data-id'),
-          anchor.getAttribute('aria-label'),
-          anchor.closest('[data-game],[data-id]')?.getAttribute('data-game'),
-          anchor.closest('[data-game],[data-id]')?.getAttribute('data-id'),
-          anchor.closest('[class]')?.className
-        ].filter(Boolean).join(' ');
-
-        const key = inferGameKeyFromText(text);
-        const url = key ? getGameUrl(key) : '';
-        if (!url) return;
-
-        anchor.href = url;
-        anchor.__routePatched = true;
-
-        anchor.addEventListener('click', (ev) => {
-          if (navBusy) {
-            ev.preventDefault();
-            return;
-          }
-          if (key) rememberNutritionGame(key);
-          navBusy = true;
-        });
-      }
-
-      function patchButton(button) {
-        if (!button || button.__routePatched) return;
-
-        const text = [
-          button.textContent,
-          button.getAttribute('data-game'),
-          button.getAttribute('data-id'),
-          button.getAttribute('aria-label'),
-          button.closest('[data-game],[data-id]')?.getAttribute('data-game'),
-          button.closest('[data-game],[data-id]')?.getAttribute('data-id'),
-          button.closest('[class]')?.className
-        ].filter(Boolean).join(' ');
-
-        const key = inferGameKeyFromText(text);
-        const url = key ? getGameUrl(key) : '';
-        if (!url) return;
-
-        button.__routePatched = true;
-        button.addEventListener('click', () => {
-          if (key) rememberNutritionGame(key);
-          safeNavigate(url);
-        });
-      }
-
-      function patchGamesGrid() {
-        const gamesGrid = $('#gamesGrid');
-        if (!gamesGrid) return;
-
-        $$('a', gamesGrid).forEach(patchAnchor);
-        $$('button', gamesGrid).forEach(patchButton);
-      }
-
-      function patchSearchSync() {
-        const modeSelect = $('#modeSelect');
-        const timeSelect = $('#timeSelect');
-
-        if (modeSelect && !modeSelect.__syncBound) {
-          modeSelect.__syncBound = true;
-          modeSelect.addEventListener('change', () => {
-            ctx.run = modeSelect.value || 'play';
-            const modePill = $('#modePill');
-            if (modePill) modePill.textContent = '🎮 ตอนนี้: ' + thaiModeLabel(ctx.run);
-            patchRecentArea();
-            renderFeaturedGame();
-          });
-        }
-
-        if (timeSelect && !timeSelect.__syncBound) {
-          timeSelect.__syncBound = true;
-          timeSelect.addEventListener('change', () => {
-            ctx.time = timeSelect.value || '90';
-            patchRecentArea();
-            renderFeaturedGame();
-          });
-        }
-      }
-
-      function renderFeaturedGame() {
-        const title = $('#featuredTitle');
-        const sub = $('#featuredSub');
-        const tags = $('#featuredTags');
-        const btn = $('#featuredPlayBtn');
-        if (!title || !sub || !tags || !btn) return;
-
-        const key = pickFeaturedGameKey();
-        const meta = getGameMeta(key) || getGameMeta('plate');
-        const url = getGameUrl(key) || buildPlateUrl();
-
-        title.textContent = meta.title;
-        sub.textContent = meta.sub;
-        tags.innerHTML = meta.tags.map(tag => `<span class="featured-tag">${tag}</span>`).join('');
-        btn.href = url;
-        btn.textContent = key === 'plate' ? '▶️ เริ่มเกมแนะนำ' : `▶️ เล่น ${meta.title}`;
-
-        if (!btn.__featuredBound) {
-          btn.__featuredBound = true;
-          btn.addEventListener('click', () => {
-            rememberNutritionGame(key);
-            navBusy = true;
-          });
-        }
-      }
-
-      function decorateGameCards() {
-        const gamesGrid = $('#gamesGrid');
-        if (!gamesGrid) return;
-
-        Array.from(gamesGrid.children).forEach((card) => {
-          if (!card || card.__decoratedP5) return;
-
-          const text = [
-            card.textContent,
-            card.getAttribute('data-game'),
-            card.getAttribute('data-id'),
-            card.className
-          ].filter(Boolean).join(' ');
-
-          const key = inferGameKeyFromText(text);
-          const meta = getGameMeta(key);
-          if (!meta) return;
-
-          card.dataset.filterKey = meta.filters.join(',');
-
-          const already = card.querySelector('.game-chip-row');
-          if (!already) {
-            const chipRow = document.createElement('div');
-            chipRow.className = 'game-chip-row';
-            chipRow.innerHTML = meta.tags.slice(0, 3).map(tag => `<span class="game-chip">${tag}</span>`).join('');
-            card.appendChild(chipRow);
-          }
-
-          const cta = card.querySelector('a,button');
-          if (cta) cta.textContent = 'เล่นเลย';
-
-          card.__decoratedP5 = true;
-        });
-      }
-
-      function applyGameFilter(filterKey) {
-        const gamesGrid = $('#gamesGrid');
-        if (!gamesGrid) return;
-
-        Array.from(gamesGrid.children).forEach((card) => {
-          const filters = String(card.dataset.filterKey || 'all').split(',');
-          card.style.display = (filterKey === 'all' || filters.includes(filterKey)) ? '' : 'none';
-        });
-      }
-
-      function bindFilterChips() {
-        const row = $('#filterRow');
-        if (!row || row.__filterBound) return;
-        row.__filterBound = true;
-
-        row.addEventListener('click', (ev) => {
-          const btn = ev.target.closest('.filter-chip');
-          if (!btn) return;
-
-          $$('.filter-chip', row).forEach((chip) => chip.classList.remove('active'));
-          btn.classList.add('active');
-          applyGameFilter(btn.dataset.filter || 'all');
-        });
-      }
-
-      function renderZoneProgress() {
-        const played = readNutritionPlayed();
-        const todayCount = readNutritionTodayCount();
-
-        const playedEl = $('#zonePlayedCount');
-        const starsEl = $('#zoneStarsCount');
-        const todayEl = $('#zoneTodayCount');
-
-        if (playedEl) playedEl.textContent = `${played.length}/4`;
-        if (starsEl) starsEl.textContent = `${Math.min(played.length + 1, 5)}/5`;
-        if (todayEl) todayEl.textContent = String(todayCount);
-      }
-
-      function patchAll() {
-        patchHeader();
-        patchRecentArea();
-        patchGamesGrid();
-        patchSearchSync();
-        renderFeaturedGame();
-        decorateGameCards();
-        bindFilterChips();
-        renderZoneProgress();
-        applyGameFilter('all');
-      }
-
-      document.addEventListener('DOMContentLoaded', patchAll);
-      window.addEventListener('focus', () => {
-        navBusy = false;
-        patchAll();
-      });
-
-      const observer = new MutationObserver(() => {
-        patchRecentArea();
-        patchGamesGrid();
-        decorateGameCards();
-      });
-
-      window.addEventListener('DOMContentLoaded', () => {
-        const gamesGrid = $('#gamesGrid');
-        const recentArea = $('#recentArea');
-        if (gamesGrid) observer.observe(gamesGrid, { childList: true, subtree: true });
-        if (recentArea) observer.observe(recentArea, { childList: true, subtree: true });
-      });
-    })();
-  </script>
+  <script type="module" src="./nutrition-zone.js?v=20260408a"></script>
 </body>
 </html>
