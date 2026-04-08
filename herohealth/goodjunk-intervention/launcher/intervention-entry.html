@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk • Intervention Entry</title>
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --sky1:#dff6ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d6;
+      --line:#c9e8f4;
+      --text:#4d4a42;
+      --muted:#7d7a73;
+      --green:#7ed957;
+      --green2:#59c53f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --violet:#cdb9ff;
+      --pink:#ff9fcb;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+
+    body{
+      min-height:100dvh;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.94), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.76), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 56%, var(--sky3));
+    }
+
+    .page{
+      width:min(1120px,100%);
+      margin:0 auto;
+      padding:16px;
+      padding-top:calc(16px + env(safe-area-inset-top,0px));
+      padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
+      display:grid;
+      gap:16px;
+    }
+
+    .hero{
+      background:linear-gradient(180deg,#fffef8,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+      padding:20px 18px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-30px;
+      top:-30px;
+      width:140px;
+      height:140px;
+      border-radius:999px;
+      background:rgba(127,207,255,.18);
+      filter:blur(8px);
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-24px;
+      bottom:-24px;
+      width:120px;
+      height:120px;
+      border-radius:999px;
+      background:rgba(255,212,92,.18);
+      filter:blur(8px);
+    }
+
+    .kicker{
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#eef8ff;
+      border:2px solid var(--line);
+      color:#5aa8d1;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    h1{
+      position:relative;
+      z-index:1;
+      margin:0 0 8px;
+      font-size:clamp(30px,5vw,46px);
+      line-height:1.05;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .lead{
+      position:relative;
+      z-index:1;
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      font-weight:900;
+      max-width:860px;
+    }
+
+    .ctx{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:2px dashed var(--line);
+      background:rgba(255,255,255,.72);
+      color:#6f6b64;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.55;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+    }
+
+    .card{
+      background:linear-gradient(180deg,#fffef9,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:26px;
+      box-shadow:var(--shadow);
+      padding:16px;
+    }
+
+    .card-title{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-bottom:12px;
+      font-size:22px;
+      line-height:1.2;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .badge{
+      width:42px;
+      height:42px;
+      flex:0 0 auto;
+      display:grid;
+      place-items:center;
+      border-radius:14px;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef8;
+      font-size:20px;
+      box-shadow:0 8px 16px rgba(88,183,245,.20);
+    }
+
+    .form-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field.full{
+      grid-column:1 / -1;
+    }
+
+    .label{
+      color:#7e7a73;
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.4;
+    }
+
+    input, select{
+      width:100%;
+      min-height:46px;
+      border-radius:16px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      padding:12px 14px;
+      font:inherit;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+    }
+
+    .toggle-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .toggle{
+      cursor:pointer;
+      display:block;
+    }
+
+    .toggle input{
+      position:absolute;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .toggle-box{
+      min-height:92px;
+      border-radius:20px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+      padding:14px;
+      display:grid;
+      gap:4px;
+      transition:.14s ease;
+    }
+
+    .toggle input:checked + .toggle-box{
+      border-color:#8ad95d;
+      background:linear-gradient(180deg,#f8fff1,#f2ffe7);
+      transform:translateY(-1px);
+    }
+
+    .toggle-title{
+      font-size:18px;
+      line-height:1.25;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .toggle-sub{
+      font-size:13px;
+      line-height:1.55;
+      font-weight:900;
+      color:var(--muted);
+    }
+
+    .pill-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6f6b64;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:14px 18px;
+      font-size:16px;
+      font-weight:1000;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
+      transition:.12s ease;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-main{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#fffef8;
+    }
+
+    .btn-blue{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef8;
+    }
+
+    .btn-violet{
+      background:linear-gradient(180deg,var(--violet),#aa8fff);
+      color:#fffef8;
+    }
+
+    .btn-warn{
+      background:linear-gradient(180deg,var(--yellow),var(--orange));
+      color:#6d4e00;
+    }
+
+    .btn-ghost{
+      background:#fff;
+      color:#6f6a62;
+      border:2px solid var(--line);
+    }
+
+    .preview{
+      border:2px dashed var(--line);
+      border-radius:20px;
+      background:rgba(255,255,255,.68);
+      padding:14px;
+      color:#6f6b64;
+      font-size:13px;
+      line-height:1.65;
+      font-weight:900;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    .small{
+      color:#7f7b74;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.6;
+    }
+
+    @media (max-width:920px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width:640px){
+      .page{ padding:12px; }
+      .form-grid,
+      .toggle-grid{ grid-template-columns:1fr; }
+      .actions .btn{ flex:1 1 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="kicker">🚀 INTERVENTION ENTRY</div>
+      <h1>เริ่ม GoodJunk Intervention</h1>
+      <p class="lead">
+        หน้าเริ่มต้นนี้ใช้เลือกโหมด flow ของ intervention ได้ทั้งแบบเร็วและแบบเต็ม
+        พร้อมกำหนดค่า study context, difficulty, time และ auto-next ก่อนเข้าแบบประเมิน/เกม
+      </p>
+      <div class="ctx" id="ctxBox">กำลังโหลดข้อมูล…</div>
+    </section>
+
+    <section class="grid">
+      <section class="card">
+        <div class="card-title">
+          <div class="badge">🧩</div>
+          <div>ข้อมูลพื้นฐาน</div>
+        </div>
+
+        <div class="form-grid">
+          <label class="field">
+            <span class="label">PID / Student Key</span>
+            <input id="pid" type="text" placeholder="เช่น stu-001" />
+          </label>
+
+          <label class="field">
+            <span class="label">ชื่อ / Nickname</span>
+            <input id="name" type="text" placeholder="เช่น Mint" />
+          </label>
+
+          <label class="field">
+            <span class="label">Study ID</span>
+            <input id="studyId" type="text" placeholder="เช่น GJ-P5-01" />
+          </label>
+
+          <label class="field">
+            <span class="label">Session</span>
+            <input id="sessionId" type="text" placeholder="เช่น S01" />
+          </label>
+
+          <label class="field">
+            <span class="label">Condition Group</span>
+            <input id="conditionGroup" type="text" placeholder="เช่น intervention-A" />
+          </label>
+
+          <label class="field">
+            <span class="label">Class Room</span>
+            <input id="classRoom" type="text" placeholder="เช่น P5/1" />
+          </label>
+
+          <label class="field">
+            <span class="label">School</span>
+            <input id="schoolName" type="text" placeholder="ชื่อโรงเรียน" />
+          </label>
+
+          <label class="field">
+            <span class="label">Hub URL</span>
+            <input id="hub" type="text" placeholder="../hub.html" />
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">
+          <div class="badge">🎮</div>
+          <div>ตั้งค่าเกม</div>
+        </div>
+
+        <div class="form-grid">
+          <label class="field">
+            <span class="label">Difficulty</span>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal">normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="label">เวลาเล่น (วินาที)</span>
+            <select id="time">
+              <option value="60">60</option>
+              <option value="80" selected>80</option>
+              <option value="90">90</option>
+              <option value="120">120</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="label">View</span>
+            <select id="view">
+              <option value="mobile">mobile</option>
+              <option value="pc">pc</option>
+              <option value="cvr">cvr</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="label">Language</span>
+            <select id="lang">
+              <option value="th" selected>th</option>
+              <option value="en">en</option>
+            </select>
+          </label>
+        </div>
+
+        <div style="height:12px"></div>
+
+        <div class="card-title" style="margin-bottom:10px;">
+          <div class="badge">🛤️</div>
+          <div>เลือก flow</div>
+        </div>
+
+        <div class="toggle-grid">
+          <label class="toggle">
+            <input type="radio" name="flowMode" value="fast" checked />
+            <div class="toggle-box">
+              <div class="toggle-title">Fast</div>
+              <div class="toggle-sub">Pre-Knowledge → Game → Post-Knowledge → Post-Behavior → Post-Choice → Completion</div>
+            </div>
+          </label>
+
+          <label class="toggle">
+            <input type="radio" name="flowMode" value="full" />
+            <div class="toggle-box">
+              <div class="toggle-title">Full</div>
+              <div class="toggle-sub">Pre-Knowledge → Pre-Behavior → Game → Post-Knowledge → Post-Behavior → Post-Choice → Completion</div>
+            </div>
+          </label>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="toggle-grid">
+          <label class="toggle">
+            <input type="radio" name="autoNext" value="0" checked />
+            <div class="toggle-box">
+              <div class="toggle-title">Manual Next</div>
+              <div class="toggle-sub">จบเกมแล้วอยู่หน้า summary ก่อน แล้วค่อยกดไป Post-Knowledge</div>
+            </div>
+          </label>
+
+          <label class="toggle">
+            <input type="radio" name="autoNext" value="1" />
+            <div class="toggle-box">
+              <div class="toggle-title">Auto Next</div>
+              <div class="toggle-sub">จบเกมแล้วเด้งไป Post-Knowledge อัตโนมัติ</div>
+            </div>
+          </label>
+        </div>
+      </section>
+    </section>
+
+    <section class="card">
+      <div class="card-title">
+        <div class="badge">🔗</div>
+        <div>ตัวอย่างเส้นทาง</div>
+      </div>
+
+      <div class="pill-row" id="flowPills"></div>
+      <div style="height:12px"></div>
+      <div class="preview" id="previewBox">กำลังสร้างลิงก์…</div>
+
+      <div class="actions">
+        <button class="btn btn-main" id="btnStartAssessment" type="button">เริ่มจาก Pre-Knowledge</button>
+        <button class="btn btn-blue" id="btnStartGame" type="button">เข้าเกมตรง ๆ</button>
+        <button class="btn btn-violet" id="btnCopy" type="button">คัดลอกลิงก์เริ่มต้น</button>
+        <button class="btn btn-warn" id="btnReset" type="button">ล้างค่า</button>
+        <a class="btn btn-ghost" id="btnHub" href="../hub.html">กลับ HUB</a>
+      </div>
+    </section>
+
+    <div class="small">
+      แนะนำสำหรับงานวิจัย: ใช้ <strong>full + autoNext=1</strong> จะได้ flow ครบและลื่นที่สุด
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      const CTX_KEY = 'GJI_CTX';
+
+      const $ = (id) => document.getElementById(id);
+      const q = new URLSearchParams(location.search);
+
+      function clean(v) {
+        return String(v ?? '').trim();
+      }
+
+      function readJson(key, fb = {}) {
+        try {
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fb;
+        } catch {
+          return fb;
+        }
+      }
+
+      function writeJson(key, value) {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch {}
+      }
+
+      function pickFlow() {
+        const checked = document.querySelector('input[name="flowMode"]:checked');
+        return checked ? checked.value : 'fast';
+      }
+
+      function pickAutoNext() {
+        const checked = document.querySelector('input[name="autoNext"]:checked');
+        return checked ? checked.value : '0';
+      }
+
+      function fieldValue(id, fb = '') {
+        const el = $(id);
+        return el ? clean(el.value || fb) : clean(fb);
+      }
+
+      function fillIfEmpty(id, value) {
+        const el = $(id);
+        if (!el) return;
+        if (clean(el.value) === '' && clean(value) !== '') {
+          el.value = value;
+        }
+      }
+
+      function loadInitialCtx() {
+        const saved = readJson(CTX_KEY, {});
+        const merged = {
+          pid: q.get('pid') || saved.pid || saved.studentKey || '',
+          name: q.get('name') || saved.name || saved.nickName || '',
+          studyId: q.get('studyId') || saved.studyId || '',
+          sessionId: q.get('sessionId') || q.get('session') || saved.sessionId || saved.session || '',
+          conditionGroup: q.get('conditionGroup') || q.get('condition') || saved.conditionGroup || saved.condition || '',
+          classRoom: q.get('classRoom') || q.get('classroom') || saved.classRoom || saved.classroom || '',
+          schoolName: q.get('schoolName') || q.get('school') || saved.schoolName || saved.school || '',
+          diff: q.get('diff') || saved.diff || 'easy',
+          time: q.get('time') || saved.time || '80',
+          view: q.get('view') || saved.view || 'mobile',
+          lang: q.get('lang') || saved.lang || 'th',
+          hub: q.get('hub') || saved.hub || '../hub.html',
+          flow: q.get('flow') || saved.flow || 'fast',
+          autoNext: q.get('autoNext') || saved.autoNext || '0'
+        };
+
+        fillIfEmpty('pid', merged.pid);
+        fillIfEmpty('name', merged.name);
+        fillIfEmpty('studyId', merged.studyId);
+        fillIfEmpty('sessionId', merged.sessionId);
+        fillIfEmpty('conditionGroup', merged.conditionGroup);
+        fillIfEmpty('classRoom', merged.classRoom);
+        fillIfEmpty('schoolName', merged.schoolName);
+        fillIfEmpty('hub', merged.hub);
+
+        if ($('diff')) $('diff').value = merged.diff;
+        if ($('time')) $('time').value = merged.time;
+        if ($('view')) $('view').value = merged.view;
+        if ($('lang')) $('lang').value = merged.lang;
+
+        const flowEl = document.querySelector(`input[name="flowMode"][value="${merged.flow === 'full' ? 'full' : 'fast'}"]`);
+        if (flowEl) flowEl.checked = true;
+
+        const autoEl = document.querySelector(`input[name="autoNext"][value="${merged.autoNext === '1' ? '1' : '0'}"]`);
+        if (autoEl) autoEl.checked = true;
+      }
+
+      function collectCtx() {
+        return {
+          pid: fieldValue('pid'),
+          name: fieldValue('name'),
+          studentKey: fieldValue('pid'),
+          nickName: fieldValue('name'),
+          studyId: fieldValue('studyId'),
+          session: fieldValue('sessionId'),
+          sessionId: fieldValue('sessionId'),
+          condition: fieldValue('conditionGroup'),
+          conditionGroup: fieldValue('conditionGroup'),
+          classRoom: fieldValue('classRoom'),
+          classroom: fieldValue('classRoom'),
+          schoolName: fieldValue('schoolName'),
+          school: fieldValue('schoolName'),
+          diff: fieldValue('diff', 'easy'),
+          time: fieldValue('time', '80'),
+          view: fieldValue('view', 'mobile'),
+          lang: fieldValue('lang', 'th'),
+          hub: fieldValue('hub', '../hub.html'),
+          gameId: 'goodjunk',
+          run: 'play',
+          mode: 'solo',
+          flow: pickFlow(),
+          autoNext: pickAutoNext()
+        };
+      }
+
+      function saveCtx() {
+        const ctx = collectCtx();
+        writeJson(CTX_KEY, ctx);
+        return ctx;
+      }
+
+      function buildQuery(ctx) {
+        const query = new URLSearchParams();
+
+        Object.entries(ctx).forEach(([key, value]) => {
+          if (clean(value) !== '') {
+            query.set(key, String(value));
+          }
+        });
+
+        return query.toString();
+      }
+
+      function buildAssessmentUrl() {
+        const ctx = saveCtx();
+        return `../assessments/pre-knowledge.html?${buildQuery(ctx)}`;
+      }
+
+      function buildGameUrl() {
+        const ctx = saveCtx();
+        return `../game/goodjunk-vr.html?${buildQuery(ctx)}`;
+      }
+
+      function flowText() {
+        return pickFlow() === 'full'
+          ? 'Pre-Knowledge -> Pre-Behavior -> Game -> Post-Knowledge -> Post-Behavior -> Post-Choice -> Completion'
+          : 'Pre-Knowledge -> Game -> Post-Knowledge -> Post-Behavior -> Post-Choice -> Completion';
+      }
+
+      function renderCtxBox() {
+        const ctx = collectCtx();
+        $('ctxBox').textContent = [
+          `PID: ${ctx.pid || '-'}`,
+          `Study: ${ctx.studyId || '-'}`,
+          `Session: ${ctx.sessionId || '-'}`,
+          `Condition: ${ctx.conditionGroup || '-'}`,
+          `Flow: ${ctx.flow || 'fast'}`,
+          `AutoNext: ${ctx.autoNext === '1' ? 'on' : 'off'}`
+        ].join(' • ');
+      }
+
+      function renderPills() {
+        const pills = [
+          `🛤️ ${pickFlow() === 'full' ? 'Full Flow' : 'Fast Flow'}`,
+          `⏭️ ${pickAutoNext() === '1' ? 'Auto Next' : 'Manual Next'}`,
+          `🎯 ${fieldValue('diff', 'easy')}`,
+          `⏱️ ${fieldValue('time', '80')}s`,
+          `📱 ${fieldValue('view', 'mobile')}`
+        ];
+
+        $('flowPills').innerHTML = pills.map(v => `<div class="pill">${v}</div>`).join('');
+      }
+
+      function renderPreview() {
+        const assessmentUrl = buildAssessmentUrl();
+        const gameUrl = buildGameUrl();
+
+        $('previewBox').textContent =
+`FLOW
+${flowText()}
+
+START URL
+${assessmentUrl}
+
+DIRECT GAME URL
+${gameUrl}`;
+      }
+
+      function rerender() {
+        renderCtxBox();
+        renderPills();
+        renderPreview();
+        $('btnHub').href = fieldValue('hub', '../hub.html') || '../hub.html';
+      }
+
+      function bind() {
+        [
+          'pid','name','studyId','sessionId','conditionGroup',
+          'classRoom','schoolName','hub','diff','time','view','lang'
+        ].forEach((id) => {
+          const el = $(id);
+          if (!el) return;
+          el.addEventListener('input', rerender);
+          el.addEventListener('change', rerender);
+        });
+
+        document.querySelectorAll('input[name="flowMode"], input[name="autoNext"]').forEach((el) => {
+          el.addEventListener('change', rerender);
+        });
+
+        $('btnStartAssessment').addEventListener('click', () => {
+          location.href = buildAssessmentUrl();
+        });
+
+        $('btnStartGame').addEventListener('click', () => {
+          location.href = buildGameUrl();
+        });
+
+        $('btnCopy').addEventListener('click', async () => {
+          const url = buildAssessmentUrl();
+          try {
+            await navigator.clipboard.writeText(url);
+            $('previewBox').textContent = `คัดลอกลิงก์แล้ว ✅\n\n${url}`;
+          } catch {
+            $('previewBox').textContent = `คัดลอกไม่สำเร็จ ให้คัดลอกจากด้านล่างนี้แทน\n\n${url}`;
+          }
+        });
+
+        $('btnReset').addEventListener('click', () => {
+          ['pid','name','studyId','sessionId','conditionGroup','classRoom','schoolName'].forEach((id) => {
+            if ($(id)) $(id).value = '';
+          });
+          if ($('diff')) $('diff').value = 'easy';
+          if ($('time')) $('time').value = '80';
+          if ($('view')) $('view').value = 'mobile';
+          if ($('lang')) $('lang').value = 'th';
+          if ($('hub')) $('hub').value = '../hub.html';
+
+          const fast = document.querySelector('input[name="flowMode"][value="fast"]');
+          const manual = document.querySelector('input[name="autoNext"][value="0"]');
+          if (fast) fast.checked = true;
+          if (manual) manual.checked = true;
+
+          rerender();
+        });
+      }
+
+      loadInitialCtx();
+      bind();
+      rerender();
+    })();
+  </script>
+</body>
+</html>
