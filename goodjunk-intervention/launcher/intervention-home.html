@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk • Intervention Home</title>
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --sky1:#dff6ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d6;
+      --line:#c9e8f4;
+      --text:#4d4a42;
+      --muted:#7d7a73;
+      --green:#7ed957;
+      --green2:#59c53f;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --yellow:#ffd45c;
+      --orange:#ffb547;
+      --violet:#cdb9ff;
+      --pink:#ff9fcb;
+      --shadow:0 18px 40px rgba(86,155,194,.16);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+
+    body{
+      min-height:100dvh;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,255,255,.94), transparent 18%),
+        radial-gradient(circle at 86% 14%, rgba(255,255,255,.76), transparent 16%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 56%, var(--sky3));
+    }
+
+    .page{
+      width:min(1120px,100%);
+      margin:0 auto;
+      padding:16px;
+      padding-top:calc(16px + env(safe-area-inset-top,0px));
+      padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
+      display:grid;
+      gap:16px;
+    }
+
+    .hero{
+      background:linear-gradient(180deg,#fffef8,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:32px;
+      box-shadow:var(--shadow);
+      padding:22px 20px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-26px;
+      top:-26px;
+      width:140px;
+      height:140px;
+      border-radius:999px;
+      background:rgba(127,207,255,.18);
+      filter:blur(8px);
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-22px;
+      bottom:-22px;
+      width:120px;
+      height:120px;
+      border-radius:999px;
+      background:rgba(255,212,92,.18);
+      filter:blur(8px);
+    }
+
+    .hero-grid{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+      align-items:center;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#eef8ff;
+      border:2px solid var(--line);
+      color:#5aa8d1;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    h1{
+      margin:0 0 10px;
+      font-size:clamp(32px,5vw,50px);
+      line-height:1.03;
+      color:#67a91c;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    .lead{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.75;
+      font-weight:900;
+      max-width:760px;
+    }
+
+    .pill-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6f6b64;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+    }
+
+    .hero-side{
+      display:grid;
+      gap:12px;
+    }
+
+    .mascot{
+      min-height:220px;
+      border:3px solid var(--line);
+      border-radius:28px;
+      background:
+        radial-gradient(circle at 24% 20%, rgba(255,255,255,.9), transparent 14%),
+        linear-gradient(180deg,#fffef8,#f8fff4);
+      box-shadow:var(--shadow);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:20px;
+    }
+
+    .mascot-face{
+      font-size:72px;
+      line-height:1;
+      margin-bottom:8px;
+    }
+
+    .mascot-title{
+      font-size:24px;
+      font-weight:1000;
+      color:#67a91c;
+      line-height:1.15;
+    }
+
+    .mascot-sub{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:16px;
+    }
+
+    .card{
+      background:linear-gradient(180deg,#fffef9,#f8fff4);
+      border:3px solid var(--line);
+      border-radius:26px;
+      box-shadow:var(--shadow);
+      padding:16px;
+    }
+
+    .card-title{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-bottom:12px;
+      font-size:21px;
+      line-height:1.2;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .badge{
+      width:42px;
+      height:42px;
+      flex:0 0 auto;
+      display:grid;
+      place-items:center;
+      border-radius:14px;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef8;
+      font-size:20px;
+      box-shadow:0 8px 16px rgba(88,183,245,.20);
+    }
+
+    .list{
+      display:grid;
+      gap:10px;
+    }
+
+    .list-item{
+      border:2px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+      box-shadow:0 8px 16px rgba(86,155,194,.08);
+      padding:12px 14px;
+    }
+
+    .list-k{
+      color:#8a867f;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:4px;
+      line-height:1.4;
+    }
+
+    .list-v{
+      color:var(--text);
+      font-size:16px;
+      font-weight:1000;
+      line-height:1.55;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:18px;
+      padding:14px 18px;
+      font-size:16px;
+      font-weight:1000;
+      box-shadow:0 10px 20px rgba(86,155,194,.14);
+      transition:.12s ease;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-main{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#fffef8;
+    }
+
+    .btn-blue{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fffef8;
+    }
+
+    .btn-violet{
+      background:linear-gradient(180deg,var(--violet),#aa8fff);
+      color:#fffef8;
+    }
+
+    .btn-ghost{
+      background:#fff;
+      color:#6f6a62;
+      border:2px solid var(--line);
+    }
+
+    .preview{
+      border:2px dashed var(--line);
+      border-radius:20px;
+      background:rgba(255,255,255,.68);
+      padding:14px;
+      color:#6f6b64;
+      font-size:13px;
+      line-height:1.7;
+      font-weight:900;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    @media (max-width:920px){
+      .hero-grid,
+      .grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:640px){
+      .page{ padding:12px; }
+      .actions .btn{ flex:1 1 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <div class="kicker">🍎 GOODJUNK INTERVENTION</div>
+          <h1>เริ่มกิจกรรมเลือกอาหารดี แบบเป็นระบบ</h1>
+          <p class="lead">
+            หน้านี้เป็นจุดเริ่มต้นก่อนเข้า intervention จริง
+            โดยจะแยกได้ทั้งแบบเร็วและแบบเต็ม พร้อมส่งต่อไปยังแบบประเมินและเกมใน flow เดียวกัน
+          </p>
+
+          <div class="pill-row" id="heroPills"></div>
+        </div>
+
+        <div class="hero-side">
+          <div class="mascot">
+            <div>
+              <div class="mascot-face">🥗🦸</div>
+              <div class="mascot-title">Food Hero Mission</div>
+              <div class="mascot-sub">
+                เรียนรู้ • เล่นเกม • สะท้อนคิด • สรุปผล
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <section class="card">
+        <div class="card-title">
+          <div class="badge">⚡</div>
+          <div>Fast Flow</div>
+        </div>
+
+        <div class="list">
+          <div class="list-item">
+            <div class="list-k">เหมาะกับ</div>
+            <div class="list-v">ทดสอบเร็ว หรือใช้ในคาบที่เวลาจำกัด</div>
+          </div>
+          <div class="list-item">
+            <div class="list-k">เส้นทาง</div>
+            <div class="list-v">Pre-Knowledge → Game → Post-Knowledge → Post-Behavior → Post-Choice → Completion</div>
+          </div>
+        </div>
+
+        <div style="height:14px"></div>
+
+        <div class="actions">
+          <a class="btn btn-blue" id="btnFastManual" href="#">Fast + Manual</a>
+          <a class="btn btn-main" id="btnFastAuto" href="#">Fast + AutoNext</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">
+          <div class="badge">🛤️</div>
+          <div>Full Flow</div>
+        </div>
+
+        <div class="list">
+          <div class="list-item">
+            <div class="list-k">เหมาะกับ</div>
+            <div class="list-v">งานวิจัย หรือการเก็บข้อมูลก่อน-หลังแบบครบ</div>
+          </div>
+          <div class="list-item">
+            <div class="list-k">เส้นทาง</div>
+            <div class="list-v">Pre-Knowledge → Pre-Behavior → Game → Post-Knowledge → Post-Behavior → Post-Choice → Completion</div>
+          </div>
+        </div>
+
+        <div style="height:14px"></div>
+
+        <div class="actions">
+          <a class="btn btn-violet" id="btnFullManual" href="#">Full + Manual</a>
+          <a class="btn btn-main" id="btnFullAuto" href="#">Full + AutoNext</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">
+          <div class="badge">🔗</div>
+          <div>ลิงก์เริ่มต้น</div>
+        </div>
+
+        <div class="preview" id="previewBox">กำลังสร้างลิงก์…</div>
+
+        <div style="height:14px"></div>
+
+        <div class="actions">
+          <a class="btn btn-blue" id="btnEntry" href="#">ไปหน้า Entry Settings</a>
+          <button class="btn btn-main" id="btnCopy" type="button">คัดลอกลิงก์</button>
+          <a class="btn btn-ghost" id="btnHub" href="../../herohealth/hub-v2.html">กลับ HUB</a>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const CTX_KEY = 'GJI_CTX';
+
+      function readJson(key, fb = {}) {
+        try {
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fb;
+        } catch {
+          return fb;
+        }
+      }
+
+      function clean(v) {
+        return String(v ?? '').trim();
+      }
+
+      const q = new URLSearchParams(location.search);
+      const saved = readJson(CTX_KEY, {});
+
+      const ctx = {
+        pid: q.get('pid') || saved.pid || saved.studentKey || 'anon',
+        name: q.get('name') || saved.name || saved.nickName || 'Hero',
+        studentKey: q.get('studentKey') || saved.studentKey || saved.pid || 'anon',
+        nickName: q.get('nickName') || saved.nickName || saved.name || 'Hero',
+        studyId: q.get('studyId') || saved.studyId || '',
+        session: q.get('session') || q.get('sessionId') || saved.session || saved.sessionId || '',
+        sessionId: q.get('sessionId') || q.get('session') || saved.sessionId || saved.session || '',
+        condition: q.get('condition') || q.get('conditionGroup') || saved.condition || saved.conditionGroup || '',
+        conditionGroup: q.get('conditionGroup') || q.get('condition') || saved.conditionGroup || saved.condition || '',
+        classRoom: q.get('classRoom') || q.get('classroom') || saved.classRoom || saved.classroom || '',
+        classroom: q.get('classroom') || q.get('classRoom') || saved.classroom || saved.classRoom || '',
+        schoolName: q.get('schoolName') || q.get('school') || saved.schoolName || saved.school || '',
+        school: q.get('school') || q.get('schoolName') || saved.school || saved.schoolName || '',
+        diff: q.get('diff') || saved.diff || 'easy',
+        time: q.get('time') || saved.time || '80',
+        view: q.get('view') || saved.view || 'mobile',
+        run: q.get('run') || saved.run || 'play',
+        gameId: q.get('gameId') || saved.gameId || 'goodjunk',
+        lang: q.get('lang') || saved.lang || 'th',
+        hub: q.get('hub') || saved.hub || '../../herohealth/hub-v2.html'
+      };
+
+      function buildQuery(extra = {}) {
+        const merged = { ...ctx, ...extra };
+        const query = new URLSearchParams();
+
+        Object.entries(merged).forEach(([key, value]) => {
+          if (clean(value) !== '') query.set(key, String(value));
+        });
+
+        return query.toString();
+      }
+
+      function buildEntryUrl(flow, autoNext) {
+        return `./intervention-entry.html?${buildQuery({
+          flow,
+          autoNext: String(autoNext)
+        })}`;
+      }
+
+      function renderHeroPills() {
+        const pills = [
+          `👤 ${ctx.nickName || ctx.name || ctx.pid || ctx.studentKey || '-'}`,
+          `🧪 ${ctx.studyId || '-'}`,
+          `🕒 ${ctx.sessionId || ctx.session || '-'}`,
+          `🎯 ${ctx.diff || 'easy'}`,
+          `⏱️ ${ctx.time || '80'}s`,
+          `📱 ${ctx.view || 'mobile'}`
+        ];
+
+        document.getElementById('heroPills').innerHTML =
+          pills.map(v => `<div class="pill">${v}</div>`).join('');
+      }
+
+      function renderPreview() {
+        const preview = document.getElementById('previewBox');
+        preview.textContent =
+`FAST + MANUAL
+${buildEntryUrl('fast', 0)}
+
+FULL + AUTONEXT
+${buildEntryUrl('full', 1)}`;
+      }
+
+      document.getElementById('btnFastManual').href = buildEntryUrl('fast', 0);
+      document.getElementById('btnFastAuto').href = buildEntryUrl('fast', 1);
+      document.getElementById('btnFullManual').href = buildEntryUrl('full', 0);
+      document.getElementById('btnFullAuto').href = buildEntryUrl('full', 1);
+      document.getElementById('btnEntry').href = './intervention-entry.html?' + buildQuery();
+      document.getElementById('btnHub').href = ctx.hub || '../../herohealth/hub-v2.html';
+
+      document.getElementById('btnCopy').addEventListener('click', async () => {
+        const url = buildEntryUrl('full', 1);
+        try {
+          await navigator.clipboard.writeText(url);
+          document.getElementById('previewBox').textContent = `คัดลอกลิงก์แล้ว ✅\n\n${url}`;
+        } catch {
+          document.getElementById('previewBox').textContent = `คัดลอกไม่สำเร็จ ให้คัดลอกจากลิงก์นี้แทน\n\n${url}`;
+        }
+      });
+
+      renderHeroPills();
+      renderPreview();
+    })();
+  </script>
+</body>
+</html>
