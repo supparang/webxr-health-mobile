@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Nutrition Zone</title>
   <meta name="color-scheme" content="light" />
-  <link rel="stylesheet" href="./zone-common.css?v=20260408a" />
-  <link rel="stylesheet" href="./zone-theme.css?v=20260408a" />
+  <link rel="stylesheet" href="./zone-common.css?v=20260408b" />
+  <link rel="stylesheet" href="./zone-theme.css?v=20260408b" />
 </head>
 <body class="zone-nutrition">
   <div class="hz-shell">
@@ -14,7 +14,9 @@
       <div class="brand-wrap">
         <div class="brand-badge">HeroHealth</div>
         <h1 class="hero-title">Nutrition Zone</h1>
-        <p class="hero-sub">โลกแห่งอาหารดี เลือกเกมที่อยากเล่น แล้วเรียนรู้เรื่องโภชนาการอย่างสนุก</p>
+        <p class="hero-sub">
+          โลกแห่งอาหารดี เลือกเกมที่อยากเล่น แล้วเรียนรู้เรื่องโภชนาการอย่างสนุก
+        </p>
       </div>
 
       <div class="hero-actions">
@@ -23,34 +25,15 @@
       </div>
     </header>
 
-    <section class="zone-banner" aria-hidden="true">
-      <div class="zone-banner-card">
-        <div class="zone-banner-copy">
-          <div class="zone-banner-kicker">Nutrition Adventure</div>
-          <div class="zone-banner-title">กินดี เล่นสนุก แข็งแรงไปด้วยกัน</div>
-          <div class="zone-banner-sub">ผัก ผลไม้ น้ำ และจานอาหารครบหมู่รออยู่ในด่านนี้</div>
-        </div>
-
-        <div class="zone-banner-art nutrition-art">
-          <div class="art-sun"></div>
-          <div class="art-cloud c1"></div>
-          <div class="art-cloud c2"></div>
-          <div class="art-plate"></div>
-          <div class="art-food apple">🍎</div>
-          <div class="art-food carrot">🥕</div>
-          <div class="art-food broccoli">🥦</div>
-          <div class="art-food water">💧</div>
-        </div>
-      </div>
-    </section>
-
     <section class="hero-panel">
       <div class="hero-panel-left">
         <div class="mascot-card">
           <div class="mascot-face">🥗</div>
           <div class="mascot-text">
             <div class="mascot-kicker">พร้อมเล่น!</div>
-            <div id="coachLine" class="mascot-line">ลองเริ่มจาก Plate ก่อน แล้วค่อยไปเกมที่ท้าทายขึ้นนะ</div>
+            <div id="coachLine" class="mascot-line">
+              ลองเริ่มจาก Plate ก่อน แล้วค่อยไปเกมที่ท้าทายขึ้นนะ
+            </div>
           </div>
         </div>
 
@@ -70,7 +53,6 @@
             <select id="modeSelect">
               <option value="play">เล่นสนุก</option>
               <option value="learn">ฝึกเรียนรู้</option>
-              <option value="research">โหมดครู</option>
             </select>
           </label>
 
@@ -96,66 +78,19 @@
       </div>
     </section>
 
-    <section class="zone-quick-actions" id="zoneQuickActions">
-      <div class="zone-quick-head">
-        <div>
-          <div class="section-kicker">Quick Start</div>
-          <h2 class="section-title">เริ่มเล่นแบบเร็ว</h2>
-        </div>
-      </div>
-      <div class="zone-quick-row" id="zoneQuickRow"></div>
-    </section>
-
-    <section class="featured-game-card" id="featuredGameCard">
+    <section class="featured-game-card">
       <div class="featured-game-left">
         <div class="featured-kicker">แนะนำวันนี้</div>
         <h2 id="featuredTitle" class="featured-title">Plate</h2>
-        <p id="featuredSub" class="featured-sub">ฝึกเลือกอาหารครบ 5 หมู่แบบเข้าใจง่าย เหมาะสำหรับเริ่มเล่นใน Nutrition Zone</p>
+        <p id="featuredSub" class="featured-sub">
+          ฝึกเลือกอาหารครบ 5 หมู่แบบเข้าใจง่าย เหมาะสำหรับเริ่มเล่นใน Nutrition Zone
+        </p>
         <div id="featuredTags" class="featured-tags"></div>
       </div>
+
       <div class="featured-game-right">
         <a id="featuredPlayBtn" class="top-btn primary" href="./plate-v1.html">▶️ เริ่มเกมแนะนำ</a>
       </div>
-    </section>
-
-    <section class="zone-reward-strip" id="zoneRewardStrip">
-      <div class="zone-reward-head">
-        <div>
-          <div class="section-kicker">Rewards</div>
-          <h2 class="section-title">ของรางวัลและเป้าหมายวันนี้</h2>
-        </div>
-      </div>
-
-      <div class="zone-reward-grid">
-        <div class="reward-panel">
-          <div class="reward-panel-title">สติกเกอร์ล่าสุด</div>
-          <div class="reward-big" id="rewardLastSticker">🌟</div>
-          <div class="reward-sub" id="rewardLastStickerText">เริ่มเล่นเพื่อรับสติกเกอร์แรก</div>
-        </div>
-
-        <div class="reward-panel">
-          <div class="reward-panel-title">เหรียญประจำโซน</div>
-          <div class="reward-big" id="rewardBadgeEmoji">🥉</div>
-          <div class="reward-sub" id="rewardBadgeText">Rookie</div>
-        </div>
-
-        <div class="reward-panel">
-          <div class="reward-panel-title">เป้าหมายวันนี้</div>
-          <div class="reward-goal" id="rewardGoalText">เล่นอีก 1 เกมเพื่อเริ่มสะสมรางวัล</div>
-          <div class="reward-chip-row" id="rewardChipRow"><span class="reward-chip">เริ่มต้น</span></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="zone-mission-strip" id="zoneMissionStrip">
-      <div class="zone-mission-head">
-        <div>
-          <div class="section-kicker">Missions</div>
-          <h2 class="section-title">ภารกิจสั้น ๆ วันนี้</h2>
-        </div>
-        <a id="missionActionBtn" class="top-btn primary" href="#">▶️ ไปภารกิจถัดไป</a>
-      </div>
-      <div class="zone-mission-grid" id="zoneMissionGrid"></div>
     </section>
 
     <section class="featured-card">
@@ -165,6 +100,7 @@
           <h2 class="section-title">เกมล่าสุดของหนู</h2>
         </div>
       </div>
+
       <div id="recentArea" class="recent-area">
         <div class="empty-recent">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>
       </div>
@@ -177,6 +113,7 @@
           <h2 class="section-title">เลือกเกมใน Nutrition Zone</h2>
         </div>
       </div>
+
       <div id="gamesGrid" class="games-grid"></div>
     </section>
 
@@ -187,23 +124,26 @@
           <h2 class="section-title">ความคืบหน้า Nutrition Zone</h2>
         </div>
       </div>
+
       <div class="zone-progress-grid">
         <div class="progress-pill">
           <div class="progress-n" id="zonePlayedCount">0/4</div>
           <div class="progress-t">เกมที่เคยเล่น</div>
         </div>
-        <div class="progress-pill">
-          <div class="progress-n" id="zoneStarsCount">0/5</div>
-          <div class="progress-t">ดาวโซน</div>
-        </div>
+
         <div class="progress-pill">
           <div class="progress-n" id="zoneTodayCount">0</div>
           <div class="progress-t">เกมวันนี้</div>
+        </div>
+
+        <div class="progress-pill">
+          <div class="progress-n" id="zoneRecentGame">-</div>
+          <div class="progress-t">ล่าสุด</div>
         </div>
       </div>
     </section>
   </div>
 
-  <script type="module" src="./nutrition-zone.js?v=20260408a"></script>
+  <script type="module" src="./nutrition-zone.js?v=20260408b"></script>
 </body>
 </html>
