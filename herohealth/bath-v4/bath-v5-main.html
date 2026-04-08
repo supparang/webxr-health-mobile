@@ -13,7 +13,7 @@
       --sky2:#b8ebff;
       --ink:#18465e;
       --ink2:#477287;
-      --panel:rgba(255,255,255,.92);
+      --panel:rgba(255,255,255,.94);
       --panel2:rgba(255,255,255,.98);
       --line:#cdeeff;
       --good:#18b86f;
@@ -25,6 +25,7 @@
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       width:100%;
@@ -42,44 +43,52 @@
       pointer-events:none;
     }
 
+    .a-enter-vr-button,
+    .a-enter-ar-button,
+    .a-orientation-modal{
+      display:none !important;
+    }
+
     .topbar{
       position:absolute;
-      top:10px;
-      left:10px;
-      right:10px;
+      top:8px;
+      left:8px;
+      right:8px;
       display:grid;
       grid-template-columns:1fr auto;
-      gap:10px;
+      gap:8px;
       align-items:start;
     }
 
     .hud{
       display:flex;
-      gap:10px;
+      gap:8px;
       flex-wrap:wrap;
       align-items:center;
     }
 
     .chip{
-      min-width:100px;
-      padding:10px 12px;
-      border-radius:18px;
+      min-width:84px;
+      padding:8px 10px;
+      border-radius:14px;
       background:var(--panel);
-      border:3px solid rgba(255,255,255,.95);
+      border:3px solid rgba(255,255,255,.96);
       box-shadow:var(--shadow);
       backdrop-filter:blur(8px);
     }
+
     .chip .k{
       display:block;
-      font-size:11px;
+      font-size:10px;
       color:var(--ink2);
       font-weight:900;
       text-transform:uppercase;
-      margin-bottom:3px;
+      margin-bottom:2px;
     }
+
     .chip .v{
       display:block;
-      font-size:23px;
+      font-size:18px;
       font-weight:1000;
       line-height:1;
     }
@@ -95,8 +104,8 @@
     .btn{
       appearance:none;
       border:none;
-      border-radius:18px;
-      padding:11px 16px;
+      border-radius:16px;
+      padding:10px 14px;
       background:var(--panel2);
       color:var(--ink);
       font-weight:1000;
@@ -106,24 +115,25 @@
       border:3px solid rgba(255,255,255,.98);
       box-shadow:var(--shadow);
     }
+
     .btn.primary{ background:#fff6ca; }
     .btn.good{ background:#dbffea; }
     .btn.warn{ background:#ffe4d8; }
 
     .task-wrap{
       position:absolute;
-      top:96px;
-      left:10px;
-      right:10px;
-      max-width:700px;
+      top:82px;
+      left:8px;
+      right:8px;
+      max-width:560px;
     }
 
     .task-card{
-      background:var(--panel);
+      background:rgba(255,255,255,.94);
       border:3px solid rgba(255,255,255,.96);
-      border-radius:22px;
+      border-radius:18px;
       box-shadow:var(--shadow);
-      padding:12px;
+      padding:10px 12px;
     }
 
     .task-head{
@@ -131,23 +141,23 @@
       justify-content:space-between;
       align-items:center;
       gap:10px;
-      margin-bottom:8px;
-      font-size:13px;
+      margin-bottom:6px;
+      font-size:12px;
       font-weight:1000;
       color:var(--ink2);
     }
 
     .task-title{
-      font-size:22px;
+      font-size:clamp(20px,4vw,30px);
       font-weight:1000;
       color:var(--ink);
-      margin-bottom:8px;
+      margin-bottom:6px;
       line-height:1.2;
     }
 
     .bar{
       width:100%;
-      height:18px;
+      height:16px;
       background:#eaf8ff;
       border-radius:999px;
       overflow:hidden;
@@ -164,11 +174,11 @@
     }
 
     .task-sub{
-      margin-top:8px;
+      margin-top:6px;
       display:flex;
       justify-content:space-between;
       gap:10px;
-      font-size:13px;
+      font-size:12px;
       font-weight:900;
       color:var(--ink2);
       flex-wrap:wrap;
@@ -177,21 +187,22 @@
     .center-msg{
       position:absolute;
       left:50%;
-      top:26%;
+      top:16%;
       transform:translateX(-50%) scale(.92);
-      max-width:min(92vw,780px);
-      padding:14px 22px;
+      max-width:min(92vw,760px);
+      padding:12px 18px;
       border-radius:999px;
       text-align:center;
       background:rgba(16,55,77,.84);
       color:#fff;
-      font-size:clamp(20px,4vw,40px);
+      font-size:clamp(18px,4vw,34px);
       font-weight:1000;
       letter-spacing:.3px;
       opacity:0;
       transition:opacity .16s ease, transform .16s ease;
       box-shadow:0 18px 50px rgba(0,0,0,.22);
     }
+
     .center-msg.show{
       opacity:1;
       transform:translateX(-50%) scale(1);
@@ -200,18 +211,19 @@
     .helper{
       position:absolute;
       left:50%;
-      bottom:14px;
+      bottom:10px;
       transform:translateX(-50%);
-      background:rgba(255,255,255,.9);
+      background:rgba(255,255,255,.92);
       border:2px solid rgba(255,255,255,.98);
       color:var(--ink2);
-      font-size:13px;
+      font-size:12px;
       font-weight:900;
-      padding:10px 16px;
+      padding:8px 12px;
       border-radius:999px;
       box-shadow:var(--shadow);
-      max-width:92vw;
+      max-width:88vw;
       text-align:center;
+      line-height:1.45;
     }
 
     .overlay{
@@ -225,10 +237,11 @@
       background:rgba(18,67,90,.34);
       backdrop-filter:blur(6px);
     }
+
     .hidden{ display:none !important; }
 
     .card{
-      width:min(95vw,840px);
+      width:min(95vw,820px);
       border-radius:30px;
       background:linear-gradient(180deg,rgba(255,255,255,.99),rgba(244,252,255,.98));
       border:4px solid rgba(255,255,255,.98);
@@ -310,12 +323,17 @@
       margin-top:12px;
     }
 
+    .target-hit-glow{
+      animation: hhPulse 0.55s ease-in-out infinite alternate;
+    }
+
+    @keyframes hhPulse{
+      from{ opacity:.35; transform:scale(1); }
+      to{ opacity:.9; transform:scale(1.08); }
+    }
+
     @media (max-width:640px){
-      .topbar{ top:8px; left:8px; right:8px; }
-      .chip{ min-width:88px; padding:9px 10px; }
-      .chip .v{ font-size:19px; }
-      .task-wrap{ top:140px; left:8px; right:8px; }
-      .helper{ bottom:10px; }
+      .task-wrap{ top:132px; }
     }
   </style>
 </head>
@@ -351,15 +369,15 @@
       <div class="task-card">
         <div class="task-head">
           <span id="modeText">MODE</span>
-          <span id="remainText">เหลือ 0 คราบ</span>
+          <span id="remainText">เหลือ 4 คราบ</span>
         </div>
         <div id="taskTitle" class="task-title">ตอนนี้: ล้างศีรษะ</div>
         <div class="bar">
           <i id="zoneBar"></i>
         </div>
         <div class="task-sub">
-          <span id="taskHint">เล็งหรือคลิกที่คราบบนส่วนที่เรืองแสง</span>
-          <span id="cleanedText">ล้างแล้ว 0/0</span>
+          <span id="taskHint">แตะคราบบนศีรษะให้ครบ</span>
+          <span id="cleanedText">ล้างแล้ว 0/4</span>
         </div>
       </div>
     </div>
@@ -367,23 +385,23 @@
     <div id="centerMsg" class="center-msg">เริ่มอาบน้ำกัน!</div>
 
     <div id="helperText" class="helper">
-      PC: คลิกที่คราบ • Mobile / Cardboard: เล็งค้างที่คราบ • เกมจะบอกชัดว่าต้องล้างส่วนไหน
+      PC: คลิกคราบ • Mobile/Cardboard: เล็งค้างที่คราบ • เกมจะบอกชัดว่าต้องล้างส่วนไหน
     </div>
   </div>
 
   <div id="startOverlay" class="overlay">
     <div class="card">
-      <h1>🛁 Bath v5 • Main Game</h1>
+      <h1>🛁 Bath Main Game</h1>
       <p class="sub">
-        เวอร์ชันนี้เป็นเกมหลักของ Bath เพราะผู้เล่นจะล้างร่างกายทีละส่วนอย่างชัดเจน
-        เห็นว่าตอนนี้กำลังล้างหัว อก แขน ท้อง หรือขา ไม่ใช่ยิงเป้าลอย ๆ
+        เวอร์ชันนี้แก้ให้เห็นร่างกายครบ โดยเฉพาะขาและเท้า
+        และล้างทีละส่วนแบบชัดเจน ไม่ต้องเดาเองแล้ว
       </p>
 
       <div class="mini-grid">
-        <div class="mini">1) ดูคำสั่งด้านบนว่า ตอนนี้ต้องล้างส่วนไหน</div>
-        <div class="mini">2) โซนที่ต้องล้างจะมีวงเรืองแสงและลูกศรชี้</div>
-        <div class="mini">3) คราบจะเกิดบนส่วนนั้นจริง ๆ</div>
-        <div class="mini">4) ล้างครบแล้ว เกมจะพาไปโซนถัดไปอัตโนมัติ</div>
+        <div class="mini">1) ดูว่าตอนนี้เกมให้ล้างส่วนไหน</div>
+        <div class="mini">2) คราบจะขึ้นบนส่วนนั้นจริง ๆ</div>
+        <div class="mini">3) แตะหรือเล็งค้างที่คราบให้ครบ</div>
+        <div class="mini">4) ผ่านแล้วเกมจะพาไปส่วนถัดไปอัตโนมัติ</div>
       </div>
 
       <div class="row">
@@ -429,73 +447,76 @@
     background="color: #dff7ff"
     renderer="colorManagement: true; antialias: true"
     raycaster="objects: .clickable"
+    vr-mode-ui="enabled: false"
   >
     <a-assets></a-assets>
 
     <a-entity id="world">
-      <a-plane position="0 0 -4" rotation="-90 0 0" width="16" height="16" color="#eefcff"></a-plane>
+      <!-- floor -->
+      <a-plane position="0 0 -4.4" rotation="-90 0 0" width="16" height="16" color="#eefcff"></a-plane>
 
       <!-- bathtub open front -->
-      <a-box position="0 0.12 -4.1" width="6.6" height="0.22" depth="3.5" color="#ffffff"></a-box>
-      <a-box position="0 0.88 -5.78" width="6.8" height="1.18" depth="0.16" color="#ffffff"></a-box>
-      <a-box position="-3.32 0.88 -4.1" width="0.16" height="1.18" depth="3.52" color="#ffffff"></a-box>
-      <a-box position="3.32 0.88 -4.1" width="0.16" height="1.18" depth="3.52" color="#ffffff"></a-box>
-      <a-box position="0 0.38 -2.42" width="6.55" height="0.26" depth="0.14" color="#ffffff" opacity="0.96"></a-box>
-      <a-box position="0 0.42 -4.1" width="6.0" height="0.14" depth="3.0" color="#9de9ff" opacity="0.72"></a-box>
+      <a-box position="0 0.06 -4.55" width="6.8" height="0.14" depth="3.7" color="#ffffff"></a-box>
+      <a-box position="0 0.76 -6.20" width="7.0" height="1.0" depth="0.16" color="#ffffff"></a-box>
+      <a-box position="-3.42 0.76 -4.55" width="0.16" height="1.0" depth="3.7" color="#ffffff"></a-box>
+      <a-box position="3.42 0.76 -4.55" width="0.16" height="1.0" depth="3.7" color="#ffffff"></a-box>
+      <a-box position="0 0.26 -2.75" width="6.7" height="0.18" depth="0.12" color="#ffffff" opacity="0.96"></a-box>
+      <a-box position="0 0.28 -4.55" width="6.2" height="0.12" depth="3.2" color="#a9ecff" opacity="0.70"></a-box>
 
       <!-- bathroom -->
-      <a-box position="0 2.8 -7" width="14" height="6" depth="0.15" color="#f4fdff"></a-box>
-      <a-box position="-7 2.8 -3.8" width="0.15" height="6" depth="7.5" color="#f6fdff"></a-box>
-      <a-box position="7 2.8 -3.8" width="0.15" height="6" depth="7.5" color="#f6fdff"></a-box>
-      <a-box position="0 5.8 -3.8" width="14" height="0.15" depth="7.5" color="#eefbff"></a-box>
+      <a-box position="0 2.8 -7.5" width="14" height="6" depth="0.15" color="#f4fdff"></a-box>
+      <a-box position="-7 2.8 -4.1" width="0.15" height="6" depth="7.5" color="#f6fdff"></a-box>
+      <a-box position="7 2.8 -4.1" width="0.15" height="6" depth="7.5" color="#f6fdff"></a-box>
+      <a-box position="0 5.8 -4.1" width="14" height="0.15" depth="7.5" color="#eefbff"></a-box>
 
-      <!-- cute avatar -->
-      <a-entity id="avatarRoot" position="0 0.18 -4.2">
+      <!-- child avatar -->
+      <a-entity id="avatarRoot" position="0 0.22 -4.60">
         <a-entity id="avatarBob"
-          animation="property: position; from: 0 0 0; to: 0 0.04 0; dir: alternate; dur: 1350; loop: true; easing: easeInOutSine">
+          animation="property: position; from: 0 0 0; to: 0 0.03 0; dir: alternate; dur: 1450; loop: true; easing: easeInOutSine">
 
           <!-- legs -->
-          <a-cylinder id="part-leftLeg" position="-0.28 0.58 0" radius="0.18" height="1.2" color="#ffd7b3"></a-cylinder>
-          <a-cylinder id="part-rightLeg" position="0.28 0.58 0" radius="0.18" height="1.2" color="#ffd7b3"></a-cylinder>
+          <a-cylinder id="part-leftLeg"  position="-0.22 0.54 0.06" radius="0.12" height="0.95" color="#ffd7b3"></a-cylinder>
+          <a-cylinder id="part-rightLeg" position="0.22 0.54 0.06" radius="0.12" height="0.95" color="#ffd7b3"></a-cylinder>
 
-          <!-- belly + chest -->
-          <a-box id="part-belly" position="0 1.22 0" width="1.05" height="0.58" depth="0.42" color="#ffd7b3"></a-box>
-          <a-box id="part-chest" position="0 1.72 0" width="1.18" height="0.72" depth="0.46" color="#ffd7b3"></a-box>
+          <!-- feet -->
+          <a-sphere position="-0.22 0.03 0.14" radius="0.12" color="#ffffff"></a-sphere>
+          <a-sphere position="0.22 0.03 0.14" radius="0.12" color="#ffffff"></a-sphere>
 
-          <!-- arms with cute pose -->
-          <a-entity id="leftArmRig" position="-0.88 1.72 0" rotation="0 0 25"
-            animation="property: rotation; from: 0 0 22; to: 0 0 32; dir: alternate; dur: 900; loop: true; easing: easeInOutSine">
-            <a-cylinder id="part-leftArm" position="0 -0.32 0" radius="0.13" height="0.95" color="#ffd7b3"></a-cylinder>
+          <!-- shorts -->
+          <a-box position="0 1.02 0.08" width="0.84" height="0.28" depth="0.30" color="#67c8ef"></a-box>
+
+          <!-- belly -->
+          <a-box id="part-belly" position="0 1.28 0.04" width="0.86" height="0.42" depth="0.30" color="#8fdcff"></a-box>
+
+          <!-- chest -->
+          <a-box id="part-chest" position="0 1.70 0.04" width="0.98" height="0.60" depth="0.34" color="#8fdcff"></a-box>
+
+          <!-- arms -->
+          <a-entity id="leftArmRig" position="-0.78 1.72 0.02" rotation="0 0 78">
+            <a-cylinder id="part-leftArm" position="0 -0.34 0" radius="0.09" height="1.00" color="#ffd7b3"></a-cylinder>
+            <a-sphere position="0 -0.82 0.04" radius="0.10" color="#ffffff"></a-sphere>
           </a-entity>
 
-          <a-entity id="rightArmRig" position="0.88 1.72 0" rotation="0 0 -38"
-            animation="property: rotation; from: 0 0 -34; to: 0 0 -46; dir: alternate; dur: 880; loop: true; easing: easeInOutSine">
-            <a-cylinder id="part-rightArm" position="0 -0.32 0" radius="0.13" height="0.95" color="#ffd7b3"></a-cylinder>
+          <a-entity id="rightArmRig" position="0.78 1.72 0.02" rotation="0 0 -78">
+            <a-cylinder id="part-rightArm" position="0 -0.34 0" radius="0.09" height="1.00" color="#ffd7b3"></a-cylinder>
+            <a-sphere position="0 -0.82 0.04" radius="0.10" color="#ffffff"></a-sphere>
           </a-entity>
 
           <!-- head -->
-          <a-entity id="headRig" position="0 2.42 0"
-            animation="property: rotation; from: 0 0 5; to: 0 0 -5; dir: alternate; dur: 1400; loop: true; easing: easeInOutSine">
-            <a-sphere id="part-head" position="0 0 0" radius="0.42" color="#ffd7b3"></a-sphere>
+          <a-entity id="headRig" position="0 2.44 0.04">
+            <a-sphere id="part-head" position="0 0 0" radius="0.40" color="#ffd7b3"></a-sphere>
+            <a-sphere position="0 0.14 -0.02" radius="0.42" color="#6a4638" scale="1 0.70 1"></a-sphere>
+            <a-sphere position="0 0.20 0.12" radius="0.22" color="#6a4638" scale="1 0.45 0.80"></a-sphere>
 
-            <!-- hair -->
-            <a-sphere position="0 0.12 -0.03" radius="0.44" color="#5d3b2d" scale="1 0.72 1"></a-sphere>
-            <a-sphere position="0 0.18 0.15" radius="0.26" color="#5d3b2d" scale="1 0.55 0.8"></a-sphere>
-
-            <!-- face -->
-            <a-sphere position="-0.12 0.07 0.38" radius="0.03" color="#2e4350"></a-sphere>
-            <a-sphere position="0.12 0.07 0.38" radius="0.03" color="#2e4350"></a-sphere>
-            <a-sphere position="-0.17 0.12 0.37" radius="0.018" color="#ffd0d9"></a-sphere>
-            <a-sphere position="0.17 0.12 0.37" radius="0.018" color="#ffd0d9"></a-sphere>
-            <a-ring position="0 -0.07 0.39" radius-inner="0.1" radius-outer="0.13" theta-start="205" theta-length="130" color="#ff8f7d"></a-ring>
+            <a-sphere position="-0.12 0.05 0.35" radius="0.03" color="#334a57"></a-sphere>
+            <a-sphere position="0.12 0.05 0.35" radius="0.03" color="#334a57"></a-sphere>
+            <a-ring position="0 -0.09 0.36" radius-inner="0.09" radius-outer="0.11" theta-start="205" theta-length="130" color="#f3a69b"></a-ring>
           </a-entity>
 
-          <!-- foam around body -->
-          <a-sphere position="-0.65 1.08 0.24" radius="0.12" color="#fff" opacity="0.9"></a-sphere>
-          <a-sphere position="-0.47 1.2 0.2" radius="0.08" color="#fff" opacity="0.9"></a-sphere>
-          <a-sphere position="0.58 1.12 0.22" radius="0.13" color="#fff" opacity="0.9"></a-sphere>
-          <a-sphere position="0.76 1.24 0.18" radius="0.08" color="#fff" opacity="0.9"></a-sphere>
-          <a-sphere position="0.02 1.9 0.25" radius="0.09" color="#fff" opacity="0.9"></a-sphere>
+          <!-- foam decor -->
+          <a-sphere position="-0.54 1.10 0.22" radius="0.10" color="#fff" opacity="0.92"></a-sphere>
+          <a-sphere position="0.56 1.12 0.22" radius="0.10" color="#fff" opacity="0.92"></a-sphere>
+          <a-sphere position="0.02 1.88 0.24" radius="0.08" color="#fff" opacity="0.92"></a-sphere>
         </a-entity>
       </a-entity>
 
@@ -503,27 +524,24 @@
       <a-entity id="zoneMarker"></a-entity>
       <a-entity id="zoneArrow"></a-entity>
 
-      <!-- dirt -->
+      <!-- dirt layer -->
       <a-entity id="targetLayer"></a-entity>
 
-      <!-- manual bubble fx layer -->
+      <!-- bubble fx layer -->
       <a-entity id="fxLayer"></a-entity>
-
-      <!-- duck -->
-      <a-sphere position="1.95 1.0 -4.45" radius="0.16" color="#ffd54f"></a-sphere>
-      <a-sphere position="2.08 1.11 -4.37" radius="0.1" color="#ffd54f"></a-sphere>
-      <a-cone position="2.16 1.1 -4.3" radius-bottom="0.045" radius-top="0.01" height="0.06" rotation="0 0 90" color="#ff9842"></a-cone>
     </a-entity>
 
-    <a-light type="ambient" color="#ffffff" intensity="0.9"></a-light>
+    <a-light type="ambient" color="#ffffff" intensity="0.95"></a-light>
     <a-light type="directional" color="#fff1cf" intensity="0.75" position="1 4 2"></a-light>
-    <a-light type="point" color="#6fe7ff" intensity="1.15" position="0 3 -3"></a-light>
+    <a-light type="point" color="#6fe7ff" intensity="1.10" position="0 3 -3"></a-light>
     <a-sky color="#dff7ff"></a-sky>
 
+    <!-- PC mouse -->
     <a-entity id="mouseCursor" cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
 
-    <a-entity id="rig" position="0 1.6 0">
-      <a-entity camera look-controls>
+    <a-entity id="rig" position="0 1.56 0.35">
+      <a-entity id="cameraHolder" camera look-controls="enabled: false">
+        <!-- mobile/cvr gaze -->
         <a-entity id="gazeCursor"
           position="0 0 -1"
           visible="false"
@@ -538,10 +556,6 @@
                     material="color: #00d9ff; shader: flat"
                     position="0 0 0.001"></a-entity>
         </a-entity>
-
-        <!-- soap bottle -->
-        <a-cylinder position="0.33 -0.40 -0.72" radius="0.05" height="0.3" color="#58d8ff"></a-cylinder>
-        <a-sphere position="0.33 -0.22 -0.72" radius="0.06" color="#ffffff"></a-sphere>
       </a-entity>
     </a-entity>
   </a-scene>
@@ -555,11 +569,14 @@
       const VIEW = (qs.get('view') || (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 'mobile' : 'pc')).toLowerCase();
       const DIFF = (qs.get('diff') || 'normal').toLowerCase();
       const HUB  = qs.get('hub') || './hub-v2.html';
+      const PID  = qs.get('pid') || 'anon';
+      const RUN  = qs.get('run') || 'play';
+      const SEED = qs.get('seed') || String(Date.now());
 
       const PRESETS = {
-        easy:   { startTime: 80, dirtPerZone: 3, dirtLife: 4200, spawnDelay: 180, zoneBonus: 40 },
-        normal: { startTime: 68, dirtPerZone: 4, dirtLife: 3200, spawnDelay: 160, zoneBonus: 60 },
-        hard:   { startTime: 58, dirtPerZone: 5, dirtLife: 2500, spawnDelay: 140, zoneBonus: 80 }
+        easy:   { startTime: 85, spotLife: 4200, spawnDelay: 220, zoneBonus: 28 },
+        normal: { startTime: 72, spotLife: 3200, spawnDelay: 180, zoneBonus: 36 },
+        hard:   { startTime: 60, spotLife: 2500, spawnDelay: 150, zoneBonus: 44 }
       };
       const cfg = PRESETS[DIFF] || PRESETS.normal;
 
@@ -567,58 +584,86 @@
         {
           key:'head',
           label:'ศีรษะ',
-          marker:{ geo:'sphere', radius:0.58, position:'0 2.62 -4.02', rotation:'0 0 0' },
-          arrow:{ x:0, y:3.35, z:-4.02 },
-          base:{ x:0, y:2.60, z:-3.82 },
-          spread:{ x:0.24, y:0.18, z:0.02 }
+          marker:{ geo:'sphere', radius:0.52, position:'0 2.66 -4.54', rotation:'0 0 0' },
+          arrow:{ x:0, y:3.30, z:-4.54 },
+          spots:[
+            { id:'head1', x:0,    y:2.78, z:-4.18 },
+            { id:'head2', x:-0.12,y:2.60, z:-4.18 },
+            { id:'head3', x:0.12, y:2.60, z:-4.18 },
+            { id:'head4', x:0,    y:2.40, z:-4.18 }
+          ]
         },
         {
           key:'chest',
           label:'อก',
-          marker:{ geo:'box', width:1.45, height:0.95, depth:0.2, position:'0 1.90 -3.92', rotation:'0 0 0' },
-          arrow:{ x:0, y:2.65, z:-3.92 },
-          base:{ x:0, y:1.90, z:-3.82 },
-          spread:{ x:0.42, y:0.24, z:0.02 }
+          marker:{ geo:'box', width:1.18, height:0.78, depth:0.14, position:'0 1.72 -4.48', rotation:'0 0 0' },
+          arrow:{ x:0, y:2.44, z:-4.48 },
+          spots:[
+            { id:'chest1', x:-0.20, y:1.84, z:-4.18 },
+            { id:'chest2', x:0,     y:1.76, z:-4.18 },
+            { id:'chest3', x:0.20,  y:1.84, z:-4.18 },
+            { id:'chest4', x:0,     y:1.56, z:-4.18 }
+          ]
         },
         {
           key:'leftArm',
           label:'แขนซ้าย',
-          marker:{ geo:'box', width:0.62, height:1.18, depth:0.2, position:'-1.00 1.66 -3.88', rotation:'0 0 18' },
-          arrow:{ x:-1.00, y:2.48, z:-3.88 },
-          base:{ x:-1.00, y:1.66, z:-3.82 },
-          spread:{ x:0.16, y:0.34, z:0.02 }
+          marker:{ geo:'box', width:0.56, height:1.06, depth:0.14, position:'-1.02 1.48 -4.42', rotation:'0 0 75' },
+          arrow:{ x:-1.08, y:2.28, z:-4.42 },
+          spots:[
+            { id:'leftArm1', x:-0.82, y:1.78, z:-4.18 },
+            { id:'leftArm2', x:-0.96, y:1.52, z:-4.18 },
+            { id:'leftArm3', x:-1.08, y:1.26, z:-4.18 },
+            { id:'leftArm4', x:-1.18, y:1.02, z:-4.18 }
+          ]
         },
         {
           key:'rightArm',
           label:'แขนขวา',
-          marker:{ geo:'box', width:0.62, height:1.18, depth:0.2, position:'1.00 1.66 -3.88', rotation:'0 0 -28' },
-          arrow:{ x:1.00, y:2.48, z:-3.88 },
-          base:{ x:1.00, y:1.66, z:-3.82 },
-          spread:{ x:0.16, y:0.34, z:0.02 }
+          marker:{ geo:'box', width:0.56, height:1.06, depth:0.14, position:'1.02 1.48 -4.42', rotation:'0 0 -75' },
+          arrow:{ x:1.08, y:2.28, z:-4.42 },
+          spots:[
+            { id:'rightArm1', x:0.82, y:1.78, z:-4.18 },
+            { id:'rightArm2', x:0.96, y:1.52, z:-4.18 },
+            { id:'rightArm3', x:1.08, y:1.26, z:-4.18 },
+            { id:'rightArm4', x:1.18, y:1.02, z:-4.18 }
+          ]
         },
         {
           key:'belly',
           label:'ท้อง',
-          marker:{ geo:'box', width:1.28, height:0.78, depth:0.2, position:'0 1.40 -3.92', rotation:'0 0 0' },
-          arrow:{ x:0, y:2.14, z:-3.92 },
-          base:{ x:0, y:1.40, z:-3.82 },
-          spread:{ x:0.36, y:0.18, z:0.02 }
+          marker:{ geo:'box', width:0.96, height:0.72, depth:0.14, position:'0 1.26 -4.48', rotation:'0 0 0' },
+          arrow:{ x:0, y:2.00, z:-4.48 },
+          spots:[
+            { id:'belly1', x:0,     y:1.34, z:-4.18 },
+            { id:'belly2', x:-0.16, y:1.20, z:-4.18 },
+            { id:'belly3', x:0.16,  y:1.20, z:-4.18 },
+            { id:'belly4', x:0,     y:1.04, z:-4.18 }
+          ]
         },
         {
           key:'leftLeg',
           label:'ขาซ้าย',
-          marker:{ geo:'box', width:0.62, height:1.34, depth:0.2, position:'-0.28 0.90 -3.72', rotation:'0 0 0' },
-          arrow:{ x:-0.28, y:1.86, z:-3.72 },
-          base:{ x:-0.28, y:0.90, z:-3.76 },
-          spread:{ x:0.14, y:0.42, z:0.02 }
+          marker:{ geo:'box', width:0.42, height:1.18, depth:0.14, position:'-0.22 0.56 -4.38', rotation:'0 0 0' },
+          arrow:{ x:-0.22, y:1.56, z:-4.38 },
+          spots:[
+            { id:'leftLeg1', x:-0.22, y:0.92, z:-4.10 },
+            { id:'leftLeg2', x:-0.22, y:0.66, z:-4.10 },
+            { id:'leftLeg3', x:-0.22, y:0.40, z:-4.10 },
+            { id:'leftLeg4', x:-0.22, y:0.10, z:-4.04 }
+          ]
         },
         {
           key:'rightLeg',
           label:'ขาขวา',
-          marker:{ geo:'box', width:0.62, height:1.34, depth:0.2, position:'0.28 0.90 -3.72', rotation:'0 0 0' },
-          arrow:{ x:0.28, y:1.86, z:-3.72 },
-          base:{ x:0.28, y:0.90, z:-3.76 },
-          spread:{ x:0.14, y:0.42, z:0.02 }
+          marker:{ geo:'box', width:0.42, height:1.18, depth:0.14, position:'0.22 0.56 -4.38', rotation:'0 0 0' },
+          arrow:{ x:0.22, y:1.56, z:-4.38 },
+          spots:[
+            { id:'rightLeg1', x:0.22, y:0.92, z:-4.10 },
+            { id:'rightLeg2', x:0.22, y:0.66, z:-4.10 },
+            { id:'rightLeg3', x:0.22, y:0.40, z:-4.10 },
+            { id:'rightLeg4', x:0.22, y:0.10, z:-4.04 }
+          ]
         }
       ];
 
@@ -640,6 +685,7 @@
 
         startOverlay:$('startOverlay'),
         summaryOverlay:$('summaryOverlay'),
+
         startBtn:$('startBtn'),
         replayBtn:$('replayBtn'),
         restartBtnTop:$('restartBtnTop'),
@@ -654,11 +700,10 @@
 
         hubBtn:$('hubBtn'),
         hubBtnStart:$('hubBtnStart'),
-        hubBtnSummary:$('hubBtnSummary'),
+        hubBtnSummary:$('hubBtnSummary')
       };
 
       ui.stepAll.textContent = ZONES.length;
-      ui.modeText.textContent = `${VIEW.toUpperCase()} • ${DIFF.toUpperCase()}`;
       ui.hubBtn.href = HUB;
       ui.hubBtnStart.href = HUB;
       ui.hubBtnSummary.href = HUB;
@@ -668,9 +713,9 @@
       const zoneMarker = $('zoneMarker');
       const zoneArrow = $('zoneArrow');
       const gazeCursor = $('gazeCursor');
+      const cameraHolder = $('cameraHolder');
 
       function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
-      function rand(min, max){ return Math.random() * (max - min) + min; }
 
       function showMsg(text, ms = 700){
         ui.centerMsg.textContent = text;
@@ -682,19 +727,23 @@
       function addBubbleBurst(pos){
         for (let i = 0; i < 8; i++) {
           const b = document.createElement('a-sphere');
-          const dx = rand(-0.12, 0.12);
-          const dy = rand(0.04, 0.18);
-          const dz = rand(-0.03, 0.03);
-          const size = rand(0.025, 0.05);
+          const dx = (Math.random() * 0.24) - 0.12;
+          const dy = (Math.random() * 0.14) + 0.04;
+          const dz = (Math.random() * 0.06) - 0.03;
+          const size = 0.025 + Math.random() * 0.02;
 
           b.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
           b.setAttribute('radius', size.toFixed(3));
           b.setAttribute('color', '#ffffff');
           b.setAttribute('opacity', '0.95');
-          b.setAttribute('animation__move',
-            `property: position; to: ${(pos.x+dx).toFixed(2)} ${(pos.y+dy).toFixed(2)} ${(pos.z+dz).toFixed(2)}; dur: 380; easing: easeOutQuad`);
-          b.setAttribute('animation__fade',
-            'property: material.opacity; from: 0.95; to: 0; dur: 380; easing: easeOutQuad');
+          b.setAttribute(
+            'animation__move',
+            `property: position; to: ${(pos.x+dx).toFixed(2)} ${(pos.y+dy).toFixed(2)} ${(pos.z+dz).toFixed(2)}; dur: 380; easing: easeOutQuad`
+          );
+          b.setAttribute(
+            'animation__fade',
+            'property: material.opacity; from: 0.95; to: 0; dur: 380; easing: easeOutQuad'
+          );
 
           fxLayer.appendChild(b);
           setTimeout(() => b.parentNode && b.parentNode.removeChild(b), 420);
@@ -702,11 +751,19 @@
       }
 
       function configureView(){
-        if (VIEW === 'pc') gazeCursor.setAttribute('visible', 'false');
-        else gazeCursor.setAttribute('visible', 'true');
+        if (VIEW === 'pc') {
+          gazeCursor.setAttribute('visible', 'false');
+          cameraHolder.setAttribute('look-controls', 'enabled: false');
+        } else if (VIEW === 'cvr') {
+          gazeCursor.setAttribute('visible', 'true');
+          cameraHolder.setAttribute('look-controls', 'enabled: true');
+        } else {
+          gazeCursor.setAttribute('visible', 'true');
+          cameraHolder.setAttribute('look-controls', 'enabled: false');
+        }
       }
 
-      class BathV5Main {
+      class BathMainGame {
         constructor(){
           this.running = false;
           this.ended = false;
@@ -718,21 +775,42 @@
           this.miss = 0;
 
           this.zoneIndex = 0;
-          this.zoneNeed = cfg.dirtPerZone;
           this.zoneDone = 0;
 
           this.activeTarget = null;
           this.tickTimer = null;
         }
 
-        start(){
-          this.stop();
-          this.resetState();
+        currentZone(){
+          return ZONES[this.zoneIndex] || null;
+        }
 
+        zoneNeed(){
+          const zone = this.currentZone();
+          return zone ? zone.spots.length : 0;
+        }
+
+        reset(){
+          this.stop();
+          this.running = false;
+          this.ended = false;
+          this.time = cfg.startTime;
+          this.score = 0;
+          this.combo = 0;
+          this.hits = 0;
+          this.miss = 0;
+          this.zoneIndex = 0;
+          this.zoneDone = 0;
+          this.renderHud();
+          this.renderZone();
+        }
+
+        start(){
+          this.reset();
+          this.running = true;
           ui.startOverlay.classList.add('hidden');
           ui.summaryOverlay.classList.add('hidden');
 
-          this.running = true;
           this.renderZone();
           this.spawnTarget();
 
@@ -741,7 +819,9 @@
             this.time = Math.max(0, this.time - 1);
             this.renderHud();
 
-            if (this.time <= 0) this.finish(false);
+            if (this.time <= 0) {
+              this.finish(false);
+            }
           }, 1000);
         }
 
@@ -751,52 +831,50 @@
           this.clearTarget();
         }
 
-        resetState(){
-          this.running = false;
-          this.ended = false;
-          this.time = cfg.startTime;
-          this.score = 0;
-          this.combo = 0;
-          this.hits = 0;
-          this.miss = 0;
-          this.zoneIndex = 0;
-          this.zoneNeed = cfg.dirtPerZone;
-          this.zoneDone = 0;
+        clearTarget(){
+          if (!this.activeTarget) return;
+          clearTimeout(this.activeTarget.expireTimer);
+          if (this.activeTarget.el?.parentNode) {
+            this.activeTarget.el.parentNode.removeChild(this.activeTarget.el);
+          }
           this.activeTarget = null;
-          this.renderHud();
-        }
-
-        currentZone(){
-          return ZONES[this.zoneIndex];
         }
 
         renderHud(){
           ui.timer.textContent = this.time;
           ui.score.textContent = this.score;
           ui.combo.textContent = this.combo;
-          ui.stepNow.textContent = this.zoneIndex + 1;
+          ui.stepNow.textContent = Math.min(this.zoneIndex + 1, ZONES.length);
+          ui.modeText.textContent = `${VIEW.toUpperCase()} • ${DIFF.toUpperCase()}`;
         }
 
         renderZone(){
           const zone = this.currentZone();
-          if (!zone) return;
+          if (!zone) {
+            this.clearMarkers();
+            return;
+          }
 
-          const remain = Math.max(0, this.zoneNeed - this.zoneDone);
-          const pct = this.zoneNeed > 0 ? (this.zoneDone / this.zoneNeed) * 100 : 0;
+          const total = zone.spots.length;
+          const remain = Math.max(0, total - this.zoneDone);
 
           ui.taskTitle.textContent = `ตอนนี้: ล้าง${zone.label}`;
           ui.remainText.textContent = `เหลือ ${remain} คราบ`;
-          ui.cleanedText.textContent = `ล้างแล้ว ${this.zoneDone}/${this.zoneNeed}`;
-          ui.zoneBar.style.width = `${pct}%`;
-          ui.taskHint.textContent = `เล็งหรือคลิกที่คราบบน${zone.label}`;
+          ui.cleanedText.textContent = `ล้างแล้ว ${this.zoneDone}/${total}`;
+          ui.zoneBar.style.width = `${(this.zoneDone / total) * 100}%`;
+          ui.taskHint.textContent = `แตะคราบบน${zone.label}ให้ครบ`;
 
           this.renderMarker(zone);
           this.renderHud();
         }
 
-        renderMarker(zone){
+        clearMarkers(){
           zoneMarker.innerHTML = '';
           zoneArrow.innerHTML = '';
+        }
+
+        renderMarker(zone){
+          this.clearMarkers();
 
           const marker = document.createElement('a-entity');
           marker.setAttribute('position', zone.marker.position);
@@ -805,33 +883,40 @@
           if (zone.marker.geo === 'sphere') {
             marker.setAttribute('geometry', `primitive: sphere; radius: ${zone.marker.radius}`);
           } else {
-            marker.setAttribute('geometry',
-              `primitive: box; width: ${zone.marker.width}; height: ${zone.marker.height}; depth: ${zone.marker.depth}`);
+            marker.setAttribute(
+              'geometry',
+              `primitive: box; width: ${zone.marker.width}; height: ${zone.marker.height}; depth: ${zone.marker.depth}`
+            );
           }
 
-          marker.setAttribute('material', 'color: #ffe76f; opacity: 0.22; transparent: true; emissive: #ffd84f; emissiveIntensity: 0.45');
-          marker.setAttribute('animation__pulse', 'property: scale; dir: alternate; dur: 520; loop: true; to: 1.08 1.08 1.08; easing: easeInOutSine');
+          marker.setAttribute(
+            'material',
+            'color: #ffe76f; opacity: 0.22; transparent: true; emissive: #ffd84f; emissiveIntensity: 0.45'
+          );
+          marker.setAttribute(
+            'animation__pulse',
+            'property: scale; dir: alternate; dur: 520; loop: true; to: 1.08 1.08 1.08; easing: easeInOutSine'
+          );
           zoneMarker.appendChild(marker);
 
           const arrow = document.createElement('a-cone');
           arrow.setAttribute('position', `${zone.arrow.x} ${zone.arrow.y} ${zone.arrow.z}`);
-          arrow.setAttribute('radius-bottom', '0.09');
+          arrow.setAttribute('radius-bottom', '0.08');
           arrow.setAttribute('radius-top', '0.01');
           arrow.setAttribute('height', '0.24');
           arrow.setAttribute('rotation', '180 0 0');
           arrow.setAttribute('color', '#ffcf3f');
-          arrow.setAttribute('animation__bob',
-            `property: position; from: ${zone.arrow.x} ${zone.arrow.y} ${zone.arrow.z}; to: ${zone.arrow.x} ${(zone.arrow.y - 0.12).toFixed(2)} ${zone.arrow.z}; dir: alternate; dur: 500; loop: true; easing: easeInOutSine`);
+          arrow.setAttribute(
+            'animation__bob',
+            `property: position; from: ${zone.arrow.x} ${zone.arrow.y} ${zone.arrow.z}; to: ${zone.arrow.x} ${(zone.arrow.y - 0.12).toFixed(2)} ${zone.arrow.z}; dir: alternate; dur: 500; loop: true; easing: easeInOutSine`
+          );
           zoneArrow.appendChild(arrow);
         }
 
-        clearTarget(){
-          if (!this.activeTarget) return;
-          clearTimeout(this.activeTarget.expireTimer);
-          if (this.activeTarget.el && this.activeTarget.el.parentNode) {
-            this.activeTarget.el.parentNode.removeChild(this.activeTarget.el);
-          }
-          this.activeTarget = null;
+        currentSpot(){
+          const zone = this.currentZone();
+          if (!zone) return null;
+          return zone.spots[this.zoneDone] || null;
         }
 
         spawnTarget(){
@@ -839,33 +924,42 @@
           this.clearTarget();
 
           const zone = this.currentZone();
-          const pos = {
-            x: zone.base.x + rand(-zone.spread.x, zone.spread.x),
-            y: zone.base.y + rand(-zone.spread.y, zone.spread.y),
-            z: zone.base.z + rand(-zone.spread.z, zone.spread.z)
-          };
+          const spot = this.currentSpot();
+          if (!zone || !spot) return;
 
-          const dirt = document.createElement('a-entity');
-          dirt.classList.add('clickable');
-          dirt.setAttribute('position', `${pos.x.toFixed(2)} ${pos.y.toFixed(2)} ${pos.z.toFixed(2)}`);
-          dirt.setAttribute('geometry', `primitive: sphere; radius: ${rand(0.12,0.18).toFixed(2)}; segmentsWidth: 14; segmentsHeight: 10`);
-          dirt.setAttribute('material', 'color: #6b422e; emissive: #35180e; emissiveIntensity: 0.25; roughness: 1');
-          dirt.setAttribute('animation__pulse', 'property: scale; dir: alternate; dur: 420; loop: true; to: 1.08 1.08 1.08; easing: easeInOutSine');
+          const pos = { x: spot.x, y: spot.y, z: spot.z };
+          const root = document.createElement('a-entity');
+          root.setAttribute('position', `${pos.x.toFixed(2)} ${pos.y.toFixed(2)} ${pos.z.toFixed(2)}`);
 
-          for (let i = 0; i < 3; i++) {
-            const bubble = document.createElement('a-sphere');
-            bubble.setAttribute('position', `${rand(-0.18,0.18).toFixed(2)} ${rand(-0.18,0.18).toFixed(2)} ${rand(-0.05,0.05).toFixed(2)}`);
-            bubble.setAttribute('radius', rand(0.02,0.04).toFixed(3));
-            bubble.setAttribute('color', '#ffffff');
-            bubble.setAttribute('opacity', '0.9');
-            dirt.appendChild(bubble);
-          }
+          const hit = document.createElement('a-sphere');
+          hit.classList.add('clickable');
+          hit.classList.add('target-hit-glow');
+          hit.setAttribute('radius', '0.28');
+          hit.setAttribute('color', '#7fe3ff');
+          hit.setAttribute('opacity', '0.22');
+          hit.setAttribute('transparent', 'true');
 
-          const expireTimer = setTimeout(() => this.onMiss(pos), cfg.dirtLife);
-          dirt.addEventListener('click', () => this.onHit(pos));
+          const dirt = document.createElement('a-sphere');
+          dirt.setAttribute('radius', '0.11');
+          dirt.setAttribute('color', '#6b422e');
 
-          targetLayer.appendChild(dirt);
-          this.activeTarget = { el:dirt, expireTimer, pos };
+          const ring = document.createElement('a-ring');
+          ring.setAttribute('radius-inner', '0.17');
+          ring.setAttribute('radius-outer', '0.21');
+          ring.setAttribute('rotation', '-90 0 0');
+          ring.setAttribute('position', '0 0 0');
+          ring.setAttribute('color', '#ffffff');
+          ring.setAttribute('opacity', '0.86');
+
+          root.appendChild(hit);
+          root.appendChild(dirt);
+          root.appendChild(ring);
+
+          const expireTimer = setTimeout(() => this.onMiss(pos), cfg.spotLife);
+          hit.addEventListener('click', () => this.onHit(pos));
+
+          targetLayer.appendChild(root);
+          this.activeTarget = { el:root, expireTimer, pos };
         }
 
         onHit(pos){
@@ -880,10 +974,11 @@
 
           addBubbleBurst(pos);
 
-          const remain = this.zoneNeed - this.zoneDone;
+          const total = this.zoneNeed();
+          const remain = Math.max(0, total - this.zoneDone);
 
           if (remain > 0) {
-            showMsg(`🫧 ดีมาก! เหลืออีก ${remain} คราบ`, 520);
+            showMsg(`💧 ดีมาก! เหลืออีก ${remain} จุด`, 500);
             this.renderZone();
             setTimeout(() => this.spawnTarget(), cfg.spawnDelay);
             return;
@@ -891,7 +986,7 @@
 
           this.score += cfg.zoneBonus;
           this.time += 2;
-          showMsg(`✅ ล้าง${this.currentZone().label}เสร็จแล้ว!`, 850);
+          showMsg(`✅ ล้าง${this.currentZone().label}เสร็จแล้ว!`, 900);
 
           this.zoneIndex += 1;
           this.zoneDone = 0;
@@ -912,18 +1007,18 @@
 
           this.combo = 0;
           this.miss += 1;
-          this.time = Math.max(0, this.time - 2);
+          this.time = Math.max(0, this.time - 1);
 
           addBubbleBurst(pos);
-          showMsg('😅 ยังล้างไม่ทัน ลองใหม่', 520);
-
-          this.renderHud();
+          showMsg('😅 ยังไม่โดนจุดนี้ ลองอีกครั้ง', 520);
 
           if (this.time <= 0) {
             this.finish(false);
             return;
           }
 
+          this.renderHud();
+          this.renderZone();
           setTimeout(() => this.spawnTarget(), cfg.spawnDelay);
         }
 
@@ -942,6 +1037,7 @@
           this.stop();
 
           const stars = this.getStars();
+
           ui.sumStars.textContent = '⭐️'.repeat(stars) + '☆'.repeat(3 - stars);
           ui.sumScore.textContent = this.score;
           ui.sumHits.textContent = this.hits;
@@ -950,25 +1046,31 @@
 
           if (win) {
             ui.sumTitle.textContent = '🛁 อาบน้ำครบทุกส่วนแล้ว!';
-            ui.sumSub.textContent = 'หัว อก แขน ท้อง ขา สะอาดครบเลย เก่งมาก';
+            ui.sumSub.textContent = 'ศีรษะ อก แขน ท้อง และขา สะอาดครบแล้ว เก่งมาก';
           } else {
             ui.sumTitle.textContent = '🙂 เกือบครบแล้ว';
             ui.sumSub.textContent = `ไปได้ถึงโซนที่ ${Math.min(this.zoneIndex + 1, ZONES.length)} แล้ว ลองอีกรอบได้เลย`;
           }
 
+          const payload = {
+            game:'bath-v5-main-stable',
+            pid:PID,
+            run:RUN,
+            diff:DIFF,
+            view:VIEW,
+            seed:SEED,
+            score:this.score,
+            hits:this.hits,
+            miss:this.miss,
+            timeLeft:this.time,
+            zoneReached:this.zoneIndex,
+            stars,
+            at:new Date().toISOString()
+          };
+
           try {
-            localStorage.setItem('HHA_LAST_SUMMARY_BATH', JSON.stringify({
-              game:'bath-v5-main',
-              score:this.score,
-              hits:this.hits,
-              miss:this.miss,
-              timeLeft:this.time,
-              zoneReached:this.zoneIndex,
-              stars,
-              diff:DIFF,
-              view:VIEW,
-              at:new Date().toISOString()
-            }));
+            localStorage.setItem('HHA_LAST_SUMMARY_BATH', JSON.stringify(payload));
+            localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
           } catch (_) {}
 
           ui.summaryOverlay.classList.remove('hidden');
@@ -977,15 +1079,14 @@
 
       configureView();
 
-      const game = new BathV5Main();
-      window.__bathV5Main = game;
+      const game = new BathMainGame();
+      window.__bathMainGame = game;
 
       ui.startBtn.addEventListener('click', () => game.start());
       ui.replayBtn.addEventListener('click', () => game.start());
       ui.restartBtnTop.addEventListener('click', () => game.start());
 
-      game.renderHud();
-      game.renderZone();
+      game.reset();
     })();
   </script>
 </body>
