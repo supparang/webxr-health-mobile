@@ -24,11 +24,11 @@
   <div id="gate-app"></div>
 
   <script type="module">
-    import bootGate from './gate/gate-core.js?v=20260406b-GATE-REGISTRY-SUMMARY-PHASE-CONVENTION';
+    import bootGate from './gate/gate-core.js?v=20260407b-GATE-DAILY-WARMUP-COOLDOWN-HUBV2-CDNEXT-FLOW';
 
     const root = document.getElementById('gate-app');
 
-    function qs(name, fallback = ''){
+    function qs(name, fallback=''){
       try{
         return new URL(location.href).searchParams.get(name) ?? fallback;
       }catch(_){
@@ -36,31 +36,83 @@
       }
     }
 
-    function fallbackReturnHref(){
+    function safeAbsUrl(raw, fallback=''){
+      const value = String(raw || '').trim();
       try{
-        const launcher = String(qs('launcher', '')).trim();
-        if (launcher) return new URL(launcher, location.href).href;
+        if (value) return new URL(value, location.href).href;
       }catch(_){}
+      return fallback || '';
+    }
 
-      try{
-        const hub = String(qs('hub', '')).trim();
-        if (hub) return new URL(hub, location.href).href;
-      }catch(_){}
+    function phaseValue(){
+      const p = String(qs('phase', qs('gatePhase', 'warmup'))).trim().toLowerCase();
+      return p === 'cooldown' ? 'cooldown' : 'warmup';
+    }
 
-      try{
-        const game = String(qs('game', qs('gameId', qs('theme', '')))).trim().toLowerCase();
-        if (game === 'goodjunk') {
-          return new URL('./goodjunk-launcher.html', location.href).href;
+    function fallbackHubHref(){
+      return safeAbsUrl(
+        qs('hubRoot', qs('hub', '')),
+        new URL('./hub.html', location.href).href
+      );
+    }
+
+    function fallbackLauncherHref(){
+      return safeAbsUrl(
+        qs('launcher', qs('cdnext', '')),
+        ''
+      );
+    }
+
+    function fallbackNextHref(){
+      return safeAbsUrl(qs('next', ''), '');
+    }
+
+    function resolvePrimaryFallbackAction(){
+      const phase = phaseValue();
+
+      if (phase === 'warmup') {
+        const nextHref = fallbackNextHref();
+        if (nextHref) {
+          return {
+            label: 'เข้าเกมหลัก',
+            href: nextHref
+          };
         }
-      }catch(_){}
 
-      return new URL('./hub.html', location.href).href;
+        return {
+          label: 'กลับหน้าหลัก',
+          href: fallbackHubHref()
+        };
+      }
+
+      const launcherHref = fallbackLauncherHref();
+      if (launcherHref) {
+        return {
+          label: 'กลับ Launcher',
+          href: launcherHref
+        };
+      }
+
+      return {
+        label: 'กลับหน้าหลัก',
+        href: fallbackHubHref()
+      };
     }
 
     function renderBootError(err){
       if (!root) return;
 
-      const message = String(err?.stack || err || 'Unknown error');
+      const phase = phaseValue();
+      const primary = resolvePrimaryFallbackAction();
+      const hubHref = fallbackHubHref();
+
+      const primaryLabel =
+        primary?.label ||
+        (phase === 'cooldown' ? 'กลับ Launcher' : 'เข้าเกมหลัก');
+
+      const primaryHref =
+        primary?.href ||
+        hubHref;
 
       root.innerHTML = `
         <div style="
@@ -89,14 +141,14 @@
               text-transform:uppercase;
               color:#93c5fd;
               margin-bottom:8px;
-            ">HeroHealth Gate</div>
+            ">HeroHealth Gate • ${phase}</div>
 
             <h1 style="margin:0 0 10px;font-size:30px;line-height:1.05;">
               Gate load failed
             </h1>
 
             <p style="margin:0 0 14px;color:#cbd5e1;line-height:1.6;">
-              ระบบโหลด warmup / cooldown ไม่สำเร็จ
+              ระบบโหลด ${phase === 'cooldown' ? 'cooldown' : 'warmup'} ไม่สำเร็จ
             </p>
 
             <pre style="
@@ -110,7 +162,7 @@
               border:1px solid rgba(239,68,68,.22);
               color:#fecaca;
               font:600 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
-            ">${message}</pre>
+            ">${String(err?.stack || err || 'Unknown error')}</pre>
 
             <div style="display:flex;gap:10px;flex-wrap:wrap">
               <button id="gateReloadBtn" type="button" style="
@@ -127,6 +179,20 @@
                 box-shadow:0 12px 26px rgba(37,99,235,.32);
               ">ลองใหม่</button>
 
+              <button id="gatePrimaryBtn" type="button" style="
+                appearance:none;
+                border:0;
+                border-radius:18px;
+                padding:14px 18px;
+                font-size:15px;
+                font-weight:900;
+                cursor:pointer;
+                min-width:170px;
+                background:linear-gradient(135deg,#22c55e,#16a34a);
+                color:#fff;
+                box-shadow:0 12px 26px rgba(34,197,94,.28);
+              ">${primaryLabel}</button>
+
               <button id="gateBackBtn" type="button" style="
                 appearance:none;
                 border:1px solid rgba(148,163,184,.16);
@@ -138,7 +204,7 @@
                 min-width:170px;
                 background:rgba(15,23,42,.85);
                 color:#e5e7eb;
-              ">กลับหน้าเดิม</button>
+              ">กลับหน้าหลัก</button>
             </div>
           </div>
         </div>
@@ -148,8 +214,12 @@
         location.reload();
       });
 
+      document.getElementById('gatePrimaryBtn')?.addEventListener('click', () => {
+        location.href = primaryHref;
+      });
+
       document.getElementById('gateBackBtn')?.addEventListener('click', () => {
-        location.href = fallbackReturnHref();
+        location.href = hubHref;
       });
     }
 
