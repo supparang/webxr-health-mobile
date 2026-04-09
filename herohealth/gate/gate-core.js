@@ -1,9 +1,9 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260407b-GATE-DAILY-WARMUP-COOLDOWN-HUBV2-CDNEXT-FLOW
+// FULL PATCH v20260408b-GJ-SOLOBOSS-FLOW-FINAL
 
-import * as GateGames from './gate-games.js?v=20260407b-GATE-GAMES-COMPAT';
+import * as GateGames from './gate-games.js?v=20260408b-GJ-SOLOBOSS-FLOW-FINAL';
 
-const PATCH = 'v20260407b-GATE-DAILY-WARMUP-COOLDOWN-HUBV2-CDNEXT-FLOW';
+const PATCH = 'v20260408b-GJ-SOLOBOSS-FLOW-FINAL';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -246,6 +246,8 @@ function readCtx() {
     view: params.get('view') || 'mobile',
 
     hub: params.get('hub') || new URL('../hub-v2.html', import.meta.url).href,
+    hubRoot: params.get('hubRoot') || new URL('../hub.html', import.meta.url).href,
+    launcher: params.get('launcher') || '',
     cat: params.get('cat') || meta?.cat || '',
     zone: params.get('zone') || params.get('cat') || meta?.cat || '',
     scene: params.get('scene') || '',
@@ -643,6 +645,8 @@ function buildRunParams(ctx) {
   p.set('view', ctx.view);
 
   if (ctx.hub) p.set('hub', ctx.hub);
+  if (ctx.hubRoot) p.set('hubRoot', ctx.hubRoot);
+  if (ctx.launcher) p.set('launcher', ctx.launcher);
   if (ctx.scene) p.set('scene', ctx.scene);
   if (ctx.roomId) p.set('roomId', ctx.roomId);
   if (ctx.studyId) p.set('studyId', ctx.studyId);
@@ -671,6 +675,42 @@ function resolveAbsoluteUrl(maybeUrl) {
   } catch {
     return '';
   }
+}
+
+function resolveLauncherHref(ctx) {
+  const rawLauncher = String(ctx?.launcher || '').trim();
+  if (rawLauncher) {
+    const abs = resolveAbsoluteUrl(rawLauncher);
+    if (abs) return abs;
+  }
+
+  const rawCdNext = String(ctx?.cdnext || ctx?.params?.get?.('cdnext') || '').trim();
+  if (rawCdNext) {
+    const abs = resolveAbsoluteUrl(rawCdNext);
+    if (abs && !looksLikeHeroHealthHub(abs)) return abs;
+  }
+
+  const metaSummary =
+    String(ctx?.meta?.summaryPath || ctx?.meta?.defaults?.summaryPath || '').trim();
+
+  if (metaSummary) {
+    try {
+      const url = new URL(metaSummary, location.href);
+
+      if (ctx?.pid) url.searchParams.set('pid', ctx.pid);
+      if (ctx?.name) url.searchParams.set('name', ctx.name);
+      if (ctx?.diff) url.searchParams.set('diff', ctx.diff);
+      if (ctx?.time) url.searchParams.set('time', ctx.time);
+      if (ctx?.view) url.searchParams.set('view', ctx.view);
+
+      const hubRoot = resolveHubHref(ctx);
+      if (hubRoot) url.searchParams.set('hub', hubRoot);
+
+      return url.href;
+    } catch {}
+  }
+
+  return '';
 }
 
 async function resolveRunHref(ctx) {
@@ -728,17 +768,17 @@ function looksLikeHeroHealthHub(href = '') {
 function resolveHubHref(ctx) {
   const fallbackV2 = new URL('../hub-v2.html', import.meta.url).href;
   const fallbackClassic = new URL('../hub.html', import.meta.url).href;
-  const raw = String(ctx.hub || '').trim();
+  const raw = String(ctx?.hubRoot || '').trim();
 
   try {
-    if (!raw) return fallbackV2;
+    if (!raw) return fallbackClassic;
 
     const resolved = new URL(raw, location.href).href;
     if (looksLikeHeroHealthHub(resolved)) return resolved;
 
-    return raw.toLowerCase().includes('hub.html') ? fallbackClassic : fallbackV2;
+    return raw.toLowerCase().includes('hub-v2') ? fallbackV2 : fallbackClassic;
   } catch {
-    return fallbackV2;
+    return fallbackClassic;
   }
 }
 
@@ -762,6 +802,15 @@ function resolveCompletionTarget(ctx, payload = {}) {
     };
   }
 
+  const fromLauncher = resolveLauncherHref(ctx);
+  if (fromLauncher) {
+    console.log('[GATE] resolveCompletionTarget via launcher', fromLauncher);
+    return {
+      href: fromLauncher,
+      ...classifyCompletionHref(fromLauncher)
+    };
+  }
+
   const rawCdNext = String(ctx.params.get('cdnext') || ctx.cdnext || '').trim();
   if (rawCdNext) {
     const href = resolveAbsoluteUrl(rawCdNext);
@@ -777,7 +826,12 @@ function resolveCompletionTarget(ctx, payload = {}) {
   const metaSummary = ctx.meta?.defaults?.summaryPath || '';
   if (metaSummary) {
     const url = new URL(metaSummary, location.href);
+
     if (ctx.pid) url.searchParams.set('pid', ctx.pid);
+    if (ctx.name) url.searchParams.set('name', ctx.name);
+    if (ctx.diff) url.searchParams.set('diff', ctx.diff);
+    if (ctx.time) url.searchParams.set('time', ctx.time);
+    if (ctx.view) url.searchParams.set('view', ctx.view);
 
     const hubHref = resolveHubHref(ctx);
     if (hubHref) url.searchParams.set('hub', hubHref);
@@ -813,6 +867,8 @@ function goHub(ctx) {
   const href = resolveHubHref(ctx);
   console.log('[GATE] goHub ->', href, {
     rawHub: ctx.hub,
+    rawHubRoot: ctx.hubRoot,
+    rawLauncher: ctx.launcher,
     search: location.search
   });
   location.href = href;
@@ -1034,22 +1090,22 @@ async function bootPhase(stage, ctx, api) {
 
 function showAlreadyDone(stage, footer, ctx) {
   if (ctx.phase === 'cooldown') {
-    const target = resolveCompletionTarget(ctx, {});
+    const launcherHref = resolveLauncherHref(ctx);
 
-    if (target.href && target.kind !== 'hub') {
+    if (launcherHref) {
       renderInfo(
         stage,
         'ทำ cooldown วันนี้แล้ว',
-        'วันนี้ดู cooldown แล้ว ระบบจะพาไปหน้าถัดไปตาม flow เดิม'
+        'วันนี้ทำ cooldown ไปแล้ว ระบบจะพากลับ launcher ทันที'
       );
 
       setActions(footer, [
-        { label: target.label || 'ไปต่อ', primary: true, onClick: () => goCompletion(ctx, {}) },
+        { label: 'กลับ Launcher', primary: true, onClick: () => { location.href = launcherHref; } },
         { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
       ]);
 
       setTimeout(() => {
-        goCompletion(ctx, {});
+        location.href = launcherHref;
       }, 180);
       return;
     }
@@ -1148,7 +1204,9 @@ export async function bootGate(root = document.getElementById('gate-app')) {
     applyCooldownSnapshot(refs, ctx);
     setHeroSub(
       refs,
-      'สรุปผลล่าสุดพร้อมแล้ว ตรวจดูได้ในหน้านี้ แล้วค่อยกดไปหน้าถัดไปหรือกลับหน้าหลัก'
+      resolveLauncherHref(ctx)
+        ? 'สรุปผลล่าสุดพร้อมแล้ว เมื่อจบ cooldown ระบบจะพากลับ launcher ของเกมนี้'
+        : 'สรุปผลล่าสุดพร้อมแล้ว ตรวจดูได้ในหน้านี้ แล้วค่อยกดไปหน้าถัดไปหรือกลับหน้าหลัก'
     );
   }
 
@@ -1251,6 +1309,9 @@ export async function bootGate(root = document.getElementById('gate-app')) {
         seed: ctx.seed,
         view: ctx.view,
         patch: PATCH,
+        hub: ctx.hub || '',
+        hubRoot: ctx.hubRoot || '',
+        launcher: ctx.launcher || '',
         payload,
         completionHref: completionTarget.href,
         completionKind: completionTarget.kind
@@ -1268,8 +1329,17 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
       if (completionTarget.href) {
         setActions(footer, [
-          { label: completionTarget.label || 'ไปต่อ', onClick: () => goCompletion(ctx, payload) },
-          { label: 'กลับหน้าหลัก', primary: true, onClick: () => goHub(ctx) }
+          { label: completionTarget.label || 'ไปต่อ', primary: true, onClick: () => goCompletion(ctx, payload) },
+          { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
+        ]);
+        return;
+      }
+
+      const launcherHref = resolveLauncherHref(ctx);
+      if (launcherHref) {
+        setActions(footer, [
+          { label: 'กลับ Launcher', primary: true, onClick: () => { location.href = launcherHref; } },
+          { label: 'กลับหน้าหลัก', onClick: () => goHub(ctx) }
         ]);
         return;
       }
