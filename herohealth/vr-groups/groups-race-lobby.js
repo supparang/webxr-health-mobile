@@ -5,13 +5,15 @@
   const D = document;
   const q = new URLSearchParams(location.search);
 
-  const ROOT_PATH = 'hha-battle/groups/raceRooms';
+  // ✅ Match Firebase Rules:
+  // rooms/$game/$mode/$roomId
+  const ROOT_PATH = 'rooms/groups/race';
+
   const HEARTBEAT_MS = 2500;
   const ACTIVE_TTL_MS = 15000;
-  const STORE_KEY = 'HHA_GROUPS_RACE_LOBBY_STATE_V2';
+  const STORE_KEY = 'HHA_GROUPS_RACE_LOBBY_STATE_V3';
 
   const $ = (sel, root = D) => root.querySelector(sel);
-  const $$ = (sel, root = D) => Array.from(root.querySelectorAll(sel));
   const now = () => Date.now();
 
   const els = {
@@ -33,6 +35,7 @@
   const state = {
     db: null,
     auth: null,
+    authUid: '',
     roomRef: null,
     roomCode: '',
     room: null,
@@ -40,7 +43,7 @@
     navigating: false,
     heartbeatTimer: 0,
     roomListener: null,
-    playerId: getOrCreatePlayerId(),
+    playerId: getOrCreatePlayerId(), // local client id only
     pid: cleanText(q.get('pid') || 'anon', 48),
     displayName: cleanText(
       q.get('name') || q.get('nickName') || q.get('nick') || '',
@@ -70,8 +73,8 @@
       if (els.hostName && !els.hostName.value && saved.lastName) els.hostName.value = cleanText(saved.lastName, 24);
       if (els.joinName && !els.joinName.value && saved.lastName) els.joinName.value = cleanText(saved.lastName, 24);
       if (els.roomCode && !els.roomCode.value && saved.roomCode) els.roomCode.value = cleanRoom(saved.roomCode);
-      if (els.diff && saved.diff && ['easy','normal','hard'].includes(saved.diff)) els.diff.value = saved.diff;
-      if (els.timeSec && saved.timeSec && ['60','90','120'].includes(String(saved.timeSec))) els.timeSec.value = String(saved.timeSec);
+      if (els.diff && saved.diff && ['easy', 'normal', 'hard'].includes(saved.diff)) els.diff.value = saved.diff;
+      if (els.timeSec && saved.timeSec && ['60', '90', '120'].includes(String(saved.timeSec))) els.timeSec.value = String(saved.timeSec);
     }
 
     renderLatestResult(null);
@@ -117,6 +120,8 @@
       state.db = fb.db;
       state.auth = fb.auth || null;
 
+      await ensureAuthUser();
+
       setStatus('พร้อมใช้งาน สร้างห้องหรือเข้าห้องได้เลย', 'ok');
 
       const roomCode = cleanRoom(q.get('roomCode') || q.get('code') || '');
@@ -138,7 +143,7 @@
   async function tryAutoAttach(roomCode) {
     try {
       const roomRef = refForRoom(roomCode);
-      const snap = await roomRef.once('value');
+      const snap = await roomRef.child('meta').once('value');
       if (snap.exists()) {
         attachRoom(roomCode);
       }
@@ -207,9 +212,56 @@
     return ctx;
   }
 
+  async function ensureAuthUser() {
+    if (!state.auth) {
+      const fb = await ensureFirebaseCtx();
+      state.auth = fb.auth || null;
+    }
+
+    if (!state.auth) throw new Error('Firebase Auth not available');
+
+    if (state.auth.currentUser && state.auth.currentUser.uid) {
+      state.authUid = state.auth.currentUser.uid;
+      return state.auth.currentUser.uid;
+    }
+
+    return await new Promise((resolve, reject) => {
+      let done = false;
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        try { off && off(); } catch (_) {}
+        reject(new Error('Anonymous auth not ready'));
+      }, 8000);
+
+      const off = state.auth.onAuthStateChanged((user) => {
+        if (done) return;
+        if (user && user.uid) {
+          done = true;
+          clearTimeout(timer);
+          state.authUid = user.uid;
+          off();
+          resolve(user.uid);
+        }
+      }, (err) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        try { off && off(); } catch (_) {}
+        reject(err);
+      });
+    });
+  }
+
+  function myUid() {
+    return state.authUid || (state.auth && state.auth.currentUser && state.auth.currentUser.uid) || '';
+  }
+
   async function onCreateRoom() {
     try {
       await ensureReady();
+      const uid = myUid();
+      if (!uid) throw new Error('ยังไม่ได้รับ auth uid');
 
       const hostName = cleanText(
         (els.hostName && els.hostName.value) || state.displayName || 'Player',
@@ -217,43 +269,37 @@
       );
       const diff = (els.diff && els.diff.value) || 'normal';
       const timeSec = clamp(Number((els.timeSec && els.timeSec.value) || 60), 30, 300);
+      const roomCode = await allocateRoomCode();
+      const createdAt = now();
 
       if (els.hostName) els.hostName.value = hostName;
       if (els.joinName && !els.joinName.value) els.joinName.value = hostName;
 
-      const roomCode = await allocateRoomCode();
-      const createdAt = now();
+      const roomRef = refForRoom(roomCode);
 
-      const roomData = {
+      await roomRef.child('meta').set({
+        roomId: roomCode,
         game: 'groups',
+        zone: q.get('zone') || 'nutrition',
         mode: 'race',
-        roomCode,
-        status: 'lobby',
-        ownerPlayerId: state.playerId,
-        ownerPid: state.pid,
-        hostName,
+        hostUid: uid,
+        state: 'lobby',
         diff,
         timeSec,
-        minPlayers: 2,
+        seed: String(q.get('seed') || createdAt),
+        capacity: 4,
+        teamMode: false,
         createdAt,
         updatedAt: createdAt,
-        startSeed: String(q.get('seed') || createdAt),
-        raceBarrierAt: null,
-        startedAt: null,
-        endedAt: null,
-        rematchToken: null,
-        rematchRequestedAt: null,
-        raceLastWinner: null,
-        raceLastStandings: null,
-        players: {
-          [state.playerId]: buildPlayerPayload(hostName, true, createdAt)
-        }
-      };
+        startedAt: null
+      });
 
-      const roomRef = refForRoom(roomCode);
-      await roomRef.set(roomData);
+      await roomRef.child(`players/${uid}`).set(
+        buildPlayerPayload(hostName, true, createdAt)
+      );
 
       state.isHost = true;
+
       saveJson(STORE_KEY, {
         roomCode,
         lastName: hostName,
@@ -272,6 +318,8 @@
   async function onJoinRoom() {
     try {
       await ensureReady();
+      const uid = myUid();
+      if (!uid) throw new Error('ยังไม่ได้รับ auth uid');
 
       const joinName = cleanText(
         (els.joinName && els.joinName.value) || state.displayName || 'Player',
@@ -288,22 +336,22 @@
       const snap = await roomRef.once('value');
       const room = snap.val();
 
-      if (!room) throw new Error('ไม่พบห้องนี้');
-      if (room.status === 'started') throw new Error('ห้องนี้เริ่มแข่งไปแล้ว');
+      if (!room || !room.meta) throw new Error('ไม่พบห้องนี้');
+      if (String(room.meta.state || '') !== 'lobby') throw new Error('ห้องนี้เริ่มแข่งไปแล้ว');
 
-      const joinedAt = Number(room?.players?.[state.playerId]?.joinedAt) || now();
+      const joinedAt = Number(room?.players?.[uid]?.joinedAt) || now();
 
-      await roomRef.update({
-        [`players/${state.playerId}`]: buildPlayerPayload(joinName, false, joinedAt),
-        updatedAt: now()
-      });
+      await roomRef.child(`players/${uid}`).set(
+        buildPlayerPayload(joinName, false, joinedAt)
+      );
 
-      state.isHost = room.ownerPlayerId === state.playerId;
+      state.isHost = String(room.meta.hostUid || '') === String(uid);
+
       saveJson(STORE_KEY, {
         roomCode,
         lastName: joinName,
-        diff: room.diff || (els.diff && els.diff.value) || 'normal',
-        timeSec: room.timeSec || (els.timeSec && els.timeSec.value) || '60'
+        diff: room.meta.diff || (els.diff && els.diff.value) || 'normal',
+        timeSec: room.meta.timeSec || (els.timeSec && els.timeSec.value) || '60'
       });
 
       attachRoom(roomCode);
@@ -317,26 +365,23 @@
   async function onStartRace() {
     try {
       await ensureReady();
+      const uid = myUid();
 
-      if (!state.roomRef || !state.room) throw new Error('ยังไม่มีข้อมูลห้อง');
-      if (!state.isHost) throw new Error('เฉพาะเจ้าของห้องเท่านั้นที่กดเริ่มแข่งได้');
+      if (!state.roomRef || !state.room || !state.room.meta) throw new Error('ยังไม่มีข้อมูลห้อง');
+      if (String(state.room.meta.hostUid || '') !== String(uid)) {
+        throw new Error('เฉพาะเจ้าของห้องเท่านั้นที่กดเริ่มแข่งได้');
+      }
 
       const activePlayers = getPlayers(state.room).filter((p) => p.active);
       if (activePlayers.length < 2) throw new Error('ต้องมีผู้เล่นอย่างน้อย 2 คน');
 
       const startAt = now() + 1600;
-      const barrierAt = startAt + 2600;
-      const startSeed = String(state.room.startSeed || q.get('seed') || now());
 
-      await state.roomRef.update({
-        status: 'started',
+      await state.roomRef.child('meta').update({
+        state: 'countdown',
         startedAt: startAt,
-        raceBarrierAt: barrierAt,
-        startedBy: state.playerId,
-        startSeed,
-        rematchToken: null,
-        rematchRequestedAt: null,
-        updatedAt: now()
+        updatedAt: now(),
+        seed: String(state.room.meta.seed || q.get('seed') || now())
       });
 
       setStatus('เริ่มแข่งแล้ว กำลังพาทุกเครื่องเข้าเกม...', 'ok');
@@ -388,15 +433,15 @@
       const room = snap.val();
       state.room = room || null;
 
-      if (!room) {
+      if (!room || !room.meta) {
         renderNoRoom('ไม่พบข้อมูลห้อง หรือห้องถูกลบแล้ว');
         renderLatestResult(null);
         setStatus('ไม่พบข้อมูลห้องนี้', 'err');
         return;
       }
 
-      state.isHost = String(room.ownerPlayerId || '') === String(state.playerId);
-      setRoomCode(room.roomCode || cleanCode);
+      state.isHost = String(room.meta.hostUid || '') === String(myUid());
+      setRoomCode(room.meta.roomId || cleanCode);
       renderRoom(room);
       renderLatestResult(room);
       maybeEnterRace(room);
@@ -433,31 +478,35 @@
   }
 
   async function heartbeatNow() {
-    if (!state.db || !state.roomRef || !state.roomCode) return;
+    if (!state.roomRef || !state.roomCode) return;
 
-    const joinedAt = Number(state.room?.players?.[state.playerId]?.joinedAt) || now();
+    await ensureReady();
+    const uid = myUid();
+    if (!uid) return;
+
+    const joinedAt = Number(state.room?.players?.[uid]?.joinedAt) || now();
     const name = currentPlayerName();
-    const payload = buildPlayerPayload(name, state.isHost, joinedAt);
 
-    await state.roomRef.update({
-      [`players/${state.playerId}`]: payload,
-      updatedAt: now()
-    });
+    await state.roomRef.child(`players/${uid}`).set(
+      buildPlayerPayload(name, state.isHost, joinedAt)
+    );
   }
 
   function maybeEnterRace(room) {
-    if (!room || room.status !== 'started' || state.navigating) return;
+    const roomState = String(room?.meta?.state || '');
+    if ((roomState !== 'countdown' && roomState !== 'running') || state.navigating) return;
 
     state.navigating = true;
     setStatus('ห้องเริ่มแข่งแล้ว กำลังพาเข้าเกม...', 'ok');
 
-    const delay = Math.max(0, Number(room.startedAt || now()) - now());
+    const delay = Math.max(0, Number(room?.meta?.startedAt || now()) - now());
     W.setTimeout(() => {
       location.href = buildRunUrl(room);
     }, Math.min(delay, 2600));
   }
 
   function buildRunUrl(room) {
+    const meta = room?.meta || {};
     const base = new URL(q.get('runUrl') || './groups.html', location.href);
     const params = new URLSearchParams(base.search);
 
@@ -467,37 +516,38 @@
 
     params.set('mode', 'race');
     params.set('race', '1');
-    params.set('roomCode', cleanRoom(room.roomCode || state.roomCode));
-    params.set('code', cleanRoom(room.roomCode || state.roomCode));
+    params.set('roomCode', cleanRoom(meta.roomId || state.roomCode));
+    params.set('code', cleanRoom(meta.roomId || state.roomCode));
     params.set('pid', state.pid || 'anon');
     params.set('name', currentPlayerName());
-    params.set('diff', room.diff || params.get('diff') || 'normal');
-    params.set('time', String(room.timeSec || params.get('time') || 60));
-    params.set('timeSec', String(room.timeSec || params.get('timeSec') || 60));
-    params.set('seed', String(room.startSeed || params.get('seed') || now()));
+    params.set('diff', meta.diff || params.get('diff') || 'normal');
+    params.set('time', String(meta.timeSec || params.get('time') || 60));
+    params.set('timeSec', String(meta.timeSec || params.get('timeSec') || 60));
+    params.set('seed', String(meta.seed || params.get('seed') || now()));
     params.set('view', q.get('view') || params.get('view') || 'mobile');
     params.set('hub', q.get('hub') || params.get('hub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
     params.set('isHost', state.isHost ? '1' : '0');
-    params.set('hostPlayerId', String(room.ownerPlayerId || ''));
-    params.set('hostName', String(room.hostName || ''));
+    params.set('hostUid', String(meta.hostUid || ''));
     params.set('players', String(getPlayers(room).filter((p) => p.active).length));
     params.set('game', params.get('game') || 'groups');
     params.set('gameId', params.get('gameId') || 'groups');
-    params.set('zone', params.get('zone') || 'nutrition');
-    params.set('cat', params.get('cat') || 'nutrition');
+    params.set('zone', params.get('zone') || meta.zone || 'nutrition');
+    params.set('cat', params.get('cat') || meta.zone || 'nutrition');
 
     base.search = params.toString();
     return base.toString();
   }
 
   function renderRoom(room) {
+    const meta = room?.meta || {};
+    const roomState = String(meta.state || 'lobby');
     const players = getPlayers(room);
     const activePlayers = players.filter((p) => p.active);
     const activeCount = activePlayers.length;
 
     if (!players.length) {
       renderNoRoom('ยังไม่มีผู้เล่นในห้อง');
-    } else {
+    } else if (els.playersList) {
       els.playersList.innerHTML = players.map((p) => {
         const badges = [
           p.isHost ? '<span class="badge host">เจ้าของห้อง</span>' : '',
@@ -517,10 +567,8 @@
       }).join('');
     }
 
-    if (room.status === 'started') {
+    if (roomState === 'countdown' || roomState === 'running') {
       setStatus('ห้องเริ่มแข่งแล้ว กำลังพาเข้าเกม...', 'ok');
-    } else if (room.status === 'rematch') {
-      setStatus('เจ้าของห้องเปิดรีแมตช์แล้ว กลับเข้าสู่ล็อบบี้รอบใหม่', 'ok');
     } else if (activeCount < 2) {
       setStatus(
         state.isHost ? 'รอผู้เล่นอย่างน้อย 2 คนก่อนเริ่มแข่ง' : 'เข้าห้องแล้ว รอให้ครบอย่างน้อย 2 คน',
@@ -533,13 +581,13 @@
       );
     }
 
-    if (els.diff && room.diff && !state.isHost) els.diff.value = room.diff;
-    if (els.timeSec && room.timeSec && !state.isHost) els.timeSec.value = String(room.timeSec);
+    if (els.diff && meta.diff && !state.isHost) els.diff.value = meta.diff;
+    if (els.timeSec && meta.timeSec && !state.isHost) els.timeSec.value = String(meta.timeSec);
 
     if (els.btnStartRace) {
       els.btnStartRace.disabled = !(
         state.isHost &&
-        room.status !== 'started' &&
+        roomState === 'lobby' &&
         activeCount >= 2
       );
     }
@@ -555,20 +603,19 @@
   function renderLatestResult(room) {
     if (!els.latestResultBody) return;
 
-    if (!room || !room.raceLastWinner) {
+    const standings = getLatestStandings(room);
+    if (!standings.length) {
       els.latestResultBody.innerHTML = `<div class="hha-race-lobby-winner__empty">ยังไม่มีผลแข่งของห้องนี้</div>`;
       return;
     }
 
-    const winner = room.raceLastWinner || null;
-    const standings = Array.isArray(room.raceLastStandings) ? room.raceLastStandings : [];
+    const winner = standings[0];
     const active = getPlayers(room).filter((p) => p.active);
 
     const key = JSON.stringify({
-      roomCode: room.roomCode || state.roomCode,
-      winner: winner ? [winner.playerId, winner.score, winner.accuracy, winner.miss, winner.streak] : null,
-      standings: standings.map((p) => [p.playerId, p.score, p.accuracy, p.miss, p.streak]),
-      active: active.map((p) => [p.playerId, p.active])
+      roomCode: room?.meta?.roomId || state.roomCode,
+      standings: standings.map((p) => [p.uid, p.score, p.miss, p.bestStreak, p.updatedAt]),
+      active: active.map((p) => [p.uid, p.active])
     });
 
     if (key === state.lastRenderedWinnerKey) return;
@@ -581,13 +628,13 @@
           <div class="hha-race-lobby-winner__eyebrow">แชมป์รอบล่าสุด</div>
           <div class="hha-race-lobby-winner__name">${escapeHtml(winner.name || 'Player')}</div>
           <div class="hha-race-lobby-winner__meta">
-            SCORE ${num(winner.score)} · ACC ${num(winner.accuracy)}% · MISS ${num(winner.miss)} · STREAK ${num(winner.streak)}
+            SCORE ${num(winner.score)} · MISS ${num(winner.miss)} · STREAK ${num(winner.bestStreak)}
           </div>
         </div>
       </div>
 
       <div class="hha-race-lobby-winner__board">
-        ${(standings.length ? standings.slice(0, 5) : [winner]).map((p, idx) => `
+        ${standings.slice(0, 5).map((p, idx) => `
           <div class="hha-race-lobby-winner__row ${idx === 0 ? 'is-top' : ''}">
             <div class="hha-race-lobby-winner__left">
               <div class="hha-race-lobby-winner__place">${idx + 1}</div>
@@ -595,7 +642,7 @@
             </div>
             <div class="hha-race-lobby-winner__right">
               <div class="hha-race-lobby-winner__score">${num(p.score)}</div>
-              <div class="hha-race-lobby-winner__stat">ACC ${num(p.accuracy)}% · MISS ${num(p.miss)}</div>
+              <div class="hha-race-lobby-winner__stat">MISS ${num(p.miss)} · STREAK ${num(p.bestStreak)}</div>
             </div>
           </div>
         `).join('')}
@@ -609,24 +656,51 @@
     `;
   }
 
-  function getPlayers(room) {
-    const playersMap = room && room.players ? room.players : {};
-    const t = now();
+  function getLatestStandings(room) {
+    const resultsMap = room?.results || {};
+    const playersMap = room?.players || {};
 
-    return Object.keys(playersMap).map((key) => {
-      const p = playersMap[key] || {};
-      const lastSeen = Number(p.lastSeen || 0);
-      const active = p.presence !== 'left' && (t - lastSeen) <= ACTIVE_TTL_MS;
+    return Object.keys(resultsMap).map((uid) => {
+      const r = resultsMap[uid] || {};
+      const p = playersMap[uid] || {};
+      return {
+        uid,
+        name: cleanText(p.name || r.pid || 'Player', 24),
+        score: num(r.score),
+        miss: num(r.miss),
+        bestStreak: num(r.bestStreak),
+        finished: !!r.finished,
+        updatedAt: num(r.updatedAt)
+      };
+    }).sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.miss !== b.miss) return a.miss - b.miss;
+      if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
+      return a.updatedAt - b.updatedAt;
+    });
+  }
+
+  function getPlayers(room) {
+    const playersMap = room?.players || {};
+    const hostUid = String(room?.meta?.hostUid || '');
+    const t = now();
+    const uidMe = myUid();
+
+    return Object.keys(playersMap).map((uid) => {
+      const p = playersMap[uid] || {};
+      const lastPingAt = Number(p.lastPingAt || 0);
+      const active = (t - lastPingAt) <= ACTIVE_TTL_MS;
 
       return {
-        key,
-        playerId: String(p.playerId || key),
+        uid,
+        key: uid,
+        playerId: String(p.pid || uid),
         pid: String(p.pid || ''),
-        name: cleanText(p.name || p.displayName || 'Player', 24),
+        name: cleanText(p.name || 'Player', 24),
         joinedAt: Number(p.joinedAt || 0),
         active,
-        isHost: key === room.ownerPlayerId || !!p.isHost,
-        isMe: key === state.playerId
+        isHost: uid === hostUid || p.role === 'host',
+        isMe: uid === uidMe
       };
     }).sort((a, b) => {
       if (a.isHost !== b.isHost) return a.isHost ? -1 : 1;
@@ -636,27 +710,22 @@
   }
 
   function buildPlayerPayload(name, isHost, joinedAt) {
+    const uid = myUid();
     return {
-      playerId: state.playerId,
+      uid,
       pid: state.pid,
       name: cleanText(name || 'Player', 24),
-      joinedAt: Number(joinedAt || now()),
-      lastSeen: now(),
-      presence: 'lobby',
       ready: true,
-      readyToRun: false,
-      releasedAt: null,
-      isHost: !!isHost,
-      view: q.get('view') || 'mobile',
-      live: null,
-      result: null
+      role: isHost ? 'host' : 'player',
+      joinedAt: Number(joinedAt || now()),
+      lastPingAt: now()
     };
   }
 
   async function allocateRoomCode() {
     for (let i = 0; i < 8; i++) {
       const code = makeRoomCode();
-      const snap = await refForRoom(code).once('value');
+      const snap = await refForRoom(code).child('meta').once('value');
       if (!snap.exists()) return code;
     }
     throw new Error('สร้างรหัสห้องไม่สำเร็จ กรุณาลองใหม่');
@@ -668,12 +737,15 @@
   }
 
   async function ensureReady() {
-    if (!state.db) {
+    if (!state.db || !state.auth) {
       const fb = await ensureFirebaseCtx();
       state.db = fb.db;
       state.auth = fb.auth || null;
     }
     if (!state.db) throw new Error('Firebase not initialized');
+
+    await ensureAuthUser();
+    if (!myUid()) throw new Error('Anonymous auth uid missing');
   }
 
   function setRoomCode(code) {
@@ -690,7 +762,7 @@
   }
 
   function currentPlayerName() {
-    const fromRoom = state.room?.players?.[state.playerId]?.name;
+    const fromRoom = state.room?.players?.[myUid()]?.name;
     const inputName =
       (els.joinName && els.joinName.value) ||
       (els.hostName && els.hostName.value) ||
@@ -703,11 +775,11 @@
 
   function markLeftBestEffort() {
     try {
-      if (!state.roomRef || !state.roomCode) return;
-      state.roomRef.update({
-        [`players/${state.playerId}/presence`]: 'left',
-        [`players/${state.playerId}/lastSeen`]: now(),
-        updatedAt: now()
+      const uid = myUid();
+      if (!state.roomRef || !uid) return;
+      state.roomRef.child(`players/${uid}`).update({
+        ready: false,
+        lastPingAt: 0
       });
     } catch (_) {}
   }
