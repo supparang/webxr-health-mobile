@@ -5,50 +5,553 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Nutrition Zone</title>
   <meta name="color-scheme" content="light" />
-  <link rel="stylesheet" href="./zone-common.css?v=20260408b" />
-  <link rel="stylesheet" href="./zone-theme.css?v=20260408b" />
+  <style>
+    :root{
+      --bg1:#f3fff1;
+      --bg2:#fffdf2;
+      --card:#ffffff;
+      --line:#dcefc9;
+      --text:#4d4a42;
+      --muted:#6e685f;
+      --green:#7ed957;
+      --green2:#58c33f;
+      --yellow:#ffd45c;
+      --blue:#7fcfff;
+      --shadow:0 14px 28px rgba(86,155,194,.10);
+      --shadow-soft:0 10px 20px rgba(86,155,194,.08);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      padding:0;
+      min-height:100%;
+      font-family:ui-rounded,"Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top right, rgba(255,221,119,.22), transparent 28%),
+        radial-gradient(circle at top left, rgba(126,217,87,.18), transparent 24%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+    }
+
+    .shell{
+      width:min(1180px, calc(100% - 20px));
+      margin:0 auto;
+      padding:16px 0 28px;
+    }
+
+    .card{
+      background:linear-gradient(180deg,#fffef8,#ffffff);
+      border:3px solid var(--line);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+    }
+
+    .topbar{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:16px;
+      align-items:start;
+      margin-bottom:16px;
+    }
+
+    .brand-badge{
+      display:inline-flex;
+      min-height:30px;
+      align-items:center;
+      justify-content:center;
+      padding:6px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6ca538;
+      font-size:12px;
+      font-weight:1000;
+      width:max-content;
+    }
+
+    h1{
+      margin:8px 0 6px;
+      font-size:clamp(30px, 5vw, 42px);
+      line-height:1.05;
+    }
+
+    .sub{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      min-height:44px;
+      padding:10px 16px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:16px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#5d6f7a;
+      text-decoration:none;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      border-color:var(--green2);
+      color:#173b0b;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:16px;
+      margin-bottom:16px;
+    }
+
+    .hero-left,.hero-right{ min-width:0; }
+
+    .mascot-card{
+      padding:16px;
+      display:grid;
+      grid-template-columns:92px 1fr;
+      gap:14px;
+      align-items:center;
+    }
+
+    .mascot{
+      width:92px;
+      height:92px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      font-size:44px;
+      background:linear-gradient(180deg,#efffe3,#fff4cb);
+      border:3px solid var(--line);
+    }
+
+    .kicker{
+      font-size:12px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:#6ca538;
+      font-weight:1000;
+    }
+
+    .coach{
+      margin-top:4px;
+      font-size:16px;
+      line-height:1.55;
+      color:#5f5a52;
+      font-weight:1000;
+    }
+
+    .pill-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .pill{
+      min-height:38px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#60717b;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .control-card{
+      padding:16px;
+      display:grid;
+      gap:12px;
+      height:100%;
+    }
+
+    .control-title{
+      font-size:20px;
+      font-weight:1000;
+    }
+
+    .field{
+      display:grid;
+      gap:8px;
+    }
+
+    .field > span{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    select{
+      min-height:46px;
+      border-radius:16px;
+      border:2px solid var(--line);
+      background:#fff;
+      padding:10px 12px;
+      color:var(--text);
+      font-weight:900;
+    }
+
+    .filter-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .filter-chip{
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#586874;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .filter-chip.active{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      border-color:var(--green2);
+      color:#173b0b;
+    }
+
+    .featured{
+      margin-bottom:16px;
+      padding:18px;
+      display:grid;
+      grid-template-columns:1.35fr auto;
+      gap:16px;
+      align-items:center;
+    }
+
+    .featured-title{
+      margin:6px 0 4px;
+      font-size:32px;
+      line-height:1.05;
+      font-weight:1000;
+    }
+
+    .featured-sub{
+      margin:0;
+      font-size:15px;
+      line-height:1.65;
+      color:#6b675f;
+      font-weight:900;
+    }
+
+    .tag-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
+    }
+
+    .tag{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 10px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#61717b;
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .section{
+      margin-bottom:16px;
+      padding:18px;
+    }
+
+    .section-title{
+      margin:4px 0 0;
+      font-size:26px;
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .recent-area{
+      margin-top:12px;
+      display:grid;
+      gap:12px;
+    }
+
+    .empty{
+      padding:16px;
+      border-radius:20px;
+      background:#fff;
+      border:2px dashed var(--line);
+      color:#716c64;
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .recent-card{
+      padding:14px;
+      border-radius:20px;
+      border:2px solid var(--line);
+      background:#fff;
+      display:grid;
+      gap:10px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .recent-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .recent-title{
+      font-size:22px;
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .recent-sub{
+      font-size:13px;
+      line-height:1.55;
+      color:#6b675f;
+      font-weight:900;
+    }
+
+    .badge{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#eefbe8;
+      border:2px solid var(--line);
+      color:#4c7b1f;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .game-card{
+      display:grid;
+      gap:12px;
+      padding:16px;
+      border-radius:24px;
+      border:3px solid var(--line);
+      background:linear-gradient(180deg,#fffef8,#ffffff);
+      box-shadow:var(--shadow);
+    }
+
+    .game-top{
+      display:grid;
+      grid-template-columns:72px 1fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    .game-icon{
+      width:72px;
+      height:72px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      background:#f8fff2;
+      border:2px solid var(--line);
+    }
+
+    .game-kicker{
+      font-size:12px;
+      color:#6ca538;
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+
+    .game-title{
+      margin:4px 0;
+      font-size:24px;
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .game-sub{
+      margin:0;
+      font-size:14px;
+      line-height:1.5;
+      color:#5f5b54;
+      font-weight:900;
+    }
+
+    .game-desc{
+      margin:0;
+      font-size:13px;
+      line-height:1.6;
+      color:#716c64;
+      font-weight:900;
+    }
+
+    .game-actions{
+      display:flex;
+      justify-content:flex-start;
+    }
+
+    .progress-grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .progress-pill{
+      padding:14px;
+      border-radius:20px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .progress-n{
+      font-size:24px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .progress-t{
+      margin-top:6px;
+      font-size:13px;
+      color:#7b7a72;
+      font-weight:1000;
+    }
+
+    .hidden{
+      display:none !important;
+    }
+
+    @media (max-width:980px){
+      .hero,
+      .featured{
+        grid-template-columns:1fr;
+      }
+
+      .grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:680px){
+      .shell{
+        width:min(100% - 16px, 100%);
+      }
+
+      .topbar{
+        grid-template-columns:1fr;
+      }
+
+      .actions{
+        justify-content:flex-start;
+      }
+
+      .mascot-card{
+        grid-template-columns:70px 1fr;
+      }
+
+      .mascot{
+        width:70px;
+        height:70px;
+        font-size:34px;
+      }
+
+      .section-title{
+        font-size:22px;
+      }
+
+      .game-top{
+        grid-template-columns:60px 1fr;
+      }
+
+      .game-icon{
+        width:60px;
+        height:60px;
+        font-size:28px;
+      }
+
+      .game-title{
+        font-size:22px;
+      }
+
+      .progress-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
 </head>
-<body class="zone-nutrition">
-  <div class="hz-shell">
-    <header class="hz-topbar">
-      <div class="brand-wrap">
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div>
         <div class="brand-badge">HeroHealth</div>
-        <h1 class="hero-title">Nutrition Zone</h1>
-        <p class="hero-sub">
-          โลกแห่งอาหารดี เลือกเกมที่อยากเล่น แล้วเรียนรู้เรื่องโภชนาการอย่างสนุก
-        </p>
+        <h1>Nutrition Zone</h1>
+        <p class="sub">โลกแห่งอาหารดี เลือกเกมที่อยากเล่น แล้วเรียนรู้เรื่องโภชนาการอย่างสนุก</p>
       </div>
 
-      <div class="hero-actions">
-        <a id="hubBtn" class="top-btn" href="./hub-v2.html">กลับ HUB</a>
-        <button id="continueBtn" class="top-btn primary" type="button">เล่นต่อ</button>
+      <div class="actions">
+        <a id="hubBtn" class="btn" href="./hub-v2.html">กลับ HUB</a>
+        <button id="continueBtn" class="btn primary" type="button">เล่นต่อ</button>
       </div>
     </header>
 
-    <section class="hero-panel">
-      <div class="hero-panel-left">
-        <div class="mascot-card">
-          <div class="mascot-face">🥗</div>
-          <div class="mascot-text">
-            <div class="mascot-kicker">พร้อมเล่น!</div>
-            <div id="coachLine" class="mascot-line">
-              ลองเริ่มจาก Plate ก่อน แล้วค่อยไปเกมที่ท้าทายขึ้นนะ
-            </div>
+    <section class="hero">
+      <div class="hero-left">
+        <div class="card mascot-card">
+          <div class="mascot">🥗</div>
+          <div>
+            <div class="kicker">พร้อมเล่น!</div>
+            <div id="coachLine" class="coach">ลองเริ่มจาก Plate ก่อน แล้วค่อยไปเกมที่ท้าทายขึ้นนะ</div>
           </div>
         </div>
 
-        <div class="stats-row">
+        <div class="pill-row">
           <div class="pill">🥗 มี 4 เกมในโซน Nutrition</div>
           <div id="playerPill" class="pill">👤 ฮีโร่: Hero</div>
           <div id="modePill" class="pill">🎮 ตอนนี้: เล่นสนุก</div>
         </div>
       </div>
 
-      <div class="hero-panel-right">
-        <div class="control-card">
+      <div class="hero-right">
+        <div class="card control-card">
           <div class="control-title">ตั้งค่าก่อนเล่น</div>
 
-          <label class="control-group">
+          <label class="field">
             <span>โหมด</span>
             <select id="modeSelect">
               <option value="play">เล่นสนุก</option>
@@ -56,7 +559,7 @@
             </select>
           </label>
 
-          <label class="control-group">
+          <label class="field">
             <span>เวลา</span>
             <select id="timeSelect">
               <option value="60">60 วินาที</option>
@@ -65,7 +568,7 @@
             </select>
           </label>
 
-          <div class="control-group">
+          <div class="field">
             <span>เลือกแบบที่อยากเล่น</span>
             <div id="filterRow" class="filter-row">
               <button class="filter-chip active" type="button" data-filter="all">ทั้งหมด</button>
@@ -78,72 +581,138 @@
       </div>
     </section>
 
-    <section class="featured-game-card">
-      <div class="featured-game-left">
-        <div class="featured-kicker">แนะนำวันนี้</div>
-        <h2 id="featuredTitle" class="featured-title">Plate</h2>
-        <p id="featuredSub" class="featured-sub">
-          ฝึกเลือกอาหารครบ 5 หมู่แบบเข้าใจง่าย เหมาะสำหรับเริ่มเล่นใน Nutrition Zone
-        </p>
-        <div id="featuredTags" class="featured-tags"></div>
+    <section class="card featured">
+      <div>
+        <div class="kicker">แนะนำวันนี้</div>
+        <div id="featuredTitle" class="featured-title">Plate</div>
+        <p id="featuredSub" class="featured-sub">ฝึกเลือกอาหารครบ 5 หมู่แบบเข้าใจง่าย เหมาะสำหรับเริ่มเล่นใน Nutrition Zone</p>
+        <div id="featuredTags" class="tag-row"></div>
       </div>
 
-      <div class="featured-game-right">
-        <a id="featuredPlayBtn" class="top-btn primary" href="./plate-v1.html">▶️ เริ่มเกมแนะนำ</a>
+      <div>
+        <a id="featuredPlayBtn" class="btn primary" href="#">▶️ เริ่มเกมแนะนำ</a>
       </div>
     </section>
 
-    <section class="featured-card">
-      <div class="featured-head">
-        <div>
-          <div class="section-kicker">Continue</div>
-          <h2 class="section-title">เกมล่าสุดของหนู</h2>
-        </div>
-      </div>
+    <section class="card section">
+      <div class="kicker">Continue</div>
+      <h2 class="section-title">เกมล่าสุดของหนู</h2>
 
       <div id="recentArea" class="recent-area">
-        <div class="empty-recent">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>
+        <div class="empty">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>
       </div>
     </section>
 
-    <section class="section-block">
-      <div class="section-head">
-        <div>
-          <div class="section-kicker">All Games</div>
-          <h2 class="section-title">เลือกเกมใน Nutrition Zone</h2>
-        </div>
-      </div>
+    <section class="card section">
+      <div class="kicker">All Games</div>
+      <h2 class="section-title">เลือกเกมใน Nutrition Zone</h2>
 
-      <div id="gamesGrid" class="games-grid"></div>
+      <div id="gamesGrid" class="grid">
+        <article class="game-card" data-game="plate" data-filters="all,easy">
+          <div class="game-top">
+            <div class="game-icon">🍽️</div>
+            <div>
+              <div class="game-kicker">เริ่มง่าย</div>
+              <div class="game-title">Plate</div>
+              <p class="game-sub">ฝึกเลือกอาหารครบ 5 หมู่แบบเข้าใจง่าย</p>
+            </div>
+          </div>
+          <p class="game-desc">เข้า launcher ของ Plate ก่อน แล้วค่อยเลือก flow หรือโหมดที่ต้องการ</p>
+          <div class="tag-row">
+            <span class="tag">เริ่มง่าย</span>
+            <span class="tag">ครบ 5 หมู่</span>
+            <span class="tag">เลือกโหมดได้</span>
+          </div>
+          <div class="game-actions">
+            <a id="btnPlate" class="btn primary" href="#">เล่นเลย</a>
+          </div>
+        </article>
+
+        <article class="game-card" data-game="goodjunk" data-filters="all,fun,quick">
+          <div class="game-top">
+            <div class="game-icon">🥦</div>
+            <div>
+              <div class="game-kicker">สนุกท้าทาย</div>
+              <div class="game-title">GoodJunk</div>
+              <p class="game-sub">แยกอาหารดีและอาหารที่ควรลดให้ทัน</p>
+            </div>
+          </div>
+          <p class="game-desc">เข้า launcher ของ GoodJunk เพื่อเลือก Solo / Duet / Race / Battle / Co-op</p>
+          <div class="tag-row">
+            <span class="tag">ท้าทาย</span>
+            <span class="tag">เร็ว</span>
+            <span class="tag">หลายโหมด</span>
+          </div>
+          <div class="game-actions">
+            <a id="btnGoodJunk" class="btn primary" href="#">เล่นเลย</a>
+          </div>
+        </article>
+
+        <article class="game-card" data-game="groups" data-filters="all,easy">
+          <div class="game-top">
+            <div class="game-icon">🧺</div>
+            <div>
+              <div class="game-kicker">ฝึกจำ</div>
+              <div class="game-title">Groups</div>
+              <p class="game-sub">จัดหมวดอาหารให้ถูกต้อง</p>
+            </div>
+          </div>
+          <p class="game-desc">ช่วยให้จำว่าอาหารแต่ละอย่างอยู่หมวดไหน และเข้าเกมหลักของ Groups ได้ตรง</p>
+          <div class="tag-row">
+            <span class="tag">ฝึกจำ</span>
+            <span class="tag">จัดหมวด</span>
+            <span class="tag">เรียนรู้</span>
+          </div>
+          <div class="game-actions">
+            <a id="btnGroups" class="btn primary" href="#">เล่นเลย</a>
+          </div>
+        </article>
+
+        <article class="game-card" data-game="hydration" data-filters="all,quick">
+          <div class="game-top">
+            <div class="game-icon">💧</div>
+            <div>
+              <div class="game-kicker">เล่นสั้น</div>
+              <div class="game-title">Hydration</div>
+              <p class="game-sub">เรียนรู้เรื่องการดื่มน้ำและดูแลร่างกาย</p>
+            </div>
+          </div>
+          <p class="game-desc">เข้า launcher หรือหน้าเริ่มของ Hydration เพื่อเล่นต่อได้ทันที</p>
+          <div class="tag-row">
+            <span class="tag">เล่นสั้น</span>
+            <span class="tag">สุขภาพ</span>
+            <span class="tag">น้ำดื่ม</span>
+          </div>
+          <div class="game-actions">
+            <a id="btnHydration" class="btn primary" href="#">เล่นเลย</a>
+          </div>
+        </article>
+      </div>
     </section>
 
-    <section class="zone-progress-card">
-      <div class="section-head">
-        <div>
-          <div class="section-kicker">Progress</div>
-          <h2 class="section-title">ความคืบหน้า Nutrition Zone</h2>
-        </div>
-      </div>
+    <section class="card section">
+      <div class="kicker">Progress</div>
+      <h2 class="section-title">ความคืบหน้า Nutrition Zone</h2>
 
-      <div class="zone-progress-grid">
+      <div class="progress-grid">
         <div class="progress-pill">
-          <div class="progress-n" id="zonePlayedCount">0/4</div>
+          <div id="playedCount" class="progress-n">0/4</div>
           <div class="progress-t">เกมที่เคยเล่น</div>
         </div>
 
         <div class="progress-pill">
-          <div class="progress-n" id="zoneTodayCount">0</div>
+          <div id="todayCount" class="progress-n">0</div>
           <div class="progress-t">เกมวันนี้</div>
         </div>
 
         <div class="progress-pill">
-          <div class="progress-n" id="zoneRecentGame">-</div>
+          <div id="recentName" class="progress-n">-</div>
           <div class="progress-t">ล่าสุด</div>
         </div>
       </div>
     </section>
   </div>
 
-  <script type="module" src="./nutrition-zone.js?v=20260408b"></script>
+  <script type="module" src="./nutrition-zone.js?v=20260408c"></script>
 </body>
 </html>
