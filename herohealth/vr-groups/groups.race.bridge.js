@@ -1,4 +1,4 @@
-// groups.race.bridge.js
+// /herohealth/vr-groups/groups.race.bridge.js
 export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
   const W = window;
   const roomCode = String(ctx.roomCode || '').trim();
@@ -12,6 +12,8 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
   let uid = '';
   let roomRef = null;
   let hb = 0;
+  let joinedAt = Date.now();
+  let metaOff = null;
 
   await ensureFirebase();
 
@@ -24,47 +26,94 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
   async function attach() {
     roomRef = db.ref(ROOT);
 
+    const playerSnap = await roomRef.child(`players/${uid}`).once('value');
+    if (playerSnap.exists()) {
+      joinedAt = Number(playerSnap.val()?.joinedAt || joinedAt);
+    }
+
     await heartbeat();
 
-    roomRef.child('meta').on('value', (snap) => {
+    metaOff = roomRef.child('meta').on('value', async (snap) => {
       const meta = snap.val() || {};
-      if (meta.state === 'aborted' || meta.state === 'ended') {
-        // จะให้โชว์ summary หรือกลับ lobby ก็ได้
+
+      if (ctx.isHost && meta.state === 'countdown') {
+        const startAt = Number(meta.startedAt || 0);
+        if (startAt > 0 && Date.now() >= startAt) {
+          try {
+            await roomRef.child('meta').update({
+              state: 'running',
+              updatedAt: Date.now()
+            });
+          } catch (_) {}
+        }
+      }
+
+      if (meta.state === 'aborted') {
+        logger?.event?.('race_room_aborted', { patch, roomCode });
       }
     });
 
     hb = W.setInterval(() => {
-      heartbeat().catch(console.warn);
+      heartbeat().catch((err) => {
+        logger?.event?.('race_heartbeat_error', {
+          message: err?.message || String(err || 'unknown')
+        });
+      });
     }, HEARTBEAT_MS);
 
-    bindCoreHooks();
+    core.onRaceProgress = async (payload = {}) => {
+      await roomRef.child(`progress/${uid}`).set({
+        updatedAt: Number(payload.updatedAt || Date.now()),
+        phase: String(payload.phase || ''),
+        score: Number(payload.score || 0),
+        miss: Number(payload.miss || 0),
+        bestStreak: Number(payload.bestStreak || 0),
+        accuracy: Number(payload.accuracy || 0),
+        progress: Number(payload.progress || 0),
+        goalId: String(payload.goal?.id || ''),
+        goalDone: Number(payload.goal?.done || 0),
+        goalNeed: Number(payload.goal?.need || 0),
+        timeLeftMs: Number(payload.timeLeftMs || 0)
+      }).catch(() => {});
+    };
+
+    core.onRaceFinish = async (payload = {}) => {
+      await submitFinalResult(payload);
+    };
+
+    core.onRaceExit = async (payload = {}) => {
+      await roomRef.child(`progress/${uid}`).set({
+        updatedAt: Number(payload.updatedAt || Date.now()),
+        phase: String(payload.phase || 'exit'),
+        score: Number(payload.score || 0),
+        miss: Number(payload.miss || 0),
+        bestStreak: Number(payload.bestStreak || 0),
+        exitReason: String(payload.reason || 'manual_exit')
+      }).catch(() => {});
+    };
+
+    W.addEventListener('pagehide', detach, { passive: true });
+    W.addEventListener('beforeunload', detach, { passive: true });
   }
 
-  function detach() {
+  async function detach() {
     if (hb) {
       clearInterval(hb);
       hb = 0;
     }
-    if (roomRef) {
-      roomRef.child('meta').off();
+
+    try {
+      if (roomRef && uid) {
+        await roomRef.child(`players/${uid}`).update({
+          ready: false,
+          lastPingAt: 0
+        });
+      }
+    } catch (_) {}
+
+    if (roomRef && metaOff) {
+      roomRef.child('meta').off('value', metaOff);
     }
-  }
-
-  function bindCoreHooks() {
-    // ตัวอย่าง: ให้ core เรียก callback ระหว่างเล่น
-    core.onRaceProgress = async (payload = {}) => {
-      if (!roomRef) return;
-      await roomRef.child(`progress/${uid}`).set({
-        updatedAt: Date.now(),
-        score: Number(payload.score || 0),
-        miss: Number(payload.miss || 0),
-        bestStreak: Number(payload.bestStreak || 0)
-      }).catch(() => {});
-    };
-
-    core.onRaceFinish = async (summary = {}) => {
-      await submitFinalResult(summary);
-    };
   }
 
   async function heartbeat() {
@@ -75,27 +124,43 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
       name: ctx.name,
       ready: true,
       role: ctx.isHost ? 'host' : 'player',
-      joinedAt: Number(ctx.joinedAt || ts),
+      joinedAt,
       lastPingAt: ts
     });
   }
 
-  async function submitFinalResult(summary = {}) {
-    const ts = Date.now();
+  async function submitFinalResult(payload = {}) {
+    const summary = payload.summary || {};
+    const ts = Number(payload.updatedAt || Date.now());
 
     await roomRef.child(`results/${uid}`).set({
       uid,
       pid: ctx.pid,
-      score: Number(summary.score || 0),
-      miss: Number(summary.miss || 0),
-      bestStreak: Number(summary.bestStreak || 0),
+      score: Number(payload.score || summary.score || 0),
+      miss: Number(payload.miss || summary.miss || 0),
+      bestStreak: Number(payload.bestStreak || summary.bestStreak || 0),
       finished: true,
       updatedAt: ts
     });
 
     await roomRef.child(`progress/${uid}`).set({
-      updatedAt: ts
+      updatedAt: ts,
+      phase: 'summary',
+      score: Number(payload.score || summary.score || 0),
+      miss: Number(payload.miss || summary.miss || 0),
+      bestStreak: Number(payload.bestStreak || summary.bestStreak || 0),
+      accuracy: Number(payload.accuracy || summary.accuracy || 0),
+      progress: 100
     });
+
+    if (ctx.isHost) {
+      try {
+        await roomRef.child('meta').update({
+          state: 'ended',
+          updatedAt: ts
+        });
+      } catch (_) {}
+    }
   }
 
   async function ensureFirebase() {
