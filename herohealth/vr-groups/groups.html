@@ -6,7 +6,8 @@
   <title>HeroHealth • Food Groups Solo</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#90d6ff" />
-  <link rel="icon" href="./favicon.ico" />
+  <link rel="icon" href="../favicon.ico" />
+
   <style>
     :root{
       --bg1:#eefaff;
@@ -1032,6 +1033,12 @@
       }
     }
   </style>
+
+  <!-- Firebase bootstrap -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js"></script>
 </head>
 <body>
   <main class="shell">
@@ -1187,7 +1194,24 @@
   </main>
 
   <script type="module">
-    const PATCH = 'v20260409-groups-shell-race-bridge-r1';
+    const PATCH = 'v20260409-groups-shell-race-bridge-r2';
+
+    async function waitForFirebaseBootstrap(timeoutMs = 10000){
+      const start = Date.now();
+
+      while ((Date.now() - start) < timeoutMs){
+        if (
+          (window.HHA_FIREBASE && window.HHA_FIREBASE.db) ||
+          (window.HHA_FIREBASE_READY && typeof window.HHA_FIREBASE_READY.then === 'function') ||
+          (window.firebase && typeof window.firebase.database === 'function')
+        ) {
+          return true;
+        }
+        await new Promise((r) => setTimeout(r, 120));
+      }
+
+      throw new Error('Firebase bootstrap not loaded');
+    }
 
     const q = new URL(location.href).searchParams;
 
@@ -1252,7 +1276,7 @@
       diff: oneOf(q.get('diff'), ['easy','normal','hard'], 'normal'),
       timeSec: clampInt(q.get('timeSec') || q.get('time'), 80, 30, 180),
       seed: String(q.get('seed') || Date.now()),
-      hub: q.get('hub') || new URL('./hub.html', location.href).toString(),
+      hub: q.get('hub') || new URL('../hub.html', location.href).toString(),
       view: oneOf(q.get('view'), ['pc','mobile','cvr','vr'], 'mobile'),
       run: oneOf(q.get('run'), ['play','research','demo'], 'play'),
 
@@ -1271,7 +1295,7 @@
 
       cooldown: q.get('cooldown') === '1',
       returnPhase: q.get('returnPhase') || '',
-      cooldownGateUrl: new URL('./warmup-gate.html', location.href).toString(),
+      cooldownGateUrl: new URL('../warmup-gate.html', location.href).toString(),
       debug: q.get('debug') === '1'
     };
 
@@ -1318,6 +1342,8 @@
     decorateShellByMode();
 
     try {
+      await waitForFirebaseBootstrap();
+
       const [
         { createGroupsLogger },
         { createGroupsAiHooks },
@@ -1391,11 +1417,10 @@
 
       if (CTX.view === 'cvr' || CTX.view === 'vr') {
         const s = document.createElement('script');
-        s.src = './vr/vr-ui.js';
+        s.src = '../vr/vr-ui.js';
         s.async = true;
         document.body.appendChild(s);
       }
-
     } catch (err) {
       console.error('[Groups] boot failed:', err);
       showBootError(err);
