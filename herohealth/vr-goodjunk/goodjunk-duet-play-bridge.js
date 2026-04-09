@@ -3,18 +3,8 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-duet-play-bridge.js
  * GoodJunk Duet Run Bridge
- * FINAL PATCH v20260406-gjduet-play-bridge-final
- *
- * Uses:
- *   - /herohealth/room-engine.js
- *   - /herohealth/herohealth-logger.js
- *
- * Exposes:
- *   window.HHA_DUET_BRIDGE
- *   window.HHA_DUET_PUSH_STATE(state)
- *   window.HHA_DUET_PUSH_EVENT(type, detail)
- *   window.HHA_DUET_FINISH(summary)
- *   window.HHA_DUET_ABORT(reason)
+ * FINAL PATCH v20260407b-gjduet-play-bridge-final
+ * - progress PERMISSION_DENIED จะหยุด sync ทันที ไม่ spam ทั้งรอบ
  * ========================================================= */
 (function () {
   const W = window;
@@ -42,7 +32,8 @@
     lastTickState: null,
     startWaitDone: false,
     sessionStartedAt: Date.now(),
-    presenceTimer: 0
+    presenceTimer: 0,
+    progressBlocked: false
   };
 
   function qs(key, fallback = '') {
@@ -104,7 +95,7 @@
       room_id: clean(qs('roomId', qs('room', '')), 32),
       match_id: clean(qs('matchId', ''), 48),
       role: clean(qs('role', qs('host', '0') === '1' ? 'host' : 'player'), 24) || 'player',
-      app_version: 'v20260406-gjduet-play-bridge-final',
+      app_version: 'v20260407b-gjduet-play-bridge-final',
       start_at: num(qs('startAt', 0), 0),
       autostart: qs('autostart', '0') === '1',
       wait: qs('wait', '0') === '1'
@@ -250,7 +241,7 @@
           S.startWaitDone = true;
         }
 
-        if ((meta.state === 'aborted') && !S.finished) {
+        if (meta.state === 'aborted' && !S.finished) {
           await abort('room_aborted');
           return;
         }
@@ -332,7 +323,7 @@
   }
 
   async function tick(state) {
-    if (!S.ready || S.finished) return;
+    if (!S.ready || S.finished || S.progressBlocked) return;
 
     const t = now();
     S.lastTickState = Object.assign({}, state || {});
@@ -356,6 +347,11 @@
       });
     } catch (err) {
       console.error('[duet-bridge] updateProgress failed', err);
+      const msg = String(err && err.message ? err.message : err);
+      if (/PERMISSION_DENIED/i.test(msg)) {
+        S.progressBlocked = true;
+        console.warn('[duet-bridge] progress sync disabled for this run because RTDB denied updateProgress');
+      }
     }
   }
 
