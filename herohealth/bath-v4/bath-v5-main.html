@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Bath Main Game Front/Back</title>
+  <title>HeroHealth • Bath Main Game Front/Back + Visual State</title>
 
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
@@ -15,7 +15,6 @@
       --ink2:#477287;
       --panel:rgba(255,255,255,.94);
       --panel2:rgba(255,255,255,.99);
-      --line:#cdeeff;
       --good:#18b86f;
       --warn:#ff9b42;
       --bad:#ff6380;
@@ -43,7 +42,6 @@
       pointer-events:none;
     }
 
-    /* ซ่อนปุ่มมาตรฐานของ A-Frame แล้วใช้ปุ่ม custom แทน */
     .a-enter-vr-button,
     .a-enter-ar-button,
     .a-orientation-modal{
@@ -69,10 +67,10 @@
     }
 
     .chip{
-      min-width:76px;
+      min-width:74px;
       padding:6px 8px;
       border-radius:12px;
-      background:var(--panel);
+      background:rgba(255,255,255,.92);
       border:3px solid rgba(255,255,255,.96);
       box-shadow:var(--shadow);
       backdrop-filter:blur(8px);
@@ -126,7 +124,7 @@
       top:68px;
       left:6px;
       right:6px;
-      max-width:520px;
+      max-width:560px;
     }
 
     .task-card{
@@ -243,7 +241,7 @@
     .hidden{ display:none !important; }
 
     .card{
-      width:min(95vw,900px);
+      width:min(95vw,920px);
       border-radius:30px;
       background:linear-gradient(180deg,rgba(255,255,255,.99),rgba(244,252,255,.98));
       border:4px solid rgba(255,255,255,.98);
@@ -334,7 +332,6 @@
       to{ opacity:.9; transform:scale(1.08); }
     }
 
-    /* ===== Custom VR buttons ===== */
     .vr-dock{
       position:fixed;
       right:10px;
@@ -365,7 +362,7 @@
     }
 
     @media (max-width:640px){
-      .task-wrap{ top:118px; }
+      .task-wrap{ top:118px; max-width:100%; }
       .helper{ font-size:10px; }
       .vr-dock{ right:8px; bottom:8px; }
       .vr-fab{ padding:9px 12px; font-size:12px; }
@@ -396,6 +393,10 @@
           <span class="k">ลำดับ</span>
           <span class="v"><span id="stepNow">1</span>/<span id="stepAll">14</span></span>
         </div>
+        <div class="chip">
+          <span class="k">ด้าน</span>
+          <span class="v" id="viewNow">หน้า</span>
+        </div>
       </div>
 
       <div class="top-actions">
@@ -415,7 +416,7 @@
           <i id="zoneBar"></i>
         </div>
         <div class="task-sub">
-          <span id="taskHint">แตะจุดบนศีรษะให้เปียกครบ</span>
+          <span id="taskHint">แตะจุดบนศีรษะให้ครบ</span>
           <span id="cleanedText">ทำแล้ว 0/4</span>
           <span id="remainText">เหลือ 4 จุด</span>
         </div>
@@ -425,7 +426,7 @@
     <div id="centerMsg" class="center-msg">เริ่มอาบน้ำกัน!</div>
 
     <div id="helperText" class="helper">
-      แตะจุดเป้า • เวอร์ชันนี้มีหน้า/หลัง + จุดอับจริง • ปุ่มเข้า VR อยู่มุมขวาล่าง
+      แตะจุดเป้า • มีเอฟเฟกต์ เปียก / ฟอง / ล้าง / แห้ง จริง • ปุ่มเข้า VR อยู่มุมขวาล่าง
     </div>
   </div>
 
@@ -436,16 +437,17 @@
 
   <div id="startOverlay" class="overlay">
     <div class="card">
-      <h1>🛁 Bath Main Game • Front / Back</h1>
+      <h1>🛁 Bath Main Game • Visual State</h1>
       <p class="sub">
-        รอบนี้เกมเล่นครบทั้งด้านหน้าและด้านหลังแล้ว
-        และมีจุดอับจริง เช่น รักแร้ หลังหู ท้ายทอย หลังเข่า ส้นเท้า และซอกนิ้วเท้า
+        รอบนี้ตัวละครมี state จริงแล้ว
+        เปียก → ฟอง → ล้างฟอง → แห้ง
+        และยังเล่นครบทั้งด้านหน้า ด้านหลัง และจุดอับ
       </p>
 
       <div class="mini-grid">
-        <div class="mini">1) เกมจะบอกว่าตอนนี้เป็นขั้นไหน</div>
-        <div class="mini">2) เกมจะบอกด้วยว่าต้องทำด้านหน้า หรือด้านหลัง</div>
-        <div class="mini">3) ทำทีละจุด ทีละส่วน ให้ครบก่อนจะไปต่อ</div>
+        <div class="mini">1) ดูว่าตอนนี้เป็นขั้นไหน และใช้อุปกรณ์อะไร</div>
+        <div class="mini">2) จุดที่ทำแล้วจะมีภาพเปลี่ยนจริงบนตัวละคร</div>
+        <div class="mini">3) ด้านหน้ากับด้านหลังจะสลับอัตโนมัติ</div>
         <div class="mini">4) ปุ่มเข้า VR อยู่มุมขวาล่างของจอ</div>
       </div>
 
@@ -554,6 +556,7 @@
 
       <a-entity id="zoneMarker"></a-entity>
       <a-entity id="zoneArrow"></a-entity>
+      <a-entity id="stateLayer"></a-entity>
       <a-entity id="targetLayer"></a-entity>
       <a-entity id="fxLayer"></a-entity>
     </a-entity>
@@ -596,7 +599,7 @@
       const HUB  = qs.get('hub') || './hub-v2.html';
       const PID  = qs.get('pid') || 'anon';
       const RUN  = qs.get('run') || 'play';
-      const SEED = qs.get('seed') || String(Date.now()));
+      const SEED = qs.get('seed') || String(Date.now());
 
       const PRESETS = {
         easy:   { startTime: 105, spotLife: 4500, spawnDelay: 220, zoneBonus: 24, missPenalty: 1 },
@@ -835,6 +838,7 @@
         phaseNow:$('phaseNow'),
         stepNow:$('stepNow'),
         stepAll:$('stepAll'),
+        viewNow:$('viewNow'),
         taskTitle:$('taskTitle'),
         modeText:$('modeText'),
         toolText:$('toolText'),
@@ -874,6 +878,7 @@
 
       const scene = $('scene');
       const targetLayer = $('targetLayer');
+      const stateLayer = $('stateLayer');
       const fxLayer = $('fxLayer');
       const zoneMarker = $('zoneMarker');
       const zoneArrow = $('zoneArrow');
@@ -1050,6 +1055,7 @@
           this.resetSpotState();
           this.renderHud();
           this.renderStep();
+          this.renderStateVisuals();
         }
 
         start(){
@@ -1059,6 +1065,7 @@
           ui.summaryOverlay.classList.add('hidden');
           showMsg(this.currentPhase().startMsg, 900);
           this.renderStep();
+          this.renderStateVisuals();
           this.spawnTarget();
 
           this.tickTimer = setInterval(() => {
@@ -1087,6 +1094,7 @@
         setAvatarView(view){
           if (view === 'back') avatarRoot.setAttribute('rotation', '0 180 0');
           else avatarRoot.setAttribute('rotation', '0 0 0');
+          ui.viewNow.textContent = view === 'back' ? 'หลัง' : 'หน้า';
         }
 
         renderHud(){
@@ -1170,23 +1178,137 @@
           }
         }
 
+        createBlueWetMark(spot){
+          const root = document.createElement('a-entity');
+          root.setAttribute('position', `${spot.x} ${spot.y} ${spot.z}`);
+
+          const halo = document.createElement('a-sphere');
+          halo.setAttribute('radius', spot.hidden ? '0.18' : '0.16');
+          halo.setAttribute('color', '#69d8ff');
+          halo.setAttribute('opacity', '0.22');
+          halo.setAttribute('transparent', 'true');
+
+          const drop = document.createElement('a-sphere');
+          drop.setAttribute('radius', '0.05');
+          drop.setAttribute('color', '#69d8ff');
+          drop.setAttribute('scale', '0.85 1.2 0.85');
+
+          root.appendChild(halo);
+          root.appendChild(drop);
+          return root;
+        }
+
+        createFoamMark(spot){
+          const root = document.createElement('a-entity');
+          root.setAttribute('position', `${spot.x} ${spot.y} ${spot.z}`);
+
+          for (let i = 0; i < 4; i++) {
+            const foam = document.createElement('a-sphere');
+            foam.setAttribute(
+              'position',
+              `${(Math.random()*0.16-0.08).toFixed(2)} ${(Math.random()*0.16-0.08).toFixed(2)} ${(Math.random()*0.04-0.02).toFixed(2)}`
+            );
+            foam.setAttribute('radius', (0.035 + Math.random()*0.02).toFixed(3));
+            foam.setAttribute('color', '#ffffff');
+            foam.setAttribute('opacity', '0.95');
+            root.appendChild(foam);
+          }
+
+          const soft = document.createElement('a-sphere');
+          soft.setAttribute('radius', spot.hidden ? '0.18' : '0.16');
+          soft.setAttribute('color', '#ffffff');
+          soft.setAttribute('opacity', '0.14');
+          soft.setAttribute('transparent', 'true');
+          root.appendChild(soft);
+
+          return root;
+        }
+
+        createCleanMark(spot){
+          const root = document.createElement('a-entity');
+          root.setAttribute('position', `${spot.x} ${spot.y} ${spot.z}`);
+
+          const shine = document.createElement('a-ring');
+          shine.setAttribute('radius-inner', '0.07');
+          shine.setAttribute('radius-outer', '0.10');
+          shine.setAttribute('rotation', '-90 0 0');
+          shine.setAttribute('color', '#c9f7ff');
+          shine.setAttribute('opacity', '0.75');
+
+          root.appendChild(shine);
+          return root;
+        }
+
+        createDryMark(spot){
+          const root = document.createElement('a-entity');
+          root.setAttribute('position', `${spot.x} ${spot.y} ${spot.z}`);
+
+          const s1 = document.createElement('a-text');
+          s1.setAttribute('value', '✦');
+          s1.setAttribute('align', 'center');
+          s1.setAttribute('color', '#ffd95a');
+          s1.setAttribute('position', '0 0.02 0');
+          s1.setAttribute('scale', '0.7 0.7 0.7');
+
+          const s2 = document.createElement('a-text');
+          s2.setAttribute('value', '✦');
+          s2.setAttribute('align', 'center');
+          s2.setAttribute('color', '#fff3a8');
+          s2.setAttribute('position', '0.07 -0.02 0');
+          s2.setAttribute('scale', '0.4 0.4 0.4');
+
+          root.appendChild(s1);
+          root.appendChild(s2);
+          return root;
+        }
+
+        renderStateVisuals(){
+          stateLayer.innerHTML = '';
+
+          const phase = this.currentPhase();
+          const step = this.currentStep();
+          if (!phase || !step) return;
+
+          step.spots.forEach(spot => {
+            const st = this.spotState[spot.id];
+            if (!st) return;
+
+            let node = null;
+
+            if (phase.id === 'WET') {
+              if (st.wet) node = this.createBlueWetMark(spot);
+            } else if (phase.id === 'SOAP') {
+              if (st.soaped) node = this.createFoamMark(spot);
+              else if (st.wet) node = this.createBlueWetMark(spot);
+            } else if (phase.id === 'RINSE') {
+              if (st.soaped && !st.rinsed) node = this.createFoamMark(spot);
+              else if (st.rinsed) node = this.createCleanMark(spot);
+            } else if (phase.id === 'DRY') {
+              if (st.rinsed && !st.dried) node = this.createBlueWetMark(spot);
+              else if (st.dried) node = this.createDryMark(spot);
+            }
+
+            if (node) stateLayer.appendChild(node);
+          });
+        }
+
         buildTargetVisual(phaseId, spot, root){
           if (phaseId === 'WET') {
             const hit = document.createElement('a-sphere');
             hit.classList.add('clickable','target-hit-glow');
-            hit.setAttribute('radius', spot.hidden ? '0.30' : '0.28');
+            hit.setAttribute('radius', spot.hidden ? '0.31' : '0.29');
             hit.setAttribute('color', '#37c8ff');
             hit.setAttribute('opacity', '0.24');
             hit.setAttribute('transparent', 'true');
 
             const drop = document.createElement('a-sphere');
-            drop.setAttribute('radius', spot.hidden ? '0.11' : '0.10');
+            drop.setAttribute('radius', spot.hidden ? '0.12' : '0.10');
             drop.setAttribute('color', '#37c8ff');
             drop.setAttribute('scale', '0.9 1.15 0.9');
 
             const ring = document.createElement('a-ring');
             ring.setAttribute('radius-inner', '0.17');
-            ring.setAttribute('radius-outer', '0.21');
+            ring.setAttribute('radius-outer', '0.22');
             ring.setAttribute('rotation', '-90 0 0');
             ring.setAttribute('color', '#ffffff');
             ring.setAttribute('opacity', '0.86');
@@ -1194,12 +1316,13 @@
             root.appendChild(hit);
             root.appendChild(drop);
             root.appendChild(ring);
+
             if (spot.hidden) {
               const star = document.createElement('a-text');
               star.setAttribute('value', '★');
               star.setAttribute('align', 'center');
               star.setAttribute('color', '#ffd95a');
-              star.setAttribute('position', '0 0.22 0');
+              star.setAttribute('position', '0 0.24 0');
               star.setAttribute('scale', '0.9 0.9 0.9');
               root.appendChild(star);
             }
@@ -1209,7 +1332,7 @@
           if (phaseId === 'SOAP') {
             const hit = document.createElement('a-sphere');
             hit.classList.add('clickable','target-hit-glow');
-            hit.setAttribute('radius', spot.hidden ? '0.31' : '0.30');
+            hit.setAttribute('radius', spot.hidden ? '0.32' : '0.30');
             hit.setAttribute('color', '#ff8ec7');
             hit.setAttribute('opacity', '0.22');
             hit.setAttribute('transparent', 'true');
@@ -1238,7 +1361,7 @@
               star.setAttribute('value', '★');
               star.setAttribute('align', 'center');
               star.setAttribute('color', '#ffd95a');
-              star.setAttribute('position', '0 0.22 0');
+              star.setAttribute('position', '0 0.24 0');
               star.setAttribute('scale', '0.9 0.9 0.9');
               root.appendChild(star);
             }
@@ -1248,12 +1371,13 @@
           if (phaseId === 'RINSE') {
             const hit = document.createElement('a-sphere');
             hit.classList.add('clickable','target-hit-glow');
-            hit.setAttribute('radius', spot.hidden ? '0.31' : '0.30');
+            hit.setAttribute('radius', spot.hidden ? '0.32' : '0.30');
             hit.setAttribute('color', '#7fe3ff');
             hit.setAttribute('opacity', '0.22');
             hit.setAttribute('transparent', 'true');
 
             root.appendChild(hit);
+
             for (let i = 0; i < 5; i++) {
               const foam = document.createElement('a-sphere');
               foam.setAttribute('position', `${(Math.random()*0.22-0.11).toFixed(2)} ${(Math.random()*0.22-0.11).toFixed(2)} ${(Math.random()*0.06-0.03).toFixed(2)}`);
@@ -1278,7 +1402,7 @@
           if (phaseId === 'DRY') {
             const hit = document.createElement('a-sphere');
             hit.classList.add('clickable','target-hit-glow');
-            hit.setAttribute('radius', spot.hidden ? '0.31' : '0.30');
+            hit.setAttribute('radius', spot.hidden ? '0.32' : '0.30');
             hit.setAttribute('color', '#ffd76c');
             hit.setAttribute('opacity', '0.22');
             hit.setAttribute('transparent', 'true');
@@ -1347,6 +1471,7 @@
 
           this.setAvatarView(step.view);
           this.renderStep();
+          this.renderStateVisuals();
 
           const pos = { x: spot.x, y: spot.y, z: spot.z };
           const root = document.createElement('a-entity');
@@ -1374,6 +1499,7 @@
           const phase = this.currentPhase();
           showMsg(phase.startMsg, 900);
           this.renderStep();
+          this.renderStateVisuals();
           setTimeout(() => this.spawnTarget(), 420);
         }
 
@@ -1416,6 +1542,7 @@
           }
 
           this.renderStep();
+          this.renderStateVisuals();
 
           if (this.nextPendingStepIndex() === -1) {
             setTimeout(() => this.nextPhase(), 550);
@@ -1447,6 +1574,7 @@
 
           this.renderHud();
           this.renderStep();
+          this.renderStateVisuals();
           setTimeout(() => this.spawnTarget(), cfg.spawnDelay);
         }
 
@@ -1474,14 +1602,14 @@
 
           if (win) {
             ui.sumTitle.textContent = '🛁 อาบน้ำครบทุกขั้นแล้ว!';
-            ui.sumSub.textContent = 'ครบทั้งด้านหน้า ด้านหลัง และจุดอับแล้ว เก่งมาก';
+            ui.sumSub.textContent = 'ครบทั้งด้านหน้า ด้านหลัง จุดอับ และเห็น state จริงบนตัวละครแล้ว';
           } else {
             ui.sumTitle.textContent = '🙂 เกือบครบแล้ว';
             ui.sumSub.textContent = `ไปได้ถึงขั้น ${Math.min(this.phaseIndex + 1, PHASES.length)} แล้ว ลองอีกรอบได้เลย`;
           }
 
           const payload = {
-            game:'bath-main-front-back-hidden-v2',
+            game:'bath-main-front-back-visual-state-v1',
             pid:PID,
             run:RUN,
             diff:DIFF,
