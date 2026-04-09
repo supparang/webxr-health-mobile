@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk • Race Play</title>
+</head>
+<body>
+  <script type="module">
+    import { bootGoodJunkModePlay } from './goodjunk-mode-play-router.js?v=20260409a-GJ-MODE-PLAY-ROUTER-LOCK-MODE';
+
+    bootGoodJunkModePlay({
+      mode: 'race',
+      title: 'GoodJunk • Race Play',
+      subtitle: 'กำลังเข้าโหมด race แบบ lock mode ไม่ย้อนกลับ solo',
+      emoji: '🏁',
+      targetPath: './goodjunk-vr.html',
+      launcherPath: '../goodjunk-launcher.html'
+    });
+  </script>
+</body>
+</html>
