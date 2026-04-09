@@ -341,14 +341,11 @@
     const matchBase = H.matchBase(opts.game, opts.mode, matchId);
 
     const updates = {};
-
-    // host-only room meta
     updates[base + '/meta/state'] = 'countdown';
     updates[base + '/meta/countdownAt'] = now() + countdownMs;
     updates[base + '/meta/matchId'] = matchId;
     updates[base + '/meta/updatedAt'] = now();
 
-    // host-only match meta
     updates[matchBase + '/meta'] = {
       matchId,
       roomId: opts.roomId,
@@ -363,11 +360,6 @@
       startedAt: now(),
       endedAt: ''
     };
-
-    // IMPORTANT:
-    // อย่า seed matches/.../players ของทุก uid ที่นี่
-    // เพราะ rules อนุญาตให้เจ้าของ uid เขียน row ของตัวเองเท่านั้น
-    // ให้แต่ละ client ไปสร้าง row ตัวเองผ่าน updateProgress/submitResult ตอน run
 
     await H.ref('/').update(updates);
 
@@ -400,7 +392,6 @@
 
     const uid = H.uid();
     const base = H.roomBase(opts.game, opts.mode, opts.roomId);
-    const matchId = opts.matchId || '';
 
     const progressRow = {
       uid,
@@ -414,23 +405,29 @@
       lives: Number.isFinite(Number(opts.lives)) ? Number(opts.lives) : ''
     };
 
-    const updates = {};
-    updates[base + '/progress/' + uid] = progressRow;
-    updates[base + '/players/' + uid + '/lastPingAt'] = now();
-
-    if (matchId) {
-      updates[H.matchBase(opts.game, opts.mode, matchId) + '/players/' + uid] = {
+    try {
+      await H.ref(base + '/progress/' + uid).set(progressRow);
+    } catch (err) {
+      console.error('[HHA_ROOM.updateProgress] progress write failed', {
+        roomId: opts.roomId,
         uid,
-        pid: opts.pid || '',
-        score: Number(opts.score || 0),
-        miss: Number(opts.miss || 0),
-        bestStreak: Number(opts.bestStreak || 0),
-        progress: Number(opts.progress || 0),
-        updatedAt: now()
-      };
+        path: base + '/progress/' + uid,
+        err: err && err.message ? err.message : err
+      });
+      throw err;
     }
 
-    await H.ref('/').update(updates);
+    try {
+      await H.ref(base + '/players/' + uid + '/lastPingAt').set(now());
+    } catch (err) {
+      console.warn('[HHA_ROOM.updateProgress] lastPingAt write failed', {
+        roomId: opts.roomId,
+        uid,
+        path: base + '/players/' + uid + '/lastPingAt',
+        err: err && err.message ? err.message : err
+      });
+    }
+
     return { ok: true };
   };
 
@@ -454,22 +451,29 @@
       updatedAt: now()
     };
 
-    const updates = {};
-    updates[base + '/results/' + uid] = row;
-
-    if (opts.matchId) {
-      updates[H.matchBase(opts.game, opts.mode, opts.matchId) + '/players/' + uid] = {
+    try {
+      await H.ref(base + '/results/' + uid).set(row);
+    } catch (err) {
+      console.error('[HHA_ROOM.submitResult] results write failed', {
+        roomId: opts.roomId,
         uid,
-        pid: opts.pid || 'anon',
-        score: Number(opts.score || 0),
-        miss: Number(opts.miss || 0),
-        bestStreak: Number(opts.bestStreak || 0),
-        progress: Number(opts.progress || 1),
-        updatedAt: now()
-      };
+        path: base + '/results/' + uid,
+        err: err && err.message ? err.message : err
+      });
+      throw err;
     }
 
-    await H.ref('/').update(updates);
+    try {
+      await H.ref(base + '/players/' + uid + '/lastPingAt').set(now());
+    } catch (err) {
+      console.warn('[HHA_ROOM.submitResult] lastPingAt write failed', {
+        roomId: opts.roomId,
+        uid,
+        path: base + '/players/' + uid + '/lastPingAt',
+        err: err && err.message ? err.message : err
+      });
+    }
+
     return row;
   };
 
