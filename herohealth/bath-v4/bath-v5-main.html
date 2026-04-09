@@ -13,7 +13,7 @@
       --sky2:#b8ebff;
       --ink:#18465e;
       --ink2:#477287;
-      --panel:rgba(255,255,255,.95);
+      --panel:rgba(255,255,255,.94);
       --panel2:rgba(255,255,255,.99);
       --line:#cdeeff;
       --good:#18b86f;
@@ -21,7 +21,7 @@
       --bad:#ff6380;
       --gold:#ffd95a;
       --cyan:#00d9ff;
-      --shadow:0 16px 40px rgba(24,70,94,.16);
+      --shadow:0 12px 28px rgba(24,70,94,.15);
     }
 
     *{ box-sizing:border-box; }
@@ -43,6 +43,7 @@
       pointer-events:none;
     }
 
+    /* ซ่อนปุ่มมาตรฐานของ A-Frame แล้วใช้ปุ่ม custom แทน */
     .a-enter-vr-button,
     .a-enter-ar-button,
     .a-orientation-modal{
@@ -51,26 +52,26 @@
 
     .topbar{
       position:absolute;
-      top:8px;
-      left:8px;
-      right:8px;
+      top:6px;
+      left:6px;
+      right:6px;
       display:grid;
       grid-template-columns:1fr auto;
-      gap:8px;
+      gap:6px;
       align-items:start;
     }
 
     .hud{
       display:flex;
-      gap:8px;
+      gap:6px;
       flex-wrap:wrap;
       align-items:center;
     }
 
     .chip{
-      min-width:84px;
-      padding:8px 10px;
-      border-radius:14px;
+      min-width:76px;
+      padding:6px 8px;
+      border-radius:12px;
       background:var(--panel);
       border:3px solid rgba(255,255,255,.96);
       box-shadow:var(--shadow);
@@ -79,23 +80,23 @@
 
     .chip .k{
       display:block;
-      font-size:10px;
+      font-size:9px;
       color:var(--ink2);
       font-weight:900;
       text-transform:uppercase;
-      margin-bottom:2px;
+      margin-bottom:1px;
     }
 
     .chip .v{
       display:block;
-      font-size:18px;
+      font-size:16px;
       font-weight:1000;
       line-height:1;
     }
 
     .top-actions{
       display:flex;
-      gap:8px;
+      gap:6px;
       flex-wrap:wrap;
       justify-content:flex-end;
       pointer-events:auto;
@@ -104,12 +105,12 @@
     .btn{
       appearance:none;
       border:none;
-      border-radius:16px;
-      padding:10px 14px;
+      border-radius:14px;
+      padding:8px 12px;
       background:var(--panel2);
       color:var(--ink);
       font-weight:1000;
-      font-size:14px;
+      font-size:13px;
       cursor:pointer;
       text-decoration:none;
       border:3px solid rgba(255,255,255,.98);
@@ -122,43 +123,43 @@
 
     .task-wrap{
       position:absolute;
-      top:82px;
-      left:8px;
-      right:8px;
-      max-width:760px;
+      top:68px;
+      left:6px;
+      right:6px;
+      max-width:520px;
     }
 
     .task-card{
-      background:rgba(255,255,255,.94);
+      background:rgba(255,255,255,.88);
       border:3px solid rgba(255,255,255,.96);
-      border-radius:18px;
+      border-radius:16px;
       box-shadow:var(--shadow);
-      padding:10px 12px;
+      padding:8px 10px;
     }
 
     .task-head{
       display:flex;
       justify-content:space-between;
       align-items:center;
-      gap:10px;
-      margin-bottom:6px;
-      font-size:12px;
+      gap:8px;
+      margin-bottom:4px;
+      font-size:11px;
       font-weight:1000;
       color:var(--ink2);
       flex-wrap:wrap;
     }
 
     .task-title{
-      font-size:clamp(20px,4vw,30px);
+      font-size:clamp(18px,4vw,24px);
       font-weight:1000;
       color:var(--ink);
-      margin-bottom:6px;
-      line-height:1.2;
+      margin-bottom:4px;
+      line-height:1.15;
     }
 
     .bar{
       width:100%;
-      height:16px;
+      height:14px;
       background:#eaf8ff;
       border-radius:999px;
       overflow:hidden;
@@ -175,11 +176,11 @@
     }
 
     .task-sub{
-      margin-top:6px;
+      margin-top:4px;
       display:flex;
       justify-content:space-between;
-      gap:10px;
-      font-size:12px;
+      gap:8px;
+      font-size:11px;
       font-weight:900;
       color:var(--ink2);
       flex-wrap:wrap;
@@ -188,15 +189,15 @@
     .center-msg{
       position:absolute;
       left:50%;
-      top:16%;
+      top:13%;
       transform:translateX(-50%) scale(.92);
       max-width:min(92vw,760px);
-      padding:12px 18px;
+      padding:10px 16px;
       border-radius:999px;
       text-align:center;
       background:rgba(16,55,77,.84);
       color:#fff;
-      font-size:clamp(18px,4vw,34px);
+      font-size:clamp(16px,4vw,28px);
       font-weight:1000;
       letter-spacing:.3px;
       opacity:0;
@@ -212,19 +213,19 @@
     .helper{
       position:absolute;
       left:50%;
-      bottom:10px;
+      bottom:8px;
       transform:translateX(-50%);
-      background:rgba(255,255,255,.92);
+      background:rgba(255,255,255,.90);
       border:2px solid rgba(255,255,255,.98);
       color:var(--ink2);
-      font-size:12px;
+      font-size:11px;
       font-weight:900;
-      padding:8px 12px;
+      padding:7px 11px;
       border-radius:999px;
       box-shadow:var(--shadow);
-      max-width:88vw;
+      max-width:84vw;
       text-align:center;
-      line-height:1.45;
+      line-height:1.35;
     }
 
     .overlay{
@@ -333,8 +334,41 @@
       to{ opacity:.9; transform:scale(1.08); }
     }
 
+    /* ===== Custom VR buttons ===== */
+    .vr-dock{
+      position:fixed;
+      right:10px;
+      bottom:10px;
+      z-index:26;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      pointer-events:auto;
+    }
+
+    .vr-fab{
+      appearance:none;
+      border:none;
+      border-radius:16px;
+      padding:10px 14px;
+      font-weight:1000;
+      font-size:13px;
+      color:#18465e;
+      background:rgba(255,255,255,.96);
+      border:3px solid rgba(255,255,255,.98);
+      box-shadow:0 14px 28px rgba(24,70,94,.18);
+      cursor:pointer;
+    }
+
+    .vr-fab.primary{
+      background:#dff7ff;
+    }
+
     @media (max-width:640px){
-      .task-wrap{ top:132px; }
+      .task-wrap{ top:118px; }
+      .helper{ font-size:10px; }
+      .vr-dock{ right:8px; bottom:8px; }
+      .vr-fab{ padding:9px 12px; font-size:12px; }
     }
   </style>
 </head>
@@ -344,7 +378,7 @@
       <div class="hud">
         <div class="chip">
           <span class="k">เวลา</span>
-          <span class="v"><span id="timer">78</span>s</span>
+          <span class="v"><span id="timer">90</span>s</span>
         </div>
         <div class="chip">
           <span class="k">คะแนน</span>
@@ -391,8 +425,13 @@
     <div id="centerMsg" class="center-msg">เริ่มอาบน้ำกัน!</div>
 
     <div id="helperText" class="helper">
-      PC/Mobile: แตะจุดเป้า • Cardboard: เล็งค้าง • เวอร์ชันนี้มี หน้า/หลัง + จุดอับจริง
+      แตะจุดเป้า • เวอร์ชันนี้มีหน้า/หลัง + จุดอับจริง • ปุ่มเข้า VR อยู่มุมขวาล่าง
     </div>
+  </div>
+
+  <div class="vr-dock">
+    <button id="vrEnterBtn" class="vr-fab primary">เข้า VR</button>
+    <button id="vrExitBtn" class="vr-fab hidden">ออก VR</button>
   </div>
 
   <div id="startOverlay" class="overlay">
@@ -407,7 +446,7 @@
         <div class="mini">1) เกมจะบอกว่าตอนนี้เป็นขั้นไหน</div>
         <div class="mini">2) เกมจะบอกด้วยว่าต้องทำด้านหน้า หรือด้านหลัง</div>
         <div class="mini">3) ทำทีละจุด ทีละส่วน ให้ครบก่อนจะไปต่อ</div>
-        <div class="mini">4) ผ่าน 4 ขั้นครบ = อาบน้ำสมบูรณ์จริง</div>
+        <div class="mini">4) ปุ่มเข้า VR อยู่มุมขวาล่างของจอ</div>
       </div>
 
       <div class="row">
@@ -450,6 +489,7 @@
   </div>
 
   <a-scene
+    id="scene"
     background="color: #dff7ff"
     renderer="colorManagement: true; antialias: true"
     raycaster="objects: .clickable"
@@ -460,7 +500,6 @@
     <a-entity id="world">
       <a-plane position="0 0 -4.4" rotation="-90 0 0" width="16" height="16" color="#eefcff"></a-plane>
 
-      <!-- bathtub -->
       <a-box position="0 0.06 -4.55" width="6.8" height="0.14" depth="3.7" color="#ffffff"></a-box>
       <a-box position="0 0.76 -6.20" width="7.0" height="1.0" depth="0.16" color="#ffffff"></a-box>
       <a-box position="-3.42 0.76 -4.55" width="0.16" height="1.0" depth="3.7" color="#ffffff"></a-box>
@@ -468,35 +507,25 @@
       <a-box position="0 0.26 -2.75" width="6.7" height="0.18" depth="0.12" color="#ffffff" opacity="0.96"></a-box>
       <a-box position="0 0.28 -4.55" width="6.2" height="0.12" depth="3.2" color="#a9ecff" opacity="0.70"></a-box>
 
-      <!-- bathroom -->
       <a-box position="0 2.8 -7.5" width="14" height="6" depth="0.15" color="#f4fdff"></a-box>
       <a-box position="-7 2.8 -4.1" width="0.15" height="6" depth="7.5" color="#f6fdff"></a-box>
       <a-box position="7 2.8 -4.1" width="0.15" height="6" depth="7.5" color="#f6fdff"></a-box>
       <a-box position="0 5.8 -4.1" width="14" height="0.15" depth="7.5" color="#eefbff"></a-box>
 
-      <!-- child avatar -->
-      <a-entity id="avatarRoot" position="0 0.22 -4.60" rotation="0 0 0">
+      <a-entity id="avatarRoot" position="0 0.06 -4.75" rotation="0 0 0">
         <a-entity id="avatarBob"
-          animation="property: position; from: 0 0 0; to: 0 0.03 0; dir: alternate; dur: 1450; loop: true; easing: easeInOutSine">
+          animation="property: position; from: 0 0 0; to: 0 0.02 0; dir: alternate; dur: 1450; loop: true; easing: easeInOutSine">
 
-          <!-- legs -->
           <a-cylinder position="-0.22 0.54 0.06" radius="0.12" height="0.95" color="#ffd7b3"></a-cylinder>
           <a-cylinder position="0.22 0.54 0.06" radius="0.12" height="0.95" color="#ffd7b3"></a-cylinder>
 
-          <!-- feet -->
           <a-sphere position="-0.22 0.03 0.14" radius="0.12" color="#ffffff"></a-sphere>
           <a-sphere position="0.22 0.03 0.14" radius="0.12" color="#ffffff"></a-sphere>
 
-          <!-- shorts -->
           <a-box position="0 1.02 0.08" width="0.84" height="0.28" depth="0.30" color="#67c8ef"></a-box>
-
-          <!-- belly -->
           <a-box position="0 1.28 0.04" width="0.86" height="0.42" depth="0.30" color="#8fdcff"></a-box>
-
-          <!-- chest -->
           <a-box position="0 1.70 0.04" width="0.98" height="0.60" depth="0.34" color="#8fdcff"></a-box>
 
-          <!-- arms -->
           <a-entity position="-0.78 1.72 0.02" rotation="0 0 78">
             <a-cylinder position="0 -0.34 0" radius="0.09" height="1.00" color="#ffd7b3"></a-cylinder>
             <a-sphere position="0 -0.82 0.04" radius="0.10" color="#ffffff"></a-sphere>
@@ -507,7 +536,6 @@
             <a-sphere position="0 -0.82 0.04" radius="0.10" color="#ffffff"></a-sphere>
           </a-entity>
 
-          <!-- head -->
           <a-entity id="headRig" position="0 2.44 0.04">
             <a-sphere position="0 0 0" radius="0.40" color="#ffd7b3"></a-sphere>
             <a-sphere position="0 0.14 -0.02" radius="0.42" color="#6a4638" scale="1 0.70 1"></a-sphere>
@@ -518,7 +546,6 @@
             <a-ring position="0 -0.09 0.36" radius-inner="0.09" radius-outer="0.11" theta-start="205" theta-length="130" color="#f3a69b"></a-ring>
           </a-entity>
 
-          <!-- foam decor -->
           <a-sphere position="-0.54 1.10 0.22" radius="0.10" color="#fff" opacity="0.92"></a-sphere>
           <a-sphere position="0.56 1.12 0.22" radius="0.10" color="#fff" opacity="0.92"></a-sphere>
           <a-sphere position="0.02 1.88 0.24" radius="0.08" color="#fff" opacity="0.92"></a-sphere>
@@ -538,7 +565,7 @@
 
     <a-entity id="mouseCursor" cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
 
-    <a-entity id="rig" position="0 1.56 0.35">
+    <a-entity id="rig" position="0 1.46 1.05">
       <a-entity id="cameraHolder" camera look-controls="enabled: false">
         <a-entity id="gazeCursor"
           position="0 0 -1"
@@ -569,7 +596,7 @@
       const HUB  = qs.get('hub') || './hub-v2.html';
       const PID  = qs.get('pid') || 'anon';
       const RUN  = qs.get('run') || 'play';
-      const SEED = qs.get('seed') || String(Date.now());
+      const SEED = qs.get('seed') || String(Date.now()));
 
       const PRESETS = {
         easy:   { startTime: 105, spotLife: 4500, spawnDelay: 220, zoneBonus: 24, missPenalty: 1 },
@@ -591,14 +618,14 @@
           view:'front',
           label:'ศีรษะด้านหน้า',
           short:'ศีรษะด้านหน้า',
-          hint:'แตะจุดบนศีรษะด้านหน้าให้ครบ',
-          marker:{ geo:'sphere', radius:0.52, position:'0 2.66 -4.54', rotation:'0 0 0' },
-          arrow:{ x:0, y:3.30, z:-4.54 },
+          hint:'แตะจุดบนศีรษะให้ครบ',
+          marker:{ geo:'sphere', radius:0.52, position:'0 2.50 -4.66', rotation:'0 0 0' },
+          arrow:{ x:0, y:3.08, z:-4.66 },
           spots:[
-            { id:'front_head_1', x:0,     y:2.78, z:-4.18, hidden:false },
-            { id:'front_head_2', x:-0.12, y:2.60, z:-4.18, hidden:false },
-            { id:'front_head_3', x:0.12,  y:2.60, z:-4.18, hidden:false },
-            { id:'front_head_4', x:0,     y:2.40, z:-4.18, hidden:false }
+            { id:'front_head_1', x:0,     y:2.60, z:-4.32, hidden:false },
+            { id:'front_head_2', x:-0.12, y:2.46, z:-4.32, hidden:false },
+            { id:'front_head_3', x:0.12,  y:2.46, z:-4.32, hidden:false },
+            { id:'front_head_4', x:0,     y:2.28, z:-4.32, hidden:false }
           ]
         },
         {
@@ -607,13 +634,13 @@
           label:'อกด้านหน้า',
           short:'อกด้านหน้า',
           hint:'แตะจุดบนอกด้านหน้าให้ครบ',
-          marker:{ geo:'box', width:1.18, height:0.78, depth:0.14, position:'0 1.72 -4.48', rotation:'0 0 0' },
-          arrow:{ x:0, y:2.44, z:-4.48 },
+          marker:{ geo:'box', width:1.10, height:0.72, depth:0.14, position:'0 1.58 -4.60', rotation:'0 0 0' },
+          arrow:{ x:0, y:2.20, z:-4.60 },
           spots:[
-            { id:'front_chest_1', x:-0.20, y:1.84, z:-4.18, hidden:false },
-            { id:'front_chest_2', x:0,     y:1.76, z:-4.18, hidden:false },
-            { id:'front_chest_3', x:0.20,  y:1.84, z:-4.18, hidden:false },
-            { id:'front_chest_4', x:0,     y:1.56, z:-4.18, hidden:false }
+            { id:'front_chest_1', x:-0.18, y:1.68, z:-4.30, hidden:false },
+            { id:'front_chest_2', x:0,     y:1.62, z:-4.30, hidden:false },
+            { id:'front_chest_3', x:0.18,  y:1.68, z:-4.30, hidden:false },
+            { id:'front_chest_4', x:0,     y:1.46, z:-4.30, hidden:false }
           ]
         },
         {
@@ -622,13 +649,13 @@
           label:'แขนซ้ายด้านหน้า',
           short:'แขนซ้ายด้านหน้า',
           hint:'รวมรักแร้ซ้ายด้วย',
-          marker:{ geo:'box', width:0.56, height:1.06, depth:0.14, position:'-1.02 1.48 -4.42', rotation:'0 0 75' },
-          arrow:{ x:-1.08, y:2.28, z:-4.42 },
+          marker:{ geo:'box', width:0.50, height:0.96, depth:0.14, position:'-0.94 1.40 -4.54', rotation:'0 0 75' },
+          arrow:{ x:-1.00, y:2.04, z:-4.54 },
           spots:[
-            { id:'front_left_arm_1', x:-0.82, y:1.78, z:-4.18, hidden:false },
-            { id:'front_left_arm_2', x:-0.96, y:1.52, z:-4.18, hidden:false },
-            { id:'front_left_arm_3', x:-1.08, y:1.26, z:-4.18, hidden:false },
-            { id:'front_left_arm_4', x:-0.63, y:1.66, z:-4.16, hidden:true }
+            { id:'front_left_arm_1', x:-0.76, y:1.62, z:-4.30, hidden:false },
+            { id:'front_left_arm_2', x:-0.88, y:1.40, z:-4.30, hidden:false },
+            { id:'front_left_arm_3', x:-0.98, y:1.18, z:-4.30, hidden:false },
+            { id:'front_left_arm_4', x:-0.58, y:1.54, z:-4.28, hidden:true }
           ]
         },
         {
@@ -637,13 +664,13 @@
           label:'แขนขวาด้านหน้า',
           short:'แขนขวาด้านหน้า',
           hint:'รวมรักแร้ขวาด้วย',
-          marker:{ geo:'box', width:0.56, height:1.06, depth:0.14, position:'1.02 1.48 -4.42', rotation:'0 0 -75' },
-          arrow:{ x:1.08, y:2.28, z:-4.42 },
+          marker:{ geo:'box', width:0.50, height:0.96, depth:0.14, position:'0.94 1.40 -4.54', rotation:'0 0 -75' },
+          arrow:{ x:1.00, y:2.04, z:-4.54 },
           spots:[
-            { id:'front_right_arm_1', x:0.82, y:1.78, z:-4.18, hidden:false },
-            { id:'front_right_arm_2', x:0.96, y:1.52, z:-4.18, hidden:false },
-            { id:'front_right_arm_3', x:1.08, y:1.26, z:-4.18, hidden:false },
-            { id:'front_right_arm_4', x:0.63, y:1.66, z:-4.16, hidden:true }
+            { id:'front_right_arm_1', x:0.76, y:1.62, z:-4.30, hidden:false },
+            { id:'front_right_arm_2', x:0.88, y:1.40, z:-4.30, hidden:false },
+            { id:'front_right_arm_3', x:0.98, y:1.18, z:-4.30, hidden:false },
+            { id:'front_right_arm_4', x:0.58, y:1.54, z:-4.28, hidden:true }
           ]
         },
         {
@@ -652,13 +679,13 @@
           label:'ท้องด้านหน้า',
           short:'ท้องด้านหน้า',
           hint:'แตะจุดบนท้องด้านหน้าให้ครบ',
-          marker:{ geo:'box', width:0.96, height:0.72, depth:0.14, position:'0 1.26 -4.48', rotation:'0 0 0' },
-          arrow:{ x:0, y:2.00, z:-4.48 },
+          marker:{ geo:'box', width:0.92, height:0.68, depth:0.14, position:'0 1.18 -4.60', rotation:'0 0 0' },
+          arrow:{ x:0, y:1.78, z:-4.60 },
           spots:[
-            { id:'front_belly_1', x:0,     y:1.34, z:-4.18, hidden:false },
-            { id:'front_belly_2', x:-0.16, y:1.20, z:-4.18, hidden:false },
-            { id:'front_belly_3', x:0.16,  y:1.20, z:-4.18, hidden:false },
-            { id:'front_belly_4', x:0,     y:1.04, z:-4.18, hidden:false }
+            { id:'front_belly_1', x:0,     y:1.24, z:-4.30, hidden:false },
+            { id:'front_belly_2', x:-0.16, y:1.10, z:-4.30, hidden:false },
+            { id:'front_belly_3', x:0.16,  y:1.10, z:-4.30, hidden:false },
+            { id:'front_belly_4', x:0,     y:0.96, z:-4.30, hidden:false }
           ]
         },
         {
@@ -667,13 +694,13 @@
           label:'ขาซ้ายด้านหน้า',
           short:'ขาซ้ายด้านหน้า',
           hint:'รวมซอกนิ้วเท้าซ้ายด้วย',
-          marker:{ geo:'box', width:0.42, height:1.18, depth:0.14, position:'-0.22 0.56 -4.38', rotation:'0 0 0' },
-          arrow:{ x:-0.22, y:1.56, z:-4.38 },
+          marker:{ geo:'box', width:0.40, height:1.14, depth:0.14, position:'-0.22 0.48 -4.52', rotation:'0 0 0' },
+          arrow:{ x:-0.22, y:1.38, z:-4.52 },
           spots:[
-            { id:'front_left_leg_1', x:-0.22, y:0.92, z:-4.10, hidden:false },
-            { id:'front_left_leg_2', x:-0.22, y:0.66, z:-4.10, hidden:false },
-            { id:'front_left_leg_3', x:-0.22, y:0.40, z:-4.10, hidden:false },
-            { id:'front_left_leg_4', x:-0.22, y:0.08, z:-4.02, hidden:true }
+            { id:'front_left_leg_1', x:-0.22, y:0.80, z:-4.24, hidden:false },
+            { id:'front_left_leg_2', x:-0.22, y:0.56, z:-4.24, hidden:false },
+            { id:'front_left_leg_3', x:-0.22, y:0.32, z:-4.24, hidden:false },
+            { id:'front_left_leg_4', x:-0.22, y:0.02, z:-4.18, hidden:true }
           ]
         },
         {
@@ -682,13 +709,13 @@
           label:'ขาขวาด้านหน้า',
           short:'ขาขวาด้านหน้า',
           hint:'รวมซอกนิ้วเท้าขวาด้วย',
-          marker:{ geo:'box', width:0.42, height:1.18, depth:0.14, position:'0.22 0.56 -4.38', rotation:'0 0 0' },
-          arrow:{ x:0.22, y:1.56, z:-4.38 },
+          marker:{ geo:'box', width:0.40, height:1.14, depth:0.14, position:'0.22 0.48 -4.52', rotation:'0 0 0' },
+          arrow:{ x:0.22, y:1.38, z:-4.52 },
           spots:[
-            { id:'front_right_leg_1', x:0.22, y:0.92, z:-4.10, hidden:false },
-            { id:'front_right_leg_2', x:0.22, y:0.66, z:-4.10, hidden:false },
-            { id:'front_right_leg_3', x:0.22, y:0.40, z:-4.10, hidden:false },
-            { id:'front_right_leg_4', x:0.22, y:0.08, z:-4.02, hidden:true }
+            { id:'front_right_leg_1', x:0.22, y:0.80, z:-4.24, hidden:false },
+            { id:'front_right_leg_2', x:0.22, y:0.56, z:-4.24, hidden:false },
+            { id:'front_right_leg_3', x:0.22, y:0.32, z:-4.24, hidden:false },
+            { id:'front_right_leg_4', x:0.22, y:0.02, z:-4.18, hidden:true }
           ]
         },
 
@@ -698,13 +725,13 @@
           label:'ศีรษะด้านหลัง',
           short:'ศีรษะด้านหลัง',
           hint:'รวมหลังหูและท้ายทอย',
-          marker:{ geo:'sphere', radius:0.52, position:'0 2.66 -4.54', rotation:'0 0 0' },
-          arrow:{ x:0, y:3.30, z:-4.54 },
+          marker:{ geo:'sphere', radius:0.52, position:'0 2.50 -4.66', rotation:'0 0 0' },
+          arrow:{ x:0, y:3.08, z:-4.66 },
           spots:[
-            { id:'back_head_1', x:0,     y:2.76, z:-4.18, hidden:false },
-            { id:'back_head_2', x:-0.14, y:2.58, z:-4.18, hidden:true },
-            { id:'back_head_3', x:0.14,  y:2.58, z:-4.18, hidden:true },
-            { id:'back_head_4', x:0,     y:2.36, z:-4.18, hidden:true }
+            { id:'back_head_1', x:0,     y:2.58, z:-4.32, hidden:false },
+            { id:'back_head_2', x:-0.14, y:2.44, z:-4.32, hidden:true },
+            { id:'back_head_3', x:0.14,  y:2.44, z:-4.32, hidden:true },
+            { id:'back_head_4', x:0,     y:2.26, z:-4.32, hidden:true }
           ]
         },
         {
@@ -713,13 +740,13 @@
           label:'หลังส่วนบน',
           short:'หลังส่วนบน',
           hint:'แตะจุดที่บ่าและหลังบน',
-          marker:{ geo:'box', width:1.18, height:0.78, depth:0.14, position:'0 1.72 -4.48', rotation:'0 0 0' },
-          arrow:{ x:0, y:2.44, z:-4.48 },
+          marker:{ geo:'box', width:1.10, height:0.72, depth:0.14, position:'0 1.58 -4.60', rotation:'0 0 0' },
+          arrow:{ x:0, y:2.20, z:-4.60 },
           spots:[
-            { id:'back_chest_1', x:-0.22, y:1.84, z:-4.18, hidden:false },
-            { id:'back_chest_2', x:0,     y:1.76, z:-4.18, hidden:false },
-            { id:'back_chest_3', x:0.22,  y:1.84, z:-4.18, hidden:false },
-            { id:'back_chest_4', x:0,     y:1.56, z:-4.18, hidden:false }
+            { id:'back_chest_1', x:-0.20, y:1.68, z:-4.30, hidden:false },
+            { id:'back_chest_2', x:0,     y:1.62, z:-4.30, hidden:false },
+            { id:'back_chest_3', x:0.20,  y:1.68, z:-4.30, hidden:false },
+            { id:'back_chest_4', x:0,     y:1.46, z:-4.30, hidden:false }
           ]
         },
         {
@@ -728,13 +755,13 @@
           label:'แขนซ้ายด้านหลัง',
           short:'แขนซ้ายด้านหลัง',
           hint:'แตะด้านหลังแขนซ้ายให้ครบ',
-          marker:{ geo:'box', width:0.56, height:1.06, depth:0.14, position:'1.02 1.48 -4.42', rotation:'0 0 75' },
-          arrow:{ x:1.08, y:2.28, z:-4.42 },
+          marker:{ geo:'box', width:0.50, height:0.96, depth:0.14, position:'0.94 1.40 -4.54', rotation:'0 0 75' },
+          arrow:{ x:1.00, y:2.04, z:-4.54 },
           spots:[
-            { id:'back_left_arm_1', x:0.82, y:1.78, z:-4.18, hidden:false },
-            { id:'back_left_arm_2', x:0.96, y:1.52, z:-4.18, hidden:false },
-            { id:'back_left_arm_3', x:1.08, y:1.26, z:-4.18, hidden:false },
-            { id:'back_left_arm_4', x:1.16, y:1.00, z:-4.18, hidden:false }
+            { id:'back_left_arm_1', x:0.76, y:1.62, z:-4.30, hidden:false },
+            { id:'back_left_arm_2', x:0.88, y:1.40, z:-4.30, hidden:false },
+            { id:'back_left_arm_3', x:0.98, y:1.18, z:-4.30, hidden:false },
+            { id:'back_left_arm_4', x:1.08, y:0.96, z:-4.30, hidden:false }
           ]
         },
         {
@@ -743,13 +770,13 @@
           label:'แขนขวาด้านหลัง',
           short:'แขนขวาด้านหลัง',
           hint:'แตะด้านหลังแขนขวาให้ครบ',
-          marker:{ geo:'box', width:0.56, height:1.06, depth:0.14, position:'-1.02 1.48 -4.42', rotation:'0 0 -75' },
-          arrow:{ x:-1.08, y:2.28, z:-4.42 },
+          marker:{ geo:'box', width:0.50, height:0.96, depth:0.14, position:'-0.94 1.40 -4.54', rotation:'0 0 -75' },
+          arrow:{ x:-1.00, y:2.04, z:-4.54 },
           spots:[
-            { id:'back_right_arm_1', x:-0.82, y:1.78, z:-4.18, hidden:false },
-            { id:'back_right_arm_2', x:-0.96, y:1.52, z:-4.18, hidden:false },
-            { id:'back_right_arm_3', x:-1.08, y:1.26, z:-4.18, hidden:false },
-            { id:'back_right_arm_4', x:-1.16, y:1.00, z:-4.18, hidden:false }
+            { id:'back_right_arm_1', x:-0.76, y:1.62, z:-4.30, hidden:false },
+            { id:'back_right_arm_2', x:-0.88, y:1.40, z:-4.30, hidden:false },
+            { id:'back_right_arm_3', x:-0.98, y:1.18, z:-4.30, hidden:false },
+            { id:'back_right_arm_4', x:-1.08, y:0.96, z:-4.30, hidden:false }
           ]
         },
         {
@@ -758,13 +785,13 @@
           label:'เอวและหลังล่าง',
           short:'เอวและหลังล่าง',
           hint:'รวมเอวและหลังล่าง',
-          marker:{ geo:'box', width:0.96, height:0.72, depth:0.14, position:'0 1.26 -4.48', rotation:'0 0 0' },
-          arrow:{ x:0, y:2.00, z:-4.48 },
+          marker:{ geo:'box', width:0.92, height:0.68, depth:0.14, position:'0 1.18 -4.60', rotation:'0 0 0' },
+          arrow:{ x:0, y:1.78, z:-4.60 },
           spots:[
-            { id:'back_belly_1', x:0,     y:1.34, z:-4.18, hidden:false },
-            { id:'back_belly_2', x:-0.18, y:1.16, z:-4.18, hidden:true },
-            { id:'back_belly_3', x:0.18,  y:1.16, z:-4.18, hidden:true },
-            { id:'back_belly_4', x:0,     y:1.00, z:-4.18, hidden:true }
+            { id:'back_belly_1', x:0,     y:1.24, z:-4.30, hidden:false },
+            { id:'back_belly_2', x:-0.18, y:1.08, z:-4.30, hidden:true },
+            { id:'back_belly_3', x:0.18,  y:1.08, z:-4.30, hidden:true },
+            { id:'back_belly_4', x:0,     y:0.94, z:-4.30, hidden:true }
           ]
         },
         {
@@ -773,13 +800,13 @@
           label:'ขาซ้ายด้านหลัง',
           short:'ขาซ้ายด้านหลัง',
           hint:'รวมหลังเข่าและส้นเท้าซ้าย',
-          marker:{ geo:'box', width:0.42, height:1.18, depth:0.14, position:'0.22 0.56 -4.38', rotation:'0 0 0' },
-          arrow:{ x:0.22, y:1.56, z:-4.38 },
+          marker:{ geo:'box', width:0.40, height:1.14, depth:0.14, position:'0.22 0.48 -4.52', rotation:'0 0 0' },
+          arrow:{ x:0.22, y:1.38, z:-4.52 },
           spots:[
-            { id:'back_left_leg_1', x:0.22, y:0.92, z:-4.10, hidden:false },
-            { id:'back_left_leg_2', x:0.22, y:0.66, z:-4.10, hidden:true },
-            { id:'back_left_leg_3', x:0.22, y:0.40, z:-4.10, hidden:false },
-            { id:'back_left_leg_4', x:0.22, y:0.08, z:-4.02, hidden:true }
+            { id:'back_left_leg_1', x:0.22, y:0.80, z:-4.24, hidden:false },
+            { id:'back_left_leg_2', x:0.22, y:0.56, z:-4.24, hidden:true },
+            { id:'back_left_leg_3', x:0.22, y:0.32, z:-4.24, hidden:false },
+            { id:'back_left_leg_4', x:0.22, y:0.02, z:-4.18, hidden:true }
           ]
         },
         {
@@ -788,13 +815,13 @@
           label:'ขาขวาด้านหลัง',
           short:'ขาขวาด้านหลัง',
           hint:'รวมหลังเข่าและส้นเท้าขวา',
-          marker:{ geo:'box', width:0.42, height:1.18, depth:0.14, position:'-0.22 0.56 -4.38', rotation:'0 0 0' },
-          arrow:{ x:-0.22, y:1.56, z:-4.38 },
+          marker:{ geo:'box', width:0.40, height:1.14, depth:0.14, position:'-0.22 0.48 -4.52', rotation:'0 0 0' },
+          arrow:{ x:-0.22, y:1.38, z:-4.52 },
           spots:[
-            { id:'back_right_leg_1', x:-0.22, y:0.92, z:-4.10, hidden:false },
-            { id:'back_right_leg_2', x:-0.22, y:0.66, z:-4.10, hidden:true },
-            { id:'back_right_leg_3', x:-0.22, y:0.40, z:-4.10, hidden:false },
-            { id:'back_right_leg_4', x:-0.22, y:0.08, z:-4.02, hidden:true }
+            { id:'back_right_leg_1', x:-0.22, y:0.80, z:-4.24, hidden:false },
+            { id:'back_right_leg_2', x:-0.22, y:0.56, z:-4.24, hidden:true },
+            { id:'back_right_leg_3', x:-0.22, y:0.32, z:-4.24, hidden:false },
+            { id:'back_right_leg_4', x:-0.22, y:0.02, z:-4.18, hidden:true }
           ]
         }
       ];
@@ -834,7 +861,10 @@
 
         hubBtn:$('hubBtn'),
         hubBtnStart:$('hubBtnStart'),
-        hubBtnSummary:$('hubBtnSummary')
+        hubBtnSummary:$('hubBtnSummary'),
+
+        vrEnterBtn:$('vrEnterBtn'),
+        vrExitBtn:$('vrExitBtn')
       };
 
       ui.stepAll.textContent = FLOW.length;
@@ -842,6 +872,7 @@
       ui.hubBtnStart.href = HUB;
       ui.hubBtnSummary.href = HUB;
 
+      const scene = $('scene');
       const targetLayer = $('targetLayer');
       const fxLayer = $('fxLayer');
       const zoneMarker = $('zoneMarker');
@@ -894,6 +925,34 @@
           gazeCursor.setAttribute('visible', 'false');
           cameraHolder.setAttribute('look-controls', 'enabled: false');
         }
+      }
+
+      function bindVRButtons(){
+        ui.vrEnterBtn.addEventListener('click', async () => {
+          try{
+            await scene.enterVR();
+          }catch(e){
+            showMsg('อุปกรณ์หรือเบราว์เซอร์นี้ยังเข้า VR ไม่ได้', 1200);
+          }
+        });
+
+        ui.vrExitBtn.addEventListener('click', async () => {
+          try{
+            await scene.exitVR();
+          }catch(e){}
+        });
+
+        scene.addEventListener('enter-vr', () => {
+          ui.vrEnterBtn.classList.add('hidden');
+          ui.vrExitBtn.classList.remove('hidden');
+          showMsg('เข้า VR แล้ว', 900);
+        });
+
+        scene.addEventListener('exit-vr', () => {
+          ui.vrExitBtn.classList.add('hidden');
+          ui.vrEnterBtn.classList.remove('hidden');
+          showMsg('ออกจาก VR แล้ว', 900);
+        });
       }
 
       class BathMainGame {
@@ -950,7 +1009,6 @@
         markSpotDone(spotId, phaseId){
           const st = this.spotState[spotId];
           if (!st) return;
-
           if (phaseId === 'WET') st.wet = true;
           if (phaseId === 'SOAP') st.soaped = true;
           if (phaseId === 'RINSE') st.rinsed = true;
@@ -1027,11 +1085,8 @@
         }
 
         setAvatarView(view){
-          if (view === 'back') {
-            avatarRoot.setAttribute('rotation', '0 180 0');
-          } else {
-            avatarRoot.setAttribute('rotation', '0 0 0');
-          }
+          if (view === 'back') avatarRoot.setAttribute('rotation', '0 180 0');
+          else avatarRoot.setAttribute('rotation', '0 0 0');
         }
 
         renderHud(){
@@ -1060,20 +1115,11 @@
           if (step.marker.geo === 'sphere') {
             marker.setAttribute('geometry', `primitive: sphere; radius: ${step.marker.radius}`);
           } else {
-            marker.setAttribute(
-              'geometry',
-              `primitive: box; width: ${step.marker.width}; height: ${step.marker.height}; depth: ${step.marker.depth}`
-            );
+            marker.setAttribute('geometry', `primitive: box; width: ${step.marker.width}; height: ${step.marker.height}; depth: ${step.marker.depth}`);
           }
 
-          marker.setAttribute(
-            'material',
-            'color: #ffe76f; opacity: 0.22; transparent: true; emissive: #ffd84f; emissiveIntensity: 0.45'
-          );
-          marker.setAttribute(
-            'animation__pulse',
-            'property: scale; dir: alternate; dur: 520; loop: true; to: 1.08 1.08 1.08; easing: easeInOutSine'
-          );
+          marker.setAttribute('material', 'color: #ffe76f; opacity: 0.22; transparent: true; emissive: #ffd84f; emissiveIntensity: 0.45');
+          marker.setAttribute('animation__pulse', 'property: scale; dir: alternate; dur: 520; loop: true; to: 1.08 1.08 1.08; easing: easeInOutSine');
           zoneMarker.appendChild(marker);
 
           const arrow = document.createElement('a-cone');
@@ -1083,10 +1129,7 @@
           arrow.setAttribute('height', '0.24');
           arrow.setAttribute('rotation', '180 0 0');
           arrow.setAttribute('color', '#ffcf3f');
-          arrow.setAttribute(
-            'animation__bob',
-            `property: position; from: ${step.arrow.x} ${step.arrow.y} ${step.arrow.z}; to: ${step.arrow.x} ${(step.arrow.y - 0.12).toFixed(2)} ${step.arrow.z}; dir: alternate; dur: 500; loop: true; easing: easeInOutSine`
-          );
+          arrow.setAttribute('animation__bob', `property: position; from: ${step.arrow.x} ${step.arrow.y} ${step.arrow.z}; to: ${step.arrow.x} ${(step.arrow.y - 0.12).toFixed(2)} ${step.arrow.z}; dir: alternate; dur: 500; loop: true; easing: easeInOutSine`);
           zoneArrow.appendChild(arrow);
         }
 
@@ -1099,7 +1142,7 @@
             return;
           }
 
-          const previousView = this.currentStep()?.view;
+          const prevView = this.currentStep()?.view;
           this.stepIndex = nextIdx;
           const step = this.currentStep();
 
@@ -1115,16 +1158,14 @@
           ui.zoneBar.style.width = `${(done / total) * 100}%`;
 
           const hiddenRemaining = step.spots.filter(s => s.hidden && !this.isSpotDone(s.id, phase.id)).length;
-          if (hiddenRemaining > 0) {
-            ui.taskHint.textContent = `${step.hint} • ยังเหลือจุดอับ ${hiddenRemaining} จุด`;
-          } else {
-            ui.taskHint.textContent = step.hint;
-          }
+          ui.taskHint.textContent = hiddenRemaining > 0
+            ? `${step.hint} • ยังเหลือจุดอับ ${hiddenRemaining} จุด`
+            : step.hint;
 
           this.renderMarker(step);
           this.renderHud();
 
-          if (previousView && previousView !== step.view) {
+          if (prevView && prevView !== step.view) {
             showMsg(step.view === 'back' ? '↩️ หันไปล้างด้านหลัง' : '↪️ กลับมาล้างด้านหน้า', 850);
           }
         }
@@ -1153,7 +1194,6 @@
             root.appendChild(hit);
             root.appendChild(drop);
             root.appendChild(ring);
-
             if (spot.hidden) {
               const star = document.createElement('a-text');
               star.setAttribute('value', '★');
@@ -1214,7 +1254,6 @@
             hit.setAttribute('transparent', 'true');
 
             root.appendChild(hit);
-
             for (let i = 0; i < 5; i++) {
               const foam = document.createElement('a-sphere');
               foam.setAttribute('position', `${(Math.random()*0.22-0.11).toFixed(2)} ${(Math.random()*0.22-0.11).toFixed(2)} ${(Math.random()*0.06-0.03).toFixed(2)}`);
@@ -1323,11 +1362,6 @@
           this.activeTarget = { el:root, expireTimer, pos, spotId:spot.id };
         }
 
-        setAvatarView(view){
-          if (view === 'back') avatarRoot.setAttribute('rotation', '0 180 0');
-          else avatarRoot.setAttribute('rotation', '0 0 0');
-        }
-
         nextPhase(){
           this.phaseIndex += 1;
           this.stepIndex = 0;
@@ -1372,7 +1406,7 @@
           if (phaseId === 'DRY') showMsg(`🧻 เช็ดแห้งแล้ว 1 จุด • เหลืออีก ${remain}`, 520);
 
           if (spot?.hidden) {
-            showMsg(`⭐ เจอจุดอับแล้ว!`, 700);
+            showMsg('⭐ เจอจุดอับแล้ว!', 720);
           }
 
           if (done >= total) {
@@ -1447,7 +1481,7 @@
           }
 
           const payload = {
-            game:'bath-main-front-back-hidden-v1',
+            game:'bath-main-front-back-hidden-v2',
             pid:PID,
             run:RUN,
             diff:DIFF,
@@ -1474,6 +1508,7 @@
       }
 
       configureView();
+      bindVRButtons();
 
       const game = new BathMainGame();
       window.__bathMainGame = game;
