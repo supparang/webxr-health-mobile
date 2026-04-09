@@ -2,8 +2,11 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>HeroHealth • Germ Detective v2.1</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+  />
+  <title>HeroHealth • Germ Detective v2.4</title>
 
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
@@ -11,6 +14,7 @@
     :root{
       --bg:#071728;
       --panel:rgba(10,28,52,.84);
+      --panel-strong:rgba(8,24,46,.94);
       --line:rgba(174,225,255,.22);
       --text:#f5fbff;
       --muted:#b8d9ef;
@@ -19,7 +23,10 @@
       --yellow:#ffd85a;
       --red:#ff7a8b;
       --orange:#ffb25c;
+      --purple:#d58aff;
       --shadow:0 14px 34px rgba(0,0,0,.28);
+      --safe-bottom:max(10px, env(safe-area-inset-bottom));
+      --safe-top:max(10px, env(safe-area-inset-top));
     }
 
     *{ box-sizing:border-box; }
@@ -49,15 +56,16 @@
       box-shadow:var(--shadow);
     }
 
-    /* ===== TOP HUD: ย่อเล็ก + ไปมุม ===== */
+    /* ===== TOP HUD ===== */
     .top{
       position:absolute;
-      top:10px;
+      top:var(--safe-top);
       left:10px;
       right:10px;
       height:0;
       display:block;
       pointer-events:none;
+      transition:opacity .18s ease;
     }
 
     .card,
@@ -85,7 +93,7 @@
       left:50%;
       top:0;
       transform:translateX(-50%);
-      min-width:148px;
+      min-width:156px;
       text-align:center;
       padding:8px 12px;
       border-radius:18px;
@@ -155,13 +163,14 @@
       position:absolute;
       left:10px;
       right:10px;
-      bottom:10px;
+      bottom:calc(var(--safe-bottom) + 0px);
       display:flex;
       justify-content:center;
+      transition:opacity .18s ease;
     }
 
     .mission{
-      width:min(560px, calc(100vw - 20px));
+      width:min(620px, calc(100vw - 20px));
       padding:10px 12px;
       text-align:center;
       font-size:.84rem;
@@ -172,7 +181,7 @@
     }
 
     .mission.compact{
-      width:min(420px, calc(100vw - 20px));
+      width:min(460px, calc(100vw - 20px));
       padding:7px 10px;
       font-size:.76rem;
       opacity:.92;
@@ -200,6 +209,8 @@
       color:var(--text);
       padding:22px;
       box-shadow:0 24px 56px rgba(0,0,0,.38);
+      max-height:min(90vh, 860px);
+      overflow:auto;
     }
 
     .title{
@@ -371,7 +382,7 @@
 
     #warn{
       position:absolute;
-      top:72px;
+      top:calc(var(--safe-top) + 62px);
       left:50%;
       transform:translateX(-50%);
       display:none;
@@ -390,7 +401,7 @@
     #combo{
       position:absolute;
       left:50%;
-      bottom:76px;
+      bottom:calc(var(--safe-bottom) + 62px);
       transform:translateX(-50%);
       display:none;
       padding:8px 14px;
@@ -403,20 +414,49 @@
       text-shadow:0 0 14px rgba(255,216,90,.35);
     }
 
-    /* ===== A-FRAME BUTTONS ===== */
-    .a-enter-ar-button{
+    /* ===== VR UI ===== */
+    .a-enter-ar-button,
+    .a-enter-vr-button{
       display:none !important;
     }
 
-    .a-enter-vr-button{
-      right:10px !important;
-      bottom:72px !important;
-      border-radius:12px !important;
-      min-width:64px !important;
-      height:40px !important;
-      opacity:.95 !important;
-      font-size:13px !important;
-      box-shadow:0 8px 20px rgba(0,0,0,.25) !important;
+    #vrControls{
+      position:fixed;
+      right:10px;
+      bottom:calc(var(--safe-bottom) + 58px);
+      z-index:26;
+      display:flex;
+      gap:8px;
+      pointer-events:auto;
+    }
+
+    .vr-ui-btn{
+      appearance:none;
+      border:none;
+      border-radius:12px;
+      padding:10px 14px;
+      font-size:.84rem;
+      font-weight:900;
+      background:var(--panel-strong);
+      color:#fff;
+      border:2px solid rgba(174,225,255,.22);
+      box-shadow:0 8px 20px rgba(0,0,0,.25);
+    }
+
+    body:not(.is-vr) #exitVrBtn{
+      display:none;
+    }
+
+    body.is-vr #enterVrBtn{
+      display:none;
+    }
+
+    .is-vr .top{
+      opacity:.38;
+    }
+
+    .is-vr .bottom{
+      opacity:.24;
     }
 
     @media (min-width: 861px){
@@ -424,7 +464,6 @@
       .center{ min-width:165px; }
       .timer{ font-size:1.65rem; }
       .mission{ font-size:.9rem; }
-      #warn{ top:78px; }
     }
 
     @media (max-width: 420px){
@@ -433,10 +472,17 @@
       .timer{ font-size:1.3rem; }
       .value{ font-size:.9rem; }
       .phase{ font-size:.7rem; }
-      .a-enter-vr-button{
-        bottom:68px !important;
-        min-width:58px !important;
-        height:38px !important;
+      #vrControls{
+        right:10px;
+        bottom:calc(var(--safe-bottom) + 54px);
+        gap:6px;
+      }
+      .vr-ui-btn{
+        padding:9px 11px;
+        font-size:.76rem;
+      }
+      #warn{
+        top:calc(var(--safe-top) + 56px);
       }
     }
   </style>
@@ -479,20 +525,21 @@
 
   <div id="startOverlay" class="overlay" style="display:flex;">
     <div class="modal">
-      <h1 class="title">🦠 Germ Detective v2.1</h1>
+      <h1 class="title">🦠 Germ Detective v2.4</h1>
       <p class="sub">
-        เวอร์ชันนี้แก้ให้พื้นที่เล่นโล่งขึ้นแล้ว: HUD เล็กลง, เป้าไม่โดนบัง, เห็นทีละ 1 เคส และเล่นง่ายตาม flow
+        เวอร์ชันนี้รวม patch หลักครบแล้ว: เล่นได้ทั้งมือถือ/คอม/VR, HUD ไม่บัง, มีปุ่ม ENTER VR / EXIT / RECENTER,
+        เป้าเกิดทีละ 1 จุด และ flow ชัดแบบ
         <strong>หา → ตรวจ → เลือกคำตอบ → ล้าง</strong>
       </p>
 
       <div class="tips">
         <div class="tip">
           <strong>1) Search</strong>
-          <span>หาเป้าวงแสงสีฟ้าในฉาก</span>
+          <span>หาเป้าวงแสงสีฟ้าในฉาก แล้วแตะหรือจ้องค้างเพื่อเริ่มตรวจ</span>
         </div>
         <div class="tip">
           <strong>2) Investigate</strong>
-          <span>แตะหรือจ้องค้างเพื่อเปิดโจทย์</span>
+          <span>อ่านโจทย์แล้วเลือกวิธีจัดการที่เหมาะที่สุด</span>
         </div>
         <div class="tip">
           <strong>3) Clean</strong>
@@ -507,7 +554,8 @@
 
       <p id="howText" class="small" style="display:none;margin-top:14px;">
         มือถือ/คอม: ลากหน้าจอเพื่อมองรอบ ๆ แล้วแตะเป้าได้เลย<br>
-        Cardboard: กดปุ่ม VR แล้วใช้จุดเล็งกลางจอจ้องค้างที่เป้า
+        Cardboard: กด ENTER VR แล้วใช้จุดเล็งกลางจอจ้องค้างที่เป้า<br>
+        ถ้ามุมเอียง ให้กด RECENTER ได้ทันที
       </p>
     </div>
   </div>
@@ -553,9 +601,16 @@
       <p id="summaryTip" class="small"></p>
 
       <div class="row" style="margin-top:18px;">
-        <button class="btn-primary" onclick="location.reload()">เล่นอีกครั้ง</button>
+        <button id="replayBtn" class="btn-primary">เล่นอีกครั้ง</button>
+        <button id="hubBtn" class="btn-ghost" style="display:none;">กลับ HUB</button>
       </div>
     </div>
+  </div>
+
+  <div id="vrControls">
+    <button id="enterVrBtn" class="vr-ui-btn">ENTER VR</button>
+    <button id="exitVrBtn" class="vr-ui-btn">EXIT</button>
+    <button id="recenterBtn" class="vr-ui-btn">RECENTER</button>
   </div>
 
   <a-scene
@@ -563,48 +618,61 @@
     renderer="antialias:true; colorManagement:true"
     vr-mode-ui="enabled:true"
   >
-    <!-- Room -->
+    <!-- mouse/touch raycaster -->
+    <a-entity
+      id="mouseCursor"
+      cursor="rayOrigin: mouse"
+      raycaster="objects: .clickable; far: 20"
+    ></a-entity>
+
+    <!-- room -->
     <a-plane position="0 0 -1.6" rotation="-90 0 0" width="12" height="12" color="#365a76"></a-plane>
     <a-plane position="0 2.2 -5.2" width="12" height="4.8" color="#2f5675"></a-plane>
     <a-plane position="-5.9 2.2 -1.6" rotation="0 90 0" width="12" height="4.8" color="#2a4f6d"></a-plane>
     <a-plane position="5.9 2.2 -1.6" rotation="0 -90 0" width="12" height="4.8" color="#2a4f6d"></a-plane>
 
-    <!-- Counter -->
+    <!-- counter -->
     <a-box position="0 0.48 -2.1" width="5.4" height="0.95" depth="1.9" color="#5f7f98"></a-box>
     <a-box position="0 0.98 -2.1" width="5.5" height="0.08" depth="2.0" color="#dff3ff"></a-box>
 
-    <!-- Sink -->
+    <!-- sink -->
     <a-box position="-1.7 0.88 -2.06" width="0.9" height="0.12" depth="0.55" color="#4b687f"></a-box>
     <a-cylinder position="-1.45 0.98 -2.06" radius="0.24" height="0.05" color="#b8cad8"></a-cylinder>
     <a-cylinder position="-1.95 0.98 -2.06" radius="0.24" height="0.05" color="#b8cad8"></a-cylinder>
 
-    <!-- Table -->
+    <!-- table -->
     <a-box position="0 0.45 1.8" width="3.4" height="0.9" depth="2.0" color="#7896ae"></a-box>
     <a-box position="0 0.93 1.8" width="3.5" height="0.08" depth="2.08" color="#d8f0ff"></a-box>
 
-    <!-- Props -->
+    <!-- props -->
     <a-box position="3.9 1.05 -4.1" width="1.5" height="2.1" depth="1.2" color="#89a9c1"></a-box>
     <a-box position="-4.2 0.75 -4.0" width="1.7" height="1.5" depth="1.2" color="#8ea8bc"></a-box>
     <a-box position="0 2.15 -5.15" width="2.3" height="1.2" depth="0.04" color="#b4e5ff"></a-box>
     <a-plane position="0 2.15 -5.13" width="2.05" height="0.95" color="#ddf7ff" opacity="0.52"></a-plane>
 
-    <!-- Lights -->
+    <!-- lights -->
     <a-entity light="type:ambient; intensity:1.0; color:#d9f3ff"></a-entity>
     <a-entity light="type:point; intensity:1.1; distance:20; color:#ffffff" position="0 4 0"></a-entity>
 
-    <!-- Interactive root -->
+    <!-- interactive root -->
     <a-entity id="caseRoot"></a-entity>
 
-    <!-- Camera -->
-    <a-entity id="rig" position="0 0 3.9">
-      <a-camera position="0 1.6 0" rotation="-8 0 0" look-controls="touchEnabled:true">
+    <!-- camera -->
+    <a-entity id="rig" position="0 0 3.15">
+      <a-camera
+        id="mainCam"
+        position="0 1.6 0"
+        rotation="0 0 0"
+        look-controls="touchEnabled:true; magicWindowTrackingEnabled:true"
+      >
         <a-entity
-          id="cursor"
+          id="gazeCursor"
+          visible="false"
           cursor="fuse:true; fuseTimeout:700"
           position="0 0 -1"
           geometry="primitive:ring; radiusInner:0.014; radiusOuter:0.024"
           material="color:#59e7ff; shader:flat; opacity:0.95"
-          raycaster="objects:.clickable"
+          raycaster="objects:.clickable; far: 20"
           animation__pulse="property:scale; dir:alternate; dur:700; loop:true; to:1.1 1.1 1.1"
         ></a-entity>
       </a-camera>
@@ -613,6 +681,14 @@
 
   <script>
     (() => {
+      const HUB_URL = (() => {
+        try {
+          return new URL(location.href).searchParams.get('hub') || '';
+        } catch (_) {
+          return '';
+        }
+      })();
+
       const CASES = [
         {
           title: 'น้ำจากเนื้อดิบหยดบนเคาน์เตอร์',
@@ -626,7 +702,7 @@
           answer: 0,
           explain: 'ถูกต้อง! ของดิบกับของสุกต้องแยกกัน และพื้นผิวที่เปื้อนควรถูกทำความสะอาดทันที',
           tip: 'ของดิบกับของสุกไม่ควรใช้พื้นที่เดียวกัน',
-          hotspot: {x:-0.35, y:1.02, z:-2.02},
+          hotspot: { x:-0.35, y:1.02, z:-2.02 },
           color: '#59e7ff',
           germ: '#ff6b78'
         },
@@ -642,7 +718,7 @@
           answer: 1,
           explain: 'ดีมาก! ต้องทำความสะอาดพื้นผิว และฝึกพฤติกรรมป้องกันการแพร่กระจายของละออง',
           tip: 'ไอหรือจามควรปิดปากปิดจมูก และล้างมือหลังจากนั้น',
-          hotspot: {x:0.55, y:1.00, z:1.55},
+          hotspot: { x:0.55, y:1.00, z:1.55 },
           color: '#59e7ff',
           germ: '#ffb25c'
         },
@@ -658,7 +734,7 @@
           answer: 0,
           explain: 'ถูกต้อง! จุดที่แฉะและอับชื้นควรถูกทำความสะอาดและลดความชื้นสะสม',
           tip: 'แฉะและอับชื้น = จุดเสี่ยงของเชื้อ',
-          hotspot: {x:-1.7, y:1.04, z:-2.02},
+          hotspot: { x:-1.7, y:1.04, z:-2.02 },
           color: '#59e7ff',
           germ: '#77ef9d'
         },
@@ -674,7 +750,7 @@
           answer: 1,
           explain: 'เยี่ยม! อาหารที่เสียหรือขึ้นราไม่ควรเก็บไว้ปะปนกับอาหารอื่น',
           tip: 'อาหารเสียควรถูกแยกทิ้งอย่างเหมาะสม',
-          hotspot: {x:0.10, y:0.98, z:1.20},
+          hotspot: { x:0.10, y:0.98, z:1.20 },
           color: '#59e7ff',
           germ: '#d58aff'
         },
@@ -690,66 +766,98 @@
           answer: 1,
           explain: 'ใช่เลย! การล้างมือก่อนสัมผัสอาหารช่วยลดการนำเชื้อเข้าสู่ร่างกาย',
           tip: 'ล้างมือก่อนกิน ก่อนจับอาหาร และหลังไอจาม',
-          hotspot: {x:1.35, y:1.02, z:-2.02},
+          hotspot: { x:1.35, y:1.02, z:-2.02 },
           color: '#59e7ff',
           germ: '#ffe25f'
         }
       ];
 
       const state = {
-        active:false,
-        phase:'search',
-        hp:100,
-        score:0,
-        timeLeft:90,
-        combo:0,
-        solved:0,
-        currentIndex:0,
-        inspectingIndex:null,
-        answeredCorrect:0,
-        answeredWrong:0
+        active: false,
+        phase: 'search',
+        hp: 100,
+        score: 0,
+        timeLeft: 90,
+        combo: 0,
+        solved: 0,
+        currentIndex: 0,
+        inspectingIndex: null,
+        answeredCorrect: 0,
+        answeredWrong: 0
       };
 
-      const $ = (id)=>document.getElementById(id);
+      const $ = (id) => document.getElementById(id);
 
       const ui = {
-        hpText:$('hpText'),
-        hpFill:$('hpFill'),
-        timerText:$('timerText'),
-        scoreText:$('scoreText'),
-        solvedText:$('solvedText'),
-        totalText:$('totalText'),
-        rankText:$('rankText'),
-        phaseText:$('phaseText'),
-        missionText:$('missionText'),
-        missionBox:$('missionBox'),
-        damage:$('damage'),
-        warn:$('warn'),
-        combo:$('combo'),
-        startOverlay:$('startOverlay'),
-        inspectOverlay:$('inspectOverlay'),
-        summaryOverlay:$('summaryOverlay'),
-        inspectTitle:$('inspectTitle'),
-        inspectBody:$('inspectBody'),
-        choiceList:$('choiceList'),
-        feedbackBox:$('feedbackBox'),
-        continueBtn:$('continueBtn'),
-        summaryTitle:$('summaryTitle'),
-        summarySub:$('summarySub'),
-        sumScore:$('sumScore'),
-        sumSolved:$('sumSolved'),
-        sumHp:$('sumHp'),
-        sumRank:$('sumRank'),
-        summaryTip:$('summaryTip'),
-        stars:$('stars'),
-        howBtn:$('howBtn'),
-        howText:$('howText')
+        hpText: $('hpText'),
+        hpFill: $('hpFill'),
+        timerText: $('timerText'),
+        scoreText: $('scoreText'),
+        solvedText: $('solvedText'),
+        totalText: $('totalText'),
+        rankText: $('rankText'),
+        phaseText: $('phaseText'),
+        missionText: $('missionText'),
+        missionBox: $('missionBox'),
+        damage: $('damage'),
+        warn: $('warn'),
+        combo: $('combo'),
+        startOverlay: $('startOverlay'),
+        inspectOverlay: $('inspectOverlay'),
+        summaryOverlay: $('summaryOverlay'),
+        inspectTitle: $('inspectTitle'),
+        inspectBody: $('inspectBody'),
+        choiceList: $('choiceList'),
+        feedbackBox: $('feedbackBox'),
+        continueBtn: $('continueBtn'),
+        summaryTitle: $('summaryTitle'),
+        summarySub: $('summarySub'),
+        sumScore: $('sumScore'),
+        sumSolved: $('sumSolved'),
+        sumHp: $('sumHp'),
+        sumRank: $('sumRank'),
+        summaryTip: $('summaryTip'),
+        stars: $('stars'),
+        howBtn: $('howBtn'),
+        howText: $('howText'),
+        enterVrBtn: $('enterVrBtn'),
+        exitVrBtn: $('exitVrBtn'),
+        recenterBtn: $('recenterBtn'),
+        replayBtn: $('replayBtn'),
+        hubBtn: $('hubBtn')
       };
 
       ui.totalText.textContent = CASES.length;
+      if (HUB_URL) {
+        ui.hubBtn.style.display = 'inline-flex';
+      }
 
+      const sceneEl = document.querySelector('a-scene');
+      const rigEl = $('rig');
+      const camEl = $('mainCam');
+      const gazeCursorEl = $('gazeCursor');
       const caseRoot = $('caseRoot');
+
       let activeNode = null;
+      let isVRMode = false;
+      let pendingInspectAfterExit = null;
+      let returnToVRForClean = false;
+
+      const SPOTS_NORMAL = [
+        { x:-0.55, y:1.02, z:-2.02 },
+        { x: 0.55, y:1.00, z: 1.55 },
+        { x:-1.45, y:1.02, z:-2.02 },
+        { x: 0.05, y:0.98, z: 1.20 },
+        { x: 1.15, y:1.02, z:-2.02 }
+      ];
+
+      const SPOTS_VR = [
+        { x:-1.10, y:1.02, z:-2.02 },
+        { x:-0.35, y:1.02, z:-2.02 },
+        { x: 0.40, y:1.02, z:-2.02 },
+        { x: 1.15, y:1.02, z:-2.02 },
+        { x: 0.00, y:1.20, z:-4.90 }
+      ];
 
       function rankFromScore(score){
         if(score >= 1200) return 'Expert';
@@ -777,11 +885,15 @@
         ui.phaseText.textContent = phase.toUpperCase();
 
         if(phase === 'search'){
-          ui.missionText.textContent = 'มองหาวงแสงสีฟ้า แล้วแตะหรือจ้องค้างที่จุดนั้นเพื่อเริ่มตรวจ';
+          ui.missionText.textContent = isVRMode
+            ? 'เล็งวงแสงสีฟ้าแล้วจ้องค้างเพื่อเริ่มตรวจ'
+            : 'มองหาวงแสงสีฟ้า แล้วแตะหรือจ้องค้างที่จุดนั้นเพื่อเริ่มตรวจ';
         } else if(phase === 'investigate'){
           ui.missionText.textContent = 'อ่านโจทย์ แล้วเลือกวิธีจัดการที่เหมาะที่สุด';
         } else if(phase === 'clean'){
-          ui.missionText.textContent = 'กลับเข้าฉาก แล้วแตะคราบเชื้อเพื่อทำความสะอาด';
+          ui.missionText.textContent = isVRMode
+            ? 'เล็งคราบเชื้อแล้วจ้องค้างเพื่อล้าง'
+            : 'กลับเข้าฉาก แล้วแตะคราบเชื้อเพื่อทำความสะอาด';
         } else {
           ui.missionText.textContent = 'สรุปผลภารกิจ';
         }
@@ -822,8 +934,11 @@
         clearTimeout(flashDamage.t1);
         clearTimeout(flashDamage.t2);
 
-        flashDamage.t1 = setTimeout(()=> ui.damage.style.opacity = '0', 240);
-        flashDamage.t2 = setTimeout(()=>{
+        flashDamage.t1 = setTimeout(() => {
+          ui.damage.style.opacity = '0';
+        }, 240);
+
+        flashDamage.t2 = setTimeout(() => {
           ui.damage.style.display = 'none';
           ui.warn.style.display = 'none';
         }, 850);
@@ -834,12 +949,14 @@
         ui.combo.textContent = `COMBO x${state.combo}`;
         ui.combo.style.display = 'block';
         clearTimeout(showCombo.t);
-        showCombo.t = setTimeout(()=> ui.combo.style.display = 'none', 1100);
+        showCombo.t = setTimeout(() => {
+          ui.combo.style.display = 'none';
+        }, 1100);
       }
 
       function make(tag, attrs = {}){
         const node = document.createElement(tag);
-        Object.entries(attrs).forEach(([k,v])=>node.setAttribute(k,v));
+        Object.entries(attrs).forEach(([k,v]) => node.setAttribute(k, v));
         return node;
       }
 
@@ -850,40 +967,75 @@
         activeNode = null;
       }
 
-      function createHotspot(caseData){
+      function getSpot(index){
+        const spots = isVRMode ? SPOTS_VR : SPOTS_NORMAL;
+        return spots[index] || CASES[index].hotspot;
+      }
+
+      function resetView(){
+        rigEl.setAttribute('position', '0 0 3.15');
+        camEl.setAttribute('rotation', '0 0 0');
+
+        const look = camEl.components['look-controls'];
+        if (look) {
+          if (look.pitchObject) look.pitchObject.rotation.x = 0;
+          if (look.yawObject) look.yawObject.rotation.y = 0;
+        }
+      }
+
+      function rebuildActiveTarget(){
+        if (!state.active) return;
+        const item = CASES[state.currentIndex];
+        if (!item) return;
+
+        if (state.phase === 'search') {
+          createHotspot(item, state.currentIndex);
+        } else if (state.phase === 'clean') {
+          createGerm(item, state.currentIndex);
+        }
+      }
+
+      function createHotspot(caseData, index){
         clearActiveNode();
 
+        const spot = getSpot(index);
+        const ringInner = isVRMode ? 0.20 : 0.16;
+        const ringOuter = isVRMode ? 0.29 : 0.22;
+        const orbRadius = isVRMode ? 0.10 : 0.075;
+        const textY = isVRMode ? 0.48 : 0.34;
+        const textWidth = isVRMode ? 4.4 : 3.0;
+
         const wrap = make('a-entity', {
-          position: `${caseData.hotspot.x} ${caseData.hotspot.y} ${caseData.hotspot.z}`,
-          animation__float: `property: position; dir: alternate; dur: 850; loop: true; to: ${caseData.hotspot.x} ${caseData.hotspot.y + 0.04} ${caseData.hotspot.z}`
+          position: `${spot.x} ${spot.y} ${spot.z}`,
+          animation__float: `property: position; dir: alternate; dur: 850; loop: true; to: ${spot.x} ${spot.y + (isVRMode ? 0.05 : 0.04)} ${spot.z}`
         });
 
         const ring = make('a-ring', {
           class: 'clickable',
-          radiusInner: '0.16',
-          radiusOuter: '0.22',
+          radiusInner: String(ringInner),
+          radiusOuter: String(ringOuter),
           rotation: '-90 0 0',
           color: caseData.color,
           material: 'shader:flat; opacity:0.95',
-          animation__pulse: 'property: scale; dir: alternate; dur: 520; loop: true; to: 1.1 1.1 1.1'
+          animation__pulse: 'property: scale; dir: alternate; dur: 520; loop: true; to: 1.16 1.16 1.16'
         });
 
         const orb = make('a-sphere', {
-          radius: '0.075',
+          radius: String(orbRadius),
           position: '0 0.14 0',
           color: caseData.color,
-          material: `emissive:${caseData.color}; emissiveIntensity:0.65`
+          material: `emissive:${caseData.color}; emissiveIntensity:0.75`
         });
 
         const text = make('a-text', {
-          value: 'แตะเพื่อตรวจ',
+          value: isVRMode ? 'CHECK' : 'แตะเพื่อตรวจ',
           align: 'center',
           color: '#ffffff',
-          width: '3.2',
-          position: '0 0.34 0'
+          width: String(textWidth),
+          position: `0 ${textY} 0`
         });
 
-        ring.addEventListener('click', ()=> openInspect(state.currentIndex));
+        ring.addEventListener('click', () => openInspect(state.currentIndex));
 
         wrap.appendChild(ring);
         wrap.appendChild(orb);
@@ -893,54 +1045,63 @@
         activeNode = wrap;
       }
 
-      function createGerm(caseData){
+      function createGerm(caseData, index){
         clearActiveNode();
 
+        const spot = getSpot(index);
+        const mainRadius = isVRMode ? 0.15 : 0.11;
+        const side1 = isVRMode ? 0.075 : 0.055;
+        const side2 = isVRMode ? 0.065 : 0.045;
+        const ringInner = isVRMode ? 0.22 : 0.18;
+        const ringOuter = isVRMode ? 0.29 : 0.22;
+        const textY = isVRMode ? 0.52 : 0.38;
+        const textWidth = isVRMode ? 4.6 : 3.0;
+
         const wrap = make('a-entity', {
-          position: `${caseData.hotspot.x} ${caseData.hotspot.y} ${caseData.hotspot.z}`,
+          position: `${spot.x} ${spot.y} ${spot.z}`,
           animation__wobble: 'property: rotation; dir: alternate; dur: 320; loop: true; to: 0 8 0'
         });
 
         const g1 = make('a-sphere', {
           class: 'clickable',
-          radius: '0.11',
-          position: '0 0.12 0',
+          radius: String(mainRadius),
+          position: '0 0.14 0',
           color: caseData.germ,
-          material: `emissive:${caseData.germ}; emissiveIntensity:0.75`
+          material: `emissive:${caseData.germ}; emissiveIntensity:0.8`
         });
 
         const g2 = make('a-sphere', {
-          radius: '0.055',
-          position: '0.12 0.17 0.04',
+          radius: String(side1),
+          position: '0.15 0.20 0.05',
           color: caseData.germ,
-          material: `emissive:${caseData.germ}; emissiveIntensity:0.55`
+          material: `emissive:${caseData.germ}; emissiveIntensity:0.58`
         });
 
         const g3 = make('a-sphere', {
-          radius: '0.045',
-          position: '-0.10 0.15 -0.03',
+          radius: String(side2),
+          position: '-0.13 0.17 -0.04',
           color: caseData.germ,
-          material: `emissive:${caseData.germ}; emissiveIntensity:0.55`
+          material: `emissive:${caseData.germ}; emissiveIntensity:0.58`
         });
 
         const ring = make('a-ring', {
-          radiusInner: '0.18',
-          radiusOuter: '0.22',
+          radiusInner: String(ringInner),
+          radiusOuter: String(ringOuter),
           rotation: '-90 0 0',
           position: '0 -0.02 0',
           color: '#ffffff',
-          material: 'shader:flat; opacity:0.9'
+          material: 'shader:flat; opacity:0.92'
         });
 
         const text = make('a-text', {
-          value: 'แตะเพื่อล้าง',
+          value: isVRMode ? 'CLEAN' : 'แตะเพื่อล้าง',
           align: 'center',
           color: '#ffffff',
-          width: '3.2',
-          position: '0 0.38 0'
+          width: String(textWidth),
+          position: `0 ${textY} 0`
         });
 
-        g1.addEventListener('click', ()=> cleanCurrentCase());
+        g1.addEventListener('click', () => cleanCurrentCase());
 
         wrap.appendChild(g1);
         wrap.appendChild(g2);
@@ -955,9 +1116,31 @@
       function openInspect(index){
         if(!state.active || state.phase !== 'search') return;
 
+        if (isVRMode) {
+          pendingInspectAfterExit = index;
+          returnToVRForClean = true;
+
+          try {
+            if (sceneEl.exitVR) sceneEl.exitVR();
+            else openInspectFlat(index, true);
+          } catch (_) {
+            openInspectFlat(index, true);
+          }
+          return;
+        }
+
+        returnToVRForClean = false;
+        openInspectFlat(index, false);
+      }
+
+      function openInspectFlat(index, fromVR){
         const item = CASES[index];
         state.inspectingIndex = index;
         setPhase('investigate');
+
+        const vrNote = fromVR
+          ? `<br><br><strong style="color:#ffd85a;">โหมด VR ถูกหยุดชั่วคราว เพื่อให้อ่านคำถามได้ง่ายขึ้น</strong>`
+          : '';
 
         ui.inspectTitle.textContent = item.title;
         ui.inspectBody.innerHTML = `
@@ -966,6 +1149,7 @@
           <br><br>
           <strong style="display:block;color:#fff;margin-bottom:8px;">คำถาม</strong>
           ${item.question}
+          ${vrNote}
         `;
 
         ui.choiceList.innerHTML = '';
@@ -974,11 +1158,11 @@
         ui.feedbackBox.innerHTML = '';
         ui.continueBtn.style.display = 'none';
 
-        item.choices.forEach((text, i)=>{
+        item.choices.forEach((text, i) => {
           const btn = document.createElement('button');
           btn.className = 'choice';
           btn.textContent = `${i + 1}) ${text}`;
-          btn.addEventListener('click', ()=> answerInspect(i));
+          btn.addEventListener('click', () => answerInspect(i));
           ui.choiceList.appendChild(btn);
         });
 
@@ -1011,12 +1195,38 @@
         ui.continueBtn.style.display = 'inline-flex';
         updateHUD();
 
-        ui.continueBtn.onclick = ()=>{
+        if (state.hp <= 0) {
+          ui.continueBtn.textContent = 'ดูผลภารกิจ';
+          ui.continueBtn.onclick = () => {
+            ui.inspectOverlay.style.display = 'none';
+            endGame(false);
+          };
+          return;
+        }
+
+        ui.continueBtn.textContent = returnToVRForClean ? 'กลับไปล้างใน VR' : 'ไปล้างจุดนี้';
+
+        ui.continueBtn.onclick = () => {
           ui.inspectOverlay.style.display = 'none';
           state.inspectingIndex = null;
           setPhase('clean');
-          createGerm(item);
-          if(state.hp <= 0) endGame(false);
+
+          const idx = state.currentIndex;
+
+          if (returnToVRForClean) {
+            returnToVRForClean = false;
+
+            try {
+              if (sceneEl.enterVR) sceneEl.enterVR();
+            } catch (_) {}
+
+            setTimeout(() => {
+              createGerm(item, idx);
+              resetView();
+            }, 360);
+          } else {
+            createGerm(item, idx);
+          }
         };
       }
 
@@ -1035,7 +1245,7 @@
         updateHUD();
         showCombo();
 
-        setTimeout(()=>{
+        setTimeout(() => {
           clearActiveNode();
 
           if(state.solved >= CASES.length){
@@ -1045,7 +1255,7 @@
 
           state.currentIndex++;
           setPhase('search');
-          createHotspot(CASES[state.currentIndex]);
+          createHotspot(CASES[state.currentIndex], state.currentIndex);
         }, 260);
       }
 
@@ -1064,6 +1274,7 @@
 
       function endGame(win){
         if(!state.active) return;
+
         state.active = false;
         setPhase('report');
         clearActiveNode();
@@ -1076,8 +1287,8 @@
         ui.summarySub.textContent = win
           ? 'คุณจัดการจุดเสี่ยงได้ครบทุกเคส'
           : 'ยังมีบางเคสที่ต้องฝึกสังเกตและจัดการให้เร็วขึ้น';
-        ui.stars.textContent = stars === 3 ? '⭐ ⭐ ⭐' : stars === 2 ? '⭐ ⭐' : '⭐';
 
+        ui.stars.textContent = stars === 3 ? '⭐ ⭐ ⭐' : stars === 2 ? '⭐ ⭐' : '⭐';
         ui.sumScore.textContent = state.score;
         ui.sumSolved.textContent = `${state.solved}/${CASES.length}`;
         ui.sumHp.textContent = `${state.hp}%`;
@@ -1111,6 +1322,8 @@
         state.inspectingIndex = null;
         state.answeredCorrect = 0;
         state.answeredWrong = 0;
+        pendingInspectAfterExit = null;
+        returnToVRForClean = false;
 
         ui.startOverlay.style.display = 'none';
         ui.inspectOverlay.style.display = 'none';
@@ -1118,13 +1331,55 @@
 
         updateHUD();
         setPhase('search');
-        createHotspot(CASES[0]);
+        resetView();
+        createHotspot(CASES[0], 0);
       }
 
-      $('startBtn').addEventListener('click', startGame);
+      sceneEl.addEventListener('loaded', () => {
+        setTimeout(resetView, 220);
+      });
 
-      ui.howBtn.addEventListener('click', ()=>{
+      sceneEl.addEventListener('enter-vr', () => {
+        isVRMode = true;
+        document.body.classList.add('is-vr');
+        gazeCursorEl.setAttribute('visible', 'true');
+        setTimeout(resetView, 180);
+        setTimeout(resetView, 700);
+        rebuildActiveTarget();
+        setPhase(state.phase);
+      });
+
+      sceneEl.addEventListener('exit-vr', () => {
+        isVRMode = false;
+        document.body.classList.remove('is-vr');
+        gazeCursorEl.setAttribute('visible', 'false');
+        setTimeout(resetView, 120);
+        rebuildActiveTarget();
+        setPhase(state.phase);
+
+        if (pendingInspectAfterExit !== null) {
+          const idx = pendingInspectAfterExit;
+          pendingInspectAfterExit = null;
+          openInspectFlat(idx, true);
+        }
+      });
+
+      ui.enterVrBtn.addEventListener('click', () => {
+        if (sceneEl.enterVR) sceneEl.enterVR();
+      });
+
+      ui.exitVrBtn.addEventListener('click', () => {
+        if (sceneEl.is('vr-mode') && sceneEl.exitVR) sceneEl.exitVR();
+      });
+
+      ui.recenterBtn.addEventListener('click', resetView);
+      ui.replayBtn.addEventListener('click', () => location.reload());
+      ui.howBtn.addEventListener('click', () => {
         ui.howText.style.display = ui.howText.style.display === 'none' ? 'block' : 'none';
+      });
+
+      ui.hubBtn.addEventListener('click', () => {
+        if (HUB_URL) location.href = HUB_URL;
       });
 
       updateHUD();
@@ -1132,6 +1387,8 @@
 
       setInterval(tickTimer, 1000);
       setInterval(randomPressure, 3600);
+
+      document.getElementById('startBtn').addEventListener('click', startGame);
     })();
   </script>
 </body>
