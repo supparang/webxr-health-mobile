@@ -19,6 +19,7 @@
       --stroke:rgba(255,255,255,.14);
 
       --solo:#22c55e;
+      --duet:#14b8a6;
       --race:#38bdf8;
       --battle:#f59e0b;
       --coop:#a78bfa;
@@ -58,7 +59,7 @@
     button,input,select{ font:inherit; }
 
     .wrap{
-      max-width:1240px;
+      max-width:1380px;
       margin:0 auto;
       padding:
         calc(14px + var(--sat))
@@ -392,7 +393,7 @@
       margin-top:20px;
       position:relative;
       display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
+      grid-template-columns:repeat(6,minmax(0,1fr));
       gap:14px;
       align-items:stretch;
     }
@@ -451,6 +452,7 @@
 
     .mode-card.start::before{ background:var(--start); }
     .mode-card.solo::before{ background:var(--solo); }
+    .mode-card.duet::before{ background:var(--duet); }
     .mode-card.race::before{ background:var(--race); }
     .mode-card.battle::before{ background:var(--battle); }
     .mode-card.coop::before{ background:var(--coop); }
@@ -620,6 +622,10 @@
       border-color:rgba(34,197,94,.34);
       background:linear-gradient(180deg, rgba(34,197,94,.22), rgba(34,197,94,.14));
     }
+    .mode-button.duet{
+      border-color:rgba(20,184,166,.34);
+      background:linear-gradient(180deg, rgba(20,184,166,.24), rgba(20,184,166,.14));
+    }
     .mode-button.race{
       border-color:rgba(56,189,248,.34);
       background:linear-gradient(180deg, rgba(56,189,248,.22), rgba(56,189,248,.14));
@@ -732,7 +738,7 @@
       50%{ transform:translateY(-6px); }
     }
 
-    @media (max-width:1160px){
+    @media (max-width:1280px){
       .path-grid{
         grid-template-columns:repeat(3,minmax(0,1fr));
       }
@@ -824,6 +830,7 @@
         <div class="hero-tips">
           <div class="hero-tip">👦 เด็ก: กดปุ่มใหญ่แล้วเล่นได้เลย</div>
           <div class="hero-tip">🧩 Solo ใช้ flow warmup → boss → cooldown → launcher</div>
+          <div class="hero-tip">🧑‍🤝‍🧑 Multi ใช้ lobby แยกตามโหมด</div>
         </div>
       </div>
     </section>
@@ -873,7 +880,7 @@
 
       <div class="path-grid">
         <svg class="path-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          <path class="path-line" d="M10,52 C20,40 30,40 40,52 S60,64 70,52 S85,40 92,48"></path>
+          <path class="path-line" d="M6,52 C14,42 22,42 30,52 S46,62 54,52 S70,42 78,52 S90,60 96,48"></path>
         </svg>
 
         <article class="mode-card start" id="cardStart">
@@ -909,6 +916,23 @@
           <button class="mode-button solo" id="btnSolo" type="button">เล่น Solo Boss</button>
         </article>
 
+        <article class="mode-card duet" id="cardDuet">
+          <div class="corner-chip recommend">⭐ แนะนำ</div>
+          <div class="corner-chip recent">⏪ ล่าสุด</div>
+          <div class="mode-top">
+            <div class="mode-icon">🧑‍🤝‍🧑</div>
+            <div class="mode-label">ด่านคู่</div>
+            <div class="mode-title">Duet</div>
+            <div class="mode-sub">เล่นพร้อมกัน 2 คน ช่วยกันหรือแข่งกันเบา ๆ แบบคู่</div>
+          </div>
+          <div class="mode-hint">เหมาะสำหรับเล่นสองคนและเข้าห้องแบบง่าย</div>
+          <div class="mode-status">
+            <span class="mini-chip" id="statusDuetRoom">กำลังตรวจสอบ...</span>
+            <span class="mini-chip info">พร้อมเล่น</span>
+          </div>
+          <button class="mode-button duet" id="btnDuet" type="button">เล่น Duet</button>
+        </article>
+
         <article class="mode-card race" id="cardRace">
           <div class="corner-chip recommend">⭐ แนะนำ</div>
           <div class="corner-chip recent">⏪ ล่าสุด</div>
@@ -937,7 +961,7 @@
           </div>
           <div class="mode-hint">เหมาะสำหรับ 1 ต่อ 1 และเล่น rematch ต่อได้</div>
           <div class="mode-status">
-            <span class="mini-chip" id="statusBattleWarm">แชร์ warmup กับ flow เดียวกัน</span>
+            <span class="mini-chip" id="statusBattleRoom">กำลังตรวจสอบ...</span>
             <span class="mini-chip info">พร้อมเล่น</span>
           </div>
           <button class="mode-button battle" id="btnBattle" type="button">เล่น Battle</button>
@@ -1010,7 +1034,7 @@
           <label for="view">มุมมอง</label>
           <select id="view">
             <option value="mobile" selected>mobile</option>
-            <option value="desktop">desktop</option>
+            <option value="pc">pc</option>
             <option value="cvr">cvr</option>
           </select>
         </div>
@@ -1060,6 +1084,7 @@
 
       const MODE_LABELS = {
         solo: 'Solo Boss',
+        duet: 'Duet',
         race: 'Race',
         battle: 'Battle',
         coop: 'Co-op'
@@ -1067,6 +1092,7 @@
 
       const CARD_IDS = {
         solo: 'cardSolo',
+        duet: 'cardDuet',
         race: 'cardRace',
         battle: 'cardBattle',
         coop: 'cardCoop'
@@ -1122,16 +1148,14 @@
       function getCommonParams(){
         return {
           pid: clean($('pid')?.value, 'anon'),
-          nick: clean($('nick')?.value, 'Player'),
+          nick: clean($('nick')?.value, qs('name', 'Player')),
           diff: clean($('diff')?.value, 'normal'),
           time: clean($('time')?.value, '80'),
           view: clean($('view')?.value, 'mobile'),
           hubRoot: clean($('hub')?.value, './hub.html'),
           sbUrl: clean($('sbUrl')?.value, qs('sbUrl','')),
           sbAnon: clean($('sbAnon')?.value, qs('sbAnon','')),
-
           room: clean($('room')?.value, 'GJ-ROOM1'),
-
           studyId: clean(qs('studyId','')),
           conditionGroup: clean(qs('conditionGroup','')),
           log: clean(qs('log','')),
@@ -1197,14 +1221,10 @@
         });
       }
 
-      function buildModeRunUrl(mode, p){
-        if (mode === 'solo') {
-          return buildSoloBossUrl(p, { wgskip: '1' });
-        }
-
-        return buildUrl('./vr-goodjunk/goodjunk-vr.html', {
+      function buildMultiLobbyUrl(mode, p){
+        return buildUrl('./vr-goodjunk/goodjunk-multi.html', {
           mode,
-          room: mode === 'solo' ? undefined : p.room,
+          room: p.room,
           pid: p.pid,
           nick: p.nick,
           diff: p.diff,
@@ -1223,8 +1243,35 @@
           research: p.research,
           seed: p.seed,
           run: p.run,
+          game: 'goodjunk',
+          gameId: 'goodjunk',
+          zone: 'nutrition',
+          cat: 'nutrition',
+          theme: 'goodjunk',
           debug: p.debug
         });
+      }
+
+      function buildModeRunUrl(mode, p){
+        switch (String(mode || '').toLowerCase()) {
+          case 'solo':
+            return buildSoloBossUrl(p, { wgskip: '1' });
+
+          case 'duet':
+            return buildMultiLobbyUrl('duet', p);
+
+          case 'race':
+            return buildMultiLobbyUrl('race', p);
+
+          case 'battle':
+            return buildMultiLobbyUrl('battle', p);
+
+          case 'coop':
+            return buildMultiLobbyUrl('coop', p);
+
+          default:
+            return buildSoloBossUrl(p, { wgskip: '1' });
+        }
       }
 
       function buildWarmupUrl(nextRun, p, mode='solo'){
@@ -1245,17 +1292,14 @@
           view: p.view,
           run: p.run,
           seed: p.seed || String(Date.now()),
-
           hub: buildLauncherSelfUrl(p),
           hubRoot: p.hubRoot,
           launcher: buildLauncherSelfUrl(p),
-
           next: nextRun,
           room: mode === 'solo' ? '' : p.room,
           entry: mode === 'solo' ? 'solo-boss' : '',
           phaseBoss: mode === 'solo' ? '1' : '',
           boss: mode === 'solo' ? '1' : '',
-
           conditionGroup: p.conditionGroup,
           log: p.log,
           ai: p.ai,
@@ -1303,7 +1347,7 @@
       }
 
       function resetCardFlags(){
-        ['cardStart','cardSolo','cardRace','cardBattle','cardCoop'].forEach(id => {
+        ['cardStart','cardSolo','cardDuet','cardRace','cardBattle','cardCoop'].forEach(id => {
           const el = $(id);
           if (!el) return;
           el.classList.remove('recommended', 'recent');
@@ -1349,14 +1393,13 @@
         const text = done ? 'วอร์มอัปแล้ว' : 'ต้องวอร์มก่อน';
         const tone = done ? 'good' : 'warn';
         setChip('statusSoloWarm', text, tone);
-        setChip('statusBattleWarm', 'ใช้ flow เดียวกัน', 'info');
       }
 
       function renderLastMode(){
         const pid = clean($('pid')?.value, 'anon');
         const lastMode = loadLastMode(pid);
 
-        ['solo','race','battle','coop'].forEach(mode => setCardState(mode, { recent:false }));
+        ['solo','duet','race','battle','coop'].forEach(mode => setCardState(mode, { recent:false }));
 
         if(!lastMode){
           $('lastModeText').textContent = 'ยังไม่มี';
@@ -1379,12 +1422,16 @@
         if(usingDefaultRoom){
           $('roomStatusText').textContent = 'Room ปกติ';
           $('roomStatusSub').textContent = 'เหมาะกับ Solo Boss';
+          setChip('statusDuetRoom', 'ยังไม่ได้ตั้ง room', 'warn');
           setChip('statusRaceRoom', 'ยังไม่ได้ตั้ง room', 'warn');
+          setChip('statusBattleRoom', 'ยังไม่ได้ตั้ง room', 'warn');
           setChip('statusCoopRoom', 'ยังไม่ได้ตั้ง room', 'warn');
         }else{
           $('roomStatusText').textContent = room;
-          $('roomStatusSub').textContent = 'มี room แล้ว • เหมาะกับ Race / Team';
+          $('roomStatusSub').textContent = 'มี room แล้ว • เหมาะกับ Duet / Race / Battle / Team';
+          setChip('statusDuetRoom', `room: ${room}`, 'good');
           setChip('statusRaceRoom', `room: ${room}`, 'good');
+          setChip('statusBattleRoom', `room: ${room}`, 'good');
           setChip('statusCoopRoom', `room: ${room}`, 'good');
         }
       }
@@ -1453,6 +1500,7 @@
         };
 
         $('btnSolo').onclick = ()=> goWithDailyWarmup('solo');
+        $('btnDuet').onclick = ()=> goWithDailyWarmup('duet');
         $('btnRace').onclick = ()=> goWithDailyWarmup('race');
         $('btnBattle').onclick = ()=> goWithDailyWarmup('battle');
         $('btnCoop').onclick = ()=> goWithDailyWarmup('coop');
@@ -1471,13 +1519,7 @@
 
         $('btnMultiLobby').onclick = ()=>{
           const p = getCommonParams();
-          location.href = buildUrl('./vr-goodjunk/goodjunk-multi.html', {
-            room: p.room,
-            nick: p.nick,
-            sbUrl: p.sbUrl,
-            sbAnon: p.sbAnon,
-            hub: p.hubRoot
-          });
+          location.href = buildMultiLobbyUrl('race', p);
         };
 
         ['room','diff','time','view','pid'].forEach(id=>{
