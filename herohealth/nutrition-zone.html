@@ -1,379 +1,721 @@
-const qs = new URLSearchParams(location.search);
-
-const GAME_META = {
-  plate: {
-    key: 'plate',
-    title: 'Plate',
-    sub: 'ฝึกเลือกอาหารครบ 5 หมู่แบบเข้าใจง่าย',
-    tags: ['เริ่มง่าย', 'ครบ 5 หมู่', 'เลือกโหมดได้'],
-    path: './plate-launcher.html'
-  },
-  goodjunk: {
-    key: 'goodjunk',
-    title: 'GoodJunk',
-    sub: 'แยกอาหารดีและอาหารที่ควรลดให้ทัน',
-    tags: ['ท้าทาย', 'เร็ว', 'หลายโหมด'],
-    path: './goodjunk-launcher.html'
-  },
-  groups: {
-    key: 'groups',
-    title: 'Groups',
-    sub: 'จัดหมวดอาหารให้ถูกต้อง',
-    tags: ['ฝึกจำ', 'จัดหมวด', 'เรียนรู้'],
-    path: './group-v1.html'
-  },
-  hydration: {
-    key: 'hydration',
-    title: 'Hydration',
-    sub: 'เรียนรู้เรื่องการดื่มน้ำและดูแลร่างกาย',
-    tags: ['เล่นสั้น', 'สุขภาพ', 'น้ำดื่ม'],
-    path: './hydration-vr.html'
-  }
-};
-
-const STORAGE = {
-  recent: 'HHA_NUTRITION_RECENT',
-  played: 'HHA_NUTRITION_PLAYED',
-  daily: 'HHA_NUTRITION_DAILY'
-};
-
-const $ = (sel, root = document) => root.querySelector(sel);
-const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-
-function first(...vals){
-  for (const v of vals){
-    if (String(v || '').trim()) return String(v).trim();
-  }
-  return '';
-}
-
-function cleanEnum(v, allow, fallback){
-  v = String(v || '').trim().toLowerCase();
-  return allow.includes(v) ? v : fallback;
-}
-
-function numIn(v, fallback, min, max){
-  const n = Number(v);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, n));
-}
-
-function readJson(key, fallback = null){
-  try{
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  }catch(_){
-    return fallback;
-  }
-}
-
-function writeJson(key, value){
-  try{
-    localStorage.setItem(key, JSON.stringify(value));
-  }catch(_){}
-}
-
-const ctx = {
-  pid: first(qs.get('pid'), localStorage.getItem('HH_PID'), 'anon'),
-  name: first(qs.get('name'), qs.get('nickName'), localStorage.getItem('HH_NAME'), 'Hero'),
-  run: cleanEnum(first(qs.get('run'), 'play'), ['play', 'learn'], 'play'),
-  diff: cleanEnum(first(qs.get('diff'), 'normal'), ['easy', 'normal', 'hard'], 'normal'),
-  time: String(numIn(first(qs.get('time'), 90), 90, 60, 120)),
-  view: cleanEnum(first(qs.get('view'), 'mobile'), ['mobile', 'pc', 'cvr'], 'mobile'),
-  hub: first(qs.get('hub'), './hub-v2.html'),
-  studyId: first(qs.get('studyId'), ''),
-  seed: first(qs.get('seed'), String(Date.now()))
-};
-
-localStorage.setItem('HH_PID', ctx.pid);
-localStorage.setItem('HH_NAME', ctx.name);
-
-function todayKey(){
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-function passCommon(url){
-  const passthrough = [
-    'pid','name','nickName','studyId','diff','time','seed','hub','view','run',
-    'debug','api','log','studentKey','schoolCode','classRoom','studentNo',
-    'conditionGroup','sessionNo','weekNo','teacher','grade'
-  ];
-
-  passthrough.forEach((k) => {
-    const v = qs.get(k);
-    if (v != null && v !== '') url.searchParams.set(k, v);
-  });
-
-  if (!url.searchParams.get('pid')) url.searchParams.set('pid', ctx.pid);
-  if (!url.searchParams.get('name')) url.searchParams.set('name', ctx.name);
-  if (!url.searchParams.get('run')) url.searchParams.set('run', ctx.run);
-  if (!url.searchParams.get('diff')) url.searchParams.set('diff', ctx.diff);
-  if (!url.searchParams.get('time')) url.searchParams.set('time', ctx.time);
-  if (!url.searchParams.get('view')) url.searchParams.set('view', ctx.view);
-  if (!url.searchParams.get('hub')) url.searchParams.set('hub', ctx.hub);
-  if (!url.searchParams.get('seed')) url.searchParams.set('seed', ctx.seed);
-  if (!url.searchParams.get('studyId') && ctx.studyId) url.searchParams.set('studyId', ctx.studyId);
-
-  url.searchParams.set('zone', 'nutrition');
-  url.searchParams.set('cat', 'nutrition');
-  return url;
-}
-
-function buildGameUrl(key){
-  const game = GAME_META[key];
-  if (!game) return '#';
-
-  const u = new URL(game.path, location.href);
-  passCommon(u);
-
-  u.searchParams.set('game', key);
-  u.searchParams.set('gameId', key);
-  u.searchParams.set('theme', key);
-
-  if (key === 'goodjunk') {
-    u.searchParams.set('recommendedMode', 'solo-boss');
-  }
-
-  return u.toString();
-}
-
-function rememberGame(key){
-  const game = GAME_META[key];
-  if (!game) return;
-
-  writeJson(STORAGE.recent, {
-    key,
-    title: game.title,
-    at: Date.now()
-  });
-
-  const played = readJson(STORAGE.played, []);
-  if (Array.isArray(played) && !played.includes(key)) {
-    played.push(key);
-    writeJson(STORAGE.played, played);
-  }
-
-  const all = readJson(STORAGE.daily, {});
-  const day = todayKey();
-  const row = all[day] || { count: 0, lastKey: '' };
-  row.count += 1;
-  row.lastKey = key;
-  all[day] = row;
-  writeJson(STORAGE.daily, all);
-}
-
-function findRecentKey(){
-  const recent = readJson(STORAGE.recent, null);
-  if (recent?.key && GAME_META[recent.key]) return recent.key;
-
-  const summary = readJson('HHA_LAST_SUMMARY', null) || readJson('HHA_LAST_SUMMARY_GLOBAL', null);
-  const txt = JSON.stringify(summary || {}).toLowerCase();
-
-  if (txt.includes('goodjunk')) return 'goodjunk';
-  if (txt.includes('plate')) return 'plate';
-  if (txt.includes('group')) return 'groups';
-  if (txt.includes('hydration') || txt.includes('water')) return 'hydration';
-
-  return '';
-}
-
-function pickFeaturedKey(){
-  const played = readJson(STORAGE.played, []);
-  const order = ['plate', 'goodjunk', 'groups', 'hydration'];
-  return order.find(k => !played.includes(k)) || 'plate';
-}
-
-function renderHeader(){
-  const hubBtn = $('#hubBtn');
-  const playerPill = $('#playerPill');
-  const modePill = $('#modePill');
-  const modeSelect = $('#modeSelect');
-  const timeSelect = $('#timeSelect');
-
-  if (hubBtn) hubBtn.href = ctx.hub;
-  if (playerPill) playerPill.textContent = `👤 ฮีโร่: ${ctx.name}`;
-  if (modePill) modePill.textContent = `🎮 ตอนนี้: ${ctx.run === 'learn' ? 'ฝึกเรียนรู้' : 'เล่นสนุก'}`;
-
-  if (modeSelect) {
-    modeSelect.value = ctx.run;
-    if (!modeSelect.__bound) {
-      modeSelect.__bound = true;
-      modeSelect.addEventListener('change', () => {
-        ctx.run = cleanEnum(modeSelect.value, ['play', 'learn'], 'play');
-        if (modePill) {
-          modePill.textContent = `🎮 ตอนนี้: ${ctx.run === 'learn' ? 'ฝึกเรียนรู้' : 'เล่นสนุก'}`;
-        }
-        patchAllLinks();
-      });
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Nutrition Zone</title>
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --bg1:#f3fff1;
+      --bg2:#fffdf2;
+      --card:#ffffff;
+      --line:#dcefc9;
+      --text:#4d4a42;
+      --muted:#6e685f;
+      --green:#7ed957;
+      --green2:#58c33f;
+      --yellow:#ffd45c;
+      --blue:#7fcfff;
+      --shadow:0 14px 28px rgba(86,155,194,.10);
+      --shadow-soft:0 10px 20px rgba(86,155,194,.08);
     }
-  }
 
-  if (timeSelect) {
-    timeSelect.value = ['60','90','120'].includes(ctx.time) ? ctx.time : '90';
-    if (!timeSelect.__bound) {
-      timeSelect.__bound = true;
-      timeSelect.addEventListener('change', () => {
-        ctx.time = String(numIn(timeSelect.value, 90, 60, 120));
-        patchAllLinks();
-      });
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      padding:0;
+      min-height:100%;
+      font-family:ui-rounded,"Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top right, rgba(255,221,119,.22), transparent 28%),
+        radial-gradient(circle at top left, rgba(126,217,87,.18), transparent 24%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
     }
-  }
-}
 
-function renderFeatured(){
-  const key = pickFeaturedKey();
-  const game = GAME_META[key];
-  if (!game) return;
-
-  const title = $('#featuredTitle');
-  const sub = $('#featuredSub');
-  const tags = $('#featuredTags');
-  const btn = $('#featuredPlayBtn');
-
-  if (title) title.textContent = game.title;
-  if (sub) sub.textContent = game.sub;
-  if (tags) {
-    tags.innerHTML = game.tags.map(tag => `<span class="tag">${tag}</span>`).join('');
-  }
-
-  if (btn) {
-    btn.href = buildGameUrl(key);
-    btn.textContent = key === 'plate' ? '▶️ เริ่มเกมแนะนำ' : `▶️ เล่น ${game.title}`;
-
-    if (!btn.__bound) {
-      btn.__bound = true;
-      btn.addEventListener('click', () => rememberGame(key));
+    .shell{
+      width:min(1180px, calc(100% - 20px));
+      margin:0 auto;
+      padding:16px 0 28px;
     }
-  }
-}
 
-function renderRecent(){
-  const recentKey = findRecentKey();
-  const recentArea = $('#recentArea');
-  const recentName = $('#recentName');
+    .card{
+      background:linear-gradient(180deg,#fffef8,#ffffff);
+      border:3px solid var(--line);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+    }
 
-  if (!recentArea) return;
+    .topbar{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:16px;
+      align-items:start;
+      margin-bottom:16px;
+    }
 
-  if (!recentKey || !GAME_META[recentKey]) {
-    recentArea.innerHTML = '<div class="empty">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>';
-    if (recentName) recentName.textContent = '-';
-    return;
-  }
+    .brand-badge{
+      display:inline-flex;
+      min-height:30px;
+      align-items:center;
+      justify-content:center;
+      padding:6px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#6ca538;
+      font-size:12px;
+      font-weight:1000;
+      width:max-content;
+    }
 
-  const game = GAME_META[recentKey];
-  if (recentName) recentName.textContent = game.title;
+    h1{
+      margin:8px 0 6px;
+      font-size:clamp(30px, 5vw, 42px);
+      line-height:1.05;
+    }
 
-  recentArea.innerHTML = `
-    <div class="recent-card">
-      <div class="recent-head">
-        <div>
-          <div class="recent-title">${game.title}</div>
-          <div class="recent-sub">${game.sub}</div>
+    .sub{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      min-height:44px;
+      padding:10px 16px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:16px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#5d6f7a;
+      text-decoration:none;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      border-color:var(--green2);
+      color:#173b0b;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:16px;
+      margin-bottom:16px;
+    }
+
+    .hero-left,.hero-right{
+      min-width:0;
+    }
+
+    .mascot-card{
+      padding:16px;
+      display:grid;
+      grid-template-columns:92px 1fr;
+      gap:14px;
+      align-items:center;
+    }
+
+    .mascot{
+      width:92px;
+      height:92px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      font-size:44px;
+      background:linear-gradient(180deg,#efffe3,#fff4cb);
+      border:3px solid var(--line);
+    }
+
+    .kicker{
+      font-size:12px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:#6ca538;
+      font-weight:1000;
+    }
+
+    .coach{
+      margin-top:4px;
+      font-size:16px;
+      line-height:1.55;
+      color:#5f5a52;
+      font-weight:1000;
+    }
+
+    .pill-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .pill{
+      min-height:38px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#60717b;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .control-card{
+      padding:16px;
+      display:grid;
+      gap:12px;
+      height:100%;
+    }
+
+    .control-title{
+      font-size:20px;
+      font-weight:1000;
+    }
+
+    .field{
+      display:grid;
+      gap:8px;
+    }
+
+    .field > span{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    select{
+      min-height:46px;
+      border-radius:16px;
+      border:2px solid var(--line);
+      background:#fff;
+      padding:10px 12px;
+      color:var(--text);
+      font-weight:900;
+    }
+
+    .filter-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .filter-chip{
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#586874;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .filter-chip.active{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      border-color:var(--green2);
+      color:#173b0b;
+    }
+
+    .featured{
+      margin-bottom:16px;
+      padding:18px;
+      display:grid;
+      grid-template-columns:1.35fr auto;
+      gap:16px;
+      align-items:center;
+    }
+
+    .featured-title{
+      margin:6px 0 4px;
+      font-size:32px;
+      line-height:1.05;
+      font-weight:1000;
+    }
+
+    .featured-sub{
+      margin:0;
+      font-size:15px;
+      line-height:1.65;
+      color:#6b675f;
+      font-weight:900;
+    }
+
+    .tag-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
+    }
+
+    .tag{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 10px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:#61717b;
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .section{
+      margin-bottom:16px;
+      padding:18px;
+    }
+
+    .section-title{
+      margin:4px 0 0;
+      font-size:26px;
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .recent-area{
+      margin-top:12px;
+      display:grid;
+      gap:12px;
+    }
+
+    .empty{
+      padding:16px;
+      border-radius:20px;
+      background:#fff;
+      border:2px dashed var(--line);
+      color:#716c64;
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .recent-card{
+      padding:14px;
+      border-radius:20px;
+      border:2px solid var(--line);
+      background:#fff;
+      display:grid;
+      gap:10px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .recent-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .recent-title{
+      font-size:22px;
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .recent-sub{
+      font-size:13px;
+      line-height:1.55;
+      color:#6b675f;
+      font-weight:900;
+    }
+
+    .badge{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#eefbe8;
+      border:2px solid var(--line);
+      color:#4c7b1f;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .game-card{
+      display:grid;
+      gap:12px;
+      padding:16px;
+      border-radius:24px;
+      border:3px solid var(--line);
+      background:linear-gradient(180deg,#fffef8,#ffffff);
+      box-shadow:var(--shadow);
+    }
+
+    .game-top{
+      display:grid;
+      grid-template-columns:72px 1fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    .game-icon{
+      width:72px;
+      height:72px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      background:#f8fff2;
+      border:2px solid var(--line);
+    }
+
+    .game-kicker{
+      font-size:12px;
+      color:#6ca538;
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+
+    .game-title{
+      margin:4px 0;
+      font-size:24px;
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .game-sub{
+      margin:0;
+      font-size:14px;
+      line-height:1.5;
+      color:#5f5b54;
+      font-weight:900;
+    }
+
+    .game-desc{
+      margin:0;
+      font-size:13px;
+      line-height:1.6;
+      color:#716c64;
+      font-weight:900;
+    }
+
+    .game-actions{
+      display:flex;
+      justify-content:flex-start;
+    }
+
+    .progress-grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .progress-pill{
+      padding:14px;
+      border-radius:20px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .progress-n{
+      font-size:24px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .progress-t{
+      margin-top:6px;
+      font-size:13px;
+      color:#7b7a72;
+      font-weight:1000;
+    }
+
+    .hidden{
+      display:none !important;
+    }
+
+    @media (max-width:980px){
+      .hero,
+      .featured{
+        grid-template-columns:1fr;
+      }
+
+      .grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:680px){
+      .shell{
+        width:min(100% - 16px, 100%);
+      }
+
+      .topbar{
+        grid-template-columns:1fr;
+      }
+
+      .actions{
+        justify-content:flex-start;
+      }
+
+      .mascot-card{
+        grid-template-columns:70px 1fr;
+      }
+
+      .mascot{
+        width:70px;
+        height:70px;
+        font-size:34px;
+      }
+
+      .section-title{
+        font-size:22px;
+      }
+
+      .game-top{
+        grid-template-columns:60px 1fr;
+      }
+
+      .game-icon{
+        width:60px;
+        height:60px;
+        font-size:28px;
+      }
+
+      .game-title{
+        font-size:22px;
+      }
+
+      .progress-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div>
+        <div class="brand-badge">HeroHealth</div>
+        <h1>Nutrition Zone</h1>
+        <p class="sub">โลกแห่งอาหารดี เลือกเกมที่อยากเล่น แล้วเรียนรู้เรื่องโภชนาการอย่างสนุก</p>
+      </div>
+
+      <div class="actions">
+        <a id="hubBtn" class="btn" href="./hub-v2.html">กลับ HUB</a>
+        <button id="continueBtn" class="btn primary" type="button">เล่นต่อ</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="hero-left">
+        <div class="card mascot-card">
+          <div class="mascot">🥗</div>
+          <div>
+            <div class="kicker">พร้อมเล่น!</div>
+            <div id="coachLine" class="coach">ลองเริ่มจาก Plate ก่อน แล้วค่อยไปเกมที่ท้าทายขึ้นนะ</div>
+          </div>
         </div>
-        <div class="badge">ล่าสุด</div>
+
+        <div class="pill-row">
+          <div class="pill">🥗 มี 4 เกมในโซน Nutrition</div>
+          <div id="playerPill" class="pill">👤 ฮีโร่: Hero</div>
+          <div id="modePill" class="pill">🎮 ตอนนี้: เล่นสนุก</div>
+        </div>
       </div>
 
-      <div class="tag-row">
-        ${game.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+      <div class="hero-right">
+        <div class="card control-card">
+          <div class="control-title">ตั้งค่าก่อนเล่น</div>
+
+          <label class="field">
+            <span>โหมด</span>
+            <select id="modeSelect">
+              <option value="play">เล่นสนุก</option>
+              <option value="learn">ฝึกเรียนรู้</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>เวลา</span>
+            <select id="timeSelect">
+              <option value="60">60 วินาที</option>
+              <option value="90" selected>90 วินาที</option>
+              <option value="120">120 วินาที</option>
+            </select>
+          </label>
+
+          <div class="field">
+            <span>เลือกแบบที่อยากเล่น</span>
+            <div id="filterRow" class="filter-row">
+              <button class="filter-chip active" type="button" data-filter="all">ทั้งหมด</button>
+              <button class="filter-chip" type="button" data-filter="easy">เริ่มง่าย</button>
+              <button class="filter-chip" type="button" data-filter="quick">เล่นสั้น</button>
+              <button class="filter-chip" type="button" data-filter="fun">สนุกท้าทาย</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card featured">
+      <div>
+        <div class="kicker">แนะนำวันนี้</div>
+        <div id="featuredTitle" class="featured-title">Plate</div>
+        <p id="featuredSub" class="featured-sub">ฝึกเลือกอาหารครบ 5 หมู่แบบเข้าใจง่าย เหมาะสำหรับเริ่มเล่นใน Nutrition Zone</p>
+        <div id="featuredTags" class="tag-row"></div>
       </div>
 
-      <div class="game-actions">
-        <a id="recentPlayBtn" class="btn primary" href="${buildGameUrl(recentKey)}">▶️ เล่นต่อ</a>
+      <div>
+        <a id="featuredPlayBtn" class="btn primary" href="#">▶️ เริ่มเกมแนะนำ</a>
       </div>
-    </div>
-  `;
+    </section>
 
-  const btn = $('#recentPlayBtn');
-  if (btn && !btn.__bound) {
-    btn.__bound = true;
-    btn.addEventListener('click', () => rememberGame(recentKey));
-  }
-}
+    <section class="card section">
+      <div class="kicker">Continue</div>
+      <h2 class="section-title">เกมล่าสุดของหนู</h2>
 
-function patchAllLinks(){
-  const map = {
-    plate: '#btnPlate',
-    goodjunk: '#btnGoodJunk',
-    groups: '#btnGroups',
-    hydration: '#btnHydration'
-  };
+      <div id="recentArea" class="recent-area">
+        <div class="empty">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>
+      </div>
+    </section>
 
-  Object.entries(map).forEach(([key, sel]) => {
-    const el = $(sel);
-    if (!el) return;
+    <section class="card section">
+      <div class="kicker">All Games</div>
+      <h2 class="section-title">เลือกเกมใน Nutrition Zone</h2>
 
-    el.href = buildGameUrl(key);
+      <div id="gamesGrid" class="grid">
+        <article class="game-card" data-game="plate" data-filters="all,easy">
+          <div class="game-top">
+            <div class="game-icon">🍽️</div>
+            <div>
+              <div class="game-kicker">เริ่มง่าย</div>
+              <div class="game-title">Plate</div>
+              <p class="game-sub">ฝึกเลือกอาหารครบ 5 หมู่แบบเข้าใจง่าย</p>
+            </div>
+          </div>
+          <p class="game-desc">เข้า launcher ของ Plate ก่อน แล้วค่อยเลือกโหมด Solo, Duet, Race, Battle หรือ Co-op</p>
+          <div class="tag-row">
+            <span class="tag">เริ่มง่าย</span>
+            <span class="tag">ครบ 5 หมู่</span>
+            <span class="tag">เลือกโหมดได้</span>
+          </div>
+          <div class="game-actions">
+            <a id="btnPlate" class="btn primary" href="#">เล่นเลย</a>
+          </div>
+        </article>
 
-    if (!el.__bound) {
-      el.__bound = true;
-      el.addEventListener('click', () => rememberGame(key));
-    }
-  });
+        <article class="game-card" data-game="goodjunk" data-filters="all,fun,quick">
+          <div class="game-top">
+            <div class="game-icon">🥦</div>
+            <div>
+              <div class="game-kicker">สนุกท้าทาย</div>
+              <div class="game-title">GoodJunk</div>
+              <p class="game-sub">แยกอาหารดีและอาหารที่ควรลดให้ทัน</p>
+            </div>
+          </div>
+          <p class="game-desc">เข้า launcher ของ GoodJunk เพื่อเลือก Solo, Duet, Race, Battle หรือ Co-op</p>
+          <div class="tag-row">
+            <span class="tag">ท้าทาย</span>
+            <span class="tag">เร็ว</span>
+            <span class="tag">หลายโหมด</span>
+          </div>
+          <div class="game-actions">
+            <a id="btnGoodJunk" class="btn primary" href="#">เล่นเลย</a>
+          </div>
+        </article>
 
-  renderFeatured();
-  renderRecent();
-}
+        <article class="game-card" data-game="groups" data-filters="all,easy">
+          <div class="game-top">
+            <div class="game-icon">🧺</div>
+            <div>
+              <div class="game-kicker">ฝึกจำ</div>
+              <div class="game-title">Groups</div>
+              <p class="game-sub">จัดหมวดอาหารให้ถูกต้อง</p>
+            </div>
+          </div>
+          <p class="game-desc">เข้าเกมหลักของ Groups ตาม path จริงของโปรเจกต์</p>
+          <div class="tag-row">
+            <span class="tag">ฝึกจำ</span>
+            <span class="tag">จัดหมวด</span>
+            <span class="tag">เรียนรู้</span>
+          </div>
+          <div class="game-actions">
+            <a id="btnGroups" class="btn primary" href="#">เล่นเลย</a>
+          </div>
+        </article>
 
-function bindFilters(){
-  const row = $('#filterRow');
-  if (!row || row.__bound) return;
-  row.__bound = true;
+        <article class="game-card" data-game="hydration" data-filters="all,quick">
+          <div class="game-top">
+            <div class="game-icon">💧</div>
+            <div>
+              <div class="game-kicker">เล่นสั้น</div>
+              <div class="game-title">Hydration</div>
+              <p class="game-sub">เรียนรู้เรื่องการดื่มน้ำและดูแลร่างกาย</p>
+            </div>
+          </div>
+          <p class="game-desc">เข้าเกม Hydration ตาม path จริงของโปรเจกต์</p>
+          <div class="tag-row">
+            <span class="tag">เล่นสั้น</span>
+            <span class="tag">สุขภาพ</span>
+            <span class="tag">น้ำดื่ม</span>
+          </div>
+          <div class="game-actions">
+            <a id="btnHydration" class="btn primary" href="#">เล่นเลย</a>
+          </div>
+        </article>
+      </div>
+    </section>
 
-  row.addEventListener('click', (ev) => {
-    const btn = ev.target.closest('.filter-chip');
-    if (!btn) return;
+    <section class="card section">
+      <div class="kicker">Progress</div>
+      <h2 class="section-title">ความคืบหน้า Nutrition Zone</h2>
 
-    $$('.filter-chip', row).forEach(chip => chip.classList.remove('active'));
-    btn.classList.add('active');
+      <div class="progress-grid">
+        <div class="progress-pill">
+          <div id="playedCount" class="progress-n">0/4</div>
+          <div class="progress-t">เกมที่เคยเล่น</div>
+        </div>
 
-    const filter = btn.dataset.filter || 'all';
+        <div class="progress-pill">
+          <div id="todayCount" class="progress-n">0</div>
+          <div class="progress-t">เกมวันนี้</div>
+        </div>
 
-    $$('#gamesGrid .game-card').forEach((card) => {
-      const filters = String(card.dataset.filters || 'all').split(',');
-      card.classList.toggle('hidden', !(filter === 'all' || filters.includes(filter)));
-    });
-  });
-}
+        <div class="progress-pill">
+          <div id="recentName" class="progress-n">-</div>
+          <div class="progress-t">ล่าสุด</div>
+        </div>
+      </div>
+    </section>
+  </div>
 
-function renderProgress(){
-  const played = readJson(STORAGE.played, []);
-  const all = readJson(STORAGE.daily, {});
-  const day = todayKey();
-  const count = Number(all[day]?.count || 0);
-  const recentKey = findRecentKey();
-
-  const playedCount = $('#playedCount');
-  const todayCount = $('#todayCount');
-  const recentName = $('#recentName');
-
-  if (playedCount) playedCount.textContent = `${Array.isArray(played) ? played.length : 0}/4`;
-  if (todayCount) todayCount.textContent = String(count);
-  if (recentName && !recentKey) recentName.textContent = '-';
-}
-
-function bindContinue(){
-  const btn = $('#continueBtn');
-  if (!btn || btn.__bound) return;
-  btn.__bound = true;
-
-  btn.addEventListener('click', () => {
-    const recentKey = findRecentKey() || pickFeaturedKey();
-    rememberGame(recentKey);
-    location.href = buildGameUrl(recentKey);
-  });
-}
-
-function boot(){
-  renderHeader();
-  bindFilters();
-  bindContinue();
-  patchAllLinks();
-  renderProgress();
-}
-
-document.addEventListener('DOMContentLoaded', boot);
-window.addEventListener('focus', () => {
-  patchAllLinks();
-  renderProgress();
-});
+  <script src="./nutrition-zone.js?v=20260408d"></script>
+</body>
+</html>
