@@ -3,7 +3,9 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.duet.js
  * GoodJunk Duet Run
- * FULL PATCH v20260407b-duet-run-runtime-dualmode-layoutfix
+ * FULL PATCH v20260407c-duet-run-runtime-dualmode-layoutfix
+ * - mobile HUD-aware bounds
+ * - target will not spawn / sink behind HUD
  * ========================================================= */
 (function(){
   const W = window;
@@ -382,6 +384,21 @@
     } catch (_) {}
   }
 
+  function getHudAvoidBottomPx(){
+    const hud = D.getElementById('duetHud');
+    if (!hud) return 0;
+
+    const mobile = W.innerWidth <= 760;
+    if (!mobile) return 0;
+
+    const stageRect = UI.stage.getBoundingClientRect();
+    const hudRect = hud.getBoundingClientRect();
+    if (!hudRect.width || !hudRect.height) return 0;
+
+    const overlap = Math.max(0, stageRect.bottom - hudRect.top);
+    return Math.ceil(overlap);
+  }
+
   function renderHud(){
     if (UI.roomPill) UI.roomPill.textContent = ctx.roomId ? `ห้อง ${ctx.roomId}` : 'Duet';
     if (UI.score) UI.score.textContent = String(Math.max(0, Math.round(G.score)));
@@ -724,11 +741,14 @@
   function playBounds(){
     const rect = stageRect();
     const inset = playInsets();
+    const hudAvoidBottom = getHudAvoidBottomPx();
 
     const left = inset.left;
     const top = inset.top;
     const right = Math.max(left + 150, rect.w - inset.right);
-    const bottom = Math.max(top + 220, rect.h - inset.bottom);
+
+    const rawBottom = rect.h - inset.bottom - Math.max(0, hudAvoidBottom);
+    const bottom = Math.max(top + 220, rawBottom);
 
     return {
       w: rect.w,
@@ -1873,6 +1893,10 @@ reason=${escapeHtml(summary.reason || '-')}</div>
         ev.preventDefault();
         tryCenterShoot();
       }
+    });
+
+    W.addEventListener('resize', () => {
+      renderHud();
     });
 
     W.addEventListener('beforeunload', () => {
