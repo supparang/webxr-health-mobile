@@ -13,7 +13,7 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
   let roomRef = null;
   let hb = 0;
   let joinedAt = Date.now();
-  let metaOff = null;
+  let metaHandler = null;
 
   await ensureFirebase();
 
@@ -33,7 +33,7 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
 
     await heartbeat();
 
-    metaOff = roomRef.child('meta').on('value', async (snap) => {
+    metaHandler = async (snap) => {
       const meta = snap.val() || {};
 
       if (ctx.isHost && meta.state === 'countdown') {
@@ -51,7 +51,9 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
       if (meta.state === 'aborted') {
         logger?.event?.('race_room_aborted', { patch, roomCode });
       }
-    });
+    };
+
+    roomRef.child('meta').on('value', metaHandler);
 
     hb = W.setInterval(() => {
       heartbeat().catch((err) => {
@@ -111,8 +113,9 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
       }
     } catch (_) {}
 
-    if (roomRef && metaOff) {
-      roomRef.child('meta').off('value', metaOff);
+    if (roomRef && metaHandler) {
+      roomRef.child('meta').off('value', metaHandler);
+      metaHandler = null;
     }
   }
 
