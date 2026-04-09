@@ -1,8 +1,8 @@
 // /herohealth/vr-groups/groups.log.js
-// Groups Solo Logger
-// PATCH v20260404-groups-log-r1
+// Groups Logger
+// PATCH v20260409-groups-log-raceaware-r1
 
-export const GROUPS_PATCH_LOG = 'v20260404-groups-log-r1';
+export const GROUPS_PATCH_LOG = 'v20260409-groups-log-raceaware-r1';
 
 const LOG_BUFFER_KEY = 'HHA_GROUPS_LAST_LOG';
 
@@ -29,6 +29,10 @@ export function createGroupsLogger(ctx, options = {}){
       view_mode: ctx.view || 'mobile',
       seed: ctx.seed || '',
       study_id: ctx.studyId || '',
+      roomCode: ctx.roomCode || '',
+      isHost: !!ctx.isHost,
+      hostUid: ctx.hostUid || '',
+      playerCount: Number(ctx.playerCount || 1),
       patch,
       event_type: type,
       ...live,
