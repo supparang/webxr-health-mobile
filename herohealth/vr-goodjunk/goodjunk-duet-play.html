@@ -377,7 +377,7 @@
       height:100%;
       width:0%;
       border-radius:999px;
-      background:linear-gradient(90deg,var(--blue),#b9ecff);
+      background:linear-gradient(90deg,#7fcfff,#b9ecff);
       transition:width .16s linear;
     }
 
@@ -522,9 +522,7 @@
     }
 
     @media (max-width:760px){
-      body{
-        overflow:hidden;
-      }
+      body{ overflow:hidden; }
 
       .page{
         padding:
@@ -535,21 +533,10 @@
         gap:8px;
       }
 
-      .topbar{
-        gap:8px;
-      }
-
-      .brand{
-        width:100%;
-      }
-
-      .top-actions{
-        width:100%;
-      }
-
-      .top-actions .btn{
-        flex:1 1 0;
-      }
+      .topbar{ gap:8px; }
+      .brand{ width:100%; }
+      .top-actions{ width:100%; }
+      .top-actions .btn{ flex:1 1 0; }
 
       .run-shell{
         position:relative;
