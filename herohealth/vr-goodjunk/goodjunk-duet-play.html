@@ -3,20 +3,821 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk • Duet Play</title>
+  <title>HeroHealth • GoodJunk Duet Run</title>
+  <meta name="color-scheme" content="light" />
+  <link rel="icon" href="../favicon.ico" />
+
+  <style>
+    :root{
+      --sky1:#dff4ff;
+      --sky2:#bfe8ff;
+      --sky3:#fff7d8;
+      --panel:#fffdf8ee;
+      --panel-2:#ffffffd9;
+      --stroke:#bfe3f2;
+      --text:#4d4a42;
+      --muted:#6b7280;
+
+      --pink:#ff8fc7;
+      --pink-2:#ffc5e3;
+      --blue:#7fcfff;
+      --green:#7ed957;
+
+      --shadow:0 18px 40px rgba(0,0,0,.12);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans",Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(127,207,255,.45), transparent 24%),
+        radial-gradient(circle at 88% 0%, rgba(255,143,199,.28), transparent 24%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 58%, var(--sky3));
+    }
+
+    body{ overflow:hidden; }
+
+    .page{
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      padding:
+        calc(10px + var(--sat))
+        calc(10px + var(--sar))
+        calc(10px + var(--sab))
+        calc(10px + var(--sal));
+      overflow:hidden;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      position:relative;
+      z-index:70;
+      flex:0 0 auto;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:var(--panel-2);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(8px);
+    }
+
+    .brand-title{
+      font-size:16px;
+      font-weight:1100;
+      line-height:1.1;
+    }
+
+    .brand-sub{
+      margin-top:2px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid var(--stroke);
+      background:#ffffffd8;
+      color:var(--text);
+      border-radius:14px;
+      min-height:42px;
+      padding:10px 12px;
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      box-shadow:var(--shadow);
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg,var(--pink),var(--pink-2));
+      color:#6b214e;
+    }
+
+    .btn.ghost{
+      color:var(--muted);
+      background:#ffffffcc;
+    }
+
+    .run-shell{
+      flex:1 1 auto;
+      min-height:0;
+      display:grid;
+      grid-template-columns:minmax(300px,360px) minmax(0,1fr);
+      gap:12px;
+      align-items:stretch;
+    }
+
+    .duet-hud{
+      min-width:0;
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:var(--shadow);
+      padding:14px;
+      display:grid;
+      gap:12px;
+      z-index:20;
+      min-height:0;
+      overflow:auto;
+    }
+
+    .duet-hud-toolbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+    }
+
+    .duet-hud-toggle{
+      min-width:40px;
+      min-height:40px;
+      border-radius:12px;
+      border:1px solid var(--stroke);
+      background:#ffffffd8;
+      color:var(--text);
+      font-size:18px;
+      font-weight:1000;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .coach-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:36px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid #ffd6ea;
+      background:#fff2f8;
+      color:#a33268;
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .duet-top{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .duet-pill{
+      display:inline-flex;
+      align-items:center;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:#ffffffcf;
+      color:var(--text);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .duet-score{
+      border-radius:20px;
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg,#fffafc,#fff);
+      padding:14px;
+      text-align:center;
+    }
+
+    .duet-score-label{
+      font-size:12px;
+      font-weight:1000;
+      color:var(--muted);
+      letter-spacing:.08em;
+    }
+
+    .duet-score-value{
+      margin-top:6px;
+      font-size:40px;
+      line-height:1;
+      font-weight:1100;
+      color:#7a2558;
+    }
+
+    .duet-stats{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .duet-stat,.duet-mini{
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:#ffffffcc;
+      padding:12px;
+      text-align:center;
+    }
+
+    .duet-stat-k,.duet-mini-k{
+      font-size:12px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+
+    .duet-stat-v{
+      margin-top:6px;
+      font-size:22px;
+      line-height:1;
+      font-weight:1100;
+      color:#244f6d;
+    }
+
+    .duet-panel{
+      border-radius:20px;
+      border:1px solid var(--stroke);
+      background:#ffffffc9;
+      padding:12px;
+      display:grid;
+      gap:12px;
+    }
+
+    .duet-item{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+
+    .duet-item-icon{
+      width:64px;
+      height:64px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:#fff;
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+    }
+
+    .emoji{
+      font-size:34px;
+      line-height:1;
+    }
+
+    .duet-item-title{
+      font-size:16px;
+      font-weight:1100;
+      color:#7a2558;
+    }
+
+    .duet-item-sub{
+      margin-top:4px;
+      font-size:13px;
+      line-height:1.6;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .duet-mini-stats{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .duet-mini-v{
+      margin-top:4px;
+      font-size:20px;
+      line-height:1;
+      font-weight:1100;
+      color:#1f5d73;
+    }
+
+    .duet-tip{
+      border-radius:16px;
+      border:1px dashed var(--stroke);
+      background:#fff9fc;
+      padding:10px 12px;
+      color:#7a2558;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:1000;
+      min-height:46px;
+    }
+
+    .duet-goal{
+      display:grid;
+      gap:8px;
+    }
+
+    .duet-goal-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+
+    .duet-goal-title{
+      font-size:12px;
+      font-weight:1100;
+      color:var(--muted);
+      letter-spacing:.08em;
+    }
+
+    .duet-goal-value{
+      font-size:18px;
+      line-height:1;
+      font-weight:1100;
+      color:#244f6d;
+    }
+
+    .duet-bar,.duet-bar-sub{
+      height:12px;
+      border-radius:999px;
+      background:rgba(191,227,242,.5);
+      overflow:hidden;
+    }
+
+    .duet-bar-fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--pink),var(--pink-2));
+      transition:width .16s linear;
+    }
+
+    .duet-bar-sub-fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#7fcfff,#b9ecff);
+      transition:width .16s linear;
+    }
+
+    .stage-wrap{
+      min-width:0;
+      min-height:0;
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:#ffffffba;
+      box-shadow:var(--shadow);
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      position:relative;
+    }
+
+    .stage-head{
+      padding:12px 14px;
+      border-bottom:1px solid var(--stroke);
+      color:#7a2558;
+      font-size:14px;
+      font-weight:1100;
+      letter-spacing:.05em;
+      background:#fff9fd;
+      flex:0 0 auto;
+    }
+
+    .stage-inner{
+      position:relative;
+      flex:1 1 auto;
+      min-height:0;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(255,255,255,.8), transparent 18%),
+        radial-gradient(circle at 80% 8%, rgba(255,255,255,.72), transparent 18%),
+        linear-gradient(180deg,#aee6ff 0%, #d9f5ff 54%, #fff5cf 100%);
+    }
+
+    #duetGameStage{
+      position:relative;
+      width:100%;
+      height:100%;
+      min-height:520px;
+      overflow:hidden;
+    }
+
+    .stage-cloud{
+      position:absolute;
+      background:#fff;
+      border-radius:999px;
+      box-shadow:0 8px 18px rgba(0,0,0,.06);
+      opacity:.8;
+      pointer-events:none;
+    }
+
+    .stage-cloud.c1{ width:130px;height:42px;left:4%;top:8%; }
+    .stage-cloud.c2{ width:95px;height:34px;left:72%;top:11%; }
+    .stage-cloud.c3{ width:110px;height:36px;left:38%;top:18%; }
+
+    .stage-ground{
+      position:absolute;
+      left:0; right:0; bottom:0;
+      height:96px;
+      background:
+        radial-gradient(circle at 20% 40%, rgba(126,217,87,.34), transparent 18%),
+        radial-gradient(circle at 72% 44%, rgba(126,217,87,.28), transparent 18%),
+        linear-gradient(180deg,#b3f28f,#88d96b);
+      border-top:1px solid rgba(88,195,63,.26);
+      pointer-events:none;
+    }
+
+    .countdown-overlay{
+      position:absolute;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background:rgba(255,255,255,.38);
+      backdrop-filter:blur(8px);
+      z-index:35;
+    }
+
+    .countdown-overlay.show{ display:flex; }
+
+    .countdown-card{
+      width:min(460px, calc(100% - 24px));
+      border-radius:28px;
+      border:1px solid var(--stroke);
+      background:#fffdf8f2;
+      box-shadow:0 22px 60px rgba(0,0,0,.18);
+      padding:20px;
+      text-align:center;
+      display:grid;
+      gap:12px;
+    }
+
+    .countdown-badge{
+      display:inline-flex;
+      margin:0 auto;
+      min-height:36px;
+      padding:6px 14px;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      border:1px solid #ffd6ea;
+      background:#fff2f8;
+      color:#a33268;
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .countdown-num{
+      font-size:84px;
+      line-height:1;
+      font-weight:1100;
+      color:#7a2558;
+      text-shadow:0 4px 0 #fff;
+    }
+
+    .countdown-text{
+      color:#6b7280;
+      font-size:15px;
+      line-height:1.6;
+      font-weight:1000;
+    }
+
+    .duet-result-mount{
+      position:fixed;
+      inset:0;
+      z-index:99999;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(245,252,255,.96);
+      overflow:auto;
+    }
+
+    @media (max-width:920px){
+      .run-shell{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:760px){
+      body{ overflow:hidden; }
+
+      .page{
+        padding:
+          calc(8px + var(--sat))
+          calc(8px + var(--sar))
+          calc(8px + var(--sab))
+          calc(8px + var(--sal));
+        gap:8px;
+      }
+
+      .topbar{ gap:8px; }
+      .brand{ width:100%; }
+      .top-actions{ width:100%; }
+      .top-actions .btn{ flex:1 1 0; }
+
+      .run-shell{
+        position:relative;
+        grid-template-columns:1fr;
+        gap:0;
+        min-height:0;
+      }
+
+      .stage-wrap{
+        order:1;
+        min-height:calc(100vh - 108px - var(--sat) - var(--sab));
+        border-radius:22px;
+      }
+
+      .stage-head{
+        padding:10px 12px;
+        font-size:13px;
+      }
+
+      #duetGameStage{
+        min-height:calc(100vh - 160px - var(--sat) - var(--sab));
+      }
+
+      .stage-ground{
+        height:80px;
+      }
+
+      .duet-hud{
+        order:2;
+        position:fixed;
+        left:8px;
+        right:8px;
+        bottom:calc(8px + var(--sab));
+        z-index:60;
+        overflow:hidden;
+        background:rgba(255,253,248,.94);
+        backdrop-filter:blur(10px);
+        border-radius:22px;
+        box-shadow:0 20px 44px rgba(0,0,0,.20);
+      }
+
+      .duet-hud.collapsed{
+        padding:10px 12px;
+        max-height:78px;
+      }
+
+      .duet-hud.collapsed .duet-top,
+      .duet-hud.collapsed .duet-score,
+      .duet-hud.collapsed .duet-stats,
+      .duet-hud.collapsed .duet-panel{
+        display:none;
+      }
+
+      .duet-score-value{
+        font-size:34px;
+      }
+
+      .duet-stats,
+      .duet-mini-stats{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+
+      .countdown-card{
+        width:min(360px, calc(100% - 18px));
+        padding:16px;
+      }
+
+      .countdown-num{
+        font-size:72px;
+      }
+
+      .duet-result-mount{
+        padding:10px;
+        align-items:flex-end;
+      }
+    }
+  </style>
 </head>
 <body>
-  <script type="module">
-    import { bootGoodJunkModePlay } from './goodjunk-mode-play-router.js?v=20260409a-GJ-MODE-PLAY-ROUTER-LOCK-MODE';
+  <div class="page">
+    <div class="topbar">
+      <div class="brand">
+        <div style="font-size:20px;">👯</div>
+        <div>
+          <div class="brand-title">GoodJunk • Duet Run</div>
+          <div class="brand-sub">ช่วยกันเก็บอาหารดี ทำคะแนนรวมของทีม</div>
+        </div>
+      </div>
 
-    bootGoodJunkModePlay({
-      mode: 'duet',
-      title: 'GoodJunk • Duet Play',
-      subtitle: 'กำลังเข้าโหมด duet แบบ lock mode ไม่ย้อนกลับ solo',
-      emoji: '🧑‍🤝‍🧑',
-      targetPath: './goodjunk-vr.html',
-      launcherPath: '../goodjunk-launcher.html'
-    });
+      <div class="top-actions">
+        <a class="btn ghost" id="btnBackLauncher" href="./goodjunk-multi.html">← Launcher</a>
+        <a class="btn primary" id="btnGoHub" href="../hub.html">🏠 Hub</a>
+      </div>
+    </div>
+
+    <div class="run-shell">
+      <div id="duetHud" class="duet-hud">
+        <div class="duet-hud-toolbar">
+          <div class="coach-badge" id="duetCoachBadge">🤖 AI Coach</div>
+          <button id="duetHudToggle" class="duet-hud-toggle" type="button">⋯</button>
+        </div>
+
+        <div class="duet-top">
+          <div class="duet-pill">DUET</div>
+          <div class="duet-pill" id="duetRoomPill">ห้อง -</div>
+        </div>
+
+        <div class="duet-score">
+          <div class="duet-score-label">SCORE</div>
+          <div class="duet-score-value" id="duetScoreValue">0</div>
+        </div>
+
+        <div class="duet-stats">
+          <div class="duet-stat">
+            <div class="duet-stat-k">เวลา</div>
+            <div class="duet-stat-v" id="duetTimeValue">0:00</div>
+          </div>
+          <div class="duet-stat">
+            <div class="duet-stat-k">Miss</div>
+            <div class="duet-stat-v" id="duetMissValue">0</div>
+          </div>
+          <div class="duet-stat">
+            <div class="duet-stat-k">Best Streak</div>
+            <div class="duet-stat-v" id="duetStreakValue">0</div>
+          </div>
+        </div>
+
+        <div class="duet-panel">
+          <div class="duet-item">
+            <div class="duet-item-icon" id="duetItemIcon">
+              <div class="emoji" id="duetItemEmoji">🍉</div>
+            </div>
+            <div>
+              <div class="duet-item-title" id="duetItemTitle">อาหารดี</div>
+              <div class="duet-item-sub" id="duetItemSub">เก็บอาหารดีให้ไวแล้วช่วยกันเร่งคะแนนรวม</div>
+            </div>
+          </div>
+
+          <div class="duet-mini-stats">
+            <div class="duet-mini">
+              <div class="duet-mini-k">Good hit</div>
+              <div class="duet-mini-v" id="duetGoodHitValue">0</div>
+            </div>
+            <div class="duet-mini">
+              <div class="duet-mini-k">Junk hit</div>
+              <div class="duet-mini-v" id="duetJunkHitValue">0</div>
+            </div>
+            <div class="duet-mini">
+              <div class="duet-mini-k">Good missed</div>
+              <div class="duet-mini-v" id="duetGoodMissValue">0</div>
+            </div>
+          </div>
+
+          <div class="duet-tip" id="duetTipText">รอเริ่มพร้อมกันทั้งคู่</div>
+
+          <div class="duet-goal">
+            <div class="duet-goal-head">
+              <div class="duet-goal-title">PAIR GOAL</div>
+              <div class="duet-goal-value" id="duetPairGoalValue">360</div>
+            </div>
+            <div class="duet-bar">
+              <div class="duet-bar-fill" id="duetPairGoalFill"></div>
+            </div>
+            <div class="duet-bar-sub">
+              <div class="duet-bar-sub-fill" id="duetPairGoalSubFill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section class="stage-wrap">
+        <div class="stage-head">DUET GAME STAGE</div>
+        <div class="stage-inner">
+          <div class="stage-cloud c1"></div>
+          <div class="stage-cloud c2"></div>
+          <div class="stage-cloud c3"></div>
+          <div class="stage-ground"></div>
+
+          <div id="duetGameStage"></div>
+
+          <div id="duetCountdownOverlay" class="countdown-overlay">
+            <div class="countdown-card">
+              <div class="countdown-badge">พร้อมกันทั้งคู่</div>
+              <div id="duetCountdownNum" class="countdown-num">3</div>
+              <div id="duetCountdownText" class="countdown-text">เตรียมตัวเก็บของดีให้ถึงเป้าหมายคู่</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="duetResultMount" class="duet-result-mount" hidden></div>
+
+  <script>
+    (function duetRunShellBoot(){
+      const qs = new URLSearchParams(location.search);
+      const hub = qs.get('hub') || '../hub.html';
+
+      const btnGoHub = document.getElementById('btnGoHub');
+      const btnBackLauncher = document.getElementById('btnBackLauncher');
+
+      if (btnGoHub) btnGoHub.href = hub;
+
+      if (btnBackLauncher) {
+        const u = new URL('./goodjunk-multi.html', location.href);
+        ['pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai','room','roomId','roomKind']
+          .forEach((k) => {
+            const v = qs.get(k);
+            if (v != null && v !== '') u.searchParams.set(k, v);
+          });
+        btnBackLauncher.href = u.toString();
+      }
+    })();
+  </script>
+
+  <script src="../hha-cloud-logger-bridge.js?v=20260409a"></script>
+  <script src="../hha-runtime-contract.js?v=20260409a"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+  <script src="../firebase-config.js?v=20260406-duet-engine"></script>
+  <script src="../herohealth-logger.js?v=20260406-duet-engine"></script>
+  <script src="../room-engine.js?v=20260409-duet-lastpingfix"></script>
+  <script src="./goodjunk-duet-play-bridge.js?v=20260407b-duet-progressfix"></script>
+  <script src="./goodjunk.safe.duet.js?v=20260407c-duet-layoutfix"></script>
+
+  <script>
+    (function(){
+      const hud = document.getElementById('duetHud');
+      const hudToggle = document.getElementById('duetHudToggle');
+      const resultMount = document.getElementById('duetResultMount');
+
+      function isMobileLike(){
+        return window.innerWidth <= 760;
+      }
+
+      function applyInitialHudState(force){
+        if (!hud) return;
+
+        if (isMobileLike()) {
+          if (force || !hud.dataset.userToggled) {
+            hud.classList.add('collapsed');
+          }
+        } else {
+          if (force || !hud.dataset.userToggled) {
+            hud.classList.remove('collapsed');
+          }
+        }
+      }
+
+      if (hudToggle && hud) {
+        hudToggle.addEventListener('click', () => {
+          hud.dataset.userToggled = '1';
+          hud.classList.toggle('collapsed');
+        });
+      }
+
+      window.addEventListener('resize', () => applyInitialHudState(false));
+      applyInitialHudState(true);
+
+      window.addEventListener('gj:summary', function(evt){
+        const detail = evt && evt.detail ? evt.detail : null;
+        if (!detail || !resultMount) return;
+        resultMount.hidden = false;
+      });
+
+      window.addEventListener('hha:summary', function(evt){
+        const detail = evt && evt.detail ? evt.detail : null;
+        if (!detail || !resultMount) return;
+        resultMount.hidden = false;
+      });
+
+      window.addEventListener('hha:session-summary', function(evt){
+        const detail = evt && evt.detail ? evt.detail : null;
+        if (!detail || !resultMount) return;
+        resultMount.hidden = false;
+      });
+    })();
   </script>
 </body>
 </html>
