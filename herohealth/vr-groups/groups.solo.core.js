@@ -1,6 +1,6 @@
 // /herohealth/vr-groups/groups.solo.core.js
 // Groups Solo Core Engine
-// PATCH v20260405-groups-solo-core-summaryscroll-r1
+// PATCH v20260409-groups-solo-core-racehooks-r1
 
 import {
   GROUPS_ITEMS,
@@ -16,11 +16,12 @@ import {
   renderGroupsSummary
 } from './groups.summary.js';
 
-export const GROUPS_PATCH_CORE = 'v20260405-groups-solo-core-summaryscroll-r1';
+export const GROUPS_PATCH_CORE = 'v20260409-groups-solo-core-racehooks-r1';
 
 const FEVER_MS = 6000;
 const PRACTICE_MS = 15000;
 const MAX_REACTION_SAMPLES = 24;
+const RACE_PROGRESS_MS = 900;
 
 export function createGroupsSoloCore({
   ctx,
@@ -37,6 +38,16 @@ export function createGroupsSoloCore({
   const patch = options.patch || GROUPS_PATCH_CORE;
   const onBack = typeof options.onBack === 'function' ? options.onBack : null;
   const onReplay = typeof options.onReplay === 'function' ? options.onReplay : null;
+
+  const mode = options.mode || ctx.mode || 'solo';
+  const isRace = !!(options.race || ctx.race || mode === 'race');
+
+  const optOnRaceProgress =
+    typeof options.onRaceProgress === 'function' ? options.onRaceProgress : null;
+  const optOnRaceFinish =
+    typeof options.onRaceFinish === 'function' ? options.onRaceFinish : null;
+  const optOnRaceExit =
+    typeof options.onRaceExit === 'function' ? options.onRaceExit : null;
 
   const rng = mulberry32(hashString(String(ctx.seed || Date.now())));
   const presetBase = getDiffPreset(ctx.diff || 'normal');
@@ -73,6 +84,9 @@ export function createGroupsSoloCore({
 
     reactionSamples: [],
     statsByCat: createBlankCategoryStats(),
+
+    lastRaceProgressAt: 0,
+    raceFinishSent: false,
 
     centerShootHintShown: false
   };
@@ -143,11 +157,19 @@ export function createGroupsSoloCore({
   function primeUi(){
     setText(ui.ctxLine, `run=${ctx.run} • diff=${ctx.diff} • time=${ctx.timeSec} • view=${ctx.view}`);
     setText(ui.chipPlayer, ctx.name || ctx.pid || 'anon');
-    setText(ui.phaseTag, 'Practice');
+
     setText(ui.goalTag, '🎯 เป้าหมายตอนนี้');
     setText(ui.goalTitle, 'แตะอาหารให้ถูกหมู่');
-    setText(ui.goalSub, 'ฝึกสั้นก่อน 15 วินาที แล้วค่อยเริ่มรอบจริง');
-    showCoach(getCoachLine('intro', rng) || 'โค้ช: พร้อมแล้วแตะปุ่มเริ่มได้เลย ✨');
+
+    if (isRace){
+      setText(ui.phaseTag, 'Race');
+      setText(ui.goalSub, 'แข่งกับเพื่อนในห้องเดียวกัน เก็บคะแนนให้มากและพลาดให้น้อยที่สุด');
+      showCoach('โค้ช: พร้อมแล้ว กดเริ่มแข่งได้เลย ⚡');
+    } else {
+      setText(ui.phaseTag, 'Practice');
+      setText(ui.goalSub, 'ฝึกสั้นก่อน 15 วินาที แล้วค่อยเริ่มรอบจริง');
+      showCoach(getCoachLine('intro', rng) || 'โค้ช: พร้อมแล้วแตะปุ่มเริ่มได้เลย ✨');
+    }
 
     decorateExitButtons();
 
@@ -228,6 +250,11 @@ export function createGroupsSoloCore({
   function startPractice(){
     if (state.destroyed) return;
 
+    if (isRace){
+      startMain();
+      return;
+    }
+
     stopLoop();
     setSummaryOpen(false);
     hardResetRun();
@@ -298,25 +325,34 @@ export function createGroupsSoloCore({
         })
       : { ...presetBase };
 
+    hideOverlay(ui.introOverlay);
     hideOverlay(ui.midOverlay);
     hideOverlay(ui.summaryOverlay);
 
-    setText(ui.phaseTag, 'Main Run');
-    showCoach(
-      ai?.coachTip?.({
-        wrong: state.wrong,
-        miss: state.miss,
-        streak: state.streak
-      }) || 'โค้ช: เริ่มรอบจริงแล้ว ลุยเลย! 🌟'
-    );
+    setText(ui.phaseTag, isRace ? 'Race' : 'Main Run');
+
+    if (isRace){
+      setText(ui.goalSub, `รอบแข่ง • แตะให้ถูกหมู่จำนวน ${state.goalNeed} ชิ้นต่อเป้าหมาย`);
+      showCoach('โค้ช: เริ่มแข่งแล้ว เก็บให้ไว แม่นให้สุด! 🚀');
+    } else {
+      showCoach(
+        ai?.coachTip?.({
+          wrong: state.wrong,
+          miss: state.miss,
+          streak: state.streak
+        }) || 'โค้ช: เริ่มรอบจริงแล้ว ลุยเลย! 🌟'
+      );
+    }
 
     updateGoalText();
     updateHud();
 
     log('main_start', {
-      aiRoundInfo: ai?.onRoundStart ? ai.onRoundStart({ ctx, state: snapshotState() }) : null
+      aiRoundInfo: ai?.onRoundStart ? ai.onRoundStart({ ctx, state: snapshotState() }) : null,
+      race: isRace
     });
 
+    emitRaceProgress(true);
     loop(0);
   }
 
@@ -635,7 +671,9 @@ export function createGroupsSoloCore({
     if (state.phase === 'practice'){
       setText(ui.goalSub, `รอบฝึก • แตะให้ถูกหมู่จำนวน ${state.goalNeed} ชิ้น`);
     } else if (state.phase === 'playing'){
-      setText(ui.goalSub, `รอบจริง • แตะให้ถูกหมู่จำนวน ${state.goalNeed} ชิ้นต่อเป้าหมาย`);
+      setText(ui.goalSub, isRace
+        ? `รอบแข่ง • แตะให้ถูกหมู่จำนวน ${state.goalNeed} ชิ้นต่อเป้าหมาย`
+        : `รอบจริง • แตะให้ถูกหมู่จำนวน ${state.goalNeed} ชิ้นต่อเป้าหมาย`);
     }
 
     renderer.setGoalProgress(state.goalDone, state.goalNeed);
@@ -655,6 +693,7 @@ export function createGroupsSoloCore({
     );
 
     updateGoalText();
+    emitRaceProgress(false);
   }
 
   function finishGame(){
@@ -680,6 +719,9 @@ export function createGroupsSoloCore({
     setSummaryOpen(true);
     showOverlay(ui.summaryOverlay);
     showCoach(summary.lead);
+
+    emitRaceProgress(true);
+    emitRaceFinish(summary);
 
     log('summary_view', { summary });
     log('session_end', { summary });
@@ -713,6 +755,8 @@ export function createGroupsSoloCore({
       : null;
 
     const exitUrl = resolveExitUrl(reason, summary);
+
+    emitRaceExit(reason, summary);
 
     log('return_hub_click', {
       reason,
@@ -842,6 +886,8 @@ export function createGroupsSoloCore({
 
     state.reactionSamples = [];
     state.statsByCat = createBlankCategoryStats();
+    state.lastRaceProgressAt = 0;
+    state.raceFinishSent = false;
     state.centerShootHintShown = false;
 
     preset = { ...presetBase };
@@ -952,6 +998,87 @@ export function createGroupsSoloCore({
       `renderer.items: ${dbgR.activeCount}`;
   }
 
+  function emitRaceProgress(force = false){
+    if (!isRace) return;
+
+    const nowTs = performance.now();
+    if (!force && (nowTs - state.lastRaceProgressAt) < RACE_PROGRESS_MS) return;
+    state.lastRaceProgressAt = nowTs;
+
+    const payload = {
+      updatedAt: Date.now(),
+      phase: state.phase,
+      score: Number(state.score || 0),
+      correct: Number(state.correct || 0),
+      wrong: Number(state.wrong || 0),
+      miss: Number(state.miss || 0),
+      bestStreak: Number(state.bestStreak || 0),
+      accuracy: Math.round(calcAccuracy()),
+      progress: calcRunProgress(),
+      goal: {
+        id: state.goalCat?.id || '',
+        done: Number(state.goalDone || 0),
+        need: Number(state.goalNeed || 0)
+      },
+      timeLeftMs: Math.max(0, Math.round(state.timeLeftMs || 0))
+    };
+
+    callRaceHook('progress', payload);
+  }
+
+  function emitRaceFinish(summary){
+    if (!isRace || state.raceFinishSent) return;
+    state.raceFinishSent = true;
+
+    callRaceHook('finish', {
+      updatedAt: Date.now(),
+      summary,
+      score: Number(summary?.score || state.score || 0),
+      miss: Number(summary?.miss || state.miss || 0),
+      bestStreak: Number(summary?.bestStreak || state.bestStreak || 0),
+      accuracy: Number(summary?.accuracy || Math.round(calcAccuracy()) || 0),
+      correct: Number(summary?.correct || state.correct || 0),
+      wrong: Number(summary?.wrong || state.wrong || 0)
+    });
+  }
+
+  function emitRaceExit(reason = 'manual_exit', summary = null){
+    if (!isRace) return;
+
+    callRaceHook('exit', {
+      updatedAt: Date.now(),
+      reason,
+      phase: state.phase,
+      summary,
+      score: Number(state.score || 0),
+      miss: Number(state.miss || 0),
+      bestStreak: Number(state.bestStreak || 0)
+    });
+  }
+
+  function callRaceHook(kind, payload){
+    let fn = null;
+
+    if (kind === 'progress') fn = api.onRaceProgress || optOnRaceProgress;
+    else if (kind === 'finish') fn = api.onRaceFinish || optOnRaceFinish;
+    else if (kind === 'exit') fn = api.onRaceExit || optOnRaceExit;
+
+    if (typeof fn !== 'function') return;
+
+    Promise.resolve(fn(payload)).catch((err) => {
+      log('race_hook_error', {
+        kind,
+        message: err?.message || String(err || 'unknown')
+      });
+    });
+  }
+
+  function calcRunProgress(){
+    const total = Math.max(1, Number(ctx.timeSec || 80) * 1000);
+    const done = Math.max(0, total - Number(state.timeLeftMs || 0));
+    return Math.max(0, Math.min(100, Math.round((done / total) * 100)));
+  }
+
   const api = {
     patch,
     boot,
@@ -961,7 +1088,11 @@ export function createGroupsSoloCore({
     finishGame,
     replay,
     goHub,
-    getState
+    getState,
+
+    onRaceProgress: null,
+    onRaceFinish: null,
+    onRaceExit: null
   };
 
   return api;
