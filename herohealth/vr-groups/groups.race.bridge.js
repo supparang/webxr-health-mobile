@@ -166,18 +166,47 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
     }
   }
 
-  async function ensureFirebase() {
-    if (W.HHA_FIREBASE && W.HHA_FIREBASE.db) {
-      db = W.HHA_FIREBASE.db;
-      auth = W.HHA_FIREBASE.auth || null;
-    } else if (W.HHA_FIREBASE_READY && typeof W.HHA_FIREBASE_READY.then === 'function') {
-      const ctxFb = await W.HHA_FIREBASE_READY;
-      db = ctxFb.db;
-      auth = ctxFb.auth || null;
-    } else if (W.firebase) {
-      db = firebase.database();
-      auth = firebase.auth();
+  async function waitForFirebaseCtx(timeoutMs = 12000) {
+    const start = Date.now();
+
+    while ((Date.now() - start) < timeoutMs) {
+      if (W.HHA_FIREBASE && W.HHA_FIREBASE.db) {
+        return {
+          db: W.HHA_FIREBASE.db,
+          auth: W.HHA_FIREBASE.auth || null
+        };
+      }
+
+      if (W.HHA_FIREBASE_READY && typeof W.HHA_FIREBASE_READY.then === 'function') {
+        try {
+          const ctxFb = await W.HHA_FIREBASE_READY;
+          if (ctxFb?.db) {
+            return {
+              db: ctxFb.db,
+              auth: ctxFb.auth || null
+            };
+          }
+        } catch (_) {}
+      }
+
+      if (W.firebase && typeof W.firebase.database === 'function') {
+        return {
+          db: W.firebase.database(),
+          auth: typeof W.firebase.auth === 'function' ? W.firebase.auth() : null
+        };
+      }
+
+      await new Promise((r) => setTimeout(r, 120));
     }
+
+    throw new Error('Firebase db unavailable');
+  }
+
+  async function ensureFirebase() {
+    const ctxFb = await waitForFirebaseCtx();
+
+    db = ctxFb?.db || null;
+    auth = ctxFb?.auth || null;
 
     if (!db) throw new Error('Firebase db unavailable');
     if (!auth) throw new Error('Firebase auth unavailable');
