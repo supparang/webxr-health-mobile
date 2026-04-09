@@ -21,9 +21,7 @@
       --pink:#ff8fc7;
       --pink-2:#ffc5e3;
       --blue:#7fcfff;
-      --blue-2:#58b7f5;
       --green:#7ed957;
-      --green-2:#58c33f;
 
       --shadow:0 18px 40px rgba(0,0,0,.12);
 
@@ -127,11 +125,6 @@
     .btn.primary{
       background:linear-gradient(180deg,var(--pink),var(--pink-2));
       color:#6b214e;
-    }
-
-    .btn.good{
-      background:linear-gradient(180deg,var(--green),#a7eb8f);
-      color:#134e1f;
     }
 
     .btn.ghost{
@@ -591,8 +584,7 @@
         right:8px;
         bottom:calc(8px + var(--sab));
         z-index:60;
-        max-height:44vh;
-        overflow:auto;
+        overflow:hidden;
         background:rgba(255,253,248,.94);
         backdrop-filter:blur(10px);
         border-radius:22px;
@@ -600,8 +592,15 @@
       }
 
       .duet-hud.collapsed{
-        max-height:74px;
-        overflow:hidden;
+        padding:10px 12px;
+        max-height:78px;
+      }
+
+      .duet-hud.collapsed .duet-top,
+      .duet-hud.collapsed .duet-score,
+      .duet-hud.collapsed .duet-stats,
+      .duet-hud.collapsed .duet-panel{
+        display:none;
       }
 
       .duet-score-value{
@@ -790,23 +789,29 @@
         return window.innerWidth <= 760;
       }
 
-      function applyInitialHudState(){
+      function applyInitialHudState(force){
         if (!hud) return;
+
         if (isMobileLike()) {
-          hud.classList.add('collapsed');
+          if (force || !hud.dataset.userToggled) {
+            hud.classList.add('collapsed');
+          }
         } else {
-          hud.classList.remove('collapsed');
+          if (force || !hud.dataset.userToggled) {
+            hud.classList.remove('collapsed');
+          }
         }
       }
 
       if (hudToggle && hud) {
         hudToggle.addEventListener('click', () => {
+          hud.dataset.userToggled = '1';
           hud.classList.toggle('collapsed');
         });
       }
 
-      window.addEventListener('resize', applyInitialHudState);
-      applyInitialHudState();
+      window.addEventListener('resize', () => applyInitialHudState(false));
+      applyInitialHudState(true);
 
       window.addEventListener('gj:summary', function(evt){
         const detail = evt && evt.detail ? evt.detail : null;
