@@ -1,8 +1,11 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"
+  />
   <title>HeroHealth • MaskCough VR</title>
 
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
@@ -10,59 +13,81 @@
 
   <style>
     :root{
-      --bg1:#09111f;
-      --bg2:#10213c;
-      --panel:rgba(9,17,31,.82);
-      --panel2:rgba(14,27,49,.92);
-      --line:rgba(255,255,255,.12);
-      --text:#eef6ff;
-      --muted:#b8cdea;
-      --pink:#ff5da8;
-      --cyan:#59e3ff;
-      --blue:#70a7ff;
-      --green:#76f4b1;
-      --yellow:#ffd95d;
-      --red:#ff6f79;
-      --orange:#ffa24d;
-      --shadow:0 10px 30px rgba(0,0,0,.35);
-      --radius:22px;
+      --sky:#cdefff;
+      --ink:#23324d;
+      --text:#f8fbff;
+      --muted:#dbeafe;
+      --panel:rgba(14,26,46,.84);
+      --panel2:rgba(8,16,30,.92);
+      --line:rgba(255,255,255,.14);
+
+      --pink:#f35ea9;
+      --blue:#5ecfff;
+      --blue2:#3d7dff;
+      --green:#6ee7b7;
+      --green2:#46c98d;
+      --yellow:#ffd860;
+      --orange:#ffac52;
+      --red:#ff7186;
+      --red2:#f64a68;
+
+      --shadow:0 14px 34px rgba(0,0,0,.24);
+      --radius:24px;
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       width:100%;
       height:100%;
       overflow:hidden;
-      background:linear-gradient(180deg,#09111f,#0d1830);
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
-      color:var(--text);
+      background:linear-gradient(180deg,#bfe9ff,#dff6ff);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
       touch-action:manipulation;
+      color:var(--text);
     }
 
-    #game-ui{
+    a{ color:inherit; text-decoration:none; }
+
+    #scene-wrap{
       position:fixed;
       inset:0;
-      pointer-events:none;
+      z-index:1;
+    }
+
+    #ui{
+      position:fixed;
+      inset:0;
       z-index:20;
+      pointer-events:none;
+    }
+
+    #danger-flash{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background:radial-gradient(circle, rgba(255,255,255,0) 34%, rgba(255,85,120,.28) 100%);
+      opacity:0;
+      transition:opacity .16s ease;
     }
 
     .top-wrap{
       position:absolute;
-      top:env(safe-area-inset-top, 10px);
+      top:max(8px, env(safe-area-inset-top));
       left:50%;
       transform:translateX(-50%);
-      width:min(960px, calc(100vw - 16px));
-      padding:10px 8px 0;
+      width:min(980px, calc(100vw - 12px));
+      padding:8px;
     }
 
     .hud{
-      background:linear-gradient(180deg, rgba(15,27,49,.92), rgba(10,20,36,.92));
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
       border:1px solid var(--line);
-      border-radius:24px;
+      border-radius:26px;
       box-shadow:var(--shadow);
-      backdrop-filter: blur(8px);
-      padding:12px 14px;
+      backdrop-filter: blur(10px);
+      padding:12px;
     }
 
     .hud-top{
@@ -78,64 +103,74 @@
       display:flex;
       align-items:center;
       gap:10px;
-      font-weight:800;
-      letter-spacing:.2px;
+      min-width:0;
     }
 
     .brand-badge{
-      width:38px;
-      height:38px;
+      width:40px;
+      height:40px;
       border-radius:50%;
-      background:
-        radial-gradient(circle at 35% 35%, #fff 0 12%, #aef8ff 13% 24%, #59e3ff 25% 55%, #2e6cff 56% 100%);
-      box-shadow:0 0 18px rgba(89,227,255,.5);
       flex:none;
+      background:
+        radial-gradient(circle at 35% 35%, #fff 0 12%, #aaf6ff 13% 25%, #70dfff 26% 56%, #5d81ff 57% 100%);
+      box-shadow:0 0 18px rgba(94,207,255,.5);
     }
 
-    .meta{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      flex-wrap:wrap;
+    .brand-title{
+      font-weight:1000;
+      line-height:1.08;
+      letter-spacing:.1px;
     }
 
-    .chip{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:7px 10px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.08);
+    .brand-sub{
       color:var(--muted);
-      font-size:.92rem;
+      font-size:.86rem;
+      margin-top:2px;
       font-weight:700;
     }
 
-    .grid-stats{
+    .chip-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+
+    .chip{
+      padding:7px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.1);
+      font-size:.9rem;
+      font-weight:900;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+
+    .stats{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
       gap:10px;
     }
 
-    .stat-card{
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:18px;
-      padding:10px 12px;
+    .stat{
       min-width:0;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.09);
+      border-radius:20px;
+      padding:10px 12px;
     }
 
-    .stat-label{
+    .stat .k{
       color:var(--muted);
       font-size:.82rem;
-      font-weight:700;
+      font-weight:800;
       margin-bottom:6px;
     }
 
-    .stat-value{
-      font-weight:900;
-      font-size:1.1rem;
+    .stat .v{
+      font-size:1.08rem;
+      font-weight:1000;
       line-height:1;
       margin-bottom:8px;
     }
@@ -153,32 +188,34 @@
       height:100%;
       width:0%;
       border-radius:999px;
-      transition:width .12s linear;
+      transition:width .1s linear;
     }
 
-    #risk-fill{ background:linear-gradient(90deg,#76f4b1,#ffd95d,#ff6f79); }
-    #shield-fill{ background:linear-gradient(90deg,#7bd9ff,#4ca4ff); width:100%; }
-    #burst-fill{ background:linear-gradient(90deg,#ffe36d,#ff9f40); }
+    #risk-fill{ background:linear-gradient(90deg,#7cf5c0,#ffd860,#ff7186); }
+    #shield-fill{ background:linear-gradient(90deg,#7fe4ff,#5293ff); width:100%; }
+    #burst-fill{ background:linear-gradient(90deg,#ffe27a,#ffa252); }
+    #combo-fill{ background:linear-gradient(90deg,#ff8cc9,#ffd860); }
 
-    #tip-banner{
+    #tip{
       position:absolute;
+      top:156px;
       left:50%;
-      top:160px;
       transform:translateX(-50%);
-      max-width:min(720px, calc(100vw - 24px));
-      background:rgba(255,255,255,.09);
-      border:1px solid rgba(255,255,255,.12);
-      color:#fff;
+      width:min(720px, calc(100vw - 20px));
       padding:12px 16px;
-      border-radius:16px;
-      font-weight:800;
+      border-radius:18px;
+      background:rgba(10,20,38,.82);
+      color:#fff;
+      font-weight:1000;
       text-align:center;
-      backdrop-filter: blur(10px);
+      border:1px solid rgba(255,255,255,.12);
       box-shadow:var(--shadow);
       opacity:0;
-      transition:opacity .2s ease, transform .2s ease;
+      transition:opacity .16s ease, transform .16s ease;
+      pointer-events:none;
     }
-    #tip-banner.show{
+
+    #tip.show{
       opacity:1;
       transform:translateX(-50%) translateY(0);
     }
@@ -186,139 +223,131 @@
     #combo-pop{
       position:absolute;
       top:110px;
-      right:16px;
-      min-width:120px;
-      text-align:center;
+      right:14px;
       padding:10px 14px;
       border-radius:18px;
-      background:linear-gradient(180deg, rgba(255,217,93,.95), rgba(255,173,73,.95));
-      color:#3b2202;
+      background:linear-gradient(180deg,#ffe482,#ffb34d);
+      color:#513000;
+      font-size:1.05rem;
       font-weight:1000;
-      font-size:1.2rem;
-      box-shadow:0 10px 24px rgba(255,173,73,.28);
-      transform:scale(.9);
+      box-shadow:0 10px 24px rgba(255,172,82,.26);
       opacity:0;
-      transition:transform .18s ease, opacity .18s ease;
+      transform:scale(.92);
+      transition:opacity .14s ease, transform .14s ease;
+      pointer-events:none;
     }
+
     #combo-pop.show{
       opacity:1;
       transform:scale(1);
     }
 
-    #danger-flash{
-      position:absolute;
-      inset:0;
-      background:radial-gradient(circle, rgba(255,255,255,0) 35%, rgba(255,111,121,.35) 100%);
-      opacity:0;
-      transition:opacity .2s ease;
-    }
-
-    .bottom-controls{
+    .bottom-ui{
       position:absolute;
       left:0;
       right:0;
-      bottom:max(14px, env(safe-area-inset-bottom, 10px));
+      bottom:max(10px, env(safe-area-inset-bottom));
       display:flex;
       justify-content:space-between;
       align-items:flex-end;
       gap:12px;
-      padding:0 14px;
+      padding:0 10px;
       pointer-events:none;
     }
 
-    .action-stack{
+    .bottom-left,.bottom-right{
       display:flex;
       gap:10px;
       pointer-events:auto;
     }
 
-    .action-btn{
+    .btn{
       pointer-events:auto;
-      min-width:108px;
-      min-height:64px;
       border:none;
-      border-radius:22px;
+      min-width:108px;
+      min-height:62px;
       padding:12px 16px;
-      color:#fff;
-      font-weight:900;
+      border-radius:22px;
       font-size:1rem;
+      font-weight:1000;
+      color:#fff;
+      cursor:pointer;
       box-shadow:var(--shadow);
       border:1px solid rgba(255,255,255,.16);
-      cursor:pointer;
       user-select:none;
       -webkit-user-select:none;
-      transition:transform .12s ease, filter .12s ease, opacity .12s ease;
-    }
-    .action-btn:active{ transform:scale(.97); }
-    .action-btn.small{
-      min-width:92px;
-      min-height:58px;
-      font-size:.95rem;
-    }
-    #shield-btn{
-      background:linear-gradient(180deg,#59cfff,#3277ff);
-    }
-    #shield-btn.active{
-      filter:brightness(1.15);
-      outline:3px solid rgba(89,227,255,.38);
-    }
-    #burst-btn{
-      background:linear-gradient(180deg,#ffd95d,#ff8e42);
-      color:#3b2202;
-    }
-    #burst-btn.disabled{
-      opacity:.45;
-      filter:grayscale(.25);
+      transition:transform .12s ease, opacity .12s ease, filter .12s ease;
     }
 
-    #start-screen,
-    #summary-screen{
+    .btn:active{ transform:scale(.97); }
+
+    #shield-btn{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+    }
+
+    #shield-btn.active{
+      outline:3px solid rgba(94,207,255,.34);
+      filter:brightness(1.12);
+    }
+
+    #burst-btn{
+      background:linear-gradient(180deg,var(--yellow),var(--orange));
+      color:#553400;
+    }
+
+    #burst-btn.disabled{
+      opacity:.45;
+      filter:grayscale(.2);
+    }
+
+    .overlay{
       position:fixed;
       inset:0;
+      z-index:30;
       display:flex;
       align-items:center;
       justify-content:center;
       padding:18px;
-      z-index:30;
-      background:linear-gradient(180deg, rgba(5,10,19,.72), rgba(5,10,19,.82));
+      background:linear-gradient(180deg,rgba(7,14,24,.4),rgba(7,14,24,.64));
       backdrop-filter: blur(8px);
     }
 
     .panel{
-      width:min(880px, 100%);
-      border-radius:28px;
+      width:min(900px, 100%);
+      border-radius:30px;
       background:
-        radial-gradient(circle at top right, rgba(89,227,255,.12), transparent 28%),
-        radial-gradient(circle at top left, rgba(255,93,168,.14), transparent 28%),
-        linear-gradient(180deg, rgba(16,33,60,.98), rgba(10,20,36,.98));
+        radial-gradient(circle at top right, rgba(94,207,255,.16), transparent 28%),
+        radial-gradient(circle at top left, rgba(243,94,169,.16), transparent 28%),
+        linear-gradient(180deg, rgba(20,38,65,.98), rgba(10,20,36,.98));
       border:1px solid rgba(255,255,255,.12);
-      box-shadow:0 20px 60px rgba(0,0,0,.38);
+      box-shadow:0 20px 60px rgba(0,0,0,.3);
       padding:22px;
     }
 
     .panel h1,.panel h2{
       margin:0 0 10px;
-      line-height:1.08;
+      line-height:1.06;
+      letter-spacing:.2px;
     }
 
-    .hero-line{
+    .lead{
       color:var(--muted);
+      line-height:1.62;
       font-size:1rem;
-      line-height:1.6;
       margin-bottom:16px;
     }
 
-    .guide-grid{
+    .guide{
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:12px;
-      margin:16px 0 20px;
+      margin:16px 0 18px;
     }
 
     .guide-card{
       background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:20px;
+      border:1px solid rgba(255,255,255,.09);
+      border-radius:22px;
       padding:14px;
     }
 
@@ -335,94 +364,103 @@
     .guide-card p{
       margin:0;
       color:var(--muted);
-      line-height:1.55;
-      font-size:.96rem;
+      line-height:1.58;
+      font-size:.95rem;
     }
 
-    .cta-row{
+    .cta{
       display:flex;
-      gap:10px;
       flex-wrap:wrap;
+      gap:10px;
     }
 
-    .primary-btn,.secondary-btn{
+    .cta .big{
       border:none;
-      border-radius:18px;
       padding:14px 18px;
+      border-radius:18px;
       font-size:1rem;
-      font-weight:900;
+      font-weight:1000;
       cursor:pointer;
       box-shadow:var(--shadow);
     }
 
-    .primary-btn{
-      background:linear-gradient(180deg,#59e3ff,#4574ff);
+    #start-btn{
       color:#fff;
+      background:linear-gradient(180deg,#62deff,#4f82ff);
     }
 
-    .secondary-btn{
+    #enter-vr-btn{
+      color:#fff;
       background:rgba(255,255,255,.08);
-      color:#fff;
-      border:1px solid rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.14);
     }
 
-    .summary-stars{
+    #summary{
+      display:none;
+    }
+
+    .stars{
       font-size:2rem;
       letter-spacing:6px;
-      margin:6px 0 12px;
+      margin-bottom:12px;
     }
 
-    .summary-grid{
+    .sum-grid{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
       gap:12px;
-      margin:14px 0 18px;
+      margin:12px 0 18px;
     }
 
-    .summary-item{
+    .sum-item{
+      text-align:center;
       background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.09);
       border-radius:18px;
       padding:14px;
-      text-align:center;
     }
-    .summary-item .k{
+
+    .sum-item .k{
       color:var(--muted);
       font-size:.88rem;
       margin-bottom:6px;
     }
-    .summary-item .v{
-      font-size:1.25rem;
+
+    .sum-item .v{
+      font-size:1.2rem;
       font-weight:1000;
     }
 
-    .coach-box{
-      background:rgba(118,244,177,.08);
-      border:1px solid rgba(118,244,177,.18);
-      color:#e7fff3;
+    .coach{
+      background:rgba(110,231,183,.08);
+      border:1px solid rgba(110,231,183,.18);
+      color:#ecfff6;
       border-radius:18px;
       padding:14px 16px;
       line-height:1.6;
       margin-bottom:18px;
     }
 
-    #summary-screen{ display:none; }
-    #hub-link{ text-decoration:none; }
-
-    @media (max-width: 860px){
-      .grid-stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .guide-grid{ grid-template-columns:1fr; }
-      .summary-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      #tip-banner{ top:178px; }
+    .small-note{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:.92rem;
+      font-weight:700;
     }
 
-    @media (max-width: 520px){
-      .hud-top{ align-items:flex-start; }
-      .brand{ font-size:.96rem; }
-      .chip{ font-size:.82rem; }
-      .stat-card{ padding:9px 10px; }
-      .stat-value{ font-size:1rem; }
-      .action-btn{
+    @media (max-width: 860px){
+      .stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .guide{ grid-template-columns:1fr; }
+      .sum-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      #tip{ top:188px; }
+    }
+
+    @media (max-width: 560px){
+      .top-wrap{ width:calc(100vw - 8px); padding:4px; }
+      .hud{ padding:10px; border-radius:22px; }
+      .chip{ font-size:.82rem; padding:6px 8px; }
+      .stat .v{ font-size:1rem; }
+      .btn{
         min-width:92px;
         min-height:58px;
         border-radius:18px;
@@ -430,15 +468,132 @@
       }
       #combo-pop{
         top:auto;
-        right:12px;
-        bottom:94px;
-        font-size:1rem;
+        bottom:92px;
+        right:10px;
       }
     }
   </style>
 </head>
 <body>
-  <div id="game-ui">
+  <div id="scene-wrap">
+    <a-scene
+      id="scene"
+      embedded="false"
+      renderer="antialias:true; colorManagement:true"
+      background="color: #d7f3ff"
+      vr-mode-ui="enabled: true">
+
+      <a-assets>
+        <a-mixin id="npc-body"
+          geometry="primitive: cylinder; radius: 0.45; height: 1.85"
+          material="color: #cf8f73; roughness: 0.92"></a-mixin>
+
+        <a-mixin id="npc-head"
+          geometry="primitive: sphere; radius: 0.34"
+          material="color: #ead9c8; roughness: 0.88"></a-mixin>
+
+        <a-mixin id="npc-hand"
+          geometry="primitive: sphere; radius: 0.12"
+          material="color: #d5c7b7; roughness: 0.9"></a-mixin>
+
+        <a-mixin id="mask-geo"
+          geometry="primitive: box; width: 0.42; height: 0.2; depth: 0.05"
+          material="color: #ffffff; emissive: #9feeff; emissiveIntensity: 0.4"></a-mixin>
+
+        <a-mixin id="eye"
+          geometry="primitive: sphere; radius: 0.035"
+          material="color: #1f2940"></a-mixin>
+      </a-assets>
+
+      <a-entity environment="
+        preset: contact;
+        groundColor: #dff5fb;
+        skyColor: #cfeeff;
+        dressing: cubes;
+        dressingAmount: 12;
+        dressingColor: #d8f1ff;
+        grid: cross;
+        gridColor: #ffffff;">
+      </a-entity>
+
+      <a-plane
+        position="0 0.01 0"
+        rotation="-90 0 0"
+        width="32"
+        height="34"
+        color="#def7ff"
+        opacity="0.32">
+      </a-plane>
+
+      <a-plane
+        position="0 0.02 2.2"
+        rotation="-90 0 0"
+        width="12"
+        height="0.48"
+        color="#ff8da2">
+      </a-plane>
+
+      <a-text
+        value="เขตปลอดภัย"
+        align="center"
+        color="#ea5576"
+        width="8"
+        position="0 0.3 2.05">
+      </a-text>
+
+      <a-entity id="npc-container"></a-entity>
+      <a-entity id="droplet-container"></a-entity>
+      <a-entity id="fx-container"></a-entity>
+
+      <a-entity id="rig" position="0 0 0">
+        <a-camera
+          id="cam"
+          position="0 1.6 0"
+          look-controls="touchEnabled: true; magicWindowTrackingEnabled: false"
+          wasd-controls="enabled: false">
+
+          <a-entity
+            id="reticle"
+            position="0 0 -1"
+            geometry="primitive:ring; radiusInner:0.012; radiusOuter:0.022"
+            material="color:#f35ea9; shader:flat"
+            cursor="fuse:false"
+            raycaster="objects:.clickable; far: 48">
+          </a-entity>
+
+          <a-sphere
+            id="shield-visual"
+            radius="1.16"
+            visible="false"
+            material="color:#5ecfff; transparent:true; opacity:0; side:double">
+          </a-sphere>
+
+          <a-entity id="world-shield-btn" class="clickable" data-action="toggle-shield" position="-0.6 -0.45 -1.35">
+            <a-circle radius="0.16" color="#59d2ff" opacity="0.96"></a-circle>
+            <a-text value="โล่" align="center" width="1.8" color="#153357" position="0 -0.01 0.01"></a-text>
+          </a-entity>
+
+          <a-entity id="world-burst-btn" class="clickable" data-action="burst" position="0.6 -0.45 -1.35">
+            <a-circle radius="0.16" color="#ffd860" opacity="0.96"></a-circle>
+            <a-text value="ล้าง" align="center" width="1.8" color="#654100" position="0 -0.01 0.01"></a-text>
+          </a-entity>
+        </a-camera>
+
+        <a-entity laser-controls="hand: left" raycaster="objects: .clickable"></a-entity>
+        <a-entity laser-controls="hand: right" raycaster="objects: .clickable"></a-entity>
+      </a-entity>
+
+      <a-sphere
+        id="burst-wave"
+        radius="0.1"
+        position="0 1.4 0"
+        visible="false"
+        material="color:#ffd860; transparent:true; opacity:0">
+      </a-sphere>
+    </a-scene>
+  </div>
+
+  <div id="ui">
     <div id="danger-flash"></div>
 
     <div class="top-wrap">
@@ -447,231 +602,154 @@
           <div class="brand">
             <div class="brand-badge"></div>
             <div>
-              <div>HeroHealth • MaskCough VR</div>
-              <div style="font-size:.88rem; color:var(--muted); font-weight:700;">ฝึกป้องกันการไอ/จามอย่างปลอดภัย</div>
+              <div class="brand-title">HeroHealth • MaskCough VR</div>
+              <div class="brand-sub">แตะคนที่มีป้าย “ไอ!” หรือ “จาม!” เพื่อใส่หน้ากากให้ทัน</div>
             </div>
           </div>
-          <div class="meta">
-            <div class="chip">โหมด <span id="mode-chip">PC</span></div>
+
+          <div class="chip-row">
+            <div class="chip">โหมด <span id="mode-chip">Mobile</span></div>
             <div class="chip">เวลา <span id="time-text">01:30</span></div>
             <div class="chip">คะแนน <span id="score-text">0</span></div>
+            <div class="chip">ภารกิจ <span id="mission-text">0/10</span></div>
+            <div class="chip">กันละออง <span id="blocked-chip">0</span></div>
           </div>
         </div>
 
-        <div class="grid-stats">
-          <div class="stat-card">
-            <div class="stat-label">ความเสี่ยงการรับเชื้อ</div>
-            <div class="stat-value" id="risk-text">0%</div>
+        <div class="stats">
+          <div class="stat">
+            <div class="k">ความเสี่ยงการรับเชื้อ</div>
+            <div class="v" id="risk-text">0%</div>
             <div class="bar"><div id="risk-fill" class="fill"></div></div>
           </div>
 
-          <div class="stat-card">
-            <div class="stat-label">พลังโล่ป้องกัน</div>
-            <div class="stat-value" id="shield-text">100%</div>
+          <div class="stat">
+            <div class="k">พลังโล่</div>
+            <div class="v" id="shield-text">100%</div>
             <div class="bar"><div id="shield-fill" class="fill"></div></div>
           </div>
 
-          <div class="stat-card">
-            <div class="stat-label">พลังล้างละออง</div>
-            <div class="stat-value" id="burst-text">0%</div>
+          <div class="stat">
+            <div class="k">พลังล้างละออง</div>
+            <div class="v" id="burst-text">0%</div>
             <div class="bar"><div id="burst-fill" class="fill"></div></div>
           </div>
 
-          <div class="stat-card">
-            <div class="stat-label">คอมโบใส่หน้ากาก</div>
-            <div class="stat-value" id="combo-text">x0</div>
-            <div class="bar"><div id="combo-fill" class="fill" style="background:linear-gradient(90deg,#ff7dc1,#ffd95d); width:0%;"></div></div>
+          <div class="stat">
+            <div class="k">คอมโบ</div>
+            <div class="v" id="combo-text">x0</div>
+            <div class="bar"><div id="combo-fill" class="fill"></div></div>
           </div>
         </div>
       </div>
     </div>
 
-    <div id="tip-banner"></div>
-    <div id="combo-pop">COMBO x3</div>
+    <div id="tip"></div>
+    <div id="combo-pop">COMBO x2</div>
 
-    <div class="bottom-controls">
-      <div class="action-stack">
-        <button id="shield-btn" class="action-btn">🛡️ โล่</button>
+    <div class="bottom-ui">
+      <div class="bottom-left">
+        <button id="shield-btn" class="btn">🛡️ โล่</button>
       </div>
-      <div class="action-stack">
-        <button id="burst-btn" class="action-btn">✨ ล้างละออง</button>
+      <div class="bottom-right">
+        <button id="burst-btn" class="btn disabled">✨ ล้างละออง</button>
       </div>
     </div>
   </div>
 
-  <div id="start-screen">
+  <div id="start" class="overlay">
     <div class="panel">
       <h1>MaskCough VR</h1>
-      <div class="hero-line">
-        ภารกิจของเรา คือช่วยลดการแพร่กระจายจากการไอและจามให้ปลอดภัยที่สุดในห้องเรียนเสมือนจริง
+      <div class="lead">
+        เกมนี้ไม่ได้ให้ยิงก้อนลอย ๆ แล้วนะ<br>
+        เป้าหมายชัด ๆ คือ <b>แตะคนที่กำลังไอหรือจาม</b> เพื่อใส่หน้ากากให้ทันก่อนละอองจะพุ่งมา
       </div>
 
-      <div class="guide-grid">
+      <div class="guide">
         <div class="guide-card">
-          <div class="emoji">😷</div>
-          <h3>ใส่หน้ากากให้คนที่กำลังไอ/จาม</h3>
-          <p>มองไปที่ตัวละคร แล้วแตะหรือคลิก เพื่อใส่หน้ากากให้ทันก่อนเดินเข้ามาใกล้</p>
+          <div class="emoji">🔴</div>
+          <h3>เห็นป้าย “ไอ!” หรือ “จาม!”</h3>
+          <p>มองไปที่คนนั้น แล้วแตะจอหรือคลิก เพื่อใส่หน้ากากทันที</p>
         </div>
+
         <div class="guide-card">
           <div class="emoji">🛡️</div>
-          <h3>เปิดโล่เมื่อมีละอองพุ่งมา</h3>
-          <p>กดค้างปุ่มโล่ หรือกด Space บนคีย์บอร์ด เพื่อกันละอองจากการไอ/จาม</p>
+          <h3>ถ้าละอองพุ่งมา</h3>
+          <p>กดปุ่มโล่ เพื่อเปิดเกราะกันละอองรอบตัว</p>
         </div>
+
         <div class="guide-card">
           <div class="emoji">✨</div>
-          <h3>ใช้พลังล้างละอองเมื่อชาร์จเต็ม</h3>
-          <p>แตะปุ่มล้างละออง หรือกด Q เพื่อเคลียร์ละอองที่ลอยอยู่ตรงหน้าอย่างรวดเร็ว</p>
+          <h3>ถ้าละอองเต็มจอ</h3>
+          <p>เมื่อพลังล้างละอองเต็ม 100% กดปุ่มล้าง เพื่อเคลียร์ทั้งจอ</p>
         </div>
       </div>
 
-      <div class="hero-line" id="mode-help">
-        โหมดปัจจุบัน: PC
+      <div class="lead" id="mode-help">
+        โหมดปัจจุบัน: Mobile • แตะฉากเพื่อเลือกเป้าตรงกลางวงเล็ง
       </div>
 
-      <div class="cta-row">
-        <button id="start-btn" class="primary-btn">เริ่มภารกิจ</button>
-        <button id="enter-vr-btn" class="secondary-btn">เข้าโหมด VR</button>
+      <div class="cta">
+        <button id="start-btn" class="big">เริ่มเล่น</button>
+        <button id="enter-vr-btn" class="big">เข้าโหมด VR</button>
+      </div>
+
+      <div class="small-note">
+        PC: คลิกฉากเพื่อเลือกเป้าตรงกลางวงเล็ง • กด Space เพื่อเปิด/ปิดโล่ • กด Q เพื่อใช้ล้างละออง
       </div>
     </div>
   </div>
 
-  <div id="summary-screen">
+  <div id="summary" class="overlay">
     <div class="panel">
       <h2>สรุปภารกิจ</h2>
-      <div class="summary-stars" id="summary-stars">⭐️⭐️⭐️</div>
-      <div class="hero-line" id="summary-title">ยอดเยี่ยมมาก! คุณควบคุมสถานการณ์ได้ดี</div>
+      <div class="stars" id="sum-stars">⭐️⭐️⭐️</div>
+      <div class="lead" id="sum-title">ยอดเยี่ยม! คุณช่วยลดการแพร่กระจายได้ดีมาก</div>
 
-      <div class="summary-grid">
-        <div class="summary-item">
+      <div class="sum-grid">
+        <div class="sum-item">
           <div class="k">คะแนนรวม</div>
           <div class="v" id="sum-score">0</div>
         </div>
-        <div class="summary-item">
+        <div class="sum-item">
           <div class="k">ใส่หน้ากากสำเร็จ</div>
           <div class="v" id="sum-masked">0</div>
         </div>
-        <div class="summary-item">
-          <div class="k">กันละอองได้</div>
+        <div class="sum-item">
+          <div class="k">กันละอองสำเร็จ</div>
           <div class="v" id="sum-blocked">0</div>
         </div>
-        <div class="summary-item">
+        <div class="sum-item">
           <div class="k">คอมโบสูงสุด</div>
-          <div class="v" id="sum-combo">0</div>
+          <div class="v" id="sum-combo">x0</div>
         </div>
       </div>
 
-      <div class="coach-box" id="coach-box">
-        โค้ช: การใส่หน้ากากเร็วตั้งแต่ตัวละครยังอยู่ไกล จะช่วยลดความเสี่ยงได้มากที่สุด
+      <div class="coach" id="coach-text">
+        โค้ช: แตะคนที่มีป้าย “ไอ!” หรือ “จาม!” ให้เร็วที่สุด จะช่วยลดความเสี่ยงได้มากที่สุด
       </div>
 
-      <div class="cta-row">
-        <button id="replay-btn" class="primary-btn">เล่นอีกครั้ง</button>
-        <a id="hub-link" href="../hub.html"><button id="hub-btn" class="secondary-btn">กลับหน้า HUB</button></a>
+      <div class="cta">
+        <button id="replay-btn" class="big">เล่นอีกครั้ง</button>
+        <a id="hub-link" href="../hub.html"><button class="big">กลับหน้า HUB</button></a>
       </div>
     </div>
   </div>
-
-  <a-scene
-    id="scene"
-    background="color: #a8dfff"
-    renderer="antialias: true; colorManagement: true"
-    vr-mode-ui="enabled: true"
-    embedded="false">
-
-    <a-assets>
-      <a-mixin id="npc-body" geometry="primitive: cylinder; radius: 0.28; height: 1.12"
-               material="color: #6f86ff; roughness: 0.8"></a-mixin>
-      <a-mixin id="npc-head" geometry="primitive: sphere; radius: 0.22"
-               material="color: #ffd9bd"></a-mixin>
-      <a-mixin id="mask-geo" geometry="primitive: box; width: 0.24; height: 0.13; depth: 0.04"
-               material="color: #ffffff; emissive: #9befff; emissiveIntensity: 0.45"></a-mixin>
-      <a-mixin id="eye" geometry="primitive: sphere; radius: 0.025"
-               material="color: #25314f"></a-mixin>
-      <a-mixin id="hand" geometry="primitive: sphere; radius: 0.08"
-               material="color: #ffd9bd"></a-mixin>
-    </a-assets>
-
-    <a-entity environment="
-      preset: contact;
-      dressing: cubes;
-      dressingAmount: 14;
-      dressingColor: #d8eeff;
-      groundColor: #cbefff;
-      skyColor: #a8dfff;
-      grid: cross;
-      gridColor: #ffffff;
-      groundYScale: 5;
-      groundTexture: checkerboard;">
-    </a-entity>
-
-    <a-plane position="0 0.01 0" rotation="-90 0 0" width="26" height="36" color="#edf9ff" opacity="0.42"></a-plane>
-    <a-plane position="0 0.02 2.25" rotation="-90 0 0" width="12" height="0.55" color="#ff758a"></a-plane>
-    <a-text value="เขตปลอดภัย" color="#e24665" align="center" width="8" position="0 0.35 2.1"></a-text>
-
-    <a-entity id="npc-container"></a-entity>
-    <a-entity id="droplet-container"></a-entity>
-    <a-entity id="fx-container"></a-entity>
-
-    <a-entity id="rig" position="0 0 0">
-      <a-camera id="cam" position="0 1.6 0" look-controls wasd-controls="enabled: false">
-        <a-entity id="reticle"
-          position="0 0 -1"
-          geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
-          material="color: #ff5da8; shader: flat"
-          cursor="fuse: false"
-          raycaster="objects: .clickable; far: 50">
-        </a-entity>
-
-        <a-sphere id="shield-visual"
-          radius="1.18"
-          material="color: #59e3ff; transparent: true; opacity: 0.0; side: double"
-          visible="false">
-        </a-sphere>
-
-        <a-entity id="shield-orb" class="clickable" position="-0.55 -0.45 -1.35">
-          <a-sphere radius="0.13" color="#52cfff" opacity="0.95"></a-sphere>
-          <a-text value="โล่" align="center" color="#083153" width="1.4" position="0 -0.23 0"></a-text>
-        </a-entity>
-
-        <a-entity id="burst-orb" class="clickable" position="0.55 -0.45 -1.35">
-          <a-sphere radius="0.13" color="#ffd95d" opacity="0.95"></a-sphere>
-          <a-text value="ล้าง" align="center" color="#4a3004" width="1.4" position="0 -0.23 0"></a-text>
-        </a-entity>
-      </a-camera>
-
-      <a-entity laser-controls="hand: left" raycaster="objects: .clickable"></a-entity>
-      <a-entity laser-controls="hand: right" raycaster="objects: .clickable"></a-entity>
-    </a-entity>
-
-    <a-sphere id="burst-wave"
-      radius="0.1"
-      position="0 1.4 0"
-      material="color: #ffd95d; transparent: true; opacity: 0.0"
-      visible="false"></a-sphere>
-  </a-scene>
 
   <script>
     (() => {
       'use strict';
 
+      /* =========================
+         Query / Utils
+      ========================= */
       const qs = (k, d='') => {
         try { return new URL(location.href).searchParams.get(k) ?? d; }
         catch (e) { return d; }
       };
-      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-      const randRange = (rng, a, b) => a + (b - a) * rng();
-      const choice = (rng, arr) => arr[Math.floor(rng() * arr.length)];
-      const pad2 = n => String(n).padStart(2, '0');
 
-      function mulberry32(seed){
-        let t = seed >>> 0;
-        return function(){
-          t += 0x6D2B79F5;
-          let r = Math.imul(t ^ t >>> 15, t | 1);
-          r ^= r + Math.imul(r ^ r >>> 7, r | 61);
-          return ((r ^ r >>> 14) >>> 0) / 4294967296;
-        };
-      }
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+      const pad2 = n => String(n).padStart(2, '0');
 
       function seedFromString(str){
         let h = 2166136261 >>> 0;
@@ -682,98 +760,127 @@
         return h >>> 0;
       }
 
-      const urlSeed = qs('seed', `${Date.now()}`);
-      const rng = mulberry32(seedFromString(String(urlSeed)));
+      function mulberry32(seed){
+        let t = seed >>> 0;
+        return function(){
+          t += 0x6D2B79F5;
+          let r = Math.imul(t ^ (t >>> 15), t | 1);
+          r ^= r + Math.imul(r ^ (r >>> 7), r | 61);
+          return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+        };
+      }
 
-      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-      const view = (qs('view', isMobile ? 'mobile' : 'pc') || 'pc').toLowerCase();
-      const diff = (qs('diff', 'normal') || 'normal').toLowerCase();
+      const seed = qs('seed', String(Date.now()));
+      const rng = mulberry32(seedFromString(String(seed)));
+      const isMobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      const view = String(qs('view', isMobileUA ? 'mobile' : 'pc')).toLowerCase();
+      const diff = String(qs('diff', 'normal')).toLowerCase();
+      const timeSec = clamp(parseInt(qs('time', '90'), 10) || 90, 45, 180);
+      const pid = qs('pid', 'anon');
       const hub = qs('hub', '../hub.html');
-      const durationSec = clamp(parseInt(qs('time', '90'), 10) || 90, 45, 180);
+      const zone = qs('zone', 'hygiene');
+      const run = qs('run', 'play');
 
-      const CONFIG = {
-        easy:   { spawnMin: 1300, spawnMax: 1800, speedMin: 1.45, speedMax: 1.8, coughMin: 1900, coughMax: 3000, riskHit: 10, severeChance: 0.18 },
-        normal: { spawnMin: 1000, spawnMax: 1450, speedMin: 1.8,  speedMax: 2.25, coughMin: 1600, coughMax: 2600, riskHit: 12, severeChance: 0.26 },
-        hard:   { spawnMin: 800,  spawnMax: 1180, speedMin: 2.15, speedMax: 2.75, coughMin: 1350, coughMax: 2200, riskHit: 14, severeChance: 0.34 }
+      const MODE_LABEL =
+        view === 'cvr' ? 'Cardboard VR' :
+        view === 'mobile' ? 'Mobile' : 'PC';
+
+      const DIFF = {
+        easy:   { spawnMin: 1200, spawnMax: 1650, speedMin: 1.55, speedMax: 1.95, coughMin: 1400, coughMax: 2200, leakRisk: 12, dropletRisk: 8, severeChance: 0.22 },
+        normal: { spawnMin: 950,  spawnMax: 1350, speedMin: 1.9,  speedMax: 2.35, coughMin: 1200, coughMax: 1950, leakRisk: 14, dropletRisk: 10, severeChance: 0.28 },
+        hard:   { spawnMin: 760,  spawnMax: 1120, speedMin: 2.2,  speedMax: 2.8,  coughMin: 1000, coughMax: 1650, leakRisk: 16, dropletRisk: 12, severeChance: 0.35 }
       }[diff] || {
-        spawnMin: 1000, spawnMax: 1450, speedMin: 1.8, speedMax: 2.25, coughMin: 1600, coughMax: 2600, riskHit: 12, severeChance: 0.26
+        spawnMin: 950, spawnMax: 1350, speedMin: 1.9, speedMax: 2.35, coughMin: 1200, coughMax: 1950, leakRisk: 14, dropletRisk: 10, severeChance: 0.28
       };
 
-      const MODE_LABEL = view === 'cvr' ? 'Cardboard VR' : (view === 'mobile' ? 'Mobile' : 'PC');
+      const GOAL_MASK =
+        diff === 'easy' ? Math.max(8, Math.round(timeSec / 11)) :
+        diff === 'hard' ? Math.max(10, Math.round(timeSec / 8)) :
+        Math.max(9, Math.round(timeSec / 9));
 
+      const LANES = [-4.2, -2.1, 0, 2.1, 4.2];
+
+      /* =========================
+         DOM / Scene refs
+      ========================= */
       const els = {
         scene: document.getElementById('scene'),
+        cam: document.getElementById('cam'),
+        reticle: document.getElementById('reticle'),
         npcContainer: document.getElementById('npc-container'),
         dropletContainer: document.getElementById('droplet-container'),
         fxContainer: document.getElementById('fx-container'),
-        cam: document.getElementById('cam'),
-        reticle: document.getElementById('reticle'),
         shieldVisual: document.getElementById('shield-visual'),
-        shieldOrb: document.getElementById('shield-orb'),
-        burstOrb: document.getElementById('burst-orb'),
         burstWave: document.getElementById('burst-wave'),
+
+        worldShieldBtn: document.getElementById('world-shield-btn'),
+        worldBurstBtn: document.getElementById('world-burst-btn'),
+
+        modeChip: document.getElementById('mode-chip'),
+        timeText: document.getElementById('time-text'),
+        scoreText: document.getElementById('score-text'),
+        missionText: document.getElementById('mission-text'),
+        blockedChip: document.getElementById('blocked-chip'),
+
+        riskText: document.getElementById('risk-text'),
+        shieldText: document.getElementById('shield-text'),
+        burstText: document.getElementById('burst-text'),
+        comboText: document.getElementById('combo-text'),
 
         riskFill: document.getElementById('risk-fill'),
         shieldFill: document.getElementById('shield-fill'),
         burstFill: document.getElementById('burst-fill'),
         comboFill: document.getElementById('combo-fill'),
-        scoreText: document.getElementById('score-text'),
-        riskText: document.getElementById('risk-text'),
-        shieldText: document.getElementById('shield-text'),
-        burstText: document.getElementById('burst-text'),
-        comboText: document.getElementById('combo-text'),
-        timeText: document.getElementById('time-text'),
-        modeChip: document.getElementById('mode-chip'),
-        modeHelp: document.getElementById('mode-help'),
-        tipBanner: document.getElementById('tip-banner'),
+
+        tip: document.getElementById('tip'),
         comboPop: document.getElementById('combo-pop'),
         dangerFlash: document.getElementById('danger-flash'),
+
         shieldBtn: document.getElementById('shield-btn'),
         burstBtn: document.getElementById('burst-btn'),
 
-        startScreen: document.getElementById('start-screen'),
-        summaryScreen: document.getElementById('summary-screen'),
+        start: document.getElementById('start'),
         startBtn: document.getElementById('start-btn'),
         enterVrBtn: document.getElementById('enter-vr-btn'),
+        modeHelp: document.getElementById('mode-help'),
+
+        summary: document.getElementById('summary'),
         replayBtn: document.getElementById('replay-btn'),
-        hubLink: document.getElementById('hub-link'),
-        summaryStars: document.getElementById('summary-stars'),
-        summaryTitle: document.getElementById('summary-title'),
-        coachBox: document.getElementById('coach-box'),
+        sumStars: document.getElementById('sum-stars'),
+        sumTitle: document.getElementById('sum-title'),
         sumScore: document.getElementById('sum-score'),
         sumMasked: document.getElementById('sum-masked'),
         sumBlocked: document.getElementById('sum-blocked'),
-        sumCombo: document.getElementById('sum-combo')
+        sumCombo: document.getElementById('sum-combo'),
+        coachText: document.getElementById('coach-text'),
+        hubLink: document.getElementById('hub-link')
       };
 
       els.modeChip.textContent = MODE_LABEL;
-      els.modeHelp.textContent =
-        view === 'cvr'
-          ? 'โหมดปัจจุบัน: Cardboard VR • มองไปที่เป้าแล้วแตะจอเพื่อเลือก'
-          : view === 'mobile'
-            ? 'โหมดปัจจุบัน: Mobile • แตะตัวละครเพื่อใส่หน้ากาก'
-            : 'โหมดปัจจุบัน: PC • ใช้เมาส์มองรอบฉาก แล้วคลิกเพื่อใส่หน้ากาก';
-
       els.hubLink.href = hub;
 
-      const LANES = [-4.2, -2.1, 0, 2.1, 4.2];
+      if (view === 'cvr'){
+        els.modeHelp.textContent = 'โหมดปัจจุบัน: Cardboard VR • มองเป้าตรงกลางวงเล็ง แล้วแตะจอเพื่อเลือก';
+      } else if (view === 'mobile'){
+        els.modeHelp.textContent = 'โหมดปัจจุบัน: Mobile • มองเป้าตรงกลางวงเล็ง แล้วแตะจอเพื่อเลือก';
+      } else {
+        els.modeHelp.textContent = 'โหมดปัจจุบัน: PC • คลิกฉากเพื่อเลือกเป้าตรงกลางวงเล็ง';
+      }
 
+      /* =========================
+         Game State
+      ========================= */
       let game = null;
-      let tipTimer = 0;
-      let comboTimer = 0;
-      let flashTimer = 0;
-      let burstFxTimer = 0;
+      let tipUntil = 0;
+      let comboUntil = 0;
+      let flashUntil = 0;
+      let burstFxUntil = 0;
+      let canvasBound = false;
 
-      function createInitialState(){
+      function freshState(){
         return {
           started: false,
           ended: false,
-          startAt: 0,
-          endAt: 0,
-          lastFrame: 0,
-          nextSpawnAt: 0,
-          outbreak: false,
-
           score: 0,
           risk: 0,
           shield: 100,
@@ -783,47 +890,65 @@
 
           maskedCount: 0,
           blockedCount: 0,
-          escapedCount: 0,
+          leakCount: 0,
 
-          shieldHold: false,
-          shieldLatched: false,
+          shieldOn: false,
+
+          startAt: 0,
+          endAt: 0,
+          lastAt: 0,
+          nextSpawnAt: 0,
+          outbreak: false,
 
           npcs: [],
-          droplets: []
+          droplets: [],
+          fx: []
         };
       }
 
-      function fmtTime(sec){
-        const s = Math.max(0, Math.ceil(sec));
-        const mm = Math.floor(s / 60);
-        const ss = s % 60;
-        return `${pad2(mm)}:${pad2(ss)}`;
+      /* =========================
+         Helper UI
+      ========================= */
+      function showTip(text, ms = 1100){
+        els.tip.textContent = text;
+        els.tip.classList.add('show');
+        tipUntil = performance.now() + ms;
       }
 
-      function activeShield(){
-        return !game.ended && game.shield > 4 && (game.shieldHold || game.shieldLatched);
+      function hideTip(){
+        els.tip.classList.remove('show');
       }
 
-      function showTip(text, ms = 1200){
-        els.tipBanner.textContent = text;
-        els.tipBanner.classList.add('show');
-        tipTimer = performance.now() + ms;
-      }
-
-      function showCombo(){
-        if (game.combo < 2) return;
-        els.comboPop.textContent = `COMBO x${game.combo}`;
+      function showCombo(text, ms = 650){
+        els.comboPop.textContent = text;
         els.comboPop.classList.add('show');
-        comboTimer = performance.now() + 700;
+        comboUntil = performance.now() + ms;
       }
 
-      function flashDanger(ms = 220){
+      function hideCombo(){
+        els.comboPop.classList.remove('show');
+      }
+
+      function flashDanger(ms = 180){
         els.dangerFlash.style.opacity = '1';
-        flashTimer = performance.now() + ms;
+        flashUntil = performance.now() + ms;
       }
 
-      function updateHud(force = false){
+      function fmtTime(s){
+        const sec = Math.max(0, Math.ceil(s));
+        return `${pad2(Math.floor(sec / 60))}:${pad2(sec % 60)}`;
+      }
+
+      function updateHud(){
+        const remain = game.started && !game.ended
+          ? Math.max(0, (game.endAt - performance.now()) / 1000)
+          : timeSec;
+
+        els.timeText.textContent = fmtTime(remain);
         els.scoreText.textContent = game.score.toLocaleString('th-TH');
+        els.missionText.textContent = `${game.maskedCount}/${GOAL_MASK}`;
+        els.blockedChip.textContent = game.blockedCount.toLocaleString('th-TH');
+
         els.riskText.textContent = `${Math.round(game.risk)}%`;
         els.shieldText.textContent = `${Math.round(game.shield)}%`;
         els.burstText.textContent = `${Math.round(game.burst)}%`;
@@ -834,91 +959,110 @@
         els.burstFill.style.width = `${game.burst}%`;
         els.comboFill.style.width = `${Math.min(100, game.combo * 12)}%`;
 
+        els.shieldBtn.classList.toggle('active', !!game.shieldOn);
         els.burstBtn.classList.toggle('disabled', game.burst < 100);
-        els.shieldBtn.classList.toggle('active', activeShield());
 
-        const remaining = Math.max(0, (game.endAt - performance.now()) / 1000);
-        els.timeText.textContent = fmtTime(remaining);
+        els.shieldVisual.setAttribute('visible', !!game.shieldOn);
+        els.shieldVisual.setAttribute('material', 'opacity', game.shieldOn ? '0.17' : '0');
 
-        if (force && remaining <= 20 && !game.outbreak) {
-          game.outbreak = true;
-          showTip('ระวัง! ช่วงระบาดหนักเริ่มแล้ว', 1600);
+        const worldShieldCircle = els.worldShieldBtn.querySelector('a-circle');
+        const worldBurstCircle = els.worldBurstBtn.querySelector('a-circle');
+        if (worldShieldCircle){
+          worldShieldCircle.setAttribute('color', game.shieldOn ? '#a9f1ff' : '#59d2ff');
+        }
+        if (worldBurstCircle){
+          worldBurstCircle.setAttribute('color', game.burst >= 100 ? '#fff1a4' : '#ffd860');
         }
       }
 
-      function clearEntityChildren(root){
+      /* =========================
+         World FX
+      ========================= */
+      function addFloatingFx(x, y, z, text, color = '#ffffff'){
+        const el = document.createElement('a-text');
+        el.setAttribute('value', text);
+        el.setAttribute('align', 'center');
+        el.setAttribute('width', '5');
+        el.setAttribute('color', color);
+        el.setAttribute('position', `${x} ${y} ${z}`);
+        els.fxContainer.appendChild(el);
+
+        game.fx.push({
+          el,
+          x, y, z,
+          life: 0.8,
+          vy: 0.7
+        });
+      }
+
+      function clearAllChildren(root){
         while (root.firstChild) root.removeChild(root.firstChild);
       }
 
-      function removeNpc(index){
-        const npc = game.npcs[index];
-        if (!npc) return;
-        if (npc.el.parentNode) npc.el.parentNode.removeChild(npc.el);
-        game.npcs.splice(index, 1);
+      function resetWorld(){
+        clearAllChildren(els.npcContainer);
+        clearAllChildren(els.dropletContainer);
+        clearAllChildren(els.fxContainer);
       }
 
-      function removeDroplet(index){
-        const d = game.droplets[index];
-        if (!d) return;
-        if (d.el.parentNode) d.el.parentNode.removeChild(d.el);
-        game.droplets.splice(index, 1);
-      }
-
-      function setShieldLatch(v){
-        game.shieldLatched = !!v;
-      }
-
-      function createNpc(now){
-        const severeChance = CONFIG.severeChance + (game.outbreak ? 0.10 : 0);
-        const severe = rng() < severeChance;
-        const lane = choice(rng, LANES);
-
+      /* =========================
+         NPC / Droplet
+      ========================= */
+      function spawnNpc(now){
+        const severe = rng() < (DIFF.severeChance + (game.outbreak ? 0.08 : 0));
+        const x = LANES[Math.floor(rng() * LANES.length)];
+        const label = severe ? 'จาม!' : 'ไอ!';
         const root = document.createElement('a-entity');
         root.classList.add('clickable');
-        root.setAttribute('position', `${lane} 0 -17`);
         root.dataset.kind = 'npc';
+        root.setAttribute('position', `${x} 0 -15.5`);
 
         const body = document.createElement('a-entity');
         body.setAttribute('mixin', 'npc-body');
-        body.setAttribute('position', '0 0.62 0');
-        body.setAttribute('material', `color: ${severe ? '#ff9d7d' : '#7e96ff'}; roughness: 0.85; emissive: ${severe ? '#ff8e5d' : '#6ea4ff'}; emissiveIntensity: 0.18`);
+        body.setAttribute('position', '0 0.95 0');
+        body.setAttribute(
+          'material',
+          `color: ${severe ? '#df9676' : '#cf8f73'}; emissive: ${severe ? '#ffad88' : '#000000'}; emissiveIntensity: ${severe ? 0.16 : 0}`
+        );
 
         const head = document.createElement('a-entity');
         head.setAttribute('mixin', 'npc-head');
-        head.setAttribute('position', '0 1.38 0');
+        head.setAttribute('position', '0 2.05 0');
 
         const eyeL = document.createElement('a-entity');
         eyeL.setAttribute('mixin', 'eye');
-        eyeL.setAttribute('position', '-0.08 1.41 0.19');
+        eyeL.setAttribute('position', '-0.09 2.08 0.28');
 
         const eyeR = document.createElement('a-entity');
         eyeR.setAttribute('mixin', 'eye');
-        eyeR.setAttribute('position', '0.08 1.41 0.19');
+        eyeR.setAttribute('position', '0.09 2.08 0.28');
 
         const handL = document.createElement('a-entity');
-        handL.setAttribute('mixin', 'hand');
-        handL.setAttribute('position', '-0.36 0.92 0');
+        handL.setAttribute('mixin', 'npc-hand');
+        handL.setAttribute('position', '-0.58 1.18 0');
 
         const handR = document.createElement('a-entity');
-        handR.setAttribute('mixin', 'hand');
-        handR.setAttribute('position', '0.36 0.92 0');
+        handR.setAttribute('mixin', 'npc-hand');
+        handR.setAttribute('position', '0.58 1.18 0');
 
-        const symptom = document.createElement('a-entity');
-        symptom.setAttribute('position', '0 1.92 0');
-        symptom.setAttribute('data-role', 'symptom');
-        const symptomBubble = document.createElement('a-sphere');
-        symptomBubble.setAttribute('radius', '0.22');
-        symptomBubble.setAttribute('color', severe ? '#ff6f79' : '#ffd95d');
-        symptomBubble.setAttribute('opacity', '0.95');
-        symptomBubble.setAttribute('material', `emissive: ${severe ? '#ff6f79' : '#ffd95d'}; emissiveIntensity: 0.35`);
-        const symptomText = document.createElement('a-text');
-        symptomText.setAttribute('value', severe ? 'จาม!' : 'ไอ!');
-        symptomText.setAttribute('align', 'center');
-        symptomText.setAttribute('width', '2.8');
-        symptomText.setAttribute('color', severe ? '#fff5f7' : '#4a3500');
-        symptomText.setAttribute('position', '0 -0.03 0.24');
-        symptom.appendChild(symptomBubble);
-        symptom.appendChild(symptomText);
+        const alert = document.createElement('a-entity');
+        alert.setAttribute('data-role', 'alert');
+        alert.setAttribute('position', '0 2.78 0');
+
+        const alertBall = document.createElement('a-sphere');
+        alertBall.setAttribute('radius', '0.34');
+        alertBall.setAttribute('color', severe ? '#ff7186' : '#ff93a5');
+        alertBall.setAttribute('material', `emissive: ${severe ? '#ff7186' : '#ff93a5'}; emissiveIntensity: 0.28`);
+
+        const alertText = document.createElement('a-text');
+        alertText.setAttribute('value', label);
+        alertText.setAttribute('align', 'center');
+        alertText.setAttribute('width', '3');
+        alertText.setAttribute('color', '#ffffff');
+        alertText.setAttribute('position', '0 -0.03 0.35');
+
+        alert.appendChild(alertBall);
+        alert.appendChild(alertText);
 
         root.appendChild(body);
         root.appendChild(head);
@@ -926,22 +1070,24 @@
         root.appendChild(eyeR);
         root.appendChild(handL);
         root.appendChild(handR);
-        root.appendChild(symptom);
+        root.appendChild(alert);
 
         const npc = {
-          id: `${now}-${Math.floor(rng() * 99999)}`,
+          id: `${now}-${Math.floor(rng() * 999999)}`,
           el: root,
+          x,
+          z: -15.5,
+          speed: (DIFF.speedMin + (DIFF.speedMax - DIFF.speedMin) * rng()) * (game.outbreak ? 1.14 : 1),
           severe,
+          label,
           masked: false,
-          speed: randRange(rng, CONFIG.speedMin, CONFIG.speedMax) * (game.outbreak ? 1.15 : 1),
-          coughAt: now + randRange(rng, CONFIG.coughMin, CONFIG.coughMax),
-          nextCoughGapMin: severe ? 1200 : 1600,
-          nextCoughGapMax: severe ? 2000 : 2600
+          coughAt: now + DIFF.coughMin + (DIFF.coughMax - DIFF.coughMin) * rng(),
+          nextGapMin: severe ? 950 : 1200,
+          nextGapMax: severe ? 1500 : 1800
         };
 
         root.addEventListener('click', () => {
           if (!game.started || game.ended) return;
-          if (npc.masked) return;
           maskNpc(npc);
         });
 
@@ -950,262 +1096,378 @@
       }
 
       function maskNpc(npc){
+        if (!npc || npc.masked || game.ended) return;
+
         npc.masked = true;
 
-        const symptom = npc.el.querySelector('[data-role="symptom"]');
-        if (symptom) symptom.parentNode.removeChild(symptom);
+        const oldAlert = npc.el.querySelector('[data-role="alert"]');
+        if (oldAlert && oldAlert.parentNode) oldAlert.parentNode.removeChild(oldAlert);
 
         const mask = document.createElement('a-entity');
         mask.setAttribute('mixin', 'mask-geo');
-        mask.setAttribute('position', '0 1.34 0.2');
-        npc.el.appendChild(mask);
+        mask.setAttribute('position', '0 1.98 0.31');
+
+        const ok = document.createElement('a-entity');
+        ok.setAttribute('data-role', 'ok');
+        ok.setAttribute('position', '0 2.78 0');
+
+        const okBall = document.createElement('a-sphere');
+        okBall.setAttribute('radius', '0.3');
+        okBall.setAttribute('color', '#7befbe');
+        okBall.setAttribute('material', 'emissive: #7befbe; emissiveIntensity: 0.26');
 
         const okText = document.createElement('a-text');
-        okText.setAttribute('value', 'ดีมาก!');
+        okText.setAttribute('value', '✓');
         okText.setAttribute('align', 'center');
-        okText.setAttribute('width', '3.6');
-        okText.setAttribute('color', '#1a7a48');
-        okText.setAttribute('position', '0 1.95 0');
-        npc.el.appendChild(okText);
+        okText.setAttribute('width', '2.7');
+        okText.setAttribute('color', '#0d7a4f');
+        okText.setAttribute('position', '0 -0.02 0.31');
+
+        ok.appendChild(okBall);
+        ok.appendChild(okText);
+
+        npc.el.appendChild(mask);
+        npc.el.appendChild(ok);
 
         game.maskedCount += 1;
         game.combo += 1;
         game.bestCombo = Math.max(game.bestCombo, game.combo);
-        game.score += (npc.severe ? 220 : 150) + (game.combo * 20);
+        game.score += (npc.severe ? 220 : 160) + (game.combo * 18);
         game.burst = clamp(game.burst + (npc.severe ? 18 : 12), 0, 100);
-        game.shield = clamp(game.shield + 5, 0, 100);
+        game.shield = clamp(game.shield + 4, 0, 100);
 
-        showCombo();
-        if (game.combo === 3) showTip('คอมโบเริ่มมาแล้ว!', 900);
-        if (game.combo === 6) showTip('ยอดเยี่ยม! ใส่หน้ากากได้ต่อเนื่อง', 1100);
+        addFloatingFx(npc.x, 3.0, npc.z, '+MASK', '#7befbe');
+
+        if (game.combo >= 2) showCombo(`COMBO x${game.combo}`);
+        if (game.combo === 3) showTip('ดีมาก! ใส่หน้ากากต่อเนื่องได้', 900);
+        if (game.combo === 6) showTip('ยอดเยี่ยม! คุมสถานการณ์ได้ดีมาก', 1050);
 
         updateHud();
-      }
-
-      function createDroplet(pos, severe = false){
-        const el = document.createElement('a-sphere');
-        const radius = severe ? 0.09 : 0.07;
-        const color = severe ? '#7dff8f' : '#8af7ff';
-
-        el.setAttribute('radius', `${radius}`);
-        el.setAttribute('color', color);
-        el.setAttribute('material', `emissive: ${color}; emissiveIntensity: 0.38; transparent: true; opacity: 0.96`);
-        el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-
-        els.dropletContainer.appendChild(el);
-
-        const targetX = randRange(rng, -0.45, 0.45);
-        const targetY = randRange(rng, 1.0, 1.95);
-        const targetZ = randRange(rng, 0.1, 0.55);
-
-        const dx = targetX - pos.x;
-        const dy = targetY - pos.y;
-        const dz = targetZ - pos.z;
-        const len = Math.hypot(dx, dy, dz) || 1;
-
-        const speed = severe ? randRange(rng, 5.2, 6.4) : randRange(rng, 4.4, 5.4);
-
-        game.droplets.push({
-          el,
-          severe,
-          life: severe ? 1.35 : 1.15,
-          pos: { x: pos.x, y: pos.y, z: pos.z },
-          vel: { x: dx / len * speed, y: dy / len * speed, z: dz / len * speed }
-        });
       }
 
       function coughFromNpc(npc, now){
-        if (npc.masked) return;
+        if (!npc || npc.masked || game.ended) return;
 
-        const p = npc.el.object3D.position;
-        const count = npc.severe ? 8 : 5;
-        for (let i = 0; i < count; i++) {
-          createDroplet({
-            x: p.x + randRange(rng, -0.08, 0.08),
-            y: 1.34 + randRange(rng, -0.08, 0.08),
-            z: p.z + 0.15
-          }, npc.severe);
+        const baseCount = npc.severe ? 9 : 6;
+        const posX = npc.x;
+        const posY = 2.02;
+        const posZ = npc.z + 0.34;
+
+        addFloatingFx(posX, 2.8, npc.z, npc.label, '#ff93a5');
+
+        for (let i = 0; i < baseCount; i++){
+          const spreadX = (rng() - 0.5) * (npc.severe ? 1.2 : 0.86);
+          const spreadY = (rng() - 0.4) * (npc.severe ? 0.9 : 0.7);
+          const vx = (0 - posX + spreadX) * 0.92;
+          const vy = (1.55 - posY + spreadY) * 0.92;
+          const vz = (0.45 - posZ) * 1.5;
+          addDroplet(posX, posY, posZ, vx, vy, vz, npc.severe);
         }
 
-        npc.coughAt = now + randRange(rng, npc.nextCoughGapMin, npc.nextCoughGapMax);
+        npc.coughAt = now + npc.nextGapMin + (npc.nextGapMax - npc.nextGapMin) * rng();
       }
 
-      function playerHit(amount){
-        game.risk = clamp(game.risk + amount, 0, 100);
-        game.combo = 0;
-        flashDanger();
-        showTip('ระวัง! ละอองเข้ามาใกล้เกินไป', 900);
-        updateHud();
+      function addDroplet(x, y, z, vx, vy, vz, severe){
+        const el = document.createElement('a-sphere');
+        const color = severe ? '#89f59e' : '#7cf0ff';
+        el.setAttribute('radius', severe ? '0.085' : '0.072');
+        el.setAttribute('color', color);
+        el.setAttribute('material', `emissive: ${color}; emissiveIntensity: 0.28; transparent: true; opacity: 0.96`);
+        el.setAttribute('position', `${x} ${y} ${z}`);
+        els.dropletContainer.appendChild(el);
 
-        if (game.risk >= 100) endGame(false);
+        game.droplets.push({
+          el,
+          x, y, z,
+          vx, vy, vz,
+          severe,
+          life: severe ? 1.18 : 1.02
+        });
+      }
+
+      /* =========================
+         Player Actions
+      ========================= */
+      function toggleShield(force){
+        if (game.ended) return;
+        const next = typeof force === 'boolean' ? force : !game.shieldOn;
+        if (next && game.shield <= 4){
+          showTip('พลังโล่ยังไม่พอ', 700);
+          return;
+        }
+        game.shieldOn = next;
+        showTip(game.shieldOn ? 'เปิดโล่แล้ว' : 'ปิดโล่แล้ว', 650);
+        updateHud();
       }
 
       function useBurst(){
-        if (game.ended || !game.started) return;
-        if (game.burst < 100) {
+        if (game.ended) return;
+        if (game.burst < 100){
           showTip('พลังล้างละอองยังไม่เต็ม', 700);
           return;
         }
 
         game.burst = 0;
-        game.risk = clamp(game.risk - 28, 0, 100);
+        game.risk = clamp(game.risk - 32, 0, 100);
+        game.score += 120;
 
-        for (let i = game.droplets.length - 1; i >= 0; i--) {
+        for (let i = game.droplets.length - 1; i >= 0; i--){
           removeDroplet(i);
         }
 
         els.burstWave.setAttribute('visible', 'true');
         els.burstWave.setAttribute('scale', '1 1 1');
-        els.burstWave.setAttribute('material', 'opacity', 0.58);
-        burstFxTimer = performance.now() + 520;
+        els.burstWave.setAttribute('material', 'opacity', '0.56');
+        burstFxUntil = performance.now() + 520;
 
-        game.score += 120;
         showTip('ล้างละอองสำเร็จ!', 900);
         updateHud();
       }
 
+      function playerHit(amount, text){
+        game.risk = clamp(game.risk + amount, 0, 100);
+        game.combo = 0;
+        flashDanger();
+        if (text) showTip(text, 900);
+        updateHud();
+
+        if (game.risk >= 100){
+          endGame(false);
+        }
+      }
+
+      /* =========================
+         Remove helpers
+      ========================= */
+      function removeNpc(index){
+        const npc = game.npcs[index];
+        if (!npc) return;
+        if (npc.el && npc.el.parentNode) npc.el.parentNode.removeChild(npc.el);
+        game.npcs.splice(index, 1);
+      }
+
+      function removeDroplet(index){
+        const d = game.droplets[index];
+        if (!d) return;
+        if (d.el && d.el.parentNode) d.el.parentNode.removeChild(d.el);
+        game.droplets.splice(index, 1);
+      }
+
+      function removeFx(index){
+        const f = game.fx[index];
+        if (!f) return;
+        if (f.el && f.el.parentNode) f.el.parentNode.removeChild(f.el);
+        game.fx.splice(index, 1);
+      }
+
+      /* =========================
+         Shooting / Center Tap
+      ========================= */
+      function findClickableFromObject(obj){
+        let current = obj;
+        while (current){
+          if (current.el && current.el.classList && current.el.classList.contains('clickable')){
+            return current.el;
+          }
+          current = current.parent;
+        }
+        return null;
+      }
+
+      function fireCenter(){
+        if (!game.started || game.ended) return false;
+
+        const rc = els.reticle.components && els.reticle.components.raycaster;
+        if (!rc || !rc.intersections || !rc.intersections.length) return false;
+
+        const target = findClickableFromObject(rc.intersections[0].object);
+        if (!target) return false;
+
+        const action = target.dataset ? target.dataset.action : '';
+        if (action === 'toggle-shield'){
+          toggleShield();
+          return true;
+        }
+        if (action === 'burst'){
+          useBurst();
+          return true;
+        }
+
+        target.emit('click');
+        return true;
+      }
+
+      function bindCanvasTap(){
+        if (canvasBound || !els.scene || !els.scene.canvas) return;
+        canvasBound = true;
+
+        const canvas = els.scene.canvas;
+
+        const handler = (e) => {
+          if (!game.started || game.ended) return;
+          if (e && typeof e.preventDefault === 'function') e.preventDefault();
+          fireCenter();
+        };
+
+        canvas.addEventListener('click', handler);
+        canvas.addEventListener('touchend', handler, { passive: false });
+      }
+
+      /* =========================
+         Game Flow
+      ========================= */
       function startGame(){
-        clearScene();
-        game = createInitialState();
+        resetWorld();
+        game = freshState();
+
         game.started = true;
+        game.ended = false;
         game.startAt = performance.now();
-        game.lastFrame = game.startAt;
-        game.endAt = game.startAt + durationSec * 1000;
-        game.nextSpawnAt = game.startAt + 800;
+        game.lastAt = game.startAt;
+        game.endAt = game.startAt + (timeSec * 1000);
+        game.nextSpawnAt = game.startAt + 900;
 
-        els.startScreen.style.display = 'none';
-        els.summaryScreen.style.display = 'none';
+        els.start.style.display = 'none';
+        els.summary.style.display = 'none';
 
-        updateHud(true);
-        showTip('เริ่มเลย! ใส่หน้ากากให้ทันก่อนเข้ามาใกล้', 1300);
+        showTip('เริ่มเลย! แตะคนที่มีป้าย “ไอ!” หรือ “จาม!”', 1200);
+        updateHud();
+
+        if (view === 'cvr' && els.scene.enterVR){
+          setTimeout(() => {
+            try { els.scene.enterVR(); } catch (e) {}
+          }, 80);
+        }
+
         requestAnimationFrame(loop);
       }
 
-      function clearScene(){
-        if (!game) return;
-        for (let i = game.npcs.length - 1; i >= 0; i--) removeNpc(i);
-        for (let i = game.droplets.length - 1; i >= 0; i--) removeDroplet(i);
-      }
-
       function starsFromResult(){
-        if (game.risk <= 18 && game.maskedCount >= 12) return 3;
-        if (game.risk <= 45 && game.maskedCount >= 7) return 2;
+        if (game.maskedCount >= GOAL_MASK && game.risk <= 28 && game.blockedCount >= 4) return 3;
+        if (game.maskedCount >= Math.max(6, Math.floor(GOAL_MASK * 0.75)) && game.risk <= 55) return 2;
         return 1;
       }
 
-      function coachText(stars){
-        if (stars === 3) {
-          return 'โค้ช: เยี่ยมมาก! คุณใส่หน้ากากได้ไวและป้องกันละอองได้ดีมาก วิธีนี้คือหัวใจของการลดการแพร่กระจายในชีวิตจริง';
+      function coachLine(stars){
+        if (stars === 3){
+          return 'โค้ช: เยี่ยมมาก! คุณใส่หน้ากากได้เร็วและใช้โล่ถูกจังหวะ วิธีคิดแบบนี้ช่วยลดการแพร่กระจายได้ดีมาก';
         }
-        if (stars === 2) {
-          return 'โค้ช: ทำได้ดีแล้ว ลองมองตัวละครที่มีสัญลักษณ์ไอ/จามก่อนเป็นเป้าหมายแรก และเปิดโล่เมื่อเห็นละอองพุ่งเข้าหาเรา';
+        if (stars === 2){
+          return 'โค้ช: ทำได้ดีแล้ว รอบหน้าให้รีบแตะคนที่มีป้ายแดงก่อนเป็นเป้าหมายแรก แล้วเปิดโล่เมื่อเห็นละอองพุ่งมา';
         }
-        return 'โค้ช: รอบต่อไปให้รีบใส่หน้ากากตั้งแต่ตัวละครยังอยู่ไกล และเก็บพลังล้างละอองไว้ใช้ตอนหน้าจอเริ่มมีละอองเยอะ';
+        return 'โค้ช: รอบหน้าให้โฟกัสที่ป้าย “ไอ!” และ “จาม!” ก่อนเสมอ ถ้าเริ่มมีละอองเข้ามา ให้เปิดโล่ทันที';
       }
 
-      function saveLastSummary(payload){
+      function saveSummary(stars){
+        const payload = {
+          game: 'maskcough',
+          gameId: 'maskcough-vr',
+          zone,
+          run,
+          pid,
+          diff,
+          view,
+          seed,
+          timeSec,
+          score: game.score,
+          risk: Math.round(game.risk),
+          maskedCount: game.maskedCount,
+          blockedCount: game.blockedCount,
+          bestCombo: game.bestCombo,
+          leakCount: game.leakCount,
+          stars,
+          endedAt: new Date().toISOString(),
+          hub
+        };
+
         try{
           localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+          localStorage.setItem('HHA_LAST_SUMMARY_MASKCOUGH', JSON.stringify(payload));
         }catch(e){}
       }
 
       function endGame(timeUp = true){
         if (!game || game.ended) return;
         game.ended = true;
+        game.shieldOn = false;
 
         const stars = starsFromResult();
         const starText = stars === 3 ? '⭐️⭐️⭐️' : (stars === 2 ? '⭐️⭐️☆' : '⭐️☆☆');
+        const title = !timeUp && game.risk >= 100
+          ? 'ภารกิจพลาดไปนิดเดียว ลองใหม่ได้เลย'
+          : stars === 3
+            ? 'ยอดเยี่ยม! คุณช่วยลดการแพร่กระจายได้ดีมาก'
+            : stars === 2
+              ? 'ดีมาก! เหลืออีกนิดก็จะได้ 3 ดาว'
+              : 'เริ่มได้ดีแล้ว ลองเล่นอีกครั้งเพื่อเก็บดาวเพิ่ม';
 
-        els.summaryStars.textContent = starText;
-        els.summaryTitle.textContent =
-          !timeUp && game.risk >= 100
-            ? 'ภารกิจพลาดไปนิดเดียว ลองใหม่อีกครั้งได้เลย'
-            : stars === 3
-              ? 'ยอดเยี่ยมมาก! คุณควบคุมการแพร่กระจายได้ดี'
-              : stars === 2
-                ? 'ดีมาก! เหลืออีกนิดก็จะได้ 3 ดาว'
-                : 'เริ่มได้ดีแล้ว ลองเล่นอีกครั้งเพื่อเก็บดาวเพิ่ม';
-
+        els.sumStars.textContent = starText;
+        els.sumTitle.textContent = title;
         els.sumScore.textContent = game.score.toLocaleString('th-TH');
         els.sumMasked.textContent = game.maskedCount.toLocaleString('th-TH');
         els.sumBlocked.textContent = game.blockedCount.toLocaleString('th-TH');
         els.sumCombo.textContent = `x${game.bestCombo}`;
-        els.coachBox.textContent = coachText(stars);
+        els.coachText.textContent = coachLine(stars);
 
-        saveLastSummary({
-          game: 'maskcough',
-          score: game.score,
-          masked: game.maskedCount,
-          blocked: game.blockedCount,
-          bestCombo: game.bestCombo,
-          risk: Math.round(game.risk),
-          stars,
-          time: durationSec,
-          seed: urlSeed,
-          endedAt: new Date().toISOString()
-        });
-
-        els.summaryScreen.style.display = 'flex';
+        saveSummary(stars);
+        updateHud();
+        els.summary.style.display = 'flex';
       }
 
+      /* =========================
+         Main Loop
+      ========================= */
       function loop(now){
         if (!game || game.ended) return;
 
-        const dt = Math.min(0.05, Math.max(0.001, (now - game.lastFrame) / 1000));
-        game.lastFrame = now;
+        const dt = Math.min(0.05, Math.max(0.001, (now - game.lastAt) / 1000));
+        game.lastAt = now;
 
-        if (now >= game.endAt) {
+        if (now >= game.endAt){
           endGame(true);
           return;
         }
 
-        const timeLeft = (game.endAt - now) / 1000;
-        if (!game.outbreak && timeLeft <= 20) {
+        const leftSec = (game.endAt - now) / 1000;
+
+        if (!game.outbreak && leftSec <= 20){
           game.outbreak = true;
-          showTip('ช่วงระบาดหนัก! ศัตรูจะมาไวขึ้น', 1400);
+          showTip('ช่วงระบาดหนัก! คนจะเข้ามาเร็วขึ้น', 1200);
         }
 
-        if (now >= game.nextSpawnAt) {
-          createNpc(now);
-          const spawnScale = game.outbreak ? 0.76 : 1;
-          game.nextSpawnAt = now + randRange(rng, CONFIG.spawnMin, CONFIG.spawnMax) * spawnScale;
+        if (now >= game.nextSpawnAt){
+          spawnNpc(now);
+          const outbreakFactor = game.outbreak ? 0.78 : 1;
+          const nextGap = (DIFF.spawnMin + ((DIFF.spawnMax - DIFF.spawnMin) * rng())) * outbreakFactor;
+          game.nextSpawnAt = now + nextGap;
         }
 
-        const shielding = activeShield();
-
-        if (shielding) {
-          game.shield = clamp(game.shield - (game.outbreak ? 26 : 22) * dt, 0, 100);
-          if (game.shield <= 3) {
-            game.shieldHold = false;
-            game.shieldLatched = false;
+        /* shield energy */
+        if (game.shieldOn){
+          game.shield = clamp(game.shield - (game.outbreak ? 28 : 22) * dt, 0, 100);
+          if (game.shield <= 0){
+            game.shieldOn = false;
+            showTip('โล่หมดพลังแล้ว', 700);
           }
         } else {
-          game.shield = clamp(game.shield + 14 * dt, 0, 100);
+          game.shield = clamp(game.shield + 12 * dt, 0, 100);
         }
 
-        els.shieldVisual.setAttribute('visible', shielding);
-        els.shieldVisual.setAttribute('material', 'opacity', shielding ? 0.16 : 0.0);
-
-        const shieldOrbSphere = els.shieldOrb.querySelector('a-sphere');
-        const burstOrbSphere = els.burstOrb.querySelector('a-sphere');
-        if (shieldOrbSphere) shieldOrbSphere.setAttribute('color', shielding ? '#9ff0ff' : '#52cfff');
-        if (burstOrbSphere) burstOrbSphere.setAttribute('color', game.burst >= 100 ? '#fff29e' : '#ffd95d');
-
-        for (let i = game.npcs.length - 1; i >= 0; i--) {
+        /* NPCs */
+        for (let i = game.npcs.length - 1; i >= 0; i--){
           const npc = game.npcs[i];
-          const p = npc.el.object3D.position;
+          npc.z += npc.speed * dt;
+          npc.el.object3D.position.set(npc.x, 0, npc.z);
 
-          p.z += npc.speed * dt;
-
-          if (!npc.masked && now >= npc.coughAt && p.z < 2.2) {
+          if (!npc.masked && now >= npc.coughAt && npc.z < 2.0){
             coughFromNpc(npc, now);
           }
 
-          if (p.z >= 2.45) {
-            if (!npc.masked) {
-              game.escapedCount += 1;
-              playerHit(npc.severe ? 18 : 12);
-              showTip('มีคนไอ/จามเดินผ่านโดยไม่ใส่หน้ากาก', 1100);
+          if (npc.z >= 2.45){
+            if (!npc.masked){
+              game.leakCount += 1;
+              addFloatingFx(npc.x, 2.8, npc.z, 'พลาด!', '#ff94aa');
+              playerHit(DIFF.leakRisk, 'มีคนไอ/จามเดินผ่านโดยยังไม่ใส่หน้ากาก');
             } else {
               game.score += 35;
             }
@@ -1213,63 +1475,77 @@
           }
         }
 
-        const shieldCenter = { x: 0, y: 1.42, z: 0.2 };
-        const playerCenter = { x: 0, y: 1.42, z: 0.46 };
-
-        for (let i = game.droplets.length - 1; i >= 0; i--) {
+        /* droplets */
+        for (let i = game.droplets.length - 1; i >= 0; i--){
           const d = game.droplets[i];
           d.life -= dt;
 
-          d.pos.x += d.vel.x * dt;
-          d.pos.y += d.vel.y * dt;
-          d.pos.z += d.vel.z * dt;
+          d.x += d.vx * dt;
+          d.y += d.vy * dt;
+          d.z += d.vz * dt;
 
-          d.el.object3D.position.set(d.pos.x, d.pos.y, d.pos.z);
+          d.el.object3D.position.set(d.x, d.y, d.z);
 
-          const ds = Math.hypot(d.pos.x - shieldCenter.x, d.pos.y - shieldCenter.y, d.pos.z - shieldCenter.z);
-          const dp = Math.hypot(d.pos.x - playerCenter.x, d.pos.y - playerCenter.y, d.pos.z - playerCenter.z);
+          const shieldDist = Math.hypot(d.x - 0, d.y - 1.42, d.z - 0.18);
+          const playerDist = Math.hypot(d.x - 0, d.y - 1.42, d.z - 0.46);
 
-          if (shielding && ds < 1.12) {
+          if (game.shieldOn && shieldDist <= 1.12){
             game.blockedCount += 1;
-            game.burst = clamp(game.burst + 2.2, 0, 100);
+            game.burst = clamp(game.burst + (d.severe ? 3.4 : 2.2), 0, 100);
             removeDroplet(i);
             continue;
           }
 
-          if (dp < 0.28) {
-            playerHit(d.severe ? CONFIG.riskHit + 2 : CONFIG.riskHit);
+          if (playerDist <= 0.28){
+            playerHit(d.severe ? DIFF.dropletRisk + 2 : DIFF.dropletRisk, 'โดนละอองไอ/จามเข้าแล้ว');
             removeDroplet(i);
             continue;
           }
 
-          if (d.life <= 0 || d.pos.z > 0.95 || Math.abs(d.pos.x) > 9 || d.pos.y > 5 || d.pos.y < 0) {
+          if (d.life <= 0 || d.z > 1.0 || Math.abs(d.x) > 9 || d.y > 5 || d.y < 0){
             removeDroplet(i);
           }
         }
 
-        if (tipTimer && now > tipTimer) {
-          els.tipBanner.classList.remove('show');
-          tipTimer = 0;
+        /* world fx */
+        for (let i = game.fx.length - 1; i >= 0; i--){
+          const fx = game.fx[i];
+          fx.life -= dt;
+          fx.y += fx.vy * dt;
+          fx.el.object3D.position.set(fx.x, fx.y, fx.z);
+          fx.el.setAttribute('opacity', Math.max(0, fx.life));
+          if (fx.life <= 0){
+            removeFx(i);
+          }
         }
-        if (comboTimer && now > comboTimer) {
-          els.comboPop.classList.remove('show');
-          comboTimer = 0;
+
+        /* tip timers */
+        if (tipUntil && now > tipUntil){
+          tipUntil = 0;
+          hideTip();
         }
-        if (flashTimer && now > flashTimer) {
+
+        if (comboUntil && now > comboUntil){
+          comboUntil = 0;
+          hideCombo();
+        }
+
+        if (flashUntil && now > flashUntil){
+          flashUntil = 0;
           els.dangerFlash.style.opacity = '0';
-          flashTimer = 0;
         }
 
-        if (burstFxTimer) {
-          const remain = Math.max(0, burstFxTimer - now);
-          const progress = 1 - (remain / 520);
-          const scale = 1 + progress * 26;
-          els.burstWave.setAttribute('visible', true);
+        if (burstFxUntil){
+          const remain = Math.max(0, burstFxUntil - now);
+          const t = 1 - (remain / 520);
+          const scale = 1 + (t * 28);
+          const alpha = Math.max(0, 0.56 - (t * 0.56));
+          els.burstWave.setAttribute('visible', 'true');
           els.burstWave.setAttribute('scale', `${scale} ${scale} ${scale}`);
-          els.burstWave.setAttribute('material', 'opacity', `${Math.max(0, 0.58 - progress * 0.58)}`);
-          if (remain <= 0) {
-            els.burstWave.setAttribute('visible', false);
-            burstFxTimer = 0;
+          els.burstWave.setAttribute('material', 'opacity', `${alpha}`);
+          if (remain <= 0){
+            els.burstWave.setAttribute('visible', 'false');
+            burstFxUntil = 0;
           }
         }
 
@@ -1277,84 +1553,78 @@
         requestAnimationFrame(loop);
       }
 
-      function pointerDownShield(){
-        if (!game || game.ended) return;
-        game.shieldHold = true;
-      }
+      /* =========================
+         Events
+      ========================= */
+      function bindUI(){
+        els.startBtn.addEventListener('click', startGame);
+        els.replayBtn.addEventListener('click', startGame);
 
-      function pointerUpShield(){
-        if (!game || game.ended) return;
-        game.shieldHold = false;
-      }
+        els.enterVrBtn.addEventListener('click', () => {
+          try { els.scene.enterVR(); } catch (e) {}
+        });
 
-      function bindButtons(){
-        const downEvents = ['pointerdown', 'touchstart', 'mousedown'];
-        const upEvents = ['pointerup', 'touchend', 'touchcancel', 'mouseup', 'mouseleave'];
-
-        downEvents.forEach(ev => els.shieldBtn.addEventListener(ev, e => {
+        els.shieldBtn.addEventListener('click', (e) => {
           e.preventDefault();
-          pointerDownShield();
-        }, { passive: false }));
+          e.stopPropagation();
+          if (!game || !game.started || game.ended) return;
+          toggleShield();
+        });
 
-        upEvents.forEach(ev => els.shieldBtn.addEventListener(ev, e => {
+        els.burstBtn.addEventListener('click', (e) => {
           e.preventDefault();
-          pointerUpShield();
-        }, { passive: false }));
-
-        els.burstBtn.addEventListener('click', e => {
-          e.preventDefault();
+          e.stopPropagation();
+          if (!game || !game.started || game.ended) return;
           useBurst();
         });
 
-        els.shieldOrb.addEventListener('click', () => {
-          if (!game || game.ended) return;
-          if (game.shield <= 4) {
-            showTip('พลังโล่ยังไม่พอ', 800);
-            return;
-          }
-          setShieldLatch(!game.shieldLatched);
-          showTip(game.shieldLatched ? 'เปิดโล่ค้างแล้ว' : 'ปิดโล่แล้ว', 650);
+        els.worldShieldBtn.addEventListener('click', () => {
+          if (!game || !game.started || game.ended) return;
+          toggleShield();
         });
 
-        els.burstOrb.addEventListener('click', () => useBurst());
+        els.worldBurstBtn.addEventListener('click', () => {
+          if (!game || !game.started || game.ended) return;
+          useBurst();
+        });
 
-        window.addEventListener('keydown', e => {
-          if (e.code === 'Space') {
+        window.addEventListener('keydown', (e) => {
+          if (!game || !game.started || game.ended) return;
+
+          if (e.code === 'Space'){
             e.preventDefault();
-            pointerDownShield();
+            toggleShield();
           }
-          if (e.code === 'KeyQ') {
+
+          if (e.code === 'KeyQ'){
             e.preventDefault();
             useBurst();
           }
-          if (e.code === 'KeyE' && game && !game.ended) {
-            e.preventDefault();
-            setShieldLatch(!game.shieldLatched);
-          }
         });
 
-        window.addEventListener('keyup', e => {
-          if (e.code === 'Space') {
-            e.preventDefault();
-            pointerUpShield();
-          }
+        window.addEventListener('hha:shoot', () => {
+          fireCenter();
         });
 
-        els.startBtn.addEventListener('click', startGame);
-        els.replayBtn.addEventListener('click', startGame);
-        els.enterVrBtn.addEventListener('click', () => {
-          if (els.scene && els.scene.enterVR) els.scene.enterVR();
+        els.scene.addEventListener('loaded', () => {
+          setTimeout(bindCanvasTap, 0);
+        });
+
+        els.scene.addEventListener('renderstart', () => {
+          setTimeout(bindCanvasTap, 0);
         });
 
         els.scene.addEventListener('enter-vr', () => {
-          showTip('เข้าโหมด VR แล้ว • มองเป้าแล้วแตะเพื่อเลือก', 1200);
+          if (game && game.started && !game.ended){
+            showTip('เข้าโหมด VR แล้ว • มองเป้าตรงกลางแล้วแตะเพื่อเลือก', 1200);
+          }
         });
       }
 
       function init(){
-        game = createInitialState();
-        updateHud(true);
-        bindButtons();
+        game = freshState();
+        updateHud();
+        bindUI();
       }
 
       init();
