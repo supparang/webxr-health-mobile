@@ -1,13 +1,13 @@
 // /herohealth/vr-groups/groups.summary.js
-// Groups Solo Summary Helpers
-// PATCH v20260404-groups-summary-r1
+// Groups Summary Helpers
+// PATCH v20260409-groups-summary-raceaware-r1
 
 import {
   GROUPS_CATEGORIES,
   GROUPS_SUMMARY_COPY
 } from './groups.data.js';
 
-export const GROUPS_PATCH_SUMMARY = 'v20260404-groups-summary-r1';
+export const GROUPS_PATCH_SUMMARY = 'v20260409-groups-summary-raceaware-r1';
 
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const LAST_GROUPS_SUMMARY_KEY = 'HHA_GROUPS_LAST_SUMMARY';
@@ -74,6 +74,10 @@ export function buildGroupsSummary({
     gameId: ctx.gameId || 'groups',
     zone: ctx.zone || 'nutrition',
     mode: ctx.mode || 'solo',
+    roomCode: ctx.roomCode || '',
+    isRace: !!(ctx.race || ctx.mode === 'race'),
+    hostUid: ctx.hostUid || '',
+    playerCount: Number(ctx.playerCount || 1),
     pid: ctx.pid || 'anon',
     heroName: ctx.name || '',
     run: ctx.run || 'play',
@@ -109,7 +113,8 @@ export function saveGroupsSummary(summary){
     localStorage.setItem(LAST_GROUPS_SUMMARY_KEY, JSON.stringify(summary));
 
     const raw = localStorage.getItem(SUMMARY_HISTORY_KEY);
-    const arr = Array.isArray(JSON.parse(raw || '[]')) ? JSON.parse(raw || '[]') : [];
+    const parsed = JSON.parse(raw || '[]');
+    const arr = Array.isArray(parsed) ? parsed : [];
     arr.unshift(summary);
     localStorage.setItem(SUMMARY_HISTORY_KEY, JSON.stringify(arr.slice(0, MAX_HISTORY)));
   }catch{}
