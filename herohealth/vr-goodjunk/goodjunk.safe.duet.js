@@ -3,9 +3,7 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk.safe.duet.js
  * GoodJunk Duet Run
- * FULL PATCH v20260406-duet-run-runtime-dualmode
- * - supports old direct Firebase room schema
- * - supports new room-engine + herohealth-logger + duet-play-bridge
+ * FULL PATCH v20260407b-duet-run-runtime-dualmode-layoutfix
  * ========================================================= */
 (function(){
   const W = window;
@@ -479,20 +477,22 @@
         position:absolute;
         display:grid;
         place-items:center;
-        border-radius:20px;
-        border:2px solid #fff;
-        box-shadow:0 12px 24px rgba(0,0,0,.12);
+        border-radius:22px;
+        border:3px solid rgba(36,79,109,.68);
+        box-shadow:
+          0 14px 28px rgba(0,0,0,.18),
+          0 0 0 3px rgba(255,255,255,.72) inset;
         cursor:pointer;
         user-select:none;
         transform:translateZ(0);
-        min-width:56px;
-        min-height:56px;
+        min-width:60px;
+        min-height:60px;
         touch-action:manipulation;
       }
-      .gjd-target.good{ background:linear-gradient(180deg,#ffffff,#f1fff1); }
-      .gjd-target.junk{ background:linear-gradient(180deg,#fff3f3,#ffe1e1); }
+      .gjd-target.good{ background:linear-gradient(180deg,#ffffff,#dfffe4); }
+      .gjd-target.junk{ background:linear-gradient(180deg,#fff1f1,#ffd7d7); }
       .gjd-target .emoji{
-        font-size:clamp(24px,4vw,38px);
+        font-size:clamp(26px,5vw,40px);
         line-height:1;
       }
       .gjd-fx{
@@ -696,32 +696,47 @@
 
   function stageRect(){
     const r = UI.stage.getBoundingClientRect();
-    return {
-      w: Math.max(320, Math.round(r.width || 960)),
-      h: Math.max(420, Math.round(r.height || 580))
-    };
+    const w = Math.max(320, Math.round(r.width || UI.stage.clientWidth || 960));
+    const h = Math.max(360, Math.round(r.height || UI.stage.clientHeight || 580));
+    return { w, h };
   }
 
   function playInsets(){
-    const mobile = W.innerWidth <= 640;
+    const mobile = W.innerWidth <= 760;
+
+    if (mobile) {
+      return {
+        top: 12,
+        right: 8,
+        bottom: 18,
+        left: 8
+      };
+    }
+
     return {
-      top: mobile ? 56 : 86,
-      right: mobile ? 10 : 18,
-      bottom: mobile ? 96 : 96,
-      left: mobile ? 10 : 18
+      top: 20,
+      right: 16,
+      bottom: 28,
+      left: 16
     };
   }
 
   function playBounds(){
     const rect = stageRect();
     const inset = playInsets();
+
+    const left = inset.left;
+    const top = inset.top;
+    const right = Math.max(left + 150, rect.w - inset.right);
+    const bottom = Math.max(top + 220, rect.h - inset.bottom);
+
     return {
       w: rect.w,
       h: rect.h,
-      left: inset.left,
-      right: Math.max(inset.left + 150, rect.w - inset.right),
-      top: inset.top,
-      bottom: Math.max(inset.top + 220, rect.h - inset.bottom)
+      left,
+      right,
+      top,
+      bottom
     };
   }
 
@@ -754,11 +769,6 @@
       .sort((a, b) => num(a.joinedAt, 0) - num(b.joinedAt, 0));
   }
 
-  function partnerInfo(){
-    const arr = activePlayers();
-    return arr.find((p) => String(p.pid || '') !== String(ctx.pid || '')) || null;
-  }
-
   function removeTarget(t){
     if (!t || t.dead) return;
     t.dead = true;
@@ -785,14 +795,20 @@
 
   function makeTarget(kind){
     const bounds = playBounds();
-    const mobile = W.innerWidth <= 640;
-    const size = Math.round((mobile ? 48 : 60) + G.rng() * (mobile ? 14 : 24));
+    const mobile = W.innerWidth <= 760;
+
+    const size = Math.round((mobile ? 64 : 60) + G.rng() * (mobile ? 18 : 24));
     const usableW = Math.max(150, bounds.right - bounds.left);
     const x = bounds.left + Math.round((usableW - size) * G.rng());
-    const y = bounds.top - size - Math.round(G.rng() * 16);
-    const speed = G.cfg.speed * (0.92 + G.rng() * 0.4);
-    const ttl = Math.round(G.cfg.ttl * (0.96 + G.rng() * 0.1));
-    const sway = (G.rng() - 0.5) * 34;
+
+    const y = mobile
+      ? (bounds.top + 6 + Math.round(G.rng() * 18))
+      : (bounds.top - size - Math.round(G.rng() * 16));
+
+    const speed = G.cfg.speed * (mobile ? (0.55 + G.rng() * 0.18) : (0.92 + G.rng() * 0.4));
+    const ttl = Math.round(G.cfg.ttl * (mobile ? 1.8 : (0.96 + G.rng() * 0.1)));
+    const sway = (G.rng() - 0.5) * (mobile ? 16 : 34);
+
     const bank = kind === 'good' ? GOOD : JUNK;
     const item = bank[Math.floor(G.rng() * bank.length)];
 
@@ -803,6 +819,7 @@
     el.style.height = `${size}px`;
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
+    el.style.zIndex = '24';
     el.innerHTML = `<span class="emoji">${item.emoji}</span>`;
     el.setAttribute('aria-label', item.name);
 
