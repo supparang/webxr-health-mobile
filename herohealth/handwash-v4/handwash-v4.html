@@ -15,7 +15,6 @@
       --line:#63e6ff;
       --ink:#ffffff;
       --yellow:#ffd84d;
-      --green:#62ff99;
       --pink:#ff72b6;
       --shadow:0 12px 30px rgba(0,0,0,.26);
     }
@@ -169,7 +168,7 @@
       bottom:10px;
       margin:auto;
       width:auto;
-      max-width:520px;
+      max-width:560px;
       background:rgba(255,255,255,.90);
       color:#0f172a;
       border-radius:16px;
@@ -393,7 +392,7 @@
         <div id="guide-icon" class="guide-image">🧼</div>
         <div id="guide-copy">
           <div id="step-desc">เริ่มจากกดสบู่ก่อน แล้วระบบจะพาไปฝึก 7 ขั้นตอนการถูมือทีละขั้น</div>
-          <div id="action-prompt">เล็ง SOAP แล้วแตะจอ / คลิก / กด Space</div>
+          <div id="action-prompt">เล็งสบู่สีชมพูหรือลูกศรเหลือง แล้วแตะจอ</div>
         </div>
       </div>
 
@@ -408,7 +407,7 @@
       </div>
     </div>
 
-    <div id="coach">ตอนนี้ให้กดสบู่ก่อน</div>
+    <div id="coach">เล็งวงกลมฟ้าตรงกลางไปที่สบู่สีชมพูหรือลูกศรเหลือง แล้วแตะจอ 1 ครั้ง</div>
   </div>
 
   <div id="controls">
@@ -421,15 +420,12 @@
     <div class="card">
       <div class="badge">🫧 Handwash Hero VR</div>
       <h1>เกมสอน 7 ขั้นตอนการถูมือ</h1>
-      <p>
-        เวอร์ชันนี้เป็น <strong>How to Play / Warmup Mini-game</strong> เพื่อให้เด็กเข้าใจว่า
-        แต่ละขั้นควรถูส่วนไหนของมือบ้างก่อนเข้าเกมหลัก
-      </p>
+      <p>เวอร์ชันนี้เป็น <strong>How to Play / Warmup Mini-game</strong> เพื่อให้เด็กเข้าใจว่าแต่ละขั้นควรถูส่วนไหนของมือบ้างก่อนเข้าเกมหลัก</p>
 
       <div class="tips">
         <div class="tip">🎯 เล็งกากบาทกลางจอไปที่วัตถุหรือเป้า</div>
         <div class="tip">👆 แตะจอ / คลิก / กด Space หรือ Enter เพื่อเลือก</div>
-        <div class="tip">🧼 ต้องกดสบู่ก่อน แล้วค่อยเริ่ม 7 ขั้น</div>
+        <div class="tip">🧼 รอบนี้กดได้ทั้งก้อนสบู่และลูกศรเหลือง</div>
         <div class="tip">🥽 เข้า Cardboard ได้ด้วย ENTER VR</div>
       </div>
 
@@ -476,7 +472,6 @@
     <a-entity light="type: ambient; intensity: 1.15; color: #ffffff"></a-entity>
     <a-entity light="type: directional; intensity: 0.9; color: #fff7dd" position="1 3 2"></a-entity>
 
-    <!-- sink zone -->
     <a-entity position="0 0.10 -1.38">
       <a-box position="0 0.84 0" width="1.55" height="0.1" depth="0.82" color="#bfc9d6"></a-box>
       <a-box position="0 0.40 0" width="1.45" height="0.8" depth="0.72" color="#e5edf5"></a-box>
@@ -484,24 +479,42 @@
       <a-box position="0 1.22 -0.05" width="0.34" height="0.06" depth="0.12" color="#94a3b8"></a-box>
       <a-cylinder position="0 1.10 0.12" radius="0.03" height="0.13" rotation="90 0 0" color="#94a3b8"></a-cylinder>
 
-      <a-box id="soap-target" class="focusable"
-             position="0.34 1.00 0.02"
-             width="0.24" height="0.09" depth="0.16"
-             color="#ff72b6"
-             material="emissive: #000; emissiveIntensity: 0">
-        <a-text value="SOAP" align="center" position="0 0.11 0" scale="0.42 0.42 0.42" color="#ffffff"></a-text>
+      <a-entity id="soap-group" position="0.34 1.00 0.02">
+        <a-box id="soap-target"
+               class="focusable"
+               width="0.30" height="0.12" depth="0.18"
+               color="#ff4fa3"
+               material="emissive: #ff9ecb; emissiveIntensity: 0.55">
+        </a-box>
+
+        <a-plane id="soap-hitbox"
+                 class="focusable"
+                 position="0 0.02 0.10"
+                 width="0.44" height="0.24"
+                 color="#ffffff"
+                 opacity="0.001"
+                 material="transparent: true">
+        </a-plane>
+
+        <a-text value="SOAP"
+                align="center"
+                position="0 0.14 0.01"
+                scale="0.48 0.48 0.48"
+                color="#ffffff">
+        </a-text>
+
         <a-cone id="soap-arrow"
-                position="0 0.34 0"
+                class="focusable"
+                position="0 0.36 0"
                 rotation="180 0 0"
-                radius-bottom="0.08"
-                height="0.18"
+                radius-bottom="0.09"
+                height="0.20"
                 color="#ffd84d"
                 animation="property: position; to: 0 0.24 0; dir: alternate; loop: true; dur: 500">
         </a-cone>
-      </a-box>
+      </a-entity>
     </a-entity>
 
-    <!-- player rig -->
     <a-entity id="player-rig">
       <a-camera id="cam" position="0 1.6 0" look-controls>
         <a-entity id="cursor"
@@ -541,62 +554,13 @@
 
   <script>
     const STEPS = [
-      {
-        id:'palms',
-        name:'ฝ่ามือถูฝ่ามือ',
-        icon:'👐',
-        desc:'แตะเป้าบนฝ่ามือทั้งสองข้างให้ครบ เพื่อสื่อว่าต้องถูฝ่ามือเข้าหากัน',
-        needed:6,
-        prompt:'แตะเป้าบนฝ่ามือให้ครบ'
-      },
-      {
-        id:'backs',
-        name:'ฝ่ามือถูหลังมือ',
-        icon:'🖐️',
-        desc:'แตะเป้าบนหลังมือทั้งสองข้าง เพื่อสื่อว่าต้องถูหลังมือสลับกัน',
-        needed:6,
-        prompt:'แตะเป้าบนหลังมือ'
-      },
-      {
-        id:'between',
-        name:'ถูซอกนิ้ว',
-        icon:'🤝',
-        desc:'แตะเป้าตรงซอกนิ้วทั้งสองข้างให้ครบ',
-        needed:6,
-        prompt:'แตะเป้าตรงซอกนิ้ว'
-      },
-      {
-        id:'backfingers',
-        name:'หลังนิ้วถูฝ่ามือ',
-        icon:'👊',
-        desc:'แตะเป้าตรงแนวหลังนิ้ว เพื่อสื่อว่าต้องพับนิ้วแล้วถูบนฝ่ามืออีกข้าง',
-        needed:5,
-        prompt:'แตะเป้าตรงหลังนิ้ว'
-      },
-      {
-        id:'thumbs',
-        name:'ถูนิ้วหัวแม่มือ',
-        icon:'👍',
-        desc:'แตะเป้าตรงหัวแม่มือซ้ายและขวาให้ครบ',
-        needed:4,
-        prompt:'แตะหัวแม่มือทั้งสองข้าง'
-      },
-      {
-        id:'fingertips',
-        name:'ถูปลายนิ้วบนฝ่ามือ',
-        icon:'💅',
-        desc:'แตะเป้าตรงปลายนิ้วและปลายเล็บให้ครบ',
-        needed:6,
-        prompt:'แตะเป้าตรงปลายนิ้ว'
-      },
-      {
-        id:'wrists',
-        name:'ถูรอบข้อมือ',
-        icon:'⌚',
-        desc:'ปิดท้ายด้วยแตะเป้ารอบข้อมือซ้ายและขวา',
-        needed:4,
-        prompt:'แตะเป้าตรงข้อมือ'
-      }
+      { id:'palms', name:'ฝ่ามือถูฝ่ามือ', icon:'👐', desc:'แตะเป้าบนฝ่ามือทั้งสองข้างให้ครบ เพื่อสื่อว่าต้องถูฝ่ามือเข้าหากัน', needed:6, prompt:'แตะเป้าบนฝ่ามือให้ครบ' },
+      { id:'backs', name:'ฝ่ามือถูหลังมือ', icon:'🖐️', desc:'แตะเป้าบนหลังมือทั้งสองข้าง เพื่อสื่อว่าต้องถูหลังมือสลับกัน', needed:6, prompt:'แตะเป้าบนหลังมือ' },
+      { id:'between', name:'ถูซอกนิ้ว', icon:'🤝', desc:'แตะเป้าตรงซอกนิ้วทั้งสองข้างให้ครบ', needed:6, prompt:'แตะเป้าตรงซอกนิ้ว' },
+      { id:'backfingers', name:'หลังนิ้วถูฝ่ามือ', icon:'👊', desc:'แตะเป้าตรงแนวหลังนิ้ว เพื่อสื่อว่าต้องพับนิ้วแล้วถูบนฝ่ามืออีกข้าง', needed:5, prompt:'แตะเป้าตรงหลังนิ้ว' },
+      { id:'thumbs', name:'ถูนิ้วหัวแม่มือ', icon:'👍', desc:'แตะเป้าตรงหัวแม่มือซ้ายและขวาให้ครบ', needed:4, prompt:'แตะหัวแม่มือทั้งสองข้าง' },
+      { id:'fingertips', name:'ถูปลายนิ้วบนฝ่ามือ', icon:'💅', desc:'แตะเป้าตรงปลายนิ้วและปลายเล็บให้ครบ', needed:6, prompt:'แตะเป้าตรงปลายนิ้ว' },
+      { id:'wrists', name:'ถูรอบข้อมือ', icon:'⌚', desc:'ปิดท้ายด้วยแตะเป้ารอบข้อมือซ้ายและขวา', needed:4, prompt:'แตะเป้าตรงข้อมือ' }
     ];
 
     const state = {
@@ -622,16 +586,12 @@
       fill:document.getElementById('fill'),
       progressText:document.getElementById('progress-text'),
       coach:document.getElementById('coach'),
-      soapArrow:document.getElementById('soap-arrow'),
       bubbles:document.getElementById('bubbles-fx'),
       germsL:document.getElementById('germs-l'),
       germsR:document.getElementById('germs-r'),
 
       startOverlay:document.getElementById('start-overlay'),
       summaryOverlay:document.getElementById('summary-overlay'),
-      sumSteps:document.getElementById('sum-steps'),
-      sumScore:document.getElementById('sum-score'),
-      sumMiss:document.getElementById('sum-miss'),
 
       startBtn:document.getElementById('start-btn'),
       restartBtn:document.getElementById('restart-btn'),
@@ -643,7 +603,11 @@
     const scene = document.getElementById('scene');
     const rig = document.getElementById('player-rig');
     const cursor = document.getElementById('cursor');
+
     const soapTarget = document.getElementById('soap-target');
+    const soapArrow = document.getElementById('soap-arrow');
+    const soapHitbox = document.getElementById('soap-hitbox');
+
     const targetLayer = document.getElementById('target-layer');
     const fxLayer = document.getElementById('fx-layer');
 
@@ -651,7 +615,9 @@
       ui.vrBtn.textContent = scene.is('vr-mode') ? 'EXIT VR' : 'ENTER VR';
     }
 
-    function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+    function clamp(v,min,max){
+      return Math.max(min,Math.min(max,v));
+    }
 
     function isMobileLike(){
       return window.matchMedia('(max-width: 680px)').matches;
@@ -680,10 +646,11 @@
       ui.bubbles.setAttribute('visible', state.hasSoap);
     }
 
-    function setHighlight(el,on,color='#22d3ee'){
-      if(!el) return;
-      el.setAttribute('material','emissive', on ? color : '#000000');
-      el.setAttribute('material','emissiveIntensity', on ? 1.0 : 0);
+    function setSoapHighlight(on){
+      soapTarget.setAttribute('material', 'emissive', on ? '#ffd84d' : '#ff9ecb');
+      soapTarget.setAttribute('material', 'emissiveIntensity', on ? 1.2 : 0.55);
+      soapArrow.setAttribute('material', 'emissive', on ? '#fff6a8' : '#000000');
+      soapArrow.setAttribute('material', 'emissiveIntensity', on ? 0.7 : 0);
     }
 
     function clearTargets(){
@@ -697,13 +664,18 @@
         fx.setAttribute('color', color);
         fx.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
         fx.setAttribute('material', 'shader: flat; opacity: 0.96; transparent: true');
+
         const dx = (Math.random()-0.5)*0.25;
         const dy = 0.08 + Math.random()*0.18;
         const dz = (Math.random()-0.5)*0.18;
+
         fx.setAttribute('animation__move', `property: position; to: ${pos.x+dx} ${pos.y+dy} ${pos.z+dz}; dur: 420; easing: easeOutQuad`);
         fx.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 420; easing: linear');
+
         fxLayer.appendChild(fx);
-        setTimeout(()=>{ if(fx.parentNode) fx.parentNode.removeChild(fx); }, 450);
+        setTimeout(()=>{
+          if(fx.parentNode) fx.parentNode.removeChild(fx);
+        }, 450);
       }
     }
 
@@ -725,8 +697,8 @@
         ui.stepName.textContent = 'กดสบู่ก่อนเริ่มฝึก';
         ui.stepDesc.textContent = 'เริ่มจากกดสบู่ก่อน แล้วระบบจะพาไปฝึก 7 ขั้นตอนการถูมือทีละขั้น';
         ui.guideIcon.textContent = '🧼';
-        ui.prompt.textContent = 'เล็ง SOAP แล้วแตะจอ / คลิก / กด Space';
-        setCoachCompact('ตอนนี้ให้กดสบู่ก่อน');
+        ui.prompt.textContent = 'เล็งสบู่สีชมพูหรือลูกศรเหลือง แล้วแตะจอ';
+        setCoachCompact('เล็งวงกลมฟ้าตรงกลางไปที่สบู่สีชมพูหรือลูกศรเหลือง แล้วแตะจอ 1 ครั้ง');
         ui.fill.style.width = '0%';
         ui.progressText.textContent = '0%';
         return;
@@ -778,6 +750,7 @@
       };
 
       const pts = (sets[stepId] || []).slice(0,count);
+
       pts.forEach((p, idx)=>{
         const t = document.createElement('a-sphere');
         t.classList.add('focusable');
@@ -821,11 +794,11 @@
     function activateSoap(){
       if(!state.started || state.ended) return;
       if(state.hasSoap) return;
+
       state.hasSoap = true;
       state.score += 50;
-      ui.soapArrow.setAttribute('visible', 'false');
       ui.bubbles.setAttribute('visible', 'true');
-      setHighlight(soapTarget, false);
+      setSoapHighlight(false);
       burstAt({x:0.34, y:1.10, z:-1.36}, '#ffffff');
       state.currentIdx = 0;
       prepareStep();
@@ -869,7 +842,11 @@
       if(now - state.lastActionAt < 120) return false;
       state.lastActionAt = now;
 
-      if(el.id === 'soap-target'){
+      if(
+        el.id === 'soap-target' ||
+        el.id === 'soap-arrow' ||
+        el.id === 'soap-hitbox'
+      ){
         activateSoap();
         return true;
       }
@@ -892,13 +869,15 @@
       state.miss = 0;
       state.currentNeeded = 1;
       state.lastActionAt = 0;
+
       clearTargets();
       resetHands();
-      ui.soapArrow.setAttribute('visible', 'true');
       ui.bubbles.setAttribute('visible', 'false');
-      setHighlight(soapTarget, true, '#ffd84d');
+      setSoapHighlight(true);
+
       ui.startOverlay.classList.add('hidden');
       ui.summaryOverlay.classList.add('hidden');
+
       setHudCompact(isMobileLike());
       updateUI();
     }
@@ -928,6 +907,8 @@
     }
 
     soapTarget.addEventListener('click', activateSoap);
+    soapArrow.addEventListener('click', activateSoap);
+    soapHitbox.addEventListener('click', activateSoap);
 
     targetLayer.addEventListener('click', (e)=>{
       const t = e.target;
