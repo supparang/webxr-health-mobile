@@ -4,8 +4,6 @@
  * /herohealth/vr-goodjunk/goodjunk.safe.duet.js
  * GoodJunk Duet Run
  * FULL PATCH v20260407c-duet-run-runtime-dualmode-layoutfix
- * - mobile HUD-aware bounds
- * - target will not spawn / sink behind HUD
  * ========================================================= */
 (function(){
   const W = window;
@@ -281,8 +279,10 @@
 
   async function ensureRuntimeContract(){
     if (W.HHARuntimeContract && typeof W.HHARuntimeContract.create === 'function') return true;
-    try { await loadScript('../js/hha-cloud-logger-bridge.js'); } catch (_) {}
-    try { await loadScript('../js/hha-runtime-contract.js'); } catch (_) {}
+
+    try { await loadScript('../hha-cloud-logger-bridge.js?v=20260409a'); } catch (_) {}
+    try { await loadScript('../hha-runtime-contract.js?v=20260409a'); } catch (_) {}
+
     return !!(W.HHARuntimeContract && typeof W.HHARuntimeContract.create === 'function');
   }
 
