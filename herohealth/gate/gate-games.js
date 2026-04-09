@@ -145,9 +145,6 @@ function inferLooseMeta(id = '') {
 }
 
 export const GAME_REGISTRY = {
-  // =========================
-  // Nutrition
-  // =========================
   hydration: makeMeta('hydration', {
     title: 'Hydration Hero',
     label: 'Hydration Hero',
@@ -180,7 +177,7 @@ export const GAME_REGISTRY = {
     warmupFile: './games/goodjunk/warmup.js',
     cooldownFile: './games/goodjunk/cooldown.js',
     styleFile: './games/goodjunk/style.css',
-    summaryPath: '../goodjunk-launcher.html'
+    summaryPath: 'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html?pid=anon&hub=https%3A%2F%2Fsupparang.github.io%2Fwebxr-health-mobile%2Fherohealth%2Fhub.html'
   }),
 
   plate: makeMeta('plate', {
@@ -215,9 +212,6 @@ export const GAME_REGISTRY = {
     summaryPath: '../groups-v1.html'
   }),
 
-  // =========================
-  // Hygiene
-  // =========================
   brush: makeMeta('brush', {
     title: 'Brush VR',
     label: 'Brush VR',
@@ -295,9 +289,6 @@ export const GAME_REGISTRY = {
     summaryPath: '../hygiene-zone.html'
   }),
 
-  // =========================
-  // Fitness
-  // =========================
   'shadow-breaker': makeMeta('shadow-breaker', {
     title: 'Shadow Breaker',
     label: 'Shadow Breaker',
@@ -375,7 +366,6 @@ export const GAME_REGISTRY = {
 };
 
 const GAME_ALIAS = {
-  // hydration
   hydration: 'hydration',
   'hydration-vr': 'hydration',
   hydrationvr: 'hydration',
@@ -384,7 +374,6 @@ const GAME_ALIAS = {
   hydrationv1: 'hydration',
   hydrationv2: 'hydration',
 
-  // goodjunk
   goodjunk: 'goodjunk',
   'goodjunk-vr': 'goodjunk',
   goodjunkvr: 'goodjunk',
@@ -394,20 +383,17 @@ const GAME_ALIAS = {
   phaseboss: 'goodjunk',
   'solo-boss': 'goodjunk',
 
-  // plate
   plate: 'plate',
   platev1: 'plate',
   'plate-vr': 'plate',
   platevr: 'plate',
 
-  // groups
   groups: 'groups',
   groupsvr: 'groups',
   'groups-vr': 'groups',
   foodgroups: 'groups',
   'food-groups': 'groups',
 
-  // hygiene
   brush: 'brush',
   brushvr: 'brush',
   'brush-vr': 'brush',
@@ -428,7 +414,6 @@ const GAME_ALIAS = {
   maskcough: 'maskcough',
   'mask-cough': 'maskcough',
 
-  // fitness
   'shadow-breaker': 'shadow-breaker',
   shadowbreaker: 'shadow-breaker',
   shadow: 'shadow-breaker',
@@ -449,7 +434,6 @@ const GAME_ALIAS = {
 export function normalizeGameId(id = '') {
   const raw = String(id || '').trim().toLowerCase();
   if (!raw) return '';
-
   const compact = compactId(raw);
   return GAME_ALIAS[raw] || GAME_ALIAS[compact] || compact;
 }
