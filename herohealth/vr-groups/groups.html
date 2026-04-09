@@ -6,7 +6,7 @@
   <title>HeroHealth • Food Groups Solo</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#90d6ff" />
-  <link rel="icon" href="../favicon.ico" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
       --bg1:#eefaff;
@@ -833,7 +833,6 @@
       }
     }
 
-    /* ===== GROUPS MOBILE HUD FIX v2 ===== */
     body.compact-mobile .shell{
       grid-template-rows:auto auto minmax(440px, 1fr);
       gap:8px;
@@ -1188,7 +1187,7 @@
   </main>
 
   <script type="module">
-    const PATCH = 'v20260405-groups-shell-hudfix-r1';
+    const PATCH = 'v20260409-groups-shell-race-bridge-r1';
 
     const q = new URL(location.href).searchParams;
 
@@ -1251,22 +1250,32 @@
       name: cleanName(q.get('name') || q.get('nick') || 'Rocky'),
       studyId: String(q.get('studyId') || '').trim(),
       diff: oneOf(q.get('diff'), ['easy','normal','hard'], 'normal'),
-      timeSec: clampInt(q.get('time'), 80, 30, 180),
+      timeSec: clampInt(q.get('timeSec') || q.get('time'), 80, 30, 180),
       seed: String(q.get('seed') || Date.now()),
-      hub: q.get('hub') || new URL('../hub.html', location.href).toString(),
+      hub: q.get('hub') || new URL('./hub.html', location.href).toString(),
       view: oneOf(q.get('view'), ['pc','mobile','cvr','vr'], 'mobile'),
       run: oneOf(q.get('run'), ['play','research','demo'], 'play'),
-      mode: 'solo',
+
+      mode: oneOf(q.get('mode'), ['solo','race'], 'solo'),
+      race: q.get('race') === '1',
+      roomCode: cleanRoom(q.get('roomCode') || q.get('code') || ''),
+      isHost: q.get('isHost') === '1',
+      hostUid: String(q.get('hostUid') || ''),
+      playerCount: clampInt(q.get('players'), 1, 1, 8),
+
       game: 'groups',
       gameId: 'groups',
-      zone: 'nutrition',
-      cat: 'nutrition',
+      zone: q.get('zone') || 'nutrition',
+      cat: q.get('cat') || 'nutrition',
       theme: 'groups',
+
       cooldown: q.get('cooldown') === '1',
       returnPhase: q.get('returnPhase') || '',
-      cooldownGateUrl: new URL('../warmup-gate.html', location.href).toString(),
+      cooldownGateUrl: new URL('./warmup-gate.html', location.href).toString(),
       debug: q.get('debug') === '1'
     };
+
+    if (CTX.race) CTX.mode = 'race';
 
     window.__GROUPS_RUN_CTX__ = CTX;
 
@@ -1282,6 +1291,7 @@
     if (CTX.view === 'cvr' || CTX.view === 'vr') document.body.classList.add('view-cvr');
     if (CTX.view === 'mobile') document.body.classList.add('view-mobile');
     if (CTX.view === 'pc') document.body.classList.add('view-pc');
+    if (CTX.mode === 'race') document.body.classList.add('mode-race');
 
     if (isCompactMobile) {
       document.body.classList.add('compact-mobile');
@@ -1305,22 +1315,26 @@
       ui.btnRecenter.style.display = 'none';
     }
 
+    decorateShellByMode();
+
     try {
       const [
         { createGroupsLogger },
         { createGroupsAiHooks },
         { createGroupsRenderer },
-        { createGroupsSoloCore }
+        { createGroupsSoloCore },
+        raceBridgeMod
       ] = await Promise.all([
         import('./groups.log.js'),
         import('./ai-hooks.js'),
         import('./groups.renderer.js'),
-        import('./groups.solo.core.js')
+        import('./groups.solo.core.js'),
+        import('./groups.race.bridge.js').catch(() => ({ createGroupsRaceBridge: null }))
       ]);
 
       const logger = createGroupsLogger(CTX, {
         patch: PATCH,
-        maxLogs: 300
+        maxLogs: 400
       });
 
       const ai = createGroupsAiHooks({
@@ -1344,23 +1358,90 @@
         logger,
         ai,
         options: {
-          patch: PATCH
+          patch: PATCH,
+          mode: CTX.mode,
+          race: CTX.mode === 'race'
         }
       });
 
+      let raceBridge = null;
+
+      if (CTX.mode === 'race') {
+        if (!raceBridgeMod || typeof raceBridgeMod.createGroupsRaceBridge !== 'function') {
+          throw new Error('ยังไม่พบไฟล์ groups.race.bridge.js');
+        }
+
+        raceBridge = await raceBridgeMod.createGroupsRaceBridge({
+          ctx: CTX,
+          ui,
+          core,
+          logger,
+          patch: PATCH
+        });
+      }
+
       window.__GROUPS_CORE__ = core;
-      core.boot();
+      window.__GROUPS_RACE_BRIDGE__ = raceBridge || null;
+
+      await core.boot();
+
+      if (raceBridge && typeof raceBridge.attach === 'function') {
+        await raceBridge.attach();
+      }
 
       if (CTX.view === 'cvr' || CTX.view === 'vr') {
         const s = document.createElement('script');
-        s.src = '../vr/vr-ui.js';
+        s.src = './vr/vr-ui.js';
         s.async = true;
         document.body.appendChild(s);
       }
 
     } catch (err) {
-      console.error('[GroupsSolo] boot failed:', err);
+      console.error('[Groups] boot failed:', err);
       showBootError(err);
+    }
+
+    function decorateShellByMode() {
+      const modeLabel = CTX.mode === 'race' ? 'Race' : 'Solo';
+
+      document.title = `HeroHealth • Food Groups ${modeLabel}`;
+
+      const brandH1 = document.querySelector('.brand h1');
+      if (brandH1) brandH1.textContent = `Food Groups ${modeLabel}`;
+
+      if (ui.ctxLine) {
+        ui.ctxLine.textContent =
+          `run=${CTX.run} • mode=${CTX.mode} • diff=${CTX.diff} • time=${CTX.timeSec} • view=${CTX.view}`;
+      }
+
+      if (ui.goalSub && CTX.mode === 'race') {
+        ui.goalSub.textContent = 'แข่งกับเพื่อนในห้องเดียวกัน เก็บคะแนนให้มากและพลาดให้น้อยที่สุด';
+      }
+
+      if (ui.coachBubble && CTX.mode === 'race') {
+        ui.coachBubble.textContent = `โค้ช: ห้อง ${CTX.roomCode || '-'} เริ่มแล้ว ลุยเก็บคะแนนแข่งกันได้เลย ⚡`;
+      }
+
+      if (ui.phaseTag && CTX.mode === 'race') {
+        ui.phaseTag.textContent = 'Race';
+      }
+
+      if (ui.introTitle && CTX.mode === 'race') {
+        ui.introTitle.textContent = 'เตรียมแข่ง Food Groups Race';
+      }
+
+      if (ui.introDesc && CTX.mode === 'race') {
+        ui.introDesc.textContent =
+          'เกมนี้กำลังเปิดแบบแข่งกับเพื่อน คะแนนของคุณจะถูกส่งเข้าห้องแข่งอัตโนมัติ';
+      }
+
+      if (ui.btnStartPractice && CTX.mode === 'race') {
+        ui.btnStartPractice.textContent = 'เริ่มแข่ง';
+      }
+
+      if (ui.btnStartMain && CTX.mode === 'race') {
+        ui.btnStartMain.textContent = 'ไปต่อ';
+      }
     }
 
     function showBootError(err){
@@ -1372,18 +1453,16 @@
       if (ui.midOverlay) ui.midOverlay.classList.remove('show');
       if (ui.summaryOverlay) ui.summaryOverlay.classList.remove('show');
 
-      if (ui.introTitle) {
-        ui.introTitle.textContent = 'เปิดเกมไม่สำเร็จ';
-      }
+      if (ui.introTitle) ui.introTitle.textContent = 'เปิดเกมไม่สำเร็จ';
       if (ui.introDesc) {
         ui.introDesc.textContent =
-          'โหลดโมดูลของ Groups Solo ไม่สำเร็จ กรุณาตรวจ path ไฟล์หรือ syntax error แล้วลองใหม่อีกครั้ง';
+          `โหลดโมดูลของ Groups ${CTX.mode === 'race' ? 'Race' : 'Solo'} ไม่สำเร็จ กรุณาตรวจ path ไฟล์หรือ syntax error แล้วลองใหม่อีกครั้ง`;
       }
       if (ui.coachBubble) {
         ui.coachBubble.textContent = `โค้ช: มีข้อผิดพลาดตอนเปิดเกม — ${msg}`;
       }
       if (ui.debugPanel) {
-        ui.debugPanel.textContent = `BOOT ERROR\nPATCH: ${PATCH}\n${msg}`;
+        ui.debugPanel.textContent = `BOOT ERROR\nPATCH: ${PATCH}\nMODE: ${CTX.mode}\n${msg}`;
       }
 
       if (ui.btnStartPractice) ui.btnStartPractice.disabled = true;
@@ -1403,6 +1482,13 @@
         .trim()
         .replace(/\s+/g, ' ')
         .slice(0, 24) || 'Rocky';
+    }
+
+    function cleanRoom(v){
+      return String(v || '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9-]/g, '')
+        .slice(0, 16);
     }
 
     function oneOf(v, list, fallback){
