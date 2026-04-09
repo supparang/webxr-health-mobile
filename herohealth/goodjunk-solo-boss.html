@@ -223,7 +223,7 @@
 
   <div id="bootLayer" class="boot-layer">
     <div class="boot-card">
-      <div class="boot-badge">HeroHealth • GoodJunk Solo Boss</div>
+      <div class="boot-badge" id="bootBadge">HeroHealth • GoodJunk Solo Boss</div>
       <div class="boot-icon">👑</div>
       <h1 class="boot-title">กำลังเข้า Boss</h1>
       <div class="boot-sub" id="bootSub">
@@ -252,6 +252,13 @@
       'use strict';
 
       const q = new URLSearchParams(location.search);
+      const GJ_BOSS_SHELL_BUILD = '20260408b-GJ-SOLOBOSS-FLOW-FINAL';
+      const GJ_CANONICAL_HUB_ROOT =
+        'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+
+      const GJ_CANONICAL_LAUNCHER =
+        'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html?pid=anon&hub=' +
+        encodeURIComponent(GJ_CANONICAL_HUB_ROOT);
 
       function qs(name, fallback=''){
         try { return q.get(name) ?? fallback; }
@@ -263,56 +270,8 @@
         return s || fallback;
       }
 
-      function buildUrl(path, extra = {}){
-        const u = new URL(path, location.href);
-        Object.entries(extra).forEach(([k, v]) => {
-          if (v !== undefined && v !== null && v !== '') {
-            u.searchParams.set(k, String(v));
-          }
-        });
-        return u.toString();
-      }
-
-      function safeAbsUrl(raw, fallback=''){
-        const value = String(raw || '').trim();
-        try{
-          if (value) return new URL(value, location.href).toString();
-        }catch(_){}
-        return String(fallback || '');
-      }
-
-      function buildHubRootUrl(){
-        return safeAbsUrl(
-          qs('hubRoot', qs('hub', '')),
-          new URL('./hub.html', location.href).toString()
-        );
-      }
-
-      function buildLauncherFallbackUrl(){
-        return buildUrl('./goodjunk-launcher.html', {
-          pid: clean(qs('pid','anon'), 'anon'),
-          nick: clean(qs('nick', qs('name','Hero')), 'Hero'),
-          diff: clean(qs('diff','normal'), 'normal'),
-          time: clean(qs('time','80'), '80'),
-          view: clean(qs('view','mobile'), 'mobile'),
-          hub: buildHubRootUrl(),
-          studyId: clean(qs('studyId','')),
-          conditionGroup: clean(qs('conditionGroup','')),
-          log: clean(qs('log','')),
-          ai: clean(qs('ai','')),
-          pro: clean(qs('pro','')),
-          research: clean(qs('research','')),
-          seed: clean(qs('seed','')),
-          run: clean(qs('run','play')),
-          debug: qs('debug','') === '1' ? '1' : ''
-        });
-      }
-
-      const HUB_ROOT_URL = buildHubRootUrl();
-      const LAUNCHER_URL = safeAbsUrl(
-        qs('launcher',''),
-        buildLauncherFallbackUrl()
-      );
+      const HUB_ROOT_URL = GJ_CANONICAL_HUB_ROOT;
+      const LAUNCHER_URL = GJ_CANONICAL_LAUNCHER;
 
       const ctx = {
         pid: clean(qs('pid','anon'), 'anon'),
@@ -322,10 +281,10 @@
         diff: clean(qs('diff','normal'), 'normal'),
         time: clean(qs('time','150'), '150'),
         seed: clean(qs('seed', String(Date.now())), String(Date.now())),
-        hub: clean(qs('hub', LAUNCHER_URL), LAUNCHER_URL),
+        hub: LAUNCHER_URL,
         hubRoot: HUB_ROOT_URL,
         launcher: LAUNCHER_URL,
-        cdnext: clean(qs('cdnext', LAUNCHER_URL), LAUNCHER_URL),
+        cdnext: LAUNCHER_URL,
         view: clean(qs('view','mobile'), 'mobile'),
         run: clean(qs('run','play'), 'play'),
         gameId: clean(qs('gameId','goodjunk'), 'goodjunk'),
@@ -347,6 +306,11 @@
       const chipTime = document.getElementById('chipTime');
       const chipView = document.getElementById('chipView');
       const bootErrorBox = document.getElementById('bootErrorBox');
+      const bootBadge = document.getElementById('bootBadge');
+
+      if (bootBadge) {
+        bootBadge.textContent = `HeroHealth • GoodJunk Solo Boss • ${GJ_BOSS_SHELL_BUILD}`;
+      }
 
       chipDiff.textContent = `diff: ${ctx.diff}`;
       chipTime.textContent = `time: ${ctx.time}s`;
@@ -393,6 +357,7 @@
 
       if (ctx.debug) {
         console.log('[GJ SOLO BOSS SHELL]', {
+          build: GJ_BOSS_SHELL_BUILD,
           hub: ctx.hub,
           hubRoot: ctx.hubRoot,
           launcher: ctx.launcher,
@@ -406,6 +371,6 @@
     })();
   </script>
 
-  <script src="./goodjunk-solo-phaseboss-v2.js?v=20260408a-GJSB-FLOW-HUBROOT-LAUNCHER-FINAL"></script>
+  <script src="./goodjunk-solo-phaseboss-v2.js?v=20260408b-GJ-SOLOBOSS-FLOW-FINAL"></script>
 </body>
 </html>
