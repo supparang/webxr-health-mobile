@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Bath Main Game</title>
+  <title>HeroHealth • Bath Main Game Front/Back</title>
 
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
@@ -125,7 +125,7 @@
       top:82px;
       left:8px;
       right:8px;
-      max-width:660px;
+      max-width:760px;
     }
 
     .task-card{
@@ -242,7 +242,7 @@
     .hidden{ display:none !important; }
 
     .card{
-      width:min(95vw,860px);
+      width:min(95vw,900px);
       border-radius:30px;
       background:linear-gradient(180deg,rgba(255,255,255,.99),rgba(244,252,255,.98));
       border:4px solid rgba(255,255,255,.98);
@@ -359,8 +359,8 @@
           <span class="v"><span id="phaseNow">1</span>/4</span>
         </div>
         <div class="chip">
-          <span class="k">โซน</span>
-          <span class="v"><span id="stepNow">1</span>/<span id="stepAll">7</span></span>
+          <span class="k">ลำดับ</span>
+          <span class="v"><span id="stepNow">1</span>/<span id="stepAll">14</span></span>
         </div>
       </div>
 
@@ -376,7 +376,7 @@
           <span id="modeText">MOBILE • NORMAL</span>
           <span id="toolText">อุปกรณ์: ฝักบัว</span>
         </div>
-        <div id="taskTitle" class="task-title">ตอนนี้: ทำตัวให้เปียกที่ศีรษะ</div>
+        <div id="taskTitle" class="task-title">ตอนนี้: ทำตัวให้เปียกที่ศีรษะด้านหน้า</div>
         <div class="bar">
           <i id="zoneBar"></i>
         </div>
@@ -391,24 +391,23 @@
     <div id="centerMsg" class="center-msg">เริ่มอาบน้ำกัน!</div>
 
     <div id="helperText" class="helper">
-      PC/Mobile: แตะจุดเป้า • Cardboard: เล็งค้าง • เวอร์ชันนี้มี เปียก / สบู่ / ล้างฟอง / เช็ดแห้งจริง
+      PC/Mobile: แตะจุดเป้า • Cardboard: เล็งค้าง • เวอร์ชันนี้มี หน้า/หลัง + จุดอับจริง
     </div>
   </div>
 
   <div id="startOverlay" class="overlay">
     <div class="card">
-      <h1>🛁 Bath Main Game</h1>
+      <h1>🛁 Bath Main Game • Front / Back</h1>
       <p class="sub">
-        รอบนี้เกมเล่นเป็น state จริงแล้ว:
-        ทำตัวให้เปียก → ฟอกสบู่ → ล้างฟอง → เช็ดให้แห้ง
-        โดยทำทีละส่วนของร่างกายให้ครบก่อนจะไปต่อ
+        รอบนี้เกมเล่นครบทั้งด้านหน้าและด้านหลังแล้ว
+        และมีจุดอับจริง เช่น รักแร้ หลังหู ท้ายทอย หลังเข่า ส้นเท้า และซอกนิ้วเท้า
       </p>
 
       <div class="mini-grid">
-        <div class="mini">1) ดูว่าเกมกำลังอยู่ขั้นไหน</div>
-        <div class="mini">2) แตะจุดบนส่วนที่ถูกสั่ง</div>
-        <div class="mini">3) ครบทั้ง 7 ส่วนแล้วจะเปลี่ยน phase</div>
-        <div class="mini">4) ผ่านทั้ง 4 phase คืออาบน้ำครบจริง</div>
+        <div class="mini">1) เกมจะบอกว่าตอนนี้เป็นขั้นไหน</div>
+        <div class="mini">2) เกมจะบอกด้วยว่าต้องทำด้านหน้า หรือด้านหลัง</div>
+        <div class="mini">3) ทำทีละจุด ทีละส่วน ให้ครบก่อนจะไปต่อ</div>
+        <div class="mini">4) ผ่าน 4 ขั้นครบ = อาบน้ำสมบูรณ์จริง</div>
       </div>
 
       <div class="row">
@@ -476,7 +475,7 @@
       <a-box position="0 5.8 -4.1" width="14" height="0.15" depth="7.5" color="#eefbff"></a-box>
 
       <!-- child avatar -->
-      <a-entity id="avatarRoot" position="0 0.22 -4.60">
+      <a-entity id="avatarRoot" position="0 0.22 -4.60" rotation="0 0 0">
         <a-entity id="avatarBob"
           animation="property: position; from: 0 0 0; to: 0 0.03 0; dir: alternate; dur: 1450; loop: true; easing: easeInOutSine">
 
@@ -509,7 +508,7 @@
           </a-entity>
 
           <!-- head -->
-          <a-entity position="0 2.44 0.04">
+          <a-entity id="headRig" position="0 2.44 0.04">
             <a-sphere position="0 0 0" radius="0.40" color="#ffd7b3"></a-sphere>
             <a-sphere position="0 0.14 -0.02" radius="0.42" color="#6a4638" scale="1 0.70 1"></a-sphere>
             <a-sphere position="0 0.20 0.12" radius="0.22" color="#6a4638" scale="1 0.45 0.80"></a-sphere>
@@ -526,14 +525,9 @@
         </a-entity>
       </a-entity>
 
-      <!-- zone marker + arrow -->
       <a-entity id="zoneMarker"></a-entity>
       <a-entity id="zoneArrow"></a-entity>
-
-      <!-- target layer -->
       <a-entity id="targetLayer"></a-entity>
-
-      <!-- fx -->
       <a-entity id="fxLayer"></a-entity>
     </a-entity>
 
@@ -578,130 +572,229 @@
       const SEED = qs.get('seed') || String(Date.now());
 
       const PRESETS = {
-        easy:   { startTime: 92, spotLife: 4300, spawnDelay: 220, zoneBonus: 24, missPenalty: 1 },
-        normal: { startTime: 78, spotLife: 3300, spawnDelay: 180, zoneBonus: 30, missPenalty: 1 },
-        hard:   { startTime: 64, spotLife: 2600, spawnDelay: 150, zoneBonus: 36, missPenalty: 2 }
+        easy:   { startTime: 105, spotLife: 4500, spawnDelay: 220, zoneBonus: 24, missPenalty: 1 },
+        normal: { startTime: 90,  spotLife: 3500, spawnDelay: 180, zoneBonus: 30, missPenalty: 1 },
+        hard:   { startTime: 74,  spotLife: 2700, spawnDelay: 150, zoneBonus: 36, missPenalty: 2 }
       };
       const cfg = PRESETS[DIFF] || PRESETS.normal;
 
       const PHASES = [
-        {
-          id:'WET',
-          label:'ทำตัวให้เปียก',
-          tool:'ฝักบัว',
-          score:34,
-          zoneBonus:24,
-          startMsg:'💧 เริ่มจากทำตัวให้เปียกก่อน'
-        },
-        {
-          id:'SOAP',
-          label:'ฟอกสบู่',
-          tool:'สบู่',
-          score:42,
-          zoneBonus:30,
-          startMsg:'🧼 ต่อไปฟอกสบู่ให้ทั่ว'
-        },
-        {
-          id:'RINSE',
-          label:'ล้างฟอง',
-          tool:'ฝักบัว',
-          score:38,
-          zoneBonus:28,
-          startMsg:'🚿 ล้างฟองออกให้หมด'
-        },
-        {
-          id:'DRY',
-          label:'เช็ดให้แห้ง',
-          tool:'ผ้าขนหนู',
-          score:46,
-          zoneBonus:34,
-          startMsg:'🧻 ขั้นสุดท้าย เช็ดให้แห้ง'
-        }
+        { id:'WET',   label:'ทำตัวให้เปียก', tool:'ฝักบัว',   score:34, zoneBonus:24, startMsg:'💧 เริ่มจากทำตัวให้เปียกก่อน' },
+        { id:'SOAP',  label:'ฟอกสบู่',       tool:'สบู่',      score:42, zoneBonus:30, startMsg:'🧼 ต่อไปฟอกสบู่ให้ทั่ว' },
+        { id:'RINSE', label:'ล้างฟอง',       tool:'ฝักบัว',   score:38, zoneBonus:28, startMsg:'🚿 ล้างฟองออกให้หมด' },
+        { id:'DRY',   label:'เช็ดให้แห้ง',   tool:'ผ้าขนหนู', score:46, zoneBonus:34, startMsg:'🧻 ขั้นสุดท้าย เช็ดให้แห้ง' }
       ];
 
-      const ZONES = [
+      const FLOW = [
         {
-          key:'head',
-          label:'ศีรษะ',
+          id:'front_head',
+          view:'front',
+          label:'ศีรษะด้านหน้า',
+          short:'ศีรษะด้านหน้า',
+          hint:'แตะจุดบนศีรษะด้านหน้าให้ครบ',
           marker:{ geo:'sphere', radius:0.52, position:'0 2.66 -4.54', rotation:'0 0 0' },
           arrow:{ x:0, y:3.30, z:-4.54 },
           spots:[
-            { id:'head1', x:0,     y:2.78, z:-4.18 },
-            { id:'head2', x:-0.12, y:2.60, z:-4.18 },
-            { id:'head3', x:0.12,  y:2.60, z:-4.18 },
-            { id:'head4', x:0,     y:2.40, z:-4.18 }
+            { id:'front_head_1', x:0,     y:2.78, z:-4.18, hidden:false },
+            { id:'front_head_2', x:-0.12, y:2.60, z:-4.18, hidden:false },
+            { id:'front_head_3', x:0.12,  y:2.60, z:-4.18, hidden:false },
+            { id:'front_head_4', x:0,     y:2.40, z:-4.18, hidden:false }
           ]
         },
         {
-          key:'chest',
-          label:'อก',
+          id:'front_chest',
+          view:'front',
+          label:'อกด้านหน้า',
+          short:'อกด้านหน้า',
+          hint:'แตะจุดบนอกด้านหน้าให้ครบ',
           marker:{ geo:'box', width:1.18, height:0.78, depth:0.14, position:'0 1.72 -4.48', rotation:'0 0 0' },
           arrow:{ x:0, y:2.44, z:-4.48 },
           spots:[
-            { id:'chest1', x:-0.20, y:1.84, z:-4.18 },
-            { id:'chest2', x:0,     y:1.76, z:-4.18 },
-            { id:'chest3', x:0.20,  y:1.84, z:-4.18 },
-            { id:'chest4', x:0,     y:1.56, z:-4.18 }
+            { id:'front_chest_1', x:-0.20, y:1.84, z:-4.18, hidden:false },
+            { id:'front_chest_2', x:0,     y:1.76, z:-4.18, hidden:false },
+            { id:'front_chest_3', x:0.20,  y:1.84, z:-4.18, hidden:false },
+            { id:'front_chest_4', x:0,     y:1.56, z:-4.18, hidden:false }
           ]
         },
         {
-          key:'leftArm',
-          label:'แขนซ้าย',
+          id:'front_left_arm',
+          view:'front',
+          label:'แขนซ้ายด้านหน้า',
+          short:'แขนซ้ายด้านหน้า',
+          hint:'รวมรักแร้ซ้ายด้วย',
           marker:{ geo:'box', width:0.56, height:1.06, depth:0.14, position:'-1.02 1.48 -4.42', rotation:'0 0 75' },
           arrow:{ x:-1.08, y:2.28, z:-4.42 },
           spots:[
-            { id:'leftArm1', x:-0.82, y:1.78, z:-4.18 },
-            { id:'leftArm2', x:-0.96, y:1.52, z:-4.18 },
-            { id:'leftArm3', x:-1.08, y:1.26, z:-4.18 },
-            { id:'leftArm4', x:-1.18, y:1.02, z:-4.18 }
+            { id:'front_left_arm_1', x:-0.82, y:1.78, z:-4.18, hidden:false },
+            { id:'front_left_arm_2', x:-0.96, y:1.52, z:-4.18, hidden:false },
+            { id:'front_left_arm_3', x:-1.08, y:1.26, z:-4.18, hidden:false },
+            { id:'front_left_arm_4', x:-0.63, y:1.66, z:-4.16, hidden:true }
           ]
         },
         {
-          key:'rightArm',
-          label:'แขนขวา',
+          id:'front_right_arm',
+          view:'front',
+          label:'แขนขวาด้านหน้า',
+          short:'แขนขวาด้านหน้า',
+          hint:'รวมรักแร้ขวาด้วย',
           marker:{ geo:'box', width:0.56, height:1.06, depth:0.14, position:'1.02 1.48 -4.42', rotation:'0 0 -75' },
           arrow:{ x:1.08, y:2.28, z:-4.42 },
           spots:[
-            { id:'rightArm1', x:0.82, y:1.78, z:-4.18 },
-            { id:'rightArm2', x:0.96, y:1.52, z:-4.18 },
-            { id:'rightArm3', x:1.08, y:1.26, z:-4.18 },
-            { id:'rightArm4', x:1.18, y:1.02, z:-4.18 }
+            { id:'front_right_arm_1', x:0.82, y:1.78, z:-4.18, hidden:false },
+            { id:'front_right_arm_2', x:0.96, y:1.52, z:-4.18, hidden:false },
+            { id:'front_right_arm_3', x:1.08, y:1.26, z:-4.18, hidden:false },
+            { id:'front_right_arm_4', x:0.63, y:1.66, z:-4.16, hidden:true }
           ]
         },
         {
-          key:'belly',
-          label:'ท้อง',
+          id:'front_belly',
+          view:'front',
+          label:'ท้องด้านหน้า',
+          short:'ท้องด้านหน้า',
+          hint:'แตะจุดบนท้องด้านหน้าให้ครบ',
           marker:{ geo:'box', width:0.96, height:0.72, depth:0.14, position:'0 1.26 -4.48', rotation:'0 0 0' },
           arrow:{ x:0, y:2.00, z:-4.48 },
           spots:[
-            { id:'belly1', x:0,     y:1.34, z:-4.18 },
-            { id:'belly2', x:-0.16, y:1.20, z:-4.18 },
-            { id:'belly3', x:0.16,  y:1.20, z:-4.18 },
-            { id:'belly4', x:0,     y:1.04, z:-4.18 }
+            { id:'front_belly_1', x:0,     y:1.34, z:-4.18, hidden:false },
+            { id:'front_belly_2', x:-0.16, y:1.20, z:-4.18, hidden:false },
+            { id:'front_belly_3', x:0.16,  y:1.20, z:-4.18, hidden:false },
+            { id:'front_belly_4', x:0,     y:1.04, z:-4.18, hidden:false }
           ]
         },
         {
-          key:'leftLeg',
-          label:'ขาซ้าย',
+          id:'front_left_leg',
+          view:'front',
+          label:'ขาซ้ายด้านหน้า',
+          short:'ขาซ้ายด้านหน้า',
+          hint:'รวมซอกนิ้วเท้าซ้ายด้วย',
           marker:{ geo:'box', width:0.42, height:1.18, depth:0.14, position:'-0.22 0.56 -4.38', rotation:'0 0 0' },
           arrow:{ x:-0.22, y:1.56, z:-4.38 },
           spots:[
-            { id:'leftLeg1', x:-0.22, y:0.92, z:-4.10 },
-            { id:'leftLeg2', x:-0.22, y:0.66, z:-4.10 },
-            { id:'leftLeg3', x:-0.22, y:0.40, z:-4.10 },
-            { id:'leftLeg4', x:-0.22, y:0.10, z:-4.04 }
+            { id:'front_left_leg_1', x:-0.22, y:0.92, z:-4.10, hidden:false },
+            { id:'front_left_leg_2', x:-0.22, y:0.66, z:-4.10, hidden:false },
+            { id:'front_left_leg_3', x:-0.22, y:0.40, z:-4.10, hidden:false },
+            { id:'front_left_leg_4', x:-0.22, y:0.08, z:-4.02, hidden:true }
           ]
         },
         {
-          key:'rightLeg',
-          label:'ขาขวา',
+          id:'front_right_leg',
+          view:'front',
+          label:'ขาขวาด้านหน้า',
+          short:'ขาขวาด้านหน้า',
+          hint:'รวมซอกนิ้วเท้าขวาด้วย',
           marker:{ geo:'box', width:0.42, height:1.18, depth:0.14, position:'0.22 0.56 -4.38', rotation:'0 0 0' },
           arrow:{ x:0.22, y:1.56, z:-4.38 },
           spots:[
-            { id:'rightLeg1', x:0.22, y:0.92, z:-4.10 },
-            { id:'rightLeg2', x:0.22, y:0.66, z:-4.10 },
-            { id:'rightLeg3', x:0.22, y:0.40, z:-4.10 },
-            { id:'rightLeg4', x:0.22, y:0.10, z:-4.04 }
+            { id:'front_right_leg_1', x:0.22, y:0.92, z:-4.10, hidden:false },
+            { id:'front_right_leg_2', x:0.22, y:0.66, z:-4.10, hidden:false },
+            { id:'front_right_leg_3', x:0.22, y:0.40, z:-4.10, hidden:false },
+            { id:'front_right_leg_4', x:0.22, y:0.08, z:-4.02, hidden:true }
+          ]
+        },
+
+        {
+          id:'back_head',
+          view:'back',
+          label:'ศีรษะด้านหลัง',
+          short:'ศีรษะด้านหลัง',
+          hint:'รวมหลังหูและท้ายทอย',
+          marker:{ geo:'sphere', radius:0.52, position:'0 2.66 -4.54', rotation:'0 0 0' },
+          arrow:{ x:0, y:3.30, z:-4.54 },
+          spots:[
+            { id:'back_head_1', x:0,     y:2.76, z:-4.18, hidden:false },
+            { id:'back_head_2', x:-0.14, y:2.58, z:-4.18, hidden:true },
+            { id:'back_head_3', x:0.14,  y:2.58, z:-4.18, hidden:true },
+            { id:'back_head_4', x:0,     y:2.36, z:-4.18, hidden:true }
+          ]
+        },
+        {
+          id:'back_chest',
+          view:'back',
+          label:'หลังส่วนบน',
+          short:'หลังส่วนบน',
+          hint:'แตะจุดที่บ่าและหลังบน',
+          marker:{ geo:'box', width:1.18, height:0.78, depth:0.14, position:'0 1.72 -4.48', rotation:'0 0 0' },
+          arrow:{ x:0, y:2.44, z:-4.48 },
+          spots:[
+            { id:'back_chest_1', x:-0.22, y:1.84, z:-4.18, hidden:false },
+            { id:'back_chest_2', x:0,     y:1.76, z:-4.18, hidden:false },
+            { id:'back_chest_3', x:0.22,  y:1.84, z:-4.18, hidden:false },
+            { id:'back_chest_4', x:0,     y:1.56, z:-4.18, hidden:false }
+          ]
+        },
+        {
+          id:'back_left_arm',
+          view:'back',
+          label:'แขนซ้ายด้านหลัง',
+          short:'แขนซ้ายด้านหลัง',
+          hint:'แตะด้านหลังแขนซ้ายให้ครบ',
+          marker:{ geo:'box', width:0.56, height:1.06, depth:0.14, position:'1.02 1.48 -4.42', rotation:'0 0 75' },
+          arrow:{ x:1.08, y:2.28, z:-4.42 },
+          spots:[
+            { id:'back_left_arm_1', x:0.82, y:1.78, z:-4.18, hidden:false },
+            { id:'back_left_arm_2', x:0.96, y:1.52, z:-4.18, hidden:false },
+            { id:'back_left_arm_3', x:1.08, y:1.26, z:-4.18, hidden:false },
+            { id:'back_left_arm_4', x:1.16, y:1.00, z:-4.18, hidden:false }
+          ]
+        },
+        {
+          id:'back_right_arm',
+          view:'back',
+          label:'แขนขวาด้านหลัง',
+          short:'แขนขวาด้านหลัง',
+          hint:'แตะด้านหลังแขนขวาให้ครบ',
+          marker:{ geo:'box', width:0.56, height:1.06, depth:0.14, position:'-1.02 1.48 -4.42', rotation:'0 0 -75' },
+          arrow:{ x:-1.08, y:2.28, z:-4.42 },
+          spots:[
+            { id:'back_right_arm_1', x:-0.82, y:1.78, z:-4.18, hidden:false },
+            { id:'back_right_arm_2', x:-0.96, y:1.52, z:-4.18, hidden:false },
+            { id:'back_right_arm_3', x:-1.08, y:1.26, z:-4.18, hidden:false },
+            { id:'back_right_arm_4', x:-1.16, y:1.00, z:-4.18, hidden:false }
+          ]
+        },
+        {
+          id:'back_belly',
+          view:'back',
+          label:'เอวและหลังล่าง',
+          short:'เอวและหลังล่าง',
+          hint:'รวมเอวและหลังล่าง',
+          marker:{ geo:'box', width:0.96, height:0.72, depth:0.14, position:'0 1.26 -4.48', rotation:'0 0 0' },
+          arrow:{ x:0, y:2.00, z:-4.48 },
+          spots:[
+            { id:'back_belly_1', x:0,     y:1.34, z:-4.18, hidden:false },
+            { id:'back_belly_2', x:-0.18, y:1.16, z:-4.18, hidden:true },
+            { id:'back_belly_3', x:0.18,  y:1.16, z:-4.18, hidden:true },
+            { id:'back_belly_4', x:0,     y:1.00, z:-4.18, hidden:true }
+          ]
+        },
+        {
+          id:'back_left_leg',
+          view:'back',
+          label:'ขาซ้ายด้านหลัง',
+          short:'ขาซ้ายด้านหลัง',
+          hint:'รวมหลังเข่าและส้นเท้าซ้าย',
+          marker:{ geo:'box', width:0.42, height:1.18, depth:0.14, position:'0.22 0.56 -4.38', rotation:'0 0 0' },
+          arrow:{ x:0.22, y:1.56, z:-4.38 },
+          spots:[
+            { id:'back_left_leg_1', x:0.22, y:0.92, z:-4.10, hidden:false },
+            { id:'back_left_leg_2', x:0.22, y:0.66, z:-4.10, hidden:true },
+            { id:'back_left_leg_3', x:0.22, y:0.40, z:-4.10, hidden:false },
+            { id:'back_left_leg_4', x:0.22, y:0.08, z:-4.02, hidden:true }
+          ]
+        },
+        {
+          id:'back_right_leg',
+          view:'back',
+          label:'ขาขวาด้านหลัง',
+          short:'ขาขวาด้านหลัง',
+          hint:'รวมหลังเข่าและส้นเท้าขวา',
+          marker:{ geo:'box', width:0.42, height:1.18, depth:0.14, position:'-0.22 0.56 -4.38', rotation:'0 0 0' },
+          arrow:{ x:-0.22, y:1.56, z:-4.38 },
+          spots:[
+            { id:'back_right_leg_1', x:-0.22, y:0.92, z:-4.10, hidden:false },
+            { id:'back_right_leg_2', x:-0.22, y:0.66, z:-4.10, hidden:true },
+            { id:'back_right_leg_3', x:-0.22, y:0.40, z:-4.10, hidden:false },
+            { id:'back_right_leg_4', x:-0.22, y:0.08, z:-4.02, hidden:true }
           ]
         }
       ];
@@ -744,7 +837,7 @@
         hubBtnSummary:$('hubBtnSummary')
       };
 
-      ui.stepAll.textContent = ZONES.length;
+      ui.stepAll.textContent = FLOW.length;
       ui.hubBtn.href = HUB;
       ui.hubBtnStart.href = HUB;
       ui.hubBtnSummary.href = HUB;
@@ -753,6 +846,7 @@
       const fxLayer = $('fxLayer');
       const zoneMarker = $('zoneMarker');
       const zoneArrow = $('zoneArrow');
+      const avatarRoot = $('avatarRoot');
       const gazeCursor = $('gazeCursor');
       const cameraHolder = $('cameraHolder');
 
@@ -814,7 +908,7 @@
           this.miss = 0;
 
           this.phaseIndex = 0;
-          this.zoneIndex = 0;
+          this.stepIndex = 0;
 
           this.spotState = {};
           this.activeTarget = null;
@@ -823,8 +917,8 @@
 
         resetSpotState(){
           this.spotState = {};
-          ZONES.forEach(zone => {
-            zone.spots.forEach(spot => {
+          FLOW.forEach(step => {
+            step.spots.forEach(spot => {
               this.spotState[spot.id] = {
                 wet:false,
                 soaped:false,
@@ -839,8 +933,8 @@
           return PHASES[this.phaseIndex] || null;
         }
 
-        currentZone(){
-          return ZONES[this.zoneIndex] || null;
+        currentStep(){
+          return FLOW[this.stepIndex] || null;
         }
 
         isSpotDone(spotId, phaseId){
@@ -863,25 +957,25 @@
           if (phaseId === 'DRY') st.dried = true;
         }
 
-        zoneDoneCount(zone, phaseId){
-          return zone.spots.filter(spot => this.isSpotDone(spot.id, phaseId)).length;
+        stepDoneCount(step, phaseId){
+          return step.spots.filter(spot => this.isSpotDone(spot.id, phaseId)).length;
         }
 
-        nextPendingZoneIndex(){
+        nextPendingStepIndex(){
           const phase = this.currentPhase();
           if (!phase) return -1;
-          for (let i = 0; i < ZONES.length; i++) {
-            const zone = ZONES[i];
-            if (this.zoneDoneCount(zone, phase.id) < zone.spots.length) return i;
+          for (let i = 0; i < FLOW.length; i++) {
+            const step = FLOW[i];
+            if (this.stepDoneCount(step, phase.id) < step.spots.length) return i;
           }
           return -1;
         }
 
         currentSpot(){
-          const zone = this.currentZone();
+          const step = this.currentStep();
           const phase = this.currentPhase();
-          if (!zone || !phase) return null;
-          return zone.spots.find(spot => !this.isSpotDone(spot.id, phase.id)) || null;
+          if (!step || !phase) return null;
+          return step.spots.find(spot => !this.isSpotDone(spot.id, phase.id)) || null;
         }
 
         reset(){
@@ -894,10 +988,10 @@
           this.hits = 0;
           this.miss = 0;
           this.phaseIndex = 0;
-          this.zoneIndex = 0;
+          this.stepIndex = 0;
           this.resetSpotState();
           this.renderHud();
-          this.renderZone();
+          this.renderStep();
         }
 
         start(){
@@ -906,14 +1000,13 @@
           ui.startOverlay.classList.add('hidden');
           ui.summaryOverlay.classList.add('hidden');
           showMsg(this.currentPhase().startMsg, 900);
-          this.renderZone();
+          this.renderStep();
           this.spawnTarget();
 
           this.tickTimer = setInterval(() => {
             if (!this.running || this.ended) return;
             this.time = Math.max(0, this.time - 1);
             this.renderHud();
-
             if (this.time <= 0) this.finish(false);
           }, 1000);
         }
@@ -933,13 +1026,21 @@
           this.activeTarget = null;
         }
 
+        setAvatarView(view){
+          if (view === 'back') {
+            avatarRoot.setAttribute('rotation', '0 180 0');
+          } else {
+            avatarRoot.setAttribute('rotation', '0 0 0');
+          }
+        }
+
         renderHud(){
           const phase = this.currentPhase();
           ui.timer.textContent = this.time;
           ui.score.textContent = this.score;
           ui.combo.textContent = this.combo;
           ui.phaseNow.textContent = this.phaseIndex + 1;
-          ui.stepNow.textContent = this.zoneIndex + 1;
+          ui.stepNow.textContent = this.stepIndex + 1;
           ui.modeText.textContent = `${VIEW.toUpperCase()} • ${DIFF.toUpperCase()}`;
           ui.toolText.textContent = `อุปกรณ์: ${phase ? phase.tool : '-'}`;
         }
@@ -949,19 +1050,19 @@
           zoneArrow.innerHTML = '';
         }
 
-        renderMarker(zone){
+        renderMarker(step){
           this.clearMarkers();
 
           const marker = document.createElement('a-entity');
-          marker.setAttribute('position', zone.marker.position);
-          marker.setAttribute('rotation', zone.marker.rotation || '0 0 0');
+          marker.setAttribute('position', step.marker.position);
+          marker.setAttribute('rotation', step.marker.rotation || '0 0 0');
 
-          if (zone.marker.geo === 'sphere') {
-            marker.setAttribute('geometry', `primitive: sphere; radius: ${zone.marker.radius}`);
+          if (step.marker.geo === 'sphere') {
+            marker.setAttribute('geometry', `primitive: sphere; radius: ${step.marker.radius}`);
           } else {
             marker.setAttribute(
               'geometry',
-              `primitive: box; width: ${zone.marker.width}; height: ${zone.marker.height}; depth: ${zone.marker.depth}`
+              `primitive: box; width: ${step.marker.width}; height: ${step.marker.height}; depth: ${step.marker.depth}`
             );
           }
 
@@ -976,7 +1077,7 @@
           zoneMarker.appendChild(marker);
 
           const arrow = document.createElement('a-cone');
-          arrow.setAttribute('position', `${zone.arrow.x} ${zone.arrow.y} ${zone.arrow.z}`);
+          arrow.setAttribute('position', `${step.arrow.x} ${step.arrow.y} ${step.arrow.z}`);
           arrow.setAttribute('radius-bottom', '0.08');
           arrow.setAttribute('radius-top', '0.01');
           arrow.setAttribute('height', '0.24');
@@ -984,52 +1085,61 @@
           arrow.setAttribute('color', '#ffcf3f');
           arrow.setAttribute(
             'animation__bob',
-            `property: position; from: ${zone.arrow.x} ${zone.arrow.y} ${zone.arrow.z}; to: ${zone.arrow.x} ${(zone.arrow.y - 0.12).toFixed(2)} ${zone.arrow.z}; dir: alternate; dur: 500; loop: true; easing: easeInOutSine`
+            `property: position; from: ${step.arrow.x} ${step.arrow.y} ${step.arrow.z}; to: ${step.arrow.x} ${(step.arrow.y - 0.12).toFixed(2)} ${step.arrow.z}; dir: alternate; dur: 500; loop: true; easing: easeInOutSine`
           );
           zoneArrow.appendChild(arrow);
         }
 
-        renderZone(){
+        renderStep(){
           const phase = this.currentPhase();
-          const nextZoneIdx = this.nextPendingZoneIndex();
+          const nextIdx = this.nextPendingStepIndex();
 
-          if (!phase || nextZoneIdx === -1) {
+          if (!phase || nextIdx === -1) {
             this.clearMarkers();
             return;
           }
 
-          this.zoneIndex = nextZoneIdx;
+          const previousView = this.currentStep()?.view;
+          this.stepIndex = nextIdx;
+          const step = this.currentStep();
 
-          const zone = this.currentZone();
-          const done = this.zoneDoneCount(zone, phase.id);
-          const total = zone.spots.length;
+          this.setAvatarView(step.view);
+
+          const done = this.stepDoneCount(step, phase.id);
+          const total = step.spots.length;
           const remain = total - done;
 
-          ui.taskTitle.textContent = `ตอนนี้: ${phase.label}ที่${zone.label}`;
+          ui.taskTitle.textContent = `ตอนนี้: ${phase.label}ที่${step.label}`;
           ui.remainText.textContent = `เหลือ ${remain} จุด`;
           ui.cleanedText.textContent = `ทำแล้ว ${done}/${total}`;
           ui.zoneBar.style.width = `${(done / total) * 100}%`;
 
-          if (phase.id === 'WET') ui.taskHint.textContent = `แตะจุดบน${zone.label}ให้เปียกครบ`;
-          if (phase.id === 'SOAP') ui.taskHint.textContent = `แตะจุดบน${zone.label}เพื่อฟอกสบู่`;
-          if (phase.id === 'RINSE') ui.taskHint.textContent = `ล้างฟองบน${zone.label}ให้หมด`;
-          if (phase.id === 'DRY') ui.taskHint.textContent = `เช็ด${zone.label}ให้แห้งครบ`;
+          const hiddenRemaining = step.spots.filter(s => s.hidden && !this.isSpotDone(s.id, phase.id)).length;
+          if (hiddenRemaining > 0) {
+            ui.taskHint.textContent = `${step.hint} • ยังเหลือจุดอับ ${hiddenRemaining} จุด`;
+          } else {
+            ui.taskHint.textContent = step.hint;
+          }
 
-          this.renderMarker(zone);
+          this.renderMarker(step);
           this.renderHud();
+
+          if (previousView && previousView !== step.view) {
+            showMsg(step.view === 'back' ? '↩️ หันไปล้างด้านหลัง' : '↪️ กลับมาล้างด้านหน้า', 850);
+          }
         }
 
-        buildTargetVisual(phaseId, root){
+        buildTargetVisual(phaseId, spot, root){
           if (phaseId === 'WET') {
             const hit = document.createElement('a-sphere');
             hit.classList.add('clickable','target-hit-glow');
-            hit.setAttribute('radius', '0.28');
+            hit.setAttribute('radius', spot.hidden ? '0.30' : '0.28');
             hit.setAttribute('color', '#37c8ff');
             hit.setAttribute('opacity', '0.24');
             hit.setAttribute('transparent', 'true');
 
             const drop = document.createElement('a-sphere');
-            drop.setAttribute('radius', '0.10');
+            drop.setAttribute('radius', spot.hidden ? '0.11' : '0.10');
             drop.setAttribute('color', '#37c8ff');
             drop.setAttribute('scale', '0.9 1.15 0.9');
 
@@ -1043,13 +1153,23 @@
             root.appendChild(hit);
             root.appendChild(drop);
             root.appendChild(ring);
+
+            if (spot.hidden) {
+              const star = document.createElement('a-text');
+              star.setAttribute('value', '★');
+              star.setAttribute('align', 'center');
+              star.setAttribute('color', '#ffd95a');
+              star.setAttribute('position', '0 0.22 0');
+              star.setAttribute('scale', '0.9 0.9 0.9');
+              root.appendChild(star);
+            }
             return hit;
           }
 
           if (phaseId === 'SOAP') {
             const hit = document.createElement('a-sphere');
             hit.classList.add('clickable','target-hit-glow');
-            hit.setAttribute('radius', '0.30');
+            hit.setAttribute('radius', spot.hidden ? '0.31' : '0.30');
             hit.setAttribute('color', '#ff8ec7');
             hit.setAttribute('opacity', '0.22');
             hit.setAttribute('transparent', 'true');
@@ -1061,6 +1181,9 @@
             soap.setAttribute('color', '#ff9fd3');
             soap.setAttribute('rotation', '18 0 12');
 
+            root.appendChild(hit);
+            root.appendChild(soap);
+
             for (let i = 0; i < 3; i++) {
               const bubble = document.createElement('a-sphere');
               bubble.setAttribute('position', `${(Math.random()*0.18-0.09).toFixed(2)} ${(Math.random()*0.16).toFixed(2)} ${(Math.random()*0.06-0.03).toFixed(2)}`);
@@ -1070,18 +1193,27 @@
               root.appendChild(bubble);
             }
 
-            root.appendChild(hit);
-            root.appendChild(soap);
+            if (spot.hidden) {
+              const star = document.createElement('a-text');
+              star.setAttribute('value', '★');
+              star.setAttribute('align', 'center');
+              star.setAttribute('color', '#ffd95a');
+              star.setAttribute('position', '0 0.22 0');
+              star.setAttribute('scale', '0.9 0.9 0.9');
+              root.appendChild(star);
+            }
             return hit;
           }
 
           if (phaseId === 'RINSE') {
             const hit = document.createElement('a-sphere');
             hit.classList.add('clickable','target-hit-glow');
-            hit.setAttribute('radius', '0.30');
+            hit.setAttribute('radius', spot.hidden ? '0.31' : '0.30');
             hit.setAttribute('color', '#7fe3ff');
             hit.setAttribute('opacity', '0.22');
             hit.setAttribute('transparent', 'true');
+
+            root.appendChild(hit);
 
             for (let i = 0; i < 5; i++) {
               const foam = document.createElement('a-sphere');
@@ -1092,14 +1224,22 @@
               root.appendChild(foam);
             }
 
-            root.appendChild(hit);
+            if (spot.hidden) {
+              const star = document.createElement('a-text');
+              star.setAttribute('value', '★');
+              star.setAttribute('align', 'center');
+              star.setAttribute('color', '#ffd95a');
+              star.setAttribute('position', '0 0.24 0');
+              star.setAttribute('scale', '0.9 0.9 0.9');
+              root.appendChild(star);
+            }
             return hit;
           }
 
           if (phaseId === 'DRY') {
             const hit = document.createElement('a-sphere');
             hit.classList.add('clickable','target-hit-glow');
-            hit.setAttribute('radius', '0.30');
+            hit.setAttribute('radius', spot.hidden ? '0.31' : '0.30');
             hit.setAttribute('color', '#ffd76c');
             hit.setAttribute('opacity', '0.22');
             hit.setAttribute('transparent', 'true');
@@ -1129,6 +1269,16 @@
             root.appendChild(towel);
             root.appendChild(line1);
             root.appendChild(line2);
+
+            if (spot.hidden) {
+              const star = document.createElement('a-text');
+              star.setAttribute('value', '★');
+              star.setAttribute('align', 'center');
+              star.setAttribute('color', '#ffd95a');
+              star.setAttribute('position', '0 0.24 0');
+              star.setAttribute('scale', '0.9 0.9 0.9');
+              root.appendChild(star);
+            }
             return hit;
           }
 
@@ -1140,37 +1290,47 @@
           this.clearTarget();
 
           const phase = this.currentPhase();
-          const nextZoneIdx = this.nextPendingZoneIndex();
+          const nextStepIdx = this.nextPendingStepIndex();
 
-          if (!phase || nextZoneIdx === -1) {
+          if (!phase || nextStepIdx === -1) {
             this.nextPhase();
             return;
           }
 
-          this.zoneIndex = nextZoneIdx;
+          this.stepIndex = nextStepIdx;
+          const step = this.currentStep();
           const spot = this.currentSpot();
-          if (!spot) {
+
+          if (!step || !spot) {
             this.nextPhase();
             return;
           }
+
+          this.setAvatarView(step.view);
+          this.renderStep();
 
           const pos = { x: spot.x, y: spot.y, z: spot.z };
           const root = document.createElement('a-entity');
           root.setAttribute('position', `${pos.x.toFixed(2)} ${pos.y.toFixed(2)} ${pos.z.toFixed(2)}`);
 
-          const hitNode = this.buildTargetVisual(phase.id, root);
+          const hitNode = this.buildTargetVisual(phase.id, spot, root);
           if (!hitNode) return;
 
-          const expireTimer = setTimeout(() => this.onMiss(pos), cfg.spotLife);
+          const expireTimer = setTimeout(() => this.onMiss(pos, spot.id, phase.id), cfg.spotLife);
           hitNode.addEventListener('click', () => this.onHit(pos, spot.id, phase.id));
 
           targetLayer.appendChild(root);
           this.activeTarget = { el:root, expireTimer, pos, spotId:spot.id };
         }
 
+        setAvatarView(view){
+          if (view === 'back') avatarRoot.setAttribute('rotation', '0 180 0');
+          else avatarRoot.setAttribute('rotation', '0 0 0');
+        }
+
         nextPhase(){
           this.phaseIndex += 1;
-          this.zoneIndex = 0;
+          this.stepIndex = 0;
 
           if (this.phaseIndex >= PHASES.length) {
             this.finish(true);
@@ -1179,7 +1339,7 @@
 
           const phase = this.currentPhase();
           showMsg(phase.startMsg, 900);
-          this.renderZone();
+          this.renderStep();
           setTimeout(() => this.spawnTarget(), 420);
         }
 
@@ -1187,27 +1347,23 @@
           if (!this.running || this.ended || !this.activeTarget) return;
 
           const phase = this.currentPhase();
-          const zone = this.currentZone();
-          this.clearTarget();
+          const step = this.currentStep();
+          const spot = step.spots.find(s => s.id === spotId);
 
+          this.clearTarget();
           this.markSpotDone(spotId, phaseId);
 
           this.combo += 1;
           this.hits += 1;
           this.score += phase.score + Math.min(this.combo, 10) * 6;
 
-          if (phaseId === 'WET') {
-            addBurst(pos, '#9de9ff');
-          } else if (phaseId === 'SOAP') {
-            addBurst(pos, '#ffd7ef');
-          } else if (phaseId === 'RINSE') {
-            addBurst(pos, '#ffffff');
-          } else if (phaseId === 'DRY') {
-            addBurst(pos, '#ffe39b');
-          }
+          if (phaseId === 'WET') addBurst(pos, '#9de9ff');
+          if (phaseId === 'SOAP') addBurst(pos, '#ffd7ef');
+          if (phaseId === 'RINSE') addBurst(pos, '#ffffff');
+          if (phaseId === 'DRY') addBurst(pos, '#ffe39b');
 
-          const done = this.zoneDoneCount(zone, phaseId);
-          const total = zone.spots.length;
+          const done = this.stepDoneCount(step, phaseId);
+          const total = step.spots.length;
           const remain = total - done;
 
           if (phaseId === 'WET') showMsg(`💧 เปียกแล้ว 1 จุด • เหลืออีก ${remain}`, 520);
@@ -1215,38 +1371,40 @@
           if (phaseId === 'RINSE') showMsg(`🚿 ล้างฟองแล้ว 1 จุด • เหลืออีก ${remain}`, 520);
           if (phaseId === 'DRY') showMsg(`🧻 เช็ดแห้งแล้ว 1 จุด • เหลืออีก ${remain}`, 520);
 
+          if (spot?.hidden) {
+            showMsg(`⭐ เจอจุดอับแล้ว!`, 700);
+          }
+
           if (done >= total) {
             this.score += phase.zoneBonus;
             this.time += 2;
-            showMsg(`✅ ${phase.label}${zone.label}เสร็จแล้ว!`, 900);
+            showMsg(`✅ ${phase.label}${step.short}เสร็จแล้ว!`, 900);
           }
 
-          this.renderZone();
+          this.renderStep();
 
-          if (this.nextPendingZoneIndex() === -1) {
-            setTimeout(() => this.nextPhase(), 500);
+          if (this.nextPendingStepIndex() === -1) {
+            setTimeout(() => this.nextPhase(), 550);
             return;
           }
 
           setTimeout(() => this.spawnTarget(), cfg.spawnDelay);
         }
 
-        onMiss(pos){
+        onMiss(pos, spotId, phaseId){
           if (!this.running || this.ended || !this.activeTarget) return;
 
-          const phase = this.currentPhase();
           this.clearTarget();
-
           this.combo = 0;
           this.miss += 1;
           this.time = Math.max(0, this.time - cfg.missPenalty);
 
           addBurst(pos, '#f2d0c9');
 
-          if (phase.id === 'WET') showMsg('😅 ยังไม่โดนจุดที่ต้องทำให้เปียก', 520);
-          if (phase.id === 'SOAP') showMsg('😅 ยังไม่โดนจุดที่ต้องฟอกสบู่', 520);
-          if (phase.id === 'RINSE') showMsg('😅 ยังล้างฟองไม่โดนจุดนี้', 520);
-          if (phase.id === 'DRY') showMsg('😅 ยังเช็ดไม่โดนจุดนี้', 520);
+          if (phaseId === 'WET') showMsg('😅 ยังไม่โดนจุดที่ต้องทำให้เปียก', 520);
+          if (phaseId === 'SOAP') showMsg('😅 ยังไม่โดนจุดที่ต้องฟอกสบู่', 520);
+          if (phaseId === 'RINSE') showMsg('😅 ยังล้างฟองไม่โดนจุดนี้', 520);
+          if (phaseId === 'DRY') showMsg('😅 ยังเช็ดไม่โดนจุดนี้', 520);
 
           if (this.time <= 0) {
             this.finish(false);
@@ -1254,12 +1412,12 @@
           }
 
           this.renderHud();
-          this.renderZone();
+          this.renderStep();
           setTimeout(() => this.spawnTarget(), cfg.spawnDelay);
         }
 
         getStars(){
-          if (this.phaseIndex >= PHASES.length && this.miss <= 5) return 3;
+          if (this.phaseIndex >= PHASES.length && this.miss <= 8) return 3;
           if (this.phaseIndex >= 2) return 2;
           if (this.phaseIndex >= 1) return 1;
           return 0;
@@ -1282,14 +1440,14 @@
 
           if (win) {
             ui.sumTitle.textContent = '🛁 อาบน้ำครบทุกขั้นแล้ว!';
-            ui.sumSub.textContent = 'ทำตัวให้เปียก ฟอกสบู่ ล้างฟอง และเช็ดให้แห้งครบแล้ว เก่งมาก';
+            ui.sumSub.textContent = 'ครบทั้งด้านหน้า ด้านหลัง และจุดอับแล้ว เก่งมาก';
           } else {
             ui.sumTitle.textContent = '🙂 เกือบครบแล้ว';
             ui.sumSub.textContent = `ไปได้ถึงขั้น ${Math.min(this.phaseIndex + 1, PHASES.length)} แล้ว ลองอีกรอบได้เลย`;
           }
 
           const payload = {
-            game:'bath-main-real-states-v1',
+            game:'bath-main-front-back-hidden-v1',
             pid:PID,
             run:RUN,
             diff:DIFF,
@@ -1300,7 +1458,7 @@
             miss:this.miss,
             timeLeft:this.time,
             phaseReached:this.phaseIndex,
-            zoneReached:this.zoneIndex,
+            stepReached:this.stepIndex,
             stars,
             spotState:this.spotState,
             at:new Date().toISOString()
