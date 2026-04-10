@@ -7,13 +7,6 @@
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#90d6ff" />
   <link rel="icon" href="../favicon.ico" />
-
-  <!-- Firebase bootstrap -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js"></script>
-
   <style>
     :root{
       --bg1:#eefaff;
@@ -840,6 +833,7 @@
       }
     }
 
+    /* ===== GROUPS MOBILE HUD FIX v2 ===== */
     body.compact-mobile .shell{
       grid-template-rows:auto auto minmax(440px, 1fr);
       gap:8px;
@@ -1038,6 +1032,68 @@
         font-size:13px;
       }
     }
+
+    /* ===== SUMMARY SCROLL FIX ===== */
+    body.groups-summary-open #summaryOverlay{
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 9999 !important;
+      display: none;
+      padding:
+        max(12px, calc(10px + var(--sat)))
+        12px
+        max(18px, calc(18px + var(--sab)))
+        12px;
+      background: rgba(237,250,255,.72);
+      backdrop-filter: blur(8px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    body.groups-summary-open #summaryOverlay.show{
+      display: flex !important;
+    }
+
+    body.groups-summary-open #summaryOverlay .modal{
+      width: min(720px, 100%);
+      margin: 0 auto;
+      max-height: none !important;
+    }
+
+    body.groups-summary-open .stageWrap{
+      overflow: visible !important;
+    }
+
+    @media (max-width: 768px){
+      body.groups-summary-open #summaryOverlay{
+        padding:
+          max(10px, calc(8px + var(--sat)))
+          10px
+          max(16px, calc(16px + var(--sab)))
+          10px;
+      }
+
+      body.groups-summary-open #summaryOverlay .modal{
+        border-radius: 22px;
+        padding: 16px 12px;
+      }
+
+      body.groups-summary-open #summaryOverlay .summaryGrid{
+        grid-template-columns: 1fr !important;
+        gap: 8px;
+      }
+
+      body.groups-summary-open #summaryOverlay .summaryCard{
+        padding: 10px 12px;
+      }
+
+      body.groups-summary-open #summaryOverlay .summaryCard .big{
+        font-size: 20px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1194,24 +1250,7 @@
   </main>
 
   <script type="module">
-    const PATCH = 'v20260409-groups-shell-race-bridge-r2';
-
-    async function waitForFirebaseBootstrap(timeoutMs = 10000){
-      const start = Date.now();
-
-      while ((Date.now() - start) < timeoutMs){
-        if (
-          (window.HHA_FIREBASE && window.HHA_FIREBASE.db) ||
-          (window.HHA_FIREBASE_READY && typeof window.HHA_FIREBASE_READY.then === 'function') ||
-          (window.firebase && typeof window.firebase.database === 'function')
-        ) {
-          return true;
-        }
-        await new Promise((r) => setTimeout(r, 120));
-      }
-
-      throw new Error('Firebase bootstrap not loaded');
-    }
+    const PATCH = 'v20260405-groups-shell-full-r1';
 
     const q = new URL(location.href).searchParams;
 
@@ -1274,32 +1313,22 @@
       name: cleanName(q.get('name') || q.get('nick') || 'Rocky'),
       studyId: String(q.get('studyId') || '').trim(),
       diff: oneOf(q.get('diff'), ['easy','normal','hard'], 'normal'),
-      timeSec: clampInt(q.get('timeSec') || q.get('time'), 80, 30, 180),
+      timeSec: clampInt(q.get('time'), 80, 30, 180),
       seed: String(q.get('seed') || Date.now()),
       hub: q.get('hub') || new URL('../hub.html', location.href).toString(),
       view: oneOf(q.get('view'), ['pc','mobile','cvr','vr'], 'mobile'),
       run: oneOf(q.get('run'), ['play','research','demo'], 'play'),
-
-      mode: oneOf(q.get('mode'), ['solo','race'], 'solo'),
-      race: q.get('race') === '1',
-      roomCode: cleanRoom(q.get('roomCode') || q.get('code') || ''),
-      isHost: q.get('isHost') === '1',
-      hostUid: String(q.get('hostUid') || ''),
-      playerCount: clampInt(q.get('players'), 1, 1, 8),
-
+      mode: 'solo',
       game: 'groups',
       gameId: 'groups',
-      zone: q.get('zone') || 'nutrition',
-      cat: q.get('cat') || 'nutrition',
+      zone: 'nutrition',
+      cat: 'nutrition',
       theme: 'groups',
-
       cooldown: q.get('cooldown') === '1',
       returnPhase: q.get('returnPhase') || '',
       cooldownGateUrl: new URL('../warmup-gate.html', location.href).toString(),
       debug: q.get('debug') === '1'
     };
-
-    if (CTX.race) CTX.mode = 'race';
 
     window.__GROUPS_RUN_CTX__ = CTX;
 
@@ -1315,7 +1344,6 @@
     if (CTX.view === 'cvr' || CTX.view === 'vr') document.body.classList.add('view-cvr');
     if (CTX.view === 'mobile') document.body.classList.add('view-mobile');
     if (CTX.view === 'pc') document.body.classList.add('view-pc');
-    if (CTX.mode === 'race') document.body.classList.add('mode-race');
 
     if (isCompactMobile) {
       document.body.classList.add('compact-mobile');
@@ -1339,28 +1367,22 @@
       ui.btnRecenter.style.display = 'none';
     }
 
-    decorateShellByMode();
-
     try {
-      await waitForFirebaseBootstrap();
-
       const [
         { createGroupsLogger },
         { createGroupsAiHooks },
         { createGroupsRenderer },
-        { createGroupsSoloCore },
-        raceBridgeMod
+        { createGroupsSoloCore }
       ] = await Promise.all([
         import('./groups.log.js'),
         import('./ai-hooks.js'),
         import('./groups.renderer.js'),
-        import('./groups.solo.core.js'),
-        import('./groups.race.bridge.js').catch(() => ({ createGroupsRaceBridge: null }))
+        import('./groups.solo.core.js')
       ]);
 
       const logger = createGroupsLogger(CTX, {
         patch: PATCH,
-        maxLogs: 400
+        maxLogs: 300
       });
 
       const ai = createGroupsAiHooks({
@@ -1384,36 +1406,12 @@
         logger,
         ai,
         options: {
-          patch: PATCH,
-          mode: CTX.mode,
-          race: CTX.mode === 'race'
+          patch: PATCH
         }
       });
 
-      let raceBridge = null;
-
-      if (CTX.mode === 'race') {
-        if (!raceBridgeMod || typeof raceBridgeMod.createGroupsRaceBridge !== 'function') {
-          throw new Error('ยังไม่พบไฟล์ groups.race.bridge.js');
-        }
-
-        raceBridge = await raceBridgeMod.createGroupsRaceBridge({
-          ctx: CTX,
-          ui,
-          core,
-          logger,
-          patch: PATCH
-        });
-      }
-
       window.__GROUPS_CORE__ = core;
-      window.__GROUPS_RACE_BRIDGE__ = raceBridge || null;
-
-      await core.boot();
-
-      if (raceBridge && typeof raceBridge.attach === 'function') {
-        await raceBridge.attach();
-      }
+      core.boot();
 
       if (CTX.view === 'cvr' || CTX.view === 'vr') {
         const s = document.createElement('script');
@@ -1421,52 +1419,10 @@
         s.async = true;
         document.body.appendChild(s);
       }
+
     } catch (err) {
-      console.error('[Groups] boot failed:', err);
+      console.error('[GroupsSolo] boot failed:', err);
       showBootError(err);
-    }
-
-    function decorateShellByMode() {
-      const modeLabel = CTX.mode === 'race' ? 'Race' : 'Solo';
-
-      document.title = `HeroHealth • Food Groups ${modeLabel}`;
-
-      const brandH1 = document.querySelector('.brand h1');
-      if (brandH1) brandH1.textContent = `Food Groups ${modeLabel}`;
-
-      if (ui.ctxLine) {
-        ui.ctxLine.textContent =
-          `run=${CTX.run} • mode=${CTX.mode} • diff=${CTX.diff} • time=${CTX.timeSec} • view=${CTX.view}`;
-      }
-
-      if (ui.goalSub && CTX.mode === 'race') {
-        ui.goalSub.textContent = 'แข่งกับเพื่อนในห้องเดียวกัน เก็บคะแนนให้มากและพลาดให้น้อยที่สุด';
-      }
-
-      if (ui.coachBubble && CTX.mode === 'race') {
-        ui.coachBubble.textContent = `โค้ช: ห้อง ${CTX.roomCode || '-'} เริ่มแล้ว ลุยเก็บคะแนนแข่งกันได้เลย ⚡`;
-      }
-
-      if (ui.phaseTag && CTX.mode === 'race') {
-        ui.phaseTag.textContent = 'Race';
-      }
-
-      if (ui.introTitle && CTX.mode === 'race') {
-        ui.introTitle.textContent = 'เตรียมแข่ง Food Groups Race';
-      }
-
-      if (ui.introDesc && CTX.mode === 'race') {
-        ui.introDesc.textContent =
-          'เกมนี้กำลังเปิดแบบแข่งกับเพื่อน คะแนนของคุณจะถูกส่งเข้าห้องแข่งอัตโนมัติ';
-      }
-
-      if (ui.btnStartPractice && CTX.mode === 'race') {
-        ui.btnStartPractice.textContent = 'เริ่มแข่ง';
-      }
-
-      if (ui.btnStartMain && CTX.mode === 'race') {
-        ui.btnStartMain.textContent = 'ไปต่อ';
-      }
     }
 
     function showBootError(err){
@@ -1478,16 +1434,18 @@
       if (ui.midOverlay) ui.midOverlay.classList.remove('show');
       if (ui.summaryOverlay) ui.summaryOverlay.classList.remove('show');
 
-      if (ui.introTitle) ui.introTitle.textContent = 'เปิดเกมไม่สำเร็จ';
+      if (ui.introTitle) {
+        ui.introTitle.textContent = 'เปิดเกมไม่สำเร็จ';
+      }
       if (ui.introDesc) {
         ui.introDesc.textContent =
-          `โหลดโมดูลของ Groups ${CTX.mode === 'race' ? 'Race' : 'Solo'} ไม่สำเร็จ กรุณาตรวจ path ไฟล์หรือ syntax error แล้วลองใหม่อีกครั้ง`;
+          'โหลดโมดูลของ Groups Solo ไม่สำเร็จ กรุณาตรวจ path ไฟล์หรือ syntax error แล้วลองใหม่อีกครั้ง';
       }
       if (ui.coachBubble) {
         ui.coachBubble.textContent = `โค้ช: มีข้อผิดพลาดตอนเปิดเกม — ${msg}`;
       }
       if (ui.debugPanel) {
-        ui.debugPanel.textContent = `BOOT ERROR\nPATCH: ${PATCH}\nMODE: ${CTX.mode}\n${msg}`;
+        ui.debugPanel.textContent = `BOOT ERROR\nPATCH: ${PATCH}\n${msg}`;
       }
 
       if (ui.btnStartPractice) ui.btnStartPractice.disabled = true;
@@ -1507,13 +1465,6 @@
         .trim()
         .replace(/\s+/g, ' ')
         .slice(0, 24) || 'Rocky';
-    }
-
-    function cleanRoom(v){
-      return String(v || '')
-        .toUpperCase()
-        .replace(/[^A-Z0-9-]/g, '')
-        .slice(0, 16);
     }
 
     function oneOf(v, list, fallback){
