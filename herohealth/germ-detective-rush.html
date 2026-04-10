@@ -465,6 +465,11 @@
           </div>
         </div>
 
+        <div id="lastRunCard" class="note" style="display:none;margin-top:14px;">
+          <strong style="display:block;margin-bottom:6px;">ผลล่าสุด</strong>
+          <div id="lastRunText">ยังไม่มีผลการเล่นล่าสุด</div>
+        </div>
+
         <div class="actions">
           <button id="startBtn" class="btn btn-primary" type="button">เริ่ม Main Game</button>
           <button id="backHubBtn" class="btn btn-secondary" type="button" style="display:none;">กลับ HUB</button>
@@ -479,7 +484,7 @@
   </div>
 
   <script>
-    (()=>{
+    (() => {
       const qs = new URLSearchParams(location.search);
 
       const state = {
@@ -491,7 +496,7 @@
         mobile: {
           label: 'Mobile',
           time: 63,
-          note: 'แนะนำ: เริ่มด้วย Mobile เพื่อดูว่าแกนเกมสนุกและเข้าใจง่ายพอหรือยัง'
+          note: 'แนะนำ: เริ่มด้วย <strong>Mobile</strong> เพื่อดูว่าแกนเกมสนุกและเข้าใจง่ายพอหรือยัง'
         },
         pc: {
           label: 'PC',
@@ -524,26 +529,26 @@
 
       if (qs.get('hub')) {
         backHubBtn.style.display = 'inline-flex';
-        backHubBtn.addEventListener('click', ()=>{
+        backHubBtn.addEventListener('click', () => {
           location.href = qs.get('hub');
         });
       }
 
-      function syncChoice(groupEl, key, value){
-        [...groupEl.querySelectorAll('.option')].forEach((btn)=>{
+      function syncChoice(groupEl, key, value) {
+        [...groupEl.querySelectorAll('.option')].forEach((btn) => {
           btn.classList.toggle('is-selected', btn.dataset[key] === value);
         });
       }
 
-      function renderSummary(){
+      function renderSummary() {
         summaryView.textContent = VIEW_META[state.view].label;
         summaryDiff.textContent = DIFF_META[state.diff].label;
         summaryTime.textContent = `${DIFF_META[state.diff].time} วินาที`;
         viewNote.innerHTML = VIEW_META[state.view].note;
       }
 
-      function bindChoices(groupEl, key){
-        groupEl.addEventListener('click', (e)=>{
+      function bindChoices(groupEl, key) {
+        groupEl.addEventListener('click', (e) => {
           const btn = e.target.closest('.option');
           if (!btn) return;
           const value = btn.dataset[key];
@@ -554,18 +559,23 @@
         });
       }
 
-      function buildRunUrl(){
+      function buildRunUrl() {
         const next = new URL('./germ-detective/germ-rush-run.html', location.href);
         const pass = new URLSearchParams(location.search);
 
         pass.set('view', state.view);
         pass.set('diff', state.diff);
         pass.set('time', String(DIFF_META[state.diff].time));
+
         pass.set('zone', pass.get('zone') || 'hygiene');
         pass.set('cat', pass.get('cat') || 'hygiene');
         pass.set('game', 'germ-rush');
         pass.set('gameId', 'germ-rush');
         pass.set('theme', 'germ');
+
+        if (!pass.get('pid')) pass.set('pid', 'anon');
+        if (!pass.get('name')) pass.set('name', 'Hero');
+        if (!pass.get('run')) pass.set('run', 'play');
 
         if (!pass.get('seed')) {
           pass.set('seed', String(Date.now()));
@@ -575,7 +585,27 @@
         return next.toString();
       }
 
-      startBtn.addEventListener('click', ()=>{
+      function renderLastRun() {
+        const card = document.getElementById('lastRunCard');
+        const text = document.getElementById('lastRunText');
+
+        try {
+          const raw = localStorage.getItem('HHA_LAST_GERM_RUSH_SUMMARY');
+          if (!raw) return;
+          const data = JSON.parse(raw);
+
+          card.style.display = 'block';
+          text.innerHTML = `
+            คะแนน <strong>${data.score ?? 0}</strong> •
+            ดาว <strong>${data.stars ?? 1}</strong> •
+            คอมโบสูงสุด <strong>${data.bestCombo ?? 0}</strong><br>
+            แรงก์ <strong>${data.rank ?? 'Rookie'}</strong> •
+            Badge <strong>${data.badge ?? '-'}</strong>
+          `;
+        } catch (_) {}
+      }
+
+      startBtn.addEventListener('click', () => {
         location.href = buildRunUrl();
       });
 
@@ -585,6 +615,7 @@
       syncChoice(viewChoices, 'view', state.view);
       syncChoice(diffChoices, 'diff', state.diff);
       renderSummary();
+      renderLastRun();
     })();
   </script>
 </body>
