@@ -1,14 +1,12 @@
 // /herohealth/germ-detective/js/germ-rush-core.js
 // Germ Detective: Outbreak Rush
 // MAIN GAME CORE MODULE
-// PATCH v20260410b-germ-rush-core-mvp
+// PATCH v20260410c-germ-rush-core-ui-split
 
 import {
   GAME_META,
   TOOLS,
-  TOOL_ORDER,
   UI_TEXT,
-  DIFFICULTY,
   getDifficultyConfig,
   getPhasePlan,
   getWaveScript,
@@ -21,19 +19,17 @@ import {
   clamp
 } from './germ-rush-data.js';
 
-export function createGermRushGame({ query, ui, refs }) {
-  const sceneEl = refs.sceneEl;
-  const hazardRoot = refs.hazardRoot;
+import {
+  createGermRushUI
+} from './germ-rush-ui.js';
 
+export function createGermRushGame({ query, ui, refs }) {
+  const hazardRoot = refs.hazardRoot;
   const diffCfg = getDifficultyConfig(query.diff);
   const phasePlan = getPhasePlan(query.diff);
   const bossCfg = getBossConfig('cross_contam');
 
-  const TOOL_MATCH_COLORS = {
-    wipe: '#67c8ff',
-    spray: '#7ae582',
-    trash: '#ffb84d'
-  };
+  const uiLayer = createGermRushUI({ ui, query });
 
   const state = {
     active: false,
@@ -71,132 +67,31 @@ export function createGermRushGame({ query, ui, refs }) {
   let isMounted = false;
   let keydownBound = null;
 
-  function fmtTime(ms) {
-    const sec = Math.max(0, Math.ceil(ms / 1000));
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  function refreshHUD() {
+    const bossPct = state.bossTotal > 0
+      ? (state.bossClears / state.bossTotal) * 100
+      : 0;
+
+    uiLayer.updateHUD({
+      infection: state.infection,
+      score: state.score,
+      combo: state.combo,
+      wrongTool: state.wrongTool,
+      phaseLabel: phasePlan[state.phaseIndex]?.label || state.phase || 'READY',
+      timeLeftMs: state.timeLeftMs,
+      bossPct
+    });
   }
 
   function setPrompt(text) {
-    if (ui.promptBox) ui.promptBox.textContent = text;
-  }
-
-  function updateHUD() {
-    if (ui.infectionValue) ui.infectionValue.textContent = Math.round(state.infection);
-    if (ui.infectionFill) {
-      ui.infectionFill.style.width = `${clamp(state.infection, 0, 100)}%`;
-      if (state.infection < 35) ui.infectionFill.style.filter = 'saturate(1)';
-      else if (state.infection < 70) ui.infectionFill.style.filter = 'saturate(1.15)';
-      else ui.infectionFill.style.filter = 'saturate(1.4)';
-    }
-
-    if (ui.scoreText) ui.scoreText.textContent = `SCORE ${String(Math.round(state.score)).padStart(4, '0')}`;
-    if (ui.comboValue) ui.comboValue.textContent = state.combo;
-    if (ui.wrongToolValue) ui.wrongToolValue.textContent = state.wrongTool;
-    if (ui.phaseText) ui.phaseText.textContent = (phasePlan[state.phaseIndex]?.label || state.phase || 'READY').toUpperCase();
-    if (ui.timerText) ui.timerText.textContent = fmtTime(state.timeLeftMs);
-
-    const bossPct = state.bossTotal > 0 ? (state.bossClears / state.bossTotal) * 100 : 0;
-    if (ui.bossFill) ui.bossFill.style.width = `${clamp(bossPct, 0, 100)}%`;
-  }
-
-  function showFeedback(text, kind = 'good') {
-    if (!ui.feedbackChip) return;
-
-    ui.feedbackChip.textContent = text;
-    ui.feedbackChip.style.display = 'block';
-    ui.feedbackChip.style.background = kind === 'good'
-      ? 'rgba(119,239,157,.16)'
-      : 'rgba(255,122,139,.16)';
-    ui.feedbackChip.style.border = kind === 'good'
-      ? '1px solid rgba(119,239,157,.30)'
-      : '1px solid rgba(255,122,139,.30)';
-    ui.feedbackChip.style.color = kind === 'good' ? '#e7fff0' : '#ffe4e8';
-
-    clearTimeout(showFeedback._t);
-    showFeedback._t = setTimeout(() => {
-      ui.feedbackChip.style.display = 'none';
-    }, 900);
-  }
-
-  function flashDamage() {
-    if (!ui.damageFlash) return;
-
-    ui.damageFlash.style.display = 'block';
-    ui.damageFlash.style.opacity = '1';
-
-    clearTimeout(flashDamage._t1);
-    clearTimeout(flashDamage._t2);
-
-    flashDamage._t1 = setTimeout(() => {
-      ui.damageFlash.style.opacity = '0';
-    }, 180);
-
-    flashDamage._t2 = setTimeout(() => {
-      ui.damageFlash.style.display = 'none';
-    }, 650);
-  }
-
-  function showComboChip() {
-    if (!ui.comboChip || state.combo < 2) return;
-
-    let label = `COMBO x${state.combo}`;
-    if (state.combo >= 8) label = `SUPER CLEAN x${state.combo}`;
-    else if (state.combo >= 5) label = `GREAT x${state.combo}`;
-    else if (state.combo >= 3) label = `NICE x${state.combo}`;
-
-    ui.comboChip.textContent = label;
-    ui.comboChip.style.display = 'block';
-
-    clearTimeout(showComboChip._t);
-    showComboChip._t = setTimeout(() => {
-      ui.comboChip.style.display = 'none';
-    }, 900);
-  }
-
-  function syncToolBar() {
-    if (!ui.toolBar) return;
-
-    [...ui.toolBar.querySelectorAll('.tool-btn')].forEach((btn) => {
-      const toolId = btn.dataset.toolId;
-      const active = toolId === state.selectedTool;
-      btn.classList.toggle('is-selected', active);
-      btn.style.background = active
-        ? `${TOOL_MATCH_COLORS[toolId]}22`
-        : 'rgba(255,255,255,.07)';
-      btn.style.borderColor = active
-        ? `${TOOL_MATCH_COLORS[toolId]}aa`
-        : 'rgba(255,255,255,.10)';
-    });
+    uiLayer.setPrompt(text);
   }
 
   function selectTool(toolId) {
     if (!TOOLS[toolId]) return;
     state.selectedTool = toolId;
-    syncToolBar();
+    uiLayer.syncToolButtons(toolId);
     setPrompt(`${UI_TEXT.toolSelectedPrefix} ${getToolDef(toolId).label}`);
-  }
-
-  function makeToolBar() {
-    if (!ui.toolBar) return;
-
-    ui.toolBar.innerHTML = '';
-    for (const toolId of TOOL_ORDER) {
-      const tool = getToolDef(toolId);
-      const btn = document.createElement('button');
-      btn.className = 'tool-btn';
-      btn.dataset.toolId = tool.id;
-      btn.innerHTML = `
-        <span class="tool-icon">${tool.icon}</span>
-        <span class="tool-name">${tool.shortLabel}</span>
-        <span class="tool-key">กด ${tool.key}</span>
-      `;
-      btn.addEventListener('click', () => selectTool(tool.id));
-      ui.toolBar.appendChild(btn);
-    }
-
-    syncToolBar();
   }
 
   function makeId(prefix = 'hz') {
@@ -398,8 +293,8 @@ export function createGermRushGame({ query, ui, refs }) {
   function punishSpread(hz, source = 'spread') {
     state.infection = clamp(state.infection + hz.def.infectionOnSpread, 0, 100);
     state.combo = 0;
-    showFeedback(hz.def.feedback?.bad || 'เชื้อกำลังแพร่เพิ่ม', 'bad');
-    flashDamage();
+    uiLayer.showFeedback(hz.def.feedback?.bad || 'เชื้อกำลังแพร่เพิ่ม', 'bad');
+    uiLayer.flashDamage();
 
     if (source === 'miss') {
       state.missed += 1;
@@ -432,8 +327,8 @@ export function createGermRushGame({ query, ui, refs }) {
     state.infection = clamp(state.infection + hz.def.infectionOnMiss, 0, 100);
     state.combo = 0;
     state.missed += 1;
-    showFeedback(hz.def.feedback?.bad || 'พลาดแล้ว เชื้อแพร่เพิ่ม', 'bad');
-    flashDamage();
+    uiLayer.showFeedback(hz.def.feedback?.bad || 'พลาดแล้ว เชื้อแพร่เพิ่ม', 'bad');
+    uiLayer.flashDamage();
     clearHazard(hz, false);
   }
 
@@ -451,19 +346,19 @@ export function createGermRushGame({ query, ui, refs }) {
       state.score += (hz.def.score || 100) + (tool.scoreBonus || 50) + Math.max(0, state.combo - 1) * 20;
       state.infection = clamp(state.infection - (8 + Math.floor(tool.spreadBlock * 10)), 0, 100);
 
-      showFeedback(hz.def.feedback?.good || 'จัดการสำเร็จ', 'good');
-      showComboChip();
+      uiLayer.showFeedback(hz.def.feedback?.good || 'จัดการสำเร็จ', 'good');
+      uiLayer.showCombo(state.combo);
       clearHazard(hz, true);
     } else {
       state.combo = 0;
       state.wrongTool += 1;
       state.score = Math.max(0, state.score - 20);
       state.infection = clamp(state.infection + 8, 0, 100);
-      showFeedback(`ไม่ใช่ ${getToolDef(state.selectedTool).shortLabel} สำหรับ ${hz.def.shortLabel}`, 'bad');
-      flashDamage();
+      uiLayer.showFeedback(`ไม่ใช่ ${getToolDef(state.selectedTool).shortLabel} สำหรับ ${hz.def.shortLabel}`, 'bad');
+      uiLayer.flashDamage();
     }
 
-    updateHUD();
+    refreshHUD();
     checkLose();
   }
 
@@ -490,7 +385,7 @@ export function createGermRushGame({ query, ui, refs }) {
       setPrompt(UI_TEXT.introShort);
     }
 
-    updateHUD();
+    refreshHUD();
   }
 
   function nextPhase() {
@@ -505,12 +400,12 @@ export function createGermRushGame({ query, ui, refs }) {
         state.bossCleared = true;
         state.score += bossCfg.scoreBonus;
         state.infection = clamp(state.infection - bossCfg.infectionRewardOnClear, 0, 100);
-        showFeedback(bossCfg.successText, 'good');
+        uiLayer.showFeedback(bossCfg.successText, 'good');
       } else {
         state.bossCleared = false;
         state.infection = clamp(state.infection + bossCfg.infectionPenaltyOnFail, 0, 100);
-        showFeedback(bossCfg.failText, 'bad');
-        flashDamage();
+        uiLayer.showFeedback(bossCfg.failText, 'bad');
+        uiLayer.flashDamage();
       }
     }
 
@@ -555,7 +450,6 @@ export function createGermRushGame({ query, ui, refs }) {
 
     state.active = false;
     state.endedAt = performance.now();
-
     cancelAnimationFrame(state.raf);
 
     for (const hz of [...state.hazards.values()]) {
@@ -583,47 +477,14 @@ export function createGermRushGame({ query, ui, refs }) {
       }));
     } catch (_) {}
 
-    if (ui.summaryTitle) {
-      ui.summaryTitle.textContent = win ? 'Mission Clear!' : 'Mission Incomplete';
-      ui.summaryTitle.style.color = win ? '#86ffb2' : '#ff9aa5';
-    }
-
-    if (ui.summarySub) {
-      ui.summarySub.textContent = win
-        ? 'คุณหยุดการแพร่เชื้อได้ดีมาก'
-        : 'ยังมีการแพร่เชื้อเกินควบคุมในรอบนี้';
-    }
-
-    if (ui.starsText) {
-      ui.starsText.textContent =
-        summary.stars === 3 ? '⭐ ⭐ ⭐' :
-        summary.stars === 2 ? '⭐ ⭐' : '⭐';
-    }
-
-    if (ui.sumScore) ui.sumScore.textContent = summary.score;
-    if (ui.sumCombo) ui.sumCombo.textContent = summary.bestCombo;
-    if (ui.sumCleared) ui.sumCleared.textContent = summary.cleared;
-    if (ui.sumWrong) ui.sumWrong.textContent = summary.wrongTool;
-    if (ui.sumInfection) ui.sumInfection.textContent = summary.infection;
-    if (ui.sumBadge) ui.sumBadge.textContent = summary.badge;
-
-    if (ui.adviceList) {
-      ui.adviceList.innerHTML = '';
-      summary.advice.forEach((text) => {
-        const li = document.createElement('li');
-        li.textContent = text;
-        ui.adviceList.appendChild(li);
-      });
-    }
-
-    if (ui.summaryOverlay) ui.summaryOverlay.classList.add('is-open');
+    uiLayer.showSummary({ win, summary });
   }
 
   function update(now) {
     if (!state.active) return;
 
     state.timeLeftMs = Math.max(0, state.roundMs - (now - state.startedAt));
-    updateHUD();
+    refreshHUD();
 
     const phaseCfg = phasePlan[state.phaseIndex];
     if (phaseCfg && phaseCfg.id !== 'summary') {
@@ -677,12 +538,11 @@ export function createGermRushGame({ query, ui, refs }) {
     state.scheduledEvents = [];
     state.phaseEventCursor = 0;
 
-    syncToolBar();
-    updateHUD();
+    uiLayer.syncToolButtons(state.selectedTool);
+    refreshHUD();
     setPrompt(UI_TEXT.promptDefault);
-
-    if (ui.summaryOverlay) ui.summaryOverlay.classList.remove('is-open');
-    if (ui.startOverlay) ui.startOverlay.classList.remove('is-open');
+    uiLayer.hideSummary();
+    uiLayer.hideStart();
   }
 
   function startRun() {
@@ -692,32 +552,21 @@ export function createGermRushGame({ query, ui, refs }) {
     state.startedAt = performance.now();
     enterPhase(0);
 
-    if (ui.startOverlay) ui.startOverlay.classList.remove('is-open');
+    uiLayer.hideStart();
     state.raf = requestAnimationFrame(update);
   }
 
   function bindUI() {
-    makeToolBar();
-    selectTool('wipe');
-    updateHUD();
-    setPrompt(UI_TEXT.promptDefault);
-
-    if (ui.startTitle) ui.startTitle.textContent = UI_TEXT.introTitle;
-    if (ui.startSub) ui.startSub.textContent = UI_TEXT.introShort;
-
-    if (query.hub) {
-      if (ui.backHubBtn) {
-        ui.backHubBtn.style.display = 'inline-flex';
-        ui.backHubBtn.onclick = () => location.href = query.hub;
+    uiLayer.applyIntroText();
+    uiLayer.renderToolBar(selectTool);
+    uiLayer.syncToolButtons(state.selectedTool);
+    uiLayer.bindStaticButtons({
+      onStart: startRun,
+      onReplay: startRun,
+      onGoHub: () => {
+        if (query.hub) location.href = query.hub;
       }
-      if (ui.summaryHubBtn) {
-        ui.summaryHubBtn.style.display = 'inline-flex';
-        ui.summaryHubBtn.onclick = () => location.href = query.hub;
-      }
-    }
-
-    if (ui.startBtn) ui.startBtn.addEventListener('click', startRun);
-    if (ui.replayBtn) ui.replayBtn.addEventListener('click', startRun);
+    });
 
     keydownBound = (e) => {
       if (e.key === '1') selectTool('wipe');
@@ -725,6 +574,9 @@ export function createGermRushGame({ query, ui, refs }) {
       if (e.key === '3') selectTool('trash');
     };
     document.addEventListener('keydown', keydownBound);
+
+    refreshHUD();
+    setPrompt(UI_TEXT.promptDefault);
   }
 
   function unbindUI() {
