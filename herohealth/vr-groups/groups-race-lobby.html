@@ -5,55 +5,82 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Groups Race Lobby</title>
   <meta name="color-scheme" content="dark" />
-  <meta name="theme-color" content="#08142f" />
+  <meta name="theme-color" content="#071a52" />
   <link rel="icon" href="../favicon.ico" />
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js"></script>
 
   <style>
     :root{
-      --bg1:#050b1f;
-      --bg2:#08142f;
-      --bg3:#0b1b42;
+      --bg1:#030b26;
+      --bg2:#071a52;
+      --bg3:#0c2d84;
 
-      --card:rgba(7,18,46,.88);
-      --card2:rgba(10,25,61,.92);
-      --stroke:rgba(122,162,255,.18);
-      --stroke-2:rgba(122,162,255,.28);
+      --panel:rgba(9,18,54,.86);
+      --panel2:rgba(12,24,74,.96);
+      --stroke:rgba(132,168,255,.18);
 
-      --text:#eef4ff;
-      --muted:#a9b9e8;
+      --text:#f8fbff;
+      --muted:#c8d7ff;
+      --muted2:#95a7d6;
 
-      --green1:#68f2a3;
-      --green2:#2ad067;
-      --blue1:#2a79ff;
-      --blue2:#44c2ff;
-      --pink1:#8f4cff;
-      --pink2:#ff68c7;
-      --warn:#ffb454;
-      --danger:#ff8b8b;
+      --blue:#4bb0ff;
+      --blue2:#76c7ff;
 
-      --shadow:0 20px 60px rgba(0,0,0,.45);
-      --radius:26px;
-      --radius-sm:18px;
+      --green:#63d99b;
+      --green2:#46b97d;
+
+      --gold:#f0c16d;
+      --gold2:#d89a57;
+
+      --pink:#ff8fd4;
+      --pink2:#ffb5e5;
+
+      --shadow:0 18px 40px rgba(0,0,0,.28);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
 
     *{ box-sizing:border-box; }
-    html,body{ height:100%; }
 
-    body{
+    html,body{
       margin:0;
-      color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif;
+      min-height:100%;
       background:
-        radial-gradient(1000px 500px at 10% -10%, rgba(68,194,255,.16), transparent 60%),
-        radial-gradient(900px 480px at 110% 10%, rgba(143,76,255,.16), transparent 58%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 45%,var(--bg3));
-      min-height:100vh;
+        radial-gradient(900px 500px at 50% -10%, rgba(60,100,255,.28), transparent 56%),
+        radial-gradient(520px 280px at 10% 10%, rgba(0,201,255,.10), transparent 60%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 52%,var(--bg3));
+      color:var(--text);
+      font-family: ui-rounded, "Nunito", "Noto Sans Thai", system-ui, sans-serif;
     }
 
-    .wrap{
-      width:min(1120px,100%);
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background-image:
+        radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,.35), transparent 60%),
+        radial-gradient(2px 2px at 70% 20%, rgba(255,255,255,.28), transparent 60%),
+        radial-gradient(1.5px 1.5px at 40% 70%, rgba(255,255,255,.22), transparent 60%),
+        radial-gradient(1.5px 1.5px at 85% 60%, rgba(255,255,255,.24), transparent 60%);
+      opacity:.8;
+    }
+
+    .page{
+      width:min(1120px, 100%);
       margin:0 auto;
-      padding:18px 14px 32px;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(20px + var(--sab))
+        calc(14px + var(--sal));
     }
 
     .topbar{
@@ -61,41 +88,58 @@
       align-items:center;
       justify-content:space-between;
       gap:12px;
-      margin-bottom:16px;
+      margin-bottom:14px;
     }
 
     .brand{
+      min-width:0;
+      flex:1 1 auto;
       display:flex;
       align-items:center;
       gap:12px;
-      min-width:0;
+      padding:14px 16px;
+      border-radius:26px;
+      background:linear-gradient(180deg, rgba(14,32,91,.92), rgba(9,22,68,.96));
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow);
     }
 
-    .logo{
-      width:52px;
-      height:52px;
+    .brandMark{
+      width:58px;
+      height:58px;
       border-radius:18px;
       display:grid;
       place-items:center;
-      font-size:28px;
-      background:linear-gradient(135deg,#12306b,#1c5cff 58%,#5ce1ff);
-      box-shadow:0 12px 30px rgba(28,92,255,.28);
+      font-size:30px;
+      background:linear-gradient(180deg, #fff2b9, #f4d36d);
+      color:#3f2f00;
       flex:0 0 auto;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.45);
     }
 
-    .brand h1{
+    .brandText{
+      min-width:0;
+    }
+
+    .brandTitle{
       margin:0;
-      font-size:clamp(1.2rem,2vw,1.7rem);
-      line-height:1.1;
+      font-size:26px;
+      line-height:1.04;
+      font-weight:1000;
+      letter-spacing:-.02em;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
-    .brand p{
-      margin:4px 0 0;
+    .brandSub{
+      margin:6px 0 0;
       color:var(--muted);
-      font-size:.95rem;
+      font-size:13px;
+      font-weight:900;
     }
 
-    .top-actions{
+    .topActions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
@@ -103,327 +147,424 @@
     }
 
     .btn{
-      appearance:none;
-      border:none;
-      cursor:pointer;
-      border-radius:20px;
-      padding:14px 18px;
-      font-weight:800;
-      font-size:1rem;
-      color:#fff;
-      transition:transform .12s ease, opacity .12s ease, filter .12s ease;
-      box-shadow:var(--shadow);
-    }
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.04); }
-    .btn:active{ transform:translateY(0); }
-    .btn[disabled]{ cursor:not-allowed; opacity:.6; }
-
-    .btn-back{
-      background:linear-gradient(135deg,#0f2f63,#103f82 56%,#1664c0);
-      border:1px solid rgba(115,180,255,.22);
-    }
-    .btn-create{
-      color:#0a1e12;
-      background:linear-gradient(180deg,var(--green1),var(--green2));
-    }
-    .btn-join{
-      background:linear-gradient(135deg,#4f2d84,#8242d9 55%,#ff74cd);
-    }
-    .btn-start{
-      background:linear-gradient(135deg,#ffbf57,#ff9447 55%,#ff6a5e);
-      color:#2a1205;
-    }
-    .btn-copy{
-      background:linear-gradient(135deg,#244f9d,#3578f5 58%,#54c0ff);
-      border:1px solid rgba(122,180,255,.22);
-      padding:10px 14px;
-      font-size:.92rem;
-      border-radius:16px;
-    }
-
-    .hero{
-      background:linear-gradient(180deg, rgba(11,26,62,.95), rgba(8,18,45,.92));
-      border:1px solid var(--stroke);
-      border-radius:30px;
-      padding:18px;
-      box-shadow:var(--shadow);
-      margin-bottom:16px;
-    }
-
-    .hero-row{
-      display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:16px;
-    }
-
-    .headline{
-      padding:8px 6px 6px;
-    }
-
-    .headline .eyebrow{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      background:rgba(76,126,255,.12);
-      color:#cfe0ff;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(126,170,255,.14);
-      font-weight:700;
-      font-size:.92rem;
-      margin-bottom:10px;
-    }
-
-    .headline h2{
-      margin:0 0 8px;
-      font-size:clamp(1.5rem,3.2vw,2.3rem);
-      line-height:1.1;
-    }
-
-    .headline p{
-      margin:0;
-      color:var(--muted);
-      font-size:1rem;
-      max-width:60ch;
-    }
-
-    .tips{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-      margin-top:16px;
-    }
-
-    .tip{
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.07);
+      min-height:48px;
       border-radius:18px;
-      padding:12px;
-    }
-
-    .tip b{
-      display:block;
-      margin-bottom:4px;
-      font-size:.98rem;
-    }
-
-    .tip span{
-      color:var(--muted);
-      font-size:.92rem;
-    }
-
-    .status-card{
-      background:linear-gradient(180deg, rgba(9,24,58,.96), rgba(7,18,44,.94));
-      border:1px solid var(--stroke);
-      border-radius:24px;
-      padding:16px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      justify-content:center;
-    }
-
-    .status-chip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      align-self:flex-start;
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(64,204,255,.12);
-      border:1px solid rgba(64,204,255,.18);
-      color:#d9f7ff;
-      font-weight:800;
-      font-size:.92rem;
-    }
-
-    .room-box{
-      background:rgba(255,255,255,.03);
       border:1px solid rgba(255,255,255,.08);
-      border-radius:20px;
-      padding:14px;
+      padding:0 16px;
+      font:inherit;
+      font-size:16px;
+      font-weight:1000;
+      cursor:pointer;
+      color:#fff;
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+      box-shadow:var(--shadow);
     }
 
-    .room-box .label{
+    .btn.primary{
+      background:linear-gradient(180deg, var(--blue2), var(--blue));
+      border-color:rgba(121,206,255,.42);
+      color:#fff;
+    }
+
+    .btn.gold{
+      background:linear-gradient(180deg, var(--gold), var(--gold2));
+      border-color:rgba(255,230,161,.30);
+      color:#251600;
+    }
+
+    .btn.green{
+      background:linear-gradient(180deg, var(--green), var(--green2));
+      border-color:rgba(173,255,221,.24);
+      color:#062414;
+    }
+
+    .btn.ghost{
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.03));
       color:var(--muted);
-      font-size:.9rem;
-      margin-bottom:6px;
     }
-
-    .room-code{
-      font-size:clamp(1.3rem,3vw,2rem);
-      font-weight:900;
-      letter-spacing:.06em;
-      line-height:1.05;
-      word-break:break-word;
-    }
-
-    .room-actions{
-      display:flex;
-      gap:10px;
-      margin-top:10px;
-      flex-wrap:wrap;
-    }
-
-    .status-text{
-      min-height:52px;
-      font-weight:800;
-      font-size:1rem;
-      line-height:1.45;
-      color:#d6e8ff;
-    }
-    .status-text.ok{ color:#bff4cf; }
-    .status-text.warn{ color:#ffe0b8; }
-    .status-text.err{ color:#ffd2d2; }
 
     .grid{
       display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:16px;
+      grid-template-columns:1.05fr .95fr;
+      gap:14px;
+    }
+
+    .stack{
+      display:grid;
+      gap:14px;
     }
 
     .card{
-      background:linear-gradient(180deg,var(--card),var(--card2));
+      border-radius:30px;
+      background:linear-gradient(180deg, rgba(10,22,66,.92), rgba(6,16,52,.96));
       border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:16px;
       box-shadow:var(--shadow);
+      padding:18px;
     }
 
-    .card h3{
+    .cardTitle{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:12px;
+    }
+
+    .cardTitle h2{
+      margin:0;
+      font-size:22px;
+      line-height:1.08;
+      font-weight:1000;
+      letter-spacing:-.02em;
+    }
+
+    .cardHint{
       margin:0 0 12px;
-      font-size:1.45rem;
-      line-height:1.1;
+      color:var(--muted2);
+      font-size:13px;
+      line-height:1.55;
+      font-weight:800;
     }
 
-    .sub{
-      margin:-6px 0 14px;
-      color:var(--muted);
-      font-size:.98rem;
+    .formGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
     }
 
     .field{
       display:grid;
-      gap:8px;
-      margin-bottom:12px;
+      gap:7px;
     }
 
-    .field label{
-      font-weight:800;
-      color:#e9f0ff;
-      font-size:1rem;
+    .field.full{
+      grid-column:1 / -1;
+    }
+
+    .label{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:900;
     }
 
     .input,
     .select{
       width:100%;
-      min-height:56px;
+      min-height:52px;
       border-radius:18px;
-      border:1px solid rgba(130,166,255,.16);
-      background:#04112e;
-      color:var(--text);
+      border:1px solid rgba(170,194,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#fff;
       padding:0 16px;
+      font:inherit;
+      font-size:18px;
+      font-weight:900;
       outline:none;
-      font-size:1.05rem;
-      box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
     }
 
-    .input::placeholder{ color:#7f92c7; }
-
-    .row-2{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
+    .input::placeholder{
+      color:#a6b8e8;
+      font-weight:800;
     }
 
-    .actions{
+    .select option{
+      color:#111827;
+    }
+
+    .actionRow{
       display:flex;
-      gap:12px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
-
-    .actions .btn{
-      flex:1 1 180px;
-      min-height:56px;
-    }
-
-    .note{
-      color:var(--muted);
-      font-size:.95rem;
-      margin-top:10px;
-      line-height:1.45;
-    }
-
-    .players-card{
-      margin-top:16px;
-    }
-
-    .players-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
       gap:10px;
-      margin-bottom:10px;
       flex-wrap:wrap;
+      margin-top:14px;
     }
 
     .pill{
-      padding:8px 12px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:0 14px;
       border-radius:999px;
-      font-weight:800;
-      font-size:.92rem;
-      background:rgba(143,76,255,.12);
-      border:1px solid rgba(143,76,255,.22);
-      color:#f2ddff;
+      background:rgba(145,96,255,.18);
+      border:1px solid rgba(192,146,255,.24);
+      color:#e6d9ff;
+      font-size:13px;
+      font-weight:1000;
     }
 
-    .players-list{
-      background:rgba(255,255,255,.03);
-      border:1px solid rgba(255,255,255,.07);
-      border-radius:20px;
+    .roomCodeBox{
+      margin-top:16px;
+      border-radius:24px;
+      background:rgba(255,255,255,.045);
+      border:1px solid rgba(167,192,255,.10);
+      padding:16px;
+    }
+
+    .roomCodeLabel{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:900;
+      margin-bottom:6px;
+    }
+
+    .roomCodeValue{
+      font-size:30px;
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:.06em;
+      margin-bottom:14px;
+      word-break:break-word;
+    }
+
+    .status-text{
+      margin-top:12px;
+      font-size:14px;
+      line-height:1.55;
+      font-weight:900;
+      word-break:break-word;
+    }
+
+    .status-text.ok{ color:#98f2bf; }
+    .status-text.warn{ color:#ffe29d; }
+    .status-text.err{ color:#ffb4b4; }
+
+    .hubShortcutCard{
+      margin-top:16px;
+      padding:14px;
+      border-radius:24px;
+      background:linear-gradient(180deg, rgba(11,34,94,.68), rgba(8,24,74,.84));
+      border:1px solid rgba(120,160,255,.14);
+    }
+
+    .back-hub-btn{
+      width:100%;
+      min-height:70px;
+      border:0;
+      border-radius:22px;
+      cursor:pointer;
+      font:inherit;
+      font-size:20px;
+      font-weight:1000;
+      color:#fff;
+      background:linear-gradient(135deg, #18429f 0%, #2f8dff 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.14),
+        0 12px 24px rgba(27,87,194,.28);
+    }
+
+    .hubShortcutHint{
+      margin:10px 2px 0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.55;
+      font-weight:800;
+    }
+
+    .raceBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:42px;
+      padding:0 16px;
+      border-radius:999px;
+      background:rgba(255,210,118,.12);
+      border:1px solid rgba(255,216,141,.22);
+      color:#ffe29b;
+      font-size:14px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .winnerCard{
+      display:grid;
+      gap:12px;
+    }
+
+    .hha-race-lobby-winner__empty{
+      color:var(--muted);
+      font-size:15px;
+      font-weight:900;
+      line-height:1.6;
+    }
+
+    .hha-race-lobby-winner__hero{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:14px;
+      border-radius:22px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.06);
+    }
+
+    .hha-race-lobby-winner__crown{
+      width:56px;
+      height:56px;
+      display:grid;
+      place-items:center;
+      border-radius:18px;
+      font-size:28px;
+      background:linear-gradient(180deg,#fff0bd,#efc96d);
+      color:#4b3200;
+      flex:0 0 auto;
+    }
+
+    .hha-race-lobby-winner__copy{
+      min-width:0;
+    }
+
+    .hha-race-lobby-winner__eyebrow{
+      color:#ffe09a;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:4px;
+    }
+
+    .hha-race-lobby-winner__name{
+      font-size:24px;
+      line-height:1.08;
+      font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .hha-race-lobby-winner__meta{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .hha-race-lobby-winner__board{
+      display:grid;
+      gap:10px;
+    }
+
+    .hha-race-lobby-winner__row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
       padding:12px 14px;
-      min-height:86px;
+      border-radius:18px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+    }
+
+    .hha-race-lobby-winner__row.is-top{
+      background:rgba(255,216,118,.10);
+      border-color:rgba(255,220,140,.20);
+    }
+
+    .hha-race-lobby-winner__left{
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .hha-race-lobby-winner__place{
+      width:34px;
+      height:34px;
+      display:grid;
+      place-items:center;
+      border-radius:12px;
+      background:rgba(255,255,255,.08);
+      font-size:15px;
+      font-weight:1000;
+      flex:0 0 auto;
+    }
+
+    .hha-race-lobby-winner__player{
+      font-size:16px;
+      font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .hha-race-lobby-winner__right{
+      text-align:right;
+      flex:0 0 auto;
+    }
+
+    .hha-race-lobby-winner__score{
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .hha-race-lobby-winner__stat{
+      color:var(--muted2);
+      font-size:12px;
+      font-weight:900;
+      margin-top:3px;
+    }
+
+    .hha-race-lobby-winner__active{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .playersWrap{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .player-empty{
+      padding:16px;
+      border-radius:20px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.6;
     }
 
     .player-row{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:12px;
-      padding:12px 10px;
-      border-radius:16px;
-      background:rgba(255,255,255,.03);
+      gap:10px;
+      padding:16px;
+      border-radius:22px;
+      background:rgba(255,255,255,.04);
       border:1px solid rgba(255,255,255,.06);
     }
-    .player-row + .player-row{ margin-top:10px; }
 
     .player-main{
       min-width:0;
       display:flex;
       align-items:center;
-      gap:10px;
+      gap:12px;
     }
 
     .player-dot{
-      width:12px;
-      height:12px;
-      border-radius:999px;
-      background:#7cc8ff;
-      box-shadow:0 0 0 4px rgba(124,200,255,.12);
+      width:16px;
+      height:16px;
+      border-radius:50%;
+      background:#79d6ff;
+      box-shadow:0 0 0 5px rgba(121,214,255,.12);
       flex:0 0 auto;
     }
+
     .player-dot.off{
-      background:#7d8cae;
-      box-shadow:none;
-      opacity:.85;
+      background:#8f97b3;
+      box-shadow:0 0 0 5px rgba(143,151,179,.12);
     }
 
     .player-name{
-      font-weight:900;
-      font-size:1rem;
-      line-height:1.2;
-      word-break:break-word;
+      font-size:18px;
+      font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
     .player-meta{
@@ -434,286 +575,323 @@
     }
 
     .badge{
+      min-height:36px;
+      padding:0 14px;
       display:inline-flex;
       align-items:center;
-      justify-content:center;
-      min-height:30px;
-      padding:6px 10px;
       border-radius:999px;
-      font-size:.84rem;
-      font-weight:900;
-      border:1px solid rgba(255,255,255,.08);
-      background:rgba(255,255,255,.05);
-      color:#e7f1ff;
+      font-size:13px;
+      font-weight:1000;
       white-space:nowrap;
     }
 
     .badge.host{
-      background:rgba(104,242,163,.12);
-      border-color:rgba(104,242,163,.22);
-      color:#c9ffe0;
+      color:#d8ffe8;
+      background:rgba(107,221,156,.12);
+      border:1px solid rgba(140,255,197,.16);
     }
 
     .badge.you{
-      background:rgba(68,194,255,.12);
-      border-color:rgba(68,194,255,.22);
-      color:#dbf7ff;
-    }
-
-    .badge.off{
-      background:rgba(255,139,139,.12);
-      border-color:rgba(255,139,139,.22);
-      color:#ffdada;
+      color:#d7efff;
+      background:rgba(99,183,255,.14);
+      border:1px solid rgba(140,208,255,.16);
     }
 
     .badge.on{
-      background:rgba(255,191,87,.12);
-      border-color:rgba(255,191,87,.24);
-      color:#ffe2b6;
+      color:#ffe4bd;
+      background:rgba(240,193,109,.12);
+      border:1px solid rgba(255,218,151,.14);
     }
 
-    .player-empty{
-      opacity:.82;
-      color:var(--muted);
+    .badge.off{
+      color:#d5daea;
+      background:rgba(143,151,179,.12);
+      border:1px solid rgba(173,180,202,.14);
     }
 
-    .footer-start{
-      margin-top:14px;
-      display:flex;
-      gap:12px;
-      flex-wrap:wrap;
+    .divider{
+      height:1px;
+      margin:14px 0;
+      background:linear-gradient(90deg, transparent, rgba(170,194,255,.18), transparent);
     }
 
-    .footer-start .btn{
-      flex:1 1 220px;
-      min-height:58px;
-    }
-
-    .tiny{
-      color:var(--muted);
-      font-size:.9rem;
-      margin-top:8px;
-      line-height:1.4;
-    }
-
-    @media (max-width: 900px){
-      .hero-row,
+    @media (max-width: 980px){
       .grid{
         grid-template-columns:1fr;
       }
-      .tips{
-        grid-template-columns:1fr;
-      }
     }
 
-    @media (max-width: 640px){
-      .wrap{ padding:14px 12px 28px; }
+    @media (max-width: 768px){
+      .page{
+        padding:
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(18px + var(--sab))
+          calc(10px + var(--sal));
+      }
+
       .topbar{
-        align-items:flex-start;
         flex-direction:column;
+        align-items:stretch;
       }
-      .top-actions{
+
+      .brand{
+        padding:12px;
+        border-radius:22px;
+      }
+
+      .brandMark{
+        width:50px;
+        height:50px;
+        border-radius:16px;
+        font-size:26px;
+      }
+
+      .brandTitle{
+        font-size:22px;
+      }
+
+      .brandSub{
+        font-size:12px;
+      }
+
+      .topActions{
         width:100%;
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:8px;
       }
-      .top-actions .btn{
-        flex:1 1 auto;
+
+      .btn{
+        min-height:44px;
+        border-radius:16px;
+        font-size:14px;
+        padding:0 12px;
       }
-      .row-2{
+
+      .card{
+        border-radius:24px;
+        padding:14px;
+      }
+
+      .cardTitle h2{
+        font-size:18px;
+      }
+
+      .cardHint{
+        font-size:12px;
+      }
+
+      .formGrid{
         grid-template-columns:1fr;
+        gap:10px;
       }
-      .actions{
-        flex-direction:column;
+
+      .input,
+      .select{
+        min-height:48px;
+        border-radius:16px;
+        font-size:17px;
       }
-      .footer-start{
-        flex-direction:column;
+
+      .roomCodeBox{
+        border-radius:20px;
+        padding:14px;
       }
-      .room-actions{
-        flex-direction:column;
+
+      .roomCodeValue{
+        font-size:24px;
       }
+
+      .hubShortcutCard{
+        margin-top:14px;
+        padding:12px;
+        border-radius:20px;
+      }
+
+      .back-hub-btn{
+        min-height:60px;
+        border-radius:18px;
+        font-size:17px;
+        padding:12px 14px;
+      }
+
+      .hubShortcutHint{
+        margin-top:8px;
+        font-size:12px;
+      }
+
       .player-row{
-        align-items:flex-start;
         flex-direction:column;
+        align-items:flex-start;
       }
+
       .player-meta{
         justify-content:flex-start;
+      }
+
+      .hha-race-lobby-winner__hero{
+        padding:12px;
+        border-radius:18px;
+      }
+
+      .hha-race-lobby-winner__name{
+        font-size:20px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="topbar">
+  <main class="page">
+    <section class="topbar">
       <div class="brand">
-        <div class="logo">🏁</div>
-        <div>
-          <h1>Groups Race Lobby</h1>
-          <p>สร้างห้อง • เข้าห้อง • รอเพื่อน • แล้วกดเริ่มแข่งพร้อมกัน</p>
+        <div class="brandMark">🏁</div>
+        <div class="brandText">
+          <h1 class="brandTitle">Groups Race Lobby</h1>
+          <p class="brandSub">สร้างห้อง • แชร์รหัส • เข้าห้อง • เริ่มแข่งพร้อมกัน</p>
         </div>
       </div>
 
-      <div class="top-actions">
-        <button id="btnBackTop" class="btn btn-back" type="button">กลับ HUB</button>
-      </div>
-    </div>
-
-    <section class="hero">
-      <div class="hero-row">
-        <div class="headline">
-          <div class="eyebrow">⚡ Multiplayer พร้อมใช้</div>
-          <h2>เล่นแข่งหลายเครื่องแบบง่าย ๆ</h2>
-          <p>
-            เครื่องเจ้าของห้องกด <b>สร้างห้อง</b> แล้วแชร์รหัสห้องให้เพื่อน
-            จากนั้นทุกคนเข้าห้อง รอให้ครบ แล้วเจ้าของห้องกดเริ่มแข่งได้เลย
-          </p>
-
-          <div class="tips">
-            <div class="tip">
-              <b>1) สร้างห้อง</b>
-              <span>เจ้าของห้องเลือกความยากและเวลาแข่ง แล้วกดสร้างห้อง</span>
-            </div>
-            <div class="tip">
-              <b>2) แชร์รหัส</b>
-              <span>ส่ง Room Code ให้เพื่อนเอาไปกรอกในช่องเข้าห้อง</span>
-            </div>
-            <div class="tip">
-              <b>3) เริ่มพร้อมกัน</b>
-              <span>เมื่อมีผู้เล่นอย่างน้อย 2 คน ปุ่มเริ่มแข่งจะกดได้</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="status-card">
-          <div class="status-chip">📡 สถานะระบบ</div>
-
-          <div class="room-box">
-            <div class="label">Room Code</div>
-            <div id="roomCodeOut" class="room-code">-</div>
-            <div class="room-actions">
-              <button id="btnCopyCode" class="btn btn-copy" type="button">คัดลอกรหัสห้อง</button>
-            </div>
-          </div>
-
-          <div id="statusMsg" class="status-text warn">กำลังเตรียมระบบ...</div>
-        </div>
+      <div class="topActions">
+        <button class="btn ghost" id="btnBackHubTop" type="button">🏠 กลับ HUB</button>
+        <button class="btn gold" id="btnStartRace" type="button">🚀 เริ่มแข่ง</button>
       </div>
     </section>
 
     <section class="grid">
-      <div class="card">
-        <h3>สร้างห้อง</h3>
-        <p class="sub">ใช้เครื่องนี้เป็นเจ้าของห้อง แล้วรอเพื่อนเข้าร่วม</p>
-
-        <div class="field">
-          <label for="hostName">ชื่อเจ้าของห้อง</label>
-          <input id="hostName" class="input" type="text" placeholder="เช่น ผู้เล่น A" maxlength="24" autocomplete="nickname" />
-        </div>
-
-        <div class="row-2">
-          <div class="field">
-            <label for="diff">ระดับความยาก</label>
-            <select id="diff" class="select">
-              <option value="easy">easy</option>
-              <option value="normal" selected>normal</option>
-              <option value="hard">hard</option>
-            </select>
+      <div class="stack">
+        <section class="card">
+          <div class="cardTitle">
+            <h2>สร้างห้อง</h2>
+            <div class="pill">เจ้าของห้องสร้างแล้วแชร์ Room Code</div>
           </div>
 
-          <div class="field">
-            <label for="timeSec">เวลาแข่ง</label>
-            <select id="timeSec" class="select">
-              <option value="60" selected>60 วินาที</option>
-              <option value="90">90 วินาที</option>
-              <option value="120">120 วินาที</option>
-            </select>
+          <p class="cardHint">
+            ตั้งชื่อ เลือกระดับความยาก และเวลาเล่น จากนั้นกดสร้างห้องเพื่อรับรหัสห้อง
+          </p>
+
+          <div class="formGrid">
+            <label class="field">
+              <span class="label">ชื่อผู้เล่น</span>
+              <input class="input" id="hostName" type="text" maxlength="24" placeholder="เช่น Hero" />
+            </label>
+
+            <label class="field">
+              <span class="label">ระดับความยาก</span>
+              <select class="select" id="diff">
+                <option value="easy">easy</option>
+                <option value="normal" selected>normal</option>
+                <option value="hard">hard</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="label">เวลาแข่ง</span>
+              <select class="select" id="timeSec">
+                <option value="60">60 วินาที</option>
+                <option value="90" selected>90 วินาที</option>
+                <option value="120">120 วินาที</option>
+              </select>
+            </label>
           </div>
-        </div>
 
-        <div class="actions">
-          <button id="btnCreateRoom" class="btn btn-create" type="button">สร้างห้อง</button>
-          <button id="btnBackCreate" class="btn btn-back" type="button">กลับ HUB</button>
-        </div>
+          <div class="actionRow">
+            <button class="btn primary" id="btnCreateRoom" type="button">➕ สร้างห้อง</button>
+          </div>
 
-        <div class="note">
-          เมื่อสร้างห้องสำเร็จ ระบบจะแสดง Room Code ด้านบนสำหรับให้เครื่องอื่นเข้าร่วม
-        </div>
+          <div class="roomCodeBox">
+            <div class="roomCodeLabel">Room Code</div>
+            <div class="roomCodeValue" id="roomCodeOut">-</div>
+            <button class="btn" id="btnCopyCode" type="button">📋 คัดลอกรหัสห้อง</button>
+
+            <div class="status-text warn" id="statusMsg">
+              กำลังเชื่อมต่อ Firebase...
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardTitle">
+            <h2>เข้าห้อง</h2>
+          </div>
+
+          <p class="cardHint">
+            ใส่ชื่อผู้เล่นและรหัสห้องจากเครื่องเจ้าของห้อง แล้วกดเข้าห้องเพื่อรอเริ่มแข่งพร้อมกัน
+          </p>
+
+          <div class="formGrid">
+            <label class="field">
+              <span class="label">ชื่อผู้เล่น</span>
+              <input class="input" id="joinName" type="text" maxlength="24" placeholder="เช่น Player" />
+            </label>
+
+            <label class="field">
+              <span class="label">รหัสห้อง</span>
+              <input class="input" id="roomCode" type="text" maxlength="16" placeholder="เช่น GRP-A1B2C3" />
+            </label>
+          </div>
+
+          <div class="actionRow">
+            <button class="btn green" id="btnJoinRoom" type="button">🎮 เข้าห้อง</button>
+          </div>
+
+          <section class="hubShortcutCard">
+            <button class="back-hub-btn" id="btnBackHubMain" type="button">กลับ HUB</button>
+            <p class="hubShortcutHint">
+              ออกจากหน้านี้แล้วกลับไปเลือกเกมหรือโหมดอื่นได้ทันที
+            </p>
+          </section>
+        </section>
       </div>
 
-      <div class="card">
-        <h3>เข้าห้อง</h3>
-        <p class="sub">ใส่ชื่อผู้เล่นและรหัสห้องจากเจ้าของห้อง</p>
+      <div class="stack">
+        <section class="card">
+          <div class="cardTitle">
+            <h2>ผลแข่งล่าสุด</h2>
+            <div class="raceBadge">🏁 Race ล่าสุด</div>
+          </div>
 
-        <div class="field">
-          <label for="joinName">ชื่อผู้เล่น</label>
-          <input id="joinName" class="input" type="text" placeholder="เช่น ผู้เล่น B" maxlength="24" autocomplete="nickname" />
-        </div>
+          <div class="winnerCard">
+            <div class="hha-race-lobby-winner__body">
+              <div class="hha-race-lobby-winner__empty">ยังไม่มีผลแข่งของห้องนี้</div>
+            </div>
+          </div>
+        </section>
 
-        <div class="field">
-          <label for="roomCode">รหัสห้อง</label>
-          <input id="roomCode" class="input" type="text" placeholder="เช่น GRP-A1B2C3" maxlength="16" autocapitalize="characters" />
-        </div>
+        <section class="card">
+          <div class="cardTitle">
+            <h2>ผู้เล่นในห้อง</h2>
+          </div>
 
-        <div class="actions">
-          <button id="btnJoinRoom" class="btn btn-join" type="button">เข้าห้อง</button>
-          <button id="btnBackJoin" class="btn btn-back" type="button">กลับ HUB</button>
-        </div>
+          <div class="pill">เริ่มได้เมื่อมีอย่างน้อย 2 คน</div>
 
-        <div class="note">
-          ใส่รหัสห้องจากเครื่องเจ้าของห้อง แล้วกดเข้าห้องเพื่อรอเริ่มแข่งพร้อมกัน
-        </div>
+          <div class="playersWrap" id="playersList">
+            <div class="player-empty">ยังไม่มีข้อมูลห้อง</div>
+          </div>
+        </section>
       </div>
     </section>
-
-    <section class="card players-card">
-      <div class="players-head">
-        <h3 style="margin:0">ผู้เล่นในห้อง</h3>
-        <div class="pill">เริ่มได้เมื่อมีอย่างน้อย 2 คน</div>
-      </div>
-
-      <div id="playersList" class="players-list">
-        <div class="player-empty">ยังไม่มีข้อมูลห้อง</div>
-      </div>
-
-      <div class="footer-start">
-        <button id="btnStartRace" class="btn btn-start" type="button" disabled>เริ่มแข่ง</button>
-        <button id="btnBackBottom" class="btn btn-back" type="button">กลับ HUB</button>
-      </div>
-
-      <div class="tiny">
-        ปุ่มเริ่มแข่งใช้ได้เฉพาะเจ้าของห้อง และต้องมีผู้เล่นพร้อมอย่างน้อย 2 คน
-      </div>
-    </section>
-  </div>
-
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-
-  <script src="../firebase-config.js"></script>
-  <script src="../firebase-init.js"></script>
-  <script src="./groups-race-lobby.js"></script>
-  <script src="./groups-race-lobby-winner-patch.js"></script>
+  </main>
 
   <script>
-    (function(){
-      'use strict';
-
+    (function () {
       const q = new URLSearchParams(location.search);
-      const hub = q.get('hub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+      const hub =
+        q.get('hub') ||
+        'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
 
       function goHub(){
         location.href = hub;
       }
 
-      [
-        '#btnBackTop',
-        '#btnBackCreate',
-        '#btnBackJoin',
-        '#btnBackBottom'
-      ].forEach((sel) => {
-        const el = document.querySelector(sel);
-        if (el) el.addEventListener('click', goHub);
-      });
+      const topBtn = document.getElementById('btnBackHubTop');
+      const mainBtn = document.getElementById('btnBackHubMain');
+
+      if (topBtn) topBtn.addEventListener('click', goHub);
+      if (mainBtn) mainBtn.addEventListener('click', goHub);
     })();
   </script>
+
+  <script src="./groups-race-lobby.js?v=20260409-lobby-r3"></script>
 </body>
 </html>
