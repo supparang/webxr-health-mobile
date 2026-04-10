@@ -631,6 +631,7 @@
     const _camDir = new THREE.Vector3();
     const _soapPos = new THREE.Vector3();
     const _toSoap = new THREE.Vector3();
+    const _proj = new THREE.Vector3();
 
     function setBtnText(){
       ui.vrBtn.textContent = scene.is('vr-mode') ? 'EXIT VR' : 'ENTER VR';
@@ -688,7 +689,6 @@
       soapGroup.object3D.getWorldPosition(_soapPos);
 
       _toSoap.copy(_soapPos).sub(_camPos).normalize();
-
       return _camDir.dot(_toSoap) > 0.978;
     }
 
@@ -749,7 +749,7 @@
         ui.stepDesc.textContent = step.desc;
         ui.guideIcon.textContent = step.icon;
         ui.prompt.textContent = step.prompt;
-        setCoachCompact('แตะเป้าบนมือให้ครบ');
+        setCoachCompact('เล็งวงกลมฟ้าไปใกล้เป้าแล้วแตะจอ ระบบจะช่วยจับเป้าให้');
         updateProgress();
       }
     }
@@ -789,17 +789,28 @@
       };
 
       const pts = (sets[stepId] || []).slice(0,count);
+      const yOffset = 0.18;
+      const zOffset = 0.10;
 
       pts.forEach((p, idx)=>{
         const t = document.createElement('a-sphere');
         t.classList.add('focusable');
         t.dataset.kind = stepId;
         t.dataset.hit = '0';
-        t.setAttribute('radius', stepId === 'thumbs' || stepId === 'wrists' ? 0.055 : 0.05);
-        t.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
+
+        const r = (stepId === 'thumbs' || stepId === 'wrists') ? 0.10 : 0.09;
+        t.setAttribute('radius', r);
+
+        t.setAttribute('position', `${p.x} ${p.y + yOffset} ${p.z + zOffset}`);
         t.setAttribute('color', stepId === 'backs' ? '#86efac' : '#7dd3fc');
-        t.setAttribute('material', `transparent: true; opacity: 0.96; emissive: ${stepId === 'backs' ? '#22c55e' : '#22d3ee'}; emissiveIntensity: 0.75`);
-        t.setAttribute('animation__float', `property: position; dir: alternate; loop: true; dur: ${800 + idx*40}; to: ${p.x} ${p.y + 0.03} ${p.z}`);
+        t.setAttribute(
+          'material',
+          `transparent: true; opacity: 0.96; emissive: ${stepId === 'backs' ? '#22c55e' : '#22d3ee'}; emissiveIntensity: 0.85`
+        );
+        t.setAttribute(
+          'animation__float',
+          `property: position; dir: alternate; loop: true; dur: ${800 + idx*40}; to: ${p.x} ${p.y + yOffset + 0.03} ${p.z + zOffset}`
+        );
         targetLayer.appendChild(t);
       });
     }
@@ -873,6 +884,37 @@
       return rc.intersectedEls[0];
     }
 
+    function getNearestCenterTarget(maxPx = 140){
+      const camera3D = cam ? cam.getObject3D('camera') : null;
+      if (!camera3D) return null;
+
+      const targets = [...targetLayer.querySelectorAll('.focusable')]
+        .filter(el => el.dataset.hit !== '1');
+
+      let best = null;
+      let bestD = Infinity;
+
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+
+      for (const el of targets){
+        el.object3D.updateMatrixWorld();
+        _proj.setFromMatrixPosition(el.object3D.matrixWorld);
+        _proj.project(camera3D);
+
+        const sx = (_proj.x * 0.5 + 0.5) * window.innerWidth;
+        const sy = (-_proj.y * 0.5 + 0.5) * window.innerHeight;
+        const d = Math.hypot(sx - cx, sy - cy);
+
+        if (d < bestD){
+          bestD = d;
+          best = el;
+        }
+      }
+
+      return bestD <= maxPx ? best : null;
+    }
+
     function triggerFocused(){
       const now = performance.now();
       if(now - state.lastActionAt < 120) return false;
@@ -904,6 +946,12 @@
 
       if(el && el.classList.contains('focusable') && el.parentNode === targetLayer){
         activateTarget(el);
+        return true;
+      }
+
+      const nearTarget = getNearestCenterTarget(140);
+      if (nearTarget){
+        activateTarget(nearTarget);
         return true;
       }
 
