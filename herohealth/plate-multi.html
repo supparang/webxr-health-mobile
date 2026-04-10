@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Plate Multi Lobby</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#0f172a;
+      --bg2:#1e3a8a;
+      --bg3:#2563eb;
+
+      --text:#f8fafc;
+      --muted:#dbeafe;
+      --panel:rgba(2,6,23,.62);
+      --panel2:rgba(15,23,42,.54);
+      --stroke:rgba(255,255,255,.14);
+
+      --duet:#14b8a6;
+      --race:#38bdf8;
+      --battle:#f59e0b;
+      --coop:#a78bfa;
+      --accent:#facc15;
+
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --info:#38bdf8;
+
+      --shadow:0 18px 50px rgba(0,0,0,.26);
+      --shadow-big:0 24px 80px rgba(0,0,0,.34);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      color:var(--text);
+      background:
+        radial-gradient(900px 600px at 8% 8%, rgba(56,189,248,.22), transparent 60%),
+        radial-gradient(900px 700px at 92% 0%, rgba(167,139,250,.18), transparent 58%),
+        radial-gradient(800px 560px at 50% 100%, rgba(250,204,21,.12), transparent 58%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 48%, var(--bg3));
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+    }
+
+    body{
+      overflow-x:hidden;
+      line-height:1.35;
+    }
+
+    button,input,select{ font:inherit; }
+
+    .wrap{
+      max-width:1240px;
+      margin:0 auto;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(24px + var(--sab))
+        calc(14px + var(--sal));
+    }
+
+    .panel{
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      backdrop-filter:blur(12px);
+      box-shadow:var(--shadow-big);
+      border-radius:28px;
+    }
+
+    .hero{
+      padding:20px 16px;
+      text-align:center;
+      background:
+        linear-gradient(135deg, rgba(56,189,248,.18), rgba(167,139,250,.16)),
+        var(--panel);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero::before,
+    .hero::after{
+      content:"";
+      position:absolute;
+      border-radius:999px;
+      pointer-events:none;
+      opacity:.25;
+      filter:blur(8px);
+    }
+
+    .hero::before{
+      width:180px;
+      height:180px;
+      top:-40px;
+      left:-30px;
+      background:rgba(20,184,166,.40);
+    }
+
+    .hero::after{
+      width:180px;
+      height:180px;
+      right:-40px;
+      bottom:-40px;
+      background:rgba(250,204,21,.30);
+    }
+
+    .hero-inner{
+      position:relative;
+      z-index:1;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:12px;
+    }
+
+    .mascot{
+      width:110px;
+      height:110px;
+      border-radius:30px;
+      display:grid;
+      place-items:center;
+      font-size:54px;
+      border:1px solid rgba(255,255,255,.16);
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.28), transparent 40%),
+        linear-gradient(135deg, rgba(20,184,166,.22), rgba(56,189,248,.20));
+      box-shadow:0 16px 34px rgba(0,0,0,.20);
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:38px;
+      padding:8px 14px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.08);
+      color:#e0f2fe;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(34px,4.8vw,54px);
+      line-height:1.02;
+      font-weight:1000;
+      letter-spacing:-.02em;
+    }
+
+    .hero-sub{
+      color:var(--muted);
+      font-size:17px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .speech{
+      max-width:760px;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      padding:14px 16px;
+      color:#eff6ff;
+      font-size:15px;
+      line-height:1.6;
+      font-weight:1000;
+      box-shadow:0 12px 24px rgba(0,0,0,.14);
+    }
+
+    .topbar{
+      margin-top:14px;
+      padding:14px;
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      background:
+        linear-gradient(135deg, rgba(250,204,21,.12), rgba(56,189,248,.10)),
+        var(--panel);
+    }
+
+    .topbar-title{
+      font-size:18px;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .topbar-sub{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
+    .row-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .btn{
+      min-height:48px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
+      color:#fff;
+      font-size:15px;
+      font-weight:1000;
+      cursor:pointer;
+      padding:12px 16px;
+      box-shadow:0 10px 24px rgba(0,0,0,.16);
+      transition:transform .12s ease, filter .12s ease;
+      background:rgba(255,255,255,.06);
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.05);
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg, rgba(20,184,166,.26), rgba(20,184,166,.16));
+      border-color:rgba(20,184,166,.34);
+    }
+
+    .btn.info{
+      background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14));
+      border-color:rgba(56,189,248,.34);
+    }
+
+    .grid{
+      margin-top:16px;
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+    }
+
+    .section{
+      padding:18px;
+    }
+
+    .title{
+      font-size:22px;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .sub{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .mode-row{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .mode-pill{
+      min-height:40px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:9px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      font-size:13px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .mode-pill.active{
+      background:rgba(250,204,21,.16);
+      border-color:rgba(250,204,21,.34);
+      color:#fef3c7;
+    }
+
+    .field-grid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .field label{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .field input,
+    .field select{
+      min-height:48px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(2,6,23,.76);
+      color:var(--text);
+      padding:10px 12px;
+      outline:none;
+    }
+
+    .hint-box{
+      margin-top:14px;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      padding:12px 14px;
+      color:#e0f2fe;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .status-grid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .status-card{
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      padding:12px;
+      min-height:94px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap:6px;
+      box-shadow:var(--shadow);
+    }
+
+    .status-label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .status-value{
+      font-size:20px;
+      font-weight:1000;
+      color:#fff;
+      line-height:1.15;
+    }
+
+    .status-sub{
+      font-size:12px;
+      color:#dbeafe;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .quick-actions{
+      margin-top:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .action-card{
+      padding:16px;
+      border-radius:24px;
+      border:1px solid rgba(255,255,255,.14);
+      background:var(--panel2);
+      box-shadow:var(--shadow);
+      display:grid;
+      gap:12px;
+    }
+
+    .action-title{
+      font-size:20px;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .action-sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .action-buttons{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .btn.duet{
+      background:linear-gradient(180deg, rgba(20,184,166,.24), rgba(20,184,166,.14));
+      border-color:rgba(20,184,166,.34);
+    }
+
+    .btn.race{
+      background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14));
+      border-color:rgba(56,189,248,.34);
+    }
+
+    .btn.battle{
+      background:linear-gradient(180deg, rgba(245,158,11,.24), rgba(245,158,11,.14));
+      border-color:rgba(245,158,11,.34);
+    }
+
+    .btn.coop{
+      background:linear-gradient(180deg, rgba(167,139,250,.22), rgba(167,139,250,.14));
+      border-color:rgba(167,139,250,.34);
+    }
+
+    .mini-note{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
+    @media (max-width:980px){
+      .grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:760px){
+      .field-grid,
+      .status-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:640px){
+      .wrap{
+        padding:
+          calc(12px + var(--sat))
+          calc(12px + var(--sar))
+          calc(20px + var(--sab))
+          calc(12px + var(--sal));
+      }
+
+      .panel{
+        border-radius:22px;
+      }
+
+      .mascot{
+        width:92px;
+        height:92px;
+        font-size:46px;
+      }
+
+      .action-buttons,
+      .row-actions,
+      .mode-row{
+        display:grid;
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="panel hero">
+      <div class="hero-inner">
+        <div class="mascot">🍽️🤝</div>
+        <div class="badge">HeroHealth • Plate Multi Lobby</div>
+        <h1>Plate Multi</h1>
+        <div class="hero-sub">สร้างห้องหรือเข้าห้อง แล้วค่อยเข้าโหมดที่เลือก</div>
+        <div class="speech" id="speechText">
+          ตอนนี้อยู่ใน lobby ของ <b>Duet</b> ถ้ายังไม่มีห้อง ให้สร้างห้องก่อนนะ ✨
+        </div>
+      </div>
+    </section>
+
+    <section class="panel topbar">
+      <div>
+        <div class="topbar-title">ทางลัด</div>
+        <div class="topbar-sub">กลับ launcher, กลับ hub หรือเข้าโหมดล่าสุดอีกครั้ง</div>
+      </div>
+      <div class="row-actions">
+        <a id="btnBackLauncher" class="btn" href="./plate-launcher.html">↩ กลับ Plate Launcher</a>
+        <a id="btnBackHub" class="btn" href="./hub-v2.html">🏠 กลับ Hub</a>
+        <button id="btnLastRun" class="btn info" type="button">⏪ เข้าโหมดล่าสุด</button>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="panel section">
+        <div class="title">เลือกโหมด</div>
+        <div class="sub">สลับโหมดได้ที่นี่ แล้วค่อยสร้าง/เข้าห้อง</div>
+
+        <div class="mode-row" id="modeRow">
+          <button class="mode-pill" data-mode="duet" type="button">🧑‍🤝‍🧑 Duet</button>
+          <button class="mode-pill" data-mode="race" type="button">🏁 Race</button>
+          <button class="mode-pill" data-mode="battle" type="button">⚔️ Battle</button>
+          <button class="mode-pill" data-mode="coop" type="button">🤝 Co-op</button>
+        </div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label for="nick">ชื่อเล่น</label>
+            <input id="nick" placeholder="เช่น Hero" />
+          </div>
+
+          <div class="field">
+            <label for="pid">PID</label>
+            <input id="pid" placeholder="เช่น anon" />
+          </div>
+
+          <div class="field">
+            <label for="room">Room</label>
+            <input id="room" placeholder="เช่น PL-ROOM1" />
+          </div>
+
+          <div class="field">
+            <label for="diff">ความยาก</label>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="time">เวลา</label>
+            <select id="time">
+              <option value="60">60s</option>
+              <option value="90" selected>90s</option>
+              <option value="120">120s</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="view">มุมมอง</label>
+            <select id="view">
+              <option value="mobile" selected>mobile</option>
+              <option value="pc">pc</option>
+              <option value="cvr">cvr</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="hint-box" id="modeHintBox">
+          Duet เหมาะสำหรับเล่น 2 คนในห้องเดียวกัน
+        </div>
+
+        <div class="status-grid">
+          <div class="status-card">
+            <div class="status-label">โหมดปัจจุบัน</div>
+            <div class="status-value" id="modeStatusText">Duet</div>
+            <div class="status-sub" id="modeStatusSub">พร้อมสร้างหรือเข้าห้อง</div>
+          </div>
+
+          <div class="status-card">
+            <div class="status-label">ห้องล่าสุด</div>
+            <div class="status-value" id="lastRoomText">ยังไม่มี</div>
+            <div class="status-sub" id="lastRoomSub">เมื่อสร้างหรือเข้าห้อง ระบบจะจำให้</div>
+          </div>
+
+          <div class="status-card">
+            <div class="status-label">โหมดล่าสุด</div>
+            <div class="status-value" id="lastModeText">ยังไม่มี</div>
+            <div class="status-sub" id="lastModeSub">ใช้สำหรับเข้าเกมเดิมซ้ำ</div>
+          </div>
+
+          <div class="status-card">
+            <div class="status-label">ทางเข้าเกม</div>
+            <div class="status-value" id="targetPageText">plate-vr.html</div>
+            <div class="status-sub">จะส่ง mode, room และ role เข้าเกม</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="quick-actions">
+        <article class="action-card">
+          <div class="action-title">สร้างห้อง</div>
+          <div class="action-sub">ใช้สำหรับ host หรือผู้เริ่มห้องก่อน แล้วค่อยให้เพื่อนตามเข้ามา</div>
+          <div class="action-buttons">
+            <button id="btnCreateHost" class="btn primary" type="button">✨ สร้างห้องและเข้าเกม</button>
+          </div>
+          <div class="mini-note">ระบบจะใช้ room ที่กรอกไว้ ถ้าว่างจะสร้างให้ใหม่อัตโนมัติ</div>
+        </article>
+
+        <article class="action-card">
+          <div class="action-title">เข้าห้อง</div>
+          <div class="action-sub">ใช้สำหรับผู้เล่นที่ต้องการเข้าห้องที่มีอยู่แล้ว</div>
+          <div class="action-buttons">
+            <button id="btnJoinGuest" class="btn duet" type="button">🚪 เข้าห้องและเข้าเกม</button>
+          </div>
+          <div class="mini-note">เหมาะกับ Duet, Race, Battle และ Co-op</div>
+        </article>
+
+        <article class="action-card">
+          <div class="action-title">เล่นต่อจากห้องล่าสุด</div>
+          <div class="action-sub">ถ้าเคยสร้างหรือเข้าห้องไว้แล้ว กดปุ่มนี้เพื่อกลับเข้า flow เดิม</div>
+          <div class="action-buttons">
+            <button id="btnResumeRoom" class="btn race" type="button">⏩ เล่นต่อจากล่าสุด</button>
+          </div>
+          <div class="mini-note">ระบบจะอ่าน mode และ room ล่าสุดจากเครื่องนี้</div>
+        </article>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
+
+      const STORAGE = {
+        lastModePrefix: 'PLATE_MULTI_LAST_MODE:',
+        lastRoomPrefix: 'PLATE_MULTI_LAST_ROOM:',
+        lastUrlPrefix: 'PLATE_MULTI_LAST_URL:'
+      };
+
+      const MODE_META = {
+        duet: {
+          label: 'Duet',
+          hint: 'Duet เหมาะสำหรับเล่น 2 คนในห้องเดียวกัน'
+        },
+        race: {
+          label: 'Race',
+          hint: 'Race เหมาะสำหรับเริ่มพร้อมกันแล้วแข่งคะแนน'
+        },
+        battle: {
+          label: 'Battle',
+          hint: 'Battle เหมาะสำหรับดวลกันแบบตัวต่อตัว'
+        },
+        coop: {
+          label: 'Co-op',
+          hint: 'Co-op เหมาะสำหรับร่วมมือกันเก็บคะแนนทีม'
+        }
+      };
+
+      function first(...vals){
+        for (const v of vals){
+          if (String(v || '').trim()) return String(v).trim();
+        }
+        return '';
+      }
+
+      function clean(v, fallback=''){
+        const s = String(v ?? '').trim();
+        return s || fallback;
+      }
+
+      function buildUrl(path, extra = {}){
+        const u = new URL(path, location.href);
+        Object.entries(extra).forEach(([k, v]) => {
+          if (v != null && v !== '') u.searchParams.set(k, String(v));
+        });
+        return u.toString();
+      }
+
+      function makeRoomCode(prefix='PL'){
+        const rnd = Math.random().toString(36).slice(2, 6).toUpperCase();
+        return `${prefix}-${rnd}`;
+      }
+
+      function getMode(){
+        const m = clean(qs.get('mode'), 'duet').toLowerCase();
+        return MODE_META[m] ? m : 'duet';
+      }
+
+      function getCtx(){
+        return {
+          mode: getMode(),
+          pid: clean($('pid')?.value, qs.get('pid') || 'anon'),
+          nick: clean($('nick')?.value, first(qs.get('name'), qs.get('nick'), 'Hero')),
+          room: clean($('room')?.value, qs.get('room') || 'PL-ROOM1'),
+          diff: clean($('diff')?.value, qs.get('diff') || 'normal'),
+          time: clean($('time')?.value, qs.get('time') || '90'),
+          view: clean($('view')?.value, qs.get('view') || 'mobile'),
+          hub: clean(qs.get('hub'), './hub-v2.html'),
+          studyId: clean(qs.get('studyId'), ''),
+          conditionGroup: clean(qs.get('conditionGroup'), ''),
+          log: clean(qs.get('log'), ''),
+          run: clean(qs.get('run'), 'play'),
+          seed: clean(qs.get('seed'), ''),
+          debug: qs.get('debug') === '1' ? '1' : ''
+        };
+      }
+
+      function saveLast(pid, mode, room, url){
+        try{
+          localStorage.setItem(`${STORAGE.lastModePrefix}${pid}`, mode);
+          localStorage.setItem(`${STORAGE.lastRoomPrefix}${pid}`, room);
+          localStorage.setItem(`${STORAGE.lastUrlPrefix}${pid}`, url);
+        }catch(_){}
+      }
+
+      function loadLastMode(pid){
+        try{
+          return localStorage.getItem(`${STORAGE.lastModePrefix}${pid}`) || '';
+        }catch(_){
+          return '';
+        }
+      }
+
+      function loadLastRoom(pid){
+        try{
+          return localStorage.getItem(`${STORAGE.lastRoomPrefix}${pid}`) || '';
+        }catch(_){
+          return '';
+        }
+      }
+
+      function loadLastUrl(pid){
+        try{
+          return localStorage.getItem(`${STORAGE.lastUrlPrefix}${pid}`) || '';
+        }catch(_){
+          return '';
+        }
+      }
+
+      function buildLauncherBackUrl(ctx){
+        return buildUrl('./plate-launcher.html', {
+          pid: ctx.pid,
+          name: ctx.nick,
+          room: ctx.room,
+          diff: ctx.diff,
+          time: ctx.time,
+          view: ctx.view,
+          hub: ctx.hub,
+          studyId: ctx.studyId,
+          conditionGroup: ctx.conditionGroup,
+          log: ctx.log,
+          seed: ctx.seed,
+          run: ctx.run,
+          debug: ctx.debug,
+          zone: 'nutrition',
+          cat: 'nutrition',
+          game: 'plate',
+          gameId: 'plate',
+          theme: 'plate'
+        });
+      }
+
+      function buildPlateRunUrl(role, ctx){
+        return buildUrl('./plate-vr.html', {
+          pid: ctx.pid,
+          name: ctx.nick,
+          nick: ctx.nick,
+          room: ctx.room,
+          role,
+          mode: ctx.mode,
+          diff: ctx.diff,
+          time: ctx.time,
+          view: ctx.view,
+          hub: ctx.hub,
+          hubRoot: ctx.hub,
+          launcher: buildLauncherBackUrl(ctx),
+          studyId: ctx.studyId,
+          conditionGroup: ctx.conditionGroup,
+          log: ctx.log,
+          seed: ctx.seed || String(Date.now()),
+          run: ctx.run,
+          debug: ctx.debug,
+          zone: 'nutrition',
+          cat: 'nutrition',
+          game: 'plate',
+          gameId: 'plate',
+          theme: 'plate'
+        });
+      }
+
+      function applyModeUI(mode){
+        const meta = MODE_META[mode] || MODE_META.duet;
+
+        document.querySelectorAll('[data-mode]').forEach((btn) => {
+          btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+
+        $('modeStatusText').textContent = meta.label;
+        $('modeStatusSub').textContent = 'พร้อมสร้างหรือเข้าห้อง';
+        $('modeHintBox').textContent = meta.hint;
+      }
+
+      function patchStatus(){
+        const ctx = getCtx();
+        const lastMode = loadLastMode(ctx.pid);
+        const lastRoom = loadLastRoom(ctx.pid);
+
+        $('lastModeText').textContent = lastMode ? (MODE_META[lastMode]?.label || lastMode) : 'ยังไม่มี';
+        $('lastModeSub').textContent = lastMode ? 'กดเข้าโหมดล่าสุดได้เลย' : 'ยังไม่มีข้อมูลโหมดล่าสุด';
+
+        $('lastRoomText').textContent = lastRoom || 'ยังไม่มี';
+        $('lastRoomSub').textContent = lastRoom ? 'มีห้องล่าสุดที่จำไว้แล้ว' : 'สร้างหรือเข้าห้องก่อน ระบบจะจำให้';
+
+        $('targetPageText').textContent = 'plate-vr.html';
+      }
+
+      function hydrate(){
+        const ctx = getCtx();
+
+        $('nick').value = ctx.nick;
+        $('pid').value = ctx.pid;
+        $('room').value = ctx.room;
+        $('diff').value = ctx.diff;
+        $('time').value = ctx.time;
+        $('view').value = ctx.view;
+
+        $('btnBackHub').href = ctx.hub;
+        $('btnBackLauncher').href = buildLauncherBackUrl(ctx);
+
+        applyModeUI(ctx.mode);
+        patchStatus();
+
+        const speechMap = {
+          duet: 'ตอนนี้อยู่ใน lobby ของ <b>Duet</b> ถ้ายังไม่มีห้อง ให้สร้างห้องก่อนนะ ✨',
+          race: 'ตอนนี้อยู่ใน lobby ของ <b>Race</b> พร้อมสร้างห้องแล้วแข่งได้เลย 🏁',
+          battle: 'ตอนนี้อยู่ใน lobby ของ <b>Battle</b> ตั้งห้องแล้วไปดวลกันได้เลย ⚔️',
+          coop: 'ตอนนี้อยู่ใน lobby ของ <b>Co-op</b> ชวนเพื่อนแล้วไปช่วยกันเล่นได้เลย 🤝'
+        };
+        $('speechText').innerHTML = speechMap[ctx.mode] || speechMap.duet;
+      }
+
+      function bindModeButtons(){
+        document.querySelectorAll('[data-mode]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const ctx = getCtx();
+            const mode = btn.dataset.mode || 'duet';
+            const u = new URL(location.href);
+            u.searchParams.set('mode', mode);
+            u.searchParams.set('pid', ctx.pid);
+            u.searchParams.set('name', ctx.nick);
+            u.searchParams.set('room', ctx.room);
+            u.searchParams.set('diff', ctx.diff);
+            u.searchParams.set('time', ctx.time);
+            u.searchParams.set('view', ctx.view);
+            u.searchParams.set('hub', ctx.hub);
+            if (ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
+            if (ctx.conditionGroup) u.searchParams.set('conditionGroup', ctx.conditionGroup);
+            if (ctx.log) u.searchParams.set('log', ctx.log);
+            if (ctx.seed) u.searchParams.set('seed', ctx.seed);
+            if (ctx.run) u.searchParams.set('run', ctx.run);
+            if (ctx.debug) u.searchParams.set('debug', ctx.debug);
+            location.href = u.toString();
+          });
+        });
+      }
+
+      function bindCreateHost(){
+        $('btnCreateHost').addEventListener('click', () => {
+          const ctx = getCtx();
+          if (!ctx.room || ctx.room === 'PL-ROOM1') {
+            ctx.room = makeRoomCode('PL');
+            $('room').value = ctx.room;
+          }
+          const url = buildPlateRunUrl('host', ctx);
+          saveLast(ctx.pid, ctx.mode, ctx.room, url);
+          location.href = url;
+        });
+      }
+
+      function bindJoinGuest(){
+        $('btnJoinGuest').addEventListener('click', () => {
+          const ctx = getCtx();
+          if (!ctx.room) {
+            $('room').value = 'PL-ROOM1';
+            ctx.room = 'PL-ROOM1';
+          }
+          const url = buildPlateRunUrl('guest', ctx);
+          saveLast(ctx.pid, ctx.mode, ctx.room, url);
+          location.href = url;
+        });
+      }
+
+      function bindResume(){
+        $('btnResumeRoom').addEventListener('click', () => {
+          const ctx = getCtx();
+          const lastUrl = loadLastUrl(ctx.pid);
+          if (lastUrl) {
+            location.href = lastUrl;
+            return;
+          }
+          const url = buildPlateRunUrl('guest', ctx);
+          saveLast(ctx.pid, ctx.mode, ctx.room, url);
+          location.href = url;
+        });
+      }
+
+      function bindLastRun(){
+        $('btnLastRun').addEventListener('click', () => {
+          const ctx = getCtx();
+          const lastUrl = loadLastUrl(ctx.pid);
+          if (lastUrl) {
+            location.href = lastUrl;
+            return;
+          }
+          const url = buildPlateRunUrl('guest', ctx);
+          saveLast(ctx.pid, ctx.mode, ctx.room, url);
+          location.href = url;
+        });
+      }
+
+      hydrate();
+      bindModeButtons();
+      bindCreateHost();
+      bindJoinGuest();
+      bindResume();
+      bindLastRun();
+    })();
+  </script>
+</body>
+</html>
