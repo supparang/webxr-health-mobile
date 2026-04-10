@@ -23,10 +23,10 @@
       --battle:#f59e0b;
       --coop:#a78bfa;
       --accent:#facc15;
-
       --good:#22c55e;
       --warn:#f59e0b;
       --info:#38bdf8;
+      --danger:#ef4444;
 
       --shadow:0 18px 50px rgba(0,0,0,.26);
       --shadow-big:0 24px 80px rgba(0,0,0,.34);
@@ -220,7 +220,7 @@
       cursor:pointer;
       padding:12px 16px;
       box-shadow:0 10px 24px rgba(0,0,0,.16);
-      transition:transform .12s ease, filter .12s ease;
+      transition:transform .12s ease, filter .12s ease, opacity .12s ease;
       background:rgba(255,255,255,.06);
       text-decoration:none;
       display:inline-flex;
@@ -233,6 +233,13 @@
       filter:brightness(1.05);
     }
 
+    .btn[disabled]{
+      opacity:.55;
+      pointer-events:none;
+      transform:none !important;
+      filter:none !important;
+    }
+
     .btn.primary{
       background:linear-gradient(180deg, rgba(20,184,166,.26), rgba(20,184,166,.16));
       border-color:rgba(20,184,166,.34);
@@ -241,6 +248,16 @@
     .btn.info{
       background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14));
       border-color:rgba(56,189,248,.34);
+    }
+
+    .btn.warn{
+      background:linear-gradient(180deg, rgba(245,158,11,.24), rgba(245,158,11,.14));
+      border-color:rgba(245,158,11,.34);
+    }
+
+    .btn.danger{
+      background:linear-gradient(180deg, rgba(239,68,68,.24), rgba(239,68,68,.14));
+      border-color:rgba(239,68,68,.34);
     }
 
     .grid{
@@ -413,31 +430,82 @@
       flex-wrap:wrap;
     }
 
-    .btn.duet{
-      background:linear-gradient(180deg, rgba(20,184,166,.24), rgba(20,184,166,.14));
-      border-color:rgba(20,184,166,.34);
+    .players-box{
+      margin-top:14px;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      padding:14px;
+      display:grid;
+      gap:10px;
     }
 
-    .btn.race{
-      background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14));
-      border-color:rgba(56,189,248,.34);
+    .players-title{
+      font-size:16px;
+      font-weight:1000;
+      color:#fff;
     }
 
-    .btn.battle{
-      background:linear-gradient(180deg, rgba(245,158,11,.24), rgba(245,158,11,.14));
-      border-color:rgba(245,158,11,.34);
+    .players-list{
+      display:grid;
+      gap:8px;
     }
 
-    .btn.coop{
-      background:linear-gradient(180deg, rgba(167,139,250,.22), rgba(167,139,250,.14));
-      border-color:rgba(167,139,250,.34);
+    .player-row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      border-radius:16px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      padding:10px 12px;
     }
 
-    .mini-note{
-      color:var(--muted);
+    .player-name{
+      font-size:14px;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .player-meta{
       font-size:12px;
-      line-height:1.55;
+      color:#dbeafe;
       font-weight:900;
+    }
+
+    .empty-line{
+      font-size:13px;
+      color:#dbeafe;
+      font-weight:900;
+      opacity:.9;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:20px;
+      transform:translateX(-50%);
+      min-width:min(92vw, 440px);
+      max-width:min(92vw, 520px);
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(2,6,23,.88);
+      color:#fff;
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 16px 30px rgba(0,0,0,.28);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+      z-index:99;
+      font-size:14px;
+      font-weight:1000;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(-4px);
     }
 
     @media (max-width:980px){
@@ -488,7 +556,7 @@
         <div class="mascot">🍽️🤝</div>
         <div class="badge">HeroHealth • Plate Multi Lobby</div>
         <h1>Plate Multi</h1>
-        <div class="hero-sub">สร้างห้องหรือเข้าห้อง แล้วค่อยเข้าโหมดที่เลือก</div>
+        <div class="hero-sub">สร้างห้องหรือเข้าห้อง แล้วรอให้ครบก่อนค่อยเริ่มเกม</div>
         <div class="speech" id="speechText">
           ตอนนี้อยู่ใน lobby ของ <b>Duet</b> ถ้ายังไม่มีห้อง ให้สร้างห้องก่อนนะ ✨
         </div>
@@ -509,8 +577,8 @@
 
     <div class="grid">
       <section class="panel section">
-        <div class="title">เลือกโหมด</div>
-        <div class="sub">สลับโหมดได้ที่นี่ แล้วค่อยสร้าง/เข้าห้อง</div>
+        <div class="title">ตั้งค่าห้อง</div>
+        <div class="sub">เลือกโหมด สร้างห้อง หรือเข้าห้อง แล้วรอจนครบอย่างน้อย 2 คน</div>
 
         <div class="mode-row" id="modeRow">
           <button class="mode-pill" data-mode="duet" type="button">🧑‍🤝‍🧑 Duet</button>
@@ -575,21 +643,40 @@
           </div>
 
           <div class="status-card">
-            <div class="status-label">ห้องล่าสุด</div>
-            <div class="status-value" id="lastRoomText">ยังไม่มี</div>
-            <div class="status-sub" id="lastRoomSub">เมื่อสร้างหรือเข้าห้อง ระบบจะจำให้</div>
+            <div class="status-label">จำนวนผู้เล่น</div>
+            <div class="status-value" id="playerCountText">0 / 2</div>
+            <div class="status-sub" id="playerCountSub">ต้องมีอย่างน้อย 2 คนก่อนเริ่ม</div>
+          </div>
+
+          <div class="status-card">
+            <div class="status-label">สถานะห้อง</div>
+            <div class="status-value" id="roomStateText">ยังไม่เข้าห้อง</div>
+            <div class="status-sub" id="roomStateSub">สร้างห้องหรือเข้าห้องก่อน</div>
+          </div>
+
+          <div class="status-card">
+            <div class="status-label">บทบาทของฉัน</div>
+            <div class="status-value" id="roleText">ยังไม่มี</div>
+            <div class="status-sub" id="roleSub">host หรือ guest</div>
           </div>
 
           <div class="status-card">
             <div class="status-label">โหมดล่าสุด</div>
             <div class="status-value" id="lastModeText">ยังไม่มี</div>
-            <div class="status-sub" id="lastModeSub">ใช้สำหรับเข้าเกมเดิมซ้ำ</div>
+            <div class="status-sub" id="lastModeSub">ใช้สำหรับเข้าโหมดเดิมซ้ำ</div>
           </div>
 
           <div class="status-card">
-            <div class="status-label">ทางเข้าเกม</div>
-            <div class="status-value" id="targetPageText">plate-vr.html</div>
-            <div class="status-sub">จะส่ง mode, room และ role เข้าเกม</div>
+            <div class="status-label">ห้องล่าสุด</div>
+            <div class="status-value" id="lastRoomText">ยังไม่มี</div>
+            <div class="status-sub" id="lastRoomSub">เมื่อสร้างหรือเข้าห้อง ระบบจะจำให้</div>
+          </div>
+        </div>
+
+        <div class="players-box">
+          <div class="players-title">ผู้เล่นในห้อง</div>
+          <div id="playersList" class="players-list">
+            <div class="empty-line">ยังไม่มีข้อมูลห้อง</div>
           </div>
         </div>
       </section>
@@ -599,31 +686,34 @@
           <div class="action-title">สร้างห้อง</div>
           <div class="action-sub">ใช้สำหรับ host หรือผู้เริ่มห้องก่อน แล้วค่อยให้เพื่อนตามเข้ามา</div>
           <div class="action-buttons">
-            <button id="btnCreateHost" class="btn primary" type="button">✨ สร้างห้องและเข้าเกม</button>
+            <button id="btnCreateHost" class="btn primary" type="button">✨ สร้างห้อง</button>
+            <button id="btnCopyRoom" class="btn info" type="button">📋 คัดลอก Room</button>
           </div>
-          <div class="mini-note">ระบบจะใช้ room ที่กรอกไว้ ถ้าว่างจะสร้างให้ใหม่อัตโนมัติ</div>
         </article>
 
         <article class="action-card">
           <div class="action-title">เข้าห้อง</div>
           <div class="action-sub">ใช้สำหรับผู้เล่นที่ต้องการเข้าห้องที่มีอยู่แล้ว</div>
           <div class="action-buttons">
-            <button id="btnJoinGuest" class="btn duet" type="button">🚪 เข้าห้องและเข้าเกม</button>
+            <button id="btnJoinGuest" class="btn warn" type="button">🚪 เข้าห้อง</button>
+            <button id="btnLeaveRoom" class="btn danger" type="button">↩ ออกจากห้อง</button>
           </div>
-          <div class="mini-note">เหมาะกับ Duet, Race, Battle และ Co-op</div>
         </article>
 
         <article class="action-card">
-          <div class="action-title">เล่นต่อจากห้องล่าสุด</div>
-          <div class="action-sub">ถ้าเคยสร้างหรือเข้าห้องไว้แล้ว กดปุ่มนี้เพื่อกลับเข้า flow เดิม</div>
+          <div class="action-title">เริ่มเกม</div>
+          <div class="action-sub">Host กดเริ่มเมื่อผู้เล่นครบอย่างน้อย 2 คน</div>
           <div class="action-buttons">
-            <button id="btnResumeRoom" class="btn race" type="button">⏩ เล่นต่อจากล่าสุด</button>
+            <button id="btnStartGame" class="btn primary" type="button" disabled>🚀 เริ่มเกมเมื่อครบ 2 คน</button>
+            <button id="btnResumeRoom" class="btn info" type="button">⏩ เล่นต่อจากล่าสุด</button>
           </div>
-          <div class="mini-note">ระบบจะอ่าน mode และ room ล่าสุดจากเครื่องนี้</div>
+          <div class="mini-note">ถ้ายังไม่เสียบ backend realtime จริง ตอนนี้ fallback นี้จะซิงก์ได้ในเบราว์เซอร์/แท็บที่แชร์ storage เดียวกัน</div>
         </article>
       </section>
     </div>
   </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
     (() => {
@@ -641,21 +731,48 @@
       const MODE_META = {
         duet: {
           label: 'Duet',
-          hint: 'Duet เหมาะสำหรับเล่น 2 คนในห้องเดียวกัน'
+          hint: 'Duet เหมาะสำหรับเล่น 2 คนในห้องเดียวกัน',
+          minPlayers: 2
         },
         race: {
           label: 'Race',
-          hint: 'Race เหมาะสำหรับเริ่มพร้อมกันแล้วแข่งคะแนน'
+          hint: 'Race เหมาะสำหรับเริ่มพร้อมกันแล้วแข่งคะแนน',
+          minPlayers: 2
         },
         battle: {
           label: 'Battle',
-          hint: 'Battle เหมาะสำหรับดวลกันแบบตัวต่อตัว'
+          hint: 'Battle เหมาะสำหรับดวลกันแบบตัวต่อตัว',
+          minPlayers: 2
         },
         coop: {
           label: 'Co-op',
-          hint: 'Co-op เหมาะสำหรับร่วมมือกันเก็บคะแนนทีม'
+          hint: 'Co-op เหมาะสำหรับร่วมมือกันเก็บคะแนนทีม',
+          minPlayers: 2
         }
       };
+
+      // ===== route จุดเดียว =====
+      const ROUTES = {
+        soloLauncher: './plate-launcher.html',
+        runPage: './plate-vr.html'
+      };
+
+      let currentMode = '';
+      let currentRole = '';
+      let currentRoomId = '';
+      let unwatch = null;
+      let currentRoom = null;
+      let toastTimer = null;
+      let localAutoRedirecting = false;
+
+      function showToast(msg){
+        const el = $('toast');
+        if (!el) return;
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+      }
 
       function first(...vals){
         for (const v of vals){
@@ -682,14 +799,14 @@
         return `${prefix}-${rnd}`;
       }
 
-      function getMode(){
+      function getModeFromUrl(){
         const m = clean(qs.get('mode'), 'duet').toLowerCase();
         return MODE_META[m] ? m : 'duet';
       }
 
       function getCtx(){
         return {
-          mode: getMode(),
+          mode: currentMode || getModeFromUrl(),
           pid: clean($('pid')?.value, qs.get('pid') || 'anon'),
           nick: clean($('nick')?.value, first(qs.get('name'), qs.get('nick'), 'Hero')),
           room: clean($('room')?.value, qs.get('room') || 'PL-ROOM1'),
@@ -739,7 +856,7 @@
       }
 
       function buildLauncherBackUrl(ctx){
-        return buildUrl('./plate-launcher.html', {
+        return buildUrl(ROUTES.soloLauncher, {
           pid: ctx.pid,
           name: ctx.nick,
           room: ctx.room,
@@ -762,7 +879,7 @@
       }
 
       function buildPlateRunUrl(role, ctx){
-        return buildUrl('./plate-vr.html', {
+        return buildUrl(ROUTES.runPage, {
           pid: ctx.pid,
           name: ctx.nick,
           nick: ctx.nick,
@@ -789,7 +906,8 @@
         });
       }
 
-      function applyModeUI(mode){
+      function renderModeUI(mode){
+        currentMode = mode;
         const meta = MODE_META[mode] || MODE_META.duet;
 
         document.querySelectorAll('[data-mode]').forEach((btn) => {
@@ -799,37 +917,6 @@
         $('modeStatusText').textContent = meta.label;
         $('modeStatusSub').textContent = 'พร้อมสร้างหรือเข้าห้อง';
         $('modeHintBox').textContent = meta.hint;
-      }
-
-      function patchStatus(){
-        const ctx = getCtx();
-        const lastMode = loadLastMode(ctx.pid);
-        const lastRoom = loadLastRoom(ctx.pid);
-
-        $('lastModeText').textContent = lastMode ? (MODE_META[lastMode]?.label || lastMode) : 'ยังไม่มี';
-        $('lastModeSub').textContent = lastMode ? 'กดเข้าโหมดล่าสุดได้เลย' : 'ยังไม่มีข้อมูลโหมดล่าสุด';
-
-        $('lastRoomText').textContent = lastRoom || 'ยังไม่มี';
-        $('lastRoomSub').textContent = lastRoom ? 'มีห้องล่าสุดที่จำไว้แล้ว' : 'สร้างหรือเข้าห้องก่อน ระบบจะจำให้';
-
-        $('targetPageText').textContent = 'plate-vr.html';
-      }
-
-      function hydrate(){
-        const ctx = getCtx();
-
-        $('nick').value = ctx.nick;
-        $('pid').value = ctx.pid;
-        $('room').value = ctx.room;
-        $('diff').value = ctx.diff;
-        $('time').value = ctx.time;
-        $('view').value = ctx.view;
-
-        $('btnBackHub').href = ctx.hub;
-        $('btnBackLauncher').href = buildLauncherBackUrl(ctx);
-
-        applyModeUI(ctx.mode);
-        patchStatus();
 
         const speechMap = {
           duet: 'ตอนนี้อยู่ใน lobby ของ <b>Duet</b> ถ้ายังไม่มีห้อง ให้สร้างห้องก่อนนะ ✨',
@@ -837,7 +924,435 @@
           battle: 'ตอนนี้อยู่ใน lobby ของ <b>Battle</b> ตั้งห้องแล้วไปดวลกันได้เลย ⚔️',
           coop: 'ตอนนี้อยู่ใน lobby ของ <b>Co-op</b> ชวนเพื่อนแล้วไปช่วยกันเล่นได้เลย 🤝'
         };
-        $('speechText').innerHTML = speechMap[ctx.mode] || speechMap.duet;
+        $('speechText').innerHTML = speechMap[mode] || speechMap.duet;
+      }
+
+      function patchTopLinks(){
+        const ctx = getCtx();
+        $('btnBackHub').href = ctx.hub;
+        $('btnBackLauncher').href = buildLauncherBackUrl(ctx);
+
+        const lastMode = loadLastMode(ctx.pid);
+        const lastRoom = loadLastRoom(ctx.pid);
+
+        $('lastModeText').textContent = lastMode ? (MODE_META[lastMode]?.label || lastMode) : 'ยังไม่มี';
+        $('lastModeSub').textContent = lastMode ? 'ใช้สำหรับเข้าโหมดเดิมซ้ำ' : 'ยังไม่มีข้อมูลโหมดล่าสุด';
+
+        $('lastRoomText').textContent = lastRoom || 'ยังไม่มี';
+        $('lastRoomSub').textContent = lastRoom ? 'ระบบจำห้องล่าสุดไว้แล้ว' : 'เมื่อสร้างหรือเข้าห้อง ระบบจะจำให้';
+      }
+
+      function renderPlayers(room){
+        const list = $('playersList');
+        if (!list) return;
+
+        if (!room || !room.players) {
+          list.innerHTML = '<div class="empty-line">ยังไม่มีข้อมูลห้อง</div>';
+          return;
+        }
+
+        const entries = Object.values(room.players).sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
+        if (!entries.length) {
+          list.innerHTML = '<div class="empty-line">ยังไม่มีผู้เล่นในห้อง</div>';
+          return;
+        }
+
+        list.innerHTML = entries.map((p) => `
+          <div class="player-row">
+            <div>
+              <div class="player-name">${p.nick || p.pid || 'Player'}</div>
+              <div class="player-meta">${p.pid || '-'} • ${p.role || '-'}</div>
+            </div>
+            <div class="player-meta">${p.isHost ? 'HOST' : 'GUEST'}</div>
+          </div>
+        `).join('');
+      }
+
+      function updateRoomUI(room){
+        currentRoom = room || null;
+
+        const ctx = getCtx();
+        const meta = MODE_META[currentMode] || MODE_META.duet;
+        const minPlayers = Number(meta.minPlayers || 2);
+        const players = room?.players ? Object.values(room.players) : [];
+        const count = players.length;
+        const status = room?.status || 'idle';
+
+        $('playerCountText').textContent = `${count} / ${minPlayers}`;
+        $('playerCountSub').textContent = count >= minPlayers
+          ? 'ผู้เล่นครบขั้นต่ำแล้ว'
+          : `ต้องมีอย่างน้อย ${minPlayers} คนก่อนเริ่ม`;
+
+        $('roomStateText').textContent =
+          !room ? 'ยังไม่เข้าห้อง'
+          : status === 'waiting' ? 'รอผู้เล่น'
+          : status === 'ready' ? 'พร้อมเริ่ม'
+          : status === 'started' ? 'เริ่มแล้ว'
+          : status;
+
+        $('roomStateSub').textContent =
+          !room ? 'สร้างห้องหรือเข้าห้องก่อน'
+          : room.roomId ? `ห้อง ${room.roomId}` : 'มีข้อมูลห้องแล้ว';
+
+        $('roleText').textContent = currentRole || 'ยังไม่มี';
+        $('roleSub').textContent =
+          currentRole === 'host' ? 'คุณเป็น host ของห้องนี้'
+          : currentRole === 'guest' ? 'คุณเป็น guest ของห้องนี้'
+          : 'host หรือ guest';
+
+        renderPlayers(room);
+
+        const canStart = !!room
+          && currentRole === 'host'
+          && count >= minPlayers
+          && status !== 'started';
+
+        $('btnStartGame').disabled = !canStart;
+      }
+
+      function redirectToRun(room){
+        if (!room || localAutoRedirecting) return;
+        if (room.status !== 'started') return;
+
+        const ctx = getCtx();
+        ctx.room = room.roomId || ctx.room;
+
+        const me = room.players?.[ctx.pid];
+        const role = me?.role || currentRole || 'guest';
+        const url = buildPlateRunUrl(role, ctx);
+
+        saveLast(ctx.pid, ctx.mode, ctx.room, url);
+        localAutoRedirecting = true;
+        location.href = url;
+      }
+
+      // ===== Adapter =====
+      // ถ้ามี realtime adapter จริง ให้เสียบผ่าน window.PlateRoomAdapter
+      // interface ที่ต้องมี:
+      // createRoom({roomId, mode, host}) -> Promise<room>
+      // joinRoom({roomId, mode, player}) -> Promise<room>
+      // leaveRoom({roomId, pid}) -> Promise<void>
+      // startRoom({roomId, pid}) -> Promise<room>
+      // watchRoom(roomId, callback) -> unsubscribe()
+      function createLocalAdapter(){
+        const PREFIX = 'PLATE_ROOM_V1:';
+        const listeners = new Map();
+
+        function key(roomId){
+          return PREFIX + roomId;
+        }
+
+        function clone(obj){
+          return JSON.parse(JSON.stringify(obj));
+        }
+
+        function read(roomId){
+          try{
+            const raw = localStorage.getItem(key(roomId));
+            return raw ? JSON.parse(raw) : null;
+          }catch(_){
+            return null;
+          }
+        }
+
+        function write(room){
+          localStorage.setItem(key(room.roomId), JSON.stringify(room));
+          notify(room.roomId);
+          return clone(room);
+        }
+
+        function notify(roomId){
+          const room = read(roomId);
+          const arr = listeners.get(roomId) || [];
+          arr.forEach(fn => {
+            try{ fn(clone(room)); }catch(_){}
+          });
+        }
+
+        window.addEventListener('storage', (ev) => {
+          if (!ev.key || !ev.key.startsWith(PREFIX)) return;
+          const roomId = ev.key.slice(PREFIX.length);
+          notify(roomId);
+        });
+
+        return {
+          async createRoom({ roomId, mode, host }){
+            let room = read(roomId);
+            if (!room) {
+              room = {
+                roomId,
+                mode,
+                status: 'waiting',
+                hostPid: host.pid,
+                startedAt: 0,
+                players: {}
+              };
+            }
+            room.mode = mode;
+            room.hostPid = host.pid;
+            room.players[host.pid] = {
+              pid: host.pid,
+              nick: host.nick,
+              role: 'host',
+              isHost: true,
+              joinedAt: Date.now()
+            };
+            room.status = room.status === 'started' ? 'started' : 'waiting';
+            return write(room);
+          },
+
+          async joinRoom({ roomId, mode, player }){
+            let room = read(roomId);
+            if (!room) {
+              room = {
+                roomId,
+                mode,
+                status: 'waiting',
+                hostPid: '',
+                startedAt: 0,
+                players: {}
+              };
+            }
+            room.mode = room.mode || mode;
+            room.players[player.pid] = {
+              pid: player.pid,
+              nick: player.nick,
+              role: 'guest',
+              isHost: false,
+              joinedAt: Date.now()
+            };
+
+            const count = Object.keys(room.players).length;
+            if (count >= 2 && room.status !== 'started') {
+              room.status = 'ready';
+            } else if (room.status !== 'started') {
+              room.status = 'waiting';
+            }
+            return write(room);
+          },
+
+          async leaveRoom({ roomId, pid }){
+            const room = read(roomId);
+            if (!room) return;
+            if (room.players && room.players[pid]) {
+              delete room.players[pid];
+            }
+
+            const ids = Object.keys(room.players || {});
+            if (!ids.length) {
+              localStorage.removeItem(key(roomId));
+              notify(roomId);
+              return;
+            }
+
+            if (room.hostPid === pid) {
+              const nextHost = ids[0];
+              room.hostPid = nextHost;
+              if (room.players[nextHost]) {
+                room.players[nextHost].role = 'host';
+                room.players[nextHost].isHost = true;
+              }
+            }
+
+            ids.forEach((id) => {
+              if (id !== room.hostPid && room.players[id]) {
+                room.players[id].role = 'guest';
+                room.players[id].isHost = false;
+              }
+            });
+
+            room.status = ids.length >= 2 ? 'ready' : 'waiting';
+            write(room);
+          },
+
+          async startRoom({ roomId, pid }){
+            const room = read(roomId);
+            if (!room) throw new Error('room-not-found');
+            if (room.hostPid !== pid) throw new Error('host-only');
+            const count = Object.keys(room.players || {}).length;
+            if (count < 2) throw new Error('not-enough-players');
+
+            room.status = 'started';
+            room.startedAt = Date.now();
+            return write(room);
+          },
+
+          watchRoom(roomId, callback){
+            if (!listeners.has(roomId)) listeners.set(roomId, []);
+            listeners.get(roomId).push(callback);
+
+            callback(read(roomId));
+
+            const timer = setInterval(() => {
+              callback(read(roomId));
+            }, 700);
+
+            return () => {
+              clearInterval(timer);
+              const arr = listeners.get(roomId) || [];
+              listeners.set(roomId, arr.filter(fn => fn !== callback));
+            };
+          }
+        };
+      }
+
+      const roomAdapter = window.PlateRoomAdapter || createLocalAdapter();
+
+      function watchRoom(roomId){
+        if (unwatch) {
+          try{ unwatch(); }catch(_){}
+          unwatch = null;
+        }
+
+        currentRoomId = roomId;
+        unwatch = roomAdapter.watchRoom(roomId, (room) => {
+          updateRoomUI(room);
+          redirectToRun(room);
+        });
+      }
+
+      async function onCreateRoom(){
+        const ctx = getCtx();
+        if (!ctx.room || ctx.room === 'PL-ROOM1') {
+          ctx.room = makeRoomCode('PL');
+          $('room').value = ctx.room;
+        }
+
+        currentRole = 'host';
+
+        const room = await roomAdapter.createRoom({
+          roomId: ctx.room,
+          mode: ctx.mode,
+          host: {
+            pid: ctx.pid,
+            nick: ctx.nick
+          }
+        });
+
+        saveLast(ctx.pid, ctx.mode, ctx.room, '');
+        watchRoom(ctx.room);
+        updateRoomUI(room);
+        patchTopLinks();
+        showToast(`สร้างห้อง ${ctx.room} แล้ว`);
+      }
+
+      async function onJoinRoom(){
+        const ctx = getCtx();
+        if (!ctx.room) {
+          showToast('กรอก Room ก่อน');
+          return;
+        }
+
+        currentRole = 'guest';
+
+        const room = await roomAdapter.joinRoom({
+          roomId: ctx.room,
+          mode: ctx.mode,
+          player: {
+            pid: ctx.pid,
+            nick: ctx.nick
+          }
+        });
+
+        saveLast(ctx.pid, ctx.mode, ctx.room, '');
+        watchRoom(ctx.room);
+        updateRoomUI(room);
+        patchTopLinks();
+        showToast(`เข้าห้อง ${ctx.room} แล้ว`);
+      }
+
+      async function onLeaveRoom(){
+        const ctx = getCtx();
+        if (!currentRoomId) {
+          showToast('ยังไม่ได้อยู่ในห้อง');
+          return;
+        }
+
+        try{
+          await roomAdapter.leaveRoom({
+            roomId: currentRoomId,
+            pid: ctx.pid
+          });
+        }catch(_){}
+
+        currentRole = '';
+        currentRoom = null;
+        currentRoomId = '';
+        if (unwatch) {
+          try{ unwatch(); }catch(_){}
+          unwatch = null;
+        }
+
+        updateRoomUI(null);
+        showToast('ออกจากห้องแล้ว');
+      }
+
+      async function onStartGame(){
+        const ctx = getCtx();
+        if (!currentRoomId) {
+          showToast('ยังไม่ได้อยู่ในห้อง');
+          return;
+        }
+
+        try{
+          const room = await roomAdapter.startRoom({
+            roomId: currentRoomId,
+            pid: ctx.pid
+          });
+          updateRoomUI(room);
+          redirectToRun(room);
+        }catch(err){
+          const msg = err?.message || '';
+          if (msg === 'host-only') {
+            showToast('มีแต่ host เท่านั้นที่กดเริ่มได้');
+            return;
+          }
+          if (msg === 'not-enough-players') {
+            showToast('ผู้เล่นยังไม่ครบ 2 คน');
+            return;
+          }
+          showToast('เริ่มเกมไม่สำเร็จ');
+        }
+      }
+
+      function onCopyRoom(){
+        const room = clean($('room')?.value, '');
+        if (!room) {
+          showToast('ยังไม่มี Room');
+          return;
+        }
+
+        navigator.clipboard?.writeText(room)
+          .then(() => showToast(`คัดลอก ${room} แล้ว`))
+          .catch(() => showToast('คัดลอกไม่สำเร็จ'));
+      }
+
+      function onResumeLast(){
+        const ctx = getCtx();
+        const lastUrl = loadLastUrl(ctx.pid);
+        const lastMode = loadLastMode(ctx.pid);
+        const lastRoom = loadLastRoom(ctx.pid);
+
+        if (lastUrl) {
+          location.href = lastUrl;
+          return;
+        }
+
+        if (lastMode && lastRoom) {
+          const u = new URL(location.href);
+          u.searchParams.set('mode', lastMode);
+          u.searchParams.set('room', lastRoom);
+          u.searchParams.set('pid', ctx.pid);
+          u.searchParams.set('name', ctx.nick);
+          u.searchParams.set('diff', ctx.diff);
+          u.searchParams.set('time', ctx.time);
+          u.searchParams.set('view', ctx.view);
+          u.searchParams.set('hub', ctx.hub);
+          location.href = u.toString();
+          return;
+        }
+
+        showToast('ยังไม่มีข้อมูลล่าสุด');
       }
 
       function bindModeButtons(){
@@ -865,66 +1380,54 @@
         });
       }
 
-      function bindCreateHost(){
-        $('btnCreateHost').addEventListener('click', () => {
-          const ctx = getCtx();
-          if (!ctx.room || ctx.room === 'PL-ROOM1') {
-            ctx.room = makeRoomCode('PL');
-            $('room').value = ctx.room;
-          }
-          const url = buildPlateRunUrl('host', ctx);
-          saveLast(ctx.pid, ctx.mode, ctx.room, url);
-          location.href = url;
+      function hydrate(){
+        const mode = getModeFromUrl();
+        currentMode = mode;
+
+        const ctx = getCtx();
+        $('nick').value = ctx.nick;
+        $('pid').value = ctx.pid;
+        $('room').value = ctx.room;
+        $('diff').value = ctx.diff;
+        $('time').value = ctx.time;
+        $('view').value = ctx.view;
+
+        renderModeUI(mode);
+        patchTopLinks();
+        updateRoomUI(null);
+
+        const roomFromUrl = clean(qs.get('room'), '');
+        if (roomFromUrl) {
+          watchRoom(roomFromUrl);
+        }
+      }
+
+      function bindEvents(){
+        bindModeButtons();
+
+        $('btnCreateHost').addEventListener('click', onCreateRoom);
+        $('btnJoinGuest').addEventListener('click', onJoinRoom);
+        $('btnLeaveRoom').addEventListener('click', onLeaveRoom);
+        $('btnStartGame').addEventListener('click', onStartGame);
+        $('btnCopyRoom').addEventListener('click', onCopyRoom);
+        $('btnResumeRoom').addEventListener('click', onResumeLast);
+        $('btnLastRun').addEventListener('click', onResumeLast);
+
+        ['room','diff','time','view','pid','nick'].forEach(id => {
+          $(id)?.addEventListener('change', patchTopLinks);
+          $(id)?.addEventListener('input', patchTopLinks);
         });
       }
 
-      function bindJoinGuest(){
-        $('btnJoinGuest').addEventListener('click', () => {
-          const ctx = getCtx();
-          if (!ctx.room) {
-            $('room').value = 'PL-ROOM1';
-            ctx.room = 'PL-ROOM1';
-          }
-          const url = buildPlateRunUrl('guest', ctx);
-          saveLast(ctx.pid, ctx.mode, ctx.room, url);
-          location.href = url;
-        });
-      }
-
-      function bindResume(){
-        $('btnResumeRoom').addEventListener('click', () => {
-          const ctx = getCtx();
-          const lastUrl = loadLastUrl(ctx.pid);
-          if (lastUrl) {
-            location.href = lastUrl;
-            return;
-          }
-          const url = buildPlateRunUrl('guest', ctx);
-          saveLast(ctx.pid, ctx.mode, ctx.room, url);
-          location.href = url;
-        });
-      }
-
-      function bindLastRun(){
-        $('btnLastRun').addEventListener('click', () => {
-          const ctx = getCtx();
-          const lastUrl = loadLastUrl(ctx.pid);
-          if (lastUrl) {
-            location.href = lastUrl;
-            return;
-          }
-          const url = buildPlateRunUrl('guest', ctx);
-          saveLast(ctx.pid, ctx.mode, ctx.room, url);
-          location.href = url;
-        });
-      }
+      window.addEventListener('beforeunload', () => {
+        // ไม่ auto leave ตอน started เพื่อไม่หลุด race condition ตอนเปลี่ยนหน้าเข้าเกม
+        if (!currentRoomId || !currentRoom || currentRoom.status === 'started') return;
+        const ctx = getCtx();
+        roomAdapter.leaveRoom({ roomId: currentRoomId, pid: ctx.pid }).catch?.(() => {});
+      });
 
       hydrate();
-      bindModeButtons();
-      bindCreateHost();
-      bindJoinGuest();
-      bindResume();
-      bindLastRun();
+      bindEvents();
     })();
   </script>
 </body>
