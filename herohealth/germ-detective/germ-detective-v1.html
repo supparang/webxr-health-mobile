@@ -2,1394 +2,1446 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
-  />
-  <title>HeroHealth • Germ Detective v2.4</title>
-
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>HeroHealth • Clean Objects Hero v3</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;700;800&display=swap" rel="stylesheet">
   <style>
     :root{
-      --bg:#071728;
-      --panel:rgba(10,28,52,.84);
-      --panel-strong:rgba(8,24,46,.94);
-      --line:rgba(174,225,255,.22);
-      --text:#f5fbff;
-      --muted:#b8d9ef;
-      --cyan:#59e7ff;
-      --green:#77ef9d;
-      --yellow:#ffd85a;
-      --red:#ff7a8b;
-      --orange:#ffb25c;
-      --purple:#d58aff;
-      --shadow:0 14px 34px rgba(0,0,0,.28);
-      --safe-bottom:max(10px, env(safe-area-inset-bottom));
-      --safe-top:max(10px, env(safe-area-inset-top));
+      --sky1:#dff6ff;
+      --sky2:#f8fcff;
+      --ink:#1b4666;
+      --blue:#5cbfff;
+      --green:#57d48f;
+      --yellow:#ffd166;
+      --red:#ff6b6b;
+      --pink:#ff90d0;
+      --cyan:#9feaff;
+      --card:rgba(255,255,255,.95);
+      --line:rgba(27,70,102,.1);
+      --shadow:0 12px 28px rgba(27,70,102,.16);
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       margin:0;
       width:100%;
       height:100%;
       overflow:hidden;
-      background:#02111e;
-      font-family:"Kanit",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:linear-gradient(180deg,var(--sky1),var(--sky2));
+      font-family:'Kanit',system-ui,sans-serif;
+      color:var(--ink);
       touch-action:none;
     }
 
-    #ui{
+    canvas{ display:block; }
+
+    #hud{
       position:absolute;
       inset:0;
-      z-index:20;
+      z-index:10;
       pointer-events:none;
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
     }
 
-    .panel{
-      background:var(--panel);
-      border:2px solid var(--line);
-      color:var(--text);
-      backdrop-filter: blur(10px);
-      box-shadow:var(--shadow);
+    .hud-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+      flex-wrap:wrap;
     }
 
-    /* ===== TOP HUD ===== */
-    .top{
-      position:absolute;
-      top:var(--safe-top);
-      left:10px;
-      right:10px;
-      height:0;
-      display:block;
-      pointer-events:none;
-      transition:opacity .18s ease;
+    .hud-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      max-width:100%;
     }
 
-    .card,
-    .center{
-      position:absolute;
-      min-height:auto;
-      border-radius:16px;
-      padding:8px 10px;
-    }
-
-    .card.left{
-      left:0;
-      top:0;
-      width:136px;
-    }
-
-    .card.right{
-      right:0;
-      top:0;
-      width:136px;
-      text-align:right;
-    }
-
-    .center{
-      left:50%;
-      top:0;
-      transform:translateX(-50%);
-      min-width:156px;
-      text-align:center;
-      padding:8px 12px;
+    .pill{
+      min-width:106px;
+      background:var(--card);
+      border:1px solid var(--line);
       border-radius:18px;
+      padding:10px 12px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(8px);
     }
 
-    .label{
-      font-size:.72rem;
-      font-weight:800;
-      color:var(--muted);
-      margin-bottom:4px;
-    }
-
-    .value{
-      font-size:.95rem;
-      font-weight:900;
-      line-height:1.15;
-    }
-
-    .timer{
-      font-size:1.45rem;
-      font-weight:900;
+    .pill .label{
+      font-size:12px;
       line-height:1;
-      letter-spacing:.03em;
+      opacity:.72;
     }
 
-    .score{
-      margin-top:4px;
-      color:var(--yellow);
-      font-size:.84rem;
-      font-weight:900;
-    }
-
-    .hp-track{
+    .pill .value{
       margin-top:6px;
-      height:9px;
-      background:rgba(255,255,255,.12);
+      font-size:22px;
+      font-weight:800;
+      line-height:1;
+    }
+
+    .phase .value{ color:#2d77a8; }
+    .time .value{ color:var(--blue); }
+    .score .value{ color:var(--green); }
+    .combo .value{ color:var(--pink); }
+    .life .value{ color:var(--red); }
+    .fever .value{ color:#f0a500; }
+
+    #center-ui{
+      display:grid;
+      gap:10px;
+      justify-items:center;
+      margin-top:6px;
+    }
+
+    .bubble{
+      background:rgba(255,255,255,.95);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      color:#27587b;
+    }
+
+    #coach{
+      max-width:min(94vw,720px);
+      border-radius:18px;
+      padding:10px 16px;
+      text-align:center;
+      font-size:15px;
+    }
+
+    #mission-box{
+      width:min(94vw,760px);
+      border-radius:22px;
+      padding:12px 14px;
+    }
+
+    #mission-title{
+      font-size:15px;
+      text-align:center;
+      margin-bottom:8px;
+      color:#27587b;
+    }
+
+    .progress{
+      width:100%;
+      height:14px;
+      background:#eaf7ff;
       border-radius:999px;
       overflow:hidden;
-      border:1px solid rgba(255,255,255,.08);
+      border:1px solid rgba(27,70,102,.08);
     }
 
-    .hp-fill{
-      width:100%;
+    .progress-fill{
       height:100%;
-      background:linear-gradient(90deg,#73f39e,#b8ff7a);
-      transition:width .2s ease, background .2s ease;
-    }
-
-    .phase{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      padding:5px 10px;
+      width:0%;
       border-radius:999px;
-      font-size:.75rem;
-      font-weight:900;
-      color:var(--cyan);
-      background:rgba(89,231,255,.12);
-      border:1px solid rgba(89,231,255,.24);
-      text-transform:uppercase;
-      margin-bottom:6px;
+      background:linear-gradient(90deg,#6dd5ff,#58d68d);
+      transition:width .2s ease;
     }
 
-    /* ===== BOTTOM MISSION ===== */
-    .bottom{
-      position:absolute;
-      left:10px;
-      right:10px;
-      bottom:calc(var(--safe-bottom) + 0px);
+    #mission-sub{
+      margin-top:7px;
+      font-size:13px;
+      text-align:center;
+      opacity:.78;
+    }
+
+    #bottom-tip-wrap{
       display:flex;
       justify-content:center;
-      transition:opacity .18s ease;
+      padding-bottom:4px;
     }
 
-    .mission{
-      width:min(620px, calc(100vw - 20px));
-      padding:10px 12px;
+    #bottom-tip{
+      max-width:min(94vw,760px);
+      border-radius:18px;
+      padding:10px 16px;
       text-align:center;
-      font-size:.84rem;
+      font-size:15px;
+    }
+
+    #phase-banner{
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%,-50%) scale(.95);
+      z-index:18;
+      pointer-events:none;
+      background:rgba(255,255,255,.98);
+      border:1px solid rgba(27,70,102,.1);
+      box-shadow:0 18px 46px rgba(27,70,102,.18);
+      border-radius:26px;
+      padding:18px 24px;
+      min-width:min(88vw,420px);
+      text-align:center;
+      opacity:0;
+      transition:opacity .25s ease, transform .25s ease;
+    }
+
+    #phase-banner.show{
+      opacity:1;
+      transform:translate(-50%,-50%) scale(1);
+    }
+
+    #phase-banner .big{
+      font-size:32px;
       font-weight:800;
-      line-height:1.4;
-      border-radius:16px;
-      transition:all .2s ease;
+      line-height:1;
+      color:#235c84;
     }
 
-    .mission.compact{
-      width:min(460px, calc(100vw - 20px));
-      padding:7px 10px;
-      font-size:.76rem;
-      opacity:.92;
+    #phase-banner .small{
+      margin-top:8px;
+      font-size:16px;
+      color:#4a799d;
     }
 
-    /* ===== OVERLAYS ===== */
-    .overlay{
+    #start-screen,
+    #summary-screen{
       position:absolute;
       inset:0;
-      display:none;
+      z-index:25;
+      display:flex;
       align-items:center;
       justify-content:center;
       padding:20px;
-      pointer-events:auto;
-      background:rgba(4,14,26,.56);
-      backdrop-filter: blur(8px);
-      z-index:30;
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,.9), rgba(214,242,255,.92) 42%, rgba(196,232,255,.97) 100%);
     }
 
-    .modal{
-      width:min(760px,95vw);
-      background:linear-gradient(180deg, rgba(14,34,60,.97), rgba(9,22,39,.97));
-      border:2px solid var(--line);
-      border-radius:28px;
-      color:var(--text);
-      padding:22px;
-      box-shadow:0 24px 56px rgba(0,0,0,.38);
-      max-height:min(90vh, 860px);
-      overflow:auto;
+    #summary-screen{ display:none; }
+
+    .panel{
+      width:min(92vw,800px);
+      background:rgba(255,255,255,.97);
+      border:1px solid rgba(27,70,102,.1);
+      border-radius:30px;
+      box-shadow:0 24px 60px rgba(27,70,102,.18);
+      padding:24px 22px;
+      text-align:center;
     }
 
     .title{
-      margin:0 0 8px;
-      font-size:clamp(1.8rem,4vw,3rem);
-      line-height:1.06;
-      font-weight:900;
+      margin:0;
+      font-size:clamp(32px,6vw,60px);
+      line-height:1;
+      font-weight:800;
+      color:#225b84;
     }
 
-    .sub{
-      margin:0 0 16px;
-      color:var(--muted);
-      font-size:1rem;
-      line-height:1.55;
+    .subtitle{
+      margin:12px 0 0;
+      font-size:18px;
+      color:#4b789c;
     }
 
-    .tips{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-      gap:12px;
-      margin:16px 0 18px;
-    }
-
-    .tip{
-      padding:14px;
-      border-radius:18px;
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.10);
-    }
-
-    .tip strong{
-      display:block;
-      margin-bottom:4px;
-      font-size:1rem;
-    }
-
-    .tip span{
-      color:var(--muted);
-      font-size:.95rem;
-      line-height:1.45;
-    }
-
-    .row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:12px;
-      align-items:center;
-    }
-
-    button{
-      appearance:none;
-      border:none;
-      border-radius:16px;
-      cursor:pointer;
-      font-size:1rem;
-      font-weight:900;
-      padding:14px 18px;
-      transition:transform .12s ease, opacity .12s ease;
-      box-shadow:0 10px 24px rgba(0,0,0,.24);
-    }
-
-    button:hover{ transform:translateY(-1px); }
-    button:active{ transform:translateY(1px) scale(.99); }
-
-    .btn-primary{
-      background:linear-gradient(180deg,#68efff,#2fd0ff);
-      color:#06253f;
-    }
-
-    .btn-secondary{
-      background:linear-gradient(180deg,#9dc8ff,#75a5ff);
-      color:#072045;
-    }
-
-    .btn-ghost{
-      background:rgba(255,255,255,.08);
-      color:#fff;
-      border:1px solid rgba(255,255,255,.10);
-    }
-
-    .choice{
-      width:100%;
-      text-align:left;
-      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
-      color:#fff;
-      border:1px solid rgba(255,255,255,.10);
-      line-height:1.4;
-    }
-
-    .choices{
+    .guide{
+      margin:18px auto 0;
       display:grid;
       gap:10px;
-      margin-top:14px;
+      max-width:620px;
+      text-align:left;
     }
 
-    .feedback{
-      margin-top:14px;
-      padding:14px 16px;
-      border-radius:18px;
-      line-height:1.55;
-      display:none;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(255,255,255,.05);
+    .guide-item{
+      background:#f8fcff;
+      border:1px solid rgba(27,70,102,.08);
+      border-radius:16px;
+      padding:12px 14px;
+      font-size:17px;
+      color:#285779;
     }
 
-    .feedback.good{
-      display:block;
-      background:rgba(119,239,157,.12);
-      border-color:rgba(119,239,157,.28);
-      color:#e7fff0;
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:999px;
+      padding:16px 28px;
+      margin-top:22px;
+      font-size:22px;
+      font-weight:800;
+      font-family:inherit;
+      color:#fff;
+      cursor:pointer;
+      background:linear-gradient(180deg,#69cbff,#3caffc);
+      box-shadow:0 12px 24px rgba(60,175,252,.34);
+      transition:transform .15s ease, box-shadow .15s ease;
     }
 
-    .feedback.bad{
-      display:block;
-      background:rgba(255,122,139,.12);
-      border-color:rgba(255,122,139,.28);
-      color:#ffe4e8;
+    .btn:active{
+      transform:translateY(2px) scale(.99);
+      box-shadow:0 8px 18px rgba(60,175,252,.25);
+    }
+
+    .danger-line{
+      position:absolute;
+      left:50%;
+      bottom:88px;
+      transform:translateX(-50%);
+      z-index:8;
+      width:min(78vw,760px);
+      height:5px;
+      border-radius:999px;
+      background:linear-gradient(90deg, transparent, rgba(255,107,107,.95), transparent);
+      box-shadow:0 0 18px rgba(255,107,107,.35);
+      pointer-events:none;
     }
 
     .summary-grid{
+      margin-top:18px;
       display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:12px;
-      margin:16px 0 18px;
     }
 
-    .stat{
-      padding:14px;
+    .summary-card{
+      background:#f8fcff;
+      border:1px solid rgba(27,70,102,.08);
       border-radius:18px;
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.10);
-      text-align:center;
+      padding:14px;
     }
 
-    .stat .k{
-      display:block;
-      font-size:.9rem;
-      color:var(--muted);
-      margin-bottom:5px;
+    .summary-card .k{
+      font-size:14px;
+      opacity:.72;
+    }
+
+    .summary-card .v{
+      margin-top:6px;
+      font-size:28px;
       font-weight:800;
+      color:#225b84;
     }
 
-    .stat .v{
-      display:block;
-      font-size:1.55rem;
-      font-weight:900;
+    .lesson-box{
+      margin-top:16px;
+      background:#fffdf4;
+      border:1px solid rgba(255,209,102,.4);
+      border-radius:20px;
+      padding:14px 16px;
+      text-align:left;
     }
 
-    .stars{
-      margin:8px 0 10px;
-      font-size:2rem;
-      letter-spacing:.15em;
+    .lesson-title{
+      font-size:18px;
+      font-weight:800;
+      color:#9b6b00;
+      margin-bottom:8px;
     }
 
-    .small{
-      color:var(--muted);
-      font-size:.95rem;
-      line-height:1.55;
+    .lesson-box ul{
+      margin:0;
+      padding-left:20px;
+      color:#6d5500;
     }
 
-    /* ===== DAMAGE / WARNING ===== */
-    #damage{
-      position:absolute;
-      inset:0;
-      display:none;
-      pointer-events:none;
-      background:radial-gradient(circle, rgba(255,255,255,0) 40%, rgba(255,72,105,.22) 100%);
+    #stars{
+      margin-top:10px;
+      font-size:38px;
+      line-height:1;
     }
 
-    #warn{
-      position:absolute;
-      top:calc(var(--safe-top) + 62px);
-      left:50%;
-      transform:translateX(-50%);
-      display:none;
-      max-width:86vw;
-      padding:8px 14px;
-      text-align:center;
-      border-radius:999px;
-      background:rgba(255,122,139,.14);
-      color:#ffe6ea;
-      border:1px solid rgba(255,122,139,.3);
-      font-weight:900;
-      box-shadow:var(--shadow);
-      font-size:.82rem;
-    }
-
-    #combo{
-      position:absolute;
-      left:50%;
-      bottom:calc(var(--safe-bottom) + 62px);
-      transform:translateX(-50%);
-      display:none;
-      padding:8px 14px;
-      border-radius:999px;
-      background:rgba(255,216,90,.14);
-      border:1px solid rgba(255,216,90,.25);
-      color:var(--yellow);
-      font-size:1rem;
-      font-weight:900;
-      text-shadow:0 0 14px rgba(255,216,90,.35);
-    }
-
-    /* ===== VR UI ===== */
-    .a-enter-ar-button,
-    .a-enter-vr-button{
-      display:none !important;
-    }
-
-    #vrControls{
-      position:fixed;
-      right:10px;
-      bottom:calc(var(--safe-bottom) + 58px);
-      z-index:26;
-      display:flex;
-      gap:8px;
-      pointer-events:auto;
-    }
-
-    .vr-ui-btn{
-      appearance:none;
-      border:none;
-      border-radius:12px;
-      padding:10px 14px;
-      font-size:.84rem;
-      font-weight:900;
-      background:var(--panel-strong);
-      color:#fff;
-      border:2px solid rgba(174,225,255,.22);
-      box-shadow:0 8px 20px rgba(0,0,0,.25);
-    }
-
-    body:not(.is-vr) #exitVrBtn{
-      display:none;
-    }
-
-    body.is-vr #enterVrBtn{
-      display:none;
-    }
-
-    .is-vr .top{
-      opacity:.38;
-    }
-
-    .is-vr .bottom{
-      opacity:.24;
-    }
-
-    @media (min-width: 861px){
-      .card.left,.card.right{ width:150px; }
-      .center{ min-width:165px; }
-      .timer{ font-size:1.65rem; }
-      .mission{ font-size:.9rem; }
-    }
-
-    @media (max-width: 420px){
-      .card.left,.card.right{ width:128px; }
-      .center{ min-width:138px; }
-      .timer{ font-size:1.3rem; }
-      .value{ font-size:.9rem; }
-      .phase{ font-size:.7rem; }
-      #vrControls{
-        right:10px;
-        bottom:calc(var(--safe-bottom) + 54px);
-        gap:6px;
+    @media (max-width:720px){
+      .pill{
+        min-width:calc(50% - 5px);
+        flex:1 1 calc(50% - 5px);
       }
-      .vr-ui-btn{
-        padding:9px 11px;
-        font-size:.76rem;
-      }
-      #warn{
-        top:calc(var(--safe-top) + 56px);
-      }
+      .pill .value{ font-size:20px; }
+      #coach,#bottom-tip,#mission-title,#mission-sub{ font-size:14px; }
+      .summary-grid{ grid-template-columns:1fr 1fr; }
+      #phase-banner .big{ font-size:28px; }
+      #phase-banner .small{ font-size:15px; }
     }
   </style>
 </head>
 <body>
+  <div id="start-screen">
+    <div class="panel">
+      <h1 class="title">Clean Objects Hero</h1>
+      <p class="subtitle">ฝึกทำความสะอาดของใช้ให้สะอาด ถูกจังหวะ และทันเวลา</p>
 
-  <div id="ui">
-    <div id="damage"></div>
-    <div id="warn">รีบหน่อย! จุดเสี่ยงยังไม่ได้จัดการ</div>
-    <div id="combo">COMBO x2</div>
-
-    <div class="top">
-      <div class="panel card left">
-        <div class="label">พลังป้องกัน</div>
-        <div class="value"><span id="hpText">100</span>%</div>
-        <div class="hp-track"><div class="hp-fill" id="hpFill"></div></div>
+      <div class="guide">
+        <div class="guide-item">🧽 แตะหรือ “ลากถู” บนวัตถุเพื่อเอาคราบออก</div>
+        <div class="guide-item">🫧 เก็บสบู่เพื่อเปิด <b>Soap Fever</b> ล้างเร็วขึ้นช่วงสั้น ๆ</div>
+        <div class="guide-item">👑 ตอนท้ายจะมี <b>Boss Object</b> ชิ้นใหญ่ ต้องช่วยกันถูให้สะอาดหมด</div>
       </div>
 
-      <div class="panel center">
-        <div class="phase" id="phaseText">SEARCH</div>
-        <div class="timer" id="timerText">01:30</div>
-        <div class="score" id="scoreText">SCORE 0000</div>
-      </div>
-
-      <div class="panel card right">
-        <div class="label">ความคืบหน้า</div>
-        <div class="value"><span id="solvedText">0</span>/<span id="totalText">5</span> เคส</div>
-        <div style="margin-top:6px;font-size:.82rem;color:var(--muted);font-weight:800;">
-          Rank: <span id="rankText" style="color:#fff;">Rookie</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="bottom">
-      <div class="panel mission" id="missionBox">
-        <div id="missionText">มองหาวงแสงสีฟ้า แล้วแตะหรือจ้องค้างที่จุดนั้นเพื่อเริ่มตรวจ</div>
-      </div>
+      <button id="start-btn" class="btn">เริ่มภารกิจ</button>
     </div>
   </div>
 
-  <div id="startOverlay" class="overlay" style="display:flex;">
-    <div class="modal">
-      <h1 class="title">🦠 Germ Detective v2.4</h1>
-      <p class="sub">
-        เวอร์ชันนี้รวม patch หลักครบแล้ว: เล่นได้ทั้งมือถือ/คอม/VR, HUD ไม่บัง, มีปุ่ม ENTER VR / EXIT / RECENTER,
-        เป้าเกิดทีละ 1 จุด และ flow ชัดแบบ
-        <strong>หา → ตรวจ → เลือกคำตอบ → ล้าง</strong>
-      </p>
+  <div id="hud">
+    <div>
+      <div class="hud-top">
+        <div class="hud-row">
+          <div class="pill phase">
+            <div class="label">เฟส</div>
+            <div class="value" id="phaseVal">READY</div>
+          </div>
+          <div class="pill time">
+            <div class="label">เวลา</div>
+            <div class="value" id="timeVal">0s</div>
+          </div>
+          <div class="pill score">
+            <div class="label">คะแนน</div>
+            <div class="value" id="scoreVal">0</div>
+          </div>
+        </div>
 
-      <div class="tips">
-        <div class="tip">
-          <strong>1) Search</strong>
-          <span>หาเป้าวงแสงสีฟ้าในฉาก แล้วแตะหรือจ้องค้างเพื่อเริ่มตรวจ</span>
-        </div>
-        <div class="tip">
-          <strong>2) Investigate</strong>
-          <span>อ่านโจทย์แล้วเลือกวิธีจัดการที่เหมาะที่สุด</span>
-        </div>
-        <div class="tip">
-          <strong>3) Clean</strong>
-          <span>ตอบเสร็จแล้วกลับไปแตะคราบเชื้อเพื่อทำความสะอาด</span>
+        <div class="hud-row">
+          <div class="pill combo">
+            <div class="label">คอมโบ</div>
+            <div class="value" id="comboVal">x0</div>
+          </div>
+          <div class="pill life">
+            <div class="label">หัวใจ</div>
+            <div class="value" id="lifeVal">3</div>
+          </div>
+          <div class="pill fever">
+            <div class="label">สบู่ฟีเวอร์</div>
+            <div class="value" id="feverVal">OFF</div>
+          </div>
         </div>
       </div>
 
-      <div class="row">
-        <button id="startBtn" class="btn-primary">เริ่มภารกิจ</button>
-        <button id="howBtn" class="btn-ghost">วิธีเล่นบนมือถือ / VR</button>
-      </div>
+      <div id="center-ui">
+        <div id="coach" class="bubble">พร้อมไหม? เดี๋ยวเริ่มจากช่วงซ้อมก่อน</div>
 
-      <p id="howText" class="small" style="display:none;margin-top:14px;">
-        มือถือ/คอม: ลากหน้าจอเพื่อมองรอบ ๆ แล้วแตะเป้าได้เลย<br>
-        Cardboard: กด ENTER VR แล้วใช้จุดเล็งกลางจอจ้องค้างที่เป้า<br>
-        ถ้ามุมเอียง ให้กด RECENTER ได้ทันที
-      </p>
+        <div id="mission-box" class="bubble">
+          <div id="mission-title">ภารกิจ</div>
+          <div class="progress">
+            <div id="mission-fill" class="progress-fill"></div>
+          </div>
+          <div id="mission-sub">0 / 0</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="bottom-tip-wrap">
+      <div id="bottom-tip" class="bubble">แตะหรือลากนิ้วถูบนวัตถุได้เลย</div>
     </div>
   </div>
 
-  <div id="inspectOverlay" class="overlay">
-    <div class="modal">
-      <h2 id="inspectTitle" class="title" style="font-size:2rem;">ตรวจพบจุดเสี่ยง</h2>
-      <p id="inspectBody" class="sub"></p>
-      <div id="choiceList" class="choices"></div>
-      <div id="feedbackBox" class="feedback"></div>
-      <div class="row" style="margin-top:14px;">
-        <button id="continueBtn" class="btn-secondary" style="display:none;">ไปล้างจุดนี้</button>
-      </div>
-    </div>
+  <div id="phase-banner">
+    <div class="big" id="bannerBig">WARMUP</div>
+    <div class="small" id="bannerSmall">ซ้อมก่อนเริ่มจริง</div>
   </div>
 
-  <div id="summaryOverlay" class="overlay">
-    <div class="modal">
-      <h1 id="summaryTitle" class="title">Mission Clear!</h1>
-      <p id="summarySub" class="sub">คุณจัดการจุดเสี่ยงได้ดีมาก</p>
+  <div class="danger-line"></div>
 
-      <div id="stars" class="stars">⭐ ⭐ ⭐</div>
+  <div id="summary-screen">
+    <div class="panel">
+      <h1 class="title" style="font-size:clamp(28px,5vw,52px)">สรุปภารกิจ</h1>
+      <div id="stars">⭐</div>
+      <p class="subtitle" id="finalLine">คุณล้างของได้ 0 ชิ้น</p>
 
       <div class="summary-grid">
-        <div class="stat">
-          <span class="k">คะแนน</span>
-          <span class="v" id="sumScore">0</span>
+        <div class="summary-card">
+          <div class="k">คะแนนรวม</div>
+          <div class="v" id="finalScore">0</div>
         </div>
-        <div class="stat">
-          <span class="k">เคสสำเร็จ</span>
-          <span class="v" id="sumSolved">0/0</span>
+        <div class="summary-card">
+          <div class="k">ของที่ล้างสำเร็จ</div>
+          <div class="v" id="finalCleaned">0</div>
         </div>
-        <div class="stat">
-          <span class="k">พลังคงเหลือ</span>
-          <span class="v" id="sumHp">0%</span>
+        <div class="summary-card">
+          <div class="k">คอมโบสูงสุด</div>
+          <div class="v" id="finalBestCombo">x0</div>
         </div>
-        <div class="stat">
-          <span class="k">แรงก์</span>
-          <span class="v" id="sumRank">Rookie</span>
+        <div class="summary-card">
+          <div class="k">ของที่พลาด</div>
+          <div class="v" id="finalMissed">0</div>
         </div>
       </div>
 
-      <p id="summaryTip" class="small"></p>
-
-      <div class="row" style="margin-top:18px;">
-        <button id="replayBtn" class="btn-primary">เล่นอีกครั้ง</button>
-        <button id="hubBtn" class="btn-ghost" style="display:none;">กลับ HUB</button>
+      <div class="lesson-box">
+        <div class="lesson-title">จำง่าย 3 ขั้น</div>
+        <ul>
+          <li>เก็บของสกปรกแยกออกมาก่อน</li>
+          <li>เช็ดหรือถูคราบให้ทั่ว ไม่รีบจบแค่จุดเดียว</li>
+          <li>ของใช้ร่วมกันควรทำให้สะอาดสม่ำเสมอ</li>
+        </ul>
       </div>
+
+      <button id="restart-btn" class="btn">เล่นอีกครั้ง</button>
     </div>
   </div>
 
-  <div id="vrControls">
-    <button id="enterVrBtn" class="vr-ui-btn">ENTER VR</button>
-    <button id="exitVrBtn" class="vr-ui-btn">EXIT</button>
-    <button id="recenterBtn" class="vr-ui-btn">RECENTER</button>
-  </div>
-
-  <a-scene
-    background="color:#081828"
-    renderer="antialias:true; colorManagement:true"
-    vr-mode-ui="enabled:true"
-  >
-    <!-- mouse/touch raycaster -->
-    <a-entity
-      id="mouseCursor"
-      cursor="rayOrigin: mouse"
-      raycaster="objects: .clickable; far: 20"
-    ></a-entity>
-
-    <!-- room -->
-    <a-plane position="0 0 -1.6" rotation="-90 0 0" width="12" height="12" color="#365a76"></a-plane>
-    <a-plane position="0 2.2 -5.2" width="12" height="4.8" color="#2f5675"></a-plane>
-    <a-plane position="-5.9 2.2 -1.6" rotation="0 90 0" width="12" height="4.8" color="#2a4f6d"></a-plane>
-    <a-plane position="5.9 2.2 -1.6" rotation="0 -90 0" width="12" height="4.8" color="#2a4f6d"></a-plane>
-
-    <!-- counter -->
-    <a-box position="0 0.48 -2.1" width="5.4" height="0.95" depth="1.9" color="#5f7f98"></a-box>
-    <a-box position="0 0.98 -2.1" width="5.5" height="0.08" depth="2.0" color="#dff3ff"></a-box>
-
-    <!-- sink -->
-    <a-box position="-1.7 0.88 -2.06" width="0.9" height="0.12" depth="0.55" color="#4b687f"></a-box>
-    <a-cylinder position="-1.45 0.98 -2.06" radius="0.24" height="0.05" color="#b8cad8"></a-cylinder>
-    <a-cylinder position="-1.95 0.98 -2.06" radius="0.24" height="0.05" color="#b8cad8"></a-cylinder>
-
-    <!-- table -->
-    <a-box position="0 0.45 1.8" width="3.4" height="0.9" depth="2.0" color="#7896ae"></a-box>
-    <a-box position="0 0.93 1.8" width="3.5" height="0.08" depth="2.08" color="#d8f0ff"></a-box>
-
-    <!-- props -->
-    <a-box position="3.9 1.05 -4.1" width="1.5" height="2.1" depth="1.2" color="#89a9c1"></a-box>
-    <a-box position="-4.2 0.75 -4.0" width="1.7" height="1.5" depth="1.2" color="#8ea8bc"></a-box>
-    <a-box position="0 2.15 -5.15" width="2.3" height="1.2" depth="0.04" color="#b4e5ff"></a-box>
-    <a-plane position="0 2.15 -5.13" width="2.05" height="0.95" color="#ddf7ff" opacity="0.52"></a-plane>
-
-    <!-- lights -->
-    <a-entity light="type:ambient; intensity:1.0; color:#d9f3ff"></a-entity>
-    <a-entity light="type:point; intensity:1.1; distance:20; color:#ffffff" position="0 4 0"></a-entity>
-
-    <!-- interactive root -->
-    <a-entity id="caseRoot"></a-entity>
-
-    <!-- camera -->
-    <a-entity id="rig" position="0 0 3.15">
-      <a-camera
-        id="mainCam"
-        position="0 1.6 0"
-        rotation="0 0 0"
-        look-controls="touchEnabled:true; magicWindowTrackingEnabled:true"
-      >
-        <a-entity
-          id="gazeCursor"
-          visible="false"
-          cursor="fuse:true; fuseTimeout:700"
-          position="0 0 -1"
-          geometry="primitive:ring; radiusInner:0.014; radiusOuter:0.024"
-          material="color:#59e7ff; shader:flat; opacity:0.95"
-          raycaster="objects:.clickable; far: 20"
-          animation__pulse="property:scale; dir:alternate; dur:700; loop:true; to:1.1 1.1 1.1"
-        ></a-entity>
-      </a-camera>
-    </a-entity>
-  </a-scene>
-
   <script>
-    (() => {
-      const HUB_URL = (() => {
-        try {
-          return new URL(location.href).searchParams.get('hub') || '';
-        } catch (_) {
-          return '';
-        }
-      })();
+    let scene, camera, renderer, clock;
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
 
-      const CASES = [
-        {
-          title: 'น้ำจากเนื้อดิบหยดบนเคาน์เตอร์',
-          clue: 'พบคราบจากเนื้อดิบอยู่ใกล้พื้นที่เตรียมอาหาร ถ้าปล่อยไว้ เชื้ออาจปนเปื้อนอาหารพร้อมกินได้',
-          question: 'ควรทำอย่างไรเป็นอันดับแรก?',
-          choices: [
-            'เช็ดทำความสะอาดทันที และแยกของดิบออกจากของสุก',
-            'ปล่อยไว้ก่อน เดี๋ยวแห้งเอง',
-            'ใช้จานมาวางทับคราบไว้'
-          ],
-          answer: 0,
-          explain: 'ถูกต้อง! ของดิบกับของสุกต้องแยกกัน และพื้นผิวที่เปื้อนควรถูกทำความสะอาดทันที',
-          tip: 'ของดิบกับของสุกไม่ควรใช้พื้นที่เดียวกัน',
-          hotspot: { x:-0.35, y:1.02, z:-2.02 },
-          color: '#59e7ff',
-          germ: '#ff6b78'
-        },
-        {
-          title: 'ละอองจามใกล้โต๊ะอาหาร',
-          clue: 'พบการกระจายของละอองบริเวณโต๊ะหน้า หากไม่มีการทำความสะอาด เชื้ออาจอยู่บนพื้นผิวได้',
-          question: 'ควรจัดการอย่างไร?',
-          choices: [
-            'ใช้พัดลมเป่าให้ปลิวออกไป',
-            'เช็ดทำความสะอาดพื้นผิว และเตือนให้ปิดปากปิดจมูกเวลาไอหรือจาม',
-            'ย้ายจานอาหารไปไว้อีกด้านพอ'
-          ],
-          answer: 1,
-          explain: 'ดีมาก! ต้องทำความสะอาดพื้นผิว และฝึกพฤติกรรมป้องกันการแพร่กระจายของละออง',
-          tip: 'ไอหรือจามควรปิดปากปิดจมูก และล้างมือหลังจากนั้น',
-          hotspot: { x:0.55, y:1.00, z:1.55 },
-          color: '#59e7ff',
-          germ: '#ffb25c'
-        },
-        {
-          title: 'อ่างล้างจานมีคราบชื้นสะสม',
-          clue: 'บริเวณอ่างล้างจานมีคราบและความชื้นสะสม เป็นจุดที่เชื้อชอบอยู่',
-          question: 'ทางเลือกที่เหมาะที่สุดคืออะไร?',
-          choices: [
-            'ทำความสะอาดอ่างและเช็ดให้แห้งสม่ำเสมอ',
-            'เปิดน้ำไว้ตลอดเวลา',
-            'วางจานสะอาดปิดทับคราบ'
-          ],
-          answer: 0,
-          explain: 'ถูกต้อง! จุดที่แฉะและอับชื้นควรถูกทำความสะอาดและลดความชื้นสะสม',
-          tip: 'แฉะและอับชื้น = จุดเสี่ยงของเชื้อ',
-          hotspot: { x:-1.7, y:1.04, z:-2.02 },
-          color: '#59e7ff',
-          germ: '#77ef9d'
-        },
-        {
-          title: 'ผลไม้เริ่มขึ้นรา',
-          clue: 'พบผลไม้มีราขึ้นอยู่บนโต๊ะหน้า หากกินต่ออาจเสี่ยงต่อสุขภาพ',
-          question: 'ควรทำอย่างไร?',
-          choices: [
-            'ตัดส่วนที่ขึ้นราออกแล้วกินต่อ',
-            'แยกทิ้ง และทำความสะอาดบริเวณใกล้เคียง',
-            'วางไว้ก่อน เผื่อพรุ่งนี้ดีขึ้น'
-          ],
-          answer: 1,
-          explain: 'เยี่ยม! อาหารที่เสียหรือขึ้นราไม่ควรเก็บไว้ปะปนกับอาหารอื่น',
-          tip: 'อาหารเสียควรถูกแยกทิ้งอย่างเหมาะสม',
-          hotspot: { x:0.10, y:0.98, z:1.20 },
-          color: '#59e7ff',
-          germ: '#d58aff'
-        },
-        {
-          title: 'มือยังไม่ล้างกำลังจะหยิบอาหาร',
-          clue: 'ตรวจพบความเสี่ยงจากการสัมผัสอาหารด้วยมือที่ยังไม่ได้ล้าง',
-          question: 'ควรทำอย่างไร?',
-          choices: [
-            'หยิบก่อนแล้วค่อยล้างทีหลัง',
-            'ล้างมือให้สะอาดก่อนจับอาหาร',
-            'ใช้ปลายเล็บคีบแทนการล้างมือ'
-          ],
-          answer: 1,
-          explain: 'ใช่เลย! การล้างมือก่อนสัมผัสอาหารช่วยลดการนำเชื้อเข้าสู่ร่างกาย',
-          tip: 'ล้างมือก่อนกิน ก่อนจับอาหาร และหลังไอจาม',
-          hotspot: { x:1.35, y:1.02, z:-2.02 },
-          color: '#59e7ff',
-          germ: '#ffe25f'
-        }
-      ];
+    const lanes = [-3.35, 0, 3.35];
 
-      const state = {
-        active: false,
-        phase: 'search',
-        hp: 100,
-        score: 0,
-        timeLeft: 90,
-        combo: 0,
-        solved: 0,
-        currentIndex: 0,
-        inspectingIndex: null,
-        answeredCorrect: 0,
-        answeredWrong: 0
-      };
+    let items = [];
+    let clickable = [];
+    let effects = [];
+    let bubbles = [];
+    let boss = null;
 
-      const $ = (id) => document.getElementById(id);
+    let pointerDown = false;
+    let lastScrubAt = 0;
+    let bannerTimer = 0;
 
-      const ui = {
-        hpText: $('hpText'),
-        hpFill: $('hpFill'),
-        timerText: $('timerText'),
-        scoreText: $('scoreText'),
-        solvedText: $('solvedText'),
-        totalText: $('totalText'),
-        rankText: $('rankText'),
-        phaseText: $('phaseText'),
-        missionText: $('missionText'),
-        missionBox: $('missionBox'),
-        damage: $('damage'),
-        warn: $('warn'),
-        combo: $('combo'),
-        startOverlay: $('startOverlay'),
-        inspectOverlay: $('inspectOverlay'),
-        summaryOverlay: $('summaryOverlay'),
-        inspectTitle: $('inspectTitle'),
-        inspectBody: $('inspectBody'),
-        choiceList: $('choiceList'),
-        feedbackBox: $('feedbackBox'),
-        continueBtn: $('continueBtn'),
-        summaryTitle: $('summaryTitle'),
-        summarySub: $('summarySub'),
-        sumScore: $('sumScore'),
-        sumSolved: $('sumSolved'),
-        sumHp: $('sumHp'),
-        sumRank: $('sumRank'),
-        summaryTip: $('summaryTip'),
-        stars: $('stars'),
-        howBtn: $('howBtn'),
-        howText: $('howText'),
-        enterVrBtn: $('enterVrBtn'),
-        exitVrBtn: $('exitVrBtn'),
-        recenterBtn: $('recenterBtn'),
-        replayBtn: $('replayBtn'),
-        hubBtn: $('hubBtn')
-      };
+    const ui = {
+      start: document.getElementById('start-screen'),
+      summary: document.getElementById('summary-screen'),
+      phaseVal: document.getElementById('phaseVal'),
+      timeVal: document.getElementById('timeVal'),
+      scoreVal: document.getElementById('scoreVal'),
+      comboVal: document.getElementById('comboVal'),
+      lifeVal: document.getElementById('lifeVal'),
+      feverVal: document.getElementById('feverVal'),
+      coach: document.getElementById('coach'),
+      missionTitle: document.getElementById('mission-title'),
+      missionFill: document.getElementById('mission-fill'),
+      missionSub: document.getElementById('mission-sub'),
+      tip: document.getElementById('bottom-tip'),
+      banner: document.getElementById('phase-banner'),
+      bannerBig: document.getElementById('bannerBig'),
+      bannerSmall: document.getElementById('bannerSmall'),
+      stars: document.getElementById('stars'),
+      finalLine: document.getElementById('finalLine'),
+      finalScore: document.getElementById('finalScore'),
+      finalCleaned: document.getElementById('finalCleaned'),
+      finalBestCombo: document.getElementById('finalBestCombo'),
+      finalMissed: document.getElementById('finalMissed')
+    };
 
-      ui.totalText.textContent = CASES.length;
-      if (HUB_URL) {
-        ui.hubBtn.style.display = 'inline-flex';
+    const state = {
+      active:false,
+      phase:'idle',
+      phaseTime:0,
+      elapsed:0,
+      score:0,
+      combo:0,
+      bestCombo:0,
+      lives:3,
+      fever:0,
+      cleaned:0,
+      missed:0,
+      warmupTarget:3,
+      warmupCleaned:0,
+      mainTarget:15,
+      mainCleaned:0,
+      spawnTimer:0,
+      spawnEvery:1.0,
+      bossClear:false
+    };
+
+    function init(){
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xdff6ff);
+      scene.fog = new THREE.Fog(0xdff6ff, 16, 35);
+
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
+      camera.position.set(0, 6.8, 11.3);
+      camera.lookAt(0, 1.3, -6);
+
+      renderer = new THREE.WebGLRenderer({ antialias:true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      document.body.appendChild(renderer.domElement);
+
+      clock = new THREE.Clock();
+
+      setupLights();
+      createWorld();
+      bindEvents();
+      updateUI();
+      animate();
+    }
+
+    function setupLights(){
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xbfe7ff, 1.2));
+
+      const dir = new THREE.DirectionalLight(0xffffff, 0.95);
+      dir.position.set(8, 11, 6);
+      scene.add(dir);
+
+      const fill = new THREE.PointLight(0x95dcff, 0.7, 28);
+      fill.position.set(0, 5, 5);
+      scene.add(fill);
+    }
+
+    function createWorld(){
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(25, 46),
+        new THREE.MeshStandardMaterial({ color:0xf7fcff, roughness:0.98 })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.set(0, 0, -8);
+      scene.add(floor);
+
+      for(let i=0;i<3;i++){
+        const lane = new THREE.Mesh(
+          new THREE.BoxGeometry(2.5, 0.03, 27),
+          new THREE.MeshStandardMaterial({ color:0xe6f6ff, roughness:1 })
+        );
+        lane.position.set(lanes[i], 0.02, -8);
+        scene.add(lane);
       }
 
-      const sceneEl = document.querySelector('a-scene');
-      const rigEl = $('rig');
-      const camEl = $('mainCam');
-      const gazeCursorEl = $('gazeCursor');
-      const caseRoot = $('caseRoot');
-
-      let activeNode = null;
-      let isVRMode = false;
-      let pendingInspectAfterExit = null;
-      let returnToVRForClean = false;
-
-      const SPOTS_NORMAL = [
-        { x:-0.55, y:1.02, z:-2.02 },
-        { x: 0.55, y:1.00, z: 1.55 },
-        { x:-1.45, y:1.02, z:-2.02 },
-        { x: 0.05, y:0.98, z: 1.20 },
-        { x: 1.15, y:1.02, z:-2.02 }
-      ];
-
-      const SPOTS_VR = [
-        { x:-1.10, y:1.02, z:-2.02 },
-        { x:-0.35, y:1.02, z:-2.02 },
-        { x: 0.40, y:1.02, z:-2.02 },
-        { x: 1.15, y:1.02, z:-2.02 },
-        { x: 0.00, y:1.20, z:-4.90 }
-      ];
-
-      function rankFromScore(score){
-        if(score >= 1200) return 'Expert';
-        if(score >= 850) return 'Scout';
-        return 'Rookie';
-      }
-
-      function starsFromResult(){
-        if(state.solved === CASES.length && state.hp >= 75 && state.answeredWrong <= 1) return 3;
-        if(state.solved >= Math.ceil(CASES.length * 0.7) && state.hp >= 40) return 2;
-        return 1;
-      }
-
-      function pulseMission(){
-        if (!ui.missionBox) return;
-        ui.missionBox.classList.remove('compact');
-        clearTimeout(pulseMission._t);
-        pulseMission._t = setTimeout(() => {
-          ui.missionBox.classList.add('compact');
-        }, 2200);
-      }
-
-      function setPhase(phase){
-        state.phase = phase;
-        ui.phaseText.textContent = phase.toUpperCase();
-
-        if(phase === 'search'){
-          ui.missionText.textContent = isVRMode
-            ? 'เล็งวงแสงสีฟ้าแล้วจ้องค้างเพื่อเริ่มตรวจ'
-            : 'มองหาวงแสงสีฟ้า แล้วแตะหรือจ้องค้างที่จุดนั้นเพื่อเริ่มตรวจ';
-        } else if(phase === 'investigate'){
-          ui.missionText.textContent = 'อ่านโจทย์ แล้วเลือกวิธีจัดการที่เหมาะที่สุด';
-        } else if(phase === 'clean'){
-          ui.missionText.textContent = isVRMode
-            ? 'เล็งคราบเชื้อแล้วจ้องค้างเพื่อล้าง'
-            : 'กลับเข้าฉาก แล้วแตะคราบเชื้อเพื่อทำความสะอาด';
-        } else {
-          ui.missionText.textContent = 'สรุปผลภารกิจ';
-        }
-
-        pulseMission();
-      }
-
-      function updateHUD(){
-        state.hp = Math.max(0, Math.min(100, state.hp));
-        ui.hpText.textContent = state.hp;
-        ui.hpFill.style.width = `${state.hp}%`;
-        ui.scoreText.textContent = `SCORE ${String(state.score).padStart(4,'0')}`;
-        ui.solvedText.textContent = state.solved;
-        ui.rankText.textContent = rankFromScore(state.score);
-
-        const m = Math.floor(state.timeLeft / 60);
-        const s = state.timeLeft % 60;
-        ui.timerText.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-
-        if(state.timeLeft <= 10) ui.timerText.style.color = '#ff8d98';
-        else ui.timerText.style.color = '#fff';
-
-        if(state.hp < 30){
-          ui.hpFill.style.background = 'linear-gradient(90deg,#ff6577,#ff8d73)';
-        } else if(state.hp < 60){
-          ui.hpFill.style.background = 'linear-gradient(90deg,#ffd55f,#ffb764)';
-        } else {
-          ui.hpFill.style.background = 'linear-gradient(90deg,#73f39e,#b8ff7a)';
-        }
-      }
-
-      function flashDamage(msg){
-        ui.warn.textContent = msg || 'ระวัง! จุดเสี่ยงยังไม่ได้จัดการ';
-        ui.warn.style.display = 'block';
-        ui.damage.style.display = 'block';
-        ui.damage.style.opacity = '1';
-
-        clearTimeout(flashDamage.t1);
-        clearTimeout(flashDamage.t2);
-
-        flashDamage.t1 = setTimeout(() => {
-          ui.damage.style.opacity = '0';
-        }, 240);
-
-        flashDamage.t2 = setTimeout(() => {
-          ui.damage.style.display = 'none';
-          ui.warn.style.display = 'none';
-        }, 850);
-      }
-
-      function showCombo(){
-        if(state.combo <= 1) return;
-        ui.combo.textContent = `COMBO x${state.combo}`;
-        ui.combo.style.display = 'block';
-        clearTimeout(showCombo.t);
-        showCombo.t = setTimeout(() => {
-          ui.combo.style.display = 'none';
-        }, 1100);
-      }
-
-      function make(tag, attrs = {}){
-        const node = document.createElement(tag);
-        Object.entries(attrs).forEach(([k,v]) => node.setAttribute(k, v));
-        return node;
-      }
-
-      function clearActiveNode(){
-        if(activeNode && activeNode.parentNode){
-          activeNode.parentNode.removeChild(activeNode);
-        }
-        activeNode = null;
-      }
-
-      function getSpot(index){
-        const spots = isVRMode ? SPOTS_VR : SPOTS_NORMAL;
-        return spots[index] || CASES[index].hotspot;
-      }
-
-      function resetView(){
-        rigEl.setAttribute('position', '0 0 3.15');
-        camEl.setAttribute('rotation', '0 0 0');
-
-        const look = camEl.components['look-controls'];
-        if (look) {
-          if (look.pitchObject) look.pitchObject.rotation.x = 0;
-          if (look.yawObject) look.yawObject.rotation.y = 0;
-        }
-      }
-
-      function rebuildActiveTarget(){
-        if (!state.active) return;
-        const item = CASES[state.currentIndex];
-        if (!item) return;
-
-        if (state.phase === 'search') {
-          createHotspot(item, state.currentIndex);
-        } else if (state.phase === 'clean') {
-          createGerm(item, state.currentIndex);
-        }
-      }
-
-      function createHotspot(caseData, index){
-        clearActiveNode();
-
-        const spot = getSpot(index);
-        const ringInner = isVRMode ? 0.20 : 0.16;
-        const ringOuter = isVRMode ? 0.29 : 0.22;
-        const orbRadius = isVRMode ? 0.10 : 0.075;
-        const textY = isVRMode ? 0.48 : 0.34;
-        const textWidth = isVRMode ? 4.4 : 3.0;
-
-        const wrap = make('a-entity', {
-          position: `${spot.x} ${spot.y} ${spot.z}`,
-          animation__float: `property: position; dir: alternate; dur: 850; loop: true; to: ${spot.x} ${spot.y + (isVRMode ? 0.05 : 0.04)} ${spot.z}`
-        });
-
-        const ring = make('a-ring', {
-          class: 'clickable',
-          radiusInner: String(ringInner),
-          radiusOuter: String(ringOuter),
-          rotation: '-90 0 0',
-          color: caseData.color,
-          material: 'shader:flat; opacity:0.95',
-          animation__pulse: 'property: scale; dir: alternate; dur: 520; loop: true; to: 1.16 1.16 1.16'
-        });
-
-        const orb = make('a-sphere', {
-          radius: String(orbRadius),
-          position: '0 0.14 0',
-          color: caseData.color,
-          material: `emissive:${caseData.color}; emissiveIntensity:0.75`
-        });
-
-        const text = make('a-text', {
-          value: isVRMode ? 'CHECK' : 'แตะเพื่อตรวจ',
-          align: 'center',
-          color: '#ffffff',
-          width: String(textWidth),
-          position: `0 ${textY} 0`
-        });
-
-        ring.addEventListener('click', () => openInspect(state.currentIndex));
-
-        wrap.appendChild(ring);
-        wrap.appendChild(orb);
-        wrap.appendChild(text);
-
-        caseRoot.appendChild(wrap);
-        activeNode = wrap;
-      }
-
-      function createGerm(caseData, index){
-        clearActiveNode();
-
-        const spot = getSpot(index);
-        const mainRadius = isVRMode ? 0.15 : 0.11;
-        const side1 = isVRMode ? 0.075 : 0.055;
-        const side2 = isVRMode ? 0.065 : 0.045;
-        const ringInner = isVRMode ? 0.22 : 0.18;
-        const ringOuter = isVRMode ? 0.29 : 0.22;
-        const textY = isVRMode ? 0.52 : 0.38;
-        const textWidth = isVRMode ? 4.6 : 3.0;
-
-        const wrap = make('a-entity', {
-          position: `${spot.x} ${spot.y} ${spot.z}`,
-          animation__wobble: 'property: rotation; dir: alternate; dur: 320; loop: true; to: 0 8 0'
-        });
-
-        const g1 = make('a-sphere', {
-          class: 'clickable',
-          radius: String(mainRadius),
-          position: '0 0.14 0',
-          color: caseData.germ,
-          material: `emissive:${caseData.germ}; emissiveIntensity:0.8`
-        });
-
-        const g2 = make('a-sphere', {
-          radius: String(side1),
-          position: '0.15 0.20 0.05',
-          color: caseData.germ,
-          material: `emissive:${caseData.germ}; emissiveIntensity:0.58`
-        });
-
-        const g3 = make('a-sphere', {
-          radius: String(side2),
-          position: '-0.13 0.17 -0.04',
-          color: caseData.germ,
-          material: `emissive:${caseData.germ}; emissiveIntensity:0.58`
-        });
-
-        const ring = make('a-ring', {
-          radiusInner: String(ringInner),
-          radiusOuter: String(ringOuter),
-          rotation: '-90 0 0',
-          position: '0 -0.02 0',
-          color: '#ffffff',
-          material: 'shader:flat; opacity:0.92'
-        });
-
-        const text = make('a-text', {
-          value: isVRMode ? 'CLEAN' : 'แตะเพื่อล้าง',
-          align: 'center',
-          color: '#ffffff',
-          width: String(textWidth),
-          position: `0 ${textY} 0`
-        });
-
-        g1.addEventListener('click', () => cleanCurrentCase());
-
-        wrap.appendChild(g1);
-        wrap.appendChild(g2);
-        wrap.appendChild(g3);
-        wrap.appendChild(ring);
-        wrap.appendChild(text);
-
-        caseRoot.appendChild(wrap);
-        activeNode = wrap;
-      }
-
-      function openInspect(index){
-        if(!state.active || state.phase !== 'search') return;
-
-        if (isVRMode) {
-          pendingInspectAfterExit = index;
-          returnToVRForClean = true;
-
-          try {
-            if (sceneEl.exitVR) sceneEl.exitVR();
-            else openInspectFlat(index, true);
-          } catch (_) {
-            openInspectFlat(index, true);
-          }
-          return;
-        }
-
-        returnToVRForClean = false;
-        openInspectFlat(index, false);
-      }
-
-      function openInspectFlat(index, fromVR){
-        const item = CASES[index];
-        state.inspectingIndex = index;
-        setPhase('investigate');
-
-        const vrNote = fromVR
-          ? `<br><br><strong style="color:#ffd85a;">โหมด VR ถูกหยุดชั่วคราว เพื่อให้อ่านคำถามได้ง่ายขึ้น</strong>`
-          : '';
-
-        ui.inspectTitle.textContent = item.title;
-        ui.inspectBody.innerHTML = `
-          <strong style="display:block;color:#fff;margin-bottom:8px;">เบาะแส</strong>
-          ${item.clue}
-          <br><br>
-          <strong style="display:block;color:#fff;margin-bottom:8px;">คำถาม</strong>
-          ${item.question}
-          ${vrNote}
-        `;
-
-        ui.choiceList.innerHTML = '';
-        ui.feedbackBox.className = 'feedback';
-        ui.feedbackBox.style.display = 'none';
-        ui.feedbackBox.innerHTML = '';
-        ui.continueBtn.style.display = 'none';
-
-        item.choices.forEach((text, i) => {
-          const btn = document.createElement('button');
-          btn.className = 'choice';
-          btn.textContent = `${i + 1}) ${text}`;
-          btn.addEventListener('click', () => answerInspect(i));
-          ui.choiceList.appendChild(btn);
-        });
-
-        ui.inspectOverlay.style.display = 'flex';
-      }
-
-      function answerInspect(choiceIndex){
-        if(state.inspectingIndex === null) return;
-
-        const item = CASES[state.inspectingIndex];
-        const ok = choiceIndex === item.answer;
-
-        ui.choiceList.innerHTML = '';
-
-        if(ok){
-          state.answeredCorrect++;
-          state.score += 120;
-          ui.feedbackBox.className = 'feedback good';
-          ui.feedbackBox.innerHTML = `<strong>ตอบถูก!</strong><br>${item.explain}<br><br>💡 ${item.tip}`;
-        } else {
-          state.answeredWrong++;
-          state.combo = 0;
-          state.hp -= 10;
-          ui.feedbackBox.className = 'feedback bad';
-          ui.feedbackBox.innerHTML = `<strong>เกือบถูกแล้ว</strong><br>คำตอบที่เหมาะกว่าคือ <strong>${item.choices[item.answer]}</strong><br><br>${item.explain}<br><br>💡 ${item.tip}`;
-          flashDamage('เลือกวิธีไม่เหมาะ เชื้อยังมีโอกาสแพร่ต่อ');
-        }
-
-        ui.feedbackBox.style.display = 'block';
-        ui.continueBtn.style.display = 'inline-flex';
-        updateHUD();
-
-        if (state.hp <= 0) {
-          ui.continueBtn.textContent = 'ดูผลภารกิจ';
-          ui.continueBtn.onclick = () => {
-            ui.inspectOverlay.style.display = 'none';
-            endGame(false);
-          };
-          return;
-        }
-
-        ui.continueBtn.textContent = returnToVRForClean ? 'กลับไปล้างใน VR' : 'ไปล้างจุดนี้';
-
-        ui.continueBtn.onclick = () => {
-          ui.inspectOverlay.style.display = 'none';
-          state.inspectingIndex = null;
-          setPhase('clean');
-
-          const idx = state.currentIndex;
-
-          if (returnToVRForClean) {
-            returnToVRForClean = false;
-
-            try {
-              if (sceneEl.enterVR) sceneEl.enterVR();
-            } catch (_) {}
-
-            setTimeout(() => {
-              createGerm(item, idx);
-              resetView();
-            }, 360);
-          } else {
-            createGerm(item, idx);
-          }
+      const redLine = new THREE.Mesh(
+        new THREE.BoxGeometry(10, 0.05, 0.25),
+        new THREE.MeshBasicMaterial({ color:0xff6b6b })
+      );
+      redLine.position.set(0, 0.05, 4.65);
+      scene.add(redLine);
+
+      const wall = new THREE.Mesh(
+        new THREE.PlaneGeometry(26, 12),
+        new THREE.MeshStandardMaterial({ color:0xcdefff, roughness:1 })
+      );
+      wall.position.set(0, 6, -21.8);
+      scene.add(wall);
+
+      const shelf = new THREE.Mesh(
+        new THREE.BoxGeometry(12, 0.9, 2.4),
+        new THREE.MeshStandardMaterial({ color:0x9fd7f7, roughness:0.9 })
+      );
+      shelf.position.set(0, 0.55, -20.9);
+      scene.add(shelf);
+
+      const sink = new THREE.Mesh(
+        new THREE.BoxGeometry(10.5, 0.8, 2.9),
+        new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.4, metalness:0.08 })
+      );
+      sink.position.set(0, 0.45, 6.1);
+      scene.add(sink);
+
+      const foam = new THREE.Mesh(
+        new THREE.BoxGeometry(9.2, 0.12, 1.85),
+        new THREE.MeshBasicMaterial({ color:0xcaf6ff, transparent:true, opacity:0.5 })
+      );
+      foam.position.set(0, 0.98, 6.1);
+      scene.add(foam);
+
+      createDecorBubbles();
+    }
+
+    function createDecorBubbles(){
+      const geo = new THREE.SphereGeometry(0.12, 10, 10);
+      for(let i=0;i<30;i++){
+        const b = new THREE.Mesh(
+          geo,
+          new THREE.MeshBasicMaterial({
+            color:0xffffff,
+            transparent:true,
+            opacity:0.26 + Math.random() * 0.24
+          })
+        );
+        b.position.set(
+          (Math.random() - 0.5) * 18,
+          0.4 + Math.random() * 7.5,
+          -19 + Math.random() * 23
+        );
+        b.userData = {
+          vy:0.18 + Math.random() * 0.35,
+          sway:0.05 + Math.random() * 0.14,
+          phase:Math.random() * Math.PI * 2
         };
+        bubbles.push(b);
+        scene.add(b);
+      }
+    }
+
+    function bindEvents(){
+      renderer.domElement.addEventListener('pointerdown', onPointerDown, { passive:false });
+      renderer.domElement.addEventListener('pointermove', onPointerMove, { passive:false });
+      window.addEventListener('pointerup', ()=> pointerDown = false);
+      window.addEventListener('pointercancel', ()=> pointerDown = false);
+      window.addEventListener('resize', onResize);
+
+      document.getElementById('start-btn').onclick = startGame;
+      document.getElementById('restart-btn').onclick = startGame;
+    }
+
+    function onResize(){
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function startGame(){
+      resetState();
+      clearItems();
+      clearEffects();
+      removeBoss();
+
+      ui.start.style.display = 'none';
+      ui.summary.style.display = 'none';
+      state.active = true;
+
+      beginWarmup();
+    }
+
+    function resetState(){
+      state.active = false;
+      state.phase = 'idle';
+      state.phaseTime = 0;
+      state.elapsed = 0;
+      state.score = 0;
+      state.combo = 0;
+      state.bestCombo = 0;
+      state.lives = 3;
+      state.fever = 0;
+      state.cleaned = 0;
+      state.missed = 0;
+      state.warmupTarget = 3;
+      state.warmupCleaned = 0;
+      state.mainTarget = 15;
+      state.mainCleaned = 0;
+      state.spawnTimer = 0;
+      state.spawnEvery = 1.0;
+      state.bossClear = false;
+      updateUI();
+      setTip('แตะหรือลากถูบนวัตถุได้เลย');
+      setCoach('พร้อมไหม? เดี๋ยวเริ่มจากช่วงซ้อมก่อน');
+      updateMissionUI('ภารกิจ', 0, 1, 'เตรียมพร้อม');
+    }
+
+    function beginWarmup(){
+      state.phase = 'warmup';
+      state.phaseTime = 18;
+      state.spawnTimer = 0;
+      state.spawnEvery = 0.9;
+      clearItems();
+      removeBoss();
+      showBanner('WARMUP', 'ซ้อมล้าง 3 ชิ้นก่อน');
+      setCoach('ช่วงซ้อม: ล้างของให้สะอาด 3 ชิ้น แล้วค่อยไปด่านจริง');
+      updateMissionUI('Warmup: ล้างของ 3 ชิ้น', state.warmupCleaned, state.warmupTarget, `${state.warmupCleaned} / ${state.warmupTarget}`);
+    }
+
+    function beginMain(){
+      state.phase = 'main';
+      state.phaseTime = 55;
+      state.spawnTimer = 0;
+      state.spawnEvery = 1.05;
+      clearItems();
+      removeBoss();
+      showBanner('MAIN CLEANUP', 'ล้างของให้ทันก่อนถึงเส้นแดง');
+      setCoach('ด่านจริงเริ่มแล้ว! ของพิเศษสีทองให้แต้มเยอะ สบู่ช่วยล้างเร็วขึ้น');
+      updateMissionUI('Main Mission: ล้างให้ครบ 15 ชิ้น', state.mainCleaned, state.mainTarget, `${state.mainCleaned} / ${state.mainTarget}`);
+    }
+
+    function beginBoss(){
+      state.phase = 'boss';
+      state.phaseTime = 20;
+      clearItems();
+      createBoss();
+      showBanner('BOSS CLEANUP', 'ถูของชิ้นใหญ่ให้สะอาดหมด');
+      setCoach('บอสมาแล้ว! ลากถูต่อเนื่องที่คราบให้หมดก่อนเวลาหมด');
+      updateBossMission();
+    }
+
+    function finishGame(reason){
+      state.active = false;
+      state.phase = 'summary';
+
+      ui.stars.textContent = calcStars();
+      ui.finalLine.textContent = `${reason} • คุณล้างของได้ ${state.cleaned} ชิ้น`;
+      ui.finalScore.textContent = state.score;
+      ui.finalCleaned.textContent = state.cleaned;
+      ui.finalBestCombo.textContent = 'x' + state.bestCombo;
+      ui.finalMissed.textContent = state.missed;
+      ui.summary.style.display = 'flex';
+
+      if(state.bossClear){
+        setCoach('เยี่ยมมาก! คุณล้างบอสผ่านด้วย');
+      }else if(state.cleaned >= 15){
+        setCoach('ดีมาก! ด่านหลักผ่านได้สวยแล้ว');
+      }else{
+        setCoach('ลองใหม่ได้อีกครั้ง คราวหน้าถูให้เร็วและต่อเนื่องขึ้น');
+      }
+    }
+
+    function calcStars(){
+      if(state.bossClear && state.cleaned >= 18 && state.missed <= 2) return '⭐⭐⭐';
+      if(state.cleaned >= 12) return '⭐⭐';
+      return '⭐';
+    }
+
+    function showBanner(big, small){
+      ui.bannerBig.textContent = big;
+      ui.bannerSmall.textContent = small;
+      ui.banner.classList.add('show');
+      bannerTimer = 1.2;
+    }
+
+    function setTip(text){
+      ui.tip.textContent = text;
+    }
+
+    function setCoach(text){
+      ui.coach.textContent = text;
+    }
+
+    function updateMissionUI(title, current, total, subText){
+      ui.missionTitle.textContent = title;
+      const pct = total > 0 ? Math.max(0, Math.min(100, (current / total) * 100)) : 0;
+      ui.missionFill.style.width = pct + '%';
+      ui.missionSub.textContent = subText;
+    }
+
+    function updateBossMission(){
+      if(!boss) return;
+      const done = boss.userData.totalDirt - boss.userData.dirtLeft;
+      updateMissionUI('Boss Mission: ขัดคราบบอสให้หมด', done, boss.userData.totalDirt, `${done} / ${boss.userData.totalDirt}`);
+    }
+
+    function updateUI(){
+      ui.phaseVal.textContent = state.phase.toUpperCase();
+      ui.timeVal.textContent = Math.max(0, Math.ceil(state.phaseTime)) + 's';
+      ui.scoreVal.textContent = state.score;
+      ui.comboVal.textContent = 'x' + state.combo;
+      ui.lifeVal.textContent = state.lives;
+      ui.feverVal.textContent = state.fever > 0 ? Math.ceil(state.fever) + 's' : 'OFF';
+    }
+
+    function onPointerDown(e){
+      if(!state.active) return;
+      e.preventDefault();
+      pointerDown = true;
+      scrubAt(e.clientX, e.clientY, true);
+    }
+
+    function onPointerMove(e){
+      if(!state.active || !pointerDown) return;
+      e.preventDefault();
+      scrubAt(e.clientX, e.clientY, false);
+    }
+
+    function scrubAt(x, y, strongHit){
+      const now = performance.now();
+      if(!strongHit && now - lastScrubAt < 45) return;
+      lastScrubAt = now;
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((x - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((y - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(clickable, false);
+      if(!hits.length) return;
+
+      const root = hits[0].object.userData.cleanRoot;
+      if(!root) return;
+
+      if(root.userData.role === 'boss'){
+        scrubBoss(root, strongHit);
+      } else {
+        scrubItem(root, strongHit);
+      }
+    }
+
+    function randomPick(arr){
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function spawnItem(mode){
+      if(items.length >= 7) return;
+
+      const lane = randomPick(lanes);
+      const special = mode === 'practice'
+        ? 'practice'
+        : (Math.random() < 0.14 ? 'soap' : (Math.random() < 0.18 ? 'gold' : 'normal'));
+
+      const shape = randomPick(['block','cup','book','bottle','plate']);
+      const root = new THREE.Group();
+
+      const palette = [0xffd166,0x8dd3ff,0xff9fcb,0x9debb5,0xc8b6ff];
+      const baseColor =
+        special === 'gold' ? 0xffd84d :
+        special === 'soap' ? 0xbdefff :
+        special === 'practice' ? 0xffd7ea :
+        randomPick(palette);
+
+      const matBody = new THREE.MeshStandardMaterial({
+        color:baseColor,
+        roughness:special === 'gold' ? 0.25 : 0.5,
+        metalness:special === 'gold' ? 0.55 : 0.05
+      });
+      const matWhite = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.35 });
+      const matDark = new THREE.MeshStandardMaterial({ color:0x5d6d7e, roughness:0.8 });
+
+      if(shape === 'block'){
+        root.add(new THREE.Mesh(new THREE.BoxGeometry(1.4,1.4,1.4), matBody));
+      }else if(shape === 'cup'){
+        root.add(new THREE.Mesh(new THREE.CylinderGeometry(0.48,0.58,1.15,24), matBody));
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(0.49,0.05,10,24), matWhite);
+        rim.rotation.x = Math.PI / 2;
+        rim.position.y = 0.58;
+        root.add(rim);
+        const handle = new THREE.Mesh(new THREE.TorusGeometry(0.22,0.05,10,20), matWhite);
+        handle.rotation.y = Math.PI / 2;
+        handle.position.set(0.56,0.08,0);
+        root.add(handle);
+      }else if(shape === 'book'){
+        const body = new THREE.Mesh(new THREE.BoxGeometry(1.46,0.28,1.06), matBody);
+        body.rotation.z = (Math.random() - 0.5) * 0.25;
+        root.add(body);
+        const pages = new THREE.Mesh(new THREE.BoxGeometry(1.18,0.16,0.82), matWhite);
+        pages.position.y = 0.05;
+        root.add(pages);
+      }else if(shape === 'bottle'){
+        root.add(new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.42,1.35,24), matBody));
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.2,0.35,18), matBody);
+        neck.position.y = 0.82;
+        root.add(neck);
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.18,18), matDark);
+        cap.position.y = 1.08;
+        root.add(cap);
+      }else if(shape === 'plate'){
+        const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.72,0.84,0.18,28), matBody);
+        plate.rotation.x = 0.08;
+        root.add(plate);
+        const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.48,0.55,0.06,28), matWhite);
+        inner.position.y = 0.06;
+        root.add(inner);
       }
 
-      function cleanCurrentCase(){
-        if(!state.active || state.phase !== 'clean') return;
+      const dirtGeo = new THREE.SphereGeometry(0.13, 9, 9);
+      const dirtMat = new THREE.MeshStandardMaterial({
+        color: special === 'gold' ? 0xc58b00 : (special === 'soap' ? 0x7fd5ef : 0x8a5a2b),
+        roughness: special === 'gold' ? 0.35 : 1,
+        metalness: special === 'gold' ? 0.4 : 0
+      });
 
-        state.solved++;
-        state.combo++;
-        state.score += 160 + (state.combo * 25);
-        state.hp = Math.min(100, state.hp + 4);
+      let dirtCount =
+        special === 'practice' ? 2 :
+        special === 'soap' ? 1 :
+        special === 'gold' ? 2 + Math.floor(Math.random() * 2) :
+        3 + Math.floor(Math.random() * 3);
 
-        if(activeNode){
-          activeNode.setAttribute('animation__gone', 'property: scale; to: 0.01 0.01 0.01; dur: 220; easing: easeInBack');
+      const dirtSpots = [];
+      for(let i=0;i<dirtCount;i++){
+        const d = new THREE.Mesh(dirtGeo, dirtMat);
+        d.position.set(
+          (Math.random() - 0.5) * 0.85,
+          (Math.random() - 0.15) * 0.9,
+          0.34 + Math.random() * 0.34
+        );
+        d.scale.setScalar(0.8 + Math.random() * 0.75);
+        root.add(d);
+        dirtSpots.push(d);
+      }
+
+      if(special === 'soap'){
+        const bubble = new THREE.Mesh(
+          new THREE.SphereGeometry(0.24, 14, 14),
+          new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.6 })
+        );
+        bubble.position.set(0,0.7,0.25);
+        root.add(bubble);
+      }
+
+      if(special === 'gold'){
+        const crown = new THREE.Mesh(
+          new THREE.TorusGeometry(0.28,0.05,8,18),
+          new THREE.MeshBasicMaterial({ color:0xffd84d })
+        );
+        crown.position.set(0,0.9,0);
+        crown.rotation.x = Math.PI / 2;
+        root.add(crown);
+      }
+
+      root.position.set(lane, 1.08, -20);
+      root.rotation.y = Math.random() * Math.PI * 2;
+
+      root.userData = {
+        role:'item',
+        special,
+        dirtSpots,
+        dirtLeft:dirtSpots.length,
+        cleaned:false,
+        cleanAnim:0,
+        speed: mode === 'practice' ? 3.3 : (4.15 + Math.random() * 1.15 + state.elapsed * 0.02),
+        pulse:0,
+        bob:Math.random() * Math.PI * 2,
+        rotDir:Math.random() > 0.5 ? 1 : -1,
+        scrubCooldown:0
+      };
+
+      root.traverse(obj => {
+        if(obj.isMesh){
+          obj.userData.cleanRoot = root;
+          clickable.push(obj);
+        }
+      });
+
+      items.push(root);
+      scene.add(root);
+    }
+
+    function scrubItem(root, strongHit){
+      const d = root.userData;
+      if(d.cleaned) return;
+      if(d.scrubCooldown > 0 && !strongHit) return;
+
+      d.scrubCooldown = state.fever > 0 ? 0.02 : 0.05;
+
+      let removeCount = 1;
+      if(state.fever > 0) removeCount = 2;
+      if(strongHit && state.fever > 0) removeCount = 3;
+
+      for(let i=0;i<removeCount;i++){
+        const next = d.dirtSpots.find(s => s.visible !== false);
+        if(next) next.visible = false;
+      }
+
+      d.dirtLeft = d.dirtSpots.filter(s => s.visible !== false).length;
+      d.pulse = 0.15;
+      state.score += state.fever > 0 ? 10 : 6;
+
+      createBurst(root.position.clone().add(new THREE.Vector3(0,0.55,0.15)), 0xffffff, 4);
+
+      if(d.dirtLeft <= 0){
+        finishItem(root);
+      } else {
+        setTip(state.fever > 0 ? 'ฟีเวอร์ทำงาน! ถูต่อได้เลย' : 'ถูต่ออีกนิด คราบยังไม่หมด');
+      }
+
+      updateUI();
+    }
+
+    function finishItem(root){
+      const d = root.userData;
+      if(d.cleaned) return;
+
+      d.cleaned = true;
+      d.cleanAnim = 0.45;
+
+      state.cleaned += 1;
+      state.combo += 1;
+      state.bestCombo = Math.max(state.bestCombo, state.combo);
+
+      let bonus = 28 + Math.min(state.combo * 4, 36);
+
+      if(d.special === 'practice'){
+        bonus += 10;
+        state.warmupCleaned += 1;
+        setTip('ดีมาก! ชิ้นซ้อมสะอาดแล้ว');
+      } else if(d.special === 'soap'){
+        bonus += 18;
+        state.fever = Math.min(state.fever + 7, 10);
+        setTip('ได้สบู่! Soap Fever ทำงาน');
+        setCoach('ตอนนี้ล้างแรงขึ้น รีบทำคะแนนต่อเนื่องได้เลย');
+      } else if(d.special === 'gold'){
+        bonus += 60;
+        setTip('ชิ้นพิเศษสีทอง! คะแนนโบนัส');
+      } else {
+        setTip(randomPick([
+          'สะอาดแล้ว เก่งมาก!',
+          'เยี่ยม! ล้างหมดเลย',
+          'สุดยอด! ของชิ้นนี้สะอาดแล้ว'
+        ]));
+      }
+
+      if(state.phase === 'main'){
+        state.mainCleaned += 1;
+      }
+
+      state.score += bonus;
+      createBurst(
+        root.position.clone().add(new THREE.Vector3(0,0.8,0)),
+        d.special === 'gold' ? 0xffd84d : (d.special === 'soap' ? 0x7fdfff : 0x8cf2a5),
+        12
+      );
+
+      if(state.phase === 'warmup'){
+        updateMissionUI('Warmup: ล้างของ 3 ชิ้น', state.warmupCleaned, state.warmupTarget, `${state.warmupCleaned} / ${state.warmupTarget}`);
+        if(state.warmupCleaned >= state.warmupTarget){
+          beginMain();
+        }
+      }
+
+      if(state.phase === 'main'){
+        updateMissionUI('Main Mission: ล้างให้ครบ 15 ชิ้น', state.mainCleaned, state.mainTarget, `${state.mainCleaned} / ${state.mainTarget}`);
+        if(state.mainCleaned >= state.mainTarget){
+          setCoach('ภารกิจหลักครบแล้ว! รอเข้าบอสได้เลย');
+        }
+      }
+
+      updateUI();
+    }
+
+    function createBoss(){
+      removeBoss();
+
+      const root = new THREE.Group();
+
+      const desk = new THREE.Mesh(
+        new THREE.BoxGeometry(5.6, 1.05, 3.2),
+        new THREE.MeshStandardMaterial({ color:0xffd6a5, roughness:0.6 })
+      );
+      desk.position.y = 1.2;
+      root.add(desk);
+
+      const top = new THREE.Mesh(
+        new THREE.BoxGeometry(5.9, 0.24, 3.5),
+        new THREE.MeshStandardMaterial({ color:0xfff1dc, roughness:0.45 })
+      );
+      top.position.y = 1.85;
+      root.add(top);
+
+      const cloth = new THREE.Mesh(
+        new THREE.BoxGeometry(4.8, 0.06, 2.6),
+        new THREE.MeshStandardMaterial({ color:0xb7e7ff, roughness:0.9 })
+      );
+      cloth.position.set(0, 1.98, 0);
+      root.add(cloth);
+
+      const legGeo = new THREE.BoxGeometry(0.25, 1.8, 0.25);
+      const legMat = new THREE.MeshStandardMaterial({ color:0xe2ae7b, roughness:0.65 });
+      [[-2.5,0.9,-1.4],[2.5,0.9,-1.4],[-2.5,0.9,1.4],[2.5,0.9,1.4]].forEach(p=>{
+        const leg = new THREE.Mesh(legGeo, legMat);
+        leg.position.set(p[0], p[1], p[2]);
+        root.add(leg);
+      });
+
+      const face = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.2, 0.55),
+        new THREE.MeshBasicMaterial({ color:0xffffff })
+      );
+      face.position.set(0, 1.25, 1.72);
+      root.add(face);
+
+      const eyeGeo = new THREE.CircleGeometry(0.05, 16);
+      const eyeMat = new THREE.MeshBasicMaterial({ color:0x335566 });
+      const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+      const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+      eyeL.position.set(-0.18, 1.28, 1.73);
+      eyeR.position.set(0.18, 1.28, 1.73);
+      root.add(eyeL, eyeR);
+
+      const mouth = new THREE.Mesh(
+        new THREE.TorusGeometry(0.16,0.03,8,16,Math.PI),
+        new THREE.MeshBasicMaterial({ color:0xff8fb6 })
+      );
+      mouth.position.set(0,1.12,1.74);
+      mouth.rotation.z = Math.PI;
+      root.add(mouth);
+
+      const dirtSpots = [];
+      const dirtGeo = new THREE.SphereGeometry(0.18, 10, 10);
+      const dirtMat = new THREE.MeshStandardMaterial({ color:0x8a5a2b, roughness:1 });
+
+      const dirtPositions = [
+        [-1.8,2.03,-0.9],[-0.9,2.03,-0.6],[0,2.03,-0.8],[1.2,2.03,-0.35],[2.0,2.03,0.65],
+        [-2.0,2.03,0.7],[-1.1,2.03,0.2],[0.1,2.03,0.6],[1.0,2.03,0.95],[2.2,2.03,-0.95],
+        [-1.9,1.35,1.62],[-1.1,1.55,1.62],[0,1.48,1.62],[1.0,1.55,1.62],[1.9,1.35,1.62],
+        [-2.25,1.1,0.2],[2.15,1.1,-0.3],[-0.6,1.1,-1.15],[0.9,1.1,1.1],[0,2.03,0.0]
+      ];
+
+      dirtPositions.forEach((p, idx)=>{
+        const d = new THREE.Mesh(dirtGeo, dirtMat);
+        d.position.set(p[0], p[1], p[2]);
+        d.scale.setScalar(idx % 3 === 0 ? 1.3 : 1);
+        root.add(d);
+        dirtSpots.push(d);
+      });
+
+      root.position.set(0, 0, -7.5);
+      root.userData = {
+        role:'boss',
+        dirtSpots,
+        dirtLeft:dirtSpots.length,
+        totalDirt:dirtSpots.length,
+        pulse:0,
+        scrubCooldown:0,
+        clearAnim:0,
+        cleared:false
+      };
+
+      root.traverse(obj=>{
+        if(obj.isMesh){
+          obj.userData.cleanRoot = root;
+          clickable.push(obj);
+        }
+      });
+
+      boss = root;
+      scene.add(root);
+      updateBossMission();
+    }
+
+    function scrubBoss(root, strongHit){
+      const d = root.userData;
+      if(d.cleared) return;
+      if(d.scrubCooldown > 0 && !strongHit) return;
+
+      d.scrubCooldown = state.fever > 0 ? 0.015 : 0.035;
+      d.pulse = 0.18;
+
+      let removeCount = strongHit ? 2 : 1;
+      if(state.fever > 0) removeCount += 1;
+
+      for(let i=0;i<removeCount;i++){
+        const next = d.dirtSpots.find(s => s.visible !== false);
+        if(next) next.visible = false;
+      }
+
+      d.dirtLeft = d.dirtSpots.filter(s => s.visible !== false).length;
+      state.score += 8 + (state.fever > 0 ? 4 : 0);
+      createBurst(root.position.clone().add(new THREE.Vector3(0,2.1,0.2)), 0xffffff, 4);
+
+      if(d.dirtLeft <= 0){
+        d.cleared = true;
+        d.clearAnim = 0.9;
+        state.bossClear = true;
+        state.score += 220;
+        state.combo += 3;
+        state.bestCombo = Math.max(state.bestCombo, state.combo);
+        setTip('บอสสะอาดแล้ว!');
+        setCoach('สุดยอดมาก! คุณผ่านบอสได้แล้ว');
+        createBurst(root.position.clone().add(new THREE.Vector3(0,2.1,0)), 0xffd84d, 24);
+      } else {
+        setTip('ถูต่อเนื่องเลย บอสยังมีคราบเหลือ');
+      }
+
+      updateBossMission();
+      updateUI();
+    }
+
+    function updateItems(delta){
+      for(let i=items.length - 1;i>=0;i--){
+        const obj = items[i];
+        const d = obj.userData;
+        d.scrubCooldown = Math.max(0, d.scrubCooldown - delta);
+
+        if(d.cleaned){
+          d.cleanAnim -= delta;
+          obj.position.y += delta * 1.9;
+          obj.position.z += delta * 1.9;
+          obj.rotation.y += delta * 5;
+          obj.scale.lerp(new THREE.Vector3(0.16,0.16,0.16), 0.12);
+
+          if(d.cleanAnim <= 0){
+            removeItem(obj);
+          }
+          continue;
         }
 
-        updateHUD();
-        showCombo();
+        obj.position.z += d.speed * delta;
+        obj.position.y = 1.08 + Math.sin(clock.elapsedTime * 3 + d.bob) * 0.08;
+        obj.rotation.y += delta * 0.75 * d.rotDir;
 
-        setTimeout(() => {
-          clearActiveNode();
+        if(d.pulse > 0){
+          d.pulse -= delta;
+          const s = 1 + Math.max(0, d.pulse) * 1.7;
+          obj.scale.setScalar(s);
+        } else {
+          obj.scale.lerp(new THREE.Vector3(1,1,1), 0.18);
+        }
 
-          if(state.solved >= CASES.length){
-            endGame(true);
+        if(obj.position.z >= 4.58){
+          removeItem(obj);
+          state.combo = 0;
+
+          if(state.phase === 'warmup'){
+            setTip('ช่วงซ้อมยังไม่เป็นไร ลองถูให้เร็วกว่านี้');
+            setCoach('ดีแล้ว ลองแตะหรือถูให้โดนตัววัตถุโดยตรง');
+          } else {
+            state.missed += 1;
+            state.lives -= 1;
+            createBurst(obj.position.clone().add(new THREE.Vector3(0,0.6,0)), 0xff6b6b, 12);
+            setTip('โอ๊ะ! ของสกปรกหลุดเส้นแดงแล้ว');
+          }
+
+          updateUI();
+
+          if(state.phase !== 'warmup' && state.lives <= 0){
+            finishGame('หัวใจหมดแล้ว');
             return;
           }
+        }
+      }
+    }
 
-          state.currentIndex++;
-          setPhase('search');
-          createHotspot(CASES[state.currentIndex], state.currentIndex);
-        }, 260);
+    function updateBoss(delta){
+      if(!boss) return;
+      const d = boss.userData;
+      d.scrubCooldown = Math.max(0, d.scrubCooldown - delta);
+
+      if(d.cleared){
+        d.clearAnim -= delta;
+        boss.position.y += delta * 1.0;
+        boss.rotation.y += delta * 1.4;
+        boss.scale.lerp(new THREE.Vector3(0.4,0.4,0.4), 0.08);
+        if(d.clearAnim <= 0){
+          finishGame('ภารกิจสำเร็จ');
+        }
+        return;
       }
 
-      function randomPressure(){
-        if(!state.active) return;
-        if(state.phase !== 'search') return;
+      boss.position.y = Math.sin(clock.elapsedTime * 1.7) * 0.08;
 
-        if(Math.random() < 0.30){
-          state.hp -= 4;
-          state.combo = 0;
-          updateHUD();
-          flashDamage('รีบหน่อย! ถ้าปล่อยไว้นาน เชื้อจะเพิ่มขึ้น');
-          if(state.hp <= 0) endGame(false);
+      if(d.pulse > 0){
+        d.pulse -= delta;
+        const s = 1 + Math.max(0, d.pulse) * 0.35;
+        boss.scale.set(s,s,s);
+      } else {
+        boss.scale.lerp(new THREE.Vector3(1,1,1), 0.14);
+      }
+    }
+
+    function removeItem(root){
+      clickable = clickable.filter(m => m.userData.cleanRoot !== root);
+      const idx = items.indexOf(root);
+      if(idx >= 0) items.splice(idx, 1);
+      scene.remove(root);
+    }
+
+    function clearItems(){
+      while(items.length){
+        removeItem(items[items.length - 1]);
+      }
+    }
+
+    function removeBoss(){
+      if(!boss) return;
+      clickable = clickable.filter(m => m.userData.cleanRoot !== boss);
+      scene.remove(boss);
+      boss = null;
+    }
+
+    function createBurst(position, color, count){
+      const geo = new THREE.SphereGeometry(0.07, 8, 8);
+      for(let i=0;i<count;i++){
+        const p = new THREE.Mesh(
+          geo,
+          new THREE.MeshBasicMaterial({ color, transparent:true, opacity:1 })
+        );
+        p.position.copy(position);
+        p.userData = {
+          life:0.45 + Math.random() * 0.35,
+          maxLife:0.45 + Math.random() * 0.35,
+          vel:new THREE.Vector3(
+            (Math.random() - 0.5) * 2.3,
+            0.7 + Math.random() * 1.7,
+            (Math.random() - 0.5) * 1.3
+          )
+        };
+        effects.push(p);
+        scene.add(p);
+      }
+    }
+
+    function updateEffects(delta){
+      for(let i=effects.length - 1;i>=0;i--){
+        const p = effects[i];
+        p.userData.life -= delta;
+        p.position.addScaledVector(p.userData.vel, delta);
+        p.userData.vel.y -= 1.8 * delta;
+        p.material.opacity = Math.max(0, p.userData.life / p.userData.maxLife);
+        p.scale.setScalar(0.7 + (1 - p.material.opacity) * 1.2);
+
+        if(p.userData.life <= 0){
+          scene.remove(p);
+          effects.splice(i,1);
+        }
+      }
+    }
+
+    function clearEffects(){
+      while(effects.length){
+        scene.remove(effects.pop());
+      }
+    }
+
+    function updateDecor(delta){
+      const t = clock.elapsedTime;
+      for(const b of bubbles){
+        b.position.y += b.userData.vy * delta * 0.4;
+        b.position.x += Math.sin(t + b.userData.phase) * b.userData.sway * delta;
+        if(b.position.y > 8.8) b.position.y = 0.3;
+      }
+    }
+
+    function updatePhase(delta){
+      state.elapsed += delta;
+      state.phaseTime -= delta;
+      state.fever = Math.max(0, state.fever - delta);
+
+      if(state.phase === 'warmup'){
+        state.spawnTimer += delta;
+        if(state.spawnTimer >= state.spawnEvery){
+          state.spawnTimer = 0;
+          if(items.length < 2) spawnItem('practice');
+        }
+        updateItems(delta);
+
+        if(state.phaseTime <= 0){
+          beginMain();
+          return;
         }
       }
 
-      function endGame(win){
-        if(!state.active) return;
+      if(state.phase === 'main'){
+        state.spawnEvery = Math.max(0.5, 1.05 - state.elapsed * 0.003);
+        state.spawnTimer += delta;
+        if(state.spawnTimer >= state.spawnEvery){
+          state.spawnTimer = 0;
+          spawnItem('main');
+        }
+        updateItems(delta);
 
-        state.active = false;
-        setPhase('report');
-        clearActiveNode();
-
-        const stars = starsFromResult();
-        const rank = rankFromScore(state.score);
-
-        ui.summaryTitle.textContent = win ? 'Mission Clear!' : 'Mission Incomplete';
-        ui.summaryTitle.style.color = win ? '#86ffb2' : '#ff9aa5';
-        ui.summarySub.textContent = win
-          ? 'คุณจัดการจุดเสี่ยงได้ครบทุกเคส'
-          : 'ยังมีบางเคสที่ต้องฝึกสังเกตและจัดการให้เร็วขึ้น';
-
-        ui.stars.textContent = stars === 3 ? '⭐ ⭐ ⭐' : stars === 2 ? '⭐ ⭐' : '⭐';
-        ui.sumScore.textContent = state.score;
-        ui.sumSolved.textContent = `${state.solved}/${CASES.length}`;
-        ui.sumHp.textContent = `${state.hp}%`;
-        ui.sumRank.textContent = rank;
-
-        ui.summaryTip.textContent = win
-          ? 'จุดเด่นของรอบนี้คือคุณมองเห็นจุดเสี่ยงชัดขึ้นมาก ลองเล่นอีกรอบเพื่อเก็บ 3 ดาวด้วยการตอบให้ถูกมากขึ้นและเสียพลังให้น้อยลง'
-          : 'เคล็ดลับรอบหน้า: เห็นวงแสงสีฟ้าแล้วให้รีบตรวจทันที อ่านโจทย์ให้ครบ แล้วค่อยเลือกคำตอบก่อนกลับไปล้าง';
-
-        ui.summaryOverlay.style.display = 'flex';
-      }
-
-      function tickTimer(){
-        if(!state.active) return;
-        state.timeLeft--;
-        updateHUD();
-        if(state.timeLeft <= 0){
-          endGame(false);
+        if(state.phaseTime <= 0){
+          beginBoss();
+          return;
         }
       }
 
-      function startGame(){
-        state.active = true;
-        state.phase = 'search';
-        state.hp = 100;
-        state.score = 0;
-        state.timeLeft = 90;
-        state.combo = 0;
-        state.solved = 0;
-        state.currentIndex = 0;
-        state.inspectingIndex = null;
-        state.answeredCorrect = 0;
-        state.answeredWrong = 0;
-        pendingInspectAfterExit = null;
-        returnToVRForClean = false;
+      if(state.phase === 'boss'){
+        updateBoss(delta);
 
-        ui.startOverlay.style.display = 'none';
-        ui.inspectOverlay.style.display = 'none';
-        ui.summaryOverlay.style.display = 'none';
-
-        updateHUD();
-        setPhase('search');
-        resetView();
-        createHotspot(CASES[0], 0);
+        if(!state.bossClear && state.phaseTime <= 0){
+          finishGame('หมดเวลาบอส');
+          return;
+        }
       }
 
-      sceneEl.addEventListener('loaded', () => {
-        setTimeout(resetView, 220);
-      });
+      if(state.phase === 'warmup'){
+        updateMissionUI('Warmup: ล้างของ 3 ชิ้น', state.warmupCleaned, state.warmupTarget, `${state.warmupCleaned} / ${state.warmupTarget}`);
+      } else if(state.phase === 'main'){
+        updateMissionUI('Main Mission: ล้างให้ครบ 15 ชิ้น', state.mainCleaned, state.mainTarget, `${state.mainCleaned} / ${state.mainTarget}`);
+      } else if(state.phase === 'boss'){
+        updateBossMission();
+      }
 
-      sceneEl.addEventListener('enter-vr', () => {
-        isVRMode = true;
-        document.body.classList.add('is-vr');
-        gazeCursorEl.setAttribute('visible', 'true');
-        setTimeout(resetView, 180);
-        setTimeout(resetView, 700);
-        rebuildActiveTarget();
-        setPhase(state.phase);
-      });
+      updateUI();
+    }
 
-      sceneEl.addEventListener('exit-vr', () => {
-        isVRMode = false;
-        document.body.classList.remove('is-vr');
-        gazeCursorEl.setAttribute('visible', 'false');
-        setTimeout(resetView, 120);
-        rebuildActiveTarget();
-        setPhase(state.phase);
+    function animate(){
+      requestAnimationFrame(animate);
+      const delta = Math.min(clock.getDelta(), 0.033);
 
-        if (pendingInspectAfterExit !== null) {
-          const idx = pendingInspectAfterExit;
-          pendingInspectAfterExit = null;
-          openInspectFlat(idx, true);
+      updateDecor(delta);
+      updateEffects(delta);
+
+      if(state.active){
+        updatePhase(delta);
+      }
+
+      if(bannerTimer > 0){
+        bannerTimer -= delta;
+        if(bannerTimer <= 0){
+          ui.banner.classList.remove('show');
         }
-      });
+      }
 
-      ui.enterVrBtn.addEventListener('click', () => {
-        if (sceneEl.enterVR) sceneEl.enterVR();
-      });
+      renderer.render(scene, camera);
+    }
 
-      ui.exitVrBtn.addEventListener('click', () => {
-        if (sceneEl.is('vr-mode') && sceneEl.exitVR) sceneEl.exitVR();
-      });
-
-      ui.recenterBtn.addEventListener('click', resetView);
-      ui.replayBtn.addEventListener('click', () => location.reload());
-      ui.howBtn.addEventListener('click', () => {
-        ui.howText.style.display = ui.howText.style.display === 'none' ? 'block' : 'none';
-      });
-
-      ui.hubBtn.addEventListener('click', () => {
-        if (HUB_URL) location.href = HUB_URL;
-      });
-
-      updateHUD();
-      setPhase('search');
-
-      setInterval(tickTimer, 1000);
-      setInterval(randomPressure, 3600);
-
-      document.getElementById('startBtn').addEventListener('click', startGame);
-    })();
+    init();
   </script>
 </body>
 </html>
