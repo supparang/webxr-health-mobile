@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-battle-room.js ===
-// FULL PATCH v20260410b-GJ-BATTLE-ROOM-GUARD-1V1
+// FULL PATCH v20260410c-GJ-BATTLE-ROOM-GUARD-1V1-STABLE
 
 const STORAGE = {
   localRoomPrefix: 'GJ_ROOM_LOCAL:',
@@ -9,70 +9,140 @@ const STORAGE = {
 const BATTLE_REQUIRED_PLAYERS = 2;
 const BATTLE_MAX_PLAYERS = 2;
 
-function clean(v, d=''){
+function clean(v, d = '') {
   const s = String(v ?? '').trim();
   return s || d;
 }
 
-function storageGet(key, fallback=''){
-  try{
-    const v = localStorage.getItem(key);
-    return v == null ? fallback : v;
-  }catch(_){
-    return fallback;
-  }
-}
-
-function storageSet(key, value){
-  try{
-    localStorage.setItem(key, String(value));
-  }catch(_){}
-}
-
-function safeJsonParse(text, fallback=null){
+function safeJsonParse(text, fallback = null) {
   try { return JSON.parse(text); }
   catch (_) { return fallback; }
 }
 
-function localRoomKey(roomId){
+function storageGet(key, fallback = '') {
+  try {
+    const v = localStorage.getItem(key);
+    return v == null ? fallback : v;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function storageSet(key, value) {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch (_) {}
+}
+
+function localRoomKey(roomId) {
   return `${STORAGE.localRoomPrefix}${roomId}`;
 }
 
-function makeLocalRoomAdapter(){
-  function loadRoom(roomId){
+function nowIso() {
+  try { return new Date().toISOString(); }
+  catch (_) { return ''; }
+}
+
+function normalizeRoom(roomId, room) {
+  if (!room || typeof room !== 'object') return null;
+
+  const playersObj = room.players && typeof room.players === 'object' ? room.players : {};
+  const players = {};
+
+  Object.entries(playersObj).forEach(([pid, p]) => {
+    if (!p || typeof p !== 'object') return;
+
+    players[pid] = {
+      pid: clean(p.pid || pid, pid),
+      name: clean(p.name || p.nick || p.pid || pid, 'Player'),
+      nick: clean(p.nick || p.name || p.pid || pid, 'Player'),
+      role: clean(p.role, 'player'),
+      joinedAt: Number(p.joinedAt || 0) || Date.now(),
+      ready: p.ready === true
+    };
+  });
+
+  return {
+    roomId: clean(room.roomId || roomId, roomId),
+    mode: clean(room.mode, ''),
+    status: clean(room.status, 'waiting'),
+    hostPid: clean(room.hostPid, ''),
+    createdAt: Number(room.createdAt || 0) || Date.now(),
+    updatedAt: Number(room.updatedAt || 0) || Date.now(),
+    startedAt: Number(room.startedAt || 0) || 0,
+    players
+  };
+}
+
+function makeLocalRoomAdapter() {
+  function loadRoom(roomId) {
     const raw = storageGet(localRoomKey(roomId), '');
-    return safeJsonParse(raw, null);
+    const parsed = safeJsonParse(raw, null);
+    return normalizeRoom(roomId, parsed);
   }
 
-  function saveRoom(roomId, payload){
-    storageSet(localRoomKey(roomId), JSON.stringify(payload));
-    return payload;
-  }
+  function saveRoom(roomId, payload) {
+    const next = normalizeRoom(roomId, payload) || {
+      roomId,
+      mode: 'battle',
+      status: 'waiting',
+      hostPid: '',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      startedAt: 0,
+      players: {}
+    };
 
-  function patchRoom(roomId, patch){
-    const prev = loadRoom(roomId) || {};
-    const next = { ...prev, ...patch };
+    next.updatedAt = Date.now();
     storageSet(localRoomKey(roomId), JSON.stringify(next));
     return next;
   }
 
-  function subscribeRoom(roomId, callback){
-    const onStorage = () => callback(loadRoom(roomId));
+  function patchRoom(roomId, patch) {
+    const prev = loadRoom(roomId) || {
+      roomId,
+      mode: 'battle',
+      status: 'waiting',
+      hostPid: '',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      startedAt: 0,
+      players: {}
+    };
+
+    const merged = {
+      ...prev,
+      ...patch,
+      players: patch?.players && typeof patch.players === 'object'
+        ? patch.players
+        : prev.players
+    };
+
+    return saveRoom(roomId, merged);
+  }
+
+  function subscribeRoom(roomId, callback) {
+    const emit = () => {
+      try { callback(loadRoom(roomId)); } catch (_) {}
+    };
+
+    const onStorage = (ev) => {
+      if (!ev || ev.key === localRoomKey(roomId)) emit();
+    };
+
     window.addEventListener('storage', onStorage);
 
-    const timer = setInterval(() => {
-      callback(loadRoom(roomId));
-    }, 800);
-
-    callback(loadRoom(roomId));
+    const timer = setInterval(emit, 800);
+    emit();
 
     return () => {
-      window.removeEventListener('storage', onStorage);
-      clearInterval(timer);
+      try { window.removeEventListener('storage', onStorage); } catch (_) {}
+      try { clearInterval(timer); } catch (_) {}
     };
   }
 
   return {
+    type: 'local-room-adapter',
     loadRoom,
     saveRoom,
     patchRoom,
@@ -80,7 +150,7 @@ function makeLocalRoomAdapter(){
   };
 }
 
-export function makeRoomAdapter(){
+export function makeRoomAdapter() {
   const g = window;
 
   if (
@@ -106,169 +176,36 @@ export function makeRoomAdapter(){
   return makeLocalRoomAdapter();
 }
 
-export function getPlayers(room){
+export function getPlayers(room) {
   const players = room?.players || {};
-  return Object.values(players).filter(Boolean);
+  return Object.values(players)
+    .filter(Boolean)
+    .sort((a, b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
 }
 
-export function getPlayerCount(room){
+export function getPlayerCount(room) {
   return getPlayers(room).length;
 }
 
-export function getPlayerByPid(room, pid=''){
+export function getPlayerByPid(room, pid = '') {
   const players = room?.players || {};
   return players?.[pid] || null;
 }
 
-export function saveRecentRoom(mode='battle', roomId=''){
+export function getBattleMaxPlayers() {
+  return BATTLE_MAX_PLAYERS;
+}
+
+export function saveRecentRoom(mode = 'battle', roomId = '') {
   if (!mode || !roomId) return;
   storageSet(`${STORAGE.recentRoomPrefix}${mode}`, roomId);
 }
 
-export function loadRecentRoom(mode='battle'){
+export function loadRecentRoom(mode = 'battle') {
   return storageGet(`${STORAGE.recentRoomPrefix}${mode}`, '');
 }
 
-export function getBattleMaxPlayers(){
-  return BATTLE_MAX_PLAYERS;
-}
-
-export function classifyBattleRoom(ctx = {}, room = null){
-  const pid = clean(ctx.pid, 'anon');
-  const mode = clean(ctx.mode, 'solo');
-  const roomId = clean(ctx.room, '');
-
-  if (mode !== 'battle') {
-    return {
-      ok: false,
-      code: 'MODE_NOT_BATTLE',
-      title: 'โหมดไม่ถูกต้อง',
-      message: 'หน้านี้ใช้สำหรับ battle เท่านั้น'
-    };
-  }
-
-  if (!roomId) {
-    return {
-      ok: false,
-      code: 'ROOM_MISSING',
-      title: 'ไม่พบ Room Code',
-      message: 'ต้องมี room ก่อนเข้าเล่นโหมด battle'
-    };
-  }
-
-  if (!room) {
-    return {
-      ok: false,
-      code: 'ROOM_NOT_FOUND',
-      title: 'ยังไม่พบห้อง',
-      message: 'ไม่พบข้อมูลห้องนี้ หรือ backend ยังซิงก์ไม่เสร็จ'
-    };
-  }
-
-  if (clean(room.mode, '') !== 'battle') {
-    return {
-      ok: false,
-      code: 'ROOM_MODE_MISMATCH',
-      title: 'ห้องนี้ไม่ใช่ battle',
-      message: 'room นี้ถูกสร้างด้วยโหมดอื่น'
-    };
-  }
-
-  const me = getPlayerByPid(room, pid);
-  if (!me) {
-    return {
-      ok: false,
-      code: 'PLAYER_NOT_IN_ROOM',
-      title: 'ผู้เล่นนี้ไม่ได้อยู่ในห้อง',
-      message: 'กรุณากลับไป lobby แล้วเข้าห้องด้วย PID เดิม'
-    };
-  }
-
-  const count = getPlayerCount(room);
-
-  if (count < BATTLE_REQUIRED_PLAYERS) {
-    return {
-      ok: false,
-      code: 'WAITING_PLAYER',
-      title: 'รอผู้เล่นอีก 1 คน',
-      message: `ตอนนี้มี ${count}/2 คน`
-    };
-  }
-
-  if (count > BATTLE_MAX_PLAYERS) {
-    return {
-      ok: false,
-      code: 'ROOM_OVERFLOW',
-      title: 'จำนวนผู้เล่นเกิน',
-      message: `ห้อง battle ต้องมีแค่ 2 คน แต่ตอนนี้มี ${count} คน`
-    };
-  }
-
-  if (clean(room.status, 'waiting') !== 'started') {
-    return {
-      ok: false,
-      code: 'WAITING_START',
-      title: 'รอ Host กดเริ่มเกม',
-      message: `ครบ 2/2 แล้ว แต่ห้องยังไม่ถูกสั่งเริ่ม`
-    };
-  }
-
-  return {
-    ok: true,
-    code: 'READY',
-    title: 'ห้องพร้อมแล้ว',
-    message: 'ตรวจสอบผ่านทั้งหมด',
-    room,
-    me,
-    role: clean(me.role, 'player'),
-    playerCount: count,
-    maxPlayers: 2
-  };
-}
-
-export async function ensureBattleSession(ctx = {}, options = {}){
-  const adapter = options.adapter || makeRoomAdapter();
-  const roomId = clean(ctx.room, '');
-
-  if (!roomId) {
-    const err = new Error('BATTLE_ROOM_MISSING');
-    err.code = 'BATTLE_ROOM_MISSING';
-    err.title = 'ไม่พบ Room Code';
-    err.messageUser = 'ต้องมี room ก่อนเข้าเล่นโหมด battle';
-    throw err;
-  }
-
-  saveRecentRoom('battle', roomId);
-
-  const room = await adapter.loadRoom(roomId);
-  const result = classifyBattleRoom(ctx, room);
-
-  if (!result.ok) {
-    const err = new Error(result.code);
-    err.code = result.code;
-    err.title = result.title;
-    err.messageUser = result.message;
-    err.room = room;
-    throw err;
-  }
-
-  return result;
-}
-
-export function watchBattleSession(ctx = {}, callback, options = {}){
-  const adapter = options.adapter || makeRoomAdapter();
-  const roomId = clean(ctx.room, '');
-
-  if (!roomId || typeof callback !== 'function') {
-    return () => {};
-  }
-
-  return adapter.subscribeRoom(roomId, (room) => {
-    callback(classifyBattleRoom(ctx, room));
-  });
-}
-
-export function buildBattleEngineQuery(ctx = {}, extra = {}){
+export function buildBattleEngineQuery(ctx = {}, extra = {}) {
   const payload = {
     mode: 'battle',
     entry: 'battle',
@@ -304,6 +241,149 @@ export function buildBattleEngineQuery(ctx = {}, extra = {}){
   Object.entries(payload).forEach(([k, v]) => {
     if (v !== '' && v != null) q.set(k, String(v));
   });
-
   return q;
+}
+
+export function classifyBattleRoom(ctx = {}, room = null) {
+  const pid = clean(ctx.pid, 'anon');
+  const mode = clean(ctx.mode, 'solo');
+  const roomId = clean(ctx.room, '');
+
+  if (mode !== 'battle') {
+    return {
+      ok: false,
+      code: 'MODE_NOT_BATTLE',
+      title: 'โหมดไม่ถูกต้อง',
+      message: 'หน้านี้ใช้สำหรับ battle เท่านั้น',
+      room
+    };
+  }
+
+  if (!roomId) {
+    return {
+      ok: false,
+      code: 'ROOM_MISSING',
+      title: 'ไม่พบ Room Code',
+      message: 'ต้องมี room ก่อนเข้าเล่นโหมด battle',
+      room
+    };
+  }
+
+  if (!room) {
+    return {
+      ok: false,
+      code: 'ROOM_NOT_FOUND',
+      title: 'ยังไม่พบห้อง',
+      message: 'ไม่พบข้อมูลห้องนี้ หรือ backend ยังซิงก์ไม่เสร็จ',
+      room: null
+    };
+  }
+
+  if (clean(room.mode, '') !== 'battle') {
+    return {
+      ok: false,
+      code: 'ROOM_MODE_MISMATCH',
+      title: 'ห้องนี้ไม่ใช่ battle',
+      message: 'room นี้ถูกสร้างด้วยโหมดอื่น',
+      room
+    };
+  }
+
+  const me = getPlayerByPid(room, pid);
+  if (!me) {
+    return {
+      ok: false,
+      code: 'PLAYER_NOT_IN_ROOM',
+      title: 'ผู้เล่นนี้ไม่ได้อยู่ในห้อง',
+      message: 'กรุณากลับไป lobby แล้วเข้าห้องด้วย PID เดิม',
+      room
+    };
+  }
+
+  const count = getPlayerCount(room);
+
+  if (count < BATTLE_REQUIRED_PLAYERS) {
+    return {
+      ok: false,
+      code: 'WAITING_PLAYER',
+      title: 'รอผู้เล่นอีก 1 คน',
+      message: `ตอนนี้มี ${count}/2 คน`,
+      room
+    };
+  }
+
+  if (count > BATTLE_MAX_PLAYERS) {
+    return {
+      ok: false,
+      code: 'ROOM_OVERFLOW',
+      title: 'จำนวนผู้เล่นเกิน',
+      message: `ห้อง battle ต้องมีแค่ 2 คน แต่ตอนนี้มี ${count} คน`,
+      room
+    };
+  }
+
+  if (clean(room.status, 'waiting') !== 'started') {
+    return {
+      ok: false,
+      code: 'WAITING_START',
+      title: 'รอ Host กดเริ่มเกม',
+      message: 'ครบ 2/2 แล้ว แต่ห้องยังไม่ถูกสั่งเริ่ม',
+      room
+    };
+  }
+
+  return {
+    ok: true,
+    code: 'READY',
+    title: 'ห้องพร้อมแล้ว',
+    message: 'ตรวจสอบผ่านทั้งหมด',
+    room,
+    me,
+    role: clean(me.role, 'player'),
+    playerCount: count,
+    maxPlayers: 2,
+    checkedAt: nowIso()
+  };
+}
+
+export async function ensureBattleSession(ctx = {}, options = {}) {
+  const adapter = options.adapter || makeRoomAdapter();
+  const roomId = clean(ctx.room, '');
+
+  if (!roomId) {
+    const err = new Error('BATTLE_ROOM_MISSING');
+    err.code = 'BATTLE_ROOM_MISSING';
+    err.title = 'ไม่พบ Room Code';
+    err.messageUser = 'ต้องมี room ก่อนเข้าเล่นโหมด battle';
+    throw err;
+  }
+
+  saveRecentRoom('battle', roomId);
+
+  const room = await adapter.loadRoom(roomId);
+  const result = classifyBattleRoom(ctx, room);
+
+  if (!result.ok) {
+    const err = new Error(result.code);
+    err.code = result.code;
+    err.title = result.title;
+    err.messageUser = result.message;
+    err.room = room;
+    throw err;
+  }
+
+  return result;
+}
+
+export function watchBattleSession(ctx = {}, callback, options = {}) {
+  const adapter = options.adapter || makeRoomAdapter();
+  const roomId = clean(ctx.room, '');
+
+  if (!roomId || typeof callback !== 'function') {
+    return () => {};
+  }
+
+  return adapter.subscribeRoom(roomId, (room) => {
+    callback(classifyBattleRoom(ctx, room));
+  });
 }
