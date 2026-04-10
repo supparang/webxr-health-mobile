@@ -19,10 +19,10 @@
       --text:#fffaf8;
       --muted:#fde7df;
       --warn:#f59e0b;
-      --danger:#f97316;
       --pink:#f472b6;
       --info:#38bdf8;
       --good:#22c55e;
+      --bad:#ef4444;
 
       --shadow:0 18px 48px rgba(0,0,0,.30);
       --shadow-big:0 24px 72px rgba(0,0,0,.36);
@@ -46,13 +46,13 @@
         linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
     }
 
-    body{ overflow:hidden; }
-    button{ font:inherit; }
+    body{ overflow-x:hidden; }
+    a,button{ font:inherit; }
 
     .app{
       min-height:100dvh;
       display:grid;
-      grid-template-rows:auto 1fr;
+      grid-template-rows:auto auto 1fr;
       padding:
         calc(12px + var(--sat))
         calc(12px + var(--sar))
@@ -61,12 +61,15 @@
       gap:12px;
     }
 
-    .topbar{
+    .topbar,.infoPanel,.stage{
       border:1px solid var(--stroke);
       background:var(--panel);
       backdrop-filter:blur(12px);
       border-radius:24px;
       box-shadow:var(--shadow-big);
+    }
+
+    .topbar{
       padding:14px;
       display:grid;
       gap:12px;
@@ -132,11 +135,15 @@
       color:#fff;
       font-size:14px;
       font-weight:1000;
-      cursor:pointer;
       padding:10px 14px;
       background:rgba(255,255,255,.06);
       box-shadow:0 10px 20px rgba(0,0,0,.16);
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
       transition:transform .12s ease, filter .12s ease, opacity .12s ease;
+      cursor:pointer;
     }
 
     .btn:hover{
@@ -175,6 +182,16 @@
       color:#fff1f7;
     }
 
+    .btn.bad{
+      background:linear-gradient(180deg, rgba(239,68,68,.24), rgba(239,68,68,.14));
+      border-color:rgba(239,68,68,.34);
+      color:#fff1f2;
+    }
+
+    .infoPanel{
+      padding:14px;
+    }
+
     .info-grid{
       display:grid;
       grid-template-columns:repeat(5,minmax(0,1fr));
@@ -209,26 +226,10 @@
     }
 
     .stage{
-      position:relative;
-      min-height:0;
-      border:1px solid var(--stroke);
-      background:var(--panel2);
-      backdrop-filter:blur(12px);
-      border-radius:26px;
-      box-shadow:var(--shadow-big);
-      overflow:hidden;
-    }
-
-    .state-layer{
-      position:absolute;
-      inset:0;
+      min-height:420px;
+      padding:18px;
       display:grid;
       place-items:center;
-      padding:18px;
-      z-index:5;
-      background:
-        radial-gradient(circle at 50% 10%, rgba(255,255,255,.06), transparent 30%),
-        linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
     }
 
     .state-card{
@@ -303,14 +304,6 @@
       animation:spin .9s linear infinite;
     }
 
-    .inline-actions{
-      margin-top:16px;
-      display:flex;
-      gap:10px;
-      justify-content:center;
-      flex-wrap:wrap;
-    }
-
     .players-box{
       margin-top:16px;
       border-radius:18px;
@@ -375,24 +368,12 @@
       color:#fff2ea;
     }
 
-    .engine-wrap{
-      position:absolute;
-      inset:0;
-      z-index:1;
-      display:none;
-      background:#000;
-    }
-
-    .engine-wrap.show{
-      display:block;
-    }
-
-    .engine-frame{
-      width:100%;
-      height:100%;
-      border:0;
-      display:block;
-      background:#000;
+    .inline-actions{
+      margin-top:16px;
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      flex-wrap:wrap;
     }
 
     .log-box{
@@ -408,6 +389,7 @@
       min-height:72px;
       white-space:pre-wrap;
       word-break:break-word;
+      text-align:left;
     }
 
     @keyframes spin{
@@ -460,17 +442,19 @@
           <div class="brand-badge">⚔️</div>
           <div>
             <div class="brand-title">GoodJunk Battle Play</div>
-            <div class="brand-sub">wrapper สำหรับตรวจ room battle แบบ 1v1 และล็อกไม่ให้เด้งไป solo</div>
+            <div class="brand-sub">wrapper สำหรับตรวจ room battle แบบ 1v1 และกันไม่ให้ไหลไป solo</div>
           </div>
         </div>
 
         <div class="actions">
-          <button id="btnBackLobby" class="btn info" type="button">กลับ Lobby</button>
-          <button id="btnBackLauncher" class="btn" type="button">กลับ Launcher</button>
-          <button id="btnBackHub" class="btn pink" type="button">กลับ Hub</button>
+          <a id="btnBackLobby" class="btn info" href="#">กลับ Lobby</a>
+          <a id="btnBackLauncher" class="btn" href="#">กลับ Launcher</a>
+          <a id="btnBackHub" class="btn pink" href="#">กลับ Hub</a>
         </div>
       </div>
+    </section>
 
+    <section class="infoPanel">
       <div class="info-grid">
         <div class="pill">
           <div class="pill-label">Room</div>
@@ -490,73 +474,49 @@
         </div>
         <div class="pill">
           <div class="pill-label">Status</div>
-          <div id="infoStatus" class="pill-value">กำลังตรวจสอบ...</div>
+          <div id="infoStatus" class="pill-value">checking</div>
         </div>
       </div>
     </section>
 
     <section class="stage">
-      <div id="stateLayer" class="state-layer">
-        <div class="state-card">
-          <div id="stateIcon" class="state-icon">🔍</div>
-          <div id="stateTitle" class="state-title">กำลังตรวจสอบห้อง Battle</div>
-          <div id="stateSub" class="state-sub">โปรดรอสักครู่ ระบบกำลังตรวจสอบว่า room battle พร้อมเริ่มดวลแล้วหรือยัง</div>
+      <div class="state-card">
+        <div id="stateIcon" class="state-icon">🔍</div>
+        <div id="stateTitle" class="state-title">กำลังตรวจสอบห้อง Battle</div>
+        <div id="stateSub" class="state-sub">โปรดรอสักครู่ ระบบกำลังตรวจสอบว่า room battle พร้อมเริ่มหรือยัง</div>
 
-          <div class="chips">
-            <div id="chipRoom" class="chip">Room: -</div>
-            <div id="chipPlayers" class="chip">Players: -</div>
-            <div id="chipLimit" class="chip">Limit: 2/2</div>
-            <div id="chipStarted" class="chip">Status: checking</div>
-          </div>
-
-          <div id="spinner" class="spinner"></div>
-
-          <div class="players-box">
-            <div class="players-title">ผู้เล่นในห้อง</div>
-            <div id="playersList" class="players-list"></div>
-          </div>
-
-          <div class="inline-actions">
-            <button id="btnRetry" class="btn warn" type="button">ลองใหม่</button>
-            <button id="btnForceOpen" class="btn good" type="button" style="display:none">เข้าเกมตอนนี้</button>
-          </div>
-
-          <div id="debugLog" class="log-box">Battle play wrapper ready…</div>
+        <div class="chips">
+          <div id="chipRoom" class="chip">Room: -</div>
+          <div id="chipPlayers" class="chip">Players: -</div>
+          <div id="chipLimit" class="chip">Limit: 2/2</div>
+          <div id="chipStarted" class="chip">Status: checking</div>
         </div>
-      </div>
 
-      <div id="engineWrap" class="engine-wrap">
-        <iframe id="engineFrame" class="engine-frame" title="GoodJunk Battle Engine"></iframe>
+        <div id="spinner" class="spinner"></div>
+
+        <div class="players-box">
+          <div class="players-title">ผู้เล่นในห้อง</div>
+          <div id="playersList" class="players-list"></div>
+        </div>
+
+        <div class="inline-actions">
+          <button id="btnRetry" class="btn warn" type="button">ลองใหม่</button>
+          <a id="btnLobbyInline" class="btn info" href="#">กลับ Lobby</a>
+          <a id="btnLauncherInline" class="btn" href="#">กลับ Launcher</a>
+        </div>
+
+        <div id="debugLog" class="log-box">Battle play wrapper ready…</div>
       </div>
     </section>
   </div>
 
   <script type="module">
-    import {
-      makeRoomAdapter,
-      loadRecentRoom,
-      getPlayers,
-      getPlayerCount,
-      getPlayerByPid,
-      getBattleMaxPlayers
-    } from './vr-goodjunk/goodjunk-battle-room.js?v=20260410b-GJ-BATTLE-ROOM-GUARD-1V1';
-
     const $ = (id) => document.getElementById(id);
 
     const qs = (k, d='') => {
       try { return new URL(location.href).searchParams.get(k) ?? d; }
       catch (_) { return d; }
     };
-
-    const STORAGE = {
-      lastModePrefix: 'GJ_LAST_MODE:',
-      lastRunUrlPrefix: 'GJ_LAST_RUN_URL:'
-    };
-
-    let roomApi = null;
-    let unsubscribeRoom = null;
-    let bootedEngine = false;
-    let lastRoomSnapshot = null;
 
     function clean(v, d=''){
       const s = String(v ?? '').trim();
@@ -580,20 +540,12 @@
       return u.toString();
     }
 
-    function saveLastMode(pid, mode, href){
-      if (!pid || !mode || !href) return;
-      try{
-        localStorage.setItem(`${STORAGE.lastModePrefix}${pid}`, mode);
-        localStorage.setItem(`${STORAGE.lastRunUrlPrefix}${pid}`, href);
-      }catch(_){}
-    }
-
-    function commonParams(){
+    function ctx(){
       return {
         pid: clean(qs('pid', 'anon'), 'anon'),
         name: clean(qs('name', qs('nick', 'Hero')), 'Hero'),
         nick: clean(qs('nick', qs('name', 'Hero')), 'Hero'),
-        room: clean(qs('room', loadRecentRoom('battle')), ''),
+        room: clean(qs('room', ''), ''),
         diff: clean(qs('diff', 'normal'), 'normal'),
         time: clean(qs('time', '90'), '90'),
         view: clean(qs('view', 'mobile'), 'mobile'),
@@ -612,78 +564,8 @@
       };
     }
 
-    function renderPlayers(room){
-      const wrap = $('playersList');
-      if (!wrap) return;
-
-      const players = getPlayers(room);
-      if (!players.length) {
-        wrap.innerHTML = '<div class="player-row"><div class="player-name">ยังไม่มีผู้เล่น</div><div class="player-pill">0</div></div>';
-        return;
-      }
-
-      wrap.innerHTML = players.map((p, idx) => {
-        const isHost = p.role === 'host';
-        return `
-          <div class="player-row">
-            <div class="player-name">${idx + 1}. ${String(p.name || p.pid || 'Player')}</div>
-            <div class="player-pill ${isHost ? 'host' : 'guest'}">${isHost ? '👑 Host' : '⚔️ Rival'}</div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function setStateUi(kind, title, sub, extra = {}){
-      const iconMap = {
-        checking: '🔍',
-        waiting: '⏳',
-        ready: '🎮',
-        error: '⚠️',
-        blocked: '🛑',
-        launch: '🚀'
-      };
-
-      $('stateIcon').textContent = iconMap[kind] || '🔍';
-      $('stateTitle').textContent = title || '';
-      $('stateSub').textContent = sub || '';
-
-      $('spinner').style.display =
-        kind === 'checking' || kind === 'launch' || kind === 'waiting'
-          ? 'block'
-          : 'none';
-
-      $('btnForceOpen').style.display = extra.allowForce ? 'inline-flex' : 'none';
-    }
-
-    function updateTopInfo(room){
-      const p = commonParams();
-      $('infoRoom').textContent = p.room || '-';
-      $('infoMode').textContent = p.mode || 'battle';
-      $('infoRole').textContent = p.role || '-';
-
-      if (!room) {
-        $('infoPlayers').textContent = '-';
-        $('infoStatus').textContent = 'กำลังตรวจสอบ...';
-        $('chipRoom').textContent = `Room: ${p.room || '-'}`;
-        $('chipPlayers').textContent = 'Players: -';
-        $('chipLimit').textContent = 'Limit: 2/2';
-        $('chipStarted').textContent = 'Status: checking';
-        return;
-      }
-
-      const count = getPlayerCount(room);
-      const maxPlayers = getBattleMaxPlayers();
-
-      $('infoPlayers').textContent = `${count}/${maxPlayers}`;
-      $('infoStatus').textContent = room.status || 'waiting';
-      $('chipRoom').textContent = `Room: ${room.roomId || p.room || '-'}`;
-      $('chipPlayers').textContent = `Players: ${count}/${maxPlayers}`;
-      $('chipLimit').textContent = 'Limit: 2/2';
-      $('chipStarted').textContent = `Status: ${room.status || 'waiting'}`;
-    }
-
     function buildLobbyUrl(){
-      const p = commonParams();
+      const p = ctx();
       return buildUrl('./goodjunk-battle-lobby.html', {
         mode: 'battle',
         room: p.room,
@@ -707,7 +589,7 @@
     }
 
     function buildLauncherUrl(){
-      const p = commonParams();
+      const p = ctx();
       return buildUrl('./goodjunk-launcher.html', {
         pid: p.pid,
         name: p.name,
@@ -726,12 +608,9 @@
       });
     }
 
-    function buildEngineUrl(room){
-      const p = commonParams();
-      const me = getPlayerByPid(room, p.pid);
-      const role = me?.role === 'host' ? 'host' : 'player';
-
-      const href = buildUrl('./vr-goodjunk/goodjunk-vr.html', {
+    function buildEngineUrl(room, role='player'){
+      const p = ctx();
+      return buildUrl('./vr-goodjunk/goodjunk-vr-battle.html', {
         mode: 'battle',
         entry: 'battle',
         recommendedMode: 'battle',
@@ -759,207 +638,233 @@
         multiplayer: '1',
         modeLocked: '1'
       });
-
-      saveLastMode(p.pid, 'battle', href);
-      return href;
     }
 
-    function showLayer(){
-      $('stateLayer').style.display = 'grid';
-      $('engineWrap').classList.remove('show');
+    function setLinks(){
+      const lobby = buildLobbyUrl();
+      const launcher = buildLauncherUrl();
+      const hub = ctx().hub;
+
+      $('btnBackLobby').href = lobby;
+      $('btnBackLauncher').href = launcher;
+      $('btnBackHub').href = hub;
+
+      $('btnLobbyInline').href = lobby;
+      $('btnLauncherInline').href = launcher;
     }
 
-    function hideLayer(){
-      $('stateLayer').style.display = 'none';
-      $('engineWrap').classList.add('show');
-    }
-
-    function classifyRoom(room){
-      const p = commonParams();
-
-      if (p.mode !== 'battle') {
-        return {
-          ok: false,
-          kind: 'blocked',
-          title: 'โหมดไม่ถูกต้อง',
-          sub: 'หน้านี้ใช้สำหรับ battle เท่านั้น ระบบจะไม่ยอม fallback ไป solo'
-        };
-      }
-
-      if (!p.room) {
-        return {
-          ok: false,
-          kind: 'error',
-          title: 'ไม่พบ Room Code',
-          sub: 'หน้านี้ต้องมี room มาก่อน กรุณากลับไปหน้า lobby แล้วสร้างห้องหรือเข้าห้องใหม่'
-        };
-      }
-
-      if (!room) {
-        return {
-          ok: false,
-          kind: 'checking',
-          title: 'กำลังหาห้อง',
-          sub: 'ยังไม่พบข้อมูลห้องนี้ หรือ backend กำลังซิงก์ข้อมูล'
-        };
-      }
-
-      if (room.mode !== 'battle') {
-        return {
-          ok: false,
-          kind: 'blocked',
-          title: 'ห้องนี้ไม่ใช่ Battle',
-          sub: 'พบ room แล้ว แต่โหมดของห้องไม่ตรงกับ battle'
-        };
-      }
-
-      const me = getPlayerByPid(room, p.pid);
-      if (!me) {
-        return {
-          ok: false,
-          kind: 'blocked',
-          title: 'ผู้เล่นนี้ไม่ได้อยู่ในห้อง',
-          sub: 'กรุณากลับไป lobby แล้วเข้าห้องนี้ด้วยชื่อ/PID เดิมก่อน'
-        };
-      }
-
-      const count = getPlayerCount(room);
-
-      if (count < 2) {
-        return {
-          ok: false,
-          kind: 'waiting',
-          title: 'รอผู้เล่นให้ครบ 2 คน',
-          sub: `ตอนนี้มี ${count}/2 คน ระบบจะยังไม่เปิดเกม`
-        };
-      }
-
-      if (count > 2) {
-        return {
-          ok: false,
-          kind: 'blocked',
-          title: 'จำนวนผู้เล่นเกิน',
-          sub: `ห้อง battle ต้องมีแค่ 2 คน แต่ตอนนี้มี ${count} คน`
-        };
-      }
-
-      if (room.status !== 'started') {
-        return {
-          ok: false,
-          kind: 'waiting',
-          title: 'รอ Host กดเริ่มเกม',
-          sub: 'ครบ 2/2 แล้ว แต่ห้องยังไม่ถูกสั่งเริ่ม'
-        };
-      }
-
-      return {
-        ok: true,
-        kind: 'ready',
-        title: 'ห้องพร้อมแล้ว',
-        sub: 'ตรวจสอบผ่านทั้งหมด กำลังเข้า engine ของ battle'
-      };
-    }
-
-    function bootEngine(room){
-      if (bootedEngine) return;
-      bootedEngine = true;
-
-      const engineUrl = buildEngineUrl(room);
-      log(`เปิด engine battle -> ${engineUrl}`);
-
-      setStateUi(
-        'launch',
-        'กำลังเข้าเกม Battle',
-        'ห้องพร้อมแล้ว ระบบกำลังเปิด engine ของโหมด battle'
-      );
-
-      const frame = $('engineFrame');
-      frame.src = engineUrl;
-
-      setTimeout(() => {
-        hideLayer();
-      }, 350);
-    }
-
-    async function evaluateRoom(room){
-      lastRoomSnapshot = room || null;
-      updateTopInfo(room);
-      renderPlayers(room);
-
-      const state = classifyRoom(room);
-      setStateUi(state.kind, state.title, state.sub, { allowForce: state.ok });
-      log(`${state.kind}: ${state.title}`);
-
-      if (state.ok) {
-        bootEngine(room);
-      }
-    }
-
-    async function watchRoom(){
-      const p = commonParams();
-
-      if (!p.room) {
-        await evaluateRoom(null);
-        return;
-      }
-
-      if (unsubscribeRoom && typeof unsubscribeRoom === 'function') {
-        try { unsubscribeRoom(); } catch (_) {}
-        unsubscribeRoom = null;
-      }
-
-      unsubscribeRoom = roomApi.subscribeRoom(p.room, async (room) => {
-        await evaluateRoom(room);
-      });
-    }
-
-    function bindActions(){
-      $('btnBackLobby')?.addEventListener('click', () => {
-        location.href = buildLobbyUrl();
-      });
-
-      $('btnBackLauncher')?.addEventListener('click', () => {
-        location.href = buildLauncherUrl();
-      });
-
-      $('btnBackHub')?.addEventListener('click', () => {
-        location.href = commonParams().hub;
-      });
-
-      $('btnRetry')?.addEventListener('click', () => {
-        showLayer();
-        bootedEngine = false;
-        $('engineFrame').src = 'about:blank';
-        watchRoom();
-      });
-
-      $('btnForceOpen')?.addEventListener('click', () => {
-        if (!lastRoomSnapshot) return;
-        bootEngine(lastRoomSnapshot);
-      });
-    }
-
-    function initTopInfo(){
-      const p = commonParams();
+    function renderStaticInfo(){
+      const p = ctx();
       $('infoRoom').textContent = p.room || '-';
       $('infoMode').textContent = 'battle';
       $('infoRole').textContent = p.role || '-';
       $('infoPlayers').textContent = '-';
-      $('infoStatus').textContent = 'checking';
+      $('infoStatus').textContent = p.room ? 'checking' : 'no-room';
+
       $('chipRoom').textContent = `Room: ${p.room || '-'}`;
       $('chipPlayers').textContent = 'Players: -';
       $('chipLimit').textContent = 'Limit: 2/2';
-      $('chipStarted').textContent = 'Status: checking';
+      $('chipStarted').textContent = `Status: ${p.room ? 'checking' : 'no-room'}`;
     }
 
-    async function init(){
-      roomApi = makeRoomAdapter();
-      initTopInfo();
-      bindActions();
-      await watchRoom();
+    function renderPlayers(room, getPlayers){
+      const wrap = $('playersList');
+      if (!wrap) return;
+
+      if (!room) {
+        wrap.innerHTML = '<div class="player-row"><div class="player-name">ยังไม่พบข้อมูลห้อง</div><div class="player-pill">-</div></div>';
+        return;
+      }
+
+      const players = getPlayers(room);
+      if (!players.length) {
+        wrap.innerHTML = '<div class="player-row"><div class="player-name">ยังไม่มีผู้เล่น</div><div class="player-pill">0</div></div>';
+        return;
+      }
+
+      wrap.innerHTML = players.map((p, idx) => {
+        const isHost = p.role === 'host';
+        return `
+          <div class="player-row">
+            <div class="player-name">${idx + 1}. ${String(p.name || p.pid || 'Player')}</div>
+            <div class="player-pill ${isHost ? 'host' : 'guest'}">${isHost ? '👑 Host' : '⚔️ Rival'}</div>
+          </div>
+        `;
+      }).join('');
     }
 
-    init();
+    function setState(kind, title, sub){
+      const iconMap = {
+        checking: '🔍',
+        waiting: '⏳',
+        ready: '🎮',
+        launch: '🚀',
+        error: '⚠️',
+        blocked: '🛑',
+        noroom: '📭'
+      };
+
+      $('stateIcon').textContent = iconMap[kind] || '🔍';
+      $('stateTitle').textContent = title || '';
+      $('stateSub').textContent = sub || '';
+      $('spinner').style.display =
+        kind === 'checking' || kind === 'waiting' || kind === 'launch'
+          ? 'block'
+          : 'none';
+    }
+
+    function initNoRoomState(){
+      setState(
+        'noroom',
+        'หน้านี้ยังไม่มี Room',
+        'battle-play ต้องถูกเปิดมาจาก lobby ที่มี room แล้ว ตอนนี้เลยยังเข้าเกมไม่ได้ แต่ปุ่มกลับใช้งานได้แน่นอน'
+      );
+      log('ROOM_MISSING: no room in query');
+      $('infoStatus').textContent = 'no-room';
+      $('chipStarted').textContent = 'Status: no-room';
+      $('btnRetry').addEventListener('click', () => {
+        location.href = buildLobbyUrl();
+      });
+    }
+
+    async function initBattleCheck(){
+      const p = ctx();
+
+      if (!p.room) {
+        initNoRoomState();
+        return;
+      }
+
+      let mod = null;
+      try {
+        mod = await import('./vr-goodjunk/goodjunk-battle-room.js?v=20260410c-GJ-BATTLE-ROOM-GUARD-1V1-STABLE');
+      } catch (err) {
+        setState(
+          'error',
+          'โหลดระบบตรวจห้องไม่สำเร็จ',
+          'ไฟล์ตรวจ room battle โหลดไม่ขึ้น แต่ปุ่มกลับยังใช้ได้'
+        );
+        log(`IMPORT_FAIL: ${String(err?.message || err || 'unknown')}`);
+        $('infoStatus').textContent = 'import-fail';
+        $('chipStarted').textContent = 'Status: import-fail';
+        $('btnRetry').addEventListener('click', () => location.reload());
+        return;
+      }
+
+      const {
+        makeRoomAdapter,
+        getPlayers,
+        getPlayerCount,
+        getPlayerByPid
+      } = mod;
+
+      let unsub = null;
+      const roomApi = makeRoomAdapter();
+
+      function evaluate(room){
+        $('chipRoom').textContent = `Room: ${p.room || '-'}`;
+        renderPlayers(room, getPlayers);
+
+        if (!room) {
+          setState('checking', 'กำลังหาห้อง', 'ยังไม่พบข้อมูลห้องนี้ หรือ backend กำลังซิงก์ข้อมูล');
+          $('infoPlayers').textContent = '-';
+          $('infoStatus').textContent = 'checking';
+          $('chipPlayers').textContent = 'Players: -';
+          $('chipStarted').textContent = 'Status: checking';
+          log('ROOM_NOT_FOUND');
+          return;
+        }
+
+        $('infoRoom').textContent = room.roomId || p.room;
+        $('infoPlayers').textContent = `${getPlayerCount(room)}/2`;
+        $('chipPlayers').textContent = `Players: ${getPlayerCount(room)}/2`;
+        $('chipStarted').textContent = `Status: ${room.status || 'waiting'}`;
+
+        if (room.mode !== 'battle') {
+          setState('blocked', 'ห้องนี้ไม่ใช่ Battle', 'พบ room แล้ว แต่ mode ของห้องไม่ใช่ battle');
+          $('infoStatus').textContent = 'mode-mismatch';
+          log('ROOM_MODE_MISMATCH');
+          return;
+        }
+
+        const me = getPlayerByPid(room, p.pid);
+        if (!me) {
+          setState('blocked', 'ผู้เล่นนี้ไม่ได้อยู่ในห้อง', 'กรุณากลับไป lobby แล้วเข้าห้องด้วย PID เดิมก่อน');
+          $('infoStatus').textContent = 'not-in-room';
+          log('PLAYER_NOT_IN_ROOM');
+          return;
+        }
+
+        $('infoRole').textContent = me.role || 'player';
+
+        const count = getPlayerCount(room);
+
+        if (count < 2) {
+          setState('waiting', 'รอผู้เล่นให้ครบ 2 คน', `ตอนนี้มี ${count}/2 คน ระบบจะยังไม่เปิดเกม`);
+          $('infoStatus').textContent = 'waiting-player';
+          log(`WAITING_PLAYER: ${count}/2`);
+          return;
+        }
+
+        if (count > 2) {
+          setState('blocked', 'จำนวนผู้เล่นเกิน', `ห้อง battle ต้องมีแค่ 2 คน แต่ตอนนี้มี ${count} คน`);
+          $('infoStatus').textContent = 'overflow';
+          log(`ROOM_OVERFLOW: ${count}`);
+          return;
+        }
+
+        if (room.status !== 'started') {
+          setState('waiting', 'รอ Host กดเริ่มเกม', 'ครบ 2/2 แล้ว แต่ห้องยังไม่ถูกสั่งเริ่ม');
+          $('infoStatus').textContent = 'waiting-start';
+          log('WAITING_START');
+          return;
+        }
+
+        setState('launch', 'ห้องพร้อมแล้ว', 'กำลังเข้าเกม battle');
+        $('infoStatus').textContent = 'ready';
+        log('READY -> redirect engine');
+
+        const engineUrl = buildEngineUrl(room, me.role || 'player');
+        setTimeout(() => {
+          location.href = engineUrl;
+        }, 350);
+      }
+
+      $('btnRetry').addEventListener('click', async () => {
+        log('retry...');
+        try {
+          const room = await roomApi.loadRoom(p.room);
+          evaluate(room);
+        } catch (err) {
+          log(`RETRY_FAIL: ${String(err?.message || err || 'unknown')}`);
+        }
+      });
+
+      try {
+        const firstRoom = await roomApi.loadRoom(p.room);
+        evaluate(firstRoom);
+      } catch (err) {
+        setState('error', 'โหลดห้องไม่สำเร็จ', 'เกิดปัญหาระหว่างอ่านข้อมูล room แต่ปุ่มกลับยังใช้ได้');
+        $('infoStatus').textContent = 'load-fail';
+        log(`LOAD_FAIL: ${String(err?.message || err || 'unknown')}`);
+      }
+
+      try {
+        unsub = roomApi.subscribeRoom(p.room, (room) => {
+          evaluate(room);
+        });
+      } catch (err) {
+        log(`WATCH_FAIL: ${String(err?.message || err || 'unknown')}`);
+      }
+
+      window.addEventListener('beforeunload', () => {
+        try { unsub?.(); } catch (_) {}
+      });
+    }
+
+    setLinks();
+    renderStaticInfo();
+    initBattleCheck();
   </script>
 </body>
 </html>
