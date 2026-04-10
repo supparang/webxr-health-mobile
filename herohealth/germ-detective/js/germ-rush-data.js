@@ -23,6 +23,7 @@ export const DEFAULT_QUERY = {
   view: 'mobile',
   run: 'play',
   hub: '',
+  next: '',
   zone: GAME_META.zone,
   cat: GAME_META.cat,
   game: GAME_META.game,
@@ -84,12 +85,12 @@ export const HAZARDS = {
     tool: 'wipe',
     severity: 2,
     hp: 1,
-    spreadRate: 0.35,
-    spreadDelayMs: 2800,
-    expireMs: 7600,
+    spreadRate: 0.40,
+    spreadDelayMs: 2600,
+    expireMs: 7200,
     score: 100,
-    infectionOnSpread: 6,
-    infectionOnMiss: 10,
+    infectionOnSpread: 7,
+    infectionOnMiss: 11,
     behavior: 'grow_area',
     visual: {
       color: '#ff7a8b',
@@ -98,7 +99,7 @@ export const HAZARDS = {
     },
     feedback: {
       good: 'เช็ดคราบของดิบออกแล้ว',
-      bad: 'คราบของดิบยังปนเปื้อนอยู่'
+      bad: 'คราบของดิบเริ่มลาม'
     }
   },
 
@@ -107,14 +108,14 @@ export const HAZARDS = {
     label: 'ละอองจาม',
     shortLabel: 'ละอองจาม',
     tool: 'spray',
-    severity: 3,
+    severity: 4,
     hp: 1,
-    spreadRate: 0.70,
-    spreadDelayMs: 1900,
-    expireMs: 5200,
-    score: 120,
-    infectionOnSpread: 10,
-    infectionOnMiss: 14,
+    spreadRate: 0.90,
+    spreadDelayMs: 1650,
+    expireMs: 4600,
+    score: 135,
+    infectionOnSpread: 12,
+    infectionOnMiss: 16,
     behavior: 'jump_spawn',
     visual: {
       color: '#72f0ff',
@@ -122,8 +123,8 @@ export const HAZARDS = {
       shape: 'cloud'
     },
     feedback: {
-      good: 'หยุดการแพร่ของละอองได้แล้ว',
-      bad: 'ละอองจามกำลังแพร่เพิ่ม'
+      good: 'หยุดละอองจามได้แล้ว',
+      bad: 'ละอองจามกำลังแตกไปจุดอื่น'
     }
   },
 
@@ -134,12 +135,12 @@ export const HAZARDS = {
     tool: 'trash',
     severity: 3,
     hp: 1,
-    spreadRate: 0.45,
-    spreadDelayMs: 3200,
-    expireMs: 8600,
-    score: 130,
-    infectionOnSpread: 8,
-    infectionOnMiss: 12,
+    spreadRate: 0.52,
+    spreadDelayMs: 2900,
+    expireMs: 7800,
+    score: 145,
+    infectionOnSpread: 9,
+    infectionOnMiss: 13,
     behavior: 'spawn_minis',
     visual: {
       color: '#d58aff',
@@ -147,8 +148,8 @@ export const HAZARDS = {
       shape: 'blob'
     },
     feedback: {
-      good: 'แยกอาหารขึ้นราออกแล้ว',
-      bad: 'รากำลังปล่อยเชื้อเพิ่ม'
+      good: 'ทิ้งอาหารขึ้นราแล้ว',
+      bad: 'ราเริ่มปล่อยเชื้อเพิ่ม'
     }
   }
 };
@@ -164,7 +165,7 @@ export const DIFFICULTY = {
     id: 'easy',
     label: 'Easy',
     roundTime: 63,
-    introMs: 3000,
+    introMs: 3200,
     maxConcurrent: 2,
     spawnIntervalMs: 2200,
     spreadMultiplier: 0.85,
@@ -194,7 +195,7 @@ export const DIFFICULTY = {
     id: 'hard',
     label: 'Hard',
     roundTime: 90,
-    introMs: 2500,
+    introMs: 2600,
     maxConcurrent: 4,
     spawnIntervalMs: 1350,
     spreadMultiplier: 1.18,
@@ -208,29 +209,29 @@ export const DIFFICULTY = {
 
 export const PHASE_PLANS = {
   easy: [
-    { id: 'intro', ms: 3000, label: 'READY' },
-    { id: 'wave1', ms: 18000, label: 'SCAN' },
-    { id: 'wave2', ms: 18000, label: 'CLEAN' },
-    { id: 'boss', ms: 12000, label: 'BOSS' },
-    { id: 'final_rush', ms: 12000, label: 'RUSH' },
+    { id: 'intro', ms: 3200, label: 'READY' },
+    { id: 'wave1', ms: 16000, label: 'SCAN' },
+    { id: 'wave2', ms: 19000, label: 'CLEAN' },
+    { id: 'boss', ms: 14000, label: 'BOSS' },
+    { id: 'final_rush', ms: 13000, label: 'RUSH' },
     { id: 'summary', ms: 0, label: 'RESULT' }
   ],
 
   normal: [
     { id: 'intro', ms: 3000, label: 'READY' },
-    { id: 'wave1', ms: 22000, label: 'SCAN' },
+    { id: 'wave1', ms: 18000, label: 'SCAN' },
     { id: 'wave2', ms: 22000, label: 'CLEAN' },
     { id: 'boss', ms: 14000, label: 'BOSS' },
-    { id: 'final_rush', ms: 14000, label: 'RUSH' },
+    { id: 'final_rush', ms: 15000, label: 'RUSH' },
     { id: 'summary', ms: 0, label: 'RESULT' }
   ],
 
   hard: [
-    { id: 'intro', ms: 2500, label: 'READY' },
-    { id: 'wave1', ms: 25000, label: 'SCAN' },
-    { id: 'wave2', ms: 25000, label: 'CLEAN' },
+    { id: 'intro', ms: 2600, label: 'READY' },
+    { id: 'wave1', ms: 19000, label: 'SCAN' },
+    { id: 'wave2', ms: 24000, label: 'CLEAN' },
     { id: 'boss', ms: 16000, label: 'BOSS' },
-    { id: 'final_rush', ms: 18000, label: 'RUSH' },
+    { id: 'final_rush', ms: 17000, label: 'RUSH' },
     { id: 'summary', ms: 0, label: 'RESULT' }
   ]
 };
@@ -239,15 +240,17 @@ export const BOSSES = {
   cross_contam: {
     id: 'cross_contam',
     label: 'Cross-Contam Panic',
-    durationMs: 12000,
-    scoreBonus: 260,
-    infectionPenaltyOnFail: 22,
-    infectionRewardOnClear: 10,
+    durationMs: 14000,
+    scoreBonus: 320,
+    infectionPenaltyOnFail: 26,
+    infectionRewardOnClear: 12,
     pattern: [
-      { t: 0, type: 'raw_spill', spot: 'counter_left' },
-      { t: 700, type: 'sneeze_cloud', spot: 'counter_mid' },
-      { t: 1450, type: 'raw_spill', spot: 'counter_right' },
-      { t: 2800, type: 'mold_food', spot: 'table_mid' }
+      { t: 0,    type: 'raw_spill',    spot: 'counter_left' },
+      { t: 600,  type: 'sneeze_cloud', spot: 'counter_mid', priority: true, priorityText: 'เก็บละอองกลางฉากก่อน!' },
+      { t: 1300, type: 'raw_spill',    spot: 'counter_right' },
+      { t: 2400, type: 'mold_food',    spot: 'table_mid' },
+      { t: 4200, type: 'sneeze_cloud', spot: 'table_left', priority: true, priorityText: 'ละอองกำลังแตก รีบเก็บ!' },
+      { t: 5800, type: 'raw_spill',    spot: 'table_right' }
     ],
     successText: 'หยุดการปนเปื้อนข้ามได้แล้ว!',
     failText: 'ของดิบเริ่มปนกับของพร้อมกิน!'
@@ -315,83 +318,85 @@ export const SUMMARY_RULES = {
 export const WAVE_SCRIPTS = {
   easy: {
     wave1: [
-      { t: 1000, type: 'raw_spill',   spot: 'counter_left' },
-      { t: 3500, type: 'sneeze_cloud', spot: 'table_mid' },
-      { t: 6200, type: 'mold_food',   spot: 'table_right' },
-      { t: 9500, type: 'raw_spill',   spot: 'counter_right' },
-      { t: 12600, type: 'sneeze_cloud', spot: 'counter_mid' }
+      { t: 1400, type: 'raw_spill',    spot: 'counter_left' },
+      { t: 5000, type: 'sneeze_cloud', spot: 'table_mid' },
+      { t: 9200, type: 'mold_food',    spot: 'table_right' },
+      { t: 12800, type: 'raw_spill',   spot: 'counter_right' }
     ],
     wave2: [
-      { t: 900,  type: 'mold_food',    spot: 'table_left' },
-      { t: 3100, type: 'sneeze_cloud', spot: 'counter_mid' },
-      { t: 5600, type: 'raw_spill',    spot: 'counter_right' },
-      { t: 8200, type: 'sneeze_cloud', spot: 'table_mid' },
-      { t: 11200, type: 'raw_spill',   spot: 'counter_left' }
+      { t: 900,  type: 'sneeze_cloud', spot: 'counter_mid' },
+      { t: 3100, type: 'raw_spill',    spot: 'counter_left' },
+      { t: 5600, type: 'mold_food',    spot: 'table_mid' },
+      { t: 8200, type: 'sneeze_cloud', spot: 'table_left' },
+      { t: 10900, type: 'raw_spill',   spot: 'counter_right' },
+      { t: 13600, type: 'sneeze_cloud', spot: 'table_right' }
     ],
     final_rush: [
-      { t: 800,  type: 'sneeze_cloud', spot: 'counter_mid' },
-      { t: 2200, type: 'raw_spill',    spot: 'counter_right' },
-      { t: 3900, type: 'mold_food',    spot: 'table_mid' },
-      { t: 5700, type: 'sneeze_cloud', spot: 'table_left' }
+      { t: 700,  type: 'sneeze_cloud', spot: 'counter_mid' },
+      { t: 1800, type: 'raw_spill',    spot: 'counter_left' },
+      { t: 3100, type: 'mold_food',    spot: 'table_mid' },
+      { t: 4700, type: 'sneeze_cloud', spot: 'counter_right' },
+      { t: 6200, type: 'raw_spill',    spot: 'table_left' },
+      { t: 7900, type: 'sneeze_cloud', spot: 'table_right' }
     ]
   },
 
   normal: {
     wave1: [
-      { t: 900,  type: 'raw_spill',    spot: 'counter_left' },
-      { t: 2500, type: 'sneeze_cloud', spot: 'table_mid' },
-      { t: 4200, type: 'mold_food',    spot: 'table_right' },
-      { t: 6100, type: 'sneeze_cloud', spot: 'counter_mid' },
-      { t: 7900, type: 'raw_spill',    spot: 'counter_right' },
-      { t: 9800, type: 'sneeze_cloud', spot: 'table_left' }
+      { t: 1000, type: 'raw_spill',    spot: 'counter_left' },
+      { t: 3300, type: 'sneeze_cloud', spot: 'table_mid' },
+      { t: 5900, type: 'mold_food',    spot: 'table_right' },
+      { t: 8400, type: 'sneeze_cloud', spot: 'counter_mid' },
+      { t: 10800, type: 'raw_spill',   spot: 'counter_right' }
     ],
     wave2: [
-      { t: 700,  type: 'mold_food',    spot: 'table_left' },
-      { t: 2100, type: 'sneeze_cloud', spot: 'counter_mid' },
-      { t: 3800, type: 'raw_spill',    spot: 'counter_right' },
-      { t: 5300, type: 'sneeze_cloud', spot: 'table_mid' },
-      { t: 6800, type: 'raw_spill',    spot: 'counter_left' },
-      { t: 8600, type: 'mold_food',    spot: 'table_right' },
-      { t: 10500, type: 'sneeze_cloud', spot: 'counter_mid' }
+      { t: 700,  type: 'sneeze_cloud', spot: 'counter_mid' },
+      { t: 2200, type: 'raw_spill',    spot: 'counter_left' },
+      { t: 3900, type: 'mold_food',    spot: 'table_mid' },
+      { t: 5600, type: 'sneeze_cloud', spot: 'table_left' },
+      { t: 7350, type: 'raw_spill',    spot: 'counter_right' },
+      { t: 9100, type: 'mold_food',    spot: 'table_right' },
+      { t: 10850, type: 'sneeze_cloud', spot: 'counter_mid' }
     ],
     final_rush: [
-      { t: 600,  type: 'sneeze_cloud', spot: 'counter_mid' },
-      { t: 1650, type: 'raw_spill',    spot: 'counter_left' },
-      { t: 2750, type: 'mold_food',    spot: 'table_mid' },
-      { t: 4050, type: 'sneeze_cloud', spot: 'counter_right' },
-      { t: 5300, type: 'raw_spill',    spot: 'table_left' },
-      { t: 6700, type: 'sneeze_cloud', spot: 'table_right' }
+      { t: 500,  type: 'sneeze_cloud', spot: 'counter_mid' },
+      { t: 1450, type: 'raw_spill',    spot: 'counter_left' },
+      { t: 2600, type: 'mold_food',    spot: 'table_mid' },
+      { t: 3800, type: 'sneeze_cloud', spot: 'counter_right' },
+      { t: 4950, type: 'raw_spill',    spot: 'table_left' },
+      { t: 6200, type: 'sneeze_cloud', spot: 'table_right' },
+      { t: 7600, type: 'mold_food',    spot: 'counter_mid' }
     ]
   },
 
   hard: {
     wave1: [
-      { t: 700,  type: 'raw_spill',    spot: 'counter_left' },
-      { t: 1800, type: 'sneeze_cloud', spot: 'table_mid' },
-      { t: 3000, type: 'mold_food',    spot: 'table_right' },
-      { t: 4300, type: 'sneeze_cloud', spot: 'counter_mid' },
-      { t: 5500, type: 'raw_spill',    spot: 'counter_right' },
-      { t: 6900, type: 'mold_food',    spot: 'table_left' },
-      { t: 8200, type: 'sneeze_cloud', spot: 'counter_mid' }
+      { t: 900,  type: 'raw_spill',    spot: 'counter_left' },
+      { t: 2500, type: 'sneeze_cloud', spot: 'table_mid' },
+      { t: 4300, type: 'mold_food',    spot: 'table_right' },
+      { t: 6100, type: 'sneeze_cloud', spot: 'counter_mid' },
+      { t: 7900, type: 'raw_spill',    spot: 'counter_right' },
+      { t: 9800, type: 'sneeze_cloud', spot: 'table_left' }
     ],
     wave2: [
-      { t: 600,  type: 'mold_food',    spot: 'table_left' },
-      { t: 1500, type: 'sneeze_cloud', spot: 'counter_mid' },
-      { t: 2600, type: 'raw_spill',    spot: 'counter_right' },
-      { t: 3750, type: 'sneeze_cloud', spot: 'table_mid' },
-      { t: 4900, type: 'raw_spill',    spot: 'counter_left' },
-      { t: 6000, type: 'mold_food',    spot: 'table_right' },
-      { t: 7200, type: 'sneeze_cloud', spot: 'counter_mid' },
-      { t: 8400, type: 'raw_spill',    spot: 'table_mid' }
+      { t: 650,  type: 'sneeze_cloud', spot: 'counter_mid' },
+      { t: 1800, type: 'raw_spill',    spot: 'counter_left' },
+      { t: 3100, type: 'mold_food',    spot: 'table_mid' },
+      { t: 4500, type: 'sneeze_cloud', spot: 'table_left' },
+      { t: 5850, type: 'raw_spill',    spot: 'counter_right' },
+      { t: 7200, type: 'mold_food',    spot: 'table_right' },
+      { t: 8600, type: 'sneeze_cloud', spot: 'counter_mid' },
+      { t: 10000, type: 'raw_spill',   spot: 'table_mid' }
     ],
     final_rush: [
-      { t: 500,  type: 'sneeze_cloud', spot: 'counter_mid' },
-      { t: 1350, type: 'raw_spill',    spot: 'counter_left' },
-      { t: 2250, type: 'mold_food',    spot: 'table_mid' },
+      { t: 450,  type: 'sneeze_cloud', spot: 'counter_mid' },
+      { t: 1250, type: 'raw_spill',    spot: 'counter_left' },
+      { t: 2200, type: 'mold_food',    spot: 'table_mid' },
       { t: 3200, type: 'sneeze_cloud', spot: 'counter_right' },
-      { t: 4150, type: 'raw_spill',    spot: 'table_left' },
-      { t: 5150, type: 'mold_food',    spot: 'table_right' },
-      { t: 6200, type: 'sneeze_cloud', spot: 'counter_mid' }
+      { t: 4200, type: 'raw_spill',    spot: 'table_left' },
+      { t: 5200, type: 'mold_food',    spot: 'table_right' },
+      { t: 6300, type: 'sneeze_cloud', spot: 'counter_mid' },
+      { t: 7600, type: 'raw_spill',    spot: 'table_mid' }
     ]
   }
 };
