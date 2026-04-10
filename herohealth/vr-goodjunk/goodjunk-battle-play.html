@@ -459,7 +459,7 @@
           <div class="brand-badge">⚔️</div>
           <div>
             <div class="brand-title">GoodJunk Battle Play</div>
-            <div class="brand-sub">wrapper สำหรับตรวจ room battle แบบ 1v1 และกันไม่ให้หลุดไป solo</div>
+            <div class="brand-sub">wrapper สำหรับตรวจ room battle แบบ 1v1 และกันไม่ให้ไหลไป solo</div>
           </div>
         </div>
 
@@ -727,7 +727,7 @@
       const me = getPlayerByPid(room, p.pid);
       const role = me?.role === 'host' ? 'host' : 'player';
 
-      const href = buildUrl('./vr-goodjunk/goodjunk-vr.html', {
+      const href = buildUrl('./vr-goodjunk/goodjunk-vr-battle.html', {
         mode: 'battle',
         entry: 'battle',
         recommendedMode: 'battle',
