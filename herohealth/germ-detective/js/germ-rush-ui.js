@@ -1,7 +1,7 @@
 // /herohealth/germ-detective/js/germ-rush-ui.js
 // Germ Detective: Outbreak Rush
 // UI LAYER MODULE
-// PATCH v20260410c-germ-rush-ui-mvp
+// PATCH v20260410d-germ-rush-ui-polish1
 
 import {
   TOOL_ORDER,
@@ -100,23 +100,73 @@ export function createGermRushUI({ ui, query }) {
     if (ui.bossFill) ui.bossFill.style.width = `${clamp(bossPct, 0, 100)}%`;
   }
 
+  function updateRoomTint({ infection = 0, bossActive = false }) {
+    if (!ui.roomTint) return;
+
+    const normalized = clamp(infection / 100, 0, 1);
+    const bossBonus = bossActive ? 0.12 : 0;
+    const opacity = Math.min(0.42, (normalized * 0.34) + bossBonus);
+
+    ui.roomTint.style.opacity = String(opacity);
+
+    if (bossActive) {
+      ui.roomTint.style.background = `
+        radial-gradient(circle at center, rgba(255,255,255,0) 30%, rgba(255,122,139,.18) 100%),
+        linear-gradient(180deg, rgba(255,0,60,.04), rgba(255,0,60,.10))
+      `;
+    } else if (infection >= 70) {
+      ui.roomTint.style.background = `
+        radial-gradient(circle at center, rgba(255,255,255,0) 34%, rgba(255,122,139,.16) 100%),
+        linear-gradient(180deg, rgba(255,0,60,.00), rgba(255,0,60,.09))
+      `;
+    } else if (infection >= 35) {
+      ui.roomTint.style.background = `
+        radial-gradient(circle at center, rgba(255,255,255,0) 36%, rgba(255,215,104,.12) 100%),
+        linear-gradient(180deg, rgba(255,180,0,.00), rgba(255,180,0,.05))
+      `;
+    } else {
+      ui.roomTint.style.background = `
+        radial-gradient(circle at center, rgba(255,255,255,0) 38%, rgba(114,240,255,.08) 100%),
+        linear-gradient(180deg, rgba(0,180,255,.00), rgba(0,180,255,.02))
+      `;
+    }
+  }
+
+  function showBossAlarm(text = 'BOSS ALERT!') {
+    if (!ui.bossAlarm) return;
+    ui.bossAlarm.textContent = text;
+    ui.bossAlarm.style.display = 'block';
+  }
+
+  function hideBossAlarm() {
+    if (!ui.bossAlarm) return;
+    ui.bossAlarm.style.display = 'none';
+  }
+
   function showFeedback(text, kind = 'good') {
     if (!ui.feedbackChip) return;
 
     ui.feedbackChip.textContent = text;
     ui.feedbackChip.style.display = 'block';
-    ui.feedbackChip.style.background = kind === 'good'
-      ? 'rgba(119,239,157,.16)'
-      : 'rgba(255,122,139,.16)';
-    ui.feedbackChip.style.border = kind === 'good'
-      ? '1px solid rgba(119,239,157,.30)'
-      : '1px solid rgba(255,122,139,.30)';
-    ui.feedbackChip.style.color = kind === 'good' ? '#e7fff0' : '#ffe4e8';
+
+    if (kind === 'good') {
+      ui.feedbackChip.style.background = 'rgba(119,239,157,.16)';
+      ui.feedbackChip.style.border = '1px solid rgba(119,239,157,.30)';
+      ui.feedbackChip.style.color = '#e7fff0';
+    } else if (kind === 'warn') {
+      ui.feedbackChip.style.background = 'rgba(255,215,104,.18)';
+      ui.feedbackChip.style.border = '1px solid rgba(255,215,104,.34)';
+      ui.feedbackChip.style.color = '#fff1b9';
+    } else {
+      ui.feedbackChip.style.background = 'rgba(255,122,139,.16)';
+      ui.feedbackChip.style.border = '1px solid rgba(255,122,139,.30)';
+      ui.feedbackChip.style.color = '#ffe4e8';
+    }
 
     clearTimeout(showFeedback._t);
     showFeedback._t = setTimeout(() => {
       ui.feedbackChip.style.display = 'none';
-    }, 900);
+    }, kind === 'warn' ? 780 : 900);
   }
 
   function flashDamage() {
@@ -141,7 +191,8 @@ export function createGermRushUI({ ui, query }) {
     if (!ui.comboChip || combo < 2) return;
 
     let label = `COMBO x${combo}`;
-    if (combo >= 8) label = `SUPER CLEAN x${combo}`;
+    if (combo >= 10) label = `ULTRA CLEAN x${combo}`;
+    else if (combo >= 7) label = `SUPER CLEAN x${combo}`;
     else if (combo >= 5) label = `GREAT x${combo}`;
     else if (combo >= 3) label = `NICE x${combo}`;
 
@@ -151,7 +202,7 @@ export function createGermRushUI({ ui, query }) {
     clearTimeout(showCombo._t);
     showCombo._t = setTimeout(() => {
       ui.comboChip.style.display = 'none';
-    }, 900);
+    }, 950);
   }
 
   function showStart() {
@@ -227,6 +278,9 @@ export function createGermRushUI({ ui, query }) {
     renderToolBar,
     syncToolButtons,
     updateHUD,
+    updateRoomTint,
+    showBossAlarm,
+    hideBossAlarm,
     setPrompt,
     showFeedback,
     flashDamage,
