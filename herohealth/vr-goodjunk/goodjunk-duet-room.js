@@ -225,7 +225,11 @@ export async function ensureDuetSession(ctx = {}, options = {}){
   const roomId = clean(ctx.room, '');
 
   if (!roomId) {
-    throw new Error('DUET_ROOM_MISSING');
+    const err = new Error('DUET_ROOM_MISSING');
+    err.code = 'DUET_ROOM_MISSING';
+    err.title = 'ไม่พบ Room Code';
+    err.messageUser = 'ต้องมี room ก่อนเข้าเล่นโหมด duet';
+    throw err;
   }
 
   saveRecentRoom('duet', roomId);
