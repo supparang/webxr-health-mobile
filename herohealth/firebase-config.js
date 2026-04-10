@@ -1,248 +1,119 @@
 /* /herohealth/firebase-config.js
    Firebase compat bootstrap - FINAL MATCHED
-   For HeroHealth run pages using window.firebase + anonymous auth
-   + expose Apps Script endpoint for HeroHealth logger
+   For HeroHealth pages using window.firebase + anonymous auth
 */
 (function () {
   'use strict';
 
   const W = window;
 
+  // ถ้ามี context พร้อมอยู่แล้ว ไม่ต้อง init ซ้ำ
+  if (W.HHA_FIREBASE && W.HHA_FIREBASE.ready && W.HHA_FIREBASE.db) {
+    if (!W.HHA_FIREBASE_READY) {
+      W.HHA_FIREBASE_READY = Promise.resolve(W.HHA_FIREBASE);
+    }
+    return;
+  }
+
+  // ===== HeroHealth Firebase Config =====
+  // ใช้ค่าที่คุณเคยแปะมาให้ก่อน
+  // ถ้า Realtime Database URL ของโปรเจกต์จริงไม่ตรง ให้แก้เฉพาะ databaseURL บรรทัดเดียว
   const CONFIG = {
     apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
     authDomain: "herohealth-d7f8c.firebaseapp.com",
-    databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
     projectId: "herohealth-d7f8c",
-    storageBucket: "herohealth-d7f8c.firebasestorage.app",
-    messagingSenderId: "680817376848",
-    appId: "1:680817376848:web:eed21b522b0703f6bd9b55",
-    measurementId: "G-T5J8DC0BKD"
+    databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app"
   };
 
-  // ===== HeroHealth Apps Script ingest =====
-  // ใส่ endpoint จริงของคุณตรงนี้
-  const APPS_SCRIPT_URL =
-    "https://script.google.com/macros/s/AKfycbxkMfe1Bm5RNsK8Se6VH5n7sUuXr0CVJTARZROhx_CbimrpJKKQzvTtzOpKbPGYPtaDVw/exec";
+  W.HHA_FIREBASE_CONFIG = CONFIG;
+  W.HEROHEALTH_FIREBASE_CONFIG = CONFIG;
+  W.FIREBASE_CONFIG = CONFIG;
+  W.__firebaseConfig = CONFIG;
 
-  // ถ้ายังไม่ได้ใช้ secret ให้ปล่อยว่างได้
-  const INGEST_SECRET = "";
-
-  let authReadyPromise = null;
-  let anonAuthPromise = null;
-
-  function exposeConfig() {
-    W.HHA_FIREBASE_CONFIG = CONFIG;
-    W.__HHA_FIREBASE_CONFIG__ = CONFIG;
-    W.HEROHEALTH_FIREBASE_CONFIG = CONFIG;
-    W.FIREBASE_CONFIG = CONFIG;
-
-    // expose Apps Script endpoint ให้ logger ใช้
-    W.HHA_APPS_SCRIPT_URL = APPS_SCRIPT_URL;
-    W.HHA_INGEST_SECRET = INGEST_SECRET;
+  function makeCtx(app, auth, db) {
+    return {
+      app,
+      auth,
+      db,
+      config: CONFIG,
+      ready: !!(app && auth && db)
+    };
   }
 
-  function getFirebase() {
-    return W.firebase || null;
-  }
-
-  function getApp() {
-    const firebase = getFirebase();
-    if (!firebase) return null;
-    try {
-      if (firebase.apps && firebase.apps.length) return firebase.app();
-    } catch (_) {}
-    return null;
-  }
-
-  function bootstrapCompat() {
-    exposeConfig();
-
-    const firebase = getFirebase();
-    if (!firebase) {
-      W.HHA_FIREBASE_READY = false;
-      console.error('[firebase-config] firebase compat sdk missing');
-      return false;
+  async function initFirebaseCompat() {
+    if (!W.firebase) {
+      throw new Error('Firebase compat SDK not loaded');
     }
 
-    try {
-      if (!firebase.apps || !firebase.apps.length) {
-        firebase.initializeApp(CONFIG);
-        console.log('[firebase-config] initializeApp ok');
-      } else {
-        console.log('[firebase-config] reuse existing app');
-      }
+    const fb = W.firebase;
 
-      W.HHA_FIREBASE_READY = true;
-      return true;
+    let app;
+    try {
+      app = (fb.apps && fb.apps.length)
+        ? fb.app()
+        : fb.initializeApp(CONFIG);
     } catch (err) {
-      try {
-        if (firebase.apps && firebase.apps.length) {
-          W.HHA_FIREBASE_READY = true;
-          console.log('[firebase-config] initializeApp already exists, reuse app');
-          return true;
-        }
-      } catch (_) {}
-
-      W.HHA_FIREBASE_READY = false;
-      console.error('[firebase-config] init failed:', err);
-      return false;
-    }
-  }
-
-  function waitForAuthReady(timeoutMs = 10000) {
-    exposeConfig();
-
-    if (authReadyPromise) return authReadyPromise;
-
-    authReadyPromise = new Promise((resolve, reject) => {
-      const startedAt = Date.now();
-
-      function step() {
-        const firebase = getFirebase();
-        const ok = bootstrapCompat();
-
-        if (!firebase || !ok) {
-          if (Date.now() - startedAt > timeoutMs) {
-            reject(new Error('Firebase compat not ready'));
-            return;
-          }
-          setTimeout(step, 120);
-          return;
-        }
-
-        try {
-          const auth = firebase.auth();
-          let settled = false;
-
-          const unsub = auth.onAuthStateChanged(
-            function (user) {
-              if (settled) return;
-              settled = true;
-              try { unsub && unsub(); } catch (_) {}
-              resolve(user || null);
-            },
-            function (err) {
-              if (settled) return;
-              settled = true;
-              try { unsub && unsub(); } catch (_) {}
-              reject(err);
-            }
-          );
-
-          setTimeout(function () {
-            if (settled) return;
-            settled = true;
-            try { unsub && unsub(); } catch (_) {}
-            resolve(auth.currentUser || null);
-          }, 1200);
-        } catch (err) {
-          reject(err);
-        }
-      }
-
-      step();
-    });
-
-    return authReadyPromise;
-  }
-
-  async function ensureAnonymousAuth() {
-    exposeConfig();
-
-    if (anonAuthPromise) return anonAuthPromise;
-
-    anonAuthPromise = (async () => {
-      const ok = bootstrapCompat();
-      if (!ok) {
-        throw new Error('Firebase not initialized');
-      }
-
-      const firebase = getFirebase();
-      if (!firebase) {
-        throw new Error('Firebase sdk unavailable');
-      }
-
-      const auth = firebase.auth();
-
-      if (auth.currentUser) {
-        return auth.currentUser;
-      }
-
-      await waitForAuthReady().catch(() => null);
-
-      if (auth.currentUser) {
-        return auth.currentUser;
-      }
-
-      try {
-        await auth.signInAnonymously();
-      } catch (err) {
-        console.error('[firebase-config] anonymous auth failed:', err);
+      if (fb.apps && fb.apps.length) {
+        app = fb.app();
+      } else {
         throw err;
       }
+    }
 
-      await waitForAuthReady().catch(() => null);
+    const auth = (fb.auth && typeof fb.auth === 'function')
+      ? fb.auth()
+      : null;
 
-      if (!auth.currentUser) {
-        throw new Error('Anonymous auth finished without currentUser');
+    const db = (fb.database && typeof fb.database === 'function')
+      ? fb.database()
+      : null;
+
+    if (!auth) throw new Error('Firebase Auth compat not available');
+    if (!db) throw new Error('Firebase Realtime Database compat not available');
+
+    try {
+      if (!auth.currentUser && typeof auth.signInAnonymously === 'function') {
+        await auth.signInAnonymously();
+      }
+    } catch (err) {
+      console.warn('[HeroHealth Firebase] signInAnonymously failed:', err && err.message ? err.message : err);
+    }
+
+    const ctx = makeCtx(app, auth, db);
+    W.HHA_FIREBASE = ctx;
+    return ctx;
+  }
+
+  W.HHA_FIREBASE_READY = (async () => {
+    // ถ้ามีแล้วให้คืนทันที
+    if (W.HHA_FIREBASE && W.HHA_FIREBASE.ready && W.HHA_FIREBASE.db) {
+      return W.HHA_FIREBASE;
+    }
+
+    // ลอง init ได้เลย
+    try {
+      return await initFirebaseCompat();
+    } catch (firstErr) {
+      // เผื่อ SDK ยังโหลดไม่ทัน ให้รอสั้น ๆ แล้วลองอีกครั้ง
+      const start = Date.now();
+      const timeoutMs = 10000;
+
+      while ((Date.now() - start) < timeoutMs) {
+        await new Promise((r) => setTimeout(r, 120));
+
+        if (W.HHA_FIREBASE && W.HHA_FIREBASE.ready && W.HHA_FIREBASE.db) {
+          return W.HHA_FIREBASE;
+        }
+
+        if (W.firebase) {
+          try {
+            return await initFirebaseCompat();
+          } catch (_) {}
+        }
       }
 
-      return auth.currentUser;
-    })();
-
-    try {
-      return await anonAuthPromise;
-    } finally {
-      anonAuthPromise = null;
+      throw firstErr;
     }
-  }
+  })();
 
-  function getDatabase() {
-    const ok = bootstrapCompat();
-    if (!ok) return null;
-
-    const firebase = getFirebase();
-    if (!firebase) return null;
-
-    try {
-      return firebase.database();
-    } catch (err) {
-      console.error('[firebase-config] database unavailable:', err);
-      return null;
-    }
-  }
-
-  function getAuth() {
-    const ok = bootstrapCompat();
-    if (!ok) return null;
-
-    const firebase = getFirebase();
-    if (!firebase) return null;
-
-    try {
-      return firebase.auth();
-    } catch (err) {
-      console.error('[firebase-config] auth unavailable:', err);
-      return null;
-    }
-  }
-
-  function getAppSafe() {
-    bootstrapCompat();
-    return getApp();
-  }
-
-  exposeConfig();
-
-  W.HHA_bootstrapFirebaseCompat = bootstrapCompat;
-  W.HHA_waitForFirebaseReady = waitForAuthReady;
-  W.HHA_ensureAnonymousAuth = ensureAnonymousAuth;
-  W.HHA_getFirebaseApp = getAppSafe;
-  W.HHA_getFirebaseAuth = getAuth;
-  W.HHA_getFirebaseDatabase = getDatabase;
-
-  bootstrapCompat();
-
-  console.log('[firebase-config] ready =', !!W.HHA_FIREBASE_READY);
-  console.log('[firebase-config] appsScript =', W.HHA_APPS_SCRIPT_URL || '(missing)');
 })();
