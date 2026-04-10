@@ -3,25 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>HeroHealth - Clean Objects Hero v2</title>
+  <title>HeroHealth • Clean Objects Hero v3</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;700;800&display=swap" rel="stylesheet">
   <style>
     :root{
       --sky1:#dff6ff;
-      --sky2:#f6fcff;
-      --ink:#1a4462;
-      --blue:#58beff;
-      --blue2:#86d4ff;
-      --green:#58d68d;
-      --green2:#95efb6;
+      --sky2:#f8fcff;
+      --ink:#1b4666;
+      --blue:#5cbfff;
+      --green:#57d48f;
       --yellow:#ffd166;
       --red:#ff6b6b;
-      --pink:#ff8fd0;
-      --foam:#e9fbff;
-      --card:rgba(255,255,255,.94);
-      --line:rgba(26,68,98,.10);
-      --shadow:0 12px 28px rgba(26,68,98,.16);
+      --pink:#ff90d0;
+      --cyan:#9feaff;
+      --card:rgba(255,255,255,.95);
+      --line:rgba(27,70,102,.1);
+      --shadow:0 12px 28px rgba(27,70,102,.16);
     }
 
     *{ box-sizing:border-box; }
@@ -65,7 +63,7 @@
     }
 
     .pill{
-      min-width:112px;
+      min-width:106px;
       background:var(--card);
       border:1px solid var(--line);
       border-radius:18px;
@@ -82,58 +80,132 @@
 
     .pill .value{
       margin-top:6px;
-      font-size:24px;
+      font-size:22px;
       font-weight:800;
       line-height:1;
     }
 
+    .phase .value{ color:#2d77a8; }
     .time .value{ color:var(--blue); }
     .score .value{ color:var(--green); }
     .combo .value{ color:var(--pink); }
     .life .value{ color:var(--red); }
-    .fever .value{ color:#ffb703; }
+    .fever .value{ color:#f0a500; }
 
-    #mission-wrap{
-      display:flex;
-      justify-content:center;
-      margin-top:8px;
+    #center-ui{
+      display:grid;
+      gap:10px;
+      justify-items:center;
+      margin-top:6px;
     }
 
-    #mission{
-      max-width:min(94vw,700px);
-      background:rgba(255,255,255,.92);
+    .bubble{
+      background:rgba(255,255,255,.95);
       border:1px solid var(--line);
-      border-radius:999px;
-      padding:10px 18px;
       box-shadow:var(--shadow);
+      color:#27587b;
+    }
+
+    #coach{
+      max-width:min(94vw,720px);
+      border-radius:18px;
+      padding:10px 16px;
       text-align:center;
       font-size:15px;
-      color:#285577;
     }
 
-    #bottom-wrap{
+    #mission-box{
+      width:min(94vw,760px);
+      border-radius:22px;
+      padding:12px 14px;
+    }
+
+    #mission-title{
+      font-size:15px;
+      text-align:center;
+      margin-bottom:8px;
+      color:#27587b;
+    }
+
+    .progress{
+      width:100%;
+      height:14px;
+      background:#eaf7ff;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid rgba(27,70,102,.08);
+    }
+
+    .progress-fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#6dd5ff,#58d68d);
+      transition:width .2s ease;
+    }
+
+    #mission-sub{
+      margin-top:7px;
+      font-size:13px;
+      text-align:center;
+      opacity:.78;
+    }
+
+    #bottom-tip-wrap{
       display:flex;
       justify-content:center;
       padding-bottom:4px;
     }
 
-    #tip{
-      max-width:min(94vw,720px);
-      background:rgba(255,255,255,.95);
-      border:1px solid var(--line);
+    #bottom-tip{
+      max-width:min(94vw,760px);
       border-radius:18px;
       padding:10px 16px;
-      box-shadow:var(--shadow);
       text-align:center;
       font-size:15px;
-      color:#285577;
+    }
+
+    #phase-banner{
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%,-50%) scale(.95);
+      z-index:18;
+      pointer-events:none;
+      background:rgba(255,255,255,.98);
+      border:1px solid rgba(27,70,102,.1);
+      box-shadow:0 18px 46px rgba(27,70,102,.18);
+      border-radius:26px;
+      padding:18px 24px;
+      min-width:min(88vw,420px);
+      text-align:center;
+      opacity:0;
+      transition:opacity .25s ease, transform .25s ease;
+    }
+
+    #phase-banner.show{
+      opacity:1;
+      transform:translate(-50%,-50%) scale(1);
+    }
+
+    #phase-banner .big{
+      font-size:32px;
+      font-weight:800;
+      line-height:1;
+      color:#235c84;
+    }
+
+    #phase-banner .small{
+      margin-top:8px;
+      font-size:16px;
+      color:#4a799d;
     }
 
     #start-screen,
-    #game-over{
+    #summary-screen{
       position:absolute;
       inset:0;
-      z-index:20;
+      z-index:25;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -142,14 +214,14 @@
         radial-gradient(circle at top, rgba(255,255,255,.9), rgba(214,242,255,.92) 42%, rgba(196,232,255,.97) 100%);
     }
 
-    #game-over{ display:none; z-index:25; }
+    #summary-screen{ display:none; }
 
     .panel{
-      width:min(92vw,760px);
+      width:min(92vw,800px);
       background:rgba(255,255,255,.97);
-      border:1px solid rgba(26,68,98,.10);
-      border-radius:28px;
-      box-shadow:0 24px 60px rgba(26,68,98,.18);
+      border:1px solid rgba(27,70,102,.1);
+      border-radius:30px;
+      box-shadow:0 24px 60px rgba(27,70,102,.18);
       padding:24px 22px;
       text-align:center;
     }
@@ -159,30 +231,30 @@
       font-size:clamp(32px,6vw,60px);
       line-height:1;
       font-weight:800;
-      color:#225a83;
+      color:#225b84;
     }
 
     .subtitle{
       margin:12px 0 0;
       font-size:18px;
-      color:#46789c;
+      color:#4b789c;
     }
 
     .guide{
       margin:18px auto 0;
       display:grid;
       gap:10px;
-      max-width:580px;
+      max-width:620px;
       text-align:left;
     }
 
     .guide-item{
       background:#f8fcff;
-      border:1px solid rgba(26,68,98,.08);
+      border:1px solid rgba(27,70,102,.08);
       border-radius:16px;
       padding:12px 14px;
       font-size:17px;
-      color:#285577;
+      color:#285779;
     }
 
     .btn{
@@ -209,7 +281,7 @@
     .danger-line{
       position:absolute;
       left:50%;
-      bottom:86px;
+      bottom:88px;
       transform:translateX(-50%);
       z-index:8;
       width:min(78vw,760px);
@@ -220,35 +292,57 @@
       pointer-events:none;
     }
 
-    .summary{
+    .summary-grid{
       margin-top:18px;
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:12px;
     }
 
-    .sum-card{
+    .summary-card{
       background:#f8fcff;
-      border:1px solid rgba(26,68,98,.08);
+      border:1px solid rgba(27,70,102,.08);
       border-radius:18px;
       padding:14px;
     }
 
-    .sum-card .k{
+    .summary-card .k{
       font-size:14px;
       opacity:.72;
     }
 
-    .sum-card .v{
+    .summary-card .v{
       margin-top:6px;
       font-size:28px;
       font-weight:800;
-      color:#225a83;
+      color:#225b84;
+    }
+
+    .lesson-box{
+      margin-top:16px;
+      background:#fffdf4;
+      border:1px solid rgba(255,209,102,.4);
+      border-radius:20px;
+      padding:14px 16px;
+      text-align:left;
+    }
+
+    .lesson-title{
+      font-size:18px;
+      font-weight:800;
+      color:#9b6b00;
+      margin-bottom:8px;
+    }
+
+    .lesson-box ul{
+      margin:0;
+      padding-left:20px;
+      color:#6d5500;
     }
 
     #stars{
       margin-top:10px;
-      font-size:36px;
+      font-size:38px;
       line-height:1;
     }
 
@@ -257,9 +351,11 @@
         min-width:calc(50% - 5px);
         flex:1 1 calc(50% - 5px);
       }
-      .pill .value{ font-size:22px; }
-      #mission,#tip{ font-size:14px; }
-      .summary{ grid-template-columns:1fr 1fr; }
+      .pill .value{ font-size:20px; }
+      #coach,#bottom-tip,#mission-title,#mission-sub{ font-size:14px; }
+      .summary-grid{ grid-template-columns:1fr 1fr; }
+      #phase-banner .big{ font-size:28px; }
+      #phase-banner .small{ font-size:15px; }
     }
   </style>
 </head>
@@ -267,15 +363,15 @@
   <div id="start-screen">
     <div class="panel">
       <h1 class="title">Clean Objects Hero</h1>
-      <p class="subtitle">ขัดของสกปรกให้สะอาดก่อนถึงเส้นแดง</p>
+      <p class="subtitle">ฝึกทำความสะอาดของใช้ให้สะอาด ถูกจังหวะ และทันเวลา</p>
 
       <div class="guide">
         <div class="guide-item">🧽 แตะหรือ “ลากถู” บนวัตถุเพื่อเอาคราบออก</div>
-        <div class="guide-item">🫧 เก็บสบู่เพื่อเปิด <b>Soap Fever</b> ล้างเร็วขึ้นชั่วคราว</div>
-        <div class="guide-item">⭐ ของสีทองให้คะแนนโบนัส รีบล้างก่อนหลุดเส้นแดง</div>
+        <div class="guide-item">🫧 เก็บสบู่เพื่อเปิด <b>Soap Fever</b> ล้างเร็วขึ้นช่วงสั้น ๆ</div>
+        <div class="guide-item">👑 ตอนท้ายจะมี <b>Boss Object</b> ชิ้นใหญ่ ต้องช่วยกันถูให้สะอาดหมด</div>
       </div>
 
-      <button id="start-btn" class="btn">เริ่มเล่น</button>
+      <button id="start-btn" class="btn">เริ่มภารกิจ</button>
     </div>
   </div>
 
@@ -283,21 +379,25 @@
     <div>
       <div class="hud-top">
         <div class="hud-row">
+          <div class="pill phase">
+            <div class="label">เฟส</div>
+            <div class="value" id="phaseVal">READY</div>
+          </div>
           <div class="pill time">
             <div class="label">เวลา</div>
-            <div class="value" id="timeVal">75s</div>
+            <div class="value" id="timeVal">0s</div>
           </div>
           <div class="pill score">
             <div class="label">คะแนน</div>
             <div class="value" id="scoreVal">0</div>
           </div>
+        </div>
+
+        <div class="hud-row">
           <div class="pill combo">
             <div class="label">คอมโบ</div>
             <div class="value" id="comboVal">x0</div>
           </div>
-        </div>
-
-        <div class="hud-row">
           <div class="pill life">
             <div class="label">หัวใจ</div>
             <div class="value" id="lifeVal">3</div>
@@ -309,41 +409,63 @@
         </div>
       </div>
 
-      <div id="mission-wrap">
-        <div id="mission">ภารกิจ: ล้างของให้สะอาด 8 ชิ้น</div>
+      <div id="center-ui">
+        <div id="coach" class="bubble">พร้อมไหม? เดี๋ยวเริ่มจากช่วงซ้อมก่อน</div>
+
+        <div id="mission-box" class="bubble">
+          <div id="mission-title">ภารกิจ</div>
+          <div class="progress">
+            <div id="mission-fill" class="progress-fill"></div>
+          </div>
+          <div id="mission-sub">0 / 0</div>
+        </div>
       </div>
     </div>
 
-    <div id="bottom-wrap">
-      <div id="tip">แตะหรือลากนิ้วถูบนวัตถุได้เลย</div>
+    <div id="bottom-tip-wrap">
+      <div id="bottom-tip" class="bubble">แตะหรือลากนิ้วถูบนวัตถุได้เลย</div>
     </div>
+  </div>
+
+  <div id="phase-banner">
+    <div class="big" id="bannerBig">WARMUP</div>
+    <div class="small" id="bannerSmall">ซ้อมก่อนเริ่มจริง</div>
   </div>
 
   <div class="danger-line"></div>
 
-  <div id="game-over">
+  <div id="summary-screen">
     <div class="panel">
-      <h1 class="title" style="font-size:clamp(28px,5vw,52px)">สรุปผลการเล่น</h1>
+      <h1 class="title" style="font-size:clamp(28px,5vw,52px)">สรุปภารกิจ</h1>
       <div id="stars">⭐</div>
       <p class="subtitle" id="finalLine">คุณล้างของได้ 0 ชิ้น</p>
 
-      <div class="summary">
-        <div class="sum-card">
+      <div class="summary-grid">
+        <div class="summary-card">
           <div class="k">คะแนนรวม</div>
           <div class="v" id="finalScore">0</div>
         </div>
-        <div class="sum-card">
+        <div class="summary-card">
           <div class="k">ของที่ล้างสำเร็จ</div>
           <div class="v" id="finalCleaned">0</div>
         </div>
-        <div class="sum-card">
+        <div class="summary-card">
           <div class="k">คอมโบสูงสุด</div>
           <div class="v" id="finalBestCombo">x0</div>
         </div>
-        <div class="sum-card">
+        <div class="summary-card">
           <div class="k">ของที่พลาด</div>
           <div class="v" id="finalMissed">0</div>
         </div>
+      </div>
+
+      <div class="lesson-box">
+        <div class="lesson-title">จำง่าย 3 ขั้น</div>
+        <ul>
+          <li>เก็บของสกปรกแยกออกมาก่อน</li>
+          <li>เช็ดหรือถูคราบให้ทั่ว ไม่รีบจบแค่จุดเดียว</li>
+          <li>ของใช้ร่วมกันควรทำให้สะอาดสม่ำเสมอ</li>
+        </ul>
       </div>
 
       <button id="restart-btn" class="btn">เล่นอีกครั้ง</button>
@@ -357,24 +479,33 @@
 
     const lanes = [-3.35, 0, 3.35];
 
-    let objects = [];
+    let items = [];
     let clickable = [];
-    let fx = [];
-    let decor = [];
+    let effects = [];
+    let bubbles = [];
+    let boss = null;
 
     let pointerDown = false;
     let lastScrubAt = 0;
+    let bannerTimer = 0;
 
     const ui = {
       start: document.getElementById('start-screen'),
-      over: document.getElementById('game-over'),
+      summary: document.getElementById('summary-screen'),
+      phaseVal: document.getElementById('phaseVal'),
       timeVal: document.getElementById('timeVal'),
       scoreVal: document.getElementById('scoreVal'),
       comboVal: document.getElementById('comboVal'),
       lifeVal: document.getElementById('lifeVal'),
       feverVal: document.getElementById('feverVal'),
-      mission: document.getElementById('mission'),
-      tip: document.getElementById('tip'),
+      coach: document.getElementById('coach'),
+      missionTitle: document.getElementById('mission-title'),
+      missionFill: document.getElementById('mission-fill'),
+      missionSub: document.getElementById('mission-sub'),
+      tip: document.getElementById('bottom-tip'),
+      banner: document.getElementById('phase-banner'),
+      bannerBig: document.getElementById('bannerBig'),
+      bannerSmall: document.getElementById('bannerSmall'),
       stars: document.getElementById('stars'),
       finalLine: document.getElementById('finalLine'),
       finalScore: document.getElementById('finalScore'),
@@ -385,40 +516,37 @@
 
     const state = {
       active:false,
-      ended:false,
+      phase:'idle',
+      phaseTime:0,
+      elapsed:0,
       score:0,
       combo:0,
       bestCombo:0,
       lives:3,
+      fever:0,
       cleaned:0,
       missed:0,
-      timeLeft:75,
+      warmupTarget:3,
+      warmupCleaned:0,
+      mainTarget:15,
+      mainCleaned:0,
       spawnTimer:0,
-      spawnEvery:1.15,
-      elapsed:0,
-      fever:0,
-      missionStage:0,
-      missionDone:false
+      spawnEvery:1.0,
+      bossClear:false
     };
-
-    const missions = [
-      { need:8, text:'ภารกิจ: ล้างของให้สะอาด 8 ชิ้น' },
-      { need:14, text:'ภารกิจ: ล้างของเพิ่มให้ครบ 14 ชิ้น' },
-      { need:20, text:'ภารกิจ: ทำคอมโบและล้างให้ครบ 20 ชิ้น' }
-    ];
 
     function init(){
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0xdff6ff);
-      scene.fog = new THREE.Fog(0xdff6ff, 17, 34);
+      scene.fog = new THREE.Fog(0xdff6ff, 16, 35);
 
       camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
-      camera.position.set(0, 6.7, 11);
+      camera.position.set(0, 6.8, 11.3);
       camera.lookAt(0, 1.3, -6);
 
       renderer = new THREE.WebGLRenderer({ antialias:true });
       renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.outputEncoding = THREE.sRGBEncoding;
       document.body.appendChild(renderer.domElement);
 
@@ -432,14 +560,13 @@
     }
 
     function setupLights(){
-      const hemi = new THREE.HemisphereLight(0xffffff, 0xb3e2ff, 1.2);
-      scene.add(hemi);
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xbfe7ff, 1.2));
 
       const dir = new THREE.DirectionalLight(0xffffff, 0.95);
-      dir.position.set(7, 11, 6);
+      dir.position.set(8, 11, 6);
       scene.add(dir);
 
-      const fill = new THREE.PointLight(0x8fd8ff, 0.7, 26);
+      const fill = new THREE.PointLight(0x95dcff, 0.7, 28);
       fill.position.set(0, 5, 5);
       scene.add(fill);
     }
@@ -449,13 +576,13 @@
         new THREE.PlaneGeometry(25, 46),
         new THREE.MeshStandardMaterial({ color:0xf7fcff, roughness:0.98 })
       );
-      floor.rotation.x = -Math.PI/2;
-      floor.position.set(0,0,-8);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.set(0, 0, -8);
       scene.add(floor);
 
       for(let i=0;i<3;i++){
         const lane = new THREE.Mesh(
-          new THREE.BoxGeometry(2.5,0.03,27),
+          new THREE.BoxGeometry(2.5, 0.03, 27),
           new THREE.MeshStandardMaterial({ color:0xe6f6ff, roughness:1 })
         );
         lane.position.set(lanes[i], 0.02, -8);
@@ -463,7 +590,7 @@
       }
 
       const redLine = new THREE.Mesh(
-        new THREE.BoxGeometry(10,0.05,0.25),
+        new THREE.BoxGeometry(10, 0.05, 0.25),
         new THREE.MeshBasicMaterial({ color:0xff6b6b })
       );
       redLine.position.set(0, 0.05, 4.65);
@@ -471,30 +598,30 @@
 
       const wall = new THREE.Mesh(
         new THREE.PlaneGeometry(26, 12),
-        new THREE.MeshStandardMaterial({ color:0xcbeeff, roughness:1 })
+        new THREE.MeshStandardMaterial({ color:0xcdefff, roughness:1 })
       );
-      wall.position.set(0, 6, -21.5);
+      wall.position.set(0, 6, -21.8);
       scene.add(wall);
 
       const shelf = new THREE.Mesh(
-        new THREE.BoxGeometry(12,0.9,2.4),
+        new THREE.BoxGeometry(12, 0.9, 2.4),
         new THREE.MeshStandardMaterial({ color:0x9fd7f7, roughness:0.9 })
       );
-      shelf.position.set(0,0.55,-20.9);
+      shelf.position.set(0, 0.55, -20.9);
       scene.add(shelf);
 
       const sink = new THREE.Mesh(
-        new THREE.BoxGeometry(10.5,0.8,2.9),
+        new THREE.BoxGeometry(10.5, 0.8, 2.9),
         new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.4, metalness:0.08 })
       );
-      sink.position.set(0,0.45,6.1);
+      sink.position.set(0, 0.45, 6.1);
       scene.add(sink);
 
       const foam = new THREE.Mesh(
-        new THREE.BoxGeometry(9.2,0.12,1.85),
-        new THREE.MeshBasicMaterial({ color:0xc9f6ff, transparent:true, opacity:0.5 })
+        new THREE.BoxGeometry(9.2, 0.12, 1.85),
+        new THREE.MeshBasicMaterial({ color:0xcaf6ff, transparent:true, opacity:0.5 })
       );
-      foam.position.set(0,0.98,6.1);
+      foam.position.set(0, 0.98, 6.1);
       scene.add(foam);
 
       createDecorBubbles();
@@ -508,20 +635,20 @@
           new THREE.MeshBasicMaterial({
             color:0xffffff,
             transparent:true,
-            opacity:0.28 + Math.random()*0.22
+            opacity:0.26 + Math.random() * 0.24
           })
         );
         b.position.set(
-          (Math.random()-0.5)*18,
-          0.5 + Math.random()*7.5,
-          -19 + Math.random()*23
+          (Math.random() - 0.5) * 18,
+          0.4 + Math.random() * 7.5,
+          -19 + Math.random() * 23
         );
         b.userData = {
-          vy:0.2 + Math.random()*0.35,
-          sway:0.05 + Math.random()*0.15,
-          phase:Math.random()*Math.PI*2
+          vy:0.18 + Math.random() * 0.35,
+          sway:0.05 + Math.random() * 0.14,
+          phase:Math.random() * Math.PI * 2
         };
-        decor.push(b);
+        bubbles.push(b);
         scene.add(b);
       }
     }
@@ -534,53 +661,7 @@
       window.addEventListener('resize', onResize);
 
       document.getElementById('start-btn').onclick = startGame;
-      document.getElementById('restart-btn').onclick = restartGame;
-    }
-
-    function startGame(){
-      resetState();
-      clearObjects();
-      clearFx();
-      ui.start.style.display = 'none';
-      ui.over.style.display = 'none';
-      state.active = true;
-      setTip('เริ่มเลย! แตะหรือถูคราบสกปรก');
-    }
-
-    function restartGame(){
-      startGame();
-    }
-
-    function resetState(){
-      state.active = false;
-      state.ended = false;
-      state.score = 0;
-      state.combo = 0;
-      state.bestCombo = 0;
-      state.lives = 3;
-      state.cleaned = 0;
-      state.missed = 0;
-      state.timeLeft = 75;
-      state.spawnTimer = 0;
-      state.spawnEvery = 1.15;
-      state.elapsed = 0;
-      state.fever = 0;
-      state.missionStage = 0;
-      state.missionDone = false;
-      updateMission();
-      updateUI();
-    }
-
-    function setTip(text){
-      ui.tip.textContent = text;
-    }
-
-    function updateMission(){
-      if(state.missionStage >= missions.length){
-        ui.mission.textContent = 'ภารกิจพิเศษ: ทำคะแนนให้มากที่สุด!';
-        return;
-      }
-      ui.mission.textContent = missions[state.missionStage].text;
+      document.getElementById('restart-btn').onclick = startGame;
     }
 
     function onResize(){
@@ -589,10 +670,140 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    function screenToPointer(clientX, clientY){
-      const rect = renderer.domElement.getBoundingClientRect();
-      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    function startGame(){
+      resetState();
+      clearItems();
+      clearEffects();
+      removeBoss();
+
+      ui.start.style.display = 'none';
+      ui.summary.style.display = 'none';
+      state.active = true;
+
+      beginWarmup();
+    }
+
+    function resetState(){
+      state.active = false;
+      state.phase = 'idle';
+      state.phaseTime = 0;
+      state.elapsed = 0;
+      state.score = 0;
+      state.combo = 0;
+      state.bestCombo = 0;
+      state.lives = 3;
+      state.fever = 0;
+      state.cleaned = 0;
+      state.missed = 0;
+      state.warmupTarget = 3;
+      state.warmupCleaned = 0;
+      state.mainTarget = 15;
+      state.mainCleaned = 0;
+      state.spawnTimer = 0;
+      state.spawnEvery = 1.0;
+      state.bossClear = false;
+      updateUI();
+      setTip('แตะหรือลากถูบนวัตถุได้เลย');
+      setCoach('พร้อมไหม? เดี๋ยวเริ่มจากช่วงซ้อมก่อน');
+      updateMissionUI('ภารกิจ', 0, 1, 'เตรียมพร้อม');
+    }
+
+    function beginWarmup(){
+      state.phase = 'warmup';
+      state.phaseTime = 18;
+      state.spawnTimer = 0;
+      state.spawnEvery = 0.9;
+      clearItems();
+      removeBoss();
+      showBanner('WARMUP', 'ซ้อมล้าง 3 ชิ้นก่อน');
+      setCoach('ช่วงซ้อม: ล้างของให้สะอาด 3 ชิ้น แล้วค่อยไปด่านจริง');
+      updateMissionUI('Warmup: ล้างของ 3 ชิ้น', state.warmupCleaned, state.warmupTarget, `${state.warmupCleaned} / ${state.warmupTarget}`);
+    }
+
+    function beginMain(){
+      state.phase = 'main';
+      state.phaseTime = 55;
+      state.spawnTimer = 0;
+      state.spawnEvery = 1.05;
+      clearItems();
+      removeBoss();
+      showBanner('MAIN CLEANUP', 'ล้างของให้ทันก่อนถึงเส้นแดง');
+      setCoach('ด่านจริงเริ่มแล้ว! ของพิเศษสีทองให้แต้มเยอะ สบู่ช่วยล้างเร็วขึ้น');
+      updateMissionUI('Main Mission: ล้างให้ครบ 15 ชิ้น', state.mainCleaned, state.mainTarget, `${state.mainCleaned} / ${state.mainTarget}`);
+    }
+
+    function beginBoss(){
+      state.phase = 'boss';
+      state.phaseTime = 20;
+      clearItems();
+      createBoss();
+      showBanner('BOSS CLEANUP', 'ถูของชิ้นใหญ่ให้สะอาดหมด');
+      setCoach('บอสมาแล้ว! ลากถูต่อเนื่องที่คราบให้หมดก่อนเวลาหมด');
+      updateBossMission();
+    }
+
+    function finishGame(reason){
+      state.active = false;
+      state.phase = 'summary';
+
+      ui.stars.textContent = calcStars();
+      ui.finalLine.textContent = `${reason} • คุณล้างของได้ ${state.cleaned} ชิ้น`;
+      ui.finalScore.textContent = state.score;
+      ui.finalCleaned.textContent = state.cleaned;
+      ui.finalBestCombo.textContent = 'x' + state.bestCombo;
+      ui.finalMissed.textContent = state.missed;
+      ui.summary.style.display = 'flex';
+
+      if(state.bossClear){
+        setCoach('เยี่ยมมาก! คุณล้างบอสผ่านด้วย');
+      }else if(state.cleaned >= 15){
+        setCoach('ดีมาก! ด่านหลักผ่านได้สวยแล้ว');
+      }else{
+        setCoach('ลองใหม่ได้อีกครั้ง คราวหน้าถูให้เร็วและต่อเนื่องขึ้น');
+      }
+    }
+
+    function calcStars(){
+      if(state.bossClear && state.cleaned >= 18 && state.missed <= 2) return '⭐⭐⭐';
+      if(state.cleaned >= 12) return '⭐⭐';
+      return '⭐';
+    }
+
+    function showBanner(big, small){
+      ui.bannerBig.textContent = big;
+      ui.bannerSmall.textContent = small;
+      ui.banner.classList.add('show');
+      bannerTimer = 1.2;
+    }
+
+    function setTip(text){
+      ui.tip.textContent = text;
+    }
+
+    function setCoach(text){
+      ui.coach.textContent = text;
+    }
+
+    function updateMissionUI(title, current, total, subText){
+      ui.missionTitle.textContent = title;
+      const pct = total > 0 ? Math.max(0, Math.min(100, (current / total) * 100)) : 0;
+      ui.missionFill.style.width = pct + '%';
+      ui.missionSub.textContent = subText;
+    }
+
+    function updateBossMission(){
+      if(!boss) return;
+      const done = boss.userData.totalDirt - boss.userData.dirtLeft;
+      updateMissionUI('Boss Mission: ขัดคราบบอสให้หมด', done, boss.userData.totalDirt, `${done} / ${boss.userData.totalDirt}`);
+    }
+
+    function updateUI(){
+      ui.phaseVal.textContent = state.phase.toUpperCase();
+      ui.timeVal.textContent = Math.max(0, Math.ceil(state.phaseTime)) + 's';
+      ui.scoreVal.textContent = state.score;
+      ui.comboVal.textContent = 'x' + state.combo;
+      ui.lifeVal.textContent = state.lives;
+      ui.feverVal.textContent = state.fever > 0 ? Math.ceil(state.fever) + 's' : 'OFF';
     }
 
     function onPointerDown(e){
@@ -610,38 +821,53 @@
 
     function scrubAt(x, y, strongHit){
       const now = performance.now();
-      if(!strongHit && now - lastScrubAt < 55) return;
+      if(!strongHit && now - lastScrubAt < 45) return;
       lastScrubAt = now;
 
-      screenToPointer(x, y);
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((x - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((y - rect.top) / rect.height) * 2 + 1;
+
       raycaster.setFromCamera(pointer, camera);
       const hits = raycaster.intersectObjects(clickable, false);
       if(!hits.length) return;
 
       const root = hits[0].object.userData.cleanRoot;
-      if(root) scrubObject(root, strongHit);
+      if(!root) return;
+
+      if(root.userData.role === 'boss'){
+        scrubBoss(root, strongHit);
+      } else {
+        scrubItem(root, strongHit);
+      }
     }
 
     function randomPick(arr){
       return arr[Math.floor(Math.random() * arr.length)];
     }
 
-    function spawnObject(){
-      if(objects.length >= 7) return;
+    function spawnItem(mode){
+      if(items.length >= 7) return;
 
       const lane = randomPick(lanes);
-      const kindRoll = Math.random();
-      const specialType = kindRoll < 0.12 ? 'soap' : (kindRoll < 0.20 ? 'golden' : 'dirty');
+      const special = mode === 'practice'
+        ? 'practice'
+        : (Math.random() < 0.14 ? 'soap' : (Math.random() < 0.18 ? 'gold' : 'normal'));
+
       const shape = randomPick(['block','cup','book','bottle','plate']);
       const root = new THREE.Group();
 
       const palette = [0xffd166,0x8dd3ff,0xff9fcb,0x9debb5,0xc8b6ff];
-      const baseColor = specialType === 'golden' ? 0xffd84d : (specialType === 'soap' ? 0xbdefff : randomPick(palette));
+      const baseColor =
+        special === 'gold' ? 0xffd84d :
+        special === 'soap' ? 0xbdefff :
+        special === 'practice' ? 0xffd7ea :
+        randomPick(palette);
 
       const matBody = new THREE.MeshStandardMaterial({
         color:baseColor,
-        roughness:specialType === 'golden' ? 0.25 : 0.5,
-        metalness:specialType === 'golden' ? 0.55 : 0.05
+        roughness:special === 'gold' ? 0.25 : 0.5,
+        metalness:special === 'gold' ? 0.55 : 0.05
       });
       const matWhite = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.35 });
       const matDark = new THREE.MeshStandardMaterial({ color:0x5d6d7e, roughness:0.8 });
@@ -651,12 +877,16 @@
       }else if(shape === 'cup'){
         root.add(new THREE.Mesh(new THREE.CylinderGeometry(0.48,0.58,1.15,24), matBody));
         const rim = new THREE.Mesh(new THREE.TorusGeometry(0.49,0.05,10,24), matWhite);
-        rim.rotation.x = Math.PI/2; rim.position.y = 0.58; root.add(rim);
+        rim.rotation.x = Math.PI / 2;
+        rim.position.y = 0.58;
+        root.add(rim);
         const handle = new THREE.Mesh(new THREE.TorusGeometry(0.22,0.05,10,20), matWhite);
-        handle.rotation.y = Math.PI/2; handle.position.set(0.56,0.08,0); root.add(handle);
+        handle.rotation.y = Math.PI / 2;
+        handle.position.set(0.56,0.08,0);
+        root.add(handle);
       }else if(shape === 'book'){
         const body = new THREE.Mesh(new THREE.BoxGeometry(1.46,0.28,1.06), matBody);
-        body.rotation.z = (Math.random()-0.5)*0.25;
+        body.rotation.z = (Math.random() - 0.5) * 0.25;
         root.add(body);
         const pages = new THREE.Mesh(new THREE.BoxGeometry(1.18,0.16,0.82), matWhite);
         pages.position.y = 0.05;
@@ -664,9 +894,11 @@
       }else if(shape === 'bottle'){
         root.add(new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.42,1.35,24), matBody));
         const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.2,0.35,18), matBody);
-        neck.position.y = 0.82; root.add(neck);
+        neck.position.y = 0.82;
+        root.add(neck);
         const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.18,18), matDark);
-        cap.position.y = 1.08; root.add(cap);
+        cap.position.y = 1.08;
+        root.add(cap);
       }else if(shape === 'plate'){
         const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.72,0.84,0.18,28), matBody);
         plate.rotation.x = 0.08;
@@ -676,33 +908,33 @@
         root.add(inner);
       }
 
-      const dirtSpots = [];
       const dirtGeo = new THREE.SphereGeometry(0.13, 9, 9);
-      const dirtColor = specialType === 'golden' ? 0xc58b00 : (specialType === 'soap' ? 0x7fd5ef : 0x8a5a2b);
       const dirtMat = new THREE.MeshStandardMaterial({
-        color:dirtColor,
-        roughness: specialType === 'golden' ? 0.35 : 1,
-        metalness: specialType === 'golden' ? 0.4 : 0
+        color: special === 'gold' ? 0xc58b00 : (special === 'soap' ? 0x7fd5ef : 0x8a5a2b),
+        roughness: special === 'gold' ? 0.35 : 1,
+        metalness: special === 'gold' ? 0.4 : 0
       });
 
-      let dirtCount = 0;
-      if(specialType === 'dirty') dirtCount = 3 + Math.floor(Math.random() * 3);
-      if(specialType === 'golden') dirtCount = 2 + Math.floor(Math.random() * 2);
-      if(specialType === 'soap') dirtCount = 1;
+      let dirtCount =
+        special === 'practice' ? 2 :
+        special === 'soap' ? 1 :
+        special === 'gold' ? 2 + Math.floor(Math.random() * 2) :
+        3 + Math.floor(Math.random() * 3);
 
+      const dirtSpots = [];
       for(let i=0;i<dirtCount;i++){
         const d = new THREE.Mesh(dirtGeo, dirtMat);
         d.position.set(
-          (Math.random()-0.5)*0.85,
-          (Math.random()-0.15)*0.9,
-          0.34 + Math.random()*0.34
+          (Math.random() - 0.5) * 0.85,
+          (Math.random() - 0.15) * 0.9,
+          0.34 + Math.random() * 0.34
         );
-        d.scale.setScalar(0.8 + Math.random()*0.75);
+        d.scale.setScalar(0.8 + Math.random() * 0.75);
         root.add(d);
         dirtSpots.push(d);
       }
 
-      if(specialType === 'soap'){
+      if(special === 'soap'){
         const bubble = new THREE.Mesh(
           new THREE.SphereGeometry(0.24, 14, 14),
           new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.6 })
@@ -711,44 +943,50 @@
         root.add(bubble);
       }
 
+      if(special === 'gold'){
+        const crown = new THREE.Mesh(
+          new THREE.TorusGeometry(0.28,0.05,8,18),
+          new THREE.MeshBasicMaterial({ color:0xffd84d })
+        );
+        crown.position.set(0,0.9,0);
+        crown.rotation.x = Math.PI / 2;
+        root.add(crown);
+      }
+
       root.position.set(lane, 1.08, -20);
       root.rotation.y = Math.random() * Math.PI * 2;
 
       root.userData = {
-        type:specialType,
-        shape,
-        lane,
+        role:'item',
+        special,
         dirtSpots,
         dirtLeft:dirtSpots.length,
         cleaned:false,
         cleanAnim:0,
-        speed: 4.2 + Math.random()*1.2 + state.elapsed*0.02,
+        speed: mode === 'practice' ? 3.3 : (4.15 + Math.random() * 1.15 + state.elapsed * 0.02),
         pulse:0,
-        bob:Math.random()*Math.PI*2,
-        rotDir:Math.random()>0.5 ? 1 : -1,
+        bob:Math.random() * Math.PI * 2,
+        rotDir:Math.random() > 0.5 ? 1 : -1,
         scrubCooldown:0
       };
 
-      root.traverse(obj=>{
+      root.traverse(obj => {
         if(obj.isMesh){
           obj.userData.cleanRoot = root;
           clickable.push(obj);
         }
       });
 
-      objects.push(root);
+      items.push(root);
       scene.add(root);
     }
 
-    function scrubObject(root, strongHit){
+    function scrubItem(root, strongHit){
       const d = root.userData;
       if(d.cleaned) return;
       if(d.scrubCooldown > 0 && !strongHit) return;
 
       d.scrubCooldown = state.fever > 0 ? 0.02 : 0.05;
-
-      const spots = d.dirtSpots.filter(s => s.visible !== false);
-      if(!spots.length) return;
 
       let removeCount = 1;
       if(state.fever > 0) removeCount = 2;
@@ -761,22 +999,23 @@
 
       d.dirtLeft = d.dirtSpots.filter(s => s.visible !== false).length;
       d.pulse = 0.15;
-
       state.score += state.fever > 0 ? 10 : 6;
+
       createBurst(root.position.clone().add(new THREE.Vector3(0,0.55,0.15)), 0xffffff, 4);
 
       if(d.dirtLeft <= 0){
-        finishClean(root);
-      }else{
-        setTip(state.fever > 0 ? 'ฟีเวอร์! ล้างเร็วขึ้น' : 'ถูต่ออีกนิด คราบยังไม่หมด');
+        finishItem(root);
+      } else {
+        setTip(state.fever > 0 ? 'ฟีเวอร์ทำงาน! ถูต่อได้เลย' : 'ถูต่ออีกนิด คราบยังไม่หมด');
       }
 
       updateUI();
     }
 
-    function finishClean(root){
+    function finishItem(root){
       const d = root.userData;
       if(d.cleaned) return;
+
       d.cleaned = true;
       d.cleanAnim = 0.45;
 
@@ -784,42 +1023,294 @@
       state.combo += 1;
       state.bestCombo = Math.max(state.bestCombo, state.combo);
 
-      let bonus = 30 + Math.min(state.combo * 4, 36);
-      if(d.type === 'golden') bonus += 60;
-      if(d.type === 'soap') bonus += 18;
+      let bonus = 28 + Math.min(state.combo * 4, 36);
 
-      state.score += bonus;
-
-      if(d.type === 'soap'){
+      if(d.special === 'practice'){
+        bonus += 10;
+        state.warmupCleaned += 1;
+        setTip('ดีมาก! ชิ้นซ้อมสะอาดแล้ว');
+      } else if(d.special === 'soap'){
+        bonus += 18;
         state.fever = Math.min(state.fever + 7, 10);
         setTip('ได้สบู่! Soap Fever ทำงาน');
-        createBurst(root.position.clone().add(new THREE.Vector3(0,0.8,0)), 0x7fdfff, 14);
-      }else if(d.type === 'golden'){
-        setTip('โบนัสชิ้นพิเศษ! คะแนนเพิ่ม');
-        createBurst(root.position.clone().add(new THREE.Vector3(0,0.8,0)), 0xffd84d, 14);
-      }else{
+        setCoach('ตอนนี้ล้างแรงขึ้น รีบทำคะแนนต่อเนื่องได้เลย');
+      } else if(d.special === 'gold'){
+        bonus += 60;
+        setTip('ชิ้นพิเศษสีทอง! คะแนนโบนัส');
+      } else {
         setTip(randomPick([
           'สะอาดแล้ว เก่งมาก!',
           'เยี่ยม! ล้างหมดเลย',
           'สุดยอด! ของชิ้นนี้สะอาดแล้ว'
         ]));
-        createBurst(root.position.clone().add(new THREE.Vector3(0,0.8,0)), 0x8cf2a5, 10);
       }
 
-      checkMissionProgress();
+      if(state.phase === 'main'){
+        state.mainCleaned += 1;
+      }
+
+      state.score += bonus;
+      createBurst(
+        root.position.clone().add(new THREE.Vector3(0,0.8,0)),
+        d.special === 'gold' ? 0xffd84d : (d.special === 'soap' ? 0x7fdfff : 0x8cf2a5),
+        12
+      );
+
+      if(state.phase === 'warmup'){
+        updateMissionUI('Warmup: ล้างของ 3 ชิ้น', state.warmupCleaned, state.warmupTarget, `${state.warmupCleaned} / ${state.warmupTarget}`);
+        if(state.warmupCleaned >= state.warmupTarget){
+          beginMain();
+        }
+      }
+
+      if(state.phase === 'main'){
+        updateMissionUI('Main Mission: ล้างให้ครบ 15 ชิ้น', state.mainCleaned, state.mainTarget, `${state.mainCleaned} / ${state.mainTarget}`);
+        if(state.mainCleaned >= state.mainTarget){
+          setCoach('ภารกิจหลักครบแล้ว! รอเข้าบอสได้เลย');
+        }
+      }
+
       updateUI();
     }
 
-    function checkMissionProgress(){
-      if(state.missionStage >= missions.length) return;
-      const current = missions[state.missionStage];
-      if(state.cleaned >= current.need){
-        state.score += 80;
-        state.missionStage += 1;
-        updateMission();
-        setTip('ผ่านภารกิจ! ได้โบนัสเพิ่ม');
-        createBurst(new THREE.Vector3(0, 2.2, 2), 0xffd166, 18);
+    function createBoss(){
+      removeBoss();
+
+      const root = new THREE.Group();
+
+      const desk = new THREE.Mesh(
+        new THREE.BoxGeometry(5.6, 1.05, 3.2),
+        new THREE.MeshStandardMaterial({ color:0xffd6a5, roughness:0.6 })
+      );
+      desk.position.y = 1.2;
+      root.add(desk);
+
+      const top = new THREE.Mesh(
+        new THREE.BoxGeometry(5.9, 0.24, 3.5),
+        new THREE.MeshStandardMaterial({ color:0xfff1dc, roughness:0.45 })
+      );
+      top.position.y = 1.85;
+      root.add(top);
+
+      const cloth = new THREE.Mesh(
+        new THREE.BoxGeometry(4.8, 0.06, 2.6),
+        new THREE.MeshStandardMaterial({ color:0xb7e7ff, roughness:0.9 })
+      );
+      cloth.position.set(0, 1.98, 0);
+      root.add(cloth);
+
+      const legGeo = new THREE.BoxGeometry(0.25, 1.8, 0.25);
+      const legMat = new THREE.MeshStandardMaterial({ color:0xe2ae7b, roughness:0.65 });
+      [[-2.5,0.9,-1.4],[2.5,0.9,-1.4],[-2.5,0.9,1.4],[2.5,0.9,1.4]].forEach(p=>{
+        const leg = new THREE.Mesh(legGeo, legMat);
+        leg.position.set(p[0], p[1], p[2]);
+        root.add(leg);
+      });
+
+      const face = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.2, 0.55),
+        new THREE.MeshBasicMaterial({ color:0xffffff })
+      );
+      face.position.set(0, 1.25, 1.72);
+      root.add(face);
+
+      const eyeGeo = new THREE.CircleGeometry(0.05, 16);
+      const eyeMat = new THREE.MeshBasicMaterial({ color:0x335566 });
+      const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+      const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+      eyeL.position.set(-0.18, 1.28, 1.73);
+      eyeR.position.set(0.18, 1.28, 1.73);
+      root.add(eyeL, eyeR);
+
+      const mouth = new THREE.Mesh(
+        new THREE.TorusGeometry(0.16,0.03,8,16,Math.PI),
+        new THREE.MeshBasicMaterial({ color:0xff8fb6 })
+      );
+      mouth.position.set(0,1.12,1.74);
+      mouth.rotation.z = Math.PI;
+      root.add(mouth);
+
+      const dirtSpots = [];
+      const dirtGeo = new THREE.SphereGeometry(0.18, 10, 10);
+      const dirtMat = new THREE.MeshStandardMaterial({ color:0x8a5a2b, roughness:1 });
+
+      const dirtPositions = [
+        [-1.8,2.03,-0.9],[-0.9,2.03,-0.6],[0,2.03,-0.8],[1.2,2.03,-0.35],[2.0,2.03,0.65],
+        [-2.0,2.03,0.7],[-1.1,2.03,0.2],[0.1,2.03,0.6],[1.0,2.03,0.95],[2.2,2.03,-0.95],
+        [-1.9,1.35,1.62],[-1.1,1.55,1.62],[0,1.48,1.62],[1.0,1.55,1.62],[1.9,1.35,1.62],
+        [-2.25,1.1,0.2],[2.15,1.1,-0.3],[-0.6,1.1,-1.15],[0.9,1.1,1.1],[0,2.03,0.0]
+      ];
+
+      dirtPositions.forEach((p, idx)=>{
+        const d = new THREE.Mesh(dirtGeo, dirtMat);
+        d.position.set(p[0], p[1], p[2]);
+        d.scale.setScalar(idx % 3 === 0 ? 1.3 : 1);
+        root.add(d);
+        dirtSpots.push(d);
+      });
+
+      root.position.set(0, 0, -7.5);
+      root.userData = {
+        role:'boss',
+        dirtSpots,
+        dirtLeft:dirtSpots.length,
+        totalDirt:dirtSpots.length,
+        pulse:0,
+        scrubCooldown:0,
+        clearAnim:0,
+        cleared:false
+      };
+
+      root.traverse(obj=>{
+        if(obj.isMesh){
+          obj.userData.cleanRoot = root;
+          clickable.push(obj);
+        }
+      });
+
+      boss = root;
+      scene.add(root);
+      updateBossMission();
+    }
+
+    function scrubBoss(root, strongHit){
+      const d = root.userData;
+      if(d.cleared) return;
+      if(d.scrubCooldown > 0 && !strongHit) return;
+
+      d.scrubCooldown = state.fever > 0 ? 0.015 : 0.035;
+      d.pulse = 0.18;
+
+      let removeCount = strongHit ? 2 : 1;
+      if(state.fever > 0) removeCount += 1;
+
+      for(let i=0;i<removeCount;i++){
+        const next = d.dirtSpots.find(s => s.visible !== false);
+        if(next) next.visible = false;
       }
+
+      d.dirtLeft = d.dirtSpots.filter(s => s.visible !== false).length;
+      state.score += 8 + (state.fever > 0 ? 4 : 0);
+      createBurst(root.position.clone().add(new THREE.Vector3(0,2.1,0.2)), 0xffffff, 4);
+
+      if(d.dirtLeft <= 0){
+        d.cleared = true;
+        d.clearAnim = 0.9;
+        state.bossClear = true;
+        state.score += 220;
+        state.combo += 3;
+        state.bestCombo = Math.max(state.bestCombo, state.combo);
+        setTip('บอสสะอาดแล้ว!');
+        setCoach('สุดยอดมาก! คุณผ่านบอสได้แล้ว');
+        createBurst(root.position.clone().add(new THREE.Vector3(0,2.1,0)), 0xffd84d, 24);
+      } else {
+        setTip('ถูต่อเนื่องเลย บอสยังมีคราบเหลือ');
+      }
+
+      updateBossMission();
+      updateUI();
+    }
+
+    function updateItems(delta){
+      for(let i=items.length - 1;i>=0;i--){
+        const obj = items[i];
+        const d = obj.userData;
+        d.scrubCooldown = Math.max(0, d.scrubCooldown - delta);
+
+        if(d.cleaned){
+          d.cleanAnim -= delta;
+          obj.position.y += delta * 1.9;
+          obj.position.z += delta * 1.9;
+          obj.rotation.y += delta * 5;
+          obj.scale.lerp(new THREE.Vector3(0.16,0.16,0.16), 0.12);
+
+          if(d.cleanAnim <= 0){
+            removeItem(obj);
+          }
+          continue;
+        }
+
+        obj.position.z += d.speed * delta;
+        obj.position.y = 1.08 + Math.sin(clock.elapsedTime * 3 + d.bob) * 0.08;
+        obj.rotation.y += delta * 0.75 * d.rotDir;
+
+        if(d.pulse > 0){
+          d.pulse -= delta;
+          const s = 1 + Math.max(0, d.pulse) * 1.7;
+          obj.scale.setScalar(s);
+        } else {
+          obj.scale.lerp(new THREE.Vector3(1,1,1), 0.18);
+        }
+
+        if(obj.position.z >= 4.58){
+          removeItem(obj);
+          state.combo = 0;
+
+          if(state.phase === 'warmup'){
+            setTip('ช่วงซ้อมยังไม่เป็นไร ลองถูให้เร็วกว่านี้');
+            setCoach('ดีแล้ว ลองแตะหรือถูให้โดนตัววัตถุโดยตรง');
+          } else {
+            state.missed += 1;
+            state.lives -= 1;
+            createBurst(obj.position.clone().add(new THREE.Vector3(0,0.6,0)), 0xff6b6b, 12);
+            setTip('โอ๊ะ! ของสกปรกหลุดเส้นแดงแล้ว');
+          }
+
+          updateUI();
+
+          if(state.phase !== 'warmup' && state.lives <= 0){
+            finishGame('หัวใจหมดแล้ว');
+            return;
+          }
+        }
+      }
+    }
+
+    function updateBoss(delta){
+      if(!boss) return;
+      const d = boss.userData;
+      d.scrubCooldown = Math.max(0, d.scrubCooldown - delta);
+
+      if(d.cleared){
+        d.clearAnim -= delta;
+        boss.position.y += delta * 1.0;
+        boss.rotation.y += delta * 1.4;
+        boss.scale.lerp(new THREE.Vector3(0.4,0.4,0.4), 0.08);
+        if(d.clearAnim <= 0){
+          finishGame('ภารกิจสำเร็จ');
+        }
+        return;
+      }
+
+      boss.position.y = Math.sin(clock.elapsedTime * 1.7) * 0.08;
+
+      if(d.pulse > 0){
+        d.pulse -= delta;
+        const s = 1 + Math.max(0, d.pulse) * 0.35;
+        boss.scale.set(s,s,s);
+      } else {
+        boss.scale.lerp(new THREE.Vector3(1,1,1), 0.14);
+      }
+    }
+
+    function removeItem(root){
+      clickable = clickable.filter(m => m.userData.cleanRoot !== root);
+      const idx = items.indexOf(root);
+      if(idx >= 0) items.splice(idx, 1);
+      scene.remove(root);
+    }
+
+    function clearItems(){
+      while(items.length){
+        removeItem(items[items.length - 1]);
+      }
+    }
+
+    function removeBoss(){
+      if(!boss) return;
+      clickable = clickable.filter(m => m.userData.cleanRoot !== boss);
+      scene.remove(boss);
+      boss = null;
     }
 
     function createBurst(position, color, count){
@@ -831,22 +1322,22 @@
         );
         p.position.copy(position);
         p.userData = {
-          life:0.45 + Math.random()*0.35,
-          maxLife:0.45 + Math.random()*0.35,
+          life:0.45 + Math.random() * 0.35,
+          maxLife:0.45 + Math.random() * 0.35,
           vel:new THREE.Vector3(
-            (Math.random()-0.5)*2.3,
-            0.7 + Math.random()*1.7,
-            (Math.random()-0.5)*1.3
+            (Math.random() - 0.5) * 2.3,
+            0.7 + Math.random() * 1.7,
+            (Math.random() - 0.5) * 1.3
           )
         };
-        fx.push(p);
+        effects.push(p);
         scene.add(p);
       }
     }
 
-    function updateFx(delta){
-      for(let i=fx.length-1;i>=0;i--){
-        const p = fx[i];
+    function updateEffects(delta){
+      for(let i=effects.length - 1;i>=0;i--){
+        const p = effects[i];
         p.userData.life -= delta;
         p.position.addScaledVector(p.userData.vel, delta);
         p.userData.vel.y -= 1.8 * delta;
@@ -855,146 +1346,78 @@
 
         if(p.userData.life <= 0){
           scene.remove(p);
-          fx.splice(i,1);
+          effects.splice(i,1);
         }
+      }
+    }
+
+    function clearEffects(){
+      while(effects.length){
+        scene.remove(effects.pop());
       }
     }
 
     function updateDecor(delta){
       const t = clock.elapsedTime;
-      for(const b of decor){
+      for(const b of bubbles){
         b.position.y += b.userData.vy * delta * 0.4;
         b.position.x += Math.sin(t + b.userData.phase) * b.userData.sway * delta;
         if(b.position.y > 8.8) b.position.y = 0.3;
       }
     }
 
-    function updateObjects(delta){
-      for(let i=objects.length-1;i>=0;i--){
-        const o = objects[i];
-        const d = o.userData;
-
-        d.scrubCooldown = Math.max(0, d.scrubCooldown - delta);
-
-        if(d.cleaned){
-          d.cleanAnim -= delta;
-          o.position.y += delta * 1.9;
-          o.position.z += delta * 1.9;
-          o.rotation.y += delta * 5;
-          o.scale.lerp(new THREE.Vector3(0.16,0.16,0.16), 0.12);
-
-          if(d.cleanAnim <= 0){
-            removeObject(o);
-          }
-          continue;
-        }
-
-        o.position.z += d.speed * delta;
-        o.position.y = 1.08 + Math.sin(clock.elapsedTime * 3 + d.bob) * 0.08;
-        o.rotation.y += delta * 0.75 * d.rotDir;
-
-        if(d.pulse > 0){
-          d.pulse -= delta;
-          const s = 1 + Math.max(0, d.pulse) * 1.7;
-          o.scale.setScalar(s);
-        }else{
-          o.scale.lerp(new THREE.Vector3(1,1,1), 0.18);
-        }
-
-        if(o.position.z >= 4.58){
-          state.missed += 1;
-          state.lives -= 1;
-          state.combo = 0;
-          createBurst(o.position.clone().add(new THREE.Vector3(0,0.6,0)), 0xff6b6b, 12);
-          removeObject(o);
-          setTip('โอ๊ะ! ของสกปรกหลุดเส้นแดงแล้ว');
-          updateUI();
-
-          if(state.lives <= 0){
-            endGame('หัวใจหมดแล้ว');
-            return;
-          }
-        }
-      }
-    }
-
-    function removeObject(root){
-      clickable = clickable.filter(m => m.userData.cleanRoot !== root);
-      const idx = objects.indexOf(root);
-      if(idx >= 0) objects.splice(idx, 1);
-      scene.remove(root);
-    }
-
-    function clearObjects(){
-      while(objects.length) removeObject(objects[objects.length - 1]);
-    }
-
-    function clearFx(){
-      while(fx.length){
-        scene.remove(fx.pop());
-      }
-    }
-
-    function updateGame(delta){
+    function updatePhase(delta){
       state.elapsed += delta;
-      state.timeLeft -= delta;
-      state.spawnEvery = Math.max(0.5, 1.15 - state.elapsed * 0.004);
-      state.spawnTimer += delta;
+      state.phaseTime -= delta;
+      state.fever = Math.max(0, state.fever - delta);
 
-      if(state.spawnTimer >= state.spawnEvery){
-        state.spawnTimer = 0;
-        spawnObject();
+      if(state.phase === 'warmup'){
+        state.spawnTimer += delta;
+        if(state.spawnTimer >= state.spawnEvery){
+          state.spawnTimer = 0;
+          if(items.length < 2) spawnItem('practice');
+        }
+        updateItems(delta);
+
+        if(state.phaseTime <= 0){
+          beginMain();
+          return;
+        }
       }
 
-      if(state.fever > 0){
-        state.fever = Math.max(0, state.fever - delta);
+      if(state.phase === 'main'){
+        state.spawnEvery = Math.max(0.5, 1.05 - state.elapsed * 0.003);
+        state.spawnTimer += delta;
+        if(state.spawnTimer >= state.spawnEvery){
+          state.spawnTimer = 0;
+          spawnItem('main');
+        }
+        updateItems(delta);
+
+        if(state.phaseTime <= 0){
+          beginBoss();
+          return;
+        }
       }
 
-      updateObjects(delta);
-      updateFx(delta);
+      if(state.phase === 'boss'){
+        updateBoss(delta);
 
-      if(state.timeLeft <= 0){
-        state.timeLeft = 0;
-        endGame('หมดเวลาแล้ว');
-        return;
+        if(!state.bossClear && state.phaseTime <= 0){
+          finishGame('หมดเวลาบอส');
+          return;
+        }
+      }
+
+      if(state.phase === 'warmup'){
+        updateMissionUI('Warmup: ล้างของ 3 ชิ้น', state.warmupCleaned, state.warmupTarget, `${state.warmupCleaned} / ${state.warmupTarget}`);
+      } else if(state.phase === 'main'){
+        updateMissionUI('Main Mission: ล้างให้ครบ 15 ชิ้น', state.mainCleaned, state.mainTarget, `${state.mainCleaned} / ${state.mainTarget}`);
+      } else if(state.phase === 'boss'){
+        updateBossMission();
       }
 
       updateUI();
-    }
-
-    function updateUI(){
-      ui.timeVal.textContent = Math.ceil(state.timeLeft) + 's';
-      ui.scoreVal.textContent = state.score;
-      ui.comboVal.textContent = 'x' + state.combo;
-      ui.lifeVal.textContent = state.lives;
-      ui.feverVal.textContent = state.fever > 0 ? Math.ceil(state.fever) + 's' : 'OFF';
-    }
-
-    function calcStars(){
-      if(state.cleaned >= 20 && state.missed <= 3) return '⭐⭐⭐';
-      if(state.cleaned >= 12) return '⭐⭐';
-      return '⭐';
-    }
-
-    function endGame(reason){
-      state.active = false;
-      state.ended = true;
-
-      ui.stars.textContent = calcStars();
-      ui.finalLine.textContent = `${reason} • คุณล้างของได้ ${state.cleaned} ชิ้น`;
-      ui.finalScore.textContent = state.score;
-      ui.finalCleaned.textContent = state.cleaned;
-      ui.finalBestCombo.textContent = 'x' + state.bestCombo;
-      ui.finalMissed.textContent = state.missed;
-      ui.over.style.display = 'flex';
-
-      if(state.cleaned >= 20){
-        setTip('ยอดเยี่ยมมาก! ห้องสะอาดสุด ๆ');
-      }else if(state.cleaned >= 12){
-        setTip('ดีมาก! อีกนิดเดียวจะได้สามดาว');
-      }else{
-        setTip('ลองใหม่อีกครั้ง แล้วถูเร็วขึ้นอีกนิด');
-      }
     }
 
     function animate(){
@@ -1002,11 +1425,17 @@
       const delta = Math.min(clock.getDelta(), 0.033);
 
       updateDecor(delta);
+      updateEffects(delta);
 
       if(state.active){
-        updateGame(delta);
-      }else{
-        updateFx(delta);
+        updatePhase(delta);
+      }
+
+      if(bannerTimer > 0){
+        bannerTimer -= delta;
+        if(bannerTimer <= 0){
+          ui.banner.classList.remove('show');
+        }
       }
 
       renderer.render(scene, camera);
