@@ -1,7 +1,7 @@
 // /herohealth/germ-detective/js/germ-rush-core.js
 // Germ Detective: Outbreak Rush
 // MAIN GAME CORE MODULE
-// PATCH v20260410c-germ-rush-core-ui-split
+// PATCH v20260410d-germ-rush-core-polish1
 
 import {
   GAME_META,
@@ -81,6 +81,11 @@ export function createGermRushGame({ query, ui, refs }) {
       timeLeftMs: state.timeLeftMs,
       bossPct
     });
+
+    uiLayer.updateRoomTint({
+      infection: state.infection,
+      bossActive: state.bossActive
+    });
   }
 
   function setPrompt(text) {
@@ -120,6 +125,55 @@ export function createGermRushGame({ query, ui, refs }) {
     const free = keys.filter(k => !used.has(k));
     const pool = free.length ? free : keys;
     return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function spawnBurstAtHazard(hz, kind = 'good') {
+    if (!hz?.el) return;
+
+    const color = kind === 'good' ? '#fff4a3' : '#ff8aa3';
+    const burst = document.createElement('a-entity');
+    burst.setAttribute('position', '0 0.18 0');
+
+    for (let i = 0; i < 5; i++) {
+      const p = document.createElement('a-sphere');
+      p.setAttribute('radius', '0.028');
+      p.setAttribute('color', color);
+      p.setAttribute('material', `emissive:${color}; emissiveIntensity:0.75; opacity:0.95`);
+      p.setAttribute('position', '0 0 0');
+
+      const dx = ((Math.random() * 0.5) - 0.25).toFixed(3);
+      const dy = (0.15 + Math.random() * 0.18).toFixed(3);
+      const dz = ((Math.random() * 0.22) - 0.11).toFixed(3);
+
+      p.setAttribute('animation__move', `property: position; to: ${dx} ${dy} ${dz}; dur: 300; easing: easeOutCubic`);
+      p.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 300; easing: easeOutQuad');
+      burst.appendChild(p);
+    }
+
+    hz.el.appendChild(burst);
+    setTimeout(() => {
+      if (burst.parentNode) burst.parentNode.removeChild(burst);
+    }, 340);
+  }
+
+  function spawnScoreText(hz, text, color = '#ffe87d') {
+    if (!hz?.el) return;
+
+    const pop = document.createElement('a-text');
+    pop.setAttribute('value', text);
+    pop.setAttribute('align', 'center');
+    pop.setAttribute('color', color);
+    pop.setAttribute('width', '4.6');
+    pop.setAttribute('position', '0 0.64 0');
+    pop.setAttribute('material', 'shader: flat; opacity: 1');
+
+    pop.setAttribute('animation__rise', 'property: position; to: 0 0.98 0; dur: 520; easing: easeOutCubic');
+    pop.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 520; easing: easeOutQuad');
+
+    hz.el.appendChild(pop);
+    setTimeout(() => {
+      if (pop.parentNode) pop.parentNode.removeChild(pop);
+    }, 580);
   }
 
   function buildHazardVisual(hazardType, hazardId) {
@@ -248,6 +302,12 @@ export function createGermRushGame({ query, ui, refs }) {
     entityWrap.appendChild(visual);
     hazardRoot.appendChild(entityWrap);
 
+    if (type === 'sneeze_cloud') {
+      entityWrap.setAttribute('scale', '1.08 1.08 1.08');
+    } else if (type === 'mold_food') {
+      entityWrap.setAttribute('scale', '1.02 1.02 1.02');
+    }
+
     const now = performance.now();
     const hz = {
       id,
@@ -260,7 +320,8 @@ export function createGermRushGame({ query, ui, refs }) {
       spreadAt: now + (def.spreadDelayMs * diffCfg.spreadMultiplier),
       expireAt: now + def.expireMs,
       spreadCount: 0,
-      state: 'active'
+      state: 'active',
+      urgentShown: false
     };
 
     state.hazards.set(id, hz);
@@ -293,6 +354,7 @@ export function createGermRushGame({ query, ui, refs }) {
   function punishSpread(hz, source = 'spread') {
     state.infection = clamp(state.infection + hz.def.infectionOnSpread, 0, 100);
     state.combo = 0;
+    spawnBurstAtHazard(hz, 'bad');
     uiLayer.showFeedback(hz.def.feedback?.bad || 'เชื้อกำลังแพร่เพิ่ม', 'bad');
     uiLayer.flashDamage();
 
@@ -308,18 +370,30 @@ export function createGermRushGame({ query, ui, refs }) {
     punishSpread(hz, 'spread');
 
     if (hz.type === 'raw_spill') {
-      if (hz.el) hz.el.setAttribute('scale', '1.35 1.35 1.35');
+      if (hz.el) {
+        hz.el.setAttribute('scale', hz.spreadCount >= 2 ? '1.55 1.55 1.55' : '1.30 1.30 1.30');
+      }
     } else if (hz.type === 'sneeze_cloud') {
-      const newSpot = randomFreeSpotId();
-      spawnHazard('sneeze_cloud', newSpot, hz.source);
+      const newSpotA = randomFreeSpotId();
+      spawnHazard('sneeze_cloud', newSpotA, hz.source);
+
+      if (hz.spreadCount >= 2) {
+        const newSpotB = randomFreeSpotId();
+        spawnHazard('raw_spill', newSpotB, hz.source);
+      }
+
       clearHazard(hz, false);
       return;
     } else if (hz.type === 'mold_food') {
       const newSpot = randomFreeSpotId();
-      spawnHazard('raw_spill', newSpot, hz.source);
+      spawnHazard(hz.spreadCount >= 2 ? 'sneeze_cloud' : 'raw_spill', newSpot, hz.source);
+
+      if (hz.el) {
+        hz.el.setAttribute('scale', hz.spreadCount >= 2 ? '1.30 1.30 1.30' : '1.15 1.15 1.15');
+      }
     }
 
-    hz.spreadAt = performance.now() + (hz.def.spreadDelayMs * 1.35 * diffCfg.spreadMultiplier);
+    hz.spreadAt = performance.now() + (hz.def.spreadDelayMs * 1.22 * diffCfg.spreadMultiplier);
   }
 
   function markMissed(hz) {
@@ -327,6 +401,7 @@ export function createGermRushGame({ query, ui, refs }) {
     state.infection = clamp(state.infection + hz.def.infectionOnMiss, 0, 100);
     state.combo = 0;
     state.missed += 1;
+    spawnBurstAtHazard(hz, 'bad');
     uiLayer.showFeedback(hz.def.feedback?.bad || 'พลาดแล้ว เชื้อแพร่เพิ่ม', 'bad');
     uiLayer.flashDamage();
     clearHazard(hz, false);
@@ -341,19 +416,33 @@ export function createGermRushGame({ query, ui, refs }) {
 
     if (correct) {
       const tool = getToolDef(state.selectedTool);
+      const ageMs = performance.now() - hz.bornAt;
+      const fastClear = ageMs <= diffCfg.fastResponseWindowMs;
+      const fastBonus = fastClear ? 35 : 0;
+      const comboBonus = Math.max(0, state.combo - 1) * 20;
+
       state.combo += 1;
       state.bestCombo = Math.max(state.bestCombo, state.combo);
-      state.score += (hz.def.score || 100) + (tool.scoreBonus || 50) + Math.max(0, state.combo - 1) * 20;
-      state.infection = clamp(state.infection - (8 + Math.floor(tool.spreadBlock * 10)), 0, 100);
 
-      uiLayer.showFeedback(hz.def.feedback?.good || 'จัดการสำเร็จ', 'good');
+      const scoreGain = (hz.def.score || 100) + (tool.scoreBonus || 50) + comboBonus + fastBonus;
+      state.score += scoreGain;
+      state.infection = clamp(state.infection - (8 + Math.floor(tool.spreadBlock * 10) + (fastClear ? 2 : 0)), 0, 100);
+
+      let msg = hz.def.feedback?.good || 'จัดการสำเร็จ';
+      if (fastClear) msg = `เร็วมาก! ${msg}`;
+
+      spawnBurstAtHazard(hz, 'good');
+      spawnScoreText(hz, `+${scoreGain}`, fastClear ? '#9dff9a' : '#ffe87d');
+      uiLayer.showFeedback(msg, 'good');
       uiLayer.showCombo(state.combo);
       clearHazard(hz, true);
     } else {
       state.combo = 0;
       state.wrongTool += 1;
-      state.score = Math.max(0, state.score - 20);
-      state.infection = clamp(state.infection + 8, 0, 100);
+      state.score = Math.max(0, state.score - 25);
+      state.infection = clamp(state.infection + 9, 0, 100);
+
+      spawnBurstAtHazard(hz, 'bad');
       uiLayer.showFeedback(`ไม่ใช่ ${getToolDef(state.selectedTool).shortLabel} สำหรับ ${hz.def.shortLabel}`, 'bad');
       uiLayer.flashDamage();
     }
@@ -371,17 +460,31 @@ export function createGermRushGame({ query, ui, refs }) {
 
     const phaseId = state.phase;
 
-    if (phaseId === 'wave1' || phaseId === 'wave2' || phaseId === 'final_rush') {
+    if (phaseId === 'wave1') {
       state.scheduledEvents = getWaveScript(query.diff, phaseId);
       state.bossActive = false;
-      setPrompt(UI_TEXT.promptDefault);
+      uiLayer.hideBossAlarm();
+      setPrompt('เริ่มสแกนหาจุดเสี่ยง แล้วเลือกเครื่องมือให้ถูก');
+    } else if (phaseId === 'wave2') {
+      state.scheduledEvents = getWaveScript(query.diff, phaseId);
+      state.bossActive = false;
+      uiLayer.hideBossAlarm();
+      setPrompt('เชื้อเริ่มเพิ่มแล้ว รีบจัดการก่อนมันแพร่');
+    } else if (phaseId === 'final_rush') {
+      state.scheduledEvents = getWaveScript(query.diff, phaseId);
+      state.bossActive = false;
+      uiLayer.hideBossAlarm();
+      setPrompt('ช่วงสุดท้าย! เก็บให้ไวและรักษาคอมโบไว้');
     } else if (phaseId === 'boss') {
       state.bossActive = true;
       state.bossTotal = bossCfg.pattern.length;
       state.bossClears = 0;
       state.scheduledEvents = bossCfg.pattern.map((e) => ({ ...e }));
+      uiLayer.showBossAlarm('BOSS ALERT!');
       setPrompt(UI_TEXT.promptBoss);
     } else if (phaseId === 'intro') {
+      state.bossActive = false;
+      uiLayer.hideBossAlarm();
       setPrompt(UI_TEXT.introShort);
     }
 
@@ -396,13 +499,19 @@ export function createGermRushGame({ query, ui, refs }) {
     }
 
     if (state.phase === 'boss') {
+      uiLayer.hideBossAlarm();
+
       if (state.bossClears >= state.bossTotal) {
         state.bossCleared = true;
         state.score += bossCfg.scoreBonus;
         state.infection = clamp(state.infection - bossCfg.infectionRewardOnClear, 0, 100);
+        state.combo += 2;
+        state.bestCombo = Math.max(state.bestCombo, state.combo);
         uiLayer.showFeedback(bossCfg.successText, 'good');
+        uiLayer.showCombo(state.combo);
       } else {
         state.bossCleared = false;
+        state.combo = 0;
         state.infection = clamp(state.infection + bossCfg.infectionPenaltyOnFail, 0, 100);
         uiLayer.showFeedback(bossCfg.failText, 'bad');
         uiLayer.flashDamage();
@@ -428,6 +537,24 @@ export function createGermRushGame({ query, ui, refs }) {
     for (const hz of [...state.hazards.values()]) {
       if (hz.state !== 'active') continue;
 
+      const spreadSoonMs = hz.spreadAt - now;
+
+      if (!hz.urgentShown && spreadSoonMs <= 900 && spreadSoonMs > 0) {
+        hz.urgentShown = true;
+
+        if (hz.type === 'sneeze_cloud') {
+          uiLayer.showFeedback('รีบก่อน! ละอองจามกำลังแตกเพิ่ม', 'warn');
+        } else if (hz.type === 'mold_food') {
+          uiLayer.showFeedback('ระวัง! รากำลังปล่อยเชื้อเพิ่ม', 'warn');
+        } else if (hz.type === 'raw_spill') {
+          uiLayer.showFeedback('คราบกำลังลาม รีบเช็ดก่อน', 'warn');
+        }
+
+        if (hz.el) {
+          hz.el.setAttribute('animation__warnscale', 'property: scale; dir: alternate; dur: 150; loop: 5; to: 1.12 1.12 1.12');
+        }
+      }
+
       if (now >= hz.expireAt) {
         markMissed(hz);
         continue;
@@ -451,6 +578,7 @@ export function createGermRushGame({ query, ui, refs }) {
     state.active = false;
     state.endedAt = performance.now();
     cancelAnimationFrame(state.raf);
+    uiLayer.hideBossAlarm();
 
     for (const hz of [...state.hazards.values()]) {
       despawnHazard(hz);
@@ -467,9 +595,32 @@ export function createGermRushGame({ query, ui, refs }) {
       bossCleared: !!state.bossCleared
     });
 
+    const extraAdvice = [];
+
+    if (state.wrongTool >= 4) {
+      extraAdvice.push('ยังสลับเครื่องมือช้าไปนิด ลองจำให้แม่นว่า ของดิบ=เช็ด ละอองจาม=สเปรย์ รา=ทิ้ง');
+    }
+
+    if (state.missed >= 3) {
+      extraAdvice.push('มีหลายจุดที่ปล่อยไว้จนลาม รอบหน้าควรเก็บละอองจามก่อนเป็นอันดับต้น ๆ');
+    }
+
+    if (state.bestCombo >= 6) {
+      extraAdvice.unshift('จุดเด่น: คุณรักษาคอมโบได้ดี แปลว่าเลือกเป้าหมายได้แม่นขึ้นแล้ว');
+    }
+
+    if (!state.bossCleared) {
+      extraAdvice.push('ช่วงบอสยังจัดลำดับไม่ดีพอ ลองเริ่มจากละอองกลางฉากก่อนแล้วค่อยไปของดิบด้านข้าง');
+    }
+
+    const finalSummary = {
+      ...summary,
+      advice: [...summary.advice, ...extraAdvice].slice(0, 4)
+    };
+
     try {
       localStorage.setItem('HHA_LAST_GERM_RUSH_SUMMARY', JSON.stringify({
-        ...summary,
+        ...finalSummary,
         diff: query.diff,
         view: query.view,
         hub: query.hub || '',
@@ -477,7 +628,7 @@ export function createGermRushGame({ query, ui, refs }) {
       }));
     } catch (_) {}
 
-    uiLayer.showSummary({ win, summary });
+    uiLayer.showSummary({ win, summary: finalSummary });
   }
 
   function update(now) {
@@ -539,6 +690,7 @@ export function createGermRushGame({ query, ui, refs }) {
     state.phaseEventCursor = 0;
 
     uiLayer.syncToolButtons(state.selectedTool);
+    uiLayer.hideBossAlarm();
     refreshHUD();
     setPrompt(UI_TEXT.promptDefault);
     uiLayer.hideSummary();
