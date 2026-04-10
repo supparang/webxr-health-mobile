@@ -14,6 +14,8 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
   let hb = 0;
   let joinedAt = Date.now();
   let metaHandler = null;
+  let detachBound = false;
+  let detached = false;
 
   await ensureFirebase();
 
@@ -51,6 +53,10 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
       if (meta.state === 'aborted') {
         logger?.event?.('race_room_aborted', { patch, roomCode });
       }
+
+      if (meta.state === 'ended') {
+        logger?.event?.('race_room_ended', { patch, roomCode });
+      }
     };
 
     roomRef.child('meta').on('value', metaHandler);
@@ -64,6 +70,8 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
     }, HEARTBEAT_MS);
 
     core.onRaceProgress = async (payload = {}) => {
+      if (!roomRef) return;
+
       await roomRef.child(`progress/${uid}`).set({
         updatedAt: Number(payload.updatedAt || Date.now()),
         phase: String(payload.phase || ''),
@@ -84,6 +92,8 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
     };
 
     core.onRaceExit = async (payload = {}) => {
+      if (!roomRef) return;
+
       await roomRef.child(`progress/${uid}`).set({
         updatedAt: Number(payload.updatedAt || Date.now()),
         phase: String(payload.phase || 'exit'),
@@ -94,11 +104,17 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
       }).catch(() => {});
     };
 
-    W.addEventListener('pagehide', detach, { passive: true });
-    W.addEventListener('beforeunload', detach, { passive: true });
+    if (!detachBound) {
+      detachBound = true;
+      W.addEventListener('pagehide', detach, { passive: true });
+      W.addEventListener('beforeunload', detach, { passive: true });
+    }
   }
 
   async function detach() {
+    if (detached) return;
+    detached = true;
+
     if (hb) {
       clearInterval(hb);
       hb = 0;
@@ -120,7 +136,10 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
   }
 
   async function heartbeat() {
+    if (!roomRef) return;
+
     const ts = Date.now();
+
     await roomRef.child(`players/${uid}`).update({
       uid,
       pid: ctx.pid,
@@ -133,6 +152,8 @@ export async function createGroupsRaceBridge({ ctx, ui, core, logger, patch }) {
   }
 
   async function submitFinalResult(payload = {}) {
+    if (!roomRef) return;
+
     const summary = payload.summary || {};
     const ts = Number(payload.updatedAt || Date.now());
 
