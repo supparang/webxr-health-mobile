@@ -70,8 +70,8 @@
       if (els.hostName && !els.hostName.value && saved.lastName) els.hostName.value = cleanText(saved.lastName, 24);
       if (els.joinName && !els.joinName.value && saved.lastName) els.joinName.value = cleanText(saved.lastName, 24);
       if (els.roomCode && !els.roomCode.value && saved.roomCode) els.roomCode.value = cleanRoom(saved.roomCode);
-      if (els.diff && saved.diff && ['easy','normal','hard'].includes(saved.diff)) els.diff.value = saved.diff;
-      if (els.timeSec && saved.timeSec && ['60','90','120'].includes(String(saved.timeSec))) els.timeSec.value = String(saved.timeSec);
+      if (els.diff && saved.diff && ['easy', 'normal', 'hard'].includes(saved.diff)) els.diff.value = saved.diff;
+      if (els.timeSec && saved.timeSec && ['60', '90', '120'].includes(String(saved.timeSec))) els.timeSec.value = String(saved.timeSec);
     }
 
     renderLatestResult(null);
@@ -197,6 +197,10 @@
 
     const ctx = { app, auth, db, config: cfg, ready: true };
     W.HHA_FIREBASE = ctx;
+
+    if (!W.HHA_FIREBASE_READY) {
+      W.HHA_FIREBASE_READY = Promise.resolve(ctx);
+    }
 
     if (auth && !auth.currentUser && typeof auth.signInAnonymously === 'function') {
       try {
