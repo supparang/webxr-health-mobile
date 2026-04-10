@@ -3,821 +3,933 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Duet Run</title>
-  <meta name="color-scheme" content="light" />
-  <link rel="icon" href="../favicon.ico" />
-
+  <title>HeroHealth • GoodJunk Duet Play</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --sky1:#dff4ff;
-      --sky2:#bfe8ff;
-      --sky3:#fff7d8;
-      --panel:#fffdf8ee;
-      --panel-2:#ffffffd9;
-      --stroke:#bfe3f2;
-      --text:#4d4a42;
-      --muted:#6b7280;
+      --bg1:#061327;
+      --bg2:#0b2550;
+      --bg3:#15417d;
 
-      --pink:#ff8fc7;
-      --pink-2:#ffc5e3;
-      --blue:#7fcfff;
-      --green:#7ed957;
+      --panel:rgba(6,16,38,.74);
+      --panel2:rgba(11,22,48,.82);
+      --stroke:rgba(255,255,255,.14);
 
-      --shadow:0 18px 40px rgba(0,0,0,.12);
+      --text:#f8fbff;
+      --muted:#dbeafe;
+      --info:#38bdf8;
+      --good:#22c55e;
+      --pink:#f472b6;
+      --yellow:#facc15;
+      --warn:#f59e0b;
+
+      --shadow:0 18px 48px rgba(0,0,0,.28);
+      --shadow-big:0 24px 72px rgba(0,0,0,.34);
 
       --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
 
     *{ box-sizing:border-box; }
     html,body{
       margin:0;
       min-height:100%;
-      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans",Arial,sans-serif;
       color:var(--text);
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
       background:
-        radial-gradient(circle at 12% 0%, rgba(127,207,255,.45), transparent 24%),
-        radial-gradient(circle at 88% 0%, rgba(255,143,199,.28), transparent 24%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 58%, var(--sky3));
+        radial-gradient(900px 520px at 10% 10%, rgba(56,189,248,.22), transparent 60%),
+        radial-gradient(900px 560px at 90% 0%, rgba(244,114,182,.16), transparent 60%),
+        radial-gradient(700px 420px at 50% 100%, rgba(250,204,21,.12), transparent 60%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
     }
 
     body{ overflow:hidden; }
+    button{ font:inherit; }
 
-    .page{
-      min-height:100vh;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
+    .app{
+      min-height:100dvh;
+      display:grid;
+      grid-template-rows:auto 1fr;
       padding:
-        calc(10px + var(--sat))
-        calc(10px + var(--sar))
-        calc(10px + var(--sab))
-        calc(10px + var(--sal));
-      overflow:hidden;
+        calc(12px + var(--sat))
+        calc(12px + var(--sar))
+        calc(12px + var(--sab))
+        calc(12px + var(--sal));
+      gap:12px;
     }
 
     .topbar{
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      backdrop-filter:blur(12px);
+      border-radius:24px;
+      box-shadow:var(--shadow-big);
+      padding:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .top-row{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:10px;
+      gap:12px;
       flex-wrap:wrap;
-      position:relative;
-      z-index:70;
-      flex:0 0 auto;
     }
 
     .brand{
       display:flex;
       align-items:center;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:18px;
-      border:1px solid var(--stroke);
-      background:var(--panel-2);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(8px);
-    }
-
-    .brand-title{
-      font-size:16px;
-      font-weight:1100;
-      line-height:1.1;
-    }
-
-    .brand-sub{
-      margin-top:2px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .top-actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .btn{
-      appearance:none;
-      border:1px solid var(--stroke);
-      background:#ffffffd8;
-      color:var(--text);
-      border-radius:14px;
-      min-height:42px;
-      padding:10px 12px;
-      font:inherit;
-      font-weight:1000;
-      cursor:pointer;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      box-shadow:var(--shadow);
-      touch-action:manipulation;
-      -webkit-tap-highlight-color:transparent;
-    }
-
-    .btn.primary{
-      background:linear-gradient(180deg,var(--pink),var(--pink-2));
-      color:#6b214e;
-    }
-
-    .btn.ghost{
-      color:var(--muted);
-      background:#ffffffcc;
-    }
-
-    .run-shell{
-      flex:1 1 auto;
-      min-height:0;
-      display:grid;
-      grid-template-columns:minmax(300px,360px) minmax(0,1fr);
       gap:12px;
-      align-items:stretch;
-    }
-
-    .duet-hud{
       min-width:0;
-      border-radius:24px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      box-shadow:var(--shadow);
-      padding:14px;
-      display:grid;
-      gap:12px;
-      z-index:20;
-      min-height:0;
-      overflow:auto;
     }
 
-    .duet-hud-toolbar{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:8px;
-    }
-
-    .duet-hud-toggle{
-      min-width:40px;
-      min-height:40px;
-      border-radius:12px;
-      border:1px solid var(--stroke);
-      background:#ffffffd8;
-      color:var(--text);
-      font-size:18px;
-      font-weight:1000;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-    }
-
-    .coach-badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:36px;
-      padding:6px 12px;
-      border-radius:999px;
-      border:1px solid #ffd6ea;
-      background:#fff2f8;
-      color:#a33268;
-      font-size:12px;
-      font-weight:1100;
-    }
-
-    .duet-top{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .duet-pill{
-      display:inline-flex;
-      align-items:center;
-      min-height:34px;
-      padding:6px 12px;
-      border-radius:999px;
-      border:1px solid var(--stroke);
-      background:#ffffffcf;
-      color:var(--text);
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .duet-score{
-      border-radius:20px;
-      border:1px solid var(--stroke);
-      background:linear-gradient(180deg,#fffafc,#fff);
-      padding:14px;
-      text-align:center;
-    }
-
-    .duet-score-label{
-      font-size:12px;
-      font-weight:1000;
-      color:var(--muted);
-      letter-spacing:.08em;
-    }
-
-    .duet-score-value{
-      margin-top:6px;
-      font-size:40px;
-      line-height:1;
-      font-weight:1100;
-      color:#7a2558;
-    }
-
-    .duet-stats{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .duet-stat,.duet-mini{
-      border-radius:18px;
-      border:1px solid var(--stroke);
-      background:#ffffffcc;
-      padding:12px;
-      text-align:center;
-    }
-
-    .duet-stat-k,.duet-mini-k{
-      font-size:12px;
-      font-weight:1000;
-      color:var(--muted);
-    }
-
-    .duet-stat-v{
-      margin-top:6px;
-      font-size:22px;
-      line-height:1;
-      font-weight:1100;
-      color:#244f6d;
-    }
-
-    .duet-panel{
-      border-radius:20px;
-      border:1px solid var(--stroke);
-      background:#ffffffc9;
-      padding:12px;
-      display:grid;
-      gap:12px;
-    }
-
-    .duet-item{
-      display:flex;
-      gap:12px;
-      align-items:center;
-    }
-
-    .duet-item-icon{
-      width:64px;
-      height:64px;
-      border-radius:18px;
-      border:1px solid var(--stroke);
-      background:#fff;
+    .brand-badge{
+      width:62px;
+      height:62px;
+      border-radius:22px;
       display:grid;
       place-items:center;
-      overflow:hidden;
-    }
-
-    .emoji{
-      font-size:34px;
-      line-height:1;
-    }
-
-    .duet-item-title{
-      font-size:16px;
-      font-weight:1100;
-      color:#7a2558;
-    }
-
-    .duet-item-sub{
-      margin-top:4px;
-      font-size:13px;
-      line-height:1.6;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .duet-mini-stats{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .duet-mini-v{
-      margin-top:4px;
-      font-size:20px;
-      line-height:1;
-      font-weight:1100;
-      color:#1f5d73;
-    }
-
-    .duet-tip{
-      border-radius:16px;
-      border:1px dashed var(--stroke);
-      background:#fff9fc;
-      padding:10px 12px;
-      color:#7a2558;
-      font-size:13px;
-      line-height:1.6;
-      font-weight:1000;
-      min-height:46px;
-    }
-
-    .duet-goal{
-      display:grid;
-      gap:8px;
-    }
-
-    .duet-goal-head{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-    }
-
-    .duet-goal-title{
-      font-size:12px;
-      font-weight:1100;
-      color:var(--muted);
-      letter-spacing:.08em;
-    }
-
-    .duet-goal-value{
-      font-size:18px;
-      line-height:1;
-      font-weight:1100;
-      color:#244f6d;
-    }
-
-    .duet-bar,.duet-bar-sub{
-      height:12px;
-      border-radius:999px;
-      background:rgba(191,227,242,.5);
-      overflow:hidden;
-    }
-
-    .duet-bar-fill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg,var(--pink),var(--pink-2));
-      transition:width .16s linear;
-    }
-
-    .duet-bar-sub-fill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#7fcfff,#b9ecff);
-      transition:width .16s linear;
-    }
-
-    .stage-wrap{
-      min-width:0;
-      min-height:0;
-      border-radius:24px;
-      border:1px solid var(--stroke);
-      background:#ffffffba;
-      box-shadow:var(--shadow);
-      display:flex;
-      flex-direction:column;
-      overflow:hidden;
-      position:relative;
-    }
-
-    .stage-head{
-      padding:12px 14px;
-      border-bottom:1px solid var(--stroke);
-      color:#7a2558;
-      font-size:14px;
-      font-weight:1100;
-      letter-spacing:.05em;
-      background:#fff9fd;
+      font-size:32px;
+      border:1px solid rgba(255,255,255,.14);
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 38%),
+        linear-gradient(135deg, rgba(56,189,248,.22), rgba(244,114,182,.18));
+      box-shadow:0 12px 24px rgba(0,0,0,.16);
       flex:0 0 auto;
     }
 
-    .stage-inner{
-      position:relative;
-      flex:1 1 auto;
-      min-height:0;
-      background:
-        radial-gradient(circle at 20% 10%, rgba(255,255,255,.8), transparent 18%),
-        radial-gradient(circle at 80% 8%, rgba(255,255,255,.72), transparent 18%),
-        linear-gradient(180deg,#aee6ff 0%, #d9f5ff 54%, #fff5cf 100%);
+    .brand-title{
+      font-size:24px;
+      font-weight:1000;
+      line-height:1.08;
+      color:#fff;
     }
 
-    #duetGameStage{
-      position:relative;
-      width:100%;
-      height:100%;
-      min-height:520px;
-      overflow:hidden;
+    .brand-sub{
+      margin-top:5px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+      font-weight:900;
     }
 
-    .stage-cloud{
-      position:absolute;
-      background:#fff;
-      border-radius:999px;
-      box-shadow:0 8px 18px rgba(0,0,0,.06);
-      opacity:.8;
-      pointer-events:none;
-    }
-
-    .stage-cloud.c1{ width:130px;height:42px;left:4%;top:8%; }
-    .stage-cloud.c2{ width:95px;height:34px;left:72%;top:11%; }
-    .stage-cloud.c3{ width:110px;height:36px;left:38%;top:18%; }
-
-    .stage-ground{
-      position:absolute;
-      left:0; right:0; bottom:0;
-      height:96px;
-      background:
-        radial-gradient(circle at 20% 40%, rgba(126,217,87,.34), transparent 18%),
-        radial-gradient(circle at 72% 44%, rgba(126,217,87,.28), transparent 18%),
-        linear-gradient(180deg,#b3f28f,#88d96b);
-      border-top:1px solid rgba(88,195,63,.26);
-      pointer-events:none;
-    }
-
-    .countdown-overlay{
-      position:absolute;
-      inset:0;
-      display:none;
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
       align-items:center;
-      justify-content:center;
-      background:rgba(255,255,255,.38);
-      backdrop-filter:blur(8px);
-      z-index:35;
+      justify-content:flex-end;
     }
 
-    .countdown-overlay.show{ display:flex; }
+    .btn{
+      min-height:46px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      color:#fff;
+      font-size:14px;
+      font-weight:1000;
+      cursor:pointer;
+      padding:10px 14px;
+      background:rgba(255,255,255,.06);
+      box-shadow:0 10px 20px rgba(0,0,0,.16);
+      transition:transform .12s ease, filter .12s ease, opacity .12s ease;
+    }
 
-    .countdown-card{
-      width:min(460px, calc(100% - 24px));
-      border-radius:28px;
-      border:1px solid var(--stroke);
-      background:#fffdf8f2;
-      box-shadow:0 22px 60px rgba(0,0,0,.18);
-      padding:20px;
-      text-align:center;
+    .btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.05);
+    }
+
+    .btn:disabled{
+      opacity:.58;
+      cursor:not-allowed;
+      transform:none !important;
+      filter:none !important;
+    }
+
+    .btn.info{
+      background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14));
+      border-color:rgba(56,189,248,.34);
+      color:#eefbff;
+    }
+
+    .btn.good{
+      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.14));
+      border-color:rgba(34,197,94,.34);
+      color:#f0fff5;
+    }
+
+    .btn.warn{
+      background:linear-gradient(180deg, rgba(250,204,21,.24), rgba(250,204,21,.14));
+      border-color:rgba(250,204,21,.34);
+      color:#fff9db;
+    }
+
+    .btn.pink{
+      background:linear-gradient(180deg, rgba(244,114,182,.24), rgba(244,114,182,.14));
+      border-color:rgba(244,114,182,.34);
+      color:#fff1f7;
+    }
+
+    .info-grid{
       display:grid;
-      gap:12px;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
     }
 
-    .countdown-badge{
-      display:inline-flex;
-      margin:0 auto;
-      min-height:36px;
-      padding:6px 14px;
-      align-items:center;
+    .pill{
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      padding:12px;
+      min-height:72px;
+      display:flex;
+      flex-direction:column;
       justify-content:center;
-      border-radius:999px;
-      border:1px solid #ffd6ea;
-      background:#fff2f8;
-      color:#a33268;
-      font-size:12px;
-      font-weight:1100;
+      gap:6px;
+      box-shadow:var(--shadow);
     }
 
-    .countdown-num{
-      font-size:84px;
-      line-height:1;
-      font-weight:1100;
-      color:#7a2558;
-      text-shadow:0 4px 0 #fff;
-    }
-
-    .countdown-text{
-      color:#6b7280;
-      font-size:15px;
-      line-height:1.6;
+    .pill-label{
+      font-size:11px;
+      color:var(--muted);
       font-weight:1000;
     }
 
-    .duet-result-mount{
-      position:fixed;
+    .pill-value{
+      font-size:18px;
+      line-height:1.15;
+      font-weight:1000;
+      color:#fff;
+      word-break:break-word;
+    }
+
+    .stage{
+      position:relative;
+      min-height:0;
+      border:1px solid var(--stroke);
+      background:var(--panel2);
+      backdrop-filter:blur(12px);
+      border-radius:26px;
+      box-shadow:var(--shadow-big);
+      overflow:hidden;
+    }
+
+    .state-layer{
+      position:absolute;
       inset:0;
-      z-index:99999;
+      display:grid;
+      place-items:center;
+      padding:18px;
+      z-index:5;
+      background:
+        radial-gradient(circle at 50% 10%, rgba(255,255,255,.06), transparent 30%),
+        linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+    }
+
+    .state-card{
+      width:min(92vw,760px);
+      border-radius:26px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.07);
+      box-shadow:0 18px 40px rgba(0,0,0,.22);
+      padding:18px;
+      text-align:center;
+    }
+
+    .state-icon{
+      width:92px;
+      height:92px;
+      margin:0 auto 12px;
+      border-radius:28px;
+      display:grid;
+      place-items:center;
+      font-size:44px;
+      border:1px solid rgba(255,255,255,.14);
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 38%),
+        linear-gradient(135deg, rgba(56,189,248,.22), rgba(244,114,182,.18));
+      box-shadow:0 14px 28px rgba(0,0,0,.16);
+    }
+
+    .state-title{
+      font-size:28px;
+      line-height:1.08;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .state-sub{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.65;
+      font-weight:900;
+    }
+
+    .chips{
       display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+      margin-top:14px;
+    }
+
+    .chip{
+      display:inline-flex;
       align-items:center;
       justify-content:center;
-      padding:18px;
-      background:rgba(245,252,255,.96);
-      overflow:auto;
+      min-height:36px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:#eef6ff;
+      font-size:12px;
+      font-weight:1000;
     }
 
-    @media (max-width:920px){
-      .run-shell{
-        grid-template-columns:1fr;
-      }
+    .spinner{
+      margin:16px auto 0;
+      width:48px;
+      height:48px;
+      border-radius:999px;
+      border:4px solid rgba(255,255,255,.18);
+      border-top-color:#7dd3fc;
+      animation:spin .9s linear infinite;
     }
 
-    @media (max-width:760px){
-      body{ overflow:hidden; }
+    .inline-actions{
+      margin-top:16px;
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
 
-      .page{
+    .players-box{
+      margin-top:16px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.05);
+      padding:12px;
+      text-align:left;
+    }
+
+    .players-title{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .players-list{
+      margin-top:10px;
+      display:grid;
+      gap:10px;
+    }
+
+    .player-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:12px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+    }
+
+    .player-name{
+      font-size:14px;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .player-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:30px;
+      padding:7px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:1000;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:#fff;
+    }
+
+    .player-pill.host{
+      border-color:rgba(250,204,21,.34);
+      background:rgba(250,204,21,.16);
+      color:#fff9db;
+    }
+
+    .player-pill.guest{
+      border-color:rgba(56,189,248,.34);
+      background:rgba(56,189,248,.16);
+      color:#e0f2fe;
+    }
+
+    .engine-wrap{
+      position:absolute;
+      inset:0;
+      z-index:1;
+      display:none;
+      background:#000;
+    }
+
+    .engine-wrap.show{
+      display:block;
+    }
+
+    .engine-frame{
+      width:100%;
+      height:100%;
+      border:0;
+      display:block;
+      background:#000;
+    }
+
+    .log-box{
+      margin-top:14px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(1,8,26,.54);
+      padding:12px 14px;
+      color:#dbeafe;
+      font-size:12px;
+      line-height:1.55;
+      font-weight:900;
+      min-height:72px;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    @keyframes spin{
+      to{ transform:rotate(360deg); }
+    }
+
+    @media (max-width:980px){
+      .info-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    @media (max-width:720px){
+      .app{
         padding:
-          calc(8px + var(--sat))
-          calc(8px + var(--sar))
-          calc(8px + var(--sab))
-          calc(8px + var(--sal));
-        gap:8px;
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(10px + var(--sab))
+          calc(10px + var(--sal));
       }
-
-      .topbar{ gap:8px; }
-      .brand{ width:100%; }
-      .top-actions{ width:100%; }
-      .top-actions .btn{ flex:1 1 0; }
-
-      .run-shell{
-        position:relative;
-        grid-template-columns:1fr;
-        gap:0;
-        min-height:0;
+      .info-grid{ grid-template-columns:1fr; }
+      .top-row{ align-items:flex-start; }
+      .actions{ justify-content:flex-start; }
+      .brand-badge{
+        width:56px;
+        height:56px;
+        font-size:28px;
+        border-radius:20px;
       }
+      .brand-title{ font-size:22px; }
+      .state-title{ font-size:24px; }
+    }
 
-      .stage-wrap{
-        order:1;
-        min-height:calc(100vh - 108px - var(--sat) - var(--sab));
-        border-radius:22px;
-      }
-
-      .stage-head{
-        padding:10px 12px;
-        font-size:13px;
-      }
-
-      #duetGameStage{
-        min-height:calc(100vh - 160px - var(--sat) - var(--sab));
-      }
-
-      .stage-ground{
-        height:80px;
-      }
-
-      .duet-hud{
-        order:2;
-        position:fixed;
-        left:8px;
-        right:8px;
-        bottom:calc(8px + var(--sab));
-        z-index:60;
-        overflow:hidden;
-        background:rgba(255,253,248,.94);
-        backdrop-filter:blur(10px);
-        border-radius:22px;
-        box-shadow:0 20px 44px rgba(0,0,0,.20);
-      }
-
-      .duet-hud.collapsed{
-        padding:10px 12px;
-        max-height:78px;
-      }
-
-      .duet-hud.collapsed .duet-top,
-      .duet-hud.collapsed .duet-score,
-      .duet-hud.collapsed .duet-stats,
-      .duet-hud.collapsed .duet-panel{
-        display:none;
-      }
-
-      .duet-score-value{
-        font-size:34px;
-      }
-
-      .duet-stats,
-      .duet-mini-stats{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
-
-      .countdown-card{
-        width:min(360px, calc(100% - 18px));
-        padding:16px;
-      }
-
-      .countdown-num{
-        font-size:72px;
-      }
-
-      .duet-result-mount{
-        padding:10px;
-        align-items:flex-end;
+    @media (prefers-reduced-motion: reduce){
+      *,
+      *::before,
+      *::after{
+        animation:none !important;
+        transition:none !important;
       }
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <div class="topbar">
-      <div class="brand">
-        <div style="font-size:20px;">👯</div>
-        <div>
-          <div class="brand-title">GoodJunk • Duet Run</div>
-          <div class="brand-sub">ช่วยกันเก็บอาหารดี ทำคะแนนรวมของทีม</div>
+  <div class="app">
+    <section class="topbar">
+      <div class="top-row">
+        <div class="brand">
+          <div class="brand-badge">👫</div>
+          <div>
+            <div class="brand-title">GoodJunk Duet Play</div>
+            <div class="brand-sub">wrapper สำหรับตรวจ room และล็อกโหมด duet ก่อนเข้า engine จริง</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="btnBackLobby" class="btn info" type="button">กลับ Lobby</button>
+          <button id="btnBackLauncher" class="btn" type="button">กลับ Launcher</button>
+          <button id="btnBackHub" class="btn pink" type="button">กลับ Hub</button>
         </div>
       </div>
 
-      <div class="top-actions">
-        <a class="btn ghost" id="btnBackLauncher" href="./goodjunk-multi.html">← Launcher</a>
-        <a class="btn primary" id="btnGoHub" href="../hub.html">🏠 Hub</a>
+      <div class="info-grid">
+        <div class="pill">
+          <div class="pill-label">Room</div>
+          <div id="infoRoom" class="pill-value">-</div>
+        </div>
+        <div class="pill">
+          <div class="pill-label">Mode</div>
+          <div id="infoMode" class="pill-value">duet</div>
+        </div>
+        <div class="pill">
+          <div class="pill-label">Role</div>
+          <div id="infoRole" class="pill-value">-</div>
+        </div>
+        <div class="pill">
+          <div class="pill-label">Status</div>
+          <div id="infoStatus" class="pill-value">กำลังตรวจสอบ...</div>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <div class="run-shell">
-      <div id="duetHud" class="duet-hud">
-        <div class="duet-hud-toolbar">
-          <div class="coach-badge" id="duetCoachBadge">🤖 AI Coach</div>
-          <button id="duetHudToggle" class="duet-hud-toggle" type="button">⋯</button>
-        </div>
+    <section class="stage">
+      <div id="stateLayer" class="state-layer">
+        <div class="state-card">
+          <div id="stateIcon" class="state-icon">🔍</div>
+          <div id="stateTitle" class="state-title">กำลังตรวจสอบห้อง</div>
+          <div id="stateSub" class="state-sub">โปรดรอสักครู่ ระบบกำลังตรวจสอบว่า room ถูกต้องและพร้อมเริ่มเกมหรือยัง</div>
 
-        <div class="duet-top">
-          <div class="duet-pill">DUET</div>
-          <div class="duet-pill" id="duetRoomPill">ห้อง -</div>
-        </div>
-
-        <div class="duet-score">
-          <div class="duet-score-label">SCORE</div>
-          <div class="duet-score-value" id="duetScoreValue">0</div>
-        </div>
-
-        <div class="duet-stats">
-          <div class="duet-stat">
-            <div class="duet-stat-k">เวลา</div>
-            <div class="duet-stat-v" id="duetTimeValue">0:00</div>
-          </div>
-          <div class="duet-stat">
-            <div class="duet-stat-k">Miss</div>
-            <div class="duet-stat-v" id="duetMissValue">0</div>
-          </div>
-          <div class="duet-stat">
-            <div class="duet-stat-k">Best Streak</div>
-            <div class="duet-stat-v" id="duetStreakValue">0</div>
-          </div>
-        </div>
-
-        <div class="duet-panel">
-          <div class="duet-item">
-            <div class="duet-item-icon" id="duetItemIcon">
-              <div class="emoji" id="duetItemEmoji">🍉</div>
-            </div>
-            <div>
-              <div class="duet-item-title" id="duetItemTitle">อาหารดี</div>
-              <div class="duet-item-sub" id="duetItemSub">เก็บอาหารดีให้ไวแล้วช่วยกันเร่งคะแนนรวม</div>
-            </div>
+          <div class="chips">
+            <div id="chipRoom" class="chip">Room: -</div>
+            <div id="chipPlayers" class="chip">Players: -</div>
+            <div id="chipStarted" class="chip">Status: checking</div>
           </div>
 
-          <div class="duet-mini-stats">
-            <div class="duet-mini">
-              <div class="duet-mini-k">Good hit</div>
-              <div class="duet-mini-v" id="duetGoodHitValue">0</div>
-            </div>
-            <div class="duet-mini">
-              <div class="duet-mini-k">Junk hit</div>
-              <div class="duet-mini-v" id="duetJunkHitValue">0</div>
-            </div>
-            <div class="duet-mini">
-              <div class="duet-mini-k">Good missed</div>
-              <div class="duet-mini-v" id="duetGoodMissValue">0</div>
-            </div>
+          <div id="spinner" class="spinner"></div>
+
+          <div class="players-box">
+            <div class="players-title">ผู้เล่นในห้อง</div>
+            <div id="playersList" class="players-list"></div>
           </div>
 
-          <div class="duet-tip" id="duetTipText">รอเริ่มพร้อมกันทั้งคู่</div>
-
-          <div class="duet-goal">
-            <div class="duet-goal-head">
-              <div class="duet-goal-title">PAIR GOAL</div>
-              <div class="duet-goal-value" id="duetPairGoalValue">360</div>
-            </div>
-            <div class="duet-bar">
-              <div class="duet-bar-fill" id="duetPairGoalFill"></div>
-            </div>
-            <div class="duet-bar-sub">
-              <div class="duet-bar-sub-fill" id="duetPairGoalSubFill"></div>
-            </div>
+          <div class="inline-actions">
+            <button id="btnRetry" class="btn warn" type="button">ลองใหม่</button>
+            <button id="btnForceOpen" class="btn good" type="button" style="display:none">เข้าเกมตอนนี้</button>
           </div>
+
+          <div id="debugLog" class="log-box">Duet play wrapper ready…</div>
         </div>
       </div>
 
-      <section class="stage-wrap">
-        <div class="stage-head">DUET GAME STAGE</div>
-        <div class="stage-inner">
-          <div class="stage-cloud c1"></div>
-          <div class="stage-cloud c2"></div>
-          <div class="stage-cloud c3"></div>
-          <div class="stage-ground"></div>
-
-          <div id="duetGameStage"></div>
-
-          <div id="duetCountdownOverlay" class="countdown-overlay">
-            <div class="countdown-card">
-              <div class="countdown-badge">พร้อมกันทั้งคู่</div>
-              <div id="duetCountdownNum" class="countdown-num">3</div>
-              <div id="duetCountdownText" class="countdown-text">เตรียมตัวเก็บของดีให้ถึงเป้าหมายคู่</div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
+      <div id="engineWrap" class="engine-wrap">
+        <iframe id="engineFrame" class="engine-frame" title="GoodJunk Duet Engine"></iframe>
+      </div>
+    </section>
   </div>
 
-  <div id="duetResultMount" class="duet-result-mount" hidden></div>
+  <script type="module">
+    import {
+      makeRoomAdapter,
+      loadRecentRoom,
+      getPlayers,
+      getPlayerCount,
+      getPlayerByPid
+    } from './vr-goodjunk/goodjunk-duet-room.js?v=20260409d-GJ-DUET-ROOM-GUARD';
 
-  <script>
-    (function duetRunShellBoot(){
-      const qs = new URLSearchParams(location.search);
-      const hub = qs.get('hub') || '../hub.html';
+    const $ = (id) => document.getElementById(id);
 
-      const btnGoHub = document.getElementById('btnGoHub');
-      const btnBackLauncher = document.getElementById('btnBackLauncher');
+    const qs = (k, d='') => {
+      try { return new URL(location.href).searchParams.get(k) ?? d; }
+      catch (_) { return d; }
+    };
 
-      if (btnGoHub) btnGoHub.href = hub;
+    const STORAGE = {
+      lastModePrefix: 'GJ_LAST_MODE:',
+      lastRunUrlPrefix: 'GJ_LAST_RUN_URL:'
+    };
 
-      if (btnBackLauncher) {
-        const u = new URL('./goodjunk-multi.html', location.href);
-        ['pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai','room','roomId','roomKind']
-          .forEach((k) => {
-            const v = qs.get(k);
-            if (v != null && v !== '') u.searchParams.set(k, v);
-          });
-        btnBackLauncher.href = u.toString();
-      }
-    })();
-  </script>
+    let roomApi = null;
+    let unsubscribeRoom = null;
+    let bootedEngine = false;
+    let lastRoomSnapshot = null;
 
-  <script src="../hha-cloud-logger-bridge.js?v=20260409a"></script>
-  <script src="../hha-runtime-contract.js?v=20260409a"></script>
+    function clean(v, d=''){
+      const s = String(v ?? '').trim();
+      return s || d;
+    }
 
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    function log(msg){
+      const el = $('debugLog');
+      if (!el) return;
+      const ts = new Date().toLocaleTimeString('th-TH', { hour12:false });
+      el.textContent = `[${ts}] ${msg}`;
+    }
 
-  <script src="../firebase-config.js?v=20260406-duet-engine"></script>
-  <script src="../herohealth-logger.js?v=20260406-duet-engine"></script>
-  <script src="../room-engine.js?v=20260409-duet-lastpingfix"></script>
-  <script src="./goodjunk-duet-play-bridge.js?v=20260407b-duet-progressfix"></script>
-  <script src="./goodjunk.safe.duet.js?v=20260407c-duet-layoutfix"></script>
-
-  <script>
-    (function(){
-      const hud = document.getElementById('duetHud');
-      const hudToggle = document.getElementById('duetHudToggle');
-      const resultMount = document.getElementById('duetResultMount');
-
-      function isMobileLike(){
-        return window.innerWidth <= 760;
-      }
-
-      function applyInitialHudState(force){
-        if (!hud) return;
-
-        if (isMobileLike()) {
-          if (force || !hud.dataset.userToggled) {
-            hud.classList.add('collapsed');
-          }
-        } else {
-          if (force || !hud.dataset.userToggled) {
-            hud.classList.remove('collapsed');
-          }
+    function buildUrl(path, extra = {}, base = location.href){
+      const u = new URL(path, base);
+      Object.entries(extra).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') {
+          u.searchParams.set(k, String(v));
         }
+      });
+      return u.toString();
+    }
+
+    function saveLastMode(pid, mode, href){
+      if (!pid || !mode || !href) return;
+      try{
+        localStorage.setItem(`${STORAGE.lastModePrefix}${pid}`, mode);
+        localStorage.setItem(`${STORAGE.lastRunUrlPrefix}${pid}`, href);
+      }catch(_){}
+    }
+
+    function commonParams(){
+      return {
+        pid: clean(qs('pid', 'anon'), 'anon'),
+        name: clean(qs('name', qs('nick', 'Hero')), 'Hero'),
+        nick: clean(qs('nick', qs('name', 'Hero')), 'Hero'),
+        room: clean(qs('room', loadRecentRoom('duet')), ''),
+        diff: clean(qs('diff', 'normal'), 'normal'),
+        time: clean(qs('time', '90'), '90'),
+        view: clean(qs('view', 'mobile'), 'mobile'),
+        hub: clean(qs('hub', './hub-v2.html'), './hub-v2.html'),
+        run: clean(qs('run', 'play'), 'play'),
+        seed: clean(qs('seed', String(Date.now())), String(Date.now())),
+        zone: clean(qs('zone', 'nutrition'), 'nutrition'),
+        cat: clean(qs('cat', 'nutrition'), 'nutrition'),
+        game: clean(qs('game', 'goodjunk'), 'goodjunk'),
+        gameId: clean(qs('gameId', 'goodjunk'), 'goodjunk'),
+        theme: clean(qs('theme', 'goodjunk'), 'goodjunk'),
+        studyId: clean(qs('studyId', ''), ''),
+        conditionGroup: clean(qs('conditionGroup', ''), ''),
+        mode: clean(qs('mode', 'duet'), 'duet'),
+        role: clean(qs('role', 'player'), 'player')
+      };
+    }
+
+    function renderPlayers(room){
+      const wrap = $('playersList');
+      if (!wrap) return;
+
+      const players = getPlayers(room);
+      if (!players.length) {
+        wrap.innerHTML = '<div class="player-row"><div class="player-name">ยังไม่มีผู้เล่น</div><div class="player-pill">0</div></div>';
+        return;
       }
 
-      if (hudToggle && hud) {
-        hudToggle.addEventListener('click', () => {
-          hud.dataset.userToggled = '1';
-          hud.classList.toggle('collapsed');
-        });
+      wrap.innerHTML = players.map((p, idx) => {
+        const isHost = p.role === 'host';
+        return `
+          <div class="player-row">
+            <div class="player-name">${idx + 1}. ${String(p.name || p.pid || 'Player')}</div>
+            <div class="player-pill ${isHost ? 'host' : 'guest'}">${isHost ? '👑 Host' : '🙂 Player'}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function setStateUi(kind, title, sub, extra = {}){
+      const iconMap = {
+        checking: '🔍',
+        waiting: '⏳',
+        ready: '🎮',
+        error: '⚠️',
+        blocked: '🛑',
+        launch: '🚀'
+      };
+
+      $('stateIcon').textContent = iconMap[kind] || '🔍';
+      $('stateTitle').textContent = title || '';
+      $('stateSub').textContent = sub || '';
+
+      $('spinner').style.display =
+        kind === 'checking' || kind === 'launch' || kind === 'waiting'
+          ? 'block'
+          : 'none';
+
+      $('btnForceOpen').style.display = extra.allowForce ? 'inline-flex' : 'none';
+    }
+
+    function updateTopInfo(room){
+      const p = commonParams();
+      $('infoRoom').textContent = p.room || '-';
+      $('infoMode').textContent = p.mode || 'duet';
+      $('infoRole').textContent = p.role || '-';
+
+      if (!room) {
+        $('infoStatus').textContent = 'กำลังตรวจสอบ...';
+        $('chipRoom').textContent = `Room: ${p.room || '-'}`;
+        $('chipPlayers').textContent = 'Players: -';
+        $('chipStarted').textContent = 'Status: checking';
+        return;
       }
 
-      window.addEventListener('resize', () => applyInitialHudState(false));
-      applyInitialHudState(true);
+      $('chipRoom').textContent = `Room: ${room.roomId || p.room || '-'}`;
+      $('chipPlayers').textContent = `Players: ${getPlayerCount(room)}/2`;
+      $('chipStarted').textContent = `Status: ${room.status || 'waiting'}`;
+      $('infoStatus').textContent = room.status || 'waiting';
+    }
 
-      window.addEventListener('gj:summary', function(evt){
-        const detail = evt && evt.detail ? evt.detail : null;
-        if (!detail || !resultMount) return;
-        resultMount.hidden = false;
+    function buildLobbyUrl(){
+      const p = commonParams();
+      return buildUrl('./goodjunk-duet-lobby.html', {
+        mode: 'duet',
+        room: p.room,
+        pid: p.pid,
+        name: p.name,
+        nick: p.nick,
+        diff: p.diff,
+        time: p.time,
+        view: p.view,
+        hub: p.hub,
+        run: p.run,
+        seed: p.seed,
+        zone: p.zone,
+        cat: p.cat,
+        game: p.game,
+        gameId: p.gameId,
+        theme: p.theme,
+        studyId: p.studyId,
+        conditionGroup: p.conditionGroup
+      });
+    }
+
+    function buildLauncherUrl(){
+      const p = commonParams();
+      return buildUrl('./goodjunk-launcher.html', {
+        pid: p.pid,
+        name: p.name,
+        diff: p.diff,
+        time: p.time,
+        hub: p.hub,
+        view: p.view,
+        run: p.run,
+        seed: p.seed,
+        zone: p.zone,
+        cat: p.cat,
+        game: p.game,
+        gameId: p.gameId,
+        theme: p.theme,
+        recommendedMode: 'duet'
+      });
+    }
+
+    function buildEngineUrl(room){
+      const p = commonParams();
+      const me = getPlayerByPid(room, p.pid);
+      const role = me?.role === 'host' ? 'host' : 'player';
+
+      const href = buildUrl('./vr-goodjunk/goodjunk-vr.html', {
+        mode: 'duet',
+        entry: 'duet',
+        recommendedMode: 'duet',
+        room: p.room,
+        pid: p.pid,
+        name: p.name,
+        nick: p.nick,
+        diff: p.diff,
+        time: p.time,
+        view: p.view,
+        hub: p.hub,
+        run: p.run,
+        seed: p.seed,
+        zone: p.zone,
+        cat: p.cat,
+        game: p.game,
+        gameId: p.gameId,
+        theme: p.theme,
+        studyId: p.studyId,
+        conditionGroup: p.conditionGroup,
+        role,
+        fromLobby: '1',
+        lobby: '1',
+        multiplayer: '1',
+        modeLocked: '1'
       });
 
-      window.addEventListener('hha:summary', function(evt){
-        const detail = evt && evt.detail ? evt.detail : null;
-        if (!detail || !resultMount) return;
-        resultMount.hidden = false;
+      saveLastMode(p.pid, 'duet', href);
+      return href;
+    }
+
+    function showLayer(){
+      $('stateLayer').style.display = 'grid';
+      $('engineWrap').classList.remove('show');
+    }
+
+    function hideLayer(){
+      $('stateLayer').style.display = 'none';
+      $('engineWrap').classList.add('show');
+    }
+
+    function classifyRoom(room){
+      const p = commonParams();
+
+      if (p.mode !== 'duet') {
+        return {
+          ok: false,
+          kind: 'blocked',
+          title: 'โหมดไม่ถูกต้อง',
+          sub: 'หน้านี้ใช้สำหรับ duet เท่านั้น ระบบจะไม่ยอม fallback ไป solo'
+        };
+      }
+
+      if (!p.room) {
+        return {
+          ok: false,
+          kind: 'error',
+          title: 'ไม่พบ Room Code',
+          sub: 'หน้านี้ต้องมี room มาก่อน กรุณากลับไปหน้า lobby แล้วสร้างห้องหรือเข้าห้องใหม่'
+        };
+      }
+
+      if (!room) {
+        return {
+          ok: false,
+          kind: 'checking',
+          title: 'กำลังหาห้อง',
+          sub: 'ยังไม่พบข้อมูลห้องนี้ หรือ backend กำลังซิงก์ข้อมูล'
+        };
+      }
+
+      if (room.mode !== 'duet') {
+        return {
+          ok: false,
+          kind: 'blocked',
+          title: 'ห้องนี้ไม่ใช่ Duet',
+          sub: 'พบ room แล้ว แต่โหมดของห้องไม่ตรงกับ duet'
+        };
+      }
+
+      const me = getPlayerByPid(room, p.pid);
+      if (!me) {
+        return {
+          ok: false,
+          kind: 'blocked',
+          title: 'ผู้เล่นนี้ไม่ได้อยู่ในห้อง',
+          sub: 'กรุณากลับไป lobby แล้วเข้าห้องนี้ด้วยชื่อ/PID เดิมก่อน'
+        };
+      }
+
+      if (getPlayerCount(room) < 2) {
+        return {
+          ok: false,
+          kind: 'waiting',
+          title: 'รอผู้เล่นให้ครบ 2 คน',
+          sub: 'ตอนนี้ยังมีผู้เล่นไม่ครบ ระบบจะยังไม่เปิดเกม'
+        };
+      }
+
+      if (room.status !== 'started') {
+        return {
+          ok: false,
+          kind: 'waiting',
+          title: 'รอ Host กดเริ่มเกม',
+          sub: 'ครบ 2 คนแล้ว แต่ห้องยังไม่ถูกสั่งเริ่มจากหน้า lobby'
+        };
+      }
+
+      return {
+        ok: true,
+        kind: 'ready',
+        title: 'ห้องพร้อมแล้ว',
+        sub: 'ตรวจสอบผ่านทั้งหมด กำลังเข้า engine ของ duet'
+      };
+    }
+
+    function bootEngine(room){
+      if (bootedEngine) return;
+      bootedEngine = true;
+
+      const engineUrl = buildEngineUrl(room);
+      log(`เปิด engine duet -> ${engineUrl}`);
+
+      setStateUi(
+        'launch',
+        'กำลังเข้าเกม Duet',
+        'ห้องพร้อมแล้ว ระบบกำลังเปิด engine ของโหมด duet'
+      );
+
+      const frame = $('engineFrame');
+      frame.src = engineUrl;
+
+      setTimeout(() => {
+        hideLayer();
+      }, 350);
+    }
+
+    async function evaluateRoom(room){
+      lastRoomSnapshot = room || null;
+      updateTopInfo(room);
+      renderPlayers(room);
+
+      const state = classifyRoom(room);
+      setStateUi(state.kind, state.title, state.sub, { allowForce: state.ok });
+      log(`${state.kind}: ${state.title}`);
+
+      if (state.ok) {
+        bootEngine(room);
+      }
+    }
+
+    async function watchRoom(){
+      const p = commonParams();
+
+      if (!p.room) {
+        await evaluateRoom(null);
+        return;
+      }
+
+      if (unsubscribeRoom && typeof unsubscribeRoom === 'function') {
+        try { unsubscribeRoom(); } catch (_) {}
+        unsubscribeRoom = null;
+      }
+
+      unsubscribeRoom = roomApi.subscribeRoom(p.room, async (room) => {
+        await evaluateRoom(room);
+      });
+    }
+
+    function bindActions(){
+      $('btnBackLobby')?.addEventListener('click', () => {
+        location.href = buildLobbyUrl();
       });
 
-      window.addEventListener('hha:session-summary', function(evt){
-        const detail = evt && evt.detail ? evt.detail : null;
-        if (!detail || !resultMount) return;
-        resultMount.hidden = false;
+      $('btnBackLauncher')?.addEventListener('click', () => {
+        location.href = buildLauncherUrl();
       });
-    })();
+
+      $('btnBackHub')?.addEventListener('click', () => {
+        location.href = commonParams().hub;
+      });
+
+      $('btnRetry')?.addEventListener('click', () => {
+        showLayer();
+        bootedEngine = false;
+        $('engineFrame').src = 'about:blank';
+        watchRoom();
+      });
+
+      $('btnForceOpen')?.addEventListener('click', () => {
+        if (!lastRoomSnapshot) return;
+        bootEngine(lastRoomSnapshot);
+      });
+    }
+
+    function initTopInfo(){
+      const p = commonParams();
+      $('infoRoom').textContent = p.room || '-';
+      $('infoMode').textContent = 'duet';
+      $('infoRole').textContent = p.role || '-';
+      $('infoStatus').textContent = 'checking';
+      $('chipRoom').textContent = `Room: ${p.room || '-'}`;
+      $('chipPlayers').textContent = 'Players: -';
+      $('chipStarted').textContent = 'Status: checking';
+    }
+
+    async function init(){
+      roomApi = makeRoomAdapter();
+      initTopInfo();
+      bindActions();
+      await watchRoom();
+    }
+
+    init();
   </script>
 </body>
 </html>
