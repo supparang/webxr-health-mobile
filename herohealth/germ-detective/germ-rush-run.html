@@ -1,0 +1,1389 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Germ Detective: Outbreak Rush</title>
+
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#071728;
+      --panel:rgba(10,28,52,.86);
+      --panel2:rgba(8,22,42,.94);
+      --line:rgba(174,225,255,.22);
+      --text:#f5fbff;
+      --muted:#b8d9ef;
+      --cyan:#59e7ff;
+      --green:#77ef9d;
+      --yellow:#ffd85a;
+      --red:#ff7a8b;
+      --orange:#ffb25c;
+      --shadow:0 14px 34px rgba(0,0,0,.28);
+      --safe-top:max(12px, env(safe-area-inset-top));
+      --safe-bottom:max(12px, env(safe-area-inset-bottom));
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      background:#04111c;
+      color:var(--text);
+      font-family:"Kanit",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      touch-action:manipulation;
+    }
+
+    body{
+      user-select:none;
+      -webkit-user-select:none;
+    }
+
+    #app{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+    }
+
+    #ui{
+      position:absolute;
+      inset:0;
+      z-index:20;
+      pointer-events:none;
+    }
+
+    .panel{
+      background:var(--panel);
+      border:2px solid var(--line);
+      border-radius:20px;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .topbar{
+      position:absolute;
+      top:var(--safe-top);
+      left:10px;
+      right:10px;
+      display:grid;
+      grid-template-columns:1fr auto 1fr;
+      gap:10px;
+      align-items:start;
+    }
+
+    .hud-card{
+      padding:10px 12px;
+      min-height:82px;
+    }
+
+    .hud-label{
+      font-size:.74rem;
+      font-weight:800;
+      color:var(--muted);
+      margin-bottom:4px;
+      letter-spacing:.02em;
+    }
+
+    .hud-value{
+      font-size:1rem;
+      font-weight:900;
+      line-height:1.1;
+    }
+
+    .center-card{
+      text-align:center;
+      padding:10px 14px;
+      min-width:170px;
+    }
+
+    .phase{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 12px;
+      border-radius:999px;
+      background:rgba(89,231,255,.12);
+      border:1px solid rgba(89,231,255,.24);
+      color:var(--cyan);
+      font-size:.74rem;
+      font-weight:900;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      margin-bottom:7px;
+    }
+
+    .timer{
+      font-size:1.65rem;
+      font-weight:900;
+      line-height:1;
+    }
+
+    .score{
+      margin-top:5px;
+      color:var(--yellow);
+      font-size:.92rem;
+      font-weight:900;
+    }
+
+    .meter{
+      margin-top:7px;
+      height:10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.08);
+      overflow:hidden;
+    }
+
+    .meter-fill{
+      width:0%;
+      height:100%;
+      transition:width .16s ease, background .16s ease;
+    }
+
+    #infectionFill{
+      background:linear-gradient(90deg,#6ef0ff,#ffe061,#ff7a8b);
+    }
+
+    #bossFill{
+      background:linear-gradient(90deg,#8fd3ff,#9dff9a);
+    }
+
+    .prompt-wrap{
+      position:absolute;
+      left:10px;
+      right:10px;
+      bottom:calc(var(--safe-bottom) + 86px);
+      display:flex;
+      justify-content:center;
+    }
+
+    .prompt{
+      max-width:min(720px,96vw);
+      padding:10px 14px;
+      text-align:center;
+      font-size:.92rem;
+      font-weight:800;
+      line-height:1.45;
+      transition:transform .15s ease, opacity .15s ease;
+    }
+
+    .toolbar{
+      position:absolute;
+      left:10px;
+      right:10px;
+      bottom:var(--safe-bottom);
+      display:flex;
+      justify-content:center;
+      pointer-events:auto;
+    }
+
+    .toolbar-inner{
+      width:min(760px,96vw);
+      padding:10px;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      background:var(--panel2);
+      border:2px solid var(--line);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+    }
+
+    .tool-btn{
+      appearance:none;
+      border:none;
+      border-radius:18px;
+      padding:12px 10px;
+      text-align:center;
+      font:inherit;
+      font-weight:900;
+      color:#fff;
+      cursor:pointer;
+      pointer-events:auto;
+      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+      background:rgba(255,255,255,.07);
+      border:2px solid rgba(255,255,255,.10);
+      box-shadow:0 10px 22px rgba(0,0,0,.18);
+    }
+
+    .tool-btn:active{
+      transform:translateY(1px) scale(.99);
+    }
+
+    .tool-btn.is-selected{
+      transform:translateY(-1px);
+      border-color:rgba(255,255,255,.35);
+      box-shadow:0 14px 28px rgba(0,0,0,.24);
+    }
+
+    .tool-icon{
+      display:block;
+      font-size:1.45rem;
+      line-height:1;
+      margin-bottom:6px;
+    }
+
+    .tool-name{
+      display:block;
+      font-size:.95rem;
+      line-height:1.1;
+    }
+
+    .tool-key{
+      display:block;
+      margin-top:4px;
+      font-size:.72rem;
+      color:rgba(255,255,255,.72);
+      font-weight:800;
+    }
+
+    .fx-chip{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:24;
+      display:none;
+      pointer-events:none;
+      padding:8px 14px;
+      border-radius:999px;
+      font-size:.92rem;
+      font-weight:900;
+      box-shadow:var(--shadow);
+    }
+
+    #feedbackChip{
+      top:calc(var(--safe-top) + 96px);
+    }
+
+    #comboChip{
+      bottom:calc(var(--safe-bottom) + 170px);
+      background:rgba(255,216,90,.15);
+      border:1px solid rgba(255,216,90,.28);
+      color:var(--yellow);
+    }
+
+    #damageFlash{
+      position:absolute;
+      inset:0;
+      display:none;
+      background:radial-gradient(circle, rgba(255,255,255,0) 38%, rgba(255,72,105,.22) 100%);
+      z-index:22;
+      pointer-events:none;
+    }
+
+    .overlay{
+      position:absolute;
+      inset:0;
+      z-index:30;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      background:rgba(4,14,26,.56);
+      backdrop-filter: blur(8px);
+      pointer-events:auto;
+    }
+
+    .overlay.is-open{
+      display:flex;
+    }
+
+    .modal{
+      width:min(760px,96vw);
+      max-height:min(90vh,860px);
+      overflow:auto;
+      padding:22px;
+      border-radius:28px;
+      background:linear-gradient(180deg, rgba(14,34,60,.97), rgba(9,22,39,.97));
+      border:2px solid var(--line);
+      box-shadow:0 24px 56px rgba(0,0,0,.38);
+    }
+
+    .title{
+      margin:0 0 8px;
+      font-size:clamp(1.7rem,4vw,2.8rem);
+      font-weight:900;
+      line-height:1.05;
+    }
+
+    .sub{
+      margin:0 0 16px;
+      color:var(--muted);
+      font-size:1rem;
+      line-height:1.55;
+    }
+
+    .tips{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:12px;
+      margin:16px 0 18px;
+    }
+
+    .tip{
+      padding:14px;
+      border-radius:18px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.10);
+    }
+
+    .tip strong{
+      display:block;
+      margin-bottom:4px;
+      font-size:1rem;
+    }
+
+    .tip span{
+      color:var(--muted);
+      font-size:.95rem;
+      line-height:1.45;
+    }
+
+    .row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      align-items:center;
+    }
+
+    .action-btn{
+      appearance:none;
+      border:none;
+      border-radius:16px;
+      padding:14px 18px;
+      font:inherit;
+      font-size:1rem;
+      font-weight:900;
+      cursor:pointer;
+      transition:transform .12s ease;
+      box-shadow:0 10px 24px rgba(0,0,0,.24);
+    }
+
+    .action-btn:active{
+      transform:translateY(1px) scale(.99);
+    }
+
+    .action-btn.primary{
+      background:linear-gradient(180deg,#68efff,#2fd0ff);
+      color:#06253f;
+    }
+
+    .action-btn.secondary{
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+      color:#fff;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+      gap:12px;
+      margin:16px 0 18px;
+    }
+
+    .stat{
+      padding:14px;
+      border-radius:18px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.10);
+      text-align:center;
+    }
+
+    .stat .k{
+      display:block;
+      font-size:.88rem;
+      color:var(--muted);
+      margin-bottom:5px;
+      font-weight:800;
+    }
+
+    .stat .v{
+      display:block;
+      font-size:1.5rem;
+      font-weight:900;
+    }
+
+    .stars{
+      margin:8px 0 12px;
+      font-size:2rem;
+      letter-spacing:.16em;
+    }
+
+    .advice-list{
+      margin:14px 0 0;
+      padding-left:20px;
+      color:var(--muted);
+      line-height:1.6;
+    }
+
+    .scene-wrap{
+      position:absolute;
+      inset:0;
+      z-index:1;
+    }
+
+    .a-enter-ar-button,
+    .a-enter-vr-button{
+      display:none !important;
+    }
+
+    @media (max-width: 860px){
+      .topbar{
+        grid-template-columns:1fr;
+      }
+
+      .center-card{
+        order:-1;
+      }
+
+      .prompt{
+        font-size:.86rem;
+      }
+    }
+
+    @media (max-width: 420px){
+      .toolbar-inner{
+        gap:8px;
+        padding:8px;
+      }
+
+      .tool-btn{
+        padding:10px 8px;
+        border-radius:16px;
+      }
+
+      .tool-icon{
+        font-size:1.25rem;
+      }
+
+      .tool-name{
+        font-size:.84rem;
+      }
+
+      .tool-key{
+        font-size:.66rem;
+      }
+
+      .prompt-wrap{
+        bottom:calc(var(--safe-bottom) + 84px);
+      }
+
+      #comboChip{
+        bottom:calc(var(--safe-bottom) + 158px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="scene-wrap">
+      <a-scene
+        id="scene"
+        embedded
+        renderer="antialias:true; colorManagement:true"
+        background="color:#081828"
+      >
+        <a-entity
+          id="mouseCursor"
+          cursor="rayOrigin: mouse"
+          raycaster="objects: .clickable; far: 20"
+        ></a-entity>
+
+        <!-- room -->
+        <a-plane position="0 0 -1.6" rotation="-90 0 0" width="12" height="12" color="#365a76"></a-plane>
+        <a-plane position="0 2.2 -5.2" width="12" height="4.8" color="#2f5675"></a-plane>
+        <a-plane position="-5.9 2.2 -1.6" rotation="0 90 0" width="12" height="4.8" color="#2a4f6d"></a-plane>
+        <a-plane position="5.9 2.2 -1.6" rotation="0 -90 0" width="12" height="4.8" color="#2a4f6d"></a-plane>
+
+        <!-- counter -->
+        <a-box position="0 0.48 -2.1" width="5.4" height="0.95" depth="1.9" color="#5f7f98"></a-box>
+        <a-box position="0 0.98 -2.1" width="5.5" height="0.08" depth="2.0" color="#dff3ff"></a-box>
+
+        <!-- table -->
+        <a-box position="0 0.45 1.8" width="3.4" height="0.9" depth="2.0" color="#7896ae"></a-box>
+        <a-box position="0 0.93 1.8" width="3.5" height="0.08" depth="2.08" color="#d8f0ff"></a-box>
+
+        <!-- props -->
+        <a-box position="-3.2 0.75 -4.1" width="1.8" height="1.5" depth="1.2" color="#8ea8bc"></a-box>
+        <a-box position="3.9 1.05 -4.1" width="1.5" height="2.1" depth="1.2" color="#89a9c1"></a-box>
+        <a-box position="0 2.15 -5.15" width="2.3" height="1.2" depth="0.04" color="#b4e5ff"></a-box>
+        <a-plane position="0 2.15 -5.13" width="2.05" height="0.95" color="#ddf7ff" opacity="0.52"></a-plane>
+
+        <!-- lights -->
+        <a-entity light="type:ambient; intensity:1.05; color:#d9f3ff"></a-entity>
+        <a-entity light="type:point; intensity:1.15; distance:20; color:#ffffff" position="0 4 0"></a-entity>
+
+        <a-entity id="hazardRoot"></a-entity>
+
+        <!-- fixed camera -->
+        <a-camera id="cam" position="0 2.2 5.8" rotation="-12 0 0" fov="72"></a-camera>
+      </a-scene>
+    </div>
+
+    <div id="ui">
+      <div id="damageFlash"></div>
+      <div id="feedbackChip" class="fx-chip"></div>
+      <div id="comboChip" class="fx-chip"></div>
+
+      <div class="topbar">
+        <div class="panel hud-card">
+          <div class="hud-label">ความปลอดภัย</div>
+          <div class="hud-value"><span id="infectionValue">0</span>/100</div>
+          <div class="meter"><div id="infectionFill" class="meter-fill"></div></div>
+
+          <div class="hud-label" style="margin-top:8px;">บอส</div>
+          <div class="meter"><div id="bossFill" class="meter-fill"></div></div>
+        </div>
+
+        <div class="panel center-card">
+          <div id="phaseText" class="phase">READY</div>
+          <div id="timerText" class="timer">01:03</div>
+          <div id="scoreText" class="score">SCORE 0000</div>
+        </div>
+
+        <div class="panel hud-card" style="text-align:right;">
+          <div class="hud-label">คอมโบ</div>
+          <div class="hud-value"><span id="comboValue">0</span></div>
+
+          <div class="hud-label" style="margin-top:8px;">เครื่องมือผิด</div>
+          <div class="hud-value"><span id="wrongToolValue">0</span></div>
+        </div>
+      </div>
+
+      <div class="prompt-wrap">
+        <div id="promptBox" class="panel prompt">เลือกเครื่องมือ แล้วแตะจุดเสี่ยง</div>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-inner" id="toolBar"></div>
+      </div>
+    </div>
+
+    <div id="startOverlay" class="overlay is-open">
+      <div class="modal">
+        <h1 id="startTitle" class="title">Germ Detective: Outbreak Rush</h1>
+        <p id="startSub" class="sub">เลือกเครื่องมือให้ถูก แล้วรีบหยุดการแพร่เชื้อ</p>
+
+        <div class="tips">
+          <div class="tip">
+            <strong>1) เลือกเครื่องมือ</strong>
+            <span>เช็ด / สเปรย์ / ทิ้ง ให้ตรงกับจุดเสี่ยง</span>
+          </div>
+          <div class="tip">
+            <strong>2) รีบก่อนเชื้อแพร่</strong>
+            <span>ถ้าช้า infection meter จะเพิ่ม และเกมจะยากขึ้น</span>
+          </div>
+          <div class="tip">
+            <strong>3) เก็บคอมโบ</strong>
+            <span>จัดการถูกต่อเนื่องเพื่อทำคะแนนและผ่านบอสให้ได้</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <button id="startBtn" class="action-btn primary">เริ่มภารกิจ</button>
+          <button id="backHubBtn" class="action-btn secondary" style="display:none;">กลับ HUB</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="summaryOverlay" class="overlay">
+      <div class="modal">
+        <h1 id="summaryTitle" class="title">Mission Clear!</h1>
+        <p id="summarySub" class="sub">คุณจัดการการแพร่เชื้อได้ดีมาก</p>
+
+        <div id="starsText" class="stars">⭐ ⭐ ⭐</div>
+
+        <div class="summary-grid">
+          <div class="stat">
+            <span class="k">คะแนน</span>
+            <span class="v" id="sumScore">0</span>
+          </div>
+          <div class="stat">
+            <span class="k">คอมโบสูงสุด</span>
+            <span class="v" id="sumCombo">0</span>
+          </div>
+          <div class="stat">
+            <span class="k">จัดการสำเร็จ</span>
+            <span class="v" id="sumCleared">0</span>
+          </div>
+          <div class="stat">
+            <span class="k">เครื่องมือผิด</span>
+            <span class="v" id="sumWrong">0</span>
+          </div>
+          <div class="stat">
+            <span class="k">Infection</span>
+            <span class="v" id="sumInfection">0</span>
+          </div>
+          <div class="stat">
+            <span class="k">Badge</span>
+            <span class="v" id="sumBadge">-</span>
+          </div>
+        </div>
+
+        <ul id="adviceList" class="advice-list"></ul>
+
+        <div class="row" style="margin-top:18px;">
+          <button id="replayBtn" class="action-btn primary">เล่นอีกครั้ง</button>
+          <button id="summaryHubBtn" class="action-btn secondary" style="display:none;">กลับ HUB</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      GAME_META,
+      DEFAULT_QUERY,
+      TOOLS,
+      TOOL_ORDER,
+      HAZARDS,
+      DIFFICULTY,
+      UI_TEXT,
+      getDifficultyConfig,
+      getPhasePlan,
+      getWaveScript,
+      getBossConfig,
+      getSpot,
+      getToolDef,
+      getHazardDef,
+      getCorrectToolId,
+      isCorrectTool,
+      buildSummarySnapshot,
+      clamp
+    } from './js/germ-rush-data.js';
+
+    const $ = (id) => document.getElementById(id);
+
+    const query = (() => {
+      const sp = new URLSearchParams(location.search);
+      const obj = { ...DEFAULT_QUERY };
+      for (const [k, v] of sp.entries()) obj[k] = v;
+      obj.diff = DIFFICULTY[obj.diff] ? obj.diff : DEFAULT_QUERY.diff;
+      obj.view = ['mobile','pc','cvr'].includes(obj.view) ? obj.view : DEFAULT_QUERY.view;
+      obj.time = Number(obj.time || getDifficultyConfig(obj.diff).roundTime);
+      return obj;
+    })();
+
+    const sceneEl = $('scene');
+    const hazardRoot = $('hazardRoot');
+
+    const ui = {
+      infectionValue: $('infectionValue'),
+      infectionFill: $('infectionFill'),
+      bossFill: $('bossFill'),
+      timerText: $('timerText'),
+      scoreText: $('scoreText'),
+      comboValue: $('comboValue'),
+      wrongToolValue: $('wrongToolValue'),
+      phaseText: $('phaseText'),
+      promptBox: $('promptBox'),
+      toolBar: $('toolBar'),
+      feedbackChip: $('feedbackChip'),
+      comboChip: $('comboChip'),
+      damageFlash: $('damageFlash'),
+
+      startOverlay: $('startOverlay'),
+      startTitle: $('startTitle'),
+      startSub: $('startSub'),
+      startBtn: $('startBtn'),
+      backHubBtn: $('backHubBtn'),
+
+      summaryOverlay: $('summaryOverlay'),
+      summaryTitle: $('summaryTitle'),
+      summarySub: $('summarySub'),
+      starsText: $('starsText'),
+      sumScore: $('sumScore'),
+      sumCombo: $('sumCombo'),
+      sumCleared: $('sumCleared'),
+      sumWrong: $('sumWrong'),
+      sumInfection: $('sumInfection'),
+      sumBadge: $('sumBadge'),
+      adviceList: $('adviceList'),
+      replayBtn: $('replayBtn'),
+      summaryHubBtn: $('summaryHubBtn')
+    };
+
+    if (query.hub) {
+      ui.backHubBtn.style.display = 'inline-flex';
+      ui.summaryHubBtn.style.display = 'inline-flex';
+      ui.backHubBtn.onclick = () => location.href = query.hub;
+      ui.summaryHubBtn.onclick = () => location.href = query.hub;
+    }
+
+    ui.startTitle.textContent = UI_TEXT.introTitle;
+    ui.startSub.textContent = UI_TEXT.introShort;
+
+    const diffCfg = getDifficultyConfig(query.diff);
+    const phasePlan = getPhasePlan(query.diff);
+    const bossCfg = getBossConfig('cross_contam');
+
+    const state = {
+      active: false,
+      phaseIndex: 0,
+      phase: phasePlan[0]?.id || 'intro',
+      phaseStartedAt: 0,
+      startedAt: 0,
+      endedAt: 0,
+      roundMs: phasePlan.filter(p => p.id !== 'summary').reduce((a, b) => a + b.ms, 0),
+      timeLeftMs: phasePlan.filter(p => p.id !== 'summary').reduce((a, b) => a + b.ms, 0),
+
+      selectedTool: 'wipe',
+
+      score: 0,
+      hp: 100,
+      infection: diffCfg.infectionStart,
+      combo: 0,
+      bestCombo: 0,
+      cleared: 0,
+      missed: 0,
+      wrongTool: 0,
+
+      bossActive: false,
+      bossCleared: false,
+      bossTotal: 0,
+      bossClears: 0,
+
+      hazards: new Map(),
+      scheduledEvents: [],
+      phaseEventCursor: 0,
+
+      feedbackTimer: 0,
+      raf: 0
+    };
+
+    const TOOL_MATCH_COLORS = {
+      wipe: '#67c8ff',
+      spray: '#7ae582',
+      trash: '#ffb84d'
+    };
+
+    function fmtTime(ms) {
+      const sec = Math.max(0, Math.ceil(ms / 1000));
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+
+    function updateHUD() {
+      ui.infectionValue.textContent = Math.round(state.infection);
+      ui.infectionFill.style.width = `${clamp(state.infection,0,100)}%`;
+      ui.scoreText.textContent = `SCORE ${String(Math.round(state.score)).padStart(4, '0')}`;
+      ui.comboValue.textContent = state.combo;
+      ui.wrongToolValue.textContent = state.wrongTool;
+      ui.phaseText.textContent = (phasePlan[state.phaseIndex]?.label || state.phase || 'READY').toUpperCase();
+      ui.timerText.textContent = fmtTime(state.timeLeftMs);
+
+      if (state.infection < 35) {
+        ui.infectionFill.style.filter = 'saturate(1)';
+      } else if (state.infection < 70) {
+        ui.infectionFill.style.filter = 'saturate(1.15)';
+      } else {
+        ui.infectionFill.style.filter = 'saturate(1.4)';
+      }
+
+      const bossPct = state.bossTotal > 0
+        ? (state.bossClears / state.bossTotal) * 100
+        : 0;
+      ui.bossFill.style.width = `${clamp(bossPct, 0, 100)}%`;
+    }
+
+    function setPrompt(text) {
+      ui.promptBox.textContent = text;
+    }
+
+    function showFeedback(text, kind='good') {
+      ui.feedbackChip.textContent = text;
+      ui.feedbackChip.style.display = 'block';
+      ui.feedbackChip.style.background = kind === 'good'
+        ? 'rgba(119,239,157,.16)'
+        : 'rgba(255,122,139,.16)';
+      ui.feedbackChip.style.border = kind === 'good'
+        ? '1px solid rgba(119,239,157,.30)'
+        : '1px solid rgba(255,122,139,.30)';
+      ui.feedbackChip.style.color = kind === 'good' ? '#e7fff0' : '#ffe4e8';
+
+      clearTimeout(showFeedback._t);
+      showFeedback._t = setTimeout(() => {
+        ui.feedbackChip.style.display = 'none';
+      }, 900);
+    }
+
+    function flashDamage() {
+      ui.damageFlash.style.display = 'block';
+      ui.damageFlash.style.opacity = '1';
+
+      clearTimeout(flashDamage._t1);
+      clearTimeout(flashDamage._t2);
+
+      flashDamage._t1 = setTimeout(() => {
+        ui.damageFlash.style.opacity = '0';
+      }, 180);
+
+      flashDamage._t2 = setTimeout(() => {
+        ui.damageFlash.style.display = 'none';
+      }, 650);
+    }
+
+    function showComboChip() {
+      if (state.combo < 2) return;
+
+      let label = `COMBO x${state.combo}`;
+      if (state.combo >= 8) label = `SUPER CLEAN x${state.combo}`;
+      else if (state.combo >= 5) label = `GREAT x${state.combo}`;
+      else if (state.combo >= 3) label = `NICE x${state.combo}`;
+
+      ui.comboChip.textContent = label;
+      ui.comboChip.style.display = 'block';
+
+      clearTimeout(showComboChip._t);
+      showComboChip._t = setTimeout(() => {
+        ui.comboChip.style.display = 'none';
+      }, 900);
+    }
+
+    function makeToolBar() {
+      ui.toolBar.innerHTML = '';
+      for (const toolId of TOOL_ORDER) {
+        const tool = getToolDef(toolId);
+        const btn = document.createElement('button');
+        btn.className = 'tool-btn';
+        btn.dataset.toolId = tool.id;
+        btn.innerHTML = `
+          <span class="tool-icon">${tool.icon}</span>
+          <span class="tool-name">${tool.shortLabel}</span>
+          <span class="tool-key">กด ${tool.key}</span>
+        `;
+        btn.style.borderColor = 'rgba(255,255,255,.10)';
+        btn.addEventListener('click', () => selectTool(tool.id));
+        ui.toolBar.appendChild(btn);
+      }
+      syncToolBar();
+    }
+
+    function syncToolBar() {
+      [...ui.toolBar.querySelectorAll('.tool-btn')].forEach((btn) => {
+        const toolId = btn.dataset.toolId;
+        const active = toolId === state.selectedTool;
+        btn.classList.toggle('is-selected', active);
+        btn.style.background = active
+          ? `${TOOL_MATCH_COLORS[toolId]}22`
+          : 'rgba(255,255,255,.07)';
+        btn.style.borderColor = active
+          ? `${TOOL_MATCH_COLORS[toolId]}aa`
+          : 'rgba(255,255,255,.10)';
+      });
+    }
+
+    function selectTool(toolId) {
+      if (!TOOLS[toolId]) return;
+      state.selectedTool = toolId;
+      syncToolBar();
+      setPrompt(`${UI_TEXT.toolSelectedPrefix} ${getToolDef(toolId).label}`);
+    }
+
+    function makeId(prefix='hz') {
+      return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+    }
+
+    function activeHazardCount() {
+      let count = 0;
+      for (const hz of state.hazards.values()) {
+        if (hz.state === 'active') count += 1;
+      }
+      return count;
+    }
+
+    function getUsedSpotIds() {
+      const used = new Set();
+      for (const hz of state.hazards.values()) {
+        if (hz.state === 'active') used.add(hz.spotId);
+      }
+      return used;
+    }
+
+    function randomFreeSpotId() {
+      const keys = ['counter_left','counter_mid','counter_right','table_left','table_mid','table_right'];
+      const used = getUsedSpotIds();
+      const free = keys.filter(k => !used.has(k));
+      const pool = free.length ? free : keys;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function buildHazardVisual(hazardType, hazardId) {
+      const def = getHazardDef(hazardType);
+      const color = def.visual?.color || '#ff7a8b';
+      const wrap = document.createElement('a-entity');
+      wrap.setAttribute('data-hazard-id', hazardId);
+      wrap.setAttribute('class', 'clickable');
+
+      if (def.visual?.shape === 'spill') {
+        const blob1 = document.createElement('a-sphere');
+        blob1.setAttribute('radius', '0.18');
+        blob1.setAttribute('position', '0 0.10 0');
+        blob1.setAttribute('color', color);
+        blob1.setAttribute('material', `emissive:${color}; emissiveIntensity:0.45; opacity:0.96`);
+        wrap.appendChild(blob1);
+
+        const blob2 = document.createElement('a-sphere');
+        blob2.setAttribute('radius', '0.10');
+        blob2.setAttribute('position', '0.18 0.08 0.04');
+        blob2.setAttribute('color', color);
+        blob2.setAttribute('material', `emissive:${color}; emissiveIntensity:0.35; opacity:0.94`);
+        wrap.appendChild(blob2);
+
+        const ring = document.createElement('a-ring');
+        ring.setAttribute('radiusInner', '0.20');
+        ring.setAttribute('radiusOuter', '0.27');
+        ring.setAttribute('rotation', '-90 0 0');
+        ring.setAttribute('position', '0 -0.02 0');
+        ring.setAttribute('color', '#ffffff');
+        ring.setAttribute('material', 'shader:flat; opacity:0.9');
+        wrap.appendChild(ring);
+      } else if (def.visual?.shape === 'cloud') {
+        const puff = document.createElement('a-sphere');
+        puff.setAttribute('radius', '0.15');
+        puff.setAttribute('position', '0 0.16 0');
+        puff.setAttribute('color', color);
+        puff.setAttribute('material', `emissive:${color}; emissiveIntensity:0.5; opacity:0.9`);
+        wrap.appendChild(puff);
+
+        const puff2 = document.createElement('a-sphere');
+        puff2.setAttribute('radius', '0.09');
+        puff2.setAttribute('position', '-0.16 0.17 0.02');
+        puff2.setAttribute('color', color);
+        puff2.setAttribute('material', `emissive:${color}; emissiveIntensity:0.45; opacity:0.88`);
+        wrap.appendChild(puff2);
+
+        const puff3 = document.createElement('a-sphere');
+        puff3.setAttribute('radius', '0.08');
+        puff3.setAttribute('position', '0.15 0.18 0.04');
+        puff3.setAttribute('color', color);
+        puff3.setAttribute('material', `emissive:${color}; emissiveIntensity:0.45; opacity:0.88`);
+        wrap.appendChild(puff3);
+
+        const ring = document.createElement('a-ring');
+        ring.setAttribute('radiusInner', '0.22');
+        ring.setAttribute('radiusOuter', '0.29');
+        ring.setAttribute('rotation', '-90 0 0');
+        ring.setAttribute('position', '0 -0.01 0');
+        ring.setAttribute('color', '#ffffff');
+        ring.setAttribute('material', 'shader:flat; opacity:0.92');
+        wrap.appendChild(ring);
+      } else {
+        const core = document.createElement('a-sphere');
+        core.setAttribute('radius', '0.14');
+        core.setAttribute('position', '0 0.14 0');
+        core.setAttribute('color', color);
+        core.setAttribute('material', `emissive:${color}; emissiveIntensity:0.6; opacity:0.95`);
+        wrap.appendChild(core);
+
+        const n1 = document.createElement('a-sphere');
+        n1.setAttribute('radius', '0.07');
+        n1.setAttribute('position', '0.14 0.20 0.03');
+        n1.setAttribute('color', color);
+        n1.setAttribute('material', `emissive:${color}; emissiveIntensity:0.45; opacity:0.92`);
+        wrap.appendChild(n1);
+
+        const n2 = document.createElement('a-sphere');
+        n2.setAttribute('radius', '0.06');
+        n2.setAttribute('position', '-0.13 0.17 -0.02');
+        n2.setAttribute('color', color);
+        n2.setAttribute('material', `emissive:${color}; emissiveIntensity:0.45; opacity:0.92`);
+        wrap.appendChild(n2);
+
+        const ring = document.createElement('a-ring');
+        ring.setAttribute('radiusInner', '0.20');
+        ring.setAttribute('radiusOuter', '0.27');
+        ring.setAttribute('rotation', '-90 0 0');
+        ring.setAttribute('position', '0 -0.01 0');
+        ring.setAttribute('color', '#ffffff');
+        ring.setAttribute('material', 'shader:flat; opacity:0.92');
+        wrap.appendChild(ring);
+      }
+
+      const label = document.createElement('a-text');
+      label.setAttribute('value', def.shortLabel || def.label);
+      label.setAttribute('align', 'center');
+      label.setAttribute('color', '#ffffff');
+      label.setAttribute('width', '3.2');
+      label.setAttribute('position', '0 0.42 0');
+      wrap.appendChild(label);
+
+      wrap.setAttribute(
+        'animation__float',
+        'property: position; dir: alternate; dur: 820; loop: true; to: 0 0.04 0'
+      );
+
+      wrap.addEventListener('click', () => onHazardClicked(hazardId));
+      return wrap;
+    }
+
+    function spawnHazard(type, spotId, source='wave') {
+      if (!state.active) return null;
+      if (activeHazardCount() >= diffCfg.maxConcurrent && source !== 'boss') return null;
+
+      const def = getHazardDef(type);
+      const spot = getSpot(query.view === 'cvr' ? 'mobile' : query.view, spotId);
+      const id = makeId(type);
+
+      const entityWrap = document.createElement('a-entity');
+      entityWrap.setAttribute('position', `${spot.x} ${spot.y} ${spot.z}`);
+
+      const visual = buildHazardVisual(type, id);
+      entityWrap.appendChild(visual);
+      hazardRoot.appendChild(entityWrap);
+
+      const now = performance.now();
+      const hz = {
+        id,
+        type,
+        spotId,
+        source,
+        def,
+        el: entityWrap,
+        bornAt: now,
+        spreadAt: now + (def.spreadDelayMs * diffCfg.spreadMultiplier),
+        expireAt: now + def.expireMs,
+        spreadCount: 0,
+        state: 'active'
+      };
+
+      state.hazards.set(id, hz);
+      return hz;
+    }
+
+    function despawnHazard(hz) {
+      hz.state = 'gone';
+      if (hz.el && hz.el.parentNode) hz.el.parentNode.removeChild(hz.el);
+      state.hazards.delete(hz.id);
+    }
+
+    function clearHazard(hz, correct=true) {
+      if (!hz || hz.state !== 'active') return;
+
+      if (hz.el) {
+        hz.el.setAttribute('animation__gone', 'property: scale; to: 0.01 0.01 0.01; dur: 180; easing: easeInBack');
+      }
+
+      setTimeout(() => {
+        despawnHazard(hz);
+      }, 200);
+
+      if (correct) {
+        state.cleared += 1;
+        if (hz.source === 'boss') state.bossClears += 1;
+      }
+    }
+
+    function punishSpread(hz, source='spread') {
+      const def = hz.def;
+      state.infection = clamp(state.infection + def.infectionOnSpread, 0, 100);
+      state.combo = 0;
+      showFeedback(def.feedback?.bad || 'เชื้อกำลังแพร่เพิ่ม', 'bad');
+      flashDamage();
+
+      if (source === 'miss') {
+        state.missed += 1;
+      }
+    }
+
+    function handleSpread(hz) {
+      if (!hz || hz.state !== 'active') return;
+
+      hz.spreadCount += 1;
+      punishSpread(hz, 'spread');
+
+      if (hz.type === 'raw_spill') {
+        if (hz.el) hz.el.setAttribute('scale', '1.35 1.35 1.35');
+      } else if (hz.type === 'sneeze_cloud') {
+        const newSpot = randomFreeSpotId();
+        spawnHazard('sneeze_cloud', newSpot, hz.source);
+        clearHazard(hz, false);
+        return;
+      } else if (hz.type === 'mold_food') {
+        const newSpot = randomFreeSpotId();
+        spawnHazard('raw_spill', newSpot, hz.source);
+      }
+
+      hz.spreadAt = performance.now() + (hz.def.spreadDelayMs * 1.35 * diffCfg.spreadMultiplier);
+    }
+
+    function markMissed(hz) {
+      if (!hz || hz.state !== 'active') return;
+      state.infection = clamp(state.infection + hz.def.infectionOnMiss, 0, 100);
+      state.combo = 0;
+      state.missed += 1;
+      showFeedback(hz.def.feedback?.bad || 'พลาดแล้ว เชื้อแพร่เพิ่ม', 'bad');
+      flashDamage();
+      clearHazard(hz, false);
+    }
+
+    function onHazardClicked(hazardId) {
+      if (!state.active) return;
+      const hz = state.hazards.get(hazardId);
+      if (!hz || hz.state !== 'active') return;
+
+      const correct = isCorrectTool(hz.type, state.selectedTool);
+
+      if (correct) {
+        const tool = getToolDef(state.selectedTool);
+        state.combo += 1;
+        state.bestCombo = Math.max(state.bestCombo, state.combo);
+        state.score += (hz.def.score || 100) + (tool.scoreBonus || 50) + Math.max(0, state.combo - 1) * 20;
+        state.infection = clamp(state.infection - (8 + Math.floor(tool.spreadBlock * 10)), 0, 100);
+
+        showFeedback(hz.def.feedback?.good || 'จัดการสำเร็จ', 'good');
+        showComboChip();
+        clearHazard(hz, true);
+      } else {
+        state.combo = 0;
+        state.wrongTool += 1;
+        state.score = Math.max(0, state.score - 20);
+        state.infection = clamp(state.infection + 8, 0, 100);
+        showFeedback(`ไม่ใช่ ${getToolDef(state.selectedTool).shortLabel} สำหรับ ${hz.def.shortLabel}`, 'bad');
+        flashDamage();
+      }
+
+      updateHUD();
+      checkLose();
+    }
+
+    function enterPhase(index) {
+      state.phaseIndex = index;
+      state.phase = phasePlan[index]?.id || 'summary';
+      state.phaseStartedAt = performance.now();
+      state.phaseEventCursor = 0;
+      state.scheduledEvents = [];
+
+      const phaseId = state.phase;
+
+      if (phaseId === 'wave1' || phaseId === 'wave2' || phaseId === 'final_rush') {
+        state.scheduledEvents = getWaveScript(query.diff, phaseId);
+        state.bossActive = false;
+        setPrompt(UI_TEXT.promptDefault);
+      } else if (phaseId === 'boss') {
+        const boss = bossCfg;
+        state.bossActive = true;
+        state.bossTotal = boss.pattern.length;
+        state.bossClears = 0;
+        state.scheduledEvents = boss.pattern.map((e) => ({ ...e }));
+        setPrompt(UI_TEXT.promptBoss);
+      } else if (phaseId === 'intro') {
+        setPrompt(UI_TEXT.introShort);
+      }
+
+      updateHUD();
+    }
+
+    function nextPhase() {
+      const nextIndex = state.phaseIndex + 1;
+      if (nextIndex >= phasePlan.length || phasePlan[nextIndex].id === 'summary') {
+        finishRun(state.infection < 100);
+        return;
+      }
+
+      if (state.phase === 'boss') {
+        if (state.bossClears >= state.bossTotal) {
+          state.bossCleared = true;
+          state.score += bossCfg.scoreBonus;
+          state.infection = clamp(state.infection - bossCfg.infectionRewardOnClear, 0, 100);
+          showFeedback(bossCfg.successText, 'good');
+        } else {
+          state.bossCleared = false;
+          state.infection = clamp(state.infection + bossCfg.infectionPenaltyOnFail, 0, 100);
+          showFeedback(bossCfg.failText, 'bad');
+          flashDamage();
+        }
+      }
+
+      enterPhase(nextIndex);
+      checkLose();
+    }
+
+    function updatePhaseSpawns(now) {
+      const elapsed = now - state.phaseStartedAt;
+      while (state.phaseEventCursor < state.scheduledEvents.length) {
+        const event = state.scheduledEvents[state.phaseEventCursor];
+        if (elapsed < event.t) break;
+
+        spawnHazard(event.type, event.spot, state.phase === 'boss' ? 'boss' : 'wave');
+        state.phaseEventCursor += 1;
+      }
+    }
+
+    function updateHazards(now) {
+      for (const hz of [...state.hazards.values()]) {
+        if (hz.state !== 'active') continue;
+
+        if (now >= hz.expireAt) {
+          markMissed(hz);
+          continue;
+        }
+
+        if (now >= hz.spreadAt) {
+          handleSpread(hz);
+        }
+      }
+    }
+
+    function checkLose() {
+      if (state.infection >= diffCfg.infectionLoseAt) {
+        finishRun(false);
+      }
+    }
+
+    function finishRun(win) {
+      if (!state.active) return;
+
+      state.active = false;
+      state.endedAt = performance.now();
+
+      cancelAnimationFrame(state.raf);
+
+      for (const hz of [...state.hazards.values()]) {
+        despawnHazard(hz);
+      }
+
+      const summary = buildSummarySnapshot({
+        score: state.score,
+        hp: state.hp,
+        infection: state.infection,
+        cleared: state.cleared,
+        missed: state.missed,
+        wrongTool: state.wrongTool,
+        bestCombo: state.bestCombo,
+        bossCleared: !!state.bossCleared
+      });
+
+      try {
+        localStorage.setItem('HHA_LAST_GERM_RUSH_SUMMARY', JSON.stringify({
+          ...summary,
+          diff: query.diff,
+          view: query.view,
+          hub: query.hub || '',
+          patch: GAME_META.gameId
+        }));
+      } catch (_) {}
+
+      ui.summaryTitle.textContent = win ? 'Mission Clear!' : 'Mission Incomplete';
+      ui.summaryTitle.style.color = win ? '#86ffb2' : '#ff9aa5';
+      ui.summarySub.textContent = win
+        ? 'คุณหยุดการแพร่เชื้อได้ดีมาก'
+        : 'ยังมีการแพร่เชื้อเกินควบคุมในรอบนี้';
+
+      ui.starsText.textContent =
+        summary.stars === 3 ? '⭐ ⭐ ⭐' :
+        summary.stars === 2 ? '⭐ ⭐' : '⭐';
+
+      ui.sumScore.textContent = summary.score;
+      ui.sumCombo.textContent = summary.bestCombo;
+      ui.sumCleared.textContent = summary.cleared;
+      ui.sumWrong.textContent = summary.wrongTool;
+      ui.sumInfection.textContent = summary.infection;
+      ui.sumBadge.textContent = summary.badge;
+
+      ui.adviceList.innerHTML = '';
+      summary.advice.forEach((text) => {
+        const li = document.createElement('li');
+        li.textContent = text;
+        ui.adviceList.appendChild(li);
+      });
+
+      ui.summaryOverlay.classList.add('is-open');
+    }
+
+    function update(now) {
+      if (!state.active) return;
+
+      state.timeLeftMs = Math.max(0, state.roundMs - (now - state.startedAt));
+      updateHUD();
+
+      const phaseCfg = phasePlan[state.phaseIndex];
+      if (phaseCfg && phaseCfg.id !== 'summary') {
+        const phaseElapsed = now - state.phaseStartedAt;
+        updatePhaseSpawns(now);
+        updateHazards(now);
+
+        if (phaseElapsed >= phaseCfg.ms) {
+          nextPhase();
+        }
+      }
+
+      checkLose();
+
+      if (state.active) {
+        state.raf = requestAnimationFrame(update);
+      }
+    }
+
+    function resetRunState() {
+      cancelAnimationFrame(state.raf);
+
+      for (const hz of [...state.hazards.values()]) {
+        despawnHazard(hz);
+      }
+
+      state.active = false;
+      state.phaseIndex = 0;
+      state.phase = phasePlan[0]?.id || 'intro';
+      state.phaseStartedAt = 0;
+      state.startedAt = 0;
+      state.endedAt = 0;
+      state.timeLeftMs = state.roundMs;
+
+      state.selectedTool = 'wipe';
+
+      state.score = 0;
+      state.hp = 100;
+      state.infection = diffCfg.infectionStart;
+      state.combo = 0;
+      state.bestCombo = 0;
+      state.cleared = 0;
+      state.missed = 0;
+      state.wrongTool = 0;
+
+      state.bossActive = false;
+      state.bossCleared = false;
+      state.bossTotal = 0;
+      state.bossClears = 0;
+
+      state.scheduledEvents = [];
+      state.phaseEventCursor = 0;
+
+      syncToolBar();
+      updateHUD();
+      setPrompt(UI_TEXT.promptDefault);
+      ui.summaryOverlay.classList.remove('is-open');
+      ui.startOverlay.classList.remove('is-open');
+    }
+
+    function startRun() {
+      resetRunState();
+
+      state.active = true;
+      state.startedAt = performance.now();
+      enterPhase(0);
+
+      ui.startOverlay.classList.remove('is-open');
+      state.raf = requestAnimationFrame(update);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '1') selectTool('wipe');
+      if (e.key === '2') selectTool('spray');
+      if (e.key === '3') selectTool('trash');
+    });
+
+    ui.startBtn.addEventListener('click', startRun);
+    ui.replayBtn.addEventListener('click', startRun);
+
+    makeToolBar();
+    selectTool('wipe');
+    updateHUD();
+    setPrompt(UI_TEXT.promptDefault);
+  </script>
+</body>
+</html>
