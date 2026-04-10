@@ -472,6 +472,7 @@
     <a-entity light="type: ambient; intensity: 1.15; color: #ffffff"></a-entity>
     <a-entity light="type: directional; intensity: 0.9; color: #fff7dd" position="1 3 2"></a-entity>
 
+    <!-- sink + soap -->
     <a-entity position="0 0.18 -1.18">
       <a-box position="0 0.84 0" width="1.55" height="0.1" depth="0.82" color="#bfc9d6"></a-box>
       <a-box position="0 0.40 0" width="1.45" height="0.8" depth="0.72" color="#e5edf5"></a-box>
@@ -554,26 +555,27 @@
 
           <a-cylinder position="-0.39 -0.15 -0.01" radius="0.05" height="0.18" rotation="0 0 12" color="#ffdbac"></a-cylinder>
           <a-cylinder position="0.39 -0.15 -0.01" radius="0.05" height="0.18" rotation="0 0 -12" color="#ffdbac"></a-cylinder>
+
+          <!-- IMPORTANT: targets are inside hands -->
+          <a-entity id="target-layer"></a-entity>
+          <a-entity id="fx-layer"></a-entity>
         </a-entity>
       </a-camera>
 
       <a-entity laser-controls="hand: left" raycaster="objects: .focusable"></a-entity>
       <a-entity laser-controls="hand: right" raycaster="objects: .focusable"></a-entity>
     </a-entity>
-
-    <a-entity id="target-layer"></a-entity>
-    <a-entity id="fx-layer"></a-entity>
   </a-scene>
 
   <script>
     const STEPS = [
-      { id:'palms', name:'ฝ่ามือถูฝ่ามือ', icon:'👐', desc:'แตะเป้าบนฝ่ามือทั้งสองข้างให้ครบ เพื่อสื่อว่าต้องถูฝ่ามือเข้าหากัน', needed:6, prompt:'แตะเป้าบนฝ่ามือให้ครบ' },
-      { id:'backs', name:'ฝ่ามือถูหลังมือ', icon:'🖐️', desc:'แตะเป้าบนหลังมือทั้งสองข้าง เพื่อสื่อว่าต้องถูหลังมือสลับกัน', needed:6, prompt:'แตะเป้าบนหลังมือ' },
-      { id:'between', name:'ถูซอกนิ้ว', icon:'🤝', desc:'แตะเป้าตรงซอกนิ้วทั้งสองข้างให้ครบ', needed:6, prompt:'แตะเป้าตรงซอกนิ้ว' },
-      { id:'backfingers', name:'หลังนิ้วถูฝ่ามือ', icon:'👊', desc:'แตะเป้าตรงแนวหลังนิ้ว เพื่อสื่อว่าต้องพับนิ้วแล้วถูบนฝ่ามืออีกข้าง', needed:5, prompt:'แตะเป้าตรงหลังนิ้ว' },
-      { id:'thumbs', name:'ถูนิ้วหัวแม่มือ', icon:'👍', desc:'แตะเป้าตรงหัวแม่มือซ้ายและขวาให้ครบ', needed:4, prompt:'แตะหัวแม่มือทั้งสองข้าง' },
-      { id:'fingertips', name:'ถูปลายนิ้วบนฝ่ามือ', icon:'💅', desc:'แตะเป้าตรงปลายนิ้วและปลายเล็บให้ครบ', needed:6, prompt:'แตะเป้าตรงปลายนิ้ว' },
-      { id:'wrists', name:'ถูรอบข้อมือ', icon:'⌚', desc:'ปิดท้ายด้วยแตะเป้ารอบข้อมือซ้ายและขวา', needed:4, prompt:'แตะเป้าตรงข้อมือ' }
+      { id:'palms', name:'ฝ่ามือถูฝ่ามือ', icon:'👐', desc:'แตะเป้าบนฝ่ามือทั้งสองข้างให้ครบ เพื่อสื่อว่าต้องถูฝ่ามือเข้าหากัน', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
+      { id:'backs', name:'ฝ่ามือถูหลังมือ', icon:'🖐️', desc:'แตะเป้าบนหลังมือทั้งสองข้าง เพื่อสื่อว่าต้องถูหลังมือสลับกัน', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
+      { id:'between', name:'ถูซอกนิ้ว', icon:'🤝', desc:'แตะเป้าตรงซอกนิ้วทั้งสองข้างให้ครบ', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
+      { id:'backfingers', name:'หลังนิ้วถูฝ่ามือ', icon:'👊', desc:'แตะเป้าตรงแนวหลังนิ้ว เพื่อสื่อว่าต้องพับนิ้วแล้วถูบนฝ่ามืออีกข้าง', needed:5, prompt:'แตะเป้าบนมือให้ครบ' },
+      { id:'thumbs', name:'ถูนิ้วหัวแม่มือ', icon:'👍', desc:'แตะเป้าตรงหัวแม่มือซ้ายและขวาให้ครบ', needed:4, prompt:'แตะเป้าบนมือให้ครบ' },
+      { id:'fingertips', name:'ถูปลายนิ้วบนฝ่ามือ', icon:'💅', desc:'แตะเป้าตรงปลายนิ้วและปลายเล็บให้ครบ', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
+      { id:'wrists', name:'ถูรอบข้อมือ', icon:'⌚', desc:'ปิดท้ายด้วยแตะเป้ารอบข้อมือซ้ายและขวา', needed:4, prompt:'แตะเป้าบนมือให้ครบ' }
     ];
 
     const state = {
@@ -704,17 +706,17 @@
         fx.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
         fx.setAttribute('material', 'shader: flat; opacity: 0.96; transparent: true');
 
-        const dx = (Math.random()-0.5)*0.25;
-        const dy = 0.08 + Math.random()*0.18;
-        const dz = (Math.random()-0.5)*0.18;
+        const dx = (Math.random()-0.5)*0.18;
+        const dy = 0.04 + Math.random()*0.12;
+        const dz = (Math.random()-0.5)*0.12;
 
-        fx.setAttribute('animation__move', `property: position; to: ${pos.x+dx} ${pos.y+dy} ${pos.z+dz}; dur: 420; easing: easeOutQuad`);
-        fx.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 420; easing: linear');
+        fx.setAttribute('animation__move', `property: position; to: ${pos.x+dx} ${pos.y+dy} ${pos.z+dz}; dur: 360; easing: easeOutQuad`);
+        fx.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 360; easing: linear');
 
         fxLayer.appendChild(fx);
         setTimeout(()=>{
           if(fx.parentNode) fx.parentNode.removeChild(fx);
-        }, 450);
+        }, 390);
       }
     }
 
@@ -759,38 +761,36 @@
 
       const sets = {
         palms: [
-          {x:-0.20,y:1.00,z:-0.75}, {x:-0.08,y:1.05,z:-0.73}, {x:-0.31,y:0.92,z:-0.74},
-          {x: 0.20,y:1.00,z:-0.75}, {x: 0.08,y:1.05,z:-0.73}, {x: 0.31,y:0.92,z:-0.74}
+          {x:-0.30,y:0.02,z:0.07}, {x:-0.22,y:0.05,z:0.07}, {x:-0.14,y:0.01,z:0.07},
+          {x: 0.14,y:0.01,z:0.07}, {x: 0.22,y:0.05,z:0.07}, {x: 0.30,y:0.02,z:0.07}
         ],
         backs: [
-          {x:-0.20,y:1.00,z:-0.83}, {x:-0.08,y:1.06,z:-0.84}, {x:-0.31,y:0.92,z:-0.83},
-          {x: 0.20,y:1.00,z:-0.83}, {x: 0.08,y:1.06,z:-0.84}, {x: 0.31,y:0.92,z:-0.83}
+          {x:-0.30,y:0.02,z:-0.01}, {x:-0.22,y:0.05,z:-0.01}, {x:-0.14,y:0.01,z:-0.01},
+          {x: 0.14,y:0.01,z:-0.01}, {x: 0.22,y:0.05,z:-0.01}, {x: 0.30,y:0.02,z:-0.01}
         ],
         between: [
-          {x:-0.16,y:1.08,z:-0.74}, {x:-0.23,y:1.01,z:-0.74}, {x:-0.09,y:1.01,z:-0.74},
-          {x: 0.16,y:1.08,z:-0.74}, {x: 0.23,y:1.01,z:-0.74}, {x: 0.09,y:1.01,z:-0.74}
+          {x:-0.27,y:0.08,z:0.06}, {x:-0.22,y:0.03,z:0.06}, {x:-0.17,y:0.08,z:0.06},
+          {x: 0.17,y:0.08,z:0.06}, {x: 0.22,y:0.03,z:0.06}, {x: 0.27,y:0.08,z:0.06}
         ],
         backfingers: [
-          {x:-0.14,y:1.12,z:-0.78}, {x:-0.24,y:1.11,z:-0.78}, {x:-0.04,y:1.11,z:-0.78},
-          {x: 0.14,y:1.12,z:-0.78}, {x: 0.24,y:1.11,z:-0.78}
+          {x:-0.27,y:0.10,z:0.01}, {x:-0.21,y:0.11,z:0.01}, {x:-0.15,y:0.10,z:0.01},
+          {x: 0.15,y:0.10,z:0.01}, {x: 0.21,y:0.11,z:0.01}
         ],
         thumbs: [
-          {x:-0.36,y:0.98,z:-0.73}, {x:-0.34,y:0.92,z:-0.73},
-          {x: 0.36,y:0.98,z:-0.73}, {x: 0.34,y:0.92,z:-0.73}
+          {x:-0.36,y:0.02,z:0.06}, {x:-0.34,y:-0.04,z:0.06},
+          {x: 0.36,y:0.02,z:0.06}, {x: 0.34,y:-0.04,z:0.06}
         ],
         fingertips: [
-          {x:-0.29,y:1.16,z:-0.70}, {x:-0.21,y:1.18,z:-0.70}, {x:-0.13,y:1.16,z:-0.70},
-          {x: 0.29,y:1.16,z:-0.70}, {x: 0.21,y:1.18,z:-0.70}, {x: 0.13,y:1.16,z:-0.70}
+          {x:-0.29,y:0.14,z:0.09}, {x:-0.22,y:0.16,z:0.09}, {x:-0.15,y:0.14,z:0.09},
+          {x: 0.15,y:0.14,z:0.09}, {x: 0.22,y:0.16,z:0.09}, {x: 0.29,y:0.14,z:0.09}
         ],
         wrists: [
-          {x:-0.39,y:0.90,z:-0.76}, {x:-0.39,y:0.84,z:-0.76},
-          {x: 0.39,y:0.90,z:-0.76}, {x: 0.39,y:0.84,z:-0.76}
+          {x:-0.39,y:-0.04,z:0.02}, {x:-0.39,y:-0.10,z:0.02},
+          {x: 0.39,y:-0.04,z:0.02}, {x: 0.39,y:-0.10,z:0.02}
         ]
       };
 
-      const pts = (sets[stepId] || []).slice(0,count);
-      const yOffset = 0.18;
-      const zOffset = 0.10;
+      const pts = (sets[stepId] || []).slice(0, count);
 
       pts.forEach((p, idx)=>{
         const t = document.createElement('a-sphere');
@@ -800,8 +800,7 @@
 
         const r = (stepId === 'thumbs' || stepId === 'wrists') ? 0.10 : 0.09;
         t.setAttribute('radius', r);
-
-        t.setAttribute('position', `${p.x} ${p.y + yOffset} ${p.z + zOffset}`);
+        t.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
         t.setAttribute('color', stepId === 'backs' ? '#86efac' : '#7dd3fc');
         t.setAttribute(
           'material',
@@ -809,7 +808,7 @@
         );
         t.setAttribute(
           'animation__float',
-          `property: position; dir: alternate; loop: true; dur: ${800 + idx*40}; to: ${p.x} ${p.y + yOffset + 0.03} ${p.z + zOffset}`
+          `property: position; dir: alternate; loop: true; dur: ${800 + idx*40}; to: ${p.x} ${p.y + 0.025} ${p.z}`
         );
         targetLayer.appendChild(t);
       });
@@ -849,7 +848,6 @@
       state.score += 50;
       ui.bubbles.setAttribute('visible', 'true');
       setSoapHighlight(false);
-      burstAt({x:0.18, y:1.20, z:-1.16}, '#ffffff');
       state.currentIdx = 0;
       prepareStep();
     }
