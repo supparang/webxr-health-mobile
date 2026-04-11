@@ -1,13 +1,15 @@
 // === /herohealth/vr-goodjunk/goodjunk-mode-play-router.js ===
-// FULL PATCH v20260409a-GJ-MODE-PLAY-ROUTER-LOCK-MODE
+// FULL PATCH v20260411b-GJ-MODE-PLAY-ROUTER-ROOM-NORMALIZE
 
 const PASS_KEYS = [
   'pid','name','nick','diff','time','view','hub',
   'sbUrl','sbAnon','studyId','conditionGroup',
   'phase','log','ai','pro','research','seed','run',
   'planSeq','planDay','planSlot','planMode','planSlots','planIndex',
-  'cdnext','zone','cat','game','gameId','theme','room',
-  'role','lobby'
+  'cdnext','zone','cat','game','gameId','theme',
+  'room','roomId','roomCode',
+  'role','lobby','entry','multiplayer','fromLobby','modeLocked',
+  'api','autogo','ready'
 ];
 
 const STORAGE = {
@@ -16,17 +18,17 @@ const STORAGE = {
   recentRoomPrefix: 'GJ_RECENT_ROOM:'
 };
 
-function qs(k, d=''){
+function qs(k, d = '') {
   try { return new URL(location.href).searchParams.get(k) ?? d; }
   catch (_) { return d; }
 }
 
-function clean(v, d=''){
+function clean(v, d = '') {
   const s = String(v ?? '').trim();
   return s || d;
 }
 
-function buildUrl(path, params = {}, base = location.href){
+function buildUrl(path, params = {}, base = location.href) {
   const u = new URL(path, base);
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== '') {
@@ -36,34 +38,26 @@ function buildUrl(path, params = {}, base = location.href){
   return u.toString();
 }
 
-function loadRecentRoom(mode){
-  try{
-    return localStorage.getItem(`${STORAGE.recentRoomPrefix}${mode}`) || '';
-  }catch(_){
-    return '';
-  }
-}
-
-function saveRecentRoom(mode, room){
-  try{
+function saveRecentRoom(mode, room) {
+  try {
     localStorage.setItem(`${STORAGE.recentRoomPrefix}${mode}`, String(room || ''));
-  }catch(_){}
+  } catch (_) {}
 }
 
-function saveLastMode(pid, mode, href){
-  try{
+function saveLastMode(pid, mode, href) {
+  try {
     localStorage.setItem(`${STORAGE.lastModePrefix}${pid}`, String(mode || ''));
     localStorage.setItem(`${STORAGE.lastRunUrlPrefix}${pid}`, String(href || ''));
-  }catch(_){}
+  } catch (_) {}
 }
 
-function generateRoomCode(prefix = 'GJ'){
+function generateRoomCode(prefix = 'GJ') {
   const part = Math.random().toString(36).slice(2, 6).toUpperCase();
   const tail = String(Date.now()).slice(-4);
   return `${prefix}-${part}${tail}`;
 }
 
-function ensureStyle(){
+function ensureStyle() {
   if (document.getElementById('gjPlayRouterStyle')) return;
 
   const style = document.createElement('style');
@@ -179,7 +173,7 @@ function ensureStyle(){
   document.head.appendChild(style);
 }
 
-function renderShell({ title, subtitle, emoji }){
+function renderShell({ title, subtitle, emoji }) {
   document.body.innerHTML = `
     <div class="wrap">
       <div class="card">
@@ -197,6 +191,10 @@ function renderShell({ title, subtitle, emoji }){
             <div class="v" id="roomText">-</div>
           </div>
           <div class="status-item">
+            <div class="k">Role</div>
+            <div class="v" id="roleText">-</div>
+          </div>
+          <div class="status-item">
             <div class="k">ปลายทาง play จริง</div>
             <div class="v" id="targetText">-</div>
           </div>
@@ -211,7 +209,7 @@ function renderShell({ title, subtitle, emoji }){
   `;
 }
 
-export function bootGoodJunkModePlay(config = {}){
+export function bootGoodJunkModePlay(config = {}) {
   const mode = clean(config.mode, 'race').toLowerCase();
   const title = clean(config.title, `GoodJunk • ${mode} Play`);
   const subtitle = clean(config.subtitle, `กำลัง lock โหมด ${mode} ก่อนเข้า play จริง`);
@@ -242,6 +240,12 @@ export function bootGoodJunkModePlay(config = {}){
   params.game = clean(params.game, 'goodjunk');
   params.gameId = clean(params.gameId, 'goodjunk');
   params.theme = clean(params.theme, 'goodjunk');
+  params.mode = mode;
+  params.entry = clean(params.entry, mode);
+  params.multiplayer = clean(params.multiplayer, '1');
+  params.fromLobby = clean(params.fromLobby, '1');
+  params.modeLocked = clean(params.modeLocked, '1');
+  params.lobby = clean(params.lobby, '1');
 
   const roomPrefix =
     mode === 'duet' ? 'GJ-DU' :
@@ -249,22 +253,26 @@ export function bootGoodJunkModePlay(config = {}){
     mode === 'battle' ? 'GJ-BA' :
     'GJ-CO';
 
-  params.room = clean(params.room, loadRecentRoom(mode) || generateRoomCode(roomPrefix));
-  params.mode = mode;
-  params.entry = mode;
-  params.multiplayer = '1';
-  params.fromLobby = '1';
-  params.modeLocked = '1';
-  params.lobby = clean(params.lobby, '1');
-  params.role = clean(params.role, 'host');
+  const isMultiMode = ['duet', 'race', 'battle', 'coop'].includes(mode);
+  const incomingRoom = clean(params.room || params.roomId || params.roomCode, '');
+  const roomWasGenerated = !!(isMultiMode && !incomingRoom);
+  const normalizedRoom = incomingRoom || (isMultiMode ? generateRoomCode(roomPrefix) : '');
 
-  saveRecentRoom(mode, params.room);
+  if (normalizedRoom) {
+    params.room = normalizedRoom;
+    params.roomId = normalizedRoom;
+    params.roomCode = normalizedRoom;
+    saveRecentRoom(mode, normalizedRoom);
+  }
+
+  params.role = clean(params.role, roomWasGenerated ? 'host' : 'guest');
 
   const finalHref = buildUrl(targetPath, params);
   saveLastMode(params.pid, mode, finalHref);
 
   document.getElementById('modeText').textContent = mode.toUpperCase();
-  document.getElementById('roomText').textContent = params.room;
+  document.getElementById('roomText').textContent = normalizedRoom || '-';
+  document.getElementById('roleText').textContent = params.role.toUpperCase();
   document.getElementById('targetText').textContent = finalHref;
 
   document.getElementById('goNowBtn').addEventListener('click', () => {
@@ -290,7 +298,10 @@ export function bootGoodJunkModePlay(config = {}){
     });
   });
 
-  setTimeout(() => {
-    location.href = finalHref;
-  }, 220);
+  const autoGo = clean(params.autogo || qs('autogo', '1'), '1');
+  if (autoGo !== '0') {
+    setTimeout(() => {
+      location.replace(finalHref);
+    }, 220);
+  }
 }
