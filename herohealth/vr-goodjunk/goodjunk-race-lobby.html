@@ -3,63 +3,93 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Groups Race Lobby</title>
-  <meta name="color-scheme" content="dark" />
-  <meta name="theme-color" content="#08142f" />
-  <link rel="icon" href="../favicon.ico" />
+  <title>HeroHealth • GoodJunk Race Lobby</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <script src="./firebase-config.js"></script>
+  <script src="./gj-room-adapter.js"></script>
 
   <style>
     :root{
-      --bg1:#050b1f;
-      --bg2:#08142f;
-      --bg3:#0b1b42;
+      --bg1:#071522;
+      --bg2:#10314d;
+      --bg3:#1d5d86;
 
-      --card:rgba(7,18,46,.88);
-      --card2:rgba(10,25,61,.92);
-      --stroke:rgba(122,162,255,.18);
+      --panel:rgba(7,21,34,.78);
+      --panel2:rgba(10,31,50,.84);
+      --stroke:rgba(255,255,255,.14);
 
-      --text:#eef4ff;
-      --muted:#a9b9e8;
+      --text:#f8fcff;
+      --muted:#d9f1ff;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --info:#38bdf8;
+      --race:#0ea5e9;
+      --bad:#ef4444;
 
-      --green1:#68f2a3;
-      --green2:#2ad067;
-      --blue1:#2a79ff;
-      --blue2:#44c2ff;
-      --pink1:#8f4cff;
-      --pink2:#ff68c7;
-      --warn:#ffb454;
-      --danger:#ff8b8b;
+      --shadow:0 18px 48px rgba(0,0,0,.30);
+      --shadow-big:0 24px 72px rgba(0,0,0,.36);
 
-      --shadow:0 20px 60px rgba(0,0,0,.45);
-      --radius:26px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
 
     *{ box-sizing:border-box; }
-    html,body{ height:100%; }
-
-    body{
+    html,body{
       margin:0;
+      min-height:100%;
       color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
       background:
-        radial-gradient(1000px 500px at 10% -10%, rgba(68,194,255,.16), transparent 60%),
-        radial-gradient(900px 480px at 110% 10%, rgba(143,76,255,.16), transparent 58%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 45%,var(--bg3));
-      min-height:100vh;
+        radial-gradient(900px 520px at 10% 10%, rgba(56,189,248,.20), transparent 60%),
+        radial-gradient(900px 560px at 90% 0%, rgba(14,165,233,.16), transparent 60%),
+        radial-gradient(700px 420px at 50% 100%, rgba(245,158,11,.10), transparent 60%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
     }
 
-    .wrap{
-      width:min(1120px,100%);
+    body{ overflow-x:hidden; }
+    a,button,input,select{ font:inherit; }
+
+    .app{
+      max-width:1200px;
       margin:0 auto;
-      padding:18px 14px 32px;
+      min-height:100dvh;
+      padding:
+        calc(12px + var(--sat))
+        calc(12px + var(--sar))
+        calc(16px + var(--sab))
+        calc(12px + var(--sal));
+      display:grid;
+      gap:12px;
     }
 
-    .topbar{
+    .panel{
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      backdrop-filter:blur(12px);
+      border-radius:24px;
+      box-shadow:var(--shadow-big);
+    }
+
+    .hero{
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .hero-top{
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:12px;
-      margin-bottom:16px;
+      flex-wrap:wrap;
     }
 
     .brand{
@@ -69,713 +99,458 @@
       min-width:0;
     }
 
-    .logo{
-      width:52px;
-      height:52px;
-      border-radius:18px;
+    .brand-icon{
+      width:68px;
+      height:68px;
+      border-radius:22px;
       display:grid;
       place-items:center;
-      font-size:28px;
-      background:linear-gradient(135deg,#12306b,#1c5cff 58%,#5ce1ff);
-      box-shadow:0 12px 30px rgba(28,92,255,.28);
+      font-size:34px;
+      border:1px solid rgba(255,255,255,.14);
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 38%),
+        linear-gradient(135deg, rgba(56,189,248,.24), rgba(14,165,233,.18));
+      box-shadow:0 12px 24px rgba(0,0,0,.16);
       flex:0 0 auto;
     }
 
-    .brand h1{
-      margin:0;
-      font-size:clamp(1.2rem,2vw,1.7rem);
-      line-height:1.1;
+    .brand-title{
+      font-size:30px;
+      font-weight:1000;
+      line-height:1.05;
+      color:#fff;
     }
 
-    .brand p{
-      margin:4px 0 0;
+    .brand-sub{
+      margin-top:5px;
       color:var(--muted);
-      font-size:.95rem;
+      font-size:14px;
+      line-height:1.55;
+      font-weight:900;
     }
 
-    .top-actions{
+    .hero-actions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
+      align-items:center;
       justify-content:flex-end;
     }
 
     .btn{
-      appearance:none;
-      border:none;
-      cursor:pointer;
-      border-radius:20px;
-      padding:14px 18px;
-      font-weight:800;
-      font-size:1rem;
-      color:#fff;
-      transition:transform .12s ease, opacity .12s ease, filter .12s ease;
-      box-shadow:var(--shadow);
-    }
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.04); }
-    .btn:active{ transform:translateY(0); }
-    .btn[disabled]{ cursor:not-allowed; opacity:.6; }
-
-    .btn-back{
-      background:linear-gradient(135deg,#0f2f63,#103f82 56%,#1664c0);
-      border:1px solid rgba(115,180,255,.22);
-    }
-    .btn-create{
-      color:#0a1e12;
-      background:linear-gradient(180deg,var(--green1),var(--green2));
-    }
-    .btn-join{
-      background:linear-gradient(135deg,#4f2d84,#8242d9 55%,#ff74cd);
-    }
-    .btn-start{
-      background:linear-gradient(135deg,#ffbf57,#ff9447 55%,#ff6a5e);
-      color:#2a1205;
-    }
-    .btn-copy{
-      background:linear-gradient(135deg,#244f9d,#3578f5 58%,#54c0ff);
-      border:1px solid rgba(122,180,255,.22);
-      padding:10px 14px;
-      font-size:.92rem;
+      min-height:48px;
       border-radius:16px;
-    }
-
-    .hero{
-      background:linear-gradient(180deg, rgba(11,26,62,.95), rgba(8,18,45,.92));
-      border:1px solid var(--stroke);
-      border-radius:30px;
-      padding:18px;
-      box-shadow:var(--shadow);
-      margin-bottom:16px;
-    }
-
-    .hero-row{
-      display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:16px;
-    }
-
-    .headline{
-      padding:8px 6px 6px;
-    }
-
-    .headline .eyebrow{
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      text-decoration:none;
       display:inline-flex;
       align-items:center;
-      gap:8px;
-      background:rgba(76,126,255,.12);
-      color:#cfe0ff;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(126,170,255,.14);
-      font-weight:700;
-      font-size:.92rem;
-      margin-bottom:10px;
+      justify-content:center;
+      padding:10px 14px;
+      font-size:14px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:0 10px 20px rgba(0,0,0,.16);
+      transition:transform .12s ease, filter .12s ease, opacity .12s ease;
     }
 
-    .headline h2{
-      margin:0 0 8px;
-      font-size:clamp(1.5rem,3.2vw,2.3rem);
-      line-height:1.1;
+    .btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.05);
     }
 
-    .headline p{
-      margin:0;
-      color:var(--muted);
-      font-size:1rem;
-      max-width:60ch;
+    .btn:disabled{
+      opacity:.58;
+      cursor:not-allowed;
+      transform:none !important;
+      filter:none !important;
     }
 
-    .tips{
+    .btn.info{
+      background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14));
+      border-color:rgba(56,189,248,.34);
+      color:#eefbff;
+    }
+
+    .btn.good{
+      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.14));
+      border-color:rgba(34,197,94,.34);
+      color:#f0fff5;
+    }
+
+    .btn.warn{
+      background:linear-gradient(180deg, rgba(245,158,11,.24), rgba(245,158,11,.14));
+      border-color:rgba(245,158,11,.34);
+      color:#fff7db;
+    }
+
+    .btn.race{
+      background:linear-gradient(180deg, rgba(14,165,233,.24), rgba(14,165,233,.14));
+      border-color:rgba(14,165,233,.34);
+      color:#eefbff;
+    }
+
+    .btn.bad{
+      background:linear-gradient(180deg, rgba(239,68,68,.24), rgba(239,68,68,.14));
+      border-color:rgba(239,68,68,.34);
+      color:#fff1f2;
+    }
+
+    .statusGrid{
       display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+      grid-template-columns:repeat(5,minmax(0,1fr));
       gap:10px;
-      margin-top:16px;
     }
 
-    .tip{
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.07);
+    .stat{
       border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
       padding:12px;
-    }
-
-    .tip b{
-      display:block;
-      margin-bottom:4px;
-      font-size:.98rem;
-    }
-
-    .tip span{
-      color:var(--muted);
-      font-size:.92rem;
-    }
-
-    .status-card{
-      background:linear-gradient(180deg, rgba(9,24,58,.96), rgba(7,18,44,.94));
-      border:1px solid var(--stroke);
-      border-radius:24px;
-      padding:16px;
+      min-height:78px;
       display:flex;
       flex-direction:column;
-      gap:12px;
       justify-content:center;
+      gap:6px;
+      box-shadow:var(--shadow);
     }
 
-    .status-chip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      align-self:flex-start;
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(64,204,255,.12);
-      border:1px solid rgba(64,204,255,.18);
-      color:#d9f7ff;
-      font-weight:800;
-      font-size:.92rem;
-    }
-
-    .room-box{
-      background:rgba(255,255,255,.03);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:20px;
-      padding:14px;
-    }
-
-    .room-box .label{
+    .stat-label{
+      font-size:11px;
       color:var(--muted);
-      font-size:.9rem;
-      margin-bottom:6px;
+      font-weight:1000;
     }
 
-    .room-code{
-      font-size:clamp(1.3rem,3vw,2rem);
-      font-weight:900;
-      letter-spacing:.06em;
-      line-height:1.05;
+    .stat-value{
+      font-size:20px;
+      line-height:1.15;
+      font-weight:1000;
+      color:#fff;
       word-break:break-word;
     }
-
-    .room-actions{
-      display:flex;
-      gap:10px;
-      margin-top:10px;
-      flex-wrap:wrap;
-    }
-
-    .status-text{
-      min-height:52px;
-      font-weight:800;
-      font-size:1rem;
-      line-height:1.45;
-      color:#d6e8ff;
-    }
-    .status-text.ok{ color:#bff4cf; }
-    .status-text.warn{ color:#ffe0b8; }
-    .status-text.err{ color:#ffd2d2; }
 
     .grid{
       display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:16px;
+      grid-template-columns:1.08fr .92fr;
+      gap:12px;
     }
 
     .card{
-      background:linear-gradient(180deg,var(--card),var(--card2));
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
       padding:16px;
-      box-shadow:var(--shadow);
+      display:grid;
+      gap:14px;
     }
 
-    .card h3{
-      margin:0 0 12px;
-      font-size:1.45rem;
-      line-height:1.1;
+    .card-title{
+      font-size:22px;
+      line-height:1.08;
+      font-weight:1000;
+      color:#fff;
     }
 
-    .sub{
-      margin:-6px 0 14px;
+    .card-sub{
       color:var(--muted);
-      font-size:.98rem;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .fields{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
     }
 
     .field{
-      display:grid;
+      display:flex;
+      flex-direction:column;
       gap:8px;
-      margin-bottom:12px;
     }
 
     .field label{
-      font-weight:800;
-      color:#e9f0ff;
-      font-size:1rem;
-    }
-
-    .input,
-    .select{
-      width:100%;
-      min-height:56px;
-      border-radius:18px;
-      border:1px solid rgba(130,166,255,.16);
-      background:#04112e;
-      color:var(--text);
-      padding:0 16px;
-      outline:none;
-      font-size:1.05rem;
-      box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
-    }
-
-    .input::placeholder{ color:#7f92c7; }
-
-    .row-2{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
-    }
-
-    .actions{
-      display:flex;
-      gap:12px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
-
-    .actions .btn{
-      flex:1 1 180px;
-      min-height:56px;
-    }
-
-    .note{
+      font-size:13px;
       color:var(--muted);
-      font-size:.95rem;
-      margin-top:10px;
-      line-height:1.45;
+      font-weight:1000;
     }
 
-    .players-card{
-      margin-top:16px;
-    }
-
-    .players-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:10px;
-      flex-wrap:wrap;
-    }
-
-    .pill{
-      padding:8px 12px;
-      border-radius:999px;
-      font-weight:800;
-      font-size:.92rem;
-      background:rgba(143,76,255,.12);
-      border:1px solid rgba(143,76,255,.22);
-      color:#f2ddff;
-    }
-
-    .players-list{
-      background:rgba(255,255,255,.03);
-      border:1px solid rgba(255,255,255,.07);
-      border-radius:20px;
-      padding:12px 14px;
-      min-height:86px;
-    }
-
-    .player-row{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding:12px 10px;
+    .field input,
+    .field select{
+      min-height:48px;
       border-radius:16px;
-      background:rgba(255,255,255,.03);
-      border:1px solid rgba(255,255,255,.06);
-    }
-    .player-row + .player-row{ margin-top:10px; }
-
-    .player-main{
-      min-width:0;
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-
-    .player-dot{
-      width:12px;
-      height:12px;
-      border-radius:999px;
-      background:#7cc8ff;
-      box-shadow:0 0 0 4px rgba(124,200,255,.12);
-      flex:0 0 auto;
-    }
-    .player-dot.off{
-      background:#7d8cae;
-      box-shadow:none;
-      opacity:.85;
-    }
-
-    .player-name{
-      font-weight:900;
-      font-size:1rem;
-      line-height:1.2;
-      word-break:break-word;
-    }
-
-    .player-meta{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:30px;
-      padding:6px 10px;
-      border-radius:999px;
-      font-size:.84rem;
-      font-weight:900;
-      border:1px solid rgba(255,255,255,.08);
-      background:rgba(255,255,255,.05);
-      color:#e7f1ff;
-      white-space:nowrap;
-    }
-
-    .badge.host{
-      background:rgba(104,242,163,.12);
-      border-color:rgba(104,242,163,.22);
-      color:#c9ffe0;
-    }
-
-    .badge.you{
-      background:rgba(68,194,255,.12);
-      border-color:rgba(68,194,255,.22);
-      color:#dbf7ff;
-    }
-
-    .badge.off{
-      background:rgba(255,139,139,.12);
-      border-color:rgba(255,139,139,.22);
-      color:#ffdada;
-    }
-
-    .badge.on{
-      background:rgba(255,191,87,.12);
-      border-color:rgba(255,191,87,.24);
-      color:#ffe2b6;
-    }
-
-    .player-empty{
-      opacity:.82;
-      color:var(--muted);
-    }
-
-    .footer-start{
-      margin-top:14px;
-      display:flex;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-
-    .footer-start .btn{
-      flex:1 1 220px;
-      min-height:58px;
-    }
-
-    .tiny{
-      color:var(--muted);
-      font-size:.9rem;
-      margin-top:8px;
-      line-height:1.4;
-    }
-
-    .hha-race-lobby-winner{
-      margin-top:16px;
-    }
-
-    .hha-race-lobby-winner__head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-bottom:12px;
-    }
-
-    .hha-race-lobby-winner__pill{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:30px;
-      padding:6px 12px;
-      border-radius:999px;
-      background:rgba(255,198,77,.12);
-      border:1px solid rgba(255,198,77,.24);
-      color:#ffe7a3;
-      font-size:.84rem;
-      font-weight:900;
-    }
-
-    .hha-race-lobby-winner__hero{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      padding:12px;
-      border-radius:20px;
-      background:linear-gradient(180deg, rgba(255,236,161,.12), rgba(255,255,255,.04));
-      border:1px solid rgba(255,220,128,.16);
-    }
-
-    .hha-race-lobby-winner__crown{
-      width:56px;
-      height:56px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      font-size:1.8rem;
-      background:linear-gradient(180deg,#ffe9a3,#ffc95f);
-      box-shadow:0 10px 22px rgba(255,201,95,.18);
-      flex:0 0 auto;
-    }
-
-    .hha-race-lobby-winner__eyebrow{
-      font-size:.78rem;
-      font-weight:900;
-      color:#f5d57b;
-    }
-
-    .hha-race-lobby-winner__name{
-      margin-top:3px;
-      font-size:1.16rem;
-      line-height:1.15;
-      font-weight:900;
-      color:#fff3c7;
-    }
-
-    .hha-race-lobby-winner__meta{
-      margin-top:5px;
-      color:#d9e8ff;
-      font-weight:800;
-      font-size:.86rem;
-      line-height:1.45;
-    }
-
-    .hha-race-lobby-winner__board{
-      display:grid;
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .hha-race-lobby-winner__row{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(2,6,23,.72);
+      color:#fff;
       padding:10px 12px;
-      border-radius:16px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.07);
+      outline:none;
     }
 
-    .hha-race-lobby-winner__row.is-top{
-      background:linear-gradient(180deg, rgba(255,231,156,.14), rgba(255,255,255,.05));
-      border-color:rgba(255,214,116,.22);
+    .field input:focus,
+    .field select:focus{
+      outline:3px solid rgba(56,189,248,.35);
+      outline-offset:2px;
     }
 
-    .hha-race-lobby-winner__left{
+    .roomRow{
+      display:grid;
+      grid-template-columns:1fr auto auto;
+      gap:10px;
+      align-items:end;
+    }
+
+    .bigActions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .bigActions .btn{
+      min-height:54px;
+      font-size:16px;
+      padding:12px 16px;
+    }
+
+    .notice{
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      padding:12px 14px;
+      color:#fff7ed;
+      font-size:13px;
+      line-height:1.65;
+      font-weight:900;
+    }
+
+    .notice.good{
+      border-color:rgba(34,197,94,.28);
+      background:rgba(34,197,94,.14);
+      color:#f0fff5;
+    }
+
+    .notice.warn{
+      border-color:rgba(245,158,11,.28);
+      background:rgba(245,158,11,.14);
+      color:#fff7db;
+    }
+
+    .notice.bad{
+      border-color:rgba(239,68,68,.28);
+      background:rgba(239,68,68,.14);
+      color:#fff1f2;
+    }
+
+    .playersBox{
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      padding:12px;
+      display:grid;
+      gap:10px;
+      min-height:220px;
+    }
+
+    .playersHead{
       display:flex;
       align-items:center;
+      justify-content:space-between;
       gap:10px;
-      min-width:0;
+      flex-wrap:wrap;
     }
 
-    .hha-race-lobby-winner__place{
-      width:34px;
-      height:34px;
+    .playersTitle{
+      font-size:16px;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .miniChip{
+      min-height:32px;
+      padding:7px 10px;
       border-radius:999px;
-      display:grid;
-      place-items:center;
+      border:1px solid rgba(255,255,255,.14);
       background:rgba(255,255,255,.08);
-      color:#fff2c6;
-      font-weight:900;
-      flex:0 0 auto;
+      color:#fff;
+      font-size:11px;
+      font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
     }
 
-    .hha-race-lobby-winner__player{
-      font-weight:900;
-      color:#eef4ff;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
+    .miniChip.good{
+      border-color:rgba(34,197,94,.28);
+      background:rgba(34,197,94,.16);
+      color:#f0fff5;
     }
 
-    .hha-race-lobby-winner__right{
-      text-align:right;
-      flex:0 0 auto;
+    .miniChip.warn{
+      border-color:rgba(245,158,11,.28);
+      background:rgba(245,158,11,.16);
+      color:#fff7db;
     }
 
-    .hha-race-lobby-winner__score{
-      font-size:1.05rem;
-      font-weight:900;
-      color:#ffffff;
+    .miniChip.info{
+      border-color:rgba(56,189,248,.28);
+      background:rgba(56,189,248,.16);
+      color:#eefbff;
     }
 
-    .hha-race-lobby-winner__stat{
-      margin-top:2px;
-      color:#b9c8e8;
-      font-size:.74rem;
-      font-weight:800;
-      white-space:nowrap;
+    .playerList{
+      display:grid;
+      gap:10px;
     }
 
-    .hha-race-lobby-winner__active{
-      margin-top:10px;
-      color:#b9c8e8;
-      font-size:.84rem;
-      line-height:1.5;
-      font-weight:700;
-    }
-
-    .hha-race-lobby-winner__empty{
+    .playerRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
       padding:12px;
       border-radius:16px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.06);
-      color:#c8d6f2;
-      font-weight:800;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
     }
 
-    @media (max-width: 900px){
-      .hero-row,
-      .grid{
-        grid-template-columns:1fr;
-      }
-      .tips{
-        grid-template-columns:1fr;
-      }
+    .playerName{
+      font-size:14px;
+      font-weight:1000;
+      color:#fff;
     }
 
-    @media (max-width: 640px){
-      .wrap{ padding:14px 12px 28px; }
-      .topbar{
-        align-items:flex-start;
-        flex-direction:column;
-      }
-      .top-actions{
-        width:100%;
-      }
-      .top-actions .btn{
-        flex:1 1 auto;
-      }
-      .row-2{
+    .playerTag{
+      min-height:30px;
+      padding:7px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:#fff;
+    }
+
+    .playerTag.host{
+      border-color:rgba(14,165,233,.34);
+      background:rgba(14,165,233,.16);
+      color:#eefbff;
+    }
+
+    .playerTag.guest{
+      border-color:rgba(245,158,11,.34);
+      background:rgba(245,158,11,.16);
+      color:#fff7db;
+    }
+
+    .logBox{
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(4,18,32,.36);
+      padding:12px 14px;
+      color:#dff3ff;
+      font-size:12px;
+      line-height:1.55;
+      font-weight:900;
+      min-height:88px;
+      white-space:pre-wrap;
+      word-break:break-word;
+      text-align:left;
+    }
+
+    @media (max-width:1040px){
+      .grid{ grid-template-columns:1fr; }
+      .statusGrid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    @media (max-width:720px){
+      .statusGrid,
+      .fields{
         grid-template-columns:1fr;
       }
-      .actions{
-        flex-direction:column;
+      .roomRow{
+        grid-template-columns:1fr;
       }
-      .footer-start{
-        flex-direction:column;
-      }
-      .room-actions{
-        flex-direction:column;
-      }
-      .player-row,
-      .hha-race-lobby-winner__row{
+      .hero-top{
         align-items:flex-start;
-        flex-direction:column;
       }
-      .player-meta{
+      .hero-actions{
         justify-content:flex-start;
       }
-      .hha-race-lobby-winner__right{
-        text-align:left;
-      }
-      .hha-race-lobby-winner__stat{
-        white-space:normal;
-      }
-      .hha-race-lobby-winner__hero{
-        align-items:flex-start;
+      .brand-title{ font-size:24px; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *,
+      *::before,
+      *::after{
+        animation:none !important;
+        transition:none !important;
       }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="topbar">
-      <div class="brand">
-        <div class="logo">🏁</div>
-        <div>
-          <h1>Groups Race Lobby</h1>
-          <p>สร้างห้อง • เข้าห้อง • รอเพื่อน • แล้วกดเริ่มแข่งพร้อมกัน</p>
-        </div>
-      </div>
-
-      <div class="top-actions">
-        <button id="btnBackTop" class="btn btn-back" type="button">กลับ HUB</button>
-      </div>
-    </div>
-
-    <section class="hero">
-      <div class="hero-row">
-        <div class="headline">
-          <div class="eyebrow">⚡ Multiplayer พร้อมใช้</div>
-          <h2>เล่นแข่งหลายเครื่องแบบง่าย ๆ</h2>
-          <p>
-            เครื่องเจ้าของห้องกด <b>สร้างห้อง</b> แล้วแชร์รหัสห้องให้เพื่อน
-            จากนั้นทุกคนเข้าห้อง รอให้ครบ แล้วเจ้าของห้องกดเริ่มแข่งได้เลย
-          </p>
-
-          <div class="tips">
-            <div class="tip">
-              <b>1) สร้างห้อง</b>
-              <span>เจ้าของห้องเลือกความยากและเวลาแข่ง แล้วกดสร้างห้อง</span>
-            </div>
-            <div class="tip">
-              <b>2) แชร์รหัส</b>
-              <span>ส่ง Room Code ให้เพื่อนเอาไปกรอกในช่องเข้าห้อง</span>
-            </div>
-            <div class="tip">
-              <b>3) เริ่มพร้อมกัน</b>
-              <span>เมื่อมีผู้เล่นอย่างน้อย 2 คน ปุ่มเริ่มแข่งจะกดได้</span>
-            </div>
+  <div class="app">
+    <section class="panel hero">
+      <div class="hero-top">
+        <div class="brand">
+          <div class="brand-icon">🏁</div>
+          <div>
+            <div class="brand-title">GoodJunk Race Lobby</div>
+            <div class="brand-sub">ห้องแข่งหลายคน 2–10 คน • Host สร้างห้องและกดเริ่มเองเมื่อพร้อม</div>
           </div>
         </div>
 
-        <div class="status-card">
-          <div class="status-chip">📡 สถานะระบบ</div>
+        <div class="hero-actions">
+          <a id="btnBackLauncherTop" class="btn" href="#">กลับ Launcher</a>
+          <a id="btnBackHubTop" class="btn race" href="#">กลับ Hub</a>
+        </div>
+      </div>
 
-          <div class="room-box">
-            <div class="label">Room Code</div>
-            <div id="roomCodeOut" class="room-code">-</div>
-            <div class="room-actions">
-              <button id="btnCopyCode" class="btn btn-copy" type="button">คัดลอกรหัสห้อง</button>
-            </div>
-          </div>
-
-          <div id="statusMsg" class="status-text warn">กำลังเตรียมระบบ...</div>
+      <div class="statusGrid">
+        <div class="stat">
+          <div class="stat-label">Room</div>
+          <div id="statRoom" class="stat-value">-</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Role</div>
+          <div id="statRole" class="stat-value">-</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Players</div>
+          <div id="statPlayers" class="stat-value">0/10</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Cap</div>
+          <div id="statCap" class="stat-value">4</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Status</div>
+          <div id="statStatus" class="stat-value">waiting</div>
         </div>
       </div>
     </section>
 
     <section class="grid">
-      <div class="card">
-        <h3>สร้างห้อง</h3>
-        <p class="sub">ใช้เครื่องนี้เป็นเจ้าของห้อง แล้วรอเพื่อนเข้าร่วม</p>
+      <section class="panel card">
+        <div class="card-title">ตั้งค่าห้อง Race</div>
+        <div class="card-sub">Race เริ่มได้ตั้งแต่ 2 คนขึ้นไป และมากสุดไม่เกิน 10 คน • Host เป็นคนกดเริ่ม</div>
 
-        <div class="field">
-          <label for="hostName">ชื่อเจ้าของห้อง</label>
-          <input id="hostName" class="input" type="text" placeholder="เช่น ผู้เล่น A" maxlength="24" autocomplete="nickname" />
-        </div>
-
-        <div class="row-2">
+        <div class="fields">
           <div class="field">
-            <label for="diff">ระดับความยาก</label>
-            <select id="diff" class="select">
+            <label for="nick">ชื่อเล่น</label>
+            <input id="nick" placeholder="เช่น Hero" />
+          </div>
+
+          <div class="field">
+            <label for="pid">PID</label>
+            <input id="pid" placeholder="เช่น anon" />
+          </div>
+
+          <div class="field">
+            <label for="diff">ความยาก</label>
+            <select id="diff">
               <option value="easy">easy</option>
               <option value="normal" selected>normal</option>
               <option value="hard">hard</option>
@@ -783,110 +558,609 @@
           </div>
 
           <div class="field">
-            <label for="timeSec">เวลาแข่ง</label>
-            <select id="timeSec" class="select">
-              <option value="60" selected>60 วินาที</option>
-              <option value="90">90 วินาที</option>
-              <option value="120">120 วินาที</option>
+            <label for="time">เวลา</label>
+            <select id="time">
+              <option value="60">60s</option>
+              <option value="90" selected>90s</option>
+              <option value="120">120s</option>
             </select>
+          </div>
+
+          <div class="field">
+            <label for="view">มุมมอง</label>
+            <select id="view">
+              <option value="mobile" selected>mobile</option>
+              <option value="desktop">desktop</option>
+              <option value="cvr">cvr</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="cap">จำนวนสูงสุดในห้อง</label>
+            <select id="cap">
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4" selected>4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="hub">Hub</label>
+            <input id="hub" placeholder="./hub.html" />
           </div>
         </div>
 
-        <div class="actions">
-          <button id="btnCreateRoom" class="btn btn-create" type="button">สร้างห้อง</button>
-          <button id="btnBackCreate" class="btn btn-back" type="button">กลับ HUB</button>
+        <div class="roomRow">
+          <div class="field" style="margin:0">
+            <label for="room">Room Code</label>
+            <input id="room" placeholder="เช่น RC-AB12CD" />
+          </div>
+          <button id="btnRandomRoom" class="btn warn" type="button">สุ่มห้อง</button>
+          <button id="btnCopyRoom" class="btn info" type="button">คัดลอก</button>
         </div>
 
-        <div class="note">
-          เมื่อสร้างห้องสำเร็จ ระบบจะแสดง Room Code ด้านบนสำหรับให้เครื่องอื่นเข้าร่วม
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>เข้าห้อง</h3>
-        <p class="sub">ใส่ชื่อผู้เล่นและรหัสห้องจากเจ้าของห้อง</p>
-
-        <div class="field">
-          <label for="joinName">ชื่อผู้เล่น</label>
-          <input id="joinName" class="input" type="text" placeholder="เช่น ผู้เล่น B" maxlength="24" autocomplete="nickname" />
+        <div id="noticeBox" class="notice warn">
+          ยังไม่มีห้อง • กด “สร้างห้อง” ถ้าคุณเป็น Host หรือให้ Host สร้างก่อนแล้วค่อยกด “เข้าห้องนี้”
         </div>
 
-        <div class="field">
-          <label for="roomCode">รหัสห้อง</label>
-          <input id="roomCode" class="input" type="text" placeholder="เช่น GRP-A1B2C3" maxlength="16" autocapitalize="characters" />
+        <div class="bigActions">
+          <button id="btnCreateRoom" class="btn good" type="button">สร้างห้อง</button>
+          <button id="btnJoinRoom" class="btn info" type="button">เข้าห้องนี้</button>
+          <button id="btnLeaveRoom" class="btn bad" type="button">ออกจากห้อง</button>
+          <button id="btnStartRace" class="btn race" type="button" disabled>เริ่ม Race</button>
+        </div>
+      </section>
+
+      <section class="panel card">
+        <div class="playersBox">
+          <div class="playersHead">
+            <div class="playersTitle">ผู้เล่นในห้อง</div>
+            <div id="chipRoomState" class="miniChip warn">ยังไม่พร้อม</div>
+          </div>
+
+          <div id="playerList" class="playerList">
+            <div class="playerRow">
+              <div class="playerName">ยังไม่มีผู้เล่น</div>
+              <div class="playerTag">0</div>
+            </div>
+          </div>
         </div>
 
-        <div class="actions">
-          <button id="btnJoinRoom" class="btn btn-join" type="button">เข้าห้อง</button>
-          <button id="btnBackJoin" class="btn btn-back" type="button">กลับ HUB</button>
+        <div class="notice">
+          กติกา Race: อย่างน้อย <b>2 คน</b> ถึงจะเริ่มได้ • มากสุด <b>10 คน</b> • เริ่มจริงเมื่อ Host กดปุ่มเริ่ม
         </div>
 
-        <div class="note">
-          ใส่รหัสห้องจากเครื่องเจ้าของห้อง แล้วกดเข้าห้องเพื่อรอเริ่มแข่งพร้อมกัน
-        </div>
-      </div>
-    </section>
-
-    <section class="card hha-race-lobby-winner">
-      <div class="hha-race-lobby-winner__head">
-        <h3 style="margin:0">ผลแข่งล่าสุด</h3>
-        <div class="hha-race-lobby-winner__pill">🏁 Race ล่าสุด</div>
-      </div>
-      <div class="hha-race-lobby-winner__body">
-        <div class="hha-race-lobby-winner__empty">ยังไม่มีผลแข่งของห้องนี้</div>
-      </div>
-    </section>
-
-    <section class="card players-card">
-      <div class="players-head">
-        <h3 style="margin:0">ผู้เล่นในห้อง</h3>
-        <div class="pill">เริ่มได้เมื่อมีอย่างน้อย 2 คน</div>
-      </div>
-
-      <div id="playersList" class="players-list">
-        <div class="player-empty">ยังไม่มีข้อมูลห้อง</div>
-      </div>
-
-      <div class="footer-start">
-        <button id="btnStartRace" class="btn btn-start" type="button" disabled>เริ่มแข่ง</button>
-        <button id="btnBackBottom" class="btn btn-back" type="button">กลับ HUB</button>
-      </div>
-
-      <div class="tiny">
-        ปุ่มเริ่มแข่งใช้ได้เฉพาะเจ้าของห้อง และต้องมีผู้เล่นพร้อมอย่างน้อย 2 คน
-      </div>
+        <div class="logBox" id="logBox">Race lobby booting…</div>
+      </section>
     </section>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script type="module">
+    const MODE = 'race';
+    const PLAY_PATH = './goodjunk-race-play.html';
 
-  <script src="../firebase-config.js"></script>
-  <script src="../firebase-init.js"></script>
-  <script src="./groups-race-lobby.js"></script>
+    let roomApi = null;
+    let unsub = null;
+    let lastRoom = null;
 
-  <script>
-    (function(){
-      'use strict';
+    const $ = (id) => document.getElementById(id);
 
-      const q = new URLSearchParams(location.search);
-      const hub = q.get('hub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+    const qs = (k, d='') => {
+      try { return new URL(location.href).searchParams.get(k) ?? d; }
+      catch (_) { return d; }
+    };
 
-      function goHub(){
-        location.href = hub;
+    function clean(v, d=''){
+      const s = String(v ?? '').trim();
+      return s || d;
+    }
+
+    function nowText(){
+      return new Date().toLocaleTimeString('th-TH', { hour12:false });
+    }
+
+    function log(msg){
+      const el = $('logBox');
+      if (!el) return;
+      el.textContent = `[${nowText()}] ${msg}`;
+    }
+
+    function buildUrl(path, extra = {}, base = location.href){
+      const u = new URL(path, base);
+      Object.entries(extra).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') {
+          u.searchParams.set(k, String(v));
+        }
+      });
+      return u.toString();
+    }
+
+    function randomRoomCode(){
+      const part = Math.random().toString(36).slice(2, 8).toUpperCase();
+      return `RC-${part}`;
+    }
+
+    function clampCap(v){
+      const n = Number(v || 4);
+      if (!Number.isFinite(n)) return 4;
+      return Math.max(2, Math.min(10, n));
+    }
+
+    function ctx(){
+      return {
+        pid: clean($('pid').value, 'anon'),
+        name: clean($('nick').value, 'Hero'),
+        nick: clean($('nick').value, 'Hero'),
+        room: clean($('room').value, ''),
+        diff: clean($('diff').value, 'normal'),
+        time: clean($('time').value, '90'),
+        view: clean($('view').value, 'mobile'),
+        cap: clampCap($('cap').value),
+        hub: clean($('hub').value, './hub.html'),
+        run: clean(qs('run', 'play'), 'play'),
+        seed: clean(qs('seed', String(Date.now())), String(Date.now())),
+        zone: clean(qs('zone', 'nutrition'), 'nutrition'),
+        cat: clean(qs('cat', 'nutrition'), 'nutrition'),
+        game: clean(qs('game', 'goodjunk'), 'goodjunk'),
+        gameId: clean(qs('gameId', 'goodjunk'), 'goodjunk'),
+        theme: clean(qs('theme', 'goodjunk'), 'goodjunk'),
+        studyId: clean(qs('studyId', ''), ''),
+        conditionGroup: clean(qs('conditionGroup', ''), '')
+      };
+    }
+
+    function buildLauncherUrl(){
+      const p = ctx();
+      return buildUrl('./goodjunk-launcher.html', {
+        pid: p.pid,
+        name: p.name,
+        diff: p.diff,
+        time: p.time,
+        hub: p.hub,
+        view: p.view,
+        run: p.run,
+        seed: p.seed,
+        zone: p.zone,
+        cat: p.cat,
+        game: p.game,
+        gameId: p.gameId,
+        theme: p.theme,
+        recommendedMode: 'race'
+      });
+    }
+
+    function buildPlayUrl(room, role='guest'){
+      const p = ctx();
+      return buildUrl(PLAY_PATH, {
+        mode: 'race',
+        entry: 'race',
+        roomId: room?.roomId || p.room,
+        room: room?.roomId || p.room,
+        pid: p.pid,
+        name: p.name,
+        nick: p.nick,
+        diff: room?.diff || p.diff,
+        time: room?.time || p.time,
+        view: p.view,
+        hub: p.hub,
+        run: p.run,
+        seed: p.seed,
+        zone: p.zone,
+        cat: p.cat,
+        game: p.game,
+        gameId: p.gameId,
+        theme: p.theme,
+        studyId: p.studyId,
+        conditionGroup: p.conditionGroup,
+        role,
+        host: role === 'host' ? '1' : '0',
+        wait: '1',
+        autostart: '1',
+        modeLocked: '1',
+        maxPlayers: String(room?.cap || p.cap)
+      });
+    }
+
+    function applyBackLinks(){
+      $('btnBackLauncherTop').href = buildLauncherUrl();
+      $('btnBackHubTop').href = clean($('hub').value, './hub.html');
+    }
+
+    function hydrateInputs(){
+      $('nick').value = qs('name', qs('nick', 'Hero'));
+      $('pid').value = qs('pid', 'anon');
+      $('room').value = qs('room', qs('roomId', ''));
+      $('diff').value = qs('diff', 'normal');
+      $('time').value = qs('time', '90');
+      $('view').value = qs('view', 'mobile');
+      $('hub').value = qs('hub', './hub.html');
+      $('cap').value = String(clampCap(qs('cap', '4')));
+
+      if (!$('room').value) {
+        $('room').value = randomRoomCode();
+      }
+    }
+
+    function updateNotice(kind, text){
+      const box = $('noticeBox');
+      box.className = `notice ${kind}`;
+      box.innerHTML = text;
+    }
+
+    function updateRoomStateChip(kind, text){
+      const chip = $('chipRoomState');
+      chip.className = `miniChip ${kind}`;
+      chip.textContent = text;
+    }
+
+    function getMe(room){
+      const p = ctx();
+      return room?.players?.[p.pid] || null;
+    }
+
+    function renderPlayers(room){
+      const wrap = $('playerList');
+      const playersObj = room?.players || {};
+      const players = Object.values(playersObj)
+        .filter(Boolean)
+        .sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
+
+      if (!players.length) {
+        wrap.innerHTML = `
+          <div class="playerRow">
+            <div class="playerName">ยังไม่มีผู้เล่น</div>
+            <div class="playerTag">0</div>
+          </div>
+        `;
+        return;
       }
 
-      [
-        '#btnBackTop',
-        '#btnBackCreate',
-        '#btnBackJoin',
-        '#btnBackBottom'
-      ].forEach((sel) => {
-        const el = document.querySelector(sel);
-        if (el) el.addEventListener('click', goHub);
+      wrap.innerHTML = players.map((p, idx) => `
+        <div class="playerRow">
+          <div class="playerName">${idx + 1}. ${String(p.name || p.nick || p.pid || 'Player')}</div>
+          <div class="playerTag ${p.role === 'host' ? 'host' : 'guest'}">${p.role === 'host' ? '🏁 Host' : '👤 Racer'}</div>
+        </div>
+      `).join('');
+    }
+
+    function updateStats(room, me=null){
+      const count = room?.players ? Object.keys(room.players).length : 0;
+      const cap = clampCap(room?.cap || $('cap').value || 4);
+
+      $('statRoom').textContent = room?.roomId || clean($('room').value, '-');
+      $('statRole').textContent = me?.role || '-';
+      $('statPlayers').textContent = `${count}/${cap}`;
+      $('statCap').textContent = String(cap);
+      $('statStatus').textContent = room?.status || 'waiting';
+    }
+
+    function setStartEnabled(enabled){
+      $('btnStartRace').disabled = !enabled;
+    }
+
+    function syncRoomUi(room){
+      lastRoom = room || null;
+
+      const me = getMe(room);
+      const count = room?.players ? Object.keys(room.players).length : 0;
+      const cap = clampCap(room?.cap || $('cap').value || 4);
+
+      updateStats(room, me);
+      renderPlayers(room);
+
+      if (!room) {
+        updateNotice('warn', 'ยังไม่พบห้องนี้ในระบบ • กด “สร้างห้อง” ถ้าคุณเป็น Host หรือให้ Host สร้างก่อนแล้วค่อยกด “เข้าห้องนี้”');
+        updateRoomStateChip('warn', 'ยังไม่พร้อม');
+        setStartEnabled(false);
+        log('ROOM_NOT_FOUND');
+        return;
+      }
+
+      if (room.mode !== MODE) {
+        updateNotice('bad', 'room นี้ไม่ใช่โหมด race');
+        updateRoomStateChip('warn', 'ผิดโหมด');
+        setStartEnabled(false);
+        log('ROOM_MODE_MISMATCH');
+        return;
+      }
+
+      if (!me) {
+        updateNotice('bad', 'PID นี้ยังไม่ได้อยู่ในห้อง • กด “เข้าห้องนี้” ก่อน');
+        updateRoomStateChip('warn', 'ยังไม่พร้อม');
+        setStartEnabled(false);
+        log('PLAYER_NOT_IN_ROOM');
+        return;
+      }
+
+      if (count < 2) {
+        if (me.role === 'host') {
+          updateNotice('warn', `คุณเป็น Host • ตอนนี้มีผู้เล่น ${count}/${cap} คน ต้องมีอย่างน้อย 2 คนก่อนถึงจะเริ่ม Race ได้`);
+        } else {
+          updateNotice('warn', `คุณเข้าห้องแล้ว • ตอนนี้มีผู้เล่น ${count}/${cap} คน รอให้ครบอย่างน้อย 2 คน และรอ Host กดเริ่ม`);
+        }
+        updateRoomStateChip('warn', `รอผู้เล่น ${count}/${cap}`);
+        setStartEnabled(false);
+        log(`WAITING_PLAYER ${count}/${cap}`);
+        return;
+      }
+
+      if (count > cap) {
+        updateNotice('bad', `ห้องนี้มีผู้เล่นเกินกำหนด (${count}/${cap})`);
+        updateRoomStateChip('warn', 'ผู้เล่นเกิน');
+        setStartEnabled(false);
+        log(`ROOM_OVERFLOW ${count}/${cap}`);
+        return;
+      }
+
+      if (room.status !== 'started') {
+        if (me.role === 'host') {
+          updateNotice('good', `พร้อมแล้ว • ตอนนี้มี ${count}/${cap} คน คุณเป็น Host สามารถกด “เริ่ม Race” ได้`);
+          updateRoomStateChip('good', 'พร้อมเริ่ม');
+          setStartEnabled(true);
+          log('READY_FOR_HOST_START');
+        } else {
+          updateNotice('warn', `ตอนนี้มี ${count}/${cap} คน • รอ Host กด “เริ่ม Race”`);
+          updateRoomStateChip('info', 'รอ Host เริ่ม');
+          setStartEnabled(false);
+          log('WAITING_HOST_START');
+        }
+        return;
+      }
+
+      updateNotice('good', 'ห้องเริ่มแล้ว • กำลังพาไปหน้า Race Play');
+      updateRoomStateChip('good', 'กำลังเข้าเล่น');
+      setStartEnabled(false);
+      log('ROOM_STARTED');
+
+      const href = buildPlayUrl(room, me.role || 'guest');
+      setTimeout(() => {
+        location.href = href;
+      }, 350);
+    }
+
+    async function loadAndSyncRoom(){
+      const roomId = clean($('room').value, '');
+      if (!roomId || !roomApi) {
+        syncRoomUi(null);
+        return;
+      }
+
+      try {
+        const room = await roomApi.loadRoom(roomId);
+        syncRoomUi(room);
+      } catch (err) {
+        log(`LOAD_FAIL ${String(err?.message || err || 'unknown')}`);
+      }
+    }
+
+    function stopWatch(){
+      if (typeof unsub === 'function') {
+        try { unsub(); } catch (_) {}
+      }
+      unsub = null;
+    }
+
+    function startWatchRoom(){
+      stopWatch();
+
+      const roomId = clean($('room').value, '');
+      if (!roomApi || !roomId) return;
+
+      try {
+        unsub = roomApi.subscribeRoom(roomId, (room) => {
+          syncRoomUi(room);
+        });
+      } catch (err) {
+        log(`WATCH_FAIL ${String(err?.message || err || 'unknown')}`);
+      }
+    }
+
+    function makeHostPlayer(){
+      const p = ctx();
+      return {
+        pid: p.pid,
+        name: p.name,
+        nick: p.nick,
+        role: 'host',
+        joinedAt: Date.now(),
+        ready: true
+      };
+    }
+
+    function makeGuestPlayer(){
+      const p = ctx();
+      return {
+        pid: p.pid,
+        name: p.name,
+        nick: p.nick,
+        role: 'guest',
+        joinedAt: Date.now(),
+        ready: true
+      };
+    }
+
+    async function onCreateRoom(){
+      const p = ctx();
+      if (!roomApi) return;
+
+      if (!p.room) {
+        $('room').value = randomRoomCode();
+      }
+
+      const roomId = clean($('room').value, '');
+      try {
+        await roomApi.createRoom({
+          roomId,
+          mode: MODE,
+          status: 'waiting',
+          hostPid: p.pid,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          startedAt: 0,
+          diff: p.diff,
+          time: p.time,
+          cap: p.cap,
+          players: {
+            [p.pid]: makeHostPlayer()
+          }
+        });
+
+        log(`ROOM_CREATED ${roomId}`);
+        startWatchRoom();
+        await loadAndSyncRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'CREATE_FAILED');
+        updateNotice('bad', `สร้างห้องไม่สำเร็จ: <b>${msg}</b>`);
+        log(`CREATE_FAIL ${msg}`);
+        await loadAndSyncRoom();
+      }
+    }
+
+    async function onJoinRoom(){
+      const p = ctx();
+      if (!roomApi) return;
+
+      const roomId = clean($('room').value, '');
+      if (!roomId) {
+        updateNotice('bad', 'ยังไม่มี room code');
+        log('JOIN_FAIL no room code');
+        return;
+      }
+
+      try {
+        await roomApi.joinRoom(roomId, makeGuestPlayer(), p.cap);
+        log(`JOIN_OK ${roomId}`);
+        startWatchRoom();
+        await loadAndSyncRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'JOIN_FAILED');
+        updateNotice('bad', `เข้าห้องไม่สำเร็จ: <b>${msg}</b>`);
+        log(`JOIN_FAIL ${msg}`);
+        await loadAndSyncRoom();
+      }
+    }
+
+    async function onLeaveRoom(){
+      const p = ctx();
+      if (!roomApi) return;
+
+      const roomId = clean($('room').value, '');
+      if (!roomId) {
+        updateNotice('warn', 'ยังไม่มี room ให้ออก');
+        return;
+      }
+
+      try {
+        await roomApi.leaveRoom(roomId, p.pid);
+        log(`LEAVE_OK ${roomId}`);
+        stopWatch();
+        await loadAndSyncRoom();
+        startWatchRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'LEAVE_FAILED');
+        updateNotice('bad', `ออกจากห้องไม่สำเร็จ: <b>${msg}</b>`);
+        log(`LEAVE_FAIL ${msg}`);
+      }
+    }
+
+    async function onStartRace(){
+      const p = ctx();
+      if (!roomApi) return;
+
+      const roomId = clean($('room').value, '');
+      if (!roomId) {
+        updateNotice('bad', 'ยังไม่มี room');
+        return;
+      }
+
+      try {
+        await roomApi.startRoom(roomId, p.pid);
+        log(`START_RACE ${roomId}`);
+        await loadAndSyncRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'START_FAILED');
+        updateNotice('bad', `เริ่มเกมไม่สำเร็จ: <b>${msg}</b>`);
+        log(`START_FAIL ${msg}`);
+        await loadAndSyncRoom();
+      }
+    }
+
+    async function copyRoom(){
+      const roomId = clean($('room').value, '');
+      if (!roomId) return;
+
+      try {
+        await navigator.clipboard.writeText(roomId);
+        updateNotice('good', `คัดลอก room code แล้ว: <b>${roomId}</b>`);
+        log(`COPY_ROOM ${roomId}`);
+      } catch (_) {
+        updateNotice('warn', `คัดลอกไม่สำเร็จ แต่ room คือ <b>${roomId}</b>`);
+        log(`COPY_FAIL ${roomId}`);
+      }
+    }
+
+    function bind(){
+      $('btnRandomRoom').addEventListener('click', () => {
+        $('room').value = randomRoomCode();
+        applyBackLinks();
+        startWatchRoom();
+        loadAndSyncRoom();
       });
-    })();
+
+      $('btnCopyRoom').addEventListener('click', copyRoom);
+      $('btnCreateRoom').addEventListener('click', onCreateRoom);
+      $('btnJoinRoom').addEventListener('click', onJoinRoom);
+      $('btnLeaveRoom').addEventListener('click', onLeaveRoom);
+      $('btnStartRace').addEventListener('click', onStartRace);
+
+      ['nick','pid','room','diff','time','view','hub','cap'].forEach((id) => {
+        $(id).addEventListener('input', applyBackLinks);
+        $(id).addEventListener('change', applyBackLinks);
+      });
+
+      $('room').addEventListener('change', () => {
+        startWatchRoom();
+        loadAndSyncRoom();
+      });
+
+      window.addEventListener('beforeunload', stopWatch);
+    }
+
+    async function getRoomAdapter(){
+      if (window.GJRoomAdapter && typeof window.GJRoomAdapter.makeRoomAdapter === 'function') {
+        return await window.GJRoomAdapter.makeRoomAdapter(MODE);
+      }
+      throw new Error('NO_SHARED_ROOM_ADAPTER');
+    }
+
+    async function init(){
+      hydrateInputs();
+      applyBackLinks();
+      bind();
+
+      try {
+        roomApi = await getRoomAdapter();
+        log('USING_SHARED_FIREBASE_ADAPTER');
+        startWatchRoom();
+        await loadAndSyncRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'adapter init failed');
+        updateNotice('bad', 'หน้านี้ยังไม่ได้ต่อระบบห้องแบบแชร์ข้ามเครื่องจริง ๆ จึงสร้าง/เข้าห้องข้ามมือถือไม่ได้');
+        $('btnCreateRoom').disabled = true;
+        $('btnJoinRoom').disabled = true;
+        $('btnLeaveRoom').disabled = true;
+        $('btnStartRace').disabled = true;
+        log(msg);
+      }
+    }
+
+    init();
   </script>
 </body>
 </html>
