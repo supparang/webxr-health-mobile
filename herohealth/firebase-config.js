@@ -1,23 +1,12 @@
 /* /herohealth/firebase-config.js
    Firebase compat bootstrap - FINAL MATCHED
-   For HeroHealth pages using window.firebase + anonymous auth
+   PATCH v20260411a-GJ-DUET-AUTH-HARDFAIL
 */
 (function () {
   'use strict';
 
   const W = window;
 
-  // ถ้ามี context พร้อมอยู่แล้ว ไม่ต้อง init ซ้ำ
-  if (W.HHA_FIREBASE && W.HHA_FIREBASE.ready && W.HHA_FIREBASE.db) {
-    if (!W.HHA_FIREBASE_READY) {
-      W.HHA_FIREBASE_READY = Promise.resolve(W.HHA_FIREBASE);
-    }
-    return;
-  }
-
-  // ===== HeroHealth Firebase Config =====
-  // ใช้ค่าที่คุณเคยแปะมาให้ก่อน
-  // ถ้า Realtime Database URL ของโปรเจกต์จริงไม่ตรง ให้แก้เฉพาะ databaseURL บรรทัดเดียว
   const CONFIG = {
     apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
     authDomain: "herohealth-d7f8c.firebaseapp.com",
@@ -38,6 +27,42 @@
       config: CONFIG,
       ready: !!(app && auth && db)
     };
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function waitForAuthUser(auth, timeoutMs = 10000) {
+    if (!auth) throw new Error('Firebase Auth compat not available');
+    if (auth.currentUser) return auth.currentUser;
+
+    return await new Promise((resolve, reject) => {
+      let done = false;
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        try { off && off(); } catch (_) {}
+        reject(new Error('Anonymous auth timeout'));
+      }, timeoutMs);
+
+      const off = auth.onAuthStateChanged(
+        (user) => {
+          if (!user || done) return;
+          done = true;
+          clearTimeout(timer);
+          try { off && off(); } catch (_) {}
+          resolve(user);
+        },
+        (err) => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          try { off && off(); } catch (_) {}
+          reject(err || new Error('Auth state observer failed'));
+        }
+      );
+    });
   }
 
   async function initFirebaseCompat() {
@@ -71,13 +96,19 @@
     if (!auth) throw new Error('Firebase Auth compat not available');
     if (!db) throw new Error('Firebase Realtime Database compat not available');
 
-    try {
-      if (!auth.currentUser && typeof auth.signInAnonymously === 'function') {
-        await auth.signInAnonymously();
+    if (!auth.currentUser) {
+      if (typeof auth.signInAnonymously !== 'function') {
+        throw new Error('signInAnonymously is not available');
       }
-    } catch (err) {
-      console.warn('[HeroHealth Firebase] signInAnonymously failed:', err && err.message ? err.message : err);
+      try {
+        await auth.signInAnonymously();
+      } catch (err) {
+        console.warn('[HeroHealth Firebase] signInAnonymously failed:', err && err.message ? err.message : err);
+        throw err;
+      }
     }
+
+    await waitForAuthUser(auth, 10000);
 
     const ctx = makeCtx(app, auth, db);
     W.HHA_FIREBASE = ctx;
@@ -85,34 +116,42 @@
   }
 
   W.HHA_FIREBASE_READY = (async () => {
-    // ถ้ามีแล้วให้คืนทันที
-    if (W.HHA_FIREBASE && W.HHA_FIREBASE.ready && W.HHA_FIREBASE.db) {
+    if (W.HHA_FIREBASE && W.HHA_FIREBASE.ready && W.HHA_FIREBASE.db && W.HHA_FIREBASE.auth) {
+      await waitForAuthUser(W.HHA_FIREBASE.auth, 10000);
       return W.HHA_FIREBASE;
     }
 
-    // ลอง init ได้เลย
+    let lastErr = null;
+
     try {
       return await initFirebaseCompat();
     } catch (firstErr) {
-      // เผื่อ SDK ยังโหลดไม่ทัน ให้รอสั้น ๆ แล้วลองอีกครั้ง
+      lastErr = firstErr;
       const start = Date.now();
       const timeoutMs = 10000;
 
       while ((Date.now() - start) < timeoutMs) {
-        await new Promise((r) => setTimeout(r, 120));
+        await delay(150);
 
-        if (W.HHA_FIREBASE && W.HHA_FIREBASE.ready && W.HHA_FIREBASE.db) {
-          return W.HHA_FIREBASE;
+        if (W.HHA_FIREBASE && W.HHA_FIREBASE.ready && W.HHA_FIREBASE.db && W.HHA_FIREBASE.auth) {
+          try {
+            await waitForAuthUser(W.HHA_FIREBASE.auth, 4000);
+            return W.HHA_FIREBASE;
+          } catch (err) {
+            lastErr = err;
+          }
         }
 
         if (W.firebase) {
           try {
             return await initFirebaseCompat();
-          } catch (_) {}
+          } catch (err) {
+            lastErr = err;
+          }
         }
       }
 
-      throw firstErr;
+      throw lastErr || firstErr;
     }
   })();
 
