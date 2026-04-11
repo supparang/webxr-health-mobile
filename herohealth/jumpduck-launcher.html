@@ -1,0 +1,1281 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • JumpDuck Launcher</title>
+  <meta name="theme-color" content="#9be7ff" />
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --bg1:#dff7ff;
+      --bg2:#bfeaff;
+      --bg3:#fff7d8;
+      --card:#ffffff;
+      --cardSoft:rgba(255,255,255,.88);
+      --ink:#18324b;
+      --muted:#5f7c92;
+      --line:#cfe8f4;
+      --primary:#3db7ff;
+      --primary2:#228be6;
+      --green:#6fd35f;
+      --green2:#4cb645;
+      --yellow:#ffd85d;
+      --orange:#ffb347;
+      --pink:#ff9cca;
+      --purple:#b699ff;
+      --shadow:0 18px 40px rgba(18,50,75,.12);
+      --safeTop:env(safe-area-inset-top,0px);
+      --safeBottom:env(safe-area-inset-bottom,0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:ui-rounded,"SF Pro Rounded","Nunito","Trebuchet MS","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,.8), transparent 34%),
+        linear-gradient(180deg,var(--bg1) 0%, var(--bg2) 48%, var(--bg3) 100%);
+      overflow-x:hidden;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    button,input,select{
+      font:inherit;
+      color:inherit;
+    }
+
+    .bg-clouds{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:0;
+    }
+
+    .cloud{
+      position:absolute;
+      border-radius:999px;
+      background:rgba(255,255,255,.84);
+      box-shadow:0 8px 20px rgba(255,255,255,.34);
+      opacity:.95;
+    }
+    .cloud::before,.cloud::after{
+      content:"";
+      position:absolute;
+      border-radius:inherit;
+      background:inherit;
+    }
+    .cloud.c1{ width:160px;height:46px; top:8%; left:6%; animation:float 12s ease-in-out infinite; }
+    .cloud.c1::before{ width:58px;height:58px; left:18px; top:-20px; }
+    .cloud.c1::after{ width:66px;height:66px; right:20px; top:-25px; }
+
+    .cloud.c2{ width:190px;height:54px; top:14%; right:8%; animation:float 14s ease-in-out infinite reverse; }
+    .cloud.c2::before{ width:66px;height:66px; left:18px; top:-24px; }
+    .cloud.c2::after{ width:74px;height:74px; right:18px; top:-28px; }
+
+    .cloud.c3{ width:120px;height:38px; top:22%; left:44%; animation:float 13s ease-in-out infinite; }
+    .cloud.c3::before{ width:44px;height:44px; left:14px; top:-16px; }
+    .cloud.c3::after{ width:50px;height:50px; right:16px; top:-20px; }
+
+    @keyframes float{
+      0%,100%{ transform:translateY(0px); }
+      50%{ transform:translateY(-8px); }
+    }
+
+    .app{
+      position:relative;
+      z-index:1;
+      width:min(1180px,100%);
+      margin:0 auto;
+      padding:
+        calc(12px + var(--safeTop))
+        12px
+        calc(18px + var(--safeBottom))
+        12px;
+      display:grid;
+      gap:12px;
+    }
+
+    .topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .brand-pill,
+    .top-actions a,
+    .top-actions button,
+    .icon-btn{
+      border:2px solid var(--line);
+      border-radius:999px;
+      background:var(--cardSoft);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(8px);
+    }
+
+    .brand-pill{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 14px;
+    }
+
+    .brand-icon{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,var(--primary),var(--pink));
+      color:#fff;
+      font-size:16px;
+      box-shadow:0 8px 18px rgba(34,139,230,.24);
+    }
+
+    .brand-copy{
+      display:grid;
+      gap:2px;
+      min-width:0;
+    }
+
+    .brand-title{
+      margin:0;
+      font-size:18px;
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .brand-sub{
+      margin:0;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .headline{
+      min-width:0;
+      display:grid;
+      gap:3px;
+      padding:0 4px;
+    }
+
+    .headline-title{
+      font-size:clamp(24px,4vw,38px);
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .headline-sub{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .top-actions a,
+    .top-actions button{
+      min-height:46px;
+      padding:10px 14px;
+      text-decoration:none;
+      cursor:pointer;
+      font-weight:1000;
+      border:none;
+    }
+
+    .card{
+      background:var(--cardSoft);
+      border:2px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
+    }
+
+    .hero{
+      padding:18px;
+      display:grid;
+      grid-template-columns:1.08fr .92fr;
+      gap:16px;
+      align-items:center;
+      overflow:hidden;
+      position:relative;
+      background:
+        radial-gradient(circle at 15% 12%, rgba(255,255,255,.9), transparent 18%),
+        radial-gradient(circle at 88% 10%, rgba(255,255,255,.72), transparent 18%),
+        linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,.08));
+    }
+
+    .hero-copy{
+      display:grid;
+      gap:10px;
+    }
+
+    .hero-kicker{
+      width:max-content;
+      min-height:32px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 12px;
+      border-radius:999px;
+      border:2px solid #cfeeff;
+      background:#eefbff;
+      color:#2d6f8b;
+      font-size:12px;
+      font-weight:1000;
+      letter-spacing:.08em;
+    }
+
+    .hero-title{
+      margin:0;
+      font-size:clamp(34px,5vw,58px);
+      line-height:.95;
+      font-weight:1000;
+    }
+
+    .hero-sub{
+      margin:0;
+      font-size:15px;
+      line-height:1.6;
+      color:var(--muted);
+      font-weight:900;
+      max-width:720px;
+    }
+
+    .hero-tags{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .hero-tag{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid rgba(132,189,205,.28);
+      color:#5d6e7a;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .hero-cta{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      min-height:46px;
+      padding:10px 16px;
+      border-radius:999px;
+      border:none;
+      cursor:pointer;
+      font-weight:1000;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      box-shadow:var(--shadow);
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+    }
+
+    .btn.secondary{
+      background:linear-gradient(135deg,#fff,#eefbff);
+      border:2px solid rgba(132,189,205,.3);
+      color:var(--ink);
+    }
+
+    .btn.softwarn{
+      background:linear-gradient(135deg,#fff7db,#fff0d1);
+      border:2px solid #ffe2a8;
+      color:#9d6016;
+    }
+
+    .hero-art{
+      min-height:260px;
+      border-radius:28px;
+      border:2px dashed rgba(132,189,205,.32);
+      background:
+        linear-gradient(180deg,#bfe8ff 0%, #dcf6ff 42%, #eefed9 43%, #dff6d4 100%);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero-art .lane{
+      position:absolute;
+      inset:16px 16px 22px 16px;
+      border-radius:28px;
+      border:2px dashed rgba(255,255,255,.5);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.06)),
+        linear-gradient(90deg, rgba(255,255,255,.24), rgba(255,255,255,.08));
+    }
+
+    .hero-art .cue{
+      position:absolute;
+      top:28px;
+      left:50%;
+      transform:translateX(-50%);
+      width:min(220px,58%);
+      min-height:96px;
+      border-radius:24px;
+      border:3px solid rgba(255,255,255,.9);
+      background:linear-gradient(180deg,#ffffff,#eef9ff);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      box-shadow:0 18px 32px rgba(0,0,0,.12);
+      font-weight:1000;
+    }
+
+    .hero-art .cue .emoji{
+      font-size:38px;
+      line-height:1;
+    }
+
+    .hero-art .cue .label{
+      font-size:22px;
+      line-height:1.1;
+      color:#4d4a42;
+    }
+
+    .hero-art .beat{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:58px;
+      width:min(360px,72%);
+      height:16px;
+      border-radius:999px;
+      background:linear-gradient(90deg, rgba(255,255,255,.18), rgba(255,255,255,.96), rgba(255,255,255,.18));
+      box-shadow:0 0 0 8px rgba(118,207,255,.22);
+    }
+
+    .hero-art .runner{
+      position:absolute;
+      left:50%;
+      bottom:4px;
+      transform:translateX(-50%);
+      width:150px;
+      height:132px;
+      filter:drop-shadow(0 12px 18px rgba(0,0,0,.08));
+    }
+
+    .runner .head{
+      position:absolute;
+      left:50%;
+      top:10px;
+      transform:translateX(-50%);
+      width:48px;
+      height:48px;
+      border-radius:50%;
+      background:#fff0d0;
+      border:3px solid rgba(77,74,67,.12);
+    }
+
+    .runner .body{
+      position:absolute;
+      left:50%;
+      top:48px;
+      transform:translateX(-50%);
+      width:64px;
+      height:44px;
+      border-radius:18px 18px 14px 14px;
+      background:linear-gradient(180deg,#8fd6ff,#55b9f7);
+      border:3px solid rgba(77,74,67,.09);
+    }
+
+    .runner .arm,
+    .runner .leg{
+      position:absolute;
+      background:#fff0d0;
+      border-radius:999px;
+      border:3px solid rgba(77,74,67,.09);
+    }
+
+    .runner .arm{ width:14px;height:48px; top:54px; }
+    .runner .arm.left{ left:38px; transform:rotate(24deg); }
+    .runner .arm.right{ right:38px; transform:rotate(-24deg); }
+    .runner .leg{ width:16px;height:56px; top:88px; }
+    .runner .leg.left{ left:56px; transform:rotate(10deg); }
+    .runner .leg.right{ right:56px; transform:rotate(-10deg); }
+
+    .content{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 320px;
+      gap:12px;
+      align-items:start;
+    }
+
+    .main{
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .section-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .section-title{
+      margin:0;
+      font-size:20px;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .section-note{
+      margin:0;
+      font-size:13px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .form-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:13px;
+      color:#4d4a42;
+      font-weight:1000;
+    }
+
+    .field input,
+    .field select{
+      min-height:46px;
+      border-radius:16px;
+      border:2px solid rgba(132,189,205,.3);
+      background:#fff;
+      padding:10px 12px;
+      outline:none;
+    }
+
+    .seg-wrap{
+      display:grid;
+      gap:8px;
+    }
+
+    .seg-label{
+      font-size:13px;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .seg{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .seg button{
+      min-height:40px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid rgba(132,189,205,.3);
+      background:#fff;
+      cursor:pointer;
+      font-weight:1000;
+      color:#5d6e7a;
+    }
+
+    .seg button.active{
+      background:linear-gradient(135deg,#eefbff,#ffffff);
+      border-color:#7fcfff;
+      color:#2d6f8b;
+      box-shadow:0 10px 18px rgba(86,155,194,.12);
+    }
+
+    .launch-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .launch-card{
+      border-radius:24px;
+      border:2px solid rgba(132,189,205,.28);
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(247,255,251,.92));
+      padding:14px;
+      display:grid;
+      gap:10px;
+      box-shadow:0 10px 20px rgba(0,0,0,.05);
+    }
+
+    .launch-top{
+      display:grid;
+      gap:4px;
+    }
+
+    .launch-title{
+      font-size:20px;
+      line-height:1;
+      font-weight:1000;
+      color:#4d4a42;
+      margin:0;
+    }
+
+    .launch-sub{
+      font-size:13px;
+      line-height:1.5;
+      color:var(--muted);
+      font-weight:900;
+      margin:0;
+    }
+
+    .chip-row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .chip{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid rgba(132,189,205,.28);
+      color:#5d6e7a;
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .launch-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .launch-actions .btn{
+      flex:1 1 180px;
+    }
+
+    .recent-box{
+      border-radius:22px;
+      border:2px solid rgba(132,189,205,.28);
+      background:linear-gradient(180deg,#fffef8,#ffffff);
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .recent-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .mini{
+      border-radius:16px;
+      border:2px solid rgba(132,189,205,.26);
+      background:#fff;
+      padding:10px;
+    }
+
+    .mini-k{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .mini-v{
+      margin-top:4px;
+      font-size:18px;
+      line-height:1.15;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .side{
+      display:grid;
+      gap:12px;
+      position:sticky;
+      top:calc(10px + var(--safeTop));
+    }
+
+    .side-card{
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .side-title{
+      margin:0;
+      font-size:16px;
+      font-weight:1000;
+      color:#4d4a42;
+    }
+
+    .side-note{
+      margin:0;
+      font-size:13px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .quick-list{
+      display:grid;
+      gap:8px;
+    }
+
+    .quick-item{
+      border-radius:16px;
+      border:2px solid rgba(132,189,205,.28);
+      background:#fff;
+      padding:10px;
+      display:grid;
+      gap:5px;
+    }
+
+    .quick-item strong{
+      font-size:14px;
+      color:#4d4a42;
+    }
+
+    .quick-item span{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .footer-note{
+      text-align:center;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      padding-bottom:6px;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:18px;
+      transform:translateX(-50%) translateY(16px);
+      z-index:40;
+      min-width:min(420px,90vw);
+      max-width:90vw;
+      padding:12px 16px;
+      border-radius:999px;
+      background:rgba(24,50,75,.92);
+      color:#fff;
+      font-size:13px;
+      font-weight:1000;
+      text-align:center;
+      box-shadow:0 18px 28px rgba(0,0,0,.18);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 1040px){
+      .content{
+        grid-template-columns:1fr;
+      }
+      .side{
+        position:relative;
+        top:auto;
+      }
+    }
+
+    @media (max-width: 860px){
+      .hero{
+        grid-template-columns:1fr;
+      }
+      .launch-grid,
+      .form-grid,
+      .recent-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width: 760px){
+      .topbar{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-clouds" aria-hidden="true">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+  </div>
+
+  <main class="app">
+    <header class="topbar">
+      <div class="brand-pill">
+        <div class="brand-icon">🏃</div>
+        <div class="brand-copy">
+          <h1 class="brand-title">HeroHealth</h1>
+          <p class="brand-sub">Fitness Zone • JumpDuck Launcher</p>
+        </div>
+      </div>
+
+      <div class="headline">
+        <div class="headline-title">JumpDuck Launcher</div>
+        <div class="headline-sub">เลือกทางเข้าเล่น ปรับค่ารอบ และส่งต่อ context ไปหน้า run แบบครบ</div>
+      </div>
+
+      <div class="top-actions">
+        <a id="btnBackZone" href="./fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnBackHub" href="./hub-v2.html">🏠 HUB</a>
+      </div>
+    </header>
+
+    <section class="card hero">
+      <div class="hero-copy">
+        <div class="hero-kicker">ZONE-FIRST ENTRY</div>
+        <h2 class="hero-title">JumpDuck</h2>
+        <p class="hero-sub">
+          ทางเข้ากลางของเกม JumpDuck สำหรับเล่นแบบมาตรฐาน, เข้าเร็ว, demo สั้น,
+          และ research run โดย launcher นี้จะช่วยจัดการ
+          <strong>query passthrough</strong>, <strong>hub return</strong>,
+          และ <strong>warmup-first flow</strong> ให้พร้อม
+        </p>
+
+        <div class="hero-tags">
+          <span class="hero-tag">⬆️ Jump</span>
+          <span class="hero-tag">⬇️ Duck</span>
+          <span class="hero-tag">🎯 Accuracy</span>
+          <span class="hero-tag">👾 Boss</span>
+          <span class="hero-tag">🧪 Research</span>
+          <span class="hero-tag">🧭 Zone Return</span>
+        </div>
+
+        <div class="hero-cta">
+          <button class="btn primary" id="btnHeroStandard" type="button">▶ Standard Play</button>
+          <button class="btn secondary" id="btnHeroQuick" type="button">⚡ Quick Play</button>
+          <button class="btn secondary" id="btnHeroDemo" type="button">🎈 Demo 30s</button>
+        </div>
+      </div>
+
+      <div class="hero-art" aria-hidden="true">
+        <div class="lane"></div>
+        <div class="cue">
+          <div>
+            <div class="emoji">⬆️</div>
+            <div class="label">JUMP</div>
+          </div>
+        </div>
+        <div class="beat"></div>
+        <div class="runner">
+          <div class="head"></div>
+          <div class="body"></div>
+          <div class="arm left"></div>
+          <div class="arm right"></div>
+          <div class="leg left"></div>
+          <div class="leg right"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="content">
+      <section class="card main">
+        <div class="section-head">
+          <div>
+            <h3 class="section-title">⚙️ Round Settings</h3>
+            <p class="section-note">ค่าพวกนี้จะถูกส่งต่อไปหน้า run และ warmup gate โดยอัตโนมัติ</p>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="field">
+            <label for="modeSel">Mode</label>
+            <select id="modeSel">
+              <option value="training">training</option>
+              <option value="test">test</option>
+              <option value="research">research</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="timeSel">Duration (seconds)</label>
+            <select id="timeSel">
+              <option value="30">30</option>
+              <option value="45">45</option>
+              <option value="60">60</option>
+              <option value="90">90</option>
+              <option value="120">120</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="seg-wrap">
+          <div class="seg-label">Difficulty</div>
+          <div class="seg" id="diffSeg">
+            <button type="button" data-diff="easy">easy</button>
+            <button type="button" data-diff="normal" class="active">normal</button>
+            <button type="button" data-diff="hard">hard</button>
+          </div>
+        </div>
+
+        <div class="seg-wrap">
+          <div class="seg-label">View</div>
+          <div class="seg" id="viewSeg">
+            <button type="button" data-view="mobile" class="active">mobile</button>
+            <button type="button" data-view="pc">pc</button>
+            <button type="button" data-view="cvr">cvr</button>
+          </div>
+        </div>
+
+        <section class="recent-box">
+          <div class="section-head">
+            <div>
+              <h3 class="section-title" style="font-size:18px;">🕹️ Recent JumpDuck</h3>
+              <p class="section-note" id="recentSub">ยังไม่มีรอบล่าสุด • เริ่มที่ Standard Play ได้เลย</p>
+            </div>
+          </div>
+
+          <div class="recent-grid">
+            <div class="mini">
+              <div class="mini-k">Score</div>
+              <div class="mini-v" id="recentScore">-</div>
+            </div>
+            <div class="mini">
+              <div class="mini-k">Stars</div>
+              <div class="mini-v" id="recentStars">-</div>
+            </div>
+            <div class="mini">
+              <div class="mini-k">Rhythm</div>
+              <div class="mini-v" id="recentAcc">-</div>
+            </div>
+            <div class="mini">
+              <div class="mini-k">Rank</div>
+              <div class="mini-v" id="recentRank">-</div>
+            </div>
+          </div>
+        </section>
+
+        <div class="section-head">
+          <div>
+            <h3 class="section-title">🚀 Launch Paths</h3>
+            <p class="section-note">เลือกทางเข้าที่ตรงกับ workflow ที่ต้องการ</p>
+          </div>
+        </div>
+
+        <div class="launch-grid">
+          <article class="launch-card">
+            <div class="launch-top">
+              <h4 class="launch-title">Standard Play</h4>
+              <p class="launch-sub">ผ่าน warmup gate ก่อน แล้วค่อยเข้า run page เหมาะกับ flow ปกติของ HeroHealth</p>
+            </div>
+            <div class="chip-row">
+              <span class="chip">Warmup First</span>
+              <span class="chip">Zone Return</span>
+              <span class="chip">Recommended</span>
+            </div>
+            <div class="launch-actions">
+              <button class="btn primary" id="btnStandard" type="button">▶ Start Standard</button>
+            </div>
+          </article>
+
+          <article class="launch-card">
+            <div class="launch-top">
+              <h4 class="launch-title">Quick Play</h4>
+              <p class="launch-sub">ข้าม warmup แล้วเข้าเกมทันที เหมาะกับซ้อมเร็วหรือ debug flow</p>
+            </div>
+            <div class="chip-row">
+              <span class="chip">No Warmup</span>
+              <span class="chip">Fast Entry</span>
+            </div>
+            <div class="launch-actions">
+              <button class="btn secondary" id="btnQuick" type="button">⚡ Start Quick</button>
+            </div>
+          </article>
+
+          <article class="launch-card">
+            <div class="launch-top">
+              <h4 class="launch-title">Demo 30s</h4>
+              <p class="launch-sub">easy + 30 วินาที + direct run เหมาะกับสาธิตหน้าชั้นหรือให้เด็กลองครั้งแรก</p>
+            </div>
+            <div class="chip-row">
+              <span class="chip">easy</span>
+              <span class="chip">30s</span>
+              <span class="chip">Demo</span>
+            </div>
+            <div class="launch-actions">
+              <button class="btn secondary" id="btnDemo" type="button">🎈 Start Demo</button>
+            </div>
+          </article>
+
+          <article class="launch-card">
+            <div class="launch-top">
+              <h4 class="launch-title">Research Run</h4>
+              <p class="launch-sub">เปิดเป็น research mode พร้อมพาไป flow ที่คง context สำหรับ export / teacher summary</p>
+            </div>
+            <div class="chip-row">
+              <span class="chip">research</span>
+              <span class="chip">CSV Ready</span>
+              <span class="chip">Teacher Summary</span>
+            </div>
+            <div class="launch-actions">
+              <button class="btn softwarn" id="btnResearch" type="button">🧪 Start Research</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <aside class="side">
+        <section class="card side-card">
+          <h3 class="side-title">📘 Launcher ทำอะไรบ้าง</h3>
+          <div class="quick-list">
+            <div class="quick-item">
+              <strong>จัด route ให้</strong>
+              <span>ส่งจาก launcher ไป warmup หรือ run page ตามปุ่มที่เลือก</span>
+            </div>
+            <div class="quick-item">
+              <strong>คง query context</strong>
+              <span>pid, name, studyId, diff, time, view, api, log และ hub จะถูกส่งต่อ</span>
+            </div>
+            <div class="quick-item">
+              <strong>ย้อนกลับโซนได้</strong>
+              <span>run page จะได้รับ hub เป็น fitness-zone.html เพื่อย้อนกลับแบบ zone-first</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card side-card">
+          <h3 class="side-title">🧭 Current Route</h3>
+          <div class="quick-list">
+            <div class="quick-item">
+              <strong>Hub</strong>
+              <span id="routeHubText">./hub-v2.html</span>
+            </div>
+            <div class="quick-item">
+              <strong>Fitness Zone</strong>
+              <span id="routeZoneText">./fitness-zone.html</span>
+            </div>
+            <div class="quick-item">
+              <strong>Run Page</strong>
+              <span id="routeRunText">./jumpduck.html</span>
+            </div>
+            <div class="quick-item">
+              <strong>Warmup Gate</strong>
+              <span id="routeGateText">./warmup-gate.html</span>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <p class="footer-note">
+      HeroHealth • JumpDuck Launcher • zone-first • passthrough ready
+    </p>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = (k, d='') => {
+        try { return (new URL(location.href)).searchParams.get(k) ?? d; }
+        catch (_) { return d; }
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      const ui = {
+        modeSel: $('modeSel'),
+        timeSel: $('timeSel'),
+        diffSeg: $('diffSeg'),
+        viewSeg: $('viewSeg'),
+        btnStandard: $('btnStandard'),
+        btnQuick: $('btnQuick'),
+        btnDemo: $('btnDemo'),
+        btnResearch: $('btnResearch'),
+        btnHeroStandard: $('btnHeroStandard'),
+        btnHeroQuick: $('btnHeroQuick'),
+        btnHeroDemo: $('btnHeroDemo'),
+        btnBackHub: $('btnBackHub'),
+        btnBackZone: $('btnBackZone'),
+        recentSub: $('recentSub'),
+        recentScore: $('recentScore'),
+        recentStars: $('recentStars'),
+        recentAcc: $('recentAcc'),
+        recentRank: $('recentRank'),
+        routeHubText: $('routeHubText'),
+        routeZoneText: $('routeZoneText'),
+        routeRunText: $('routeRunText'),
+        routeGateText: $('routeGateText'),
+        toast: $('toast')
+      };
+
+      const PATHS = {
+        hub: qs('hub', './hub-v2.html'),
+        zone: './fitness-zone.html',
+        run: qs('runPage', './jumpduck.html'),
+        gate: qs('gatePage', './warmup-gate.html')
+      };
+
+      const state = {
+        diff: qs('diff', 'normal'),
+        view: qs('view', 'mobile')
+      };
+
+      function safeJsonParse(raw, fallback = null) {
+        try { return JSON.parse(raw); } catch (_) { return fallback; }
+      }
+
+      function showToast(text) {
+        if (!ui.toast) return;
+        ui.toast.textContent = text;
+        ui.toast.classList.add('show');
+        clearTimeout(ui.toast.__timer);
+        ui.toast.__timer = setTimeout(() => {
+          ui.toast.classList.remove('show');
+        }, 1600);
+      }
+
+      function buildZoneUrl() {
+        const url = new URL(PATHS.zone, location.href);
+        const passthrough = [
+          'pid','name','nickName','studyId',
+          'run','diff','view','time','seed',
+          'debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo',
+          'conditionGroup','sessionNo','weekNo'
+        ];
+
+        passthrough.forEach((k) => {
+          const v = qs(k, '');
+          if (v) url.searchParams.set(k, v);
+        });
+
+        url.searchParams.set('zone', 'fitness');
+        url.searchParams.set('cat', 'fitness');
+        url.searchParams.set('hub', PATHS.hub);
+
+        return url.toString();
+      }
+
+      function buildBaseParams() {
+        const params = new URLSearchParams();
+        const passthrough = [
+          'pid','name','nickName','studyId',
+          'debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo',
+          'conditionGroup','sessionNo','weekNo'
+        ];
+
+        passthrough.forEach((k) => {
+          const v = qs(k, '');
+          if (v) params.set(k, v);
+        });
+
+        if (!params.get('pid')) params.set('pid', 'anon');
+        if (!params.get('name')) params.set('name', qs('name', qs('nickName', 'Hero')) || 'Hero');
+
+        params.set('zone', 'fitness');
+        params.set('cat', 'fitness');
+        params.set('game', 'jumpduck');
+        params.set('gameId', 'jumpduck');
+        params.set('theme', 'jumpduck');
+
+        params.set('mode', String(ui.modeSel?.value || qs('mode', 'training') || 'training'));
+        params.set('diff', String(state.diff || 'normal'));
+        params.set('view', String(state.view || 'mobile'));
+        params.set('time', String(ui.timeSel?.value || qs('time', '60') || '60'));
+        params.set('duration', String(ui.timeSel?.value || qs('duration', '60') || '60'));
+        params.set('run', qs('run', 'play') || 'play');
+        params.set('seed', qs('seed', String(Date.now())) || String(Date.now()));
+
+        params.set('hub', buildZoneUrl());
+
+        return params;
+      }
+
+      function buildRunUrl(kind) {
+        const url = new URL(PATHS.run, location.href);
+        const params = buildBaseParams();
+
+        if (kind === 'demo') {
+          params.set('mode', 'training');
+          params.set('diff', 'easy');
+          params.set('time', '30');
+          params.set('duration', '30');
+          params.set('run', 'demo');
+        } else if (kind === 'research') {
+          params.set('mode', 'research');
+          params.set('run', 'research');
+        } else {
+          params.set('run', 'play');
+        }
+
+        url.search = params.toString();
+        return url.toString();
+      }
+
+      function buildWarmupUrl(nextUrl, kind) {
+        const url = new URL(PATHS.gate, location.href);
+        const params = buildBaseParams();
+
+        if (kind === 'research') {
+          params.set('mode', 'research');
+          params.set('run', 'research');
+        }
+
+        params.set('phase', 'warmup');
+        params.set('next', nextUrl);
+        params.set('hub', buildZoneUrl());
+
+        url.search = params.toString();
+        return url.toString();
+      }
+
+      function goLaunch(kind) {
+        try {
+          localStorage.setItem('HHA_LAST_ZONE', 'fitness');
+          localStorage.setItem('HHA_RECOMMENDED_ZONE', 'fitness');
+          localStorage.setItem('HHA_NEXT_ZONE', 'fitness');
+        } catch (_) {}
+
+        if (kind === 'standard') {
+          location.href = buildWarmupUrl(buildRunUrl('play'), 'play');
+          return;
+        }
+
+        if (kind === 'research') {
+          location.href = buildWarmupUrl(buildRunUrl('research'), 'research');
+          return;
+        }
+
+        if (kind === 'demo') {
+          location.href = buildRunUrl('demo');
+          return;
+        }
+
+        location.href = buildRunUrl('quick');
+      }
+
+      function setActiveSeg(root, attr, value) {
+        if (!root) return;
+        root.querySelectorAll(`button[${attr}]`).forEach((btn) => {
+          btn.classList.toggle('active', btn.getAttribute(attr) === value);
+        });
+      }
+
+      function bindSeg(root, attr, onPick) {
+        if (!root) return;
+        root.querySelectorAll(`button[${attr}]`).forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const v = btn.getAttribute(attr) || '';
+            onPick(v);
+            setActiveSeg(root, attr, v);
+          });
+        });
+      }
+
+      function renderRecent() {
+        const recent = safeJsonParse(localStorage.getItem('HHA_LAST_SUMMARY_JUMPDUCK'), null);
+
+        if (!recent) {
+          ui.recentSub.textContent = 'ยังไม่มีรอบล่าสุด • เริ่มที่ Standard Play ได้เลย';
+          ui.recentScore.textContent = '-';
+          ui.recentStars.textContent = '-';
+          ui.recentAcc.textContent = '-';
+          ui.recentRank.textContent = '-';
+          return;
+        }
+
+        ui.recentSub.textContent =
+          recent.bossDown
+            ? `ล่าสุดชนะ ${recent.bossLabel || 'Boss'} แล้ว • พร้อมเล่นต่อ`
+            : 'มีผลล่าสุดแล้ว • เข้าเล่นต่อได้ทันที';
+
+        ui.recentScore.textContent = String(Number(recent.score || 0));
+        ui.recentStars.textContent = `${Number(recent.stars || 0)}⭐`;
+        ui.recentAcc.textContent = `${Number(recent.rhythmAccuracy || 0)}%`;
+        ui.recentRank.textContent = String(recent.rank || '-');
+      }
+
+      function bindButtons() {
+        ui.btnHeroStandard?.addEventListener('click', () => goLaunch('standard'));
+        ui.btnHeroQuick?.addEventListener('click', () => goLaunch('quick'));
+        ui.btnHeroDemo?.addEventListener('click', () => goLaunch('demo'));
+
+        ui.btnStandard?.addEventListener('click', () => goLaunch('standard'));
+        ui.btnQuick?.addEventListener('click', () => goLaunch('quick'));
+        ui.btnDemo?.addEventListener('click', () => goLaunch('demo'));
+        ui.btnResearch?.addEventListener('click', () => goLaunch('research'));
+      }
+
+      function initControls() {
+        ui.modeSel.value = qs('mode', 'training') || 'training';
+        ui.timeSel.value = qs('time', qs('duration', '60')) || '60';
+
+        bindSeg(ui.diffSeg, 'data-diff', (v) => { state.diff = v || 'normal'; });
+        bindSeg(ui.viewSeg, 'data-view', (v) => { state.view = v || 'mobile'; });
+
+        setActiveSeg(ui.diffSeg, 'data-diff', state.diff);
+        setActiveSeg(ui.viewSeg, 'data-view', state.view);
+      }
+
+      function initLinks() {
+        const zoneUrl = buildZoneUrl();
+        ui.btnBackZone.href = zoneUrl;
+        ui.btnBackHub.href = PATHS.hub;
+
+        ui.routeHubText.textContent = PATHS.hub;
+        ui.routeZoneText.textContent = PATHS.zone;
+        ui.routeRunText.textContent = PATHS.run;
+        ui.routeGateText.textContent = PATHS.gate;
+      }
+
+      function init() {
+        initControls();
+        initLinks();
+        renderRecent();
+        bindButtons();
+        showToast('JumpDuck Launcher พร้อมแล้ว');
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
