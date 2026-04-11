@@ -194,8 +194,8 @@
     const base = cfg.path || './fitness-zone.html';
 
     return buildUrl(base, {
-      zone: 'fitness',
-      cat: 'fitness',
+      zone: cfg.zone || 'fitness',
+      cat: cfg.cat || 'fitness',
       game: cfg.game || '',
       gameId: cfg.gameId || cfg.game || '',
       theme: cfg.theme || cfg.game || '',
