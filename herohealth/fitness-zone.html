@@ -1334,7 +1334,7 @@
           <h3 class="side-title">🗺️ Game Picker</h3>
           <p class="side-note">กดเปิด modal เพื่อเลือกเกมและทางเข้าเล่นได้จากหน้าเดียว</p>
           <button class="btn secondary" id="btnOpenPickerSide" type="button">เปิด Game Picker</button>
-          <div class="picker-list" id="libraryBox">
+          <div class="picker-list" id="quickAccessBox">
             <div class="picker-item">
               <div class="picker-head">
                 <div class="picker-title">🏃 JumpDuck</div>
@@ -1391,6 +1391,11 @@
       const $ = (id) => document.getElementById(id);
       const qs = new URLSearchParams(location.search);
 
+      function qget(key, fallback = '') {
+        const v = qs.get(key);
+        return (v == null || v === '') ? fallback : v;
+      }
+
       const el = {
         btnBackHub: $('btnBackHub'),
         btnOpenHub: $('btnOpenHub'),
@@ -1437,11 +1442,6 @@
         if (generic && String(generic.game || '').toLowerCase() === 'jumpduck') return generic;
 
         return null;
-      }
-
-      function qget(key, fallback = '') {
-        const v = qs.get(key);
-        return (v == null || v === '') ? fallback : v;
       }
 
       function setLastZone(zone) {
@@ -1582,14 +1582,17 @@
           btnPlayShadow: buildFitnessGameUrl('shadow-breaker-vr.html', { game:'shadowbreaker', gameId:'shadowbreaker', theme:'shadowbreaker' }),
           btnQuickShadow: buildFitnessGameUrl('shadow-breaker-vr.html', { game:'shadowbreaker', gameId:'shadowbreaker', theme:'shadowbreaker', run:'play', time:'60' }),
           btnResearchShadow: buildFitnessGameUrl('shadow-breaker-vr.html', { game:'shadowbreaker', gameId:'shadowbreaker', theme:'shadowbreaker', run:'research' }),
+
           btnPlayRhythm: buildFitnessGameUrl('rhythm-boxer-vr.html', { game:'rhythmboxer', gameId:'rhythmboxer', theme:'rhythmboxer' }),
           btnQuickRhythm: buildFitnessGameUrl('rhythm-boxer-vr.html', { game:'rhythmboxer', gameId:'rhythmboxer', theme:'rhythmboxer', run:'play', time:'60' }),
           btnResearchRhythm: buildFitnessGameUrl('rhythm-boxer-vr.html', { game:'rhythmboxer', gameId:'rhythmboxer', theme:'rhythmboxer', run:'research' }),
+
           btnPlayBalance: buildFitnessGameUrl('balance-hold-vr.html', { game:'balancehold', gameId:'balancehold', theme:'balancehold' }),
           btnQuickBalance: buildFitnessGameUrl('balance-hold-vr.html', { game:'balancehold', gameId:'balancehold', theme:'balancehold', run:'play', time:'60' }),
           btnResearchBalance: buildFitnessGameUrl('balance-hold-vr.html', { game:'balancehold', gameId:'balancehold', theme:'balancehold', run:'research' }),
-          btnPlayPlanner: buildFitnessGameUrl('fitness-planner.html', { game:'fitnessplanner', gameId:'fitnessplanner', theme:'fitnessplanner' }),
-          btnQuickPlanner: buildFitnessGameUrl('fitness-planner.html', { game:'fitnessplanner', gameId:'fitnessplanner', theme:'fitnessplanner', run:'play' })
+
+          btnPlayPlanner: buildFitnessGameUrl('fitness-planner.html', { game:'fitnessplanner', gameId:'fitnessplanner', theme:'fitnessplanner', mode:'launcher' }),
+          btnQuickPlanner: buildFitnessGameUrl('fitness-planner.html', { game:'fitnessplanner', gameId:'fitnessplanner', theme:'fitnessplanner', mode:'quick' })
         };
 
         Object.entries(otherGames).forEach(([id, href]) => {
@@ -1735,7 +1738,8 @@
             title: '🗓️ Fitness Planner',
             badge: 'Plan',
             sub: 'โหมดวางแผนกิจกรรม ออกกำลัง และฝึก routine',
-            playHref: buildFitnessGameUrl('fitness-planner.html', { game:'fitnessplanner', gameId:'fitnessplanner', theme:'fitnessplanner' })
+            playHref: buildFitnessGameUrl('fitness-planner.html', { game:'fitnessplanner', gameId:'fitnessplanner', theme:'fitnessplanner', mode:'launcher' }),
+            quickHref: buildFitnessGameUrl('fitness-planner.html', { game:'fitnessplanner', gameId:'fitnessplanner', theme:'fitnessplanner', mode:'quick' })
           }
         ];
 
@@ -1744,7 +1748,7 @@
         if (mode === 'recommended') {
           items = [allItems[0]];
         } else if (mode === 'recent') {
-          items = summary ? [allItems[0]] : [allItems[0]];
+          items = [allItems[0]];
         }
 
         items.forEach((item) => el.pickerList.appendChild(makePickerItem(item)));
