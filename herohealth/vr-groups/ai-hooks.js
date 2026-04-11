@@ -1,60 +1,72 @@
 // /herohealth/vr-groups/ai-hooks.js
-// Groups Solo AI Hooks
-// PATCH v20260404-groups-aihooks-r1
+// Groups AI hooks
+// PATCH v20260405-groups-ai-hooks-r1
 
-export const GROUPS_PATCH_AI = 'v20260404-groups-aihooks-r1';
+export const GROUPS_PATCH_AI = 'v20260405-groups-ai-hooks-r1';
 
-export function createGroupsAiHooks(config = {}){
-  const enabled = !!config.enabled;
-  const adaptive = !!config.adaptive;
-  const coach = !!config.coach;
-  const deterministic = !!config.deterministic;
+export function createGroupsAiHooks({
+  enabled = true,
+  adaptive = true,
+  coach = true,
+  deterministic = false
+} = {}){
+  function adjustSpawn(preset = {}, runtime = {}){
+    if (!enabled || !adaptive) return { ...preset };
 
-  function onRoundStart(ctx){
-    return {
-      enabled,
-      adaptive,
-      coach,
-      deterministic,
-      note: 'round-start'
-    };
-  }
+    const wrong = Number(runtime.wrong || 0);
+    const miss = Number(runtime.miss || 0);
+    const streak = Number(runtime.streak || 0);
 
-  function adjustSpawn(preset, live = {}){
-    if (!enabled || !adaptive) return preset;
-
-    const wrong = Number(live.wrong || 0);
-    const streak = Number(live.streak || 0);
     const next = { ...preset };
 
-    if (wrong >= 5 && streak <= 1){
-      next.spawnMs = Math.round(next.spawnMs * 1.08);
-      next.speedMin = Math.max(16, Math.round(next.speedMin * 0.95));
-      next.speedMax = Math.max(next.speedMin + 4, Math.round(next.speedMax * 0.95));
-    } else if (streak >= 7){
-      next.spawnMs = Math.round(next.spawnMs * 0.95);
-      next.speedMin = Math.round(next.speedMin * 1.04);
-      next.speedMax = Math.round(next.speedMax * 1.04);
+    if (wrong + miss >= 4){
+      next.spawnMs = Math.round((next.spawnMs || 900) * 1.08);
+      next.speedMin = Math.max(42, Math.round((next.speedMin || 60) * 0.94));
+      next.speedMax = Math.max(next.speedMin + 6, Math.round((next.speedMax || 100) * 0.94));
+      next.sizeMin = Math.round((next.sizeMin || 74) + 4);
+      next.sizeMax = Math.round((next.sizeMax || 96) + 4);
+    }
+
+    if (streak >= 8){
+      next.spawnMs = Math.round((next.spawnMs || 900) * 0.95);
+      next.speedMin = Math.round((next.speedMin || 60) * 1.04);
+      next.speedMax = Math.round((next.speedMax || 100) * 1.05);
     }
 
     return next;
   }
 
-  function coachTip(live = {}){
+  function coachTip(runtime = {}){
     if (!enabled || !coach) return '';
 
-    const streak = Number(live.streak || 0);
-    const wrong = Number(live.wrong || 0);
-    const miss = Number(live.miss || 0);
+    const wrong = Number(runtime.wrong || 0);
+    const miss = Number(runtime.miss || 0);
+    const streak = Number(runtime.streak || 0);
 
-    if (streak >= 8) return 'โค้ช AI: แม่นมาก ลองเก็บให้ไวขึ้นอีกนิด ⚡';
-    if ((wrong + miss) >= 6) return 'โค้ช AI: มองชื่อหมู่ด้านบนก่อนแตะ จะช่วยได้มาก 💡';
+    if (miss >= 3) return 'โค้ช: ลองแตะเร็วขึ้นอีกนิดก่อนเป้าจะหลุดนะ';
+    if (wrong >= 3) return 'โค้ช: ดูชื่อหมู่กับไอคอนก่อนแตะ จะช่วยให้แม่นขึ้น';
+    if (streak >= 5) return 'โค้ช: ดีมาก รักษา streak นี้ไว้เลย';
     return '';
   }
 
+  function onRoundStart({ ctx, state } = {}){
+    return {
+      enabled,
+      adaptive,
+      coach,
+      deterministic,
+      view: ctx?.view || 'mobile',
+      diff: ctx?.diff || 'normal',
+      seedMode: deterministic ? 'deterministic' : 'adaptive',
+      priorWrong: Number(state?.wrong || 0),
+      priorMiss: Number(state?.miss || 0),
+      priorStreak: Number(state?.streak || 0)
+    };
+  }
+
   return {
-    onRoundStart,
     adjustSpawn,
-    coachTip
+    coachTip,
+    onRoundStart
   };
 }
