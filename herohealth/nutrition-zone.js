@@ -85,8 +85,8 @@ const ctx = {
   seed: first(qs.get('seed'), String(Date.now()))
 };
 
-localStorage.setItem('HH_PID', ctx.pid);
-localStorage.setItem('HH_NAME', ctx.name);
+try { localStorage.setItem('HH_PID', ctx.pid); } catch(_) {}
+try { localStorage.setItem('HH_NAME', ctx.name); } catch(_) {}
 
 function todayKey(){
   const d = new Date();
@@ -95,9 +95,8 @@ function todayKey(){
 
 function passCommon(url){
   const passthrough = [
-    'pid','name','nickName','studyId','diff','time','seed','hub','view','run',
-    'debug','api','log','studentKey','schoolCode','classRoom','studentNo',
-    'conditionGroup','sessionNo','weekNo','teacher','grade'
+    'nickName','debug','api','log','studentKey','schoolCode','classRoom',
+    'studentNo','conditionGroup','sessionNo','weekNo','teacher','grade'
   ];
 
   passthrough.forEach((k) => {
@@ -105,15 +104,16 @@ function passCommon(url){
     if (v != null && v !== '') url.searchParams.set(k, v);
   });
 
-  if (!url.searchParams.get('pid')) url.searchParams.set('pid', ctx.pid);
-  if (!url.searchParams.get('name')) url.searchParams.set('name', ctx.name);
-  if (!url.searchParams.get('run')) url.searchParams.set('run', ctx.run);
-  if (!url.searchParams.get('diff')) url.searchParams.set('diff', ctx.diff);
-  if (!url.searchParams.get('time')) url.searchParams.set('time', ctx.time);
-  if (!url.searchParams.get('view')) url.searchParams.set('view', ctx.view);
-  if (!url.searchParams.get('hub')) url.searchParams.set('hub', ctx.hub);
-  if (!url.searchParams.get('seed')) url.searchParams.set('seed', ctx.seed);
-  if (!url.searchParams.get('studyId') && ctx.studyId) url.searchParams.set('studyId', ctx.studyId);
+  url.searchParams.set('pid', ctx.pid);
+  url.searchParams.set('name', ctx.name);
+  url.searchParams.set('run', ctx.run);
+  url.searchParams.set('diff', ctx.diff);
+  url.searchParams.set('time', ctx.time);
+  url.searchParams.set('view', ctx.view);
+  url.searchParams.set('hub', ctx.hub);
+  url.searchParams.set('seed', ctx.seed);
+
+  if (ctx.studyId) url.searchParams.set('studyId', ctx.studyId);
 
   url.searchParams.set('zone', 'nutrition');
   url.searchParams.set('cat', 'nutrition');
@@ -167,7 +167,10 @@ function findRecentKey(){
   const recent = readJson(STORAGE.recent, null);
   if (recent?.key && GAME_META[recent.key]) return recent.key;
 
-  const summary = readJson('HHA_LAST_SUMMARY', null) || readJson('HHA_LAST_SUMMARY_GLOBAL', null);
+  const summary =
+    readJson('HHA_LAST_SUMMARY', null) ||
+    readJson('HHA_LAST_SUMMARY_GLOBAL', null);
+
   const txt = JSON.stringify(summary || {}).toLowerCase();
 
   if (txt.includes('goodjunk')) return 'goodjunk';
@@ -178,10 +181,22 @@ function findRecentKey(){
   return '';
 }
 
-function pickFeaturedKey(){
+function pickFeaturedKey(activeFilter = 'all'){
   const played = readJson(STORAGE.played, []);
   const order = ['plate', 'goodjunk', 'groups', 'hydration'];
-  return order.find(k => !played.includes(k)) || 'plate';
+
+  const allowed = order.filter((k) => {
+    const card = $(`#gamesGrid .game-card[data-game="${k}"]`);
+    if (!card) return true;
+    const filters = String(card.dataset.filters || 'all').split(',');
+    return activeFilter === 'all' || filters.includes(activeFilter);
+  });
+
+  return allowed.find(k => !played.includes(k)) || allowed[0] || 'plate';
+}
+
+function getActiveFilter(){
+  return $('#filterRow .filter-chip.active')?.dataset.filter || 'all';
 }
 
 function renderHeader(){
@@ -222,7 +237,7 @@ function renderHeader(){
 }
 
 function renderFeatured(){
-  const key = pickFeaturedKey();
+  const key = pickFeaturedKey(getActiveFilter());
   const game = GAME_META[key];
   if (!game) return;
 
@@ -233,6 +248,7 @@ function renderFeatured(){
 
   if (title) title.textContent = game.title;
   if (sub) sub.textContent = game.sub;
+
   if (tags) {
     tags.innerHTML = game.tags.map(tag => `<span class="tag">${tag}</span>`).join('');
   }
@@ -244,6 +260,8 @@ function renderFeatured(){
     if (!btn.__bound) {
       btn.__bound = true;
       btn.addEventListener('click', () => rememberGame(key));
+    } else {
+      btn.onclick = null;
     }
   }
 }
@@ -333,6 +351,8 @@ function bindFilters(){
       const filters = String(card.dataset.filters || 'all').split(',');
       card.classList.toggle('hidden', !(filter === 'all' || filters.includes(filter)));
     });
+
+    renderFeatured();
   });
 }
 
@@ -358,7 +378,7 @@ function bindContinue(){
   btn.__bound = true;
 
   btn.addEventListener('click', () => {
-    const recentKey = findRecentKey() || pickFeaturedKey();
+    const recentKey = findRecentKey() || pickFeaturedKey(getActiveFilter());
     rememberGame(recentKey);
     location.href = buildGameUrl(recentKey);
   });
