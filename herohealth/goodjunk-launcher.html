@@ -992,7 +992,7 @@
 
         <div class="field">
           <label for="room">Room Code</label>
-          <input id="room" placeholder="เช่น BT-AB12CD / RC-ROOM01" />
+          <input id="room" placeholder="เช่น DU-AB12CD / RC-ROOM01" />
         </div>
 
         <div class="field">
@@ -1010,6 +1010,7 @@
             <option value="60">60s</option>
             <option value="90" selected>90s</option>
             <option value="120">120s</option>
+            <option value="150">150s</option>
           </select>
         </div>
 
@@ -1059,11 +1060,13 @@
       lastHrefPrefix: 'GJ_LAST_HREF:'
     };
 
+    // PATCH สำคัญ: launcher นี้อยู่ใน /herohealth/
+    // lobby ของ multiplayer อยู่ใน /herohealth/vr-goodjunk/
     const LOBBY_PATHS = {
-      duet: './goodjunk-duet-lobby.html',
-      race: './goodjunk-race-lobby.html',
-      battle: './goodjunk-battle-lobby.html',
-      coop: './goodjunk-coop-lobby.html'
+      duet: './vr-goodjunk/goodjunk-duet-lobby.html',
+      race: './vr-goodjunk/goodjunk-race-lobby.html',
+      battle: './vr-goodjunk/goodjunk-battle-lobby.html',
+      coop: './vr-goodjunk/goodjunk-coop-lobby.html'
     };
 
     const MODE_LABELS = {
