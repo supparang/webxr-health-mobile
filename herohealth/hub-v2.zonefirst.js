@@ -440,6 +440,22 @@
     hide('diagnosticsPanel');
   }
 
+  function showToast(message) {
+    const toast = byId('toast');
+    if (!toast) return;
+
+    toast.textContent = message;
+    toast.classList.add('show');
+
+    if (toast.__hideTimer) {
+      W.clearTimeout(toast.__hideTimer);
+    }
+
+    toast.__hideTimer = W.setTimeout(function () {
+      toast.classList.remove('show');
+    }, 1800);
+  }
+
   function bindDiagnostics() {
     const btnOpen = byId('btnDiagnostics');
     if (btnOpen && !btnOpen.__hhBound) {
@@ -459,12 +475,10 @@
       btnCopy.addEventListener('click', function () {
         copyText(safeStringify(buildFullDebugSnapshot()))
           .then(function () {
-            const toast = byId('toast');
-            if (toast) toast.textContent = 'คัดลอก snapshot แล้ว';
+            showToast('คัดลอก snapshot แล้ว');
           })
           .catch(function () {
-            const toast = byId('toast');
-            if (toast) toast.textContent = 'คัดลอก snapshot ไม่สำเร็จ';
+            showToast('คัดลอก snapshot ไม่สำเร็จ');
           });
       });
     }
