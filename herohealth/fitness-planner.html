@@ -3,39 +3,36 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Fitness Planner</title>
+  <title>HeroHealth • Fitness Planner Launcher</title>
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#92efb1" />
+  <meta name="theme-color" content="#9fe9b1" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#effff3;
-      --bg2:#daf8e1;
-      --bg3:#fff8de;
+      --bg1:#f2fff6;
+      --bg2:#e6fbed;
+      --bg3:#fff9e6;
 
       --card:#ffffff;
-      --card2:#f7fff8;
+      --line:#d9eee1;
+      --line-strong:#bfe3ca;
 
-      --line:#d2efd8;
-      --line-strong:#b6e7c0;
+      --text:#41443f;
+      --muted:#73776f;
 
-      --text:#433f3d;
-      --muted:#75706b;
+      --green:#7fd957;
+      --green2:#55bf37;
+      --teal:#65dac7;
+      --teal2:#2eb79f;
+      --blue:#7bcfff;
+      --blue2:#46b1ef;
+      --yellow:#ffd95f;
+      --orange:#ffb460;
+      --pink:#ff9aca;
+      --pink2:#ff75b2;
 
-      --green:#7ed957;
-      --green2:#53bf35;
-      --teal:#6fe0cc;
-      --teal2:#31bca4;
-      --blue:#7fcfff;
-      --blue2:#4aaef0;
-      --yellow:#ffd661;
-      --orange:#ffb35b;
-      --pink:#ff9dcf;
-      --pink2:#ff74b3;
-      --red:#ff7a7a;
-
-      --shadow:0 18px 42px rgba(67,63,61,.12);
-      --shadow-soft:0 10px 22px rgba(67,63,61,.08);
+      --shadow:0 18px 42px rgba(65,68,63,.10);
+      --shadow-soft:0 10px 22px rgba(65,68,63,.08);
 
       --safe-top:env(safe-area-inset-top,0px);
       --safe-bottom:env(safe-area-inset-bottom,0px);
@@ -49,12 +46,11 @@
       color:var(--text);
       background:
         radial-gradient(circle at top left, rgba(255,255,255,.92), transparent 30%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 52%,var(--bg3));
+        linear-gradient(180deg,var(--bg1),var(--bg2) 56%,var(--bg3));
     }
 
     a{ color:inherit; text-decoration:none; }
-    button,input,select{ font:inherit; }
-    .hidden{ display:none !important; }
+    button,input{ font:inherit; }
 
     .app{
       width:min(1280px, calc(100% - 14px));
@@ -82,7 +78,7 @@
       gap:10px;
       padding:10px 14px;
       border-radius:999px;
-      background:rgba(255,255,255,.88);
+      background:rgba(255,255,255,.92);
       border:2px solid var(--line);
       box-shadow:var(--shadow-soft);
       font-size:13px;
@@ -105,63 +101,67 @@
       padding:0 2px;
     }
 
-    .headline-title{
+    .headline h1{
       margin:0;
-      font-size:clamp(22px,4vw,38px);
+      font-size:clamp(24px,4vw,38px);
       line-height:1;
       font-weight:1000;
     }
 
-    .headline-sub{
+    .headline p{
       margin:4px 0 0;
-      color:var(--muted);
       font-size:13px;
+      color:var(--muted);
       font-weight:900;
     }
 
     .top-actions{
       display:flex;
       gap:8px;
-      justify-content:flex-end;
       flex-wrap:wrap;
+      justify-content:flex-end;
     }
 
     .shell{
       display:grid;
-      grid-template-columns:1.08fr .92fr;
+      grid-template-columns:1.06fr .94fr;
       gap:12px;
       align-items:start;
     }
 
     .panel{
-      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,252,246,.92));
+      background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(255,252,246,.93));
       border:2px solid var(--line);
       border-radius:30px;
       box-shadow:var(--shadow);
+      overflow:hidden;
     }
 
-    .menu-panel{
+    .hero{
       padding:18px;
       display:grid;
       gap:14px;
       min-height:760px;
       position:relative;
       overflow:hidden;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.72), transparent 22%),
+        linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,.05));
     }
 
-    .menu-panel::after{
+    .hero::after{
       content:"";
       position:absolute;
-      right:-30px;
-      bottom:-36px;
-      width:240px;
-      height:240px;
+      right:-20px;
+      bottom:-28px;
+      width:220px;
+      height:220px;
       border-radius:50%;
-      background:radial-gradient(circle, rgba(126,217,87,.18), transparent 64%);
+      background:radial-gradient(circle, rgba(101,218,199,.18), transparent 62%);
       pointer-events:none;
     }
 
-    .badge{
+    .hero-badge{
       width:max-content;
       min-height:38px;
       display:inline-flex;
@@ -171,150 +171,74 @@
       border-radius:999px;
       background:#fff;
       border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
       font-size:13px;
       font-weight:1000;
-      box-shadow:var(--shadow-soft);
     }
 
-    .hero-title{
+    .hero h2{
       margin:0;
-      font-size:clamp(34px,5vw,60px);
-      line-height:.92;
+      font-size:clamp(34px,5vw,58px);
+      line-height:.93;
       font-weight:1000;
     }
 
-    .hero-copy{
+    .hero p{
       margin:0;
-      color:var(--muted);
       font-size:15px;
-      font-weight:900;
       line-height:1.55;
+      color:var(--muted);
+      font-weight:900;
       max-width:720px;
     }
 
     .preview{
       position:relative;
-      min-height:320px;
+      min-height:340px;
       border-radius:28px;
       border:2px dashed var(--line-strong);
       overflow:hidden;
       background:
-        radial-gradient(circle at 50% 18%, rgba(255,255,255,.82), transparent 16%),
-        linear-gradient(180deg,#dfffe6 0%, #f2fff5 52%, #fff1cf 53%, #fff8e6 100%);
+        linear-gradient(180deg,#dffbf0 0%, #f1fff7 40%, #fffaf0 100%);
     }
 
-    .preview-board{
+    .preview-grid{
       position:absolute;
-      inset:24px 18px 26px 18px;
-      border-radius:24px;
-      border:2px dashed rgba(67,63,61,.10);
-      background:rgba(255,255,255,.44);
-    }
-
-    .preview-ring{
-      position:absolute;
-      left:36px;
-      top:40px;
-      width:110px;
-      height:110px;
-      border-radius:50%;
-      background:
-        conic-gradient(var(--green2) 0 240deg, #e8f8eb 240deg 360deg);
+      inset:18px;
       display:grid;
-      place-items:center;
-      box-shadow:var(--shadow-soft);
+      grid-template-columns:1fr;
+      gap:12px;
     }
 
-    .preview-ring::after{
-      content:"";
-      width:76px;
-      height:76px;
-      border-radius:50%;
-      background:#fff;
-      box-shadow:inset 0 0 0 2px var(--line);
-    }
-
-    .preview-ring-label{
-      position:absolute;
-      left:36px;
-      top:40px;
-      width:110px;
-      height:110px;
+    .preview-slot{
+      border-radius:22px;
+      border:2px dashed var(--line-strong);
+      background:rgba(255,255,255,.84);
+      padding:14px;
       display:grid;
-      place-items:center;
-      text-align:center;
+      gap:6px;
+      align-content:center;
+    }
+
+    .preview-slot strong{
+      font-size:28px;
+      line-height:1;
+    }
+
+    .preview-slot .title{
+      font-size:24px;
       font-weight:1000;
-      font-size:18px;
-      z-index:2;
+      line-height:1.05;
     }
 
-    .preview-cards{
-      position:absolute;
-      right:26px;
-      top:38px;
-      width:min(340px,54%);
-      display:grid;
-      gap:10px;
+    .preview-slot .sub{
+      font-size:13px;
+      line-height:1.4;
+      color:var(--muted);
+      font-weight:900;
     }
 
-    .preview-task{
-      min-height:62px;
-      border-radius:18px;
-      background:#fff;
-      border:2px solid var(--line);
-      box-shadow:var(--shadow-soft);
-      display:grid;
-      grid-template-columns:auto 1fr;
-      gap:10px;
-      align-items:center;
-      padding:10px 12px;
-      font-weight:1000;
-    }
-
-    .preview-task .icon{
-      width:38px;
-      height:38px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      color:#fff;
-      background:linear-gradient(135deg,var(--green),var(--teal));
-      font-size:18px;
-    }
-
-    .preview-avatar{
-      position:absolute;
-      left:42px;
-      bottom:16px;
-      width:128px;
-      height:128px;
-      border-radius:28px;
-      background:linear-gradient(180deg,#ffffff,#eefcf2);
-      border:2px solid var(--line);
-      box-shadow:var(--shadow-soft);
-      display:grid;
-      place-items:center;
-      font-size:58px;
-    }
-
-    .preview-badge{
-      position:absolute;
-      right:24px;
-      bottom:24px;
-      min-height:44px;
-      padding:10px 14px;
-      border-radius:999px;
-      background:linear-gradient(135deg,var(--yellow),var(--orange));
-      color:#513700;
-      border:2px solid rgba(255,255,255,.55);
-      box-shadow:var(--shadow-soft);
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      font-weight:1000;
-    }
-
-    .chips{
+    .chip-row{
       display:flex;
       flex-wrap:wrap;
       gap:8px;
@@ -329,21 +253,21 @@
       border-radius:999px;
       background:#fff;
       border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
       font-size:12px;
       font-weight:1000;
-      box-shadow:var(--shadow-soft);
     }
 
-    .stats-strip{
-      display:grid;
-      gap:10px;
+    .strip{
       padding:14px;
       border-radius:24px;
       border:2px solid var(--line);
-      background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(247,255,248,.94));
+      background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(247,255,251,.94));
+      display:grid;
+      gap:10px;
     }
 
-    .stats-head{
+    .strip-head{
       display:flex;
       justify-content:space-between;
       align-items:center;
@@ -351,17 +275,17 @@
       flex-wrap:wrap;
     }
 
-    .stats-head strong{
+    .strip-head strong{
       font-size:16px;
     }
 
-    .stats-head span{
+    .strip-head span{
       color:var(--muted);
       font-size:12px;
       font-weight:1000;
     }
 
-    .stats-grid{
+    .stat-grid{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
       gap:8px;
@@ -385,11 +309,85 @@
       display:block;
       margin-top:4px;
       font-size:18px;
-      font-weight:1000;
       line-height:1.1;
+      font-weight:1000;
     }
 
-    .menu-side{
+    .mode-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .mode-card{
+      padding:14px;
+      border-radius:22px;
+      border:2px solid var(--line);
+      background:linear-gradient(180deg,#fff,#fbfffc);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      gap:10px;
+    }
+
+    .mode-top{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+    }
+
+    .mode-icon{
+      width:42px;
+      height:42px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#eefbff,#fff);
+      border:2px solid var(--line);
+      font-size:22px;
+      flex:0 0 auto;
+    }
+
+    .mode-title{
+      font-size:18px;
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .mode-sub{
+      font-size:13px;
+      line-height:1.45;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .mode-tags{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .mode-tags span{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:11px;
+      font-weight:1000;
+      color:#587168;
+    }
+
+    .mode-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+
+    .side{
       padding:16px;
       display:grid;
       gap:12px;
@@ -397,27 +395,26 @@
       top:calc(10px + var(--safe-top));
     }
 
-    .card-block{
+    .section{
       padding:14px;
       border-radius:24px;
       border:2px dashed var(--line-strong);
-      background:linear-gradient(180deg,#fff,#f7fff8);
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(249,255,246,.92));
       display:grid;
       gap:10px;
     }
 
-    .card-block h3{
+    .section h3{
       margin:0;
       font-size:14px;
-      letter-spacing:.02em;
     }
 
-    .card-block p{
+    .section p{
       margin:0;
-      color:var(--muted);
       font-size:13px;
-      font-weight:900;
       line-height:1.45;
+      color:var(--muted);
+      font-weight:900;
     }
 
     .field{
@@ -433,19 +430,18 @@
       letter-spacing:.04em;
     }
 
-    .field input,
-    .field select{
+    .field input{
+      width:100%;
       min-height:48px;
       border-radius:16px;
       border:2px solid var(--line);
-      background:#fff;
       padding:10px 12px;
+      background:#fff;
       outline:none;
     }
 
-    .field input:focus,
-    .field select:focus{
-      border-color:var(--green2);
+    .field input:focus{
+      border-color:#8fd6bc;
     }
 
     .grid-2{
@@ -471,33 +467,33 @@
     }
 
     .toggle label{
-      min-height:70px;
-      padding:10px;
+      min-height:68px;
       border-radius:20px;
       border:2px solid var(--line);
-      background:linear-gradient(180deg,#fff,#f7fff8);
+      background:linear-gradient(180deg,#fff,#f8fffb);
       display:grid;
       place-items:center;
       text-align:center;
-      font-weight:1000;
+      padding:10px;
       cursor:pointer;
+      font-weight:1000;
       box-shadow:var(--shadow-soft);
     }
 
     .toggle label small{
       display:block;
       margin-top:4px;
-      color:var(--muted);
       font-size:11px;
+      color:var(--muted);
       font-weight:900;
       line-height:1.25;
     }
 
     .toggle input:checked + label{
-      border-color:var(--green2);
-      background:linear-gradient(180deg,#fff,#edfceb);
+      border-color:#91d8bb;
       transform:translateY(-2px);
-      box-shadow:0 14px 24px rgba(83,191,53,.14);
+      box-shadow:0 14px 24px rgba(101,218,199,.14);
+      background:linear-gradient(180deg,#fff,#eefdf5);
     }
 
     .recommend-box{
@@ -515,16 +511,16 @@
     }
 
     .recommend-sub{
-      color:var(--muted);
       font-size:13px;
-      font-weight:900;
       line-height:1.45;
+      color:var(--muted);
+      font-weight:900;
     }
 
     .recommend-chips{
       display:flex;
-      flex-wrap:wrap;
       gap:8px;
+      flex-wrap:wrap;
     }
 
     .recommend-chips span{
@@ -538,11 +534,7 @@
       border:2px solid var(--line);
       font-size:11px;
       font-weight:1000;
-    }
-
-    .launch-actions{
-      display:grid;
-      gap:10px;
+      color:#587168;
     }
 
     .btn{
@@ -557,7 +549,6 @@
       align-items:center;
       justify-content:center;
       gap:8px;
-      text-decoration:none;
     }
 
     .btn.primary{
@@ -566,13 +557,20 @@
     }
 
     .btn.secondary{
-      background:linear-gradient(135deg,#fff,#edfceb);
+      background:linear-gradient(135deg,#fff,#eefcf4);
+      color:var(--text);
       border:2px solid var(--line);
     }
 
     .btn.ghost{
-      background:linear-gradient(135deg,#fffaf2,#fff2da);
-      border:2px solid rgba(255,179,91,.30);
+      background:linear-gradient(135deg,#fff8ef,#fff0db);
+      color:var(--text);
+      border:2px solid rgba(255,180,96,.30);
+    }
+
+    .launch-actions{
+      display:grid;
+      gap:10px;
     }
 
     .preview-url{
@@ -580,462 +578,39 @@
       font-size:11px;
       line-height:1.45;
       color:#445;
-      background:rgba(255,255,255,.8);
+      background:rgba(255,255,255,.82);
       border-radius:16px;
       border:2px dashed var(--line-strong);
       padding:10px;
       word-break:break-all;
     }
 
-    .play-shell{
-      padding:12px;
-      display:grid;
-      gap:10px;
-      min-height:760px;
-    }
-
-    .play-topbar{
-      display:grid;
-      grid-template-columns:auto 1fr auto;
-      gap:10px;
-      align-items:center;
-    }
-
-    .mini-pill{
-      min-height:42px;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      box-shadow:var(--shadow-soft);
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .hud{
-      display:grid;
-      grid-template-columns:repeat(6,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .hud-box{
-      min-height:68px;
-      padding:10px;
-      border-radius:18px;
-      background:#fff;
-      border:2px solid var(--line);
-      box-shadow:var(--shadow-soft);
-    }
-
-    .hud-box .k{
-      display:block;
-      font-size:11px;
-      color:var(--muted);
-      font-weight:1000;
-    }
-
-    .hud-box .v{
-      display:block;
-      margin-top:6px;
-      font-size:20px;
-      line-height:1.1;
-      font-weight:1000;
-    }
-
-    .planner-shell{
-      display:grid;
-      grid-template-columns:1.08fr .92fr;
-      gap:12px;
-      align-items:start;
-    }
-
-    .planner-board,
-    .planner-side{
-      min-height:520px;
-      border-radius:28px;
-      overflow:hidden;
-      border:2px solid var(--line);
-      background:linear-gradient(180deg,#fbfffc,#fff8e6);
-      box-shadow:var(--shadow-soft);
-    }
-
-    .planner-board{
-      padding:14px;
-      display:grid;
-      gap:12px;
-      align-content:start;
-    }
-
-    .planner-progress{
-      padding:14px;
-      border-radius:22px;
-      background:#fff;
-      border:2px solid var(--line);
-      display:grid;
-      gap:10px;
-    }
-
-    .planner-progress-head{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .planner-progress-head strong{
-      font-size:16px;
-    }
-
-    .planner-bar{
-      height:16px;
-      border-radius:999px;
-      overflow:hidden;
-      background:#edf8ef;
-      border:2px solid var(--line);
-    }
-
-    .planner-fill{
-      height:100%;
-      width:0%;
-      border-radius:inherit;
-      background:linear-gradient(90deg,var(--green2),var(--teal2));
-      transition:width .18s ease;
-    }
-
-    .task-grid{
-      display:grid;
-      gap:10px;
-      grid-template-columns:1fr 1fr;
-    }
-
-    .task-card{
-      padding:12px;
-      border-radius:22px;
-      background:#fff;
-      border:2px solid var(--line);
-      display:grid;
-      gap:10px;
-      box-shadow:var(--shadow-soft);
-    }
-
-    .task-head{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
-    }
-
-    .task-icon{
-      width:52px;
-      height:52px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      color:#fff;
-      font-size:24px;
-      background:linear-gradient(135deg,var(--green),var(--teal));
-      flex:0 0 auto;
-    }
-
-    .task-badge{
-      min-height:28px;
-      padding:5px 10px;
-      border-radius:999px;
-      background:#eef8ef;
-      border:2px solid var(--line);
-      color:#4d7857;
-      font-size:11px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-    }
-
-    .task-title{
-      font-size:20px;
-      font-weight:1000;
-      line-height:1.08;
-    }
-
-    .task-sub{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.45;
-      font-weight:900;
-      min-height:38px;
-    }
-
-    .task-meta{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .task-meta span{
-      min-height:28px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:5px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      font-size:11px;
-      font-weight:1000;
-    }
-
-    .task-actions{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:8px;
-    }
-
-    .task-btn{
-      min-height:42px;
-      border:none;
-      border-radius:16px;
-      cursor:pointer;
-      font-weight:1000;
-      box-shadow:var(--shadow-soft);
-    }
-
-    .task-btn.done{
-      background:linear-gradient(135deg,var(--green),var(--green2));
-      color:#fff;
-    }
-
-    .task-btn.skip{
-      background:#fff;
-      border:2px solid var(--line);
-      color:var(--text);
-    }
-
-    .task-card.done-state{
-      background:linear-gradient(180deg,#ffffff,#f1fff2);
-      border-color:#bfe7c8;
-    }
-
-    .task-card.done-state .task-badge{
-      background:#e9fbe9;
-      color:#2d7a3d;
-    }
-
-    .planner-side{
-      padding:14px;
-      display:grid;
-      gap:12px;
-      align-content:start;
-    }
-
-    .coach-box,
-    .daily-box,
-    .summary-mini{
-      padding:14px;
-      border-radius:22px;
-      background:#fff;
-      border:2px solid var(--line);
-      box-shadow:var(--shadow-soft);
-      display:grid;
-      gap:10px;
-    }
-
-    .coach-box h3,
-    .daily-box h3,
-    .summary-mini h3{
-      margin:0;
-      font-size:16px;
-    }
-
-    .coach-box p,
-    .daily-box p{
-      margin:0;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.45;
-      font-weight:900;
-    }
-
-    .daily-list{
-      display:grid;
-      gap:8px;
-    }
-
-    .daily-item{
-      min-height:42px;
-      border-radius:14px;
-      background:#f8fff8;
-      border:2px solid var(--line);
-      padding:8px 10px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-weight:1000;
-    }
-
-    .daily-item.done{
-      background:#effced;
-      color:#2c7a3d;
-    }
-
-    .planner-actions{
-      display:grid;
-      gap:10px;
-    }
-
-    .overlay-center{
-      position:fixed;
-      left:50%;
-      bottom:24px;
-      transform:translateX(-50%);
-      z-index:40;
-      max-width:min(92%,560px);
-      width:100%;
-    }
-
-    .telegraph{
-      padding:14px 16px;
-      border-radius:22px;
-      background:rgba(255,255,255,.96);
-      border:2px solid var(--line);
-      box-shadow:var(--shadow-soft);
-      text-align:center;
-      font-size:18px;
-      font-weight:1000;
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .18s ease;
-    }
-
-    .telegraph.show{
-      opacity:1;
-    }
-
-    .summary-panel{
-      position:fixed;
-      left:50%;
-      bottom:20px;
-      transform:translateX(-50%);
-      z-index:50;
-      max-width:min(92%,640px);
-      width:100%;
-      padding:16px;
-      border-radius:26px;
-      background:rgba(255,255,255,.98);
-      border:2px solid var(--line);
-      box-shadow:var(--shadow);
-      display:none;
-      grid-template-columns:1fr;
-      gap:12px;
-    }
-
-    .summary-panel.show{
-      display:grid;
-    }
-
-    .summary-head{
-      display:grid;
-      grid-template-columns:auto 1fr;
-      gap:12px;
-      align-items:center;
-    }
-
-    .rank-badge{
-      width:86px;
-      height:86px;
-      border-radius:24px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(135deg,#fff,#edfceb);
-      border:3px solid var(--line);
-      box-shadow:var(--shadow-soft);
-      font-size:40px;
-      font-weight:1000;
-    }
-
-    .summary-copy h2{
-      margin:0;
-      font-size:28px;
-      line-height:1.08;
-    }
-
-    .summary-copy p{
-      margin:6px 0 0;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.45;
-    }
-
-    .summary-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .summary-stat{
-      padding:10px 12px;
-      border-radius:18px;
-      background:#fff;
-      border:2px solid var(--line);
-    }
-
-    .summary-stat .k{
-      display:block;
-      font-size:11px;
-      color:var(--muted);
-      font-weight:1000;
-    }
-
-    .summary-stat .v{
-      display:block;
-      margin-top:5px;
-      font-size:20px;
-      font-weight:1000;
-      line-height:1.1;
-    }
-
-    .summary-actions{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
     .footer-note{
       text-align:center;
-      color:var(--muted);
       font-size:12px;
+      color:var(--muted);
       font-weight:900;
     }
 
-    @media (max-width:1100px){
-      .shell,
-      .planner-shell{
+    @media (max-width:980px){
+      .shell{
         grid-template-columns:1fr;
       }
-      .menu-side{
+      .side{
         position:relative;
         top:auto;
       }
     }
 
-    @media (max-width:780px){
-      .topbar,
-      .play-topbar{
+    @media (max-width:760px){
+      .topbar{
         grid-template-columns:1fr;
       }
-      .stats-grid,
-      .summary-grid,
-      .summary-actions,
-      .hud,
+      .stat-grid,
+      .mode-grid,
       .grid-3,
-      .task-grid{
-        grid-template-columns:1fr;
-      }
       .grid-2,
-      .task-actions{
+      .mode-actions{
         grid-template-columns:1fr;
       }
     }
@@ -1050,132 +625,199 @@
       </div>
 
       <div class="headline">
-        <h1 class="headline-title">Fitness Planner</h1>
-        <p class="headline-sub">Planning • Habit • Goal • Checklist • Fitness Zone</p>
+        <h1>Fitness Planner Launcher</h1>
+        <p>จัดแผน → เข้าเล่นจริง → summary → ส่งต่อ flow เดิม</p>
       </div>
 
       <div class="top-actions">
-        <a id="btnBackFitnessTop" class="top-link" href="./fitness-zone.html">🏃 Fitness Zone</a>
-        <a id="btnBackHubTop" class="top-link" href="./hub-v2.html">🏠 HUB</a>
+        <a id="btnBackFitness" class="top-link" href="./fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnHubTop" class="top-link" href="./hub-v2.html">🏠 HUB</a>
       </div>
     </header>
 
-    <section id="view-menu" class="shell">
-      <section class="panel menu-panel">
-        <div class="badge">✨ child-friendly • planner • checklist • summary • warmup+cooldown</div>
+    <main class="shell">
+      <section class="panel hero">
+        <div class="hero-badge">✨ Child-friendly • planner + actual run • warmup / cooldown aware</div>
 
-        <h2 class="hero-title">Fitness<br>Planner</h2>
-
-        <p class="hero-copy">
-          เกมนี้ฝึก <strong>การวางแผนกิจกรรม การตั้งเป้าหมาย และการทำตาม checklist</strong>
-          เด็กจะได้เลือกภารกิจออกกำลังกายรายวัน จัดลำดับง่าย ๆ และค่อย ๆ ทำทีละข้อจนจบแผน
+        <h2>Fitness Planner</h2>
+        <p>
+          หน้า Launcher นี้จะพาเด็กเข้าไปที่ <strong>planner + run จริง</strong> ไม่ใช่แค่จัดแผนเฉย ๆ
+          โดยยังคง flow แบบ HeroHealth คือเลือกค่า → warmup gate → เล่นตามแผน → summary → cooldown
         </p>
 
         <div class="preview">
-          <div class="preview-board"></div>
-
-          <div class="preview-ring"></div>
-          <div class="preview-ring-label">75%</div>
-
-          <div class="preview-cards">
-            <div class="preview-task">
-              <div class="icon">🚶</div>
-              <div>เดินเร็ว 5 นาที</div>
+          <div class="preview-grid">
+            <div class="preview-slot">
+              <strong>🔥</strong>
+              <div class="title">Warm-up</div>
+              <div class="sub">เริ่มปลุกร่างกายก่อน</div>
             </div>
-            <div class="preview-task">
-              <div class="icon">🧍</div>
-              <div>ทรงตัว 3 รอบ</div>
+            <div class="preview-slot">
+              <strong>⚡</strong>
+              <div class="title">Main</div>
+              <div class="sub">เข้าเล่นตาม task ที่วางไว้จริง</div>
             </div>
-            <div class="preview-task">
-              <div class="icon">🥤</div>
-              <div>พักดื่มน้ำ</div>
+            <div class="preview-slot">
+              <strong>🌬️</strong>
+              <div class="title">Cooldown</div>
+              <div class="sub">จบแบบผ่อนคลาย และส่งต่อ flow</div>
             </div>
           </div>
-
-          <div class="preview-avatar">🦸</div>
-          <div class="preview-badge">⭐ Daily Plan</div>
         </div>
 
-        <div class="chips">
-          <div class="chip">📋 Checklist</div>
-          <div class="chip">🎯 Goal</div>
-          <div class="chip">🧠 Planning</div>
-          <div class="chip">🏃 Habit</div>
+        <div class="chip-row">
+          <div class="chip">📋 Plan Builder</div>
+          <div class="chip">🎮 Actual Run</div>
+          <div class="chip">🔥 Warm-up Gate</div>
+          <div class="chip">🌬️ Cooldown</div>
           <div class="chip">⭐ Summary</div>
         </div>
 
-        <section class="stats-strip">
-          <div class="stats-head">
-            <strong>🕹️ ผลล่าสุด</strong>
-            <span id="recentStripSub">ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย</span>
+        <section class="strip">
+          <div class="strip-head">
+            <strong>🕹️ Fitness Planner ล่าสุด</strong>
+            <span id="recentStripSub">ยังไม่มีผลล่าสุด</span>
           </div>
 
-          <div class="stats-grid">
+          <div class="stat-grid">
             <div class="stat"><span class="k">Rank</span><span id="recentRank" class="v">-</span></div>
-            <div class="stat"><span class="k">Score</span><span id="recentScore" class="v">-</span></div>
-            <div class="stat"><span class="k">Tasks</span><span id="recentTasks" class="v">-</span></div>
-            <div class="stat"><span class="k">Completion</span><span id="recentCompletion" class="v">-</span></div>
+            <div class="stat"><span class="k">Done</span><span id="recentDone" class="v">-</span></div>
+            <div class="stat"><span class="k">Skip</span><span id="recentSkip" class="v">-</span></div>
+            <div class="stat"><span class="k">Completion</span><span id="recentPct" class="v">-</span></div>
+          </div>
+        </section>
+
+        <section class="strip">
+          <div class="strip-head">
+            <strong>🎮 Quick Presets</strong>
+            <span>กดเพื่อใช้ preset แล้วเข้าเล่นได้ทันที</span>
+          </div>
+
+          <div class="mode-grid">
+            <article class="mode-card">
+              <div class="mode-top">
+                <div>
+                  <div class="mode-title">Play Standard</div>
+                  <div class="mode-sub">warmup → planner run → summary → cooldown</div>
+                </div>
+                <div class="mode-icon">▶</div>
+              </div>
+              <div class="mode-tags">
+                <span>gate on</span><span>cooldown on</span><span>90s</span>
+              </div>
+              <div class="mode-actions">
+                <button id="modePlayStart" class="btn primary" type="button">เริ่มเลย</button>
+                <button id="modePlayPreset" class="btn secondary" type="button">ใช้ค่านี้</button>
+              </div>
+            </article>
+
+            <article class="mode-card">
+              <div class="mode-top">
+                <div>
+                  <div class="mode-title">Quick</div>
+                  <div class="mode-sub">เข้า planner run ตรง ไม่ผ่าน warmup</div>
+                </div>
+                <div class="mode-icon">⚡</div>
+              </div>
+              <div class="mode-tags">
+                <span>gate off</span><span>quick</span><span>เร็ว</span>
+              </div>
+              <div class="mode-actions">
+                <button id="modeQuickStart" class="btn primary" type="button">เริ่มเลย</button>
+                <button id="modeQuickPreset" class="btn secondary" type="button">ใช้ค่านี้</button>
+              </div>
+            </article>
+
+            <article class="mode-card">
+              <div class="mode-top">
+                <div>
+                  <div class="mode-title">Research</div>
+                  <div class="mode-sub">seed / logging / deterministic flow</div>
+                </div>
+                <div class="mode-icon">🧪</div>
+              </div>
+              <div class="mode-tags">
+                <span>research</span><span>gate on</span><span>study</span>
+              </div>
+              <div class="mode-actions">
+                <button id="modeResearchStart" class="btn primary" type="button">เริ่มเลย</button>
+                <button id="modeResearchPreset" class="btn secondary" type="button">ใช้ค่านี้</button>
+              </div>
+            </article>
+
+            <article class="mode-card">
+              <div class="mode-top">
+                <div>
+                  <div class="mode-title">Demo 60s</div>
+                  <div class="mode-sub">สั้น อ่านง่าย เหมาะกับเดโม</div>
+                </div>
+                <div class="mode-icon">🎈</div>
+              </div>
+              <div class="mode-tags">
+                <span>60s</span><span>easy</span><span>cooldown off</span>
+              </div>
+              <div class="mode-actions">
+                <button id="modeDemoStart" class="btn primary" type="button">เริ่มเลย</button>
+                <button id="modeDemoPreset" class="btn secondary" type="button">ใช้ค่านี้</button>
+              </div>
+            </article>
           </div>
         </section>
       </section>
 
-      <aside class="panel menu-side">
-        <section class="card-block">
+      <aside class="panel side">
+        <section class="section">
           <h3>PLAYER</h3>
-
           <div class="field">
             <label for="pid">PID</label>
             <input id="pid" type="text" placeholder="anon" />
           </div>
-
           <div class="field">
             <label for="name">Name</label>
             <input id="name" type="text" placeholder="Player" />
           </div>
-
           <div class="field">
             <label for="studyId">Study ID</label>
             <input id="studyId" type="text" placeholder="optional" />
           </div>
         </section>
 
-        <section class="card-block">
+        <section class="section">
           <h3>RECOMMENDED SETTINGS</h3>
-
           <div class="recommend-box">
             <div id="recommendTitle" class="recommend-title">แนะนำค่าเริ่มต้น</div>
             <div id="recommendSub" class="recommend-sub">ระบบจะเลือกค่าที่เหมาะจากผลล่าสุดให้</div>
             <div id="recommendChips" class="recommend-chips">
-              <span>Normal</span><span>90s</span><span>Mobile</span>
+              <span>Quick</span><span>90s</span><span>Mobile</span>
             </div>
             <button id="btnApplyRecommended" class="btn secondary" type="button">✨ ใช้ค่าที่แนะนำ</button>
           </div>
         </section>
 
-        <section class="card-block">
-          <h3>PLAN LEVEL</h3>
+        <section class="section">
+          <h3>DIFFICULTY</h3>
           <div class="grid-3">
             <div class="toggle">
               <input id="diff-easy" name="diff" type="radio" value="easy" />
-              <label for="diff-easy">Easy<small>3 tasks</small></label>
+              <label for="diff-easy">Easy<small>สั้นและอ่านง่าย</small></label>
             </div>
             <div class="toggle">
               <input id="diff-normal" name="diff" type="radio" value="normal" checked />
-              <label for="diff-normal">Normal<small>4 tasks</small></label>
+              <label for="diff-normal">Normal<small>สมดุลที่สุด</small></label>
             </div>
             <div class="toggle">
               <input id="diff-hard" name="diff" type="radio" value="hard" />
-              <label for="diff-hard">Hard<small>5 tasks</small></label>
+              <label for="diff-hard">Hard<small>แผนยาวและท้าทายขึ้น</small></label>
             </div>
           </div>
         </section>
 
-        <section class="card-block">
+        <section class="section">
           <h3>TIME</h3>
           <div class="grid-3">
             <div class="toggle">
               <input id="time-60" name="time" type="radio" value="60" />
-              <label for="time-60">60s<small>เร็ว</small></label>
+              <label for="time-60">60s<small>สั้น</small></label>
             </div>
             <div class="toggle">
               <input id="time-90" name="time" type="radio" value="90" checked />
@@ -1188,25 +830,25 @@
           </div>
         </section>
 
-        <section class="card-block">
+        <section class="section">
           <h3>VIEW</h3>
           <div class="grid-3">
             <div class="toggle">
               <input id="view-mobile" name="view" type="radio" value="mobile" checked />
-              <label for="view-mobile">Mobile<small>ทั่วไป</small></label>
+              <label for="view-mobile">Mobile<small>แตะจอ</small></label>
             </div>
             <div class="toggle">
               <input id="view-pc" name="view" type="radio" value="pc" />
-              <label for="view-pc">PC<small>หน้ากว้าง</small></label>
+              <label for="view-pc">PC<small>ใช้เมาส์/คลิก</small></label>
             </div>
             <div class="toggle">
               <input id="view-cvr" name="view" type="radio" value="cvr" />
-              <label for="view-cvr">cVR<small>เก็บ param</small></label>
+              <label for="view-cvr">cVR<small>เก็บ param ไว้</small></label>
             </div>
           </div>
         </section>
 
-        <section class="card-block">
+        <section class="section">
           <h3>RUN MODE</h3>
           <div class="grid-2">
             <div class="toggle">
@@ -1215,53 +857,39 @@
             </div>
             <div class="toggle">
               <input id="run-research" name="run" type="radio" value="research" />
-              <label for="run-research">Research<small>seed/logging</small></label>
+              <label for="run-research">Research<small>seed / logging</small></label>
             </div>
           </div>
         </section>
 
-        <section class="card-block">
-          <h3>PLAN THEME</h3>
-          <div class="field">
-            <label for="themeSelect">Theme</label>
-            <select id="themeSelect">
-              <option value="mix">mix</option>
-              <option value="balance">balance</option>
-              <option value="cardio">cardio</option>
-              <option value="stretch">stretch</option>
-              <option value="recovery">recovery</option>
-            </select>
-          </div>
-        </section>
-
-        <section class="card-block">
+        <section class="section">
           <h3>FLOW</h3>
-          <p>โหมดมาตรฐานจะไปตามลำดับ <strong>warmup-gate → fitness-planner → summary → cooldown → hub/zone</strong></p>
+          <p>โหมดมาตรฐานจะไปตามลำดับ <strong>warmup-gate → fitness-planner/index.html → summary → cooldown</strong></p>
 
           <div class="grid-2">
             <div class="toggle">
               <input id="gate-on" name="gate" type="radio" value="1" checked />
-              <label for="gate-on">Warmup ON<small>ใช้ gate ก่อนเข้าเกม</small></label>
+              <label for="gate-on">Warmup ON<small>ผ่าน gate ก่อนเข้า planner</small></label>
             </div>
             <div class="toggle">
               <input id="gate-off" name="gate" type="radio" value="0" />
-              <label for="gate-off">Warmup OFF<small>เข้าเกมตรง</small></label>
+              <label for="gate-off">Warmup OFF<small>เข้า planner ตรง</small></label>
             </div>
           </div>
 
           <div class="grid-2">
             <div class="toggle">
               <input id="cooldown-on" name="cooldown" type="radio" value="1" checked />
-              <label for="cooldown-on">Cooldown ON<small>ส่ง param ไว้พร้อม</small></label>
+              <label for="cooldown-on">Cooldown ON<small>ส่ง param ไว้ต่อหลัง summary</small></label>
             </div>
             <div class="toggle">
               <input id="cooldown-off" name="cooldown" type="radio" value="0" />
-              <label for="cooldown-off">Cooldown OFF<small>จบแล้วกลับ hub/zone</small></label>
+              <label for="cooldown-off">Cooldown OFF<small>จบแล้วกลับหน้าโซน/ฮับ</small></label>
             </div>
           </div>
         </section>
 
-        <section class="card-block">
+        <section class="section">
           <h3>SEED</h3>
           <div class="field">
             <label for="seed">Seed</label>
@@ -1269,843 +897,549 @@
           </div>
         </section>
 
-        <section class="card-block">
+        <section class="section">
           <h3>LAUNCH</h3>
           <div class="launch-actions">
             <button id="btnStartStandard" class="btn primary" type="button">▶ Start with Current Settings</button>
             <button id="btnQuickPlay" class="btn secondary" type="button">⚡ Quick Play Now</button>
-            <button id="btnUseLastPattern" class="btn ghost" type="button">🕹️ ใช้ค่าจากล่าสุด</button>
+            <button id="btnUseLastSummary" class="btn ghost" type="button">🕹️ ใช้ค่าจากล่าสุด</button>
           </div>
           <div id="previewUrl" class="preview-url">preview url</div>
         </section>
 
         <div class="footer-note">
-          Planner นี้ส่งค่า pid / diff / time / seed / hub / run / view / gate / cooldown ให้ครบ
+          Launcher นี้จะส่ง query params ให้ครบทั้ง pid / diff / time / seed / hub / run / view / gate / cooldown
         </div>
       </aside>
-    </section>
-
-    <section id="view-play" class="panel play-shell hidden">
-      <div class="play-topbar">
-        <a id="fp-back-fitness-play" class="mini-pill" href="./fitness-zone.html">🏃 Fitness Zone</a>
-        <div class="mini-pill">📋 Fitness Planner Run</div>
-        <button id="btn-stop-early" class="mini-pill" type="button">⏹️ Finish</button>
-      </div>
-
-      <div class="hud">
-        <div class="hud-box"><span class="k">Mode</span><span id="hud-mode" class="v">play</span></div>
-        <div class="hud-box"><span class="k">Plan</span><span id="hud-diff" class="v">normal</span></div>
-        <div class="hud-box"><span class="k">Time</span><span id="hud-time" class="v">90</span></div>
-        <div class="hud-box"><span class="k">Score</span><span id="hud-score" class="v">0</span></div>
-        <div class="hud-box"><span class="k">Tasks</span><span id="hud-tasks" class="v">0/0</span></div>
-        <div class="hud-box"><span class="k">Done</span><span id="hud-done" class="v">0%</span></div>
-      </div>
-
-      <div class="planner-shell">
-        <div class="planner-board">
-          <div class="planner-progress">
-            <div class="planner-progress-head">
-              <strong id="planTitle">Daily Fitness Plan</strong>
-              <span id="planThemeText">theme: mix</span>
-            </div>
-            <div class="planner-bar">
-              <div id="plannerFill" class="planner-fill"></div>
-            </div>
-          </div>
-
-          <div id="taskGrid" class="task-grid"></div>
-        </div>
-
-        <aside class="planner-side">
-          <section class="coach-box">
-            <h3>AI Coach</h3>
-            <p id="coachText">เริ่มจากภารกิจง่ายก่อน แล้วค่อยทำต่อทีละข้อให้ครบแผน</p>
-          </section>
-
-          <section class="daily-box">
-            <h3>Mission วันนี้</h3>
-            <div id="dailyList" class="daily-list"></div>
-          </section>
-
-          <section class="summary-mini">
-            <h3>Plan Summary</h3>
-            <div class="summary-grid">
-              <div class="summary-stat"><span class="k">Selected</span><span id="miniSelected" class="v">0</span></div>
-              <div class="summary-stat"><span class="k">Done</span><span id="miniDone" class="v">0</span></div>
-              <div class="summary-stat"><span class="k">Skip</span><span id="miniSkip" class="v">0</span></div>
-              <div class="summary-stat"><span class="k">Pct</span><span id="miniPct" class="v">0%</span></div>
-            </div>
-          </section>
-
-          <div class="planner-actions">
-            <button id="btnAutoPlan" class="btn secondary" type="button">✨ Auto Plan</button>
-            <button id="btnFinishPlan" class="btn primary" type="button">✅ Finish Plan</button>
-          </div>
-        </aside>
-      </div>
-    </section>
-
-    <div id="telegraphBox" class="overlay-center telegraph">READY!</div>
-
-    <section id="summaryPanel" class="summary-panel">
-      <div class="summary-head">
-        <div id="rankBadge" class="rank-badge">A</div>
-        <div class="summary-copy">
-          <h2 id="summaryTitle">เยี่ยมมาก!</h2>
-          <p id="summarySub">นี่คือผลสรุปรอบล่าสุดของ Fitness Planner</p>
-        </div>
-      </div>
-
-      <div class="summary-grid">
-        <div class="summary-stat"><span class="k">Score</span><span id="summaryScore" class="v">0</span></div>
-        <div class="summary-stat"><span class="k">Tasks</span><span id="summaryTasks" class="v">0/0</span></div>
-        <div class="summary-stat"><span class="k">Done</span><span id="summaryDone" class="v">0%</span></div>
-        <div class="summary-stat"><span class="k">Skip</span><span id="summarySkip" class="v">0</span></div>
-      </div>
-
-      <div class="summary-actions">
-        <button id="btnPlayAgain" class="btn primary" type="button" data-action="play-again">🔁 เล่นอีกครั้ง</button>
-        <a id="btnBackFitness" class="btn secondary" href="./fitness-zone.html">🏃 Fitness Zone</a>
-        <a id="btnBackHub" class="btn ghost" href="./hub-v2.html">🏠 HUB</a>
-      </div>
-    </section>
-
-    <div class="footer-note">
-      HeroHealth • Fitness Planner • launcher + planner run + bridge-ready
-    </div>
+    </main>
   </div>
 
   <script src="./fitness-zone-bridge.js"></script>
   <script>
-    (function () {
+    (() => {
       'use strict';
 
+      const Bridge = window.HHFitnessBridge || null;
+      const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
       const qs = new URLSearchParams(location.search);
       const $ = (id) => document.getElementById(id);
-
-      const TASK_LIBRARY = {
-        mix: [
-          { id:'walk', icon:'🚶', title:'เดินเร็ว 5 นาที', sub:'อุ่นร่างกายและขยับให้ต่อเนื่อง', tags:['cardio','easy'] },
-          { id:'jump', icon:'🦘', title:'กระโดดเบา 20 ครั้ง', sub:'เพิ่มความกระฉับกระเฉง', tags:['cardio','medium'] },
-          { id:'balance', icon:'🧍', title:'ทรงตัว 3 รอบ', sub:'คุมแกนลำตัวให้นิ่ง', tags:['balance','focus'] },
-          { id:'stretch', icon:'🤸', title:'ยืดแขนและขา', sub:'ผ่อนคลายก่อนและหลังเล่น', tags:['stretch','easy'] },
-          { id:'water', icon:'🥤', title:'พักดื่มน้ำ', sub:'ดูแลร่างกายระหว่างกิจกรรม', tags:['recovery','easy'] },
-          { id:'breath', icon:'🌬️', title:'หายใจลึก 5 ครั้ง', sub:'พักและคืนสมาธิ', tags:['recovery','focus'] }
-        ],
-        balance: [
-          { id:'balance1', icon:'🧍', title:'ยืนขาเดียว', sub:'ข้างละ 10 วินาที', tags:['balance','focus'] },
-          { id:'balance2', icon:'🎯', title:'มองจุดคงที่', sub:'ช่วยคุมสมดุลให้นิ่งขึ้น', tags:['focus'] },
-          { id:'balance3', icon:'🦶', title:'แตะปลายเท้าสลับ', sub:'คุมการถ่ายน้ำหนัก', tags:['balance'] },
-          { id:'water', icon:'🥤', title:'พักดื่มน้ำ', sub:'เติมพลังและผ่อนคลาย', tags:['recovery'] },
-          { id:'breath', icon:'🌬️', title:'หายใจลึก', sub:'คืนสมาธิและความนิ่ง', tags:['focus'] }
-        ],
-        cardio: [
-          { id:'walk', icon:'🚶', title:'เดินเร็ว', sub:'ขยับต่อเนื่อง 5 นาที', tags:['cardio'] },
-          { id:'jump', icon:'🦘', title:'กระโดดเบา', sub:'ทำตามจังหวะสม่ำเสมอ', tags:['cardio'] },
-          { id:'march', icon:'🥁', title:'ย่ำเท้าอยู่กับที่', sub:'รักษาจังหวะให้ต่อเนื่อง', tags:['rhythm'] },
-          { id:'arm', icon:'💪', title:'แกว่งแขน', sub:'เพิ่มความกระฉับกระเฉง', tags:['cardio'] },
-          { id:'water', icon:'🥤', title:'พักดื่มน้ำ', sub:'พักสั้น ๆ ก่อนทำต่อ', tags:['recovery'] }
-        ],
-        stretch: [
-          { id:'stretch1', icon:'🤸', title:'ยืดแขนขึ้นบน', sub:'ค้าง 10 วินาที', tags:['stretch'] },
-          { id:'stretch2', icon:'🧘', title:'ยืดตัวด้านข้าง', sub:'ซ้าย-ขวาอย่างช้า ๆ', tags:['stretch'] },
-          { id:'stretch3', icon:'🦵', title:'ยืดขาด้านหน้า', sub:'ค่อย ๆ ค้างไว้', tags:['stretch'] },
-          { id:'breath', icon:'🌬️', title:'หายใจลึก', sub:'ทำพร้อมการยืดตัว', tags:['focus'] },
-          { id:'water', icon:'🥤', title:'พักดื่มน้ำ', sub:'เตรียมพร้อมสำหรับรอบต่อไป', tags:['recovery'] }
-        ],
-        recovery: [
-          { id:'breath', icon:'🌬️', title:'หายใจลึก 5 ครั้ง', sub:'คืนจังหวะร่างกาย', tags:['recovery'] },
-          { id:'water', icon:'🥤', title:'พักดื่มน้ำ', sub:'ดูแลร่างกายหลังกิจกรรม', tags:['recovery'] },
-          { id:'stretch', icon:'🤸', title:'ยืดแขน-ขาเบา ๆ', sub:'ผ่อนคลายกล้ามเนื้อ', tags:['stretch'] },
-          { id:'walkslow', icon:'🚶', title:'เดินช้า 2 นาที', sub:'ค่อย ๆ คลายร่างกาย', tags:['recovery'] },
-          { id:'smile', icon:'😊', title:'ยิ้มและเช็กความพร้อม', sub:'สรุปว่าพร้อมลุยต่อไหม', tags:['mindset'] }
-        ]
-      };
 
       const els = {
         pid: $('pid'),
         name: $('name'),
         studyId: $('studyId'),
         seed: $('seed'),
-        themeSelect: $('themeSelect'),
 
-        btnBackFitnessTop: $('btnBackFitnessTop'),
-        btnBackHubTop: $('btnBackHubTop'),
+        btnHubTop: $('btnHubTop'),
         btnBackFitness: $('btnBackFitness'),
-        btnBackHub: $('btnBackHub'),
-        btnStartStandard: $('btnStartStandard'),
-        btnQuickPlay: $('btnQuickPlay'),
-        btnUseLastPattern: $('btnUseLastPattern'),
-        btnApplyRecommended: $('btnApplyRecommended'),
-
-        previewUrl: $('previewUrl'),
-        recentStripSub: $('recentStripSub'),
-        recentRank: $('recentRank'),
-        recentScore: $('recentScore'),
-        recentTasks: $('recentTasks'),
-        recentCompletion: $('recentCompletion'),
 
         recommendTitle: $('recommendTitle'),
         recommendSub: $('recommendSub'),
         recommendChips: $('recommendChips'),
+        btnApplyRecommended: $('btnApplyRecommended'),
 
-        viewMenu: $('view-menu'),
-        viewPlay: $('view-play'),
+        recentStripSub: $('recentStripSub'),
+        recentRank: $('recentRank'),
+        recentDone: $('recentDone'),
+        recentSkip: $('recentSkip'),
+        recentPct: $('recentPct'),
 
-        hudMode: $('hud-mode'),
-        hudDiff: $('hud-diff'),
-        hudTime: $('hud-time'),
-        hudScore: $('hud-score'),
-        hudTasks: $('hud-tasks'),
-        hudDone: $('hud-done'),
+        previewUrl: $('previewUrl'),
+        btnStartStandard: $('btnStartStandard'),
+        btnQuickPlay: $('btnQuickPlay'),
+        btnUseLastSummary: $('btnUseLastSummary'),
 
-        telegraphBox: $('telegraphBox'),
-        summaryPanel: $('summaryPanel'),
-        summaryTitle: $('summaryTitle'),
-        summarySub: $('summarySub'),
-        summaryScore: $('summaryScore'),
-        summaryTasks: $('summaryTasks'),
-        summaryDone: $('summaryDone'),
-        summarySkip: $('summarySkip'),
-        rankBadge: $('rankBadge'),
-
-        btnPlayAgain: $('btnPlayAgain'),
-        btnStopEarly: $('btn-stop-early'),
-        fpBackFitnessPlay: $('fp-back-fitness-play'),
-
-        planTitle: $('planTitle'),
-        planThemeText: $('planThemeText'),
-        plannerFill: $('plannerFill'),
-        taskGrid: $('taskGrid'),
-        coachText: $('coachText'),
-        dailyList: $('dailyList'),
-        miniSelected: $('miniSelected'),
-        miniDone: $('miniDone'),
-        miniSkip: $('miniSkip'),
-        miniPct: $('miniPct'),
-        btnAutoPlan: $('btnAutoPlan'),
-        btnFinishPlan: $('btnFinishPlan')
+        modePlayStart: $('modePlayStart'),
+        modePlayPreset: $('modePlayPreset'),
+        modeQuickStart: $('modeQuickStart'),
+        modeQuickPreset: $('modeQuickPreset'),
+        modeResearchStart: $('modeResearchStart'),
+        modeResearchPreset: $('modeResearchPreset'),
+        modeDemoStart: $('modeDemoStart'),
+        modeDemoPreset: $('modeDemoPreset')
       };
 
-      const Bridge = window.HHFitnessBridge;
       const ABS_HUB = new URL('./hub-v2.html', location.href).href;
       const ABS_FITNESS = new URL('./fitness-zone.html', location.href).href;
-      const ABS_SELF = new URL('./fitness-planner.html', location.href).href;
+      const ABS_RUN = new URL('./fitness-planner/index.html', location.href).href;
       const ABS_GATE = new URL('./warmup-gate.html', location.href).href;
 
-      let state = {
-        running: false,
-        timerId: 0,
-        left: 0,
-        total: 0,
-        score: 0,
-        tasks: [],
-        skipped: 0,
-        theme: 'mix'
-      };
-
-      function q(k, d='') {
-        const v = qs.get(k);
-        return v == null || v === '' ? d : v;
+      function safeJsonParse(raw, fallback = null) {
+        try { return JSON.parse(raw); } catch (_) { return fallback; }
       }
 
-      function setRadio(name, value) {
-        const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
-        if (el) el.checked = true;
+      function readSummary() {
+        try {
+          const raw = localStorage.getItem(LAST_SUMMARY_KEY);
+          const data = raw ? safeJsonParse(raw, null) : null;
+          if (!data) return null;
+          const game = String(data.game || data.gameId || '').trim().toLowerCase();
+          return game === 'fitness-planner' ? data : null;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function readOrDefault(key, fallback) {
+        const v = qs.get(key);
+        return (v == null || v === '') ? fallback : v;
+      }
+
+      function cleanText(v, fallback='') {
+        const s = String(v || '').trim();
+        return s || fallback;
       }
 
       function readRadio(name, fallback) {
-        const el = document.querySelector(`input[name="${name}"]:checked`);
-        return el ? el.value : fallback;
+        const node = document.querySelector(`input[name="${name}"]:checked`);
+        return node ? node.value : fallback;
+      }
+
+      function setRadio(name, value, fallbackId) {
+        const node = document.querySelector(`input[name="${name}"][value="${value}"]`);
+        if (node) node.checked = true;
+        else if (fallbackId) $(fallbackId).checked = true;
+      }
+
+      function buildSeed() {
+        return cleanText(els.seed.value, String(Date.now()));
       }
 
       function buildFitnessBackUrl() {
-        const u = new URL(q('hub', ABS_FITNESS), location.href);
-        if (!u.searchParams.get('focus')) u.searchParams.set('focus', 'fitness-planner');
-        if (!u.searchParams.get('featured')) u.searchParams.set('featured', 'fitness-planner');
-        return u.toString();
-      }
+        if (Bridge?.buildFitnessZoneUrl) {
+          return Bridge.buildFitnessZoneUrl({
+            focus: 'fitness-planner',
+            featured: 'fitness-planner'
+          });
+        }
 
-      function buildLauncherUrl() {
-        const u = new URL(ABS_SELF);
-
-        [
-          'pid','name','nick','studyId','view','debug','api','log',
-          'studentKey','schoolCode','classRoom','studentNo','nickName'
-        ].forEach((k) => {
-          const v = q(k, '');
-          if (v) u.searchParams.set(k, v);
-        });
-
-        u.searchParams.set('game', 'fitness-planner');
-        u.searchParams.set('gameId', 'fitness-planner');
+        const u = new URL(ABS_FITNESS, location.href);
         u.searchParams.set('zone', 'fitness');
-        u.searchParams.set('diff', readRadio('diff', q('diff', 'normal')));
-        u.searchParams.set('time', readRadio('time', q('time', '90')));
-        u.searchParams.set('view', readRadio('view', q('view', 'mobile')));
-        u.searchParams.set('run', readRadio('run', q('run', 'play')));
-        u.searchParams.set('gate', readRadio('gate', q('gate', '1')));
-        u.searchParams.set('cooldown', readRadio('cooldown', q('cooldown', '1')));
-        u.searchParams.set('hub', q('hub', ABS_HUB));
-        u.searchParams.set('seed', els.seed.value || String(Date.now()));
-        u.searchParams.set('theme', els.themeSelect.value || q('theme', 'mix'));
-        u.searchParams.set('name', els.name.value || q('name', q('nickName', 'Player')));
-        u.searchParams.set('pid', els.pid.value || q('pid', 'anon'));
-        if (els.studyId.value) u.searchParams.set('studyId', els.studyId.value);
+        u.searchParams.set('focus', 'fitness-planner');
+        u.searchParams.set('featured', 'fitness-planner');
         return u.toString();
       }
 
-      function baseRunUrl(patch = {}) {
-        const u = new URL(ABS_SELF);
+      function baseParams() {
+        return {
+          pid: cleanText(els.pid.value, 'anon'),
+          name: cleanText(els.name.value, 'Player'),
+          studyId: cleanText(els.studyId.value, ''),
+          diff: readRadio('diff', 'normal'),
+          time: readRadio('time', '90'),
+          view: readRadio('view', 'mobile'),
+          run: readRadio('run', 'play'),
+          gate: readRadio('gate', '1'),
+          cooldown: readRadio('cooldown', '1'),
+          seed: buildSeed(),
+          hub: buildFitnessBackUrl()
+        };
+      }
 
-        const pid = els.pid.value || q('pid', 'anon');
-        const name = els.name.value || q('name', q('nickName', 'Player'));
-        const studyId = els.studyId.value || q('studyId', '');
-        const diff = patch.diff || readRadio('diff', q('diff', 'normal'));
-        const time = patch.time || readRadio('time', q('time', '90'));
-        const view = patch.view || readRadio('view', q('view', 'mobile'));
-        const run = patch.run || readRadio('run', q('run', 'play'));
-        const gate = patch.gate ?? readRadio('gate', q('gate', '1'));
-        const cooldown = patch.cooldown ?? readRadio('cooldown', q('cooldown', '1'));
-        const seed = patch.seed || (els.seed.value || q('seed', String(Date.now())));
-        const hub = patch.hub || buildFitnessBackUrl();
-        const theme = patch.theme || els.themeSelect.value || q('theme', 'mix');
+      function copyExtraParams(url) {
+        [
+          'studentKey','schoolCode','classRoom','studentNo','nickName',
+          'api','debug','phase','conditionGroup','sessionNo','weekNo','log'
+        ].forEach((k) => {
+          const v = qs.get(k);
+          if (v != null && v !== '') url.searchParams.set(k, v);
+        });
+      }
 
-        u.searchParams.set('pid', pid);
-        u.searchParams.set('name', name);
+      function buildRunUrl(override = {}) {
+        const p = baseParams();
+        const u = new URL(ABS_RUN);
+
+        u.searchParams.set('pid', p.pid);
+        u.searchParams.set('name', p.name);
+        if (p.studyId) u.searchParams.set('studyId', p.studyId);
+
         u.searchParams.set('zone', 'fitness');
         u.searchParams.set('cat', 'fitness');
         u.searchParams.set('game', 'fitness-planner');
         u.searchParams.set('gameId', 'fitness-planner');
-        u.searchParams.set('theme', theme);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('time', String(time));
-        u.searchParams.set('view', view);
-        u.searchParams.set('run', run);
-        u.searchParams.set('gate', String(gate));
-        u.searchParams.set('cooldown', String(cooldown));
-        u.searchParams.set('hub', hub);
-        u.searchParams.set('seed', seed);
-        if (studyId) u.searchParams.set('studyId', studyId);
+        u.searchParams.set('theme', override.theme || 'planner');
 
-        [
-          'debug','api','log',
-          'studentKey','schoolCode','classRoom','studentNo','nickName'
-        ].forEach((k) => {
-          const v = q(k, '');
-          if (v) u.searchParams.set(k, v);
-        });
+        u.searchParams.set('diff', override.diff || p.diff);
+        u.searchParams.set('time', override.time || p.time);
+        u.searchParams.set('seed', override.seed || p.seed);
+        u.searchParams.set('hub', override.hub || p.hub);
+        u.searchParams.set('view', override.view || p.view);
 
+        u.searchParams.set('run', override.run || p.run);
+        u.searchParams.set('mode', override.mode || 'quick');
+
+        u.searchParams.set('gate', override.gate || p.gate);
+        u.searchParams.set('cooldown', override.cooldown || p.cooldown);
+        u.searchParams.set('returnPhase', (override.cooldown || p.cooldown) === '1' ? 'cooldown' : 'hub');
+        u.searchParams.set('cdur', override.cdur || '20');
+
+        copyExtraParams(u);
         return u;
       }
 
-      function buildWarmupUrl(runUrl, patch = {}) {
+      function buildWarmupUrl(runUrl, override = {}) {
+        const p = baseParams();
         const u = new URL(ABS_GATE);
 
         u.searchParams.set('phase', 'warmup');
-        u.searchParams.set('pid', els.pid.value || q('pid', 'anon'));
-        u.searchParams.set('name', els.name.value || q('name', q('nickName', 'Player')));
-        if (els.studyId.value || q('studyId', '')) {
-          u.searchParams.set('studyId', els.studyId.value || q('studyId', ''));
-        }
+        u.searchParams.set('pid', p.pid);
+        u.searchParams.set('name', p.name);
+        if (p.studyId) u.searchParams.set('studyId', p.studyId);
 
         u.searchParams.set('zone', 'fitness');
         u.searchParams.set('cat', 'fitness');
         u.searchParams.set('game', 'fitness-planner');
         u.searchParams.set('gameId', 'fitness-planner');
-        u.searchParams.set('theme', patch.theme || els.themeSelect.value || q('theme', 'mix'));
+        u.searchParams.set('theme', override.theme || 'planner');
 
-        u.searchParams.set('diff', patch.diff || readRadio('diff', q('diff', 'normal')));
-        u.searchParams.set('time', patch.time || readRadio('time', q('time', '90')));
-        u.searchParams.set('seed', patch.seed || (els.seed.value || q('seed', String(Date.now()))));
-        u.searchParams.set('hub', patch.hub || buildFitnessBackUrl());
-        u.searchParams.set('view', patch.view || readRadio('view', q('view', 'mobile')));
-        u.searchParams.set('run', patch.run || readRadio('run', q('run', 'play')));
+        u.searchParams.set('diff', override.diff || p.diff);
+        u.searchParams.set('time', override.time || p.time);
+        u.searchParams.set('seed', override.seed || p.seed);
+        u.searchParams.set('hub', override.hub || p.hub);
+        u.searchParams.set('view', override.view || p.view);
+
+        u.searchParams.set('run', override.run || p.run);
+        u.searchParams.set('mode', override.mode || 'play');
 
         u.searchParams.set('gate', '1');
-        u.searchParams.set('cooldown', patch.cooldown ?? readRadio('cooldown', q('cooldown', '1')));
-        u.searchParams.set('returnPhase', (patch.cooldown ?? readRadio('cooldown', q('cooldown', '1'))) === '1' ? 'cooldown' : 'hub');
-        u.searchParams.set('dur', patch.dur || '20');
-        u.searchParams.set('cdur', patch.cdur || '20');
+        u.searchParams.set('cooldown', override.cooldown || p.cooldown);
+        u.searchParams.set('returnPhase', (override.cooldown || p.cooldown) === '1' ? 'cooldown' : 'hub');
+        u.searchParams.set('dur', override.dur || '20');
+        u.searchParams.set('cdur', override.cdur || '20');
         u.searchParams.set('next', runUrl.href);
 
+        copyExtraParams(u);
         return u;
       }
 
-      function setPreview() {
-        els.previewUrl.textContent = buildLauncherUrl();
-      }
-
-      function renderRecent() {
-        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
-        if (!last || String(last.game || '').toLowerCase() !== 'fitness-planner') {
-          els.recentStripSub.textContent = 'ยังไม่มีผลล่าสุด • เริ่มด้วย Standard Play ได้เลย';
+      function renderRecent(summary) {
+        if (!summary) {
+          els.recentStripSub.textContent = 'ยังไม่มีผลล่าสุด';
           els.recentRank.textContent = '-';
-          els.recentScore.textContent = '-';
-          els.recentTasks.textContent = '-';
-          els.recentCompletion.textContent = '-';
+          els.recentDone.textContent = '-';
+          els.recentSkip.textContent = '-';
+          els.recentPct.textContent = '-';
           return;
         }
 
-        const done = Number(last.tasksDone || 0);
-        const total = Number(last.tasksTotal || 0);
-        const pct = Number(last.completionPct || 0);
-
         els.recentStripSub.textContent =
-          `Score ${Number(last.scoreFinal || last.score || 0)} • completed ${done}/${total}`;
+          `Score ${Number(summary.scoreFinal || summary.score || 0)} • ${summary.result || 'summary'}`;
 
-        els.recentRank.textContent = String(last.rank || '-');
-        els.recentScore.textContent = String(Number(last.scoreFinal || last.score || 0));
-        els.recentTasks.textContent = `${done}/${total}`;
-        els.recentCompletion.textContent = `${pct}%`;
+        els.recentRank.textContent = String(summary.rank || '-');
+        els.recentDone.textContent =
+          `${Number(summary.tasksDone || 0)}/${Number(summary.tasksTotal || 0)}`;
+        els.recentSkip.textContent = String(Number(summary.skipCount || 0));
+        els.recentPct.textContent = `${Number(summary.completionPct || 0)}%`;
       }
 
-      function recommendFromSummary() {
-        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
-        if (!last || String(last.game || '').toLowerCase() !== 'fitness-planner') {
+      function recommendFromSummary(summary) {
+        if (!summary) {
           return {
-            title: 'แนะนำค่าเริ่มต้น',
-            sub: 'เริ่มแบบสมดุลก่อน เพื่อฝึกวางแผนและทำตาม checklist ทีละข้อ',
+            title: 'แนะนำสำหรับผู้เล่นใหม่',
+            sub: 'เริ่มที่ Quick 90 วินาที แล้วค่อยลอง Standard เมื่อคุ้นกับ planner',
             diff: 'normal',
             time: '90',
-            view: q('view', 'mobile'),
+            view: readOrDefault('view', 'mobile'),
             run: 'play',
-            gate: '1',
+            gate: '0',
             cooldown: '1',
-            theme: 'mix',
-            chips: ['Normal','90s',q('view','mobile'),'Checklist']
+            mode: 'quick',
+            theme: 'planner',
+            chips: ['Quick', '90s', 'Mobile', 'Planner']
           };
         }
 
-        const pct = Number(last.completionPct || 0);
-        const skip = Number(last.skipCount || 0);
-        const rank = String(last.rank || '').toUpperCase();
+        const pct = Number(summary.completionPct || 0);
+        const skipped = Number(summary.skipCount || 0);
+        const rank = String(summary.rank || '').toUpperCase();
 
-        if (pct < 50 || skip >= 2) {
+        if (pct < 50 || skipped >= 2) {
           return {
-            title: 'ลดจำนวนภารกิจก่อน',
-            sub: 'ใช้ Easy เพื่อโฟกัส checklist สั้น ๆ และทำให้ครบก่อน',
+            title: 'ลองแผนสั้นก่อน',
+            sub: 'แนะนำ Quick 60 วินาที เพื่อฝึก flow ให้จบทั้งแผนก่อน',
             diff: 'easy',
             time: '60',
             view: 'mobile',
             run: 'play',
-            gate: '1',
+            gate: '0',
             cooldown: '1',
+            mode: 'quick',
             theme: 'recovery',
-            chips: ['Easy','60s','Short Plan','Recovery']
+            chips: ['Quick', '60s', 'Easy', 'Recovery']
           };
         }
 
-        if ((rank === 'S' || rank === 'A') && pct >= 85) {
+        if (rank === 'S' || rank === 'A') {
           return {
-            title: 'พร้อมเพิ่มแผนที่ยาวขึ้นแล้ว',
-            sub: 'ลอง Hard หรือ Research เพื่อจัดแผนหลายข้อและจบให้ครบทั้งชุด',
-            diff: 'hard',
+            title: 'พร้อมอัปเกรดเป็น Standard',
+            sub: 'แนะนำ warmup + planner run + cooldown เต็ม flow',
+            diff: 'normal',
             time: '90',
-            view: 'pc',
-            run: 'research',
+            view: 'mobile',
+            run: 'play',
             gate: '1',
             cooldown: '1',
-            theme: 'mix',
-            chips: ['Hard','90s','PC','Planner Pro']
+            mode: 'play',
+            theme: 'planner',
+            chips: ['Standard', '90s', 'Gate ON', 'Cooldown ON']
           };
         }
 
         return {
-          title: 'กำลังไปได้ดี',
-          sub: 'แนะนำ Normal 90 วินาที เพื่อฝึกทำตามแผนให้ครบและต่อเนื่อง',
+          title: 'เหมาะกับ Quick แบบสมดุล',
+          sub: 'ทำ planner run ให้คล่องก่อน แล้วค่อยไป Standard เต็ม flow',
           diff: 'normal',
           time: '90',
           view: 'mobile',
           run: 'play',
-          gate: '1',
+          gate: '0',
           cooldown: '1',
-          theme: 'mix',
-          chips: ['Normal','90s','Plan Focus','Standard']
+          mode: 'quick',
+          theme: 'planner',
+          chips: ['Quick', '90s', 'Normal', 'Planner']
         };
       }
 
-      function applyRec(rec) {
-        setRadio('diff', rec.diff);
-        setRadio('time', rec.time);
-        setRadio('view', rec.view);
-        setRadio('run', rec.run === 'research' ? 'research' : 'play');
-        setRadio('gate', rec.gate);
-        setRadio('cooldown', rec.cooldown);
-        els.themeSelect.value = rec.theme || 'mix';
-
+      function renderRecommendation(rec) {
         els.recommendTitle.textContent = rec.title;
         els.recommendSub.textContent = rec.sub;
         els.recommendChips.innerHTML = rec.chips.map((x) => `<span>${x}</span>`).join('');
-        setPreview();
       }
 
-      function showMenu() {
-        els.viewMenu.classList.remove('hidden');
-        els.viewPlay.classList.add('hidden');
+      function applyRecommendation(rec) {
+        setRadio('diff', rec.diff, 'diff-normal');
+        setRadio('time', rec.time, 'time-90');
+        setRadio('view', rec.view, 'view-mobile');
+        setRadio('run', rec.run, rec.run === 'research' ? 'run-research' : 'run-play');
+        setRadio('gate', rec.gate, rec.gate === '1' ? 'gate-on' : 'gate-off');
+        setRadio('cooldown', rec.cooldown, rec.cooldown === '1' ? 'cooldown-on' : 'cooldown-off');
+        refreshPreview(rec.mode, rec.theme);
       }
 
-      function showPlay() {
-        els.viewMenu.classList.add('hidden');
-        els.viewPlay.classList.remove('hidden');
+      function refreshPreview(modeOverride, themeOverride) {
+        const gate = readRadio('gate', '1');
+        const summary = readSummary();
+        const rec = recommendFromSummary(summary);
+
+        const runUrl = buildRunUrl({
+          mode: modeOverride || rec.mode || 'quick',
+          theme: themeOverride || rec.theme || 'planner'
+        });
+
+        const launchUrl = gate === '1'
+          ? buildWarmupUrl(runUrl, {
+              mode: modeOverride || rec.mode || 'play',
+              theme: themeOverride || rec.theme || 'planner'
+            })
+          : runUrl;
+
+        els.previewUrl.textContent = launchUrl.href;
       }
 
-      function showTelegraph(text) {
-        els.telegraphBox.textContent = text;
-        els.telegraphBox.classList.add('show');
-        clearTimeout(els.telegraphBox.__hideTimer);
-        els.telegraphBox.__hideTimer = setTimeout(() => {
-          els.telegraphBox.classList.remove('show');
-        }, 1100);
+      function go(url) {
+        location.href = url.href;
       }
 
-      function pickTasks(diff, theme, seedText) {
-        const lib = TASK_LIBRARY[theme] || TASK_LIBRARY.mix;
-        const count = diff === 'easy' ? 3 : (diff === 'hard' ? 5 : 4);
+      function launchCurrentSettings() {
+        const summary = readSummary();
+        const rec = recommendFromSummary(summary);
+        const runUrl = buildRunUrl({
+          mode: rec.mode || 'quick',
+          theme: rec.theme || 'planner'
+        });
+        const gate = readRadio('gate', '1');
+        go(gate === '1'
+          ? buildWarmupUrl(runUrl, {
+              mode: rec.mode || 'play',
+              theme: rec.theme || 'planner'
+            })
+          : runUrl);
+      }
 
-        let seed = 0;
-        const s = String(seedText || Date.now());
-        for (let i = 0; i < s.length; i++) seed += s.charCodeAt(i) * (i + 1);
-
-        const out = [];
-        const used = new Set();
-        for (let i = 0; i < lib.length && out.length < count; i++) {
-          const idx = (seed + i * 7) % lib.length;
-          const task = lib[idx];
-          if (!used.has(task.id)) {
-            used.add(task.id);
-            out.push({ ...task, done:false, skipped:false });
-          }
+      function launchPreset(kind) {
+        if (kind === 'play') {
+          const runUrl = buildRunUrl({
+            run: 'play',
+            mode: 'play',
+            gate: '1',
+            cooldown: '1',
+            theme: 'planner',
+            time: '90'
+          });
+          go(buildWarmupUrl(runUrl, {
+            run: 'play',
+            mode: 'play',
+            cooldown: '1',
+            theme: 'planner'
+          }));
+          return;
         }
 
-        for (const t of lib) {
-          if (out.length >= count) break;
-          if (!used.has(t.id)) {
-            used.add(t.id);
-            out.push({ ...t, done:false, skipped:false });
-          }
+        if (kind === 'quick') {
+          go(buildRunUrl({
+            run: 'play',
+            mode: 'quick',
+            gate: '0',
+            cooldown: '1',
+            theme: 'planner'
+          }));
+          return;
         }
 
-        return out;
-      }
-
-      function completionPct() {
-        const total = state.tasks.length || 1;
-        const done = state.tasks.filter((t) => t.done).length;
-        return Math.round((done / total) * 100);
-      }
-
-      function doneCount() {
-        return state.tasks.filter((t) => t.done).length;
-      }
-
-      function skippedCount() {
-        return state.tasks.filter((t) => t.skipped).length;
-      }
-
-      function renderPlanner() {
-        els.planTitle.textContent = 'Daily Fitness Plan';
-        els.planThemeText.textContent = `theme: ${state.theme}`;
-        els.taskGrid.innerHTML = state.tasks.map((task, index) => `
-          <article class="task-card ${task.done ? 'done-state' : ''}" data-task="${task.id}">
-            <div class="task-head">
-              <div style="display:flex;gap:10px;min-width:0;">
-                <div class="task-icon">${task.icon}</div>
-                <div style="min-width:0;">
-                  <div class="task-title">${task.title}</div>
-                  <div class="task-sub">${task.sub}</div>
-                </div>
-              </div>
-              <div class="task-badge">${task.done ? 'done' : (task.skipped ? 'skip' : `#${index + 1}`)}</div>
-            </div>
-
-            <div class="task-meta">
-              ${(task.tags || []).map((tag) => `<span>${tag}</span>`).join('')}
-            </div>
-
-            <div class="task-actions">
-              <button class="task-btn done" data-action="done" data-task-id="${task.id}">✅ done</button>
-              <button class="task-btn skip" data-action="skip" data-task-id="${task.id}">⏭️ skip</button>
-            </div>
-          </article>
-        `).join('');
-
-        els.dailyList.innerHTML = state.tasks.map((task) => `
-          <div class="daily-item ${task.done ? 'done' : ''}">
-            <span>${task.done ? '✅' : (task.skipped ? '⏭️' : '📍')}</span>
-            <span>${task.title}</span>
-          </div>
-        `).join('');
-
-        const pct = completionPct();
-        els.plannerFill.style.width = `${pct}%`;
-        els.miniSelected.textContent = String(state.tasks.length);
-        els.miniDone.textContent = String(doneCount());
-        els.miniSkip.textContent = String(skippedCount());
-        els.miniPct.textContent = `${pct}%`;
-
-        els.hudTasks.textContent = `${doneCount()}/${state.tasks.length}`;
-        els.hudDone.textContent = `${pct}%`;
-
-        if (pct >= 100) {
-          els.coachText.textContent = 'เก่งมาก! หนูทำครบทุกภารกิจในแผนแล้ว';
-        } else if (pct >= 60) {
-          els.coachText.textContent = 'ใกล้ครบแล้ว ทำต่ออีกนิดให้จบทั้งแผน';
-        } else {
-          els.coachText.textContent = 'เริ่มจากภารกิจง่ายก่อน แล้วค่อยทำต่อทีละข้อให้ครบแผน';
+        if (kind === 'research') {
+          const runUrl = buildRunUrl({
+            run: 'research',
+            mode: 'research',
+            gate: '1',
+            cooldown: '1',
+            theme: 'planner'
+          });
+          go(buildWarmupUrl(runUrl, {
+            run: 'research',
+            mode: 'research',
+            cooldown: '1',
+            theme: 'planner'
+          }));
+          return;
         }
 
-        bindTaskButtons();
-      }
-
-      function updateHud() {
-        els.hudMode.textContent = readRadio('run', 'play');
-        els.hudDiff.textContent = readRadio('diff', 'normal');
-        els.hudTime.textContent = `${Math.max(0, state.left)}s`;
-        els.hudScore.textContent = String(state.score);
-        els.hudTasks.textContent = `${doneCount()}/${state.tasks.length}`;
-        els.hudDone.textContent = `${completionPct()}%`;
-      }
-
-      function computeRank(score, pct, skip) {
-        if (pct >= 100 && skip === 0 && score >= 220) return 'S';
-        if (pct >= 85 && skip <= 1 && score >= 170) return 'A';
-        if (pct >= 65 && score >= 120) return 'B';
-        if (pct >= 45) return 'C';
-        return 'D';
-      }
-
-      function markTask(taskId, action) {
-        const task = state.tasks.find((t) => t.id === taskId);
-        if (!task) return;
-
-        if (action === 'done' && !task.done) {
-          task.done = true;
-          task.skipped = false;
-          state.score += 45;
-          showTelegraph(`✅ ${task.title}`);
-        } else if (action === 'skip' && !task.done) {
-          task.skipped = true;
-          state.score += 8;
-          showTelegraph(`⏭️ ข้าม ${task.title}`);
-        }
-
-        renderPlanner();
-        updateHud();
-
-        if (doneCount() === state.tasks.length) {
-          finishRun('plan-complete');
+        if (kind === 'demo') {
+          go(buildRunUrl({
+            run: 'play',
+            mode: 'demo',
+            diff: 'easy',
+            time: '60',
+            gate: '0',
+            cooldown: '0',
+            theme: 'recovery',
+            view: 'mobile'
+          }));
         }
       }
 
-      function bindTaskButtons() {
-        els.taskGrid.querySelectorAll('[data-action="done"]').forEach((btn) => {
-          btn.onclick = () => markTask(btn.getAttribute('data-task-id'), 'done');
-        });
+      function presetMode(kind) {
+        if (kind === 'play') {
+          setRadio('run', 'play', 'run-play');
+          setRadio('diff', 'normal', 'diff-normal');
+          setRadio('time', '90', 'time-90');
+          setRadio('gate', '1', 'gate-on');
+          setRadio('cooldown', '1', 'cooldown-on');
+          refreshPreview('play', 'planner');
+          return;
+        }
 
-        els.taskGrid.querySelectorAll('[data-action="skip"]').forEach((btn) => {
-          btn.onclick = () => markTask(btn.getAttribute('data-task-id'), 'skip');
-        });
+        if (kind === 'quick') {
+          setRadio('run', 'play', 'run-play');
+          setRadio('diff', 'normal', 'diff-normal');
+          setRadio('time', '90', 'time-90');
+          setRadio('gate', '0', 'gate-off');
+          setRadio('cooldown', '1', 'cooldown-on');
+          refreshPreview('quick', 'planner');
+          return;
+        }
+
+        if (kind === 'research') {
+          setRadio('run', 'research', 'run-research');
+          setRadio('diff', 'normal', 'diff-normal');
+          setRadio('time', '90', 'time-90');
+          setRadio('gate', '1', 'gate-on');
+          setRadio('cooldown', '1', 'cooldown-on');
+          refreshPreview('research', 'planner');
+          return;
+        }
+
+        if (kind === 'demo') {
+          setRadio('run', 'play', 'run-play');
+          setRadio('diff', 'easy', 'diff-easy');
+          setRadio('time', '60', 'time-60');
+          setRadio('gate', '0', 'gate-off');
+          setRadio('cooldown', '0', 'cooldown-off');
+          setRadio('view', 'mobile', 'view-mobile');
+          refreshPreview('demo', 'recovery');
+        }
       }
 
-      function finishRun(reason = 'summary') {
-        if (!state.running) return;
-        state.running = false;
-        clearInterval(state.timerId);
-
-        const pct = completionPct();
-        const done = doneCount();
-        const skip = skippedCount();
-        const rank = computeRank(state.score, pct, skip);
-
-        els.summaryPanel.classList.add('show');
-        els.summaryTitle.textContent = rank === 'S' ? 'วางแผนเก่งมาก!' : (rank === 'A' ? 'เยี่ยมมาก!' : 'ทำได้ดีแล้ว!');
-        els.summarySub.textContent = 'นี่คือผลสรุปรอบล่าสุดของ Fitness Planner';
-        els.summaryScore.textContent = String(state.score);
-        els.summaryTasks.textContent = `${done}/${state.tasks.length}`;
-        els.summaryDone.textContent = `${pct}%`;
-        els.summarySkip.textContent = String(skip);
-        els.rankBadge.textContent = rank;
-
-        Bridge?.markFinish('fitness-planner', {
-          scoreFinal: state.score,
-          rank,
-          result: reason,
-          timeSec: Number(readRadio('time', q('time', '90')) || 90),
-          snapshotExtra: {
-            href: location.href,
-            hub: q('hub', ABS_HUB),
-            theme: state.theme,
-            tasksDone: done,
-            tasksTotal: state.tasks.length,
-            completionPct: pct,
-            skipCount: skip
-          },
-          summaryExtra: {
-            href: location.href,
-            hub: q('hub', ABS_HUB),
-            theme: state.theme,
-            tasksDone: done,
-            tasksTotal: state.tasks.length,
-            completionPct: pct,
-            skipCount: skip
-          }
-        });
-      }
-
-      function startRun() {
-        state.running = true;
-        state.left = Number(readRadio('time', q('time', '90')) || 90);
-        state.total = state.left;
-        state.score = 0;
-        state.theme = els.themeSelect.value || q('theme', 'mix');
-        state.tasks = pickTasks(readRadio('diff', q('diff', 'normal')), state.theme, els.seed.value || q('seed', String(Date.now())));
-
-        els.summaryPanel.classList.remove('show');
-        showPlay();
-        renderPlanner();
-        updateHud();
-        showTelegraph('READY PLAN!');
-
-        Bridge?.markStart('fitness-planner', {
-          result: 'planning',
-          href: location.href,
-          theme: state.theme
-        });
-
-        clearInterval(state.timerId);
-        state.timerId = setInterval(() => {
-          if (!state.running) return;
-
-          state.left -= 1;
-
-          if (state.left === 60) showTelegraph('KEEP GOING!');
-          if (state.left === 20) showTelegraph('FINAL CHECK!');
-          if (state.left <= 0) {
-            finishRun('timeup');
-          }
-
-          updateHud();
-        }, 1000);
-      }
-
-      function launchWithCurrentSettings() {
-        const runUrl = baseRunUrl();
-        const gate = readRadio('gate', q('gate', '1'));
-        location.href = gate === '1'
-          ? buildWarmupUrl(runUrl).href
-          : runUrl.href;
-      }
-
-      function launchQuick() {
-        const runUrl = baseRunUrl({
-          diff: 'easy',
-          time: '60',
-          run: 'play',
-          gate: '0',
-          cooldown: '1',
-          view: 'mobile',
-          theme: 'recovery'
-        });
-        location.href = runUrl.href;
-      }
-
-      function useLastPattern() {
-        const last = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
-        if (!last || String(last.game || '').toLowerCase() !== 'fitness-planner') return;
-
-        setRadio('diff', String(last.diff || 'normal'));
-        setRadio('time', String(last.timeSec || '90'));
-        setRadio('view', q('view', 'mobile'));
-        setRadio('run', 'play');
-        setRadio('gate', '1');
-        setRadio('cooldown', '1');
-        els.themeSelect.value = String(last.theme || 'mix');
-        setPreview();
-      }
-
-      function initLauncherMode() {
-        els.pid.value = q('pid', 'anon');
-        els.name.value = q('name', q('nickName', 'Player'));
-        els.studyId.value = q('studyId', '');
-        els.seed.value = q('seed', String(Date.now()));
-        els.themeSelect.value = q('theme', 'mix');
-
-        setRadio('diff', q('diff', 'normal'));
-        setRadio('time', q('time', '90'));
-        setRadio('view', q('view', 'mobile'));
-        setRadio('run', q('run', 'play'));
-        setRadio('gate', q('gate', '1'));
-        setRadio('cooldown', q('cooldown', '1'));
-
-        const fitnessUrl = buildFitnessBackUrl();
-        els.btnBackFitnessTop.href = fitnessUrl;
-        els.btnBackFitness.href = fitnessUrl;
-        els.fpBackFitnessPlay.href = fitnessUrl;
-
-        const hubUrl = q('hub', ABS_HUB);
-        els.btnBackHubTop.href = hubUrl;
-        els.btnBackHub.href = hubUrl;
-
-        const rec = recommendFromSummary();
-        applyRec(rec);
-        renderRecent();
-
-        els.btnApplyRecommended.addEventListener('click', () => applyRec(rec));
-        els.btnStartStandard.addEventListener('click', launchWithCurrentSettings);
-        els.btnQuickPlay.addEventListener('click', launchQuick);
-        els.btnUseLastPattern.addEventListener('click', useLastPattern);
-
-        els.btnAutoPlan.addEventListener('click', () => {
-          state.theme = els.themeSelect.value || 'mix';
-          state.tasks = pickTasks(readRadio('diff', q('diff', 'normal')), state.theme, String(Date.now()));
-          renderPlanner();
-          showTelegraph('✨ AUTO PLAN');
-        });
-
-        els.btnFinishPlan.addEventListener('click', () => {
-          finishRun('manual-finish');
-        });
-
+      function bindAll(summary, rec) {
         [
-          ...document.querySelectorAll('input[type="radio"]'),
-          els.pid, els.name, els.studyId, els.seed, els.themeSelect
-        ].forEach((el) => {
-          if (!el) return;
-          el.addEventListener('input', setPreview);
-          el.addEventListener('change', setPreview);
+          els.pid, els.name, els.studyId, els.seed,
+          ...document.querySelectorAll('input[type="radio"]')
+        ].forEach((node) => {
+          node.addEventListener('input', () => refreshPreview());
+          node.addEventListener('change', () => refreshPreview());
         });
-      }
 
-      els.btnPlayAgain?.addEventListener('click', () => {
-        location.href = baseRunUrl({
-          gate: '0',
-          cooldown: readRadio('cooldown', q('cooldown', '1'))
-        }).href;
-      });
+        els.btnApplyRecommended.addEventListener('click', () => applyRecommendation(rec));
+        els.btnStartStandard.addEventListener('click', launchCurrentSettings);
+        els.btnQuickPlay.addEventListener('click', () => launchPreset('quick'));
 
-      els.btnStopEarly?.addEventListener('click', () => {
-        finishRun('manual-finish');
-      });
+        els.btnUseLastSummary.addEventListener('click', () => {
+          if (!summary) {
+            applyRecommendation(rec);
+            return;
+          }
 
-      if (Bridge) {
-        Bridge.installBasicHooks('fitness-planner', {
-          fitnessLinkSelectors: [
-            '#btnBackFitnessTop',
-            '#btnBackFitness',
-            '#fp-back-fitness-play',
-            'a[href*="fitness-zone.html"]'
-          ]
+          setRadio('diff', cleanText(summary.diff, rec.diff || 'normal'), 'diff-normal');
+          setRadio('time', String(summary.timeSec || rec.time || '90'), 'time-90');
+          setRadio('view', cleanText(readOrDefault('view', 'mobile'), 'mobile'), 'view-mobile');
+          setRadio('run', rec.run || 'play', (rec.run === 'research' ? 'run-research' : 'run-play'));
+          setRadio('gate', '0', 'gate-off');
+          setRadio('cooldown', '1', 'cooldown-on');
+          refreshPreview(rec.mode || 'quick', rec.theme || 'planner');
         });
+
+        els.modePlayStart.addEventListener('click', () => launchPreset('play'));
+        els.modePlayPreset.addEventListener('click', () => presetMode('play'));
+
+        els.modeQuickStart.addEventListener('click', () => launchPreset('quick'));
+        els.modeQuickPreset.addEventListener('click', () => presetMode('quick'));
+
+        els.modeResearchStart.addEventListener('click', () => launchPreset('research'));
+        els.modeResearchPreset.addEventListener('click', () => presetMode('research'));
+
+        els.modeDemoStart.addEventListener('click', () => launchPreset('demo'));
+        els.modeDemoPreset.addEventListener('click', () => presetMode('demo'));
       }
 
-      initLauncherMode();
+      function init() {
+        const hubUrl = readOrDefault('hub', ABS_HUB);
+        const fitnessUrl = buildFitnessBackUrl();
 
-      if (q('game', '') || q('gameId', '') || q('run', '') || q('mode', '')) {
-        startRun();
-      } else {
-        showMenu();
+        els.btnHubTop.href = hubUrl;
+        els.btnBackFitness.href = fitnessUrl;
+
+        els.pid.value = readOrDefault('pid', 'anon');
+        els.name.value = readOrDefault('name', readOrDefault('nick', 'Player'));
+        els.studyId.value = readOrDefault('studyId', '');
+        els.seed.value = readOrDefault('seed', String(Date.now()));
+
+        setRadio('diff', readOrDefault('diff', 'normal'), 'diff-normal');
+        setRadio('time', readOrDefault('time', '90'), 'time-90');
+        setRadio('view', readOrDefault('view', 'mobile'), 'view-mobile');
+        setRadio('run', readOrDefault('run', 'play'), 'run-play');
+        setRadio('gate', readOrDefault('gate', '1'), 'gate-on');
+        setRadio('cooldown', readOrDefault('cooldown', '1'), 'cooldown-on');
+
+        Bridge?.markOpen?.('fitness-planner', {
+          result: 'launcher-open',
+          href: location.href
+        });
+
+        const summary = readSummary();
+        const rec = recommendFromSummary(summary);
+
+        renderRecent(summary);
+        renderRecommendation(rec);
+        bindAll(summary, rec);
+
+        if (!qs.get('diff') && !qs.get('time') && !qs.get('run') && !qs.get('gate')) {
+          applyRecommendation(rec);
+        } else {
+          refreshPreview();
+        }
       }
+
+      init();
     })();
   </script>
 </body>
