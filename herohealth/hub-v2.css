@@ -1123,3 +1123,130 @@ button{ font:inherit; }
     font-size:20px;
   }
 }
+/* =========================================================
+   HUB V2 PATCH — disable legacy libraryBox renderer
+   PATCH v20260411c-hub-lite-disable-librarybox
+   แปะท้าย hub-v2.js
+   ========================================================= */
+(function (W, D) {
+  'use strict';
+
+  const LIB_ID = 'libraryBox';
+
+  function byId(id) {
+    return D.getElementById(id);
+  }
+
+  function hardHideLibraryBox() {
+    const el = byId(LIB_ID);
+    if (!el) return;
+
+    try { el.innerHTML = ''; } catch (_) {}
+
+    el.hidden = true;
+    el.setAttribute('hidden', '');
+    el.setAttribute('aria-hidden', 'true');
+
+    el.style.display = 'none';
+    el.style.visibility = 'hidden';
+    el.style.pointerEvents = 'none';
+    el.style.height = '0';
+    el.style.minHeight = '0';
+    el.style.margin = '0';
+    el.style.padding = '0';
+    el.style.overflow = 'hidden';
+  }
+
+  function patchElementMethods(el) {
+    if (!el || el.__hhLibraryPatched) return;
+    el.__hhLibraryPatched = true;
+
+    const originalAppendChild = el.appendChild ? el.appendChild.bind(el) : null;
+    const originalInsertBefore = el.insertBefore ? el.insertBefore.bind(el) : null;
+    const originalReplaceChildren = el.replaceChildren ? el.replaceChildren.bind(el) : null;
+
+    if (originalAppendChild) {
+      el.appendChild = function () {
+        hardHideLibraryBox();
+        return arguments[0] || null;
+      };
+    }
+
+    if (originalInsertBefore) {
+      el.insertBefore = function () {
+        hardHideLibraryBox();
+        return arguments[0] || null;
+      };
+    }
+
+    if (originalReplaceChildren) {
+      el.replaceChildren = function () {
+        hardHideLibraryBox();
+      };
+    }
+
+    try {
+      Object.defineProperty(el, 'innerHTML', {
+        configurable: true,
+        enumerable: true,
+        get() {
+          return '';
+        },
+        set() {
+          hardHideLibraryBox();
+        }
+      });
+    } catch (_) {
+      /* บาง browser/element define ไม่ได้ ก็ปล่อยผ่าน */
+    }
+  }
+
+  function patchLibraryBox() {
+    const el = byId(LIB_ID);
+    if (!el) return;
+    patchElementMethods(el);
+    hardHideLibraryBox();
+  }
+
+  function observeLibraryBox() {
+    if (W.__hhLibraryObserverBound) return;
+    W.__hhLibraryObserverBound = true;
+
+    const observer = new MutationObserver(function () {
+      patchLibraryBox();
+    });
+
+    observer.observe(D.documentElement || D.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      characterData: true
+    });
+
+    W.__hhLibraryObserver = observer;
+  }
+
+  function bootDisableLibraryBox() {
+    patchLibraryBox();
+    observeLibraryBox();
+
+    W.setTimeout(patchLibraryBox, 0);
+    W.setTimeout(patchLibraryBox, 120);
+    W.setTimeout(patchLibraryBox, 500);
+    W.setTimeout(patchLibraryBox, 1200);
+  }
+
+  if (D.readyState === 'loading') {
+    D.addEventListener('DOMContentLoaded', bootDisableLibraryBox, { once: true });
+  } else {
+    bootDisableLibraryBox();
+  }
+
+  W.addEventListener('load', patchLibraryBox);
+  W.addEventListener('pageshow', patchLibraryBox);
+  W.addEventListener('focus', patchLibraryBox);
+
+  D.addEventListener('visibilitychange', function () {
+    if (!D.hidden) patchLibraryBox();
+  });
+})(window, document);
