@@ -3,4 +3,2450 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth
+  <title>HeroHealth • Fitness Planner</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe9b1" />
+  <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --bg1:#f2fff6;
+      --bg2:#e5fbec;
+      --bg3:#fff9e3;
+
+      --card:#ffffff;
+      --card-soft:#fbfffc;
+
+      --line:#d8eee0;
+      --line-strong:#bfe4ca;
+
+      --text:#3f423d;
+      --muted:#73776f;
+
+      --green:#7fd957;
+      --green2:#57bf39;
+      --teal:#66dac5;
+      --teal2:#2fb99e;
+      --blue:#7ccfff;
+      --blue2:#49b1f0;
+      --yellow:#ffd95f;
+      --orange:#ffb55d;
+      --pink:#ff98c9;
+      --pink2:#ff73b0;
+      --red:#ff7f7f;
+      --purple:#b89cff;
+
+      --shadow:0 18px 46px rgba(63,66,61,.10);
+      --shadow-soft:0 10px 24px rgba(63,66,61,.07);
+
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; }
+    body{
+      min-height:100vh;
+      font-family:ui-rounded,"Nunito","Fredoka","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.92), transparent 30%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 55%,var(--bg3));
+    }
+
+    a{ color:inherit; text-decoration:none; }
+    button,input,select{ font:inherit; }
+    .hidden{ display:none !important; }
+
+    .app{
+      width:min(1380px, calc(100% - 14px));
+      margin:0 auto;
+      padding:
+        calc(10px + var(--safe-top))
+        0
+        calc(14px + var(--safe-bottom));
+      display:grid;
+      gap:12px;
+    }
+
+    .topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .brand,
+    .top-link,
+    .mini-chip{
+      min-height:48px;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.92);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .brand-icon{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,var(--green),var(--teal));
+      color:#fff;
+      font-size:15px;
+    }
+
+    .title-wrap{
+      min-width:0;
+    }
+
+    .title-wrap h1{
+      margin:0;
+      font-size:clamp(24px,4vw,40px);
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .title-wrap p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      align-items:center;
+    }
+
+    .screen{
+      display:grid;
+      gap:12px;
+    }
+
+    .builder-layout{
+      display:grid;
+      grid-template-columns:.9fr 1.22fr .72fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    .panel{
+      background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(255,252,246,.93));
+      border:2px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .panel-inner{
+      padding:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .section-title{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .section-title h2,
+    .section-title h3{
+      margin:0;
+      font-size:16px;
+    }
+
+    .section-title span{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .today-card,
+    .coach-card,
+    .safe-card,
+    .summary-card,
+    .run-card,
+    .result-card,
+    .task-detail,
+    .task-control-card{
+      border-radius:22px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .today-card,
+    .coach-card,
+    .safe-card,
+    .summary-card,
+    .task-detail,
+    .task-control-card{
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .goal-list{
+      display:grid;
+      gap:8px;
+    }
+
+    .goal-item{
+      min-height:46px;
+      border-radius:16px;
+      background:#fbfffc;
+      border:2px solid var(--line);
+      padding:10px 12px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-weight:1000;
+    }
+
+    .goal-item.done{
+      background:#effced;
+      color:#2f7e43;
+    }
+
+    .legend-row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .legend-chip{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .available-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .task-pool-card{
+      padding:12px;
+      border-radius:22px;
+      background:linear-gradient(180deg,#fff,#f9fffb);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      gap:10px;
+      cursor:grab;
+    }
+
+    .task-pool-card.dragging{
+      opacity:.45;
+      transform:scale(.98);
+    }
+
+    .pool-top{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+    }
+
+    .pool-icon{
+      width:48px;
+      height:48px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      font-size:24px;
+      color:#fff;
+      box-shadow:var(--shadow-soft);
+      flex:0 0 auto;
+    }
+
+    .c-green{ background:linear-gradient(135deg,var(--green),var(--green2)); }
+    .c-blue{ background:linear-gradient(135deg,var(--blue),var(--blue2)); }
+    .c-teal{ background:linear-gradient(135deg,var(--teal),var(--teal2)); }
+    .c-pink{ background:linear-gradient(135deg,var(--pink),var(--pink2)); }
+    .c-orange{ background:linear-gradient(135deg,var(--orange),#ff9650); }
+    .c-purple{ background:linear-gradient(135deg,var(--purple),#8a7cf0); }
+
+    .pool-badge{
+      min-height:28px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#eef9ef;
+      border:2px solid var(--line);
+      color:#4c7d5d;
+      font-size:11px;
+      font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      white-space:nowrap;
+    }
+
+    .pool-title{
+      font-size:22px;
+      line-height:1.05;
+      font-weight:1000;
+    }
+
+    .pool-sub{
+      color:var(--muted);
+      line-height:1.45;
+      font-size:13px;
+      font-weight:900;
+      min-height:38px;
+    }
+
+    .pool-meta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .pool-meta span{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .pool-actions{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:8px;
+    }
+
+    .add-row{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:8px;
+    }
+
+    .small-btn,
+    .action-btn{
+      min-height:42px;
+      border:none;
+      border-radius:16px;
+      cursor:pointer;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .small-btn{
+      background:#fff;
+      border:2px solid var(--line);
+      color:var(--text);
+    }
+
+    .small-btn.primary{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      border:none;
+      color:#fff;
+    }
+
+    .board-panel{
+      padding:14px;
+      display:grid;
+      gap:12px;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.65), transparent 32%),
+        linear-gradient(180deg,#fbfffc,#fffdf5);
+    }
+
+    .board-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .board-head h2{
+      margin:0;
+      font-size:24px;
+      line-height:1.1;
+    }
+
+    .board-head p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .board-columns{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+    }
+
+    .drop-zone{
+      border-radius:24px;
+      border:2px dashed var(--line-strong);
+      background:rgba(255,255,255,.84);
+      padding:14px;
+      display:grid;
+      gap:10px;
+      min-height:170px;
+      transition:background .18s ease,border-color .18s ease,transform .18s ease;
+    }
+
+    .drop-zone.over{
+      border-color:var(--green2);
+      background:#f2fff3;
+      transform:translateY(-2px);
+    }
+
+    .zone-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .zone-head strong{
+      font-size:18px;
+    }
+
+    .zone-head span{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .planned-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .planned-item{
+      padding:12px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      display:grid;
+      gap:8px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .planned-item-top{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      justify-content:space-between;
+    }
+
+    .planned-item-title{
+      display:flex;
+      gap:10px;
+      min-width:0;
+      flex:1 1 auto;
+    }
+
+    .planned-item-title .ico{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-size:20px;
+      flex:0 0 auto;
+    }
+
+    .planned-item-title .txt strong{
+      display:block;
+      font-size:18px;
+      line-height:1.08;
+    }
+
+    .planned-item-title .txt small{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.35;
+    }
+
+    .planned-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .planned-actions button{
+      min-height:34px;
+      border:none;
+      border-radius:999px;
+      padding:6px 10px;
+      cursor:pointer;
+      font-size:11px;
+      font-weight:1000;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .board-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:10px;
+    }
+
+    .big-btn{
+      min-height:52px;
+      border:none;
+      border-radius:18px;
+      cursor:pointer;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+      font-size:15px;
+    }
+
+    .big-btn.primary{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+    }
+
+    .big-btn.secondary{
+      background:#fff;
+      border:2px solid var(--line);
+      color:var(--text);
+    }
+
+    .big-btn.ghost{
+      background:linear-gradient(135deg,#fffaf3,#fff0d8);
+      border:2px solid rgba(255,181,93,.30);
+      color:var(--text);
+    }
+
+    .coach-card .coach-top{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .coach-face{
+      width:56px;
+      height:56px;
+      border-radius:18px;
+      background:linear-gradient(135deg,var(--yellow),var(--orange));
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      box-shadow:var(--shadow-soft);
+      flex:0 0 auto;
+    }
+
+    .coach-title{
+      font-size:16px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .coach-sub{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .safety-meter{
+      display:grid;
+      gap:10px;
+    }
+
+    .meter{
+      display:grid;
+      gap:6px;
+    }
+
+    .meter-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .bar{
+      height:14px;
+      border-radius:999px;
+      overflow:hidden;
+      background:#f0f7f1;
+      border:2px solid var(--line);
+    }
+
+    .bar-fill{
+      height:100%;
+      width:0%;
+      border-radius:inherit;
+      transition:width .18s ease;
+      background:linear-gradient(90deg,var(--blue2),var(--green2));
+    }
+
+    .coach-quick{
+      min-height:44px;
+      border-radius:16px;
+      padding:10px 12px;
+      background:#fbfffc;
+      border:2px solid var(--line);
+      font-weight:1000;
+      line-height:1.35;
+    }
+
+    .right-actions{
+      display:grid;
+      gap:10px;
+    }
+
+    .run-layout{
+      display:grid;
+      gap:12px;
+    }
+
+    .run-topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .hud-row{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .hud-box{
+      min-height:68px;
+      padding:10px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      display:grid;
+      gap:4px;
+    }
+
+    .hud-box .k{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .hud-box .v{
+      font-size:20px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .run-main{
+      display:grid;
+      grid-template-columns:1.02fr .98fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    .run-card{
+      padding:16px;
+      display:grid;
+      gap:12px;
+      min-height:560px;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.65), transparent 30%),
+        linear-gradient(180deg,#f9fffb,#fffaf0);
+    }
+
+    .run-task-title{
+      display:flex;
+      align-items:flex-start;
+      gap:12px;
+    }
+
+    .run-task-icon{
+      width:72px;
+      height:72px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-size:34px;
+      box-shadow:var(--shadow-soft);
+      flex:0 0 auto;
+    }
+
+    .run-task-copy h2{
+      margin:0;
+      font-size:30px;
+      line-height:1.05;
+    }
+
+    .run-task-copy p{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .run-progress{
+      display:grid;
+      gap:8px;
+    }
+
+    .run-progress-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .task-progress-bar{
+      height:18px;
+      border-radius:999px;
+      overflow:hidden;
+      background:#edf8ef;
+      border:2px solid var(--line);
+    }
+
+    .task-progress-fill{
+      height:100%;
+      width:0%;
+      border-radius:inherit;
+      background:linear-gradient(90deg,var(--green2),var(--teal2));
+      transition:width .18s ease;
+    }
+
+    .task-stage{
+      min-height:220px;
+      border-radius:24px;
+      background:#fff;
+      border:2px solid var(--line);
+      box-shadow:var(--shadow-soft);
+      padding:16px;
+      display:grid;
+      gap:14px;
+      align-content:start;
+    }
+
+    .task-stage-center{
+      min-height:120px;
+      border-radius:22px;
+      background:linear-gradient(180deg,#fbfffc,#fffdf7);
+      border:2px dashed var(--line-strong);
+      display:grid;
+      place-items:center;
+      padding:14px;
+      text-align:center;
+    }
+
+    .stage-emoji{
+      font-size:54px;
+      line-height:1;
+    }
+
+    .stage-text{
+      margin-top:8px;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.25;
+    }
+
+    .stage-sub{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.35;
+    }
+
+    .task-control-card{
+      min-height:140px;
+      align-content:start;
+    }
+
+    .task-control-card h3{
+      margin:0;
+      font-size:16px;
+    }
+
+    .task-control-actions{
+      display:grid;
+      gap:10px;
+    }
+
+    .play-btn{
+      min-height:58px;
+      border:none;
+      border-radius:20px;
+      cursor:pointer;
+      font-size:18px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .play-btn.tap{
+      background:linear-gradient(135deg,var(--blue),var(--blue2));
+      color:#fff;
+    }
+
+    .play-btn.hold{
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#fff;
+    }
+
+    .play-btn.breath{
+      background:linear-gradient(135deg,var(--pink),var(--pink2));
+      color:#fff;
+    }
+
+    .play-btn.skip{
+      background:#fff;
+      color:var(--text);
+      border:2px solid var(--line);
+    }
+
+    .run-side{
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+
+    .plan-queue{
+      display:grid;
+      gap:8px;
+    }
+
+    .queue-item{
+      min-height:48px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fff;
+      border:2px solid var(--line);
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-weight:1000;
+    }
+
+    .queue-item.current{
+      background:#eefcf0;
+      border-color:#b8e5c2;
+      transform:translateY(-1px);
+    }
+
+    .queue-item.done{
+      background:#effced;
+      color:#2d7a3d;
+    }
+
+    .queue-item.skipped{
+      background:#fff5ea;
+      color:#8a5a12;
+    }
+
+    .overlay-toast{
+      position:fixed;
+      left:50%;
+      bottom:22px;
+      transform:translateX(-50%);
+      min-width:240px;
+      max-width:min(90vw,560px);
+      padding:14px 16px;
+      border-radius:18px;
+      background:rgba(31,41,55,.92);
+      color:#fff;
+      font-weight:1000;
+      box-shadow:0 16px 32px rgba(0,0,0,.22);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease,transform .18s ease;
+      z-index:60;
+      text-align:center;
+    }
+
+    .overlay-toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .summary-panel{
+      position:fixed;
+      left:50%;
+      bottom:20px;
+      transform:translateX(-50%);
+      width:min(920px, calc(100% - 16px));
+      z-index:70;
+      display:none;
+      padding:16px;
+      border-radius:28px;
+      background:rgba(255,255,255,.98);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      gap:12px;
+    }
+
+    .summary-panel.show{
+      display:grid;
+    }
+
+    .summary-head{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:12px;
+      align-items:center;
+    }
+
+    .rank-badge{
+      width:88px;
+      height:88px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      font-size:40px;
+      font-weight:1000;
+      background:linear-gradient(135deg,#fff,#edfceb);
+      border:3px solid var(--line);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .summary-copy h2{
+      margin:0;
+      font-size:30px;
+      line-height:1.08;
+    }
+
+    .summary-copy p{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .summary-stat{
+      padding:10px 12px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid var(--line);
+    }
+
+    .summary-stat .k{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .summary-stat .v{
+      display:block;
+      margin-top:5px;
+      font-size:20px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .summary-actions{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .footer-note{
+      text-align:center;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    @media (max-width:1180px){
+      .builder-layout,
+      .run-main{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:840px){
+      .topbar,
+      .run-topbar{
+        grid-template-columns:1fr;
+      }
+
+      .available-grid,
+      .hud-row,
+      .summary-grid,
+      .summary-actions,
+      .board-actions,
+      .add-row{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">📋</div>
+        <div>HeroHealth</div>
+      </div>
+
+      <div class="title-wrap">
+        <h1>Fitness Planner</h1>
+        <p>วางแผนกิจกรรมรายวัน แล้วเล่นตามแผนจริงทีละข้อ</p>
+      </div>
+
+      <div class="top-actions">
+        <a id="btnBackFitnessTop" class="top-link" href="../fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnBackHubTop" class="top-link" href="../hub-v2.html">🏠 HUB</a>
+        <div id="pillMode" class="mini-chip">🔥 quick</div>
+        <div id="pillDiff" class="mini-chip">🎯 normal</div>
+        <div id="pillPid" class="mini-chip">🪪 anon</div>
+      </div>
+    </header>
+
+    <section id="builderScreen" class="screen">
+      <div class="builder-layout">
+        <div class="panel">
+          <div class="panel-inner">
+            <section class="today-card">
+              <div class="section-title">
+                <h3>🎯 ภารกิจวันนี้</h3>
+                <span id="todayGoalSub">ทำให้ครบ 1 แผน</span>
+              </div>
+              <div id="goalList" class="goal-list"></div>
+              <div class="legend-row">
+                <div class="legend-chip">🟢 เสร็จ</div>
+                <div class="legend-chip">🟠 ข้าม</div>
+                <div class="legend-chip">🔵 กำลังทำ</div>
+                <div class="legend-chip">🟣 จบแผน</div>
+              </div>
+            </section>
+
+            <section class="summary-card">
+              <div class="section-title">
+                <h3>📚 เลือกกิจกรรม</h3>
+                <span>ลากลงแผน หรือกดใส่ช่องได้เลย</span>
+              </div>
+              <div id="availableGrid" class="available-grid"></div>
+            </section>
+          </div>
+        </div>
+
+        <div class="panel board-panel">
+          <div class="board-head">
+            <div>
+              <h2>🧩 กระดานวางแผน</h2>
+              <p>เรียงให้ครบ Warm-up → Main → Cooldown แล้วกดเล่นตามแผนจริง</p>
+            </div>
+            <div class="legend-row">
+              <div class="legend-chip">ลากได้</div>
+              <div class="legend-chip">แตะใส่ช่องได้</div>
+              <div class="legend-chip">เล่นตามลำดับจริง</div>
+            </div>
+          </div>
+
+          <div class="board-columns">
+            <section class="drop-zone" data-zone="warmup">
+              <div class="zone-head">
+                <strong>Warm-up</strong>
+                <span>เริ่มปลุกร่างกาย</span>
+              </div>
+              <div id="warmupList" class="planned-list"></div>
+            </section>
+
+            <section class="drop-zone" data-zone="main">
+              <div class="zone-head">
+                <strong>Main</strong>
+                <span>ช่วงออกกำลังกายจริง</span>
+              </div>
+              <div id="mainList" class="planned-list"></div>
+            </section>
+
+            <section class="drop-zone" data-zone="cooldown">
+              <div class="zone-head">
+                <strong>Cooldown</strong>
+                <span>จบแบบผ่อนคลาย</span>
+              </div>
+              <div id="cooldownList" class="planned-list"></div>
+            </section>
+          </div>
+
+          <div class="board-actions">
+            <button id="btnClearPlan" class="big-btn secondary" type="button">🧹 ล้างแผน</button>
+            <button id="btnAutoPlan" class="big-btn ghost" type="button">✨ สุ่มแผนใหม่</button>
+            <button id="btnStartPlan" class="big-btn primary" type="button">▶ เล่นตามแผน</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-inner">
+            <section class="coach-card">
+              <div class="coach-top">
+                <div class="coach-face">🙂</div>
+                <div>
+                  <div class="coach-title">Coach Hero</div>
+                  <div class="coach-sub">ช่วยวางแผนและเล่นทีละข้อ</div>
+                </div>
+              </div>
+              <div id="coachLine" class="coach-quick">ยังไม่มีแผนเลย ลองเริ่มด้วย Warm-up ก่อนนะ</div>
+            </section>
+
+            <section class="safe-card">
+              <div class="section-title">
+                <h3>Safety</h3>
+                <span id="metricSafetyValue">10</span>
+              </div>
+              <div class="bar"><div id="metricSafetyFill" class="bar-fill"></div></div>
+
+              <div class="section-title">
+                <h3>Balance</h3>
+                <span id="metricBalanceValue">20</span>
+              </div>
+              <div class="bar"><div id="metricBalanceFill" class="bar-fill"></div></div>
+
+              <div class="section-title">
+                <h3>Variety</h3>
+                <span id="metricVarietyValue">20</span>
+              </div>
+              <div class="bar"><div id="metricVarietyFill" class="bar-fill"></div></div>
+
+              <div class="section-title">
+                <h3>Fun</h3>
+                <span id="metricFunValue">30</span>
+              </div>
+              <div class="bar"><div id="metricFunFill" class="bar-fill"></div></div>
+            </section>
+
+            <div class="right-actions">
+              <a id="btnBackFitnessSide" class="big-btn secondary" href="../fitness-zone.html">🏃 กลับ Fitness Zone</a>
+              <a id="btnBackHubSide" class="big-btn ghost" href="../hub-v2.html">🏠 กลับ HUB</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="runScreen" class="screen hidden">
+      <div class="run-layout">
+        <div class="run-topbar">
+          <a id="btnBackFitnessRun" class="top-link" href="../fitness-zone.html">🏃 Fitness Zone</a>
+          <div class="mini-chip">📋 Fitness Planner Run</div>
+          <button id="btnFinishEarly" class="top-link" type="button">⏹️ Finish</button>
+        </div>
+
+        <div class="hud-row">
+          <div class="hud-box"><span class="k">Mode</span><span id="hudMode" class="v">quick</span></div>
+          <div class="hud-box"><span class="k">Time</span><span id="hudTime" class="v">90</span></div>
+          <div class="hud-box"><span class="k">Task</span><span id="hudTask" class="v">1/4</span></div>
+          <div class="hud-box"><span class="k">Score</span><span id="hudScore" class="v">0</span></div>
+          <div class="hud-box"><span class="k">Done</span><span id="hudDone" class="v">0%</span></div>
+        </div>
+
+        <div class="run-main">
+          <div class="run-card">
+            <div class="run-task-title">
+              <div id="runTaskIcon" class="run-task-icon c-green">🚶</div>
+              <div class="run-task-copy">
+                <h2 id="runTaskTitle">Warm-up</h2>
+                <p id="runTaskSub">เริ่มจากภารกิจแรกของแผน</p>
+              </div>
+            </div>
+
+            <div class="run-progress">
+              <div class="run-progress-head">
+                <span id="runProgressLabel">progress</span>
+                <strong id="runProgressText">0%</strong>
+              </div>
+              <div class="task-progress-bar">
+                <div id="runProgressFill" class="task-progress-fill"></div>
+              </div>
+            </div>
+
+            <div class="task-stage">
+              <div class="task-stage-center">
+                <div>
+                  <div id="stageEmoji" class="stage-emoji">🚶</div>
+                  <div id="stageText" class="stage-text">แตะปุ่มเพื่อทำซ้ำตามจำนวนที่กำหนด</div>
+                  <div id="stageSub" class="stage-sub">ทำตามคำสั่งของแต่ละ task ให้ครบก่อนข้อถัดไป</div>
+                </div>
+              </div>
+
+              <div class="task-control-card">
+                <h3 id="controlTitle">วิธีเล่น</h3>
+                <div id="controlHint" class="coach-quick">กดปุ่มใหญ่เพื่อเพิ่ม progress</div>
+                <div class="task-control-actions">
+                  <button id="actionPrimary" class="play-btn tap" type="button">✅ ทำ 1 ครั้ง</button>
+                  <button id="actionSecondary" class="play-btn skip" type="button">⏭️ ข้ามข้อนี้</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="run-side">
+            <div class="coach-card">
+              <div class="section-title">
+                <h3>Coach Hero</h3>
+                <span id="runCoachBadge">กำลังเล่น</span>
+              </div>
+              <div id="runCoachLine" class="coach-quick">เริ่มจากข้อแรกก่อน แล้วค่อยไปข้อถัดไป</div>
+            </div>
+
+            <div class="summary-card">
+              <div class="section-title">
+                <h3>Plan Queue</h3>
+                <span id="queueCount">0 task</span>
+              </div>
+              <div id="queueList" class="plan-queue"></div>
+            </div>
+
+            <div class="safe-card">
+              <div class="section-title">
+                <h3>Session Stats</h3>
+                <span id="sessionPct">0%</span>
+              </div>
+              <div class="bar"><div id="sessionPctFill" class="bar-fill"></div></div>
+
+              <div class="section-title">
+                <h3>Safety</h3>
+                <span id="runMetricSafety">10</span>
+              </div>
+              <div class="bar"><div id="runMetricSafetyFill" class="bar-fill"></div></div>
+
+              <div class="section-title">
+                <h3>Balance</h3>
+                <span id="runMetricBalance">20</span>
+              </div>
+              <div class="bar"><div id="runMetricBalanceFill" class="bar-fill"></div></div>
+
+              <div class="section-title">
+                <h3>Variety</h3>
+                <span id="runMetricVariety">20</span>
+              </div>
+              <div class="bar"><div id="runMetricVarietyFill" class="bar-fill"></div></div>
+
+              <div class="section-title">
+                <h3>Fun</h3>
+                <span id="runMetricFun">30</span>
+              </div>
+              <div class="bar"><div id="runMetricFunFill" class="bar-fill"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="overlay-toast">พร้อมแล้ว!</div>
+
+    <section id="summaryPanel" class="summary-panel">
+      <div class="summary-head">
+        <div id="rankBadge" class="rank-badge">A</div>
+        <div class="summary-copy">
+          <h2 id="summaryTitle">เยี่ยมมาก!</h2>
+          <p id="summarySub">นี่คือผลสรุปรอบล่าสุดของ Fitness Planner</p>
+        </div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-stat"><span class="k">Score</span><span id="summaryScore" class="v">0</span></div>
+        <div class="summary-stat"><span class="k">Done</span><span id="summaryDone" class="v">0</span></div>
+        <div class="summary-stat"><span class="k">Total</span><span id="summaryTotal" class="v">0</span></div>
+        <div class="summary-stat"><span class="k">Skip</span><span id="summarySkip" class="v">0</span></div>
+        <div class="summary-stat"><span class="k">Completion</span><span id="summaryPct" class="v">0%</span></div>
+      </div>
+
+      <div class="summary-actions">
+        <button id="btnPlayAgain" class="big-btn primary" type="button">🔁 เล่นอีกครั้ง</button>
+        <a id="btnSummaryFitness" class="big-btn secondary" href="../fitness-zone.html">🏃 Fitness Zone</a>
+        <a id="btnSummaryHub" class="big-btn ghost" href="../hub-v2.html">🏠 HUB</a>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      Fitness Planner • plan builder + actual run phase + summary bridge
+    </div>
+  </div>
+
+  <script src="../fitness-zone-bridge.js"></script>
+  <script>
+    (() => {
+      'use strict';
+
+      const Bridge = window.HHFitnessBridge || null;
+      const qs = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
+
+      const TASK_LIBRARY = [
+        {
+          id:'stretch-start',
+          title:'Stretch Start',
+          subtitle:'ยืดแขน ไหล่ และลำตัวเบา ๆ',
+          zone:'warmup',
+          icon:'🤸',
+          color:'c-teal',
+          mechanic:'hold',
+          target:6,
+          unit:'sec',
+          score:32,
+          safety:8,
+          balance:4,
+          variety:3,
+          fun:4,
+          instruction:'กดค้างไว้จน progress เต็ม'
+        },
+        {
+          id:'slow-march',
+          title:'Slow March',
+          subtitle:'ย่ำเท้าช้า ๆ เพื่อปลุกร่างกาย',
+          zone:'warmup',
+          icon:'🚶',
+          color:'c-green',
+          mechanic:'tap',
+          target:14,
+          unit:'rep',
+          score:34,
+          safety:5,
+          balance:3,
+          variety:2,
+          fun:5,
+          instruction:'กดปุ่มซ้ำให้ครบจำนวนครั้ง'
+        },
+        {
+          id:'arm-swing',
+          title:'Arm Swing',
+          subtitle:'แกว่งแขนตามจังหวะให้ต่อเนื่อง',
+          zone:'warmup',
+          icon:'💪',
+          color:'c-blue',
+          mechanic:'tap',
+          target:16,
+          unit:'rep',
+          score:36,
+          safety:4,
+          balance:2,
+          variety:3,
+          fun:6,
+          instruction:'แตะปุ่มใหญ่ตามจังหวะ'
+        },
+
+        {
+          id:'jump-reach',
+          title:'Jump Reach',
+          subtitle:'ทำท่ากระโดดแตะเป้าจำลองเบา ๆ',
+          zone:'main',
+          icon:'🦘',
+          color:'c-blue',
+          mechanic:'tap',
+          target:18,
+          unit:'rep',
+          score:48,
+          safety:3,
+          balance:4,
+          variety:5,
+          fun:9,
+          instruction:'กดปุ่มทุกครั้งแทนการทำซ้ำ'
+        },
+        {
+          id:'balance-hold',
+          title:'Balance Hold',
+          subtitle:'คุมการทรงตัวให้นิ่งตามเวลาที่กำหนด',
+          zone:'main',
+          icon:'🧍',
+          color:'c-purple',
+          mechanic:'hold',
+          target:8,
+          unit:'sec',
+          score:52,
+          safety:5,
+          balance:10,
+          variety:4,
+          fun:6,
+          instruction:'กดค้างไว้เพื่อรักษาการทรงตัว'
+        },
+        {
+          id:'power-step',
+          title:'Power Step',
+          subtitle:'ขยับตัวต่อเนื่องแบบสั้น ๆ ให้จังหวะสวย',
+          zone:'main',
+          icon:'⚡',
+          color:'c-orange',
+          mechanic:'tap',
+          target:20,
+          unit:'rep',
+          score:50,
+          safety:3,
+          balance:4,
+          variety:6,
+          fun:9,
+          instruction:'แตะปุ่มใหญ่ให้ครบจำนวนครั้ง'
+        },
+
+        {
+          id:'breath-reset',
+          title:'Breath Reset',
+          subtitle:'หายใจเข้า-ออกตามรอบเพื่อผ่อนคลาย',
+          zone:'cooldown',
+          icon:'🌬️',
+          color:'c-pink',
+          mechanic:'breath',
+          target:4,
+          unit:'cycle',
+          score:28,
+          safety:10,
+          balance:6,
+          variety:2,
+          fun:3,
+          instruction:'กด Inhale และ Exhale สลับกัน'
+        },
+        {
+          id:'water-break',
+          title:'Water Break',
+          subtitle:'พักดื่มน้ำและฟื้นตัวก่อนจบแผน',
+          zone:'cooldown',
+          icon:'🥤',
+          color:'c-teal',
+          mechanic:'hold',
+          target:4,
+          unit:'sec',
+          score:24,
+          safety:10,
+          balance:3,
+          variety:1,
+          fun:3,
+          instruction:'กดค้างไว้เหมือนพักฟื้นตัว'
+        },
+        {
+          id:'smile-finish',
+          title:'Smile Finish',
+          subtitle:'เช็กว่าร่างกายพร้อมและจบแผนด้วยพลังดี ๆ',
+          zone:'cooldown',
+          icon:'😊',
+          color:'c-green',
+          mechanic:'tap',
+          target:6,
+          unit:'rep',
+          score:22,
+          safety:5,
+          balance:3,
+          variety:2,
+          fun:8,
+          instruction:'กดปุ่มให้ครบเพื่อจบแผนอย่างสดใส'
+        }
+      ];
+
+      const els = {
+        builderScreen: $('builderScreen'),
+        runScreen: $('runScreen'),
+        summaryPanel: $('summaryPanel'),
+        toast: $('toast'),
+
+        btnBackFitnessTop: $('btnBackFitnessTop'),
+        btnBackHubTop: $('btnBackHubTop'),
+        btnBackFitnessSide: $('btnBackFitnessSide'),
+        btnBackHubSide: $('btnBackHubSide'),
+        btnBackFitnessRun: $('btnBackFitnessRun'),
+        btnSummaryFitness: $('btnSummaryFitness'),
+        btnSummaryHub: $('btnSummaryHub'),
+
+        pillMode: $('pillMode'),
+        pillDiff: $('pillDiff'),
+        pillPid: $('pillPid'),
+
+        goalList: $('goalList'),
+        todayGoalSub: $('todayGoalSub'),
+        availableGrid: $('availableGrid'),
+        warmupList: $('warmupList'),
+        mainList: $('mainList'),
+        cooldownList: $('cooldownList'),
+
+        btnClearPlan: $('btnClearPlan'),
+        btnAutoPlan: $('btnAutoPlan'),
+        btnStartPlan: $('btnStartPlan'),
+
+        coachLine: $('coachLine'),
+        metricSafetyValue: $('metricSafetyValue'),
+        metricBalanceValue: $('metricBalanceValue'),
+        metricVarietyValue: $('metricVarietyValue'),
+        metricFunValue: $('metricFunValue'),
+        metricSafetyFill: $('metricSafetyFill'),
+        metricBalanceFill: $('metricBalanceFill'),
+        metricVarietyFill: $('metricVarietyFill'),
+        metricFunFill: $('metricFunFill'),
+
+        hudMode: $('hudMode'),
+        hudTime: $('hudTime'),
+        hudTask: $('hudTask'),
+        hudScore: $('hudScore'),
+        hudDone: $('hudDone'),
+
+        runTaskIcon: $('runTaskIcon'),
+        runTaskTitle: $('runTaskTitle'),
+        runTaskSub: $('runTaskSub'),
+        runProgressLabel: $('runProgressLabel'),
+        runProgressText: $('runProgressText'),
+        runProgressFill: $('runProgressFill'),
+        stageEmoji: $('stageEmoji'),
+        stageText: $('stageText'),
+        stageSub: $('stageSub'),
+        controlTitle: $('controlTitle'),
+        controlHint: $('controlHint'),
+        actionPrimary: $('actionPrimary'),
+        actionSecondary: $('actionSecondary'),
+        queueList: $('queueList'),
+        queueCount: $('queueCount'),
+        runCoachLine: $('runCoachLine'),
+        runCoachBadge: $('runCoachBadge'),
+        sessionPct: $('sessionPct'),
+        sessionPctFill: $('sessionPctFill'),
+        runMetricSafety: $('runMetricSafety'),
+        runMetricBalance: $('runMetricBalance'),
+        runMetricVariety: $('runMetricVariety'),
+        runMetricFun: $('runMetricFun'),
+        runMetricSafetyFill: $('runMetricSafetyFill'),
+        runMetricBalanceFill: $('runMetricBalanceFill'),
+        runMetricVarietyFill: $('runMetricVarietyFill'),
+        runMetricFunFill: $('runMetricFunFill'),
+
+        btnFinishEarly: $('btnFinishEarly'),
+        btnPlayAgain: $('btnPlayAgain'),
+
+        summaryTitle: $('summaryTitle'),
+        summarySub: $('summarySub'),
+        summaryScore: $('summaryScore'),
+        summaryDone: $('summaryDone'),
+        summaryTotal: $('summaryTotal'),
+        summarySkip: $('summarySkip'),
+        summaryPct: $('summaryPct'),
+        rankBadge: $('rankBadge')
+      };
+
+      const state = {
+        plan: {
+          warmup: [],
+          main: [],
+          cooldown: []
+        },
+        metrics: {
+          safety: 10,
+          balance: 20,
+          variety: 20,
+          fun: 30
+        },
+        run: {
+          active: false,
+          tasks: [],
+          index: 0,
+          score: 0,
+          done: 0,
+          skipped: 0,
+          leftSec: 90,
+          totalSec: 90,
+          timer: 0,
+          currentProgress: 0,
+          inhalePhase: 'inhale',
+          holdTimer: 0,
+          holdTick: 0,
+          mode: 'quick',
+          diff: 'normal',
+          taskStartedAt: 0
+        }
+      };
+
+      function q(key, fallback='') {
+        const v = qs.get(key);
+        return v == null || v === '' ? fallback : v;
+      }
+
+      function numberOr(value, fallback = 0) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : fallback;
+      }
+
+      function cleanText(value, fallback='') {
+        const s = String(value || '').trim();
+        return s || fallback;
+      }
+
+      function canonicalGameId(gameId) {
+        if (Bridge && typeof Bridge.canonicalGameId === 'function') {
+          return Bridge.canonicalGameId(gameId);
+        }
+        return String(gameId || '').trim().toLowerCase();
+      }
+
+      function buildHubUrl() {
+        if (Bridge && typeof Bridge.buildHubUrl === 'function') return Bridge.buildHubUrl();
+        const raw = q('hub', '');
+        if (raw) {
+          try { return new URL(raw, location.href).toString(); } catch (_) {}
+        }
+        return new URL('../hub-v2.html', location.href).toString();
+      }
+
+      function buildFitnessUrl() {
+        if (Bridge && typeof Bridge.buildFitnessZoneUrl === 'function') {
+          return Bridge.buildFitnessZoneUrl({
+            focus: 'fitness-planner',
+            featured: 'fitness-planner'
+          });
+        }
+        const u = new URL('../fitness-zone.html', location.href);
+        const pass = [
+          'pid','name','nick','studyId','run','view','diff','time','seed',
+          'debug','api','log','studentKey','schoolCode','classRoom','studentNo','nickName'
+        ];
+        pass.forEach((k) => {
+          const v = q(k, '');
+          if (v) u.searchParams.set(k, v);
+        });
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('hub', buildHubUrl());
+        u.searchParams.set('focus', 'fitness-planner');
+        u.searchParams.set('featured', 'fitness-planner');
+        return u.toString();
+      }
+
+      function getLastSummary() {
+        try {
+          const raw = localStorage.getItem('HHA_LAST_SUMMARY');
+          const data = raw ? JSON.parse(raw) : null;
+          if (!data) return null;
+          const g = canonicalGameId(data.game || data.gameId);
+          return g === 'fitness-planner' ? data : null;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function showToast(text) {
+        els.toast.textContent = text;
+        els.toast.classList.add('show');
+        clearTimeout(els.toast._timer);
+        els.toast._timer = setTimeout(() => {
+          els.toast.classList.remove('show');
+        }, 1200);
+      }
+
+      function cloneTask(task) {
+        return {
+          ...task,
+          runtime: {
+            progress: 0,
+            done: false,
+            skipped: false,
+            breathState: 'inhale'
+          }
+        };
+      }
+
+      function updatePills() {
+        const mode = cleanText(q('mode', q('run', 'quick')), 'quick');
+        const diff = cleanText(q('diff', 'normal'), 'normal');
+        const pid = cleanText(q('pid', 'anon'), 'anon');
+
+        els.pillMode.textContent = `🔥 ${mode}`;
+        els.pillDiff.textContent = `🎯 ${diff}`;
+        els.pillPid.textContent = `🪪 ${pid}`;
+      }
+
+      function applyLinks() {
+        const hub = buildHubUrl();
+        const fit = buildFitnessUrl();
+
+        [
+          els.btnBackFitnessTop,
+          els.btnBackFitnessSide,
+          els.btnBackFitnessRun,
+          els.btnSummaryFitness
+        ].forEach((node) => { if (node) node.href = fit; });
+
+        [
+          els.btnBackHubTop,
+          els.btnBackHubSide,
+          els.btnSummaryHub
+        ].forEach((node) => { if (node) node.href = hub; });
+      }
+
+      function renderRecentHints() {
+        const last = getLastSummary();
+        if (!last) {
+          els.todayGoalSub.textContent = 'ทำให้ครบ 1 แผน';
+          return;
+        }
+        els.todayGoalSub.textContent =
+          `ล่าสุด ${last.rank || '-'} • done ${numberOr(last.tasksDone, 0)}/${numberOr(last.tasksTotal, 0)} • ${numberOr(last.completionPct, 0)}%`;
+      }
+
+      function currentPlanCount() {
+        return state.plan.warmup.length + state.plan.main.length + state.plan.cooldown.length;
+      }
+
+      function updateBuilderCoach() {
+        const w = state.plan.warmup.length;
+        const m = state.plan.main.length;
+        const c = state.plan.cooldown.length;
+        const total = currentPlanCount();
+
+        if (!total) {
+          els.coachLine.textContent = 'ยังไม่มีแผนเลย ลองเริ่มด้วย Warm-up ก่อนนะ';
+        } else if (!w) {
+          els.coachLine.textContent = 'ขาด Warm-up อยู่ ใส่กิจกรรมอุ่นร่างกายก่อนเริ่มเล่นจริง';
+        } else if (!m) {
+          els.coachLine.textContent = 'ต่อด้วย Main อย่างน้อย 1 กิจกรรม เพื่อให้แผนนี้เล่นจริงได้';
+        } else if (!c) {
+          els.coachLine.textContent = 'อย่าลืมใส่ Cooldown ด้วย จะได้จบแผนแบบสมบูรณ์';
+        } else {
+          els.coachLine.textContent = `พร้อมแล้ว! แผนนี้มี ${total} กิจกรรม กด “เล่นตามแผน” ได้เลย`;
+        }
+
+        updateGoals();
+      }
+
+      function uniqueTags(tasks) {
+        const set = new Set();
+        tasks.forEach((t) => (t.tags || []).forEach((tag) => set.add(tag)));
+        return set.size;
+      }
+
+      function recalcBuilderMetrics() {
+        const all = [...state.plan.warmup, ...state.plan.main, ...state.plan.cooldown];
+        const safety = Math.min(100, 10 + all.reduce((s, t) => s + numberOr(t.safety, 0), 0));
+        const balance = Math.min(100, 20 + all.reduce((s, t) => s + numberOr(t.balance, 0), 0));
+        const variety = Math.min(100, 20 + uniqueTags(all) * 7);
+        const fun = Math.min(100, 30 + all.reduce((s, t) => s + numberOr(t.fun, 0), 0));
+
+        state.metrics = { safety, balance, variety, fun };
+
+        setMetricUI('metricSafety', safety);
+        setMetricUI('metricBalance', balance);
+        setMetricUI('metricVariety', variety);
+        setMetricUI('metricFun', fun);
+      }
+
+      function setMetricUI(prefix, value) {
+        const v = Math.round(value);
+        const valueNode = els[`${prefix}Value`] || els[`run${prefix[0].toUpperCase()}${prefix.slice(1)}`];
+        const fillNode = els[`${prefix}Fill`] || els[`run${prefix[0].toUpperCase()}${prefix.slice(1)}Fill`];
+        if (valueNode) valueNode.textContent = String(v);
+        if (fillNode) fillNode.style.width = `${v}%`;
+      }
+
+      function updateGoals() {
+        const goals = [
+          { ok: state.plan.warmup.length > 0, text:'ต้องมี Warm-up ก่อนเริ่ม' },
+          { ok: state.plan.cooldown.length > 0, text:'ต้องมี Cooldown ปิดท้าย' },
+          { ok: state.plan.main.length > 0, text:'ต้องมีกิจกรรมหลักอย่างน้อย 1 ข้อ' },
+          { ok: currentPlanCount() >= 3, text:'วางแผนอย่างน้อย 3 กิจกรรม' }
+        ];
+
+        els.goalList.innerHTML = goals.map((goal) => `
+          <div class="goal-item ${goal.ok ? 'done' : ''}">
+            <span>${goal.ok ? '✅' : '📍'}</span>
+            <span>${goal.text}</span>
+          </div>
+        `).join('');
+      }
+
+      function availableByTheme() {
+        const theme = cleanText(q('theme', 'mix'), 'mix');
+        if (theme === 'balance') {
+          return TASK_LIBRARY.filter((t) => ['balance-hold','stretch-start','breath-reset','water-break','slow-march'].includes(t.id));
+        }
+        if (theme === 'cardio') {
+          return TASK_LIBRARY.filter((t) => ['slow-march','arm-swing','jump-reach','power-step','water-break'].includes(t.id));
+        }
+        if (theme === 'recovery') {
+          return TASK_LIBRARY.filter((t) => ['stretch-start','breath-reset','water-break','slow-march','smile-finish'].includes(t.id));
+        }
+        return TASK_LIBRARY;
+      }
+
+      function renderAvailable() {
+        const list = availableByTheme();
+        els.availableGrid.innerHTML = list.map((task) => `
+          <article class="task-pool-card" draggable="true" data-task-id="${task.id}">
+            <div class="pool-top">
+              <div style="display:flex;gap:10px;min-width:0;">
+                <div class="pool-icon ${task.color}">${task.icon}</div>
+                <div style="min-width:0;">
+                  <div class="pool-title">${task.title}</div>
+                  <div class="pool-sub">${task.subtitle}</div>
+                </div>
+              </div>
+              <div class="pool-badge">${task.zone.toUpperCase()}</div>
+            </div>
+
+            <div class="pool-meta">
+              <span>${task.mechanic}</span>
+              <span>${task.target} ${task.unit}</span>
+              <span>+${task.score} score</span>
+            </div>
+
+            <div class="pool-actions">
+              <div class="add-row">
+                <button class="small-btn" data-add-zone="warmup" data-task-id="${task.id}" type="button">ใส่ W</button>
+                <button class="small-btn" data-add-zone="main" data-task-id="${task.id}" type="button">ใส่ M</button>
+                <button class="small-btn" data-add-zone="cooldown" data-task-id="${task.id}" type="button">ใส่ C</button>
+              </div>
+            </div>
+          </article>
+        `).join('');
+
+        els.availableGrid.querySelectorAll('.task-pool-card').forEach((card) => {
+          card.addEventListener('dragstart', (e) => {
+            card.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', card.getAttribute('data-task-id'));
+          });
+          card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+          });
+        });
+
+        els.availableGrid.querySelectorAll('[data-add-zone]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            addTaskToZone(btn.getAttribute('data-task-id'), btn.getAttribute('data-add-zone'));
+          });
+        });
+      }
+
+      function renderZoneList(zone, targetEl) {
+        const list = state.plan[zone];
+        if (!list.length) {
+          targetEl.innerHTML = `
+            <div class="planned-item" style="opacity:.7;border-style:dashed;">
+              <div class="planned-item-top">
+                <div class="planned-item-title">
+                  <div class="ico c-green">➕</div>
+                  <div class="txt">
+                    <strong>ลากกิจกรรมมาวาง</strong>
+                    <small>หรือกดปุ่ม ใส่ W / M / C จากการ์ดด้านซ้าย</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        targetEl.innerHTML = list.map((task, index) => `
+          <article class="planned-item">
+            <div class="planned-item-top">
+              <div class="planned-item-title">
+                <div class="ico ${task.color}">${task.icon}</div>
+                <div class="txt">
+                  <strong>${task.title}</strong>
+                  <small>${task.subtitle}</small>
+                </div>
+              </div>
+              <div class="pool-badge">${index + 1}</div>
+            </div>
+
+            <div class="planned-actions">
+              <button data-move="up" data-zone="${zone}" data-index="${index}" type="button">⬆️ ขึ้น</button>
+              <button data-move="down" data-zone="${zone}" data-index="${index}" type="button">⬇️ ลง</button>
+              <button data-remove data-zone="${zone}" data-index="${index}" type="button">🗑️ ลบ</button>
+            </div>
+          </article>
+        `).join('');
+
+        targetEl.querySelectorAll('[data-remove]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const z = btn.getAttribute('data-zone');
+            const i = numberOr(btn.getAttribute('data-index'), 0);
+            state.plan[z].splice(i, 1);
+            refreshBuilder();
+          });
+        });
+
+        targetEl.querySelectorAll('[data-move]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const dir = btn.getAttribute('data-move');
+            const z = btn.getAttribute('data-zone');
+            const i = numberOr(btn.getAttribute('data-index'), 0);
+            const arr = state.plan[z];
+            if (dir === 'up' && i > 0) {
+              [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
+            }
+            if (dir === 'down' && i < arr.length - 1) {
+              [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
+            }
+            refreshBuilder();
+          });
+        });
+      }
+
+      function refreshBuilder() {
+        renderZoneList('warmup', els.warmupList);
+        renderZoneList('main', els.mainList);
+        renderZoneList('cooldown', els.cooldownList);
+        recalcBuilderMetrics();
+        updateBuilderCoach();
+      }
+
+      function getTaskById(taskId) {
+        return TASK_LIBRARY.find((t) => t.id === taskId) || null;
+      }
+
+      function addTaskToZone(taskId, zone) {
+        const task = getTaskById(taskId);
+        if (!task || !state.plan[zone]) return;
+        state.plan[zone].push(cloneTask(task));
+        showToast(`เพิ่ม ${task.title} ไปที่ ${zone}`);
+        refreshBuilder();
+      }
+
+      function bindDropZones() {
+        document.querySelectorAll('.drop-zone').forEach((zoneEl) => {
+          const zone = zoneEl.getAttribute('data-zone');
+
+          zoneEl.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            zoneEl.classList.add('over');
+          });
+
+          zoneEl.addEventListener('dragleave', () => {
+            zoneEl.classList.remove('over');
+          });
+
+          zoneEl.addEventListener('drop', (e) => {
+            e.preventDefault();
+            zoneEl.classList.remove('over');
+            const taskId = e.dataTransfer.getData('text/plain');
+            addTaskToZone(taskId, zone);
+          });
+        });
+      }
+
+      function clearPlan() {
+        state.plan.warmup = [];
+        state.plan.main = [];
+        state.plan.cooldown = [];
+        refreshBuilder();
+      }
+
+      function autoPlan() {
+        clearPlan();
+        const diff = cleanText(q('diff', 'normal'), 'normal');
+        const themeTasks = availableByTheme();
+
+        const warmups = themeTasks.filter((t) => t.zone === 'warmup');
+        const mains = themeTasks.filter((t) => t.zone === 'main');
+        const cooldowns = themeTasks.filter((t) => t.zone === 'cooldown');
+
+        const mainCount = diff === 'easy' ? 1 : (diff === 'hard' ? 2 : 2);
+
+        if (warmups[0]) state.plan.warmup.push(cloneTask(warmups[0]));
+        mains.slice(0, mainCount).forEach((task) => state.plan.main.push(cloneTask(task)));
+        cooldowns.slice(0, 2).forEach((task, idx) => {
+          if (diff === 'easy' && idx > 0) return;
+          state.plan.cooldown.push(cloneTask(task));
+        });
+
+        refreshBuilder();
+        showToast('✨ จัดแผนอัตโนมัติแล้ว');
+      }
+
+      function flattenPlan() {
+        return [
+          ...state.plan.warmup.map((t) => ({ ...t, phase:'Warm-up' })),
+          ...state.plan.main.map((t) => ({ ...t, phase:'Main' })),
+          ...state.plan.cooldown.map((t) => ({ ...t, phase:'Cooldown' }))
+        ];
+      }
+
+      function validatePlan() {
+        if (!state.plan.warmup.length) {
+          showToast('ต้องมี Warm-up ก่อน');
+          return false;
+        }
+        if (!state.plan.main.length) {
+          showToast('ต้องมี Main อย่างน้อย 1 ข้อ');
+          return false;
+        }
+        if (!state.plan.cooldown.length) {
+          showToast('ต้องมี Cooldown ด้วย');
+          return false;
+        }
+        return true;
+      }
+
+      function showBuilder() {
+        els.builderScreen.classList.remove('hidden');
+        els.runScreen.classList.add('hidden');
+      }
+
+      function showRun() {
+        els.builderScreen.classList.add('hidden');
+        els.runScreen.classList.remove('hidden');
+      }
+
+      function completionPct() {
+        const total = state.run.tasks.length || 1;
+        return Math.round((state.run.done / total) * 100);
+      }
+
+      function updateRunMetricsDisplay() {
+        const m = state.metrics;
+        els.runMetricSafety.textContent = Math.round(m.safety);
+        els.runMetricBalance.textContent = Math.round(m.balance);
+        els.runMetricVariety.textContent = Math.round(m.variety);
+        els.runMetricFun.textContent = Math.round(m.fun);
+
+        els.runMetricSafetyFill.style.width = `${Math.round(m.safety)}%`;
+        els.runMetricBalanceFill.style.width = `${Math.round(m.balance)}%`;
+        els.runMetricVarietyFill.style.width = `${Math.round(m.variety)}%`;
+        els.runMetricFunFill.style.width = `${Math.round(m.fun)}%`;
+
+        els.sessionPct.textContent = `${completionPct()}%`;
+        els.sessionPctFill.style.width = `${completionPct()}%`;
+      }
+
+      function updateHud() {
+        els.hudMode.textContent = cleanText(q('mode', q('run', 'quick')), 'quick');
+        els.hudTime.textContent = String(Math.max(0, state.run.leftSec));
+        els.hudTask.textContent = `${Math.min(state.run.index + 1, state.run.tasks.length)}/${state.run.tasks.length}`;
+        els.hudScore.textContent = String(state.run.score);
+        els.hudDone.textContent = `${completionPct()}%`;
+        updateRunMetricsDisplay();
+      }
+
+      function queueStatus(task, idx) {
+        if (task.runtime.done) return 'done';
+        if (task.runtime.skipped) return 'skipped';
+        if (idx === state.run.index) return 'current';
+        return '';
+      }
+
+      function renderQueue() {
+        els.queueCount.textContent = `${state.run.tasks.length} task`;
+        els.queueList.innerHTML = state.run.tasks.map((task, idx) => `
+          <div class="queue-item ${queueStatus(task, idx)}">
+            <span>${task.runtime.done ? '✅' : (task.runtime.skipped ? '⏭️' : (idx === state.run.index ? '🔵' : '⚪'))}</span>
+            <span>${task.phase} • ${task.title}</span>
+          </div>
+        `).join('');
+      }
+
+      function currentTask() {
+        return state.run.tasks[state.run.index] || null;
+      }
+
+      function taskPercent(task) {
+        return Math.max(0, Math.min(100, Math.round((task.runtime.progress / task.target) * 100)));
+      }
+
+      function renderCurrentTask() {
+        const task = currentTask();
+        if (!task) return;
+
+        els.runTaskIcon.className = `run-task-icon ${task.color}`;
+        els.runTaskIcon.textContent = task.icon;
+        els.runTaskTitle.textContent = task.title;
+        els.runTaskSub.textContent = `${task.phase} • ${task.subtitle}`;
+        els.runProgressLabel.textContent = `${task.runtime.progress}/${task.target} ${task.unit}`;
+        els.runProgressText.textContent = `${taskPercent(task)}%`;
+        els.runProgressFill.style.width = `${taskPercent(task)}%`;
+
+        els.stageEmoji.textContent = task.icon;
+        els.stageText.textContent = task.instruction;
+        els.stageSub.textContent = `${task.phase} • เป้าหมาย ${task.target} ${task.unit}`;
+
+        els.controlTitle.textContent = `${task.mechanic.toUpperCase()} TASK`;
+        els.runCoachBadge.textContent = task.phase;
+        els.runCoachLine.textContent = coachLineForTask(task);
+        els.controlHint.textContent = controlHintForTask(task);
+
+        renderTaskControls(task);
+        renderQueue();
+        updateHud();
+      }
+
+      function coachLineForTask(task) {
+        if (task.phase === 'Warm-up') {
+          return 'เริ่มเบา ๆ ก่อน อย่ารีบ ทำให้ครบแล้วค่อยไปข้อหลัก';
+        }
+        if (task.phase === 'Main') {
+          return 'ตอนนี้คือช่วงเล่นจริง ทำให้เต็มที่แต่ยังคุมจังหวะให้ดี';
+        }
+        return 'ช่วงท้ายแล้ว ค่อย ๆ จบแผนแบบผ่อนคลาย';
+      }
+
+      function controlHintForTask(task) {
+        if (task.mechanic === 'tap') {
+          return `กดปุ่มใหญ่ซ้ำให้ครบ ${task.target} ${task.unit}`;
+        }
+        if (task.mechanic === 'hold') {
+          return `กดค้างไว้ให้ครบ ${task.target} ${task.unit}`;
+        }
+        return `กดสลับ หายใจเข้า / หายใจออก ให้ครบ ${task.target} รอบ`;
+      }
+
+      function renderTaskControls(task) {
+        clearHoldTick();
+
+        if (task.mechanic === 'tap') {
+          els.actionPrimary.className = 'play-btn tap';
+          els.actionPrimary.textContent = `✅ ทำ 1 ${task.unit}`;
+          els.actionPrimary.onpointerdown = null;
+          els.actionPrimary.onpointerup = null;
+          els.actionPrimary.onpointerleave = null;
+          els.actionPrimary.onclick = () => {
+            task.runtime.progress += 1;
+            showToast(`+1 ${task.unit}`);
+            checkTaskDone();
+          };
+        } else if (task.mechanic === 'hold') {
+          els.actionPrimary.className = 'play-btn hold';
+          els.actionPrimary.textContent = '✋ กดค้าง';
+          els.actionPrimary.onclick = null;
+
+          const startHold = () => {
+            clearHoldTick();
+            state.run.holdTick = setInterval(() => {
+              task.runtime.progress = Math.min(task.target, +(task.runtime.progress + 0.1).toFixed(1));
+              checkTaskDone();
+            }, 100);
+          };
+
+          const stopHold = () => clearHoldTick();
+
+          els.actionPrimary.onpointerdown = startHold;
+          els.actionPrimary.onpointerup = stopHold;
+          els.actionPrimary.onpointerleave = stopHold;
+          els.actionPrimary.onpointercancel = stopHold;
+        } else {
+          els.actionPrimary.className = 'play-btn breath';
+          els.actionPrimary.textContent = task.runtime.breathState === 'inhale' ? '🌬️ หายใจเข้า' : '😮‍💨 หายใจออก';
+          els.actionPrimary.onpointerdown = null;
+          els.actionPrimary.onpointerup = null;
+          els.actionPrimary.onpointerleave = null;
+          els.actionPrimary.onclick = () => {
+            if (task.runtime.breathState === 'inhale') {
+              task.runtime.breathState = 'exhale';
+              els.actionPrimary.textContent = '😮‍💨 หายใจออก';
+              showToast('หายใจเข้าแล้ว');
+            } else {
+              task.runtime.breathState = 'inhale';
+              task.runtime.progress += 1;
+              els.actionPrimary.textContent = '🌬️ หายใจเข้า';
+              showToast(`ครบ ${task.runtime.progress}/${task.target} รอบ`);
+              checkTaskDone();
+            }
+          };
+        }
+
+        els.actionSecondary.onclick = () => {
+          skipCurrentTask();
+        };
+      }
+
+      function clearHoldTick() {
+        if (state.run.holdTick) {
+          clearInterval(state.run.holdTick);
+          state.run.holdTick = 0;
+        }
+      }
+
+      function applyTaskReward(task) {
+        state.run.score += numberOr(task.score, 0);
+        state.metrics.safety = Math.min(100, state.metrics.safety + numberOr(task.safety, 0) * 0.35);
+        state.metrics.balance = Math.min(100, state.metrics.balance + numberOr(task.balance, 0) * 0.35);
+        state.metrics.variety = Math.min(100, state.metrics.variety + numberOr(task.variety, 0) * 0.25);
+        state.metrics.fun = Math.min(100, state.metrics.fun + numberOr(task.fun, 0) * 0.30);
+      }
+
+      function checkTaskDone() {
+        const task = currentTask();
+        if (!task) return;
+
+        if (task.runtime.progress >= task.target) {
+          clearHoldTick();
+          task.runtime.done = true;
+          state.run.done += 1;
+          applyTaskReward(task);
+          showToast(`✅ ${task.title}`);
+          nextTaskAfterDelay();
+        }
+
+        renderCurrentTask();
+      }
+
+      function skipCurrentTask() {
+        const task = currentTask();
+        if (!task) return;
+        clearHoldTick();
+        task.runtime.skipped = true;
+        state.run.skipped += 1;
+        state.run.score += 6;
+        showToast(`⏭️ ข้าม ${task.title}`);
+        nextTaskAfterDelay();
+      }
+
+      function nextTaskAfterDelay() {
+        renderQueue();
+        updateHud();
+        setTimeout(() => {
+          state.run.index += 1;
+          if (state.run.index >= state.run.tasks.length) {
+            finishRun('plan-complete');
+            return;
+          }
+          renderCurrentTask();
+        }, 420);
+      }
+
+      function startRun() {
+        if (!validatePlan()) return;
+
+        state.run.active = true;
+        state.run.tasks = flattenPlan();
+        state.run.index = 0;
+        state.run.score = 0;
+        state.run.done = 0;
+        state.run.skipped = 0;
+        state.run.leftSec = numberOr(q('time', '90'), 90);
+        state.run.totalSec = state.run.leftSec;
+        state.run.mode = cleanText(q('mode', q('run', 'quick')), 'quick');
+        state.run.diff = cleanText(q('diff', 'normal'), 'normal');
+
+        showRun();
+        renderQueue();
+        renderCurrentTask();
+        updateHud();
+
+        Bridge?.markStart?.('fitness-planner', {
+          result: 'playing',
+          href: location.href,
+          mode: state.run.mode,
+          diff: state.run.diff,
+          timeSec: state.run.totalSec,
+          theme: cleanText(q('theme', 'mix'), 'mix')
+        });
+
+        clearInterval(state.run.timer);
+        state.run.timer = setInterval(() => {
+          if (!state.run.active) return;
+          state.run.leftSec -= 1;
+          if (state.run.leftSec <= 0) {
+            state.run.leftSec = 0;
+            updateHud();
+            finishRun('timeup');
+            return;
+          }
+
+          if (state.run.leftSec === 30) showToast('⏰ เหลือ 30 วินาที');
+          if (state.run.leftSec === 10) showToast('⚠️ เหลือ 10 วินาที');
+          updateHud();
+        }, 1000);
+      }
+
+      function rankFromResult(score, pct, skipped) {
+        if (pct >= 100 && skipped === 0 && score >= 180) return 'S';
+        if (pct >= 85 && skipped <= 1 && score >= 140) return 'A';
+        if (pct >= 65 && score >= 100) return 'B';
+        if (pct >= 45) return 'C';
+        return 'D';
+      }
+
+      function finishRun(reason) {
+        if (!state.run.active) return;
+        state.run.active = false;
+        clearInterval(state.run.timer);
+        clearHoldTick();
+
+        const total = state.run.tasks.length || 1;
+        const done = state.run.done;
+        const skipped = state.run.skipped;
+        const pct = Math.round((done / total) * 100);
+        const rank = rankFromResult(state.run.score, pct, skipped);
+
+        els.summaryPanel.classList.add('show');
+        els.summaryScore.textContent = String(state.run.score);
+        els.summaryDone.textContent = String(done);
+        els.summaryTotal.textContent = String(total);
+        els.summarySkip.textContent = String(skipped);
+        els.summaryPct.textContent = `${pct}%`;
+        els.rankBadge.textContent = rank;
+
+        if (rank === 'S') {
+          els.summaryTitle.textContent = 'สุดยอด! วางแผนและเล่นครบเป๊ะ';
+          els.summarySub.textContent = 'นี่ไม่ใช่แค่จัดแผน แต่หนูเล่นตามแผนจนจบจริง ๆ แล้ว';
+        } else if (rank === 'A') {
+          els.summaryTitle.textContent = 'เยี่ยมมาก! แผนนี้เล่นได้ดีมาก';
+          els.summarySub.textContent = 'ทำตามลำดับได้ดีและควบคุมแผนได้ต่อเนื่อง';
+        } else if (rank === 'B') {
+          els.summaryTitle.textContent = 'ดีมาก! เกือบครบทั้งแผนแล้ว';
+          els.summarySub.textContent = 'ลองลดการข้ามและทำให้ครบทุกข้อในรอบถัดไป';
+        } else {
+          els.summaryTitle.textContent = 'เริ่มได้ดีแล้ว ลองใหม่อีกครั้ง';
+          els.summarySub.textContent = 'รอบหน้าลองทำ Warm-up → Main → Cooldown ให้ครบยิ่งขึ้น';
+        }
+
+        const summaryPayload = {
+          scoreFinal: state.run.score,
+          rank,
+          result: reason,
+          timeSec: state.run.totalSec,
+          diff: state.run.diff,
+          mode: state.run.mode,
+          run: cleanText(q('run', 'play'), 'play'),
+          theme: cleanText(q('theme', 'mix'), 'mix'),
+          snapshotExtra: {
+            href: location.href,
+            hub: buildHubUrl(),
+            tasksDone: done,
+            tasksTotal: total,
+            completionPct: pct,
+            skipCount: skipped,
+            safety: Math.round(state.metrics.safety),
+            balance: Math.round(state.metrics.balance),
+            variety: Math.round(state.metrics.variety),
+            fun: Math.round(state.metrics.fun)
+          },
+          summaryExtra: {
+            href: location.href,
+            hub: buildHubUrl(),
+            tasksDone: done,
+            tasksTotal: total,
+            completionPct: pct,
+            skipCount: skipped,
+            safety: Math.round(state.metrics.safety),
+            balance: Math.round(state.metrics.balance),
+            variety: Math.round(state.metrics.variety),
+            fun: Math.round(state.metrics.fun)
+          }
+        };
+
+        if (Bridge?.markFinish) {
+          Bridge.markFinish('fitness-planner', summaryPayload);
+        } else {
+          const summary = {
+            game: 'fitness-planner',
+            gameId: 'fitness-planner',
+            zone: 'fitness',
+            scoreFinal: state.run.score,
+            rank,
+            result: reason,
+            timeSec: state.run.totalSec,
+            tasksDone: done,
+            tasksTotal: total,
+            completionPct: pct,
+            skipCount: skipped,
+            timestampIso: new Date().toISOString()
+          };
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+          localStorage.setItem('HH_FITNESS_LAST_GAME_V1', JSON.stringify({
+            zone: 'fitness',
+            gameId: 'fitness-planner',
+            ts: Date.now(),
+            mode: state.run.mode,
+            time: String(state.run.totalSec),
+            score: state.run.score,
+            rank
+          }));
+        }
+      }
+
+      function initSummaryButtons() {
+        els.btnPlayAgain.addEventListener('click', () => {
+          els.summaryPanel.classList.remove('show');
+          showBuilder();
+        });
+      }
+
+      function bindBuilderButtons() {
+        els.btnClearPlan.addEventListener('click', () => {
+          clearPlan();
+          showToast('ล้างแผนแล้ว');
+        });
+
+        els.btnAutoPlan.addEventListener('click', autoPlan);
+        els.btnStartPlan.addEventListener('click', startRun);
+        els.btnFinishEarly.addEventListener('click', () => finishRun('manual-finish'));
+      }
+
+      function initDefaultPlan() {
+        autoPlan();
+
+        const mode = cleanText(q('mode', q('run', 'quick')), 'quick');
+        if (mode === 'quick') {
+          els.coachLine.textContent = 'โหมด quick พร้อมแล้ว กดเล่นตามแผนได้ทันที';
+        }
+      }
+
+      function initGoalsAndMetrics() {
+        updateGoals();
+        recalcBuilderMetrics();
+      }
+
+      function init() {
+        updatePills();
+        applyLinks();
+        renderRecentHints();
+        renderAvailable();
+        bindDropZones();
+        bindBuilderButtons();
+        initSummaryButtons();
+        initGoalsAndMetrics();
+        initDefaultPlan();
+
+        Bridge?.installBasicHooks?.('fitness-planner', {
+          fitnessLinkSelectors: [
+            '#btnBackFitnessTop',
+            '#btnBackFitnessSide',
+            '#btnBackFitnessRun',
+            '#btnSummaryFitness',
+            'a[href*="fitness-zone.html"]'
+          ]
+        });
+
+        Bridge?.markOpen?.('fitness-planner', {
+          result: 'planner-open',
+          href: location.href,
+          theme: cleanText(q('theme', 'mix'), 'mix')
+        });
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
