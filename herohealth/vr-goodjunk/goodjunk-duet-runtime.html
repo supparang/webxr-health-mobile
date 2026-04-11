@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk • Duet Runtime</title>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script src="../firebase-app-compat.js"></script>
+  <script src="../firebase-auth-compat.js"></script>
+  <script src="../firebase-database-compat.js"></script>
+  <script src="../firebase-config.js"></script>
+
+  <script type="module">
+    const q = new URLSearchParams(location.search);
+
+    function pickRoom() {
+      return (
+        q.get('roomId') ||
+        q.get('room') ||
+        q.get('roomCode') ||
+        ''
+      ).trim();
+    }
+
+    function pickName() {
+      return (q.get('name') || q.get('pid') || 'Hero').trim();
+    }
+
+    async function waitForAuth() {
+      const ctx = await window.HHA_FIREBASE_READY;
+      const auth = ctx && ctx.auth;
+      if (!auth) throw new Error('Firebase auth not ready');
+
+      if (auth.currentUser) return ctx;
+
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Anonymous auth timeout')), 10000);
+        const off = auth.onAuthStateChanged((user) => {
+          if (user) {
+            clearTimeout(timer);
+            off();
+            resolve();
+          }
+        }, (err) => {
+          clearTimeout(timer);
+          off();
+          reject(err);
+        });
+      });
+
+      return ctx;
+    }
+
+    async function boot() {
+      const app = document.getElementById('app');
+      const roomId = pickRoom();
+      if (!roomId) throw new Error('Missing roomId');
+
+      const ctx = await waitForAuth();
+      const uid = ctx.auth.currentUser.uid;
+      const db = ctx.db;
+
+      const game = 'goodjunk';
+      const mode = 'duet';
+
+      const roomRef = db.ref(`rooms/${game}/${mode}/${roomId}`);
+      const playerRef = db.ref(`rooms/${game}/${mode}/${roomId}/players/${uid}`);
+
+      await playerRef.set({
+        uid,
+        pid: q.get('pid') || 'anon',
+        name: pickName(),
+        ready: true,
+        role: q.get('role') || 'guest',
+        joinedAt: Date.now(),
+        lastPingAt: Date.now()
+      });
+
+      playerRef.onDisconnect().remove();
+
+      roomRef.on('value', (snap) => {
+        const room = snap.val();
+        app.textContent = JSON.stringify(room || { state: 'missing-room' }, null, 2);
+      }, (err) => {
+        app.textContent = 'LOAD_FAIL ' + (err && err.message ? err.message : err);
+      });
+    }
+
+    boot().catch((err) => {
+      document.getElementById('app').textContent =
+        err && (err.stack || err.message || String(err));
+    });
+  </script>
+</body>
+</html>
