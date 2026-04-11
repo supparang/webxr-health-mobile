@@ -356,7 +356,7 @@
     }
 
     function pickHub() {
-      return (q.get('hub') || '../hub-v2.html').trim();
+      return (q.get('hub') || '../hub.html').trim();
     }
 
     function pickBool(key, fallback = false) {
@@ -394,16 +394,17 @@
       if (auth.currentUser) return ctx;
 
       await new Promise((resolve, reject) => {
+        let off = null;
         const timer = setTimeout(() => reject(new Error('Anonymous auth timeout')), 10000);
-        const off = auth.onAuthStateChanged((user) => {
+        off = auth.onAuthStateChanged((user) => {
           if (user) {
             clearTimeout(timer);
-            try { off && off(); } catch (_) {}
+            try { if (off) off(); } catch (_) {}
             resolve();
           }
         }, (err) => {
           clearTimeout(timer);
-          try { off && off(); } catch (_) {}
+          try { if (off) off(); } catch (_) {}
           reject(err);
         });
       });
