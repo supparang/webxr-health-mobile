@@ -4,17 +4,338 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>GoodJunk • Duet Runtime</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg1:#061427;
+      --bg2:#0f2d55;
+      --card:rgba(255,255,255,.10);
+      --line:rgba(255,255,255,.16);
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --ok:#86efac;
+      --warn:#fde68a;
+      --err:#fca5a5;
+      --primary:#67e8f9;
+      --shadow:0 18px 48px rgba(0,0,0,.28);
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(103,232,249,.16), transparent 24%),
+        radial-gradient(circle at 88% 0%, rgba(167,139,250,.16), transparent 26%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+    }
+
+    body{
+      min-height:100dvh;
+      padding:
+        calc(16px + var(--sat))
+        calc(16px + var(--sar))
+        calc(16px + var(--sab))
+        calc(16px + var(--sal));
+    }
+
+    .wrap{
+      max-width:980px;
+      margin:0 auto;
+      display:grid;
+      gap:14px;
+    }
+
+    .hero{
+      border-radius:28px;
+      border:1px solid var(--line);
+      background:var(--card);
+      box-shadow:var(--shadow);
+      padding:18px;
+      backdrop-filter:blur(12px);
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      border:1px solid var(--line);
+      font-weight:1000;
+      font-size:12px;
+      color:var(--primary);
+    }
+
+    h1{
+      margin:12px 0 6px;
+      font-size:clamp(28px,5vw,44px);
+      line-height:1.06;
+      font-weight:1000;
+    }
+
+    .sub{
+      margin:0;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.6;
+      font-size:14px;
+    }
+
+    .grid{
+      display:grid;
+      gap:14px;
+      grid-template-columns:1.1fr .9fr;
+    }
+
+    .panel{
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:var(--card);
+      box-shadow:var(--shadow);
+      padding:16px;
+      backdrop-filter:blur(12px);
+    }
+
+    .panel h2{
+      margin:0 0 12px;
+      font-size:18px;
+      line-height:1.2;
+    }
+
+    .stats{
+      display:grid;
+      gap:10px;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .stat{
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      padding:12px;
+    }
+
+    .stat .label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .stat .value{
+      margin-top:6px;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.25;
+      word-break:break-word;
+    }
+
+    .statusBox{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+      color:var(--muted);
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    .statusBox.ok{ color:var(--ok); }
+    .statusBox.warn{ color:var(--warn); }
+    .statusBox.err{ color:var(--err); }
+
+    .actions{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .btn{
+      min-height:48px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.08);
+      color:var(--text);
+      font-size:14px;
+      font-weight:1000;
+      cursor:pointer;
+      padding:12px 14px;
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg, rgba(103,232,249,.24), rgba(103,232,249,.14));
+      border-color:rgba(103,232,249,.36);
+    }
+
+    .players{
+      display:grid;
+      gap:10px;
+    }
+
+    .player{
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      padding:12px;
+    }
+
+    .player.me{
+      outline:2px solid rgba(103,232,249,.35);
+    }
+
+    .playerTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .playerName{
+      font-size:16px;
+      font-weight:1000;
+    }
+
+    .badges{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.08);
+      font-size:12px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+
+    pre{
+      margin:0;
+      white-space:pre-wrap;
+      word-break:break-word;
+      font-size:12px;
+      line-height:1.55;
+      color:#dbeafe;
+    }
+
+    .hint{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.6;
+    }
+
+    @media (max-width: 860px){
+      .grid{
+        grid-template-columns:1fr;
+      }
+
+      .actions{
+        grid-template-columns:1fr;
+      }
+
+      .stats{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div id="app"></div>
+  <div class="wrap">
+    <section class="hero">
+      <div class="kicker">🤝 GOODJUNK DUET RUNTIME</div>
+      <h1>ห้องคู่ GoodJunk</h1>
+      <p class="sub">
+        หน้านี้ใช้ทดสอบและยืนยันว่า auth + room path + player schema ผ่านกฎ Firebase จริงก่อนต่อยอดเป็นเกมคู่เต็มรูปแบบ
+      </p>
+    </section>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>สถานะห้อง</h2>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="label">Room</div>
+            <div class="value" id="roomText">-</div>
+          </div>
+          <div class="stat">
+            <div class="label">Role</div>
+            <div class="value" id="roleText">-</div>
+          </div>
+          <div class="stat">
+            <div class="label">Players</div>
+            <div class="value" id="playersText">-</div>
+          </div>
+          <div class="stat">
+            <div class="label">State</div>
+            <div class="value" id="stateText">-</div>
+          </div>
+        </div>
+
+        <div class="statusBox warn" id="statusBox">กำลังเตรียม runtime...</div>
+
+        <div class="actions">
+          <button class="btn primary" id="readyBtn" type="button">กด Ready</button>
+          <button class="btn" id="refreshBtn" type="button">รีเฟรช</button>
+          <button class="btn" id="backBtn" type="button">กลับ Hub</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>ผู้เล่นในห้อง</h2>
+        <div class="players" id="playersList">
+          <div class="hint">ยังไม่มีข้อมูลผู้เล่น</div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <h2>Raw room JSON</h2>
+      <pre id="rawJson">{}</pre>
+    </section>
+  </div>
 
   <script src="../firebase-app-compat.js"></script>
   <script src="../firebase-auth-compat.js"></script>
   <script src="../firebase-database-compat.js"></script>
-  <script src="../firebase-config.js"></script>
+  <script src="../firebase-config.js?v=20260411a-GJ-DUET-AUTH-HARDFAIL"></script>
 
   <script type="module">
     const q = new URLSearchParams(location.search);
+
+    const $ = (id) => document.getElementById(id);
+
+    const state = {
+      ctx: null,
+      uid: '',
+      roomId: '',
+      role: 'guest',
+      roomRef: null,
+      playerRef: null,
+      pingTimer: 0,
+      currentRoom: null
+    };
 
     function pickRoom() {
       return (
@@ -29,6 +350,42 @@
       return (q.get('name') || q.get('pid') || 'Hero').trim();
     }
 
+    function pickRole() {
+      const role = String(q.get('role') || '').trim().toLowerCase();
+      return role === 'host' ? 'host' : 'guest';
+    }
+
+    function pickHub() {
+      return (q.get('hub') || '../hub-v2.html').trim();
+    }
+
+    function pickBool(key, fallback = false) {
+      const raw = String(q.get(key) || '').trim().toLowerCase();
+      if (!raw) return fallback;
+      return ['1','true','yes','on','y'].includes(raw);
+    }
+
+    function safeText(v, d = '-') {
+      const s = String(v ?? '').trim();
+      return s || d;
+    }
+
+    function escapeHtml(v) {
+      return String(v ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function setStatus(message, kind = 'warn') {
+      const box = $('statusBox');
+      if (!box) return;
+      box.className = `statusBox ${kind}`;
+      box.textContent = message;
+    }
+
     async function waitForAuth() {
       const ctx = await window.HHA_FIREBASE_READY;
       const auth = ctx && ctx.auth;
@@ -41,12 +398,12 @@
         const off = auth.onAuthStateChanged((user) => {
           if (user) {
             clearTimeout(timer);
-            off();
+            try { off && off(); } catch (_) {}
             resolve();
           }
         }, (err) => {
           clearTimeout(timer);
-          off();
+          try { off && off(); } catch (_) {}
           reject(err);
         });
       });
@@ -54,44 +411,220 @@
       return ctx;
     }
 
-    async function boot() {
-      const app = document.getElementById('app');
-      const roomId = pickRoom();
-      if (!roomId) throw new Error('Missing roomId');
+    async function ensureRoomMeta() {
+      const metaRef = state.roomRef.child('meta');
+      const snap = await metaRef.once('value');
 
-      const ctx = await waitForAuth();
-      const uid = ctx.auth.currentUser.uid;
-      const db = ctx.db;
+      if (snap.exists()) {
+        return snap.val();
+      }
 
-      const game = 'goodjunk';
-      const mode = 'duet';
+      if (state.role !== 'host') {
+        return null;
+      }
 
-      const roomRef = db.ref(`rooms/${game}/${mode}/${roomId}`);
-      const playerRef = db.ref(`rooms/${game}/${mode}/${roomId}/players/${uid}`);
+      const meta = {
+        roomId: state.roomId,
+        game: 'goodjunk',
+        zone: q.get('zone') || 'nutrition',
+        mode: 'duet',
+        hostUid: state.uid,
+        state: 'lobby',
+        diff: q.get('diff') || 'normal',
+        timeSec: Number(q.get('time') || 90),
+        seed: String(q.get('seed') || Date.now()),
+        capacity: 2,
+        teamMode: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
 
-      await playerRef.set({
-        uid,
+      await metaRef.set(meta);
+      return meta;
+    }
+
+    async function upsertPlayer(forceReady) {
+      const snap = await state.playerRef.once('value');
+      const existing = snap.exists() ? snap.val() : null;
+      const ready = (typeof forceReady === 'boolean')
+        ? forceReady
+        : !!(existing && existing.ready);
+
+      const joinedAt = existing && Number(existing.joinedAt)
+        ? Number(existing.joinedAt)
+        : Date.now();
+
+      await state.playerRef.set({
+        uid: state.uid,
         pid: q.get('pid') || 'anon',
         name: pickName(),
-        ready: true,
-        role: q.get('role') || 'guest',
-        joinedAt: Date.now(),
+        ready,
+        role: state.role,
+        joinedAt,
         lastPingAt: Date.now()
-      });
-
-      playerRef.onDisconnect().remove();
-
-      roomRef.on('value', (snap) => {
-        const room = snap.val();
-        app.textContent = JSON.stringify(room || { state: 'missing-room' }, null, 2);
-      }, (err) => {
-        app.textContent = 'LOAD_FAIL ' + (err && err.message ? err.message : err);
       });
     }
 
+    async function toggleReady() {
+      const snap = await state.playerRef.child('ready').once('value');
+      const current = !!snap.val();
+      await upsertPlayer(!current);
+    }
+
+    function renderPlayers(room) {
+      const list = $('playersList');
+      if (!list) return;
+
+      const playersObj = room && room.players ? room.players : {};
+      const players = Object.values(playersObj);
+
+      if (!players.length) {
+        list.innerHTML = '<div class="hint">ยังไม่มีผู้เล่นในห้อง</div>';
+        return;
+      }
+
+      list.innerHTML = players.map((p) => {
+        const isMe = p && p.uid === state.uid;
+        const readyText = p && p.ready ? 'READY' : 'WAIT';
+        const roleText = p && p.role ? String(p.role).toUpperCase() : 'GUEST';
+        return `
+          <div class="player ${isMe ? 'me' : ''}">
+            <div class="playerTop">
+              <div class="playerName">${escapeHtml(p && p.name ? p.name : (p && p.pid ? p.pid : 'Unknown'))}</div>
+              <div class="badge">${readyText}</div>
+            </div>
+            <div class="badges">
+              <div class="badge">ROLE • ${escapeHtml(roleText)}</div>
+              <div class="badge">PID • ${escapeHtml(p && p.pid ? p.pid : '-')}</div>
+              <div class="badge">UID • ${escapeHtml(p && p.uid ? p.uid : '-')}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderRoom(room) {
+      state.currentRoom = room || null;
+
+      const meta = room && room.meta ? room.meta : null;
+      const playersObj = room && room.players ? room.players : {};
+      const players = Object.values(playersObj);
+      const self = players.find((p) => p && p.uid === state.uid) || null;
+
+      $('roomText').textContent = safeText(state.roomId);
+      $('roleText').textContent = safeText(self && self.role ? self.role : state.role).toUpperCase();
+      $('playersText').textContent = `${players.length}/2`;
+      $('stateText').textContent = safeText(meta && meta.state ? meta.state : (players.length ? 'waiting-meta' : 'empty')).toUpperCase();
+      $('rawJson').textContent = JSON.stringify(room || { state: 'missing-room' }, null, 2);
+      $('readyBtn').textContent = self && self.ready ? 'ยกเลิก Ready' : 'กด Ready';
+
+      renderPlayers(room);
+
+      if (meta && meta.state === 'lobby' && players.length >= 2) {
+        setStatus('เชื่อมต่อสำเร็จแล้ว ห้องครบ 2 คน สามารถต่อยอดไป flow เริ่มเกม duet ได้เลย', 'ok');
+        return;
+      }
+
+      if (!meta && state.role === 'guest') {
+        setStatus('เข้าห้องได้แล้ว แต่ยังไม่พบ meta ของ host — guest รอ host เปิดห้องหรือสร้าง meta ก่อน', 'warn');
+        return;
+      }
+
+      if (!meta && state.role === 'host') {
+        setStatus('host เข้าห้องแล้ว และกำลังสร้าง meta ของห้อง', 'warn');
+        return;
+      }
+
+      if (players.length === 1) {
+        setStatus('เชื่อมต่อ Firebase ผ่านแล้ว ตอนนี้กำลังรอผู้เล่นอีก 1 คน', 'ok');
+        return;
+      }
+
+      setStatus('runtime ทำงานแล้ว และกำลังติดตามสถานะห้องแบบ realtime', 'ok');
+    }
+
+    function startPing() {
+      stopPing();
+      state.pingTimer = window.setInterval(() => {
+        if (!state.playerRef) return;
+        state.playerRef.update({
+          lastPingAt: Date.now()
+        }).catch((err) => {
+          console.warn('[GJ-DUET] ping update failed:', err && err.message ? err.message : err);
+        });
+      }, 2500);
+    }
+
+    function stopPing() {
+      if (state.pingTimer) {
+        clearInterval(state.pingTimer);
+        state.pingTimer = 0;
+      }
+    }
+
+    function bindRoom() {
+      state.roomRef.on('value', (snap) => {
+        renderRoom(snap.val());
+      }, (err) => {
+        setStatus(`LOAD_FAIL ${err && err.message ? err.message : err}`, 'err');
+        $('rawJson').textContent = String(err && (err.stack || err.message || err) || 'Unknown error');
+      });
+    }
+
+    async function boot() {
+      state.roomId = pickRoom();
+      state.role = pickRole();
+
+      if (!state.roomId) {
+        throw new Error('Missing roomId');
+      }
+
+      const ctx = await waitForAuth();
+      state.ctx = ctx;
+      state.uid = ctx.auth.currentUser.uid;
+      state.roomRef = ctx.db.ref(`rooms/goodjunk/duet/${state.roomId}`);
+      state.playerRef = state.roomRef.child(`players/${state.uid}`);
+
+      setStatus('auth พร้อมแล้ว กำลังเตรียมห้อง duet...', 'warn');
+
+      await ensureRoomMeta();
+      await upsertPlayer(pickBool('ready', false));
+
+      try {
+        state.playerRef.onDisconnect().remove();
+      } catch (err) {
+        console.warn('[GJ-DUET] onDisconnect remove failed:', err && err.message ? err.message : err);
+      }
+
+      startPing();
+      bindRoom();
+
+      setStatus('เชื่อมต่อห้องสำเร็จ กำลังฟังข้อมูล realtime...', 'ok');
+    }
+
+    window.addEventListener('beforeunload', () => {
+      stopPing();
+    });
+
+    $('readyBtn').addEventListener('click', async () => {
+      try {
+        await toggleReady();
+      } catch (err) {
+        setStatus(`READY_FAIL ${err && err.message ? err.message : err}`, 'err');
+      }
+    });
+
+    $('refreshBtn').addEventListener('click', () => {
+      location.reload();
+    });
+
+    $('backBtn').addEventListener('click', () => {
+      location.href = pickHub();
+    });
+
     boot().catch((err) => {
-      document.getElementById('app').textContent =
-        err && (err.stack || err.message || String(err));
+      setStatus(String(err && (err.message || err) || 'Unknown error'), 'err');
+      $('rawJson').textContent = String(err && (err.stack || err.message || err) || 'Unknown error');
     });
   </script>
 </body>
