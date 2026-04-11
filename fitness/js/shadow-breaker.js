@@ -1,26 +1,291 @@
-// === js/shadow-breaker.js — Shadow Breaker bootstrap (2025-12-03, stable) ===
+// === /fitness/js/shadow-breaker.js ===
+// Shadow Breaker bootstrap
+// PATCH v20260411a-SB-BOOTSTRAP-SAFE
+
 'use strict';
 
 import { initShadowBreaker } from './engine.js';
 
+const SB_BOOT_VERSION = 'v20260411a-SB-BOOTSTRAP-SAFE';
+let booted = false;
+
+function qs(key, fallback = '') {
+  try {
+    const v = new URL(location.href).searchParams.get(key);
+    return v == null || v === '' ? fallback : v;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function qbool(key, fallback = false) {
+  const raw = String(qs(key, fallback ? '1' : '0')).toLowerCase();
+  return ['1', 'true', 'yes', 'y', 'on'].includes(raw);
+}
+
+function qnum(key, fallback = 0) {
+  const n = Number(qs(key, fallback));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function buildBootContext() {
+  const origin = location.origin || '';
+  const defaultHub = `${origin}/webxr-health-mobile/herohealth/hub.html`;
+
+  const ctx = {
+    patch: SB_BOOT_VERSION,
+
+    // HeroHealth common params
+    pid: qs('pid', 'anon'),
+    name: qs('name', 'Hero'),
+    nick: qs('nick', qs('name', 'Hero')),
+    studyId: qs('studyId', ''),
+    run: qs('run', 'play'),
+    view: qs('view', 'mobile'),
+    seed: qs('seed', String(Date.now())),
+    hub: qs('hub', defaultHub),
+
+    // Shadow Breaker specific
+    mode: qs('mode', 'mixed'),          // flow | boxing | mixed
+    body: qs('body', 'standing'),       // standing | sitting
+    intensity: qs('intensity', 'move'), // learn | move | power
+    duration: qnum('duration', qnum('time', 6)), // minutes preferred; fallback to time
+    diff: qs('diff', 'normal'),
+
+    // optional pass-through
+    zone: qs('zone', 'fitness'),
+    game: qs('game', 'shadowbreaker'),
+    gameId: qs('gameId', 'shadowbreaker'),
+    cat: qs('cat', 'fitness'),
+    theme: qs('theme', 'shadowbreaker'),
+
+    // debug / logging
+    debug: qbool('debug', false),
+    log: qbool('log', false)
+  };
+
+  // normalize duration
+  if (![3, 6, 10].includes(Number(ctx.duration))) {
+    ctx.duration = 6;
+  }
+
+  return ctx;
+}
+
+function ensureBootUi() {
+  let root = document.getElementById('sb-boot-ui');
+  if (root) return root;
+
+  root = document.createElement('div');
+  root.id = 'sb-boot-ui';
+  root.innerHTML = `
+    <style>
+      #sb-boot-ui{
+        position:fixed;
+        inset:0;
+        z-index:9999;
+        display:none;
+        place-items:center;
+        background:rgba(6,10,20,.72);
+        backdrop-filter:blur(6px);
+        font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      }
+      #sb-boot-ui[data-open="1"]{
+        display:grid;
+      }
+      #sb-boot-card{
+        width:min(92vw,560px);
+        border-radius:24px;
+        background:#ffffff;
+        color:#13233a;
+        box-shadow:0 24px 64px rgba(0,0,0,.28);
+        padding:20px 18px;
+      }
+      #sb-boot-card h2{
+        margin:0 0 8px;
+        font-size:22px;
+      }
+      #sb-boot-card p{
+        margin:8px 0;
+        line-height:1.6;
+      }
+      #sb-boot-actions{
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+        margin-top:14px;
+      }
+      .sb-boot-btn{
+        appearance:none;
+        border:0;
+        border-radius:14px;
+        padding:12px 16px;
+        font-weight:700;
+        cursor:pointer;
+        text-decoration:none;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+      }
+      .sb-boot-btn-primary{
+        background:#3b82f6;
+        color:#fff;
+      }
+      .sb-boot-btn-secondary{
+        background:#e8f1ff;
+        color:#13325b;
+      }
+      #sb-boot-debug{
+        margin-top:10px;
+        padding:10px 12px;
+        border-radius:14px;
+        background:#f6f9ff;
+        font-size:12px;
+        color:#4a5d78;
+        white-space:pre-wrap;
+        word-break:break-word;
+      }
+    </style>
+    <div id="sb-boot-card" role="dialog" aria-live="polite" aria-modal="true">
+      <h2 id="sb-boot-title">กำลังเริ่ม Shadow Breaker...</h2>
+      <p id="sb-boot-message">กรุณารอสักครู่</p>
+      <div id="sb-boot-actions"></div>
+      <div id="sb-boot-debug" hidden></div>
+    </div>
+  `;
+  document.body.appendChild(root);
+  return root;
+}
+
+function showBootMessage(title, message, options = {}) {
+  const root = ensureBootUi();
+  const titleEl = root.querySelector('#sb-boot-title');
+  const msgEl = root.querySelector('#sb-boot-message');
+  const actionsEl = root.querySelector('#sb-boot-actions');
+  const debugEl = root.querySelector('#sb-boot-debug');
+
+  titleEl.textContent = title || 'Shadow Breaker';
+  msgEl.textContent = message || '';
+  actionsEl.innerHTML = '';
+  debugEl.hidden = true;
+  debugEl.textContent = '';
+
+  if (options.debugText) {
+    debugEl.hidden = false;
+    debugEl.textContent = options.debugText;
+  }
+
+  (options.actions || []).forEach((a) => {
+    if (a.href) {
+      const link = document.createElement('a');
+      link.className = `sb-boot-btn ${a.primary ? 'sb-boot-btn-primary' : 'sb-boot-btn-secondary'}`;
+      link.href = a.href;
+      link.textContent = a.label || 'Open';
+      actionsEl.appendChild(link);
+      return;
+    }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `sb-boot-btn ${a.primary ? 'sb-boot-btn-primary' : 'sb-boot-btn-secondary'}`;
+    btn.textContent = a.label || 'OK';
+    btn.addEventListener('click', () => {
+      try { a.onClick && a.onClick(); } catch (_) {}
+    });
+    actionsEl.appendChild(btn);
+  });
+
+  root.dataset.open = '1';
+}
+
+function hideBootMessage() {
+  const root = document.getElementById('sb-boot-ui');
+  if (root) root.dataset.open = '0';
+}
+
+function handleFatalBootError(err, ctx) {
+  console.error('[ShadowBreaker] init failed', err);
+
+  const msg = (err && err.message) ? err.message : String(err || 'Unknown error');
+  const debugText = [
+    `patch: ${SB_BOOT_VERSION}`,
+    `mode: ${ctx.mode}`,
+    `body: ${ctx.body}`,
+    `intensity: ${ctx.intensity}`,
+    `duration: ${ctx.duration}`,
+    `view: ${ctx.view}`,
+    `run: ${ctx.run}`,
+    `seed: ${ctx.seed}`,
+    `hub: ${ctx.hub}`,
+    `error: ${msg}`
+  ].join('\n');
+
+  showBootMessage(
+    'เริ่มเกมไม่ได้',
+    'ไม่สามารถเริ่ม Shadow Breaker ได้ กรุณารีเฟรชหน้า หรือกลับไปหน้าเลือกเกม',
+    {
+      debugText: ctx.debug ? debugText : '',
+      actions: [
+        {
+          label: 'รีเฟรชหน้า',
+          primary: true,
+          onClick: () => location.reload()
+        },
+        {
+          label: 'กลับ HUB',
+          href: ctx.hub
+        }
+      ]
+    }
+  );
+}
+
 function bootShadowBreaker() {
-  // กันกรณีโหลดไฟล์ JS แต่ engine.js เปลี่ยนชื่อ / ยังไม่พร้อม
+  if (booted) {
+    console.warn('[ShadowBreaker] bootstrap skipped: already booted');
+    return;
+  }
+  booted = true;
+
+  const ctx = buildBootContext();
+
+  showBootMessage('กำลังเริ่ม Shadow Breaker...', 'กำลังโหลดระบบเกม');
+
   if (typeof initShadowBreaker !== 'function') {
-    console.error('[ShadowBreaker] initShadowBreaker is not a function');
+    handleFatalBootError(new Error('initShadowBreaker is not a function'), ctx);
     return;
   }
 
   try {
-    initShadowBreaker();
-    console.log('[ShadowBreaker] bootstrap OK (initShadowBreaker called)');
-  } catch (e) {
-    console.error('[ShadowBreaker] init failed', e);
-    // ถ้าเป็น production จริง ๆ จะตัด alert ทิ้งก็ได้
-    alert('ไม่สามารถเริ่มเกม Shadow Breaker ได้ กรุณารีเฟรชหน้า');
+    // JS อนุญาตให้ส่ง arg เกินได้
+    // engine เก่ารับ 0 arg ก็ยังทำงานได้
+    initShadowBreaker(ctx);
+
+    hideBootMessage();
+
+    if (ctx.debug || ctx.log) {
+      console.log('[ShadowBreaker] bootstrap OK', {
+        patch: SB_BOOT_VERSION,
+        ctx
+      });
+    }
+  } catch (err) {
+    handleFatalBootError(err, ctx);
   }
 }
 
-// ให้เรียกแค่ครั้งเดียวตอน DOM พร้อมแล้ว
+window.addEventListener('error', (ev) => {
+  const root = document.getElementById('sb-boot-ui');
+  if (!root || root.dataset.open !== '1') return;
+  console.error('[ShadowBreaker] window error', ev.error || ev.message || ev);
+});
+
+window.addEventListener('unhandledrejection', (ev) => {
+  const root = document.getElementById('sb-boot-ui');
+  if (!root || root.dataset.open !== '1') return;
+  console.error('[ShadowBreaker] unhandled rejection', ev.reason || ev);
+});
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', bootShadowBreaker, { once: true });
 } else {
