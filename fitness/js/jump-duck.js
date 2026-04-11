@@ -132,11 +132,14 @@
   /* ===== HeroHealth Fitness Recent Bridge ===== */
   function hhFitnessBaseSnapshot() {
     const s = state;
-    const durationSec = s && s.duration ? Math.round(Number(s.duration || 0) / 1000) : Number(HHA_CTX.duration || HHA_CTX.time || 60);
+    const durationSec = s && s.duration
+      ? Math.round(Number(s.duration || 0) / 1000)
+      : Number(HHA_CTX.duration || HHA_CTX.time || 60);
+
     return {
       zone: 'fitness',
-      gameId: 'jump-duck',
-      game: 'jump-duck',
+      gameId: 'jumpduck',
+      game: 'jumpduck',
       pid: String(HHA_CTX.pid || 'anon'),
       name: String(qs('name', qs('nickName', 'Hero')) || 'Hero'),
       studyId: String(HHA_CTX.studyId || ''),
@@ -150,6 +153,8 @@
       combo: Number(s?.combo || 0),
       bestStreak: Number(s?.maxCombo || 0),
       stability: Number(s?.stability || 0),
+      phaseEnd: Number(s?.phase || 0),
+      bossDown: !!(s?.bossActive && Number(s?.bossHp || 100) <= 0),
       result: String(s?.ended ? 'summary' : (s?.running ? 'running' : 'idle')),
       href: location.href,
       path: location.pathname
@@ -319,6 +324,62 @@
     maxPressureLevel: 2
   };
 
+  const JD_STORE_KEYS = {
+    SUMMARY_FULL: 'HHA_LAST_SUMMARY',
+    SUMMARY_BRIDGE: 'HHA_LAST_SUMMARY_JUMPDUCK',
+    EVENTS_JSON: 'HHA_LAST_EVENTS_JUMPDUCK',
+    EVENTS_CSV: 'HHA_LAST_EVENTS_JUMPDUCK_CSV',
+    SESSIONS_CSV: 'HHA_LAST_SESSIONS_JUMPDUCK_CSV',
+    TEACHER_JSON: 'HHA_LAST_TEACHER_SUMMARY_JUMPDUCK',
+    TEACHER_CSV: 'HHA_LAST_TEACHER_SUMMARY_JUMPDUCK_CSV',
+    PENDING_UPLOADS: 'JD_PENDING_UPLOADS'
+  };
+
+  const JD_EXPORT_COLUMNS = {
+    events: [
+      'sessionId','pid','t_ms','eventType',
+      'mode','diff','phase','phaseLabel','progress','rushStage','finalRush',
+      'bossKey','bossLabel','bossHp','bossPhase2','bossFrenzy',
+      'score','combo','maxCombo','stability','fever','feverActive',
+      'assistLevel','pressureLevel','directorReason','tuneKey',
+      'obstacleId','obstacleNeed','obstacleType','obstacleVariant','obstacleVisual','obstacleFeint',
+      'pattern','patternTag','spawnX','obstacleSpeed',
+      'inputType','judge','gain','reason','liveNoMiss',
+      'streakTier','streakLabel','bonus',
+      'endReason','rank','accPct','sessionScoreFinal',
+      'durationSec'
+    ],
+    sessions: [
+      'sessionId','pid','mode','diff',
+      'durationSec','endReason',
+      'scoreFinal','rank','accPct',
+      'totalObstacles','totalHit','totalMiss',
+      'jumpHit','duckHit','jumpMiss','duckMiss',
+      'jumpAcc','duckAcc',
+      'maxCombo','liveNoMiss','rushSurviveAwarded',
+      'bossKey','bossLabel','bossDown','bossHpEnd','bossPhase2','bossBreakMoments',
+      'spawnCountLow','spawnCountHigh','spawnCountHeavy','spawnCountMini','spawnCountFeint',
+      'phase1Hit','phase2Hit','phase3Hit',
+      'phase1Miss','phase2Miss','phase3Miss',
+      'rushHit','rushMiss',
+      'stabilityEnd','phaseEnd','progressEnd','lastPattern',
+      'tuneKey','assistLevelEnd','pressureLevelEnd','directorReason','directorDeterministic',
+      'weaknessTags','strengthTags',
+      'timestampIso'
+    ],
+    teacher: [
+      'sessionId','pid','mode','diff',
+      'scoreFinal','accPct','rank','maxCombo',
+      'jumpAcc','duckAcc',
+      'phase1Miss','phase2Miss','phase3Miss','rushMiss',
+      'bossLabel','bossHpEnd','bossDown','bossPhase2',
+      'assistLevelEnd','pressureLevelEnd','directorReason',
+      'weaknessTags','strengthTags',
+      'coachHeadline','coachTip1','coachTip2',
+      'flags','timestampIso'
+    ]
+  };
+
   function showView(name) {
     viewMenu?.classList.add('hidden');
     viewPlay?.classList.add('hidden');
@@ -394,11 +455,30 @@
     return s;
   }
 
-  function toCsv(rows) {
+  function toCsv(rows, preferredColumns = []) {
     if (!rows || !rows.length) return '';
-    const cols = Object.keys(rows[0]);
+
+    const seen = new Set();
+    const cols = [];
+
+    preferredColumns.forEach((c) => {
+      if (!seen.has(c)) {
+        seen.add(c);
+        cols.push(c);
+      }
+    });
+
+    rows.forEach((row) => {
+      Object.keys(row || {}).forEach((c) => {
+        if (!seen.has(c)) {
+          seen.add(c);
+          cols.push(c);
+        }
+      });
+    });
+
     const out = [cols.join(',')];
-    rows.forEach(r => out.push(cols.map(c => escCsv(r[c])).join(',')));
+    rows.forEach((r) => out.push(cols.map((c) => escCsv(r?.[c])).join(',')));
     return out.join('\n');
   }
 
@@ -419,6 +499,184 @@
     if (!logStatus) return;
     logStatus.textContent = msg;
     logStatus.style.color = ok ? '#22c55e' : '#f59e0b';
+  }
+
+  function jdStarsFromSummary(summary) {
+    const rank = String(summary?.rank || '').toUpperCase();
+    const acc = Number(summary?.accPct || 0);
+    const bossDown = !!summary?.sessionFeatures?.bossDown;
+
+    if (rank === 'S') return 3;
+    if (rank === 'A') return bossDown ? 3 : 2;
+    if (rank === 'B') return acc >= 70 ? 2 : 1;
+    if (rank === 'C') return acc >= 55 ? 1 : 0;
+    return 0;
+  }
+
+  function jdBridgePostsCleared(summary) {
+    const acc = Number(summary?.accPct || 0);
+    return Math.max(0, Math.min(7, Math.round((acc / 100) * 7)));
+  }
+
+  function saveJumpDuckBridgeArtifacts(summary) {
+    if (!summary) return null;
+
+    const sf = summary.sessionFeatures || {};
+    const teacher = summary.teacherSummary || {};
+    const events = Array.isArray(summary.eventLog) ? summary.eventLog : [];
+
+    const bridge = {
+      game: 'jumpduck',
+      gameId: 'jumpduck',
+      zone: 'fitness',
+      pid: String(sf.pid || HHA_CTX.pid || 'anon'),
+      mode: String(sf.mode || HHA_CTX.mode || 'training'),
+      diff: String(sf.diff || HHA_CTX.diff || 'normal'),
+      timeSec: Number(sf.durationSec || 0),
+      score: Number(sf.scoreFinal || 0),
+      stars: Number(summary.stars || jdStarsFromSummary(summary)),
+      rank: String(sf.rank || summary.rank || 'C'),
+      rhythmAccuracy: Number(sf.accPct || summary.accPct || 0),
+      landingControl: Number(sf.stabilityEnd || 0),
+      postsCleared: jdBridgePostsCleared(summary),
+      bestCombo: Number(sf.maxCombo || 0),
+      missCount: Number(sf.totalMiss || 0),
+      bossDown: !!sf.bossDown,
+      bossLabel: String(sf.bossLabel || ''),
+      rushStage: String(summary.rushStage || ''),
+      lastPattern: String(summary.pattern || sf.lastPattern || ''),
+      updatedAt: String(summary.timestampIso || nowIso()),
+      hub: String(HHA_CTX.hub || './')
+    };
+
+    saveJson(JD_STORE_KEYS.SUMMARY_BRIDGE, bridge);
+    saveJson(JD_STORE_KEYS.EVENTS_JSON, events);
+    saveJson(JD_STORE_KEYS.TEACHER_JSON, teacher);
+
+    try {
+      localStorage.setItem(JD_STORE_KEYS.EVENTS_CSV, toCsv(events, JD_EXPORT_COLUMNS.events));
+      localStorage.setItem(JD_STORE_KEYS.SESSIONS_CSV, toCsv([sf], JD_EXPORT_COLUMNS.sessions));
+      localStorage.setItem(JD_STORE_KEYS.TEACHER_CSV, toCsv([teacher], JD_EXPORT_COLUMNS.teacher));
+      localStorage.setItem('HHA_LAST_ZONE', 'fitness');
+      localStorage.setItem('HHA_RECOMMENDED_ZONE', 'fitness');
+      localStorage.setItem('HHA_NEXT_ZONE', 'fitness');
+    } catch (_) {}
+
+    try {
+      window.HH_FITNESS_LASTGAME?.writeSnapshot({
+        ...hhFitnessBaseSnapshot(),
+        event: 'result_saved',
+        score: Number(bridge.score || 0),
+        miss: Number(bridge.missCount || 0),
+        bestStreak: Number(bridge.bestCombo || 0),
+        rank: String(bridge.rank || ''),
+        bossDown: !!bridge.bossDown,
+        result: 'summary'
+      });
+    } catch (_) {}
+
+    return bridge;
+  }
+
+  function jdBuildUploadPayload(summary) {
+    return {
+      source: 'jumpduck',
+      sentAt: nowIso(),
+      client: {
+        href: location.href,
+        path: location.pathname,
+        userAgent: navigator.userAgent
+      },
+      ctx: {
+        pid: HHA_CTX.pid || 'anon',
+        run: HHA_CTX.run || 'play',
+        diff: HHA_CTX.diff || 'normal',
+        studyId: HHA_CTX.studyId || '',
+        seed: HHA_CTX.seed || '',
+        view: HHA_CTX.view || '',
+        mode: HHA_CTX.mode || '',
+        hub: HHA_CTX.hub || ''
+      },
+      summary: summary?.sessionFeatures || {},
+      teacherSummary: summary?.teacherSummary || {},
+      analysis: summary?.analysis || {},
+      reward: {
+        rank: summary?.rank || '',
+        rewardLabel: summary?.rewardLabel || '',
+        rewardKey: summary?.rewardKey || '',
+        bossTitle: summary?.bossTitle || '',
+        stars: Number(summary?.stars || 0)
+      },
+      events: Array.isArray(summary?.eventLog) ? summary.eventLog : []
+    };
+  }
+
+  async function jdPostJson(url, payload, timeoutMs = 12000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+
+      const text = await res.text().catch(() => '');
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}${text ? `: ${text.slice(0, 180)}` : ''}`);
+      }
+
+      return { ok: true, text };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function jdQueuePendingUpload(payload) {
+    const list = loadJson(JD_STORE_KEYS.PENDING_UPLOADS, []);
+    list.push(payload);
+    saveJson(JD_STORE_KEYS.PENDING_UPLOADS, list);
+  }
+
+  async function jdSendSummaryToApi(summary) {
+    const api = String(HHA_CTX.api || '').trim();
+    if (!api) {
+      return { ok: false, reason: 'no-api' };
+    }
+
+    const payload = jdBuildUploadPayload(summary);
+    try {
+      await jdPostJson(api, payload);
+      return { ok: true };
+    } catch (err) {
+      jdQueuePendingUpload(payload);
+      return {
+        ok: false,
+        reason: err?.message || 'upload-failed'
+      };
+    }
+  }
+
+  async function jdFlushPendingUploads() {
+    const api = String(HHA_CTX.api || '').trim();
+    if (!api) return;
+
+    const queue = loadJson(JD_STORE_KEYS.PENDING_UPLOADS, []);
+    if (!Array.isArray(queue) || !queue.length) return;
+
+    const remain = [];
+    for (const payload of queue) {
+      try {
+        await jdPostJson(api, payload, 10000);
+      } catch (_) {
+        remain.push(payload);
+      }
+    }
+    saveJson(JD_STORE_KEYS.PENDING_UPLOADS, remain);
   }
 
   function setHubLinks() {
@@ -2712,6 +2970,11 @@
       rushHit: Number(s.rushHit || 0),
       rushMiss: Number(s.rushMiss || 0),
 
+      stabilityEnd: Number(s.stability || 0),
+      phaseEnd: Number(s.phase || 0),
+      progressEnd: Number((s.progress || 0).toFixed(4)),
+      lastPattern: String(s.lastPattern || ''),
+
       tuneKey: s.tuneKey || '',
       assistLevelEnd: Number(s.assistLevel || 0),
       pressureLevelEnd: Number(s.pressureLevel || 0),
@@ -2932,19 +3195,56 @@
     const noMiss = miss === 0;
     const rtMean = 0;
 
+    const analysis = jdAnalyzeRun(s);
+    const sessionFeatures = jdBuildSessionFeatures(s, analysis, '', endReason);
     const rank = jdRankByPerformance(accPct, miss, s.maxCombo || 0, bossDown);
+    sessionFeatures.rank = rank;
     const reward = jdRewardFromRank(rank, accPct, bossDown, noMiss);
     const bossBadge = jdBossBadge(s);
     const bossTitle = jdBossSpecificTitle(s, rank, bossDown, noMiss);
-    const analysis = jdAnalyzeRun(s);
+
+    const summary = {
+      game: 'jumpduck',
+      gameId: 'jumpduck',
+      pid: String(HHA_CTX.pid || 'anon'),
+      scoreFinal: Number(s.score || 0),
+      accPct: Number(accPct.toFixed(2)),
+      rank,
+      stars: jdStarsFromSummary({ rank, accPct, sessionFeatures }),
+      bossVariant: s.bossProfile?.key || '',
+      bossLabel: s.bossProfile?.label || '',
+      bossTitle: bossTitle || '',
+      rewardLabel: reward.label,
+      rewardKey: reward.key,
+      end_reason: endReason,
+      missTotal: miss,
+      comboMax: s.maxCombo,
+      timestampIso: nowIso(),
+      pattern: s.lastPattern || '',
+      rush: !!s.finalRush,
+      rushStage: s.rushStage || '',
+      tuneKey: s.tuneKey || 'A',
+      liveNoMiss: !!s.liveNoMiss,
+      bossPhase2: !!s.bossPhase2,
+      bossBreakMoments: Number(s.bossBreakMoments || 0),
+      assistLevel: Number(s.assistLevel || 0),
+      pressureLevel: Number(s.pressureLevel || 0),
+      directorReason: s.lastDirectorReason || '',
+      analysis,
+      sessionFeatures,
+      eventLog: Array.isArray(s.eventLog) ? s.eventLog : []
+    };
+
     const coach = jdBuildCoachMessage(s, analysis);
-    const sessionFeatures = jdBuildSessionFeatures(s, analysis, rank, endReason);
+    summary.coach = coach;
+
     const teacherSummary = jdBuildTeacherSummary({
       sessionFeatures,
       analysis,
       coach,
-      timestampIso: nowIso()
+      timestampIso: summary.timestampIso
     });
+    summary.teacherSummary = teacherSummary;
 
     const pid = String(HHA_CTX.pid || 'anon');
     const profileKey = `JD_PROFILE:${pid}`;
@@ -3004,46 +3304,15 @@
       sessionScoreFinal: Number(s.score || 0)
     });
 
-    const summary = {
-      game: 'jumpduck',
-      pid,
-      scoreFinal: s.score,
-      accPct: Number(accPct.toFixed(2)),
-      rank,
-      bossVariant: s.bossProfile?.key || '',
-      bossLabel: s.bossProfile?.label || '',
-      bossTitle: bossTitle || '',
-      rewardLabel: reward.label,
-      rewardKey: reward.key,
-      end_reason: endReason,
-      missTotal: miss,
-      comboMax: s.maxCombo,
-      timestampIso: nowIso(),
-      pattern: s.lastPattern || '',
-      rush: !!s.finalRush,
-      rushStage: s.rushStage || '',
-      tuneKey: s.tuneKey || 'A',
-      liveNoMiss: !!s.liveNoMiss,
-      bossPhase2: !!s.bossPhase2,
-      bossBreakMoments: Number(s.bossBreakMoments || 0),
-      assistLevel: Number(s.assistLevel || 0),
-      pressureLevel: Number(s.pressureLevel || 0),
-      directorReason: s.lastDirectorReason || '',
-      analysis,
-      coach,
-      sessionFeatures,
-      teacherSummary,
-      eventLog: Array.isArray(s.eventLog) ? s.eventLog : []
-    };
-
     saveLastSummary(summary);
+    saveJumpDuckBridgeArtifacts(summary);
 
     try {
       window.HH_FITNESS_LASTGAME?.writeSnapshot({
         event: 'summary_ready',
         zone: 'fitness',
-        gameId: 'jump-duck',
-        game: 'jump-duck',
+        gameId: 'jumpduck',
+        game: 'jumpduck',
         score: Number(s.score || 0),
         miss: Number(s.miss || 0),
         bestStreak: Number(s.maxCombo || 0),
@@ -3254,6 +3523,14 @@
       clearRunTimers(state);
       resetTransientUI();
       clearArena();
+
+      hhFitnessMark('back_menu', {
+        score: Number(state?.score || 0),
+        miss: Number(state?.miss || 0),
+        bestStreak: Number(state?.maxCombo || 0),
+        result: 'menu'
+      });
+
       showView('menu');
     });
 
@@ -3300,40 +3577,71 @@
     });
 
     btnDlEvents?.addEventListener('click', () => {
-      const summary = loadJson('HHA_LAST_SUMMARY', null);
-      if (!summary || !Array.isArray(summary.eventLog || [])) {
+      const csv = localStorage.getItem(JD_STORE_KEYS.EVENTS_CSV) || '';
+      const events = loadJson(JD_STORE_KEYS.EVENTS_JSON, []);
+
+      if (!csv && (!Array.isArray(events) || !events.length)) {
         setLogStatus('ยังไม่มี event log ให้ export', false);
         return;
       }
 
-      downloadCsv(toCsv(summary.eventLog), `jd-events-${Date.now()}.csv`);
+      downloadCsv(csv || toCsv(events, JD_EXPORT_COLUMNS.events), `jd-events-${Date.now()}.csv`);
       setLogStatus('export events.csv เรียบร้อย', true);
     });
 
     btnDlSessions?.addEventListener('click', () => {
-      const summary = loadJson('HHA_LAST_SUMMARY', null);
-      if (!summary || !summary.sessionFeatures) {
+      const csv = localStorage.getItem(JD_STORE_KEYS.SESSIONS_CSV) || '';
+      const summary = loadJson(JD_STORE_KEYS.SUMMARY_FULL, null);
+
+      if (!csv && !summary?.sessionFeatures) {
         setLogStatus('ยังไม่มี session summary ให้ export', false);
         return;
       }
 
-      downloadCsv(toCsv([summary.sessionFeatures]), `jd-sessions-${Date.now()}.csv`);
+      downloadCsv(
+        csv || toCsv([summary.sessionFeatures], JD_EXPORT_COLUMNS.sessions),
+        `jd-sessions-${Date.now()}.csv`
+      );
       setLogStatus('export sessions.csv เรียบร้อย', true);
     });
 
     btnDlTeacher?.addEventListener('click', () => {
-      const summary = loadJson('HHA_LAST_SUMMARY', null);
-      if (!summary || !summary.teacherSummary) {
+      const csv = localStorage.getItem(JD_STORE_KEYS.TEACHER_CSV) || '';
+      const teacher = loadJson(JD_STORE_KEYS.TEACHER_JSON, null);
+
+      if (!csv && !teacher) {
         setLogStatus('ยังไม่มี teacher summary ให้ export', false);
         return;
       }
 
-      downloadCsv(toCsv([summary.teacherSummary]), `jd-teacher-summary-${Date.now()}.csv`);
+      downloadCsv(
+        csv || toCsv([teacher], JD_EXPORT_COLUMNS.teacher),
+        `jd-teacher-summary-${Date.now()}.csv`
+      );
       setLogStatus('export teacher-summary.csv เรียบร้อย', true);
     });
 
     btnSendLog?.addEventListener('click', async () => {
-      setLogStatus('ยังไม่ได้เปิด cloud logger ใน patch นี้', false);
+      const api = String(HHA_CTX.api || '').trim();
+      if (!api) {
+        setLogStatus('ยังไม่ได้ส่ง เพราะไม่มี api= ใน URL', false);
+        return;
+      }
+
+      const summary = loadJson(JD_STORE_KEYS.SUMMARY_FULL, null);
+      if (!summary) {
+        setLogStatus('ยังไม่มี summary สำหรับส่ง', false);
+        return;
+      }
+
+      setLogStatus('กำลังส่ง log...', true);
+      const res = await jdSendSummaryToApi(summary);
+
+      if (res.ok) {
+        setLogStatus('ส่ง log สำเร็จ', true);
+      } else {
+        setLogStatus(`ส่งไม่สำเร็จ • queue ไว้แล้ว (${res.reason || 'unknown'})`, false);
+      }
     });
 
     elMode?.addEventListener('change', updateResearchVisibility);
@@ -3353,6 +3661,13 @@
     resetPlayHUD();
     resetResultHUD();
     showView('menu');
+
+    jdFlushPendingUploads();
+    window.addEventListener('online', jdFlushPendingUploads);
+
+    hhFitnessMark('menu_ready', {
+      result: 'menu'
+    });
   }
 
   init();
