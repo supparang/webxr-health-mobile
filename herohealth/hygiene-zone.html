@@ -3,152 +3,802 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Hygiene Zone</title>
+  <title>HeroHealth — Hygiene Zone</title>
+  <meta name="theme-color" content="#9fe3ff" />
   <meta name="color-scheme" content="light" />
-  <link rel="stylesheet" href="./hygiene-zone.css" />
+  <link rel="icon" href="./favicon.ico" />
+
+  <style>
+    :root{
+      --sky1:#dff4ff;
+      --sky2:#eefbff;
+      --sky3:#fff9df;
+      --text:#4d4a42;
+      --muted:#76746d;
+      --blue:#7fcfff;
+      --blue2:#58b7f5;
+      --green:#7ed957;
+      --green2:#58c33f;
+      --orange:#ffbe55;
+      --pink:#ff8fc7;
+      --panel:#fffdf7;
+      --line:#d8ebf7;
+      --shadow:0 14px 34px rgba(57,104,132,.12);
+      --shadow-lg:0 18px 48px rgba(57,104,132,.18);
+      --radius:24px;
+      --radius-sm:16px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; }
+    body{
+      min-height:100vh;
+      font-family:ui-rounded,"Nunito","Fredoka",system-ui,-apple-system,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.9), transparent 35%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 48%,var(--sky3));
+    }
+
+    a{ color:inherit; text-decoration:none; }
+    button{ font:inherit; }
+
+    .bg-clouds{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:0;
+    }
+
+    .cloud{
+      position:absolute;
+      border-radius:999px;
+      background:rgba(255,255,255,.55);
+      filter:blur(2px);
+    }
+
+    .cloud::before,.cloud::after{
+      content:"";
+      position:absolute;
+      background:inherit;
+      border-radius:inherit;
+    }
+
+    .cloud.c1{ width:220px; height:68px; top:80px; left:4%; }
+    .cloud.c1::before{ width:92px; height:92px; left:28px; top:-32px; }
+    .cloud.c1::after{ width:110px; height:110px; right:26px; top:-40px; }
+
+    .cloud.c2{ width:180px; height:58px; top:150px; right:8%; }
+    .cloud.c2::before{ width:82px; height:82px; left:20px; top:-30px; }
+    .cloud.c2::after{ width:90px; height:90px; right:20px; top:-30px; }
+
+    .cloud.c3{ width:260px; height:74px; top:240px; left:30%; }
+    .cloud.c3::before{ width:92px; height:92px; left:36px; top:-30px; }
+    .cloud.c3::after{ width:120px; height:120px; right:28px; top:-46px; }
+
+    .shell{
+      position:relative;
+      z-index:1;
+      width:min(1220px, calc(100% - 24px));
+      margin:0 auto;
+      padding:18px 0 28px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .back-btn,
+    .hub-btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:46px;
+      padding:10px 16px;
+      border-radius:16px;
+      font-weight:900;
+      background:#fff;
+      color:var(--text);
+      border:1px solid var(--line);
+      box-shadow:0 8px 18px rgba(43,88,118,.06);
+    }
+
+    .brand-pill{
+      flex:1 1 auto;
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:14px;
+      padding:12px 16px;
+      border-radius:999px;
+      background:linear-gradient(180deg, rgba(255,255,255,.97), rgba(255,250,242,.93));
+      border:1px solid rgba(120,190,220,.28);
+      box-shadow:var(--shadow);
+    }
+
+    .brand-logo{
+      width:56px;
+      height:56px;
+      object-fit:contain;
+      flex:0 0 auto;
+    }
+
+    .brand-fallback{
+      width:56px;
+      height:56px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      flex:0 0 auto;
+      background:linear-gradient(135deg,var(--blue),var(--green),var(--orange));
+    }
+
+    .brand-copy h1{
+      margin:0;
+      line-height:1;
+      font-size:clamp(1.1rem, 2vw, 1.55rem);
+      font-weight:900;
+    }
+
+    .brand-copy p{
+      margin:4px 0 0;
+      font-size:.84rem;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.3fr .9fr;
+      gap:14px;
+      margin-bottom:14px;
+    }
+
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.94), rgba(255,253,247,.92));
+      border:1px solid rgba(191,227,242,.85);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+
+    .welcome{
+      padding:22px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .welcome::after{
+      content:"";
+      position:absolute;
+      right:-28px;
+      bottom:-28px;
+      width:170px;
+      height:170px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(255,214,102,.22), transparent 62%);
+    }
+
+    .hello{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 12px;
+      border-radius:999px;
+      background:#fff5c8;
+      font-weight:900;
+      font-size:.88rem;
+    }
+
+    .welcome h2{
+      margin:12px 0 8px;
+      font-size:clamp(1.45rem,2.6vw,2rem);
+      line-height:1.1;
+    }
+
+    .welcome p{
+      margin:0;
+      color:var(--muted);
+      font-weight:700;
+    }
+
+    .hero-kids{
+      margin-top:14px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .hero-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:9px 12px;
+      border-radius:999px;
+      background:#f7fbff;
+      border:1px solid #d5ecf7;
+      font-weight:900;
+    }
+
+    .stat-card{
+      padding:18px;
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+
+    .stat-title{
+      margin:0;
+      font-size:1rem;
+    }
+
+    .stat-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+    }
+
+    .mini{
+      padding:12px;
+      border-radius:18px;
+      background:#f8fbff;
+      border:1px solid #d8ebf7;
+    }
+
+    .mini b{
+      display:block;
+      font-size:1.15rem;
+      margin-bottom:4px;
+    }
+
+    .mini span{
+      color:var(--muted);
+      font-weight:800;
+      font-size:.82rem;
+    }
+
+    .toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-bottom:14px;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:46px;
+      padding:10px 16px;
+      border-radius:16px;
+      font-weight:900;
+      transition:transform .16s ease, box-shadow .16s ease;
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+
+    .btn.primary{
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      color:#fff;
+      box-shadow:0 10px 20px rgba(88,183,245,.24);
+    }
+
+    .btn.secondary{
+      background:#fff;
+      color:var(--text);
+      border:1px solid var(--line);
+      box-shadow:0 8px 18px rgba(43,88,118,.06);
+    }
+
+    .btn.green{
+      background:linear-gradient(180deg,var(--green),var(--green2));
+      color:#173b0b;
+    }
+
+    .games{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .game-card{
+      padding:16px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#ffffff,#fffdf7);
+      border:2px solid #d7edf7;
+      box-shadow:0 12px 24px rgba(86,155,194,.10);
+      display:grid;
+      gap:12px;
+    }
+
+    .game-top{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    .game-icon{
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      background:linear-gradient(135deg,#fff7cf,#ffd56e);
+      border:2px solid #d7edf7;
+      box-shadow:0 6px 12px rgba(0,0,0,.06);
+    }
+
+    .game-kicker{
+      font-size:11px;
+      letter-spacing:.08em;
+      color:#5ea8d0;
+      font-weight:1000;
+      text-transform:uppercase;
+    }
+
+    .game-title{
+      margin:2px 0 4px;
+      font-size:1.22rem;
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .game-sub{
+      margin:0;
+      font-size:.92rem;
+      color:var(--muted);
+      font-weight:800;
+      line-height:1.5;
+    }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .chip{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:2px solid #d7edf7;
+      color:#5d6e7a;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .chip.main{
+      background:#eefbff;
+      border-color:#cdeeff;
+      color:#2d6f8b;
+    }
+
+    .chip.warmup{
+      background:#fff8db;
+      border-color:#ffe08a;
+      color:#9d6016;
+    }
+
+    .game-actions{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .game-note{
+      font-size:.85rem;
+      color:var(--muted);
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .footer-note{
+      margin:16px 4px 0;
+      text-align:center;
+      color:var(--muted);
+      font-size:.86rem;
+      font-weight:800;
+    }
+
+    @media (max-width:980px){
+      .hero,
+      .games{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:700px){
+      .shell{
+        width:min(100% - 14px, 1220px);
+        padding:14px 0 24px;
+      }
+
+      .topbar{
+        flex-wrap:wrap;
+      }
+
+      .brand-pill{
+        order:-1;
+        width:100%;
+      }
+
+      .stat-grid{
+        grid-template-columns:1fr 1fr;
+      }
+
+      .game-actions{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:520px){
+      .stat-grid{
+        grid-template-columns:1fr;
+      }
+
+      .brand-logo,
+      .brand-fallback{
+        width:48px;
+        height:48px;
+      }
+
+      .game-title{
+        font-size:1.08rem;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div class="hz-shell">
-    <header class="hz-topbar">
-      <div class="brand-wrap">
-        <div class="brand-badge">HeroHealth</div>
-        <h1 class="hero-title">Hygiene Zone</h1>
-        <p class="hero-sub">
-          โลกแห่งสุขอนามัย เลือกเกมที่อยากเล่น แล้วฝึกนิสัยสะอาดอย่างสนุกและเข้าใจง่าย
-        </p>
-      </div>
-
-      <div class="hero-actions">
-        <a id="hubBtn" class="top-btn" href="./hub-v2.html">กลับ HUB</a>
-        <button id="continueBtn" class="top-btn primary" type="button">เล่นต่อ</button>
-      </div>
-    </header>
-
-    <section class="hero-panel">
-      <div class="hero-panel-left">
-        <div class="mascot-card">
-          <div class="mascot-face">🫧</div>
-          <div class="mascot-text">
-            <div class="mascot-kicker">พร้อมเล่น!</div>
-            <div id="coachLine" class="mascot-line">
-              เริ่มจากเกมที่ง่ายก่อน แล้วค่อยไปเกมสืบสวนหรือเกมที่ท้าทายขึ้นนะ
-            </div>
-          </div>
-        </div>
-
-        <div class="stats-row">
-          <div class="pill">🫧 มี 4 เกมในโซน Hygiene</div>
-          <div id="playerPill" class="pill">👤 ฮีโร่: Hero</div>
-          <div id="modePill" class="pill">🎮 ตอนนี้: เล่นสนุก</div>
-        </div>
-      </div>
-
-      <div class="hero-panel-right">
-        <div class="control-card">
-          <div class="control-title">ตั้งค่าก่อนเล่น</div>
-
-          <label class="control-group">
-            <span>โหมด</span>
-            <select id="modeSelect">
-              <option value="play">เล่นสนุก</option>
-              <option value="learn">ฝึกเรียนรู้</option>
-              <option value="research">โหมดครู</option>
-            </select>
-          </label>
-
-          <label class="control-group">
-            <span>เวลา</span>
-            <select id="timeSelect">
-              <option value="60">60 วินาที</option>
-              <option value="90" selected>90 วินาที</option>
-              <option value="120">120 วินาที</option>
-            </select>
-          </label>
-
-          <div class="control-group">
-            <span>เลือกแบบที่อยากเล่น</span>
-            <div id="filterRow" class="filter-row">
-              <button class="filter-chip active" type="button" data-filter="all">ทั้งหมด</button>
-              <button class="filter-chip" type="button" data-filter="easy">เริ่มง่าย</button>
-              <button class="filter-chip" type="button" data-filter="quick">เล่นสั้น</button>
-              <button class="filter-chip" type="button" data-filter="fun">สนุกท้าทาย</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="featured-game-card" id="featuredGameCard">
-      <div class="featured-game-left">
-        <div class="featured-kicker">แนะนำวันนี้</div>
-        <h2 id="featuredTitle" class="featured-title">Handwash</h2>
-        <p id="featuredSub" class="featured-sub">
-          ฝึกล้างมือให้ถูกขั้นตอนแบบเข้าใจง่าย เหมาะสำหรับเริ่มเล่นใน Hygiene Zone
-        </p>
-
-        <div id="featuredTags" class="featured-tags">
-          <span class="featured-tag">เริ่มง่าย</span>
-          <span class="featured-tag">สุขอนามัย</span>
-          <span class="featured-tag">ทำตามขั้นตอน</span>
-        </div>
-      </div>
-
-      <div class="featured-game-right">
-        <a id="featuredPlayBtn" class="top-btn primary" href="./handwash-vr.html">▶️ เริ่มเกมแนะนำ</a>
-      </div>
-    </section>
-
-    <section class="featured-card">
-      <div class="featured-head">
-        <div>
-          <div class="section-kicker">Continue</div>
-          <h2 class="section-title">เกมล่าสุดของหนู</h2>
-        </div>
-      </div>
-
-      <div id="recentArea" class="recent-area">
-        <div class="empty-recent">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>
-      </div>
-    </section>
-
-    <section class="section-block">
-      <div class="section-head">
-        <div>
-          <div class="section-kicker">All Games</div>
-          <h2 class="section-title">เลือกเกมใน Hygiene Zone</h2>
-        </div>
-      </div>
-
-      <div id="gamesGrid" class="games-grid"></div>
-    </section>
-
-    <section class="zone-progress-card">
-      <div class="section-head">
-        <div>
-          <div class="section-kicker">Progress</div>
-          <h2 class="section-title">ความคืบหน้า Hygiene Zone</h2>
-        </div>
-      </div>
-
-      <div class="zone-progress-grid">
-        <div class="progress-pill">
-          <div class="progress-n" id="zonePlayedCount">0/4</div>
-          <div class="progress-t">เกมที่เคยเล่น</div>
-        </div>
-
-        <div class="progress-pill">
-          <div class="progress-n" id="zoneStarsCount">0/5</div>
-          <div class="progress-t">ดาวโซน</div>
-        </div>
-
-        <div class="progress-pill">
-          <div class="progress-n" id="zoneTodayCount">0</div>
-          <div class="progress-t">เกมวันนี้</div>
-        </div>
-      </div>
-    </section>
+  <div class="bg-clouds" aria-hidden="true">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
   </div>
 
-  <script type="module" src="./hygiene-zone.js"></script>
+  <main class="shell">
+    <header class="topbar">
+      <a id="btnBackHub" class="back-btn" href="./hub-v2.html">⬅️ กลับ HUB</a>
+
+      <div class="brand-pill" aria-label="Hygiene Zone">
+        <img
+          class="brand-logo"
+          src="./assets/logo-system/logos/brush-logo.svg"
+          alt="Hygiene Zone Logo"
+          onerror="this.style.display='none';this.nextElementSibling.hidden=false;"
+        />
+        <div class="brand-fallback" hidden aria-hidden="true">🫧</div>
+
+        <div class="brand-copy">
+          <h1>Hygiene Zone</h1>
+          <p>ล้างมือ แปรงฟัน ป้องกันเชื้อโรค และดูแลความสะอาดรอบตัว</p>
+        </div>
+      </div>
+
+      <a id="btnRecommended" class="hub-btn" href="./hub-v2.html">🏠 HUB</a>
+    </header>
+
+    <section class="hero">
+      <article class="panel welcome">
+        <div class="hello">🫧 สุขอนามัยที่ดี เริ่มจากเกมสนุก</div>
+        <h2>เลือกเกมที่อยากฝึก แล้วออกไปเป็นฮีโร่ตัวสะอาดกัน</h2>
+        <p>
+          โซนนี้รวมเกมดูแลความสะอาดของร่างกาย ของใช้ และการป้องกันการแพร่เชื้อ
+          เลือกเล่นได้ตามความพร้อม ทั้งแบบเกมหลักและ warmup
+        </p>
+
+        <div class="hero-kids">
+          <span class="hero-chip">🪥 Brush</span>
+          <span class="hero-chip">🦠 Germ Detective</span>
+          <span class="hero-chip">😷 MaskCough</span>
+          <span class="hero-chip">🧽 Clean Objects</span>
+          <span class="hero-chip">🛁 Bath</span>
+          <span class="hero-chip">🧼 Handwash</span>
+        </div>
+      </article>
+
+      <article class="panel stat-card">
+        <h3 class="stat-title">📌 โซนนี้มีอะไรบ้าง</h3>
+        <div class="stat-grid">
+          <div class="mini"><b>5</b><span>Main games</span></div>
+          <div class="mini"><b>1</b><span>Warmup</span></div>
+          <div class="mini"><b>3</b><span>โหมดที่รองรับ</span></div>
+          <div class="mini"><b>90s</b><span>ค่าเริ่มต้นต่อรอบ</span></div>
+        </div>
+
+        <div class="toolbar">
+          <a id="btnPlayRecommended" class="btn primary" href="#">🎮 เล่นเกมแนะนำ</a>
+          <a id="btnOpenHub2" class="btn secondary" href="./hub-v2.html">🏠 กลับ Hub</a>
+        </div>
+      </article>
+    </section>
+
+    <section class="games">
+      <article class="game-card">
+        <div class="game-top">
+          <div class="game-icon">🪥</div>
+          <div>
+            <div class="game-kicker">Main game</div>
+            <h3 class="game-title">Brush Kids</h3>
+            <p class="game-sub">เลือกโซนฟัน ลากแปรงตามลายการแปรง และฝึกให้ครบทั้งโหมดเรียนรู้และโหมดท้าทาย</p>
+          </div>
+        </div>
+
+        <div class="chips">
+          <span class="chip main">Main</span>
+          <span class="chip">Teeth Care</span>
+          <span class="chip">Pattern</span>
+          <span class="chip">Routine</span>
+        </div>
+
+        <div class="game-actions">
+          <div class="game-note">เหมาะเป็นเกมเริ่มต้นของโซน Hygiene เพราะกติกาชัดและเด็กเข้าใจง่าย</div>
+          <a class="btn green game-link"
+             data-base="https://supparang.github.io/webxr-health-mobile/herohealth/vr-brush-kids/brush.html"
+             data-game="brush"
+             data-gameid="brush"
+             data-theme="brush"
+             href="#">เล่นเลย</a>
+        </div>
+      </article>
+
+      <article class="game-card">
+        <div class="game-top">
+          <div class="game-icon">🦠</div>
+          <div>
+            <div class="game-kicker">Main game</div>
+            <h3 class="game-title">Germ Detective</h3>
+            <p class="game-sub">เลือกเครื่องมือให้ถูก แล้วแตะจุดเสี่ยงเพื่อหยุดการแพร่เชื้อ ก่อน infection meter จะพุ่งสูงเกินไป</p>
+          </div>
+        </div>
+
+        <div class="chips">
+          <span class="chip main">Main</span>
+          <span class="chip">Detective</span>
+          <span class="chip">Tools</span>
+          <span class="chip">Outbreak</span>
+        </div>
+
+        <div class="game-actions">
+          <div class="game-note">นี่คือตัว Germ Detective ที่ควรใช้จริงในโซนนี้</div>
+          <a class="btn green game-link"
+             data-base="https://supparang.github.io/webxr-health-mobile/herohealth/germ-detective/germ-rush-run.html"
+             data-game="germdetective"
+             data-gameid="germdetective"
+             data-theme="germdetective"
+             href="#">เล่นเลย</a>
+        </div>
+      </article>
+
+      <article class="game-card">
+        <div class="game-top">
+          <div class="game-icon">😷</div>
+          <div>
+            <div class="game-kicker">Main game</div>
+            <h3 class="game-title">MaskCough Arcade</h3>
+            <p class="game-sub">เก็บละอองให้ไว ลดความเสี่ยงจากการไอจาม และรักษาพลังป้องกันให้ดีจนจบรอบ</p>
+          </div>
+        </div>
+
+        <div class="chips">
+          <span class="chip main">Main</span>
+          <span class="chip">Protection</span>
+          <span class="chip">Arcade</span>
+          <span class="chip">Reflex</span>
+        </div>
+
+        <div class="game-actions">
+          <div class="game-note">เหมาะกับการฝึกเรื่องการป้องกันการแพร่เชื้อแบบเข้าใจง่ายและเร็ว</div>
+          <a class="btn green game-link"
+             data-base="https://supparang.github.io/webxr-health-mobile/herohealth/vr-maskcough/maskcough-v2.html"
+             data-game="maskcough"
+             data-gameid="maskcough"
+             data-theme="maskcough"
+             href="#">เล่นเลย</a>
+        </div>
+      </article>
+
+      <article class="game-card">
+        <div class="game-top">
+          <div class="game-icon">🧽</div>
+          <div>
+            <div class="game-kicker">Main game</div>
+            <h3 class="game-title">Clean Objects Hero</h3>
+            <p class="game-sub">ทำความสะอาดของใช้โดยถูคราบให้หมด เก็บสบู่เพื่อเปิด Soap Fever และเคลียร์ Boss Object ให้ได้</p>
+          </div>
+        </div>
+
+        <div class="chips">
+          <span class="chip main">Main</span>
+          <span class="chip">Cleaning</span>
+          <span class="chip">Soap Fever</span>
+          <span class="chip">Boss</span>
+        </div>
+
+        <div class="game-actions">
+          <div class="game-note">ใช้แทนลิงก์เก่าที่เคยเรียก Germ Detective ผิดตัว</div>
+          <a class="btn green game-link"
+             data-base="https://supparang.github.io/webxr-health-mobile/herohealth/clean-objects-v3/clean-objects-v2.html"
+             data-game="cleanobjects"
+             data-gameid="cleanobjects"
+             data-theme="cleanobjects"
+             href="#">เล่นเลย</a>
+        </div>
+      </article>
+
+      <article class="game-card">
+        <div class="game-top">
+          <div class="game-icon">🛁</div>
+          <div>
+            <div class="game-kicker">Main game</div>
+            <h3 class="game-title">Bath Hero</h3>
+            <p class="game-sub">อาบน้ำให้พร้อมออกจากบ้านตามลำดับ เปียก ฟอก ถูจุดอับ ล้าง เช็ด และใส่เสื้อให้ครบ</p>
+          </div>
+        </div>
+
+        <div class="chips">
+          <span class="chip main">Main</span>
+          <span class="chip">Bath</span>
+          <span class="chip">Routine</span>
+          <span class="chip">Step by Step</span>
+        </div>
+
+        <div class="game-actions">
+          <div class="game-note">เป็นเกมลำดับขั้นที่เหมาะกับการฝึกสุขนิสัยแบบครบ flow</div>
+          <a class="btn green game-link"
+             data-base="https://supparang.github.io/webxr-health-mobile/herohealth/vr-bath/bath.html"
+             data-game="bath"
+             data-gameid="bath"
+             data-theme="bath"
+             href="#">เล่นเลย</a>
+        </div>
+      </article>
+
+      <article class="game-card">
+        <div class="game-top">
+          <div class="game-icon">🧼</div>
+          <div>
+            <div class="game-kicker">Warmup / How to play</div>
+            <h3 class="game-title">Handwash Hero VR</h3>
+            <p class="game-sub">ฝึก 7 ขั้นตอนการถูมือก่อนเข้าเกมหลัก เหมาะเป็น warmup หรือใช้สอนวิธีเล่นให้เด็กเข้าใจง่าย</p>
+          </div>
+        </div>
+
+        <div class="chips">
+          <span class="chip warmup">Warmup</span>
+          <span class="chip">7 Steps</span>
+          <span class="chip">How to Play</span>
+          <span class="chip">VR Ready</span>
+        </div>
+
+        <div class="game-actions">
+          <div class="game-note">ตอนนี้หน้า live ยังสื่อบทบาทเป็น warmup จึงยังไม่ติดป้าย main game</div>
+          <a class="btn secondary game-link"
+             data-base="https://supparang.github.io/webxr-health-mobile/herohealth/vr-handwash/handwash-v2.html"
+             data-game="handwash"
+             data-gameid="handwash"
+             data-theme="handwash"
+             href="#">เข้า Warmup</a>
+        </div>
+      </article>
+    </section>
+
+    <p class="footer-note">HeroHealth Hygiene Zone • child-friendly • mobile-first • zone-first flow</p>
+  </main>
+
+  <script>
+    (function(){
+      'use strict';
+
+      function qs(name, fallback=''){
+        try{
+          return new URL(location.href).searchParams.get(name) ?? fallback;
+        }catch(_){
+          return fallback;
+        }
+      }
+
+      function setParamIfValue(url, key, value){
+        if(value == null || value === '') return;
+        url.searchParams.set(key, String(value));
+      }
+
+      function buildGameUrl(base, game, gameId, theme){
+        const u = new URL(base, location.href);
+
+        const pid = qs('pid', 'anon');
+        const name = qs('name', qs('nickName', 'Hero'));
+        const run = qs('run', 'play');
+        const diff = qs('diff', 'normal');
+        const view = qs('view', 'mobile');
+        const time = qs('time', '90');
+        const hub = qs('hub', new URL('./hub-v2.html', location.href).toString());
+
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('name', name);
+        u.searchParams.set('run', run);
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('view', view);
+        u.searchParams.set('time', time);
+        u.searchParams.set('hub', hub);
+
+        u.searchParams.set('zone', 'hygiene');
+        u.searchParams.set('cat', 'hygiene');
+        u.searchParams.set('game', game);
+        u.searchParams.set('gameId', gameId);
+        u.searchParams.set('theme', theme);
+
+        setParamIfValue(u, 'studyId', qs('studyId', ''));
+        setParamIfValue(u, 'seed', qs('seed', String(Date.now())));
+        setParamIfValue(u, 'debug', qs('debug', ''));
+        setParamIfValue(u, 'api', qs('api', ''));
+        setParamIfValue(u, 'log', qs('log', ''));
+        setParamIfValue(u, 'schoolCode', qs('schoolCode', ''));
+        setParamIfValue(u, 'classRoom', qs('classRoom', ''));
+        setParamIfValue(u, 'studentNo', qs('studentNo', ''));
+        setParamIfValue(u, 'sessionNo', qs('sessionNo', ''));
+        setParamIfValue(u, 'weekNo', qs('weekNo', ''));
+        setParamIfValue(u, 'teacher', qs('teacher', ''));
+        setParamIfValue(u, 'grade', qs('grade', ''));
+        setParamIfValue(u, 'studentKey', qs('studentKey', ''));
+
+        return u.toString();
+      }
+
+      function patchHubLinks(){
+        const hub = qs('hub', new URL('./hub-v2.html', location.href).toString());
+        const backHub = document.getElementById('btnBackHub');
+        const hub2 = document.getElementById('btnOpenHub2');
+        const hub3 = document.getElementById('btnRecommended');
+
+        if(backHub) backHub.href = hub;
+        if(hub2) hub2.href = hub;
+        if(hub3) hub3.href = hub;
+      }
+
+      function patchGameLinks(){
+        const links = document.querySelectorAll('.game-link');
+        links.forEach((el) => {
+          const base = el.getAttribute('data-base') || '#';
+          const game = el.getAttribute('data-game') || '';
+          const gameId = el.getAttribute('data-gameid') || game;
+          const theme = el.getAttribute('data-theme') || game;
+          el.href = buildGameUrl(base, game, gameId, theme);
+        });
+      }
+
+      function patchRecommended(){
+        const btn = document.getElementById('btnPlayRecommended');
+        if(!btn) return;
+        btn.href = buildGameUrl(
+          'https://supparang.github.io/webxr-health-mobile/herohealth/vr-brush-kids/brush.html',
+          'brush',
+          'brush',
+          'brush'
+        );
+      }
+
+      patchHubLinks();
+      patchGameLinks();
+      patchRecommended();
+    })();
+  </script>
 </body>
 </html>
