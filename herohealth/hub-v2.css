@@ -23,11 +23,11 @@ html,body{ margin:0; padding:0; }
 
 body{
   min-height:100vh;
-  font-family:ui-rounded, "Nunito", "Fredoka", system-ui, -apple-system, sans-serif;
+  font-family:ui-rounded,"Nunito","Fredoka",system-ui,-apple-system,sans-serif;
   color:var(--text);
   background:
     radial-gradient(circle at top left, rgba(255,255,255,.9), transparent 35%),
-    linear-gradient(180deg, var(--sky1), var(--sky2) 48%, var(--sky3));
+    linear-gradient(180deg,var(--sky1),var(--sky2) 48%,var(--sky3));
 }
 
 a{ color:inherit; text-decoration:none; }
@@ -136,12 +136,14 @@ button{ font:inherit; }
   box-shadow:var(--shadow);
 }
 
-.brand-copy{ min-width:0; }
+.brand-copy{
+  min-width:0;
+}
 
 .brand-title{
   margin:0;
   line-height:1;
-  font-size:clamp(1.1rem, 2vw, 1.55rem);
+  font-size:clamp(1.1rem,2vw,1.55rem);
   font-weight:900;
 }
 
@@ -154,44 +156,6 @@ button{ font:inherit; }
 
 .hh-hub-brand-mount{
   margin:14px 0 16px;
-}
-
-.hh-brand-hero__card{
-  display:flex;
-  align-items:center;
-  gap:14px;
-  padding:14px 16px;
-  border-radius:22px;
-  border:1px solid rgba(127,207,255,.35);
-  background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(245,252,255,.92));
-  box-shadow:var(--shadow);
-}
-
-.hh-brand-hero__logo{
-  width:72px;
-  height:72px;
-  object-fit:contain;
-}
-
-.hh-brand-hero__fallback{
-  width:72px;
-  height:72px;
-  border-radius:20px;
-  display:grid;
-  place-items:center;
-  font-size:34px;
-  background:linear-gradient(135deg,var(--blue),var(--green),var(--orange));
-}
-
-.hh-brand-hero__copy h2{
-  margin:0;
-  font-size:1.2rem;
-}
-
-.hh-brand-hero__copy p{
-  margin:4px 0 0;
-  color:var(--muted);
-  font-weight:700;
 }
 
 .hero{
@@ -241,7 +205,7 @@ button{ font:inherit; }
 
 .welcome h1{
   margin:12px 0 8px;
-  font-size:clamp(1.5rem, 2.8vw, 2.1rem);
+  font-size:clamp(1.5rem,2.8vw,2.1rem);
   line-height:1.1;
 }
 
@@ -507,15 +471,15 @@ button{ font:inherit; }
 }
 
 .zone-card.hygiene{
-  background:linear-gradient(180deg, #ffffff, #f1fbff);
+  background:linear-gradient(180deg,#ffffff,#f1fbff);
 }
 
 .zone-card.nutrition{
-  background:linear-gradient(180deg, #ffffff, #f6fff0);
+  background:linear-gradient(180deg,#ffffff,#f6fff0);
 }
 
 .zone-card.fitness{
-  background:linear-gradient(180deg, #ffffff, #fff7ee);
+  background:linear-gradient(180deg,#ffffff,#fff7ee);
 }
 
 .zone-top{
@@ -679,9 +643,7 @@ button{ font:inherit; }
 }
 
 .mission-list,
-.summary-box,
-.library-box,
-.picker-list{
+.summary-box{
   display:grid;
   gap:10px;
 }
@@ -830,73 +792,6 @@ button{ font:inherit; }
   transform:translateX(-50%) translateY(0);
 }
 
-.modal{
-  position:fixed;
-  inset:0;
-  display:none;
-  z-index:40;
-}
-
-.modal.is-open{
-  display:block;
-}
-
-.modal-backdrop{
-  position:absolute;
-  inset:0;
-  background:rgba(31,41,55,.32);
-  backdrop-filter:blur(2px);
-}
-
-.modal-card{
-  position:relative;
-  width:min(900px, calc(100% - 20px));
-  max-height:min(86vh, 820px);
-  overflow:auto;
-  margin:36px auto 0;
-  padding:16px;
-  border-radius:26px;
-  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,251,244,.96));
-  border:1px solid rgba(191,227,242,.95);
-  box-shadow:0 20px 60px rgba(23,53,73,.24);
-}
-
-.modal-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-}
-
-.modal-head h3{
-  margin:0;
-}
-
-.modal-close{
-  width:42px;
-  height:42px;
-  border:none;
-  border-radius:14px;
-  background:#fff;
-  border:1px solid #d5ecf7;
-  cursor:pointer;
-  font-size:1rem;
-}
-
-.modal-sub{
-  margin:8px 0 12px;
-  color:var(--muted);
-  font-weight:700;
-}
-
-.picker-toolbar{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  margin-bottom:12px;
-}
-
-/* ===== Fitness Planner Hub Card ===== */
 .fp-hub-card{
   margin-top:12px;
   border-radius:22px;
@@ -1014,15 +909,82 @@ button{ font:inherit; }
   font-weight:1000;
 }
 
-/* ===== Fitness Planner button in zone card ===== */
-#zoneCard-fitness .actions{
-  align-items:stretch;
+.modal{
+  position:fixed;
+  inset:0;
+  display:none;
+  z-index:40;
 }
 
-#btnFitnessPlanner{
-  display:inline-flex;
+.modal.is-open{
+  display:block;
+}
+
+.modal-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(31,41,55,.32);
+  backdrop-filter:blur(2px);
+}
+
+.modal-card{
+  position:relative;
+  width:min(900px, calc(100% - 20px));
+  max-height:min(86vh, 820px);
+  overflow:auto;
+  margin:36px auto 0;
+  padding:16px;
+  border-radius:26px;
+  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,251,244,.96));
+  border:1px solid rgba(191,227,242,.95);
+  box-shadow:0 20px 60px rgba(23,53,73,.24);
+}
+
+.modal-head{
+  display:flex;
   align-items:center;
-  justify-content:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.modal-head h3{
+  margin:0;
+}
+
+.modal-close{
+  width:42px;
+  height:42px;
+  border:none;
+  border-radius:14px;
+  background:#fff;
+  border:1px solid #d5ecf7;
+  cursor:pointer;
+  font-size:1rem;
+}
+
+.modal-sub{
+  margin:8px 0 12px;
+  color:var(--muted);
+  font-weight:700;
+}
+
+.picker-toolbar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:12px;
+}
+
+#libraryBox,
+.library-box{
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+  height:0 !important;
+  min-height:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+  overflow:hidden !important;
 }
 
 @media (max-width:1100px){
@@ -1085,12 +1047,6 @@ button{ font:inherit; }
     width:50px;
     height:50px;
   }
-
-  .hh-brand-hero__logo,
-  .hh-brand-hero__fallback{
-    width:60px;
-    height:60px;
-  }
 }
 
 @media (max-width:560px){
@@ -1123,130 +1079,3 @@ button{ font:inherit; }
     font-size:20px;
   }
 }
-/* =========================================================
-   HUB V2 PATCH — disable legacy libraryBox renderer
-   PATCH v20260411c-hub-lite-disable-librarybox
-   แปะท้าย hub-v2.js
-   ========================================================= */
-(function (W, D) {
-  'use strict';
-
-  const LIB_ID = 'libraryBox';
-
-  function byId(id) {
-    return D.getElementById(id);
-  }
-
-  function hardHideLibraryBox() {
-    const el = byId(LIB_ID);
-    if (!el) return;
-
-    try { el.innerHTML = ''; } catch (_) {}
-
-    el.hidden = true;
-    el.setAttribute('hidden', '');
-    el.setAttribute('aria-hidden', 'true');
-
-    el.style.display = 'none';
-    el.style.visibility = 'hidden';
-    el.style.pointerEvents = 'none';
-    el.style.height = '0';
-    el.style.minHeight = '0';
-    el.style.margin = '0';
-    el.style.padding = '0';
-    el.style.overflow = 'hidden';
-  }
-
-  function patchElementMethods(el) {
-    if (!el || el.__hhLibraryPatched) return;
-    el.__hhLibraryPatched = true;
-
-    const originalAppendChild = el.appendChild ? el.appendChild.bind(el) : null;
-    const originalInsertBefore = el.insertBefore ? el.insertBefore.bind(el) : null;
-    const originalReplaceChildren = el.replaceChildren ? el.replaceChildren.bind(el) : null;
-
-    if (originalAppendChild) {
-      el.appendChild = function () {
-        hardHideLibraryBox();
-        return arguments[0] || null;
-      };
-    }
-
-    if (originalInsertBefore) {
-      el.insertBefore = function () {
-        hardHideLibraryBox();
-        return arguments[0] || null;
-      };
-    }
-
-    if (originalReplaceChildren) {
-      el.replaceChildren = function () {
-        hardHideLibraryBox();
-      };
-    }
-
-    try {
-      Object.defineProperty(el, 'innerHTML', {
-        configurable: true,
-        enumerable: true,
-        get() {
-          return '';
-        },
-        set() {
-          hardHideLibraryBox();
-        }
-      });
-    } catch (_) {
-      /* บาง browser/element define ไม่ได้ ก็ปล่อยผ่าน */
-    }
-  }
-
-  function patchLibraryBox() {
-    const el = byId(LIB_ID);
-    if (!el) return;
-    patchElementMethods(el);
-    hardHideLibraryBox();
-  }
-
-  function observeLibraryBox() {
-    if (W.__hhLibraryObserverBound) return;
-    W.__hhLibraryObserverBound = true;
-
-    const observer = new MutationObserver(function () {
-      patchLibraryBox();
-    });
-
-    observer.observe(D.documentElement || D.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      characterData: true
-    });
-
-    W.__hhLibraryObserver = observer;
-  }
-
-  function bootDisableLibraryBox() {
-    patchLibraryBox();
-    observeLibraryBox();
-
-    W.setTimeout(patchLibraryBox, 0);
-    W.setTimeout(patchLibraryBox, 120);
-    W.setTimeout(patchLibraryBox, 500);
-    W.setTimeout(patchLibraryBox, 1200);
-  }
-
-  if (D.readyState === 'loading') {
-    D.addEventListener('DOMContentLoaded', bootDisableLibraryBox, { once: true });
-  } else {
-    bootDisableLibraryBox();
-  }
-
-  W.addEventListener('load', patchLibraryBox);
-  W.addEventListener('pageshow', patchLibraryBox);
-  W.addEventListener('focus', patchLibraryBox);
-
-  D.addEventListener('visibilitychange', function () {
-    if (!D.hidden) patchLibraryBox();
-  });
-})(window, document);
