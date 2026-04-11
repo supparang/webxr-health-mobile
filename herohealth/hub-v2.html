@@ -7,8 +7,7 @@
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
-
-  <link rel="stylesheet" href="./hub-v2.css?v=20260411b-hub-lite" />
+  <link rel="stylesheet" href="./hub-v2.css?v=20260411d-hub-lite-singlejs" />
 </head>
 <body>
   <div class="bg-clouds" aria-hidden="true">
@@ -46,9 +45,7 @@
         <div>
           <div class="hello">🌈 ฮีโร่น้อย พร้อมผจญภัย!</div>
           <h1>เล่นสนุก แล้วแข็งแรงไปด้วยกัน</h1>
-          <p>
-            เลือกดินแดนที่อยากไป แล้วเก็บดาว เหรียญ และพลังสุขภาพกันเลย
-          </p>
+          <p>เลือกดินแดนที่อยากไป แล้วเก็บดาว เหรียญ และพลังสุขภาพกันเลย</p>
           <div id="heroQuickline" class="hero-quickline">วันนี้ลองเล่นให้ครบ 3 โซนกันนะ</div>
 
           <div class="hero-cta-row">
@@ -165,7 +162,7 @@
           <div class="zone-left">
             <div class="zone-top">
               <img class="zone-logo" src="./assets/logo-system/logos/brush-logo.svg" alt="Hygiene Zone"
-                   onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
+                onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
               <div class="zone-logo-fallback" hidden aria-hidden="true">🫧</div>
               <div>
                 <h2 class="zone-name">Hygiene Zone</h2>
@@ -206,7 +203,7 @@
           <div class="zone-left">
             <div class="zone-top">
               <img class="zone-logo" src="./assets/logo-system/logos/goodjunk-logo.svg" alt="Nutrition Zone"
-                   onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
+                onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
               <div class="zone-logo-fallback" hidden aria-hidden="true">🥗</div>
               <div>
                 <h2 class="zone-name">Nutrition Zone</h2>
@@ -219,7 +216,7 @@
               <div class="pill">🏅 Level <b id="nutriLevel">4</b></div>
               <div class="pill">🎯 เป้าหมายวันนี้: เก็บ 3 ดาว</div>
               <div class="pill">⭐ ดาวโซน <b id="nutriStars">3/5</b></div>
-              <div class="pill featured-pill">🎮 แนะนำ: <b id="nutriFeatured">GoodJunk Hero</b></div>
+              <div class="pill featured-pill">🎮 แนะนำ: <b id="nutriFeatured">GoodJunk</b></div>
               <div class="pill recent-pill" id="nutriRecentPill" hidden>🕹️ ล่าสุด: <b id="nutriRecentText">-</b></div>
             </div>
 
@@ -247,7 +244,7 @@
           <div class="zone-left">
             <div class="zone-top">
               <img class="zone-logo" src="./assets/logo-system/logos/jump-duck-logo.svg" alt="Fitness Zone"
-                   onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
+                onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
               <div class="zone-logo-fallback" hidden aria-hidden="true">🏃</div>
               <div>
                 <h2 class="zone-name">Fitness Zone</h2>
@@ -260,7 +257,7 @@
               <div class="pill">🏅 Level <b id="fitLevel">3</b></div>
               <div class="pill">🎯 เป้าหมายวันนี้: เล่นต่อเนื่อง 2 รอบ</div>
               <div class="pill">⭐ ดาวโซน <b id="fitStars">2/5</b></div>
-              <div class="pill featured-pill">🎮 แนะนำ: <b id="fitFeatured">Jump Duck</b></div>
+              <div class="pill featured-pill">🎮 แนะนำ: <b id="fitFeatured">Jump &amp; Duck</b></div>
               <div class="pill recent-pill" id="fitRecentPill" hidden>🕹️ ล่าสุด: <b id="fitRecentText">-</b></div>
             </div>
 
@@ -307,9 +304,7 @@
               <div>
                 <div class="fp-hub-kicker">FITNESS PLANNER</div>
                 <div class="fp-hub-title">Build a Safe & Fun Plan</div>
-                <div class="fp-hub-sub">
-                  จัดแผนออกกำลังกายให้สนุก สมดุล และปลอดภัย
-                </div>
+                <div class="fp-hub-sub">จัดแผนออกกำลังกายให้สนุก สมดุล และปลอดภัย</div>
               </div>
             </div>
 
@@ -331,9 +326,6 @@
               เหมาะเป็นเกมวางแผนในโซน Fitness ก่อนหรือหลังเล่นเกมแอ็กชัน
             </div>
           </div>
-
-          <!-- hidden placeholder: keep for compatibility with legacy hub-v2.js -->
-          <div id="libraryBox" class="library-box" hidden aria-hidden="true"></div>
         </section>
       </aside>
     </section>
@@ -353,7 +345,7 @@
           <pre id="diagContext"></pre>
         </div>
         <div class="diag-card">
-          <h4>Warmup / Cooldown</h4>
+          <h4>Storage</h4>
           <pre id="diagWarmup"></pre>
         </div>
         <div class="diag-card">
@@ -379,35 +371,11 @@
       <button id="btnDiagnostics" class="btn secondary small" type="button">🧪 Diagnostics</button>
     </div>
 
-    <p class="footer-note">
-      HeroHealth Hub v2 • child-friendly • cute mode • mobile-first
-    </p>
+    <p class="footer-note">HeroHealth Hub v2 • child-friendly • cute mode • mobile-first</p>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <div id="gamePicker" class="modal" aria-hidden="true">
-    <div class="modal-backdrop" data-close-picker></div>
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
-      <div class="modal-head">
-        <h3 id="pickerTitle">เลือกเกม</h3>
-        <button class="modal-close" type="button" data-close-picker aria-label="ปิด">✕</button>
-      </div>
-
-      <p id="pickerSub" class="modal-sub">เลือกเกมที่อยากเล่นได้เลย</p>
-
-      <div class="picker-toolbar">
-        <button id="pickerShowRecommended" class="btn secondary small" type="button">🎮 แนะนำ</button>
-        <button id="pickerShowAllModes" class="btn secondary small" type="button">🗺️ ทุกเกม</button>
-        <button id="pickerShowRecent" class="btn secondary small" type="button">🕹️ ล่าสุด</button>
-      </div>
-
-      <div id="pickerList" class="picker-list"></div>
-    </div>
-  </div>
-
-  <script src="./hub-v2.js?v=20260407-fitnessplanner-clean"></script>
-  <script src="./hub-v2.routes.js?v=20260411b-hub-lite"></script>
-  <script src="./hub-v2.zonefirst.js?v=20260411b-hub-lite"></script>
+  <script src="./hub-v2.js?v=20260411d-hub-lite-singlejs"></script>
 </body>
 </html>
