@@ -1,79 +1,88 @@
 // /herohealth/vr-groups/groups.log.js
-// Groups Logger
-// PATCH v20260409-groups-log-raceaware-r1
+// Groups Solo Logger
+// PATCH v20260405-groups-log-r1
 
-export const GROUPS_PATCH_LOG = 'v20260409-groups-log-raceaware-r1';
+export const GROUPS_PATCH_LOG = 'v20260405-groups-log-r1';
 
-const LOG_BUFFER_KEY = 'HHA_GROUPS_LAST_LOG';
+const STORAGE_KEY = 'HHA_GROUPS_LAST_LOG';
 
-export function createGroupsLogger(ctx, options = {}){
+export function createGroupsLogger(ctx = {}, options = {}){
   const patch = options.patch || GROUPS_PATCH_LOG;
-  const maxLogs = Number.isFinite(options.maxLogs) ? options.maxLogs : 300;
+  const maxLogs = Math.max(50, Number(options.maxLogs || 300));
 
-  let seq = 0;
-  const logs = [];
+  const state = {
+    events: [],
+    sessionStartedAt: Date.now()
+  };
 
-  function event(type, detail = {}, live = {}){
-    seq += 1;
-    const entry = {
-      event_id: `${ctx.game || 'groups'}-${Date.now()}-${seq}`,
-      event_seq: seq,
-      ts_ms: Date.now(),
-      ts_iso: new Date().toISOString(),
-      pid: ctx.pid || 'anon',
-      game: ctx.game || 'groups',
-      zone: ctx.zone || 'nutrition',
-      mode: ctx.mode || 'solo',
-      run: ctx.run || 'play',
-      difficulty: ctx.diff || 'normal',
-      view_mode: ctx.view || 'mobile',
-      seed: ctx.seed || '',
-      study_id: ctx.studyId || '',
-      roomCode: ctx.roomCode || '',
-      isHost: !!ctx.isHost,
-      hostUid: ctx.hostUid || '',
-      playerCount: Number(ctx.playerCount || 1),
+  function event(type, detail = {}, runtime = {}){
+    const payload = {
+      ts: Date.now(),
+      type: String(type || 'unknown'),
       patch,
-      event_type: type,
-      ...live,
-      ...detail
+      pid: ctx.pid || 'anon',
+      name: ctx.name || '',
+      game: ctx.game || 'groups',
+      gameId: ctx.gameId || 'groups',
+      mode: ctx.mode || 'solo',
+      zone: ctx.zone || 'nutrition',
+      run: ctx.run || 'play',
+      diff: ctx.diff || 'normal',
+      view: ctx.view || 'mobile',
+      seed: ctx.seed || '',
+      detail: safeClone(detail),
+      runtime: safeClone(runtime)
     };
 
-    logs.push(entry);
-    if (logs.length > maxLogs) logs.splice(0, logs.length - maxLogs);
-    return entry;
-  }
+    state.events.push(payload);
 
-  function getLogs(){
-    return logs.slice();
+    if (state.events.length > maxLogs){
+      state.events.splice(0, state.events.length - maxLogs);
+    }
+
+    return payload;
   }
 
   function flush(extra = {}){
     const payload = {
       patch,
-      flushed_at_ms: Date.now(),
-      flushed_at_iso: new Date().toISOString(),
-      ctx,
-      logs: logs.slice(),
-      ...extra
+      ts: Date.now(),
+      sessionStartedAt: state.sessionStartedAt,
+      sessionEndedAt: Date.now(),
+      ctx: {
+        pid: ctx.pid || 'anon',
+        name: ctx.name || '',
+        studyId: ctx.studyId || '',
+        diff: ctx.diff || 'normal',
+        run: ctx.run || 'play',
+        view: ctx.view || 'mobile',
+        mode: ctx.mode || 'solo',
+        game: ctx.game || 'groups',
+        gameId: ctx.gameId || 'groups',
+        zone: ctx.zone || 'nutrition',
+        seed: ctx.seed || ''
+      },
+      events: state.events.slice(),
+      extra: safeClone(extra)
     };
 
     try{
-      localStorage.setItem(LOG_BUFFER_KEY, JSON.stringify(payload));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     }catch{}
 
     return payload;
   }
 
-  function clear(){
-    logs.length = 0;
-    seq = 0;
-  }
-
   return {
     event,
-    getLogs,
-    flush,
-    clear
+    flush
   };
+}
+
+function safeClone(v){
+  try{
+    return JSON.parse(JSON.stringify(v ?? {}));
+  }catch{
+    return {};
+  }
 }
