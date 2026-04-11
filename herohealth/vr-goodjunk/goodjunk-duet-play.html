@@ -7,14 +7,14 @@
 </head>
 <body>
   <script type="module">
-    import { bootGoodJunkModePlay } from './goodjunk-mode-play-router.js?v=20260409a-GJ-MODE-PLAY-ROUTER-LOCK-MODE';
+    import { bootGoodJunkModePlay } from './goodjunk-mode-play-router.js?v=20260411-duet-fix';
 
     bootGoodJunkModePlay({
       mode: 'duet',
       title: 'GoodJunk • Duet Play',
-      subtitle: 'กำลังเข้าโหมด duet แบบ lock mode',
+      subtitle: 'กำลังเข้าโหมด duet',
       emoji: '🤝',
-      targetPath: './goodjunk-vr.html',
+      targetPath: './goodjunk-duet-runtime.html',
       launcherPath: '../goodjunk-launcher.html'
     });
   </script>
