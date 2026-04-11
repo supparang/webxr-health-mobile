@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Handwash Launcher</title>
+  <style>
+    :root{
+      --bg1:#dff6ff;
+      --bg2:#f7fdff;
+      --ink:#12324b;
+      --mut:#4d6b84;
+      --line:#cfeaf7;
+      --card:#ffffff;
+      --sky:#9ae6ff;
+      --yellow:#ffe66d;
+      --pink:#ffc7df;
+      --green:#b9f5c9;
+      --blue:#c8f2ff;
+      --shadow:0 14px 30px rgba(19,50,75,.12);
+      --radius:24px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:
+        radial-gradient(circle at top right, #ffffff 0%, #f6fdff 24%, #e9faff 45%, #dff6ff 100%);
+      font-family:"Segoe UI",system-ui,sans-serif;
+      color:var(--ink);
+    }
+
+    body{
+      padding:20px 14px 40px;
+    }
+
+    .shell{
+      max-width:1080px;
+      margin:0 auto;
+      display:grid;
+      gap:16px;
+    }
+
+    .hero{
+      background:linear-gradient(180deg,#ffffff 0%, #f7fdff 100%);
+      border:2px solid var(--line);
+      border-radius:32px;
+      padding:20px;
+      box-shadow:var(--shadow);
+      display:grid;
+      gap:16px;
+    }
+
+    .hero-top{
+      display:flex;
+      gap:16px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .badge{
+      width:88px;
+      height:88px;
+      border-radius:50%;
+      background:linear-gradient(180deg,#8be8ff 0%,#22d3ee 100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:2.5rem;
+      box-shadow:inset 0 0 0 6px rgba(255,255,255,.35);
+      flex:0 0 auto;
+    }
+
+    .hero-copy{
+      min-width:0;
+      flex:1 1 320px;
+    }
+
+    .kicker{
+      display:inline-block;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#ecfeff;
+      border:1px solid #bdf4ff;
+      font-weight:900;
+      color:#0f766e;
+      margin-bottom:10px;
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(1.6rem, 4vw, 2.4rem);
+      line-height:1.08;
+    }
+
+    .lead{
+      margin:10px 0 0;
+      font-size:1rem;
+      line-height:1.5;
+      color:var(--mut);
+      font-weight:700;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+    }
+
+    .card{
+      background:var(--card);
+      border:2px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:18px;
+    }
+
+    .card h2{
+      margin:0 0 12px;
+      font-size:1.18rem;
+    }
+
+    .field-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:.88rem;
+      font-weight:900;
+      color:#31536c;
+    }
+
+    .input, .select{
+      width:100%;
+      border:2px solid #d8edf8;
+      background:#fff;
+      border-radius:16px;
+      padding:12px 14px;
+      font:inherit;
+      color:var(--ink);
+      font-weight:800;
+      outline:none;
+    }
+
+    .input:focus, .select:focus{
+      border-color:#7dd3fc;
+      box-shadow:0 0 0 4px rgba(125,211,252,.20);
+    }
+
+    .mode-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .mode-btn, .action-btn{
+      appearance:none;
+      border:none;
+      border-radius:20px;
+      padding:14px 14px;
+      font:inherit;
+      font-weight:900;
+      color:#12324b;
+      cursor:pointer;
+      box-shadow:var(--shadow);
+      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
+    }
+
+    .mode-btn:hover, .action-btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.01);
+    }
+
+    .mode-btn:active, .action-btn:active{
+      transform:translateY(0);
+    }
+
+    .mode-mobile{ background:linear-gradient(180deg,#dff8ff 0%, #baeefe 100%); }
+    .mode-pc{ background:linear-gradient(180deg,#fff6ba 0%, #ffe66d 100%); }
+    .mode-vr{ background:linear-gradient(180deg,#ffe3ef 0%, #ffc9de 100%); }
+
+    .action-stack{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .action-btn.full{ background:linear-gradient(180deg,#fff5b1 0%, #ffe66d 100%); }
+    .action-btn.howto{ background:linear-gradient(180deg,#dff8ff 0%, #b9efff 100%); }
+    .action-btn.main{ background:linear-gradient(180deg,#dcfff2 0%, #baf4cf 100%); }
+    .action-btn.mini{ background:linear-gradient(180deg,#ffe6f1 0%, #ffcde2 100%); }
+
+    .mini-list{
+      display:grid;
+      gap:10px;
+      margin-top:8px;
+    }
+
+    .mini-item{
+      background:#f7fcff;
+      border:1px solid #d7ecf8;
+      border-radius:16px;
+      padding:12px;
+      color:#28465d;
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .flow{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .flow-box{
+      background:#f8fdff;
+      border:1px solid #d7ecf8;
+      border-radius:18px;
+      padding:12px;
+      text-align:center;
+      font-weight:900;
+      color:#28465d;
+    }
+
+    .tiny{
+      margin-top:10px;
+      font-size:.84rem;
+      color:#5c7890;
+      font-weight:700;
+      line-height:1.45;
+    }
+
+    @media (max-width:900px){
+      .grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:680px){
+      body{
+        padding:14px 10px 28px;
+      }
+
+      .hero, .card{
+        padding:14px;
+        border-radius:22px;
+      }
+
+      .field-grid{
+        grid-template-columns:1fr;
+      }
+
+      .mode-grid{
+        grid-template-columns:1fr;
+      }
+
+      .flow{
+        grid-template-columns:1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-top">
+        <div class="badge">🧼</div>
+        <div class="hero-copy">
+          <div class="kicker">HeroHealth • Hygiene Zone</div>
+          <h1>Handwash Launcher</h1>
+          <p class="lead">
+            หน้าเข้าเล่นชุด Handwash แบบครบ flow:
+            <strong>Howto → Main Game → Mini Order → Hub</strong>
+          </p>
+        </div>
+      </div>
+
+      <div class="flow">
+        <div class="flow-box">1. Howto</div>
+        <div class="flow-box">2. Main Game</div>
+        <div class="flow-box">3. Mini Order</div>
+        <div class="flow-box">4. Hub</div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>ตั้งค่าการเล่น</h2>
+
+        <div class="field-grid">
+          <div class="field">
+            <label for="pid">PID</label>
+            <input id="pid" class="input" value="anon" />
+          </div>
+
+          <div class="field">
+            <label for="name">ชื่อผู้เล่น</label>
+            <input id="name" class="input" value="Hero" />
+          </div>
+
+          <div class="field">
+            <label for="diff">ความยาก</label>
+            <select id="diff" class="select">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="time">เวลาเกมหลัก (วินาที)</label>
+            <input id="time" class="input" type="number" min="60" step="10" value="90" />
+          </div>
+
+          <div class="field">
+            <label for="miniTime">เวลา mini-order (วินาที)</label>
+            <input id="miniTime" class="input" type="number" min="45" step="5" value="60" />
+          </div>
+
+          <div class="field">
+            <label for="hub">Hub URL</label>
+            <input id="hub" class="input" />
+          </div>
+        </div>
+
+        <div class="mode-grid">
+          <button class="mode-btn mode-mobile" data-view="mobile">📱 เริ่มแบบ Mobile</button>
+          <button class="mode-btn mode-pc" data-view="pc">🖥️ เริ่มแบบ PC</button>
+          <button class="mode-btn mode-vr" data-view="cvr">🥽 เริ่มแบบ Cardboard</button>
+        </div>
+
+        <div class="tiny">
+          ปุ่มด้านบนจะพาเข้า <strong>full flow</strong> ทั้งชุดทันที โดยส่งค่าพารามิเตอร์เดียวกันให้ทุกไฟล์
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>เข้าแต่ละส่วนแยกได้</h2>
+
+        <div class="action-stack">
+          <button id="btnHowto" class="action-btn howto">🫧 เปิด Howto / Warmup</button>
+          <button id="btnMain" class="action-btn main">🎯 เปิด Main Game</button>
+          <button id="btnMini" class="action-btn mini">🧩 เปิด Mini Order</button>
+          <button id="btnFull" class="action-btn full">🚀 เปิด Full Flow</button>
+        </div>
+
+        <div class="mini-list">
+          <div class="mini-item">
+            <strong>Howto</strong><br />
+            ใช้สำหรับ Remember / Understand / Apply เบื้องต้น
+          </div>
+          <div class="mini-item">
+            <strong>Main Game</strong><br />
+            ใช้สำหรับ Apply เป็นหลัก และมี Analyze บางส่วน
+          </div>
+          <div class="mini-item">
+            <strong>Mini Order</strong><br />
+            ใช้สำหรับ Analyze / Evaluate โดยเรียงลำดับ 7 ขั้น
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const qs = new URLSearchParams(location.search);
+
+    const els = {
+      pid: document.getElementById('pid'),
+      name: document.getElementById('name'),
+      diff: document.getElementById('diff'),
+      time: document.getElementById('time'),
+      miniTime: document.getElementById('miniTime'),
+      hub: document.getElementById('hub'),
+      btnHowto: document.getElementById('btnHowto'),
+      btnMain: document.getElementById('btnMain'),
+      btnMini: document.getElementById('btnMini'),
+      btnFull: document.getElementById('btnFull'),
+      modeButtons: [...document.querySelectorAll('[data-view]')]
+    };
+
+    const defaultHub = qs.get('hub') || new URL('../hub-v2.html', location.href).href;
+
+    els.pid.value = qs.get('pid') || 'anon';
+    els.name.value = qs.get('name') || 'Hero';
+    els.diff.value = qs.get('diff') || 'normal';
+    els.time.value = qs.get('time') || '90';
+    els.miniTime.value = qs.get('miniTime') || '60';
+    els.hub.value = defaultHub;
+
+    function baseParams(view, gameTimeOverride, extra = {}) {
+      const params = new URLSearchParams();
+      params.set('pid', els.pid.value.trim() || 'anon');
+      params.set('name', els.name.value.trim() || 'Hero');
+      params.set('diff', els.diff.value);
+      params.set('time', String(gameTimeOverride));
+      params.set('hub', els.hub.value.trim() || defaultHub);
+      params.set('view', view);
+      params.set('run', 'play');
+      params.set('zone', 'hygiene');
+      params.set('cat', 'hygiene');
+      params.set('game', 'handwash');
+      params.set('gameId', 'handwash');
+      params.set('theme', 'handwash');
+
+      Object.entries(extra).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') params.set(k, String(v));
+      });
+
+      return params;
+    }
+
+    function buildMiniUrl(view) {
+      return `./handwash-mini-order.html?${baseParams(view, els.miniTime.value).toString()}`;
+    }
+
+    function buildMainUrl(view) {
+      const miniUrl = buildMiniUrl(view);
+      const params = baseParams(view, els.time.value, { next: miniUrl });
+      return `./handwash-vr.html?${params.toString()}`;
+    }
+
+    function buildHowtoUrl(view) {
+      const mainUrl = buildMainUrl(view);
+      const params = baseParams(view, els.time.value, { next: mainUrl });
+      return `./handwash-howto.html?${params.toString()}`;
+    }
+
+    function openUrl(url) {
+      location.href = url;
+    }
+
+    els.modeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        openUrl(buildHowtoUrl(btn.dataset.view));
+      });
+    });
+
+    els.btnHowto.addEventListener('click', () => openUrl(buildHowtoUrl('mobile')));
+    els.btnMain.addEventListener('click', () => openUrl(buildMainUrl('mobile')));
+    els.btnMini.addEventListener('click', () => openUrl(buildMiniUrl('mobile')));
+    els.btnFull.addEventListener('click', () => openUrl(buildHowtoUrl('mobile')));
+  </script>
+</body>
+</html>
