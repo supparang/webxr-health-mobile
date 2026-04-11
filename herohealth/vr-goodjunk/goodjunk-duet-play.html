@@ -9,6 +9,92 @@
   <script type="module">
     import { bootGoodJunkModePlay } from './goodjunk-mode-play-router.js?v=20260411b-GJ-MODE-PLAY-ROUTER-ROOM-NORMALIZE';
 
+    function qs(name, fallback = '') {
+      try {
+        return new URL(location.href).searchParams.get(name) ?? fallback;
+      } catch (_) {
+        return fallback;
+      }
+    }
+
+    function clean(v, fallback = '') {
+      const s = String(v ?? '').trim();
+      return s || fallback;
+    }
+
+    function buildUrl(path, extra = {}, base = location.href) {
+      const u = new URL(path, base);
+      Object.entries(extra).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') {
+          u.searchParams.set(k, String(v));
+        }
+      });
+      return u.toString();
+    }
+
+    function ensureNormalizedSearch() {
+      const url = new URL(location.href);
+      const p = url.searchParams;
+
+      const pid = clean(p.get('pid'), 'anon');
+      const name = clean(p.get('name') || p.get('nick'), 'Hero');
+      const nick = clean(p.get('nick') || p.get('name'), name);
+      const diff = clean(p.get('diff'), 'normal');
+      const time = clean(p.get('time'), '90');
+      const view = clean(p.get('view'), 'mobile');
+      const hub = clean(p.get('hub'), '../hub.html');
+      const run = clean(p.get('run'), 'play');
+      const seed = clean(p.get('seed'), String(Date.now()));
+      const zone = clean(p.get('zone'), 'nutrition');
+      const cat = clean(p.get('cat'), 'nutrition');
+      const game = clean(p.get('game'), 'goodjunk');
+      const gameId = clean(p.get('gameId'), 'goodjunk');
+      const theme = clean(p.get('theme'), 'goodjunk');
+      const studyId = clean(p.get('studyId'), '');
+      const conditionGroup = clean(p.get('conditionGroup'), '');
+
+      const roomId = clean(p.get('roomId') || p.get('room'), '');
+      if (roomId) {
+        p.set('roomId', roomId);
+        p.set('room', roomId);
+      }
+
+      p.set('mode', 'duet');
+      p.set('entry', clean(p.get('entry'), 'duet'));
+      p.set('recommendedMode', 'duet');
+
+      if (!p.get('cdnext')) {
+        const cdnext = buildUrl('../goodjunk-launcher.html', {
+          pid,
+          name,
+          nick,
+          diff,
+          time,
+          hub,
+          view,
+          run,
+          seed,
+          zone,
+          cat,
+          game,
+          gameId,
+          theme,
+          recommendedMode: 'duet',
+          studyId,
+          conditionGroup
+        }, location.href);
+
+        p.set('cdnext', cdnext);
+      }
+
+      const normalizedHref = url.toString();
+      if (normalizedHref !== location.href) {
+        history.replaceState(null, '', normalizedHref);
+      }
+    }
+
+    ensureNormalizedSearch();
+
     bootGoodJunkModePlay({
       mode: 'duet',
       title: 'GoodJunk • Duet Play',
