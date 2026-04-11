@@ -12,7 +12,6 @@
       --bg1:#08133f;
       --bg2:#0e2a78;
       --card:rgba(14,26,74,.78);
-      --card2:rgba(20,36,95,.92);
       --line:rgba(173,215,255,.18);
 
       --text:#f8fbff;
@@ -24,7 +23,6 @@
       --blue:#9bd7ff;
       --green:#8cf08b;
       --yellow:#ffd96b;
-      --danger:#ff8b8b;
 
       --shadow:0 18px 44px rgba(0,0,0,.28);
 
@@ -271,6 +269,29 @@
       gap:12px;
     }
 
+    .join-grid{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:12px;
+    }
+
+    .input{
+      width:100%;
+      min-height:52px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      padding:12px 14px;
+      font:inherit;
+      font-weight:1000;
+      outline:none;
+    }
+
+    .input::placeholder{
+      color:var(--muted2);
+    }
+
     .note{
       border-radius:18px;
       border:1px dashed rgba(173,215,255,.22);
@@ -387,12 +408,28 @@
           calc(14px + var(--sab))
           calc(10px + var(--sal));
       }
-      .hero,.card{ padding:14px; border-radius:24px; }
-      .action-grid,.mini-grid{ grid-template-columns:1fr; }
+
+      .hero,.card{
+        padding:14px;
+        border-radius:24px;
+      }
+
+      .action-grid,.mini-grid,.join-grid{
+        grid-template-columns:1fr;
+      }
+
       .footer-actions .btn,
-      .hero-actions .btn{ flex:1 1 100%; }
-      .btn{ min-height:50px; }
-      .player-badge{ width:100%; }
+      .hero-actions .btn{
+        flex:1 1 100%;
+      }
+
+      .btn{
+        min-height:50px;
+      }
+
+      .player-badge{
+        width:100%;
+      }
     }
   </style>
 </head>
@@ -426,6 +463,20 @@
         <div class="room-code-box">
           <div class="label">Room Code</div>
           <div id="roomCodeText" class="room-code">-</div>
+        </div>
+
+        <div class="join-grid">
+          <input
+            id="joinRoomInput"
+            class="input"
+            type="text"
+            inputmode="latin"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            placeholder="ใส่ Room Code เช่น DU-2DZCBJ"
+          />
+          <button id="joinRoomBtn" class="btn secondary" type="button">เข้าด้วย Room Code</button>
         </div>
 
         <div class="mini-grid">
@@ -519,6 +570,8 @@
         list: byId('duetPlayersList'),
         copyRoomBtn: byId('copyRoomBtn'),
         copyInviteBtn: byId('copyInviteBtn'),
+        joinRoomInput: byId('joinRoomInput'),
+        joinRoomBtn: byId('joinRoomBtn'),
         backLauncherBtn: byId('backLauncherBtn'),
         backLauncherBtn2: byId('backLauncherBtn2'),
         backHubBtn: byId('backHubBtn'),
@@ -542,8 +595,16 @@
         return `${prefix}-${part}`;
       }
 
+      function normalizeRoomCode(v){
+        return String(v || '')
+          .trim()
+          .toUpperCase()
+          .replace(/\s+/g, '')
+          .slice(0, 48);
+      }
+
       function ensureRoomIdInUrl(){
-        let roomId = clean(qv('roomId', qv('room', qv('roomCode', ''))), 48);
+        let roomId = normalizeRoomCode(qv('roomId', qv('room', qv('roomCode', ''))));
 
         if (!roomId) {
           roomId = generateRoomCode('DU');
@@ -596,6 +657,12 @@
 
       function setText(el, value){
         if (el) el.textContent = value == null ? '' : String(value);
+      }
+
+      function fillJoinInput(roomId){
+        if (!els.joinRoomInput) return;
+        if (D.activeElement === els.joinRoomInput) return;
+        els.joinRoomInput.value = roomId || '';
       }
 
       function setLinks(){
@@ -665,7 +732,7 @@
         u.searchParams.set('role', String(isHost(room) ? 'host' : 'guest'));
         u.searchParams.set('wait', '1');
         u.searchParams.set('autostart', '1');
-        u.searchParams.set('startAt', String(meta.countdownAt || 0));
+        u.searchParams.set('startAt', String(meta.startedAt || 0));
 
         return u.toString();
       }
@@ -757,6 +824,7 @@
         setText(els.roomText, meta.roomId || getCtx().roomId || '-');
         setText(els.playersText, players + '/2');
         setText(els.hostText, hostPlayer ? (hostPlayer.name || hostPlayer.pid || '-') : '-');
+        fillJoinInput(meta.roomId || getCtx().roomId || '');
 
         if (els.statusText) {
           if (roomState === 'running') {
@@ -841,8 +909,29 @@
         return meta;
       }
 
-      async function ensureJoined(){
+      async function writeFullPlayer(nextReady, extra = {}) {
+        if (!state.playerRef) throw new Error('playerRef not ready');
+
         const ctx = getCtx();
+        const snap = await state.playerRef.once('value');
+        const cur = snap.exists() ? snap.val() : null;
+
+        const payload = {
+          uid: state.uid,
+          pid: ctx.pid,
+          name: ctx.name,
+          ready: typeof nextReady === 'boolean' ? nextReady : !!(cur && cur.ready),
+          role: state.role || (cur && cur.role) || 'guest',
+          joinedAt: cur && Number(cur.joinedAt) ? Number(cur.joinedAt) : Date.now(),
+          lastPingAt: Date.now(),
+          ...extra
+        };
+
+        await state.playerRef.set(payload);
+        return payload;
+      }
+
+      async function ensureJoined(){
         const roomSnap = await state.roomRef.once('value');
         const room = roomSnap.exists() ? roomSnap.val() : null;
         const players = playersOf(room);
@@ -857,20 +946,14 @@
           state.role = String(meta.hostUid || '') === String(state.uid || '') ? 'host' : 'guest';
         }
 
-        const existingSnap = await state.roomRef.child('players/' + state.uid).once('value');
-        const existing = existingSnap.exists() ? existingSnap.val() : null;
-
-        await state.roomRef.child('players/' + state.uid).set({
-          uid: state.uid,
-          pid: ctx.pid,
-          name: ctx.name,
-          ready: !!(existing && existing.ready),
-          role: state.role,
-          joinedAt: existing && Number(existing.joinedAt) ? Number(existing.joinedAt) : Date.now(),
-          lastPingAt: Date.now()
-        });
-
         state.playerRef = state.roomRef.child('players/' + state.uid);
+
+        await writeFullPlayer(
+          meNode ? !!meNode.ready : false,
+          meNode && Number(meNode.joinedAt)
+            ? { joinedAt: Number(meNode.joinedAt) }
+            : {}
+        );
 
         try {
           state.playerRef.onDisconnect().remove();
@@ -910,12 +993,10 @@
         if (!state.playerRef) return;
 
         state.pingTimer = W.setInterval(() => {
-          state.playerRef.update({
-            lastPingAt: Date.now()
-          }).catch((err) => {
+          writeFullPlayer(undefined).catch((err) => {
             console.warn('[duet-lobby] ping failed', err);
           });
-        }, 2500);
+        }, 5000);
       }
 
       function stopPing(){
@@ -926,17 +1007,10 @@
       }
 
       async function setReadyState(ready){
-        if (!state.playerRef) throw new Error('playerRef not ready');
-
-        await state.playerRef.update({
-          ready: !!ready,
-          role: state.role,
-          lastPingAt: Date.now()
-        });
+        await writeFullPlayer(!!ready);
       }
 
       async function startDuet(){
-        const ctx = getCtx();
         const room = state.currentRoom;
 
         if (!room) {
@@ -972,7 +1046,7 @@
       }
 
       async function copyRoomCode(){
-        const code = clean((els.roomText && els.roomText.textContent) || '', 64);
+        const code = normalizeRoomCode((els.roomText && els.roomText.textContent) || '');
         if (!code || code === '-') {
           alert('ยังไม่มี Room Code');
           return;
@@ -1014,8 +1088,54 @@
         }
       }
 
+      function goToRoomCode(roomCode){
+        const code = normalizeRoomCode(roomCode);
+        if (!code) {
+          alert('กรุณาใส่ Room Code ก่อน');
+          return;
+        }
+
+        const current = normalizeRoomCode(state.roomId || '');
+        if (current && current === code) {
+          alert('ตอนนี้คุณอยู่ห้องนี้แล้ว');
+          return;
+        }
+
+        const u = new URL(location.href);
+        u.searchParams.set('roomId', code);
+        u.searchParams.set('room', code);
+        u.searchParams.set('roomCode', code);
+        u.searchParams.set('mode', 'duet');
+        u.searchParams.set('entry', 'multi');
+        location.href = u.toString();
+      }
+
+      function bindJoinByCode(){
+        if (els.joinRoomBtn) {
+          els.joinRoomBtn.addEventListener('click', () => {
+            goToRoomCode(els.joinRoomInput ? els.joinRoomInput.value : '');
+          });
+        }
+
+        if (els.joinRoomInput) {
+          els.joinRoomInput.addEventListener('input', () => {
+            const pos = els.joinRoomInput.selectionStart;
+            els.joinRoomInput.value = normalizeRoomCode(els.joinRoomInput.value);
+            try { els.joinRoomInput.setSelectionRange(pos, pos); } catch (_) {}
+          });
+
+          els.joinRoomInput.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') {
+              ev.preventDefault();
+              goToRoomCode(els.joinRoomInput.value);
+            }
+          });
+        }
+      }
+
       async function boot(){
         state.roomId = ensureRoomIdInUrl();
+        fillJoinInput(state.roomId);
         setLinks();
 
         const ctx = getCtx();
@@ -1065,6 +1185,8 @@
       if (els.copyInviteBtn) {
         els.copyInviteBtn.addEventListener('click', copyInvite);
       }
+
+      bindJoinByCode();
 
       boot().catch((err) => {
         console.error('[duet-lobby] boot failed', err);
