@@ -8,12 +8,8 @@
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
 
-  <!-- Core Hub CSS -->
-  <link rel="stylesheet" href="./hub-v2.css?v=20260411a-hub-clean" />
-  <!-- Fitness Hall CSS -->
-  <link rel="stylesheet" href="./hub-v2.fitnesshall.css?v=20260411a-hub-clean" />
-  <!-- GoodJunk Hall CSS -->
-  <link rel="stylesheet" href="./hub-v2.goodjunk.css?v=20260411a-hub-clean" />
+  <!-- Core Hub CSS only -->
+  <link rel="stylesheet" href="./hub-v2.css?v=20260411b-hub-lite" />
 </head>
 <body>
   <div class="bg-clouds" aria-hidden="true">
@@ -161,76 +157,6 @@
       <article class="panel dashboard-card">
         <h3 class="section-title">🏅 Sticker Shelf</h3>
         <div id="stickerShelf" class="sticker-shelf"></div>
-      </article>
-    </section>
-
-    <section class="adaptive-hall-row">
-      <article class="panel gj-archive-card" id="gjArchiveCard">
-        <div class="gj-archive-head">
-          <div class="gj-archive-kicker">GOODJUNK</div>
-          <div class="gj-archive-title">Hall of Legends</div>
-          <div class="gj-archive-sub">archive progress • rivalry route • next target</div>
-        </div>
-
-        <div class="gj-archive-top">
-          <div class="gj-archive-badge" id="gjArchiveBadge">📚 Rookie</div>
-          <div class="gj-archive-reward" id="gjArchiveReward">ยังไม่มี reward ล่าสุด</div>
-        </div>
-
-        <div class="gj-archive-progress-wrap">
-          <div class="gj-archive-progress-label">
-            <span>Archive Progress</span>
-            <strong id="gjArchivePct">0%</strong>
-          </div>
-          <div class="gj-archive-progress">
-            <div class="gj-archive-progress-fill" id="gjArchiveFill"></div>
-          </div>
-        </div>
-
-        <div class="gj-archive-stats">
-          <div class="gj-mini-stat">
-            <div class="gj-mini-stat-k">Hall Rank</div>
-            <div class="gj-mini-stat-v" id="gjHallRank">Rookie</div>
-          </div>
-
-          <div class="gj-mini-stat">
-            <div class="gj-mini-stat-k">Rival Arc</div>
-            <div class="gj-mini-stat-v" id="gjRivalArc">-</div>
-          </div>
-
-          <div class="gj-mini-stat">
-            <div class="gj-mini-stat-k">Deck</div>
-            <div class="gj-mini-stat-v" id="gjDeckTier">-</div>
-          </div>
-
-          <div class="gj-mini-stat">
-            <div class="gj-mini-stat-k">Target</div>
-            <div class="gj-mini-stat-v" id="gjArchiveTarget">-</div>
-          </div>
-        </div>
-
-        <div class="gj-next-plan" id="gjNextPlanBox">
-          <div class="gj-next-plan-title" id="gjNextPlanTitle">Open Nutrition Zone</div>
-          <div class="gj-next-plan-sub" id="gjNextPlanReason">เข้า Nutrition Zone แล้วค่อยเลือกเกมและโหมด</div>
-          <div class="gj-next-plan-chips" id="gjNextPlanChips">
-            <span class="gj-chip">Zone First</span>
-            <span class="gj-chip">Then Game</span>
-            <span class="gj-chip">Then Mode</span>
-          </div>
-        </div>
-
-        <div class="gj-recent-box">
-          <div class="gj-recent-title">Recent Collection</div>
-          <div class="gj-recent-chips" id="gjRecentChips">
-            <span class="gj-chip">ยังไม่มี collection ล่าสุด</span>
-          </div>
-        </div>
-
-        <div class="gj-archive-actions">
-          <a class="gj-archive-btn play" id="gjQuickRematchBtn" href="./nutrition-zone.html">🎮 Open Nutrition Zone</a>
-          <a class="gj-archive-btn soft" id="gjOpenLauncherBtn" href="./nutrition-zone.html">🧭 Open Zone</a>
-          <button class="gj-archive-btn soft" id="gjClearSnapshotBtn" type="button">🧹 Clear Snapshot</button>
-        </div>
       </article>
     </section>
 
@@ -403,120 +329,11 @@
             </div>
 
             <div class="fp-hub-note">
-              เหมาะเป็นเกมวางแผนในโซน Fitness ก่อนหรือหลังเล่นเกมแอ็กชัน เช่น Jump Duck, Rhythm Boxer, Shadow Breaker และ Balance Hold
+              เหมาะเป็นเกมวางแผนในโซน Fitness ก่อนหรือหลังเล่นเกมแอ็กชัน
             </div>
           </div>
 
           <div id="libraryBox" class="library-box"></div>
-        </section>
-
-        <section class="panel fitness-hall-card">
-          <div class="fitness-hall-head">
-            <div class="fitness-hall-kicker">FITNESS ZONE</div>
-            <div class="fitness-hall-title">Training Hall</div>
-            <div class="fitness-hall-sub">launcher-ready • quick access • same visual language as Fitness Zone</div>
-          </div>
-
-          <div class="fitness-hall-grid">
-            <a class="fitness-hub-game" data-fit-launcher="shadowbreaker" aria-label="เข้า Shadow Breaker">
-              <div class="fitness-hub-art fit-mini-stage fit-mini-shadow">
-                <div class="fitness-hub-badge">Boss</div>
-                <div class="grid"></div>
-                <div class="core"></div>
-                <div class="orb o1"></div>
-                <div class="orb o2"></div>
-                <div class="orb o3"></div>
-                <div class="avatar"></div>
-              </div>
-              <div class="fitness-hub-body">
-                <div class="fitness-hub-mini-kicker">Reaction + Boss</div>
-                <div class="fitness-hub-mini-title">Shadow Breaker</div>
-                <div class="fitness-hub-mini-sub">ตีเป้า หลบแรงกดดัน และผ่าน wave ก่อนบอส</div>
-                <div class="fitness-hub-tags"><span>Action</span><span>Boss</span><span>Timing</span></div>
-                <div class="fitness-hub-cta">เข้า Launcher</div>
-              </div>
-            </a>
-
-            <a class="fitness-hub-game" data-fit-launcher="rhythmboxer" aria-label="เข้า Rhythm Boxer">
-              <div class="fitness-hub-art fit-mini-stage fit-mini-rhythm">
-                <div class="fitness-hub-badge">Combo</div>
-                <div class="lane l1"></div>
-                <div class="lane l2"></div>
-                <div class="lane l3"></div>
-                <div class="note n1"></div>
-                <div class="note n2"></div>
-                <div class="note n3"></div>
-                <div class="avatar"></div>
-              </div>
-              <div class="fitness-hub-body">
-                <div class="fitness-hub-mini-kicker">Rhythm + Combo</div>
-                <div class="fitness-hub-mini-title">Rhythm Boxer</div>
-                <div class="fitness-hub-mini-sub">ชกตามจังหวะ เก็บ combo ให้ยาวและแม่น</div>
-                <div class="fitness-hub-tags"><span>Music</span><span>Combo</span><span>Beat</span></div>
-                <div class="fitness-hub-cta">เข้า Launcher</div>
-              </div>
-            </a>
-
-            <a class="fitness-hub-game" data-fit-launcher="jumpduck" aria-label="เข้า Jump and Duck">
-              <div class="fitness-hub-art fit-mini-stage fit-mini-jump">
-                <div class="fitness-hub-badge">Jump!</div>
-                <div class="ground"></div>
-                <div class="runner"></div>
-                <div class="ob1"></div>
-                <div class="ob2"></div>
-              </div>
-              <div class="fitness-hub-body">
-                <div class="fitness-hub-mini-kicker">Jump + Duck</div>
-                <div class="fitness-hub-mini-title">Jump &amp; Duck</div>
-                <div class="fitness-hub-mini-sub">กระโดดและก้มหลบตาม pattern ให้ทัน</div>
-                <div class="fitness-hub-tags"><span>Reflex</span><span>Pattern</span><span>Move</span></div>
-                <div class="fitness-hub-cta">เข้า Launcher</div>
-              </div>
-            </a>
-
-            <a class="fitness-hub-game" data-fit-launcher="balancehold" aria-label="เข้า Balance Hold">
-              <div class="fitness-hub-art fit-mini-stage fit-mini-balance">
-                <div class="fitness-hub-badge">6 Posts</div>
-                <div class="mat"></div>
-                <div class="ring r1"></div>
-                <div class="ring r2"></div>
-                <div class="ring r3"></div>
-                <div class="target"></div>
-                <div class="cursor"></div>
-                <div class="ghost"></div>
-              </div>
-              <div class="fitness-hub-body">
-                <div class="fitness-hub-mini-kicker">Balance + Rhythm</div>
-                <div class="fitness-hub-mini-title">Balance Hold</div>
-                <div class="fitness-hub-mini-sub">ฝึกทรงตัวตามจังหวะผ่าน 6 ฐาน</div>
-                <div class="fitness-hub-tags"><span>Balance</span><span>Focus</span><span>Routine</span></div>
-                <div class="fitness-hub-cta">เข้า Launcher</div>
-              </div>
-            </a>
-
-            <a class="fitness-hub-game" data-fit-launcher="fitnessplanner" aria-label="เข้า Fitness Planner">
-              <div class="fitness-hub-art fit-mini-stage fit-mini-planner">
-                <div class="fitness-hub-badge">Plan</div>
-                <div class="board"></div>
-                <div class="grid">
-                  <div class="item"></div>
-                  <div class="item"></div>
-                  <div class="item"></div>
-                  <div class="item"></div>
-                  <div class="item"></div>
-                  <div class="item"></div>
-                </div>
-                <div class="sticker">🗓️</div>
-              </div>
-              <div class="fitness-hub-body">
-                <div class="fitness-hub-mini-kicker">Plan + Healthy Routine</div>
-                <div class="fitness-hub-mini-title">Fitness Planner</div>
-                <div class="fitness-hub-mini-sub">วางแผนกิจกรรมการออกกำลังกายแบบสมดุล</div>
-                <div class="fitness-hub-tags"><span>Planner</span><span>Routine</span><span>Healthy</span></div>
-                <div class="fitness-hub-cta">เข้า Launcher</div>
-              </div>
-            </a>
-          </div>
         </section>
       </aside>
     </section>
@@ -590,9 +407,7 @@
   </div>
 
   <script src="./hub-v2.js?v=20260407-fitnessplanner-clean"></script>
-  <script src="./hub-v2.routes.js?v=20260411a-hub-clean"></script>
-  <script src="./hub-v2.goodjunk.js?v=20260411a-hub-clean"></script>
-  <script src="./hub-v2.fitnesshall.js?v=20260411a-hub-clean"></script>
-  <script src="./hub-v2.zonefirst.js?v=20260411a-hub-clean"></script>
+  <script src="./hub-v2.routes.js?v=20260411b-hub-lite"></script>
+  <script src="./hub-v2.zonefirst.js?v=20260411b-hub-lite"></script>
 </body>
 </html>
