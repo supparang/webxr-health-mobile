@@ -39,26 +39,28 @@
 
     return await new Promise((resolve, reject) => {
       let done = false;
+      let off = null;
+
       const timer = setTimeout(() => {
         if (done) return;
         done = true;
-        try { off && off(); } catch (_) {}
+        try { if (off) off(); } catch (_) {}
         reject(new Error('Anonymous auth timeout'));
       }, timeoutMs);
 
-      const off = auth.onAuthStateChanged(
+      off = auth.onAuthStateChanged(
         (user) => {
           if (!user || done) return;
           done = true;
           clearTimeout(timer);
-          try { off && off(); } catch (_) {}
+          try { if (off) off(); } catch (_) {}
           resolve(user);
         },
         (err) => {
           if (done) return;
           done = true;
           clearTimeout(timer);
-          try { off && off(); } catch (_) {}
+          try { if (off) off(); } catch (_) {}
           reject(err || new Error('Auth state observer failed'));
         }
       );
