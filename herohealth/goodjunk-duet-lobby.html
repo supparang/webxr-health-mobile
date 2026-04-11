@@ -6,6 +6,18 @@
   <title>HeroHealth • GoodJunk Duet Lobby</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
+
+  <!-- Firebase compat SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <!-- HeroHealth Firebase bootstrap -->
+  <script src="./firebase-config.js"></script>
+
+  <!-- Shared room adapter -->
+  <script src="./gj-room-adapter.js"></script>
+
   <style>
     :root{
       --bg1:#1b0820;
@@ -573,7 +585,7 @@
         </div>
 
         <div id="noticeBox" class="notice warn">
-          ยังไม่มีห้อง • กด “สร้างห้อง” ถ้าคุณเป็น Host หรือใส่ room code แล้วกด “เข้าห้องนี้” ถ้าคุณเป็นผู้เล่นคนที่สอง
+          ยังไม่มีห้อง • กด “สร้างห้อง” ถ้าคุณเป็น Host หรือให้ Host สร้างก่อนแล้วค่อยกด “เข้าห้องนี้”
         </div>
 
         <div class="bigActions">
@@ -603,12 +615,16 @@
           กติกา Duet: ห้องนี้รับได้แค่ <b>2 คน</b> เท่านั้น • ครบ 2 คนแล้ว Host ค่อยกดเริ่ม • จะไม่เด้งเข้าเล่นเองตอนสร้างห้อง
         </div>
 
-        <div class="logBox" id="logBox">Duet lobby ready…</div>
+        <div class="logBox" id="logBox">Duet lobby booting…</div>
       </section>
     </section>
   </div>
 
   <script type="module">
+    const MODE = 'duet';
+    const MAX_PLAYERS = 2;
+    const PLAY_PATH = './vr-goodjunk/goodjunk-duet-play.html';
+
     let roomApi = null;
     let unsub = null;
     let lastRoom = null;
@@ -625,11 +641,14 @@
       return s || d;
     }
 
+    function nowText(){
+      return new Date().toLocaleTimeString('th-TH', { hour12:false });
+    }
+
     function log(msg){
       const el = $('logBox');
       if (!el) return;
-      const ts = new Date().toLocaleTimeString('th-TH', { hour12:false });
-      el.textContent = `[${ts}] ${msg}`;
+      el.textContent = `[${nowText()}] ${msg}`;
     }
 
     function buildUrl(path, extra = {}, base = location.href){
@@ -689,9 +708,9 @@
       });
     }
 
-    function buildPlayUrl(room, meRole='player'){
+    function buildPlayUrl(room, role='guest'){
       const p = ctx();
-      return buildUrl('./vr-goodjunk/goodjunk-duet-play.html', {
+      return buildUrl(PLAY_PATH, {
         mode: 'duet',
         entry: 'duet',
         roomId: room?.roomId || p.room,
@@ -712,93 +731,18 @@
         theme: p.theme,
         studyId: p.studyId,
         conditionGroup: p.conditionGroup,
-        role: meRole,
-        host: meRole === 'host' ? '1' : '0',
+        role,
+        host: role === 'host' ? '1' : '0',
         wait: '1',
         autostart: '1',
         modeLocked: '1',
-        maxPlayers: '2'
+        maxPlayers: String(MAX_PLAYERS)
       });
     }
 
-    function createLocalAdapter(){
-      const PREFIX = 'GJ_DUET_ROOM_V1:';
-      const CHANNEL = 'GJ_DUET_ROOM_BC';
-
-      const bc = ('BroadcastChannel' in window) ? new BroadcastChannel(CHANNEL) : null;
-
-      function key(roomId){
-        return `${PREFIX}${roomId}`;
-      }
-
-      function clone(v){
-        return JSON.parse(JSON.stringify(v));
-      }
-
-      async function loadRoom(roomId){
-        try{
-          const raw = localStorage.getItem(key(roomId));
-          return raw ? JSON.parse(raw) : null;
-        }catch(_){
-          return null;
-        }
-      }
-
-      async function saveRoom(roomId, room){
-        const next = clone(room);
-        try{
-          localStorage.setItem(key(roomId), JSON.stringify(next));
-        }catch(_){}
-        try{
-          bc?.postMessage({ roomId, room: next, ts: Date.now() });
-        }catch(_){}
-        return next;
-      }
-
-      function subscribeRoom(roomId, cb){
-        let stopped = false;
-
-        const emit = async () => {
-          if (stopped) return;
-          const room = await loadRoom(roomId);
-          cb(room);
-        };
-
-        const onStorage = (ev) => {
-          if (ev.key === key(roomId)) emit();
-        };
-
-        const onBC = (ev) => {
-          if (ev?.data?.roomId === roomId) emit();
-        };
-
-        window.addEventListener('storage', onStorage);
-        bc?.addEventListener?.('message', onBC);
-
-        emit();
-
-        const timer = setInterval(emit, 1200);
-
-        return () => {
-          stopped = true;
-          clearInterval(timer);
-          window.removeEventListener('storage', onStorage);
-          bc?.removeEventListener?.('message', onBC);
-        };
-      }
-
-      return { loadRoom, saveRoom, subscribeRoom, __type:'local-fallback' };
-    }
-
-    async function getRoomAdapter(){
-      try{
-        if (window.GJRoomAdapter && typeof window.GJRoomAdapter.makeRoomAdapter === 'function') {
-          const adapter = await window.GJRoomAdapter.makeRoomAdapter('duet');
-          if (adapter) return adapter;
-        }
-      }catch(_){}
-
-      return createLocalAdapter();
+    function applyBackLinks(){
+      $('btnBackLauncherTop').href = buildLauncherUrl();
+      $('btnBackHubTop').href = clean($('hub').value, './hub.html');
     }
 
     function hydrateInputs(){
@@ -813,41 +757,6 @@
       if (!$('room').value) {
         $('room').value = randomRoomCode();
       }
-    }
-
-    function applyBackLinks(){
-      $('btnBackLauncherTop').href = buildLauncherUrl();
-      $('btnBackHubTop').href = clean($('hub').value, './hub.html');
-    }
-
-    function renderPlayers(room){
-      const wrap = $('playerList');
-      if (!wrap) return;
-
-      const playersObj = room?.players || {};
-      const players = Object.values(playersObj)
-        .filter(Boolean)
-        .sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
-
-      if (!players.length) {
-        wrap.innerHTML = `
-          <div class="playerRow">
-            <div class="playerName">ยังไม่มีผู้เล่น</div>
-            <div class="playerTag">0</div>
-          </div>
-        `;
-        return;
-      }
-
-      wrap.innerHTML = players.map((p, idx) => {
-        const isHost = p.role === 'host';
-        return `
-          <div class="playerRow">
-            <div class="playerName">${idx + 1}. ${String(p.name || p.nick || p.pid || 'Player')}</div>
-            <div class="playerTag ${isHost ? 'host' : 'guest'}">${isHost ? '💖 Host' : '🫶 Guest'}</div>
-          </div>
-        `;
-      }).join('');
     }
 
     function updateNotice(kind, text){
@@ -867,12 +776,36 @@
       return room?.players?.[p.pid] || null;
     }
 
+    function renderPlayers(room){
+      const wrap = $('playerList');
+      const playersObj = room?.players || {};
+      const players = Object.values(playersObj)
+        .filter(Boolean)
+        .sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
+
+      if (!players.length) {
+        wrap.innerHTML = `
+          <div class="playerRow">
+            <div class="playerName">ยังไม่มีผู้เล่น</div>
+            <div class="playerTag">0</div>
+          </div>
+        `;
+        return;
+      }
+
+      wrap.innerHTML = players.map((p, idx) => `
+        <div class="playerRow">
+          <div class="playerName">${idx + 1}. ${String(p.name || p.nick || p.pid || 'Player')}</div>
+          <div class="playerTag ${p.role === 'host' ? 'host' : 'guest'}">${p.role === 'host' ? '💖 Host' : '🫶 Guest'}</div>
+        </div>
+      `).join('');
+    }
+
     function updateStats(room, me=null){
+      const count = room?.players ? Object.keys(room.players).length : 0;
       $('statRoom').textContent = room?.roomId || clean($('room').value, '-');
       $('statRole').textContent = me?.role || '-';
-
-      const count = room?.players ? Object.keys(room.players).length : 0;
-      $('statPlayers').textContent = `${count}/2`;
+      $('statPlayers').textContent = `${count}/${MAX_PLAYERS}`;
       $('statStatus').textContent = room?.status || 'waiting';
     }
 
@@ -884,10 +817,10 @@
       lastRoom = room || null;
 
       const me = getMe(room);
+      const count = room?.players ? Object.keys(room.players).length : 0;
+
       updateStats(room, me);
       renderPlayers(room);
-
-      const count = room?.players ? Object.keys(room.players).length : 0;
 
       if (!room) {
         updateNotice('warn', 'ยังไม่พบห้องนี้ในระบบ • กด “สร้างห้อง” ถ้าคุณเป็น Host หรือให้ Host สร้างก่อนแล้วค่อยกด “เข้าห้องนี้”');
@@ -897,7 +830,7 @@
         return;
       }
 
-      if (room.mode !== 'duet') {
+      if (room.mode !== MODE) {
         updateNotice('bad', 'room นี้ไม่ใช่โหมด duet');
         updateRoomStateChip('warn', 'ผิดโหมด');
         setStartEnabled(false);
@@ -915,9 +848,9 @@
 
       if (count < 2) {
         if (me.role === 'host') {
-          updateNotice('warn', 'คุณเป็น Host • ตอนนี้ยังมีผู้เล่นไม่ครบ 2 คน กรุณารออีก 1 คนเข้าห้อง');
+          updateNotice('warn', `คุณเป็น Host • ตอนนี้ยังมีผู้เล่นไม่ครบ 2 คน กรุณารออีก ${2 - count} คนเข้าห้อง`);
         } else {
-          updateNotice('warn', 'คุณเข้าห้องแล้ว • ตอนนี้รอ Host หรือผู้เล่นอีกคนให้ครบ 2 คน');
+          updateNotice('warn', 'คุณเข้าห้องแล้ว • ตอนนี้รอให้ห้องครบ 2 คน และรอ Host กดเริ่ม');
         }
         updateRoomStateChip('warn', `รอผู้เล่น ${count}/2`);
         setStartEnabled(false);
@@ -926,10 +859,10 @@
       }
 
       if (count > 2) {
-        updateNotice('bad', `ห้องนี้มีผู้เล่นเกิน ${count} คน • duet ต้องมีแค่ 2 คน`);
+        updateNotice('bad', `ห้องนี้มีผู้เล่นเกินกำหนด (${count}/2)`);
         updateRoomStateChip('warn', 'ผู้เล่นเกิน');
         setStartEnabled(false);
-        log(`ROOM_OVERFLOW ${count}`);
+        log(`ROOM_OVERFLOW ${count}/2`);
         return;
       }
 
@@ -953,7 +886,7 @@
       setStartEnabled(false);
       log('ROOM_STARTED');
 
-      const href = buildPlayUrl(room, me.role || 'player');
+      const href = buildPlayUrl(room, me.role || 'guest');
       setTimeout(() => {
         location.href = href;
       }, 350);
@@ -961,7 +894,7 @@
 
     async function loadAndSyncRoom(){
       const roomId = clean($('room').value, '');
-      if (!roomId) {
+      if (!roomId || !roomApi) {
         syncRoomUi(null);
         return;
       }
@@ -985,7 +918,7 @@
       stopWatch();
 
       const roomId = clean($('room').value, '');
-      if (!roomId) return;
+      if (!roomApi || !roomId) return;
 
       try {
         unsub = roomApi.subscribeRoom(roomId, (room) => {
@@ -1022,198 +955,108 @@
 
     async function onCreateRoom(){
       const p = ctx();
+      if (!roomApi) return;
+
       if (!p.room) {
         $('room').value = randomRoomCode();
       }
 
       const roomId = clean($('room').value, '');
-      const existing = await roomApi.loadRoom(roomId);
+      try {
+        await roomApi.createRoom({
+          roomId,
+          mode: MODE,
+          status: 'waiting',
+          hostPid: p.pid,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          startedAt: 0,
+          diff: p.diff,
+          time: p.time,
+          cap: MAX_PLAYERS,
+          players: {
+            [p.pid]: makeHostPlayer()
+          }
+        });
 
-      if (existing && existing.players && Object.keys(existing.players).length > 0) {
-        updateNotice('bad', `room ${roomId} ถูกใช้อยู่แล้ว • เปลี่ยน room code หรือกดสุ่มห้องใหม่`);
-        log(`CREATE_BLOCK room exists ${roomId}`);
-        syncRoomUi(existing);
-        return;
+        log(`ROOM_CREATED ${roomId}`);
+        startWatchRoom();
+        await loadAndSyncRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'CREATE_FAILED');
+        updateNotice('bad', `สร้างห้องไม่สำเร็จ: <b>${msg}</b>`);
+        log(`CREATE_FAIL ${msg}`);
+        await loadAndSyncRoom();
       }
-
-      const room = {
-        roomId,
-        mode: 'duet',
-        status: 'waiting',
-        hostPid: p.pid,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        startedAt: 0,
-        diff: p.diff,
-        time: p.time,
-        players: {
-          [p.pid]: makeHostPlayer()
-        }
-      };
-
-      await roomApi.saveRoom(roomId, room);
-      log(`ROOM_CREATED ${roomId}`);
-      startWatchRoom();
-      await loadAndSyncRoom();
     }
 
     async function onJoinRoom(){
       const p = ctx();
-      const roomId = clean($('room').value, '');
+      if (!roomApi) return;
 
+      const roomId = clean($('room').value, '');
       if (!roomId) {
         updateNotice('bad', 'ยังไม่มี room code');
         log('JOIN_FAIL no room code');
         return;
       }
 
-      const room = await roomApi.loadRoom(roomId);
-      if (!room) {
-        updateNotice('bad', `ยังไม่พบ room ${roomId} • ให้ Host สร้างห้องก่อน`);
-        log(`JOIN_FAIL room not found ${roomId}`);
-        syncRoomUi(null);
-        return;
-      }
-
-      if (room.mode !== 'duet') {
-        updateNotice('bad', 'room นี้ไม่ใช่ duet');
-        log(`JOIN_FAIL mode mismatch ${roomId}`);
-        syncRoomUi(room);
-        return;
-      }
-
-      const players = room.players || {};
-      const ids = Object.keys(players);
-
-      if (players[p.pid]) {
-        log(`JOIN_SKIP already in room ${roomId}`);
+      try {
+        await roomApi.joinRoom(roomId, makeGuestPlayer(), MAX_PLAYERS);
+        log(`JOIN_OK ${roomId}`);
         startWatchRoom();
         await loadAndSyncRoom();
-        return;
+      } catch (err) {
+        const msg = String(err?.message || err || 'JOIN_FAILED');
+        updateNotice('bad', `เข้าห้องไม่สำเร็จ: <b>${msg}</b>`);
+        log(`JOIN_FAIL ${msg}`);
+        await loadAndSyncRoom();
       }
-
-      if (ids.length >= 2) {
-        updateNotice('bad', `room ${roomId} เต็มแล้ว`);
-        log(`JOIN_FAIL room full ${roomId}`);
-        syncRoomUi(room);
-        return;
-      }
-
-      players[p.pid] = makeGuestPlayer();
-      room.players = players;
-      room.updatedAt = Date.now();
-
-      await roomApi.saveRoom(roomId, room);
-      log(`JOIN_OK ${roomId}`);
-      startWatchRoom();
-      await loadAndSyncRoom();
     }
 
     async function onLeaveRoom(){
       const p = ctx();
-      const roomId = clean($('room').value, '');
+      if (!roomApi) return;
 
+      const roomId = clean($('room').value, '');
       if (!roomId) {
         updateNotice('warn', 'ยังไม่มี room ให้ออก');
         return;
       }
 
-      const room = await roomApi.loadRoom(roomId);
-      if (!room) {
-        syncRoomUi(null);
-        return;
+      try {
+        await roomApi.leaveRoom(roomId, p.pid);
+        log(`LEAVE_OK ${roomId}`);
+        stopWatch();
+        await loadAndSyncRoom();
+        startWatchRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'LEAVE_FAILED');
+        updateNotice('bad', `ออกจากห้องไม่สำเร็จ: <b>${msg}</b>`);
+        log(`LEAVE_FAIL ${msg}`);
       }
-
-      const players = { ...(room.players || {}) };
-      delete players[p.pid];
-
-      const remaining = Object.keys(players);
-
-      if (!remaining.length) {
-        await roomApi.saveRoom(roomId, {
-          roomId,
-          mode: 'duet',
-          status: 'waiting',
-          hostPid: '',
-          createdAt: room.createdAt || Date.now(),
-          updatedAt: Date.now(),
-          startedAt: 0,
-          diff: room.diff || p.diff,
-          time: room.time || p.time,
-          players: {}
-        });
-        log(`LEAVE_ROOM empty ${roomId}`);
-      } else {
-        let hostPid = room.hostPid;
-        if (!players[hostPid]) {
-          hostPid = remaining[0];
-          players[hostPid].role = 'host';
-        }
-
-        Object.keys(players).forEach((pid) => {
-          if (pid !== hostPid) players[pid].role = 'guest';
-        });
-
-        await roomApi.saveRoom(roomId, {
-          ...room,
-          hostPid,
-          status: 'waiting',
-          startedAt: 0,
-          updatedAt: Date.now(),
-          players
-        });
-        log(`LEAVE_ROOM remain ${roomId}`);
-      }
-
-      stopWatch();
-      await loadAndSyncRoom();
-      startWatchRoom();
     }
 
     async function onStartDuet(){
       const p = ctx();
-      const roomId = clean($('room').value, '');
+      if (!roomApi) return;
 
+      const roomId = clean($('room').value, '');
       if (!roomId) {
         updateNotice('bad', 'ยังไม่มี room');
         return;
       }
 
-      const room = await roomApi.loadRoom(roomId);
-      if (!room) {
-        updateNotice('bad', 'ไม่พบห้องนี้');
-        syncRoomUi(null);
-        return;
+      try {
+        await roomApi.startRoom(roomId, p.pid);
+        log(`START_DUET ${roomId}`);
+        await loadAndSyncRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'START_FAILED');
+        updateNotice('bad', `เริ่มเกมไม่สำเร็จ: <b>${msg}</b>`);
+        log(`START_FAIL ${msg}`);
+        await loadAndSyncRoom();
       }
-
-      const me = getMe(room);
-      const count = room.players ? Object.keys(room.players).length : 0;
-
-      if (!me) {
-        updateNotice('bad', 'คุณยังไม่ได้อยู่ในห้อง');
-        syncRoomUi(room);
-        return;
-      }
-
-      if (me.role !== 'host') {
-        updateNotice('bad', 'เฉพาะ Host เท่านั้นที่เริ่ม Duet ได้');
-        syncRoomUi(room);
-        return;
-      }
-
-      if (count !== 2) {
-        updateNotice('bad', `ยังเริ่มไม่ได้ ต้องมี 2 คนพอดี ตอนนี้ ${count}/2`);
-        syncRoomUi(room);
-        return;
-      }
-
-      room.status = 'started';
-      room.startedAt = Date.now();
-      room.updatedAt = Date.now();
-
-      await roomApi.saveRoom(roomId, room);
-      log(`START_DUET ${roomId}`);
-      syncRoomUi(room);
     }
 
     async function copyRoom(){
@@ -1234,6 +1077,7 @@
       $('btnRandomRoom').addEventListener('click', () => {
         $('room').value = randomRoomCode();
         applyBackLinks();
+        startWatchRoom();
         loadAndSyncRoom();
       });
 
@@ -1244,12 +1088,8 @@
       $('btnStartDuet').addEventListener('click', onStartDuet);
 
       ['nick','pid','room','diff','time','view','hub'].forEach((id) => {
-        $(id).addEventListener('input', () => {
-          applyBackLinks();
-        });
-        $(id).addEventListener('change', () => {
-          applyBackLinks();
-        });
+        $(id).addEventListener('input', applyBackLinks);
+        $(id).addEventListener('change', applyBackLinks);
       });
 
       $('room').addEventListener('change', () => {
@@ -1260,18 +1100,35 @@
       window.addEventListener('beforeunload', stopWatch);
     }
 
-    roomApi = await getRoomAdapter();
-    hydrateInputs();
-    applyBackLinks();
-    bind();
-    startWatchRoom();
-    loadAndSyncRoom();
-
-    if (roomApi && roomApi.__type === 'local-fallback') {
-      log('USING_LOCAL_FALLBACK_ADAPTER');
-    } else {
-      log('USING_EXTERNAL_ADAPTER');
+    async function getRoomAdapter(){
+      if (window.GJRoomAdapter && typeof window.GJRoomAdapter.makeRoomAdapter === 'function') {
+        return await window.GJRoomAdapter.makeRoomAdapter(MODE);
+      }
+      throw new Error('NO_SHARED_ROOM_ADAPTER');
     }
+
+    async function init(){
+      hydrateInputs();
+      applyBackLinks();
+      bind();
+
+      try {
+        roomApi = await getRoomAdapter();
+        log('USING_SHARED_FIREBASE_ADAPTER');
+        startWatchRoom();
+        await loadAndSyncRoom();
+      } catch (err) {
+        const msg = String(err?.message || err || 'adapter init failed');
+        updateNotice('bad', 'หน้านี้ยังไม่ได้ต่อระบบห้องแบบแชร์ข้ามเครื่องจริง ๆ จึงสร้าง/เข้าห้องข้ามมือถือไม่ได้');
+        $('btnCreateRoom').disabled = true;
+        $('btnJoinRoom').disabled = true;
+        $('btnLeaveRoom').disabled = true;
+        $('btnStartDuet').disabled = true;
+        log(msg);
+      }
+    }
+
+    init();
   </script>
 </body>
 </html>
