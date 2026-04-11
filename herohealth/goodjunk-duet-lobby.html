@@ -4,133 +4,124 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk Duet Lobby</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
-
-  <!-- Firebase compat SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-
-  <!-- HeroHealth Firebase bootstrap -->
-  <script src="./firebase-config.js"></script>
-
-  <!-- Shared room adapter -->
-  <script src="./gj-room-adapter.js"></script>
+  <meta name="color-scheme" content="light" />
+  <link rel="icon" href="../favicon.ico" />
 
   <style>
     :root{
-      --bg1:#1b0820;
-      --bg2:#4a1144;
-      --bg3:#7a1d74;
+      --bg1:#08133f;
+      --bg2:#0e2a78;
+      --card:rgba(14,26,74,.78);
+      --line:rgba(173,215,255,.18);
 
-      --panel:rgba(28,8,34,.78);
-      --panel2:rgba(42,10,50,.84);
-      --stroke:rgba(255,255,255,.14);
+      --text:#f8fbff;
+      --muted:#c8d7ff;
+      --muted2:#98aedf;
 
-      --text:#fff8fd;
-      --muted:#f5dff6;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --info:#38bdf8;
-      --pink:#ec4899;
-      --bad:#ef4444;
+      --pink:#ffc3e5;
+      --pink2:#ff9ed4;
+      --blue:#9bd7ff;
+      --green:#8cf08b;
+      --yellow:#ffd96b;
 
-      --shadow:0 18px 48px rgba(0,0,0,.30);
-      --shadow-big:0 24px 72px rgba(0,0,0,.36);
+      --shadow:0 18px 44px rgba(0,0,0,.28);
 
       --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
     }
 
     *{ box-sizing:border-box; }
-    html,body{
-      margin:0;
-      min-height:100%;
+    html,body{ margin:0; min-height:100%; }
+    body{
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans",Arial,sans-serif;
       color:var(--text);
-      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
       background:
-        radial-gradient(900px 520px at 10% 10%, rgba(236,72,153,.20), transparent 60%),
-        radial-gradient(900px 560px at 90% 0%, rgba(167,139,250,.16), transparent 60%),
-        radial-gradient(700px 420px at 50% 100%, rgba(245,158,11,.10), transparent 60%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
+        radial-gradient(circle at 15% 0%, rgba(90,150,255,.30), transparent 24%),
+        radial-gradient(circle at 85% 0%, rgba(255,130,214,.18), transparent 24%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    body{ overflow-x:hidden; }
-    a,button,input,select{ font:inherit; }
-
-    .app{
-      max-width:1180px;
-      margin:0 auto;
-      min-height:100dvh;
+    .page{
+      min-height:100vh;
       padding:
-        calc(12px + var(--sat))
-        calc(12px + var(--sar))
-        calc(16px + var(--sab))
-        calc(12px + var(--sal));
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
       display:grid;
-      gap:12px;
-    }
-
-    .panel{
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      backdrop-filter:blur(12px);
-      border-radius:24px;
-      box-shadow:var(--shadow-big);
+      gap:14px;
+      width:min(980px,100%);
+      margin:0 auto;
     }
 
     .hero{
-      padding:16px;
+      border-radius:28px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(15,31,94,.92), rgba(8,20,60,.88));
+      box-shadow:var(--shadow);
+      padding:18px;
       display:grid;
-      gap:12px;
+      gap:14px;
     }
 
     .hero-top{
       display:flex;
-      align-items:center;
+      align-items:flex-start;
       justify-content:space-between;
-      gap:12px;
+      gap:14px;
       flex-wrap:wrap;
     }
 
-    .brand{
+    .hero-left{
       display:flex;
-      align-items:center;
       gap:12px;
-      min-width:0;
+      align-items:flex-start;
     }
 
-    .brand-icon{
-      width:68px;
-      height:68px;
-      border-radius:22px;
+    .hero-icon{
+      width:60px;
+      height:60px;
+      border-radius:18px;
       display:grid;
       place-items:center;
-      font-size:34px;
-      border:1px solid rgba(255,255,255,.14);
-      background:
-        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 38%),
-        linear-gradient(135deg, rgba(236,72,153,.24), rgba(167,139,250,.18));
-      box-shadow:0 12px 24px rgba(0,0,0,.16);
+      font-size:28px;
+      background:linear-gradient(180deg, rgba(42,84,214,.45), rgba(18,42,121,.65));
+      border:1px solid var(--line);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
       flex:0 0 auto;
     }
 
-    .brand-title{
-      font-size:30px;
-      font-weight:1000;
-      line-height:1.05;
-      color:#fff;
+    .hero-kicker{
+      display:inline-flex;
+      align-items:center;
+      min-height:34px;
+      padding:6px 14px;
+      border-radius:999px;
+      border:1px solid rgba(255,209,236,.18);
+      background:rgba(255,195,229,.10);
+      color:#ffd7ed;
+      font-size:12px;
+      font-weight:1100;
+      letter-spacing:.04em;
+      margin-bottom:10px;
     }
 
-    .brand-sub{
-      margin-top:5px;
+    .hero-title{
+      font-size:clamp(28px,4vw,44px);
+      line-height:1.08;
+      font-weight:1100;
+      margin:0 0 4px;
+    }
+
+    .hero-sub{
+      margin:0;
       color:var(--muted);
-      font-size:14px;
-      line-height:1.55;
+      font-size:15px;
+      line-height:1.7;
       font-weight:900;
+      max-width:720px;
     }
 
     .hero-actions{
@@ -138,997 +129,967 @@
       gap:10px;
       flex-wrap:wrap;
       align-items:center;
-      justify-content:flex-end;
     }
 
     .btn{
-      min-height:48px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:#fff;
+      appearance:none;
+      border:none;
+      border-radius:18px;
+      min-height:52px;
+      padding:12px 16px;
+      font:inherit;
+      font-weight:1100;
+      cursor:pointer;
       text-decoration:none;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      padding:10px 14px;
-      font-size:14px;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:0 10px 20px rgba(0,0,0,.16);
-      transition:transform .12s ease, filter .12s ease, opacity .12s ease;
+      gap:8px;
+      box-shadow:var(--shadow);
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+      transition:transform .12s ease, opacity .12s ease, filter .12s ease;
     }
 
-    .btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.05);
+    .btn:active{ transform:translateY(1px) scale(.995); }
+
+    .btn.primary{
+      color:#5f214c;
+      background:linear-gradient(180deg,var(--pink),var(--pink2));
     }
 
-    .btn:disabled{
-      opacity:.58;
-      cursor:not-allowed;
-      transform:none !important;
-      filter:none !important;
-    }
-
-    .btn.info{
-      background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14));
-      border-color:rgba(56,189,248,.34);
-      color:#eefbff;
+    .btn.secondary{
+      color:#0d2456;
+      background:linear-gradient(180deg,#d8f0ff,#9bd7ff);
     }
 
     .btn.good{
-      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.14));
-      border-color:rgba(34,197,94,.34);
-      color:#f0fff5;
+      color:#1e4d1d;
+      background:linear-gradient(180deg,#caff9d,#8cf08b);
     }
 
     .btn.warn{
-      background:linear-gradient(180deg, rgba(245,158,11,.24), rgba(245,158,11,.14));
-      border-color:rgba(245,158,11,.34);
-      color:#fff7db;
+      color:#5a4500;
+      background:linear-gradient(180deg,#ffeaa0,#ffd96b);
     }
 
-    .btn.pink{
-      background:linear-gradient(180deg, rgba(236,72,153,.24), rgba(236,72,153,.14));
-      border-color:rgba(236,72,153,.34);
-      color:#fff1f7;
-    }
-
-    .btn.bad{
-      background:linear-gradient(180deg, rgba(239,68,68,.24), rgba(239,68,68,.14));
-      border-color:rgba(239,68,68,.34);
-      color:#fff1f2;
-    }
-
-    .statusGrid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .stat{
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
+    .btn.ghost{
+      color:var(--text);
       background:rgba(255,255,255,.06);
-      padding:12px;
-      min-height:78px;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      gap:6px;
-      box-shadow:var(--shadow);
+      border:1px solid var(--line);
+      box-shadow:none;
     }
 
-    .stat-label{
-      font-size:11px;
-      color:var(--muted);
-      font-weight:1000;
-    }
-
-    .stat-value{
-      font-size:20px;
-      line-height:1.15;
-      font-weight:1000;
-      color:#fff;
-      word-break:break-word;
+    .btn[disabled]{
+      opacity:.45;
+      cursor:not-allowed;
+      filter:saturate(.7);
     }
 
     .grid{
       display:grid;
       grid-template-columns:1.1fr .9fr;
-      gap:12px;
-    }
-
-    .card{
-      padding:16px;
-      display:grid;
       gap:14px;
     }
 
-    .card-title{
-      font-size:22px;
-      line-height:1.08;
-      font-weight:1000;
-      color:#fff;
+    .card{
+      border-radius:28px;
+      border:1px solid var(--line);
+      background:var(--card);
+      box-shadow:var(--shadow);
+      padding:18px;
+      display:grid;
+      gap:14px;
+      min-width:0;
     }
 
-    .card-sub{
-      color:var(--muted);
+    .section-title{
+      margin:0;
+      font-size:18px;
+      font-weight:1100;
+      letter-spacing:.02em;
+    }
+
+    .room-code-box{
+      border-radius:22px;
+      border:1px solid rgba(160,204,255,.16);
+      background:rgba(255,255,255,.04);
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .label{
       font-size:13px;
-      line-height:1.6;
-      font-weight:900;
+      color:var(--muted);
+      font-weight:1000;
     }
 
-    .fields{
+    .room-code{
+      font-size:clamp(24px,4vw,38px);
+      line-height:1.05;
+      font-weight:1100;
+      word-break:break-word;
+      letter-spacing:.02em;
+    }
+
+    .mini-grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:12px;
     }
 
-    .field{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
+    .mini-stat{
+      border-radius:20px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.045);
+      padding:14px;
+      display:grid;
+      gap:6px;
+      min-width:0;
     }
 
-    .field label{
-      font-size:13px;
-      color:var(--muted);
+    .mini-stat .k{
+      color:var(--muted2);
+      font-size:12px;
       font-weight:1000;
     }
 
-    .field input,
-    .field select{
-      min-height:48px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(2,6,23,.72);
-      color:#fff;
-      padding:10px 12px;
-      outline:none;
+    .mini-stat .v{
+      color:var(--text);
+      font-size:clamp(18px,2.8vw,28px);
+      line-height:1.1;
+      font-weight:1100;
+      word-break:break-word;
     }
 
-    .field input:focus,
-    .field select:focus{
-      outline:3px solid rgba(250,204,21,.35);
-      outline-offset:2px;
-    }
-
-    .roomRow{
+    .action-grid{
       display:grid;
-      grid-template-columns:1fr auto auto;
-      gap:10px;
-      align-items:end;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
     }
 
-    .bigActions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .bigActions .btn{
-      min-height:54px;
-      font-size:16px;
-      padding:12px 16px;
-    }
-
-    .notice{
+    .note{
       border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
+      border:1px dashed rgba(173,215,255,.22);
+      background:rgba(255,255,255,.035);
       padding:12px 14px;
-      color:#fff7ed;
+      color:var(--muted);
       font-size:13px;
       line-height:1.65;
       font-weight:900;
     }
 
-    .notice.good{
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.14);
-      color:#f0fff5;
+    .mini-note{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.65;
+      font-weight:900;
+      min-height:22px;
+      white-space:pre-wrap;
+      word-break:break-word;
     }
 
-    .notice.warn{
-      border-color:rgba(245,158,11,.28);
-      background:rgba(245,158,11,.14);
-      color:#fff7db;
-    }
-
-    .notice.bad{
-      border-color:rgba(239,68,68,.28);
-      background:rgba(239,68,68,.14);
-      color:#fff1f2;
-    }
-
-    .playersBox{
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
-      padding:12px;
+    .ready-panel{
+      border-radius:22px;
+      border:1px solid rgba(173,215,255,.16);
+      background:rgba(255,255,255,.04);
+      padding:14px;
       display:grid;
-      gap:10px;
-      min-height:180px;
+      gap:12px;
     }
 
-    .playersHead{
+    .ready-status{
+      font-size:18px;
+      font-weight:1100;
+      line-height:1.3;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    .players-list{
+      display:grid;
+      gap:12px;
+    }
+
+    .player-row{
       display:flex;
-      align-items:center;
       justify-content:space-between;
-      gap:10px;
+      align-items:center;
+      gap:12px;
+      padding:14px;
+      border-radius:22px;
+      border:1px solid rgba(140,228,170,.22);
+      background:linear-gradient(180deg, rgba(20,37,92,.92), rgba(12,24,67,.96));
       flex-wrap:wrap;
     }
 
-    .playersTitle{
-      font-size:16px;
-      font-weight:1000;
-      color:#fff;
-    }
-
-    .miniChip{
-      min-height:32px;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      color:#fff;
-      font-size:11px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-    }
-
-    .miniChip.good{
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.16);
-      color:#f0fff5;
-    }
-
-    .miniChip.warn{
-      border-color:rgba(245,158,11,.28);
-      background:rgba(245,158,11,.16);
-      color:#fff7db;
-    }
-
-    .playerList{
+    .player-main{
       display:grid;
-      gap:10px;
+      gap:4px;
+      min-width:0;
     }
 
-    .playerRow{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:12px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(255,255,255,.06);
+    .player-name{
+      font-size:18px;
+      font-weight:1100;
+      line-height:1.25;
+      word-break:break-word;
     }
 
-    .playerName{
-      font-size:14px;
+    .player-sub{
+      font-size:13px;
+      color:var(--muted);
       font-weight:1000;
-      color:#fff;
     }
 
-    .playerTag{
-      min-height:30px;
-      padding:7px 10px;
+    .player-badge{
+      min-width:112px;
+      min-height:44px;
+      padding:10px 14px;
       border-radius:999px;
-      font-size:11px;
-      font-weight:1000;
+      border:1px solid rgba(140,228,170,.28);
+      background:rgba(114,211,126,.12);
+      color:#bff7b2;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      color:#fff;
+      font-weight:1100;
+      font-size:14px;
     }
 
-    .playerTag.host{
-      border-color:rgba(236,72,153,.34);
-      background:rgba(236,72,153,.16);
-      color:#fff1f7;
+    .player-badge.wait{
+      border-color:rgba(255,225,120,.22);
+      background:rgba(255,217,107,.10);
+      color:#ffe784;
     }
 
-    .playerTag.guest{
-      border-color:rgba(56,189,248,.34);
-      background:rgba(56,189,248,.16);
-      color:#eefbff;
+    .footer-actions{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
     }
 
-    .logBox{
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(24,8,3,.30);
-      padding:12px 14px;
-      color:#fde7df;
-      font-size:12px;
-      line-height:1.55;
-      font-weight:900;
-      min-height:88px;
-      white-space:pre-wrap;
-      word-break:break-word;
-      text-align:left;
-    }
-
-    @media (max-width:1000px){
-      .grid{ grid-template-columns:1fr; }
-      .statusGrid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-    }
-
-    @media (max-width:720px){
-      .statusGrid,
-      .fields{
+    @media (max-width:900px){
+      .grid{
         grid-template-columns:1fr;
       }
-      .roomRow{
-        grid-template-columns:1fr;
-      }
-      .hero-top{
-        align-items:flex-start;
-      }
-      .hero-actions{
-        justify-content:flex-start;
-      }
-      .brand-title{ font-size:24px; }
     }
 
-    @media (prefers-reduced-motion: reduce){
-      *,
-      *::before,
-      *::after{
-        animation:none !important;
-        transition:none !important;
+    @media (max-width:640px){
+      .page{
+        gap:12px;
+        padding:
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(14px + var(--sab))
+          calc(10px + var(--sal));
       }
+      .hero,.card{ padding:14px; border-radius:24px; }
+      .action-grid,.mini-grid{ grid-template-columns:1fr; }
+      .footer-actions .btn,
+      .hero-actions .btn{ flex:1 1 100%; }
+      .btn{ min-height:50px; }
+      .player-badge{ width:100%; }
     }
   </style>
 </head>
 <body>
-  <div class="app">
-    <section class="panel hero">
+  <main class="page">
+    <section class="hero">
       <div class="hero-top">
-        <div class="brand">
-          <div class="brand-icon">🫶</div>
+        <div class="hero-left">
+          <div class="hero-icon">👯</div>
           <div>
-            <div class="brand-title">GoodJunk Duet Lobby</div>
-            <div class="brand-sub">ห้องเล่นคู่ 2 คน • สร้างห้องแล้วรออีกคนเข้า จากนั้น Host ค่อยกดเริ่ม</div>
+            <div class="hero-kicker">DUET LOBBY</div>
+            <h1 class="hero-title">GoodJunk Duet Lobby</h1>
+            <p class="hero-sub">
+              โหมดเล่นคู่ 2 คนเท่านั้น ต้องพร้อมครบทั้ง 2 คนก่อนเริ่ม
+              และเริ่มพร้อมกันเสมอ
+            </p>
           </div>
         </div>
 
         <div class="hero-actions">
-          <a id="btnBackLauncherTop" class="btn" href="#">กลับ Launcher</a>
-          <a id="btnBackHubTop" class="btn pink" href="#">กลับ Hub</a>
-        </div>
-      </div>
-
-      <div class="statusGrid">
-        <div class="stat">
-          <div class="stat-label">Room</div>
-          <div id="statRoom" class="stat-value">-</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Role</div>
-          <div id="statRole" class="stat-value">-</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Players</div>
-          <div id="statPlayers" class="stat-value">0/2</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Status</div>
-          <div id="statStatus" class="stat-value">waiting</div>
+          <a class="btn ghost" id="backLauncherBtn" href="./goodjunk-multi.html">← กลับ Launcher</a>
+          <a class="btn ghost" id="backHubBtn" href="../hub.html">🏠 กลับ Hub</a>
         </div>
       </div>
     </section>
 
     <section class="grid">
-      <section class="panel card">
-        <div class="card-title">ตั้งค่าห้อง Duet</div>
-        <div class="card-sub">Host สร้างห้องก่อน แล้วให้อีกคนเข้าห้องเดียวกัน พอครบ 2 คน Host ถึงจะกดเริ่มได้</div>
+      <section class="card">
+        <h2 class="section-title">ห้อง Duet</h2>
 
-        <div class="fields">
-          <div class="field">
-            <label for="nick">ชื่อเล่น</label>
-            <input id="nick" placeholder="เช่น Hero" />
+        <div class="room-code-box">
+          <div class="label">Room Code</div>
+          <div id="roomCodeText" class="room-code">-</div>
+        </div>
+
+        <div class="mini-grid">
+          <div class="mini-stat">
+            <div class="k">สถานะ</div>
+            <div id="duetStatusText" class="v">waiting</div>
           </div>
-
-          <div class="field">
-            <label for="pid">PID</label>
-            <input id="pid" placeholder="เช่น anon" />
+          <div class="mini-stat">
+            <div class="k">ผู้เล่น</div>
+            <div id="duetPlayersText" class="v">0/2</div>
           </div>
-
-          <div class="field">
-            <label for="diff">ความยาก</label>
-            <select id="diff">
-              <option value="easy">easy</option>
-              <option value="normal" selected>normal</option>
-              <option value="hard">hard</option>
-            </select>
+          <div class="mini-stat">
+            <div class="k">Host</div>
+            <div id="duetHostText" class="v">-</div>
           </div>
-
-          <div class="field">
-            <label for="time">เวลา</label>
-            <select id="time">
-              <option value="60">60s</option>
-              <option value="90" selected>90s</option>
-              <option value="120">120s</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="view">มุมมอง</label>
-            <select id="view">
-              <option value="mobile" selected>mobile</option>
-              <option value="desktop">desktop</option>
-              <option value="cvr">cvr</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="hub">Hub</label>
-            <input id="hub" placeholder="./hub.html" />
+          <div class="mini-stat">
+            <div class="k">โหมด</div>
+            <div class="v">DUET</div>
           </div>
         </div>
 
-        <div class="roomRow">
-          <div class="field" style="margin:0">
-            <label for="room">Room Code</label>
-            <input id="room" placeholder="เช่น DU-AB12CD" />
-          </div>
-          <button id="btnRandomRoom" class="btn warn" type="button">สุ่มห้อง</button>
-          <button id="btnCopyRoom" class="btn info" type="button">คัดลอก</button>
+        <div class="action-grid">
+          <button id="copyRoomBtn" class="btn secondary" type="button">คัดลอก Room Code</button>
+          <button id="copyInviteBtn" class="btn secondary" type="button">คัดลอก Invite Link</button>
         </div>
 
-        <div id="noticeBox" class="notice warn">
-          ยังไม่มีห้อง • กด “สร้างห้อง” ถ้าคุณเป็น Host หรือให้ Host สร้างก่อนแล้วค่อยกด “เข้าห้องนี้”
-        </div>
-
-        <div class="bigActions">
-          <button id="btnCreateRoom" class="btn good" type="button">สร้างห้อง</button>
-          <button id="btnJoinRoom" class="btn info" type="button">เข้าห้องนี้</button>
-          <button id="btnLeaveRoom" class="btn bad" type="button">ออกจากห้อง</button>
-          <button id="btnStartDuet" class="btn pink" type="button" disabled>เริ่ม Duet</button>
+        <div class="note">
+          คนแรกสามารถเข้ามารอใน Lobby ได้ก่อน แต่เกมจะยังไม่เริ่ม
+          จนกว่าจะมีผู้เล่นครบ 2 คน และกดพร้อมครบทั้ง 2 คน
         </div>
       </section>
 
-      <section class="panel card">
-        <div class="playersBox">
-          <div class="playersHead">
-            <div class="playersTitle">ผู้เล่นในห้อง</div>
-            <div id="chipRoomState" class="miniChip warn">ยังไม่พร้อม</div>
+      <section class="card">
+        <h2 class="section-title">พร้อมก่อนเริ่ม</h2>
+
+        <div class="ready-panel">
+          <div id="readySummary" class="ready-status">กำลังตรวจสอบห้อง...</div>
+
+          <div class="action-grid">
+            <button id="readyBtn" class="btn good" type="button">✅ กดพร้อม</button>
+            <button id="cancelReadyBtn" class="btn warn" type="button" hidden>↩️ ยกเลิกพร้อม</button>
           </div>
 
-          <div id="playerList" class="playerList">
-            <div class="playerRow">
-              <div class="playerName">ยังไม่มีผู้เล่น</div>
-              <div class="playerTag">0</div>
-            </div>
-          </div>
+          <button id="startDuetBtn" class="btn primary" type="button" disabled aria-disabled="true">🚀 เริ่ม Duet</button>
+          <div id="duetStartHint" class="mini-note">ต้องมีผู้เล่นครบ 2 คน และกดพร้อมครบทั้ง 2 คนก่อนเริ่ม</div>
         </div>
-
-        <div class="notice">
-          กติกา Duet: ห้องนี้รับได้แค่ <b>2 คน</b> เท่านั้น • ครบ 2 คนแล้ว Host ค่อยกดเริ่ม • จะไม่เด้งเข้าเล่นเองตอนสร้างห้อง
-        </div>
-
-        <div class="logBox" id="logBox">Duet lobby booting…</div>
       </section>
     </section>
-  </div>
 
-  <script type="module">
-    const MODE = 'duet';
-    const MAX_PLAYERS = 2;
-    const PLAY_PATH = './vr-goodjunk/goodjunk-duet-play.html';
+    <section class="card">
+      <h2 class="section-title">ผู้เล่นในห้อง</h2>
+      <div id="duetPlayersList" class="players-list">
+        <div class="note">กำลังโหลดข้อมูลผู้เล่น...</div>
+      </div>
+    </section>
 
-    let roomApi = null;
-    let unsub = null;
-    let lastRoom = null;
+    <section class="footer-actions">
+      <a class="btn ghost" id="backLauncherBtn2" href="./goodjunk-multi.html">กลับ Launcher</a>
+      <a class="btn ghost" id="backHubBtn2" href="../hub.html">กลับ Hub</a>
+    </section>
+  </main>
 
-    const $ = (id) => document.getElementById(id);
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-    const qs = (k, d='') => {
-      try { return new URL(location.href).searchParams.get(k) ?? d; }
-      catch (_) { return d; }
-    };
+  <script src="../firebase-config.js?v=20260411a-GJ-DUET-AUTH-HARDFAIL"></script>
 
-    function clean(v, d=''){
-      const s = String(v ?? '').trim();
-      return s || d;
-    }
+  <script>
+    (function(){
+      'use strict';
 
-    function nowText(){
-      return new Date().toLocaleTimeString('th-TH', { hour12:false });
-    }
+      const W = window;
+      const D = document;
 
-    function log(msg){
-      const el = $('logBox');
-      if (!el) return;
-      el.textContent = `[${nowText()}] ${msg}`;
-    }
+      const byId = (id) => D.getElementById(id);
+      const qs = () => new URLSearchParams(location.search);
+      const qv = (k, d='') => qs().get(k) || d;
+      const clean = (v, max=80) => String(v == null ? '' : v).trim().slice(0, max);
 
-    function buildUrl(path, extra = {}, base = location.href){
-      const u = new URL(path, base);
-      Object.entries(extra).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== '') {
-          u.searchParams.set(k, String(v));
-        }
-      });
-      return u.toString();
-    }
-
-    function randomRoomCode(){
-      const part = Math.random().toString(36).slice(2, 8).toUpperCase();
-      return `DU-${part}`;
-    }
-
-    function ctx(){
-      return {
-        pid: clean($('pid').value, 'anon'),
-        name: clean($('nick').value, 'Hero'),
-        nick: clean($('nick').value, 'Hero'),
-        room: clean($('room').value, ''),
-        diff: clean($('diff').value, 'normal'),
-        time: clean($('time').value, '90'),
-        view: clean($('view').value, 'mobile'),
-        hub: clean($('hub').value, './hub.html'),
-        run: clean(qs('run', 'play'), 'play'),
-        seed: clean(qs('seed', String(Date.now())), String(Date.now())),
-        zone: clean(qs('zone', 'nutrition'), 'nutrition'),
-        cat: clean(qs('cat', 'nutrition'), 'nutrition'),
-        game: clean(qs('game', 'goodjunk'), 'goodjunk'),
-        gameId: clean(qs('gameId', 'goodjunk'), 'goodjunk'),
-        theme: clean(qs('theme', 'goodjunk'), 'goodjunk'),
-        studyId: clean(qs('studyId', ''), ''),
-        conditionGroup: clean(qs('conditionGroup', ''), '')
+      const els = {
+        roomText: byId('roomCodeText'),
+        playersText: byId('duetPlayersText'),
+        statusText: byId('duetStatusText'),
+        hostText: byId('duetHostText'),
+        readyBtn: byId('readyBtn'),
+        cancelReadyBtn: byId('cancelReadyBtn'),
+        startBtn: byId('startDuetBtn'),
+        hint: byId('duetStartHint'),
+        readySummary: byId('readySummary'),
+        list: byId('duetPlayersList'),
+        copyRoomBtn: byId('copyRoomBtn'),
+        copyInviteBtn: byId('copyInviteBtn'),
+        backLauncherBtn: byId('backLauncherBtn'),
+        backLauncherBtn2: byId('backLauncherBtn2'),
+        backHubBtn: byId('backHubBtn'),
+        backHubBtn2: byId('backHubBtn2')
       };
-    }
 
-    function buildLauncherUrl(){
-      const p = ctx();
-      return buildUrl('./goodjunk-launcher.html', {
-        pid: p.pid,
-        name: p.name,
-        diff: p.diff,
-        time: p.time,
-        hub: p.hub,
-        view: p.view,
-        run: p.run,
-        seed: p.seed,
-        zone: p.zone,
-        cat: p.cat,
-        game: p.game,
-        gameId: p.gameId,
-        theme: p.theme,
-        recommendedMode: 'duet'
-      });
-    }
-
-    function buildPlayUrl(room, role='guest'){
-      const p = ctx();
-      return buildUrl(PLAY_PATH, {
-        mode: 'duet',
-        entry: 'duet',
-        roomId: room?.roomId || p.room,
-        room: room?.roomId || p.room,
-        pid: p.pid,
-        name: p.name,
-        nick: p.nick,
-        diff: room?.diff || p.diff,
-        time: room?.time || p.time,
-        view: p.view,
-        hub: p.hub,
-        run: p.run,
-        seed: p.seed,
-        zone: p.zone,
-        cat: p.cat,
-        game: p.game,
-        gameId: p.gameId,
-        theme: p.theme,
-        studyId: p.studyId,
-        conditionGroup: p.conditionGroup,
-        role,
-        host: role === 'host' ? '1' : '0',
-        wait: '1',
-        autostart: '1',
-        modeLocked: '1',
-        maxPlayers: String(MAX_PLAYERS)
-      });
-    }
-
-    function applyBackLinks(){
-      $('btnBackLauncherTop').href = buildLauncherUrl();
-      $('btnBackHubTop').href = clean($('hub').value, './hub.html');
-    }
-
-    function hydrateInputs(){
-      $('nick').value = qs('name', qs('nick', 'Hero'));
-      $('pid').value = qs('pid', 'anon');
-      $('room').value = qs('room', qs('roomId', ''));
-      $('diff').value = qs('diff', 'normal');
-      $('time').value = qs('time', '90');
-      $('view').value = qs('view', 'mobile');
-      $('hub').value = qs('hub', './hub.html');
-
-      if (!$('room').value) {
-        $('room').value = randomRoomCode();
-      }
-    }
-
-    function updateNotice(kind, text){
-      const box = $('noticeBox');
-      box.className = `notice ${kind}`;
-      box.innerHTML = text;
-    }
-
-    function updateRoomStateChip(kind, text){
-      const chip = $('chipRoomState');
-      chip.className = `miniChip ${kind}`;
-      chip.textContent = text;
-    }
-
-    function getMe(room){
-      const p = ctx();
-      return room?.players?.[p.pid] || null;
-    }
-
-    function renderPlayers(room){
-      const wrap = $('playerList');
-      const playersObj = room?.players || {};
-      const players = Object.values(playersObj)
-        .filter(Boolean)
-        .sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
-
-      if (!players.length) {
-        wrap.innerHTML = `
-          <div class="playerRow">
-            <div class="playerName">ยังไม่มีผู้เล่น</div>
-            <div class="playerTag">0</div>
-          </div>
-        `;
-        return;
-      }
-
-      wrap.innerHTML = players.map((p, idx) => `
-        <div class="playerRow">
-          <div class="playerName">${idx + 1}. ${String(p.name || p.nick || p.pid || 'Player')}</div>
-          <div class="playerTag ${p.role === 'host' ? 'host' : 'guest'}">${p.role === 'host' ? '💖 Host' : '🫶 Guest'}</div>
-        </div>
-      `).join('');
-    }
-
-    function updateStats(room, me=null){
-      const count = room?.players ? Object.keys(room.players).length : 0;
-      $('statRoom').textContent = room?.roomId || clean($('room').value, '-');
-      $('statRole').textContent = me?.role || '-';
-      $('statPlayers').textContent = `${count}/${MAX_PLAYERS}`;
-      $('statStatus').textContent = room?.status || 'waiting';
-    }
-
-    function setStartEnabled(enabled){
-      $('btnStartDuet').disabled = !enabled;
-    }
-
-    function syncRoomUi(room){
-      lastRoom = room || null;
-
-      const me = getMe(room);
-      const count = room?.players ? Object.keys(room.players).length : 0;
-
-      updateStats(room, me);
-      renderPlayers(room);
-
-      if (!room) {
-        updateNotice('warn', 'ยังไม่พบห้องนี้ในระบบ • กด “สร้างห้อง” ถ้าคุณเป็น Host หรือให้ Host สร้างก่อนแล้วค่อยกด “เข้าห้องนี้”');
-        updateRoomStateChip('warn', 'ยังไม่พร้อม');
-        setStartEnabled(false);
-        log('ROOM_NOT_FOUND');
-        return;
-      }
-
-      if (room.mode !== MODE) {
-        updateNotice('bad', 'room นี้ไม่ใช่โหมด duet');
-        updateRoomStateChip('warn', 'ผิดโหมด');
-        setStartEnabled(false);
-        log('ROOM_MODE_MISMATCH');
-        return;
-      }
-
-      if (!me) {
-        updateNotice('bad', 'PID นี้ยังไม่ได้อยู่ในห้อง • กด “เข้าห้องนี้” ก่อน');
-        updateRoomStateChip('warn', 'ยังไม่พร้อม');
-        setStartEnabled(false);
-        log('PLAYER_NOT_IN_ROOM');
-        return;
-      }
-
-      if (count < 2) {
-        if (me.role === 'host') {
-          updateNotice('warn', `คุณเป็น Host • ตอนนี้ยังมีผู้เล่นไม่ครบ 2 คน กรุณารออีก ${2 - count} คนเข้าห้อง`);
-        } else {
-          updateNotice('warn', 'คุณเข้าห้องแล้ว • ตอนนี้รอให้ห้องครบ 2 คน และรอ Host กดเริ่ม');
-        }
-        updateRoomStateChip('warn', `รอผู้เล่น ${count}/2`);
-        setStartEnabled(false);
-        log(`WAITING_PLAYER ${count}/2`);
-        return;
-      }
-
-      if (count > 2) {
-        updateNotice('bad', `ห้องนี้มีผู้เล่นเกินกำหนด (${count}/2)`);
-        updateRoomStateChip('warn', 'ผู้เล่นเกิน');
-        setStartEnabled(false);
-        log(`ROOM_OVERFLOW ${count}/2`);
-        return;
-      }
-
-      if (room.status !== 'started') {
-        if (me.role === 'host') {
-          updateNotice('good', 'ครบ 2 คนแล้ว • คุณเป็น Host สามารถกด “เริ่ม Duet” ได้');
-          updateRoomStateChip('good', 'พร้อมเริ่ม');
-          setStartEnabled(true);
-          log('READY_FOR_HOST_START');
-        } else {
-          updateNotice('warn', 'ครบ 2 คนแล้ว • ตอนนี้รอ Host กด “เริ่ม Duet”');
-          updateRoomStateChip('warn', 'รอ Host เริ่ม');
-          setStartEnabled(false);
-          log('WAITING_HOST_START');
-        }
-        return;
-      }
-
-      updateNotice('good', 'ห้องเริ่มแล้ว • กำลังพาไปหน้า Duet Play');
-      updateRoomStateChip('good', 'กำลังเข้าเล่น');
-      setStartEnabled(false);
-      log('ROOM_STARTED');
-
-      const href = buildPlayUrl(room, me.role || 'guest');
-      setTimeout(() => {
-        location.href = href;
-      }, 350);
-    }
-
-    async function loadAndSyncRoom(){
-      const roomId = clean($('room').value, '');
-      if (!roomId || !roomApi) {
-        syncRoomUi(null);
-        return;
-      }
-
-      try {
-        const room = await roomApi.loadRoom(roomId);
-        syncRoomUi(room);
-      } catch (err) {
-        log(`LOAD_FAIL ${String(err?.message || err || 'unknown')}`);
-      }
-    }
-
-    function stopWatch(){
-      if (typeof unsub === 'function') {
-        try { unsub(); } catch (_) {}
-      }
-      unsub = null;
-    }
-
-    function startWatchRoom(){
-      stopWatch();
-
-      const roomId = clean($('room').value, '');
-      if (!roomApi || !roomId) return;
-
-      try {
-        unsub = roomApi.subscribeRoom(roomId, (room) => {
-          syncRoomUi(room);
-        });
-      } catch (err) {
-        log(`WATCH_FAIL ${String(err?.message || err || 'unknown')}`);
-      }
-    }
-
-    function makeHostPlayer(){
-      const p = ctx();
-      return {
-        pid: p.pid,
-        name: p.name,
-        nick: p.nick,
-        role: 'host',
-        joinedAt: Date.now(),
-        ready: true
-      };
-    }
-
-    function makeGuestPlayer(){
-      const p = ctx();
-      return {
-        pid: p.pid,
-        name: p.name,
-        nick: p.nick,
+      const state = {
+        ctx: null,
+        uid: '',
+        roomId: '',
         role: 'guest',
-        joinedAt: Date.now(),
-        ready: true
+        roomRef: null,
+        playerRef: null,
+        currentRoom: null,
+        pingTimer: 0,
+        roomOff: null
       };
-    }
 
-    async function onCreateRoom(){
-      const p = ctx();
-      if (!roomApi) return;
-
-      if (!p.room) {
-        $('room').value = randomRoomCode();
+      function generateRoomCode(prefix = 'DU'){
+        const part = Math.random().toString(36).slice(2, 8).toUpperCase();
+        return `${prefix}-${part}`;
       }
 
-      const roomId = clean($('room').value, '');
-      try {
-        await roomApi.createRoom({
+      function ensureRoomIdInUrl(){
+        let roomId = clean(qv('roomId', qv('room', qv('roomCode', ''))), 48);
+
+        if (!roomId) {
+          roomId = generateRoomCode('DU');
+          const u = new URL(location.href);
+          u.searchParams.set('roomId', roomId);
+          u.searchParams.set('room', roomId);
+          u.searchParams.set('roomCode', roomId);
+          u.searchParams.set('mode', 'duet');
+          u.searchParams.set('entry', 'multi');
+          history.replaceState(null, '', u.toString());
+        } else {
+          const u = new URL(location.href);
+          let changed = false;
+          if (u.searchParams.get('roomId') !== roomId) { u.searchParams.set('roomId', roomId); changed = true; }
+          if (u.searchParams.get('room') !== roomId) { u.searchParams.set('room', roomId); changed = true; }
+          if (u.searchParams.get('roomCode') !== roomId) { u.searchParams.set('roomCode', roomId); changed = true; }
+          if (changed) history.replaceState(null, '', u.toString());
+        }
+
+        return roomId;
+      }
+
+      function getCtx(){
+        const roomId = state.roomId || ensureRoomIdInUrl();
+        return {
+          zone: qv('zone', 'nutrition'),
+          game: qv('game', 'goodjunk'),
+          mode: 'duet',
           roomId,
-          mode: MODE,
-          status: 'waiting',
-          hostPid: p.pid,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          startedAt: 0,
-          diff: p.diff,
-          time: p.time,
-          cap: MAX_PLAYERS,
-          players: {
-            [p.pid]: makeHostPlayer()
-          }
+          pid: clean(qv('pid', 'anon'), 64) || 'anon',
+          name: clean(qv('name', qv('nick', 'Hero')), 48) || 'Hero',
+          nick: clean(qv('nick', qv('name', 'Hero')), 48) || 'Hero',
+          diff: clean(qv('diff', 'normal'), 24) || 'normal',
+          time: String(qv('time', '90')),
+          seed: String(qv('seed', Date.now())),
+          run: qv('run', 'play'),
+          hub: qv('hub', '../hub.html'),
+          view: qv('view', 'mobile')
+        };
+      }
+
+      function escapeHtml(v){
+        return String(v ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function setText(el, value){
+        if (el) el.textContent = value == null ? '' : String(value);
+      }
+
+      function setLinks(){
+        const ctx = getCtx();
+
+        const launcher = new URL('./goodjunk-multi.html', location.href);
+        [
+          'pid','name','nick','hub','run','diff','time','view','zone','game','seed'
+        ].forEach((k) => {
+          const v = qv(k, '');
+          if (v) launcher.searchParams.set(k, v);
         });
 
-        log(`ROOM_CREATED ${roomId}`);
-        startWatchRoom();
-        await loadAndSyncRoom();
-      } catch (err) {
-        const msg = String(err?.message || err || 'CREATE_FAILED');
-        updateNotice('bad', `สร้างห้องไม่สำเร็จ: <b>${msg}</b>`);
-        log(`CREATE_FAIL ${msg}`);
-        await loadAndSyncRoom();
-      }
-    }
-
-    async function onJoinRoom(){
-      const p = ctx();
-      if (!roomApi) return;
-
-      const roomId = clean($('room').value, '');
-      if (!roomId) {
-        updateNotice('bad', 'ยังไม่มี room code');
-        log('JOIN_FAIL no room code');
-        return;
+        if (els.backLauncherBtn) els.backLauncherBtn.href = launcher.toString();
+        if (els.backLauncherBtn2) els.backLauncherBtn2.href = launcher.toString();
+        if (els.backHubBtn) els.backHubBtn.href = ctx.hub;
+        if (els.backHubBtn2) els.backHubBtn2.href = ctx.hub;
       }
 
-      try {
-        await roomApi.joinRoom(roomId, makeGuestPlayer(), MAX_PLAYERS);
-        log(`JOIN_OK ${roomId}`);
-        startWatchRoom();
-        await loadAndSyncRoom();
-      } catch (err) {
-        const msg = String(err?.message || err || 'JOIN_FAILED');
-        updateNotice('bad', `เข้าห้องไม่สำเร็จ: <b>${msg}</b>`);
-        log(`JOIN_FAIL ${msg}`);
-        await loadAndSyncRoom();
-      }
-    }
-
-    async function onLeaveRoom(){
-      const p = ctx();
-      if (!roomApi) return;
-
-      const roomId = clean($('room').value, '');
-      if (!roomId) {
-        updateNotice('warn', 'ยังไม่มี room ให้ออก');
-        return;
+      function playersOf(room){
+        return Object.values((room && room.players) || {});
       }
 
-      try {
-        await roomApi.leaveRoom(roomId, p.pid);
-        log(`LEAVE_OK ${roomId}`);
-        stopWatch();
-        await loadAndSyncRoom();
-        startWatchRoom();
-      } catch (err) {
-        const msg = String(err?.message || err || 'LEAVE_FAILED');
-        updateNotice('bad', `ออกจากห้องไม่สำเร็จ: <b>${msg}</b>`);
-        log(`LEAVE_FAIL ${msg}`);
-      }
-    }
-
-    async function onStartDuet(){
-      const p = ctx();
-      if (!roomApi) return;
-
-      const roomId = clean($('room').value, '');
-      if (!roomId) {
-        updateNotice('bad', 'ยังไม่มี room');
-        return;
+      function playerCount(room){
+        return playersOf(room).length;
       }
 
-      try {
-        await roomApi.startRoom(roomId, p.pid);
-        log(`START_DUET ${roomId}`);
-        await loadAndSyncRoom();
-      } catch (err) {
-        const msg = String(err?.message || err || 'START_FAILED');
-        updateNotice('bad', `เริ่มเกมไม่สำเร็จ: <b>${msg}</b>`);
-        log(`START_FAIL ${msg}`);
-        await loadAndSyncRoom();
+      function readyCount(room){
+        return playersOf(room).filter((p) => !!p.ready).length;
       }
-    }
 
-    async function copyRoom(){
-      const roomId = clean($('room').value, '');
-      if (!roomId) return;
-
-      try {
-        await navigator.clipboard.writeText(roomId);
-        updateNotice('good', `คัดลอก room code แล้ว: <b>${roomId}</b>`);
-        log(`COPY_ROOM ${roomId}`);
-      } catch (_) {
-        updateNotice('warn', `คัดลอกไม่สำเร็จ แต่ room คือ <b>${roomId}</b>`);
-        log(`COPY_FAIL ${roomId}`);
+      function isHost(room){
+        return !!room && !!room.meta && String(room.meta.hostUid || '') === String(state.uid || '');
       }
-    }
 
-    function bind(){
-      $('btnRandomRoom').addEventListener('click', () => {
-        $('room').value = randomRoomCode();
-        applyBackLinks();
-        startWatchRoom();
-        loadAndSyncRoom();
+      function findMe(room){
+        return playersOf(room).find((p) => String(p.uid || '') === String(state.uid || '')) || null;
+      }
+
+      function buildPlayUrl(room){
+        const ctx = getCtx();
+        const meta = room && room.meta ? room.meta : {};
+
+        const u = new URL('./goodjunk-duet-play.html', location.href);
+
+        u.searchParams.set('zone', ctx.zone);
+        u.searchParams.set('game', ctx.game);
+        u.searchParams.set('mode', 'duet');
+        u.searchParams.set('entry', 'multi');
+
+        u.searchParams.set('name', ctx.name);
+        u.searchParams.set('nick', ctx.nick);
+        u.searchParams.set('pid', ctx.pid);
+
+        u.searchParams.set('diff', meta.diff || ctx.diff);
+        u.searchParams.set('time', String(meta.timeSec || ctx.time || '90'));
+        u.searchParams.set('seed', String(meta.seed || ctx.seed || Date.now()));
+        u.searchParams.set('run', ctx.run);
+        u.searchParams.set('hub', ctx.hub);
+        u.searchParams.set('view', ctx.view);
+
+        u.searchParams.set('roomId', ctx.roomId);
+        u.searchParams.set('room', ctx.roomId);
+        u.searchParams.set('roomCode', ctx.roomId);
+        u.searchParams.set('matchId', meta.matchId || '');
+        u.searchParams.set('host', String(isHost(room) ? '1' : '0'));
+        u.searchParams.set('role', String(isHost(room) ? 'host' : 'guest'));
+        u.searchParams.set('wait', '1');
+        u.searchParams.set('autostart', '1');
+        u.searchParams.set('startAt', String(meta.startedAt || 0));
+
+        return u.toString();
+      }
+
+      function renderPlayers(room){
+        if (!els.list) return;
+
+        const rows = playersOf(room).sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
+
+        if (!rows.length) {
+          els.list.innerHTML = '<div class="note">ยังไม่มีผู้เล่นในห้อง</div>';
+          return;
+        }
+
+        els.list.innerHTML = rows.map((p) => {
+          const me = String(p.uid || '') === String(state.uid || '');
+          const ready = !!p.ready;
+          const badgeClass = ready ? 'player-badge' : 'player-badge wait';
+
+          return `
+            <div class="player-row">
+              <div class="player-main">
+                <div class="player-name">${me ? '👑 ' : ''}${escapeHtml(p.name || p.pid || 'Player')}${me ? ' • YOU' : ''}</div>
+                <div class="player-sub">${escapeHtml(p.role || '-')} • ${ready ? 'ready' : 'waiting'}</div>
+              </div>
+              <div class="${badgeClass}">${ready ? 'READY' : 'WAIT'}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function setStartButtonState(room){
+        const players = playerCount(room);
+        const ready = readyCount(room);
+        const host = isHost(room);
+        const meta = room && room.meta ? room.meta : null;
+        const canStart = !!meta && String(meta.state || 'lobby') === 'lobby' && players === 2 && ready === 2 && host;
+
+        if (els.startBtn) {
+          els.startBtn.disabled = !canStart;
+          els.startBtn.setAttribute('aria-disabled', canStart ? 'false' : 'true');
+        }
+
+        if (els.hint) {
+          if (players < 2) {
+            els.hint.textContent = 'รอผู้เล่นคนที่ 2 เข้าห้องก่อน';
+          } else if (ready < 2) {
+            els.hint.textContent = 'ตอนนี้ผู้เล่นยังพร้อมไม่ครบ 2 คน';
+          } else if (!host) {
+            els.hint.textContent = 'ให้ Host เป็นคนกดเริ่ม';
+          } else {
+            els.hint.textContent = 'พร้อมแล้ว กดเริ่ม Duet ได้เลย';
+          }
+        }
+      }
+
+      function renderReadySummary(room){
+        if (!els.readySummary) return;
+
+        const players = playerCount(room);
+        const ready = readyCount(room);
+        const host = isHost(room);
+        const meta = room && room.meta ? room.meta : null;
+
+        if (!meta) {
+          els.readySummary.textContent = 'กำลังสร้าง/อ่าน meta ห้อง...';
+          return;
+        }
+
+        if (players < 2) {
+          els.readySummary.textContent = `ตอนนี้อยู่ ${players}/2 • รอเพื่อนเข้าห้อง`;
+        } else if (ready < 2) {
+          els.readySummary.textContent = `ตอนนี้ ready ${ready}/2 • ต้องพร้อมครบทั้ง 2 คนก่อนเริ่ม`;
+        } else if (!host) {
+          els.readySummary.textContent = 'พร้อมครบแล้ว • รอ Host กดเริ่ม';
+        } else {
+          els.readySummary.textContent = 'พร้อมครบทั้ง 2 คนแล้ว • Host กดเริ่มได้';
+        }
+      }
+
+      function renderRoom(room){
+        state.currentRoom = room || null;
+
+        const meta = room && room.meta ? room.meta : {};
+        const players = playerCount(room);
+        const hostPlayer = playersOf(room).find((p) => String(p.uid || '') === String(meta.hostUid || ''));
+        const roomState = String(meta.state || 'lobby');
+
+        setText(els.roomText, meta.roomId || getCtx().roomId || '-');
+        setText(els.playersText, players + '/2');
+        setText(els.hostText, hostPlayer ? (hostPlayer.name || hostPlayer.pid || '-') : '-');
+
+        if (els.statusText) {
+          if (roomState === 'running') {
+            els.statusText.textContent = 'running';
+          } else if (players < 2) {
+            els.statusText.textContent = 'waiting';
+          } else {
+            els.statusText.textContent = 'lobby';
+          }
+        }
+
+        renderPlayers(room);
+        renderReadySummary(room);
+        setStartButtonState(room);
+
+        const me = findMe(room);
+        const amReady = !!(me && me.ready);
+
+        if (els.readyBtn) els.readyBtn.hidden = amReady;
+        if (els.cancelReadyBtn) els.cancelReadyBtn.hidden = !amReady;
+
+        if (roomState === 'running') {
+          location.href = buildPlayUrl(room);
+        }
+      }
+
+      async function waitForAuth(){
+        const ctx = await W.HHA_FIREBASE_READY;
+        const auth = ctx && ctx.auth;
+        if (!auth) throw new Error('Firebase auth not ready');
+
+        if (auth.currentUser) return ctx;
+
+        await new Promise((resolve, reject) => {
+          let off = null;
+          const timer = setTimeout(() => reject(new Error('Anonymous auth timeout')), 10000);
+          off = auth.onAuthStateChanged((user) => {
+            if (user) {
+              clearTimeout(timer);
+              try { if (off) off(); } catch (_) {}
+              resolve();
+            }
+          }, (err) => {
+            clearTimeout(timer);
+            try { if (off) off(); } catch (_) {}
+            reject(err);
+          });
+        });
+
+        return ctx;
+      }
+
+      async function ensureRoomMeta(){
+        const ctx = getCtx();
+        const metaRef = state.roomRef.child('meta');
+        const snap = await metaRef.once('value');
+
+        if (snap.exists()) {
+          const meta = snap.val();
+          state.role = String(meta.hostUid || '') === String(state.uid || '') ? 'host' : 'guest';
+          return meta;
+        }
+
+        const meta = {
+          roomId: ctx.roomId,
+          game: ctx.game,
+          zone: ctx.zone,
+          mode: 'duet',
+          hostUid: state.uid,
+          state: 'lobby',
+          diff: ctx.diff,
+          timeSec: Number(ctx.time || 90),
+          seed: String(ctx.seed || Date.now()),
+          capacity: 2,
+          teamMode: true,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+
+        await metaRef.set(meta);
+        state.role = 'host';
+        return meta;
+      }
+
+      async function writeFullPlayer(nextReady, extra = {}) {
+        if (!state.playerRef) throw new Error('playerRef not ready');
+
+        const ctx = getCtx();
+        const snap = await state.playerRef.once('value');
+        const cur = snap.exists() ? snap.val() : null;
+
+        const payload = {
+          uid: state.uid,
+          pid: ctx.pid,
+          name: ctx.name,
+          ready: typeof nextReady === 'boolean' ? nextReady : !!(cur && cur.ready),
+          role: state.role || (cur && cur.role) || 'guest',
+          joinedAt: cur && Number(cur.joinedAt) ? Number(cur.joinedAt) : Date.now(),
+          lastPingAt: Date.now(),
+          ...extra
+        };
+
+        await state.playerRef.set(payload);
+        return payload;
+      }
+
+      async function ensureJoined(){
+        const roomSnap = await state.roomRef.once('value');
+        const room = roomSnap.exists() ? roomSnap.val() : null;
+        const players = playersOf(room);
+
+        const meNode = players.find((p) => String(p.uid || '') === String(state.uid || ''));
+        if (!meNode && players.length >= 2) {
+          throw new Error('ห้องนี้เต็มแล้ว');
+        }
+
+        const meta = room && room.meta ? room.meta : null;
+        if (meta) {
+          state.role = String(meta.hostUid || '') === String(state.uid || '') ? 'host' : 'guest';
+        }
+
+        state.playerRef = state.roomRef.child('players/' + state.uid);
+
+        await writeFullPlayer(
+          meNode ? !!meNode.ready : false,
+          meNode && Number(meNode.joinedAt)
+            ? { joinedAt: Number(meNode.joinedAt) }
+            : {}
+        );
+
+        try {
+          state.playerRef.onDisconnect().remove();
+        } catch (err) {
+          console.warn('[duet-lobby] onDisconnect remove failed', err);
+        }
+      }
+
+      function bindRoom(){
+        if (state.roomOff) {
+          try { state.roomOff(); } catch (_) {}
+        }
+
+        const cb = (snap) => {
+          renderRoom(snap.val() || null);
+        };
+
+        const errCb = (err) => {
+          console.error('[duet-lobby] watchRoom error', err);
+          if (els.readySummary) {
+            els.readySummary.textContent = 'LOAD_FAIL ' + (err && err.message ? err.message : err);
+          }
+          if (els.hint) {
+            els.hint.textContent = 'อ่านข้อมูลห้องไม่สำเร็จ';
+          }
+          if (els.list) {
+            els.list.innerHTML = '<div class="note">LOAD_FAIL ' + escapeHtml(err && err.message ? err.message : err) + '</div>';
+          }
+        };
+
+        state.roomRef.on('value', cb, errCb);
+        state.roomOff = () => state.roomRef.off('value', cb);
+      }
+
+      function startPing(){
+        stopPing();
+        if (!state.playerRef) return;
+
+        state.pingTimer = W.setInterval(() => {
+          writeFullPlayer(undefined).catch((err) => {
+            console.warn('[duet-lobby] ping failed', err);
+          });
+        }, 5000);
+      }
+
+      function stopPing(){
+        if (state.pingTimer) {
+          clearInterval(state.pingTimer);
+          state.pingTimer = 0;
+        }
+      }
+
+      async function setReadyState(ready){
+        await writeFullPlayer(!!ready);
+      }
+
+      async function startDuet(){
+        const room = state.currentRoom;
+
+        if (!room) {
+          alert('ยังไม่พบข้อมูลห้อง');
+          return;
+        }
+
+        const players = playerCount(room);
+        const ready = readyCount(room);
+
+        if (players !== 2) {
+          alert('Duet ต้องมีผู้เล่นครบ 2 คนก่อน');
+          return;
+        }
+
+        if (ready !== 2) {
+          alert('Duet ต้องให้ผู้เล่นทั้ง 2 คนกดพร้อมก่อน');
+          return;
+        }
+
+        if (!isHost(room)) {
+          alert('ให้ Host เป็นคนกดเริ่ม');
+          return;
+        }
+
+        const matchId = String((room.meta && room.meta.matchId) || ('MT-' + Date.now()));
+        await state.roomRef.child('meta').update({
+          state: 'running',
+          matchId,
+          startedAt: Date.now(),
+          updatedAt: Date.now()
+        });
+      }
+
+      async function copyRoomCode(){
+        const code = clean((els.roomText && els.roomText.textContent) || '', 64);
+        if (!code || code === '-') {
+          alert('ยังไม่มี Room Code');
+          return;
+        }
+
+        try{
+          await navigator.clipboard.writeText(code);
+          alert('คัดลอก Room Code แล้ว');
+        }catch(err){
+          console.error(err);
+          alert('คัดลอก Room Code ไม่สำเร็จ');
+        }
+      }
+
+      async function copyInvite(){
+        const ctx = getCtx();
+        const u = new URL('./goodjunk-duet-lobby.html', location.href);
+
+        u.searchParams.set('zone', ctx.zone);
+        u.searchParams.set('game', ctx.game);
+        u.searchParams.set('mode', 'duet');
+        u.searchParams.set('entry', 'multi');
+        u.searchParams.set('roomId', ctx.roomId);
+        u.searchParams.set('room', ctx.roomId);
+        u.searchParams.set('roomCode', ctx.roomId);
+        u.searchParams.set('diff', ctx.diff);
+        u.searchParams.set('time', ctx.time);
+        u.searchParams.set('seed', ctx.seed);
+        u.searchParams.set('run', ctx.run);
+        u.searchParams.set('hub', ctx.hub);
+        u.searchParams.set('view', ctx.view);
+
+        try{
+          await navigator.clipboard.writeText(u.toString());
+          alert('คัดลอก Invite Link แล้ว');
+        }catch(err){
+          console.error(err);
+          alert('คัดลอก Invite Link ไม่สำเร็จ');
+        }
+      }
+
+      async function boot(){
+        state.roomId = ensureRoomIdInUrl();
+        setLinks();
+
+        const ctx = getCtx();
+        const fb = await waitForAuth();
+
+        state.ctx = fb;
+        state.uid = fb.auth.currentUser.uid;
+        state.roomRef = fb.db.ref(`rooms/${ctx.game}/${ctx.mode}/${ctx.roomId}`);
+
+        await ensureRoomMeta();
+        await ensureJoined();
+        bindRoom();
+        startPing();
+      }
+
+      if (els.readyBtn) {
+        els.readyBtn.addEventListener('click', function(){
+          setReadyState(true).catch((err) => {
+            console.error(err);
+            alert('กดพร้อมไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+          });
+        });
+      }
+
+      if (els.cancelReadyBtn) {
+        els.cancelReadyBtn.addEventListener('click', function(){
+          setReadyState(false).catch((err) => {
+            console.error(err);
+            alert('ยกเลิกพร้อมไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+          });
+        });
+      }
+
+      if (els.startBtn) {
+        els.startBtn.addEventListener('click', function(){
+          startDuet().catch((err) => {
+            console.error(err);
+            alert('เริ่ม Duet ไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+          });
+        });
+      }
+
+      if (els.copyRoomBtn) {
+        els.copyRoomBtn.addEventListener('click', copyRoomCode);
+      }
+
+      if (els.copyInviteBtn) {
+        els.copyInviteBtn.addEventListener('click', copyInvite);
+      }
+
+      boot().catch((err) => {
+        console.error('[duet-lobby] boot failed', err);
+        if (els.readySummary) {
+          els.readySummary.textContent = 'เข้า Lobby ไม่สำเร็จ: ' + (err && err.message ? err.message : err);
+        }
+        if (els.hint) {
+          els.hint.textContent = 'ตรวจ auth / rules / room path อีกครั้ง';
+        }
+        if (els.list) {
+          els.list.innerHTML = '<div class="note">เข้า Lobby ไม่สำเร็จ: ' + escapeHtml(err && err.message ? err.message : err) + '</div>';
+        }
       });
 
-      $('btnCopyRoom').addEventListener('click', copyRoom);
-      $('btnCreateRoom').addEventListener('click', onCreateRoom);
-      $('btnJoinRoom').addEventListener('click', onJoinRoom);
-      $('btnLeaveRoom').addEventListener('click', onLeaveRoom);
-      $('btnStartDuet').addEventListener('click', onStartDuet);
-
-      ['nick','pid','room','diff','time','view','hub'].forEach((id) => {
-        $(id).addEventListener('input', applyBackLinks);
-        $(id).addEventListener('change', applyBackLinks);
+      W.addEventListener('beforeunload', function(){
+        stopPing();
+        if (typeof state.roomOff === 'function') {
+          try { state.roomOff(); } catch(_) {}
+        }
       });
-
-      $('room').addEventListener('change', () => {
-        startWatchRoom();
-        loadAndSyncRoom();
-      });
-
-      window.addEventListener('beforeunload', stopWatch);
-    }
-
-    async function getRoomAdapter(){
-      if (window.GJRoomAdapter && typeof window.GJRoomAdapter.makeRoomAdapter === 'function') {
-        return await window.GJRoomAdapter.makeRoomAdapter(MODE);
-      }
-      throw new Error('NO_SHARED_ROOM_ADAPTER');
-    }
-
-    async function init(){
-      hydrateInputs();
-      applyBackLinks();
-      bind();
-
-      try {
-        roomApi = await getRoomAdapter();
-        log('USING_SHARED_FIREBASE_ADAPTER');
-        startWatchRoom();
-        await loadAndSyncRoom();
-      } catch (err) {
-        const msg = String(err?.message || err || 'adapter init failed');
-        updateNotice('bad', 'หน้านี้ยังไม่ได้ต่อระบบห้องแบบแชร์ข้ามเครื่องจริง ๆ จึงสร้าง/เข้าห้องข้ามมือถือไม่ได้');
-        $('btnCreateRoom').disabled = true;
-        $('btnJoinRoom').disabled = true;
-        $('btnLeaveRoom').disabled = true;
-        $('btnStartDuet').disabled = true;
-        log(msg);
-      }
-    }
-
-    init();
+    })();
   </script>
 </body>
 </html>
