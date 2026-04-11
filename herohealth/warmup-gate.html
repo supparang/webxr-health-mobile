@@ -18,6 +18,252 @@
     #gate-app{
       min-height:100dvh;
     }
+
+    /* ===== Groups Gate Patch ===== */
+    #groupsWarmupMini,
+    #groupsCooldownSummaryCard{
+      margin-top:14px;
+      border-radius:24px;
+      background:rgba(255,255,255,.9);
+      border:1px solid rgba(209,232,243,.95);
+      box-shadow:0 14px 30px rgba(95,154,182,.12);
+      padding:14px;
+    }
+
+    #groupsWarmupMini{
+      display:none;
+    }
+
+    #groupsWarmupMini.show{
+      display:block;
+    }
+
+    .gwm-head,
+    .gcs-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
+
+    .gwm-badge,
+    .gcs-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#f1fbff;
+      border:1px solid #d8eef8;
+      color:#5f8197;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .gwm-stage{
+      position:relative;
+      min-height:260px;
+      border-radius:22px;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255,255,255,.85), transparent 45%),
+        linear-gradient(180deg, #f8fdff 0%, #effaff 60%, #e6f7ff 100%);
+      border:1px solid #d6edf7;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+    }
+
+    .gwm-ground{
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:0;
+      height:54px;
+      background:
+        radial-gradient(circle at 16% 40%, rgba(255,255,255,.55), transparent 18%),
+        radial-gradient(circle at 72% 32%, rgba(255,255,255,.45), transparent 18%),
+        linear-gradient(180deg,#b8ef9f,#8eda72);
+      border-top:1px solid rgba(101,176,86,.26);
+      pointer-events:none;
+    }
+
+    .gwm-target{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:#fffef8;
+      border:1px dashed #e7da9c;
+      color:#6a613f;
+      font-size:13px;
+      font-weight:1000;
+      line-height:1.6;
+    }
+
+    .gwm-note{
+      margin-top:10px;
+      color:#5f8197;
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.7;
+    }
+
+    .gwm-item{
+      position:absolute;
+      width:96px;
+      height:96px;
+      border:0;
+      border-radius:22px;
+      background:#fff;
+      border:2px solid #dceef7;
+      box-shadow:0 12px 28px rgba(104,168,198,.16);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:4px;
+      cursor:pointer;
+      font:inherit;
+      color:#24435a;
+      padding:0;
+      user-select:none;
+      -webkit-user-select:none;
+      transition:transform .08s ease, box-shadow .12s ease, opacity .15s ease;
+    }
+
+    .gwm-item:active{
+      transform:scale(.96);
+    }
+
+    .gwm-item.good{
+      box-shadow:0 16px 30px rgba(91,197,95,.24);
+    }
+
+    .gwm-item.bad{
+      box-shadow:0 16px 30px rgba(255,122,122,.24);
+    }
+
+    .gwm-item-emoji{
+      font-size:34px;
+      line-height:1;
+    }
+
+    .gwm-item-label{
+      font-size:11px;
+      line-height:1.1;
+      font-weight:1000;
+      color:#5d7d92;
+      text-align:center;
+      padding:0 6px;
+    }
+
+    .gwm-pop{
+      position:absolute;
+      font-size:18px;
+      font-weight:1000;
+      pointer-events:none;
+      z-index:10;
+      animation:gwmPop .5s ease forwards;
+    }
+
+    .gwm-pop.good{ color:#45a33f; }
+    .gwm-pop.bad{ color:#df5a5a; }
+
+    @keyframes gwmPop{
+      0%{ opacity:0; transform:translate(-50%, 4px) scale(.72); }
+      20%{ opacity:1; transform:translate(-50%, -8px) scale(1); }
+      100%{ opacity:0; transform:translate(-50%, -30px) scale(1.04); }
+    }
+
+    .gcs-grade{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:56px;
+      height:40px;
+      padding:0 14px;
+      border-radius:999px;
+      font-size:20px;
+      font-weight:1000;
+      background:#fff;
+      border:2px solid #d9eef7;
+      color:#5c7b90;
+    }
+
+    .gcs-grade.s{ background:#fff7d9; border-color:#ffe298; color:#9b6700; }
+    .gcs-grade.a{ background:#f5ffe9; border-color:#cfe8a8; color:#4f842d; }
+    .gcs-grade.b{ background:#eefaff; border-color:#cae6f6; color:#3b6b87; }
+    .gcs-grade.c{ background:#fff5ef; border-color:#f2d9ca; color:#865c45; }
+
+    .gcs-lead{
+      margin:0 0 12px;
+      color:#5b7a90;
+      font-size:14px;
+      line-height:1.7;
+      font-weight:900;
+    }
+
+    .gcs-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .gcs-item{
+      border-radius:18px;
+      background:#f8fdff;
+      border:1px solid #d8edf7;
+      padding:12px 14px;
+    }
+
+    .gcs-label{
+      font-size:12px;
+      font-weight:1000;
+      color:#607f95;
+      margin-bottom:4px;
+      text-transform:uppercase;
+      letter-spacing:.03em;
+    }
+
+    .gcs-value{
+      font-size:24px;
+      line-height:1.1;
+      font-weight:1000;
+      color:#24435a;
+    }
+
+    .gcs-tip{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:#fffef7;
+      border:1px dashed #eadb9e;
+      color:#6d6340;
+      font-size:12px;
+      line-height:1.7;
+      font-weight:900;
+    }
+
+    @media (max-width:720px){
+      .gcs-grid{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width:480px){
+      .gwm-stage{
+        min-height:230px;
+      }
+      .gwm-item{
+        width:86px;
+        height:86px;
+        border-radius:20px;
+      }
+      .gwm-item-emoji{
+        font-size:30px;
+      }
+      .gwm-item-label{
+        font-size:10px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -223,10 +469,606 @@
       });
     }
 
-    bootGate(root).catch((err) => {
-      console.error('[warmup-gate] boot failed:', err);
-      renderBootError(err);
-    });
+    function initGroupsGatePatch(){
+      const ctx = {
+        phase: String(qs('phase', qs('gatePhase', 'warmup'))).trim().toLowerCase(),
+        game: String(qs('game', qs('gameId', ''))).trim().toLowerCase(),
+        gameId: String(qs('gameId', qs('game', ''))).trim().toLowerCase(),
+        theme: String(qs('theme', '')).trim().toLowerCase(),
+        mode: String(qs('mode', 'solo')).trim().toLowerCase(),
+        pid: String(qs('pid', 'anon')).trim(),
+        name: String(qs('name', '')).trim(),
+        diff: String(qs('diff', 'normal')).trim().toLowerCase(),
+        time: String(qs('time', '80')).trim(),
+        run: String(qs('run', 'play')).trim().toLowerCase(),
+        hub: safeAbsUrl(qs('hub', ''), new URL('./hub.html', location.href).toString()),
+        next: safeAbsUrl(qs('next', ''), safeAbsUrl(qs('hub', ''), new URL('./hub.html', location.href).toString())),
+        view: String(qs('view', 'mobile')).trim().toLowerCase(),
+        score: safeNum(qs('score', '0'), 0),
+        accuracy: safeNum(qs('accuracy', '0'), 0),
+        bestStreak: safeNum(qs('bestStreak', '0'), 0),
+        grade: String(qs('grade', 'C')).trim().toUpperCase(),
+        studyId: String(qs('studyId', '')).trim(),
+        debug: qs('debug') === '1'
+      };
+
+      const isGroups =
+        ctx.game === 'groups' ||
+        ctx.gameId === 'groups' ||
+        ctx.theme === 'groups';
+
+      if (!isGroups) return;
+
+      const observer = new MutationObserver(() => {
+        applyGroupsPatch(ctx);
+      });
+
+      observer.observe(root, { childList:true, subtree:true });
+      applyGroupsPatch(ctx);
+    }
+
+    function applyGroupsPatch(ctx){
+      const refs = getGateRefs();
+      if (!refs || !refs.primaryBtn || !refs.shell) return;
+
+      if (ctx.phase === 'warmup') {
+        applyGroupsWarmupPatch(ctx, refs);
+      } else if (ctx.phase === 'cooldown') {
+        applyGroupsCooldownPatch(ctx, refs);
+      }
+    }
+
+    function getGateRefs(){
+      const titleEl =
+        root.querySelector('#gateTitle, .gate-title, h1');
+
+      const descEl =
+        root.querySelector('#gateDesc, .gate-desc, .subtitle, p');
+
+      const primaryBtn =
+        root.querySelector('#btnContinue, #continueBtn, .btn-primary, button[data-role="continue"]') ||
+        root.querySelector('button');
+
+      const secondaryBtn =
+        root.querySelector('#btnSecondary, #backBtn, .btn-secondary, button[data-role="back"]') ||
+        root.querySelectorAll('button')[1] ||
+        null;
+
+      let shell = primaryBtn ? primaryBtn.parentElement : null;
+      while (shell && shell !== root && !(titleEl && shell.contains(titleEl))) {
+        shell = shell.parentElement;
+      }
+      if (!shell || shell === root) {
+        shell = root.firstElementChild || root;
+      }
+
+      return {
+        titleEl,
+        descEl,
+        primaryBtn,
+        secondaryBtn,
+        shell
+      };
+    }
+
+    function applyGroupsWarmupPatch(ctx, refs){
+      const { titleEl, descEl, primaryBtn, secondaryBtn, shell } = refs;
+
+      const CATS = [
+        { id:'g1', short:'หมู่ 1', name:'โปรตีน', icon:'🥚' },
+        { id:'g2', short:'หมู่ 2', name:'ข้าว-แป้ง', icon:'🍚' },
+        { id:'g3', short:'หมู่ 3', name:'ผัก', icon:'🥦' },
+        { id:'g4', short:'หมู่ 4', name:'ผลไม้', icon:'🍌' },
+        { id:'g5', short:'หมู่ 5', name:'ไขมัน', icon:'🧈' }
+      ];
+
+      const ITEMS = [
+        { label:'ไข่', emoji:'🥚', group:'g1' },
+        { label:'นม', emoji:'🥛', group:'g1' },
+        { label:'ปลา', emoji:'🐟', group:'g1' },
+
+        { label:'ข้าว', emoji:'🍚', group:'g2' },
+        { label:'ขนมปัง', emoji:'🍞', group:'g2' },
+        { label:'มันฝรั่ง', emoji:'🥔', group:'g2' },
+
+        { label:'บรอกโคลี', emoji:'🥦', group:'g3' },
+        { label:'แครอท', emoji:'🥕', group:'g3' },
+        { label:'แตงกวา', emoji:'🥒', group:'g3' },
+
+        { label:'กล้วย', emoji:'🍌', group:'g4' },
+        { label:'แอปเปิล', emoji:'🍎', group:'g4' },
+        { label:'แตงโม', emoji:'🍉', group:'g4' },
+
+        { label:'เนย', emoji:'🧈', group:'g5' },
+        { label:'น้ำมัน', emoji:'🫗', group:'g5' },
+        { label:'อะโวคาโด', emoji:'🥑', group:'g5' }
+      ];
+
+      const GOAL_NEED = 3;
+      const TIME_LIMIT = 12;
+
+      let mini = root.querySelector('#groupsWarmupMini');
+      if (!mini) {
+        mini = document.createElement('section');
+        mini.id = 'groupsWarmupMini';
+        mini.innerHTML = `
+          <div class="gwm-head">
+            <div class="gwm-badge" id="gwmTargetBadge">🎯 เป้าหมาย</div>
+            <div class="gwm-badge" id="gwmTimerBadge">⏱️ 12s</div>
+            <div class="gwm-badge" id="gwmScoreBadge">✅ 0 / ${GOAL_NEED}</div>
+          </div>
+
+          <div class="gwm-stage" id="gwmStage">
+            <div class="gwm-ground" aria-hidden="true"></div>
+          </div>
+
+          <div class="gwm-target" id="gwmTargetText">
+            อุ่นเครื่องก่อน: แตะอาหารให้ตรงหมู่ที่กำหนด
+          </div>
+
+          <div class="gwm-note" id="gwmNote">
+            เก็บให้ครบ ${GOAL_NEED} ชิ้นภายใน ${TIME_LIMIT} วินาที แล้วค่อยเข้าเกมหลัก
+          </div>
+        `;
+
+        const anchor = primaryBtn.parentElement || shell.lastElementChild || shell;
+        if (anchor && anchor.parentNode) {
+          anchor.parentNode.insertBefore(mini, anchor);
+        } else {
+          shell.appendChild(mini);
+        }
+      }
+
+      const stageEl = mini.querySelector('#gwmStage');
+      const targetBadgeEl = mini.querySelector('#gwmTargetBadge');
+      const timerBadgeEl = mini.querySelector('#gwmTimerBadge');
+      const scoreBadgeEl = mini.querySelector('#gwmScoreBadge');
+      const targetTextEl = mini.querySelector('#gwmTargetText');
+      const noteEl = mini.querySelector('#gwmNote');
+
+      if (!root.__groupsWarmupState) {
+        root.__groupsWarmupState = {
+          phase: 'intro',
+          targetCat: null,
+          correct: 0,
+          timeLeft: TIME_LIMIT,
+          tickId: 0,
+          items: []
+        };
+      }
+
+      const state = root.__groupsWarmupState;
+
+      if (state.phase === 'intro' || state.phase === 'fail') {
+        if (titleEl) titleEl.textContent = 'Warmup';
+        if (descEl) descEl.textContent = 'มาเตรียมตัวก่อนเล่นกัน พร้อมจัดจานสุขภาพแล้วไหม';
+        primaryBtn.textContent = state.phase === 'fail' ? 'ลอง warmup อีกครั้ง' : 'เริ่มมินิเกมอุ่นเครื่อง';
+        primaryBtn.disabled = false;
+        if (secondaryBtn) secondaryBtn.textContent = 'กลับ HUB';
+      }
+
+      if (!primaryBtn.dataset.groupsWarmupBound) {
+        primaryBtn.dataset.groupsWarmupBound = '1';
+        primaryBtn.addEventListener('click', onPrimaryClick, true);
+      }
+
+      if (secondaryBtn && !secondaryBtn.dataset.groupsWarmupBound) {
+        secondaryBtn.dataset.groupsWarmupBound = '1';
+        secondaryBtn.addEventListener('click', (ev) => {
+          if (state.phase === 'playing') return;
+          ev.preventDefault();
+          location.href = ctx.hub;
+        });
+      }
+
+      if (ctx.debug && !root.querySelector('#groupsWarmupDebug')) {
+        const dbg = document.createElement('pre');
+        dbg.id = 'groupsWarmupDebug';
+        dbg.style.marginTop = '12px';
+        dbg.style.padding = '12px';
+        dbg.style.borderRadius = '16px';
+        dbg.style.background = 'rgba(255,255,255,.9)';
+        dbg.style.border = '1px solid #d9edf7';
+        dbg.style.color = '#5f7f95';
+        dbg.style.fontSize = '11px';
+        dbg.style.fontWeight = '1000';
+        dbg.style.whiteSpace = 'pre-wrap';
+        dbg.textContent =
+          'PATCH: groups-warmup-minigame\n' +
+          'phase: warmup\n' +
+          'game: groups\n' +
+          'next: ' + ctx.next + '\n' +
+          'hub: ' + ctx.hub;
+        shell.appendChild(dbg);
+      }
+
+      function onPrimaryClick(ev){
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+
+        if (state.phase === 'intro' || state.phase === 'fail') {
+          startMiniGame();
+          return;
+        }
+
+        if (state.phase === 'done') {
+          goNext();
+        }
+      }
+
+      function startMiniGame(){
+        cleanupStage();
+        state.phase = 'playing';
+        state.correct = 0;
+        state.timeLeft = TIME_LIMIT;
+        state.targetCat = pick(CATS);
+        mini.classList.add('show');
+
+        updateHud();
+
+        if (titleEl) titleEl.textContent = 'Warmup Mini Game';
+        if (descEl) descEl.textContent = 'แตะอาหารให้ตรงหมู่ก่อนเข้าเกมหลัก';
+        primaryBtn.textContent = 'กำลังเล่น...';
+        primaryBtn.disabled = true;
+        if (secondaryBtn) secondaryBtn.textContent = 'กลับ HUB';
+
+        spawnBatch();
+        clearTimer();
+        state.tickId = setInterval(onTick, 1000);
+      }
+
+      function onTick(){
+        state.timeLeft -= 1;
+        updateHud();
+
+        if (state.timeLeft <= 0){
+          if (state.correct >= GOAL_NEED) {
+            finishSuccess();
+          } else {
+            finishFail();
+          }
+        }
+      }
+
+      function finishSuccess(){
+        clearTimer();
+        state.phase = 'done';
+        primaryBtn.disabled = true;
+        primaryBtn.textContent = 'กำลังเข้าเกมหลัก...';
+
+        if (titleEl) titleEl.textContent = 'Warmup ผ่านแล้ว';
+        if (descEl) descEl.textContent = 'ยอดเยี่ยม! ไปต่อที่เกมหลักกันเลย';
+        noteEl.textContent = 'ผ่านมินิเกมอุ่นเครื่องแล้ว กำลังพาไปหน้าเกมหลัก...';
+        targetTextEl.textContent = 'สุดยอด! พร้อมเข้า Groups Solo แล้ว 🚀';
+
+        persistWarmup();
+        setTimeout(goNext, 700);
+      }
+
+      function finishFail(){
+        clearTimer();
+        state.phase = 'fail';
+        primaryBtn.disabled = false;
+        primaryBtn.textContent = 'ลอง warmup อีกครั้ง';
+
+        if (titleEl) titleEl.textContent = 'Warmup ยังไม่ผ่าน';
+        if (descEl) descEl.textContent = 'ลองใหม่อีกครั้ง เก็บให้ครบก่อนเข้าเกมหลักนะ';
+        noteEl.textContent = 'แตะอาหารให้ตรงหมู่ครบ 3 ชิ้นภายในเวลา แล้วจะเข้าเกมหลักต่อได้';
+        targetTextEl.textContent = 'ยังไม่ครบเป้าหมาย ลองใหม่อีกครั้ง 💪';
+      }
+
+      function spawnBatch(){
+        cleanupStage();
+
+        const targetItems = ITEMS.filter(x => x.group === state.targetCat.id);
+        const otherItems = ITEMS.filter(x => x.group !== state.targetCat.id);
+
+        const pool = [
+          pick(targetItems),
+          pick(targetItems),
+          pick(otherItems),
+          pick(otherItems)
+        ].filter(Boolean);
+
+        shuffle(pool);
+
+        const rect = stageEl.getBoundingClientRect();
+        const stageW = Math.max(280, rect.width);
+        const stageH = Math.max(220, rect.height);
+        const size = window.matchMedia('(max-width: 480px)').matches ? 86 : 96;
+
+        const spots = [];
+        for (let i = 0; i < pool.length; i += 1){
+          let x = 12;
+          let y = 16;
+          let tries = 0;
+
+          while (tries < 40){
+            x = rand(12, Math.max(12, stageW - size - 12));
+            y = rand(14, Math.max(14, stageH - size - 72));
+
+            const overlap = spots.some((p) => {
+              const dx = p.x - x;
+              const dy = p.y - y;
+              return Math.sqrt(dx * dx + dy * dy) < (size * 0.82);
+            });
+
+            if (!overlap) break;
+            tries += 1;
+          }
+
+          spots.push({ x, y });
+
+          const item = pool[i];
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'gwm-item';
+          btn.style.left = `${x}px`;
+          btn.style.top = `${y}px`;
+          btn.innerHTML = `
+            <div class="gwm-item-emoji">${item.emoji}</div>
+            <div class="gwm-item-label">${escapeHtml(item.label)}</div>
+          `;
+
+          btn.addEventListener('click', () => onHit(item, btn));
+          stageEl.appendChild(btn);
+          state.items.push(btn);
+        }
+      }
+
+      function onHit(item, btn){
+        if (state.phase !== 'playing') return;
+
+        const good = item.group === state.targetCat.id;
+        btn.classList.add(good ? 'good' : 'bad');
+
+        const rect = btn.getBoundingClientRect();
+        const stageRect = stageEl.getBoundingClientRect();
+        pop(
+          rect.left - stageRect.left + rect.width / 2,
+          rect.top - stageRect.top + 20,
+          good ? 'ถูก!' : 'ยังไม่ใช่',
+          good ? 'good' : 'bad'
+        );
+
+        setTimeout(() => {
+          try { btn.remove(); } catch(_) {}
+        }, 90);
+
+        if (good){
+          state.correct += 1;
+          updateHud();
+
+          if (state.correct >= GOAL_NEED){
+            finishSuccess();
+          } else {
+            setTimeout(spawnBatch, 120);
+          }
+        } else {
+          setTimeout(spawnBatch, 140);
+        }
+      }
+
+      function updateHud(){
+        if (!state.targetCat) return;
+        targetBadgeEl.textContent = `🎯 ${state.targetCat.short} ${state.targetCat.name}`;
+        timerBadgeEl.textContent = `⏱️ ${state.timeLeft}s`;
+        scoreBadgeEl.textContent = `✅ ${state.correct} / ${GOAL_NEED}`;
+        targetTextEl.textContent = `เป้าหมาย: แตะ ${state.targetCat.short} ${state.targetCat.name} ${state.targetCat.icon}`;
+      }
+
+      function cleanupStage(){
+        state.items.forEach((el) => { try { el.remove(); } catch(_) {} });
+        state.items = [];
+        stageEl.querySelectorAll('.gwm-pop').forEach((el) => el.remove());
+      }
+
+      function clearTimer(){
+        if (state.tickId){
+          clearInterval(state.tickId);
+          state.tickId = 0;
+        }
+      }
+
+      function persistWarmup(){
+        try{
+          localStorage.setItem('HHA_GROUPS_LAST_WARMUP', JSON.stringify({
+            patch: 'groups-warmup-minigame',
+            ts: Date.now(),
+            pid: ctx.pid,
+            name: ctx.name,
+            targetGroup: state.targetCat?.id || '',
+            correct: state.correct,
+            timeLeft: state.timeLeft,
+            success: true,
+            next: ctx.next
+          }));
+        }catch{}
+      }
+
+      function goNext(){
+        location.href = ctx.next;
+      }
+
+      function pop(x, y, text, kind){
+        const el = document.createElement('div');
+        el.className = `gwm-pop ${kind === 'good' ? 'good' : 'bad'}`;
+        el.textContent = text;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        stageEl.appendChild(el);
+        setTimeout(() => {
+          try { el.remove(); } catch(_) {}
+        }, 520);
+      }
+
+      function pick(arr){
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+
+      function shuffle(arr){
+        for (let i = arr.length - 1; i > 0; i -= 1){
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+      }
+
+      function rand(min, max){
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+    }
+
+    function applyGroupsCooldownPatch(ctx, refs){
+      const { titleEl, descEl, primaryBtn, secondaryBtn, shell } = refs;
+
+      const oldMini = root.querySelector('#groupsWarmupMini');
+      if (oldMini) oldMini.remove();
+
+      if (titleEl) {
+        titleEl.textContent = 'คูลดาวน์หลังจบเกม Food Groups';
+      }
+
+      if (descEl) {
+        descEl.textContent =
+          `${cleanName(ctx.name || ctx.pid || 'ผู้เล่น')} เล่นจบรอบแล้ว มาหายใจช้า ๆ ผ่อนคลายสั้น ๆ ก่อนกลับไปที่ HUB กันนะ`;
+      }
+
+      if (primaryBtn) {
+        primaryBtn.textContent = 'กลับไปที่ HUB';
+      }
+
+      if (secondaryBtn) {
+        secondaryBtn.textContent = 'กลับหน้าหลัก';
+      }
+
+      let card = root.querySelector('#groupsCooldownSummaryCard');
+      if (!card) {
+        card = document.createElement('section');
+        card.id = 'groupsCooldownSummaryCard';
+        card.innerHTML = `
+          <div class="gcs-head">
+            <div class="gcs-badge">🏁 Groups Solo จบรอบแล้ว</div>
+            <div class="gcs-grade ${String(ctx.grade || 'C').toLowerCase()}">${escapeHtml(ctx.grade || 'C')}</div>
+          </div>
+
+          <p class="gcs-lead">${escapeHtml(buildLead(ctx.grade, ctx.accuracy))} ${escapeHtml(gradeToStars(ctx.grade))}</p>
+
+          <div class="gcs-grid">
+            <div class="gcs-item">
+              <div class="gcs-label">Score</div>
+              <div class="gcs-value">${ctx.score}</div>
+            </div>
+            <div class="gcs-item">
+              <div class="gcs-label">Accuracy</div>
+              <div class="gcs-value">${ctx.accuracy}%</div>
+            </div>
+            <div class="gcs-item">
+              <div class="gcs-label">Best Streak</div>
+              <div class="gcs-value">${ctx.bestStreak}</div>
+            </div>
+          </div>
+
+          <div class="gcs-tip">
+            ตอนนี้พักสายตา หายใจช้า ๆ และผ่อนคลายสั้น ๆ ก่อนกลับไปเลือกเกมหรือกิจกรรมต่อใน HUB
+          </div>
+        `;
+
+        const anchor = primaryBtn.parentElement || shell.lastElementChild || shell;
+        if (anchor && anchor.parentNode) {
+          anchor.parentNode.insertBefore(card, anchor);
+        } else {
+          shell.appendChild(card);
+        }
+      }
+
+      if (!primaryBtn.dataset.groupsCooldownBound) {
+        primaryBtn.dataset.groupsCooldownBound = '1';
+        primaryBtn.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          persistCooldownSnapshot(ctx);
+          location.href = buildNextUrl(ctx);
+        }, true);
+      }
+
+      if (secondaryBtn && !secondaryBtn.dataset.groupsCooldownBound) {
+        secondaryBtn.dataset.groupsCooldownBound = '1';
+        secondaryBtn.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          location.href = ctx.hub;
+        }, true);
+      }
+    }
+
+    function buildNextUrl(ctx){
+      const nextUrl = new URL(ctx.next || ctx.hub, location.href);
+
+      if (!nextUrl.searchParams.get('pid')) nextUrl.searchParams.set('pid', ctx.pid || 'anon');
+      if (!nextUrl.searchParams.get('name') && ctx.name) nextUrl.searchParams.set('name', ctx.name);
+      if (!nextUrl.searchParams.get('studyId') && ctx.studyId) nextUrl.searchParams.set('studyId', ctx.studyId);
+      if (!nextUrl.searchParams.get('view')) nextUrl.searchParams.set('view', ctx.view || 'mobile');
+      if (ctx.debug) nextUrl.searchParams.set('debug', '1');
+
+      return nextUrl.toString();
+    }
+
+    function persistCooldownSnapshot(ctx){
+      try{
+        localStorage.setItem('HHA_LAST_COOLDOWN_SUMMARY', JSON.stringify({
+          patch: 'groups-cooldown-summary',
+          game: 'groups',
+          mode: ctx.mode || 'solo',
+          pid: ctx.pid,
+          name: ctx.name,
+          score: ctx.score,
+          accuracy: ctx.accuracy,
+          bestStreak: ctx.bestStreak,
+          grade: ctx.grade,
+          ts: Date.now()
+        }));
+      }catch{}
+    }
+
+    function buildLead(grade, accuracy){
+      if (grade === 'S') return 'ยอดเยี่ยมมาก! รอบนี้ทั้งไวและแม่นสุด ๆ';
+      if (grade === 'A') return 'ดีมากเลย! รอบนี้ทำได้แม่นมาก';
+      if (grade === 'B') return 'ทำได้ดีนะ ลองเพิ่มความแม่นอีกนิดในรอบหน้า';
+      if (accuracy >= 60) return 'เริ่มได้ดีแล้ว รอบหน้าลองดูหมวดเป้าหมายให้ชัดขึ้นอีกหน่อย';
+      return 'พักสั้น ๆ ก่อน แล้วค่อยกลับไปลองใหม่อีกครั้งนะ';
+    }
+
+    function gradeToStars(grade){
+      if (grade === 'S') return '⭐⭐⭐';
+      if (grade === 'A') return '⭐⭐⭐';
+      if (grade === 'B') return '⭐⭐☆';
+      return '⭐☆☆';
+    }
+
+    function safeNum(v, fallback){
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function cleanName(v){
+      return String(v || '').trim().replace(/\s+/g, ' ').slice(0, 24);
+    }
+
+    function escapeHtml(s){
+      return String(s ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    bootGate(root)
+      .then(() => {
+        initGroupsGatePatch();
+      })
+      .catch((err) => {
+        console.error('[warmup-gate] boot failed:', err);
+        renderBootError(err);
+      });
   </script>
 </body>
 </html>
