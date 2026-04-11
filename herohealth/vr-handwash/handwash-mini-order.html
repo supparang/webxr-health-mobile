@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Handwash Mini Order</title>
+
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+
+  <style>
+    :root{
+      --bg:rgba(8,20,36,.86);
+      --panel:rgba(255,255,255,.10);
+      --line:#63e6ff;
+      --ink:#ffffff;
+      --yellow:#ffe66d;
+      --cyan:#67e8f9;
+      --green:#86efac;
+      --pink:#ff72b6;
+      --shadow:0 12px 30px rgba(0,0,0,.28);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      font-family:"Segoe UI",system-ui,sans-serif;
+      background:#03111f;
+      color:#fff;
+      touch-action:manipulation;
+    }
+
+    a-scene{
+      position:fixed !important;
+      inset:0 !important;
+      background:linear-gradient(180deg,#07111f 0%, #06213a 58%, #041221 100%);
+    }
+
+    #hud{
+      position:fixed;
+      inset:0;
+      z-index:20;
+      pointer-events:none;
+    }
+
+    #ui-layer{
+      position:absolute;
+      top:10px;
+      left:50%;
+      transform:translateX(-50%);
+      width:min(94%,700px);
+      background:var(--bg);
+      color:#fff;
+      padding:14px 14px 12px;
+      border-radius:22px;
+      border:2px solid rgba(99,230,255,.35);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(8px);
+      transition:opacity .18s ease, transform .18s ease;
+    }
+
+    #ui-layer.compact{
+      width:min(94%,470px);
+      padding:10px 12px;
+    }
+
+    #ui-layer.compact #guide-panel,
+    #ui-layer.compact .progress-wrap{
+      display:none;
+    }
+
+    .top-row{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+    }
+
+    .title-wrap{
+      min-width:0;
+    }
+
+    .title-main{
+      font-size:1rem;
+      font-weight:900;
+      color:#baf4ff;
+    }
+
+    .title-sub{
+      margin-top:4px;
+      font-size:1.18rem;
+      line-height:1.15;
+      font-weight:900;
+      color:#fff;
+    }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      gap:8px;
+    }
+
+    .chip{
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(103,232,249,.14);
+      border:1px solid rgba(103,232,249,.18);
+      color:#e6fbff;
+      font-weight:900;
+      font-size:.9rem;
+      white-space:nowrap;
+    }
+
+    #guide-panel{
+      margin-top:10px;
+      padding:12px;
+      background:var(--panel);
+      border-radius:16px;
+      display:grid;
+      grid-template-columns:78px 1fr;
+      gap:12px;
+      align-items:center;
+    }
+
+    .guide-image{
+      width:78px;
+      height:78px;
+      border-radius:50%;
+      background:linear-gradient(180deg,#8aeaff 0%,#22d3ee 100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:2rem;
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.18);
+    }
+
+    #guide-copy{
+      min-width:0;
+    }
+
+    #step-count{
+      font-size:.95rem;
+      font-weight:900;
+      color:#63e6ff;
+    }
+
+    #step-desc{
+      margin-top:4px;
+      font-size:1rem;
+      line-height:1.4;
+      font-weight:700;
+      color:#eefcff;
+    }
+
+    #action-prompt{
+      display:inline-block;
+      margin-top:8px;
+      background:var(--yellow);
+      color:#111827;
+      padding:8px 12px;
+      border-radius:999px;
+      font-weight:900;
+      font-size:.92rem;
+      animation:pulse 1s infinite;
+    }
+
+    .progress-wrap{
+      margin-top:10px;
+      display:grid;
+      gap:4px;
+    }
+
+    .progress-top{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      font-weight:800;
+      color:#d9fbff;
+      font-size:.88rem;
+    }
+
+    .progress-bar{
+      width:100%;
+      height:14px;
+      background:#0b1220;
+      border-radius:999px;
+      overflow:hidden;
+      border:2px solid #63e6ff;
+    }
+
+    #fill{
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#60ff9d 0%,#00e5ff 100%);
+      transition:width .12s linear;
+    }
+
+    #coach{
+      position:absolute;
+      left:10px;
+      right:10px;
+      bottom:10px;
+      margin:auto;
+      width:auto;
+      max-width:760px;
+      background:rgba(255,255,255,.92);
+      color:#0f172a;
+      border-radius:16px;
+      padding:10px 12px;
+      box-shadow:0 10px 24px rgba(0,0,0,.18);
+      font-weight:800;
+      font-size:.92rem;
+      line-height:1.3;
+      pointer-events:none;
+    }
+
+    #controls{
+      position:fixed;
+      right:10px;
+      bottom:74px;
+      z-index:30;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      pointer-events:auto;
+      max-width:70vw;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:999px;
+      padding:8px 12px;
+      font-weight:900;
+      font-size:.88rem;
+      cursor:pointer;
+      box-shadow:0 8px 20px rgba(0,0,0,.18);
+      border:2px solid rgba(255,255,255,.95);
+      color:#0f172a;
+      background:rgba(255,255,255,.95);
+    }
+
+    .btn.primary{ background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%); }
+    .btn.blue{ background:linear-gradient(180deg,#dcf8ff 0%,#b7efff 100%); }
+    .btn.pink{ background:linear-gradient(180deg,#ffe0ef 0%,#ffc2dd 100%); }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:40;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(8,20,40,.42);
+      backdrop-filter:blur(8px);
+    }
+
+    .card{
+      width:min(760px,100%);
+      background:rgba(255,255,255,.97);
+      color:#0f172a;
+      border-radius:28px;
+      border:2px solid rgba(255,255,255,.98);
+      padding:22px;
+      box-shadow:0 20px 60px rgba(0,0,0,.22);
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#dcfff2;
+      color:#047857;
+      font-weight:900;
+      margin-bottom:10px;
+    }
+
+    .card h1{
+      margin:0 0 10px;
+      font-size:1.7rem;
+      line-height:1.15;
+    }
+
+    .card p{
+      margin:0 0 12px;
+      color:#334155;
+      line-height:1.5;
+      font-weight:700;
+    }
+
+    .tips{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:10px;
+      margin:14px 0 16px;
+    }
+
+    .tip{
+      background:#f5fbff;
+      border:1px solid #d7ecf8;
+      border-radius:16px;
+      padding:12px;
+      font-weight:800;
+      color:#1f2937;
+      line-height:1.45;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .summary-box{
+      background:#f8fcff;
+      border:1px solid #d8edf8;
+      border-radius:18px;
+      padding:14px;
+      font-weight:900;
+      color:#0f172a;
+    }
+
+    .summary-box small{
+      display:block;
+      margin-bottom:5px;
+      color:#64748b;
+      font-weight:800;
+    }
+
+    .stars{
+      font-size:1.8rem;
+      letter-spacing:.12rem;
+    }
+
+    .hidden{ display:none !important; }
+
+    @keyframes pulse{
+      0%{ transform:scale(1); }
+      50%{ transform:scale(1.04); }
+      100%{ transform:scale(1); }
+    }
+
+    @media (max-width:680px){
+      #ui-layer{
+        top:6px;
+        width:calc(100% - 12px);
+        padding:10px 10px 8px;
+        border-radius:18px;
+      }
+
+      #ui-layer.compact{
+        width:calc(100% - 14px);
+        padding:8px 10px;
+      }
+
+      .top-row{
+        flex-direction:column;
+        gap:8px;
+      }
+
+      .chips{
+        justify-content:flex-start;
+      }
+
+      #guide-panel{
+        grid-template-columns:64px 1fr;
+        gap:8px;
+        padding:8px;
+      }
+
+      .guide-image{
+        width:64px;
+        height:64px;
+        font-size:1.6rem;
+      }
+
+      .title-sub{
+        font-size:1rem;
+      }
+
+      #step-desc{
+        font-size:.88rem;
+      }
+
+      #action-prompt{
+        font-size:.82rem;
+        padding:6px 10px;
+      }
+
+      #controls{
+        right:8px;
+        bottom:66px;
+        max-width:70vw;
+      }
+
+      .btn{
+        padding:8px 10px;
+        font-size:.82rem;
+      }
+
+      #coach{
+        left:8px;
+        right:8px;
+        bottom:8px;
+        padding:9px 11px;
+        font-size:.84rem;
+      }
+
+      .card{
+        padding:18px;
+        border-radius:22px;
+      }
+
+      .card h1{
+        font-size:1.35rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="hud">
+    <div id="ui-layer">
+      <div class="top-row">
+        <div class="title-wrap">
+          <div class="title-main">Handwash Mini Order</div>
+          <div class="title-sub" id="step-name">เรียงลำดับ 7 ขั้นให้ถูกต้อง</div>
+        </div>
+
+        <div class="chips">
+          <div class="chip" id="order-chip">ลำดับ 1/7</div>
+          <div class="chip" id="score-chip">คะแนน 0</div>
+          <div class="chip" id="time-chip">60s</div>
+        </div>
+      </div>
+
+      <div id="guide-panel">
+        <div id="guide-icon" class="guide-image">🧩</div>
+        <div id="guide-copy">
+          <div id="step-count">Bloom: Analyze / Evaluate</div>
+          <div id="step-desc">เลือกการ์ดที่เป็น “ขั้นตอนถัดไปที่ถูกต้อง” จากการ์ดที่สลับลำดับอยู่บนกระดาน</div>
+          <div id="action-prompt">เล็งการ์ดที่ถูก แล้วแตะจอ</div>
+        </div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-top">
+          <span id="progress-label">ความคืบหน้า</span>
+          <span id="progress-text">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div id="fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="coach">หาการ์ดของขั้นตอนที่ 1 แล้วแตะ ระบบจะช่วยจับการ์ดที่ใกล้กลางจอที่สุด</div>
+  </div>
+
+  <div id="controls">
+    <button class="btn pink" id="hud-toggle-btn" type="button">HIDE HUD</button>
+    <button class="btn primary" id="vr-btn" type="button">ENTER VR</button>
+    <button class="btn blue" id="recenter-btn" type="button">RECENTER</button>
+  </div>
+
+  <div class="overlay" id="start-overlay">
+    <div class="card">
+      <div class="badge">🧼 Handwash Mini Game</div>
+      <h1>เรียงลำดับ 7 ขั้นการล้างมือ</h1>
+      <p>เกมนี้ใช้ทบทวนหลังเล่น main game เด็กต้องเลือก “ขั้นตอนถัดไปที่ถูกต้อง” ให้ครบทั้ง 7 ขั้น</p>
+
+      <div class="tips">
+        <div class="tip">🎯 เล็งกากบาทกลางจอไปที่การ์ด</div>
+        <div class="tip">👆 แตะจอ / คลิก / กด Space หรือ Enter เพื่อเลือก</div>
+        <div class="tip">🧠 เลือกทีละใบจากลำดับที่ 1 ไปจนถึง 7</div>
+        <div class="tip">✨ ถ้าเล็งใกล้การ์ดพอ ระบบจะช่วยจับให้</div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="start-btn" type="button">เริ่มเล่น</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="summary-overlay">
+    <div class="card">
+      <div class="badge">🏁 สรุปผล</div>
+      <h1 id="sum-title">เรียงลำดับสำเร็จ!</h1>
+      <p id="sum-desc">ยอดเยี่ยมมาก จำลำดับ 7 ขั้นได้ครบแล้ว</p>
+
+      <div class="summary-grid">
+        <div class="summary-box">
+          <small>คะแนน</small>
+          <span id="sum-score">0</span>
+        </div>
+        <div class="summary-box">
+          <small>เวลาที่เหลือ</small>
+          <span id="sum-time">0s</span>
+        </div>
+        <div class="summary-box">
+          <small>ผิดพลาด</small>
+          <span id="sum-miss">0</span>
+        </div>
+        <div class="summary-box">
+          <small>ดาว</small>
+          <div class="stars" id="sum-stars">⭐</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="restart-btn" type="button">เล่นอีกครั้ง</button>
+        <button class="btn blue hidden" id="hub-btn" type="button">กลับ HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <a-scene id="scene" vr-mode-ui="enabled: false" renderer="colorManagement: true; antialias: true">
+    <a-entity light="type: ambient; intensity: 1.12; color: #ffffff"></a-entity>
+    <a-entity light="type: directional; intensity: 0.9; color: #fff8e0" position="1 3 2"></a-entity>
+
+    <a-sky color="#08213a"></a-sky>
+
+    <a-entity id="board-root" position="0 1.02 -1.7" rotation="-18 0 0">
+      <a-plane width="2.25" height="1.75" color="#0b1c30" material="opacity:0.98"></a-plane>
+      <a-plane width="2.08" height="1.58" color="#0f2741" position="0 0 0.001" material="opacity:0.98"></a-plane>
+
+      <a-text value="เรียงลำดับ 7 ขั้นการล้างมือ" color="#ffffff" width="2.6" align="center" position="0 0.76 0.02"></a-text>
+      <a-text value="เลือกการ์ดที่เป็นขั้นตอนถัดไป" color="#a5e9ff" width="2.1" align="center" position="0 0.62 0.02"></a-text>
+
+      <a-entity id="slot-layer"></a-entity>
+      <a-entity id="card-layer"></a-entity>
+      <a-entity id="fx-layer"></a-entity>
+    </a-entity>
+
+    <a-entity id="player-rig">
+      <a-camera id="cam" position="0 1.6 0" look-controls>
+        <a-entity id="cursor"
+                  cursor="fuse: false"
+                  position="0 0 -1"
+                  geometry="primitive: ring; radiusInner: 0.011; radiusOuter: 0.02"
+                  material="color: #00f2ff; shader: flat"
+                  raycaster="objects: .focusable">
+        </a-entity>
+      </a-camera>
+      <a-entity laser-controls="hand: left" raycaster="objects: .focusable"></a-entity>
+      <a-entity laser-controls="hand: right" raycaster="objects: .focusable"></a-entity>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    const qs = (k, d='') => {
+      try { return new URL(location.href).searchParams.get(k) ?? d; }
+      catch { return d; }
+    };
+
+    const HUB_URL = qs('hub', '');
+    const PID = qs('pid', 'anon');
+    const START_TIME = Math.max(45, parseInt(qs('time', '60'), 10) || 60);
+
+    const STEPS = [
+      { id:'palms',       icon:'👐', title:'ฝ่ามือถูฝ่ามือ',        short:'ฝ่ามือ' },
+      { id:'backs',       icon:'🖐️', title:'ฝ่ามือถูหลังมือ',       short:'หลังมือ' },
+      { id:'between',     icon:'🤝', title:'ถูซอกนิ้ว',             short:'ซอกนิ้ว' },
+      { id:'backfingers', icon:'👊', title:'หลังนิ้วถูฝ่ามือ',      short:'หลังนิ้ว' },
+      { id:'thumbs',      icon:'👍', title:'ถูนิ้วหัวแม่มือ',       short:'นิ้วโป้ง' },
+      { id:'fingertips',  icon:'💅', title:'ถูปลายนิ้วบนฝ่ามือ',    short:'ปลายนิ้ว' },
+      { id:'wrists',      icon:'⌚', title:'ถูรอบข้อมือ',           short:'ข้อมือ' }
+    ];
+
+    const CARD_POSITIONS = [
+      {x:-0.62, y: 0.22, z:0.02},
+      {x: 0.00, y: 0.22, z:0.02},
+      {x: 0.62, y: 0.22, z:0.02},
+      {x:-0.62, y:-0.10, z:0.02},
+      {x: 0.00, y:-0.10, z:0.02},
+      {x: 0.62, y:-0.10, z:0.02},
+      {x: 0.00, y:-0.42, z:0.02}
+    ];
+
+    const SLOT_POSITIONS = [
+      {x:-0.84, y:0.48, z:0.02},
+      {x:-0.56, y:0.48, z:0.02},
+      {x:-0.28, y:0.48, z:0.02},
+      {x: 0.00, y:0.48, z:0.02},
+      {x: 0.28, y:0.48, z:0.02},
+      {x: 0.56, y:0.48, z:0.02},
+      {x: 0.84, y:0.48, z:0.02}
+    ];
+
+    const state = {
+      started:false,
+      ended:false,
+      timeLeft:START_TIME,
+      score:0,
+      miss:0,
+      nextIndex:0,
+      shuffled:[],
+      streak:0,
+      bestStreak:0,
+      lastActionAt:0,
+      lastTs:0,
+      hudCompact:false
+    };
+
+    const ui = {
+      layer:document.getElementById('ui-layer'),
+      stepName:document.getElementById('step-name'),
+      stepCount:document.getElementById('step-count'),
+      stepDesc:document.getElementById('step-desc'),
+      guideIcon:document.getElementById('guide-icon'),
+      prompt:document.getElementById('action-prompt'),
+      fill:document.getElementById('fill'),
+      progressText:document.getElementById('progress-text'),
+      coach:document.getElementById('coach'),
+      orderChip:document.getElementById('order-chip'),
+      scoreChip:document.getElementById('score-chip'),
+      timeChip:document.getElementById('time-chip'),
+
+      startOverlay:document.getElementById('start-overlay'),
+      summaryOverlay:document.getElementById('summary-overlay'),
+
+      sumTitle:document.getElementById('sum-title'),
+      sumDesc:document.getElementById('sum-desc'),
+      sumScore:document.getElementById('sum-score'),
+      sumTime:document.getElementById('sum-time'),
+      sumMiss:document.getElementById('sum-miss'),
+      sumStars:document.getElementById('sum-stars'),
+
+      startBtn:document.getElementById('start-btn'),
+      restartBtn:document.getElementById('restart-btn'),
+      hubBtn:document.getElementById('hub-btn'),
+      vrBtn:document.getElementById('vr-btn'),
+      recenterBtn:document.getElementById('recenter-btn'),
+      hudToggleBtn:document.getElementById('hud-toggle-btn')
+    };
+
+    const scene = document.getElementById('scene');
+    const rig = document.getElementById('player-rig');
+    const cam = document.getElementById('cam');
+    const cursor = document.getElementById('cursor');
+    const cardLayer = document.getElementById('card-layer');
+    const slotLayer = document.getElementById('slot-layer');
+    const fxLayer = document.getElementById('fx-layer');
+
+    const slotEntities = [];
+    const _proj = new THREE.Vector3();
+
+    function setBtnText(){
+      ui.vrBtn.textContent = scene.is('vr-mode') ? 'EXIT VR' : 'ENTER VR';
+      if (HUB_URL) ui.hubBtn.classList.remove('hidden');
+    }
+
+    function clamp(v,min,max){
+      return Math.max(min,Math.min(max,v));
+    }
+
+    function isMobileLike(){
+      return window.matchMedia('(max-width: 680px)').matches;
+    }
+
+    function setCoach(text){
+      ui.coach.textContent = text;
+    }
+
+    function setHudCompact(on){
+      state.hudCompact = !!on;
+      ui.layer.classList.toggle('compact', state.hudCompact);
+      ui.hudToggleBtn.textContent = state.hudCompact ? 'SHOW HUD' : 'HIDE HUD';
+    }
+
+    function shuffle(arr){
+      const a = arr.slice();
+      for(let i=a.length-1;i>0;i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function progressPercent(){
+      return Math.round((state.nextIndex / STEPS.length) * 100);
+    }
+
+    function accuracyPercent(){
+      const total = state.nextIndex + state.miss;
+      if (total <= 0) return 100;
+      return Math.round((state.nextIndex / total) * 100);
+    }
+
+    function updateUI(){
+      const nextStep = STEPS[state.nextIndex];
+
+      ui.orderChip.textContent = `ลำดับ ${Math.min(state.nextIndex + 1, STEPS.length)}/${STEPS.length}`;
+      ui.scoreChip.textContent = `คะแนน ${state.score}`;
+      ui.timeChip.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
+
+      ui.fill.style.width = progressPercent() + '%';
+      ui.progressText.textContent = progressPercent() + '%';
+
+      if(nextStep){
+        ui.stepName.textContent = `หา "${nextStep.title}"`;
+        ui.stepCount.textContent = `ความแม่นยำ ${accuracyPercent()}% • streak ${state.streak}`;
+        ui.stepDesc.textContent = `เลือกการ์ดที่เป็นขั้นตอนลำดับที่ ${state.nextIndex + 1} ให้ถูกต้อง`;
+        ui.guideIcon.textContent = nextStep.icon;
+        ui.prompt.textContent = `เล็งการ์ด "${nextStep.short}" แล้วแตะจอ`;
+        setCoach(`ตอนนี้ต้องเลือกขั้นที่ ${state.nextIndex + 1}: ${nextStep.title}`);
+      } else {
+        ui.stepName.textContent = 'ครบทั้ง 7 ขั้นแล้ว!';
+        ui.stepCount.textContent = `ความแม่นยำ ${accuracyPercent()}% • best streak ${state.bestStreak}`;
+        ui.stepDesc.textContent = 'ยอดเยี่ยมมาก จำลำดับได้ครบแล้ว';
+        ui.guideIcon.textContent = '✨';
+        ui.prompt.textContent = 'สำเร็จ';
+        setCoach('ทำครบแล้ว เก่งมาก');
+      }
+    }
+
+    function buildSlots(){
+      slotLayer.innerHTML = '';
+      slotEntities.length = 0;
+
+      SLOT_POSITIONS.forEach((p, i)=>{
+        const wrap = document.createElement('a-entity');
+        wrap.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
+
+        const bg = document.createElement('a-plane');
+        bg.setAttribute('width', '0.23');
+        bg.setAttribute('height', '0.15');
+        bg.setAttribute('color', '#14324f');
+        bg.setAttribute('material', 'opacity:0.96');
+        wrap.appendChild(bg);
+
+        const line = document.createElement('a-plane');
+        line.setAttribute('width', '0.235');
+        line.setAttribute('height', '0.155');
+        line.setAttribute('color', '#63e6ff');
+        line.setAttribute('material', 'opacity:0.18');
+        line.setAttribute('position', '0 0 -0.002');
+        wrap.appendChild(line);
+
+        const num = document.createElement('a-text');
+        num.setAttribute('value', String(i+1));
+        num.setAttribute('align', 'center');
+        num.setAttribute('color', '#9fe8ff');
+        num.setAttribute('width', '0.55');
+        num.setAttribute('position', '0 0.03 0.01');
+        wrap.appendChild(num);
+
+        const label = document.createElement('a-text');
+        label.setAttribute('value', '');
+        label.setAttribute('align', 'center');
+        label.setAttribute('color', '#ffffff');
+        label.setAttribute('width', '0.80');
+        label.setAttribute('position', '0 -0.03 0.01');
+        wrap.appendChild(label);
+
+        slotLayer.appendChild(wrap);
+        slotEntities.push({ wrap, bg, line, num, label });
+      });
+    }
+
+    function markSlotDone(idx){
+      const slot = slotEntities[idx];
+      const step = STEPS[idx];
+      if(!slot || !step) return;
+
+      slot.bg.setAttribute('color', '#0f5c43');
+      slot.line.setAttribute('material', 'opacity:0.48');
+      slot.label.setAttribute('value', step.short);
+      slot.num.setAttribute('color', '#d4fff0');
+    }
+
+    function resetSlots(){
+      slotEntities.forEach((slot, i)=>{
+        slot.bg.setAttribute('color', '#14324f');
+        slot.line.setAttribute('material', 'opacity:0.18');
+        slot.label.setAttribute('value', '');
+        slot.num.setAttribute('color', '#9fe8ff');
+        slot.num.setAttribute('value', String(i+1));
+      });
+    }
+
+    function buildCards(){
+      cardLayer.innerHTML = '';
+
+      state.shuffled.forEach((stepIndex, posIndex)=>{
+        const step = STEPS[stepIndex];
+        const p = CARD_POSITIONS[posIndex];
+
+        const wrap = document.createElement('a-entity');
+        wrap.classList.add('card-wrap');
+        wrap.dataset.stepIndex = String(stepIndex);
+        wrap.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
+        wrap.setAttribute('id', `card-wrap-${stepIndex}`);
+
+        const shadow = document.createElement('a-plane');
+        shadow.setAttribute('width', '0.52');
+        shadow.setAttribute('height', '0.24');
+        shadow.setAttribute('color', '#00111d');
+        shadow.setAttribute('material', 'opacity:0.40');
+        shadow.setAttribute('position', '0 -0.01 -0.01');
+        wrap.appendChild(shadow);
+
+        const face = document.createElement('a-plane');
+        face.classList.add('focusable','card-hit','card-face');
+        face.dataset.stepIndex = String(stepIndex);
+        face.setAttribute('width', '0.50');
+        face.setAttribute('height', '0.22');
+        face.setAttribute('color', '#17324f');
+        face.setAttribute('material', 'opacity:0.98');
+        wrap.appendChild(face);
+
+        const border = document.createElement('a-plane');
+        border.setAttribute('width', '0.505');
+        border.setAttribute('height', '0.225');
+        border.setAttribute('color', '#63e6ff');
+        border.setAttribute('material', 'opacity:0.18');
+        border.setAttribute('position', '0 0 -0.002');
+        wrap.appendChild(border);
+
+        const hit = document.createElement('a-plane');
+        hit.classList.add('focusable','card-hit');
+        hit.dataset.stepIndex = String(stepIndex);
+        hit.setAttribute('width', '0.56');
+        hit.setAttribute('height', '0.28');
+        hit.setAttribute('color', '#ffffff');
+        hit.setAttribute('opacity', '0.001');
+        hit.setAttribute('material', 'transparent:true');
+        hit.setAttribute('position', '0 0 0.01');
+        wrap.appendChild(hit);
+
+        const icon = document.createElement('a-text');
+        icon.setAttribute('value', step.icon);
+        icon.setAttribute('align', 'center');
+        icon.setAttribute('color', '#ffe66d');
+        icon.setAttribute('width', '0.42');
+        icon.setAttribute('position', '0 0.05 0.02');
+        wrap.appendChild(icon);
+
+        const label = document.createElement('a-text');
+        label.setAttribute('value', step.title);
+        label.setAttribute('align', 'center');
+        label.setAttribute('color', '#ffffff');
+        label.setAttribute('width', '1.25');
+        label.setAttribute('position', '0 -0.05 0.02');
+        wrap.appendChild(label);
+
+        cardLayer.appendChild(wrap);
+      });
+    }
+
+    function burstAt(pos, color='#7dd3fc'){
+      for(let i=0;i<8;i++){
+        const fx = document.createElement('a-sphere');
+        fx.setAttribute('radius', 0.020 + Math.random()*0.01);
+        fx.setAttribute('color', color);
+        fx.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+        fx.setAttribute('material', 'shader: flat; opacity: 0.96; transparent: true');
+
+        const dx = (Math.random()-0.5)*0.15;
+        const dy = 0.03 + Math.random()*0.10;
+        const dz = (Math.random()-0.5)*0.10;
+
+        fx.setAttribute('animation__move', `property: position; to: ${pos.x+dx} ${pos.y+dy} ${pos.z+dz}; dur: 340; easing: easeOutQuad`);
+        fx.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 340; easing: linear');
+
+        fxLayer.appendChild(fx);
+        setTimeout(()=>{ if(fx.parentNode) fx.parentNode.removeChild(fx); }, 380);
+      }
+    }
+
+    function flashWrongCard(wrap){
+      if(!wrap) return;
+      const face = wrap.querySelector('.card-face');
+      if(!face) return;
+      face.setAttribute('color', '#8b1e3f');
+      setTimeout(()=>{
+        if(face.parentNode) face.setAttribute('color', '#17324f');
+      }, 220);
+    }
+
+    function handleCorrectCard(wrap, stepIndex){
+      const face = wrap.querySelector('.card-face');
+      if(face) face.setAttribute('color', '#0f5c43');
+
+      state.score += 10 + Math.min(20, state.streak * 2);
+      state.streak += 1;
+      state.bestStreak = Math.max(state.bestStreak, state.streak);
+
+      markSlotDone(stepIndex);
+
+      const p = wrap.object3D.position;
+      burstAt({x:p.x, y:p.y, z:p.z}, '#86efac');
+
+      setTimeout(()=>{
+        if(wrap.parentNode) wrap.parentNode.removeChild(wrap);
+      }, 160);
+
+      state.nextIndex += 1;
+      updateUI();
+
+      if(state.nextIndex >= STEPS.length){
+        endGame(true);
+      }
+    }
+
+    function handleWrongCard(wrap){
+      state.miss += 1;
+      state.streak = 0;
+      state.score = Math.max(0, state.score - 2);
+      state.timeLeft = Math.max(0, state.timeLeft - 1.2);
+      flashWrongCard(wrap);
+      updateUI();
+    }
+
+    function handleCardSelection(stepIndex, wrap){
+      if(state.ended || !state.started) return;
+      if(stepIndex === state.nextIndex){
+        handleCorrectCard(wrap, stepIndex);
+      } else {
+        handleWrongCard(wrap);
+      }
+    }
+
+    function getFocusedEl(){
+      const rc = cursor.components.raycaster;
+      if(!rc || !rc.intersectedEls || !rc.intersectedEls.length) return null;
+      return rc.intersectedEls[0];
+    }
+
+    function resolveCardWrap(el){
+      if(!el) return null;
+      if(el.classList && el.classList.contains('card-wrap')) return el;
+      if(typeof el.closest === 'function') return el.closest('.card-wrap');
+      return null;
+    }
+
+    function getNearestCenterCard(maxPx = 170){
+      const camera3D = cam ? cam.getObject3D('camera') : null;
+      if (!camera3D) return null;
+
+      const hits = [...cardLayer.querySelectorAll('.card-hit')];
+      let best = null;
+      let bestD = Infinity;
+
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+
+      for (const el of hits){
+        el.object3D.updateMatrixWorld();
+        _proj.setFromMatrixPosition(el.object3D.matrixWorld);
+        _proj.project(camera3D);
+
+        const sx = (_proj.x * 0.5 + 0.5) * window.innerWidth;
+        const sy = (-_proj.y * 0.5 + 0.5) * window.innerHeight;
+        const d = Math.hypot(sx - cx, sy - cy);
+
+        if (d < bestD){
+          bestD = d;
+          best = el;
+        }
+      }
+
+      return bestD <= maxPx ? best : null;
+    }
+
+    function triggerFocused(){
+      const now = performance.now();
+      if(now - state.lastActionAt < 120) return false;
+      state.lastActionAt = now;
+
+      let el = getFocusedEl();
+
+      if(!el){
+        el = getNearestCenterCard(170);
+      } else {
+        const wrap = resolveCardWrap(el);
+        if(!wrap) el = getNearestCenterCard(170);
+      }
+
+      const wrap = resolveCardWrap(el);
+      if(!wrap) return false;
+
+      const stepIndex = parseInt(wrap.dataset.stepIndex, 10);
+      if(Number.isNaN(stepIndex)) return false;
+
+      handleCardSelection(stepIndex, wrap);
+      return true;
+    }
+
+    function computeStars(success){
+      if(!success) return 0;
+      if(state.miss <= 1 && state.timeLeft >= START_TIME * 0.40) return 3;
+      if(state.miss <= 4) return 2;
+      return 1;
+    }
+
+    function saveLastSummary(success, stars){
+      const payload = {
+        gameId: 'handwash-mini-order',
+        pid: PID,
+        success: !!success,
+        score: state.score,
+        timeLeft: Math.max(0, Math.ceil(state.timeLeft)),
+        miss: state.miss,
+        stars,
+        bestStreak: state.bestStreak,
+        finishedAt: new Date().toISOString()
+      };
+      try{
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+      }catch{}
+    }
+
+    function endGame(success){
+      state.ended = true;
+      const stars = computeStars(success);
+      saveLastSummary(success, stars);
+
+      ui.sumTitle.textContent = success ? 'เรียงลำดับสำเร็จ!' : 'หมดเวลาก่อน';
+      ui.sumDesc.textContent = success
+        ? 'ยอดเยี่ยมมาก จำลำดับ 7 ขั้นได้ครบแล้ว'
+        : 'ลองใหม่อีกครั้ง แล้วเลือกขั้นตอนถัดไปให้ถูกต้อง';
+      ui.sumScore.textContent = String(state.score);
+      ui.sumTime.textContent = `${Math.max(0, Math.ceil(state.timeLeft))}s`;
+      ui.sumMiss.textContent = String(state.miss);
+      ui.sumStars.textContent = stars > 0 ? '⭐'.repeat(stars) : '—';
+      ui.summaryOverlay.classList.remove('hidden');
+      setHudCompact(false);
+      updateUI();
+    }
+
+    function startGame(){
+      state.started = true;
+      state.ended = false;
+      state.timeLeft = START_TIME;
+      state.score = 0;
+      state.miss = 0;
+      state.nextIndex = 0;
+      state.streak = 0;
+      state.bestStreak = 0;
+      state.lastActionAt = 0;
+      state.lastTs = 0;
+      state.shuffled = shuffle(STEPS.map((_,i)=>i));
+
+      buildSlots();
+      resetSlots();
+      buildCards();
+
+      ui.startOverlay.classList.add('hidden');
+      ui.summaryOverlay.classList.add('hidden');
+
+      setHudCompact(isMobileLike());
+      updateUI();
+    }
+
+    ui.startBtn.addEventListener('click', startGame);
+    ui.restartBtn.addEventListener('click', startGame);
+
+    ui.hubBtn.addEventListener('click', ()=>{
+      if(HUB_URL) location.href = HUB_URL;
+    });
+
+    ui.hudToggleBtn.addEventListener('click', ()=>{
+      setHudCompact(!state.hudCompact);
+    });
+
+    ui.vrBtn.addEventListener('click', async ()=>{
+      try{
+        if(scene.is('vr-mode')) scene.exitVR();
+        else await scene.enterVR();
+      }catch(err){
+        console.warn(err);
+      }
+      setTimeout(setBtnText, 120);
+    });
+
+    ui.recenterBtn.addEventListener('click', ()=>{
+      rig.object3D.position.set(0,0,0);
+      rig.object3D.rotation.set(0,0,0);
+      setCoach('จัดมุมมองใหม่แล้ว');
+    });
+
+    cardLayer.addEventListener('click', (e)=>{
+      const wrap = resolveCardWrap(e.target);
+      if(!wrap) return;
+      const stepIndex = parseInt(wrap.dataset.stepIndex, 10);
+      if(Number.isNaN(stepIndex)) return;
+      handleCardSelection(stepIndex, wrap);
+    });
+
+    window.addEventListener('keydown', (e)=>{
+      if(e.code === 'Space' || e.code === 'Enter'){
+        e.preventDefault();
+        triggerFocused();
+      }
+    }, { passive:false });
+
+    window.addEventListener('pointerup', (e)=>{
+      const tag = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '';
+      if(tag === 'button') return;
+      triggerFocused();
+    });
+
+    scene.addEventListener('enter-vr', setBtnText);
+    scene.addEventListener('exit-vr', setBtnText);
+
+    window.addEventListener('resize', ()=>{
+      if(state.started && !state.ended){
+        setHudCompact(isMobileLike());
+      }
+    });
+
+    function loop(ts){
+      requestAnimationFrame(loop);
+
+      if(!state.started || state.ended){
+        state.lastTs = ts;
+        return;
+      }
+
+      if(!state.lastTs) state.lastTs = ts;
+      const dt = Math.min(0.05, (ts - state.lastTs) / 1000);
+      state.lastTs = ts;
+
+      state.timeLeft = Math.max(0, state.timeLeft - dt);
+      if(state.timeLeft <= 0){
+        endGame(false);
+        return;
+      }
+
+      updateUI();
+    }
+
+    buildSlots();
+    resetSlots();
+    setBtnText();
+    setHudCompact(isMobileLike());
+    updateUI();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
