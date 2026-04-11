@@ -108,6 +108,11 @@
       gap:16px;
     }
 
+    .side-stack{
+      display:grid;
+      gap:16px;
+    }
+
     .card{
       background:var(--card);
       border:2px solid var(--line);
@@ -184,6 +189,12 @@
       transform:translateY(0);
     }
 
+    .mode-btn.active{
+      outline:3px solid #63e6ff;
+      outline-offset:2px;
+      transform:translateY(-1px);
+    }
+
     .mode-mobile{ background:linear-gradient(180deg,#dff8ff 0%, #baeefe 100%); }
     .mode-pc{ background:linear-gradient(180deg,#fff6ba 0%, #ffe66d 100%); }
     .mode-vr{ background:linear-gradient(180deg,#ffe3ef 0%, #ffc9de 100%); }
@@ -238,6 +249,10 @@
       color:#5c7890;
       font-weight:700;
       line-height:1.45;
+    }
+
+    .hidden{
+      display:none !important;
     }
 
     @media (max-width:900px){
@@ -344,36 +359,56 @@
         </div>
       </div>
 
-      <div class="card">
-        <h2>เข้าแต่ละส่วนแยกได้</h2>
+      <div class="side-stack">
+        <div class="card">
+          <h2>เข้าแต่ละส่วนแยกได้</h2>
 
-        <div class="action-stack">
-          <button id="btnHowto" class="action-btn howto">🫧 เปิด Howto / Warmup</button>
-          <button id="btnMain" class="action-btn main">🎯 เปิด Main Game</button>
-          <button id="btnMini" class="action-btn mini">🧩 เปิด Mini Order</button>
-          <button id="btnFull" class="action-btn full">🚀 เปิด Full Flow</button>
+          <div class="action-stack">
+            <button id="btnHowto" class="action-btn howto">🫧 เปิด Howto / Warmup</button>
+            <button id="btnMain" class="action-btn main">🎯 เปิด Main Game</button>
+            <button id="btnMini" class="action-btn mini">🧩 เปิด Mini Order</button>
+            <button id="btnFull" class="action-btn full">🚀 เปิด Full Flow</button>
+          </div>
+
+          <div class="mini-list">
+            <div class="mini-item">
+              <strong>Howto</strong><br />
+              ใช้สำหรับ Remember / Understand / Apply เบื้องต้น
+            </div>
+            <div class="mini-item">
+              <strong>Main Game</strong><br />
+              ใช้สำหรับ Apply เป็นหลัก และมี Analyze บางส่วน
+            </div>
+            <div class="mini-item">
+              <strong>Mini Order</strong><br />
+              ใช้สำหรับ Analyze / Evaluate โดยเรียงลำดับ 7 ขั้น
+            </div>
+          </div>
         </div>
 
-        <div class="mini-list">
-          <div class="mini-item">
-            <strong>Howto</strong><br />
-            ใช้สำหรับ Remember / Understand / Apply เบื้องต้น
+        <div class="card" id="progress-card">
+          <h2>ความคืบหน้าล่าสุด</h2>
+
+          <div id="last-status" class="mini-item">
+            <strong>สถานะล่าสุด</strong><br />
+            ยังไม่มีผลการเล่นล่าสุด
           </div>
-          <div class="mini-item">
-            <strong>Main Game</strong><br />
-            ใช้สำหรับ Apply เป็นหลัก และมี Analyze บางส่วน
-          </div>
-          <div class="mini-item">
-            <strong>Mini Order</strong><br />
-            ใช้สำหรับ Analyze / Evaluate โดยเรียงลำดับ 7 ขั้น
+
+          <div class="action-stack" style="margin-top:12px;">
+            <button id="btnResume" class="action-btn full hidden">▶️ เล่นต่อจากจุดล่าสุด</button>
+            <button id="btnReplayFlow" class="action-btn howto">🔁 เริ่ม flow ใหม่ทั้งหมด</button>
+            <button id="btnClearProgress" class="action-btn mini">🧹 ล้าง progress ล่าสุด</button>
           </div>
         </div>
       </div>
     </section>
   </main>
 
+  <script src="./handwash-shared.js"></script>
   <script>
     const qs = new URLSearchParams(location.search);
+
+    const VIEW_KEY = 'HHA_HANDWASH_LAST_VIEW';
 
     const els = {
       pid: document.getElementById('pid'),
@@ -386,25 +421,68 @@
       btnMain: document.getElementById('btnMain'),
       btnMini: document.getElementById('btnMini'),
       btnFull: document.getElementById('btnFull'),
+      btnResume: document.getElementById('btnResume'),
+      btnReplayFlow: document.getElementById('btnReplayFlow'),
+      btnClearProgress: document.getElementById('btnClearProgress'),
+      lastStatus: document.getElementById('last-status'),
       modeButtons: [...document.querySelectorAll('[data-view]')]
     };
 
+    function clampInt(value, min, fallback){
+      const n = parseInt(value, 10);
+      if (!Number.isFinite(n)) return fallback;
+      return Math.max(min, n);
+    }
+
+    function getStoredView(){
+      try{
+        return localStorage.getItem(VIEW_KEY) || '';
+      }catch{
+        return '';
+      }
+    }
+
+    function setStoredView(view){
+      try{
+        localStorage.setItem(VIEW_KEY, view);
+      }catch{}
+    }
+
     const defaultHub = qs.get('hub') || new URL('../hub-v2.html', location.href).href;
+
+    let selectedView =
+      qs.get('view') ||
+      getStoredView() ||
+      ((window.HandwashShared && HandwashShared.getLastSummary() && HandwashShared.getLastSummary().view) || 'mobile');
 
     els.pid.value = qs.get('pid') || 'anon';
     els.name.value = qs.get('name') || 'Hero';
     els.diff.value = qs.get('diff') || 'normal';
-    els.time.value = qs.get('time') || '90';
-    els.miniTime.value = qs.get('miniTime') || '60';
+    els.time.value = String(clampInt(qs.get('time') || '90', 60, 90));
+    els.miniTime.value = String(clampInt(qs.get('miniTime') || '60', 45, 60));
     els.hub.value = defaultHub;
+
+    function syncModeButtons(){
+      els.modeButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === selectedView);
+      });
+    }
+
+    function safeTimeValue(){
+      return clampInt(els.time.value, 60, 90);
+    }
+
+    function safeMiniTimeValue(){
+      return clampInt(els.miniTime.value, 45, 60);
+    }
 
     function baseParams(view, gameTimeOverride, extra = {}) {
       const params = new URLSearchParams();
-      params.set('pid', els.pid.value.trim() || 'anon');
-      params.set('name', els.name.value.trim() || 'Hero');
-      params.set('diff', els.diff.value);
+      params.set('pid', (els.pid.value || 'anon').trim() || 'anon');
+      params.set('name', (els.name.value || 'Hero').trim() || 'Hero');
+      params.set('diff', els.diff.value || 'normal');
       params.set('time', String(gameTimeOverride));
-      params.set('hub', els.hub.value.trim() || defaultHub);
+      params.set('hub', (els.hub.value || defaultHub).trim() || defaultHub);
       params.set('view', view);
       params.set('run', 'play');
       params.set('zone', 'hygiene');
@@ -414,42 +492,182 @@
       params.set('theme', 'handwash');
 
       Object.entries(extra).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== '') params.set(k, String(v));
+        if (v !== undefined && v !== null && v !== '') {
+          params.set(k, String(v));
+        }
       });
 
       return params;
     }
 
     function buildMiniUrl(view) {
-      return `./handwash-mini-order.html?${baseParams(view, els.miniTime.value).toString()}`;
+      return `./handwash-mini-order.html?${baseParams(view, safeMiniTimeValue()).toString()}`;
     }
 
     function buildMainUrl(view) {
       const miniUrl = buildMiniUrl(view);
-      const params = baseParams(view, els.time.value, { next: miniUrl });
+      const params = baseParams(view, safeTimeValue(), { next: miniUrl });
       return `./handwash-vr.html?${params.toString()}`;
     }
 
     function buildHowtoUrl(view) {
       const mainUrl = buildMainUrl(view);
-      const params = baseParams(view, els.time.value, { next: mainUrl });
+      const params = baseParams(view, safeTimeValue(), { next: mainUrl });
       return `./handwash-howto.html?${params.toString()}`;
     }
 
+    function stageLabel(stage){
+      const map = {
+        'launcher': 'Launcher',
+        'howto': 'Howto',
+        'main': 'Main Game',
+        'mini-order': 'Mini Order'
+      };
+      return map[stage] || stage || '-';
+    }
+
+    function buildStageUrl(stage, view){
+      if (stage === 'howto') return buildHowtoUrl(view);
+      if (stage === 'main') return buildMainUrl(view);
+      if (stage === 'mini-order') return buildMiniUrl(view);
+      return buildHowtoUrl(view);
+    }
+
+    function getResumeTarget(last){
+      if (!last) return null;
+
+      if (last.stage === 'howto' && !last.success) return 'howto';
+      if (last.stage === 'howto' && last.success) return 'main';
+
+      if (last.stage === 'main' && !last.success) return 'main';
+      if (last.stage === 'main' && last.success) return 'mini-order';
+
+      if (last.stage === 'mini-order' && !last.success) return 'mini-order';
+      if (last.stage === 'mini-order' && last.success) return null;
+
+      return 'howto';
+    }
+
+    function markFlow(currentStage, nextStage){
+      if (!window.HandwashShared) return;
+      HandwashShared.saveFlowState({
+        currentStage,
+        nextStage,
+        success: false
+      });
+    }
+
     function openUrl(url) {
+      setStoredView(selectedView);
       location.href = url;
+    }
+
+    function renderLastStatus(){
+      if (!window.HandwashShared) {
+        els.lastStatus.innerHTML = `
+          <strong>สถานะล่าสุด</strong><br />
+          ยังไม่พบ handwash-shared.js
+        `;
+        els.btnResume.classList.add('hidden');
+        return;
+      }
+
+      const last = HandwashShared.getLastSummary();
+      const flow = HandwashShared.getFlowState();
+
+      if (!last){
+        els.lastStatus.innerHTML = `
+          <strong>สถานะล่าสุด</strong><br />
+          ยังไม่มีผลการเล่นล่าสุด
+        `;
+        els.btnResume.classList.add('hidden');
+        return;
+      }
+
+      const resultText = last.success ? 'สำเร็จ' : 'ยังไม่สำเร็จ';
+      const nextStage = getResumeTarget(last);
+      const nextStageLabel = nextStage ? stageLabel(nextStage) : 'ครบ flow แล้ว';
+
+      els.lastStatus.innerHTML = `
+        <strong>สถานะล่าสุด</strong><br />
+        Stage ล่าสุด: ${stageLabel(last.stage)}<br />
+        ผลลัพธ์: ${resultText}<br />
+        คะแนน: ${last.score || 0}<br />
+        ดาว: ${'⭐'.repeat(last.stars || 0) || '—'}<br />
+        Miss: ${last.miss || 0}<br />
+        มุมมองล่าสุด: ${last.view || selectedView}<br />
+        เล่นต่อที่: ${nextStageLabel}
+      `;
+
+      if (flow && flow.updatedAt){
+        els.lastStatus.innerHTML += `<br />อัปเดตล่าสุด: ${new Date(flow.updatedAt).toLocaleString('th-TH')}`;
+      }
+
+      if (nextStage){
+        els.btnResume.classList.remove('hidden');
+        els.btnResume.dataset.stage = nextStage;
+        els.btnResume.textContent = `▶️ เล่นต่อที่ ${stageLabel(nextStage)}`;
+      } else {
+        els.btnResume.classList.add('hidden');
+      }
     }
 
     els.modeButtons.forEach(btn => {
       btn.addEventListener('click', () => {
-        openUrl(buildHowtoUrl(btn.dataset.view));
+        selectedView = btn.dataset.view;
+        syncModeButtons();
+        markFlow('launcher', 'howto');
+        openUrl(buildHowtoUrl(selectedView));
       });
     });
 
-    els.btnHowto.addEventListener('click', () => openUrl(buildHowtoUrl('mobile')));
-    els.btnMain.addEventListener('click', () => openUrl(buildMainUrl('mobile')));
-    els.btnMini.addEventListener('click', () => openUrl(buildMiniUrl('mobile')));
-    els.btnFull.addEventListener('click', () => openUrl(buildHowtoUrl('mobile')));
+    els.btnHowto.addEventListener('click', () => {
+      markFlow('launcher', 'howto');
+      openUrl(buildHowtoUrl(selectedView));
+    });
+
+    els.btnMain.addEventListener('click', () => {
+      markFlow('launcher', 'main');
+      openUrl(buildMainUrl(selectedView));
+    });
+
+    els.btnMini.addEventListener('click', () => {
+      markFlow('launcher', 'mini-order');
+      openUrl(buildMiniUrl(selectedView));
+    });
+
+    els.btnFull.addEventListener('click', () => {
+      markFlow('launcher', 'howto');
+      openUrl(buildHowtoUrl(selectedView));
+    });
+
+    els.btnResume.addEventListener('click', () => {
+      const stage = els.btnResume.dataset.stage || 'howto';
+      const last = window.HandwashShared ? HandwashShared.getLastSummary() : null;
+      const view = (last && last.view) || selectedView || 'mobile';
+      selectedView = view;
+      syncModeButtons();
+      markFlow('launcher', stage);
+      openUrl(buildStageUrl(stage, view));
+    });
+
+    els.btnReplayFlow.addEventListener('click', () => {
+      markFlow('launcher', 'howto');
+      openUrl(buildHowtoUrl(selectedView));
+    });
+
+    els.btnClearProgress.addEventListener('click', () => {
+      try{
+        localStorage.removeItem('HHA_LAST_SUMMARY');
+        localStorage.removeItem('HHA_HANDWASH_LAST');
+        localStorage.removeItem('HHA_HANDWASH_HISTORY');
+        localStorage.removeItem('HHA_HANDWASH_FLOW');
+      }catch{}
+      renderLastStatus();
+    });
+
+    syncModeButtons();
+    renderLastStatus();
   </script>
 </body>
 </html>
