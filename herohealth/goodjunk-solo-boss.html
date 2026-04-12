@@ -568,6 +568,25 @@
         }
       }
 
+      function showBootError(message) {
+        ensureActionButtons();
+        setStatus(
+          'เกิดปัญหาใน engine',
+          String(message || 'Unknown engine error'),
+          true
+        );
+      }
+
+      function hideLoading() {
+        const card = $('engineStatusCard');
+        if (card) {
+          setTimeout(() => { card.style.display = 'none'; }, 320);
+        }
+      }
+
+      window.__GJ_SHOW_BOOT_ERROR__ = showBootError;
+      window.__GJ_HIDE_LOADING__ = hideLoading;
+
       function updatePills() {
         const pillPlayer = $('pillPlayer');
         const pillDiff = $('pillDiff');
@@ -596,12 +615,12 @@
             s.src = blobUrl;
 
             s.onload = () => {
-              try { URL.revokeObjectURL(blobUrl); } catch {}
+              try { URL.revokeObjectURL(blobUrl); } catch (_) {}
               resolve(true);
             };
 
             s.onerror = () => {
-              try { URL.revokeObjectURL(blobUrl); } catch {}
+              try { URL.revokeObjectURL(blobUrl); } catch (_) {}
               reject(new Error(`โหลด script ไม่สำเร็จ: ${srcLabel}`));
             };
 
@@ -654,10 +673,7 @@
               }
 
               setStatus('เข้าเกมแล้ว', `solo boss engine loaded: ${src}`);
-              const card = $('engineStatusCard');
-              if (card) {
-                setTimeout(() => { card.style.display = 'none'; }, 420);
-              }
+              hideLoading();
             }, 120);
 
             return;
