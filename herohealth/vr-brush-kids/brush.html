@@ -4,276 +4,879 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Brush Kids</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./brush.css?v=20260322-brush-kids-pattern" />
+  <meta name="theme-color" content="#8fdcff" />
+  <style>
+    :root{
+      --sky1:#ecfbff;
+      --sky2:#d3f2ff;
+      --sky3:#fff7de;
+      --ink:#25506a;
+      --muted:#64839a;
+      --line:#d9eef8;
+      --card:rgba(255,255,255,.92);
+      --card2:rgba(255,255,255,.96);
+      --blue:#67cfff;
+      --blue2:#35b6f3;
+      --pink:#ffc8e0;
+      --pink2:#ff9ec8;
+      --yellow:#ffe47f;
+      --green:#7be19c;
+      --green2:#56cd7d;
+      --red:#ff8c8c;
+      --shadow:0 14px 34px rgba(43,103,138,.14);
+      --shadow-strong:0 22px 56px rgba(32,88,125,.18);
+      --radius:28px;
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Kanit,sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top center, rgba(255,255,255,.98) 0%, rgba(255,255,255,.92) 18%, rgba(226,247,255,.94) 50%, rgba(177,228,252,.98) 100%);
+    }
+
+    body{
+      padding:clamp(12px,2vw,20px);
+    }
+
+    .shell{
+      width:min(1200px,100%);
+      margin:0 auto;
+      display:grid;
+      gap:14px;
+    }
+
+    .card{
+      background:var(--card);
+      border:3px solid rgba(255,255,255,.95);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+    }
+
+    .hero{
+      padding:18px;
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:14px;
+      align-items:stretch;
+    }
+
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#eefaff;
+      border:2px solid #dff3fb;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+    }
+
+    h1{
+      margin:10px 0 6px;
+      font-size:clamp(34px,5vw,56px);
+      line-height:.95;
+    }
+
+    .hero p{
+      margin:0;
+      color:var(--muted);
+      font-size:18px;
+      line-height:1.35;
+      font-weight:800;
+    }
+
+    .chip-row{
+      margin-top:14px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .chip{
+      padding:8px 12px;
+      border-radius:999px;
+      background:#eefaff;
+      border:2px solid #dff3fb;
+      font-size:14px;
+      font-weight:900;
+      color:var(--ink);
+    }
+
+    .hero-actions{
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+
+    .mode-row,
+    .action-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      outline:none;
+      cursor:pointer;
+      border-radius:22px;
+      padding:12px 16px;
+      min-height:50px;
+      font:inherit;
+      font-weight:900;
+      font-size:16px;
+      color:var(--ink);
+      background:linear-gradient(180deg,#ffffff,#f4fbff);
+      border:3px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      transition:transform .15s ease, filter .15s ease;
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:scale(.98); }
+
+    .btn.is-active{
+      background:linear-gradient(180deg,#8fe5ff,#59cafb);
+      color:#083b53;
+    }
+
+    .btn-start{
+      background:linear-gradient(180deg,#8fe5ff,#59cafb);
+      color:#083b53;
+    }
+
+    .btn-help{
+      background:linear-gradient(180deg,#fff1b9,#ffe47f);
+      color:#6a5200;
+    }
+
+    .btn-pause{
+      background:linear-gradient(180deg,#ffd7e6,#ffbdd7);
+      color:#6a264a;
+    }
+
+    .hud{
+      padding:14px;
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .metric{
+      padding:14px;
+      min-height:100px;
+      display:grid;
+      align-content:center;
+      gap:8px;
+      text-align:center;
+    }
+
+    .metric-label{
+      font-size:13px;
+      line-height:1;
+      color:var(--muted);
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+    }
+
+    .metric-value{
+      font-size:30px;
+      line-height:1;
+      font-weight:900;
+      color:var(--ink);
+    }
+
+    .goal-card{
+      grid-column:1 / -1;
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .goal-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .goal-title{
+      font-size:18px;
+      font-weight:900;
+      color:var(--ink);
+    }
+
+    .goal-sub{
+      color:var(--muted);
+      font-weight:800;
+      font-size:14px;
+    }
+
+    .goal-track,
+    .pattern-track,
+    .zone-track{
+      width:100%;
+      height:16px;
+      background:linear-gradient(180deg,#ddf4fc,#caeaf7);
+      border-radius:999px;
+      overflow:hidden;
+      border:3px solid rgba(255,255,255,.95);
+      box-shadow:inset 0 2px 7px rgba(37,80,106,.08);
+    }
+
+    .goal-fill,
+    .pattern-fill,
+    .zone-fill{
+      width:0%;
+      height:100%;
+      border-radius:999px;
+      transition:width .2s ease;
+      background:linear-gradient(90deg,#7ce19d,#75e9ff,#ffe47f);
+      box-shadow:0 0 14px rgba(117,233,255,.28);
+    }
+
+    .status-strip{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .status-pill{
+      background:#f5fcff;
+      border:2px solid #e2f4fb;
+      border-radius:20px;
+      padding:10px 12px;
+      display:grid;
+      gap:4px;
+    }
+
+    .status-pill span:first-child{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      text-transform:uppercase;
+    }
+
+    .status-pill span:last-child{
+      font-size:18px;
+      color:var(--ink);
+      font-weight:900;
+      line-height:1.1;
+    }
+
+    .play-grid{
+      display:grid;
+      grid-template-columns:.95fr 1.05fr;
+      gap:14px;
+      align-items:stretch;
+    }
+
+    .map-card,
+    .brush-card{
+      padding:16px;
+      display:grid;
+      gap:12px;
+      min-height:480px;
+    }
+
+    .section-title{
+      font-size:22px;
+      line-height:1;
+      font-weight:900;
+      color:var(--ink);
+    }
+
+    .section-sub{
+      font-size:14px;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .mouth-map{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+      align-content:start;
+    }
+
+    .tooth-zone{
+      appearance:none;
+      border:none;
+      outline:none;
+      cursor:pointer;
+      position:relative;
+      min-height:118px;
+      border-radius:24px;
+      padding:12px;
+      background:linear-gradient(180deg,#ffffff,#f5fbff);
+      border:3px solid rgba(255,255,255,.98);
+      box-shadow:var(--shadow);
+      text-align:left;
+      color:var(--ink);
+      display:grid;
+      gap:8px;
+      transition:transform .16s ease, box-shadow .16s ease;
+    }
+
+    .tooth-zone:hover{ transform:translateY(-1px); }
+    .tooth-zone:active{ transform:scale(.985); }
+
+    .zone-top{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:start;
+    }
+
+    .zone-name{
+      font-size:18px;
+      line-height:1.05;
+      font-weight:900;
+    }
+
+    .zone-percent{
+      font-size:16px;
+      font-weight:900;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+
+    .zone-helper{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:800;
+      line-height:1.2;
+    }
+
+    .brush-card-top{
+      display:grid;
+      gap:10px;
+    }
+
+    .pattern-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#eefaff;
+      border:2px solid #dff3fb;
+      font-size:14px;
+      font-weight:900;
+      color:var(--ink);
+      width:max-content;
+      max-width:100%;
+    }
+
+    .pattern-hint{
+      color:var(--muted);
+      font-size:15px;
+      font-weight:800;
+      line-height:1.25;
+    }
+
+    .pattern-row{
+      display:grid;
+      gap:8px;
+    }
+
+    .pattern-progress-text{
+      color:var(--muted);
+      font-size:14px;
+      font-weight:900;
+    }
+
+    .brush-pad{
+      position:relative;
+      min-height:340px;
+      border-radius:28px;
+      background:
+        radial-gradient(circle at center, rgba(255,255,255,.72) 0%, rgba(255,255,255,.52) 18%, rgba(211,242,255,.55) 58%, rgba(177,228,252,.66) 100%);
+      border:3px solid rgba(255,255,255,.98);
+      box-shadow:inset 0 0 0 2px rgba(223,243,251,.7), var(--shadow);
+      overflow:hidden;
+      touch-action:none;
+    }
+
+    .brush-pad::before{
+      content:"";
+      position:absolute;
+      inset:14px;
+      border-radius:24px;
+      border:2px dashed rgba(101,177,214,.4);
+      pointer-events:none;
+    }
+
+    .brush-pad-guide{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:20px;
+      pointer-events:none;
+    }
+
+    .brush-pad-guide-box{
+      max-width:360px;
+      background:rgba(255,255,255,.82);
+      border:2px solid rgba(255,255,255,.96);
+      border-radius:22px;
+      padding:16px 18px;
+      box-shadow:var(--shadow);
+    }
+
+    .brush-pad-guide-title{
+      font-size:20px;
+      font-weight:900;
+      color:var(--ink);
+      margin-bottom:6px;
+    }
+
+    .brush-pad-guide-text{
+      font-size:15px;
+      color:var(--muted);
+      font-weight:800;
+      line-height:1.3;
+    }
+
+    .brush-cursor{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:58px;
+      height:58px;
+      border-radius:999px;
+      transform:translate(-50%,-50%);
+      border:4px solid rgba(53,182,243,.9);
+      box-shadow:0 0 0 8px rgba(53,182,243,.15);
+      background:rgba(255,255,255,.42);
+      pointer-events:none;
+      z-index:4;
+      transition:opacity .18s ease;
+    }
+
+    .coach{
+      padding:14px 16px;
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:12px;
+      align-items:center;
+    }
+
+    .coach-face{
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#fff3ba,#ffe17a);
+      font-size:30px;
+      box-shadow:inset 0 2px 0 rgba(255,255,255,.75);
+    }
+
+    .coach-title{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      margin-bottom:4px;
+    }
+
+    .coach-line{
+      font-size:22px;
+      line-height:1.1;
+      font-weight:900;
+      color:var(--ink);
+    }
+
+    .modal{
+      position:fixed;
+      inset:0;
+      background:rgba(24,54,73,.34);
+      backdrop-filter:blur(8px);
+      -webkit-backdrop-filter:blur(8px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:100;
+    }
+
+    .modal.is-open{ display:flex; }
+
+    .modal-card{
+      width:min(900px,100%);
+      max-height:min(88vh,900px);
+      overflow:auto;
+      background:var(--card2);
+      border:3px solid rgba(255,255,255,.98);
+      border-radius:32px;
+      box-shadow:var(--shadow-strong);
+      padding:20px;
+      display:grid;
+      gap:16px;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .summary-box{
+      padding:14px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fff,#f6fcff);
+      border:3px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      text-align:center;
+      display:grid;
+      gap:8px;
+    }
+
+    .summary-box b{
+      font-size:28px;
+      line-height:1;
+      color:var(--ink);
+    }
+
+    .summary-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      justify-content:center;
+    }
+
+    .help-list{
+      margin:0;
+      padding-left:18px;
+      display:grid;
+      gap:8px;
+      color:var(--muted);
+      font-weight:800;
+      font-size:16px;
+      line-height:1.35;
+    }
+
+    [hidden]{ display:none !important; }
+
+    @media (max-width: 960px){
+      .hero,
+      .play-grid{
+        grid-template-columns:1fr;
+      }
+
+      .hud{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .summary-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+
+    @media (max-width: 680px){
+      body{ padding:10px; }
+
+      .hud,
+      .status-strip,
+      .summary-grid{
+        grid-template-columns:1fr;
+      }
+
+      .mouth-map{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .coach-line{
+        font-size:18px;
+      }
+
+      .metric-value{
+        font-size:26px;
+      }
+
+      .section-title{
+        font-size:20px;
+      }
+
+      .zone-name{
+        font-size:17px;
+      }
+
+      .hero p{
+        font-size:16px;
+      }
+
+      .btn{
+        width:100%;
+        justify-content:center;
+      }
+
+      .mode-row,
+      .action-row,
+      .summary-actions{
+        display:grid;
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div id="brush-app" class="brush-app">
-
-    <!-- TOPBAR -->
-    <header class="brush-topbar">
-      <div class="brush-brand">
-        <div class="brush-kicker">HeroHealth • Hygiene Zone</div>
-        <h1 class="brush-title">Brush Kids</h1>
+  <div class="shell">
+    <section class="card hero">
+      <div>
+        <div class="eyebrow">🦷 HeroHealth • Hygiene Zone</div>
+        <h1>Brush Kids</h1>
+        <p>
+          เลือกโซนฟัน แล้วแปรงตามลายที่โค้ชบอก<br />
+          ทำทีละส่วนให้ครบ เพื่อให้ฟันสะอาดทั่วทั้งปาก
+        </p>
+        <div class="chip-row">
+          <div class="chip">Learn / Challenge</div>
+          <div class="chip">PC / Mobile / cVR-lite</div>
+          <div class="chip">Child-friendly</div>
+          <div class="chip">Summary + Cooldown + HUB</div>
+        </div>
       </div>
 
-      <div class="brush-topbar-right">
-        <button id="btnPause" class="brush-btn brush-btn-ghost" type="button">พักเกม</button>
-        <button id="btnHelp" class="brush-btn brush-btn-ghost" type="button">วิธีเล่น</button>
+      <div class="hero-actions">
+        <div class="mode-row">
+          <button id="btnLearn" class="btn" type="button">โหมดเรียนรู้</button>
+          <button id="btnChallenge" class="btn" type="button">โหมดท้าทาย</button>
+        </div>
+        <div class="action-row">
+          <button id="btnStart" class="btn btn-start" type="button">เริ่มเกม</button>
+          <button id="btnPause" class="btn btn-pause" type="button">พักเกม</button>
+          <button id="btnHelp" class="btn btn-help" type="button">วิธีเล่น</button>
+        </div>
       </div>
-    </header>
+    </section>
 
-    <!-- COACH -->
-    <section class="brush-coach-card" aria-live="polite">
-      <img
-        id="coachFace"
-        class="brush-coach-face"
-        src="../img/coach-neutral.png"
-        alt="Coach neutral"
-      />
-      <div class="brush-coach-body">
-        <div class="brush-coach-name">Coach Smile</div>
-        <div id="coachLine" class="brush-coach-line">
-          เริ่มแปรงให้ทั่วทุกโซนกันเลย!
+    <section class="card hud">
+      <div class="card metric">
+        <div class="metric-label">เวลา</div>
+        <div id="timeText" class="metric-value">02:00</div>
+      </div>
+
+      <div class="card metric">
+        <div class="metric-label">สะอาดรวม</div>
+        <div id="coverageText" class="metric-value">0%</div>
+      </div>
+
+      <div class="card metric">
+        <div class="metric-label">คอมโบสูงสุด</div>
+        <div id="comboText" class="metric-value">0</div>
+      </div>
+
+      <div class="card metric">
+        <div class="metric-label">ช่วงเกม</div>
+        <div id="phaseText" class="metric-value">เตรียมพร้อม</div>
+      </div>
+
+      <div class="card goal-card">
+        <div class="goal-head">
+          <div>
+            <div class="goal-title">ภารกิจหลัก</div>
+            <div id="goalMiniText" class="goal-sub">แปรงให้ครบทุกโซน</div>
+          </div>
+          <div id="miniMissionText" class="goal-sub">เริ่มได้เลย</div>
+        </div>
+
+        <div class="goal-track">
+          <div id="goalFill" class="goal-fill"></div>
+        </div>
+
+        <div class="status-strip">
+          <div class="status-pill">
+            <span>โซนที่เสร็จ</span>
+            <span id="zonesDoneText">0 / 6</span>
+          </div>
+          <div class="status-pill">
+            <span>โซนปัจจุบัน</span>
+            <span id="activeZoneText">ยังไม่ได้เลือก</span>
+          </div>
+          <div class="status-pill">
+            <span>ความเร็ว</span>
+            <span id="speedText">ปกติ</span>
+          </div>
+          <div class="status-pill">
+            <span>เตือน</span>
+            <span id="warnText">0</span>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- HUD -->
-    <section class="brush-hud">
-      <div class="brush-hud-card">
-        <div class="hud-label">เวลา</div>
-        <div id="timeText" class="hud-value">02:00</div>
-      </div>
+    <section class="play-grid">
+      <section class="card map-card">
+        <div>
+          <div class="section-title">แผนที่ฟัน</div>
+          <div class="section-sub">แตะเลือกโซน หรือให้เกมแนะนำอัตโนมัติในโหมดเรียนรู้</div>
+        </div>
 
-      <div class="brush-hud-card">
-        <div class="hud-label">ความสะอาดรวม</div>
-        <div id="coverageText" class="hud-value">0%</div>
-      </div>
+        <div class="mouth-map">
+          <button class="tooth-zone" type="button" data-zone="upper-left">
+            <div class="zone-top">
+              <span class="zone-name">บนซ้าย</span>
+              <span class="zone-percent">0%</span>
+            </div>
+            <div class="zone-track"><div class="zone-fill"></div></div>
+            <div class="zone-helper">แปรงซ้าย ↔ ขวา</div>
+          </button>
 
-      <div class="brush-hud-card">
-        <div class="hud-label">คอมโบ</div>
-        <div id="comboText" class="hud-value">x0</div>
-      </div>
+          <button class="tooth-zone" type="button" data-zone="upper-front">
+            <div class="zone-top">
+              <span class="zone-name">บนหน้า</span>
+              <span class="zone-percent">0%</span>
+            </div>
+            <div class="zone-track"><div class="zone-fill"></div></div>
+            <div class="zone-helper">วนเป็นวงกลม</div>
+          </button>
 
-      <div class="brush-hud-card">
-        <div class="hud-label">สถานะ</div>
-        <div id="phaseText" class="hud-value hud-value-small">เตรียมพร้อม</div>
-      </div>
+          <button class="tooth-zone" type="button" data-zone="upper-right">
+            <div class="zone-top">
+              <span class="zone-name">บนขวา</span>
+              <span class="zone-percent">0%</span>
+            </div>
+            <div class="zone-track"><div class="zone-fill"></div></div>
+            <div class="zone-helper">แปรงซ้าย ↔ ขวา</div>
+          </button>
+
+          <button class="tooth-zone" type="button" data-zone="lower-left">
+            <div class="zone-top">
+              <span class="zone-name">ล่างซ้าย</span>
+              <span class="zone-percent">0%</span>
+            </div>
+            <div class="zone-track"><div class="zone-fill"></div></div>
+            <div class="zone-helper">แปรงขึ้น ↕ ลง</div>
+          </button>
+
+          <button class="tooth-zone" type="button" data-zone="lower-front">
+            <div class="zone-top">
+              <span class="zone-name">ล่างหน้า</span>
+              <span class="zone-percent">0%</span>
+            </div>
+            <div class="zone-track"><div class="zone-fill"></div></div>
+            <div class="zone-helper">วนเป็นวงกลม</div>
+          </button>
+
+          <button class="tooth-zone" type="button" data-zone="lower-right">
+            <div class="zone-top">
+              <span class="zone-name">ล่างขวา</span>
+              <span class="zone-percent">0%</span>
+            </div>
+            <div class="zone-track"><div class="zone-fill"></div></div>
+            <div class="zone-helper">แปรงขึ้น ↕ ลง</div>
+          </button>
+        </div>
+      </section>
+
+      <section class="card brush-card">
+        <div class="brush-card-top">
+          <div class="section-title">พื้นที่แปรงฟัน</div>
+          <div class="section-sub">ลาก/ปัดในพื้นที่นี้ หรือใช้กลางจอในโหมด cVR-lite</div>
+
+          <div id="patternBadge" class="pattern-badge">เลือกโซนก่อน</div>
+          <div id="patternHint" class="pattern-hint">เลือกโซนก่อน แล้วถูตามลายที่บอก</div>
+
+          <div class="pattern-row">
+            <div class="pattern-track">
+              <div id="patternProgressFill" class="pattern-fill"></div>
+            </div>
+            <div id="patternProgressText" class="pattern-progress-text">0 / 2 รอบ</div>
+          </div>
+        </div>
+
+        <div id="brushPad" class="brush-pad" aria-label="พื้นที่สำหรับแปรงฟัน">
+          <div class="brush-pad-guide">
+            <div class="brush-pad-guide-box">
+              <div class="brush-pad-guide-title">เริ่มตรงนี้</div>
+              <div class="brush-pad-guide-text">
+                เลือกโซนฟันด้านซ้ายก่อน แล้วปัดแปรงในกรอบนี้ตามลายที่โค้ชบอก
+              </div>
+            </div>
+          </div>
+          <div id="brushCursor" class="brush-cursor"></div>
+        </div>
+      </section>
     </section>
 
-    <!-- GOAL -->
-    <section class="brush-goal-wrap">
-      <div class="brush-goal-head">
-        <div class="brush-goal-title">ภารกิจวันนี้</div>
-        <div id="goalMiniText" class="brush-goal-mini">
-          แปรงให้ครบทุกโซนใน 2 นาที
-        </div>
-      </div>
-
-      <div class="brush-progress" aria-label="ความคืบหน้าความสะอาด">
-        <div id="goalFill" class="brush-progress-fill"></div>
+    <section class="card coach">
+      <div id="coachFace" class="coach-face">🦷</div>
+      <div>
+        <div class="coach-title">Hero Coach</div>
+        <div id="coachLine" class="coach-line">เริ่มแปรงให้ทั่วทุกโซนกันเลย!</div>
       </div>
     </section>
+  </div>
 
-    <!-- MAIN -->
-    <main class="brush-main">
-
-      <!-- LEFT: MOUTH MAP -->
-      <section class="brush-panel brush-mouth-panel">
-        <div class="panel-title">แผนที่ฟัน</div>
-
-        <div id="mouthMap" class="mouth-map">
-          <button class="tooth-zone zone-upper-left" data-zone="upper-left" type="button">
-            <span class="zone-name">บนซ้าย</span>
-            <span class="zone-clean" data-clean-label="upper-left">0%</span>
-          </button>
-
-          <button class="tooth-zone zone-upper-front" data-zone="upper-front" type="button">
-            <span class="zone-name">บนหน้า</span>
-            <span class="zone-clean" data-clean-label="upper-front">0%</span>
-          </button>
-
-          <button class="tooth-zone zone-upper-right" data-zone="upper-right" type="button">
-            <span class="zone-name">บนขวา</span>
-            <span class="zone-clean" data-clean-label="upper-right">0%</span>
-          </button>
-
-          <button class="tooth-zone zone-lower-left" data-zone="lower-left" type="button">
-            <span class="zone-name">ล่างซ้าย</span>
-            <span class="zone-clean" data-clean-label="lower-left">0%</span>
-          </button>
-
-          <button class="tooth-zone zone-lower-front" data-zone="lower-front" type="button">
-            <span class="zone-name">ล่างหน้า</span>
-            <span class="zone-clean" data-clean-label="lower-front">0%</span>
-          </button>
-
-          <button class="tooth-zone zone-lower-right" data-zone="lower-right" type="button">
-            <span class="zone-name">ล่างขวา</span>
-            <span class="zone-clean" data-clean-label="lower-right">0%</span>
-          </button>
-        </div>
-
-        <div class="mouth-legend">
-          <div class="legend-chip">1. เลือกโซนฟัน</div>
-          <div class="legend-chip">2. ลากแปรงในกรอบกลาง</div>
-          <div class="legend-chip">3. ทำตามลายการแปรง</div>
-        </div>
-      </section>
-
-      <!-- CENTER: PLAY -->
-      <section class="brush-panel brush-play-panel">
-        <div class="panel-title">พื้นที่แปรงฟัน</div>
-
-        <!-- PATTERN CARD -->
-        <div class="brush-pattern-card">
-          <div class="brush-pattern-head">
-            <div class="brush-pattern-title">ลายการแปรงตอนนี้</div>
-            <div id="patternBadge" class="brush-pattern-badge">ซ้าย ↔ ขวา</div>
-          </div>
-
-          <div id="patternHint" class="brush-pattern-hint">
-            เลือกโซนก่อน แล้วถูตามลายที่บอก
-          </div>
-
-          <div class="brush-pattern-progress">
-            <div id="patternProgressFill" class="brush-pattern-progress-fill"></div>
-          </div>
-
-          <div id="patternProgressText" class="brush-pattern-progress-text">0 / 2 รอบ</div>
-        </div>
-
-        <div id="playfield" class="brush-playfield">
-          <div id="playfieldGlow" class="playfield-glow"></div>
-
-          <div id="plaqueLayer" class="plaque-layer" aria-hidden="true">
-            <div class="plaque-bug bug-1"></div>
-            <div class="plaque-bug bug-2"></div>
-            <div class="plaque-bug bug-3"></div>
-            <div class="plaque-bug bug-4"></div>
-          </div>
-
-          <div id="brushPad" class="brush-pad" role="application" aria-label="พื้นที่ลากแปรง">
-            <div id="brushCursor" class="brush-cursor">🪥</div>
-            <div class="brush-pad-label">ลาก/ถูในกรอบนี้</div>
-          </div>
-        </div>
-
-        <div class="brush-controls">
-          <button id="btnLearn" class="brush-btn brush-btn-primary" type="button">
-            โหมดเรียนรู้ 2 นาที
-          </button>
-          <button id="btnChallenge" class="brush-btn brush-btn-secondary" type="button">
-            โหมดท้าทาย 3 นาที
-          </button>
-          <button id="btnStart" class="brush-btn brush-btn-accent" type="button">
-            เริ่มเล่น
-          </button>
-        </div>
-      </section>
-
-      <!-- RIGHT: STATUS -->
-      <section class="brush-panel brush-side-panel">
-        <div class="panel-title">สรุประหว่างเล่น</div>
-
-        <div class="side-stat-list">
-          <div class="side-stat">
-            <div class="side-label">โซนที่ทำครบ</div>
-            <div id="zonesDoneText" class="side-value">0 / 6</div>
-          </div>
-
-          <div class="side-stat">
-            <div class="side-label">โซนที่กำลังแปรง</div>
-            <div id="activeZoneText" class="side-value">ยังไม่ได้เลือก</div>
-          </div>
-
-          <div class="side-stat">
-            <div class="side-label">ความเร็ว</div>
-            <div id="speedText" class="side-value">ปกติ</div>
-          </div>
-
-          <div class="side-stat">
-            <div class="side-label">คำเตือน</div>
-            <div id="warnText" class="side-value">0</div>
-          </div>
-        </div>
-
-        <div class="mini-mission-box">
-          <div class="mini-mission-title">ภารกิจย่อย</div>
-          <div id="miniMissionText" class="mini-mission-text">
-            เลือกโซน แล้วค่อย ๆ ถูให้สะอาด
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <!-- HELP MODAL -->
-    <div id="helpModal" class="brush-modal hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
-      <div class="brush-modal-card">
-        <h2 id="helpTitle">วิธีเล่น</h2>
-
-        <ol class="brush-help-list">
-          <li>แตะเลือกโซนฟันทางซ้ายก่อน</li>
-          <li>ดู “ลายการแปรงตอนนี้” ด้านบนของพื้นที่เล่น</li>
-          <li>ลากแปรงในกรอบตรงกลางให้ตรงกับลายที่บอก</li>
-          <li>ค่อย ๆ ถู อย่าเร็วเกินไป</li>
-          <li>แปรงให้ครบทุกโซนและอยู่ให้ครบเวลา</li>
-        </ol>
-
-        <div class="summary-actions">
-          <button id="btnCloseHelp" class="brush-btn brush-btn-primary" type="button">
-            เข้าใจแล้ว
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- SUMMARY MODAL -->
-    <div id="summaryModal" class="brush-modal hidden" role="dialog" aria-modal="true" aria-labelledby="summaryTitle">
-      <div class="brush-modal-card brush-summary-card">
-        <h2 id="summaryTitle">ฟันสดใสแล้ว!</h2>
-        <div id="summaryRank" class="summary-rank">Sparkle Hero</div>
-
-        <div class="summary-grid">
-          <div class="summary-item">
-            <div class="summary-label">เวลา</div>
-            <div id="summaryTime" class="summary-value">02:00</div>
-          </div>
-
-          <div class="summary-item">
-            <div class="summary-label">ความสะอาดรวม</div>
-            <div id="summaryCoverage" class="summary-value">0%</div>
-          </div>
-
-          <div class="summary-item">
-            <div class="summary-label">โซนที่ครบ</div>
-            <div id="summaryZones" class="summary-value">0 / 6</div>
-          </div>
-
-          <div class="summary-item">
-            <div class="summary-label">คำเตือน</div>
-            <div id="summaryWarn" class="summary-value">0</div>
-          </div>
-        </div>
-
-        <div id="summaryAdvice" class="summary-advice">
-          ครั้งหน้าลองแปรงให้ช้าลงอีกนิดนะ
-        </div>
-
-        <div class="summary-actions">
-          <button id="btnReplay" class="brush-btn brush-btn-primary" type="button">
-            เล่นอีกครั้ง
-          </button>
-          <button id="btnBackHub" class="brush-btn brush-btn-secondary" type="button">
-            กลับ HUB
-          </button>
-        </div>
+  <div id="helpModal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="section-title">วิธีเล่น Brush Kids</div>
+      <ul class="help-list">
+        <li>เลือกโซนฟันทางซ้ายก่อน แล้วค่อยเริ่มแปรง</li>
+        <li>ทำตามลายที่บอก เช่น ซ้าย-ขวา, ขึ้น-ลง หรือวนเป็นวงกลม</li>
+        <li>โหมดเรียนรู้จะช่วยเลือกโซนถัดไปให้เอง</li>
+        <li>โหมดท้าทายต้องบริหารเวลาและเก็บทุกโซนให้ครบ</li>
+        <li>โหมด cVR-lite ใช้กลางจอและปุ่มยิง/แตะเพื่อแปรง</li>
+      </ul>
+      <div class="summary-actions">
+        <button id="btnCloseHelp" class="btn btn-start" type="button">เข้าใจแล้ว</button>
       </div>
     </div>
   </div>
 
-  <script type="module" src="./brush.game.js?v=20260322-brush-kids-pattern"></script>
+  <div id="summaryModal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="section-title" id="summaryTitle">สรุปผลการแปรง</div>
+      <div class="chip-row">
+        <div class="chip">อันดับ: <span id="summaryRank">-</span></div>
+        <div class="chip">เวลาใช้: <span id="summaryTime">00:00</span></div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-box">
+          <span class="metric-label">สะอาดรวม</span>
+          <b id="summaryCoverage">0%</b>
+        </div>
+        <div class="summary-box">
+          <span class="metric-label">โซนที่เสร็จ</span>
+          <b id="summaryZones">0 / 6</b>
+        </div>
+        <div class="summary-box">
+          <span class="metric-label">คำเตือน</span>
+          <b id="summaryWarn">0</b>
+        </div>
+        <div class="summary-box">
+          <span class="metric-label">คำแนะนำ</span>
+          <b id="summaryAdvice">เริ่มได้ดีแล้ว</b>
+        </div>
+      </div>
+
+      <div class="summary-actions">
+        <button id="btnReplay" class="btn btn-start" type="button">เล่นอีกครั้ง</button>
+        <button id="btnBackHub" class="btn" type="button">กลับ HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./brush.js?v=20260412a-hh-brush-kids-main"></script>
 </body>
 </html>
