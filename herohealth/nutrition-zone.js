@@ -1,3 +1,5 @@
+import { buildZoneGameUrl, buildHubRoot } from './zone-return.js';
+
 const qs = new URLSearchParams(location.search);
 
 const GAME_META = {
@@ -25,16 +27,16 @@ const GAME_META = {
   hydration: {
     key: 'hydration',
     title: 'Hydration',
-    sub: 'เรียนรู้เรื่องการดื่มน้ำและดูแลร่างกาย',
+    sub: 'เรียนรู้เรื่องการดื่มน้ำให้พอดี และดูแลร่างกายให้สดชื่นแข็งแรง',
     tags: ['เล่นสั้น', 'สุขภาพ', 'น้ำดื่ม'],
     path: './hydration-vr.html'
   }
 };
 
 const STORAGE = {
-  recent: 'HHA_NUTRITION_RECENT',
-  played: 'HHA_NUTRITION_PLAYED',
-  daily: 'HHA_NUTRITION_DAILY'
+  recent: 'HHA_LAST_GAME_BY_ZONE_NUTRITION',
+  played: 'HHA_ZONE_PLAYED_NUTRITION',
+  daily: 'HHA_ZONE_DAILY_NUTRITION'
 };
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -73,6 +75,11 @@ function writeJson(key, value){
   }catch(_){}
 }
 
+function todayKey(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 const ctx = {
   pid: first(qs.get('pid'), localStorage.getItem('HH_PID'), 'anon'),
   name: first(qs.get('name'), qs.get('nickName'), localStorage.getItem('HH_NAME'), 'Hero'),
@@ -80,7 +87,7 @@ const ctx = {
   diff: cleanEnum(first(qs.get('diff'), 'normal'), ['easy', 'normal', 'hard'], 'normal'),
   time: String(numIn(first(qs.get('time'), 90), 90, 60, 120)),
   view: cleanEnum(first(qs.get('view'), 'mobile'), ['mobile', 'pc', 'cvr'], 'mobile'),
-  hub: first(qs.get('hub'), './hub-v2.html'),
+  hubRoot: buildHubRoot(qs, location.href),
   studyId: first(qs.get('studyId'), ''),
   seed: first(qs.get('seed'), String(Date.now()))
 };
@@ -88,54 +95,24 @@ const ctx = {
 try { localStorage.setItem('HH_PID', ctx.pid); } catch(_) {}
 try { localStorage.setItem('HH_NAME', ctx.name); } catch(_) {}
 
-function todayKey(){
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-function passCommon(url){
-  const passthrough = [
-    'nickName','debug','api','log','studentKey','schoolCode','classRoom',
-    'studentNo','conditionGroup','sessionNo','weekNo','teacher','grade'
-  ];
-
-  passthrough.forEach((k) => {
-    const v = qs.get(k);
-    if (v != null && v !== '') url.searchParams.set(k, v);
-  });
-
-  url.searchParams.set('pid', ctx.pid);
-  url.searchParams.set('name', ctx.name);
-  url.searchParams.set('run', ctx.run);
-  url.searchParams.set('diff', ctx.diff);
-  url.searchParams.set('time', ctx.time);
-  url.searchParams.set('view', ctx.view);
-  url.searchParams.set('hub', ctx.hub);
-  url.searchParams.set('seed', ctx.seed);
-
-  if (ctx.studyId) url.searchParams.set('studyId', ctx.studyId);
-
-  url.searchParams.set('zone', 'nutrition');
-  url.searchParams.set('cat', 'nutrition');
-  return url;
-}
-
 function buildGameUrl(key){
   const game = GAME_META[key];
   if (!game) return '#';
 
-  const u = new URL(game.path, location.href);
-  passCommon(u);
-
-  u.searchParams.set('game', key);
-  u.searchParams.set('gameId', key);
-  u.searchParams.set('theme', key);
+  const overrides = {};
 
   if (key === 'goodjunk') {
-    u.searchParams.set('recommendedMode', 'solo-boss');
+    overrides.recommendedMode = 'solo-boss';
   }
 
-  return u.toString();
+  return buildZoneGameUrl({
+    basePath: game.path,
+    searchParams: qs,
+    zone: 'nutrition',
+    gameKey: key,
+    currentHref: location.href,
+    overrides
+  });
 }
 
 function rememberGame(key){
@@ -161,6 +138,10 @@ function rememberGame(key){
   row.lastKey = key;
   all[day] = row;
   writeJson(STORAGE.daily, all);
+
+  try {
+    localStorage.setItem('HHA_LAST_ZONE', 'nutrition');
+  } catch(_) {}
 }
 
 function findRecentKey(){
@@ -181,6 +162,10 @@ function findRecentKey(){
   return '';
 }
 
+function getActiveFilter(){
+  return $('#filterRow .filter-chip.active')?.dataset.filter || 'all';
+}
+
 function pickFeaturedKey(activeFilter = 'all'){
   const played = readJson(STORAGE.played, []);
   const order = ['plate', 'goodjunk', 'groups', 'hydration'];
@@ -195,10 +180,6 @@ function pickFeaturedKey(activeFilter = 'all'){
   return allowed.find(k => !played.includes(k)) || allowed[0] || 'plate';
 }
 
-function getActiveFilter(){
-  return $('#filterRow .filter-chip.active')?.dataset.filter || 'all';
-}
-
 function renderHeader(){
   const hubBtn = $('#hubBtn');
   const playerPill = $('#playerPill');
@@ -206,7 +187,7 @@ function renderHeader(){
   const modeSelect = $('#modeSelect');
   const timeSelect = $('#timeSelect');
 
-  if (hubBtn) hubBtn.href = ctx.hub;
+  if (hubBtn) hubBtn.href = ctx.hubRoot;
   if (playerPill) playerPill.textContent = `👤 ฮีโร่: ${ctx.name}`;
   if (modePill) modePill.textContent = `🎮 ตอนนี้: ${ctx.run === 'learn' ? 'ฝึกเรียนรู้' : 'เล่นสนุก'}`;
 
@@ -260,8 +241,6 @@ function renderFeatured(){
     if (!btn.__bound) {
       btn.__bound = true;
       btn.addEventListener('click', () => rememberGame(key));
-    } else {
-      btn.onclick = null;
     }
   }
 }
@@ -274,7 +253,7 @@ function renderRecent(){
   if (!recentArea) return;
 
   if (!recentKey || !GAME_META[recentKey]) {
-    recentArea.innerHTML = '<div class="empty">ยังไม่มีเกมล่าสุด กดเลือกเกมด้านล่างได้เลย</div>';
+    recentArea.innerHTML = '<div class="empty">ยังไม่มีเกมล่าสุด เริ่มจากเกมแนะนำได้เลย</div>';
     if (recentName) recentName.textContent = '-';
     return;
   }
