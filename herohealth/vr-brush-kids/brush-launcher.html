@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Brush Launcher</title>
+  <meta name="theme-color" content="#8fdcff" />
+  <style>
+    :root{
+      --ink:#25506a;
+      --muted:#67879c;
+      --card:rgba(255,255,255,.94);
+      --line:#dbf0f8;
+      --blue:#67cfff;
+      --blue2:#35b6f3;
+      --yellow:#ffe47f;
+      --pink:#ffd1e6;
+      --shadow:0 18px 44px rgba(40,100,140,.16);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Kanit,sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top center, rgba(255,255,255,.98) 0%, rgba(255,255,255,.92) 22%, rgba(227,247,255,.95) 55%, rgba(176,227,251,.98) 100%);
+    }
+
+    body{
+      display:grid;
+      place-items:center;
+      padding:14px;
+    }
+
+    .card{
+      width:min(760px,100%);
+      background:var(--card);
+      border:3px solid rgba(255,255,255,.96);
+      border-radius:32px;
+      box-shadow:var(--shadow);
+      padding:20px;
+      display:grid;
+      gap:16px;
+    }
+
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:#eefaff;
+      border:2px solid #def4fb;
+      font-size:13px;
+      font-weight:900;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.05em;
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(34px,5vw,54px);
+      line-height:.95;
+    }
+
+    p{
+      margin:0;
+      color:var(--muted);
+      font-size:18px;
+      line-height:1.35;
+      font-weight:800;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .panel{
+      background:linear-gradient(180deg,#fff,#f6fcff);
+      border:3px solid rgba(255,255,255,.96);
+      border-radius:26px;
+      box-shadow:var(--shadow);
+      padding:16px;
+      display:grid;
+      gap:10px;
+    }
+
+    .label{
+      font-size:14px;
+      color:var(--muted);
+      font-weight:900;
+      text-transform:uppercase;
+    }
+
+    .row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .choice{
+      appearance:none;
+      border:none;
+      outline:none;
+      cursor:pointer;
+      border-radius:20px;
+      padding:12px 14px;
+      min-height:48px;
+      font:inherit;
+      font-weight:900;
+      color:var(--ink);
+      background:linear-gradient(180deg,#fff,#f4fbff);
+      border:3px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+    }
+
+    .choice.active{
+      background:linear-gradient(180deg,#91e5ff,#59cafb);
+      color:#063b53;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      outline:none;
+      cursor:pointer;
+      border-radius:22px;
+      padding:14px 18px;
+      min-height:54px;
+      font:inherit;
+      font-size:16px;
+      font-weight:900;
+      color:var(--ink);
+      background:linear-gradient(180deg,#fff,#f4fbff);
+      border:3px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+    }
+
+    .btn-start{
+      background:linear-gradient(180deg,#91e5ff,#59cafb);
+      color:#063b53;
+    }
+
+    .btn-alt{
+      background:linear-gradient(180deg,#fff0b8,#ffe47f);
+      color:#6a5200;
+    }
+
+    @media (max-width: 720px){
+      .grid{ grid-template-columns:1fr; }
+      .actions{ display:grid; grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="eyebrow">🦷 HeroHealth • Hygiene Zone</div>
+    <h1>Brush Launcher</h1>
+    <p>เลือกโหมด มุมมอง และเวลา จากนั้นผ่าน warmup ก่อนเข้าเล่นจริง</p>
+
+    <div class="grid">
+      <section class="panel">
+        <div class="label">โหมด</div>
+        <div class="row">
+          <button class="choice active" data-mode="learn" type="button">Learn</button>
+          <button class="choice" data-mode="challenge" type="button">Challenge</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="label">มุมมอง</div>
+        <div class="row">
+          <button class="choice active" data-view="mobile" type="button">Mobile</button>
+          <button class="choice" data-view="pc" type="button">PC</button>
+          <button class="choice" data-view="cvr" type="button">cVR-lite</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="label">เวลา</div>
+        <div class="row">
+          <button class="choice active" data-time="120" type="button">120s</button>
+          <button class="choice" data-time="180" type="button">180s</button>
+          <button class="choice" data-time="90" type="button">90s</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="label">ระดับ</div>
+        <div class="row">
+          <button class="choice active" data-diff="normal" type="button">Normal</button>
+          <button class="choice" data-diff="easy" type="button">Easy</button>
+          <button class="choice" data-diff="hard" type="button">Hard</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="actions">
+      <button id="btnWarmupStart" class="btn btn-start" type="button">เริ่มผ่าน Warmup แล้วเข้าเล่น</button>
+      <button id="btnDirectRun" class="btn btn-alt" type="button">เข้าเล่นตรงเลย</button>
+    </div>
+  </div>
+
+  <script>
+    const qs = new URLSearchParams(location.search);
+
+    const state = {
+      mode: qs.get('mode') || 'learn',
+      view: qs.get('view') || 'mobile',
+      time: qs.get('time') || '120',
+      diff: qs.get('diff') || 'normal'
+    };
+
+    function bindChoice(groupKey) {
+      document.querySelectorAll(`[data-${groupKey}]`).forEach(btn => {
+        btn.classList.toggle('active', btn.dataset[groupKey] === state[groupKey]);
+        btn.addEventListener('click', () => {
+          state[groupKey] = btn.dataset[groupKey];
+          document.querySelectorAll(`[data-${groupKey}]`).forEach(n => {
+            n.classList.toggle('active', n.dataset[groupKey] === state[groupKey]);
+          });
+        });
+      });
+    }
+
+    bindChoice('mode');
+    bindChoice('view');
+    bindChoice('time');
+    bindChoice('diff');
+
+    function buildRunUrl() {
+      const runUrl = new URL('./brush.html', location.href);
+
+      [
+        'pid',
+        'name',
+        'studyId',
+        'phase',
+        'conditionGroup',
+        'seed',
+        'log',
+        'hub',
+        'zone',
+        'cat',
+        'game',
+        'gameId',
+        'theme'
+      ].forEach(k => {
+        const v = qs.get(k);
+        if (v) runUrl.searchParams.set(k, v);
+      });
+
+      runUrl.searchParams.set('run', 'play');
+      runUrl.searchParams.set('mode', state.mode);
+      runUrl.searchParams.set('view', state.view);
+      runUrl.searchParams.set('time', state.time);
+      runUrl.searchParams.set('diff', state.diff);
+      runUrl.searchParams.set('autostart', '1');
+
+      if (!runUrl.searchParams.get('hub')) {
+        runUrl.searchParams.set(
+          'hub',
+          `${location.origin}/webxr-health-mobile/herohealth/hub-v2.html`
+        );
+      }
+
+      if (!runUrl.searchParams.get('zone')) runUrl.searchParams.set('zone', 'hygiene');
+      if (!runUrl.searchParams.get('cat')) runUrl.searchParams.set('cat', 'hygiene');
+      if (!runUrl.searchParams.get('game')) runUrl.searchParams.set('game', 'brush');
+      if (!runUrl.searchParams.get('gameId')) runUrl.searchParams.set('gameId', 'brush');
+      if (!runUrl.searchParams.get('theme')) runUrl.searchParams.set('theme', 'brush');
+
+      return runUrl;
+    }
+
+    document.getElementById('btnDirectRun').addEventListener('click', () => {
+      location.href = buildRunUrl().href;
+    });
+
+    document.getElementById('btnWarmupStart').addEventListener('click', () => {
+      const warmup = new URL('../gate/warmup-gate.html', location.href);
+      const runUrl = buildRunUrl();
+
+      warmup.searchParams.set('game', 'brush');
+      warmup.searchParams.set('variant', 'kids-vr');
+      warmup.searchParams.set('zone', 'hygiene');
+      warmup.searchParams.set('next', runUrl.href);
+      warmup.searchParams.set('hub', runUrl.searchParams.get('hub'));
+
+      [
+        'pid',
+        'name',
+        'studyId',
+        'phase',
+        'conditionGroup',
+        'seed',
+        'log',
+        'view'
+      ].forEach(k => {
+        const v = runUrl.searchParams.get(k);
+        if (v) warmup.searchParams.set(k, v);
+      });
+
+      location.href = warmup.href;
+    });
+  </script>
+</body>
+</html>
