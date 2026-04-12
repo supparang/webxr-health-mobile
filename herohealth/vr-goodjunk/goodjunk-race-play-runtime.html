@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Race Runtime</title>
+  <meta name="theme-color" content="#9fe3ff" />
+  <script src="./goodjunk-vr-summary-rewrite-hotfix.js"></script>
+</head>
+<body>
+  <div id="gameMount" style="position:fixed;inset:0;"></div>
+  <script>
+    (function () {
+      const q = new URLSearchParams(location.search);
+      window.__GJ_RUN_CTX__ = {
+        ...(window.__GJ_RUN_CTX__ || {}),
+        pid: q.get('pid') || 'anon',
+        name: q.get('name') || q.get('nick') || 'Hero',
+        nick: q.get('nick') || q.get('name') || 'Hero',
+        studyId: q.get('studyId') || '',
+        roomId: q.get('roomId') || q.get('room') || '',
+        role: q.get('role') || 'player',
+        mode: 'race',
+        entry: 'race',
+        recommendedMode: 'race',
+        diff: q.get('diff') || 'normal',
+        time: q.get('time') || '90',
+        seed: q.get('seed') || String(Date.now()),
+        hub: q.get('hub') || '../hub-v2.html',
+        view: q.get('view') || 'mobile',
+        run: q.get('run') || 'play',
+        gameId: q.get('gameId') || 'goodjunk',
+        game: q.get('game') || 'goodjunk',
+        cat: q.get('cat') || 'nutrition',
+        zone: q.get('zone') || 'nutrition',
+        maxPlayers: '10'
+      };
+    })();
+  </script>
+  <script src="./goodjunk-multi-runtime-core.js"></script>
+</body>
+</html>
