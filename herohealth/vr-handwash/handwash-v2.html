@@ -431,6 +431,7 @@
 
       <div class="actions">
         <button class="btn primary" id="start-btn" type="button">เริ่มฝึก</button>
+        <button class="btn blue" id="back-zone-btn" type="button">กลับ Hygiene Zone</button>
       </div>
     </div>
   </div>
@@ -458,6 +459,7 @@
 
       <div class="actions">
         <button class="btn primary" id="restart-btn" type="button">ฝึกอีกครั้ง</button>
+        <button class="btn blue" id="summary-back-zone-btn" type="button">กลับ Hygiene Zone</button>
       </div>
     </div>
   </div>
@@ -472,7 +474,6 @@
     <a-entity light="type: ambient; intensity: 1.15; color: #ffffff"></a-entity>
     <a-entity light="type: directional; intensity: 0.9; color: #fff7dd" position="1 3 2"></a-entity>
 
-    <!-- sink + soap -->
     <a-entity position="0 0.18 -1.18">
       <a-box position="0 0.84 0" width="1.55" height="0.1" depth="0.82" color="#bfc9d6"></a-box>
       <a-box position="0 0.40 0" width="1.45" height="0.8" depth="0.72" color="#e5edf5"></a-box>
@@ -579,6 +580,84 @@
   </a-scene>
 
   <script>
+    const qs = new URLSearchParams(location.search);
+
+    function qget(key, fallback = '') {
+      const v = qs.get(key);
+      return (v == null || v === '') ? fallback : v;
+    }
+
+    function setParamIfValue(url, key, value) {
+      if (value == null || value === '') return;
+      url.searchParams.set(key, String(value));
+    }
+
+    function buildHubUrl() {
+      return qget('hub', new URL('../hub-v2.html', location.href).toString());
+    }
+
+    function buildHygieneZoneUrl() {
+      const u = new URL('../hygiene-zone.html', location.href);
+
+      const pid = qget('pid', 'anon');
+      const name = qget('name', qget('nickName', 'Hero'));
+      const diff = qget('diff', 'normal');
+      const time = qget('time', '90');
+      const view = qget('view', 'mobile');
+      const run = qget('run', 'play');
+      const studyId = qget('studyId', '');
+      const seed = qget('seed', String(Date.now()));
+      const debug = qget('debug', '');
+      const api = qget('api', '');
+      const log = qget('log', '');
+      const studentKey = qget('studentKey', '');
+      const schoolCode = qget('schoolCode', '');
+      const classRoom = qget('classRoom', '');
+      const studentNo = qget('studentNo', '');
+      const conditionGroup = qget('conditionGroup', '');
+      const sessionNo = qget('sessionNo', '');
+      const weekNo = qget('weekNo', '');
+      const teacher = qget('teacher', '');
+      const grade = qget('grade', '');
+
+      u.searchParams.set('pid', pid);
+      u.searchParams.set('name', name);
+      u.searchParams.set('diff', diff);
+      u.searchParams.set('time', time);
+      u.searchParams.set('view', view);
+      u.searchParams.set('run', run);
+      u.searchParams.set('zone', 'hygiene');
+      u.searchParams.set('cat', 'hygiene');
+      u.searchParams.set('hub', buildHubUrl());
+      u.searchParams.set('seed', seed);
+
+      setParamIfValue(u, 'studyId', studyId);
+      setParamIfValue(u, 'debug', debug);
+      setParamIfValue(u, 'api', api);
+      setParamIfValue(u, 'log', log);
+      setParamIfValue(u, 'studentKey', studentKey);
+      setParamIfValue(u, 'schoolCode', schoolCode);
+      setParamIfValue(u, 'classRoom', classRoom);
+      setParamIfValue(u, 'studentNo', studentNo);
+      setParamIfValue(u, 'conditionGroup', conditionGroup);
+      setParamIfValue(u, 'sessionNo', sessionNo);
+      setParamIfValue(u, 'weekNo', weekNo);
+      setParamIfValue(u, 'teacher', teacher);
+      setParamIfValue(u, 'grade', grade);
+
+      return u.toString();
+    }
+
+    const HYGIENE_ZONE_URL =
+      qget('zoneReturn', '') ||
+      qget('return', '') ||
+      qget('returnUrl', '') ||
+      buildHygieneZoneUrl();
+
+    function goToHygieneZone() {
+      location.href = HYGIENE_ZONE_URL;
+    }
+
     const STEPS = [
       { id:'palms', name:'ฝ่ามือถูฝ่ามือ', icon:'👐', desc:'แตะเป้าบนฝ่ามือทั้งสองข้างให้ครบ เพื่อสื่อว่าต้องถูฝ่ามือเข้าหากัน', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
       { id:'backs', name:'ฝ่ามือถูหลังมือ', icon:'🖐️', desc:'แตะเป้าบนหลังมือทั้งสองข้าง เพื่อสื่อว่าต้องถูหลังมือสลับกัน', needed:6, prompt:'แตะเป้าบนมือให้ครบ' },
@@ -621,6 +700,8 @@
 
       startBtn:document.getElementById('start-btn'),
       restartBtn:document.getElementById('restart-btn'),
+      backZoneBtn:document.getElementById('back-zone-btn'),
+      summaryBackZoneBtn:document.getElementById('summary-back-zone-btn'),
       vrBtn:document.getElementById('vr-btn'),
       recenterBtn:document.getElementById('recenter-btn'),
       hudToggleBtn:document.getElementById('hud-toggle-btn')
@@ -1054,6 +1135,14 @@
 
     ui.startBtn.addEventListener('click', startGame);
     ui.restartBtn.addEventListener('click', startGame);
+
+    if (ui.backZoneBtn) {
+      ui.backZoneBtn.addEventListener('click', goToHygieneZone);
+    }
+
+    if (ui.summaryBackZoneBtn) {
+      ui.summaryBackZoneBtn.addEventListener('click', goToHygieneZone);
+    }
 
     ui.hudToggleBtn.addEventListener('click', ()=>{
       setHudCompact(!state.hudCompact);
