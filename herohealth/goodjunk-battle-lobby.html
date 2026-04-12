@@ -7,6 +7,8 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
 
+  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-page-base.css" />
+
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -16,397 +18,78 @@
 
   <style>
     :root{
-      --bg1:#241405;
-      --bg2:#5a2d08;
-      --bg3:#9a540f;
-
-      --panel:rgba(25,14,5,.80);
-      --panel2:rgba(42,21,7,.86);
-      --stroke:rgba(255,255,255,.14);
-
-      --text:#fffaf4;
-      --muted:#ffe8d3;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --info:#38bdf8;
-      --battle:#f97316;
-      --bad:#ef4444;
-
-      --shadow:0 18px 48px rgba(0,0,0,.30);
-      --shadow-big:0 24px 72px rgba(0,0,0,.36);
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
+      --gjp-bg1:#241405;
+      --gjp-bg2:#5a2d08;
+      --gjp-bg3:#9a540f;
+      --gjp-good:#22c55e;
+      --gjp-info:#38bdf8;
+      --gjp-warn:#f59e0b;
+      --gjp-battle:#f97316;
     }
 
-    *{ box-sizing:border-box; }
-    html,body{
-      margin:0;
-      min-height:100%;
-      color:var(--text);
-      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    .gj-page--mode-battle{
       background:
         radial-gradient(900px 520px at 10% 10%, rgba(249,115,22,.22), transparent 60%),
         radial-gradient(900px 560px at 90% 0%, rgba(245,158,11,.16), transparent 60%),
         radial-gradient(700px 420px at 50% 100%, rgba(239,68,68,.10), transparent 60%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 48%,var(--bg3));
+        linear-gradient(180deg,var(--gjp-bg1),var(--gjp-bg2) 48%,var(--gjp-bg3));
     }
 
-    body{ overflow-x:hidden; }
-    a,button,input,select{ font:inherit; }
-
-    .app{
-      max-width:1180px;
-      margin:0 auto;
-      min-height:100dvh;
-      padding:
-        calc(12px + var(--sat))
-        calc(12px + var(--sar))
-        calc(16px + var(--sab))
-        calc(12px + var(--sal));
-      display:grid;
-      gap:12px;
-    }
-
-    .panel{
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      backdrop-filter:blur(12px);
-      border-radius:24px;
-      box-shadow:var(--shadow-big);
-    }
-
-    .hero{
-      padding:16px;
-      display:grid;
-      gap:12px;
-    }
-
-    .hero-top{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      min-width:0;
-    }
-
-    .brand-icon{
-      width:68px;
-      height:68px;
-      border-radius:22px;
-      display:grid;
-      place-items:center;
-      font-size:34px;
-      border:1px solid rgba(255,255,255,.14);
+    .gj-page__icon--battle{
       background:
-        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 38%),
-        linear-gradient(135deg, rgba(249,115,22,.24), rgba(245,158,11,.18));
-      box-shadow:0 12px 24px rgba(0,0,0,.16);
-      flex:0 0 auto;
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 40%),
+        linear-gradient(135deg, rgba(249,115,22,.22), rgba(245,158,11,.18));
     }
 
-    .brand-title{
-      font-size:30px;
-      font-weight:1000;
-      line-height:1.05;
-      color:#fff;
-    }
-
-    .brand-sub{
-      margin-top:5px;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.55;
-      font-weight:900;
-    }
-
-    .hero-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:flex-end;
-    }
-
-    .btn{
-      min-height:48px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:#fff;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:10px 14px;
-      font-size:14px;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:0 10px 20px rgba(0,0,0,.16);
-      transition:transform .12s ease, filter .12s ease, opacity .12s ease;
-    }
-
-    .btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.05);
-    }
-
-    .btn:disabled{
-      opacity:.58;
-      cursor:not-allowed;
-      transform:none !important;
-      filter:none !important;
-    }
-
-    .btn.info{
-      background:linear-gradient(180deg, rgba(56,189,248,.24), rgba(56,189,248,.14));
-      border-color:rgba(56,189,248,.34);
-      color:#eefbff;
-    }
-
-    .btn.good{
-      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.14));
-      border-color:rgba(34,197,94,.34);
-      color:#f0fff5;
-    }
-
-    .btn.warn{
-      background:linear-gradient(180deg, rgba(245,158,11,.24), rgba(245,158,11,.14));
-      border-color:rgba(245,158,11,.34);
-      color:#fff7db;
-    }
-
-    .btn.battle{
-      background:linear-gradient(180deg, rgba(249,115,22,.24), rgba(249,115,22,.14));
-      border-color:rgba(249,115,22,.34);
-      color:#fff3eb;
-    }
-
-    .btn.bad{
-      background:linear-gradient(180deg, rgba(239,68,68,.24), rgba(239,68,68,.14));
-      border-color:rgba(239,68,68,.34);
-      color:#fff1f2;
-    }
-
-    .statusGrid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .stat{
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
-      padding:12px;
-      min-height:78px;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      gap:6px;
-      box-shadow:var(--shadow);
-    }
-
-    .stat-label{
-      font-size:11px;
-      color:var(--muted);
-      font-weight:1000;
-    }
-
-    .stat-value{
-      font-size:20px;
-      line-height:1.15;
-      font-weight:1000;
-      color:#fff;
-      word-break:break-word;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:12px;
-    }
-
-    .card{
-      padding:16px;
-      display:grid;
-      gap:14px;
-    }
-
-    .card-title{
-      font-size:22px;
-      line-height:1.08;
-      font-weight:1000;
-      color:#fff;
-    }
-
-    .card-sub{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.6;
-      font-weight:900;
-    }
-
-    .fields{
+    .gj-fieldGrid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:12px;
     }
 
-    .field{
+    .gj-field{
       display:flex;
       flex-direction:column;
       gap:8px;
     }
 
-    .field label{
+    .gj-field label{
       font-size:13px;
-      color:var(--muted);
+      color:var(--gjp-muted);
       font-weight:1000;
     }
 
-    .field input,
-    .field select{
+    .gj-field input,
+    .gj-field select{
       min-height:48px;
       border-radius:16px;
       border:1px solid rgba(255,255,255,.14);
-      background:rgba(2,6,23,.72);
-      color:#fff;
+      background:rgba(2,6,23,.76);
+      color:var(--gjp-text);
       padding:10px 12px;
       outline:none;
+      width:100%;
     }
 
-    .field input:focus,
-    .field select:focus{
-      outline:3px solid rgba(249,115,22,.35);
+    .gj-field input:focus,
+    .gj-field select:focus{
+      outline:3px solid rgba(249,115,22,.28);
       outline-offset:2px;
     }
 
-    .roomRow{
+    .gj-roomRow{
       display:grid;
       grid-template-columns:1fr auto auto;
       gap:10px;
       align-items:end;
     }
 
-    .bigActions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .bigActions .btn{
-      min-height:54px;
-      font-size:16px;
-      padding:12px 16px;
-    }
-
-    .notice{
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
-      padding:12px 14px;
-      color:#fff7ed;
-      font-size:13px;
-      line-height:1.65;
-      font-weight:900;
-    }
-
-    .notice.good{
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.14);
-      color:#f0fff5;
-    }
-
-    .notice.warn{
-      border-color:rgba(245,158,11,.28);
-      background:rgba(245,158,11,.14);
-      color:#fff7db;
-    }
-
-    .notice.bad{
-      border-color:rgba(239,68,68,.28);
-      background:rgba(239,68,68,.14);
-      color:#fff1f2;
-    }
-
-    .playersBox{
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
-      padding:12px;
-      display:grid;
-      gap:10px;
-      min-height:180px;
-    }
-
-    .playersHead{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .playersTitle{
-      font-size:16px;
-      font-weight:1000;
-      color:#fff;
-    }
-
-    .miniChip{
-      min-height:32px;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      color:#fff;
-      font-size:11px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-    }
-
-    .miniChip.good{
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.16);
-      color:#f0fff5;
-    }
-
-    .miniChip.warn{
-      border-color:rgba(245,158,11,.28);
-      background:rgba(245,158,11,.16);
-      color:#fff7db;
-    }
-
-    .miniChip.info{
-      border-color:rgba(56,189,248,.28);
-      background:rgba(56,189,248,.16);
-      color:#eefbff;
-    }
-
-    .miniChip.battle{
-      border-color:rgba(249,115,22,.28);
-      background:rgba(249,115,22,.16);
-      color:#fff3eb;
-    }
-
-    .playerList{
+    .gj-playerList{
       display:grid;
       gap:10px;
     }
 
-    .playerRow{
+    .gj-playerRow{
       display:flex;
       align-items:center;
       justify-content:space-between;
@@ -417,13 +100,14 @@
       background:rgba(255,255,255,.06);
     }
 
-    .playerName{
+    .gj-playerName{
       font-size:14px;
       font-weight:1000;
       color:#fff;
+      word-break:break-word;
     }
 
-    .playerTag{
+    .gj-playerTag{
       min-height:30px;
       padding:7px 10px;
       border-radius:999px;
@@ -435,198 +119,234 @@
       border:1px solid rgba(255,255,255,.14);
       background:rgba(255,255,255,.08);
       color:#fff;
+      white-space:nowrap;
     }
 
-    .playerTag.host{
+    .gj-playerTag--host{
       border-color:rgba(249,115,22,.34);
       background:rgba(249,115,22,.16);
       color:#fff3eb;
     }
 
-    .playerTag.guest{
+    .gj-playerTag--guest{
       border-color:rgba(56,189,248,.34);
       background:rgba(56,189,248,.16);
       color:#eefbff;
     }
 
-    .logBox{
+    .gj-chipRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .gj-chip{
+      min-height:32px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      font-size:11px;
+      font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      color:#fff;
+    }
+
+    .gj-chip--good{
+      border-color:rgba(34,197,94,.30);
+      background:rgba(34,197,94,.16);
+      color:#f0fff5;
+    }
+
+    .gj-chip--info{
+      border-color:rgba(56,189,248,.30);
+      background:rgba(56,189,248,.16);
+      color:#eefbff;
+    }
+
+    .gj-chip--warn{
+      border-color:rgba(245,158,11,.30);
+      background:rgba(245,158,11,.16);
+      color:#fff7db;
+    }
+
+    .gj-chip--battle{
+      border-color:rgba(249,115,22,.30);
+      background:rgba(249,115,22,.16);
+      color:#fff3eb;
+    }
+
+    .gj-log{
+      min-height:84px;
       border-radius:18px;
       border:1px solid rgba(255,255,255,.12);
-      background:rgba(24,9,3,.34);
+      background:rgba(255,255,255,.05);
       padding:12px 14px;
       color:#ffedd5;
       font-size:12px;
       line-height:1.55;
       font-weight:900;
-      min-height:88px;
       white-space:pre-wrap;
       word-break:break-word;
-      text-align:left;
     }
 
-    @media (max-width:1000px){
-      .grid{ grid-template-columns:1fr; }
-      .statusGrid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .gj-notice--good{
+      border-color:rgba(34,197,94,.30);
+      background:rgba(34,197,94,.16);
+      color:#f0fff5;
     }
 
-    @media (max-width:720px){
-      .statusGrid,
-      .fields{
-        grid-template-columns:1fr;
-      }
-      .roomRow{
-        grid-template-columns:1fr;
-      }
-      .hero-top{
-        align-items:flex-start;
-      }
-      .hero-actions{
-        justify-content:flex-start;
-      }
-      .brand-title{ font-size:24px; }
+    .gj-notice--warn{
+      border-color:rgba(245,158,11,.30);
+      background:rgba(245,158,11,.16);
+      color:#fff7db;
     }
 
-    @media (prefers-reduced-motion: reduce){
-      *,
-      *::before,
-      *::after{
-        animation:none !important;
-        transition:none !important;
-      }
+    .gj-notice--bad{
+      border-color:rgba(239,68,68,.30);
+      background:rgba(239,68,68,.16);
+      color:#fff1f2;
+    }
+
+    @media (max-width:900px){
+      .gj-fieldGrid{ grid-template-columns:1fr; }
+      .gj-roomRow{ grid-template-columns:1fr; }
     }
   </style>
 </head>
-<body>
-  <div class="app">
-    <section class="panel hero">
-      <div class="hero-top">
-        <div class="brand">
-          <div class="brand-icon">⚔️</div>
-          <div>
-            <div class="brand-title">GoodJunk Battle Lobby</div>
-            <div class="brand-sub">ห้องดวล 1 ต่อ 1 • Host สร้างห้อง รออีกคนเข้า แล้วค่อยกดเริ่ม</div>
-          </div>
+<body class="gj-page gj-page--mode-battle">
+  <header class="gj-page__hero">
+    <div class="gj-page__brand">
+      <div class="gj-page__icon gj-page__icon--battle">⚔️</div>
+      <div class="gj-page__titles">
+        <h1 class="gj-page__title">GoodJunk Battle Lobby</h1>
+        <p class="gj-page__subtitle">ดวล 1v1 ด้วย good/junk เป็นแกน • soft attack ใช้เฉพาะตอนเล่นจริง • ไม่มี boss</p>
+      </div>
+    </div>
+
+    <div class="gj-page__heroActions">
+      <a id="btnBackLauncherTop" class="gj-btn" href="#">กลับ Launcher</a>
+      <a id="btnBackHubTop" class="gj-btn gj-btn--battle" href="#">กลับ Hub</a>
+    </div>
+  </header>
+
+  <section class="gj-page__stats">
+    <div class="gj-statCard">
+      <div class="gj-statCard__label">Room</div>
+      <div id="statRoom" class="gj-statCard__value">-</div>
+    </div>
+
+    <div class="gj-statCard">
+      <div class="gj-statCard__label">Role</div>
+      <div id="statRole" class="gj-statCard__value">-</div>
+    </div>
+
+    <div class="gj-statCard">
+      <div class="gj-statCard__label">Players</div>
+      <div id="statPlayers" class="gj-statCard__value">0/2</div>
+    </div>
+
+    <div class="gj-statCard">
+      <div class="gj-statCard__label">Status</div>
+      <div id="statStatus" class="gj-statCard__value">waiting</div>
+    </div>
+  </section>
+
+  <main class="gj-page__body">
+    <section class="gj-panel">
+      <div class="gj-panel__title">ตั้งค่าห้อง Battle</div>
+      <div class="gj-panel__sub">โหมดนี้รับ 2 คนพอดี • Host สร้างห้อง รออีกคนเข้า แล้วค่อยกดเริ่มดวล</div>
+
+      <div class="gj-fieldGrid">
+        <div class="gj-field">
+          <label for="nick">ชื่อเล่น</label>
+          <input id="nick" placeholder="เช่น Hero" />
         </div>
 
-        <div class="hero-actions">
-          <a id="btnBackLauncherTop" class="btn" href="#">กลับ Launcher</a>
-          <a id="btnBackHubTop" class="btn battle" href="#">กลับ Hub</a>
+        <div class="gj-field">
+          <label for="pid">PID</label>
+          <input id="pid" placeholder="เช่น anon" />
+        </div>
+
+        <div class="gj-field">
+          <label for="diff">ความยาก</label>
+          <select id="diff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+
+        <div class="gj-field">
+          <label for="time">เวลา</label>
+          <select id="time">
+            <option value="60">60s</option>
+            <option value="90" selected>90s</option>
+            <option value="120">120s</option>
+          </select>
+        </div>
+
+        <div class="gj-field">
+          <label for="view">มุมมอง</label>
+          <select id="view">
+            <option value="mobile" selected>mobile</option>
+            <option value="desktop">desktop</option>
+            <option value="cvr">cvr</option>
+          </select>
+        </div>
+
+        <div class="gj-field">
+          <label for="hub">Hub</label>
+          <input id="hub" placeholder="./hub.html" />
         </div>
       </div>
 
-      <div class="statusGrid">
-        <div class="stat">
-          <div class="stat-label">Room</div>
-          <div id="statRoom" class="stat-value">-</div>
+      <div class="gj-roomRow">
+        <div class="gj-field" style="margin:0">
+          <label for="room">Room Code</label>
+          <input id="room" placeholder="เช่น BT-AB12CD" />
         </div>
-        <div class="stat">
-          <div class="stat-label">Role</div>
-          <div id="statRole" class="stat-value">-</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Players</div>
-          <div id="statPlayers" class="stat-value">0/2</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Status</div>
-          <div id="statStatus" class="stat-value">waiting</div>
-        </div>
+
+        <button id="btnRandomRoom" class="gj-btn gj-btn--warn" type="button">สุ่มห้อง</button>
+        <button id="btnCopyRoom" class="gj-btn gj-btn--primary" type="button">คัดลอก</button>
+      </div>
+
+      <div class="gj-chipRow">
+        <div id="chipRoomState" class="gj-chip gj-chip--warn">ยังไม่พร้อม</div>
+        <div class="gj-chip gj-chip--battle">1v1 เท่านั้น</div>
+        <div class="gj-chip gj-chip--info">Host ต้องกดเริ่ม</div>
       </div>
     </section>
 
-    <section class="grid">
-      <section class="panel card">
-        <div class="card-title">ตั้งค่าห้อง Battle</div>
-        <div class="card-sub">Battle รับ 2 คนเท่านั้น • ครบ 2 คนแล้ว Host ค่อยกดเริ่ม</div>
+    <section class="gj-panel">
+      <div class="gj-panel__title">ผู้เล่นในห้อง</div>
+      <div class="gj-panel__sub">ครบ 2 คนแล้ว Host จะกดเริ่ม Battle ได้</div>
 
-        <div class="fields">
-          <div class="field">
-            <label for="nick">ชื่อเล่น</label>
-            <input id="nick" placeholder="เช่น Hero" />
-          </div>
-
-          <div class="field">
-            <label for="pid">PID</label>
-            <input id="pid" placeholder="เช่น anon" />
-          </div>
-
-          <div class="field">
-            <label for="diff">ความยาก</label>
-            <select id="diff">
-              <option value="easy">easy</option>
-              <option value="normal" selected>normal</option>
-              <option value="hard">hard</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="time">เวลา</label>
-            <select id="time">
-              <option value="60">60s</option>
-              <option value="90" selected>90s</option>
-              <option value="120">120s</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="view">มุมมอง</label>
-            <select id="view">
-              <option value="mobile" selected>mobile</option>
-              <option value="desktop">desktop</option>
-              <option value="cvr">cvr</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="hub">Hub</label>
-            <input id="hub" placeholder="./hub.html" />
-          </div>
+      <div id="playerList" class="gj-playerList">
+        <div class="gj-playerRow">
+          <div class="gj-playerName">ยังไม่มีผู้เล่น</div>
+          <div class="gj-playerTag">0</div>
         </div>
+      </div>
 
-        <div class="roomRow">
-          <div class="field" style="margin:0">
-            <label for="room">Room Code</label>
-            <input id="room" placeholder="เช่น BT-AB12CD" />
-          </div>
-          <button id="btnRandomRoom" class="btn warn" type="button">สุ่มห้อง</button>
-          <button id="btnCopyRoom" class="btn info" type="button">คัดลอก</button>
-        </div>
-
-        <div id="noticeBox" class="notice warn">
-          ยังไม่มีห้อง • กด “สร้างห้อง” ถ้าคุณเป็น Host หรือให้ Host สร้างก่อนแล้วค่อยกด “เข้าห้องนี้”
-        </div>
-
-        <div class="bigActions">
-          <button id="btnCreateRoom" class="btn good" type="button">สร้างห้อง</button>
-          <button id="btnJoinRoom" class="btn info" type="button">เข้าห้องนี้</button>
-          <button id="btnLeaveRoom" class="btn bad" type="button">ออกจากห้อง</button>
-          <button id="btnStartBattle" class="btn battle" type="button" disabled>เริ่ม Battle</button>
-        </div>
-      </section>
-
-      <section class="panel card">
-        <div class="playersBox">
-          <div class="playersHead">
-            <div class="playersTitle">ผู้เล่นในห้อง</div>
-            <div id="chipRoomState" class="miniChip warn">ยังไม่พร้อม</div>
-          </div>
-
-          <div id="playerList" class="playerList">
-            <div class="playerRow">
-              <div class="playerName">ยังไม่มีผู้เล่น</div>
-              <div class="playerTag">0</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="notice">
-          กติกา Battle: ห้องนี้รับ <b>2 คนเท่านั้น</b> • ครบ 2 คนแล้ว Host กดเริ่ม • จะไม่เด้งเข้าเล่นเองตอนสร้างห้อง
-        </div>
-
-        <div class="logBox" id="logBox">Battle lobby booting…</div>
-      </section>
+      <div id="logBox" class="gj-log">Booting battle lobby…</div>
     </section>
-  </div>
+  </main>
+
+  <footer class="gj-page__footer">
+    <div id="noticeBox" class="gj-notice gj-notice--warn">
+      ยังไม่มีห้อง • กด “สร้างห้อง” ถ้าคุณเป็น Host หรือให้ Host สร้างก่อนแล้วค่อยกด “เข้าห้องนี้”
+    </div>
+
+    <div class="gj-actions">
+      <button id="btnCreateRoom" class="gj-btn gj-btn--good" type="button">สร้างห้อง</button>
+      <button id="btnJoinRoom" class="gj-btn gj-btn--primary" type="button">เข้าห้องนี้</button>
+      <button id="btnLeaveRoom" class="gj-btn" type="button">ออกจากห้อง</button>
+      <button id="btnStartBattle" class="gj-btn gj-btn--battle" type="button" disabled>เริ่ม Battle</button>
+    </div>
+  </footer>
 
   <script type="module">
     const MODE = 'battle';
@@ -676,10 +396,13 @@
 
     function ctx(){
       return {
+        mode: MODE,
+        entry: 'battle',
         pid: clean($('pid').value, 'anon'),
         name: clean($('nick').value, 'Hero'),
         nick: clean($('nick').value, 'Hero'),
         room: clean($('room').value, ''),
+        roomId: clean($('room').value, ''),
         diff: clean($('diff').value, 'normal'),
         time: clean($('time').value, '90'),
         view: clean($('view').value, 'mobile'),
@@ -701,6 +424,7 @@
       return buildUrl('./goodjunk-launcher.html', {
         pid: p.pid,
         name: p.name,
+        nick: p.nick,
         diff: p.diff,
         time: p.time,
         hub: p.hub,
@@ -712,7 +436,9 @@
         game: p.game,
         gameId: p.gameId,
         theme: p.theme,
-        recommendedMode: 'battle'
+        recommendedMode: 'battle',
+        studyId: p.studyId,
+        conditionGroup: p.conditionGroup
       });
     }
 
@@ -721,8 +447,9 @@
       return buildUrl(PLAY_PATH, {
         mode: 'battle',
         entry: 'battle',
-        roomId: room?.roomId || p.room,
-        room: room?.roomId || p.room,
+        recommendedMode: 'battle',
+        roomId: room?.roomId || p.roomId,
+        room: room?.roomId || p.roomId,
         pid: p.pid,
         name: p.name,
         nick: p.nick,
@@ -744,13 +471,17 @@
         wait: '1',
         autostart: '1',
         modeLocked: '1',
-        maxPlayers: String(MAX_PLAYERS)
+        roomReady: '1',
+        maxPlayers: String(MAX_PLAYERS),
+        cdnext: buildLauncherUrl()
       });
     }
 
     function applyBackLinks(){
-      $('btnBackLauncherTop').href = buildLauncherUrl();
-      $('btnBackHubTop').href = clean($('hub').value, './hub.html');
+      const launcherHref = buildLauncherUrl();
+      const hubHref = clean($('hub').value, './hub.html');
+      $('btnBackLauncherTop').href = launcherHref;
+      $('btnBackHubTop').href = hubHref;
     }
 
     function hydrateInputs(){
@@ -761,27 +492,27 @@
       $('time').value = qs('time', '90');
       $('view').value = qs('view', 'mobile');
       $('hub').value = qs('hub', './hub.html');
-
-      if (!$('room').value) {
-        $('room').value = randomRoomCode();
-      }
+      if (!$('room').value) $('room').value = randomRoomCode();
     }
 
     function updateNotice(kind, text){
       const box = $('noticeBox');
-      box.className = `notice ${kind}`;
+      box.className = `gj-notice gj-notice--${kind}`;
       box.innerHTML = text;
     }
 
     function updateRoomStateChip(kind, text){
       const chip = $('chipRoomState');
-      chip.className = `miniChip ${kind}`;
+      chip.className = `gj-chip gj-chip--${kind}`;
       chip.textContent = text;
     }
 
-    function getMe(room){
-      const p = ctx();
-      return room?.players?.[p.pid] || null;
+    function updateStats(room, me = null){
+      const count = room?.players ? Object.keys(room.players).length : 0;
+      $('statRoom').textContent = room?.roomId || clean($('room').value, '-');
+      $('statRole').textContent = me?.role || '-';
+      $('statPlayers').textContent = `${count}/${MAX_PLAYERS}`;
+      $('statStatus').textContent = room?.status || 'waiting';
     }
 
     function renderPlayers(room){
@@ -793,37 +524,35 @@
 
       if (!players.length) {
         wrap.innerHTML = `
-          <div class="playerRow">
-            <div class="playerName">ยังไม่มีผู้เล่น</div>
-            <div class="playerTag">0</div>
+          <div class="gj-playerRow">
+            <div class="gj-playerName">ยังไม่มีผู้เล่น</div>
+            <div class="gj-playerTag">0</div>
           </div>
         `;
         return;
       }
 
       wrap.innerHTML = players.map((p, idx) => `
-        <div class="playerRow">
-          <div class="playerName">${idx + 1}. ${String(p.name || p.nick || p.pid || 'Player')}</div>
-          <div class="playerTag ${p.role === 'host' ? 'host' : 'guest'}">${p.role === 'host' ? '⚔️ Host' : '🛡️ Guest'}</div>
+        <div class="gj-playerRow">
+          <div class="gj-playerName">${idx + 1}. ${String(p.name || p.nick || p.pid || 'Player')}</div>
+          <div class="gj-playerTag ${p.role === 'host' ? 'gj-playerTag--host' : 'gj-playerTag--guest'}">
+            ${p.role === 'host' ? '⚔️ Host' : '🛡️ Guest'}
+          </div>
         </div>
       `).join('');
-    }
-
-    function updateStats(room, me=null){
-      const count = room?.players ? Object.keys(room.players).length : 0;
-      $('statRoom').textContent = room?.roomId || clean($('room').value, '-');
-      $('statRole').textContent = me?.role || '-';
-      $('statPlayers').textContent = `${count}/${MAX_PLAYERS}`;
-      $('statStatus').textContent = room?.status || 'waiting';
     }
 
     function setStartEnabled(enabled){
       $('btnStartBattle').disabled = !enabled;
     }
 
+    function getMe(room){
+      const p = ctx();
+      return room?.players?.[p.pid] || null;
+    }
+
     function syncRoomUi(room){
       lastRoom = room || null;
-
       const me = getMe(room);
       const count = room?.players ? Object.keys(room.players).length : 0;
 
@@ -856,7 +585,7 @@
 
       if (count < 2) {
         if (me.role === 'host') {
-          updateNotice('warn', `คุณเป็น Host • ตอนนี้ยังมีผู้เล่นไม่ครบ 2 คน กรุณารออีก ${2 - count} คนเข้าห้อง`);
+          updateNotice('warn', `คุณเป็น Host • ตอนนี้ยังมีผู้เล่นไม่ครบ 2 คน กรุณารออีก ${2 - count} คน`);
         } else {
           updateNotice('warn', 'คุณเข้าห้องแล้ว • ตอนนี้รอให้ห้องครบ 2 คน และรอ Host กดเริ่ม');
         }
@@ -924,7 +653,6 @@
 
     function startWatchRoom(){
       stopWatch();
-
       const roomId = clean($('room').value, '');
       if (!roomApi || !roomId) return;
 
@@ -964,10 +692,7 @@
     async function onCreateRoom(){
       const p = ctx();
       if (!roomApi) return;
-
-      if (!p.room) {
-        $('room').value = randomRoomCode();
-      }
+      if (!p.roomId) $('room').value = randomRoomCode();
 
       const roomId = clean($('room').value, '');
       try {
@@ -982,9 +707,7 @@
           diff: p.diff,
           time: p.time,
           cap: MAX_PLAYERS,
-          players: {
-            [p.pid]: makeHostPlayer()
-          }
+          players: { [p.pid]: makeHostPlayer() }
         });
 
         log(`ROOM_CREATED ${roomId}`);
@@ -999,9 +722,7 @@
     }
 
     async function onJoinRoom(){
-      const p = ctx();
       if (!roomApi) return;
-
       const roomId = clean($('room').value, '');
       if (!roomId) {
         updateNotice('bad', 'ยังไม่มี room code');
